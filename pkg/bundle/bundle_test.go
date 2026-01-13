@@ -1,8 +1,10 @@
 package bundle
 
 import (
+	"archive/zip"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -708,4 +710,526 @@ func TestValidationIssue_Error(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestValidateName(t *testing.T) {
+	tests := []struct {
+		name       string
+		bundleName string
+		expectErr  bool
+	}{
+		{
+			name:       "valid simple name",
+			bundleName: "mycommands",
+			expectErr:  false,
+		},
+		{
+			name:       "valid RDNS name",
+			bundleName: "com.example.mycommands",
+			expectErr:  false,
+		},
+		{
+			name:       "valid single letter segments",
+			bundleName: "a.b.c",
+			expectErr:  false,
+		},
+		{
+			name:       "valid with uppercase",
+			bundleName: "Com.Example.MyCommands",
+			expectErr:  false,
+		},
+		{
+			name:       "valid with numbers",
+			bundleName: "com.example123.tools",
+			expectErr:  false,
+		},
+		{
+			name:       "empty name",
+			bundleName: "",
+			expectErr:  true,
+		},
+		{
+			name:       "starts with dot",
+			bundleName: ".hidden",
+			expectErr:  true,
+		},
+		{
+			name:       "starts with number",
+			bundleName: "123invalid",
+			expectErr:  true,
+		},
+		{
+			name:       "contains hyphen",
+			bundleName: "my-commands",
+			expectErr:  true,
+		},
+		{
+			name:       "contains underscore",
+			bundleName: "my_commands",
+			expectErr:  true,
+		},
+		{
+			name:       "double dots",
+			bundleName: "com..example",
+			expectErr:  true,
+		},
+		{
+			name:       "segment starts with number",
+			bundleName: "com.123example",
+			expectErr:  true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateName(tt.bundleName)
+			if tt.expectErr && err == nil {
+				t.Errorf("ValidateName(%q) expected error, got nil", tt.bundleName)
+			}
+			if !tt.expectErr && err != nil {
+				t.Errorf("ValidateName(%q) unexpected error: %v", tt.bundleName, err)
+			}
+		})
+	}
+}
+
+func TestCreate(t *testing.T) {
+	tests := []struct {
+		name      string
+		opts      CreateOptions
+		expectErr bool
+		validate  func(t *testing.T, bundlePath string)
+	}{
+		{
+			name: "create simple bundle",
+			opts: CreateOptions{
+				Name: "mycommands",
+			},
+			expectErr: false,
+			validate: func(t *testing.T, bundlePath string) {
+				// Check bundle directory exists
+				info, err := os.Stat(bundlePath)
+				if err != nil {
+					t.Fatalf("bundle directory not created: %v", err)
+				}
+				if !info.IsDir() {
+					t.Error("bundle path is not a directory")
+				}
+
+				// Check invowkfile.cue exists
+				invowkfilePath := filepath.Join(bundlePath, "invowkfile.cue")
+				if _, err := os.Stat(invowkfilePath); err != nil {
+					t.Errorf("invowkfile.cue not created: %v", err)
+				}
+
+				// Verify bundle is valid
+				_, err = Load(bundlePath)
+				if err != nil {
+					t.Errorf("created bundle is not valid: %v", err)
+				}
+			},
+		},
+		{
+			name: "create RDNS bundle",
+			opts: CreateOptions{
+				Name: "com.example.mytools",
+			},
+			expectErr: false,
+			validate: func(t *testing.T, bundlePath string) {
+				if !strings.HasSuffix(bundlePath, "com.example.mytools.invowkbundle") {
+					t.Errorf("unexpected bundle path: %s", bundlePath)
+				}
+			},
+		},
+		{
+			name: "create bundle with scripts directory",
+			opts: CreateOptions{
+				Name:             "mytools",
+				CreateScriptsDir: true,
+			},
+			expectErr: false,
+			validate: func(t *testing.T, bundlePath string) {
+				scriptsDir := filepath.Join(bundlePath, "scripts")
+				info, err := os.Stat(scriptsDir)
+				if err != nil {
+					t.Fatalf("scripts directory not created: %v", err)
+				}
+				if !info.IsDir() {
+					t.Error("scripts path is not a directory")
+				}
+
+				// Check .gitkeep exists
+				gitkeepPath := filepath.Join(scriptsDir, ".gitkeep")
+				if _, err := os.Stat(gitkeepPath); err != nil {
+					t.Errorf(".gitkeep not created: %v", err)
+				}
+			},
+		},
+		{
+			name: "create bundle with custom group",
+			opts: CreateOptions{
+				Name:  "mytools",
+				Group: "custom-group",
+			},
+			expectErr: false,
+			validate: func(t *testing.T, bundlePath string) {
+				content, err := os.ReadFile(filepath.Join(bundlePath, "invowkfile.cue"))
+				if err != nil {
+					t.Fatalf("failed to read invowkfile: %v", err)
+				}
+				if !strings.Contains(string(content), `group: "custom-group"`) {
+					t.Error("custom group not set in invowkfile")
+				}
+			},
+		},
+		{
+			name: "create bundle with custom description",
+			opts: CreateOptions{
+				Name:        "mytools",
+				Description: "My custom description",
+			},
+			expectErr: false,
+			validate: func(t *testing.T, bundlePath string) {
+				content, err := os.ReadFile(filepath.Join(bundlePath, "invowkfile.cue"))
+				if err != nil {
+					t.Fatalf("failed to read invowkfile: %v", err)
+				}
+				if !strings.Contains(string(content), `description: "My custom description"`) {
+					t.Error("custom description not set in invowkfile")
+				}
+			},
+		},
+		{
+			name: "empty name fails",
+			opts: CreateOptions{
+				Name: "",
+			},
+			expectErr: true,
+		},
+		{
+			name: "invalid name fails",
+			opts: CreateOptions{
+				Name: "123invalid",
+			},
+			expectErr: true,
+		},
+		{
+			name: "name with hyphen fails",
+			opts: CreateOptions{
+				Name: "my-commands",
+			},
+			expectErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Use temp directory as parent
+			tmpDir := t.TempDir()
+			opts := tt.opts
+			opts.ParentDir = tmpDir
+
+			bundlePath, err := Create(opts)
+			if tt.expectErr {
+				if err == nil {
+					t.Error("Create() expected error, got nil")
+				}
+				return
+			}
+
+			if err != nil {
+				t.Fatalf("Create() unexpected error: %v", err)
+			}
+
+			if tt.validate != nil {
+				tt.validate(t, bundlePath)
+			}
+		})
+	}
+}
+
+func TestCreate_ExistingBundle(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create bundle first time
+	opts := CreateOptions{
+		Name:      "mytools",
+		ParentDir: tmpDir,
+	}
+
+	_, err := Create(opts)
+	if err != nil {
+		t.Fatalf("first Create() failed: %v", err)
+	}
+
+	// Try to create again - should fail
+	_, err = Create(opts)
+	if err == nil {
+		t.Error("Create() expected error for existing bundle, got nil")
+	}
+	if !strings.Contains(err.Error(), "already exists") {
+		t.Errorf("expected 'already exists' error, got: %v", err)
+	}
+}
+
+func TestPack(t *testing.T) {
+	t.Run("pack valid bundle", func(t *testing.T) {
+		tmpDir := t.TempDir()
+
+		// Create a bundle first
+		bundlePath, err := Create(CreateOptions{
+			Name:             "mytools",
+			ParentDir:        tmpDir,
+			CreateScriptsDir: true,
+		})
+		if err != nil {
+			t.Fatalf("Create() failed: %v", err)
+		}
+
+		// Add a script file
+		scriptPath := filepath.Join(bundlePath, "scripts", "test.sh")
+		if err := os.WriteFile(scriptPath, []byte("#!/bin/bash\necho hello"), 0755); err != nil {
+			t.Fatalf("failed to write script: %v", err)
+		}
+
+		// Pack the bundle
+		outputPath := filepath.Join(tmpDir, "output.zip")
+		zipPath, err := Pack(bundlePath, outputPath)
+		if err != nil {
+			t.Fatalf("Pack() failed: %v", err)
+		}
+
+		// Verify ZIP was created
+		info, err := os.Stat(zipPath)
+		if err != nil {
+			t.Fatalf("ZIP file not created: %v", err)
+		}
+		if info.Size() == 0 {
+			t.Error("ZIP file is empty")
+		}
+
+		// Verify ZIP path matches expected
+		if zipPath != outputPath {
+			t.Errorf("Pack() returned %q, expected %q", zipPath, outputPath)
+		}
+	})
+
+	t.Run("pack with default output path", func(t *testing.T) {
+		tmpDir := t.TempDir()
+
+		// Create a bundle
+		bundlePath, err := Create(CreateOptions{
+			Name:      "com.example.tools",
+			ParentDir: tmpDir,
+		})
+		if err != nil {
+			t.Fatalf("Create() failed: %v", err)
+		}
+
+		// Change to temp dir to test default output
+		originalWd, _ := os.Getwd()
+		defer os.Chdir(originalWd)
+		os.Chdir(tmpDir)
+
+		// Pack with empty output path
+		zipPath, err := Pack(bundlePath, "")
+		if err != nil {
+			t.Fatalf("Pack() failed: %v", err)
+		}
+
+		// Verify default name
+		expectedName := "com.example.tools.invowkbundle.zip"
+		if filepath.Base(zipPath) != expectedName {
+			t.Errorf("default ZIP name = %q, expected %q", filepath.Base(zipPath), expectedName)
+		}
+	})
+
+	t.Run("pack invalid bundle fails", func(t *testing.T) {
+		tmpDir := t.TempDir()
+
+		// Create an invalid bundle (no invowkfile)
+		bundlePath := filepath.Join(tmpDir, "invalid.invowkbundle")
+		if err := os.Mkdir(bundlePath, 0755); err != nil {
+			t.Fatalf("failed to create directory: %v", err)
+		}
+
+		_, err := Pack(bundlePath, "")
+		if err == nil {
+			t.Error("Pack() expected error for invalid bundle, got nil")
+		}
+	})
+}
+
+func TestUnpack(t *testing.T) {
+	t.Run("unpack valid bundle from ZIP", func(t *testing.T) {
+		tmpDir := t.TempDir()
+
+		// Create and pack a bundle
+		bundlePath, err := Create(CreateOptions{
+			Name:      "mytools",
+			ParentDir: tmpDir,
+		})
+		if err != nil {
+			t.Fatalf("Create() failed: %v", err)
+		}
+
+		zipPath := filepath.Join(tmpDir, "bundle.zip")
+		_, err = Pack(bundlePath, zipPath)
+		if err != nil {
+			t.Fatalf("Pack() failed: %v", err)
+		}
+
+		// Remove original bundle
+		os.RemoveAll(bundlePath)
+
+		// Unpack to a different directory
+		unpackDir := filepath.Join(tmpDir, "unpacked")
+		if err := os.Mkdir(unpackDir, 0755); err != nil {
+			t.Fatalf("failed to create unpack dir: %v", err)
+		}
+
+		extractedPath, err := Unpack(UnpackOptions{
+			Source:  zipPath,
+			DestDir: unpackDir,
+		})
+		if err != nil {
+			t.Fatalf("Unpack() failed: %v", err)
+		}
+
+		// Verify extracted bundle is valid
+		b, err := Load(extractedPath)
+		if err != nil {
+			t.Fatalf("extracted bundle is invalid: %v", err)
+		}
+
+		if b.Name != "mytools" {
+			t.Errorf("extracted bundle name = %q, expected %q", b.Name, "mytools")
+		}
+	})
+
+	t.Run("unpack fails for existing bundle without overwrite", func(t *testing.T) {
+		tmpDir := t.TempDir()
+
+		// Create and pack a bundle
+		bundlePath, err := Create(CreateOptions{
+			Name:      "mytools",
+			ParentDir: tmpDir,
+		})
+		if err != nil {
+			t.Fatalf("Create() failed: %v", err)
+		}
+
+		zipPath := filepath.Join(tmpDir, "bundle.zip")
+		_, err = Pack(bundlePath, zipPath)
+		if err != nil {
+			t.Fatalf("Pack() failed: %v", err)
+		}
+
+		// Try to unpack to same directory (bundle already exists)
+		_, err = Unpack(UnpackOptions{
+			Source:    zipPath,
+			DestDir:   tmpDir,
+			Overwrite: false,
+		})
+		if err == nil {
+			t.Error("Unpack() expected error for existing bundle, got nil")
+		}
+		if !strings.Contains(err.Error(), "already exists") {
+			t.Errorf("expected 'already exists' error, got: %v", err)
+		}
+	})
+
+	t.Run("unpack with overwrite replaces existing bundle", func(t *testing.T) {
+		tmpDir := t.TempDir()
+
+		// Create and pack a bundle
+		bundlePath, err := Create(CreateOptions{
+			Name:      "mytools",
+			ParentDir: tmpDir,
+		})
+		if err != nil {
+			t.Fatalf("Create() failed: %v", err)
+		}
+
+		zipPath := filepath.Join(tmpDir, "bundle.zip")
+		_, err = Pack(bundlePath, zipPath)
+		if err != nil {
+			t.Fatalf("Pack() failed: %v", err)
+		}
+
+		// Modify the existing bundle
+		markerFile := filepath.Join(bundlePath, "marker.txt")
+		if err := os.WriteFile(markerFile, []byte("marker"), 0644); err != nil {
+			t.Fatalf("failed to create marker file: %v", err)
+		}
+
+		// Unpack with overwrite
+		extractedPath, err := Unpack(UnpackOptions{
+			Source:    zipPath,
+			DestDir:   tmpDir,
+			Overwrite: true,
+		})
+		if err != nil {
+			t.Fatalf("Unpack() with overwrite failed: %v", err)
+		}
+
+		// Verify marker file is gone (bundle was replaced)
+		if _, err := os.Stat(filepath.Join(extractedPath, "marker.txt")); !os.IsNotExist(err) {
+			t.Error("marker file should not exist after overwrite")
+		}
+	})
+
+	t.Run("unpack fails for empty source", func(t *testing.T) {
+		_, err := Unpack(UnpackOptions{
+			Source: "",
+		})
+		if err == nil {
+			t.Error("Unpack() expected error for empty source, got nil")
+		}
+	})
+
+	t.Run("unpack fails for invalid ZIP", func(t *testing.T) {
+		tmpDir := t.TempDir()
+
+		// Create an invalid ZIP file
+		invalidZip := filepath.Join(tmpDir, "invalid.zip")
+		if err := os.WriteFile(invalidZip, []byte("not a zip file"), 0644); err != nil {
+			t.Fatalf("failed to create invalid ZIP: %v", err)
+		}
+
+		_, err := Unpack(UnpackOptions{
+			Source:  invalidZip,
+			DestDir: tmpDir,
+		})
+		if err == nil {
+			t.Error("Unpack() expected error for invalid ZIP, got nil")
+		}
+	})
+
+	t.Run("unpack fails for ZIP without bundle", func(t *testing.T) {
+		tmpDir := t.TempDir()
+
+		// Create a ZIP file without a bundle
+		zipPath := filepath.Join(tmpDir, "nobundle.zip")
+		zipFile, err := os.Create(zipPath)
+		if err != nil {
+			t.Fatalf("failed to create ZIP file: %v", err)
+		}
+		zipWriter := zip.NewWriter(zipFile)
+		w, _ := zipWriter.Create("somefile.txt")
+		w.Write([]byte("content"))
+		zipWriter.Close()
+		zipFile.Close()
+
+		_, err = Unpack(UnpackOptions{
+			Source:  zipPath,
+			DestDir: tmpDir,
+		})
+		if err == nil {
+			t.Error("Unpack() expected error for ZIP without bundle, got nil")
+		}
+		if !strings.Contains(err.Error(), "no valid bundle found") {
+			t.Errorf("expected 'no valid bundle found' error, got: %v", err)
+		}
+	})
 }

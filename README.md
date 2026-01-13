@@ -1352,6 +1352,106 @@ Bundle Validation
   2. [structure] nested.invowkbundle: nested bundles are not allowed
 ```
 
+### Creating Bundles
+
+Use the `bundle create` command to scaffold a new bundle:
+
+```bash
+# Create a simple bundle in the current directory
+invowk bundle create mycommands
+
+# Create a bundle with RDNS naming
+invowk bundle create com.example.mytools
+
+# Create a bundle in a specific directory
+invowk bundle create mytools --path /path/to/bundles
+
+# Create with a scripts directory
+invowk bundle create mytools --scripts
+
+# Create with custom group and description
+invowk bundle create mytools --group "My Tools" --description "A collection of useful commands"
+```
+
+The created bundle will contain a template `invowkfile.cue` with a sample "hello" command.
+
+### Listing Bundles
+
+Use the `bundle list` command to see all discovered bundles:
+
+```bash
+invowk bundle list
+```
+
+Example output:
+```
+Discovered Bundles
+
+• Found 3 bundle(s)
+
+• current directory:
+   ✓ mytools
+      /home/user/project/mytools.invowkbundle
+
+• user commands (~/.invowk/cmds):
+   ✓ com.example.utilities
+      /home/user/.invowk/cmds/com.example.utilities.invowkbundle
+   ✓ org.company.tools
+      /home/user/.invowk/cmds/org.company.tools.invowkbundle
+```
+
+### Packing Bundles
+
+Use the `bundle pack` command to create a ZIP archive for distribution:
+
+```bash
+# Pack a bundle (creates <bundle-name>.invowkbundle.zip in current directory)
+invowk bundle pack ./mytools.invowkbundle
+
+# Pack with custom output path
+invowk bundle pack ./mytools.invowkbundle --output ./dist/mytools.zip
+```
+
+Example output:
+```
+Pack Bundle
+
+✓ Bundle packed successfully
+
+• Output: /home/user/dist/mytools.zip
+• Size: 2.45 KB
+```
+
+### Importing Bundles
+
+Use the `bundle import` command to install a bundle from a ZIP file or URL:
+
+```bash
+# Import from a local ZIP file (installs to ~/.invowk/cmds/)
+invowk bundle import ./mytools.invowkbundle.zip
+
+# Import from a URL
+invowk bundle import https://example.com/bundles/mytools.zip
+
+# Import to a custom directory
+invowk bundle import ./bundle.zip --path ./local-bundles
+
+# Overwrite existing bundle
+invowk bundle import ./bundle.zip --overwrite
+```
+
+Example output:
+```
+Import Bundle
+
+✓ Bundle imported successfully
+
+• Name: mytools
+• Path: /home/user/.invowk/cmds/mytools.invowkbundle
+
+• The bundle commands are now available via invowk
+```
+
 ### Benefits of Bundles
 
 1. **Portability**: Share a complete command set as a single folder
