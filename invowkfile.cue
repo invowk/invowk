@@ -1,6 +1,9 @@
 // Invowkfile - Command definitions for invowk
 // See https://github.com/invowk/invowk for documentation
 //
+// The 'group' field is mandatory and prefixes all command names.
+// Example: group: "myproject" means command "build" becomes "invowk cmd myproject build"
+//
 // Available runtimes:
 //   - "native": Use system shell (default)
 //   - "virtual": Use built-in sh interpreter
@@ -49,6 +52,7 @@
 //     ]
 //   }
 
+group: "examples"
 version: "1.0"
 description: "Full example project commands"
 
@@ -135,7 +139,7 @@ commands: [
 				// Implementation-level depends_on - validated within the container
 				depends_on: {
 					tools: [
-						{name: "go"},
+						{alternatives: ["go"]},
 					]
 					filepaths: [
 						{alternatives: ["/workspace/go.mod"]},
@@ -195,13 +199,13 @@ commands: [
 		depends_on: {
 			tools: [
 				// Simple tool check - just verify it's in PATH
-				{name: "git"},
-				{name: "go"},
+				{alternatives: ["git"]},
+				{alternatives: ["go"]},
 			]
 			commands: [
-				{name: "clean"},
-				{name: "build"},
-				{name: "test unit"},
+				{alternatives: ["examples clean"]},
+				{alternatives: ["examples build"]},
+				{alternatives: ["examples test unit"]},
 			]
 			filepaths: [
 				// Simple existence check - any of the alternatives satisfies the dependency
@@ -240,12 +244,12 @@ commands: [
 		// Command-level depends_on with capabilities
 		depends_on: {
 			tools: [
-				{name: "rsync"},
+				{alternatives: ["rsync"]},
 			]
 			// Capabilities ensure network connectivity before attempting sync
 			capabilities: [
-				{name: "local-area-network"},
-				{name: "internet"},
+				{alternatives: ["local-area-network"]},
+				{alternatives: ["internet"]},
 			]
 		}
 	},

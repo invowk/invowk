@@ -719,6 +719,10 @@ func (s *Script) ResolveScriptWithFS(invowkfilePath string, readFile func(path s
 
 // Invowkfile represents the complete parsed invowkfile
 type Invowkfile struct {
+	// Group is a mandatory prefix for all command names from this invowkfile
+	// Must start with a letter, contain only alphanumeric characters, with optional
+	// dot-separated segments (e.g., "mygroup", "my.group", "my.nested.group")
+	Group string `json:"group"`
 	// Version specifies the invowkfile schema version
 	Version string `json:"version,omitempty"`
 	// Description provides a summary of this invowkfile's purpose
@@ -885,20 +889,27 @@ func (inv *Invowkfile) GetCommand(name string) *Command {
 	return nil
 }
 
-// ListCommands returns all command names at the top level
+// GetFullCommandName returns the fully qualified command name with the group prefix.
+// The format is "group cmdname" where cmdname may have spaces for subcommands.
+func (inv *Invowkfile) GetFullCommandName(cmdName string) string {
+	return inv.Group + " " + cmdName
+}
+
+// ListCommands returns all command names at the top level (with group prefix)
 func (inv *Invowkfile) ListCommands() []string {
 	names := make([]string, len(inv.Commands))
 	for i, cmd := range inv.Commands {
-		names[i] = cmd.Name
+		names[i] = inv.GetFullCommandName(cmd.Name)
 	}
 	return names
 }
 
-// FlattenCommands returns all commands keyed by their names
+// FlattenCommands returns all commands keyed by their fully qualified names (with group prefix)
 func (inv *Invowkfile) FlattenCommands() map[string]*Command {
 	result := make(map[string]*Command)
 	for i := range inv.Commands {
-		result[inv.Commands[i].Name] = &inv.Commands[i]
+		fullName := inv.GetFullCommandName(inv.Commands[i].Name)
+		result[fullName] = &inv.Commands[i]
 	}
 	return result
 }
@@ -909,6 +920,9 @@ func GenerateCUE(inv *Invowkfile) string {
 
 	sb.WriteString("// Invowkfile - Command definitions for invowk\n")
 	sb.WriteString("// See https://github.com/invowk/invowk for documentation\n\n")
+
+	// Group is mandatory
+	sb.WriteString(fmt.Sprintf("group: %q\n", inv.Group))
 
 	if inv.Version != "" {
 		sb.WriteString(fmt.Sprintf("version: %q\n", inv.Version))

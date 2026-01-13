@@ -214,6 +214,12 @@
 
 // Invowkfile is the root schema for an invowkfile
 #Invowkfile: {
+	// group is a mandatory prefix for all command names from this invowkfile
+	// Must start with a letter, contain only alphanumeric characters, with optional
+	// dot-separated segments (e.g., "mygroup", "my.group", "my.nested.group")
+	// Cannot start or end with a dot, and cannot have consecutive dots
+	group: string & =~"^[a-zA-Z][a-zA-Z0-9]*(\\.[a-zA-Z][a-zA-Z0-9]*)*$"
+
 	// version specifies the invowkfile schema version (optional but recommended)
 	// Current version: "1.0"
 	version?: string & =~"^[0-9]+\\.[0-9]+$"
@@ -224,7 +230,6 @@
 	// default_shell overrides the default shell for native runtime (optional)
 	// Example: "/bin/bash", "pwsh"
 	default_shell?: string
-
 
 	// commands defines the available commands (required, at least one)
 	commands: [...#Command] & [_, ...]

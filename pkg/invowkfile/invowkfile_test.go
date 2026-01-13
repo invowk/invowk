@@ -237,6 +237,7 @@ func TestResolveScriptWithFS(t *testing.T) {
 func TestMultiLineScriptParsing(t *testing.T) {
 	// Test that CUE multi-line strings are properly parsed
 	cueContent := `
+group: "test"
 version: "1.0"
 
 commands: [
@@ -454,6 +455,7 @@ func TestCommand_GetCommandDependencies(t *testing.T) {
 
 func TestParseDependsOn(t *testing.T) {
 	cueContent := `
+group: "test"
 version: "1.0"
 
 commands: [
@@ -561,6 +563,7 @@ commands: [
 
 func TestParseDependsOn_ToolsOnly(t *testing.T) {
 	cueContent := `
+group: "test"
 version: "1.0"
 
 commands: [
@@ -614,6 +617,7 @@ commands: [
 
 func TestParseDependsOn_CommandsOnly(t *testing.T) {
 	cueContent := `
+group: "test"
 version: "1.0"
 
 commands: [
@@ -670,6 +674,7 @@ commands: [
 
 func TestParseDependsOn_WithCustomChecks(t *testing.T) {
 	cueContent := `
+group: "test"
 version: "1.0"
 
 commands: [
@@ -765,6 +770,7 @@ commands: [
 
 func TestParseDependsOn_WithFilepaths(t *testing.T) {
 	cueContent := `
+group: "test"
 version: "1.0"
 
 commands: [
@@ -870,6 +876,7 @@ func TestCommand_HasDependencies_WithFilepaths(t *testing.T) {
 
 func TestGenerateCUE_WithFilepaths(t *testing.T) {
 	inv := &Invowkfile{
+		Group:   "test",
 		Version: "1.0",
 		Commands: []Command{
 			{
@@ -917,6 +924,7 @@ func TestGenerateCUE_WithFilepaths(t *testing.T) {
 
 func TestParsePlatforms(t *testing.T) {
 	cueContent := `
+group: "test"
 version: "1.0"
 
 commands: [
@@ -985,6 +993,7 @@ commands: [
 
 func TestGenerateCUE_WithPlatforms(t *testing.T) {
 	inv := &Invowkfile{
+		Group:   "test",
 		Version: "1.0",
 		Commands: []Command{
 			{
@@ -1026,6 +1035,7 @@ func TestGenerateCUE_WithPlatforms(t *testing.T) {
 
 func TestParseEnableHostSSH(t *testing.T) {
 	cueContent := `
+group: "test"
 version: "1.0"
 
 commands: [
@@ -1090,6 +1100,7 @@ commands: [
 
 func TestParseEnableHostSSH_DefaultFalse(t *testing.T) {
 	cueContent := `
+group: "test"
 version: "1.0"
 
 commands: [
@@ -1329,6 +1340,7 @@ func TestValidateEnableHostSSH_ValidForContainer(t *testing.T) {
 
 func TestGenerateCUE_WithEnableHostSSH(t *testing.T) {
 	inv := &Invowkfile{
+		Group:   "test",
 		Version: "1.0",
 		Commands: []Command{
 			{
@@ -1361,6 +1373,7 @@ func TestGenerateCUE_WithEnableHostSSH(t *testing.T) {
 func TestGenerateCUE_WithEnableHostSSH_False(t *testing.T) {
 	// When enable_host_ssh is false (default), it should not appear in the output
 	inv := &Invowkfile{
+		Group:   "test",
 		Version: "1.0",
 		Commands: []Command{
 			{
@@ -1388,6 +1401,7 @@ func TestGenerateCUE_WithEnableHostSSH_False(t *testing.T) {
 
 func TestParseContainerRuntimeWithAllOptions(t *testing.T) {
 	cueContent := `
+group: "test"
 version: "1.0"
 
 commands: [
@@ -1467,6 +1481,7 @@ commands: [
 
 func TestParseDependsOn_WithCapabilities(t *testing.T) {
 	cueContent := `
+group: "test"
 version: "1.0"
 
 commands: [
@@ -1532,6 +1547,7 @@ commands: [
 
 func TestParseDependsOn_CapabilitiesAtImplementationLevel(t *testing.T) {
 	cueContent := `
+group: "test"
 version: "1.0"
 
 commands: [
@@ -1664,6 +1680,7 @@ func TestMergeDependsOn_WithCapabilities(t *testing.T) {
 
 func TestGenerateCUE_WithCapabilities(t *testing.T) {
 	inv := &Invowkfile{
+		Group:   "test",
 		Version: "1.0",
 		Commands: []Command{
 			{
@@ -1704,6 +1721,7 @@ func TestGenerateCUE_WithCapabilities(t *testing.T) {
 
 func TestGenerateCUE_WithCapabilitiesAtImplementationLevel(t *testing.T) {
 	inv := &Invowkfile{
+		Group:   "test",
 		Version: "1.0",
 		Commands: []Command{
 			{
@@ -1741,6 +1759,7 @@ func TestGenerateCUE_WithCapabilitiesAtImplementationLevel(t *testing.T) {
 // tool dependencies that use the old 'name' field instead of 'alternatives'
 func TestCUESchema_RejectsToolDependencyWithName(t *testing.T) {
 	cueContent := `
+group: "test"
 version: "1.0"
 
 commands: [
@@ -1784,6 +1803,7 @@ commands: [
 // rejects custom checks that have both direct fields (name, check_script) AND alternatives
 func TestCUESchema_RejectsCustomCheckWithBothNameAndAlternatives(t *testing.T) {
 	cueContent := `
+group: "test"
 version: "1.0"
 
 commands: [
@@ -1834,6 +1854,7 @@ commands: [
 // capability dependencies that use the old 'name' field instead of 'alternatives'
 func TestCUESchema_RejectsCapabilityDependencyWithName(t *testing.T) {
 	cueContent := `
+group: "test"
 version: "1.0"
 
 commands: [
@@ -1877,6 +1898,7 @@ commands: [
 // command dependencies that use the old 'name' field instead of 'alternatives'
 func TestCUESchema_RejectsCommandDependencyWithName(t *testing.T) {
 	cueContent := `
+group: "test"
 version: "1.0"
 
 commands: [
@@ -1913,5 +1935,257 @@ commands: [
 	}
 	if !strings.Contains(err.Error(), "field not allowed") {
 		t.Errorf("Error should mention 'field not allowed', got: %v", err)
+	}
+}
+
+// Tests for the group field
+
+func TestParseGroup_Valid(t *testing.T) {
+	tests := []struct {
+		name  string
+		group string
+	}{
+		{"simple lowercase", "mygroup"},
+		{"simple uppercase", "MyGroup"},
+		{"with numbers", "group1"},
+		{"dotted two parts", "my.group"},
+		{"dotted three parts", "my.nested.group"},
+		{"single letter", "a"},
+		{"single letter with dotted", "a.b.c"},
+		{"mixed case with dots", "My.Nested.Group1"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cueContent := `
+group: "` + tt.group + `"
+version: "1.0"
+
+commands: [
+	{
+		name: "test"
+		implementations: [
+			{
+				script: "echo test"
+				target: { runtimes: [{name: "native"}] }
+			}
+		]
+	}
+]
+`
+			tmpDir, err := os.MkdirTemp("", "invowk-test-*")
+			if err != nil {
+				t.Fatalf("Failed to create temp dir: %v", err)
+			}
+			defer os.RemoveAll(tmpDir)
+
+			invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
+			if err := os.WriteFile(invowkfilePath, []byte(cueContent), 0644); err != nil {
+				t.Fatalf("Failed to write invowkfile: %v", err)
+			}
+
+			inv, err := Parse(invowkfilePath)
+			if err != nil {
+				t.Fatalf("Parse() error = %v", err)
+			}
+
+			if inv.Group != tt.group {
+				t.Errorf("Group = %q, want %q", inv.Group, tt.group)
+			}
+		})
+	}
+}
+
+func TestParseGroup_Invalid(t *testing.T) {
+	tests := []struct {
+		name  string
+		group string
+	}{
+		{"starts with dot", ".group"},
+		{"ends with dot", "group."},
+		{"consecutive dots", "my..group"},
+		{"starts with number", "1group"},
+		{"contains hyphen", "my-group"},
+		{"contains underscore", "my_group"},
+		{"contains space", "my group"},
+		{"empty string", ""},
+		{"only dots", "..."},
+		{"dot then number", "a.1b"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cueContent := `
+group: "` + tt.group + `"
+version: "1.0"
+
+commands: [
+	{
+		name: "test"
+		implementations: [
+			{
+				script: "echo test"
+				target: { runtimes: [{name: "native"}] }
+			}
+		]
+	}
+]
+`
+			tmpDir, err := os.MkdirTemp("", "invowk-test-*")
+			if err != nil {
+				t.Fatalf("Failed to create temp dir: %v", err)
+			}
+			defer os.RemoveAll(tmpDir)
+
+			invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
+			if err := os.WriteFile(invowkfilePath, []byte(cueContent), 0644); err != nil {
+				t.Fatalf("Failed to write invowkfile: %v", err)
+			}
+
+			_, err = Parse(invowkfilePath)
+			if err == nil {
+				t.Errorf("Parse() should reject invalid group %q", tt.group)
+			}
+		})
+	}
+}
+
+func TestParseGroup_Missing(t *testing.T) {
+	cueContent := `
+version: "1.0"
+
+commands: [
+	{
+		name: "test"
+		implementations: [
+			{
+				script: "echo test"
+				target: { runtimes: [{name: "native"}] }
+			}
+		]
+	}
+]
+`
+	tmpDir, err := os.MkdirTemp("", "invowk-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
+	if err := os.WriteFile(invowkfilePath, []byte(cueContent), 0644); err != nil {
+		t.Fatalf("Failed to write invowkfile: %v", err)
+	}
+
+	_, err = Parse(invowkfilePath)
+	if err == nil {
+		t.Error("Parse() should reject invowkfile without group field")
+	}
+}
+
+func TestGetFullCommandName(t *testing.T) {
+	inv := &Invowkfile{
+		Group: "my.group",
+	}
+
+	tests := []struct {
+		name     string
+		cmdName  string
+		expected string
+	}{
+		{"simple command", "build", "my.group build"},
+		{"subcommand with space", "test unit", "my.group test unit"},
+		{"nested subcommand", "db migrate up", "my.group db migrate up"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := inv.GetFullCommandName(tt.cmdName)
+			if result != tt.expected {
+				t.Errorf("GetFullCommandName(%q) = %q, want %q", tt.cmdName, result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestListCommands_WithGroup(t *testing.T) {
+	inv := &Invowkfile{
+		Group: "mygroup",
+		Commands: []Command{
+			{Name: "build"},
+			{Name: "test"},
+			{Name: "deploy prod"},
+		},
+	}
+
+	names := inv.ListCommands()
+
+	expected := []string{"mygroup build", "mygroup test", "mygroup deploy prod"}
+	if len(names) != len(expected) {
+		t.Fatalf("ListCommands() returned %d names, want %d", len(names), len(expected))
+	}
+
+	for i, name := range names {
+		if name != expected[i] {
+			t.Errorf("ListCommands()[%d] = %q, want %q", i, name, expected[i])
+		}
+	}
+}
+
+func TestFlattenCommands_WithGroup(t *testing.T) {
+	inv := &Invowkfile{
+		Group: "mygroup",
+		Commands: []Command{
+			{Name: "build", Description: "Build command"},
+			{Name: "test unit", Description: "Unit tests"},
+		},
+	}
+
+	flat := inv.FlattenCommands()
+
+	if len(flat) != 2 {
+		t.Fatalf("FlattenCommands() returned %d commands, want 2", len(flat))
+	}
+
+	// Check that keys are prefixed with group
+	if _, ok := flat["mygroup build"]; !ok {
+		t.Error("FlattenCommands() should have key 'mygroup build'")
+	}
+
+	if _, ok := flat["mygroup test unit"]; !ok {
+		t.Error("FlattenCommands() should have key 'mygroup test unit'")
+	}
+
+	// Check that commands are correct
+	if flat["mygroup build"].Description != "Build command" {
+		t.Errorf("flat['mygroup build'].Description = %q, want %q", flat["mygroup build"].Description, "Build command")
+	}
+}
+
+func TestGenerateCUE_WithGroup(t *testing.T) {
+	inv := &Invowkfile{
+		Group:   "my.group",
+		Version: "1.0",
+		Commands: []Command{
+			{
+				Name: "test",
+				Implementations: []Implementation{
+					{Script: "echo test", Target: Target{Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}},
+				},
+			},
+		},
+	}
+
+	output := GenerateCUE(inv)
+
+	if !strings.Contains(output, `group: "my.group"`) {
+		t.Error("GenerateCUE should contain 'group: \"my.group\"'")
+	}
+
+	// Group should appear before version
+	groupIdx := strings.Index(output, "group:")
+	versionIdx := strings.Index(output, "version:")
+	if groupIdx > versionIdx {
+		t.Error("GenerateCUE should output group before version")
 	}
 }

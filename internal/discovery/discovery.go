@@ -226,7 +226,7 @@ func (d *Discovery) DiscoverCommands() ([]*CommandInfo, error) {
 			seen[name] = true
 
 			commands = append(commands, &CommandInfo{
-				Name:        cmd.Name,
+				Name:        name, // Use the fully qualified name with group prefix
 				Description: cmd.Description,
 				Source:      file.Source,
 				FilePath:    file.Path,

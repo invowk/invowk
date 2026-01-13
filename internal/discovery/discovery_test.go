@@ -130,6 +130,7 @@ func TestDiscoverAll_FindsInvowkfile(t *testing.T) {
 
 	// Create an invowkfile.cue in the temp directory
 	invowkfileContent := `
+group: "test"
 version: "1.0"
 description: "Test commands"
 
@@ -189,6 +190,7 @@ func TestDiscoverAll_FindsInvowkfileWithoutExtension(t *testing.T) {
 
 	// Create an invowkfile (without .cue extension) in the temp directory
 	invowkfileContent := `
+group: "test"
 version: "1.0"
 description: "Test commands"
 
@@ -236,6 +238,7 @@ func TestDiscoverAll_PrefersInvowkfileCue(t *testing.T) {
 
 	// Create both invowkfile and invowkfile.cue
 	content := `
+group: "test"
 version: "1.0"
 commands: [{name: "test", implementations: [{script: "echo test", target: {runtimes: [{name: "native"}]}}]}]
 `
@@ -289,6 +292,7 @@ func TestDiscoverAll_FindsInUserDir(t *testing.T) {
 
 	// Create an invowkfile in user commands
 	content := `
+group: "usercmds"
 version: "1.0"
 commands: [{name: "user-cmd", implementations: [{script: "echo user", target: {runtimes: [{name: "native"}]}}]}]
 `
@@ -338,6 +342,7 @@ func TestDiscoverAll_FindsInConfigPath(t *testing.T) {
 
 	// Create an invowkfile in search path
 	content := `
+group: "customcmds"
 version: "1.0"
 commands: [{name: "custom-cmd", implementations: [{script: "echo custom", target: {runtimes: [{name: "native"}]}}]}]
 `
@@ -403,6 +408,7 @@ func TestLoadFirst_WithValidFile(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	content := `
+group: "test"
 version: "1.0"
 description: "Test"
 commands: [{name: "test", implementations: [{script: "echo test", target: {runtimes: [{name: "native"}]}}]}]
@@ -441,6 +447,7 @@ func TestLoadAll_WithMultipleFiles(t *testing.T) {
 
 	// Create current dir invowkfile
 	content := `
+group: "current"
 version: "1.0"
 commands: [{name: "current", implementations: [{script: "echo current", target: {runtimes: [{name: "native"}]}}]}]
 `
@@ -451,7 +458,12 @@ commands: [{name: "current", implementations: [{script: "echo current", target: 
 	// Create user commands invowkfile
 	userCmdsDir := filepath.Join(tmpDir, ".invowk", "cmds")
 	os.MkdirAll(userCmdsDir, 0755)
-	if err := os.WriteFile(filepath.Join(userCmdsDir, "invowkfile.cue"), []byte(content), 0644); err != nil {
+	userContent := `
+group: "usercmds"
+version: "1.0"
+commands: [{name: "user", implementations: [{script: "echo user", target: {runtimes: [{name: "native"}]}}]}]
+`
+	if err := os.WriteFile(filepath.Join(userCmdsDir, "invowkfile.cue"), []byte(userContent), 0644); err != nil {
 		t.Fatalf("failed to write user invowkfile: %v", err)
 	}
 
@@ -487,6 +499,7 @@ func TestDiscoverCommands(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	content := `
+group: "project"
 version: "1.0"
 commands: [
 	{name: "build", description: "Build the project", implementations: [{script: "go build", target: {runtimes: [{name: "native"}]}}]},
@@ -517,9 +530,9 @@ commands: [
 		t.Errorf("DiscoverCommands() returned %d commands, want 2", len(commands))
 	}
 
-	// Commands should be sorted by name
+	// Commands should be sorted by name (with group prefix)
 	if len(commands) >= 2 {
-		if commands[0].Name != "build" || commands[1].Name != "test" {
+		if commands[0].Name != "project build" || commands[1].Name != "project test" {
 			t.Errorf("commands not sorted correctly: got %s, %s", commands[0].Name, commands[1].Name)
 		}
 	}
@@ -529,6 +542,7 @@ func TestGetCommand(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	content := `
+group: "project"
 version: "1.0"
 commands: [
 	{name: "build", description: "Build the project", implementations: [{script: "go build", target: {runtimes: [{name: "native"}]}}]},
@@ -551,13 +565,13 @@ commands: [
 	d := New(cfg)
 
 	t.Run("ExistingCommand", func(t *testing.T) {
-		cmd, err := d.GetCommand("build")
+		cmd, err := d.GetCommand("project build")
 		if err != nil {
 			t.Fatalf("GetCommand() returned error: %v", err)
 		}
 
-		if cmd.Name != "build" {
-			t.Errorf("GetCommand().Name = %s, want build", cmd.Name)
+		if cmd.Name != "project build" {
+			t.Errorf("GetCommand().Name = %s, want 'project build'", cmd.Name)
 		}
 	})
 
@@ -567,12 +581,20 @@ commands: [
 			t.Error("GetCommand() should return error for non-existent command")
 		}
 	})
+
+	t.Run("CommandWithoutGroup", func(t *testing.T) {
+		_, err := d.GetCommand("build")
+		if err == nil {
+			t.Error("GetCommand() should return error when searching without group prefix")
+		}
+	})
 }
 
 func TestGetCommandsWithPrefix(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	content := `
+group: "project"
 version: "1.0"
 commands: [
 	{name: "build", implementations: [{script: "go build", target: {runtimes: [{name: "native"}]}}]},
@@ -606,14 +628,25 @@ commands: [
 		}
 	})
 
-	t.Run("BuildPrefix", func(t *testing.T) {
-		commands, err := d.GetCommandsWithPrefix("build")
+	t.Run("GroupPrefix", func(t *testing.T) {
+		commands, err := d.GetCommandsWithPrefix("project")
+		if err != nil {
+			t.Fatalf("GetCommandsWithPrefix() returned error: %v", err)
+		}
+
+		if len(commands) != 3 {
+			t.Errorf("GetCommandsWithPrefix('project') returned %d commands, want 3", len(commands))
+		}
+	})
+
+	t.Run("GroupAndBuildPrefix", func(t *testing.T) {
+		commands, err := d.GetCommandsWithPrefix("project build")
 		if err != nil {
 			t.Fatalf("GetCommandsWithPrefix() returned error: %v", err)
 		}
 
 		if len(commands) != 2 {
-			t.Errorf("GetCommandsWithPrefix('build') returned %d commands, want 2", len(commands))
+			t.Errorf("GetCommandsWithPrefix('project build') returned %d commands, want 2", len(commands))
 		}
 	})
 
@@ -633,7 +666,10 @@ func TestDiscoverCommands_Precedence(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	// Create current dir invowkfile with "build" command
+	// Note: With group field, the command names will be different: "current build" vs "usercmds build"
+	// So they won't conflict anymore. We need to test with the same group to test precedence.
 	currentContent := `
+group: "project"
 version: "1.0"
 commands: [{name: "build", description: "Current build", implementations: [{script: "echo current", target: {runtimes: [{name: "native"}]}}]}]
 `
@@ -641,10 +677,11 @@ commands: [{name: "build", description: "Current build", implementations: [{scri
 		t.Fatalf("failed to write invowkfile: %v", err)
 	}
 
-	// Create user commands invowkfile with same "build" command
+	// Create user commands invowkfile with same "build" command and same group
 	userCmdsDir := filepath.Join(tmpDir, ".invowk", "cmds")
 	os.MkdirAll(userCmdsDir, 0755)
 	userContent := `
+group: "project"
 version: "1.0"
 commands: [{name: "build", description: "User build", implementations: [{script: "echo user", target: {runtimes: [{name: "native"}]}}]}]
 `
@@ -668,18 +705,18 @@ commands: [{name: "build", description: "User build", implementations: [{script:
 		t.Fatalf("DiscoverCommands() returned error: %v", err)
 	}
 
-	// Should only have one "build" command (from current directory, higher precedence)
+	// Should only have one "project build" command (from current directory, higher precedence)
 	buildCount := 0
 	var buildCmd *CommandInfo
 	for _, cmd := range commands {
-		if cmd.Name == "build" {
+		if cmd.Name == "project build" {
 			buildCount++
 			buildCmd = cmd
 		}
 	}
 
 	if buildCount != 1 {
-		t.Errorf("expected 1 build command, got %d", buildCount)
+		t.Errorf("expected 1 'project build' command, got %d", buildCount)
 	}
 
 	if buildCmd != nil && buildCmd.Source != SourceCurrentDir {

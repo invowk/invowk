@@ -60,29 +60,29 @@ invowk cmd
 invowk cmd --list
 ```
 
-The list shows all commands with their allowed runtimes (default marked with `*`):
+The list shows all commands with their group prefix, allowed runtimes (default marked with `*`):
 
 ```
 Available Commands
   (* = default runtime)
 
 From current directory:
-  build - Build the project [native*, container] (linux, mac, windows)
-  test unit - Run unit tests [native*, virtual] (linux, mac, windows)
-  docker-build - Build in container [container*] (linux, mac, windows)
+  myproject build - Build the project [native*, container] (linux, macos, windows)
+  myproject test unit - Run unit tests [native*, virtual] (linux, macos, windows)
+  myproject docker-build - Build in container [container*] (linux, macos, windows)
 ```
 
-3. **Run a command**:
+3. **Run a command** (use the group prefix):
 
 ```bash
-invowk cmd build
+invowk cmd myproject build
 ```
 
 4. **Run a command with a specific runtime**:
 
 ```bash
 # Use a non-default runtime (must be allowed by the command)
-invowk cmd build --runtime container
+invowk cmd myproject build --runtime container
 ```
 
 ## Invowkfile Format
@@ -90,6 +90,7 @@ invowk cmd build --runtime container
 Invowkfiles are written in [CUE](https://cuelang.org/) format. CUE provides powerful validation, templating, and a clean syntax. Here's an example:
 
 ```cue
+group: "myproject"  // Required: namespace for all commands in this file
 version: "1.0"
 description: "My project commands"
 
@@ -122,7 +123,7 @@ commands: [
 		]
 	},
 	// Use spaces in names for subcommand-like behavior
-	// This creates: invowk cmd test unit
+	// This creates: invowk cmd myproject test unit
 	{
 		name: "test unit"
 		description: "Run unit tests"
@@ -164,11 +165,11 @@ commands: [
 		]
 		depends_on: {
 			tools: [
-				{name: "git"},
+				{alternatives: ["git"]},
 			]
 			commands: [
-				{name: "build"},
-				{name: "test unit"},
+				{alternatives: ["myproject build"]},
+				{alternatives: ["myproject test unit"]},
 			]
 		}
 	},
@@ -188,60 +189,107 @@ commands: [
 ]
 ```
 
+## Command Groups
+
+Every invowkfile must specify a **group** field. The group becomes the first segment of all command names from that file, creating a namespace for the commands.
+
+### Group Field Format
+
+```cue
+group: "mygroup"           // Simple group
+group: "my.nested.group"   // Nested group using dot notation
+```
+
+**Validation rules:**
+- Must start with a letter (a-z, A-Z)
+- Can contain letters and numbers
+- Nested groups use dots (`.`) as separators
+- Each segment must start with a letter
+
+**Valid examples:** `mygroup`, `my.group`, `my.nested.group`, `Group1`, `a.b.c`
+
+**Invalid examples:** `.group`, `group.`, `my..group`, `my-group`, `my_group`, `1group`
+
+### How Groups Affect Command Names
+
+When you define a command in an invowkfile with `group: "myproject"`:
+
+```cue
+group: "myproject"
+commands: [
+    {name: "build", ...},
+    {name: "test unit", ...},
+]
+```
+
+The commands are accessed with the group as a prefix:
+
+```bash
+invowk cmd myproject build
+invowk cmd myproject test unit
+```
+
+### Benefits of Command Groups
+
+1. **Namespace isolation**: Multiple invowkfiles can have commands with the same name without conflicts
+2. **Clear provenance**: You know which invowkfile a command comes from
+3. **Hierarchical organization**: Use dot notation for logical grouping (e.g., `frontend.components`, `backend.api`)
+4. **Tab completion**: Groups provide natural completion boundaries
+
+### Command Dependencies with Groups
+
+When referencing command dependencies, use the full group-prefixed name:
+
+```cue
+group: "myproject"
+commands: [
+    {
+        name: "release"
+        depends_on: {
+            commands: [
+                {alternatives: ["myproject build"]},      // Same-file command
+                {alternatives: ["myproject test unit"]},  // Same-file nested command
+                {alternatives: ["other.project deploy"]}, // Command from another invowkfile
+            ]
+        }
+    }
+]
+```
+
 ## Dependencies
 
 Commands can specify dependencies that must be satisfied before running:
 
 ### Tool Dependencies
 
-Verify that required binaries are available in PATH. You can also run custom validation implementations:
+Verify that required binaries are available in PATH. You can specify alternatives with OR semantics (any alternative found satisfies the dependency):
 
 ```cue
 depends_on: {
 	tools: [
 		// Simple check - just verify tool is in PATH
-		{name: "git"},
+		{alternatives: ["git"]},
 		
-		// Custom validation script with output pattern matching
-		{
-			name: "go"
-			check_script: "go version"
-			expected_output: "go1\\."  // Regex pattern to match
-		},
-		
-		// Custom validation with exit code check
-		{
-			name: "docker"
-			check_script: "docker info > /dev/null 2>&1"
-			expected_code: 0
-		},
-		
-		// Both exit code and output pattern (not mutually exclusive)
-		{
-			name: "node"
-			check_script: "node --version"
-			expected_code: 0
-			expected_output: "^v[0-9]+"
-		},
+		// Multiple alternatives - any one satisfies the dependency
+		{alternatives: ["podman", "docker"]},
 	]
 }
 ```
 
 **Tool validation options:**
-- `name` (required): The binary name that must be in PATH
-- `check_script` (optional): Custom script to validate the tool
-- `expected_code` (optional): Expected exit code from check_script (default: 0)
-- `expected_output` (optional): Regex pattern to match against check_script output
+- `alternatives` (required): List of binary names that can satisfy this dependency (OR semantics)
 
 ### Command Dependencies
 
-Run other invowk commands first:
+Run other invowk commands first. Use the full group-prefixed command name:
 
 ```cue
 depends_on: {
 	commands: [
-		{name: "clean"},
-		{name: "build"},
+		{alternatives: ["myproject clean"]},
+		{alternatives: ["myproject build"]},
+		// Multiple alternatives - any one satisfies the dependency
+		{alternatives: ["myproject test unit", "myproject test integration"]},
 	]
 }
 ```
@@ -298,7 +346,7 @@ commands: [
 				// Implementation-level depends_on - validated within the container
 				depends_on: {
 					tools: [
-						{name: "go"},
+						{alternatives: ["go"]},
 					]
 					filepaths: [
 						{alternatives: ["/workspace/go.mod"]},
@@ -354,8 +402,8 @@ When you run `invowk cmd list`, the supported hosts are displayed for each comma
 Available Commands
 
 From current directory:
-  build - Build the project [native] (linux, mac, windows)
-  clean - Clean build artifacts [native] (linux, mac)
+  myproject build - Build the project [native] (linux, macos, windows)
+  myproject clean - Clean build artifacts [native] (linux, macos)
 ```
 
 If you try to run a command on an unsupported platform, invowk displays a styled error message explaining which platforms are supported.
@@ -593,22 +641,22 @@ invowk cmd list
 
 ### Run a Command
 ```bash
-invowk cmd build
+invowk cmd myproject build
 ```
 
 ### Run a Command with Spaces in Name
 ```bash
-invowk cmd test unit
+invowk cmd myproject test unit
 ```
 
 ### Override Runtime
 ```bash
-invowk cmd build --runtime virtual
+invowk cmd myproject build --runtime virtual
 ```
 
 ### Verbose Mode
 ```bash
-invowk --verbose cmd build
+invowk --verbose cmd myproject build
 ```
 
 ## Project Structure
