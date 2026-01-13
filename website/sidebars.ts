@@ -1,0 +1,127 @@
+import type {SidebarsConfig} from '@docusaurus/plugin-content-docs';
+
+/**
+ * Invowk documentation sidebars.
+ *
+ * The documentation follows a gentle discovery/progression pattern:
+ * - Start with installation and quickstart
+ * - Move to core concepts (invkfile format, commands, groups)
+ * - Then dive into features (runtime modes, dependencies, etc.)
+ * - Finally, reference materials (CLI, schema)
+ */
+const sidebars: SidebarsConfig = {
+  docsSidebar: [
+    {
+      type: 'category',
+      label: 'Getting Started',
+      collapsed: false,
+      items: [
+        'getting-started/installation',
+        'getting-started/quickstart',
+        'getting-started/your-first-invkfile',
+      ],
+    },
+    {
+      type: 'category',
+      label: 'Core Concepts',
+      collapsed: false,
+      items: [
+        'core-concepts/invkfile-format',
+        'core-concepts/commands-and-groups',
+        'core-concepts/implementations',
+      ],
+    },
+    {
+      type: 'category',
+      label: 'Runtime Modes',
+      items: [
+        'runtime-modes/overview',
+        'runtime-modes/native',
+        'runtime-modes/virtual',
+        'runtime-modes/container',
+      ],
+    },
+    {
+      type: 'category',
+      label: 'Dependencies',
+      items: [
+        'dependencies/overview',
+        'dependencies/tools',
+        'dependencies/filepaths',
+        'dependencies/commands',
+        'dependencies/capabilities',
+        'dependencies/env-vars',
+        'dependencies/custom-checks',
+      ],
+    },
+    {
+      type: 'category',
+      label: 'Flags and Arguments',
+      items: [
+        'flags-and-arguments/overview',
+        'flags-and-arguments/flags',
+        'flags-and-arguments/positional-arguments',
+      ],
+    },
+    {
+      type: 'category',
+      label: 'Environment Configuration',
+      items: [
+        'environment/overview',
+        'environment/env-files',
+        'environment/env-vars',
+        'environment/precedence',
+      ],
+    },
+    {
+      type: 'category',
+      label: 'Advanced Features',
+      items: [
+        'advanced/interpreters',
+        'advanced/workdir',
+        'advanced/platform-specific',
+      ],
+    },
+    {
+      type: 'category',
+      label: 'Packs',
+      items: [
+        'packs/overview',
+        'packs/creating-packs',
+        'packs/validating',
+        'packs/distributing',
+      ],
+    },
+    {
+      type: 'category',
+      label: 'TUI Components',
+      items: [
+        'tui/overview',
+        'tui/input-and-write',
+        'tui/choose-and-confirm',
+        'tui/filter-and-file',
+        'tui/table-and-spin',
+        'tui/format-and-style',
+      ],
+    },
+    {
+      type: 'category',
+      label: 'Configuration',
+      items: [
+        'configuration/overview',
+        'configuration/options',
+      ],
+    },
+    {
+      type: 'category',
+      label: 'Reference',
+      items: [
+        'reference/cli',
+        'reference/invkfile-schema',
+        'reference/config-schema',
+      ],
+    },
+  ],
+};
+
+export default sidebars;

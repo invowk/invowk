@@ -1,0 +1,150 @@
+/**
+ * Any CSS included here will be global. The classic template
+ * bundles Infima by default. Infima is a CSS framework designed to
+ * work well for content-centric websites.
+ */
+
+/* Invowk Color Palette - Modern purple/indigo theme */
+:root {
+  --ifm-color-primary: #6366f1;
+  --ifm-color-primary-dark: #4f46e5;
+  --ifm-color-primary-darker: #4338ca;
+  --ifm-color-primary-darkest: #3730a3;
+  --ifm-color-primary-light: #818cf8;
+  --ifm-color-primary-lighter: #a5b4fc;
+  --ifm-color-primary-lightest: #c7d2fe;
+  --ifm-code-font-size: 95%;
+  --ifm-font-family-monospace: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', Menlo, Monaco, Consolas, monospace;
+  --docusaurus-highlighted-code-line-bg: rgba(99, 102, 241, 0.1);
+}
+
+/* Dark mode palette */
+[data-theme='dark'] {
+  --ifm-color-primary: #818cf8;
+  --ifm-color-primary-dark: #6366f1;
+  --ifm-color-primary-darker: #4f46e5;
+  --ifm-color-primary-darkest: #4338ca;
+  --ifm-color-primary-light: #a5b4fc;
+  --ifm-color-primary-lighter: #c7d2fe;
+  --ifm-color-primary-lightest: #e0e7ff;
+  --docusaurus-highlighted-code-line-bg: rgba(129, 140, 248, 0.2);
+}
+
+/* Custom hero styling */
+.hero--primary {
+  background: linear-gradient(135deg, #4f46e5 0%, #6366f1 50%, #818cf8 100%);
+}
+
+[data-theme='dark'] .hero--primary {
+  background: linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #4338ca 100%);
+}
+
+/* Code blocks styling */
+.theme-code-block {
+  border-radius: 8px;
+}
+
+/* CUE syntax highlighting - treat as JavaScript-like */
+pre code.language-cue {
+  color: inherit;
+}
+
+/* Terminal-like code blocks */
+.terminal-code pre {
+  background: #1a1a2e;
+  border-left: 4px solid var(--ifm-color-primary);
+}
+
+/* Feature cards styling */
+.feature-card {
+  border-radius: 12px;
+  padding: 2rem;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.feature-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.1);
+}
+
+/* Navbar styling */
+.navbar {
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+}
+
+[data-theme='dark'] .navbar {
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.2);
+}
+
+/* Footer styling */
+.footer--dark {
+  background: #1e1b4b;
+}
+
+/* Sidebar active item */
+.menu__link--active:not(.menu__link--sublist) {
+  background: linear-gradient(90deg, rgba(99, 102, 241, 0.1) 0%, transparent 100%);
+  border-left: 3px solid var(--ifm-color-primary);
+}
+
+/* Announcement bar custom styling */
+[class*='announcementBar'] {
+  font-weight: 500;
+}
+
+/* Table styling improvements */
+table {
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+th {
+  background: var(--ifm-color-primary-lightest);
+}
+
+[data-theme='dark'] th {
+  background: var(--ifm-color-primary-darkest);
+}
+
+/* Admonition styling */
+.admonition {
+  border-radius: 8px;
+}
+
+/* DocCard styling */
+.card {
+  border-radius: 12px;
+  transition: transform 0.2s ease;
+}
+
+.card:hover {
+  transform: translateY(-2px);
+}
+
+/* Tab styling */
+.tabs__item--active {
+  border-bottom-color: var(--ifm-color-primary);
+}
+
+/* TOC styling */
+.table-of-contents__link--active {
+  font-weight: 600;
+}
+
+/* Better scrollbar for code blocks */
+pre::-webkit-scrollbar {
+  height: 8px;
+}
+
+pre::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+pre::-webkit-scrollbar-thumb {
+  background: rgba(99, 102, 241, 0.3);
+  border-radius: 4px;
+}
+
+pre::-webkit-scrollbar-thumb:hover {
+  background: rgba(99, 102, 241, 0.5);
+}

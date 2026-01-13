@@ -1,0 +1,60 @@
+/**
+ * CSS files with the .module.css suffix will be treated as CSS modules
+ * and scoped locally.
+ */
+
+.heroBanner {
+  padding: 4rem 0;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+
+@media screen and (max-width: 996px) {
+  .heroBanner {
+    padding: 2rem;
+  }
+}
+
+.buttons {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.terminalDemo {
+  margin-top: 2rem;
+  max-width: 700px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.terminalCode {
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 12px;
+  padding: 1.5rem;
+  text-align: left;
+  font-size: 0.9rem;
+  line-height: 1.6;
+  overflow-x: auto;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.terminalCode code {
+  color: #e0e7ff;
+  font-family: 'JetBrains Mono', 'Fira Code', Menlo, Monaco, monospace;
+}
+
+@media screen and (max-width: 768px) {
+  .terminalDemo {
+    margin-top: 1.5rem;
+  }
+
+  .terminalCode {
+    font-size: 0.8rem;
+    padding: 1rem;
+  }
+}

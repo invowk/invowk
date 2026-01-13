@@ -285,6 +285,75 @@ When modifying pack-related code, verify:
 4. Nested pack detection works correctly
 5. The `pkg/pack/` tests pass: `go test -v ./pkg/pack/...`
 
+## Documentation Website (website/ directory)
+
+The `website/` directory contains a Docusaurus-based documentation website for Invowk.
+
+### CRITICAL: Documentation Maintenance Requirement
+
+**The documentation website MUST be kept in sync with the codebase.** When making changes to the following, you MUST update the corresponding documentation:
+
+1. **Invkfile Schema Changes** (`pkg/invkfile/invkfile_schema.cue`):
+   - Update `website/docs/reference/invkfile-schema.md`
+   - Update relevant feature documentation (e.g., new runtime options go in `runtime-modes/`)
+   - Update examples in `website/docs/getting-started/` if affected
+
+2. **Configuration Schema Changes** (`internal/config/config_schema.cue`):
+   - Update `website/docs/reference/config-schema.md`
+   - Update `website/docs/configuration/options.md`
+
+3. **CLI Command Changes** (`cmd/invowk/*.go`):
+   - Update `website/docs/reference/cli.md`
+   - Update relevant feature documentation
+
+4. **New Features or Major Changes**:
+   - Add or update the appropriate section in `website/docs/`
+   - Follow the existing documentation structure and tone (friendly, slightly humorous, progressive disclosure)
+
+5. **TUI Component Changes** (`cmd/invowk/tui_*.go`):
+   - Update relevant files in `website/docs/tui/`
+
+### Documentation Structure
+
+```
+website/docs/
+├── getting-started/     # Installation, quickstart, first invkfile
+├── core-concepts/       # Invkfile format, commands, implementations
+├── runtime-modes/       # Native, virtual, container execution
+├── dependencies/        # Tools, filepaths, capabilities, custom checks
+├── flags-and-arguments/ # CLI flags and positional arguments
+├── environment/         # Env files, env vars, precedence
+├── advanced/            # Interpreters, workdir, platform-specific
+├── packs/               # Pack creation, validation, distribution
+├── tui/                 # TUI components reference
+├── configuration/       # Config file and options
+└── reference/           # CLI, invkfile schema, config schema
+```
+
+### Documentation Style Guide
+
+- Use a friendly, approachable tone with occasional humor
+- Follow "progressive disclosure" - start simple, add complexity gradually
+- Include practical examples for every feature
+- Use admonitions (:::tip, :::warning, :::note) for important callouts
+- Keep code examples concise and focused
+
+### Testing Documentation Changes
+
+After making documentation changes:
+
+```bash
+cd website
+npm install    # First time only
+npm start      # Start dev server at localhost:3000
+```
+
+Verify:
+1. No build errors
+2. Navigation works correctly
+3. Code examples render properly
+4. Links are not broken
+
 ## Key Guidelines
 
 - In all planning and design decisions, always consider that the code must be highly testable, maintainable, and extensible.
