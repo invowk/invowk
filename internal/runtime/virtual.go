@@ -232,8 +232,9 @@ func (r *VirtualRuntime) getWorkDir(ctx *ExecutionContext) string {
 func (r *VirtualRuntime) buildEnv(ctx *ExecutionContext) map[string]string {
 	env := make(map[string]string)
 
-	// Start with current environment
-	for _, e := range os.Environ() {
+	// Start with current environment, filtering out Invowk-specific variables
+	// to prevent leakage between nested command invocations
+	for _, e := range FilterInvowkEnvVars(os.Environ()) {
 		if idx := strings.Index(e, "="); idx != -1 {
 			env[e[:idx]] = e[idx+1:]
 		}

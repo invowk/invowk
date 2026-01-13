@@ -189,3 +189,64 @@ func EnvToSlice(env map[string]string) []string {
 	}
 	return result
 }
+
+// FilterInvowkEnvVars filters out Invowk-specific environment variables from the given
+// environment slice. This prevents leakage of INVOWK_ARG_*, INVOWK_FLAG_*, ARGC, and ARGn
+// variables when a command's script invokes another invowk command.
+func FilterInvowkEnvVars(environ []string) []string {
+	result := make([]string, 0, len(environ))
+	for _, e := range environ {
+		idx := findEnvSeparator(e)
+		if idx == -1 {
+			// Malformed env var, keep it
+			result = append(result, e)
+			continue
+		}
+		name := e[:idx]
+		if shouldFilterEnvVar(name) {
+			continue
+		}
+		result = append(result, e)
+	}
+	return result
+}
+
+// findEnvSeparator returns the index of the '=' separator in an environment variable string
+func findEnvSeparator(e string) int {
+	for i := 0; i < len(e); i++ {
+		if e[i] == '=' {
+			return i
+		}
+	}
+	return -1
+}
+
+// shouldFilterEnvVar returns true if the environment variable name should be filtered
+// to prevent leakage between nested invowk command invocations.
+func shouldFilterEnvVar(name string) bool {
+	// Filter INVOWK_ARG_* and INVOWK_FLAG_* variables
+	if len(name) >= 11 && name[:11] == "INVOWK_ARG_" {
+		return true
+	}
+	if len(name) >= 12 && name[:12] == "INVOWK_FLAG_" {
+		return true
+	}
+
+	// Filter legacy ARGC variable
+	if name == "ARGC" {
+		return true
+	}
+
+	// Filter legacy ARGn variables (ARG1, ARG2, etc.)
+	if len(name) > 3 && name[:3] == "ARG" {
+		// Check if the rest is all digits
+		for i := 3; i < len(name); i++ {
+			if name[i] < '0' || name[i] > '9' {
+				return false
+			}
+		}
+		return true
+	}
+
+	return false
+}

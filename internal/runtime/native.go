@@ -77,7 +77,7 @@ func (r *NativeRuntime) Execute(ctx *ExecutionContext) *Result {
 
 	// Build environment
 	env := r.buildEnv(ctx)
-	cmd.Env = append(os.Environ(), EnvToSlice(env)...)
+	cmd.Env = append(FilterInvowkEnvVars(os.Environ()), EnvToSlice(env)...)
 
 	// Set I/O
 	cmd.Stdout = ctx.Stdout
@@ -122,7 +122,7 @@ func (r *NativeRuntime) ExecuteCapture(ctx *ExecutionContext) *Result {
 	}
 
 	env := r.buildEnv(ctx)
-	cmd.Env = append(os.Environ(), EnvToSlice(env)...)
+	cmd.Env = append(FilterInvowkEnvVars(os.Environ()), EnvToSlice(env)...)
 
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
