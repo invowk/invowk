@@ -218,6 +218,103 @@ type Flag struct {
 	Validation string `json:"validation,omitempty"`
 }
 
+// ArgumentType represents the data type of a positional argument
+type ArgumentType string
+
+const (
+	// ArgumentTypeString is the default argument type for string values
+	ArgumentTypeString ArgumentType = "string"
+	// ArgumentTypeInt is for integer arguments
+	ArgumentTypeInt ArgumentType = "int"
+	// ArgumentTypeFloat is for floating-point arguments
+	ArgumentTypeFloat ArgumentType = "float"
+)
+
+// Argument represents a positional command-line argument for a command
+type Argument struct {
+	// Name is the argument name (POSIX-compliant: starts with a letter, alphanumeric/hyphen/underscore)
+	// Used for documentation and environment variable naming (INVOWK_ARG_<NAME>)
+	Name string `json:"name"`
+	// Description provides help text for the argument
+	Description string `json:"description"`
+	// Required indicates whether this argument must be provided (optional, defaults to false)
+	Required bool `json:"required,omitempty"`
+	// DefaultValue is the default value if the argument is not provided (optional)
+	DefaultValue string `json:"default_value,omitempty"`
+	// Type specifies the data type of the argument (optional, defaults to "string")
+	// Supported types: "string", "int", "float"
+	Type ArgumentType `json:"type,omitempty"`
+	// Validation is a regex pattern to validate the argument value (optional)
+	Validation string `json:"validation,omitempty"`
+	// Variadic indicates this argument accepts multiple values (optional, defaults to false)
+	// Only the last argument can be variadic
+	Variadic bool `json:"variadic,omitempty"`
+}
+
+// GetType returns the effective type of the argument (defaults to "string" if not specified)
+func (a *Argument) GetType() ArgumentType {
+	if a.Type == "" {
+		return ArgumentTypeString
+	}
+	return a.Type
+}
+
+// ValidateArgumentValue validates an argument value at runtime against type and validation regex.
+// Returns nil if the value is valid, or an error describing the issue.
+func (a *Argument) ValidateArgumentValue(value string) error {
+	// Validate type
+	if err := validateArgumentValueType(value, a.GetType()); err != nil {
+		return fmt.Errorf("argument '%s' value '%s' is invalid: %s", a.Name, value, err.Error())
+	}
+
+	// Validate against regex pattern
+	if a.Validation != "" {
+		validationRegex, err := regexp.Compile(a.Validation)
+		if err != nil {
+			// This shouldn't happen as the regex is validated at parse time
+			return fmt.Errorf("argument '%s' has invalid validation pattern: %s", a.Name, err.Error())
+		}
+		if !validationRegex.MatchString(value) {
+			return fmt.Errorf("argument '%s' value '%s' does not match required pattern '%s'", a.Name, value, a.Validation)
+		}
+	}
+
+	return nil
+}
+
+// validateArgumentValueType validates that a value is compatible with the specified argument type
+func validateArgumentValueType(value string, argType ArgumentType) error {
+	switch argType {
+	case ArgumentTypeInt:
+		// Check if value is a valid integer
+		for i, c := range value {
+			if i == 0 && c == '-' {
+				continue // Allow negative sign at start
+			}
+			if c < '0' || c > '9' {
+				return fmt.Errorf("must be a valid integer")
+			}
+		}
+		if value == "" || value == "-" {
+			return fmt.Errorf("must be a valid integer")
+		}
+	case ArgumentTypeFloat:
+		// Check if value is a valid floating-point number
+		if value == "" {
+			return fmt.Errorf("must be a valid floating-point number")
+		}
+		_, err := strconv.ParseFloat(value, 64)
+		if err != nil {
+			return fmt.Errorf("must be a valid floating-point number")
+		}
+	case ArgumentTypeString:
+		// Any string is valid
+	default:
+		// Default to string (any value is valid)
+	}
+	return nil
+}
+
 // GetType returns the effective type of the flag (defaults to "string" if not specified)
 func (f *Flag) GetType() FlagType {
 	if f.Type == "" {
@@ -295,6 +392,10 @@ type Command struct {
 	DependsOn *DependsOn `json:"depends_on,omitempty"`
 	// Flags specifies command-line flags for this command
 	Flags []Flag `json:"flags,omitempty"`
+	// Args specifies positional arguments for this command
+	// Arguments are passed as environment variables: INVOWK_ARG_<NAME>
+	// For variadic arguments: INVOWK_ARG_<NAME>_COUNT and INVOWK_ARG_<NAME>_1, _2, etc.
+	Args []Argument `json:"args,omitempty"`
 }
 
 // GetCurrentHostOS returns the current operating system as HostOS
@@ -924,6 +1025,11 @@ func (inv *Invowkfile) validateCommand(cmd *Command) error {
 		return err
 	}
 
+	// Validate args
+	if err := inv.validateArgs(cmd); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -1001,6 +1107,101 @@ func (inv *Invowkfile) validateFlags(cmd *Command) error {
 				if !validationRegex.MatchString(flag.DefaultValue) {
 					return fmt.Errorf("command '%s' flag '%s' default_value '%s' does not match validation pattern '%s' in invowkfile at %s",
 						cmd.Name, flag.Name, flag.DefaultValue, flag.Validation, inv.FilePath)
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
+// argNameRegex validates POSIX-compliant argument names
+var argNameRegex = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9_-]*$`)
+
+// validateArgs validates the args for a command
+func (inv *Invowkfile) validateArgs(cmd *Command) error {
+	if len(cmd.Args) == 0 {
+		return nil
+	}
+
+	seenNames := make(map[string]bool)
+	foundOptional := false
+	foundVariadic := false
+
+	for i, arg := range cmd.Args {
+		// Validate name is not empty
+		if arg.Name == "" {
+			return fmt.Errorf("command '%s' argument #%d must have a name in invowkfile at %s", cmd.Name, i+1, inv.FilePath)
+		}
+
+		// Validate name is POSIX-compliant
+		if !argNameRegex.MatchString(arg.Name) {
+			return fmt.Errorf("command '%s' argument '%s' has invalid name (must start with a letter, contain only alphanumeric, hyphens, and underscores) in invowkfile at %s", cmd.Name, arg.Name, inv.FilePath)
+		}
+
+		// Validate description is not empty (after trimming whitespace)
+		if strings.TrimSpace(arg.Description) == "" {
+			return fmt.Errorf("command '%s' argument '%s' must have a non-empty description in invowkfile at %s", cmd.Name, arg.Name, inv.FilePath)
+		}
+
+		// Check for duplicate argument names
+		if seenNames[arg.Name] {
+			return fmt.Errorf("command '%s' has duplicate argument name '%s' in invowkfile at %s", cmd.Name, arg.Name, inv.FilePath)
+		}
+		seenNames[arg.Name] = true
+
+		// Validate type is valid (if specified) - note: bool is not allowed for args
+		if arg.Type != "" && arg.Type != ArgumentTypeString && arg.Type != ArgumentTypeInt && arg.Type != ArgumentTypeFloat {
+			return fmt.Errorf("command '%s' argument '%s' has invalid type '%s' (must be 'string', 'int', or 'float') in invowkfile at %s",
+				cmd.Name, arg.Name, arg.Type, inv.FilePath)
+		}
+
+		// Validate that required arguments don't have default values
+		if arg.Required && arg.DefaultValue != "" {
+			return fmt.Errorf("command '%s' argument '%s' cannot be both required and have a default_value in invowkfile at %s",
+				cmd.Name, arg.Name, inv.FilePath)
+		}
+
+		// Rule: Required arguments must come before optional arguments
+		isOptional := !arg.Required
+		if arg.Required && foundOptional {
+			return fmt.Errorf("command '%s' argument '%s': required arguments must come before optional arguments in invowkfile at %s",
+				cmd.Name, arg.Name, inv.FilePath)
+		}
+		if isOptional {
+			foundOptional = true
+		}
+
+		// Rule: Only the last argument can be variadic
+		if foundVariadic {
+			return fmt.Errorf("command '%s' argument '%s': only the last argument can be variadic (found after variadic argument) in invowkfile at %s",
+				cmd.Name, arg.Name, inv.FilePath)
+		}
+		if arg.Variadic {
+			foundVariadic = true
+		}
+
+		// Validate default_value is compatible with type
+		if arg.DefaultValue != "" {
+			if err := validateArgumentValueType(arg.DefaultValue, arg.GetType()); err != nil {
+				return fmt.Errorf("command '%s' argument '%s' default_value '%s' is not compatible with type '%s': %s in invowkfile at %s",
+					cmd.Name, arg.Name, arg.DefaultValue, arg.GetType(), err.Error(), inv.FilePath)
+			}
+		}
+
+		// Validate validation regex is valid
+		if arg.Validation != "" {
+			validationRegex, err := regexp.Compile(arg.Validation)
+			if err != nil {
+				return fmt.Errorf("command '%s' argument '%s' has invalid validation regex '%s': %s in invowkfile at %s",
+					cmd.Name, arg.Name, arg.Validation, err.Error(), inv.FilePath)
+			}
+
+			// Validate default_value matches validation regex (if both specified)
+			if arg.DefaultValue != "" {
+				if !validationRegex.MatchString(arg.DefaultValue) {
+					return fmt.Errorf("command '%s' argument '%s' default_value '%s' does not match validation pattern '%s' in invowkfile at %s",
+						cmd.Name, arg.Name, arg.DefaultValue, arg.Validation, inv.FilePath)
 				}
 			}
 		}

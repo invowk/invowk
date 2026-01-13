@@ -3371,3 +3371,948 @@ commands: [
 		t.Errorf("Flag[2].DefaultValue = %q, want %q", replicasFlag.DefaultValue, "3")
 	}
 }
+
+// ============================================================================
+// Tests for Positional Arguments Feature
+// ============================================================================
+
+func TestParseArgs_Basic(t *testing.T) {
+	cueContent := `
+group: "test"
+version: "1.0"
+
+commands: [
+	{
+		name: "greet"
+		description: "Greet a person"
+		implementations: [
+			{
+				script: "echo Hello $INVOWK_ARG_NAME"
+				target: { runtimes: [{name: "native"}] }
+			}
+		]
+		args: [
+			{name: "name", description: "The name to greet", required: true},
+			{name: "greeting", description: "The greeting to use", default_value: "Hello"},
+		]
+	}
+]
+`
+	tmpDir := t.TempDir()
+	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
+	if err := os.WriteFile(invowkfilePath, []byte(cueContent), 0644); err != nil {
+		t.Fatalf("Failed to write invowkfile: %v", err)
+	}
+
+	inv, err := Parse(invowkfilePath)
+	if err != nil {
+		t.Fatalf("Parse() error = %v", err)
+	}
+
+	if len(inv.Commands) != 1 {
+		t.Fatalf("Expected 1 command, got %d", len(inv.Commands))
+	}
+
+	cmd := inv.Commands[0]
+	if len(cmd.Args) != 2 {
+		t.Fatalf("Expected 2 args, got %d", len(cmd.Args))
+	}
+
+	// First arg - required
+	arg0 := cmd.Args[0]
+	if arg0.Name != "name" {
+		t.Errorf("Arg[0].Name = %q, want %q", arg0.Name, "name")
+	}
+	if arg0.Description != "The name to greet" {
+		t.Errorf("Arg[0].Description = %q, want %q", arg0.Description, "The name to greet")
+	}
+	if !arg0.Required {
+		t.Error("Arg[0].Required = false, want true")
+	}
+
+	// Second arg - optional with default
+	arg1 := cmd.Args[1]
+	if arg1.Name != "greeting" {
+		t.Errorf("Arg[1].Name = %q, want %q", arg1.Name, "greeting")
+	}
+	if arg1.Required {
+		t.Error("Arg[1].Required = true, want false")
+	}
+	if arg1.DefaultValue != "Hello" {
+		t.Errorf("Arg[1].DefaultValue = %q, want %q", arg1.DefaultValue, "Hello")
+	}
+}
+
+func TestParseArgs_WithTypes(t *testing.T) {
+	tests := []struct {
+		name         string
+		argType      string
+		defaultValue string
+		wantType     ArgumentType
+	}{
+		{"string type explicit", "string", "hello", ArgumentTypeString},
+		{"int type with positive", "int", "42", ArgumentTypeInt},
+		{"int type with zero", "int", "0", ArgumentTypeInt},
+		{"int type with negative", "int", "-10", ArgumentTypeInt},
+		{"float type with positive", "float", "3.14", ArgumentTypeFloat},
+		{"float type with negative", "float", "-2.5", ArgumentTypeFloat},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cueContent := fmt.Sprintf(`
+group: "test"
+version: "1.0"
+
+commands: [
+	{
+		name: "test"
+		implementations: [
+			{
+				script: "echo test"
+				target: { runtimes: [{name: "native"}] }
+			}
+		]
+		args: [
+			{name: "myarg", description: "Test arg", type: "%s", default_value: "%s"},
+		]
+	}
+]
+`, tt.argType, tt.defaultValue)
+
+			tmpDir := t.TempDir()
+			invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
+			if err := os.WriteFile(invowkfilePath, []byte(cueContent), 0644); err != nil {
+				t.Fatalf("Failed to write invowkfile: %v", err)
+			}
+
+			inv, err := Parse(invowkfilePath)
+			if err != nil {
+				t.Fatalf("Parse() error = %v", err)
+			}
+
+			arg := inv.Commands[0].Args[0]
+			if arg.GetType() != tt.wantType {
+				t.Errorf("Arg.GetType() = %v, want %v", arg.GetType(), tt.wantType)
+			}
+			if arg.DefaultValue != tt.defaultValue {
+				t.Errorf("Arg.DefaultValue = %v, want %v", arg.DefaultValue, tt.defaultValue)
+			}
+		})
+	}
+}
+
+func TestParseArgs_TypeDefaultsToString(t *testing.T) {
+	cueContent := `
+group: "test"
+version: "1.0"
+
+commands: [
+	{
+		name: "test"
+		implementations: [
+			{
+				script: "echo test"
+				target: { runtimes: [{name: "native"}] }
+			}
+		]
+		args: [
+			{name: "myarg", description: "Test arg"},
+		]
+	}
+]
+`
+	tmpDir := t.TempDir()
+	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
+	if err := os.WriteFile(invowkfilePath, []byte(cueContent), 0644); err != nil {
+		t.Fatalf("Failed to write invowkfile: %v", err)
+	}
+
+	inv, err := Parse(invowkfilePath)
+	if err != nil {
+		t.Fatalf("Parse() error = %v", err)
+	}
+
+	arg := inv.Commands[0].Args[0]
+	if arg.Type != "" {
+		t.Errorf("Arg.Type should be empty (unset), got %q", arg.Type)
+	}
+	if arg.GetType() != ArgumentTypeString {
+		t.Errorf("Arg.GetType() should default to 'string', got %v", arg.GetType())
+	}
+}
+
+func TestParseArgs_Variadic(t *testing.T) {
+	cueContent := `
+group: "test"
+version: "1.0"
+
+commands: [
+	{
+		name: "copy"
+		description: "Copy files to a destination"
+		implementations: [
+			{
+				script: "cp $INVOWK_ARG_FILES $INVOWK_ARG_DEST"
+				target: { runtimes: [{name: "native"}] }
+			}
+		]
+		args: [
+			{name: "dest", description: "Destination directory", required: true},
+			{name: "files", description: "Source files", required: true, variadic: true},
+		]
+	}
+]
+`
+	tmpDir := t.TempDir()
+	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
+	if err := os.WriteFile(invowkfilePath, []byte(cueContent), 0644); err != nil {
+		t.Fatalf("Failed to write invowkfile: %v", err)
+	}
+
+	inv, err := Parse(invowkfilePath)
+	if err != nil {
+		t.Fatalf("Parse() error = %v", err)
+	}
+
+	args := inv.Commands[0].Args
+	if len(args) != 2 {
+		t.Fatalf("Expected 2 args, got %d", len(args))
+	}
+
+	// First arg - non-variadic
+	if args[0].Variadic {
+		t.Error("Arg[0].Variadic = true, want false")
+	}
+
+	// Second arg - variadic
+	if !args[1].Variadic {
+		t.Error("Arg[1].Variadic = false, want true")
+	}
+}
+
+func TestParseArgs_ValidationRegex(t *testing.T) {
+	cueContent := `
+group: "test"
+version: "1.0"
+
+commands: [
+	{
+		name: "deploy"
+		implementations: [
+			{
+				script: "echo deploying to $INVOWK_ARG_ENV"
+				target: { runtimes: [{name: "native"}] }
+			}
+		]
+		args: [
+			{name: "env", description: "Target environment", required: true, validation: "^(dev|staging|prod)$"},
+		]
+	}
+]
+`
+	tmpDir := t.TempDir()
+	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
+	if err := os.WriteFile(invowkfilePath, []byte(cueContent), 0644); err != nil {
+		t.Fatalf("Failed to write invowkfile: %v", err)
+	}
+
+	inv, err := Parse(invowkfilePath)
+	if err != nil {
+		t.Fatalf("Parse() error = %v", err)
+	}
+
+	arg := inv.Commands[0].Args[0]
+	if arg.Validation != "^(dev|staging|prod)$" {
+		t.Errorf("Arg.Validation = %q, want %q", arg.Validation, "^(dev|staging|prod)$")
+	}
+}
+
+func TestParseArgsValidation_InvalidName(t *testing.T) {
+	tests := []struct {
+		name    string
+		argName string
+	}{
+		{"starts with number", "1arg"},
+		{"contains space", "my arg"},
+		{"special characters", "arg@name"},
+		{"empty name", ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cueContent := `
+group: "test"
+version: "1.0"
+
+commands: [
+	{
+		name: "test"
+		implementations: [
+			{
+				script: "echo test"
+				target: { runtimes: [{name: "native"}] }
+			}
+		]
+		args: [
+			{name: "` + tt.argName + `", description: "Test arg"},
+		]
+	}
+]
+`
+			tmpDir := t.TempDir()
+			invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
+			if err := os.WriteFile(invowkfilePath, []byte(cueContent), 0644); err != nil {
+				t.Fatalf("Failed to write invowkfile: %v", err)
+			}
+
+			_, err := Parse(invowkfilePath)
+			if err == nil {
+				t.Errorf("Parse() should reject arg with invalid name %q", tt.argName)
+			}
+		})
+	}
+}
+
+func TestParseArgsValidation_ValidNames(t *testing.T) {
+	tests := []struct {
+		name    string
+		argName string
+	}{
+		{"simple lowercase", "name"},
+		{"with hyphen", "output-file"},
+		{"with underscore", "output_file"},
+		{"with numbers", "file1"},
+		{"mixed case", "outputFile"},
+		{"uppercase start", "Name"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cueContent := `
+group: "test"
+version: "1.0"
+
+commands: [
+	{
+		name: "test"
+		implementations: [
+			{
+				script: "echo test"
+				target: { runtimes: [{name: "native"}] }
+			}
+		]
+		args: [
+			{name: "` + tt.argName + `", description: "Test arg"},
+		]
+	}
+]
+`
+			tmpDir := t.TempDir()
+			invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
+			if err := os.WriteFile(invowkfilePath, []byte(cueContent), 0644); err != nil {
+				t.Fatalf("Failed to write invowkfile: %v", err)
+			}
+
+			inv, err := Parse(invowkfilePath)
+			if err != nil {
+				t.Errorf("Parse() should accept arg with valid name %q, got error: %v", tt.argName, err)
+				return
+			}
+
+			if len(inv.Commands[0].Args) != 1 {
+				t.Errorf("Expected 1 arg, got %d", len(inv.Commands[0].Args))
+			}
+		})
+	}
+}
+
+func TestParseArgsValidation_EmptyDescription(t *testing.T) {
+	cueContent := `
+group: "test"
+version: "1.0"
+
+commands: [
+	{
+		name: "test"
+		implementations: [
+			{
+				script: "echo test"
+				target: { runtimes: [{name: "native"}] }
+			}
+		]
+		args: [
+			{name: "myarg", description: "   "},
+		]
+	}
+]
+`
+	tmpDir := t.TempDir()
+	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
+	if err := os.WriteFile(invowkfilePath, []byte(cueContent), 0644); err != nil {
+		t.Fatalf("Failed to write invowkfile: %v", err)
+	}
+
+	_, err := Parse(invowkfilePath)
+	if err == nil {
+		t.Error("Parse() should reject arg with empty/whitespace-only description")
+	}
+}
+
+func TestParseArgsValidation_DuplicateNames(t *testing.T) {
+	cueContent := `
+group: "test"
+version: "1.0"
+
+commands: [
+	{
+		name: "test"
+		implementations: [
+			{
+				script: "echo test"
+				target: { runtimes: [{name: "native"}] }
+			}
+		]
+		args: [
+			{name: "name", description: "First argument"},
+			{name: "name", description: "Duplicate argument"},
+		]
+	}
+]
+`
+	tmpDir := t.TempDir()
+	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
+	if err := os.WriteFile(invowkfilePath, []byte(cueContent), 0644); err != nil {
+		t.Fatalf("Failed to write invowkfile: %v", err)
+	}
+
+	_, err := Parse(invowkfilePath)
+	if err == nil {
+		t.Error("Parse() should reject duplicate arg names")
+	}
+	if !strings.Contains(err.Error(), "duplicate") {
+		t.Errorf("Error should mention 'duplicate', got: %v", err)
+	}
+}
+
+func TestParseArgsValidation_RequiredAfterOptional(t *testing.T) {
+	cueContent := `
+group: "test"
+version: "1.0"
+
+commands: [
+	{
+		name: "test"
+		implementations: [
+			{
+				script: "echo test"
+				target: { runtimes: [{name: "native"}] }
+			}
+		]
+		args: [
+			{name: "optional", description: "Optional arg"},
+			{name: "required", description: "Required arg", required: true},
+		]
+	}
+]
+`
+	tmpDir := t.TempDir()
+	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
+	if err := os.WriteFile(invowkfilePath, []byte(cueContent), 0644); err != nil {
+		t.Fatalf("Failed to write invowkfile: %v", err)
+	}
+
+	_, err := Parse(invowkfilePath)
+	if err == nil {
+		t.Error("Parse() should reject required arg after optional arg")
+	}
+	if !strings.Contains(err.Error(), "required") && !strings.Contains(err.Error(), "optional") {
+		t.Errorf("Error should mention required/optional ordering, got: %v", err)
+	}
+}
+
+func TestParseArgsValidation_VariadicNotLast(t *testing.T) {
+	cueContent := `
+group: "test"
+version: "1.0"
+
+commands: [
+	{
+		name: "test"
+		implementations: [
+			{
+				script: "echo test"
+				target: { runtimes: [{name: "native"}] }
+			}
+		]
+		args: [
+			{name: "files", description: "Source files", required: true, variadic: true},
+			{name: "dest", description: "Destination", required: true},
+		]
+	}
+]
+`
+	tmpDir := t.TempDir()
+	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
+	if err := os.WriteFile(invowkfilePath, []byte(cueContent), 0644); err != nil {
+		t.Fatalf("Failed to write invowkfile: %v", err)
+	}
+
+	_, err := Parse(invowkfilePath)
+	if err == nil {
+		t.Error("Parse() should reject variadic arg that is not last")
+	}
+	if !strings.Contains(err.Error(), "variadic") {
+		t.Errorf("Error should mention variadic constraint, got: %v", err)
+	}
+}
+
+func TestParseArgsValidation_RequiredWithDefaultValue(t *testing.T) {
+	cueContent := `
+group: "test"
+version: "1.0"
+
+commands: [
+	{
+		name: "test"
+		implementations: [
+			{
+				script: "echo test"
+				target: { runtimes: [{name: "native"}] }
+			}
+		]
+		args: [
+			{name: "myarg", description: "Test arg", required: true, default_value: "foo"},
+		]
+	}
+]
+`
+	tmpDir := t.TempDir()
+	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
+	if err := os.WriteFile(invowkfilePath, []byte(cueContent), 0644); err != nil {
+		t.Fatalf("Failed to write invowkfile: %v", err)
+	}
+
+	_, err := Parse(invowkfilePath)
+	if err == nil {
+		t.Error("Parse() should reject arg that is both required and has default_value")
+	}
+	if !strings.Contains(err.Error(), "required") && !strings.Contains(err.Error(), "default_value") {
+		t.Errorf("Error should mention required/default_value conflict, got: %v", err)
+	}
+}
+
+func TestParseArgsValidation_InvalidType(t *testing.T) {
+	cueContent := `
+group: "test"
+version: "1.0"
+
+commands: [
+	{
+		name: "test"
+		implementations: [
+			{
+				script: "echo test"
+				target: { runtimes: [{name: "native"}] }
+			}
+		]
+		args: [
+			{name: "myarg", description: "Test arg", type: "invalid"},
+		]
+	}
+]
+`
+	tmpDir := t.TempDir()
+	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
+	if err := os.WriteFile(invowkfilePath, []byte(cueContent), 0644); err != nil {
+		t.Fatalf("Failed to write invowkfile: %v", err)
+	}
+
+	_, err := Parse(invowkfilePath)
+	if err == nil {
+		t.Error("Parse() should reject invalid arg type")
+	}
+}
+
+func TestParseArgsValidation_TypeIncompatibleWithDefault(t *testing.T) {
+	tests := []struct {
+		name         string
+		argType      string
+		defaultValue string
+	}{
+		{"int with non-number", "int", "abc"},
+		{"int with float", "int", "3.14"},
+		{"float with non-number", "float", "abc"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cueContent := fmt.Sprintf(`
+group: "test"
+version: "1.0"
+
+commands: [
+	{
+		name: "test"
+		implementations: [
+			{
+				script: "echo test"
+				target: { runtimes: [{name: "native"}] }
+			}
+		]
+		args: [
+			{name: "myarg", description: "Test arg", type: "%s", default_value: "%s"},
+		]
+	}
+]
+`, tt.argType, tt.defaultValue)
+
+			tmpDir := t.TempDir()
+			invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
+			if err := os.WriteFile(invowkfilePath, []byte(cueContent), 0644); err != nil {
+				t.Fatalf("Failed to write invowkfile: %v", err)
+			}
+
+			_, err := Parse(invowkfilePath)
+			if err == nil {
+				t.Errorf("Parse() should reject arg with type %q and incompatible default_value %q", tt.argType, tt.defaultValue)
+			}
+		})
+	}
+}
+
+func TestParseArgsValidation_InvalidRegex(t *testing.T) {
+	cueContent := `
+group: "test"
+version: "1.0"
+
+commands: [
+	{
+		name: "test"
+		implementations: [
+			{
+				script: "echo test"
+				target: { runtimes: [{name: "native"}] }
+			}
+		]
+		args: [
+			{name: "myarg", description: "Test arg", validation: "[invalid(regex"},
+		]
+	}
+]
+`
+	tmpDir := t.TempDir()
+	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
+	if err := os.WriteFile(invowkfilePath, []byte(cueContent), 0644); err != nil {
+		t.Fatalf("Failed to write invowkfile: %v", err)
+	}
+
+	_, err := Parse(invowkfilePath)
+	if err == nil {
+		t.Error("Parse() should reject invalid validation regex")
+	}
+}
+
+func TestParseArgsValidation_DefaultNotMatchingValidation(t *testing.T) {
+	cueContent := `
+group: "test"
+version: "1.0"
+
+commands: [
+	{
+		name: "test"
+		implementations: [
+			{
+				script: "echo test"
+				target: { runtimes: [{name: "native"}] }
+			}
+		]
+		args: [
+			{name: "env", description: "Environment", validation: "^(dev|staging|prod)$", default_value: "invalid"},
+		]
+	}
+]
+`
+	tmpDir := t.TempDir()
+	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
+	if err := os.WriteFile(invowkfilePath, []byte(cueContent), 0644); err != nil {
+		t.Fatalf("Failed to write invowkfile: %v", err)
+	}
+
+	_, err := Parse(invowkfilePath)
+	if err == nil {
+		t.Error("Parse() should reject default_value that doesn't match validation pattern")
+	}
+}
+
+func TestValidateArgumentValue(t *testing.T) {
+	tests := []struct {
+		name       string
+		arg        Argument
+		value      string
+		wantErr    bool
+		errContain string
+	}{
+		{
+			name:    "string type accepts any value",
+			arg:     Argument{Name: "test", Type: ArgumentTypeString},
+			value:   "hello world",
+			wantErr: false,
+		},
+		{
+			name:    "int type accepts positive",
+			arg:     Argument{Name: "test", Type: ArgumentTypeInt},
+			value:   "42",
+			wantErr: false,
+		},
+		{
+			name:    "int type accepts zero",
+			arg:     Argument{Name: "test", Type: ArgumentTypeInt},
+			value:   "0",
+			wantErr: false,
+		},
+		{
+			name:    "int type accepts negative",
+			arg:     Argument{Name: "test", Type: ArgumentTypeInt},
+			value:   "-10",
+			wantErr: false,
+		},
+		{
+			name:       "int type rejects non-integer",
+			arg:        Argument{Name: "test", Type: ArgumentTypeInt},
+			value:      "abc",
+			wantErr:    true,
+			errContain: "must be a valid integer",
+		},
+		{
+			name:       "int type rejects float",
+			arg:        Argument{Name: "test", Type: ArgumentTypeInt},
+			value:      "3.14",
+			wantErr:    true,
+			errContain: "must be a valid integer",
+		},
+		{
+			name:    "float type accepts positive",
+			arg:     Argument{Name: "test", Type: ArgumentTypeFloat},
+			value:   "3.14",
+			wantErr: false,
+		},
+		{
+			name:    "float type accepts negative",
+			arg:     Argument{Name: "test", Type: ArgumentTypeFloat},
+			value:   "-2.5",
+			wantErr: false,
+		},
+		{
+			name:    "float type accepts zero",
+			arg:     Argument{Name: "test", Type: ArgumentTypeFloat},
+			value:   "0.0",
+			wantErr: false,
+		},
+		{
+			name:    "float type accepts integer-like",
+			arg:     Argument{Name: "test", Type: ArgumentTypeFloat},
+			value:   "42",
+			wantErr: false,
+		},
+		{
+			name:       "float type rejects non-number",
+			arg:        Argument{Name: "test", Type: ArgumentTypeFloat},
+			value:      "abc",
+			wantErr:    true,
+			errContain: "must be a valid floating-point number",
+		},
+		{
+			name:    "validation regex passes",
+			arg:     Argument{Name: "env", Type: ArgumentTypeString, Validation: "^(dev|staging|prod)$"},
+			value:   "prod",
+			wantErr: false,
+		},
+		{
+			name:       "validation regex fails",
+			arg:        Argument{Name: "env", Type: ArgumentTypeString, Validation: "^(dev|staging|prod)$"},
+			value:      "invalid",
+			wantErr:    true,
+			errContain: "does not match required pattern",
+		},
+		{
+			name:    "empty type defaults to string",
+			arg:     Argument{Name: "test"},
+			value:   "anything",
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.arg.ValidateArgumentValue(tt.value)
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("ValidateArgumentValue() should return error")
+				} else if tt.errContain != "" && !strings.Contains(err.Error(), tt.errContain) {
+					t.Errorf("ValidateArgumentValue() error = %v, should contain %q", err, tt.errContain)
+				}
+			} else {
+				if err != nil {
+					t.Errorf("ValidateArgumentValue() unexpected error = %v", err)
+				}
+			}
+		})
+	}
+}
+
+func TestParseArgs_EmptyList(t *testing.T) {
+	cueContent := `
+group: "test"
+version: "1.0"
+
+commands: [
+	{
+		name: "test"
+		implementations: [
+			{
+				script: "echo test"
+				target: { runtimes: [{name: "native"}] }
+			}
+		]
+		args: []
+	}
+]
+`
+	tmpDir := t.TempDir()
+	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
+	if err := os.WriteFile(invowkfilePath, []byte(cueContent), 0644); err != nil {
+		t.Fatalf("Failed to write invowkfile: %v", err)
+	}
+
+	inv, err := Parse(invowkfilePath)
+	if err != nil {
+		t.Fatalf("Parse() error = %v", err)
+	}
+
+	if len(inv.Commands[0].Args) != 0 {
+		t.Errorf("Expected 0 args, got %d", len(inv.Commands[0].Args))
+	}
+}
+
+func TestParseArgs_NoArgsField(t *testing.T) {
+	cueContent := `
+group: "test"
+version: "1.0"
+
+commands: [
+	{
+		name: "test"
+		implementations: [
+			{
+				script: "echo test"
+				target: { runtimes: [{name: "native"}] }
+			}
+		]
+	}
+]
+`
+	tmpDir := t.TempDir()
+	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
+	if err := os.WriteFile(invowkfilePath, []byte(cueContent), 0644); err != nil {
+		t.Fatalf("Failed to write invowkfile: %v", err)
+	}
+
+	inv, err := Parse(invowkfilePath)
+	if err != nil {
+		t.Fatalf("Parse() error = %v", err)
+	}
+
+	if inv.Commands[0].Args != nil && len(inv.Commands[0].Args) != 0 {
+		t.Errorf("Expected nil or empty args, got %v", inv.Commands[0].Args)
+	}
+}
+
+func TestParseArgs_AllFeatures(t *testing.T) {
+	// Test an arg with all features together
+	cueContent := `
+group: "test"
+version: "1.0"
+
+commands: [
+	{
+		name: "deploy"
+		description: "Deploy the application"
+		implementations: [
+			{
+				script: "echo deploying to $INVOWK_ARG_ENV with $INVOWK_ARG_REPLICAS replicas"
+				target: { runtimes: [{name: "native"}] }
+			}
+		]
+		args: [
+			{
+				name: "env"
+				description: "Target environment"
+				type: "string"
+				required: true
+				validation: "^(dev|staging|prod)$"
+			},
+			{
+				name: "replicas"
+				description: "Number of replicas"
+				type: "int"
+				default_value: "3"
+			},
+			{
+				name: "extra-args"
+				description: "Extra arguments to pass"
+				variadic: true
+			},
+		]
+	}
+]
+`
+	tmpDir := t.TempDir()
+	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
+	if err := os.WriteFile(invowkfilePath, []byte(cueContent), 0644); err != nil {
+		t.Fatalf("Failed to write invowkfile: %v", err)
+	}
+
+	inv, err := Parse(invowkfilePath)
+	if err != nil {
+		t.Fatalf("Parse() error = %v", err)
+	}
+
+	args := inv.Commands[0].Args
+	if len(args) != 3 {
+		t.Fatalf("Expected 3 args, got %d", len(args))
+	}
+
+	// Check env arg
+	envArg := args[0]
+	if envArg.Name != "env" {
+		t.Errorf("Arg[0].Name = %q, want %q", envArg.Name, "env")
+	}
+	if envArg.GetType() != ArgumentTypeString {
+		t.Errorf("Arg[0].GetType() = %v, want %v", envArg.GetType(), ArgumentTypeString)
+	}
+	if !envArg.Required {
+		t.Error("Arg[0].Required = false, want true")
+	}
+	if envArg.Validation != "^(dev|staging|prod)$" {
+		t.Errorf("Arg[0].Validation = %q, want %q", envArg.Validation, "^(dev|staging|prod)$")
+	}
+
+	// Check replicas arg
+	replicasArg := args[1]
+	if replicasArg.GetType() != ArgumentTypeInt {
+		t.Errorf("Arg[1].GetType() = %v, want %v", replicasArg.GetType(), ArgumentTypeInt)
+	}
+	if replicasArg.DefaultValue != "3" {
+		t.Errorf("Arg[1].DefaultValue = %q, want %q", replicasArg.DefaultValue, "3")
+	}
+	if replicasArg.Required {
+		t.Error("Arg[1].Required = true, want false")
+	}
+
+	// Check extra-args arg
+	extraArg := args[2]
+	if !extraArg.Variadic {
+		t.Error("Arg[2].Variadic = false, want true")
+	}
+}

@@ -891,7 +891,7 @@ commands: [
 		]
 		flags: [
 			{name: "env", description: "Environment (dev, staging, or prod)", validation: "^(dev|staging|prod)$", default_value: "dev"},
-			{name: "version", description: "Version number (semver format)", validation: "^[0-9]+\\.[0-9]+\\.[0-9]+$", default_value: "1.0.0"},
+			{name: "version", description: "Version number (semver format)", validation: #"^[0-9]+\.[0-9]+\.[0-9]+$"#, default_value: "1.0.0"},
 		]
 	},
 
@@ -950,7 +950,7 @@ commands: [
 				type:          "string"
 				short:         "t"
 				default_value: "1.0.0"
-				validation:    "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+				validation:    #"^[0-9]+\.[0-9]+\.[0-9]+$"#
 			},
 		]
 	},
@@ -1076,5 +1076,261 @@ commands: [
 			APP_NAME:    "demo-container-app"
 			APP_VERSION: "1.0.0"
 		}
+	},
+
+	// ============================================================================
+	// SECTION 12: Positional Arguments
+	// ============================================================================
+	// These commands demonstrate positional command-line arguments.
+
+	// Example 12.1: Simple command with required argument
+	{
+		name:        "args simple"
+		description: "Command with a single required argument"
+		implementations: [
+			{
+				script: """
+					echo "=== Simple Positional Argument Demo ==="
+					echo ""
+					echo "You provided the following argument:"
+					echo "  INVOWK_ARG_NAME = '$INVOWK_ARG_NAME'"
+					echo ""
+					echo "Hello, $INVOWK_ARG_NAME!"
+					echo ""
+					echo "Try: invowk cmd examples args simple Alice"
+					"""
+				target: {
+					runtimes: [{name: "native"}]
+				}
+			}
+		]
+		args: [
+			{name: "name", description: "The name to greet", required: true},
+		]
+	},
+
+	// Example 12.2: Command with required and optional arguments
+	{
+		name:        "args optional"
+		description: "Command with required and optional arguments"
+		implementations: [
+			{
+				script: """
+					echo "=== Required + Optional Arguments Demo ==="
+					echo ""
+					echo "Arguments received:"
+					echo "  INVOWK_ARG_NAME = '$INVOWK_ARG_NAME' (required)"
+					echo "  INVOWK_ARG_GREETING = '$INVOWK_ARG_GREETING' (optional, default: Hello)"
+					echo ""
+					echo "$INVOWK_ARG_GREETING, $INVOWK_ARG_NAME!"
+					echo ""
+					echo "Try: invowk cmd examples args optional Alice"
+					echo "Try: invowk cmd examples args optional Alice 'Good morning'"
+					"""
+				target: {
+					runtimes: [{name: "native"}]
+				}
+			}
+		]
+		args: [
+			{name: "name", description: "The name to greet", required: true},
+			{name: "greeting", description: "The greeting to use", default_value: "Hello"},
+		]
+	},
+
+	// Example 12.3: Command with typed arguments (int, float)
+	{
+		name:        "args typed"
+		description: "Command with typed positional arguments"
+		implementations: [
+			{
+				script: """
+					echo "=== Typed Arguments Demo ==="
+					echo ""
+					echo "Arguments received:"
+					echo "  INVOWK_ARG_WIDTH (int) = '$INVOWK_ARG_WIDTH'"
+					echo "  INVOWK_ARG_HEIGHT (int) = '$INVOWK_ARG_HEIGHT'"
+					echo "  INVOWK_ARG_SCALE (float) = '$INVOWK_ARG_SCALE'"
+					echo ""
+					echo "Typed arguments are validated at runtime:"
+					echo "  - int: only valid integers accepted"
+					echo "  - float: only valid floating-point numbers accepted"
+					echo ""
+					echo "Try: invowk cmd examples args typed 800 600 1.5"
+					"""
+				target: {
+					runtimes: [{name: "native"}]
+				}
+			}
+		]
+		args: [
+			{name: "width", description: "Width in pixels", required: true, type: "int"},
+			{name: "height", description: "Height in pixels", required: true, type: "int"},
+			{name: "scale", description: "Scale factor", type: "float", default_value: "1.0"},
+		]
+	},
+
+	// Example 12.4: Command with validated arguments (regex)
+	{
+		name:        "args validated"
+		description: "Command with regex-validated arguments"
+		implementations: [
+			{
+				script: """
+					echo "=== Validated Arguments Demo ==="
+					echo ""
+					echo "Arguments received:"
+					echo "  INVOWK_ARG_ENV = '$INVOWK_ARG_ENV' (must be dev|staging|prod)"
+					echo "  INVOWK_ARG_VERSION = '$INVOWK_ARG_VERSION' (must be semver format)"
+					echo ""
+					echo "Deploying version $INVOWK_ARG_VERSION to $INVOWK_ARG_ENV..."
+					echo ""
+					echo "Try: invowk cmd examples args validated staging 2.1.0"
+					"""
+				target: {
+					runtimes: [{name: "native"}]
+				}
+			}
+		]
+		args: [
+			{name: "env", description: "Target environment (dev, staging, or prod)", required: true, validation: "^(dev|staging|prod)$"},
+			{name: "version", description: "Version to deploy (semver format)", required: true, validation: #"^[0-9]+\.[0-9]+\.[0-9]+$"#},
+		]
+	},
+
+	// Example 12.5: Command with variadic arguments
+	{
+		name:        "args variadic"
+		description: "Command with variadic arguments (accepts multiple values)"
+		implementations: [
+			{
+				script: #"""
+					echo "=== Variadic Arguments Demo ==="
+					echo ""
+					echo "Arguments received:"
+					echo "  INVOWK_ARG_DESTINATION = '$INVOWK_ARG_DESTINATION'"
+					echo "  INVOWK_ARG_FILES = '$INVOWK_ARG_FILES' (space-joined)"
+					echo "  INVOWK_ARG_FILES_COUNT = '$INVOWK_ARG_FILES_COUNT'"
+					echo ""
+					echo "Individual file arguments:"
+					i=1
+					while [ $i -le ${INVOWK_ARG_FILES_COUNT:-0} ]; do
+					    eval "file=\$INVOWK_ARG_FILES_$i"
+					    echo "  INVOWK_ARG_FILES_$i = '$file'"
+					    i=$((i + 1))
+					done
+					echo ""
+					echo "Variadic arguments collect all remaining positional values."
+					echo "Only the last argument can be variadic."
+					echo ""
+					echo "Try: invowk cmd examples args variadic /tmp file1.txt file2.txt file3.txt"
+					"""#
+				target: {
+					runtimes:  [{name: "native"}]
+					platforms: [{name: "linux"}, {name: "macos"}]
+				}
+			}
+		]
+		args: [
+			{name: "destination", description: "Destination directory", required: true},
+			{name: "files", description: "Source files to copy", required: true, variadic: true},
+		]
+	},
+
+	// Example 12.6: Command with all argument features combined
+	{
+		name:        "args full"
+		description: "Command demonstrating all argument features"
+		implementations: [
+			{
+				script: """
+					echo "=========================================="
+					echo "     Full Arguments Feature Demo"
+					echo "=========================================="
+					echo ""
+					echo "  Required string arg (validated):"
+					echo "    INVOWK_ARG_ENV = '$INVOWK_ARG_ENV'"
+					echo ""
+					echo "  Optional typed args with defaults:"
+					echo "    INVOWK_ARG_REPLICAS (int) = '$INVOWK_ARG_REPLICAS'"
+					echo "    INVOWK_ARG_TIMEOUT (float) = '$INVOWK_ARG_TIMEOUT'"
+					echo ""
+					echo "  Variadic arg (collects remaining args):"
+					echo "    INVOWK_ARG_SERVICES = '$INVOWK_ARG_SERVICES'"
+					echo "    INVOWK_ARG_SERVICES_COUNT = '$INVOWK_ARG_SERVICES_COUNT'"
+					echo ""
+					echo "Try: invowk cmd examples args full prod 3 30.0 api web worker"
+					echo "=========================================="
+					"""
+				target: {
+					runtimes:  [{name: "native"}]
+					platforms: [{name: "linux"}, {name: "macos"}]
+				}
+			}
+		]
+		args: [
+			{
+				name:        "env"
+				description: "Target environment"
+				required:    true
+				validation:  "^(dev|staging|prod)$"
+			},
+			{
+				name:          "replicas"
+				description:   "Number of replicas"
+				type:          "int"
+				default_value: "1"
+			},
+			{
+				name:          "timeout"
+				description:   "Request timeout in seconds"
+				type:          "float"
+				default_value: "30.0"
+			},
+			{
+				name:        "services"
+				description: "Services to deploy"
+				variadic:    true
+			},
+		]
+	},
+
+	// Example 12.7: Command with both flags and arguments
+	{
+		name:        "args with flags"
+		description: "Command combining positional arguments and flags"
+		implementations: [
+			{
+				script: """
+					echo "=== Arguments + Flags Combined Demo ==="
+					echo ""
+					echo "Positional Arguments:"
+					echo "  INVOWK_ARG_SOURCE = '$INVOWK_ARG_SOURCE'"
+					echo "  INVOWK_ARG_DESTINATION = '$INVOWK_ARG_DESTINATION'"
+					echo ""
+					echo "Flags:"
+					echo "  INVOWK_FLAG_VERBOSE = '$INVOWK_FLAG_VERBOSE'"
+					echo "  INVOWK_FLAG_FORCE = '$INVOWK_FLAG_FORCE'"
+					echo "  INVOWK_FLAG_BACKUP = '$INVOWK_FLAG_BACKUP'"
+					echo ""
+					echo "Both positional args and flags can be used together."
+					echo "Flags are prefixed with INVOWK_FLAG_, args with INVOWK_ARG_."
+					echo ""
+					echo "Try: invowk cmd examples args with flags file.txt /tmp --verbose --backup"
+					"""
+				target: {
+					runtimes: [{name: "native"}]
+				}
+			}
+		]
+		args: [
+			{name: "source", description: "Source file", required: true},
+			{name: "destination", description: "Destination directory", required: true},
+		]
+		flags: [
+			{name: "verbose", description: "Enable verbose output", type: "bool", short: "v", default_value: "false"},
+			{name: "force", description: "Force overwrite", type: "bool", short: "f", default_value: "false"},
+			{name: "backup", description: "Create backup before overwriting", type: "bool", short: "b", default_value: "false"},
+		]
 	},
 ]

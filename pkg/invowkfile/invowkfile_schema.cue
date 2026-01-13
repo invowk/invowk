@@ -186,6 +186,49 @@
 	custom_checks?: [...#CustomCheckDependency]
 }
 
+// Argument represents a positional command-line argument for a command
+#Argument: {
+	// name is the argument identifier (required, POSIX-compliant)
+	// Used for documentation, environment variable naming (INVOWK_ARG_<NAME>), and error messages
+	// Must start with a letter, contain only alphanumeric characters, hyphens, and underscores
+	// Examples: "file", "output-dir", "source_path"
+	name: string & =~"^[a-zA-Z][a-zA-Z0-9_-]*$" & !=""
+
+	// description provides help text for the argument (required)
+	description: string & =~"^\\s*\\S.*$"
+
+	// required indicates whether this argument must be provided (optional, defaults to false)
+	// If true, the command will fail if the argument is not provided
+	// An argument cannot be both required and have a default_value
+	// Required arguments must come before optional arguments in the args list
+	required?: bool
+
+	// default_value is the default value if the argument is not provided (optional)
+	// Cannot be specified together with required: true
+	// Must be compatible with the specified type (if type is specified)
+	default_value?: string
+
+	// type specifies the data type of the argument (optional, defaults to "string")
+	// Supported types: "string", "int", "float"
+	// - "string": any string value (default)
+	// - "int": must be a valid integer
+	// - "float": must be a valid floating-point number
+	// Note: "bool" is not supported for positional arguments (use flags instead)
+	type?: "string" | "int" | "float"
+
+	// validation is a regex pattern to validate the argument value (optional)
+	// The argument value must match this pattern
+	// If default_value is specified, it must also match this pattern
+	validation?: string
+
+	// variadic indicates this argument accepts multiple values (optional, defaults to false)
+	// Only the last argument in the args list can be variadic
+	// Variadic arguments are passed as space-separated values in INVOWK_ARG_<NAME>
+	// Individual values are also available as INVOWK_ARG_<NAME>_1, INVOWK_ARG_<NAME>_2, etc.
+	// The count is available as INVOWK_ARG_<NAME>_COUNT
+	variadic?: bool
+}
+
 // Flag represents a command-line flag for a command
 #Flag: {
 	// name is the flag name (required, POSIX-compliant)
@@ -252,6 +295,16 @@
 
 	// flags specifies command-line flags for this command (optional)
 	flags?: [...#Flag]
+
+	// args specifies positional arguments for this command (optional)
+	// Arguments are passed to the script as environment variables:
+	//   - INVOWK_ARG_<NAME>: the argument value
+	//   - For variadic: INVOWK_ARG_<NAME>_COUNT and INVOWK_ARG_<NAME>_1, _2, etc.
+	// Rules:
+	//   - Required arguments must come before optional arguments
+	//   - Only the last argument can be variadic
+	//   - Commands with subcommands cannot have args (validated at discovery time)
+	args?: [...#Argument]
 }
 
 // Invowkfile is the root schema for an invowkfile

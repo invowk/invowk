@@ -79,6 +79,37 @@ func registerDiscoveredCommands() {
 	// Build command tree for commands with spaces in names
 	commandMap := make(map[string]*cobra.Command)
 
+	// Track which commands have args defined (for conflict detection)
+	commandsWithArgs := make(map[string]*discovery.CommandInfo)
+
+	// Track parent-child relationships for conflict detection
+	childCommands := make(map[string][]string) // parent -> list of child command names
+
+	// First pass: build parent-child relationships and identify commands with args
+	for _, cmdInfo := range commands {
+		parts := strings.Fields(cmdInfo.Name)
+		if len(cmdInfo.Command.Args) > 0 {
+			commandsWithArgs[cmdInfo.Name] = cmdInfo
+		}
+
+		// Record parent-child relationships
+		for i := 1; i < len(parts); i++ {
+			parentName := strings.Join(parts[:i], " ")
+			childCommands[parentName] = append(childCommands[parentName], cmdInfo.Name)
+		}
+	}
+
+	// Detect conflicts: commands with args that also have subcommands
+	for cmdName, cmdInfo := range commandsWithArgs {
+		if children, hasChildren := childCommands[cmdName]; hasChildren {
+			// This is a conflict - command with args has subcommands
+			fmt.Fprintf(os.Stderr, "\n%s\n\n", RenderArgsSubcommandConflictError(cmdName, cmdInfo.Command.Args, children))
+			// Don't register this command's args - the subcommands take precedence
+			delete(commandsWithArgs, cmdName)
+		}
+	}
+
+	// Second pass: register commands
 	for _, cmdInfo := range commands {
 		// Split command name by spaces (e.g., "test unit" -> ["test", "unit"])
 		parts := strings.Fields(cmdInfo.Name)
@@ -106,8 +137,13 @@ func registerDiscoveredCommands() {
 				// Leaf command - actually runs something
 				cmdName := cmdInfo.Name           // Capture for closure
 				cmdFlags := cmdInfo.Command.Flags // Capture flags for closure
+				cmdArgs := cmdInfo.Command.Args   // Capture args for closure
+
+				// Build usage string with args
+				useStr := buildCommandUsageString(part, cmdArgs)
+
 				newCmd = &cobra.Command{
-					Use:   part,
+					Use:   useStr,
 					Short: cmdInfo.Description,
 					Long:  fmt.Sprintf("Run the '%s' command from %s", cmdInfo.Name, cmdInfo.FilePath),
 					RunE: func(cmd *cobra.Command, args []string) error {
@@ -142,9 +178,16 @@ func registerDiscoveredCommands() {
 								flagValues[flag.Name] = val
 							}
 						}
-						return runCommandWithFlags(cmdName, args, flagValues, cmdFlags)
+						return runCommandWithFlags(cmdName, args, flagValues, cmdFlags, cmdArgs)
 					},
+					Args: buildCobraArgsValidator(cmdArgs),
 				}
+
+				// Add arguments documentation to Long description
+				if len(cmdArgs) > 0 {
+					newCmd.Long += "\n\nArguments:\n" + buildArgsDocumentation(cmdArgs)
+				}
+
 				// Add flags defined in the command with proper types and short aliases
 				for _, flag := range cmdFlags {
 					switch flag.GetType() {
@@ -202,6 +245,152 @@ func registerDiscoveredCommands() {
 			commandMap[prefix] = newCmd
 			parent = newCmd
 		}
+	}
+}
+
+// buildCommandUsageString builds the Cobra Use string including argument placeholders
+func buildCommandUsageString(cmdPart string, args []invowkfile.Argument) string {
+	if len(args) == 0 {
+		return cmdPart
+	}
+
+	var parts []string
+	parts = append(parts, cmdPart)
+
+	for _, arg := range args {
+		var argStr string
+		if arg.Variadic {
+			if arg.Required {
+				argStr = fmt.Sprintf("<%s>...", arg.Name)
+			} else {
+				argStr = fmt.Sprintf("[%s]...", arg.Name)
+			}
+		} else if arg.Required {
+			argStr = fmt.Sprintf("<%s>", arg.Name)
+		} else {
+			argStr = fmt.Sprintf("[%s]", arg.Name)
+		}
+		parts = append(parts, argStr)
+	}
+
+	return strings.Join(parts, " ")
+}
+
+// buildArgsDocumentation builds the documentation string for arguments
+func buildArgsDocumentation(args []invowkfile.Argument) string {
+	var lines []string
+	for _, arg := range args {
+		var status string
+		if arg.Required {
+			status = "(required)"
+		} else if arg.DefaultValue != "" {
+			status = fmt.Sprintf("(default: %q)", arg.DefaultValue)
+		} else {
+			status = "(optional)"
+		}
+
+		var typeInfo string
+		if arg.Type != "" && arg.Type != invowkfile.ArgumentTypeString {
+			typeInfo = fmt.Sprintf(" [%s]", arg.Type)
+		}
+
+		variadicInfo := ""
+		if arg.Variadic {
+			variadicInfo = " (variadic)"
+		}
+
+		lines = append(lines, fmt.Sprintf("  %-20s %s%s%s - %s", arg.Name, status, typeInfo, variadicInfo, arg.Description))
+	}
+	return strings.Join(lines, "\n")
+}
+
+// buildCobraArgsValidator creates a Cobra Args validator function for the given argument definitions
+func buildCobraArgsValidator(argDefs []invowkfile.Argument) cobra.PositionalArgs {
+	if len(argDefs) == 0 {
+		return cobra.ArbitraryArgs // Backward compatible: allow any args if none defined
+	}
+
+	// Count required args and check for variadic
+	minArgs := 0
+	maxArgs := len(argDefs)
+	hasVariadic := false
+
+	for _, arg := range argDefs {
+		if arg.Required {
+			minArgs++
+		}
+		if arg.Variadic {
+			hasVariadic = true
+		}
+	}
+
+	return func(cmd *cobra.Command, args []string) error {
+		// Check minimum args
+		if len(args) < minArgs {
+			return &ArgumentValidationError{
+				Type:         ArgErrMissingRequired,
+				CommandName:  cmd.Name(),
+				ArgDefs:      argDefs,
+				ProvidedArgs: args,
+				MinArgs:      minArgs,
+				MaxArgs:      maxArgs,
+			}
+		}
+
+		// Check maximum args (only if not variadic)
+		if !hasVariadic && len(args) > maxArgs {
+			return &ArgumentValidationError{
+				Type:         ArgErrTooMany,
+				CommandName:  cmd.Name(),
+				ArgDefs:      argDefs,
+				ProvidedArgs: args,
+				MinArgs:      minArgs,
+				MaxArgs:      maxArgs,
+			}
+		}
+
+		// Validate each provided argument
+		for i, argValue := range args {
+			if i >= len(argDefs) {
+				// Extra args go to the last (variadic) argument - already validated to have one
+				break
+			}
+
+			argDef := argDefs[i]
+
+			// For variadic args, validate all remaining values
+			if argDef.Variadic {
+				for j := i; j < len(args); j++ {
+					if err := argDef.ValidateArgumentValue(args[j]); err != nil {
+						return &ArgumentValidationError{
+							Type:         ArgErrInvalidValue,
+							CommandName:  cmd.Name(),
+							ArgDefs:      argDefs,
+							ProvidedArgs: args,
+							InvalidArg:   argDef.Name,
+							InvalidValue: args[j],
+							ValueError:   err,
+						}
+					}
+				}
+				break
+			}
+
+			// Validate non-variadic argument
+			if err := argDef.ValidateArgumentValue(argValue); err != nil {
+				return &ArgumentValidationError{
+					Type:         ArgErrInvalidValue,
+					CommandName:  cmd.Name(),
+					ArgDefs:      argDefs,
+					ProvidedArgs: args,
+					InvalidArg:   argDef.Name,
+					InvalidValue: argValue,
+					ValueError:   err,
+				}
+			}
+		}
+
+		return nil
 	}
 }
 
@@ -350,7 +539,8 @@ func listCommands() error {
 // runCommandWithFlags executes a command with the given flag values.
 // flagValues is a map of flag name -> value.
 // flagDefs contains the flag definitions for runtime validation (can be nil for legacy calls).
-func runCommandWithFlags(cmdName string, args []string, flagValues map[string]string, flagDefs []invowkfile.Flag) error {
+// argDefs contains the argument definitions for setting INVOWK_ARG_* env vars (can be nil for legacy calls).
+func runCommandWithFlags(cmdName string, args []string, flagValues map[string]string, flagDefs []invowkfile.Flag, argDefs []invowkfile.Argument) error {
 	cfg := config.Get()
 	disc := discovery.New(cfg)
 
@@ -445,11 +635,44 @@ func runCommandWithFlags(cmdName string, args []string, flagValues map[string]st
 		fmt.Printf("%s Running '%s'...\n", successStyle.Render("→"), cmdName)
 	}
 
-	// Add command-line arguments as environment variables
+	// Add command-line arguments as environment variables (legacy format)
 	for i, arg := range args {
 		ctx.ExtraEnv[fmt.Sprintf("ARG%d", i+1)] = arg
 	}
 	ctx.ExtraEnv["ARGC"] = fmt.Sprintf("%d", len(args))
+
+	// Add arguments as INVOWK_ARG_* environment variables (new format)
+	if argDefs != nil && len(argDefs) > 0 {
+		for i, argDef := range argDefs {
+			envName := ArgNameToEnvVar(argDef.Name)
+
+			if argDef.Variadic {
+				// For variadic args, collect all remaining arguments
+				var variadicValues []string
+				if i < len(args) {
+					variadicValues = args[i:]
+				}
+
+				// Set count
+				ctx.ExtraEnv[envName+"_COUNT"] = fmt.Sprintf("%d", len(variadicValues))
+
+				// Set individual values
+				for j, val := range variadicValues {
+					ctx.ExtraEnv[fmt.Sprintf("%s_%d", envName, j+1)] = val
+				}
+
+				// Also set a space-joined version for convenience
+				ctx.ExtraEnv[envName] = strings.Join(variadicValues, " ")
+			} else if i < len(args) {
+				// Non-variadic arg with provided value
+				ctx.ExtraEnv[envName] = args[i]
+			} else if argDef.DefaultValue != "" {
+				// Non-variadic arg with default value
+				ctx.ExtraEnv[envName] = argDef.DefaultValue
+			}
+			// If no value and no default, don't set the env var
+		}
+	}
 
 	// Add flag values as environment variables
 	for name, value := range flagValues {
@@ -484,8 +707,8 @@ func runCommand(args []string) error {
 	cmdName := args[0]
 	cmdArgs := args[1:]
 
-	// Delegate to runCommandWithFlags with empty flag values
-	return runCommandWithFlags(cmdName, cmdArgs, nil, nil)
+	// Delegate to runCommandWithFlags with empty flag values and no arg definitions
+	return runCommandWithFlags(cmdName, cmdArgs, nil, nil, nil)
 }
 
 // createRuntimeRegistry creates and populates the runtime registry
@@ -1326,6 +1549,14 @@ func FlagNameToEnvVar(name string) string {
 	return "INVOWK_FLAG_" + envName
 }
 
+// ArgNameToEnvVar converts an argument name to an environment variable name.
+// Example: "output-file" -> "INVOWK_ARG_OUTPUT_FILE"
+func ArgNameToEnvVar(name string) string {
+	// Replace hyphens with underscores and convert to uppercase
+	envName := strings.ToUpper(strings.ReplaceAll(name, "-", "_"))
+	return "INVOWK_ARG_" + envName
+}
+
 // validateFlagValues validates flag values at runtime.
 // It checks that required flags are provided and validates values against type and regex patterns.
 func validateFlagValues(cmdName string, flagValues map[string]string, flagDefs []invowkfile.Flag) error {
@@ -1373,6 +1604,177 @@ type DependencyError struct {
 
 func (e *DependencyError) Error() string {
 	return fmt.Sprintf("dependencies not satisfied for command '%s'", e.CommandName)
+}
+
+// ArgErrType represents the type of argument validation error
+type ArgErrType int
+
+const (
+	// ArgErrMissingRequired indicates missing required arguments
+	ArgErrMissingRequired ArgErrType = iota
+	// ArgErrTooMany indicates too many arguments were provided
+	ArgErrTooMany
+	// ArgErrInvalidValue indicates an argument value failed validation
+	ArgErrInvalidValue
+)
+
+// ArgumentValidationError represents an argument validation failure
+type ArgumentValidationError struct {
+	Type         ArgErrType
+	CommandName  string
+	ArgDefs      []invowkfile.Argument
+	ProvidedArgs []string
+	MinArgs      int
+	MaxArgs      int
+	InvalidArg   string
+	InvalidValue string
+	ValueError   error
+}
+
+func (e *ArgumentValidationError) Error() string {
+	switch e.Type {
+	case ArgErrMissingRequired:
+		return fmt.Sprintf("missing required arguments for command '%s': expected at least %d, got %d", e.CommandName, e.MinArgs, len(e.ProvidedArgs))
+	case ArgErrTooMany:
+		return fmt.Sprintf("too many arguments for command '%s': expected at most %d, got %d", e.CommandName, e.MaxArgs, len(e.ProvidedArgs))
+	case ArgErrInvalidValue:
+		return fmt.Sprintf("invalid value for argument '%s': %v", e.InvalidArg, e.ValueError)
+	default:
+		return fmt.Sprintf("argument validation failed for command '%s'", e.CommandName)
+	}
+}
+
+// RenderArgumentValidationError creates a styled error message for argument validation failures
+func RenderArgumentValidationError(err *ArgumentValidationError) string {
+	var sb strings.Builder
+
+	headerStyle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(lipgloss.Color("196")).
+		MarginBottom(1)
+
+	commandStyle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(lipgloss.Color("39"))
+
+	labelStyle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(lipgloss.Color("214"))
+
+	valueStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("245"))
+
+	hintStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("242")).
+		Italic(true).
+		MarginTop(1)
+
+	switch err.Type {
+	case ArgErrMissingRequired:
+		sb.WriteString(headerStyle.Render("✗ Missing required arguments!"))
+		sb.WriteString("\n\n")
+		sb.WriteString(fmt.Sprintf("Command %s requires at least %d argument(s), but got %d.\n\n",
+			commandStyle.Render("'"+err.CommandName+"'"), err.MinArgs, len(err.ProvidedArgs)))
+
+		sb.WriteString(labelStyle.Render("Expected arguments:"))
+		sb.WriteString("\n")
+		for _, arg := range err.ArgDefs {
+			reqStr := ""
+			if arg.Required {
+				reqStr = " (required)"
+			} else if arg.DefaultValue != "" {
+				reqStr = fmt.Sprintf(" (default: %q)", arg.DefaultValue)
+			} else {
+				reqStr = " (optional)"
+			}
+			sb.WriteString(valueStyle.Render(fmt.Sprintf("  • %s%s - %s\n", arg.Name, reqStr, arg.Description)))
+		}
+
+	case ArgErrTooMany:
+		sb.WriteString(headerStyle.Render("✗ Too many arguments!"))
+		sb.WriteString("\n\n")
+		sb.WriteString(fmt.Sprintf("Command %s accepts at most %d argument(s), but got %d.\n\n",
+			commandStyle.Render("'"+err.CommandName+"'"), err.MaxArgs, len(err.ProvidedArgs)))
+
+		sb.WriteString(labelStyle.Render("Expected arguments:"))
+		sb.WriteString("\n")
+		for _, arg := range err.ArgDefs {
+			sb.WriteString(valueStyle.Render(fmt.Sprintf("  • %s - %s\n", arg.Name, arg.Description)))
+		}
+		sb.WriteString("\n")
+		sb.WriteString(labelStyle.Render("Provided:"))
+		sb.WriteString(valueStyle.Render(fmt.Sprintf(" %v", err.ProvidedArgs)))
+
+	case ArgErrInvalidValue:
+		sb.WriteString(headerStyle.Render("✗ Invalid argument value!"))
+		sb.WriteString("\n\n")
+		sb.WriteString(fmt.Sprintf("Command %s received an invalid value for argument %s.\n\n",
+			commandStyle.Render("'"+err.CommandName+"'"), commandStyle.Render("'"+err.InvalidArg+"'")))
+
+		sb.WriteString(labelStyle.Render("Value:  "))
+		sb.WriteString(valueStyle.Render(fmt.Sprintf("%q", err.InvalidValue)))
+		sb.WriteString("\n")
+		sb.WriteString(labelStyle.Render("Error:  "))
+		sb.WriteString(valueStyle.Render(err.ValueError.Error()))
+	}
+
+	sb.WriteString("\n\n")
+	sb.WriteString(hintStyle.Render("Run the command with --help for usage information."))
+	sb.WriteString("\n")
+
+	return sb.String()
+}
+
+// RenderArgsSubcommandConflictError creates a styled warning message when a command
+// has both positional arguments and subcommands defined.
+func RenderArgsSubcommandConflictError(cmdName string, args []invowkfile.Argument, subcommands []string) string {
+	var sb strings.Builder
+
+	headerStyle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(lipgloss.Color("214")).
+		MarginBottom(1)
+
+	commandStyle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(lipgloss.Color("39"))
+
+	labelStyle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(lipgloss.Color("214"))
+
+	valueStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("245"))
+
+	hintStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("242")).
+		Italic(true).
+		MarginTop(1)
+
+	sb.WriteString(headerStyle.Render("⚠ Conflict: command has both args and subcommands!"))
+	sb.WriteString("\n\n")
+	sb.WriteString(fmt.Sprintf("Command %s defines positional arguments but also has subcommands.\n",
+		commandStyle.Render("'"+cmdName+"'")))
+	sb.WriteString("Subcommands take precedence; positional arguments will be ignored.\n\n")
+
+	sb.WriteString(labelStyle.Render("Defined args (ignored):"))
+	sb.WriteString("\n")
+	for _, arg := range args {
+		sb.WriteString(valueStyle.Render(fmt.Sprintf("  • %s - %s\n", arg.Name, arg.Description)))
+	}
+
+	sb.WriteString("\n")
+	sb.WriteString(labelStyle.Render("Subcommands:"))
+	sb.WriteString("\n")
+	for _, subcmd := range subcommands {
+		sb.WriteString(valueStyle.Render(fmt.Sprintf("  • %s\n", subcmd)))
+	}
+
+	sb.WriteString("\n")
+	sb.WriteString(hintStyle.Render("Remove either the 'args' field or the subcommands to resolve this conflict."))
+	sb.WriteString("\n")
+
+	return sb.String()
 }
 
 // RenderDependencyError creates a styled error message for unsatisfied dependencies
