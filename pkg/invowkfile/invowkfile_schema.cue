@@ -132,6 +132,18 @@
 	name: string & !=""
 }
 
+// CapabilityName defines the supported system capability types
+#CapabilityName: "local-area-network" | "internet"
+
+// CapabilityDependency represents a system capability that must be available
+#CapabilityDependency: {
+	// name is the capability identifier (required)
+	// Available capabilities:
+	//   - "local-area-network": checks for Local Area Network presence
+	//   - "internet": checks for working Internet connectivity
+	name: #CapabilityName
+}
+
 // DependsOn defines the dependencies for a command
 #DependsOn: {
 	// tools lists binaries that must be available in PATH before running
@@ -140,6 +152,9 @@
 	commands?: [...#CommandDependency]
 	// filepaths lists files or directories that must exist before running
 	filepaths?: [...#FilepathDependency]
+	// capabilities lists system capabilities that must be available before running
+	// Each capability name must be unique within the list
+	capabilities?: [...#CapabilityDependency]
 }
 
 // Command represents a single executable command

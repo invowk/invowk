@@ -480,6 +480,11 @@ func executeDependencies(cmdInfo *discovery.CommandInfo, registry *runtime.Regis
 		return err
 	}
 
+	// Then check capability dependencies (host-only, not runtime-aware)
+	if err := checkCapabilityDependencies(mergedDeps, parentCtx); err != nil {
+		return err
+	}
+
 	// Then run command dependencies
 	if len(mergedDeps.Commands) == 0 {
 		return nil
@@ -978,6 +983,41 @@ func isExecutable(path string, info os.FileInfo) bool {
 	return mode&0111 != 0
 }
 
+// checkCapabilityDependencies verifies all required system capabilities are available.
+// Capabilities are always checked against the host system, regardless of the runtime mode.
+// For container runtimes, these checks represent the host's capabilities, not the container's.
+func checkCapabilityDependencies(deps *invowkfile.DependsOn, ctx *runtime.ExecutionContext) error {
+	if deps == nil || len(deps.Capabilities) == 0 {
+		return nil
+	}
+
+	var capabilityErrors []string
+
+	// Track seen capabilities to detect duplicates (they're just skipped, not an error)
+	seen := make(map[invowkfile.CapabilityName]bool)
+
+	for _, cap := range deps.Capabilities {
+		// Skip duplicates
+		if seen[cap.Name] {
+			continue
+		}
+		seen[cap.Name] = true
+
+		if err := invowkfile.CheckCapability(cap.Name); err != nil {
+			capabilityErrors = append(capabilityErrors, fmt.Sprintf("  • %s", err.Error()))
+		}
+	}
+
+	if len(capabilityErrors) > 0 {
+		return &DependencyError{
+			CommandName:         ctx.Command.Name,
+			MissingCapabilities: capabilityErrors,
+		}
+	}
+
+	return nil
+}
+
 // isWindows returns true if running on Windows
 func isWindows() bool {
 	return os.PathSeparator == '\\' && os.PathListSeparator == ';'
@@ -985,10 +1025,11 @@ func isWindows() bool {
 
 // DependencyError represents unsatisfied dependencies
 type DependencyError struct {
-	CommandName      string
-	MissingTools     []string
-	MissingCommands  []string
-	MissingFilepaths []string
+	CommandName         string
+	MissingTools        []string
+	MissingCommands     []string
+	MissingFilepaths    []string
+	MissingCapabilities []string
 }
 
 func (e *DependencyError) Error() string {
@@ -1052,6 +1093,16 @@ func RenderDependencyError(err *DependencyError) string {
 		sb.WriteString("\n")
 		for _, fp := range err.MissingFilepaths {
 			sb.WriteString(itemStyle.Render(fp))
+			sb.WriteString("\n")
+		}
+	}
+
+	if len(err.MissingCapabilities) > 0 {
+		sb.WriteString("\n")
+		sb.WriteString(sectionStyle.Render("Missing Capabilities:"))
+		sb.WriteString("\n")
+		for _, cap := range err.MissingCapabilities {
+			sb.WriteString(itemStyle.Render(cap))
 			sb.WriteString("\n")
 		}
 	}

@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"invowk-cli/internal/runtime"
 	"invowk-cli/pkg/invowkfile"
 )
 
@@ -1023,5 +1024,139 @@ func TestRenderRuntimeNotAllowedError(t *testing.T) {
 
 	if !strings.Contains(output, "native, virtual") {
 		t.Error("RenderRuntimeNotAllowedError should contain allowed runtimes")
+	}
+}
+
+func TestCheckCapabilityDependencies_NoCapabilities(t *testing.T) {
+	deps := &invowkfile.DependsOn{
+		Capabilities: []invowkfile.CapabilityDependency{},
+	}
+
+	ctx := &runtime.ExecutionContext{
+		Command: &invowkfile.Command{Name: "test"},
+	}
+
+	err := checkCapabilityDependencies(deps, ctx)
+	if err != nil {
+		t.Errorf("checkCapabilityDependencies() with empty capabilities returned error: %v", err)
+	}
+}
+
+func TestCheckCapabilityDependencies_NilDeps(t *testing.T) {
+	ctx := &runtime.ExecutionContext{
+		Command: &invowkfile.Command{Name: "test"},
+	}
+
+	err := checkCapabilityDependencies(nil, ctx)
+	if err != nil {
+		t.Errorf("checkCapabilityDependencies() with nil deps returned error: %v", err)
+	}
+}
+
+func TestCheckCapabilityDependencies_DuplicateSkipped(t *testing.T) {
+	// This test verifies that duplicate capabilities are silently skipped
+	// The actual success/failure depends on network connectivity
+	deps := &invowkfile.DependsOn{
+		Capabilities: []invowkfile.CapabilityDependency{
+			{Name: invowkfile.CapabilityLocalAreaNetwork},
+			{Name: invowkfile.CapabilityLocalAreaNetwork}, // duplicate
+			{Name: invowkfile.CapabilityLocalAreaNetwork}, // another duplicate
+		},
+	}
+
+	ctx := &runtime.ExecutionContext{
+		Command: &invowkfile.Command{Name: "test"},
+	}
+
+	err := checkCapabilityDependencies(deps, ctx)
+
+	// If there's an error, it should only report the capability once
+	if err != nil {
+		depErr, ok := err.(*DependencyError)
+		if !ok {
+			t.Fatalf("checkCapabilityDependencies() should return *DependencyError, got: %T", err)
+		}
+		// Even with 3 duplicate entries, we should only have 1 error
+		if len(depErr.MissingCapabilities) > 1 {
+			t.Errorf("Expected at most 1 capability error (duplicates should be skipped), got %d", len(depErr.MissingCapabilities))
+		}
+	}
+	// If no error, that's fine too - machine has network
+}
+
+func TestDependencyError_WithCapabilities(t *testing.T) {
+	err := &DependencyError{
+		CommandName: "test",
+		MissingCapabilities: []string{
+			"  • capability \"internet\" not available: no connection",
+		},
+	}
+
+	expected := "dependencies not satisfied for command 'test'"
+	if err.Error() != expected {
+		t.Errorf("DependencyError.Error() = %q, want %q", err.Error(), expected)
+	}
+}
+
+func TestRenderDependencyError_MissingCapabilities(t *testing.T) {
+	err := &DependencyError{
+		CommandName: "deploy",
+		MissingCapabilities: []string{
+			"  • capability \"internet\" not available: no connection",
+		},
+	}
+
+	output := RenderDependencyError(err)
+
+	if !strings.Contains(output, "Dependencies not satisfied") {
+		t.Error("RenderDependencyError should contain header")
+	}
+
+	if !strings.Contains(output, "'deploy'") {
+		t.Error("RenderDependencyError should contain command name")
+	}
+
+	if !strings.Contains(output, "Missing Capabilities") {
+		t.Error("RenderDependencyError should contain 'Missing Capabilities' section")
+	}
+
+	if !strings.Contains(output, "internet") {
+		t.Error("RenderDependencyError should contain capability name")
+	}
+}
+
+func TestRenderDependencyError_AllDependencyTypes(t *testing.T) {
+	err := &DependencyError{
+		CommandName: "complex-deploy",
+		MissingTools: []string{
+			"  • kubectl - not found in PATH",
+		},
+		MissingCommands: []string{
+			"  • build - command not found",
+		},
+		MissingFilepaths: []string{
+			"  • config.yaml - file not found",
+		},
+		MissingCapabilities: []string{
+			"  • capability \"internet\" not available: no connection",
+		},
+	}
+
+	output := RenderDependencyError(err)
+
+	if !strings.Contains(output, "Missing Tools") {
+		t.Error("RenderDependencyError should contain 'Missing Tools' section")
+	}
+
+	if !strings.Contains(output, "Missing Commands") {
+		t.Error("RenderDependencyError should contain 'Missing Commands' section")
+	}
+
+	if !strings.Contains(output, "Missing or Inaccessible Files") {
+		t.Error("RenderDependencyError should contain 'Missing or Inaccessible Files' section")
+	}
+
+	if !strings.Contains(output, "Missing Capabilities") {
+		t.Error("RenderDependencyError should contain 'Missing Capabilities' section")
 	}
 }

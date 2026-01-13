@@ -1434,3 +1434,275 @@ commands: [
 		}
 	}
 }
+
+func TestParseDependsOn_WithCapabilities(t *testing.T) {
+	cueContent := `
+version: "1.0"
+
+commands: [
+	{
+		name: "deploy"
+		implementations: [
+			{
+				script: "rsync -avz ./dist/ user@server:/var/www/"
+				target: { runtimes: [{name: "native"}] }
+			}
+		]
+		depends_on: {
+			capabilities: [
+				{name: "local-area-network"},
+				{name: "internet"},
+			]
+		}
+	}
+]
+`
+
+	tmpDir, err := os.MkdirTemp("", "invowk-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
+	if err := os.WriteFile(invowkfilePath, []byte(cueContent), 0644); err != nil {
+		t.Fatalf("Failed to write invowkfile: %v", err)
+	}
+
+	inv, err := Parse(invowkfilePath)
+	if err != nil {
+		t.Fatalf("Parse() error = %v", err)
+	}
+
+	if len(inv.Commands) != 1 {
+		t.Fatalf("Expected 1 command, got %d", len(inv.Commands))
+	}
+
+	cmd := inv.Commands[0]
+	if cmd.DependsOn == nil {
+		t.Fatal("DependsOn should not be nil")
+	}
+
+	if len(cmd.DependsOn.Capabilities) != 2 {
+		t.Fatalf("Expected 2 capabilities, got %d", len(cmd.DependsOn.Capabilities))
+	}
+
+	// First capability - local-area-network
+	cap0 := cmd.DependsOn.Capabilities[0]
+	if cap0.Name != CapabilityLocalAreaNetwork {
+		t.Errorf("First capability name = %q, want %q", cap0.Name, CapabilityLocalAreaNetwork)
+	}
+
+	// Second capability - internet
+	cap1 := cmd.DependsOn.Capabilities[1]
+	if cap1.Name != CapabilityInternet {
+		t.Errorf("Second capability name = %q, want %q", cap1.Name, CapabilityInternet)
+	}
+}
+
+func TestParseDependsOn_CapabilitiesAtImplementationLevel(t *testing.T) {
+	cueContent := `
+version: "1.0"
+
+commands: [
+	{
+		name: "sync"
+		implementations: [
+			{
+				script: "rsync -avz ./dist/ user@server:/var/www/"
+				target: { runtimes: [{name: "native"}] }
+				depends_on: {
+					capabilities: [
+						{name: "internet"},
+					]
+				}
+			}
+		]
+	}
+]
+`
+
+	tmpDir, err := os.MkdirTemp("", "invowk-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
+	if err := os.WriteFile(invowkfilePath, []byte(cueContent), 0644); err != nil {
+		t.Fatalf("Failed to write invowkfile: %v", err)
+	}
+
+	inv, err := Parse(invowkfilePath)
+	if err != nil {
+		t.Fatalf("Parse() error = %v", err)
+	}
+
+	if len(inv.Commands) != 1 {
+		t.Fatalf("Expected 1 command, got %d", len(inv.Commands))
+	}
+
+	cmd := inv.Commands[0]
+	if len(cmd.Implementations) != 1 {
+		t.Fatalf("Expected 1 implementation, got %d", len(cmd.Implementations))
+	}
+
+	impl := cmd.Implementations[0]
+	if impl.DependsOn == nil {
+		t.Fatal("Implementation DependsOn should not be nil")
+	}
+
+	if len(impl.DependsOn.Capabilities) != 1 {
+		t.Fatalf("Expected 1 capability, got %d", len(impl.DependsOn.Capabilities))
+	}
+
+	if impl.DependsOn.Capabilities[0].Name != CapabilityInternet {
+		t.Errorf("Capability name = %q, want %q", impl.DependsOn.Capabilities[0].Name, CapabilityInternet)
+	}
+}
+
+func TestCommand_HasDependencies_WithCapabilities(t *testing.T) {
+	cmd := Command{
+		Name:            "test",
+		Implementations: []Implementation{{Script: "echo", Target: Target{Runtimes: []RuntimeConfig{{Name: RuntimeNative}}, Platforms: []PlatformConfig{{Name: PlatformLinux}}}}},
+		DependsOn: &DependsOn{
+			Capabilities: []CapabilityDependency{{Name: CapabilityInternet}},
+		},
+	}
+
+	if !cmd.HasDependencies() {
+		t.Error("HasDependencies() should return true when capabilities are present")
+	}
+}
+
+func TestCommand_HasCommandLevelDependencies_WithCapabilities(t *testing.T) {
+	cmd := Command{
+		Name:            "test",
+		Implementations: []Implementation{{Script: "echo", Target: Target{Runtimes: []RuntimeConfig{{Name: RuntimeNative}}, Platforms: []PlatformConfig{{Name: PlatformLinux}}}}},
+		DependsOn: &DependsOn{
+			Capabilities: []CapabilityDependency{{Name: CapabilityLocalAreaNetwork}},
+		},
+	}
+
+	if !cmd.HasCommandLevelDependencies() {
+		t.Error("HasCommandLevelDependencies() should return true when capabilities are present")
+	}
+}
+
+func TestScript_HasDependencies_WithCapabilities(t *testing.T) {
+	impl := Implementation{
+		Script: "echo test",
+		Target: Target{Runtimes: []RuntimeConfig{{Name: RuntimeNative}}},
+		DependsOn: &DependsOn{
+			Capabilities: []CapabilityDependency{{Name: CapabilityInternet}},
+		},
+	}
+
+	if !impl.HasDependencies() {
+		t.Error("Implementation.HasDependencies() should return true when capabilities are present")
+	}
+}
+
+func TestMergeDependsOn_WithCapabilities(t *testing.T) {
+	cmdDeps := &DependsOn{
+		Capabilities: []CapabilityDependency{{Name: CapabilityLocalAreaNetwork}},
+	}
+
+	scriptDeps := &DependsOn{
+		Capabilities: []CapabilityDependency{{Name: CapabilityInternet}},
+	}
+
+	merged := MergeDependsOn(cmdDeps, scriptDeps)
+
+	if merged == nil {
+		t.Fatal("MergeDependsOn should return non-nil result")
+	}
+
+	if len(merged.Capabilities) != 2 {
+		t.Fatalf("Expected 2 capabilities after merge, got %d", len(merged.Capabilities))
+	}
+
+	// Command-level capabilities should come first
+	if merged.Capabilities[0].Name != CapabilityLocalAreaNetwork {
+		t.Errorf("First capability = %q, want %q", merged.Capabilities[0].Name, CapabilityLocalAreaNetwork)
+	}
+
+	if merged.Capabilities[1].Name != CapabilityInternet {
+		t.Errorf("Second capability = %q, want %q", merged.Capabilities[1].Name, CapabilityInternet)
+	}
+}
+
+func TestGenerateCUE_WithCapabilities(t *testing.T) {
+	inv := &Invowkfile{
+		Version: "1.0",
+		Commands: []Command{
+			{
+				Name: "deploy",
+				Implementations: []Implementation{
+					{
+						Script: "rsync deploy",
+						Target: Target{
+							Runtimes: []RuntimeConfig{{Name: RuntimeNative}},
+						},
+					},
+				},
+				DependsOn: &DependsOn{
+					Capabilities: []CapabilityDependency{
+						{Name: CapabilityInternet},
+						{Name: CapabilityLocalAreaNetwork},
+					},
+				},
+			},
+		},
+	}
+
+	result := GenerateCUE(inv)
+
+	// Check that capabilities section is present
+	if !strings.Contains(result, "capabilities:") {
+		t.Error("GenerateCUE should include 'capabilities:' section")
+	}
+
+	if !strings.Contains(result, `name: "internet"`) {
+		t.Error("GenerateCUE should include internet capability")
+	}
+
+	if !strings.Contains(result, `name: "local-area-network"`) {
+		t.Error("GenerateCUE should include local-area-network capability")
+	}
+}
+
+func TestGenerateCUE_WithCapabilitiesAtImplementationLevel(t *testing.T) {
+	inv := &Invowkfile{
+		Version: "1.0",
+		Commands: []Command{
+			{
+				Name: "sync",
+				Implementations: []Implementation{
+					{
+						Script: "rsync sync",
+						Target: Target{
+							Runtimes: []RuntimeConfig{{Name: RuntimeNative}},
+						},
+						DependsOn: &DependsOn{
+							Capabilities: []CapabilityDependency{
+								{Name: CapabilityInternet},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	result := GenerateCUE(inv)
+
+	// Check that capabilities section is present at implementation level
+	if !strings.Contains(result, "capabilities:") {
+		t.Error("GenerateCUE should include 'capabilities:' section at implementation level")
+	}
+
+	if !strings.Contains(result, `name: "internet"`) {
+		t.Error("GenerateCUE should include internet capability")
+	}
+}

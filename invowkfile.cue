@@ -219,5 +219,32 @@ commands: [
 			]
 		}
 	},
+	{
+		name:        "sync-remote"
+		description: "Sync files to remote server"
+		implementations: [
+			{
+				script: """
+					echo "Syncing files to remote server..."
+					rsync -avz --progress ./dist/ user@server:/var/www/
+					"""
+				target: {
+					runtimes:  [{name: "native"}]
+					platforms: [{name: "linux"}, {name: "macos"}]
+				}
+			}
+		]
+		// Command-level depends_on with capabilities
+		depends_on: {
+			tools: [
+				{name: "rsync"},
+			]
+			// Capabilities ensure network connectivity before attempting sync
+			capabilities: [
+				{name: "local-area-network"},
+				{name: "internet"},
+			]
+		}
+	},
 ]
 

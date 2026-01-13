@@ -101,6 +101,23 @@ type CommandDependency struct {
 	Name string `json:"name"`
 }
 
+// CapabilityName represents a system capability type
+type CapabilityName string
+
+const (
+	// CapabilityLocalAreaNetwork checks for Local Area Network presence
+	CapabilityLocalAreaNetwork CapabilityName = "local-area-network"
+	// CapabilityInternet checks for working Internet connectivity
+	CapabilityInternet CapabilityName = "internet"
+)
+
+// CapabilityDependency represents a system capability that must be available
+type CapabilityDependency struct {
+	// Name is the capability identifier (required)
+	// Available capabilities: "local-area-network", "internet"
+	Name CapabilityName `json:"name"`
+}
+
 // FilepathDependency represents a file or directory that must exist
 type FilepathDependency struct {
 	// Alternatives is a list of file or directory paths where any match satisfies the dependency
@@ -124,6 +141,8 @@ type DependsOn struct {
 	Commands []CommandDependency `json:"commands,omitempty"`
 	// Filepaths lists files or directories that must exist before running
 	Filepaths []FilepathDependency `json:"filepaths,omitempty"`
+	// Capabilities lists system capabilities that must be available before running
+	Capabilities []CapabilityDependency `json:"capabilities,omitempty"`
 }
 
 // HostOS represents a supported operating system (deprecated, use PlatformType)
@@ -445,7 +464,7 @@ func (s *Script) GetHostSSHForRuntime(runtime RuntimeMode) bool {
 func (c *Command) HasDependencies() bool {
 	// Check command-level dependencies
 	if c.DependsOn != nil {
-		if len(c.DependsOn.Tools) > 0 || len(c.DependsOn.Commands) > 0 || len(c.DependsOn.Filepaths) > 0 {
+		if len(c.DependsOn.Tools) > 0 || len(c.DependsOn.Commands) > 0 || len(c.DependsOn.Filepaths) > 0 || len(c.DependsOn.Capabilities) > 0 {
 			return true
 		}
 	}
@@ -463,7 +482,7 @@ func (c *Command) HasCommandLevelDependencies() bool {
 	if c.DependsOn == nil {
 		return false
 	}
-	return len(c.DependsOn.Tools) > 0 || len(c.DependsOn.Commands) > 0 || len(c.DependsOn.Filepaths) > 0
+	return len(c.DependsOn.Tools) > 0 || len(c.DependsOn.Commands) > 0 || len(c.DependsOn.Filepaths) > 0 || len(c.DependsOn.Capabilities) > 0
 }
 
 // GetCommandDependencies returns the list of command dependency names (from command level)
@@ -483,7 +502,7 @@ func (s *Script) HasDependencies() bool {
 	if s.DependsOn == nil {
 		return false
 	}
-	return len(s.DependsOn.Tools) > 0 || len(s.DependsOn.Commands) > 0 || len(s.DependsOn.Filepaths) > 0
+	return len(s.DependsOn.Tools) > 0 || len(s.DependsOn.Commands) > 0 || len(s.DependsOn.Filepaths) > 0 || len(s.DependsOn.Capabilities) > 0
 }
 
 // GetCommandDependencies returns the list of command dependency names from this script
@@ -507,9 +526,10 @@ func MergeDependsOn(cmdDeps, scriptDeps *DependsOn) *DependsOn {
 	}
 
 	merged := &DependsOn{
-		Tools:     make([]ToolDependency, 0),
-		Commands:  make([]CommandDependency, 0),
-		Filepaths: make([]FilepathDependency, 0),
+		Tools:        make([]ToolDependency, 0),
+		Commands:     make([]CommandDependency, 0),
+		Filepaths:    make([]FilepathDependency, 0),
+		Capabilities: make([]CapabilityDependency, 0),
 	}
 
 	// Add command-level dependencies first
@@ -517,6 +537,7 @@ func MergeDependsOn(cmdDeps, scriptDeps *DependsOn) *DependsOn {
 		merged.Tools = append(merged.Tools, cmdDeps.Tools...)
 		merged.Commands = append(merged.Commands, cmdDeps.Commands...)
 		merged.Filepaths = append(merged.Filepaths, cmdDeps.Filepaths...)
+		merged.Capabilities = append(merged.Capabilities, cmdDeps.Capabilities...)
 	}
 
 	// Add implementation-level dependencies
@@ -524,10 +545,11 @@ func MergeDependsOn(cmdDeps, scriptDeps *DependsOn) *DependsOn {
 		merged.Tools = append(merged.Tools, scriptDeps.Tools...)
 		merged.Commands = append(merged.Commands, scriptDeps.Commands...)
 		merged.Filepaths = append(merged.Filepaths, scriptDeps.Filepaths...)
+		merged.Capabilities = append(merged.Capabilities, scriptDeps.Capabilities...)
 	}
 
 	// Return nil if no dependencies after merging
-	if len(merged.Tools) == 0 && len(merged.Commands) == 0 && len(merged.Filepaths) == 0 {
+	if len(merged.Tools) == 0 && len(merged.Commands) == 0 && len(merged.Filepaths) == 0 && len(merged.Capabilities) == 0 {
 		return nil
 	}
 
@@ -932,7 +954,7 @@ func GenerateCUE(inv *Invowkfile) string {
 			sb.WriteString("\t\t\t\t}\n") // close target
 
 			// Implementation-level depends_on
-			if impl.DependsOn != nil && (len(impl.DependsOn.Tools) > 0 || len(impl.DependsOn.Commands) > 0 || len(impl.DependsOn.Filepaths) > 0) {
+			if impl.DependsOn != nil && (len(impl.DependsOn.Tools) > 0 || len(impl.DependsOn.Commands) > 0 || len(impl.DependsOn.Filepaths) > 0 || len(impl.DependsOn.Capabilities) > 0) {
 				sb.WriteString("\t\t\t\tdepends_on: {\n")
 				if len(impl.DependsOn.Tools) > 0 {
 					sb.WriteString("\t\t\t\t\ttools: [\n")
@@ -983,6 +1005,13 @@ func GenerateCUE(inv *Invowkfile) string {
 					}
 					sb.WriteString("\t\t\t\t\t]\n")
 				}
+				if len(impl.DependsOn.Capabilities) > 0 {
+					sb.WriteString("\t\t\t\t\tcapabilities: [\n")
+					for _, cap := range impl.DependsOn.Capabilities {
+						sb.WriteString(fmt.Sprintf("\t\t\t\t\t\t{name: %q},\n", cap.Name))
+					}
+					sb.WriteString("\t\t\t\t\t]\n")
+				}
 				sb.WriteString("\t\t\t\t}\n")
 			}
 
@@ -1000,7 +1029,7 @@ func GenerateCUE(inv *Invowkfile) string {
 		if cmd.WorkDir != "" {
 			sb.WriteString(fmt.Sprintf("\t\tworkdir: %q\n", cmd.WorkDir))
 		}
-		if cmd.DependsOn != nil && (len(cmd.DependsOn.Tools) > 0 || len(cmd.DependsOn.Commands) > 0 || len(cmd.DependsOn.Filepaths) > 0) {
+		if cmd.DependsOn != nil && (len(cmd.DependsOn.Tools) > 0 || len(cmd.DependsOn.Commands) > 0 || len(cmd.DependsOn.Filepaths) > 0 || len(cmd.DependsOn.Capabilities) > 0) {
 			sb.WriteString("\t\tdepends_on: {\n")
 			if len(cmd.DependsOn.Tools) > 0 {
 				sb.WriteString("\t\t\ttools: [\n")
@@ -1048,6 +1077,13 @@ func GenerateCUE(inv *Invowkfile) string {
 						sb.WriteString(", executable: true")
 					}
 					sb.WriteString("},\n")
+				}
+				sb.WriteString("\t\t\t]\n")
+			}
+			if len(cmd.DependsOn.Capabilities) > 0 {
+				sb.WriteString("\t\t\tcapabilities: [\n")
+				for _, cap := range cmd.DependsOn.Capabilities {
+					sb.WriteString(fmt.Sprintf("\t\t\t\t{name: %q},\n", cap.Name))
 				}
 				sb.WriteString("\t\t\t]\n")
 			}
