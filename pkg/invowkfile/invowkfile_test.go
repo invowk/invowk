@@ -746,10 +746,10 @@ commands: [
 		]
 		depends_on: {
 			filepaths: [
-				{path: "config.yaml"},
-				{path: "secrets.env", readable: true},
-				{path: "output", writable: true},
-				{path: "scripts/deploy.sh", executable: true},
+				{alternatives: ["config.yaml"]},
+				{alternatives: ["secrets.env"], readable: true},
+				{alternatives: ["output"], writable: true},
+				{alternatives: ["scripts/deploy.sh"], executable: true},
 			]
 		}
 	}
@@ -787,8 +787,8 @@ commands: [
 
 	// First filepath - simple existence check
 	fp0 := cmd.DependsOn.Filepaths[0]
-	if fp0.Path != "config.yaml" {
-		t.Errorf("First filepath path = %q, want %q", fp0.Path, "config.yaml")
+	if len(fp0.Alternatives) != 1 || fp0.Alternatives[0] != "config.yaml" {
+		t.Errorf("First filepath alternatives = %v, want [config.yaml]", fp0.Alternatives)
 	}
 	if fp0.Readable || fp0.Writable || fp0.Executable {
 		t.Error("First filepath should have no permission checks")
@@ -796,8 +796,8 @@ commands: [
 
 	// Second filepath - readable
 	fp1 := cmd.DependsOn.Filepaths[1]
-	if fp1.Path != "secrets.env" {
-		t.Errorf("Second filepath path = %q, want %q", fp1.Path, "secrets.env")
+	if len(fp1.Alternatives) != 1 || fp1.Alternatives[0] != "secrets.env" {
+		t.Errorf("Second filepath alternatives = %v, want [secrets.env]", fp1.Alternatives)
 	}
 	if !fp1.Readable {
 		t.Error("Second filepath should be readable")
@@ -805,8 +805,8 @@ commands: [
 
 	// Third filepath - writable
 	fp2 := cmd.DependsOn.Filepaths[2]
-	if fp2.Path != "output" {
-		t.Errorf("Third filepath path = %q, want %q", fp2.Path, "output")
+	if len(fp2.Alternatives) != 1 || fp2.Alternatives[0] != "output" {
+		t.Errorf("Third filepath alternatives = %v, want [output]", fp2.Alternatives)
 	}
 	if !fp2.Writable {
 		t.Error("Third filepath should be writable")
@@ -814,8 +814,8 @@ commands: [
 
 	// Fourth filepath - executable
 	fp3 := cmd.DependsOn.Filepaths[3]
-	if fp3.Path != "scripts/deploy.sh" {
-		t.Errorf("Fourth filepath path = %q, want %q", fp3.Path, "scripts/deploy.sh")
+	if len(fp3.Alternatives) != 1 || fp3.Alternatives[0] != "scripts/deploy.sh" {
+		t.Errorf("Fourth filepath alternatives = %v, want [scripts/deploy.sh]", fp3.Alternatives)
 	}
 	if !fp3.Executable {
 		t.Error("Fourth filepath should be executable")
@@ -827,7 +827,7 @@ func TestCommand_HasDependencies_WithFilepaths(t *testing.T) {
 		Name:    "test",
 		Scripts: []Script{{Script: "echo", Runtimes: []RuntimeMode{RuntimeNative}, Platforms: []Platform{HostLinux}}},
 		DependsOn: &DependsOn{
-			Filepaths: []FilepathDependency{{Path: "config.yaml"}},
+			Filepaths: []FilepathDependency{{Alternatives: []string{"config.yaml"}}},
 		},
 	}
 
@@ -846,10 +846,10 @@ func TestGenerateCUE_WithFilepaths(t *testing.T) {
 				Scripts: []Script{{Script: "echo deploy", Runtimes: []RuntimeMode{RuntimeNative}, Platforms: []Platform{HostLinux, HostMac}}},
 				DependsOn: &DependsOn{
 					Filepaths: []FilepathDependency{
-						{Path: "config.yaml"},
-						{Path: "secrets.env", Readable: true},
-						{Path: "output", Writable: true},
-						{Path: "deploy.sh", Executable: true},
+						{Alternatives: []string{"config.yaml"}},
+						{Alternatives: []string{"secrets.env"}, Readable: true},
+						{Alternatives: []string{"output"}, Writable: true},
+						{Alternatives: []string{"deploy.sh"}, Executable: true},
 					},
 				},
 			},
@@ -863,8 +863,12 @@ func TestGenerateCUE_WithFilepaths(t *testing.T) {
 		t.Error("GenerateCUE should contain 'filepaths:'")
 	}
 
-	if !strings.Contains(output, `path: "config.yaml"`) {
-		t.Error("GenerateCUE should contain config.yaml path")
+	if !strings.Contains(output, "alternatives:") {
+		t.Error("GenerateCUE should contain 'alternatives:'")
+	}
+
+	if !strings.Contains(output, `"config.yaml"`) {
+		t.Error("GenerateCUE should contain config.yaml")
 	}
 
 	if !strings.Contains(output, "readable: true") {

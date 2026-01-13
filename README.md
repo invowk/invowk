@@ -230,31 +230,31 @@ depends_on: {
 
 ### Filepath Dependencies
 
-Check that required files or directories exist with proper permissions:
+Check that required files or directories exist with proper permissions. You can specify multiple alternative paths where if any one exists, the dependency is satisfied:
 
 ```cue
 depends_on: {
 	filepaths: [
-		// Simple existence check
-		{path: "config.yaml"},
+		// Simple existence check - any of these files satisfies the dependency
+		{alternatives: ["go.mod", "go.sum", "Gopkg.toml"]},
 		
-		// Check with read permission
-		{path: "secrets.env", readable: true},
+		// Check with read permission - any of these READMEs works
+		{alternatives: ["README.md", "README", "readme.md"], readable: true},
 		
 		// Check with write permission
-		{path: "output", writable: true},
+		{alternatives: ["output", "dist", "build"], writable: true},
 		
 		// Check with execute permission
-		{path: "scripts/deploy.sh", executable: true},
+		{alternatives: ["scripts/deploy.sh"], executable: true},
 		
 		// Absolute paths are also supported
-		{path: "/etc/app/config.yaml", readable: true},
+		{alternatives: ["/etc/app/config.yaml", "./config.yaml"], readable: true},
 	]
 }
 ```
 
 **Filepath validation options:**
-- `path` (required): File or directory path (relative to invowkfile or absolute)
+- `alternatives` (required): List of file or directory paths (at least one). If any path exists and satisfies the permission requirements, the dependency is considered satisfied.
 - `readable` (optional): Check if path is readable
 - `writable` (optional): Check if path is writable
 - `executable` (optional): Check if path is executable

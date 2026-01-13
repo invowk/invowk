@@ -52,8 +52,11 @@ type CommandDependency struct {
 
 // FilepathDependency represents a file or directory that must exist
 type FilepathDependency struct {
-	// Path is the file or directory path (can be absolute or relative to invowkfile)
-	Path string `json:"path"`
+	// Alternatives is a list of file or directory paths where any match satisfies the dependency
+	// If any of the provided paths exists and satisfies the permission requirements,
+	// the validation succeeds (early return). This allows specifying multiple
+	// possible locations for a file (e.g., different paths on different systems).
+	Alternatives []string `json:"alternatives"`
 	// Readable checks if the path is readable
 	Readable bool `json:"readable,omitempty"`
 	// Writable checks if the path is writable
@@ -802,8 +805,14 @@ func GenerateCUE(inv *Invowkfile) string {
 			if len(cmd.DependsOn.Filepaths) > 0 {
 				sb.WriteString("\t\t\tfilepaths: [\n")
 				for _, fp := range cmd.DependsOn.Filepaths {
-					sb.WriteString("\t\t\t\t{")
-					sb.WriteString(fmt.Sprintf("path: %q", fp.Path))
+					sb.WriteString("\t\t\t\t{alternatives: [")
+					for i, alt := range fp.Alternatives {
+						if i > 0 {
+							sb.WriteString(", ")
+						}
+						sb.WriteString(fmt.Sprintf("%q", alt))
+					}
+					sb.WriteString("]")
 					if fp.Readable {
 						sb.WriteString(", readable: true")
 					}

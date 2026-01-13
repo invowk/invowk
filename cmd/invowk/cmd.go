@@ -573,13 +573,7 @@ func checkFilepathDependencies(cmd *invowkfile.Command, invowkfilePath string) e
 	invowkDir := filepath.Dir(invowkfilePath)
 
 	for _, fp := range cmd.DependsOn.Filepaths {
-		// Resolve path relative to invowkfile if not absolute
-		path := fp.Path
-		if !filepath.IsAbs(path) {
-			path = filepath.Join(invowkDir, path)
-		}
-
-		if err := validateFilepath(fp, path); err != nil {
+		if err := validateFilepathAlternatives(fp, invowkDir); err != nil {
 			filepathErrors = append(filepathErrors, err.Error())
 		}
 	}
@@ -594,15 +588,46 @@ func checkFilepathDependencies(cmd *invowkfile.Command, invowkfilePath string) e
 	return nil
 }
 
-// validateFilepath checks if a filepath exists and has the required permissions
-func validateFilepath(fp invowkfile.FilepathDependency, resolvedPath string) error {
+// validateFilepathAlternatives checks if any of the alternative paths exists and has the required permissions
+// Returns nil (success) if any alternative satisfies all requirements
+func validateFilepathAlternatives(fp invowkfile.FilepathDependency, invowkDir string) error {
+	if len(fp.Alternatives) == 0 {
+		return fmt.Errorf("  • (no paths specified) - at least one path must be provided in alternatives")
+	}
+
+	var allErrors []string
+
+	for _, altPath := range fp.Alternatives {
+		// Resolve path relative to invowkfile if not absolute
+		resolvedPath := altPath
+		if !filepath.IsAbs(altPath) {
+			resolvedPath = filepath.Join(invowkDir, altPath)
+		}
+
+		if err := validateSingleFilepath(altPath, resolvedPath, fp); err == nil {
+			// Success! This alternative satisfies the dependency
+			return nil
+		} else {
+			allErrors = append(allErrors, fmt.Sprintf("%s: %s", altPath, err.Error()))
+		}
+	}
+
+	// None of the alternatives satisfied the requirements
+	if len(fp.Alternatives) == 1 {
+		return fmt.Errorf("  • %s - %s", fp.Alternatives[0], allErrors[0])
+	}
+	return fmt.Errorf("  • none of the alternatives satisfied the requirements:\n      - %s", strings.Join(allErrors, "\n      - "))
+}
+
+// validateSingleFilepath checks if a single filepath exists and has the required permissions
+func validateSingleFilepath(displayPath string, resolvedPath string, fp invowkfile.FilepathDependency) error {
 	// Check if path exists
 	info, err := os.Stat(resolvedPath)
 	if os.IsNotExist(err) {
-		return fmt.Errorf("  • %s - path does not exist", fp.Path)
+		return fmt.Errorf("path does not exist")
 	}
 	if err != nil {
-		return fmt.Errorf("  • %s - cannot access path: %v", fp.Path, err)
+		return fmt.Errorf("cannot access path: %v", err)
 	}
 
 	var permErrors []string
@@ -629,10 +654,18 @@ func validateFilepath(fp invowkfile.FilepathDependency, resolvedPath string) err
 	}
 
 	if len(permErrors) > 0 {
-		return fmt.Errorf("  • %s - missing permissions: %s", fp.Path, strings.Join(permErrors, ", "))
+		return fmt.Errorf("missing permissions: %s", strings.Join(permErrors, ", "))
 	}
 
 	return nil
+}
+
+// validateFilepath is deprecated - use validateFilepathAlternatives instead
+func validateFilepath(fp invowkfile.FilepathDependency, resolvedPath string) error {
+	if len(fp.Alternatives) == 0 {
+		return fmt.Errorf("  • (no paths specified) - at least one path must be provided in alternatives")
+	}
+	return validateSingleFilepath(fp.Alternatives[0], resolvedPath, fp)
 }
 
 // isReadable checks if a path is readable (cross-platform)

@@ -55,9 +55,12 @@
 
 // FilepathDependency represents a file or directory that must exist
 #FilepathDependency: {
-	// path is the file or directory path (required)
-	// Can be absolute or relative to the invowkfile location
-	path: string & !=""
+	// alternatives is a list of file or directory paths (required, at least one)
+	// If any of the provided paths exists and satisfies the permission requirements,
+	// the validation succeeds (early return). This allows specifying multiple
+	// possible locations for a file (e.g., different paths on different systems).
+	// Paths can be absolute or relative to the invowkfile location.
+	alternatives: [...string & !=""] & [_, ...]
 
 	// readable checks if the path is readable (optional, default: false)
 	readable?: bool

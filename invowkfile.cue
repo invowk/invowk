@@ -178,12 +178,12 @@ commands: [
 				{name: "test unit"},
 			]
 			filepaths: [
-				// Simple existence check
-				{path: "go.mod"},
+				// Simple existence check - any of the alternatives satisfies the dependency
+				{alternatives: ["go.mod", "go.sum"]},
 				// Check with read permission
-				{path: "README.md", readable: true},
+				{alternatives: ["README.md", "README", "readme.md"], readable: true},
 				// Check with write permission (for output directory)
-				{path: ".", writable: true},
+				{alternatives: ["."], writable: true},
 			]
 		}
 	},
