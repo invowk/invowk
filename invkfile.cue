@@ -2814,7 +2814,10 @@ commands: [
 					echo "=========================================="
 					"""
 				target: {
-					runtimes: [{name: "native"}]
+					runtimes: [{name: "native"},{name: "virtual"},{
+						name: "container"
+						image: "python:3-alpine"
+						}]
 				}
 			}
 		]

@@ -805,18 +805,9 @@ func executeInteractive(ctx *runtime.ExecutionContext, registry *runtime.Registr
 		return &runtime.Result{ExitCode: 1, Error: err}
 	}
 
-	// Prepare the command without executing it
-	prepared, err := interactiveRT.PrepareInteractive(ctx)
-	if err != nil {
-		return &runtime.Result{ExitCode: 1, Error: fmt.Errorf("failed to prepare command: %w", err)}
-	}
-
-	// Ensure cleanup is called when done
-	if prepared.Cleanup != nil {
-		defer prepared.Cleanup()
-	}
-
-	// Start the TUI server for nested TUI components
+	// Start the TUI server FIRST so we can pass its info to PrepareInteractive()
+	// This is necessary because container runtimes need to include the TUI server
+	// URL in the docker command arguments (as -e flags), not as process env vars.
 	tuiServer, err := tuiserver.New()
 	if err != nil {
 		return &runtime.Result{ExitCode: 1, Error: fmt.Errorf("failed to create TUI server: %w", err)}
@@ -837,7 +828,27 @@ func executeInteractive(ctx *runtime.ExecutionContext, registry *runtime.Registr
 		tuiServerURL = strings.Replace(tuiServerURL, "127.0.0.1", hostAddr, 1)
 	}
 
-	// Add TUI server environment variables to the command
+	// Set TUI server info in the execution context so runtimes can include it
+	// in their environment setup (especially important for container runtime)
+	ctx.TUIServerURL = tuiServerURL
+	ctx.TUIServerToken = tuiServer.Token()
+
+	// Prepare the command without executing it
+	// Now that TUI server info is in the context, container runtime will
+	// include INVOWK_TUI_ADDR and INVOWK_TUI_TOKEN in the docker command args
+	prepared, err := interactiveRT.PrepareInteractive(ctx)
+	if err != nil {
+		return &runtime.Result{ExitCode: 1, Error: fmt.Errorf("failed to prepare command: %w", err)}
+	}
+
+	// Ensure cleanup is called when done
+	if prepared.Cleanup != nil {
+		defer prepared.Cleanup()
+	}
+
+	// Add TUI server environment variables to the command's process environment
+	// This is for native/virtual runtimes that run directly on the host.
+	// For container runtime, the env vars are already in the docker args.
 	prepared.Cmd.Env = append(prepared.Cmd.Env,
 		fmt.Sprintf("%s=%s", tuiserver.EnvTUIAddr, tuiServerURL),
 		fmt.Sprintf("%s=%s", tuiserver.EnvTUIToken, tuiServer.Token()),

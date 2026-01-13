@@ -46,6 +46,16 @@ type ExecutionContext struct {
 	// RuntimeEnvVars contains env vars specified via --env-var flag.
 	// These are set last and override all other environment variables (highest priority).
 	RuntimeEnvVars map[string]string
+
+	// TUIServerURL is the URL of the TUI server for interactive mode.
+	// When set, runtimes should include this in the command's environment
+	// as INVOWK_TUI_ADDR. For container runtimes, this should already be
+	// translated to a container-accessible address (e.g., host.docker.internal).
+	TUIServerURL string
+	// TUIServerToken is the authentication token for the TUI server.
+	// When set, runtimes should include this in the command's environment
+	// as INVOWK_TUI_TOKEN.
+	TUIServerToken string
 }
 
 // NewExecutionContext creates a new execution context with defaults

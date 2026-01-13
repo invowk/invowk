@@ -21,6 +21,35 @@ package config
 
 	// ui configures the user interface
 	ui?: #UIConfig
+
+	// container configures container runtime behavior
+	container?: #ContainerConfig
+}
+
+// ContainerConfig configures container runtime behavior
+#ContainerConfig: {
+	// auto_provision controls automatic provisioning of invowk resources
+	// into containers. When enabled, invowk binary and packs are automatically
+	// added to container images, enabling nested invowk commands.
+	auto_provision?: #AutoProvisionConfig
+}
+
+// AutoProvisionConfig controls auto-provisioning of invowk resources
+#AutoProvisionConfig: {
+	// enabled enables/disables auto-provisioning (default: true)
+	enabled?: bool
+
+	// binary_path overrides the path to the invowk binary to provision.
+	// If not set, the currently running invowk binary is used.
+	binary_path?: string
+
+	// packs_paths specifies additional directories to search for packs.
+	// These are added to the default pack search paths.
+	packs_paths?: [...string]
+
+	// cache_dir specifies where to store cached provisioned images metadata.
+	// Default: ~/.cache/invowk/provision
+	cache_dir?: string
 }
 
 // VirtualShellConfig configures the virtual shell runtime

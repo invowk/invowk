@@ -37,6 +37,26 @@ type Config struct {
 	VirtualShell VirtualShellConfig `json:"virtual_shell" mapstructure:"virtual_shell"`
 	// UI configures the user interface
 	UI UIConfig `json:"ui" mapstructure:"ui"`
+	// Container configures container runtime behavior
+	Container ContainerConfig `json:"container" mapstructure:"container"`
+}
+
+// ContainerConfig configures container runtime behavior
+type ContainerConfig struct {
+	// AutoProvision configures automatic provisioning of invowk resources
+	AutoProvision AutoProvisionConfig `json:"auto_provision" mapstructure:"auto_provision"`
+}
+
+// AutoProvisionConfig controls auto-provisioning of invowk resources into containers
+type AutoProvisionConfig struct {
+	// Enabled enables/disables auto-provisioning (default: true)
+	Enabled bool `json:"enabled" mapstructure:"enabled"`
+	// BinaryPath overrides the path to the invowk binary to provision
+	BinaryPath string `json:"binary_path" mapstructure:"binary_path"`
+	// PacksPaths specifies additional directories to search for packs
+	PacksPaths []string `json:"packs_paths" mapstructure:"packs_paths"`
+	// CacheDir specifies where to store cached provisioned images metadata
+	CacheDir string `json:"cache_dir" mapstructure:"cache_dir"`
 }
 
 // VirtualShellConfig configures the virtual shell runtime
@@ -84,6 +104,14 @@ func DefaultConfig() *Config {
 			ColorScheme: "auto",
 			Verbose:     false,
 			Interactive: false,
+		},
+		Container: ContainerConfig{
+			AutoProvision: AutoProvisionConfig{
+				Enabled:    true,
+				BinaryPath: "", // Will use os.Executable() if empty
+				PacksPaths: []string{},
+				CacheDir:   "", // Will use default cache dir if empty
+			},
 		},
 	}
 }
@@ -150,6 +178,10 @@ func Load() (*Config, error) {
 	v.SetDefault("ui.color_scheme", defaults.UI.ColorScheme)
 	v.SetDefault("ui.verbose", defaults.UI.Verbose)
 	v.SetDefault("ui.interactive", defaults.UI.Interactive)
+	v.SetDefault("container.auto_provision.enabled", defaults.Container.AutoProvision.Enabled)
+	v.SetDefault("container.auto_provision.binary_path", defaults.Container.AutoProvision.BinaryPath)
+	v.SetDefault("container.auto_provision.packs_paths", defaults.Container.AutoProvision.PacksPaths)
+	v.SetDefault("container.auto_provision.cache_dir", defaults.Container.AutoProvision.CacheDir)
 
 	// Get config directory
 	cfgDir, err := ConfigDir()
@@ -347,6 +379,26 @@ func GenerateCUE(cfg *Config) string {
 	sb.WriteString(fmt.Sprintf("\tcolor_scheme: %q\n", cfg.UI.ColorScheme))
 	sb.WriteString(fmt.Sprintf("\tverbose: %v\n", cfg.UI.Verbose))
 	sb.WriteString(fmt.Sprintf("\tinteractive: %v\n", cfg.UI.Interactive))
+	sb.WriteString("}\n")
+
+	// Container config
+	sb.WriteString("\ncontainer: {\n")
+	sb.WriteString("\tauto_provision: {\n")
+	sb.WriteString(fmt.Sprintf("\t\tenabled: %v\n", cfg.Container.AutoProvision.Enabled))
+	if cfg.Container.AutoProvision.BinaryPath != "" {
+		sb.WriteString(fmt.Sprintf("\t\tbinary_path: %q\n", cfg.Container.AutoProvision.BinaryPath))
+	}
+	if len(cfg.Container.AutoProvision.PacksPaths) > 0 {
+		sb.WriteString("\t\tpacks_paths: [\n")
+		for _, p := range cfg.Container.AutoProvision.PacksPaths {
+			sb.WriteString(fmt.Sprintf("\t\t\t%q,\n", p))
+		}
+		sb.WriteString("\t\t]\n")
+	}
+	if cfg.Container.AutoProvision.CacheDir != "" {
+		sb.WriteString(fmt.Sprintf("\t\tcache_dir: %q\n", cfg.Container.AutoProvision.CacheDir))
+	}
+	sb.WriteString("\t}\n")
 	sb.WriteString("}\n")
 
 	return sb.String()

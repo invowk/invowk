@@ -19,8 +19,10 @@ import (
 
 // ContainerRuntime executes commands inside a container
 type ContainerRuntime struct {
-	engine    container.Engine
-	sshServer *sshserver.Server
+	engine      container.Engine
+	sshServer   *sshserver.Server
+	provisioner *LayerProvisioner
+	cfg         *config.Config
 }
 
 // NewContainerRuntime creates a new container runtime
@@ -30,12 +32,63 @@ func NewContainerRuntime(cfg *config.Config) (*ContainerRuntime, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &ContainerRuntime{engine: engine}, nil
+
+	// Create provisioner with config
+	provisionCfg := buildProvisionConfig(cfg)
+	provisioner := NewLayerProvisioner(engine, provisionCfg)
+
+	return &ContainerRuntime{
+		engine:      engine,
+		provisioner: provisioner,
+		cfg:         cfg,
+	}, nil
 }
 
 // NewContainerRuntimeWithEngine creates a container runtime with a specific engine
 func NewContainerRuntimeWithEngine(engine container.Engine) *ContainerRuntime {
-	return &ContainerRuntime{engine: engine}
+	provisionCfg := DefaultProvisionConfig()
+	return &ContainerRuntime{
+		engine:      engine,
+		provisioner: NewLayerProvisioner(engine, provisionCfg),
+	}
+}
+
+// buildProvisionConfig creates a ContainerProvisionConfig from the app config
+func buildProvisionConfig(cfg *config.Config) *ContainerProvisionConfig {
+	provisionCfg := DefaultProvisionConfig()
+
+	if cfg == nil {
+		return provisionCfg
+	}
+
+	// Apply config overrides
+	autoProv := cfg.Container.AutoProvision
+	provisionCfg.Enabled = autoProv.Enabled
+
+	if autoProv.BinaryPath != "" {
+		provisionCfg.InvowkBinaryPath = autoProv.BinaryPath
+	}
+
+	if len(autoProv.PacksPaths) > 0 {
+		provisionCfg.PacksPaths = append(provisionCfg.PacksPaths, autoProv.PacksPaths...)
+	}
+
+	if autoProv.CacheDir != "" {
+		provisionCfg.CacheDir = autoProv.CacheDir
+	}
+
+	// Also add config search paths to packs paths
+	provisionCfg.PacksPaths = append(provisionCfg.PacksPaths, cfg.SearchPaths...)
+
+	return provisionCfg
+}
+
+// SetProvisionConfig updates the provisioner configuration.
+// This is useful for setting the invkfile path before execution.
+func (r *ContainerRuntime) SetProvisionConfig(cfg *ContainerProvisionConfig) {
+	if cfg != nil {
+		r.provisioner = NewLayerProvisioner(r.engine, cfg)
+	}
 }
 
 // SetSSHServer sets the SSH server for host access from containers
@@ -100,10 +153,13 @@ func (r *ContainerRuntime) Execute(ctx *ExecutionContext) *Result {
 		return &Result{ExitCode: 1, Error: err}
 	}
 
-	// Determine the image to use
-	image, err := r.ensureImage(ctx, containerCfg, invowkDir)
+	// Determine the image to use (with provisioning if enabled)
+	image, provisionCleanup, err := r.ensureProvisionedImage(ctx, containerCfg, invowkDir)
 	if err != nil {
 		return &Result{ExitCode: 1, Error: fmt.Errorf("failed to prepare container image: %w", err)}
+	}
+	if provisionCleanup != nil {
+		defer provisionCleanup()
 	}
 
 	// Build environment
@@ -253,8 +309,8 @@ func (r *ContainerRuntime) PrepareCommand(ctx *ExecutionContext) (*PreparedComma
 		return nil, err
 	}
 
-	// Determine the image to use
-	image, err := r.ensureImage(ctx, containerCfg, invowkDir)
+	// Determine the image to use (with provisioning if enabled)
+	image, provisionCleanup, err := r.ensureProvisionedImage(ctx, containerCfg, invowkDir)
 	if err != nil {
 		return nil, fmt.Errorf("failed to prepare container image: %w", err)
 	}
@@ -262,6 +318,9 @@ func (r *ContainerRuntime) PrepareCommand(ctx *ExecutionContext) (*PreparedComma
 	// Build environment
 	env, err := r.buildEnv(ctx)
 	if err != nil {
+		if provisionCleanup != nil {
+			provisionCleanup()
+		}
 		return nil, fmt.Errorf("failed to build environment: %w", err)
 	}
 
@@ -341,11 +400,21 @@ func (r *ContainerRuntime) PrepareCommand(ctx *ExecutionContext) (*PreparedComma
 	// Determine working directory using the hierarchical override model
 	workDir := r.getContainerWorkDir(ctx, invowkDir)
 
-	// Build extra hosts for SSH server access
+	// Build extra hosts for accessing host services from container
 	var extraHosts []string
-	if hostSSHEnabled && sshConnInfo != nil {
+	needsHostAccess := (hostSSHEnabled && sshConnInfo != nil) || ctx.TUIServerURL != ""
+	if needsHostAccess {
 		// Add host gateway for accessing host from container
+		// This enables host.docker.internal (Docker) or host.containers.internal (Podman)
 		extraHosts = append(extraHosts, "host.docker.internal:host-gateway")
+	}
+
+	// Add TUI server environment variables if set (for interactive mode)
+	if ctx.TUIServerURL != "" {
+		env["INVOWK_TUI_ADDR"] = ctx.TUIServerURL
+	}
+	if ctx.TUIServerToken != "" {
+		env["INVOWK_TUI_TOKEN"] = ctx.TUIServerToken
 	}
 
 	// Build run options - enable TTY and Interactive for PTY attachment
@@ -375,6 +444,9 @@ func (r *ContainerRuntime) PrepareCommand(ctx *ExecutionContext) (*PreparedComma
 		}
 		if cleanupSSH != nil {
 			cleanupSSH()
+		}
+		if provisionCleanup != nil {
+			provisionCleanup()
 		}
 	}
 
@@ -447,6 +519,39 @@ func (r *ContainerRuntime) buildInterpreterCommand(ctx *ExecutionContext, script
 	cmd = append(cmd, ctx.PositionalArgs...)
 
 	return cmd, tempFilePath, nil
+}
+
+// ensureProvisionedImage ensures the container image exists and is provisioned
+// with invowk resources (binary, packs, etc.). This enables nested invowk commands
+// inside containers.
+func (r *ContainerRuntime) ensureProvisionedImage(ctx *ExecutionContext, cfg invkfileContainerConfig, invowkDir string) (string, func(), error) {
+	// First, ensure the base image exists
+	baseImage, err := r.ensureImage(ctx, cfg, invowkDir)
+	if err != nil {
+		return "", nil, err
+	}
+
+	// If provisioning is disabled, return the base image
+	if r.provisioner == nil || !r.provisioner.config.Enabled {
+		return baseImage, nil, nil
+	}
+
+	// Update provisioner config with current invkfile path
+	r.provisioner.config.InvkfilePath = ctx.Invkfile.FilePath
+
+	// Provision the image with invowk resources
+	if ctx.Verbose {
+		fmt.Fprintf(ctx.Stdout, "Provisioning container with invowk resources...\n")
+	}
+
+	result, err := r.provisioner.Provision(ctx.Context, baseImage)
+	if err != nil {
+		// If provisioning fails, warn but continue with base image
+		fmt.Fprintf(ctx.Stderr, "Warning: failed to provision container, using base image: %v\n", err)
+		return baseImage, nil, nil
+	}
+
+	return result.ImageTag, result.Cleanup, nil
 }
 
 // ensureImage ensures the container image exists, building if necessary
