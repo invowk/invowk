@@ -63,8 +63,8 @@ go test -v ./pkg/invowkfile/...
 
 - `cmd/invowk/` - CLI commands using Cobra
 - `internal/` - Private packages (config, container, discovery, issue, runtime, sshserver, tui)
-- `pkg/` - Public packages (bundle, invowkfile)
-- `bundles/` - Sample invowk bundles for validation and reference
+- `pkg/` - Public packages (pack, invowkfile)
+- `packs/` - Sample invowk packs for validation and reference
 
 ### Import Ordering
 
@@ -193,29 +193,29 @@ func TestExample(t *testing.T) {
   - Tools checks (with and without alternatives)
   - Custom checks (with and without alternatives)
 
-## Sample Bundles (bundles/ directory)
+## Sample Packs (packs/ directory)
 
-The `bundles/` directory contains sample invowk bundles that serve as reference implementations and validation tests for the bundle feature.
+The `packs/` directory contains sample invowk packs that serve as reference implementations and validation tests for the pack feature.
 
 ### Maintenance Requirements
 
-- **Always update sample bundles** when the design and/or implementation of invowk bundles changes
-- All bundles in this directory must remain valid and pass `invowk bundle validate --deep`
-- Bundles should demonstrate bundle-specific features (script file references, cross-platform paths, etc.)
-- Run validation after any bundle-related changes: `go run . bundle validate bundles/<bundle-name> --deep`
+- **Always update sample packs** when the design and/or implementation of invowk packs changes
+- All packs in this directory must remain valid and pass `invowk pack validate --deep`
+- Packs should demonstrate pack-specific features (script file references, cross-platform paths, etc.)
+- Run validation after any pack-related changes: `go run . pack validate packs/<pack-name> --deep`
 
-### Current Sample Bundles
+### Current Sample Packs
 
-- `io.invowk.sample.invowkbundle` - Minimal cross-platform bundle with a simple greeting command
+- `io.invowk.sample.invowkpack` - Minimal cross-platform pack with a simple greeting command
 
-### Bundle Validation Checklist
+### Pack Validation Checklist
 
-When modifying bundle-related code, verify:
-1. All bundles in `bundles/` pass validation: `go run . bundle validate bundles/*.invowkbundle --deep`
-2. Bundle naming conventions are correctly enforced
+When modifying pack-related code, verify:
+1. All packs in `packs/` pass validation: `go run . pack validate packs/*.invowkpack --deep`
+2. Pack naming conventions are correctly enforced
 3. Script path resolution works correctly (forward slashes, relative paths)
-4. Nested bundle detection works correctly
-5. The `pkg/bundle/` tests pass: `go test -v ./pkg/bundle/...`
+4. Nested pack detection works correctly
+5. The `pkg/pack/` tests pass: `go test -v ./pkg/pack/...`
 
 ## Key Guidelines
 

@@ -1225,44 +1225,44 @@ commands: [
 
 Recognized script extensions: `.sh`, `.bash`, `.ps1`, `.bat`, `.cmd`, `.py`, `.rb`, `.pl`, `.zsh`, `.fish`
 
-## Bundles
+## Packs
 
-Bundles are self-contained folders that package an invowkfile together with its associated script files for easy distribution and portability.
+Packs are self-contained folders that package an invowkfile together with its associated script files for easy distribution and portability.
 
-### What is a Bundle?
+### What is a Pack?
 
-A bundle is a directory with the `.invowkbundle` suffix that contains:
+A pack is a directory with the `.invowkpack` suffix that contains:
 - Exactly one `invowkfile.cue` at the root
 - Optional script files referenced by command implementations
-- No nested bundles (bundles cannot contain other bundles)
+- No nested packs (packs cannot contain other packs)
 
-### Bundle Naming
+### Pack Naming
 
-Bundle folder names follow these rules:
-- Must end with `.invowkbundle`
-- The prefix (before `.invowkbundle`) must:
+Pack folder names follow these rules:
+- Must end with `.invowkpack`
+- The prefix (before `.invowkpack`) must:
   - Start with a letter (a-z, A-Z)
   - Contain only alphanumeric characters
   - Support dot-separated segments for namespacing
 - Compatible with RDNS (Reverse Domain Name System) naming conventions
 
-**Valid bundle names:**
-- `mycommands.invowkbundle`
-- `com.example.mytools.invowkbundle`
-- `org.company.project.invowkbundle`
-- `Utils.invowkbundle`
+**Valid pack names:**
+- `mycommands.invowkpack`
+- `com.example.mytools.invowkpack`
+- `org.company.project.invowkpack`
+- `Utils.invowkpack`
 
-**Invalid bundle names:**
-- `.hidden.invowkbundle` (starts with dot)
-- `my-commands.invowkbundle` (contains hyphen)
-- `my_commands.invowkbundle` (contains underscore)
-- `123commands.invowkbundle` (starts with number)
-- `com..example.invowkbundle` (empty segment)
+**Invalid pack names:**
+- `.hidden.invowkpack` (starts with dot)
+- `my-commands.invowkpack` (contains hyphen)
+- `my_commands.invowkpack` (contains underscore)
+- `123commands.invowkpack` (starts with number)
+- `com..example.invowkpack` (empty segment)
 
-### Bundle Structure
+### Pack Structure
 
 ```
-com.example.mytools.invowkbundle/
+com.example.mytools.invowkpack/
 ├── invowkfile.cue         # Required: command definitions
 ├── scripts/               # Optional: script files
 │   ├── build.sh
@@ -1273,9 +1273,9 @@ com.example.mytools.invowkbundle/
     └── config.yaml
 ```
 
-### Script Paths in Bundles
+### Script Paths in Packs
 
-When referencing script files in a bundle's invowkfile, use paths relative to the bundle root with **forward slashes** for cross-platform compatibility:
+When referencing script files in a pack's invowkfile, use paths relative to the pack root with **forward slashes** for cross-platform compatibility:
 
 ```cue
 group: "mytools"
@@ -1285,7 +1285,7 @@ commands: [
         description: "Build the project"
         implementations: [
             {
-                // Path relative to bundle root, using forward slashes
+                // Path relative to pack root, using forward slashes
                 script: "scripts/build.sh"
                 target: {
                     runtimes: [{name: "native"}]
@@ -1312,28 +1312,28 @@ commands: [
 **Important:**
 - Always use forward slashes (`/`) in script paths, even on Windows
 - Paths are automatically converted to the native format at runtime
-- Absolute paths are not allowed in bundles
-- Paths cannot escape the bundle directory (e.g., `../outside.sh` is invalid)
+- Absolute paths are not allowed in packs
+- Paths cannot escape the pack directory (e.g., `../outside.sh` is invalid)
 
-### Validating Bundles
+### Validating Packs
 
-Use the `bundle validate` command to check a bundle's structure:
+Use the `pack validate` command to check a pack's structure:
 
 ```bash
 # Basic validation
-invowk bundle validate ./com.example.mytools.invowkbundle
+invowk pack validate ./com.example.mytools.invowkpack
 
 # Deep validation (also parses the invowkfile)
-invowk bundle validate ./com.example.mytools.invowkbundle --deep
+invowk pack validate ./com.example.mytools.invowkpack --deep
 ```
 
-Example output for a valid bundle:
+Example output for a valid pack:
 ```
-Bundle Validation
-• Path: /home/user/com.example.mytools.invowkbundle
+Pack Validation
+• Path: /home/user/com.example.mytools.invowkpack
 • Name: com.example.mytools
 
-✓ Bundle is valid
+✓ Pack is valid
 
 ✓ Structure check passed
 ✓ Naming convention check passed
@@ -1341,139 +1341,139 @@ Bundle Validation
 ✓ Invowkfile parses successfully
 ```
 
-Example output for an invalid bundle:
+Example output for an invalid pack:
 ```
-Bundle Validation
-• Path: /home/user/invalid.invowkbundle
+Pack Validation
+• Path: /home/user/invalid.invowkpack
 
-✗ Bundle validation failed with 2 issue(s)
+✗ Pack validation failed with 2 issue(s)
 
   1. [structure] missing required invowkfile.cue
-  2. [structure] nested.invowkbundle: nested bundles are not allowed
+  2. [structure] nested.invowkpack: nested packs are not allowed
 ```
 
-### Creating Bundles
+### Creating Packs
 
-Use the `bundle create` command to scaffold a new bundle:
+Use the `pack create` command to scaffold a new pack:
 
 ```bash
-# Create a simple bundle in the current directory
-invowk bundle create mycommands
+# Create a simple pack in the current directory
+invowk pack create mycommands
 
-# Create a bundle with RDNS naming
-invowk bundle create com.example.mytools
+# Create a pack with RDNS naming
+invowk pack create com.example.mytools
 
-# Create a bundle in a specific directory
-invowk bundle create mytools --path /path/to/bundles
+# Create a pack in a specific directory
+invowk pack create mytools --path /path/to/packs
 
 # Create with a scripts directory
-invowk bundle create mytools --scripts
+invowk pack create mytools --scripts
 
 # Create with custom group and description
-invowk bundle create mytools --group "My Tools" --description "A collection of useful commands"
+invowk pack create mytools --group "My Tools" --description "A collection of useful commands"
 ```
 
-The created bundle will contain a template `invowkfile.cue` with a sample "hello" command.
+The created pack will contain a template `invowkfile.cue` with a sample "hello" command.
 
-### Listing Bundles
+### Listing Packs
 
-Use the `bundle list` command to see all discovered bundles:
+Use the `pack list` command to see all discovered packs:
 
 ```bash
-invowk bundle list
+invowk pack list
 ```
 
 Example output:
 ```
-Discovered Bundles
+Discovered Packs
 
-• Found 3 bundle(s)
+• Found 3 pack(s)
 
 • current directory:
    ✓ mytools
-      /home/user/project/mytools.invowkbundle
+      /home/user/project/mytools.invowkpack
 
 • user commands (~/.invowk/cmds):
    ✓ com.example.utilities
-      /home/user/.invowk/cmds/com.example.utilities.invowkbundle
+      /home/user/.invowk/cmds/com.example.utilities.invowkpack
    ✓ org.company.tools
-      /home/user/.invowk/cmds/org.company.tools.invowkbundle
+      /home/user/.invowk/cmds/org.company.tools.invowkpack
 ```
 
-### Packing Bundles
+### Packing Packs
 
-Use the `bundle pack` command to create a ZIP archive for distribution:
+Use the `pack archive` command to create a ZIP archive for distribution:
 
 ```bash
-# Pack a bundle (creates <bundle-name>.invowkbundle.zip in current directory)
-invowk bundle pack ./mytools.invowkbundle
+# Pack a pack (creates <pack-name>.invowkpack.zip in current directory)
+invowk pack archive ./mytools.invowkpack
 
 # Pack with custom output path
-invowk bundle pack ./mytools.invowkbundle --output ./dist/mytools.zip
+invowk pack archive ./mytools.invowkpack --output ./dist/mytools.zip
 ```
 
 Example output:
 ```
-Pack Bundle
+Archive Pack
 
-✓ Bundle packed successfully
+✓ Pack archived successfully
 
 • Output: /home/user/dist/mytools.zip
 • Size: 2.45 KB
 ```
 
-### Importing Bundles
+### Importing Packs
 
-Use the `bundle import` command to install a bundle from a ZIP file or URL:
+Use the `pack import` command to install a pack from a ZIP file or URL:
 
 ```bash
 # Import from a local ZIP file (installs to ~/.invowk/cmds/)
-invowk bundle import ./mytools.invowkbundle.zip
+invowk pack import ./mytools.invowkpack.zip
 
 # Import from a URL
-invowk bundle import https://example.com/bundles/mytools.zip
+invowk pack import https://example.com/packs/mytools.zip
 
 # Import to a custom directory
-invowk bundle import ./bundle.zip --path ./local-bundles
+invowk pack import ./pack.zip --path ./local-packs
 
-# Overwrite existing bundle
-invowk bundle import ./bundle.zip --overwrite
+# Overwrite existing pack
+invowk pack import ./pack.zip --overwrite
 ```
 
 Example output:
 ```
-Import Bundle
+Import Pack
 
-✓ Bundle imported successfully
+✓ Pack imported successfully
 
 • Name: mytools
-• Path: /home/user/.invowk/cmds/mytools.invowkbundle
+• Path: /home/user/.invowk/cmds/mytools.invowkpack
 
-• The bundle commands are now available via invowk
+• The pack commands are now available via invowk
 ```
 
-### Benefits of Bundles
+### Benefits of Packs
 
 1. **Portability**: Share a complete command set as a single folder
-2. **Self-contained**: Scripts are bundled with the invowkfile
+2. **Self-contained**: Scripts are packed with the invowkfile
 3. **Cross-platform**: Forward slash paths work on all operating systems
-4. **Namespace isolation**: RDNS naming prevents conflicts between bundles
-5. **Validation**: Built-in validation ensures bundle integrity
+4. **Namespace isolation**: RDNS naming prevents conflicts between packs
+5. **Validation**: Built-in validation ensures pack integrity
 
-### Using Bundles
+### Using Packs
 
-Bundles are automatically discovered and loaded from all invowk search paths:
+Packs are automatically discovered and loaded from all invowk search paths:
 1. Current directory (highest priority)
 2. User commands directory (`~/.invowk/cmds/`)
 3. Configured search paths in `config.toml`
 
-When invowk discovers a bundle, it:
-- Validates the bundle structure and naming
-- Loads the invowkfile from within the bundle
-- Resolves script paths relative to the bundle root
+When invowk discovers a pack, it:
+- Validates the pack structure and naming
+- Loads the invowkfile from within the pack
+- Resolves script paths relative to the pack root
 - Makes all commands available with their group prefix
 
-Commands from bundles appear in `invowk cmd list` with the source indicated as "bundle":
+Commands from packs appear in `invowk cmd list` with the source indicated as "pack":
 
 ## Runtime Modes
 
@@ -1926,7 +1926,7 @@ invowk-cli/
 ├── cmd/invowk/                 # CLI commands
 │   ├── root.go                 # Root command
 │   ├── cmd.go                  # cmd subcommand
-│   ├── bundle.go               # bundle subcommand
+│   ├── pack.go                 # pack subcommand
 │   ├── init.go                 # init command
 │   ├── config.go               # config commands
 │   ├── completion.go           # completion command
@@ -1968,7 +1968,7 @@ invowk-cli/
 │       ├── pager.go            # Pager component
 │       └── format.go           # Format component
 ├── pkg/
-│   ├── bundle/                 # Bundle validation
+│   ├── pack/                   # Pack validation
 │   └── invowkfile/             # Invowkfile parsing
 ```
 

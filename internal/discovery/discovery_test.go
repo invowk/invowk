@@ -724,29 +724,29 @@ commands: [{name: "build", description: "User build", implementations: [{script:
 	}
 }
 
-func TestSourceBundle_String(t *testing.T) {
-	if got := SourceBundle.String(); got != "bundle" {
-		t.Errorf("SourceBundle.String() = %s, want bundle", got)
+func TestSourcePack_String(t *testing.T) {
+	if got := SourcePack.String(); got != "pack" {
+		t.Errorf("SourcePack.String() = %s, want pack", got)
 	}
 }
 
-func TestDiscoverAll_FindsBundlesInCurrentDir(t *testing.T) {
+func TestDiscoverAll_FindsPacksInCurrentDir(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	// Create a valid bundle in the temp directory
-	bundleDir := filepath.Join(tmpDir, "mycommands.invowkbundle")
-	if err := os.MkdirAll(bundleDir, 0755); err != nil {
-		t.Fatalf("failed to create bundle dir: %v", err)
+	// Create a valid pack in the temp directory
+	packDir := filepath.Join(tmpDir, "mycommands.invowkpack")
+	if err := os.MkdirAll(packDir, 0755); err != nil {
+		t.Fatalf("failed to create pack dir: %v", err)
 	}
 
-	// Create invowkfile.cue inside the bundle
-	bundleContent := `
+	// Create invowkfile.cue inside the pack
+	packContent := `
 group: "mycommands"
 version: "1.0"
-commands: [{name: "bundled-cmd", implementations: [{script: "echo bundled", target: {runtimes: [{name: "native"}]}}]}]
+commands: [{name: "packed-cmd", implementations: [{script: "echo packed", target: {runtimes: [{name: "native"}]}}]}]
 `
-	if err := os.WriteFile(filepath.Join(bundleDir, "invowkfile.cue"), []byte(bundleContent), 0644); err != nil {
-		t.Fatalf("failed to write bundle invowkfile: %v", err)
+	if err := os.WriteFile(filepath.Join(packDir, "invowkfile.cue"), []byte(packContent), 0644); err != nil {
+		t.Fatalf("failed to write pack invowkfile: %v", err)
 	}
 
 	// Change to temp directory
@@ -769,8 +769,8 @@ commands: [{name: "bundled-cmd", implementations: [{script: "echo bundled", targ
 
 	found := false
 	for _, f := range files {
-		if f.Source == SourceBundle && f.Bundle != nil {
-			if f.Bundle.Name == "mycommands" {
+		if f.Source == SourcePack && f.Pack != nil {
+			if f.Pack.Name == "mycommands" {
 				found = true
 				break
 			}
@@ -778,28 +778,28 @@ commands: [{name: "bundled-cmd", implementations: [{script: "echo bundled", targ
 	}
 
 	if !found {
-		t.Error("DiscoverAll() did not find bundle in current directory")
+		t.Error("DiscoverAll() did not find pack in current directory")
 	}
 }
 
-func TestDiscoverAll_FindsBundlesInUserDir(t *testing.T) {
+func TestDiscoverAll_FindsPacksInUserDir(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	// Create user commands directory with a bundle
+	// Create user commands directory with a pack
 	userCmdsDir := filepath.Join(tmpDir, ".invowk", "cmds")
-	bundleDir := filepath.Join(userCmdsDir, "userbundle.invowkbundle")
-	if err := os.MkdirAll(bundleDir, 0755); err != nil {
-		t.Fatalf("failed to create bundle dir: %v", err)
+	packDir := filepath.Join(userCmdsDir, "userpack.invowkpack")
+	if err := os.MkdirAll(packDir, 0755); err != nil {
+		t.Fatalf("failed to create pack dir: %v", err)
 	}
 
-	// Create invowkfile.cue inside the bundle
-	bundleContent := `
-group: "userbundle"
+	// Create invowkfile.cue inside the pack
+	packContent := `
+group: "userpack"
 version: "1.0"
-commands: [{name: "user-bundled-cmd", implementations: [{script: "echo user bundled", target: {runtimes: [{name: "native"}]}}]}]
+commands: [{name: "user-packed-cmd", implementations: [{script: "echo user packed", target: {runtimes: [{name: "native"}]}}]}]
 `
-	if err := os.WriteFile(filepath.Join(bundleDir, "invowkfile.cue"), []byte(bundleContent), 0644); err != nil {
-		t.Fatalf("failed to write bundle invowkfile: %v", err)
+	if err := os.WriteFile(filepath.Join(packDir, "invowkfile.cue"), []byte(packContent), 0644); err != nil {
+		t.Fatalf("failed to write pack invowkfile: %v", err)
 	}
 
 	// Create an empty working directory
@@ -828,8 +828,8 @@ commands: [{name: "user-bundled-cmd", implementations: [{script: "echo user bund
 
 	found := false
 	for _, f := range files {
-		if f.Source == SourceBundle && f.Bundle != nil {
-			if f.Bundle.Name == "userbundle" {
+		if f.Source == SourcePack && f.Pack != nil {
+			if f.Pack.Name == "userpack" {
 				found = true
 				break
 			}
@@ -837,28 +837,28 @@ commands: [{name: "user-bundled-cmd", implementations: [{script: "echo user bund
 	}
 
 	if !found {
-		t.Error("DiscoverAll() did not find bundle in user commands directory")
+		t.Error("DiscoverAll() did not find pack in user commands directory")
 	}
 }
 
-func TestDiscoverAll_FindsBundlesInConfigPath(t *testing.T) {
+func TestDiscoverAll_FindsPacksInConfigPath(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	// Create a config search path with a bundle
+	// Create a config search path with a pack
 	searchPath := filepath.Join(tmpDir, "custom-commands")
-	bundleDir := filepath.Join(searchPath, "configbundle.invowkbundle")
-	if err := os.MkdirAll(bundleDir, 0755); err != nil {
-		t.Fatalf("failed to create bundle dir: %v", err)
+	packDir := filepath.Join(searchPath, "configpack.invowkpack")
+	if err := os.MkdirAll(packDir, 0755); err != nil {
+		t.Fatalf("failed to create pack dir: %v", err)
 	}
 
-	// Create invowkfile.cue inside the bundle
-	bundleContent := `
-group: "configbundle"
+	// Create invowkfile.cue inside the pack
+	packContent := `
+group: "configpack"
 version: "1.0"
-commands: [{name: "config-bundled-cmd", implementations: [{script: "echo config bundled", target: {runtimes: [{name: "native"}]}}]}]
+commands: [{name: "config-packed-cmd", implementations: [{script: "echo config packed", target: {runtimes: [{name: "native"}]}}]}]
 `
-	if err := os.WriteFile(filepath.Join(bundleDir, "invowkfile.cue"), []byte(bundleContent), 0644); err != nil {
-		t.Fatalf("failed to write bundle invowkfile: %v", err)
+	if err := os.WriteFile(filepath.Join(packDir, "invowkfile.cue"), []byte(packContent), 0644); err != nil {
+		t.Fatalf("failed to write pack invowkfile: %v", err)
 	}
 
 	// Create an empty working directory
@@ -888,8 +888,8 @@ commands: [{name: "config-bundled-cmd", implementations: [{script: "echo config 
 
 	found := false
 	for _, f := range files {
-		if f.Source == SourceBundle && f.Bundle != nil {
-			if f.Bundle.Name == "configbundle" {
+		if f.Source == SourcePack && f.Pack != nil {
+			if f.Pack.Name == "configpack" {
 				found = true
 				break
 			}
@@ -897,45 +897,45 @@ commands: [{name: "config-bundled-cmd", implementations: [{script: "echo config 
 	}
 
 	if !found {
-		t.Error("DiscoverAll() did not find bundle in configured search path")
+		t.Error("DiscoverAll() did not find pack in configured search path")
 	}
 }
 
-func TestDiscoveredFile_BundleField(t *testing.T) {
+func TestDiscoveredFile_PackField(t *testing.T) {
 	df := &DiscoveredFile{
-		Path:   "/path/to/bundle/invowkfile.cue",
-		Source: SourceBundle,
+		Path:   "/path/to/pack/invowkfile.cue",
+		Source: SourcePack,
 	}
 
-	if df.Bundle != nil {
-		t.Error("Bundle should be nil by default")
+	if df.Pack != nil {
+		t.Error("Pack should be nil by default")
 	}
 
-	if df.Source != SourceBundle {
-		t.Errorf("Source = %v, want SourceBundle", df.Source)
+	if df.Source != SourcePack {
+		t.Errorf("Source = %v, want SourcePack", df.Source)
 	}
 }
 
-func TestDiscoverCommands_FromBundle(t *testing.T) {
+func TestDiscoverCommands_FromPack(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	// Create a valid bundle
-	bundleDir := filepath.Join(tmpDir, "testbundle.invowkbundle")
-	if err := os.MkdirAll(bundleDir, 0755); err != nil {
-		t.Fatalf("failed to create bundle dir: %v", err)
+	// Create a valid pack
+	packDir := filepath.Join(tmpDir, "testpack.invowkpack")
+	if err := os.MkdirAll(packDir, 0755); err != nil {
+		t.Fatalf("failed to create pack dir: %v", err)
 	}
 
-	// Create invowkfile.cue inside the bundle
-	bundleContent := `
-group: "testbundle"
+	// Create invowkfile.cue inside the pack
+	packContent := `
+group: "testpack"
 version: "1.0"
 commands: [
 	{name: "cmd1", description: "First command", implementations: [{script: "echo 1", target: {runtimes: [{name: "native"}]}}]},
 	{name: "cmd2", description: "Second command", implementations: [{script: "echo 2", target: {runtimes: [{name: "native"}]}}]}
 ]
 `
-	if err := os.WriteFile(filepath.Join(bundleDir, "invowkfile.cue"), []byte(bundleContent), 0644); err != nil {
-		t.Fatalf("failed to write bundle invowkfile: %v", err)
+	if err := os.WriteFile(filepath.Join(packDir, "invowkfile.cue"), []byte(packContent), 0644); err != nil {
+		t.Fatalf("failed to write pack invowkfile: %v", err)
 	}
 
 	// Change to temp directory
@@ -956,47 +956,47 @@ commands: [
 		t.Fatalf("DiscoverCommands() returned error: %v", err)
 	}
 
-	// Should find both commands from the bundle
+	// Should find both commands from the pack
 	foundCmd1 := false
 	foundCmd2 := false
 	for _, cmd := range commands {
-		if cmd.Name == "testbundle cmd1" && cmd.Source == SourceBundle {
+		if cmd.Name == "testpack cmd1" && cmd.Source == SourcePack {
 			foundCmd1 = true
 		}
-		if cmd.Name == "testbundle cmd2" && cmd.Source == SourceBundle {
+		if cmd.Name == "testpack cmd2" && cmd.Source == SourcePack {
 			foundCmd2 = true
 		}
 	}
 
 	if !foundCmd1 {
-		t.Error("DiscoverCommands() did not find 'testbundle cmd1' from bundle")
+		t.Error("DiscoverCommands() did not find 'testpack cmd1' from pack")
 	}
 	if !foundCmd2 {
-		t.Error("DiscoverCommands() did not find 'testbundle cmd2' from bundle")
+		t.Error("DiscoverCommands() did not find 'testpack cmd2' from pack")
 	}
 }
 
-func TestDiscoverAll_SkipsInvalidBundles(t *testing.T) {
+func TestDiscoverAll_SkipsInvalidPacks(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	// Create an invalid bundle (missing invowkfile.cue)
-	invalidBundleDir := filepath.Join(tmpDir, "invalid.invowkbundle")
-	if err := os.MkdirAll(invalidBundleDir, 0755); err != nil {
-		t.Fatalf("failed to create invalid bundle dir: %v", err)
+	// Create an invalid pack (missing invowkfile.cue)
+	invalidPackDir := filepath.Join(tmpDir, "invalid.invowkpack")
+	if err := os.MkdirAll(invalidPackDir, 0755); err != nil {
+		t.Fatalf("failed to create invalid pack dir: %v", err)
 	}
 
-	// Create a valid bundle
-	validBundleDir := filepath.Join(tmpDir, "valid.invowkbundle")
-	if err := os.MkdirAll(validBundleDir, 0755); err != nil {
-		t.Fatalf("failed to create valid bundle dir: %v", err)
+	// Create a valid pack
+	validPackDir := filepath.Join(tmpDir, "valid.invowkpack")
+	if err := os.MkdirAll(validPackDir, 0755); err != nil {
+		t.Fatalf("failed to create valid pack dir: %v", err)
 	}
-	bundleContent := `
+	packContent := `
 group: "valid"
 version: "1.0"
 commands: [{name: "cmd", implementations: [{script: "echo", target: {runtimes: [{name: "native"}]}}]}]
 `
-	if err := os.WriteFile(filepath.Join(validBundleDir, "invowkfile.cue"), []byte(bundleContent), 0644); err != nil {
-		t.Fatalf("failed to write bundle invowkfile: %v", err)
+	if err := os.WriteFile(filepath.Join(validPackDir, "invowkfile.cue"), []byte(packContent), 0644); err != nil {
+		t.Fatalf("failed to write pack invowkfile: %v", err)
 	}
 
 	// Change to temp directory
@@ -1017,40 +1017,40 @@ commands: [{name: "cmd", implementations: [{script: "echo", target: {runtimes: [
 		t.Fatalf("DiscoverAll() returned error: %v", err)
 	}
 
-	// Should only find the valid bundle
-	bundleCount := 0
+	// Should only find the valid pack
+	packCount := 0
 	for _, f := range files {
-		if f.Source == SourceBundle {
-			bundleCount++
-			if f.Bundle != nil && f.Bundle.Name != "valid" {
-				t.Errorf("unexpected bundle found: %s", f.Bundle.Name)
+		if f.Source == SourcePack {
+			packCount++
+			if f.Pack != nil && f.Pack.Name != "valid" {
+				t.Errorf("unexpected pack found: %s", f.Pack.Name)
 			}
 		}
 	}
 
-	if bundleCount != 1 {
-		t.Errorf("expected 1 bundle, found %d", bundleCount)
+	if packCount != 1 {
+		t.Errorf("expected 1 pack, found %d", packCount)
 	}
 }
 
-func TestLoadAll_ParsesBundles(t *testing.T) {
+func TestLoadAll_ParsesPacks(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	// Create a valid bundle
-	bundleDir := filepath.Join(tmpDir, "parsebundle.invowkbundle")
-	if err := os.MkdirAll(bundleDir, 0755); err != nil {
-		t.Fatalf("failed to create bundle dir: %v", err)
+	// Create a valid pack
+	packDir := filepath.Join(tmpDir, "parsepack.invowkpack")
+	if err := os.MkdirAll(packDir, 0755); err != nil {
+		t.Fatalf("failed to create pack dir: %v", err)
 	}
 
-	// Create invowkfile.cue inside the bundle
-	bundleContent := `
-group: "parsebundle"
+	// Create invowkfile.cue inside the pack
+	packContent := `
+group: "parsepack"
 version: "1.0"
-description: "A test bundle"
+description: "A test pack"
 commands: [{name: "test", implementations: [{script: "echo test", target: {runtimes: [{name: "native"}]}}]}]
 `
-	if err := os.WriteFile(filepath.Join(bundleDir, "invowkfile.cue"), []byte(bundleContent), 0644); err != nil {
-		t.Fatalf("failed to write bundle invowkfile: %v", err)
+	if err := os.WriteFile(filepath.Join(packDir, "invowkfile.cue"), []byte(packContent), 0644); err != nil {
+		t.Fatalf("failed to write pack invowkfile: %v", err)
 	}
 
 	// Change to temp directory
@@ -1071,49 +1071,49 @@ commands: [{name: "test", implementations: [{script: "echo test", target: {runti
 		t.Fatalf("LoadAll() returned error: %v", err)
 	}
 
-	// Find the bundle file
-	var bundleFile *DiscoveredFile
+	// Find the pack file
+	var packFile *DiscoveredFile
 	for _, f := range files {
-		if f.Source == SourceBundle {
-			bundleFile = f
+		if f.Source == SourcePack {
+			packFile = f
 			break
 		}
 	}
 
-	if bundleFile == nil {
-		t.Fatal("LoadAll() did not find bundle")
+	if packFile == nil {
+		t.Fatal("LoadAll() did not find pack")
 	}
 
-	if bundleFile.Invowkfile == nil {
-		t.Fatal("LoadAll() did not parse bundle invowkfile")
+	if packFile.Invowkfile == nil {
+		t.Fatal("LoadAll() did not parse pack invowkfile")
 	}
 
-	if bundleFile.Invowkfile.Description != "A test bundle" {
-		t.Errorf("Invowkfile.Description = %s, want 'A test bundle'", bundleFile.Invowkfile.Description)
+	if packFile.Invowkfile.Description != "A test pack" {
+		t.Errorf("Invowkfile.Description = %s, want 'A test pack'", packFile.Invowkfile.Description)
 	}
 
-	// Verify that BundlePath is set on the parsed invowkfile
-	if !bundleFile.Invowkfile.IsFromBundle() {
-		t.Error("Invowkfile.IsFromBundle() should return true for bundle-parsed file")
+	// Verify that PackPath is set on the parsed invowkfile
+	if !packFile.Invowkfile.IsFromPack() {
+		t.Error("Invowkfile.IsFromPack() should return true for pack-parsed file")
 	}
 }
 
-func TestLoadFirst_LoadsBundle(t *testing.T) {
+func TestLoadFirst_LoadsPack(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	// Create a valid bundle (but no regular invowkfile)
-	bundleDir := filepath.Join(tmpDir, "firstbundle.invowkbundle")
-	if err := os.MkdirAll(bundleDir, 0755); err != nil {
-		t.Fatalf("failed to create bundle dir: %v", err)
+	// Create a valid pack (but no regular invowkfile)
+	packDir := filepath.Join(tmpDir, "firstpack.invowkpack")
+	if err := os.MkdirAll(packDir, 0755); err != nil {
+		t.Fatalf("failed to create pack dir: %v", err)
 	}
 
-	bundleContent := `
-group: "firstbundle"
+	packContent := `
+group: "firstpack"
 version: "1.0"
 commands: [{name: "first", implementations: [{script: "echo first", target: {runtimes: [{name: "native"}]}}]}]
 `
-	if err := os.WriteFile(filepath.Join(bundleDir, "invowkfile.cue"), []byte(bundleContent), 0644); err != nil {
-		t.Fatalf("failed to write bundle invowkfile: %v", err)
+	if err := os.WriteFile(filepath.Join(packDir, "invowkfile.cue"), []byte(packContent), 0644); err != nil {
+		t.Fatalf("failed to write pack invowkfile: %v", err)
 	}
 
 	// Change to temp directory
@@ -1134,24 +1134,24 @@ commands: [{name: "first", implementations: [{script: "echo first", target: {run
 		t.Fatalf("LoadFirst() returned error: %v", err)
 	}
 
-	if file.Source != SourceBundle {
-		t.Errorf("LoadFirst().Source = %v, want SourceBundle", file.Source)
+	if file.Source != SourcePack {
+		t.Errorf("LoadFirst().Source = %v, want SourcePack", file.Source)
 	}
 
 	if file.Invowkfile == nil {
-		t.Fatal("LoadFirst() did not parse bundle invowkfile")
+		t.Fatal("LoadFirst() did not parse pack invowkfile")
 	}
 
-	if file.Bundle == nil {
-		t.Fatal("LoadFirst().Bundle should not be nil for bundle source")
+	if file.Pack == nil {
+		t.Fatal("LoadFirst().Pack should not be nil for pack source")
 	}
 
-	if file.Bundle.Name != "firstbundle" {
-		t.Errorf("Bundle.Name = %s, want 'firstbundle'", file.Bundle.Name)
+	if file.Pack.Name != "firstpack" {
+		t.Errorf("Pack.Name = %s, want 'firstpack'", file.Pack.Name)
 	}
 }
 
-func TestDiscoverAll_CurrentDirInvowkfileTakesPrecedenceOverBundle(t *testing.T) {
+func TestDiscoverAll_CurrentDirInvowkfileTakesPrecedenceOverPack(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	// Create a regular invowkfile in current directory
@@ -1164,18 +1164,18 @@ commands: [{name: "cmd", implementations: [{script: "echo current", target: {run
 		t.Fatalf("failed to write current invowkfile: %v", err)
 	}
 
-	// Create a bundle in the same directory
-	bundleDir := filepath.Join(tmpDir, "abundle.invowkbundle")
-	if err := os.MkdirAll(bundleDir, 0755); err != nil {
-		t.Fatalf("failed to create bundle dir: %v", err)
+	// Create a pack in the same directory
+	packDir := filepath.Join(tmpDir, "apack.invowkpack")
+	if err := os.MkdirAll(packDir, 0755); err != nil {
+		t.Fatalf("failed to create pack dir: %v", err)
 	}
-	bundleContent := `
-group: "abundle"
+	packContent := `
+group: "apack"
 version: "1.0"
-commands: [{name: "cmd", implementations: [{script: "echo bundle", target: {runtimes: [{name: "native"}]}}]}]
+commands: [{name: "cmd", implementations: [{script: "echo pack", target: {runtimes: [{name: "native"}]}}]}]
 `
-	if err := os.WriteFile(filepath.Join(bundleDir, "invowkfile.cue"), []byte(bundleContent), 0644); err != nil {
-		t.Fatalf("failed to write bundle invowkfile: %v", err)
+	if err := os.WriteFile(filepath.Join(packDir, "invowkfile.cue"), []byte(packContent), 0644); err != nil {
+		t.Fatalf("failed to write pack invowkfile: %v", err)
 	}
 
 	// Change to temp directory
@@ -1196,7 +1196,7 @@ commands: [{name: "cmd", implementations: [{script: "echo bundle", target: {runt
 		t.Fatalf("DiscoverAll() returned error: %v", err)
 	}
 
-	// First file should be from current directory, not bundle
+	// First file should be from current directory, not pack
 	if len(files) == 0 {
 		t.Fatal("DiscoverAll() returned no files")
 	}
@@ -1207,20 +1207,20 @@ commands: [{name: "cmd", implementations: [{script: "echo bundle", target: {runt
 
 	// Both should be found
 	foundCurrentDir := false
-	foundBundle := false
+	foundPack := false
 	for _, f := range files {
 		if f.Source == SourceCurrentDir {
 			foundCurrentDir = true
 		}
-		if f.Source == SourceBundle {
-			foundBundle = true
+		if f.Source == SourcePack {
+			foundPack = true
 		}
 	}
 
 	if !foundCurrentDir {
 		t.Error("DiscoverAll() did not find invowkfile in current directory")
 	}
-	if !foundBundle {
-		t.Error("DiscoverAll() did not find bundle")
+	if !foundPack {
+		t.Error("DiscoverAll() did not find pack")
 	}
 }

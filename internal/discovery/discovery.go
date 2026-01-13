@@ -9,8 +9,8 @@ import (
 	"strings"
 
 	"invowk-cli/internal/config"
-	"invowk-cli/pkg/bundle"
 	"invowk-cli/pkg/invowkfile"
+	"invowk-cli/pkg/pack"
 )
 
 // Source represents where an invowkfile was found
@@ -23,8 +23,8 @@ const (
 	SourceUserDir
 	// SourceConfigPath indicates the file was found in a configured search path
 	SourceConfigPath
-	// SourceBundle indicates the file was found in an invowk bundle
-	SourceBundle
+	// SourcePack indicates the file was found in an invowk pack
+	SourcePack
 )
 
 // String returns a human-readable source name
@@ -36,8 +36,8 @@ func (s Source) String() string {
 		return "user commands (~/.invowk/cmds)"
 	case SourceConfigPath:
 		return "configured search path"
-	case SourceBundle:
-		return "bundle"
+	case SourcePack:
+		return "pack"
 	default:
 		return "unknown"
 	}
@@ -53,8 +53,8 @@ type DiscoveredFile struct {
 	Invowkfile *invowkfile.Invowkfile
 	// Error contains any error that occurred during parsing
 	Error error
-	// Bundle is set if this file was discovered from a bundle
-	Bundle *bundle.Bundle
+	// Pack is set if this file was discovered from a pack
+	Pack *pack.Pack
 }
 
 // Discovery handles finding invowkfiles
@@ -76,9 +76,9 @@ func (d *Discovery) DiscoverAll() ([]*DiscoveredFile, error) {
 		files = append(files, cwdFile)
 	}
 
-	// 2. Bundles in current directory
-	bundleFiles := d.discoverBundlesInDir(".")
-	files = append(files, bundleFiles...)
+	// 2. Packs in current directory
+	packFiles := d.discoverPacksInDir(".")
+	files = append(files, packFiles...)
 
 	// 3. User commands directory (~/.invowk/cmds)
 	userDir, err := config.CommandsDir()
@@ -86,9 +86,9 @@ func (d *Discovery) DiscoverAll() ([]*DiscoveredFile, error) {
 		userFiles := d.discoverInDirRecursive(userDir, SourceUserDir)
 		files = append(files, userFiles...)
 
-		// Also discover bundles in user commands directory
-		userBundleFiles := d.discoverBundlesInDir(userDir)
-		files = append(files, userBundleFiles...)
+		// Also discover packs in user commands directory
+		userPackFiles := d.discoverPacksInDir(userDir)
+		files = append(files, userPackFiles...)
 	}
 
 	// 4. Configured search paths
@@ -96,9 +96,9 @@ func (d *Discovery) DiscoverAll() ([]*DiscoveredFile, error) {
 		pathFiles := d.discoverInDirRecursive(searchPath, SourceConfigPath)
 		files = append(files, pathFiles...)
 
-		// Also discover bundles in search paths
-		searchPathBundleFiles := d.discoverBundlesInDir(searchPath)
-		files = append(files, searchPathBundleFiles...)
+		// Also discover packs in search paths
+		searchPathPackFiles := d.discoverPacksInDir(searchPath)
+		files = append(files, searchPathPackFiles...)
 	}
 
 	return files, nil
@@ -164,9 +164,9 @@ func (d *Discovery) discoverInDirRecursive(dir string, source Source) []*Discove
 	return files
 }
 
-// discoverBundlesInDir finds all valid bundles in a directory.
-// It only looks at immediate subdirectories (bundles are not nested).
-func (d *Discovery) discoverBundlesInDir(dir string) []*DiscoveredFile {
+// discoverPacksInDir finds all valid packs in a directory.
+// It only looks at immediate subdirectories (packs are not nested).
+func (d *Discovery) discoverPacksInDir(dir string) []*DiscoveredFile {
 	var files []*DiscoveredFile
 
 	absDir, err := filepath.Abs(dir)
@@ -190,23 +190,23 @@ func (d *Discovery) discoverBundlesInDir(dir string) []*DiscoveredFile {
 			continue
 		}
 
-		// Check if it's a bundle
+		// Check if it's a pack
 		entryPath := filepath.Join(absDir, entry.Name())
-		if !bundle.IsBundle(entryPath) {
+		if !pack.IsPack(entryPath) {
 			continue
 		}
 
-		// Load the bundle
-		b, err := bundle.Load(entryPath)
+		// Load the pack
+		p, err := pack.Load(entryPath)
 		if err != nil {
-			// Invalid bundle, skip it
+			// Invalid pack, skip it
 			continue
 		}
 
 		files = append(files, &DiscoveredFile{
-			Path:   b.InvowkfilePath,
-			Source: SourceBundle,
-			Bundle: b,
+			Path:   p.InvowkfilePath,
+			Source: SourcePack,
+			Pack:   p,
 		})
 	}
 
@@ -224,9 +224,9 @@ func (d *Discovery) LoadAll() ([]*DiscoveredFile, error) {
 		var inv *invowkfile.Invowkfile
 		var parseErr error
 
-		if file.Bundle != nil {
-			// Use bundle-aware parsing
-			inv, parseErr = invowkfile.ParseBundle(file.Bundle.Path)
+		if file.Pack != nil {
+			// Use pack-aware parsing
+			inv, parseErr = invowkfile.ParsePack(file.Pack.Path)
 		} else {
 			inv, parseErr = invowkfile.Parse(file.Path)
 		}
@@ -256,9 +256,9 @@ func (d *Discovery) LoadFirst() (*DiscoveredFile, error) {
 	var inv *invowkfile.Invowkfile
 	var parseErr error
 
-	if file.Bundle != nil {
-		// Use bundle-aware parsing
-		inv, parseErr = invowkfile.ParseBundle(file.Bundle.Path)
+	if file.Pack != nil {
+		// Use pack-aware parsing
+		inv, parseErr = invowkfile.ParsePack(file.Pack.Path)
 	} else {
 		inv, parseErr = invowkfile.Parse(file.Path)
 	}

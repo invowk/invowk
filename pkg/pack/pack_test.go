@@ -1,4 +1,4 @@
-package bundle
+package pack
 
 import (
 	"archive/zip"
@@ -8,33 +8,33 @@ import (
 	"testing"
 )
 
-func TestIsBundle(t *testing.T) {
+func TestIsPack(t *testing.T) {
 	tests := []struct {
 		name     string
 		setup    func(t *testing.T) string // returns path to test
 		expected bool
 	}{
 		{
-			name: "valid bundle with simple name",
+			name: "valid pack with simple name",
 			setup: func(t *testing.T) string {
 				dir := t.TempDir()
-				bundlePath := filepath.Join(dir, "mycommands.invowkbundle")
-				if err := os.Mkdir(bundlePath, 0755); err != nil {
+				packPath := filepath.Join(dir, "mycommands.invowkpack")
+				if err := os.Mkdir(packPath, 0755); err != nil {
 					t.Fatal(err)
 				}
-				return bundlePath
+				return packPath
 			},
 			expected: true,
 		},
 		{
-			name: "valid bundle with RDNS name",
+			name: "valid pack with RDNS name",
 			setup: func(t *testing.T) string {
 				dir := t.TempDir()
-				bundlePath := filepath.Join(dir, "com.example.mycommands.invowkbundle")
-				if err := os.Mkdir(bundlePath, 0755); err != nil {
+				packPath := filepath.Join(dir, "com.example.mycommands.invowkpack")
+				if err := os.Mkdir(packPath, 0755); err != nil {
 					t.Fatal(err)
 				}
-				return bundlePath
+				return packPath
 			},
 			expected: true,
 		},
@@ -42,11 +42,11 @@ func TestIsBundle(t *testing.T) {
 			name: "invalid - missing suffix",
 			setup: func(t *testing.T) string {
 				dir := t.TempDir()
-				bundlePath := filepath.Join(dir, "mycommands")
-				if err := os.Mkdir(bundlePath, 0755); err != nil {
+				packPath := filepath.Join(dir, "mycommands")
+				if err := os.Mkdir(packPath, 0755); err != nil {
 					t.Fatal(err)
 				}
-				return bundlePath
+				return packPath
 			},
 			expected: false,
 		},
@@ -54,11 +54,11 @@ func TestIsBundle(t *testing.T) {
 			name: "invalid - wrong suffix",
 			setup: func(t *testing.T) string {
 				dir := t.TempDir()
-				bundlePath := filepath.Join(dir, "mycommands.bundle")
-				if err := os.Mkdir(bundlePath, 0755); err != nil {
+				packPath := filepath.Join(dir, "mycommands.wrong")
+				if err := os.Mkdir(packPath, 0755); err != nil {
 					t.Fatal(err)
 				}
-				return bundlePath
+				return packPath
 			},
 			expected: false,
 		},
@@ -66,11 +66,11 @@ func TestIsBundle(t *testing.T) {
 			name: "invalid - starts with number",
 			setup: func(t *testing.T) string {
 				dir := t.TempDir()
-				bundlePath := filepath.Join(dir, "123commands.invowkbundle")
-				if err := os.Mkdir(bundlePath, 0755); err != nil {
+				packPath := filepath.Join(dir, "123commands.invowkpack")
+				if err := os.Mkdir(packPath, 0755); err != nil {
 					t.Fatal(err)
 				}
-				return bundlePath
+				return packPath
 			},
 			expected: false,
 		},
@@ -79,12 +79,12 @@ func TestIsBundle(t *testing.T) {
 			setup: func(t *testing.T) string {
 				dir := t.TempDir()
 				// Note: folder name itself doesn't start with dot, but the name part does
-				// This tests ".hidden.invowkbundle" - the prefix is ".hidden" which is invalid
-				bundlePath := filepath.Join(dir, ".hidden.invowkbundle")
-				if err := os.Mkdir(bundlePath, 0755); err != nil {
+				// This tests ".hidden.invowkpack" - the prefix is ".hidden" which is invalid
+				packPath := filepath.Join(dir, ".hidden.invowkpack")
+				if err := os.Mkdir(packPath, 0755); err != nil {
 					t.Fatal(err)
 				}
-				return bundlePath
+				return packPath
 			},
 			expected: false,
 		},
@@ -92,7 +92,7 @@ func TestIsBundle(t *testing.T) {
 			name: "invalid - file not directory",
 			setup: func(t *testing.T) string {
 				dir := t.TempDir()
-				filePath := filepath.Join(dir, "mycommands.invowkbundle")
+				filePath := filepath.Join(dir, "mycommands.invowkpack")
 				if err := os.WriteFile(filePath, []byte("test"), 0644); err != nil {
 					t.Fatal(err)
 				}
@@ -103,7 +103,7 @@ func TestIsBundle(t *testing.T) {
 		{
 			name: "invalid - path does not exist",
 			setup: func(t *testing.T) string {
-				return "/nonexistent/path/mycommands.invowkbundle"
+				return "/nonexistent/path/mycommands.invowkpack"
 			},
 			expected: false,
 		},
@@ -111,11 +111,11 @@ func TestIsBundle(t *testing.T) {
 			name: "invalid - contains hyphen in name",
 			setup: func(t *testing.T) string {
 				dir := t.TempDir()
-				bundlePath := filepath.Join(dir, "my-commands.invowkbundle")
-				if err := os.Mkdir(bundlePath, 0755); err != nil {
+				packPath := filepath.Join(dir, "my-commands.invowkpack")
+				if err := os.Mkdir(packPath, 0755); err != nil {
 					t.Fatal(err)
 				}
-				return bundlePath
+				return packPath
 			},
 			expected: false,
 		},
@@ -123,11 +123,11 @@ func TestIsBundle(t *testing.T) {
 			name: "invalid - contains underscore in name",
 			setup: func(t *testing.T) string {
 				dir := t.TempDir()
-				bundlePath := filepath.Join(dir, "my_commands.invowkbundle")
-				if err := os.Mkdir(bundlePath, 0755); err != nil {
+				packPath := filepath.Join(dir, "my_commands.invowkpack")
+				if err := os.Mkdir(packPath, 0755); err != nil {
 					t.Fatal(err)
 				}
-				return bundlePath
+				return packPath
 			},
 			expected: false,
 		},
@@ -135,11 +135,11 @@ func TestIsBundle(t *testing.T) {
 			name: "valid - segment starts with uppercase",
 			setup: func(t *testing.T) string {
 				dir := t.TempDir()
-				bundlePath := filepath.Join(dir, "Com.Example.MyCommands.invowkbundle")
-				if err := os.Mkdir(bundlePath, 0755); err != nil {
+				packPath := filepath.Join(dir, "Com.Example.MyCommands.invowkpack")
+				if err := os.Mkdir(packPath, 0755); err != nil {
 					t.Fatal(err)
 				}
-				return bundlePath
+				return packPath
 			},
 			expected: true,
 		},
@@ -148,15 +148,15 @@ func TestIsBundle(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			path := tt.setup(t)
-			result := IsBundle(path)
+			result := IsPack(path)
 			if result != tt.expected {
-				t.Errorf("IsBundle(%q) = %v, want %v", path, result, tt.expected)
+				t.Errorf("IsPack(%q) = %v, want %v", path, result, tt.expected)
 			}
 		})
 	}
 }
 
-func TestParseBundleName(t *testing.T) {
+func TestParsePackName(t *testing.T) {
 	tests := []struct {
 		name        string
 		folderName  string
@@ -165,25 +165,25 @@ func TestParseBundleName(t *testing.T) {
 	}{
 		{
 			name:        "simple name",
-			folderName:  "mycommands.invowkbundle",
+			folderName:  "mycommands.invowkpack",
 			expectedOK:  true,
 			expectedVal: "mycommands",
 		},
 		{
 			name:        "RDNS name",
-			folderName:  "com.example.mycommands.invowkbundle",
+			folderName:  "com.example.mycommands.invowkpack",
 			expectedOK:  true,
 			expectedVal: "com.example.mycommands",
 		},
 		{
 			name:        "single letter segments",
-			folderName:  "a.b.c.invowkbundle",
+			folderName:  "a.b.c.invowkpack",
 			expectedOK:  true,
 			expectedVal: "a.b.c",
 		},
 		{
 			name:        "alphanumeric segments",
-			folderName:  "com.example123.mytools.invowkbundle",
+			folderName:  "com.example123.mytools.invowkpack",
 			expectedOK:  true,
 			expectedVal: "com.example123.mytools",
 		},
@@ -194,69 +194,69 @@ func TestParseBundleName(t *testing.T) {
 		},
 		{
 			name:       "wrong suffix",
-			folderName: "mycommands.bundle",
+			folderName: "mycommands.wrong",
 			expectedOK: false,
 		},
 		{
 			name:       "empty prefix",
-			folderName: ".invowkbundle",
+			folderName: ".invowkpack",
 			expectedOK: false,
 		},
 		{
 			name:       "starts with number",
-			folderName: "123commands.invowkbundle",
+			folderName: "123commands.invowkpack",
 			expectedOK: false,
 		},
 		{
 			name:       "segment starts with number",
-			folderName: "com.123example.invowkbundle",
+			folderName: "com.123example.invowkpack",
 			expectedOK: false,
 		},
 		{
 			name:       "contains hyphen",
-			folderName: "my-commands.invowkbundle",
+			folderName: "my-commands.invowkpack",
 			expectedOK: false,
 		},
 		{
 			name:       "contains underscore",
-			folderName: "my_commands.invowkbundle",
+			folderName: "my_commands.invowkpack",
 			expectedOK: false,
 		},
 		{
 			name:       "starts with dot (hidden)",
-			folderName: ".hidden.invowkbundle",
+			folderName: ".hidden.invowkpack",
 			expectedOK: false,
 		},
 		{
 			name:       "double dots",
-			folderName: "com..example.invowkbundle",
+			folderName: "com..example.invowkpack",
 			expectedOK: false,
 		},
 		{
 			name:       "ends with dot before suffix",
-			folderName: "com.example..invowkbundle",
+			folderName: "com.example..invowkpack",
 			expectedOK: false,
 		},
 		{
 			name:       "empty segment",
-			folderName: "com.example..tools.invowkbundle",
+			folderName: "com.example..tools.invowkpack",
 			expectedOK: false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := ParseBundleName(tt.folderName)
+			result, err := ParsePackName(tt.folderName)
 			if tt.expectedOK {
 				if err != nil {
-					t.Errorf("ParseBundleName(%q) returned error: %v, expected %q", tt.folderName, err, tt.expectedVal)
+					t.Errorf("ParsePackName(%q) returned error: %v, expected %q", tt.folderName, err, tt.expectedVal)
 				}
 				if result != tt.expectedVal {
-					t.Errorf("ParseBundleName(%q) = %q, want %q", tt.folderName, result, tt.expectedVal)
+					t.Errorf("ParsePackName(%q) = %q, want %q", tt.folderName, result, tt.expectedVal)
 				}
 			} else {
 				if err == nil {
-					t.Errorf("ParseBundleName(%q) = %q, expected error", tt.folderName, result)
+					t.Errorf("ParsePackName(%q) = %q, expected error", tt.folderName, result)
 				}
 			}
 		})
@@ -266,41 +266,41 @@ func TestParseBundleName(t *testing.T) {
 func TestValidate(t *testing.T) {
 	tests := []struct {
 		name           string
-		setup          func(t *testing.T) string // returns path to bundle
+		setup          func(t *testing.T) string // returns path to pack
 		expectValid    bool
 		expectIssues   int
 		checkIssueType string // optional: check that at least one issue has this type
 	}{
 		{
-			name: "valid bundle with invowkfile",
+			name: "valid pack with invowkfile",
 			setup: func(t *testing.T) string {
 				dir := t.TempDir()
-				bundlePath := filepath.Join(dir, "mycommands.invowkbundle")
-				if err := os.Mkdir(bundlePath, 0755); err != nil {
+				packPath := filepath.Join(dir, "mycommands.invowkpack")
+				if err := os.Mkdir(packPath, 0755); err != nil {
 					t.Fatal(err)
 				}
-				invowkfilePath := filepath.Join(bundlePath, "invowkfile.cue")
+				invowkfilePath := filepath.Join(packPath, "invowkfile.cue")
 				if err := os.WriteFile(invowkfilePath, []byte("group: \"test\"\ncommands: []"), 0644); err != nil {
 					t.Fatal(err)
 				}
-				return bundlePath
+				return packPath
 			},
 			expectValid:  true,
 			expectIssues: 0,
 		},
 		{
-			name: "valid RDNS bundle",
+			name: "valid RDNS pack",
 			setup: func(t *testing.T) string {
 				dir := t.TempDir()
-				bundlePath := filepath.Join(dir, "com.example.mycommands.invowkbundle")
-				if err := os.Mkdir(bundlePath, 0755); err != nil {
+				packPath := filepath.Join(dir, "com.example.mycommands.invowkpack")
+				if err := os.Mkdir(packPath, 0755); err != nil {
 					t.Fatal(err)
 				}
-				invowkfilePath := filepath.Join(bundlePath, "invowkfile.cue")
+				invowkfilePath := filepath.Join(packPath, "invowkfile.cue")
 				if err := os.WriteFile(invowkfilePath, []byte("group: \"test\"\ncommands: []"), 0644); err != nil {
 					t.Fatal(err)
 				}
-				return bundlePath
+				return packPath
 			},
 			expectValid:  true,
 			expectIssues: 0,
@@ -309,11 +309,11 @@ func TestValidate(t *testing.T) {
 			name: "missing invowkfile.cue",
 			setup: func(t *testing.T) string {
 				dir := t.TempDir()
-				bundlePath := filepath.Join(dir, "mycommands.invowkbundle")
-				if err := os.Mkdir(bundlePath, 0755); err != nil {
+				packPath := filepath.Join(dir, "mycommands.invowkpack")
+				if err := os.Mkdir(packPath, 0755); err != nil {
 					t.Fatal(err)
 				}
-				return bundlePath
+				return packPath
 			},
 			expectValid:    false,
 			expectIssues:   1,
@@ -323,38 +323,38 @@ func TestValidate(t *testing.T) {
 			name: "invowkfile.cue is a directory",
 			setup: func(t *testing.T) string {
 				dir := t.TempDir()
-				bundlePath := filepath.Join(dir, "mycommands.invowkbundle")
-				if err := os.Mkdir(bundlePath, 0755); err != nil {
+				packPath := filepath.Join(dir, "mycommands.invowkpack")
+				if err := os.Mkdir(packPath, 0755); err != nil {
 					t.Fatal(err)
 				}
-				invowkfileDir := filepath.Join(bundlePath, "invowkfile.cue")
+				invowkfileDir := filepath.Join(packPath, "invowkfile.cue")
 				if err := os.Mkdir(invowkfileDir, 0755); err != nil {
 					t.Fatal(err)
 				}
-				return bundlePath
+				return packPath
 			},
 			expectValid:    false,
 			expectIssues:   1,
 			checkIssueType: "structure",
 		},
 		{
-			name: "nested bundle not allowed",
+			name: "nested pack not allowed",
 			setup: func(t *testing.T) string {
 				dir := t.TempDir()
-				bundlePath := filepath.Join(dir, "mycommands.invowkbundle")
-				if err := os.Mkdir(bundlePath, 0755); err != nil {
+				packPath := filepath.Join(dir, "mycommands.invowkpack")
+				if err := os.Mkdir(packPath, 0755); err != nil {
 					t.Fatal(err)
 				}
-				invowkfilePath := filepath.Join(bundlePath, "invowkfile.cue")
+				invowkfilePath := filepath.Join(packPath, "invowkfile.cue")
 				if err := os.WriteFile(invowkfilePath, []byte("group: \"test\"\ncommands: []"), 0644); err != nil {
 					t.Fatal(err)
 				}
-				// Create nested bundle
-				nestedPath := filepath.Join(bundlePath, "nested.invowkbundle")
+				// Create nested pack
+				nestedPath := filepath.Join(packPath, "nested.invowkpack")
 				if err := os.Mkdir(nestedPath, 0755); err != nil {
 					t.Fatal(err)
 				}
-				return bundlePath
+				return packPath
 			},
 			expectValid:    false,
 			expectIssues:   1,
@@ -364,15 +364,15 @@ func TestValidate(t *testing.T) {
 			name: "invalid folder name",
 			setup: func(t *testing.T) string {
 				dir := t.TempDir()
-				bundlePath := filepath.Join(dir, "123invalid.invowkbundle")
-				if err := os.Mkdir(bundlePath, 0755); err != nil {
+				packPath := filepath.Join(dir, "123invalid.invowkpack")
+				if err := os.Mkdir(packPath, 0755); err != nil {
 					t.Fatal(err)
 				}
-				invowkfilePath := filepath.Join(bundlePath, "invowkfile.cue")
+				invowkfilePath := filepath.Join(packPath, "invowkfile.cue")
 				if err := os.WriteFile(invowkfilePath, []byte("group: \"test\"\ncommands: []"), 0644); err != nil {
 					t.Fatal(err)
 				}
-				return bundlePath
+				return packPath
 			},
 			expectValid:    false,
 			expectIssues:   1,
@@ -381,7 +381,7 @@ func TestValidate(t *testing.T) {
 		{
 			name: "path does not exist",
 			setup: func(t *testing.T) string {
-				return "/nonexistent/path/mycommands.invowkbundle"
+				return "/nonexistent/path/mycommands.invowkpack"
 			},
 			expectValid:    false,
 			expectIssues:   1,
@@ -391,7 +391,7 @@ func TestValidate(t *testing.T) {
 			name: "path is a file not directory",
 			setup: func(t *testing.T) string {
 				dir := t.TempDir()
-				filePath := filepath.Join(dir, "mycommands.invowkbundle")
+				filePath := filepath.Join(dir, "mycommands.invowkpack")
 				if err := os.WriteFile(filePath, []byte("test"), 0644); err != nil {
 					t.Fatal(err)
 				}
@@ -402,37 +402,37 @@ func TestValidate(t *testing.T) {
 			checkIssueType: "structure",
 		},
 		{
-			name: "multiple issues - missing invowkfile and nested bundle",
+			name: "multiple issues - missing invowkfile and nested pack",
 			setup: func(t *testing.T) string {
 				dir := t.TempDir()
-				bundlePath := filepath.Join(dir, "mycommands.invowkbundle")
-				if err := os.Mkdir(bundlePath, 0755); err != nil {
+				packPath := filepath.Join(dir, "mycommands.invowkpack")
+				if err := os.Mkdir(packPath, 0755); err != nil {
 					t.Fatal(err)
 				}
-				// Create nested bundle (but no invowkfile)
-				nestedPath := filepath.Join(bundlePath, "nested.invowkbundle")
+				// Create nested pack (but no invowkfile)
+				nestedPath := filepath.Join(packPath, "nested.invowkpack")
 				if err := os.Mkdir(nestedPath, 0755); err != nil {
 					t.Fatal(err)
 				}
-				return bundlePath
+				return packPath
 			},
 			expectValid:  false,
 			expectIssues: 2,
 		},
 		{
-			name: "bundle with script files - valid structure",
+			name: "pack with script files - valid structure",
 			setup: func(t *testing.T) string {
 				dir := t.TempDir()
-				bundlePath := filepath.Join(dir, "mycommands.invowkbundle")
-				if err := os.Mkdir(bundlePath, 0755); err != nil {
+				packPath := filepath.Join(dir, "mycommands.invowkpack")
+				if err := os.Mkdir(packPath, 0755); err != nil {
 					t.Fatal(err)
 				}
-				invowkfilePath := filepath.Join(bundlePath, "invowkfile.cue")
+				invowkfilePath := filepath.Join(packPath, "invowkfile.cue")
 				if err := os.WriteFile(invowkfilePath, []byte("group: \"test\"\ncommands: []"), 0644); err != nil {
 					t.Fatal(err)
 				}
 				// Create scripts directory
-				scriptsDir := filepath.Join(bundlePath, "scripts")
+				scriptsDir := filepath.Join(packPath, "scripts")
 				if err := os.Mkdir(scriptsDir, 0755); err != nil {
 					t.Fatal(err)
 				}
@@ -440,7 +440,7 @@ func TestValidate(t *testing.T) {
 				if err := os.WriteFile(scriptPath, []byte("#!/bin/bash\necho hello"), 0755); err != nil {
 					t.Fatal(err)
 				}
-				return bundlePath
+				return packPath
 			},
 			expectValid:  true,
 			expectIssues: 0,
@@ -480,51 +480,51 @@ func TestValidate(t *testing.T) {
 }
 
 func TestLoad(t *testing.T) {
-	t.Run("loads valid bundle", func(t *testing.T) {
+	t.Run("loads valid pack", func(t *testing.T) {
 		dir := t.TempDir()
-		bundlePath := filepath.Join(dir, "com.example.test.invowkbundle")
-		if err := os.Mkdir(bundlePath, 0755); err != nil {
+		packPath := filepath.Join(dir, "com.example.test.invowkpack")
+		if err := os.Mkdir(packPath, 0755); err != nil {
 			t.Fatal(err)
 		}
-		invowkfilePath := filepath.Join(bundlePath, "invowkfile.cue")
+		invowkfilePath := filepath.Join(packPath, "invowkfile.cue")
 		if err := os.WriteFile(invowkfilePath, []byte("group: \"test\"\ncommands: []"), 0644); err != nil {
 			t.Fatal(err)
 		}
 
-		bundle, err := Load(bundlePath)
+		pack, err := Load(packPath)
 		if err != nil {
 			t.Fatalf("Load() returned error: %v", err)
 		}
 
-		if bundle.Name != "com.example.test" {
-			t.Errorf("bundle.Name = %q, want %q", bundle.Name, "com.example.test")
+		if pack.Name != "com.example.test" {
+			t.Errorf("pack.Name = %q, want %q", pack.Name, "com.example.test")
 		}
 
-		if bundle.InvowkfilePath != invowkfilePath {
-			t.Errorf("bundle.InvowkfilePath = %q, want %q", bundle.InvowkfilePath, invowkfilePath)
+		if pack.InvowkfilePath != invowkfilePath {
+			t.Errorf("pack.InvowkfilePath = %q, want %q", pack.InvowkfilePath, invowkfilePath)
 		}
 	})
 
-	t.Run("fails for invalid bundle", func(t *testing.T) {
+	t.Run("fails for invalid pack", func(t *testing.T) {
 		dir := t.TempDir()
-		bundlePath := filepath.Join(dir, "mycommands.invowkbundle")
-		if err := os.Mkdir(bundlePath, 0755); err != nil {
+		packPath := filepath.Join(dir, "mycommands.invowkpack")
+		if err := os.Mkdir(packPath, 0755); err != nil {
 			t.Fatal(err)
 		}
 		// No invowkfile.cue
 
-		_, err := Load(bundlePath)
+		_, err := Load(packPath)
 		if err == nil {
-			t.Error("Load() expected error for invalid bundle, got nil")
+			t.Error("Load() expected error for invalid pack, got nil")
 		}
 	})
 }
 
-func TestBundle_ResolveScriptPath(t *testing.T) {
-	bundle := &Bundle{
-		Path:           "/home/user/mycommands.invowkbundle",
+func TestPack_ResolveScriptPath(t *testing.T) {
+	pack := &Pack{
+		Path:           "/home/user/mycommands.invowkpack",
 		Name:           "mycommands",
-		InvowkfilePath: "/home/user/mycommands.invowkbundle/invowkfile.cue",
+		InvowkfilePath: "/home/user/mycommands.invowkpack/invowkfile.cue",
 	}
 
 	tests := []struct {
@@ -535,23 +535,23 @@ func TestBundle_ResolveScriptPath(t *testing.T) {
 		{
 			name:       "relative path with forward slashes",
 			scriptPath: "scripts/build.sh",
-			expected:   filepath.Join("/home/user/mycommands.invowkbundle", "scripts", "build.sh"),
+			expected:   filepath.Join("/home/user/mycommands.invowkpack", "scripts", "build.sh"),
 		},
 		{
 			name:       "relative path in root",
 			scriptPath: "run.sh",
-			expected:   filepath.Join("/home/user/mycommands.invowkbundle", "run.sh"),
+			expected:   filepath.Join("/home/user/mycommands.invowkpack", "run.sh"),
 		},
 		{
 			name:       "nested path",
 			scriptPath: "lib/utils/helper.sh",
-			expected:   filepath.Join("/home/user/mycommands.invowkbundle", "lib", "utils", "helper.sh"),
+			expected:   filepath.Join("/home/user/mycommands.invowkpack", "lib", "utils", "helper.sh"),
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := bundle.ResolveScriptPath(tt.scriptPath)
+			result := pack.ResolveScriptPath(tt.scriptPath)
 			if result != tt.expected {
 				t.Errorf("ResolveScriptPath(%q) = %q, want %q", tt.scriptPath, result, tt.expected)
 			}
@@ -559,11 +559,11 @@ func TestBundle_ResolveScriptPath(t *testing.T) {
 	}
 }
 
-func TestBundle_ValidateScriptPath(t *testing.T) {
-	bundle := &Bundle{
-		Path:           "/home/user/mycommands.invowkbundle",
+func TestPack_ValidateScriptPath(t *testing.T) {
+	pack := &Pack{
+		Path:           "/home/user/mycommands.invowkpack",
 		Name:           "mycommands",
-		InvowkfilePath: "/home/user/mycommands.invowkbundle/invowkfile.cue",
+		InvowkfilePath: "/home/user/mycommands.invowkpack/invowkfile.cue",
 	}
 
 	tests := []struct {
@@ -592,7 +592,7 @@ func TestBundle_ValidateScriptPath(t *testing.T) {
 			expectErr:  true,
 		},
 		{
-			name:       "path escapes bundle with ..",
+			name:       "path escapes pack with ..",
 			scriptPath: "../other/script.sh",
 			expectErr:  true,
 		},
@@ -610,7 +610,7 @@ func TestBundle_ValidateScriptPath(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := bundle.ValidateScriptPath(tt.scriptPath)
+			err := pack.ValidateScriptPath(tt.scriptPath)
 			if tt.expectErr && err == nil {
 				t.Errorf("ValidateScriptPath(%q) expected error, got nil", tt.scriptPath)
 			}
@@ -621,16 +621,16 @@ func TestBundle_ValidateScriptPath(t *testing.T) {
 	}
 }
 
-func TestBundle_ContainsPath(t *testing.T) {
+func TestPack_ContainsPath(t *testing.T) {
 	// Create a real temp directory for this test
 	dir := t.TempDir()
-	bundlePath := filepath.Join(dir, "mycommands.invowkbundle")
-	if err := os.Mkdir(bundlePath, 0755); err != nil {
+	packPath := filepath.Join(dir, "mycommands.invowkpack")
+	if err := os.Mkdir(packPath, 0755); err != nil {
 		t.Fatal(err)
 	}
 
-	bundle := &Bundle{
-		Path: bundlePath,
+	pack := &Pack{
+		Path: packPath,
 		Name: "mycommands",
 	}
 
@@ -640,18 +640,18 @@ func TestBundle_ContainsPath(t *testing.T) {
 		expected bool
 	}{
 		{
-			name:     "file in bundle root",
-			path:     filepath.Join(bundlePath, "invowkfile.cue"),
+			name:     "file in pack root",
+			path:     filepath.Join(packPath, "invowkfile.cue"),
 			expected: true,
 		},
 		{
 			name:     "file in subdirectory",
-			path:     filepath.Join(bundlePath, "scripts", "build.sh"),
+			path:     filepath.Join(packPath, "scripts", "build.sh"),
 			expected: true,
 		},
 		{
-			name:     "bundle path itself",
-			path:     bundlePath,
+			name:     "pack path itself",
+			path:     packPath,
 			expected: true,
 		},
 		{
@@ -668,7 +668,7 @@ func TestBundle_ContainsPath(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := bundle.ContainsPath(tt.path)
+			result := pack.ContainsPath(tt.path)
 			if result != tt.expected {
 				t.Errorf("ContainsPath(%q) = %v, want %v", tt.path, result, tt.expected)
 			}
@@ -686,19 +686,19 @@ func TestValidationIssue_Error(t *testing.T) {
 			name: "issue with path",
 			issue: ValidationIssue{
 				Type:    "structure",
-				Message: "nested bundles are not allowed",
-				Path:    "nested.invowkbundle",
+				Message: "nested packs are not allowed",
+				Path:    "nested.invowkpack",
 			},
-			expected: "[structure] nested.invowkbundle: nested bundles are not allowed",
+			expected: "[structure] nested.invowkpack: nested packs are not allowed",
 		},
 		{
 			name: "issue without path",
 			issue: ValidationIssue{
 				Type:    "naming",
-				Message: "bundle name is invalid",
+				Message: "pack name is invalid",
 				Path:    "",
 			},
-			expected: "[naming] bundle name is invalid",
+			expected: "[naming] pack name is invalid",
 		},
 	}
 
@@ -714,80 +714,80 @@ func TestValidationIssue_Error(t *testing.T) {
 
 func TestValidateName(t *testing.T) {
 	tests := []struct {
-		name       string
-		bundleName string
-		expectErr  bool
+		name      string
+		packName  string
+		expectErr bool
 	}{
 		{
-			name:       "valid simple name",
-			bundleName: "mycommands",
-			expectErr:  false,
+			name:      "valid simple name",
+			packName:  "mycommands",
+			expectErr: false,
 		},
 		{
-			name:       "valid RDNS name",
-			bundleName: "com.example.mycommands",
-			expectErr:  false,
+			name:      "valid RDNS name",
+			packName:  "com.example.mycommands",
+			expectErr: false,
 		},
 		{
-			name:       "valid single letter segments",
-			bundleName: "a.b.c",
-			expectErr:  false,
+			name:      "valid single letter segments",
+			packName:  "a.b.c",
+			expectErr: false,
 		},
 		{
-			name:       "valid with uppercase",
-			bundleName: "Com.Example.MyCommands",
-			expectErr:  false,
+			name:      "valid with uppercase",
+			packName:  "Com.Example.MyCommands",
+			expectErr: false,
 		},
 		{
-			name:       "valid with numbers",
-			bundleName: "com.example123.tools",
-			expectErr:  false,
+			name:      "valid with numbers",
+			packName:  "com.example123.tools",
+			expectErr: false,
 		},
 		{
-			name:       "empty name",
-			bundleName: "",
-			expectErr:  true,
+			name:      "empty name",
+			packName:  "",
+			expectErr: true,
 		},
 		{
-			name:       "starts with dot",
-			bundleName: ".hidden",
-			expectErr:  true,
+			name:      "starts with dot",
+			packName:  ".hidden",
+			expectErr: true,
 		},
 		{
-			name:       "starts with number",
-			bundleName: "123invalid",
-			expectErr:  true,
+			name:      "starts with number",
+			packName:  "123invalid",
+			expectErr: true,
 		},
 		{
-			name:       "contains hyphen",
-			bundleName: "my-commands",
-			expectErr:  true,
+			name:      "contains hyphen",
+			packName:  "my-commands",
+			expectErr: true,
 		},
 		{
-			name:       "contains underscore",
-			bundleName: "my_commands",
-			expectErr:  true,
+			name:      "contains underscore",
+			packName:  "my_commands",
+			expectErr: true,
 		},
 		{
-			name:       "double dots",
-			bundleName: "com..example",
-			expectErr:  true,
+			name:      "double dots",
+			packName:  "com..example",
+			expectErr: true,
 		},
 		{
-			name:       "segment starts with number",
-			bundleName: "com.123example",
-			expectErr:  true,
+			name:      "segment starts with number",
+			packName:  "com.123example",
+			expectErr: true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := ValidateName(tt.bundleName)
+			err := ValidateName(tt.packName)
 			if tt.expectErr && err == nil {
-				t.Errorf("ValidateName(%q) expected error, got nil", tt.bundleName)
+				t.Errorf("ValidateName(%q) expected error, got nil", tt.packName)
 			}
 			if !tt.expectErr && err != nil {
-				t.Errorf("ValidateName(%q) unexpected error: %v", tt.bundleName, err)
+				t.Errorf("ValidateName(%q) unexpected error: %v", tt.packName, err)
 			}
 		})
 	}
@@ -798,58 +798,58 @@ func TestCreate(t *testing.T) {
 		name      string
 		opts      CreateOptions
 		expectErr bool
-		validate  func(t *testing.T, bundlePath string)
+		validate  func(t *testing.T, packPath string)
 	}{
 		{
-			name: "create simple bundle",
+			name: "create simple pack",
 			opts: CreateOptions{
 				Name: "mycommands",
 			},
 			expectErr: false,
-			validate: func(t *testing.T, bundlePath string) {
-				// Check bundle directory exists
-				info, err := os.Stat(bundlePath)
+			validate: func(t *testing.T, packPath string) {
+				// Check pack directory exists
+				info, err := os.Stat(packPath)
 				if err != nil {
-					t.Fatalf("bundle directory not created: %v", err)
+					t.Fatalf("pack directory not created: %v", err)
 				}
 				if !info.IsDir() {
-					t.Error("bundle path is not a directory")
+					t.Error("pack path is not a directory")
 				}
 
 				// Check invowkfile.cue exists
-				invowkfilePath := filepath.Join(bundlePath, "invowkfile.cue")
+				invowkfilePath := filepath.Join(packPath, "invowkfile.cue")
 				if _, err := os.Stat(invowkfilePath); err != nil {
 					t.Errorf("invowkfile.cue not created: %v", err)
 				}
 
-				// Verify bundle is valid
-				_, err = Load(bundlePath)
+				// Verify pack is valid
+				_, err = Load(packPath)
 				if err != nil {
-					t.Errorf("created bundle is not valid: %v", err)
+					t.Errorf("created pack is not valid: %v", err)
 				}
 			},
 		},
 		{
-			name: "create RDNS bundle",
+			name: "create RDNS pack",
 			opts: CreateOptions{
 				Name: "com.example.mytools",
 			},
 			expectErr: false,
-			validate: func(t *testing.T, bundlePath string) {
-				if !strings.HasSuffix(bundlePath, "com.example.mytools.invowkbundle") {
-					t.Errorf("unexpected bundle path: %s", bundlePath)
+			validate: func(t *testing.T, packPath string) {
+				if !strings.HasSuffix(packPath, "com.example.mytools.invowkpack") {
+					t.Errorf("unexpected pack path: %s", packPath)
 				}
 			},
 		},
 		{
-			name: "create bundle with scripts directory",
+			name: "create pack with scripts directory",
 			opts: CreateOptions{
 				Name:             "mytools",
 				CreateScriptsDir: true,
 			},
 			expectErr: false,
-			validate: func(t *testing.T, bundlePath string) {
-				scriptsDir := filepath.Join(bundlePath, "scripts")
+			validate: func(t *testing.T, packPath string) {
+				scriptsDir := filepath.Join(packPath, "scripts")
 				info, err := os.Stat(scriptsDir)
 				if err != nil {
 					t.Fatalf("scripts directory not created: %v", err)
@@ -866,14 +866,14 @@ func TestCreate(t *testing.T) {
 			},
 		},
 		{
-			name: "create bundle with custom group",
+			name: "create pack with custom group",
 			opts: CreateOptions{
 				Name:  "mytools",
 				Group: "custom-group",
 			},
 			expectErr: false,
-			validate: func(t *testing.T, bundlePath string) {
-				content, err := os.ReadFile(filepath.Join(bundlePath, "invowkfile.cue"))
+			validate: func(t *testing.T, packPath string) {
+				content, err := os.ReadFile(filepath.Join(packPath, "invowkfile.cue"))
 				if err != nil {
 					t.Fatalf("failed to read invowkfile: %v", err)
 				}
@@ -883,14 +883,14 @@ func TestCreate(t *testing.T) {
 			},
 		},
 		{
-			name: "create bundle with custom description",
+			name: "create pack with custom description",
 			opts: CreateOptions{
 				Name:        "mytools",
 				Description: "My custom description",
 			},
 			expectErr: false,
-			validate: func(t *testing.T, bundlePath string) {
-				content, err := os.ReadFile(filepath.Join(bundlePath, "invowkfile.cue"))
+			validate: func(t *testing.T, packPath string) {
+				content, err := os.ReadFile(filepath.Join(packPath, "invowkfile.cue"))
 				if err != nil {
 					t.Fatalf("failed to read invowkfile: %v", err)
 				}
@@ -929,7 +929,7 @@ func TestCreate(t *testing.T) {
 			opts := tt.opts
 			opts.ParentDir = tmpDir
 
-			bundlePath, err := Create(opts)
+			packPath, err := Create(opts)
 			if tt.expectErr {
 				if err == nil {
 					t.Error("Create() expected error, got nil")
@@ -942,16 +942,16 @@ func TestCreate(t *testing.T) {
 			}
 
 			if tt.validate != nil {
-				tt.validate(t, bundlePath)
+				tt.validate(t, packPath)
 			}
 		})
 	}
 }
 
-func TestCreate_ExistingBundle(t *testing.T) {
+func TestCreate_ExistingPack(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	// Create bundle first time
+	// Create pack first time
 	opts := CreateOptions{
 		Name:      "mytools",
 		ParentDir: tmpDir,
@@ -965,7 +965,7 @@ func TestCreate_ExistingBundle(t *testing.T) {
 	// Try to create again - should fail
 	_, err = Create(opts)
 	if err == nil {
-		t.Error("Create() expected error for existing bundle, got nil")
+		t.Error("Create() expected error for existing pack, got nil")
 	}
 	if !strings.Contains(err.Error(), "already exists") {
 		t.Errorf("expected 'already exists' error, got: %v", err)
@@ -973,11 +973,11 @@ func TestCreate_ExistingBundle(t *testing.T) {
 }
 
 func TestPack(t *testing.T) {
-	t.Run("pack valid bundle", func(t *testing.T) {
+	t.Run("pack valid pack", func(t *testing.T) {
 		tmpDir := t.TempDir()
 
-		// Create a bundle first
-		bundlePath, err := Create(CreateOptions{
+		// Create a pack first
+		packPath, err := Create(CreateOptions{
 			Name:             "mytools",
 			ParentDir:        tmpDir,
 			CreateScriptsDir: true,
@@ -987,14 +987,14 @@ func TestPack(t *testing.T) {
 		}
 
 		// Add a script file
-		scriptPath := filepath.Join(bundlePath, "scripts", "test.sh")
+		scriptPath := filepath.Join(packPath, "scripts", "test.sh")
 		if err := os.WriteFile(scriptPath, []byte("#!/bin/bash\necho hello"), 0755); err != nil {
 			t.Fatalf("failed to write script: %v", err)
 		}
 
-		// Pack the bundle
+		// Archive the pack
 		outputPath := filepath.Join(tmpDir, "output.zip")
-		zipPath, err := Pack(bundlePath, outputPath)
+		zipPath, err := Archive(packPath, outputPath)
 		if err != nil {
 			t.Fatalf("Pack() failed: %v", err)
 		}
@@ -1017,8 +1017,8 @@ func TestPack(t *testing.T) {
 	t.Run("pack with default output path", func(t *testing.T) {
 		tmpDir := t.TempDir()
 
-		// Create a bundle
-		bundlePath, err := Create(CreateOptions{
+		// Create a pack
+		packPath, err := Create(CreateOptions{
 			Name:      "com.example.tools",
 			ParentDir: tmpDir,
 		})
@@ -1031,41 +1031,41 @@ func TestPack(t *testing.T) {
 		defer os.Chdir(originalWd)
 		os.Chdir(tmpDir)
 
-		// Pack with empty output path
-		zipPath, err := Pack(bundlePath, "")
+		// Archive with empty output path
+		zipPath, err := Archive(packPath, "")
 		if err != nil {
 			t.Fatalf("Pack() failed: %v", err)
 		}
 
 		// Verify default name
-		expectedName := "com.example.tools.invowkbundle.zip"
+		expectedName := "com.example.tools.invowkpack.zip"
 		if filepath.Base(zipPath) != expectedName {
 			t.Errorf("default ZIP name = %q, expected %q", filepath.Base(zipPath), expectedName)
 		}
 	})
 
-	t.Run("pack invalid bundle fails", func(t *testing.T) {
+	t.Run("pack invalid pack fails", func(t *testing.T) {
 		tmpDir := t.TempDir()
 
-		// Create an invalid bundle (no invowkfile)
-		bundlePath := filepath.Join(tmpDir, "invalid.invowkbundle")
-		if err := os.Mkdir(bundlePath, 0755); err != nil {
+		// Create an invalid pack (no invowkfile)
+		packPath := filepath.Join(tmpDir, "invalid.invowkpack")
+		if err := os.Mkdir(packPath, 0755); err != nil {
 			t.Fatalf("failed to create directory: %v", err)
 		}
 
-		_, err := Pack(bundlePath, "")
+		_, err := Archive(packPath, "")
 		if err == nil {
-			t.Error("Pack() expected error for invalid bundle, got nil")
+			t.Error("Archive() expected error for invalid pack, got nil")
 		}
 	})
 }
 
 func TestUnpack(t *testing.T) {
-	t.Run("unpack valid bundle from ZIP", func(t *testing.T) {
+	t.Run("unpack valid pack from ZIP", func(t *testing.T) {
 		tmpDir := t.TempDir()
 
-		// Create and pack a bundle
-		bundlePath, err := Create(CreateOptions{
+		// Create and pack a pack
+		packPath, err := Create(CreateOptions{
 			Name:      "mytools",
 			ParentDir: tmpDir,
 		})
@@ -1073,14 +1073,14 @@ func TestUnpack(t *testing.T) {
 			t.Fatalf("Create() failed: %v", err)
 		}
 
-		zipPath := filepath.Join(tmpDir, "bundle.zip")
-		_, err = Pack(bundlePath, zipPath)
+		zipPath := filepath.Join(tmpDir, "pack.zip")
+		_, err = Archive(packPath, zipPath)
 		if err != nil {
-			t.Fatalf("Pack() failed: %v", err)
+			t.Fatalf("Archive() failed: %v", err)
 		}
 
-		// Remove original bundle
-		os.RemoveAll(bundlePath)
+		// Remove original pack
+		os.RemoveAll(packPath)
 
 		// Unpack to a different directory
 		unpackDir := filepath.Join(tmpDir, "unpacked")
@@ -1096,22 +1096,22 @@ func TestUnpack(t *testing.T) {
 			t.Fatalf("Unpack() failed: %v", err)
 		}
 
-		// Verify extracted bundle is valid
+		// Verify extracted pack is valid
 		b, err := Load(extractedPath)
 		if err != nil {
-			t.Fatalf("extracted bundle is invalid: %v", err)
+			t.Fatalf("extracted pack is invalid: %v", err)
 		}
 
 		if b.Name != "mytools" {
-			t.Errorf("extracted bundle name = %q, expected %q", b.Name, "mytools")
+			t.Errorf("extracted pack name = %q, expected %q", b.Name, "mytools")
 		}
 	})
 
-	t.Run("unpack fails for existing bundle without overwrite", func(t *testing.T) {
+	t.Run("unpack fails for existing pack without overwrite", func(t *testing.T) {
 		tmpDir := t.TempDir()
 
-		// Create and pack a bundle
-		bundlePath, err := Create(CreateOptions{
+		// Create and pack a pack
+		packPath, err := Create(CreateOptions{
 			Name:      "mytools",
 			ParentDir: tmpDir,
 		})
@@ -1119,31 +1119,31 @@ func TestUnpack(t *testing.T) {
 			t.Fatalf("Create() failed: %v", err)
 		}
 
-		zipPath := filepath.Join(tmpDir, "bundle.zip")
-		_, err = Pack(bundlePath, zipPath)
+		zipPath := filepath.Join(tmpDir, "pack.zip")
+		_, err = Archive(packPath, zipPath)
 		if err != nil {
-			t.Fatalf("Pack() failed: %v", err)
+			t.Fatalf("Archive() failed: %v", err)
 		}
 
-		// Try to unpack to same directory (bundle already exists)
+		// Try to unpack to same directory (pack already exists)
 		_, err = Unpack(UnpackOptions{
 			Source:    zipPath,
 			DestDir:   tmpDir,
 			Overwrite: false,
 		})
 		if err == nil {
-			t.Error("Unpack() expected error for existing bundle, got nil")
+			t.Error("Unpack() expected error for existing pack, got nil")
 		}
 		if !strings.Contains(err.Error(), "already exists") {
 			t.Errorf("expected 'already exists' error, got: %v", err)
 		}
 	})
 
-	t.Run("unpack with overwrite replaces existing bundle", func(t *testing.T) {
+	t.Run("unpack with overwrite replaces existing pack", func(t *testing.T) {
 		tmpDir := t.TempDir()
 
-		// Create and pack a bundle
-		bundlePath, err := Create(CreateOptions{
+		// Create and pack a pack
+		packPath, err := Create(CreateOptions{
 			Name:      "mytools",
 			ParentDir: tmpDir,
 		})
@@ -1151,14 +1151,14 @@ func TestUnpack(t *testing.T) {
 			t.Fatalf("Create() failed: %v", err)
 		}
 
-		zipPath := filepath.Join(tmpDir, "bundle.zip")
-		_, err = Pack(bundlePath, zipPath)
+		zipPath := filepath.Join(tmpDir, "pack.zip")
+		_, err = Archive(packPath, zipPath)
 		if err != nil {
-			t.Fatalf("Pack() failed: %v", err)
+			t.Fatalf("Archive() failed: %v", err)
 		}
 
-		// Modify the existing bundle
-		markerFile := filepath.Join(bundlePath, "marker.txt")
+		// Modify the existing pack
+		markerFile := filepath.Join(packPath, "marker.txt")
 		if err := os.WriteFile(markerFile, []byte("marker"), 0644); err != nil {
 			t.Fatalf("failed to create marker file: %v", err)
 		}
@@ -1173,7 +1173,7 @@ func TestUnpack(t *testing.T) {
 			t.Fatalf("Unpack() with overwrite failed: %v", err)
 		}
 
-		// Verify marker file is gone (bundle was replaced)
+		// Verify marker file is gone (pack was replaced)
 		if _, err := os.Stat(filepath.Join(extractedPath, "marker.txt")); !os.IsNotExist(err) {
 			t.Error("marker file should not exist after overwrite")
 		}
@@ -1206,11 +1206,11 @@ func TestUnpack(t *testing.T) {
 		}
 	})
 
-	t.Run("unpack fails for ZIP without bundle", func(t *testing.T) {
+	t.Run("unpack fails for ZIP without pack", func(t *testing.T) {
 		tmpDir := t.TempDir()
 
-		// Create a ZIP file without a bundle
-		zipPath := filepath.Join(tmpDir, "nobundle.zip")
+		// Create a ZIP file without a pack
+		zipPath := filepath.Join(tmpDir, "nopack.zip")
 		zipFile, err := os.Create(zipPath)
 		if err != nil {
 			t.Fatalf("failed to create ZIP file: %v", err)
@@ -1226,10 +1226,10 @@ func TestUnpack(t *testing.T) {
 			DestDir: tmpDir,
 		})
 		if err == nil {
-			t.Error("Unpack() expected error for ZIP without bundle, got nil")
+			t.Error("Unpack() expected error for ZIP without pack, got nil")
 		}
-		if !strings.Contains(err.Error(), "no valid bundle found") {
-			t.Errorf("expected 'no valid bundle found' error, got: %v", err)
+		if !strings.Contains(err.Error(), "no valid pack found") {
+			t.Errorf("expected 'no valid pack found' error, got: %v", err)
 		}
 	})
 }

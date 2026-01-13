@@ -1,9 +1,9 @@
-// Sample invowk bundle demonstrating a minimal cross-platform command.
-// This bundle serves as a reference implementation and validation test.
+// Sample invowk pack demonstrating a minimal cross-platform command.
+// This pack serves as a reference implementation and validation test.
 
 group: "io.invowk.sample"
 version: "1.0"
-description: "Sample invowk bundle with a simple cross-platform greeting command"
+description: "Sample invowk pack with a simple cross-platform greeting command"
 
 commands: [
 	{
