@@ -32,7 +32,7 @@ depends_on: {
 	]
 }
 
-commands: [
+cmds: [
 	// ============================================================================
 	// SECTION 1: Simple Commands (Native Runtime)
 	// ============================================================================
@@ -864,7 +864,7 @@ commands: [
 			}
 		]
 		depends_on: {
-			commands: [
+			cmds: [
 				{alternatives: ["examples hello"]},
 			]
 		}
@@ -883,7 +883,7 @@ commands: [
 			}
 		]
 		depends_on: {
-			commands: [
+			cmds: [
 				// Any of these commands satisfies the dependency
 				{alternatives: ["examples hello", "examples virtual hello", "examples container hello"]},
 			]
@@ -909,7 +909,7 @@ commands: [
 			}
 		]
 		depends_on: {
-			commands: [
+			cmds: [
 				{alternatives: ["examples hello"]},
 				{alternatives: ["examples hello env"]},
 			]
@@ -1262,7 +1262,7 @@ commands: [
 					expected_code: 0
 				},
 			]
-			commands: [
+			cmds: [
 				{alternatives: ["examples hello"]},
 			]
 		}

@@ -5,7 +5,7 @@ group: "io.invowk.sample"
 version: "1.0"
 description: "Sample invowk pack with a simple cross-platform greeting command"
 
-commands: [
+cmds: [
 	{
 		name:        "hello"
 		description: "Print a friendly greeting from invowk"

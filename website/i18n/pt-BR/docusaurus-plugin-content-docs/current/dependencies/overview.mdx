@@ -28,7 +28,7 @@ O Invowk suporta seis tipos de dependências:
 |------|----------|
 | [tools](./tools) | Binários no PATH |
 | [filepaths](./filepaths) | Arquivos ou diretórios |
-| [commands](./commands) | Outros comandos Invowk |
+| [cmds](./commands) | Outros comandos Invowk |
 | [capabilities](./capabilities) | Capacidades do sistema (rede) |
 | [env_vars](./env-vars) | Variáveis de ambiente |
 | [custom_checks](./custom-checks) | Scripts de validação personalizados |
@@ -55,7 +55,7 @@ Dependências são validadas nesta ordem:
 2. **tools** - Binários no PATH
 3. **filepaths** - Arquivos e diretórios
 4. **capabilities** - Capacidades do sistema
-5. **commands** - Outros comandos Invowk
+5. **cmds** - Outros comandos Invowk
 6. **custom_checks** - Scripts de validação personalizados
 
 Variáveis de ambiente são validadas primeiro, antes do Invowk definir qualquer ambiente no nível do comando. Isso garante que você está verificando o ambiente real do usuário.
@@ -137,7 +137,7 @@ Aprenda sobre cada tipo de dependência em detalhes:
 
 - [Tools](./tools) - Verificar binários no PATH
 - [Filepaths](./filepaths) - Verificar arquivos e diretórios
-- [Commands](./commands) - Exigir que outros comandos executem primeiro
+- [Commands](./commands) - Use `cmds` para exigir que outros comandos executem primeiro
 - [Capabilities](./capabilities) - Verificar capacidades do sistema
 - [Variáveis de Ambiente](./env-vars) - Verificar variáveis de ambiente
 - [Verificações Personalizadas](./custom-checks) - Escrever scripts de validação personalizados

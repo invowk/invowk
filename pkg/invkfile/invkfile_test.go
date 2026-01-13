@@ -243,7 +243,7 @@ func TestMultiLineScriptParsing(t *testing.T) {
 group: "test"
 version: "1.0"
 
-commands: [
+cmds: [
 	{
 		name: "multiline-test"
 		description: "Test multi-line script"
@@ -461,7 +461,7 @@ func TestParseDependsOn(t *testing.T) {
 group: "test"
 version: "1.0"
 
-commands: [
+cmds: [
 	{
 		name: "release"
 		implementations: [
@@ -478,7 +478,7 @@ commands: [
 				{alternatives: ["git"]},
 				{alternatives: ["docker"]},
 			]
-			commands: [
+			cmds: [
 				{alternatives: ["build"]},
 				{alternatives: ["test unit"]},
 			]
@@ -569,7 +569,7 @@ func TestParseDependsOn_ToolsOnly(t *testing.T) {
 group: "test"
 version: "1.0"
 
-commands: [
+cmds: [
 	{
 		name: "build"
 		implementations: [
@@ -623,7 +623,7 @@ func TestParseDependsOn_CommandsOnly(t *testing.T) {
 group: "test"
 version: "1.0"
 
-commands: [
+cmds: [
 	{
 		name: "release"
 		implementations: [
@@ -636,7 +636,7 @@ commands: [
 			}
 		]
 		depends_on: {
-			commands: [
+			cmds: [
 				{alternatives: ["build"]},
 				{alternatives: ["test"]},
 			]
@@ -680,7 +680,7 @@ func TestParseDependsOn_WithCustomChecks(t *testing.T) {
 group: "test"
 version: "1.0"
 
-commands: [
+cmds: [
 	{
 		name: "build"
 		implementations: [
@@ -776,7 +776,7 @@ func TestParseDependsOn_WithFilepaths(t *testing.T) {
 group: "test"
 version: "1.0"
 
-commands: [
+cmds: [
 	{
 		name: "deploy"
 		implementations: [
@@ -930,7 +930,7 @@ func TestParsePlatforms(t *testing.T) {
 group: "test"
 version: "1.0"
 
-commands: [
+cmds: [
 	{
 		name: "build"
 		implementations: [
@@ -1041,7 +1041,7 @@ func TestParseEnableHostSSH(t *testing.T) {
 group: "test"
 version: "1.0"
 
-commands: [
+cmds: [
 	{
 		name: "container-ssh"
 		description: "Container command with host SSH enabled"
@@ -1106,7 +1106,7 @@ func TestParseEnableHostSSH_DefaultFalse(t *testing.T) {
 group: "test"
 version: "1.0"
 
-commands: [
+cmds: [
 	{
 		name: "container-no-ssh"
 		implementations: [
@@ -1407,7 +1407,7 @@ func TestParseContainerRuntimeWithAllOptions(t *testing.T) {
 group: "test"
 version: "1.0"
 
-commands: [
+cmds: [
 	{
 		name: "full-container"
 		implementations: [
@@ -1487,7 +1487,7 @@ func TestParseDependsOn_WithCapabilities(t *testing.T) {
 group: "test"
 version: "1.0"
 
-commands: [
+cmds: [
 	{
 		name: "deploy"
 		implementations: [
@@ -1553,7 +1553,7 @@ func TestParseDependsOn_CapabilitiesAtImplementationLevel(t *testing.T) {
 group: "test"
 version: "1.0"
 
-commands: [
+cmds: [
 	{
 		name: "sync"
 		implementations: [
@@ -1765,7 +1765,7 @@ func TestCUESchema_RejectsToolDependencyWithName(t *testing.T) {
 group: "test"
 version: "1.0"
 
-commands: [
+cmds: [
 	{
 		name: "test"
 		implementations: [
@@ -1809,7 +1809,7 @@ func TestCUESchema_RejectsCustomCheckWithBothNameAndAlternatives(t *testing.T) {
 group: "test"
 version: "1.0"
 
-commands: [
+cmds: [
 	{
 		name: "test"
 		implementations: [
@@ -1860,7 +1860,7 @@ func TestCUESchema_RejectsCapabilityDependencyWithName(t *testing.T) {
 group: "test"
 version: "1.0"
 
-commands: [
+cmds: [
 	{
 		name: "test"
 		implementations: [
@@ -1904,7 +1904,7 @@ func TestCUESchema_RejectsCommandDependencyWithName(t *testing.T) {
 group: "test"
 version: "1.0"
 
-commands: [
+cmds: [
 	{
 		name: "test"
 		implementations: [
@@ -1914,7 +1914,7 @@ commands: [
 			}
 		]
 		depends_on: {
-			commands: [
+			cmds: [
 				{name: "build"},
 			]
 		}
@@ -1964,7 +1964,7 @@ func TestParseGroup_Valid(t *testing.T) {
 group: "` + tt.group + `"
 version: "1.0"
 
-commands: [
+cmds: [
 	{
 		name: "test"
 		implementations: [
@@ -2022,7 +2022,7 @@ func TestParseGroup_Invalid(t *testing.T) {
 group: "` + tt.group + `"
 version: "1.0"
 
-commands: [
+cmds: [
 	{
 		name: "test"
 		implementations: [
@@ -2057,7 +2057,7 @@ func TestParseGroup_Missing(t *testing.T) {
 	cueContent := `
 version: "1.0"
 
-commands: [
+cmds: [
 	{
 		name: "test"
 		implementations: [
@@ -2202,7 +2202,7 @@ func TestParseFlags(t *testing.T) {
 group: "test"
 version: "1.0"
 
-commands: [
+cmds: [
 	{
 		name: "deploy"
 		description: "Deploy the application"
@@ -2294,7 +2294,7 @@ func TestParseFlagsValidation_InvalidName(t *testing.T) {
 group: "test"
 version: "1.0"
 
-commands: [
+cmds: [
 	{
 		name: "test"
 		implementations: [
@@ -2347,7 +2347,7 @@ func TestParseFlagsValidation_ValidNames(t *testing.T) {
 group: "test"
 version: "1.0"
 
-commands: [
+cmds: [
 	{
 		name: "test"
 		implementations: [
@@ -2391,7 +2391,7 @@ func TestParseFlagsValidation_EmptyDescription(t *testing.T) {
 group: "test"
 version: "1.0"
 
-commands: [
+cmds: [
 	{
 		name: "test"
 		implementations: [
@@ -2428,7 +2428,7 @@ func TestParseFlagsValidation_DuplicateNames(t *testing.T) {
 group: "test"
 version: "1.0"
 
-commands: [
+cmds: [
 	{
 		name: "test"
 		implementations: [
@@ -2527,7 +2527,7 @@ func TestParseFlags_EmptyList(t *testing.T) {
 group: "test"
 version: "1.0"
 
-commands: [
+cmds: [
 	{
 		name: "test"
 		implementations: [
@@ -2566,7 +2566,7 @@ func TestParseFlags_NoFlagsField(t *testing.T) {
 group: "test"
 version: "1.0"
 
-commands: [
+cmds: [
 	{
 		name: "test"
 		implementations: [
@@ -2629,7 +2629,7 @@ func TestParseFlags_WithType(t *testing.T) {
 group: "test"
 version: "1.0"
 
-commands: [
+cmds: [
 	{
 		name: "test"
 		implementations: [
@@ -2672,7 +2672,7 @@ func TestParseFlags_TypeDefaultsToString(t *testing.T) {
 group: "test"
 version: "1.0"
 
-commands: [
+cmds: [
 	{
 		name: "test"
 		implementations: [
@@ -2712,7 +2712,7 @@ func TestParseFlagsValidation_InvalidType(t *testing.T) {
 group: "test"
 version: "1.0"
 
-commands: [
+cmds: [
 	{
 		name: "test"
 		implementations: [
@@ -2760,7 +2760,7 @@ func TestParseFlagsValidation_TypeIncompatibleWithDefault(t *testing.T) {
 group: "test"
 version: "1.0"
 
-commands: [
+cmds: [
 	{
 		name: "test"
 		implementations: [
@@ -2795,7 +2795,7 @@ func TestParseFlags_RequiredFlag(t *testing.T) {
 group: "test"
 version: "1.0"
 
-commands: [
+cmds: [
 	{
 		name: "test"
 		implementations: [
@@ -2832,7 +2832,7 @@ func TestParseFlagsValidation_RequiredWithDefaultValue(t *testing.T) {
 group: "test"
 version: "1.0"
 
-commands: [
+cmds: [
 	{
 		name: "test"
 		implementations: [
@@ -2867,7 +2867,7 @@ func TestParseFlags_ShortAlias(t *testing.T) {
 group: "test"
 version: "1.0"
 
-commands: [
+cmds: [
 	{
 		name: "test"
 		implementations: [
@@ -2923,7 +2923,7 @@ func TestParseFlagsValidation_InvalidShortAlias(t *testing.T) {
 group: "test"
 version: "1.0"
 
-commands: [
+cmds: [
 	{
 		name: "test"
 		implementations: [
@@ -2958,7 +2958,7 @@ func TestParseFlagsValidation_DuplicateShortAlias(t *testing.T) {
 group: "test"
 version: "1.0"
 
-commands: [
+cmds: [
 	{
 		name: "test"
 		implementations: [
@@ -2994,7 +2994,7 @@ func TestParseFlags_ValidationRegex(t *testing.T) {
 group: "test"
 version: "1.0"
 
-commands: [
+cmds: [
 	{
 		name: "test"
 		implementations: [
@@ -3031,7 +3031,7 @@ func TestParseFlagsValidation_InvalidRegex(t *testing.T) {
 group: "test"
 version: "1.0"
 
-commands: [
+cmds: [
 	{
 		name: "test"
 		implementations: [
@@ -3063,7 +3063,7 @@ func TestParseFlagsValidation_DefaultNotMatchingValidation(t *testing.T) {
 group: "test"
 version: "1.0"
 
-commands: [
+cmds: [
 	{
 		name: "test"
 		implementations: [
@@ -3095,7 +3095,7 @@ func TestParseFlags_DefaultMatchesValidation(t *testing.T) {
 group: "test"
 version: "1.0"
 
-commands: [
+cmds: [
 	{
 		name: "test"
 		implementations: [
@@ -3281,7 +3281,7 @@ func TestParseFlags_AllEnhancedFeatures(t *testing.T) {
 group: "test"
 version: "1.0"
 
-commands: [
+cmds: [
 	{
 		name: "deploy"
 		description: "Deploy the application"
@@ -3383,7 +3383,7 @@ func TestParseArgs_Basic(t *testing.T) {
 group: "test"
 version: "1.0"
 
-commands: [
+cmds: [
 	{
 		name: "greet"
 		description: "Greet a person"
@@ -3466,7 +3466,7 @@ func TestParseArgs_WithTypes(t *testing.T) {
 group: "test"
 version: "1.0"
 
-commands: [
+cmds: [
 	{
 		name: "test"
 		implementations: [
@@ -3509,7 +3509,7 @@ func TestParseArgs_TypeDefaultsToString(t *testing.T) {
 group: "test"
 version: "1.0"
 
-commands: [
+cmds: [
 	{
 		name: "test"
 		implementations: [
@@ -3549,7 +3549,7 @@ func TestParseArgs_Variadic(t *testing.T) {
 group: "test"
 version: "1.0"
 
-commands: [
+cmds: [
 	{
 		name: "copy"
 		description: "Copy files to a destination"
@@ -3598,7 +3598,7 @@ func TestParseArgs_ValidationRegex(t *testing.T) {
 group: "test"
 version: "1.0"
 
-commands: [
+cmds: [
 	{
 		name: "deploy"
 		implementations: [
@@ -3647,7 +3647,7 @@ func TestParseArgsValidation_InvalidName(t *testing.T) {
 group: "test"
 version: "1.0"
 
-commands: [
+cmds: [
 	{
 		name: "test"
 		implementations: [
@@ -3695,7 +3695,7 @@ func TestParseArgsValidation_ValidNames(t *testing.T) {
 group: "test"
 version: "1.0"
 
-commands: [
+cmds: [
 	{
 		name: "test"
 		implementations: [
@@ -3734,7 +3734,7 @@ func TestParseArgsValidation_EmptyDescription(t *testing.T) {
 group: "test"
 version: "1.0"
 
-commands: [
+cmds: [
 	{
 		name: "test"
 		implementations: [
@@ -3766,7 +3766,7 @@ func TestParseArgsValidation_DuplicateNames(t *testing.T) {
 group: "test"
 version: "1.0"
 
-commands: [
+cmds: [
 	{
 		name: "test"
 		implementations: [
@@ -3802,7 +3802,7 @@ func TestParseArgsValidation_RequiredAfterOptional(t *testing.T) {
 group: "test"
 version: "1.0"
 
-commands: [
+cmds: [
 	{
 		name: "test"
 		implementations: [
@@ -3838,7 +3838,7 @@ func TestParseArgsValidation_VariadicNotLast(t *testing.T) {
 group: "test"
 version: "1.0"
 
-commands: [
+cmds: [
 	{
 		name: "test"
 		implementations: [
@@ -3874,7 +3874,7 @@ func TestParseArgsValidation_RequiredWithDefaultValue(t *testing.T) {
 group: "test"
 version: "1.0"
 
-commands: [
+cmds: [
 	{
 		name: "test"
 		implementations: [
@@ -3909,7 +3909,7 @@ func TestParseArgsValidation_InvalidType(t *testing.T) {
 group: "test"
 version: "1.0"
 
-commands: [
+cmds: [
 	{
 		name: "test"
 		implementations: [
@@ -3953,7 +3953,7 @@ func TestParseArgsValidation_TypeIncompatibleWithDefault(t *testing.T) {
 group: "test"
 version: "1.0"
 
-commands: [
+cmds: [
 	{
 		name: "test"
 		implementations: [
@@ -3988,7 +3988,7 @@ func TestParseArgsValidation_InvalidRegex(t *testing.T) {
 group: "test"
 version: "1.0"
 
-commands: [
+cmds: [
 	{
 		name: "test"
 		implementations: [
@@ -4020,7 +4020,7 @@ func TestParseArgsValidation_DefaultNotMatchingValidation(t *testing.T) {
 group: "test"
 version: "1.0"
 
-commands: [
+cmds: [
 	{
 		name: "test"
 		implementations: [
@@ -4168,7 +4168,7 @@ func TestParseArgs_EmptyList(t *testing.T) {
 group: "test"
 version: "1.0"
 
-commands: [
+cmds: [
 	{
 		name: "test"
 		implementations: [
@@ -4202,7 +4202,7 @@ func TestParseArgs_NoArgsField(t *testing.T) {
 group: "test"
 version: "1.0"
 
-commands: [
+cmds: [
 	{
 		name: "test"
 		implementations: [
@@ -4236,7 +4236,7 @@ func TestParseArgs_AllFeatures(t *testing.T) {
 group: "test"
 version: "1.0"
 
-commands: [
+cmds: [
 	{
 		name: "deploy"
 		description: "Deploy the application"
@@ -4542,7 +4542,7 @@ func TestCUESchema_RejectsEmptyInterpreter(t *testing.T) {
 group: "test"
 version: "1.0"
 
-commands: [
+cmds: [
 	{
 		name: "test"
 		implementations: [
@@ -4585,7 +4585,7 @@ func TestCUESchema_RejectsWhitespaceOnlyInterpreter(t *testing.T) {
 group: "test"
 version: "1.0"
 
-commands: [
+cmds: [
 	{
 		name: "test"
 		implementations: [
@@ -4618,7 +4618,7 @@ func TestCUESchema_RejectsEmptyInterpreterForContainer(t *testing.T) {
 group: "test"
 version: "1.0"
 
-commands: [
+cmds: [
 	{
 		name: "test"
 		implementations: [
@@ -4703,7 +4703,7 @@ func TestParseInterpreter_ValidValues(t *testing.T) {
 group: "test"
 version: "1.0"
 
-commands: [
+cmds: [
 	{
 		name: "test"
 		implementations: [
@@ -4741,7 +4741,7 @@ func TestParseInterpreter_OmittedFieldIsValid(t *testing.T) {
 group: "test"
 version: "1.0"
 
-commands: [
+cmds: [
 	{
 		name: "test"
 		implementations: [
@@ -4779,7 +4779,7 @@ func TestParseEnv_CommandLevelFiles(t *testing.T) {
 group: "test"
 version: "1.0"
 
-commands: [
+cmds: [
 	{
 		name: "deploy"
 		description: "Deploy the application"
@@ -4831,7 +4831,7 @@ func TestParseEnv_ImplementationLevelFiles(t *testing.T) {
 group: "test"
 version: "1.0"
 
-commands: [
+cmds: [
 	{
 		name: "deploy"
 		description: "Deploy the application"
@@ -4883,7 +4883,7 @@ func TestParseEnv_BothLevels(t *testing.T) {
 group: "test"
 version: "1.0"
 
-commands: [
+cmds: [
 	{
 		name: "deploy"
 		description: "Deploy the application"
@@ -4930,7 +4930,7 @@ func TestParseEnv_EmptyFiles(t *testing.T) {
 group: "test"
 version: "1.0"
 
-commands: [
+cmds: [
 	{
 		name: "deploy"
 		implementations: [
@@ -4967,7 +4967,7 @@ func TestParseEnv_NoField(t *testing.T) {
 group: "test"
 version: "1.0"
 
-commands: [
+cmds: [
 	{
 		name: "deploy"
 		implementations: [
@@ -5006,7 +5006,7 @@ func TestParseEnv_WithVars(t *testing.T) {
 group: "test"
 version: "1.0"
 
-commands: [
+cmds: [
 	{
 		name: "deploy"
 		implementations: [
@@ -5189,7 +5189,7 @@ env: {
 	files: ["global.env", "shared.env?"]
 }
 
-commands: [
+cmds: [
 	{
 		name: "deploy"
 		description: "Deploy the application"
@@ -5240,7 +5240,7 @@ env: {
 	}
 }
 
-commands: [
+cmds: [
 	{
 		name: "deploy"
 		implementations: [
@@ -5290,7 +5290,7 @@ env: {
 	}
 }
 
-commands: [
+cmds: [
 	{
 		name: "deploy"
 		description: "Deploy the application"
@@ -5472,7 +5472,7 @@ func TestValidateFlags_ReservedEnvFileName(t *testing.T) {
 group: "test"
 version: "1.0"
 
-commands: [
+cmds: [
 	{
 		name: "deploy"
 		implementations: [
@@ -5508,7 +5508,7 @@ func TestValidateFlags_ReservedShortAliasE(t *testing.T) {
 group: "test"
 version: "1.0"
 
-commands: [
+cmds: [
 	{
 		name: "deploy"
 		implementations: [
@@ -5827,7 +5827,7 @@ group: "test"
 version: "1.0"
 workdir: "build/output"
 
-commands: [
+cmds: [
 	{
 		name: "test"
 		implementations: [
@@ -5861,7 +5861,7 @@ func TestParseWorkDir_CommandLevel(t *testing.T) {
 group: "test"
 version: "1.0"
 
-commands: [
+cmds: [
 	{
 		name: "test"
 		workdir: "cmd-specific"
@@ -5896,7 +5896,7 @@ func TestParseWorkDir_ImplementationLevel(t *testing.T) {
 group: "test"
 version: "1.0"
 
-commands: [
+cmds: [
 	{
 		name: "test"
 		implementations: [
@@ -5932,7 +5932,7 @@ group: "test"
 version: "1.0"
 workdir: "root-dir"
 
-commands: [
+cmds: [
 	{
 		name: "test"
 		workdir: "cmd-dir"
@@ -6083,7 +6083,7 @@ depends_on: {
 	env_vars: [{alternatives: [{name: "HOME"}]}]
 }
 
-commands: [
+cmds: [
 	{
 		name: "hello"
 		implementations: [
@@ -6490,7 +6490,7 @@ depends_on: {
 	]
 }
 
-commands: [
+cmds: [
 	{
 		name: "hello"
 		implementations: [
@@ -6555,13 +6555,13 @@ group: "test"
 version: "1.0"
 
 depends_on: {
-	commands: [
+	cmds: [
 		{alternatives: ["test setup"]},
 		{alternatives: ["test init", "test bootstrap"]}
 	]
 }
 
-commands: [
+cmds: [
 	{
 		name: "hello"
 		implementations: [

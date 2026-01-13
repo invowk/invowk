@@ -80,7 +80,7 @@ func TestNativeRuntimePrepareInteractive(t *testing.T) {
 
 	err := os.WriteFile(invkfilePath, []byte(`
 group: "test"
-commands: [{
+cmds: [{
 	name: "hello"
 	implementations: [{
 		script: "echo hello"
@@ -130,7 +130,7 @@ func TestVirtualRuntimePrepareInteractive(t *testing.T) {
 
 	err := os.WriteFile(invkfilePath, []byte(`
 group: "test"
-commands: [{
+cmds: [{
 	name: "hello"
 	implementations: [{
 		script: "echo hello"

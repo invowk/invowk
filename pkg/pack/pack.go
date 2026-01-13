@@ -391,7 +391,7 @@ group: %q
 version: "1.0"
 description: %q
 
-commands: [
+cmds: [
 	{
 		name:        "hello"
 		description: "A sample command"

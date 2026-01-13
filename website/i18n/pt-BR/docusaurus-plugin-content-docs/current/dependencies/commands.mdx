@@ -21,7 +21,7 @@ Sempre use o **nome completo prefixado com o grupo**:
 ```cue
 group: "myproject"
 
-commands: [
+cmds: [
     {
         name: "build"
         implementations: [...]
@@ -29,7 +29,7 @@ commands: [
     {
         name: "test"
         depends_on: {
-            commands: [
+            cmds: [
                 // Deve incluir o prefixo do grupo "myproject"
                 {alternatives: ["myproject build"]}
             ]
@@ -45,7 +45,7 @@ Especifique alternativas quando qualquer comando funcionar:
 
 ```cue
 depends_on: {
-    commands: [
+    cmds: [
         // Build debug OU release
         {alternatives: ["myproject build debug", "myproject build release"]},
         
@@ -63,7 +63,7 @@ Cada entrada é um requisito E:
 
 ```cue
 depends_on: {
-    commands: [
+    cmds: [
         // Precisa de build E test E lint
         {alternatives: ["myproject build"]},
         {alternatives: ["myproject test"]},
@@ -81,7 +81,7 @@ Construa workflows complexos com cadeias de comandos:
 ```cue
 group: "myproject"
 
-commands: [
+cmds: [
     // Comando base
     {
         name: "clean"
@@ -95,7 +95,7 @@ commands: [
     {
         name: "build"
         depends_on: {
-            commands: [{alternatives: ["myproject clean"]}]
+            cmds: [{alternatives: ["myproject clean"]}]
         }
         implementations: [{
             script: "go build -o build/app ./..."
@@ -107,7 +107,7 @@ commands: [
     {
         name: "test"
         depends_on: {
-            commands: [{alternatives: ["myproject build"]}]
+            cmds: [{alternatives: ["myproject build"]}]
         }
         implementations: [{
             script: "go test ./..."
@@ -119,7 +119,7 @@ commands: [
     {
         name: "release"
         depends_on: {
-            commands: [{alternatives: ["myproject test"]}]
+            cmds: [{alternatives: ["myproject test"]}]
         }
         implementations: [{
             script: "./scripts/release.sh"
@@ -139,11 +139,11 @@ Comandos podem depender de comandos de outros invkfiles:
 // Em frontend/invkfile.cue
 group: "frontend"
 
-commands: [
+cmds: [
     {
         name: "build"
         depends_on: {
-            commands: [
+            cmds: [
                 // Depende de um comando do invkfile shared
                 {alternatives: ["shared generate-types"]}
             ]
@@ -157,7 +157,7 @@ commands: [
 // Em shared/invkfile.cue
 group: "shared"
 
-commands: [
+cmds: [
     {
         name: "generate-types"
         implementations: [...]
@@ -172,7 +172,7 @@ commands: [
 ```cue
 group: "myapp"
 
-commands: [
+cmds: [
     {name: "lint", implementations: [...]},
     {name: "test unit", implementations: [...]},
     {name: "test integration", implementations: [...]},
@@ -182,7 +182,7 @@ commands: [
         name: "ci"
         description: "Executar pipeline completo de CI"
         depends_on: {
-            commands: [
+            cmds: [
                 {alternatives: ["myapp lint"]},
                 {alternatives: ["myapp test unit"]},
                 {alternatives: ["myapp test integration"]},
@@ -202,7 +202,7 @@ commands: [
 ```cue
 group: "myapp"
 
-commands: [
+cmds: [
     {
         name: "build debug"
         implementations: [{
@@ -221,7 +221,7 @@ commands: [
     {
         name: "deploy"
         depends_on: {
-            commands: [
+            cmds: [
                 // Deve ter executado build debug ou release
                 {alternatives: ["myapp build debug", "myapp build release"]}
             ]
@@ -239,7 +239,7 @@ commands: [
 ```cue
 group: "monorepo"
 
-commands: [
+cmds: [
     {
         name: "api build"
         implementations: [...]
@@ -251,7 +251,7 @@ commands: [
     {
         name: "deploy all"
         depends_on: {
-            commands: [
+            cmds: [
                 {alternatives: ["monorepo api build"]},
                 {alternatives: ["monorepo web build"]},
             ]
@@ -309,7 +309,7 @@ Comandos dependentes usam suas próprias configurações de runtime:
 {
     name: "deploy"
     depends_on: {
-        commands: [{alternatives: ["myproject build"]}]
+        cmds: [{alternatives: ["myproject build"]}]
     }
     implementations: [{
         script: "./scripts/deploy.sh"

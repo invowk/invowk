@@ -105,7 +105,7 @@ version: "1.0"
 description: "My project commands"
 
 // Define commands
-commands: [
+cmds: [
 	{
 		name: "build"
 		description: "Build the project"
@@ -177,7 +177,7 @@ commands: [
 			tools: [
 				{alternatives: ["git"]},
 			]
-			commands: [
+			cmds: [
 				{alternatives: ["myproject build"]},
 				{alternatives: ["myproject test unit"]},
 			]
@@ -226,7 +226,7 @@ When you define a command in an invkfile with `group: "myproject"`:
 
 ```cue
 group: "myproject"
-commands: [
+cmds: [
     {name: "build", ...},
     {name: "test unit", ...},
 ]
@@ -252,11 +252,11 @@ When referencing command dependencies, use the full group-prefixed name:
 
 ```cue
 group: "myproject"
-commands: [
+cmds: [
     {
         name: "release"
         depends_on: {
-            commands: [
+            cmds: [
                 {alternatives: ["myproject build"]},      // Same-file command
                 {alternatives: ["myproject test unit"]},  // Same-file nested command
                 {alternatives: ["other.project deploy"]}, // Command from another invkfile
@@ -295,7 +295,7 @@ Run other invowk commands first. Use the full group-prefixed command name:
 
 ```cue
 depends_on: {
-	commands: [
+	cmds: [
 		{alternatives: ["myproject clean"]},
 		{alternatives: ["myproject build"]},
 		// Multiple alternatives - any one satisfies the dependency
@@ -371,7 +371,7 @@ depends_on: {
 **Example - AWS credentials check:**
 
 ```cue
-commands: [
+cmds: [
 	{
 		name: "deploy"
 		description: "Deploy to AWS"
@@ -430,7 +430,7 @@ Commands can define flags that are passed at runtime. Flags are made available t
 ### Defining Flags
 
 ```cue
-commands: [
+cmds: [
     {
         name: "deploy"
         description: "Deploy the application"
@@ -542,7 +542,7 @@ Error: flag 'env' value 'invalid' does not match required pattern '^(dev|staging
 Here's a command using all flag features:
 
 ```cue
-commands: [
+cmds: [
     {
         name: "deploy"
         description: "Deploy the application"
@@ -633,7 +633,7 @@ RETRIES="${INVOWK_FLAG_RETRY_COUNT:-3}"
 Dependencies can also be specified at the script level, which is especially useful for container-based implementations:
 
 ```cue
-commands: [
+cmds: [
 	{
 		name: "docker-build"
 		implementations: [
@@ -674,7 +674,7 @@ Commands can define typed positional arguments that are validated at runtime. Ar
 ### Defining Arguments
 
 ```cue
-commands: [
+cmds: [
     {
         name: "deploy"
         description: "Deploy the application"
@@ -918,7 +918,7 @@ invowk cmd myproject deploy prod --dry-run 3 api web --verbose
 ### Complete Argument Example
 
 ```cue
-commands: [
+cmds: [
     {
         name: "deploy"
         description: "Deploy services to an environment"
@@ -996,7 +996,7 @@ This follows standard UNIX semantics where child processes inherit their parent'
 **Example:**
 
 ```cue
-commands: [
+cmds: [
     {
         name: "parent"
         env: { SHARED_CONFIG: "/etc/app/config.yaml" }  // Inherited by children
@@ -1055,7 +1055,7 @@ Commands specify which operating systems they support using the `platforms` fiel
 ### Basic Platform Configuration
 
 ```cue
-commands: [
+cmds: [
     {
         name: "build"
         description: "Build the project"
@@ -1099,7 +1099,7 @@ commands: [
 You can provide different implementations for different platforms:
 
 ```cue
-commands: [
+cmds: [
     {
         name: "system info"
         description: "Display system information"
@@ -1136,7 +1136,7 @@ commands: [
 Each platform can define its own environment variables:
 
 ```cue
-commands: [
+cmds: [
     {
         name: "deploy"
         description: "Deploy with platform-specific config"
@@ -1194,7 +1194,7 @@ Commands can use either **inline scripts** or **script files**:
 Use single-line or multi-line (with triple quotes `"""`) CUE strings:
 
 ```cue
-commands: [
+cmds: [
 	{
 		name: "build"
 		script: """
@@ -1212,7 +1212,7 @@ commands: [
 Reference external script files using paths:
 
 ```cue
-commands: [
+cmds: [
 	// Relative to invkfile location
 	{
 		name: "deploy"
@@ -1242,7 +1242,7 @@ By default, invowk executes scripts using a shell (`/bin/sh` for native, the con
 When a script starts with a shebang line (`#!/...`), invowk automatically detects and uses that interpreter:
 
 ```cue
-commands: [
+cmds: [
     {
         name: "python-script"
         description: "Python script with auto-detected interpreter"
@@ -1272,7 +1272,7 @@ The shebang is parsed to extract both the interpreter and any arguments:
 You can explicitly specify an interpreter using the `interpreter` field in the runtime configuration:
 
 ```cue
-commands: [
+cmds: [
     {
         name: "ruby-script"
         description: "Ruby script with explicit interpreter"
@@ -1299,7 +1299,7 @@ The explicit interpreter takes precedence over shebang detection.
 The interpreter feature works with container runtimes as well:
 
 ```cue
-commands: [
+cmds: [
     {
         name: "container-python"
         description: "Python script in container"
@@ -1349,7 +1349,7 @@ commands: [
 Positional arguments are passed to interpreter scripts just like shell scripts:
 
 ```cue
-commands: [
+cmds: [
     {
         name: "greet-python"
         description: "Python script with arguments"
@@ -1449,7 +1449,7 @@ When referencing script files in a pack's invkfile, use paths relative to the pa
 
 ```cue
 group: "mytools"
-commands: [
+cmds: [
     {
         name: "build"
         description: "Build the project"
@@ -1654,7 +1654,7 @@ Uses the system's default shell:
 - **Windows**: Uses `pwsh` → `powershell` → `cmd`
 
 ```cue
-commands: [
+cmds: [
 	{
 		name: "build"
 		runtime: "native"
@@ -1668,7 +1668,7 @@ commands: [
 Uses the built-in [mvdan/sh](https://github.com/mvdan/sh) shell interpreter. This provides a consistent POSIX-like shell experience across platforms.
 
 ```cue
-commands: [
+cmds: [
 	{
 		name: "build"
 		runtime: "virtual"
@@ -1685,7 +1685,7 @@ commands: [
 Runs commands inside a Docker or Podman container. Requires an image or containerfile specification in the runtime config.
 
 ```cue
-commands: [
+cmds: [
 	{
 		name: "build"
 		implementations: [
@@ -1713,7 +1713,7 @@ Container commands can optionally SSH back into the host system. When `enable_ho
 **Security**: The SSH server only accepts token-based authentication. Each command execution gets a unique, time-limited token that is automatically revoked after the command completes.
 
 ```cue
-commands: [
+cmds: [
 	{
 		name: "deploy from container"
 		implementations: [
@@ -2064,7 +2064,7 @@ The TUI components can be used within invkfile scripts to create interactive com
 
 ```cue
 group: "myproject"
-commands: [
+cmds: [
     {
         name: "interactive setup"
         description: "Interactive project setup wizard"

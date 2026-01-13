@@ -28,7 +28,7 @@ Invowk supports six types of dependencies:
 |------|------------|
 | [tools](./tools) | Binaries in PATH |
 | [filepaths](./filepaths) | Files or directories |
-| [commands](./commands) | Other Invowk commands |
+| [cmds](./commands) | Other Invowk commands |
 | [capabilities](./capabilities) | System capabilities (network) |
 | [env_vars](./env-vars) | Environment variables |
 | [custom_checks](./custom-checks) | Custom validation scripts |
@@ -55,7 +55,7 @@ Dependencies are validated in this order:
 2. **tools** - Binaries in PATH
 3. **filepaths** - Files and directories
 4. **capabilities** - System capabilities
-5. **commands** - Other Invowk commands
+5. **cmds** - Other Invowk commands
 6. **custom_checks** - Custom validation scripts
 
 Environment variables are validated first, before Invowk sets any command-level environment. This ensures you're checking the user's actual environment.
@@ -137,7 +137,7 @@ Learn about each dependency type in detail:
 
 - [Tools](./tools) - Check for binaries in PATH
 - [Filepaths](./filepaths) - Check for files and directories
-- [Commands](./commands) - Require other commands to run first
+- [Commands](./commands) - Use `cmds` to require other commands to run first
 - [Capabilities](./capabilities) - Check system capabilities
 - [Environment Variables](./env-vars) - Check environment variables
 - [Custom Checks](./custom-checks) - Write custom validation scripts

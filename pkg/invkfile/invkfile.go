@@ -353,9 +353,9 @@ type DependsOn struct {
 	// Tools lists binaries that must be available in PATH before running
 	// Uses OR semantics: if any alternative in the list is found, the dependency is satisfied
 	Tools []ToolDependency `json:"tools,omitempty"`
-	// Commands lists invowk commands that must run before this one
+	// Commands lists invowk commands that must run before this one (invkfile field: 'cmds')
 	// Uses OR semantics: if any alternative in the list has run, the dependency is satisfied
-	Commands []CommandDependency `json:"commands,omitempty"`
+	Commands []CommandDependency `json:"cmds,omitempty"`
 	// Filepaths lists files or directories that must exist before running
 	// Uses OR semantics: if any alternative path exists, the dependency is satisfied
 	Filepaths []FilepathDependency `json:"filepaths,omitempty"`
@@ -1029,8 +1029,8 @@ type Invkfile struct {
 	// This is useful for defining shared prerequisites like required tools or capabilities
 	// that apply to all commands in this invkfile.
 	DependsOn *DependsOn `json:"depends_on,omitempty"`
-	// Commands defines the available commands
-	Commands []Command `json:"commands"`
+	// Commands defines the available commands (invkfile field: 'cmds')
+	Commands []Command `json:"cmds"`
 
 	// FilePath stores the path where this invkfile was loaded from (not in CUE)
 	FilePath string `json:"-"`
@@ -1119,7 +1119,7 @@ func ParseBytes(data []byte, path string) (*Invkfile, error) {
 // validate checks the invkfile for errors and applies defaults
 func (inv *Invkfile) validate() error {
 	if len(inv.Commands) == 0 {
-		return fmt.Errorf("invkfile at %s has no commands defined", inv.FilePath)
+		return fmt.Errorf("invkfile at %s has no commands defined (missing required 'cmds' list)", inv.FilePath)
 	}
 
 	// Validate each command
@@ -1641,7 +1641,7 @@ func GenerateCUE(inv *Invkfile) string {
 			sb.WriteString("\t]\n")
 		}
 		if len(inv.DependsOn.Commands) > 0 {
-			sb.WriteString("\tcommands: [\n")
+			sb.WriteString("\tcmds: [\n")
 			for _, dep := range inv.DependsOn.Commands {
 				sb.WriteString("\t\t{alternatives: [")
 				for i, alt := range dep.Alternatives {
@@ -1746,7 +1746,7 @@ func GenerateCUE(inv *Invkfile) string {
 	}
 
 	// Commands
-	sb.WriteString("\ncommands: [\n")
+	sb.WriteString("\ncmds: [\n")
 	for _, cmd := range inv.Commands {
 		sb.WriteString("\t{\n")
 		sb.WriteString(fmt.Sprintf("\t\tname: %q\n", cmd.Name))
@@ -1842,7 +1842,7 @@ func GenerateCUE(inv *Invkfile) string {
 					sb.WriteString("\t\t\t\t\t]\n")
 				}
 				if len(impl.DependsOn.Commands) > 0 {
-					sb.WriteString("\t\t\t\t\tcommands: [\n")
+					sb.WriteString("\t\t\t\t\tcmds: [\n")
 					for _, dep := range impl.DependsOn.Commands {
 						sb.WriteString("\t\t\t\t\t\t{alternatives: [")
 						for i, alt := range dep.Alternatives {
@@ -2020,7 +2020,7 @@ func GenerateCUE(inv *Invkfile) string {
 				sb.WriteString("\t\t\t]\n")
 			}
 			if len(cmd.DependsOn.Commands) > 0 {
-				sb.WriteString("\t\t\tcommands: [\n")
+				sb.WriteString("\t\t\tcmds: [\n")
 				for _, dep := range cmd.DependsOn.Commands {
 					sb.WriteString("\t\t\t\t{alternatives: [")
 					for i, alt := range dep.Alternatives {

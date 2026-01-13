@@ -47,7 +47,7 @@ export const snippets = {
 version: "1.0"               // Optional: version of this invkfile
 description: "My commands"   // Optional: what this file is about
 
-commands: [                  // Required: list of commands
+cmds: [                  // Required: list of commands
     // ... your commands here
 ]`,
   },
@@ -58,7 +58,7 @@ commands: [                  // Required: list of commands
 version: "1.0"
 description: "Commands for my Go project"
 
-commands: [
+cmds: [
     // Simple build command
     {
         name: "build"
@@ -175,7 +175,7 @@ env: {
     }
 }
 
-commands: [
+cmds: [
     {
         name: "build"
         // Command-level env applies to this command
@@ -276,7 +276,7 @@ group: "myproject"
 version: "1.0"
 
 // Lists use square brackets
-commands: [
+cmds: [
     {
         name: "hello"
         description: "A greeting command"
@@ -302,14 +302,14 @@ env?: #EnvConfig        // Optional: global environment config
 depends_on?: #DependsOn // Optional: global dependencies
 
 // Required: at least one command
-commands: [...#Command]`,
+cmds: [...#Command]`,
   },
 
   'core-concepts/group-namespace': {
     language: 'cue',
     code: `group: "myproject"
 
-commands: [
+cmds: [
     {name: "build"},
     {name: "test"},
 ]`,
@@ -402,7 +402,7 @@ depends_on: {
     tools: [{alternatives: ["sh", "bash"]}]
 }
 
-commands: [
+cmds: [
     {
         name: "build"
         description: "Build the application"
@@ -436,7 +436,7 @@ commands: [
         ]
         depends_on: {
             tools: [{alternatives: ["docker", "podman"]}]
-            commands: [{alternatives: ["myapp build"]}]
+            cmds: [{alternatives: ["myapp build"]}]
         }
         flags: [
             {name: "env", description: "Target environment", required: true},
@@ -456,7 +456,7 @@ _nativeUnix: {
     }
 }
 
-commands: [
+cmds: [
     {
         name: "build"
         implementations: [
@@ -843,7 +843,7 @@ virtual_shell: {
   'dependencies/commands-basic': {
     language: 'cue',
     code: `depends_on: {
-    commands: [
+    cmds: [
         {alternatives: ["myapp build"]}
     ]
 }`,
@@ -956,7 +956,7 @@ env: {
     }
 }
 
-commands: [...]  // All commands get PROJECT_NAME`,
+cmds: [...]  // All commands get PROJECT_NAME`,
   },
 
   'environment/scope-command': {
@@ -1157,7 +1157,7 @@ env: {
     files: [".env"]  // Loaded for all commands
 }
 
-commands: [...]`,
+cmds: [...]`,
   },
 
   'environment/env-files-scope-command': {
@@ -1342,7 +1342,7 @@ env: {
     }
 }
 
-commands: [
+cmds: [
     {
         name: "build"
         // Gets PROJECT_NAME and VERSION
@@ -1594,7 +1594,7 @@ env: {
     }
 }
 
-commands: [
+cmds: [
     {
         name: "build"
         // Command level
@@ -2588,7 +2588,7 @@ invowk cmd myproject deploy prod --dry-run 3`,
     code: `// Global workdir for all commands
 workdir: "./src"
 
-commands: [
+cmds: [
     {
         name: "build"
         // Command-specific workdir
@@ -2817,7 +2817,7 @@ interpreter: "node --max-old-space-size=4096"`,
     code: `group: "myproject"
 workdir: "./src"  // All commands default to ./src
 
-commands: [
+cmds: [
     {
         name: "build"
         // Inherits workdir: ./src
@@ -2855,7 +2855,7 @@ workdir: "\${PROJECT_ROOT}/src"`,
     code: `group: "myproject"
 workdir: "./root"  // Default: ./root
 
-commands: [
+cmds: [
     {
         name: "build"
         workdir: "./command"  // Override: ./command
@@ -2874,7 +2874,7 @@ commands: [
     language: 'cue',
     code: `group: "monorepo"
 
-commands: [
+cmds: [
     {
         name: "web build"
         workdir: "./packages/web"
@@ -2946,7 +2946,7 @@ workdir: ".\\\\src\\\\app"`,
 
   'advanced/workdir-frontend-backend': {
     language: 'cue',
-    code: `commands: [
+    code: `cmds: [
     {
         name: "start frontend"
         workdir: "./frontend"
@@ -2968,7 +2968,7 @@ workdir: ".\\\\src\\\\app"`,
 
   'advanced/workdir-tests': {
     language: 'cue',
-    code: `commands: [
+    code: `cmds: [
     {
         name: "test unit"
         workdir: "./tests/unit"
@@ -3139,7 +3139,7 @@ _windows: {name: "windows"}
 _unix: [{name: "linux"}, {name: "macos"}]
 _all: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 
-commands: [
+cmds: [
     {
         name: "clean"
         implementations: [
@@ -3278,7 +3278,7 @@ This command is only available on the platforms listed above.`,
 version: "1.0.0"
 description: "My reusable development tools"
 
-commands: [
+cmds: [
     {
         name: "lint"
         description: "Run linters"
@@ -3361,7 +3361,7 @@ org.opensource.utilities.invkpack`,
     code: `// Inside mytools.invkpack/invkfile.cue
 group: "mytools"
 
-commands: [
+cmds: [
     {
         name: "build"
         implementations: [{
@@ -3419,7 +3419,7 @@ invowk pack create mytools --scripts`,
 version: "1.0"
 description: "Commands for mytools"
 
-commands: [
+cmds: [
     {
         name: "hello"
         description: "Say hello"
@@ -3445,7 +3445,7 @@ touch mytools.invkpack/invkfile.cue`,
 
   'packs/inline-vs-external': {
     language: 'cue',
-    code: `commands: [
+    code: `cmds: [
     // Simple: inline script
     {
         name: "quick"
@@ -3538,7 +3538,7 @@ script: "../outside.sh"`,
 version: "1.0"
 description: "Standardized build tools"
 
-commands: [
+cmds: [
     {
         name: "go"
         description: "Build Go project"
@@ -4231,7 +4231,7 @@ invowk init`,
 version: "1.0"
 description: "My project commands"
 
-commands: [
+cmds: [
     {
         name: "hello"
         description: "Say hello!"
@@ -4272,7 +4272,7 @@ From current directory:
 version: "1.0"
 description: "My project commands"
 
-commands: [
+cmds: [
     {
         name: "hello"
         description: "Say hello!"
@@ -4330,7 +4330,7 @@ commands: [
     language: 'cue',
     code: `group: "myproject"
 
-commands: [
+cmds: [
     {name: "build"},
     {name: "test"},
     {name: "deploy"},
@@ -4360,7 +4360,7 @@ group: "123project"     // Must start with letter`,
     language: 'cue',
     code: `group: "com.company.frontend"
 
-commands: [
+cmds: [
     {name: "build"},
     {name: "test"},
 ]`,
@@ -4370,7 +4370,7 @@ commands: [
     language: 'cue',
     code: `group: "myproject"
 
-commands: [
+cmds: [
     {name: "test"},           // myproject test
     {name: "test unit"},      // myproject test unit
     {name: "test integration"}, // myproject test integration
@@ -4395,7 +4395,7 @@ From user commands (~/.invowk/cmds):
     language: 'cue',
     code: `group: "myproject"
 
-commands: [
+cmds: [
     {
         name: "build"
         implementations: [...]
@@ -4404,7 +4404,7 @@ commands: [
         name: "test"
         implementations: [...]
         depends_on: {
-            commands: [
+            cmds: [
                 // Reference by full name (group + command name)
                 {alternatives: ["myproject build"]}
             ]
@@ -4414,7 +4414,7 @@ commands: [
         name: "release"
         implementations: [...]
         depends_on: {
-            commands: [
+            cmds: [
                 // Can depend on commands from other invkfiles too
                 {alternatives: ["myproject build"]},
                 {alternatives: ["myproject test"]},
@@ -4430,11 +4430,11 @@ commands: [
     code: `// In frontend/invkfile.cue
 group: "frontend"
 
-commands: [
+cmds: [
     {
         name: "build"
         depends_on: {
-            commands: [
+            cmds: [
                 // Depends on backend build completing first
                 {alternatives: ["backend build"]}
             ]
@@ -4665,7 +4665,7 @@ _allPlatforms: {
     }
 }
 
-commands: [
+cmds: [
     {
         name: "build"
         implementations: [
@@ -4693,7 +4693,7 @@ commands: [
 
   'runtime-modes/comparison': {
     language: 'cue',
-    code: `commands: [
+    code: `cmds: [
     // Native: uses your system shell (bash, zsh, PowerShell, etc.)
     {
         name: "build native"
@@ -4939,7 +4939,7 @@ depends_on: {
     tools: [{alternatives: ["git"]}]  // Required by all commands
 }
 
-commands: [...]`,
+cmds: [...]`,
   },
 
   'dependencies/scope-command': {
@@ -4979,7 +4979,7 @@ depends_on: {
     tools: [{alternatives: ["git"]}]
 }
 
-commands: [
+cmds: [
     {
         name: "build"
         // Command level: also requires go
@@ -5027,7 +5027,7 @@ commands: [
             {alternatives: ["internet"]}
         ]
         // Run other commands first
-        commands: [
+        cmds: [
             {alternatives: ["myproject build"]},
             {alternatives: ["myproject test"]}
         ]
@@ -6428,7 +6428,7 @@ invowk help config set`,
     workdir?:       string    // Optional - default working directory
     env?:           #EnvConfig      // Optional - global environment
     depends_on?:    #DependsOn      // Optional - global dependencies
-    commands:       [...#Command]   // Required - at least one command
+    cmds:           [...#Command]   // Required - at least one command
 }`,
   },
 
@@ -6817,7 +6817,7 @@ env: {
     }
 }
 
-commands: [
+cmds: [
     {
         name: "build"
         description: "Build the application"

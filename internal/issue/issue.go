@@ -121,7 +121,7 @@ $ invowk cmd list
 version: "1.0"
 description: "My project commands"
 
-commands: [
+cmds: [
   {
     name: "build"
     description: "Build the project"
@@ -159,7 +159,7 @@ $ invowk --verbose cmd list
 
 ## Example of valid command definition:
 ~~~cue
-commands: [
+cmds: [
   {
     name: "build"
     description: "Build the project"
@@ -220,7 +220,7 @@ default_runtime: "native"
 
 - Or specify runtime per-command:
 ~~~cue
-commands: [
+cmds: [
   {
     name: "build"
     implementations: [
@@ -376,7 +376,7 @@ The specified runtime mode is not recognized.
 ~~~cue
 default_runtime: "native"
 
-commands: [
+cmds: [
   {
     name: "build"
     implementations: [
@@ -401,17 +401,17 @@ Your command dependencies form a cycle, which would cause infinite execution.
 
 ## Example of a cycle:
 ~~~cue
-commands: [
+cmds: [
   {
     name: "a"
     depends_on: {
-      commands: [{alternatives: ["b"]}]
+      cmds: [{alternatives: ["b"]}]
     }
   },
   {
     name: "b"
     depends_on: {
-      commands: [{alternatives: ["a"]}]  // Cycle: a -> b -> a
+      cmds: [{alternatives: ["a"]}]  // Cycle: a -> b -> a
     }
   }
 ]

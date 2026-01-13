@@ -235,9 +235,12 @@
 	// Each tool is checked for existence in PATH using 'command -v' or equivalent
 	// Uses OR semantics: if any alternative in the list is found, the dependency is satisfied
 	tools?: [...#ToolDependency]
-	// commands lists invowk commands that must run before this one
+	// cmds lists invowk commands that must run before this one
 	// Uses OR semantics: if any alternative in the list has run, the dependency is satisfied
-	commands?: [...#CommandDependency]
+	cmds?: [...#CommandDependency]
+
+	// commands is not supported (use cmds)
+	commands?: _|_
 	// filepaths lists files or directories that must exist before running
 	// Uses OR semantics: if any alternative path exists, the dependency is satisfied
 	filepaths?: [...#FilepathDependency]
@@ -417,8 +420,11 @@
 	// that apply to all commands in this invkfile.
 	depends_on?: #DependsOn
 
-	// commands defines the available commands (required, at least one)
-	commands: [...#Command] & [_, ...]
+	// cmds defines the available commands (required, at least one)
+	cmds: [...#Command] & [_, ...]
+
+	// commands is not supported (use cmds)
+	commands?: _|_
 }
 
 // Example usage with the cue command-line tool:
