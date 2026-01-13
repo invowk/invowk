@@ -79,43 +79,25 @@ const (
 	// HostLinux represents Linux operating system
 	HostLinux HostOS = "linux"
 	// HostMac represents macOS operating system
-	HostMac HostOS = "mac"
+	HostMac HostOS = "macos"
 	// HostWindows represents Windows operating system
 	HostWindows HostOS = "windows"
 )
 
-// WorksOn defines where the command can run
-type WorksOn struct {
-	// Hosts lists the operating systems where this command can run
-	Hosts []HostOS `json:"hosts"`
-}
+// Platform represents a target platform (alias for HostOS for clarity)
+type Platform = HostOS
 
-// Command represents a single command that can be executed
-type Command struct {
-	// Name is the command identifier (can include spaces for subcommand-like behavior, e.g., "test unit")
-	Name string `json:"name"`
-	// Description provides help text for the command
-	Description string `json:"description,omitempty"`
-	// Runtimes specifies the allowed execution modes for this command (required, at least one)
-	// The first element is the default runtime used when no --runtime flag is specified
-	Runtimes []RuntimeMode `json:"runtimes"`
+// Script represents a script with platform and runtime constraints
+type Script struct {
 	// Script contains the shell commands to execute OR a path to a script file
-	// If Script starts with "./" or "/" or ends with common script extensions (.sh, .ps1, .bat, .cmd, .py, .rb),
-	// it is treated as a file path. Otherwise, it is treated as inline script content.
-	// Multi-line strings are fully supported in CUE.
 	Script string `json:"script"`
-	// Env contains environment variables to set for this command
-	Env map[string]string `json:"env,omitempty"`
-	// WorkDir specifies the working directory for command execution
-	WorkDir string `json:"workdir,omitempty"`
-	// DependsOn specifies dependencies that must be satisfied before running
-	DependsOn *DependsOn `json:"depends_on,omitempty"`
-	// WorksOn specifies where this command can run (required)
-	WorksOn WorksOn `json:"works_on"`
+	// Runtimes specifies which runtimes can execute this script (required, at least one)
+	// The first element is the default runtime for this platform combination
+	Runtimes []RuntimeMode `json:"runtimes"`
+	// Platforms specifies which operating systems this script is for (optional)
+	// If empty/nil, the script applies to all platforms
+	Platforms []Platform `json:"platforms,omitempty"`
 	// HostSSH enables SSH access from container back to host (container runtime only)
-	// When enabled, invowk starts an SSH server and provides connection credentials
-	// to the container via environment variables: INVOWK_SSH_HOST, INVOWK_SSH_PORT,
-	// INVOWK_SSH_USER, INVOWK_SSH_TOKEN
 	HostSSH bool `json:"host_ssh,omitempty"`
 
 	// resolvedScript caches the resolved script content
@@ -124,13 +106,29 @@ type Command struct {
 	scriptResolved bool
 }
 
+// Command represents a single command that can be executed
+type Command struct {
+	// Name is the command identifier (can include spaces for subcommand-like behavior, e.g., "test unit")
+	Name string `json:"name"`
+	// Description provides help text for the command
+	Description string `json:"description,omitempty"`
+	// Scripts defines the executable scripts with platform/runtime constraints (required, at least one)
+	Scripts []Script `json:"scripts"`
+	// Env contains environment variables to set for this command
+	Env map[string]string `json:"env,omitempty"`
+	// WorkDir specifies the working directory for command execution
+	WorkDir string `json:"workdir,omitempty"`
+	// DependsOn specifies dependencies that must be satisfied before running
+	DependsOn *DependsOn `json:"depends_on,omitempty"`
+}
+
 // GetCurrentHostOS returns the current operating system as HostOS
 func GetCurrentHostOS() HostOS {
 	switch goruntime.GOOS {
 	case "linux":
 		return HostLinux
 	case "darwin":
-		return HostMac
+		return HostMac // Returns "macos"
 	case "windows":
 		return HostWindows
 	default:
@@ -139,56 +137,146 @@ func GetCurrentHostOS() HostOS {
 	}
 }
 
+// PlatformRuntimeKey represents a unique combination of platform and runtime
+type PlatformRuntimeKey struct {
+	Platform Platform
+	Runtime  RuntimeMode
+}
+
+// ScriptMatch represents a matched script for execution
+type ScriptMatch struct {
+	Script               *Script
+	Platform             Platform
+	Runtime              RuntimeMode
+	IsDefaultForPlatform bool
+}
+
+// GetScriptForPlatformRuntime finds the script that matches the given platform and runtime
+func (c *Command) GetScriptForPlatformRuntime(platform Platform, runtime RuntimeMode) *Script {
+	for i := range c.Scripts {
+		s := &c.Scripts[i]
+		if s.MatchesPlatform(platform) && s.HasRuntime(runtime) {
+			return s
+		}
+	}
+	return nil
+}
+
+// GetScriptsForPlatform returns all scripts that can run on the given platform
+func (c *Command) GetScriptsForPlatform(platform Platform) []*Script {
+	var result []*Script
+	for i := range c.Scripts {
+		if c.Scripts[i].MatchesPlatform(platform) {
+			result = append(result, &c.Scripts[i])
+		}
+	}
+	return result
+}
+
+// GetDefaultScriptForPlatform returns the first script that matches the platform (default)
+func (c *Command) GetDefaultScriptForPlatform(platform Platform) *Script {
+	scripts := c.GetScriptsForPlatform(platform)
+	if len(scripts) == 0 {
+		return nil
+	}
+	return scripts[0]
+}
+
+// GetDefaultRuntimeForPlatform returns the default runtime for the given platform
+// The default runtime is the first runtime of the first script that matches the platform
+func (c *Command) GetDefaultRuntimeForPlatform(platform Platform) RuntimeMode {
+	script := c.GetDefaultScriptForPlatform(platform)
+	if script == nil || len(script.Runtimes) == 0 {
+		return RuntimeNative
+	}
+	return script.Runtimes[0]
+}
+
 // CanRunOnCurrentHost returns true if the command can run on the current host OS
 func (c *Command) CanRunOnCurrentHost() bool {
 	currentOS := GetCurrentHostOS()
-	for _, host := range c.WorksOn.Hosts {
-		if host == currentOS {
-			return true
-		}
-	}
-	return false
+	return len(c.GetScriptsForPlatform(currentOS)) > 0
 }
 
-// GetHostsString returns a comma-separated string of supported hosts
-func (c *Command) GetHostsString() string {
-	if len(c.WorksOn.Hosts) == 0 {
-		return ""
-	}
-	hosts := make([]string, len(c.WorksOn.Hosts))
-	for i, h := range c.WorksOn.Hosts {
-		hosts[i] = string(h)
-	}
-	return strings.Join(hosts, ", ")
-}
+// GetSupportedPlatforms returns all platforms that this command supports
+func (c *Command) GetSupportedPlatforms() []Platform {
+	platformSet := make(map[Platform]bool)
+	allPlatforms := []Platform{HostLinux, HostMac, HostWindows}
 
-// GetDefaultRuntime returns the default runtime for this command (first in the list)
-func (c *Command) GetDefaultRuntime() RuntimeMode {
-	if len(c.Runtimes) == 0 {
-		return RuntimeNative
-	}
-	return c.Runtimes[0]
-}
-
-// GetRuntimesString returns a formatted string of runtimes with default highlighted
-func (c *Command) GetRuntimesString() string {
-	if len(c.Runtimes) == 0 {
-		return ""
-	}
-	runtimes := make([]string, len(c.Runtimes))
-	for i, r := range c.Runtimes {
-		if i == 0 {
-			runtimes[i] = string(r) + "*" // Mark default with asterisk
+	for _, s := range c.Scripts {
+		if len(s.Platforms) == 0 {
+			// Script applies to all platforms
+			for _, p := range allPlatforms {
+				platformSet[p] = true
+			}
 		} else {
-			runtimes[i] = string(r)
+			for _, p := range s.Platforms {
+				platformSet[p] = true
+			}
 		}
 	}
-	return strings.Join(runtimes, ", ")
+
+	var result []Platform
+	for _, p := range allPlatforms {
+		if platformSet[p] {
+			result = append(result, p)
+		}
+	}
+	return result
 }
 
-// IsRuntimeAllowed checks if the given runtime is in the allowed list
-func (c *Command) IsRuntimeAllowed(runtime RuntimeMode) bool {
-	for _, r := range c.Runtimes {
+// GetPlatformsString returns a comma-separated string of supported platforms
+func (c *Command) GetPlatformsString() string {
+	platforms := c.GetSupportedPlatforms()
+	if len(platforms) == 0 {
+		return ""
+	}
+	strs := make([]string, len(platforms))
+	for i, p := range platforms {
+		strs[i] = string(p)
+	}
+	return strings.Join(strs, ", ")
+}
+
+// GetAllowedRuntimesForPlatform returns all allowed runtimes for a given platform
+func (c *Command) GetAllowedRuntimesForPlatform(platform Platform) []RuntimeMode {
+	runtimeSet := make(map[RuntimeMode]bool)
+	var orderedRuntimes []RuntimeMode
+
+	for _, s := range c.Scripts {
+		if s.MatchesPlatform(platform) {
+			for _, r := range s.Runtimes {
+				if !runtimeSet[r] {
+					runtimeSet[r] = true
+					orderedRuntimes = append(orderedRuntimes, r)
+				}
+			}
+		}
+	}
+	return orderedRuntimes
+}
+
+// GetRuntimesStringForPlatform returns a formatted string of runtimes for a platform with default highlighted
+func (c *Command) GetRuntimesStringForPlatform(platform Platform) string {
+	runtimes := c.GetAllowedRuntimesForPlatform(platform)
+	if len(runtimes) == 0 {
+		return ""
+	}
+	defaultRuntime := c.GetDefaultRuntimeForPlatform(platform)
+	strs := make([]string, len(runtimes))
+	for i, r := range runtimes {
+		if r == defaultRuntime {
+			strs[i] = string(r) + "*"
+		} else {
+			strs[i] = string(r)
+		}
+	}
+	return strings.Join(strs, ", ")
+}
+
+// IsRuntimeAllowedForPlatform checks if the given runtime is allowed for the platform
+func (c *Command) IsRuntimeAllowedForPlatform(platform Platform, runtime RuntimeMode) bool {
+	for _, r := range c.GetAllowedRuntimesForPlatform(platform) {
 		if r == runtime {
 			return true
 		}
@@ -196,16 +284,55 @@ func (c *Command) IsRuntimeAllowed(runtime RuntimeMode) bool {
 	return false
 }
 
-// GetAllowedRuntimesString returns a comma-separated list of allowed runtimes
-func (c *Command) GetAllowedRuntimesString() string {
-	if len(c.Runtimes) == 0 {
-		return ""
+// ValidateScripts checks that there are no duplicate platform+runtime combinations
+// Returns an error with a descriptive message if duplicates are found
+func (c *Command) ValidateScripts() error {
+	seen := make(map[PlatformRuntimeKey]int) // key -> script index (1-based for error messages)
+	allPlatforms := []Platform{HostLinux, HostMac, HostWindows}
+
+	for i, s := range c.Scripts {
+		platforms := s.Platforms
+		if len(platforms) == 0 {
+			platforms = allPlatforms // Applies to all platforms
+		}
+
+		for _, p := range platforms {
+			for _, r := range s.Runtimes {
+				key := PlatformRuntimeKey{Platform: p, Runtime: r}
+				if existingIdx, exists := seen[key]; exists {
+					return fmt.Errorf(
+						"command '%s' has duplicate platform+runtime combination: platform=%s, runtime=%s (scripts #%d and #%d)",
+						c.Name, p, r, existingIdx, i+1,
+					)
+				}
+				seen[key] = i + 1
+			}
+		}
 	}
-	runtimes := make([]string, len(c.Runtimes))
-	for i, r := range c.Runtimes {
-		runtimes[i] = string(r)
+	return nil
+}
+
+// MatchesPlatform returns true if the script can run on the given platform
+func (s *Script) MatchesPlatform(platform Platform) bool {
+	if len(s.Platforms) == 0 {
+		return true // No platforms specified = all platforms
 	}
-	return strings.Join(runtimes, ", ")
+	for _, p := range s.Platforms {
+		if p == platform {
+			return true
+		}
+	}
+	return false
+}
+
+// HasRuntime returns true if the script supports the given runtime
+func (s *Script) HasRuntime(runtime RuntimeMode) bool {
+	for _, r := range s.Runtimes {
+		if r == runtime {
+			return true
+		}
+	}
+	return false
 }
 
 // HasDependencies returns true if the command has any dependencies
@@ -232,8 +359,8 @@ func (c *Command) GetCommandDependencies() []string {
 var scriptFileExtensions = []string{".sh", ".bash", ".ps1", ".bat", ".cmd", ".py", ".rb", ".pl", ".zsh", ".fish"}
 
 // IsScriptFile returns true if the Script field appears to be a file path
-func (c *Command) IsScriptFile() bool {
-	script := strings.TrimSpace(c.Script)
+func (s *Script) IsScriptFile() bool {
+	script := strings.TrimSpace(s.Script)
 	if script == "" {
 		return false
 	}
@@ -262,12 +389,12 @@ func (c *Command) IsScriptFile() bool {
 // GetScriptFilePath returns the absolute path to the script file, if Script is a file reference.
 // Returns empty string if Script is inline content.
 // The invowkfilePath parameter is used to resolve relative paths.
-func (c *Command) GetScriptFilePath(invowkfilePath string) string {
-	if !c.IsScriptFile() {
+func (s *Script) GetScriptFilePath(invowkfilePath string) string {
+	if !s.IsScriptFile() {
 		return ""
 	}
 
-	script := strings.TrimSpace(c.Script)
+	script := strings.TrimSpace(s.Script)
 
 	// If absolute path, return as-is
 	if filepath.IsAbs(script) {
@@ -283,42 +410,42 @@ func (c *Command) GetScriptFilePath(invowkfilePath string) string {
 // If Script is a file path, it reads the file content.
 // If Script is inline content (including multi-line), it returns it directly.
 // The invowkfilePath parameter is used to resolve relative paths.
-func (c *Command) ResolveScript(invowkfilePath string) (string, error) {
-	if c.scriptResolved {
-		return c.resolvedScript, nil
+func (s *Script) ResolveScript(invowkfilePath string) (string, error) {
+	if s.scriptResolved {
+		return s.resolvedScript, nil
 	}
 
-	script := c.Script
+	script := s.Script
 	if script == "" {
-		return "", fmt.Errorf("command '%s' has no script", c.Name)
+		return "", fmt.Errorf("script has no content")
 	}
 
-	if c.IsScriptFile() {
-		scriptPath := c.GetScriptFilePath(invowkfilePath)
+	if s.IsScriptFile() {
+		scriptPath := s.GetScriptFilePath(invowkfilePath)
 		content, err := os.ReadFile(scriptPath)
 		if err != nil {
 			return "", fmt.Errorf("failed to read script file '%s': %w", scriptPath, err)
 		}
-		c.resolvedScript = string(content)
+		s.resolvedScript = string(content)
 	} else {
 		// Inline script - use directly (multi-line strings from CUE are already handled)
-		c.resolvedScript = script
+		s.resolvedScript = script
 	}
 
-	c.scriptResolved = true
-	return c.resolvedScript, nil
+	s.scriptResolved = true
+	return s.resolvedScript, nil
 }
 
 // ResolveScriptWithFS resolves the script using a custom filesystem reader function.
 // This is useful for testing with virtual filesystems.
-func (c *Command) ResolveScriptWithFS(invowkfilePath string, readFile func(path string) ([]byte, error)) (string, error) {
-	script := c.Script
+func (s *Script) ResolveScriptWithFS(invowkfilePath string, readFile func(path string) ([]byte, error)) (string, error) {
+	script := s.Script
 	if script == "" {
-		return "", fmt.Errorf("command '%s' has no script", c.Name)
+		return "", fmt.Errorf("script has no content")
 	}
 
-	if c.IsScriptFile() {
-		scriptPath := c.GetScriptFilePath(invowkfilePath)
+	if s.IsScriptFile() {
+		scriptPath := s.GetScriptFilePath(invowkfilePath)
 		content, err := readFile(scriptPath)
 		if err != nil {
 			return "", fmt.Errorf("failed to read script file '%s': %w", scriptPath, err)
@@ -460,23 +587,33 @@ func (inv *Invowkfile) validateCommand(cmd *Command) error {
 		return fmt.Errorf("command must have a name in invowkfile at %s", inv.FilePath)
 	}
 
-	if cmd.Script == "" {
-		return fmt.Errorf("command '%s' must have a script in invowkfile at %s", cmd.Name, inv.FilePath)
+	if len(cmd.Scripts) == 0 {
+		return fmt.Errorf("command '%s' must have at least one script in invowkfile at %s", cmd.Name, inv.FilePath)
 	}
 
-	// Apply default runtime if runtimes list is empty
-	if len(cmd.Runtimes) == 0 {
-		cmd.Runtimes = []RuntimeMode{inv.DefaultRuntime}
-	}
-
-	// Validate container config for commands that support container runtime
-	for _, rt := range cmd.Runtimes {
-		if rt == RuntimeContainer {
-			if err := inv.validateContainerConfig(); err != nil {
-				return fmt.Errorf("command '%s': %w", cmd.Name, err)
-			}
-			break
+	// Validate each script
+	for i, script := range cmd.Scripts {
+		if script.Script == "" {
+			return fmt.Errorf("command '%s' script #%d must have content in invowkfile at %s", cmd.Name, i+1, inv.FilePath)
 		}
+		if len(script.Runtimes) == 0 {
+			return fmt.Errorf("command '%s' script #%d must have at least one runtime in invowkfile at %s", cmd.Name, i+1, inv.FilePath)
+		}
+
+		// Validate container config for scripts that support container runtime
+		for _, rt := range script.Runtimes {
+			if rt == RuntimeContainer {
+				if err := inv.validateContainerConfig(); err != nil {
+					return fmt.Errorf("command '%s': %w", cmd.Name, err)
+				}
+				break
+			}
+		}
+	}
+
+	// Validate that there are no duplicate platform+runtime combinations
+	if err := cmd.ValidateScripts(); err != nil {
+		return err
 	}
 
 	return nil
@@ -578,28 +715,52 @@ func GenerateCUE(inv *Invowkfile) string {
 		if cmd.Description != "" {
 			sb.WriteString(fmt.Sprintf("\t\tdescription: %q\n", cmd.Description))
 		}
-		// Generate runtimes list
-		if len(cmd.Runtimes) > 0 {
-			sb.WriteString("\t\truntimes: [")
-			for i, r := range cmd.Runtimes {
+
+		// Generate scripts list
+		sb.WriteString("\t\tscripts: [\n")
+		for _, script := range cmd.Scripts {
+			sb.WriteString("\t\t\t{\n")
+
+			// Handle multi-line scripts with CUE's multi-line string syntax
+			if strings.Contains(script.Script, "\n") {
+				sb.WriteString("\t\t\t\tscript: \"\"\"\n")
+				for _, line := range strings.Split(script.Script, "\n") {
+					sb.WriteString(fmt.Sprintf("\t\t\t\t\t%s\n", line))
+				}
+				sb.WriteString("\t\t\t\t\t\"\"\"\n")
+			} else {
+				sb.WriteString(fmt.Sprintf("\t\t\t\tscript: %q\n", script.Script))
+			}
+
+			// Runtimes
+			sb.WriteString("\t\t\t\truntimes: [")
+			for i, r := range script.Runtimes {
 				if i > 0 {
 					sb.WriteString(", ")
 				}
 				sb.WriteString(fmt.Sprintf("%q", r))
 			}
 			sb.WriteString("]\n")
-		}
 
-		// Handle multi-line scripts with CUE's multi-line string syntax
-		if strings.Contains(cmd.Script, "\n") {
-			sb.WriteString("\t\tscript: \"\"\"\n")
-			for _, line := range strings.Split(cmd.Script, "\n") {
-				sb.WriteString(fmt.Sprintf("\t\t\t%s\n", line))
+			// Platforms (optional)
+			if len(script.Platforms) > 0 {
+				sb.WriteString("\t\t\t\tplatforms: [")
+				for i, p := range script.Platforms {
+					if i > 0 {
+						sb.WriteString(", ")
+					}
+					sb.WriteString(fmt.Sprintf("%q", p))
+				}
+				sb.WriteString("]\n")
 			}
-			sb.WriteString("\t\t\t\"\"\"\n")
-		} else {
-			sb.WriteString(fmt.Sprintf("\t\tscript: %q\n", cmd.Script))
+
+			if script.HostSSH {
+				sb.WriteString("\t\t\t\thost_ssh: true\n")
+			}
+
+			sb.WriteString("\t\t\t},\n")
 		}
+		sb.WriteString("\t\t]\n")
 
 		if len(cmd.Env) > 0 {
 			sb.WriteString("\t\tenv: {\n")
@@ -657,22 +818,6 @@ func GenerateCUE(inv *Invowkfile) string {
 				sb.WriteString("\t\t\t]\n")
 			}
 			sb.WriteString("\t\t}\n")
-		}
-		// works_on is required
-		if len(cmd.WorksOn.Hosts) > 0 {
-			sb.WriteString("\t\tworks_on: {\n")
-			sb.WriteString("\t\t\thosts: [")
-			for i, host := range cmd.WorksOn.Hosts {
-				if i > 0 {
-					sb.WriteString(", ")
-				}
-				sb.WriteString(fmt.Sprintf("%q", host))
-			}
-			sb.WriteString("]\n")
-			sb.WriteString("\t\t}\n")
-		}
-		if cmd.HostSSH {
-			sb.WriteString("\t\thost_ssh: true\n")
 		}
 		sb.WriteString("\t},\n")
 	}

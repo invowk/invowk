@@ -32,10 +32,16 @@ type ExecutionContext struct {
 	Verbose bool
 	// SelectedRuntime is the runtime to use for execution (may differ from default)
 	SelectedRuntime invowkfile.RuntimeMode
+	// SelectedScript is the script to execute (based on platform and runtime)
+	SelectedScript *invowkfile.Script
 }
 
 // NewExecutionContext creates a new execution context with defaults
 func NewExecutionContext(cmd *invowkfile.Command, inv *invowkfile.Invowkfile) *ExecutionContext {
+	currentPlatform := invowkfile.GetCurrentHostOS()
+	defaultRuntime := cmd.GetDefaultRuntimeForPlatform(currentPlatform)
+	defaultScript := cmd.GetScriptForPlatformRuntime(currentPlatform, defaultRuntime)
+
 	return &ExecutionContext{
 		Command:         cmd,
 		Invowkfile:      inv,
@@ -44,7 +50,8 @@ func NewExecutionContext(cmd *invowkfile.Command, inv *invowkfile.Invowkfile) *E
 		Stderr:          os.Stderr,
 		Stdin:           os.Stdin,
 		ExtraEnv:        make(map[string]string),
-		SelectedRuntime: cmd.GetDefaultRuntime(),
+		SelectedRuntime: defaultRuntime,
+		SelectedScript:  defaultScript,
 	}
 }
 
@@ -112,10 +119,11 @@ func (r *Registry) Get(typ RuntimeType) (Runtime, error) {
 	return rt, nil
 }
 
-// GetForCommand returns the appropriate runtime for a command based on its default runtime
+// GetForCommand returns the appropriate runtime for a command based on its default runtime for current platform
 // Deprecated: Use GetForContext instead for proper runtime selection
 func (r *Registry) GetForCommand(cmd *invowkfile.Command) (Runtime, error) {
-	typ := RuntimeType(cmd.GetDefaultRuntime())
+	currentPlatform := invowkfile.GetCurrentHostOS()
+	typ := RuntimeType(cmd.GetDefaultRuntimeForPlatform(currentPlatform))
 	return r.Get(typ)
 }
 

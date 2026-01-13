@@ -36,8 +36,11 @@ func (r *NativeRuntime) Available() bool {
 
 // Validate checks if a command can be executed
 func (r *NativeRuntime) Validate(ctx *ExecutionContext) error {
-	if ctx.Command.Script == "" {
-		return fmt.Errorf("command has no script to execute")
+	if ctx.SelectedScript == nil {
+		return fmt.Errorf("no script selected for execution")
+	}
+	if ctx.SelectedScript.Script == "" {
+		return fmt.Errorf("script has no content to execute")
 	}
 	return nil
 }
@@ -50,7 +53,7 @@ func (r *NativeRuntime) Execute(ctx *ExecutionContext) *Result {
 	}
 
 	// Resolve the script content (from file or inline)
-	script, err := ctx.Command.ResolveScript(ctx.Invowkfile.FilePath)
+	script, err := ctx.SelectedScript.ResolveScript(ctx.Invowkfile.FilePath)
 	if err != nil {
 		return &Result{ExitCode: 1, Error: err}
 	}
@@ -95,7 +98,7 @@ func (r *NativeRuntime) ExecuteCapture(ctx *ExecutionContext) *Result {
 	}
 
 	// Resolve the script content (from file or inline)
-	script, err := ctx.Command.ResolveScript(ctx.Invowkfile.FilePath)
+	script, err := ctx.SelectedScript.ResolveScript(ctx.Invowkfile.FilePath)
 	if err != nil {
 		return &Result{ExitCode: 1, Error: err}
 	}

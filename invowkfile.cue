@@ -6,30 +6,42 @@
 //   - "virtual": Use built-in sh interpreter
 //   - "container": Run in Docker/Podman container
 //
-// Script can be:
+// Available platforms:
+//   - "linux": Linux operating systems
+//   - "macos": macOS (Darwin)
+//   - "windows": Windows
+//
+// Scripts can be:
 //   - Inline shell commands (single or multi-line using triple quotes)
 //   - A path to a script file (e.g., "./scripts/build.sh")
 //
-// Example command with inline script:
+// Example command with platform-specific scripts:
 //   {
 //     name: "build"
-//     description: "Build the project"
-//     script: """
-//       echo "Building..."
-//       go build ./...
-//       """
+//     scripts: [
+//       {
+//         script: "make build"
+//         runtimes: ["native"]
+//         platforms: ["linux", "macos"]
+//       },
+//       {
+//         script: "msbuild /p:Configuration=Release"
+//         runtimes: ["native"]
+//         platforms: ["windows"]
+//       }
+//     ]
 //   }
 //
-// Example command with script file:
+// Example command with script that runs on all platforms:
 //   {
-//     name: "deploy"
-//     script: "./scripts/deploy.sh"
-//   }
-//
-// Use spaces in names for subcommand-like behavior:
-//   {
-//     name: "test unit"
-//     script: "go test ./..."
+//     name: "test"
+//     scripts: [
+//       {
+//         script: "go test ./..."
+//         runtimes: ["native", "virtual"]
+//         // No platforms = runs on all platforms
+//       }
+//     ]
 //   }
 
 version: "1.0"
@@ -45,119 +57,109 @@ env: {
 	PROJECT_NAME: "myproject"
 }
 
-commands: [{
-		name:        "test unit"
-		description: "Run unit tests"
-		runtimes:    ["native", "virtual"]
-		scripts:     [
-			{
-				runtime: "native"
-				host_os: "windows"
-				script: "go test -v ./..."
-			},
-			{
-				runtime: "native"
-				target_os: "linux"
-				script: "go test -v ./..."
-			},
-			{
-				runtime: "native"
-				target_os: "windows"
-				script: "go test -v ./..."
-			}
-		]
-		works_on: {
-			hosts: ["linux", "mac", "windows"]
-		}
-	},
-]
-
 commands: [
 	{
 		name:        "build"
 		description: "Build the project"
-		runtimes:    ["native", "container"]
-		script: """
-			echo "Building $PROJECT_NAME..."
-			go build -o bin/app ./...
-			"""
+		scripts: [
+			{
+				script: """
+					echo "Building $PROJECT_NAME..."
+					go build -o bin/app ./...
+					"""
+				runtimes: ["native", "container"]
+				// No platforms = all platforms
+			}
+		]
 		env: {
 			CGO_ENABLED: "0"
-		}
-		works_on: {
-			hosts: ["linux", "mac", "windows"]
 		}
 	},
 	{
 		name:        "test unit"
 		description: "Run unit tests"
-		runtimes:    ["native", "virtual"]
-		script:      "go test -v ./..."
-		works_on: {
-			hosts: ["linux", "mac", "windows"]
-		}
+		scripts: [
+			{
+				script:   "go test -v ./..."
+				runtimes: ["native", "virtual"]
+			}
+		]
 	},
 	{
 		name:        "test integration"
 		description: "Run integration tests"
-		runtimes:    ["native"]
-		script:      "go test -v -tags=integration ./..."
-		works_on: {
-			hosts: ["linux", "mac", "windows"]
-		}
+		scripts: [
+			{
+				script:   "go test -v -tags=integration ./..."
+				runtimes: ["native"]
+			}
+		]
 	},
 	{
 		name:        "clean"
 		description: "Clean build artifacts"
-		runtimes:    ["native"]
-		script:      "rm -rf bin/ dist/"
-		works_on: {
-			hosts: ["linux", "mac"]
-		}
+		scripts: [
+			{
+				script:    "rm -rf bin/ dist/"
+				runtimes:  ["native"]
+				platforms: ["linux", "macos"]
+			},
+			{
+				script:    "if exist bin rmdir /s /q bin && if exist dist rmdir /s /q dist"
+				runtimes:  ["native"]
+				platforms: ["windows"]
+			}
+		]
 	},
 	{
 		name:        "docker-build"
 		description: "Build using container runtime"
-		runtimes:    ["container"]
-		script:      "go build -o /workspace/bin/app ./..."
-		works_on: {
-			hosts: ["linux", "mac", "windows"]
-		}
+		scripts: [
+			{
+				script:   "go build -o /workspace/bin/app ./..."
+				runtimes: ["container"]
+			}
+		]
 	},
 	{
 		name:        "container hello-invowk"
 		description: "Print a greeting from a container"
-		runtimes:    ["container"]
-		script:      "echo \"Hello, Invowk!\""
-		works_on: {
-			hosts: ["linux", "mac", "windows"]
-		}
+		scripts: [
+			{
+				script:   "echo \"Hello, Invowk!\""
+				runtimes: ["container"]
+			}
+		]
 	},
 	{
 		name:        "container host-access"
 		description: "Run a command in container with SSH access to host"
-		runtimes:    ["container"]
-		host_ssh:    true
-		script: """
-			echo "Container can SSH to host using:"
-			echo "  Host: $INVOWK_SSH_HOST"
-			echo "  Port: $INVOWK_SSH_PORT"
-			echo "  User: $INVOWK_SSH_USER"
-			echo ""
-			echo "Example: sshpass -p $INVOWK_SSH_TOKEN ssh -o StrictHostKeyChecking=no $INVOWK_SSH_USER@$INVOWK_SSH_HOST -p $INVOWK_SSH_PORT 'hostname'"
-			"""
-		works_on: {
-			hosts: ["linux", "mac"]
-		}
+		scripts: [
+			{
+				script: """
+					echo "Container can SSH to host using:"
+					echo "  Host: $INVOWK_SSH_HOST"
+					echo "  Port: $INVOWK_SSH_PORT"
+					echo "  User: $INVOWK_SSH_USER"
+					echo ""
+					echo "Example: sshpass -p $INVOWK_SSH_TOKEN ssh -o StrictHostKeyChecking=no $INVOWK_SSH_USER@$INVOWK_SSH_HOST -p $INVOWK_SSH_PORT 'hostname'"
+					"""
+				runtimes:  ["container"]
+				platforms: ["linux", "macos"]
+				host_ssh:  true
+			}
+		]
 	},
 	{
 		name:        "release"
 		description: "Create a release"
-		runtimes:    ["native"]
-		script:      "echo 'Creating release...'"
-		works_on: {
-			hosts: ["linux", "mac"]
-		}
+		scripts: [
+			{
+				script:    "echo 'Creating release...'"
+				runtimes:  ["native"]
+				platforms: ["linux", "macos"]
+			}
+		]
 		depends_on: {
 			tools: [
 				// Simple tool check - just verify it's in PATH

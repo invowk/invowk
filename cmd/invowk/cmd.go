@@ -232,8 +232,7 @@ func listCommands() error {
 	nameStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#3B82F6")).Bold(true)
 	descStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#9CA3AF"))
 	defaultRuntimeStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#10B981")).Bold(true)
-	otherRuntimeStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#6B7280"))
-	hostsStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#F59E0B"))
+	platformsStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#F59E0B"))
 	legendStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#9CA3AF")).Italic(true)
 
 	fmt.Println(headerStyle.Render("Available Commands"))
@@ -254,26 +253,16 @@ func listCommands() error {
 			if cmd.Description != "" {
 				line += fmt.Sprintf(" - %s", descStyle.Render(cmd.Description))
 			}
-			// Show runtimes with default highlighted
-			if len(cmd.Command.Runtimes) > 0 {
-				line += " ["
-				for i, r := range cmd.Command.Runtimes {
-					if i > 0 {
-						line += ", "
-					}
-					if i == 0 {
-						// Default runtime is highlighted and marked with *
-						line += defaultRuntimeStyle.Render(string(r) + "*")
-					} else {
-						line += otherRuntimeStyle.Render(string(r))
-					}
-				}
-				line += "]"
+			// Show runtimes with default highlighted for current platform
+			currentPlatform := invowkfile.GetCurrentHostOS()
+			runtimesStr := cmd.Command.GetRuntimesStringForPlatform(currentPlatform)
+			if runtimesStr != "" {
+				line += " [" + defaultRuntimeStyle.Render(runtimesStr) + "]"
 			}
-			// Show supported hosts
-			hostsStr := cmd.Command.GetHostsString()
-			if hostsStr != "" {
-				line += fmt.Sprintf(" (%s)", hostsStyle.Render(hostsStr))
+			// Show supported platforms
+			platformsStr := cmd.Command.GetPlatformsString()
+			if platformsStr != "" {
+				line += fmt.Sprintf(" (%s)", platformsStyle.Render(platformsStr))
 			}
 			fmt.Println(line)
 		}
@@ -303,36 +292,48 @@ func runCommand(args []string) error {
 		return fmt.Errorf("command '%s' not found", cmdName)
 	}
 
+	// Get the current platform
+	currentPlatform := invowkfile.GetCurrentHostOS()
+
 	// Validate host OS compatibility
 	if !cmdInfo.Command.CanRunOnCurrentHost() {
-		currentOS := invowkfile.GetCurrentHostOS()
-		supportedHosts := cmdInfo.Command.GetHostsString()
-		fmt.Fprint(os.Stderr, RenderHostNotSupportedError(cmdName, string(currentOS), supportedHosts))
+		supportedPlatforms := cmdInfo.Command.GetPlatformsString()
+		fmt.Fprint(os.Stderr, RenderHostNotSupportedError(cmdName, string(currentPlatform), supportedPlatforms))
 		rendered, _ := issue.Get(issue.HostNotSupportedId).Render("dark")
 		fmt.Fprint(os.Stderr, rendered)
-		return fmt.Errorf("command '%s' does not support host '%s' (supported: %s)", cmdName, currentOS, supportedHosts)
+		return fmt.Errorf("command '%s' does not support platform '%s' (supported: %s)", cmdName, currentPlatform, supportedPlatforms)
 	}
 
 	// Determine which runtime to use
 	var selectedRuntime invowkfile.RuntimeMode
 	if runtimeOverride != "" {
-		// Validate that the overridden runtime is allowed for this command
+		// Validate that the overridden runtime is allowed for this platform
 		overrideRuntime := invowkfile.RuntimeMode(runtimeOverride)
-		if !cmdInfo.Command.IsRuntimeAllowed(overrideRuntime) {
-			allowedRuntimes := cmdInfo.Command.GetAllowedRuntimesString()
-			fmt.Fprint(os.Stderr, RenderRuntimeNotAllowedError(cmdName, runtimeOverride, allowedRuntimes))
+		if !cmdInfo.Command.IsRuntimeAllowedForPlatform(currentPlatform, overrideRuntime) {
+			allowedRuntimes := cmdInfo.Command.GetAllowedRuntimesForPlatform(currentPlatform)
+			allowedStr := make([]string, len(allowedRuntimes))
+			for i, r := range allowedRuntimes {
+				allowedStr[i] = string(r)
+			}
+			fmt.Fprint(os.Stderr, RenderRuntimeNotAllowedError(cmdName, runtimeOverride, strings.Join(allowedStr, ", ")))
 			rendered, _ := issue.Get(issue.InvalidRuntimeModeId).Render("dark")
 			fmt.Fprint(os.Stderr, rendered)
-			return fmt.Errorf("runtime '%s' is not allowed for command '%s' (allowed: %s)", runtimeOverride, cmdName, allowedRuntimes)
+			return fmt.Errorf("runtime '%s' is not allowed for command '%s' on platform '%s' (allowed: %s)", runtimeOverride, cmdName, currentPlatform, strings.Join(allowedStr, ", "))
 		}
 		selectedRuntime = overrideRuntime
 	} else {
-		// Use the default runtime (first in the list)
-		selectedRuntime = cmdInfo.Command.GetDefaultRuntime()
+		// Use the default runtime for this platform
+		selectedRuntime = cmdInfo.Command.GetDefaultRuntimeForPlatform(currentPlatform)
 	}
 
-	// Start SSH server if host_ssh is enabled for this command
-	if cmdInfo.Command.HostSSH && selectedRuntime == invowkfile.RuntimeContainer {
+	// Find the matching script
+	script := cmdInfo.Command.GetScriptForPlatformRuntime(currentPlatform, selectedRuntime)
+	if script == nil {
+		return fmt.Errorf("no script found for command '%s' on platform '%s' with runtime '%s'", cmdName, currentPlatform, selectedRuntime)
+	}
+
+	// Start SSH server if host_ssh is enabled for this script
+	if script.HostSSH && selectedRuntime == invowkfile.RuntimeContainer {
 		srv, err := ensureSSHServer()
 		if err != nil {
 			return fmt.Errorf("failed to start SSH server for host access: %w", err)
@@ -348,6 +349,7 @@ func runCommand(args []string) error {
 	ctx := runtime.NewExecutionContext(cmdInfo.Command, cmdInfo.Invowkfile)
 	ctx.Verbose = verbose
 	ctx.SelectedRuntime = selectedRuntime
+	ctx.SelectedScript = script
 
 	// Create runtime registry
 	registry := createRuntimeRegistry(cfg)

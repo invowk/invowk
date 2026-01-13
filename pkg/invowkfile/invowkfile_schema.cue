@@ -5,6 +5,34 @@
 // RuntimeMode defines the available execution runtimes
 #RuntimeMode: "native" | "virtual" | "container"
 
+// Platform defines the supported operating systems
+#Platform: "linux" | "macos" | "windows"
+
+// Script represents a script with platform and runtime constraints
+#Script: {
+	// script contains the shell commands to execute OR a path to a script file (required)
+	// - Inline: shell commands (single or multi-line using triple quotes)
+	// - File: path to script file (e.g., "./scripts/build.sh", "deploy.sh")
+	// Recognized script extensions: .sh, .bash, .ps1, .bat, .cmd, .py, .rb, .pl, .zsh, .fish
+	script: string & !=""
+
+	// runtimes specifies which runtimes can execute this script (required, at least one)
+	// The first element is the default runtime for this platform combination
+	runtimes: [...#RuntimeMode] & [_, ...]
+
+	// platforms specifies which operating systems this script is for (optional)
+	// If not specified, the script applies to all platforms
+	// Valid values: "linux", "macos", "windows"
+	platforms?: [...#Platform] & [_, ...]
+
+	// host_ssh enables SSH access from container back to host (optional, container runtime only)
+	// When enabled, invowk starts an SSH server and provides connection credentials
+	// to the container via environment variables: INVOWK_SSH_HOST, INVOWK_SSH_PORT,
+	// INVOWK_SSH_USER, INVOWK_SSH_TOKEN
+	// Default: false
+	host_ssh?: bool
+}
+
 // ToolDependency represents a tool/binary that must be available in PATH
 #ToolDependency: {
 	// name is the binary name that must be in PATH (required)
@@ -47,15 +75,6 @@
 	name: string & !=""
 }
 
-// HostOS defines the supported operating systems
-#HostOS: "linux" | "mac" | "windows"
-
-// WorksOn defines where the command can run
-#WorksOn: {
-	// hosts lists the operating systems where this command can run (required, at least one)
-	hosts: [...#HostOS] & [_, ...]
-}
-
 // DependsOn defines the dependencies for a command
 #DependsOn: {
 	// tools lists binaries that must be available in PATH before running
@@ -75,16 +94,11 @@
 	// description provides help text for the command (optional)
 	description?: string
 
-	// runtimes specifies the allowed execution modes for this command (required, at least one)
-	// The first element is the default runtime used when no --runtime flag is specified
-	// Valid values: "native", "virtual", "container"
-	runtimes: [...#RuntimeMode] & [_, ...]
-
-	// script contains the shell commands to execute OR a path to a script file (required)
-	// - Inline: shell commands (single or multi-line using triple quotes)
-	// - File: path to script file (e.g., "./scripts/build.sh", "deploy.sh")
-	// Recognized script extensions: .sh, .bash, .ps1, .bat, .cmd, .py, .rb, .pl, .zsh, .fish
-	script: string & !=""
+	// scripts defines the executable scripts with platform/runtime constraints (required, at least one)
+	// Each script specifies which platforms and runtimes it supports
+	// The first script for a given platform determines the default runtime for that platform
+	// There cannot be duplicate combinations of platform+runtime across scripts
+	scripts: [...#Script] & [_, ...]
 
 	// env contains environment variables specific to this command (optional)
 	env?: [string]: string
@@ -95,16 +109,6 @@
 
 	// depends_on specifies dependencies that must be satisfied before running (optional)
 	depends_on?: #DependsOn
-
-	// works_on specifies where this command can run (required)
-	works_on: #WorksOn
-
-	// host_ssh enables SSH access from container back to host (optional, container runtime only)
-	// When enabled, invowk starts an SSH server and provides connection credentials
-	// to the container via environment variables: INVOWK_SSH_HOST, INVOWK_SSH_PORT,
-	// INVOWK_SSH_USER, INVOWK_SSH_TOKEN
-	// Default: false
-	host_ssh?: bool
 }
 
 // ContainerConfig defines container-specific settings for container runtime

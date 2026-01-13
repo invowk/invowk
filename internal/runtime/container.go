@@ -51,8 +51,11 @@ func (r *ContainerRuntime) Available() bool {
 
 // Validate checks if a command can be executed
 func (r *ContainerRuntime) Validate(ctx *ExecutionContext) error {
-	if ctx.Command.Script == "" {
-		return fmt.Errorf("command has no script to execute")
+	if ctx.SelectedScript == nil {
+		return fmt.Errorf("no script selected for execution")
+	}
+	if ctx.SelectedScript.Script == "" {
+		return fmt.Errorf("script has no content to execute")
 	}
 
 	// Check for Dockerfile or image
@@ -75,7 +78,7 @@ func (r *ContainerRuntime) Execute(ctx *ExecutionContext) *Result {
 	invowkDir := filepath.Dir(ctx.Invowkfile.FilePath)
 
 	// Resolve the script content (from file or inline)
-	script, err := ctx.Command.ResolveScript(ctx.Invowkfile.FilePath)
+	script, err := ctx.SelectedScript.ResolveScript(ctx.Invowkfile.FilePath)
 	if err != nil {
 		return &Result{ExitCode: 1, Error: err}
 	}
@@ -91,7 +94,7 @@ func (r *ContainerRuntime) Execute(ctx *ExecutionContext) *Result {
 
 	// Handle host SSH access if enabled
 	var sshConnInfo *sshserver.ConnectionInfo
-	if ctx.Command.HostSSH {
+	if ctx.SelectedScript.HostSSH {
 		if r.sshServer == nil {
 			return &Result{ExitCode: 1, Error: fmt.Errorf("host_ssh is enabled but SSH server is not configured")}
 		}
@@ -148,7 +151,7 @@ func (r *ContainerRuntime) Execute(ctx *ExecutionContext) *Result {
 
 	// Build extra hosts for SSH server access
 	var extraHosts []string
-	if ctx.Command.HostSSH && sshConnInfo != nil {
+	if ctx.SelectedScript.HostSSH && sshConnInfo != nil {
 		// Add host gateway for accessing host from container
 		extraHosts = append(extraHosts, "host.docker.internal:host-gateway")
 	}
@@ -311,7 +314,7 @@ func (r *ContainerRuntime) executeContainer(ctx *ExecutionContext) *Result {
 	invowkDir := filepath.Dir(ctx.Invowkfile.FilePath)
 
 	// Resolve the script content
-	script, err := ctx.Command.ResolveScript(ctx.Invowkfile.FilePath)
+	script, err := ctx.SelectedScript.ResolveScript(ctx.Invowkfile.FilePath)
 	if err != nil {
 		return &Result{ExitCode: 1, Error: err}
 	}

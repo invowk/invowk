@@ -7,6 +7,25 @@ import (
 	"testing"
 )
 
+// testCommand creates a Command with a single script for testing purposes
+func testCommand(name string, script string) Command {
+	return Command{
+		Name: name,
+		Scripts: []Script{
+			{Script: script, Runtimes: []RuntimeMode{RuntimeNative}},
+		},
+	}
+}
+
+// testCommandWithDeps creates a Command with a single script and dependencies for testing
+func testCommandWithDeps(name string, script string, deps *DependsOn) Command {
+	return Command{
+		Name:      name,
+		Scripts:   []Script{{Script: script, Runtimes: []RuntimeMode{RuntimeNative}}},
+		DependsOn: deps,
+	}
+}
+
 func TestIsScriptFile(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -44,8 +63,8 @@ func TestIsScriptFile(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cmd := &Command{Script: tt.script}
-			result := cmd.IsScriptFile()
+			s := &Script{Script: tt.script, Runtimes: []RuntimeMode{RuntimeNative}}
+			result := s.IsScriptFile()
 			if result != tt.expected {
 				t.Errorf("IsScriptFile() = %v, want %v for script %q", result, tt.expected, tt.script)
 			}
@@ -71,8 +90,8 @@ func TestGetScriptFilePath(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cmd := &Command{Script: tt.script}
-			result := cmd.GetScriptFilePath(invowkfilePath)
+			s := &Script{Script: tt.script, Runtimes: []RuntimeMode{RuntimeNative}}
+			result := s.GetScriptFilePath(invowkfilePath)
 			if tt.expectedResult {
 				if result != tt.expectedPath {
 					t.Errorf("GetScriptFilePath() = %q, want %q", result, tt.expectedPath)
@@ -101,8 +120,8 @@ func TestResolveScript_Inline(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cmd := &Command{Name: "test", Script: tt.script}
-			result, err := cmd.ResolveScript("/fake/path/invowkfile.toml")
+			s := &Script{Script: tt.script, Runtimes: []RuntimeMode{RuntimeNative}}
+			result, err := s.ResolveScript("/fake/path/invowkfile.toml")
 			if err != nil {
 				t.Errorf("ResolveScript() error = %v", err)
 				return
@@ -133,8 +152,8 @@ func TestResolveScript_FromFile(t *testing.T) {
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.toml")
 
 	t.Run("resolve script from file", func(t *testing.T) {
-		cmd := &Command{Name: "test", Script: "./test.sh"}
-		result, err := cmd.ResolveScript(invowkfilePath)
+		s := &Script{Script: "./test.sh", Runtimes: []RuntimeMode{RuntimeNative}}
+		result, err := s.ResolveScript(invowkfilePath)
 		if err != nil {
 			t.Errorf("ResolveScript() error = %v", err)
 			return
@@ -145,8 +164,8 @@ func TestResolveScript_FromFile(t *testing.T) {
 	})
 
 	t.Run("resolve script with absolute path", func(t *testing.T) {
-		cmd := &Command{Name: "test", Script: scriptPath}
-		result, err := cmd.ResolveScript(invowkfilePath)
+		s := &Script{Script: scriptPath, Runtimes: []RuntimeMode{RuntimeNative}}
+		result, err := s.ResolveScript(invowkfilePath)
 		if err != nil {
 			t.Errorf("ResolveScript() error = %v", err)
 			return
@@ -157,8 +176,8 @@ func TestResolveScript_FromFile(t *testing.T) {
 	})
 
 	t.Run("error on missing script file", func(t *testing.T) {
-		cmd := &Command{Name: "test", Script: "./nonexistent.sh"}
-		_, err := cmd.ResolveScript(invowkfilePath)
+		s := &Script{Script: "./nonexistent.sh", Runtimes: []RuntimeMode{RuntimeNative}}
+		_, err := s.ResolveScript(invowkfilePath)
 		if err == nil {
 			t.Error("ResolveScript() expected error for missing file, got nil")
 		}
@@ -182,8 +201,8 @@ func TestResolveScriptWithFS(t *testing.T) {
 	invowkfilePath := "/project/invowkfile.toml"
 
 	t.Run("resolve script from virtual fs", func(t *testing.T) {
-		cmd := &Command{Name: "build", Script: "./scripts/build.sh"}
-		result, err := cmd.ResolveScriptWithFS(invowkfilePath, readFile)
+		s := &Script{Script: "./scripts/build.sh", Runtimes: []RuntimeMode{RuntimeNative}}
+		result, err := s.ResolveScriptWithFS(invowkfilePath, readFile)
 		if err != nil {
 			t.Errorf("ResolveScriptWithFS() error = %v", err)
 			return
@@ -195,8 +214,8 @@ func TestResolveScriptWithFS(t *testing.T) {
 	})
 
 	t.Run("inline script bypasses fs", func(t *testing.T) {
-		cmd := &Command{Name: "inline", Script: "echo hello world"}
-		result, err := cmd.ResolveScriptWithFS(invowkfilePath, readFile)
+		s := &Script{Script: "echo hello world", Runtimes: []RuntimeMode{RuntimeNative}}
+		result, err := s.ResolveScriptWithFS(invowkfilePath, readFile)
 		if err != nil {
 			t.Errorf("ResolveScriptWithFS() error = %v", err)
 			return
@@ -207,8 +226,8 @@ func TestResolveScriptWithFS(t *testing.T) {
 	})
 
 	t.Run("error on missing file in virtual fs", func(t *testing.T) {
-		cmd := &Command{Name: "missing", Script: "./scripts/nonexistent.sh"}
-		_, err := cmd.ResolveScriptWithFS(invowkfilePath, readFile)
+		s := &Script{Script: "./scripts/nonexistent.sh", Runtimes: []RuntimeMode{RuntimeNative}}
+		_, err := s.ResolveScriptWithFS(invowkfilePath, readFile)
 		if err == nil {
 			t.Error("ResolveScriptWithFS() expected error for missing file, got nil")
 		}
@@ -225,17 +244,18 @@ commands: [
 	{
 		name: "multiline-test"
 		description: "Test multi-line script"
-		runtimes: ["native"]
-		script: """
-			#!/bin/bash
-			set -e
-			echo "Line 1"
-			echo "Line 2"
-			echo "Line 3"
-			"""
-		works_on: {
-			hosts: ["linux", "mac", "windows"]
-		}
+		scripts: [
+			{
+				script: """
+					#!/bin/bash
+					set -e
+					echo "Line 1"
+					echo "Line 2"
+					echo "Line 3"
+					"""
+				runtimes: ["native"]
+			}
+		]
 	}
 ]
 `
@@ -263,12 +283,15 @@ commands: [
 
 	cmd := inv.Commands[0]
 	// CUE multi-line strings preserve the content with tabs stripped based on first line indent
-	if !strings.Contains(cmd.Script, "Line 1") || !strings.Contains(cmd.Script, "Line 2") {
-		t.Errorf("Multi-line script parsing failed.\nGot: %q", cmd.Script)
+	if len(cmd.Scripts) == 0 {
+		t.Fatal("Expected at least 1 script")
+	}
+	if !strings.Contains(cmd.Scripts[0].Script, "Line 1") || !strings.Contains(cmd.Scripts[0].Script, "Line 2") {
+		t.Errorf("Multi-line script parsing failed.\nGot: %q", cmd.Scripts[0].Script)
 	}
 
 	// Verify resolution works too
-	resolved, err := cmd.ResolveScript(invowkfilePath)
+	resolved, err := cmd.Scripts[0].ResolveScript(invowkfilePath)
 	if err != nil {
 		t.Errorf("ResolveScript() error = %v", err)
 	}
@@ -292,10 +315,10 @@ func TestScriptCaching(t *testing.T) {
 	}
 
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.toml")
-	cmd := &Command{Name: "test", Script: "./test.sh"}
+	s := &Script{Script: "./test.sh", Runtimes: []RuntimeMode{RuntimeNative}}
 
 	// First resolution
-	result1, err := cmd.ResolveScript(invowkfilePath)
+	result1, err := s.ResolveScript(invowkfilePath)
 	if err != nil {
 		t.Fatalf("First ResolveScript() error = %v", err)
 	}
@@ -309,7 +332,7 @@ func TestScriptCaching(t *testing.T) {
 	}
 
 	// Second resolution should return cached content
-	result2, err := cmd.ResolveScript(invowkfilePath)
+	result2, err := s.ResolveScript(invowkfilePath)
 	if err != nil {
 		t.Fatalf("Second ResolveScript() error = %v", err)
 	}
@@ -326,46 +349,30 @@ func TestCommand_HasDependencies(t *testing.T) {
 	}{
 		{
 			name:     "nil DependsOn",
-			cmd:      Command{Name: "test", Script: "echo"},
+			cmd:      testCommand("test", "echo"),
 			expected: false,
 		},
 		{
 			name:     "empty DependsOn",
-			cmd:      Command{Name: "test", Script: "echo", DependsOn: &DependsOn{}},
+			cmd:      testCommandWithDeps("test", "echo", &DependsOn{}),
 			expected: false,
 		},
 		{
-			name: "only tools",
-			cmd: Command{
-				Name:   "test",
-				Script: "echo",
-				DependsOn: &DependsOn{
-					Tools: []ToolDependency{{Name: "git"}},
-				},
-			},
+			name:     "only tools",
+			cmd:      testCommandWithDeps("test", "echo", &DependsOn{Tools: []ToolDependency{{Name: "git"}}}),
 			expected: true,
 		},
 		{
-			name: "only commands",
-			cmd: Command{
-				Name:   "test",
-				Script: "echo",
-				DependsOn: &DependsOn{
-					Commands: []CommandDependency{{Name: "build"}},
-				},
-			},
+			name:     "only commands",
+			cmd:      testCommandWithDeps("test", "echo", &DependsOn{Commands: []CommandDependency{{Name: "build"}}}),
 			expected: true,
 		},
 		{
 			name: "both tools and commands",
-			cmd: Command{
-				Name:   "test",
-				Script: "echo",
-				DependsOn: &DependsOn{
-					Tools:    []ToolDependency{{Name: "git"}},
-					Commands: []CommandDependency{{Name: "build"}},
-				},
-			},
+			cmd: testCommandWithDeps("test", "echo", &DependsOn{
+				Tools:    []ToolDependency{{Name: "git"}},
+				Commands: []CommandDependency{{Name: "build"}},
+			}),
 			expected: true,
 		},
 	}
@@ -388,49 +395,33 @@ func TestCommand_GetCommandDependencies(t *testing.T) {
 	}{
 		{
 			name:     "nil DependsOn",
-			cmd:      Command{Name: "test", Script: "echo"},
+			cmd:      testCommand("test", "echo"),
 			expected: nil,
 		},
 		{
 			name:     "empty DependsOn",
-			cmd:      Command{Name: "test", Script: "echo", DependsOn: &DependsOn{}},
+			cmd:      testCommandWithDeps("test", "echo", &DependsOn{}),
 			expected: []string{},
 		},
 		{
-			name: "single command",
-			cmd: Command{
-				Name:   "test",
-				Script: "echo",
-				DependsOn: &DependsOn{
-					Commands: []CommandDependency{{Name: "build"}},
-				},
-			},
+			name:     "single command",
+			cmd:      testCommandWithDeps("test", "echo", &DependsOn{Commands: []CommandDependency{{Name: "build"}}}),
 			expected: []string{"build"},
 		},
 		{
 			name: "multiple commands",
-			cmd: Command{
-				Name:   "test",
-				Script: "echo",
-				DependsOn: &DependsOn{
-					Commands: []CommandDependency{
-						{Name: "clean"},
-						{Name: "build"},
-						{Name: "test unit"},
-					},
+			cmd: testCommandWithDeps("test", "echo", &DependsOn{
+				Commands: []CommandDependency{
+					{Name: "clean"},
+					{Name: "build"},
+					{Name: "test unit"},
 				},
-			},
+			}),
 			expected: []string{"clean", "build", "test unit"},
 		},
 		{
-			name: "only tools no commands",
-			cmd: Command{
-				Name:   "test",
-				Script: "echo",
-				DependsOn: &DependsOn{
-					Tools: []ToolDependency{{Name: "git"}},
-				},
-			},
+			name:     "only tools no commands",
+			cmd:      testCommandWithDeps("test", "echo", &DependsOn{Tools: []ToolDependency{{Name: "git"}}}),
 			expected: []string{},
 		},
 	}
@@ -468,11 +459,13 @@ default_runtime: "native"
 commands: [
 	{
 		name: "release"
-		runtimes: ["native"]
-		script: "echo releasing"
-		works_on: {
-			hosts: ["linux", "mac"]
-		}
+		scripts: [
+			{
+				script: "echo releasing"
+				runtimes: ["native"]
+				platforms: ["linux", "macos"]
+			}
+		]
 		depends_on: {
 			tools: [
 				{name: "git"},
@@ -555,11 +548,12 @@ default_runtime: "native"
 commands: [
 	{
 		name: "build"
-runtimes: ["native"]
-		script: "make build"
-		works_on: {
-			hosts: ["linux", "mac", "windows"]
-		}
+		scripts: [
+			{
+				script: "make build"
+				runtimes: ["native"]
+			}
+		]
 		depends_on: {
 			tools: [
 				{name: "make"},
@@ -608,11 +602,13 @@ default_runtime: "native"
 commands: [
 	{
 		name: "release"
-runtimes: ["native"]
-		script: "echo release"
-		works_on: {
-			hosts: ["linux", "mac"]
-		}
+		scripts: [
+			{
+				script: "echo release"
+				runtimes: ["native"]
+				platforms: ["linux", "macos"]
+			}
+		]
 		depends_on: {
 			commands: [
 				{name: "build"},
@@ -661,11 +657,13 @@ default_runtime: "native"
 commands: [
 	{
 		name: "build"
-runtimes: ["native"]
-		script: "make build"
-		works_on: {
-			hosts: ["linux", "mac"]
-		}
+		scripts: [
+			{
+				script: "make build"
+				runtimes: ["native"]
+				platforms: ["linux", "macos"]
+			}
+		]
 		depends_on: {
 			tools: [
 				{name: "make"},
@@ -740,11 +738,12 @@ default_runtime: "native"
 commands: [
 	{
 		name: "deploy"
-runtimes: ["native"]
-		script: "echo deploying"
-		works_on: {
-			hosts: ["linux", "mac", "windows"]
-		}
+		scripts: [
+			{
+				script: "echo deploying"
+				runtimes: ["native"]
+			}
+		]
 		depends_on: {
 			filepaths: [
 				{path: "config.yaml"},
@@ -826,8 +825,7 @@ runtimes: ["native"]
 func TestCommand_HasDependencies_WithFilepaths(t *testing.T) {
 	cmd := Command{
 		Name:    "test",
-		Script:  "echo",
-		WorksOn: WorksOn{Hosts: []HostOS{HostLinux}},
+		Scripts: []Script{{Script: "echo", Runtimes: []RuntimeMode{RuntimeNative}, Platforms: []Platform{HostLinux}}},
 		DependsOn: &DependsOn{
 			Filepaths: []FilepathDependency{{Path: "config.yaml"}},
 		},
@@ -845,8 +843,7 @@ func TestGenerateCUE_WithFilepaths(t *testing.T) {
 		Commands: []Command{
 			{
 				Name:    "deploy",
-				Script:  "echo deploy",
-				WorksOn: WorksOn{Hosts: []HostOS{HostLinux, HostMac}},
+				Scripts: []Script{{Script: "echo deploy", Runtimes: []RuntimeMode{RuntimeNative}, Platforms: []Platform{HostLinux, HostMac}}},
 				DependsOn: &DependsOn{
 					Filepaths: []FilepathDependency{
 						{Path: "config.yaml"},
@@ -883,7 +880,7 @@ func TestGenerateCUE_WithFilepaths(t *testing.T) {
 	}
 }
 
-func TestParseWorksOn(t *testing.T) {
+func TestParsePlatforms(t *testing.T) {
 	cueContent := `
 version: "1.0"
 default_runtime: "native"
@@ -891,19 +888,23 @@ default_runtime: "native"
 commands: [
 	{
 		name: "build"
-runtimes: ["native"]
-		script: "make build"
-		works_on: {
-			hosts: ["linux", "mac", "windows"]
-		}
+		scripts: [
+			{
+				script: "make build"
+				runtimes: ["native"]
+				// No platforms = all platforms
+			}
+		]
 	},
 	{
 		name: "deploy"
-runtimes: ["native"]
-		script: "deploy.sh"
-		works_on: {
-			hosts: ["linux"]
-		}
+		scripts: [
+			{
+				script: "deploy.sh"
+				runtimes: ["native"]
+				platforms: ["linux"]
+			}
+		]
 	}
 ]
 `
@@ -928,63 +929,60 @@ runtimes: ["native"]
 		t.Fatalf("Expected 2 commands, got %d", len(inv.Commands))
 	}
 
-	// First command - all hosts
+	// First command - all platforms (no platforms specified)
 	cmd1 := inv.Commands[0]
-	if len(cmd1.WorksOn.Hosts) != 3 {
-		t.Errorf("Expected 3 hosts for first command, got %d", len(cmd1.WorksOn.Hosts))
-	}
-	if cmd1.WorksOn.Hosts[0] != HostLinux {
-		t.Errorf("First host = %q, want %q", cmd1.WorksOn.Hosts[0], HostLinux)
+	platforms1 := cmd1.GetSupportedPlatforms()
+	if len(platforms1) != 3 {
+		t.Errorf("Expected 3 platforms for first command, got %d", len(platforms1))
 	}
 
 	// Second command - linux only
 	cmd2 := inv.Commands[1]
-	if len(cmd2.WorksOn.Hosts) != 1 {
-		t.Errorf("Expected 1 host for second command, got %d", len(cmd2.WorksOn.Hosts))
+	platforms2 := cmd2.GetSupportedPlatforms()
+	if len(platforms2) != 1 {
+		t.Errorf("Expected 1 platform for second command, got %d", len(platforms2))
 	}
-	if cmd2.WorksOn.Hosts[0] != HostLinux {
-		t.Errorf("First host = %q, want %q", cmd2.WorksOn.Hosts[0], HostLinux)
+	if platforms2[0] != HostLinux {
+		t.Errorf("First platform = %q, want %q", platforms2[0], HostLinux)
 	}
 }
 
-func TestGenerateCUE_WithWorksOn(t *testing.T) {
+func TestGenerateCUE_WithPlatforms(t *testing.T) {
 	inv := &Invowkfile{
 		Version:        "1.0",
 		DefaultRuntime: RuntimeNative,
 		Commands: []Command{
 			{
-				Name:    "build",
-				Script:  "make build",
-				WorksOn: WorksOn{Hosts: []HostOS{HostLinux, HostMac, HostWindows}},
+				Name: "build",
+				Scripts: []Script{
+					{Script: "make build", Runtimes: []RuntimeMode{RuntimeNative}},
+				},
 			},
 			{
-				Name:    "clean",
-				Script:  "rm -rf bin/",
-				WorksOn: WorksOn{Hosts: []HostOS{HostLinux, HostMac}},
+				Name: "clean",
+				Scripts: []Script{
+					{Script: "rm -rf bin/", Runtimes: []RuntimeMode{RuntimeNative}, Platforms: []Platform{HostLinux, HostMac}},
+				},
 			},
 		},
 	}
 
 	output := GenerateCUE(inv)
 
-	// Check that works_on structure is present
-	if !strings.Contains(output, "works_on:") {
-		t.Error("GenerateCUE should contain 'works_on:'")
+	// Check that scripts structure is present
+	if !strings.Contains(output, "scripts:") {
+		t.Error("GenerateCUE should contain 'scripts:'")
 	}
 
-	if !strings.Contains(output, "hosts:") {
-		t.Error("GenerateCUE should contain 'hosts:'")
+	if !strings.Contains(output, "runtimes:") {
+		t.Error("GenerateCUE should contain 'runtimes:'")
 	}
 
 	if !strings.Contains(output, `"linux"`) {
 		t.Error("GenerateCUE should contain 'linux'")
 	}
 
-	if !strings.Contains(output, `"mac"`) {
-		t.Error("GenerateCUE should contain 'mac'")
-	}
-
-	if !strings.Contains(output, `"windows"`) {
-		t.Error("GenerateCUE should contain 'windows'")
+	if !strings.Contains(output, `"macos"`) {
+		t.Error("GenerateCUE should contain 'macos'")
 	}
 }

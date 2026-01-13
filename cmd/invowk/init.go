@@ -73,9 +73,12 @@ func generateInvowkfile(template string) string {
 				{
 					Name:        "hello",
 					Description: "Print a greeting",
-					Runtimes:    []invowkfile.RuntimeMode{invowkfile.RuntimeNative},
-					Script:      "echo 'Hello from invowk!'",
-					WorksOn:     invowkfile.WorksOn{Hosts: []invowkfile.HostOS{invowkfile.HostLinux, invowkfile.HostMac, invowkfile.HostWindows}},
+					Scripts: []invowkfile.Script{
+						{
+							Script:   "echo 'Hello from invowk!'",
+							Runtimes: []invowkfile.RuntimeMode{invowkfile.RuntimeNative},
+						},
+					},
 				},
 			},
 		}
@@ -97,52 +100,82 @@ func generateInvowkfile(template string) string {
 				{
 					Name:        "build",
 					Description: "Build the project",
-					Runtimes:    []invowkfile.RuntimeMode{invowkfile.RuntimeNative, invowkfile.RuntimeContainer},
-					Script:      "echo \"Building $PROJECT_NAME...\"\ngo build -o bin/app ./...",
+					Scripts: []invowkfile.Script{
+						{
+							Script:   "echo \"Building $PROJECT_NAME...\"\ngo build -o bin/app ./...",
+							Runtimes: []invowkfile.RuntimeMode{invowkfile.RuntimeNative, invowkfile.RuntimeContainer},
+						},
+					},
 					Env: map[string]string{
 						"CGO_ENABLED": "0",
 					},
-					WorksOn: invowkfile.WorksOn{Hosts: []invowkfile.HostOS{invowkfile.HostLinux, invowkfile.HostMac, invowkfile.HostWindows}},
 				},
 				{
 					Name:        "test unit",
 					Description: "Run unit tests",
-					Runtimes:    []invowkfile.RuntimeMode{invowkfile.RuntimeNative, invowkfile.RuntimeVirtual},
-					Script:      "go test -v ./...",
-					WorksOn:     invowkfile.WorksOn{Hosts: []invowkfile.HostOS{invowkfile.HostLinux, invowkfile.HostMac, invowkfile.HostWindows}},
+					Scripts: []invowkfile.Script{
+						{
+							Script:   "go test -v ./...",
+							Runtimes: []invowkfile.RuntimeMode{invowkfile.RuntimeNative, invowkfile.RuntimeVirtual},
+						},
+					},
 				},
 				{
 					Name:        "test integration",
 					Description: "Run integration tests",
-					Runtimes:    []invowkfile.RuntimeMode{invowkfile.RuntimeNative},
-					Script:      "go test -v -tags=integration ./...",
-					WorksOn:     invowkfile.WorksOn{Hosts: []invowkfile.HostOS{invowkfile.HostLinux, invowkfile.HostMac, invowkfile.HostWindows}},
+					Scripts: []invowkfile.Script{
+						{
+							Script:   "go test -v -tags=integration ./...",
+							Runtimes: []invowkfile.RuntimeMode{invowkfile.RuntimeNative},
+						},
+					},
 				},
 				{
 					Name:        "clean",
 					Description: "Clean build artifacts",
-					Runtimes:    []invowkfile.RuntimeMode{invowkfile.RuntimeNative},
-					Script:      "rm -rf bin/ dist/",
-					WorksOn:     invowkfile.WorksOn{Hosts: []invowkfile.HostOS{invowkfile.HostLinux, invowkfile.HostMac}},
+					Scripts: []invowkfile.Script{
+						{
+							Script:    "rm -rf bin/ dist/",
+							Runtimes:  []invowkfile.RuntimeMode{invowkfile.RuntimeNative},
+							Platforms: []invowkfile.Platform{invowkfile.HostLinux, invowkfile.HostMac},
+						},
+						{
+							Script:    "if exist bin rmdir /s /q bin && if exist dist rmdir /s /q dist",
+							Runtimes:  []invowkfile.RuntimeMode{invowkfile.RuntimeNative},
+							Platforms: []invowkfile.Platform{invowkfile.HostWindows},
+						},
+					},
 				},
 				{
 					Name:        "docker-build",
 					Description: "Build using container runtime",
-					Runtimes:    []invowkfile.RuntimeMode{invowkfile.RuntimeContainer},
-					Script:      "go build -o /workspace/bin/app ./...",
-					WorksOn:     invowkfile.WorksOn{Hosts: []invowkfile.HostOS{invowkfile.HostLinux, invowkfile.HostMac, invowkfile.HostWindows}},
+					Scripts: []invowkfile.Script{
+						{
+							Script:   "go build -o /workspace/bin/app ./...",
+							Runtimes: []invowkfile.RuntimeMode{invowkfile.RuntimeContainer},
+						},
+					},
 				},
 				{
 					Name:        "container hello-invowk",
 					Description: "Print a greeting from a container",
-					Runtimes:    []invowkfile.RuntimeMode{invowkfile.RuntimeContainer},
-					Script:      "echo \"Hello, Invowk!\"",
-					WorksOn:     invowkfile.WorksOn{Hosts: []invowkfile.HostOS{invowkfile.HostLinux, invowkfile.HostMac, invowkfile.HostWindows}},
+					Scripts: []invowkfile.Script{
+						{
+							Script:   "echo \"Hello, Invowk!\"",
+							Runtimes: []invowkfile.RuntimeMode{invowkfile.RuntimeContainer},
+						},
+					},
 				},
 				{
 					Name:        "release",
 					Description: "Create a release",
-					Runtimes:    []invowkfile.RuntimeMode{invowkfile.RuntimeNative},
+					Scripts: []invowkfile.Script{
+						{
+							Script:    "echo 'Creating release...'",
+							Runtimes:  []invowkfile.RuntimeMode{invowkfile.RuntimeNative},
+							Platforms: []invowkfile.Platform{invowkfile.HostLinux, invowkfile.HostMac},
+						},
+					},
 					DependsOn: &invowkfile.DependsOn{
 						Tools: []invowkfile.ToolDependency{
 							{Name: "git"},
@@ -153,8 +186,6 @@ func generateInvowkfile(template string) string {
 							{Name: "test unit"},
 						},
 					},
-					Script:  "echo 'Creating release...'",
-					WorksOn: invowkfile.WorksOn{Hosts: []invowkfile.HostOS{invowkfile.HostLinux, invowkfile.HostMac}},
 				},
 			},
 		}
@@ -168,23 +199,32 @@ func generateInvowkfile(template string) string {
 				{
 					Name:        "build",
 					Description: "Build the project",
-					Runtimes:    []invowkfile.RuntimeMode{invowkfile.RuntimeNative},
-					Script:      "echo 'Building...'\n# Add your build commands here",
-					WorksOn:     invowkfile.WorksOn{Hosts: []invowkfile.HostOS{invowkfile.HostLinux, invowkfile.HostMac, invowkfile.HostWindows}},
+					Scripts: []invowkfile.Script{
+						{
+							Script:   "echo 'Building...'\n# Add your build commands here",
+							Runtimes: []invowkfile.RuntimeMode{invowkfile.RuntimeNative},
+						},
+					},
 				},
 				{
 					Name:        "test",
 					Description: "Run tests",
-					Runtimes:    []invowkfile.RuntimeMode{invowkfile.RuntimeNative},
-					Script:      "echo 'Testing...'\n# Add your test commands here",
-					WorksOn:     invowkfile.WorksOn{Hosts: []invowkfile.HostOS{invowkfile.HostLinux, invowkfile.HostMac, invowkfile.HostWindows}},
+					Scripts: []invowkfile.Script{
+						{
+							Script:   "echo 'Testing...'\n# Add your test commands here",
+							Runtimes: []invowkfile.RuntimeMode{invowkfile.RuntimeNative},
+						},
+					},
 				},
 				{
 					Name:        "clean",
 					Description: "Clean build artifacts",
-					Runtimes:    []invowkfile.RuntimeMode{invowkfile.RuntimeNative},
-					Script:      "echo 'Cleaning...'\n# Add your clean commands here",
-					WorksOn:     invowkfile.WorksOn{Hosts: []invowkfile.HostOS{invowkfile.HostLinux, invowkfile.HostMac, invowkfile.HostWindows}},
+					Scripts: []invowkfile.Script{
+						{
+							Script:   "echo 'Cleaning...'\n# Add your clean commands here",
+							Runtimes: []invowkfile.RuntimeMode{invowkfile.RuntimeNative},
+						},
+					},
 				},
 			},
 		}
