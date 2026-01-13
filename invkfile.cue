@@ -11,6 +11,16 @@ group:       "examples"
 version:     "1.0"
 description: "Example commands demonstrating all invowk features"
 
+// Global environment configuration - applied to all commands
+// Root-level env has the lowest priority from invkfile configuration.
+// Command-level and implementation-level env can override these values.
+env: {
+	vars: {
+		APP_ENV:     "development"
+		LOG_LEVEL:   "info"
+	}
+}
+
 commands: [
 	// ============================================================================
 	// SECTION 1: Simple Commands (Native Runtime)
@@ -31,95 +41,37 @@ commands: [
 		]
 	},
 
-	// Example 1.2: Command with environment variables
+	// Example 1.5: Environment variable hierarchy demonstration
+	// This command shows how env vars are merged across three levels:
+	// Root-level (lowest priority) -> Command-level -> Implementation-level (highest priority from invkfile)
+	// Note: --env-file and --env-var CLI flags have even higher priority.
 	{
-		name:        "hello env"
-		description: "Print greeting using environment variables"
+		name:        "env hierarchy"
+		description: "Demonstrate environment variable precedence across levels"
 		implementations: [
 			{
-				script: "echo \"Hello, $USER_NAME! Today is $DAY_OF_WEEK.\""
+				script: """
+					echo "=== Environment Variable Hierarchy ==="
+					echo "APP_ENV: $APP_ENV (from root-level, not overridden)"
+					echo "LOG_LEVEL: $LOG_LEVEL (from command-level, overrides root)"
+					echo "RUNTIME: $RUNTIME (from implementation-level, overrides command)"
+					"""
 				target: {
 					runtimes: [{name: "native"}]
+				}
+				env: {
+					vars: {
+						RUNTIME: "native"
+					}
 				}
 			}
 		]
 		env: {
 			vars: {
-				USER_NAME:   "World"
-				DAY_OF_WEEK: "a great day"
+				LOG_LEVEL: "debug"
+				RUNTIME:   "unknown"
 			}
 		}
-	},
-
-	// Example 1.3: Multi-line script with platform-specific implementations
-	{
-		name:        "system info"
-		description: "Display system information"
-		implementations: [
-			{
-				script: """
-					echo "=== System Information ==="
-					echo "Hostname: $(hostname)"
-					echo "Kernel: $(uname -r)"
-					echo "User: $(whoami)"
-					"""
-				target: {
-					runtimes:  [{name: "native"}]
-					platforms: [{name: "linux"}, {name: "macos"}]
-				}
-			},
-			{
-				script: """
-					echo === System Information ===
-					echo Hostname: %COMPUTERNAME%
-					echo User: %USERNAME%
-					"""
-				target: {
-					runtimes:  [{name: "native"}]
-					platforms: [{name: "windows"}]
-				}
-			}
-		]
-	},
-
-	// Example 1.4: Implementation-specific environment variables
-	// Environment variables can be set at the implementation level to provide
-	// different values for different platform/runtime combinations.
-	{
-		name:        "platform env"
-		description: "Demonstrate implementation-specific environment variables"
-		implementations: [
-			{
-				script: "echo \"Platform: $PLATFORM_NAME, Shell: $SHELL_TYPE\""
-				target: {
-					runtimes: [{name: "native"}]
-					platforms: [{name: "linux"}]
-				}
-				env: {
-					vars: {PLATFORM_NAME: "Linux", SHELL_TYPE: "bash/sh"}
-				}
-			},
-			{
-				script: "echo \"Platform: $PLATFORM_NAME, Shell: $SHELL_TYPE\""
-				target: {
-					runtimes: [{name: "native"}]
-					platforms: [{name: "macos"}]
-				}
-				env: {
-					vars: {PLATFORM_NAME: "macOS", SHELL_TYPE: "zsh/bash"}
-				}
-			},
-			{
-				script: "echo Platform: %PLATFORM_NAME%, Shell: %SHELL_TYPE%"
-				target: {
-					runtimes: [{name: "native"}]
-					platforms: [{name: "windows"}]
-				}
-				env: {
-					vars: {PLATFORM_NAME: "Windows", SHELL_TYPE: "PowerShell/cmd"}
-				}
-			}
-		]
 	},
 
 	// ============================================================================

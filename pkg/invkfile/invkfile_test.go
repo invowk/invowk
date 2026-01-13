@@ -5180,6 +5180,293 @@ func TestGenerateCUE_EnvRoundTrip(t *testing.T) {
 	}
 }
 
+func TestParseEnv_RootLevelFiles(t *testing.T) {
+	cueContent := `
+group: "test"
+version: "1.0"
+
+env: {
+	files: ["global.env", "shared.env?"]
+}
+
+commands: [
+	{
+		name: "deploy"
+		description: "Deploy the application"
+		implementations: [
+			{
+				script: "echo deploying"
+				target: { runtimes: [{name: "native"}] }
+			}
+		]
+	}
+]
+`
+	tmpDir := t.TempDir()
+	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
+		t.Fatalf("Failed to write invkfile: %v", err)
+	}
+
+	inv, err := Parse(invkfilePath)
+	if err != nil {
+		t.Fatalf("Parse() error = %v", err)
+	}
+
+	if inv.Env == nil {
+		t.Fatalf("Expected inv.Env to be non-nil")
+	}
+	if len(inv.Env.Files) != 2 {
+		t.Fatalf("Expected 2 env.files, got %d", len(inv.Env.Files))
+	}
+
+	expectedFiles := []string{"global.env", "shared.env?"}
+	for i, expected := range expectedFiles {
+		if inv.Env.Files[i] != expected {
+			t.Errorf("Env.Files[%d] = %q, want %q", i, inv.Env.Files[i], expected)
+		}
+	}
+}
+
+func TestParseEnv_RootLevelVars(t *testing.T) {
+	cueContent := `
+group: "test"
+version: "1.0"
+
+env: {
+	vars: {
+		GLOBAL_VAR: "global_value"
+		APP_ENV: "production"
+	}
+}
+
+commands: [
+	{
+		name: "deploy"
+		implementations: [
+			{
+				script: "echo deploying"
+				target: { runtimes: [{name: "native"}] }
+			}
+		]
+	}
+]
+`
+	tmpDir := t.TempDir()
+	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
+		t.Fatalf("Failed to write invkfile: %v", err)
+	}
+
+	inv, err := Parse(invkfilePath)
+	if err != nil {
+		t.Fatalf("Parse() error = %v", err)
+	}
+
+	if inv.Env == nil {
+		t.Fatalf("Expected inv.Env to be non-nil")
+	}
+	if len(inv.Env.Vars) != 2 {
+		t.Fatalf("Expected 2 env.vars, got %d", len(inv.Env.Vars))
+	}
+
+	if inv.Env.Vars["GLOBAL_VAR"] != "global_value" {
+		t.Errorf("GLOBAL_VAR = %q, want %q", inv.Env.Vars["GLOBAL_VAR"], "global_value")
+	}
+	if inv.Env.Vars["APP_ENV"] != "production" {
+		t.Errorf("APP_ENV = %q, want %q", inv.Env.Vars["APP_ENV"], "production")
+	}
+}
+
+func TestParseEnv_AllThreeLevels(t *testing.T) {
+	cueContent := `
+group: "test"
+version: "1.0"
+
+env: {
+	files: ["global.env"]
+	vars: {
+		LEVEL: "root"
+	}
+}
+
+commands: [
+	{
+		name: "deploy"
+		description: "Deploy the application"
+		implementations: [
+			{
+				script: "echo deploying"
+				target: { runtimes: [{name: "native"}] }
+				env: {
+					files: ["impl.env"]
+					vars: {
+						LEVEL: "implementation"
+					}
+				}
+			}
+		]
+		env: {
+			files: ["cmd.env"]
+			vars: {
+				LEVEL: "command"
+			}
+		}
+	}
+]
+`
+	tmpDir := t.TempDir()
+	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
+		t.Fatalf("Failed to write invkfile: %v", err)
+	}
+
+	inv, err := Parse(invkfilePath)
+	if err != nil {
+		t.Fatalf("Parse() error = %v", err)
+	}
+
+	// Check root-level env
+	if inv.Env == nil {
+		t.Fatalf("Expected inv.Env to be non-nil")
+	}
+	if len(inv.Env.Files) != 1 || inv.Env.Files[0] != "global.env" {
+		t.Errorf("Root Env.Files = %v, want [global.env]", inv.Env.Files)
+	}
+	if inv.Env.Vars["LEVEL"] != "root" {
+		t.Errorf("Root LEVEL = %q, want %q", inv.Env.Vars["LEVEL"], "root")
+	}
+
+	// Check command-level env
+	cmd := inv.Commands[0]
+	if cmd.Env == nil {
+		t.Fatalf("Expected cmd.Env to be non-nil")
+	}
+	if len(cmd.Env.Files) != 1 || cmd.Env.Files[0] != "cmd.env" {
+		t.Errorf("Command Env.Files = %v, want [cmd.env]", cmd.Env.Files)
+	}
+	if cmd.Env.Vars["LEVEL"] != "command" {
+		t.Errorf("Command LEVEL = %q, want %q", cmd.Env.Vars["LEVEL"], "command")
+	}
+
+	// Check implementation-level env
+	impl := cmd.Implementations[0]
+	if impl.Env == nil {
+		t.Fatalf("Expected impl.Env to be non-nil")
+	}
+	if len(impl.Env.Files) != 1 || impl.Env.Files[0] != "impl.env" {
+		t.Errorf("Implementation Env.Files = %v, want [impl.env]", impl.Env.Files)
+	}
+	if impl.Env.Vars["LEVEL"] != "implementation" {
+		t.Errorf("Implementation LEVEL = %q, want %q", impl.Env.Vars["LEVEL"], "implementation")
+	}
+}
+
+func TestGenerateCUE_WithRootLevelEnv(t *testing.T) {
+	inv := &Invkfile{
+		Group:   "test",
+		Version: "1.0",
+		Env: &EnvConfig{
+			Files: []string{"global.env", "shared.env?"},
+			Vars: map[string]string{
+				"GLOBAL_VAR": "global_value",
+			},
+		},
+		Commands: []Command{
+			{
+				Name:        "deploy",
+				Description: "Deploy the application",
+				Implementations: []Implementation{
+					{
+						Script: "echo deploying",
+						Target: Target{
+							Runtimes: []RuntimeConfig{{Name: RuntimeNative}},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	cue := GenerateCUE(inv)
+
+	// Check root-level env block
+	if !strings.Contains(cue, `env: {`) {
+		t.Errorf("GenerateCUE() should include env block, got:\n%s", cue)
+	}
+	if !strings.Contains(cue, `files: ["global.env", "shared.env?"]`) {
+		t.Errorf("GenerateCUE() should include root-level env.files, got:\n%s", cue)
+	}
+	if !strings.Contains(cue, `GLOBAL_VAR: "global_value"`) {
+		t.Errorf("GenerateCUE() should include root-level env.vars, got:\n%s", cue)
+	}
+}
+
+func TestGenerateCUE_RootEnvRoundTrip(t *testing.T) {
+	original := &Invkfile{
+		Group:   "test.roundtrip",
+		Version: "1.0",
+		Env: &EnvConfig{
+			Files: []string{"global.env", "shared.env?"},
+			Vars: map[string]string{
+				"GLOBAL_VAR": "global_value",
+			},
+		},
+		Commands: []Command{
+			{
+				Name:        "deploy",
+				Description: "Deploy the application",
+				Implementations: []Implementation{
+					{
+						Script: "echo deploying",
+						Target: Target{
+							Runtimes: []RuntimeConfig{{Name: RuntimeNative}},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	// Generate CUE
+	cue := GenerateCUE(original)
+
+	// Write to temp file
+	tmpDir := t.TempDir()
+	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+	if err := os.WriteFile(invkfilePath, []byte(cue), 0644); err != nil {
+		t.Fatalf("Failed to write invkfile: %v", err)
+	}
+
+	// Parse it back
+	parsed, err := Parse(invkfilePath)
+	if err != nil {
+		t.Fatalf("Parse() error = %v", err)
+	}
+
+	// Verify root-level env.files
+	if parsed.Env == nil {
+		t.Fatalf("Expected non-nil Env after roundtrip")
+	}
+	if len(parsed.Env.Files) != 2 {
+		t.Fatalf("Expected 2 root env.files, got %d", len(parsed.Env.Files))
+	}
+	if parsed.Env.Files[0] != "global.env" {
+		t.Errorf("Root Env.Files[0] = %q, want %q", parsed.Env.Files[0], "global.env")
+	}
+	if parsed.Env.Files[1] != "shared.env?" {
+		t.Errorf("Root Env.Files[1] = %q, want %q", parsed.Env.Files[1], "shared.env?")
+	}
+
+	// Verify root-level env.vars
+	if len(parsed.Env.Vars) != 1 {
+		t.Fatalf("Expected 1 root env.vars, got %d", len(parsed.Env.Vars))
+	}
+	if parsed.Env.Vars["GLOBAL_VAR"] != "global_value" {
+		t.Errorf("GLOBAL_VAR = %q, want %q", parsed.Env.Vars["GLOBAL_VAR"], "global_value")
+	}
+}
+
 func TestValidateFlags_ReservedEnvFileName(t *testing.T) {
 	cueContent := `
 group: "test"

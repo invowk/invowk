@@ -994,6 +994,10 @@ type Invkfile struct {
 	// Forward slashes should be used for cross-platform compatibility.
 	// Individual commands or implementations can override this with their own workdir.
 	WorkDir string `json:"workdir,omitempty"`
+	// Env contains global environment configuration for all commands (optional)
+	// Root-level env is applied first (lowest priority from invkfile).
+	// Command-level and implementation-level env override root-level env.
+	Env *EnvConfig `json:"env,omitempty"`
 	// Commands defines the available commands
 	Commands []Command `json:"commands"`
 
@@ -1563,6 +1567,29 @@ func GenerateCUE(inv *Invkfile) string {
 	}
 	if inv.WorkDir != "" {
 		sb.WriteString(fmt.Sprintf("workdir: %q\n", inv.WorkDir))
+	}
+
+	// Root-level env
+	if inv.Env != nil && (len(inv.Env.Files) > 0 || len(inv.Env.Vars) > 0) {
+		sb.WriteString("env: {\n")
+		if len(inv.Env.Files) > 0 {
+			sb.WriteString("\tfiles: [")
+			for i, ef := range inv.Env.Files {
+				if i > 0 {
+					sb.WriteString(", ")
+				}
+				sb.WriteString(fmt.Sprintf("%q", ef))
+			}
+			sb.WriteString("]\n")
+		}
+		if len(inv.Env.Vars) > 0 {
+			sb.WriteString("\tvars: {\n")
+			for k, v := range inv.Env.Vars {
+				sb.WriteString(fmt.Sprintf("\t\t%s: %q\n", k, v))
+			}
+			sb.WriteString("\t}\n")
+		}
+		sb.WriteString("}\n")
 	}
 
 	// Commands

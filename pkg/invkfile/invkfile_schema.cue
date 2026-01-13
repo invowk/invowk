@@ -405,6 +405,11 @@
 	// Individual commands or implementations can override this with their own workdir.
 	workdir?: string
 
+	// env contains global environment configuration for all commands (optional)
+	// Root-level env is applied first (lowest priority from invkfile).
+	// Command-level and implementation-level env override root-level env.
+	env?: #EnvConfig
+
 	// commands defines the available commands (required, at least one)
 	commands: [...#Command] & [_, ...]
 }

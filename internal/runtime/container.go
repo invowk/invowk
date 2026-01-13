@@ -372,56 +372,70 @@ func (r *ContainerRuntime) getContainerWorkDir(ctx *ExecutionContext, invowkDir 
 }
 
 // buildEnv builds the environment for the command with proper precedence:
-// 1. Command-level env.files (loaded in array order)
-// 2. Implementation-level env.files (loaded in array order)
-// 3. Command-level env.vars (inline static variables)
-// 4. Implementation-level env.vars (inline static variables)
-// 5. ExtraEnv: INVOWK_FLAG_*, INVOWK_ARG_*, ARGn, ARGC
-// 6. --env-file flag files (loaded in flag order)
-// 7. --env-var flag values (KEY=VALUE pairs) - HIGHEST priority
+// 1. Root-level env.files (loaded in array order)
+// 2. Command-level env.files (loaded in array order)
+// 3. Implementation-level env.files (loaded in array order)
+// 4. Root-level env.vars (inline static variables)
+// 5. Command-level env.vars (inline static variables)
+// 6. Implementation-level env.vars (inline static variables)
+// 7. ExtraEnv: INVOWK_FLAG_*, INVOWK_ARG_*, ARGn, ARGC
+// 8. --env-file flag files (loaded in flag order)
+// 9. --env-var flag values (KEY=VALUE pairs) - HIGHEST priority
 func (r *ContainerRuntime) buildEnv(ctx *ExecutionContext) (map[string]string, error) {
 	env := make(map[string]string)
 
 	// Determine the base path for resolving env files
 	basePath := ctx.Invkfile.GetScriptBasePath()
 
-	// 1. Command-level env.files
+	// 1. Root-level env.files
+	for _, path := range ctx.Invkfile.Env.GetFiles() {
+		if err := LoadEnvFile(env, path, basePath); err != nil {
+			return nil, err
+		}
+	}
+
+	// 2. Command-level env.files
 	for _, path := range ctx.Command.Env.GetFiles() {
 		if err := LoadEnvFile(env, path, basePath); err != nil {
 			return nil, err
 		}
 	}
 
-	// 2. Implementation-level env.files
+	// 3. Implementation-level env.files
 	for _, path := range ctx.SelectedImpl.Env.GetFiles() {
 		if err := LoadEnvFile(env, path, basePath); err != nil {
 			return nil, err
 		}
 	}
 
-	// 3. Command-level env.vars
+	// 4. Root-level env.vars
+	for k, v := range ctx.Invkfile.Env.GetVars() {
+		env[k] = v
+	}
+
+	// 5. Command-level env.vars
 	for k, v := range ctx.Command.Env.GetVars() {
 		env[k] = v
 	}
 
-	// 4. Implementation-level env.vars
+	// 6. Implementation-level env.vars
 	for k, v := range ctx.SelectedImpl.Env.GetVars() {
 		env[k] = v
 	}
 
-	// 5. Extra env from context (flags, args)
+	// 7. Extra env from context (flags, args)
 	for k, v := range ctx.ExtraEnv {
 		env[k] = v
 	}
 
-	// 6. Runtime --env-file flag files
+	// 8. Runtime --env-file flag files
 	for _, path := range ctx.RuntimeEnvFiles {
 		if err := LoadEnvFileFromCwd(env, path); err != nil {
 			return nil, err
 		}
 	}
 
-	// 7. Runtime --env-var flag values (highest priority)
+	// 9. Runtime --env-var flag values (highest priority)
 	for k, v := range ctx.RuntimeEnvVars {
 		env[k] = v
 	}
