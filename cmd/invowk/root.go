@@ -106,6 +106,7 @@ func init() {
 	rootCmd.AddCommand(initCmd)
 	rootCmd.AddCommand(configCmd)
 	rootCmd.AddCommand(completionCmd)
+	rootCmd.AddCommand(tuiCmd)
 }
 
 // initRootConfig reads in config file and ENV variables if set.

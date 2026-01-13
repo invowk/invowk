@@ -26,6 +26,8 @@ A dynamically extensible, CLI-based command runner similar to [just](https://git
 
 - **Beautiful CLI**: Styled output using [Cobra](https://github.com/spf13/cobra) with [Lip Gloss](https://github.com/charmbracelet/lipgloss) styling
 
+- **Interactive TUI Components**: Built-in gum-like terminal UI components for creating interactive shell scripts (input, choose, confirm, filter, file picker, table, spinner, pager, format, style)
+
 ## Installation
 
 ### From Source
@@ -659,6 +661,246 @@ invowk cmd myproject build --runtime virtual
 invowk --verbose cmd myproject build
 ```
 
+## Interactive TUI Components
+
+invowk includes a set of interactive terminal UI components inspired by [gum](https://github.com/charmbracelet/gum). These can be used in shell scripts to create interactive prompts, selections, and styled output.
+
+### Input
+
+Prompt for single-line text input:
+
+```bash
+# Basic input
+invowk tui input --title "What is your name?"
+
+# With placeholder
+invowk tui input --title "Email" --placeholder "user@example.com"
+
+# Password input (hidden)
+invowk tui input --title "Password" --password
+
+# With character limit
+invowk tui input --title "Username" --char-limit 20
+
+# Use in shell script
+NAME=$(invowk tui input --title "Enter your name:")
+echo "Hello, $NAME!"
+```
+
+### Write
+
+Multi-line text editor for longer input:
+
+```bash
+# Basic editor
+invowk tui write --title "Enter description"
+
+# With line numbers
+invowk tui write --title "Code" --show-line-numbers
+
+# Use for commit messages
+MESSAGE=$(invowk tui write --title "Commit message")
+git commit -m "$MESSAGE"
+```
+
+### Choose
+
+Select one or more options from a list:
+
+```bash
+# Single selection
+invowk tui choose "Option 1" "Option 2" "Option 3"
+
+# With title
+invowk tui choose --title "Pick a color" red green blue
+
+# Multi-select (up to 3)
+invowk tui choose --limit 3 "One" "Two" "Three" "Four"
+
+# Unlimited multi-select
+invowk tui choose --no-limit "One" "Two" "Three"
+
+# Use in shell script
+COLOR=$(invowk tui choose --title "Pick a color" red green blue)
+echo "You picked: $COLOR"
+```
+
+### Confirm
+
+Yes/no confirmation prompt (exits with code 0 for yes, 1 for no):
+
+```bash
+# Basic confirmation
+invowk tui confirm "Are you sure?"
+
+# With custom labels
+invowk tui confirm --affirmative "Delete" --negative "Cancel" "Delete this file?"
+
+# Default to yes
+invowk tui confirm --default "Proceed?"
+
+# Use in shell conditionals
+if invowk tui confirm "Continue?"; then
+    echo "Continuing..."
+else
+    echo "Cancelled."
+fi
+```
+
+### Filter
+
+Fuzzy filter a list of options:
+
+```bash
+# Filter from arguments
+invowk tui filter "apple" "banana" "cherry" "date"
+
+# Filter from stdin
+ls | invowk tui filter --title "Select a file"
+
+# Multi-select filter
+cat files.txt | invowk tui filter --no-limit
+
+# With placeholder
+invowk tui filter --placeholder "Type to search..." opt1 opt2 opt3
+```
+
+### File
+
+File picker for browsing and selecting files:
+
+```bash
+# Pick any file from current directory
+invowk tui file
+
+# Start in specific directory
+invowk tui file /home/user/documents
+
+# Only show directories
+invowk tui file --directory
+
+# Show hidden files
+invowk tui file --hidden
+
+# Filter by extension
+invowk tui file --allowed ".go,.md,.txt"
+```
+
+### Table
+
+Display and select from tabular data:
+
+```bash
+# Display a CSV file
+invowk tui table --file data.csv
+
+# Pipe data with custom separator
+echo -e "name|age|city\nAlice|30|NYC\nBob|25|LA" | invowk tui table --separator "|"
+
+# Selectable rows (prints selected row)
+cat data.csv | invowk tui table --selectable
+```
+
+### Spin
+
+Show a spinner while running a command:
+
+```bash
+# Run a command with spinner
+invowk tui spin --title "Installing..." -- npm install
+
+# Different spinner types
+invowk tui spin --type globe --title "Downloading..." -- curl -O https://example.com/file
+
+# Available types: line, dot, minidot, jump, pulse, points, globe, moon, monkey, meter, hamburger, ellipsis
+```
+
+### Pager
+
+Scroll through long content:
+
+```bash
+# View a file
+invowk tui pager README.md
+
+# Pipe content
+cat long-file.txt | invowk tui pager
+
+# With line numbers
+invowk tui pager --line-numbers myfile.go
+
+# With title
+git log | invowk tui pager --title "Git History"
+```
+
+### Format
+
+Format and render text:
+
+```bash
+# Format markdown
+echo "# Hello World" | invowk tui format --type markdown
+
+# Syntax highlight code
+cat main.go | invowk tui format --type code --language go
+
+# Convert emoji shortcodes
+echo "Hello :wave: World :smile:" | invowk tui format --type emoji
+```
+
+### Style
+
+Apply terminal styling to text:
+
+```bash
+# Colored text
+invowk tui style --foreground "#FF0000" "Red text"
+
+# Bold and italic
+echo "Styled" | invowk tui style --bold --italic
+
+# With background and padding
+invowk tui style --background "#333" --foreground "#FFF" --padding-left 1 --padding-right 1 "Box"
+
+# Centered with border
+invowk tui style --border rounded --align center --width 40 "Centered Title"
+
+# Multiple styles
+invowk tui style --bold --foreground "#00FF00" --background "#000" "Matrix"
+```
+
+### Using TUI in Invowkfiles
+
+The TUI components can be used within invowkfile scripts to create interactive commands:
+
+```cue
+group: "myproject"
+commands: [
+    {
+        name: "interactive setup"
+        description: "Interactive project setup wizard"
+        implementations: [
+            {
+                script: """
+                    #!/bin/bash
+                    NAME=$(invowk tui input --title "Project name:")
+                    TYPE=$(invowk tui choose --title "Project type" cli library api)
+                    
+                    if invowk tui confirm "Create project '$NAME' of type '$TYPE'?"; then
+                        invowk tui spin --title "Creating project..." -- mkdir -p "$NAME"
+                        echo "Project created!" | invowk tui style --foreground "#00FF00" --bold
+                    fi
+                    """
+                target: {
+                    runtimes: [{name: "native"}]
+                    platforms: [{name: "linux"}, {name: "macos"}]
+                }
+            }
+        ]
+    }
+]
+```
+
 ## Project Structure
 
 ```
@@ -669,7 +911,19 @@ invowk-cli/
 │   ├── cmd.go                  # cmd subcommand
 │   ├── init.go                 # init command
 │   ├── config.go               # config commands
-│   └── completion.go           # completion command
+│   ├── completion.go           # completion command
+│   ├── tui.go                  # tui parent command
+│   ├── tui_input.go            # tui input subcommand
+│   ├── tui_write.go            # tui write subcommand
+│   ├── tui_choose.go           # tui choose subcommand
+│   ├── tui_confirm.go          # tui confirm subcommand
+│   ├── tui_filter.go           # tui filter subcommand
+│   ├── tui_file.go             # tui file subcommand
+│   ├── tui_table.go            # tui table subcommand
+│   ├── tui_spin.go             # tui spin subcommand
+│   ├── tui_pager.go            # tui pager subcommand
+│   ├── tui_format.go           # tui format subcommand
+│   └── tui_style.go            # tui style subcommand
 ├── internal/
 │   ├── config/                 # Configuration handling
 │   ├── container/              # Container engine abstraction
@@ -678,11 +932,23 @@ invowk-cli/
 │   │   └── podman.go           # Podman implementation
 │   ├── discovery/              # Invowkfile discovery
 │   ├── issue/                  # Error types and messages
-│   └── runtime/                # Runtime implementations
-│       ├── runtime.go          # Runtime interface
-│       ├── native.go           # Native shell runtime
-│       ├── virtual.go          # Virtual shell runtime
-│       └── container.go        # Container runtime
+│   ├── runtime/                # Runtime implementations
+│   │   ├── runtime.go          # Runtime interface
+│   │   ├── native.go           # Native shell runtime
+│   │   ├── virtual.go          # Virtual shell runtime
+│   │   └── container.go        # Container runtime
+│   └── tui/                    # TUI component library
+│       ├── tui.go              # Core config and themes
+│       ├── input.go            # Text input component
+│       ├── write.go            # Multi-line editor component
+│       ├── choose.go           # Selection component
+│       ├── confirm.go          # Confirmation component
+│       ├── filter.go           # Fuzzy filter component
+│       ├── file.go             # File picker component
+│       ├── table.go            # Table display component
+│       ├── spin.go             # Spinner component
+│       ├── pager.go            # Pager component
+│       └── format.go           # Format component
 └── pkg/invowkfile/             # Invowkfile parsing
 ```
 
@@ -694,6 +960,9 @@ invowk-cli/
 - [mvdan/sh](https://github.com/mvdan/sh) - Virtual shell interpreter
 - [Lip Gloss](https://github.com/charmbracelet/lipgloss) - Terminal styling
 - [Glamour](https://github.com/charmbracelet/glamour) - Markdown rendering
+- [Huh](https://github.com/charmbracelet/huh) - Terminal forms and prompts
+- [Bubbles](https://github.com/charmbracelet/bubbles) - TUI components
+- [Bubbletea](https://github.com/charmbracelet/bubbletea) - TUI framework
 
 ## License
 
