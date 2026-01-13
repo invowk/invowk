@@ -28,6 +28,15 @@ type Engine interface {
 	ImageExists(ctx context.Context, image string) (bool, error)
 	// RemoveImage removes an image
 	RemoveImage(ctx context.Context, image string, force bool) error
+
+	// BinaryPath returns the path to the container engine binary.
+	// This is used when preparing commands for PTY attachment in interactive mode.
+	BinaryPath() string
+
+	// BuildRunArgs builds the argument slice for a 'run' command without executing.
+	// Returns the full argument slice including 'run' and all options.
+	// This is used for interactive mode where the command needs to be attached to a PTY.
+	BuildRunArgs(opts RunOptions) []string
 }
 
 // BuildOptions contains options for building an image

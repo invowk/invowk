@@ -514,13 +514,15 @@ func (r *NativeRuntime) appendPositionalArgs(shell string, args []string, positi
 	}
 }
 
-// PreparedCommand contains a command ready for execution along with any cleanup function.
-type PreparedCommand struct {
-	// Cmd is the prepared exec.Cmd ready for execution.
-	Cmd *exec.Cmd
-	// Cleanup is a function to call after execution (e.g., to remove temp files).
-	// May be nil if no cleanup is needed.
-	Cleanup func()
+// SupportsInteractive returns true as the native runtime always supports interactive mode.
+func (r *NativeRuntime) SupportsInteractive() bool {
+	return true
+}
+
+// PrepareInteractive prepares the native runtime for interactive execution.
+// This is an alias for PrepareCommand to implement the InteractiveRuntime interface.
+func (r *NativeRuntime) PrepareInteractive(ctx *ExecutionContext) (*PreparedCommand, error) {
+	return r.PrepareCommand(ctx)
 }
 
 // PrepareCommand builds an exec.Cmd for the given execution context without running it.

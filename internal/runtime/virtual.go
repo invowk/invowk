@@ -5,8 +5,10 @@ package runtime
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
 	"strings"
 
 	"mvdan.cc/sh/v3/expand"
@@ -240,6 +242,111 @@ func (r *VirtualRuntime) tryUrootBuiltin(ctx context.Context, args []string) (bo
 // Precedence (highest to lowest): CLI override > Implementation > Command > Root > Default
 func (r *VirtualRuntime) getWorkDir(ctx *ExecutionContext) string {
 	return ctx.Invkfile.GetEffectiveWorkDir(ctx.Command, ctx.SelectedImpl, ctx.WorkDir)
+}
+
+// SupportsInteractive returns true as the virtual runtime always supports interactive mode.
+// Interactive mode is achieved by spawning a subprocess wrapper.
+func (r *VirtualRuntime) SupportsInteractive() bool {
+	return true
+}
+
+// PrepareInteractive prepares the virtual runtime for interactive execution.
+// This is an alias for PrepareCommand to implement the InteractiveRuntime interface.
+func (r *VirtualRuntime) PrepareInteractive(ctx *ExecutionContext) (*PreparedCommand, error) {
+	return r.PrepareCommand(ctx)
+}
+
+// PrepareCommand prepares the virtual execution for interactive mode.
+// Since mvdan/sh runs entirely in-process, we spawn a subprocess that can be
+// attached to a PTY. The subprocess invokes `invowk internal exec-virtual`
+// which executes the virtual shell with PTY stdio.
+func (r *VirtualRuntime) PrepareCommand(ctx *ExecutionContext) (*PreparedCommand, error) {
+	// Validate interpreter is not set (virtual runtime doesn't support custom interpreters)
+	rtConfig := ctx.SelectedImpl.GetRuntimeConfig(ctx.SelectedRuntime)
+	if rtConfig != nil {
+		if err := rtConfig.ValidateInterpreterForRuntime(); err != nil {
+			return nil, err
+		}
+	}
+
+	// Resolve the script content
+	script, err := ctx.SelectedImpl.ResolveScript(ctx.Invkfile.FilePath)
+	if err != nil {
+		return nil, err
+	}
+
+	// Validate script syntax before creating subprocess
+	_, err = syntax.NewParser().Parse(strings.NewReader(script), "script")
+	if err != nil {
+		return nil, fmt.Errorf("script syntax error: %w", err)
+	}
+
+	// Create temp file for script
+	tmpFile, err := os.CreateTemp("", "invowk-virtual-*.sh")
+	if err != nil {
+		return nil, fmt.Errorf("failed to create temp script file: %w", err)
+	}
+
+	if _, err := tmpFile.WriteString(script); err != nil {
+		tmpFile.Close()
+		os.Remove(tmpFile.Name())
+		return nil, fmt.Errorf("failed to write temp script: %w", err)
+	}
+
+	if err := tmpFile.Close(); err != nil {
+		os.Remove(tmpFile.Name())
+		return nil, fmt.Errorf("failed to close temp script: %w", err)
+	}
+
+	// Get current invowk binary path
+	invowkPath, err := os.Executable()
+	if err != nil {
+		os.Remove(tmpFile.Name())
+		return nil, fmt.Errorf("failed to get invowk executable path: %w", err)
+	}
+
+	// Determine working directory
+	workDir := r.getWorkDir(ctx)
+
+	// Build environment
+	env, err := r.buildEnv(ctx)
+	if err != nil {
+		os.Remove(tmpFile.Name())
+		return nil, fmt.Errorf("failed to build environment: %w", err)
+	}
+
+	// Serialize environment to JSON for passing to subprocess
+	envJSON, err := json.Marshal(env)
+	if err != nil {
+		os.Remove(tmpFile.Name())
+		return nil, fmt.Errorf("failed to serialize environment: %w", err)
+	}
+
+	// Build subprocess command arguments
+	args := []string{
+		"internal", "exec-virtual",
+		"--script-file", tmpFile.Name(),
+		"--workdir", workDir,
+		"--env-json", string(envJSON),
+	}
+
+	// Add positional arguments
+	for _, arg := range ctx.PositionalArgs {
+		args = append(args, "--args", arg)
+	}
+
+	cmd := exec.CommandContext(ctx.Context, invowkPath, args...)
+
+	// Subprocess inherits filtered environment (TUI server vars will be added by caller)
+	cmd.Env = FilterInvowkEnvVars(os.Environ())
+
+	// Track temp file for cleanup
+	tempFilePath := tmpFile.Name()
+	cleanup := func() {
+		os.Remove(tempFilePath)
+	}
+
+	return &PreparedCommand{Cmd: cmd, Cleanup: cleanup}, nil
 }
 
 // buildEnv builds the environment for the command with proper precedence:

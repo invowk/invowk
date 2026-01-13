@@ -737,9 +737,25 @@ func runCommandWithFlags(cmdName string, args []string, flagValues map[string]st
 	var result *runtime.Result
 
 	// Check if we should use interactive mode
-	// Interactive mode is only supported for native runtime currently
-	if interactive && selectedRuntime == invkfile.RuntimeNative {
-		result = executeInteractive(ctx, registry, cmdName)
+	// Interactive mode is supported for all runtimes that implement InteractiveRuntime
+	if interactive {
+		// Get the runtime and check if it supports interactive mode
+		rt, err := registry.GetForContext(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to get runtime: %w", err)
+		}
+
+		interactiveRT := runtime.GetInteractiveRuntime(rt)
+		if interactiveRT != nil {
+			result = executeInteractive(ctx, registry, cmdName, interactiveRT)
+		} else {
+			// Runtime doesn't support interactive mode, fall back to standard execution
+			if verbose {
+				fmt.Printf("%s Runtime '%s' does not support interactive mode, using standard execution\n",
+					warningStyle.Render("!"), rt.Name())
+			}
+			result = registry.Execute(ctx)
+		}
 	} else {
 		// Standard execution
 		result = registry.Execute(ctx)
@@ -780,25 +796,17 @@ func runCommand(args []string) error {
 // and allowing output review after completion.
 // It also starts a TUI server so that nested `invowk tui *` commands can delegate
 // their rendering to the parent process.
-func executeInteractive(ctx *runtime.ExecutionContext, registry *runtime.Registry, cmdName string) *runtime.Result {
-	// Get the native runtime to prepare the command
-	rt, err := registry.Get(runtime.RuntimeTypeNative)
-	if err != nil {
-		return &runtime.Result{ExitCode: 1, Error: fmt.Errorf("native runtime not available: %w", err)}
-	}
-
-	nativeRT, ok := rt.(*runtime.NativeRuntime)
-	if !ok {
-		return &runtime.Result{ExitCode: 1, Error: fmt.Errorf("unexpected runtime type")}
-	}
-
-	// Validate the context
-	if err := nativeRT.Validate(ctx); err != nil {
+//
+// The interactiveRT parameter is the runtime that implements InteractiveRuntime.
+// This allows the function to work with any runtime that supports interactive mode.
+func executeInteractive(ctx *runtime.ExecutionContext, registry *runtime.Registry, cmdName string, interactiveRT runtime.InteractiveRuntime) *runtime.Result {
+	// Validate the context using the runtime
+	if err := interactiveRT.Validate(ctx); err != nil {
 		return &runtime.Result{ExitCode: 1, Error: err}
 	}
 
 	// Prepare the command without executing it
-	prepared, err := nativeRT.PrepareCommand(ctx)
+	prepared, err := interactiveRT.PrepareInteractive(ctx)
 	if err != nil {
 		return &runtime.Result{ExitCode: 1, Error: fmt.Errorf("failed to prepare command: %w", err)}
 	}
@@ -819,9 +827,19 @@ func executeInteractive(ctx *runtime.ExecutionContext, registry *runtime.Registr
 	}
 	defer tuiServer.Stop()
 
+	// Determine the TUI server URL for the command
+	// For container runtimes, we need to translate the localhost address
+	// to a host-accessible address (host.docker.internal or host.containers.internal)
+	tuiServerURL := tuiServer.URL()
+	if containerRT, ok := interactiveRT.(*runtime.ContainerRuntime); ok {
+		// Replace 127.0.0.1 with the container-accessible host address
+		hostAddr := containerRT.GetHostAddressForContainer()
+		tuiServerURL = strings.Replace(tuiServerURL, "127.0.0.1", hostAddr, 1)
+	}
+
 	// Add TUI server environment variables to the command
 	prepared.Cmd.Env = append(prepared.Cmd.Env,
-		fmt.Sprintf("%s=%s", tuiserver.EnvTUIAddr, tuiServer.URL()),
+		fmt.Sprintf("%s=%s", tuiserver.EnvTUIAddr, tuiServerURL),
 		fmt.Sprintf("%s=%s", tuiserver.EnvTUIToken, tuiServer.Token()),
 	)
 

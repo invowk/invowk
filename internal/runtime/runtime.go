@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 
 	"invowk-cli/pkg/invkfile"
 )
@@ -93,6 +94,43 @@ type Runtime interface {
 	Available() bool
 	// Validate checks if a command can be executed with this runtime
 	Validate(ctx *ExecutionContext) error
+}
+
+// InteractiveRuntime is implemented by runtimes that support interactive mode.
+// Interactive mode allows commands to be executed with PTY attachment for
+// full terminal interaction (keyboard input, terminal UI, etc.).
+type InteractiveRuntime interface {
+	Runtime
+
+	// SupportsInteractive returns true if this runtime can run interactively.
+	// This may depend on system configuration or the specific execution context.
+	SupportsInteractive() bool
+
+	// PrepareInteractive prepares the runtime for interactive execution.
+	// The returned PreparedCommand contains an exec.Cmd that can be attached
+	// to a PTY by the caller. The caller is responsible for calling the
+	// Cleanup function after execution completes.
+	PrepareInteractive(ctx *ExecutionContext) (*PreparedCommand, error)
+}
+
+// PreparedCommand contains a command ready for execution along with any cleanup function.
+// This is used by InteractiveRuntime implementations to return a command that
+// can be attached to a PTY for interactive execution.
+type PreparedCommand struct {
+	// Cmd is the prepared exec.Cmd ready for PTY attachment.
+	Cmd *exec.Cmd
+	// Cleanup is a function to call after execution (e.g., to remove temp files).
+	// May be nil if no cleanup is needed.
+	Cleanup func()
+}
+
+// GetInteractiveRuntime returns the runtime as an InteractiveRuntime if it supports
+// interactive mode, otherwise returns nil.
+func GetInteractiveRuntime(rt Runtime) InteractiveRuntime {
+	if ir, ok := rt.(InteractiveRuntime); ok && ir.SupportsInteractive() {
+		return ir
+	}
+	return nil
 }
 
 // RuntimeType identifies the type of runtime

@@ -234,3 +234,57 @@ func (e *DockerEngine) InspectImage(ctx context.Context, image string) (string, 
 
 	return out.String(), nil
 }
+
+// BinaryPath returns the path to the docker binary.
+// This is used when preparing commands for PTY attachment in interactive mode.
+func (e *DockerEngine) BinaryPath() string {
+	return e.binaryPath
+}
+
+// BuildRunArgs builds the argument slice for a 'run' command without executing.
+// Returns the full argument slice including 'run' and all options.
+// This is used for interactive mode where the command needs to be attached to a PTY.
+func (e *DockerEngine) BuildRunArgs(opts RunOptions) []string {
+	args := []string{"run"}
+
+	if opts.Remove {
+		args = append(args, "--rm")
+	}
+
+	if opts.Name != "" {
+		args = append(args, "--name", opts.Name)
+	}
+
+	if opts.WorkDir != "" {
+		args = append(args, "-w", opts.WorkDir)
+	}
+
+	if opts.Interactive {
+		args = append(args, "-i")
+	}
+
+	if opts.TTY {
+		args = append(args, "-t")
+	}
+
+	for k, v := range opts.Env {
+		args = append(args, "-e", fmt.Sprintf("%s=%s", k, v))
+	}
+
+	for _, v := range opts.Volumes {
+		args = append(args, "-v", v)
+	}
+
+	for _, p := range opts.Ports {
+		args = append(args, "-p", p)
+	}
+
+	for _, h := range opts.ExtraHosts {
+		args = append(args, "--add-host", h)
+	}
+
+	args = append(args, opts.Image)
+	args = append(args, opts.Command...)
+
+	return args
+}
