@@ -21,6 +21,17 @@ env: {
 	}
 }
 
+// Global dependency checks - validated before ANY command runs
+// Root-level depends_on provides shared prerequisites for all commands.
+// These checks run first, followed by command-level, then implementation-level.
+// Merge order: Root (lowest priority) -> Command -> Implementation (highest priority)
+depends_on: {
+	// Ensure basic shell is available for all commands
+	tools: [
+		{alternatives: ["sh", "bash"]},
+	]
+}
+
 commands: [
 	// ============================================================================
 	// SECTION 1: Simple Commands (Native Runtime)
@@ -2493,6 +2504,219 @@ commands: [
 				}
 			},
 		]
+	},
+
+	// ============================================================================
+	// SECTION 18: Root-Level Dependencies (depends_on at file level)
+	// ============================================================================
+	// These commands demonstrate the root-level depends_on feature.
+	// Root-level dependencies are validated BEFORE any command runs and apply
+	// to ALL commands in the invkfile. This is useful for:
+	// - Shared prerequisites (tools, capabilities) needed by all commands
+	// - Global environment requirements (API keys, credentials)
+	// - Common file dependencies
+	//
+	// Merge order (lowest to highest priority):
+	// 1. Root-level depends_on     <- validated first, lowest priority
+	// 2. Command-level depends_on  <- can add to or override root
+	// 3. Implementation-level      <- highest priority, most specific
+	//
+	// Note: This invkfile has root-level depends_on: tools: [{alternatives: ["sh", "bash"]}]
+	// which ensures a shell is available for all commands.
+
+	// Example 18.1: Command inheriting root-level dependencies
+	{
+		name:        "root deps inherited"
+		description: "Command that inherits root-level tool dependency (sh/bash)"
+		implementations: [
+			{
+				script: """
+					echo "=========================================="
+					echo "  Root-Level Dependencies Demo"
+					echo "=========================================="
+					echo ""
+					echo "This command has NO explicit depends_on, but still"
+					echo "benefits from the root-level dependency check."
+					echo ""
+					echo "Root-level depends_on ensures 'sh' or 'bash' is"
+					echo "available before ANY command in this file runs."
+					echo ""
+					echo "This is useful for shared prerequisites that apply"
+					echo "to all commands in the invkfile."
+					echo "=========================================="
+					"""
+				target: {
+					runtimes: [{name: "native"}]
+				}
+			}
+		]
+		// No depends_on here - inherits from root level
+	},
+
+	// Example 18.2: Command adding to root-level dependencies
+	{
+		name:        "root deps extended"
+		description: "Command that extends root-level dependencies"
+		implementations: [
+			{
+				script: """
+					echo "=========================================="
+					echo "  Extended Root Dependencies Demo"
+					echo "=========================================="
+					echo ""
+					echo "Dependency checks performed (in order):"
+					echo ""
+					echo "  1. Root-level: sh or bash available"
+					echo "  2. Command-level: README.md exists and readable"
+					echo ""
+					echo "This command ADDS its own dependency on top of"
+					echo "the root-level dependencies."
+					echo ""
+					echo "Root + Command dependencies are merged:"
+					echo "  - tools: [sh/bash] (from root)"
+					echo "  - filepaths: [README.md] (from command)"
+					echo "=========================================="
+					"""
+				target: {
+					runtimes: [{name: "native"}]
+				}
+			}
+		]
+		// This ADDS to root-level dependencies
+		depends_on: {
+			filepaths: [
+				{alternatives: ["README.md"], readable: true},
+			]
+		}
+	},
+
+	// Example 18.3: Full hierarchy - Root + Command + Implementation
+	{
+		name:        "root deps full hierarchy"
+		description: "Demonstrate full three-level dependency hierarchy"
+		implementations: [
+			{
+				script: """
+					echo "=========================================="
+					echo "  Full Dependency Hierarchy Demo"
+					echo "=========================================="
+					echo ""
+					echo "This command demonstrates all three levels of"
+					echo "depends_on being merged together:"
+					echo ""
+					echo "  1. ROOT LEVEL (from invkfile):"
+					echo "     - tools: [sh, bash]"
+					echo ""
+					echo "  2. COMMAND LEVEL:"
+					echo "     - capabilities: [internet]"
+					echo ""
+					echo "  3. IMPLEMENTATION LEVEL:"
+					echo "     - filepaths: [README.md]"
+					echo ""
+					echo "All three levels are validated before execution."
+					echo "Later levels can add new checks or override earlier ones."
+					echo "=========================================="
+					"""
+				target: {
+					runtimes:  [{name: "native"}]
+					platforms: [{name: "linux"}, {name: "macos"}]
+				}
+				// Implementation-level dependencies (highest priority)
+				depends_on: {
+					filepaths: [
+						{alternatives: ["README.md"]},
+					]
+				}
+			}
+		]
+		// Command-level dependencies (middle priority)
+		depends_on: {
+			capabilities: [
+				{alternatives: ["internet"]},
+			]
+		}
+	},
+
+	// Example 18.4: Root-level env_vars dependency scenario
+	// This demonstrates how root-level env_vars could be used for API keys
+	{
+		name:        "root deps env vars scenario"
+		description: "Scenario: root-level env var checks for API credentials"
+		implementations: [
+			{
+				script: """
+					echo "=========================================="
+					echo "  Root-Level Env Vars Scenario"
+					echo "=========================================="
+					echo ""
+					echo "Imagine an invkfile with root-level depends_on:"
+					echo ""
+					echo "  depends_on: {"
+					echo "    env_vars: ["
+					echo "      {alternatives: [{name: \"API_KEY\"}]},"
+					echo "      {alternatives: [{name: \"API_SECRET\"}]},"
+					echo "    ]"
+					echo "  }"
+					echo ""
+					echo "Every command would automatically require these"
+					echo "environment variables to be set before execution."
+					echo ""
+					echo "Current invkfile only requires sh/bash at root level."
+					echo "This example shows how the feature could be extended."
+					echo "=========================================="
+					"""
+				target: {
+					runtimes: [{name: "native"}]
+				}
+			}
+		]
+	},
+
+	// Example 18.5: Container command with root-level + impl-level deps
+	{
+		name:        "root deps container"
+		description: "Container command with root and implementation dependencies"
+		implementations: [
+			{
+				script: """
+					echo "=========================================="
+					echo "  Container with Root Dependencies"
+					echo "=========================================="
+					echo ""
+					echo "Root-level dependencies are checked on HOST:"
+					echo "  - tools: [sh, bash] (verified on host)"
+					echo ""
+					echo "Implementation-level dependencies checked in CONTAINER:"
+					echo "  - tools: [sh, ash] (verified inside container)"
+					echo "  - filepaths: [/etc/os-release] (inside container)"
+					echo ""
+					echo "Container OS:"
+					cat /etc/os-release | head -2
+					echo ""
+					echo "Root deps ensure host prerequisites are met."
+					echo "Implementation deps validate container environment."
+					echo "=========================================="
+					"""
+				target: {
+					runtimes: [{name: "container", image: "alpine:latest"}]
+				}
+				// These are validated INSIDE the container
+				depends_on: {
+					tools: [
+						{alternatives: ["sh", "ash"]},
+					]
+					filepaths: [
+						{alternatives: ["/etc/os-release"]},
+					]
+				}
+			}
+		]
+		// This is validated on the HOST (merged with root-level)
+		depends_on: {
+			capabilities: [
+				{alternatives: ["internet"]},  // Needed to pull container image
+			]
+		}
 	},
 ]
 

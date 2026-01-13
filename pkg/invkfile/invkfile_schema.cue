@@ -410,6 +410,13 @@
 	// Command-level and implementation-level env override root-level env.
 	env?: #EnvConfig
 
+	// depends_on specifies global dependencies that apply to all commands (optional)
+	// Root-level depends_on is combined with command-level and implementation-level depends_on.
+	// Root-level dependencies are validated first (lowest priority in the merge order).
+	// This is useful for defining shared prerequisites like required tools or capabilities
+	// that apply to all commands in this invkfile.
+	depends_on?: #DependsOn
+
 	// commands defines the available commands (required, at least one)
 	commands: [...#Command] & [_, ...]
 }

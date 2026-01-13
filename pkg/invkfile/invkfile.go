@@ -799,7 +799,14 @@ func (s *Script) GetCommandDependencies() []string {
 // Implementation-level dependencies are added to command-level dependencies
 // Returns a new DependsOn struct with combined dependencies
 func MergeDependsOn(cmdDeps, scriptDeps *DependsOn) *DependsOn {
-	if cmdDeps == nil && scriptDeps == nil {
+	return MergeDependsOnAll(nil, cmdDeps, scriptDeps)
+}
+
+// MergeDependsOnAll merges root-level, command-level, and implementation-level dependencies
+// Dependencies are combined in order: root -> command -> implementation
+// Returns a new DependsOn struct with combined dependencies
+func MergeDependsOnAll(rootDeps, cmdDeps, implDeps *DependsOn) *DependsOn {
+	if rootDeps == nil && cmdDeps == nil && implDeps == nil {
 		return nil
 	}
 
@@ -812,7 +819,17 @@ func MergeDependsOn(cmdDeps, scriptDeps *DependsOn) *DependsOn {
 		EnvVars:      make([]EnvVarDependency, 0),
 	}
 
-	// Add command-level dependencies first
+	// Add root-level dependencies first (lowest priority)
+	if rootDeps != nil {
+		merged.Tools = append(merged.Tools, rootDeps.Tools...)
+		merged.Commands = append(merged.Commands, rootDeps.Commands...)
+		merged.Filepaths = append(merged.Filepaths, rootDeps.Filepaths...)
+		merged.Capabilities = append(merged.Capabilities, rootDeps.Capabilities...)
+		merged.CustomChecks = append(merged.CustomChecks, rootDeps.CustomChecks...)
+		merged.EnvVars = append(merged.EnvVars, rootDeps.EnvVars...)
+	}
+
+	// Add command-level dependencies
 	if cmdDeps != nil {
 		merged.Tools = append(merged.Tools, cmdDeps.Tools...)
 		merged.Commands = append(merged.Commands, cmdDeps.Commands...)
@@ -823,13 +840,13 @@ func MergeDependsOn(cmdDeps, scriptDeps *DependsOn) *DependsOn {
 	}
 
 	// Add implementation-level dependencies
-	if scriptDeps != nil {
-		merged.Tools = append(merged.Tools, scriptDeps.Tools...)
-		merged.Commands = append(merged.Commands, scriptDeps.Commands...)
-		merged.Filepaths = append(merged.Filepaths, scriptDeps.Filepaths...)
-		merged.Capabilities = append(merged.Capabilities, scriptDeps.Capabilities...)
-		merged.CustomChecks = append(merged.CustomChecks, scriptDeps.CustomChecks...)
-		merged.EnvVars = append(merged.EnvVars, scriptDeps.EnvVars...)
+	if implDeps != nil {
+		merged.Tools = append(merged.Tools, implDeps.Tools...)
+		merged.Commands = append(merged.Commands, implDeps.Commands...)
+		merged.Filepaths = append(merged.Filepaths, implDeps.Filepaths...)
+		merged.Capabilities = append(merged.Capabilities, implDeps.Capabilities...)
+		merged.CustomChecks = append(merged.CustomChecks, implDeps.CustomChecks...)
+		merged.EnvVars = append(merged.EnvVars, implDeps.EnvVars...)
 	}
 
 	// Return nil if no dependencies after merging
@@ -838,6 +855,14 @@ func MergeDependsOn(cmdDeps, scriptDeps *DependsOn) *DependsOn {
 	}
 
 	return merged
+}
+
+// HasRootLevelDependencies returns true if the invkfile has root-level dependencies
+func (inv *Invkfile) HasRootLevelDependencies() bool {
+	if inv.DependsOn == nil {
+		return false
+	}
+	return len(inv.DependsOn.Tools) > 0 || len(inv.DependsOn.Commands) > 0 || len(inv.DependsOn.Filepaths) > 0 || len(inv.DependsOn.Capabilities) > 0 || len(inv.DependsOn.CustomChecks) > 0 || len(inv.DependsOn.EnvVars) > 0
 }
 
 // scriptFileExtensions contains extensions that indicate a script file
@@ -998,6 +1023,12 @@ type Invkfile struct {
 	// Root-level env is applied first (lowest priority from invkfile).
 	// Command-level and implementation-level env override root-level env.
 	Env *EnvConfig `json:"env,omitempty"`
+	// DependsOn specifies global dependencies that apply to all commands (optional)
+	// Root-level depends_on is combined with command-level and implementation-level depends_on.
+	// Root-level dependencies are validated first (lowest priority in the merge order).
+	// This is useful for defining shared prerequisites like required tools or capabilities
+	// that apply to all commands in this invkfile.
+	DependsOn *DependsOn `json:"depends_on,omitempty"`
 	// Commands defines the available commands
 	Commands []Command `json:"commands"`
 
@@ -1588,6 +1619,128 @@ func GenerateCUE(inv *Invkfile) string {
 				sb.WriteString(fmt.Sprintf("\t\t%s: %q\n", k, v))
 			}
 			sb.WriteString("\t}\n")
+		}
+		sb.WriteString("}\n")
+	}
+
+	// Root-level depends_on
+	if inv.DependsOn != nil && (len(inv.DependsOn.Tools) > 0 || len(inv.DependsOn.Commands) > 0 || len(inv.DependsOn.Filepaths) > 0 || len(inv.DependsOn.Capabilities) > 0 || len(inv.DependsOn.CustomChecks) > 0 || len(inv.DependsOn.EnvVars) > 0) {
+		sb.WriteString("depends_on: {\n")
+		if len(inv.DependsOn.Tools) > 0 {
+			sb.WriteString("\ttools: [\n")
+			for _, tool := range inv.DependsOn.Tools {
+				sb.WriteString("\t\t{alternatives: [")
+				for i, alt := range tool.Alternatives {
+					if i > 0 {
+						sb.WriteString(", ")
+					}
+					sb.WriteString(fmt.Sprintf("%q", alt))
+				}
+				sb.WriteString("]},\n")
+			}
+			sb.WriteString("\t]\n")
+		}
+		if len(inv.DependsOn.Commands) > 0 {
+			sb.WriteString("\tcommands: [\n")
+			for _, dep := range inv.DependsOn.Commands {
+				sb.WriteString("\t\t{alternatives: [")
+				for i, alt := range dep.Alternatives {
+					if i > 0 {
+						sb.WriteString(", ")
+					}
+					sb.WriteString(fmt.Sprintf("%q", alt))
+				}
+				sb.WriteString("]},\n")
+			}
+			sb.WriteString("\t]\n")
+		}
+		if len(inv.DependsOn.Filepaths) > 0 {
+			sb.WriteString("\tfilepaths: [\n")
+			for _, fp := range inv.DependsOn.Filepaths {
+				sb.WriteString("\t\t{alternatives: [")
+				for i, alt := range fp.Alternatives {
+					if i > 0 {
+						sb.WriteString(", ")
+					}
+					sb.WriteString(fmt.Sprintf("%q", alt))
+				}
+				sb.WriteString("]")
+				if fp.Readable {
+					sb.WriteString(", readable: true")
+				}
+				if fp.Writable {
+					sb.WriteString(", writable: true")
+				}
+				if fp.Executable {
+					sb.WriteString(", executable: true")
+				}
+				sb.WriteString("},\n")
+			}
+			sb.WriteString("\t]\n")
+		}
+		if len(inv.DependsOn.Capabilities) > 0 {
+			sb.WriteString("\tcapabilities: [\n")
+			for _, cap := range inv.DependsOn.Capabilities {
+				sb.WriteString("\t\t{alternatives: [")
+				for i, alt := range cap.Alternatives {
+					if i > 0 {
+						sb.WriteString(", ")
+					}
+					sb.WriteString(fmt.Sprintf("%q", alt))
+				}
+				sb.WriteString("]},\n")
+			}
+			sb.WriteString("\t]\n")
+		}
+		if len(inv.DependsOn.CustomChecks) > 0 {
+			sb.WriteString("\tcustom_checks: [\n")
+			for _, check := range inv.DependsOn.CustomChecks {
+				if check.IsAlternatives() {
+					sb.WriteString("\t\t{alternatives: [\n")
+					for _, alt := range check.Alternatives {
+						sb.WriteString("\t\t\t{")
+						sb.WriteString(fmt.Sprintf("name: %q, check_script: %q", alt.Name, alt.CheckScript))
+						if alt.ExpectedCode != nil {
+							sb.WriteString(fmt.Sprintf(", expected_code: %d", *alt.ExpectedCode))
+						}
+						if alt.ExpectedOutput != "" {
+							sb.WriteString(fmt.Sprintf(", expected_output: %q", alt.ExpectedOutput))
+						}
+						sb.WriteString("},\n")
+					}
+					sb.WriteString("\t\t]},\n")
+				} else {
+					sb.WriteString("\t\t{")
+					sb.WriteString(fmt.Sprintf("name: %q, check_script: %q", check.Name, check.CheckScript))
+					if check.ExpectedCode != nil {
+						sb.WriteString(fmt.Sprintf(", expected_code: %d", *check.ExpectedCode))
+					}
+					if check.ExpectedOutput != "" {
+						sb.WriteString(fmt.Sprintf(", expected_output: %q", check.ExpectedOutput))
+					}
+					sb.WriteString("},\n")
+				}
+			}
+			sb.WriteString("\t]\n")
+		}
+		if len(inv.DependsOn.EnvVars) > 0 {
+			sb.WriteString("\tenv_vars: [\n")
+			for _, envVar := range inv.DependsOn.EnvVars {
+				sb.WriteString("\t\t{alternatives: [")
+				for i, alt := range envVar.Alternatives {
+					if i > 0 {
+						sb.WriteString(", ")
+					}
+					sb.WriteString("{")
+					sb.WriteString(fmt.Sprintf("name: %q", alt.Name))
+					if alt.Validation != "" {
+						sb.WriteString(fmt.Sprintf(", validation: %q", alt.Validation))
+					}
+					sb.WriteString("}")
+				}
+				sb.WriteString("]},\n")
+			}
+			sb.WriteString("\t]\n")
 		}
 		sb.WriteString("}\n")
 	}

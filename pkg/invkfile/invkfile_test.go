@@ -6069,3 +6069,544 @@ func TestGenerateCUE_WithWorkDir_RoundTrip(t *testing.T) {
 		t.Errorf("Implementation.WorkDir = %q, want %q", parsed.Commands[0].Implementations[0].WorkDir, "impl-workdir")
 	}
 }
+
+// TestParse_RootLevelDependsOn verifies that root-level depends_on is parsed correctly
+func TestParse_RootLevelDependsOn(t *testing.T) {
+	cueContent := `
+group: "test"
+version: "1.0"
+
+depends_on: {
+	tools: [{alternatives: ["sh"]}]
+	capabilities: [{alternatives: ["internet"]}]
+	filepaths: [{alternatives: ["/etc/hosts"], readable: true}]
+	env_vars: [{alternatives: [{name: "HOME"}]}]
+}
+
+commands: [
+	{
+		name: "hello"
+		implementations: [
+			{
+				script: "echo hello"
+				target: { runtimes: [{name: "native"}] }
+			}
+		]
+	}
+]
+`
+	tmpDir, err := os.MkdirTemp("", "invowk-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
+		t.Fatalf("Failed to write invkfile: %v", err)
+	}
+
+	parsed, err := Parse(invkfilePath)
+	if err != nil {
+		t.Fatalf("Failed to parse invkfile: %v", err)
+	}
+
+	// Verify root-level depends_on was parsed
+	if parsed.DependsOn == nil {
+		t.Fatal("Invkfile.DependsOn should not be nil")
+	}
+
+	if len(parsed.DependsOn.Tools) != 1 {
+		t.Fatalf("Expected 1 tool dependency, got %d", len(parsed.DependsOn.Tools))
+	}
+	if parsed.DependsOn.Tools[0].Alternatives[0] != "sh" {
+		t.Errorf("Tool alternative = %q, want %q", parsed.DependsOn.Tools[0].Alternatives[0], "sh")
+	}
+
+	if len(parsed.DependsOn.Capabilities) != 1 {
+		t.Fatalf("Expected 1 capability dependency, got %d", len(parsed.DependsOn.Capabilities))
+	}
+	if parsed.DependsOn.Capabilities[0].Alternatives[0] != CapabilityInternet {
+		t.Errorf("Capability alternative = %v, want %v", parsed.DependsOn.Capabilities[0].Alternatives[0], CapabilityInternet)
+	}
+
+	if len(parsed.DependsOn.Filepaths) != 1 {
+		t.Fatalf("Expected 1 filepath dependency, got %d", len(parsed.DependsOn.Filepaths))
+	}
+	if parsed.DependsOn.Filepaths[0].Alternatives[0] != "/etc/hosts" {
+		t.Errorf("Filepath alternative = %q, want %q", parsed.DependsOn.Filepaths[0].Alternatives[0], "/etc/hosts")
+	}
+	if !parsed.DependsOn.Filepaths[0].Readable {
+		t.Error("Filepath.Readable should be true")
+	}
+
+	if len(parsed.DependsOn.EnvVars) != 1 {
+		t.Fatalf("Expected 1 env_var dependency, got %d", len(parsed.DependsOn.EnvVars))
+	}
+	if parsed.DependsOn.EnvVars[0].Alternatives[0].Name != "HOME" {
+		t.Errorf("EnvVar alternative name = %q, want %q", parsed.DependsOn.EnvVars[0].Alternatives[0].Name, "HOME")
+	}
+}
+
+// TestInvkfile_HasRootLevelDependencies verifies the helper method works correctly
+func TestInvkfile_HasRootLevelDependencies(t *testing.T) {
+	tests := []struct {
+		name     string
+		deps     *DependsOn
+		expected bool
+	}{
+		{
+			name:     "nil depends_on",
+			deps:     nil,
+			expected: false,
+		},
+		{
+			name:     "empty depends_on",
+			deps:     &DependsOn{},
+			expected: false,
+		},
+		{
+			name: "with tools",
+			deps: &DependsOn{
+				Tools: []ToolDependency{{Alternatives: []string{"sh"}}},
+			},
+			expected: true,
+		},
+		{
+			name: "with capabilities",
+			deps: &DependsOn{
+				Capabilities: []CapabilityDependency{{Alternatives: []CapabilityName{CapabilityInternet}}},
+			},
+			expected: true,
+		},
+		{
+			name: "with env_vars",
+			deps: &DependsOn{
+				EnvVars: []EnvVarDependency{{Alternatives: []EnvVarCheck{{Name: "HOME"}}}},
+			},
+			expected: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			inv := &Invkfile{
+				Group:     "test",
+				DependsOn: tt.deps,
+				Commands:  []Command{{Name: "test", Implementations: []Implementation{{Script: "echo", Target: Target{Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}}}}},
+			}
+			if got := inv.HasRootLevelDependencies(); got != tt.expected {
+				t.Errorf("HasRootLevelDependencies() = %v, want %v", got, tt.expected)
+			}
+		})
+	}
+}
+
+// TestMergeDependsOnAll verifies three-way merge works correctly
+func TestMergeDependsOnAll(t *testing.T) {
+	rootDeps := &DependsOn{
+		Tools:        []ToolDependency{{Alternatives: []string{"sh"}}},
+		Capabilities: []CapabilityDependency{{Alternatives: []CapabilityName{CapabilityLocalAreaNetwork}}},
+	}
+	cmdDeps := &DependsOn{
+		Tools:     []ToolDependency{{Alternatives: []string{"bash"}}},
+		Filepaths: []FilepathDependency{{Alternatives: []string{"/etc/hosts"}}},
+	}
+	implDeps := &DependsOn{
+		Tools:   []ToolDependency{{Alternatives: []string{"python3"}}},
+		EnvVars: []EnvVarDependency{{Alternatives: []EnvVarCheck{{Name: "HOME"}}}},
+	}
+
+	merged := MergeDependsOnAll(rootDeps, cmdDeps, implDeps)
+
+	if merged == nil {
+		t.Fatal("MergeDependsOnAll should return non-nil result")
+	}
+
+	// Verify tools are merged in order: root -> command -> impl
+	if len(merged.Tools) != 3 {
+		t.Fatalf("Expected 3 tools after merge, got %d", len(merged.Tools))
+	}
+	if merged.Tools[0].Alternatives[0] != "sh" {
+		t.Errorf("First tool = %q, want %q", merged.Tools[0].Alternatives[0], "sh")
+	}
+	if merged.Tools[1].Alternatives[0] != "bash" {
+		t.Errorf("Second tool = %q, want %q", merged.Tools[1].Alternatives[0], "bash")
+	}
+	if merged.Tools[2].Alternatives[0] != "python3" {
+		t.Errorf("Third tool = %q, want %q", merged.Tools[2].Alternatives[0], "python3")
+	}
+
+	// Verify capabilities from root
+	if len(merged.Capabilities) != 1 {
+		t.Fatalf("Expected 1 capability, got %d", len(merged.Capabilities))
+	}
+	if merged.Capabilities[0].Alternatives[0] != CapabilityLocalAreaNetwork {
+		t.Errorf("Capability = %v, want %v", merged.Capabilities[0].Alternatives[0], CapabilityLocalAreaNetwork)
+	}
+
+	// Verify filepaths from command
+	if len(merged.Filepaths) != 1 {
+		t.Fatalf("Expected 1 filepath, got %d", len(merged.Filepaths))
+	}
+	if merged.Filepaths[0].Alternatives[0] != "/etc/hosts" {
+		t.Errorf("Filepath = %q, want %q", merged.Filepaths[0].Alternatives[0], "/etc/hosts")
+	}
+
+	// Verify env_vars from impl
+	if len(merged.EnvVars) != 1 {
+		t.Fatalf("Expected 1 env_var, got %d", len(merged.EnvVars))
+	}
+	if merged.EnvVars[0].Alternatives[0].Name != "HOME" {
+		t.Errorf("EnvVar name = %q, want %q", merged.EnvVars[0].Alternatives[0].Name, "HOME")
+	}
+}
+
+// TestMergeDependsOnAll_NilInputs verifies three-way merge handles nil inputs
+func TestMergeDependsOnAll_NilInputs(t *testing.T) {
+	tests := []struct {
+		name     string
+		rootDeps *DependsOn
+		cmdDeps  *DependsOn
+		implDeps *DependsOn
+		expected bool // true if result should be non-nil
+	}{
+		{
+			name:     "all nil",
+			rootDeps: nil,
+			cmdDeps:  nil,
+			implDeps: nil,
+			expected: false,
+		},
+		{
+			name:     "only root",
+			rootDeps: &DependsOn{Tools: []ToolDependency{{Alternatives: []string{"sh"}}}},
+			cmdDeps:  nil,
+			implDeps: nil,
+			expected: true,
+		},
+		{
+			name:     "only command",
+			rootDeps: nil,
+			cmdDeps:  &DependsOn{Tools: []ToolDependency{{Alternatives: []string{"bash"}}}},
+			implDeps: nil,
+			expected: true,
+		},
+		{
+			name:     "only impl",
+			rootDeps: nil,
+			cmdDeps:  nil,
+			implDeps: &DependsOn{Tools: []ToolDependency{{Alternatives: []string{"python3"}}}},
+			expected: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := MergeDependsOnAll(tt.rootDeps, tt.cmdDeps, tt.implDeps)
+			if tt.expected && result == nil {
+				t.Error("MergeDependsOnAll should return non-nil result")
+			}
+			if !tt.expected && result != nil {
+				t.Error("MergeDependsOnAll should return nil")
+			}
+		})
+	}
+}
+
+// TestGenerateCUE_WithRootLevelDependsOn verifies GenerateCUE produces valid CUE for root-level depends_on
+func TestGenerateCUE_WithRootLevelDependsOn(t *testing.T) {
+	inv := &Invkfile{
+		Group:   "test",
+		Version: "1.0",
+		DependsOn: &DependsOn{
+			Tools:        []ToolDependency{{Alternatives: []string{"sh", "bash"}}},
+			Capabilities: []CapabilityDependency{{Alternatives: []CapabilityName{CapabilityInternet}}},
+			Filepaths:    []FilepathDependency{{Alternatives: []string{"/etc/hosts"}, Readable: true}},
+			EnvVars:      []EnvVarDependency{{Alternatives: []EnvVarCheck{{Name: "HOME"}}}},
+		},
+		Commands: []Command{
+			{
+				Name: "hello",
+				Implementations: []Implementation{
+					{
+						Script: "echo hello",
+						Target: Target{
+							Runtimes: []RuntimeConfig{{Name: RuntimeNative}},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	result := GenerateCUE(inv)
+
+	// Verify depends_on section is present at root level
+	if !strings.Contains(result, "depends_on:") {
+		t.Error("GenerateCUE should include 'depends_on:' section at root level")
+	}
+	if !strings.Contains(result, "tools:") {
+		t.Error("GenerateCUE should include 'tools:' in depends_on")
+	}
+	if !strings.Contains(result, `"sh"`) {
+		t.Error("GenerateCUE should include 'sh' tool")
+	}
+	if !strings.Contains(result, `"bash"`) {
+		t.Error("GenerateCUE should include 'bash' tool")
+	}
+	if !strings.Contains(result, "capabilities:") {
+		t.Error("GenerateCUE should include 'capabilities:' in depends_on")
+	}
+	if !strings.Contains(result, `"internet"`) {
+		t.Error("GenerateCUE should include 'internet' capability")
+	}
+	if !strings.Contains(result, "filepaths:") {
+		t.Error("GenerateCUE should include 'filepaths:' in depends_on")
+	}
+	if !strings.Contains(result, `"/etc/hosts"`) {
+		t.Error("GenerateCUE should include filepath")
+	}
+	if !strings.Contains(result, "readable: true") {
+		t.Error("GenerateCUE should include 'readable: true'")
+	}
+	if !strings.Contains(result, "env_vars:") {
+		t.Error("GenerateCUE should include 'env_vars:' in depends_on")
+	}
+	if !strings.Contains(result, `"HOME"`) {
+		t.Error("GenerateCUE should include HOME env var")
+	}
+
+	// Verify the generated CUE is parseable
+	tmpDir, err := os.MkdirTemp("", "invowk-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+	if err := os.WriteFile(invkfilePath, []byte(result), 0644); err != nil {
+		t.Fatalf("Failed to write invkfile: %v", err)
+	}
+
+	parsed, err := Parse(invkfilePath)
+	if err != nil {
+		t.Fatalf("Failed to parse generated CUE: %v", err)
+	}
+
+	// Verify parsed root-level depends_on matches original
+	if parsed.DependsOn == nil {
+		t.Fatal("Parsed Invkfile.DependsOn should not be nil")
+	}
+	if len(parsed.DependsOn.Tools) != 1 {
+		t.Errorf("Expected 1 tool dependency, got %d", len(parsed.DependsOn.Tools))
+	}
+	if len(parsed.DependsOn.Capabilities) != 1 {
+		t.Errorf("Expected 1 capability dependency, got %d", len(parsed.DependsOn.Capabilities))
+	}
+	if len(parsed.DependsOn.Filepaths) != 1 {
+		t.Errorf("Expected 1 filepath dependency, got %d", len(parsed.DependsOn.Filepaths))
+	}
+	if len(parsed.DependsOn.EnvVars) != 1 {
+		t.Errorf("Expected 1 env_var dependency, got %d", len(parsed.DependsOn.EnvVars))
+	}
+}
+
+// TestGenerateCUE_WithRootLevelDependsOn_CustomChecks verifies GenerateCUE handles custom_checks at root level
+func TestGenerateCUE_WithRootLevelDependsOn_CustomChecks(t *testing.T) {
+	expectedCode := 0
+	inv := &Invkfile{
+		Group:   "test",
+		Version: "1.0",
+		DependsOn: &DependsOn{
+			CustomChecks: []CustomCheckDependency{
+				{
+					Name:         "check-version",
+					CheckScript:  "sh --version",
+					ExpectedCode: &expectedCode,
+				},
+				{
+					Alternatives: []CustomCheck{
+						{Name: "alt1", CheckScript: "echo 1"},
+						{Name: "alt2", CheckScript: "echo 2"},
+					},
+				},
+			},
+		},
+		Commands: []Command{
+			{
+				Name: "hello",
+				Implementations: []Implementation{
+					{
+						Script: "echo hello",
+						Target: Target{
+							Runtimes: []RuntimeConfig{{Name: RuntimeNative}},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	result := GenerateCUE(inv)
+
+	// Verify custom_checks section is present at root level
+	if !strings.Contains(result, "custom_checks:") {
+		t.Error("GenerateCUE should include 'custom_checks:' section at root level")
+	}
+	if !strings.Contains(result, `"check-version"`) {
+		t.Error("GenerateCUE should include 'check-version' custom check name")
+	}
+	if !strings.Contains(result, `"sh --version"`) {
+		t.Error("GenerateCUE should include 'sh --version' check_script")
+	}
+	if !strings.Contains(result, "expected_code: 0") {
+		t.Error("GenerateCUE should include 'expected_code: 0'")
+	}
+	if !strings.Contains(result, "alternatives:") {
+		t.Error("GenerateCUE should include alternatives for custom checks")
+	}
+}
+
+// TestParse_RootLevelDependsOn_CustomChecks verifies custom_checks parsing at root level
+func TestParse_RootLevelDependsOn_CustomChecks(t *testing.T) {
+	cueContent := `
+group: "test"
+version: "1.0"
+
+depends_on: {
+	custom_checks: [
+		{
+			name: "version-check"
+			check_script: "sh --version"
+			expected_code: 0
+		},
+		{
+			alternatives: [
+				{name: "bash-check", check_script: "bash --version"},
+				{name: "sh-check", check_script: "sh --version"}
+			]
+		}
+	]
+}
+
+commands: [
+	{
+		name: "hello"
+		implementations: [
+			{
+				script: "echo hello"
+				target: { runtimes: [{name: "native"}] }
+			}
+		]
+	}
+]
+`
+	tmpDir, err := os.MkdirTemp("", "invowk-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
+		t.Fatalf("Failed to write invkfile: %v", err)
+	}
+
+	parsed, err := Parse(invkfilePath)
+	if err != nil {
+		t.Fatalf("Failed to parse invkfile: %v", err)
+	}
+
+	if parsed.DependsOn == nil {
+		t.Fatal("Invkfile.DependsOn should not be nil")
+	}
+
+	if len(parsed.DependsOn.CustomChecks) != 2 {
+		t.Fatalf("Expected 2 custom checks, got %d", len(parsed.DependsOn.CustomChecks))
+	}
+
+	// First check is direct (not alternatives)
+	check1 := parsed.DependsOn.CustomChecks[0]
+	if check1.IsAlternatives() {
+		t.Error("First custom check should not be alternatives format")
+	}
+	if check1.Name != "version-check" {
+		t.Errorf("First check name = %q, want %q", check1.Name, "version-check")
+	}
+	if check1.CheckScript != "sh --version" {
+		t.Errorf("First check script = %q, want %q", check1.CheckScript, "sh --version")
+	}
+
+	// Second check uses alternatives
+	check2 := parsed.DependsOn.CustomChecks[1]
+	if !check2.IsAlternatives() {
+		t.Error("Second custom check should be alternatives format")
+	}
+	if len(check2.Alternatives) != 2 {
+		t.Fatalf("Expected 2 alternatives in second check, got %d", len(check2.Alternatives))
+	}
+}
+
+// TestParse_RootLevelDependsOn_CommandDeps verifies command dependencies parsing at root level
+func TestParse_RootLevelDependsOn_CommandDeps(t *testing.T) {
+	cueContent := `
+group: "test"
+version: "1.0"
+
+depends_on: {
+	commands: [
+		{alternatives: ["test setup"]},
+		{alternatives: ["test init", "test bootstrap"]}
+	]
+}
+
+commands: [
+	{
+		name: "hello"
+		implementations: [
+			{
+				script: "echo hello"
+				target: { runtimes: [{name: "native"}] }
+			}
+		]
+	}
+]
+`
+	tmpDir, err := os.MkdirTemp("", "invowk-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
+		t.Fatalf("Failed to write invkfile: %v", err)
+	}
+
+	parsed, err := Parse(invkfilePath)
+	if err != nil {
+		t.Fatalf("Failed to parse invkfile: %v", err)
+	}
+
+	if parsed.DependsOn == nil {
+		t.Fatal("Invkfile.DependsOn should not be nil")
+	}
+
+	if len(parsed.DependsOn.Commands) != 2 {
+		t.Fatalf("Expected 2 command dependencies, got %d", len(parsed.DependsOn.Commands))
+	}
+
+	// First command dependency has one alternative
+	if len(parsed.DependsOn.Commands[0].Alternatives) != 1 {
+		t.Errorf("Expected 1 alternative in first command dep, got %d", len(parsed.DependsOn.Commands[0].Alternatives))
+	}
+	if parsed.DependsOn.Commands[0].Alternatives[0] != "test setup" {
+		t.Errorf("First command dep alternative = %q, want %q", parsed.DependsOn.Commands[0].Alternatives[0], "test setup")
+	}
+
+	// Second command dependency has two alternatives
+	if len(parsed.DependsOn.Commands[1].Alternatives) != 2 {
+		t.Errorf("Expected 2 alternatives in second command dep, got %d", len(parsed.DependsOn.Commands[1].Alternatives))
+	}
+}

@@ -820,14 +820,14 @@ func stopSSHServer() {
 }
 
 // executeDependencies checks tool dependencies and runs dependent commands
-// Dependencies are merged from both command-level and script-level, and
+// Dependencies are merged from root-level, command-level, and implementation-level, and
 // validated according to the selected runtime:
 // - native: validated against the native standard shell from the host
 // - virtual: validated against invowk's built-in sh interpreter with core utils
 // - container: validated against the container's default shell from within the container
 func executeDependencies(cmdInfo *discovery.CommandInfo, registry *runtime.Registry, parentCtx *runtime.ExecutionContext) error {
-	// Merge command-level and script-level dependencies
-	mergedDeps := invkfile.MergeDependsOn(cmdInfo.Command.DependsOn, parentCtx.SelectedImpl.DependsOn)
+	// Merge root-level, command-level, and implementation-level dependencies
+	mergedDeps := invkfile.MergeDependsOnAll(cmdInfo.Invkfile.DependsOn, cmdInfo.Command.DependsOn, parentCtx.SelectedImpl.DependsOn)
 
 	if mergedDeps == nil {
 		return nil
