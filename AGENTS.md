@@ -1,5 +1,6 @@
 ## Built-in Examples of Invowk Commands (invowkfile.cue at project root)
 
+- Always update the example file when there are any invowkfile definition changes or features added/modified/removed.
 - All commands should be idempotent and not cause any side effects on the host.
 - No commands should be related to building invowk itself or manipulating any of its source code.
 - Examples should range from simple (e.g.: native 'hello-world') to complex (e.g.: container 'hello-world' with the enable_host_ssh feature).
