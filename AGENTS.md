@@ -306,6 +306,18 @@ When modifying pack-related code, verify:
 
 The `website/` directory contains a Docusaurus-based documentation website for Invowk.
 
+### CRITICAL: Read WEBSITE_DOCS.md First
+
+**Before making ANY changes to the documentation website, you MUST read `website/WEBSITE_DOCS.md`.** This file contains essential information about:
+
+- How to properly add new documentation pages (including sidebar configuration)
+- Translation requirements and file structure
+- The Snippet component pattern for code blocks
+- Common mistakes to avoid
+- Testing procedures
+
+Failure to follow the guidelines in `website/WEBSITE_DOCS.md` will result in pages not appearing in navigation, broken builds, or missing translations.
+
 ### CRITICAL: Documentation Maintenance Requirement
 
 **The documentation website MUST be kept in sync with the codebase.** When making changes to the following, you MUST update the corresponding documentation:

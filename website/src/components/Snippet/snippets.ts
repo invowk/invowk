@@ -7048,6 +7048,135 @@ container_engine: "docker"`,
     language: 'bash',
     code: `invowk config show`,
   },
+
+  // =============================================================================
+  // TUI - PAGER COMPONENT
+  // =============================================================================
+
+  'tui/pager-basic': {
+    language: 'bash',
+    code: `# View a file
+invowk tui pager README.md
+
+# Pipe content
+cat long-output.txt | invowk tui pager`,
+  },
+
+  'tui/pager-options': {
+    language: 'bash',
+    code: `# With title
+invowk tui pager --title "Log Output" app.log
+
+# Show line numbers
+invowk tui pager --line-numbers main.go
+
+# Soft wrap long lines
+invowk tui pager --soft-wrap document.txt
+
+# Combine options
+git log | invowk tui pager --title "Git History" --line-numbers`,
+  },
+
+  'tui/pager-script': {
+    language: 'cue',
+    code: `{
+    name: "view-logs"
+    description: "View application logs interactively"
+    implementations: [{
+        script: """
+            # Get recent logs and display in pager
+            journalctl -u myapp --no-pager -n 500 | \\
+                invowk tui pager --title "Application Logs" --soft-wrap
+            """
+        target: {runtimes: [{name: "native"}]}
+    }]
+}`,
+  },
+
+  'tui/pager-code-review': {
+    language: 'bash',
+    code: `# Review code with line numbers
+invowk tui pager --line-numbers --title "Code Review" src/main.go
+
+# View diff output
+git diff HEAD~5 | invowk tui pager --title "Recent Changes"`,
+  },
+
+  // =============================================================================
+  // INTERACTIVE MODE
+  // =============================================================================
+
+  'interactive/basic-usage': {
+    language: 'bash',
+    code: `# Run a command in interactive mode
+invowk cmd myproject build --interactive
+
+# Short form
+invowk cmd myproject build -i`,
+  },
+
+  'interactive/config-enable': {
+    language: 'cue',
+    code: `// In config file: ~/.config/invowk/config.cue
+ui: {
+    interactive: true  // Enable by default
+}`,
+  },
+
+  'interactive/use-cases': {
+    language: 'bash',
+    code: `# Commands with password prompts
+invowk cmd deploy --interactive
+
+# Commands with sudo
+invowk cmd system-update -i
+
+# SSH sessions
+invowk cmd remote-shell -i
+
+# Any command with interactive input
+invowk cmd database-cli -i`,
+  },
+
+  'interactive/embedded-tui': {
+    language: 'cue',
+    code: `{
+    name: "interactive-setup"
+    description: "Setup with embedded TUI prompts"
+    implementations: [{
+        script: """
+            # When run with -i, TUI components appear as overlays
+            NAME=$(invowk tui input --title "Project name:")
+            TYPE=$(invowk tui choose --title "Type:" api cli library)
+            
+            if invowk tui confirm "Create $TYPE project '$NAME'?"; then
+                mkdir -p "$NAME"
+                echo "Created $NAME"
+            fi
+            """
+        target: {runtimes: [{name: "native"}]}
+    }]
+}`,
+  },
+
+  'interactive/key-bindings-executing': {
+    language: 'text',
+    code: `During command execution:
+  All keys      → Forwarded to running command
+  Ctrl+\\        → Emergency quit (force exit)`,
+  },
+
+  'interactive/key-bindings-completed': {
+    language: 'text',
+    code: `After command completion:
+  ↑/k           → Scroll up one line
+  ↓/j           → Scroll down one line
+  PgUp/b        → Scroll up half page
+  PgDown/f/Space→ Scroll down half page
+  Home/g        → Go to top
+  End/G         → Go to bottom
+  q/Esc/Enter   → Exit and return to terminal`,
+  },
 } as const;
 
 // Type-safe snippet IDs

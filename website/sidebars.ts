@@ -80,6 +80,7 @@ const sidebars: SidebarsConfig = {
         'advanced/interpreters',
         'advanced/workdir',
         'advanced/platform-specific',
+        'advanced/interactive-mode',
       ],
     },
     {
@@ -101,6 +102,7 @@ const sidebars: SidebarsConfig = {
         'tui/choose-and-confirm',
         'tui/filter-and-file',
         'tui/table-and-spin',
+        'tui/pager',
         'tui/format-and-style',
       ],
     },

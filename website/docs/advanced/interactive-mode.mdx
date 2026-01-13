@@ -1,0 +1,170 @@
+---
+sidebar_position: 4
+---
+
+import Snippet from '@site/src/components/Snippet';
+
+# Interactive Mode
+
+Interactive mode (`-i` / `--interactive`) runs commands in an alternate screen buffer with full PTY (pseudo-terminal) support, enabling rich terminal interactions.
+
+## Overview
+
+When you run a command with `-i`, Invowk:
+
+1. Creates a pseudo-terminal (PTY) for the command
+2. Displays output in an alternate screen buffer (terminal stays clean)
+3. Forwards all keyboard input to the running command
+4. Allows scrolling and reviewing output after completion
+5. Supports embedded TUI components as modal overlays
+
+## Basic Usage
+
+<Snippet id="interactive/basic-usage" />
+
+## When to Use Interactive Mode
+
+Interactive mode is especially useful for:
+
+<Snippet id="interactive/use-cases" />
+
+### Why These Commands Need It
+
+Without interactive mode, stdin is not connected to a TTY, which breaks:
+- Password prompts (they can't read your input securely)
+- `sudo` (requires a TTY for password entry)
+- SSH sessions (need full terminal control)
+- Any program using `readline` or similar libraries
+
+## Enabling by Default
+
+You can enable interactive mode by default in your configuration:
+
+<Snippet id="interactive/config-enable" />
+
+This is equivalent to always passing `--interactive` on the command line.
+
+:::note
+Interactive mode only works with the **native runtime**. Virtual and container runtimes do not support this mode.
+:::
+
+## Key Bindings
+
+### During Command Execution
+
+<Snippet id="interactive/key-bindings-executing" />
+
+All keyboard input is forwarded directly to the running command, allowing full interaction with password prompts, editors, and other interactive programs.
+
+### After Command Completion
+
+Once the command finishes, you can review the output:
+
+<Snippet id="interactive/key-bindings-completed" />
+
+The status bar shows:
+- Command exit code
+- Execution duration
+- Scroll position indicator
+
+## Embedded TUI Components
+
+When running in interactive mode, TUI components called from your scripts are rendered as **modal overlays** on top of the command output, rather than in a separate screen:
+
+<Snippet id="interactive/embedded-tui" />
+
+This creates a seamless experience where:
+1. Your script runs in the alternate screen
+2. When a TUI component is needed, it appears as an overlay
+3. After the user completes the interaction, the overlay closes
+4. Script execution continues with the captured value
+
+### How It Works
+
+When a command runs with `-i`:
+1. Invowk starts a local TUI server
+2. Child processes detect the `INVOWK_TUI_ADDR` environment variable
+3. Instead of rendering directly, TUI components send requests to the parent
+4. The parent renders them as modal overlays
+5. Results are sent back to the child process
+
+This happens automatically - no changes needed to your scripts.
+
+## Alternate Screen Buffer
+
+The alternate screen buffer is a terminal feature that:
+- Provides a separate "screen" for the command
+- Preserves your terminal history
+- Automatically restores when the command exits
+
+This means after exiting interactive mode:
+- Your terminal looks exactly as it did before
+- No output pollution in your scrollback
+- Clean separation between invowk output and normal terminal use
+
+## Limitations
+
+- **Native runtime only**: Virtual and container runtimes don't support interactive mode
+- **Single command**: Can't run multiple commands in parallel in interactive mode
+- **PTY required**: The terminal must support PTY operations
+
+## Best Practices
+
+1. **Use for commands that need input**: Deploy scripts with confirmations, database migrations, etc.
+
+2. **Don't use for simple commands**: Quick commands without interaction don't benefit from interactive mode
+
+3. **Combine with TUI components**: Create rich interactive workflows with embedded prompts
+
+4. **Consider config default**: If most of your commands need interaction, enable it in config
+
+## Examples
+
+### Deployment Script
+
+```cue
+{
+    name: "deploy"
+    description: "Deploy with confirmations"
+    implementations: [{
+        script: """
+            echo "Deploying to production..."
+            
+            # This sudo prompt works because we're in interactive mode
+            sudo systemctl restart myapp
+            
+            echo "Deployment complete!"
+            """
+        target: {runtimes: [{name: "native"}]}
+    }]
+}
+```
+
+Run with: `invowk cmd myproject deploy -i`
+
+### Database Migration
+
+```cue
+{
+    name: "db migrate"
+    description: "Run database migrations"
+    implementations: [{
+        script: """
+            echo "=== Database Migration ==="
+            
+            # Interactive confirmation
+            if invowk tui confirm "Apply migrations to production?"; then
+                # Password prompt works in interactive mode
+                psql -h prod-db -U admin -W -f migrations.sql
+            fi
+            """
+        target: {runtimes: [{name: "native"}]}
+    }]
+}
+```
+
+## Next Steps
+
+- [TUI Components](/docs/tui/overview) - Components that work with interactive mode
+- [Configuration Options](/docs/configuration/options) - Enable interactive by default
+- [Native Runtime](/docs/runtime-modes/native) - Understanding the native runtime

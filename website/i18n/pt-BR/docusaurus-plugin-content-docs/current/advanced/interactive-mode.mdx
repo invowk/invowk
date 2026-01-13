@@ -1,0 +1,170 @@
+---
+sidebar_position: 4
+---
+
+import Snippet from '@site/src/components/Snippet';
+
+# Modo Interativo
+
+O modo interativo (`-i` / `--interactive`) executa comandos em um buffer de tela alternativo com suporte completo a PTY (pseudo-terminal), permitindo interações ricas no terminal.
+
+## Visão Geral
+
+Quando você executa um comando com `-i`, o Invowk:
+
+1. Cria um pseudo-terminal (PTY) para o comando
+2. Exibe a saída em um buffer de tela alternativo (terminal fica limpo)
+3. Encaminha toda entrada de teclado para o comando em execução
+4. Permite rolar e revisar a saída após a conclusão
+5. Suporta componentes TUI embutidos como overlays modais
+
+## Uso Básico
+
+<Snippet id="interactive/basic-usage" />
+
+## Quando Usar o Modo Interativo
+
+O modo interativo é especialmente útil para:
+
+<Snippet id="interactive/use-cases" />
+
+### Por Que Esses Comandos Precisam Dele
+
+Sem o modo interativo, stdin não está conectado a um TTY, o que quebra:
+- Prompts de senha (não conseguem ler sua entrada de forma segura)
+- `sudo` (requer um TTY para entrada de senha)
+- Sessões SSH (precisam de controle total do terminal)
+- Qualquer programa usando `readline` ou bibliotecas similares
+
+## Habilitando por Padrão
+
+Você pode habilitar o modo interativo por padrão na sua configuração:
+
+<Snippet id="interactive/config-enable" />
+
+Isso é equivalente a sempre passar `--interactive` na linha de comando.
+
+:::note
+O modo interativo funciona apenas com o **runtime nativo**. Runtimes virtual e container não suportam este modo.
+:::
+
+## Atalhos de Teclado
+
+### Durante a Execução do Comando
+
+<Snippet id="interactive/key-bindings-executing" />
+
+Toda entrada de teclado é encaminhada diretamente para o comando em execução, permitindo interação completa com prompts de senha, editores e outros programas interativos.
+
+### Após a Conclusão do Comando
+
+Uma vez que o comando termina, você pode revisar a saída:
+
+<Snippet id="interactive/key-bindings-completed" />
+
+A barra de status mostra:
+- Código de saída do comando
+- Duração da execução
+- Indicador de posição de rolagem
+
+## Componentes TUI Embutidos
+
+Ao executar no modo interativo, componentes TUI chamados de seus scripts são renderizados como **overlays modais** sobre a saída do comando, ao invés de uma tela separada:
+
+<Snippet id="interactive/embedded-tui" />
+
+Isso cria uma experiência fluida onde:
+1. Seu script executa na tela alternativa
+2. Quando um componente TUI é necessário, ele aparece como overlay
+3. Após o usuário completar a interação, o overlay fecha
+4. A execução do script continua com o valor capturado
+
+### Como Funciona
+
+Quando um comando executa com `-i`:
+1. Invowk inicia um servidor TUI local
+2. Processos filhos detectam a variável de ambiente `INVOWK_TUI_ADDR`
+3. Ao invés de renderizar diretamente, componentes TUI enviam requisições ao pai
+4. O pai os renderiza como overlays modais
+5. Resultados são enviados de volta ao processo filho
+
+Isso acontece automaticamente - nenhuma mudança necessária nos seus scripts.
+
+## Buffer de Tela Alternativo
+
+O buffer de tela alternativo é um recurso do terminal que:
+- Fornece uma "tela" separada para o comando
+- Preserva seu histórico do terminal
+- Restaura automaticamente quando o comando termina
+
+Isso significa que após sair do modo interativo:
+- Seu terminal parece exatamente como antes
+- Sem poluição de saída no seu scrollback
+- Separação limpa entre saída do invowk e uso normal do terminal
+
+## Limitações
+
+- **Apenas runtime nativo**: Runtimes virtual e container não suportam modo interativo
+- **Comando único**: Não é possível executar múltiplos comandos em paralelo no modo interativo
+- **PTY necessário**: O terminal deve suportar operações PTY
+
+## Boas Práticas
+
+1. **Use para comandos que precisam de entrada**: Scripts de deploy com confirmações, migrações de banco de dados, etc.
+
+2. **Não use para comandos simples**: Comandos rápidos sem interação não se beneficiam do modo interativo
+
+3. **Combine com componentes TUI**: Crie fluxos de trabalho interativos ricos com prompts embutidos
+
+4. **Considere o padrão de configuração**: Se a maioria dos seus comandos precisa de interação, habilite na configuração
+
+## Exemplos
+
+### Script de Deploy
+
+```cue
+{
+    name: "deploy"
+    description: "Deploy com confirmações"
+    implementations: [{
+        script: """
+            echo "Fazendo deploy em produção..."
+            
+            # Este prompt de sudo funciona porque estamos no modo interativo
+            sudo systemctl restart myapp
+            
+            echo "Deploy concluído!"
+            """
+        target: {runtimes: [{name: "native"}]}
+    }]
+}
+```
+
+Execute com: `invowk cmd myproject deploy -i`
+
+### Migração de Banco de Dados
+
+```cue
+{
+    name: "db migrate"
+    description: "Executar migrações do banco de dados"
+    implementations: [{
+        script: """
+            echo "=== Migração de Banco de Dados ==="
+            
+            # Confirmação interativa
+            if invowk tui confirm "Aplicar migrações em produção?"; then
+                # Prompt de senha funciona no modo interativo
+                psql -h prod-db -U admin -W -f migrations.sql
+            fi
+            """
+        target: {runtimes: [{name: "native"}]}
+    }]
+}
+```
+
+## Próximos Passos
+
+- [Componentes TUI](/docs/tui/overview) - Componentes que funcionam com modo interativo
+- [Opções de Configuração](/docs/configuration/options) - Habilitar interativo por padrão
+- [Runtime Nativo](/docs/runtime-modes/native) - Entendendo o runtime nativo

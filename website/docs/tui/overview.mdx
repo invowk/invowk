@@ -20,6 +20,7 @@ Invowk™ includes a set of interactive terminal UI components inspired by [gum]
 | [file](./filter-and-file#file) | File picker | Select files/directories |
 | [table](./table-and-spin#table) | Display tabular data | CSV, data tables |
 | [spin](./table-and-spin#spin) | Spinner with command | Long-running tasks |
+| [pager](./pager) | Scrollable content viewer | Logs, code review, long output |
 | [format](./format-and-style#format) | Format text (markdown, code) | Rendering content |
 | [style](./format-and-style#style) | Style text (colors, bold) | Decorating output |
 
@@ -67,6 +68,7 @@ Components use exit codes to communicate:
 | input | Value entered | Cancelled |
 | choose | Option selected | Cancelled |
 | filter | Option selected | Cancelled |
+| pager | Exited normally | Error occurred |
 
 Use in conditionals:
 
@@ -80,4 +82,5 @@ Explore each component in detail:
 - [Choose and Confirm](./choose-and-confirm) - Selection and confirmation
 - [Filter and File](./filter-and-file) - Search and file picking
 - [Table and Spin](./table-and-spin) - Data display and spinners
+- [Pager](./pager) - Scrollable content viewing
 - [Format and Style](./format-and-style) - Text formatting and styling
