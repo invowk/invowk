@@ -345,7 +345,7 @@ After making documentation changes:
 ```bash
 cd website
 npm install    # First time only
-npm start      # Start dev server at localhost:3000
+npm start      # Start dev server at localhost:3000 (English only)
 ```
 
 Verify:
@@ -354,6 +354,17 @@ Verify:
 3. Code examples render properly
 4. Links are not broken
 
+**Testing specific locales in dev mode:**
+```bash
+npm start -- --locale pt-BR   # Start dev server with Portuguese
+```
+
+**Testing all locales (recommended before committing):**
+```bash
+npm run build    # Build all locales
+npm run serve    # Serve at localhost:3000, language switcher works
+```
+
 ### CRITICAL: Internationalization (i18n) Requirements
 
 The documentation website supports multiple languages. **All supported locales MUST be kept in sync.**
@@ -361,6 +372,8 @@ The documentation website supports multiple languages. **All supported locales M
 **Supported Locales:**
 - `en` (English) - Primary/source language in `website/docs/`
 - `pt-BR` (Português Brasil) - Translations in `website/i18n/pt-BR/docusaurus-plugin-content-docs/current/`
+
+**Important:** The dev server (`npm start`) only serves ONE locale at a time. To test the language switcher, use `npm run build && npm run serve`.
 
 **When updating documentation:**
 
@@ -385,6 +398,7 @@ The documentation website supports multiple languages. **All supported locales M
 ```bash
 cd website
 npm run build  # Must succeed for ALL locales without errors
+npm run serve  # Test language switcher at localhost:3000
 ```
 
 The build will fail if locale files are missing or malformed. Always test the language switcher after documentation changes.
