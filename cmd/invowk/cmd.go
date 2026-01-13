@@ -4,6 +4,7 @@ package cmd
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -20,6 +21,7 @@ import (
 	"invowk-cli/internal/issue"
 	"invowk-cli/internal/runtime"
 	"invowk-cli/internal/sshserver"
+	"invowk-cli/internal/tui"
 	"invowk-cli/pkg/invkfile"
 )
 
@@ -730,7 +732,17 @@ func runCommandWithFlags(cmdName string, args []string, flagValues map[string]st
 		ctx.ExtraEnv[envName] = value
 	}
 
-	result := registry.Execute(ctx)
+	var result *runtime.Result
+
+	// Check if we should use interactive mode
+	// Interactive mode is only supported for native runtime currently
+	if interactive && selectedRuntime == invkfile.RuntimeNative {
+		result = executeInteractive(ctx, registry, cmdName)
+	} else {
+		// Standard execution
+		result = registry.Execute(ctx)
+	}
+
 	if result.Error != nil {
 		rendered, _ := issue.Get(issue.ScriptExecutionFailedId).Render("dark")
 		fmt.Fprint(os.Stderr, rendered)
@@ -759,6 +771,57 @@ func runCommand(args []string) error {
 
 	// Delegate to runCommandWithFlags with empty flag values, no arg definitions, and no workdir override
 	return runCommandWithFlags(cmdName, cmdArgs, nil, nil, nil, nil, nil, "")
+}
+
+// executeInteractive runs a command in interactive mode using an alternate screen buffer.
+// This provides a full PTY for the command, forwarding keyboard input during execution
+// and allowing output review after completion.
+func executeInteractive(ctx *runtime.ExecutionContext, registry *runtime.Registry, cmdName string) *runtime.Result {
+	// Get the native runtime to prepare the command
+	rt, err := registry.Get(runtime.RuntimeTypeNative)
+	if err != nil {
+		return &runtime.Result{ExitCode: 1, Error: fmt.Errorf("native runtime not available: %w", err)}
+	}
+
+	nativeRT, ok := rt.(*runtime.NativeRuntime)
+	if !ok {
+		return &runtime.Result{ExitCode: 1, Error: fmt.Errorf("unexpected runtime type")}
+	}
+
+	// Validate the context
+	if err := nativeRT.Validate(ctx); err != nil {
+		return &runtime.Result{ExitCode: 1, Error: err}
+	}
+
+	// Prepare the command without executing it
+	prepared, err := nativeRT.PrepareCommand(ctx)
+	if err != nil {
+		return &runtime.Result{ExitCode: 1, Error: fmt.Errorf("failed to prepare command: %w", err)}
+	}
+
+	// Ensure cleanup is called when done
+	if prepared.Cleanup != nil {
+		defer prepared.Cleanup()
+	}
+
+	// Run the command in interactive mode
+	interactiveResult, err := tui.RunInteractiveCmd(
+		context.Background(),
+		tui.InteractiveOptions{
+			Title:       "Running Command",
+			CommandName: cmdName,
+		},
+		prepared.Cmd,
+	)
+
+	if err != nil {
+		return &runtime.Result{ExitCode: 1, Error: fmt.Errorf("interactive execution failed: %w", err)}
+	}
+
+	return &runtime.Result{
+		ExitCode: interactiveResult.ExitCode,
+		Error:    interactiveResult.Error,
+	}
 }
 
 // createRuntimeRegistry creates and populates the runtime registry

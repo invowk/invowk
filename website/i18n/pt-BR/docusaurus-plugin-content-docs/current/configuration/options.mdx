@@ -118,6 +118,21 @@ Habilita saída verbose por padrão. Quando habilitado, Invowk imprime informaç
 
 Isso é equivalente a sempre passar `--verbose` na linha de comando.
 
+#### ui.interactive
+
+**Tipo:** `bool`  
+**Padrão:** `false`
+
+Habilita o modo interativo por padrão. Quando habilitado, os comandos são executados em um buffer de tela alternativo com suporte completo a PTY, permitindo que programas interativos como prompts de senha, confirmações e outras interações baseadas em stdin funcionem corretamente.
+
+<Snippet id="config/ui-interactive" />
+
+Isso é equivalente a sempre passar `--interactive` na linha de comando.
+
+:::note
+O modo interativo funciona apenas com o runtime nativo. Os runtimes virtual e container não suportam este modo.
+:::
+
 ## Exemplo Completo
 
 Aqui está um arquivo de configuração completo com todas as opções:

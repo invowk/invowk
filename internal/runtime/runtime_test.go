@@ -1297,3 +1297,137 @@ print("stderr output", file=sys.stderr)`
 		t.Errorf("ExecuteCapture() stderr = %q, want to contain 'stderr output'", result.ErrOutput)
 	}
 }
+
+func TestNativeRuntime_PrepareCommand(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test in short mode")
+	}
+
+	tmpDir, err := os.MkdirTemp("", "invowk-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+	inv := &invkfile.Invkfile{
+		FilePath: invkfilePath,
+	}
+
+	// Simple echo command
+	script := `echo "PrepareCommand test"`
+
+	cmd := testCommandWithScript("prepare-test", script, invkfile.RuntimeNative)
+
+	rt := NewNativeRuntime()
+	ctx := NewExecutionContext(cmd, inv)
+	ctx.Context = context.Background()
+
+	// Prepare the command without executing
+	prepared, err := rt.PrepareCommand(ctx)
+	if err != nil {
+		t.Fatalf("PrepareCommand() error = %v", err)
+	}
+
+	// Verify the command was created
+	if prepared.Cmd == nil {
+		t.Fatal("PrepareCommand() returned nil Cmd")
+	}
+
+	// Verify the command path is set (should be a shell)
+	if prepared.Cmd.Path == "" {
+		t.Error("PrepareCommand() Cmd.Path is empty")
+	}
+
+	// Verify environment is set
+	if len(prepared.Cmd.Env) == 0 {
+		t.Error("PrepareCommand() Cmd.Env is empty")
+	}
+
+	// Execute the prepared command and verify output
+	var stdout bytes.Buffer
+	prepared.Cmd.Stdout = &stdout
+	prepared.Cmd.Stderr = &bytes.Buffer{}
+
+	err = prepared.Cmd.Run()
+	if err != nil {
+		t.Errorf("prepared.Cmd.Run() error = %v", err)
+	}
+
+	// Cleanup if needed
+	if prepared.Cleanup != nil {
+		prepared.Cleanup()
+	}
+
+	output := strings.TrimSpace(stdout.String())
+	if output != "PrepareCommand test" {
+		t.Errorf("prepared command output = %q, want %q", output, "PrepareCommand test")
+	}
+}
+
+func TestNativeRuntime_PrepareCommandWithInterpreter(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test in short mode")
+	}
+
+	// Check if python3 is available
+	if _, err := exec.LookPath("python3"); err != nil {
+		t.Skip("python3 not available, skipping test")
+	}
+
+	tmpDir, err := os.MkdirTemp("", "invowk-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+	inv := &invkfile.Invkfile{
+		FilePath: invkfilePath,
+	}
+
+	// Python script with explicit interpreter
+	script := `print("PrepareCommand Python test")`
+
+	cmd := testCommandWithInterpreter("prepare-python", script, "python3", invkfile.RuntimeNative)
+
+	rt := NewNativeRuntime()
+	ctx := NewExecutionContext(cmd, inv)
+	ctx.Context = context.Background()
+
+	// Prepare the command without executing
+	prepared, err := rt.PrepareCommand(ctx)
+	if err != nil {
+		t.Fatalf("PrepareCommand() error = %v", err)
+	}
+
+	// Verify the command was created
+	if prepared.Cmd == nil {
+		t.Fatal("PrepareCommand() returned nil Cmd")
+	}
+
+	// For interpreter-based command, cleanup should be set (temp file created)
+	if prepared.Cleanup == nil {
+		t.Error("PrepareCommand() with inline interpreter script should have Cleanup function")
+	}
+
+	// Execute the prepared command and verify output
+	var stdout bytes.Buffer
+	prepared.Cmd.Stdout = &stdout
+	prepared.Cmd.Stderr = &bytes.Buffer{}
+
+	err = prepared.Cmd.Run()
+	if err != nil {
+		t.Errorf("prepared.Cmd.Run() error = %v", err)
+	}
+
+	// Cleanup
+	if prepared.Cleanup != nil {
+		prepared.Cleanup()
+	}
+
+	output := strings.TrimSpace(stdout.String())
+	if output != "PrepareCommand Python test" {
+		t.Errorf("prepared command output = %q, want %q", output, "PrepareCommand Python test")
+	}
+}

@@ -4021,6 +4021,7 @@ virtual_shell: {
 ui: {
     color_scheme: "auto"  // "auto", "dark", or "light"
     verbose: false
+    interactive: false    // Enable alternate screen buffer mode
 }`,
   },
 
@@ -4032,6 +4033,12 @@ ui: {
     default_runtime?: "native" | "virtual" | "container"
     virtual_shell?: #VirtualShellConfig
     ui?: #UIConfig
+}
+
+#UIConfig: {
+    color_scheme?: "auto" | "dark" | "light"
+    verbose?: bool
+    interactive?: bool
 }`,
   },
 
@@ -4052,6 +4059,7 @@ ui: {
     code: `ui: {
     color_scheme: "dark"
     verbose: false
+    interactive: false
 }`,
   },
 
@@ -4066,6 +4074,13 @@ ui: {
     language: 'cue',
     code: `ui: {
     verbose: true
+}`,
+  },
+
+  'config/ui-interactive': {
+    language: 'cue',
+    code: `ui: {
+    interactive: true
 }`,
   },
 
@@ -4099,6 +4114,9 @@ ui: {
     
     // Don't be verbose by default
     verbose: false
+    
+    // Enable interactive mode for commands with stdin (e.g., password prompts)
+    interactive: false
 }`,
   },
 
@@ -4118,6 +4136,9 @@ invowk --config /path/to/config.cue cmd list
 
 # Override verbose setting
 invowk --verbose cmd build
+
+# Run command in interactive mode (alternate screen buffer)
+invowk --interactive cmd myproject build
 
 # Override runtime for a command
 invowk cmd build --runtime container`,

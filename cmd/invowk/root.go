@@ -30,6 +30,8 @@ var (
 	verbose bool
 	// cfgFile allows specifying a custom config file
 	cfgFile string
+	// interactive enables alternate screen buffer mode for command execution
+	interactive bool
 	// Style definitions
 	titleStyle = lipgloss.NewStyle().
 			Bold(true).
@@ -102,6 +104,7 @@ func init() {
 	// Global flags
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "enable verbose output")
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.config/invowk/config.cue)")
+	rootCmd.PersistentFlags().BoolVarP(&interactive, "interactive", "i", false, "run commands in alternate screen buffer (interactive mode)")
 
 	// Add subcommands
 	rootCmd.AddCommand(cmdCmd)
@@ -132,9 +135,19 @@ func initRootConfig() {
 	if cfg != nil && !verbose {
 		verbose = cfg.UI.Verbose
 	}
+
+	// Apply interactive from config if not set via flag
+	if cfg != nil && !interactive {
+		interactive = cfg.UI.Interactive
+	}
 }
 
 // GetVerbose returns the verbose flag value
 func GetVerbose() bool {
 	return verbose
+}
+
+// GetInteractive returns the interactive flag value
+func GetInteractive() bool {
+	return interactive
 }

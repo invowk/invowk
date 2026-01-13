@@ -51,6 +51,8 @@ type UIConfig struct {
 	ColorScheme string `json:"color_scheme" mapstructure:"color_scheme"`
 	// Verbose enables verbose output
 	Verbose bool `json:"verbose" mapstructure:"verbose"`
+	// Interactive enables alternate screen buffer mode for command execution
+	Interactive bool `json:"interactive" mapstructure:"interactive"`
 }
 
 const (
@@ -81,6 +83,7 @@ func DefaultConfig() *Config {
 		UI: UIConfig{
 			ColorScheme: "auto",
 			Verbose:     false,
+			Interactive: false,
 		},
 	}
 }
@@ -146,6 +149,7 @@ func Load() (*Config, error) {
 	v.SetDefault("virtual_shell.enable_uroot_utils", defaults.VirtualShell.EnableUrootUtils)
 	v.SetDefault("ui.color_scheme", defaults.UI.ColorScheme)
 	v.SetDefault("ui.verbose", defaults.UI.Verbose)
+	v.SetDefault("ui.interactive", defaults.UI.Interactive)
 
 	// Get config directory
 	cfgDir, err := ConfigDir()
@@ -342,6 +346,7 @@ func GenerateCUE(cfg *Config) string {
 	sb.WriteString("\nui: {\n")
 	sb.WriteString(fmt.Sprintf("\tcolor_scheme: %q\n", cfg.UI.ColorScheme))
 	sb.WriteString(fmt.Sprintf("\tverbose: %v\n", cfg.UI.Verbose))
+	sb.WriteString(fmt.Sprintf("\tinteractive: %v\n", cfg.UI.Interactive))
 	sb.WriteString("}\n")
 
 	return sb.String()

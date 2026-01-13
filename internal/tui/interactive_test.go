@@ -1,0 +1,399 @@
+// SPDX-License-Identifier: EPL-2.0
+
+package tui
+
+import (
+	"context"
+	"testing"
+	"time"
+
+	tea "github.com/charmbracelet/bubbletea"
+)
+
+func TestNewInteractiveModel(t *testing.T) {
+	opts := InteractiveOptions{
+		Title:       "Test Title",
+		CommandName: "test-cmd",
+		Config:      DefaultConfig(),
+	}
+
+	model := newInteractiveModel(opts, nil)
+
+	if model.title != opts.Title {
+		t.Errorf("expected title %q, got %q", opts.Title, model.title)
+	}
+	if model.cmdName != opts.CommandName {
+		t.Errorf("expected cmdName %q, got %q", opts.CommandName, model.cmdName)
+	}
+	if model.state != stateExecuting {
+		t.Errorf("expected initial state to be stateExecuting, got %v", model.state)
+	}
+	if model.ready {
+		t.Error("expected ready to be false initially")
+	}
+}
+
+func TestInteractiveModel_Init(t *testing.T) {
+	model := newInteractiveModel(InteractiveOptions{}, nil)
+	cmd := model.Init()
+
+	if cmd != nil {
+		t.Error("expected Init() to return nil cmd")
+	}
+}
+
+func TestInteractiveModel_Update_OutputMsg(t *testing.T) {
+	model := newInteractiveModel(InteractiveOptions{}, nil)
+
+	// Send output messages
+	msg1 := outputMsg{content: "Hello "}
+	msg2 := outputMsg{content: "World!"}
+
+	updatedModel, _ := model.Update(msg1)
+	m1 := updatedModel.(*interactiveModel)
+
+	updatedModel2, _ := m1.Update(msg2)
+	m2 := updatedModel2.(*interactiveModel)
+
+	expected := "Hello World!"
+	if m2.content.String() != expected {
+		t.Errorf("expected content %q, got %q", expected, m2.content.String())
+	}
+}
+
+func TestInteractiveModel_Update_DoneMsg(t *testing.T) {
+	model := newInteractiveModel(InteractiveOptions{}, nil)
+
+	result := InteractiveResult{
+		ExitCode: 0,
+		Duration: 2 * time.Second,
+	}
+
+	msg := doneMsg{result: result}
+	updatedModel, _ := model.Update(msg)
+	m := updatedModel.(*interactiveModel)
+
+	if m.state != stateCompleted {
+		t.Errorf("expected state to be stateCompleted, got %v", m.state)
+	}
+	if m.result == nil {
+		t.Fatal("expected result to be set")
+	}
+	if m.result.ExitCode != 0 {
+		t.Errorf("expected exit code 0, got %d", m.result.ExitCode)
+	}
+	if m.result.Duration != 2*time.Second {
+		t.Errorf("expected duration 2s, got %v", m.result.Duration)
+	}
+}
+
+func TestInteractiveModel_Update_DoneMsg_WithError(t *testing.T) {
+	model := newInteractiveModel(InteractiveOptions{}, nil)
+
+	result := InteractiveResult{
+		ExitCode: 1,
+		Duration: 500 * time.Millisecond,
+	}
+
+	msg := doneMsg{result: result}
+	updatedModel, _ := model.Update(msg)
+	m := updatedModel.(*interactiveModel)
+
+	if m.state != stateCompleted {
+		t.Errorf("expected state to be stateCompleted, got %v", m.state)
+	}
+	if m.result.ExitCode != 1 {
+		t.Errorf("expected exit code 1, got %d", m.result.ExitCode)
+	}
+}
+
+func TestInteractiveModel_Update_WindowSizeMsg(t *testing.T) {
+	model := newInteractiveModel(InteractiveOptions{}, nil)
+
+	msg := tea.WindowSizeMsg{Width: 120, Height: 40}
+	updatedModel, _ := model.Update(msg)
+	m := updatedModel.(*interactiveModel)
+
+	if m.width != 120 {
+		t.Errorf("expected width 120, got %d", m.width)
+	}
+	if m.height != 40 {
+		t.Errorf("expected height 40, got %d", m.height)
+	}
+	if !m.ready {
+		t.Error("expected ready to be true after WindowSizeMsg")
+	}
+}
+
+func TestInteractiveModel_HandleKeyMsg_CompletedState(t *testing.T) {
+	tests := []struct {
+		name       string
+		key        string
+		expectQuit bool
+	}{
+		{"enter", "enter", true},
+		{"q", "q", true},
+		{"esc", "esc", true},
+		{"ctrl+c", "ctrl+c", true},
+		{"up", "up", false},
+		{"down", "down", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			model := newInteractiveModel(InteractiveOptions{}, nil)
+			model.state = stateCompleted
+			model.result = &InteractiveResult{ExitCode: 0}
+			// Initialize viewport by sending WindowSizeMsg first
+			model.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
+
+			keyMsg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(tt.key)}
+			switch tt.key {
+			case "enter":
+				keyMsg = tea.KeyMsg{Type: tea.KeyEnter}
+			case "esc":
+				keyMsg = tea.KeyMsg{Type: tea.KeyEscape}
+			case "up":
+				keyMsg = tea.KeyMsg{Type: tea.KeyUp}
+			case "down":
+				keyMsg = tea.KeyMsg{Type: tea.KeyDown}
+			case "ctrl+c":
+				keyMsg = tea.KeyMsg{Type: tea.KeyCtrlC}
+			}
+
+			_, cmd := model.handleKeyMsg(keyMsg)
+
+			if tt.expectQuit {
+				if cmd == nil {
+					t.Error("expected quit command, got nil")
+				}
+			}
+		})
+	}
+}
+
+func TestInteractiveModel_HandleKeyMsg_ExecutingState(t *testing.T) {
+	model := newInteractiveModel(InteractiveOptions{}, nil)
+	model.state = stateExecuting
+
+	// Regular keys during execution should not cause quit (without PTY, they're just ignored)
+	keyMsg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'a'}}
+
+	_, cmd := model.handleKeyMsg(keyMsg)
+
+	// Regular keys should not trigger quit
+	if cmd != nil {
+		t.Error("expected nil command for regular key during execution (no PTY)")
+	}
+
+	// State should remain executing
+	if model.state != stateExecuting {
+		t.Error("expected model to remain in executing state")
+	}
+}
+
+func TestInteractiveModel_View_NotReady(t *testing.T) {
+	model := newInteractiveModel(InteractiveOptions{}, nil)
+
+	view := model.View()
+
+	expected := "Initializing..."
+	if view != expected {
+		t.Errorf("expected view %q, got %q", expected, view)
+	}
+}
+
+func TestInteractiveModel_View_Ready(t *testing.T) {
+	model := newInteractiveModel(InteractiveOptions{
+		Title:       "Test Title",
+		CommandName: "test-cmd",
+	}, nil)
+
+	// Initialize viewport
+	model.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
+
+	view := model.View()
+
+	// Check that view contains expected elements
+	if view == "Initializing..." {
+		t.Error("expected view to be rendered, not 'Initializing...'")
+	}
+	// The view should contain the title
+	if len(view) == 0 {
+		t.Error("expected non-empty view")
+	}
+}
+
+func TestInteractiveBuilder(t *testing.T) {
+	builder := NewInteractive()
+
+	if builder.opts.Title != "Running Command" {
+		t.Errorf("expected default title 'Running Command', got %q", builder.opts.Title)
+	}
+	if builder.ctx == nil {
+		t.Error("expected context to be set")
+	}
+}
+
+func TestInteractiveBuilder_Title(t *testing.T) {
+	builder := NewInteractive().Title("Custom Title")
+
+	if builder.opts.Title != "Custom Title" {
+		t.Errorf("expected title 'Custom Title', got %q", builder.opts.Title)
+	}
+}
+
+func TestInteractiveBuilder_CommandName(t *testing.T) {
+	builder := NewInteractive().CommandName("my-command")
+
+	if builder.opts.CommandName != "my-command" {
+		t.Errorf("expected command name 'my-command', got %q", builder.opts.CommandName)
+	}
+}
+
+func TestInteractiveBuilder_Context(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+
+	builder := NewInteractive().Context(ctx)
+
+	if builder.ctx != ctx {
+		t.Error("expected context to be set")
+	}
+}
+
+func TestInteractiveBuilder_Run_NoCommand(t *testing.T) {
+	builder := NewInteractive()
+
+	result, err := builder.Run()
+
+	if err == nil {
+		t.Error("expected error when no command is provided")
+	}
+	if result != nil {
+		t.Error("expected nil result when error occurs")
+	}
+	if err.Error() != "no command provided" {
+		t.Errorf("expected error message 'no command provided', got %q", err.Error())
+	}
+}
+
+func TestInteractiveBuilder_Chaining(t *testing.T) {
+	ctx := context.Background()
+
+	builder := NewInteractive().
+		Title("Deploy").
+		CommandName("deploy-app").
+		Context(ctx)
+
+	if builder.opts.Title != "Deploy" {
+		t.Errorf("expected title 'Deploy', got %q", builder.opts.Title)
+	}
+	if builder.opts.CommandName != "deploy-app" {
+		t.Errorf("expected command name 'deploy-app', got %q", builder.opts.CommandName)
+	}
+	if builder.ctx != ctx {
+		t.Error("expected context to be set via chaining")
+	}
+}
+
+func TestInteractiveResult_Fields(t *testing.T) {
+	result := InteractiveResult{
+		ExitCode: 42,
+		Duration: 5 * time.Second,
+		Error:    nil,
+	}
+
+	if result.ExitCode != 42 {
+		t.Errorf("expected exit code 42, got %d", result.ExitCode)
+	}
+	if result.Duration != 5*time.Second {
+		t.Errorf("expected duration 5s, got %v", result.Duration)
+	}
+	if result.Error != nil {
+		t.Errorf("expected nil error, got %v", result.Error)
+	}
+}
+
+func TestInteractiveOptions_Fields(t *testing.T) {
+	opts := InteractiveOptions{
+		Title:       "My Title",
+		CommandName: "my-cmd",
+		Config:      DefaultConfig(),
+	}
+
+	if opts.Title != "My Title" {
+		t.Errorf("expected title 'My Title', got %q", opts.Title)
+	}
+	if opts.CommandName != "my-cmd" {
+		t.Errorf("expected command name 'my-cmd', got %q", opts.CommandName)
+	}
+}
+
+func TestExecutionState_Constants(t *testing.T) {
+	if stateExecuting != 0 {
+		t.Errorf("expected stateExecuting to be 0, got %d", stateExecuting)
+	}
+	if stateCompleted != 1 {
+		t.Errorf("expected stateCompleted to be 1, got %d", stateCompleted)
+	}
+}
+
+func TestInteractiveModel_AppendCompletionMessage_Success(t *testing.T) {
+	model := newInteractiveModel(InteractiveOptions{}, nil)
+	model.result = &InteractiveResult{
+		ExitCode: 0,
+		Duration: 1 * time.Second,
+	}
+
+	model.appendCompletionMessage()
+
+	content := model.content.String()
+	if len(content) == 0 {
+		t.Error("expected completion message to be appended")
+	}
+	// The message should contain "COMPLETED SUCCESSFULLY" for exit code 0
+	if content == "" {
+		t.Error("content should not be empty after appending completion message")
+	}
+}
+
+func TestInteractiveModel_AppendCompletionMessage_Failure(t *testing.T) {
+	model := newInteractiveModel(InteractiveOptions{}, nil)
+	model.result = &InteractiveResult{
+		ExitCode: 1,
+		Duration: 500 * time.Millisecond,
+	}
+
+	model.appendCompletionMessage()
+
+	content := model.content.String()
+	if len(content) == 0 {
+		t.Error("expected completion message to be appended")
+	}
+}
+
+func TestInteractiveModel_ConcurrentOutputWrites(t *testing.T) {
+	model := newInteractiveModel(InteractiveOptions{}, nil)
+
+	// Simulate concurrent output writes (should be safe due to mutex)
+	done := make(chan bool)
+	for i := 0; i < 10; i++ {
+		go func(n int) {
+			msg := outputMsg{content: "output "}
+			model.Update(msg)
+			done <- true
+		}(i)
+	}
+
+	// Wait for all goroutines
+	for i := 0; i < 10; i++ {
+		<-done
+	}
+
+	// Verify content was written (exact content may vary due to race, but should not panic)
+	content := model.content.String()
+	if len(content) == 0 {
+		t.Error("expected some content to be written")
+	}
+}

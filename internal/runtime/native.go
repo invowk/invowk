@@ -513,3 +513,126 @@ func (r *NativeRuntime) appendPositionalArgs(shell string, args []string, positi
 		return append(args, positionalArgs...)
 	}
 }
+
+// PreparedCommand contains a command ready for execution along with any cleanup function.
+type PreparedCommand struct {
+	// Cmd is the prepared exec.Cmd ready for execution.
+	Cmd *exec.Cmd
+	// Cleanup is a function to call after execution (e.g., to remove temp files).
+	// May be nil if no cleanup is needed.
+	Cleanup func()
+}
+
+// PrepareCommand builds an exec.Cmd for the given execution context without running it.
+// This is useful for interactive mode where the command needs to be run on a PTY.
+// The caller must call the returned cleanup function after execution.
+func (r *NativeRuntime) PrepareCommand(ctx *ExecutionContext) (*PreparedCommand, error) {
+	// Resolve the script content (from file or inline)
+	script, err := ctx.SelectedImpl.ResolveScript(ctx.Invkfile.FilePath)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get the runtime config to check for interpreter
+	rtConfig := ctx.SelectedImpl.GetRuntimeConfig(ctx.SelectedRuntime)
+	if rtConfig == nil {
+		// Fallback to default shell execution if no runtime config
+		return r.prepareShellCommand(ctx, script)
+	}
+
+	// Resolve interpreter (defaults to "auto" which parses shebang)
+	interpInfo := rtConfig.ResolveInterpreterFromScript(script)
+
+	// If an interpreter was found, use interpreter-based execution
+	if interpInfo.Found {
+		return r.prepareInterpreterCommand(ctx, script, interpInfo)
+	}
+
+	// Otherwise, use default shell-based execution
+	return r.prepareShellCommand(ctx, script)
+}
+
+// prepareShellCommand builds a shell command without executing it.
+func (r *NativeRuntime) prepareShellCommand(ctx *ExecutionContext, script string) (*PreparedCommand, error) {
+	shell, err := r.getShell()
+	if err != nil {
+		return nil, err
+	}
+
+	// Determine shell arguments
+	args := r.getShellArgs(shell)
+	args = append(args, script)
+
+	// Append positional arguments for shell access ($1, $2, etc.)
+	args = r.appendPositionalArgs(shell, args, ctx.PositionalArgs)
+
+	cmd := exec.CommandContext(ctx.Context, shell, args...)
+
+	// Set working directory
+	workDir := r.getWorkDir(ctx)
+	if workDir != "" {
+		cmd.Dir = workDir
+	}
+
+	// Build environment
+	env, err := r.buildEnv(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build environment: %w", err)
+	}
+	cmd.Env = append(FilterInvowkEnvVars(os.Environ()), EnvToSlice(env)...)
+
+	return &PreparedCommand{Cmd: cmd, Cleanup: nil}, nil
+}
+
+// prepareInterpreterCommand builds an interpreter command without executing it.
+func (r *NativeRuntime) prepareInterpreterCommand(ctx *ExecutionContext, script string, interp invkfile.ShebangInfo) (*PreparedCommand, error) {
+	// Verify interpreter exists
+	interpreterPath, err := exec.LookPath(interp.Interpreter)
+	if err != nil {
+		return nil, fmt.Errorf("interpreter '%s' not found in PATH: %w", interp.Interpreter, err)
+	}
+
+	// Build command arguments
+	var cmdArgs []string
+	cmdArgs = append(cmdArgs, interp.Args...) // interpreter args (e.g., -u for python)
+
+	// Handle file vs inline script
+	var tempFile string
+	var cleanup func()
+	if ctx.SelectedImpl.IsScriptFile() {
+		// File script: interpreter [args] script-path positional-args
+		scriptPath := ctx.SelectedImpl.GetScriptFilePath(ctx.Invkfile.FilePath)
+		cmdArgs = append(cmdArgs, scriptPath)
+	} else {
+		// Inline script: create temp file
+		tempFile, err = r.createTempScript(script, interp.Interpreter)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create temp script: %w", err)
+		}
+		cmdArgs = append(cmdArgs, tempFile)
+		cleanup = func() { os.Remove(tempFile) }
+	}
+
+	// Add positional arguments
+	cmdArgs = append(cmdArgs, ctx.PositionalArgs...)
+
+	cmd := exec.CommandContext(ctx.Context, interpreterPath, cmdArgs...)
+
+	// Set working directory
+	workDir := r.getWorkDir(ctx)
+	if workDir != "" {
+		cmd.Dir = workDir
+	}
+
+	// Build environment
+	env, err := r.buildEnv(ctx)
+	if err != nil {
+		if cleanup != nil {
+			cleanup()
+		}
+		return nil, fmt.Errorf("failed to build environment: %w", err)
+	}
+	cmd.Env = append(FilterInvowkEnvVars(os.Environ()), EnvToSlice(env)...)
+
+	return &PreparedCommand{Cmd: cmd, Cleanup: cleanup}, nil
+}

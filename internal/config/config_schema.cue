@@ -37,6 +37,9 @@ package config
 
 	// verbose enables verbose output
 	verbose?: bool
+
+	// interactive enables alternate screen buffer mode for command execution
+	interactive?: bool
 }
 
 // Validate that the configuration conforms to the schema
