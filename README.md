@@ -471,7 +471,7 @@ commands: [
 
 ### Host SSH Access from Containers
 
-Container commands can optionally SSH back into the host system. When `host_ssh: true` is set inside the container runtime configuration, invowk starts a secure SSH server using the [Wish](https://github.com/charmbracelet/wish) library and provides connection credentials to the container via environment variables.
+Container commands can optionally SSH back into the host system. When `enable_host_ssh: true` is set inside the container runtime configuration, invowk starts a secure SSH server using the [Wish](https://github.com/charmbracelet/wish) library and provides connection credentials to the container via environment variables.
 
 **Security**: The SSH server only accepts token-based authentication. Each command execution gets a unique, time-limited token that is automatically revoked after the command completes.
 
@@ -493,9 +493,9 @@ commands: [
 						$INVOWK_SSH_USER@$INVOWK_SSH_HOST -p $INVOWK_SSH_PORT \
 						'echo "Hello from host!"'
 					"""
-				// host_ssh and image are specified inside the container runtime config
+				// enable_host_ssh and image are specified inside the container runtime config
 				target: {
-					runtimes: [{name: "container", image: "alpine:latest", host_ssh: true}]
+					runtimes: [{name: "container", image: "alpine:latest", enable_host_ssh: true}]
 				}
 			}
 		]

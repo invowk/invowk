@@ -333,7 +333,7 @@ func runCommand(args []string) error {
 		return fmt.Errorf("no script found for command '%s' on platform '%s' with runtime '%s'", cmdName, currentPlatform, selectedRuntime)
 	}
 
-	// Start SSH server if host_ssh is enabled for this script and runtime
+	// Start SSH server if enable_host_ssh is enabled for this script and runtime
 	if script.GetHostSSHForRuntime(selectedRuntime) {
 		srv, err := ensureSSHServer()
 		if err != nil {

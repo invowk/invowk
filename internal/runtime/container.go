@@ -113,10 +113,10 @@ func (r *ContainerRuntime) Execute(ctx *ExecutionContext) *Result {
 	var sshConnInfo *sshserver.ConnectionInfo
 	if hostSSHEnabled {
 		if r.sshServer == nil {
-			return &Result{ExitCode: 1, Error: fmt.Errorf("host_ssh is enabled but SSH server is not configured")}
+			return &Result{ExitCode: 1, Error: fmt.Errorf("enable_host_ssh is enabled but SSH server is not configured")}
 		}
 		if !r.sshServer.IsRunning() {
-			return &Result{ExitCode: 1, Error: fmt.Errorf("host_ssh is enabled but SSH server is not running")}
+			return &Result{ExitCode: 1, Error: fmt.Errorf("enable_host_ssh is enabled but SSH server is not running")}
 		}
 
 		// Generate connection info with a unique token for this command execution

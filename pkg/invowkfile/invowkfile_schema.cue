@@ -18,12 +18,12 @@
 
 	// Container-specific fields (only valid when name is "container")
 	if name == "container" {
-		// host_ssh enables SSH access from container back to host (optional)
+		// enable_host_ssh enables SSH access from container back to host (optional)
 		// When enabled, invowk starts an SSH server and provides connection credentials
 		// to the container via environment variables: INVOWK_SSH_HOST, INVOWK_SSH_PORT,
 		// INVOWK_SSH_USER, INVOWK_SSH_TOKEN
 		// Default: false
-		host_ssh?: bool
+		enable_host_ssh?: bool
 
 		// containerfile specifies the path to Containerfile/Dockerfile relative to invowkfile (optional)
 		// Used to build a container image for command execution

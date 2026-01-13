@@ -32,9 +32,9 @@ const (
 type RuntimeConfig struct {
 	// Name specifies the runtime type (required)
 	Name RuntimeMode `json:"name"`
-	// HostSSH enables SSH access from container back to host (container only)
+	// EnableHostSSH enables SSH access from container back to host (container only)
 	// Only valid when Name is "container". Default: false
-	HostSSH bool `json:"host_ssh,omitempty"`
+	EnableHostSSH bool `json:"enable_host_ssh,omitempty"`
 	// Containerfile specifies the path to Containerfile/Dockerfile (container only)
 	// Mutually exclusive with Image
 	Containerfile string `json:"containerfile,omitempty"`
@@ -419,26 +419,26 @@ func (s *Script) GetDefaultRuntimeConfig() *RuntimeConfig {
 	return &s.Target.Runtimes[0]
 }
 
-// HasHostSSH returns true if any runtime in this script has host_ssh enabled
+// HasHostSSH returns true if any runtime in this script has enable_host_ssh enabled
 func (s *Script) HasHostSSH() bool {
 	for _, r := range s.Target.Runtimes {
-		if r.Name == RuntimeContainer && r.HostSSH {
+		if r.Name == RuntimeContainer && r.EnableHostSSH {
 			return true
 		}
 	}
 	return false
 }
 
-// GetHostSSHForRuntime returns whether host_ssh is enabled for the given runtime
+// GetHostSSHForRuntime returns whether enable_host_ssh is enabled for the given runtime
 func (s *Script) GetHostSSHForRuntime(runtime RuntimeMode) bool {
 	if runtime != RuntimeContainer {
-		return false // host_ssh is only valid for container runtime
+		return false // enable_host_ssh is only valid for container runtime
 	}
 	rc := s.GetRuntimeConfig(runtime)
 	if rc == nil {
 		return false
 	}
-	return rc.HostSSH
+	return rc.EnableHostSSH
 }
 
 // HasDependencies returns true if the command has any dependencies (at command or script level)
@@ -726,8 +726,8 @@ func (inv *Invowkfile) validate() error {
 func validateRuntimeConfig(rt *RuntimeConfig, cmdName string, implIndex int) error {
 	// Container-specific fields are only valid for container runtime
 	if rt.Name != RuntimeContainer {
-		if rt.HostSSH {
-			return fmt.Errorf("command '%s' implementation #%d: host_ssh is only valid for container runtime", cmdName, implIndex)
+		if rt.EnableHostSSH {
+			return fmt.Errorf("command '%s' implementation #%d: enable_host_ssh is only valid for container runtime", cmdName, implIndex)
 		}
 		if rt.Containerfile != "" {
 			return fmt.Errorf("command '%s' implementation #%d: containerfile is only valid for container runtime", cmdName, implIndex)
@@ -873,8 +873,8 @@ func GenerateCUE(inv *Invowkfile) string {
 				sb.WriteString("\t\t\t\t\t\t{")
 				sb.WriteString(fmt.Sprintf("name: %q", r.Name))
 				if r.Name == RuntimeContainer {
-					if r.HostSSH {
-						sb.WriteString(", host_ssh: true")
+					if r.EnableHostSSH {
+						sb.WriteString(", enable_host_ssh: true")
 					}
 					if r.Containerfile != "" {
 						sb.WriteString(fmt.Sprintf(", containerfile: %q", r.Containerfile))
