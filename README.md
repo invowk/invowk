@@ -1362,12 +1362,18 @@ Bundle Validation
 
 ### Using Bundles
 
-Bundles can be placed in any of the invowk search paths:
-- Current directory
-- User commands directory (`~/.invowk/cmds/`)
-- Configured search paths in `config.toml`
+Bundles are automatically discovered and loaded from all invowk search paths:
+1. Current directory (highest priority)
+2. User commands directory (`~/.invowk/cmds/`)
+3. Configured search paths in `config.toml`
 
-When invowk discovers a bundle, it automatically loads the invowkfile from within it and resolves script paths relative to the bundle root.
+When invowk discovers a bundle, it:
+- Validates the bundle structure and naming
+- Loads the invowkfile from within the bundle
+- Resolves script paths relative to the bundle root
+- Makes all commands available with their group prefix
+
+Commands from bundles appear in `invowk cmd list` with the source indicated as "bundle":
 
 ## Runtime Modes
 

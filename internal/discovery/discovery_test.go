@@ -723,3 +723,504 @@ commands: [{name: "build", description: "User build", implementations: [{script:
 		t.Errorf("build command should be from current directory, got %v", buildCmd.Source)
 	}
 }
+
+func TestSourceBundle_String(t *testing.T) {
+	if got := SourceBundle.String(); got != "bundle" {
+		t.Errorf("SourceBundle.String() = %s, want bundle", got)
+	}
+}
+
+func TestDiscoverAll_FindsBundlesInCurrentDir(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create a valid bundle in the temp directory
+	bundleDir := filepath.Join(tmpDir, "mycommands.invowkbundle")
+	if err := os.MkdirAll(bundleDir, 0755); err != nil {
+		t.Fatalf("failed to create bundle dir: %v", err)
+	}
+
+	// Create invowkfile.cue inside the bundle
+	bundleContent := `
+group: "mycommands"
+version: "1.0"
+commands: [{name: "bundled-cmd", implementations: [{script: "echo bundled", target: {runtimes: [{name: "native"}]}}]}]
+`
+	if err := os.WriteFile(filepath.Join(bundleDir, "invowkfile.cue"), []byte(bundleContent), 0644); err != nil {
+		t.Fatalf("failed to write bundle invowkfile: %v", err)
+	}
+
+	// Change to temp directory
+	originalWd, _ := os.Getwd()
+	os.Chdir(tmpDir)
+	defer os.Chdir(originalWd)
+
+	// Override HOME to avoid finding real user commands
+	originalHome := os.Getenv("HOME")
+	os.Setenv("HOME", tmpDir)
+	defer os.Setenv("HOME", originalHome)
+
+	cfg := config.DefaultConfig()
+	d := New(cfg)
+
+	files, err := d.DiscoverAll()
+	if err != nil {
+		t.Fatalf("DiscoverAll() returned error: %v", err)
+	}
+
+	found := false
+	for _, f := range files {
+		if f.Source == SourceBundle && f.Bundle != nil {
+			if f.Bundle.Name == "mycommands" {
+				found = true
+				break
+			}
+		}
+	}
+
+	if !found {
+		t.Error("DiscoverAll() did not find bundle in current directory")
+	}
+}
+
+func TestDiscoverAll_FindsBundlesInUserDir(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create user commands directory with a bundle
+	userCmdsDir := filepath.Join(tmpDir, ".invowk", "cmds")
+	bundleDir := filepath.Join(userCmdsDir, "userbundle.invowkbundle")
+	if err := os.MkdirAll(bundleDir, 0755); err != nil {
+		t.Fatalf("failed to create bundle dir: %v", err)
+	}
+
+	// Create invowkfile.cue inside the bundle
+	bundleContent := `
+group: "userbundle"
+version: "1.0"
+commands: [{name: "user-bundled-cmd", implementations: [{script: "echo user bundled", target: {runtimes: [{name: "native"}]}}]}]
+`
+	if err := os.WriteFile(filepath.Join(bundleDir, "invowkfile.cue"), []byte(bundleContent), 0644); err != nil {
+		t.Fatalf("failed to write bundle invowkfile: %v", err)
+	}
+
+	// Create an empty working directory
+	workDir := filepath.Join(tmpDir, "work")
+	if err := os.MkdirAll(workDir, 0755); err != nil {
+		t.Fatalf("failed to create work dir: %v", err)
+	}
+
+	// Change to work directory
+	originalWd, _ := os.Getwd()
+	os.Chdir(workDir)
+	defer os.Chdir(originalWd)
+
+	// Override HOME
+	originalHome := os.Getenv("HOME")
+	os.Setenv("HOME", tmpDir)
+	defer os.Setenv("HOME", originalHome)
+
+	cfg := config.DefaultConfig()
+	d := New(cfg)
+
+	files, err := d.DiscoverAll()
+	if err != nil {
+		t.Fatalf("DiscoverAll() returned error: %v", err)
+	}
+
+	found := false
+	for _, f := range files {
+		if f.Source == SourceBundle && f.Bundle != nil {
+			if f.Bundle.Name == "userbundle" {
+				found = true
+				break
+			}
+		}
+	}
+
+	if !found {
+		t.Error("DiscoverAll() did not find bundle in user commands directory")
+	}
+}
+
+func TestDiscoverAll_FindsBundlesInConfigPath(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create a config search path with a bundle
+	searchPath := filepath.Join(tmpDir, "custom-commands")
+	bundleDir := filepath.Join(searchPath, "configbundle.invowkbundle")
+	if err := os.MkdirAll(bundleDir, 0755); err != nil {
+		t.Fatalf("failed to create bundle dir: %v", err)
+	}
+
+	// Create invowkfile.cue inside the bundle
+	bundleContent := `
+group: "configbundle"
+version: "1.0"
+commands: [{name: "config-bundled-cmd", implementations: [{script: "echo config bundled", target: {runtimes: [{name: "native"}]}}]}]
+`
+	if err := os.WriteFile(filepath.Join(bundleDir, "invowkfile.cue"), []byte(bundleContent), 0644); err != nil {
+		t.Fatalf("failed to write bundle invowkfile: %v", err)
+	}
+
+	// Create an empty working directory
+	workDir := filepath.Join(tmpDir, "work")
+	if err := os.MkdirAll(workDir, 0755); err != nil {
+		t.Fatalf("failed to create work dir: %v", err)
+	}
+
+	// Change to work directory
+	originalWd, _ := os.Getwd()
+	os.Chdir(workDir)
+	defer os.Chdir(originalWd)
+
+	// Override HOME
+	originalHome := os.Getenv("HOME")
+	os.Setenv("HOME", tmpDir)
+	defer os.Setenv("HOME", originalHome)
+
+	cfg := config.DefaultConfig()
+	cfg.SearchPaths = []string{searchPath}
+	d := New(cfg)
+
+	files, err := d.DiscoverAll()
+	if err != nil {
+		t.Fatalf("DiscoverAll() returned error: %v", err)
+	}
+
+	found := false
+	for _, f := range files {
+		if f.Source == SourceBundle && f.Bundle != nil {
+			if f.Bundle.Name == "configbundle" {
+				found = true
+				break
+			}
+		}
+	}
+
+	if !found {
+		t.Error("DiscoverAll() did not find bundle in configured search path")
+	}
+}
+
+func TestDiscoveredFile_BundleField(t *testing.T) {
+	df := &DiscoveredFile{
+		Path:   "/path/to/bundle/invowkfile.cue",
+		Source: SourceBundle,
+	}
+
+	if df.Bundle != nil {
+		t.Error("Bundle should be nil by default")
+	}
+
+	if df.Source != SourceBundle {
+		t.Errorf("Source = %v, want SourceBundle", df.Source)
+	}
+}
+
+func TestDiscoverCommands_FromBundle(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create a valid bundle
+	bundleDir := filepath.Join(tmpDir, "testbundle.invowkbundle")
+	if err := os.MkdirAll(bundleDir, 0755); err != nil {
+		t.Fatalf("failed to create bundle dir: %v", err)
+	}
+
+	// Create invowkfile.cue inside the bundle
+	bundleContent := `
+group: "testbundle"
+version: "1.0"
+commands: [
+	{name: "cmd1", description: "First command", implementations: [{script: "echo 1", target: {runtimes: [{name: "native"}]}}]},
+	{name: "cmd2", description: "Second command", implementations: [{script: "echo 2", target: {runtimes: [{name: "native"}]}}]}
+]
+`
+	if err := os.WriteFile(filepath.Join(bundleDir, "invowkfile.cue"), []byte(bundleContent), 0644); err != nil {
+		t.Fatalf("failed to write bundle invowkfile: %v", err)
+	}
+
+	// Change to temp directory
+	originalWd, _ := os.Getwd()
+	os.Chdir(tmpDir)
+	defer os.Chdir(originalWd)
+
+	// Override HOME
+	originalHome := os.Getenv("HOME")
+	os.Setenv("HOME", tmpDir)
+	defer os.Setenv("HOME", originalHome)
+
+	cfg := config.DefaultConfig()
+	d := New(cfg)
+
+	commands, err := d.DiscoverCommands()
+	if err != nil {
+		t.Fatalf("DiscoverCommands() returned error: %v", err)
+	}
+
+	// Should find both commands from the bundle
+	foundCmd1 := false
+	foundCmd2 := false
+	for _, cmd := range commands {
+		if cmd.Name == "testbundle cmd1" && cmd.Source == SourceBundle {
+			foundCmd1 = true
+		}
+		if cmd.Name == "testbundle cmd2" && cmd.Source == SourceBundle {
+			foundCmd2 = true
+		}
+	}
+
+	if !foundCmd1 {
+		t.Error("DiscoverCommands() did not find 'testbundle cmd1' from bundle")
+	}
+	if !foundCmd2 {
+		t.Error("DiscoverCommands() did not find 'testbundle cmd2' from bundle")
+	}
+}
+
+func TestDiscoverAll_SkipsInvalidBundles(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create an invalid bundle (missing invowkfile.cue)
+	invalidBundleDir := filepath.Join(tmpDir, "invalid.invowkbundle")
+	if err := os.MkdirAll(invalidBundleDir, 0755); err != nil {
+		t.Fatalf("failed to create invalid bundle dir: %v", err)
+	}
+
+	// Create a valid bundle
+	validBundleDir := filepath.Join(tmpDir, "valid.invowkbundle")
+	if err := os.MkdirAll(validBundleDir, 0755); err != nil {
+		t.Fatalf("failed to create valid bundle dir: %v", err)
+	}
+	bundleContent := `
+group: "valid"
+version: "1.0"
+commands: [{name: "cmd", implementations: [{script: "echo", target: {runtimes: [{name: "native"}]}}]}]
+`
+	if err := os.WriteFile(filepath.Join(validBundleDir, "invowkfile.cue"), []byte(bundleContent), 0644); err != nil {
+		t.Fatalf("failed to write bundle invowkfile: %v", err)
+	}
+
+	// Change to temp directory
+	originalWd, _ := os.Getwd()
+	os.Chdir(tmpDir)
+	defer os.Chdir(originalWd)
+
+	// Override HOME
+	originalHome := os.Getenv("HOME")
+	os.Setenv("HOME", tmpDir)
+	defer os.Setenv("HOME", originalHome)
+
+	cfg := config.DefaultConfig()
+	d := New(cfg)
+
+	files, err := d.DiscoverAll()
+	if err != nil {
+		t.Fatalf("DiscoverAll() returned error: %v", err)
+	}
+
+	// Should only find the valid bundle
+	bundleCount := 0
+	for _, f := range files {
+		if f.Source == SourceBundle {
+			bundleCount++
+			if f.Bundle != nil && f.Bundle.Name != "valid" {
+				t.Errorf("unexpected bundle found: %s", f.Bundle.Name)
+			}
+		}
+	}
+
+	if bundleCount != 1 {
+		t.Errorf("expected 1 bundle, found %d", bundleCount)
+	}
+}
+
+func TestLoadAll_ParsesBundles(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create a valid bundle
+	bundleDir := filepath.Join(tmpDir, "parsebundle.invowkbundle")
+	if err := os.MkdirAll(bundleDir, 0755); err != nil {
+		t.Fatalf("failed to create bundle dir: %v", err)
+	}
+
+	// Create invowkfile.cue inside the bundle
+	bundleContent := `
+group: "parsebundle"
+version: "1.0"
+description: "A test bundle"
+commands: [{name: "test", implementations: [{script: "echo test", target: {runtimes: [{name: "native"}]}}]}]
+`
+	if err := os.WriteFile(filepath.Join(bundleDir, "invowkfile.cue"), []byte(bundleContent), 0644); err != nil {
+		t.Fatalf("failed to write bundle invowkfile: %v", err)
+	}
+
+	// Change to temp directory
+	originalWd, _ := os.Getwd()
+	os.Chdir(tmpDir)
+	defer os.Chdir(originalWd)
+
+	// Override HOME
+	originalHome := os.Getenv("HOME")
+	os.Setenv("HOME", tmpDir)
+	defer os.Setenv("HOME", originalHome)
+
+	cfg := config.DefaultConfig()
+	d := New(cfg)
+
+	files, err := d.LoadAll()
+	if err != nil {
+		t.Fatalf("LoadAll() returned error: %v", err)
+	}
+
+	// Find the bundle file
+	var bundleFile *DiscoveredFile
+	for _, f := range files {
+		if f.Source == SourceBundle {
+			bundleFile = f
+			break
+		}
+	}
+
+	if bundleFile == nil {
+		t.Fatal("LoadAll() did not find bundle")
+	}
+
+	if bundleFile.Invowkfile == nil {
+		t.Fatal("LoadAll() did not parse bundle invowkfile")
+	}
+
+	if bundleFile.Invowkfile.Description != "A test bundle" {
+		t.Errorf("Invowkfile.Description = %s, want 'A test bundle'", bundleFile.Invowkfile.Description)
+	}
+
+	// Verify that BundlePath is set on the parsed invowkfile
+	if !bundleFile.Invowkfile.IsFromBundle() {
+		t.Error("Invowkfile.IsFromBundle() should return true for bundle-parsed file")
+	}
+}
+
+func TestLoadFirst_LoadsBundle(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create a valid bundle (but no regular invowkfile)
+	bundleDir := filepath.Join(tmpDir, "firstbundle.invowkbundle")
+	if err := os.MkdirAll(bundleDir, 0755); err != nil {
+		t.Fatalf("failed to create bundle dir: %v", err)
+	}
+
+	bundleContent := `
+group: "firstbundle"
+version: "1.0"
+commands: [{name: "first", implementations: [{script: "echo first", target: {runtimes: [{name: "native"}]}}]}]
+`
+	if err := os.WriteFile(filepath.Join(bundleDir, "invowkfile.cue"), []byte(bundleContent), 0644); err != nil {
+		t.Fatalf("failed to write bundle invowkfile: %v", err)
+	}
+
+	// Change to temp directory
+	originalWd, _ := os.Getwd()
+	os.Chdir(tmpDir)
+	defer os.Chdir(originalWd)
+
+	// Override HOME
+	originalHome := os.Getenv("HOME")
+	os.Setenv("HOME", tmpDir)
+	defer os.Setenv("HOME", originalHome)
+
+	cfg := config.DefaultConfig()
+	d := New(cfg)
+
+	file, err := d.LoadFirst()
+	if err != nil {
+		t.Fatalf("LoadFirst() returned error: %v", err)
+	}
+
+	if file.Source != SourceBundle {
+		t.Errorf("LoadFirst().Source = %v, want SourceBundle", file.Source)
+	}
+
+	if file.Invowkfile == nil {
+		t.Fatal("LoadFirst() did not parse bundle invowkfile")
+	}
+
+	if file.Bundle == nil {
+		t.Fatal("LoadFirst().Bundle should not be nil for bundle source")
+	}
+
+	if file.Bundle.Name != "firstbundle" {
+		t.Errorf("Bundle.Name = %s, want 'firstbundle'", file.Bundle.Name)
+	}
+}
+
+func TestDiscoverAll_CurrentDirInvowkfileTakesPrecedenceOverBundle(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create a regular invowkfile in current directory
+	currentContent := `
+group: "current"
+version: "1.0"
+commands: [{name: "cmd", implementations: [{script: "echo current", target: {runtimes: [{name: "native"}]}}]}]
+`
+	if err := os.WriteFile(filepath.Join(tmpDir, "invowkfile.cue"), []byte(currentContent), 0644); err != nil {
+		t.Fatalf("failed to write current invowkfile: %v", err)
+	}
+
+	// Create a bundle in the same directory
+	bundleDir := filepath.Join(tmpDir, "abundle.invowkbundle")
+	if err := os.MkdirAll(bundleDir, 0755); err != nil {
+		t.Fatalf("failed to create bundle dir: %v", err)
+	}
+	bundleContent := `
+group: "abundle"
+version: "1.0"
+commands: [{name: "cmd", implementations: [{script: "echo bundle", target: {runtimes: [{name: "native"}]}}]}]
+`
+	if err := os.WriteFile(filepath.Join(bundleDir, "invowkfile.cue"), []byte(bundleContent), 0644); err != nil {
+		t.Fatalf("failed to write bundle invowkfile: %v", err)
+	}
+
+	// Change to temp directory
+	originalWd, _ := os.Getwd()
+	os.Chdir(tmpDir)
+	defer os.Chdir(originalWd)
+
+	// Override HOME
+	originalHome := os.Getenv("HOME")
+	os.Setenv("HOME", tmpDir)
+	defer os.Setenv("HOME", originalHome)
+
+	cfg := config.DefaultConfig()
+	d := New(cfg)
+
+	files, err := d.DiscoverAll()
+	if err != nil {
+		t.Fatalf("DiscoverAll() returned error: %v", err)
+	}
+
+	// First file should be from current directory, not bundle
+	if len(files) == 0 {
+		t.Fatal("DiscoverAll() returned no files")
+	}
+
+	if files[0].Source != SourceCurrentDir {
+		t.Errorf("first file source = %v, want SourceCurrentDir", files[0].Source)
+	}
+
+	// Both should be found
+	foundCurrentDir := false
+	foundBundle := false
+	for _, f := range files {
+		if f.Source == SourceCurrentDir {
+			foundCurrentDir = true
+		}
+		if f.Source == SourceBundle {
+			foundBundle = true
+		}
+	}
+
+	if !foundCurrentDir {
+		t.Error("DiscoverAll() did not find invowkfile in current directory")
+	}
+	if !foundBundle {
+		t.Error("DiscoverAll() did not find bundle")
+	}
+}
