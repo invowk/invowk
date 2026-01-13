@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"os/exec"
+	"path/filepath"
 	"strings"
 )
 
@@ -48,7 +49,13 @@ func (e *DockerEngine) Build(ctx context.Context, opts BuildOptions) error {
 	args := []string{"build"}
 
 	if opts.Dockerfile != "" {
-		args = append(args, "-f", opts.Dockerfile)
+		// Docker buildx requires the full path to the Dockerfile when using -f flag
+		// to properly resolve the file. Join with context directory if relative path.
+		dockerfilePath := opts.Dockerfile
+		if !filepath.IsAbs(opts.Dockerfile) && opts.ContextDir != "" {
+			dockerfilePath = filepath.Join(opts.ContextDir, opts.Dockerfile)
+		}
+		args = append(args, "-f", dockerfilePath)
 	}
 
 	if opts.Tag != "" {

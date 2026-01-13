@@ -38,13 +38,13 @@ func TestContainerRuntime_Integration(t *testing.T) {
 	t.Run("WorkingDirectory", testContainerWorkingDirectory)
 	t.Run("VolumeMounts", testContainerVolumeMounts)
 	t.Run("ExitCode", testContainerExitCode)
+	t.Run("PositionalArgs", testContainerPositionalArgs)
 	t.Run("EnableHostSSH_EnvVarsProvided", testContainerEnableHostSSHEnvVars)
 }
 
 // testContainerBasicExecution tests basic command execution in a container
 func testContainerBasicExecution(t *testing.T) {
-	tmpDir, inv := setupTestInvowkfile(t)
-	defer os.RemoveAll(tmpDir)
+	_, inv := setupTestInvowkfile(t)
 
 	cmd := &invowkfile.Command{
 		Name: "test-basic",
@@ -81,8 +81,7 @@ func testContainerBasicExecution(t *testing.T) {
 
 // testContainerEnvironmentVariables tests environment variable handling in containers
 func testContainerEnvironmentVariables(t *testing.T) {
-	tmpDir, inv := setupTestInvowkfile(t)
-	defer os.RemoveAll(tmpDir)
+	_, inv := setupTestInvowkfile(t)
 
 	currentPlatform := invowkfile.GetCurrentHostOS()
 	cmd := &invowkfile.Command{
@@ -129,8 +128,7 @@ func testContainerEnvironmentVariables(t *testing.T) {
 
 // testContainerMultiLineScript tests multi-line script execution in containers
 func testContainerMultiLineScript(t *testing.T) {
-	tmpDir, inv := setupTestInvowkfile(t)
-	defer os.RemoveAll(tmpDir)
+	_, inv := setupTestInvowkfile(t)
 
 	script := `echo "Line 1"
 echo "Line 2"
@@ -179,7 +177,6 @@ echo "Variable: $VAR"`
 // testContainerWorkingDirectory tests working directory handling in containers
 func testContainerWorkingDirectory(t *testing.T) {
 	tmpDir, inv := setupTestInvowkfile(t)
-	defer os.RemoveAll(tmpDir)
 
 	// Create a subdirectory in the temp directory
 	subDir := filepath.Join(tmpDir, "subdir")
@@ -225,7 +222,6 @@ func testContainerWorkingDirectory(t *testing.T) {
 // testContainerVolumeMounts tests volume mounting in containers
 func testContainerVolumeMounts(t *testing.T) {
 	tmpDir, inv := setupTestInvowkfile(t)
-	defer os.RemoveAll(tmpDir)
 
 	// Create a file to mount
 	testFile := filepath.Join(tmpDir, "test-data.txt")
@@ -286,8 +282,7 @@ func testContainerVolumeMounts(t *testing.T) {
 
 // testContainerExitCode tests that non-zero exit codes are properly propagated
 func testContainerExitCode(t *testing.T) {
-	tmpDir, inv := setupTestInvowkfile(t)
-	defer os.RemoveAll(tmpDir)
+	_, inv := setupTestInvowkfile(t)
 
 	cmd := &invowkfile.Command{
 		Name: "test-exit-code",
@@ -317,10 +312,56 @@ func testContainerExitCode(t *testing.T) {
 	}
 }
 
+// testContainerPositionalArgs tests that positional arguments are accessible via $1, $2, $@ in containers
+func testContainerPositionalArgs(t *testing.T) {
+	_, inv := setupTestInvowkfile(t)
+
+	cmd := &invowkfile.Command{
+		Name: "test-positional-args",
+		Implementations: []invowkfile.Implementation{
+			{
+				Script: `echo "ARG1=$1 ARG2=$2 ALL=$@ COUNT=$#"`,
+				Target: invowkfile.Target{
+					Runtimes: []invowkfile.RuntimeConfig{
+						{Name: invowkfile.RuntimeContainer, Image: "alpine:latest"},
+					},
+				},
+			},
+		},
+	}
+
+	rt := createContainerRuntime(t)
+	execCtx := NewExecutionContext(cmd, inv)
+	execCtx.Context = context.Background()
+	execCtx.PositionalArgs = []string{"hello", "world"}
+
+	var stdout, stderr bytes.Buffer
+	execCtx.Stdout = &stdout
+	execCtx.Stderr = &stderr
+
+	result := rt.Execute(execCtx)
+	if result.ExitCode != 0 {
+		t.Errorf("Execute() exit code = %d, want 0, error: %v, stderr: %s", result.ExitCode, result.Error, stderr.String())
+	}
+
+	output := stdout.String()
+	if !strings.Contains(output, "ARG1=hello") {
+		t.Errorf("Execute() output missing ARG1=hello, got: %q", output)
+	}
+	if !strings.Contains(output, "ARG2=world") {
+		t.Errorf("Execute() output missing ARG2=world, got: %q", output)
+	}
+	if !strings.Contains(output, "ALL=hello world") {
+		t.Errorf("Execute() output missing ALL=hello world, got: %q", output)
+	}
+	if !strings.Contains(output, "COUNT=2") {
+		t.Errorf("Execute() output missing COUNT=2, got: %q", output)
+	}
+}
+
 // testContainerEnableHostSSHEnvVars tests that SSH environment variables are provided when enable_host_ssh is true
 func testContainerEnableHostSSHEnvVars(t *testing.T) {
-	tmpDir, inv := setupTestInvowkfile(t)
-	defer os.RemoveAll(tmpDir)
+	_, inv := setupTestInvowkfile(t)
 
 	cmd := &invowkfile.Command{
 		Name: "test-ssh-env",
@@ -373,8 +414,7 @@ func TestContainerRuntime_Validate(t *testing.T) {
 		t.Skip("skipping integration test in short mode")
 	}
 
-	tmpDir, inv := setupTestInvowkfile(t)
-	defer os.RemoveAll(tmpDir)
+	_, inv := setupTestInvowkfile(t)
 
 	tests := []struct {
 		name        string
@@ -456,8 +496,7 @@ func TestContainerRuntime_EnableHostSSH_NoServer(t *testing.T) {
 		t.Skip("skipping integration test in short mode")
 	}
 
-	tmpDir, inv := setupTestInvowkfile(t)
-	defer os.RemoveAll(tmpDir)
+	_, inv := setupTestInvowkfile(t)
 
 	cmd := &invowkfile.Command{
 		Name: "test-ssh-no-server",
@@ -503,7 +542,6 @@ func TestContainerRuntime_BuildFromContainerfile(t *testing.T) {
 	}
 
 	tmpDir, inv := setupTestInvowkfile(t)
-	defer os.RemoveAll(tmpDir)
 
 	// Create a simple Containerfile
 	containerfileContent := `FROM alpine:latest
@@ -555,14 +593,33 @@ RUN echo "Built from Containerfile" > /built.txt
 
 // Helper functions
 
-// setupTestInvowkfile creates a temporary directory and invowkfile for testing
+// setupTestInvowkfile creates a temporary directory and invowkfile for testing.
+// It uses a non-hidden directory under $HOME/invowk-test/ because Docker installed via snap
+// cannot access hidden directories (those starting with '.') due to snap's home interface limitations.
 func setupTestInvowkfile(t *testing.T) (string, *invowkfile.Invowkfile) {
 	t.Helper()
 
-	tmpDir, err := os.MkdirTemp("", "invowk-container-test-*")
+	// Create base directory for tests in user's home (not hidden - no leading dot)
+	// Docker snap's home interface only allows access to non-hidden files/directories
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		t.Fatalf("Failed to get home directory: %v", err)
+	}
+
+	baseTmpDir := filepath.Join(homeDir, "invowk-test")
+	if err := os.MkdirAll(baseTmpDir, 0755); err != nil {
+		t.Fatalf("Failed to create base temp dir: %v", err)
+	}
+
+	tmpDir, err := os.MkdirTemp(baseTmpDir, "container-test-*")
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
+
+	// Register cleanup to remove the temp dir after test
+	t.Cleanup(func() {
+		os.RemoveAll(tmpDir)
+	})
 
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 
