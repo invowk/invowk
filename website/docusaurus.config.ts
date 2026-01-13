@@ -75,6 +75,25 @@ const config: Config = {
     ],
   ],
 
+  themes: [
+    [
+      require.resolve('@easyops-cn/docusaurus-search-local'),
+      /** @type {import("@easyops-cn/docusaurus-search-local").PluginOptions} */
+      ({
+        hashed: true,
+        language: ['en', 'pt'],
+        indexDocs: true,
+        indexBlog: false,
+        indexPages: false,
+        docsRouteBasePath: '/docs',
+        highlightSearchTermsOnTargetPage: true,
+        searchResultLimits: 8,
+        searchBarShortcut: true,
+        searchBarShortcutHint: true,
+      }),
+    ],
+  ],
+
   themeConfig: {
     image: 'img/invowk-social-card.png',
     colorMode: {
@@ -172,7 +191,6 @@ const config: Config = {
       darkTheme: prismThemes.dracula,
       additionalLanguages: ['bash', 'json', 'yaml', 'powershell', 'python', 'ruby', 'cue'],
     },
-    algolia: undefined, // Will be configured later if needed
   } satisfies Preset.ThemeConfig,
 };
 

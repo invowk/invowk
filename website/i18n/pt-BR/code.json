@@ -393,5 +393,41 @@
   },
   "homepage.features.distributablePacks.description": {
     "message": "Empacote comandos e scripts em packs para fácil compartilhamento e distribuição. Importe packs de arquivos ou URLs com um único comando."
+  },
+  "theme.SearchBar.label": {
+    "message": "Pesquisar",
+    "description": "The ARIA label and placeholder for search button"
+  },
+  "theme.SearchBar.seeAll": {
+    "message": "Ver todos os {count} resultados",
+    "description": "The label for see all search results link"
+  },
+  "theme.SearchPage.documentsFound.plurals": {
+    "message": "1 documento encontrado|{count} documentos encontrados",
+    "description": "Pluralized label for documents found"
+  },
+  "theme.SearchPage.existingResultsTitle": {
+    "message": "Resultados da pesquisa por \"{query}\"",
+    "description": "The search page title for query"
+  },
+  "theme.SearchPage.emptyResultsTitle": {
+    "message": "Pesquisar na documentação",
+    "description": "The search page title for empty query"
+  },
+  "theme.SearchPage.inputLabel": {
+    "message": "Pesquisar",
+    "description": "The search input label"
+  },
+  "theme.SearchPage.inputPlaceholder": {
+    "message": "Digite sua pesquisa",
+    "description": "The search input placeholder"
+  },
+  "theme.SearchPage.noResultsText": {
+    "message": "Nenhum resultado encontrado para sua pesquisa.",
+    "description": "The message for no search results"
+  },
+  "theme.SearchPage.fetchingNewResults": {
+    "message": "Buscando novos resultados...",
+    "description": "The message while fetching new results"
   }
 }
