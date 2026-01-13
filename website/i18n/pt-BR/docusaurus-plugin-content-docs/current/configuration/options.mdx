@@ -19,30 +19,27 @@ O arquivo de configuração usa o formato CUE e segue este schema:
 ### container_engine
 
 **Tipo:** `"podman" | "docker"`  
-**Padrão:** Auto-detectado (prefere Podman se disponível)
+**Padrão:** `"podman"`
 
 Especifica qual container runtime usar para execução de comandos baseada em container.
 
 <Snippet id="config/container-engine" />
 
-Invowk irá auto-detectar container engines disponíveis se não especificado:
-1. Primeiro verifica por Podman
-2. Volta para Docker se Podman não estiver disponível
-3. Retorna um erro se nenhum for encontrado (apenas quando container runtime é necessário)
+Se a engine preferida não estiver disponível, o Invowk faz fallback para a outra quando o runtime container é necessário.
 
 ### search_paths
 
 **Tipo:** `[...string]`  
-**Padrão:** `["~/.invowk/cmds"]`
+**Padrão:** `[]`
 
-Diretórios adicionais para buscar invkfiles. Caminhos são buscados em ordem após o diretório atual.
+Diretórios adicionais para buscar invkfiles e packs. Caminhos são buscados em ordem após o diretório atual.
 
 <Snippet id="config/search-paths" />
 
 **Ordem de Busca:**
 1. Diretório atual (sempre buscado primeiro, maior prioridade)
 2. Cada caminho em `search_paths` em ordem
-3. `~/.invowk/cmds` (padrão, sempre incluído)
+3. `~/.invowk/cmds` (sempre incluído)
 
 Comandos de caminhos anteriores sobrescrevem comandos com o mesmo nome de caminhos posteriores.
 
@@ -76,7 +73,7 @@ Configura o comportamento do virtual shell runtime.
 #### virtual_shell.enable_uroot_utils
 
 **Tipo:** `bool`  
-**Padrão:** `false`
+**Padrão:** `true`
 
 Habilita utilitários u-root no virtual shell. Quando habilitado, comandos adicionais como `ls`, `cat`, `grep` e outros ficam disponíveis no ambiente virtual shell.
 
@@ -129,28 +126,45 @@ Habilita o modo interativo por padrão. Quando habilitado, os comandos são exec
 
 Isso é equivalente a sempre passar `--interactive` na linha de comando.
 
+### container
+
+**Tipo:** `#ContainerConfig`  
+**Padrão:** `{}`
+
+Configura o comportamento do runtime container.
+
+<Snippet id="config/container-auto-provision" />
+
+#### container.auto_provision.enabled
+
+**Tipo:** `bool`  
+**Padrão:** `true`
+
+Habilita o provisionamento automático do binário do invowk e packs dentro dos containers.
+
+#### container.auto_provision.binary_path
+
+**Tipo:** `string`  
+**Padrão:** *(vazio; usa o binário do invowk em execução)*
+
+Sobrescreve o caminho do binário do invowk para provisionar.
+
+#### container.auto_provision.packs_paths
+
+**Tipo:** `[...string]`  
+**Padrão:** `[]`
+
+Diretórios adicionais de packs para provisionar dentro dos containers.
+
+#### container.auto_provision.cache_dir
+
+**Tipo:** `string`  
+**Padrão:** `~/.cache/invowk/provision`
+
+Sobrescreve o diretório de cache para metadados de imagens provisionadas.
+
 ## Exemplo Completo
 
 Aqui está um arquivo de configuração completo com todas as opções:
 
 <Snippet id="config/complete-example" />
-
-## Overrides de Variáveis de Ambiente
-
-Algumas opções de configuração podem ser sobrescritas com variáveis de ambiente:
-
-| Variável de Ambiente | Sobrescreve |
-|---------------------|-------------|
-| `INVOWK_CONFIG` | Caminho do arquivo de configuração |
-| `INVOWK_VERBOSE` | `ui.verbose` (defina como `1` ou `true`) |
-| `INVOWK_CONTAINER_ENGINE` | `container_engine` |
-
-<Snippet id="config/env-override-examples" />
-
-## Overrides de Linha de Comando
-
-Todas as opções de configuração podem ser sobrescritas via flags de linha de comando:
-
-<Snippet id="config/cli-override-examples" />
-
-Veja [Referência CLI](/docs/reference/cli) para todas as flags disponíveis.

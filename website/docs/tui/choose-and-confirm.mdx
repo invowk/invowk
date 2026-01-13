@@ -23,8 +23,7 @@ Select one or more options from a list.
 | `--title` | Selection prompt |
 | `--limit` | Max selections (default: 1) |
 | `--no-limit` | Unlimited selections |
-| `--cursor` | Cursor character |
-| `--selected` | Pre-selected items |
+| `--height` | List height |
 
 ### Single Selection
 
@@ -37,10 +36,6 @@ Select one or more options from a list.
 Multiple selections are returned as newline-separated values:
 
 <Snippet id="tui/choose-multi-process" />
-
-### Pre-Selected Options
-
-<Snippet id="tui/choose-preselected" />
 
 ### Real-World Examples
 
@@ -70,6 +65,7 @@ Returns:
 
 | Option | Description |
 |--------|-------------|
+| `--title` | Title displayed above the prompt |
 | `--affirmative` | Custom "yes" label |
 | `--negative` | Custom "no" label |
 | `--default` | Default to yes |

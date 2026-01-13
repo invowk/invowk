@@ -16,13 +16,14 @@ Da maior para a menor prioridade:
 |------------|-------|---------|
 | 1 | Vars da CLI | `--env-var KEY=value` |
 | 2 | Arquivos env da CLI | `--env-file .env.local` |
-| 3 | Vars de implementação | `implementations[].env.vars` |
-| 4 | Arquivos de implementação | `implementations[].env.files` |
+| 3 | Vars do Invowk | `INVOWK_FLAG_*`, `INVOWK_ARG_*` |
+| 4 | Vars de implementação | `implementations[].env.vars` |
 | 5 | Vars de comando | `command.env.vars` |
-| 6 | Arquivos de comando | `command.env.files` |
-| 7 | Vars raiz | `root.env.vars` |
-| 8 | Arquivos raiz | `root.env.files` |
-| 9 | Ambiente do sistema | Ambiente do host |
+| 6 | Vars raiz | `root.env.vars` |
+| 7 | Arquivos de implementação | `implementations[].env.files` |
+| 8 | Arquivos de comando | `command.env.files` |
+| 9 | Arquivos raiz | `root.env.files` |
+| 10 | Ambiente do sistema | Ambiente do host |
 
 ## Hierarquia Visual
 
@@ -46,21 +47,30 @@ E estes arquivos:
    - `API_URL=http://envfile.example.com`
    - `DATABASE_URL=postgres://localhost/db`
 
-3. **Aplicar vars raiz** (sobrescrever arquivos):
-   - `API_URL=http://root.example.com` ← sobrescreve `.env`
-   - `LOG_LEVEL=info`
-
-4. **Carregar arquivos de comando** (`.env.build`):
+3. **Carregar arquivos de comando** (`.env.build`):
    - `BUILD_MODE=release`
    - `CACHE_DIR=./cache`
 
-5. **Aplicar vars de comando** (sobrescrever arquivos):
+4. **Carregar arquivos de implementação** (`implementations[].env.files`):
+   - (nenhum neste exemplo)
+
+5. **Aplicar vars raiz** (sobrescrever arquivos):
+   - `API_URL=http://root.example.com` ← sobrescreve `.env`
+   - `LOG_LEVEL=info`
+
+6. **Aplicar vars de comando** (sobrescrever arquivos):
    - `API_URL=http://command.example.com` ← sobrescreve raiz
    - `BUILD_MODE=development` ← sobrescreve `.env.build`
 
-6. **Aplicar vars de implementação**:
+7. **Aplicar vars de implementação**:
    - `BUILD_MODE=production` ← sobrescreve comando
    - `NODE_ENV=production`
+
+8. **Aplicar vars do Invowk** (flags/args):
+   - `INVOWK_FLAG_*`, `INVOWK_ARG_*` (se presentes)
+
+9. **Aplicar sobrescritas da CLI** (se fornecidas):
+   - `--env-file` e depois `--env-var` (maior prioridade)
 
 ### Resultado Final
 

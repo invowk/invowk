@@ -23,8 +23,7 @@ Selecione uma ou mais opções de uma lista.
 | `--title` | Prompt de seleção |
 | `--limit` | Máximo de seleções (padrão: 1) |
 | `--no-limit` | Seleções ilimitadas |
-| `--cursor` | Caractere do cursor |
-| `--selected` | Itens pré-selecionados |
+| `--height` | Altura da lista |
 
 ### Seleção Única
 
@@ -37,10 +36,6 @@ Selecione uma ou mais opções de uma lista.
 Múltiplas seleções são retornadas como valores separados por nova linha:
 
 <Snippet id="tui/choose-multi-process" />
-
-### Opções Pré-Selecionadas
-
-<Snippet id="tui/choose-preselected" />
 
 ### Exemplos do Mundo Real
 
@@ -70,6 +65,7 @@ Retorna:
 
 | Opção | Descrição |
 |-------|-----------|
+| `--title` | Título exibido acima do prompt |
 | `--affirmative` | Label customizado para "sim" |
 | `--negative` | Label customizado para "não" |
 | `--default` | Padrão para sim |

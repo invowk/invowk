@@ -14,7 +14,6 @@ These flags are available for all commands:
 
 | Flag | Short | Description |
 |------|-------|-------------|
-| `--config` | | Path to config file (default: OS-specific location) |
 | `--help` | `-h` | Show help for the command |
 | `--interactive` | `-i` | Run commands in alternate screen buffer (interactive mode) |
 | `--verbose` | `-v` | Enable verbose output |
@@ -43,6 +42,14 @@ Execute commands defined in invkfiles.
 | `--list` | `-l` | List all available commands |
 | `--runtime` | `-r` | Override the runtime (must be allowed by the command) |
 
+Built-in per-command flags:
+
+| Flag | Short | Description |
+|------|-------|-------------|
+| `--env-file` | `-e` | Load environment variables from file (repeatable) |
+| `--env-var` | `-E` | Set environment variable (KEY=VALUE, repeatable) |
+| `--workdir` | `-w` | Override working directory for this command |
+
 **Examples:**
 
 <Snippet id="reference/cli/cmd-examples" />
@@ -50,9 +57,9 @@ Execute commands defined in invkfiles.
 **Command Discovery:**
 
 Commands are discovered from (in priority order):
-1. Current directory
-2. `~/.invowk/cmds/`
-3. Paths configured in `search_paths`
+1. Current directory (invkfile and packs)
+2. `~/.invowk/cmds/` (invkfiles and packs)
+3. Paths configured in `search_paths` (invkfiles and packs)
 
 ---
 
@@ -61,6 +68,8 @@ Commands are discovered from (in priority order):
 Create a new invkfile in the current directory.
 
 <Snippet id="reference/cli/init-syntax" />
+
+Optionally pass a custom filename to write.
 
 **Flags:**
 
@@ -143,7 +152,10 @@ Create a new invowk pack.
 
 | Flag | Short | Description |
 |------|-------|-------------|
-| `--output` | `-o` | Output directory (default: current directory) |
+| `--path` | `-p` | Parent directory for the pack (default: current directory) |
+| `--scripts` |  | Create a `scripts/` subdirectory |
+| `--group` | `-g` | Group name for the invkfile (default: pack name) |
+| `--description` | `-d` | Description for the invkfile |
 
 **Examples:**
 
@@ -159,7 +171,7 @@ Validate an invowk pack.
 
 | Flag | Short | Description |
 |------|-------|-------------|
-| `--deep` | `-d` | Perform deep validation (checks script files, etc.) |
+| `--deep` |  | Also validate invkfile syntax |
 
 **Examples:**
 
@@ -193,7 +205,8 @@ Import a pack from a ZIP file or URL.
 
 | Flag | Short | Description |
 |------|-------|-------------|
-| `--output` | `-o` | Output directory |
+| `--path` | `-p` | Output directory |
+| `--overwrite` |  | Overwrite existing pack if present |
 
 ---
 
@@ -220,9 +233,13 @@ Prompt for single-line text input.
 | Flag | Description |
 |------|-------------|
 | `--title` | Title for the input prompt |
+| `--description` | Description below the title |
 | `--placeholder` | Placeholder text |
-| `--default` | Default value |
+| `--value` | Initial value |
+| `--char-limit` | Character limit |
+| `--width` | Input field width |
 | `--password` | Hide input (for passwords) |
+| `--prompt` | Prompt character(s) before input |
 
 #### invowk tui write
 
@@ -235,8 +252,13 @@ Multi-line text editor.
 | Flag | Description |
 |------|-------------|
 | `--title` | Title for the editor |
+| `--description` | Description below the title |
 | `--placeholder` | Placeholder text |
 | `--value` | Initial value |
+| `--char-limit` | Character limit |
+| `--width` | Editor width |
+| `--height` | Editor height |
+| `--show-line-numbers` | Show line numbers |
 
 #### invowk tui choose
 
@@ -250,6 +272,8 @@ Select from a list of options.
 |------|-------------|
 | `--title` | Title for the selection |
 | `--limit` | Maximum number of selections (default: 1) |
+| `--no-limit` | Allow unlimited selections |
+| `--height` | List height |
 
 #### invowk tui confirm
 
@@ -261,6 +285,7 @@ Prompt for yes/no confirmation.
 
 | Flag | Description |
 |------|-------------|
+| `--title` | Title displayed above the prompt |
 | `--default` | Default value (true/false) |
 | `--affirmative` | Text for "yes" option |
 | `--negative` | Text for "no" option |
@@ -273,6 +298,19 @@ Fuzzy filter a list of options.
 
 Options can also be provided via stdin.
 
+**Flags:**
+
+| Flag | Description |
+|------|-------------|
+| `--title` | Title displayed above the filter |
+| `--placeholder` | Placeholder text |
+| `--width` | Filter width |
+| `--height` | List height |
+| `--limit` | Maximum selections (default: 1) |
+| `--no-limit` | Allow unlimited selections |
+| `--reverse` | Display list in reverse order |
+| `--fuzzy` | Enable fuzzy matching |
+
 #### invowk tui file
 
 File picker.
@@ -283,9 +321,13 @@ File picker.
 
 | Flag | Description |
 |------|-------------|
+| `--title` | Title displayed above the picker |
+| `--description` | Description below the title |
 | `--directory` | Only show directories |
 | `--file` | Only show files |
 | `--hidden` | Show hidden files |
+| `--height` | Picker height |
+| `--allowed` | Allowed file extensions |
 
 #### invowk tui table
 
@@ -293,14 +335,18 @@ Display and select from a table.
 
 <Snippet id="reference/cli/tui-table-syntax" />
 
-Reads CSV or TSV data from stdin.
+Reads CSV or TSV data from file or stdin.
 
 **Flags:**
 
 | Flag | Description |
 |------|-------------|
+| `--file` | CSV file to display |
 | `--separator` | Column separator (default: `,`) |
-| `--header` | First row is header |
+| `--columns` | Column headers (override file header) |
+| `--widths` | Column widths |
+| `--height` | Table height |
+| `--selectable` | Enable row selection |
 
 #### invowk tui spin
 
@@ -313,7 +359,7 @@ Show a spinner while running a command.
 | Flag | Description |
 |------|-------------|
 | `--title` | Spinner title |
-| `--spinner` | Spinner style |
+| `--type` | Spinner style |
 
 #### invowk tui pager
 
@@ -333,7 +379,7 @@ Reads from file or stdin.
 
 #### invowk tui format
 
-Format text with markdown, code, or emoji.
+Format text with markdown, code, emoji, or templates.
 
 <Snippet id="reference/cli/tui-format-syntax" />
 
@@ -341,8 +387,9 @@ Format text with markdown, code, or emoji.
 
 | Flag | Description |
 |------|-------------|
-| `--type` | Format type: `markdown`, `code`, `emoji` |
+| `--type` | Format type: `markdown`, `code`, `emoji`, `template` |
 | `--language` | Language for code highlighting |
+| `--theme` | Glamour theme for code highlighting |
 
 #### invowk tui style
 
@@ -359,6 +406,16 @@ Apply styles to text.
 | `--bold` | Bold text |
 | `--italic` | Italic text |
 | `--underline` | Underlined text |
+| `--strikethrough` | Strikethrough text |
+| `--faint` | Dimmed text |
+| `--blink` | Blinking text |
+| `--reverse` | Reverse colors |
+| `--margin-*` | Margins (left/right/top/bottom) |
+| `--padding-*` | Padding (left/right/top/bottom) |
+| `--width` | Fixed width |
+| `--height` | Fixed height |
+| `--align` | Text alignment |
+| `--border` | Border style |
 
 ---
 
@@ -388,14 +445,11 @@ Show help for any command.
 
 ## Exit Codes
 
-| Code | Meaning |
-|------|---------|
-| 0 | Success |
-| 1 | General error |
-| 2 | Command not found |
-| 3 | Dependency validation failed |
-| 4 | Configuration error |
-| 5 | Runtime error |
+Invowk exits with:
+
+- `0` on success
+- `1` on CLI or runtime errors
+- The wrapped command's exit code when a command or `tui spin` fails
 
 ## Error Messages
 
@@ -432,19 +486,9 @@ When an invkfile is found but contains syntax errors or invalid configuration:
 **Solutions:**
 - Check the specific error message shown above the help text
 - Validate your CUE syntax: `cue vet invkfile.cue`
-- Run with verbose mode: `invowk --verbose cmd list`
+- Run with verbose mode: `invowk --verbose cmd --list`
 - Compare against the [invkfile schema reference](./invkfile-schema)
 
 :::tip
 The error message always shows the specific parsing error first (e.g., which field failed validation), followed by general troubleshooting guidance.
 :::
-
-## Environment Variables
-
-| Variable | Description |
-|----------|-------------|
-| `INVOWK_CONFIG` | Override config file path |
-| `INVOWK_VERBOSE` | Enable verbose output (`1` or `true`) |
-| `INVOWK_CONTAINER_ENGINE` | Override container engine |
-| `NO_COLOR` | Disable colored output |
-| `FORCE_COLOR` | Force colored output |

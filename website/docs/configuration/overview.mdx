@@ -18,9 +18,7 @@ The configuration file lives in your OS-specific config directory:
 | macOS    | `~/Library/Application Support/invowk/config.cue` |
 | Windows  | `%APPDATA%\invowk\config.cue` |
 
-You can also specify a custom config file path using the `--config` flag:
-
-<Snippet id="config/cli-custom-path" />
+Invowk currently reads configuration from the OS-specific path above. If no config exists there, it will also look for a `config.cue` file in the current directory. If neither is present, defaults are used.
 
 ## Creating a Configuration File
 
@@ -67,17 +65,6 @@ Or just open the config file in your favorite editor:
 Here's what a typical configuration file looks like:
 
 <Snippet id="config/full-example" />
-
-## Configuration Hierarchy
-
-When running a command, Invowk merges configuration from multiple sources (later sources override earlier ones):
-
-1. **Built-in defaults** - Sensible defaults for all options
-2. **Configuration file** - Your `config.cue` settings
-3. **Environment variables** - `INVOWK_*` environment variables
-4. **Command-line flags** - Flags like `--verbose`, `--runtime`
-
-For example, if your config file sets `verbose: false`, but you run with `--verbose`, verbose mode will be enabled.
 
 ## What's Next?
 

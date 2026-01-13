@@ -36,21 +36,19 @@ The root configuration object.
 
 **Type:** `"podman" | "docker"`  
 **Required:** No  
-**Default:** Auto-detected
+**Default:** `"podman"`
 
 Specifies which container runtime to use for container-based command execution.
 
 <Snippet id="reference/config/container-engine-example" />
 
-**Auto-detection order:**
-1. Podman (preferred)
-2. Docker (fallback)
+If the preferred engine is not available, Invowk falls back to the other engine when container runtime is needed.
 
 ### search_paths
 
 **Type:** `[...string]`  
 **Required:** No  
-**Default:** `["~/.invowk/cmds"]`
+**Default:** `[]`
 
 Additional directories to search for invkfiles and packs.
 
@@ -64,7 +62,7 @@ Additional directories to search for invkfiles and packs.
 **Search priority (highest to lowest):**
 1. Current directory
 2. Paths in `search_paths` (in order)
-3. Default `~/.invowk/cmds`
+3. `~/.invowk/cmds`
 
 ### default_runtime
 
@@ -102,6 +100,16 @@ User interface configuration.
 
 <Snippet id="reference/config/ui-example" />
 
+### container
+
+**Type:** `#ContainerConfig`  
+**Required:** No  
+**Default:** `{}`
+
+Container runtime configuration.
+
+<Snippet id="reference/config/container-example" />
+
 ---
 
 ## VirtualShellConfig
@@ -114,7 +122,7 @@ Configuration for the virtual shell runtime (mvdan/sh).
 
 **Type:** `bool`  
 **Required:** No  
-**Default:** `false`
+**Default:** `true`
 
 Enables u-root utilities in the virtual shell environment. When enabled, provides additional commands beyond basic shell builtins.
 
@@ -160,6 +168,74 @@ Enables verbose output by default for all commands.
 <Snippet id="reference/config/verbose-example" />
 
 Equivalent to always passing `--verbose` on the command line.
+
+### interactive
+
+**Type:** `bool`  
+**Required:** No  
+**Default:** `false`
+
+Enables interactive mode by default (alternate screen buffer with PTY).
+
+<Snippet id="reference/config/interactive-example" />
+
+---
+
+## ContainerConfig
+
+Configuration for container runtime behavior.
+
+<Snippet id="reference/config/container-config-structure" />
+
+### auto_provision
+
+**Type:** `#AutoProvisionConfig`  
+**Required:** No  
+**Default:** `{}`
+
+Controls automatic provisioning of invowk resources into containers.
+
+<Snippet id="reference/config/auto-provision-example" />
+
+---
+
+## AutoProvisionConfig
+
+Auto-provisioning configuration for container images.
+
+<Snippet id="reference/config/auto-provision-config-structure" />
+
+### enabled
+
+**Type:** `bool`  
+**Required:** No  
+**Default:** `true`
+
+Enables auto-provisioning of the invowk binary and packs into containers.
+
+### binary_path
+
+**Type:** `string`  
+**Required:** No  
+**Default:** *(empty; uses the running invowk binary)*
+
+Overrides the path to the invowk binary to provision.
+
+### packs_paths
+
+**Type:** `[...string]`  
+**Required:** No  
+**Default:** `[]`
+
+Additional pack directories to provision into containers.
+
+### cache_dir
+
+**Type:** `string`  
+**Required:** No  
+**Default:** `~/.cache/invowk/provision`
+
+Overrides the cache directory for provisioned image metadata.
 
 ---
 

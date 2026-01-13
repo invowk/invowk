@@ -16,13 +16,14 @@ From highest to lowest priority:
 |----------|--------|---------|
 | 1 | CLI env vars | `--env-var KEY=value` |
 | 2 | CLI env files | `--env-file .env.local` |
-| 3 | Implementation vars | `implementations[].env.vars` |
-| 4 | Implementation files | `implementations[].env.files` |
+| 3 | Invowk vars | `INVOWK_FLAG_*`, `INVOWK_ARG_*` |
+| 4 | Implementation vars | `implementations[].env.vars` |
 | 5 | Command vars | `command.env.vars` |
-| 6 | Command files | `command.env.files` |
-| 7 | Root vars | `root.env.vars` |
-| 8 | Root files | `root.env.files` |
-| 9 | System environment | Host's environment |
+| 6 | Root vars | `root.env.vars` |
+| 7 | Implementation files | `implementations[].env.files` |
+| 8 | Command files | `command.env.files` |
+| 9 | Root files | `root.env.files` |
+| 10 | System environment | Host's environment |
 
 ## Visual Hierarchy
 
@@ -46,21 +47,30 @@ And these files:
    - `API_URL=http://envfile.example.com`
    - `DATABASE_URL=postgres://localhost/db`
 
-3. **Apply root vars** (override files):
-   - `API_URL=http://root.example.com` ← overrides `.env`
-   - `LOG_LEVEL=info`
-
-4. **Load command files** (`.env.build`):
+3. **Load command files** (`.env.build`):
    - `BUILD_MODE=release`
    - `CACHE_DIR=./cache`
 
-5. **Apply command vars** (override files):
+4. **Load implementation files** (`implementations[].env.files`):
+   - (none in this example)
+
+5. **Apply root vars** (override files):
+   - `API_URL=http://root.example.com` ← overrides `.env`
+   - `LOG_LEVEL=info`
+
+6. **Apply command vars** (override files):
    - `API_URL=http://command.example.com` ← overrides root
    - `BUILD_MODE=development` ← overrides `.env.build`
 
-6. **Apply implementation vars**:
+7. **Apply implementation vars**:
    - `BUILD_MODE=production` ← overrides command
    - `NODE_ENV=production`
+
+8. **Apply Invowk vars** (flags/args):
+   - `INVOWK_FLAG_*`, `INVOWK_ARG_*` (if present)
+
+9. **Apply CLI overrides** (if provided):
+   - `--env-file` then `--env-var` (highest priority)
 
 ### Final Result
 

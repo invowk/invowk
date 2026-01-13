@@ -18,9 +18,7 @@ O arquivo de configuração fica no diretório de configuração específico do 
 | macOS      | `~/Library/Application Support/invowk/config.cue` |
 | Windows    | `%APPDATA%\invowk\config.cue` |
 
-Você também pode especificar um caminho customizado para o arquivo de configuração usando a flag `--config`:
-
-<Snippet id="config/cli-custom-path" />
+Atualmente, o Invowk lê a configuração do caminho específico do SO acima. Se não existir um arquivo ali, ele também procura por um `config.cue` no diretório atual. Se nenhum estiver presente, usa os padrões.
 
 ## Criando um Arquivo de Configuração
 
@@ -67,17 +65,6 @@ Ou simplesmente abra o arquivo de configuração no seu editor favorito:
 Aqui está como um arquivo de configuração típico se parece:
 
 <Snippet id="config/full-example" />
-
-## Hierarquia de Configuração
-
-Ao executar um comando, Invowk mescla configuração de múltiplas fontes (fontes posteriores sobrescrevem as anteriores):
-
-1. **Padrões internos** - Valores padrão sensatos para todas as opções
-2. **Arquivo de configuração** - Suas configurações do `config.cue`
-3. **Variáveis de ambiente** - Variáveis de ambiente `INVOWK_*`
-4. **Flags de linha de comando** - Flags como `--verbose`, `--runtime`
-
-Por exemplo, se seu arquivo de configuração define `verbose: false`, mas você executa com `--verbose`, o modo verbose será habilitado.
 
 ## Próximos Passos
 

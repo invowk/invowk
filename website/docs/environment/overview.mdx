@@ -16,17 +16,18 @@ Invowk™ provides powerful environment variable management for your commands. S
 
 Variables come from multiple sources, in order of precedence (highest first):
 
-1. **CLI flags** - `--env-var KEY=value`
+1. **CLI env vars** - `--env-var KEY=value`
 2. **CLI env files** - `--env-file .env.custom`
-3. **Implementation vars** - Implementation-level `env.vars`
-4. **Implementation files** - Implementation-level `env.files`
+3. **Invowk vars** - `INVOWK_FLAG_*` / `INVOWK_ARG_*`
+4. **Implementation vars** - Implementation-level `env.vars`
 5. **Command vars** - Command-level `env.vars`
-6. **Command files** - Command-level `env.files`
-7. **Root vars** - Root-level `env.vars`
-8. **Root files** - Root-level `env.files`
-9. **System environment** - Host's environment variables
+6. **Root vars** - Root-level `env.vars`
+7. **Implementation files** - Implementation-level `env.files`
+8. **Command files** - Command-level `env.files`
+9. **Root files** - Root-level `env.files`
+10. **System environment** - Host's environment variables
 
-Later sources don't override earlier ones.
+Earlier sources override later ones.
 
 ## Scope Levels
 
@@ -80,16 +81,8 @@ Override at runtime:
 
 ## Built-in Variables
 
-Invowk provides these variables automatically:
+Invowk provides variables for flags and arguments:
 
-| Variable | Description |
-|----------|-------------|
-| `INVOWK_CMD_NAME` | Full command name (e.g., `myproject build`) |
-| `INVOWK_CMD_GROUP` | Command group (e.g., `myproject`) |
-| `INVOWK_RUNTIME` | Current runtime (native, virtual, container) |
-| `INVOWK_WORKDIR` | Working directory |
-
-Plus flag and argument variables:
 - `INVOWK_FLAG_*` - Flag values
 - `INVOWK_ARG_*` - Argument values
 

@@ -1552,6 +1552,10 @@ invowk cmd myproject build -E NODE_ENV=dev -E DEBUG=true -E PORT=8080`,
 ├── --env-var KEY=value
 └── --env-file .env.local
     │
+Invowk Vars
+├── INVOWK_FLAG_*
+└── INVOWK_ARG_*
+    │
 Implementation Level
 ├── env.vars
 └── env.files
@@ -1564,9 +1568,7 @@ Root Level
 ├── env.vars
 └── env.files
     │
-System Environment (lowest from invkfile)
-│
-Platform-specific env`,
+System Environment (lowest priority)`,
   },
 
   'environment/precedence-invkfile': {
@@ -2812,6 +2814,11 @@ cmds: [
 ]`,
   },
 
+  'advanced/workdir-cli': {
+    language: 'bash',
+    code: `invowk cmd myproject build --workdir ./frontend`,
+  },
+
   'advanced/workdir-relative': {
     language: 'cue',
     code: `workdir: "./frontend"
@@ -3276,10 +3283,10 @@ cmds: [
 └── invkfile.cue`,
   },
 
-  'packs/quick-use': {
+'packs/quick-use': {
     language: 'bash',
     code: `# List commands (pack commands appear automatically)
-invowk cmd list
+invowk cmd --list
 
 # Run a pack command
 invowk cmd mytools hello`,
@@ -3911,7 +3918,9 @@ default_runtime: "virtual"`,
 
   'config/cli-custom-path': {
     language: 'bash',
-    code: `invowk --config /path/to/my/config.cue cmd list`,
+    code: `# Use a project-local config
+cp /path/to/config.cue ./config.cue
+invowk config show`,
   },
 
   'config/init': {
@@ -3981,6 +3990,13 @@ ui: {
     color_scheme: "auto"  // "auto", "dark", or "light"
     verbose: false
     interactive: false    // Enable alternate screen buffer mode
+}
+
+// Container provisioning
+container: {
+    auto_provision: {
+        enabled: true
+    }
 }`,
   },
 
@@ -3992,12 +4008,28 @@ ui: {
     default_runtime?: "native" | "virtual" | "container"
     virtual_shell?: #VirtualShellConfig
     ui?: #UIConfig
+    container?: #ContainerConfig
+}
+
+#VirtualShellConfig: {
+    enable_uroot_utils?: bool
 }
 
 #UIConfig: {
     color_scheme?: "auto" | "dark" | "light"
     verbose?: bool
     interactive?: bool
+}
+
+#ContainerConfig: {
+    auto_provision?: #AutoProvisionConfig
+}
+
+#AutoProvisionConfig: {
+    enabled?: bool
+    binary_path?: string
+    packs_paths?: [...string]
+    cache_dir?: string
 }`,
   },
 
@@ -4043,6 +4075,18 @@ ui: {
 }`,
   },
 
+  'config/container-auto-provision': {
+    language: 'cue',
+    code: `container: {
+    auto_provision: {
+        enabled: true
+        binary_path: "/usr/local/bin/invowk"
+        packs_paths: ["/opt/company/invowk-packs"]
+        cache_dir: "/tmp/invowk/provision"
+    }
+}`,
+  },
+
   'config/complete-example': {
     language: 'cue',
     code: `// Invowk Configuration File
@@ -4076,24 +4120,24 @@ ui: {
     
     // Enable interactive mode for commands with stdin (e.g., password prompts)
     interactive: false
+}
+
+// Container provisioning
+container: {
+    auto_provision: {
+        enabled: true
+    }
 }`,
   },
 
   'config/env-override-examples': {
     language: 'bash',
-    code: `# Example: Use Docker instead of configured Podman
-INVOWK_CONTAINER_ENGINE=docker invowk cmd build
-
-# Example: Enable verbose output for this run
-INVOWK_VERBOSE=1 invowk cmd test`,
+    code: `# Invowk does not currently support config overrides via env vars`,
   },
 
   'config/cli-override-examples': {
     language: 'bash',
-    code: `# Override config file
-invowk --config /path/to/config.cue cmd list
-
-# Override verbose setting
+    code: `# Enable verbose output for a run
 invowk --verbose cmd build
 
 # Run command in interactive mode (alternate screen buffer)
@@ -6036,7 +6080,7 @@ invowk cmd -l
 invowk cmd build
 
 # Run a nested command
-invowk cmd test.unit
+invowk cmd test unit
 
 # Run with a specific runtime
 invowk cmd build --runtime container
@@ -6125,7 +6169,7 @@ invowk cmd -l
 invowk cmd build
 
 # Run a nested command
-invowk cmd test.unit
+invowk cmd test unit
 
 # Run with a specific runtime
 invowk cmd build --runtime container
@@ -6139,7 +6183,7 @@ invowk cmd deploy --env production`,
 
   'reference/cli/init-syntax': {
     language: 'bash',
-    code: `invowk init [flags]`,
+    code: `invowk init [flags] [path]`,
   },
 
   'reference/cli/init-examples': {
@@ -6371,7 +6415,7 @@ Your invkfile contains syntax errors or invalid configuration.
 - Check the error message above for the specific line/column
 - Validate your CUE syntax using the cue command-line tool
 - Run with verbose mode for more details:
-  $ invowk --verbose cmd list`,
+  $ invowk --verbose cmd --list`,
   },
 
   // =============================================================================
@@ -6826,6 +6870,7 @@ cmds: [
     default_runtime?:  "native" | "virtual" | "container"
     virtual_shell?:    #VirtualShellConfig
     ui?:               #UIConfig
+    container?:        #ContainerConfig
 }
 
 // Virtual shell configuration
@@ -6837,6 +6882,20 @@ cmds: [
 #UIConfig: {
     color_scheme?: "auto" | "dark" | "light"
     verbose?:      bool
+    interactive?:  bool
+}
+
+// Container configuration
+#ContainerConfig: {
+    auto_provision?: #AutoProvisionConfig
+}
+
+// Auto-provisioning configuration
+#AutoProvisionConfig: {
+    enabled?:     bool
+    binary_path?: string
+    packs_paths?: [...string]
+    cache_dir?:   string
 }`,
   },
 
@@ -6848,6 +6907,7 @@ cmds: [
     default_runtime?:  "native" | "virtual" | "container"
     virtual_shell?:    #VirtualShellConfig
     ui?:               #UIConfig
+    container?:        #ContainerConfig
 }`,
   },
 
@@ -6882,6 +6942,16 @@ cmds: [
     code: `ui: {
     color_scheme: "dark"
     verbose: false
+    interactive: false
+}`,
+  },
+
+  'reference/config/container-example': {
+    language: 'cue',
+    code: `container: {
+    auto_provision: {
+        enabled: true
+    }
 }`,
   },
 
@@ -6904,6 +6974,36 @@ cmds: [
     code: `#UIConfig: {
     color_scheme?: "auto" | "dark" | "light"
     verbose?:      bool
+    interactive?:  bool
+}`,
+  },
+
+  'reference/config/container-config-structure': {
+    language: 'cue',
+    code: `#ContainerConfig: {
+    auto_provision?: #AutoProvisionConfig
+}`,
+  },
+
+  'reference/config/auto-provision-config-structure': {
+    language: 'cue',
+    code: `#AutoProvisionConfig: {
+    enabled?:     bool
+    binary_path?: string
+    packs_paths?: [...string]
+    cache_dir?:   string
+}`,
+  },
+
+  'reference/config/auto-provision-example': {
+    language: 'cue',
+    code: `container: {
+    auto_provision: {
+        enabled: true
+        binary_path: "/usr/local/bin/invowk"
+        packs_paths: ["/opt/company/invowk-packs"]
+        cache_dir: "/tmp/invowk/provision"
+    }
 }`,
   },
 
@@ -6921,6 +7021,13 @@ cmds: [
 }`,
   },
 
+  'reference/config/interactive-example': {
+    language: 'cue',
+    code: `ui: {
+    interactive: true
+}`,
+  },
+
   'reference/config/complete-example': {
     language: 'cue',
     code: `// Invowk Configuration File
@@ -6930,7 +7037,6 @@ cmds: [
 // Container Engine
 // ----------------
 // Which container runtime to use: "podman" or "docker"
-// If not specified, Invowk auto-detects (prefers Podman)
 container_engine: "podman"
 
 // Search Paths
@@ -6974,6 +7080,17 @@ ui: {
     // Enable verbose output by default
     // Same as always passing --verbose
     verbose: false
+
+    // Enable interactive mode by default
+    interactive: false
+}
+
+// Container provisioning
+// ----------------------
+container: {
+    auto_provision: {
+        enabled: true
+    }
 }`,
   },
 

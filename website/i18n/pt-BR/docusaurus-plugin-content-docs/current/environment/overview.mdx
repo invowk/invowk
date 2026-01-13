@@ -16,17 +16,18 @@ O Invowk™ fornece gerenciamento poderoso de variáveis de ambiente para seus c
 
 Variáveis vêm de múltiplas fontes, em ordem de precedência (mais alta primeiro):
 
-1. **Flags da CLI** - `--env-var KEY=value`
+1. **Vars da CLI** - `--env-var KEY=value`
 2. **Arquivos env da CLI** - `--env-file .env.custom`
-3. **Vars de implementação** - `env.vars` no nível de implementação
-4. **Arquivos de implementação** - `env.files` no nível de implementação
+3. **Vars do Invowk** - `INVOWK_FLAG_*` / `INVOWK_ARG_*`
+4. **Vars de implementação** - `env.vars` no nível de implementação
 5. **Vars de comando** - `env.vars` no nível de comando
-6. **Arquivos de comando** - `env.files` no nível de comando
-7. **Vars raiz** - `env.vars` no nível raiz
-8. **Arquivos raiz** - `env.files` no nível raiz
-9. **Ambiente do sistema** - Variáveis de ambiente do host
+6. **Vars raiz** - `env.vars` no nível raiz
+7. **Arquivos de implementação** - `env.files` no nível de implementação
+8. **Arquivos de comando** - `env.files` no nível de comando
+9. **Arquivos raiz** - `env.files` no nível raiz
+10. **Ambiente do sistema** - Variáveis de ambiente do host
 
-Fontes posteriores não sobrescrevem as anteriores.
+Fontes anteriores sobrescrevem as posteriores.
 
 ## Níveis de Escopo
 
@@ -80,16 +81,8 @@ Sobrescreva em tempo de execução:
 
 ## Variáveis Embutidas
 
-O Invowk fornece estas variáveis automaticamente:
+O Invowk fornece variáveis para flags e argumentos:
 
-| Variável | Descrição |
-|----------|-----------|
-| `INVOWK_CMD_NAME` | Nome completo do comando (ex.: `myproject build`) |
-| `INVOWK_CMD_GROUP` | Grupo do comando (ex.: `myproject`) |
-| `INVOWK_RUNTIME` | Runtime atual (native, virtual, container) |
-| `INVOWK_WORKDIR` | Diretório de trabalho |
-
-Mais variáveis de flag e argumento:
 - `INVOWK_FLAG_*` - Valores de flag
 - `INVOWK_ARG_*` - Valores de argumento
 

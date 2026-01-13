@@ -14,7 +14,6 @@ Estas flags estão disponíveis para todos os comandos:
 
 | Flag | Curta | Descrição |
 |------|-------|-----------|
-| `--config` | | Caminho para arquivo de configuração (padrão: localização específica do SO) |
 | `--help` | `-h` | Mostrar ajuda para o comando |
 | `--interactive` | `-i` | Executar comandos em buffer de tela alternativo (modo interativo) |
 | `--verbose` | `-v` | Habilitar saída verbose |
@@ -43,6 +42,14 @@ Executar comandos definidos em invkfiles.
 | `--list` | `-l` | Listar todos os comandos disponíveis |
 | `--runtime` | `-r` | Sobrescrever o runtime (deve ser permitido pelo comando) |
 
+Flags embutidas por comando:
+
+| Flag | Curta | Descrição |
+|------|-------|-----------|
+| `--env-file` | `-e` | Carregar variáveis de ambiente de arquivo (repetível) |
+| `--env-var` | `-E` | Definir variável de ambiente (KEY=VALUE, repetível) |
+| `--workdir` | `-w` | Sobrescrever diretório de trabalho do comando |
+
 **Exemplos:**
 
 <Snippet id="reference/cli/cmd-examples" />
@@ -50,9 +57,9 @@ Executar comandos definidos em invkfiles.
 **Descoberta de Comandos:**
 
 Comandos são descobertos de (em ordem de prioridade):
-1. Diretório atual
-2. `~/.invowk/cmds/`
-3. Caminhos configurados em `search_paths`
+1. Diretório atual (invkfile e packs)
+2. `~/.invowk/cmds/` (invkfiles e packs)
+3. Caminhos configurados em `search_paths` (invkfiles e packs)
 
 ---
 
@@ -61,6 +68,8 @@ Comandos são descobertos de (em ordem de prioridade):
 Criar um novo invkfile no diretório atual.
 
 <Snippet id="reference/cli/init-syntax" />
+
+Opcionalmente, passe um nome de arquivo customizado para gravar.
 
 **Flags:**
 
@@ -143,7 +152,10 @@ Criar um novo invowk pack.
 
 | Flag | Curta | Descrição |
 |------|-------|-----------|
-| `--output` | `-o` | Diretório de saída (padrão: diretório atual) |
+| `--path` | `-p` | Diretório pai do pack (padrão: diretório atual) |
+| `--scripts` |  | Criar um subdiretório `scripts/` |
+| `--group` | `-g` | Nome do grupo do invkfile (padrão: nome do pack) |
+| `--description` | `-d` | Descrição do invkfile |
 
 **Exemplos:**
 
@@ -159,7 +171,7 @@ Validar um invowk pack.
 
 | Flag | Curta | Descrição |
 |------|-------|-----------|
-| `--deep` | `-d` | Executar validação profunda (verifica arquivos de script, etc.) |
+| `--deep` |  | Também valida a sintaxe do invkfile |
 
 **Exemplos:**
 
@@ -193,7 +205,8 @@ Importar um pack de um arquivo ZIP ou URL.
 
 | Flag | Curta | Descrição |
 |------|-------|-----------|
-| `--output` | `-o` | Diretório de saída |
+| `--path` | `-p` | Diretório de saída |
+| `--overwrite` |  | Sobrescrever pack existente, se presente |
 
 ---
 
@@ -220,9 +233,13 @@ Solicitar entrada de texto de linha única.
 | Flag | Descrição |
 |------|-----------|
 | `--title` | Título para o prompt de entrada |
+| `--description` | Descrição abaixo do título |
 | `--placeholder` | Texto de placeholder |
-| `--default` | Valor padrão |
+| `--value` | Valor inicial |
+| `--char-limit` | Limite de caracteres |
+| `--width` | Largura do campo |
 | `--password` | Ocultar entrada (para senhas) |
+| `--prompt` | Caracter(es) de prompt antes da entrada |
 
 #### invowk tui write
 
@@ -235,8 +252,13 @@ Editor de texto multilinha.
 | Flag | Descrição |
 |------|-----------|
 | `--title` | Título para o editor |
+| `--description` | Descrição abaixo do título |
 | `--placeholder` | Texto de placeholder |
 | `--value` | Valor inicial |
+| `--char-limit` | Limite de caracteres |
+| `--width` | Largura do editor |
+| `--height` | Altura do editor |
+| `--show-line-numbers` | Mostrar números de linha |
 
 #### invowk tui choose
 
@@ -250,6 +272,8 @@ Selecionar de uma lista de opções.
 |------|-----------|
 | `--title` | Título para a seleção |
 | `--limit` | Número máximo de seleções (padrão: 1) |
+| `--no-limit` | Permitir seleções ilimitadas |
+| `--height` | Altura da lista |
 
 #### invowk tui confirm
 
@@ -261,6 +285,7 @@ Solicitar confirmação sim/não.
 
 | Flag | Descrição |
 |------|-----------|
+| `--title` | Título exibido acima do prompt |
 | `--default` | Valor padrão (true/false) |
 | `--affirmative` | Texto para opção "sim" |
 | `--negative` | Texto para opção "não" |
@@ -273,6 +298,19 @@ Filtrar fuzzy uma lista de opções.
 
 Opções também podem ser fornecidas via stdin.
 
+**Flags:**
+
+| Flag | Descrição |
+|------|-----------|
+| `--title` | Título exibido acima do filtro |
+| `--placeholder` | Texto de placeholder |
+| `--width` | Largura do filtro |
+| `--height` | Altura da lista |
+| `--limit` | Máximo de seleções (padrão: 1) |
+| `--no-limit` | Permitir seleções ilimitadas |
+| `--reverse` | Exibir lista em ordem reversa |
+| `--fuzzy` | Habilitar fuzzy matching |
+
 #### invowk tui file
 
 Seletor de arquivo.
@@ -283,9 +321,13 @@ Seletor de arquivo.
 
 | Flag | Descrição |
 |------|-----------|
+| `--title` | Título exibido acima do seletor |
+| `--description` | Descrição abaixo do título |
 | `--directory` | Mostrar apenas diretórios |
 | `--file` | Mostrar apenas arquivos |
 | `--hidden` | Mostrar arquivos ocultos |
+| `--height` | Altura do seletor |
+| `--allowed` | Extensões permitidas |
 
 #### invowk tui table
 
@@ -293,14 +335,18 @@ Exibir e selecionar de uma tabela.
 
 <Snippet id="reference/cli/tui-table-syntax" />
 
-Lê dados CSV ou TSV de stdin.
+Lê dados CSV ou TSV de arquivo ou stdin.
 
 **Flags:**
 
 | Flag | Descrição |
 |------|-----------|
+| `--file` | Arquivo CSV para exibir |
 | `--separator` | Separador de coluna (padrão: `,`) |
-| `--header` | Primeira linha é cabeçalho |
+| `--columns` | Cabeçalhos de coluna (sobrescreve cabeçalho do arquivo) |
+| `--widths` | Larguras de coluna |
+| `--height` | Altura da tabela |
+| `--selectable` | Habilitar seleção de linha |
 
 #### invowk tui spin
 
@@ -313,7 +359,7 @@ Mostrar um spinner enquanto executa um comando.
 | Flag | Descrição |
 |------|-----------|
 | `--title` | Título do spinner |
-| `--spinner` | Estilo do spinner |
+| `--type` | Estilo do spinner |
 
 #### invowk tui pager
 
@@ -333,7 +379,7 @@ Lê de arquivo ou stdin.
 
 #### invowk tui format
 
-Formatar texto com markdown, código ou emoji.
+Formatar texto com markdown, código, emoji ou templates.
 
 <Snippet id="reference/cli/tui-format-syntax" />
 
@@ -341,8 +387,9 @@ Formatar texto com markdown, código ou emoji.
 
 | Flag | Descrição |
 |------|-----------|
-| `--type` | Tipo de formato: `markdown`, `code`, `emoji` |
+| `--type` | Tipo de formato: `markdown`, `code`, `emoji`, `template` |
 | `--language` | Linguagem para highlight de código |
+| `--theme` | Tema do Glamour para highlight de código |
 
 #### invowk tui style
 
@@ -359,6 +406,16 @@ Aplicar estilos ao texto.
 | `--bold` | Texto em negrito |
 | `--italic` | Texto em itálico |
 | `--underline` | Texto sublinhado |
+| `--strikethrough` | Texto tachado |
+| `--faint` | Texto esmaecido |
+| `--blink` | Texto piscando |
+| `--reverse` | Inverter cores |
+| `--margin-*` | Margens (left/right/top/bottom) |
+| `--padding-*` | Padding (left/right/top/bottom) |
+| `--width` | Largura fixa |
+| `--height` | Altura fixa |
+| `--align` | Alinhamento de texto |
+| `--border` | Estilo de borda |
 
 ---
 
@@ -388,14 +445,11 @@ Mostrar ajuda para qualquer comando.
 
 ## Códigos de Saída
 
-| Código | Significado |
-|--------|-------------|
-| 0 | Sucesso |
-| 1 | Erro geral |
-| 2 | Comando não encontrado |
-| 3 | Validação de dependência falhou |
-| 4 | Erro de configuração |
-| 5 | Erro de runtime |
+Invowk sai com:
+
+- `0` em sucesso
+- `1` em erros de CLI ou runtime
+- O código de saída do comando quando um comando ou `tui spin` falha
 
 ## Mensagens de Erro
 
@@ -432,19 +486,9 @@ Quando um invkfile é encontrado mas contém erros de sintaxe ou configuração 
 **Soluções:**
 - Verifique a mensagem de erro específica mostrada acima do texto de ajuda
 - Valide sua sintaxe CUE: `cue vet invkfile.cue`
-- Execute com modo verbose: `invowk --verbose cmd list`
+- Execute com modo verbose: `invowk --verbose cmd --list`
 - Compare com a [referência do schema invkfile](./invkfile-schema)
 
 :::tip
 A mensagem de erro sempre mostra primeiro o erro de parsing específico (ex.: qual campo falhou na validação), seguido por orientações gerais de solução de problemas.
 :::
-
-## Variáveis de Ambiente
-
-| Variável | Descrição |
-|----------|-----------|
-| `INVOWK_CONFIG` | Sobrescrever caminho do arquivo de configuração |
-| `INVOWK_VERBOSE` | Habilitar saída verbose (`1` ou `true`) |
-| `INVOWK_CONTAINER_ENGINE` | Sobrescrever container engine |
-| `NO_COLOR` | Desabilitar saída colorida |
-| `FORCE_COLOR` | Forçar saída colorida |
