@@ -7,6 +7,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net"
 	"net/http"
@@ -34,7 +35,7 @@ type TUIRequest struct {
 type Server struct {
 	httpServer *http.Server
 	listener   net.Listener
-	addr       string
+	port       int // The port number the server is listening on
 	token      string
 
 	// mu protects concurrent access during TUI rendering.
@@ -66,9 +67,12 @@ func New() (*Server, error) {
 		return nil, err
 	}
 
+	// Extract the port from the listener address
+	tcpAddr := listener.Addr().(*net.TCPAddr)
+
 	s := &Server{
 		listener:   listener,
-		addr:       listener.Addr().String(),
+		port:       tcpAddr.Port,
 		token:      token,
 		shutdownCh: make(chan struct{}),
 		requestCh:  make(chan TUIRequest),
@@ -108,14 +112,21 @@ func (s *Server) Stop() error {
 	return s.httpServer.Shutdown(ctx)
 }
 
-// Address returns the server's address (e.g., "127.0.0.1:54321").
-func (s *Server) Address() string {
-	return s.addr
+// Port returns the port number the server is listening on.
+func (s *Server) Port() int {
+	return s.port
 }
 
-// URL returns the full server URL (e.g., "http://127.0.0.1:54321").
+// URL returns the full server URL for localhost access (e.g., "http://127.0.0.1:54321").
+// For container access, use URLWithHost() with the appropriate host address.
 func (s *Server) URL() string {
-	return "http://" + s.addr
+	return s.URLWithHost("127.0.0.1")
+}
+
+// URLWithHost returns the full server URL with a custom host (e.g., "http://host.docker.internal:54321").
+// This is useful for containers that need to access the server via a different hostname.
+func (s *Server) URLWithHost(host string) string {
+	return fmt.Sprintf("http://%s:%d", host, s.port)
 }
 
 // Token returns the authentication token.

@@ -819,13 +819,15 @@ func executeInteractive(ctx *runtime.ExecutionContext, registry *runtime.Registr
 	defer tuiServer.Stop()
 
 	// Determine the TUI server URL for the command
-	// For container runtimes, we need to translate the localhost address
-	// to a host-accessible address (host.docker.internal or host.containers.internal)
-	tuiServerURL := tuiServer.URL()
+	// For container runtimes, use the container-accessible host address
+	// (host.docker.internal or host.containers.internal)
+	var tuiServerURL string
 	if containerRT, ok := interactiveRT.(*runtime.ContainerRuntime); ok {
-		// Replace 127.0.0.1 with the container-accessible host address
 		hostAddr := containerRT.GetHostAddressForContainer()
-		tuiServerURL = strings.Replace(tuiServerURL, "127.0.0.1", hostAddr, 1)
+		tuiServerURL = tuiServer.URLWithHost(hostAddr)
+	} else {
+		// Native/virtual runtimes use localhost
+		tuiServerURL = tuiServer.URL()
 	}
 
 	// Set TUI server info in the execution context so runtimes can include it
