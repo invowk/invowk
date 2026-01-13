@@ -246,8 +246,9 @@ func (m *filterModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.done = true
 			return m, tea.Quit
 		case "tab", " ":
-			if m.limit > 0 || m.noLimit {
-				// Multi-select mode
+			if m.limit > 1 || m.noLimit {
+				// Multi-select mode (limit > 1 or no limit)
+				// Note: limit=1 is single-select, space/tab don't toggle
 				idx := m.list.Index()
 				if m.selected[idx] {
 					delete(m.selected, idx)
@@ -289,8 +290,9 @@ func (m *filterModel) Result() (interface{}, error) {
 		return nil, nil
 	}
 
-	// Handle multi-select
-	if m.limit > 0 || m.noLimit {
+	// Handle multi-select (limit > 1 or no limit)
+	// Note: limit=1 is single-select mode where Enter selects the highlighted item
+	if m.limit > 1 || m.noLimit {
 		var results []string
 		for idx := range m.selected {
 			if idx < len(m.options) {
@@ -300,7 +302,7 @@ func (m *filterModel) Result() (interface{}, error) {
 		return results, nil
 	}
 
-	// Single select
+	// Single select (limit=0 or limit=1): return the currently highlighted item
 	if item, ok := m.list.SelectedItem().(filterItem); ok {
 		return []string{item.text}, nil
 	}
@@ -340,8 +342,8 @@ func Filter(opts FilterOptions) ([]string, error) {
 		return nil, nil
 	}
 
-	// Handle multi-select
-	if opts.Limit > 0 || opts.NoLimit {
+	// Handle multi-select (limit > 1 or no limit)
+	if opts.Limit > 1 || opts.NoLimit {
 		var results []string
 		for idx := range m.selected {
 			results = append(results, opts.Options[idx])
@@ -349,7 +351,7 @@ func Filter(opts FilterOptions) ([]string, error) {
 		return results, nil
 	}
 
-	// Single select
+	// Single select (limit=0 or limit=1)
 	if item, ok := m.list.SelectedItem().(filterItem); ok {
 		return []string{item.text}, nil
 	}
