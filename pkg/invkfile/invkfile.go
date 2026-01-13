@@ -38,9 +38,10 @@ type RuntimeConfig struct {
 	// Name specifies the runtime type (required)
 	Name RuntimeMode `json:"name"`
 	// Interpreter specifies how to execute the script (native and container only)
-	// - Empty: defaults to "auto" (detect from shebang)
+	// - Omit field: defaults to "auto" (detect from shebang)
 	// - "auto": detect interpreter from shebang (#!) in first line of script
 	// - Specific value: use as interpreter (e.g., "python3", "node")
+	// When declared, interpreter must be non-empty (cannot be "" or whitespace-only)
 	// Not allowed for virtual runtime (CUE schema enforces this, Go validates as fallback)
 	Interpreter string `json:"interpreter,omitempty"`
 	// EnableHostSSH enables SSH access from container back to host (container only)
@@ -1049,6 +1050,12 @@ func (inv *Invkfile) validate() error {
 
 // validateRuntimeConfig checks that a runtime configuration is valid
 func validateRuntimeConfig(rt *RuntimeConfig, cmdName string, implIndex int) error {
+	// Validate interpreter field: if declared, it must be non-empty (after trimming whitespace)
+	// This is a Go-level validation as fallback to the CUE schema constraint
+	if rt.Interpreter != "" && strings.TrimSpace(rt.Interpreter) == "" {
+		return fmt.Errorf("command '%s' implementation #%d: interpreter cannot be empty or whitespace-only when declared; omit the field to use auto-detection", cmdName, implIndex)
+	}
+
 	// Container-specific fields are only valid for container runtime
 	if rt.Name != RuntimeContainer {
 		if rt.EnableHostSSH {

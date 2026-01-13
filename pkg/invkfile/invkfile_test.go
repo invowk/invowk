@@ -4528,3 +4528,242 @@ func TestGenerateCUE_WithArgs_RoundTrip(t *testing.T) {
 		t.Error("Args[2].Variadic should be true")
 	}
 }
+
+// ============================================================================
+// Tests for Interpreter Validation (empty/whitespace rejection)
+// ============================================================================
+
+// TestCUESchema_RejectsEmptyInterpreter verifies that the CUE schema rejects
+// empty interpreter values when the field is explicitly declared.
+func TestCUESchema_RejectsEmptyInterpreter(t *testing.T) {
+	cueContent := `
+group: "test"
+version: "1.0"
+
+commands: [
+	{
+		name: "test"
+		implementations: [
+			{
+				script: "echo test"
+				target: { runtimes: [{name: "native", interpreter: ""}] }
+			}
+		]
+	}
+]
+`
+	tmpDir := t.TempDir()
+	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
+		t.Fatalf("Failed to write invkfile: %v", err)
+	}
+
+	_, err := Parse(invkfilePath)
+	if err == nil {
+		t.Error("Parse() should reject empty interpreter when explicitly declared")
+	}
+}
+
+// TestCUESchema_RejectsWhitespaceOnlyInterpreter verifies that the CUE schema rejects
+// whitespace-only interpreter values when the field is explicitly declared.
+func TestCUESchema_RejectsWhitespaceOnlyInterpreter(t *testing.T) {
+	tests := []struct {
+		name        string
+		interpreter string
+	}{
+		{"single space", " "},
+		{"multiple spaces", "   "},
+		{"tab", "\t"},
+		{"mixed whitespace", "  \t  "},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cueContent := `
+group: "test"
+version: "1.0"
+
+commands: [
+	{
+		name: "test"
+		implementations: [
+			{
+				script: "echo test"
+				target: { runtimes: [{name: "native", interpreter: "` + tt.interpreter + `"}] }
+			}
+		]
+	}
+]
+`
+			tmpDir := t.TempDir()
+			invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+			if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
+				t.Fatalf("Failed to write invkfile: %v", err)
+			}
+
+			_, err := Parse(invkfilePath)
+			if err == nil {
+				t.Errorf("Parse() should reject whitespace-only interpreter %q", tt.interpreter)
+			}
+		})
+	}
+}
+
+// TestCUESchema_RejectsEmptyInterpreterForContainer verifies that the CUE schema
+// rejects empty interpreter for container runtime as well.
+func TestCUESchema_RejectsEmptyInterpreterForContainer(t *testing.T) {
+	cueContent := `
+group: "test"
+version: "1.0"
+
+commands: [
+	{
+		name: "test"
+		implementations: [
+			{
+				script: "echo test"
+				target: { runtimes: [{name: "container", image: "alpine:latest", interpreter: ""}] }
+			}
+		]
+	}
+]
+`
+	tmpDir := t.TempDir()
+	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
+		t.Fatalf("Failed to write invkfile: %v", err)
+	}
+
+	_, err := Parse(invkfilePath)
+	if err == nil {
+		t.Error("Parse() should reject empty interpreter for container runtime")
+	}
+}
+
+// TestValidateRuntimeConfig_RejectsEmptyInterpreter tests the Go-level validation
+// as a fallback for empty/whitespace interpreter rejection.
+func TestValidateRuntimeConfig_RejectsEmptyInterpreter(t *testing.T) {
+	tests := []struct {
+		name        string
+		interpreter string
+		wantErr     bool
+	}{
+		{"empty string is empty so no validation triggered", "", false}, // Empty means field was not declared
+		{"whitespace only - space", " ", true},
+		{"whitespace only - tabs", "\t\t", true},
+		{"whitespace only - mixed", "  \t  ", true},
+		{"valid interpreter - auto", "auto", false},
+		{"valid interpreter - python3", "python3", false},
+		{"valid interpreter - with leading space", " python3", false}, // Has non-whitespace content
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rt := &RuntimeConfig{
+				Name:        RuntimeNative,
+				Interpreter: tt.interpreter,
+			}
+
+			err := validateRuntimeConfig(rt, "test-cmd", 1)
+
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("validateRuntimeConfig() should return error for interpreter %q", tt.interpreter)
+				}
+				if err != nil && !strings.Contains(err.Error(), "interpreter") {
+					t.Errorf("Error should mention 'interpreter', got: %v", err)
+				}
+			} else {
+				if err != nil {
+					t.Errorf("validateRuntimeConfig() unexpected error for interpreter %q: %v", tt.interpreter, err)
+				}
+			}
+		})
+	}
+}
+
+// TestParseInterpreter_ValidValues verifies that valid interpreter values work correctly.
+func TestParseInterpreter_ValidValues(t *testing.T) {
+	tests := []struct {
+		name        string
+		interpreter string
+	}{
+		{"auto", "auto"},
+		{"simple command", "python3"},
+		{"with path", "/usr/bin/python3"},
+		{"with args", "python3 -u"},
+		{"shebang-style", "/usr/bin/env python3"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cueContent := `
+group: "test"
+version: "1.0"
+
+commands: [
+	{
+		name: "test"
+		implementations: [
+			{
+				script: "print('hello')"
+				target: { runtimes: [{name: "native", interpreter: "` + tt.interpreter + `"}] }
+			}
+		]
+	}
+]
+`
+			tmpDir := t.TempDir()
+			invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+			if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
+				t.Fatalf("Failed to write invkfile: %v", err)
+			}
+
+			inv, err := Parse(invkfilePath)
+			if err != nil {
+				t.Fatalf("Parse() should accept valid interpreter %q, got error: %v", tt.interpreter, err)
+			}
+
+			rt := inv.Commands[0].Implementations[0].Target.Runtimes[0]
+			if rt.Interpreter != tt.interpreter {
+				t.Errorf("RuntimeConfig.Interpreter = %q, want %q", rt.Interpreter, tt.interpreter)
+			}
+		})
+	}
+}
+
+// TestParseInterpreter_OmittedFieldIsValid verifies that omitting the interpreter
+// field entirely is valid (defaults to auto-detection).
+func TestParseInterpreter_OmittedFieldIsValid(t *testing.T) {
+	cueContent := `
+group: "test"
+version: "1.0"
+
+commands: [
+	{
+		name: "test"
+		implementations: [
+			{
+				script: "echo hello"
+				target: { runtimes: [{name: "native"}] }
+			}
+		]
+	}
+]
+`
+	tmpDir := t.TempDir()
+	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
+		t.Fatalf("Failed to write invkfile: %v", err)
+	}
+
+	inv, err := Parse(invkfilePath)
+	if err != nil {
+		t.Fatalf("Parse() should accept omitted interpreter field, got error: %v", err)
+	}
+
+	rt := inv.Commands[0].Implementations[0].Target.Runtimes[0]
+	if rt.Interpreter != "" {
+		t.Errorf("RuntimeConfig.Interpreter should be empty when omitted, got %q", rt.Interpreter)
+	}
+}
