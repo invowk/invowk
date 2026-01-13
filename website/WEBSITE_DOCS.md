@@ -85,6 +85,14 @@ The sidebar is manually configured in `website/sidebars.ts`. Current sections:
 | Configuration | `configuration/` |
 | Reference | `reference/` |
 
+## Versioning Policy
+
+- Treat `website/docs/` as the upcoming (unreleased) version. Only update it for changes targeting the next release.
+- Never edit `website/versioned_docs/version-*/` or `website/versioned_sidebars/` except to fix a bug, mismatch, or critical clarification for an already-released version.
+- When you need a backport fix, update the specific `version-*` doc and the matching translation under `website/i18n/pt-BR/docusaurus-plugin-content-docs/version-*/`.
+- When behavior changes, create new snippet IDs for the upcoming version and keep existing snippet IDs unchanged to preserve older docs.
+- When cutting a release, snapshot docs with `cd website && npx docusaurus docs:version X.Y.Z`, then continue updates in `website/docs/` for the next version.
+
 ## Testing Changes
 
 ### Single Locale (Fast)

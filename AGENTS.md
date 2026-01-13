@@ -370,6 +370,7 @@ website/docs/
 ### Docs + i18n Checklist
 
 - Always use `.mdx` (not `.md`) in `website/docs/` and translations.
+- Treat `website/docs/` as the upcoming version; only touch versioned docs for backport fixes (see `website/WEBSITE_DOCS.md`).
 - Update English first, then mirror the same `.mdx` path in `website/i18n/pt-BR/docusaurus-plugin-content-docs/current/`.
 - Keep translations prose-only and reuse identical snippet IDs.
 - Regenerate translation JSON when UI strings change: `cd website && npx docusaurus write-translations --locale pt-BR`.
