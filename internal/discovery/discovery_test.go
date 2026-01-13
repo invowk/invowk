@@ -1,4 +1,4 @@
-// Package discovery handles finding and loading invowkfiles from various locations.
+// Package discovery handles finding and loading invkfiles from various locations.
 package discovery
 
 import (
@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"invowk-cli/internal/config"
-	"invowk-cli/pkg/invowkfile"
+	"invowk-cli/pkg/invkfile"
 )
 
 func TestSource_String(t *testing.T) {
@@ -45,20 +45,20 @@ func TestNew(t *testing.T) {
 
 func TestDiscoveredFile_Fields(t *testing.T) {
 	df := &DiscoveredFile{
-		Path:   "/path/to/invowkfile.cue",
+		Path:   "/path/to/invkfile.cue",
 		Source: SourceCurrentDir,
 	}
 
-	if df.Path != "/path/to/invowkfile.cue" {
-		t.Errorf("Path = %s, want /path/to/invowkfile.cue", df.Path)
+	if df.Path != "/path/to/invkfile.cue" {
+		t.Errorf("Path = %s, want /path/to/invkfile.cue", df.Path)
 	}
 
 	if df.Source != SourceCurrentDir {
 		t.Errorf("Source = %v, want SourceCurrentDir", df.Source)
 	}
 
-	if df.Invowkfile != nil {
-		t.Error("Invowkfile should be nil by default")
+	if df.Invkfile != nil {
+		t.Error("Invkfile should be nil by default")
 	}
 
 	if df.Error != nil {
@@ -67,12 +67,12 @@ func TestDiscoveredFile_Fields(t *testing.T) {
 }
 
 func TestCommandInfo_Fields(t *testing.T) {
-	cmd := &invowkfile.Command{
+	cmd := &invkfile.Command{
 		Name:        "build",
 		Description: "Build the project",
 	}
 
-	inv := &invowkfile.Invowkfile{
+	inv := &invkfile.Invkfile{
 		Version: "1.0",
 	}
 
@@ -80,9 +80,9 @@ func TestCommandInfo_Fields(t *testing.T) {
 		Name:        "build",
 		Description: "Build the project",
 		Source:      SourceCurrentDir,
-		FilePath:    "/path/to/invowkfile.cue",
+		FilePath:    "/path/to/invkfile.cue",
 		Command:     cmd,
-		Invowkfile:  inv,
+		Invkfile:    inv,
 	}
 
 	if ci.Name != "build" {
@@ -119,17 +119,17 @@ func TestDiscoverAll_EmptyDirectory(t *testing.T) {
 		t.Fatalf("DiscoverAll() returned error: %v", err)
 	}
 
-	// Should return empty slice (no invowkfiles found)
+	// Should return empty slice (no invkfiles found)
 	if len(files) != 0 {
 		t.Errorf("DiscoverAll() returned %d files, want 0", len(files))
 	}
 }
 
-func TestDiscoverAll_FindsInvowkfile(t *testing.T) {
+func TestDiscoverAll_FindsInvkfile(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	// Create an invowkfile.cue in the temp directory
-	invowkfileContent := `
+	// Create an invkfile.cue in the temp directory
+	invkfileContent := `
 group: "test"
 version: "1.0"
 description: "Test commands"
@@ -145,9 +145,9 @@ commands: [
 	}
 ]
 `
-	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
-	if err := os.WriteFile(invowkfilePath, []byte(invowkfileContent), 0644); err != nil {
-		t.Fatalf("failed to write invowkfile: %v", err)
+	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+	if err := os.WriteFile(invkfilePath, []byte(invkfileContent), 0644); err != nil {
+		t.Fatalf("failed to write invkfile: %v", err)
 	}
 
 	// Change to temp directory
@@ -181,15 +181,15 @@ commands: [
 	}
 
 	if !found {
-		t.Error("DiscoverAll() did not find invowkfile in current directory")
+		t.Error("DiscoverAll() did not find invkfile in current directory")
 	}
 }
 
-func TestDiscoverAll_FindsInvowkfileWithoutExtension(t *testing.T) {
+func TestDiscoverAll_FindsInvkfileWithoutExtension(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	// Create an invowkfile (without .cue extension) in the temp directory
-	invowkfileContent := `
+	// Create an invkfile (without .cue extension) in the temp directory
+	invkfileContent := `
 group: "test"
 version: "1.0"
 description: "Test commands"
@@ -205,9 +205,9 @@ commands: [
 	}
 ]
 `
-	invowkfilePath := filepath.Join(tmpDir, "invowkfile")
-	if err := os.WriteFile(invowkfilePath, []byte(invowkfileContent), 0644); err != nil {
-		t.Fatalf("failed to write invowkfile: %v", err)
+	invkfilePath := filepath.Join(tmpDir, "invkfile")
+	if err := os.WriteFile(invkfilePath, []byte(invkfileContent), 0644); err != nil {
+		t.Fatalf("failed to write invkfile: %v", err)
 	}
 
 	// Change to temp directory
@@ -233,20 +233,20 @@ commands: [
 	}
 }
 
-func TestDiscoverAll_PrefersInvowkfileCue(t *testing.T) {
+func TestDiscoverAll_PrefersInvkfileCue(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	// Create both invowkfile and invowkfile.cue
+	// Create both invkfile and invkfile.cue
 	content := `
 group: "test"
 version: "1.0"
 commands: [{name: "test", implementations: [{script: "echo test", target: {runtimes: [{name: "native"}]}}]}]
 `
-	if err := os.WriteFile(filepath.Join(tmpDir, "invowkfile"), []byte(content), 0644); err != nil {
-		t.Fatalf("failed to write invowkfile: %v", err)
+	if err := os.WriteFile(filepath.Join(tmpDir, "invkfile"), []byte(content), 0644); err != nil {
+		t.Fatalf("failed to write invkfile: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(tmpDir, "invowkfile.cue"), []byte(content), 0644); err != nil {
-		t.Fatalf("failed to write invowkfile.cue: %v", err)
+	if err := os.WriteFile(filepath.Join(tmpDir, "invkfile.cue"), []byte(content), 0644); err != nil {
+		t.Fatalf("failed to write invkfile.cue: %v", err)
 	}
 
 	// Change to temp directory
@@ -267,17 +267,17 @@ commands: [{name: "test", implementations: [{script: "echo test", target: {runti
 		t.Fatalf("DiscoverAll() returned error: %v", err)
 	}
 
-	// Should find invowkfile.cue (preferred) in current dir
+	// Should find invkfile.cue (preferred) in current dir
 	found := false
 	for _, f := range files {
-		if f.Source == SourceCurrentDir && filepath.Base(f.Path) == "invowkfile.cue" {
+		if f.Source == SourceCurrentDir && filepath.Base(f.Path) == "invkfile.cue" {
 			found = true
 			break
 		}
 	}
 
 	if !found {
-		t.Error("DiscoverAll() should prefer invowkfile.cue over invowkfile")
+		t.Error("DiscoverAll() should prefer invkfile.cue over invkfile")
 	}
 }
 
@@ -290,17 +290,17 @@ func TestDiscoverAll_FindsInUserDir(t *testing.T) {
 		t.Fatalf("failed to create user cmds dir: %v", err)
 	}
 
-	// Create an invowkfile in user commands
+	// Create an invkfile in user commands
 	content := `
 group: "usercmds"
 version: "1.0"
 commands: [{name: "user-cmd", implementations: [{script: "echo user", target: {runtimes: [{name: "native"}]}}]}]
 `
-	if err := os.WriteFile(filepath.Join(userCmdsDir, "invowkfile.cue"), []byte(content), 0644); err != nil {
-		t.Fatalf("failed to write invowkfile: %v", err)
+	if err := os.WriteFile(filepath.Join(userCmdsDir, "invkfile.cue"), []byte(content), 0644); err != nil {
+		t.Fatalf("failed to write invkfile: %v", err)
 	}
 
-	// Change to temp directory (which has no invowkfile)
+	// Change to temp directory (which has no invkfile)
 	originalWd, _ := os.Getwd()
 	os.Chdir(tmpDir)
 	defer os.Chdir(originalWd)
@@ -327,7 +327,7 @@ commands: [{name: "user-cmd", implementations: [{script: "echo user", target: {r
 	}
 
 	if !found {
-		t.Error("DiscoverAll() did not find invowkfile in user commands directory")
+		t.Error("DiscoverAll() did not find invkfile in user commands directory")
 	}
 }
 
@@ -340,17 +340,17 @@ func TestDiscoverAll_FindsInConfigPath(t *testing.T) {
 		t.Fatalf("failed to create search path dir: %v", err)
 	}
 
-	// Create an invowkfile in search path
+	// Create an invkfile in search path
 	content := `
 group: "customcmds"
 version: "1.0"
 commands: [{name: "custom-cmd", implementations: [{script: "echo custom", target: {runtimes: [{name: "native"}]}}]}]
 `
-	if err := os.WriteFile(filepath.Join(searchPath, "invowkfile.cue"), []byte(content), 0644); err != nil {
-		t.Fatalf("failed to write invowkfile: %v", err)
+	if err := os.WriteFile(filepath.Join(searchPath, "invkfile.cue"), []byte(content), 0644); err != nil {
+		t.Fatalf("failed to write invkfile: %v", err)
 	}
 
-	// Change to temp directory (which has no invowkfile)
+	// Change to temp directory (which has no invkfile)
 	emptyDir := filepath.Join(tmpDir, "empty")
 	os.MkdirAll(emptyDir, 0755)
 	originalWd, _ := os.Getwd()
@@ -380,7 +380,7 @@ commands: [{name: "custom-cmd", implementations: [{script: "echo custom", target
 	}
 
 	if !found {
-		t.Error("DiscoverAll() did not find invowkfile in configured search path")
+		t.Error("DiscoverAll() did not find invkfile in configured search path")
 	}
 }
 
@@ -413,8 +413,8 @@ version: "1.0"
 description: "Test"
 commands: [{name: "test", implementations: [{script: "echo test", target: {runtimes: [{name: "native"}]}}]}]
 `
-	if err := os.WriteFile(filepath.Join(tmpDir, "invowkfile.cue"), []byte(content), 0644); err != nil {
-		t.Fatalf("failed to write invowkfile: %v", err)
+	if err := os.WriteFile(filepath.Join(tmpDir, "invkfile.cue"), []byte(content), 0644); err != nil {
+		t.Fatalf("failed to write invkfile: %v", err)
 	}
 
 	originalWd, _ := os.Getwd()
@@ -433,29 +433,29 @@ commands: [{name: "test", implementations: [{script: "echo test", target: {runti
 		t.Fatalf("LoadFirst() returned error: %v", err)
 	}
 
-	if file.Invowkfile == nil {
-		t.Error("LoadFirst() did not parse the invowkfile")
+	if file.Invkfile == nil {
+		t.Error("LoadFirst() did not parse the invkfile")
 	}
 
-	if file.Invowkfile.Version != "1.0" {
-		t.Errorf("Invowkfile.Version = %s, want 1.0", file.Invowkfile.Version)
+	if file.Invkfile.Version != "1.0" {
+		t.Errorf("Invkfile.Version = %s, want 1.0", file.Invkfile.Version)
 	}
 }
 
 func TestLoadAll_WithMultipleFiles(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	// Create current dir invowkfile
+	// Create current dir invkfile
 	content := `
 group: "current"
 version: "1.0"
 commands: [{name: "current", implementations: [{script: "echo current", target: {runtimes: [{name: "native"}]}}]}]
 `
-	if err := os.WriteFile(filepath.Join(tmpDir, "invowkfile.cue"), []byte(content), 0644); err != nil {
-		t.Fatalf("failed to write invowkfile: %v", err)
+	if err := os.WriteFile(filepath.Join(tmpDir, "invkfile.cue"), []byte(content), 0644); err != nil {
+		t.Fatalf("failed to write invkfile: %v", err)
 	}
 
-	// Create user commands invowkfile
+	// Create user commands invkfile
 	userCmdsDir := filepath.Join(tmpDir, ".invowk", "cmds")
 	os.MkdirAll(userCmdsDir, 0755)
 	userContent := `
@@ -463,8 +463,8 @@ group: "usercmds"
 version: "1.0"
 commands: [{name: "user", implementations: [{script: "echo user", target: {runtimes: [{name: "native"}]}}]}]
 `
-	if err := os.WriteFile(filepath.Join(userCmdsDir, "invowkfile.cue"), []byte(userContent), 0644); err != nil {
-		t.Fatalf("failed to write user invowkfile: %v", err)
+	if err := os.WriteFile(filepath.Join(userCmdsDir, "invkfile.cue"), []byte(userContent), 0644); err != nil {
+		t.Fatalf("failed to write user invkfile: %v", err)
 	}
 
 	originalWd, _ := os.Getwd()
@@ -489,7 +489,7 @@ commands: [{name: "user", implementations: [{script: "echo user", target: {runti
 
 	// All files should be parsed
 	for _, f := range files {
-		if f.Invowkfile == nil && f.Error == nil {
+		if f.Invkfile == nil && f.Error == nil {
 			t.Errorf("file %s was not parsed and has no error", f.Path)
 		}
 	}
@@ -506,8 +506,8 @@ commands: [
 	{name: "test", description: "Run tests", implementations: [{script: "go test", target: {runtimes: [{name: "native"}]}}]}
 ]
 `
-	if err := os.WriteFile(filepath.Join(tmpDir, "invowkfile.cue"), []byte(content), 0644); err != nil {
-		t.Fatalf("failed to write invowkfile: %v", err)
+	if err := os.WriteFile(filepath.Join(tmpDir, "invkfile.cue"), []byte(content), 0644); err != nil {
+		t.Fatalf("failed to write invkfile: %v", err)
 	}
 
 	originalWd, _ := os.Getwd()
@@ -549,8 +549,8 @@ commands: [
 	{name: "test", description: "Run tests", implementations: [{script: "go test", target: {runtimes: [{name: "native"}]}}]}
 ]
 `
-	if err := os.WriteFile(filepath.Join(tmpDir, "invowkfile.cue"), []byte(content), 0644); err != nil {
-		t.Fatalf("failed to write invowkfile: %v", err)
+	if err := os.WriteFile(filepath.Join(tmpDir, "invkfile.cue"), []byte(content), 0644); err != nil {
+		t.Fatalf("failed to write invkfile: %v", err)
 	}
 
 	originalWd, _ := os.Getwd()
@@ -602,8 +602,8 @@ commands: [
 	{name: "test", implementations: [{script: "go test", target: {runtimes: [{name: "native"}]}}]}
 ]
 `
-	if err := os.WriteFile(filepath.Join(tmpDir, "invowkfile.cue"), []byte(content), 0644); err != nil {
-		t.Fatalf("failed to write invowkfile: %v", err)
+	if err := os.WriteFile(filepath.Join(tmpDir, "invkfile.cue"), []byte(content), 0644); err != nil {
+		t.Fatalf("failed to write invkfile: %v", err)
 	}
 
 	originalWd, _ := os.Getwd()
@@ -665,7 +665,7 @@ commands: [
 func TestDiscoverCommands_Precedence(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	// Create current dir invowkfile with "build" command
+	// Create current dir invkfile with "build" command
 	// Note: With group field, the command names will be different: "current build" vs "usercmds build"
 	// So they won't conflict anymore. We need to test with the same group to test precedence.
 	currentContent := `
@@ -673,11 +673,11 @@ group: "project"
 version: "1.0"
 commands: [{name: "build", description: "Current build", implementations: [{script: "echo current", target: {runtimes: [{name: "native"}]}}]}]
 `
-	if err := os.WriteFile(filepath.Join(tmpDir, "invowkfile.cue"), []byte(currentContent), 0644); err != nil {
-		t.Fatalf("failed to write invowkfile: %v", err)
+	if err := os.WriteFile(filepath.Join(tmpDir, "invkfile.cue"), []byte(currentContent), 0644); err != nil {
+		t.Fatalf("failed to write invkfile: %v", err)
 	}
 
-	// Create user commands invowkfile with same "build" command and same group
+	// Create user commands invkfile with same "build" command and same group
 	userCmdsDir := filepath.Join(tmpDir, ".invowk", "cmds")
 	os.MkdirAll(userCmdsDir, 0755)
 	userContent := `
@@ -685,8 +685,8 @@ group: "project"
 version: "1.0"
 commands: [{name: "build", description: "User build", implementations: [{script: "echo user", target: {runtimes: [{name: "native"}]}}]}]
 `
-	if err := os.WriteFile(filepath.Join(userCmdsDir, "invowkfile.cue"), []byte(userContent), 0644); err != nil {
-		t.Fatalf("failed to write user invowkfile: %v", err)
+	if err := os.WriteFile(filepath.Join(userCmdsDir, "invkfile.cue"), []byte(userContent), 0644); err != nil {
+		t.Fatalf("failed to write user invkfile: %v", err)
 	}
 
 	originalWd, _ := os.Getwd()
@@ -734,19 +734,19 @@ func TestDiscoverAll_FindsPacksInCurrentDir(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	// Create a valid pack in the temp directory
-	packDir := filepath.Join(tmpDir, "mycommands.invowkpack")
+	packDir := filepath.Join(tmpDir, "mycommands.invkpack")
 	if err := os.MkdirAll(packDir, 0755); err != nil {
 		t.Fatalf("failed to create pack dir: %v", err)
 	}
 
-	// Create invowkfile.cue inside the pack
+	// Create invkfile.cue inside the pack
 	packContent := `
 group: "mycommands"
 version: "1.0"
 commands: [{name: "packed-cmd", implementations: [{script: "echo packed", target: {runtimes: [{name: "native"}]}}]}]
 `
-	if err := os.WriteFile(filepath.Join(packDir, "invowkfile.cue"), []byte(packContent), 0644); err != nil {
-		t.Fatalf("failed to write pack invowkfile: %v", err)
+	if err := os.WriteFile(filepath.Join(packDir, "invkfile.cue"), []byte(packContent), 0644); err != nil {
+		t.Fatalf("failed to write pack invkfile: %v", err)
 	}
 
 	// Change to temp directory
@@ -787,19 +787,19 @@ func TestDiscoverAll_FindsPacksInUserDir(t *testing.T) {
 
 	// Create user commands directory with a pack
 	userCmdsDir := filepath.Join(tmpDir, ".invowk", "cmds")
-	packDir := filepath.Join(userCmdsDir, "userpack.invowkpack")
+	packDir := filepath.Join(userCmdsDir, "userpack.invkpack")
 	if err := os.MkdirAll(packDir, 0755); err != nil {
 		t.Fatalf("failed to create pack dir: %v", err)
 	}
 
-	// Create invowkfile.cue inside the pack
+	// Create invkfile.cue inside the pack
 	packContent := `
 group: "userpack"
 version: "1.0"
 commands: [{name: "user-packed-cmd", implementations: [{script: "echo user packed", target: {runtimes: [{name: "native"}]}}]}]
 `
-	if err := os.WriteFile(filepath.Join(packDir, "invowkfile.cue"), []byte(packContent), 0644); err != nil {
-		t.Fatalf("failed to write pack invowkfile: %v", err)
+	if err := os.WriteFile(filepath.Join(packDir, "invkfile.cue"), []byte(packContent), 0644); err != nil {
+		t.Fatalf("failed to write pack invkfile: %v", err)
 	}
 
 	// Create an empty working directory
@@ -846,19 +846,19 @@ func TestDiscoverAll_FindsPacksInConfigPath(t *testing.T) {
 
 	// Create a config search path with a pack
 	searchPath := filepath.Join(tmpDir, "custom-commands")
-	packDir := filepath.Join(searchPath, "configpack.invowkpack")
+	packDir := filepath.Join(searchPath, "configpack.invkpack")
 	if err := os.MkdirAll(packDir, 0755); err != nil {
 		t.Fatalf("failed to create pack dir: %v", err)
 	}
 
-	// Create invowkfile.cue inside the pack
+	// Create invkfile.cue inside the pack
 	packContent := `
 group: "configpack"
 version: "1.0"
 commands: [{name: "config-packed-cmd", implementations: [{script: "echo config packed", target: {runtimes: [{name: "native"}]}}]}]
 `
-	if err := os.WriteFile(filepath.Join(packDir, "invowkfile.cue"), []byte(packContent), 0644); err != nil {
-		t.Fatalf("failed to write pack invowkfile: %v", err)
+	if err := os.WriteFile(filepath.Join(packDir, "invkfile.cue"), []byte(packContent), 0644); err != nil {
+		t.Fatalf("failed to write pack invkfile: %v", err)
 	}
 
 	// Create an empty working directory
@@ -903,7 +903,7 @@ commands: [{name: "config-packed-cmd", implementations: [{script: "echo config p
 
 func TestDiscoveredFile_PackField(t *testing.T) {
 	df := &DiscoveredFile{
-		Path:   "/path/to/pack/invowkfile.cue",
+		Path:   "/path/to/pack/invkfile.cue",
 		Source: SourcePack,
 	}
 
@@ -920,12 +920,12 @@ func TestDiscoverCommands_FromPack(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	// Create a valid pack
-	packDir := filepath.Join(tmpDir, "testpack.invowkpack")
+	packDir := filepath.Join(tmpDir, "testpack.invkpack")
 	if err := os.MkdirAll(packDir, 0755); err != nil {
 		t.Fatalf("failed to create pack dir: %v", err)
 	}
 
-	// Create invowkfile.cue inside the pack
+	// Create invkfile.cue inside the pack
 	packContent := `
 group: "testpack"
 version: "1.0"
@@ -934,8 +934,8 @@ commands: [
 	{name: "cmd2", description: "Second command", implementations: [{script: "echo 2", target: {runtimes: [{name: "native"}]}}]}
 ]
 `
-	if err := os.WriteFile(filepath.Join(packDir, "invowkfile.cue"), []byte(packContent), 0644); err != nil {
-		t.Fatalf("failed to write pack invowkfile: %v", err)
+	if err := os.WriteFile(filepath.Join(packDir, "invkfile.cue"), []byte(packContent), 0644); err != nil {
+		t.Fatalf("failed to write pack invkfile: %v", err)
 	}
 
 	// Change to temp directory
@@ -979,14 +979,14 @@ commands: [
 func TestDiscoverAll_SkipsInvalidPacks(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	// Create an invalid pack (missing invowkfile.cue)
-	invalidPackDir := filepath.Join(tmpDir, "invalid.invowkpack")
+	// Create an invalid pack (missing invkfile.cue)
+	invalidPackDir := filepath.Join(tmpDir, "invalid.invkpack")
 	if err := os.MkdirAll(invalidPackDir, 0755); err != nil {
 		t.Fatalf("failed to create invalid pack dir: %v", err)
 	}
 
 	// Create a valid pack
-	validPackDir := filepath.Join(tmpDir, "valid.invowkpack")
+	validPackDir := filepath.Join(tmpDir, "valid.invkpack")
 	if err := os.MkdirAll(validPackDir, 0755); err != nil {
 		t.Fatalf("failed to create valid pack dir: %v", err)
 	}
@@ -995,8 +995,8 @@ group: "valid"
 version: "1.0"
 commands: [{name: "cmd", implementations: [{script: "echo", target: {runtimes: [{name: "native"}]}}]}]
 `
-	if err := os.WriteFile(filepath.Join(validPackDir, "invowkfile.cue"), []byte(packContent), 0644); err != nil {
-		t.Fatalf("failed to write pack invowkfile: %v", err)
+	if err := os.WriteFile(filepath.Join(validPackDir, "invkfile.cue"), []byte(packContent), 0644); err != nil {
+		t.Fatalf("failed to write pack invkfile: %v", err)
 	}
 
 	// Change to temp directory
@@ -1037,20 +1037,20 @@ func TestLoadAll_ParsesPacks(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	// Create a valid pack
-	packDir := filepath.Join(tmpDir, "parsepack.invowkpack")
+	packDir := filepath.Join(tmpDir, "parsepack.invkpack")
 	if err := os.MkdirAll(packDir, 0755); err != nil {
 		t.Fatalf("failed to create pack dir: %v", err)
 	}
 
-	// Create invowkfile.cue inside the pack
+	// Create invkfile.cue inside the pack
 	packContent := `
 group: "parsepack"
 version: "1.0"
 description: "A test pack"
 commands: [{name: "test", implementations: [{script: "echo test", target: {runtimes: [{name: "native"}]}}]}]
 `
-	if err := os.WriteFile(filepath.Join(packDir, "invowkfile.cue"), []byte(packContent), 0644); err != nil {
-		t.Fatalf("failed to write pack invowkfile: %v", err)
+	if err := os.WriteFile(filepath.Join(packDir, "invkfile.cue"), []byte(packContent), 0644); err != nil {
+		t.Fatalf("failed to write pack invkfile: %v", err)
 	}
 
 	// Change to temp directory
@@ -1084,25 +1084,25 @@ commands: [{name: "test", implementations: [{script: "echo test", target: {runti
 		t.Fatal("LoadAll() did not find pack")
 	}
 
-	if packFile.Invowkfile == nil {
-		t.Fatal("LoadAll() did not parse pack invowkfile")
+	if packFile.Invkfile == nil {
+		t.Fatal("LoadAll() did not parse pack invkfile")
 	}
 
-	if packFile.Invowkfile.Description != "A test pack" {
-		t.Errorf("Invowkfile.Description = %s, want 'A test pack'", packFile.Invowkfile.Description)
+	if packFile.Invkfile.Description != "A test pack" {
+		t.Errorf("Invkfile.Description = %s, want 'A test pack'", packFile.Invkfile.Description)
 	}
 
-	// Verify that PackPath is set on the parsed invowkfile
-	if !packFile.Invowkfile.IsFromPack() {
-		t.Error("Invowkfile.IsFromPack() should return true for pack-parsed file")
+	// Verify that PackPath is set on the parsed invkfile
+	if !packFile.Invkfile.IsFromPack() {
+		t.Error("Invkfile.IsFromPack() should return true for pack-parsed file")
 	}
 }
 
 func TestLoadFirst_LoadsPack(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	// Create a valid pack (but no regular invowkfile)
-	packDir := filepath.Join(tmpDir, "firstpack.invowkpack")
+	// Create a valid pack (but no regular invkfile)
+	packDir := filepath.Join(tmpDir, "firstpack.invkpack")
 	if err := os.MkdirAll(packDir, 0755); err != nil {
 		t.Fatalf("failed to create pack dir: %v", err)
 	}
@@ -1112,8 +1112,8 @@ group: "firstpack"
 version: "1.0"
 commands: [{name: "first", implementations: [{script: "echo first", target: {runtimes: [{name: "native"}]}}]}]
 `
-	if err := os.WriteFile(filepath.Join(packDir, "invowkfile.cue"), []byte(packContent), 0644); err != nil {
-		t.Fatalf("failed to write pack invowkfile: %v", err)
+	if err := os.WriteFile(filepath.Join(packDir, "invkfile.cue"), []byte(packContent), 0644); err != nil {
+		t.Fatalf("failed to write pack invkfile: %v", err)
 	}
 
 	// Change to temp directory
@@ -1138,8 +1138,8 @@ commands: [{name: "first", implementations: [{script: "echo first", target: {run
 		t.Errorf("LoadFirst().Source = %v, want SourcePack", file.Source)
 	}
 
-	if file.Invowkfile == nil {
-		t.Fatal("LoadFirst() did not parse pack invowkfile")
+	if file.Invkfile == nil {
+		t.Fatal("LoadFirst() did not parse pack invkfile")
 	}
 
 	if file.Pack == nil {
@@ -1151,21 +1151,21 @@ commands: [{name: "first", implementations: [{script: "echo first", target: {run
 	}
 }
 
-func TestDiscoverAll_CurrentDirInvowkfileTakesPrecedenceOverPack(t *testing.T) {
+func TestDiscoverAll_CurrentDirInvkfileTakesPrecedenceOverPack(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	// Create a regular invowkfile in current directory
+	// Create a regular invkfile in current directory
 	currentContent := `
 group: "current"
 version: "1.0"
 commands: [{name: "cmd", implementations: [{script: "echo current", target: {runtimes: [{name: "native"}]}}]}]
 `
-	if err := os.WriteFile(filepath.Join(tmpDir, "invowkfile.cue"), []byte(currentContent), 0644); err != nil {
-		t.Fatalf("failed to write current invowkfile: %v", err)
+	if err := os.WriteFile(filepath.Join(tmpDir, "invkfile.cue"), []byte(currentContent), 0644); err != nil {
+		t.Fatalf("failed to write current invkfile: %v", err)
 	}
 
 	// Create a pack in the same directory
-	packDir := filepath.Join(tmpDir, "apack.invowkpack")
+	packDir := filepath.Join(tmpDir, "apack.invkpack")
 	if err := os.MkdirAll(packDir, 0755); err != nil {
 		t.Fatalf("failed to create pack dir: %v", err)
 	}
@@ -1174,8 +1174,8 @@ group: "apack"
 version: "1.0"
 commands: [{name: "cmd", implementations: [{script: "echo pack", target: {runtimes: [{name: "native"}]}}]}]
 `
-	if err := os.WriteFile(filepath.Join(packDir, "invowkfile.cue"), []byte(packContent), 0644); err != nil {
-		t.Fatalf("failed to write pack invowkfile: %v", err)
+	if err := os.WriteFile(filepath.Join(packDir, "invkfile.cue"), []byte(packContent), 0644); err != nil {
+		t.Fatalf("failed to write pack invkfile: %v", err)
 	}
 
 	// Change to temp directory
@@ -1218,7 +1218,7 @@ commands: [{name: "cmd", implementations: [{script: "echo pack", target: {runtim
 	}
 
 	if !foundCurrentDir {
-		t.Error("DiscoverAll() did not find invowkfile in current directory")
+		t.Error("DiscoverAll() did not find invkfile in current directory")
 	}
 	if !foundPack {
 		t.Error("DiscoverAll() did not find pack")

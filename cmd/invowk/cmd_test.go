@@ -9,24 +9,24 @@ import (
 	"testing"
 
 	"invowk-cli/internal/runtime"
-	"invowk-cli/pkg/invowkfile"
+	"invowk-cli/pkg/invkfile"
 )
 
 // testCmd creates a Command with a single script for testing
-func testCmd(name string, script string) *invowkfile.Command {
-	return &invowkfile.Command{
+func testCmd(name string, script string) *invkfile.Command {
+	return &invkfile.Command{
 		Name: name,
-		Implementations: []invowkfile.Implementation{
-			{Script: script, Target: invowkfile.Target{Runtimes: []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeNative}}}},
+		Implementations: []invkfile.Implementation{
+			{Script: script, Target: invkfile.Target{Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeNative}}}},
 		},
 	}
 }
 
 // testCmdWithDeps creates a Command with a single script and dependencies
-func testCmdWithDeps(name string, script string, deps *invowkfile.DependsOn) *invowkfile.Command {
-	return &invowkfile.Command{
+func testCmdWithDeps(name string, script string, deps *invkfile.DependsOn) *invkfile.Command {
+	return &invkfile.Command{
 		Name:            name,
-		Implementations: []invowkfile.Implementation{{Script: script, Target: invowkfile.Target{Runtimes: []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeNative}}}}},
+		Implementations: []invkfile.Implementation{{Script: script, Target: invkfile.Target{Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeNative}}}}},
 		DependsOn:       deps,
 	}
 }
@@ -41,7 +41,7 @@ func TestCheckToolDependencies_NoTools(t *testing.T) {
 }
 
 func TestCheckToolDependencies_EmptyDependsOn(t *testing.T) {
-	cmd := testCmdWithDeps("test", "echo hello", &invowkfile.DependsOn{})
+	cmd := testCmdWithDeps("test", "echo hello", &invkfile.DependsOn{})
 
 	err := checkToolDependencies(cmd)
 	if err != nil {
@@ -63,8 +63,8 @@ func TestCheckToolDependencies_ToolExists(t *testing.T) {
 		t.Skip("No common tools found in PATH")
 	}
 
-	cmd := testCmdWithDeps("test", "echo hello", &invowkfile.DependsOn{
-		Tools: []invowkfile.ToolDependency{{Alternatives: []string{existingTool}}},
+	cmd := testCmdWithDeps("test", "echo hello", &invkfile.DependsOn{
+		Tools: []invkfile.ToolDependency{{Alternatives: []string{existingTool}}},
 	})
 
 	err := checkToolDependencies(cmd)
@@ -74,8 +74,8 @@ func TestCheckToolDependencies_ToolExists(t *testing.T) {
 }
 
 func TestCheckToolDependencies_ToolNotExists(t *testing.T) {
-	cmd := testCmdWithDeps("test", "echo hello", &invowkfile.DependsOn{
-		Tools: []invowkfile.ToolDependency{{Alternatives: []string{"nonexistent-tool-xyz-12345"}}},
+	cmd := testCmdWithDeps("test", "echo hello", &invkfile.DependsOn{
+		Tools: []invkfile.ToolDependency{{Alternatives: []string{"nonexistent-tool-xyz-12345"}}},
 	})
 
 	err := checkToolDependencies(cmd)
@@ -98,8 +98,8 @@ func TestCheckToolDependencies_ToolNotExists(t *testing.T) {
 }
 
 func TestCheckToolDependencies_MultipleToolsNotExist(t *testing.T) {
-	cmd := testCmdWithDeps("test", "echo hello", &invowkfile.DependsOn{
-		Tools: []invowkfile.ToolDependency{
+	cmd := testCmdWithDeps("test", "echo hello", &invkfile.DependsOn{
+		Tools: []invkfile.ToolDependency{
 			{Alternatives: []string{"nonexistent-tool-1"}},
 			{Alternatives: []string{"nonexistent-tool-2"}},
 			{Alternatives: []string{"nonexistent-tool-3"}},
@@ -135,8 +135,8 @@ func TestCheckToolDependencies_MixedToolsExistAndNotExist(t *testing.T) {
 		t.Skip("No common tools found in PATH")
 	}
 
-	cmd := testCmdWithDeps("test", "echo hello", &invowkfile.DependsOn{
-		Tools: []invowkfile.ToolDependency{
+	cmd := testCmdWithDeps("test", "echo hello", &invkfile.DependsOn{
+		Tools: []invkfile.ToolDependency{
 			{Alternatives: []string{existingTool}},
 			{Alternatives: []string{"nonexistent-tool-xyz"}},
 		},
@@ -163,8 +163,8 @@ func TestCheckToolDependencies_MixedToolsExistAndNotExist(t *testing.T) {
 }
 
 func TestCheckCustomChecks_Success(t *testing.T) {
-	cmd := testCmdWithDeps("test", "echo hello", &invowkfile.DependsOn{
-		CustomChecks: []invowkfile.CustomCheckDependency{
+	cmd := testCmdWithDeps("test", "echo hello", &invkfile.DependsOn{
+		CustomChecks: []invkfile.CustomCheckDependency{
 			{
 				Name:         "test-check",
 				CheckScript:  "echo 'test output'",
@@ -180,8 +180,8 @@ func TestCheckCustomChecks_Success(t *testing.T) {
 }
 
 func TestCheckCustomChecks_WrongExitCode(t *testing.T) {
-	cmd := testCmdWithDeps("test", "echo hello", &invowkfile.DependsOn{
-		CustomChecks: []invowkfile.CustomCheckDependency{
+	cmd := testCmdWithDeps("test", "echo hello", &invkfile.DependsOn{
+		CustomChecks: []invkfile.CustomCheckDependency{
 			{
 				Name:         "test-check",
 				CheckScript:  "exit 1",
@@ -206,8 +206,8 @@ func TestCheckCustomChecks_WrongExitCode(t *testing.T) {
 }
 
 func TestCheckCustomChecks_ExpectedNonZeroCode(t *testing.T) {
-	cmd := testCmdWithDeps("test", "echo hello", &invowkfile.DependsOn{
-		CustomChecks: []invowkfile.CustomCheckDependency{
+	cmd := testCmdWithDeps("test", "echo hello", &invkfile.DependsOn{
+		CustomChecks: []invkfile.CustomCheckDependency{
 			{
 				Name:         "test-check",
 				CheckScript:  "exit 42",
@@ -223,8 +223,8 @@ func TestCheckCustomChecks_ExpectedNonZeroCode(t *testing.T) {
 }
 
 func TestCheckCustomChecks_OutputMatch(t *testing.T) {
-	cmd := testCmdWithDeps("test", "echo hello", &invowkfile.DependsOn{
-		CustomChecks: []invowkfile.CustomCheckDependency{
+	cmd := testCmdWithDeps("test", "echo hello", &invkfile.DependsOn{
+		CustomChecks: []invkfile.CustomCheckDependency{
 			{
 				Name:           "test-check",
 				CheckScript:    "echo 'version 1.2.3'",
@@ -240,8 +240,8 @@ func TestCheckCustomChecks_OutputMatch(t *testing.T) {
 }
 
 func TestCheckCustomChecks_OutputNoMatch(t *testing.T) {
-	cmd := testCmdWithDeps("test", "echo hello", &invowkfile.DependsOn{
-		CustomChecks: []invowkfile.CustomCheckDependency{
+	cmd := testCmdWithDeps("test", "echo hello", &invkfile.DependsOn{
+		CustomChecks: []invkfile.CustomCheckDependency{
 			{
 				Name:           "test-check",
 				CheckScript:    "echo 'hello world'",
@@ -266,8 +266,8 @@ func TestCheckCustomChecks_OutputNoMatch(t *testing.T) {
 }
 
 func TestCheckCustomChecks_BothCodeAndOutput(t *testing.T) {
-	cmd := testCmdWithDeps("test", "echo hello", &invowkfile.DependsOn{
-		CustomChecks: []invowkfile.CustomCheckDependency{
+	cmd := testCmdWithDeps("test", "echo hello", &invkfile.DependsOn{
+		CustomChecks: []invkfile.CustomCheckDependency{
 			{
 				Name:           "test-check",
 				CheckScript:    "echo 'go version go1.21.0'",
@@ -284,8 +284,8 @@ func TestCheckCustomChecks_BothCodeAndOutput(t *testing.T) {
 }
 
 func TestCheckCustomChecks_InvalidRegex(t *testing.T) {
-	cmd := testCmdWithDeps("test", "echo hello", &invowkfile.DependsOn{
-		CustomChecks: []invowkfile.CustomCheckDependency{
+	cmd := testCmdWithDeps("test", "echo hello", &invkfile.DependsOn{
+		CustomChecks: []invkfile.CustomCheckDependency{
 			{
 				Name:           "test-check",
 				CheckScript:    "echo 'test'",
@@ -312,16 +312,16 @@ func TestCheckCustomChecks_InvalidRegex(t *testing.T) {
 func TestCheckFilepathDependencies_NoFilepaths(t *testing.T) {
 	cmd := testCmd("test", "echo hello")
 
-	err := checkFilepathDependencies(cmd, "/tmp/invowkfile.cue")
+	err := checkFilepathDependencies(cmd, "/tmp/invkfile.cue")
 	if err != nil {
 		t.Errorf("checkFilepathDependencies() should return nil for command with no dependencies, got: %v", err)
 	}
 }
 
 func TestCheckFilepathDependencies_EmptyDependsOn(t *testing.T) {
-	cmd := testCmdWithDeps("test", "echo hello", &invowkfile.DependsOn{})
+	cmd := testCmdWithDeps("test", "echo hello", &invkfile.DependsOn{})
 
-	err := checkFilepathDependencies(cmd, "/tmp/invowkfile.cue")
+	err := checkFilepathDependencies(cmd, "/tmp/invkfile.cue")
 	if err != nil {
 		t.Errorf("checkFilepathDependencies() should return nil for empty depends_on, got: %v", err)
 	}
@@ -335,12 +335,12 @@ func TestCheckFilepathDependencies_FileExists(t *testing.T) {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
 
-	cmd := testCmdWithDeps("test", "echo hello", &invowkfile.DependsOn{
-		Filepaths: []invowkfile.FilepathDependency{{Alternatives: []string{"test.txt"}}},
+	cmd := testCmdWithDeps("test", "echo hello", &invkfile.DependsOn{
+		Filepaths: []invkfile.FilepathDependency{{Alternatives: []string{"test.txt"}}},
 	})
 
-	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
-	err := checkFilepathDependencies(cmd, invowkfilePath)
+	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+	err := checkFilepathDependencies(cmd, invkfilePath)
 	if err != nil {
 		t.Errorf("checkFilepathDependencies() should return nil for existing file, got: %v", err)
 	}
@@ -349,12 +349,12 @@ func TestCheckFilepathDependencies_FileExists(t *testing.T) {
 func TestCheckFilepathDependencies_FileNotExists(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	cmd := testCmdWithDeps("test", "echo hello", &invowkfile.DependsOn{
-		Filepaths: []invowkfile.FilepathDependency{{Alternatives: []string{"nonexistent.txt"}}},
+	cmd := testCmdWithDeps("test", "echo hello", &invkfile.DependsOn{
+		Filepaths: []invkfile.FilepathDependency{{Alternatives: []string{"nonexistent.txt"}}},
 	})
 
-	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
-	err := checkFilepathDependencies(cmd, invowkfilePath)
+	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+	err := checkFilepathDependencies(cmd, invkfilePath)
 	if err == nil {
 		t.Error("checkFilepathDependencies() should return error for non-existent file")
 	}
@@ -381,12 +381,12 @@ func TestCheckFilepathDependencies_AbsolutePath(t *testing.T) {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
 
-	cmd := testCmdWithDeps("test", "echo hello", &invowkfile.DependsOn{
-		Filepaths: []invowkfile.FilepathDependency{{Alternatives: []string{testFile}}}, // Absolute path
+	cmd := testCmdWithDeps("test", "echo hello", &invkfile.DependsOn{
+		Filepaths: []invkfile.FilepathDependency{{Alternatives: []string{testFile}}}, // Absolute path
 	})
 
-	// Invowkfile in different directory
-	err := checkFilepathDependencies(cmd, "/some/other/invowkfile.cue")
+	// Invkfile in different directory
+	err := checkFilepathDependencies(cmd, "/some/other/invkfile.cue")
 	if err != nil {
 		t.Errorf("checkFilepathDependencies() should handle absolute paths, got: %v", err)
 	}
@@ -399,14 +399,14 @@ func TestCheckFilepathDependencies_ReadableFile(t *testing.T) {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
 
-	cmd := testCmdWithDeps("test", "echo hello", &invowkfile.DependsOn{
-		Filepaths: []invowkfile.FilepathDependency{
+	cmd := testCmdWithDeps("test", "echo hello", &invkfile.DependsOn{
+		Filepaths: []invkfile.FilepathDependency{
 			{Alternatives: []string{"readable.txt"}, Readable: true},
 		},
 	})
 
-	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
-	err := checkFilepathDependencies(cmd, invowkfilePath)
+	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+	err := checkFilepathDependencies(cmd, invkfilePath)
 	if err != nil {
 		t.Errorf("checkFilepathDependencies() should return nil for readable file, got: %v", err)
 	}
@@ -415,14 +415,14 @@ func TestCheckFilepathDependencies_ReadableFile(t *testing.T) {
 func TestCheckFilepathDependencies_WritableDirectory(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	cmd := testCmdWithDeps("test", "echo hello", &invowkfile.DependsOn{
-		Filepaths: []invowkfile.FilepathDependency{
+	cmd := testCmdWithDeps("test", "echo hello", &invkfile.DependsOn{
+		Filepaths: []invkfile.FilepathDependency{
 			{Alternatives: []string{"."}, Writable: true},
 		},
 	})
 
-	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
-	err := checkFilepathDependencies(cmd, invowkfilePath)
+	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+	err := checkFilepathDependencies(cmd, invkfilePath)
 	if err != nil {
 		t.Errorf("checkFilepathDependencies() should return nil for writable directory, got: %v", err)
 	}
@@ -435,16 +435,16 @@ func TestCheckFilepathDependencies_MultipleFilepathDependencies(t *testing.T) {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
 
-	cmd := testCmdWithDeps("test", "echo hello", &invowkfile.DependsOn{
-		Filepaths: []invowkfile.FilepathDependency{
+	cmd := testCmdWithDeps("test", "echo hello", &invkfile.DependsOn{
+		Filepaths: []invkfile.FilepathDependency{
 			{Alternatives: []string{"exists.txt"}},
 			{Alternatives: []string{"nonexistent1.txt"}},
 			{Alternatives: []string{"nonexistent2.txt"}},
 		},
 	})
 
-	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
-	err := checkFilepathDependencies(cmd, invowkfilePath)
+	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+	err := checkFilepathDependencies(cmd, invkfilePath)
 	if err == nil {
 		t.Error("checkFilepathDependencies() should return error when any filepath dependency is not satisfied")
 	}
@@ -467,14 +467,14 @@ func TestCheckFilepathDependencies_AlternativesFirstExists(t *testing.T) {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
 
-	cmd := testCmdWithDeps("test", "echo hello", &invowkfile.DependsOn{
-		Filepaths: []invowkfile.FilepathDependency{
+	cmd := testCmdWithDeps("test", "echo hello", &invkfile.DependsOn{
+		Filepaths: []invkfile.FilepathDependency{
 			{Alternatives: []string{"first.txt", "second.txt", "third.txt"}},
 		},
 	})
 
-	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
-	err := checkFilepathDependencies(cmd, invowkfilePath)
+	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+	err := checkFilepathDependencies(cmd, invkfilePath)
 	if err != nil {
 		t.Errorf("checkFilepathDependencies() should return nil when first alternative exists, got: %v", err)
 	}
@@ -487,14 +487,14 @@ func TestCheckFilepathDependencies_AlternativesSecondExists(t *testing.T) {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
 
-	cmd := testCmdWithDeps("test", "echo hello", &invowkfile.DependsOn{
-		Filepaths: []invowkfile.FilepathDependency{
+	cmd := testCmdWithDeps("test", "echo hello", &invkfile.DependsOn{
+		Filepaths: []invkfile.FilepathDependency{
 			{Alternatives: []string{"first.txt", "second.txt", "third.txt"}},
 		},
 	})
 
-	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
-	err := checkFilepathDependencies(cmd, invowkfilePath)
+	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+	err := checkFilepathDependencies(cmd, invkfilePath)
 	if err != nil {
 		t.Errorf("checkFilepathDependencies() should return nil when second alternative exists, got: %v", err)
 	}
@@ -507,14 +507,14 @@ func TestCheckFilepathDependencies_AlternativesLastExists(t *testing.T) {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
 
-	cmd := testCmdWithDeps("test", "echo hello", &invowkfile.DependsOn{
-		Filepaths: []invowkfile.FilepathDependency{
+	cmd := testCmdWithDeps("test", "echo hello", &invkfile.DependsOn{
+		Filepaths: []invkfile.FilepathDependency{
 			{Alternatives: []string{"first.txt", "second.txt", "third.txt"}},
 		},
 	})
 
-	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
-	err := checkFilepathDependencies(cmd, invowkfilePath)
+	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+	err := checkFilepathDependencies(cmd, invkfilePath)
 	if err != nil {
 		t.Errorf("checkFilepathDependencies() should return nil when last alternative exists, got: %v", err)
 	}
@@ -523,14 +523,14 @@ func TestCheckFilepathDependencies_AlternativesLastExists(t *testing.T) {
 func TestCheckFilepathDependencies_AlternativesNoneExists(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	cmd := testCmdWithDeps("test", "echo hello", &invowkfile.DependsOn{
-		Filepaths: []invowkfile.FilepathDependency{
+	cmd := testCmdWithDeps("test", "echo hello", &invkfile.DependsOn{
+		Filepaths: []invkfile.FilepathDependency{
 			{Alternatives: []string{"first.txt", "second.txt", "third.txt"}},
 		},
 	})
 
-	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
-	err := checkFilepathDependencies(cmd, invowkfilePath)
+	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+	err := checkFilepathDependencies(cmd, invkfilePath)
 	if err == nil {
 		t.Error("checkFilepathDependencies() should return error when no alternatives exist")
 	}
@@ -558,14 +558,14 @@ func TestCheckFilepathDependencies_AlternativesWithPermissions(t *testing.T) {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
 
-	cmd := testCmdWithDeps("test", "echo hello", &invowkfile.DependsOn{
-		Filepaths: []invowkfile.FilepathDependency{
+	cmd := testCmdWithDeps("test", "echo hello", &invkfile.DependsOn{
+		Filepaths: []invkfile.FilepathDependency{
 			{Alternatives: []string{"nonexistent.txt", "readable.txt"}, Readable: true},
 		},
 	})
 
-	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
-	err := checkFilepathDependencies(cmd, invowkfilePath)
+	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+	err := checkFilepathDependencies(cmd, invkfilePath)
 	if err != nil {
 		t.Errorf("checkFilepathDependencies() should return nil when alternative with proper permissions exists, got: %v", err)
 	}
@@ -581,14 +581,14 @@ func TestCheckFilepathDependencies_MultipleAlternativesExist(t *testing.T) {
 		}
 	}
 
-	cmd := testCmdWithDeps("test", "echo hello", &invowkfile.DependsOn{
-		Filepaths: []invowkfile.FilepathDependency{
+	cmd := testCmdWithDeps("test", "echo hello", &invkfile.DependsOn{
+		Filepaths: []invkfile.FilepathDependency{
 			{Alternatives: []string{"first.txt", "second.txt", "third.txt"}},
 		},
 	})
 
-	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
-	err := checkFilepathDependencies(cmd, invowkfilePath)
+	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+	err := checkFilepathDependencies(cmd, invkfilePath)
 	if err != nil {
 		t.Errorf("checkFilepathDependencies() should return nil when all alternatives exist, got: %v", err)
 	}
@@ -604,8 +604,8 @@ func TestCheckFilepathDependencies_MultipleDependenciesWithAlternatives(t *testi
 		t.Fatalf("Failed to create readme.md: %v", err)
 	}
 
-	cmd := testCmdWithDeps("test", "echo hello", &invowkfile.DependsOn{
-		Filepaths: []invowkfile.FilepathDependency{
+	cmd := testCmdWithDeps("test", "echo hello", &invkfile.DependsOn{
+		Filepaths: []invkfile.FilepathDependency{
 			// First doesn't exist, second does
 			{Alternatives: []string{"go.mod", "go.sum"}},
 			// First two don't exist, third does
@@ -615,8 +615,8 @@ func TestCheckFilepathDependencies_MultipleDependenciesWithAlternatives(t *testi
 		},
 	})
 
-	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
-	err := checkFilepathDependencies(cmd, invowkfilePath)
+	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+	err := checkFilepathDependencies(cmd, invkfilePath)
 	if err != nil {
 		t.Errorf("checkFilepathDependencies() should return nil when each dependency has an alternative satisfied, got: %v", err)
 	}
@@ -731,48 +731,48 @@ func TestRenderHostNotSupportedError(t *testing.T) {
 }
 
 func TestCommand_CanRunOnCurrentHost(t *testing.T) {
-	currentOS := invowkfile.GetCurrentHostOS()
+	currentOS := invkfile.GetCurrentHostOS()
 
 	tests := []struct {
 		name     string
-		cmd      *invowkfile.Command
+		cmd      *invkfile.Command
 		expected bool
 	}{
 		{
 			name: "current host supported",
-			cmd: &invowkfile.Command{
+			cmd: &invkfile.Command{
 				Name: "test",
-				Implementations: []invowkfile.Implementation{
-					{Script: "echo", Target: invowkfile.Target{Runtimes: []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeNative}}, Platforms: []invowkfile.PlatformConfig{{Name: currentOS}}}},
+				Implementations: []invkfile.Implementation{
+					{Script: "echo", Target: invkfile.Target{Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeNative}}, Platforms: []invkfile.PlatformConfig{{Name: currentOS}}}},
 				},
 			},
 			expected: true,
 		},
 		{
 			name: "current host not supported",
-			cmd: &invowkfile.Command{
+			cmd: &invkfile.Command{
 				Name: "test",
-				Implementations: []invowkfile.Implementation{
-					{Script: "echo", Target: invowkfile.Target{Runtimes: []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeNative}}, Platforms: []invowkfile.PlatformConfig{{Name: "nonexistent"}}}},
+				Implementations: []invkfile.Implementation{
+					{Script: "echo", Target: invkfile.Target{Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeNative}}, Platforms: []invkfile.PlatformConfig{{Name: "nonexistent"}}}},
 				},
 			},
 			expected: false,
 		},
 		{
 			name: "all hosts supported (no platforms specified)",
-			cmd: &invowkfile.Command{
+			cmd: &invkfile.Command{
 				Name: "test",
-				Implementations: []invowkfile.Implementation{
-					{Script: "echo", Target: invowkfile.Target{Runtimes: []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeNative}}}},
+				Implementations: []invkfile.Implementation{
+					{Script: "echo", Target: invkfile.Target{Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeNative}}}},
 				},
 			},
 			expected: true,
 		},
 		{
 			name: "empty scripts list",
-			cmd: &invowkfile.Command{
+			cmd: &invkfile.Command{
 				Name:            "test",
-				Implementations: []invowkfile.Implementation{},
+				Implementations: []invkfile.Implementation{},
 			},
 			expected: false,
 		},
@@ -791,44 +791,44 @@ func TestCommand_CanRunOnCurrentHost(t *testing.T) {
 func TestCommand_GetPlatformsString(t *testing.T) {
 	tests := []struct {
 		name     string
-		cmd      *invowkfile.Command
+		cmd      *invkfile.Command
 		expected string
 	}{
 		{
 			name: "single platform",
-			cmd: &invowkfile.Command{
+			cmd: &invkfile.Command{
 				Name: "test",
-				Implementations: []invowkfile.Implementation{
-					{Script: "echo", Target: invowkfile.Target{Runtimes: []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeNative}}, Platforms: []invowkfile.PlatformConfig{{Name: invowkfile.PlatformLinux}}}},
+				Implementations: []invkfile.Implementation{
+					{Script: "echo", Target: invkfile.Target{Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeNative}}, Platforms: []invkfile.PlatformConfig{{Name: invkfile.PlatformLinux}}}},
 				},
 			},
 			expected: "linux",
 		},
 		{
 			name: "multiple platforms",
-			cmd: &invowkfile.Command{
+			cmd: &invkfile.Command{
 				Name: "test",
-				Implementations: []invowkfile.Implementation{
-					{Script: "echo", Target: invowkfile.Target{Runtimes: []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeNative}}, Platforms: []invowkfile.PlatformConfig{{Name: invowkfile.PlatformLinux}, {Name: invowkfile.PlatformMac}}}},
+				Implementations: []invkfile.Implementation{
+					{Script: "echo", Target: invkfile.Target{Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeNative}}, Platforms: []invkfile.PlatformConfig{{Name: invkfile.PlatformLinux}, {Name: invkfile.PlatformMac}}}},
 				},
 			},
 			expected: "linux, macos",
 		},
 		{
 			name: "all platforms (no platforms specified)",
-			cmd: &invowkfile.Command{
+			cmd: &invkfile.Command{
 				Name: "test",
-				Implementations: []invowkfile.Implementation{
-					{Script: "echo", Target: invowkfile.Target{Runtimes: []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeNative}}}},
+				Implementations: []invkfile.Implementation{
+					{Script: "echo", Target: invkfile.Target{Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeNative}}}},
 				},
 			},
 			expected: "linux, macos, windows",
 		},
 		{
 			name: "empty scripts",
-			cmd: &invowkfile.Command{
+			cmd: &invkfile.Command{
 				Name:            "test",
-				Implementations: []invowkfile.Implementation{},
+				Implementations: []invkfile.Implementation{},
 			},
 			expected: "",
 		},
@@ -846,11 +846,11 @@ func TestCommand_GetPlatformsString(t *testing.T) {
 
 func TestGetCurrentHostOS(t *testing.T) {
 	// Just verify it returns one of the expected values
-	currentOS := invowkfile.GetCurrentHostOS()
-	validOSes := map[invowkfile.HostOS]bool{
-		invowkfile.HostLinux:   true,
-		invowkfile.HostMac:     true,
-		invowkfile.HostWindows: true,
+	currentOS := invkfile.GetCurrentHostOS()
+	validOSes := map[invkfile.HostOS]bool{
+		invkfile.HostLinux:   true,
+		invkfile.HostMac:     true,
+		invkfile.HostWindows: true,
 	}
 
 	if !validOSes[currentOS] {
@@ -859,40 +859,40 @@ func TestGetCurrentHostOS(t *testing.T) {
 }
 
 func TestCommand_GetDefaultRuntimeForPlatform(t *testing.T) {
-	currentPlatform := invowkfile.GetCurrentHostOS()
+	currentPlatform := invkfile.GetCurrentHostOS()
 
 	tests := []struct {
 		name     string
-		cmd      *invowkfile.Command
-		expected invowkfile.RuntimeMode
+		cmd      *invkfile.Command
+		expected invkfile.RuntimeMode
 	}{
 		{
 			name: "first runtime is default",
-			cmd: &invowkfile.Command{
+			cmd: &invkfile.Command{
 				Name: "test",
-				Implementations: []invowkfile.Implementation{
-					{Script: "echo", Target: invowkfile.Target{Runtimes: []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeNative}, {Name: invowkfile.RuntimeContainer}}}},
+				Implementations: []invkfile.Implementation{
+					{Script: "echo", Target: invkfile.Target{Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeNative}, {Name: invkfile.RuntimeContainer}}}},
 				},
 			},
-			expected: invowkfile.RuntimeNative,
+			expected: invkfile.RuntimeNative,
 		},
 		{
 			name: "container as default",
-			cmd: &invowkfile.Command{
+			cmd: &invkfile.Command{
 				Name: "test",
-				Implementations: []invowkfile.Implementation{
-					{Script: "echo", Target: invowkfile.Target{Runtimes: []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeContainer}, {Name: invowkfile.RuntimeNative}}}},
+				Implementations: []invkfile.Implementation{
+					{Script: "echo", Target: invkfile.Target{Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeContainer}, {Name: invkfile.RuntimeNative}}}},
 				},
 			},
-			expected: invowkfile.RuntimeContainer,
+			expected: invkfile.RuntimeContainer,
 		},
 		{
 			name: "empty scripts returns native",
-			cmd: &invowkfile.Command{
+			cmd: &invkfile.Command{
 				Name:            "test",
-				Implementations: []invowkfile.Implementation{},
+				Implementations: []invkfile.Implementation{},
 			},
-			expected: invowkfile.RuntimeNative,
+			expected: invkfile.RuntimeNative,
 		},
 	}
 
@@ -907,22 +907,22 @@ func TestCommand_GetDefaultRuntimeForPlatform(t *testing.T) {
 }
 
 func TestCommand_IsRuntimeAllowedForPlatform(t *testing.T) {
-	currentPlatform := invowkfile.GetCurrentHostOS()
+	currentPlatform := invkfile.GetCurrentHostOS()
 
-	cmd := &invowkfile.Command{
+	cmd := &invkfile.Command{
 		Name: "test",
-		Implementations: []invowkfile.Implementation{
-			{Script: "echo", Target: invowkfile.Target{Runtimes: []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeNative}, {Name: invowkfile.RuntimeVirtual}}}},
+		Implementations: []invkfile.Implementation{
+			{Script: "echo", Target: invkfile.Target{Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeNative}, {Name: invkfile.RuntimeVirtual}}}},
 		},
 	}
 
 	tests := []struct {
-		runtime  invowkfile.RuntimeMode
+		runtime  invkfile.RuntimeMode
 		expected bool
 	}{
-		{invowkfile.RuntimeNative, true},
-		{invowkfile.RuntimeVirtual, true},
-		{invowkfile.RuntimeContainer, false},
+		{invkfile.RuntimeNative, true},
+		{invkfile.RuntimeVirtual, true},
+		{invkfile.RuntimeContainer, false},
 	}
 
 	for _, tt := range tests {
@@ -936,38 +936,38 @@ func TestCommand_IsRuntimeAllowedForPlatform(t *testing.T) {
 }
 
 func TestCommand_GetRuntimesStringForPlatform(t *testing.T) {
-	currentPlatform := invowkfile.GetCurrentHostOS()
+	currentPlatform := invkfile.GetCurrentHostOS()
 
 	tests := []struct {
 		name     string
-		cmd      *invowkfile.Command
+		cmd      *invkfile.Command
 		expected string
 	}{
 		{
 			name: "single runtime with asterisk",
-			cmd: &invowkfile.Command{
+			cmd: &invkfile.Command{
 				Name: "test",
-				Implementations: []invowkfile.Implementation{
-					{Script: "echo", Target: invowkfile.Target{Runtimes: []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeNative}}}},
+				Implementations: []invkfile.Implementation{
+					{Script: "echo", Target: invkfile.Target{Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeNative}}}},
 				},
 			},
 			expected: "native*",
 		},
 		{
 			name: "multiple runtimes with first marked",
-			cmd: &invowkfile.Command{
+			cmd: &invkfile.Command{
 				Name: "test",
-				Implementations: []invowkfile.Implementation{
-					{Script: "echo", Target: invowkfile.Target{Runtimes: []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeNative}, {Name: invowkfile.RuntimeContainer}}}},
+				Implementations: []invkfile.Implementation{
+					{Script: "echo", Target: invkfile.Target{Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeNative}, {Name: invkfile.RuntimeContainer}}}},
 				},
 			},
 			expected: "native*, container",
 		},
 		{
 			name: "empty scripts",
-			cmd: &invowkfile.Command{
+			cmd: &invkfile.Command{
 				Name:            "test",
-				Implementations: []invowkfile.Implementation{},
+				Implementations: []invkfile.Implementation{},
 			},
 			expected: "",
 		},
@@ -1004,12 +1004,12 @@ func TestRenderRuntimeNotAllowedError(t *testing.T) {
 }
 
 func TestCheckCapabilityDependencies_NoCapabilities(t *testing.T) {
-	deps := &invowkfile.DependsOn{
-		Capabilities: []invowkfile.CapabilityDependency{},
+	deps := &invkfile.DependsOn{
+		Capabilities: []invkfile.CapabilityDependency{},
 	}
 
 	ctx := &runtime.ExecutionContext{
-		Command: &invowkfile.Command{Name: "test"},
+		Command: &invkfile.Command{Name: "test"},
 	}
 
 	err := checkCapabilityDependencies(deps, ctx)
@@ -1020,7 +1020,7 @@ func TestCheckCapabilityDependencies_NoCapabilities(t *testing.T) {
 
 func TestCheckCapabilityDependencies_NilDeps(t *testing.T) {
 	ctx := &runtime.ExecutionContext{
-		Command: &invowkfile.Command{Name: "test"},
+		Command: &invkfile.Command{Name: "test"},
 	}
 
 	err := checkCapabilityDependencies(nil, ctx)
@@ -1032,16 +1032,16 @@ func TestCheckCapabilityDependencies_NilDeps(t *testing.T) {
 func TestCheckCapabilityDependencies_DuplicateSkipped(t *testing.T) {
 	// This test verifies that duplicate capabilities are silently skipped
 	// The actual success/failure depends on network connectivity
-	deps := &invowkfile.DependsOn{
-		Capabilities: []invowkfile.CapabilityDependency{
-			{Alternatives: []invowkfile.CapabilityName{invowkfile.CapabilityLocalAreaNetwork}},
-			{Alternatives: []invowkfile.CapabilityName{invowkfile.CapabilityLocalAreaNetwork}}, // duplicate
-			{Alternatives: []invowkfile.CapabilityName{invowkfile.CapabilityLocalAreaNetwork}}, // another duplicate
+	deps := &invkfile.DependsOn{
+		Capabilities: []invkfile.CapabilityDependency{
+			{Alternatives: []invkfile.CapabilityName{invkfile.CapabilityLocalAreaNetwork}},
+			{Alternatives: []invkfile.CapabilityName{invkfile.CapabilityLocalAreaNetwork}}, // duplicate
+			{Alternatives: []invkfile.CapabilityName{invkfile.CapabilityLocalAreaNetwork}}, // another duplicate
 		},
 	}
 
 	ctx := &runtime.ExecutionContext{
-		Command: &invowkfile.Command{Name: "test"},
+		Command: &invkfile.Command{Name: "test"},
 	}
 
 	err := checkCapabilityDependencies(deps, ctx)
@@ -1140,10 +1140,10 @@ func TestRenderDependencyError_AllDependencyTypes(t *testing.T) {
 // Tests for env_vars dependency validation
 
 func TestCheckEnvVarDependencies_ExistingEnvVar(t *testing.T) {
-	deps := &invowkfile.DependsOn{
-		EnvVars: []invowkfile.EnvVarDependency{
+	deps := &invkfile.DependsOn{
+		EnvVars: []invkfile.EnvVarDependency{
 			{
-				Alternatives: []invowkfile.EnvVarCheck{
+				Alternatives: []invkfile.EnvVarCheck{
 					{Name: "TEST_ENV_VAR"},
 				},
 			},
@@ -1155,7 +1155,7 @@ func TestCheckEnvVarDependencies_ExistingEnvVar(t *testing.T) {
 	}
 
 	ctx := &runtime.ExecutionContext{
-		Command: &invowkfile.Command{Name: "test-cmd"},
+		Command: &invkfile.Command{Name: "test-cmd"},
 	}
 
 	err := checkEnvVarDependencies(deps, userEnv, ctx)
@@ -1165,10 +1165,10 @@ func TestCheckEnvVarDependencies_ExistingEnvVar(t *testing.T) {
 }
 
 func TestCheckEnvVarDependencies_MissingEnvVar(t *testing.T) {
-	deps := &invowkfile.DependsOn{
-		EnvVars: []invowkfile.EnvVarDependency{
+	deps := &invkfile.DependsOn{
+		EnvVars: []invkfile.EnvVarDependency{
 			{
-				Alternatives: []invowkfile.EnvVarCheck{
+				Alternatives: []invkfile.EnvVarCheck{
 					{Name: "NONEXISTENT_ENV_VAR"},
 				},
 			},
@@ -1178,7 +1178,7 @@ func TestCheckEnvVarDependencies_MissingEnvVar(t *testing.T) {
 	userEnv := map[string]string{} // Empty environment
 
 	ctx := &runtime.ExecutionContext{
-		Command: &invowkfile.Command{Name: "test-cmd"},
+		Command: &invkfile.Command{Name: "test-cmd"},
 	}
 
 	err := checkEnvVarDependencies(deps, userEnv, ctx)
@@ -1201,10 +1201,10 @@ func TestCheckEnvVarDependencies_MissingEnvVar(t *testing.T) {
 }
 
 func TestCheckEnvVarDependencies_ValidationRegexPass(t *testing.T) {
-	deps := &invowkfile.DependsOn{
-		EnvVars: []invowkfile.EnvVarDependency{
+	deps := &invkfile.DependsOn{
+		EnvVars: []invkfile.EnvVarDependency{
 			{
-				Alternatives: []invowkfile.EnvVarCheck{
+				Alternatives: []invkfile.EnvVarCheck{
 					{Name: "GO_VERSION", Validation: `^[0-9]+\.[0-9]+\.[0-9]+$`},
 				},
 			},
@@ -1216,7 +1216,7 @@ func TestCheckEnvVarDependencies_ValidationRegexPass(t *testing.T) {
 	}
 
 	ctx := &runtime.ExecutionContext{
-		Command: &invowkfile.Command{Name: "test-cmd"},
+		Command: &invkfile.Command{Name: "test-cmd"},
 	}
 
 	err := checkEnvVarDependencies(deps, userEnv, ctx)
@@ -1226,10 +1226,10 @@ func TestCheckEnvVarDependencies_ValidationRegexPass(t *testing.T) {
 }
 
 func TestCheckEnvVarDependencies_ValidationRegexFail(t *testing.T) {
-	deps := &invowkfile.DependsOn{
-		EnvVars: []invowkfile.EnvVarDependency{
+	deps := &invkfile.DependsOn{
+		EnvVars: []invkfile.EnvVarDependency{
 			{
-				Alternatives: []invowkfile.EnvVarCheck{
+				Alternatives: []invkfile.EnvVarCheck{
 					{Name: "GO_VERSION", Validation: `^[0-9]+\.[0-9]+\.[0-9]+$`},
 				},
 			},
@@ -1241,7 +1241,7 @@ func TestCheckEnvVarDependencies_ValidationRegexFail(t *testing.T) {
 	}
 
 	ctx := &runtime.ExecutionContext{
-		Command: &invowkfile.Command{Name: "test-cmd"},
+		Command: &invkfile.Command{Name: "test-cmd"},
 	}
 
 	err := checkEnvVarDependencies(deps, userEnv, ctx)
@@ -1264,10 +1264,10 @@ func TestCheckEnvVarDependencies_ValidationRegexFail(t *testing.T) {
 }
 
 func TestCheckEnvVarDependencies_AlternativesORSemantics(t *testing.T) {
-	deps := &invowkfile.DependsOn{
-		EnvVars: []invowkfile.EnvVarDependency{
+	deps := &invkfile.DependsOn{
+		EnvVars: []invkfile.EnvVarDependency{
 			{
-				Alternatives: []invowkfile.EnvVarCheck{
+				Alternatives: []invkfile.EnvVarCheck{
 					{Name: "AWS_ACCESS_KEY_ID"},
 					{Name: "AWS_PROFILE"},
 				},
@@ -1281,7 +1281,7 @@ func TestCheckEnvVarDependencies_AlternativesORSemantics(t *testing.T) {
 	}
 
 	ctx := &runtime.ExecutionContext{
-		Command: &invowkfile.Command{Name: "test-cmd"},
+		Command: &invkfile.Command{Name: "test-cmd"},
 	}
 
 	err := checkEnvVarDependencies(deps, userEnv, ctx)
@@ -1318,10 +1318,10 @@ func TestCheckEnvVarDependencies_AlternativesORSemantics(t *testing.T) {
 }
 
 func TestCheckEnvVarDependencies_EmptyName(t *testing.T) {
-	deps := &invowkfile.DependsOn{
-		EnvVars: []invowkfile.EnvVarDependency{
+	deps := &invkfile.DependsOn{
+		EnvVars: []invkfile.EnvVarDependency{
 			{
-				Alternatives: []invowkfile.EnvVarCheck{
+				Alternatives: []invkfile.EnvVarCheck{
 					{Name: "   "}, // Whitespace-only name
 				},
 			},
@@ -1331,7 +1331,7 @@ func TestCheckEnvVarDependencies_EmptyName(t *testing.T) {
 	userEnv := map[string]string{}
 
 	ctx := &runtime.ExecutionContext{
-		Command: &invowkfile.Command{Name: "test-cmd"},
+		Command: &invkfile.Command{Name: "test-cmd"},
 	}
 
 	err := checkEnvVarDependencies(deps, userEnv, ctx)
@@ -1351,7 +1351,7 @@ func TestCheckEnvVarDependencies_EmptyName(t *testing.T) {
 
 func TestCheckEnvVarDependencies_NilDeps(t *testing.T) {
 	ctx := &runtime.ExecutionContext{
-		Command: &invowkfile.Command{Name: "test-cmd"},
+		Command: &invkfile.Command{Name: "test-cmd"},
 	}
 
 	err := checkEnvVarDependencies(nil, map[string]string{}, ctx)
@@ -1361,12 +1361,12 @@ func TestCheckEnvVarDependencies_NilDeps(t *testing.T) {
 }
 
 func TestCheckEnvVarDependencies_EmptyEnvVars(t *testing.T) {
-	deps := &invowkfile.DependsOn{
-		EnvVars: []invowkfile.EnvVarDependency{}, // Empty list
+	deps := &invkfile.DependsOn{
+		EnvVars: []invkfile.EnvVarDependency{}, // Empty list
 	}
 
 	ctx := &runtime.ExecutionContext{
-		Command: &invowkfile.Command{Name: "test-cmd"},
+		Command: &invkfile.Command{Name: "test-cmd"},
 	}
 
 	err := checkEnvVarDependencies(deps, map[string]string{}, ctx)
@@ -1541,7 +1541,7 @@ func TestFlagNameToEnvVar(t *testing.T) {
 func TestRunCommandWithFlags_FlagsInjectedAsEnvVars(t *testing.T) {
 	// This test verifies that flag values are correctly converted to environment variables
 	// We'll test the FlagNameToEnvVar conversion more extensively since
-	// the actual runCommandWithFlags requires a full invowkfile setup
+	// the actual runCommandWithFlags requires a full invkfile setup
 
 	// Test that the conversion is consistent
 	flagName := "my-custom-flag"
@@ -1566,18 +1566,18 @@ func TestRunCommandWithFlags_FlagsInjectedAsEnvVars(t *testing.T) {
 }
 
 // testCmdWithFlags creates a Command with flags for testing
-func testCmdWithFlags(name string, script string, flags []invowkfile.Flag) *invowkfile.Command {
-	return &invowkfile.Command{
+func testCmdWithFlags(name string, script string, flags []invkfile.Flag) *invkfile.Command {
+	return &invkfile.Command{
 		Name:  name,
 		Flags: flags,
-		Implementations: []invowkfile.Implementation{
-			{Script: script, Target: invowkfile.Target{Runtimes: []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeNative}}}},
+		Implementations: []invkfile.Implementation{
+			{Script: script, Target: invkfile.Target{Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeNative}}}},
 		},
 	}
 }
 
 func TestCommand_WithFlags(t *testing.T) {
-	flags := []invowkfile.Flag{
+	flags := []invkfile.Flag{
 		{Name: "env", Description: "Target environment"},
 		{Name: "dry-run", Description: "Perform dry run", DefaultValue: "false"},
 	}
@@ -1700,19 +1700,19 @@ func TestBuildCommandUsageString(t *testing.T) {
 	tests := []struct {
 		name     string
 		cmdPart  string
-		args     []invowkfile.Argument
+		args     []invkfile.Argument
 		expected string
 	}{
 		{
 			name:     "no arguments",
 			cmdPart:  "deploy",
-			args:     []invowkfile.Argument{},
+			args:     []invkfile.Argument{},
 			expected: "deploy",
 		},
 		{
 			name:    "single required argument",
 			cmdPart: "deploy",
-			args: []invowkfile.Argument{
+			args: []invkfile.Argument{
 				{Name: "env", Required: true},
 			},
 			expected: "deploy <env>",
@@ -1720,7 +1720,7 @@ func TestBuildCommandUsageString(t *testing.T) {
 		{
 			name:    "single optional argument",
 			cmdPart: "deploy",
-			args: []invowkfile.Argument{
+			args: []invkfile.Argument{
 				{Name: "env", Required: false},
 			},
 			expected: "deploy [env]",
@@ -1728,7 +1728,7 @@ func TestBuildCommandUsageString(t *testing.T) {
 		{
 			name:    "required and optional arguments",
 			cmdPart: "deploy",
-			args: []invowkfile.Argument{
+			args: []invkfile.Argument{
 				{Name: "env", Required: true},
 				{Name: "replicas", Required: false},
 			},
@@ -1737,7 +1737,7 @@ func TestBuildCommandUsageString(t *testing.T) {
 		{
 			name:    "required variadic argument",
 			cmdPart: "deploy",
-			args: []invowkfile.Argument{
+			args: []invkfile.Argument{
 				{Name: "services", Required: true, Variadic: true},
 			},
 			expected: "deploy <services>...",
@@ -1745,7 +1745,7 @@ func TestBuildCommandUsageString(t *testing.T) {
 		{
 			name:    "optional variadic argument",
 			cmdPart: "deploy",
-			args: []invowkfile.Argument{
+			args: []invkfile.Argument{
 				{Name: "services", Required: false, Variadic: true},
 			},
 			expected: "deploy [services]...",
@@ -1753,7 +1753,7 @@ func TestBuildCommandUsageString(t *testing.T) {
 		{
 			name:    "multiple args with variadic",
 			cmdPart: "deploy",
-			args: []invowkfile.Argument{
+			args: []invkfile.Argument{
 				{Name: "env", Required: true},
 				{Name: "replicas", Required: false},
 				{Name: "services", Required: false, Variadic: true},
@@ -1775,49 +1775,49 @@ func TestBuildCommandUsageString(t *testing.T) {
 func TestBuildArgsDocumentation(t *testing.T) {
 	tests := []struct {
 		name          string
-		args          []invowkfile.Argument
+		args          []invkfile.Argument
 		shouldHave    []string
 		shouldNotHave []string
 	}{
 		{
 			name: "required argument",
-			args: []invowkfile.Argument{
+			args: []invkfile.Argument{
 				{Name: "env", Description: "Target environment", Required: true},
 			},
 			shouldHave: []string{"env", "(required)", "Target environment"},
 		},
 		{
 			name: "optional with default",
-			args: []invowkfile.Argument{
+			args: []invkfile.Argument{
 				{Name: "replicas", Description: "Number of replicas", DefaultValue: "1"},
 			},
 			shouldHave: []string{"replicas", `(default: "1")`, "Number of replicas"},
 		},
 		{
 			name: "optional without default",
-			args: []invowkfile.Argument{
+			args: []invkfile.Argument{
 				{Name: "tag", Description: "Image tag"},
 			},
 			shouldHave: []string{"tag", "(optional)", "Image tag"},
 		},
 		{
 			name: "typed argument",
-			args: []invowkfile.Argument{
-				{Name: "count", Description: "Count value", Type: invowkfile.ArgumentTypeInt},
+			args: []invkfile.Argument{
+				{Name: "count", Description: "Count value", Type: invkfile.ArgumentTypeInt},
 			},
 			shouldHave: []string{"count", "[int]", "Count value"},
 		},
 		{
 			name: "variadic argument",
-			args: []invowkfile.Argument{
+			args: []invkfile.Argument{
 				{Name: "services", Description: "Services to deploy", Variadic: true},
 			},
 			shouldHave: []string{"services", "(variadic)", "Services to deploy"},
 		},
 		{
 			name: "string type not shown",
-			args: []invowkfile.Argument{
-				{Name: "name", Description: "Name", Type: invowkfile.ArgumentTypeString},
+			args: []invkfile.Argument{
+				{Name: "name", Description: "Name", Type: invkfile.ArgumentTypeString},
 			},
 			shouldHave:    []string{"name", "Name"},
 			shouldNotHave: []string{"[string]"},
@@ -1896,7 +1896,7 @@ func TestRenderArgumentValidationError_MissingRequired(t *testing.T) {
 	err := &ArgumentValidationError{
 		Type:        ArgErrMissingRequired,
 		CommandName: "deploy",
-		ArgDefs: []invowkfile.Argument{
+		ArgDefs: []invkfile.Argument{
 			{Name: "env", Description: "Target environment", Required: true},
 			{Name: "replicas", Description: "Number of replicas", DefaultValue: "1"},
 		},
@@ -1927,7 +1927,7 @@ func TestRenderArgumentValidationError_TooMany(t *testing.T) {
 	err := &ArgumentValidationError{
 		Type:        ArgErrTooMany,
 		CommandName: "deploy",
-		ArgDefs: []invowkfile.Argument{
+		ArgDefs: []invkfile.Argument{
 			{Name: "env", Description: "Target environment"},
 		},
 		ProvidedArgs: []string{"prod", "extra1", "extra2"},
@@ -1976,7 +1976,7 @@ func TestRenderArgumentValidationError_InvalidValue(t *testing.T) {
 }
 
 func TestRenderArgsSubcommandConflictError(t *testing.T) {
-	args := []invowkfile.Argument{
+	args := []invkfile.Argument{
 		{Name: "env", Description: "Target environment"},
 		{Name: "replicas", Description: "Number of replicas"},
 	}
@@ -2017,20 +2017,20 @@ func TestRenderArgsSubcommandConflictError(t *testing.T) {
 }
 
 // testCmdWithArgs creates a Command with args for testing
-func testCmdWithArgs(name string, script string, args []invowkfile.Argument) *invowkfile.Command {
-	return &invowkfile.Command{
+func testCmdWithArgs(name string, script string, args []invkfile.Argument) *invkfile.Command {
+	return &invkfile.Command{
 		Name: name,
 		Args: args,
-		Implementations: []invowkfile.Implementation{
-			{Script: script, Target: invowkfile.Target{Runtimes: []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeNative}}}},
+		Implementations: []invkfile.Implementation{
+			{Script: script, Target: invkfile.Target{Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeNative}}}},
 		},
 	}
 }
 
 func TestCommand_WithArgs(t *testing.T) {
-	args := []invowkfile.Argument{
+	args := []invkfile.Argument{
 		{Name: "env", Description: "Target environment", Required: true},
-		{Name: "replicas", Description: "Number of replicas", Type: invowkfile.ArgumentTypeInt, DefaultValue: "1"},
+		{Name: "replicas", Description: "Number of replicas", Type: invkfile.ArgumentTypeInt, DefaultValue: "1"},
 		{Name: "services", Description: "Services to deploy", Variadic: true},
 	}
 
@@ -2047,7 +2047,7 @@ func TestCommand_WithArgs(t *testing.T) {
 	if !cmd.Args[0].Required {
 		t.Error("First arg should be required")
 	}
-	if cmd.Args[1].Type != invowkfile.ArgumentTypeInt {
+	if cmd.Args[1].Type != invkfile.ArgumentTypeInt {
 		t.Errorf("Second arg type should be 'int', got %q", cmd.Args[1].Type)
 	}
 	if cmd.Args[1].DefaultValue != "1" {

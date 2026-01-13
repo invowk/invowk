@@ -4,7 +4,7 @@ This document provides instructions for AI coding agents working in this reposit
 
 ## Project Overview
 
-Invowk is a dynamically extensible command runner (like `just`) written in Go 1.25+. It supports multiple execution runtimes: native shell, virtual shell (mvdan/sh), and containerized execution (Docker/Podman). Commands are defined in `invowkfile` files using CUE format.
+Invowk is a dynamically extensible command runner (like `just`) written in Go 1.25+. It supports multiple execution runtimes: native shell, virtual shell (mvdan/sh), and containerized execution (Docker/Podman). Commands are defined in `invkfile` files using CUE format.
 
 ## Build Commands
 
@@ -54,7 +54,7 @@ go test -v -cover ./...
 
 # Run tests for a specific package
 go test -v ./internal/runtime/...
-go test -v ./pkg/invowkfile/...
+go test -v ./pkg/invkfile/...
 ```
 
 ## Code Style Guidelines
@@ -63,7 +63,7 @@ go test -v ./pkg/invowkfile/...
 
 - `cmd/invowk/` - CLI commands using Cobra
 - `internal/` - Private packages (config, container, discovery, issue, runtime, sshserver, tui)
-- `pkg/` - Public packages (pack, invowkfile)
+- `pkg/` - Public packages (pack, invkfile)
 - `packs/` - Sample invowk packs for validation and reference
 
 ### Import Ordering
@@ -83,7 +83,7 @@ import (
 
     // 3. Internal packages
     "invowk-cli/internal/config"
-    "invowk-cli/pkg/invowkfile"
+    "invowk-cli/pkg/invkfile"
 )
 ```
 
@@ -178,9 +178,9 @@ func TestExample(t *testing.T) {
 }
 ```
 
-## Built-in Examples of Invowk Commands (invowkfile.cue at project root)
+## Built-in Examples of Invowk Commands (invkfile.cue at project root)
 
-- Always update the example file when there are any invowkfile definition changes or features added/modified/removed.
+- Always update the example file when there are any invkfile definition changes or features added/modified/removed.
 - All commands should be idempotent and not cause any side effects on the host.
 - No commands should be related to building invowk itself or manipulating any of its source code.
 - Examples should range from simple (e.g.: native 'hello-world') to complex (e.g.: container 'hello-world' with the enable_host_ssh feature).
@@ -206,12 +206,12 @@ The `packs/` directory contains sample invowk packs that serve as reference impl
 
 ### Current Sample Packs
 
-- `io.invowk.sample.invowkpack` - Minimal cross-platform pack with a simple greeting command
+- `io.invowk.sample.invkpack` - Minimal cross-platform pack with a simple greeting command
 
 ### Pack Validation Checklist
 
 When modifying pack-related code, verify:
-1. All packs in `packs/` pass validation: `go run . pack validate packs/*.invowkpack --deep`
+1. All packs in `packs/` pass validation: `go run . pack validate packs/*.invkpack --deep`
 2. Pack naming conventions are correctly enforced
 3. Script path resolution works correctly (forward slashes, relative paths)
 4. Nested pack detection works correctly
@@ -263,7 +263,7 @@ func (e *Engine) Run(ctx context.Context, opts RunOptions) (*RunResult, error) {
 - Keep files focused on a single responsibility
 - Separate test helpers into dedicated functions
 - Use `_test.go` suffix for test files only
-- Schema files use `.cue` extension (e.g., `config_schema.cue`, `invowkfile_schema.cue`)
+- Schema files use `.cue` extension (e.g., `config_schema.cue`, `invkfile_schema.cue`)
 
 ## Dependencies
 

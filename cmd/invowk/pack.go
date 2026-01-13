@@ -10,12 +10,12 @@ import (
 
 	"invowk-cli/internal/config"
 	"invowk-cli/internal/discovery"
-	"invowk-cli/pkg/invowkfile"
+	"invowk-cli/pkg/invkfile"
 	"invowk-cli/pkg/pack"
 )
 
 var (
-	// packValidateDeep enables deep validation including invowkfile parsing
+	// packValidateDeep enables deep validation including invkfile parsing
 	packValidateDeep bool
 
 	// packCreatePath is the parent directory for pack creation
@@ -40,20 +40,20 @@ var (
 var packCmd = &cobra.Command{
 	Use:   "pack",
 	Short: "Manage invowk packs",
-	Long: `Manage invowk packs - self-contained folders containing invowkfiles and scripts.
+	Long: `Manage invowk packs - self-contained folders containing invkfiles and scripts.
 
-A pack is a folder with the ` + cmdStyle.Render(".invowkpack") + ` suffix that contains:
-  - Exactly one ` + cmdStyle.Render("invowkfile.cue") + ` at the root
+A pack is a folder with the ` + cmdStyle.Render(".invkpack") + ` suffix that contains:
+  - Exactly one ` + cmdStyle.Render("invkfile.cue") + ` at the root
   - Optional script files referenced by command implementations
 
 Pack names follow these rules:
   - Must start with a letter
   - Can contain alphanumeric characters with dot-separated segments
-  - Compatible with RDNS naming (e.g., ` + cmdStyle.Render("com.example.mycommands.invowkpack") + `)
+  - Compatible with RDNS naming (e.g., ` + cmdStyle.Render("com.example.mycommands.invkpack") + `)
 
 Examples:
-  invowk pack validate ./mycommands.invowkpack
-  invowk pack validate ./com.example.tools.invowkpack --deep`,
+  invowk pack validate ./mycommands.invkpack
+  invowk pack validate ./com.example.tools.invkpack --deep`,
 }
 
 // packValidateCmd validates an invowk pack
@@ -64,13 +64,13 @@ var packValidateCmd = &cobra.Command{
 
 Checks performed:
   - Folder name follows pack naming conventions
-  - Contains exactly one invowkfile.cue at the root
+  - Contains exactly one invkfile.cue at the root
   - No nested packs inside
-  - (with --deep) Invowkfile parses successfully
+  - (with --deep) Invkfile parses successfully
 
 Examples:
-  invowk pack validate ./mycommands.invowkpack
-  invowk pack validate ./com.example.tools.invowkpack --deep`,
+  invowk pack validate ./mycommands.invkpack
+  invowk pack validate ./com.example.tools.invkpack --deep`,
 	Args: cobra.ExactArgs(1),
 	RunE: runPackValidate,
 }
@@ -118,8 +118,8 @@ var packArchiveCmd = &cobra.Command{
 The archive will contain the pack directory with all its contents.
 
 Examples:
-  invowk pack archive ./mytools.invowkpack
-  invowk pack archive ./mytools.invowkpack --output ./dist/mytools.zip`,
+  invowk pack archive ./mytools.invkpack
+  invowk pack archive ./mytools.invkpack --output ./dist/mytools.zip`,
 	Args: cobra.ExactArgs(1),
 	RunE: runPackArchive,
 }
@@ -133,7 +133,7 @@ var packImportCmd = &cobra.Command{
 By default, packs are imported to ~/.invowk/cmds.
 
 Examples:
-  invowk pack import ./mytools.invowkpack.zip
+  invowk pack import ./mytools.invkpack.zip
   invowk pack import https://example.com/packs/mytools.zip
   invowk pack import ./pack.zip --path ./local-packs
   invowk pack import ./pack.zip --overwrite`,
@@ -148,14 +148,14 @@ func init() {
 	packCmd.AddCommand(packArchiveCmd)
 	packCmd.AddCommand(packImportCmd)
 
-	packValidateCmd.Flags().BoolVar(&packValidateDeep, "deep", false, "perform deep validation including invowkfile parsing")
+	packValidateCmd.Flags().BoolVar(&packValidateDeep, "deep", false, "perform deep validation including invkfile parsing")
 
 	packCreateCmd.Flags().StringVarP(&packCreatePath, "path", "p", "", "parent directory for the pack (default: current directory)")
 	packCreateCmd.Flags().BoolVar(&packCreateScripts, "scripts", false, "create a scripts/ subdirectory")
-	packCreateCmd.Flags().StringVarP(&packCreateGroup, "group", "g", "", "group name for the invowkfile (default: pack name)")
-	packCreateCmd.Flags().StringVarP(&packCreateDescription, "description", "d", "", "description for the invowkfile")
+	packCreateCmd.Flags().StringVarP(&packCreateGroup, "group", "g", "", "group name for the invkfile (default: pack name)")
+	packCreateCmd.Flags().StringVarP(&packCreateDescription, "description", "d", "", "description for the invkfile")
 
-	packArchiveCmd.Flags().StringVarP(&packPackOutput, "output", "o", "", "output path for the ZIP file (default: <pack-name>.invowkpack.zip)")
+	packArchiveCmd.Flags().StringVarP(&packPackOutput, "output", "o", "", "output path for the ZIP file (default: <pack-name>.invkpack.zip)")
 
 	packImportCmd.Flags().StringVarP(&packImportPath, "path", "p", "", "destination directory (default: ~/.invowk/cmds)")
 	packImportCmd.Flags().BoolVar(&packImportOverwrite, "overwrite", false, "overwrite existing pack if present")
@@ -212,12 +212,12 @@ func runPackValidate(cmd *cobra.Command, args []string) error {
 		fmt.Printf("%s Name: %s\n", packInfoIcon, cmdStyle.Render(result.PackName))
 	}
 
-	// Deep validation: parse invowkfile
-	var invowkfileError error
-	if packValidateDeep && result.InvowkfilePath != "" {
-		_, invowkfileError = invowkfile.Parse(result.InvowkfilePath)
-		if invowkfileError != nil {
-			result.AddIssue("invowkfile", invowkfileError.Error(), "invowkfile.cue")
+	// Deep validation: parse invkfile
+	var invkfileError error
+	if packValidateDeep && result.InvkfilePath != "" {
+		_, invkfileError = invkfile.Parse(result.InvkfilePath)
+		if invkfileError != nil {
+			result.AddIssue("invkfile", invkfileError.Error(), "invkfile.cue")
 		}
 	}
 
@@ -234,9 +234,9 @@ func runPackValidate(cmd *cobra.Command, args []string) error {
 		fmt.Printf("%s Required files present\n", packSuccessIcon)
 
 		if packValidateDeep {
-			fmt.Printf("%s Invowkfile parses successfully\n", packSuccessIcon)
+			fmt.Printf("%s Invkfile parses successfully\n", packSuccessIcon)
 		} else {
-			fmt.Printf("%s Use --deep to also validate invowkfile syntax\n", packWarningIcon)
+			fmt.Printf("%s Use --deep to also validate invkfile syntax\n", packWarningIcon)
 		}
 
 		return nil
@@ -297,7 +297,7 @@ func runPackCreate(cmd *cobra.Command, args []string) error {
 
 	fmt.Println()
 	fmt.Printf("%s Next steps:\n", packInfoIcon)
-	fmt.Printf("   1. Edit %s to add your commands\n", packPathStyle.Render(filepath.Join(packPath, "invowkfile.cue")))
+	fmt.Printf("   1. Edit %s to add your commands\n", packPathStyle.Render(filepath.Join(packPath, "invkfile.cue")))
 	if packCreateScripts {
 		fmt.Printf("   2. Add script files to %s\n", packPathStyle.Render(filepath.Join(packPath, "scripts")))
 	}

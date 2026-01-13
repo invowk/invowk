@@ -18,7 +18,7 @@ func TestIsPack(t *testing.T) {
 			name: "valid pack with simple name",
 			setup: func(t *testing.T) string {
 				dir := t.TempDir()
-				packPath := filepath.Join(dir, "mycommands.invowkpack")
+				packPath := filepath.Join(dir, "mycommands.invkpack")
 				if err := os.Mkdir(packPath, 0755); err != nil {
 					t.Fatal(err)
 				}
@@ -30,7 +30,7 @@ func TestIsPack(t *testing.T) {
 			name: "valid pack with RDNS name",
 			setup: func(t *testing.T) string {
 				dir := t.TempDir()
-				packPath := filepath.Join(dir, "com.example.mycommands.invowkpack")
+				packPath := filepath.Join(dir, "com.example.mycommands.invkpack")
 				if err := os.Mkdir(packPath, 0755); err != nil {
 					t.Fatal(err)
 				}
@@ -66,7 +66,7 @@ func TestIsPack(t *testing.T) {
 			name: "invalid - starts with number",
 			setup: func(t *testing.T) string {
 				dir := t.TempDir()
-				packPath := filepath.Join(dir, "123commands.invowkpack")
+				packPath := filepath.Join(dir, "123commands.invkpack")
 				if err := os.Mkdir(packPath, 0755); err != nil {
 					t.Fatal(err)
 				}
@@ -79,8 +79,8 @@ func TestIsPack(t *testing.T) {
 			setup: func(t *testing.T) string {
 				dir := t.TempDir()
 				// Note: folder name itself doesn't start with dot, but the name part does
-				// This tests ".hidden.invowkpack" - the prefix is ".hidden" which is invalid
-				packPath := filepath.Join(dir, ".hidden.invowkpack")
+				// This tests ".hidden.invkpack" - the prefix is ".hidden" which is invalid
+				packPath := filepath.Join(dir, ".hidden.invkpack")
 				if err := os.Mkdir(packPath, 0755); err != nil {
 					t.Fatal(err)
 				}
@@ -92,7 +92,7 @@ func TestIsPack(t *testing.T) {
 			name: "invalid - file not directory",
 			setup: func(t *testing.T) string {
 				dir := t.TempDir()
-				filePath := filepath.Join(dir, "mycommands.invowkpack")
+				filePath := filepath.Join(dir, "mycommands.invkpack")
 				if err := os.WriteFile(filePath, []byte("test"), 0644); err != nil {
 					t.Fatal(err)
 				}
@@ -103,7 +103,7 @@ func TestIsPack(t *testing.T) {
 		{
 			name: "invalid - path does not exist",
 			setup: func(t *testing.T) string {
-				return "/nonexistent/path/mycommands.invowkpack"
+				return "/nonexistent/path/mycommands.invkpack"
 			},
 			expected: false,
 		},
@@ -111,7 +111,7 @@ func TestIsPack(t *testing.T) {
 			name: "invalid - contains hyphen in name",
 			setup: func(t *testing.T) string {
 				dir := t.TempDir()
-				packPath := filepath.Join(dir, "my-commands.invowkpack")
+				packPath := filepath.Join(dir, "my-commands.invkpack")
 				if err := os.Mkdir(packPath, 0755); err != nil {
 					t.Fatal(err)
 				}
@@ -123,7 +123,7 @@ func TestIsPack(t *testing.T) {
 			name: "invalid - contains underscore in name",
 			setup: func(t *testing.T) string {
 				dir := t.TempDir()
-				packPath := filepath.Join(dir, "my_commands.invowkpack")
+				packPath := filepath.Join(dir, "my_commands.invkpack")
 				if err := os.Mkdir(packPath, 0755); err != nil {
 					t.Fatal(err)
 				}
@@ -135,7 +135,7 @@ func TestIsPack(t *testing.T) {
 			name: "valid - segment starts with uppercase",
 			setup: func(t *testing.T) string {
 				dir := t.TempDir()
-				packPath := filepath.Join(dir, "Com.Example.MyCommands.invowkpack")
+				packPath := filepath.Join(dir, "Com.Example.MyCommands.invkpack")
 				if err := os.Mkdir(packPath, 0755); err != nil {
 					t.Fatal(err)
 				}
@@ -165,25 +165,25 @@ func TestParsePackName(t *testing.T) {
 	}{
 		{
 			name:        "simple name",
-			folderName:  "mycommands.invowkpack",
+			folderName:  "mycommands.invkpack",
 			expectedOK:  true,
 			expectedVal: "mycommands",
 		},
 		{
 			name:        "RDNS name",
-			folderName:  "com.example.mycommands.invowkpack",
+			folderName:  "com.example.mycommands.invkpack",
 			expectedOK:  true,
 			expectedVal: "com.example.mycommands",
 		},
 		{
 			name:        "single letter segments",
-			folderName:  "a.b.c.invowkpack",
+			folderName:  "a.b.c.invkpack",
 			expectedOK:  true,
 			expectedVal: "a.b.c",
 		},
 		{
 			name:        "alphanumeric segments",
-			folderName:  "com.example123.mytools.invowkpack",
+			folderName:  "com.example123.mytools.invkpack",
 			expectedOK:  true,
 			expectedVal: "com.example123.mytools",
 		},
@@ -199,47 +199,47 @@ func TestParsePackName(t *testing.T) {
 		},
 		{
 			name:       "empty prefix",
-			folderName: ".invowkpack",
+			folderName: ".invkpack",
 			expectedOK: false,
 		},
 		{
 			name:       "starts with number",
-			folderName: "123commands.invowkpack",
+			folderName: "123commands.invkpack",
 			expectedOK: false,
 		},
 		{
 			name:       "segment starts with number",
-			folderName: "com.123example.invowkpack",
+			folderName: "com.123example.invkpack",
 			expectedOK: false,
 		},
 		{
 			name:       "contains hyphen",
-			folderName: "my-commands.invowkpack",
+			folderName: "my-commands.invkpack",
 			expectedOK: false,
 		},
 		{
 			name:       "contains underscore",
-			folderName: "my_commands.invowkpack",
+			folderName: "my_commands.invkpack",
 			expectedOK: false,
 		},
 		{
 			name:       "starts with dot (hidden)",
-			folderName: ".hidden.invowkpack",
+			folderName: ".hidden.invkpack",
 			expectedOK: false,
 		},
 		{
 			name:       "double dots",
-			folderName: "com..example.invowkpack",
+			folderName: "com..example.invkpack",
 			expectedOK: false,
 		},
 		{
 			name:       "ends with dot before suffix",
-			folderName: "com.example..invowkpack",
+			folderName: "com.example..invkpack",
 			expectedOK: false,
 		},
 		{
 			name:       "empty segment",
-			folderName: "com.example..tools.invowkpack",
+			folderName: "com.example..tools.invkpack",
 			expectedOK: false,
 		},
 	}
@@ -272,15 +272,15 @@ func TestValidate(t *testing.T) {
 		checkIssueType string // optional: check that at least one issue has this type
 	}{
 		{
-			name: "valid pack with invowkfile",
+			name: "valid pack with invkfile",
 			setup: func(t *testing.T) string {
 				dir := t.TempDir()
-				packPath := filepath.Join(dir, "mycommands.invowkpack")
+				packPath := filepath.Join(dir, "mycommands.invkpack")
 				if err := os.Mkdir(packPath, 0755); err != nil {
 					t.Fatal(err)
 				}
-				invowkfilePath := filepath.Join(packPath, "invowkfile.cue")
-				if err := os.WriteFile(invowkfilePath, []byte("group: \"test\"\ncommands: []"), 0644); err != nil {
+				invkfilePath := filepath.Join(packPath, "invkfile.cue")
+				if err := os.WriteFile(invkfilePath, []byte("group: \"test\"\ncommands: []"), 0644); err != nil {
 					t.Fatal(err)
 				}
 				return packPath
@@ -292,12 +292,12 @@ func TestValidate(t *testing.T) {
 			name: "valid RDNS pack",
 			setup: func(t *testing.T) string {
 				dir := t.TempDir()
-				packPath := filepath.Join(dir, "com.example.mycommands.invowkpack")
+				packPath := filepath.Join(dir, "com.example.mycommands.invkpack")
 				if err := os.Mkdir(packPath, 0755); err != nil {
 					t.Fatal(err)
 				}
-				invowkfilePath := filepath.Join(packPath, "invowkfile.cue")
-				if err := os.WriteFile(invowkfilePath, []byte("group: \"test\"\ncommands: []"), 0644); err != nil {
+				invkfilePath := filepath.Join(packPath, "invkfile.cue")
+				if err := os.WriteFile(invkfilePath, []byte("group: \"test\"\ncommands: []"), 0644); err != nil {
 					t.Fatal(err)
 				}
 				return packPath
@@ -306,10 +306,10 @@ func TestValidate(t *testing.T) {
 			expectIssues: 0,
 		},
 		{
-			name: "missing invowkfile.cue",
+			name: "missing invkfile.cue",
 			setup: func(t *testing.T) string {
 				dir := t.TempDir()
-				packPath := filepath.Join(dir, "mycommands.invowkpack")
+				packPath := filepath.Join(dir, "mycommands.invkpack")
 				if err := os.Mkdir(packPath, 0755); err != nil {
 					t.Fatal(err)
 				}
@@ -320,15 +320,15 @@ func TestValidate(t *testing.T) {
 			checkIssueType: "structure",
 		},
 		{
-			name: "invowkfile.cue is a directory",
+			name: "invkfile.cue is a directory",
 			setup: func(t *testing.T) string {
 				dir := t.TempDir()
-				packPath := filepath.Join(dir, "mycommands.invowkpack")
+				packPath := filepath.Join(dir, "mycommands.invkpack")
 				if err := os.Mkdir(packPath, 0755); err != nil {
 					t.Fatal(err)
 				}
-				invowkfileDir := filepath.Join(packPath, "invowkfile.cue")
-				if err := os.Mkdir(invowkfileDir, 0755); err != nil {
+				invkfileDir := filepath.Join(packPath, "invkfile.cue")
+				if err := os.Mkdir(invkfileDir, 0755); err != nil {
 					t.Fatal(err)
 				}
 				return packPath
@@ -341,16 +341,16 @@ func TestValidate(t *testing.T) {
 			name: "nested pack not allowed",
 			setup: func(t *testing.T) string {
 				dir := t.TempDir()
-				packPath := filepath.Join(dir, "mycommands.invowkpack")
+				packPath := filepath.Join(dir, "mycommands.invkpack")
 				if err := os.Mkdir(packPath, 0755); err != nil {
 					t.Fatal(err)
 				}
-				invowkfilePath := filepath.Join(packPath, "invowkfile.cue")
-				if err := os.WriteFile(invowkfilePath, []byte("group: \"test\"\ncommands: []"), 0644); err != nil {
+				invkfilePath := filepath.Join(packPath, "invkfile.cue")
+				if err := os.WriteFile(invkfilePath, []byte("group: \"test\"\ncommands: []"), 0644); err != nil {
 					t.Fatal(err)
 				}
 				// Create nested pack
-				nestedPath := filepath.Join(packPath, "nested.invowkpack")
+				nestedPath := filepath.Join(packPath, "nested.invkpack")
 				if err := os.Mkdir(nestedPath, 0755); err != nil {
 					t.Fatal(err)
 				}
@@ -364,12 +364,12 @@ func TestValidate(t *testing.T) {
 			name: "invalid folder name",
 			setup: func(t *testing.T) string {
 				dir := t.TempDir()
-				packPath := filepath.Join(dir, "123invalid.invowkpack")
+				packPath := filepath.Join(dir, "123invalid.invkpack")
 				if err := os.Mkdir(packPath, 0755); err != nil {
 					t.Fatal(err)
 				}
-				invowkfilePath := filepath.Join(packPath, "invowkfile.cue")
-				if err := os.WriteFile(invowkfilePath, []byte("group: \"test\"\ncommands: []"), 0644); err != nil {
+				invkfilePath := filepath.Join(packPath, "invkfile.cue")
+				if err := os.WriteFile(invkfilePath, []byte("group: \"test\"\ncommands: []"), 0644); err != nil {
 					t.Fatal(err)
 				}
 				return packPath
@@ -381,7 +381,7 @@ func TestValidate(t *testing.T) {
 		{
 			name: "path does not exist",
 			setup: func(t *testing.T) string {
-				return "/nonexistent/path/mycommands.invowkpack"
+				return "/nonexistent/path/mycommands.invkpack"
 			},
 			expectValid:    false,
 			expectIssues:   1,
@@ -391,7 +391,7 @@ func TestValidate(t *testing.T) {
 			name: "path is a file not directory",
 			setup: func(t *testing.T) string {
 				dir := t.TempDir()
-				filePath := filepath.Join(dir, "mycommands.invowkpack")
+				filePath := filepath.Join(dir, "mycommands.invkpack")
 				if err := os.WriteFile(filePath, []byte("test"), 0644); err != nil {
 					t.Fatal(err)
 				}
@@ -402,15 +402,15 @@ func TestValidate(t *testing.T) {
 			checkIssueType: "structure",
 		},
 		{
-			name: "multiple issues - missing invowkfile and nested pack",
+			name: "multiple issues - missing invkfile and nested pack",
 			setup: func(t *testing.T) string {
 				dir := t.TempDir()
-				packPath := filepath.Join(dir, "mycommands.invowkpack")
+				packPath := filepath.Join(dir, "mycommands.invkpack")
 				if err := os.Mkdir(packPath, 0755); err != nil {
 					t.Fatal(err)
 				}
-				// Create nested pack (but no invowkfile)
-				nestedPath := filepath.Join(packPath, "nested.invowkpack")
+				// Create nested pack (but no invkfile)
+				nestedPath := filepath.Join(packPath, "nested.invkpack")
 				if err := os.Mkdir(nestedPath, 0755); err != nil {
 					t.Fatal(err)
 				}
@@ -423,12 +423,12 @@ func TestValidate(t *testing.T) {
 			name: "pack with script files - valid structure",
 			setup: func(t *testing.T) string {
 				dir := t.TempDir()
-				packPath := filepath.Join(dir, "mycommands.invowkpack")
+				packPath := filepath.Join(dir, "mycommands.invkpack")
 				if err := os.Mkdir(packPath, 0755); err != nil {
 					t.Fatal(err)
 				}
-				invowkfilePath := filepath.Join(packPath, "invowkfile.cue")
-				if err := os.WriteFile(invowkfilePath, []byte("group: \"test\"\ncommands: []"), 0644); err != nil {
+				invkfilePath := filepath.Join(packPath, "invkfile.cue")
+				if err := os.WriteFile(invkfilePath, []byte("group: \"test\"\ncommands: []"), 0644); err != nil {
 					t.Fatal(err)
 				}
 				// Create scripts directory
@@ -482,12 +482,12 @@ func TestValidate(t *testing.T) {
 func TestLoad(t *testing.T) {
 	t.Run("loads valid pack", func(t *testing.T) {
 		dir := t.TempDir()
-		packPath := filepath.Join(dir, "com.example.test.invowkpack")
+		packPath := filepath.Join(dir, "com.example.test.invkpack")
 		if err := os.Mkdir(packPath, 0755); err != nil {
 			t.Fatal(err)
 		}
-		invowkfilePath := filepath.Join(packPath, "invowkfile.cue")
-		if err := os.WriteFile(invowkfilePath, []byte("group: \"test\"\ncommands: []"), 0644); err != nil {
+		invkfilePath := filepath.Join(packPath, "invkfile.cue")
+		if err := os.WriteFile(invkfilePath, []byte("group: \"test\"\ncommands: []"), 0644); err != nil {
 			t.Fatal(err)
 		}
 
@@ -500,18 +500,18 @@ func TestLoad(t *testing.T) {
 			t.Errorf("pack.Name = %q, want %q", pack.Name, "com.example.test")
 		}
 
-		if pack.InvowkfilePath != invowkfilePath {
-			t.Errorf("pack.InvowkfilePath = %q, want %q", pack.InvowkfilePath, invowkfilePath)
+		if pack.InvkfilePath != invkfilePath {
+			t.Errorf("pack.InvkfilePath = %q, want %q", pack.InvkfilePath, invkfilePath)
 		}
 	})
 
 	t.Run("fails for invalid pack", func(t *testing.T) {
 		dir := t.TempDir()
-		packPath := filepath.Join(dir, "mycommands.invowkpack")
+		packPath := filepath.Join(dir, "mycommands.invkpack")
 		if err := os.Mkdir(packPath, 0755); err != nil {
 			t.Fatal(err)
 		}
-		// No invowkfile.cue
+		// No invkfile.cue
 
 		_, err := Load(packPath)
 		if err == nil {
@@ -522,9 +522,9 @@ func TestLoad(t *testing.T) {
 
 func TestPack_ResolveScriptPath(t *testing.T) {
 	pack := &Pack{
-		Path:           "/home/user/mycommands.invowkpack",
-		Name:           "mycommands",
-		InvowkfilePath: "/home/user/mycommands.invowkpack/invowkfile.cue",
+		Path:         "/home/user/mycommands.invkpack",
+		Name:         "mycommands",
+		InvkfilePath: "/home/user/mycommands.invkpack/invkfile.cue",
 	}
 
 	tests := []struct {
@@ -535,17 +535,17 @@ func TestPack_ResolveScriptPath(t *testing.T) {
 		{
 			name:       "relative path with forward slashes",
 			scriptPath: "scripts/build.sh",
-			expected:   filepath.Join("/home/user/mycommands.invowkpack", "scripts", "build.sh"),
+			expected:   filepath.Join("/home/user/mycommands.invkpack", "scripts", "build.sh"),
 		},
 		{
 			name:       "relative path in root",
 			scriptPath: "run.sh",
-			expected:   filepath.Join("/home/user/mycommands.invowkpack", "run.sh"),
+			expected:   filepath.Join("/home/user/mycommands.invkpack", "run.sh"),
 		},
 		{
 			name:       "nested path",
 			scriptPath: "lib/utils/helper.sh",
-			expected:   filepath.Join("/home/user/mycommands.invowkpack", "lib", "utils", "helper.sh"),
+			expected:   filepath.Join("/home/user/mycommands.invkpack", "lib", "utils", "helper.sh"),
 		},
 	}
 
@@ -561,9 +561,9 @@ func TestPack_ResolveScriptPath(t *testing.T) {
 
 func TestPack_ValidateScriptPath(t *testing.T) {
 	pack := &Pack{
-		Path:           "/home/user/mycommands.invowkpack",
-		Name:           "mycommands",
-		InvowkfilePath: "/home/user/mycommands.invowkpack/invowkfile.cue",
+		Path:         "/home/user/mycommands.invkpack",
+		Name:         "mycommands",
+		InvkfilePath: "/home/user/mycommands.invkpack/invkfile.cue",
 	}
 
 	tests := []struct {
@@ -624,7 +624,7 @@ func TestPack_ValidateScriptPath(t *testing.T) {
 func TestPack_ContainsPath(t *testing.T) {
 	// Create a real temp directory for this test
 	dir := t.TempDir()
-	packPath := filepath.Join(dir, "mycommands.invowkpack")
+	packPath := filepath.Join(dir, "mycommands.invkpack")
 	if err := os.Mkdir(packPath, 0755); err != nil {
 		t.Fatal(err)
 	}
@@ -641,7 +641,7 @@ func TestPack_ContainsPath(t *testing.T) {
 	}{
 		{
 			name:     "file in pack root",
-			path:     filepath.Join(packPath, "invowkfile.cue"),
+			path:     filepath.Join(packPath, "invkfile.cue"),
 			expected: true,
 		},
 		{
@@ -687,9 +687,9 @@ func TestValidationIssue_Error(t *testing.T) {
 			issue: ValidationIssue{
 				Type:    "structure",
 				Message: "nested packs are not allowed",
-				Path:    "nested.invowkpack",
+				Path:    "nested.invkpack",
 			},
-			expected: "[structure] nested.invowkpack: nested packs are not allowed",
+			expected: "[structure] nested.invkpack: nested packs are not allowed",
 		},
 		{
 			name: "issue without path",
@@ -816,10 +816,10 @@ func TestCreate(t *testing.T) {
 					t.Error("pack path is not a directory")
 				}
 
-				// Check invowkfile.cue exists
-				invowkfilePath := filepath.Join(packPath, "invowkfile.cue")
-				if _, err := os.Stat(invowkfilePath); err != nil {
-					t.Errorf("invowkfile.cue not created: %v", err)
+				// Check invkfile.cue exists
+				invkfilePath := filepath.Join(packPath, "invkfile.cue")
+				if _, err := os.Stat(invkfilePath); err != nil {
+					t.Errorf("invkfile.cue not created: %v", err)
 				}
 
 				// Verify pack is valid
@@ -836,7 +836,7 @@ func TestCreate(t *testing.T) {
 			},
 			expectErr: false,
 			validate: func(t *testing.T, packPath string) {
-				if !strings.HasSuffix(packPath, "com.example.mytools.invowkpack") {
+				if !strings.HasSuffix(packPath, "com.example.mytools.invkpack") {
 					t.Errorf("unexpected pack path: %s", packPath)
 				}
 			},
@@ -873,12 +873,12 @@ func TestCreate(t *testing.T) {
 			},
 			expectErr: false,
 			validate: func(t *testing.T, packPath string) {
-				content, err := os.ReadFile(filepath.Join(packPath, "invowkfile.cue"))
+				content, err := os.ReadFile(filepath.Join(packPath, "invkfile.cue"))
 				if err != nil {
-					t.Fatalf("failed to read invowkfile: %v", err)
+					t.Fatalf("failed to read invkfile: %v", err)
 				}
 				if !strings.Contains(string(content), `group: "custom-group"`) {
-					t.Error("custom group not set in invowkfile")
+					t.Error("custom group not set in invkfile")
 				}
 			},
 		},
@@ -890,12 +890,12 @@ func TestCreate(t *testing.T) {
 			},
 			expectErr: false,
 			validate: func(t *testing.T, packPath string) {
-				content, err := os.ReadFile(filepath.Join(packPath, "invowkfile.cue"))
+				content, err := os.ReadFile(filepath.Join(packPath, "invkfile.cue"))
 				if err != nil {
-					t.Fatalf("failed to read invowkfile: %v", err)
+					t.Fatalf("failed to read invkfile: %v", err)
 				}
 				if !strings.Contains(string(content), `description: "My custom description"`) {
-					t.Error("custom description not set in invowkfile")
+					t.Error("custom description not set in invkfile")
 				}
 			},
 		},
@@ -1038,7 +1038,7 @@ func TestPack(t *testing.T) {
 		}
 
 		// Verify default name
-		expectedName := "com.example.tools.invowkpack.zip"
+		expectedName := "com.example.tools.invkpack.zip"
 		if filepath.Base(zipPath) != expectedName {
 			t.Errorf("default ZIP name = %q, expected %q", filepath.Base(zipPath), expectedName)
 		}
@@ -1047,8 +1047,8 @@ func TestPack(t *testing.T) {
 	t.Run("pack invalid pack fails", func(t *testing.T) {
 		tmpDir := t.TempDir()
 
-		// Create an invalid pack (no invowkfile)
-		packPath := filepath.Join(tmpDir, "invalid.invowkpack")
+		// Create an invalid pack (no invkfile)
+		packPath := filepath.Join(tmpDir, "invalid.invkpack")
 		if err := os.Mkdir(packPath, 0755); err != nil {
 			t.Fatalf("failed to create directory: %v", err)
 		}

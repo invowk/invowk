@@ -27,7 +27,7 @@ const (
 type Config struct {
 	// ContainerEngine specifies whether to use "podman" or "docker"
 	ContainerEngine ContainerEngine `json:"container_engine" mapstructure:"container_engine"`
-	// SearchPaths contains additional directories to search for invowkfiles
+	// SearchPaths contains additional directories to search for invkfiles
 	SearchPaths []string `json:"search_paths" mapstructure:"search_paths"`
 	// DefaultRuntime sets the global default runtime mode
 	DefaultRuntime string `json:"default_runtime" mapstructure:"default_runtime"`
@@ -113,7 +113,7 @@ func ConfigDir() (string, error) {
 	return filepath.Join(configDir, AppName), nil
 }
 
-// CommandsDir returns the directory for user-defined invowkfiles
+// CommandsDir returns the directory for user-defined invkfiles
 func CommandsDir() (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {

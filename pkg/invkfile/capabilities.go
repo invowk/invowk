@@ -1,4 +1,4 @@
-package invowkfile
+package invkfile
 
 import (
 	"fmt"
@@ -109,8 +109,8 @@ func checkInternet() error {
 	// We try to establish a UDP connection to DNS servers
 	// This doesn't actually send data, just checks if we can route to them
 	dnsServers := []string{
-		"8.8.8.8:53",       // Google DNS
-		"1.1.1.1:53",       // Cloudflare DNS
+		"8.8.8.8:53",        // Google DNS
+		"1.1.1.1:53",        // Cloudflare DNS
 		"208.67.222.222:53", // OpenDNS
 	}
 

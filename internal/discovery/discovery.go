@@ -1,4 +1,4 @@
-// Package discovery handles finding and loading invowkfiles from various locations.
+// Package discovery handles finding and loading invkfiles from various locations.
 package discovery
 
 import (
@@ -9,11 +9,11 @@ import (
 	"strings"
 
 	"invowk-cli/internal/config"
-	"invowk-cli/pkg/invowkfile"
+	"invowk-cli/pkg/invkfile"
 	"invowk-cli/pkg/pack"
 )
 
-// Source represents where an invowkfile was found
+// Source represents where an invkfile was found
 type Source int
 
 const (
@@ -43,21 +43,21 @@ func (s Source) String() string {
 	}
 }
 
-// DiscoveredFile represents a found invowkfile with its source
+// DiscoveredFile represents a found invkfile with its source
 type DiscoveredFile struct {
-	// Path is the absolute path to the invowkfile
+	// Path is the absolute path to the invkfile
 	Path string
 	// Source indicates where the file was found
 	Source Source
-	// Invowkfile is the parsed content (may be nil if not yet parsed)
-	Invowkfile *invowkfile.Invowkfile
+	// Invkfile is the parsed content (may be nil if not yet parsed)
+	Invkfile *invkfile.Invkfile
 	// Error contains any error that occurred during parsing
 	Error error
 	// Pack is set if this file was discovered from a pack
 	Pack *pack.Pack
 }
 
-// Discovery handles finding invowkfiles
+// Discovery handles finding invkfiles
 type Discovery struct {
 	cfg *config.Config
 }
@@ -67,7 +67,7 @@ func New(cfg *config.Config) *Discovery {
 	return &Discovery{cfg: cfg}
 }
 
-// DiscoverAll finds all invowkfiles from all sources in order of precedence
+// DiscoverAll finds all invkfiles from all sources in order of precedence
 func (d *Discovery) DiscoverAll() ([]*DiscoveredFile, error) {
 	var files []*DiscoveredFile
 
@@ -104,21 +104,21 @@ func (d *Discovery) DiscoverAll() ([]*DiscoveredFile, error) {
 	return files, nil
 }
 
-// discoverInDir looks for an invowkfile in a specific directory
+// discoverInDir looks for an invkfile in a specific directory
 func (d *Discovery) discoverInDir(dir string, source Source) *DiscoveredFile {
 	absDir, err := filepath.Abs(dir)
 	if err != nil {
 		return nil
 	}
 
-	// Check for invowkfile.cue first (preferred)
-	path := filepath.Join(absDir, invowkfile.InvowkfileName+".cue")
+	// Check for invkfile.cue first (preferred)
+	path := filepath.Join(absDir, invkfile.InvkfileName+".cue")
 	if _, err := os.Stat(path); err == nil {
 		return &DiscoveredFile{Path: path, Source: source}
 	}
 
-	// Check for invowkfile (no extension)
-	path = filepath.Join(absDir, invowkfile.InvowkfileName)
+	// Check for invkfile (no extension)
+	path = filepath.Join(absDir, invkfile.InvkfileName)
 	if _, err := os.Stat(path); err == nil {
 		return &DiscoveredFile{Path: path, Source: source}
 	}
@@ -126,7 +126,7 @@ func (d *Discovery) discoverInDir(dir string, source Source) *DiscoveredFile {
 	return nil
 }
 
-// discoverInDirRecursive finds all invowkfiles in a directory tree
+// discoverInDirRecursive finds all invkfiles in a directory tree
 func (d *Discovery) discoverInDirRecursive(dir string, source Source) []*DiscoveredFile {
 	var files []*DiscoveredFile
 
@@ -150,7 +150,7 @@ func (d *Discovery) discoverInDirRecursive(dir string, source Source) []*Discove
 		}
 
 		name := d.Name()
-		if name == invowkfile.InvowkfileName || name == invowkfile.InvowkfileName+".cue" {
+		if name == invkfile.InvkfileName || name == invkfile.InvkfileName+".cue" {
 			files = append(files, &DiscoveredFile{Path: path, Source: source})
 		}
 
@@ -204,7 +204,7 @@ func (d *Discovery) discoverPacksInDir(dir string) []*DiscoveredFile {
 		}
 
 		files = append(files, &DiscoveredFile{
-			Path:   p.InvowkfilePath,
+			Path:   p.InvkfilePath,
 			Source: SourcePack,
 			Pack:   p,
 		})
@@ -221,27 +221,27 @@ func (d *Discovery) LoadAll() ([]*DiscoveredFile, error) {
 	}
 
 	for _, file := range files {
-		var inv *invowkfile.Invowkfile
+		var inv *invkfile.Invkfile
 		var parseErr error
 
 		if file.Pack != nil {
 			// Use pack-aware parsing
-			inv, parseErr = invowkfile.ParsePack(file.Pack.Path)
+			inv, parseErr = invkfile.ParsePack(file.Pack.Path)
 		} else {
-			inv, parseErr = invowkfile.Parse(file.Path)
+			inv, parseErr = invkfile.Parse(file.Path)
 		}
 
 		if parseErr != nil {
 			file.Error = parseErr
 		} else {
-			file.Invowkfile = inv
+			file.Invkfile = inv
 		}
 	}
 
 	return files, nil
 }
 
-// LoadFirst loads the first valid invowkfile found (respecting precedence)
+// LoadFirst loads the first valid invkfile found (respecting precedence)
 func (d *Discovery) LoadFirst() (*DiscoveredFile, error) {
 	files, err := d.DiscoverAll()
 	if err != nil {
@@ -249,18 +249,18 @@ func (d *Discovery) LoadFirst() (*DiscoveredFile, error) {
 	}
 
 	if len(files) == 0 {
-		return nil, fmt.Errorf("no invowkfile found")
+		return nil, fmt.Errorf("no invkfile found")
 	}
 
 	file := files[0]
-	var inv *invowkfile.Invowkfile
+	var inv *invkfile.Invkfile
 	var parseErr error
 
 	if file.Pack != nil {
 		// Use pack-aware parsing
-		inv, parseErr = invowkfile.ParsePack(file.Pack.Path)
+		inv, parseErr = invkfile.ParsePack(file.Pack.Path)
 	} else {
-		inv, parseErr = invowkfile.Parse(file.Path)
+		inv, parseErr = invkfile.Parse(file.Path)
 	}
 
 	if parseErr != nil {
@@ -268,7 +268,7 @@ func (d *Discovery) LoadFirst() (*DiscoveredFile, error) {
 		return file, parseErr
 	}
 
-	file.Invowkfile = inv
+	file.Invkfile = inv
 	return file, nil
 }
 
@@ -280,15 +280,15 @@ type CommandInfo struct {
 	Description string
 	// Source is where the command was found
 	Source Source
-	// FilePath is the path to the invowkfile containing this command
+	// FilePath is the path to the invkfile containing this command
 	FilePath string
 	// Command is a reference to the actual command
-	Command *invowkfile.Command
-	// Invowkfile is a reference to the parent invowkfile
-	Invowkfile *invowkfile.Invowkfile
+	Command *invkfile.Command
+	// Invkfile is a reference to the parent invkfile
+	Invkfile *invkfile.Invkfile
 }
 
-// DiscoverCommands finds all available commands from all invowkfiles
+// DiscoverCommands finds all available commands from all invkfiles
 func (d *Discovery) DiscoverCommands() ([]*CommandInfo, error) {
 	files, err := d.LoadAll()
 	if err != nil {
@@ -299,11 +299,11 @@ func (d *Discovery) DiscoverCommands() ([]*CommandInfo, error) {
 	seen := make(map[string]bool)
 
 	for _, file := range files {
-		if file.Error != nil || file.Invowkfile == nil {
+		if file.Error != nil || file.Invkfile == nil {
 			continue
 		}
 
-		flatCmds := file.Invowkfile.FlattenCommands()
+		flatCmds := file.Invkfile.FlattenCommands()
 		for name, cmd := range flatCmds {
 			// Skip if we've already seen this command (higher precedence wins)
 			if seen[name] {
@@ -317,7 +317,7 @@ func (d *Discovery) DiscoverCommands() ([]*CommandInfo, error) {
 				Source:      file.Source,
 				FilePath:    file.Path,
 				Command:     cmd,
-				Invowkfile:  file.Invowkfile,
+				Invkfile:    file.Invkfile,
 			})
 		}
 	}

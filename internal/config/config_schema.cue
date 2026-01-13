@@ -9,7 +9,7 @@ package config
 	// Valid values: "podman", "docker"
 	container_engine?: "podman" | "docker"
 
-	// search_paths contains additional directories to search for invowkfiles
+	// search_paths contains additional directories to search for invkfiles
 	search_paths?: [...string]
 
 	// default_runtime sets the global default runtime mode

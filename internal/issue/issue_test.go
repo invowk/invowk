@@ -10,8 +10,8 @@ func TestId_Constants(t *testing.T) {
 	ids := []Id{
 		FileNotFoundId,
 		TuiServerStartFailedId,
-		InvowkfileNotFoundId,
-		InvowkfileParseErrorId,
+		InvkfileNotFoundId,
+		InvkfileParseErrorId,
 		CommandNotFoundId,
 		RuntimeNotAvailableId,
 		ContainerEngineNotFoundId,
@@ -52,9 +52,9 @@ func TestIssue_Id(t *testing.T) {
 }
 
 func TestIssue_MarkdownMsg(t *testing.T) {
-	issue := Get(InvowkfileNotFoundId)
+	issue := Get(InvkfileNotFoundId)
 	if issue == nil {
-		t.Fatal("Get(InvowkfileNotFoundId) returned nil")
+		t.Fatal("Get(InvkfileNotFoundId) returned nil")
 	}
 
 	msg := issue.MarkdownMsg()
@@ -63,8 +63,8 @@ func TestIssue_MarkdownMsg(t *testing.T) {
 	}
 
 	// Verify it contains expected content
-	if !strings.Contains(string(msg), "No invowkfile found") {
-		t.Error("MarkdownMsg() should contain 'No invowkfile found'")
+	if !strings.Contains(string(msg), "No invkfile found") {
+		t.Error("MarkdownMsg() should contain 'No invkfile found'")
 	}
 }
 
@@ -126,9 +126,9 @@ func TestIssue_Render(t *testing.T) {
 		return in, nil
 	}
 
-	issue := Get(InvowkfileNotFoundId)
+	issue := Get(InvkfileNotFoundId)
 	if issue == nil {
-		t.Fatal("Get(InvowkfileNotFoundId) returned nil")
+		t.Fatal("Get(InvkfileNotFoundId) returned nil")
 	}
 
 	rendered, err := issue.Render("")
@@ -141,8 +141,8 @@ func TestIssue_Render(t *testing.T) {
 	}
 
 	// The rendered output should contain the content
-	if !strings.Contains(rendered, "invowkfile") {
-		t.Error("Render() output should contain 'invowkfile'")
+	if !strings.Contains(rendered, "invkfile") {
+		t.Error("Render() output should contain 'invkfile'")
 	}
 }
 
@@ -153,8 +153,8 @@ func TestGet(t *testing.T) {
 		contains string
 	}{
 		{FileNotFoundId, false, "TUI Server"},
-		{InvowkfileNotFoundId, false, "No invowkfile found"},
-		{InvowkfileParseErrorId, false, "Failed to parse"},
+		{InvkfileNotFoundId, false, "No invkfile found"},
+		{InvkfileParseErrorId, false, "Failed to parse"},
 		{CommandNotFoundId, false, "Command not found"},
 		{RuntimeNotAvailableId, false, "Runtime not available"},
 		{ContainerEngineNotFoundId, false, "Container engine not found"},
@@ -320,8 +320,8 @@ func TestAllIssuesAreRenderable(t *testing.T) {
 func TestIssuesMapCompleteness(t *testing.T) {
 	expectedIds := []Id{
 		FileNotFoundId,
-		InvowkfileNotFoundId,
-		InvowkfileParseErrorId,
+		InvkfileNotFoundId,
+		InvkfileParseErrorId,
 		CommandNotFoundId,
 		RuntimeNotAvailableId,
 		ContainerEngineNotFoundId,

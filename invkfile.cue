@@ -1,4 +1,4 @@
-// Invowkfile - Example command definitions for invowk
+// Invkfile - Example command definitions for invowk
 // See https://github.com/invowk/invowk for documentation
 //
 // This file contains example commands that demonstrate all invowk features.

@@ -55,11 +55,11 @@ invowk is a powerful command runner similar to 'just' that supports
 multiple execution runtimes: native shell, virtual shell (mvdan/sh),
 and containerized execution (Docker/Podman).
 
-Commands are defined in 'invowkfile' files using TOML format and can
+Commands are defined in 'invkfile' files using TOML format and can
 be organized hierarchically with support for dependencies.
 
 ` + subtitleStyle.Render("Quick Start:") + `
-  1. Create an invowkfile in your project directory
+  1. Create an invkfile in your project directory
   2. Define commands using TOML syntax
   3. Run commands with: invowk cmd <command-name>
 
@@ -67,7 +67,7 @@ be organized hierarchically with support for dependencies.
   invowk cmd list           List all available commands
   invowk cmd build          Run the 'build' command
   invowk cmd test.unit      Run nested 'test.unit' command
-  invowk init               Create a new invowkfile
+  invowk init               Create a new invkfile
   invowk config show        Show current configuration`,
 }
 

@@ -1,4 +1,4 @@
-package invowkfile
+package invkfile
 
 import (
 	"fmt"
@@ -74,7 +74,7 @@ func TestIsScriptFile(t *testing.T) {
 }
 
 func TestGetScriptFilePath(t *testing.T) {
-	invowkfilePath := "/home/user/project/invowkfile.cue"
+	invkfilePath := "/home/user/project/invkfile.cue"
 
 	tests := []struct {
 		name           string
@@ -92,7 +92,7 @@ func TestGetScriptFilePath(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			s := &Implementation{Script: tt.script, Target: Target{Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}}
-			result := s.GetScriptFilePath(invowkfilePath)
+			result := s.GetScriptFilePath(invkfilePath)
 			if tt.expectedResult {
 				if result != tt.expectedPath {
 					t.Errorf("GetScriptFilePath() = %q, want %q", result, tt.expectedPath)
@@ -122,7 +122,7 @@ func TestResolveScript_Inline(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			s := &Implementation{Script: tt.script, Target: Target{Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}}
-			result, err := s.ResolveScript("/fake/path/invowkfile.toml")
+			result, err := s.ResolveScript("/fake/path/invkfile.toml")
 			if err != nil {
 				t.Errorf("ResolveScript() error = %v", err)
 				return
@@ -149,12 +149,12 @@ func TestResolveScript_FromFile(t *testing.T) {
 		t.Fatalf("Failed to write script file: %v", err)
 	}
 
-	// Create invowkfile path
-	invowkfilePath := filepath.Join(tmpDir, "invowkfile.toml")
+	// Create invkfile path
+	invkfilePath := filepath.Join(tmpDir, "invkfile.toml")
 
 	t.Run("resolve script from file", func(t *testing.T) {
 		s := &Implementation{Script: "./test.sh", Target: Target{Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}}
-		result, err := s.ResolveScript(invowkfilePath)
+		result, err := s.ResolveScript(invkfilePath)
 		if err != nil {
 			t.Errorf("ResolveScript() error = %v", err)
 			return
@@ -166,7 +166,7 @@ func TestResolveScript_FromFile(t *testing.T) {
 
 	t.Run("resolve script with absolute path", func(t *testing.T) {
 		s := &Implementation{Script: scriptPath, Target: Target{Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}}
-		result, err := s.ResolveScript(invowkfilePath)
+		result, err := s.ResolveScript(invkfilePath)
 		if err != nil {
 			t.Errorf("ResolveScript() error = %v", err)
 			return
@@ -178,7 +178,7 @@ func TestResolveScript_FromFile(t *testing.T) {
 
 	t.Run("error on missing script file", func(t *testing.T) {
 		s := &Implementation{Script: "./nonexistent.sh", Target: Target{Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}}
-		_, err := s.ResolveScript(invowkfilePath)
+		_, err := s.ResolveScript(invkfilePath)
 		if err == nil {
 			t.Error("ResolveScript() expected error for missing file, got nil")
 		}
@@ -199,11 +199,11 @@ func TestResolveScriptWithFS(t *testing.T) {
 		return nil, os.ErrNotExist
 	}
 
-	invowkfilePath := "/project/invowkfile.toml"
+	invkfilePath := "/project/invkfile.toml"
 
 	t.Run("resolve script from virtual fs", func(t *testing.T) {
 		s := &Implementation{Script: "./scripts/build.sh", Target: Target{Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}}
-		result, err := s.ResolveScriptWithFS(invowkfilePath, readFile)
+		result, err := s.ResolveScriptWithFS(invkfilePath, readFile)
 		if err != nil {
 			t.Errorf("ResolveScriptWithFS() error = %v", err)
 			return
@@ -216,7 +216,7 @@ func TestResolveScriptWithFS(t *testing.T) {
 
 	t.Run("inline script bypasses fs", func(t *testing.T) {
 		s := &Implementation{Script: "echo hello world", Target: Target{Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}}
-		result, err := s.ResolveScriptWithFS(invowkfilePath, readFile)
+		result, err := s.ResolveScriptWithFS(invkfilePath, readFile)
 		if err != nil {
 			t.Errorf("ResolveScriptWithFS() error = %v", err)
 			return
@@ -228,7 +228,7 @@ func TestResolveScriptWithFS(t *testing.T) {
 
 	t.Run("error on missing file in virtual fs", func(t *testing.T) {
 		s := &Implementation{Script: "./scripts/nonexistent.sh", Target: Target{Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}}
-		_, err := s.ResolveScriptWithFS(invowkfilePath, readFile)
+		_, err := s.ResolveScriptWithFS(invkfilePath, readFile)
 		if err == nil {
 			t.Error("ResolveScriptWithFS() expected error for missing file, got nil")
 		}
@@ -270,12 +270,12 @@ commands: [
 	}
 	defer os.RemoveAll(tmpDir)
 
-	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
-	if err := os.WriteFile(invowkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invowkfile: %v", err)
+	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
+		t.Fatalf("Failed to write invkfile: %v", err)
 	}
 
-	inv, err := Parse(invowkfilePath)
+	inv, err := Parse(invkfilePath)
 	if err != nil {
 		t.Fatalf("Parse() error = %v", err)
 	}
@@ -294,7 +294,7 @@ commands: [
 	}
 
 	// Verify resolution works too
-	resolved, err := cmd.Implementations[0].ResolveScript(invowkfilePath)
+	resolved, err := cmd.Implementations[0].ResolveScript(invkfilePath)
 	if err != nil {
 		t.Errorf("ResolveScript() error = %v", err)
 	}
@@ -317,11 +317,11 @@ func TestScriptCaching(t *testing.T) {
 		t.Fatalf("Failed to write script file: %v", err)
 	}
 
-	invowkfilePath := filepath.Join(tmpDir, "invowkfile.toml")
+	invkfilePath := filepath.Join(tmpDir, "invkfile.toml")
 	s := &Implementation{Script: "./test.sh", Target: Target{Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}}
 
 	// First resolution
-	result1, err := s.ResolveScript(invowkfilePath)
+	result1, err := s.ResolveScript(invkfilePath)
 	if err != nil {
 		t.Fatalf("First ResolveScript() error = %v", err)
 	}
@@ -335,7 +335,7 @@ func TestScriptCaching(t *testing.T) {
 	}
 
 	// Second resolution should return cached content
-	result2, err := s.ResolveScript(invowkfilePath)
+	result2, err := s.ResolveScript(invkfilePath)
 	if err != nil {
 		t.Fatalf("Second ResolveScript() error = %v", err)
 	}
@@ -494,12 +494,12 @@ commands: [
 	}
 	defer os.RemoveAll(tmpDir)
 
-	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
-	if err := os.WriteFile(invowkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invowkfile: %v", err)
+	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
+		t.Fatalf("Failed to write invkfile: %v", err)
 	}
 
-	inv, err := Parse(invowkfilePath)
+	inv, err := Parse(invkfilePath)
 	if err != nil {
 		t.Fatalf("Parse() error = %v", err)
 	}
@@ -592,12 +592,12 @@ commands: [
 	}
 	defer os.RemoveAll(tmpDir)
 
-	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
-	if err := os.WriteFile(invowkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invowkfile: %v", err)
+	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
+		t.Fatalf("Failed to write invkfile: %v", err)
 	}
 
-	inv, err := Parse(invowkfilePath)
+	inv, err := Parse(invkfilePath)
 	if err != nil {
 		t.Fatalf("Parse() error = %v", err)
 	}
@@ -649,12 +649,12 @@ commands: [
 	}
 	defer os.RemoveAll(tmpDir)
 
-	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
-	if err := os.WriteFile(invowkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invowkfile: %v", err)
+	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
+		t.Fatalf("Failed to write invkfile: %v", err)
 	}
 
-	inv, err := Parse(invowkfilePath)
+	inv, err := Parse(invkfilePath)
 	if err != nil {
 		t.Fatalf("Parse() error = %v", err)
 	}
@@ -714,12 +714,12 @@ commands: [
 	}
 	defer os.RemoveAll(tmpDir)
 
-	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
-	if err := os.WriteFile(invowkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invowkfile: %v", err)
+	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
+		t.Fatalf("Failed to write invkfile: %v", err)
 	}
 
-	inv, err := Parse(invowkfilePath)
+	inv, err := Parse(invkfilePath)
 	if err != nil {
 		t.Fatalf("Parse() error = %v", err)
 	}
@@ -801,12 +801,12 @@ commands: [
 	}
 	defer os.RemoveAll(tmpDir)
 
-	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
-	if err := os.WriteFile(invowkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invowkfile: %v", err)
+	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
+		t.Fatalf("Failed to write invkfile: %v", err)
 	}
 
-	inv, err := Parse(invowkfilePath)
+	inv, err := Parse(invkfilePath)
 	if err != nil {
 		t.Fatalf("Parse() error = %v", err)
 	}
@@ -876,7 +876,7 @@ func TestCommand_HasDependencies_WithFilepaths(t *testing.T) {
 }
 
 func TestGenerateCUE_WithFilepaths(t *testing.T) {
-	inv := &Invowkfile{
+	inv := &Invkfile{
 		Group:   "test",
 		Version: "1.0",
 		Commands: []Command{
@@ -960,12 +960,12 @@ commands: [
 	}
 	defer os.RemoveAll(tmpDir)
 
-	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
-	if err := os.WriteFile(invowkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invowkfile: %v", err)
+	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
+		t.Fatalf("Failed to write invkfile: %v", err)
 	}
 
-	inv, err := Parse(invowkfilePath)
+	inv, err := Parse(invkfilePath)
 	if err != nil {
 		t.Fatalf("Parse() error = %v", err)
 	}
@@ -993,7 +993,7 @@ commands: [
 }
 
 func TestGenerateCUE_WithPlatforms(t *testing.T) {
-	inv := &Invowkfile{
+	inv := &Invkfile{
 		Group:   "test",
 		Version: "1.0",
 		Commands: []Command{
@@ -1061,12 +1061,12 @@ commands: [
 	}
 	defer os.RemoveAll(tmpDir)
 
-	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
-	if err := os.WriteFile(invowkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invowkfile: %v", err)
+	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
+		t.Fatalf("Failed to write invkfile: %v", err)
 	}
 
-	inv, err := Parse(invowkfilePath)
+	inv, err := Parse(invkfilePath)
 	if err != nil {
 		t.Fatalf("Parse() error = %v", err)
 	}
@@ -1125,12 +1125,12 @@ commands: [
 	}
 	defer os.RemoveAll(tmpDir)
 
-	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
-	if err := os.WriteFile(invowkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invowkfile: %v", err)
+	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
+		t.Fatalf("Failed to write invkfile: %v", err)
 	}
 
-	inv, err := Parse(invowkfilePath)
+	inv, err := Parse(invkfilePath)
 	if err != nil {
 		t.Fatalf("Parse() error = %v", err)
 	}
@@ -1340,7 +1340,7 @@ func TestValidateEnableHostSSH_ValidForContainer(t *testing.T) {
 }
 
 func TestGenerateCUE_WithEnableHostSSH(t *testing.T) {
-	inv := &Invowkfile{
+	inv := &Invkfile{
 		Group:   "test",
 		Version: "1.0",
 		Commands: []Command{
@@ -1373,7 +1373,7 @@ func TestGenerateCUE_WithEnableHostSSH(t *testing.T) {
 
 func TestGenerateCUE_WithEnableHostSSH_False(t *testing.T) {
 	// When enable_host_ssh is false (default), it should not appear in the output
-	inv := &Invowkfile{
+	inv := &Invkfile{
 		Group:   "test",
 		Version: "1.0",
 		Commands: []Command{
@@ -1432,12 +1432,12 @@ commands: [
 	}
 	defer os.RemoveAll(tmpDir)
 
-	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
-	if err := os.WriteFile(invowkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invowkfile: %v", err)
+	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
+		t.Fatalf("Failed to write invkfile: %v", err)
 	}
 
-	inv, err := Parse(invowkfilePath)
+	inv, err := Parse(invkfilePath)
 	if err != nil {
 		t.Fatalf("Parse() error = %v", err)
 	}
@@ -1510,12 +1510,12 @@ commands: [
 	}
 	defer os.RemoveAll(tmpDir)
 
-	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
-	if err := os.WriteFile(invowkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invowkfile: %v", err)
+	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
+		t.Fatalf("Failed to write invkfile: %v", err)
 	}
 
-	inv, err := Parse(invowkfilePath)
+	inv, err := Parse(invkfilePath)
 	if err != nil {
 		t.Fatalf("Parse() error = %v", err)
 	}
@@ -1575,12 +1575,12 @@ commands: [
 	}
 	defer os.RemoveAll(tmpDir)
 
-	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
-	if err := os.WriteFile(invowkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invowkfile: %v", err)
+	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
+		t.Fatalf("Failed to write invkfile: %v", err)
 	}
 
-	inv, err := Parse(invowkfilePath)
+	inv, err := Parse(invkfilePath)
 	if err != nil {
 		t.Fatalf("Parse() error = %v", err)
 	}
@@ -1680,7 +1680,7 @@ func TestMergeDependsOn_WithCapabilities(t *testing.T) {
 }
 
 func TestGenerateCUE_WithCapabilities(t *testing.T) {
-	inv := &Invowkfile{
+	inv := &Invkfile{
 		Group:   "test",
 		Version: "1.0",
 		Commands: []Command{
@@ -1721,7 +1721,7 @@ func TestGenerateCUE_WithCapabilities(t *testing.T) {
 }
 
 func TestGenerateCUE_WithCapabilitiesAtImplementationLevel(t *testing.T) {
-	inv := &Invowkfile{
+	inv := &Invkfile{
 		Group:   "test",
 		Version: "1.0",
 		Commands: []Command{
@@ -1786,12 +1786,12 @@ commands: [
 	}
 	defer os.RemoveAll(tmpDir)
 
-	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
-	if err := os.WriteFile(invowkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invowkfile: %v", err)
+	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
+		t.Fatalf("Failed to write invkfile: %v", err)
 	}
 
-	_, err = Parse(invowkfilePath)
+	_, err = Parse(invkfilePath)
 	if err == nil {
 		t.Error("Parse() should reject tool dependency with 'name' field instead of 'alternatives'")
 	}
@@ -1836,12 +1836,12 @@ commands: [
 	}
 	defer os.RemoveAll(tmpDir)
 
-	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
-	if err := os.WriteFile(invowkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invowkfile: %v", err)
+	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
+		t.Fatalf("Failed to write invkfile: %v", err)
 	}
 
-	_, err = Parse(invowkfilePath)
+	_, err = Parse(invkfilePath)
 	if err == nil {
 		t.Error("Parse() should reject custom check with both direct fields and alternatives")
 	}
@@ -1881,12 +1881,12 @@ commands: [
 	}
 	defer os.RemoveAll(tmpDir)
 
-	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
-	if err := os.WriteFile(invowkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invowkfile: %v", err)
+	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
+		t.Fatalf("Failed to write invkfile: %v", err)
 	}
 
-	_, err = Parse(invowkfilePath)
+	_, err = Parse(invkfilePath)
 	if err == nil {
 		t.Error("Parse() should reject capability dependency with 'name' field instead of 'alternatives'")
 	}
@@ -1925,12 +1925,12 @@ commands: [
 	}
 	defer os.RemoveAll(tmpDir)
 
-	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
-	if err := os.WriteFile(invowkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invowkfile: %v", err)
+	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
+		t.Fatalf("Failed to write invkfile: %v", err)
 	}
 
-	_, err = Parse(invowkfilePath)
+	_, err = Parse(invkfilePath)
 	if err == nil {
 		t.Error("Parse() should reject command dependency with 'name' field instead of 'alternatives'")
 	}
@@ -1980,12 +1980,12 @@ commands: [
 			}
 			defer os.RemoveAll(tmpDir)
 
-			invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
-			if err := os.WriteFile(invowkfilePath, []byte(cueContent), 0644); err != nil {
-				t.Fatalf("Failed to write invowkfile: %v", err)
+			invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+			if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
+				t.Fatalf("Failed to write invkfile: %v", err)
 			}
 
-			inv, err := Parse(invowkfilePath)
+			inv, err := Parse(invkfilePath)
 			if err != nil {
 				t.Fatalf("Parse() error = %v", err)
 			}
@@ -2038,12 +2038,12 @@ commands: [
 			}
 			defer os.RemoveAll(tmpDir)
 
-			invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
-			if err := os.WriteFile(invowkfilePath, []byte(cueContent), 0644); err != nil {
-				t.Fatalf("Failed to write invowkfile: %v", err)
+			invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+			if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
+				t.Fatalf("Failed to write invkfile: %v", err)
 			}
 
-			_, err = Parse(invowkfilePath)
+			_, err = Parse(invkfilePath)
 			if err == nil {
 				t.Errorf("Parse() should reject invalid group %q", tt.group)
 			}
@@ -2073,19 +2073,19 @@ commands: [
 	}
 	defer os.RemoveAll(tmpDir)
 
-	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
-	if err := os.WriteFile(invowkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invowkfile: %v", err)
+	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
+		t.Fatalf("Failed to write invkfile: %v", err)
 	}
 
-	_, err = Parse(invowkfilePath)
+	_, err = Parse(invkfilePath)
 	if err == nil {
-		t.Error("Parse() should reject invowkfile without group field")
+		t.Error("Parse() should reject invkfile without group field")
 	}
 }
 
 func TestGetFullCommandName(t *testing.T) {
-	inv := &Invowkfile{
+	inv := &Invkfile{
 		Group: "my.group",
 	}
 
@@ -2110,7 +2110,7 @@ func TestGetFullCommandName(t *testing.T) {
 }
 
 func TestListCommands_WithGroup(t *testing.T) {
-	inv := &Invowkfile{
+	inv := &Invkfile{
 		Group: "mygroup",
 		Commands: []Command{
 			{Name: "build"},
@@ -2134,7 +2134,7 @@ func TestListCommands_WithGroup(t *testing.T) {
 }
 
 func TestFlattenCommands_WithGroup(t *testing.T) {
-	inv := &Invowkfile{
+	inv := &Invkfile{
 		Group: "mygroup",
 		Commands: []Command{
 			{Name: "build", Description: "Build command"},
@@ -2164,7 +2164,7 @@ func TestFlattenCommands_WithGroup(t *testing.T) {
 }
 
 func TestGenerateCUE_WithGroup(t *testing.T) {
-	inv := &Invowkfile{
+	inv := &Invkfile{
 		Group:   "my.group",
 		Version: "1.0",
 		Commands: []Command{
@@ -2225,12 +2225,12 @@ commands: [
 	}
 	defer os.RemoveAll(tmpDir)
 
-	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
-	if err := os.WriteFile(invowkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invowkfile: %v", err)
+	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
+		t.Fatalf("Failed to write invkfile: %v", err)
 	}
 
-	inv, err := Parse(invowkfilePath)
+	inv, err := Parse(invkfilePath)
 	if err != nil {
 		t.Fatalf("Parse() error = %v", err)
 	}
@@ -2313,12 +2313,12 @@ commands: [
 			}
 			defer os.RemoveAll(tmpDir)
 
-			invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
-			if err := os.WriteFile(invowkfilePath, []byte(cueContent), 0644); err != nil {
-				t.Fatalf("Failed to write invowkfile: %v", err)
+			invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+			if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
+				t.Fatalf("Failed to write invkfile: %v", err)
 			}
 
-			_, err = Parse(invowkfilePath)
+			_, err = Parse(invkfilePath)
 			if err == nil {
 				t.Errorf("Parse() should reject flag with invalid name %q", tt.flagName)
 			}
@@ -2366,12 +2366,12 @@ commands: [
 			}
 			defer os.RemoveAll(tmpDir)
 
-			invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
-			if err := os.WriteFile(invowkfilePath, []byte(cueContent), 0644); err != nil {
-				t.Fatalf("Failed to write invowkfile: %v", err)
+			invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+			if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
+				t.Fatalf("Failed to write invkfile: %v", err)
 			}
 
-			inv, err := Parse(invowkfilePath)
+			inv, err := Parse(invkfilePath)
 			if err != nil {
 				t.Errorf("Parse() should accept flag with valid name %q, got error: %v", tt.flagName, err)
 				return
@@ -2410,12 +2410,12 @@ commands: [
 	}
 	defer os.RemoveAll(tmpDir)
 
-	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
-	if err := os.WriteFile(invowkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invowkfile: %v", err)
+	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
+		t.Fatalf("Failed to write invkfile: %v", err)
 	}
 
-	_, err = Parse(invowkfilePath)
+	_, err = Parse(invkfilePath)
 	if err == nil {
 		t.Error("Parse() should reject flag with empty/whitespace-only description")
 	}
@@ -2448,12 +2448,12 @@ commands: [
 	}
 	defer os.RemoveAll(tmpDir)
 
-	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
-	if err := os.WriteFile(invowkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invowkfile: %v", err)
+	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
+		t.Fatalf("Failed to write invkfile: %v", err)
 	}
 
-	_, err = Parse(invowkfilePath)
+	_, err = Parse(invkfilePath)
 	if err == nil {
 		t.Error("Parse() should reject duplicate flag names")
 	}
@@ -2463,7 +2463,7 @@ commands: [
 }
 
 func TestGenerateCUE_WithFlags(t *testing.T) {
-	inv := &Invowkfile{
+	inv := &Invkfile{
 		Group:   "test",
 		Version: "1.0",
 		Commands: []Command{
@@ -2500,7 +2500,7 @@ func TestGenerateCUE_WithFlags(t *testing.T) {
 }
 
 func TestGenerateCUE_WithoutFlags(t *testing.T) {
-	inv := &Invowkfile{
+	inv := &Invkfile{
 		Group:   "test",
 		Version: "1.0",
 		Commands: []Command{
@@ -2544,12 +2544,12 @@ commands: [
 	}
 	defer os.RemoveAll(tmpDir)
 
-	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
-	if err := os.WriteFile(invowkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invowkfile: %v", err)
+	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
+		t.Fatalf("Failed to write invkfile: %v", err)
 	}
 
-	inv, err := Parse(invowkfilePath)
+	inv, err := Parse(invkfilePath)
 	if err != nil {
 		t.Fatalf("Parse() error = %v", err)
 	}
@@ -2582,12 +2582,12 @@ commands: [
 	}
 	defer os.RemoveAll(tmpDir)
 
-	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
-	if err := os.WriteFile(invowkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invowkfile: %v", err)
+	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
+		t.Fatalf("Failed to write invkfile: %v", err)
 	}
 
-	inv, err := Parse(invowkfilePath)
+	inv, err := Parse(invkfilePath)
 	if err != nil {
 		t.Fatalf("Parse() error = %v", err)
 	}
@@ -2644,12 +2644,12 @@ commands: [
 `, tt.flagType, tt.defaultValue)
 
 			tmpDir := t.TempDir()
-			invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
-			if err := os.WriteFile(invowkfilePath, []byte(cueContent), 0644); err != nil {
-				t.Fatalf("Failed to write invowkfile: %v", err)
+			invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+			if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
+				t.Fatalf("Failed to write invkfile: %v", err)
 			}
 
-			inv, err := Parse(invowkfilePath)
+			inv, err := Parse(invkfilePath)
 			if err != nil {
 				t.Fatalf("Parse() error = %v", err)
 			}
@@ -2686,12 +2686,12 @@ commands: [
 ]
 `
 	tmpDir := t.TempDir()
-	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
-	if err := os.WriteFile(invowkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invowkfile: %v", err)
+	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
+		t.Fatalf("Failed to write invkfile: %v", err)
 	}
 
-	inv, err := Parse(invowkfilePath)
+	inv, err := Parse(invkfilePath)
 	if err != nil {
 		t.Fatalf("Parse() error = %v", err)
 	}
@@ -2726,12 +2726,12 @@ commands: [
 ]
 `
 	tmpDir := t.TempDir()
-	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
-	if err := os.WriteFile(invowkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invowkfile: %v", err)
+	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
+		t.Fatalf("Failed to write invkfile: %v", err)
 	}
 
-	_, err := Parse(invowkfilePath)
+	_, err := Parse(invkfilePath)
 	if err == nil {
 		t.Errorf("Parse() should reject invalid type")
 	}
@@ -2775,12 +2775,12 @@ commands: [
 `, tt.flagType, tt.defaultValue)
 
 			tmpDir := t.TempDir()
-			invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
-			if err := os.WriteFile(invowkfilePath, []byte(cueContent), 0644); err != nil {
-				t.Fatalf("Failed to write invowkfile: %v", err)
+			invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+			if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
+				t.Fatalf("Failed to write invkfile: %v", err)
 			}
 
-			_, err := Parse(invowkfilePath)
+			_, err := Parse(invkfilePath)
 			if err == nil {
 				t.Errorf("Parse() should reject flag with type %q and incompatible default_value %q", tt.flagType, tt.defaultValue)
 			}
@@ -2809,12 +2809,12 @@ commands: [
 ]
 `
 	tmpDir := t.TempDir()
-	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
-	if err := os.WriteFile(invowkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invowkfile: %v", err)
+	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
+		t.Fatalf("Failed to write invkfile: %v", err)
 	}
 
-	inv, err := Parse(invowkfilePath)
+	inv, err := Parse(invkfilePath)
 	if err != nil {
 		t.Fatalf("Parse() error = %v", err)
 	}
@@ -2846,12 +2846,12 @@ commands: [
 ]
 `
 	tmpDir := t.TempDir()
-	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
-	if err := os.WriteFile(invowkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invowkfile: %v", err)
+	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
+		t.Fatalf("Failed to write invkfile: %v", err)
 	}
 
-	_, err := Parse(invowkfilePath)
+	_, err := Parse(invkfilePath)
 	if err == nil {
 		t.Errorf("Parse() should reject flag that is both required and has default_value")
 	}
@@ -2882,12 +2882,12 @@ commands: [
 ]
 `
 	tmpDir := t.TempDir()
-	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
-	if err := os.WriteFile(invowkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invowkfile: %v", err)
+	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
+		t.Fatalf("Failed to write invkfile: %v", err)
 	}
 
-	inv, err := Parse(invowkfilePath)
+	inv, err := Parse(invkfilePath)
 	if err != nil {
 		t.Fatalf("Parse() error = %v", err)
 	}
@@ -2938,12 +2938,12 @@ commands: [
 `, tt.short)
 
 			tmpDir := t.TempDir()
-			invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
-			if err := os.WriteFile(invowkfilePath, []byte(cueContent), 0644); err != nil {
-				t.Fatalf("Failed to write invowkfile: %v", err)
+			invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+			if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
+				t.Fatalf("Failed to write invkfile: %v", err)
 			}
 
-			_, err := Parse(invowkfilePath)
+			_, err := Parse(invkfilePath)
 			if err == nil {
 				t.Errorf("Parse() should reject invalid short alias %q", tt.short)
 			}
@@ -2973,12 +2973,12 @@ commands: [
 ]
 `
 	tmpDir := t.TempDir()
-	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
-	if err := os.WriteFile(invowkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invowkfile: %v", err)
+	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
+		t.Fatalf("Failed to write invkfile: %v", err)
 	}
 
-	_, err := Parse(invowkfilePath)
+	_, err := Parse(invkfilePath)
 	if err == nil {
 		t.Errorf("Parse() should reject duplicate short alias")
 	}
@@ -3008,12 +3008,12 @@ commands: [
 ]
 `
 	tmpDir := t.TempDir()
-	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
-	if err := os.WriteFile(invowkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invowkfile: %v", err)
+	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
+		t.Fatalf("Failed to write invkfile: %v", err)
 	}
 
-	inv, err := Parse(invowkfilePath)
+	inv, err := Parse(invkfilePath)
 	if err != nil {
 		t.Fatalf("Parse() error = %v", err)
 	}
@@ -3045,12 +3045,12 @@ commands: [
 ]
 `
 	tmpDir := t.TempDir()
-	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
-	if err := os.WriteFile(invowkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invowkfile: %v", err)
+	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
+		t.Fatalf("Failed to write invkfile: %v", err)
 	}
 
-	_, err := Parse(invowkfilePath)
+	_, err := Parse(invkfilePath)
 	if err == nil {
 		t.Errorf("Parse() should reject invalid validation regex")
 	}
@@ -3077,12 +3077,12 @@ commands: [
 ]
 `
 	tmpDir := t.TempDir()
-	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
-	if err := os.WriteFile(invowkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invowkfile: %v", err)
+	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
+		t.Fatalf("Failed to write invkfile: %v", err)
 	}
 
-	_, err := Parse(invowkfilePath)
+	_, err := Parse(invkfilePath)
 	if err == nil {
 		t.Errorf("Parse() should reject default_value that doesn't match validation pattern")
 	}
@@ -3109,12 +3109,12 @@ commands: [
 ]
 `
 	tmpDir := t.TempDir()
-	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
-	if err := os.WriteFile(invowkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invowkfile: %v", err)
+	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
+		t.Fatalf("Failed to write invkfile: %v", err)
 	}
 
-	inv, err := Parse(invowkfilePath)
+	inv, err := Parse(invkfilePath)
 	if err != nil {
 		t.Fatalf("Parse() should accept default_value that matches validation, got error: %v", err)
 	}
@@ -3317,12 +3317,12 @@ commands: [
 ]
 `
 	tmpDir := t.TempDir()
-	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
-	if err := os.WriteFile(invowkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invowkfile: %v", err)
+	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
+		t.Fatalf("Failed to write invkfile: %v", err)
 	}
 
-	inv, err := Parse(invowkfilePath)
+	inv, err := Parse(invkfilePath)
 	if err != nil {
 		t.Fatalf("Parse() error = %v", err)
 	}
@@ -3399,12 +3399,12 @@ commands: [
 ]
 `
 	tmpDir := t.TempDir()
-	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
-	if err := os.WriteFile(invowkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invowkfile: %v", err)
+	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
+		t.Fatalf("Failed to write invkfile: %v", err)
 	}
 
-	inv, err := Parse(invowkfilePath)
+	inv, err := Parse(invkfilePath)
 	if err != nil {
 		t.Fatalf("Parse() error = %v", err)
 	}
@@ -3481,12 +3481,12 @@ commands: [
 `, tt.argType, tt.defaultValue)
 
 			tmpDir := t.TempDir()
-			invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
-			if err := os.WriteFile(invowkfilePath, []byte(cueContent), 0644); err != nil {
-				t.Fatalf("Failed to write invowkfile: %v", err)
+			invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+			if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
+				t.Fatalf("Failed to write invkfile: %v", err)
 			}
 
-			inv, err := Parse(invowkfilePath)
+			inv, err := Parse(invkfilePath)
 			if err != nil {
 				t.Fatalf("Parse() error = %v", err)
 			}
@@ -3523,12 +3523,12 @@ commands: [
 ]
 `
 	tmpDir := t.TempDir()
-	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
-	if err := os.WriteFile(invowkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invowkfile: %v", err)
+	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
+		t.Fatalf("Failed to write invkfile: %v", err)
 	}
 
-	inv, err := Parse(invowkfilePath)
+	inv, err := Parse(invkfilePath)
 	if err != nil {
 		t.Fatalf("Parse() error = %v", err)
 	}
@@ -3565,12 +3565,12 @@ commands: [
 ]
 `
 	tmpDir := t.TempDir()
-	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
-	if err := os.WriteFile(invowkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invowkfile: %v", err)
+	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
+		t.Fatalf("Failed to write invkfile: %v", err)
 	}
 
-	inv, err := Parse(invowkfilePath)
+	inv, err := Parse(invkfilePath)
 	if err != nil {
 		t.Fatalf("Parse() error = %v", err)
 	}
@@ -3612,12 +3612,12 @@ commands: [
 ]
 `
 	tmpDir := t.TempDir()
-	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
-	if err := os.WriteFile(invowkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invowkfile: %v", err)
+	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
+		t.Fatalf("Failed to write invkfile: %v", err)
 	}
 
-	inv, err := Parse(invowkfilePath)
+	inv, err := Parse(invkfilePath)
 	if err != nil {
 		t.Fatalf("Parse() error = %v", err)
 	}
@@ -3661,12 +3661,12 @@ commands: [
 ]
 `
 			tmpDir := t.TempDir()
-			invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
-			if err := os.WriteFile(invowkfilePath, []byte(cueContent), 0644); err != nil {
-				t.Fatalf("Failed to write invowkfile: %v", err)
+			invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+			if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
+				t.Fatalf("Failed to write invkfile: %v", err)
 			}
 
-			_, err := Parse(invowkfilePath)
+			_, err := Parse(invkfilePath)
 			if err == nil {
 				t.Errorf("Parse() should reject arg with invalid name %q", tt.argName)
 			}
@@ -3709,12 +3709,12 @@ commands: [
 ]
 `
 			tmpDir := t.TempDir()
-			invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
-			if err := os.WriteFile(invowkfilePath, []byte(cueContent), 0644); err != nil {
-				t.Fatalf("Failed to write invowkfile: %v", err)
+			invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+			if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
+				t.Fatalf("Failed to write invkfile: %v", err)
 			}
 
-			inv, err := Parse(invowkfilePath)
+			inv, err := Parse(invkfilePath)
 			if err != nil {
 				t.Errorf("Parse() should accept arg with valid name %q, got error: %v", tt.argName, err)
 				return
@@ -3748,12 +3748,12 @@ commands: [
 ]
 `
 	tmpDir := t.TempDir()
-	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
-	if err := os.WriteFile(invowkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invowkfile: %v", err)
+	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
+		t.Fatalf("Failed to write invkfile: %v", err)
 	}
 
-	_, err := Parse(invowkfilePath)
+	_, err := Parse(invkfilePath)
 	if err == nil {
 		t.Error("Parse() should reject arg with empty/whitespace-only description")
 	}
@@ -3781,12 +3781,12 @@ commands: [
 ]
 `
 	tmpDir := t.TempDir()
-	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
-	if err := os.WriteFile(invowkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invowkfile: %v", err)
+	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
+		t.Fatalf("Failed to write invkfile: %v", err)
 	}
 
-	_, err := Parse(invowkfilePath)
+	_, err := Parse(invkfilePath)
 	if err == nil {
 		t.Error("Parse() should reject duplicate arg names")
 	}
@@ -3817,12 +3817,12 @@ commands: [
 ]
 `
 	tmpDir := t.TempDir()
-	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
-	if err := os.WriteFile(invowkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invowkfile: %v", err)
+	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
+		t.Fatalf("Failed to write invkfile: %v", err)
 	}
 
-	_, err := Parse(invowkfilePath)
+	_, err := Parse(invkfilePath)
 	if err == nil {
 		t.Error("Parse() should reject required arg after optional arg")
 	}
@@ -3853,12 +3853,12 @@ commands: [
 ]
 `
 	tmpDir := t.TempDir()
-	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
-	if err := os.WriteFile(invowkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invowkfile: %v", err)
+	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
+		t.Fatalf("Failed to write invkfile: %v", err)
 	}
 
-	_, err := Parse(invowkfilePath)
+	_, err := Parse(invkfilePath)
 	if err == nil {
 		t.Error("Parse() should reject variadic arg that is not last")
 	}
@@ -3888,12 +3888,12 @@ commands: [
 ]
 `
 	tmpDir := t.TempDir()
-	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
-	if err := os.WriteFile(invowkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invowkfile: %v", err)
+	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
+		t.Fatalf("Failed to write invkfile: %v", err)
 	}
 
-	_, err := Parse(invowkfilePath)
+	_, err := Parse(invkfilePath)
 	if err == nil {
 		t.Error("Parse() should reject arg that is both required and has default_value")
 	}
@@ -3923,12 +3923,12 @@ commands: [
 ]
 `
 	tmpDir := t.TempDir()
-	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
-	if err := os.WriteFile(invowkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invowkfile: %v", err)
+	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
+		t.Fatalf("Failed to write invkfile: %v", err)
 	}
 
-	_, err := Parse(invowkfilePath)
+	_, err := Parse(invkfilePath)
 	if err == nil {
 		t.Error("Parse() should reject invalid arg type")
 	}
@@ -3968,12 +3968,12 @@ commands: [
 `, tt.argType, tt.defaultValue)
 
 			tmpDir := t.TempDir()
-			invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
-			if err := os.WriteFile(invowkfilePath, []byte(cueContent), 0644); err != nil {
-				t.Fatalf("Failed to write invowkfile: %v", err)
+			invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+			if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
+				t.Fatalf("Failed to write invkfile: %v", err)
 			}
 
-			_, err := Parse(invowkfilePath)
+			_, err := Parse(invkfilePath)
 			if err == nil {
 				t.Errorf("Parse() should reject arg with type %q and incompatible default_value %q", tt.argType, tt.defaultValue)
 			}
@@ -4002,12 +4002,12 @@ commands: [
 ]
 `
 	tmpDir := t.TempDir()
-	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
-	if err := os.WriteFile(invowkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invowkfile: %v", err)
+	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
+		t.Fatalf("Failed to write invkfile: %v", err)
 	}
 
-	_, err := Parse(invowkfilePath)
+	_, err := Parse(invkfilePath)
 	if err == nil {
 		t.Error("Parse() should reject invalid validation regex")
 	}
@@ -4034,12 +4034,12 @@ commands: [
 ]
 `
 	tmpDir := t.TempDir()
-	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
-	if err := os.WriteFile(invowkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invowkfile: %v", err)
+	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
+		t.Fatalf("Failed to write invkfile: %v", err)
 	}
 
-	_, err := Parse(invowkfilePath)
+	_, err := Parse(invkfilePath)
 	if err == nil {
 		t.Error("Parse() should reject default_value that doesn't match validation pattern")
 	}
@@ -4180,12 +4180,12 @@ commands: [
 ]
 `
 	tmpDir := t.TempDir()
-	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
-	if err := os.WriteFile(invowkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invowkfile: %v", err)
+	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
+		t.Fatalf("Failed to write invkfile: %v", err)
 	}
 
-	inv, err := Parse(invowkfilePath)
+	inv, err := Parse(invkfilePath)
 	if err != nil {
 		t.Fatalf("Parse() error = %v", err)
 	}
@@ -4213,12 +4213,12 @@ commands: [
 ]
 `
 	tmpDir := t.TempDir()
-	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
-	if err := os.WriteFile(invowkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invowkfile: %v", err)
+	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
+		t.Fatalf("Failed to write invkfile: %v", err)
 	}
 
-	inv, err := Parse(invowkfilePath)
+	inv, err := Parse(invkfilePath)
 	if err != nil {
 		t.Fatalf("Parse() error = %v", err)
 	}
@@ -4268,12 +4268,12 @@ commands: [
 ]
 `
 	tmpDir := t.TempDir()
-	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
-	if err := os.WriteFile(invowkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invowkfile: %v", err)
+	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
+		t.Fatalf("Failed to write invkfile: %v", err)
 	}
 
-	inv, err := Parse(invowkfilePath)
+	inv, err := Parse(invkfilePath)
 	if err != nil {
 		t.Fatalf("Parse() error = %v", err)
 	}
@@ -4318,7 +4318,7 @@ commands: [
 }
 
 func TestGenerateCUE_WithArgs(t *testing.T) {
-	inv := &Invowkfile{
+	inv := &Invkfile{
 		Group:   "test",
 		Version: "1.0",
 		Commands: []Command{
@@ -4398,7 +4398,7 @@ func TestGenerateCUE_WithArgs(t *testing.T) {
 }
 
 func TestGenerateCUE_WithArgs_StringTypeNotIncluded(t *testing.T) {
-	inv := &Invowkfile{
+	inv := &Invkfile{
 		Group:   "test",
 		Version: "1.0",
 		Commands: []Command{
@@ -4438,8 +4438,8 @@ func TestGenerateCUE_WithArgs_StringTypeNotIncluded(t *testing.T) {
 }
 
 func TestGenerateCUE_WithArgs_RoundTrip(t *testing.T) {
-	// Create an invowkfile with args, generate CUE, parse it back, and verify
-	original := &Invowkfile{
+	// Create an invkfile with args, generate CUE, parse it back, and verify
+	original := &Invkfile{
 		Group:   "test",
 		Version: "1.0",
 		Commands: []Command{
@@ -4481,12 +4481,12 @@ func TestGenerateCUE_WithArgs_RoundTrip(t *testing.T) {
 
 	// Write to temp file and parse back
 	tmpDir := t.TempDir()
-	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
-	if err := os.WriteFile(invowkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invowkfile: %v", err)
+	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
+		t.Fatalf("Failed to write invkfile: %v", err)
 	}
 
-	parsed, err := Parse(invowkfilePath)
+	parsed, err := Parse(invkfilePath)
 	if err != nil {
 		t.Fatalf("Failed to parse generated CUE: %v", err)
 	}

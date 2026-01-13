@@ -1,17 +1,17 @@
 // Package pack provides functionality for working with invowk packs.
 //
-// A pack is a self-contained folder with a ".invowkpack" suffix that contains
-// an invowkfile and optionally script files. Packs enable portable distribution
+// A pack is a self-contained folder with a ".invkpack" suffix that contains
+// an invkfile and optionally script files. Packs enable portable distribution
 // of invowk commands with their associated scripts.
 //
 // Pack naming follows these rules:
-//   - Folder name must end with ".invowkpack"
-//   - Prefix (before .invowkpack) must be POSIX-compliant: start with a letter,
+//   - Folder name must end with ".invkpack"
+//   - Prefix (before .invkpack) must be POSIX-compliant: start with a letter,
 //     contain only alphanumeric characters, with optional dot-separated segments
 //   - Compatible with RDNS naming conventions (e.g., "com.example.mycommands")
 //
 // Pack structure:
-//   - Must contain exactly one invowkfile.cue at the root
+//   - Must contain exactly one invkfile.cue at the root
 //   - May contain script files referenced by implementations
 //   - Cannot be nested inside other packs
 package pack
@@ -28,16 +28,16 @@ import (
 )
 
 // PackSuffix is the standard suffix for invowk pack directories
-const PackSuffix = ".invowkpack"
+const PackSuffix = ".invkpack"
 
-// packNameRegex validates the pack folder name prefix (before .invowkpack)
+// packNameRegex validates the pack folder name prefix (before .invkpack)
 // Must start with a letter, contain only alphanumeric chars, with optional dot-separated segments
 // Compatible with RDNS naming (e.g., "com.example.mycommands")
 var packNameRegex = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9]*(\.[a-zA-Z][a-zA-Z0-9]*)*$`)
 
 // ValidationIssue represents a single validation problem in a pack
 type ValidationIssue struct {
-	// Type categorizes the issue (e.g., "structure", "naming", "invowkfile")
+	// Type categorizes the issue (e.g., "structure", "naming", "invkfile")
 	Type string
 	// Message describes the specific problem
 	Message string
@@ -59,10 +59,10 @@ type ValidationResult struct {
 	Valid bool
 	// PackPath is the absolute path to the validated pack
 	PackPath string
-	// PackName is the extracted name from the folder (without .invowkpack suffix)
+	// PackName is the extracted name from the folder (without .invkpack suffix)
 	PackName string
-	// InvowkfilePath is the path to the invowkfile.cue within the pack
-	InvowkfilePath string
+	// InvkfilePath is the path to the invkfile.cue within the pack
+	InvkfilePath string
 	// Issues contains all validation problems found
 	Issues []ValidationIssue
 }
@@ -81,17 +81,17 @@ func (r *ValidationResult) AddIssue(issueType, message, path string) {
 type Pack struct {
 	// Path is the absolute path to the pack directory
 	Path string
-	// Name is the pack name (folder name without .invowkpack suffix)
+	// Name is the pack name (folder name without .invkpack suffix)
 	Name string
-	// InvowkfilePath is the absolute path to the invowkfile.cue
-	InvowkfilePath string
+	// InvkfilePath is the absolute path to the invkfile.cue
+	InvkfilePath string
 }
 
 // IsPack checks if the given path is a valid invowk pack directory.
 // This is a quick check that only verifies the folder name format and existence.
 // For full validation, use Validate().
 func IsPack(path string) bool {
-	// Check if the path ends with .invowkpack
+	// Check if the path ends with .invkpack
 	base := filepath.Base(path)
 	if !strings.HasSuffix(base, PackSuffix) {
 		return false
@@ -113,10 +113,10 @@ func IsPack(path string) bool {
 }
 
 // ParsePackName extracts and validates the pack name from a folder name.
-// The folder name must end with .invowkpack and have a valid prefix.
+// The folder name must end with .invkpack and have a valid prefix.
 // Returns the pack name (without suffix) or an error if invalid.
 func ParsePackName(folderName string) (string, error) {
-	// Must end with .invowkpack
+	// Must end with .invkpack
 	if !strings.HasSuffix(folderName, PackSuffix) {
 		return "", fmt.Errorf("folder name must end with '%s'", PackSuffix)
 	}
@@ -181,19 +181,19 @@ func Validate(packPath string) (*ValidationResult, error) {
 		result.PackName = packName
 	}
 
-	// Check for invowkfile.cue
-	invowkfilePath := filepath.Join(absPath, "invowkfile.cue")
-	invowkfileInfo, err := os.Stat(invowkfilePath)
+	// Check for invkfile.cue
+	invkfilePath := filepath.Join(absPath, "invkfile.cue")
+	invkfileInfo, err := os.Stat(invkfilePath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			result.AddIssue("structure", "missing required invowkfile.cue", "")
+			result.AddIssue("structure", "missing required invkfile.cue", "")
 		} else {
-			result.AddIssue("structure", fmt.Sprintf("cannot access invowkfile.cue: %v", err), "")
+			result.AddIssue("structure", fmt.Sprintf("cannot access invkfile.cue: %v", err), "")
 		}
-	} else if invowkfileInfo.IsDir() {
-		result.AddIssue("structure", "invowkfile.cue must be a file, not a directory", "")
+	} else if invkfileInfo.IsDir() {
+		result.AddIssue("structure", "invkfile.cue must be a file, not a directory", "")
 	} else {
-		result.InvowkfilePath = invowkfilePath
+		result.InvkfilePath = invkfilePath
 	}
 
 	// Check for nested packs (not allowed)
@@ -240,9 +240,9 @@ func Load(packPath string) (*Pack, error) {
 	}
 
 	return &Pack{
-		Path:           result.PackPath,
-		Name:           result.PackName,
-		InvowkfilePath: result.InvowkfilePath,
+		Path:         result.PackPath,
+		Name:         result.PackName,
+		InvkfilePath: result.InvkfilePath,
 	}, nil
 }
 
@@ -309,9 +309,9 @@ func (b *Pack) ContainsPath(path string) bool {
 	return !strings.HasPrefix(relPath, "..")
 }
 
-// GetInvowkfileDir returns the directory containing the invowkfile.
+// GetInvkfileDir returns the directory containing the invkfile.
 // For packs, this is always the pack root.
-func (b *Pack) GetInvowkfileDir() string {
+func (b *Pack) GetInvkfileDir() string {
 	return b.Path
 }
 
@@ -321,9 +321,9 @@ type CreateOptions struct {
 	Name string
 	// ParentDir is the directory where the pack will be created
 	ParentDir string
-	// Group is the group name for the invowkfile (defaults to Name if empty)
+	// Group is the group name for the invkfile (defaults to Name if empty)
 	Group string
-	// Description is an optional description for the invowkfile
+	// Description is an optional description for the invkfile
 	Description string
 	// CreateScriptsDir creates a scripts/ subdirectory if true
 	CreateScriptsDir bool
@@ -377,13 +377,13 @@ func Create(opts CreateOptions) (string, error) {
 		group = opts.Name
 	}
 
-	// Create invowkfile.cue template
+	// Create invkfile.cue template
 	description := opts.Description
 	if description == "" {
 		description = fmt.Sprintf("Commands from %s pack", opts.Name)
 	}
 
-	invowkfileContent := fmt.Sprintf(`// Invowkfile for %s pack
+	invkfileContent := fmt.Sprintf(`// Invkfile for %s pack
 
 group: %q
 version: "1.0"
@@ -408,11 +408,11 @@ commands: [
 ]
 `, opts.Name, group, description, opts.Name)
 
-	invowkfilePath := filepath.Join(packPath, "invowkfile.cue")
-	if err := os.WriteFile(invowkfilePath, []byte(invowkfileContent), 0644); err != nil {
+	invkfilePath := filepath.Join(packPath, "invkfile.cue")
+	if err := os.WriteFile(invkfilePath, []byte(invkfileContent), 0644); err != nil {
 		// Clean up on failure
 		os.RemoveAll(packPath)
-		return "", fmt.Errorf("failed to create invowkfile.cue: %w", err)
+		return "", fmt.Errorf("failed to create invkfile.cue: %w", err)
 	}
 
 	// Optionally create scripts directory
@@ -611,7 +611,7 @@ func Unpack(opts UnpackOptions) (string, error) {
 	// Find the pack root directory in the ZIP
 	var packRoot string
 	for _, file := range zipReader.File {
-		// Look for the .invowkpack directory
+		// Look for the .invkpack directory
 		parts := strings.Split(file.Name, "/")
 		if len(parts) > 0 && strings.HasSuffix(parts[0], PackSuffix) {
 			packRoot = parts[0]

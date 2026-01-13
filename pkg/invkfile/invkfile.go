@@ -1,5 +1,5 @@
-// Package invowkfile defines the schema and parsing for invowkfile CUE files.
-package invowkfile
+// Package invkfile defines the schema and parsing for invkfile CUE files.
+package invkfile
 
 import (
 	_ "embed"
@@ -18,8 +18,8 @@ import (
 // flagNameRegex validates POSIX-compliant flag names
 var flagNameRegex = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9_-]*$`)
 
-//go:embed invowkfile_schema.cue
-var invowkfileSchema string
+//go:embed invkfile_schema.cue
+var invkfileSchema string
 
 // RuntimeMode defines how commands are executed (the type of runtime)
 type RuntimeMode string
@@ -822,20 +822,20 @@ func (s *Script) IsScriptFile() bool {
 
 // GetScriptFilePath returns the absolute path to the script file, if Script is a file reference.
 // Returns empty string if Script is inline content.
-// The invowkfilePath parameter is used to resolve relative paths.
+// The invkfilePath parameter is used to resolve relative paths.
 // If packPath is provided (non-empty), script paths are resolved relative to the pack root
 // and are expected to use forward slashes for cross-platform compatibility.
-func (s *Script) GetScriptFilePath(invowkfilePath string) string {
-	return s.GetScriptFilePathWithPack(invowkfilePath, "")
+func (s *Script) GetScriptFilePath(invkfilePath string) string {
+	return s.GetScriptFilePathWithPack(invkfilePath, "")
 }
 
 // GetScriptFilePathWithPack returns the absolute path to the script file, if Script is a file reference.
 // Returns empty string if Script is inline content.
-// The invowkfilePath parameter is used to resolve relative paths when not in a pack.
+// The invkfilePath parameter is used to resolve relative paths when not in a pack.
 // The packPath parameter specifies the pack root directory for pack-relative paths.
 // When packPath is non-empty, script paths are expected to use forward slashes for
 // cross-platform compatibility and are resolved relative to the pack root.
-func (s *Script) GetScriptFilePathWithPack(invowkfilePath, packPath string) string {
+func (s *Script) GetScriptFilePathWithPack(invkfilePath, packPath string) string {
 	if !s.IsScriptFile() {
 		return ""
 	}
@@ -854,25 +854,25 @@ func (s *Script) GetScriptFilePathWithPack(invowkfilePath, packPath string) stri
 		return filepath.Join(packPath, nativePath)
 	}
 
-	// Resolve relative to invowkfile directory
-	invowkDir := filepath.Dir(invowkfilePath)
+	// Resolve relative to invkfile directory
+	invowkDir := filepath.Dir(invkfilePath)
 	return filepath.Join(invowkDir, script)
 }
 
 // ResolveScript returns the actual script content to execute.
 // If Script is a file path, it reads the file content.
 // If Script is inline content (including multi-line), it returns it directly.
-// The invowkfilePath parameter is used to resolve relative paths.
-func (s *Script) ResolveScript(invowkfilePath string) (string, error) {
-	return s.ResolveScriptWithPack(invowkfilePath, "")
+// The invkfilePath parameter is used to resolve relative paths.
+func (s *Script) ResolveScript(invkfilePath string) (string, error) {
+	return s.ResolveScriptWithPack(invkfilePath, "")
 }
 
 // ResolveScriptWithPack returns the actual script content to execute.
 // If Script is a file path, it reads the file content.
 // If Script is inline content (including multi-line), it returns it directly.
-// The invowkfilePath parameter is used to resolve relative paths when not in a pack.
+// The invkfilePath parameter is used to resolve relative paths when not in a pack.
 // The packPath parameter specifies the pack root directory for pack-relative paths.
-func (s *Script) ResolveScriptWithPack(invowkfilePath, packPath string) (string, error) {
+func (s *Script) ResolveScriptWithPack(invkfilePath, packPath string) (string, error) {
 	if s.scriptResolved {
 		return s.resolvedScript, nil
 	}
@@ -883,7 +883,7 @@ func (s *Script) ResolveScriptWithPack(invowkfilePath, packPath string) (string,
 	}
 
 	if s.IsScriptFile() {
-		scriptPath := s.GetScriptFilePathWithPack(invowkfilePath, packPath)
+		scriptPath := s.GetScriptFilePathWithPack(invkfilePath, packPath)
 		content, err := os.ReadFile(scriptPath)
 		if err != nil {
 			return "", fmt.Errorf("failed to read script file '%s': %w", scriptPath, err)
@@ -900,21 +900,21 @@ func (s *Script) ResolveScriptWithPack(invowkfilePath, packPath string) (string,
 
 // ResolveScriptWithFS resolves the script using a custom filesystem reader function.
 // This is useful for testing with virtual filesystems.
-func (s *Script) ResolveScriptWithFS(invowkfilePath string, readFile func(path string) ([]byte, error)) (string, error) {
-	return s.ResolveScriptWithFSAndPack(invowkfilePath, "", readFile)
+func (s *Script) ResolveScriptWithFS(invkfilePath string, readFile func(path string) ([]byte, error)) (string, error) {
+	return s.ResolveScriptWithFSAndPack(invkfilePath, "", readFile)
 }
 
 // ResolveScriptWithFSAndPack resolves the script using a custom filesystem reader function.
 // This is useful for testing with virtual filesystems.
 // The packPath parameter specifies the pack root directory for pack-relative paths.
-func (s *Script) ResolveScriptWithFSAndPack(invowkfilePath, packPath string, readFile func(path string) ([]byte, error)) (string, error) {
+func (s *Script) ResolveScriptWithFSAndPack(invkfilePath, packPath string, readFile func(path string) ([]byte, error)) (string, error) {
 	script := s.Script
 	if script == "" {
 		return "", fmt.Errorf("script has no content")
 	}
 
 	if s.IsScriptFile() {
-		scriptPath := s.GetScriptFilePathWithPack(invowkfilePath, packPath)
+		scriptPath := s.GetScriptFilePathWithPack(invkfilePath, packPath)
 		content, err := readFile(scriptPath)
 		if err != nil {
 			return "", fmt.Errorf("failed to read script file '%s': %w", scriptPath, err)
@@ -926,56 +926,56 @@ func (s *Script) ResolveScriptWithFSAndPack(invowkfilePath, packPath string, rea
 	return script, nil
 }
 
-// Invowkfile represents the complete parsed invowkfile
-type Invowkfile struct {
-	// Group is a mandatory prefix for all command names from this invowkfile
+// Invkfile represents the complete parsed invkfile
+type Invkfile struct {
+	// Group is a mandatory prefix for all command names from this invkfile
 	// Must start with a letter, contain only alphanumeric characters, with optional
 	// dot-separated segments (e.g., "mygroup", "my.group", "my.nested.group")
 	Group string `json:"group"`
-	// Version specifies the invowkfile schema version
+	// Version specifies the invkfile schema version
 	Version string `json:"version,omitempty"`
-	// Description provides a summary of this invowkfile's purpose
+	// Description provides a summary of this invkfile's purpose
 	Description string `json:"description,omitempty"`
 	// DefaultShell overrides the default shell for native runtime
 	DefaultShell string `json:"default_shell,omitempty"`
 	// Commands defines the available commands
 	Commands []Command `json:"commands"`
 
-	// FilePath stores the path where this invowkfile was loaded from (not in CUE)
+	// FilePath stores the path where this invkfile was loaded from (not in CUE)
 	FilePath string `json:"-"`
-	// PackPath stores the pack directory path if this invowkfile is from a pack (not in CUE)
+	// PackPath stores the pack directory path if this invkfile is from a pack (not in CUE)
 	// Empty string if not loaded from a pack
 	PackPath string `json:"-"`
 }
 
-// InvowkfileName is the standard name for invowkfile
-const InvowkfileName = "invowkfile"
+// InvkfileName is the standard name for invkfile
+const InvkfileName = "invkfile"
 
-// ValidExtensions lists valid file extensions for invowkfile
+// ValidExtensions lists valid file extensions for invkfile
 var ValidExtensions = []string{".cue", ""}
 
-// Parse reads and parses an invowkfile from the given path
-func Parse(path string) (*Invowkfile, error) {
+// Parse reads and parses an invkfile from the given path
+func Parse(path string) (*Invkfile, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read invowkfile at %s: %w", path, err)
+		return nil, fmt.Errorf("failed to read invkfile at %s: %w", path, err)
 	}
 
 	return ParseBytes(data, path)
 }
 
-// ParsePack reads and parses an invowkfile from a pack directory.
-// The packPath should be the path to the pack directory (ending in .invowkpack).
-// The invowkfile.cue is expected to be at the root of the pack.
-func ParsePack(packPath string) (*Invowkfile, error) {
-	invowkfilePath := filepath.Join(packPath, "invowkfile.cue")
+// ParsePack reads and parses an invkfile from a pack directory.
+// The packPath should be the path to the pack directory (ending in .invkpack).
+// The invkfile.cue is expected to be at the root of the pack.
+func ParsePack(packPath string) (*Invkfile, error) {
+	invkfilePath := filepath.Join(packPath, "invkfile.cue")
 
-	data, err := os.ReadFile(invowkfilePath)
+	data, err := os.ReadFile(invkfilePath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read invowkfile at %s: %w", invowkfilePath, err)
+		return nil, fmt.Errorf("failed to read invkfile at %s: %w", invkfilePath, err)
 	}
 
-	inv, err := ParseBytes(data, invowkfilePath)
+	inv, err := ParseBytes(data, invkfilePath)
 	if err != nil {
 		return nil, err
 	}
@@ -986,33 +986,33 @@ func ParsePack(packPath string) (*Invowkfile, error) {
 	return inv, nil
 }
 
-// ParseBytes parses invowkfile content from bytes
-func ParseBytes(data []byte, path string) (*Invowkfile, error) {
+// ParseBytes parses invkfile content from bytes
+func ParseBytes(data []byte, path string) (*Invkfile, error) {
 	ctx := cuecontext.New()
 
 	// Compile the schema
-	schemaValue := ctx.CompileString(invowkfileSchema)
+	schemaValue := ctx.CompileString(invkfileSchema)
 	if schemaValue.Err() != nil {
 		return nil, fmt.Errorf("internal error: failed to compile schema: %w", schemaValue.Err())
 	}
 
-	// Compile the user's invowkfile
+	// Compile the user's invkfile
 	userValue := ctx.CompileBytes(data, cue.Filename(path))
 	if userValue.Err() != nil {
-		return nil, fmt.Errorf("failed to parse invowkfile at %s: %w", path, userValue.Err())
+		return nil, fmt.Errorf("failed to parse invkfile at %s: %w", path, userValue.Err())
 	}
 
 	// Unify with schema to validate
-	schema := schemaValue.LookupPath(cue.ParsePath("#Invowkfile"))
+	schema := schemaValue.LookupPath(cue.ParsePath("#Invkfile"))
 	unified := schema.Unify(userValue)
 	if err := unified.Validate(cue.Concrete(true)); err != nil {
-		return nil, fmt.Errorf("invowkfile validation failed at %s: %w", path, err)
+		return nil, fmt.Errorf("invkfile validation failed at %s: %w", path, err)
 	}
 
 	// Decode into struct
-	var inv Invowkfile
+	var inv Invkfile
 	if err := unified.Decode(&inv); err != nil {
-		return nil, fmt.Errorf("failed to decode invowkfile at %s: %w", path, err)
+		return nil, fmt.Errorf("failed to decode invkfile at %s: %w", path, err)
 	}
 
 	inv.FilePath = path
@@ -1025,10 +1025,10 @@ func ParseBytes(data []byte, path string) (*Invowkfile, error) {
 	return &inv, nil
 }
 
-// validate checks the invowkfile for errors and applies defaults
-func (inv *Invowkfile) validate() error {
+// validate checks the invkfile for errors and applies defaults
+func (inv *Invkfile) validate() error {
 	if len(inv.Commands) == 0 {
-		return fmt.Errorf("invowkfile at %s has no commands defined", inv.FilePath)
+		return fmt.Errorf("invkfile at %s has no commands defined", inv.FilePath)
 	}
 
 	// Validate each command
@@ -1074,22 +1074,22 @@ func validateRuntimeConfig(rt *RuntimeConfig, cmdName string, implIndex int) err
 }
 
 // validateCommand validates a single command
-func (inv *Invowkfile) validateCommand(cmd *Command) error {
+func (inv *Invkfile) validateCommand(cmd *Command) error {
 	if cmd.Name == "" {
-		return fmt.Errorf("command must have a name in invowkfile at %s", inv.FilePath)
+		return fmt.Errorf("command must have a name in invkfile at %s", inv.FilePath)
 	}
 
 	if len(cmd.Implementations) == 0 {
-		return fmt.Errorf("command '%s' must have at least one implementation in invowkfile at %s", cmd.Name, inv.FilePath)
+		return fmt.Errorf("command '%s' must have at least one implementation in invkfile at %s", cmd.Name, inv.FilePath)
 	}
 
 	// Validate each implementation
 	for i, impl := range cmd.Implementations {
 		if impl.Script == "" {
-			return fmt.Errorf("command '%s' implementation #%d must have a script in invowkfile at %s", cmd.Name, i+1, inv.FilePath)
+			return fmt.Errorf("command '%s' implementation #%d must have a script in invkfile at %s", cmd.Name, i+1, inv.FilePath)
 		}
 		if len(impl.Target.Runtimes) == 0 {
-			return fmt.Errorf("command '%s' implementation #%d must have at least one runtime in invowkfile at %s", cmd.Name, i+1, inv.FilePath)
+			return fmt.Errorf("command '%s' implementation #%d must have at least one runtime in invkfile at %s", cmd.Name, i+1, inv.FilePath)
 		}
 
 		// Validate each runtime config
@@ -1119,53 +1119,53 @@ func (inv *Invowkfile) validateCommand(cmd *Command) error {
 }
 
 // validateFlags validates the flags for a command
-func (inv *Invowkfile) validateFlags(cmd *Command) error {
+func (inv *Invkfile) validateFlags(cmd *Command) error {
 	seenNames := make(map[string]bool)
 	seenShorts := make(map[string]bool)
 
 	for i, flag := range cmd.Flags {
 		// Validate name is not empty
 		if flag.Name == "" {
-			return fmt.Errorf("command '%s' flag #%d must have a name in invowkfile at %s", cmd.Name, i+1, inv.FilePath)
+			return fmt.Errorf("command '%s' flag #%d must have a name in invkfile at %s", cmd.Name, i+1, inv.FilePath)
 		}
 
 		// Validate name is POSIX-compliant
 		if !flagNameRegex.MatchString(flag.Name) {
-			return fmt.Errorf("command '%s' flag '%s' has invalid name (must start with a letter, contain only alphanumeric, hyphens, and underscores) in invowkfile at %s", cmd.Name, flag.Name, inv.FilePath)
+			return fmt.Errorf("command '%s' flag '%s' has invalid name (must start with a letter, contain only alphanumeric, hyphens, and underscores) in invkfile at %s", cmd.Name, flag.Name, inv.FilePath)
 		}
 
 		// Validate description is not empty (after trimming whitespace)
 		if strings.TrimSpace(flag.Description) == "" {
-			return fmt.Errorf("command '%s' flag '%s' must have a non-empty description in invowkfile at %s", cmd.Name, flag.Name, inv.FilePath)
+			return fmt.Errorf("command '%s' flag '%s' must have a non-empty description in invkfile at %s", cmd.Name, flag.Name, inv.FilePath)
 		}
 
 		// Check for duplicate flag names
 		if seenNames[flag.Name] {
-			return fmt.Errorf("command '%s' has duplicate flag name '%s' in invowkfile at %s", cmd.Name, flag.Name, inv.FilePath)
+			return fmt.Errorf("command '%s' has duplicate flag name '%s' in invkfile at %s", cmd.Name, flag.Name, inv.FilePath)
 		}
 		seenNames[flag.Name] = true
 
 		// Validate type is valid (if specified)
 		if flag.Type != "" && flag.Type != FlagTypeString && flag.Type != FlagTypeBool && flag.Type != FlagTypeInt && flag.Type != FlagTypeFloat {
-			return fmt.Errorf("command '%s' flag '%s' has invalid type '%s' (must be 'string', 'bool', 'int', or 'float') in invowkfile at %s",
+			return fmt.Errorf("command '%s' flag '%s' has invalid type '%s' (must be 'string', 'bool', 'int', or 'float') in invkfile at %s",
 				cmd.Name, flag.Name, flag.Type, inv.FilePath)
 		}
 
 		// Validate that required flags don't have default values
 		if flag.Required && flag.DefaultValue != "" {
-			return fmt.Errorf("command '%s' flag '%s' cannot be both required and have a default_value in invowkfile at %s",
+			return fmt.Errorf("command '%s' flag '%s' cannot be both required and have a default_value in invkfile at %s",
 				cmd.Name, flag.Name, inv.FilePath)
 		}
 
 		// Validate short alias format (single letter a-z or A-Z)
 		if flag.Short != "" {
 			if len(flag.Short) != 1 || !((flag.Short[0] >= 'a' && flag.Short[0] <= 'z') || (flag.Short[0] >= 'A' && flag.Short[0] <= 'Z')) {
-				return fmt.Errorf("command '%s' flag '%s' has invalid short alias '%s' (must be a single letter a-z or A-Z) in invowkfile at %s",
+				return fmt.Errorf("command '%s' flag '%s' has invalid short alias '%s' (must be a single letter a-z or A-Z) in invkfile at %s",
 					cmd.Name, flag.Name, flag.Short, inv.FilePath)
 			}
 			// Check for duplicate short aliases
 			if seenShorts[flag.Short] {
-				return fmt.Errorf("command '%s' has duplicate short alias '%s' in invowkfile at %s",
+				return fmt.Errorf("command '%s' has duplicate short alias '%s' in invkfile at %s",
 					cmd.Name, flag.Short, inv.FilePath)
 			}
 			seenShorts[flag.Short] = true
@@ -1174,7 +1174,7 @@ func (inv *Invowkfile) validateFlags(cmd *Command) error {
 		// Validate default_value is compatible with type
 		if flag.DefaultValue != "" {
 			if err := validateFlagValueType(flag.DefaultValue, flag.GetType()); err != nil {
-				return fmt.Errorf("command '%s' flag '%s' default_value '%s' is not compatible with type '%s': %s in invowkfile at %s",
+				return fmt.Errorf("command '%s' flag '%s' default_value '%s' is not compatible with type '%s': %s in invkfile at %s",
 					cmd.Name, flag.Name, flag.DefaultValue, flag.GetType(), err.Error(), inv.FilePath)
 			}
 		}
@@ -1183,14 +1183,14 @@ func (inv *Invowkfile) validateFlags(cmd *Command) error {
 		if flag.Validation != "" {
 			validationRegex, err := regexp.Compile(flag.Validation)
 			if err != nil {
-				return fmt.Errorf("command '%s' flag '%s' has invalid validation regex '%s': %s in invowkfile at %s",
+				return fmt.Errorf("command '%s' flag '%s' has invalid validation regex '%s': %s in invkfile at %s",
 					cmd.Name, flag.Name, flag.Validation, err.Error(), inv.FilePath)
 			}
 
 			// Validate default_value matches validation regex (if both specified)
 			if flag.DefaultValue != "" {
 				if !validationRegex.MatchString(flag.DefaultValue) {
-					return fmt.Errorf("command '%s' flag '%s' default_value '%s' does not match validation pattern '%s' in invowkfile at %s",
+					return fmt.Errorf("command '%s' flag '%s' default_value '%s' does not match validation pattern '%s' in invkfile at %s",
 						cmd.Name, flag.Name, flag.DefaultValue, flag.Validation, inv.FilePath)
 				}
 			}
@@ -1204,7 +1204,7 @@ func (inv *Invowkfile) validateFlags(cmd *Command) error {
 var argNameRegex = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9_-]*$`)
 
 // validateArgs validates the args for a command
-func (inv *Invowkfile) validateArgs(cmd *Command) error {
+func (inv *Invkfile) validateArgs(cmd *Command) error {
 	if len(cmd.Args) == 0 {
 		return nil
 	}
@@ -1216,41 +1216,41 @@ func (inv *Invowkfile) validateArgs(cmd *Command) error {
 	for i, arg := range cmd.Args {
 		// Validate name is not empty
 		if arg.Name == "" {
-			return fmt.Errorf("command '%s' argument #%d must have a name in invowkfile at %s", cmd.Name, i+1, inv.FilePath)
+			return fmt.Errorf("command '%s' argument #%d must have a name in invkfile at %s", cmd.Name, i+1, inv.FilePath)
 		}
 
 		// Validate name is POSIX-compliant
 		if !argNameRegex.MatchString(arg.Name) {
-			return fmt.Errorf("command '%s' argument '%s' has invalid name (must start with a letter, contain only alphanumeric, hyphens, and underscores) in invowkfile at %s", cmd.Name, arg.Name, inv.FilePath)
+			return fmt.Errorf("command '%s' argument '%s' has invalid name (must start with a letter, contain only alphanumeric, hyphens, and underscores) in invkfile at %s", cmd.Name, arg.Name, inv.FilePath)
 		}
 
 		// Validate description is not empty (after trimming whitespace)
 		if strings.TrimSpace(arg.Description) == "" {
-			return fmt.Errorf("command '%s' argument '%s' must have a non-empty description in invowkfile at %s", cmd.Name, arg.Name, inv.FilePath)
+			return fmt.Errorf("command '%s' argument '%s' must have a non-empty description in invkfile at %s", cmd.Name, arg.Name, inv.FilePath)
 		}
 
 		// Check for duplicate argument names
 		if seenNames[arg.Name] {
-			return fmt.Errorf("command '%s' has duplicate argument name '%s' in invowkfile at %s", cmd.Name, arg.Name, inv.FilePath)
+			return fmt.Errorf("command '%s' has duplicate argument name '%s' in invkfile at %s", cmd.Name, arg.Name, inv.FilePath)
 		}
 		seenNames[arg.Name] = true
 
 		// Validate type is valid (if specified) - note: bool is not allowed for args
 		if arg.Type != "" && arg.Type != ArgumentTypeString && arg.Type != ArgumentTypeInt && arg.Type != ArgumentTypeFloat {
-			return fmt.Errorf("command '%s' argument '%s' has invalid type '%s' (must be 'string', 'int', or 'float') in invowkfile at %s",
+			return fmt.Errorf("command '%s' argument '%s' has invalid type '%s' (must be 'string', 'int', or 'float') in invkfile at %s",
 				cmd.Name, arg.Name, arg.Type, inv.FilePath)
 		}
 
 		// Validate that required arguments don't have default values
 		if arg.Required && arg.DefaultValue != "" {
-			return fmt.Errorf("command '%s' argument '%s' cannot be both required and have a default_value in invowkfile at %s",
+			return fmt.Errorf("command '%s' argument '%s' cannot be both required and have a default_value in invkfile at %s",
 				cmd.Name, arg.Name, inv.FilePath)
 		}
 
 		// Rule: Required arguments must come before optional arguments
 		isOptional := !arg.Required
 		if arg.Required && foundOptional {
-			return fmt.Errorf("command '%s' argument '%s': required arguments must come before optional arguments in invowkfile at %s",
+			return fmt.Errorf("command '%s' argument '%s': required arguments must come before optional arguments in invkfile at %s",
 				cmd.Name, arg.Name, inv.FilePath)
 		}
 		if isOptional {
@@ -1259,7 +1259,7 @@ func (inv *Invowkfile) validateArgs(cmd *Command) error {
 
 		// Rule: Only the last argument can be variadic
 		if foundVariadic {
-			return fmt.Errorf("command '%s' argument '%s': only the last argument can be variadic (found after variadic argument) in invowkfile at %s",
+			return fmt.Errorf("command '%s' argument '%s': only the last argument can be variadic (found after variadic argument) in invkfile at %s",
 				cmd.Name, arg.Name, inv.FilePath)
 		}
 		if arg.Variadic {
@@ -1269,7 +1269,7 @@ func (inv *Invowkfile) validateArgs(cmd *Command) error {
 		// Validate default_value is compatible with type
 		if arg.DefaultValue != "" {
 			if err := validateArgumentValueType(arg.DefaultValue, arg.GetType()); err != nil {
-				return fmt.Errorf("command '%s' argument '%s' default_value '%s' is not compatible with type '%s': %s in invowkfile at %s",
+				return fmt.Errorf("command '%s' argument '%s' default_value '%s' is not compatible with type '%s': %s in invkfile at %s",
 					cmd.Name, arg.Name, arg.DefaultValue, arg.GetType(), err.Error(), inv.FilePath)
 			}
 		}
@@ -1278,14 +1278,14 @@ func (inv *Invowkfile) validateArgs(cmd *Command) error {
 		if arg.Validation != "" {
 			validationRegex, err := regexp.Compile(arg.Validation)
 			if err != nil {
-				return fmt.Errorf("command '%s' argument '%s' has invalid validation regex '%s': %s in invowkfile at %s",
+				return fmt.Errorf("command '%s' argument '%s' has invalid validation regex '%s': %s in invkfile at %s",
 					cmd.Name, arg.Name, arg.Validation, err.Error(), inv.FilePath)
 			}
 
 			// Validate default_value matches validation regex (if both specified)
 			if arg.DefaultValue != "" {
 				if !validationRegex.MatchString(arg.DefaultValue) {
-					return fmt.Errorf("command '%s' argument '%s' default_value '%s' does not match validation pattern '%s' in invowkfile at %s",
+					return fmt.Errorf("command '%s' argument '%s' default_value '%s' does not match validation pattern '%s' in invkfile at %s",
 						cmd.Name, arg.Name, arg.DefaultValue, arg.Validation, inv.FilePath)
 				}
 			}
@@ -1356,7 +1356,7 @@ func (f *Flag) ValidateFlagValue(value string) error {
 }
 
 // GetCommand finds a command by its name (supports names with spaces like "test unit")
-func (inv *Invowkfile) GetCommand(name string) *Command {
+func (inv *Invkfile) GetCommand(name string) *Command {
 	if name == "" {
 		return nil
 	}
@@ -1370,15 +1370,15 @@ func (inv *Invowkfile) GetCommand(name string) *Command {
 	return nil
 }
 
-// IsFromPack returns true if this invowkfile was loaded from a pack
-func (inv *Invowkfile) IsFromPack() bool {
+// IsFromPack returns true if this invkfile was loaded from a pack
+func (inv *Invkfile) IsFromPack() bool {
 	return inv.PackPath != ""
 }
 
 // GetScriptBasePath returns the base path for resolving script file references.
-// For pack invowkfiles, this is the pack path.
-// For regular invowkfiles, this is the directory containing the invowkfile.
-func (inv *Invowkfile) GetScriptBasePath() string {
+// For pack invkfiles, this is the pack path.
+// For regular invkfiles, this is the directory containing the invkfile.
+func (inv *Invkfile) GetScriptBasePath() string {
 	if inv.PackPath != "" {
 		return inv.PackPath
 	}
@@ -1387,12 +1387,12 @@ func (inv *Invowkfile) GetScriptBasePath() string {
 
 // GetFullCommandName returns the fully qualified command name with the group prefix.
 // The format is "group cmdname" where cmdname may have spaces for subcommands.
-func (inv *Invowkfile) GetFullCommandName(cmdName string) string {
+func (inv *Invkfile) GetFullCommandName(cmdName string) string {
 	return inv.Group + " " + cmdName
 }
 
 // ListCommands returns all command names at the top level (with group prefix)
-func (inv *Invowkfile) ListCommands() []string {
+func (inv *Invkfile) ListCommands() []string {
 	names := make([]string, len(inv.Commands))
 	for i, cmd := range inv.Commands {
 		names[i] = inv.GetFullCommandName(cmd.Name)
@@ -1401,7 +1401,7 @@ func (inv *Invowkfile) ListCommands() []string {
 }
 
 // FlattenCommands returns all commands keyed by their fully qualified names (with group prefix)
-func (inv *Invowkfile) FlattenCommands() map[string]*Command {
+func (inv *Invkfile) FlattenCommands() map[string]*Command {
 	result := make(map[string]*Command)
 	for i := range inv.Commands {
 		fullName := inv.GetFullCommandName(inv.Commands[i].Name)
@@ -1410,11 +1410,11 @@ func (inv *Invowkfile) FlattenCommands() map[string]*Command {
 	return result
 }
 
-// GenerateCUE generates a CUE representation of an Invowkfile
-func GenerateCUE(inv *Invowkfile) string {
+// GenerateCUE generates a CUE representation of an Invkfile
+func GenerateCUE(inv *Invkfile) string {
 	var sb strings.Builder
 
-	sb.WriteString("// Invowkfile - Command definitions for invowk\n")
+	sb.WriteString("// Invkfile - Command definitions for invowk\n")
 	sb.WriteString("// See https://github.com/invowk/invowk for documentation\n\n")
 
 	// Group is mandatory

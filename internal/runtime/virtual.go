@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"invowk-cli/pkg/invowkfile"
+	"invowk-cli/pkg/invkfile"
 
 	"mvdan.cc/sh/v3/expand"
 	"mvdan.cc/sh/v3/interp"
@@ -49,7 +49,7 @@ func (r *VirtualRuntime) Validate(ctx *ExecutionContext) error {
 	}
 
 	// Resolve the script content
-	script, err := ctx.SelectedImpl.ResolveScript(ctx.Invowkfile.FilePath)
+	script, err := ctx.SelectedImpl.ResolveScript(ctx.Invkfile.FilePath)
 	if err != nil {
 		return err
 	}
@@ -66,7 +66,7 @@ func (r *VirtualRuntime) Validate(ctx *ExecutionContext) error {
 // Execute runs a command using the virtual shell
 func (r *VirtualRuntime) Execute(ctx *ExecutionContext) *Result {
 	// Resolve the script content
-	script, err := ctx.SelectedImpl.ResolveScript(ctx.Invowkfile.FilePath)
+	script, err := ctx.SelectedImpl.ResolveScript(ctx.Invkfile.FilePath)
 	if err != nil {
 		return &Result{ExitCode: 1, Error: err}
 	}
@@ -122,7 +122,7 @@ func (r *VirtualRuntime) Execute(ctx *ExecutionContext) *Result {
 // ExecuteCapture runs a command and captures its output
 func (r *VirtualRuntime) ExecuteCapture(ctx *ExecutionContext) *Result {
 	// Resolve the script content
-	script, err := ctx.SelectedImpl.ResolveScript(ctx.Invowkfile.FilePath)
+	script, err := ctx.SelectedImpl.ResolveScript(ctx.Invkfile.FilePath)
 	if err != nil {
 		return &Result{ExitCode: 1, Error: err}
 	}
@@ -221,11 +221,11 @@ func (r *VirtualRuntime) getWorkDir(ctx *ExecutionContext) string {
 	}
 	if ctx.Command.WorkDir != "" {
 		if !filepath.IsAbs(ctx.Command.WorkDir) {
-			return filepath.Join(filepath.Dir(ctx.Invowkfile.FilePath), ctx.Command.WorkDir)
+			return filepath.Join(filepath.Dir(ctx.Invkfile.FilePath), ctx.Command.WorkDir)
 		}
 		return ctx.Command.WorkDir
 	}
-	return filepath.Dir(ctx.Invowkfile.FilePath)
+	return filepath.Dir(ctx.Invkfile.FilePath)
 }
 
 // buildEnv builds the environment for the command
@@ -241,7 +241,7 @@ func (r *VirtualRuntime) buildEnv(ctx *ExecutionContext) map[string]string {
 	}
 
 	// Platform-level env from the selected implementation
-	currentPlatform := invowkfile.GetCurrentHostOS()
+	currentPlatform := invkfile.GetCurrentHostOS()
 	for _, p := range ctx.SelectedImpl.Target.Platforms {
 		if p.Name == currentPlatform {
 			for k, v := range p.Env {

@@ -9,7 +9,7 @@ A dynamically extensible, CLI-based command runner similar to [just](https://git
   - **virtual**: Execute commands using the built-in [mvdan/sh](https://github.com/mvdan/sh) interpreter
   - **container**: Execute commands inside a disposable Docker/Podman container
 
-- **CUE Configuration**: Define commands in `invowkfile.cue` files using [CUE](https://cuelang.org/) - a powerful configuration language with validation
+- **CUE Configuration**: Define commands in `invkfile.cue` files using [CUE](https://cuelang.org/) - a powerful configuration language with validation
 
 - **Cross-Platform**: Works on Linux, Windows, and macOS
 
@@ -48,7 +48,7 @@ sudo mv invowk /usr/local/bin/
 
 ## Quick Start
 
-1. **Create an invowkfile** in your project directory:
+1. **Create an invkfile** in your project directory:
 
 ```bash
 invowk init
@@ -87,9 +87,9 @@ invowk cmd myproject build
 invowk cmd myproject build --runtime container
 ```
 
-## Invowkfile Format
+## Invkfile Format
 
-Invowkfiles are written in [CUE](https://cuelang.org/) format. CUE provides powerful validation, templating, and a clean syntax. Here's an example:
+Invkfiles are written in [CUE](https://cuelang.org/) format. CUE provides powerful validation, templating, and a clean syntax. Here's an example:
 
 ```cue
 group: "myproject"  // Required: namespace for all commands in this file
@@ -193,7 +193,7 @@ commands: [
 
 ## Command Groups
 
-Every invowkfile must specify a **group** field. The group becomes the first segment of all command names from that file, creating a namespace for the commands.
+Every invkfile must specify a **group** field. The group becomes the first segment of all command names from that file, creating a namespace for the commands.
 
 ### Group Field Format
 
@@ -214,7 +214,7 @@ group: "my.nested.group"   // Nested group using dot notation
 
 ### How Groups Affect Command Names
 
-When you define a command in an invowkfile with `group: "myproject"`:
+When you define a command in an invkfile with `group: "myproject"`:
 
 ```cue
 group: "myproject"
@@ -233,8 +233,8 @@ invowk cmd myproject test unit
 
 ### Benefits of Command Groups
 
-1. **Namespace isolation**: Multiple invowkfiles can have commands with the same name without conflicts
-2. **Clear provenance**: You know which invowkfile a command comes from
+1. **Namespace isolation**: Multiple invkfiles can have commands with the same name without conflicts
+2. **Clear provenance**: You know which invkfile a command comes from
 3. **Hierarchical organization**: Use dot notation for logical grouping (e.g., `frontend.components`, `backend.api`)
 4. **Tab completion**: Groups provide natural completion boundaries
 
@@ -251,7 +251,7 @@ commands: [
             commands: [
                 {alternatives: ["myproject build"]},      // Same-file command
                 {alternatives: ["myproject test unit"]},  // Same-file nested command
-                {alternatives: ["other.project deploy"]}, // Command from another invowkfile
+                {alternatives: ["other.project deploy"]}, // Command from another invkfile
             ]
         }
     }
@@ -412,7 +412,7 @@ Command 'deploy' has unmet dependencies:
 Missing or Invalid Environment Variables:
   • AWS_ACCESS_KEY_ID - not set in environment
 
-Install the missing tools and try again, or update your invowkfile to remove unnecessary dependencies.
+Install the missing tools and try again, or update your invkfile to remove unnecessary dependencies.
 ```
 
 ## Command Flags
@@ -1205,7 +1205,7 @@ Reference external script files using paths:
 
 ```cue
 commands: [
-	// Relative to invowkfile location
+	// Relative to invkfile location
 	{
 		name: "deploy"
 		script: "./scripts/deploy.sh"
@@ -1227,43 +1227,43 @@ Recognized script extensions: `.sh`, `.bash`, `.ps1`, `.bat`, `.cmd`, `.py`, `.r
 
 ## Packs
 
-Packs are self-contained folders that package an invowkfile together with its associated script files for easy distribution and portability.
+Packs are self-contained folders that package an invkfile together with its associated script files for easy distribution and portability.
 
 ### What is a Pack?
 
-A pack is a directory with the `.invowkpack` suffix that contains:
-- Exactly one `invowkfile.cue` at the root
+A pack is a directory with the `.invkpack` suffix that contains:
+- Exactly one `invkfile.cue` at the root
 - Optional script files referenced by command implementations
 - No nested packs (packs cannot contain other packs)
 
 ### Pack Naming
 
 Pack folder names follow these rules:
-- Must end with `.invowkpack`
-- The prefix (before `.invowkpack`) must:
+- Must end with `.invkpack`
+- The prefix (before `.invkpack`) must:
   - Start with a letter (a-z, A-Z)
   - Contain only alphanumeric characters
   - Support dot-separated segments for namespacing
 - Compatible with RDNS (Reverse Domain Name System) naming conventions
 
 **Valid pack names:**
-- `mycommands.invowkpack`
-- `com.example.mytools.invowkpack`
-- `org.company.project.invowkpack`
-- `Utils.invowkpack`
+- `mycommands.invkpack`
+- `com.example.mytools.invkpack`
+- `org.company.project.invkpack`
+- `Utils.invkpack`
 
 **Invalid pack names:**
-- `.hidden.invowkpack` (starts with dot)
-- `my-commands.invowkpack` (contains hyphen)
-- `my_commands.invowkpack` (contains underscore)
-- `123commands.invowkpack` (starts with number)
-- `com..example.invowkpack` (empty segment)
+- `.hidden.invkpack` (starts with dot)
+- `my-commands.invkpack` (contains hyphen)
+- `my_commands.invkpack` (contains underscore)
+- `123commands.invkpack` (starts with number)
+- `com..example.invkpack` (empty segment)
 
 ### Pack Structure
 
 ```
-com.example.mytools.invowkpack/
-├── invowkfile.cue         # Required: command definitions
+com.example.mytools.invkpack/
+├── invkfile.cue         # Required: command definitions
 ├── scripts/               # Optional: script files
 │   ├── build.sh
 │   ├── deploy.sh
@@ -1275,7 +1275,7 @@ com.example.mytools.invowkpack/
 
 ### Script Paths in Packs
 
-When referencing script files in a pack's invowkfile, use paths relative to the pack root with **forward slashes** for cross-platform compatibility:
+When referencing script files in a pack's invkfile, use paths relative to the pack root with **forward slashes** for cross-platform compatibility:
 
 ```cue
 group: "mytools"
@@ -1321,16 +1321,16 @@ Use the `pack validate` command to check a pack's structure:
 
 ```bash
 # Basic validation
-invowk pack validate ./com.example.mytools.invowkpack
+invowk pack validate ./com.example.mytools.invkpack
 
-# Deep validation (also parses the invowkfile)
-invowk pack validate ./com.example.mytools.invowkpack --deep
+# Deep validation (also parses the invkfile)
+invowk pack validate ./com.example.mytools.invkpack --deep
 ```
 
 Example output for a valid pack:
 ```
 Pack Validation
-• Path: /home/user/com.example.mytools.invowkpack
+• Path: /home/user/com.example.mytools.invkpack
 • Name: com.example.mytools
 
 ✓ Pack is valid
@@ -1338,18 +1338,18 @@ Pack Validation
 ✓ Structure check passed
 ✓ Naming convention check passed
 ✓ Required files present
-✓ Invowkfile parses successfully
+✓ Invkfile parses successfully
 ```
 
 Example output for an invalid pack:
 ```
 Pack Validation
-• Path: /home/user/invalid.invowkpack
+• Path: /home/user/invalid.invkpack
 
 ✗ Pack validation failed with 2 issue(s)
 
-  1. [structure] missing required invowkfile.cue
-  2. [structure] nested.invowkpack: nested packs are not allowed
+  1. [structure] missing required invkfile.cue
+  2. [structure] nested.invkpack: nested packs are not allowed
 ```
 
 ### Creating Packs
@@ -1373,7 +1373,7 @@ invowk pack create mytools --scripts
 invowk pack create mytools --group "My Tools" --description "A collection of useful commands"
 ```
 
-The created pack will contain a template `invowkfile.cue` with a sample "hello" command.
+The created pack will contain a template `invkfile.cue` with a sample "hello" command.
 
 ### Listing Packs
 
@@ -1391,13 +1391,13 @@ Discovered Packs
 
 • current directory:
    ✓ mytools
-      /home/user/project/mytools.invowkpack
+      /home/user/project/mytools.invkpack
 
 • user commands (~/.invowk/cmds):
    ✓ com.example.utilities
-      /home/user/.invowk/cmds/com.example.utilities.invowkpack
+      /home/user/.invowk/cmds/com.example.utilities.invkpack
    ✓ org.company.tools
-      /home/user/.invowk/cmds/org.company.tools.invowkpack
+      /home/user/.invowk/cmds/org.company.tools.invkpack
 ```
 
 ### Packing Packs
@@ -1405,11 +1405,11 @@ Discovered Packs
 Use the `pack archive` command to create a ZIP archive for distribution:
 
 ```bash
-# Pack a pack (creates <pack-name>.invowkpack.zip in current directory)
-invowk pack archive ./mytools.invowkpack
+# Pack a pack (creates <pack-name>.invkpack.zip in current directory)
+invowk pack archive ./mytools.invkpack
 
 # Pack with custom output path
-invowk pack archive ./mytools.invowkpack --output ./dist/mytools.zip
+invowk pack archive ./mytools.invkpack --output ./dist/mytools.zip
 ```
 
 Example output:
@@ -1428,7 +1428,7 @@ Use the `pack import` command to install a pack from a ZIP file or URL:
 
 ```bash
 # Import from a local ZIP file (installs to ~/.invowk/cmds/)
-invowk pack import ./mytools.invowkpack.zip
+invowk pack import ./mytools.invkpack.zip
 
 # Import from a URL
 invowk pack import https://example.com/packs/mytools.zip
@@ -1447,7 +1447,7 @@ Import Pack
 ✓ Pack imported successfully
 
 • Name: mytools
-• Path: /home/user/.invowk/cmds/mytools.invowkpack
+• Path: /home/user/.invowk/cmds/mytools.invkpack
 
 • The pack commands are now available via invowk
 ```
@@ -1455,7 +1455,7 @@ Import Pack
 ### Benefits of Packs
 
 1. **Portability**: Share a complete command set as a single folder
-2. **Self-contained**: Scripts are packed with the invowkfile
+2. **Self-contained**: Scripts are packed with the invkfile
 3. **Cross-platform**: Forward slash paths work on all operating systems
 4. **Namespace isolation**: RDNS naming prevents conflicts between packs
 5. **Validation**: Built-in validation ensures pack integrity
@@ -1469,7 +1469,7 @@ Packs are automatically discovered and loaded from all invowk search paths:
 
 When invowk discovers a pack, it:
 - Validates the pack structure and naming
-- Loads the invowkfile from within the pack
+- Loads the invkfile from within the pack
 - Resolves script paths relative to the pack root
 - Makes all commands available with their group prefix
 
@@ -1599,7 +1599,7 @@ invowk config show
 container_engine = "podman"
 
 
-# Additional directories to search for invowkfiles
+# Additional directories to search for invkfiles
 search_paths = [
     "/home/user/global-commands"
 ]
@@ -1886,9 +1886,9 @@ invowk tui style --border rounded --align center --width 40 "Centered Title"
 invowk tui style --bold --foreground "#00FF00" --background "#000" "Matrix"
 ```
 
-### Using TUI in Invowkfiles
+### Using TUI in Invkfiles
 
-The TUI components can be used within invowkfile scripts to create interactive commands:
+The TUI components can be used within invkfile scripts to create interactive commands:
 
 ```cue
 group: "myproject"
@@ -1948,7 +1948,7 @@ invowk-cli/
 │   │   ├── engine.go           # Engine interface
 │   │   ├── docker.go           # Docker implementation
 │   │   └── podman.go           # Podman implementation
-│   ├── discovery/              # Invowkfile discovery
+│   ├── discovery/              # Invkfile discovery
 │   ├── issue/                  # Error types and messages
 │   ├── runtime/                # Runtime implementations
 │   │   ├── runtime.go          # Runtime interface
@@ -1969,7 +1969,7 @@ invowk-cli/
 │       └── format.go           # Format component
 ├── pkg/
 │   ├── pack/                   # Pack validation
-│   └── invowkfile/             # Invowkfile parsing
+│   └── invkfile/             # Invkfile parsing
 ```
 
 ## Dependencies

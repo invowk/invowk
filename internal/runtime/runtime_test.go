@@ -8,15 +8,15 @@ import (
 	"strings"
 	"testing"
 
-	"invowk-cli/pkg/invowkfile"
+	"invowk-cli/pkg/invkfile"
 )
 
 // testCommandWithScript creates a Command with a single script for testing
-func testCommandWithScript(name string, script string, runtime invowkfile.RuntimeMode) *invowkfile.Command {
-	return &invowkfile.Command{
+func testCommandWithScript(name string, script string, runtime invkfile.RuntimeMode) *invkfile.Command {
+	return &invkfile.Command{
 		Name: name,
-		Implementations: []invowkfile.Implementation{
-			{Script: script, Target: invowkfile.Target{Runtimes: []invowkfile.RuntimeConfig{{Name: runtime}}}},
+		Implementations: []invkfile.Implementation{
+			{Script: script, Target: invkfile.Target{Runtimes: []invkfile.RuntimeConfig{{Name: runtime}}}},
 		},
 	}
 }
@@ -26,20 +26,20 @@ func TestNativeRuntime_InlineScript(t *testing.T) {
 		t.Skip("skipping integration test in short mode")
 	}
 
-	// Create a temporary invowkfile
+	// Create a temporary invkfile
 	tmpDir, err := os.MkdirTemp("", "invowk-test-*")
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
 	defer os.RemoveAll(tmpDir)
 
-	invowkfilePath := filepath.Join(tmpDir, "invowkfile.toml")
+	invkfilePath := filepath.Join(tmpDir, "invkfile.toml")
 
-	inv := &invowkfile.Invowkfile{
-		FilePath: invowkfilePath,
+	inv := &invkfile.Invkfile{
+		FilePath: invkfilePath,
 	}
 
-	cmd := testCommandWithScript("test", "echo 'Hello from inline'", invowkfile.RuntimeNative)
+	cmd := testCommandWithScript("test", "echo 'Hello from inline'", invkfile.RuntimeNative)
 
 	rt := NewNativeRuntime()
 	ctx := NewExecutionContext(cmd, inv)
@@ -70,10 +70,10 @@ func TestNativeRuntime_MultiLineScript(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	invowkfilePath := filepath.Join(tmpDir, "invowkfile.toml")
+	invkfilePath := filepath.Join(tmpDir, "invkfile.toml")
 
-	inv := &invowkfile.Invowkfile{
-		FilePath: invowkfilePath,
+	inv := &invkfile.Invkfile{
+		FilePath: invkfilePath,
 	}
 
 	// Multi-line script
@@ -81,7 +81,7 @@ func TestNativeRuntime_MultiLineScript(t *testing.T) {
 echo "Line 2"
 echo "Line 3"`
 
-	cmd := testCommandWithScript("multiline", script, invowkfile.RuntimeNative)
+	cmd := testCommandWithScript("multiline", script, invkfile.RuntimeNative)
 
 	rt := NewNativeRuntime()
 	ctx := NewExecutionContext(cmd, inv)
@@ -121,13 +121,13 @@ echo "Hello from script file"
 		t.Fatalf("Failed to write script: %v", err)
 	}
 
-	invowkfilePath := filepath.Join(tmpDir, "invowkfile.toml")
+	invkfilePath := filepath.Join(tmpDir, "invkfile.toml")
 
-	inv := &invowkfile.Invowkfile{
-		FilePath: invowkfilePath,
+	inv := &invkfile.Invkfile{
+		FilePath: invkfilePath,
 	}
 
-	cmd := testCommandWithScript("from-file", "./test.sh", invowkfile.RuntimeNative)
+	cmd := testCommandWithScript("from-file", "./test.sh", invkfile.RuntimeNative)
 
 	rt := NewNativeRuntime()
 	ctx := NewExecutionContext(cmd, inv)
@@ -154,13 +154,13 @@ func TestVirtualRuntime_InlineScript(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	invowkfilePath := filepath.Join(tmpDir, "invowkfile.toml")
+	invkfilePath := filepath.Join(tmpDir, "invkfile.toml")
 
-	inv := &invowkfile.Invowkfile{
-		FilePath: invowkfilePath,
+	inv := &invkfile.Invkfile{
+		FilePath: invkfilePath,
 	}
 
-	cmd := testCommandWithScript("test", "echo 'Hello from virtual'", invowkfile.RuntimeVirtual)
+	cmd := testCommandWithScript("test", "echo 'Hello from virtual'", invkfile.RuntimeVirtual)
 
 	rt := NewVirtualRuntime(false)
 	ctx := NewExecutionContext(cmd, inv)
@@ -188,17 +188,17 @@ func TestVirtualRuntime_MultiLineScript(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	invowkfilePath := filepath.Join(tmpDir, "invowkfile.toml")
+	invkfilePath := filepath.Join(tmpDir, "invkfile.toml")
 
-	inv := &invowkfile.Invowkfile{
-		FilePath: invowkfilePath,
+	inv := &invkfile.Invkfile{
+		FilePath: invkfilePath,
 	}
 
 	script := `VAR="test value"
 echo "Variable is: $VAR"
 echo "Done"`
 
-	cmd := testCommandWithScript("multiline", script, invowkfile.RuntimeVirtual)
+	cmd := testCommandWithScript("multiline", script, invkfile.RuntimeVirtual)
 
 	rt := NewVirtualRuntime(false)
 	ctx := NewExecutionContext(cmd, inv)
@@ -234,13 +234,13 @@ func TestVirtualRuntime_ScriptFile(t *testing.T) {
 		t.Fatalf("Failed to write script: %v", err)
 	}
 
-	invowkfilePath := filepath.Join(tmpDir, "invowkfile.toml")
+	invkfilePath := filepath.Join(tmpDir, "invkfile.toml")
 
-	inv := &invowkfile.Invowkfile{
-		FilePath: invowkfilePath,
+	inv := &invkfile.Invkfile{
+		FilePath: invkfilePath,
 	}
 
-	cmd := testCommandWithScript("from-file", "./test.sh", invowkfile.RuntimeVirtual)
+	cmd := testCommandWithScript("from-file", "./test.sh", invkfile.RuntimeVirtual)
 
 	rt := NewVirtualRuntime(false)
 	ctx := NewExecutionContext(cmd, inv)
@@ -268,14 +268,14 @@ func TestVirtualRuntime_Validate_ScriptSyntaxError(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	invowkfilePath := filepath.Join(tmpDir, "invowkfile.toml")
+	invkfilePath := filepath.Join(tmpDir, "invkfile.toml")
 
-	inv := &invowkfile.Invowkfile{
-		FilePath: invowkfilePath,
+	inv := &invkfile.Invkfile{
+		FilePath: invkfilePath,
 	}
 
 	// Invalid shell syntax
-	cmd := testCommandWithScript("invalid", "if then fi", invowkfile.RuntimeVirtual)
+	cmd := testCommandWithScript("invalid", "if then fi", invkfile.RuntimeVirtual)
 
 	rt := NewVirtualRuntime(false)
 	ctx := NewExecutionContext(cmd, inv)
@@ -293,13 +293,13 @@ func TestRuntime_ScriptNotFound(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	invowkfilePath := filepath.Join(tmpDir, "invowkfile.toml")
+	invkfilePath := filepath.Join(tmpDir, "invkfile.toml")
 
-	inv := &invowkfile.Invowkfile{
-		FilePath: invowkfilePath,
+	inv := &invkfile.Invkfile{
+		FilePath: invkfilePath,
 	}
 
-	cmd := testCommandWithScript("missing", "./nonexistent.sh", invowkfile.RuntimeNative)
+	cmd := testCommandWithScript("missing", "./nonexistent.sh", invkfile.RuntimeNative)
 
 	t.Run("native runtime", func(t *testing.T) {
 		rt := NewNativeRuntime()
@@ -314,7 +314,7 @@ func TestRuntime_ScriptNotFound(t *testing.T) {
 	})
 
 	t.Run("virtual runtime", func(t *testing.T) {
-		cmdVirtual := testCommandWithScript("missing", "./nonexistent.sh", invowkfile.RuntimeVirtual)
+		cmdVirtual := testCommandWithScript("missing", "./nonexistent.sh", invkfile.RuntimeVirtual)
 		rt := NewVirtualRuntime(false)
 		ctx := NewExecutionContext(cmdVirtual, inv)
 		ctx.Context = context.Background()
@@ -335,21 +335,21 @@ func TestRuntime_EnvironmentVariables(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	invowkfilePath := filepath.Join(tmpDir, "invowkfile.toml")
+	invkfilePath := filepath.Join(tmpDir, "invkfile.toml")
 
-	inv := &invowkfile.Invowkfile{
-		FilePath: invowkfilePath,
+	inv := &invkfile.Invkfile{
+		FilePath: invkfilePath,
 	}
 
-	currentPlatform := invowkfile.GetCurrentHostOS()
-	cmd := &invowkfile.Command{
+	currentPlatform := invkfile.GetCurrentHostOS()
+	cmd := &invkfile.Command{
 		Name: "env-test",
-		Implementations: []invowkfile.Implementation{
+		Implementations: []invkfile.Implementation{
 			{
 				Script: `echo "Global: $GLOBAL_VAR, Command: $CMD_VAR"`,
-				Target: invowkfile.Target{
-					Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeVirtual}},
-					Platforms: []invowkfile.PlatformConfig{{Name: currentPlatform, Env: map[string]string{"GLOBAL_VAR": "global_value"}}},
+				Target: invkfile.Target{
+					Runtimes:  []invkfile.RuntimeConfig{{Name: invkfile.RuntimeVirtual}},
+					Platforms: []invkfile.PlatformConfig{{Name: currentPlatform, Env: map[string]string{"GLOBAL_VAR": "global_value"}}},
 				},
 			},
 		},
@@ -391,15 +391,15 @@ func TestNativeRuntime_PositionalArgs(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	invowkfilePath := filepath.Join(tmpDir, "invowkfile.toml")
-	inv := &invowkfile.Invowkfile{
-		FilePath: invowkfilePath,
+	invkfilePath := filepath.Join(tmpDir, "invkfile.toml")
+	inv := &invkfile.Invkfile{
+		FilePath: invkfilePath,
 	}
 
 	// Script that echoes positional parameters
 	script := `echo "arg1=$1 arg2=$2 all=$@"`
 
-	cmd := testCommandWithScript("positional", script, invowkfile.RuntimeNative)
+	cmd := testCommandWithScript("positional", script, invkfile.RuntimeNative)
 
 	rt := NewNativeRuntime()
 	ctx := NewExecutionContext(cmd, inv)
@@ -437,15 +437,15 @@ func TestNativeRuntime_PositionalArgs_Empty(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	invowkfilePath := filepath.Join(tmpDir, "invowkfile.toml")
-	inv := &invowkfile.Invowkfile{
-		FilePath: invowkfilePath,
+	invkfilePath := filepath.Join(tmpDir, "invkfile.toml")
+	inv := &invkfile.Invkfile{
+		FilePath: invkfilePath,
 	}
 
 	// Script that echoes the number of positional parameters
 	script := `echo "argc=$#"`
 
-	cmd := testCommandWithScript("no-args", script, invowkfile.RuntimeNative)
+	cmd := testCommandWithScript("no-args", script, invkfile.RuntimeNative)
 
 	rt := NewNativeRuntime()
 	ctx := NewExecutionContext(cmd, inv)
@@ -473,15 +473,15 @@ func TestVirtualRuntime_PositionalArgs(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	invowkfilePath := filepath.Join(tmpDir, "invowkfile.toml")
-	inv := &invowkfile.Invowkfile{
-		FilePath: invowkfilePath,
+	invkfilePath := filepath.Join(tmpDir, "invkfile.toml")
+	inv := &invkfile.Invkfile{
+		FilePath: invkfilePath,
 	}
 
 	// Script that echoes positional parameters
 	script := `echo "arg1=$1 arg2=$2 all=$@"`
 
-	cmd := testCommandWithScript("positional", script, invowkfile.RuntimeVirtual)
+	cmd := testCommandWithScript("positional", script, invkfile.RuntimeVirtual)
 
 	rt := NewVirtualRuntime(false)
 	ctx := NewExecutionContext(cmd, inv)
@@ -516,15 +516,15 @@ func TestVirtualRuntime_PositionalArgs_ArgCount(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	invowkfilePath := filepath.Join(tmpDir, "invowkfile.toml")
-	inv := &invowkfile.Invowkfile{
-		FilePath: invowkfilePath,
+	invkfilePath := filepath.Join(tmpDir, "invkfile.toml")
+	inv := &invkfile.Invkfile{
+		FilePath: invkfilePath,
 	}
 
 	// Script that echoes the number of positional parameters
 	script := `echo "count=$#"`
 
-	cmd := testCommandWithScript("arg-count", script, invowkfile.RuntimeVirtual)
+	cmd := testCommandWithScript("arg-count", script, invkfile.RuntimeVirtual)
 
 	rt := NewVirtualRuntime(false)
 	ctx := NewExecutionContext(cmd, inv)
@@ -553,15 +553,15 @@ func TestVirtualRuntime_PositionalArgs_Empty(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	invowkfilePath := filepath.Join(tmpDir, "invowkfile.toml")
-	inv := &invowkfile.Invowkfile{
-		FilePath: invowkfilePath,
+	invkfilePath := filepath.Join(tmpDir, "invkfile.toml")
+	inv := &invkfile.Invkfile{
+		FilePath: invkfilePath,
 	}
 
 	// Script that echoes the number of positional parameters
 	script := `echo "argc=$#"`
 
-	cmd := testCommandWithScript("no-args", script, invowkfile.RuntimeVirtual)
+	cmd := testCommandWithScript("no-args", script, invkfile.RuntimeVirtual)
 
 	rt := NewVirtualRuntime(false)
 	ctx := NewExecutionContext(cmd, inv)
@@ -594,15 +594,15 @@ func TestNativeRuntime_PositionalArgs_SpecialChars(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	invowkfilePath := filepath.Join(tmpDir, "invowkfile.toml")
-	inv := &invowkfile.Invowkfile{
-		FilePath: invowkfilePath,
+	invkfilePath := filepath.Join(tmpDir, "invkfile.toml")
+	inv := &invkfile.Invkfile{
+		FilePath: invkfilePath,
 	}
 
 	// Script that echoes the first positional parameter
 	script := `echo "arg1=$1"`
 
-	cmd := testCommandWithScript("special-chars", script, invowkfile.RuntimeNative)
+	cmd := testCommandWithScript("special-chars", script, invkfile.RuntimeNative)
 
 	rt := NewNativeRuntime()
 	ctx := NewExecutionContext(cmd, inv)
@@ -847,9 +847,9 @@ func TestNativeRuntime_EnvIsolation(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	invowkfilePath := filepath.Join(tmpDir, "invowkfile.toml")
-	inv := &invowkfile.Invowkfile{
-		FilePath: invowkfilePath,
+	invkfilePath := filepath.Join(tmpDir, "invkfile.toml")
+	inv := &invkfile.Invkfile{
+		FilePath: invkfilePath,
 	}
 
 	// Set environment variables that should be filtered
@@ -870,7 +870,7 @@ echo "INVOWK_FLAG_PARENT=${INVOWK_FLAG_PARENT:-unset}"
 echo "ARGC=${ARGC:-unset}"
 echo "ARG1=${ARG1:-unset}"`
 
-	cmd := testCommandWithScript("env-isolation", script, invowkfile.RuntimeNative)
+	cmd := testCommandWithScript("env-isolation", script, invkfile.RuntimeNative)
 
 	rt := NewNativeRuntime()
 	ctx := NewExecutionContext(cmd, inv)
@@ -907,9 +907,9 @@ func TestVirtualRuntime_EnvIsolation(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	invowkfilePath := filepath.Join(tmpDir, "invowkfile.toml")
-	inv := &invowkfile.Invowkfile{
-		FilePath: invowkfilePath,
+	invkfilePath := filepath.Join(tmpDir, "invkfile.toml")
+	inv := &invkfile.Invkfile{
+		FilePath: invkfilePath,
 	}
 
 	// Set environment variables that should be filtered
@@ -930,7 +930,7 @@ echo "INVOWK_FLAG_PARENT=${INVOWK_FLAG_PARENT:-unset}"
 echo "ARGC=${ARGC:-unset}"
 echo "ARG1=${ARG1:-unset}"`
 
-	cmd := testCommandWithScript("env-isolation", script, invowkfile.RuntimeVirtual)
+	cmd := testCommandWithScript("env-isolation", script, invkfile.RuntimeVirtual)
 
 	rt := NewVirtualRuntime(false)
 	ctx := NewExecutionContext(cmd, inv)

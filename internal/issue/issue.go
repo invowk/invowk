@@ -11,8 +11,8 @@ type Id int
 const (
 	FileNotFoundId Id = iota + 1
 	TuiServerStartFailedId
-	InvowkfileNotFoundId
-	InvowkfileParseErrorId
+	InvkfileNotFoundId
+	InvkfileParseErrorId
 	CommandNotFoundId
 	RuntimeNotAvailableId
 	ContainerEngineNotFoundId
@@ -90,12 +90,12 @@ $ invowk fix
     and try again what you doing before.`,
 	}
 
-	invowkfileNotFoundIssue = &Issue{
-		id: InvowkfileNotFoundId,
+	invkfileNotFoundIssue = &Issue{
+		id: InvkfileNotFoundId,
 		mdMsg: `
-# No invowkfile found!
+# No invkfile found!
 
-We searched for an invowkfile but couldn't find one in the expected locations.
+We searched for an invkfile but couldn't find one in the expected locations.
 
 ## Search locations (in order of precedence):
 1. Current directory
@@ -103,7 +103,7 @@ We searched for an invowkfile but couldn't find one in the expected locations.
 3. Paths configured in your config file
 
 ## Things you can try:
-- Create an invowkfile in your current directory:
+- Create an invkfile in your current directory:
 ~~~
 $ invowk init
 ~~~
@@ -114,7 +114,7 @@ $ cd /path/to/your/project
 $ invowk cmd list
 ~~~
 
-## Example invowkfile structure:
+## Example invkfile structure:
 ~~~cue
 version: "1.0"
 description: "My project commands"
@@ -134,12 +134,12 @@ commands: [
 ~~~`,
 	}
 
-	invowkfileParseErrorIssue = &Issue{
-		id: InvowkfileParseErrorId,
+	invkfileParseErrorIssue = &Issue{
+		id: InvkfileParseErrorId,
 		mdMsg: `
-# Failed to parse invowkfile!
+# Failed to parse invkfile!
 
-Your invowkfile contains syntax errors or invalid configuration.
+Your invkfile contains syntax errors or invalid configuration.
 
 ## Common issues:
 - Invalid CUE syntax (missing quotes, braces, etc.)
@@ -173,7 +173,7 @@ go build ./...
 		mdMsg: `
 # Command not found!
 
-The command you specified was not found in any of the available invowkfiles.
+The command you specified was not found in any of the available invkfiles.
 
 ## Things you can try:
 - List all available commands:
@@ -182,7 +182,7 @@ $ invowk cmd list
 ~~~
 
 - Check for typos in the command name
-- Verify the invowkfile contains your command definition
+- Verify the invkfile contains your command definition
 - Use tab completion:
 ~~~
 $ invowk cmd <TAB>
@@ -202,7 +202,7 @@ The specified runtime mode is not available on your system.
 - **container**: Runs commands inside a Docker/Podman container
 
 ## Things you can try:
-- Change the runtime in your invowkfile:
+- Change the runtime in your invkfile:
 ~~~toml
 default_runtime = "native"
 ~~~
@@ -255,14 +255,14 @@ container_engine = "podman"  # or "docker"
 The 'container' runtime requires a Dockerfile to build the execution environment.
 
 ## Things you can try:
-- Create a Dockerfile in the same directory as your invowkfile:
+- Create a Dockerfile in the same directory as your invkfile:
 ~~~dockerfile
 FROM alpine:latest
 RUN apk add --no-cache bash coreutils
 WORKDIR /workspace
 ~~~
 
-- Or specify a Dockerfile path in your invowkfile:
+- Or specify a Dockerfile path in your invkfile:
 ~~~toml
 [container]
 dockerfile = "path/to/Dockerfile"
@@ -379,7 +379,7 @@ depends_on = ["a"]  # Cycle: a -> b -> a
 ~~~
 
 ## Things you can try:
-- Review the depends_on fields in your invowkfile
+- Review the depends_on fields in your invkfile
 - Remove the circular dependency
 - Use a linear dependency chain instead`,
 	}
@@ -438,7 +438,7 @@ The command cannot run because some dependencies are not available.
 - Install the missing tools listed above
 - Check that the tools are in your PATH
 - Run the required commands before this one
-- Update your invowkfile to remove unnecessary dependencies`,
+- Update your invkfile to remove unnecessary dependencies`,
 	}
 
 	hostNotSupportedIssue = &Issue{
@@ -449,15 +449,15 @@ The command cannot run because some dependencies are not available.
 This command cannot run on your current operating system.
 
 ## Things you can try:
-- Check the command's 'works_on.hosts' setting in your invowkfile
+- Check the command's 'works_on.hosts' setting in your invkfile
 - Run this command on a supported operating system
 - Use a container runtime to run the command on a different OS`,
 	}
 
 	issues = map[Id]*Issue{
 		fileNotFoundIssue.Id():             fileNotFoundIssue,
-		invowkfileNotFoundIssue.Id():       invowkfileNotFoundIssue,
-		invowkfileParseErrorIssue.Id():     invowkfileParseErrorIssue,
+		invkfileNotFoundIssue.Id():         invkfileNotFoundIssue,
+		invkfileParseErrorIssue.Id():       invkfileParseErrorIssue,
 		commandNotFoundIssue.Id():          commandNotFoundIssue,
 		runtimeNotAvailableIssue.Id():      runtimeNotAvailableIssue,
 		containerEngineNotFoundIssue.Id():  containerEngineNotFoundIssue,

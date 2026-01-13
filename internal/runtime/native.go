@@ -9,7 +9,7 @@ import (
 	"runtime"
 	"strings"
 
-	"invowk-cli/pkg/invowkfile"
+	"invowk-cli/pkg/invkfile"
 )
 
 // NativeRuntime executes commands using the system's default shell
@@ -55,7 +55,7 @@ func (r *NativeRuntime) Execute(ctx *ExecutionContext) *Result {
 	}
 
 	// Resolve the script content (from file or inline)
-	script, err := ctx.SelectedImpl.ResolveScript(ctx.Invowkfile.FilePath)
+	script, err := ctx.SelectedImpl.ResolveScript(ctx.Invkfile.FilePath)
 	if err != nil {
 		return &Result{ExitCode: 1, Error: err}
 	}
@@ -103,7 +103,7 @@ func (r *NativeRuntime) ExecuteCapture(ctx *ExecutionContext) *Result {
 	}
 
 	// Resolve the script content (from file or inline)
-	script, err := ctx.SelectedImpl.ResolveScript(ctx.Invowkfile.FilePath)
+	script, err := ctx.SelectedImpl.ResolveScript(ctx.Invkfile.FilePath)
 	if err != nil {
 		return &Result{ExitCode: 1, Error: err}
 	}
@@ -205,14 +205,14 @@ func (r *NativeRuntime) getWorkDir(ctx *ExecutionContext) string {
 		return ctx.WorkDir
 	}
 	if ctx.Command.WorkDir != "" {
-		// Resolve relative to invowkfile location
+		// Resolve relative to invkfile location
 		if !filepath.IsAbs(ctx.Command.WorkDir) {
-			return filepath.Join(filepath.Dir(ctx.Invowkfile.FilePath), ctx.Command.WorkDir)
+			return filepath.Join(filepath.Dir(ctx.Invkfile.FilePath), ctx.Command.WorkDir)
 		}
 		return ctx.Command.WorkDir
 	}
-	// Default to invowkfile directory
-	return filepath.Dir(ctx.Invowkfile.FilePath)
+	// Default to invkfile directory
+	return filepath.Dir(ctx.Invkfile.FilePath)
 }
 
 // buildEnv builds the environment for the command
@@ -220,7 +220,7 @@ func (r *NativeRuntime) buildEnv(ctx *ExecutionContext) map[string]string {
 	env := make(map[string]string)
 
 	// Platform-level env from the selected implementation
-	currentPlatform := invowkfile.GetCurrentHostOS()
+	currentPlatform := invkfile.GetCurrentHostOS()
 	for _, p := range ctx.SelectedImpl.Target.Platforms {
 		if p.Name == currentPlatform {
 			for k, v := range p.Env {

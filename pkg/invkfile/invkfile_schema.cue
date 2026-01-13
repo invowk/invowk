@@ -1,5 +1,5 @@
-// invowkfile_schema.cue - Schema definitions for invowkfile
-// This file defines the structure, types, and constraints for invowkfiles.
+// invkfile_schema.cue - Schema definitions for invkfile
+// This file defines the structure, types, and constraints for invkfiles.
 // This schema is embedded in the invowk binary for validation.
 
 // RuntimeType defines the available execution runtime types
@@ -25,7 +25,7 @@
 		// Default: false
 		enable_host_ssh?: bool
 
-		// containerfile specifies the path to Containerfile/Dockerfile relative to invowkfile (optional)
+		// containerfile specifies the path to Containerfile/Dockerfile relative to invkfile (optional)
 		// Used to build a container image for command execution
 		// Mutually exclusive with 'image'
 		containerfile?: string
@@ -131,7 +131,7 @@
 	// If any of the provided paths exists and satisfies the permission requirements,
 	// the validation succeeds (early return). This allows specifying multiple
 	// possible locations for a file (e.g., different paths on different systems).
-	// Paths can be absolute or relative to the invowkfile location.
+	// Paths can be absolute or relative to the invkfile location.
 	alternatives: [...string & !=""] & [_, ...]
 
 	// readable checks if the path is readable (optional, default: false)
@@ -310,7 +310,7 @@
 	env?: [string]: string
 
 	// workdir specifies the working directory for command execution (optional)
-	// Can be absolute or relative to the invowkfile location
+	// Can be absolute or relative to the invkfile location
 	workdir?: string
 
 	// depends_on specifies dependencies that must be satisfied before running (optional)
@@ -330,19 +330,19 @@
 	args?: [...#Argument]
 }
 
-// Invowkfile is the root schema for an invowkfile
-#Invowkfile: {
-	// group is a mandatory prefix for all command names from this invowkfile
+// Invkfile is the root schema for an invkfile
+#Invkfile: {
+	// group is a mandatory prefix for all command names from this invkfile
 	// Must start with a letter, contain only alphanumeric characters, with optional
 	// dot-separated segments (e.g., "mygroup", "my.group", "my.nested.group")
 	// Cannot start or end with a dot, and cannot have consecutive dots
 	group: string & =~"^[a-zA-Z][a-zA-Z0-9]*(\\.[a-zA-Z][a-zA-Z0-9]*)*$"
 
-	// version specifies the invowkfile schema version (optional but recommended)
+	// version specifies the invkfile schema version (optional but recommended)
 	// Current version: "1.0"
 	version?: string & =~"^[0-9]+\\.[0-9]+$"
 
-	// description provides a summary of this invowkfile's purpose (optional)
+	// description provides a summary of this invkfile's purpose (optional)
 	description?: string
 
 	// default_shell overrides the default shell for native runtime (optional)
@@ -354,5 +354,5 @@
 }
 
 // Example usage with the cue command-line tool:
-//   cue vet invowkfile.cue invowkfile_schema.cue -d '#Invowkfile'
+//   cue vet invkfile.cue invkfile_schema.cue -d '#Invkfile'
 

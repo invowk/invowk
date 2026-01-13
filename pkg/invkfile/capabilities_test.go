@@ -1,4 +1,4 @@
-package invowkfile
+package invkfile
 
 import (
 	"testing"

@@ -7,15 +7,15 @@ import (
 	"io"
 	"os"
 
-	"invowk-cli/pkg/invowkfile"
+	"invowk-cli/pkg/invkfile"
 )
 
 // ExecutionContext contains all information needed to execute a command
 type ExecutionContext struct {
 	// Command is the command to execute
-	Command *invowkfile.Command
-	// Invowkfile is the parent invowkfile
-	Invowkfile *invowkfile.Invowkfile
+	Command *invkfile.Command
+	// Invkfile is the parent invkfile
+	Invkfile *invkfile.Invkfile
 	// Context is the Go context for cancellation
 	Context context.Context
 	// Stdout is where to write standard output
@@ -31,22 +31,22 @@ type ExecutionContext struct {
 	// Verbose enables verbose output
 	Verbose bool
 	// SelectedRuntime is the runtime to use for execution (may differ from default)
-	SelectedRuntime invowkfile.RuntimeMode
+	SelectedRuntime invkfile.RuntimeMode
 	// SelectedImpl is the implementation to execute (based on platform and runtime)
-	SelectedImpl *invowkfile.Implementation
+	SelectedImpl *invkfile.Implementation
 	// PositionalArgs contains command-line arguments to pass as shell positional parameters ($1, $2, etc.)
 	PositionalArgs []string
 }
 
 // NewExecutionContext creates a new execution context with defaults
-func NewExecutionContext(cmd *invowkfile.Command, inv *invowkfile.Invowkfile) *ExecutionContext {
-	currentPlatform := invowkfile.GetCurrentHostOS()
+func NewExecutionContext(cmd *invkfile.Command, inv *invkfile.Invkfile) *ExecutionContext {
+	currentPlatform := invkfile.GetCurrentHostOS()
 	defaultRuntime := cmd.GetDefaultRuntimeForPlatform(currentPlatform)
 	defaultScript := cmd.GetImplForPlatformRuntime(currentPlatform, defaultRuntime)
 
 	return &ExecutionContext{
 		Command:         cmd,
-		Invowkfile:      inv,
+		Invkfile:        inv,
 		Context:         context.Background(),
 		Stdout:          os.Stdout,
 		Stderr:          os.Stderr,
@@ -123,8 +123,8 @@ func (r *Registry) Get(typ RuntimeType) (Runtime, error) {
 
 // GetForCommand returns the appropriate runtime for a command based on its default runtime for current platform
 // Deprecated: Use GetForContext instead for proper runtime selection
-func (r *Registry) GetForCommand(cmd *invowkfile.Command) (Runtime, error) {
-	currentPlatform := invowkfile.GetCurrentHostOS()
+func (r *Registry) GetForCommand(cmd *invkfile.Command) (Runtime, error) {
+	currentPlatform := invkfile.GetCurrentHostOS()
 	typ := RuntimeType(cmd.GetDefaultRuntimeForPlatform(currentPlatform))
 	return r.Get(typ)
 }

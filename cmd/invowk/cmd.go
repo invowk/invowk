@@ -18,7 +18,7 @@ import (
 	"invowk-cli/internal/issue"
 	"invowk-cli/internal/runtime"
 	"invowk-cli/internal/sshserver"
-	"invowk-cli/pkg/invowkfile"
+	"invowk-cli/pkg/invkfile"
 )
 
 var (
@@ -36,8 +36,8 @@ var listFlag bool
 // cmdCmd is the parent command for all discovered commands
 var cmdCmd = &cobra.Command{
 	Use:   "cmd [command-name]",
-	Short: "Execute commands from invowkfiles",
-	Long: `Execute commands defined in invowkfiles.
+	Short: "Execute commands from invkfiles",
+	Long: `Execute commands defined in invkfiles.
 
 Commands are discovered from:
   1. Current directory (highest priority)
@@ -153,19 +153,19 @@ func registerDiscoveredCommands() {
 							var val string
 							var err error
 							switch flag.GetType() {
-							case invowkfile.FlagTypeBool:
+							case invkfile.FlagTypeBool:
 								var boolVal bool
 								boolVal, err = cmd.Flags().GetBool(flag.Name)
 								if err == nil {
 									val = fmt.Sprintf("%t", boolVal)
 								}
-							case invowkfile.FlagTypeInt:
+							case invkfile.FlagTypeInt:
 								var intVal int
 								intVal, err = cmd.Flags().GetInt(flag.Name)
 								if err == nil {
 									val = fmt.Sprintf("%d", intVal)
 								}
-							case invowkfile.FlagTypeFloat:
+							case invkfile.FlagTypeFloat:
 								var floatVal float64
 								floatVal, err = cmd.Flags().GetFloat64(flag.Name)
 								if err == nil {
@@ -191,14 +191,14 @@ func registerDiscoveredCommands() {
 				// Add flags defined in the command with proper types and short aliases
 				for _, flag := range cmdFlags {
 					switch flag.GetType() {
-					case invowkfile.FlagTypeBool:
+					case invkfile.FlagTypeBool:
 						defaultVal := flag.DefaultValue == "true"
 						if flag.Short != "" {
 							newCmd.Flags().BoolP(flag.Name, flag.Short, defaultVal, flag.Description)
 						} else {
 							newCmd.Flags().Bool(flag.Name, defaultVal, flag.Description)
 						}
-					case invowkfile.FlagTypeInt:
+					case invkfile.FlagTypeInt:
 						defaultVal := 0
 						if flag.DefaultValue != "" {
 							fmt.Sscanf(flag.DefaultValue, "%d", &defaultVal)
@@ -208,7 +208,7 @@ func registerDiscoveredCommands() {
 						} else {
 							newCmd.Flags().Int(flag.Name, defaultVal, flag.Description)
 						}
-					case invowkfile.FlagTypeFloat:
+					case invkfile.FlagTypeFloat:
 						defaultVal := 0.0
 						if flag.DefaultValue != "" {
 							fmt.Sscanf(flag.DefaultValue, "%f", &defaultVal)
@@ -249,7 +249,7 @@ func registerDiscoveredCommands() {
 }
 
 // buildCommandUsageString builds the Cobra Use string including argument placeholders
-func buildCommandUsageString(cmdPart string, args []invowkfile.Argument) string {
+func buildCommandUsageString(cmdPart string, args []invkfile.Argument) string {
 	if len(args) == 0 {
 		return cmdPart
 	}
@@ -277,7 +277,7 @@ func buildCommandUsageString(cmdPart string, args []invowkfile.Argument) string 
 }
 
 // buildArgsDocumentation builds the documentation string for arguments
-func buildArgsDocumentation(args []invowkfile.Argument) string {
+func buildArgsDocumentation(args []invkfile.Argument) string {
 	var lines []string
 	for _, arg := range args {
 		var status string
@@ -290,7 +290,7 @@ func buildArgsDocumentation(args []invowkfile.Argument) string {
 		}
 
 		var typeInfo string
-		if arg.Type != "" && arg.Type != invowkfile.ArgumentTypeString {
+		if arg.Type != "" && arg.Type != invkfile.ArgumentTypeString {
 			typeInfo = fmt.Sprintf(" [%s]", arg.Type)
 		}
 
@@ -305,7 +305,7 @@ func buildArgsDocumentation(args []invowkfile.Argument) string {
 }
 
 // buildCobraArgsValidator creates a Cobra Args validator function for the given argument definitions
-func buildCobraArgsValidator(argDefs []invowkfile.Argument) cobra.PositionalArgs {
+func buildCobraArgsValidator(argDefs []invkfile.Argument) cobra.PositionalArgs {
 	if len(argDefs) == 0 {
 		return cobra.ArbitraryArgs // Backward compatible: allow any args if none defined
 	}
@@ -459,7 +459,7 @@ func listCommands() error {
 	// First load all files to check for parsing errors
 	files, err := disc.LoadAll()
 	if err != nil {
-		rendered, _ := issue.Get(issue.InvowkfileNotFoundId).Render("dark")
+		rendered, _ := issue.Get(issue.InvkfileNotFoundId).Render("dark")
 		fmt.Fprint(os.Stderr, rendered)
 		return err
 	}
@@ -473,13 +473,13 @@ func listCommands() error {
 
 	commands, err := disc.DiscoverCommands()
 	if err != nil {
-		rendered, _ := issue.Get(issue.InvowkfileNotFoundId).Render("dark")
+		rendered, _ := issue.Get(issue.InvkfileNotFoundId).Render("dark")
 		fmt.Fprint(os.Stderr, rendered)
 		return err
 	}
 
 	if len(commands) == 0 {
-		rendered, _ := issue.Get(issue.InvowkfileNotFoundId).Render("dark")
+		rendered, _ := issue.Get(issue.InvkfileNotFoundId).Render("dark")
 		fmt.Fprint(os.Stderr, rendered)
 		return fmt.Errorf("no commands found")
 	}
@@ -518,7 +518,7 @@ func listCommands() error {
 				line += fmt.Sprintf(" - %s", descStyle.Render(cmd.Description))
 			}
 			// Show runtimes with default highlighted for current platform
-			currentPlatform := invowkfile.GetCurrentHostOS()
+			currentPlatform := invkfile.GetCurrentHostOS()
 			runtimesStr := cmd.Command.GetRuntimesStringForPlatform(currentPlatform)
 			if runtimesStr != "" {
 				line += " [" + defaultRuntimeStyle.Render(runtimesStr) + "]"
@@ -540,7 +540,7 @@ func listCommands() error {
 // flagValues is a map of flag name -> value.
 // flagDefs contains the flag definitions for runtime validation (can be nil for legacy calls).
 // argDefs contains the argument definitions for setting INVOWK_ARG_* env vars (can be nil for legacy calls).
-func runCommandWithFlags(cmdName string, args []string, flagValues map[string]string, flagDefs []invowkfile.Flag, argDefs []invowkfile.Argument) error {
+func runCommandWithFlags(cmdName string, args []string, flagValues map[string]string, flagDefs []invkfile.Flag, argDefs []invkfile.Argument) error {
 	cfg := config.Get()
 	disc := discovery.New(cfg)
 
@@ -558,7 +558,7 @@ func runCommandWithFlags(cmdName string, args []string, flagValues map[string]st
 	}
 
 	// Get the current platform
-	currentPlatform := invowkfile.GetCurrentHostOS()
+	currentPlatform := invkfile.GetCurrentHostOS()
 
 	// Validate host OS compatibility
 	if !cmdInfo.Command.CanRunOnCurrentHost() {
@@ -570,10 +570,10 @@ func runCommandWithFlags(cmdName string, args []string, flagValues map[string]st
 	}
 
 	// Determine which runtime to use
-	var selectedRuntime invowkfile.RuntimeMode
+	var selectedRuntime invkfile.RuntimeMode
 	if runtimeOverride != "" {
 		// Validate that the overridden runtime is allowed for this platform
-		overrideRuntime := invowkfile.RuntimeMode(runtimeOverride)
+		overrideRuntime := invkfile.RuntimeMode(runtimeOverride)
 		if !cmdInfo.Command.IsRuntimeAllowedForPlatform(currentPlatform, overrideRuntime) {
 			allowedRuntimes := cmdInfo.Command.GetAllowedRuntimesForPlatform(currentPlatform)
 			allowedStr := make([]string, len(allowedRuntimes))
@@ -611,7 +611,7 @@ func runCommandWithFlags(cmdName string, args []string, flagValues map[string]st
 	}
 
 	// Create execution context
-	ctx := runtime.NewExecutionContext(cmdInfo.Command, cmdInfo.Invowkfile)
+	ctx := runtime.NewExecutionContext(cmdInfo.Command, cmdInfo.Invkfile)
 	ctx.Verbose = verbose
 	ctx.SelectedRuntime = selectedRuntime
 	ctx.SelectedImpl = script
@@ -778,7 +778,7 @@ func stopSSHServer() {
 // - container: validated against the container's default shell from within the container
 func executeDependencies(cmdInfo *discovery.CommandInfo, registry *runtime.Registry, parentCtx *runtime.ExecutionContext) error {
 	// Merge command-level and script-level dependencies
-	mergedDeps := invowkfile.MergeDependsOn(cmdInfo.Command.DependsOn, parentCtx.SelectedImpl.DependsOn)
+	mergedDeps := invkfile.MergeDependsOn(cmdInfo.Command.DependsOn, parentCtx.SelectedImpl.DependsOn)
 
 	if mergedDeps == nil {
 		return nil
@@ -800,7 +800,7 @@ func executeDependencies(cmdInfo *discovery.CommandInfo, registry *runtime.Regis
 	}
 
 	// Then check filepath dependencies (runtime-aware)
-	if err := checkFilepathDependenciesWithRuntime(mergedDeps, cmdInfo.Invowkfile.FilePath, selectedRuntime, registry, parentCtx); err != nil {
+	if err := checkFilepathDependenciesWithRuntime(mergedDeps, cmdInfo.Invkfile.FilePath, selectedRuntime, registry, parentCtx); err != nil {
 		return err
 	}
 
@@ -843,7 +843,7 @@ func executeDependencies(cmdInfo *discovery.CommandInfo, registry *runtime.Regis
 // - virtual: check against built-in utilities
 // - container: check within the container environment
 // Each ToolDependency has alternatives with OR semantics (any alternative found satisfies the dependency)
-func checkToolDependenciesWithRuntime(deps *invowkfile.DependsOn, runtimeMode invowkfile.RuntimeMode, registry *runtime.Registry, ctx *runtime.ExecutionContext) error {
+func checkToolDependenciesWithRuntime(deps *invkfile.DependsOn, runtimeMode invkfile.RuntimeMode, registry *runtime.Registry, ctx *runtime.ExecutionContext) error {
 	if deps == nil || len(deps.Tools) == 0 {
 		return nil
 	}
@@ -857,9 +857,9 @@ func checkToolDependenciesWithRuntime(deps *invowkfile.DependsOn, runtimeMode in
 		for _, alt := range tool.Alternatives {
 			var err error
 			switch runtimeMode {
-			case invowkfile.RuntimeContainer:
+			case invkfile.RuntimeContainer:
 				err = validateToolInContainer(alt, registry, ctx)
-			case invowkfile.RuntimeVirtual:
+			case invkfile.RuntimeVirtual:
 				err = validateToolInVirtual(alt, registry, ctx)
 			default: // native
 				err = validateToolNative(alt)
@@ -915,9 +915,9 @@ func validateToolInVirtual(toolName string, registry *runtime.Registry, ctx *run
 	var stdout, stderr bytes.Buffer
 	validationCtx := &runtime.ExecutionContext{
 		Command:         ctx.Command,
-		Invowkfile:      ctx.Invowkfile,
-		SelectedImpl:    &invowkfile.Implementation{Script: checkScript, Target: invowkfile.Target{Runtimes: []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeVirtual}}}},
-		SelectedRuntime: invowkfile.RuntimeVirtual,
+		Invkfile:        ctx.Invkfile,
+		SelectedImpl:    &invkfile.Implementation{Script: checkScript, Target: invkfile.Target{Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeVirtual}}}},
+		SelectedRuntime: invkfile.RuntimeVirtual,
 		Stdout:          &stdout,
 		Stderr:          &stderr,
 		Context:         ctx.Context,
@@ -947,9 +947,9 @@ func validateToolInContainer(toolName string, registry *runtime.Registry, ctx *r
 	var stdout, stderr bytes.Buffer
 	validationCtx := &runtime.ExecutionContext{
 		Command:         ctx.Command,
-		Invowkfile:      ctx.Invowkfile,
-		SelectedImpl:    &invowkfile.Implementation{Script: checkScript, Target: invowkfile.Target{Runtimes: []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeContainer}}}},
-		SelectedRuntime: invowkfile.RuntimeContainer,
+		Invkfile:        ctx.Invkfile,
+		SelectedImpl:    &invkfile.Implementation{Script: checkScript, Target: invkfile.Target{Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeContainer}}}},
+		SelectedRuntime: invkfile.RuntimeContainer,
 		Stdout:          &stdout,
 		Stderr:          &stderr,
 		Context:         ctx.Context,
@@ -965,7 +965,7 @@ func validateToolInContainer(toolName string, registry *runtime.Registry, ctx *r
 }
 
 // validateCustomCheckOutput validates custom check script output against expected values
-func validateCustomCheckOutput(check invowkfile.CustomCheck, outputStr string, execErr error) error {
+func validateCustomCheckOutput(check invkfile.CustomCheck, outputStr string, execErr error) error {
 	// Determine expected exit code (default: 0)
 	expectedCode := 0
 	if check.ExpectedCode != nil {
@@ -1008,7 +1008,7 @@ func validateCustomCheckOutput(check invowkfile.CustomCheck, outputStr string, e
 // - container: executed within the container environment
 // Each CustomCheckDependency can be either a direct check or a list of alternatives.
 // For alternatives, OR semantics are used (early return on first passing check).
-func checkCustomCheckDependencies(deps *invowkfile.DependsOn, runtimeMode invowkfile.RuntimeMode, registry *runtime.Registry, ctx *runtime.ExecutionContext) error {
+func checkCustomCheckDependencies(deps *invkfile.DependsOn, runtimeMode invkfile.RuntimeMode, registry *runtime.Registry, ctx *runtime.ExecutionContext) error {
 	if deps == nil || len(deps.CustomChecks) == 0 {
 		return nil
 	}
@@ -1023,9 +1023,9 @@ func checkCustomCheckDependencies(deps *invowkfile.DependsOn, runtimeMode invowk
 		for _, check := range checks {
 			var err error
 			switch runtimeMode {
-			case invowkfile.RuntimeContainer:
+			case invkfile.RuntimeContainer:
 				err = validateCustomCheckInContainer(check, registry, ctx)
-			case invowkfile.RuntimeVirtual:
+			case invkfile.RuntimeVirtual:
 				err = validateCustomCheckInVirtual(check, registry, ctx)
 			default: // native
 				err = validateCustomCheckNative(check)
@@ -1062,7 +1062,7 @@ func checkCustomCheckDependencies(deps *invowkfile.DependsOn, runtimeMode invowk
 }
 
 // validateCustomCheckNative runs a custom check script using the native shell
-func validateCustomCheckNative(check invowkfile.CustomCheck) error {
+func validateCustomCheckNative(check invkfile.CustomCheck) error {
 	cmd := exec.Command("sh", "-c", check.CheckScript)
 	output, err := cmd.CombinedOutput()
 	outputStr := strings.TrimSpace(string(output))
@@ -1071,7 +1071,7 @@ func validateCustomCheckNative(check invowkfile.CustomCheck) error {
 }
 
 // validateCustomCheckInVirtual runs a custom check script using the virtual runtime
-func validateCustomCheckInVirtual(check invowkfile.CustomCheck, registry *runtime.Registry, ctx *runtime.ExecutionContext) error {
+func validateCustomCheckInVirtual(check invkfile.CustomCheck, registry *runtime.Registry, ctx *runtime.ExecutionContext) error {
 	rt, err := registry.Get(runtime.RuntimeTypeVirtual)
 	if err != nil {
 		// Fall back to native validation if virtual runtime not available
@@ -1082,9 +1082,9 @@ func validateCustomCheckInVirtual(check invowkfile.CustomCheck, registry *runtim
 	var stdout, stderr bytes.Buffer
 	validationCtx := &runtime.ExecutionContext{
 		Command:         ctx.Command,
-		Invowkfile:      ctx.Invowkfile,
-		SelectedImpl:    &invowkfile.Implementation{Script: check.CheckScript, Target: invowkfile.Target{Runtimes: []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeVirtual}}}},
-		SelectedRuntime: invowkfile.RuntimeVirtual,
+		Invkfile:        ctx.Invkfile,
+		SelectedImpl:    &invkfile.Implementation{Script: check.CheckScript, Target: invkfile.Target{Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeVirtual}}}},
+		SelectedRuntime: invkfile.RuntimeVirtual,
 		Stdout:          &stdout,
 		Stderr:          &stderr,
 		Context:         ctx.Context,
@@ -1098,7 +1098,7 @@ func validateCustomCheckInVirtual(check invowkfile.CustomCheck, registry *runtim
 }
 
 // validateCustomCheckInContainer runs a custom check script within a container
-func validateCustomCheckInContainer(check invowkfile.CustomCheck, registry *runtime.Registry, ctx *runtime.ExecutionContext) error {
+func validateCustomCheckInContainer(check invkfile.CustomCheck, registry *runtime.Registry, ctx *runtime.ExecutionContext) error {
 	rt, err := registry.Get(runtime.RuntimeTypeContainer)
 	if err != nil {
 		return fmt.Errorf("  • %s - container runtime not available", check.Name)
@@ -1108,9 +1108,9 @@ func validateCustomCheckInContainer(check invowkfile.CustomCheck, registry *runt
 	var stdout, stderr bytes.Buffer
 	validationCtx := &runtime.ExecutionContext{
 		Command:         ctx.Command,
-		Invowkfile:      ctx.Invowkfile,
-		SelectedImpl:    &invowkfile.Implementation{Script: check.CheckScript, Target: invowkfile.Target{Runtimes: []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeContainer}}}},
-		SelectedRuntime: invowkfile.RuntimeContainer,
+		Invkfile:        ctx.Invkfile,
+		SelectedImpl:    &invkfile.Implementation{Script: check.CheckScript, Target: invkfile.Target{Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeContainer}}}},
+		SelectedRuntime: invkfile.RuntimeContainer,
 		Stdout:          &stdout,
 		Stderr:          &stderr,
 		Context:         ctx.Context,
@@ -1128,18 +1128,18 @@ func validateCustomCheckInContainer(check invowkfile.CustomCheck, registry *runt
 // - native: check against host filesystem
 // - virtual: check against host filesystem (virtual shell still uses host fs)
 // - container: check within the container filesystem
-func checkFilepathDependenciesWithRuntime(deps *invowkfile.DependsOn, invowkfilePath string, runtimeMode invowkfile.RuntimeMode, registry *runtime.Registry, ctx *runtime.ExecutionContext) error {
+func checkFilepathDependenciesWithRuntime(deps *invkfile.DependsOn, invkfilePath string, runtimeMode invkfile.RuntimeMode, registry *runtime.Registry, ctx *runtime.ExecutionContext) error {
 	if deps == nil || len(deps.Filepaths) == 0 {
 		return nil
 	}
 
 	var filepathErrors []string
-	invowkDir := filepath.Dir(invowkfilePath)
+	invowkDir := filepath.Dir(invkfilePath)
 
 	for _, fp := range deps.Filepaths {
 		var err error
 		switch runtimeMode {
-		case invowkfile.RuntimeContainer:
+		case invkfile.RuntimeContainer:
 			err = validateFilepathInContainer(fp, invowkDir, registry, ctx)
 		default: // native and virtual use host filesystem
 			err = validateFilepathAlternatives(fp, invowkDir)
@@ -1160,7 +1160,7 @@ func checkFilepathDependenciesWithRuntime(deps *invowkfile.DependsOn, invowkfile
 }
 
 // validateFilepathInContainer validates a filepath dependency within a container
-func validateFilepathInContainer(fp invowkfile.FilepathDependency, invowkDir string, registry *runtime.Registry, ctx *runtime.ExecutionContext) error {
+func validateFilepathInContainer(fp invkfile.FilepathDependency, invowkDir string, registry *runtime.Registry, ctx *runtime.ExecutionContext) error {
 	rt, err := registry.Get(runtime.RuntimeTypeContainer)
 	if err != nil {
 		return fmt.Errorf("  • container runtime not available")
@@ -1195,9 +1195,9 @@ func validateFilepathInContainer(fp invowkfile.FilepathDependency, invowkDir str
 		var stdout, stderr bytes.Buffer
 		validationCtx := &runtime.ExecutionContext{
 			Command:         ctx.Command,
-			Invowkfile:      ctx.Invowkfile,
-			SelectedImpl:    &invowkfile.Implementation{Script: checkScript, Target: invowkfile.Target{Runtimes: []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeContainer}}}},
-			SelectedRuntime: invowkfile.RuntimeContainer,
+			Invkfile:        ctx.Invkfile,
+			SelectedImpl:    &invkfile.Implementation{Script: checkScript, Target: invkfile.Target{Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeContainer}}}},
+			SelectedRuntime: invkfile.RuntimeContainer,
 			Stdout:          &stdout,
 			Stderr:          &stderr,
 			Context:         ctx.Context,
@@ -1222,7 +1222,7 @@ func validateFilepathInContainer(fp invowkfile.FilepathDependency, invowkDir str
 // checkToolDependencies verifies all required tools are available in PATH (legacy - uses native)
 // checkToolDependencies verifies all required tools are available (legacy - uses native only).
 // Each ToolDependency contains a list of alternatives; if any alternative is found, the dependency is satisfied.
-func checkToolDependencies(cmd *invowkfile.Command) error {
+func checkToolDependencies(cmd *invkfile.Command) error {
 	if cmd.DependsOn == nil || len(cmd.DependsOn.Tools) == 0 {
 		return nil
 	}
@@ -1262,7 +1262,7 @@ func checkToolDependencies(cmd *invowkfile.Command) error {
 // checkCustomChecks verifies all custom check scripts pass (legacy - uses native).
 // Each CustomCheckDependency can be either a direct check or a list of alternatives.
 // For alternatives, OR semantics are used (early return on first passing check).
-func checkCustomChecks(cmd *invowkfile.Command) error {
+func checkCustomChecks(cmd *invkfile.Command) error {
 	if cmd.DependsOn == nil || len(cmd.DependsOn.CustomChecks) == 0 {
 		return nil
 	}
@@ -1307,13 +1307,13 @@ func checkCustomChecks(cmd *invowkfile.Command) error {
 }
 
 // checkFilepathDependencies verifies all required files/directories exist with proper permissions (legacy - uses native)
-func checkFilepathDependencies(cmd *invowkfile.Command, invowkfilePath string) error {
+func checkFilepathDependencies(cmd *invkfile.Command, invkfilePath string) error {
 	if cmd.DependsOn == nil || len(cmd.DependsOn.Filepaths) == 0 {
 		return nil
 	}
 
 	var filepathErrors []string
-	invowkDir := filepath.Dir(invowkfilePath)
+	invowkDir := filepath.Dir(invkfilePath)
 
 	for _, fp := range cmd.DependsOn.Filepaths {
 		if err := validateFilepathAlternatives(fp, invowkDir); err != nil {
@@ -1333,7 +1333,7 @@ func checkFilepathDependencies(cmd *invowkfile.Command, invowkfilePath string) e
 
 // validateFilepathAlternatives checks if any of the alternative paths exists and has the required permissions
 // Returns nil (success) if any alternative satisfies all requirements
-func validateFilepathAlternatives(fp invowkfile.FilepathDependency, invowkDir string) error {
+func validateFilepathAlternatives(fp invkfile.FilepathDependency, invowkDir string) error {
 	if len(fp.Alternatives) == 0 {
 		return fmt.Errorf("  • (no paths specified) - at least one path must be provided in alternatives")
 	}
@@ -1341,7 +1341,7 @@ func validateFilepathAlternatives(fp invowkfile.FilepathDependency, invowkDir st
 	var allErrors []string
 
 	for _, altPath := range fp.Alternatives {
-		// Resolve path relative to invowkfile if not absolute
+		// Resolve path relative to invkfile if not absolute
 		resolvedPath := altPath
 		if !filepath.IsAbs(altPath) {
 			resolvedPath = filepath.Join(invowkDir, altPath)
@@ -1363,7 +1363,7 @@ func validateFilepathAlternatives(fp invowkfile.FilepathDependency, invowkDir st
 }
 
 // validateSingleFilepath checks if a single filepath exists and has the required permissions
-func validateSingleFilepath(displayPath string, resolvedPath string, fp invowkfile.FilepathDependency) error {
+func validateSingleFilepath(displayPath string, resolvedPath string, fp invkfile.FilepathDependency) error {
 	// Check if path exists
 	info, err := os.Stat(resolvedPath)
 	if os.IsNotExist(err) {
@@ -1404,7 +1404,7 @@ func validateSingleFilepath(displayPath string, resolvedPath string, fp invowkfi
 }
 
 // validateFilepath is deprecated - use validateFilepathAlternatives instead
-func validateFilepath(fp invowkfile.FilepathDependency, resolvedPath string) error {
+func validateFilepath(fp invkfile.FilepathDependency, resolvedPath string) error {
 	if len(fp.Alternatives) == 0 {
 		return fmt.Errorf("  • (no paths specified) - at least one path must be provided in alternatives")
 	}
@@ -1484,7 +1484,7 @@ func isExecutable(path string, info os.FileInfo) bool {
 // Capabilities are always checked against the host system, regardless of the runtime mode.
 // For container runtimes, these checks represent the host's capabilities, not the container's.
 // Each CapabilityDependency contains a list of alternatives; if any alternative is satisfied, the dependency is met.
-func checkCapabilityDependencies(deps *invowkfile.DependsOn, ctx *runtime.ExecutionContext) error {
+func checkCapabilityDependencies(deps *invkfile.DependsOn, ctx *runtime.ExecutionContext) error {
 	if deps == nil || len(deps.Capabilities) == 0 {
 		return nil
 	}
@@ -1513,7 +1513,7 @@ func checkCapabilityDependencies(deps *invowkfile.DependsOn, ctx *runtime.Execut
 		var lastErr error
 		found := false
 		for _, alt := range cap.Alternatives {
-			if err := invowkfile.CheckCapability(alt); err == nil {
+			if err := invkfile.CheckCapability(alt); err == nil {
 				found = true
 				break // Early return on first match
 			} else {
@@ -1549,7 +1549,7 @@ func checkCapabilityDependencies(deps *invowkfile.DependsOn, ctx *runtime.Execut
 // at the START of execution before invowk sets any command-level env vars.
 // This ensures the check validates the user's actual environment, not variables set by invowk.
 // Each EnvVarDependency contains alternatives with OR semantics (early return on first match).
-func checkEnvVarDependencies(deps *invowkfile.DependsOn, userEnv map[string]string, ctx *runtime.ExecutionContext) error {
+func checkEnvVarDependencies(deps *invkfile.DependsOn, userEnv map[string]string, ctx *runtime.ExecutionContext) error {
 	if deps == nil || len(deps.EnvVars) == 0 {
 		return nil
 	}
@@ -1653,7 +1653,7 @@ func ArgNameToEnvVar(name string) string {
 
 // validateFlagValues validates flag values at runtime.
 // It checks that required flags are provided and validates values against type and regex patterns.
-func validateFlagValues(cmdName string, flagValues map[string]string, flagDefs []invowkfile.Flag) error {
+func validateFlagValues(cmdName string, flagValues map[string]string, flagDefs []invkfile.Flag) error {
 	if flagDefs == nil {
 		return nil
 	}
@@ -1717,7 +1717,7 @@ const (
 type ArgumentValidationError struct {
 	Type         ArgErrType
 	CommandName  string
-	ArgDefs      []invowkfile.Argument
+	ArgDefs      []invkfile.Argument
 	ProvidedArgs []string
 	MinArgs      int
 	MaxArgs      int
@@ -1822,7 +1822,7 @@ func RenderArgumentValidationError(err *ArgumentValidationError) string {
 
 // RenderArgsSubcommandConflictError creates a styled warning message when a command
 // has both positional arguments and subcommands defined.
-func RenderArgsSubcommandConflictError(cmdName string, args []invowkfile.Argument, subcommands []string) string {
+func RenderArgsSubcommandConflictError(cmdName string, args []invkfile.Argument, subcommands []string) string {
 	var sb strings.Builder
 
 	headerStyle := lipgloss.NewStyle().
@@ -1964,7 +1964,7 @@ func RenderDependencyError(err *DependencyError) string {
 	}
 
 	sb.WriteString("\n")
-	sb.WriteString(hintStyle.Render("Install the missing tools and try again, or update your invowkfile to remove unnecessary dependencies."))
+	sb.WriteString(hintStyle.Render("Install the missing tools and try again, or update your invkfile to remove unnecessary dependencies."))
 	sb.WriteString("\n")
 
 	return sb.String()
@@ -2004,7 +2004,7 @@ func RenderHostNotSupportedError(cmdName, currentOS, supportedHosts string) stri
 	sb.WriteString(labelStyle.Render("Supported hosts: "))
 	sb.WriteString(valueStyle.Render(supportedHosts))
 	sb.WriteString("\n\n")
-	sb.WriteString(hintStyle.Render("Run this command on a supported operating system, or update the 'works_on.hosts' setting in your invowkfile."))
+	sb.WriteString(hintStyle.Render("Run this command on a supported operating system, or update the 'works_on.hosts' setting in your invkfile."))
 	sb.WriteString("\n")
 
 	return sb.String()
@@ -2044,7 +2044,7 @@ func RenderRuntimeNotAllowedError(cmdName, selectedRuntime, allowedRuntimes stri
 	sb.WriteString(labelStyle.Render("Allowed runtimes: "))
 	sb.WriteString(valueStyle.Render(allowedRuntimes))
 	sb.WriteString("\n\n")
-	sb.WriteString(hintStyle.Render("Use one of the allowed runtimes with --runtime flag, or update the 'runtimes' setting in your invowkfile."))
+	sb.WriteString(hintStyle.Render("Use one of the allowed runtimes with --runtime flag, or update the 'runtimes' setting in your invkfile."))
 	sb.WriteString("\n")
 
 	return sb.String()
@@ -2088,7 +2088,7 @@ func executeDepsRecursive(deps []string, disc *discovery.Discovery, registry *ru
 			fmt.Printf("%s Running dependency '%s'...\n", subtitleStyle.Render("→"), depName)
 		}
 
-		ctx := runtime.NewExecutionContext(depInfo.Command, depInfo.Invowkfile)
+		ctx := runtime.NewExecutionContext(depInfo.Command, depInfo.Invkfile)
 		ctx.Verbose = parentCtx.Verbose
 
 		result := registry.Execute(ctx)

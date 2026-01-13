@@ -13,7 +13,7 @@ import (
 
 	"invowk-cli/internal/container"
 	"invowk-cli/internal/sshserver"
-	"invowk-cli/pkg/invowkfile"
+	"invowk-cli/pkg/invkfile"
 )
 
 // TestContainerRuntime_Integration tests the container runtime with real containers.
@@ -44,16 +44,16 @@ func TestContainerRuntime_Integration(t *testing.T) {
 
 // testContainerBasicExecution tests basic command execution in a container
 func testContainerBasicExecution(t *testing.T) {
-	_, inv := setupTestInvowkfile(t)
+	_, inv := setupTestInvkfile(t)
 
-	cmd := &invowkfile.Command{
+	cmd := &invkfile.Command{
 		Name: "test-basic",
-		Implementations: []invowkfile.Implementation{
+		Implementations: []invkfile.Implementation{
 			{
 				Script: "echo 'Hello from container'",
-				Target: invowkfile.Target{
-					Runtimes: []invowkfile.RuntimeConfig{
-						{Name: invowkfile.RuntimeContainer, Image: "alpine:latest"},
+				Target: invkfile.Target{
+					Runtimes: []invkfile.RuntimeConfig{
+						{Name: invkfile.RuntimeContainer, Image: "alpine:latest"},
 					},
 				},
 			},
@@ -81,19 +81,19 @@ func testContainerBasicExecution(t *testing.T) {
 
 // testContainerEnvironmentVariables tests environment variable handling in containers
 func testContainerEnvironmentVariables(t *testing.T) {
-	_, inv := setupTestInvowkfile(t)
+	_, inv := setupTestInvkfile(t)
 
-	currentPlatform := invowkfile.GetCurrentHostOS()
-	cmd := &invowkfile.Command{
+	currentPlatform := invkfile.GetCurrentHostOS()
+	cmd := &invkfile.Command{
 		Name: "test-env",
-		Implementations: []invowkfile.Implementation{
+		Implementations: []invkfile.Implementation{
 			{
 				Script: `echo "VAR1=$MY_VAR1 VAR2=$MY_VAR2"`,
-				Target: invowkfile.Target{
-					Runtimes: []invowkfile.RuntimeConfig{
-						{Name: invowkfile.RuntimeContainer, Image: "alpine:latest"},
+				Target: invkfile.Target{
+					Runtimes: []invkfile.RuntimeConfig{
+						{Name: invkfile.RuntimeContainer, Image: "alpine:latest"},
 					},
-					Platforms: []invowkfile.PlatformConfig{
+					Platforms: []invkfile.PlatformConfig{
 						{Name: currentPlatform, Env: map[string]string{"MY_VAR1": "platform_value"}},
 					},
 				},
@@ -128,21 +128,21 @@ func testContainerEnvironmentVariables(t *testing.T) {
 
 // testContainerMultiLineScript tests multi-line script execution in containers
 func testContainerMultiLineScript(t *testing.T) {
-	_, inv := setupTestInvowkfile(t)
+	_, inv := setupTestInvkfile(t)
 
 	script := `echo "Line 1"
 echo "Line 2"
 VAR="hello"
 echo "Variable: $VAR"`
 
-	cmd := &invowkfile.Command{
+	cmd := &invkfile.Command{
 		Name: "test-multiline",
-		Implementations: []invowkfile.Implementation{
+		Implementations: []invkfile.Implementation{
 			{
 				Script: script,
-				Target: invowkfile.Target{
-					Runtimes: []invowkfile.RuntimeConfig{
-						{Name: invowkfile.RuntimeContainer, Image: "alpine:latest"},
+				Target: invkfile.Target{
+					Runtimes: []invkfile.RuntimeConfig{
+						{Name: invkfile.RuntimeContainer, Image: "alpine:latest"},
 					},
 				},
 			},
@@ -176,7 +176,7 @@ echo "Variable: $VAR"`
 
 // testContainerWorkingDirectory tests working directory handling in containers
 func testContainerWorkingDirectory(t *testing.T) {
-	tmpDir, inv := setupTestInvowkfile(t)
+	tmpDir, inv := setupTestInvkfile(t)
 
 	// Create a subdirectory in the temp directory
 	subDir := filepath.Join(tmpDir, "subdir")
@@ -184,15 +184,15 @@ func testContainerWorkingDirectory(t *testing.T) {
 		t.Fatalf("Failed to create subdir: %v", err)
 	}
 
-	cmd := &invowkfile.Command{
+	cmd := &invkfile.Command{
 		Name:    "test-workdir",
 		WorkDir: "subdir",
-		Implementations: []invowkfile.Implementation{
+		Implementations: []invkfile.Implementation{
 			{
 				Script: "pwd",
-				Target: invowkfile.Target{
-					Runtimes: []invowkfile.RuntimeConfig{
-						{Name: invowkfile.RuntimeContainer, Image: "alpine:latest"},
+				Target: invkfile.Target{
+					Runtimes: []invkfile.RuntimeConfig{
+						{Name: invkfile.RuntimeContainer, Image: "alpine:latest"},
 					},
 				},
 			},
@@ -221,7 +221,7 @@ func testContainerWorkingDirectory(t *testing.T) {
 
 // testContainerVolumeMounts tests volume mounting in containers
 func testContainerVolumeMounts(t *testing.T) {
-	tmpDir, inv := setupTestInvowkfile(t)
+	tmpDir, inv := setupTestInvkfile(t)
 
 	// Create a file to mount
 	testFile := filepath.Join(tmpDir, "test-data.txt")
@@ -240,15 +240,15 @@ func testContainerVolumeMounts(t *testing.T) {
 		t.Fatalf("Failed to write data file: %v", err)
 	}
 
-	cmd := &invowkfile.Command{
+	cmd := &invkfile.Command{
 		Name: "test-volumes",
-		Implementations: []invowkfile.Implementation{
+		Implementations: []invkfile.Implementation{
 			{
 				Script: `cat /workspace/test-data.txt && echo "" && cat /data/data.txt`,
-				Target: invowkfile.Target{
-					Runtimes: []invowkfile.RuntimeConfig{
+				Target: invkfile.Target{
+					Runtimes: []invkfile.RuntimeConfig{
 						{
-							Name:    invowkfile.RuntimeContainer,
+							Name:    invkfile.RuntimeContainer,
 							Image:   "alpine:latest",
 							Volumes: []string{dataDir + ":/data:ro"},
 						},
@@ -282,16 +282,16 @@ func testContainerVolumeMounts(t *testing.T) {
 
 // testContainerExitCode tests that non-zero exit codes are properly propagated
 func testContainerExitCode(t *testing.T) {
-	_, inv := setupTestInvowkfile(t)
+	_, inv := setupTestInvkfile(t)
 
-	cmd := &invowkfile.Command{
+	cmd := &invkfile.Command{
 		Name: "test-exit-code",
-		Implementations: []invowkfile.Implementation{
+		Implementations: []invkfile.Implementation{
 			{
 				Script: "exit 42",
-				Target: invowkfile.Target{
-					Runtimes: []invowkfile.RuntimeConfig{
-						{Name: invowkfile.RuntimeContainer, Image: "alpine:latest"},
+				Target: invkfile.Target{
+					Runtimes: []invkfile.RuntimeConfig{
+						{Name: invkfile.RuntimeContainer, Image: "alpine:latest"},
 					},
 				},
 			},
@@ -314,16 +314,16 @@ func testContainerExitCode(t *testing.T) {
 
 // testContainerPositionalArgs tests that positional arguments are accessible via $1, $2, $@ in containers
 func testContainerPositionalArgs(t *testing.T) {
-	_, inv := setupTestInvowkfile(t)
+	_, inv := setupTestInvkfile(t)
 
-	cmd := &invowkfile.Command{
+	cmd := &invkfile.Command{
 		Name: "test-positional-args",
-		Implementations: []invowkfile.Implementation{
+		Implementations: []invkfile.Implementation{
 			{
 				Script: `echo "ARG1=$1 ARG2=$2 ALL=$@ COUNT=$#"`,
-				Target: invowkfile.Target{
-					Runtimes: []invowkfile.RuntimeConfig{
-						{Name: invowkfile.RuntimeContainer, Image: "alpine:latest"},
+				Target: invkfile.Target{
+					Runtimes: []invkfile.RuntimeConfig{
+						{Name: invkfile.RuntimeContainer, Image: "alpine:latest"},
 					},
 				},
 			},
@@ -361,16 +361,16 @@ func testContainerPositionalArgs(t *testing.T) {
 
 // testContainerEnableHostSSHEnvVars tests that SSH environment variables are provided when enable_host_ssh is true
 func testContainerEnableHostSSHEnvVars(t *testing.T) {
-	_, inv := setupTestInvowkfile(t)
+	_, inv := setupTestInvkfile(t)
 
-	cmd := &invowkfile.Command{
+	cmd := &invkfile.Command{
 		Name: "test-ssh-env",
-		Implementations: []invowkfile.Implementation{
+		Implementations: []invkfile.Implementation{
 			{
 				Script: `echo "SSH_HOST=$INVOWK_SSH_HOST SSH_PORT=$INVOWK_SSH_PORT SSH_USER=$INVOWK_SSH_USER SSH_ENABLED=$INVOWK_SSH_ENABLED"`,
-				Target: invowkfile.Target{
-					Runtimes: []invowkfile.RuntimeConfig{
-						{Name: invowkfile.RuntimeContainer, Image: "alpine:latest", EnableHostSSH: true},
+				Target: invkfile.Target{
+					Runtimes: []invkfile.RuntimeConfig{
+						{Name: invkfile.RuntimeContainer, Image: "alpine:latest", EnableHostSSH: true},
 					},
 				},
 			},
@@ -414,24 +414,24 @@ func TestContainerRuntime_Validate(t *testing.T) {
 		t.Skip("skipping integration test in short mode")
 	}
 
-	_, inv := setupTestInvowkfile(t)
+	_, inv := setupTestInvkfile(t)
 
 	tests := []struct {
 		name        string
-		cmd         *invowkfile.Command
+		cmd         *invkfile.Command
 		expectError bool
 		errorMatch  string
 	}{
 		{
 			name: "valid container config with image",
-			cmd: &invowkfile.Command{
+			cmd: &invkfile.Command{
 				Name: "test",
-				Implementations: []invowkfile.Implementation{
+				Implementations: []invkfile.Implementation{
 					{
 						Script: "echo test",
-						Target: invowkfile.Target{
-							Runtimes: []invowkfile.RuntimeConfig{
-								{Name: invowkfile.RuntimeContainer, Image: "alpine:latest"},
+						Target: invkfile.Target{
+							Runtimes: []invkfile.RuntimeConfig{
+								{Name: invkfile.RuntimeContainer, Image: "alpine:latest"},
 							},
 						},
 					},
@@ -441,23 +441,23 @@ func TestContainerRuntime_Validate(t *testing.T) {
 		},
 		{
 			name: "missing implementation",
-			cmd: &invowkfile.Command{
+			cmd: &invkfile.Command{
 				Name:            "test",
-				Implementations: []invowkfile.Implementation{},
+				Implementations: []invkfile.Implementation{},
 			},
 			expectError: true,
 			errorMatch:  "no implementation selected",
 		},
 		{
 			name: "empty script",
-			cmd: &invowkfile.Command{
+			cmd: &invkfile.Command{
 				Name: "test",
-				Implementations: []invowkfile.Implementation{
+				Implementations: []invkfile.Implementation{
 					{
 						Script: "",
-						Target: invowkfile.Target{
-							Runtimes: []invowkfile.RuntimeConfig{
-								{Name: invowkfile.RuntimeContainer, Image: "alpine:latest"},
+						Target: invkfile.Target{
+							Runtimes: []invkfile.RuntimeConfig{
+								{Name: invkfile.RuntimeContainer, Image: "alpine:latest"},
 							},
 						},
 					},
@@ -496,16 +496,16 @@ func TestContainerRuntime_EnableHostSSH_NoServer(t *testing.T) {
 		t.Skip("skipping integration test in short mode")
 	}
 
-	_, inv := setupTestInvowkfile(t)
+	_, inv := setupTestInvkfile(t)
 
-	cmd := &invowkfile.Command{
+	cmd := &invkfile.Command{
 		Name: "test-ssh-no-server",
-		Implementations: []invowkfile.Implementation{
+		Implementations: []invkfile.Implementation{
 			{
 				Script: "echo test",
-				Target: invowkfile.Target{
-					Runtimes: []invowkfile.RuntimeConfig{
-						{Name: invowkfile.RuntimeContainer, Image: "alpine:latest", EnableHostSSH: true},
+				Target: invkfile.Target{
+					Runtimes: []invkfile.RuntimeConfig{
+						{Name: invkfile.RuntimeContainer, Image: "alpine:latest", EnableHostSSH: true},
 					},
 				},
 			},
@@ -541,7 +541,7 @@ func TestContainerRuntime_BuildFromContainerfile(t *testing.T) {
 		t.Skip("skipping integration test in short mode")
 	}
 
-	tmpDir, inv := setupTestInvowkfile(t)
+	tmpDir, inv := setupTestInvkfile(t)
 
 	// Create a simple Containerfile
 	containerfileContent := `FROM alpine:latest
@@ -552,14 +552,14 @@ RUN echo "Built from Containerfile" > /built.txt
 		t.Fatalf("Failed to write Containerfile: %v", err)
 	}
 
-	cmd := &invowkfile.Command{
+	cmd := &invkfile.Command{
 		Name: "test-build",
-		Implementations: []invowkfile.Implementation{
+		Implementations: []invkfile.Implementation{
 			{
 				Script: "cat /built.txt",
-				Target: invowkfile.Target{
-					Runtimes: []invowkfile.RuntimeConfig{
-						{Name: invowkfile.RuntimeContainer, Containerfile: "Containerfile"},
+				Target: invkfile.Target{
+					Runtimes: []invkfile.RuntimeConfig{
+						{Name: invkfile.RuntimeContainer, Containerfile: "Containerfile"},
 					},
 				},
 			},
@@ -593,10 +593,10 @@ RUN echo "Built from Containerfile" > /built.txt
 
 // Helper functions
 
-// setupTestInvowkfile creates a temporary directory and invowkfile for testing.
+// setupTestInvkfile creates a temporary directory and invkfile for testing.
 // It uses a non-hidden directory under $HOME/invowk-test/ because Docker installed via snap
 // cannot access hidden directories (those starting with '.') due to snap's home interface limitations.
-func setupTestInvowkfile(t *testing.T) (string, *invowkfile.Invowkfile) {
+func setupTestInvkfile(t *testing.T) (string, *invkfile.Invkfile) {
 	t.Helper()
 
 	// Create base directory for tests in user's home (not hidden - no leading dot)
@@ -621,10 +621,10 @@ func setupTestInvowkfile(t *testing.T) (string, *invowkfile.Invowkfile) {
 		os.RemoveAll(tmpDir)
 	})
 
-	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
+	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
 
-	inv := &invowkfile.Invowkfile{
-		FilePath: invowkfilePath,
+	inv := &invkfile.Invkfile{
+		FilePath: invkfilePath,
 	}
 
 	return tmpDir, inv
