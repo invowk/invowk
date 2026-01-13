@@ -39,11 +39,20 @@ runtimes: [{
 ```
 
 Imagens comuns:
-- `alpine:latest` - Linux mínimo
+- `debian:bookworm-slim` - Debian mínimo
 - `ubuntu:22.04` - Ubuntu completo
 - `golang:1.21` - Desenvolvimento Go
 - `node:20` - Desenvolvimento Node.js
-- `python:3.11` - Desenvolvimento Python
+- `python:3.11-slim` - Desenvolvimento Python
+
+:::warning Requisito de glibc
+O binário do invowk é linkado dinamicamente contra **glibc**. Imagens de container usando musl libc (como Alpine Linux) **não são compatíveis**. Use imagens baseadas em glibc como:
+- Imagens baseadas em Debian/Ubuntu (padrão para a maioria das imagens oficiais)
+- Imagens com sufixo `-slim` (ex: `python:3.11-slim`, `node:20-slim`)
+- Imagens oficiais de linguagens sem sufixo `-alpine`
+
+**Não suportado:** `alpine`, `busybox`, imagens com sufixo `-alpine`
+:::
 
 ### Containerfile Personalizado
 
@@ -129,7 +138,7 @@ Variáveis de ambiente são passadas para o container:
         target: {
             runtimes: [{
                 name: "container"
-                image: "alpine:latest"
+                image: "debian:bookworm-slim"
             }]
         }
     }]
@@ -165,8 +174,10 @@ Quando `enable_host_ssh: true`, estas variáveis estão disponíveis:
 Seu container precisa de `sshpass` ou similar para SSH baseado em senha:
 
 ```dockerfile
-FROM alpine:latest
-RUN apk add --no-cache openssh-client sshpass
+FROM debian:bookworm-slim
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    openssh-client sshpass \
+    && rm -rf /var/lib/apt/lists/*
 ```
 
 ## Dependências
@@ -227,7 +238,7 @@ Por padrão, o diretório atual é montado em `/workspace` e usado como diretór
         target: {
             runtimes: [{
                 name: "container"
-                image: "alpine:latest"
+                image: "debian:bookworm-slim"
             }]
         }
     }]
@@ -257,6 +268,53 @@ Sobrescreva com `workdir`:
 Aqui está um comando container com todos os recursos:
 
 <Snippet id="runtime-modes/container-full-example" />
+
+## Modo Interativo
+
+O runtime container suporta totalmente o modo interativo (`-i`). Ao executar interativamente, o Invowk provisiona automaticamente seu binário no container, habilitando:
+
+- Componentes TUI como overlays modais
+- Suporte completo a PTY para prompts de senha e confirmações
+- Integração transparente com o terminal do host
+
+```bash
+# Executar um comando de container interativamente
+invowk cmd myproject build -i -r container
+```
+
+Quando você executa com `-i`, o Invowk:
+
+1. **Auto-provisiona** o binário invowk no container
+2. **Inicia um servidor TUI** no host
+3. **Encaminha requisições TUI** do container para o host
+4. **Renderiza overlays** no seu terminal
+
+Isso significa que seus scripts podem usar comandos `invowk tui` dentro de containers:
+
+```cue
+{
+    name: "deploy container"
+    implementations: [{
+        script: """
+            # Este TUI confirm aparece como um overlay no seu terminal
+            if invowk tui confirm "Deploy em produção?"; then
+                echo "Fazendo deploy..."
+                ./deploy.sh
+            fi
+            """
+        target: {
+            runtimes: [{
+                name: "container"
+                image: "debian:bookworm-slim"
+            }]
+        }
+    }]
+}
+```
+
+:::tip
+A imagem provisionada é cacheada como `invowk-provisioned:<hash>`, então execuções subsequentes são rápidas.
+:::
 
 ## Vantagens
 

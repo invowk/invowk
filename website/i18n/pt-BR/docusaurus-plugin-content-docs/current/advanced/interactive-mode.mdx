@@ -45,7 +45,7 @@ Você pode habilitar o modo interativo por padrão na sua configuração:
 Isso é equivalente a sempre passar `--interactive` na linha de comando.
 
 :::note
-O modo interativo funciona apenas com o **runtime nativo**. Runtimes virtual e container não suportam este modo.
+O modo interativo funciona com **todos os runtimes**: nativo, virtual e container.
 :::
 
 ## Atalhos de Teclado
@@ -104,9 +104,50 @@ Isso significa que após sair do modo interativo:
 
 ## Limitações
 
-- **Apenas runtime nativo**: Runtimes virtual e container não suportam modo interativo
 - **Comando único**: Não é possível executar múltiplos comandos em paralelo no modo interativo
 - **PTY necessário**: O terminal deve suportar operações PTY
+- **Apenas containers glibc**: Imagens de container devem ser baseadas em glibc (não Alpine/musl)
+
+## Suporte ao Runtime Container
+
+O modo interativo funciona perfeitamente com o runtime container. Quando você executa um comando de container com `-i`:
+
+1. **Auto-provisionamento**: Invowk provisiona seu binário no container
+2. **Servidor TUI**: Um servidor local trata requisições TUI do container
+3. **Overlays modais**: Componentes TUI renderizam no seu terminal, não dentro do container
+
+```bash
+# Executar um comando de container interativamente
+invowk cmd myproject build -i -r container
+```
+
+Dentro dos scripts do seu container, você pode usar todos os componentes TUI:
+
+```cue
+{
+    name: "deploy"
+    implementations: [{
+        script: """
+            # Componentes TUI funcionam dentro de containers!
+            ENV=$(invowk tui choose "Selecione o ambiente" "dev" "staging" "prod")
+            
+            if invowk tui confirm "Deploy em $ENV?"; then
+                ./deploy.sh "$ENV"
+            fi
+            """
+        target: {
+            runtimes: [{
+                name: "container"
+                image: "debian:bookworm-slim"
+            }]
+        }
+    }]
+}
+```
+
+:::warning glibc Necessário
+Imagens de container devem usar glibc (não musl). Imagens baseadas em Alpine não são suportadas. Use Debian, Ubuntu, ou imagens sem o sufixo `-alpine`.
+:::
 
 ## Boas Práticas
 

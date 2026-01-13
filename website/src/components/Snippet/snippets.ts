@@ -791,7 +791,7 @@ virtual_shell: {
     code: `target: {
     runtimes: [{
         name: "container"
-        image: "alpine:latest"
+        image: "debian:bookworm-slim"
         enable_host_ssh: true
     }]
 }`,
@@ -1037,7 +1037,7 @@ invowk cmd myproject build --env-file .env.local -E OVERRIDE=value`,
     implementations: [{
         script: "echo $BUILD_ENV"  // Available inside container
         target: {
-            runtimes: [{name: "container", image: "alpine"}]
+            runtimes: [{name: "container", image: "debian:bookworm-slim"}]
         }
     }]
 }`,
@@ -2712,7 +2712,7 @@ interpreter: "node --max-old-space-size=4096"`,
         target: {
             runtimes: [{
                 name: "container"
-                image: "python:3.11-alpine"
+                image: "python:3.11-slim"
             }]
         }
     }]
@@ -2731,7 +2731,7 @@ interpreter: "node --max-old-space-size=4096"`,
         target: {
             runtimes: [{
                 name: "container"
-                image: "node:20-alpine"
+                image: "node:20-slim"
                 interpreter: "node"
             }]
         }
@@ -2912,7 +2912,7 @@ commands: [
             ls   # Shows your project files
             """
         target: {
-            runtimes: [{name: "container", image: "alpine"}]
+            runtimes: [{name: "container", image: "debian:bookworm-slim"}]
         }
     }]
 }`,
@@ -4488,7 +4488,7 @@ commands: [
     runtimes: [
         {name: "native"},      // System shell
         {name: "virtual"},     // Built-in POSIX shell
-        {name: "container", image: "alpine:latest"}  // Container
+        {name: "container", image: "debian:bookworm-slim"}  // Container
     ]
 }`,
   },
@@ -4832,7 +4832,7 @@ WORKDIR /workspace`,
         target: {
             runtimes: [{
                 name: "container"
-                image: "alpine:latest"
+                image: "debian:bookworm-slim"
                 enable_host_ssh: true  // Enable SSH server
             }]
         }
@@ -4867,7 +4867,7 @@ WORKDIR /workspace`,
         target: {
             runtimes: [{
                 name: "container"
-                image: "golang:1.21-alpine"
+                image: "golang:1.21"
                 volumes: [
                     "\${HOME}/go/pkg/mod:/go/pkg/mod:ro"  // Cache modules
                 ]
@@ -6594,7 +6594,7 @@ interpreter: "/usr/bin/env perl -w"`,
     language: 'cue',
     code: `runtimes: [{
     name: "container"
-    image: "alpine:latest"
+    image: "debian:bookworm-slim"
     enable_host_ssh: true
 }]`,
   },
@@ -6602,7 +6602,7 @@ interpreter: "/usr/bin/env perl -w"`,
   'reference/invkfile/containerfile-image-examples': {
     language: 'cue',
     code: `// Use a pre-built image
-image: "alpine:latest"
+image: "debian:bookworm-slim"
 image: "golang:1.22"
 
 // Build from a Containerfile

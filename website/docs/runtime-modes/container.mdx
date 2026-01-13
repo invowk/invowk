@@ -39,11 +39,20 @@ runtimes: [{
 ```
 
 Common images:
-- `alpine:latest` - Minimal Linux
+- `debian:bookworm-slim` - Minimal Debian
 - `ubuntu:22.04` - Full Ubuntu
 - `golang:1.21` - Go development
 - `node:20` - Node.js development
-- `python:3.11` - Python development
+- `python:3.11-slim` - Python development
+
+:::warning glibc Requirement
+The invowk binary is dynamically linked against **glibc**. Container images using musl libc (like Alpine Linux) are **not compatible**. Use glibc-based images such as:
+- Debian/Ubuntu-based images (default for most official images)
+- Images with `-slim` suffix (e.g., `python:3.11-slim`, `node:20-slim`)
+- Official language images without `-alpine` suffix
+
+**Not supported:** `alpine`, `busybox`, images with `-alpine` suffix
+:::
 
 ### Custom Containerfile
 
@@ -129,7 +138,7 @@ Environment variables are passed into the container:
         target: {
             runtimes: [{
                 name: "container"
-                image: "alpine:latest"
+                image: "debian:bookworm-slim"
             }]
         }
     }]
@@ -165,8 +174,10 @@ When `enable_host_ssh: true`, these variables are available:
 Your container needs `sshpass` or similar for password-based SSH:
 
 ```dockerfile
-FROM alpine:latest
-RUN apk add --no-cache openssh-client sshpass
+FROM debian:bookworm-slim
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    openssh-client sshpass \
+    && rm -rf /var/lib/apt/lists/*
 ```
 
 ## Dependencies
@@ -227,7 +238,7 @@ By default, the current directory is mounted to `/workspace` and used as the wor
         target: {
             runtimes: [{
                 name: "container"
-                image: "alpine:latest"
+                image: "debian:bookworm-slim"
             }]
         }
     }]
@@ -257,6 +268,53 @@ Override with `workdir`:
 Here's a full-featured container command:
 
 <Snippet id="runtime-modes/container-full-example" />
+
+## Interactive Mode
+
+Container runtime fully supports interactive mode (`-i`). When running interactively, Invowk automatically provisions its binary into the container, enabling:
+
+- TUI components as modal overlays
+- Full PTY support for password prompts and confirmations
+- Seamless integration with host terminal
+
+```bash
+# Run a container command interactively
+invowk cmd myproject build -i -r container
+```
+
+When you run with `-i`, Invowk:
+
+1. **Auto-provisions** the invowk binary into the container
+2. **Starts a TUI server** on the host
+3. **Forwards TUI requests** from container to host
+4. **Renders overlays** on your terminal
+
+This means your scripts can use `invowk tui` commands inside containers:
+
+```cue
+{
+    name: "deploy container"
+    implementations: [{
+        script: """
+            # This TUI confirm appears as an overlay on your terminal
+            if invowk tui confirm "Deploy to production?"; then
+                echo "Deploying..."
+                ./deploy.sh
+            fi
+            """
+        target: {
+            runtimes: [{
+                name: "container"
+                image: "debian:bookworm-slim"
+            }]
+        }
+    }]
+}
+```
+
+:::tip
+The provisioned image is cached as `invowk-provisioned:<hash>`, so subsequent runs are fast.
+:::
 
 ## Advantages
 

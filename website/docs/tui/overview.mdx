@@ -30,7 +30,11 @@ Invowk™ includes a set of interactive terminal UI components inspired by [gum]
 
 ## Using in Invkfiles
 
-TUI components work great inside command scripts:
+TUI components work great inside command scripts, including those running in containers with interactive mode (`-i`):
+
+:::tip Container Support
+TUI components work seamlessly inside containers when using interactive mode. The components render as modal overlays on your host terminal. See [Container Runtime - Interactive Mode](/docs/runtime-modes/container#interactive-mode) for details.
+:::
 
 <Snippet id="tui/overview-invkfile-example" />
 
