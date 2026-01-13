@@ -1,0 +1,282 @@
+---
+sidebar_position: 2
+---
+
+# Tool Dependencies
+
+Tool dependencies verify that required binaries are available in PATH before your command runs.
+
+## Basic Usage
+
+```cue
+{
+    name: "build"
+    depends_on: {
+        tools: [
+            {alternatives: ["go"]}
+        ]
+    }
+    implementations: [...]
+}
+```
+
+If `go` isn't found in PATH, the command fails with a clear error:
+
+```
+✗ Dependencies not satisfied
+
+Command 'build' has unmet dependencies:
+
+Missing Tools:
+  • go - not found in PATH
+
+Install the missing tools and try again.
+```
+
+## Alternatives (OR Semantics)
+
+Specify multiple alternatives when any tool will work:
+
+```cue
+depends_on: {
+    tools: [
+        // Either podman OR docker
+        {alternatives: ["podman", "docker"]},
+        
+        // Either vim OR nvim
+        {alternatives: ["nvim", "vim"]},
+    ]
+}
+```
+
+Invowk checks alternatives in order and stops at the first match. This is useful for:
+- Tools with compatible alternatives (docker/podman)
+- Editor preferences (nvim/vim/vi)
+- Version variants (python3/python)
+
+## Multiple Tool Requirements
+
+Each entry in `tools` is an AND requirement:
+
+```cue
+depends_on: {
+    tools: [
+        // Need (podman OR docker) AND kubectl AND helm
+        {alternatives: ["podman", "docker"]},
+        {alternatives: ["kubectl"]},
+        {alternatives: ["helm"]},
+    ]
+}
+```
+
+All three must be satisfied (though alternatives within each are OR).
+
+## Real-World Examples
+
+### Go Project
+
+```cue
+{
+    name: "build"
+    depends_on: {
+        tools: [
+            {alternatives: ["go"]},
+            {alternatives: ["git"]},  // For version info
+        ]
+    }
+    implementations: [{
+        script: """
+            VERSION=$(git describe --tags --always)
+            go build -ldflags="-X main.version=$VERSION" ./...
+            """
+        target: {runtimes: [{name: "native"}]}
+    }]
+}
+```
+
+### Node.js Project
+
+```cue
+{
+    name: "build"
+    depends_on: {
+        tools: [
+            // Prefer pnpm, but npm works too
+            {alternatives: ["pnpm", "npm", "yarn"]},
+            {alternatives: ["node"]},
+        ]
+    }
+    implementations: [{
+        script: "pnpm run build || npm run build"
+        target: {runtimes: [{name: "native"}]}
+    }]
+}
+```
+
+### Kubernetes Deployment
+
+```cue
+{
+    name: "deploy"
+    depends_on: {
+        tools: [
+            {alternatives: ["kubectl"]},
+            {alternatives: ["helm"]},
+            {alternatives: ["podman", "docker"]},
+        ]
+    }
+    implementations: [{
+        script: """
+            helm upgrade --install myapp ./charts/myapp
+            kubectl rollout status deployment/myapp
+            """
+        target: {runtimes: [{name: "native"}]}
+    }]
+}
+```
+
+### Python Project
+
+```cue
+{
+    name: "run"
+    depends_on: {
+        tools: [
+            // Python 3 with various possible names
+            {alternatives: ["python3", "python"]},
+            // Virtual environment tool
+            {alternatives: ["poetry", "pipenv", "pip"]},
+        ]
+    }
+    implementations: [{
+        script: "poetry run python main.py"
+        target: {runtimes: [{name: "native"}]}
+    }]
+}
+```
+
+## Runtime-Aware Validation
+
+Tool checks are validated according to the runtime:
+
+### Native Runtime
+
+Tools are checked on the host system:
+
+```cue
+{
+    name: "build"
+    depends_on: {
+        tools: [{alternatives: ["go"]}]  // Checked on host
+    }
+    implementations: [{
+        script: "go build ./..."
+        target: {runtimes: [{name: "native"}]}
+    }]
+}
+```
+
+### Virtual Runtime
+
+Tools are checked in the virtual shell environment:
+
+```cue
+{
+    name: "build"
+    depends_on: {
+        tools: [{alternatives: ["go"]}]  // Checked in virtual shell
+    }
+    implementations: [{
+        script: "go build ./..."
+        target: {runtimes: [{name: "virtual"}]}
+    }]
+}
+```
+
+### Container Runtime
+
+Tools are checked **inside the container**:
+
+```cue
+{
+    name: "build"
+    implementations: [{
+        script: "go build ./..."
+        target: {runtimes: [{name: "container", image: "golang:1.21"}]}
+        depends_on: {
+            // This checks for 'go' INSIDE the container
+            tools: [{alternatives: ["go"]}]
+        }
+    }]
+}
+```
+
+This is especially useful because:
+- The host doesn't need Go installed
+- You're validating the actual execution environment
+- You catch missing tools in custom container images
+
+## Common Patterns
+
+### Check Before External Call
+
+```cue
+{
+    name: "upload"
+    depends_on: {
+        tools: [{alternatives: ["aws", "aws-cli"]}]
+    }
+    implementations: [{
+        script: "aws s3 sync ./dist s3://my-bucket"
+        target: {runtimes: [{name: "native"}]}
+    }]
+}
+```
+
+### Database Tools
+
+```cue
+{
+    name: "db migrate"
+    depends_on: {
+        tools: [
+            {alternatives: ["psql", "pgcli"]},  // PostgreSQL client
+            {alternatives: ["migrate", "goose", "flyway"]},  // Migration tool
+        ]
+    }
+    implementations: [{
+        script: "migrate -path ./migrations -database $DATABASE_URL up"
+        target: {runtimes: [{name: "native"}]}
+    }]
+}
+```
+
+### Cross-Platform
+
+```cue
+{
+    name: "open docs"
+    depends_on: {
+        tools: [
+            // Platform-specific openers
+            {alternatives: ["xdg-open", "open", "start"]},
+        ]
+    }
+    implementations: [{
+        script: "xdg-open http://localhost:3000/docs || open http://localhost:3000/docs"
+        target: {runtimes: [{name: "native"}]}
+    }]
+}
+```
+
+## Best Practices
+
+1. **Use alternatives for compatible tools**: `{alternatives: ["podman", "docker"]}`
+2. **Order alternatives by preference**: First alternative is checked first
+3. **Keep tool lists minimal**: Only require what's actually used
+4. **Consider runtime context**: Container tools are checked inside containers
+
+## Next Steps
+
+- [Filepaths](./filepaths) - Check for required files
+- [Commands](./commands) - Depend on other Invowk commands

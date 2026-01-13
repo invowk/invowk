@@ -1,0 +1,50 @@
+{
+  "version.label": {
+    "message": "Next",
+    "description": "The label for version current"
+  },
+  "sidebar.docsSidebar.category.Getting Started": {
+    "message": "Getting Started",
+    "description": "The label for category 'Getting Started' in sidebar 'docsSidebar'"
+  },
+  "sidebar.docsSidebar.category.Core Concepts": {
+    "message": "Core Concepts",
+    "description": "The label for category 'Core Concepts' in sidebar 'docsSidebar'"
+  },
+  "sidebar.docsSidebar.category.Runtime Modes": {
+    "message": "Runtime Modes",
+    "description": "The label for category 'Runtime Modes' in sidebar 'docsSidebar'"
+  },
+  "sidebar.docsSidebar.category.Dependencies": {
+    "message": "Dependencies",
+    "description": "The label for category 'Dependencies' in sidebar 'docsSidebar'"
+  },
+  "sidebar.docsSidebar.category.Flags and Arguments": {
+    "message": "Flags and Arguments",
+    "description": "The label for category 'Flags and Arguments' in sidebar 'docsSidebar'"
+  },
+  "sidebar.docsSidebar.category.Environment Configuration": {
+    "message": "Environment Configuration",
+    "description": "The label for category 'Environment Configuration' in sidebar 'docsSidebar'"
+  },
+  "sidebar.docsSidebar.category.Advanced Features": {
+    "message": "Advanced Features",
+    "description": "The label for category 'Advanced Features' in sidebar 'docsSidebar'"
+  },
+  "sidebar.docsSidebar.category.Packs": {
+    "message": "Packs",
+    "description": "The label for category 'Packs' in sidebar 'docsSidebar'"
+  },
+  "sidebar.docsSidebar.category.TUI Components": {
+    "message": "TUI Components",
+    "description": "The label for category 'TUI Components' in sidebar 'docsSidebar'"
+  },
+  "sidebar.docsSidebar.category.Configuration": {
+    "message": "Configuration",
+    "description": "The label for category 'Configuration' in sidebar 'docsSidebar'"
+  },
+  "sidebar.docsSidebar.category.Reference": {
+    "message": "Reference",
+    "description": "The label for category 'Reference' in sidebar 'docsSidebar'"
+  }
+}

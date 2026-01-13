@@ -354,6 +354,41 @@ Verify:
 3. Code examples render properly
 4. Links are not broken
 
+### CRITICAL: Internationalization (i18n) Requirements
+
+The documentation website supports multiple languages. **All supported locales MUST be kept in sync.**
+
+**Supported Locales:**
+- `en` (English) - Primary/source language in `website/docs/`
+- `pt-BR` (Português Brasil) - Translations in `website/i18n/pt-BR/docusaurus-plugin-content-docs/current/`
+
+**When updating documentation:**
+
+1. **Always update the English version first** (`website/docs/`)
+2. **Then update the same file in ALL other locales** - The file structure must mirror exactly:
+   - English: `website/docs/getting-started/installation.md`
+   - Portuguese: `website/i18n/pt-BR/docusaurus-plugin-content-docs/current/getting-started/installation.md`
+
+3. **When adding new documentation files:**
+   - Create the file in `website/docs/`
+   - Copy it to ALL locale directories under `website/i18n/<locale>/docusaurus-plugin-content-docs/current/`
+
+4. **When deleting documentation files:**
+   - Remove from `website/docs/`
+   - Remove from ALL locale directories
+
+5. **Translation JSON files** (`website/i18n/<locale>/*.json`):
+   - These contain UI string translations (navbar, footer, theme labels)
+   - Regenerate with: `cd website && npx docusaurus write-translations --locale <locale>`
+
+**Verification:**
+```bash
+cd website
+npm run build  # Must succeed for ALL locales without errors
+```
+
+The build will fail if locale files are missing or malformed. Always test the language switcher after documentation changes.
+
 ## Key Guidelines
 
 - In all planning and design decisions, always consider that the code must be highly testable, maintainable, and extensible.
