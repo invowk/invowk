@@ -490,23 +490,52 @@ func listCommands() error {
 		return err
 	}
 
-	// Show any parsing errors
+	// Check if we found any files at all
+	if len(files) == 0 {
+		rendered, _ := issue.Get(issue.InvkfileNotFoundId).Render("dark")
+		fmt.Fprint(os.Stderr, rendered)
+		return fmt.Errorf("no invkfile found")
+	}
+
+	// Count files with errors and show them
+	filesWithErrors := 0
 	for _, file := range files {
 		if file.Error != nil {
+			filesWithErrors++
 			fmt.Fprintf(os.Stderr, "%s Failed to parse %s: %v\n", errorStyle.Render("✗"), file.Path, file.Error)
 		}
 	}
 
+	// If ALL files have errors, show the parse error issue
+	if filesWithErrors == len(files) {
+		rendered, _ := issue.Get(issue.InvkfileParseErrorId).Render("dark")
+		fmt.Fprint(os.Stderr, rendered)
+		return fmt.Errorf("all invkfiles have parsing errors")
+	}
+
 	commands, err := disc.DiscoverCommands()
 	if err != nil {
-		rendered, _ := issue.Get(issue.InvkfileNotFoundId).Render("dark")
-		fmt.Fprint(os.Stderr, rendered)
+		// If we have files but DiscoverCommands fails, it's likely a parse error
+		if filesWithErrors > 0 {
+			rendered, _ := issue.Get(issue.InvkfileParseErrorId).Render("dark")
+			fmt.Fprint(os.Stderr, rendered)
+		} else {
+			rendered, _ := issue.Get(issue.InvkfileNotFoundId).Render("dark")
+			fmt.Fprint(os.Stderr, rendered)
+		}
 		return err
 	}
 
 	if len(commands) == 0 {
-		rendered, _ := issue.Get(issue.InvkfileNotFoundId).Render("dark")
-		fmt.Fprint(os.Stderr, rendered)
+		// If we have files with errors and no commands, show parse error
+		if filesWithErrors > 0 {
+			rendered, _ := issue.Get(issue.InvkfileParseErrorId).Render("dark")
+			fmt.Fprint(os.Stderr, rendered)
+		} else {
+			// Files parsed successfully but no commands defined
+			rendered, _ := issue.Get(issue.InvkfileNotFoundId).Render("dark")
+			fmt.Fprint(os.Stderr, rendered)
+		}
 		return fmt.Errorf("no commands found")
 	}
 
