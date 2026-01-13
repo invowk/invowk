@@ -165,6 +165,25 @@
 	alternatives: [...#CapabilityName] & [_, ...]
 }
 
+// EnvVarCheck represents a single environment variable check
+#EnvVarCheck: {
+	// name is the environment variable name to check (required, non-empty after trimming)
+	// The check verifies that this env var exists in the user's environment
+	name: string & =~"^\\s*\\S+\\s*$"
+
+	// validation is a regex pattern to validate the env var value (optional)
+	// If specified, the env var must exist AND its value must match this pattern
+	validation?: string
+}
+
+// EnvVarDependency represents an environment variable that must exist
+#EnvVarDependency: {
+	// alternatives is a list of env var checks where any match satisfies the dependency (required, at least one)
+	// If any of the provided env vars exists (and passes validation if specified), the dependency is satisfied
+	// This allows specifying multiple possible env vars (e.g., ["AWS_ACCESS_KEY_ID", "AWS_PROFILE"])
+	alternatives: [...#EnvVarCheck] & [_, ...]
+}
+
 // DependsOn defines the dependencies for a command
 #DependsOn: {
 	// tools lists binaries that must be available in PATH before running
@@ -184,6 +203,10 @@
 	// Use this for version checks, configuration validation, or any other custom requirement
 	// Each entry can be a single check or an alternatives list (OR semantics)
 	custom_checks?: [...#CustomCheckDependency]
+	// env_vars lists environment variables that must exist before running
+	// Uses OR semantics: if any alternative env var exists (and passes validation), the dependency is satisfied
+	// IMPORTANT: Validated against the user's environment BEFORE invowk sets command-level env vars
+	env_vars?: [...#EnvVarDependency]
 }
 
 // Argument represents a positional command-line argument for a command

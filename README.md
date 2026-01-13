@@ -331,6 +331,90 @@ Permission checks are cross-platform compatible (Linux, macOS, Windows).
 
 When dependencies are not satisfied, invowk displays a styled error message listing all issues at once.
 
+### Environment Variable Dependencies
+
+Validate that required environment variables exist in the user's environment before the command runs. This check happens **first**, before all other dependency checks, ensuring validation against the user's actual environment (not variables that invowk might set via the `env` construct).
+
+```cue
+depends_on: {
+	env_vars: [
+		// Simple check - just verify the env var exists
+		{alternatives: [{name: "HOME"}]},
+		
+		// Multiple alternatives - any one satisfies the dependency
+		{alternatives: [{name: "AWS_ACCESS_KEY_ID"}, {name: "AWS_PROFILE"}]},
+		
+		// With regex validation - env var must exist AND match the pattern
+		{alternatives: [{name: "GO_VERSION", validation: "^[0-9]+\\.[0-9]+\\.[0-9]+$"}]},
+	]
+}
+```
+
+**Environment variable validation options:**
+- `alternatives` (required): List of environment variable checks (OR semantics)
+  - `name` (required): Environment variable name to check
+  - `validation` (optional): Regex pattern the value must match
+
+**Key behavior:**
+- **OR semantics**: If any alternative exists (and passes validation if specified), the dependency is satisfied
+- **Early validation**: Runs before tools, commands, filepaths, capabilities, and custom checks
+- **User environment**: Validates against the user's actual environment, not variables set by invowk's `env` construct
+
+**Example - AWS credentials check:**
+
+```cue
+commands: [
+	{
+		name: "deploy"
+		description: "Deploy to AWS"
+		implementations: [
+			{
+				script: """
+					echo "Deploying with AWS credentials..."
+					aws s3 sync ./dist s3://my-bucket
+					"""
+				target: {
+					runtimes: [{name: "native"}]
+				}
+			}
+		]
+		depends_on: {
+			env_vars: [
+				// Require either AWS_ACCESS_KEY_ID or AWS_PROFILE for authentication
+				{alternatives: [{name: "AWS_ACCESS_KEY_ID"}, {name: "AWS_PROFILE"}]},
+			]
+			tools: [
+				{alternatives: ["aws"]},
+			]
+		}
+	}
+]
+```
+
+**Example - Version format validation:**
+
+```cue
+depends_on: {
+	env_vars: [
+		// GO_VERSION must be set and match semver format (e.g., "1.25.0")
+		{alternatives: [{name: "GO_VERSION", validation: "^[0-9]+\\.[0-9]+\\.[0-9]+$"}]},
+	]
+}
+```
+
+When environment variable dependencies are not satisfied, invowk displays a styled error message:
+
+```
+✗ Dependencies not satisfied
+
+Command 'deploy' has unmet dependencies:
+
+Missing or Invalid Environment Variables:
+  • AWS_ACCESS_KEY_ID - not set in environment
+
+Install the missing tools and try again, or update your invowkfile to remove unnecessary dependencies.
+```
+
 ## Command Flags
 
 Commands can define flags that are passed at runtime. Flags are made available to scripts as environment variables with the `INVOWK_FLAG_` prefix.

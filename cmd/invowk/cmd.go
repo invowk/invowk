@@ -787,7 +787,14 @@ func executeDependencies(cmdInfo *discovery.CommandInfo, registry *runtime.Regis
 	// Get the selected runtime for context-aware validation
 	selectedRuntime := parentCtx.SelectedRuntime
 
-	// First check tool dependencies (runtime-aware)
+	// FIRST: Check env var dependencies (host-only, validated BEFORE invowk sets any env vars)
+	// We capture the user's environment here to ensure we validate against their actual env,
+	// not any variables that invowk might set from the 'env' construct
+	if err := checkEnvVarDependencies(mergedDeps, captureUserEnv(), parentCtx); err != nil {
+		return err
+	}
+
+	// Then check tool dependencies (runtime-aware)
 	if err := checkToolDependenciesWithRuntime(mergedDeps, selectedRuntime, registry, parentCtx); err != nil {
 		return err
 	}
@@ -1537,6 +1544,92 @@ func checkCapabilityDependencies(deps *invowkfile.DependsOn, ctx *runtime.Execut
 	return nil
 }
 
+// checkEnvVarDependencies verifies all required environment variables exist.
+// IMPORTANT: This function validates against the provided userEnv map, which should be captured
+// at the START of execution before invowk sets any command-level env vars.
+// This ensures the check validates the user's actual environment, not variables set by invowk.
+// Each EnvVarDependency contains alternatives with OR semantics (early return on first match).
+func checkEnvVarDependencies(deps *invowkfile.DependsOn, userEnv map[string]string, ctx *runtime.ExecutionContext) error {
+	if deps == nil || len(deps.EnvVars) == 0 {
+		return nil
+	}
+
+	var envVarErrors []string
+
+	for _, envVar := range deps.EnvVars {
+		var lastErr error
+		found := false
+
+		for _, alt := range envVar.Alternatives {
+			// Trim whitespace from name as per schema
+			name := strings.TrimSpace(alt.Name)
+			if name == "" {
+				lastErr = fmt.Errorf("  • (empty) - environment variable name cannot be empty")
+				continue
+			}
+
+			// Check if env var exists
+			value, exists := userEnv[name]
+			if !exists {
+				lastErr = fmt.Errorf("  • %s - not set in environment", name)
+				continue
+			}
+
+			// If validation pattern is specified, validate the value
+			if alt.Validation != "" {
+				matched, err := regexp.MatchString(alt.Validation, value)
+				if err != nil {
+					lastErr = fmt.Errorf("  • %s - invalid validation regex '%s': %v", name, alt.Validation, err)
+					continue
+				}
+				if !matched {
+					lastErr = fmt.Errorf("  • %s - value '%s' does not match required pattern '%s'", name, value, alt.Validation)
+					continue
+				}
+			}
+
+			// Env var exists and passes validation (if any)
+			found = true
+			break // Early return on first match
+		}
+
+		if !found && lastErr != nil {
+			if len(envVar.Alternatives) == 1 {
+				envVarErrors = append(envVarErrors, lastErr.Error())
+			} else {
+				// Collect all alternative names for the error message
+				names := make([]string, len(envVar.Alternatives))
+				for i, alt := range envVar.Alternatives {
+					names[i] = strings.TrimSpace(alt.Name)
+				}
+				envVarErrors = append(envVarErrors, fmt.Sprintf("  • none of [%s] found or passed validation", strings.Join(names, ", ")))
+			}
+		}
+	}
+
+	if len(envVarErrors) > 0 {
+		return &DependencyError{
+			CommandName:    ctx.Command.Name,
+			MissingEnvVars: envVarErrors,
+		}
+	}
+
+	return nil
+}
+
+// captureUserEnv captures the current environment as a map.
+// This should be called at the start of execution to capture the user's
+// actual environment before invowk sets any command-level env vars.
+func captureUserEnv() map[string]string {
+	env := make(map[string]string)
+	for _, e := range os.Environ() {
+		if idx := strings.Index(e, "="); idx >= 0 {
+			env[e[:idx]] = e[idx+1:]
+		}
+	}
+	return env
+}
+
 // isWindows returns true if running on Windows
 func isWindows() bool {
 	return os.PathSeparator == '\\' && os.PathListSeparator == ';'
@@ -1601,6 +1694,7 @@ type DependencyError struct {
 	MissingFilepaths    []string
 	MissingCapabilities []string
 	FailedCustomChecks  []string
+	MissingEnvVars      []string
 }
 
 func (e *DependencyError) Error() string {
@@ -1855,6 +1949,16 @@ func RenderDependencyError(err *DependencyError) string {
 		sb.WriteString("\n")
 		for _, check := range err.FailedCustomChecks {
 			sb.WriteString(itemStyle.Render(check))
+			sb.WriteString("\n")
+		}
+	}
+
+	if len(err.MissingEnvVars) > 0 {
+		sb.WriteString("\n")
+		sb.WriteString(sectionStyle.Render("Missing or Invalid Environment Variables:"))
+		sb.WriteString("\n")
+		for _, envVar := range err.MissingEnvVars {
+			sb.WriteString(itemStyle.Render(envVar))
 			sb.WriteString("\n")
 		}
 	}

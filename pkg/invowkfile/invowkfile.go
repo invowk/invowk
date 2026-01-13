@@ -170,6 +170,24 @@ type CapabilityDependency struct {
 	Alternatives []CapabilityName `json:"alternatives"`
 }
 
+// EnvVarCheck represents a single environment variable check
+type EnvVarCheck struct {
+	// Name is the environment variable name to check (required, non-empty)
+	// The check verifies that this env var exists in the user's environment
+	Name string `json:"name"`
+	// Validation is a regex pattern to validate the env var value (optional)
+	// If specified, the env var must exist AND its value must match this pattern
+	Validation string `json:"validation,omitempty"`
+}
+
+// EnvVarDependency represents an environment variable dependency with alternatives
+type EnvVarDependency struct {
+	// Alternatives is a list of env var checks where any match satisfies the dependency
+	// If any of the provided env vars exists (and passes validation if specified), the dependency is satisfied
+	// This allows specifying multiple possible env vars (e.g., ["AWS_ACCESS_KEY_ID", "AWS_PROFILE"])
+	Alternatives []EnvVarCheck `json:"alternatives"`
+}
+
 // FilepathDependency represents a file or directory that must exist
 type FilepathDependency struct {
 	// Alternatives is a list of file or directory paths where any match satisfies the dependency
@@ -340,6 +358,10 @@ type DependsOn struct {
 	// CustomChecks lists custom validation scripts to verify system requirements
 	// Each entry can be a single check or an alternatives list (OR semantics)
 	CustomChecks []CustomCheckDependency `json:"custom_checks,omitempty"`
+	// EnvVars lists environment variables that must exist before running
+	// Uses OR semantics: if any alternative env var exists (and passes validation), the dependency is satisfied
+	// IMPORTANT: Validated against the user's environment BEFORE invowk sets command-level env vars
+	EnvVars []EnvVarDependency `json:"env_vars,omitempty"`
 }
 
 // HostOS represents a supported operating system (deprecated, use PlatformType)
@@ -667,7 +689,7 @@ func (s *Script) GetHostSSHForRuntime(runtime RuntimeMode) bool {
 func (c *Command) HasDependencies() bool {
 	// Check command-level dependencies
 	if c.DependsOn != nil {
-		if len(c.DependsOn.Tools) > 0 || len(c.DependsOn.Commands) > 0 || len(c.DependsOn.Filepaths) > 0 || len(c.DependsOn.Capabilities) > 0 || len(c.DependsOn.CustomChecks) > 0 {
+		if len(c.DependsOn.Tools) > 0 || len(c.DependsOn.Commands) > 0 || len(c.DependsOn.Filepaths) > 0 || len(c.DependsOn.Capabilities) > 0 || len(c.DependsOn.CustomChecks) > 0 || len(c.DependsOn.EnvVars) > 0 {
 			return true
 		}
 	}
@@ -685,7 +707,7 @@ func (c *Command) HasCommandLevelDependencies() bool {
 	if c.DependsOn == nil {
 		return false
 	}
-	return len(c.DependsOn.Tools) > 0 || len(c.DependsOn.Commands) > 0 || len(c.DependsOn.Filepaths) > 0 || len(c.DependsOn.Capabilities) > 0 || len(c.DependsOn.CustomChecks) > 0
+	return len(c.DependsOn.Tools) > 0 || len(c.DependsOn.Commands) > 0 || len(c.DependsOn.Filepaths) > 0 || len(c.DependsOn.Capabilities) > 0 || len(c.DependsOn.CustomChecks) > 0 || len(c.DependsOn.EnvVars) > 0
 }
 
 // GetCommandDependencies returns the list of command dependency names (from command level)
@@ -706,7 +728,7 @@ func (s *Script) HasDependencies() bool {
 	if s.DependsOn == nil {
 		return false
 	}
-	return len(s.DependsOn.Tools) > 0 || len(s.DependsOn.Commands) > 0 || len(s.DependsOn.Filepaths) > 0 || len(s.DependsOn.Capabilities) > 0 || len(s.DependsOn.CustomChecks) > 0
+	return len(s.DependsOn.Tools) > 0 || len(s.DependsOn.Commands) > 0 || len(s.DependsOn.Filepaths) > 0 || len(s.DependsOn.Capabilities) > 0 || len(s.DependsOn.CustomChecks) > 0 || len(s.DependsOn.EnvVars) > 0
 }
 
 // GetCommandDependencies returns the list of command dependency names from this script
@@ -736,6 +758,7 @@ func MergeDependsOn(cmdDeps, scriptDeps *DependsOn) *DependsOn {
 		Filepaths:    make([]FilepathDependency, 0),
 		Capabilities: make([]CapabilityDependency, 0),
 		CustomChecks: make([]CustomCheckDependency, 0),
+		EnvVars:      make([]EnvVarDependency, 0),
 	}
 
 	// Add command-level dependencies first
@@ -745,6 +768,7 @@ func MergeDependsOn(cmdDeps, scriptDeps *DependsOn) *DependsOn {
 		merged.Filepaths = append(merged.Filepaths, cmdDeps.Filepaths...)
 		merged.Capabilities = append(merged.Capabilities, cmdDeps.Capabilities...)
 		merged.CustomChecks = append(merged.CustomChecks, cmdDeps.CustomChecks...)
+		merged.EnvVars = append(merged.EnvVars, cmdDeps.EnvVars...)
 	}
 
 	// Add implementation-level dependencies
@@ -754,10 +778,11 @@ func MergeDependsOn(cmdDeps, scriptDeps *DependsOn) *DependsOn {
 		merged.Filepaths = append(merged.Filepaths, scriptDeps.Filepaths...)
 		merged.Capabilities = append(merged.Capabilities, scriptDeps.Capabilities...)
 		merged.CustomChecks = append(merged.CustomChecks, scriptDeps.CustomChecks...)
+		merged.EnvVars = append(merged.EnvVars, scriptDeps.EnvVars...)
 	}
 
 	// Return nil if no dependencies after merging
-	if len(merged.Tools) == 0 && len(merged.Commands) == 0 && len(merged.Filepaths) == 0 && len(merged.Capabilities) == 0 && len(merged.CustomChecks) == 0 {
+	if len(merged.Tools) == 0 && len(merged.Commands) == 0 && len(merged.Filepaths) == 0 && len(merged.Capabilities) == 0 && len(merged.CustomChecks) == 0 && len(merged.EnvVars) == 0 {
 		return nil
 	}
 
@@ -1423,7 +1448,7 @@ func GenerateCUE(inv *Invowkfile) string {
 			sb.WriteString("\t\t\t\t}\n") // close target
 
 			// Implementation-level depends_on
-			if impl.DependsOn != nil && (len(impl.DependsOn.Tools) > 0 || len(impl.DependsOn.Commands) > 0 || len(impl.DependsOn.Filepaths) > 0 || len(impl.DependsOn.Capabilities) > 0 || len(impl.DependsOn.CustomChecks) > 0) {
+			if impl.DependsOn != nil && (len(impl.DependsOn.Tools) > 0 || len(impl.DependsOn.Commands) > 0 || len(impl.DependsOn.Filepaths) > 0 || len(impl.DependsOn.Capabilities) > 0 || len(impl.DependsOn.CustomChecks) > 0 || len(impl.DependsOn.EnvVars) > 0) {
 				sb.WriteString("\t\t\t\tdepends_on: {\n")
 				if len(impl.DependsOn.Tools) > 0 {
 					sb.WriteString("\t\t\t\t\ttools: [\n")
@@ -1522,6 +1547,25 @@ func GenerateCUE(inv *Invowkfile) string {
 					}
 					sb.WriteString("\t\t\t\t\t]\n")
 				}
+				if len(impl.DependsOn.EnvVars) > 0 {
+					sb.WriteString("\t\t\t\t\tenv_vars: [\n")
+					for _, envVar := range impl.DependsOn.EnvVars {
+						sb.WriteString("\t\t\t\t\t\t{alternatives: [")
+						for i, alt := range envVar.Alternatives {
+							if i > 0 {
+								sb.WriteString(", ")
+							}
+							sb.WriteString("{")
+							sb.WriteString(fmt.Sprintf("name: %q", alt.Name))
+							if alt.Validation != "" {
+								sb.WriteString(fmt.Sprintf(", validation: %q", alt.Validation))
+							}
+							sb.WriteString("}")
+						}
+						sb.WriteString("]},\n")
+					}
+					sb.WriteString("\t\t\t\t\t]\n")
+				}
 				sb.WriteString("\t\t\t\t}\n")
 			}
 
@@ -1539,7 +1583,7 @@ func GenerateCUE(inv *Invowkfile) string {
 		if cmd.WorkDir != "" {
 			sb.WriteString(fmt.Sprintf("\t\tworkdir: %q\n", cmd.WorkDir))
 		}
-		if cmd.DependsOn != nil && (len(cmd.DependsOn.Tools) > 0 || len(cmd.DependsOn.Commands) > 0 || len(cmd.DependsOn.Filepaths) > 0 || len(cmd.DependsOn.Capabilities) > 0 || len(cmd.DependsOn.CustomChecks) > 0) {
+		if cmd.DependsOn != nil && (len(cmd.DependsOn.Tools) > 0 || len(cmd.DependsOn.Commands) > 0 || len(cmd.DependsOn.Filepaths) > 0 || len(cmd.DependsOn.Capabilities) > 0 || len(cmd.DependsOn.CustomChecks) > 0 || len(cmd.DependsOn.EnvVars) > 0) {
 			sb.WriteString("\t\tdepends_on: {\n")
 			if len(cmd.DependsOn.Tools) > 0 {
 				sb.WriteString("\t\t\ttools: [\n")
@@ -1635,6 +1679,25 @@ func GenerateCUE(inv *Invowkfile) string {
 						}
 						sb.WriteString("},\n")
 					}
+				}
+				sb.WriteString("\t\t\t]\n")
+			}
+			if len(cmd.DependsOn.EnvVars) > 0 {
+				sb.WriteString("\t\t\tenv_vars: [\n")
+				for _, envVar := range cmd.DependsOn.EnvVars {
+					sb.WriteString("\t\t\t\t{alternatives: [")
+					for i, alt := range envVar.Alternatives {
+						if i > 0 {
+							sb.WriteString(", ")
+						}
+						sb.WriteString("{")
+						sb.WriteString(fmt.Sprintf("name: %q", alt.Name))
+						if alt.Validation != "" {
+							sb.WriteString(fmt.Sprintf(", validation: %q", alt.Validation))
+						}
+						sb.WriteString("}")
+					}
+					sb.WriteString("]},\n")
 				}
 				sb.WriteString("\t\t\t]\n")
 			}

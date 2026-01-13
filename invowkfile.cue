@@ -1547,4 +1547,212 @@ commands: [
 			{name: "mode", description: "Operation mode", default_value: "virtual-mode"},
 		]
 	},
+
+	// ============================================================================
+	// SECTION 14: Environment Variable Dependencies
+	// ============================================================================
+	// These commands demonstrate the env_vars dependency type, which validates
+	// that required environment variables exist in the user's environment BEFORE
+	// invowk sets any command-level env vars. This is useful for commands that
+	// require credentials, API keys, or other configuration from the environment.
+
+	// Example 14.1: Single required environment variable
+	{
+		name:        "deps env single"
+		description: "Command requiring a single environment variable"
+		implementations: [
+			{
+				script: """
+					echo "=== Single Env Var Dependency Demo ==="
+					echo ""
+					echo "Required environment variable is set:"
+					echo "  HOME = '$HOME'"
+					echo ""
+					echo "The env_vars dependency validated that HOME exists in your"
+					echo "environment before the command started."
+					"""
+				target: {
+					runtimes: [{name: "native"}]
+				}
+			}
+		]
+		depends_on: {
+			env_vars: [
+				{alternatives: [{name: "HOME"}]},
+			]
+		}
+	},
+
+	// Example 14.2: Environment variable with alternatives (OR semantics)
+	{
+		name:        "deps env alternatives"
+		description: "Command requiring any of several environment variables"
+		implementations: [
+			{
+				script: #"""
+					echo "=== Env Var Alternatives Demo ==="
+					echo ""
+					echo "At least one of these variables is set:"
+					echo "  EDITOR = '${EDITOR:-<not set>}'"
+					echo "  VISUAL = '${VISUAL:-<not set>}'"
+					echo "  PAGER = '${PAGER:-<not set>}'"
+					echo ""
+					echo "The env_vars dependency uses OR semantics - if ANY of the"
+					echo "alternatives is set, the dependency is satisfied."
+					"""#
+				target: {
+					runtimes: [{name: "native"}]
+				}
+			}
+		]
+		depends_on: {
+			env_vars: [
+				// Any one of these satisfies the dependency
+				{alternatives: [{name: "EDITOR"}, {name: "VISUAL"}, {name: "PAGER"}]},
+			]
+		}
+	},
+
+	// Example 14.3: Environment variable with regex validation
+	{
+		name:        "deps env validated"
+		description: "Command with regex-validated environment variable"
+		implementations: [
+			{
+				script: """
+					echo "=== Validated Env Var Demo ==="
+					echo ""
+					echo "Required environment variable with validation:"
+					echo "  USER = '$USER'"
+					echo ""
+					echo "The USER variable must:"
+					echo "  1. Exist in your environment"
+					echo "  2. Match the pattern: ^[a-zA-Z][a-zA-Z0-9_-]*$"
+					echo "     (start with letter, contain only alphanumerics, underscore, hyphen)"
+					echo ""
+					echo "This is useful for validating format of credentials, API keys, etc."
+					"""
+				target: {
+					runtimes: [{name: "native"}]
+				}
+			}
+		]
+		depends_on: {
+			env_vars: [
+				// USER must exist and match the pattern (username format)
+				{alternatives: [{name: "USER", validation: "^[a-zA-Z][a-zA-Z0-9_-]*$"}]},
+			]
+		}
+	},
+
+	// Example 14.4: Multiple environment variable dependencies
+	{
+		name:        "deps env multiple"
+		description: "Command requiring multiple environment variables"
+		implementations: [
+			{
+				script: """
+					echo "=== Multiple Env Var Dependencies Demo ==="
+					echo ""
+					echo "All required environment variables are set:"
+					echo "  HOME = '$HOME'"
+					echo "  USER = '$USER'"
+					echo "  PATH = '$PATH' (truncated)"
+					echo ""
+					echo "Each entry in env_vars is validated independently."
+					echo "All entries must be satisfied for the command to run."
+					"""
+				target: {
+					runtimes: [{name: "native"}]
+				}
+			}
+		]
+		depends_on: {
+			env_vars: [
+				{alternatives: [{name: "HOME"}]},
+				{alternatives: [{name: "USER"}]},
+				{alternatives: [{name: "PATH"}]},
+			]
+		}
+	},
+
+	// Example 14.5: Combining env_vars with other dependency types
+	{
+		name:        "deps env combined"
+		description: "Command combining env_vars with other dependency checks"
+		implementations: [
+			{
+				script: """
+					echo "=========================================="
+					echo "  Combined Dependencies Demo"
+					echo "=========================================="
+					echo ""
+					echo "All dependency checks passed:"
+					echo ""
+					echo "  [OK] Environment Variables:"
+					echo "       HOME = '$HOME'"
+					echo ""
+					echo "  [OK] Tools:"
+					echo "       sh is available"
+					echo ""
+					echo "  [OK] Files:"
+					echo "       README.md exists and is readable"
+					echo ""
+					echo "The env_vars check runs FIRST, before all other"
+					echo "dependency checks. This ensures validation against"
+					echo "the user's actual environment, not variables that"
+					echo "might be set by invowk's 'env' construct."
+					echo "=========================================="
+					"""
+				target: {
+					runtimes: [{name: "native"}]
+				}
+			}
+		]
+		depends_on: {
+			// env_vars are checked FIRST (before tools, filepaths, etc.)
+			env_vars: [
+				{alternatives: [{name: "HOME"}]},
+			]
+			tools: [
+				{alternatives: ["sh"]},
+			]
+			filepaths: [
+				{alternatives: ["README.md"], readable: true},
+			]
+		}
+	},
+
+	// Example 14.6: Implementation-level env_vars dependency (container example)
+	{
+		name:        "deps env container"
+		description: "Container command with env_vars at implementation level"
+		implementations: [
+			{
+				script: """
+					echo "=== Container Env Var Dependencies Demo ==="
+					echo ""
+					echo "Environment variables checked INSIDE the container:"
+					echo "  PATH = '$PATH'"
+					echo "  HOME = '$HOME'"
+					echo ""
+					echo "Implementation-level env_vars dependencies are validated"
+					echo "inside the container environment, not on the host."
+					echo ""
+					echo "This is useful for ensuring the container image has"
+					echo "required environment variables configured."
+					"""
+				target: {
+					runtimes: [{name: "container", image: "alpine:latest"}]
+				}
+				// These env_vars are validated INSIDE the container
+				depends_on: {
+					env_vars: [
+						{alternatives: [{name: "PATH"}]},
+						{alternatives: [{name: "HOME"}]},
+					]
+				}
+			}
+		]
+	},
 ]
