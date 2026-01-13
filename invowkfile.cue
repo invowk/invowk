@@ -1333,4 +1333,99 @@ commands: [
 			{name: "backup", description: "Create backup before overwriting", type: "bool", short: "b", default_value: "false"},
 		]
 	},
+
+	// Example 12.8: Shell-native positional parameters ($1, $2, $@, $#)
+	{
+		name:        "args shell positional"
+		description: "Access arguments via shell positional parameters ($1, $2, etc.)"
+		implementations: [
+			{
+				script: #"""
+					echo "=== Shell Positional Parameters Demo ==="
+					echo ""
+					echo "Arguments can be accessed using traditional shell syntax:"
+					echo "  \$1 (first arg)  = '$1'"
+					echo "  \$2 (second arg) = '$2'"
+					echo "  \$@ (all args)   = '$@'"
+					echo "  \$# (arg count)  = '$#'"
+					echo ""
+					echo "This is the traditional POSIX shell way to access arguments."
+					echo "It works in native, virtual, and container runtimes."
+					echo ""
+					echo "Try: invowk cmd examples args shell positional hello world"
+					"""#
+				target: {
+					runtimes: [{name: "native"}]
+				}
+			}
+		]
+		args: [
+			{name: "first", description: "First argument"},
+			{name: "second", description: "Second argument"},
+		]
+	},
+
+	// Example 12.9: Positional parameters with variadic arguments
+	{
+		name:        "args shell variadic"
+		description: "Process variadic arguments using shell positional parameters"
+		implementations: [
+			{
+				script: #"""
+					echo "=== Variadic Args via Positional Parameters ==="
+					echo ""
+					echo "Processing $# file(s)..."
+					echo ""
+					i=1
+					for file in "$@"; do
+					    echo "  [$i] $file"
+					    i=$((i + 1))
+					done
+					echo ""
+					echo "Using \$@ in a for loop is the idiomatic way to process"
+					echo "all arguments in shell scripts."
+					echo ""
+					echo "Try: invowk cmd examples args shell variadic file1.txt file2.txt file3.txt"
+					"""#
+				target: {
+					runtimes:  [{name: "native"}]
+					platforms: [{name: "linux"}, {name: "macos"}]
+				}
+			}
+		]
+		args: [
+			{name: "files", description: "Files to process", variadic: true},
+		]
+	},
+
+	// Example 12.10: Container with positional parameters
+	{
+		name:        "args container shell"
+		description: "Access positional parameters inside a container"
+		implementations: [
+			{
+				script: #"""
+					echo "=== Container Positional Parameters Demo ==="
+					echo ""
+					echo "Arguments passed to container script:"
+					echo "  \$1 = '$1'"
+					echo "  \$2 = '$2'"
+					echo "  \$# = '$#'"
+					echo "  \$@ = '$@'"
+					echo ""
+					echo "Positional parameters work the same way inside containers"
+					echo "as they do in native shell execution."
+					echo ""
+					echo "Try: invowk cmd examples args container shell hello container"
+					"""#
+				target: {
+					runtimes: [{name: "container", image: "alpine:latest"}]
+				}
+			}
+		]
+		args: [
+			{name: "arg1", description: "First argument"},
+			{name: "arg2", description: "Second argument"},
+		]
+	},
 ]
