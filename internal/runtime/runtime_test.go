@@ -32,7 +32,7 @@ func TestNativeRuntime_InlineScript(t *testing.T) {
 
 	cmd := &invowkfile.Command{
 		Name:    "test",
-		Runtime: invowkfile.RuntimeNative,
+		Runtimes: []invowkfile.RuntimeMode{invowkfile.RuntimeNative},
 		Script:  "echo 'Hello from inline'",
 	}
 
@@ -79,7 +79,7 @@ echo "Line 3"`
 
 	cmd := &invowkfile.Command{
 		Name:    "multiline",
-		Runtime: invowkfile.RuntimeNative,
+		Runtimes: []invowkfile.RuntimeMode{invowkfile.RuntimeNative},
 		Script:  script,
 	}
 
@@ -130,7 +130,7 @@ echo "Hello from script file"
 
 	cmd := &invowkfile.Command{
 		Name:    "from-file",
-		Runtime: invowkfile.RuntimeNative,
+		Runtimes: []invowkfile.RuntimeMode{invowkfile.RuntimeNative},
 		Script:  "./test.sh",
 	}
 
@@ -163,12 +163,12 @@ func TestVirtualRuntime_InlineScript(t *testing.T) {
 
 	inv := &invowkfile.Invowkfile{
 		FilePath:       invowkfilePath,
-		DefaultRuntime: invowkfile.RuntimeVirtual,
+		DefaultRuntime: invowkfile.RuntimeNative,
 	}
 
 	cmd := &invowkfile.Command{
 		Name:    "test",
-		Runtime: invowkfile.RuntimeVirtual,
+		Runtimes: []invowkfile.RuntimeMode{invowkfile.RuntimeVirtual},
 		Script:  "echo 'Hello from virtual'",
 	}
 
@@ -202,7 +202,7 @@ func TestVirtualRuntime_MultiLineScript(t *testing.T) {
 
 	inv := &invowkfile.Invowkfile{
 		FilePath:       invowkfilePath,
-		DefaultRuntime: invowkfile.RuntimeVirtual,
+		DefaultRuntime: invowkfile.RuntimeNative,
 	}
 
 	script := `VAR="test value"
@@ -211,7 +211,7 @@ echo "Done"`
 
 	cmd := &invowkfile.Command{
 		Name:    "multiline",
-		Runtime: invowkfile.RuntimeVirtual,
+		Runtimes: []invowkfile.RuntimeMode{invowkfile.RuntimeVirtual},
 		Script:  script,
 	}
 
@@ -253,12 +253,12 @@ func TestVirtualRuntime_ScriptFile(t *testing.T) {
 
 	inv := &invowkfile.Invowkfile{
 		FilePath:       invowkfilePath,
-		DefaultRuntime: invowkfile.RuntimeVirtual,
+		DefaultRuntime: invowkfile.RuntimeNative,
 	}
 
 	cmd := &invowkfile.Command{
 		Name:    "from-file",
-		Runtime: invowkfile.RuntimeVirtual,
+		Runtimes: []invowkfile.RuntimeMode{invowkfile.RuntimeVirtual},
 		Script:  "./test.sh",
 	}
 
@@ -292,13 +292,13 @@ func TestVirtualRuntime_Validate_ScriptSyntaxError(t *testing.T) {
 
 	inv := &invowkfile.Invowkfile{
 		FilePath:       invowkfilePath,
-		DefaultRuntime: invowkfile.RuntimeVirtual,
+		DefaultRuntime: invowkfile.RuntimeNative,
 	}
 
 	// Invalid shell syntax
 	cmd := &invowkfile.Command{
 		Name:    "invalid",
-		Runtime: invowkfile.RuntimeVirtual,
+		Runtimes: []invowkfile.RuntimeMode{invowkfile.RuntimeVirtual},
 		Script:  "if then fi",
 	}
 
@@ -327,7 +327,7 @@ func TestRuntime_ScriptNotFound(t *testing.T) {
 
 	cmd := &invowkfile.Command{
 		Name:    "missing",
-		Runtime: invowkfile.RuntimeNative,
+		Runtimes: []invowkfile.RuntimeMode{invowkfile.RuntimeNative},
 		Script:  "./nonexistent.sh",
 	}
 
@@ -346,7 +346,7 @@ func TestRuntime_ScriptNotFound(t *testing.T) {
 	t.Run("virtual runtime", func(t *testing.T) {
 		cmdVirtual := &invowkfile.Command{
 			Name:    "missing",
-			Runtime: invowkfile.RuntimeVirtual,
+			Runtimes: []invowkfile.RuntimeMode{invowkfile.RuntimeVirtual},
 			Script:  "./nonexistent.sh",
 		}
 		rt := NewVirtualRuntime(false)
@@ -373,7 +373,7 @@ func TestRuntime_EnvironmentVariables(t *testing.T) {
 
 	inv := &invowkfile.Invowkfile{
 		FilePath:       invowkfilePath,
-		DefaultRuntime: invowkfile.RuntimeVirtual,
+		DefaultRuntime: invowkfile.RuntimeNative,
 		Env: map[string]string{
 			"GLOBAL_VAR": "global_value",
 		},
@@ -381,7 +381,7 @@ func TestRuntime_EnvironmentVariables(t *testing.T) {
 
 	cmd := &invowkfile.Command{
 		Name:    "env-test",
-		Runtime: invowkfile.RuntimeVirtual,
+		Runtimes: []invowkfile.RuntimeMode{invowkfile.RuntimeVirtual},
 		Script:  `echo "Global: $GLOBAL_VAR, Command: $CMD_VAR"`,
 		Env: map[string]string{
 			"CMD_VAR": "command_value",

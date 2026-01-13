@@ -30,18 +30,21 @@ type ExecutionContext struct {
 	WorkDir string
 	// Verbose enables verbose output
 	Verbose bool
+	// SelectedRuntime is the runtime to use for execution (may differ from default)
+	SelectedRuntime invowkfile.RuntimeMode
 }
 
 // NewExecutionContext creates a new execution context with defaults
 func NewExecutionContext(cmd *invowkfile.Command, inv *invowkfile.Invowkfile) *ExecutionContext {
 	return &ExecutionContext{
-		Command:    cmd,
-		Invowkfile: inv,
-		Context:    context.Background(),
-		Stdout:     os.Stdout,
-		Stderr:     os.Stderr,
-		Stdin:      os.Stdin,
-		ExtraEnv:   make(map[string]string),
+		Command:         cmd,
+		Invowkfile:      inv,
+		Context:         context.Background(),
+		Stdout:          os.Stdout,
+		Stderr:          os.Stderr,
+		Stdin:           os.Stdin,
+		ExtraEnv:        make(map[string]string),
+		SelectedRuntime: cmd.GetDefaultRuntime(),
 	}
 }
 
@@ -109,9 +112,16 @@ func (r *Registry) Get(typ RuntimeType) (Runtime, error) {
 	return rt, nil
 }
 
-// GetForCommand returns the appropriate runtime for a command
+// GetForCommand returns the appropriate runtime for a command based on its default runtime
+// Deprecated: Use GetForContext instead for proper runtime selection
 func (r *Registry) GetForCommand(cmd *invowkfile.Command) (Runtime, error) {
-	typ := RuntimeType(cmd.Runtime)
+	typ := RuntimeType(cmd.GetDefaultRuntime())
+	return r.Get(typ)
+}
+
+// GetForContext returns the appropriate runtime based on the execution context's selected runtime
+func (r *Registry) GetForContext(ctx *ExecutionContext) (Runtime, error) {
+	typ := RuntimeType(ctx.SelectedRuntime)
 	return r.Get(typ)
 }
 
@@ -126,9 +136,9 @@ func (r *Registry) Available() []RuntimeType {
 	return types
 }
 
-// Execute runs a command using the appropriate runtime
+// Execute runs a command using the appropriate runtime from the execution context
 func (r *Registry) Execute(ctx *ExecutionContext) *Result {
-	rt, err := r.GetForCommand(ctx.Command)
+	rt, err := r.GetForContext(ctx)
 	if err != nil {
 		return &Result{ExitCode: 1, Error: err}
 	}

@@ -23,6 +23,8 @@ const (
 	DependencyCycleId
 	ShellNotFoundId
 	PermissionDeniedId
+	DependenciesNotSatisfiedId
+	HostNotSupportedId
 )
 
 type MarkdownMsg string
@@ -113,19 +115,22 @@ $ invowk cmd list
 ~~~
 
 ## Example invowkfile structure:
-~~~toml
-version = "1.0"
-description = "My project commands"
+~~~cue
+version: "1.0"
+description: "My project commands"
 
-[[commands]]
-name = "build"
-description = "Build the project"
-script = "go build -o myapp ./..."
-
-[[commands]]
-name = "test"
-description = "Run tests"
-script = "go test ./..."
+commands: [
+  {
+    name: "build"
+    description: "Build the project"
+    script: "go build -o myapp ./..."
+  },
+  {
+    name: "test"
+    description: "Run tests"
+    script: "go test ./..."
+  },
+]
 ~~~`,
 	}
 
@@ -137,14 +142,14 @@ script = "go test ./..."
 Your invowkfile contains syntax errors or invalid configuration.
 
 ## Common issues:
-- Invalid TOML syntax (missing quotes, brackets, etc.)
+- Invalid CUE syntax (missing quotes, braces, etc.)
 - Unknown field names
 - Invalid values for known fields
 - Missing required fields (name, script for commands)
 
 ## Things you can try:
 - Check the error message above for the specific line/column
-- Validate your TOML syntax using an online validator
+- Validate your CUE syntax using the cue command-line tool
 - Run with verbose mode for more details:
 ~~~
 $ invowk --verbose cmd list
@@ -422,20 +427,49 @@ $ sudo usermod -aG docker $USER
 - Run invowk from a directory you own`,
 	}
 
+	dependenciesNotSatisfiedIssue = &Issue{
+		id: DependenciesNotSatisfiedId,
+		mdMsg: `
+# Dependencies not satisfied!
+
+The command cannot run because some dependencies are not available.
+
+## Things you can try:
+- Install the missing tools listed above
+- Check that the tools are in your PATH
+- Run the required commands before this one
+- Update your invowkfile to remove unnecessary dependencies`,
+	}
+
+	hostNotSupportedIssue = &Issue{
+		id: HostNotSupportedId,
+		mdMsg: `
+# Host not supported!
+
+This command cannot run on your current operating system.
+
+## Things you can try:
+- Check the command's 'works_on.hosts' setting in your invowkfile
+- Run this command on a supported operating system
+- Use a container runtime to run the command on a different OS`,
+	}
+
 	issues = map[Id]*Issue{
-		fileNotFoundIssue.Id():            fileNotFoundIssue,
-		invowkfileNotFoundIssue.Id():      invowkfileNotFoundIssue,
-		invowkfileParseErrorIssue.Id():    invowkfileParseErrorIssue,
-		commandNotFoundIssue.Id():         commandNotFoundIssue,
-		runtimeNotAvailableIssue.Id():     runtimeNotAvailableIssue,
-		containerEngineNotFoundIssue.Id(): containerEngineNotFoundIssue,
-		dockerfileNotFoundIssue.Id():      dockerfileNotFoundIssue,
-		scriptExecutionFailedIssue.Id():   scriptExecutionFailedIssue,
-		configLoadFailedIssue.Id():        configLoadFailedIssue,
-		invalidRuntimeModeIssue.Id():      invalidRuntimeModeIssue,
-		dependencyCycleIssue.Id():         dependencyCycleIssue,
-		shellNotFoundIssue.Id():           shellNotFoundIssue,
-		permissionDeniedIssue.Id():        permissionDeniedIssue,
+		fileNotFoundIssue.Id():             fileNotFoundIssue,
+		invowkfileNotFoundIssue.Id():       invowkfileNotFoundIssue,
+		invowkfileParseErrorIssue.Id():     invowkfileParseErrorIssue,
+		commandNotFoundIssue.Id():          commandNotFoundIssue,
+		runtimeNotAvailableIssue.Id():      runtimeNotAvailableIssue,
+		containerEngineNotFoundIssue.Id():  containerEngineNotFoundIssue,
+		dockerfileNotFoundIssue.Id():       dockerfileNotFoundIssue,
+		scriptExecutionFailedIssue.Id():    scriptExecutionFailedIssue,
+		configLoadFailedIssue.Id():         configLoadFailedIssue,
+		invalidRuntimeModeIssue.Id():       invalidRuntimeModeIssue,
+		dependencyCycleIssue.Id():          dependencyCycleIssue,
+		shellNotFoundIssue.Id():            shellNotFoundIssue,
+		permissionDeniedIssue.Id():         permissionDeniedIssue,
+		dependenciesNotSatisfiedIssue.Id(): dependenciesNotSatisfiedIssue,
+		hostNotSupportedIssue.Id():         hostNotSupportedIssue,
 	}
 )
 

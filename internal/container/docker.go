@@ -112,6 +112,10 @@ func (e *DockerEngine) Run(ctx context.Context, opts RunOptions) (*RunResult, er
 		args = append(args, "-p", p)
 	}
 
+	for _, h := range opts.ExtraHosts {
+		args = append(args, "--add-host", h)
+	}
+
 	args = append(args, opts.Image)
 	args = append(args, opts.Command...)
 

@@ -92,14 +92,14 @@ func (d *Discovery) discoverInDir(dir string, source Source) *DiscoveredFile {
 		return nil
 	}
 
-	// Check for invowkfile (no extension)
-	path := filepath.Join(absDir, invowkfile.InvowkfileName)
+	// Check for invowkfile.cue first (preferred)
+	path := filepath.Join(absDir, invowkfile.InvowkfileName+".cue")
 	if _, err := os.Stat(path); err == nil {
 		return &DiscoveredFile{Path: path, Source: source}
 	}
 
-	// Check for invowkfile.toml
-	path = filepath.Join(absDir, invowkfile.InvowkfileName+".toml")
+	// Check for invowkfile (no extension)
+	path = filepath.Join(absDir, invowkfile.InvowkfileName)
 	if _, err := os.Stat(path); err == nil {
 		return &DiscoveredFile{Path: path, Source: source}
 	}
@@ -131,7 +131,7 @@ func (d *Discovery) discoverInDirRecursive(dir string, source Source) []*Discove
 		}
 
 		name := d.Name()
-		if name == invowkfile.InvowkfileName || name == invowkfile.InvowkfileName+".toml" {
+		if name == invowkfile.InvowkfileName || name == invowkfile.InvowkfileName+".cue" {
 			files = append(files, &DiscoveredFile{Path: path, Source: source})
 		}
 

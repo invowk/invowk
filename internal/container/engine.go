@@ -74,6 +74,8 @@ type RunOptions struct {
 	Interactive bool
 	// TTY allocates a pseudo-TTY
 	TTY bool
+	// ExtraHosts are additional host-to-IP mappings (e.g., "host.docker.internal:host-gateway")
+	ExtraHosts []string
 }
 
 // RunResult contains the result of running a container

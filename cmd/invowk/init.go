@@ -5,7 +5,6 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/pelletier/go-toml/v2"
 	"github.com/spf13/cobra"
 
 	"invowk-cli/pkg/invowkfile"
@@ -33,7 +32,7 @@ func init() {
 }
 
 func runInit(cmd *cobra.Command, args []string) error {
-	filename := "invowkfile.toml"
+	filename := "invowkfile.cue"
 	if len(args) > 0 {
 		filename = args[0]
 	}
@@ -44,13 +43,10 @@ func runInit(cmd *cobra.Command, args []string) error {
 	}
 
 	// Generate content based on template
-	content, err := generateInvowkfile(initTemplate)
-	if err != nil {
-		return err
-	}
+	content := generateInvowkfile(initTemplate)
 
 	// Write file
-	if err := os.WriteFile(filename, content, 0644); err != nil {
+	if err := os.WriteFile(filename, []byte(content), 0644); err != nil {
 		return fmt.Errorf("failed to write file: %w", err)
 	}
 
@@ -65,7 +61,7 @@ func runInit(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func generateInvowkfile(template string) ([]byte, error) {
+func generateInvowkfile(template string) string {
 	var inv *invowkfile.Invowkfile
 
 	switch template {
@@ -77,7 +73,9 @@ func generateInvowkfile(template string) ([]byte, error) {
 				{
 					Name:        "hello",
 					Description: "Print a greeting",
+					Runtimes:    []invowkfile.RuntimeMode{invowkfile.RuntimeNative},
 					Script:      "echo 'Hello from invowk!'",
+					WorksOn:     invowkfile.WorksOn{Hosts: []invowkfile.HostOS{invowkfile.HostLinux, invowkfile.HostMac, invowkfile.HostWindows}},
 				},
 			},
 		}
@@ -99,43 +97,64 @@ func generateInvowkfile(template string) ([]byte, error) {
 				{
 					Name:        "build",
 					Description: "Build the project",
+					Runtimes:    []invowkfile.RuntimeMode{invowkfile.RuntimeNative, invowkfile.RuntimeContainer},
 					Script:      "echo \"Building $PROJECT_NAME...\"\ngo build -o bin/app ./...",
 					Env: map[string]string{
 						"CGO_ENABLED": "0",
 					},
+					WorksOn: invowkfile.WorksOn{Hosts: []invowkfile.HostOS{invowkfile.HostLinux, invowkfile.HostMac, invowkfile.HostWindows}},
 				},
 				{
 					Name:        "test unit",
 					Description: "Run unit tests",
+					Runtimes:    []invowkfile.RuntimeMode{invowkfile.RuntimeNative, invowkfile.RuntimeVirtual},
 					Script:      "go test -v ./...",
+					WorksOn:     invowkfile.WorksOn{Hosts: []invowkfile.HostOS{invowkfile.HostLinux, invowkfile.HostMac, invowkfile.HostWindows}},
 				},
 				{
 					Name:        "test integration",
 					Description: "Run integration tests",
+					Runtimes:    []invowkfile.RuntimeMode{invowkfile.RuntimeNative},
 					Script:      "go test -v -tags=integration ./...",
+					WorksOn:     invowkfile.WorksOn{Hosts: []invowkfile.HostOS{invowkfile.HostLinux, invowkfile.HostMac, invowkfile.HostWindows}},
 				},
 				{
 					Name:        "clean",
 					Description: "Clean build artifacts",
+					Runtimes:    []invowkfile.RuntimeMode{invowkfile.RuntimeNative},
 					Script:      "rm -rf bin/ dist/",
+					WorksOn:     invowkfile.WorksOn{Hosts: []invowkfile.HostOS{invowkfile.HostLinux, invowkfile.HostMac}},
 				},
 				{
 					Name:        "docker-build",
 					Description: "Build using container runtime",
-					Runtime:     invowkfile.RuntimeContainer,
+					Runtimes:    []invowkfile.RuntimeMode{invowkfile.RuntimeContainer},
 					Script:      "go build -o /workspace/bin/app ./...",
+					WorksOn:     invowkfile.WorksOn{Hosts: []invowkfile.HostOS{invowkfile.HostLinux, invowkfile.HostMac, invowkfile.HostWindows}},
 				},
 				{
 					Name:        "container hello-invowk",
 					Description: "Print a greeting from a container",
-					Runtime:     invowkfile.RuntimeContainer,
+					Runtimes:    []invowkfile.RuntimeMode{invowkfile.RuntimeContainer},
 					Script:      "echo \"Hello, Invowk!\"",
+					WorksOn:     invowkfile.WorksOn{Hosts: []invowkfile.HostOS{invowkfile.HostLinux, invowkfile.HostMac, invowkfile.HostWindows}},
 				},
 				{
 					Name:        "release",
 					Description: "Create a release",
-					DependsOn:   []string{"clean", "build", "test unit"},
-					Script:      "echo 'Creating release...'",
+					Runtimes:    []invowkfile.RuntimeMode{invowkfile.RuntimeNative},
+					DependsOn: &invowkfile.DependsOn{
+						Tools: []invowkfile.ToolDependency{
+							{Name: "git"},
+						},
+						Commands: []invowkfile.CommandDependency{
+							{Name: "clean"},
+							{Name: "build"},
+							{Name: "test unit"},
+						},
+					},
+					Script:  "echo 'Creating release...'",
+					WorksOn: invowkfile.WorksOn{Hosts: []invowkfile.HostOS{invowkfile.HostLinux, invowkfile.HostMac}},
 				},
 			},
 		}
@@ -149,59 +168,27 @@ func generateInvowkfile(template string) ([]byte, error) {
 				{
 					Name:        "build",
 					Description: "Build the project",
+					Runtimes:    []invowkfile.RuntimeMode{invowkfile.RuntimeNative},
 					Script:      "echo 'Building...'\n# Add your build commands here",
+					WorksOn:     invowkfile.WorksOn{Hosts: []invowkfile.HostOS{invowkfile.HostLinux, invowkfile.HostMac, invowkfile.HostWindows}},
 				},
 				{
 					Name:        "test",
 					Description: "Run tests",
+					Runtimes:    []invowkfile.RuntimeMode{invowkfile.RuntimeNative},
 					Script:      "echo 'Testing...'\n# Add your test commands here",
+					WorksOn:     invowkfile.WorksOn{Hosts: []invowkfile.HostOS{invowkfile.HostLinux, invowkfile.HostMac, invowkfile.HostWindows}},
 				},
 				{
 					Name:        "clean",
 					Description: "Clean build artifacts",
+					Runtimes:    []invowkfile.RuntimeMode{invowkfile.RuntimeNative},
 					Script:      "echo 'Cleaning...'\n# Add your clean commands here",
+					WorksOn:     invowkfile.WorksOn{Hosts: []invowkfile.HostOS{invowkfile.HostLinux, invowkfile.HostMac, invowkfile.HostWindows}},
 				},
 			},
 		}
 	}
 
-	header := []byte(`# Invowkfile - Command definitions for invowk
-# See https://github.com/invowk/invowk for documentation
-#
-# Available runtimes:
-#   - native: Use system shell (default)
-#   - virtual: Use built-in sh interpreter
-#   - container: Run in Docker/Podman container
-#
-# Script can be:
-#   - Inline shell commands (single or multi-line using ''' in TOML)
-#   - A path to a script file (e.g., ./scripts/build.sh)
-#
-# Example command with inline script:
-#   [[commands]]
-#   name = "build"
-#   description = "Build the project"
-#   script = '''
-#   echo "Building..."
-#   go build ./...
-#   '''
-#
-# Example command with script file:
-#   [[commands]]
-#   name = "deploy"
-#   script = "./scripts/deploy.sh"
-#
-# Use spaces in names for subcommand-like behavior:
-#   [[commands]]
-#   name = "test unit"
-#   script = "go test ./..."
-
-`)
-
-	content, err := toml.Marshal(inv)
-	if err != nil {
-		return nil, fmt.Errorf("failed to generate invowkfile: %w", err)
-	}
-
-	return append(header, content...), nil
+	return invowkfile.GenerateCUE(inv)
 }

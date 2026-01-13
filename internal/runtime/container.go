@@ -10,11 +10,13 @@ import (
 
 	"invowk-cli/internal/config"
 	"invowk-cli/internal/container"
+	"invowk-cli/internal/sshserver"
 )
 
 // ContainerRuntime executes commands inside a container
 type ContainerRuntime struct {
-	engine container.Engine
+	engine    container.Engine
+	sshServer *sshserver.Server
 }
 
 // NewContainerRuntime creates a new container runtime
@@ -30,6 +32,11 @@ func NewContainerRuntime(cfg *config.Config) (*ContainerRuntime, error) {
 // NewContainerRuntimeWithEngine creates a container runtime with a specific engine
 func NewContainerRuntimeWithEngine(engine container.Engine) *ContainerRuntime {
 	return &ContainerRuntime{engine: engine}
+}
+
+// SetSSHServer sets the SSH server for host access from containers
+func (r *ContainerRuntime) SetSSHServer(srv *sshserver.Server) {
+	r.sshServer = srv
 }
 
 // Name returns the runtime name
@@ -82,6 +89,44 @@ func (r *ContainerRuntime) Execute(ctx *ExecutionContext) *Result {
 	// Build environment
 	env := r.buildEnv(ctx)
 
+	// Handle host SSH access if enabled
+	var sshConnInfo *sshserver.ConnectionInfo
+	if ctx.Command.HostSSH {
+		if r.sshServer == nil {
+			return &Result{ExitCode: 1, Error: fmt.Errorf("host_ssh is enabled but SSH server is not configured")}
+		}
+		if !r.sshServer.IsRunning() {
+			return &Result{ExitCode: 1, Error: fmt.Errorf("host_ssh is enabled but SSH server is not running")}
+		}
+
+		// Generate connection info with a unique token for this command execution
+		commandID := fmt.Sprintf("%s-%d", ctx.Command.Name, ctx.Context.Value("execution_id"))
+		sshConnInfo, err = r.sshServer.GetConnectionInfo(commandID)
+		if err != nil {
+			return &Result{ExitCode: 1, Error: fmt.Errorf("failed to generate SSH credentials: %w", err)}
+		}
+
+		// Add SSH connection info to environment
+		// Use host.docker.internal for Docker or host.containers.internal for Podman
+		hostAddr := "host.docker.internal"
+		if r.engine.Name() == "podman" {
+			hostAddr = "host.containers.internal"
+		}
+
+		env["INVOWK_SSH_HOST"] = hostAddr
+		env["INVOWK_SSH_PORT"] = fmt.Sprintf("%d", sshConnInfo.Port)
+		env["INVOWK_SSH_USER"] = sshConnInfo.User
+		env["INVOWK_SSH_TOKEN"] = sshConnInfo.Token
+		env["INVOWK_SSH_ENABLED"] = "true"
+
+		// Defer token revocation
+		defer func() {
+			if sshConnInfo != nil {
+				r.sshServer.RevokeToken(sshConnInfo.Token)
+			}
+		}()
+	}
+
 	// Prepare volumes
 	volumes := containerCfg.Volumes
 	// Always mount the invowkfile directory
@@ -101,6 +146,13 @@ func (r *ContainerRuntime) Execute(ctx *ExecutionContext) *Result {
 		}
 	}
 
+	// Build extra hosts for SSH server access
+	var extraHosts []string
+	if ctx.Command.HostSSH && sshConnInfo != nil {
+		// Add host gateway for accessing host from container
+		extraHosts = append(extraHosts, "host.docker.internal:host-gateway")
+	}
+
 	// Run the container
 	runOpts := container.RunOptions{
 		Image:       image,
@@ -114,6 +166,7 @@ func (r *ContainerRuntime) Execute(ctx *ExecutionContext) *Result {
 		Stdout:      ctx.Stdout,
 		Stderr:      ctx.Stderr,
 		Interactive: ctx.Stdin != nil,
+		ExtraHosts:  extraHosts,
 	}
 
 	result, err := r.engine.Run(ctx.Context, runOpts)
