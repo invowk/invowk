@@ -2,9 +2,11 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"os"
 
+	"github.com/charmbracelet/fang"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/spf13/cobra"
 
@@ -63,8 +65,12 @@ be organized hierarchically with support for dependencies.
 // Execute adds all child commands to the root command and sets flags appropriately.
 // This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() {
-	if err := rootCmd.Execute(); err != nil {
-		fmt.Fprintln(os.Stderr, errorStyle.Render("Error: ")+err.Error())
+	// Use fang.Execute for enhanced Cobra styling
+	if err := fang.Execute(
+		context.Background(),
+		rootCmd,
+		fang.WithNotifySignal(os.Interrupt),
+	); err != nil {
 		os.Exit(1)
 	}
 }

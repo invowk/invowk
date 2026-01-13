@@ -170,7 +170,11 @@ commands: [
 					echo "Example: sshpass -p $INVOWK_SSH_TOKEN ssh -o StrictHostKeyChecking=no $INVOWK_SSH_USER@$INVOWK_SSH_HOST -p $INVOWK_SSH_PORT 'hostname'"
 					"""
 				target: {
-					runtimes:  [{name: "container", image: "alpine:latest", enable_host_ssh: true}]
+					runtimes: [{
+						name:            "container"
+						image:           "alpine:latest"
+						enable_host_ssh: true
+					}]
 					platforms: [{name: "linux"}, {name: "macos"}]
 				}
 			}
