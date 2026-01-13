@@ -1,5 +1,5 @@
 // Package runtime provides integration tests for the container runtime functionality.
-// These tests use testcontainers-go to verify container-based command execution.
+// These tests verify container-based command execution using Docker or Podman.
 package runtime
 
 import (
@@ -11,29 +11,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/testcontainers/testcontainers-go"
-
 	"invowk-cli/internal/container"
 	"invowk-cli/internal/sshserver"
 	"invowk-cli/pkg/invowkfile"
 )
-
-// checkTestcontainersAvailable safely checks if testcontainers can be used.
-// Returns true if containers are available, false otherwise.
-func checkTestcontainersAvailable() (available bool) {
-	defer func() {
-		if r := recover(); r != nil {
-			available = false
-		}
-	}()
-
-	provider, err := testcontainers.ProviderDocker.GetProvider()
-	if err != nil {
-		return false
-	}
-	defer provider.Close()
-	return true
-}
 
 // TestContainerRuntime_Integration tests the container runtime with real containers.
 // These tests require Docker or Podman to be available.
@@ -43,18 +24,12 @@ func TestContainerRuntime_Integration(t *testing.T) {
 	}
 
 	// Check if we can run containers using our own engine detection
-	// This is more robust than testcontainers-go's detection which can panic
 	engine, err := container.AutoDetectEngine()
 	if err != nil {
 		t.Skipf("skipping container integration tests: no container engine available: %v", err)
 	}
 	if !engine.Available() {
 		t.Skip("skipping container integration tests: container engine not available")
-	}
-
-	// Also check via testcontainers for additional verification
-	if !checkTestcontainersAvailable() {
-		t.Skip("skipping container integration tests: testcontainers provider not available")
 	}
 
 	t.Run("BasicExecution", testContainerBasicExecution)

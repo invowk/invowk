@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"os"
 	"os/exec"
 	"strings"
 )
@@ -104,8 +105,9 @@ func (e *PodmanEngine) Run(ctx context.Context, opts RunOptions) (*RunResult, er
 		args = append(args, "-e", fmt.Sprintf("%s=%s", k, v))
 	}
 
+	// Add volumes with SELinux labels if needed
 	for _, v := range opts.Volumes {
-		args = append(args, "-v", v)
+		args = append(args, "-v", addSELinuxLabel(v))
 	}
 
 	for _, p := range opts.Ports {
@@ -224,4 +226,49 @@ func (e *PodmanEngine) InspectImage(ctx context.Context, image string) (string, 
 	}
 
 	return out.String(), nil
+}
+
+// isSELinuxEnabled checks if SELinux is enabled on the system
+func isSELinuxEnabled() bool {
+	// Check /sys/fs/selinux/enforce for SELinux status
+	data, err := os.ReadFile("/sys/fs/selinux/enforce")
+	if err != nil {
+		return false
+	}
+	return strings.TrimSpace(string(data)) == "1"
+}
+
+// addSELinuxLabel adds the :z label to a volume mount if SELinux is enabled
+// and the volume doesn't already have an SELinux label (:z or :Z)
+func addSELinuxLabel(volume string) string {
+	if !isSELinuxEnabled() {
+		return volume
+	}
+
+	// Parse the volume string to check if it already has SELinux labels
+	// Volume format: host_path:container_path[:options]
+	// Options can include: ro, rw, z, Z, and others
+	parts := strings.Split(volume, ":")
+
+	// Need at least host:container
+	if len(parts) < 2 {
+		return volume
+	}
+
+	// Check if options already contain SELinux label
+	if len(parts) >= 3 {
+		options := parts[len(parts)-1]
+		// Check for :z or :Z in options
+		for _, opt := range strings.Split(options, ",") {
+			if opt == "z" || opt == "Z" {
+				// Already has SELinux label
+				return volume
+			}
+		}
+		// Append :z to existing options
+		return volume + ",z"
+	}
+
+	// No options specified, add :z
+	return volume + ":z"
 }
