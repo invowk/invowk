@@ -4,6 +4,10 @@ sidebar_position: 1
 
 # Installation
 
+:::warning Alpha Software
+Invowk is currently in **alpha stage**. While we strive for stability, expect breaking changes between releases as we stabilize the invkfile format, pack structure, and feature set. We recommend pinning to a specific version for production use and following the [GitHub releases](https://github.com/invowk/invowk/releases) for migration guides.
+:::
+
 Welcome to Invowk! Let's get you set up and running commands in no time.
 
 ## Requirements

@@ -4,6 +4,10 @@ sidebar_position: 3
 
 # Configuration Schema Reference
 
+:::warning Alpha — Configuration Options May Change
+The configuration schema is still being refined. Options **may be added, renamed, or removed** between releases as we finalize the feature set.
+:::
+
 Complete reference for the Invowk configuration file schema.
 
 ## Overview

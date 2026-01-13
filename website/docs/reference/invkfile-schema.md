@@ -4,6 +4,10 @@ sidebar_position: 2
 
 # Invkfile Schema Reference
 
+:::warning Alpha — Schema May Change
+The invkfile schema is still evolving. Fields, types, and validation rules **may change between releases** as we stabilize the format. Always check the [changelog](https://github.com/invowk/invowk/releases) when upgrading.
+:::
+
 Complete reference for the invkfile schema. Invkfiles use [CUE](https://cuelang.org/) format for defining commands.
 
 ## Root Structure

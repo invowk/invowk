@@ -27,7 +27,13 @@ const config: Config = {
   trailingSlash: false,
 
   onBrokenLinks: 'throw',
-  onBrokenMarkdownLinks: 'warn',
+
+  // Markdown configuration
+  markdown: {
+    hooks: {
+      onBrokenMarkdownLinks: 'warn',
+    },
+  },
 
   // Internationalization
   i18n: {
@@ -76,11 +82,11 @@ const config: Config = {
       respectPrefersColorScheme: true,
     },
     announcementBar: {
-      id: 'support_us',
-      content: 'Invowk is in active development. Star us on <a target="_blank" rel="noopener noreferrer" href="https://github.com/invowk/invowk">GitHub</a>!',
-      backgroundColor: '#6366f1',
-      textColor: '#ffffff',
-      isCloseable: true,
+      id: 'alpha_warning',
+      content: '⚠️ <strong>Alpha Software</strong> — Invowk is under active development. The invkfile format and features may change between releases. <a target="_blank" rel="noopener noreferrer" href="https://github.com/invowk/invowk">Star us on GitHub</a> to follow progress!',
+      backgroundColor: '#f59e0b',
+      textColor: '#000000',
+      isCloseable: false,
     },
     navbar: {
       title: 'Invowk',

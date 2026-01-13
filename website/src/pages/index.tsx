@@ -13,6 +13,10 @@ function HomepageHeader() {
   return (
     <header className={clsx('hero hero--primary', styles.heroBanner)}>
       <div className="container">
+        <div className={styles.alphaNotice}>
+          <span className={styles.alphaBadge}>ALPHA</span>
+          <span>Invowk is in early development. Expect breaking changes between releases.</span>
+        </div>
         <Heading as="h1" className="hero__title">
           {siteConfig.title}
         </Heading>
