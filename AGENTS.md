@@ -142,6 +142,25 @@ go test -v ./internal/runtime/...
 go test -v ./pkg/invkfile/...
 ```
 
+## Git Commit Messages
+
+All commits should include a detailed description of what changed. Use a short Conventional Commit-style subject line, and a body with bullet points describing the key modifications.
+
+- Subject: `type(scope): summary` (keep concise, <= 72 chars)
+- Body: 3–6 bullets describing what was changed (and why if helpful)
+- Call out user-facing behavior/schema changes and migrations
+- Avoid vague messages like "misc" or "wip"
+
+Example:
+
+```
+refactor(invkfile): rename commands to cmds
+
+- Rename invkfile root field `commands` → `cmds`
+- Update dependency key `depends_on.commands` → `depends_on.cmds`
+- Adjust docs/examples/tests to match the new schema
+```
+
 ## Code Style Guidelines
 
 ### Package Structure
