@@ -16,6 +16,11 @@
   }
 }
 
+[data-theme='dark'] .heroBanner :global(.hero__title),
+[data-theme='dark'] .heroBanner :global(.hero__subtitle) {
+  color: #ffffff;
+}
+
 .alphaNotice {
   display: inline-flex;
   align-items: center;
