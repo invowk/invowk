@@ -26,7 +26,7 @@ type TUIRequest struct {
 }
 
 // Server is an HTTP server that handles TUI rendering requests from child processes.
-// It listens on localhost and requires token-based authentication.
+// It listens on all interfaces (0.0.0.0) and requires token-based authentication.
 //
 // Instead of rendering TUI components directly, the server sends requests
 // to a channel that the parent Bubbletea program reads from. This allows
@@ -52,7 +52,8 @@ type Server struct {
 	requestCh chan TUIRequest
 }
 
-// New creates a new TUI server listening on a random localhost port.
+// New creates a new TUI server listening on a random port on all interfaces.
+// The server uses token-based authentication for security.
 // The server is not started until Start() is called.
 func New() (*Server, error) {
 	token, err := generateToken(32)
@@ -60,7 +61,7 @@ func New() (*Server, error) {
 		return nil, err
 	}
 
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	listener, err := net.Listen("tcp", "0.0.0.0:0")
 	if err != nil {
 		return nil, err
 	}
