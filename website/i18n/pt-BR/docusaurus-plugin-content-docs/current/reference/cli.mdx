@@ -397,6 +397,48 @@ Mostrar ajuda para qualquer comando.
 | 4 | Erro de configuração |
 | 5 | Erro de runtime |
 
+## Mensagens de Erro
+
+O Invowk fornece mensagens de erro específicas para ajudar a diagnosticar problemas:
+
+### Nenhum Invkfile Encontrado
+
+Quando nenhum invkfile é descoberto em nenhuma localização de busca:
+
+<Snippet id="reference/cli/error-no-invkfile" />
+
+**Esta mensagem aparece quando:**
+- Não existe `invkfile.cue` no diretório atual
+- Não existem invkfiles em `~/.invowk/cmds/`
+- Não existem invkfiles nos `search_paths` configurados
+
+**Soluções:**
+- Execute `invowk init` para criar um invkfile no diretório atual
+- Navegue até um diretório que contenha um invkfile
+- Adicione localizações de invkfile ao `search_paths` da sua configuração
+
+### Falha ao Analisar Invkfile
+
+Quando um invkfile é encontrado mas contém erros de sintaxe ou configuração inválida:
+
+<Snippet id="reference/cli/error-parse-failed" />
+
+**Esta mensagem aparece quando:**
+- Erros de sintaxe CUE (chaves, aspas faltando, etc.)
+- Nomes de campos ou valores inválidos
+- Falhas de validação do schema (ex.: tipo de runtime inválido)
+- Campos obrigatórios faltando
+
+**Soluções:**
+- Verifique a mensagem de erro específica mostrada acima do texto de ajuda
+- Valide sua sintaxe CUE: `cue vet invkfile.cue`
+- Execute com modo verbose: `invowk --verbose cmd list`
+- Compare com a [referência do schema invkfile](./invkfile-schema)
+
+:::tip
+A mensagem de erro sempre mostra primeiro o erro de parsing específico (ex.: qual campo falhou na validação), seguido por orientações gerais de solução de problemas.
+:::
+
 ## Variáveis de Ambiente
 
 | Variável | Descrição |

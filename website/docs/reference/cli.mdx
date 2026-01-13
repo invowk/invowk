@@ -397,6 +397,48 @@ Show help for any command.
 | 4 | Configuration error |
 | 5 | Runtime error |
 
+## Error Messages
+
+Invowk provides specific error messages to help diagnose issues:
+
+### No Invkfile Found
+
+When no invkfile is discovered in any search location:
+
+<Snippet id="reference/cli/error-no-invkfile" />
+
+**This message appears when:**
+- No `invkfile.cue` exists in the current directory
+- No invkfiles exist in `~/.invowk/cmds/`
+- No invkfiles exist in configured `search_paths`
+
+**Solutions:**
+- Run `invowk init` to create an invkfile in the current directory
+- Navigate to a directory containing an invkfile
+- Add invkfile locations to your config's `search_paths`
+
+### Failed to Parse Invkfile
+
+When an invkfile is found but contains syntax errors or invalid configuration:
+
+<Snippet id="reference/cli/error-parse-failed" />
+
+**This message appears when:**
+- CUE syntax errors (missing braces, quotes, etc.)
+- Invalid field names or values
+- Schema validation failures (e.g., invalid runtime type)
+- Missing required fields
+
+**Solutions:**
+- Check the specific error message shown above the help text
+- Validate your CUE syntax: `cue vet invkfile.cue`
+- Run with verbose mode: `invowk --verbose cmd list`
+- Compare against the [invkfile schema reference](./invkfile-schema)
+
+:::tip
+The error message always shows the specific parsing error first (e.g., which field failed validation), followed by general troubleshooting guidance.
+:::
+
 ## Environment Variables
 
 | Variable | Description |

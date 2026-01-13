@@ -6333,6 +6333,47 @@ invowk help cmd
 invowk help config set`,
   },
 
+  'reference/cli/error-no-invkfile': {
+    language: 'text',
+    code: `# No invkfile found!
+
+We searched for an invkfile but couldn't find one in the expected locations.
+
+## Search locations (in order of precedence):
+1. Current directory
+2. ~/.invowk/cmds/
+3. Paths configured in your config file
+
+## Things you can try:
+• Create an invkfile in your current directory:
+  $ invowk init
+
+• Or specify a different directory:
+  $ cd /path/to/your/project`,
+  },
+
+  'reference/cli/error-parse-failed': {
+    language: 'text',
+    code: `✗ Failed to parse /path/to/invkfile.cue: invkfile validation failed:
+  #Invkfile.cmds.0.implementations.0.runtimes.0.name: 3 errors in empty disjunction
+
+# Failed to parse invkfile!
+
+Your invkfile contains syntax errors or invalid configuration.
+
+## Common issues:
+- Invalid CUE syntax (missing quotes, braces, etc.)
+- Unknown field names
+- Invalid values for known fields
+- Missing required fields (name, script for commands)
+
+## Things you can try:
+- Check the error message above for the specific line/column
+- Validate your CUE syntax using the cue command-line tool
+- Run with verbose mode for more details:
+  $ invowk --verbose cmd list`,
+  },
+
   // =============================================================================
   // REFERENCE - INVKFILE SCHEMA
   // =============================================================================
