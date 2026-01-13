@@ -199,6 +199,8 @@ Controls automatic provisioning of invowk resources into containers.
 
 <Snippet id="reference/config/auto-provision-example" />
 
+With auto-provisioning enabled, Invowk builds a cached, derived image by attaching a small provisioned layer on top of your base image. This runs for every container execution (interactive or not); if provisioning fails, Invowk warns and uses the base image.
+
 ---
 
 ## AutoProvisionConfig

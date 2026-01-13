@@ -259,9 +259,15 @@ Here's a full-featured container command:
 
 <Snippet id="runtime-modes/container-full-example" />
 
+## Auto-provisioning
+
+When `container.auto_provision.enabled` is `true` (default), Invowk builds a cached, derived image by attaching a small provisioned layer on top of your base image (either the `image` you specify or the image built from your Containerfile/Dockerfile). That layer includes the `invowk` binary and any packs, so `invowk` commands are available inside the container.
+
+Auto-provisioning runs for every container execution, not just interactive mode. The derived image is cached as `invowk-provisioned:<hash>` and reused; if provisioning fails, Invowk warns and runs the base image instead.
+
 ## Interactive Mode
 
-Container runtime fully supports interactive mode (`-i`). When running interactively, Invowk automatically provisions its binary into the container, enabling:
+Container runtime fully supports interactive mode (`-i`). Interactive runs use the same provisioned image layer described above (when enabled) and add host-side TUI plumbing, enabling:
 
 - TUI components as modal overlays
 - Full PTY support for password prompts and confirmations
@@ -274,7 +280,7 @@ invowk cmd myproject build -i -r container
 
 When you run with `-i`, Invowk:
 
-1. **Auto-provisions** the invowk binary into the container
+1. **Uses the provisioned image layer** (if enabled)
 2. **Starts a TUI server** on the host
 3. **Forwards TUI requests** from container to host
 4. **Renders overlays** on your terminal

@@ -110,9 +110,9 @@ This means after exiting interactive mode:
 
 ## Container Runtime Support
 
-Interactive mode works seamlessly with the container runtime. When you run a container command with `-i`:
+Interactive mode works seamlessly with the container runtime. Container runs already use the auto-provisioned image layer (enabled by default) so `invowk` is available inside the container; interactive mode adds the TUI plumbing. See [Container Runtime](/docs/runtime-modes/container#auto-provisioning) for details. When you run a container command with `-i`:
 
-1. **Auto-provisioning**: Invowk provisions its binary into the container
+1. **Provisioned image layer**: Invowk ensures its binary is available (same as non-interactive runs)
 2. **TUI server**: A local server handles TUI requests from the container
 3. **Modal overlays**: TUI components render on your terminal, not inside the container
 

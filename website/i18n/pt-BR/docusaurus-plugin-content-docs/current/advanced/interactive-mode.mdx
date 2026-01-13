@@ -110,9 +110,9 @@ Isso significa que após sair do modo interativo:
 
 ## Suporte ao Runtime Container
 
-O modo interativo funciona perfeitamente com o runtime container. Quando você executa um comando de container com `-i`:
+O modo interativo funciona perfeitamente com o runtime container. As execuções em container já usam a camada de imagem auto-provisionada (habilitada por padrão) para que `invowk` esteja disponível dentro do container; o modo interativo adiciona a infraestrutura de TUI. Veja [Runtime Container](/docs/runtime-modes/container#auto-provisionamento) para detalhes. Quando você executa um comando de container com `-i`:
 
-1. **Auto-provisionamento**: Invowk provisiona seu binário no container
+1. **Camada de imagem provisionada**: Invowk garante que seu binário esteja disponível (mesmo comportamento do modo não interativo)
 2. **Servidor TUI**: Um servidor local trata requisições TUI do container
 3. **Overlays modais**: Componentes TUI renderizam no seu terminal, não dentro do container
 

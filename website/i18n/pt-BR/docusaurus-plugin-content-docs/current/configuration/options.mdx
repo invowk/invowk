@@ -143,6 +143,7 @@ Configura o comportamento do runtime container.
 **Padrão:** `true`
 
 Habilita o provisionamento automático do binário do invowk e packs dentro dos containers.
+Quando habilitado, o Invowk cria uma imagem derivada em cache para cada execução de container, anexando uma pequena camada de provisionamento sobre a imagem base. Se o provisionamento falhar, o Invowk avisa e usa a imagem base.
 
 #### container.auto_provision.binary_path
 

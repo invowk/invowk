@@ -259,9 +259,15 @@ Aqui está um comando container com todos os recursos:
 
 <Snippet id="runtime-modes/container-full-example" />
 
+## Auto-provisionamento
+
+Quando `container.auto_provision.enabled` é `true` (padrão), o Invowk cria uma imagem derivada em cache ao anexar uma pequena camada de provisionamento sobre a sua imagem base (seja a `image` especificada ou a imagem construída pelo Containerfile/Dockerfile). Essa camada inclui o binário do `invowk` e quaisquer packs, para que comandos `invowk` estejam disponíveis dentro do container.
+
+O auto-provisionamento ocorre em toda execução de container, não apenas no modo interativo. A imagem derivada é cacheada como `invowk-provisioned:<hash>` e reutilizada; se o provisionamento falhar, o Invowk avisa e usa a imagem base.
+
 ## Modo Interativo
 
-O runtime container suporta totalmente o modo interativo (`-i`). Ao executar interativamente, o Invowk provisiona automaticamente seu binário no container, habilitando:
+O runtime container suporta totalmente o modo interativo (`-i`). Execuções interativas usam a mesma camada provisionada descrita acima (quando habilitada) e adicionam a infraestrutura de TUI no host, habilitando:
 
 - Componentes TUI como overlays modais
 - Suporte completo a PTY para prompts de senha e confirmações
@@ -274,7 +280,7 @@ invowk cmd myproject build -i -r container
 
 Quando você executa com `-i`, o Invowk:
 
-1. **Auto-provisiona** o binário invowk no container
+1. **Usa a camada de imagem provisionada** (se habilitada)
 2. **Inicia um servidor TUI** no host
 3. **Encaminha requisições TUI** do container para o host
 4. **Renderiza overlays** no seu terminal

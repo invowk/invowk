@@ -143,6 +143,7 @@ Configures container runtime behavior.
 **Default:** `true`
 
 Enables automatic provisioning of the invowk binary and packs into container images.
+When enabled, Invowk builds a cached, derived image for every container run by attaching a small provisioned layer on top of your base image. If provisioning fails, Invowk warns and uses the base image.
 
 #### container.auto_provision.binary_path
 

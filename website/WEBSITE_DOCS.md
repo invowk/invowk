@@ -111,6 +111,8 @@ npm run build    # Build all locales - must pass
 npm run serve    # Test language switcher at localhost:3000
 ```
 
+Any documentation change must include a successful `npm run build` run (no errors).
+
 ## Common Mistakes
 
 1. **Forgetting to update `sidebars.ts`** - Page exists but doesn't appear in navigation
