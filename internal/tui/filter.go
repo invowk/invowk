@@ -109,28 +109,32 @@ func newFilterModelWithStyles(opts FilterOptions, forModal bool) *filterModel {
 	delegate := list.NewDefaultDelegate()
 
 	if forModal {
-		// Modal-specific styles: NO backgrounds to prevent color bleeding
-		// Use a style base with NO background that will be transparent
-		noBackground := lipgloss.NewStyle()
+		// Modal-specific styles: ALL have EXPLICIT backgrounds to prevent color bleeding
+		// Terminal "transparent" doesn't exist - no background = terminal default shows through
+		base := modalBaseStyle()
 
-		// Normal item styles - just foreground colors, no backgrounds
-		delegate.Styles.NormalTitle = noBackground.Foreground(lipgloss.Color("#FFFFFF"))
-		delegate.Styles.NormalDesc = noBackground.Foreground(lipgloss.Color("#6B7280"))
+		// Normal item styles - explicit background on everything
+		delegate.Styles.NormalTitle = base.Foreground(lipgloss.Color("#FFFFFF"))
+		delegate.Styles.NormalDesc = base.Foreground(lipgloss.Color("#6B7280"))
 
-		// Selected item - use left border indicator instead of background
-		delegate.Styles.SelectedTitle = noBackground.
+		// Selected item - use left border indicator WITH explicit background
+		delegate.Styles.SelectedTitle = base.
 			Foreground(lipgloss.Color("#7C3AED")).
 			Bold(true).
 			Padding(0, 0, 0, 1).
 			Border(lipgloss.NormalBorder(), false, false, false, true).
 			BorderForeground(lipgloss.Color("#7C3AED"))
-		delegate.Styles.SelectedDesc = noBackground.
+		delegate.Styles.SelectedDesc = base.
 			Foreground(lipgloss.Color("#A78BFA")).
 			Padding(0, 0, 0, 1)
 
-		// Dimmed styles - no backgrounds
-		delegate.Styles.DimmedTitle = noBackground.Foreground(lipgloss.Color("#6B7280"))
-		delegate.Styles.DimmedDesc = noBackground.Foreground(lipgloss.Color("#6B7280"))
+		// Dimmed styles - explicit backgrounds
+		delegate.Styles.DimmedTitle = base.Foreground(lipgloss.Color("#6B7280"))
+		delegate.Styles.DimmedDesc = base.Foreground(lipgloss.Color("#6B7280"))
+
+		// FilterMatch style - used for highlighting matching characters during filtering
+		// MUST have explicit background to prevent color bleeding
+		delegate.Styles.FilterMatch = base.Foreground(lipgloss.Color("#A78BFA")).Bold(true)
 	} else {
 		// Default styles for non-modal usage
 		delegate.Styles.NormalTitle = lipgloss.NewStyle().Foreground(lipgloss.Color("252"))
@@ -155,31 +159,37 @@ func newFilterModelWithStyles(opts FilterOptions, forModal bool) *filterModel {
 	l.SetFilteringEnabled(true)
 
 	if forModal {
-		// Modal-specific list styles - NO backgrounds anywhere
-		noBackground := lipgloss.NewStyle()
+		// Modal-specific list styles - ALL have EXPLICIT backgrounds
+		// This is critical: every single style must have the modal background
+		base := modalBaseStyle()
 
-		l.Styles.Title = noBackground.Bold(true).Foreground(lipgloss.Color("#7C3AED"))
-		l.Styles.TitleBar = noBackground.Padding(0, 0, 1, 0)
-		l.Styles.PaginationStyle = noBackground.Foreground(lipgloss.Color("#6B7280"))
-		l.Styles.HelpStyle = noBackground.Foreground(lipgloss.Color("#6B7280"))
-		l.Styles.FilterPrompt = noBackground.Foreground(lipgloss.Color("#7C3AED"))
-		l.Styles.FilterCursor = noBackground.Foreground(lipgloss.Color("#FFFFFF"))
+		l.Styles.Title = base.Bold(true).Foreground(lipgloss.Color("#7C3AED"))
+		l.Styles.TitleBar = base.Padding(0, 0, 1, 0)
+		l.Styles.PaginationStyle = base.Foreground(lipgloss.Color("#6B7280"))
+		l.Styles.HelpStyle = base.Foreground(lipgloss.Color("#6B7280"))
+		l.Styles.FilterPrompt = base.Foreground(lipgloss.Color("#7C3AED"))
+		l.Styles.FilterCursor = base.Foreground(lipgloss.Color("#FFFFFF"))
 
-		// Additional styles that might have backgrounds
-		l.Styles.NoItems = noBackground.Foreground(lipgloss.Color("#6B7280"))
-		l.Styles.StatusBar = noBackground.Foreground(lipgloss.Color("#6B7280"))
-		l.Styles.StatusEmpty = noBackground.Foreground(lipgloss.Color("#6B7280"))
-		l.Styles.StatusBarActiveFilter = noBackground.Foreground(lipgloss.Color("#7C3AED"))
-		l.Styles.StatusBarFilterCount = noBackground.Foreground(lipgloss.Color("#6B7280"))
-		l.Styles.ActivePaginationDot = noBackground.Foreground(lipgloss.Color("#7C3AED"))
-		l.Styles.InactivePaginationDot = noBackground.Foreground(lipgloss.Color("#6B7280"))
-		l.Styles.DividerDot = noBackground.Foreground(lipgloss.Color("#6B7280"))
+		// Additional styles - ALL have explicit backgrounds
+		l.Styles.NoItems = base.Foreground(lipgloss.Color("#6B7280"))
+		l.Styles.StatusBar = base.Foreground(lipgloss.Color("#6B7280"))
+		l.Styles.StatusEmpty = base.Foreground(lipgloss.Color("#6B7280"))
+		l.Styles.StatusBarActiveFilter = base.Foreground(lipgloss.Color("#7C3AED"))
+		l.Styles.StatusBarFilterCount = base.Foreground(lipgloss.Color("#6B7280"))
+		l.Styles.ActivePaginationDot = base.Foreground(lipgloss.Color("#7C3AED"))
+		l.Styles.InactivePaginationDot = base.Foreground(lipgloss.Color("#6B7280"))
+		l.Styles.DividerDot = base.Foreground(lipgloss.Color("#6B7280"))
 
-		// Customize the filter input to avoid background bleeding
-		l.FilterInput.PromptStyle = noBackground.Foreground(lipgloss.Color("#7C3AED"))
-		l.FilterInput.TextStyle = noBackground.Foreground(lipgloss.Color("#FFFFFF"))
-		l.FilterInput.Cursor.Style = noBackground.Foreground(lipgloss.Color("#FFFFFF"))
-		l.FilterInput.PlaceholderStyle = noBackground.Foreground(lipgloss.Color("#6B7280"))
+		// Additional styles - ALL have explicit backgrounds
+		l.Styles.Spinner = base.Foreground(lipgloss.Color("#7C3AED"))
+		l.Styles.DefaultFilterCharacterMatch = base.Foreground(lipgloss.Color("#A78BFA")).Bold(true)
+		l.Styles.ArabicPagination = base.Foreground(lipgloss.Color("#6B7280"))
+
+		// Customize the filter input - ALL have explicit backgrounds
+		l.FilterInput.PromptStyle = base.Foreground(lipgloss.Color("#7C3AED"))
+		l.FilterInput.TextStyle = base.Foreground(lipgloss.Color("#FFFFFF"))
+		l.FilterInput.Cursor.Style = base.Foreground(lipgloss.Color("#FFFFFF"))
+		l.FilterInput.PlaceholderStyle = base.Foreground(lipgloss.Color("#6B7280"))
 	} else {
 		// Default list styles
 		l.Styles.Title = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("212"))

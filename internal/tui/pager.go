@@ -35,10 +35,22 @@ type pagerModel struct {
 	done     bool
 	width    int
 	height   int
+	forModal bool
 }
 
 // NewPagerModel creates an embeddable pager component.
 func NewPagerModel(opts PagerOptions) *pagerModel {
+	return newPagerModelWithStyles(opts, false)
+}
+
+// NewPagerModelForModal creates an embeddable pager component optimized for modal overlays.
+// This version uses styles that avoid background color bleeding.
+func NewPagerModelForModal(opts PagerOptions) *pagerModel {
+	return newPagerModelWithStyles(opts, true)
+}
+
+// newPagerModelWithStyles creates a pager model with optional modal-specific styling.
+func newPagerModelWithStyles(opts PagerOptions, forModal bool) *pagerModel {
 	height := opts.Height
 	if height == 0 {
 		height = 20
@@ -63,6 +75,7 @@ func NewPagerModel(opts PagerOptions) *pagerModel {
 		ready:    true,
 		width:    width,
 		height:   height,
+		forModal: forModal,
 	}
 }
 
@@ -100,13 +113,26 @@ func (m *pagerModel) View() string {
 		return ""
 	}
 
-	titleStyle := lipgloss.NewStyle().
-		Bold(true).
-		Foreground(lipgloss.Color("212")).
-		Padding(0, 1)
+	var titleStyle, footerStyle lipgloss.Style
 
-	footerStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("240"))
+	if m.forModal {
+		// Modal-specific styles: ALL have EXPLICIT backgrounds to prevent color bleeding
+		base := modalBaseStyle()
+		titleStyle = base.
+			Bold(true).
+			Foreground(lipgloss.Color("#7C3AED")).
+			Padding(0, 1)
+		footerStyle = base.
+			Foreground(lipgloss.Color("#6B7280"))
+	} else {
+		// Default styles
+		titleStyle = lipgloss.NewStyle().
+			Bold(true).
+			Foreground(lipgloss.Color("212")).
+			Padding(0, 1)
+		footerStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("240"))
+	}
 
 	title := ""
 	if m.title != "" {

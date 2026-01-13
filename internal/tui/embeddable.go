@@ -5,6 +5,7 @@ package tui
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -12,6 +13,82 @@ import (
 	"github.com/muesli/reflow/ansi"
 	"github.com/muesli/reflow/truncate"
 )
+
+// ANSI escape sequences for modal background color management.
+// These are used by the post-processing safety net to ensure the modal
+// background is restored after any ANSI reset sequences.
+var (
+	// modalBgANSI is the ANSI escape sequence to set the modal background color.
+	// It's computed once from ModalBackgroundColor for efficiency.
+	modalBgANSI string
+
+	// ansiReset is the standard ANSI reset sequence.
+	ansiReset = "\x1b[0m"
+
+	// ansiResetWithBg is the ANSI reset followed by modal background restore.
+	// This is what we replace bare resets with.
+	ansiResetWithBg string
+)
+
+func init() {
+	// Parse the modal background color and pre-compute the ANSI sequences
+	modalBgANSI = hexToANSIBackground(ModalBackgroundColor)
+	ansiResetWithBg = ansiReset + modalBgANSI
+}
+
+// hexToANSIBackground converts a hex color string to an ANSI 24-bit background escape sequence.
+// Supports formats: "#RRGGBB" or "RRGGBB"
+func hexToANSIBackground(hex string) string {
+	// Remove leading # if present
+	hex = strings.TrimPrefix(hex, "#")
+
+	if len(hex) != 6 {
+		return "" // Invalid format, return empty
+	}
+
+	r, err := strconv.ParseInt(hex[0:2], 16, 64)
+	if err != nil {
+		return ""
+	}
+	g, err := strconv.ParseInt(hex[2:4], 16, 64)
+	if err != nil {
+		return ""
+	}
+	b, err := strconv.ParseInt(hex[4:6], 16, 64)
+	if err != nil {
+		return ""
+	}
+
+	// ANSI 24-bit color: ESC[48;2;R;G;Bm for background
+	return fmt.Sprintf("\x1b[48;2;%d;%d;%dm", r, g, b)
+}
+
+// sanitizeModalBackground is a safety net that ensures the modal background
+// is restored after any ANSI reset sequences in the rendered content.
+// This catches any color bleeding from third-party components that we might
+// have missed in the explicit background styling.
+//
+// It replaces all occurrences of the bare ANSI reset (\x1b[0m) with
+// reset + background restore (\x1b[0m\x1b[48;2;R;G;Bm).
+func sanitizeModalBackground(content string) string {
+	if modalBgANSI == "" {
+		return content // No valid background color, skip processing
+	}
+
+	// Replace bare resets with reset + background restore
+	// We need to be careful not to double-process if ansiResetWithBg is already present
+	// First, temporarily replace existing "reset+bg" sequences to protect them
+	placeholder := "\x00MODAL_BG_SAFE\x00"
+	content = strings.ReplaceAll(content, ansiResetWithBg, placeholder)
+
+	// Now replace all remaining bare resets
+	content = strings.ReplaceAll(content, ansiReset, ansiResetWithBg)
+
+	// Restore the protected sequences
+	content = strings.ReplaceAll(content, placeholder, ansiResetWithBg)
+
+	return content
+}
 
 // EmbeddableComponent is a TUI component that can be embedded in a parent Bubbletea model.
 // Unlike standalone components that run their own tea.Program, embeddable components
@@ -222,7 +299,7 @@ func CreateEmbeddableComponent(componentType ComponentType, options json.RawMess
 		if err := json.Unmarshal(options, &opts); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal pager options: %w", err)
 		}
-		model := NewPagerModel(opts)
+		model := NewPagerModelForModal(opts)
 		model.SetSize(width, height)
 		return model, nil
 
@@ -231,7 +308,7 @@ func CreateEmbeddableComponent(componentType ComponentType, options json.RawMess
 		if err := json.Unmarshal(options, &opts); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal table options: %w", err)
 		}
-		model := NewTableModel(opts)
+		model := NewTableModelForModal(opts)
 		model.SetSize(width, height)
 		return model, nil
 
@@ -278,9 +355,18 @@ const (
 // RenderOverlay renders an overlay component centered on top of a base view.
 // The base view remains visible around the overlay, creating a modal effect.
 // This function properly handles ANSI escape sequences in both base and overlay.
+//
+// The function applies two layers of protection against color bleeding:
+// 1. The overlay style applies the modal background to the frame
+// 2. sanitizeModalBackground post-processes to catch any bare ANSI resets
 func RenderOverlay(base, overlay string, screenWidth, screenHeight int) string {
 	// Apply overlay styling (border + padding + background)
 	styledOverlay := overlayStyle().Render(overlay)
+
+	// Safety net: sanitize any ANSI reset sequences that might cause color bleeding
+	// This catches escapes from third-party components (huh, bubbles) that we might
+	// have missed in the explicit background styling.
+	styledOverlay = sanitizeModalBackground(styledOverlay)
 
 	// Split into lines
 	baseLines := strings.Split(base, "\n")
@@ -332,6 +418,7 @@ func RenderOverlay(base, overlay string, screenWidth, screenHeight int) string {
 
 // compositeLineANSI overlays an overlay line onto a base line at startX position.
 // This function properly handles ANSI escape sequences in both strings.
+// It uses modal-background-aware resets to prevent color bleeding at boundaries.
 func compositeLineANSI(baseLine, overlayLine string, startX, maxWidth int) string {
 	baseWidth := lipgloss.Width(baseLine)
 	overlayWidth := lipgloss.Width(overlayLine)
@@ -350,8 +437,9 @@ func compositeLineANSI(baseLine, overlayLine string, startX, maxWidth int) strin
 		}
 	}
 
-	// Reset ANSI state before overlay to prevent color bleeding
-	result.WriteString("\x1b[0m")
+	// Reset ANSI state before overlay and set modal background
+	// This ensures the transition from base to overlay doesn't have color bleeding
+	result.WriteString(ansiResetWithBg)
 
 	// Part 2: The overlay content
 	result.WriteString(overlayLine)
@@ -359,8 +447,8 @@ func compositeLineANSI(baseLine, overlayLine string, startX, maxWidth int) strin
 	// Part 3: Base content after the overlay (startX + overlayWidth to end)
 	overlayEnd := startX + overlayWidth
 	if overlayEnd < maxWidth {
-		// Reset ANSI state after overlay
-		result.WriteString("\x1b[0m")
+		// Reset ANSI state after overlay (no modal bg needed, we're back to base)
+		result.WriteString(ansiReset)
 
 		if baseWidth > overlayEnd {
 			// We need to skip the first overlayEnd characters of the base
@@ -374,7 +462,7 @@ func compositeLineANSI(baseLine, overlayLine string, startX, maxWidth int) strin
 	}
 
 	// Ensure line ends with ANSI reset to prevent state leaking to next line
-	result.WriteString("\x1b[0m")
+	result.WriteString(ansiReset)
 
 	return result.String()
 }
