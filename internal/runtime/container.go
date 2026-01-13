@@ -154,7 +154,12 @@ func (r *ContainerRuntime) Execute(ctx *ExecutionContext) *Result {
 
 	// Create shell script command
 	// We wrap the script in a shell to handle multi-line scripts
+	// For POSIX shells: /bin/sh -c 'script' invowk arg1 arg2 ... (args become $1, $2, etc.)
 	shellCmd := []string{"/bin/sh", "-c", script}
+	if len(ctx.PositionalArgs) > 0 {
+		shellCmd = append(shellCmd, "invowk") // $0 placeholder
+		shellCmd = append(shellCmd, ctx.PositionalArgs...)
+	}
 
 	// Determine working directory
 	workDir := "/workspace"

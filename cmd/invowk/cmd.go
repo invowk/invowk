@@ -615,6 +615,7 @@ func runCommandWithFlags(cmdName string, args []string, flagValues map[string]st
 	ctx.Verbose = verbose
 	ctx.SelectedRuntime = selectedRuntime
 	ctx.SelectedImpl = script
+	ctx.PositionalArgs = args // Enable shell positional parameter access ($1, $2, etc.)
 
 	// Create runtime registry
 	registry := createRuntimeRegistry(cfg)

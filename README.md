@@ -744,11 +744,43 @@ Argument names are converted to environment variables:
 
 ### Arguments in Scripts
 
-Access argument values in your scripts using environment variables:
+Invowk provides two ways to access command arguments in your scripts:
+
+#### 1. Shell Positional Parameters (Recommended)
+
+Arguments are passed as shell positional parameters (`$1`, `$2`, `$@`, etc.), allowing you to use native shell syntax:
 
 ```bash
 #!/bin/bash
-# Access arguments
+# Access arguments using standard shell syntax
+echo "Environment: $1"
+echo "Replicas: $2"
+echo "All args: $@"
+echo "Number of args: $#"
+
+# Loop over all arguments
+for arg in "$@"; do
+    echo "Argument: $arg"
+done
+```
+
+**Shell Compatibility:**
+
+| Shell | Positional Access | Notes |
+|-------|-------------------|-------|
+| bash, sh, zsh | `$1`, `$2`, `$@`, `$#` | Standard POSIX syntax |
+| PowerShell | `$args[0]`, `$args[1]` | Zero-indexed array |
+| cmd.exe | N/A | Use environment variables instead |
+| virtual (mvdan/sh) | `$1`, `$2`, `$@`, `$#` | Standard POSIX syntax |
+| container | `$1`, `$2`, `$@`, `$#` | Standard POSIX syntax (uses /bin/sh) |
+
+#### 2. Environment Variables
+
+Arguments are also available as `INVOWK_ARG_*` environment variables, which work across all shells and runtimes:
+
+```bash
+#!/bin/bash
+# Access arguments via environment variables
 echo "Environment: $INVOWK_ARG_ENV"
 echo "Replicas: $INVOWK_ARG_REPLICAS"
 
@@ -764,6 +796,17 @@ if [ -n "$INVOWK_ARG_SERVICES" ]; then
     done
 fi
 ```
+
+#### Choosing Between Methods
+
+| Use Case | Recommended Method |
+|----------|-------------------|
+| Simple scripts | Positional parameters (`$1`, `$2`) |
+| Complex arg handling | Environment variables (`INVOWK_ARG_*`) |
+| Cross-platform scripts | Environment variables |
+| Variadic arguments | Both work (env vars provide `_COUNT` and indexed access) |
+| PowerShell scripts | Either `$args[0]` or environment variables |
+| cmd.exe scripts | Environment variables only |
 
 ### Arguments with Flags
 

@@ -34,6 +34,8 @@ type ExecutionContext struct {
 	SelectedRuntime invowkfile.RuntimeMode
 	// SelectedImpl is the implementation to execute (based on platform and runtime)
 	SelectedImpl *invowkfile.Implementation
+	// PositionalArgs contains command-line arguments to pass as shell positional parameters ($1, $2, etc.)
+	PositionalArgs []string
 }
 
 // NewExecutionContext creates a new execution context with defaults

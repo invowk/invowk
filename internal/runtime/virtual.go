@@ -85,12 +85,19 @@ func (r *VirtualRuntime) Execute(ctx *ExecutionContext) *Result {
 	env := r.buildEnv(ctx)
 
 	// Create the interpreter
-	runner, err := interp.New(
+	opts := []interp.RunnerOption{
 		interp.Dir(workDir),
 		interp.Env(expand.ListEnviron(EnvToSlice(env)...)),
 		interp.StdIO(ctx.Stdin, ctx.Stdout, ctx.Stderr),
 		interp.ExecHandlers(r.execHandler),
-	)
+	}
+
+	// Add positional parameters for shell access ($1, $2, etc.)
+	if len(ctx.PositionalArgs) > 0 {
+		opts = append(opts, interp.Params(ctx.PositionalArgs...))
+	}
+
+	runner, err := interp.New(opts...)
 	if err != nil {
 		return &Result{ExitCode: 1, Error: fmt.Errorf("failed to create interpreter: %w", err)}
 	}
@@ -131,12 +138,19 @@ func (r *VirtualRuntime) ExecuteCapture(ctx *ExecutionContext) *Result {
 
 	var stdout, stderr bytes.Buffer
 
-	runner, err := interp.New(
+	opts := []interp.RunnerOption{
 		interp.Dir(workDir),
 		interp.Env(expand.ListEnviron(EnvToSlice(env)...)),
 		interp.StdIO(nil, &stdout, &stderr),
 		interp.ExecHandlers(r.execHandler),
-	)
+	}
+
+	// Add positional parameters for shell access ($1, $2, etc.)
+	if len(ctx.PositionalArgs) > 0 {
+		opts = append(opts, interp.Params(ctx.PositionalArgs...))
+	}
+
+	runner, err := interp.New(opts...)
 	if err != nil {
 		return &Result{ExitCode: 1, Error: fmt.Errorf("failed to create interpreter: %w", err)}
 	}

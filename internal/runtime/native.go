@@ -64,6 +64,9 @@ func (r *NativeRuntime) Execute(ctx *ExecutionContext) *Result {
 	args := r.getShellArgs(shell)
 	args = append(args, script)
 
+	// Append positional arguments for shell access ($1, $2, etc.)
+	args = r.appendPositionalArgs(shell, args, ctx.PositionalArgs)
+
 	cmd := exec.CommandContext(ctx.Context, shell, args...)
 
 	// Set working directory
@@ -107,6 +110,9 @@ func (r *NativeRuntime) ExecuteCapture(ctx *ExecutionContext) *Result {
 
 	args := r.getShellArgs(shell)
 	args = append(args, script)
+
+	// Append positional arguments for shell access ($1, $2, etc.)
+	args = r.appendPositionalArgs(shell, args, ctx.PositionalArgs)
 
 	cmd := exec.CommandContext(ctx.Context, shell, args...)
 
@@ -235,4 +241,38 @@ func (r *NativeRuntime) buildEnv(ctx *ExecutionContext) map[string]string {
 	}
 
 	return env
+}
+
+// appendPositionalArgs appends positional arguments after the script for shell access.
+// For POSIX shells (bash, sh, zsh): args become $1, $2, ... (with "invowk" as $0)
+// For PowerShell: args become $args[0], $args[1], ...
+// For cmd.exe: no change (doesn't support inline positional args)
+func (r *NativeRuntime) appendPositionalArgs(shell string, args []string, positionalArgs []string) []string {
+	if len(positionalArgs) == 0 {
+		return args
+	}
+
+	// Extract base name, handling both Unix and Windows path separators
+	base := filepath.Base(shell)
+	// Also handle Windows paths on Unix systems
+	if lastSlash := strings.LastIndex(base, "\\"); lastSlash >= 0 {
+		base = base[lastSlash+1:]
+	}
+	base = strings.TrimSuffix(base, ".exe")
+
+	switch base {
+	case "cmd":
+		// cmd.exe doesn't support passing args after /C "script"
+		// Scripts must use environment variables instead
+		return args
+	case "powershell", "pwsh":
+		// PowerShell: args after -Command are available via $args array
+		return append(args, positionalArgs...)
+	default:
+		// POSIX shells (bash, sh, zsh, etc.): bash -c 'script' $0 $1 $2 ...
+		// First arg after script becomes $0 (conventionally the script name)
+		// Subsequent args become $1, $2, etc.
+		args = append(args, "invowk") // $0 placeholder
+		return append(args, positionalArgs...)
+	}
 }
