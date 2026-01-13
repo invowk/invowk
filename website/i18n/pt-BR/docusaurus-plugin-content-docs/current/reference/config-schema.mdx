@@ -1,0 +1,196 @@
+---
+sidebar_position: 3
+---
+
+import Snippet from '@site/src/components/Snippet';
+
+# Referência de Schema de Configuração
+
+:::warning Alpha — Opções de Configuração Podem Mudar
+O schema de configuração ainda está sendo refinado. Opções **podem ser adicionadas, renomeadas ou removidas** entre releases enquanto finalizamos o conjunto de funcionalidades.
+:::
+
+Referência completa para o schema do arquivo de configuração do Invowk.
+
+## Visão Geral
+
+O arquivo de configuração usa formato [CUE](https://cuelang.org/) e está localizado em:
+
+| Plataforma | Localização |
+|------------|-------------|
+| Linux      | `~/.config/invowk/config.cue` |
+| macOS      | `~/Library/Application Support/invowk/config.cue` |
+| Windows    | `%APPDATA%\invowk\config.cue` |
+
+## Definição do Schema
+
+<Snippet id="reference/config/schema-definition" />
+
+## Config
+
+O objeto de configuração raiz.
+
+<Snippet id="reference/config/config-structure" />
+
+### container_engine
+
+**Tipo:** `"podman" | "docker"`  
+**Obrigatório:** Não  
+**Padrão:** Auto-detectado
+
+Especifica qual container runtime usar para execução de comandos baseada em container.
+
+<Snippet id="reference/config/container-engine-example" />
+
+**Ordem de auto-detecção:**
+1. Podman (preferido)
+2. Docker (fallback)
+
+### search_paths
+
+**Tipo:** `[...string]`  
+**Obrigatório:** Não  
+**Padrão:** `["~/.invowk/cmds"]`
+
+Diretórios adicionais para buscar invkfiles e packs.
+
+<Snippet id="reference/config/search-paths-example" />
+
+**Resolução de caminho:**
+- Caminhos começando com `~` são expandidos para o diretório home do usuário
+- Caminhos relativos são resolvidos do diretório de trabalho atual
+- Caminhos inexistentes são ignorados silenciosamente
+
+**Prioridade de busca (maior para menor):**
+1. Diretório atual
+2. Caminhos em `search_paths` (em ordem)
+3. Padrão `~/.invowk/cmds`
+
+### default_runtime
+
+**Tipo:** `"native" | "virtual" | "container"`  
+**Obrigatório:** Não  
+**Padrão:** `"native"`
+
+Define o modo de runtime padrão global para comandos que não especificam um runtime preferido.
+
+<Snippet id="reference/config/default-runtime-example" />
+
+| Valor | Descrição |
+|-------|-----------|
+| `"native"` | Executar usando o shell nativo do sistema |
+| `"virtual"` | Executar usando o interpretador de shell embutido do Invowk |
+| `"container"` | Executar dentro de um container |
+
+### virtual_shell
+
+**Tipo:** `#VirtualShellConfig`  
+**Obrigatório:** Não  
+**Padrão:** `{}`
+
+Configuração para o virtual shell runtime.
+
+<Snippet id="reference/config/virtual-shell-example" />
+
+### ui
+
+**Tipo:** `#UIConfig`  
+**Obrigatório:** Não  
+**Padrão:** `{}`
+
+Configuração de interface do usuário.
+
+<Snippet id="reference/config/ui-example" />
+
+---
+
+## VirtualShellConfig
+
+Configuração para o virtual shell runtime (mvdan/sh).
+
+<Snippet id="reference/config/virtual-shell-config-structure" />
+
+### enable_uroot_utils
+
+**Tipo:** `bool`  
+**Obrigatório:** Não  
+**Padrão:** `false`
+
+Habilita utilitários u-root no ambiente virtual shell. Quando habilitado, fornece comandos adicionais além dos builtins básicos de shell.
+
+<Snippet id="reference/config/enable-uroot-utils-example" />
+
+**Utilitários disponíveis quando habilitado:**
+- Operações de arquivo: `ls`, `cat`, `cp`, `mv`, `rm`, `mkdir`, `chmod`
+- Processamento de texto: `grep`, `sed`, `awk`, `sort`, `uniq`
+- E muitos mais utilitários core
+
+---
+
+## UIConfig
+
+Configuração de interface do usuário.
+
+<Snippet id="reference/config/ui-config-structure" />
+
+### color_scheme
+
+**Tipo:** `"auto" | "dark" | "light"`  
+**Obrigatório:** Não  
+**Padrão:** `"auto"`
+
+Define o esquema de cores para saída de terminal.
+
+<Snippet id="reference/config/color-scheme-example" />
+
+| Valor | Descrição |
+|-------|-----------|
+| `"auto"` | Detectar do terminal (respeita `COLORTERM`, `TERM`, etc.) |
+| `"dark"` | Cores otimizadas para terminais escuros |
+| `"light"` | Cores otimizadas para terminais claros |
+
+### verbose
+
+**Tipo:** `bool`  
+**Obrigatório:** Não  
+**Padrão:** `false`
+
+Habilita saída verbose por padrão para todos os comandos.
+
+<Snippet id="reference/config/verbose-example" />
+
+Equivalente a sempre passar `--verbose` na linha de comando.
+
+---
+
+## Exemplo Completo
+
+Um arquivo de configuração totalmente documentado:
+
+<Snippet id="reference/config/complete-example" />
+
+---
+
+## Configuração Mínima
+
+Se você está satisfeito com os padrões, uma configuração mínima pode ser:
+
+<Snippet id="reference/config/minimal-example" />
+
+Ou até mesmo um arquivo vazio (todos os padrões):
+
+<Snippet id="reference/config/empty-example" />
+
+---
+
+## Validação
+
+Você pode validar seu arquivo de configuração usando CUE:
+
+<Snippet id="reference/config/cue-validate" />
+
+Ou verificá-lo com Invowk:
+
+<Snippet id="reference/config/invowk-validate" />
+
+Se houver algum erro, Invowk irá reportá-los ao carregar a configuração.

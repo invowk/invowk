@@ -1,0 +1,105 @@
+---
+sidebar_position: 2
+---
+
+import Snippet from '@site/src/components/Snippet';
+
+# Criando Packs
+
+Aprenda como criar, estruturar e organizar packs para seus comandos.
+
+## Criação Rápida
+
+Use `pack create` para criar a estrutura de um novo pack:
+
+<Snippet id="packs/create-options" />
+
+## Estrutura Gerada
+
+Pack básico:
+
+<Snippet id="packs/quick-create-output" />
+
+Com `--scripts`:
+
+<Snippet id="packs/create-with-scripts" />
+
+## Invkfile Template
+
+O `invkfile.cue` gerado:
+
+<Snippet id="packs/template-invkfile" />
+
+## Criação Manual
+
+Você também pode criar packs manualmente:
+
+<Snippet id="packs/manual-create" />
+
+## Adicionando Scripts
+
+### Inline vs Externo
+
+Escolha baseado na complexidade:
+
+<Snippet id="packs/inline-vs-external" />
+
+### Organização de Scripts
+
+<Snippet id="packs/script-organization" />
+
+### Caminhos de Script
+
+Sempre use barras normais:
+
+<Snippet id="packs/script-paths-good-bad" />
+
+## Arquivos de Environment
+
+Inclua arquivos `.env` no seu pack:
+
+<Snippet id="packs/env-files-structure" />
+
+Referencie-os:
+
+<Snippet id="packs/env-files-ref" />
+
+## Documentação
+
+Inclua um README para usuários:
+
+<Snippet id="packs/docs-structure" />
+
+## Exemplos do Mundo Real
+
+### Pack de Build Tools
+
+<Snippet id="packs/buildtools-structure" />
+
+<Snippet id="packs/buildtools-invkfile" />
+
+### Pack DevOps
+
+<Snippet id="packs/devops-structure" />
+
+## Melhores Práticas
+
+1. **Use nomenclatura RDNS**: Previne conflitos com outros packs
+2. **Mantenha scripts focados**: Uma tarefa por script
+3. **Inclua documentação**: README com exemplos de uso
+4. **Versione seu pack**: Use versionamento semântico
+5. **Apenas barras normais**: Compatibilidade multiplataforma
+6. **Valide antes de compartilhar**: Execute `pack validate --deep`
+
+## Validando Seu Pack
+
+Antes de compartilhar, valide:
+
+<Snippet id="packs/validate-before-share" />
+
+Veja [Validando](./validating) para detalhes.
+
+## Próximos Passos
+
+- [Validando](./validating) - Garantir integridade do pack
+- [Distribuindo](./distributing) - Compartilhar seu pack

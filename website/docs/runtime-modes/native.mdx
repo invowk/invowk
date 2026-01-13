@@ -1,0 +1,317 @@
+---
+sidebar_position: 2
+---
+
+import Snippet from '@site/src/components/Snippet';
+
+# Native Runtime
+
+The **native** runtime executes commands using your system's default shell. It's the most straightforward option and the one you'll use most often during development.
+
+## How It Works
+
+When you run a command with the native runtime, Invowk:
+
+1. Detects your system's default shell
+2. Creates a temporary script file
+3. Executes it through the shell
+4. Streams output back to your terminal
+
+## Shell Detection
+
+Invowk automatically detects the best available shell:
+
+### Linux/macOS
+
+1. Uses `$SHELL` environment variable if set
+2. Falls back to `bash` if available
+3. Falls back to `sh` as last resort
+
+### Windows
+
+1. Tries `pwsh` (PowerShell Core)
+2. Falls back to `powershell` (Windows PowerShell)
+3. Falls back to `cmd.exe` as last resort
+
+## Basic Usage
+
+<Snippet id="runtime-modes/native-basic" />
+
+```bash
+invowk cmd myproject build
+```
+
+## Overriding the Default Shell
+
+You can override the shell at the invkfile level:
+
+```cue
+group: "myproject"
+default_shell: "/bin/bash"  // Force bash
+
+commands: [...]
+```
+
+This is useful when:
+- You need bash-specific features
+- Your script relies on a specific shell
+- You want consistent behavior across team machines
+
+## Shell-Specific Scripts
+
+### Bash/Zsh
+
+```cue
+{
+    name: "build"
+    implementations: [{
+        script: """
+            #!/bin/bash
+            set -euo pipefail  # Bash strict mode
+            
+            # Bash-specific features
+            declare -A config=(
+                ["env"]="production"
+                ["debug"]="false"
+            )
+            
+            echo "Building for ${config[env]}..."
+            """
+        target: {
+            runtimes: [{name: "native"}]
+            platforms: [{name: "linux"}, {name: "macos"}]
+        }
+    }]
+}
+```
+
+### PowerShell
+
+```cue
+{
+    name: "build"
+    implementations: [{
+        script: """
+            $ErrorActionPreference = "Stop"
+            
+            Write-Host "Building..." -ForegroundColor Green
+            dotnet build --configuration Release
+            Write-Host "Done!" -ForegroundColor Green
+            """
+        target: {
+            runtimes: [{name: "native"}]
+            platforms: [{name: "windows"}]
+        }
+    }]
+}
+```
+
+### cmd.exe (Windows Batch)
+
+```cue
+{
+    name: "build"
+    implementations: [{
+        script: """
+            @echo off
+            echo Building...
+            msbuild /p:Configuration=Release
+            echo Done!
+            """
+        target: {
+            runtimes: [{name: "native"}]
+            platforms: [{name: "windows"}]
+        }
+    }]
+}
+```
+
+## Using Interpreters
+
+The native runtime supports non-shell interpreters like Python, Ruby, or Node.js.
+
+### Auto-Detection from Shebang
+
+```cue
+{
+    name: "analyze"
+    implementations: [{
+        script: """
+            #!/usr/bin/env python3
+            import sys
+            import json
+            
+            print(f"Python {sys.version}")
+            data = {"status": "ok", "items": [1, 2, 3]}
+            print(json.dumps(data, indent=2))
+            """
+        target: {
+            runtimes: [{name: "native"}]
+        }
+    }]
+}
+```
+
+### Explicit Interpreter
+
+```cue
+{
+    name: "analyze"
+    implementations: [{
+        script: """
+            import sys
+            print(f"Hello from Python {sys.version_info.major}!")
+            """
+        target: {
+            runtimes: [{
+                name: "native"
+                interpreter: "python3"  // Explicit interpreter
+            }]
+        }
+    }]
+}
+```
+
+### Interpreter with Arguments
+
+```cue
+{
+    name: "script"
+    implementations: [{
+        script: """
+            print("Unbuffered output!")
+            """
+        target: {
+            runtimes: [{
+                name: "native"
+                interpreter: "python3 -u"  // With arguments
+            }]
+        }
+    }]
+}
+```
+
+## Environment Variables
+
+Native runtime has full access to your environment:
+
+```cue
+{
+    name: "deploy"
+    env: {
+        vars: {
+            DEPLOY_ENV: "production"
+        }
+    }
+    implementations: [{
+        script: """
+            echo "Home: $HOME"
+            echo "User: $USER"
+            echo "Deploy to: $DEPLOY_ENV"
+            """
+        target: {
+            runtimes: [{name: "native"}]
+        }
+    }]
+}
+```
+
+## Accessing Flags and Arguments
+
+Flags and arguments are available as environment variables:
+
+```cue
+{
+    name: "greet"
+    flags: [
+        {name: "loud", type: "bool", default_value: "false"}
+    ]
+    args: [
+        {name: "name", default_value: "World"}
+    ]
+    implementations: [{
+        script: """
+            if [ "$INVOWK_FLAG_LOUD" = "true" ]; then
+                echo "HELLO, $INVOWK_ARG_NAME!"
+            else
+                echo "Hello, $INVOWK_ARG_NAME!"
+            fi
+            """
+        target: {
+            runtimes: [{name: "native"}]
+        }
+    }]
+}
+```
+
+```bash
+invowk cmd myproject greet Alice --loud
+# Output: HELLO, ALICE!
+```
+
+## Working Directory
+
+By default, scripts run in the current directory. Override with `workdir`:
+
+```cue
+{
+    name: "build frontend"
+    workdir: "./frontend"  // Run in frontend subdirectory
+    implementations: [{
+        script: "npm run build"
+        target: {
+            runtimes: [{name: "native"}]
+        }
+    }]
+}
+```
+
+## Dependencies
+
+Native runtime validates dependencies against your host system:
+
+```cue
+{
+    name: "deploy"
+    depends_on: {
+        tools: [
+            {alternatives: ["docker", "podman"]},
+            {alternatives: ["kubectl"]}
+        ]
+        filepaths: [
+            {alternatives: ["Dockerfile"]}
+        ]
+    }
+    implementations: [{
+        script: "docker build -t myapp . && kubectl apply -f k8s/"
+        target: {
+            runtimes: [{name: "native"}]
+        }
+    }]
+}
+```
+
+## Advantages
+
+- **Performance**: No overhead, direct shell execution
+- **Full access**: All system tools and environment available
+- **Familiar**: Use your preferred shell and its features
+- **Interactive**: Can run interactive commands
+
+## Limitations
+
+- **Platform differences**: Scripts may behave differently across OSes
+- **Environment dependency**: Relies on installed tools
+- **Reproducibility**: Results may vary between machines
+
+## When to Use Native
+
+- **Daily development**: Fast iteration, familiar tools
+- **System integration**: When you need access to system resources
+- **Interactive tasks**: Prompts, editors, TUI applications
+- **Performance-critical**: When container overhead matters
+
+## Next Steps
+
+- [Virtual Runtime](./virtual) - For cross-platform consistency
+- [Container Runtime](./container) - For reproducible builds

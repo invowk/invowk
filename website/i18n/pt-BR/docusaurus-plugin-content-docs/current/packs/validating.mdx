@@ -1,0 +1,104 @@
+---
+sidebar_position: 3
+---
+
+import Snippet from '@site/src/components/Snippet';
+
+# Validando Packs
+
+Valide seus packs para garantir que estão corretamente estruturados e prontos para distribuição.
+
+## Validação Básica
+
+<Snippet id="packs/validate-basic" />
+
+Saída para um pack válido:
+
+<Snippet id="packs/validate-basic-output" />
+
+## Validação Profunda
+
+Adicione `--deep` para também analisar e validar o invkfile:
+
+<Snippet id="packs/validate-deep" />
+
+Saída:
+
+<Snippet id="packs/validate-deep-output" />
+
+## O que é Validado
+
+### Verificações de Estrutura
+
+- Diretório do pack existe
+- `invkfile.cue` está presente na raiz
+- Sem packs aninhados (packs não podem conter outros packs)
+
+### Verificações de Nomenclatura
+
+- Nome da pasta termina com `.invkpack`
+- Prefixo do nome segue as regras (começa com letra, alfanumérico + pontos)
+- Sem caracteres inválidos (hífens, underscores)
+
+### Verificações Profundas (com `--deep`)
+
+- Invkfile é parseado sem erros
+- Sintaxe CUE é válida
+- Restrições do schema são atendidas
+- Caminhos de script são válidos (relativos, dentro do pack)
+
+## Erros de Validação
+
+### Invkfile Ausente
+
+<Snippet id="packs/error-missing-invkfile" />
+
+### Nome Inválido
+
+<Snippet id="packs/error-invalid-name" />
+
+### Pack Aninhado
+
+<Snippet id="packs/error-nested" />
+
+### Invkfile Inválido (deep)
+
+<Snippet id="packs/error-parse" />
+
+## Validação em Lote
+
+Valide múltiplos packs:
+
+<Snippet id="packs/validate-batch" />
+
+## Integração com CI
+
+Adicione validação de pack ao seu pipeline de CI:
+
+<Snippet id="packs/validate-ci" />
+
+## Problemas Comuns
+
+### Separadores de Caminho Errados
+
+<Snippet id="packs/path-separators-good-bad" />
+
+### Escapando do Diretório do Pack
+
+<Snippet id="packs/escape-pack-dir" />
+
+### Caminhos Absolutos
+
+<Snippet id="packs/absolute-paths" />
+
+## Melhores Práticas
+
+1. **Valide antes de commitar**: Detecte problemas cedo
+2. **Use `--deep`**: Captura erros no invkfile
+3. **Valide no CI**: Previne que packs quebrados sejam distribuídos
+4. **Corrija problemas imediatamente**: Não deixe dívida de validação acumular
+
+## Próximos Passos
+
+- [Criando Packs](./creating-packs) - Estruturar seu pack
+- [Distribuindo](./distributing) - Compartilhar seu pack

@@ -1,0 +1,142 @@
+---
+sidebar_position: 2
+---
+
+import Snippet from '@site/src/components/Snippet';
+
+# Flags
+
+Flags are named options passed with `--name=value` syntax. They're ideal for optional settings, boolean switches, and configuration that doesn't follow a strict order.
+
+## Defining Flags
+
+<Snippet id="flags-args/flags-defining" />
+
+## Flag Properties
+
+| Property | Required | Description |
+|----------|----------|-------------|
+| `name` | Yes | Flag name (alphanumeric, hyphens, underscores) |
+| `description` | Yes | Help text |
+| `type` | No | `string`, `bool`, `int`, `float` (default: `string`) |
+| `default_value` | No | Default if not provided |
+| `required` | No | Must be provided (can't have default) |
+| `short` | No | Single-letter alias |
+| `validation` | No | Regex pattern for value |
+
+## Types
+
+### String (Default)
+
+<Snippet id="flags-args/flags-type-string" />
+
+<Snippet id="flags-args/flags-type-string-usage" />
+
+### Boolean
+
+<Snippet id="flags-args/flags-type-bool" />
+
+<Snippet id="flags-args/flags-type-bool-usage" />
+
+Boolean flags only accept `true` or `false`.
+
+### Integer
+
+<Snippet id="flags-args/flags-type-int" />
+
+<Snippet id="flags-args/flags-type-int-usage" />
+
+### Float
+
+<Snippet id="flags-args/flags-type-float" />
+
+<Snippet id="flags-args/flags-type-float-usage" />
+
+## Required vs Optional
+
+### Required Flags
+
+<Snippet id="flags-args/flags-required" />
+
+<Snippet id="flags-args/flags-required-usage" />
+
+Required flags cannot have a `default_value`.
+
+### Optional Flags
+
+<Snippet id="flags-args/flags-optional" />
+
+<Snippet id="flags-args/flags-optional-usage" />
+
+## Short Aliases
+
+Add single-letter shortcuts:
+
+<Snippet id="flags-args/flags-short-aliases" />
+
+<Snippet id="flags-args/flags-short-usage" />
+
+## Validation Patterns
+
+Validate flag values with regex:
+
+<Snippet id="flags-args/flags-validation" />
+
+<Snippet id="flags-args/flags-validation-usage" />
+
+## Accessing in Scripts
+
+Flags are available as `INVOWK_FLAG_*` environment variables:
+
+<Snippet id="flags-args/flags-accessing" />
+
+### Naming Convention
+
+| Flag Name | Environment Variable |
+|-----------|---------------------|
+| `env` | `INVOWK_FLAG_ENV` |
+| `dry-run` | `INVOWK_FLAG_DRY_RUN` |
+| `output-file` | `INVOWK_FLAG_OUTPUT_FILE` |
+| `retryCount` | `INVOWK_FLAG_RETRYCOUNT` |
+
+Hyphens become underscores, uppercase.
+
+## Real-World Examples
+
+### Build Command
+
+<Snippet id="flags-args/flags-build-example" />
+
+### Deploy Command
+
+<Snippet id="flags-args/flags-deploy-example" />
+
+## Flag Syntax Variations
+
+All these work:
+
+<Snippet id="flags-args/flags-syntax" />
+
+## Reserved Flags
+
+Don't use these names - they're reserved by Invowk:
+
+| Flag | Short | Description |
+|------|-------|-------------|
+| `env-file` | `e` | Load environment from file |
+| `env-var` | `E` | Set environment variable |
+| `help` | `h` | Show help |
+| `runtime` | - | Override runtime |
+
+## Best Practices
+
+1. **Use descriptive names**: `--output-dir` not `--od`
+2. **Provide defaults when sensible**: Reduce required inputs
+3. **Add validation for constrained values**: Fail fast on invalid input
+4. **Use short aliases for common flags**: `-v`, `-o`, `-f`
+5. **Boolean flags should default to false**: Opt-in behavior
+
+## Next Steps
+
+- [Positional Arguments](./positional-arguments) - For ordered, required values
+- [Environment](../environment/overview) - Configure command environment

@@ -1,0 +1,100 @@
+---
+sidebar_position: 1
+---
+
+import Snippet from '@site/src/components/Snippet';
+
+# Interpreters
+
+By default, Invowk executes scripts using a shell. But you can use other interpreters like Python, Ruby, Node.js, or any executable that can run scripts.
+
+## Auto-Detection from Shebang
+
+When a script starts with a shebang (`#!`), Invowk automatically uses that interpreter:
+
+<Snippet id="advanced/interpreter-shebang" />
+
+Common shebang patterns:
+
+| Shebang | Interpreter |
+|---------|-------------|
+| `#!/usr/bin/env python3` | Python 3 (portable) |
+| `#!/usr/bin/env node` | Node.js |
+| `#!/usr/bin/env ruby` | Ruby |
+| `#!/usr/bin/env perl` | Perl |
+| `#!/bin/bash` | Bash (direct path) |
+
+## Explicit Interpreter
+
+Specify an interpreter directly in the runtime config:
+
+<Snippet id="advanced/interpreter-explicit" />
+
+The explicit interpreter takes precedence over shebang detection.
+
+## Interpreter with Arguments
+
+Pass arguments to the interpreter:
+
+<Snippet id="advanced/interpreter-args" />
+
+More examples:
+
+<Snippet id="advanced/interpreter-more-args" />
+
+## Container Interpreters
+
+Interpreters work in containers too:
+
+<Snippet id="advanced/interpreter-container-shebang" />
+
+Or with explicit interpreter:
+
+<Snippet id="advanced/interpreter-container-explicit" />
+
+## Accessing Arguments
+
+Arguments work the same with any interpreter:
+
+<Snippet id="advanced/interpreter-args-access" />
+
+## Supported Interpreters
+
+Any executable in PATH can be used:
+
+- **Python**: `python3`, `python`
+- **JavaScript**: `node`, `deno`, `bun`
+- **Ruby**: `ruby`
+- **Perl**: `perl`
+- **PHP**: `php`
+- **Lua**: `lua`
+- **R**: `Rscript`
+- **Shell**: `bash`, `sh`, `zsh`, `fish`
+- **Custom**: Any executable
+
+## Virtual Runtime Limitation
+
+The `interpreter` field is **not supported** with the virtual runtime:
+
+<Snippet id="advanced/interpreter-virtual-error" />
+
+The virtual runtime uses the built-in mvdan/sh interpreter and cannot execute Python, Ruby, or other interpreters. Use native or container runtime instead.
+
+## Fallback Behavior
+
+When no shebang and no explicit interpreter:
+
+- **Native runtime**: Uses system's default shell
+- **Container runtime**: Uses `/bin/sh -c`
+
+## Best Practices
+
+1. **Use shebang for portability**: Scripts work standalone too
+2. **Use `/usr/bin/env`**: More portable than direct paths
+3. **Explicit interpreter for no-shebang scripts**: When you don't want a shebang line
+4. **Match container image**: Ensure interpreter exists in the image
+
+## Next Steps
+
+- [Working Directory](./workdir) - Control execution location
+- [Platform-Specific](./platform-specific) - Per-platform implementations

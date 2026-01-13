@@ -1,0 +1,84 @@
+---
+sidebar_position: 1
+---
+
+import Snippet from '@site/src/components/Snippet';
+
+# Configuration Overview
+
+Invowk uses a CUE-based configuration file to customize its behavior. This is where you set your preferences for container engines, search paths, runtime defaults, and more.
+
+## Configuration File Location
+
+The configuration file lives in your OS-specific config directory:
+
+| Platform | Location |
+|----------|----------|
+| Linux    | `~/.config/invowk/config.cue` |
+| macOS    | `~/Library/Application Support/invowk/config.cue` |
+| Windows  | `%APPDATA%\invowk\config.cue` |
+
+You can also specify a custom config file path using the `--config` flag:
+
+<Snippet id="config/cli-custom-path" />
+
+## Creating a Configuration File
+
+The easiest way to create a configuration file is to use the `config init` command:
+
+<Snippet id="config/init" />
+
+This creates a default configuration file with sensible defaults. If a config file already exists, it won't be overwritten (safety first!).
+
+## Viewing Your Configuration
+
+There are several ways to inspect your current configuration:
+
+### Show Human-Readable Config
+
+<Snippet id="config/show" />
+
+This displays your configuration in a friendly, readable format.
+
+### Show Raw CUE
+
+<Snippet id="config/dump" />
+
+This outputs the raw CUE configuration, useful for debugging or copying to another machine.
+
+### Find the Config File
+
+<Snippet id="config/path" />
+
+This prints the path to your configuration file. Handy when you want to edit it directly.
+
+## Setting Configuration Values
+
+You can modify configuration values from the command line:
+
+<Snippet id="config/set-examples" />
+
+Or just open the config file in your favorite editor:
+
+<Snippet id="config/edit-linux-macos" />
+
+## Example Configuration
+
+Here's what a typical configuration file looks like:
+
+<Snippet id="config/full-example" />
+
+## Configuration Hierarchy
+
+When running a command, Invowk merges configuration from multiple sources (later sources override earlier ones):
+
+1. **Built-in defaults** - Sensible defaults for all options
+2. **Configuration file** - Your `config.cue` settings
+3. **Environment variables** - `INVOWK_*` environment variables
+4. **Command-line flags** - Flags like `--verbose`, `--runtime`
+
+For example, if your config file sets `verbose: false`, but you run with `--verbose`, verbose mode will be enabled.
+
+## What's Next?
+
+Head over to [Configuration Options](./options) for a complete reference of all available settings.

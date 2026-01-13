@@ -338,6 +338,107 @@ website/docs/
 - Use admonitions (:::tip, :::warning, :::note) for important callouts
 - Keep code examples concise and focused
 
+### CRITICAL: Reusable Code Snippets Pattern
+
+**All code blocks, CUE syntax examples, CLI commands, and technical snippets in documentation MUST use the reusable `<Snippet>` component** to avoid duplication across translations. This ensures:
+
+1. Code examples are updated in ONE place, not in every translation file
+2. Translations only contain translatable prose, not duplicated code
+3. Consistency across all language versions
+
+#### Snippet Component Usage
+
+Documentation files MUST use `.mdx` extension (not `.md`) to use React components.
+
+**Basic Usage:**
+
+```mdx
+---
+sidebar_position: 1
+---
+
+import Snippet from '@site/src/components/Snippet';
+
+# Page Title
+
+Here's an example of an invkfile:
+
+<Snippet id="getting-started/invkfile-basic-structure" />
+
+Run the following command:
+
+<Snippet id="cli/list-commands" />
+```
+
+**With Optional Title:**
+
+```mdx
+<Snippet id="runtime-modes/container-basic" title="container-example.cue" />
+```
+
+#### Adding New Snippets
+
+All snippets are defined in `website/src/components/Snippet/snippets.ts`. When adding new code examples:
+
+1. **Add the snippet** to `snippets.ts` with a descriptive hierarchical ID:
+   ```typescript
+   'section/feature/example-name': {
+     language: 'cue',  // or 'bash', 'text', 'dockerfile', etc.
+     code: `your code here`,
+   },
+   ```
+
+2. **Use the snippet** in both English and translated MDX files:
+   ```mdx
+   <Snippet id="section/feature/example-name" />
+   ```
+
+#### Snippet Naming Convention
+
+- Use hierarchical IDs matching documentation sections: `section/subsection/name`
+- Examples:
+  - `getting-started/invkfile-basic-structure`
+  - `cli/list-commands`
+  - `cli/output-list-commands`
+  - `runtime-modes/container-basic`
+  - `dependencies/tools-alternatives`
+
+#### Escaping Template Literals
+
+When snippets contain `${variable}` syntax (e.g., shell variables), escape them:
+
+```typescript
+// WRONG - will be interpreted as JS template literal
+code: `files: [".env.${INVOWK_ENV}"]`
+
+// CORRECT - escaped
+code: `files: [".env.\${INVOWK_ENV}"]`
+```
+
+#### Current Snippet Categories
+
+- `getting-started/*` - First invkfile examples
+- `core-concepts/*` - Schema, structure, syntax examples
+- `runtime-modes/*` - Native, virtual, container examples
+- `dependencies/*` - Tools, filepaths, capabilities, custom checks
+- `environment/*` - Env files and variables
+- `flags-args/*` - Flags and positional arguments
+- `advanced/*` - Interpreters, workdir, platform-specific
+- `packs/*` - Pack creation and validation
+- `tui/*` - TUI component examples
+- `config/*` - Configuration examples
+- `cli/*` - CLI commands and output examples
+
+#### Converting Existing Documentation
+
+When updating or creating documentation:
+
+1. **File extension**: Rename `.md` to `.mdx`
+2. **Add import**: Add `import Snippet from '@site/src/components/Snippet';` after frontmatter
+3. **Replace code blocks**: Replace inline code blocks with `<Snippet id="..." />`
+4. **Keep prose in translations**: Only translatable text should differ between locales
+5. **Update all locales**: Apply the same structure to all translation files
+
 ### Testing Documentation Changes
 
 After making documentation changes:

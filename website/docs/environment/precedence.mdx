@@ -1,0 +1,127 @@
+---
+sidebar_position: 4
+---
+
+import Snippet from '@site/src/components/Snippet';
+
+# Environment Precedence
+
+When the same variable is defined in multiple places, Invowk follows a specific precedence order. Higher precedence sources override lower ones.
+
+## Precedence Order
+
+From highest to lowest priority:
+
+| Priority | Source | Example |
+|----------|--------|---------|
+| 1 | CLI env vars | `--env-var KEY=value` |
+| 2 | CLI env files | `--env-file .env.local` |
+| 3 | Implementation vars | `implementations[].env.vars` |
+| 4 | Implementation files | `implementations[].env.files` |
+| 5 | Command vars | `command.env.vars` |
+| 6 | Command files | `command.env.files` |
+| 7 | Root vars | `root.env.vars` |
+| 8 | Root files | `root.env.files` |
+| 9 | System environment | Host's environment |
+| 10 | Platform vars | `platforms[].env` |
+
+## Visual Hierarchy
+
+<Snippet id="environment/precedence-hierarchy" />
+
+## Example Walkthrough
+
+Given this invkfile:
+
+<Snippet id="environment/precedence-invkfile" />
+
+And these files:
+
+<Snippet id="environment/precedence-env-files" />
+
+### Resolution Order
+
+1. **Start with system environment** (e.g., `PATH`, `HOME`)
+
+2. **Load root files** (`.env`):
+   - `API_URL=http://envfile.example.com`
+   - `DATABASE_URL=postgres://localhost/db`
+
+3. **Apply root vars** (override files):
+   - `API_URL=http://root.example.com` ← overrides `.env`
+   - `LOG_LEVEL=info`
+
+4. **Load command files** (`.env.build`):
+   - `BUILD_MODE=release`
+   - `CACHE_DIR=./cache`
+
+5. **Apply command vars** (override files):
+   - `API_URL=http://command.example.com` ← overrides root
+   - `BUILD_MODE=development` ← overrides `.env.build`
+
+6. **Apply implementation vars**:
+   - `BUILD_MODE=production` ← overrides command
+   - `NODE_ENV=production`
+
+### Final Result
+
+<Snippet id="environment/precedence-result" />
+
+### With CLI Override
+
+<Snippet id="environment/precedence-cli-override" />
+
+Now `API_URL=http://cli.example.com` because CLI has highest priority.
+
+## Files vs Vars at Same Level
+
+Within the same level, `vars` override `files`:
+
+<Snippet id="environment/precedence-vars-over-files" />
+
+## Multiple Files at Same Level
+
+Files are loaded in order; later files override earlier:
+
+<Snippet id="environment/precedence-multiple-files" />
+
+## Platform-Specific Variables
+
+Platform variables are applied after everything else:
+
+<Snippet id="environment/precedence-platform" />
+
+Platform `env` is only applied if that platform matches and the variable isn't already set.
+
+## Best Practices
+
+### Use Appropriate Levels
+
+<Snippet id="environment/precedence-appropriate-levels" />
+
+### Override Pattern
+
+Base config in files, overrides in vars:
+
+<Snippet id="environment/precedence-override-pattern" />
+
+### Local Development
+
+Use optional local files for developer overrides:
+
+<Snippet id="environment/precedence-local-dev" />
+
+### CLI for Temporary Overrides
+
+<Snippet id="environment/precedence-cli-temp" />
+
+## Debugging Precedence
+
+To see final values, add debug output:
+
+<Snippet id="environment/precedence-debug" />
+
+## Next Steps
+
+- [Env Files](./env-files) - Load from .env files
+- [Env Vars](./env-vars) - Set variables directly

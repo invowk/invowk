@@ -1,0 +1,105 @@
+---
+sidebar_position: 2
+---
+
+import Snippet from '@site/src/components/Snippet';
+
+# Creating Packs
+
+Learn how to create, structure, and organize packs for your commands.
+
+## Quick Create
+
+Use `pack create` to scaffold a new pack:
+
+<Snippet id="packs/create-options" />
+
+## Generated Structure
+
+Basic pack:
+
+<Snippet id="packs/quick-create-output" />
+
+With `--scripts`:
+
+<Snippet id="packs/create-with-scripts" />
+
+## Template Invkfile
+
+The generated `invkfile.cue`:
+
+<Snippet id="packs/template-invkfile" />
+
+## Manual Creation
+
+You can also create packs manually:
+
+<Snippet id="packs/manual-create" />
+
+## Adding Scripts
+
+### Inline vs External
+
+Choose based on complexity:
+
+<Snippet id="packs/inline-vs-external" />
+
+### Script Organization
+
+<Snippet id="packs/script-organization" />
+
+### Script Paths
+
+Always use forward slashes:
+
+<Snippet id="packs/script-paths-good-bad" />
+
+## Environment Files
+
+Include `.env` files in your pack:
+
+<Snippet id="packs/env-files-structure" />
+
+Reference them:
+
+<Snippet id="packs/env-files-ref" />
+
+## Documentation
+
+Include a README for users:
+
+<Snippet id="packs/docs-structure" />
+
+## Real-World Examples
+
+### Build Tools Pack
+
+<Snippet id="packs/buildtools-structure" />
+
+<Snippet id="packs/buildtools-invkfile" />
+
+### DevOps Pack
+
+<Snippet id="packs/devops-structure" />
+
+## Best Practices
+
+1. **Use RDNS naming**: Prevents conflicts with other packs
+2. **Keep scripts focused**: One task per script
+3. **Include documentation**: README with usage examples
+4. **Version your pack**: Use semantic versioning
+5. **Forward slashes only**: Cross-platform compatibility
+6. **Validate before sharing**: Run `pack validate --deep`
+
+## Validating Your Pack
+
+Before sharing, validate:
+
+<Snippet id="packs/validate-before-share" />
+
+See [Validating](./validating) for details.
+
+## Next Steps
+
+- [Validating](./validating) - Ensure pack integrity
+- [Distributing](./distributing) - Share your pack

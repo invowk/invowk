@@ -1,0 +1,319 @@
+---
+sidebar_position: 3
+---
+
+import Snippet from '@site/src/components/Snippet';
+
+# Filepath Dependencies
+
+Filepath dependencies verify that required files or directories exist before your command runs. You can also check for specific permissions.
+
+## Basic Usage
+
+<Snippet id="dependencies/filepaths-basic" />
+
+If the file doesn't exist:
+
+```
+✗ Dependencies not satisfied
+
+Command 'build' has unmet dependencies:
+
+Missing Files:
+  • go.mod - file not found
+
+Ensure the required files exist and try again.
+```
+
+## Alternatives (OR Semantics)
+
+Specify multiple alternatives when any path will work:
+
+<Snippet id="dependencies/filepaths-options" />
+
+Invowk checks alternatives in order and stops at the first match.
+
+## Path Types
+
+### Relative Paths
+
+Relative to the invkfile location:
+
+```cue
+depends_on: {
+    filepaths: [
+        {alternatives: ["./src/main.go"]},
+        {alternatives: ["../shared/utils.go"]},
+        {alternatives: ["scripts/build.sh"]},
+    ]
+}
+```
+
+### Absolute Paths
+
+Full system paths:
+
+```cue
+depends_on: {
+    filepaths: [
+        {alternatives: ["/etc/myapp/config.yaml"]},
+        {alternatives: ["/usr/local/bin/mytool"]},
+    ]
+}
+```
+
+### Environment Variables in Paths
+
+Expand environment variables:
+
+```cue
+depends_on: {
+    filepaths: [
+        {alternatives: ["${HOME}/.config/myapp/config.yaml"]},
+        {alternatives: ["${XDG_CONFIG_HOME}/myapp/config.yaml", "${HOME}/.myapprc"]},
+    ]
+}
+```
+
+## Permission Checks
+
+Check for specific file permissions:
+
+### Readable
+
+```cue
+depends_on: {
+    filepaths: [
+        {alternatives: ["secrets.env"], readable: true}
+    ]
+}
+```
+
+### Writable
+
+```cue
+depends_on: {
+    filepaths: [
+        {alternatives: ["./output", "./dist"], writable: true}
+    ]
+}
+```
+
+### Executable
+
+```cue
+depends_on: {
+    filepaths: [
+        {alternatives: ["./scripts/deploy.sh"], executable: true}
+    ]
+}
+```
+
+### Combined Permissions
+
+```cue
+depends_on: {
+    filepaths: [
+        // Script must be readable AND executable
+        {
+            alternatives: ["./scripts/run.sh"]
+            readable: true
+            executable: true
+        }
+    ]
+}
+```
+
+## Directories vs Files
+
+Filepath checks work for both files and directories:
+
+```cue
+depends_on: {
+    filepaths: [
+        // Check for a file
+        {alternatives: ["package.json"]},
+        
+        // Check for a directory
+        {alternatives: ["node_modules"]},
+        
+        // Check directory is writable
+        {alternatives: ["./build"], writable: true},
+    ]
+}
+```
+
+## Real-World Examples
+
+### Go Project
+
+```cue
+{
+    name: "build"
+    depends_on: {
+        filepaths: [
+            {alternatives: ["go.mod"]},
+            {alternatives: ["go.sum"]},
+            {alternatives: ["cmd/main.go", "main.go"]},
+        ]
+    }
+    implementations: [{
+        script: "go build ./..."
+        target: {runtimes: [{name: "native"}]}
+    }]
+}
+```
+
+### Node.js Project
+
+```cue
+{
+    name: "build"
+    depends_on: {
+        filepaths: [
+            {alternatives: ["package.json"]},
+            // Any lock file is fine
+            {alternatives: ["pnpm-lock.yaml", "package-lock.json", "yarn.lock"]},
+            // Dependencies must be installed
+            {alternatives: ["node_modules"]},
+        ]
+    }
+    implementations: [{
+        script: "npm run build"
+        target: {runtimes: [{name: "native"}]}
+    }]
+}
+```
+
+### Docker Build
+
+```cue
+{
+    name: "docker-build"
+    depends_on: {
+        filepaths: [
+            // Need either Dockerfile or Containerfile
+            {alternatives: ["Dockerfile", "Containerfile"]},
+            // And a build script
+            {alternatives: ["scripts/build.sh"], executable: true},
+        ]
+    }
+    implementations: [{
+        script: "docker build -t myapp ."
+        target: {runtimes: [{name: "native"}]}
+    }]
+}
+```
+
+### Configuration Files
+
+```cue
+{
+    name: "deploy"
+    depends_on: {
+        filepaths: [
+            // Check for config in order of preference
+            {
+                alternatives: [
+                    "./config/production.yaml",
+                    "./config/default.yaml",
+                    "${HOME}/.myapp/config.yaml"
+                ]
+                readable: true
+            },
+            // Writable output directory
+            {alternatives: ["./deploy-output"], writable: true},
+        ]
+    }
+    implementations: [{
+        script: "./scripts/deploy.sh"
+        target: {runtimes: [{name: "native"}]}
+    }]
+}
+```
+
+## Container Context
+
+For container runtime, filepath checks are validated **inside the container**:
+
+```cue
+{
+    name: "build"
+    implementations: [{
+        script: "go build ./..."
+        target: {runtimes: [{name: "container", image: "golang:1.21"}]}
+        depends_on: {
+            filepaths: [
+                // These are checked INSIDE the container
+                // /workspace is where your project is mounted
+                {alternatives: ["/workspace/go.mod"]},
+                {alternatives: ["/workspace/go.sum"]},
+            ]
+        }
+    }]
+}
+```
+
+## Platform-Specific Paths
+
+Use multiple implementations for platform-specific paths:
+
+```cue
+{
+    name: "read-config"
+    implementations: [
+        {
+            script: "cat $CONFIG_PATH"
+            target: {
+                runtimes: [{name: "native"}]
+                platforms: [{name: "linux"}]
+            }
+            depends_on: {
+                filepaths: [{alternatives: ["/etc/myapp/config.yaml"]}]
+            }
+        },
+        {
+            script: "cat $CONFIG_PATH"
+            target: {
+                runtimes: [{name: "native"}]
+                platforms: [{name: "macos"}]
+            }
+            depends_on: {
+                filepaths: [{alternatives: ["/usr/local/etc/myapp/config.yaml"]}]
+            }
+        }
+    ]
+}
+```
+
+## Error Messages
+
+Clear error messages for missing files:
+
+```
+✗ Dependencies not satisfied
+
+Command 'build' has unmet dependencies:
+
+Missing Files:
+  • go.mod - file not found
+  • node_modules - directory not found
+
+Permission Issues:
+  • ./scripts/deploy.sh - not executable
+  • ./output - not writable
+
+Ensure the required files exist with proper permissions and try again.
+```
+
+## Best Practices
+
+1. **Use alternatives for config files**: `{alternatives: ["config.yaml", "config.json"]}`
+2. **Check permissions when needed**: Especially for scripts and output directories
+3. **Consider platform differences**: Use environment variables or multiple implementations
+4. **Check dependencies first**: Verify `node_modules` before running npm scripts
+
+## Next Steps
+
+- [Commands](./commands) - Depend on other Invowk commands
+- [Environment Variables](./env-vars) - Check for required env vars

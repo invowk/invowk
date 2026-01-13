@@ -1,0 +1,131 @@
+---
+sidebar_position: 2
+---
+
+import Snippet from '@site/src/components/Snippet';
+
+# Env Files
+
+Load environment variables from `.env` files. This is a common pattern for managing configuration, especially secrets that shouldn't be committed to version control.
+
+## Basic Usage
+
+<Snippet id="environment/env-files-basic" />
+
+With a `.env` file:
+
+<Snippet id="environment/dotenv-example" />
+
+Variables are loaded and available in your script.
+
+## File Format
+
+Standard `.env` format:
+
+<Snippet id="environment/dotenv-format" />
+
+## Optional Files
+
+Suffix with `?` to make a file optional:
+
+<Snippet id="environment/env-files-optional" />
+
+This is useful for:
+- Local overrides that may not exist
+- Environment-specific files
+- Developer-specific settings
+
+## File Order
+
+Files are loaded in order; later files override earlier ones:
+
+<Snippet id="environment/env-files-order" />
+
+Example with `ENV=production`:
+
+<Snippet id="environment/env-files-order-example" />
+
+Result:
+- `API_URL=https://api.example.com` (from .env.production)
+- `DEBUG=true` (from .env.local)
+
+## Path Resolution
+
+Paths are relative to the invkfile location:
+
+<Snippet id="environment/env-files-path-resolution" />
+
+For packs, paths are relative to the pack root.
+
+## Variable Interpolation
+
+Use `${VAR}` to include other environment variables:
+
+<Snippet id="environment/env-files-interpolation" />
+
+<Snippet id="environment/env-files-interpolation-result" />
+
+## Scope Levels
+
+Env files can be loaded at multiple levels:
+
+### Root Level
+
+<Snippet id="environment/env-files-scope-root" />
+
+### Command Level
+
+<Snippet id="environment/env-files-scope-command" />
+
+### Implementation Level
+
+<Snippet id="environment/env-files-scope-implementation" />
+
+## Combined with Variables
+
+Use both files and direct variables:
+
+<Snippet id="environment/env-combined" />
+
+Variables in `vars` always override values from files at the same level.
+
+## CLI Override
+
+Load additional files at runtime:
+
+<Snippet id="environment/env-files-cli-override" />
+
+CLI files have highest priority and override all invkfile-defined sources.
+
+## Real-World Examples
+
+### Development vs Production
+
+<Snippet id="environment/env-files-dev-prod" />
+
+### Secrets Management
+
+<Snippet id="environment/env-files-secrets" />
+
+`.gitignore`:
+
+<Snippet id="environment/gitignore-env" />
+
+### Multi-Environment
+
+<Snippet id="environment/env-files-multi-env-structure" />
+
+<Snippet id="environment/env-files-multi-env" />
+
+## Best Practices
+
+1. **Use `.env` for defaults**: Base configuration that works for everyone
+2. **Use `.env.local` for overrides**: Developer-specific settings, not in git
+3. **Use `.env.{environment}` for environments**: Production, staging, etc.
+4. **Mark sensitive files optional**: They may not exist in all environments
+5. **Don't commit secrets**: Add `.env.secrets`, `.env.local` to `.gitignore`
+
+## Next Steps
+
+- [Env Vars](./env-vars) - Set variables directly
+- [Precedence](./precedence) - Understand override order

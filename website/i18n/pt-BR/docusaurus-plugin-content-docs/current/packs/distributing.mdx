@@ -1,0 +1,143 @@
+---
+sidebar_position: 4
+---
+
+import Snippet from '@site/src/components/Snippet';
+
+# Distribuindo Packs
+
+Compartilhe seus packs com colegas de equipe, entre organizações ou com o mundo.
+
+## Criando Arquivos
+
+Crie um arquivo zip para distribuição:
+
+<Snippet id="packs/archive-basic" />
+
+Saída:
+
+<Snippet id="packs/archive-output" />
+
+## Importando Packs
+
+### De Arquivo Local
+
+<Snippet id="packs/import-local" />
+
+### De URL
+
+<Snippet id="packs/import-url" />
+
+Saída:
+
+<Snippet id="packs/import-output" />
+
+## Listando Packs Instalados
+
+<Snippet id="packs/list" />
+
+Saída:
+
+<Snippet id="packs/list-output" />
+
+## Métodos de Distribuição
+
+### Compartilhamento Direto
+
+1. Crie o arquivo: `invowk pack archive`
+2. Compartilhe o arquivo zip (email, Slack, etc.)
+3. Destinatário importa: `invowk pack import`
+
+### Repositório Git
+
+Inclua packs no seu repositório:
+
+<Snippet id="packs/git-structure" />
+
+Membros da equipe obtêm os packs ao clonar o repositório.
+
+### Releases do GitHub
+
+1. Crie o arquivo
+2. Anexe ao release do GitHub
+3. Compartilhe a URL de download
+
+<Snippet id="packs/github-release" />
+
+### Registro de Pacotes (Futuro)
+
+Versões futuras podem suportar:
+
+<Snippet id="packs/future-install" />
+
+## Locais de Instalação
+
+### Comandos do Usuário (Padrão)
+
+<Snippet id="packs/install-user" />
+
+Disponível globalmente para o usuário.
+
+### Local do Projeto
+
+<Snippet id="packs/install-project" />
+
+Disponível apenas neste projeto.
+
+### Caminho de Busca Customizado
+
+Configure caminhos de busca adicionais:
+
+<Snippet id="packs/search-paths-config" />
+
+Instale lá:
+
+<Snippet id="packs/install-search-path" />
+
+## Gerenciamento de Versão
+
+### Versionamento Semântico
+
+Use version no seu invkfile:
+
+<Snippet id="packs/version-invkfile" />
+
+### Nomenclatura de Arquivo
+
+Inclua a versão no nome do arquivo:
+
+<Snippet id="packs/archive-versioned" />
+
+### Processo de Upgrade
+
+<Snippet id="packs/upgrade-process" />
+
+## Distribuição para Equipe
+
+### Localização de Rede Compartilhada
+
+<Snippet id="packs/team-shared-location" />
+
+### Servidor de Pacotes Interno
+
+Hospede packs em servidor HTTP interno:
+
+<Snippet id="packs/internal-server" />
+
+## Melhores Práticas
+
+1. **Valide antes de arquivar**: `invowk pack validate --deep`
+2. **Use versionamento semântico**: Rastreie mudanças claramente
+3. **Inclua README**: Documente o uso do pack
+4. **Nomenclatura RDNS**: Previne conflitos
+5. **Changelog**: Documente o que mudou entre versões
+
+## Exemplo de Workflow
+
+<Snippet id="packs/workflow-example" />
+
+## Próximos Passos
+
+- [Visão Geral](./overview) - Conceitos de pack
+- [Criando Packs](./creating-packs) - Construir seu pack
+- [Validando](./validating) - Garantir integridade do pack

@@ -1,0 +1,153 @@
+---
+sidebar_position: 3
+---
+
+import Snippet from '@site/src/components/Snippet';
+
+# Virtual Runtime
+
+The **virtual** runtime uses Invowk's built-in POSIX-compatible shell interpreter (powered by [mvdan/sh](https://github.com/mvdan/sh)). It provides consistent shell behavior across all platforms without requiring an external shell.
+
+## How It Works
+
+When you run a command with the virtual runtime, Invowk:
+
+1. Parses the script using the built-in shell parser
+2. Executes it in an embedded POSIX-like environment
+3. Provides core utilities (echo, test, etc.) built-in
+
+## Basic Usage
+
+<Snippet id="runtime-modes/virtual-basic" />
+
+<Snippet id="runtime-modes/virtual-run" />
+
+## Cross-Platform Consistency
+
+The virtual runtime behaves identically on Linux, macOS, and Windows:
+
+<Snippet id="runtime-modes/virtual-cross-platform" />
+
+No more "works on my machine" for shell scripts!
+
+## Built-in Utilities
+
+The virtual shell includes core POSIX utilities:
+
+| Utility | Description |
+|---------|-------------|
+| `echo` | Print text |
+| `printf` | Formatted output |
+| `test` / `[` | Conditionals |
+| `true` / `false` | Exit with 0/1 |
+| `pwd` | Print working directory |
+| `cd` | Change directory |
+| `read` | Read input |
+| `export` | Set environment variables |
+
+### Extended Utilities (u-root)
+
+When enabled in config, additional utilities are available:
+
+<Snippet id="runtime-modes/virtual-uroot-config" />
+
+This adds utilities like:
+- `cat`, `head`, `tail`
+- `grep`, `sed`, `awk`
+- `ls`, `cp`, `mv`, `rm`
+- `mkdir`, `rmdir`
+- And many more
+
+## POSIX Shell Features
+
+The virtual shell supports standard POSIX constructs:
+
+### Variables
+
+<Snippet id="runtime-modes/virtual-variables" />
+
+### Conditionals
+
+<Snippet id="runtime-modes/virtual-conditionals" />
+
+### Loops
+
+<Snippet id="runtime-modes/virtual-loops" />
+
+### Functions
+
+<Snippet id="runtime-modes/virtual-functions" />
+
+### Subshells and Command Substitution
+
+<Snippet id="runtime-modes/virtual-subshells" />
+
+## Calling External Commands
+
+The virtual shell can call external commands installed on your system:
+
+<Snippet id="runtime-modes/virtual-external-commands" />
+
+External commands are found using the system's PATH.
+
+## Environment Variables
+
+Environment variables work the same as in native:
+
+<Snippet id="runtime-modes/virtual-env-vars" />
+
+## Flags and Arguments
+
+Access flags and arguments the same way:
+
+<Snippet id="runtime-modes/virtual-args" />
+
+## Limitations
+
+### No Interpreter Support
+
+The virtual runtime **cannot** use non-shell interpreters:
+
+<Snippet id="runtime-modes/virtual-no-interpreter" />
+
+For Python, Ruby, or other interpreters, use the native or container runtime.
+
+### Bash-Specific Features
+
+Some bash-specific features are not available:
+
+<Snippet id="runtime-modes/virtual-bash-limitations" />
+
+Stick to POSIX-compatible constructs for virtual runtime.
+
+## Dependency Validation
+
+Dependencies are validated against the virtual shell's capabilities:
+
+<Snippet id="runtime-modes/virtual-deps" />
+
+## Advantages
+
+- **Consistency**: Same behavior on Linux, macOS, and Windows
+- **No shell dependency**: Works even if system shell is unavailable
+- **Portability**: Scripts work across all platforms
+- **Built-in utilities**: Core utilities always available
+- **Faster startup**: No shell process to spawn
+
+## When to Use Virtual
+
+- **Cross-platform scripts**: When the same script must work everywhere
+- **CI/CD pipelines**: Consistent behavior across build agents
+- **Simple shell scripts**: When you don't need bash-specific features
+- **Embedded environments**: When external shells aren't available
+
+## Configuration
+
+Configure the virtual shell in your Invowk config file:
+
+<Snippet id="runtime-modes/virtual-config" />
+
+## Next Steps
+
+- [Native Runtime](./native) - For full shell access
+- [Container Runtime](./container) - For isolated execution

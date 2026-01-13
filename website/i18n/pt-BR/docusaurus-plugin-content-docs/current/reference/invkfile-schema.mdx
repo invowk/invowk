@@ -1,0 +1,353 @@
+---
+sidebar_position: 2
+---
+
+import Snippet from '@site/src/components/Snippet';
+
+# Referência de Schema do Invkfile
+
+:::warning Alpha — Schema Pode Mudar
+O schema do invkfile ainda está evoluindo. Campos, tipos e regras de validação **podem mudar entre releases** enquanto estabilizamos o formato. Sempre verifique o [changelog](https://github.com/invowk/invowk/releases) ao fazer upgrade.
+:::
+
+Referência completa para o schema do invkfile. Invkfiles usam formato [CUE](https://cuelang.org/) para definir comandos.
+
+## Estrutura Raiz
+
+Todo invkfile deve ter um `group` e pelo menos um comando:
+
+<Snippet id="reference/invkfile/root-structure" />
+
+### group
+
+**Tipo:** `string`  
+**Obrigatório:** Sim
+
+Um prefixo obrigatório para todos os nomes de comando deste invkfile. Deve começar com uma letra e pode conter segmentos separados por ponto.
+
+<Snippet id="reference/invkfile/group-examples" />
+
+### version
+
+**Tipo:** `string` (padrão: `^[0-9]+\.[0-9]+$`)  
+**Obrigatório:** Não  
+**Padrão:** Nenhum
+
+A versão do schema do invkfile. Versão atual é `"1.0"`.
+
+<Snippet id="reference/invkfile/version-example" />
+
+### description
+
+**Tipo:** `string`  
+**Obrigatório:** Não
+
+Um resumo do propósito deste invkfile. Mostrado ao listar comandos.
+
+<Snippet id="reference/invkfile/description-example" />
+
+### default_shell
+
+**Tipo:** `string`  
+**Obrigatório:** Não  
+**Padrão:** Padrão do sistema
+
+Sobrescrever o shell padrão para execução em runtime native.
+
+<Snippet id="reference/invkfile/default-shell-example" />
+
+### workdir
+
+**Tipo:** `string`  
+**Obrigatório:** Não  
+**Padrão:** Diretório do invkfile
+
+Diretório de trabalho padrão para todos os comandos. Pode ser absoluto ou relativo à localização do invkfile.
+
+<Snippet id="reference/invkfile/workdir-example" />
+
+### env
+
+**Tipo:** `#EnvConfig`  
+**Obrigatório:** Não
+
+Configuração de environment global aplicada a todos os comandos. Veja [EnvConfig](#envconfig).
+
+### depends_on
+
+**Tipo:** `#DependsOn`  
+**Obrigatório:** Não
+
+Dependências globais que se aplicam a todos os comandos. Veja [DependsOn](#dependson).
+
+### commands
+
+**Tipo:** `[...#Command]`  
+**Obrigatório:** Sim (pelo menos um)
+
+Lista de comandos definidos neste invkfile. Veja [Command](#command).
+
+---
+
+## Command
+
+Define um comando executável:
+
+<Snippet id="reference/invkfile/command-structure" />
+
+### name
+
+**Tipo:** `string` (padrão: `^[a-zA-Z][a-zA-Z0-9_ -]*$`)  
+**Obrigatório:** Sim
+
+O identificador do comando. Deve começar com uma letra.
+
+<Snippet id="reference/invkfile/command-name-examples" />
+
+### description
+
+**Tipo:** `string`  
+**Obrigatório:** Não
+
+Texto de ajuda para o comando.
+
+<Snippet id="reference/invkfile/command-description-example" />
+
+### implementations
+
+**Tipo:** `[...#Implementation]`  
+**Obrigatório:** Sim (pelo menos um)
+
+As implementations executáveis. Veja [Implementation](#implementation).
+
+### flags
+
+**Tipo:** `[...#Flag]`  
+**Obrigatório:** Não
+
+Flags de linha de comando para este comando. Veja [Flag](#flag).
+
+:::warning Flags Reservadas
+`env-file` (curta `e`) e `env-var` (curta `E`) são flags de sistema reservadas e não podem ser usadas.
+:::
+
+### args
+
+**Tipo:** `[...#Argument]`  
+**Obrigatório:** Não
+
+Argumentos posicionais para este comando. Veja [Argument](#argument).
+
+---
+
+## Implementation
+
+Define como um comando é executado:
+
+<Snippet id="reference/invkfile/implementation-structure" />
+
+### script
+
+**Tipo:** `string` (não vazio)  
+**Obrigatório:** Sim
+
+Os comandos de shell a executar OU um caminho para um arquivo de script.
+
+<Snippet id="reference/invkfile/script-examples" />
+
+**Extensões reconhecidas:** `.sh`, `.bash`, `.ps1`, `.bat`, `.cmd`, `.py`, `.rb`, `.pl`, `.zsh`, `.fish`
+
+### target
+
+**Tipo:** `#Target`  
+**Obrigatório:** Sim
+
+Define restrições de runtime e plataforma. Veja [Target](#target-1).
+
+---
+
+## Target
+
+Especifica onde uma implementation pode executar:
+
+<Snippet id="reference/invkfile/target-structure" />
+
+### runtimes
+
+**Tipo:** `[...#RuntimeConfig]`  
+**Obrigatório:** Sim (pelo menos um)
+
+Os runtimes que podem executar esta implementation. O primeiro runtime é o padrão.
+
+<Snippet id="reference/invkfile/runtimes-examples" />
+
+### platforms
+
+**Tipo:** `[...#PlatformConfig]`  
+**Obrigatório:** Não  
+**Padrão:** Todas as plataformas
+
+Restringir esta implementation a sistemas operacionais específicos.
+
+<Snippet id="reference/invkfile/platforms-example" />
+
+---
+
+## RuntimeConfig
+
+Configuração para um runtime específico:
+
+<Snippet id="reference/invkfile/runtime-config-structure" />
+
+### name
+
+**Tipo:** `"native" | "virtual" | "container"`  
+**Obrigatório:** Sim
+
+O tipo de runtime.
+
+### interpreter
+
+**Tipo:** `string`  
+**Disponível para:** `native`, `container`  
+**Padrão:** `"auto"` (detectar do shebang)
+
+Especifica como executar o script.
+
+<Snippet id="reference/invkfile/interpreter-examples" />
+
+:::note
+Virtual runtime usa mvdan/sh que não pode executar interpreters não-shell.
+:::
+
+### enable_host_ssh
+
+**Tipo:** `bool`  
+**Disponível para:** `container`  
+**Padrão:** `false`
+
+Habilitar acesso SSH do container de volta ao host. Quando habilitado, Invowk inicia um servidor SSH e fornece credenciais via variáveis de environment:
+
+- `INVOWK_SSH_HOST`
+- `INVOWK_SSH_PORT`
+- `INVOWK_SSH_USER`
+- `INVOWK_SSH_TOKEN`
+
+<Snippet id="reference/invkfile/enable-host-ssh-example" />
+
+### containerfile / image
+
+**Tipo:** `string`  
+**Disponível para:** `container`
+
+Especificar a fonte do container. Estes são **mutuamente exclusivos**.
+
+<Snippet id="reference/invkfile/containerfile-image-examples" />
+
+### volumes
+
+**Tipo:** `[...string]`  
+**Disponível para:** `container`
+
+Montagens de volume no formato `host:container[:options]`.
+
+<Snippet id="reference/invkfile/volumes-example" />
+
+### ports
+
+**Tipo:** `[...string]`  
+**Disponível para:** `container`
+
+Mapeamentos de porta no formato `host:container`.
+
+<Snippet id="reference/invkfile/ports-example" />
+
+---
+
+## PlatformConfig
+
+<Snippet id="reference/invkfile/platform-config-structure" />
+
+---
+
+## EnvConfig
+
+Configuração de environment:
+
+<Snippet id="reference/invkfile/env-config-structure" />
+
+### files
+
+Arquivos dotenv para carregar. Arquivos são carregados em ordem; arquivos posteriores sobrescrevem anteriores.
+
+<Snippet id="reference/invkfile/env-files-example" />
+
+### vars
+
+Variáveis de environment como pares chave-valor.
+
+<Snippet id="reference/invkfile/env-vars-example" />
+
+---
+
+## DependsOn
+
+Especificação de dependência:
+
+<Snippet id="reference/invkfile/depends-on-structure" />
+
+### ToolDependency
+
+<Snippet id="reference/invkfile/tool-dependency-structure" />
+
+<Snippet id="reference/invkfile/tool-dependency-example" />
+
+### CommandDependency
+
+<Snippet id="reference/invkfile/command-dependency-structure" />
+
+### FilepathDependency
+
+<Snippet id="reference/invkfile/filepath-dependency-structure" />
+
+### CapabilityDependency
+
+<Snippet id="reference/invkfile/capability-dependency-structure" />
+
+### EnvVarDependency
+
+<Snippet id="reference/invkfile/env-var-dependency-structure" />
+
+### CustomCheckDependency
+
+<Snippet id="reference/invkfile/custom-check-dependency-structure" />
+
+---
+
+## Flag
+
+Definição de flag de linha de comando:
+
+<Snippet id="reference/invkfile/flag-structure" />
+
+<Snippet id="reference/invkfile/flag-example" />
+
+---
+
+## Argument
+
+Definição de argumento posicional:
+
+<Snippet id="reference/invkfile/argument-structure" />
+
+<Snippet id="reference/invkfile/argument-example" />
+
+**Variáveis de Environment para Argumentos:**
+- `INVOWK_ARG_<NAME>` - O valor do argumento
+- Para variadic: `INVOWK_ARG_<NAME>_COUNT`, `INVOWK_ARG_<NAME>_1`, `INVOWK_ARG_<NAME>_2`, etc.
+
+---
+
+## Exemplo Completo
+
+<Snippet id="reference/invkfile/complete-example" />

@@ -1,0 +1,359 @@
+---
+sidebar_position: 7
+---
+
+import Snippet from '@site/src/components/Snippet';
+
+# Dependências de Verificações Personalizadas
+
+Verificações personalizadas permitem que você escreva scripts de validação para requisitos que não se encaixam nos tipos de dependência embutidos. Verifique versões de ferramentas, validade de configuração ou qualquer outro requisito personalizado.
+
+## Uso Básico
+
+<Snippet id="dependencies/custom-checks" />
+
+Se a verificação falhar:
+
+```
+✗ Dependencies not satisfied
+
+Command 'build' has unmet dependencies:
+
+Failed Custom Checks:
+  • go-version - check script returned non-zero exit code
+
+Ensure all requirements are met and try again.
+```
+
+## Propriedades da Verificação
+
+| Propriedade | Obrigatória | Descrição |
+|-------------|-------------|-----------|
+| `name` | Sim | Identificador para mensagens de erro |
+| `check_script` | Sim | Script a executar |
+| `expected_code` | Não | Código de saída esperado (padrão: 0) |
+| `expected_output` | Não | Padrão regex para corresponder à saída |
+
+## Validação de Código de Saída
+
+Por padrão, uma verificação passa se o script sair com código 0:
+
+```cue
+custom_checks: [
+    {
+        name: "docker-running"
+        check_script: "docker info > /dev/null 2>&1"
+        // Passa se o código de saída for 0
+    }
+]
+```
+
+Espere um código de saída diferente:
+
+```cue
+custom_checks: [
+    {
+        name: "not-production"
+        check_script: "test \"$ENV\" = 'production'"
+        expected_code: 1  // Deve falhar (não ser produção)
+    }
+]
+```
+
+## Validação de Saída
+
+Verifique se a saída corresponde a um padrão:
+
+```cue
+custom_checks: [
+    {
+        name: "node-version"
+        check_script: "node --version"
+        expected_output: "^v(18|20|22)\\."  // Versão major 18, 20 ou 22
+    }
+]
+```
+
+Ambas as condições devem passar quando usadas juntas:
+
+```cue
+custom_checks: [
+    {
+        name: "go-version"
+        check_script: "go version"
+        expected_code: 0  // Deve ter sucesso
+        expected_output: "go1\\.2[1-9]"  // Deve ser Go 1.21+
+    }
+]
+```
+
+## Alternativas (Semântica OU)
+
+Forneça verificações alternativas:
+
+```cue
+custom_checks: [
+    {
+        alternatives: [
+            {
+                name: "go-1.21"
+                check_script: "go version | grep -q 'go1.21'"
+            },
+            {
+                name: "go-1.22"
+                check_script: "go version | grep -q 'go1.22'"
+            }
+        ]
+    }
+]
+```
+
+A dependência é satisfeita se **qualquer** alternativa passar.
+
+## Exemplos do Mundo Real
+
+### Verificação de Versão de Ferramenta
+
+```cue
+{
+    name: "build"
+    depends_on: {
+        tools: [{alternatives: ["go"]}]
+        custom_checks: [
+            {
+                name: "go-1.21-or-higher"
+                check_script: """
+                    version=$(go version | grep -oE 'go[0-9]+\\.[0-9]+' | head -1)
+                    major=$(echo $version | cut -d. -f1 | tr -d 'go')
+                    minor=$(echo $version | cut -d. -f2)
+                    [ "$major" -ge 1 ] && [ "$minor" -ge 21 ]
+                    """
+            }
+        ]
+    }
+    implementations: [...]
+}
+```
+
+### Verificação de Docker Rodando
+
+```cue
+{
+    name: "docker-build"
+    depends_on: {
+        tools: [{alternatives: ["docker"]}]
+        custom_checks: [
+            {
+                name: "docker-daemon"
+                check_script: "docker info > /dev/null 2>&1"
+            }
+        ]
+    }
+    implementations: [{
+        script: "docker build -t myapp ."
+        target: {runtimes: [{name: "native"}]}
+    }]
+}
+```
+
+### Verificação de Status do Git
+
+```cue
+{
+    name: "release"
+    depends_on: {
+        tools: [{alternatives: ["git"]}]
+        custom_checks: [
+            {
+                name: "clean-working-tree"
+                check_script: "test -z \"$(git status --porcelain)\""
+            },
+            {
+                name: "on-main-branch"
+                check_script: "test \"$(git branch --show-current)\" = 'main'"
+            }
+        ]
+    }
+    implementations: [{
+        script: "./scripts/release.sh"
+        target: {runtimes: [{name: "native"}]}
+    }]
+}
+```
+
+### Validação de Configuração
+
+```cue
+{
+    name: "deploy"
+    depends_on: {
+        filepaths: [{alternatives: ["config.yaml"]}]
+        custom_checks: [
+            {
+                name: "valid-yaml"
+                check_script: "python3 -c 'import yaml; yaml.safe_load(open(\"config.yaml\"))'"
+            },
+            {
+                name: "has-required-fields"
+                check_script: """
+                    grep -q 'database:' config.yaml && \
+                    grep -q 'server:' config.yaml
+                    """
+            }
+        ]
+    }
+    implementations: [...]
+}
+```
+
+### Verificação de Memória/Recursos
+
+```cue
+{
+    name: "build heavy"
+    depends_on: {
+        custom_checks: [
+            {
+                name: "enough-memory"
+                check_script: """
+                    # Verificar pelo menos 4GB de memória livre
+                    free_mb=$(free -m | awk '/^Mem:/{print $7}')
+                    [ "$free_mb" -ge 4096 ]
+                    """
+            },
+            {
+                name: "enough-disk"
+                check_script: """
+                    # Verificar pelo menos 10GB de disco livre
+                    free_gb=$(df -BG . | awk 'NR==2{print $4}' | tr -d 'G')
+                    [ "$free_gb" -ge 10 ]
+                    """
+            }
+        ]
+    }
+    implementations: [...]
+}
+```
+
+### Contexto do Kubernetes
+
+```cue
+{
+    name: "deploy"
+    depends_on: {
+        tools: [{alternatives: ["kubectl"]}]
+        custom_checks: [
+            {
+                name: "correct-context"
+                check_script: "kubectl config current-context"
+                expected_output: "^production-cluster$"
+            },
+            {
+                name: "cluster-reachable"
+                check_script: "kubectl cluster-info > /dev/null 2>&1"
+            }
+        ]
+    }
+    implementations: [...]
+}
+```
+
+### Múltiplas Opções de Versão
+
+```cue
+{
+    name: "build"
+    depends_on: {
+        custom_checks: [
+            {
+                alternatives: [
+                    {
+                        name: "python-3.11"
+                        check_script: "python3 --version"
+                        expected_output: "^Python 3\\.11"
+                    },
+                    {
+                        name: "python-3.12"
+                        check_script: "python3 --version"
+                        expected_output: "^Python 3\\.12"
+                    }
+                ]
+            }
+        ]
+    }
+    implementations: [...]
+}
+```
+
+## Contexto de Container
+
+Para runtime container, verificações personalizadas rodam **dentro do container**:
+
+```cue
+{
+    name: "build"
+    implementations: [{
+        script: "npm run build"
+        target: {runtimes: [{name: "container", image: "node:20"}]}
+        depends_on: {
+            custom_checks: [
+                {
+                    name: "node-version"
+                    // Isso roda DENTRO do container
+                    check_script: "node --version"
+                    expected_output: "^v20\\."
+                }
+            ]
+        }
+    }]
+}
+```
+
+## Dicas de Script
+
+### Mantenha Scripts Simples
+
+```cue
+// Bom - simples e claro
+check_script: "go version | grep -q 'go1.21'"
+
+// Evite - complexo e frágil
+check_script: """
+    set -e
+    version=$(go version 2>&1)
+    if [ $? -ne 0 ]; then exit 1; fi
+    echo "$version" | grep -qE 'go1\\.(2[1-9]|[3-9][0-9])'
+    """
+```
+
+### Use Códigos de Saída Apropriados
+
+```cue
+// Script deve sair com 0 para sucesso, não-zero para falha
+check_script: """
+    if [ -f "required-file" ]; then
+        exit 0
+    else
+        exit 1
+    fi
+    """
+```
+
+### Trate Comandos Faltando
+
+```cue
+check_script: "command -v mytools > /dev/null && mytool --check"
+```
+
+## Melhores Práticas
+
+1. **Nomeie verificações claramente**: Use nomes descritivos para mensagens de erro
+2. **Mantenha scripts simples**: Uma verificação, um propósito
+3. **Use códigos de saída**: Retorne 0 para sucesso, não-zero para falha
+4. **Adicione validação de saída**: Quando o formato da versão importa
+5. **Considere alternativas**: Ofereça múltiplas configurações válidas
+
+## Próximos Passos
+
+- [Overview](./overview) - Retornar à visão geral de dependências
+- [Flags and Arguments](../flags-and-arguments/overview) - Aceitar entrada do usuário

@@ -1,0 +1,122 @@
+---
+sidebar_position: 1
+---
+
+import Snippet from '@site/src/components/Snippet';
+
+# Packs Overview
+
+:::warning Alpha — Pack Format May Change
+The pack format and structure are still being finalized. While we aim for backwards compatibility, **breaking changes may occur** before the 1.0 release. If you're distributing packs externally, be prepared to update them when upgrading Invowk.
+:::
+
+Packs are self-contained folders that bundle an invkfile together with its script files. They're perfect for sharing commands, creating reusable toolkits, and distributing automation across teams.
+
+## What is a Pack?
+
+A pack is a directory with the `.invkpack` suffix:
+
+<Snippet id="packs/structure-basic" />
+
+## Why Use Packs?
+
+- **Portability**: Share a complete command set as a single folder
+- **Self-contained**: Scripts are bundled with the invkfile
+- **Cross-platform**: Forward slash paths work everywhere
+- **Namespace isolation**: RDNS naming prevents conflicts
+- **Easy distribution**: Zip, share, unzip
+
+## Quick Start
+
+### Create a Pack
+
+<Snippet id="packs/quick-create" />
+
+Creates:
+
+<Snippet id="packs/quick-create-output" />
+
+### Use the Pack
+
+Packs are automatically discovered from:
+1. Current directory
+2. `~/.invowk/cmds/` (user commands)
+3. Configured search paths
+
+<Snippet id="packs/quick-use" />
+
+### Share the Pack
+
+<Snippet id="packs/quick-share" />
+
+## Pack Structure
+
+### Required Files
+
+- **`invkfile.cue`**: Command definitions (must be at pack root)
+
+### Optional Contents
+
+- **Scripts**: Shell scripts, Python files, etc.
+- **Templates**: Configuration templates
+- **Data**: Any supporting files
+
+### Example Structure
+
+<Snippet id="packs/structure-example" />
+
+## Pack Naming
+
+Pack folder names follow these rules:
+
+| Rule | Valid | Invalid |
+|------|-------|---------|
+| End with `.invkpack` | `mytools.invkpack` | `mytools` |
+| Start with letter | `mytools.invkpack` | `123tools.invkpack` |
+| Alphanumeric + dots | `com.example.invkpack` | `my-tools.invkpack` |
+
+### RDNS Naming
+
+Recommended for shared packs:
+
+<Snippet id="packs/rdns-naming" />
+
+## Script Paths
+
+Reference scripts relative to pack root with **forward slashes**:
+
+<Snippet id="packs/script-paths" />
+
+**Important:**
+- Always use forward slashes (`/`)
+- Paths are relative to pack root
+- No absolute paths allowed
+- Can't escape pack directory (`../` is invalid)
+
+## Pack Commands
+
+| Command | Description |
+|---------|-------------|
+| `invowk pack create` | Create a new pack |
+| `invowk pack validate` | Validate pack structure |
+| `invowk pack list` | List discovered packs |
+| `invowk pack archive` | Create zip archive |
+| `invowk pack import` | Install from zip/URL |
+
+## Discovery
+
+Packs are discovered from these locations:
+
+1. **Current directory** (highest priority)
+2. **User commands** (`~/.invowk/cmds/`)
+3. **Search paths** (from config)
+
+Commands appear in `invowk cmd list` with their source:
+
+<Snippet id="packs/discovery-output" />
+
+## Next Steps
+
+- [Creating Packs](./creating-packs) - Scaffold and structure packs
+- [Validating](./validating) - Ensure pack integrity
+- [Distributing](./distributing) - Share packs with others

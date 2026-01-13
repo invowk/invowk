@@ -1,0 +1,143 @@
+---
+sidebar_position: 4
+---
+
+import Snippet from '@site/src/components/Snippet';
+
+# Distributing Packs
+
+Share your packs with teammates, across organizations, or with the world.
+
+## Creating Archives
+
+Create a zip archive for distribution:
+
+<Snippet id="packs/archive-basic" />
+
+Output:
+
+<Snippet id="packs/archive-output" />
+
+## Importing Packs
+
+### From Local File
+
+<Snippet id="packs/import-local" />
+
+### From URL
+
+<Snippet id="packs/import-url" />
+
+Output:
+
+<Snippet id="packs/import-output" />
+
+## Listing Installed Packs
+
+<Snippet id="packs/list" />
+
+Output:
+
+<Snippet id="packs/list-output" />
+
+## Distribution Methods
+
+### Direct Sharing
+
+1. Create archive: `invowk pack archive`
+2. Share the zip file (email, Slack, etc.)
+3. Recipient imports: `invowk pack import`
+
+### Git Repository
+
+Include packs in your repo:
+
+<Snippet id="packs/git-structure" />
+
+Team members get packs when they clone the repo.
+
+### GitHub Releases
+
+1. Create archive
+2. Attach to GitHub release
+3. Share the download URL
+
+<Snippet id="packs/github-release" />
+
+### Package Registry (Future)
+
+Future versions may support:
+
+<Snippet id="packs/future-install" />
+
+## Install Locations
+
+### User Commands (Default)
+
+<Snippet id="packs/install-user" />
+
+Available globally for the user.
+
+### Project-Local
+
+<Snippet id="packs/install-project" />
+
+Only available in this project.
+
+### Custom Search Path
+
+Configure additional search paths:
+
+<Snippet id="packs/search-paths-config" />
+
+Install there:
+
+<Snippet id="packs/install-search-path" />
+
+## Version Management
+
+### Semantic Versioning
+
+Use version in your invkfile:
+
+<Snippet id="packs/version-invkfile" />
+
+### Archive Naming
+
+Include version in archive name:
+
+<Snippet id="packs/archive-versioned" />
+
+### Upgrade Process
+
+<Snippet id="packs/upgrade-process" />
+
+## Team Distribution
+
+### Shared Network Location
+
+<Snippet id="packs/team-shared-location" />
+
+### Internal Package Server
+
+Host packs on internal HTTP server:
+
+<Snippet id="packs/internal-server" />
+
+## Best Practices
+
+1. **Validate before archiving**: `invowk pack validate --deep`
+2. **Use semantic versioning**: Track changes clearly
+3. **Include README**: Document pack usage
+4. **RDNS naming**: Prevent conflicts
+5. **Changelog**: Document what changed between versions
+
+## Example Workflow
+
+<Snippet id="packs/workflow-example" />
+
+## Next Steps
+
+- [Overview](./overview) - Pack concepts
+- [Creating Packs](./creating-packs) - Build your pack
+- [Validating](./validating) - Ensure pack integrity

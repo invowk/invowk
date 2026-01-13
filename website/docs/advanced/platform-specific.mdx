@@ -1,0 +1,87 @@
+---
+sidebar_position: 3
+---
+
+import Snippet from '@site/src/components/Snippet';
+
+# Platform-Specific Commands
+
+Create commands that behave differently on Linux, macOS, and Windows. Invowk automatically selects the right implementation for the current platform.
+
+## Supported Platforms
+
+| Value | Description |
+|-------|-------------|
+| `linux` | Linux distributions |
+| `macos` | macOS (Darwin) |
+| `windows` | Windows |
+
+## Basic Platform Targeting
+
+Restrict an implementation to specific platforms:
+
+<Snippet id="advanced/platform-open-browser" />
+
+## All Platforms (Default)
+
+If `platforms` is omitted, the implementation works on all platforms:
+
+<Snippet id="advanced/platform-all-default" />
+
+## Unix-Only Commands
+
+Target both Linux and macOS:
+
+<Snippet id="advanced/platform-unix-only" />
+
+## Platform-Specific Environment
+
+Set different environment variables per platform:
+
+<Snippet id="advanced/platform-env" />
+
+## Cross-Platform Scripts
+
+Write one script that works everywhere:
+
+<Snippet id="advanced/platform-cross-script" />
+
+## CUE Templates for Platforms
+
+Use CUE templates to reduce repetition:
+
+<Snippet id="advanced/platform-cue-templates" />
+
+## Command Listing
+
+The command list shows supported platforms:
+
+<Snippet id="advanced/platform-list-output" />
+
+## Unsupported Platform Error
+
+Running a command on an unsupported platform shows a clear error:
+
+<Snippet id="advanced/platform-unsupported-error" />
+
+## Real-World Examples
+
+### System Information
+
+<Snippet id="advanced/platform-sysinfo" />
+
+### Package Installation
+
+<Snippet id="advanced/platform-install-deps" />
+
+## Best Practices
+
+1. **Start with cross-platform**: Add platform-specific only when needed
+2. **Use environment variables**: Abstract platform differences
+3. **Test on all platforms**: CI should cover all supported platforms
+4. **Document limitations**: Note which platforms are supported
+
+## Next Steps
+
+- [Interpreters](./interpreters) - Use non-shell interpreters
+- [Working Directory](./workdir) - Control execution location

@@ -1,0 +1,104 @@
+---
+sidebar_position: 3
+---
+
+import Snippet from '@site/src/components/Snippet';
+
+# Validating Packs
+
+Validate your packs to ensure they're correctly structured and ready for distribution.
+
+## Basic Validation
+
+<Snippet id="packs/validate-basic" />
+
+Output for a valid pack:
+
+<Snippet id="packs/validate-basic-output" />
+
+## Deep Validation
+
+Add `--deep` to also parse and validate the invkfile:
+
+<Snippet id="packs/validate-deep" />
+
+Output:
+
+<Snippet id="packs/validate-deep-output" />
+
+## What Gets Validated
+
+### Structure Checks
+
+- Pack directory exists
+- `invkfile.cue` is present at root
+- No nested packs (packs can't contain other packs)
+
+### Naming Checks
+
+- Folder name ends with `.invkpack`
+- Name prefix follows rules (starts with letter, alphanumeric + dots)
+- No invalid characters (hyphens, underscores)
+
+### Deep Checks (with `--deep`)
+
+- Invkfile parses without errors
+- CUE syntax is valid
+- Schema constraints are met
+- Script paths are valid (relative, within pack)
+
+## Validation Errors
+
+### Missing Invkfile
+
+<Snippet id="packs/error-missing-invkfile" />
+
+### Invalid Name
+
+<Snippet id="packs/error-invalid-name" />
+
+### Nested Pack
+
+<Snippet id="packs/error-nested" />
+
+### Invalid Invkfile (deep)
+
+<Snippet id="packs/error-parse" />
+
+## Batch Validation
+
+Validate multiple packs:
+
+<Snippet id="packs/validate-batch" />
+
+## CI Integration
+
+Add pack validation to your CI pipeline:
+
+<Snippet id="packs/validate-ci" />
+
+## Common Issues
+
+### Wrong Path Separators
+
+<Snippet id="packs/path-separators-good-bad" />
+
+### Escaping Pack Directory
+
+<Snippet id="packs/escape-pack-dir" />
+
+### Absolute Paths
+
+<Snippet id="packs/absolute-paths" />
+
+## Best Practices
+
+1. **Validate before committing**: Catch issues early
+2. **Use `--deep`**: Catches invkfile errors
+3. **Validate in CI**: Prevent broken packs from shipping
+4. **Fix issues immediately**: Don't let validation debt accumulate
+
+## Next Steps
+
+- [Creating Packs](./creating-packs) - Structure your pack
+- [Distributing](./distributing) - Share your pack

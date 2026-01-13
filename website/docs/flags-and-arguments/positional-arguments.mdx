@@ -1,0 +1,174 @@
+---
+sidebar_position: 3
+---
+
+import Snippet from '@site/src/components/Snippet';
+
+# Positional Arguments
+
+Positional arguments are values passed by position after the command name. They're ideal for required inputs where order is natural (like `source` and `destination`).
+
+## Defining Arguments
+
+<Snippet id="flags-args/args-defining" />
+
+Usage:
+
+<Snippet id="flags-args/args-defining-usage" />
+
+## Argument Properties
+
+| Property | Required | Description |
+|----------|----------|-------------|
+| `name` | Yes | Argument name (alphanumeric, hyphens, underscores) |
+| `description` | Yes | Help text |
+| `type` | No | `string`, `int`, `float` (default: `string`) |
+| `default_value` | No | Default if not provided |
+| `required` | No | Must be provided (can't have default) |
+| `validation` | No | Regex pattern for value |
+| `variadic` | No | Accept multiple values (last arg only) |
+
+## Types
+
+### String (Default)
+
+<Snippet id="flags-args/args-type-string" />
+
+### Integer
+
+<Snippet id="flags-args/args-type-int" />
+
+<Snippet id="flags-args/args-type-int-usage" />
+
+### Float
+
+<Snippet id="flags-args/args-type-float" />
+
+<Snippet id="flags-args/args-type-float-usage" />
+
+Note: Boolean type is **not supported** for arguments. Use flags for boolean options.
+
+## Required vs Optional
+
+### Required Arguments
+
+<Snippet id="flags-args/args-required" />
+
+<Snippet id="flags-args/args-required-usage" />
+
+### Optional Arguments
+
+<Snippet id="flags-args/args-optional" />
+
+<Snippet id="flags-args/args-optional-usage" />
+
+### Ordering Rule
+
+Required arguments must come before optional arguments:
+
+<Snippet id="flags-args/args-ordering" />
+
+## Variadic Arguments
+
+The last argument can accept multiple values:
+
+<Snippet id="flags-args/args-variadic" />
+
+<Snippet id="flags-args/args-variadic-usage" />
+
+### Variadic Environment Variables
+
+| Variable | Description |
+|----------|-------------|
+| `INVOWK_ARG_INPUTS` | Space-joined values |
+| `INVOWK_ARG_INPUTS_COUNT` | Number of values |
+| `INVOWK_ARG_INPUTS_1` | First value |
+| `INVOWK_ARG_INPUTS_2` | Second value |
+| ... | And so on |
+
+## Validation Patterns
+
+Validate argument values with regex:
+
+<Snippet id="flags-args/args-validation" />
+
+<Snippet id="flags-args/args-validation-usage" />
+
+## Accessing in Scripts
+
+### Environment Variables
+
+<Snippet id="flags-args/args-accessing" />
+
+### Naming Convention
+
+| Argument Name | Environment Variable |
+|---------------|---------------------|
+| `name` | `INVOWK_ARG_NAME` |
+| `file-path` | `INVOWK_ARG_FILE_PATH` |
+| `outputDir` | `INVOWK_ARG_OUTPUTDIR` |
+
+### Shell Positional Parameters
+
+Arguments are also available as `$1`, `$2`, etc.:
+
+<Snippet id="flags-args/args-positional-params" />
+
+### Shell Compatibility
+
+| Shell | Positional Access |
+|-------|-------------------|
+| bash, sh, zsh | `$1`, `$2`, `$@`, `$#` |
+| PowerShell | `$args[0]`, `$args[1]` |
+| virtual runtime | `$1`, `$2`, `$@`, `$#` |
+| container | `$1`, `$2`, `$@`, `$#` |
+
+## Real-World Examples
+
+### File Processing
+
+<Snippet id="flags-args/args-convert-example" />
+
+### Multi-File Operation
+
+<Snippet id="flags-args/args-compress-example" />
+
+### Deployment
+
+<Snippet id="flags-args/args-deploy-example" />
+
+## Mixing with Flags
+
+Flags can appear anywhere; arguments are positional:
+
+<Snippet id="flags-args/args-mixing-flags" />
+
+Arguments are extracted in order, regardless of flag positions.
+
+## Arguments vs Subcommands
+
+A command cannot have both arguments and subcommands. If a command has subcommands, arguments are ignored:
+
+```
+Warning: command has both args and subcommands!
+
+Command 'deploy' defines positional arguments but also has subcommands.
+Subcommands take precedence; positional arguments will be ignored.
+```
+
+Choose one approach:
+- Use arguments for simple commands
+- Use subcommands for complex command hierarchies
+
+## Best Practices
+
+1. **Required args first**: Follow ordering rules
+2. **Use meaningful names**: `source` and `dest` not `arg1` and `arg2`
+3. **Validate when possible**: Catch errors early
+4. **Document with descriptions**: Help users understand
+5. **Prefer flags for optional values**: Easier to understand
+
+## Next Steps
+
+- [Flags](./flags) - For named optional values
+- [Environment](../environment/overview) - Configure command environment

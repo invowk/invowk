@@ -1,0 +1,145 @@
+---
+sidebar_position: 2
+---
+
+import Snippet from '@site/src/components/Snippet';
+
+# Configuration Options
+
+This page documents all available configuration options for Invowk.
+
+## Configuration Schema
+
+The configuration file uses CUE format and follows this schema:
+
+<Snippet id="config/schema" />
+
+## Options Reference
+
+### container_engine
+
+**Type:** `"podman" | "docker"`  
+**Default:** Auto-detected (prefers Podman if available)
+
+Specifies which container runtime to use for container-based command execution.
+
+<Snippet id="config/container-engine" />
+
+Invowk will auto-detect available container engines if not specified:
+1. First checks for Podman
+2. Falls back to Docker if Podman isn't available
+3. Returns an error if neither is found (only when container runtime is needed)
+
+### search_paths
+
+**Type:** `[...string]`  
+**Default:** `["~/.invowk/cmds"]`
+
+Additional directories to search for invkfiles. Paths are searched in order after the current directory.
+
+<Snippet id="config/search-paths" />
+
+**Search Order:**
+1. Current directory (always searched first, highest priority)
+2. Each path in `search_paths` in order
+3. `~/.invowk/cmds` (default, always included)
+
+Commands from earlier paths override commands with the same name from later paths.
+
+### default_runtime
+
+**Type:** `"native" | "virtual" | "container"`  
+**Default:** `"native"`
+
+Sets the global default runtime mode for commands that don't specify a runtime.
+
+<Snippet id="config/default-runtime" />
+
+**Runtime Options:**
+- `"native"` - Execute using the system's native shell (bash, zsh, PowerShell, etc.)
+- `"virtual"` - Execute using Invowk's built-in shell interpreter (mvdan/sh)
+- `"container"` - Execute inside a container (requires Docker or Podman)
+
+:::note
+Commands can override this default by specifying their own runtime in the `implementations` field.
+:::
+
+### virtual_shell
+
+**Type:** `#VirtualShellConfig`  
+**Default:** `{}`
+
+Configures the virtual shell runtime behavior.
+
+<Snippet id="config/virtual-shell" />
+
+#### virtual_shell.enable_uroot_utils
+
+**Type:** `bool`  
+**Default:** `false`
+
+Enables u-root utilities in the virtual shell. When enabled, additional commands like `ls`, `cat`, `grep`, and others become available in the virtual shell environment.
+
+<Snippet id="config/virtual-shell" />
+
+This is useful when you want the virtual shell to have more capabilities beyond basic shell builtins, while still avoiding native shell execution.
+
+### ui
+
+**Type:** `#UIConfig`  
+**Default:** `{}`
+
+Configures the user interface settings.
+
+<Snippet id="config/ui" />
+
+#### ui.color_scheme
+
+**Type:** `"auto" | "dark" | "light"`  
+**Default:** `"auto"`
+
+Sets the color scheme for Invowk's output.
+
+<Snippet id="config/ui-color-scheme" />
+
+**Options:**
+- `"auto"` - Detect from terminal settings (respects `COLORTERM`, `TERM`, etc.)
+- `"dark"` - Use colors optimized for dark terminals
+- `"light"` - Use colors optimized for light terminals
+
+#### ui.verbose
+
+**Type:** `bool`  
+**Default:** `false`
+
+Enables verbose output by default. When enabled, Invowk prints additional information about command discovery, dependency validation, and execution.
+
+<Snippet id="config/ui-verbose" />
+
+This is equivalent to always passing `--verbose` on the command line.
+
+## Complete Example
+
+Here's a complete configuration file with all options:
+
+<Snippet id="config/complete-example" />
+
+## Environment Variable Overrides
+
+Some configuration options can be overridden with environment variables:
+
+| Environment Variable | Overrides |
+|---------------------|-----------|
+| `INVOWK_CONFIG` | Config file path |
+| `INVOWK_VERBOSE` | `ui.verbose` (set to `1` or `true`) |
+| `INVOWK_CONTAINER_ENGINE` | `container_engine` |
+
+<Snippet id="config/env-override-examples" />
+
+## Command-Line Overrides
+
+All configuration options can be overridden via command-line flags:
+
+<Snippet id="config/cli-override-examples" />
+
+See [CLI Reference](/docs/reference/cli) for all available flags.
