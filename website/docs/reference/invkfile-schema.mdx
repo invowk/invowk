@@ -206,6 +206,30 @@ Specifies how to execute the script.
 Virtual runtime uses mvdan/sh which cannot execute non-shell interpreters.
 :::
 
+### env_inherit_mode
+
+**Type:** `"none" | "allow" | "all"`  
+**Available for:** `native`, `virtual`, `container`  
+**Default:** `all` for native/virtual, `none` for container
+
+Controls whether the host environment is inherited by the runtime.
+
+### env_inherit_allow
+
+**Type:** `[...string]`  
+**Available for:** `native`, `virtual`, `container`
+
+Allowlist of host env vars when `env_inherit_mode` is `"allow"`.
+
+### env_inherit_deny
+
+**Type:** `[...string]`  
+**Available for:** `native`, `virtual`, `container`
+
+Denylist of host env vars (applies to any mode).
+
+<Snippet id="reference/invkfile/env-inherit-example" />
+
 ### enable_host_ssh
 
 **Type:** `bool`  

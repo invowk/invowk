@@ -5,6 +5,7 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 
@@ -94,6 +95,10 @@ func Execute() {
 		fang.WithVersion(getVersionString()),
 		fang.WithNotifySignal(os.Interrupt),
 	); err != nil {
+		var exitErr *ExitError
+		if errors.As(err, &exitErr) {
+			os.Exit(exitErr.Code)
+		}
 		os.Exit(1)
 	}
 }

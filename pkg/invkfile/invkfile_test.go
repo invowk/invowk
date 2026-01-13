@@ -4723,6 +4723,85 @@ func TestValidateRuntimeConfig_RejectsEmptyInterpreter(t *testing.T) {
 	}
 }
 
+func TestValidateRuntimeConfig_EnvInheritMode(t *testing.T) {
+	tests := []struct {
+		name    string
+		mode    EnvInheritMode
+		wantErr bool
+	}{
+		{"empty is allowed", "", false},
+		{"none", EnvInheritNone, false},
+		{"allow", EnvInheritAllow, false},
+		{"all", EnvInheritAll, false},
+		{"invalid", EnvInheritMode("nope"), true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rt := &RuntimeConfig{
+				Name:           RuntimeNative,
+				EnvInheritMode: tt.mode,
+			}
+
+			err := validateRuntimeConfig(rt, "test-cmd", 1)
+
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("validateRuntimeConfig() should return error for env_inherit_mode %q", tt.mode)
+				}
+			} else if err != nil {
+				t.Errorf("validateRuntimeConfig() unexpected error for env_inherit_mode %q: %v", tt.mode, err)
+			}
+		})
+	}
+}
+
+func TestValidateRuntimeConfig_EnvInheritNames(t *testing.T) {
+	tests := []struct {
+		name    string
+		rt      *RuntimeConfig
+		wantErr bool
+	}{
+		{
+			name: "valid allow and deny lists",
+			rt: &RuntimeConfig{
+				Name:            RuntimeNative,
+				EnvInheritAllow: []string{"TERM", "LANG", "MY_VAR1"},
+				EnvInheritDeny:  []string{"AWS_SECRET_ACCESS_KEY"},
+			},
+			wantErr: false,
+		},
+		{
+			name: "invalid allow name",
+			rt: &RuntimeConfig{
+				Name:            RuntimeNative,
+				EnvInheritAllow: []string{"TERM", "BAD-VAR"},
+			},
+			wantErr: true,
+		},
+		{
+			name: "invalid deny name",
+			rt: &RuntimeConfig{
+				Name:           RuntimeNative,
+				EnvInheritDeny: []string{"OK", "NO=PE"},
+			},
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateRuntimeConfig(tt.rt, "test-cmd", 1)
+			if tt.wantErr && err == nil {
+				t.Errorf("validateRuntimeConfig() should return error")
+			}
+			if !tt.wantErr && err != nil {
+				t.Errorf("validateRuntimeConfig() unexpected error: %v", err)
+			}
+		})
+	}
+}
+
 // TestParseInterpreter_ValidValues verifies that valid interpreter values work correctly.
 func TestParseInterpreter_ValidValues(t *testing.T) {
 	tests := []struct {

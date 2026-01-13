@@ -23,7 +23,7 @@ From highest to lowest priority:
 | 7 | Implementation files | `implementations[].env.files` |
 | 8 | Command files | `command.env.files` |
 | 9 | Root files | `root.env.files` |
-| 10 | System environment | Host's environment |
+| 10 | System environment | Host's environment (if `env_inherit_mode` allows) |
 
 ## Visual Hierarchy
 
@@ -41,7 +41,7 @@ And these files:
 
 ### Resolution Order
 
-1. **Start with system environment** (e.g., `PATH`, `HOME`)
+1. **Start with system environment** (e.g., `PATH`, `HOME`) if `env_inherit_mode` is not `none`
 
 2. **Load root files** (`.env`):
    - `API_URL=http://envfile.example.com`

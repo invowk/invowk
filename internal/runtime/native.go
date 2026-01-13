@@ -99,11 +99,11 @@ func (r *NativeRuntime) executeWithShell(ctx *ExecutionContext, script string) *
 	}
 
 	// Build environment
-	env, err := r.buildEnv(ctx)
+	env, err := buildRuntimeEnv(ctx, invkfile.EnvInheritAll)
 	if err != nil {
 		return &Result{ExitCode: 1, Error: fmt.Errorf("failed to build environment: %w", err)}
 	}
-	cmd.Env = append(FilterInvowkEnvVars(os.Environ()), EnvToSlice(env)...)
+	cmd.Env = EnvToSlice(env)
 
 	// Set I/O
 	cmd.Stdout = ctx.Stdout
@@ -161,11 +161,11 @@ func (r *NativeRuntime) executeWithInterpreter(ctx *ExecutionContext, script str
 	}
 
 	// Build environment
-	env, err := r.buildEnv(ctx)
+	env, err := buildRuntimeEnv(ctx, invkfile.EnvInheritAll)
 	if err != nil {
 		return &Result{ExitCode: 1, Error: fmt.Errorf("failed to build environment: %w", err)}
 	}
-	cmd.Env = append(FilterInvowkEnvVars(os.Environ()), EnvToSlice(env)...)
+	cmd.Env = EnvToSlice(env)
 
 	// Set I/O
 	cmd.Stdout = ctx.Stdout
@@ -258,11 +258,11 @@ func (r *NativeRuntime) executeCaptureWithShell(ctx *ExecutionContext, script st
 		cmd.Dir = workDir
 	}
 
-	env, err := r.buildEnv(ctx)
+	env, err := buildRuntimeEnv(ctx, invkfile.EnvInheritAll)
 	if err != nil {
 		return &Result{ExitCode: 1, Error: fmt.Errorf("failed to build environment: %w", err)}
 	}
-	cmd.Env = append(FilterInvowkEnvVars(os.Environ()), EnvToSlice(env)...)
+	cmd.Env = EnvToSlice(env)
 
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
@@ -321,11 +321,11 @@ func (r *NativeRuntime) executeCaptureWithInterpreter(ctx *ExecutionContext, scr
 		cmd.Dir = workDir
 	}
 
-	env, err := r.buildEnv(ctx)
+	env, err := buildRuntimeEnv(ctx, invkfile.EnvInheritAll)
 	if err != nil {
 		return &Result{ExitCode: 1, Error: fmt.Errorf("failed to build environment: %w", err)}
 	}
-	cmd.Env = append(FilterInvowkEnvVars(os.Environ()), EnvToSlice(env)...)
+	cmd.Env = EnvToSlice(env)
 
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
@@ -406,78 +406,6 @@ func (r *NativeRuntime) getShellArgs(shell string) []string {
 // Precedence (highest to lowest): CLI override > Implementation > Command > Root > Default
 func (r *NativeRuntime) getWorkDir(ctx *ExecutionContext) string {
 	return ctx.Invkfile.GetEffectiveWorkDir(ctx.Command, ctx.SelectedImpl, ctx.WorkDir)
-}
-
-// buildEnv builds the environment for the command with proper precedence:
-// 1. Root-level env.files (loaded in array order)
-// 2. Command-level env.files (loaded in array order)
-// 3. Implementation-level env.files (loaded in array order)
-// 4. Root-level env.vars (inline static variables)
-// 5. Command-level env.vars (inline static variables)
-// 6. Implementation-level env.vars (inline static variables)
-// 7. ExtraEnv: INVOWK_FLAG_*, INVOWK_ARG_*, ARGn, ARGC
-// 8. --env-file flag files (loaded in flag order)
-// 9. --env-var flag values (KEY=VALUE pairs) - HIGHEST priority
-func (r *NativeRuntime) buildEnv(ctx *ExecutionContext) (map[string]string, error) {
-	env := make(map[string]string)
-
-	// Determine the base path for resolving env files
-	basePath := ctx.Invkfile.GetScriptBasePath()
-
-	// 1. Root-level env.files
-	for _, path := range ctx.Invkfile.Env.GetFiles() {
-		if err := LoadEnvFile(env, path, basePath); err != nil {
-			return nil, err
-		}
-	}
-
-	// 2. Command-level env.files
-	for _, path := range ctx.Command.Env.GetFiles() {
-		if err := LoadEnvFile(env, path, basePath); err != nil {
-			return nil, err
-		}
-	}
-
-	// 3. Implementation-level env.files
-	for _, path := range ctx.SelectedImpl.Env.GetFiles() {
-		if err := LoadEnvFile(env, path, basePath); err != nil {
-			return nil, err
-		}
-	}
-
-	// 4. Root-level env.vars
-	for k, v := range ctx.Invkfile.Env.GetVars() {
-		env[k] = v
-	}
-
-	// 5. Command-level env.vars
-	for k, v := range ctx.Command.Env.GetVars() {
-		env[k] = v
-	}
-
-	// 6. Implementation-level env.vars
-	for k, v := range ctx.SelectedImpl.Env.GetVars() {
-		env[k] = v
-	}
-
-	// 7. Extra env from context (flags, args)
-	for k, v := range ctx.ExtraEnv {
-		env[k] = v
-	}
-
-	// 8. Runtime --env-file flag files
-	for _, path := range ctx.RuntimeEnvFiles {
-		if err := LoadEnvFileFromCwd(env, path); err != nil {
-			return nil, err
-		}
-	}
-
-	// 9. Runtime --env-var flag values (highest priority)
-	for k, v := range ctx.RuntimeEnvVars {
-		env[k] = v
-	}
-
-	return env, nil
 }
 
 // appendPositionalArgs appends positional arguments after the script for shell access.
@@ -577,11 +505,11 @@ func (r *NativeRuntime) prepareShellCommand(ctx *ExecutionContext, script string
 	}
 
 	// Build environment
-	env, err := r.buildEnv(ctx)
+	env, err := buildRuntimeEnv(ctx, invkfile.EnvInheritAll)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build environment: %w", err)
 	}
-	cmd.Env = append(FilterInvowkEnvVars(os.Environ()), EnvToSlice(env)...)
+	cmd.Env = EnvToSlice(env)
 
 	return &PreparedCommand{Cmd: cmd, Cleanup: nil}, nil
 }
@@ -627,14 +555,14 @@ func (r *NativeRuntime) prepareInterpreterCommand(ctx *ExecutionContext, script 
 	}
 
 	// Build environment
-	env, err := r.buildEnv(ctx)
+	env, err := buildRuntimeEnv(ctx, invkfile.EnvInheritAll)
 	if err != nil {
 		if cleanup != nil {
 			cleanup()
 		}
 		return nil, fmt.Errorf("failed to build environment: %w", err)
 	}
-	cmd.Env = append(FilterInvowkEnvVars(os.Environ()), EnvToSlice(env)...)
+	cmd.Env = EnvToSlice(env)
 
 	return &PreparedCommand{Cmd: cmd, Cleanup: cleanup}, nil
 }

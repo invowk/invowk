@@ -1662,6 +1662,28 @@ cmds: [
 ]
 ```
 
+Control host environment inheritance per runtime:
+
+```cue
+cmds: [
+	{
+		name: "build"
+		implementations: [
+			{
+				script: "make build"
+				runtimes: [{
+					name:              "container",
+					image:             "alpine:latest",
+					env_inherit_mode:  "allow",
+					env_inherit_allow: ["TERM", "LANG"],
+					env_inherit_deny:  ["AWS_SECRET_ACCESS_KEY"],
+				}]
+			}
+		]
+	},
+]
+```
+
 ### Host SSH Access from Containers
 
 Container commands can optionally SSH back into the host system. When `enable_host_ssh: true` is set inside the container runtime configuration, invowk starts a secure SSH server using the [Wish](https://github.com/charmbracelet/wish) library and provides connection credentials to the container via environment variables.
@@ -2117,4 +2139,3 @@ SPDX-License-Identifier: EPL-2.0
 ## Trademark
 
 invowk™ is a trademark of Danilo Cominotti Marques. See [TRADEMARK.md](TRADEMARK.md) for usage guidelines.
-

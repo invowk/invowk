@@ -25,7 +25,7 @@ Variables come from multiple sources, in order of precedence (highest first):
 7. **Implementation files** - Implementation-level `env.files`
 8. **Command files** - Command-level `env.files`
 9. **Root files** - Root-level `env.files`
-10. **System environment** - Host's environment variables
+10. **System environment** - Host's environment variables (subject to `env_inherit_mode`)
 
 Earlier sources override later ones.
 
@@ -78,6 +78,14 @@ See [Env Vars](./env-vars) for details.
 Override at runtime:
 
 <Snippet id="environment/cli-overrides" />
+
+## Host Environment Inheritance
+
+By default, native and virtual runtimes inherit the host environment, while container runtime starts with no host variables. You can control this per runtime or per invocation.
+
+<Snippet id="reference/invkfile/env-inherit-example" />
+
+<Snippet id="environment/env-inherit-cli" />
 
 ## Built-in Variables
 

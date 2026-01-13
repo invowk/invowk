@@ -163,7 +163,7 @@ func (r *ContainerRuntime) Execute(ctx *ExecutionContext) *Result {
 	}
 
 	// Build environment
-	env, err := r.buildEnv(ctx)
+	env, err := buildRuntimeEnv(ctx, invkfile.EnvInheritNone)
 	if err != nil {
 		return &Result{ExitCode: 1, Error: fmt.Errorf("failed to build environment: %w", err)}
 	}
@@ -182,7 +182,11 @@ func (r *ContainerRuntime) Execute(ctx *ExecutionContext) *Result {
 		}
 
 		// Generate connection info with a unique token for this command execution
-		commandID := fmt.Sprintf("%s-%d", ctx.Command.Name, ctx.Context.Value("execution_id"))
+		executionID := ctx.ExecutionID
+		if executionID == "" {
+			executionID = newExecutionID()
+		}
+		commandID := fmt.Sprintf("%s-%s", ctx.Command.Name, executionID)
 		sshConnInfo, err = r.sshServer.GetConnectionInfo(commandID)
 		if err != nil {
 			return &Result{ExitCode: 1, Error: fmt.Errorf("failed to generate SSH credentials: %w", err)}
@@ -316,7 +320,7 @@ func (r *ContainerRuntime) PrepareCommand(ctx *ExecutionContext) (*PreparedComma
 	}
 
 	// Build environment
-	env, err := r.buildEnv(ctx)
+	env, err := buildRuntimeEnv(ctx, invkfile.EnvInheritNone)
 	if err != nil {
 		if provisionCleanup != nil {
 			provisionCleanup()
@@ -339,7 +343,11 @@ func (r *ContainerRuntime) PrepareCommand(ctx *ExecutionContext) (*PreparedComma
 		}
 
 		// Generate connection info with a unique token for this command execution
-		commandID := fmt.Sprintf("%s-%d", ctx.Command.Name, ctx.Context.Value("execution_id"))
+		executionID := ctx.ExecutionID
+		if executionID == "" {
+			executionID = newExecutionID()
+		}
+		commandID := fmt.Sprintf("%s-%s", ctx.Command.Name, executionID)
 		sshConnInfo, err = r.sshServer.GetConnectionInfo(commandID)
 		if err != nil {
 			return nil, fmt.Errorf("failed to generate SSH credentials: %w", err)
@@ -579,10 +587,16 @@ func (r *ContainerRuntime) ensureImage(ctx *ExecutionContext, cfg invkfileContai
 	}
 
 	// Generate a unique image tag based on invkfile path
-	imageTag := r.generateImageTag(ctx.Invkfile.FilePath)
+	imageTag, err := r.generateImageTag(ctx.Invkfile.FilePath)
+	if err != nil {
+		return "", err
+	}
 
 	// Check if image already exists
-	exists, _ := r.engine.ImageExists(ctx.Context, imageTag)
+	exists, err := r.engine.ImageExists(ctx.Context, imageTag)
+	if err != nil {
+		return "", fmt.Errorf("failed to check image existence: %w", err)
+	}
 	if exists {
 		// TODO: Add an option to force rebuild
 		return imageTag, nil
@@ -609,11 +623,14 @@ func (r *ContainerRuntime) ensureImage(ctx *ExecutionContext, cfg invkfileContai
 }
 
 // generateImageTag generates a unique image tag for an invkfile
-func (r *ContainerRuntime) generateImageTag(invkfilePath string) string {
-	absPath, _ := filepath.Abs(invkfilePath)
+func (r *ContainerRuntime) generateImageTag(invkfilePath string) (string, error) {
+	absPath, err := filepath.Abs(invkfilePath)
+	if err != nil {
+		return "", fmt.Errorf("failed to resolve invkfile path: %w", err)
+	}
 	hash := sha256.Sum256([]byte(absPath))
 	shortHash := hex.EncodeToString(hash[:])[:12]
-	return fmt.Sprintf("invowk-%s:latest", shortHash)
+	return fmt.Sprintf("invowk-%s:latest", shortHash), nil
 }
 
 // getContainerWorkDir determines the working directory for container execution.
@@ -645,78 +662,6 @@ func (r *ContainerRuntime) getContainerWorkDir(ctx *ExecutionContext, invowkDir 
 	return "/workspace/" + filepath.ToSlash(effectiveWorkDir)
 }
 
-// buildEnv builds the environment for the command with proper precedence:
-// 1. Root-level env.files (loaded in array order)
-// 2. Command-level env.files (loaded in array order)
-// 3. Implementation-level env.files (loaded in array order)
-// 4. Root-level env.vars (inline static variables)
-// 5. Command-level env.vars (inline static variables)
-// 6. Implementation-level env.vars (inline static variables)
-// 7. ExtraEnv: INVOWK_FLAG_*, INVOWK_ARG_*, ARGn, ARGC
-// 8. --env-file flag files (loaded in flag order)
-// 9. --env-var flag values (KEY=VALUE pairs) - HIGHEST priority
-func (r *ContainerRuntime) buildEnv(ctx *ExecutionContext) (map[string]string, error) {
-	env := make(map[string]string)
-
-	// Determine the base path for resolving env files
-	basePath := ctx.Invkfile.GetScriptBasePath()
-
-	// 1. Root-level env.files
-	for _, path := range ctx.Invkfile.Env.GetFiles() {
-		if err := LoadEnvFile(env, path, basePath); err != nil {
-			return nil, err
-		}
-	}
-
-	// 2. Command-level env.files
-	for _, path := range ctx.Command.Env.GetFiles() {
-		if err := LoadEnvFile(env, path, basePath); err != nil {
-			return nil, err
-		}
-	}
-
-	// 3. Implementation-level env.files
-	for _, path := range ctx.SelectedImpl.Env.GetFiles() {
-		if err := LoadEnvFile(env, path, basePath); err != nil {
-			return nil, err
-		}
-	}
-
-	// 4. Root-level env.vars
-	for k, v := range ctx.Invkfile.Env.GetVars() {
-		env[k] = v
-	}
-
-	// 5. Command-level env.vars
-	for k, v := range ctx.Command.Env.GetVars() {
-		env[k] = v
-	}
-
-	// 6. Implementation-level env.vars
-	for k, v := range ctx.SelectedImpl.Env.GetVars() {
-		env[k] = v
-	}
-
-	// 7. Extra env from context (flags, args)
-	for k, v := range ctx.ExtraEnv {
-		env[k] = v
-	}
-
-	// 8. Runtime --env-file flag files
-	for _, path := range ctx.RuntimeEnvFiles {
-		if err := LoadEnvFileFromCwd(env, path); err != nil {
-			return nil, err
-		}
-	}
-
-	// 9. Runtime --env-var flag values (highest priority)
-	for k, v := range ctx.RuntimeEnvVars {
-		env[k] = v
-	}
-
-	return env, nil
-}
-
 // invkfileContainerConfig is a local type for container config extracted from RuntimeConfig
 type invkfileContainerConfig struct {
 	Containerfile string
@@ -740,7 +685,10 @@ func containerConfigFromRuntime(rt *invkfile.RuntimeConfig) invkfileContainerCon
 
 // CleanupImage removes the built image for an invkfile
 func (r *ContainerRuntime) CleanupImage(ctx *ExecutionContext) error {
-	imageTag := r.generateImageTag(ctx.Invkfile.FilePath)
+	imageTag, err := r.generateImageTag(ctx.Invkfile.FilePath)
+	if err != nil {
+		return err
+	}
 	return r.engine.RemoveImage(ctx.Context, imageTag, true)
 }
 
@@ -750,61 +698,4 @@ func (r *ContainerRuntime) GetEngineName() string {
 		return "none"
 	}
 	return r.engine.Name()
-}
-
-// ShellInContainer opens an interactive shell in the container
-func (r *ContainerRuntime) ShellInContainer(ctx *ExecutionContext, shell string) *Result {
-	if shell == "" {
-		shell = "/bin/sh"
-	}
-
-	// Get the container runtime config
-	rtConfig := ctx.SelectedImpl.GetRuntimeConfig(ctx.SelectedRuntime)
-	if rtConfig == nil {
-		return &Result{ExitCode: 1, Error: fmt.Errorf("runtime config not found for container runtime")}
-	}
-	containerCfg := containerConfigFromRuntime(rtConfig)
-	invowkDir := filepath.Dir(ctx.Invkfile.FilePath)
-
-	image, err := r.ensureImage(ctx, containerCfg, invowkDir)
-	if err != nil {
-		return &Result{ExitCode: 1, Error: err}
-	}
-
-	volumes := containerCfg.Volumes
-	volumes = append(volumes, fmt.Sprintf("%s:/workspace", invowkDir))
-
-	env, err := r.buildEnv(ctx)
-	if err != nil {
-		return &Result{ExitCode: 1, Error: fmt.Errorf("failed to build environment: %w", err)}
-	}
-
-	runOpts := container.RunOptions{
-		Image:       image,
-		Command:     []string{shell},
-		WorkDir:     "/workspace",
-		Env:         env,
-		Volumes:     volumes,
-		Remove:      true,
-		Stdin:       ctx.Stdin,
-		Stdout:      ctx.Stdout,
-		Stderr:      ctx.Stderr,
-		Interactive: true,
-		TTY:         true,
-	}
-
-	result, err := r.engine.Run(ctx.Context, runOpts)
-	if err != nil {
-		return &Result{ExitCode: 1, Error: err}
-	}
-
-	return &Result{ExitCode: result.ExitCode, Error: result.Error}
-}
-
-// imageName sanitizes a path for use as part of an image name
-func imageName(path string) string {
-	path = strings.ToLower(path)
-	path = strings.ReplaceAll(path, string(filepath.Separator), "-")
-	path = strings.ReplaceAll(path, " ", "-")
-	return path
 }

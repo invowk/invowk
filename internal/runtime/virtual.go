@@ -11,6 +11,8 @@ import (
 	"os/exec"
 	"strings"
 
+	"invowk-cli/pkg/invkfile"
+
 	"mvdan.cc/sh/v3/expand"
 	"mvdan.cc/sh/v3/interp"
 	"mvdan.cc/sh/v3/syntax"
@@ -100,7 +102,7 @@ func (r *VirtualRuntime) Execute(ctx *ExecutionContext) *Result {
 	workDir := r.getWorkDir(ctx)
 
 	// Build environment
-	env, err := r.buildEnv(ctx)
+	env, err := buildRuntimeEnv(ctx, invkfile.EnvInheritAll)
 	if err != nil {
 		return &Result{ExitCode: 1, Error: fmt.Errorf("failed to build environment: %w", err)}
 	}
@@ -155,7 +157,7 @@ func (r *VirtualRuntime) ExecuteCapture(ctx *ExecutionContext) *Result {
 	}
 
 	workDir := r.getWorkDir(ctx)
-	env, err := r.buildEnv(ctx)
+	env, err := buildRuntimeEnv(ctx, invkfile.EnvInheritAll)
 	if err != nil {
 		return &Result{ExitCode: 1, Error: fmt.Errorf("failed to build environment: %w", err)}
 	}
@@ -309,7 +311,7 @@ func (r *VirtualRuntime) PrepareCommand(ctx *ExecutionContext) (*PreparedCommand
 	workDir := r.getWorkDir(ctx)
 
 	// Build environment
-	env, err := r.buildEnv(ctx)
+	env, err := buildRuntimeEnv(ctx, invkfile.EnvInheritAll)
 	if err != nil {
 		os.Remove(tmpFile.Name())
 		return nil, fmt.Errorf("failed to build environment: %w", err)
@@ -347,85 +349,4 @@ func (r *VirtualRuntime) PrepareCommand(ctx *ExecutionContext) (*PreparedCommand
 	}
 
 	return &PreparedCommand{Cmd: cmd, Cleanup: cleanup}, nil
-}
-
-// buildEnv builds the environment for the command with proper precedence:
-// 1. Current environment (filtered for Invowk-specific variables)
-// 2. Root-level env.files (loaded in array order)
-// 3. Command-level env.files (loaded in array order)
-// 4. Implementation-level env.files (loaded in array order)
-// 5. Root-level env.vars (inline static variables)
-// 6. Command-level env.vars (inline static variables)
-// 7. Implementation-level env.vars (inline static variables)
-// 8. ExtraEnv: INVOWK_FLAG_*, INVOWK_ARG_*, ARGn, ARGC
-// 9. --env-file flag files (loaded in flag order)
-// 10. --env-var flag values (KEY=VALUE pairs) - HIGHEST priority
-func (r *VirtualRuntime) buildEnv(ctx *ExecutionContext) (map[string]string, error) {
-	env := make(map[string]string)
-
-	// Start with current environment, filtering out Invowk-specific variables
-	// to prevent leakage between nested command invocations
-	for _, e := range FilterInvowkEnvVars(os.Environ()) {
-		if idx := strings.Index(e, "="); idx != -1 {
-			env[e[:idx]] = e[idx+1:]
-		}
-	}
-
-	// Determine the base path for resolving env files
-	basePath := ctx.Invkfile.GetScriptBasePath()
-
-	// 1. Root-level env.files
-	for _, path := range ctx.Invkfile.Env.GetFiles() {
-		if err := LoadEnvFile(env, path, basePath); err != nil {
-			return nil, err
-		}
-	}
-
-	// 2. Command-level env.files
-	for _, path := range ctx.Command.Env.GetFiles() {
-		if err := LoadEnvFile(env, path, basePath); err != nil {
-			return nil, err
-		}
-	}
-
-	// 3. Implementation-level env.files
-	for _, path := range ctx.SelectedImpl.Env.GetFiles() {
-		if err := LoadEnvFile(env, path, basePath); err != nil {
-			return nil, err
-		}
-	}
-
-	// 4. Root-level env.vars
-	for k, v := range ctx.Invkfile.Env.GetVars() {
-		env[k] = v
-	}
-
-	// 5. Command-level env.vars
-	for k, v := range ctx.Command.Env.GetVars() {
-		env[k] = v
-	}
-
-	// 6. Implementation-level env.vars
-	for k, v := range ctx.SelectedImpl.Env.GetVars() {
-		env[k] = v
-	}
-
-	// 7. Extra env from context (flags, args)
-	for k, v := range ctx.ExtraEnv {
-		env[k] = v
-	}
-
-	// 8. Runtime --env-file flag files
-	for _, path := range ctx.RuntimeEnvFiles {
-		if err := LoadEnvFileFromCwd(env, path); err != nil {
-			return nil, err
-		}
-	}
-
-	// 9. Runtime --env-var flag values (highest priority)
-	for k, v := range ctx.RuntimeEnvVars {
-		env[k] = v
-	}
-
-	return env, nil
 }

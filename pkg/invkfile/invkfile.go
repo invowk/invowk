@@ -20,6 +20,9 @@ import (
 // flagNameRegex validates POSIX-compliant flag names
 var flagNameRegex = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9_-]*$`)
 
+// envVarNameRegex validates environment variable names
+var envVarNameRegex = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
+
 //go:embed invkfile_schema.cue
 var invkfileSchema string
 
@@ -35,6 +38,51 @@ const (
 	RuntimeContainer RuntimeMode = "container"
 )
 
+// EnvInheritMode defines how host environment variables are inherited
+type EnvInheritMode string
+
+const (
+	// EnvInheritNone disables host environment inheritance
+	EnvInheritNone EnvInheritMode = "none"
+	// EnvInheritAllow inherits only allowlisted host environment variables
+	EnvInheritAllow EnvInheritMode = "allow"
+	// EnvInheritAll inherits all host environment variables (filtered for invowk vars)
+	EnvInheritAll EnvInheritMode = "all"
+)
+
+// IsValid returns true if the mode is a supported env inherit mode.
+func (m EnvInheritMode) IsValid() bool {
+	switch m {
+	case EnvInheritNone, EnvInheritAllow, EnvInheritAll:
+		return true
+	default:
+		return false
+	}
+}
+
+// ParseEnvInheritMode parses a string into an EnvInheritMode.
+func ParseEnvInheritMode(value string) (EnvInheritMode, error) {
+	if value == "" {
+		return "", nil
+	}
+	mode := EnvInheritMode(value)
+	if !mode.IsValid() {
+		return "", fmt.Errorf("invalid env_inherit_mode %q (expected: none, allow, all)", value)
+	}
+	return mode, nil
+}
+
+// ValidateEnvVarName validates a single environment variable name.
+func ValidateEnvVarName(name string) error {
+	if strings.TrimSpace(name) == "" {
+		return fmt.Errorf("environment variable name cannot be empty")
+	}
+	if !envVarNameRegex.MatchString(name) {
+		return fmt.Errorf("invalid environment variable name %q", name)
+	}
+	return nil
+}
+
 // RuntimeConfig represents a runtime configuration with type-specific options
 type RuntimeConfig struct {
 	// Name specifies the runtime type (required)
@@ -46,6 +94,13 @@ type RuntimeConfig struct {
 	// When declared, interpreter must be non-empty (cannot be "" or whitespace-only)
 	// Not allowed for virtual runtime (CUE schema enforces this, Go validates as fallback)
 	Interpreter string `json:"interpreter,omitempty"`
+	// EnvInheritMode controls host environment inheritance (optional)
+	// Allowed values: "none", "allow", "all"
+	EnvInheritMode EnvInheritMode `json:"env_inherit_mode,omitempty"`
+	// EnvInheritAllow lists host env vars to allow when EnvInheritMode is "allow"
+	EnvInheritAllow []string `json:"env_inherit_allow,omitempty"`
+	// EnvInheritDeny lists host env vars to block (applies to any mode)
+	EnvInheritDeny []string `json:"env_inherit_deny,omitempty"`
 	// EnableHostSSH enables SSH access from container back to host (container only)
 	// Only valid when Name is "container". Default: false
 	EnableHostSSH bool `json:"enable_host_ssh,omitempty"`
@@ -1136,6 +1191,21 @@ func validateRuntimeConfig(rt *RuntimeConfig, cmdName string, implIndex int) err
 	// This is a Go-level validation as fallback to the CUE schema constraint
 	if rt.Interpreter != "" && strings.TrimSpace(rt.Interpreter) == "" {
 		return fmt.Errorf("command '%s' implementation #%d: interpreter cannot be empty or whitespace-only when declared; omit the field to use auto-detection", cmdName, implIndex)
+	}
+
+	// Validate env inherit mode and env var names
+	if rt.EnvInheritMode != "" && !rt.EnvInheritMode.IsValid() {
+		return fmt.Errorf("command '%s' implementation #%d: env_inherit_mode must be one of: none, allow, all", cmdName, implIndex)
+	}
+	for _, name := range rt.EnvInheritAllow {
+		if err := ValidateEnvVarName(name); err != nil {
+			return fmt.Errorf("command '%s' implementation #%d: env_inherit_allow: %w", cmdName, implIndex, err)
+		}
+	}
+	for _, name := range rt.EnvInheritDeny {
+		if err := ValidateEnvVarName(name); err != nil {
+			return fmt.Errorf("command '%s' implementation #%d: env_inherit_deny: %w", cmdName, implIndex, err)
+		}
 	}
 
 	// Container-specific fields are only valid for container runtime

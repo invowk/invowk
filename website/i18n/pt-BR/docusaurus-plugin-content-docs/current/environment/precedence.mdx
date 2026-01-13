@@ -23,7 +23,7 @@ Da maior para a menor prioridade:
 | 7 | Arquivos de implementação | `implementations[].env.files` |
 | 8 | Arquivos de comando | `command.env.files` |
 | 9 | Arquivos raiz | `root.env.files` |
-| 10 | Ambiente do sistema | Ambiente do host |
+| 10 | Ambiente do sistema | Ambiente do host (se `env_inherit_mode` permitir) |
 
 ## Hierarquia Visual
 
@@ -41,7 +41,7 @@ E estes arquivos:
 
 ### Ordem de Resolução
 
-1. **Começar com ambiente do sistema** (ex.: `PATH`, `HOME`)
+1. **Começar com ambiente do sistema** (ex.: `PATH`, `HOME`) se `env_inherit_mode` não for `none`
 
 2. **Carregar arquivos raiz** (`.env`):
    - `API_URL=http://envfile.example.com`

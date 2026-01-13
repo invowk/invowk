@@ -48,6 +48,9 @@ Built-in per-command flags:
 |------|-------|-------------|
 | `--env-file` | `-e` | Load environment variables from file (repeatable) |
 | `--env-var` | `-E` | Set environment variable (KEY=VALUE, repeatable) |
+| `--env-inherit-mode` |  | Inherit host environment variables: `none`, `allow`, `all` |
+| `--env-inherit-allow` |  | Allowlist host env vars to inherit (repeatable) |
+| `--env-inherit-deny` |  | Denylist host env vars to inherit (repeatable) |
 | `--workdir` | `-w` | Override working directory for this command |
 
 **Examples:**

@@ -5,6 +5,7 @@ package cmd
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -58,7 +59,15 @@ Use 'invowk cmd <command-name> --runtime <runtime>' to execute with a specific r
 		if listFlag || len(args) == 0 {
 			return listCommands()
 		}
-		return runCommand(args)
+		err := runCommand(args)
+		if err != nil {
+			var exitErr *ExitError
+			if errors.As(err, &exitErr) {
+				cmd.SilenceErrors = true
+				cmd.SilenceUsage = true
+			}
+		}
+		return err
 	},
 	ValidArgsFunction: completeCommands,
 }
@@ -195,7 +204,20 @@ func registerDiscoveredCommands() {
 						// Extract --workdir flag value
 						workdirOverride, _ := cmd.Flags().GetString("workdir")
 
-						return runCommandWithFlags(cmdName, args, flagValues, cmdFlags, cmdArgs, envFiles, envVars, workdirOverride)
+						// Extract env inherit flags
+						envInheritMode, _ := cmd.Flags().GetString("env-inherit-mode")
+						envInheritAllow, _ := cmd.Flags().GetStringArray("env-inherit-allow")
+						envInheritDeny, _ := cmd.Flags().GetStringArray("env-inherit-deny")
+
+						err := runCommandWithFlags(cmdName, args, flagValues, cmdFlags, cmdArgs, envFiles, envVars, workdirOverride, envInheritMode, envInheritAllow, envInheritDeny)
+						if err != nil {
+							var exitErr *ExitError
+							if errors.As(err, &exitErr) {
+								cmd.SilenceErrors = true
+								cmd.SilenceUsage = true
+							}
+						}
+						return err
 					},
 					Args: buildCobraArgsValidator(cmdArgs),
 				}
@@ -205,6 +227,11 @@ func registerDiscoveredCommands() {
 
 				// Add the reserved --env-var flag for setting environment variables
 				newCmd.Flags().StringArrayP("env-var", "E", nil, "set environment variable (KEY=VALUE, can be specified multiple times)")
+
+				// Add the reserved flags for host env inheritance
+				newCmd.Flags().String("env-inherit-mode", "", "inherit host environment variables: none, allow, all (overrides runtime config)")
+				newCmd.Flags().StringArray("env-inherit-allow", nil, "allowlist for host environment inheritance (repeatable)")
+				newCmd.Flags().StringArray("env-inherit-deny", nil, "denylist for host environment inheritance (repeatable)")
 
 				// Add the reserved --workdir flag for overriding working directory
 				newCmd.Flags().StringP("workdir", "w", "", "override the working directory for this command")
@@ -619,7 +646,9 @@ func parseEnvVarFlags(envVarFlags []string) map[string]string {
 // runtimeEnvFiles contains paths to env files specified via --env-file flag.
 // runtimeEnvVars contains env vars specified via --env-var flag (KEY=VALUE pairs, highest precedence).
 // workdirOverride is the CLI override for working directory (--workdir flag, empty means no override).
-func runCommandWithFlags(cmdName string, args []string, flagValues map[string]string, flagDefs []invkfile.Flag, argDefs []invkfile.Argument, runtimeEnvFiles []string, runtimeEnvVars map[string]string, workdirOverride string) error {
+// envInheritModeOverride controls host env inheritance (empty means use runtime config/default).
+// envInheritAllowOverride and envInheritDenyOverride override runtime config allow/deny lists when provided.
+func runCommandWithFlags(cmdName string, args []string, flagValues map[string]string, flagDefs []invkfile.Flag, argDefs []invkfile.Argument, runtimeEnvFiles []string, runtimeEnvVars map[string]string, workdirOverride string, envInheritModeOverride string, envInheritAllowOverride []string, envInheritDenyOverride []string) error {
 	cfg := config.Get()
 	disc := discovery.New(cfg)
 
@@ -698,6 +727,32 @@ func runCommandWithFlags(cmdName string, args []string, flagValues map[string]st
 	ctx.RuntimeEnvFiles = runtimeEnvFiles // Env files from --env-file flag
 	ctx.RuntimeEnvVars = runtimeEnvVars   // Env vars from --env-var flag (highest precedence)
 	ctx.WorkDir = workdirOverride         // CLI override for working directory (--workdir flag)
+
+	if envInheritModeOverride != "" {
+		mode, err := invkfile.ParseEnvInheritMode(envInheritModeOverride)
+		if err != nil {
+			return err
+		}
+		ctx.EnvInheritModeOverride = mode
+	}
+
+	for _, name := range envInheritAllowOverride {
+		if err := invkfile.ValidateEnvVarName(name); err != nil {
+			return fmt.Errorf("env-inherit-allow: %w", err)
+		}
+	}
+	if envInheritAllowOverride != nil {
+		ctx.EnvInheritAllowOverride = envInheritAllowOverride
+	}
+
+	for _, name := range envInheritDenyOverride {
+		if err := invkfile.ValidateEnvVarName(name); err != nil {
+			return fmt.Errorf("env-inherit-deny: %w", err)
+		}
+	}
+	if envInheritDenyOverride != nil {
+		ctx.EnvInheritDenyOverride = envInheritDenyOverride
+	}
 
 	// Create runtime registry
 	registry := createRuntimeRegistry(cfg)
@@ -801,7 +856,7 @@ func runCommandWithFlags(cmdName string, args []string, flagValues map[string]st
 		if verbose {
 			fmt.Printf("%s Command exited with code %d\n", warningStyle.Render("!"), result.ExitCode)
 		}
-		os.Exit(result.ExitCode)
+		return &ExitError{Code: result.ExitCode}
 	}
 
 	return nil
@@ -816,8 +871,8 @@ func runCommand(args []string) error {
 	cmdName := args[0]
 	cmdArgs := args[1:]
 
-	// Delegate to runCommandWithFlags with empty flag values, no arg definitions, and no workdir override
-	return runCommandWithFlags(cmdName, cmdArgs, nil, nil, nil, nil, nil, "")
+	// Delegate to runCommandWithFlags with empty flag values, no arg definitions, and no overrides
+	return runCommandWithFlags(cmdName, cmdArgs, nil, nil, nil, nil, nil, "", "", nil, nil)
 }
 
 // executeInteractive runs a command in interactive mode using an alternate screen buffer.
@@ -886,8 +941,13 @@ func executeInteractive(ctx *runtime.ExecutionContext, registry *runtime.Registr
 	)
 
 	// Run the command in interactive mode
+	execCtx := ctx.Context
+	if execCtx == nil {
+		execCtx = context.Background()
+	}
+
 	interactiveResult, err := tui.RunInteractiveCmd(
-		context.Background(),
+		execCtx,
 		tui.InteractiveOptions{
 			Title:       "Running Command",
 			CommandName: cmdName,

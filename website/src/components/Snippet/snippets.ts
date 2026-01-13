@@ -6578,6 +6578,11 @@ platforms: [
     code: `#RuntimeConfig: {
     name: "native" | "virtual" | "container"
     
+    // Host environment inheritance:
+    env_inherit_mode?:  "none" | "allow" | "all"
+    env_inherit_allow?: [...string]
+    env_inherit_deny?:  [...string]
+
     // For native and container:
     interpreter?: string
     
@@ -6588,6 +6593,17 @@ platforms: [
     volumes?:         [...string]
     ports?:           [...string]
 }`,
+  },
+
+  'reference/invkfile/env-inherit-example': {
+    language: 'cue',
+    code: `runtimes: [{
+    name:              "container"
+    image:             "alpine:latest"
+    env_inherit_mode:  "allow"
+    env_inherit_allow: ["TERM", "LANG"]
+    env_inherit_deny:  ["AWS_SECRET_ACCESS_KEY"]
+}]`,
   },
 
   'reference/invkfile/interpreter-examples': {
@@ -6603,6 +6619,15 @@ interpreter: "/usr/bin/ruby"
 // With arguments
 interpreter: "python3 -u"
 interpreter: "/usr/bin/env perl -w"`,
+  },
+
+  'environment/env-inherit-cli': {
+    language: 'bash',
+    code: `invowk cmd examples hello \\
+  --env-inherit-mode allow \\
+  --env-inherit-allow TERM \\
+  --env-inherit-allow LANG \\
+  --env-inherit-deny AWS_SECRET_ACCESS_KEY`,
   },
 
   'reference/invkfile/enable-host-ssh-example': {

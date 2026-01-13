@@ -25,7 +25,7 @@ Variáveis vêm de múltiplas fontes, em ordem de precedência (mais alta primei
 7. **Arquivos de implementação** - `env.files` no nível de implementação
 8. **Arquivos de comando** - `env.files` no nível de comando
 9. **Arquivos raiz** - `env.files` no nível raiz
-10. **Ambiente do sistema** - Variáveis de ambiente do host
+10. **Ambiente do sistema** - Variáveis do host (sujeito a `env_inherit_mode`)
 
 Fontes anteriores sobrescrevem as posteriores.
 
@@ -78,6 +78,14 @@ Veja [Env Vars](./env-vars) para detalhes.
 Sobrescreva em tempo de execução:
 
 <Snippet id="environment/cli-overrides" />
+
+## Herança do Ambiente do Host
+
+Por padrão, os runtimes native e virtual herdam o ambiente do host, enquanto o runtime container começa sem variáveis do host. Você pode controlar isso por runtime ou por execução.
+
+<Snippet id="reference/invkfile/env-inherit-example" />
+
+<Snippet id="environment/env-inherit-cli" />
 
 ## Variáveis Embutidas
 

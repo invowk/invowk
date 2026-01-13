@@ -3,8 +3,6 @@
 package cmd
 
 import (
-	"os"
-
 	"github.com/spf13/cobra"
 
 	"invowk-cli/internal/tui"
@@ -88,7 +86,9 @@ func runTuiConfirm(cmd *cobra.Command, args []string) error {
 	}
 
 	if !confirmed {
-		os.Exit(1)
+		cmd.SilenceErrors = true
+		cmd.SilenceUsage = true
+		return &ExitError{Code: 1}
 	}
 
 	return nil

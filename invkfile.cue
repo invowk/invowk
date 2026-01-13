@@ -439,8 +439,15 @@ cmds: [
 					echo "APP_NAME: $APP_NAME"
 					echo "APP_ENV: $APP_ENV"
 					echo "DEBUG: $DEBUG"
+					echo "TERM (host allowlist): ${TERM:-<unset>}"
+					echo "LANG (host allowlist): ${LANG:-<unset>}"
 					"""
-				runtimes: [{name: "container", image: "alpine:latest"}]
+				runtimes: [{
+					name:              "container"
+					image:             "alpine:latest"
+					env_inherit_mode:  "allow"
+					env_inherit_allow: ["TERM", "LANG"]
+				}]
 			}
 		]
 		env: {

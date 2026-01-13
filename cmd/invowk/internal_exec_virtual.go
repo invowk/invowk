@@ -55,7 +55,9 @@ func runInternalExecVirtual(cmd *cobra.Command, args []string) error {
 	scriptContent, err := os.ReadFile(scriptFile)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error reading script file: %v\n", err)
-		os.Exit(1)
+		cmd.SilenceErrors = true
+		cmd.SilenceUsage = true
+		return &ExitError{Code: 1}
 	}
 
 	// Parse the script
@@ -63,11 +65,19 @@ func runInternalExecVirtual(cmd *cobra.Command, args []string) error {
 	prog, err := parser.Parse(strings.NewReader(string(scriptContent)), scriptFile)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error parsing script: %v\n", err)
-		os.Exit(1)
+		cmd.SilenceErrors = true
+		cmd.SilenceUsage = true
+		return &ExitError{Code: 1}
 	}
 
 	// Build environment
-	env := buildVirtualEnv(envVars, envJSON)
+	env, err := buildVirtualEnv(envVars, envJSON)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error parsing environment JSON: %v\n", err)
+		cmd.SilenceErrors = true
+		cmd.SilenceUsage = true
+		return &ExitError{Code: 1}
+	}
 
 	// Create interpreter options
 	opts := []interp.RunnerOption{
@@ -89,17 +99,23 @@ func runInternalExecVirtual(cmd *cobra.Command, args []string) error {
 	runner, err := interp.New(opts...)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error creating interpreter: %v\n", err)
-		os.Exit(1)
+		cmd.SilenceErrors = true
+		cmd.SilenceUsage = true
+		return &ExitError{Code: 1}
 	}
 
 	// Execute the script
 	ctx := context.Background()
 	if err := runner.Run(ctx, prog); err != nil {
 		if status, ok := interp.IsExitStatus(err); ok {
-			os.Exit(int(status))
+			cmd.SilenceErrors = true
+			cmd.SilenceUsage = true
+			return &ExitError{Code: int(status)}
 		}
 		fmt.Fprintf(os.Stderr, "Error executing script: %v\n", err)
-		os.Exit(1)
+		cmd.SilenceErrors = true
+		cmd.SilenceUsage = true
+		return &ExitError{Code: 1}
 	}
 
 	return nil
@@ -107,7 +123,7 @@ func runInternalExecVirtual(cmd *cobra.Command, args []string) error {
 
 // buildVirtualEnv builds the environment variable slice from flags and JSON.
 // It inherits the current process environment and overlays the provided values.
-func buildVirtualEnv(envVars []string, envJSON string) []string {
+func buildVirtualEnv(envVars []string, envJSON string) ([]string, error) {
 	// Start with current environment
 	env := os.Environ()
 
@@ -119,12 +135,13 @@ func buildVirtualEnv(envVars []string, envJSON string) []string {
 	// Add env vars from --env-json (JSON object format)
 	if envJSON != "" {
 		var envMap map[string]string
-		if err := json.Unmarshal([]byte(envJSON), &envMap); err == nil {
-			for k, v := range envMap {
-				env = append(env, fmt.Sprintf("%s=%s", k, v))
-			}
+		if err := json.Unmarshal([]byte(envJSON), &envMap); err != nil {
+			return nil, err
+		}
+		for k, v := range envMap {
+			env = append(env, fmt.Sprintf("%s=%s", k, v))
 		}
 	}
 
-	return env
+	return env, nil
 }

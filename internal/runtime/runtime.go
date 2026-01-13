@@ -9,6 +9,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"time"
 
 	"invowk-cli/pkg/invkfile"
 )
@@ -46,6 +47,15 @@ type ExecutionContext struct {
 	// RuntimeEnvVars contains env vars specified via --env-var flag.
 	// These are set last and override all other environment variables (highest priority).
 	RuntimeEnvVars map[string]string
+	// EnvInheritModeOverride overrides the runtime config env inherit mode when set.
+	EnvInheritModeOverride invkfile.EnvInheritMode
+	// EnvInheritAllowOverride overrides the runtime config allowlist when set.
+	EnvInheritAllowOverride []string
+	// EnvInheritDenyOverride overrides the runtime config denylist when set.
+	EnvInheritDenyOverride []string
+
+	// ExecutionID is a unique identifier for this command execution.
+	ExecutionID string
 
 	// TUIServerURL is the URL of the TUI server for interactive mode.
 	// When set, runtimes should include this in the command's environment
@@ -74,7 +84,12 @@ func NewExecutionContext(cmd *invkfile.Command, inv *invkfile.Invkfile) *Executi
 		ExtraEnv:        make(map[string]string),
 		SelectedRuntime: defaultRuntime,
 		SelectedImpl:    defaultScript,
+		ExecutionID:     newExecutionID(),
 	}
+}
+
+func newExecutionID() string {
+	return fmt.Sprintf("%d", time.Now().UnixNano())
 }
 
 // Result contains the result of a command execution
@@ -104,6 +119,12 @@ type Runtime interface {
 	Available() bool
 	// Validate checks if a command can be executed with this runtime
 	Validate(ctx *ExecutionContext) error
+}
+
+// CapturingRuntime is implemented by runtimes that support capturing output.
+type CapturingRuntime interface {
+	// ExecuteCapture runs a command and captures stdout/stderr.
+	ExecuteCapture(ctx *ExecutionContext) *Result
 }
 
 // InteractiveRuntime is implemented by runtimes that support interactive mode.
@@ -222,20 +243,6 @@ func (r *Registry) Execute(ctx *ExecutionContext) *Result {
 	}
 
 	return rt.Execute(ctx)
-}
-
-// MergeEnv merges environment variables from multiple sources
-func MergeEnv(base map[string]string, overlay ...map[string]string) map[string]string {
-	result := make(map[string]string)
-	for k, v := range base {
-		result[k] = v
-	}
-	for _, m := range overlay {
-		for k, v := range m {
-			result[k] = v
-		}
-	}
-	return result
 }
 
 // EnvToSlice converts a map of environment variables to a slice
