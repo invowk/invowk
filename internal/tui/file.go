@@ -71,7 +71,7 @@ func File(opts FileOptions) (string, error) {
 
 	form := huh.NewForm(huh.NewGroup(picker)).
 		WithTheme(getHuhTheme(opts.Config.Theme)).
-		WithAccessible(opts.Config.Accessible)
+		WithAccessible(shouldUseAccessible(opts.Config))
 
 	if err := form.Run(); err != nil {
 		return "", err

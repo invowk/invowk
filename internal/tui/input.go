@@ -57,7 +57,7 @@ func Input(opts InputOptions) (string, error) {
 
 	form := huh.NewForm(huh.NewGroup(input)).
 		WithTheme(getHuhTheme(opts.Config.Theme)).
-		WithAccessible(opts.Config.Accessible)
+		WithAccessible(shouldUseAccessible(opts.Config))
 
 	// Apply width at the form level (huh.Input doesn't expose width directly)
 	if opts.Width > 0 {

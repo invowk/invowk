@@ -123,6 +123,23 @@
 	// Default: false
 	tty?: bool
 
+	// tui_passthrough enables direct terminal access for commands that use invowk's TUI
+	// components (invowk tui *) when run with --interactive flag. (optional)
+	// When true:
+	// - The outer interactive TUI suspends temporarily
+	// - The command gets direct access to the terminal
+	// - Nested TUI components render properly without garbling
+	// - The outer TUI resumes when the command completes
+	// When false or omitted (default):
+	// - Commands run through the outer TUI's viewport
+	// - Nested TUI components use accessible mode (line-based fallback)
+	// Use this when your script calls `invowk tui input`, `invowk tui choose`, etc.
+	// and you need full TUI rendering instead of accessible fallback.
+	// Note: This is most effective with native runtime. For virtual and container
+	// runtimes, the accessible mode fallback is still used as a safety measure.
+	// Default: false
+	tui_passthrough?: bool
+
 	// env contains environment configuration for this implementation (optional)
 	// Implementation-level env is merged with command-level env.
 	// Implementation files are loaded after command-level files.

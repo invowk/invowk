@@ -118,6 +118,12 @@ func Filter(opts FilterOptions) ([]string, error) {
 		return nil, nil
 	}
 
+	// When running nested inside an interactive TUI, fall back to a simple
+	// list-based selection using huh's accessible mode
+	if shouldUseAccessible(opts.Config) {
+		return filterAccessible(opts)
+	}
+
 	items := make([]list.Item, len(opts.Options))
 	for i, opt := range opts.Options {
 		items[i] = filterItem{text: opt}
@@ -191,6 +197,49 @@ func Filter(opts FilterOptions) ([]string, error) {
 	}
 
 	return nil, nil
+}
+
+// filterAccessible provides an accessible fallback for the filter when running
+// nested inside an interactive TUI. It uses huh's select component which
+// supports accessible mode for simple line-based I/O.
+func filterAccessible(opts FilterOptions) ([]string, error) {
+	// For multi-select, use MultiChoose
+	if opts.Limit > 0 || opts.NoLimit {
+		chooseOpts := make([]Option[string], len(opts.Options))
+		for i, opt := range opts.Options {
+			selected := false
+			for _, idx := range opts.Selected {
+				if idx == i {
+					selected = true
+					break
+				}
+			}
+			chooseOpts[i] = Option[string]{Title: opt, Value: opt, Selected: selected}
+		}
+		return MultiChoose(MultiChooseOptions[string]{
+			Title:   opts.Title,
+			Options: chooseOpts,
+			Limit:   opts.Limit,
+			Height:  opts.Height,
+			Config:  opts.Config,
+		})
+	}
+
+	// For single select, use Choose
+	chooseOpts := make([]Option[string], len(opts.Options))
+	for i, opt := range opts.Options {
+		chooseOpts[i] = Option[string]{Title: opt, Value: opt}
+	}
+	result, err := Choose(ChooseOptions[string]{
+		Title:   opts.Title,
+		Options: chooseOpts,
+		Height:  opts.Height,
+		Config:  opts.Config,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return []string{result}, nil
 }
 
 // FilterStrings is a convenience function for filtering string options.

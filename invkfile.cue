@@ -2966,5 +2966,156 @@ commands: [
 			}
 		]
 	},
+
+	// ============================================================================
+	// SECTION 20: Nested TUI Commands (tui_passthrough)
+	// ============================================================================
+	// These commands demonstrate using `invowk tui *` components within
+	// interactive mode. When tui_passthrough is true, the outer TUI suspends
+	// to let nested TUI components render properly.
+
+	// Example 20.1: Nested TUI with accessible fallback (default)
+	// When tui_passthrough is not set, nested TUI commands use accessible mode
+	{
+		name:        "nested tui fallback"
+		description: "Nested invowk tui commands with accessible fallback"
+		implementations: [
+			{
+				script: """
+					echo "=========================================="
+					echo "  Nested TUI - Accessible Mode Fallback"
+					echo "=========================================="
+					echo ""
+					echo "Running this with --interactive uses pipe-based mode."
+					echo "Nested invowk tui commands will use accessible mode,"
+					echo "which provides simple line-based input instead of fancy TUI."
+					echo ""
+					echo "This is the default behavior when tui_passthrough is not set."
+					echo ""
+
+					# This will use accessible mode (line-based) when run with -i
+					NAME=$(invowk tui input --title "What is your name?")
+					echo ""
+					echo "Hello, $NAME!"
+					echo "=========================================="
+					"""
+				// tui_passthrough: false (default) - uses accessible mode for nested TUI
+				target: {
+					runtimes: [{name: "native"}]
+				}
+			}
+		]
+	},
+
+	// Example 20.2: Nested TUI with passthrough (full TUI rendering)
+	// When tui_passthrough is true, nested TUI commands get direct terminal access
+	{
+		name:        "nested tui passthrough"
+		description: "Nested invowk tui commands with full TUI rendering"
+		implementations: [
+			{
+				script: """
+					echo "=========================================="
+					echo "  Nested TUI - Passthrough Mode"
+					echo "=========================================="
+					echo ""
+					echo "Running this with --interactive uses passthrough mode."
+					echo "Nested invowk tui commands render with full TUI features!"
+					echo ""
+
+					# This will render with full TUI when run with -i
+					NAME=$(invowk tui input --title "What is your name?")
+					echo ""
+					
+					# Another nested TUI command
+					COLOR=$(invowk tui choose --title "Pick your favorite color:" red green blue yellow)
+					echo ""
+					
+					echo "Hello, $NAME! Your favorite color is $COLOR."
+					echo "=========================================="
+					"""
+				tui_passthrough: true  // Enables full TUI rendering for nested commands
+				target: {
+					runtimes: [{name: "native"}]
+				}
+			}
+		]
+	},
+
+	// Example 20.3: Complex nested TUI workflow
+	{
+		name:        "nested tui workflow"
+		description: "Multi-step workflow using invowk tui components"
+		implementations: [
+			{
+				script: """
+					echo "=========================================="
+					echo "  Interactive Project Setup Wizard"
+					echo "=========================================="
+					echo ""
+
+					# Get project details using TUI prompts
+					PROJECT_NAME=$(invowk tui input --title "Project name:")
+					echo ""
+					
+					PROJECT_TYPE=$(invowk tui choose --title "Project type:" library application cli-tool)
+					echo ""
+					
+					CONFIRMED=$(invowk tui confirm --title "Create project '$PROJECT_NAME' as $PROJECT_TYPE?")
+					echo ""
+					
+					if [ "$CONFIRMED" = "true" ]; then
+						echo "Creating $PROJECT_TYPE project: $PROJECT_NAME"
+						echo "  mkdir -p $PROJECT_NAME/src"
+						echo "  touch $PROJECT_NAME/README.md"
+						echo ""
+						echo "Project $PROJECT_NAME created successfully!"
+					else
+						echo "Project creation cancelled."
+					fi
+					echo "=========================================="
+					"""
+				tui_passthrough: true
+				target: {
+					runtimes: [{name: "native"}]
+				}
+			}
+		]
+	},
+
+	// Example 20.4: Combining tty and tui_passthrough
+	// Both can be set together for maximum compatibility
+	{
+		name:        "nested tui with tty"
+		description: "Full PTY with TUI passthrough for complex TUI apps"
+		implementations: [
+			{
+				script: """
+					echo "=========================================="
+					echo "  Full PTY + TUI Passthrough"
+					echo "=========================================="
+					echo ""
+					echo "This implementation has both tty: true and tui_passthrough: true"
+					echo ""
+					echo "Use this when your command:"
+					echo "  1. Needs full PTY features (signals, resize, etc.)"
+					echo "  2. Also calls invowk tui components"
+					echo ""
+					
+					# Use TUI input with full rendering
+					ANSWER=$(invowk tui input --title "Enter the answer:")
+					echo ""
+					
+					echo "The answer is: $ANSWER"
+					echo "=========================================="
+					"""
+				tty: true              // Requires full PTY
+				tui_passthrough: true  // Also enables TUI passthrough
+				target: {
+					runtimes: [{name: "native"}]
+				}
+			}
+		]
+	},
 ]
 

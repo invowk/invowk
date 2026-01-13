@@ -430,6 +430,20 @@ type Implementation struct {
 	// which enables interactive mode (--interactive) across all runtimes including virtual.
 	// Note: tty: true with --interactive is only supported for native and container runtimes.
 	TTY bool `json:"tty,omitempty"`
+	// TUIPassthrough enables direct terminal access for commands that use invowk's TUI
+	// components (invowk tui *) when run with --interactive flag.
+	// When true:
+	// - The outer interactive TUI suspends temporarily
+	// - The command gets direct access to the terminal
+	// - Nested TUI components render properly without garbling
+	// - The outer TUI resumes when the command completes
+	// When false (default):
+	// - Commands run through the outer TUI's viewport
+	// - Nested TUI components use accessible mode (line-based fallback)
+	// Use this when your script calls `invowk tui input`, `invowk tui choose`, etc.
+	// and you need full TUI rendering instead of accessible fallback.
+	// Note: This is most effective with native runtime.
+	TUIPassthrough bool `json:"tui_passthrough,omitempty"`
 	// Env contains environment configuration for this implementation (optional)
 	// Implementation-level env is merged with command-level env.
 	// Implementation files are loaded after command-level files.
@@ -752,6 +766,14 @@ func (s *Script) GetHostSSHForRuntime(runtime RuntimeMode) bool {
 // When false (default), the implementation can run with pipe-based I/O.
 func (s *Script) RequiresTTY() bool {
 	return s.TTY
+}
+
+// UsesTUIPassthrough returns whether this implementation uses TUI passthrough mode.
+// When true, the outer interactive TUI will suspend to give the command direct
+// terminal access, allowing nested invowk TUI components to render properly.
+// When false (default), nested TUI components use accessible mode fallback.
+func (s *Script) UsesTUIPassthrough() bool {
+	return s.TUIPassthrough
 }
 
 // HasDependencies returns true if the command has any dependencies (at command or script level)
@@ -1791,6 +1813,11 @@ func GenerateCUE(inv *Invkfile) string {
 			// TTY field (only output if true)
 			if impl.TTY {
 				sb.WriteString("\t\t\t\ttty: true\n")
+			}
+
+			// TUIPassthrough field (only output if true)
+			if impl.TUIPassthrough {
+				sb.WriteString("\t\t\t\ttui_passthrough: true\n")
 			}
 
 			// Target with runtimes and platforms

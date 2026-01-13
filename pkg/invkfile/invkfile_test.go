@@ -6927,3 +6927,146 @@ commands: [
 		}
 	}
 }
+
+func TestImplementation_UsesTUIPassthrough(t *testing.T) {
+	tests := []struct {
+		name     string
+		impl     Implementation
+		expected bool
+	}{
+		{
+			name: "tui_passthrough true",
+			impl: Implementation{
+				Script:         "invowk tui input",
+				TUIPassthrough: true,
+				Target:         Target{Runtimes: []RuntimeConfig{{Name: RuntimeNative}}},
+			},
+			expected: true,
+		},
+		{
+			name: "tui_passthrough false",
+			impl: Implementation{
+				Script:         "echo hello",
+				TUIPassthrough: false,
+				Target:         Target{Runtimes: []RuntimeConfig{{Name: RuntimeNative}}},
+			},
+			expected: false,
+		},
+		{
+			name: "tui_passthrough not set (default)",
+			impl: Implementation{
+				Script: "echo hello",
+				Target: Target{Runtimes: []RuntimeConfig{{Name: RuntimeNative}}},
+			},
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := tt.impl.UsesTUIPassthrough()
+			if result != tt.expected {
+				t.Errorf("UsesTUIPassthrough() = %v, want %v", result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestParseTUIPassthrough(t *testing.T) {
+	cueSource := `
+group: "test"
+version: "1.0"
+commands: [
+	{
+		name: "with passthrough"
+		implementations: [
+			{
+				script: "invowk tui input --title 'Enter name:'"
+				tui_passthrough: true
+				target: {
+					runtimes: [{name: "native"}]
+				}
+			}
+		]
+	}
+]
+`
+	inv, err := ParseBytes([]byte(cueSource), "test.cue")
+	if err != nil {
+		t.Fatalf("Parse failed: %v", err)
+	}
+
+	if len(inv.Commands) != 1 {
+		t.Fatalf("Expected 1 command, got %d", len(inv.Commands))
+	}
+
+	impl := inv.Commands[0].Implementations[0]
+	if !impl.UsesTUIPassthrough() {
+		t.Error("UsesTUIPassthrough() should return true when tui_passthrough is true")
+	}
+}
+
+func TestParseTUIPassthrough_WithTTY(t *testing.T) {
+	// Test that both tty and tui_passthrough can be set together
+	cueSource := `
+group: "test"
+version: "1.0"
+commands: [
+	{
+		name: "complex interactive"
+		implementations: [
+			{
+				script: """
+					invowk tui input --title 'Enter name:'
+					vim notes.txt
+					"""
+				tty: true
+				tui_passthrough: true
+				target: {
+					runtimes: [{name: "native"}]
+				}
+			}
+		]
+	}
+]
+`
+	inv, err := ParseBytes([]byte(cueSource), "test.cue")
+	if err != nil {
+		t.Fatalf("Parse failed: %v", err)
+	}
+
+	impl := inv.Commands[0].Implementations[0]
+	if !impl.RequiresTTY() {
+		t.Error("RequiresTTY() should return true")
+	}
+	if !impl.UsesTUIPassthrough() {
+		t.Error("UsesTUIPassthrough() should return true")
+	}
+}
+
+func TestGenerateCUE_WithTUIPassthrough(t *testing.T) {
+	inv := &Invkfile{
+		Group:   "test",
+		Version: "1.0",
+		Commands: []Command{
+			{
+				Name: "interactive tui",
+				Implementations: []Implementation{
+					{
+						Script:         "invowk tui input",
+						TUIPassthrough: true,
+						Target: Target{
+							Runtimes: []RuntimeConfig{{Name: RuntimeNative}},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	output := GenerateCUE(inv)
+
+	if !strings.Contains(output, "tui_passthrough: true") {
+		t.Error("GenerateCUE should contain 'tui_passthrough: true'")
+	}
+}

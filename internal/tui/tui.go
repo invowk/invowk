@@ -42,13 +42,32 @@ type Config struct {
 }
 
 // DefaultConfig returns the default configuration for TUI components.
+// It automatically enables accessible mode when running inside an invowk
+// interactive session (INVOWK_INTERACTIVE=1) to avoid nested TUI conflicts.
 func DefaultConfig() Config {
 	return Config{
 		Theme:      ThemeDefault,
-		Accessible: os.Getenv("ACCESSIBLE") != "",
+		Accessible: IsNestedInteractive() || os.Getenv("ACCESSIBLE") != "",
 		Width:      0,
 		Output:     os.Stdout,
 	}
+}
+
+// IsNestedInteractive returns true if running inside an invowk interactive session.
+// This is detected by the INVOWK_INTERACTIVE environment variable, which is set
+// by the outer interactive TUI (both PTY and pipe-based modes).
+//
+// When nested, TUI components should use accessible mode to avoid conflicts
+// between the outer and inner TUI rendering.
+func IsNestedInteractive() bool {
+	return os.Getenv("INVOWK_INTERACTIVE") != ""
+}
+
+// shouldUseAccessible returns true if accessible mode should be used.
+// This checks both the config setting and the environment for nested interactive mode.
+// Even if config.Accessible is false, this returns true when running nested.
+func shouldUseAccessible(cfg Config) bool {
+	return cfg.Accessible || IsNestedInteractive()
 }
 
 // getHuhTheme converts a Theme to a huh.Theme.

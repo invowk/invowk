@@ -129,7 +129,7 @@ func SpinWithAction(opts SpinOptions, action func()) error {
 		Type(getSpinnerType(opts.Type)).
 		Action(action)
 
-	if opts.Config.Accessible {
+	if shouldUseAccessible(opts.Config) {
 		s = s.Accessible(true)
 	}
 
@@ -143,7 +143,7 @@ func SpinWithContext(opts SpinOptions, ctx context.Context) error {
 		Type(getSpinnerType(opts.Type)).
 		Context(ctx)
 
-	if opts.Config.Accessible {
+	if shouldUseAccessible(opts.Config) {
 		s = s.Accessible(true)
 	}
 
