@@ -117,6 +117,12 @@
 	// Implementation vars override command-level vars.
 	env?: #EnvConfig
 
+	// workdir specifies the working directory for this implementation (optional)
+	// Overrides both root-level and command-level workdir settings.
+	// Can be absolute or relative to the invkfile location.
+	// Paths should use forward slashes for cross-platform compatibility.
+	workdir?: string
+
 	// depends_on specifies dependencies that must be satisfied before running this implementation (optional)
 	// These dependencies are validated according to the runtime:
 	// - native: validated against the native standard shell from the host
@@ -351,7 +357,9 @@
 	env?: #EnvConfig
 
 	// workdir specifies the working directory for command execution (optional)
-	// Can be absolute or relative to the invkfile location
+	// Overrides root-level workdir but can be overridden by implementation-level workdir.
+	// Can be absolute or relative to the invkfile location.
+	// Paths should use forward slashes for cross-platform compatibility.
 	workdir?: string
 
 	// depends_on specifies dependencies that must be satisfied before running (optional)
@@ -390,6 +398,12 @@
 	// default_shell overrides the default shell for native runtime (optional)
 	// Example: "/bin/bash", "pwsh"
 	default_shell?: string
+
+	// workdir specifies the default working directory for all commands (optional)
+	// Can be absolute or relative to the invkfile location.
+	// Paths should use forward slashes for cross-platform compatibility.
+	// Individual commands or implementations can override this with their own workdir.
+	workdir?: string
 
 	// commands defines the available commands (required, at least one)
 	commands: [...#Command] & [_, ...]

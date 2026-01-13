@@ -184,15 +184,8 @@ func (r *ContainerRuntime) Execute(ctx *ExecutionContext) *Result {
 		}
 	}
 
-	// Determine working directory
-	workDir := "/workspace"
-	if ctx.Command.WorkDir != "" {
-		if filepath.IsAbs(ctx.Command.WorkDir) {
-			workDir = ctx.Command.WorkDir
-		} else {
-			workDir = filepath.Join("/workspace", ctx.Command.WorkDir)
-		}
-	}
+	// Determine working directory using the hierarchical override model
+	workDir := r.getContainerWorkDir(ctx, invowkDir)
 
 	// Build extra hosts for SSH server access
 	var extraHosts []string
@@ -347,6 +340,35 @@ func (r *ContainerRuntime) generateImageTag(invkfilePath string) string {
 	hash := sha256.Sum256([]byte(absPath))
 	shortHash := hex.EncodeToString(hash[:])[:12]
 	return fmt.Sprintf("invowk-%s:latest", shortHash)
+}
+
+// getContainerWorkDir determines the working directory for container execution.
+// Uses the hierarchical override model (CLI > Implementation > Command > Root > Default).
+// The invkfile directory is mounted at /workspace, so relative paths are mapped there.
+func (r *ContainerRuntime) getContainerWorkDir(ctx *ExecutionContext, invowkDir string) string {
+	// Get the effective workdir using the standard resolution logic
+	// Note: ctx.WorkDir is the CLI override passed through ExecutionContext
+	effectiveWorkDir := ctx.Invkfile.GetEffectiveWorkDir(ctx.Command, ctx.SelectedImpl, ctx.WorkDir)
+
+	// If no workdir was specified at any level, default to /workspace
+	if effectiveWorkDir == invowkDir {
+		return "/workspace"
+	}
+
+	// If it's an absolute path, use it directly in the container
+	if filepath.IsAbs(effectiveWorkDir) {
+		// Check if the path is inside the invkfile directory (mounted at /workspace)
+		relPath, err := filepath.Rel(invowkDir, effectiveWorkDir)
+		if err == nil && !strings.HasPrefix(relPath, "..") {
+			// Path is within invkfile dir - map to /workspace
+			return "/workspace/" + filepath.ToSlash(relPath)
+		}
+		// Path is outside invkfile dir - use as-is (must exist in container or be a mounted path)
+		return effectiveWorkDir
+	}
+
+	// Relative path - join with /workspace
+	return "/workspace/" + filepath.ToSlash(effectiveWorkDir)
 }
 
 // buildEnv builds the environment for the command with proper precedence:

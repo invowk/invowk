@@ -188,7 +188,10 @@ func registerDiscoveredCommands() {
 						envVarFlags, _ := cmd.Flags().GetStringArray("env-var")
 						envVars := parseEnvVarFlags(envVarFlags)
 
-						return runCommandWithFlags(cmdName, args, flagValues, cmdFlags, cmdArgs, envFiles, envVars)
+						// Extract --workdir flag value
+						workdirOverride, _ := cmd.Flags().GetString("workdir")
+
+						return runCommandWithFlags(cmdName, args, flagValues, cmdFlags, cmdArgs, envFiles, envVars, workdirOverride)
 					},
 					Args: buildCobraArgsValidator(cmdArgs),
 				}
@@ -198,6 +201,9 @@ func registerDiscoveredCommands() {
 
 				// Add the reserved --env-var flag for setting environment variables
 				newCmd.Flags().StringArrayP("env-var", "E", nil, "set environment variable (KEY=VALUE, can be specified multiple times)")
+
+				// Add the reserved --workdir flag for overriding working directory
+				newCmd.Flags().StringP("workdir", "w", "", "override the working directory for this command")
 
 				// Add arguments documentation to Long description
 				if len(cmdArgs) > 0 {
@@ -579,7 +585,8 @@ func parseEnvVarFlags(envVarFlags []string) map[string]string {
 // argDefs contains the argument definitions for setting INVOWK_ARG_* env vars (can be nil for legacy calls).
 // runtimeEnvFiles contains paths to env files specified via --env-file flag.
 // runtimeEnvVars contains env vars specified via --env-var flag (KEY=VALUE pairs, highest precedence).
-func runCommandWithFlags(cmdName string, args []string, flagValues map[string]string, flagDefs []invkfile.Flag, argDefs []invkfile.Argument, runtimeEnvFiles []string, runtimeEnvVars map[string]string) error {
+// workdirOverride is the CLI override for working directory (--workdir flag, empty means no override).
+func runCommandWithFlags(cmdName string, args []string, flagValues map[string]string, flagDefs []invkfile.Flag, argDefs []invkfile.Argument, runtimeEnvFiles []string, runtimeEnvVars map[string]string, workdirOverride string) error {
 	cfg := config.Get()
 	disc := discovery.New(cfg)
 
@@ -657,6 +664,7 @@ func runCommandWithFlags(cmdName string, args []string, flagValues map[string]st
 	ctx.PositionalArgs = args             // Enable shell positional parameter access ($1, $2, etc.)
 	ctx.RuntimeEnvFiles = runtimeEnvFiles // Env files from --env-file flag
 	ctx.RuntimeEnvVars = runtimeEnvVars   // Env vars from --env-var flag (highest precedence)
+	ctx.WorkDir = workdirOverride         // CLI override for working directory (--workdir flag)
 
 	// Create runtime registry
 	registry := createRuntimeRegistry(cfg)
@@ -749,8 +757,8 @@ func runCommand(args []string) error {
 	cmdName := args[0]
 	cmdArgs := args[1:]
 
-	// Delegate to runCommandWithFlags with empty flag values and no arg definitions
-	return runCommandWithFlags(cmdName, cmdArgs, nil, nil, nil, nil, nil)
+	// Delegate to runCommandWithFlags with empty flag values, no arg definitions, and no workdir override
+	return runCommandWithFlags(cmdName, cmdArgs, nil, nil, nil, nil, nil, "")
 }
 
 // createRuntimeRegistry creates and populates the runtime registry

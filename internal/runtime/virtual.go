@@ -7,7 +7,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"mvdan.cc/sh/v3/expand"
@@ -237,18 +236,10 @@ func (r *VirtualRuntime) tryUrootBuiltin(ctx context.Context, args []string) (bo
 	return false, nil
 }
 
-// getWorkDir determines the working directory
+// getWorkDir determines the working directory using the hierarchical override model.
+// Precedence (highest to lowest): CLI override > Implementation > Command > Root > Default
 func (r *VirtualRuntime) getWorkDir(ctx *ExecutionContext) string {
-	if ctx.WorkDir != "" {
-		return ctx.WorkDir
-	}
-	if ctx.Command.WorkDir != "" {
-		if !filepath.IsAbs(ctx.Command.WorkDir) {
-			return filepath.Join(filepath.Dir(ctx.Invkfile.FilePath), ctx.Command.WorkDir)
-		}
-		return ctx.Command.WorkDir
-	}
-	return filepath.Dir(ctx.Invkfile.FilePath)
+	return ctx.Invkfile.GetEffectiveWorkDir(ctx.Command, ctx.SelectedImpl, ctx.WorkDir)
 }
 
 // buildEnv builds the environment for the command with proper precedence:

@@ -402,20 +402,10 @@ func (r *NativeRuntime) getShellArgs(shell string) []string {
 	}
 }
 
-// getWorkDir determines the working directory
+// getWorkDir determines the working directory using the hierarchical override model.
+// Precedence (highest to lowest): CLI override > Implementation > Command > Root > Default
 func (r *NativeRuntime) getWorkDir(ctx *ExecutionContext) string {
-	if ctx.WorkDir != "" {
-		return ctx.WorkDir
-	}
-	if ctx.Command.WorkDir != "" {
-		// Resolve relative to invkfile location
-		if !filepath.IsAbs(ctx.Command.WorkDir) {
-			return filepath.Join(filepath.Dir(ctx.Invkfile.FilePath), ctx.Command.WorkDir)
-		}
-		return ctx.Command.WorkDir
-	}
-	// Default to invkfile directory
-	return filepath.Dir(ctx.Invkfile.FilePath)
+	return ctx.Invkfile.GetEffectiveWorkDir(ctx.Command, ctx.SelectedImpl, ctx.WorkDir)
 }
 
 // buildEnv builds the environment for the command with proper precedence:

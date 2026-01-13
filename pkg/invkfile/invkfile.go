@@ -425,6 +425,11 @@ type Implementation struct {
 	// Implementation files are loaded after command-level files.
 	// Implementation vars override command-level vars.
 	Env *EnvConfig `json:"env,omitempty"`
+	// WorkDir specifies the working directory for this implementation (optional)
+	// Overrides both root-level and command-level workdir settings.
+	// Can be absolute or relative to the invkfile location.
+	// Forward slashes should be used for cross-platform compatibility.
+	WorkDir string `json:"workdir,omitempty"`
 	// DependsOn specifies dependencies that must be satisfied before running this implementation
 	// These dependencies are validated according to the runtime being used
 	DependsOn *DependsOn `json:"depends_on,omitempty"`
@@ -450,7 +455,10 @@ type Command struct {
 	// Environment from files is loaded first, then vars override.
 	// Command-level env is applied before implementation-level env.
 	Env *EnvConfig `json:"env,omitempty"`
-	// WorkDir specifies the working directory for command execution
+	// WorkDir specifies the working directory for command execution (optional)
+	// Overrides root-level workdir but can be overridden by implementation-level workdir.
+	// Can be absolute or relative to the invkfile location.
+	// Forward slashes should be used for cross-platform compatibility.
 	WorkDir string `json:"workdir,omitempty"`
 	// DependsOn specifies dependencies that must be satisfied before running
 	DependsOn *DependsOn `json:"depends_on,omitempty"`
@@ -981,6 +989,11 @@ type Invkfile struct {
 	Description string `json:"description,omitempty"`
 	// DefaultShell overrides the default shell for native runtime
 	DefaultShell string `json:"default_shell,omitempty"`
+	// WorkDir specifies the default working directory for all commands
+	// Can be absolute or relative to the invkfile location.
+	// Forward slashes should be used for cross-platform compatibility.
+	// Individual commands or implementations can override this with their own workdir.
+	WorkDir string `json:"workdir,omitempty"`
 	// Commands defines the available commands
 	Commands []Command `json:"commands"`
 
@@ -1453,6 +1466,57 @@ func (inv *Invkfile) GetScriptBasePath() string {
 	return filepath.Dir(inv.FilePath)
 }
 
+// GetEffectiveWorkDir resolves the effective working directory for command execution.
+// It follows the precedence hierarchy (highest to lowest):
+//  1. CLI override (cliOverride parameter)
+//  2. Implementation-level workdir (impl.WorkDir)
+//  3. Command-level workdir (cmd.WorkDir)
+//  4. Root-level workdir (inv.WorkDir)
+//  5. Default: invkfile directory
+//
+// All workdir paths in CUE should use forward slashes for cross-platform compatibility.
+// Relative paths are resolved against the invkfile location.
+func (inv *Invkfile) GetEffectiveWorkDir(cmd *Command, impl *Implementation, cliOverride string) string {
+	invkfileDir := inv.GetScriptBasePath()
+
+	// resolve converts a workdir path from CUE format (forward slashes) to native format
+	// and resolves relative paths against the invkfile directory.
+	resolve := func(workdir string) string {
+		if workdir == "" {
+			return ""
+		}
+		// Convert forward slashes to native path separator
+		nativePath := filepath.FromSlash(workdir)
+		if filepath.IsAbs(nativePath) {
+			return nativePath
+		}
+		return filepath.Join(invkfileDir, nativePath)
+	}
+
+	// Priority 1: CLI override
+	if cliOverride != "" {
+		return resolve(cliOverride)
+	}
+
+	// Priority 2: Implementation-level
+	if impl != nil && impl.WorkDir != "" {
+		return resolve(impl.WorkDir)
+	}
+
+	// Priority 3: Command-level
+	if cmd != nil && cmd.WorkDir != "" {
+		return resolve(cmd.WorkDir)
+	}
+
+	// Priority 4: Root-level
+	if inv.WorkDir != "" {
+		return resolve(inv.WorkDir)
+	}
+
+	// Priority 5: Default (invkfile directory)
+	return invkfileDir
+}
+
 // GetFullCommandName returns the fully qualified command name with the group prefix.
 // The format is "group cmdname" where cmdname may have spaces for subcommands.
 func (inv *Invkfile) GetFullCommandName(cmdName string) string {
@@ -1496,6 +1560,9 @@ func GenerateCUE(inv *Invkfile) string {
 	}
 	if inv.DefaultShell != "" {
 		sb.WriteString(fmt.Sprintf("default_shell: %q\n", inv.DefaultShell))
+	}
+	if inv.WorkDir != "" {
+		sb.WriteString(fmt.Sprintf("workdir: %q\n", inv.WorkDir))
 	}
 
 	// Commands
@@ -1720,6 +1787,11 @@ func GenerateCUE(inv *Invkfile) string {
 					sb.WriteString("\t\t\t\t\t}\n")
 				}
 				sb.WriteString("\t\t\t\t}\n")
+			}
+
+			// Implementation-level workdir
+			if impl.WorkDir != "" {
+				sb.WriteString(fmt.Sprintf("\t\t\t\tworkdir: %q\n", impl.WorkDir))
 			}
 
 			sb.WriteString("\t\t\t},\n")

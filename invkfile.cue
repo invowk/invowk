@@ -2322,5 +2322,225 @@ commands: [
 			},
 		]
 	},
+
+	// ============================================================================
+	// SECTION 17: Working Directory
+	// ============================================================================
+	// These commands demonstrate the workdir feature at different levels.
+	// The workdir defines where commands execute, with hierarchical override:
+	//   CLI flag (--workdir) > Implementation > Command > Root > Default (invkfile dir)
+	//
+	// Paths should use forward slashes (/) for cross-platform compatibility.
+	// Relative paths are resolved from the invkfile directory.
+
+	// Example 17.1: Command-level workdir
+	// The workdir is set at the command level, affecting all implementations
+	{
+		name:        "workdir command level"
+		description: "Execute in a specific directory (command-level workdir)"
+		workdir:     "/tmp"
+		implementations: [
+			{
+				script: """
+					echo "=========================================="
+					echo "  Command-Level Working Directory"
+					echo "=========================================="
+					echo ""
+					echo "Configured workdir: /tmp"
+					echo "Actual pwd: $(pwd)"
+					echo ""
+					echo "This command runs in /tmp because workdir"
+					echo "is set at the command level."
+					echo "=========================================="
+					"""
+				target: {
+					runtimes:  [{name: "native"}]
+					platforms: [{name: "linux"}, {name: "macos"}]
+				}
+			},
+		]
+	},
+
+	// Example 17.2: Implementation-level workdir (overrides command-level)
+	// Each implementation can specify its own workdir, overriding the command level
+	{
+		name:        "workdir impl level"
+		description: "Implementation-level workdir overrides command-level"
+		workdir:     "/tmp"
+		implementations: [
+			{
+				script: """
+					echo "=========================================="
+					echo "  Implementation-Level Working Directory"
+					echo "=========================================="
+					echo ""
+					echo "Command workdir: /tmp"
+					echo "Implementation workdir: /var"
+					echo "Actual pwd: $(pwd)"
+					echo ""
+					echo "Implementation-level workdir takes precedence"
+					echo "over command-level workdir."
+					echo "=========================================="
+					"""
+				workdir: "/var"
+				target: {
+					runtimes:  [{name: "native"}]
+					platforms: [{name: "linux"}, {name: "macos"}]
+				}
+			},
+		]
+	},
+
+	// Example 17.3: Relative workdir paths
+	// Relative paths are resolved from the invkfile directory
+	{
+		name:        "workdir relative"
+		description: "Relative workdir resolved from invkfile location"
+		workdir:     "examples"
+		implementations: [
+			{
+				script: """
+					echo "=========================================="
+					echo "  Relative Working Directory"
+					echo "=========================================="
+					echo ""
+					echo "Configured workdir: examples"
+					echo "Actual pwd: $(pwd)"
+					echo ""
+					echo "Relative paths are resolved from the"
+					echo "invkfile directory location."
+					echo ""
+					echo "Contents of current directory:"
+					ls -la 2>/dev/null || echo "(directory may not exist)"
+					echo "=========================================="
+					"""
+				target: {
+					runtimes:  [{name: "native"}]
+					platforms: [{name: "linux"}, {name: "macos"}]
+				}
+			},
+		]
+	},
+
+	// Example 17.4: Cross-platform workdir with forward slashes
+	// Always use forward slashes for cross-platform compatibility
+	{
+		name:        "workdir cross platform"
+		description: "Cross-platform workdir using forward slashes"
+		workdir:     "examples/nested/path"
+		implementations: [
+			{
+				script: """
+					echo "=========================================="
+					echo "  Cross-Platform Working Directory"
+					echo "=========================================="
+					echo ""
+					echo "Configured workdir: examples/nested/path"
+					echo "Actual pwd: $(pwd)"
+					echo ""
+					echo "Use forward slashes (/) for paths - invowk"
+					echo "converts them to the platform's separator."
+					echo "=========================================="
+					"""
+				target: {
+					runtimes:  [{name: "native"}]
+					platforms: [{name: "linux"}, {name: "macos"}]
+				}
+			},
+			{
+				script: """
+					echo ==========================================
+					echo   Cross-Platform Working Directory
+					echo ==========================================
+					echo.
+					echo Configured workdir: examples/nested/path
+					echo Actual pwd: %CD%
+					echo.
+					echo Use forward slashes (/) for paths - invowk
+					echo converts them to the platform's separator.
+					echo ==========================================
+					"""
+				target: {
+					runtimes:  [{name: "native"}]
+					platforms: [{name: "windows"}]
+				}
+			},
+		]
+	},
+
+	// Example 17.5: CLI --workdir flag override demonstration
+	// The --workdir flag has the highest precedence, overriding all levels
+	{
+		name:        "workdir cli override"
+		description: "Use --workdir flag to override at runtime"
+		workdir:     "/tmp"
+		implementations: [
+			{
+				script: """
+					echo "=========================================="
+					echo "  CLI --workdir Flag Override"
+					echo "=========================================="
+					echo ""
+					echo "Command workdir: /tmp"
+					echo "Actual pwd: $(pwd)"
+					echo ""
+					echo "To override at runtime, use the --workdir flag:"
+					echo ""
+					echo "  invowk run 'workdir cli override' --workdir /var"
+					echo "  invowk run 'workdir cli override' -w /home"
+					echo ""
+					echo "The CLI flag has highest precedence:"
+					echo ""
+					echo "  1. CLI flag (--workdir / -w)     <- Highest"
+					echo "  2. Implementation-level workdir"
+					echo "  3. Command-level workdir"
+					echo "  4. Root-level workdir"
+					echo "  5. Default (invkfile directory)  <- Lowest"
+					echo "=========================================="
+					"""
+				workdir: "/var"
+				target: {
+					runtimes:  [{name: "native"}]
+					platforms: [{name: "linux"}, {name: "macos"}]
+				}
+			},
+		]
+	},
+
+	// Example 17.6: Workdir with container runtime
+	// Container workdir is mapped to /workspace/<path> inside the container
+	{
+		name:        "workdir container"
+		description: "Working directory in container runtime"
+		workdir:     "examples"
+		implementations: [
+			{
+				script: """
+					echo "=========================================="
+					echo "  Container Working Directory"
+					echo "=========================================="
+					echo ""
+					echo "Configured workdir: examples"
+					echo "Actual pwd: $(pwd)"
+					echo ""
+					echo "In container runtime, the workdir path is"
+					echo "mapped to /workspace/<path> inside the container."
+					echo ""
+					echo "Host 'examples' -> Container '/workspace/examples'"
+					echo ""
+					echo "Contents of current directory:"
+					ls -la
+					echo "=========================================="
+					"""
+				target: {
+					runtimes: [{
+						name:  "container"
+						image: "alpine:latest"
+					}]
+					platforms: [{name: "linux"}, {name: "macos"}]
+				}
+			},
+		]
+	},
 ]
 
