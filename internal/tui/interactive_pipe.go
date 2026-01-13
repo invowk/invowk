@@ -135,6 +135,9 @@ func (m *pipeInteractiveModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case doneMsg:
 		m.handleDone(msg.result)
+		// Return immediately after handling done to ensure the view updates
+		// The viewport has already been updated in handleDone
+		return m, nil
 	}
 
 	if m.ready {

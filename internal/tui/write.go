@@ -59,6 +59,9 @@ func Write(opts WriteOptions) (string, error) {
 		WithTheme(getHuhTheme(opts.Config.Theme)).
 		WithAccessible(shouldUseAccessible(opts.Config))
 
+	// Set output writer (stderr when nested to avoid $() capture)
+	form = form.WithOutput(getOutputWriter(opts.Config))
+
 	if err := form.Run(); err != nil {
 		return "", err
 	}

@@ -59,6 +59,9 @@ func Input(opts InputOptions) (string, error) {
 		WithTheme(getHuhTheme(opts.Config.Theme)).
 		WithAccessible(shouldUseAccessible(opts.Config))
 
+	// Set output writer (stderr when nested to avoid $() capture)
+	form = form.WithOutput(getOutputWriter(opts.Config))
+
 	// Apply width at the form level (huh.Input doesn't expose width directly)
 	if opts.Width > 0 {
 		form = form.WithWidth(opts.Width)

@@ -11,6 +11,7 @@ import (
 
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/lipgloss"
+	"golang.org/x/term"
 )
 
 // Theme represents the visual theme for TUI components.
@@ -42,14 +43,31 @@ type Config struct {
 }
 
 // DefaultConfig returns the default configuration for TUI components.
-// It automatically enables accessible mode when running inside an invowk
-// interactive session (INVOWK_INTERACTIVE=1) to avoid nested TUI conflicts.
+// It automatically enables accessible mode when:
+// - Running inside an invowk interactive session (INVOWK_INTERACTIVE=1)
+// - Running inside command substitution ($()) where stdin is not a terminal
+// - The ACCESSIBLE environment variable is set
+//
+// When accessible mode is needed, output is directed to stderr so prompts
+// aren't captured by command substitution ($() or backticks), which would
+// prevent the user from seeing the prompt.
 func DefaultConfig() Config {
+	nested := IsNestedInteractive()
+	noTTY := !isInputTerminal()
+	accessible := nested || noTTY || os.Getenv("ACCESSIBLE") != ""
+
+	// When accessible mode is needed, use stderr for output so prompts
+	// aren't captured by $() command substitution
+	var output io.Writer = os.Stdout
+	if accessible {
+		output = os.Stderr
+	}
+
 	return Config{
 		Theme:      ThemeDefault,
-		Accessible: IsNestedInteractive() || os.Getenv("ACCESSIBLE") != "",
+		Accessible: accessible,
 		Width:      0,
-		Output:     os.Stdout,
+		Output:     output,
 	}
 }
 
@@ -63,11 +81,36 @@ func IsNestedInteractive() bool {
 	return os.Getenv("INVOWK_INTERACTIVE") != ""
 }
 
+// isInputTerminal returns true if stdin is connected to a terminal.
+// Returns false when running inside command substitution ($()) or pipes.
+func isInputTerminal() bool {
+	return term.IsTerminal(int(os.Stdin.Fd()))
+}
+
 // shouldUseAccessible returns true if accessible mode should be used.
-// This checks both the config setting and the environment for nested interactive mode.
-// Even if config.Accessible is false, this returns true when running nested.
+// This checks:
+// - The config.Accessible setting
+// - The INVOWK_INTERACTIVE environment variable (nested interactive mode)
+// - Whether stdin is a terminal (for command substitution detection)
+//
+// Even if config.Accessible is false, this returns true when running nested
+// or when stdin is not a terminal (e.g., inside $() command substitution).
 func shouldUseAccessible(cfg Config) bool {
-	return cfg.Accessible || IsNestedInteractive()
+	return cfg.Accessible || IsNestedInteractive() || !isInputTerminal()
+}
+
+// getOutputWriter returns the appropriate output writer for the current context.
+// Returns stderr when accessible mode is needed (nested or no TTY) to prevent
+// prompts from being captured by command substitution ($()).
+// If cfg.Output is already set, it's returned as-is.
+func getOutputWriter(cfg Config) io.Writer {
+	if cfg.Output != nil {
+		return cfg.Output
+	}
+	if shouldUseAccessible(cfg) {
+		return os.Stderr
+	}
+	return os.Stdout
 }
 
 // getHuhTheme converts a Theme to a huh.Theme.

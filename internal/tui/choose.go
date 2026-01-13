@@ -56,6 +56,9 @@ func Choose[T comparable](opts ChooseOptions[T]) (T, error) {
 		WithTheme(getHuhTheme(opts.Config.Theme)).
 		WithAccessible(shouldUseAccessible(opts.Config))
 
+	// Set output writer (stderr when nested to avoid $() capture)
+	form = form.WithOutput(getOutputWriter(opts.Config))
+
 	if err := form.Run(); err != nil {
 		return result, err
 	}
@@ -124,6 +127,9 @@ func MultiChoose[T comparable](opts MultiChooseOptions[T]) ([]T, error) {
 	form := huh.NewForm(huh.NewGroup(sel)).
 		WithTheme(getHuhTheme(opts.Config.Theme)).
 		WithAccessible(shouldUseAccessible(opts.Config))
+
+	// Set output writer (stderr when nested to avoid $() capture)
+	form = form.WithOutput(getOutputWriter(opts.Config))
 
 	if err := form.Run(); err != nil {
 		return nil, err
