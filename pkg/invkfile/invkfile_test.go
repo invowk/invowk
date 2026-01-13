@@ -122,7 +122,7 @@ func TestResolveScript_Inline(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			s := &Implementation{Script: tt.script, Target: Target{Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}}
-			result, err := s.ResolveScript("/fake/path/invkfile.toml")
+			result, err := s.ResolveScript("/fake/path/invkfile.cue")
 			if err != nil {
 				t.Errorf("ResolveScript() error = %v", err)
 				return
@@ -150,7 +150,7 @@ func TestResolveScript_FromFile(t *testing.T) {
 	}
 
 	// Create invkfile path
-	invkfilePath := filepath.Join(tmpDir, "invkfile.toml")
+	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
 
 	t.Run("resolve script from file", func(t *testing.T) {
 		s := &Implementation{Script: "./test.sh", Target: Target{Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}}
@@ -199,7 +199,7 @@ func TestResolveScriptWithFS(t *testing.T) {
 		return nil, os.ErrNotExist
 	}
 
-	invkfilePath := "/project/invkfile.toml"
+	invkfilePath := "/project/invkfile.cue"
 
 	t.Run("resolve script from virtual fs", func(t *testing.T) {
 		s := &Implementation{Script: "./scripts/build.sh", Target: Target{Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}}
@@ -317,7 +317,7 @@ func TestScriptCaching(t *testing.T) {
 		t.Fatalf("Failed to write script file: %v", err)
 	}
 
-	invkfilePath := filepath.Join(tmpDir, "invkfile.toml")
+	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
 	s := &Implementation{Script: "./test.sh", Target: Target{Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}}
 
 	// First resolution

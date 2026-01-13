@@ -55,12 +55,12 @@ invowk is a powerful command runner similar to 'just' that supports
 multiple execution runtimes: native shell, virtual shell (mvdan/sh),
 and containerized execution (Docker/Podman).
 
-Commands are defined in 'invkfile' files using TOML format and can
+Commands are defined in 'invkfile' files using CUE format and can
 be organized hierarchically with support for dependencies.
 
 ` + subtitleStyle.Render("Quick Start:") + `
   1. Create an invkfile in your project directory
-  2. Define commands using TOML syntax
+  2. Define commands using CUE syntax
   3. Run commands with: invowk cmd <command-name>
 
 ` + subtitleStyle.Render("Examples:") + `
@@ -99,7 +99,7 @@ func init() {
 
 	// Global flags
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "enable verbose output")
-	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.config/invowk/config.toml)")
+	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.config/invowk/config.cue)")
 
 	// Add subcommands
 	rootCmd.AddCommand(cmdCmd)

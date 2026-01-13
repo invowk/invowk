@@ -33,7 +33,7 @@ func TestNativeRuntime_InlineScript(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	invkfilePath := filepath.Join(tmpDir, "invkfile.toml")
+	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
 
 	inv := &invkfile.Invkfile{
 		FilePath: invkfilePath,
@@ -70,7 +70,7 @@ func TestNativeRuntime_MultiLineScript(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	invkfilePath := filepath.Join(tmpDir, "invkfile.toml")
+	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
 
 	inv := &invkfile.Invkfile{
 		FilePath: invkfilePath,
@@ -121,7 +121,7 @@ echo "Hello from script file"
 		t.Fatalf("Failed to write script: %v", err)
 	}
 
-	invkfilePath := filepath.Join(tmpDir, "invkfile.toml")
+	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
 
 	inv := &invkfile.Invkfile{
 		FilePath: invkfilePath,
@@ -154,7 +154,7 @@ func TestVirtualRuntime_InlineScript(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	invkfilePath := filepath.Join(tmpDir, "invkfile.toml")
+	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
 
 	inv := &invkfile.Invkfile{
 		FilePath: invkfilePath,
@@ -188,7 +188,7 @@ func TestVirtualRuntime_MultiLineScript(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	invkfilePath := filepath.Join(tmpDir, "invkfile.toml")
+	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
 
 	inv := &invkfile.Invkfile{
 		FilePath: invkfilePath,
@@ -234,7 +234,7 @@ func TestVirtualRuntime_ScriptFile(t *testing.T) {
 		t.Fatalf("Failed to write script: %v", err)
 	}
 
-	invkfilePath := filepath.Join(tmpDir, "invkfile.toml")
+	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
 
 	inv := &invkfile.Invkfile{
 		FilePath: invkfilePath,
@@ -268,7 +268,7 @@ func TestVirtualRuntime_Validate_ScriptSyntaxError(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	invkfilePath := filepath.Join(tmpDir, "invkfile.toml")
+	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
 
 	inv := &invkfile.Invkfile{
 		FilePath: invkfilePath,
@@ -293,7 +293,7 @@ func TestRuntime_ScriptNotFound(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	invkfilePath := filepath.Join(tmpDir, "invkfile.toml")
+	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
 
 	inv := &invkfile.Invkfile{
 		FilePath: invkfilePath,
@@ -335,7 +335,7 @@ func TestRuntime_EnvironmentVariables(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	invkfilePath := filepath.Join(tmpDir, "invkfile.toml")
+	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
 
 	inv := &invkfile.Invkfile{
 		FilePath: invkfilePath,
@@ -391,7 +391,7 @@ func TestNativeRuntime_PositionalArgs(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	invkfilePath := filepath.Join(tmpDir, "invkfile.toml")
+	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
 	inv := &invkfile.Invkfile{
 		FilePath: invkfilePath,
 	}
@@ -437,7 +437,7 @@ func TestNativeRuntime_PositionalArgs_Empty(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	invkfilePath := filepath.Join(tmpDir, "invkfile.toml")
+	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
 	inv := &invkfile.Invkfile{
 		FilePath: invkfilePath,
 	}
@@ -473,7 +473,7 @@ func TestVirtualRuntime_PositionalArgs(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	invkfilePath := filepath.Join(tmpDir, "invkfile.toml")
+	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
 	inv := &invkfile.Invkfile{
 		FilePath: invkfilePath,
 	}
@@ -516,7 +516,7 @@ func TestVirtualRuntime_PositionalArgs_ArgCount(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	invkfilePath := filepath.Join(tmpDir, "invkfile.toml")
+	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
 	inv := &invkfile.Invkfile{
 		FilePath: invkfilePath,
 	}
@@ -553,7 +553,7 @@ func TestVirtualRuntime_PositionalArgs_Empty(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	invkfilePath := filepath.Join(tmpDir, "invkfile.toml")
+	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
 	inv := &invkfile.Invkfile{
 		FilePath: invkfilePath,
 	}
@@ -594,7 +594,7 @@ func TestNativeRuntime_PositionalArgs_SpecialChars(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	invkfilePath := filepath.Join(tmpDir, "invkfile.toml")
+	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
 	inv := &invkfile.Invkfile{
 		FilePath: invkfilePath,
 	}
@@ -847,7 +847,7 @@ func TestNativeRuntime_EnvIsolation(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	invkfilePath := filepath.Join(tmpDir, "invkfile.toml")
+	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
 	inv := &invkfile.Invkfile{
 		FilePath: invkfilePath,
 	}
@@ -907,7 +907,7 @@ func TestVirtualRuntime_EnvIsolation(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	invkfilePath := filepath.Join(tmpDir, "invkfile.toml")
+	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
 	inv := &invkfile.Invkfile{
 		FilePath: invkfilePath,
 	}

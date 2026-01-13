@@ -304,7 +304,7 @@ Check that required files or directories exist with proper permissions. You can 
 depends_on: {
 	filepaths: [
 		// Simple existence check - any of these files satisfies the dependency
-		{alternatives: ["go.mod", "go.sum", "Gopkg.toml"]},
+		{alternatives: ["go.mod", "go.sum", "Gopkg.lock"]},
 		
 		// Check with read permission - any of these READMEs works
 		{alternatives: ["README.md", "README", "readme.md"], readable: true},
@@ -1465,7 +1465,7 @@ Import Pack
 Packs are automatically discovered and loaded from all invowk search paths:
 1. Current directory (highest priority)
 2. User commands directory (`~/.invowk/cmds/`)
-3. Configured search paths in `config.toml`
+3. Configured search paths in your config file
 
 When invowk discovers a pack, it:
 - Validates the pack structure and naming
@@ -1574,11 +1574,11 @@ commands: [
 
 ## Configuration
 
-invowk uses a global configuration file (TOML format):
+invowk uses a global configuration file (CUE format):
 
-- **Linux**: `~/.config/invowk/config.toml`
-- **macOS**: `~/Library/Application Support/invowk/config.toml`
-- **Windows**: `%APPDATA%\invowk\config.toml`
+- **Linux**: `~/.config/invowk/config.cue`
+- **macOS**: `~/Library/Application Support/invowk/config.cue`
+- **Windows**: `%APPDATA%\invowk\config.cue`
 
 ### Create Default Configuration
 
@@ -1594,24 +1594,26 @@ invowk config show
 
 ### Configuration Options
 
-```toml
-# Container engine preference: "podman" or "docker"
-container_engine = "podman"
+```cue
+// Container engine preference: "podman" or "docker"
+container_engine: "podman"
 
 
-# Additional directories to search for invkfiles
-search_paths = [
+// Additional directories to search for invkfiles
+search_paths: [
     "/home/user/global-commands"
 ]
 
-# Virtual shell options
-[virtual_shell]
-enable_uroot_utils = true
+// Virtual shell options
+virtual_shell: {
+  enable_uroot_utils: true
+}
 
-# UI options
-[ui]
-color_scheme = "auto"  # "auto", "dark", "light"
-verbose = false
+// UI options
+ui: {
+  color_scheme: "auto"  // "auto", "dark", "light"
+  verbose: false
+}
 ```
 
 ## Shell Completion
@@ -1976,7 +1978,7 @@ invowk-cli/
 
 - [Cobra](https://github.com/spf13/cobra) - CLI framework
 - [Viper](https://github.com/spf13/viper) - Configuration management
-- [go-toml](https://github.com/pelletier/go-toml) - TOML parsing
+- [CUE](https://cuelang.org/) - Configuration language
 - [mvdan/sh](https://github.com/mvdan/sh) - Virtual shell interpreter
 - [Lip Gloss](https://github.com/charmbracelet/lipgloss) - Terminal styling
 - [Glamour](https://github.com/charmbracelet/glamour) - Markdown rendering

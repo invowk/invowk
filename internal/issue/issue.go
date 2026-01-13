@@ -156,15 +156,24 @@ $ invowk --verbose cmd list
 ~~~
 
 ## Example of valid command definition:
-~~~toml
-[[commands]]
-name = "build"
-description = "Build the project"
-runtime = "native"  # or "virtual", "container"
-script = '''
-echo "Building..."
-go build ./...
-'''
+~~~cue
+commands: [
+  {
+    name: "build"
+    description: "Build the project"
+    implementations: [
+      {
+        script: """
+          echo "Building..."
+          go build ./...
+          """
+        target: {
+          runtimes: [{name: "native"}]  // or "virtual", "container"
+        }
+      }
+    ]
+  }
+]
 ~~~`,
 	}
 
@@ -203,16 +212,25 @@ The specified runtime mode is not available on your system.
 
 ## Things you can try:
 - Change the runtime in your invkfile:
-~~~toml
-default_runtime = "native"
+~~~cue
+default_runtime: "native"
 ~~~
 
 - Or specify runtime per-command:
-~~~toml
-[[commands]]
-name = "build"
-runtime = "virtual"
-script = "echo 'hello'"
+~~~cue
+commands: [
+  {
+    name: "build"
+    implementations: [
+      {
+        script: "echo 'hello'"
+        target: {
+          runtimes: [{name: "virtual"}]
+        }
+      }
+    ]
+  }
+]
 ~~~`,
 	}
 
@@ -237,13 +255,13 @@ You tried to use the 'container' runtime but no container engine is available.
   - https://docs.docker.com/get-docker/
 
 - Switch to a different runtime:
-~~~toml
-default_runtime = "native"  # or "virtual"
+~~~cue
+default_runtime: "native"  // or "virtual"
 ~~~
 
-- Configure your preferred engine in ~/.config/invowk/config.toml:
-~~~toml
-container_engine = "podman"  # or "docker"
+- Configure your preferred engine in ~/.config/invowk/config.cue:
+~~~cue
+container_engine: "podman"  // or "docker"
 ~~~`,
 	}
 
@@ -263,15 +281,17 @@ WORKDIR /workspace
 ~~~
 
 - Or specify a Dockerfile path in your invkfile:
-~~~toml
-[container]
-dockerfile = "path/to/Dockerfile"
+~~~cue
+container: {
+  dockerfile: "path/to/Dockerfile"
+}
 ~~~
 
 - Or use a pre-built image:
-~~~toml
-[container]
-image = "ubuntu:22.04"
+~~~cue
+container: {
+  image: "ubuntu:22.04"
+}
 ~~~`,
 	}
 
@@ -307,9 +327,9 @@ $ invowk --verbose cmd <command>
 Could not load the invowk configuration file.
 
 ## Configuration file locations:
-- Linux: ~/.config/invowk/config.toml
-- macOS: ~/Library/Application Support/invowk/config.toml
-- Windows: %APPDATA%\invowk\config.toml
+- Linux: ~/.config/invowk/config.cue
+- macOS: ~/Library/Application Support/invowk/config.cue
+- Windows: %APPDATA%\invowk\config.cue
 
 ## Things you can try:
 - Create a default configuration:
@@ -320,20 +340,21 @@ $ invowk config init
 - Check the configuration syntax
 - Remove the config file to use defaults:
 ~~~
-$ rm ~/.config/invowk/config.toml
+$ rm ~/.config/invowk/config.cue
 ~~~
 
 ## Example configuration:
-~~~toml
-container_engine = "podman"
-default_runtime = "native"
-search_paths = [
+~~~cue
+container_engine: "podman"
+default_runtime: "native"
+search_paths: [
     "/home/user/global-commands"
 ]
 
-[ui]
-color_scheme = "auto"
-verbose = false
+ui: {
+  color_scheme: "auto"
+  verbose: false
+}
 ~~~`,
 	}
 
@@ -350,13 +371,22 @@ The specified runtime mode is not recognized.
 - **container**: Execute inside a container
 
 ## Example:
-~~~toml
-default_runtime = "native"
+~~~cue
+default_runtime: "native"
 
-[[commands]]
-name = "build"
-runtime = "container"  # Override for this command
-script = "make build"
+commands: [
+  {
+    name: "build"
+    implementations: [
+      {
+        script: "make build"
+        target: {
+          runtimes: [{name: "container"}]  // Override for this command
+        }
+      }
+    ]
+  }
+]
 ~~~`,
 	}
 
@@ -368,14 +398,21 @@ script = "make build"
 Your command dependencies form a cycle, which would cause infinite execution.
 
 ## Example of a cycle:
-~~~toml
-[[commands]]
-name = "a"
-depends_on = ["b"]
-
-[[commands]]
-name = "b"
-depends_on = ["a"]  # Cycle: a -> b -> a
+~~~cue
+commands: [
+  {
+    name: "a"
+    depends_on: {
+      commands: [{alternatives: ["b"]}]
+    }
+  },
+  {
+    name: "b"
+    depends_on: {
+      commands: [{alternatives: ["a"]}]  // Cycle: a -> b -> a
+    }
+  }
+]
 ~~~
 
 ## Things you can try:
@@ -399,8 +436,8 @@ Could not find a suitable shell for the 'native' runtime.
 - Install bash or another POSIX shell
 - Set the SHELL environment variable
 - Use the 'virtual' runtime instead (built-in shell):
-~~~toml
-default_runtime = "virtual"
+~~~cue
+default_runtime: "virtual"
 ~~~`,
 	}
 
