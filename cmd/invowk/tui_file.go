@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"invowk-cli/internal/tui"
+	"invowk-cli/internal/tuiserver"
 )
 
 var (
@@ -71,14 +72,31 @@ func runTuiFile(cmd *cobra.Command, args []string) error {
 	allowFiles := !fileDirectoryOnly && fileShowFiles
 	allowDirs := fileDirectoryOnly || !fileShowFiles
 
-	result, err := tui.File(tui.FileOptions{
-		CurrentDirectory:  startPath,
-		FileAllowed:       allowFiles,
-		DirAllowed:        allowDirs,
-		ShowHidden:        fileHidden,
-		Height:            fileHeight,
-		AllowedExtensions: fileAllowedExts,
-	})
+	var result string
+	var err error
+
+	// Check if we should delegate to parent TUI server
+	if client := tuiserver.NewClientFromEnv(); client != nil {
+		result, err = client.File(tuiserver.FileRequest{
+			Path:        startPath,
+			ShowFiles:   allowFiles,
+			ShowDirs:    allowDirs,
+			ShowHidden:  fileHidden,
+			Height:      fileHeight,
+			AllowedExts: fileAllowedExts,
+		})
+	} else {
+		// Render TUI directly
+		result, err = tui.File(tui.FileOptions{
+			CurrentDirectory:  startPath,
+			FileAllowed:       allowFiles,
+			DirAllowed:        allowDirs,
+			ShowHidden:        fileHidden,
+			Height:            fileHeight,
+			AllowedExtensions: fileAllowedExts,
+		})
+	}
+
 	if err != nil {
 		return err
 	}

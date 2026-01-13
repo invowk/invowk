@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"invowk-cli/internal/tui"
+	"invowk-cli/internal/tuiserver"
 )
 
 var (
@@ -64,16 +65,35 @@ func init() {
 }
 
 func runTuiInput(cmd *cobra.Command, args []string) error {
-	result, err := tui.Input(tui.InputOptions{
-		Title:       inputTitle,
-		Description: inputDescription,
-		Placeholder: inputPlaceholder,
-		Value:       inputValue,
-		CharLimit:   inputCharLimit,
-		Width:       inputWidth,
-		Password:    inputPassword,
-		Prompt:      inputPrompt,
-	})
+	var result string
+	var err error
+
+	// Check if we should delegate to parent TUI server
+	if client := tuiserver.NewClientFromEnv(); client != nil {
+		result, err = client.Input(tuiserver.InputRequest{
+			Title:       inputTitle,
+			Description: inputDescription,
+			Placeholder: inputPlaceholder,
+			Value:       inputValue,
+			CharLimit:   inputCharLimit,
+			Width:       inputWidth,
+			Password:    inputPassword,
+			Prompt:      inputPrompt,
+		})
+	} else {
+		// Render TUI directly
+		result, err = tui.Input(tui.InputOptions{
+			Title:       inputTitle,
+			Description: inputDescription,
+			Placeholder: inputPlaceholder,
+			Value:       inputValue,
+			CharLimit:   inputCharLimit,
+			Width:       inputWidth,
+			Password:    inputPassword,
+			Prompt:      inputPrompt,
+		})
+	}
+
 	if err != nil {
 		return err
 	}

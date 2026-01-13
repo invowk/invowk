@@ -43,47 +43,23 @@ type TableOptions struct {
 }
 
 // tableModel is the bubbletea model for the table component.
+// It implements EmbeddableComponent for embedded use.
 type tableModel struct {
 	table     table.Model
-	quitting  bool
+	rows      [][]string
+	done      bool
 	cancelled bool
+	width     int
+	height    int
 }
 
-func (m tableModel) Init() tea.Cmd {
-	return nil
-}
-
-func (m tableModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	switch msg := msg.(type) {
-	case tea.KeyMsg:
-		switch msg.String() {
-		case "ctrl+c", "esc", "q":
-			m.quitting = true
-			m.cancelled = true
-			return m, tea.Quit
-		case "enter":
-			m.quitting = true
-			return m, tea.Quit
-		}
-	}
-
-	var cmd tea.Cmd
-	m.table, cmd = m.table.Update(msg)
-	return m, cmd
-}
-
-func (m tableModel) View() string {
-	if m.quitting {
-		return ""
-	}
-	return m.table.View()
-}
-
-// Table displays a table and optionally allows row selection.
-// Returns the selected row index (-1 if cancelled) and the selected row values.
-func Table(opts TableOptions) (int, []string, error) {
+// NewTableModel creates an embeddable table component.
+func NewTableModel(opts TableOptions) *tableModel {
 	if len(opts.Rows) == 0 {
-		return -1, nil, nil
+		return &tableModel{
+			done: true,
+			rows: [][]string{},
+		}
 	}
 
 	// Build columns
@@ -112,16 +88,16 @@ func Table(opts TableOptions) (int, []string, error) {
 		rows[i] = row
 	}
 
-	height := opts.Height
-	if height == 0 {
-		height = min(len(opts.Rows)+1, 15)
+	tableHeight := opts.Height
+	if tableHeight == 0 {
+		tableHeight = min(len(opts.Rows)+1, 15)
 	}
 
 	t := table.New(
 		table.WithColumns(columns),
 		table.WithRows(rows),
 		table.WithFocused(true),
-		table.WithHeight(height),
+		table.WithHeight(tableHeight),
 	)
 
 	s := table.DefaultStyles()
@@ -141,22 +117,103 @@ func Table(opts TableOptions) (int, []string, error) {
 		t.SetCursor(opts.SelectedIndex)
 	}
 
-	m := tableModel{
-		table: t,
+	return &tableModel{
+		table:  t,
+		rows:   opts.Rows,
+		width:  opts.Width,
+		height: tableHeight,
+	}
+}
+
+func (m *tableModel) Init() tea.Cmd {
+	return nil
+}
+
+func (m *tableModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch msg.String() {
+		case "ctrl+c", "esc", "q":
+			m.done = true
+			m.cancelled = true
+			return m, tea.Quit
+		case "enter":
+			m.done = true
+			return m, tea.Quit
+		}
 	}
 
-	p := tea.NewProgram(m)
+	var cmd tea.Cmd
+	m.table, cmd = m.table.Update(msg)
+	return m, cmd
+}
+
+func (m *tableModel) View() string {
+	if m.done {
+		return ""
+	}
+	// Constrain the table view to the configured width to prevent overflow in modal overlays
+	if m.width > 0 {
+		return lipgloss.NewStyle().MaxWidth(m.width).Render(m.table.View())
+	}
+	return m.table.View()
+}
+
+// IsDone implements EmbeddableComponent.
+func (m *tableModel) IsDone() bool {
+	return m.done
+}
+
+// Result implements EmbeddableComponent.
+// Returns TableSelectionResult with selected row info.
+func (m *tableModel) Result() (interface{}, error) {
+	if m.cancelled {
+		return TableSelectionResult{SelectedIndex: -1}, nil
+	}
+
+	selectedIdx := m.table.Cursor()
+	var selectedRow []string
+	if selectedIdx >= 0 && selectedIdx < len(m.rows) {
+		selectedRow = m.rows[selectedIdx]
+	}
+
+	return TableSelectionResult{
+		SelectedIndex: selectedIdx,
+		SelectedRow:   selectedRow,
+	}, nil
+}
+
+// Cancelled implements EmbeddableComponent.
+func (m *tableModel) Cancelled() bool {
+	return m.cancelled
+}
+
+// SetSize implements EmbeddableComponent.
+func (m *tableModel) SetSize(width, height int) {
+	m.width = width
+	m.height = height
+}
+
+// Table displays a table and optionally allows row selection.
+// Returns the selected row index (-1 if cancelled) and the selected row values.
+func Table(opts TableOptions) (int, []string, error) {
+	if len(opts.Rows) == 0 {
+		return -1, nil, nil
+	}
+
+	model := NewTableModel(opts)
+	p := tea.NewProgram(model)
 	finalModel, err := p.Run()
 	if err != nil {
 		return -1, nil, err
 	}
 
-	fm := finalModel.(tableModel)
-	if fm.cancelled {
+	m := finalModel.(*tableModel)
+	if m.cancelled {
 		return -1, nil, nil
 	}
 
-	selectedIdx := fm.table.Cursor()
+	selectedIdx := m.table.Cursor()
 	if selectedIdx >= 0 && selectedIdx < len(opts.Rows) {
 		return selectedIdx, opts.Rows[selectedIdx], nil
 	}
@@ -319,4 +376,9 @@ func (b *TableBuilder) Run() (int, []string, error) {
 func (b *TableBuilder) Display() error {
 	_, _, err := Table(b.opts)
 	return err
+}
+
+// Model returns the embeddable model for composition.
+func (b *TableBuilder) Model() EmbeddableComponent {
+	return NewTableModel(b.opts)
 }

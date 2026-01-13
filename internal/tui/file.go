@@ -3,7 +3,11 @@
 package tui
 
 import (
+	"fmt"
+
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
+	"github.com/charmbracelet/lipgloss"
 )
 
 // FileOptions configures the File picker component.
@@ -32,9 +36,29 @@ type FileOptions struct {
 	Config Config
 }
 
-// File prompts the user to select a file from the filesystem.
-// Returns the selected file path or an error if the prompt was cancelled.
-func File(opts FileOptions) (string, error) {
+// fileModel implements EmbeddableComponent for file picker.
+type fileModel struct {
+	form      *huh.Form
+	result    *string
+	done      bool
+	cancelled bool
+	width     int
+	height    int
+}
+
+// NewFileModel creates an embeddable file picker component.
+func NewFileModel(opts FileOptions) *fileModel {
+	return newFileModelWithTheme(opts, getHuhTheme(opts.Config.Theme))
+}
+
+// NewFileModelForModal creates an embeddable file picker component with modal-specific styling.
+// This uses a theme that matches the modal overlay background to prevent color bleeding.
+func NewFileModelForModal(opts FileOptions) *fileModel {
+	return newFileModelWithTheme(opts, getModalHuhTheme())
+}
+
+// newFileModelWithTheme creates a file picker model with a specific huh theme.
+func newFileModelWithTheme(opts FileOptions, theme *huh.Theme) *fileModel {
 	var result string
 
 	picker := huh.NewFilePicker().
@@ -66,18 +90,113 @@ func File(opts FileOptions) (string, error) {
 		picker = picker.Height(opts.Height)
 	}
 
-	picker = picker.FileAllowed(opts.FileAllowed)
-	picker = picker.DirAllowed(opts.DirAllowed)
+	// Default to allowing files if neither is specified
+	fileAllowed := opts.FileAllowed
+	dirAllowed := opts.DirAllowed
+	if !fileAllowed && !dirAllowed {
+		fileAllowed = true
+	}
+
+	picker = picker.FileAllowed(fileAllowed)
+	picker = picker.DirAllowed(dirAllowed)
 
 	form := huh.NewForm(huh.NewGroup(picker)).
-		WithTheme(getHuhTheme(opts.Config.Theme)).
+		WithTheme(theme).
 		WithAccessible(opts.Config.Accessible)
 
-	if err := form.Run(); err != nil {
+	return &fileModel{
+		form:   form,
+		result: &result,
+	}
+}
+
+// Init implements tea.Model.
+func (m *fileModel) Init() tea.Cmd {
+	return m.form.Init()
+}
+
+// Update implements tea.Model.
+func (m *fileModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	// Handle cancel keys before passing to form
+	if keyMsg, ok := msg.(tea.KeyMsg); ok {
+		switch keyMsg.String() {
+		case "ctrl+c", "esc":
+			m.done = true
+			m.cancelled = true
+			return m, nil
+		}
+	}
+
+	// Pass to huh form
+	form, cmd := m.form.Update(msg)
+	if f, ok := form.(*huh.Form); ok {
+		m.form = f
+	}
+
+	// Check if form is complete
+	if m.form.State == huh.StateCompleted {
+		m.done = true
+	} else if m.form.State == huh.StateAborted {
+		m.done = true
+		m.cancelled = true
+	}
+
+	return m, cmd
+}
+
+// View implements tea.Model.
+func (m *fileModel) View() string {
+	if m.done {
+		return ""
+	}
+	// Constrain the form view to the configured width to prevent overflow
+	if m.width > 0 {
+		return lipgloss.NewStyle().MaxWidth(m.width).Render(m.form.View())
+	}
+	return m.form.View()
+}
+
+// IsDone implements EmbeddableComponent.
+func (m *fileModel) IsDone() bool {
+	return m.done
+}
+
+// Result implements EmbeddableComponent.
+func (m *fileModel) Result() (interface{}, error) {
+	if m.cancelled {
+		return nil, nil
+	}
+	return *m.result, nil
+}
+
+// Cancelled implements EmbeddableComponent.
+func (m *fileModel) Cancelled() bool {
+	return m.cancelled
+}
+
+// SetSize implements EmbeddableComponent.
+func (m *fileModel) SetSize(width, height int) {
+	m.width = width
+	m.height = height
+	m.form = m.form.WithWidth(width).WithHeight(height)
+}
+
+// File prompts the user to select a file from the filesystem.
+// Returns the selected file path or an error if the prompt was cancelled.
+func File(opts FileOptions) (string, error) {
+	model := NewFileModel(opts)
+	p := tea.NewProgram(model)
+	finalModel, err := p.Run()
+	if err != nil {
 		return "", err
 	}
 
-	return result, nil
+	m := finalModel.(*fileModel)
+	if m.cancelled {
+		return "", fmt.Errorf("user aborted")
+	}
+	result, _ := m.Result()
+	return result.(string), nil
 }
 
 // FileBuilder provides a fluent API for building File picker prompts.
@@ -171,4 +290,9 @@ func (b *FileBuilder) Accessible(accessible bool) *FileBuilder {
 // Run executes the file picker and returns the selected path.
 func (b *FileBuilder) Run() (string, error) {
 	return File(b.opts)
+}
+
+// Model returns the embeddable model for composition.
+func (b *FileBuilder) Model() EmbeddableComponent {
+	return NewFileModel(b.opts)
 }

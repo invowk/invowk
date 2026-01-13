@@ -11,6 +11,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"invowk-cli/internal/tui"
+	"invowk-cli/internal/tuiserver"
 )
 
 var (
@@ -61,10 +62,33 @@ func runTuiSpin(cmd *cobra.Command, args []string) error {
 	command := args[0]
 	cmdArgs := args[1:]
 
-	output, err := tui.SpinWithCommand(tui.SpinOptions{
-		Title: spinTitle,
-		Type:  tui.ParseSpinnerType(spinType),
-	}, command, cmdArgs...)
+	var output []byte
+	var err error
+	var exitCode int
+
+	// Check if we should delegate to parent TUI server
+	if client := tuiserver.NewClientFromEnv(); client != nil {
+		result, clientErr := client.Spin(tuiserver.SpinRequest{
+			Title:   spinTitle,
+			Spinner: spinType,
+			Command: args, // Full command including args
+		})
+		if clientErr != nil {
+			return clientErr
+		}
+		output = []byte(result.Stdout)
+		exitCode = result.ExitCode
+		if exitCode != 0 {
+			// Create a synthetic error for non-zero exit
+			err = fmt.Errorf("command exited with code %d", exitCode)
+		}
+	} else {
+		// Render TUI directly
+		output, err = tui.SpinWithCommand(tui.SpinOptions{
+			Title: spinTitle,
+			Type:  tui.ParseSpinnerType(spinType),
+		}, command, cmdArgs...)
+	}
 
 	// Print the command output
 	if len(output) > 0 {
@@ -76,6 +100,10 @@ func runTuiSpin(cmd *cobra.Command, args []string) error {
 		// If it's an exec.ExitError, exit with the same code
 		if exitErr, ok := err.(*exec.ExitError); ok {
 			os.Exit(exitErr.ExitCode())
+		}
+		// If we got a synthetic error from HTTP client
+		if exitCode != 0 {
+			os.Exit(exitCode)
 		}
 		return err
 	}

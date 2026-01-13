@@ -3,7 +3,11 @@
 package tui
 
 import (
+	"fmt"
+
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
+	"github.com/charmbracelet/lipgloss"
 )
 
 // InputOptions configures the Input component.
@@ -28,20 +32,39 @@ type InputOptions struct {
 	Config Config
 }
 
-// Input prompts the user for a single line of text input.
-// Returns the entered text or an error if the prompt was cancelled.
-func Input(opts InputOptions) (string, error) {
+// inputModel implements EmbeddableComponent for text input.
+type inputModel struct {
+	form      *huh.Form
+	result    *string
+	done      bool
+	cancelled bool
+	width     int
+	height    int
+}
+
+// NewInputModel creates an embeddable input component.
+func NewInputModel(opts InputOptions) *inputModel {
+	return newInputModelWithTheme(opts, getHuhTheme(opts.Config.Theme))
+}
+
+// NewInputModelForModal creates an embeddable input component with modal-specific styling.
+// This uses a theme that matches the modal overlay background to prevent color bleeding.
+func NewInputModelForModal(opts InputOptions) *inputModel {
+	return newInputModelWithTheme(opts, getModalHuhTheme())
+}
+
+// newInputModelWithTheme creates an input model with a specific huh theme.
+func newInputModelWithTheme(opts InputOptions, theme *huh.Theme) *inputModel {
 	var result string
+	if opts.Value != "" {
+		result = opts.Value
+	}
 
 	input := huh.NewInput().
 		Title(opts.Title).
 		Description(opts.Description).
 		Placeholder(opts.Placeholder).
 		Value(&result)
-
-	if opts.Value != "" {
-		result = opts.Value
-	}
 
 	if opts.CharLimit > 0 {
 		input = input.CharLimit(opts.CharLimit)
@@ -56,21 +79,108 @@ func Input(opts InputOptions) (string, error) {
 	}
 
 	form := huh.NewForm(huh.NewGroup(input)).
-		WithTheme(getHuhTheme(opts.Config.Theme)).
+		WithTheme(theme).
 		WithAccessible(opts.Config.Accessible)
 
-	// Apply width at the form level (huh.Input doesn't expose width directly)
 	if opts.Width > 0 {
 		form = form.WithWidth(opts.Width)
 	} else if opts.Config.Width > 0 {
 		form = form.WithWidth(opts.Config.Width)
 	}
 
-	if err := form.Run(); err != nil {
+	return &inputModel{
+		form:   form,
+		result: &result,
+	}
+}
+
+// Init implements tea.Model.
+func (m *inputModel) Init() tea.Cmd {
+	return m.form.Init()
+}
+
+// Update implements tea.Model.
+func (m *inputModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	// Handle cancel keys before passing to form
+	if keyMsg, ok := msg.(tea.KeyMsg); ok {
+		switch keyMsg.String() {
+		case "ctrl+c", "esc":
+			m.done = true
+			m.cancelled = true
+			return m, nil
+		}
+	}
+
+	// Pass to huh form
+	form, cmd := m.form.Update(msg)
+	if f, ok := form.(*huh.Form); ok {
+		m.form = f
+	}
+
+	// Check if form is complete
+	if m.form.State == huh.StateCompleted {
+		m.done = true
+	} else if m.form.State == huh.StateAborted {
+		m.done = true
+		m.cancelled = true
+	}
+
+	return m, cmd
+}
+
+// View implements tea.Model.
+func (m *inputModel) View() string {
+	if m.done {
+		return ""
+	}
+	// Constrain the form view to the configured width to prevent overflow
+	if m.width > 0 {
+		return lipgloss.NewStyle().MaxWidth(m.width).Render(m.form.View())
+	}
+	return m.form.View()
+}
+
+// IsDone implements EmbeddableComponent.
+func (m *inputModel) IsDone() bool {
+	return m.done
+}
+
+// Result implements EmbeddableComponent.
+func (m *inputModel) Result() (interface{}, error) {
+	if m.cancelled {
+		return nil, nil
+	}
+	return *m.result, nil
+}
+
+// Cancelled implements EmbeddableComponent.
+func (m *inputModel) Cancelled() bool {
+	return m.cancelled
+}
+
+// SetSize implements EmbeddableComponent.
+func (m *inputModel) SetSize(width, height int) {
+	m.width = width
+	m.height = height
+	m.form = m.form.WithWidth(width).WithHeight(height)
+}
+
+// Input prompts the user for a single line of text input.
+// Returns the entered text or an error if the prompt was cancelled.
+func Input(opts InputOptions) (string, error) {
+	model := NewInputModel(opts)
+	p := tea.NewProgram(model)
+	finalModel, err := p.Run()
+	if err != nil {
 		return "", err
 	}
 
-	return result, nil
+	m := finalModel.(*inputModel)
+	if m.cancelled {
+		return "", fmt.Errorf("user aborted")
+	}
+	result, _ := m.Result()
+	return result.(string), nil
 }
 
 // InputBuilder provides a fluent API for building Input prompts.
@@ -150,4 +260,9 @@ func (b *InputBuilder) Accessible(accessible bool) *InputBuilder {
 // Run executes the input prompt and returns the result.
 func (b *InputBuilder) Run() (string, error) {
 	return Input(b.opts)
+}
+
+// Model returns the embeddable model for composition.
+func (b *InputBuilder) Model() EmbeddableComponent {
+	return NewInputModel(b.opts)
 }

@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"invowk-cli/internal/tui"
+	"invowk-cli/internal/tuiserver"
 )
 
 var (
@@ -61,16 +62,35 @@ func init() {
 }
 
 func runTuiWrite(cmd *cobra.Command, args []string) error {
-	result, err := tui.Write(tui.WriteOptions{
-		Title:           writeTitle,
-		Description:     writeDescription,
-		Placeholder:     writePlaceholder,
-		Value:           writeValue,
-		CharLimit:       writeCharLimit,
-		Width:           writeWidth,
-		Height:          writeHeight,
-		ShowLineNumbers: writeShowLineNum,
-	})
+	var result string
+	var err error
+
+	// Check if we should delegate to parent TUI server
+	if client := tuiserver.NewClientFromEnv(); client != nil {
+		result, err = client.TextArea(tuiserver.TextAreaRequest{
+			Title:           writeTitle,
+			Description:     writeDescription,
+			Placeholder:     writePlaceholder,
+			Value:           writeValue,
+			CharLimit:       writeCharLimit,
+			Width:           writeWidth,
+			Height:          writeHeight,
+			ShowLineNumbers: writeShowLineNum,
+		})
+	} else {
+		// Render TUI directly
+		result, err = tui.Write(tui.WriteOptions{
+			Title:           writeTitle,
+			Description:     writeDescription,
+			Placeholder:     writePlaceholder,
+			Value:           writeValue,
+			CharLimit:       writeCharLimit,
+			Width:           writeWidth,
+			Height:          writeHeight,
+			ShowLineNumbers: writeShowLineNum,
+		})
+	}
+
 	if err != nil {
 		return err
 	}

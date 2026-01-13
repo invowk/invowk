@@ -55,33 +55,185 @@ func (i filterItem) Description() string { return "" }
 func (i filterItem) FilterValue() string { return i.text }
 
 // filterModel is the bubbletea model for the filter component.
+// It implements EmbeddableComponent for embedded use.
 type filterModel struct {
 	list      list.Model
 	items     []filterItem
+	options   []string
 	query     string
 	selected  map[int]bool
 	limit     int
 	noLimit   bool
 	height    int
 	width     int
-	quitting  bool
+	done      bool
 	cancelled bool
 }
 
-func (m filterModel) Init() tea.Cmd {
+// NewFilterModel creates an embeddable filter component.
+func NewFilterModel(opts FilterOptions) *filterModel {
+	return newFilterModelWithStyles(opts, false)
+}
+
+// NewFilterModelForModal creates an embeddable filter component optimized for modal overlays.
+// This version uses styles that avoid background color bleeding.
+func NewFilterModelForModal(opts FilterOptions) *filterModel {
+	return newFilterModelWithStyles(opts, true)
+}
+
+// newFilterModelWithStyles creates a filter model with optional modal-specific styling.
+func newFilterModelWithStyles(opts FilterOptions, forModal bool) *filterModel {
+	if len(opts.Options) == 0 {
+		// Empty filter - return a component that's immediately done
+		return &filterModel{
+			done:    true,
+			options: []string{},
+		}
+	}
+
+	items := make([]list.Item, len(opts.Options))
+	for i, opt := range opts.Options {
+		items[i] = filterItem{text: opt}
+	}
+
+	height := opts.Height
+	if height == 0 {
+		height = 10
+	}
+
+	width := opts.Width
+	if width == 0 {
+		width = 50
+	}
+
+	delegate := list.NewDefaultDelegate()
+
+	if forModal {
+		// Modal-specific styles: NO backgrounds to prevent color bleeding
+		// Use a style base with NO background that will be transparent
+		noBackground := lipgloss.NewStyle()
+
+		// Normal item styles - just foreground colors, no backgrounds
+		delegate.Styles.NormalTitle = noBackground.Foreground(lipgloss.Color("#FFFFFF"))
+		delegate.Styles.NormalDesc = noBackground.Foreground(lipgloss.Color("#6B7280"))
+
+		// Selected item - use left border indicator instead of background
+		delegate.Styles.SelectedTitle = noBackground.
+			Foreground(lipgloss.Color("#7C3AED")).
+			Bold(true).
+			Padding(0, 0, 0, 1).
+			Border(lipgloss.NormalBorder(), false, false, false, true).
+			BorderForeground(lipgloss.Color("#7C3AED"))
+		delegate.Styles.SelectedDesc = noBackground.
+			Foreground(lipgloss.Color("#A78BFA")).
+			Padding(0, 0, 0, 1)
+
+		// Dimmed styles - no backgrounds
+		delegate.Styles.DimmedTitle = noBackground.Foreground(lipgloss.Color("#6B7280"))
+		delegate.Styles.DimmedDesc = noBackground.Foreground(lipgloss.Color("#6B7280"))
+	} else {
+		// Default styles for non-modal usage
+		delegate.Styles.NormalTitle = lipgloss.NewStyle().Foreground(lipgloss.Color("252"))
+		delegate.Styles.NormalDesc = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
+		delegate.Styles.SelectedTitle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("212")).
+			Bold(true).
+			Padding(0, 0, 0, 1).
+			Border(lipgloss.NormalBorder(), false, false, false, true).
+			BorderForeground(lipgloss.Color("212"))
+		delegate.Styles.SelectedDesc = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("212")).
+			Padding(0, 0, 0, 1)
+		delegate.Styles.DimmedTitle = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
+		delegate.Styles.DimmedDesc = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
+	}
+	delegate.ShowDescription = false
+
+	l := list.New(items, delegate, width, height)
+	l.Title = opts.Title
+	l.SetShowStatusBar(false)
+	l.SetFilteringEnabled(true)
+
+	if forModal {
+		// Modal-specific list styles - NO backgrounds anywhere
+		noBackground := lipgloss.NewStyle()
+
+		l.Styles.Title = noBackground.Bold(true).Foreground(lipgloss.Color("#7C3AED"))
+		l.Styles.TitleBar = noBackground.Padding(0, 0, 1, 0)
+		l.Styles.PaginationStyle = noBackground.Foreground(lipgloss.Color("#6B7280"))
+		l.Styles.HelpStyle = noBackground.Foreground(lipgloss.Color("#6B7280"))
+		l.Styles.FilterPrompt = noBackground.Foreground(lipgloss.Color("#7C3AED"))
+		l.Styles.FilterCursor = noBackground.Foreground(lipgloss.Color("#FFFFFF"))
+
+		// Additional styles that might have backgrounds
+		l.Styles.NoItems = noBackground.Foreground(lipgloss.Color("#6B7280"))
+		l.Styles.StatusBar = noBackground.Foreground(lipgloss.Color("#6B7280"))
+		l.Styles.StatusEmpty = noBackground.Foreground(lipgloss.Color("#6B7280"))
+		l.Styles.StatusBarActiveFilter = noBackground.Foreground(lipgloss.Color("#7C3AED"))
+		l.Styles.StatusBarFilterCount = noBackground.Foreground(lipgloss.Color("#6B7280"))
+		l.Styles.ActivePaginationDot = noBackground.Foreground(lipgloss.Color("#7C3AED"))
+		l.Styles.InactivePaginationDot = noBackground.Foreground(lipgloss.Color("#6B7280"))
+		l.Styles.DividerDot = noBackground.Foreground(lipgloss.Color("#6B7280"))
+
+		// Customize the filter input to avoid background bleeding
+		l.FilterInput.PromptStyle = noBackground.Foreground(lipgloss.Color("#7C3AED"))
+		l.FilterInput.TextStyle = noBackground.Foreground(lipgloss.Color("#FFFFFF"))
+		l.FilterInput.Cursor.Style = noBackground.Foreground(lipgloss.Color("#FFFFFF"))
+		l.FilterInput.PlaceholderStyle = noBackground.Foreground(lipgloss.Color("#6B7280"))
+	} else {
+		// Default list styles
+		l.Styles.Title = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("212"))
+		l.Styles.TitleBar = lipgloss.NewStyle().Padding(0, 0, 1, 0)
+		l.Styles.PaginationStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
+		l.Styles.HelpStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
+		l.Styles.FilterPrompt = lipgloss.NewStyle().Foreground(lipgloss.Color("212"))
+		l.Styles.FilterCursor = lipgloss.NewStyle().Foreground(lipgloss.Color("212"))
+	}
+
+	if opts.Placeholder != "" {
+		l.FilterInput.Placeholder = opts.Placeholder
+	}
+
+	filterItems := make([]filterItem, len(opts.Options))
+	for i, opt := range opts.Options {
+		filterItems[i] = filterItem{text: opt}
+	}
+
+	m := &filterModel{
+		list:     l,
+		items:    filterItems,
+		options:  opts.Options,
+		selected: make(map[int]bool),
+		limit:    opts.Limit,
+		noLimit:  opts.NoLimit,
+		height:   height,
+		width:    width,
+	}
+
+	// Pre-select items
+	for _, idx := range opts.Selected {
+		if idx >= 0 && idx < len(opts.Options) {
+			m.selected[idx] = true
+		}
+	}
+
+	return m
+}
+
+func (m *filterModel) Init() tea.Cmd {
 	return nil
 }
 
-func (m filterModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m *filterModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "ctrl+c", "esc":
-			m.quitting = true
+			m.done = true
 			m.cancelled = true
 			return m, tea.Quit
 		case "enter":
-			m.quitting = true
+			m.done = true
 			return m, tea.Quit
 		case "tab", " ":
 			if m.limit > 0 || m.noLimit {
@@ -104,11 +256,59 @@ func (m filterModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, cmd
 }
 
-func (m filterModel) View() string {
-	if m.quitting {
+func (m *filterModel) View() string {
+	if m.done {
 		return ""
 	}
+	// Constrain the list view to the configured width to prevent overflow in modal overlays
+	if m.width > 0 {
+		return lipgloss.NewStyle().MaxWidth(m.width).Render(m.list.View())
+	}
 	return m.list.View()
+}
+
+// IsDone implements EmbeddableComponent.
+func (m *filterModel) IsDone() bool {
+	return m.done
+}
+
+// Result implements EmbeddableComponent.
+// Returns []string for selected options.
+func (m *filterModel) Result() (interface{}, error) {
+	if m.cancelled {
+		return nil, nil
+	}
+
+	// Handle multi-select
+	if m.limit > 0 || m.noLimit {
+		var results []string
+		for idx := range m.selected {
+			if idx < len(m.options) {
+				results = append(results, m.options[idx])
+			}
+		}
+		return results, nil
+	}
+
+	// Single select
+	if item, ok := m.list.SelectedItem().(filterItem); ok {
+		return []string{item.text}, nil
+	}
+
+	return []string{}, nil
+}
+
+// Cancelled implements EmbeddableComponent.
+func (m *filterModel) Cancelled() bool {
+	return m.cancelled
+}
+
+// SetSize implements EmbeddableComponent.
+func (m *filterModel) SetSize(width, height int) {
+	m.width = width
+	m.height = height
+	m.list.SetWidth(width)
+	m.list.SetHeight(height - 2)
 }
 
 // Filter prompts the user to filter and select from a list of options.
@@ -118,75 +318,29 @@ func Filter(opts FilterOptions) ([]string, error) {
 		return nil, nil
 	}
 
-	items := make([]list.Item, len(opts.Options))
-	for i, opt := range opts.Options {
-		items[i] = filterItem{text: opt}
-	}
-
-	height := opts.Height
-	if height == 0 {
-		height = 10
-	}
-
-	width := opts.Width
-	if width == 0 {
-		width = 50
-	}
-
-	delegate := list.NewDefaultDelegate()
-	l := list.New(items, delegate, width, height)
-	l.Title = opts.Title
-	l.SetShowStatusBar(false)
-	l.SetFilteringEnabled(true)
-	l.Styles.Title = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("212"))
-
-	if opts.Placeholder != "" {
-		l.FilterInput.Placeholder = opts.Placeholder
-	}
-
-	m := filterModel{
-		list:     l,
-		items:    make([]filterItem, len(opts.Options)),
-		selected: make(map[int]bool),
-		limit:    opts.Limit,
-		noLimit:  opts.NoLimit,
-		height:   height,
-		width:    width,
-	}
-
-	for i, opt := range opts.Options {
-		m.items[i] = filterItem{text: opt}
-	}
-
-	// Pre-select items
-	for _, idx := range opts.Selected {
-		if idx >= 0 && idx < len(opts.Options) {
-			m.selected[idx] = true
-		}
-	}
-
-	p := tea.NewProgram(m)
+	model := NewFilterModel(opts)
+	p := tea.NewProgram(model)
 	finalModel, err := p.Run()
 	if err != nil {
 		return nil, err
 	}
 
-	fm := finalModel.(filterModel)
-	if fm.cancelled {
+	m := finalModel.(*filterModel)
+	if m.cancelled {
 		return nil, nil
 	}
 
 	// Handle multi-select
 	if opts.Limit > 0 || opts.NoLimit {
 		var results []string
-		for idx := range fm.selected {
+		for idx := range m.selected {
 			results = append(results, opts.Options[idx])
 		}
 		return results, nil
 	}
 
 	// Single select
-	if item, ok := fm.list.SelectedItem().(filterItem); ok {
+	if item, ok := m.list.SelectedItem().(filterItem); ok {
 		return []string{item.text}, nil
 	}
 
@@ -387,4 +541,9 @@ func (b *FilterBuilder) RunSingle() (string, error) {
 		return "", err
 	}
 	return results[0], nil
+}
+
+// Model returns the embeddable model for composition.
+func (b *FilterBuilder) Model() EmbeddableComponent {
+	return NewFilterModel(b.opts)
 }

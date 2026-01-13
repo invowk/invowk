@@ -27,25 +27,57 @@ type PagerOptions struct {
 }
 
 // pagerModel is the bubbletea model for the pager component.
+// It implements EmbeddableComponent for embedded use.
 type pagerModel struct {
 	viewport viewport.Model
 	title    string
 	ready    bool
-	quitting bool
+	done     bool
+	width    int
+	height   int
 }
 
-func (m pagerModel) Init() tea.Cmd {
+// NewPagerModel creates an embeddable pager component.
+func NewPagerModel(opts PagerOptions) *pagerModel {
+	height := opts.Height
+	if height == 0 {
+		height = 20
+	}
+
+	width := opts.Width
+	if width == 0 {
+		width = 80
+	}
+
+	vpHeight := height - 4 // Leave room for title and footer
+	if vpHeight < 1 {
+		vpHeight = 10
+	}
+
+	vp := viewport.New(width, vpHeight)
+	vp.SetContent(opts.Content)
+
+	return &pagerModel{
+		viewport: vp,
+		title:    opts.Title,
+		ready:    true,
+		width:    width,
+		height:   height,
+	}
+}
+
+func (m *pagerModel) Init() tea.Cmd {
 	return nil
 }
 
-func (m pagerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m *pagerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
-		case "ctrl+c", "q", "esc":
-			m.quitting = true
+		case "ctrl+c", "q", "esc", "enter":
+			m.done = true
 			return m, tea.Quit
 		}
 	case tea.WindowSizeMsg:
@@ -63,8 +95,8 @@ func (m pagerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, cmd
 }
 
-func (m pagerModel) View() string {
-	if m.quitting {
+func (m *pagerModel) View() string {
+	if m.done {
 		return ""
 	}
 
@@ -81,32 +113,46 @@ func (m pagerModel) View() string {
 		title = titleStyle.Render(m.title) + "\n"
 	}
 
-	footer := footerStyle.Render("↑/↓: navigate • q: quit")
+	footer := footerStyle.Render("↑/↓: navigate • q/Enter: close")
 
-	return title + m.viewport.View() + "\n" + footer
+	content := title + m.viewport.View() + "\n" + footer
+
+	// Constrain the view to the configured width to prevent overflow in modal overlays
+	if m.width > 0 {
+		return lipgloss.NewStyle().MaxWidth(m.width).Render(content)
+	}
+	return content
+}
+
+// IsDone implements EmbeddableComponent.
+func (m *pagerModel) IsDone() bool {
+	return m.done
+}
+
+// Result implements EmbeddableComponent.
+// Pager has no result value.
+func (m *pagerModel) Result() (interface{}, error) {
+	return nil, nil
+}
+
+// Cancelled implements EmbeddableComponent.
+// Pager doesn't have a cancel concept - it's just dismissed.
+func (m *pagerModel) Cancelled() bool {
+	return false
+}
+
+// SetSize implements EmbeddableComponent.
+func (m *pagerModel) SetSize(width, height int) {
+	m.width = width
+	m.height = height
+	m.viewport.Width = width
+	m.viewport.Height = height - 4
 }
 
 // Pager displays content in a scrollable viewport.
 func Pager(opts PagerOptions) error {
-	height := opts.Height
-	if height == 0 {
-		height = 20
-	}
-
-	width := opts.Width
-	if width == 0 {
-		width = 80
-	}
-
-	vp := viewport.New(width, height)
-	vp.SetContent(opts.Content)
-
-	m := pagerModel{
-		viewport: vp,
-		title:    opts.Title,
-	}
-
-	p := tea.NewProgram(m, tea.WithAltScreen())
+	model := NewPagerModel(opts)
+	p := tea.NewProgram(model, tea.WithAltScreen())
 	_, err := p.Run()
 	return err
 }
@@ -176,4 +222,9 @@ func (b *PagerBuilder) Accessible(accessible bool) *PagerBuilder {
 // Run displays the pager.
 func (b *PagerBuilder) Run() error {
 	return Pager(b.opts)
+}
+
+// Model returns the embeddable model for composition.
+func (b *PagerBuilder) Model() EmbeddableComponent {
+	return NewPagerModel(b.opts)
 }

@@ -3,7 +3,11 @@
 package tui
 
 import (
+	"fmt"
+
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
+	"github.com/charmbracelet/lipgloss"
 )
 
 // ConfirmOptions configures the Confirm component.
@@ -22,9 +26,29 @@ type ConfirmOptions struct {
 	Config Config
 }
 
-// Confirm prompts the user to confirm an action (yes/no).
-// Returns true for affirmative, false for negative, or an error if cancelled.
-func Confirm(opts ConfirmOptions) (bool, error) {
+// confirmModel implements EmbeddableComponent for confirmation prompts.
+type confirmModel struct {
+	form      *huh.Form
+	result    *bool
+	done      bool
+	cancelled bool
+	width     int
+	height    int
+}
+
+// NewConfirmModel creates an embeddable confirm component.
+func NewConfirmModel(opts ConfirmOptions) *confirmModel {
+	return newConfirmModelWithTheme(opts, getHuhTheme(opts.Config.Theme))
+}
+
+// NewConfirmModelForModal creates an embeddable confirm component with modal-specific styling.
+// This uses a theme that matches the modal overlay background to prevent color bleeding.
+func NewConfirmModelForModal(opts ConfirmOptions) *confirmModel {
+	return newConfirmModelWithTheme(opts, getModalHuhTheme())
+}
+
+// newConfirmModelWithTheme creates a confirm model with a specific huh theme.
+func newConfirmModelWithTheme(opts ConfirmOptions, theme *huh.Theme) *confirmModel {
 	result := opts.Default
 
 	confirm := huh.NewConfirm().
@@ -41,14 +65,102 @@ func Confirm(opts ConfirmOptions) (bool, error) {
 	}
 
 	form := huh.NewForm(huh.NewGroup(confirm)).
-		WithTheme(getHuhTheme(opts.Config.Theme)).
+		WithTheme(theme).
 		WithAccessible(opts.Config.Accessible)
 
-	if err := form.Run(); err != nil {
+	return &confirmModel{
+		form:   form,
+		result: &result,
+	}
+}
+
+// Init implements tea.Model.
+func (m *confirmModel) Init() tea.Cmd {
+	return m.form.Init()
+}
+
+// Update implements tea.Model.
+func (m *confirmModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	// Handle cancel keys before passing to form
+	if keyMsg, ok := msg.(tea.KeyMsg); ok {
+		switch keyMsg.String() {
+		case "ctrl+c", "esc":
+			m.done = true
+			m.cancelled = true
+			return m, nil
+		}
+	}
+
+	// Pass to huh form
+	form, cmd := m.form.Update(msg)
+	if f, ok := form.(*huh.Form); ok {
+		m.form = f
+	}
+
+	// Check if form is complete
+	if m.form.State == huh.StateCompleted {
+		m.done = true
+	} else if m.form.State == huh.StateAborted {
+		m.done = true
+		m.cancelled = true
+	}
+
+	return m, cmd
+}
+
+// View implements tea.Model.
+func (m *confirmModel) View() string {
+	if m.done {
+		return ""
+	}
+	// Constrain the form view to the configured width to prevent overflow
+	if m.width > 0 {
+		return lipgloss.NewStyle().MaxWidth(m.width).Render(m.form.View())
+	}
+	return m.form.View()
+}
+
+// IsDone implements EmbeddableComponent.
+func (m *confirmModel) IsDone() bool {
+	return m.done
+}
+
+// Result implements EmbeddableComponent.
+func (m *confirmModel) Result() (interface{}, error) {
+	if m.cancelled {
+		return nil, nil
+	}
+	return *m.result, nil
+}
+
+// Cancelled implements EmbeddableComponent.
+func (m *confirmModel) Cancelled() bool {
+	return m.cancelled
+}
+
+// SetSize implements EmbeddableComponent.
+func (m *confirmModel) SetSize(width, height int) {
+	m.width = width
+	m.height = height
+	m.form = m.form.WithWidth(width).WithHeight(height)
+}
+
+// Confirm prompts the user to confirm an action (yes/no).
+// Returns true for affirmative, false for negative, or an error if cancelled.
+func Confirm(opts ConfirmOptions) (bool, error) {
+	model := NewConfirmModel(opts)
+	p := tea.NewProgram(model)
+	finalModel, err := p.Run()
+	if err != nil {
 		return false, err
 	}
 
-	return result, nil
+	m := finalModel.(*confirmModel)
+	if m.cancelled {
+		return false, fmt.Errorf("user aborted")
+	}
+	result, _ := m.Result()
+	return result.(bool), nil
 }
 
 // ConfirmBuilder provides a fluent API for building Confirm prompts.
@@ -113,4 +225,9 @@ func (b *ConfirmBuilder) Accessible(accessible bool) *ConfirmBuilder {
 // Run executes the confirm prompt and returns the result.
 func (b *ConfirmBuilder) Run() (bool, error) {
 	return Confirm(b.opts)
+}
+
+// Model returns the embeddable model for composition.
+func (b *ConfirmBuilder) Model() EmbeddableComponent {
+	return NewConfirmModel(b.opts)
 }

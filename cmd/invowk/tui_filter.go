@@ -11,6 +11,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"invowk-cli/internal/tui"
+	"invowk-cli/internal/tuiserver"
 )
 
 var (
@@ -95,17 +96,37 @@ func runTuiFilter(cmd *cobra.Command, args []string) error {
 		limit = 0
 	}
 
-	results, err := tui.Filter(tui.FilterOptions{
-		Title:       filterTitle,
-		Placeholder: filterPlaceholder,
-		Options:     options,
-		Width:       filterWidth,
-		Height:      filterHeight,
-		Limit:       limit,
-		NoLimit:     filterNoLimit,
-		Reverse:     filterReverse,
-		Fuzzy:       filterFuzzy,
-	})
+	var results []string
+	var err error
+
+	// Check if we should delegate to parent TUI server
+	if client := tuiserver.NewClientFromEnv(); client != nil {
+		results, err = client.Filter(tuiserver.FilterRequest{
+			Title:       filterTitle,
+			Placeholder: filterPlaceholder,
+			Options:     options,
+			Width:       filterWidth,
+			Height:      filterHeight,
+			Limit:       limit,
+			NoLimit:     filterNoLimit,
+			Reverse:     filterReverse,
+			Fuzzy:       filterFuzzy,
+		})
+	} else {
+		// Render TUI directly
+		results, err = tui.Filter(tui.FilterOptions{
+			Title:       filterTitle,
+			Placeholder: filterPlaceholder,
+			Options:     options,
+			Width:       filterWidth,
+			Height:      filterHeight,
+			Limit:       limit,
+			NoLimit:     filterNoLimit,
+			Reverse:     filterReverse,
+			Fuzzy:       filterFuzzy,
+		})
+	}
+
 	if err != nil {
 		return err
 	}

@@ -12,6 +12,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"invowk-cli/internal/tui"
+	"invowk-cli/internal/tuiserver"
 )
 
 var (
@@ -109,28 +110,54 @@ func runTuiTable(cmd *cobra.Command, args []string) error {
 		rows = rows[1:] // Remove header row from data
 	}
 
-	// Build columns
-	columns := make([]tui.TableColumn, len(headers))
-	for i, h := range headers {
-		width := 0
-		if i < len(tableWidths) {
-			width = tableWidths[i]
-		}
-		columns[i] = tui.TableColumn{
-			Title: h,
-			Width: width,
-		}
-	}
+	var selectedIdx int
+	var selectedRow []string
+	var err error
 
-	// Use the Table function which returns (int, []string, error)
-	selectedIdx, selectedRow, err := tui.Table(tui.TableOptions{
-		Columns:    columns,
-		Rows:       rows,
-		Height:     tableHeight,
-		Selectable: tableSelectable,
-	})
-	if err != nil {
-		return err
+	// Check if we should delegate to parent TUI server
+	if client := tuiserver.NewClientFromEnv(); client != nil {
+		borderStr := "normal"
+		if !tableSelectable {
+			borderStr = "none"
+		}
+		result, clientErr := client.Table(tuiserver.TableRequest{
+			Columns:   headers,
+			Rows:      rows,
+			Widths:    tableWidths,
+			Height:    tableHeight,
+			Separator: tableSeparator,
+			Border:    borderStr,
+			Print:     !tableSelectable,
+		})
+		if clientErr != nil {
+			return clientErr
+		}
+		selectedIdx = result.SelectedIndex
+		selectedRow = result.SelectedRow
+	} else {
+		// Build columns for direct rendering
+		columns := make([]tui.TableColumn, len(headers))
+		for i, h := range headers {
+			width := 0
+			if i < len(tableWidths) {
+				width = tableWidths[i]
+			}
+			columns[i] = tui.TableColumn{
+				Title: h,
+				Width: width,
+			}
+		}
+
+		// Use the Table function which returns (int, []string, error)
+		selectedIdx, selectedRow, err = tui.Table(tui.TableOptions{
+			Columns:    columns,
+			Rows:       rows,
+			Height:     tableHeight,
+			Selectable: tableSelectable,
+		})
+		if err != nil {
+			return err
+		}
 	}
 
 	// If selectable and a row was selected, print it

@@ -5,8 +5,11 @@ package tui
 import (
 	"context"
 	"os/exec"
+	"time"
 
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh/spinner"
+	"github.com/charmbracelet/lipgloss"
 )
 
 // SpinnerType represents the type of spinner animation.
@@ -87,6 +90,156 @@ type SpinOptions struct {
 	Type SpinnerType
 	// Config holds common TUI configuration.
 	Config Config
+}
+
+// SpinCommandOptions configures an embeddable spin component with a command.
+type SpinCommandOptions struct {
+	// Title is the text displayed next to the spinner.
+	Title string
+	// Command is the command and arguments to execute.
+	Command []string
+	// Type specifies the spinner animation type.
+	Type SpinnerType
+	// Config holds common TUI configuration.
+	Config Config
+}
+
+// spinModel implements EmbeddableComponent for spinner with command execution.
+type spinModel struct {
+	title   string
+	command []string
+	done    bool
+	result  SpinResult
+	width   int
+	height  int
+	spinner int
+	frames  []string
+}
+
+// spinnerTickMsg is sent to animate the spinner.
+type spinnerTickMsg struct{}
+
+// spinnerDoneMsg is sent when the command completes.
+type spinnerDoneMsg struct {
+	result SpinResult
+}
+
+// NewSpinModel creates an embeddable spinner component.
+func NewSpinModel(opts SpinCommandOptions) *spinModel {
+	if len(opts.Command) == 0 {
+		// No command - return immediately done
+		return &spinModel{
+			done: true,
+		}
+	}
+
+	return &spinModel{
+		title:   opts.Title,
+		command: opts.Command,
+		frames:  []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"},
+	}
+}
+
+// Init implements tea.Model.
+func (m *spinModel) Init() tea.Cmd {
+	// Start the command and spinner tick
+	return tea.Batch(
+		m.runCommand(),
+		m.tick(),
+	)
+}
+
+func (m *spinModel) runCommand() tea.Cmd {
+	return func() tea.Msg {
+		if len(m.command) == 0 {
+			return spinnerDoneMsg{result: SpinResult{}}
+		}
+
+		cmd := exec.Command(m.command[0], m.command[1:]...)
+		output, err := cmd.CombinedOutput()
+
+		result := SpinResult{
+			Stdout: string(output),
+		}
+
+		if err != nil {
+			if exitErr, ok := err.(*exec.ExitError); ok {
+				result.ExitCode = exitErr.ExitCode()
+			} else {
+				result.ExitCode = 1
+			}
+		}
+
+		return spinnerDoneMsg{result: result}
+	}
+}
+
+func (m *spinModel) tick() tea.Cmd {
+	return tea.Tick(100*time.Millisecond, func(_ time.Time) tea.Msg {
+		return spinnerTickMsg{}
+	})
+}
+
+// Update implements tea.Model.
+func (m *spinModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case spinnerTickMsg:
+		if !m.done {
+			m.spinner = (m.spinner + 1) % len(m.frames)
+			return m, m.tick()
+		}
+	case spinnerDoneMsg:
+		m.done = true
+		m.result = msg.result
+		return m, nil
+	case tea.KeyMsg:
+		switch msg.String() {
+		case "ctrl+c":
+			m.done = true
+			return m, nil
+		}
+	}
+	return m, nil
+}
+
+// View implements tea.Model.
+func (m *spinModel) View() string {
+	if m.done {
+		return ""
+	}
+
+	frame := m.frames[m.spinner]
+	spinnerStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#7C3AED"))
+	titleStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#FFFFFF"))
+
+	content := spinnerStyle.Render(frame) + " " + titleStyle.Render(m.title)
+
+	// Constrain the view to the configured width to prevent overflow in modal overlays
+	if m.width > 0 {
+		return lipgloss.NewStyle().MaxWidth(m.width).Render(content)
+	}
+	return content
+}
+
+// IsDone implements EmbeddableComponent.
+func (m *spinModel) IsDone() bool {
+	return m.done
+}
+
+// Result implements EmbeddableComponent.
+func (m *spinModel) Result() (interface{}, error) {
+	return m.result, nil
+}
+
+// Cancelled implements EmbeddableComponent.
+func (m *spinModel) Cancelled() bool {
+	return false
+}
+
+// SetSize implements EmbeddableComponent.
+func (m *spinModel) SetSize(width, height int) {
+	m.width = width
+	m.height = height
 }
 
 // getSpinnerType converts SpinnerType to spinner.Type.

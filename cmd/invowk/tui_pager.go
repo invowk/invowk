@@ -12,12 +12,13 @@ import (
 	"github.com/spf13/cobra"
 
 	"invowk-cli/internal/tui"
+	"invowk-cli/internal/tuiserver"
 )
 
 var (
-	pagerTitle     string
-	pagerLineNum   bool
-	pagerSoftWrap  bool
+	pagerTitle    string
+	pagerLineNum  bool
+	pagerSoftWrap bool
 )
 
 // tuiPagerCmd provides content scrolling.
@@ -90,6 +91,16 @@ func runTuiPager(cmd *cobra.Command, args []string) error {
 		}
 	}
 
+	// Check if we should delegate to parent TUI server
+	if client := tuiserver.NewClientFromEnv(); client != nil {
+		return client.Pager(tuiserver.PagerRequest{
+			Content:     content,
+			ShowLineNum: pagerLineNum,
+			SoftWrap:    pagerSoftWrap,
+		})
+	}
+
+	// Render TUI directly
 	return tui.Pager(tui.PagerOptions{
 		Title:           pagerTitle,
 		Content:         content,

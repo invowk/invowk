@@ -8,6 +8,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"invowk-cli/internal/tui"
+	"invowk-cli/internal/tuiserver"
 )
 
 var (
@@ -61,12 +62,27 @@ func runTuiConfirm(cmd *cobra.Command, args []string) error {
 		title = args[0]
 	}
 
-	confirmed, err := tui.Confirm(tui.ConfirmOptions{
-		Title:       title,
-		Affirmative: confirmAffirmative,
-		Negative:    confirmNegative,
-		Default:     confirmDefault,
-	})
+	var confirmed bool
+	var err error
+
+	// Check if we should delegate to parent TUI server
+	if client := tuiserver.NewClientFromEnv(); client != nil {
+		confirmed, err = client.Confirm(tuiserver.ConfirmRequest{
+			Title:       title,
+			Affirmative: confirmAffirmative,
+			Negative:    confirmNegative,
+			Default:     confirmDefault,
+		})
+	} else {
+		// Render TUI directly
+		confirmed, err = tui.Confirm(tui.ConfirmOptions{
+			Title:       title,
+			Affirmative: confirmAffirmative,
+			Negative:    confirmNegative,
+			Default:     confirmDefault,
+		})
+	}
+
 	if err != nil {
 		return err
 	}

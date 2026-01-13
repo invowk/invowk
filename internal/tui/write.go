@@ -3,7 +3,11 @@
 package tui
 
 import (
+	"fmt"
+
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
+	"github.com/charmbracelet/lipgloss"
 )
 
 // WriteOptions configures the Write component (multi-line text input).
@@ -28,20 +32,39 @@ type WriteOptions struct {
 	Config Config
 }
 
-// Write prompts the user for multi-line text input.
-// Returns the entered text or an error if the prompt was cancelled.
-func Write(opts WriteOptions) (string, error) {
+// writeModel implements EmbeddableComponent for multi-line text input.
+type writeModel struct {
+	form      *huh.Form
+	result    *string
+	done      bool
+	cancelled bool
+	width     int
+	height    int
+}
+
+// NewWriteModel creates an embeddable text area component.
+func NewWriteModel(opts WriteOptions) *writeModel {
+	return newWriteModelWithTheme(opts, getHuhTheme(opts.Config.Theme))
+}
+
+// NewWriteModelForModal creates an embeddable text area component with modal-specific styling.
+// This uses a theme that matches the modal overlay background to prevent color bleeding.
+func NewWriteModelForModal(opts WriteOptions) *writeModel {
+	return newWriteModelWithTheme(opts, getModalHuhTheme())
+}
+
+// newWriteModelWithTheme creates a text area model with a specific huh theme.
+func newWriteModelWithTheme(opts WriteOptions, theme *huh.Theme) *writeModel {
 	var result string
+	if opts.Value != "" {
+		result = opts.Value
+	}
 
 	text := huh.NewText().
 		Title(opts.Title).
 		Description(opts.Description).
 		Placeholder(opts.Placeholder).
 		Value(&result)
-
-	if opts.Value != "" {
-		result = opts.Value
-	}
 
 	if opts.CharLimit > 0 {
 		text = text.CharLimit(opts.CharLimit)
@@ -56,14 +79,108 @@ func Write(opts WriteOptions) (string, error) {
 	}
 
 	form := huh.NewForm(huh.NewGroup(text)).
-		WithTheme(getHuhTheme(opts.Config.Theme)).
+		WithTheme(theme).
 		WithAccessible(opts.Config.Accessible)
 
-	if err := form.Run(); err != nil {
+	if opts.Width > 0 {
+		form = form.WithWidth(opts.Width)
+	} else if opts.Config.Width > 0 {
+		form = form.WithWidth(opts.Config.Width)
+	}
+
+	return &writeModel{
+		form:   form,
+		result: &result,
+	}
+}
+
+// Init implements tea.Model.
+func (m *writeModel) Init() tea.Cmd {
+	return m.form.Init()
+}
+
+// Update implements tea.Model.
+func (m *writeModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	// Handle cancel keys before passing to form
+	if keyMsg, ok := msg.(tea.KeyMsg); ok {
+		switch keyMsg.String() {
+		case "ctrl+c", "esc":
+			m.done = true
+			m.cancelled = true
+			return m, nil
+		}
+	}
+
+	// Pass to huh form
+	form, cmd := m.form.Update(msg)
+	if f, ok := form.(*huh.Form); ok {
+		m.form = f
+	}
+
+	// Check if form is complete
+	if m.form.State == huh.StateCompleted {
+		m.done = true
+	} else if m.form.State == huh.StateAborted {
+		m.done = true
+		m.cancelled = true
+	}
+
+	return m, cmd
+}
+
+// View implements tea.Model.
+func (m *writeModel) View() string {
+	if m.done {
+		return ""
+	}
+	// Constrain the form view to the configured width to prevent overflow
+	if m.width > 0 {
+		return lipgloss.NewStyle().MaxWidth(m.width).Render(m.form.View())
+	}
+	return m.form.View()
+}
+
+// IsDone implements EmbeddableComponent.
+func (m *writeModel) IsDone() bool {
+	return m.done
+}
+
+// Result implements EmbeddableComponent.
+func (m *writeModel) Result() (interface{}, error) {
+	if m.cancelled {
+		return nil, nil
+	}
+	return *m.result, nil
+}
+
+// Cancelled implements EmbeddableComponent.
+func (m *writeModel) Cancelled() bool {
+	return m.cancelled
+}
+
+// SetSize implements EmbeddableComponent.
+func (m *writeModel) SetSize(width, height int) {
+	m.width = width
+	m.height = height
+	m.form = m.form.WithWidth(width).WithHeight(height)
+}
+
+// Write prompts the user for multi-line text input.
+// Returns the entered text or an error if the prompt was cancelled.
+func Write(opts WriteOptions) (string, error) {
+	model := NewWriteModel(opts)
+	p := tea.NewProgram(model)
+	finalModel, err := p.Run()
+	if err != nil {
 		return "", err
 	}
 
-	return result, nil
+	m := finalModel.(*writeModel)
+	if m.cancelled {
+		return "", fmt.Errorf("user aborted")
+	}
+	result, _ := m.Result()
+	return result.(string), nil
 }
 
 // WriteBuilder provides a fluent API for building Write prompts.
@@ -143,4 +260,9 @@ func (b *WriteBuilder) Accessible(accessible bool) *WriteBuilder {
 // Run executes the write prompt and returns the result.
 func (b *WriteBuilder) Run() (string, error) {
 	return Write(b.opts)
+}
+
+// Model returns the embeddable model for composition.
+func (b *WriteBuilder) Model() EmbeddableComponent {
+	return NewWriteModel(b.opts)
 }

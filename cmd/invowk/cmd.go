@@ -13,6 +13,7 @@ import (
 	"strings"
 	"sync"
 
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/spf13/cobra"
 
@@ -22,6 +23,7 @@ import (
 	"invowk-cli/internal/runtime"
 	"invowk-cli/internal/sshserver"
 	"invowk-cli/internal/tui"
+	"invowk-cli/internal/tuiserver"
 	"invowk-cli/pkg/invkfile"
 )
 
@@ -776,6 +778,8 @@ func runCommand(args []string) error {
 // executeInteractive runs a command in interactive mode using an alternate screen buffer.
 // This provides a full PTY for the command, forwarding keyboard input during execution
 // and allowing output review after completion.
+// It also starts a TUI server so that nested `invowk tui *` commands can delegate
+// their rendering to the parent process.
 func executeInteractive(ctx *runtime.ExecutionContext, registry *runtime.Registry, cmdName string) *runtime.Result {
 	// Get the native runtime to prepare the command
 	rt, err := registry.Get(runtime.RuntimeTypeNative)
@@ -804,12 +808,34 @@ func executeInteractive(ctx *runtime.ExecutionContext, registry *runtime.Registr
 		defer prepared.Cleanup()
 	}
 
+	// Start the TUI server for nested TUI components
+	tuiServer, err := tuiserver.New()
+	if err != nil {
+		return &runtime.Result{ExitCode: 1, Error: fmt.Errorf("failed to create TUI server: %w", err)}
+	}
+
+	if err := tuiServer.Start(); err != nil {
+		return &runtime.Result{ExitCode: 1, Error: fmt.Errorf("failed to start TUI server: %w", err)}
+	}
+	defer tuiServer.Stop()
+
+	// Add TUI server environment variables to the command
+	prepared.Cmd.Env = append(prepared.Cmd.Env,
+		fmt.Sprintf("%s=%s", tuiserver.EnvTUIAddr, tuiServer.URL()),
+		fmt.Sprintf("%s=%s", tuiserver.EnvTUIToken, tuiServer.Token()),
+	)
+
 	// Run the command in interactive mode
 	interactiveResult, err := tui.RunInteractiveCmd(
 		context.Background(),
 		tui.InteractiveOptions{
 			Title:       "Running Command",
 			CommandName: cmdName,
+			OnProgramReady: func(p *tea.Program) {
+				// Start a bridge goroutine that reads TUI requests from the server
+				// and sends them to the parent Bubbletea program for rendering.
+				go bridgeTUIRequests(tuiServer, p)
+			},
 		},
 		prepared.Cmd,
 	)
@@ -821,6 +847,20 @@ func executeInteractive(ctx *runtime.ExecutionContext, registry *runtime.Registr
 	return &runtime.Result{
 		ExitCode: interactiveResult.ExitCode,
 		Error:    interactiveResult.Error,
+	}
+}
+
+// bridgeTUIRequests reads TUI component requests from the server's channel
+// and sends them to the parent Bubbletea program for rendering as overlays.
+// It runs in a goroutine and terminates when the server stops.
+func bridgeTUIRequests(server *tuiserver.Server, program *tea.Program) {
+	for req := range server.RequestChannel() {
+		// Send the request to the interactive model for rendering
+		program.Send(tui.TUIComponentMsg{
+			Component:  tui.ComponentType(req.Component),
+			Options:    req.Options,
+			ResponseCh: req.ResponseCh,
+		})
 	}
 }
 

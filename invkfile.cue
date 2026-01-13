@@ -2718,5 +2718,316 @@ commands: [
 			]
 		}
 	},
+
+	// ============================================================================
+	// SECTION 19: Interactive Mode with TUI Components
+	// ============================================================================
+	// These commands demonstrate the interactive mode (-i flag) which enables
+	// nested invowk tui commands to delegate their rendering to the parent process.
+	// When running with -i, the parent starts an HTTP server and child processes
+	// communicate via INVOWK_TUI_ADDR and INVOWK_TUI_TOKEN environment variables.
+
+	// Example 19.1: Interactive demo showcasing multiple TUI components
+	{
+		name:        "interactive demo"
+		description: "Demonstrate interactive mode with nested TUI components (run with -i flag)"
+		implementations: [
+			{
+				script: """
+					#!/bin/sh
+					echo "=========================================="
+					echo "  Interactive Mode Demo"
+					echo "=========================================="
+					echo ""
+					echo "This demo shows how nested 'invowk tui' commands"
+					echo "delegate their rendering to the parent process"
+					echo "when running in interactive mode (-i flag)."
+					echo ""
+
+					# Check if running in interactive mode
+					if [ -n "$INVOWK_TUI_ADDR" ]; then
+					    echo "Running in interactive mode"
+					    echo "  Server: $INVOWK_TUI_ADDR"
+					    echo ""
+					else
+					    echo "Not running in interactive mode"
+					    echo "  Run this command with: invowk cmd -i examples interactive demo"
+					    exit 1
+					fi
+
+					# Demo 1: Text input
+					echo "--- Demo 1: Text Input ---"
+					name=$(invowk tui input --title "What is your name?" --placeholder "Enter your name...")
+					echo "Hello, $name!"
+					echo ""
+
+					# Demo 2: Confirmation
+					echo "--- Demo 2: Confirmation ---"
+					if invowk tui confirm --title "Do you want to continue with more demos?"; then
+					    echo "Great! Continuing with more demos..."
+					else
+					    echo "Okay, stopping here. Goodbye!"
+					    exit 0
+					fi
+					echo ""
+
+					# Demo 3: Single selection
+					echo "--- Demo 3: Single Selection ---"
+					color=$(invowk tui choose --title "Pick your favorite color" red green blue yellow purple)
+					echo "You chose: $color"
+					echo ""
+
+					# Demo 4: Multiple selection
+					echo "--- Demo 4: Multiple Selection ---"
+					echo "Select your favorite programming languages:"
+					languages=$(invowk tui choose --title "Select languages (space to toggle, enter to confirm)" --no-limit go python rust javascript typescript ruby)
+					echo "You selected: $languages"
+					echo ""
+
+					# Demo 5: Filter selection
+					echo "--- Demo 5: Filter Selection ---"
+					fruit=$(invowk tui filter --title "Search for a fruit" apple banana cherry date elderberry fig grape honeydew kiwi lemon mango)
+					echo "You filtered and selected: $fruit"
+					echo ""
+
+					# Demo 6: Spinner for long operation
+					echo "--- Demo 6: Spinner ---"
+					invowk tui spin --title "Processing your selections..." -- sleep 2
+					echo "Processing complete!"
+					echo ""
+
+					# Summary
+					echo "=========================================="
+					echo "  Demo Complete!"
+					echo "=========================================="
+					echo ""
+					echo "Summary:"
+					echo "  Name: $name"
+					echo "  Favorite color: $color"
+					echo "  Languages: $languages"
+					echo "  Fruit: $fruit"
+					echo ""
+					echo "All TUI components were rendered by the parent"
+					echo "process via HTTP delegation. This allows scripts"
+					echo "running in PTY mode to display rich TUI interfaces"
+					echo "without terminal ownership conflicts."
+					echo "=========================================="
+					"""
+				target: {
+					runtimes: [{name: "native"}]
+				}
+			}
+		]
+	},
+
+	// Example 19.2: Interactive file browser demo
+	{
+		name:        "interactive file"
+		description: "Demonstrate interactive file picker (run with -i flag)"
+		implementations: [
+			{
+				script: """
+					#!/bin/sh
+					echo "=========================================="
+					echo "  Interactive File Picker Demo"
+					echo "=========================================="
+					echo ""
+
+					if [ -z "$INVOWK_TUI_ADDR" ]; then
+					    echo "Run with: invowk cmd -i examples interactive file"
+					    exit 1
+					fi
+
+					# Pick a file
+					file=$(invowk tui file --title "Select a file to view")
+					if [ -z "$file" ]; then
+					    echo "No file selected."
+					    exit 0
+					fi
+
+					echo "Selected: $file"
+					echo ""
+
+					# Show file info
+					echo "File info:"
+					ls -la "$file"
+					echo ""
+
+					# Ask if user wants to view contents
+					if invowk tui confirm --title "View file contents?"; then
+					    echo "--- File Contents ---"
+					    head -50 "$file"
+					    echo ""
+					    echo "--- End of preview (first 50 lines) ---"
+					fi
+					"""
+				target: {
+					runtimes: [{name: "native"}]
+				}
+			}
+		]
+	},
+
+	// Example 19.3: Interactive table display
+	{
+		name:        "interactive table"
+		description: "Demonstrate interactive table display (run with -i flag)"
+		implementations: [
+			{
+				script: """
+					#!/bin/sh
+					echo "=========================================="
+					echo "  Interactive Table Demo"
+					echo "=========================================="
+					echo ""
+
+					if [ -z "$INVOWK_TUI_ADDR" ]; then
+					    echo "Run with: invowk cmd -i examples interactive table"
+					    exit 1
+					fi
+
+					# Display a table of data
+					echo "Displaying process information in a table..."
+					echo ""
+
+					invowk tui table --title "Top Processes" --columns "PID,USER,MEM,CPU,COMMAND" --row "1,root,5.2,0.1,systemd" --row "1234,user,3.8,2.5,firefox" --row "5678,user,2.1,15.3,node"
+
+					echo ""
+					echo "Table displayed successfully!"
+					"""
+				target: {
+					runtimes: [{name: "native"}]
+				}
+			}
+		]
+	},
+
+	// Example 19.4: Interactive pager demo
+	{
+		name:        "interactive pager"
+		description: "Demonstrate interactive pager for long content (run with -i flag)"
+		implementations: [
+			{
+				script: """
+					#!/bin/sh
+					echo "=========================================="
+					echo "  Interactive Pager Demo"
+					echo "=========================================="
+					echo ""
+
+					if [ -z "$INVOWK_TUI_ADDR" ]; then
+					    echo "Run with: invowk cmd -i examples interactive pager"
+					    exit 1
+					fi
+
+					# Generate some content to page through
+					echo "Generating content for the pager..."
+
+					# Use echo to generate content instead of heredoc
+					{
+					echo "========================================"
+					echo "    Welcome to the Invowk Pager Demo"
+					echo "========================================"
+					echo ""
+					echo "This is a demonstration of the interactive pager component."
+					echo "The pager allows you to scroll through long content using"
+					echo "keyboard navigation."
+					echo ""
+					echo "NAVIGATION:"
+					echo "  - j/down  : Scroll down"
+					echo "  - k/up    : Scroll up"
+					echo "  - g/Home  : Go to top"
+					echo "  - G/End   : Go to bottom"
+					echo "  - q/Esc   : Exit pager"
+					echo ""
+					echo "FEATURES:"
+					echo "  - Smooth scrolling"
+					echo "  - Line number display"
+					echo "  - Search functionality (coming soon)"
+					echo ""
+					echo "Lorem ipsum dolor sit amet, consectetur adipiscing elit."
+					echo "Sed do eiusmod tempor incididunt ut labore et dolore magna"
+					echo "aliqua. Ut enim ad minim veniam, quis nostrud exercitation"
+					echo "ullamco laboris nisi ut aliquip ex ea commodo consequat."
+					echo ""
+					echo "Duis aute irure dolor in reprehenderit in voluptate velit"
+					echo "esse cillum dolore eu fugiat nulla pariatur. Excepteur sint"
+					echo "occaecat cupidatat non proident, sunt in culpa qui officia"
+					echo "deserunt mollit anim id est laborum."
+					echo ""
+					echo "========================================"
+					echo "         End of Demo Content"
+					echo "========================================"
+					} | invowk tui pager --title "Demo Content"
+
+					echo ""
+					echo "Pager closed successfully!"
+					"""
+				target: {
+					runtimes: [{name: "native"}]
+				}
+			}
+		]
+	},
+
+	// Example 19.5: Interactive multi-line text input
+	{
+		name:        "interactive write"
+		description: "Demonstrate interactive multi-line text editor (run with -i flag)"
+		implementations: [
+			{
+				script: """
+					#!/bin/sh
+					echo "=========================================="
+					echo "  Interactive Text Editor Demo"
+					echo "=========================================="
+					echo ""
+
+					if [ -z "$INVOWK_TUI_ADDR" ]; then
+					    echo "Run with: invowk cmd -i examples interactive write"
+					    exit 1
+					fi
+
+					echo "Opening text editor..."
+					echo "Write a short note or message, then press Ctrl+D to submit."
+					echo ""
+
+					# Open multi-line text editor
+					note=$(invowk tui write --title "Write your note" --placeholder "Type your message here...")
+
+					if [ -z "$note" ]; then
+					    echo "No content entered."
+					    exit 0
+					fi
+
+					echo "--- Your Note ---"
+					echo "$note"
+					echo "--- End of Note ---"
+					echo ""
+
+					# Ask what to do with it
+					action=$(invowk tui choose --title "What would you like to do with this note?" --mode single "Save to file" "Copy to clipboard" "Discard")
+
+					case "$action" in
+					    "Save to file")
+					        filename=$(invowk tui input --title "Enter filename" --placeholder "note.txt")
+					        echo "$note" > "/tmp/$filename"
+					        echo "Saved to /tmp/$filename"
+					        ;;
+					    "Copy to clipboard")
+					        echo "(Clipboard copy would happen here)"
+					        echo "Note content ready for copying."
+					        ;;
+					    "Discard")
+					        echo "Note discarded."
+					        ;;
+					esac
+					"""
+				target: {
+					runtimes: [{name: "native"}]
+				}
+			}
+		]
+	},
 ]
 

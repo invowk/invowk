@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"invowk-cli/internal/tui"
+	"invowk-cli/internal/tuiserver"
 )
 
 var (
@@ -63,6 +64,37 @@ func runTuiChoose(cmd *cobra.Command, args []string) error {
 		limit = 0 // 0 means unlimited in multi-select
 	}
 
+	// Check if we should delegate to parent TUI server
+	if client := tuiserver.NewClientFromEnv(); client != nil {
+		if limit == 1 && !chooseNoLimit {
+			// Single selection mode
+			result, err := client.ChooseSingle(tuiserver.ChooseRequest{
+				Title:   chooseTitle,
+				Options: args,
+				Height:  chooseHeight,
+			})
+			if err != nil {
+				return err
+			}
+			fmt.Fprintln(os.Stdout, result)
+		} else {
+			// Multi-selection mode
+			results, err := client.ChooseMultiple(tuiserver.ChooseRequest{
+				Title:   chooseTitle,
+				Options: args,
+				Limit:   limit,
+				NoLimit: chooseNoLimit,
+				Height:  chooseHeight,
+			})
+			if err != nil {
+				return err
+			}
+			fmt.Fprintln(os.Stdout, strings.Join(results, "\n"))
+		}
+		return nil
+	}
+
+	// Render TUI directly
 	if limit == 1 && !chooseNoLimit {
 		// Single selection mode using ChooseStrings convenience function
 		result, err := tui.ChooseStrings(chooseTitle, args, tui.DefaultConfig())

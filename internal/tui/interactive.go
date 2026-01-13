@@ -4,6 +4,7 @@ package tui
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -16,6 +17,8 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/xpty"
+
+	"invowk-cli/internal/tuiserver"
 )
 
 // InteractiveOptions configures the interactive execution mode.
@@ -26,6 +29,10 @@ type InteractiveOptions struct {
 	CommandName string
 	// Config holds common TUI configuration.
 	Config Config
+	// OnProgramReady is called with the *tea.Program after it's created.
+	// This allows callers to access the program for terminal control
+	// (e.g., ReleaseTerminal/RestoreTerminal for nested TUI components).
+	OnProgramReady func(p *tea.Program)
 }
 
 // InteractiveResult contains the result of interactive execution.
@@ -44,6 +51,7 @@ type executionState int
 const (
 	stateExecuting executionState = iota
 	stateCompleted
+	stateTUI // Displaying an embedded TUI component
 )
 
 // outputMsg is sent when new output is available from the PTY.
@@ -54,6 +62,24 @@ type outputMsg struct {
 // doneMsg is sent when command execution completes.
 type doneMsg struct {
 	result InteractiveResult
+}
+
+// TUIComponentMsg is sent by the bridge goroutine when a child process
+// requests a TUI component to be rendered as an overlay.
+type TUIComponentMsg struct {
+	// Component is the type of TUI component to render.
+	Component ComponentType
+	// Options contains the component-specific options as raw JSON.
+	Options json.RawMessage
+	// ResponseCh is where the result should be sent when the component completes.
+	ResponseCh chan<- tuiserver.Response
+}
+
+// tuiComponentDoneMsg is sent when an embedded TUI component completes.
+type tuiComponentDoneMsg struct {
+	result    interface{}
+	err       error
+	cancelled bool
 }
 
 // interactiveModel is the Bubbletea model for interactive execution.
@@ -69,6 +95,11 @@ type interactiveModel struct {
 	height   int
 	mu       sync.Mutex
 	pty      xpty.Pty
+
+	// TUI component overlay fields
+	activeComponent     EmbeddableComponent
+	activeComponentType ComponentType
+	componentDoneCh     chan<- tuiserver.Response
 }
 
 func newInteractiveModel(opts InteractiveOptions, pty xpty.Pty) *interactiveModel {
@@ -115,9 +146,45 @@ func (m *interactiveModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.viewport.SetContent(m.content.String())
 			m.viewport.GotoBottom()
 		}
+
+	case TUIComponentMsg:
+		// A child process requested a TUI component to be rendered
+		return m.handleTUIComponentRequest(msg)
+
+	case tuiComponentDoneMsg:
+		// The embedded TUI component has completed
+		return m.handleTUIComponentDone(msg)
 	}
 
-	if m.ready {
+	// When in TUI state, also update the active component
+	if m.state == stateTUI && m.activeComponent != nil {
+		var cmd tea.Cmd
+		updatedModel, cmd := m.activeComponent.Update(msg)
+		if ec, ok := updatedModel.(EmbeddableComponent); ok {
+			m.activeComponent = ec
+		}
+
+		// Check if the component is done
+		if m.activeComponent.IsDone() {
+			// Component is done - send our own completion message
+			// and ignore any command from the component (like tea.Quit)
+			// to prevent the interactive program from quitting prematurely
+			result, err := m.activeComponent.Result()
+			cancelled := m.activeComponent.Cancelled()
+			cmds = append(cmds, func() tea.Msg {
+				return tuiComponentDoneMsg{
+					result:    result,
+					err:       err,
+					cancelled: cancelled,
+				}
+			})
+		} else if cmd != nil {
+			// Only add the component's command if it's not done
+			cmds = append(cmds, cmd)
+		}
+	}
+
+	if m.ready && m.state != stateTUI {
 		var cmd tea.Cmd
 		m.viewport, cmd = m.viewport.Update(msg)
 		cmds = append(cmds, cmd)
@@ -159,9 +226,178 @@ func (m *interactiveModel) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		case "end", "G":
 			m.viewport.GotoBottom()
 		}
+
+	case stateTUI:
+		// When displaying a TUI component, delegate to the component
+		if m.activeComponent != nil {
+			var cmds []tea.Cmd
+			updatedModel, cmd := m.activeComponent.Update(msg)
+			if ec, ok := updatedModel.(EmbeddableComponent); ok {
+				m.activeComponent = ec
+			}
+
+			// Check if the component is done
+			if m.activeComponent.IsDone() {
+				// Component is done - send our own completion message
+				// and ignore any command from the component (like tea.Quit)
+				// to prevent the interactive program from quitting prematurely
+				result, err := m.activeComponent.Result()
+				cancelled := m.activeComponent.Cancelled()
+				cmds = append(cmds, func() tea.Msg {
+					return tuiComponentDoneMsg{
+						result:    result,
+						err:       err,
+						cancelled: cancelled,
+					}
+				})
+			} else if cmd != nil {
+				// Only add the component's command if it's not done
+				cmds = append(cmds, cmd)
+			}
+
+			return m, tea.Batch(cmds...)
+		}
 	}
 
 	return m, nil
+}
+
+// handleTUIComponentRequest creates an embedded TUI component and switches to TUI state.
+func (m *interactiveModel) handleTUIComponentRequest(msg TUIComponentMsg) (tea.Model, tea.Cmd) {
+	// Calculate modal dimensions based on component type
+	modalSize := CalculateModalSize(msg.Component, m.width, m.height)
+
+	// Create the embeddable component with modal dimensions
+	component, err := CreateEmbeddableComponent(msg.Component, msg.Options, modalSize.Width, modalSize.Height)
+	if err != nil {
+		// Send error response back to the server
+		go func() {
+			msg.ResponseCh <- tuiserver.Response{
+				Error: fmt.Sprintf("failed to create component: %v", err),
+			}
+		}()
+		return m, nil
+	}
+
+	// Store the component, type, and response channel
+	m.activeComponent = component
+	m.activeComponentType = msg.Component
+	m.componentDoneCh = msg.ResponseCh
+	m.state = stateTUI
+
+	// Initialize the component
+	return m, m.activeComponent.Init()
+}
+
+// handleTUIComponentDone processes the result from a completed TUI component.
+func (m *interactiveModel) handleTUIComponentDone(msg tuiComponentDoneMsg) (tea.Model, tea.Cmd) {
+	if m.componentDoneCh == nil {
+		return m, nil
+	}
+
+	// Build the response
+	var response tuiserver.Response
+
+	if msg.cancelled {
+		response.Cancelled = true
+	} else if msg.err != nil {
+		response.Error = msg.err.Error()
+	} else {
+		// Convert the raw result to a protocol-compliant struct
+		protocolResult := convertToProtocolResult(m.activeComponentType, msg.result)
+
+		// Marshal the protocol result to JSON
+		resultJSON, err := json.Marshal(protocolResult)
+		if err != nil {
+			response.Error = fmt.Sprintf("failed to marshal result: %v", err)
+		} else {
+			response.Result = resultJSON
+		}
+	}
+
+	// Send the response in a goroutine to avoid blocking
+	doneCh := m.componentDoneCh
+	go func() {
+		doneCh <- response
+	}()
+
+	// Clean up and return to previous state
+	m.activeComponent = nil
+	m.activeComponentType = ""
+	m.componentDoneCh = nil
+	m.state = stateExecuting
+
+	return m, nil
+}
+
+// convertToProtocolResult converts a raw component result to a protocol-compliant struct.
+// The tuiserver client expects specific JSON structures for each component type.
+func convertToProtocolResult(componentType ComponentType, result interface{}) interface{} {
+	switch componentType {
+	case ComponentTypeInput, ComponentTypeTextArea, ComponentTypeWrite:
+		// Input, TextArea, and Write return a string
+		if s, ok := result.(string); ok {
+			return tuiserver.InputResult{Value: s}
+		}
+		return tuiserver.InputResult{}
+
+	case ComponentTypeConfirm:
+		// Confirm returns a bool
+		if b, ok := result.(bool); ok {
+			return tuiserver.ConfirmResult{Confirmed: b}
+		}
+		return tuiserver.ConfirmResult{}
+
+	case ComponentTypeChoose:
+		// Choose returns []string
+		if selected, ok := result.([]string); ok {
+			return tuiserver.ChooseResult{Selected: selected}
+		}
+		return tuiserver.ChooseResult{Selected: []string{}}
+
+	case ComponentTypeFilter:
+		// Filter returns []string
+		if selected, ok := result.([]string); ok {
+			return tuiserver.FilterResult{Selected: selected}
+		}
+		return tuiserver.FilterResult{Selected: []string{}}
+
+	case ComponentTypeFile:
+		// File returns a string path
+		if path, ok := result.(string); ok {
+			return tuiserver.FileResult{Path: path}
+		}
+		return tuiserver.FileResult{}
+
+	case ComponentTypeTable:
+		// Table returns TableSelectionResult
+		if tableResult, ok := result.(TableSelectionResult); ok {
+			return tuiserver.TableResult{
+				SelectedRow:   tableResult.SelectedRow,
+				SelectedIndex: tableResult.SelectedIndex,
+			}
+		}
+		return tuiserver.TableResult{SelectedIndex: -1}
+
+	case ComponentTypePager:
+		// Pager has no result
+		return tuiserver.PagerResult{}
+
+	case ComponentTypeSpin:
+		// Spin returns SpinResult
+		if spinResult, ok := result.(SpinResult); ok {
+			return tuiserver.SpinResult{
+				Stdout:   spinResult.Stdout,
+				Stderr:   spinResult.Stderr,
+				ExitCode: spinResult.ExitCode,
+			}
+		}
+		return tuiserver.SpinResult{}
+
+	default:
+		// Unknown component type, return as-is
+		return result
+	}
 }
 
 func (m *interactiveModel) forwardKeyToPty(msg tea.KeyMsg) {
@@ -236,6 +472,12 @@ func (m *interactiveModel) handleWindowSize(msg tea.WindowSizeMsg) (tea.Model, t
 	} else {
 		m.viewport.Width = msg.Width
 		m.viewport.Height = viewportHeight
+	}
+
+	// Resize the active TUI component if one is displayed
+	if m.activeComponent != nil && m.activeComponentType != "" {
+		modalSize := CalculateModalSize(m.activeComponentType, msg.Width, msg.Height)
+		m.activeComponent.SetSize(modalSize.Width, modalSize.Height)
 	}
 
 	// Resize the PTY to match
@@ -343,7 +585,14 @@ func (m *interactiveModel) View() string {
 
 	footer := footerContent + scrollPercent
 
-	return fmt.Sprintf("%s\n%s\n%s\n%s", title, separator, m.viewport.View(), footer)
+	baseView := fmt.Sprintf("%s\n%s\n%s\n%s", title, separator, m.viewport.View(), footer)
+
+	// If we're displaying a TUI component, render it as an overlay on top of the base view
+	if m.state == stateTUI && m.activeComponent != nil {
+		return RenderOverlay(baseView, m.activeComponent.View(), m.width, m.height)
+	}
+
+	return baseView
 }
 
 // RunInteractiveCmd executes a command in interactive mode with alternate screen buffer.
@@ -376,6 +625,12 @@ func RunInteractiveCmd(ctx context.Context, opts InteractiveOptions, cmd *exec.C
 		tea.WithAltScreen(),
 		tea.WithMouseCellMotion(),
 	)
+
+	// Notify the caller that the program is ready.
+	// This allows them to access the program for terminal control.
+	if opts.OnProgramReady != nil {
+		opts.OnProgramReady(p)
+	}
 
 	// Read PTY output in a goroutine and send to the program
 	go func() {
