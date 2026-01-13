@@ -4316,3 +4316,215 @@ commands: [
 		t.Error("Arg[2].Variadic = false, want true")
 	}
 }
+
+func TestGenerateCUE_WithArgs(t *testing.T) {
+	inv := &Invowkfile{
+		Group:   "test",
+		Version: "1.0",
+		Commands: []Command{
+			{
+				Name:        "deploy",
+				Description: "Deploy to environment",
+				Implementations: []Implementation{
+					{
+						Script: "echo deploying",
+						Target: Target{
+							Runtimes: []RuntimeConfig{{Name: RuntimeNative}},
+						},
+					},
+				},
+				Args: []Argument{
+					{
+						Name:        "env",
+						Description: "Target environment",
+						Required:    true,
+						Validation:  "^(dev|staging|prod)$",
+					},
+					{
+						Name:         "replicas",
+						Description:  "Number of replicas",
+						Type:         ArgumentTypeInt,
+						DefaultValue: "3",
+					},
+					{
+						Name:        "services",
+						Description: "Services to deploy",
+						Variadic:    true,
+					},
+				},
+			},
+		},
+	}
+
+	output := GenerateCUE(inv)
+
+	// Check args section exists
+	if !strings.Contains(output, "args: [") {
+		t.Error("GenerateCUE should contain 'args: ['")
+	}
+
+	// Check required arg
+	if !strings.Contains(output, `name: "env"`) {
+		t.Error("GenerateCUE should contain arg name 'env'")
+	}
+	if !strings.Contains(output, `description: "Target environment"`) {
+		t.Error("GenerateCUE should contain arg description")
+	}
+	if !strings.Contains(output, "required: true") {
+		t.Error("GenerateCUE should contain required: true for required arg")
+	}
+	if !strings.Contains(output, `validation: "^(dev|staging|prod)$"`) {
+		t.Error("GenerateCUE should contain validation pattern")
+	}
+
+	// Check typed arg with default
+	if !strings.Contains(output, `name: "replicas"`) {
+		t.Error("GenerateCUE should contain arg name 'replicas'")
+	}
+	if !strings.Contains(output, `type: "int"`) {
+		t.Error("GenerateCUE should contain type: int")
+	}
+	if !strings.Contains(output, `default_value: "3"`) {
+		t.Error("GenerateCUE should contain default_value: 3")
+	}
+
+	// Check variadic arg
+	if !strings.Contains(output, `name: "services"`) {
+		t.Error("GenerateCUE should contain arg name 'services'")
+	}
+	if !strings.Contains(output, "variadic: true") {
+		t.Error("GenerateCUE should contain variadic: true")
+	}
+}
+
+func TestGenerateCUE_WithArgs_StringTypeNotIncluded(t *testing.T) {
+	inv := &Invowkfile{
+		Group:   "test",
+		Version: "1.0",
+		Commands: []Command{
+			{
+				Name:        "greet",
+				Description: "Greet someone",
+				Implementations: []Implementation{
+					{
+						Script: "echo hello",
+						Target: Target{
+							Runtimes: []RuntimeConfig{{Name: RuntimeNative}},
+						},
+					},
+				},
+				Args: []Argument{
+					{
+						Name:        "name",
+						Description: "Name to greet",
+						Type:        ArgumentTypeString, // Default type
+					},
+				},
+			},
+		},
+	}
+
+	output := GenerateCUE(inv)
+
+	// String type should NOT be explicitly included (it's the default)
+	if strings.Contains(output, `type: "string"`) {
+		t.Error("GenerateCUE should NOT include type: string (it's the default)")
+	}
+
+	// But the arg should still be there
+	if !strings.Contains(output, `name: "name"`) {
+		t.Error("GenerateCUE should contain the arg")
+	}
+}
+
+func TestGenerateCUE_WithArgs_RoundTrip(t *testing.T) {
+	// Create an invowkfile with args, generate CUE, parse it back, and verify
+	original := &Invowkfile{
+		Group:   "test",
+		Version: "1.0",
+		Commands: []Command{
+			{
+				Name:        "deploy",
+				Description: "Deploy application",
+				Implementations: []Implementation{
+					{
+						Script: "echo deploying",
+						Target: Target{
+							Runtimes: []RuntimeConfig{{Name: RuntimeNative}},
+						},
+					},
+				},
+				Args: []Argument{
+					{
+						Name:        "env",
+						Description: "Target environment",
+						Required:    true,
+					},
+					{
+						Name:         "count",
+						Description:  "Replica count",
+						Type:         ArgumentTypeInt,
+						DefaultValue: "1",
+					},
+					{
+						Name:        "extras",
+						Description: "Extra params",
+						Variadic:    true,
+					},
+				},
+			},
+		},
+	}
+
+	// Generate CUE
+	cueContent := GenerateCUE(original)
+
+	// Write to temp file and parse back
+	tmpDir := t.TempDir()
+	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
+	if err := os.WriteFile(invowkfilePath, []byte(cueContent), 0644); err != nil {
+		t.Fatalf("Failed to write invowkfile: %v", err)
+	}
+
+	parsed, err := Parse(invowkfilePath)
+	if err != nil {
+		t.Fatalf("Failed to parse generated CUE: %v", err)
+	}
+
+	// Verify parsed args match original
+	if len(parsed.Commands) != 1 {
+		t.Fatalf("Expected 1 command, got %d", len(parsed.Commands))
+	}
+
+	args := parsed.Commands[0].Args
+	if len(args) != 3 {
+		t.Fatalf("Expected 3 args, got %d", len(args))
+	}
+
+	// Check first arg
+	if args[0].Name != "env" {
+		t.Errorf("Args[0].Name = %q, want %q", args[0].Name, "env")
+	}
+	if !args[0].Required {
+		t.Error("Args[0].Required should be true")
+	}
+
+	// Check second arg
+	if args[1].Name != "count" {
+		t.Errorf("Args[1].Name = %q, want %q", args[1].Name, "count")
+	}
+	if args[1].GetType() != ArgumentTypeInt {
+		t.Errorf("Args[1].Type = %q, want %q", args[1].GetType(), ArgumentTypeInt)
+	}
+	if args[1].DefaultValue != "1" {
+		t.Errorf("Args[1].DefaultValue = %q, want %q", args[1].DefaultValue, "1")
+	}
+
+	// Check third arg
+	if args[2].Name != "extras" {
+		t.Errorf("Args[2].Name = %q, want %q", args[2].Name, "extras")
+	}
+	if !args[2].Variadic {
+		t.Error("Args[2].Variadic should be true")
+	}
+}

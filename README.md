@@ -575,6 +575,291 @@ When either command-level or implementation-level dependencies are used, the val
 
 This allows you to specify dependencies that need to exist inside the container rather than on the host system.
 
+## Command Arguments (Positional Arguments)
+
+Commands can define typed positional arguments that are validated at runtime. Arguments are passed to scripts via `INVOWK_ARG_` environment variables.
+
+### Defining Arguments
+
+```cue
+commands: [
+    {
+        name: "deploy"
+        description: "Deploy the application"
+        implementations: [
+            {
+                script: """
+                    echo "Deploying to ${INVOWK_ARG_ENV}..."
+                    echo "Replicas: ${INVOWK_ARG_REPLICAS}"
+                    echo "Services: ${INVOWK_ARG_SERVICES}"
+                    """
+                target: {
+                    runtimes: [{name: "native"}]
+                }
+            }
+        ]
+        // Define positional arguments
+        args: [
+            {name: "env", description: "Target environment", required: true},
+            {name: "replicas", description: "Number of replicas", type: "int", default_value: "1"},
+            {name: "services", description: "Services to deploy", variadic: true},
+        ]
+    }
+]
+```
+
+### Argument Properties
+
+| Property | Required | Description |
+|----------|----------|-------------|
+| `name` | Yes | Argument name (lowercase letters, numbers, hyphens only) |
+| `description` | Yes | Description shown in help text |
+| `required` | No | If `true`, the argument must be provided (cannot have `default_value`) |
+| `default_value` | No | Default value if argument is not provided |
+| `type` | No | Data type: `string` (default), `int`, or `float` |
+| `validation` | No | Regex pattern to validate argument values |
+| `variadic` | No | If `true`, accepts multiple values (must be last argument) |
+
+### Typed Arguments
+
+Arguments can specify a type for validation:
+
+```cue
+args: [
+    {name: "env", description: "Target environment", type: "string"},
+    {name: "replicas", description: "Number of replicas", type: "int", default_value: "3"},
+    {name: "threshold", description: "Threshold value", type: "float", default_value: "0.5"},
+]
+```
+
+- **string** (default): Any value is accepted
+- **int**: Only valid integers are accepted
+- **float**: Only valid floating-point numbers are accepted
+
+### Required vs Optional Arguments
+
+Arguments can be required or optional:
+
+```cue
+args: [
+    // Required: must be provided
+    {name: "env", description: "Target environment", required: true},
+    
+    // Optional with default: uses default if not provided
+    {name: "replicas", description: "Number of replicas", default_value: "1"},
+    
+    // Optional without default: empty if not provided
+    {name: "tag", description: "Image tag"},
+]
+```
+
+**Rules:**
+- Required arguments cannot have `default_value`
+- Required arguments must come before optional arguments
+- Only one variadic argument is allowed (must be last)
+
+### Validation Patterns
+
+Use regex patterns to validate argument values:
+
+```cue
+args: [
+    {name: "env", description: "Environment", required: true, validation: "^(dev|staging|prod)$"},
+    {name: "version", description: "Semantic version", validation: "^[0-9]+\\.[0-9]+\\.[0-9]+$"},
+]
+```
+
+If a value doesn't match the pattern, the command fails with a styled error:
+```
+✗ Invalid argument value!
+
+Command 'deploy' received an invalid value for argument 'env'.
+
+Value:  "invalid"
+Error:  value does not match pattern '^(dev|staging|prod)$'
+```
+
+### Variadic Arguments
+
+The last argument can be variadic, accepting multiple values:
+
+```cue
+args: [
+    {name: "env", description: "Target environment", required: true},
+    {name: "services", description: "Services to deploy", variadic: true},
+]
+```
+
+Usage:
+```bash
+invowk cmd myproject deploy prod api web worker
+```
+
+This provides multiple environment variables:
+- `INVOWK_ARG_SERVICES`: Space-joined values (`api web worker`)
+- `INVOWK_ARG_SERVICES_COUNT`: Number of values (`3`)
+- `INVOWK_ARG_SERVICES_1`, `INVOWK_ARG_SERVICES_2`, etc.: Individual values
+
+### Using Arguments
+
+Arguments are passed after the command name:
+
+```bash
+# Required argument only
+invowk cmd myproject deploy prod
+
+# With optional argument
+invowk cmd myproject deploy prod 3
+
+# With variadic arguments
+invowk cmd myproject deploy prod 3 api web worker
+
+# View argument help
+invowk cmd myproject deploy --help
+```
+
+The help output shows argument documentation:
+```
+Usage:
+  invowk cmd myproject deploy <env> [replicas] [services]...
+
+Arguments:
+  env                  (required) - Target environment
+  replicas             (default: "1") [int] - Number of replicas
+  services             (optional) (variadic) - Services to deploy
+```
+
+### Environment Variable Naming
+
+Argument names are converted to environment variables:
+- Prefix: `INVOWK_ARG_`
+- Hyphens (`-`) become underscores (`_`)
+- Converted to uppercase
+
+| Argument Name | Environment Variable |
+|---------------|---------------------|
+| `env` | `INVOWK_ARG_ENV` |
+| `replica-count` | `INVOWK_ARG_REPLICA_COUNT` |
+| `output-file` | `INVOWK_ARG_OUTPUT_FILE` |
+
+### Arguments in Scripts
+
+Access argument values in your scripts using environment variables:
+
+```bash
+#!/bin/bash
+# Access arguments
+echo "Environment: $INVOWK_ARG_ENV"
+echo "Replicas: $INVOWK_ARG_REPLICAS"
+
+# Check if variadic args were provided
+if [ -n "$INVOWK_ARG_SERVICES" ]; then
+    echo "Services: $INVOWK_ARG_SERVICES"
+    echo "Count: $INVOWK_ARG_SERVICES_COUNT"
+    
+    # Iterate over individual values
+    for i in $(seq 1 $INVOWK_ARG_SERVICES_COUNT); do
+        eval "SERVICE=\$INVOWK_ARG_SERVICES_$i"
+        echo "Processing service: $SERVICE"
+    done
+fi
+```
+
+### Arguments with Flags
+
+Commands can have both arguments and flags. Flags use `--name=value` syntax and can appear anywhere:
+
+```bash
+# Flags before arguments
+invowk cmd myproject deploy --dry-run prod 3
+
+# Flags after arguments  
+invowk cmd myproject deploy prod 3 --verbose
+
+# Flags mixed with arguments
+invowk cmd myproject deploy prod --dry-run 3 api web --verbose
+```
+
+### Complete Argument Example
+
+```cue
+commands: [
+    {
+        name: "deploy"
+        description: "Deploy services to an environment"
+        implementations: [
+            {
+                script: """
+                    echo "=== Deployment ==="
+                    echo "Environment: $INVOWK_ARG_ENV"
+                    echo "Replicas: $INVOWK_ARG_REPLICAS"
+                    echo "Services: $INVOWK_ARG_SERVICES"
+                    
+                    if [ "$INVOWK_FLAG_DRY_RUN" = "true" ]; then
+                        echo "[DRY RUN] Would deploy..."
+                    else
+                        for i in $(seq 1 $INVOWK_ARG_SERVICES_COUNT); do
+                            eval "SERVICE=\$INVOWK_ARG_SERVICES_$i"
+                            echo "Deploying $SERVICE with $INVOWK_ARG_REPLICAS replicas..."
+                        done
+                    fi
+                    """
+                target: {
+                    runtimes: [{name: "native"}]
+                }
+            }
+        ]
+        args: [
+            {
+                name:        "env"
+                description: "Target environment"
+                required:    true
+                validation:  "^(dev|staging|prod)$"
+            },
+            {
+                name:          "replicas"
+                description:   "Number of replicas"
+                type:          "int"
+                default_value: "1"
+            },
+            {
+                name:        "services"
+                description: "Services to deploy"
+                variadic:    true
+            },
+        ]
+        flags: [
+            {name: "dry-run", description: "Perform a dry run", type: "bool", default_value: "false"},
+        ]
+    }
+]
+```
+
+Usage:
+```bash
+invowk cmd myproject deploy prod 3 api web worker --dry-run
+```
+
+### Arguments vs Subcommands
+
+A command cannot have both positional arguments and subcommands. If a command defines `args` but also has subcommands (commands with the same prefix), the subcommands take precedence and a warning is shown:
+
+```
+⚠ Conflict: command has both args and subcommands!
+
+Command 'deploy' defines positional arguments but also has subcommands.
+Subcommands take precedence; positional arguments will be ignored.
+
+Defined args (ignored):
+  • env - Target environment
+
+Subcommands:
+  • deploy status
+  • deploy logs
+
+Remove either the 'args' field or the subcommands to resolve this conflict.
+```
+
 ## Platform Compatibility
 
 Every command must specify which operating systems it supports using the `works_on` field:

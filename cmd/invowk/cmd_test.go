@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -1291,5 +1292,427 @@ func TestFlagNameToEnvVar_EdgeCases(t *testing.T) {
 				t.Errorf("FlagNameToEnvVar(%q) = %q, want %q", tt.input, result, tt.expected)
 			}
 		})
+	}
+}
+
+// Tests for positional arguments functionality
+
+func TestArgNameToEnvVar(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name:     "simple name",
+			input:    "env",
+			expected: "INVOWK_ARG_ENV",
+		},
+		{
+			name:     "name with hyphen",
+			input:    "output-file",
+			expected: "INVOWK_ARG_OUTPUT_FILE",
+		},
+		{
+			name:     "name with multiple hyphens",
+			input:    "my-config-path",
+			expected: "INVOWK_ARG_MY_CONFIG_PATH",
+		},
+		{
+			name:     "mixed case",
+			input:    "myArg",
+			expected: "INVOWK_ARG_MYARG",
+		},
+		{
+			name:     "already uppercase",
+			input:    "VERBOSE",
+			expected: "INVOWK_ARG_VERBOSE",
+		},
+		{
+			name:     "single character",
+			input:    "v",
+			expected: "INVOWK_ARG_V",
+		},
+		{
+			name:     "numeric suffix",
+			input:    "arg1",
+			expected: "INVOWK_ARG_ARG1",
+		},
+		{
+			name:     "empty string",
+			input:    "",
+			expected: "INVOWK_ARG_",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := ArgNameToEnvVar(tt.input)
+			if result != tt.expected {
+				t.Errorf("ArgNameToEnvVar(%q) = %q, want %q", tt.input, result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestBuildCommandUsageString(t *testing.T) {
+	tests := []struct {
+		name     string
+		cmdPart  string
+		args     []invowkfile.Argument
+		expected string
+	}{
+		{
+			name:     "no arguments",
+			cmdPart:  "deploy",
+			args:     []invowkfile.Argument{},
+			expected: "deploy",
+		},
+		{
+			name:    "single required argument",
+			cmdPart: "deploy",
+			args: []invowkfile.Argument{
+				{Name: "env", Required: true},
+			},
+			expected: "deploy <env>",
+		},
+		{
+			name:    "single optional argument",
+			cmdPart: "deploy",
+			args: []invowkfile.Argument{
+				{Name: "env", Required: false},
+			},
+			expected: "deploy [env]",
+		},
+		{
+			name:    "required and optional arguments",
+			cmdPart: "deploy",
+			args: []invowkfile.Argument{
+				{Name: "env", Required: true},
+				{Name: "replicas", Required: false},
+			},
+			expected: "deploy <env> [replicas]",
+		},
+		{
+			name:    "required variadic argument",
+			cmdPart: "deploy",
+			args: []invowkfile.Argument{
+				{Name: "services", Required: true, Variadic: true},
+			},
+			expected: "deploy <services>...",
+		},
+		{
+			name:    "optional variadic argument",
+			cmdPart: "deploy",
+			args: []invowkfile.Argument{
+				{Name: "services", Required: false, Variadic: true},
+			},
+			expected: "deploy [services]...",
+		},
+		{
+			name:    "multiple args with variadic",
+			cmdPart: "deploy",
+			args: []invowkfile.Argument{
+				{Name: "env", Required: true},
+				{Name: "replicas", Required: false},
+				{Name: "services", Required: false, Variadic: true},
+			},
+			expected: "deploy <env> [replicas] [services]...",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := buildCommandUsageString(tt.cmdPart, tt.args)
+			if result != tt.expected {
+				t.Errorf("buildCommandUsageString(%q, ...) = %q, want %q", tt.cmdPart, result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestBuildArgsDocumentation(t *testing.T) {
+	tests := []struct {
+		name          string
+		args          []invowkfile.Argument
+		shouldHave    []string
+		shouldNotHave []string
+	}{
+		{
+			name: "required argument",
+			args: []invowkfile.Argument{
+				{Name: "env", Description: "Target environment", Required: true},
+			},
+			shouldHave: []string{"env", "(required)", "Target environment"},
+		},
+		{
+			name: "optional with default",
+			args: []invowkfile.Argument{
+				{Name: "replicas", Description: "Number of replicas", DefaultValue: "1"},
+			},
+			shouldHave: []string{"replicas", `(default: "1")`, "Number of replicas"},
+		},
+		{
+			name: "optional without default",
+			args: []invowkfile.Argument{
+				{Name: "tag", Description: "Image tag"},
+			},
+			shouldHave: []string{"tag", "(optional)", "Image tag"},
+		},
+		{
+			name: "typed argument",
+			args: []invowkfile.Argument{
+				{Name: "count", Description: "Count value", Type: invowkfile.ArgumentTypeInt},
+			},
+			shouldHave: []string{"count", "[int]", "Count value"},
+		},
+		{
+			name: "variadic argument",
+			args: []invowkfile.Argument{
+				{Name: "services", Description: "Services to deploy", Variadic: true},
+			},
+			shouldHave: []string{"services", "(variadic)", "Services to deploy"},
+		},
+		{
+			name: "string type not shown",
+			args: []invowkfile.Argument{
+				{Name: "name", Description: "Name", Type: invowkfile.ArgumentTypeString},
+			},
+			shouldHave:    []string{"name", "Name"},
+			shouldNotHave: []string{"[string]"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := buildArgsDocumentation(tt.args)
+
+			for _, s := range tt.shouldHave {
+				if !strings.Contains(result, s) {
+					t.Errorf("buildArgsDocumentation() should contain %q, got: %q", s, result)
+				}
+			}
+
+			for _, s := range tt.shouldNotHave {
+				if strings.Contains(result, s) {
+					t.Errorf("buildArgsDocumentation() should NOT contain %q, got: %q", s, result)
+				}
+			}
+		})
+	}
+}
+
+func TestArgumentValidationError_Error(t *testing.T) {
+	tests := []struct {
+		name     string
+		err      *ArgumentValidationError
+		expected string
+	}{
+		{
+			name: "missing required",
+			err: &ArgumentValidationError{
+				Type:         ArgErrMissingRequired,
+				CommandName:  "deploy",
+				MinArgs:      2,
+				ProvidedArgs: []string{"prod"},
+			},
+			expected: "missing required arguments for command 'deploy': expected at least 2, got 1",
+		},
+		{
+			name: "too many",
+			err: &ArgumentValidationError{
+				Type:         ArgErrTooMany,
+				CommandName:  "deploy",
+				MaxArgs:      2,
+				ProvidedArgs: []string{"prod", "3", "extra"},
+			},
+			expected: "too many arguments for command 'deploy': expected at most 2, got 3",
+		},
+		{
+			name: "invalid value",
+			err: &ArgumentValidationError{
+				Type:         ArgErrInvalidValue,
+				CommandName:  "deploy",
+				InvalidArg:   "replicas",
+				InvalidValue: "abc",
+				ValueError:   fmt.Errorf("not a valid integer"),
+			},
+			expected: "invalid value for argument 'replicas': not a valid integer",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := tt.err.Error()
+			if result != tt.expected {
+				t.Errorf("Error() = %q, want %q", result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestRenderArgumentValidationError_MissingRequired(t *testing.T) {
+	err := &ArgumentValidationError{
+		Type:        ArgErrMissingRequired,
+		CommandName: "deploy",
+		ArgDefs: []invowkfile.Argument{
+			{Name: "env", Description: "Target environment", Required: true},
+			{Name: "replicas", Description: "Number of replicas", DefaultValue: "1"},
+		},
+		ProvidedArgs: []string{},
+		MinArgs:      1,
+	}
+
+	output := RenderArgumentValidationError(err)
+
+	if !strings.Contains(output, "Missing required arguments") {
+		t.Error("Should contain 'Missing required arguments'")
+	}
+	if !strings.Contains(output, "'deploy'") {
+		t.Error("Should contain command name")
+	}
+	if !strings.Contains(output, "env") {
+		t.Error("Should contain argument name 'env'")
+	}
+	if !strings.Contains(output, "(required)") {
+		t.Error("Should indicate required arguments")
+	}
+	if !strings.Contains(output, "--help") {
+		t.Error("Should contain help hint")
+	}
+}
+
+func TestRenderArgumentValidationError_TooMany(t *testing.T) {
+	err := &ArgumentValidationError{
+		Type:        ArgErrTooMany,
+		CommandName: "deploy",
+		ArgDefs: []invowkfile.Argument{
+			{Name: "env", Description: "Target environment"},
+		},
+		ProvidedArgs: []string{"prod", "extra1", "extra2"},
+		MaxArgs:      1,
+	}
+
+	output := RenderArgumentValidationError(err)
+
+	if !strings.Contains(output, "Too many arguments") {
+		t.Error("Should contain 'Too many arguments'")
+	}
+	if !strings.Contains(output, "'deploy'") {
+		t.Error("Should contain command name")
+	}
+	if !strings.Contains(output, "Provided:") {
+		t.Error("Should show provided arguments")
+	}
+}
+
+func TestRenderArgumentValidationError_InvalidValue(t *testing.T) {
+	err := &ArgumentValidationError{
+		Type:         ArgErrInvalidValue,
+		CommandName:  "deploy",
+		InvalidArg:   "replicas",
+		InvalidValue: "abc",
+		ValueError:   fmt.Errorf("must be a valid integer"),
+	}
+
+	output := RenderArgumentValidationError(err)
+
+	if !strings.Contains(output, "Invalid argument value") {
+		t.Error("Should contain 'Invalid argument value'")
+	}
+	if !strings.Contains(output, "'deploy'") {
+		t.Error("Should contain command name")
+	}
+	if !strings.Contains(output, "'replicas'") {
+		t.Error("Should contain argument name")
+	}
+	if !strings.Contains(output, "abc") {
+		t.Error("Should contain invalid value")
+	}
+	if !strings.Contains(output, "must be a valid integer") {
+		t.Error("Should contain error message")
+	}
+}
+
+func TestRenderArgsSubcommandConflictError(t *testing.T) {
+	args := []invowkfile.Argument{
+		{Name: "env", Description: "Target environment"},
+		{Name: "replicas", Description: "Number of replicas"},
+	}
+	subcommands := []string{"deploy status", "deploy logs"}
+
+	output := RenderArgsSubcommandConflictError("deploy", args, subcommands)
+
+	// Check header
+	if !strings.Contains(output, "Conflict") {
+		t.Error("Should contain 'Conflict' header")
+	}
+
+	// Check command name
+	if !strings.Contains(output, "'deploy'") {
+		t.Error("Should contain command name")
+	}
+
+	// Check args are listed
+	if !strings.Contains(output, "env") {
+		t.Error("Should list argument 'env'")
+	}
+	if !strings.Contains(output, "replicas") {
+		t.Error("Should list argument 'replicas'")
+	}
+
+	// Check subcommands are listed
+	if !strings.Contains(output, "deploy status") {
+		t.Error("Should list subcommand 'deploy status'")
+	}
+	if !strings.Contains(output, "deploy logs") {
+		t.Error("Should list subcommand 'deploy logs'")
+	}
+
+	// Check hint
+	if !strings.Contains(output, "Remove either the 'args' field or the subcommands") {
+		t.Error("Should contain resolution hint")
+	}
+}
+
+// testCmdWithArgs creates a Command with args for testing
+func testCmdWithArgs(name string, script string, args []invowkfile.Argument) *invowkfile.Command {
+	return &invowkfile.Command{
+		Name: name,
+		Args: args,
+		Implementations: []invowkfile.Implementation{
+			{Script: script, Target: invowkfile.Target{Runtimes: []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeNative}}}},
+		},
+	}
+}
+
+func TestCommand_WithArgs(t *testing.T) {
+	args := []invowkfile.Argument{
+		{Name: "env", Description: "Target environment", Required: true},
+		{Name: "replicas", Description: "Number of replicas", Type: invowkfile.ArgumentTypeInt, DefaultValue: "1"},
+		{Name: "services", Description: "Services to deploy", Variadic: true},
+	}
+
+	cmd := testCmdWithArgs("deploy", "echo deploying", args)
+
+	if len(cmd.Args) != 3 {
+		t.Errorf("Command should have 3 args, got %d", len(cmd.Args))
+	}
+
+	// Verify arg properties
+	if cmd.Args[0].Name != "env" {
+		t.Errorf("First arg name should be 'env', got %q", cmd.Args[0].Name)
+	}
+	if !cmd.Args[0].Required {
+		t.Error("First arg should be required")
+	}
+	if cmd.Args[1].Type != invowkfile.ArgumentTypeInt {
+		t.Errorf("Second arg type should be 'int', got %q", cmd.Args[1].Type)
+	}
+	if cmd.Args[1].DefaultValue != "1" {
+		t.Errorf("Second arg default value should be '1', got %q", cmd.Args[1].DefaultValue)
+	}
+	if !cmd.Args[2].Variadic {
+		t.Error("Third arg should be variadic")
 	}
 }

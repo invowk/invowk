@@ -1653,6 +1653,31 @@ func GenerateCUE(inv *Invowkfile) string {
 			}
 			sb.WriteString("\t\t]\n")
 		}
+		// Generate args list
+		if len(cmd.Args) > 0 {
+			sb.WriteString("\t\targs: [\n")
+			for _, arg := range cmd.Args {
+				sb.WriteString("\t\t\t{")
+				sb.WriteString(fmt.Sprintf("name: %q, description: %q", arg.Name, arg.Description))
+				if arg.Required {
+					sb.WriteString(", required: true")
+				}
+				if arg.DefaultValue != "" {
+					sb.WriteString(fmt.Sprintf(", default_value: %q", arg.DefaultValue))
+				}
+				if arg.Type != "" && arg.Type != ArgumentTypeString {
+					sb.WriteString(fmt.Sprintf(", type: %q", arg.Type))
+				}
+				if arg.Validation != "" {
+					sb.WriteString(fmt.Sprintf(", validation: %q", arg.Validation))
+				}
+				if arg.Variadic {
+					sb.WriteString(", variadic: true")
+				}
+				sb.WriteString("},\n")
+			}
+			sb.WriteString("\t\t]\n")
+		}
 		sb.WriteString("\t},\n")
 	}
 	sb.WriteString("]\n")
