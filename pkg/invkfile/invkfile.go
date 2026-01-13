@@ -394,6 +394,11 @@ type Implementation struct {
 	Script string `json:"script"`
 	// Target defines the runtime and platform constraints (required)
 	Target Target `json:"target"`
+	// EnvFiles lists dotenv files to load for this implementation
+	// Loaded after command-level env_files; later files override earlier ones.
+	// Paths are relative to the invkfile location (or pack root for packs).
+	// Files suffixed with '?' are optional and will not cause an error if missing.
+	EnvFiles []string `json:"env_files,omitempty"`
 	// DependsOn specifies dependencies that must be satisfied before running this implementation
 	// These dependencies are validated according to the runtime being used
 	DependsOn *DependsOn `json:"depends_on,omitempty"`
@@ -415,13 +420,20 @@ type Command struct {
 	Description string `json:"description,omitempty"`
 	// Implementations defines the executable implementations with platform/runtime constraints (required, at least one)
 	Implementations []Implementation `json:"implementations"`
+	// EnvFiles lists dotenv files to load for this command
+	// Files are loaded in order; later files override earlier ones.
+	// Paths are relative to the invkfile location (or pack root for packs).
+	// Files suffixed with '?' are optional and will not cause an error if missing.
+	EnvFiles []string `json:"env_files,omitempty"`
 	// Env contains environment variables to set for this command
+	// These override values loaded from EnvFiles.
 	Env map[string]string `json:"env,omitempty"`
 	// WorkDir specifies the working directory for command execution
 	WorkDir string `json:"workdir,omitempty"`
 	// DependsOn specifies dependencies that must be satisfied before running
 	DependsOn *DependsOn `json:"depends_on,omitempty"`
 	// Flags specifies command-line flags for this command
+	// Note: 'env-file' (and short 'e') are reserved system flags and cannot be used.
 	Flags []Flag `json:"flags,omitempty"`
 	// Args specifies positional arguments for this command
 	// Arguments are passed as environment variables: INVOWK_ARG_<NAME>
@@ -1160,6 +1172,12 @@ func (inv *Invkfile) validateFlags(cmd *Command) error {
 		}
 		seenNames[flag.Name] = true
 
+		// Check for reserved flag names
+		if flag.Name == "env-file" {
+			return fmt.Errorf("command '%s' flag '%s': 'env-file' is a reserved system flag and cannot be used in invkfile at %s",
+				cmd.Name, flag.Name, inv.FilePath)
+		}
+
 		// Validate type is valid (if specified)
 		if flag.Type != "" && flag.Type != FlagTypeString && flag.Type != FlagTypeBool && flag.Type != FlagTypeInt && flag.Type != FlagTypeFloat {
 			return fmt.Errorf("command '%s' flag '%s' has invalid type '%s' (must be 'string', 'bool', 'int', or 'float') in invkfile at %s",
@@ -1177,6 +1195,11 @@ func (inv *Invkfile) validateFlags(cmd *Command) error {
 			if len(flag.Short) != 1 || !((flag.Short[0] >= 'a' && flag.Short[0] <= 'z') || (flag.Short[0] >= 'A' && flag.Short[0] <= 'Z')) {
 				return fmt.Errorf("command '%s' flag '%s' has invalid short alias '%s' (must be a single letter a-z or A-Z) in invkfile at %s",
 					cmd.Name, flag.Name, flag.Short, inv.FilePath)
+			}
+			// Check for reserved short aliases
+			if flag.Short == "e" {
+				return fmt.Errorf("command '%s' flag '%s': short alias 'e' is reserved for the system --env-file flag in invkfile at %s",
+					cmd.Name, flag.Name, inv.FilePath)
 			}
 			// Check for duplicate short aliases
 			if seenShorts[flag.Short] {
@@ -1659,6 +1682,18 @@ func GenerateCUE(inv *Invkfile) string {
 				sb.WriteString("\t\t\t\t}\n")
 			}
 
+			// Implementation-level env_files
+			if len(impl.EnvFiles) > 0 {
+				sb.WriteString("\t\t\t\tenv_files: [")
+				for i, ef := range impl.EnvFiles {
+					if i > 0 {
+						sb.WriteString(", ")
+					}
+					sb.WriteString(fmt.Sprintf("%q", ef))
+				}
+				sb.WriteString("]\n")
+			}
+
 			sb.WriteString("\t\t\t},\n")
 		}
 		sb.WriteString("\t\t]\n")
@@ -1672,6 +1707,17 @@ func GenerateCUE(inv *Invkfile) string {
 		}
 		if cmd.WorkDir != "" {
 			sb.WriteString(fmt.Sprintf("\t\tworkdir: %q\n", cmd.WorkDir))
+		}
+		// Command-level env_files
+		if len(cmd.EnvFiles) > 0 {
+			sb.WriteString("\t\tenv_files: [")
+			for i, ef := range cmd.EnvFiles {
+				if i > 0 {
+					sb.WriteString(", ")
+				}
+				sb.WriteString(fmt.Sprintf("%q", ef))
+			}
+			sb.WriteString("]\n")
 		}
 		if cmd.DependsOn != nil && (len(cmd.DependsOn.Tools) > 0 || len(cmd.DependsOn.Commands) > 0 || len(cmd.DependsOn.Filepaths) > 0 || len(cmd.DependsOn.Capabilities) > 0 || len(cmd.DependsOn.CustomChecks) > 0 || len(cmd.DependsOn.EnvVars) > 0) {
 			sb.WriteString("\t\tdepends_on: {\n")

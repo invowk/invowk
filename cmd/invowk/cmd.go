@@ -180,10 +180,17 @@ func registerDiscoveredCommands() {
 								flagValues[flag.Name] = val
 							}
 						}
-						return runCommandWithFlags(cmdName, args, flagValues, cmdFlags, cmdArgs)
+
+						// Extract --env-file flag values
+						envFiles, _ := cmd.Flags().GetStringArray("env-file")
+
+						return runCommandWithFlags(cmdName, args, flagValues, cmdFlags, cmdArgs, envFiles)
 					},
 					Args: buildCobraArgsValidator(cmdArgs),
 				}
+
+				// Add the reserved --env-file flag for loading environment variables from files
+				newCmd.Flags().StringArrayP("env-file", "e", nil, "load environment variables from file(s) (can be specified multiple times)")
 
 				// Add arguments documentation to Long description
 				if len(cmdArgs) > 0 {
@@ -542,7 +549,8 @@ func listCommands() error {
 // flagValues is a map of flag name -> value.
 // flagDefs contains the flag definitions for runtime validation (can be nil for legacy calls).
 // argDefs contains the argument definitions for setting INVOWK_ARG_* env vars (can be nil for legacy calls).
-func runCommandWithFlags(cmdName string, args []string, flagValues map[string]string, flagDefs []invkfile.Flag, argDefs []invkfile.Argument) error {
+// runtimeEnvFiles contains paths to env files specified via --env-file flag (highest precedence).
+func runCommandWithFlags(cmdName string, args []string, flagValues map[string]string, flagDefs []invkfile.Flag, argDefs []invkfile.Argument, runtimeEnvFiles []string) error {
 	cfg := config.Get()
 	disc := discovery.New(cfg)
 
@@ -617,7 +625,8 @@ func runCommandWithFlags(cmdName string, args []string, flagValues map[string]st
 	ctx.Verbose = verbose
 	ctx.SelectedRuntime = selectedRuntime
 	ctx.SelectedImpl = script
-	ctx.PositionalArgs = args // Enable shell positional parameter access ($1, $2, etc.)
+	ctx.PositionalArgs = args             // Enable shell positional parameter access ($1, $2, etc.)
+	ctx.RuntimeEnvFiles = runtimeEnvFiles // Env files from --env-file flag (highest precedence)
 
 	// Create runtime registry
 	registry := createRuntimeRegistry(cfg)
@@ -711,7 +720,7 @@ func runCommand(args []string) error {
 	cmdArgs := args[1:]
 
 	// Delegate to runCommandWithFlags with empty flag values and no arg definitions
-	return runCommandWithFlags(cmdName, cmdArgs, nil, nil, nil)
+	return runCommandWithFlags(cmdName, cmdArgs, nil, nil, nil, nil)
 }
 
 // createRuntimeRegistry creates and populates the runtime registry

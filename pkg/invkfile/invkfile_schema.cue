@@ -101,6 +101,12 @@
 	// target defines the runtime and platform constraints (required)
 	target: #Target
 
+	// env_files lists dotenv files to load for this implementation (optional)
+	// Loaded after command-level env_files; later files override earlier ones.
+	// Paths are relative to the invkfile location (or pack root for packs).
+	// Files suffixed with '?' are optional and will not cause an error if missing.
+	env_files?: [...string]
+
 	// depends_on specifies dependencies that must be satisfied before running this implementation (optional)
 	// These dependencies are validated according to the runtime:
 	// - native: validated against the native standard shell from the host
@@ -329,7 +335,14 @@
 	// There cannot be duplicate combinations of platform+runtime across implementations
 	implementations: [...#Implementation] & [_, ...]
 
+	// env_files lists dotenv files to load for this command (optional)
+	// Files are loaded in order; later files override earlier ones.
+	// Paths are relative to the invkfile location (or pack root for packs).
+	// Files suffixed with '?' are optional and will not cause an error if missing.
+	env_files?: [...string]
+
 	// env contains environment variables specific to this command (optional)
+	// These override values loaded from env_files.
 	env?: [string]: string
 
 	// workdir specifies the working directory for command execution (optional)
@@ -340,6 +353,7 @@
 	depends_on?: #DependsOn
 
 	// flags specifies command-line flags for this command (optional)
+	// Note: 'env-file' (and short 'e') are reserved system flags and cannot be used.
 	flags?: [...#Flag]
 
 	// args specifies positional arguments for this command (optional)

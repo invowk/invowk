@@ -106,7 +106,10 @@ func (r *ContainerRuntime) Execute(ctx *ExecutionContext) *Result {
 	}
 
 	// Build environment
-	env := r.buildEnv(ctx)
+	env, err := r.buildEnv(ctx)
+	if err != nil {
+		return &Result{ExitCode: 1, Error: fmt.Errorf("failed to build environment: %w", err)}
+	}
 
 	// Check if host SSH is enabled for this runtime
 	hostSSHEnabled := ctx.SelectedImpl.GetHostSSHForRuntime(ctx.SelectedRuntime)
@@ -346,11 +349,39 @@ func (r *ContainerRuntime) generateImageTag(invkfilePath string) string {
 	return fmt.Sprintf("invowk-%s:latest", shortHash)
 }
 
-// buildEnv builds the environment for the command
-func (r *ContainerRuntime) buildEnv(ctx *ExecutionContext) map[string]string {
+// buildEnv builds the environment for the command with proper precedence:
+// 1. Command-level env_files (loaded in array order)
+// 2. Implementation-level env_files (loaded in array order)
+// 3. Command-level env (inline static variables)
+// 4. Platform-level env (from target.platforms[].env)
+// 5. ExtraEnv: INVOWK_FLAG_*, INVOWK_ARG_*, ARGn, ARGC
+// 6. --env-file flag files (loaded in flag order) - highest priority
+func (r *ContainerRuntime) buildEnv(ctx *ExecutionContext) (map[string]string, error) {
 	env := make(map[string]string)
 
-	// Platform-level env from the selected implementation
+	// Determine the base path for resolving env_files
+	basePath := ctx.Invkfile.GetScriptBasePath()
+
+	// 1. Command-level env_files
+	for _, path := range ctx.Command.EnvFiles {
+		if err := LoadEnvFile(env, path, basePath); err != nil {
+			return nil, err
+		}
+	}
+
+	// 2. Implementation-level env_files
+	for _, path := range ctx.SelectedImpl.EnvFiles {
+		if err := LoadEnvFile(env, path, basePath); err != nil {
+			return nil, err
+		}
+	}
+
+	// 3. Command-level env
+	for k, v := range ctx.Command.Env {
+		env[k] = v
+	}
+
+	// 4. Platform-level env from the selected implementation
 	currentPlatform := invkfile.GetCurrentHostOS()
 	for _, p := range ctx.SelectedImpl.Target.Platforms {
 		if p.Name == currentPlatform {
@@ -361,17 +392,19 @@ func (r *ContainerRuntime) buildEnv(ctx *ExecutionContext) map[string]string {
 		}
 	}
 
-	// Command-level env
-	for k, v := range ctx.Command.Env {
-		env[k] = v
-	}
-
-	// Extra env from context
+	// 5. Extra env from context (flags, args)
 	for k, v := range ctx.ExtraEnv {
 		env[k] = v
 	}
 
-	return env
+	// 6. Runtime --env-file flag files (highest priority)
+	for _, path := range ctx.RuntimeEnvFiles {
+		if err := LoadEnvFileFromCwd(env, path); err != nil {
+			return nil, err
+		}
+	}
+
+	return env, nil
 }
 
 // invkfileContainerConfig is a local type for container config extracted from RuntimeConfig
@@ -431,11 +464,16 @@ func (r *ContainerRuntime) ShellInContainer(ctx *ExecutionContext, shell string)
 	volumes := containerCfg.Volumes
 	volumes = append(volumes, fmt.Sprintf("%s:/workspace", invowkDir))
 
+	env, err := r.buildEnv(ctx)
+	if err != nil {
+		return &Result{ExitCode: 1, Error: fmt.Errorf("failed to build environment: %w", err)}
+	}
+
 	runOpts := container.RunOptions{
 		Image:       image,
 		Command:     []string{shell},
 		WorkDir:     "/workspace",
-		Env:         r.buildEnv(ctx),
+		Env:         env,
 		Volumes:     volumes,
 		Remove:      true,
 		Stdin:       ctx.Stdin,

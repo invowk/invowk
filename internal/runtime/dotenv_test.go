@@ -1,0 +1,473 @@
+// SPDX-License-Identifier: EPL-2.0
+
+package runtime
+
+import (
+	"os"
+	"path/filepath"
+	"testing"
+)
+
+func TestParseEnvFile_BasicKeyValue(t *testing.T) {
+	tests := []struct {
+		name     string
+		content  string
+		expected map[string]string
+	}{
+		{
+			name:     "simple key value",
+			content:  "FOO=bar",
+			expected: map[string]string{"FOO": "bar"},
+		},
+		{
+			name:     "multiple key values",
+			content:  "FOO=bar\nBAZ=qux",
+			expected: map[string]string{"FOO": "bar", "BAZ": "qux"},
+		},
+		{
+			name:     "empty value",
+			content:  "EMPTY=",
+			expected: map[string]string{"EMPTY": ""},
+		},
+		{
+			name:     "value with equals sign",
+			content:  "URL=https://example.com?foo=bar",
+			expected: map[string]string{"URL": "https://example.com?foo=bar"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			env := make(map[string]string)
+			err := ParseEnvFile(env, []byte(tt.content), "test.env")
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			for k, v := range tt.expected {
+				if env[k] != v {
+					t.Errorf("expected %s=%q, got %s=%q", k, v, k, env[k])
+				}
+			}
+		})
+	}
+}
+
+func TestParseEnvFile_Comments(t *testing.T) {
+	tests := []struct {
+		name     string
+		content  string
+		expected map[string]string
+	}{
+		{
+			name:     "comment line",
+			content:  "# This is a comment\nFOO=bar",
+			expected: map[string]string{"FOO": "bar"},
+		},
+		{
+			name:     "inline comment unquoted",
+			content:  "FOO=bar # this is an inline comment",
+			expected: map[string]string{"FOO": "bar"},
+		},
+		{
+			name:     "no inline comment without space",
+			content:  "FOO=bar#not-a-comment",
+			expected: map[string]string{"FOO": "bar#not-a-comment"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			env := make(map[string]string)
+			err := ParseEnvFile(env, []byte(tt.content), "test.env")
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			for k, v := range tt.expected {
+				if env[k] != v {
+					t.Errorf("expected %s=%q, got %s=%q", k, v, k, env[k])
+				}
+			}
+		})
+	}
+}
+
+func TestParseEnvFile_QuotedValues(t *testing.T) {
+	tests := []struct {
+		name     string
+		content  string
+		expected map[string]string
+	}{
+		{
+			name:     "double quoted",
+			content:  `FOO="hello world"`,
+			expected: map[string]string{"FOO": "hello world"},
+		},
+		{
+			name:     "single quoted",
+			content:  `FOO='hello world'`,
+			expected: map[string]string{"FOO": "hello world"},
+		},
+		{
+			name:     "double quoted with escape sequences",
+			content:  `FOO="hello\nworld"`,
+			expected: map[string]string{"FOO": "hello\nworld"},
+		},
+		{
+			name:     "single quoted preserves escapes",
+			content:  `FOO='hello\nworld'`,
+			expected: map[string]string{"FOO": `hello\nworld`},
+		},
+		{
+			name:     "double quoted with escaped quote",
+			content:  `FOO="hello \"world\""`,
+			expected: map[string]string{"FOO": `hello "world"`},
+		},
+		{
+			name:     "double quoted with escaped backslash",
+			content:  `FOO="path\\to\\file"`,
+			expected: map[string]string{"FOO": `path\to\file`},
+		},
+		{
+			name:     "double quoted with tab",
+			content:  `FOO="hello\tworld"`,
+			expected: map[string]string{"FOO": "hello\tworld"},
+		},
+		{
+			name:     "double quoted with carriage return",
+			content:  `FOO="hello\rworld"`,
+			expected: map[string]string{"FOO": "hello\rworld"},
+		},
+		{
+			name:     "double quoted with dollar escape",
+			content:  `FOO="price is \$100"`,
+			expected: map[string]string{"FOO": "price is $100"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			env := make(map[string]string)
+			err := ParseEnvFile(env, []byte(tt.content), "test.env")
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			for k, v := range tt.expected {
+				if env[k] != v {
+					t.Errorf("expected %s=%q, got %s=%q", k, v, k, env[k])
+				}
+			}
+		})
+	}
+}
+
+func TestParseEnvFile_ExportPrefix(t *testing.T) {
+	tests := []struct {
+		name     string
+		content  string
+		expected map[string]string
+	}{
+		{
+			name:     "export prefix",
+			content:  "export FOO=bar",
+			expected: map[string]string{"FOO": "bar"},
+		},
+		{
+			name:     "export prefix with quotes",
+			content:  `export FOO="bar"`,
+			expected: map[string]string{"FOO": "bar"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			env := make(map[string]string)
+			err := ParseEnvFile(env, []byte(tt.content), "test.env")
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			for k, v := range tt.expected {
+				if env[k] != v {
+					t.Errorf("expected %s=%q, got %s=%q", k, v, k, env[k])
+				}
+			}
+		})
+	}
+}
+
+func TestParseEnvFile_Whitespace(t *testing.T) {
+	tests := []struct {
+		name     string
+		content  string
+		expected map[string]string
+	}{
+		{
+			name:     "leading whitespace",
+			content:  "  FOO=bar",
+			expected: map[string]string{"FOO": "bar"},
+		},
+		{
+			name:     "trailing whitespace",
+			content:  "FOO=bar  ",
+			expected: map[string]string{"FOO": "bar"},
+		},
+		{
+			name:     "whitespace around equals",
+			content:  "FOO = bar",
+			expected: map[string]string{"FOO": "bar"},
+		},
+		{
+			name:     "empty lines ignored",
+			content:  "FOO=bar\n\n\nBAZ=qux",
+			expected: map[string]string{"FOO": "bar", "BAZ": "qux"},
+		},
+		{
+			name:     "windows line endings",
+			content:  "FOO=bar\r\nBAZ=qux\r\n",
+			expected: map[string]string{"FOO": "bar", "BAZ": "qux"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			env := make(map[string]string)
+			err := ParseEnvFile(env, []byte(tt.content), "test.env")
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			for k, v := range tt.expected {
+				if env[k] != v {
+					t.Errorf("expected %s=%q, got %s=%q", k, v, k, env[k])
+				}
+			}
+		})
+	}
+}
+
+func TestParseEnvFile_Errors(t *testing.T) {
+	tests := []struct {
+		name    string
+		content string
+		errMsg  string
+	}{
+		{
+			name:    "missing equals sign",
+			content: "FOOBAR",
+			errMsg:  "invalid format",
+		},
+		{
+			name:    "empty variable name",
+			content: "=value",
+			errMsg:  "empty variable name",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			env := make(map[string]string)
+			err := ParseEnvFile(env, []byte(tt.content), "test.env")
+			if err == nil {
+				t.Fatal("expected error, got nil")
+			}
+			if !containsString(err.Error(), tt.errMsg) {
+				t.Errorf("expected error containing %q, got %q", tt.errMsg, err.Error())
+			}
+		})
+	}
+}
+
+func TestParseEnvFile_Precedence(t *testing.T) {
+	// Later values override earlier values
+	env := make(map[string]string)
+	content := "FOO=first\nFOO=second"
+
+	err := ParseEnvFile(env, []byte(content), "test.env")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if env["FOO"] != "second" {
+		t.Errorf("expected FOO=second, got FOO=%s", env["FOO"])
+	}
+}
+
+func TestLoadEnvFile_RelativePath(t *testing.T) {
+	// Create a temp directory with a .env file
+	tmpDir := t.TempDir()
+	envFile := filepath.Join(tmpDir, "test.env")
+	if err := os.WriteFile(envFile, []byte("FOO=bar\nBAZ=qux"), 0644); err != nil {
+		t.Fatalf("failed to create test file: %v", err)
+	}
+
+	env := make(map[string]string)
+	err := LoadEnvFile(env, "test.env", tmpDir)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if env["FOO"] != "bar" {
+		t.Errorf("expected FOO=bar, got FOO=%s", env["FOO"])
+	}
+	if env["BAZ"] != "qux" {
+		t.Errorf("expected BAZ=qux, got BAZ=%s", env["BAZ"])
+	}
+}
+
+func TestLoadEnvFile_AbsolutePath(t *testing.T) {
+	tmpDir := t.TempDir()
+	envFile := filepath.Join(tmpDir, "absolute.env")
+	if err := os.WriteFile(envFile, []byte("ABSOLUTE=true"), 0644); err != nil {
+		t.Fatalf("failed to create test file: %v", err)
+	}
+
+	env := make(map[string]string)
+	err := LoadEnvFile(env, envFile, "/some/other/path")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if env["ABSOLUTE"] != "true" {
+		t.Errorf("expected ABSOLUTE=true, got ABSOLUTE=%s", env["ABSOLUTE"])
+	}
+}
+
+func TestLoadEnvFile_OptionalMissing(t *testing.T) {
+	env := make(map[string]string)
+	// Optional file (suffixed with ?) should not error when missing
+	err := LoadEnvFile(env, "nonexistent.env?", "/nonexistent/path")
+	if err != nil {
+		t.Errorf("expected no error for optional missing file, got: %v", err)
+	}
+}
+
+func TestLoadEnvFile_RequiredMissing(t *testing.T) {
+	env := make(map[string]string)
+	// Required file should error when missing
+	err := LoadEnvFile(env, "nonexistent.env", "/nonexistent/path")
+	if err == nil {
+		t.Error("expected error for missing required file, got nil")
+	}
+}
+
+func TestLoadEnvFile_OptionalExists(t *testing.T) {
+	tmpDir := t.TempDir()
+	envFile := filepath.Join(tmpDir, "optional.env")
+	if err := os.WriteFile(envFile, []byte("OPTIONAL=yes"), 0644); err != nil {
+		t.Fatalf("failed to create test file: %v", err)
+	}
+
+	env := make(map[string]string)
+	// Optional file should be loaded if it exists
+	err := LoadEnvFile(env, "optional.env?", tmpDir)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if env["OPTIONAL"] != "yes" {
+		t.Errorf("expected OPTIONAL=yes, got OPTIONAL=%s", env["OPTIONAL"])
+	}
+}
+
+func TestLoadEnvFile_ForwardSlashPath(t *testing.T) {
+	// Test that forward slashes work on all platforms
+	tmpDir := t.TempDir()
+	subDir := filepath.Join(tmpDir, "config")
+	if err := os.Mkdir(subDir, 0755); err != nil {
+		t.Fatalf("failed to create subdir: %v", err)
+	}
+	envFile := filepath.Join(subDir, "app.env")
+	if err := os.WriteFile(envFile, []byte("SUBDIR=true"), 0644); err != nil {
+		t.Fatalf("failed to create test file: %v", err)
+	}
+
+	env := make(map[string]string)
+	// Use forward slashes (common in CUE files)
+	err := LoadEnvFile(env, "config/app.env", tmpDir)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if env["SUBDIR"] != "true" {
+		t.Errorf("expected SUBDIR=true, got SUBDIR=%s", env["SUBDIR"])
+	}
+}
+
+func TestLoadEnvFileFromCwd(t *testing.T) {
+	// Save current working directory
+	origWd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("failed to get current directory: %v", err)
+	}
+	defer os.Chdir(origWd)
+
+	// Create temp directory and change to it
+	tmpDir := t.TempDir()
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatalf("failed to change directory: %v", err)
+	}
+
+	// Create .env file in temp directory
+	if err := os.WriteFile(filepath.Join(tmpDir, ".env"), []byte("CWD_VAR=hello"), 0644); err != nil {
+		t.Fatalf("failed to create test file: %v", err)
+	}
+
+	env := make(map[string]string)
+	err = LoadEnvFileFromCwd(env, ".env")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if env["CWD_VAR"] != "hello" {
+		t.Errorf("expected CWD_VAR=hello, got CWD_VAR=%s", env["CWD_VAR"])
+	}
+}
+
+func TestLoadEnvFileFromCwd_OptionalMissing(t *testing.T) {
+	env := make(map[string]string)
+	// Optional file should not error when missing
+	err := LoadEnvFileFromCwd(env, "nonexistent.env?")
+	if err != nil {
+		t.Errorf("expected no error for optional missing file, got: %v", err)
+	}
+}
+
+func TestParseEnvFile_MergesIntoExisting(t *testing.T) {
+	env := map[string]string{
+		"EXISTING": "value",
+		"OVERRIDE": "old",
+	}
+
+	content := "NEW=added\nOVERRIDE=new"
+	err := ParseEnvFile(env, []byte(content), "test.env")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if env["EXISTING"] != "value" {
+		t.Errorf("expected EXISTING=value, got EXISTING=%s", env["EXISTING"])
+	}
+	if env["NEW"] != "added" {
+		t.Errorf("expected NEW=added, got NEW=%s", env["NEW"])
+	}
+	if env["OVERRIDE"] != "new" {
+		t.Errorf("expected OVERRIDE=new, got OVERRIDE=%s", env["OVERRIDE"])
+	}
+}
+
+// containsString is a helper to check if a string contains a substring
+func containsString(s, substr string) bool {
+	return len(s) >= len(substr) && (s == substr || len(s) > 0 && containsSubstring(s, substr))
+}
+
+func containsSubstring(s, substr string) bool {
+	for i := 0; i <= len(s)-len(substr); i++ {
+		if s[i:i+len(substr)] == substr {
+			return true
+		}
+	}
+	return false
+}

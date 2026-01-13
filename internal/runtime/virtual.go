@@ -101,7 +101,10 @@ func (r *VirtualRuntime) Execute(ctx *ExecutionContext) *Result {
 	workDir := r.getWorkDir(ctx)
 
 	// Build environment
-	env := r.buildEnv(ctx)
+	env, err := r.buildEnv(ctx)
+	if err != nil {
+		return &Result{ExitCode: 1, Error: fmt.Errorf("failed to build environment: %w", err)}
+	}
 
 	// Create the interpreter
 	opts := []interp.RunnerOption{
@@ -153,7 +156,10 @@ func (r *VirtualRuntime) ExecuteCapture(ctx *ExecutionContext) *Result {
 	}
 
 	workDir := r.getWorkDir(ctx)
-	env := r.buildEnv(ctx)
+	env, err := r.buildEnv(ctx)
+	if err != nil {
+		return &Result{ExitCode: 1, Error: fmt.Errorf("failed to build environment: %w", err)}
+	}
 
 	var stdout, stderr bytes.Buffer
 
@@ -247,8 +253,15 @@ func (r *VirtualRuntime) getWorkDir(ctx *ExecutionContext) string {
 	return filepath.Dir(ctx.Invkfile.FilePath)
 }
 
-// buildEnv builds the environment for the command
-func (r *VirtualRuntime) buildEnv(ctx *ExecutionContext) map[string]string {
+// buildEnv builds the environment for the command with proper precedence:
+// 1. Current environment (filtered for Invowk-specific variables)
+// 2. Command-level env_files (loaded in array order)
+// 3. Implementation-level env_files (loaded in array order)
+// 4. Command-level env (inline static variables)
+// 5. Platform-level env (from target.platforms[].env)
+// 6. ExtraEnv: INVOWK_FLAG_*, INVOWK_ARG_*, ARGn, ARGC
+// 7. --env-file flag files (loaded in flag order) - highest priority
+func (r *VirtualRuntime) buildEnv(ctx *ExecutionContext) (map[string]string, error) {
 	env := make(map[string]string)
 
 	// Start with current environment, filtering out Invowk-specific variables
@@ -259,7 +272,29 @@ func (r *VirtualRuntime) buildEnv(ctx *ExecutionContext) map[string]string {
 		}
 	}
 
-	// Platform-level env from the selected implementation
+	// Determine the base path for resolving env_files
+	basePath := ctx.Invkfile.GetScriptBasePath()
+
+	// 1. Command-level env_files
+	for _, path := range ctx.Command.EnvFiles {
+		if err := LoadEnvFile(env, path, basePath); err != nil {
+			return nil, err
+		}
+	}
+
+	// 2. Implementation-level env_files
+	for _, path := range ctx.SelectedImpl.EnvFiles {
+		if err := LoadEnvFile(env, path, basePath); err != nil {
+			return nil, err
+		}
+	}
+
+	// 3. Command-level env
+	for k, v := range ctx.Command.Env {
+		env[k] = v
+	}
+
+	// 4. Platform-level env from the selected implementation
 	currentPlatform := invkfile.GetCurrentHostOS()
 	for _, p := range ctx.SelectedImpl.Target.Platforms {
 		if p.Name == currentPlatform {
@@ -270,15 +305,17 @@ func (r *VirtualRuntime) buildEnv(ctx *ExecutionContext) map[string]string {
 		}
 	}
 
-	// Command-level env
-	for k, v := range ctx.Command.Env {
-		env[k] = v
-	}
-
-	// Extra env from context
+	// 5. Extra env from context (flags, args)
 	for k, v := range ctx.ExtraEnv {
 		env[k] = v
 	}
 
-	return env
+	// 6. Runtime --env-file flag files (highest priority)
+	for _, path := range ctx.RuntimeEnvFiles {
+		if err := LoadEnvFileFromCwd(env, path); err != nil {
+			return nil, err
+		}
+	}
+
+	return env, nil
 }

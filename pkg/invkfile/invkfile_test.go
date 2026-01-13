@@ -3293,11 +3293,11 @@ commands: [
 		]
 		flags: [
 			{
-				name: "env"
+				name: "environment"
 				description: "Target environment"
 				type: "string"
 				required: true
-				short: "e"
+				short: "t"
 				validation: "^(dev|staging|prod)$"
 			},
 			{
@@ -3334,10 +3334,10 @@ commands: [
 		t.Fatalf("Expected 3 flags, got %d", len(flags))
 	}
 
-	// Check env flag
+	// Check environment flag
 	envFlag := flags[0]
-	if envFlag.Name != "env" {
-		t.Errorf("Flag[0].Name = %q, want %q", envFlag.Name, "env")
+	if envFlag.Name != "environment" {
+		t.Errorf("Flag[0].Name = %q, want %q", envFlag.Name, "environment")
 	}
 	if envFlag.GetType() != FlagTypeString {
 		t.Errorf("Flag[0].GetType() = %v, want %v", envFlag.GetType(), FlagTypeString)
@@ -3345,8 +3345,8 @@ commands: [
 	if !envFlag.Required {
 		t.Errorf("Flag[0].Required = false, want true")
 	}
-	if envFlag.Short != "e" {
-		t.Errorf("Flag[0].Short = %q, want %q", envFlag.Short, "e")
+	if envFlag.Short != "t" {
+		t.Errorf("Flag[0].Short = %q, want %q", envFlag.Short, "t")
 	}
 	if envFlag.Validation != "^(dev|staging|prod)$" {
 		t.Errorf("Flag[0].Validation = %q, want %q", envFlag.Validation, "^(dev|staging|prod)$")
@@ -4767,5 +4767,385 @@ commands: [
 	rt := inv.Commands[0].Implementations[0].Target.Runtimes[0]
 	if rt.Interpreter != "" {
 		t.Errorf("RuntimeConfig.Interpreter should be empty when omitted, got %q", rt.Interpreter)
+	}
+}
+
+// ============================================================================
+// Tests for EnvFiles Feature
+// ============================================================================
+
+func TestParseEnvFiles_CommandLevel(t *testing.T) {
+	cueContent := `
+group: "test"
+version: "1.0"
+
+commands: [
+	{
+		name: "deploy"
+		description: "Deploy the application"
+		implementations: [
+			{
+				script: "echo deploying"
+				target: { runtimes: [{name: "native"}] }
+			}
+		]
+		env_files: [".env", "config/app.env", ".env.local?"]
+	}
+]
+`
+	tmpDir := t.TempDir()
+	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
+		t.Fatalf("Failed to write invkfile: %v", err)
+	}
+
+	inv, err := Parse(invkfilePath)
+	if err != nil {
+		t.Fatalf("Parse() error = %v", err)
+	}
+
+	if len(inv.Commands) != 1 {
+		t.Fatalf("Expected 1 command, got %d", len(inv.Commands))
+	}
+
+	cmd := inv.Commands[0]
+	if len(cmd.EnvFiles) != 3 {
+		t.Fatalf("Expected 3 env_files, got %d", len(cmd.EnvFiles))
+	}
+
+	expectedFiles := []string{".env", "config/app.env", ".env.local?"}
+	for i, expected := range expectedFiles {
+		if cmd.EnvFiles[i] != expected {
+			t.Errorf("EnvFiles[%d] = %q, want %q", i, cmd.EnvFiles[i], expected)
+		}
+	}
+}
+
+func TestParseEnvFiles_ImplementationLevel(t *testing.T) {
+	cueContent := `
+group: "test"
+version: "1.0"
+
+commands: [
+	{
+		name: "deploy"
+		description: "Deploy the application"
+		implementations: [
+			{
+				script: "echo deploying"
+				target: { runtimes: [{name: "native"}] }
+				env_files: ["impl.env", "secrets.env?"]
+			}
+		]
+	}
+]
+`
+	tmpDir := t.TempDir()
+	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
+		t.Fatalf("Failed to write invkfile: %v", err)
+	}
+
+	inv, err := Parse(invkfilePath)
+	if err != nil {
+		t.Fatalf("Parse() error = %v", err)
+	}
+
+	if len(inv.Commands) != 1 {
+		t.Fatalf("Expected 1 command, got %d", len(inv.Commands))
+	}
+
+	impl := inv.Commands[0].Implementations[0]
+	if len(impl.EnvFiles) != 2 {
+		t.Fatalf("Expected 2 env_files, got %d", len(impl.EnvFiles))
+	}
+
+	expectedFiles := []string{"impl.env", "secrets.env?"}
+	for i, expected := range expectedFiles {
+		if impl.EnvFiles[i] != expected {
+			t.Errorf("EnvFiles[%d] = %q, want %q", i, impl.EnvFiles[i], expected)
+		}
+	}
+}
+
+func TestParseEnvFiles_BothLevels(t *testing.T) {
+	cueContent := `
+group: "test"
+version: "1.0"
+
+commands: [
+	{
+		name: "deploy"
+		description: "Deploy the application"
+		implementations: [
+			{
+				script: "echo deploying"
+				target: { runtimes: [{name: "native"}] }
+				env_files: ["impl.env"]
+			}
+		]
+		env_files: ["cmd.env"]
+	}
+]
+`
+	tmpDir := t.TempDir()
+	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
+		t.Fatalf("Failed to write invkfile: %v", err)
+	}
+
+	inv, err := Parse(invkfilePath)
+	if err != nil {
+		t.Fatalf("Parse() error = %v", err)
+	}
+
+	cmd := inv.Commands[0]
+	impl := cmd.Implementations[0]
+
+	if len(cmd.EnvFiles) != 1 || cmd.EnvFiles[0] != "cmd.env" {
+		t.Errorf("Command EnvFiles = %v, want [cmd.env]", cmd.EnvFiles)
+	}
+
+	if len(impl.EnvFiles) != 1 || impl.EnvFiles[0] != "impl.env" {
+		t.Errorf("Implementation EnvFiles = %v, want [impl.env]", impl.EnvFiles)
+	}
+}
+
+func TestParseEnvFiles_EmptyList(t *testing.T) {
+	cueContent := `
+group: "test"
+version: "1.0"
+
+commands: [
+	{
+		name: "deploy"
+		implementations: [
+			{
+				script: "echo deploying"
+				target: { runtimes: [{name: "native"}] }
+			}
+		]
+		env_files: []
+	}
+]
+`
+	tmpDir := t.TempDir()
+	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
+		t.Fatalf("Failed to write invkfile: %v", err)
+	}
+
+	inv, err := Parse(invkfilePath)
+	if err != nil {
+		t.Fatalf("Parse() error = %v", err)
+	}
+
+	cmd := inv.Commands[0]
+	if len(cmd.EnvFiles) != 0 {
+		t.Errorf("Expected 0 env_files, got %d", len(cmd.EnvFiles))
+	}
+}
+
+func TestParseEnvFiles_NoField(t *testing.T) {
+	cueContent := `
+group: "test"
+version: "1.0"
+
+commands: [
+	{
+		name: "deploy"
+		implementations: [
+			{
+				script: "echo deploying"
+				target: { runtimes: [{name: "native"}] }
+			}
+		]
+	}
+]
+`
+	tmpDir := t.TempDir()
+	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
+		t.Fatalf("Failed to write invkfile: %v", err)
+	}
+
+	inv, err := Parse(invkfilePath)
+	if err != nil {
+		t.Fatalf("Parse() error = %v", err)
+	}
+
+	cmd := inv.Commands[0]
+	if len(cmd.EnvFiles) != 0 {
+		t.Errorf("Expected 0 env_files when field is omitted, got %d", len(cmd.EnvFiles))
+	}
+
+	impl := cmd.Implementations[0]
+	if len(impl.EnvFiles) != 0 {
+		t.Errorf("Expected 0 env_files when field is omitted, got %d", len(impl.EnvFiles))
+	}
+}
+
+func TestGenerateCUE_WithEnvFiles(t *testing.T) {
+	inv := &Invkfile{
+		Group:   "test",
+		Version: "1.0",
+		Commands: []Command{
+			{
+				Name:        "deploy",
+				Description: "Deploy the application",
+				Implementations: []Implementation{
+					{
+						Script: "echo deploying",
+						Target: Target{
+							Runtimes: []RuntimeConfig{{Name: RuntimeNative}},
+						},
+						EnvFiles: []string{"impl.env", "secrets.env?"},
+					},
+				},
+				EnvFiles: []string{".env", "config/app.env"},
+			},
+		},
+	}
+
+	cue := GenerateCUE(inv)
+
+	// Check command-level env_files
+	if !strings.Contains(cue, `env_files: [".env", "config/app.env"]`) {
+		t.Errorf("GenerateCUE() should include command-level env_files, got:\n%s", cue)
+	}
+
+	// Check implementation-level env_files
+	if !strings.Contains(cue, `env_files: ["impl.env", "secrets.env?"]`) {
+		t.Errorf("GenerateCUE() should include implementation-level env_files, got:\n%s", cue)
+	}
+}
+
+func TestGenerateCUE_EnvFilesRoundTrip(t *testing.T) {
+	original := &Invkfile{
+		Group:   "test.roundtrip",
+		Version: "1.0",
+		Commands: []Command{
+			{
+				Name:        "deploy",
+				Description: "Deploy the application",
+				Implementations: []Implementation{
+					{
+						Script: "echo deploying",
+						Target: Target{
+							Runtimes: []RuntimeConfig{{Name: RuntimeNative}},
+						},
+						EnvFiles: []string{"impl.env"},
+					},
+				},
+				EnvFiles: []string{".env", "config/app.env?"},
+			},
+		},
+	}
+
+	// Generate CUE
+	cue := GenerateCUE(original)
+
+	// Write to temp file
+	tmpDir := t.TempDir()
+	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+	if err := os.WriteFile(invkfilePath, []byte(cue), 0644); err != nil {
+		t.Fatalf("Failed to write invkfile: %v", err)
+	}
+
+	// Parse it back
+	parsed, err := Parse(invkfilePath)
+	if err != nil {
+		t.Fatalf("Parse() error = %v", err)
+	}
+
+	// Verify command-level env_files
+	if len(parsed.Commands[0].EnvFiles) != 2 {
+		t.Fatalf("Expected 2 command env_files, got %d", len(parsed.Commands[0].EnvFiles))
+	}
+	if parsed.Commands[0].EnvFiles[0] != ".env" {
+		t.Errorf("Command EnvFiles[0] = %q, want %q", parsed.Commands[0].EnvFiles[0], ".env")
+	}
+	if parsed.Commands[0].EnvFiles[1] != "config/app.env?" {
+		t.Errorf("Command EnvFiles[1] = %q, want %q", parsed.Commands[0].EnvFiles[1], "config/app.env?")
+	}
+
+	// Verify implementation-level env_files
+	if len(parsed.Commands[0].Implementations[0].EnvFiles) != 1 {
+		t.Fatalf("Expected 1 implementation env_files, got %d", len(parsed.Commands[0].Implementations[0].EnvFiles))
+	}
+	if parsed.Commands[0].Implementations[0].EnvFiles[0] != "impl.env" {
+		t.Errorf("Implementation EnvFiles[0] = %q, want %q", parsed.Commands[0].Implementations[0].EnvFiles[0], "impl.env")
+	}
+}
+
+func TestValidateFlags_ReservedEnvFileName(t *testing.T) {
+	cueContent := `
+group: "test"
+version: "1.0"
+
+commands: [
+	{
+		name: "deploy"
+		implementations: [
+			{
+				script: "echo deploying"
+				target: { runtimes: [{name: "native"}] }
+			}
+		]
+		flags: [
+			{name: "env-file", description: "This should fail - reserved flag name"}
+		]
+	}
+]
+`
+	tmpDir := t.TempDir()
+	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
+		t.Fatalf("Failed to write invkfile: %v", err)
+	}
+
+	_, err := Parse(invkfilePath)
+	if err == nil {
+		t.Fatal("Parse() should fail for reserved flag name 'env-file', got nil error")
+	}
+
+	if !strings.Contains(err.Error(), "reserved") {
+		t.Errorf("Error should mention 'reserved', got: %v", err)
+	}
+}
+
+func TestValidateFlags_ReservedShortAliasE(t *testing.T) {
+	cueContent := `
+group: "test"
+version: "1.0"
+
+commands: [
+	{
+		name: "deploy"
+		implementations: [
+			{
+				script: "echo deploying"
+				target: { runtimes: [{name: "native"}] }
+			}
+		]
+		flags: [
+			{name: "environment", short: "e", description: "This should fail - reserved short alias"}
+		]
+	}
+]
+`
+	tmpDir := t.TempDir()
+	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
+		t.Fatalf("Failed to write invkfile: %v", err)
+	}
+
+	_, err := Parse(invkfilePath)
+	if err == nil {
+		t.Fatal("Parse() should fail for reserved short alias 'e', got nil error")
+	}
+
+	if !strings.Contains(err.Error(), "reserved") {
+		t.Errorf("Error should mention 'reserved', got: %v", err)
 	}
 }

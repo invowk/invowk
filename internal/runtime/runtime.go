@@ -38,6 +38,10 @@ type ExecutionContext struct {
 	SelectedImpl *invkfile.Implementation
 	// PositionalArgs contains command-line arguments to pass as shell positional parameters ($1, $2, etc.)
 	PositionalArgs []string
+	// RuntimeEnvFiles contains dotenv file paths specified via --env-file flag.
+	// These are loaded last and override all other environment variables.
+	// Paths are relative to the current working directory where invowk was invoked.
+	RuntimeEnvFiles []string
 }
 
 // NewExecutionContext creates a new execution context with defaults

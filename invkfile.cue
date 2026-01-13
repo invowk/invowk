@@ -2024,6 +2024,264 @@ commands: [
 					]
 				}
 			}
+		}
+	},
+
+	// ============================================================================
+	// SECTION 16: Environment Files (env_files)
+	// ============================================================================
+	// These commands demonstrate the env_files feature, which loads environment
+	// variables from dotenv-formatted files. This is useful for:
+	// - Loading configuration from .env files
+	// - Separating sensitive values from invkfile definitions
+	// - Supporting different environments (dev, staging, prod)
+	//
+	// Key features:
+	// - Files are loaded in order (later files override earlier ones)
+	// - Paths are relative to the invkfile location
+	// - Optional files: suffix with ? (e.g., ".env.local?")
+	// - Use forward slashes for cross-platform compatibility
+	//
+	// Precedence (lowest to highest):
+	// 1. Command-level env_files
+	// 2. Implementation-level env_files
+	// 3. Command-level env (inline)
+	// 4. Platform-level env
+	// 5. ExtraEnv (INVOWK_FLAG_*, INVOWK_ARG_*, ARGn, ARGC)
+	// 6. --env-file flag (runtime, highest priority)
+
+	// Example 16.1: Basic env_files at command level
+	{
+		name:        "env files basic"
+		description: "Load environment from .env file at command level"
+		env_files: ["examples/.env"]
+		implementations: [
+			{
+				script: """
+					echo "=========================================="
+					echo "  Basic env_files Demo"
+					echo "=========================================="
+					echo ""
+					echo "Variables loaded from examples/.env:"
+					echo "  APP_NAME    = '$APP_NAME'"
+					echo "  APP_VERSION = '$APP_VERSION'"
+					echo "  APP_ENV     = '$APP_ENV'"
+					echo "  ENABLE_DEBUG= '$ENABLE_DEBUG'"
+					echo "  LOG_LEVEL   = '$LOG_LEVEL'"
+					echo ""
+					echo "The env_files field loads dotenv files before"
+					echo "command execution. Paths are relative to the"
+					echo "invkfile location."
+					echo "=========================================="
+					"""
+				target: {
+					runtimes: [{name: "native"}]
+				}
+			},
+		]
+	},
+
+	// Example 16.2: Optional env_files with ? suffix
+	{
+		name:        "env files optional"
+		description: "Load optional .env.local file (may not exist)"
+		env_files: ["examples/.env", "examples/.env.local?", "examples/.env.missing?"]
+		implementations: [
+			{
+				script: """
+					echo "=========================================="
+					echo "  Optional env_files Demo"
+					echo "=========================================="
+					echo ""
+					echo "Variables loaded (with optional overrides):"
+					echo "  APP_ENV       = '$APP_ENV'"
+					echo "  LOG_LEVEL     = '$LOG_LEVEL'"
+					echo "  LOCAL_ONLY_VAR= '${LOCAL_ONLY_VAR:-<not set>}'"
+					echo ""
+					echo "Files loaded:"
+					echo "  [required] examples/.env"
+					echo "  [optional] examples/.env.local? (loaded if exists)"
+					echo "  [optional] examples/.env.missing? (skipped, doesn't exist)"
+					echo ""
+					echo "The ? suffix makes a file optional. Missing optional"
+					echo "files are silently skipped without error."
+					echo "=========================================="
+					"""
+				target: {
+					runtimes: [{name: "native"}]
+				}
+			},
+		]
+	},
+
+	// Example 16.3: env_files with subdirectory paths
+	{
+		name:        "env files subdirectory"
+		description: "Load env files from subdirectories"
+		env_files: ["examples/.env", "examples/config/database.env"]
+		implementations: [
+			{
+				script: """
+					echo "=========================================="
+					echo "  Subdirectory env_files Demo"
+					echo "=========================================="
+					echo ""
+					echo "App variables (from examples/.env):"
+					echo "  APP_NAME = '$APP_NAME'"
+					echo "  APP_ENV  = '$APP_ENV'"
+					echo ""
+					echo "Database variables (from examples/config/database.env):"
+					echo "  DB_HOST = '$DB_HOST'"
+					echo "  DB_PORT = '$DB_PORT'"
+					echo "  DB_NAME = '$DB_NAME'"
+					echo "  DB_USER = '$DB_USER'"
+					echo ""
+					echo "Use forward slashes in paths for cross-platform"
+					echo "compatibility. Paths are relative to invkfile location."
+					echo "=========================================="
+					"""
+				target: {
+					runtimes: [{name: "native"}]
+				}
+			},
+		]
+	},
+
+	// Example 16.4: Implementation-level env_files
+	{
+		name:        "env files impl level"
+		description: "Different env_files per implementation"
+		env_files: ["examples/.env"]
+		implementations: [
+			{
+				// Implementation adds database config on top of command-level env_files
+				env_files: ["examples/config/database.env"]
+				script: """
+					echo "=========================================="
+					echo "  Implementation-level env_files Demo"
+					echo "=========================================="
+					echo ""
+					echo "Command-level env_files: examples/.env"
+					echo "  APP_NAME = '$APP_NAME'"
+					echo "  APP_ENV  = '$APP_ENV'"
+					echo ""
+					echo "Implementation-level env_files: examples/config/database.env"
+					echo "  DB_HOST = '$DB_HOST'"
+					echo "  DB_NAME = '$DB_NAME'"
+					echo ""
+					echo "Implementation-level env_files are loaded AFTER"
+					echo "command-level, so they can override command-level values."
+					echo "=========================================="
+					"""
+				target: {
+					runtimes: [{name: "native"}]
+				}
+			},
+		]
+	},
+
+	// Example 16.5: env_files with inline env override
+	{
+		name:        "env files override"
+		description: "Inline env overrides env_files values"
+		env_files: ["examples/.env"]
+		env: {
+			APP_ENV:   "production"
+			LOG_LEVEL: "warn"
+		}
+		implementations: [
+			{
+				script: """
+					echo "=========================================="
+					echo "  env_files + inline env Demo"
+					echo "=========================================="
+					echo ""
+					echo "From env_files (examples/.env):"
+					echo "  APP_NAME    = '$APP_NAME' (from file)"
+					echo "  APP_VERSION = '$APP_VERSION' (from file)"
+					echo ""
+					echo "Overridden by inline env:"
+					echo "  APP_ENV   = '$APP_ENV' (inline overrides 'development')"
+					echo "  LOG_LEVEL = '$LOG_LEVEL' (inline overrides 'info')"
+					echo ""
+					echo "Precedence: env_files < inline env"
+					echo "Inline env values always take priority over env_files."
+					echo "=========================================="
+					"""
+				target: {
+					runtimes: [{name: "native"}]
+				}
+			},
+		]
+	},
+
+	// Example 16.6: env_files in container runtime
+	{
+		name:        "env files container"
+		description: "Use env_files with container execution"
+		env_files: ["examples/.env"]
+		implementations: [
+			{
+				script: """
+					echo "=========================================="
+					echo "  Container env_files Demo"
+					echo "=========================================="
+					echo ""
+					echo "Environment variables inside container:"
+					echo "  APP_NAME    = '$APP_NAME'"
+					echo "  APP_VERSION = '$APP_VERSION'"
+					echo "  APP_ENV     = '$APP_ENV'"
+					echo ""
+					echo "env_files work with all runtimes including containers."
+					echo "Variables are loaded from host filesystem and passed"
+					echo "to the container environment."
+					echo "=========================================="
+					"""
+				target: {
+					runtimes: [{name: "container", image: "alpine:latest"}]
+				}
+			},
+		]
+	},
+
+	// Example 16.7: Runtime --env-file flag demonstration
+	{
+		name:        "env files runtime flag"
+		description: "Use --env-file flag to load additional files at runtime"
+		env_files: ["examples/.env"]
+		implementations: [
+			{
+				script: """
+					echo "=========================================="
+					echo "  Runtime --env-file Flag Demo"
+					echo "=========================================="
+					echo ""
+					echo "Current values:"
+					echo "  APP_NAME  = '$APP_NAME'"
+					echo "  APP_ENV   = '$APP_ENV'"
+					echo "  LOG_LEVEL = '$LOG_LEVEL'"
+					echo ""
+					echo "To override at runtime, use the --env-file flag:"
+					echo ""
+					echo "  invowk run 'env files runtime flag' --env-file .env.prod"
+					echo "  invowk run 'env files runtime flag' -e .env.prod"
+					echo ""
+					echo "Multiple --env-file flags can be specified:"
+					echo ""
+					echo "  invowk run 'env files runtime flag' -e .env.prod -e secrets.env"
+					echo ""
+					echo "Runtime --env-file has highest precedence, overriding"
+					echo "all other env_files and inline env definitions."
+					echo ""
+					echo "Paths for --env-file are relative to current directory,"
+					echo "not the invkfile location."
+					echo "=========================================="
+					"""
+				target: {
+					runtimes: [{name: "native"}]
+				}
+			},
 		]
 	},
 ]
+
