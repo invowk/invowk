@@ -63,7 +63,8 @@ go test -v ./pkg/invowkfile/...
 
 - `cmd/invowk/` - CLI commands using Cobra
 - `internal/` - Private packages (config, container, discovery, issue, runtime, sshserver, tui)
-- `pkg/` - Public packages (invowkfile)
+- `pkg/` - Public packages (bundle, invowkfile)
+- `bundles/` - Sample invowk bundles for validation and reference
 
 ### Import Ordering
 
@@ -191,6 +192,30 @@ func TestExample(t *testing.T) {
   - Capabilities checks (with and without alternatives)
   - Tools checks (with and without alternatives)
   - Custom checks (with and without alternatives)
+
+## Sample Bundles (bundles/ directory)
+
+The `bundles/` directory contains sample invowk bundles that serve as reference implementations and validation tests for the bundle feature.
+
+### Maintenance Requirements
+
+- **Always update sample bundles** when the design and/or implementation of invowk bundles changes
+- All bundles in this directory must remain valid and pass `invowk bundle validate --deep`
+- Bundles should demonstrate bundle-specific features (script file references, cross-platform paths, etc.)
+- Run validation after any bundle-related changes: `go run . bundle validate bundles/<bundle-name> --deep`
+
+### Current Sample Bundles
+
+- `io.invowk.sample.invowkbundle` - Minimal cross-platform bundle with a simple greeting command
+
+### Bundle Validation Checklist
+
+When modifying bundle-related code, verify:
+1. All bundles in `bundles/` pass validation: `go run . bundle validate bundles/*.invowkbundle --deep`
+2. Bundle naming conventions are correctly enforced
+3. Script path resolution works correctly (forward slashes, relative paths)
+4. Nested bundle detection works correctly
+5. The `pkg/bundle/` tests pass: `go test -v ./pkg/bundle/...`
 
 ## Key Guidelines
 

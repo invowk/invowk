@@ -823,7 +823,19 @@ func (s *Script) IsScriptFile() bool {
 // GetScriptFilePath returns the absolute path to the script file, if Script is a file reference.
 // Returns empty string if Script is inline content.
 // The invowkfilePath parameter is used to resolve relative paths.
+// If bundlePath is provided (non-empty), script paths are resolved relative to the bundle root
+// and are expected to use forward slashes for cross-platform compatibility.
 func (s *Script) GetScriptFilePath(invowkfilePath string) string {
+	return s.GetScriptFilePathWithBundle(invowkfilePath, "")
+}
+
+// GetScriptFilePathWithBundle returns the absolute path to the script file, if Script is a file reference.
+// Returns empty string if Script is inline content.
+// The invowkfilePath parameter is used to resolve relative paths when not in a bundle.
+// The bundlePath parameter specifies the bundle root directory for bundle-relative paths.
+// When bundlePath is non-empty, script paths are expected to use forward slashes for
+// cross-platform compatibility and are resolved relative to the bundle root.
+func (s *Script) GetScriptFilePathWithBundle(invowkfilePath, bundlePath string) string {
 	if !s.IsScriptFile() {
 		return ""
 	}
@@ -833,6 +845,13 @@ func (s *Script) GetScriptFilePath(invowkfilePath string) string {
 	// If absolute path, return as-is
 	if filepath.IsAbs(script) {
 		return script
+	}
+
+	// If in a bundle, resolve relative to bundle root with cross-platform path conversion
+	if bundlePath != "" {
+		// Convert forward slashes to native path separator for cross-platform compatibility
+		nativePath := filepath.FromSlash(script)
+		return filepath.Join(bundlePath, nativePath)
 	}
 
 	// Resolve relative to invowkfile directory
@@ -845,6 +864,15 @@ func (s *Script) GetScriptFilePath(invowkfilePath string) string {
 // If Script is inline content (including multi-line), it returns it directly.
 // The invowkfilePath parameter is used to resolve relative paths.
 func (s *Script) ResolveScript(invowkfilePath string) (string, error) {
+	return s.ResolveScriptWithBundle(invowkfilePath, "")
+}
+
+// ResolveScriptWithBundle returns the actual script content to execute.
+// If Script is a file path, it reads the file content.
+// If Script is inline content (including multi-line), it returns it directly.
+// The invowkfilePath parameter is used to resolve relative paths when not in a bundle.
+// The bundlePath parameter specifies the bundle root directory for bundle-relative paths.
+func (s *Script) ResolveScriptWithBundle(invowkfilePath, bundlePath string) (string, error) {
 	if s.scriptResolved {
 		return s.resolvedScript, nil
 	}
@@ -855,7 +883,7 @@ func (s *Script) ResolveScript(invowkfilePath string) (string, error) {
 	}
 
 	if s.IsScriptFile() {
-		scriptPath := s.GetScriptFilePath(invowkfilePath)
+		scriptPath := s.GetScriptFilePathWithBundle(invowkfilePath, bundlePath)
 		content, err := os.ReadFile(scriptPath)
 		if err != nil {
 			return "", fmt.Errorf("failed to read script file '%s': %w", scriptPath, err)
@@ -873,13 +901,20 @@ func (s *Script) ResolveScript(invowkfilePath string) (string, error) {
 // ResolveScriptWithFS resolves the script using a custom filesystem reader function.
 // This is useful for testing with virtual filesystems.
 func (s *Script) ResolveScriptWithFS(invowkfilePath string, readFile func(path string) ([]byte, error)) (string, error) {
+	return s.ResolveScriptWithFSAndBundle(invowkfilePath, "", readFile)
+}
+
+// ResolveScriptWithFSAndBundle resolves the script using a custom filesystem reader function.
+// This is useful for testing with virtual filesystems.
+// The bundlePath parameter specifies the bundle root directory for bundle-relative paths.
+func (s *Script) ResolveScriptWithFSAndBundle(invowkfilePath, bundlePath string, readFile func(path string) ([]byte, error)) (string, error) {
 	script := s.Script
 	if script == "" {
 		return "", fmt.Errorf("script has no content")
 	}
 
 	if s.IsScriptFile() {
-		scriptPath := s.GetScriptFilePath(invowkfilePath)
+		scriptPath := s.GetScriptFilePathWithBundle(invowkfilePath, bundlePath)
 		content, err := readFile(scriptPath)
 		if err != nil {
 			return "", fmt.Errorf("failed to read script file '%s': %w", scriptPath, err)
@@ -908,6 +943,9 @@ type Invowkfile struct {
 
 	// FilePath stores the path where this invowkfile was loaded from (not in CUE)
 	FilePath string `json:"-"`
+	// BundlePath stores the bundle directory path if this invowkfile is from a bundle (not in CUE)
+	// Empty string if not loaded from a bundle
+	BundlePath string `json:"-"`
 }
 
 // InvowkfileName is the standard name for invowkfile
@@ -924,6 +962,28 @@ func Parse(path string) (*Invowkfile, error) {
 	}
 
 	return ParseBytes(data, path)
+}
+
+// ParseBundle reads and parses an invowkfile from a bundle directory.
+// The bundlePath should be the path to the bundle directory (ending in .invowkbundle).
+// The invowkfile.cue is expected to be at the root of the bundle.
+func ParseBundle(bundlePath string) (*Invowkfile, error) {
+	invowkfilePath := filepath.Join(bundlePath, "invowkfile.cue")
+
+	data, err := os.ReadFile(invowkfilePath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read invowkfile at %s: %w", invowkfilePath, err)
+	}
+
+	inv, err := ParseBytes(data, invowkfilePath)
+	if err != nil {
+		return nil, err
+	}
+
+	// Set the bundle path
+	inv.BundlePath = bundlePath
+
+	return inv, nil
 }
 
 // ParseBytes parses invowkfile content from bytes
@@ -1308,6 +1368,21 @@ func (inv *Invowkfile) GetCommand(name string) *Command {
 	}
 
 	return nil
+}
+
+// IsFromBundle returns true if this invowkfile was loaded from a bundle
+func (inv *Invowkfile) IsFromBundle() bool {
+	return inv.BundlePath != ""
+}
+
+// GetScriptBasePath returns the base path for resolving script file references.
+// For bundle invowkfiles, this is the bundle path.
+// For regular invowkfiles, this is the directory containing the invowkfile.
+func (inv *Invowkfile) GetScriptBasePath() string {
+	if inv.BundlePath != "" {
+		return inv.BundlePath
+	}
+	return filepath.Dir(inv.FilePath)
 }
 
 // GetFullCommandName returns the fully qualified command name with the group prefix.

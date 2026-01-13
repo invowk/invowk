@@ -1225,6 +1225,150 @@ commands: [
 
 Recognized script extensions: `.sh`, `.bash`, `.ps1`, `.bat`, `.cmd`, `.py`, `.rb`, `.pl`, `.zsh`, `.fish`
 
+## Bundles
+
+Bundles are self-contained folders that package an invowkfile together with its associated script files for easy distribution and portability.
+
+### What is a Bundle?
+
+A bundle is a directory with the `.invowkbundle` suffix that contains:
+- Exactly one `invowkfile.cue` at the root
+- Optional script files referenced by command implementations
+- No nested bundles (bundles cannot contain other bundles)
+
+### Bundle Naming
+
+Bundle folder names follow these rules:
+- Must end with `.invowkbundle`
+- The prefix (before `.invowkbundle`) must:
+  - Start with a letter (a-z, A-Z)
+  - Contain only alphanumeric characters
+  - Support dot-separated segments for namespacing
+- Compatible with RDNS (Reverse Domain Name System) naming conventions
+
+**Valid bundle names:**
+- `mycommands.invowkbundle`
+- `com.example.mytools.invowkbundle`
+- `org.company.project.invowkbundle`
+- `Utils.invowkbundle`
+
+**Invalid bundle names:**
+- `.hidden.invowkbundle` (starts with dot)
+- `my-commands.invowkbundle` (contains hyphen)
+- `my_commands.invowkbundle` (contains underscore)
+- `123commands.invowkbundle` (starts with number)
+- `com..example.invowkbundle` (empty segment)
+
+### Bundle Structure
+
+```
+com.example.mytools.invowkbundle/
+├── invowkfile.cue         # Required: command definitions
+├── scripts/               # Optional: script files
+│   ├── build.sh
+│   ├── deploy.sh
+│   └── utils/
+│       └── helper.sh
+└── templates/             # Optional: other resources
+    └── config.yaml
+```
+
+### Script Paths in Bundles
+
+When referencing script files in a bundle's invowkfile, use paths relative to the bundle root with **forward slashes** for cross-platform compatibility:
+
+```cue
+group: "mytools"
+commands: [
+    {
+        name: "build"
+        description: "Build the project"
+        implementations: [
+            {
+                // Path relative to bundle root, using forward slashes
+                script: "scripts/build.sh"
+                target: {
+                    runtimes: [{name: "native"}]
+                }
+            }
+        ]
+    },
+    {
+        name: "deploy"
+        description: "Deploy the application"
+        implementations: [
+            {
+                // Nested script path
+                script: "scripts/utils/helper.sh"
+                target: {
+                    runtimes: [{name: "native"}]
+                }
+            }
+        ]
+    }
+]
+```
+
+**Important:**
+- Always use forward slashes (`/`) in script paths, even on Windows
+- Paths are automatically converted to the native format at runtime
+- Absolute paths are not allowed in bundles
+- Paths cannot escape the bundle directory (e.g., `../outside.sh` is invalid)
+
+### Validating Bundles
+
+Use the `bundle validate` command to check a bundle's structure:
+
+```bash
+# Basic validation
+invowk bundle validate ./com.example.mytools.invowkbundle
+
+# Deep validation (also parses the invowkfile)
+invowk bundle validate ./com.example.mytools.invowkbundle --deep
+```
+
+Example output for a valid bundle:
+```
+Bundle Validation
+• Path: /home/user/com.example.mytools.invowkbundle
+• Name: com.example.mytools
+
+✓ Bundle is valid
+
+✓ Structure check passed
+✓ Naming convention check passed
+✓ Required files present
+✓ Invowkfile parses successfully
+```
+
+Example output for an invalid bundle:
+```
+Bundle Validation
+• Path: /home/user/invalid.invowkbundle
+
+✗ Bundle validation failed with 2 issue(s)
+
+  1. [structure] missing required invowkfile.cue
+  2. [structure] nested.invowkbundle: nested bundles are not allowed
+```
+
+### Benefits of Bundles
+
+1. **Portability**: Share a complete command set as a single folder
+2. **Self-contained**: Scripts are bundled with the invowkfile
+3. **Cross-platform**: Forward slash paths work on all operating systems
+4. **Namespace isolation**: RDNS naming prevents conflicts between bundles
+5. **Validation**: Built-in validation ensures bundle integrity
+
+### Using Bundles
+
+Bundles can be placed in any of the invowk search paths:
+- Current directory
+- User commands directory (`~/.invowk/cmds/`)
+- Configured search paths in `config.toml`
+
+When invowk discovers a bundle, it automatically loads the invowkfile from within it and resolves script paths relative to the bundle root.
+
 ## Runtime Modes
 
 ### Native Runtime
@@ -1676,6 +1820,7 @@ invowk-cli/
 ├── cmd/invowk/                 # CLI commands
 │   ├── root.go                 # Root command
 │   ├── cmd.go                  # cmd subcommand
+│   ├── bundle.go               # bundle subcommand
 │   ├── init.go                 # init command
 │   ├── config.go               # config commands
 │   ├── completion.go           # completion command
@@ -1716,7 +1861,9 @@ invowk-cli/
 │       ├── spin.go             # Spinner component
 │       ├── pager.go            # Pager component
 │       └── format.go           # Format component
-└── pkg/invowkfile/             # Invowkfile parsing
+├── pkg/
+│   ├── bundle/                 # Bundle validation
+│   └── invowkfile/             # Invowkfile parsing
 ```
 
 ## Dependencies
