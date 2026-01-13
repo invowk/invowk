@@ -165,7 +165,7 @@ const config: Config = {
           ],
         },
       ],
-      copyright: `Copyright (c) ${new Date().getFullYear()} Invowk Contributors. Licensed under EPL-2.0. Built with Docusaurus.`,
+      copyright: `Copyright © ${new Date().getFullYear()} Danilo Cominotti Marques. invowk™ is a trademark of Danilo Cominotti Marques. Licensed under EPL-2.0.`,
     },
     prism: {
       theme: prismThemes.github,

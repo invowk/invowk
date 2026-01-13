@@ -20,7 +20,7 @@ function HomepageHeader() {
           </span>
           <span>
             <Translate id="homepage.hero.alpha.notice">
-              Invowk is in early development. Expect breaking changes between releases.
+              Invowk™ is in early development. Expect breaking changes between releases.
             </Translate>
           </span>
         </div>

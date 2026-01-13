@@ -1,4 +1,4 @@
-# invowk
+# invowk™
 
 A dynamically extensible, CLI-based command runner similar to [just](https://github.com/casey/just), written in Go.
 
@@ -2161,4 +2161,8 @@ invowk-cli/
 This project is licensed under the Eclipse Public License 2.0 (EPL-2.0) - see the [LICENSE](LICENSE) file for details.
 
 SPDX-License-Identifier: EPL-2.0
+
+## Trademark
+
+invowk™ is a trademark of Danilo Cominotti Marques. See [TRADEMARK.md](TRADEMARK.md) for usage guidelines.
 
