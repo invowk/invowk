@@ -87,8 +87,14 @@
 	name: #PlatformType
 }
 
-// Target defines the runtime and platform constraints for an implementation
-#Target: {
+// Implementation represents an implementation with platform and runtime constraints
+#Implementation: {
+	// script contains the shell commands to execute OR a path to a script file (required)
+	// - Inline: shell commands (single or multi-line using triple quotes)
+	// - File: path to script file (e.g., "./scripts/build.sh", "deploy.sh")
+	// Recognized script extensions: .sh, .bash, .ps1, .bat, .cmd, .py, .rb, .pl, .zsh, .fish
+	script: string & !=""
+
 	// runtimes specifies which runtimes can execute this implementation (required, at least one)
 	// The first element is the default runtime for this platform combination
 	// Each runtime is a struct with a 'name' field and optional type-specific fields
@@ -98,18 +104,6 @@
 	// If not specified, the implementation applies to all platforms
 	// Each platform is a struct with a 'name' field
 	platforms?: [...#PlatformConfig] & [_, ...]
-}
-
-// Implementation represents an implementation with platform and runtime constraints
-#Implementation: {
-	// script contains the shell commands to execute OR a path to a script file (required)
-	// - Inline: shell commands (single or multi-line using triple quotes)
-	// - File: path to script file (e.g., "./scripts/build.sh", "deploy.sh")
-	// Recognized script extensions: .sh, .bash, .ps1, .bat, .cmd, .py, .rb, .pl, .zsh, .fish
-	script: string & !=""
-
-	// target defines the runtime and platform constraints (required)
-	target: #Target
 
 	// env contains environment configuration for this implementation (optional)
 	// Implementation-level env is merged with command-level env.

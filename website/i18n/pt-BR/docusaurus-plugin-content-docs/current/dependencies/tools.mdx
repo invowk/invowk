@@ -62,7 +62,7 @@ Todos os três devem ser satisfeitos (embora alternativas dentro de cada um seja
             VERSION=$(git describe --tags --always)
             go build -ldflags="-X main.version=$VERSION" ./...
             """
-        target: {runtimes: [{name: "native"}]}
+        runtimes: [{name: "native"}]
     }]
 }
 ```
@@ -81,7 +81,7 @@ Todos os três devem ser satisfeitos (embora alternativas dentro de cada um seja
     }
     implementations: [{
         script: "pnpm run build || npm run build"
-        target: {runtimes: [{name: "native"}]}
+        runtimes: [{name: "native"}]
     }]
 }
 ```
@@ -103,7 +103,7 @@ Todos os três devem ser satisfeitos (embora alternativas dentro de cada um seja
             helm upgrade --install myapp ./charts/myapp
             kubectl rollout status deployment/myapp
             """
-        target: {runtimes: [{name: "native"}]}
+        runtimes: [{name: "native"}]
     }]
 }
 ```
@@ -123,7 +123,7 @@ Todos os três devem ser satisfeitos (embora alternativas dentro de cada um seja
     }
     implementations: [{
         script: "poetry run python main.py"
-        target: {runtimes: [{name: "native"}]}
+        runtimes: [{name: "native"}]
     }]
 }
 ```
@@ -144,7 +144,7 @@ Ferramentas são verificadas no sistema host:
     }
     implementations: [{
         script: "go build ./..."
-        target: {runtimes: [{name: "native"}]}
+        runtimes: [{name: "native"}]
     }]
 }
 ```
@@ -161,7 +161,7 @@ Ferramentas são verificadas no ambiente do shell virtual:
     }
     implementations: [{
         script: "go build ./..."
-        target: {runtimes: [{name: "virtual"}]}
+        runtimes: [{name: "virtual"}]
     }]
 }
 ```
@@ -175,7 +175,7 @@ Ferramentas são verificadas **dentro do container**:
     name: "build"
     implementations: [{
         script: "go build ./..."
-        target: {runtimes: [{name: "container", image: "golang:1.21"}]}
+        runtimes: [{name: "container", image: "golang:1.21"}]
         depends_on: {
             // Isso verifica 'go' DENTRO do container
             tools: [{alternatives: ["go"]}]
@@ -201,7 +201,7 @@ Isso é especialmente útil porque:
     }
     implementations: [{
         script: "aws s3 sync ./dist s3://my-bucket"
-        target: {runtimes: [{name: "native"}]}
+        runtimes: [{name: "native"}]
     }]
 }
 ```
@@ -219,7 +219,7 @@ Isso é especialmente útil porque:
     }
     implementations: [{
         script: "migrate -path ./migrations -database $DATABASE_URL up"
-        target: {runtimes: [{name: "native"}]}
+        runtimes: [{name: "native"}]
     }]
 }
 ```
@@ -237,7 +237,7 @@ Isso é especialmente útil porque:
     }
     implementations: [{
         script: "xdg-open http://localhost:3000/docs || open http://localhost:3000/docs"
-        target: {runtimes: [{name: "native"}]}
+        runtimes: [{name: "native"}]
     }]
 }
 ```

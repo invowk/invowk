@@ -77,10 +77,8 @@ Isso é útil quando:
             
             echo "Building for ${config[env]}..."
             """
-        target: {
-            runtimes: [{name: "native"}]
-            platforms: [{name: "linux"}, {name: "macos"}]
-        }
+        runtimes: [{name: "native"}]
+        platforms: [{name: "linux"}, {name: "macos"}]
     }]
 }
 ```
@@ -98,10 +96,8 @@ Isso é útil quando:
             dotnet build --configuration Release
             Write-Host "Done!" -ForegroundColor Green
             """
-        target: {
-            runtimes: [{name: "native"}]
-            platforms: [{name: "windows"}]
-        }
+        runtimes: [{name: "native"}]
+        platforms: [{name: "windows"}]
     }]
 }
 ```
@@ -118,10 +114,8 @@ Isso é útil quando:
             msbuild /p:Configuration=Release
             echo Done!
             """
-        target: {
-            runtimes: [{name: "native"}]
-            platforms: [{name: "windows"}]
-        }
+        runtimes: [{name: "native"}]
+        platforms: [{name: "windows"}]
     }]
 }
 ```
@@ -145,9 +139,7 @@ O runtime native suporta interpretadores não-shell como Python, Ruby ou Node.js
             data = {"status": "ok", "items": [1, 2, 3]}
             print(json.dumps(data, indent=2))
             """
-        target: {
-            runtimes: [{name: "native"}]
-        }
+        runtimes: [{name: "native"}]
     }]
 }
 ```
@@ -162,12 +154,10 @@ O runtime native suporta interpretadores não-shell como Python, Ruby ou Node.js
             import sys
             print(f"Hello from Python {sys.version_info.major}!")
             """
-        target: {
-            runtimes: [{
-                name: "native"
-                interpreter: "python3"  // Interpretador explícito
-            }]
-        }
+        runtimes: [{
+            name: "native"
+            interpreter: "python3"  // Interpretador explícito
+        }]
     }]
 }
 ```
@@ -181,12 +171,10 @@ O runtime native suporta interpretadores não-shell como Python, Ruby ou Node.js
         script: """
             print("Unbuffered output!")
             """
-        target: {
-            runtimes: [{
-                name: "native"
-                interpreter: "python3 -u"  // Com argumentos
-            }]
-        }
+        runtimes: [{
+            name: "native"
+            interpreter: "python3 -u"  // Com argumentos
+        }]
     }]
 }
 ```
@@ -209,9 +197,7 @@ O runtime native tem acesso completo ao seu ambiente:
             echo "User: $USER"
             echo "Deploy to: $DEPLOY_ENV"
             """
-        target: {
-            runtimes: [{name: "native"}]
-        }
+        runtimes: [{name: "native"}]
     }]
 }
 ```
@@ -237,9 +223,7 @@ Flags e argumentos estão disponíveis como variáveis de ambiente:
                 echo "Hello, $INVOWK_ARG_NAME!"
             fi
             """
-        target: {
-            runtimes: [{name: "native"}]
-        }
+        runtimes: [{name: "native"}]
     }]
 }
 ```
@@ -259,9 +243,7 @@ Por padrão, scripts executam no diretório atual. Sobrescreva com `workdir`:
     workdir: "./frontend"  // Executar no subdiretório frontend
     implementations: [{
         script: "npm run build"
-        target: {
-            runtimes: [{name: "native"}]
-        }
+        runtimes: [{name: "native"}]
     }]
 }
 ```
@@ -284,9 +266,7 @@ O runtime native valida dependências contra seu sistema host:
     }
     implementations: [{
         script: "docker build -t myapp . && kubectl apply -f k8s/"
-        target: {
-            runtimes: [{name: "native"}]
-        }
+        runtimes: [{name: "native"}]
     }]
 }
 ```

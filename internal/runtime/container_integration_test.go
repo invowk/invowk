@@ -53,11 +53,10 @@ func testContainerBasicExecution(t *testing.T) {
 		Implementations: []invkfile.Implementation{
 			{
 				Script: "echo 'Hello from container'",
-				Target: invkfile.Target{
+				
 					Runtimes: []invkfile.RuntimeConfig{
 						{Name: invkfile.RuntimeContainer, Image: "alpine:latest"},
 					},
-				},
 			},
 		},
 	}
@@ -91,14 +90,13 @@ func testContainerEnvironmentVariables(t *testing.T) {
 		Implementations: []invkfile.Implementation{
 			{
 				Script: `echo "VAR1=$MY_VAR1 VAR2=$MY_VAR2"`,
-				Target: invkfile.Target{
+				
 					Runtimes: []invkfile.RuntimeConfig{
 						{Name: invkfile.RuntimeContainer, Image: "alpine:latest"},
 					},
 					Platforms: []invkfile.PlatformConfig{
 						{Name: currentPlatform},
 					},
-				},
 				Env: &invkfile.EnvConfig{Vars: map[string]string{"MY_VAR1": "impl_value"}},
 			},
 		},
@@ -145,11 +143,10 @@ echo "Variable: $VAR"`
 		Implementations: []invkfile.Implementation{
 			{
 				Script: script,
-				Target: invkfile.Target{
+				
 					Runtimes: []invkfile.RuntimeConfig{
 						{Name: invkfile.RuntimeContainer, Image: "alpine:latest"},
 					},
-				},
 			},
 		},
 	}
@@ -195,11 +192,10 @@ func testContainerWorkingDirectory(t *testing.T) {
 		Implementations: []invkfile.Implementation{
 			{
 				Script: "pwd",
-				Target: invkfile.Target{
+				
 					Runtimes: []invkfile.RuntimeConfig{
 						{Name: invkfile.RuntimeContainer, Image: "alpine:latest"},
 					},
-				},
 			},
 		},
 	}
@@ -250,7 +246,7 @@ func testContainerVolumeMounts(t *testing.T) {
 		Implementations: []invkfile.Implementation{
 			{
 				Script: `cat /workspace/test-data.txt && echo "" && cat /data/data.txt`,
-				Target: invkfile.Target{
+				
 					Runtimes: []invkfile.RuntimeConfig{
 						{
 							Name:    invkfile.RuntimeContainer,
@@ -258,7 +254,6 @@ func testContainerVolumeMounts(t *testing.T) {
 							Volumes: []string{dataDir + ":/data:ro"},
 						},
 					},
-				},
 			},
 		},
 	}
@@ -294,11 +289,10 @@ func testContainerExitCode(t *testing.T) {
 		Implementations: []invkfile.Implementation{
 			{
 				Script: "exit 42",
-				Target: invkfile.Target{
+				
 					Runtimes: []invkfile.RuntimeConfig{
 						{Name: invkfile.RuntimeContainer, Image: "alpine:latest"},
 					},
-				},
 			},
 		},
 	}
@@ -326,11 +320,10 @@ func testContainerPositionalArgs(t *testing.T) {
 		Implementations: []invkfile.Implementation{
 			{
 				Script: `echo "ARG1=$1 ARG2=$2 ALL=$@ COUNT=$#"`,
-				Target: invkfile.Target{
+				
 					Runtimes: []invkfile.RuntimeConfig{
 						{Name: invkfile.RuntimeContainer, Image: "alpine:latest"},
 					},
-				},
 			},
 		},
 	}
@@ -373,11 +366,10 @@ func testContainerEnableHostSSHEnvVars(t *testing.T) {
 		Implementations: []invkfile.Implementation{
 			{
 				Script: `echo "SSH_HOST=$INVOWK_SSH_HOST SSH_PORT=$INVOWK_SSH_PORT SSH_USER=$INVOWK_SSH_USER SSH_ENABLED=$INVOWK_SSH_ENABLED"`,
-				Target: invkfile.Target{
+				
 					Runtimes: []invkfile.RuntimeConfig{
 						{Name: invkfile.RuntimeContainer, Image: "alpine:latest", EnableHostSSH: true},
 					},
-				},
 			},
 		},
 	}
@@ -434,11 +426,10 @@ func TestContainerRuntime_Validate(t *testing.T) {
 				Implementations: []invkfile.Implementation{
 					{
 						Script: "echo test",
-						Target: invkfile.Target{
+						
 							Runtimes: []invkfile.RuntimeConfig{
 								{Name: invkfile.RuntimeContainer, Image: "alpine:latest"},
 							},
-						},
 					},
 				},
 			},
@@ -460,11 +451,10 @@ func TestContainerRuntime_Validate(t *testing.T) {
 				Implementations: []invkfile.Implementation{
 					{
 						Script: "",
-						Target: invkfile.Target{
+						
 							Runtimes: []invkfile.RuntimeConfig{
 								{Name: invkfile.RuntimeContainer, Image: "alpine:latest"},
 							},
-						},
 					},
 				},
 			},
@@ -508,11 +498,10 @@ func TestContainerRuntime_EnableHostSSH_NoServer(t *testing.T) {
 		Implementations: []invkfile.Implementation{
 			{
 				Script: "echo test",
-				Target: invkfile.Target{
+				
 					Runtimes: []invkfile.RuntimeConfig{
 						{Name: invkfile.RuntimeContainer, Image: "alpine:latest", EnableHostSSH: true},
 					},
-				},
 			},
 		},
 	}
@@ -562,11 +551,10 @@ RUN echo "Built from Containerfile" > /built.txt
 		Implementations: []invkfile.Implementation{
 			{
 				Script: "cat /built.txt",
-				Target: invkfile.Target{
+				
 					Runtimes: []invkfile.RuntimeConfig{
 						{Name: invkfile.RuntimeContainer, Containerfile: "Containerfile"},
 					},
-				},
 			},
 		},
 	}

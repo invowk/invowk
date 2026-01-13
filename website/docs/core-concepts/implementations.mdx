@@ -41,9 +41,9 @@ Recognized extensions: `.sh`, `.bash`, `.ps1`, `.bat`, `.cmd`, `.py`, `.rb`, `.p
 - **Inline**: Quick, simple commands; keeps everything in one file
 - **External**: Complex scripts; reusable across commands; easier to edit with syntax highlighting
 
-## Target Constraints
+## Runtime and Platform Constraints
 
-The `target` field defines where and how the implementation runs.
+Each implementation specifies where and how it runs using the `runtimes` and `platforms` fields.
 
 ### Runtimes
 
@@ -96,21 +96,17 @@ Invowk™ automatically selects the right implementation for the current platfor
         // Linux/macOS with multiple runtime options
         {
             script: "make build"
-            target: {
-                runtimes: [
-                    {name: "native"},
-                    {name: "container", image: "ubuntu:22.04"}
-                ]
-                platforms: [{name: "linux"}, {name: "macos"}]
-            }
+            runtimes: [
+                {name: "native"},
+                {name: "container", image: "ubuntu:22.04"}
+            ]
+            platforms: [{name: "linux"}, {name: "macos"}]
         },
         // Windows native only
         {
             script: "msbuild /p:Configuration=Release"
-            target: {
-                runtimes: [{name: "native"}]
-                platforms: [{name: "windows"}]
-            }
+            runtimes: [{name: "native"}]
+            platforms: [{name: "windows"}]
         }
     ]
 }

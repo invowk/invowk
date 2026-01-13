@@ -12,15 +12,13 @@ cmds: [
 		implementations: [
 			{
 				script: "echo \"Hello, I'm invowk!\""
-				target: {
-					// Compatible with all runtimes
-					runtimes: [
-						{name: "native"},
-						{name: "virtual"},
-						{name: "container", image: "alpine:latest"},
-					]
-					// No platforms specified = runs on all platforms (linux, macos, windows)
-				}
+				// Compatible with all runtimes
+				runtimes: [
+					{name: "native"},
+					{name: "virtual"},
+					{name: "container", image: "alpine:latest"},
+				]
+				// No platforms specified = runs on all platforms (linux, macos, windows)
 			},
 		]
 	},

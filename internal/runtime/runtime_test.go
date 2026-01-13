@@ -19,7 +19,7 @@ func testCommandWithScript(name string, script string, runtime invkfile.RuntimeM
 	return &invkfile.Command{
 		Name: name,
 		Implementations: []invkfile.Implementation{
-			{Script: script, Target: invkfile.Target{Runtimes: []invkfile.RuntimeConfig{{Name: runtime}}}},
+			{Script: script, Runtimes: []invkfile.RuntimeConfig{{Name: runtime}}},
 		},
 	}
 }
@@ -350,10 +350,9 @@ func TestRuntime_EnvironmentVariables(t *testing.T) {
 		Implementations: []invkfile.Implementation{
 			{
 				Script: `echo "Impl: $IMPL_VAR, Command: $CMD_VAR"`,
-				Target: invkfile.Target{
+				
 					Runtimes:  []invkfile.RuntimeConfig{{Name: invkfile.RuntimeVirtual}},
 					Platforms: []invkfile.PlatformConfig{{Name: currentPlatform}},
-				},
 				Env: &invkfile.EnvConfig{Vars: map[string]string{"IMPL_VAR": "impl_value"}},
 			},
 		},
@@ -974,9 +973,8 @@ func testCommandWithInterpreter(name, script, interpreter string, runtime invkfi
 		Implementations: []invkfile.Implementation{
 			{
 				Script: script,
-				Target: invkfile.Target{
+				
 					Runtimes: []invkfile.RuntimeConfig{{Name: runtime, Interpreter: interpreter}},
-				},
 			},
 		},
 	}

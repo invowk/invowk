@@ -103,12 +103,10 @@ Como o runtime native, containers suportam interpretadores personalizados:
             import sys
             print(f"Python {sys.version} in container!")
             """
-        target: {
-            runtimes: [{
-                name: "container"
-                image: "python:3.11"
-            }]
-        }
+        runtimes: [{
+            name: "container"
+            image: "python:3.11"
+        }]
     }]
 }
 ```
@@ -135,12 +133,10 @@ Variáveis de ambiente são passadas para o container:
             echo "Deploying to $DEPLOY_ENV"
             echo "API: $API_URL"
             """
-        target: {
-            runtimes: [{
-                name: "container"
-                image: "debian:bookworm-slim"
-            }]
-        }
+        runtimes: [{
+            name: "container"
+            image: "debian:bookworm-slim"
+        }]
     }]
 }
 ```
@@ -200,12 +196,10 @@ Dependências de container são validadas **dentro do container**:
     }
     implementations: [{
         script: "make build"
-        target: {
-            runtimes: [{
-                name: "container"
-                image: "golang:1.21"
-            }]
-        }
+        runtimes: [{
+            name: "container"
+            image: "golang:1.21"
+        }]
     }]
 }
 ```
@@ -235,12 +229,10 @@ Por padrão, o diretório atual é montado em `/workspace` e usado como diretór
             pwd  # Saída: /workspace
             ls   # Mostra os arquivos do seu projeto
             """
-        target: {
-            runtimes: [{
-                name: "container"
-                image: "debian:bookworm-slim"
-            }]
-        }
+        runtimes: [{
+            name: "container"
+            image: "debian:bookworm-slim"
+        }]
     }]
 }
 ```
@@ -253,12 +245,10 @@ Sobrescreva com `workdir`:
     workdir: "./frontend"  // Montado e usado como workdir
     implementations: [{
         script: "npm run build"
-        target: {
-            runtimes: [{
-                name: "container"
-                image: "node:20"
-            }]
-        }
+        runtimes: [{
+            name: "container"
+            image: "node:20"
+        }]
     }]
 }
 ```
@@ -302,12 +292,10 @@ Isso significa que seus scripts podem usar comandos `invowk tui` dentro de conta
                 ./deploy.sh
             fi
             """
-        target: {
-            runtimes: [{
-                name: "container"
-                image: "debian:bookworm-slim"
-            }]
-        }
+        runtimes: [{
+            name: "container"
+            image: "debian:bookworm-slim"
+        }]
     }]
 }
 ```

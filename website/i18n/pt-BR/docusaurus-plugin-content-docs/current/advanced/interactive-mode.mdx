@@ -135,12 +135,10 @@ Dentro dos scripts do seu container, você pode usar todos os componentes TUI:
                 ./deploy.sh "$ENV"
             fi
             """
-        target: {
-            runtimes: [{
-                name: "container"
-                image: "debian:bookworm-slim"
-            }]
-        }
+        runtimes: [{
+            name: "container"
+            image: "debian:bookworm-slim"
+        }]
     }]
 }
 ```
@@ -176,7 +174,7 @@ Imagens de container devem usar glibc (não musl). Imagens baseadas em Alpine n�
             
             echo "Deploy concluído!"
             """
-        target: {runtimes: [{name: "native"}]}
+        runtimes: [{name: "native"}]
     }]
 }
 ```
@@ -199,7 +197,7 @@ Execute com: `invowk cmd myproject deploy -i`
                 psql -h prod-db -U admin -W -f migrations.sql
             fi
             """
-        target: {runtimes: [{name: "native"}]}
+        runtimes: [{name: "native"}]
     }]
 }
 ```

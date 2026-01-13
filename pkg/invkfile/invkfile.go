@@ -79,18 +79,6 @@ type PlatformConfig struct {
 	Name PlatformType `json:"name"`
 }
 
-// Target defines the runtime and platform constraints for an implementation
-type Target struct {
-	// Runtimes specifies which runtimes can execute this implementation (required, at least one)
-	// The first element is the default runtime for this platform combination
-	// Each runtime is a struct with a Name field and optional type-specific fields
-	Runtimes []RuntimeConfig `json:"runtimes"`
-	// Platforms specifies which operating systems this implementation is for (optional)
-	// If empty/nil, the implementation applies to all platforms
-	// Each platform is a struct with a Name field
-	Platforms []PlatformConfig `json:"platforms,omitempty"`
-}
-
 // ToolDependency represents a tool/binary that must be available in PATH
 type ToolDependency struct {
 	// Alternatives is a list of binary names where any match satisfies the dependency
@@ -418,8 +406,14 @@ type Platform = PlatformType
 type Implementation struct {
 	// Script contains the shell commands to execute OR a path to a script file
 	Script string `json:"script"`
-	// Target defines the runtime and platform constraints (required)
-	Target Target `json:"target"`
+	// Runtimes specifies which runtimes can execute this implementation (required, at least one)
+	// The first element is the default runtime for this platform combination
+	// Each runtime is a struct with a Name field and optional type-specific fields
+	Runtimes []RuntimeConfig `json:"runtimes"`
+	// Platforms specifies which operating systems this implementation is for (optional)
+	// If empty/nil, the implementation applies to all platforms
+	// Each platform is a struct with a Name field
+	Platforms []PlatformConfig `json:"platforms,omitempty"`
 	// Env contains environment configuration for this implementation (optional)
 	// Implementation-level env is merged with command-level env.
 	// Implementation files are loaded after command-level files.
@@ -535,10 +529,10 @@ func (c *Command) GetDefaultImplForPlatform(platform Platform) *Script {
 // The default runtime is the first runtime of the first script that matches the platform
 func (c *Command) GetDefaultRuntimeForPlatform(platform Platform) RuntimeMode {
 	script := c.GetDefaultImplForPlatform(platform)
-	if script == nil || len(script.Target.Runtimes) == 0 {
+	if script == nil || len(script.Runtimes) == 0 {
 		return RuntimeNative
 	}
-	return script.Target.Runtimes[0].Name
+	return script.Runtimes[0].Name
 }
 
 // CanRunOnCurrentHost returns true if the command can run on the current host OS
@@ -553,13 +547,13 @@ func (c *Command) GetSupportedPlatforms() []Platform {
 	allPlatforms := []Platform{HostLinux, HostMac, HostWindows}
 
 	for _, s := range c.Implementations {
-		if len(s.Target.Platforms) == 0 {
+		if len(s.Platforms) == 0 {
 			// Script applies to all platforms
 			for _, p := range allPlatforms {
 				platformSet[p] = true
 			}
 		} else {
-			for _, p := range s.Target.Platforms {
+			for _, p := range s.Platforms {
 				platformSet[p.Name] = true
 			}
 		}
@@ -594,7 +588,7 @@ func (c *Command) GetAllowedRuntimesForPlatform(platform Platform) []RuntimeMode
 
 	for _, s := range c.Implementations {
 		if s.MatchesPlatform(platform) {
-			for _, r := range s.Target.Runtimes {
+			for _, r := range s.Runtimes {
 				if !runtimeSet[r.Name] {
 					runtimeSet[r.Name] = true
 					orderedRuntimes = append(orderedRuntimes, r.Name)
@@ -644,13 +638,13 @@ func (c *Command) ValidateScripts() error {
 	}
 
 	for i, s := range c.Implementations {
-		platforms := s.Target.Platforms
+		platforms := s.Platforms
 		if len(platforms) == 0 {
 			platforms = allPlatforms // Applies to all platforms
 		}
 
 		for _, p := range platforms {
-			for _, r := range s.Target.Runtimes {
+			for _, r := range s.Runtimes {
 				key := PlatformRuntimeKey{Platform: p.Name, Runtime: r.Name}
 				if existingIdx, exists := seen[key]; exists {
 					return fmt.Errorf(
@@ -667,10 +661,10 @@ func (c *Command) ValidateScripts() error {
 
 // MatchesPlatform returns true if the script can run on the given platform
 func (s *Script) MatchesPlatform(platform Platform) bool {
-	if len(s.Target.Platforms) == 0 {
+	if len(s.Platforms) == 0 {
 		return true // No platforms specified = all platforms
 	}
-	for _, p := range s.Target.Platforms {
+	for _, p := range s.Platforms {
 		if p.Name == platform {
 			return true
 		}
@@ -680,7 +674,7 @@ func (s *Script) MatchesPlatform(platform Platform) bool {
 
 // HasRuntime returns true if the script supports the given runtime
 func (s *Script) HasRuntime(runtime RuntimeMode) bool {
-	for _, r := range s.Target.Runtimes {
+	for _, r := range s.Runtimes {
 		if r.Name == runtime {
 			return true
 		}
@@ -690,9 +684,9 @@ func (s *Script) HasRuntime(runtime RuntimeMode) bool {
 
 // GetRuntimeConfig returns the RuntimeConfig for the given runtime type, or nil if not found
 func (s *Script) GetRuntimeConfig(runtime RuntimeMode) *RuntimeConfig {
-	for i := range s.Target.Runtimes {
-		if s.Target.Runtimes[i].Name == runtime {
-			return &s.Target.Runtimes[i]
+	for i := range s.Runtimes {
+		if s.Runtimes[i].Name == runtime {
+			return &s.Runtimes[i]
 		}
 	}
 	return nil
@@ -700,23 +694,23 @@ func (s *Script) GetRuntimeConfig(runtime RuntimeMode) *RuntimeConfig {
 
 // GetDefaultRuntime returns the default runtime type for this script (first runtime in the list)
 func (s *Script) GetDefaultRuntime() RuntimeMode {
-	if len(s.Target.Runtimes) == 0 {
+	if len(s.Runtimes) == 0 {
 		return RuntimeNative
 	}
-	return s.Target.Runtimes[0].Name
+	return s.Runtimes[0].Name
 }
 
 // GetDefaultRuntimeConfig returns the default RuntimeConfig for this script (first in the list)
 func (s *Script) GetDefaultRuntimeConfig() *RuntimeConfig {
-	if len(s.Target.Runtimes) == 0 {
+	if len(s.Runtimes) == 0 {
 		return nil
 	}
-	return &s.Target.Runtimes[0]
+	return &s.Runtimes[0]
 }
 
 // HasHostSSH returns true if any runtime in this script has enable_host_ssh enabled
 func (s *Script) HasHostSSH() bool {
-	for _, r := range s.Target.Runtimes {
+	for _, r := range s.Runtimes {
 		if r.Name == RuntimeContainer && r.EnableHostSSH {
 			return true
 		}
@@ -1185,13 +1179,13 @@ func (inv *Invkfile) validateCommand(cmd *Command) error {
 		if impl.Script == "" {
 			return fmt.Errorf("command '%s' implementation #%d must have a script in invkfile at %s", cmd.Name, i+1, inv.FilePath)
 		}
-		if len(impl.Target.Runtimes) == 0 {
+		if len(impl.Runtimes) == 0 {
 			return fmt.Errorf("command '%s' implementation #%d must have at least one runtime in invkfile at %s", cmd.Name, i+1, inv.FilePath)
 		}
 
 		// Validate each runtime config
-		for j := range impl.Target.Runtimes {
-			if err := validateRuntimeConfig(&impl.Target.Runtimes[j], cmd.Name, i+1); err != nil {
+		for j := range impl.Runtimes {
+			if err := validateRuntimeConfig(&impl.Runtimes[j], cmd.Name, i+1); err != nil {
 				return err
 			}
 		}
@@ -1770,13 +1764,10 @@ func GenerateCUE(inv *Invkfile) string {
 				sb.WriteString(fmt.Sprintf("\t\t\t\tscript: %q\n", impl.Script))
 			}
 
-			// Target with runtimes and platforms
-			sb.WriteString("\t\t\t\ttarget: {\n")
-
 			// Runtimes (each is a struct with name and optional fields)
-			sb.WriteString("\t\t\t\t\truntimes: [\n")
-			for _, r := range impl.Target.Runtimes {
-				sb.WriteString("\t\t\t\t\t\t{")
+			sb.WriteString("\t\t\t\truntimes: [\n")
+			for _, r := range impl.Runtimes {
+				sb.WriteString("\t\t\t\t\t{")
 				sb.WriteString(fmt.Sprintf("name: %q", r.Name))
 				if r.Name == RuntimeContainer {
 					if r.EnableHostSSH {
@@ -1811,18 +1802,16 @@ func GenerateCUE(inv *Invkfile) string {
 				}
 				sb.WriteString("},\n")
 			}
-			sb.WriteString("\t\t\t\t\t]\n")
+			sb.WriteString("\t\t\t\t]\n")
 
 			// Platforms (optional, each is a struct with name only)
-			if len(impl.Target.Platforms) > 0 {
-				sb.WriteString("\t\t\t\t\tplatforms: [\n")
-				for _, p := range impl.Target.Platforms {
-					sb.WriteString(fmt.Sprintf("\t\t\t\t\t\t{name: %q},\n", p.Name))
+			if len(impl.Platforms) > 0 {
+				sb.WriteString("\t\t\t\tplatforms: [\n")
+				for _, p := range impl.Platforms {
+					sb.WriteString(fmt.Sprintf("\t\t\t\t\t{name: %q},\n", p.Name))
 				}
-				sb.WriteString("\t\t\t\t\t]\n")
+				sb.WriteString("\t\t\t\t]\n")
 			}
-
-			sb.WriteString("\t\t\t\t}\n") // close target
 
 			// Implementation-level depends_on
 			if impl.DependsOn != nil && (len(impl.DependsOn.Tools) > 0 || len(impl.DependsOn.Commands) > 0 || len(impl.DependsOn.Filepaths) > 0 || len(impl.DependsOn.Capabilities) > 0 || len(impl.DependsOn.CustomChecks) > 0 || len(impl.DependsOn.EnvVars) > 0) {

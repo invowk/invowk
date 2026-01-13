@@ -398,12 +398,10 @@ cmds: [
 		implementations: [
 			{
 				script: "echo \"Hello from %s!\""
-				target: {
-					runtimes: [
-						{name: "native"},
-						{name: "virtual"},
-					]
-				}
+				runtimes: [
+					{name: "native"},
+					{name: "virtual"},
+				]
 			},
 		]
 	},

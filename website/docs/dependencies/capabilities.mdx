@@ -60,7 +60,7 @@ This checks:
     }
     implementations: [{
         script: "go mod download"
-        target: {runtimes: [{name: "native"}]}
+        runtimes: [{name: "native"}]
     }]
 }
 
@@ -72,7 +72,7 @@ This checks:
     }
     implementations: [{
         script: "kubectl apply -f k8s/"
-        target: {runtimes: [{name: "native"}]}
+        runtimes: [{name: "native"}]
     }]
 }
 
@@ -84,7 +84,7 @@ This checks:
     }
     implementations: [{
         script: "curl -o data.json https://api.example.com/data"
-        target: {runtimes: [{name: "native"}]}
+        runtimes: [{name: "native"}]
     }]
 }
 ```
@@ -117,7 +117,7 @@ This checks:
     }
     implementations: [{
         script: "psql -h db.local -U admin"
-        target: {runtimes: [{name: "native"}]}
+        runtimes: [{name: "native"}]
     }]
 }
 
@@ -129,7 +129,7 @@ This checks:
     }
     implementations: [{
         script: "curl http://service.local:8080/health"
-        target: {runtimes: [{name: "native"}]}
+        runtimes: [{name: "native"}]
     }]
 }
 ```
@@ -165,7 +165,7 @@ This is useful when a command can work with either:
     }
     implementations: [{
         script: "npm install"
-        target: {runtimes: [{name: "native"}]}
+        runtimes: [{name: "native"}]
     }]
 }
 ```
@@ -191,7 +191,7 @@ This is useful when a command can work with either:
             go build ./...
             go test ./...
             """
-        target: {runtimes: [{name: "native"}]}
+        runtimes: [{name: "native"}]
     }]
 }
 ```
@@ -214,7 +214,7 @@ This is useful when a command can work with either:
                 aws s3 sync ./data s3://my-backup-bucket/
             fi
             """
-        target: {runtimes: [{name: "native"}]}
+        runtimes: [{name: "native"}]
     }]
 }
 ```
@@ -233,7 +233,7 @@ cmds: [
         }
         implementations: [{
             script: "go mod download"
-            target: {runtimes: [{name: "native"}]}
+            runtimes: [{name: "native"}]
         }]
     },
     
@@ -246,7 +246,7 @@ cmds: [
         }
         implementations: [{
             script: "go build -mod=readonly ./..."
-            target: {runtimes: [{name: "native"}]}
+            runtimes: [{name: "native"}]
         }]
     }
 ]
@@ -265,7 +265,7 @@ For container runtime, capability checks are performed on the **host**, not insi
     }
     implementations: [{
         script: "kubectl apply -f k8s/"
-        target: {runtimes: [{name: "container", image: "bitnami/kubectl"}]}
+        runtimes: [{name: "container", image: "bitnami/kubectl"}]
     }]
 }
 ```

@@ -41,9 +41,9 @@ Extensões reconhecidas: `.sh`, `.bash`, `.ps1`, `.bat`, `.cmd`, `.py`, `.rb`, `
 - **Inline**: Comandos rápidos e simples; mantém tudo em um arquivo
 - **Externo**: Scripts complexos; reutilizáveis entre comandos; mais fácil de editar com syntax highlighting
 
-## Restrições de Target
+## Restrições de Runtime e Plataforma
 
-O campo `target` define onde e como a implementação executa.
+Cada implementação especifica onde e como executa usando os campos `runtimes` e `platforms`.
 
 ### Runtimes
 
@@ -96,21 +96,17 @@ O Invowk™ automaticamente seleciona a implementação correta para a plataform
         // Linux/macOS com múltiplas opções de runtime
         {
             script: "make build"
-            target: {
-                runtimes: [
-                    {name: "native"},
-                    {name: "container", image: "ubuntu:22.04"}
-                ]
-                platforms: [{name: "linux"}, {name: "macos"}]
-            }
+            runtimes: [
+                {name: "native"},
+                {name: "container", image: "ubuntu:22.04"}
+            ]
+            platforms: [{name: "linux"}, {name: "macos"}]
         },
         // Windows apenas nativo
         {
             script: "msbuild /p:Configuration=Release"
-            target: {
-                runtimes: [{name: "native"}]
-                platforms: [{name: "windows"}]
-            }
+            runtimes: [{name: "native"}]
+            platforms: [{name: "windows"}]
         }
     ]
 }

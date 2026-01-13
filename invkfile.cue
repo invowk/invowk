@@ -45,9 +45,7 @@ cmds: [
 		implementations: [
 			{
 				script: "echo 'Hello from invowk!'"
-				target: {
-					runtimes: [{name: "native"}]
-				}
+				runtimes: [{name: "native"}]
 			}
 		]
 	},
@@ -67,9 +65,7 @@ cmds: [
 					echo "LOG_LEVEL: $LOG_LEVEL (from command-level, overrides root)"
 					echo "RUNTIME: $RUNTIME (from implementation-level, overrides command)"
 					"""
-				target: {
-					runtimes: [{name: "native"}]
-				}
+				runtimes: [{name: "native"}]
 				env: {
 					vars: {
 						RUNTIME: "native"
@@ -97,9 +93,7 @@ cmds: [
 		implementations: [
 			{
 				script: "echo 'Hello from the virtual shell!'"
-				target: {
-					runtimes: [{name: "virtual"}]
-				}
+				runtimes: [{name: "virtual"}]
 			}
 		]
 	},
@@ -111,9 +105,7 @@ cmds: [
 		implementations: [
 			{
 				script: "echo 'This can run in native (default) or virtual runtime'"
-				target: {
-					runtimes: [{name: "native"}, {name: "virtual"}]
-				}
+				runtimes: [{name: "native"}, {name: "virtual"}]
 			}
 		]
 	},
@@ -137,11 +129,9 @@ cmds: [
 					print(f"Hello from Python {sys.version_info.major}.{sys.version_info.minor}!")
 					print("Interpreter was auto-detected from the shebang line.")
 					"""
-				target: {
-					// Default interpreter is "auto" - shebang is parsed automatically
-					runtimes:  [{name: "native"}]
-					platforms: [{name: "linux"}, {name: "macos"}]
-				}
+				// Default interpreter is "auto" - shebang is parsed automatically
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
 			}
 		]
 		depends_on: {
@@ -161,11 +151,9 @@ cmds: [
 					print("Interpreter was explicitly set to 'python3'.")
 					print("No shebang needed when interpreter is explicit.")
 					"""
-				target: {
-					// Explicit interpreter - no shebang needed
-					runtimes:  [{name: "native", interpreter: "python3"}]
-					platforms: [{name: "linux"}, {name: "macos"}]
-				}
+				// Explicit interpreter - no shebang needed
+				runtimes:  [{name: "native", interpreter: "python3"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
 			}
 		]
 		depends_on: {
@@ -185,10 +173,8 @@ cmds: [
 					print("This output is unbuffered (-u flag)")
 					print(f"Arguments: {sys.argv[1:]}", file=sys.stderr)
 					"""
-				target: {
-					runtimes:  [{name: "native"}]
-					platforms: [{name: "linux"}, {name: "macos"}]
-				}
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
 			}
 		]
 		depends_on: {
@@ -204,10 +190,8 @@ cmds: [
 			{
 				// When script is a file path, shebang is read from the file
 				script: "./scripts/example.py"
-				target: {
-					runtimes:  [{name: "native"}]
-					platforms: [{name: "linux"}, {name: "macos"}]
-				}
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
 			}
 		]
 		depends_on: {
@@ -228,10 +212,8 @@ cmds: [
 					console.log(`Node version: ${process.version}`);
 					console.log(`Arguments: ${process.argv.slice(2).join(', ')}`);
 					"""
-				target: {
-					runtimes:  [{name: "native"}]
-					platforms: [{name: "linux"}, {name: "macos"}]
-				}
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
 			}
 		]
 		depends_on: {
@@ -250,10 +232,8 @@ cmds: [
 					puts "Ruby version: #{RUBY_VERSION}"
 					puts "Arguments: #{ARGV.join(', ')}"
 					"""
-				target: {
-					runtimes:  [{name: "native", interpreter: "ruby"}]
-					platforms: [{name: "linux"}, {name: "macos"}]
-				}
+				runtimes:  [{name: "native", interpreter: "ruby"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
 			}
 		]
 		depends_on: {
@@ -274,10 +254,8 @@ cmds: [
 					print "Perl version: $]\\n";
 					print "Arguments: @ARGV\\n";
 					"""
-				target: {
-					runtimes:  [{name: "native"}]
-					platforms: [{name: "linux"}, {name: "macos"}]
-				}
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
 			}
 		]
 		depends_on: {
@@ -301,10 +279,8 @@ cmds: [
 					for i in range(count):
 					    print(f"Hello, {name}! (iteration {i+1})")
 					"""
-				target: {
-					runtimes:  [{name: "native"}]
-					platforms: [{name: "linux"}, {name: "macos"}]
-				}
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
 			}
 		]
 		args: [
@@ -332,13 +308,11 @@ cmds: [
 					print(f"Working directory: {os.getcwd()}")
 					print(f"Arguments: {sys.argv[1:]}")
 					"""
-				target: {
-					runtimes: [{
-						name:  "container"
-						image: "python:3-slim"
-						// interpreter auto-detected from shebang
-					}]
-				}
+				runtimes: [{
+					name:  "container"
+					image: "python:3-slim"
+					// interpreter auto-detected from shebang
+				}]
 			}
 		]
 	},
@@ -357,13 +331,11 @@ cmds: [
 					print(f"Python version: {sys.version_info.major}.{sys.version_info.minor}")
 					print(f"Container hostname: {os.uname().nodename}")
 					"""
-				target: {
-					runtimes: [{
-						name:        "container"
-						image:       "python:3-slim"
-						interpreter: "python3"
-					}]
-				}
+				runtimes: [{
+					name:        "container"
+					image:       "python:3-slim"
+					interpreter: "python3"
+				}]
 			}
 		]
 	},
@@ -380,11 +352,9 @@ cmds: [
 					echo "Working directory: $(pwd)"
 					echo "User: $(whoami)"
 					"""
-				target: {
-					// No interpreter specified, no shebang in script
-					// -> falls back to shell execution (default behavior)
-					runtimes: [{name: "native"}]
-				}
+				// No interpreter specified, no shebang in script
+				// -> falls back to shell execution (default behavior)
+				runtimes: [{name: "native"}]
 			}
 		]
 	},
@@ -401,9 +371,7 @@ cmds: [
 		implementations: [
 			{
 				script: "echo 'Hello from inside the container!'"
-				target: {
-					runtimes: [{name: "container", image: "alpine:latest"}]
-				}
+				runtimes: [{name: "container", image: "alpine:latest"}]
 			}
 		]
 	},
@@ -425,16 +393,14 @@ cmds: [
 					echo ""
 					echo "File count: $(ls /app-data 2>/dev/null | wc -l) files/directories"
 					"""
-				target: {
-					runtimes: [{
-						name:  "container"
-						image: "alpine:latest"
-						volumes: [
-							".:/app-data:ro",
-						]
-					}]
-					platforms: [{name: "linux"}, {name: "macos"}]
-				}
+				runtimes: [{
+					name:  "container"
+					image: "alpine:latest"
+					volumes: [
+						".:/app-data:ro",
+					]
+				}]
+				platforms: [{name: "linux"}, {name: "macos"}]
 			}
 		]
 	},
@@ -453,13 +419,11 @@ cmds: [
 					echo ""
 					echo "Note: No actual server is started (this is just a demo)"
 					"""
-				target: {
-					runtimes: [{
-						name:  "container"
-						image: "alpine:latest"
-						ports: ["8080:80", "3000:3000"]
-					}]
-				}
+				runtimes: [{
+					name:  "container"
+					image: "alpine:latest"
+					ports: ["8080:80", "3000:3000"]
+				}]
 			}
 		]
 	},
@@ -476,9 +440,7 @@ cmds: [
 					echo "APP_ENV: $APP_ENV"
 					echo "DEBUG: $DEBUG"
 					"""
-				target: {
-					runtimes: [{name: "container", image: "alpine:latest"}]
-				}
+				runtimes: [{name: "container", image: "alpine:latest"}]
 			}
 		]
 		env: {
@@ -508,14 +470,12 @@ cmds: [
 					echo "  sshpass -p \$INVOWK_SSH_TOKEN ssh -o StrictHostKeyChecking=no \\"
 					echo "    \$INVOWK_SSH_USER@\$INVOWK_SSH_HOST -p \$INVOWK_SSH_PORT 'command'"
 					"""#
-				target: {
-					runtimes: [{
-						name:            "container"
-						image:           "alpine:latest"
-						enable_host_ssh: true
-					}]
-					platforms: [{name: "linux"}, {name: "macos"}]
-				}
+				runtimes: [{
+					name:            "container"
+					image:           "alpine:latest"
+					enable_host_ssh: true
+				}]
+				platforms: [{name: "linux"}, {name: "macos"}]
 			}
 		]
 	},
@@ -535,13 +495,11 @@ cmds: [
 					echo "  INVOWK_SSH_HOST: ${INVOWK_SSH_HOST:-<not set>}"
 					echo "  INVOWK_SSH_PORT: ${INVOWK_SSH_PORT:-<not set>}"
 					"""#
-				target: {
-					runtimes: [{
-						name:            "container"
-						image:           "alpine:latest"
-						enable_host_ssh: false
-					}]
-				}
+				runtimes: [{
+					name:            "container"
+					image:           "alpine:latest"
+					enable_host_ssh: false
+				}]
 			}
 		]
 	},
@@ -558,9 +516,7 @@ cmds: [
 		implementations: [
 			{
 				script: "echo 'sh is available!'"
-				target: {
-					runtimes: [{name: "native"}]
-				}
+				runtimes: [{name: "native"}]
 			}
 		]
 		depends_on: {
@@ -580,9 +536,7 @@ cmds: [
 					echo "Container runtime check passed!"
 					echo "At least one of podman/docker/nerdctl is available."
 					"""
-				target: {
-					runtimes: [{name: "native"}]
-				}
+				runtimes: [{name: "native"}]
 			}
 		]
 		depends_on: {
@@ -604,10 +558,8 @@ cmds: [
 					echo "  - sh is available"
 					echo "  - Either cat or type is available"
 					"""
-				target: {
-					runtimes:  [{name: "native"}]
-					platforms: [{name: "linux"}, {name: "macos"}]
-				}
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
 			}
 		]
 		depends_on: {
@@ -630,9 +582,7 @@ cmds: [
 		implementations: [
 			{
 				script: "echo 'README.md exists!'"
-				target: {
-					runtimes: [{name: "native"}]
-				}
+				runtimes: [{name: "native"}]
 			}
 		]
 		depends_on: {
@@ -649,9 +599,7 @@ cmds: [
 		implementations: [
 			{
 				script: "echo 'A README file exists (one of: README.md, README, readme.md)'"
-				target: {
-					runtimes: [{name: "native"}]
-				}
+				runtimes: [{name: "native"}]
 			}
 		]
 		depends_on: {
@@ -672,9 +620,7 @@ cmds: [
 					echo "  - Current directory is writable"
 					echo "  - README.md is readable"
 					"""
-				target: {
-					runtimes: [{name: "native"}]
-				}
+				runtimes: [{name: "native"}]
 			}
 		]
 		depends_on: {
@@ -697,9 +643,7 @@ cmds: [
 		implementations: [
 			{
 				script: "echo 'Internet connectivity confirmed!'"
-				target: {
-					runtimes: [{name: "native"}]
-				}
+				runtimes: [{name: "native"}]
 			}
 		]
 		depends_on: {
@@ -719,9 +663,7 @@ cmds: [
 					echo "Network connectivity confirmed!"
 					echo "Either LAN or Internet is available."
 					"""
-				target: {
-					runtimes: [{name: "native"}]
-				}
+				runtimes: [{name: "native"}]
 			}
 		]
 		depends_on: {
@@ -743,9 +685,7 @@ cmds: [
 					echo "  - LAN is available"
 					echo "  - Internet is available"
 					"""
-				target: {
-					runtimes: [{name: "native"}]
-				}
+				runtimes: [{name: "native"}]
 			}
 		]
 		depends_on: {
@@ -768,9 +708,7 @@ cmds: [
 		implementations: [
 			{
 				script: "echo 'Custom exit code check passed!'"
-				target: {
-					runtimes: [{name: "native"}]
-				}
+				runtimes: [{name: "native"}]
 			}
 		]
 		depends_on: {
@@ -791,10 +729,8 @@ cmds: [
 		implementations: [
 			{
 				script: "echo 'Custom output check passed!'"
-				target: {
-					runtimes:  [{name: "native"}]
-					platforms: [{name: "linux"}, {name: "macos"}]
-				}
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
 			}
 		]
 		depends_on: {
@@ -819,10 +755,8 @@ cmds: [
 					echo "At least one version check passed!"
 					echo "Either bash --version or sh --version returned successfully."
 					"""
-				target: {
-					runtimes:  [{name: "native"}]
-					platforms: [{name: "linux"}, {name: "macos"}]
-				}
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
 			}
 		]
 		depends_on: {
@@ -858,9 +792,7 @@ cmds: [
 		implementations: [
 			{
 				script: "echo 'This runs after examples hello!'"
-				target: {
-					runtimes: [{name: "native"}]
-				}
+				runtimes: [{name: "native"}]
 			}
 		]
 		depends_on: {
@@ -877,9 +809,7 @@ cmds: [
 		implementations: [
 			{
 				script: "echo 'This runs after any hello command!'"
-				target: {
-					runtimes: [{name: "native"}]
-				}
+				runtimes: [{name: "native"}]
 			}
 		]
 		depends_on: {
@@ -903,9 +833,7 @@ cmds: [
 					echo "  2. examples hello env"
 					echo "  3. This command"
 					"""
-				target: {
-					runtimes: [{name: "native"}]
-				}
+				runtimes: [{name: "native"}]
 			}
 		]
 		depends_on: {
@@ -933,13 +861,11 @@ cmds: [
 					echo "The 'sh' tool was validated INSIDE the container."
 					ls /app-code 2>/dev/null && echo "App code directory mounted successfully."
 					"""
-				target: {
-					runtimes: [{
-						name:  "container"
-						image: "alpine:latest"
-						volumes: [".:/app-code:ro"]
-					}]
-				}
+				runtimes: [{
+					name:  "container"
+					image: "alpine:latest"
+					volumes: [".:/app-code:ro"]
+				}]
 				// These dependencies are validated INSIDE the container
 				depends_on: {
 					tools: [
@@ -980,9 +906,7 @@ cmds: [
 					echo ""
 					echo "Try: invowk cmd examples flags simple --verbose=true --output=/tmp/out.txt"
 					"""
-				target: {
-					runtimes: [{name: "native"}]
-				}
+				runtimes: [{name: "native"}]
 			}
 		]
 		flags: [
@@ -1013,9 +937,7 @@ cmds: [
 					echo ""
 					echo "Try: invowk cmd examples flags defaults --env=production --dry-run=true"
 					"""
-				target: {
-					runtimes: [{name: "native"}]
-				}
+				runtimes: [{name: "native"}]
 			}
 		]
 		flags: [
@@ -1048,9 +970,7 @@ cmds: [
 					echo ""
 					echo "Try: invowk cmd examples flags typed --verbose --count=5 --threshold=0.95 --message='Hello World'"
 					"""
-				target: {
-					runtimes: [{name: "native"}]
-				}
+				runtimes: [{name: "native"}]
 			}
 		]
 		flags: [
@@ -1077,9 +997,7 @@ cmds: [
 					echo ""
 					echo "Try: invowk cmd examples flags required --target=production"
 					"""
-				target: {
-					runtimes: [{name: "native"}]
-				}
+				runtimes: [{name: "native"}]
 			}
 		]
 		flags: [
@@ -1106,9 +1024,7 @@ cmds: [
 					echo ""
 					echo "Try: invowk cmd examples flags short -v -o=/tmp/out.txt -f"
 					"""
-				target: {
-					runtimes: [{name: "native"}]
-				}
+				runtimes: [{name: "native"}]
 			}
 		]
 		flags: [
@@ -1135,9 +1051,7 @@ cmds: [
 					echo ""
 					echo "Try: invowk cmd examples flags validation --env=staging --version=1.2.3"
 					"""
-				target: {
-					runtimes: [{name: "native"}]
-				}
+				runtimes: [{name: "native"}]
 			}
 		]
 		flags: [
@@ -1167,9 +1081,7 @@ cmds: [
 					echo ""
 					echo "Try: invowk cmd examples flags full -x=prod -n=3 -d -t=2.0.0"
 					"""
-				target: {
-					runtimes: [{name: "native"}]
-				}
+				runtimes: [{name: "native"}]
 			}
 		]
 		flags: [
@@ -1234,10 +1146,8 @@ cmds: [
 					echo ""
 					echo "=========================================="
 					"""
-				target: {
-					runtimes:  [{name: "native"}]
-					platforms: [{name: "linux"}, {name: "macos"}]
-				}
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
 			}
 		]
 		env: {
@@ -1305,16 +1215,14 @@ cmds: [
 					echo ""
 					echo "=========================================="
 					"""
-				target: {
-					runtimes: [{
-						name:  "container"
-						image: "alpine:latest"
-						volumes: [".:/app-src:ro"]
-						ports: ["8080:80", "3000:3000"]
-						enable_host_ssh: true
-					}]
-					platforms: [{name: "linux"}, {name: "macos"}]
-				}
+				runtimes: [{
+					name:  "container"
+					image: "alpine:latest"
+					volumes: [".:/app-src:ro"]
+					ports: ["8080:80", "3000:3000"]
+					enable_host_ssh: true
+				}]
+				platforms: [{name: "linux"}, {name: "macos"}]
 				depends_on: {
 					tools: [
 						{alternatives: ["sh", "ash"]},
@@ -1354,9 +1262,7 @@ cmds: [
 					echo ""
 					echo "Try: invowk cmd examples args simple Alice"
 					"""
-				target: {
-					runtimes: [{name: "native"}]
-				}
+				runtimes: [{name: "native"}]
 			}
 		]
 		args: [
@@ -1382,9 +1288,7 @@ cmds: [
 					echo "Try: invowk cmd examples args optional Alice"
 					echo "Try: invowk cmd examples args optional Alice 'Good morning'"
 					"""
-				target: {
-					runtimes: [{name: "native"}]
-				}
+				runtimes: [{name: "native"}]
 			}
 		]
 		args: [
@@ -1413,9 +1317,7 @@ cmds: [
 					echo ""
 					echo "Try: invowk cmd examples args typed 800 600 1.5"
 					"""
-				target: {
-					runtimes: [{name: "native"}]
-				}
+				runtimes: [{name: "native"}]
 			}
 		]
 		args: [
@@ -1442,9 +1344,7 @@ cmds: [
 					echo ""
 					echo "Try: invowk cmd examples args validated staging 2.1.0"
 					"""
-				target: {
-					runtimes: [{name: "native"}]
-				}
+				runtimes: [{name: "native"}]
 			}
 		]
 		args: [
@@ -1480,10 +1380,8 @@ cmds: [
 					echo ""
 					echo "Try: invowk cmd examples args variadic /tmp file1.txt file2.txt file3.txt"
 					"""#
-				target: {
-					runtimes:  [{name: "native"}]
-					platforms: [{name: "linux"}, {name: "macos"}]
-				}
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
 			}
 		]
 		args: [
@@ -1517,10 +1415,8 @@ cmds: [
 					echo "Try: invowk cmd examples args full prod 3 30.0 api web worker"
 					echo "=========================================="
 					"""
-				target: {
-					runtimes:  [{name: "native"}]
-					platforms: [{name: "linux"}, {name: "macos"}]
-				}
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
 			}
 		]
 		args: [
@@ -1573,9 +1469,7 @@ cmds: [
 					echo ""
 					echo "Try: invowk cmd examples args with flags file.txt /tmp --verbose --backup"
 					"""
-				target: {
-					runtimes: [{name: "native"}]
-				}
+				runtimes: [{name: "native"}]
 			}
 		]
 		args: [
@@ -1609,9 +1503,7 @@ cmds: [
 					echo ""
 					echo "Try: invowk cmd examples args shell positional hello world"
 					"""#
-				target: {
-					runtimes: [{name: "native"}]
-				}
+				runtimes: [{name: "native"}]
 			}
 		]
 		args: [
@@ -1642,10 +1534,8 @@ cmds: [
 					echo ""
 					echo "Try: invowk cmd examples args shell variadic file1.txt file2.txt file3.txt"
 					"""#
-				target: {
-					runtimes:  [{name: "native"}]
-					platforms: [{name: "linux"}, {name: "macos"}]
-				}
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
 			}
 		]
 		args: [
@@ -1673,9 +1563,7 @@ cmds: [
 					echo ""
 					echo "Try: invowk cmd examples args container shell hello container"
 					"""#
-				target: {
-					runtimes: [{name: "container", image: "alpine:latest"}]
-				}
+				runtimes: [{name: "container", image: "alpine:latest"}]
 			}
 		]
 		args: [
@@ -1704,9 +1592,7 @@ cmds: [
 					echo "  [CHILD] INVOWK_ARG_PARENT_ONLY = '${INVOWK_ARG_PARENT_ONLY:-<not set>}' (should be <not set>)"
 					echo "  [CHILD] INVOWK_FLAG_PARENT_FLAG = '${INVOWK_FLAG_PARENT_FLAG:-<not set>}' (should be <not set>)"
 					"""#
-				target: {
-					runtimes: [{name: "native"}]
-				}
+				runtimes: [{name: "native"}]
 			}
 		]
 		args: [
@@ -1751,10 +1637,8 @@ cmds: [
 					echo "This isolation prevents accidental leakage of flags/args between commands."
 					echo "=========================================="
 					"""#
-				target: {
-					runtimes:  [{name: "native"}]
-					platforms: [{name: "linux"}, {name: "macos"}]
-				}
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
 			}
 		]
 		args: [
@@ -1790,9 +1674,7 @@ cmds: [
 					echo "This ensures consistent behavior across native, virtual, and"
 					echo "container runtimes."
 					"""#
-				target: {
-					runtimes: [{name: "virtual"}]
-				}
+				runtimes: [{name: "virtual"}]
 			}
 		]
 		args: [
@@ -1826,9 +1708,7 @@ cmds: [
 					echo "The env_vars dependency validated that HOME exists in your"
 					echo "environment before the command started."
 					"""
-				target: {
-					runtimes: [{name: "native"}]
-				}
+				runtimes: [{name: "native"}]
 			}
 		]
 		depends_on: {
@@ -1855,9 +1735,7 @@ cmds: [
 					echo "The env_vars dependency uses OR semantics - if ANY of the"
 					echo "alternatives is set, the dependency is satisfied."
 					"""#
-				target: {
-					runtimes: [{name: "native"}]
-				}
+				runtimes: [{name: "native"}]
 			}
 		]
 		depends_on: {
@@ -1887,9 +1765,7 @@ cmds: [
 					echo ""
 					echo "This is useful for validating format of credentials, API keys, etc."
 					"""
-				target: {
-					runtimes: [{name: "native"}]
-				}
+				runtimes: [{name: "native"}]
 			}
 		]
 		depends_on: {
@@ -1917,9 +1793,7 @@ cmds: [
 					echo "Each entry in env_vars is validated independently."
 					echo "All entries must be satisfied for the command to run."
 					"""
-				target: {
-					runtimes: [{name: "native"}]
-				}
+				runtimes: [{name: "native"}]
 			}
 		]
 		depends_on: {
@@ -1959,9 +1833,7 @@ cmds: [
 					echo "might be set by invowk's 'env' construct."
 					echo "=========================================="
 					"""
-				target: {
-					runtimes: [{name: "native"}]
-				}
+				runtimes: [{name: "native"}]
 			}
 		]
 		depends_on: {
@@ -1997,9 +1869,7 @@ cmds: [
 					echo "This is useful for ensuring the container image has"
 					echo "required environment variables configured."
 					"""
-				target: {
-					runtimes: [{name: "container", image: "alpine:latest"}]
-				}
+				runtimes: [{name: "container", image: "alpine:latest"}]
 				// These env_vars are validated INSIDE the container
 				depends_on: {
 					env_vars: [
@@ -2062,9 +1932,7 @@ cmds: [
 					echo "invkfile location."
 					echo "=========================================="
 					"""
-				target: {
-					runtimes: [{name: "native"}]
-				}
+				runtimes: [{name: "native"}]
 			},
 		]
 	},
@@ -2097,9 +1965,7 @@ cmds: [
 					echo "files are silently skipped without error."
 					echo "=========================================="
 					"""
-				target: {
-					runtimes: [{name: "native"}]
-				}
+				runtimes: [{name: "native"}]
 			},
 		]
 	},
@@ -2132,9 +1998,7 @@ cmds: [
 					echo "compatibility. Paths are relative to invkfile location."
 					echo "=========================================="
 					"""
-				target: {
-					runtimes: [{name: "native"}]
-				}
+				runtimes: [{name: "native"}]
 			},
 		]
 	},
@@ -2169,9 +2033,7 @@ cmds: [
 					echo "command-level, so they can override command-level values."
 					echo "=========================================="
 					"""
-				target: {
-					runtimes: [{name: "native"}]
-				}
+				runtimes: [{name: "native"}]
 			},
 		]
 	},
@@ -2206,9 +2068,7 @@ cmds: [
 					echo "Inline vars always take priority over files."
 					echo "=========================================="
 					"""
-				target: {
-					runtimes: [{name: "native"}]
-				}
+				runtimes: [{name: "native"}]
 			},
 		]
 	},
@@ -2237,9 +2097,7 @@ cmds: [
 					echo "to the container environment."
 					echo "=========================================="
 					"""
-				target: {
-					runtimes: [{name: "container", image: "alpine:latest"}]
-				}
+				runtimes: [{name: "container", image: "alpine:latest"}]
 			},
 		]
 	},
@@ -2279,9 +2137,7 @@ cmds: [
 					echo "not the invkfile location."
 					echo "=========================================="
 					"""
-				target: {
-					runtimes: [{name: "native"}]
-				}
+				runtimes: [{name: "native"}]
 			},
 		]
 	},
@@ -2316,10 +2172,8 @@ cmds: [
 					echo "is set at the command level."
 					echo "=========================================="
 					"""
-				target: {
-					runtimes:  [{name: "native"}]
-					platforms: [{name: "linux"}, {name: "macos"}]
-				}
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
 			},
 		]
 	},
@@ -2346,10 +2200,8 @@ cmds: [
 					echo "=========================================="
 					"""
 				workdir: "/var"
-				target: {
-					runtimes:  [{name: "native"}]
-					platforms: [{name: "linux"}, {name: "macos"}]
-				}
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
 			},
 		]
 	},
@@ -2377,10 +2229,8 @@ cmds: [
 					ls -la 2>/dev/null || echo "(directory may not exist)"
 					echo "=========================================="
 					"""
-				target: {
-					runtimes:  [{name: "native"}]
-					platforms: [{name: "linux"}, {name: "macos"}]
-				}
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
 			},
 		]
 	},
@@ -2405,10 +2255,8 @@ cmds: [
 					echo "converts them to the platform's separator."
 					echo "=========================================="
 					"""
-				target: {
-					runtimes:  [{name: "native"}]
-					platforms: [{name: "linux"}, {name: "macos"}]
-				}
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
 			},
 			{
 				script: """
@@ -2423,10 +2271,8 @@ cmds: [
 					echo converts them to the platform's separator.
 					echo ==========================================
 					"""
-				target: {
-					runtimes:  [{name: "native"}]
-					platforms: [{name: "windows"}]
-				}
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "windows"}]
 			},
 		]
 	},
@@ -2462,10 +2308,8 @@ cmds: [
 					echo "=========================================="
 					"""
 				workdir: "/var"
-				target: {
-					runtimes:  [{name: "native"}]
-					platforms: [{name: "linux"}, {name: "macos"}]
-				}
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
 			},
 		]
 	},
@@ -2495,13 +2339,11 @@ cmds: [
 					ls -la
 					echo "=========================================="
 					"""
-				target: {
-					runtimes: [{
-						name:  "container"
-						image: "alpine:latest"
-					}]
-					platforms: [{name: "linux"}, {name: "macos"}]
-				}
+				runtimes: [{
+					name:  "container"
+					image: "alpine:latest"
+				}]
+				platforms: [{name: "linux"}, {name: "macos"}]
 			},
 		]
 	},
@@ -2545,9 +2387,7 @@ cmds: [
 					echo "to all commands in the invkfile."
 					echo "=========================================="
 					"""
-				target: {
-					runtimes: [{name: "native"}]
-				}
+				runtimes: [{name: "native"}]
 			}
 		]
 		// No depends_on here - inherits from root level
@@ -2577,9 +2417,7 @@ cmds: [
 					echo "  - filepaths: [README.md] (from command)"
 					echo "=========================================="
 					"""
-				target: {
-					runtimes: [{name: "native"}]
-				}
+				runtimes: [{name: "native"}]
 			}
 		]
 		// This ADDS to root-level dependencies
@@ -2617,10 +2455,8 @@ cmds: [
 					echo "Later levels can add new checks or override earlier ones."
 					echo "=========================================="
 					"""
-				target: {
-					runtimes:  [{name: "native"}]
-					platforms: [{name: "linux"}, {name: "macos"}]
-				}
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
 				// Implementation-level dependencies (highest priority)
 				depends_on: {
 					filepaths: [
@@ -2665,9 +2501,7 @@ cmds: [
 					echo "This example shows how the feature could be extended."
 					echo "=========================================="
 					"""
-				target: {
-					runtimes: [{name: "native"}]
-				}
+				runtimes: [{name: "native"}]
 			}
 		]
 	},
@@ -2697,9 +2531,7 @@ cmds: [
 					echo "Implementation deps validate container environment."
 					echo "=========================================="
 					"""
-				target: {
-					runtimes: [{name: "container", image: "alpine:latest"}]
-				}
+				runtimes: [{name: "container", image: "alpine:latest"}]
 				// These are validated INSIDE the container
 				depends_on: {
 					tools: [
@@ -2813,12 +2645,10 @@ cmds: [
 					echo "without terminal ownership conflicts."
 					echo "=========================================="
 					"""
-				target: {
-					runtimes: [{name: "native"},{name: "virtual"},{
-						name: "container"
-						image: "python:3-slim"
-						}]
-				}
+				runtimes: [{name: "native"},{name: "virtual"},{
+					name: "container"
+					image: "python:3-slim"
+					}]
 			}
 		]
 	},
@@ -2864,9 +2694,7 @@ cmds: [
 					    echo "--- End of preview (first 50 lines) ---"
 					fi
 					"""
-				target: {
-					runtimes: [{name: "native"}]
-				}
+				runtimes: [{name: "native"}]
 			}
 		]
 	},
@@ -2898,9 +2726,7 @@ cmds: [
 					echo ""
 					echo "Table displayed successfully!"
 					"""
-				target: {
-					runtimes: [{name: "native"}]
-				}
+				runtimes: [{name: "native"}]
 			}
 		]
 	},
@@ -2966,9 +2792,7 @@ cmds: [
 					echo ""
 					echo "Pager closed successfully!"
 					"""
-				target: {
-					runtimes: [{name: "native"}]
-				}
+				runtimes: [{name: "native"}]
 			}
 		]
 	},
@@ -3026,9 +2850,7 @@ cmds: [
 					        ;;
 					esac
 					"""
-				target: {
-					runtimes: [{name: "native"}]
-				}
+				runtimes: [{name: "native"}]
 			}
 		]
 	},

@@ -62,7 +62,7 @@ All three must be satisfied (though alternatives within each are OR).
             VERSION=$(git describe --tags --always)
             go build -ldflags="-X main.version=$VERSION" ./...
             """
-        target: {runtimes: [{name: "native"}]}
+        runtimes: [{name: "native"}]
     }]
 }
 ```
@@ -81,7 +81,7 @@ All three must be satisfied (though alternatives within each are OR).
     }
     implementations: [{
         script: "pnpm run build || npm run build"
-        target: {runtimes: [{name: "native"}]}
+        runtimes: [{name: "native"}]
     }]
 }
 ```
@@ -103,7 +103,7 @@ All three must be satisfied (though alternatives within each are OR).
             helm upgrade --install myapp ./charts/myapp
             kubectl rollout status deployment/myapp
             """
-        target: {runtimes: [{name: "native"}]}
+        runtimes: [{name: "native"}]
     }]
 }
 ```
@@ -123,7 +123,7 @@ All three must be satisfied (though alternatives within each are OR).
     }
     implementations: [{
         script: "poetry run python main.py"
-        target: {runtimes: [{name: "native"}]}
+        runtimes: [{name: "native"}]
     }]
 }
 ```
@@ -144,7 +144,7 @@ Tools are checked on the host system:
     }
     implementations: [{
         script: "go build ./..."
-        target: {runtimes: [{name: "native"}]}
+        runtimes: [{name: "native"}]
     }]
 }
 ```
@@ -161,7 +161,7 @@ Tools are checked in the virtual shell environment:
     }
     implementations: [{
         script: "go build ./..."
-        target: {runtimes: [{name: "virtual"}]}
+        runtimes: [{name: "virtual"}]
     }]
 }
 ```
@@ -175,7 +175,7 @@ Tools are checked **inside the container**:
     name: "build"
     implementations: [{
         script: "go build ./..."
-        target: {runtimes: [{name: "container", image: "golang:1.21"}]}
+        runtimes: [{name: "container", image: "golang:1.21"}]
         depends_on: {
             // This checks for 'go' INSIDE the container
             tools: [{alternatives: ["go"]}]
@@ -201,7 +201,7 @@ This is especially useful because:
     }
     implementations: [{
         script: "aws s3 sync ./dist s3://my-bucket"
-        target: {runtimes: [{name: "native"}]}
+        runtimes: [{name: "native"}]
     }]
 }
 ```
@@ -219,7 +219,7 @@ This is especially useful because:
     }
     implementations: [{
         script: "migrate -path ./migrations -database $DATABASE_URL up"
-        target: {runtimes: [{name: "native"}]}
+        runtimes: [{name: "native"}]
     }]
 }
 ```
@@ -237,7 +237,7 @@ This is especially useful because:
     }
     implementations: [{
         script: "xdg-open http://localhost:3000/docs || open http://localhost:3000/docs"
-        target: {runtimes: [{name: "native"}]}
+        runtimes: [{name: "native"}]
     }]
 }
 ```

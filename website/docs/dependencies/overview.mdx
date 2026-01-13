@@ -106,9 +106,7 @@ This is powerful for container commands:
     implementations: [
         {
             script: "go build ./..."
-            target: {
-                runtimes: [{name: "container", image: "golang:1.21"}]
-            }
+            runtimes: [{name: "container", image: "golang:1.21"}]
             depends_on: {
                 // Checked INSIDE the container, not on host
                 tools: [{alternatives: ["go"]}]

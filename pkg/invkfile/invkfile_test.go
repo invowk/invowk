@@ -15,7 +15,7 @@ func testCommand(name string, script string) Command {
 	return Command{
 		Name: name,
 		Implementations: []Implementation{
-			{Script: script, Target: Target{Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}},
+			{Script: script, Runtimes: []RuntimeConfig{{Name: RuntimeNative}}},
 		},
 	}
 }
@@ -24,7 +24,7 @@ func testCommand(name string, script string) Command {
 func testCommandWithDeps(name string, script string, deps *DependsOn) Command {
 	return Command{
 		Name:            name,
-		Implementations: []Implementation{{Script: script, Target: Target{Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}}},
+		Implementations: []Implementation{{Script: script, Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}},
 		DependsOn:       deps,
 	}
 }
@@ -66,7 +66,7 @@ func TestIsScriptFile(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			s := &Implementation{Script: tt.script, Target: Target{Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}}
+			s := &Implementation{Script: tt.script, Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}
 			result := s.IsScriptFile()
 			if result != tt.expected {
 				t.Errorf("IsScriptFile() = %v, want %v for script %q", result, tt.expected, tt.script)
@@ -93,7 +93,7 @@ func TestGetScriptFilePath(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			s := &Implementation{Script: tt.script, Target: Target{Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}}
+			s := &Implementation{Script: tt.script, Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}
 			result := s.GetScriptFilePath(invkfilePath)
 			if tt.expectedResult {
 				if result != tt.expectedPath {
@@ -123,7 +123,7 @@ func TestResolveScript_Inline(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			s := &Implementation{Script: tt.script, Target: Target{Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}}
+			s := &Implementation{Script: tt.script, Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}
 			result, err := s.ResolveScript("/fake/path/invkfile.cue")
 			if err != nil {
 				t.Errorf("ResolveScript() error = %v", err)
@@ -155,7 +155,7 @@ func TestResolveScript_FromFile(t *testing.T) {
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
 
 	t.Run("resolve script from file", func(t *testing.T) {
-		s := &Implementation{Script: "./test.sh", Target: Target{Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}}
+		s := &Implementation{Script: "./test.sh", Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}
 		result, err := s.ResolveScript(invkfilePath)
 		if err != nil {
 			t.Errorf("ResolveScript() error = %v", err)
@@ -167,7 +167,7 @@ func TestResolveScript_FromFile(t *testing.T) {
 	})
 
 	t.Run("resolve script with absolute path", func(t *testing.T) {
-		s := &Implementation{Script: scriptPath, Target: Target{Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}}
+		s := &Implementation{Script: scriptPath, Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}
 		result, err := s.ResolveScript(invkfilePath)
 		if err != nil {
 			t.Errorf("ResolveScript() error = %v", err)
@@ -179,7 +179,7 @@ func TestResolveScript_FromFile(t *testing.T) {
 	})
 
 	t.Run("error on missing script file", func(t *testing.T) {
-		s := &Implementation{Script: "./nonexistent.sh", Target: Target{Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}}
+		s := &Implementation{Script: "./nonexistent.sh", Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}
 		_, err := s.ResolveScript(invkfilePath)
 		if err == nil {
 			t.Error("ResolveScript() expected error for missing file, got nil")
@@ -204,7 +204,7 @@ func TestResolveScriptWithFS(t *testing.T) {
 	invkfilePath := "/project/invkfile.cue"
 
 	t.Run("resolve script from virtual fs", func(t *testing.T) {
-		s := &Implementation{Script: "./scripts/build.sh", Target: Target{Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}}
+		s := &Implementation{Script: "./scripts/build.sh", Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}
 		result, err := s.ResolveScriptWithFS(invkfilePath, readFile)
 		if err != nil {
 			t.Errorf("ResolveScriptWithFS() error = %v", err)
@@ -217,7 +217,7 @@ func TestResolveScriptWithFS(t *testing.T) {
 	})
 
 	t.Run("inline script bypasses fs", func(t *testing.T) {
-		s := &Implementation{Script: "echo hello world", Target: Target{Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}}
+		s := &Implementation{Script: "echo hello world", Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}
 		result, err := s.ResolveScriptWithFS(invkfilePath, readFile)
 		if err != nil {
 			t.Errorf("ResolveScriptWithFS() error = %v", err)
@@ -229,7 +229,7 @@ func TestResolveScriptWithFS(t *testing.T) {
 	})
 
 	t.Run("error on missing file in virtual fs", func(t *testing.T) {
-		s := &Implementation{Script: "./scripts/nonexistent.sh", Target: Target{Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}}
+		s := &Implementation{Script: "./scripts/nonexistent.sh", Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}
 		_, err := s.ResolveScriptWithFS(invkfilePath, readFile)
 		if err == nil {
 			t.Error("ResolveScriptWithFS() expected error for missing file, got nil")
@@ -256,9 +256,8 @@ cmds: [
 					echo "Line 2"
 					echo "Line 3"
 					"""
-				target: {
-					runtimes: [{name: "native"}]
-				}
+				
+				runtimes: [{name: "native"}]
 			}
 		]
 	}
@@ -320,7 +319,7 @@ func TestScriptCaching(t *testing.T) {
 	}
 
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
-	s := &Implementation{Script: "./test.sh", Target: Target{Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}}
+	s := &Implementation{Script: "./test.sh", Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}
 
 	// First resolution
 	result1, err := s.ResolveScript(invkfilePath)
@@ -467,10 +466,9 @@ cmds: [
 		implementations: [
 			{
 				script: "echo releasing"
-				target: {
-					runtimes: [{name: "native"}]
-					platforms: [{name: "linux"}, {name: "macos"}]
-				}
+				
+				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
 			}
 		]
 		depends_on: {
@@ -575,7 +573,7 @@ cmds: [
 		implementations: [
 			{
 				script: "make build"
-				target: { runtimes: [{name: "native"}] }
+				runtimes: [{name: "native"}]
 			}
 		]
 		depends_on: {
@@ -629,10 +627,9 @@ cmds: [
 		implementations: [
 			{
 				script: "echo release"
-				target: {
-					runtimes: [{name: "native"}]
-					platforms: [{name: "linux"}, {name: "macos"}]
-				}
+				
+				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
 			}
 		]
 		depends_on: {
@@ -686,10 +683,9 @@ cmds: [
 		implementations: [
 			{
 				script: "make build"
-				target: {
-					runtimes: [{name: "native"}]
-					platforms: [{name: "linux"}, {name: "macos"}]
-				}
+				
+				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
 			}
 		]
 		depends_on: {
@@ -782,7 +778,7 @@ cmds: [
 		implementations: [
 			{
 				script: "echo deploying"
-				target: { runtimes: [{name: "native"}] }
+				runtimes: [{name: "native"}]
 			}
 		]
 		depends_on: {
@@ -866,7 +862,7 @@ cmds: [
 func TestCommand_HasDependencies_WithFilepaths(t *testing.T) {
 	cmd := Command{
 		Name:            "test",
-		Implementations: []Implementation{{Script: "echo", Target: Target{Runtimes: []RuntimeConfig{{Name: RuntimeNative}}, Platforms: []PlatformConfig{{Name: PlatformLinux}}}}},
+		Implementations: []Implementation{{Script: "echo", Runtimes: []RuntimeConfig{{Name: RuntimeNative}}, Platforms: []PlatformConfig{{Name: PlatformLinux}}}},
 		DependsOn: &DependsOn{
 			Filepaths: []FilepathDependency{{Alternatives: []string{"config.yaml"}}},
 		},
@@ -884,7 +880,7 @@ func TestGenerateCUE_WithFilepaths(t *testing.T) {
 		Commands: []Command{
 			{
 				Name:            "deploy",
-				Implementations: []Implementation{{Script: "echo deploy", Target: Target{Runtimes: []RuntimeConfig{{Name: RuntimeNative}}, Platforms: []PlatformConfig{{Name: PlatformLinux}, {Name: PlatformMac}}}}},
+				Implementations: []Implementation{{Script: "echo deploy", Runtimes: []RuntimeConfig{{Name: RuntimeNative}}, Platforms: []PlatformConfig{{Name: PlatformLinux}, {Name: PlatformMac}}}},
 				DependsOn: &DependsOn{
 					Filepaths: []FilepathDependency{
 						{Alternatives: []string{"config.yaml"}},
@@ -936,7 +932,7 @@ cmds: [
 		implementations: [
 			{
 				script: "make build"
-				target: { runtimes: [{name: "native"}] }
+				runtimes: [{name: "native"}]
 				// No platforms = all platforms
 			}
 		]
@@ -946,10 +942,9 @@ cmds: [
 		implementations: [
 			{
 				script: "deploy.sh"
-				target: {
-					runtimes: [{name: "native"}]
-					platforms: [{name: "linux"}]
-				}
+				
+				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}]
 			}
 		]
 	}
@@ -1002,13 +997,13 @@ func TestGenerateCUE_WithPlatforms(t *testing.T) {
 			{
 				Name: "build",
 				Implementations: []Implementation{
-					{Script: "make build", Target: Target{Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}},
+					{Script: "make build", Runtimes: []RuntimeConfig{{Name: RuntimeNative}}},
 				},
 			},
 			{
 				Name: "clean",
 				Implementations: []Implementation{
-					{Script: "rm -rf bin/", Target: Target{Runtimes: []RuntimeConfig{{Name: RuntimeNative}}, Platforms: []PlatformConfig{{Name: PlatformLinux}, {Name: PlatformMac}}}},
+					{Script: "rm -rf bin/", Runtimes: []RuntimeConfig{{Name: RuntimeNative}}, Platforms: []PlatformConfig{{Name: PlatformLinux}, {Name: PlatformMac}}},
 				},
 			},
 		},
@@ -1021,8 +1016,8 @@ func TestGenerateCUE_WithPlatforms(t *testing.T) {
 		t.Error("GenerateCUE should contain 'implementations:'")
 	}
 
-	if !strings.Contains(output, "target: {") {
-		t.Error("GenerateCUE should contain 'target: {'")
+	if !strings.Contains(output, "runtimes:") {
+		t.Error("GenerateCUE should contain 'runtimes:'")
 	}
 
 	if !strings.Contains(output, `"linux"`) {
@@ -1048,9 +1043,8 @@ cmds: [
 		implementations: [
 			{
 				script: "echo hello"
-				target: {
-					runtimes: [{name: "container", image: "alpine:latest", enable_host_ssh: true}]
-				}
+				
+				runtimes: [{name: "container", image: "alpine:latest", enable_host_ssh: true}]
 			}
 		]
 	}
@@ -1083,11 +1077,11 @@ cmds: [
 	}
 
 	impl := cmd.Implementations[0]
-	if len(impl.Target.Runtimes) != 1 {
-		t.Fatalf("Expected 1 runtime, got %d", len(impl.Target.Runtimes))
+	if len(impl.Runtimes) != 1 {
+		t.Fatalf("Expected 1 runtime, got %d", len(impl.Runtimes))
 	}
 
-	rt := impl.Target.Runtimes[0]
+	rt := impl.Runtimes[0]
 	if rt.Name != RuntimeContainer {
 		t.Errorf("Runtime name = %q, want %q", rt.Name, RuntimeContainer)
 	}
@@ -1112,9 +1106,8 @@ cmds: [
 		implementations: [
 			{
 				script: "echo hello"
-				target: {
-					runtimes: [{name: "container", image: "alpine:latest"}]
-				}
+				
+				runtimes: [{name: "container", image: "alpine:latest"}]
 			}
 		]
 	}
@@ -1138,7 +1131,7 @@ cmds: [
 	}
 
 	cmd := inv.Commands[0]
-	rt := cmd.Implementations[0].Target.Runtimes[0]
+	rt := cmd.Implementations[0].Runtimes[0]
 
 	if rt.EnableHostSSH {
 		t.Error("EnableHostSSH should be false by default")
@@ -1155,11 +1148,10 @@ func TestScript_HasHostSSH(t *testing.T) {
 			name: "container with enable_host_ssh true",
 			script: Implementation{
 				Script: "echo test",
-				Target: Target{
+				
 					Runtimes: []RuntimeConfig{
 						{Name: RuntimeContainer, EnableHostSSH: true, Image: "alpine:latest"},
 					},
-				},
 			},
 			expected: true,
 		},
@@ -1167,11 +1159,10 @@ func TestScript_HasHostSSH(t *testing.T) {
 			name: "container with enable_host_ssh false",
 			script: Implementation{
 				Script: "echo test",
-				Target: Target{
+				
 					Runtimes: []RuntimeConfig{
 						{Name: RuntimeContainer, EnableHostSSH: false, Image: "alpine:latest"},
 					},
-				},
 			},
 			expected: false,
 		},
@@ -1179,11 +1170,10 @@ func TestScript_HasHostSSH(t *testing.T) {
 			name: "native runtime (no enable_host_ssh)",
 			script: Implementation{
 				Script: "echo test",
-				Target: Target{
+				
 					Runtimes: []RuntimeConfig{
 						{Name: RuntimeNative},
 					},
-				},
 			},
 			expected: false,
 		},
@@ -1191,12 +1181,11 @@ func TestScript_HasHostSSH(t *testing.T) {
 			name: "multiple runtimes, one with enable_host_ssh",
 			script: Implementation{
 				Script: "echo test",
-				Target: Target{
+				
 					Runtimes: []RuntimeConfig{
 						{Name: RuntimeNative},
 						{Name: RuntimeContainer, EnableHostSSH: true, Image: "alpine:latest"},
 					},
-				},
 			},
 			expected: true,
 		},
@@ -1204,12 +1193,11 @@ func TestScript_HasHostSSH(t *testing.T) {
 			name: "multiple container runtimes, none with enable_host_ssh",
 			script: Implementation{
 				Script: "echo test",
-				Target: Target{
+				
 					Runtimes: []RuntimeConfig{
 						{Name: RuntimeContainer, EnableHostSSH: false, Image: "alpine:latest"},
 						{Name: RuntimeNative},
 					},
-				},
 			},
 			expected: false,
 		},
@@ -1236,11 +1224,10 @@ func TestScript_GetHostSSHForRuntime(t *testing.T) {
 			name: "container runtime with enable_host_ssh true",
 			script: Implementation{
 				Script: "echo test",
-				Target: Target{
+				
 					Runtimes: []RuntimeConfig{
 						{Name: RuntimeContainer, EnableHostSSH: true, Image: "alpine:latest"},
 					},
-				},
 			},
 			runtime:  RuntimeContainer,
 			expected: true,
@@ -1249,11 +1236,10 @@ func TestScript_GetHostSSHForRuntime(t *testing.T) {
 			name: "container runtime with enable_host_ssh false",
 			script: Implementation{
 				Script: "echo test",
-				Target: Target{
+				
 					Runtimes: []RuntimeConfig{
 						{Name: RuntimeContainer, EnableHostSSH: false, Image: "alpine:latest"},
 					},
-				},
 			},
 			runtime:  RuntimeContainer,
 			expected: false,
@@ -1262,11 +1248,10 @@ func TestScript_GetHostSSHForRuntime(t *testing.T) {
 			name: "native runtime always returns false",
 			script: Implementation{
 				Script: "echo test",
-				Target: Target{
+				
 					Runtimes: []RuntimeConfig{
 						{Name: RuntimeNative},
 					},
-				},
 			},
 			runtime:  RuntimeNative,
 			expected: false,
@@ -1275,11 +1260,10 @@ func TestScript_GetHostSSHForRuntime(t *testing.T) {
 			name: "virtual runtime always returns false",
 			script: Implementation{
 				Script: "echo test",
-				Target: Target{
+				
 					Runtimes: []RuntimeConfig{
 						{Name: RuntimeVirtual},
 					},
-				},
 			},
 			runtime:  RuntimeVirtual,
 			expected: false,
@@ -1288,11 +1272,10 @@ func TestScript_GetHostSSHForRuntime(t *testing.T) {
 			name: "runtime not found returns false",
 			script: Implementation{
 				Script: "echo test",
-				Target: Target{
+				
 					Runtimes: []RuntimeConfig{
 						{Name: RuntimeNative},
 					},
-				},
 			},
 			runtime:  RuntimeContainer,
 			expected: false,
@@ -1351,11 +1334,10 @@ func TestGenerateCUE_WithEnableHostSSH(t *testing.T) {
 				Implementations: []Implementation{
 					{
 						Script: "echo hello",
-						Target: Target{
+						
 							Runtimes: []RuntimeConfig{
 								{Name: RuntimeContainer, EnableHostSSH: true, Image: "alpine:latest"},
 							},
-						},
 					},
 				},
 			},
@@ -1384,11 +1366,10 @@ func TestGenerateCUE_WithEnableHostSSH_False(t *testing.T) {
 				Implementations: []Implementation{
 					{
 						Script: "echo hello",
-						Target: Target{
+						
 							Runtimes: []RuntimeConfig{
 								{Name: RuntimeContainer, EnableHostSSH: false, Image: "alpine:latest"},
 							},
-						},
 					},
 				},
 			},
@@ -1413,15 +1394,14 @@ cmds: [
 		implementations: [
 			{
 				script: "echo hello"
-				target: {
-					runtimes: [{
-						name: "container"
-						image: "golang:1.21"
-						enable_host_ssh: true
-						volumes: ["./data:/data", "/tmp:/tmp:ro"]
-						ports: ["8080:80", "3000:3000"]
-					}]
-				}
+				
+				runtimes: [{
+					name: "container"
+					image: "golang:1.21"
+					enable_host_ssh: true
+					volumes: ["./data:/data", "/tmp:/tmp:ro"]
+					ports: ["8080:80", "3000:3000"]
+				}]
 			}
 		]
 	}
@@ -1445,7 +1425,7 @@ cmds: [
 	}
 
 	cmd := inv.Commands[0]
-	rt := cmd.Implementations[0].Target.Runtimes[0]
+	rt := cmd.Implementations[0].Runtimes[0]
 
 	if rt.Name != RuntimeContainer {
 		t.Errorf("Runtime name = %q, want %q", rt.Name, RuntimeContainer)
@@ -1493,7 +1473,7 @@ cmds: [
 		implementations: [
 			{
 				script: "rsync -avz ./dist/ user@server:/var/www/"
-				target: { runtimes: [{name: "native"}] }
+				runtimes: [{name: "native"}]
 			}
 		]
 		depends_on: {
@@ -1559,7 +1539,7 @@ cmds: [
 		implementations: [
 			{
 				script: "rsync -avz ./dist/ user@server:/var/www/"
-				target: { runtimes: [{name: "native"}] }
+				runtimes: [{name: "native"}]
 				depends_on: {
 					capabilities: [
 						{alternatives: ["internet"]},
@@ -1613,7 +1593,7 @@ cmds: [
 func TestCommand_HasDependencies_WithCapabilities(t *testing.T) {
 	cmd := Command{
 		Name:            "test",
-		Implementations: []Implementation{{Script: "echo", Target: Target{Runtimes: []RuntimeConfig{{Name: RuntimeNative}}, Platforms: []PlatformConfig{{Name: PlatformLinux}}}}},
+		Implementations: []Implementation{{Script: "echo", Runtimes: []RuntimeConfig{{Name: RuntimeNative}}, Platforms: []PlatformConfig{{Name: PlatformLinux}}}},
 		DependsOn: &DependsOn{
 			Capabilities: []CapabilityDependency{{Alternatives: []CapabilityName{CapabilityInternet}}},
 		},
@@ -1627,7 +1607,7 @@ func TestCommand_HasDependencies_WithCapabilities(t *testing.T) {
 func TestCommand_HasCommandLevelDependencies_WithCapabilities(t *testing.T) {
 	cmd := Command{
 		Name:            "test",
-		Implementations: []Implementation{{Script: "echo", Target: Target{Runtimes: []RuntimeConfig{{Name: RuntimeNative}}, Platforms: []PlatformConfig{{Name: PlatformLinux}}}}},
+		Implementations: []Implementation{{Script: "echo", Runtimes: []RuntimeConfig{{Name: RuntimeNative}}, Platforms: []PlatformConfig{{Name: PlatformLinux}}}},
 		DependsOn: &DependsOn{
 			Capabilities: []CapabilityDependency{{Alternatives: []CapabilityName{CapabilityLocalAreaNetwork}}},
 		},
@@ -1641,7 +1621,7 @@ func TestCommand_HasCommandLevelDependencies_WithCapabilities(t *testing.T) {
 func TestScript_HasDependencies_WithCapabilities(t *testing.T) {
 	impl := Implementation{
 		Script: "echo test",
-		Target: Target{Runtimes: []RuntimeConfig{{Name: RuntimeNative}}},
+		Runtimes: []RuntimeConfig{{Name: RuntimeNative}},
 		DependsOn: &DependsOn{
 			Capabilities: []CapabilityDependency{{Alternatives: []CapabilityName{CapabilityInternet}}},
 		},
@@ -1691,9 +1671,8 @@ func TestGenerateCUE_WithCapabilities(t *testing.T) {
 				Implementations: []Implementation{
 					{
 						Script: "rsync deploy",
-						Target: Target{
+						
 							Runtimes: []RuntimeConfig{{Name: RuntimeNative}},
-						},
 					},
 				},
 				DependsOn: &DependsOn{
@@ -1732,9 +1711,8 @@ func TestGenerateCUE_WithCapabilitiesAtImplementationLevel(t *testing.T) {
 				Implementations: []Implementation{
 					{
 						Script: "rsync sync",
-						Target: Target{
+						
 							Runtimes: []RuntimeConfig{{Name: RuntimeNative}},
-						},
 						DependsOn: &DependsOn{
 							Capabilities: []CapabilityDependency{
 								{Alternatives: []CapabilityName{CapabilityInternet}},
@@ -1771,7 +1749,7 @@ cmds: [
 		implementations: [
 			{
 				script: "echo test"
-				target: { runtimes: [{name: "native"}] }
+				runtimes: [{name: "native"}]
 			}
 		]
 		depends_on: {
@@ -1815,7 +1793,7 @@ cmds: [
 		implementations: [
 			{
 				script: "echo test"
-				target: { runtimes: [{name: "native"}] }
+				runtimes: [{name: "native"}]
 			}
 		]
 		depends_on: {
@@ -1866,7 +1844,7 @@ cmds: [
 		implementations: [
 			{
 				script: "echo test"
-				target: { runtimes: [{name: "native"}] }
+				runtimes: [{name: "native"}]
 			}
 		]
 		depends_on: {
@@ -1910,7 +1888,7 @@ cmds: [
 		implementations: [
 			{
 				script: "echo test"
-				target: { runtimes: [{name: "native"}] }
+				runtimes: [{name: "native"}]
 			}
 		]
 		depends_on: {
@@ -1970,7 +1948,7 @@ cmds: [
 		implementations: [
 			{
 				script: "echo test"
-				target: { runtimes: [{name: "native"}] }
+				runtimes: [{name: "native"}]
 			}
 		]
 	}
@@ -2028,7 +2006,7 @@ cmds: [
 		implementations: [
 			{
 				script: "echo test"
-				target: { runtimes: [{name: "native"}] }
+				runtimes: [{name: "native"}]
 			}
 		]
 	}
@@ -2063,7 +2041,7 @@ cmds: [
 		implementations: [
 			{
 				script: "echo test"
-				target: { runtimes: [{name: "native"}] }
+				runtimes: [{name: "native"}]
 			}
 		]
 	}
@@ -2173,7 +2151,7 @@ func TestGenerateCUE_WithGroup(t *testing.T) {
 			{
 				Name: "test",
 				Implementations: []Implementation{
-					{Script: "echo test", Target: Target{Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}},
+					{Script: "echo test", Runtimes: []RuntimeConfig{{Name: RuntimeNative}}},
 				},
 			},
 		},
@@ -2209,7 +2187,7 @@ cmds: [
 		implementations: [
 			{
 				script: "echo deploying"
-				target: { runtimes: [{name: "native"}] }
+				runtimes: [{name: "native"}]
 			}
 		]
 		flags: [
@@ -2300,7 +2278,7 @@ cmds: [
 		implementations: [
 			{
 				script: "echo test"
-				target: { runtimes: [{name: "native"}] }
+				runtimes: [{name: "native"}]
 			}
 		]
 		flags: [
@@ -2353,7 +2331,7 @@ cmds: [
 		implementations: [
 			{
 				script: "echo test"
-				target: { runtimes: [{name: "native"}] }
+				runtimes: [{name: "native"}]
 			}
 		]
 		flags: [
@@ -2397,7 +2375,7 @@ cmds: [
 		implementations: [
 			{
 				script: "echo test"
-				target: { runtimes: [{name: "native"}] }
+				runtimes: [{name: "native"}]
 			}
 		]
 		flags: [
@@ -2434,7 +2412,7 @@ cmds: [
 		implementations: [
 			{
 				script: "echo test"
-				target: { runtimes: [{name: "native"}] }
+				runtimes: [{name: "native"}]
 			}
 		]
 		flags: [
@@ -2472,7 +2450,7 @@ func TestGenerateCUE_WithFlags(t *testing.T) {
 			{
 				Name: "deploy",
 				Implementations: []Implementation{
-					{Script: "echo deploy", Target: Target{Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}},
+					{Script: "echo deploy", Runtimes: []RuntimeConfig{{Name: RuntimeNative}}},
 				},
 				Flags: []Flag{
 					{Name: "env", Description: "Target environment"},
@@ -2509,7 +2487,7 @@ func TestGenerateCUE_WithoutFlags(t *testing.T) {
 			{
 				Name: "build",
 				Implementations: []Implementation{
-					{Script: "echo build", Target: Target{Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}},
+					{Script: "echo build", Runtimes: []RuntimeConfig{{Name: RuntimeNative}}},
 				},
 			},
 		},
@@ -2533,7 +2511,7 @@ cmds: [
 		implementations: [
 			{
 				script: "echo test"
-				target: { runtimes: [{name: "native"}] }
+				runtimes: [{name: "native"}]
 			}
 		]
 		flags: []
@@ -2572,7 +2550,7 @@ cmds: [
 		implementations: [
 			{
 				script: "echo test"
-				target: { runtimes: [{name: "native"}] }
+				runtimes: [{name: "native"}]
 			}
 		]
 	}
@@ -2635,7 +2613,7 @@ cmds: [
 		implementations: [
 			{
 				script: "echo test"
-				target: { runtimes: [{name: "native"}] }
+				runtimes: [{name: "native"}]
 			}
 		]
 		flags: [
@@ -2678,7 +2656,7 @@ cmds: [
 		implementations: [
 			{
 				script: "echo test"
-				target: { runtimes: [{name: "native"}] }
+				runtimes: [{name: "native"}]
 			}
 		]
 		flags: [
@@ -2718,7 +2696,7 @@ cmds: [
 		implementations: [
 			{
 				script: "echo test"
-				target: { runtimes: [{name: "native"}] }
+				runtimes: [{name: "native"}]
 			}
 		]
 		flags: [
@@ -2766,7 +2744,7 @@ cmds: [
 		implementations: [
 			{
 				script: "echo test"
-				target: { runtimes: [{name: "native"}] }
+				runtimes: [{name: "native"}]
 			}
 		]
 		flags: [
@@ -2801,7 +2779,7 @@ cmds: [
 		implementations: [
 			{
 				script: "echo test"
-				target: { runtimes: [{name: "native"}] }
+				runtimes: [{name: "native"}]
 			}
 		]
 		flags: [
@@ -2838,7 +2816,7 @@ cmds: [
 		implementations: [
 			{
 				script: "echo test"
-				target: { runtimes: [{name: "native"}] }
+				runtimes: [{name: "native"}]
 			}
 		]
 		flags: [
@@ -2873,7 +2851,7 @@ cmds: [
 		implementations: [
 			{
 				script: "echo test"
-				target: { runtimes: [{name: "native"}] }
+				runtimes: [{name: "native"}]
 			}
 		]
 		flags: [
@@ -2929,7 +2907,7 @@ cmds: [
 		implementations: [
 			{
 				script: "echo test"
-				target: { runtimes: [{name: "native"}] }
+				runtimes: [{name: "native"}]
 			}
 		]
 		flags: [
@@ -2964,7 +2942,7 @@ cmds: [
 		implementations: [
 			{
 				script: "echo test"
-				target: { runtimes: [{name: "native"}] }
+				runtimes: [{name: "native"}]
 			}
 		]
 		flags: [
@@ -3000,7 +2978,7 @@ cmds: [
 		implementations: [
 			{
 				script: "echo test"
-				target: { runtimes: [{name: "native"}] }
+				runtimes: [{name: "native"}]
 			}
 		]
 		flags: [
@@ -3037,7 +3015,7 @@ cmds: [
 		implementations: [
 			{
 				script: "echo test"
-				target: { runtimes: [{name: "native"}] }
+				runtimes: [{name: "native"}]
 			}
 		]
 		flags: [
@@ -3069,7 +3047,7 @@ cmds: [
 		implementations: [
 			{
 				script: "echo test"
-				target: { runtimes: [{name: "native"}] }
+				runtimes: [{name: "native"}]
 			}
 		]
 		flags: [
@@ -3101,7 +3079,7 @@ cmds: [
 		implementations: [
 			{
 				script: "echo test"
-				target: { runtimes: [{name: "native"}] }
+				runtimes: [{name: "native"}]
 			}
 		]
 		flags: [
@@ -3288,7 +3266,7 @@ cmds: [
 		implementations: [
 			{
 				script: "echo deploying"
-				target: { runtimes: [{name: "native"}] }
+				runtimes: [{name: "native"}]
 			}
 		]
 		flags: [
@@ -3390,7 +3368,7 @@ cmds: [
 		implementations: [
 			{
 				script: "echo Hello $INVOWK_ARG_NAME"
-				target: { runtimes: [{name: "native"}] }
+				runtimes: [{name: "native"}]
 			}
 		]
 		args: [
@@ -3472,7 +3450,7 @@ cmds: [
 		implementations: [
 			{
 				script: "echo test"
-				target: { runtimes: [{name: "native"}] }
+				runtimes: [{name: "native"}]
 			}
 		]
 		args: [
@@ -3515,7 +3493,7 @@ cmds: [
 		implementations: [
 			{
 				script: "echo test"
-				target: { runtimes: [{name: "native"}] }
+				runtimes: [{name: "native"}]
 			}
 		]
 		args: [
@@ -3556,7 +3534,7 @@ cmds: [
 		implementations: [
 			{
 				script: "cp $INVOWK_ARG_FILES $INVOWK_ARG_DEST"
-				target: { runtimes: [{name: "native"}] }
+				runtimes: [{name: "native"}]
 			}
 		]
 		args: [
@@ -3604,7 +3582,7 @@ cmds: [
 		implementations: [
 			{
 				script: "echo deploying to $INVOWK_ARG_ENV"
-				target: { runtimes: [{name: "native"}] }
+				runtimes: [{name: "native"}]
 			}
 		]
 		args: [
@@ -3653,7 +3631,7 @@ cmds: [
 		implementations: [
 			{
 				script: "echo test"
-				target: { runtimes: [{name: "native"}] }
+				runtimes: [{name: "native"}]
 			}
 		]
 		args: [
@@ -3701,7 +3679,7 @@ cmds: [
 		implementations: [
 			{
 				script: "echo test"
-				target: { runtimes: [{name: "native"}] }
+				runtimes: [{name: "native"}]
 			}
 		]
 		args: [
@@ -3740,7 +3718,7 @@ cmds: [
 		implementations: [
 			{
 				script: "echo test"
-				target: { runtimes: [{name: "native"}] }
+				runtimes: [{name: "native"}]
 			}
 		]
 		args: [
@@ -3772,7 +3750,7 @@ cmds: [
 		implementations: [
 			{
 				script: "echo test"
-				target: { runtimes: [{name: "native"}] }
+				runtimes: [{name: "native"}]
 			}
 		]
 		args: [
@@ -3808,7 +3786,7 @@ cmds: [
 		implementations: [
 			{
 				script: "echo test"
-				target: { runtimes: [{name: "native"}] }
+				runtimes: [{name: "native"}]
 			}
 		]
 		args: [
@@ -3844,7 +3822,7 @@ cmds: [
 		implementations: [
 			{
 				script: "echo test"
-				target: { runtimes: [{name: "native"}] }
+				runtimes: [{name: "native"}]
 			}
 		]
 		args: [
@@ -3880,7 +3858,7 @@ cmds: [
 		implementations: [
 			{
 				script: "echo test"
-				target: { runtimes: [{name: "native"}] }
+				runtimes: [{name: "native"}]
 			}
 		]
 		args: [
@@ -3915,7 +3893,7 @@ cmds: [
 		implementations: [
 			{
 				script: "echo test"
-				target: { runtimes: [{name: "native"}] }
+				runtimes: [{name: "native"}]
 			}
 		]
 		args: [
@@ -3959,7 +3937,7 @@ cmds: [
 		implementations: [
 			{
 				script: "echo test"
-				target: { runtimes: [{name: "native"}] }
+				runtimes: [{name: "native"}]
 			}
 		]
 		args: [
@@ -3994,7 +3972,7 @@ cmds: [
 		implementations: [
 			{
 				script: "echo test"
-				target: { runtimes: [{name: "native"}] }
+				runtimes: [{name: "native"}]
 			}
 		]
 		args: [
@@ -4026,7 +4004,7 @@ cmds: [
 		implementations: [
 			{
 				script: "echo test"
-				target: { runtimes: [{name: "native"}] }
+				runtimes: [{name: "native"}]
 			}
 		]
 		args: [
@@ -4174,7 +4152,7 @@ cmds: [
 		implementations: [
 			{
 				script: "echo test"
-				target: { runtimes: [{name: "native"}] }
+				runtimes: [{name: "native"}]
 			}
 		]
 		args: []
@@ -4208,7 +4186,7 @@ cmds: [
 		implementations: [
 			{
 				script: "echo test"
-				target: { runtimes: [{name: "native"}] }
+				runtimes: [{name: "native"}]
 			}
 		]
 	}
@@ -4243,7 +4221,7 @@ cmds: [
 		implementations: [
 			{
 				script: "echo deploying to $INVOWK_ARG_ENV with $INVOWK_ARG_REPLICAS replicas"
-				target: { runtimes: [{name: "native"}] }
+				runtimes: [{name: "native"}]
 			}
 		]
 		args: [
@@ -4330,9 +4308,8 @@ func TestGenerateCUE_WithArgs(t *testing.T) {
 				Implementations: []Implementation{
 					{
 						Script: "echo deploying",
-						Target: Target{
+						
 							Runtimes: []RuntimeConfig{{Name: RuntimeNative}},
-						},
 					},
 				},
 				Args: []Argument{
@@ -4410,9 +4387,8 @@ func TestGenerateCUE_WithArgs_StringTypeNotIncluded(t *testing.T) {
 				Implementations: []Implementation{
 					{
 						Script: "echo hello",
-						Target: Target{
+						
 							Runtimes: []RuntimeConfig{{Name: RuntimeNative}},
-						},
 					},
 				},
 				Args: []Argument{
@@ -4451,9 +4427,8 @@ func TestGenerateCUE_WithArgs_RoundTrip(t *testing.T) {
 				Implementations: []Implementation{
 					{
 						Script: "echo deploying",
-						Target: Target{
+						
 							Runtimes: []RuntimeConfig{{Name: RuntimeNative}},
-						},
 					},
 				},
 				Args: []Argument{
@@ -4548,7 +4523,7 @@ cmds: [
 		implementations: [
 			{
 				script: "echo test"
-				target: { runtimes: [{name: "native", interpreter: ""}] }
+				runtimes: [{name: "native", interpreter: ""}]
 			}
 		]
 	}
@@ -4591,7 +4566,7 @@ cmds: [
 		implementations: [
 			{
 				script: "echo test"
-				target: { runtimes: [{name: "native", interpreter: "` + tt.interpreter + `"}] }
+				runtimes: [{name: "native", interpreter: "` + tt.interpreter + `"}]
 			}
 		]
 	}
@@ -4624,7 +4599,7 @@ cmds: [
 		implementations: [
 			{
 				script: "echo test"
-				target: { runtimes: [{name: "container", image: "alpine:latest", interpreter: ""}] }
+				runtimes: [{name: "container", image: "alpine:latest", interpreter: ""}]
 			}
 		]
 	}
@@ -4709,7 +4684,7 @@ cmds: [
 		implementations: [
 			{
 				script: "print('hello')"
-				target: { runtimes: [{name: "native", interpreter: "` + tt.interpreter + `"}] }
+				runtimes: [{name: "native", interpreter: "` + tt.interpreter + `"}]
 			}
 		]
 	}
@@ -4726,7 +4701,7 @@ cmds: [
 				t.Fatalf("Parse() should accept valid interpreter %q, got error: %v", tt.interpreter, err)
 			}
 
-			rt := inv.Commands[0].Implementations[0].Target.Runtimes[0]
+			rt := inv.Commands[0].Implementations[0].Runtimes[0]
 			if rt.Interpreter != tt.interpreter {
 				t.Errorf("RuntimeConfig.Interpreter = %q, want %q", rt.Interpreter, tt.interpreter)
 			}
@@ -4747,7 +4722,7 @@ cmds: [
 		implementations: [
 			{
 				script: "echo hello"
-				target: { runtimes: [{name: "native"}] }
+				runtimes: [{name: "native"}]
 			}
 		]
 	}
@@ -4764,7 +4739,7 @@ cmds: [
 		t.Fatalf("Parse() should accept omitted interpreter field, got error: %v", err)
 	}
 
-	rt := inv.Commands[0].Implementations[0].Target.Runtimes[0]
+	rt := inv.Commands[0].Implementations[0].Runtimes[0]
 	if rt.Interpreter != "" {
 		t.Errorf("RuntimeConfig.Interpreter should be empty when omitted, got %q", rt.Interpreter)
 	}
@@ -4786,7 +4761,7 @@ cmds: [
 		implementations: [
 			{
 				script: "echo deploying"
-				target: { runtimes: [{name: "native"}] }
+				runtimes: [{name: "native"}]
 			}
 		]
 		env: {
@@ -4838,7 +4813,7 @@ cmds: [
 		implementations: [
 			{
 				script: "echo deploying"
-				target: { runtimes: [{name: "native"}] }
+				runtimes: [{name: "native"}]
 				env: {
 					files: ["impl.env", "secrets.env?"]
 				}
@@ -4890,7 +4865,7 @@ cmds: [
 		implementations: [
 			{
 				script: "echo deploying"
-				target: { runtimes: [{name: "native"}] }
+				runtimes: [{name: "native"}]
 				env: {
 					files: ["impl.env"]
 				}
@@ -4936,7 +4911,7 @@ cmds: [
 		implementations: [
 			{
 				script: "echo deploying"
-				target: { runtimes: [{name: "native"}] }
+				runtimes: [{name: "native"}]
 			}
 		]
 		env: {
@@ -4973,7 +4948,7 @@ cmds: [
 		implementations: [
 			{
 				script: "echo deploying"
-				target: { runtimes: [{name: "native"}] }
+				runtimes: [{name: "native"}]
 			}
 		]
 	}
@@ -5012,7 +4987,7 @@ cmds: [
 		implementations: [
 			{
 				script: "echo deploying"
-				target: { runtimes: [{name: "native"}] }
+				runtimes: [{name: "native"}]
 				env: {
 					vars: {
 						IMPL_VAR: "impl_value"
@@ -5081,9 +5056,8 @@ func TestGenerateCUE_WithEnv(t *testing.T) {
 				Implementations: []Implementation{
 					{
 						Script: "echo deploying",
-						Target: Target{
+						
 							Runtimes: []RuntimeConfig{{Name: RuntimeNative}},
-						},
 						Env: &EnvConfig{
 							Files: []string{"impl.env", "secrets.env?"},
 						},
@@ -5123,9 +5097,8 @@ func TestGenerateCUE_EnvRoundTrip(t *testing.T) {
 				Implementations: []Implementation{
 					{
 						Script: "echo deploying",
-						Target: Target{
+						
 							Runtimes: []RuntimeConfig{{Name: RuntimeNative}},
-						},
 						Env: &EnvConfig{
 							Files: []string{"impl.env"},
 						},
@@ -5196,7 +5169,7 @@ cmds: [
 		implementations: [
 			{
 				script: "echo deploying"
-				target: { runtimes: [{name: "native"}] }
+				runtimes: [{name: "native"}]
 			}
 		]
 	}
@@ -5246,7 +5219,7 @@ cmds: [
 		implementations: [
 			{
 				script: "echo deploying"
-				target: { runtimes: [{name: "native"}] }
+				runtimes: [{name: "native"}]
 			}
 		]
 	}
@@ -5297,7 +5270,7 @@ cmds: [
 		implementations: [
 			{
 				script: "echo deploying"
-				target: { runtimes: [{name: "native"}] }
+				runtimes: [{name: "native"}]
 				env: {
 					files: ["impl.env"]
 					vars: {
@@ -5379,9 +5352,8 @@ func TestGenerateCUE_WithRootLevelEnv(t *testing.T) {
 				Implementations: []Implementation{
 					{
 						Script: "echo deploying",
-						Target: Target{
+						
 							Runtimes: []RuntimeConfig{{Name: RuntimeNative}},
-						},
 					},
 				},
 			},
@@ -5419,9 +5391,8 @@ func TestGenerateCUE_RootEnvRoundTrip(t *testing.T) {
 				Implementations: []Implementation{
 					{
 						Script: "echo deploying",
-						Target: Target{
+						
 							Runtimes: []RuntimeConfig{{Name: RuntimeNative}},
-						},
 					},
 				},
 			},
@@ -5478,7 +5449,7 @@ cmds: [
 		implementations: [
 			{
 				script: "echo deploying"
-				target: { runtimes: [{name: "native"}] }
+				runtimes: [{name: "native"}]
 			}
 		]
 		flags: [
@@ -5514,7 +5485,7 @@ cmds: [
 		implementations: [
 			{
 				script: "echo deploying"
-				target: { runtimes: [{name: "native"}] }
+				runtimes: [{name: "native"}]
 			}
 		]
 		flags: [
@@ -5833,7 +5804,7 @@ cmds: [
 		implementations: [
 			{
 				script: "echo test"
-				target: { runtimes: [{name: "native"}] }
+				runtimes: [{name: "native"}]
 			}
 		]
 	}
@@ -5868,7 +5839,7 @@ cmds: [
 		implementations: [
 			{
 				script: "echo test"
-				target: { runtimes: [{name: "native"}] }
+				runtimes: [{name: "native"}]
 			}
 		]
 	}
@@ -5903,7 +5874,7 @@ cmds: [
 			{
 				script: "echo test"
 				workdir: "impl-specific"
-				target: { runtimes: [{name: "native"}] }
+				runtimes: [{name: "native"}]
 			}
 		]
 	}
@@ -5940,7 +5911,7 @@ cmds: [
 			{
 				script: "echo test"
 				workdir: "impl-dir"
-				target: { runtimes: [{name: "native"}] }
+				runtimes: [{name: "native"}]
 			}
 		]
 	}
@@ -5993,9 +5964,8 @@ func TestGenerateCUE_WithWorkDir(t *testing.T) {
 					{
 						Script:  "echo deploying",
 						WorkDir: "impl-dir",
-						Target: Target{
+						
 							Runtimes: []RuntimeConfig{{Name: RuntimeNative}},
-						},
 					},
 				},
 			},
@@ -6034,9 +6004,8 @@ func TestGenerateCUE_WithWorkDir_RoundTrip(t *testing.T) {
 					{
 						Script:  "echo building",
 						WorkDir: "impl-workdir",
-						Target: Target{
+						
 							Runtimes: []RuntimeConfig{{Name: RuntimeNative}},
-						},
 					},
 				},
 			},
@@ -6089,7 +6058,7 @@ cmds: [
 		implementations: [
 			{
 				script: "echo hello"
-				target: { runtimes: [{name: "native"}] }
+				runtimes: [{name: "native"}]
 			}
 		]
 	}
@@ -6193,7 +6162,7 @@ func TestInvkfile_HasRootLevelDependencies(t *testing.T) {
 			inv := &Invkfile{
 				Group:     "test",
 				DependsOn: tt.deps,
-				Commands:  []Command{{Name: "test", Implementations: []Implementation{{Script: "echo", Target: Target{Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}}}}},
+				Commands:  []Command{{Name: "test", Implementations: []Implementation{{Script: "echo", Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}}}},
 			}
 			if got := inv.HasRootLevelDependencies(); got != tt.expected {
 				t.Errorf("HasRootLevelDependencies() = %v, want %v", got, tt.expected)
@@ -6331,9 +6300,8 @@ func TestGenerateCUE_WithRootLevelDependsOn(t *testing.T) {
 				Implementations: []Implementation{
 					{
 						Script: "echo hello",
-						Target: Target{
+						
 							Runtimes: []RuntimeConfig{{Name: RuntimeNative}},
-						},
 					},
 				},
 			},
@@ -6439,9 +6407,8 @@ func TestGenerateCUE_WithRootLevelDependsOn_CustomChecks(t *testing.T) {
 				Implementations: []Implementation{
 					{
 						Script: "echo hello",
-						Target: Target{
+						
 							Runtimes: []RuntimeConfig{{Name: RuntimeNative}},
-						},
 					},
 				},
 			},
@@ -6496,7 +6463,7 @@ cmds: [
 		implementations: [
 			{
 				script: "echo hello"
-				target: { runtimes: [{name: "native"}] }
+				runtimes: [{name: "native"}]
 			}
 		]
 	}
@@ -6567,7 +6534,7 @@ cmds: [
 		implementations: [
 			{
 				script: "echo hello"
-				target: { runtimes: [{name: "native"}] }
+				runtimes: [{name: "native"}]
 			}
 		]
 	}

@@ -117,18 +117,16 @@ cmds: [
 					go build -o bin/app ./...
 					"""
 				// Allowed runtimes (first is default). Container runtime requires image or containerfile.
-				target: {
-					runtimes: [
-						{name: "native"},
-						{name: "container", image: "golang:1.21"},
-					]
-					// Platform-specific environment variables
-					platforms: [
-						{name: "linux", env: {PROJECT_NAME: "myproject"}},
-						{name: "macos", env: {PROJECT_NAME: "myproject"}},
-						{name: "windows", env: {PROJECT_NAME: "myproject"}},
-					]
-				}
+				runtimes: [
+					{name: "native"},
+					{name: "container", image: "golang:1.21"},
+				]
+				// Platform-specific environment variables
+				platforms: [
+					{name: "linux", env: {PROJECT_NAME: "myproject"}},
+					{name: "macos", env: {PROJECT_NAME: "myproject"}},
+					{name: "windows", env: {PROJECT_NAME: "myproject"}},
+				]
 			}
 		]
 	},
@@ -140,9 +138,7 @@ cmds: [
 		implementations: [
 			{
 				script: "go test ./..."
-				target: {
-					runtimes: [{name: "native"}, {name: "virtual"}]  // Can run in native or virtual runtime
-				}
+				runtimes: [{name: "native"}, {name: "virtual"}]  // Can run in native or virtual runtime
 			}
 		]
 	},
@@ -153,10 +149,8 @@ cmds: [
 		implementations: [
 			{
 				script: "./scripts/deploy.sh"
-				target: {
-					runtimes: [{name: "native"}]
-					platforms: [{name: "linux"}, {name: "macos"}]
-				}
+				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
 			}
 		]
 	},
@@ -167,10 +161,8 @@ cmds: [
 		implementations: [
 			{
 				script: "echo 'Creating release...'"
-				target: {
-					runtimes: [{name: "native"}]
-					platforms: [{name: "linux"}, {name: "macos"}]
-				}
+				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
 			}
 		]
 		depends_on: {
@@ -190,9 +182,7 @@ cmds: [
 		implementations: [
 			{
 				script: "echo \"Hello, Invowk!\""
-				target: {
-					runtimes: [{name: "container", image: "alpine:latest"}]
-				}
+				runtimes: [{name: "container", image: "alpine:latest"}]
 			}
 		]
 	},
@@ -384,9 +374,7 @@ cmds: [
 					echo "Deploying with AWS credentials..."
 					aws s3 sync ./dist s3://my-bucket
 					"""
-				target: {
-					runtimes: [{name: "native"}]
-				}
+				runtimes: [{name: "native"}]
 			}
 		]
 		depends_on: {
@@ -447,9 +435,7 @@ cmds: [
                         ./scripts/deploy.sh "$INVOWK_FLAG_ENV"
                     fi
                     """
-                target: {
-                    runtimes: [{name: "native"}]
-                }
+                runtimes: [{name: "native"}]
             }
         ]
         // Define flags for this command
@@ -642,9 +628,7 @@ cmds: [
 		implementations: [
 			{
 				script: "go build -o /workspace/bin/app ./..."
-				target: {
-					runtimes: [{name: "container", image: "golang:1.21"}]
-				}
+				runtimes: [{name: "container", image: "golang:1.21"}]
 				// Implementation-level depends_on - validated within the container
 				depends_on: {
 					tools: [
@@ -688,9 +672,7 @@ cmds: [
                     echo "Replicas: ${INVOWK_ARG_REPLICAS}"
                     echo "Services: ${INVOWK_ARG_SERVICES}"
                     """
-                target: {
-                    runtimes: [{name: "native"}]
-                }
+                runtimes: [{name: "native"}]
             }
         ]
         // Define positional arguments
@@ -942,9 +924,7 @@ cmds: [
                         done
                     fi
                     """
-                target: {
-                    runtimes: [{name: "native"}]
-                }
+                runtimes: [{name: "native"}]
             }
         ]
         args: [
@@ -1010,7 +990,7 @@ cmds: [
                     invowk cmd examples child  # Child will NOT see INVOWK_ARG_NAME
                     # But child WILL see SHARED_CONFIG
                     """
-                target: { runtimes: [{name: "native"}] }
+                runtimes: [{name: "native"}]
             }
         ]
         args: [{name: "name", default_value: "parent-value"}]
@@ -1023,7 +1003,7 @@ cmds: [
                     echo "Child's INVOWK_ARG_NAME: ${INVOWK_ARG_NAME:-<not set>}"  # "<not set>"
                     echo "Child's SHARED_CONFIG: $SHARED_CONFIG"  # "/etc/app/config.yaml"
                     """
-                target: { runtimes: [{name: "native"}] }
+                runtimes: [{name: "native"}]
             }
         ]
         args: [{name: "name", default_value: "child-value"}]
@@ -1053,7 +1033,7 @@ Remove either the 'args' field or the subcommands to resolve this conflict.
 
 ## Platform Compatibility
 
-Commands specify which operating systems they support using the `platforms` field inside `target`. If no platforms are specified, the command runs on all platforms.
+Commands specify which operating systems they support using the `platforms` field. If no platforms are specified, the command runs on all platforms.
 
 ### Basic Platform Configuration
 
@@ -1065,10 +1045,8 @@ cmds: [
         implementations: [
             {
                 script: "make build"
-                target: {
-                    runtimes: [{name: "native"}]
-                    // No platforms specified = runs on all platforms (linux, macos, windows)
-                }
+                runtimes: [{name: "native"}]
+                // No platforms specified = runs on all platforms (linux, macos, windows)
             }
         ]
     },
@@ -1078,11 +1056,9 @@ cmds: [
         implementations: [
             {
                 script: "rm -rf bin/"
-                target: {
-                    runtimes: [{name: "native"}]
-                    // Unix-only command
-                    platforms: [{name: "linux"}, {name: "macos"}]
-                }
+                runtimes: [{name: "native"}]
+                // Unix-only command
+                platforms: [{name: "linux"}, {name: "macos"}]
             }
         ]
     },
@@ -1113,10 +1089,8 @@ cmds: [
                     echo "Hostname: $(hostname)"
                     echo "Kernel: $(uname -r)"
                     """
-                target: {
-                    runtimes: [{name: "native"}]
-                    platforms: [{name: "linux"}, {name: "macos"}]
-                }
+                runtimes: [{name: "native"}]
+                platforms: [{name: "linux"}, {name: "macos"}]
             },
             // Windows implementation
             {
@@ -1124,10 +1098,8 @@ cmds: [
                     echo Hostname: %COMPUTERNAME%
                     echo User: %USERNAME%
                     """
-                target: {
-                    runtimes: [{name: "native"}]
-                    platforms: [{name: "windows"}]
-                }
+                runtimes: [{name: "native"}]
+                platforms: [{name: "windows"}]
             }
         ]
     }
@@ -1146,13 +1118,11 @@ cmds: [
         implementations: [
             {
                 script: "echo \"Platform: $PLATFORM_NAME, Config: $CONFIG_PATH\""
-                target: {
-                    runtimes: [{name: "native"}]
-                    platforms: [
-                        {name: "linux", env: {PLATFORM_NAME: "Linux", CONFIG_PATH: "/etc/app/config.yaml"}},
-                        {name: "macos", env: {PLATFORM_NAME: "macOS", CONFIG_PATH: "/usr/local/etc/app/config.yaml"}},
-                    ]
-                }
+                runtimes: [{name: "native"}]
+                platforms: [
+                    {name: "linux", env: {PLATFORM_NAME: "Linux", CONFIG_PATH: "/etc/app/config.yaml"}},
+                    {name: "macos", env: {PLATFORM_NAME: "macOS", CONFIG_PATH: "/usr/local/etc/app/config.yaml"}},
+                ]
             }
         ]
     }
@@ -1256,9 +1226,7 @@ cmds: [
                     import sys
                     print(f"Hello from Python {sys.version_info.major}.{sys.version_info.minor}!")
                     """
-                target: {
-                    runtimes: [{name: "native"}]
-                }
+                runtimes: [{name: "native"}]
             }
         ]
     }
@@ -1286,9 +1254,7 @@ cmds: [
                     puts "Hello from Ruby!"
                     puts "Ruby version: #{RUBY_VERSION}"
                     """
-                target: {
-                    runtimes: [{name: "native", interpreter: "ruby"}]
-                }
+                runtimes: [{name: "native", interpreter: "ruby"}]
             }
         ]
     }
@@ -1314,13 +1280,11 @@ cmds: [
                     print("Hello from Python in a container!")
                     print(f"Working directory: {os.getcwd()}")
                     """
-                target: {
-                    runtimes: [{
-                        name: "container"
-                        image: "python:3-alpine"
-                        // interpreter auto-detected from shebang
-                    }]
-                }
+                runtimes: [{
+                    name: "container"
+                    image: "python:3-alpine"
+                    // interpreter auto-detected from shebang
+                }]
             }
         ]
     },
@@ -1334,13 +1298,11 @@ cmds: [
                     import sys
                     print(f"Python {sys.version}")
                     """
-                target: {
-                    runtimes: [{
-                        name: "container"
-                        image: "python:3-alpine"
-                        interpreter: "python3"
-                    }]
-                }
+                runtimes: [{
+                    name: "container"
+                    image: "python:3-alpine"
+                    interpreter: "python3"
+                }]
             }
         ]
     }
@@ -1364,9 +1326,7 @@ cmds: [
                     name = sys.argv[1] if len(sys.argv) > 1 else "World"
                     print(f"Hello, {name}!")
                     """
-                target: {
-                    runtimes: [{name: "native"}]
-                }
+                runtimes: [{name: "native"}]
             }
         ]
         args: [
@@ -1460,9 +1420,7 @@ cmds: [
             {
                 // Path relative to pack root, using forward slashes
                 script: "scripts/build.sh"
-                target: {
-                    runtimes: [{name: "native"}]
-                }
+                runtimes: [{name: "native"}]
             }
         ]
     },
@@ -1473,9 +1431,7 @@ cmds: [
             {
                 // Nested script path
                 script: "scripts/utils/helper.sh"
-                target: {
-                    runtimes: [{name: "native"}]
-                }
+                runtimes: [{name: "native"}]
             }
         ]
     }
@@ -1695,14 +1651,12 @@ cmds: [
 			{
 				script: "make build"
 				// Container config is specified in the runtime
-				target: {
-					runtimes: [{
-						name: "container",
-						image: "golang:1.21",
-						volumes: ["./data:/data"],
-						ports: ["8080:8080"],
-					}]
-				}
+				runtimes: [{
+					name: "container",
+					image: "golang:1.21",
+					volumes: ["./data:/data"],
+					ports: ["8080:8080"],
+				}]
 			}
 		]
 	},
@@ -1734,9 +1688,7 @@ cmds: [
 						'echo "Hello from host!"'
 					"""
 				// enable_host_ssh and image are specified inside the container runtime config
-				target: {
-					runtimes: [{name: "container", image: "alpine:latest", enable_host_ssh: true}]
-				}
+				runtimes: [{name: "container", image: "alpine:latest", enable_host_ssh: true}]
 			}
 		]
 	},
@@ -2083,10 +2035,8 @@ cmds: [
                         echo "Project created!" | invowk tui style --foreground "#00FF00" --bold
                     fi
                     """
-                target: {
-                    runtimes: [{name: "native"}]
-                    platforms: [{name: "linux"}, {name: "macos"}]
-                }
+                runtimes: [{name: "native"}]
+                platforms: [{name: "linux"}, {name: "macos"}]
             }
         ]
     }

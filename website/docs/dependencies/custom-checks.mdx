@@ -151,7 +151,7 @@ The dependency is satisfied if **any** alternative passes.
     }
     implementations: [{
         script: "docker build -t myapp ."
-        target: {runtimes: [{name: "native"}]}
+        runtimes: [{name: "native"}]
     }]
 }
 ```
@@ -176,7 +176,7 @@ The dependency is satisfied if **any** alternative passes.
     }
     implementations: [{
         script: "./scripts/release.sh"
-        target: {runtimes: [{name: "native"}]}
+        runtimes: [{name: "native"}]
     }]
 }
 ```
@@ -294,7 +294,7 @@ For container runtime, custom checks run **inside the container**:
     name: "build"
     implementations: [{
         script: "npm run build"
-        target: {runtimes: [{name: "container", image: "node:20"}]}
+        runtimes: [{name: "container", image: "node:20"}]
         depends_on: {
             custom_checks: [
                 {

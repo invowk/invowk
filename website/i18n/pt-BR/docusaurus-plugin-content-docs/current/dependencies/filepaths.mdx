@@ -159,7 +159,7 @@ depends_on: {
     }
     implementations: [{
         script: "go build ./..."
-        target: {runtimes: [{name: "native"}]}
+        runtimes: [{name: "native"}]
     }]
 }
 ```
@@ -180,7 +180,7 @@ depends_on: {
     }
     implementations: [{
         script: "npm run build"
-        target: {runtimes: [{name: "native"}]}
+        runtimes: [{name: "native"}]
     }]
 }
 ```
@@ -200,7 +200,7 @@ depends_on: {
     }
     implementations: [{
         script: "docker build -t myapp ."
-        target: {runtimes: [{name: "native"}]}
+        runtimes: [{name: "native"}]
     }]
 }
 ```
@@ -227,7 +227,7 @@ depends_on: {
     }
     implementations: [{
         script: "./scripts/deploy.sh"
-        target: {runtimes: [{name: "native"}]}
+        runtimes: [{name: "native"}]
     }]
 }
 ```
@@ -241,7 +241,7 @@ Para runtime container, verificações de caminho são validadas **dentro do con
     name: "build"
     implementations: [{
         script: "go build ./..."
-        target: {runtimes: [{name: "container", image: "golang:1.21"}]}
+        runtimes: [{name: "container", image: "golang:1.21"}]
         depends_on: {
             filepaths: [
                 // Estes são verificados DENTRO do container
@@ -264,20 +264,16 @@ Use múltiplas implementações para caminhos específicos de plataforma:
     implementations: [
         {
             script: "cat $CONFIG_PATH"
-            target: {
-                runtimes: [{name: "native"}]
-                platforms: [{name: "linux"}]
-            }
+            runtimes: [{name: "native"}]
+            platforms: [{name: "linux"}]
             depends_on: {
                 filepaths: [{alternatives: ["/etc/myapp/config.yaml"]}]
             }
         },
         {
             script: "cat $CONFIG_PATH"
-            target: {
-                runtimes: [{name: "native"}]
-                platforms: [{name: "macos"}]
-            }
+            runtimes: [{name: "native"}]
+            platforms: [{name: "macos"}]
             depends_on: {
                 filepaths: [{alternatives: ["/usr/local/etc/myapp/config.yaml"]}]
             }

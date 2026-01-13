@@ -105,7 +105,7 @@ This ensures you're validating against the user's actual environment, not variab
     }
     implementations: [{
         script: "aws s3 sync ./dist s3://my-bucket"
-        target: {runtimes: [{name: "native"}]}
+        runtimes: [{name: "native"}]
     }]
 }
 ```
@@ -128,7 +128,7 @@ This ensures you're validating against the user's actual environment, not variab
     }
     implementations: [{
         script: "migrate -path ./migrations -database $DATABASE_URL up"
-        target: {runtimes: [{name: "native"}]}
+        runtimes: [{name: "native"}]
     }]
 }
 ```
@@ -151,7 +151,7 @@ This ensures you're validating against the user's actual environment, not variab
             echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc
             npm publish
             """
-        target: {runtimes: [{name: "native"}]}
+        runtimes: [{name: "native"}]
     }]
 }
 ```
@@ -176,7 +176,7 @@ This ensures you're validating against the user's actual environment, not variab
             echo "Deploying to $DEPLOY_ENV..."
             ./scripts/deploy-$DEPLOY_ENV.sh
             """
-        target: {runtimes: [{name: "native"}]}
+        runtimes: [{name: "native"}]
     }]
 }
 ```
@@ -203,7 +203,7 @@ This ensures you're validating against the user's actual environment, not variab
             git tag -a "$VERSION" -m "$RELEASE_NOTES"
             git push origin "$VERSION"
             """
-        target: {runtimes: [{name: "native"}]}
+        runtimes: [{name: "native"}]
     }]
 }
 ```

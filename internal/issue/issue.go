@@ -168,9 +168,7 @@ cmds: [
           echo "Building..."
           go build ./...
           """
-        target: {
           runtimes: [{name: "native"}]  // or "virtual", "container"
-        }
       }
     ]
   }
@@ -225,9 +223,7 @@ cmds: [
     implementations: [
       {
         script: "echo 'hello'"
-        target: {
           runtimes: [{name: "virtual"}]
-        }
       }
     ]
   }
@@ -381,9 +377,7 @@ cmds: [
     implementations: [
       {
         script: "make build"
-        target: {
           runtimes: [{name: "container"}]  // Override for this command
-        }
       }
     ]
   }

@@ -77,7 +77,7 @@ func generateInvkfile(template string) string {
 					Implementations: []invkfile.Implementation{
 						{
 							Script: "echo 'Hello from invowk!'",
-							Target: invkfile.Target{Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeNative}}},
+							Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeNative}},
 						},
 					},
 				},
@@ -95,7 +95,7 @@ func generateInvkfile(template string) string {
 					Implementations: []invkfile.Implementation{
 						{
 							Script: "echo \"Building $PROJECT_NAME...\"\ngo build -o bin/app ./...",
-							Target: invkfile.Target{
+							
 								Runtimes: []invkfile.RuntimeConfig{
 									{Name: invkfile.RuntimeNative},
 									{Name: invkfile.RuntimeContainer, Image: "golang:1.21"},
@@ -105,7 +105,6 @@ func generateInvkfile(template string) string {
 									{Name: invkfile.PlatformMac},
 									{Name: invkfile.PlatformWindows},
 								},
-							},
 						},
 					},
 					Env: &invkfile.EnvConfig{
@@ -121,7 +120,7 @@ func generateInvkfile(template string) string {
 					Implementations: []invkfile.Implementation{
 						{
 							Script: "go test -v ./...",
-							Target: invkfile.Target{Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeNative}, {Name: invkfile.RuntimeVirtual}}},
+							Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeNative}, {Name: invkfile.RuntimeVirtual}},
 						},
 					},
 				},
@@ -131,7 +130,7 @@ func generateInvkfile(template string) string {
 					Implementations: []invkfile.Implementation{
 						{
 							Script: "go test -v -tags=integration ./...",
-							Target: invkfile.Target{Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeNative}}},
+							Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeNative}},
 						},
 					},
 				},
@@ -141,17 +140,15 @@ func generateInvkfile(template string) string {
 					Implementations: []invkfile.Implementation{
 						{
 							Script: "rm -rf bin/ dist/",
-							Target: invkfile.Target{
+							
 								Runtimes:  []invkfile.RuntimeConfig{{Name: invkfile.RuntimeNative}},
 								Platforms: []invkfile.PlatformConfig{{Name: invkfile.PlatformLinux}, {Name: invkfile.PlatformMac}},
-							},
 						},
 						{
 							Script: "if exist bin rmdir /s /q bin && if exist dist rmdir /s /q dist",
-							Target: invkfile.Target{
+							
 								Runtimes:  []invkfile.RuntimeConfig{{Name: invkfile.RuntimeNative}},
 								Platforms: []invkfile.PlatformConfig{{Name: invkfile.PlatformWindows}},
-							},
 						},
 					},
 				},
@@ -161,7 +158,7 @@ func generateInvkfile(template string) string {
 					Implementations: []invkfile.Implementation{
 						{
 							Script: "go build -o /workspace/bin/app ./...",
-							Target: invkfile.Target{Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeContainer, Image: "golang:1.21"}}},
+							Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeContainer, Image: "golang:1.21"}},
 						},
 					},
 				},
@@ -171,7 +168,7 @@ func generateInvkfile(template string) string {
 					Implementations: []invkfile.Implementation{
 						{
 							Script: "echo \"Hello, Invowk!\"",
-							Target: invkfile.Target{Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeContainer, Image: "alpine:latest"}}},
+							Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeContainer, Image: "alpine:latest"}},
 						},
 					},
 				},
@@ -181,10 +178,9 @@ func generateInvkfile(template string) string {
 					Implementations: []invkfile.Implementation{
 						{
 							Script: "echo 'Creating release...'",
-							Target: invkfile.Target{
+							
 								Runtimes:  []invkfile.RuntimeConfig{{Name: invkfile.RuntimeNative}},
 								Platforms: []invkfile.PlatformConfig{{Name: invkfile.PlatformLinux}, {Name: invkfile.PlatformMac}},
-							},
 						},
 					},
 					DependsOn: &invkfile.DependsOn{
@@ -212,7 +208,7 @@ func generateInvkfile(template string) string {
 					Implementations: []invkfile.Implementation{
 						{
 							Script: "echo 'Building...'\n# Add your build commands here",
-							Target: invkfile.Target{Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeNative}}},
+							Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeNative}},
 						},
 					},
 				},
@@ -222,7 +218,7 @@ func generateInvkfile(template string) string {
 					Implementations: []invkfile.Implementation{
 						{
 							Script: "echo 'Testing...'\n# Add your test commands here",
-							Target: invkfile.Target{Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeNative}}},
+							Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeNative}},
 						},
 					},
 				},
@@ -232,7 +228,7 @@ func generateInvkfile(template string) string {
 					Implementations: []invkfile.Implementation{
 						{
 							Script: "echo 'Cleaning...'\n# Add your clean commands here",
-							Target: invkfile.Target{Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeNative}}},
+							Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeNative}},
 						},
 					},
 				},

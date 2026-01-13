@@ -1156,7 +1156,7 @@ func validateToolInVirtual(toolName string, registry *runtime.Registry, ctx *run
 	validationCtx := &runtime.ExecutionContext{
 		Command:         ctx.Command,
 		Invkfile:        ctx.Invkfile,
-		SelectedImpl:    &invkfile.Implementation{Script: checkScript, Target: invkfile.Target{Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeVirtual}}}},
+		SelectedImpl:    &invkfile.Implementation{Script: checkScript, Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeVirtual}}},
 		SelectedRuntime: invkfile.RuntimeVirtual,
 		Stdout:          &stdout,
 		Stderr:          &stderr,
@@ -1188,7 +1188,7 @@ func validateToolInContainer(toolName string, registry *runtime.Registry, ctx *r
 	validationCtx := &runtime.ExecutionContext{
 		Command:         ctx.Command,
 		Invkfile:        ctx.Invkfile,
-		SelectedImpl:    &invkfile.Implementation{Script: checkScript, Target: invkfile.Target{Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeContainer}}}},
+		SelectedImpl:    &invkfile.Implementation{Script: checkScript, Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeContainer}}},
 		SelectedRuntime: invkfile.RuntimeContainer,
 		Stdout:          &stdout,
 		Stderr:          &stderr,
@@ -1323,7 +1323,7 @@ func validateCustomCheckInVirtual(check invkfile.CustomCheck, registry *runtime.
 	validationCtx := &runtime.ExecutionContext{
 		Command:         ctx.Command,
 		Invkfile:        ctx.Invkfile,
-		SelectedImpl:    &invkfile.Implementation{Script: check.CheckScript, Target: invkfile.Target{Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeVirtual}}}},
+		SelectedImpl:    &invkfile.Implementation{Script: check.CheckScript, Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeVirtual}}},
 		SelectedRuntime: invkfile.RuntimeVirtual,
 		Stdout:          &stdout,
 		Stderr:          &stderr,
@@ -1349,7 +1349,7 @@ func validateCustomCheckInContainer(check invkfile.CustomCheck, registry *runtim
 	validationCtx := &runtime.ExecutionContext{
 		Command:         ctx.Command,
 		Invkfile:        ctx.Invkfile,
-		SelectedImpl:    &invkfile.Implementation{Script: check.CheckScript, Target: invkfile.Target{Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeContainer}}}},
+		SelectedImpl:    &invkfile.Implementation{Script: check.CheckScript, Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeContainer}}},
 		SelectedRuntime: invkfile.RuntimeContainer,
 		Stdout:          &stdout,
 		Stderr:          &stderr,
@@ -1436,7 +1436,7 @@ func validateFilepathInContainer(fp invkfile.FilepathDependency, invowkDir strin
 		validationCtx := &runtime.ExecutionContext{
 			Command:         ctx.Command,
 			Invkfile:        ctx.Invkfile,
-			SelectedImpl:    &invkfile.Implementation{Script: checkScript, Target: invkfile.Target{Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeContainer}}}},
+			SelectedImpl:    &invkfile.Implementation{Script: checkScript, Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeContainer}}},
 			SelectedRuntime: invkfile.RuntimeContainer,
 			Stdout:          &stdout,
 			Stderr:          &stderr,

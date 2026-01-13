@@ -84,9 +84,7 @@ cmds: [{
 	name: "hello"
 	implementations: [{
 		script: "echo hello"
-		target: {
-			runtimes: [{name: "native"}]
-		}
+		runtimes: [{name: "native"}]
 	}]
 }]
 `), 0644)
@@ -134,9 +132,7 @@ cmds: [{
 	name: "hello"
 	implementations: [{
 		script: "echo hello"
-		target: {
-			runtimes: [{name: "virtual"}]
-		}
+		runtimes: [{name: "virtual"}]
 	}]
 }]
 `), 0644)

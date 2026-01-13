@@ -20,7 +20,7 @@ func testCmd(name string, script string) *invkfile.Command {
 	return &invkfile.Command{
 		Name: name,
 		Implementations: []invkfile.Implementation{
-			{Script: script, Target: invkfile.Target{Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeNative}}}},
+			{Script: script, Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeNative}}},
 		},
 	}
 }
@@ -29,7 +29,7 @@ func testCmd(name string, script string) *invkfile.Command {
 func testCmdWithDeps(name string, script string, deps *invkfile.DependsOn) *invkfile.Command {
 	return &invkfile.Command{
 		Name:            name,
-		Implementations: []invkfile.Implementation{{Script: script, Target: invkfile.Target{Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeNative}}}}},
+		Implementations: []invkfile.Implementation{{Script: script, Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeNative}}}},
 		DependsOn:       deps,
 	}
 }
@@ -194,14 +194,14 @@ cmds: [
 		name: "build"
 		implementations: [{
 			script: "echo build"
-			target: {runtimes: [{name: "native"}]}
+			runtimes: [{name: "native"}]
 		}]
 	},
 	{
 		name: "deploy"
 		implementations: [{
 			script: "echo deploy"
-			target: {runtimes: [{name: "native"}]}
+			runtimes: [{name: "native"}]
 		}]
 	},
 ]
@@ -246,7 +246,7 @@ cmds: [{
 	name: "deploy"
 	implementations: [{
 		script: "echo deploy"
-		target: {runtimes: [{name: "native"}]}
+		runtimes: [{name: "native"}]
 	}]
 }]
 `
@@ -266,7 +266,7 @@ cmds: [{
 	name: "generate-types"
 	implementations: [{
 		script: "echo generate"
-		target: {runtimes: [{name: "native"}]}
+		runtimes: [{name: "native"}]
 	}]
 }]
 `
@@ -310,7 +310,7 @@ cmds: [{
 	name: "deploy"
 	implementations: [{
 		script: "echo deploy"
-		target: {runtimes: [{name: "native"}]}
+		runtimes: [{name: "native"}]
 	}]
 }]
 `
@@ -920,7 +920,7 @@ func TestCommand_CanRunOnCurrentHost(t *testing.T) {
 			cmd: &invkfile.Command{
 				Name: "test",
 				Implementations: []invkfile.Implementation{
-					{Script: "echo", Target: invkfile.Target{Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeNative}}, Platforms: []invkfile.PlatformConfig{{Name: currentOS}}}},
+					{Script: "echo", Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeNative}}, Platforms: []invkfile.PlatformConfig{{Name: currentOS}}},
 				},
 			},
 			expected: true,
@@ -930,7 +930,7 @@ func TestCommand_CanRunOnCurrentHost(t *testing.T) {
 			cmd: &invkfile.Command{
 				Name: "test",
 				Implementations: []invkfile.Implementation{
-					{Script: "echo", Target: invkfile.Target{Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeNative}}, Platforms: []invkfile.PlatformConfig{{Name: "nonexistent"}}}},
+					{Script: "echo", Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeNative}}, Platforms: []invkfile.PlatformConfig{{Name: "nonexistent"}}},
 				},
 			},
 			expected: false,
@@ -940,7 +940,7 @@ func TestCommand_CanRunOnCurrentHost(t *testing.T) {
 			cmd: &invkfile.Command{
 				Name: "test",
 				Implementations: []invkfile.Implementation{
-					{Script: "echo", Target: invkfile.Target{Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeNative}}}},
+					{Script: "echo", Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeNative}}},
 				},
 			},
 			expected: true,
@@ -976,7 +976,7 @@ func TestCommand_GetPlatformsString(t *testing.T) {
 			cmd: &invkfile.Command{
 				Name: "test",
 				Implementations: []invkfile.Implementation{
-					{Script: "echo", Target: invkfile.Target{Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeNative}}, Platforms: []invkfile.PlatformConfig{{Name: invkfile.PlatformLinux}}}},
+					{Script: "echo", Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeNative}}, Platforms: []invkfile.PlatformConfig{{Name: invkfile.PlatformLinux}}},
 				},
 			},
 			expected: "linux",
@@ -986,7 +986,7 @@ func TestCommand_GetPlatformsString(t *testing.T) {
 			cmd: &invkfile.Command{
 				Name: "test",
 				Implementations: []invkfile.Implementation{
-					{Script: "echo", Target: invkfile.Target{Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeNative}}, Platforms: []invkfile.PlatformConfig{{Name: invkfile.PlatformLinux}, {Name: invkfile.PlatformMac}}}},
+					{Script: "echo", Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeNative}}, Platforms: []invkfile.PlatformConfig{{Name: invkfile.PlatformLinux}, {Name: invkfile.PlatformMac}}},
 				},
 			},
 			expected: "linux, macos",
@@ -996,7 +996,7 @@ func TestCommand_GetPlatformsString(t *testing.T) {
 			cmd: &invkfile.Command{
 				Name: "test",
 				Implementations: []invkfile.Implementation{
-					{Script: "echo", Target: invkfile.Target{Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeNative}}}},
+					{Script: "echo", Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeNative}}},
 				},
 			},
 			expected: "linux, macos, windows",
@@ -1048,7 +1048,7 @@ func TestCommand_GetDefaultRuntimeForPlatform(t *testing.T) {
 			cmd: &invkfile.Command{
 				Name: "test",
 				Implementations: []invkfile.Implementation{
-					{Script: "echo", Target: invkfile.Target{Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeNative}, {Name: invkfile.RuntimeContainer}}}},
+					{Script: "echo", Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeNative}, {Name: invkfile.RuntimeContainer}}},
 				},
 			},
 			expected: invkfile.RuntimeNative,
@@ -1058,7 +1058,7 @@ func TestCommand_GetDefaultRuntimeForPlatform(t *testing.T) {
 			cmd: &invkfile.Command{
 				Name: "test",
 				Implementations: []invkfile.Implementation{
-					{Script: "echo", Target: invkfile.Target{Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeContainer}, {Name: invkfile.RuntimeNative}}}},
+					{Script: "echo", Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeContainer}, {Name: invkfile.RuntimeNative}}},
 				},
 			},
 			expected: invkfile.RuntimeContainer,
@@ -1089,7 +1089,7 @@ func TestCommand_IsRuntimeAllowedForPlatform(t *testing.T) {
 	cmd := &invkfile.Command{
 		Name: "test",
 		Implementations: []invkfile.Implementation{
-			{Script: "echo", Target: invkfile.Target{Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeNative}, {Name: invkfile.RuntimeVirtual}}}},
+			{Script: "echo", Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeNative}, {Name: invkfile.RuntimeVirtual}}},
 		},
 	}
 
@@ -1125,7 +1125,7 @@ func TestCommand_GetRuntimesStringForPlatform(t *testing.T) {
 			cmd: &invkfile.Command{
 				Name: "test",
 				Implementations: []invkfile.Implementation{
-					{Script: "echo", Target: invkfile.Target{Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeNative}}}},
+					{Script: "echo", Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeNative}}},
 				},
 			},
 			expected: "native*",
@@ -1135,7 +1135,7 @@ func TestCommand_GetRuntimesStringForPlatform(t *testing.T) {
 			cmd: &invkfile.Command{
 				Name: "test",
 				Implementations: []invkfile.Implementation{
-					{Script: "echo", Target: invkfile.Target{Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeNative}, {Name: invkfile.RuntimeContainer}}}},
+					{Script: "echo", Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeNative}, {Name: invkfile.RuntimeContainer}}},
 				},
 			},
 			expected: "native*, container",
@@ -1748,7 +1748,7 @@ func testCmdWithFlags(name string, script string, flags []invkfile.Flag) *invkfi
 		Name:  name,
 		Flags: flags,
 		Implementations: []invkfile.Implementation{
-			{Script: script, Target: invkfile.Target{Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeNative}}}},
+			{Script: script, Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeNative}}},
 		},
 	}
 }
@@ -2199,7 +2199,7 @@ func testCmdWithArgs(name string, script string, args []invkfile.Argument) *invk
 		Name: name,
 		Args: args,
 		Implementations: []invkfile.Implementation{
-			{Script: script, Target: invkfile.Target{Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeNative}}}},
+			{Script: script, Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeNative}}},
 		},
 	}
 }
