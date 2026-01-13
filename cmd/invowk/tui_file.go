@@ -13,6 +13,8 @@ import (
 )
 
 var (
+	fileTitle         string
+	fileDescription   string
 	fileDirectoryOnly bool
 	fileShowFiles     bool
 	fileHidden        bool
@@ -55,6 +57,8 @@ Examples:
 func init() {
 	tuiCmd.AddCommand(tuiFileCmd)
 
+	tuiFileCmd.Flags().StringVar(&fileTitle, "title", "", "title displayed above the file picker")
+	tuiFileCmd.Flags().StringVar(&fileDescription, "description", "", "description displayed below the title")
 	tuiFileCmd.Flags().BoolVar(&fileDirectoryOnly, "directory", false, "only show directories")
 	tuiFileCmd.Flags().BoolVar(&fileShowFiles, "file", true, "show files (default true)")
 	tuiFileCmd.Flags().BoolVar(&fileHidden, "hidden", false, "show hidden files")
@@ -78,6 +82,8 @@ func runTuiFile(cmd *cobra.Command, args []string) error {
 	// Check if we should delegate to parent TUI server
 	if client := tuiserver.NewClientFromEnv(); client != nil {
 		result, err = client.File(tuiserver.FileRequest{
+			Title:       fileTitle,
+			Description: fileDescription,
 			Path:        startPath,
 			ShowFiles:   allowFiles,
 			ShowDirs:    allowDirs,
@@ -88,6 +94,8 @@ func runTuiFile(cmd *cobra.Command, args []string) error {
 	} else {
 		// Render TUI directly
 		result, err = tui.File(tui.FileOptions{
+			Title:             fileTitle,
+			Description:       fileDescription,
 			CurrentDirectory:  startPath,
 			FileAllowed:       allowFiles,
 			DirAllowed:        allowDirs,
