@@ -883,6 +883,59 @@ Usage:
 invowk cmd myproject deploy prod 3 api web worker --dry-run
 ```
 
+### Environment Variables in Nested Commands
+
+When a command's script invokes another invowk command (e.g., `invowk cmd other-command`), the following environment variable behavior applies:
+
+**Isolated Variables (NOT inherited by child commands):**
+- `INVOWK_ARG_*` - Argument values
+- `INVOWK_FLAG_*` - Flag values
+- `ARGC`, `ARG1`, `ARG2`, etc. - Legacy positional argument variables
+
+This isolation prevents the parent command's arguments and flags from accidentally leaking into child commands, which could cause unexpected behavior.
+
+**Inherited Variables (standard UNIX behavior):**
+- Variables defined in the `env` construct of a command
+- Platform-level environment variables from `platforms[].env`
+- Any other environment variables in the process environment
+
+This follows standard UNIX semantics where child processes inherit their parent's environment. If you define `env: { MY_VAR: "value" }` in a command and that command calls another invowk command, the child will see `MY_VAR` in its environment. This is intentional and allows commands to set up environment context for nested invocations.
+
+**Example:**
+
+```cue
+commands: [
+    {
+        name: "parent"
+        env: { SHARED_CONFIG: "/etc/app/config.yaml" }  // Inherited by children
+        implementations: [
+            {
+                script: """
+                    echo "Parent's INVOWK_ARG_NAME: $INVOWK_ARG_NAME"  # "parent-value"
+                    invowk cmd examples child  # Child will NOT see INVOWK_ARG_NAME
+                    # But child WILL see SHARED_CONFIG
+                    """
+                target: { runtimes: [{name: "native"}] }
+            }
+        ]
+        args: [{name: "name", default_value: "parent-value"}]
+    },
+    {
+        name: "child"
+        implementations: [
+            {
+                script: """
+                    echo "Child's INVOWK_ARG_NAME: ${INVOWK_ARG_NAME:-<not set>}"  # "<not set>"
+                    echo "Child's SHARED_CONFIG: $SHARED_CONFIG"  # "/etc/app/config.yaml"
+                    """
+                target: { runtimes: [{name: "native"}] }
+            }
+        ]
+        args: [{name: "name", default_value: "child-value"}]
+    },
+]
+```
+
 ### Arguments vs Subcommands
 
 A command cannot have both positional arguments and subcommands. If a command defines `args` but also has subcommands (commands with the same prefix), the subcommands take precedence and a warning is shown:
