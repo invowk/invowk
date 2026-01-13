@@ -1428,4 +1428,123 @@ commands: [
 			{name: "arg2", description: "Second argument"},
 		]
 	},
+
+	// ============================================================================
+	// SECTION 13: Environment Variable Isolation
+	// ============================================================================
+	// These commands demonstrate that INVOWK_ARG_* and INVOWK_FLAG_* environment
+	// variables are isolated between nested command invocations. When a command
+	// calls another invowk command, the child does not inherit the parent's
+	// flag/arg environment variables, preventing unexpected behavior.
+
+	// Example 13.1: Child command for isolation demo (displays its own env vars)
+	{
+		name:        "isolation child"
+		description: "Child command that displays its own flag and arg values"
+		implementations: [
+			{
+				script: #"""
+					echo "  [CHILD] INVOWK_ARG_MESSAGE = '${INVOWK_ARG_MESSAGE:-<not set>}'"
+					echo "  [CHILD] INVOWK_FLAG_CHILD_FLAG = '${INVOWK_FLAG_CHILD_FLAG:-<not set>}'"
+					echo "  [CHILD] INVOWK_ARG_PARENT_ONLY = '${INVOWK_ARG_PARENT_ONLY:-<not set>}' (should be <not set>)"
+					echo "  [CHILD] INVOWK_FLAG_PARENT_FLAG = '${INVOWK_FLAG_PARENT_FLAG:-<not set>}' (should be <not set>)"
+					"""#
+				target: {
+					runtimes: [{name: "native"}]
+				}
+			}
+		]
+		args: [
+			{name: "message", description: "A message to display", default_value: "hello from child"},
+		]
+		flags: [
+			{name: "child-flag", description: "A flag specific to child", default_value: "child-default"},
+		]
+	},
+
+	// Example 13.2: Parent command that demonstrates environment isolation
+	{
+		name:        "isolation parent"
+		description: "Parent command demonstrating env var isolation when calling child"
+		implementations: [
+			{
+				script: #"""
+					echo "=========================================="
+					echo "  Environment Variable Isolation Demo"
+					echo "=========================================="
+					echo ""
+					echo "BEFORE calling child command:"
+					echo "  [PARENT] INVOWK_ARG_PARENT_ONLY = '$INVOWK_ARG_PARENT_ONLY'"
+					echo "  [PARENT] INVOWK_FLAG_PARENT_FLAG = '$INVOWK_FLAG_PARENT_FLAG'"
+					echo ""
+					echo "Calling child command with its own args/flags..."
+					echo "  invowk cmd examples isolation child 'message from parent' --child-flag=from-parent"
+					echo ""
+					echo "--- Child command output ---"
+					invowk cmd examples isolation child "message from parent" --child-flag=from-parent
+					echo "--- End child output ---"
+					echo ""
+					echo "AFTER child command returns:"
+					echo "  [PARENT] INVOWK_ARG_PARENT_ONLY = '$INVOWK_ARG_PARENT_ONLY' (unchanged)"
+					echo "  [PARENT] INVOWK_FLAG_PARENT_FLAG = '$INVOWK_FLAG_PARENT_FLAG' (unchanged)"
+					echo ""
+					echo "Key observations:"
+					echo "  1. Child did NOT see parent's INVOWK_ARG_PARENT_ONLY or INVOWK_FLAG_PARENT_FLAG"
+					echo "  2. Child received its own INVOWK_ARG_MESSAGE and INVOWK_FLAG_CHILD_FLAG"
+					echo "  3. Parent's env vars remain intact after child returns"
+					echo ""
+					echo "This isolation prevents accidental leakage of flags/args between commands."
+					echo "=========================================="
+					"""#
+				target: {
+					runtimes:  [{name: "native"}]
+					platforms: [{name: "linux"}, {name: "macos"}]
+				}
+			}
+		]
+		args: [
+			{name: "parent-only", description: "An argument only the parent has", default_value: "parent-secret-value"},
+		]
+		flags: [
+			{name: "parent-flag", description: "A flag only the parent has", default_value: "parent-flag-value"},
+		]
+		depends_on: {
+			tools: [
+				{alternatives: ["invowk"]},
+			]
+		}
+	},
+
+	// Example 13.3: Demonstrate isolation with virtual runtime
+	{
+		name:        "isolation virtual"
+		description: "Environment isolation demo using virtual shell runtime"
+		implementations: [
+			{
+				script: #"""
+					echo "=== Virtual Runtime Isolation Demo ==="
+					echo ""
+					echo "Parent values (virtual runtime):"
+					echo "  INVOWK_ARG_DATA = '$INVOWK_ARG_DATA'"
+					echo "  INVOWK_FLAG_MODE = '$INVOWK_FLAG_MODE'"
+					echo ""
+					echo "The isolation mechanism works identically in virtual runtime."
+					echo "INVOWK_ARG_* and INVOWK_FLAG_* variables are filtered from the"
+					echo "inherited environment before each command execution."
+					echo ""
+					echo "This ensures consistent behavior across native, virtual, and"
+					echo "container runtimes."
+					"""#
+				target: {
+					runtimes: [{name: "virtual"}]
+				}
+			}
+		]
+		args: [
+			{name: "data", description: "Some data value", default_value: "virtual-data"},
+		]
+		flags: [
+			{name: "mode", description: "Operation mode", default_value: "virtual-mode"},
+		]
+	},
 ]
