@@ -7,6 +7,10 @@ import (
 )
 
 func TestCheckCapability_LocalAreaNetwork(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping network capability test in short mode")
+	}
+
 	// This test assumes the test machine has network connectivity
 	// In a CI environment without network, this test may fail
 	err := CheckCapability(CapabilityLocalAreaNetwork)
@@ -22,6 +26,10 @@ func TestCheckCapability_LocalAreaNetwork(t *testing.T) {
 }
 
 func TestCheckCapability_Internet(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping network capability test in short mode")
+	}
+
 	// This test assumes the test machine has internet connectivity
 	// In a CI environment without internet, this test may fail
 	err := CheckCapability(CapabilityInternet)
@@ -114,6 +122,10 @@ func TestIsValidCapabilityName(t *testing.T) {
 }
 
 func TestCheckLocalAreaNetwork_ReturnsCapabilityError(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping network capability test in short mode")
+	}
+
 	// Call the internal function to test its behavior
 	// This will succeed or fail based on the environment
 	err := checkLocalAreaNetwork()
@@ -129,6 +141,10 @@ func TestCheckLocalAreaNetwork_ReturnsCapabilityError(t *testing.T) {
 }
 
 func TestCheckInternet_ReturnsCapabilityError(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping network capability test in short mode")
+	}
+
 	// Call the internal function to test its behavior
 	// This will succeed or fail based on the environment
 	err := checkInternet()

@@ -36,6 +36,26 @@ func TestDefaultConfig(t *testing.T) {
 	if cfg.UI.Verbose {
 		t.Error("expected default verbose to be false")
 	}
+
+	if cfg.UI.Interactive {
+		t.Error("expected default interactive to be false")
+	}
+
+	if !cfg.Container.AutoProvision.Enabled {
+		t.Error("expected auto provisioning to be enabled by default")
+	}
+
+	if cfg.Container.AutoProvision.BinaryPath != "" {
+		t.Errorf("expected auto provisioning binary path to be empty, got %q", cfg.Container.AutoProvision.BinaryPath)
+	}
+
+	if len(cfg.Container.AutoProvision.PacksPaths) != 0 {
+		t.Errorf("expected auto provisioning packs paths to be empty, got %v", cfg.Container.AutoProvision.PacksPaths)
+	}
+
+	if cfg.Container.AutoProvision.CacheDir != "" {
+		t.Errorf("expected auto provisioning cache dir to be empty, got %q", cfg.Container.AutoProvision.CacheDir)
+	}
 }
 
 func TestConfigDir(t *testing.T) {
@@ -209,6 +229,15 @@ func TestLoadAndSave(t *testing.T) {
 		UI: UIConfig{
 			ColorScheme: "dark",
 			Verbose:     true,
+			Interactive: true,
+		},
+		Container: ContainerConfig{
+			AutoProvision: AutoProvisionConfig{
+				Enabled:    false,
+				BinaryPath: "/custom/bin/invowk",
+				PacksPaths: []string{"/packs/one"},
+				CacheDir:   "/tmp/invowk-cache",
+			},
 		},
 	}
 
@@ -249,6 +278,26 @@ func TestLoadAndSave(t *testing.T) {
 
 	if loaded.UI.Verbose != true {
 		t.Error("Verbose = false, want true")
+	}
+
+	if loaded.UI.Interactive != true {
+		t.Error("Interactive = false, want true")
+	}
+
+	if loaded.Container.AutoProvision.Enabled != false {
+		t.Error("AutoProvision.Enabled = true, want false")
+	}
+
+	if loaded.Container.AutoProvision.BinaryPath != "/custom/bin/invowk" {
+		t.Errorf("AutoProvision.BinaryPath = %q, want /custom/bin/invowk", loaded.Container.AutoProvision.BinaryPath)
+	}
+
+	if len(loaded.Container.AutoProvision.PacksPaths) != 1 || loaded.Container.AutoProvision.PacksPaths[0] != "/packs/one" {
+		t.Errorf("AutoProvision.PacksPaths = %v, want [/packs/one]", loaded.Container.AutoProvision.PacksPaths)
+	}
+
+	if loaded.Container.AutoProvision.CacheDir != "/tmp/invowk-cache" {
+		t.Errorf("AutoProvision.CacheDir = %q, want /tmp/invowk-cache", loaded.Container.AutoProvision.CacheDir)
 	}
 }
 

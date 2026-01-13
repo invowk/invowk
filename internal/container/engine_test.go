@@ -188,6 +188,10 @@ func TestRunResult_Defaults(t *testing.T) {
 
 // Integration tests - only run if container engine is available
 func TestDockerEngine_Integration(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test in short mode")
+	}
+
 	engine := NewDockerEngine()
 	if !engine.Available() {
 		t.Skip("Docker is not available, skipping integration tests")
@@ -218,6 +222,10 @@ func TestDockerEngine_Integration(t *testing.T) {
 }
 
 func TestPodmanEngine_Integration(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test in short mode")
+	}
+
 	engine := NewPodmanEngine()
 	if !engine.Available() {
 		t.Skip("Podman is not available, skipping integration tests")

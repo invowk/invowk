@@ -7,6 +7,8 @@ package runtime
 import (
 	"bytes"
 	"context"
+	"fmt"
+	"net"
 	"os"
 	"path/filepath"
 	"strings"
@@ -675,8 +677,10 @@ func createTestSSHServer(t *testing.T) (*sshserver.Server, error) {
 		}
 	}()
 
-	// Wait a bit for the server to start
-	time.Sleep(100 * time.Millisecond)
+	if err := waitForSSHServer(srv.Address(), 2*time.Second); err != nil {
+		_ = srv.Stop()
+		return nil, err
+	}
 
 	// Register cleanup
 	t.Cleanup(func() {
@@ -684,4 +688,18 @@ func createTestSSHServer(t *testing.T) (*sshserver.Server, error) {
 	})
 
 	return srv, nil
+}
+
+func waitForSSHServer(addr string, timeout time.Duration) error {
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		conn, err := net.DialTimeout("tcp", addr, 200*time.Millisecond)
+		if err == nil {
+			conn.Close()
+			return nil
+		}
+		time.Sleep(25 * time.Millisecond)
+	}
+
+	return fmt.Errorf("ssh server not ready at %s within %s", addr, timeout)
 }

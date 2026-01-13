@@ -282,7 +282,7 @@ func TestValidate(t *testing.T) {
 					t.Fatal(err)
 				}
 				invkfilePath := filepath.Join(packPath, "invkfile.cue")
-				if err := os.WriteFile(invkfilePath, []byte("group: \"test\"\ncommands: []"), 0644); err != nil {
+				if err := os.WriteFile(invkfilePath, []byte("group: \"test\"\ncmds: []"), 0644); err != nil {
 					t.Fatal(err)
 				}
 				return packPath
@@ -299,7 +299,7 @@ func TestValidate(t *testing.T) {
 					t.Fatal(err)
 				}
 				invkfilePath := filepath.Join(packPath, "invkfile.cue")
-				if err := os.WriteFile(invkfilePath, []byte("group: \"test\"\ncommands: []"), 0644); err != nil {
+				if err := os.WriteFile(invkfilePath, []byte("group: \"test\"\ncmds: []"), 0644); err != nil {
 					t.Fatal(err)
 				}
 				return packPath
@@ -348,7 +348,7 @@ func TestValidate(t *testing.T) {
 					t.Fatal(err)
 				}
 				invkfilePath := filepath.Join(packPath, "invkfile.cue")
-				if err := os.WriteFile(invkfilePath, []byte("group: \"test\"\ncommands: []"), 0644); err != nil {
+				if err := os.WriteFile(invkfilePath, []byte("group: \"test\"\ncmds: []"), 0644); err != nil {
 					t.Fatal(err)
 				}
 				// Create nested pack
@@ -371,7 +371,7 @@ func TestValidate(t *testing.T) {
 					t.Fatal(err)
 				}
 				invkfilePath := filepath.Join(packPath, "invkfile.cue")
-				if err := os.WriteFile(invkfilePath, []byte("group: \"test\"\ncommands: []"), 0644); err != nil {
+				if err := os.WriteFile(invkfilePath, []byte("group: \"test\"\ncmds: []"), 0644); err != nil {
 					t.Fatal(err)
 				}
 				return packPath
@@ -430,7 +430,7 @@ func TestValidate(t *testing.T) {
 					t.Fatal(err)
 				}
 				invkfilePath := filepath.Join(packPath, "invkfile.cue")
-				if err := os.WriteFile(invkfilePath, []byte("group: \"test\"\ncommands: []"), 0644); err != nil {
+				if err := os.WriteFile(invkfilePath, []byte("group: \"test\"\ncmds: []"), 0644); err != nil {
 					t.Fatal(err)
 				}
 				// Create scripts directory
@@ -489,7 +489,7 @@ func TestLoad(t *testing.T) {
 			t.Fatal(err)
 		}
 		invkfilePath := filepath.Join(packPath, "invkfile.cue")
-		if err := os.WriteFile(invkfilePath, []byte("group: \"test\"\ncommands: []"), 0644); err != nil {
+		if err := os.WriteFile(invkfilePath, []byte("group: \"test\"\ncmds: []"), 0644); err != nil {
 			t.Fatal(err)
 		}
 
