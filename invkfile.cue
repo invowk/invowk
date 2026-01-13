@@ -335,7 +335,7 @@ commands: [
 				target: {
 					runtimes: [{
 						name:  "container"
-						image: "python:3-alpine"
+						image: "python:3-slim"
 						// interpreter auto-detected from shebang
 					}]
 				}
@@ -360,7 +360,7 @@ commands: [
 				target: {
 					runtimes: [{
 						name:        "container"
-						image:       "python:3-alpine"
+						image:       "python:3-slim"
 						interpreter: "python3"
 					}]
 				}
@@ -2816,7 +2816,7 @@ commands: [
 				target: {
 					runtimes: [{name: "native"},{name: "virtual"},{
 						name: "container"
-						image: "python:3-alpine"
+						image: "python:3-slim"
 						}]
 				}
 			}
