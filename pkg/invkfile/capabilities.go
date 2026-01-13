@@ -3,9 +3,14 @@
 package invkfile
 
 import (
+	"context"
 	"fmt"
 	"net"
+	"os"
+	"os/exec"
 	"time"
+
+	"golang.org/x/term"
 )
 
 // DefaultCapabilityTimeout is the default timeout for capability checks
@@ -30,6 +35,10 @@ func CheckCapability(cap CapabilityName) error {
 		return checkLocalAreaNetwork()
 	case CapabilityInternet:
 		return checkInternet()
+	case CapabilityContainers:
+		return checkContainers()
+	case CapabilityTTY:
+		return checkTTY()
 	default:
 		return &CapabilityError{
 			Capability: cap,
@@ -148,11 +157,75 @@ func checkInternet() error {
 	}
 }
 
+// checkContainers checks if a container engine (Docker or Podman) is available and ready.
+func checkContainers() error {
+	type engineCandidate struct {
+		name string
+		args []string
+	}
+
+	candidates := []engineCandidate{
+		{name: "podman", args: []string{"version", "--format", "{{.Version}}"}},
+		{name: "docker", args: []string{"version", "--format", "{{.Server.Version}}"}},
+	}
+
+	foundEngine := false
+	var lastErr error
+	for _, candidate := range candidates {
+		path, err := exec.LookPath(candidate.name)
+		if err != nil {
+			continue
+		}
+		foundEngine = true
+
+		ctx, cancel := context.WithTimeout(context.Background(), DefaultCapabilityTimeout)
+		cmd := exec.CommandContext(ctx, path, candidate.args...)
+		err = cmd.Run()
+		cancel()
+
+		if err == nil {
+			return nil
+		}
+		lastErr = err
+	}
+
+	if !foundEngine {
+		return &CapabilityError{
+			Capability: CapabilityContainers,
+			Message:    "no container engine (podman or docker) found in PATH",
+		}
+	}
+
+	msg := "container engine is not ready"
+	if lastErr != nil {
+		msg = fmt.Sprintf("container engine is not ready: %v", lastErr)
+	}
+
+	return &CapabilityError{
+		Capability: CapabilityContainers,
+		Message:    msg,
+	}
+}
+
+// checkTTY checks whether invowk is running in an interactive terminal.
+func checkTTY() error {
+	if term.IsTerminal(int(os.Stdin.Fd())) && term.IsTerminal(int(os.Stdout.Fd())) {
+		return nil
+	}
+
+	return &CapabilityError{
+		Capability: CapabilityTTY,
+		Message:    "not running in an interactive TTY (stdin/stdout)",
+	}
+}
+
 // ValidCapabilityNames returns all valid capability names
 func ValidCapabilityNames() []CapabilityName {
 	return []CapabilityName{
 		CapabilityLocalAreaNetwork,
 		CapabilityInternet,
+		CapabilityContainers,
+		CapabilityTTY,
 	}
 }
 

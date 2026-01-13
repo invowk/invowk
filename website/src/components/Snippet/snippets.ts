@@ -839,8 +839,26 @@ virtual_shell: {
     language: 'cue',
     code: `depends_on: {
     capabilities: [
-        {alternatives: ["network"]},
-        {alternatives: ["root", "sudo"]}
+        {alternatives: ["internet"]},
+        {alternatives: ["local-area-network"]}
+    ]
+}`,
+  },
+
+  'dependencies/capabilities-containers': {
+    language: 'cue',
+    code: `depends_on: {
+    capabilities: [
+        {alternatives: ["containers"]}
+    ]
+}`,
+  },
+
+  'dependencies/capabilities-tty': {
+    language: 'cue',
+    code: `depends_on: {
+    capabilities: [
+        {alternatives: ["tty"]}
     ]
 }`,
   },
@@ -6709,7 +6727,7 @@ containerfile: "./docker/Dockerfile.build"`,
   'reference/invkfile/capability-dependency-structure': {
     language: 'cue',
     code: `#CapabilityDependency: {
-    alternatives: [...("local-area-network" | "internet")]
+    alternatives: [...("local-area-network" | "internet" | "containers" | "tty")]
 }`,
   },
 

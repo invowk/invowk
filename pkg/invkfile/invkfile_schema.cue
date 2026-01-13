@@ -192,7 +192,7 @@
 })
 
 // CapabilityName defines the supported system capability types
-#CapabilityName: "local-area-network" | "internet"
+#CapabilityName: "local-area-network" | "internet" | "containers" | "tty"
 
 // CapabilityDependency represents a system capability that must be available
 #CapabilityDependency: close({
@@ -201,6 +201,8 @@
 	// Available capabilities:
 	//   - "local-area-network": checks for Local Area Network presence
 	//   - "internet": checks for working Internet connectivity
+	//   - "containers": checks for Docker or Podman availability
+	//   - "tty": checks for interactive TTY availability
 	alternatives: [...#CapabilityName] & [_, ...]
 })
 

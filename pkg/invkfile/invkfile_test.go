@@ -1148,10 +1148,10 @@ func TestScript_HasHostSSH(t *testing.T) {
 			name: "container with enable_host_ssh true",
 			script: Implementation{
 				Script: "echo test",
-				
-					Runtimes: []RuntimeConfig{
-						{Name: RuntimeContainer, EnableHostSSH: true, Image: "alpine:latest"},
-					},
+
+				Runtimes: []RuntimeConfig{
+					{Name: RuntimeContainer, EnableHostSSH: true, Image: "alpine:latest"},
+				},
 			},
 			expected: true,
 		},
@@ -1159,10 +1159,10 @@ func TestScript_HasHostSSH(t *testing.T) {
 			name: "container with enable_host_ssh false",
 			script: Implementation{
 				Script: "echo test",
-				
-					Runtimes: []RuntimeConfig{
-						{Name: RuntimeContainer, EnableHostSSH: false, Image: "alpine:latest"},
-					},
+
+				Runtimes: []RuntimeConfig{
+					{Name: RuntimeContainer, EnableHostSSH: false, Image: "alpine:latest"},
+				},
 			},
 			expected: false,
 		},
@@ -1170,10 +1170,10 @@ func TestScript_HasHostSSH(t *testing.T) {
 			name: "native runtime (no enable_host_ssh)",
 			script: Implementation{
 				Script: "echo test",
-				
-					Runtimes: []RuntimeConfig{
-						{Name: RuntimeNative},
-					},
+
+				Runtimes: []RuntimeConfig{
+					{Name: RuntimeNative},
+				},
 			},
 			expected: false,
 		},
@@ -1181,11 +1181,11 @@ func TestScript_HasHostSSH(t *testing.T) {
 			name: "multiple runtimes, one with enable_host_ssh",
 			script: Implementation{
 				Script: "echo test",
-				
-					Runtimes: []RuntimeConfig{
-						{Name: RuntimeNative},
-						{Name: RuntimeContainer, EnableHostSSH: true, Image: "alpine:latest"},
-					},
+
+				Runtimes: []RuntimeConfig{
+					{Name: RuntimeNative},
+					{Name: RuntimeContainer, EnableHostSSH: true, Image: "alpine:latest"},
+				},
 			},
 			expected: true,
 		},
@@ -1193,11 +1193,11 @@ func TestScript_HasHostSSH(t *testing.T) {
 			name: "multiple container runtimes, none with enable_host_ssh",
 			script: Implementation{
 				Script: "echo test",
-				
-					Runtimes: []RuntimeConfig{
-						{Name: RuntimeContainer, EnableHostSSH: false, Image: "alpine:latest"},
-						{Name: RuntimeNative},
-					},
+
+				Runtimes: []RuntimeConfig{
+					{Name: RuntimeContainer, EnableHostSSH: false, Image: "alpine:latest"},
+					{Name: RuntimeNative},
+				},
 			},
 			expected: false,
 		},
@@ -1224,10 +1224,10 @@ func TestScript_GetHostSSHForRuntime(t *testing.T) {
 			name: "container runtime with enable_host_ssh true",
 			script: Implementation{
 				Script: "echo test",
-				
-					Runtimes: []RuntimeConfig{
-						{Name: RuntimeContainer, EnableHostSSH: true, Image: "alpine:latest"},
-					},
+
+				Runtimes: []RuntimeConfig{
+					{Name: RuntimeContainer, EnableHostSSH: true, Image: "alpine:latest"},
+				},
 			},
 			runtime:  RuntimeContainer,
 			expected: true,
@@ -1236,10 +1236,10 @@ func TestScript_GetHostSSHForRuntime(t *testing.T) {
 			name: "container runtime with enable_host_ssh false",
 			script: Implementation{
 				Script: "echo test",
-				
-					Runtimes: []RuntimeConfig{
-						{Name: RuntimeContainer, EnableHostSSH: false, Image: "alpine:latest"},
-					},
+
+				Runtimes: []RuntimeConfig{
+					{Name: RuntimeContainer, EnableHostSSH: false, Image: "alpine:latest"},
+				},
 			},
 			runtime:  RuntimeContainer,
 			expected: false,
@@ -1248,10 +1248,10 @@ func TestScript_GetHostSSHForRuntime(t *testing.T) {
 			name: "native runtime always returns false",
 			script: Implementation{
 				Script: "echo test",
-				
-					Runtimes: []RuntimeConfig{
-						{Name: RuntimeNative},
-					},
+
+				Runtimes: []RuntimeConfig{
+					{Name: RuntimeNative},
+				},
 			},
 			runtime:  RuntimeNative,
 			expected: false,
@@ -1260,10 +1260,10 @@ func TestScript_GetHostSSHForRuntime(t *testing.T) {
 			name: "virtual runtime always returns false",
 			script: Implementation{
 				Script: "echo test",
-				
-					Runtimes: []RuntimeConfig{
-						{Name: RuntimeVirtual},
-					},
+
+				Runtimes: []RuntimeConfig{
+					{Name: RuntimeVirtual},
+				},
 			},
 			runtime:  RuntimeVirtual,
 			expected: false,
@@ -1272,10 +1272,10 @@ func TestScript_GetHostSSHForRuntime(t *testing.T) {
 			name: "runtime not found returns false",
 			script: Implementation{
 				Script: "echo test",
-				
-					Runtimes: []RuntimeConfig{
-						{Name: RuntimeNative},
-					},
+
+				Runtimes: []RuntimeConfig{
+					{Name: RuntimeNative},
+				},
 			},
 			runtime:  RuntimeContainer,
 			expected: false,
@@ -1334,10 +1334,10 @@ func TestGenerateCUE_WithEnableHostSSH(t *testing.T) {
 				Implementations: []Implementation{
 					{
 						Script: "echo hello",
-						
-							Runtimes: []RuntimeConfig{
-								{Name: RuntimeContainer, EnableHostSSH: true, Image: "alpine:latest"},
-							},
+
+						Runtimes: []RuntimeConfig{
+							{Name: RuntimeContainer, EnableHostSSH: true, Image: "alpine:latest"},
+						},
 					},
 				},
 			},
@@ -1366,10 +1366,10 @@ func TestGenerateCUE_WithEnableHostSSH_False(t *testing.T) {
 				Implementations: []Implementation{
 					{
 						Script: "echo hello",
-						
-							Runtimes: []RuntimeConfig{
-								{Name: RuntimeContainer, EnableHostSSH: false, Image: "alpine:latest"},
-							},
+
+						Runtimes: []RuntimeConfig{
+							{Name: RuntimeContainer, EnableHostSSH: false, Image: "alpine:latest"},
+						},
 					},
 				},
 			},
@@ -1528,6 +1528,70 @@ cmds: [
 	}
 }
 
+func TestParseDependsOn_WithContainerAndTTYCapabilities(t *testing.T) {
+	cueContent := `
+group: "test"
+version: "1.0"
+
+cmds: [
+	{
+		name: "interactive-build"
+		implementations: [
+			{
+				script: "echo 'ready'"
+				runtimes: [{name: "native"}]
+			}
+		]
+		depends_on: {
+			capabilities: [
+				{alternatives: ["containers"]},
+				{alternatives: ["tty"]},
+			]
+		}
+	}
+]
+`
+
+	tmpDir, err := os.MkdirTemp("", "invowk-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
+		t.Fatalf("Failed to write invkfile: %v", err)
+	}
+
+	inv, err := Parse(invkfilePath)
+	if err != nil {
+		t.Fatalf("Parse() error = %v", err)
+	}
+
+	if len(inv.Commands) != 1 {
+		t.Fatalf("Expected 1 command, got %d", len(inv.Commands))
+	}
+
+	cmd := inv.Commands[0]
+	if cmd.DependsOn == nil {
+		t.Fatal("DependsOn should not be nil")
+	}
+
+	if len(cmd.DependsOn.Capabilities) != 2 {
+		t.Fatalf("Expected 2 capabilities, got %d", len(cmd.DependsOn.Capabilities))
+	}
+
+	cap0 := cmd.DependsOn.Capabilities[0]
+	if len(cap0.Alternatives) == 0 || cap0.Alternatives[0] != CapabilityContainers {
+		t.Errorf("First capability alternatives = %v, want [%s]", cap0.Alternatives, CapabilityContainers)
+	}
+
+	cap1 := cmd.DependsOn.Capabilities[1]
+	if len(cap1.Alternatives) == 0 || cap1.Alternatives[0] != CapabilityTTY {
+		t.Errorf("Second capability alternatives = %v, want [%s]", cap1.Alternatives, CapabilityTTY)
+	}
+}
+
 func TestParseDependsOn_CapabilitiesAtImplementationLevel(t *testing.T) {
 	cueContent := `
 group: "test"
@@ -1620,7 +1684,7 @@ func TestCommand_HasCommandLevelDependencies_WithCapabilities(t *testing.T) {
 
 func TestScript_HasDependencies_WithCapabilities(t *testing.T) {
 	impl := Implementation{
-		Script: "echo test",
+		Script:   "echo test",
 		Runtimes: []RuntimeConfig{{Name: RuntimeNative}},
 		DependsOn: &DependsOn{
 			Capabilities: []CapabilityDependency{{Alternatives: []CapabilityName{CapabilityInternet}}},
@@ -1671,8 +1735,8 @@ func TestGenerateCUE_WithCapabilities(t *testing.T) {
 				Implementations: []Implementation{
 					{
 						Script: "rsync deploy",
-						
-							Runtimes: []RuntimeConfig{{Name: RuntimeNative}},
+
+						Runtimes: []RuntimeConfig{{Name: RuntimeNative}},
 					},
 				},
 				DependsOn: &DependsOn{
@@ -1711,8 +1775,8 @@ func TestGenerateCUE_WithCapabilitiesAtImplementationLevel(t *testing.T) {
 				Implementations: []Implementation{
 					{
 						Script: "rsync sync",
-						
-							Runtimes: []RuntimeConfig{{Name: RuntimeNative}},
+
+						Runtimes: []RuntimeConfig{{Name: RuntimeNative}},
 						DependsOn: &DependsOn{
 							Capabilities: []CapabilityDependency{
 								{Alternatives: []CapabilityName{CapabilityInternet}},
@@ -4308,8 +4372,8 @@ func TestGenerateCUE_WithArgs(t *testing.T) {
 				Implementations: []Implementation{
 					{
 						Script: "echo deploying",
-						
-							Runtimes: []RuntimeConfig{{Name: RuntimeNative}},
+
+						Runtimes: []RuntimeConfig{{Name: RuntimeNative}},
 					},
 				},
 				Args: []Argument{
@@ -4387,8 +4451,8 @@ func TestGenerateCUE_WithArgs_StringTypeNotIncluded(t *testing.T) {
 				Implementations: []Implementation{
 					{
 						Script: "echo hello",
-						
-							Runtimes: []RuntimeConfig{{Name: RuntimeNative}},
+
+						Runtimes: []RuntimeConfig{{Name: RuntimeNative}},
 					},
 				},
 				Args: []Argument{
@@ -4427,8 +4491,8 @@ func TestGenerateCUE_WithArgs_RoundTrip(t *testing.T) {
 				Implementations: []Implementation{
 					{
 						Script: "echo deploying",
-						
-							Runtimes: []RuntimeConfig{{Name: RuntimeNative}},
+
+						Runtimes: []RuntimeConfig{{Name: RuntimeNative}},
 					},
 				},
 				Args: []Argument{
@@ -5056,8 +5120,8 @@ func TestGenerateCUE_WithEnv(t *testing.T) {
 				Implementations: []Implementation{
 					{
 						Script: "echo deploying",
-						
-							Runtimes: []RuntimeConfig{{Name: RuntimeNative}},
+
+						Runtimes: []RuntimeConfig{{Name: RuntimeNative}},
 						Env: &EnvConfig{
 							Files: []string{"impl.env", "secrets.env?"},
 						},
@@ -5097,8 +5161,8 @@ func TestGenerateCUE_EnvRoundTrip(t *testing.T) {
 				Implementations: []Implementation{
 					{
 						Script: "echo deploying",
-						
-							Runtimes: []RuntimeConfig{{Name: RuntimeNative}},
+
+						Runtimes: []RuntimeConfig{{Name: RuntimeNative}},
 						Env: &EnvConfig{
 							Files: []string{"impl.env"},
 						},
@@ -5352,8 +5416,8 @@ func TestGenerateCUE_WithRootLevelEnv(t *testing.T) {
 				Implementations: []Implementation{
 					{
 						Script: "echo deploying",
-						
-							Runtimes: []RuntimeConfig{{Name: RuntimeNative}},
+
+						Runtimes: []RuntimeConfig{{Name: RuntimeNative}},
 					},
 				},
 			},
@@ -5391,8 +5455,8 @@ func TestGenerateCUE_RootEnvRoundTrip(t *testing.T) {
 				Implementations: []Implementation{
 					{
 						Script: "echo deploying",
-						
-							Runtimes: []RuntimeConfig{{Name: RuntimeNative}},
+
+						Runtimes: []RuntimeConfig{{Name: RuntimeNative}},
 					},
 				},
 			},
@@ -5964,8 +6028,8 @@ func TestGenerateCUE_WithWorkDir(t *testing.T) {
 					{
 						Script:  "echo deploying",
 						WorkDir: "impl-dir",
-						
-							Runtimes: []RuntimeConfig{{Name: RuntimeNative}},
+
+						Runtimes: []RuntimeConfig{{Name: RuntimeNative}},
 					},
 				},
 			},
@@ -6004,8 +6068,8 @@ func TestGenerateCUE_WithWorkDir_RoundTrip(t *testing.T) {
 					{
 						Script:  "echo building",
 						WorkDir: "impl-workdir",
-						
-							Runtimes: []RuntimeConfig{{Name: RuntimeNative}},
+
+						Runtimes: []RuntimeConfig{{Name: RuntimeNative}},
 					},
 				},
 			},
@@ -6300,8 +6364,8 @@ func TestGenerateCUE_WithRootLevelDependsOn(t *testing.T) {
 				Implementations: []Implementation{
 					{
 						Script: "echo hello",
-						
-							Runtimes: []RuntimeConfig{{Name: RuntimeNative}},
+
+						Runtimes: []RuntimeConfig{{Name: RuntimeNative}},
 					},
 				},
 			},
@@ -6407,8 +6471,8 @@ func TestGenerateCUE_WithRootLevelDependsOn_CustomChecks(t *testing.T) {
 				Implementations: []Implementation{
 					{
 						Script: "echo hello",
-						
-							Runtimes: []RuntimeConfig{{Name: RuntimeNative}},
+
+						Runtimes: []RuntimeConfig{{Name: RuntimeNative}},
 					},
 				},
 			},

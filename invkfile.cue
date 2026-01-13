@@ -696,6 +696,40 @@ cmds: [
 		}
 	},
 
+	// Example 7.4: Container engine availability
+	{
+		name:        "deps cap containers"
+		description: "Command requiring container engine availability"
+		implementations: [
+			{
+				script: "echo 'Container engine is available!'"
+				runtimes: [{name: "native"}]
+			}
+		]
+		depends_on: {
+			capabilities: [
+				{alternatives: ["containers"]},
+			]
+		}
+	},
+
+	// Example 7.5: Interactive TTY requirement
+	{
+		name:        "deps cap tty"
+		description: "Command requiring interactive TTY"
+		implementations: [
+			{
+				script: "echo 'Interactive TTY detected!'"
+				runtimes: [{name: "native"}]
+			}
+		]
+		depends_on: {
+			capabilities: [
+				{alternatives: ["tty"]},
+			]
+		}
+	},
+
 	// ============================================================================
 	// SECTION 8: Custom Check Dependencies
 	// ============================================================================
@@ -2855,4 +2889,3 @@ cmds: [
 		]
 	},
 ]
-

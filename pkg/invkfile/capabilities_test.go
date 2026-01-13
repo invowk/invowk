@@ -44,6 +44,28 @@ func TestCheckCapability_Internet(t *testing.T) {
 	}
 }
 
+func TestCheckCapability_Containers(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping container capability test in short mode")
+	}
+
+	err := CheckCapability(CapabilityContainers)
+	if err != nil {
+		if _, ok := err.(*CapabilityError); !ok {
+			t.Errorf("CheckCapability(CapabilityContainers) returned wrong error type: %T", err)
+		}
+	}
+}
+
+func TestCheckCapability_TTY(t *testing.T) {
+	err := CheckCapability(CapabilityTTY)
+	if err != nil {
+		if _, ok := err.(*CapabilityError); !ok {
+			t.Errorf("CheckCapability(CapabilityTTY) returned wrong error type: %T", err)
+		}
+	}
+}
+
 func TestCheckCapability_Unknown(t *testing.T) {
 	err := CheckCapability(CapabilityName("unknown-capability"))
 	if err == nil {
@@ -79,8 +101,8 @@ func TestCapabilityError_Error(t *testing.T) {
 func TestValidCapabilityNames(t *testing.T) {
 	names := ValidCapabilityNames()
 
-	if len(names) != 2 {
-		t.Errorf("ValidCapabilityNames() returned %d names, want 2", len(names))
+	if len(names) != 4 {
+		t.Errorf("ValidCapabilityNames() returned %d names, want 4", len(names))
 	}
 
 	// Check that expected capabilities are in the list
@@ -96,6 +118,14 @@ func TestValidCapabilityNames(t *testing.T) {
 	if !found[CapabilityInternet] {
 		t.Error("ValidCapabilityNames() should include CapabilityInternet")
 	}
+
+	if !found[CapabilityContainers] {
+		t.Error("ValidCapabilityNames() should include CapabilityContainers")
+	}
+
+	if !found[CapabilityTTY] {
+		t.Error("ValidCapabilityNames() should include CapabilityTTY")
+	}
 }
 
 func TestIsValidCapabilityName(t *testing.T) {
@@ -105,10 +135,14 @@ func TestIsValidCapabilityName(t *testing.T) {
 	}{
 		{CapabilityLocalAreaNetwork, true},
 		{CapabilityInternet, true},
+		{CapabilityContainers, true},
+		{CapabilityTTY, true},
 		{CapabilityName("unknown"), false},
 		{CapabilityName(""), false},
 		{CapabilityName("local-area-network"), true}, // explicit string match
 		{CapabilityName("internet"), true},           // explicit string match
+		{CapabilityName("containers"), true},         // explicit string match
+		{CapabilityName("tty"), true},                // explicit string match
 	}
 
 	for _, tt := range tests {

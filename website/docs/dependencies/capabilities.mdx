@@ -6,7 +6,7 @@ import Snippet from '@site/src/components/Snippet';
 
 # Capability Dependencies
 
-Capability dependencies verify that required system capabilities are available before your command runs. Currently, Invowk™ supports network connectivity checks.
+Capability dependencies verify that required system capabilities are available before your command runs. Invowk™ supports network connectivity, container engine availability, and interactive TTY checks.
 
 ## Available Capabilities
 
@@ -14,6 +14,8 @@ Capability dependencies verify that required system capabilities are available b
 |------------|-------------|
 | `local-area-network` | Checks for LAN connectivity |
 | `internet` | Checks for internet connectivity |
+| `containers` | Checks that Docker or Podman is installed and responding |
+| `tty` | Checks that Invowk is running in an interactive TTY |
 
 ## Basic Usage
 
@@ -133,6 +135,34 @@ This checks:
     }]
 }
 ```
+
+## Container Engine
+
+Check that a container engine is installed and ready:
+
+<Snippet id="dependencies/capabilities-containers" />
+
+This checks:
+- Docker or Podman is present in PATH
+- The engine responds to a version command
+
+### Use Cases
+
+Use this when a command shells out to Docker/Podman directly or requires container builds.
+
+## Interactive TTY
+
+Check that Invowk is running in an interactive terminal:
+
+<Snippet id="dependencies/capabilities-tty" />
+
+This checks:
+- `stdin` is a terminal
+- `stdout` is a terminal
+
+### Use Cases
+
+Use this for interactive prompts, TUI components, or scripts that require keyboard input.
 
 ## Alternatives (OR Semantics)
 

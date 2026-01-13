@@ -155,13 +155,17 @@ const (
 	CapabilityLocalAreaNetwork CapabilityName = "local-area-network"
 	// CapabilityInternet checks for working Internet connectivity
 	CapabilityInternet CapabilityName = "internet"
+	// CapabilityContainers checks for available container engine (Docker or Podman)
+	CapabilityContainers CapabilityName = "containers"
+	// CapabilityTTY checks if invowk is running in an interactive TTY
+	CapabilityTTY CapabilityName = "tty"
 )
 
 // CapabilityDependency represents a system capability that must be available
 type CapabilityDependency struct {
 	// Alternatives is a list of capability identifiers where any match satisfies the dependency
 	// If any of the provided capabilities is available, the validation succeeds (early return).
-	// Available capabilities: "local-area-network", "internet"
+	// Available capabilities: "local-area-network", "internet", "containers", "tty"
 	Alternatives []CapabilityName `json:"alternatives"`
 }
 
