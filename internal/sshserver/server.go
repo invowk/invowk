@@ -10,6 +10,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -52,6 +53,10 @@ type Server struct {
 	runMu sync.RWMutex
 	// tokenTTL is how long tokens are valid
 	tokenTTL time.Duration
+	// shutdownTimeout is the timeout for graceful shutdown
+	shutdownTimeout time.Duration
+	// stopCh signals background goroutines to stop
+	stopCh chan struct{}
 	// logger is the server logger
 	logger *log.Logger
 	// defaultShell is the shell to use for commands
@@ -66,6 +71,8 @@ type Config struct {
 	Port int
 	// TokenTTL is how long tokens are valid (default: 1 hour)
 	TokenTTL time.Duration
+	// ShutdownTimeout is the timeout for graceful shutdown (default: 10s)
+	ShutdownTimeout time.Duration
 	// DefaultShell is the shell to use (default: /bin/sh)
 	DefaultShell string
 }
@@ -73,10 +80,11 @@ type Config struct {
 // DefaultConfig returns a default configuration
 func DefaultConfig() *Config {
 	return &Config{
-		Host:         "127.0.0.1",
-		Port:         0, // Auto-select port
-		TokenTTL:     time.Hour,
-		DefaultShell: "/bin/sh",
+		Host:            "127.0.0.1",
+		Port:            0, // Auto-select port
+		TokenTTL:        time.Hour,
+		ShutdownTimeout: 10 * time.Second,
+		DefaultShell:    "/bin/sh",
 	}
 }
 
@@ -92,6 +100,9 @@ func New(cfg *Config) (*Server, error) {
 	if cfg.TokenTTL == 0 {
 		cfg.TokenTTL = time.Hour
 	}
+	if cfg.ShutdownTimeout == 0 {
+		cfg.ShutdownTimeout = 10 * time.Second
+	}
 	if cfg.DefaultShell == "" {
 		cfg.DefaultShell = "/bin/sh"
 	}
@@ -101,12 +112,13 @@ func New(cfg *Config) (*Server, error) {
 	})
 
 	s := &Server{
-		tokens:       make(map[string]*Token),
-		host:         cfg.Host,
-		port:         cfg.Port,
-		tokenTTL:     cfg.TokenTTL,
-		logger:       logger,
-		defaultShell: cfg.DefaultShell,
+		tokens:          make(map[string]*Token),
+		host:            cfg.Host,
+		port:            cfg.Port,
+		tokenTTL:        cfg.TokenTTL,
+		shutdownTimeout: cfg.ShutdownTimeout,
+		logger:          logger,
+		defaultShell:    cfg.DefaultShell,
 	}
 
 	return s, nil
@@ -146,11 +158,19 @@ func (s *Server) Start() error {
 	}
 
 	s.srv = srv
+	s.stopCh = make(chan struct{})
 	s.running = true
 
 	// Start serving in background
 	go func() {
-		if err := srv.Serve(listener); err != nil && err != ssh.ErrServerClosed {
+		if err := srv.Serve(listener); err != nil {
+			// Ignore expected errors during shutdown
+			if errors.Is(err, ssh.ErrServerClosed) {
+				return
+			}
+			if errors.Is(err, net.ErrClosed) {
+				return
+			}
 			s.logger.Error("SSH server error", "error", err)
 		}
 	}()
@@ -172,12 +192,20 @@ func (s *Server) Stop() error {
 		return nil
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
+	// Signal all background goroutines to stop
+	close(s.stopCh)
 
 	s.running = false
 
+	// Close listener first to stop accepting new connections
+	if s.listener != nil {
+		s.listener.Close()
+	}
+
 	if s.srv != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), s.shutdownTimeout)
+		defer cancel()
+
 		if err := s.srv.Shutdown(ctx); err != nil {
 			return fmt.Errorf("failed to shutdown SSH server: %w", err)
 		}
@@ -279,19 +307,19 @@ func (s *Server) cleanupExpiredTokens() {
 	defer ticker.Stop()
 
 	for {
-		<-ticker.C
-		if !s.IsRunning() {
+		select {
+		case <-s.stopCh:
 			return
-		}
-
-		s.tokenMu.Lock()
-		now := time.Now()
-		for tokenValue, token := range s.tokens {
-			if now.After(token.ExpiresAt) {
-				delete(s.tokens, tokenValue)
+		case <-ticker.C:
+			s.tokenMu.Lock()
+			now := time.Now()
+			for tokenValue, token := range s.tokens {
+				if now.After(token.ExpiresAt) {
+					delete(s.tokens, tokenValue)
+				}
 			}
+			s.tokenMu.Unlock()
 		}
-		s.tokenMu.Unlock()
 	}
 }
 
