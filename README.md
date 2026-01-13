@@ -28,6 +28,8 @@ A dynamically extensible, CLI-based command runner similar to [just](https://git
 
 - **Interactive TUI Components**: Built-in gum-like terminal UI components for creating interactive shell scripts (input, choose, confirm, filter, file picker, table, spinner, pager, format, style)
 
+- **Modules**: Packs can import dependencies from remote Git repositories (GitHub, GitLab) with semantic versioning support, similar to Go modules
+
 ## Installation
 
 ### From Source
@@ -1602,6 +1604,138 @@ When invowk discovers a pack, it:
 - Makes all commands available with their group prefix
 
 Commands from packs appear in `invowk cmd list` with the source indicated as "pack":
+
+## Modules
+
+Modules allow packs to declare dependencies on other packs hosted in remote Git repositories (GitHub, GitLab, etc.). This enables code reuse and sharing of common command definitions across projects.
+
+### Declaring Dependencies
+
+Add a `requires` field to your invkfile to declare module dependencies:
+
+```cue
+group: "myproject"
+version: "1.0"
+
+// Declare pack dependencies
+requires: [
+	{
+		git_url: "https://github.com/user/common-tools.git"
+		version: "^1.0.0"  // Compatible with 1.x.x
+	},
+	{
+		git_url: "https://github.com/user/deploy-utils.git"
+		version: "~2.1.0"  // Approximately 2.1.x
+		alias:   "deploy"  // Custom namespace
+	},
+	{
+		git_url: "https://github.com/user/monorepo.git"
+		version: ">=1.0.0"
+		path:    "packages/cli-tools"  // Subdirectory within repo
+	},
+]
+
+cmds: [
+	// Your commands here
+]
+```
+
+### Version Constraints
+
+| Format | Description | Example |
+|--------|-------------|---------|
+| `^1.2.0` | Compatible with 1.x.x (>=1.2.0 <2.0.0) | Major version locked |
+| `~1.2.0` | Approximately 1.2.x (>=1.2.0 <1.3.0) | Minor version locked |
+| `>=1.0.0` | Greater than or equal | Minimum version |
+| `<2.0.0` | Less than | Maximum version |
+| `1.2.3` | Exact version | Pinned version |
+
+### Module CLI Commands
+
+```bash
+# Add a new module dependency
+invowk module add https://github.com/user/pack.git ^1.0.0
+
+# Add with custom alias
+invowk module add https://github.com/user/pack.git ^1.0.0 --alias myalias
+
+# Add from monorepo subdirectory
+invowk module add https://github.com/user/monorepo.git ^1.0.0 --path packages/tools
+
+# List all resolved modules
+invowk module list
+
+# Sync dependencies from invkfile (resolve and download)
+invowk module sync
+
+# Update all modules to latest matching versions
+invowk module update
+
+# Update a specific module
+invowk module update https://github.com/user/pack.git
+
+# Remove a module
+invowk module remove https://github.com/user/pack.git
+```
+
+### Lock File
+
+Module resolution creates an `invowk.lock.cue` file that records the exact versions resolved. This ensures reproducible builds across environments:
+
+```cue
+// invowk.lock.cue - Auto-generated lock file
+// DO NOT EDIT MANUALLY
+
+version: "1.0"
+generated: "2025-01-12T10:30:00Z"
+
+modules: {
+	"https://github.com/user/common-tools.git": {
+		git_url:          "https://github.com/user/common-tools.git"
+		version:          "^1.0.0"
+		resolved_version: "1.2.3"
+		git_commit:       "abc123def456..."
+		namespace:        "common-tools@1.2.3"
+	}
+}
+```
+
+### Command Namespacing
+
+Commands from modules are automatically namespaced to prevent conflicts:
+
+- **Default**: `<pack-name>@<version>` (e.g., `common-tools@1.2.3`)
+- **With alias**: Uses the specified alias (e.g., `deploy`)
+
+Access module commands using the namespace:
+
+```bash
+# Run a command from a module
+invowk cmd common-tools@1.2.3 build
+
+# With alias
+invowk cmd deploy production
+```
+
+### Authentication
+
+Modules support both HTTPS and SSH authentication:
+
+- **SSH**: Uses keys from `~/.ssh/` (id_ed25519, id_rsa, id_ecdsa)
+- **HTTPS**: Uses environment variables:
+  - `GITHUB_TOKEN` for GitHub
+  - `GITLAB_TOKEN` for GitLab
+  - `GIT_TOKEN` for generic Git servers
+
+### Module Cache
+
+Modules are cached in `~/.invowk/modules/` by default. Override with:
+
+```bash
+export INVOWK_MODULES_PATH=/custom/path/to/modules
+```
+
+Each module version is cached in a separate directory, allowing multiple versions to coexist.
 
 ## Runtime Modes
 

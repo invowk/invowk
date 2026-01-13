@@ -1,0 +1,327 @@
+---
+sidebar_position: 3
+---
+
+# Comandos CLI de Módulos
+
+Invowk fornece um conjunto completo de comandos CLI para gerenciar dependências de módulos.
+
+## Visão Geral dos Comandos
+
+| Comando | Descrição |
+|---------|-----------|
+| `invowk module add` | Adicionar uma nova dependência de módulo |
+| `invowk module remove` | Remover uma dependência de módulo |
+| `invowk module list` | Listar módulos resolvidos |
+| `invowk module sync` | Sincronizar dependências do invkfile |
+| `invowk module update` | Atualizar para as últimas versões correspondentes |
+
+## invowk module add
+
+Adiciona uma nova dependência de módulo ao seu projeto.
+
+### Uso
+
+```bash
+invowk module add <git-url> <version> [flags]
+```
+
+### Argumentos
+
+| Argumento | Descrição |
+|-----------|-----------|
+| `git-url` | URL do repositório Git (HTTPS ou SSH) |
+| `version` | Restrição de versão semântica |
+
+### Flags
+
+| Flag | Descrição |
+|------|-----------|
+| `--alias <nome>` | Namespace personalizado para o módulo |
+| `--path <caminho>` | Subdiretório dentro do repositório |
+
+### Exemplos
+
+```bash
+# Adicionar um módulo com versão caret
+invowk module add https://github.com/user/pack.git ^1.0.0
+
+# Adicionar com URL SSH
+invowk module add git@github.com:user/pack.git ~2.0.0
+
+# Adicionar com alias personalizado
+invowk module add https://github.com/user/common-tools.git ^1.0.0 --alias tools
+
+# Adicionar de subdiretório de monorepo
+invowk module add https://github.com/user/monorepo.git ^1.0.0 --path packages/cli
+```
+
+### Saída
+
+```
+Add Module
+
+• Resolvendo https://github.com/user/pack.git@^1.0.0...
+✓ Módulo adicionado com sucesso
+
+• Git URL:   https://github.com/user/pack.git
+• Versão:    ^1.0.0 → 1.2.3
+• Namespace: pack@1.2.3
+• Cache:     ~/.invowk/modules/github.com/user/pack/1.2.3
+
+• Para usar este módulo, adicione ao seu invkfile.cue:
+
+requires: [
+	{
+		git_url: "https://github.com/user/pack.git"
+		version: "^1.0.0"
+	},
+]
+```
+
+## invowk module remove
+
+Remove uma dependência de módulo do arquivo de lock.
+
+### Uso
+
+```bash
+invowk module remove <git-url>
+```
+
+### Argumentos
+
+| Argumento | Descrição |
+|-----------|-----------|
+| `git-url` | URL do repositório Git a remover |
+
+### Exemplos
+
+```bash
+invowk module remove https://github.com/user/pack.git
+```
+
+### Saída
+
+```
+Remove Module
+
+• Removendo https://github.com/user/pack.git...
+✓ Módulo removido do arquivo de lock
+
+• Não esqueça de remover a entrada requires do seu invkfile.cue
+```
+
+:::note
+Este comando apenas remove o módulo do arquivo de lock. Você deve remover manualmente a entrada `requires` do seu invkfile. Os arquivos em cache não são deletados.
+:::
+
+## invowk module list
+
+Lista todas as dependências de módulos resolvidas.
+
+### Uso
+
+```bash
+invowk module list
+```
+
+### Saída
+
+```
+Module Dependencies
+
+• Encontrado(s) 3 módulo(s)
+
+✓ build-tools@2.3.1
+   Git URL:  https://github.com/company/build-tools.git
+   Versão:   ^2.0.0 → 2.3.1
+   Commit:   abc123def456
+   Cache:    ~/.invowk/modules/github.com/company/build-tools/2.3.1
+
+✓ deploy-utils@1.5.2
+   Git URL:  https://github.com/company/deploy-utils.git
+   Versão:   ~1.5.0 → 1.5.2
+   Commit:   789xyz012abc
+   Cache:    ~/.invowk/modules/github.com/company/deploy-utils/1.5.2
+
+✓ tools (alias)
+   Git URL:  https://github.com/user/common-tools.git
+   Versão:   ^1.0.0 → 1.0.5
+   Commit:   def456ghi789
+   Cache:    ~/.invowk/modules/github.com/user/common-tools/1.0.5
+```
+
+### Sem Módulos
+
+```
+Module Dependencies
+
+• Nenhum módulo encontrado
+
+• Para adicionar módulos, use: invowk module add <git-url> <version>
+```
+
+## invowk module sync
+
+Sincroniza todas as dependências declaradas no seu invkfile. Este comando lê o campo `requires`, resolve restrições de versão, baixa módulos e atualiza o arquivo de lock.
+
+### Uso
+
+```bash
+invowk module sync
+```
+
+### O que Faz
+
+1. Lê `requires` de `invkfile.cue` (ou `invkfile`)
+2. Resolve cada restrição de versão para uma versão concreta
+3. Clona/atualiza repositórios Git
+4. Armazena packs de módulos em cache localmente
+5. Resolve dependências transitivas
+6. Atualiza `invowk.lock.cue`
+
+### Saída
+
+```
+Sync Modules
+
+• Encontrado(s) 2 requisito(s) no invkfile
+
+✓ build-tools@2.3.1 → 2.3.1
+✓ deploy-utils@1.5.2 → 1.5.2
+
+✓ Arquivo de lock atualizado: invowk.lock.cue
+```
+
+### Sem Requisitos
+
+```
+Sync Modules
+
+• Nenhum campo requires encontrado no invkfile
+```
+
+## invowk module update
+
+Atualiza módulos para suas últimas versões que correspondem às restrições declaradas.
+
+### Uso
+
+```bash
+invowk module update [git-url]
+```
+
+### Argumentos
+
+| Argumento | Descrição |
+|-----------|-----------|
+| `git-url` | (Opcional) Módulo específico para atualizar |
+
+### Exemplos
+
+```bash
+# Atualizar todos os módulos
+invowk module update
+
+# Atualizar um módulo específico
+invowk module update https://github.com/user/pack.git
+```
+
+### Saída
+
+```
+Update Modules
+
+• Atualizando todos os módulos...
+
+✓ build-tools@2.3.1 → 2.4.0
+✓ deploy-utils@1.5.2 → 1.5.3
+
+✓ Arquivo de lock atualizado: invowk.lock.cue
+```
+
+### Sem Atualizações
+
+```
+Update Modules
+
+• Atualizando todos os módulos...
+• Nenhum módulo para atualizar
+```
+
+## Fluxos de Trabalho Comuns
+
+### Configuração Inicial
+
+```bash
+# 1. Adicione suas dependências
+invowk module add https://github.com/company/build-tools.git ^2.0.0 --alias build
+invowk module add https://github.com/company/deploy-tools.git ~1.5.0 --alias deploy
+
+# 2. Adicione requires ao invkfile.cue manualmente ou verifique
+cat invkfile.cue
+
+# 3. Sincronize para gerar arquivo de lock
+invowk module sync
+
+# 4. Faça commit do arquivo de lock
+git add invowk.lock.cue
+git commit -m "Adicionar dependências de módulos"
+```
+
+### Clone Novo
+
+```bash
+# Em um clone novo, sync baixa todos os módulos
+git clone https://github.com/suaorg/projeto.git
+cd projeto
+invowk module sync
+```
+
+### Atualizações Regulares
+
+```bash
+# Atualize todos os módulos periodicamente
+invowk module update
+
+# Revise as mudanças
+git diff invowk.lock.cue
+
+# Faça commit se os testes passarem
+git add invowk.lock.cue
+git commit -m "Atualizar dependências de módulos"
+```
+
+### Solução de Problemas
+
+```bash
+# Liste módulos atuais para verificar o estado
+invowk module list
+
+# Re-sincronize se algo parecer errado
+invowk module sync
+
+# Verifique se comandos de módulos estão disponíveis
+invowk cmd --list
+```
+
+## Variáveis de Ambiente
+
+| Variável | Descrição |
+|----------|-----------|
+| `INVOWK_MODULES_PATH` | Sobrescrever diretório de cache de módulos |
+| `GITHUB_TOKEN` | Autenticação GitHub |
+| `GITLAB_TOKEN` | Autenticação GitLab |
+| `GIT_TOKEN` | Autenticação Git genérica |
+
+## Códigos de Saída
+
+| Código | Significado |
+|--------|-------------|
+| 0 | Sucesso |
+| 1 | Erro geral |
+| 1 | Módulo não encontrado (para remove) |
+| 1 | Nenhum invkfile encontrado (para sync) |
+| 1 | Falha na resolução de versão |
+| 1 | Falha no clone/fetch do Git |

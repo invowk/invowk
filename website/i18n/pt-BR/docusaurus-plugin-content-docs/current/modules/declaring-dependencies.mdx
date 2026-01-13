@@ -1,0 +1,254 @@
+---
+sidebar_position: 2
+---
+
+# Declarando Dependências
+
+Dependências de módulos são declaradas no campo `requires` do seu invkfile. Esta página cobre a sintaxe e opções disponíveis.
+
+## Sintaxe Básica
+
+```cue
+group: "myproject"
+version: "1.0"
+
+requires: [
+	{
+		git_url: "https://github.com/user/pack.git"
+		version: "^1.0.0"
+	},
+]
+
+cmds: [
+	// Seus comandos aqui
+]
+```
+
+## Campos do Requisito
+
+| Campo | Obrigatório | Descrição |
+|-------|-------------|-----------|
+| `git_url` | Sim | URL do repositório Git (HTTPS ou SSH) |
+| `version` | Sim | Restrição de versão semântica |
+| `alias` | Não | Namespace personalizado para comandos |
+| `path` | Não | Subdiretório dentro do repositório |
+
+### git_url
+
+A URL do repositório Git. Suporta formatos HTTPS e SSH:
+
+```cue
+requires: [
+	// HTTPS (funciona com repos públicos ou GITHUB_TOKEN)
+	{git_url: "https://github.com/user/pack.git", version: "^1.0.0"},
+
+	// SSH (requer chave SSH em ~/.ssh/)
+	{git_url: "git@github.com:user/pack.git", version: "^1.0.0"},
+
+	// GitLab
+	{git_url: "https://gitlab.com/user/pack.git", version: "^1.0.0"},
+
+	// Auto-hospedado
+	{git_url: "https://git.example.com/user/pack.git", version: "^1.0.0"},
+]
+```
+
+### version
+
+Restrição de versão semântica. O repositório deve ter tags Git correspondentes à restrição.
+
+#### Formatos de Restrição de Versão
+
+| Formato | Descrição | Corresponde a |
+|---------|-----------|---------------|
+| `^1.2.3` | Compatível (mesmo major) | `>=1.2.3 <2.0.0` |
+| `~1.2.3` | Aproximadamente (mesmo minor) | `>=1.2.3 <1.3.0` |
+| `>=1.0.0` | Maior ou igual | `1.0.0`, `1.5.0`, `2.0.0`, ... |
+| `>1.0.0` | Maior que | `1.0.1`, `1.5.0`, `2.0.0`, ... |
+| `<2.0.0` | Menor que | `1.9.9`, `1.0.0`, `0.5.0`, ... |
+| `<=2.0.0` | Menor ou igual | `2.0.0`, `1.9.9`, `1.0.0`, ... |
+| `1.2.3` | Versão exata | Apenas `1.2.3` |
+
+#### Formatos de Tag de Versão
+
+Invowk aceita tags com ou sem o prefixo `v`:
+
+- `v1.2.3` e `1.2.3` são ambos válidos
+- Ao resolver, ambos os formatos são tentados automaticamente
+
+```cue
+requires: [
+	// Ambos funcionam - invowk tenta v1.0.0 e 1.0.0
+	{git_url: "https://github.com/user/pack.git", version: "^1.0.0"},
+]
+```
+
+### alias
+
+Sobrescreva o namespace padrão para os comandos do módulo:
+
+```cue
+requires: [
+	// Namespace padrão: common-tools@1.2.3
+	{git_url: "https://github.com/user/common-tools.git", version: "^1.0.0"},
+
+	// Namespace personalizado: tools
+	{
+		git_url: "https://github.com/user/common-tools.git"
+		version: "^1.0.0"
+		alias:   "tools"
+	},
+]
+```
+
+Uso com alias:
+
+```bash
+# Em vez de: invowk cmd common-tools@1.2.3 build
+invowk cmd tools build
+```
+
+### path
+
+Para monorepos contendo múltiplos packs, especifique o subdiretório:
+
+```cue
+requires: [
+	{
+		git_url: "https://github.com/user/monorepo.git"
+		version: "^1.0.0"
+		path:    "packages/cli-tools"
+	},
+	{
+		git_url: "https://github.com/user/monorepo.git"
+		version: "^1.0.0"
+		path:    "packages/deploy-utils"
+		alias:   "deploy"
+	},
+]
+```
+
+## Múltiplas Dependências
+
+Declare múltiplos módulos no array `requires`:
+
+```cue
+requires: [
+	{
+		git_url: "https://github.com/company/build-tools.git"
+		version: "^2.0.0"
+		alias:   "build"
+	},
+	{
+		git_url: "https://github.com/company/deploy-tools.git"
+		version: "~1.5.0"
+		alias:   "deploy"
+	},
+	{
+		git_url: "https://github.com/company/test-utils.git"
+		version: ">=1.0.0 <2.0.0"
+	},
+]
+```
+
+## Autenticação
+
+### Chaves SSH
+
+Para URLs SSH (`git@...`), invowk usa chaves de `~/.ssh/`:
+
+1. `~/.ssh/id_ed25519` (preferida)
+2. `~/.ssh/id_rsa`
+3. `~/.ssh/id_ecdsa`
+
+### Tokens HTTPS
+
+Para repositórios HTTPS privados, defina variáveis de ambiente:
+
+```bash
+# GitHub
+export GITHUB_TOKEN=ghp_xxxx
+
+# GitLab
+export GITLAB_TOKEN=glpat-xxxx
+
+# Genérico (qualquer servidor Git)
+export GIT_TOKEN=seu-token
+```
+
+## Dependências Transitivas
+
+Módulos podem declarar suas próprias dependências. Quando você sincroniza, invowk resolve toda a árvore de dependências:
+
+```
+myproject
+├── common-tools@1.2.3
+│   └── logging-utils@2.0.0
+└── deploy-utils@1.5.0
+    └── common-tools@1.2.3  (compartilhado)
+```
+
+### Detecção de Dependência Circular
+
+Invowk detecta e reporta dependências circulares:
+
+```
+Erro: dependência circular detectada: github.com/user/pack-a -> github.com/user/pack-b -> github.com/user/pack-a
+```
+
+## Boas Práticas
+
+### 1. Use Caret para a Maioria das Dependências
+
+```cue
+// Bom: permite atualizações de patch e minor
+{git_url: "...", version: "^1.0.0"}
+
+// Muito restritivo: nenhuma atualização permitida
+{git_url: "...", version: "1.0.0"}
+```
+
+### 2. Use Aliases para Comandos Mais Limpos
+
+```cue
+// Sem alias: invowk cmd company-internal-build-tools@2.3.1 compile
+// Com alias: invowk cmd build compile
+{
+	git_url: "https://github.com/company/company-internal-build-tools.git"
+	version: "^2.0.0"
+	alias:   "build"
+}
+```
+
+### 3. Faça Commit do Seu Arquivo de Lock
+
+O arquivo `invowk.lock.cue` deve ser commitado no controle de versão para builds reprodutíveis.
+
+### 4. Atualize Regularmente
+
+```bash
+# Atualize todos os módulos para as últimas versões correspondentes
+invowk module update
+```
+
+## Referência do Schema
+
+```cue
+#ModuleRequirement: {
+	// URL do repositório Git (obrigatório)
+	// Deve começar com https://, git@, ou ssh://
+	git_url: string & =~"^(https://|git@|ssh://)"
+
+	// Restrição de versão semântica (obrigatório)
+	// Suporta ^, ~, >, >=, <, <=, e versões exatas
+	version: string & =~"^[~^>=<]?[0-9]+"
+
+	// Alias de namespace personalizado (opcional)
+	// Deve ser um identificador válido
+	alias?: string & =~"^[a-zA-Z][a-zA-Z0-9]*(\\.[a-zA-Z][a-zA-Z0-9]*)*$"
+
+	// Caminho do subdiretório dentro do repositório (opcional)
+	// Para monorepos com múltiplos packs
+	path?: string
+}
+```

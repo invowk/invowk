@@ -418,6 +418,22 @@ type DependsOn struct {
 	EnvVars []EnvVarDependency `json:"env_vars,omitempty"`
 }
 
+// ModuleRequirement represents a dependency on another pack from a Git repository.
+type ModuleRequirement struct {
+	// GitURL is the Git repository URL (HTTPS or SSH format).
+	// Examples: "https://github.com/user/repo.git", "git@github.com:user/repo.git"
+	GitURL string `json:"git_url"`
+	// Version is the semver constraint for version selection.
+	// Examples: "^1.2.0", "~1.2.0", ">=1.0.0 <2.0.0", "1.2.3"
+	Version string `json:"version"`
+	// Alias overrides the default namespace for imported commands (optional).
+	// If not set, the namespace is: <pack-group>@<resolved-version>
+	Alias string `json:"alias,omitempty"`
+	// Path specifies a subdirectory containing the pack (optional).
+	// Used for monorepos with multiple packs.
+	Path string `json:"path,omitempty"`
+}
+
 // EnvConfig holds environment configuration for a command or implementation
 type EnvConfig struct {
 	// Files lists dotenv files to load (optional)
@@ -1084,6 +1100,11 @@ type Invkfile struct {
 	DependsOn *DependsOn `json:"depends_on,omitempty"`
 	// Commands defines the available commands (invkfile field: 'cmds')
 	Commands []Command `json:"cmds"`
+
+	// Requires declares dependencies on other packs from Git repositories (optional)
+	// Dependencies are resolved at root level only (not per-command)
+	// All required modules are loaded and their commands made available
+	Requires []ModuleRequirement `json:"requires,omitempty"`
 
 	// FilePath stores the path where this invkfile was loaded from (not in CUE)
 	FilePath string `json:"-"`

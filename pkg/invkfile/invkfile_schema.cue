@@ -399,6 +399,27 @@
 	args?: [...#Argument]
 })
 
+// ModuleRequirement represents a dependency on another pack from a Git repository
+#ModuleRequirement: close({
+	// git_url is the Git repository URL (required)
+	// Supports HTTPS and SSH URLs
+	// Examples: "https://github.com/user/repo.git", "git@github.com:user/repo.git"
+	git_url: string & =~"^(https://|git@|ssh://)"
+
+	// version is the semver constraint for version selection (required)
+	// Examples: "^1.2.0", "~1.2.0", ">=1.0.0", "1.2.3"
+	version: string & =~"^[~^>=<]?[0-9]+"
+
+	// alias overrides the default namespace for imported commands (optional)
+	// If not specified, namespace is: <pack-group>@<resolved-version>
+	// Must follow pack naming rules
+	alias?: string & =~"^[a-zA-Z][a-zA-Z0-9]*(\\.[a-zA-Z][a-zA-Z0-9]*)*$"
+
+	// path specifies a subdirectory containing the pack (optional)
+	// Used for monorepos with multiple packs
+	path?: string
+})
+
 // Invkfile is the root schema for an invkfile
 #Invkfile: close({
 	// group is a mandatory prefix for all command names from this invkfile
@@ -438,6 +459,11 @@
 
 	// cmds defines the available commands (required, at least one)
 	cmds: [...#Command] & [_, ...]
+
+	// requires declares dependencies on other packs from Git repositories (optional)
+	// Dependencies are resolved at root level only (not per-command)
+	// All required modules are loaded and their commands made available
+	requires?: [...#ModuleRequirement]
 
 	// commands is not supported (use cmds)
 	commands?: _|_

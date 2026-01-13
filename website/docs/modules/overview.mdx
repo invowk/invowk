@@ -1,0 +1,125 @@
+---
+sidebar_position: 1
+---
+
+# Modules Overview
+
+:::warning Alpha — Module System May Change
+The module system is still being refined. While we aim for backwards compatibility, **breaking changes may occur** before the 1.0 release. Lock files ensure reproducibility, but module resolution behavior may evolve.
+:::
+
+Modules allow packs to declare dependencies on other packs hosted in remote Git repositories. This enables code reuse, sharing of common command definitions, and building composable automation toolkits.
+
+## What are Modules?
+
+Modules are external packs that your pack depends on. They are:
+
+- **Hosted in Git repositories** (GitHub, GitLab, Bitbucket, etc.)
+- **Versioned using semantic versioning** (tags like `v1.2.3` or `1.2.3`)
+- **Cached locally** for offline use and performance
+- **Namespaced** to prevent command conflicts
+
+## Why Use Modules?
+
+- **Code Reuse**: Share common commands across projects
+- **Versioning**: Pin dependencies to specific versions for stability
+- **Composability**: Build complex automation from smaller, focused packs
+- **Distribution**: Publish reusable packs via Git repositories
+- **Reproducibility**: Lock files ensure consistent builds
+
+## Quick Start
+
+### 1. Add a Module Dependency
+
+```bash
+invowk module add https://github.com/user/common-tools.git ^1.0.0
+```
+
+### 2. Declare in Your Invkfile
+
+```cue
+group: "myproject"
+version: "1.0"
+
+requires: [
+	{
+		git_url: "https://github.com/user/common-tools.git"
+		version: "^1.0.0"
+	},
+]
+
+cmds: [
+	{
+		name: "build"
+		description: "Build using common tools"
+		implementations: [
+			{
+				script: "echo 'Building...'"
+				runtimes: [{name: "native"}]
+			}
+		]
+	}
+]
+```
+
+### 3. Sync Dependencies
+
+```bash
+invowk module sync
+```
+
+### 4. Use Module Commands
+
+```bash
+# List available commands (including modules)
+invowk cmd --list
+
+# Run a command from a module
+invowk cmd common-tools@1.0.0 build
+```
+
+## How It Works
+
+1. **Declaration**: Dependencies are declared in the `requires` field of your invkfile
+2. **Resolution**: `invowk module sync` resolves version constraints to specific versions
+3. **Download**: Modules are cloned from Git and cached locally
+4. **Lock File**: Resolved versions are recorded in `invowk.lock.cue`
+5. **Discovery**: Module commands are discovered and namespaced automatically
+
+## Module Cache
+
+Modules are cached in `~/.invowk/modules/` by default. The cache structure:
+
+```
+~/.invowk/modules/
+├── sources/                    # Git repository clones
+│   └── github.com/
+│       └── user/
+│           └── common-tools/   # Full repo clone
+└── github.com/
+    └── user/
+        └── common-tools/
+            └── 1.0.0/          # Extracted pack at version
+```
+
+Override the cache location:
+
+```bash
+export INVOWK_MODULES_PATH=/custom/cache/path
+```
+
+## Comparison with Packs
+
+| Feature | Packs | Modules |
+|---------|-------|---------|
+| Location | Local directory | Remote Git repository |
+| Versioning | None | Semantic versioning |
+| Distribution | Manual copy | Git clone |
+| Namespace | Group from invkfile | `<pack>@<version>` or alias |
+| Lock file | N/A | `invowk.lock.cue` |
+
+## Next Steps
+
+- [Declaring Dependencies](./declaring-dependencies) - Learn the `requires` syntax
+- [CLI Commands](./cli-commands) - Module management commands
+- [Lock File](./lock-file) - Understanding the lock file format

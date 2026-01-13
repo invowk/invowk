@@ -95,6 +95,16 @@ const sidebars: SidebarsConfig = {
     },
     {
       type: 'category',
+      label: 'Modules',
+      items: [
+        'modules/overview',
+        'modules/declaring-dependencies',
+        'modules/cli-commands',
+        'modules/lock-file',
+      ],
+    },
+    {
+      type: 'category',
       label: 'TUI Components',
       items: [
         'tui/overview',

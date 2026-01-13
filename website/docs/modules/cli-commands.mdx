@@ -1,0 +1,327 @@
+---
+sidebar_position: 3
+---
+
+# Module CLI Commands
+
+Invowk provides a complete set of CLI commands for managing module dependencies.
+
+## Command Overview
+
+| Command | Description |
+|---------|-------------|
+| `invowk module add` | Add a new module dependency |
+| `invowk module remove` | Remove a module dependency |
+| `invowk module list` | List resolved modules |
+| `invowk module sync` | Sync dependencies from invkfile |
+| `invowk module update` | Update to latest matching versions |
+
+## invowk module add
+
+Add a new module dependency to your project.
+
+### Usage
+
+```bash
+invowk module add <git-url> <version> [flags]
+```
+
+### Arguments
+
+| Argument | Description |
+|----------|-------------|
+| `git-url` | Git repository URL (HTTPS or SSH) |
+| `version` | Semantic version constraint |
+
+### Flags
+
+| Flag | Description |
+|------|-------------|
+| `--alias <name>` | Custom namespace for the module |
+| `--path <path>` | Subdirectory within the repository |
+
+### Examples
+
+```bash
+# Add a module with caret version
+invowk module add https://github.com/user/pack.git ^1.0.0
+
+# Add with SSH URL
+invowk module add git@github.com:user/pack.git ~2.0.0
+
+# Add with custom alias
+invowk module add https://github.com/user/common-tools.git ^1.0.0 --alias tools
+
+# Add from monorepo subdirectory
+invowk module add https://github.com/user/monorepo.git ^1.0.0 --path packages/cli
+```
+
+### Output
+
+```
+Add Module
+
+• Resolving https://github.com/user/pack.git@^1.0.0...
+✓ Module added successfully
+
+• Git URL:   https://github.com/user/pack.git
+• Version:   ^1.0.0 → 1.2.3
+• Namespace: pack@1.2.3
+• Cache:     ~/.invowk/modules/github.com/user/pack/1.2.3
+
+• To use this module, add to your invkfile.cue:
+
+requires: [
+	{
+		git_url: "https://github.com/user/pack.git"
+		version: "^1.0.0"
+	},
+]
+```
+
+## invowk module remove
+
+Remove a module dependency from the lock file.
+
+### Usage
+
+```bash
+invowk module remove <git-url>
+```
+
+### Arguments
+
+| Argument | Description |
+|----------|-------------|
+| `git-url` | Git repository URL to remove |
+
+### Examples
+
+```bash
+invowk module remove https://github.com/user/pack.git
+```
+
+### Output
+
+```
+Remove Module
+
+• Removing https://github.com/user/pack.git...
+✓ Module removed from lock file
+
+• Don't forget to remove the requires entry from your invkfile.cue
+```
+
+:::note
+This command only removes the module from the lock file. You must manually remove the `requires` entry from your invkfile. The cached files are not deleted.
+:::
+
+## invowk module list
+
+List all resolved module dependencies.
+
+### Usage
+
+```bash
+invowk module list
+```
+
+### Output
+
+```
+Module Dependencies
+
+• Found 3 module(s)
+
+✓ build-tools@2.3.1
+   Git URL:  https://github.com/company/build-tools.git
+   Version:  ^2.0.0 → 2.3.1
+   Commit:   abc123def456
+   Cache:    ~/.invowk/modules/github.com/company/build-tools/2.3.1
+
+✓ deploy-utils@1.5.2
+   Git URL:  https://github.com/company/deploy-utils.git
+   Version:  ~1.5.0 → 1.5.2
+   Commit:   789xyz012abc
+   Cache:    ~/.invowk/modules/github.com/company/deploy-utils/1.5.2
+
+✓ tools (alias)
+   Git URL:  https://github.com/user/common-tools.git
+   Version:  ^1.0.0 → 1.0.5
+   Commit:   def456ghi789
+   Cache:    ~/.invowk/modules/github.com/user/common-tools/1.0.5
+```
+
+### No Modules
+
+```
+Module Dependencies
+
+• No modules found
+
+• To add modules, use: invowk module add <git-url> <version>
+```
+
+## invowk module sync
+
+Sync all dependencies declared in your invkfile. This reads the `requires` field, resolves version constraints, downloads modules, and updates the lock file.
+
+### Usage
+
+```bash
+invowk module sync
+```
+
+### What It Does
+
+1. Reads `requires` from `invkfile.cue` (or `invkfile`)
+2. Resolves each version constraint to a concrete version
+3. Clones/fetches Git repositories
+4. Caches module packs locally
+5. Resolves transitive dependencies
+6. Updates `invowk.lock.cue`
+
+### Output
+
+```
+Sync Modules
+
+• Found 2 requirement(s) in invkfile
+
+✓ build-tools@2.3.1 → 2.3.1
+✓ deploy-utils@1.5.2 → 1.5.2
+
+✓ Lock file updated: invowk.lock.cue
+```
+
+### No Requirements
+
+```
+Sync Modules
+
+• No requires field found in invkfile
+```
+
+## invowk module update
+
+Update modules to their latest versions matching the declared constraints.
+
+### Usage
+
+```bash
+invowk module update [git-url]
+```
+
+### Arguments
+
+| Argument | Description |
+|----------|-------------|
+| `git-url` | (Optional) Specific module to update |
+
+### Examples
+
+```bash
+# Update all modules
+invowk module update
+
+# Update a specific module
+invowk module update https://github.com/user/pack.git
+```
+
+### Output
+
+```
+Update Modules
+
+• Updating all modules...
+
+✓ build-tools@2.3.1 → 2.4.0
+✓ deploy-utils@1.5.2 → 1.5.3
+
+✓ Lock file updated: invowk.lock.cue
+```
+
+### No Updates
+
+```
+Update Modules
+
+• Updating all modules...
+• No modules to update
+```
+
+## Common Workflows
+
+### Initial Setup
+
+```bash
+# 1. Add your dependencies
+invowk module add https://github.com/company/build-tools.git ^2.0.0 --alias build
+invowk module add https://github.com/company/deploy-tools.git ~1.5.0 --alias deploy
+
+# 2. Add requires to invkfile.cue manually or verify
+cat invkfile.cue
+
+# 3. Sync to generate lock file
+invowk module sync
+
+# 4. Commit the lock file
+git add invowk.lock.cue
+git commit -m "Add module dependencies"
+```
+
+### Fresh Clone
+
+```bash
+# On a fresh clone, sync downloads all modules
+git clone https://github.com/yourorg/project.git
+cd project
+invowk module sync
+```
+
+### Regular Updates
+
+```bash
+# Update all modules periodically
+invowk module update
+
+# Review changes
+git diff invowk.lock.cue
+
+# Commit if tests pass
+git add invowk.lock.cue
+git commit -m "Update module dependencies"
+```
+
+### Troubleshooting
+
+```bash
+# List current modules to verify state
+invowk module list
+
+# Re-sync if something seems wrong
+invowk module sync
+
+# Check module commands are available
+invowk cmd --list
+```
+
+## Environment Variables
+
+| Variable | Description |
+|----------|-------------|
+| `INVOWK_MODULES_PATH` | Override module cache directory |
+| `GITHUB_TOKEN` | GitHub authentication |
+| `GITLAB_TOKEN` | GitLab authentication |
+| `GIT_TOKEN` | Generic Git authentication |
+
+## Exit Codes
+
+| Code | Meaning |
+|------|---------|
+| 0 | Success |
+| 1 | General error |
+| 1 | Module not found (for remove) |
+| 1 | No invkfile found (for sync) |
+| 1 | Version resolution failed |
+| 1 | Git clone/fetch failed |
