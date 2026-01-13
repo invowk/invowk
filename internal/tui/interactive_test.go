@@ -459,6 +459,21 @@ func TestStripOSCColorResponses(t *testing.T) {
 			input:    "\x1b]11;rgb:FFFF/AAAA/BBBB\x07text",
 			expected: "text",
 		},
+		{
+			name:     "fragmented - missing both ESC and bracket",
+			input:    "11;rgb:3030/0a0a/2424\\You selected: rust",
+			expected: "You selected: rust",
+		},
+		{
+			name:     "multiple fragmented sequences",
+			input:    "11;rgb:3030/0a0a/2424\\]11;rgb:3030/0a0a/2424\\]Processing complete!",
+			expected: "]Processing complete!",
+		},
+		{
+			name:     "sequence at end of line",
+			input:    "text11;rgb:3030/0a0a/2424\\",
+			expected: "text",
+		},
 	}
 
 	for _, tt := range tests {

@@ -64,10 +64,14 @@ const (
 //   - OSC 11 (background): \x1b]11;rgb:RRRR/GGGG/BBBB followed by BEL or ST
 //   - OSC 4 (palette): \x1b]4;N;rgb:RRRR/GGGG/BBBB followed by BEL or ST
 //
-// Also matches partial sequences where the leading ESC (\x1b) was consumed.
+// Also matches partial/fragmented sequences where:
+//   - Leading ESC (\x1b) was consumed in a previous buffer
+//   - Leading ] was consumed in a previous buffer
+//   - Both ESC and ] were consumed
+//
 // Terminators: BEL (\x07), ST (\x1b\\), or backslash alone (\)
 var oscColorResponseRe = regexp.MustCompile(
-	`(?:\x1b)?\](?:10|11|4;\d+);rgb:[0-9a-fA-F]{4}/[0-9a-fA-F]{4}/[0-9a-fA-F]{4}(?:\x07|\x1b\\|\\)`,
+	`(?:\x1b)?\]?(?:10|11|4;\d+);rgb:[0-9a-fA-F]{4}/[0-9a-fA-F]{4}/[0-9a-fA-F]{4}(?:\x07|\x1b\\|\\)`,
 )
 
 // stripOSCColorResponses removes terminal color query responses from output.
