@@ -73,12 +73,10 @@ const (
 	PlatformWindows PlatformType = "windows"
 )
 
-// PlatformConfig represents a platform configuration with optional environment variables
+// PlatformConfig represents a platform configuration
 type PlatformConfig struct {
 	// Name specifies the platform type (required)
 	Name PlatformType `json:"name"`
-	// Env contains environment variables specific to this platform (optional)
-	Env map[string]string `json:"env,omitempty"`
 }
 
 // Target defines the runtime and platform constraints for an implementation
@@ -373,6 +371,34 @@ type DependsOn struct {
 	EnvVars []EnvVarDependency `json:"env_vars,omitempty"`
 }
 
+// EnvConfig holds environment configuration for a command or implementation
+type EnvConfig struct {
+	// Files lists dotenv files to load (optional)
+	// Files are loaded in order; later files override earlier ones.
+	// Paths are relative to the invkfile location (or pack root for packs).
+	// Files suffixed with '?' are optional and will not cause an error if missing.
+	Files []string `json:"files,omitempty"`
+	// Vars contains environment variables as key-value pairs (optional)
+	// These override values loaded from Files.
+	Vars map[string]string `json:"vars,omitempty"`
+}
+
+// GetFiles returns the files list, or an empty slice if EnvConfig is nil
+func (e *EnvConfig) GetFiles() []string {
+	if e == nil {
+		return nil
+	}
+	return e.Files
+}
+
+// GetVars returns the vars map, or nil if EnvConfig is nil
+func (e *EnvConfig) GetVars() map[string]string {
+	if e == nil {
+		return nil
+	}
+	return e.Vars
+}
+
 // HostOS represents a supported operating system (deprecated, use PlatformType)
 type HostOS = PlatformType
 
@@ -394,11 +420,11 @@ type Implementation struct {
 	Script string `json:"script"`
 	// Target defines the runtime and platform constraints (required)
 	Target Target `json:"target"`
-	// EnvFiles lists dotenv files to load for this implementation
-	// Loaded after command-level env_files; later files override earlier ones.
-	// Paths are relative to the invkfile location (or pack root for packs).
-	// Files suffixed with '?' are optional and will not cause an error if missing.
-	EnvFiles []string `json:"env_files,omitempty"`
+	// Env contains environment configuration for this implementation (optional)
+	// Implementation-level env is merged with command-level env.
+	// Implementation files are loaded after command-level files.
+	// Implementation vars override command-level vars.
+	Env *EnvConfig `json:"env,omitempty"`
 	// DependsOn specifies dependencies that must be satisfied before running this implementation
 	// These dependencies are validated according to the runtime being used
 	DependsOn *DependsOn `json:"depends_on,omitempty"`
@@ -420,20 +446,16 @@ type Command struct {
 	Description string `json:"description,omitempty"`
 	// Implementations defines the executable implementations with platform/runtime constraints (required, at least one)
 	Implementations []Implementation `json:"implementations"`
-	// EnvFiles lists dotenv files to load for this command
-	// Files are loaded in order; later files override earlier ones.
-	// Paths are relative to the invkfile location (or pack root for packs).
-	// Files suffixed with '?' are optional and will not cause an error if missing.
-	EnvFiles []string `json:"env_files,omitempty"`
-	// Env contains environment variables to set for this command
-	// These override values loaded from EnvFiles.
-	Env map[string]string `json:"env,omitempty"`
+	// Env contains environment configuration for this command (optional)
+	// Environment from files is loaded first, then vars override.
+	// Command-level env is applied before implementation-level env.
+	Env *EnvConfig `json:"env,omitempty"`
 	// WorkDir specifies the working directory for command execution
 	WorkDir string `json:"workdir,omitempty"`
 	// DependsOn specifies dependencies that must be satisfied before running
 	DependsOn *DependsOn `json:"depends_on,omitempty"`
 	// Flags specifies command-line flags for this command
-	// Note: 'env-file' (and short 'e') are reserved system flags and cannot be used.
+	// Note: 'env-file' (short 'e') and 'env-var' (short 'E') are reserved system flags and cannot be used.
 	Flags []Flag `json:"flags,omitempty"`
 	// Args specifies positional arguments for this command
 	// Arguments are passed as environment variables: INVOWK_ARG_<NAME>
@@ -1177,6 +1199,10 @@ func (inv *Invkfile) validateFlags(cmd *Command) error {
 			return fmt.Errorf("command '%s' flag '%s': 'env-file' is a reserved system flag and cannot be used in invkfile at %s",
 				cmd.Name, flag.Name, inv.FilePath)
 		}
+		if flag.Name == "env-var" {
+			return fmt.Errorf("command '%s' flag '%s': 'env-var' is a reserved system flag and cannot be used in invkfile at %s",
+				cmd.Name, flag.Name, inv.FilePath)
+		}
 
 		// Validate type is valid (if specified)
 		if flag.Type != "" && flag.Type != FlagTypeString && flag.Type != FlagTypeBool && flag.Type != FlagTypeInt && flag.Type != FlagTypeFloat {
@@ -1199,6 +1225,10 @@ func (inv *Invkfile) validateFlags(cmd *Command) error {
 			// Check for reserved short aliases
 			if flag.Short == "e" {
 				return fmt.Errorf("command '%s' flag '%s': short alias 'e' is reserved for the system --env-file flag in invkfile at %s",
+					cmd.Name, flag.Name, inv.FilePath)
+			}
+			if flag.Short == "E" {
+				return fmt.Errorf("command '%s' flag '%s': short alias 'E' is reserved for the system --env-var flag in invkfile at %s",
 					cmd.Name, flag.Name, inv.FilePath)
 			}
 			// Check for duplicate short aliases
@@ -1536,24 +1566,11 @@ func GenerateCUE(inv *Invkfile) string {
 			}
 			sb.WriteString("\t\t\t\t\t]\n")
 
-			// Platforms (optional, each is a struct with name and optional env)
+			// Platforms (optional, each is a struct with name only)
 			if len(impl.Target.Platforms) > 0 {
 				sb.WriteString("\t\t\t\t\tplatforms: [\n")
 				for _, p := range impl.Target.Platforms {
-					if len(p.Env) > 0 {
-						sb.WriteString(fmt.Sprintf("\t\t\t\t\t\t{name: %q, env: {", p.Name))
-						first := true
-						for k, v := range p.Env {
-							if !first {
-								sb.WriteString(", ")
-							}
-							sb.WriteString(fmt.Sprintf("%s: %q", k, v))
-							first = false
-						}
-						sb.WriteString("}},\n")
-					} else {
-						sb.WriteString(fmt.Sprintf("\t\t\t\t\t\t{name: %q},\n", p.Name))
-					}
+					sb.WriteString(fmt.Sprintf("\t\t\t\t\t\t{name: %q},\n", p.Name))
 				}
 				sb.WriteString("\t\t\t\t\t]\n")
 			}
@@ -1682,10 +1699,39 @@ func GenerateCUE(inv *Invkfile) string {
 				sb.WriteString("\t\t\t\t}\n")
 			}
 
-			// Implementation-level env_files
-			if len(impl.EnvFiles) > 0 {
-				sb.WriteString("\t\t\t\tenv_files: [")
-				for i, ef := range impl.EnvFiles {
+			// Implementation-level env
+			if impl.Env != nil && (len(impl.Env.Files) > 0 || len(impl.Env.Vars) > 0) {
+				sb.WriteString("\t\t\t\tenv: {\n")
+				if len(impl.Env.Files) > 0 {
+					sb.WriteString("\t\t\t\t\tfiles: [")
+					for i, ef := range impl.Env.Files {
+						if i > 0 {
+							sb.WriteString(", ")
+						}
+						sb.WriteString(fmt.Sprintf("%q", ef))
+					}
+					sb.WriteString("]\n")
+				}
+				if len(impl.Env.Vars) > 0 {
+					sb.WriteString("\t\t\t\t\tvars: {\n")
+					for k, v := range impl.Env.Vars {
+						sb.WriteString(fmt.Sprintf("\t\t\t\t\t\t%s: %q\n", k, v))
+					}
+					sb.WriteString("\t\t\t\t\t}\n")
+				}
+				sb.WriteString("\t\t\t\t}\n")
+			}
+
+			sb.WriteString("\t\t\t},\n")
+		}
+		sb.WriteString("\t\t]\n")
+
+		// Command-level env
+		if cmd.Env != nil && (len(cmd.Env.Files) > 0 || len(cmd.Env.Vars) > 0) {
+			sb.WriteString("\t\tenv: {\n")
+			if len(cmd.Env.Files) > 0 {
+				sb.WriteString("\t\t\tfiles: [")
+				for i, ef := range cmd.Env.Files {
 					if i > 0 {
 						sb.WriteString(", ")
 					}
@@ -1693,31 +1739,17 @@ func GenerateCUE(inv *Invkfile) string {
 				}
 				sb.WriteString("]\n")
 			}
-
-			sb.WriteString("\t\t\t},\n")
-		}
-		sb.WriteString("\t\t]\n")
-
-		if len(cmd.Env) > 0 {
-			sb.WriteString("\t\tenv: {\n")
-			for k, v := range cmd.Env {
-				sb.WriteString(fmt.Sprintf("\t\t\t%s: %q\n", k, v))
+			if len(cmd.Env.Vars) > 0 {
+				sb.WriteString("\t\t\tvars: {\n")
+				for k, v := range cmd.Env.Vars {
+					sb.WriteString(fmt.Sprintf("\t\t\t\t%s: %q\n", k, v))
+				}
+				sb.WriteString("\t\t\t}\n")
 			}
 			sb.WriteString("\t\t}\n")
 		}
 		if cmd.WorkDir != "" {
 			sb.WriteString(fmt.Sprintf("\t\tworkdir: %q\n", cmd.WorkDir))
-		}
-		// Command-level env_files
-		if len(cmd.EnvFiles) > 0 {
-			sb.WriteString("\t\tenv_files: [")
-			for i, ef := range cmd.EnvFiles {
-				if i > 0 {
-					sb.WriteString(", ")
-				}
-				sb.WriteString(fmt.Sprintf("%q", ef))
-			}
-			sb.WriteString("]\n")
 		}
 		if cmd.DependsOn != nil && (len(cmd.DependsOn.Tools) > 0 || len(cmd.DependsOn.Commands) > 0 || len(cmd.DependsOn.Filepaths) > 0 || len(cmd.DependsOn.Capabilities) > 0 || len(cmd.DependsOn.CustomChecks) > 0 || len(cmd.DependsOn.EnvVars) > 0) {
 			sb.WriteString("\t\tdepends_on: {\n")

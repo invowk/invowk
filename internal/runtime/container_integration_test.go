@@ -96,13 +96,16 @@ func testContainerEnvironmentVariables(t *testing.T) {
 						{Name: invkfile.RuntimeContainer, Image: "alpine:latest"},
 					},
 					Platforms: []invkfile.PlatformConfig{
-						{Name: currentPlatform, Env: map[string]string{"MY_VAR1": "platform_value"}},
+						{Name: currentPlatform},
 					},
 				},
+				Env: &invkfile.EnvConfig{Vars: map[string]string{"MY_VAR1": "impl_value"}},
 			},
 		},
-		Env: map[string]string{
-			"MY_VAR2": "command_value",
+		Env: &invkfile.EnvConfig{
+			Vars: map[string]string{
+				"MY_VAR2": "command_value",
+			},
 		},
 	}
 
@@ -120,8 +123,8 @@ func testContainerEnvironmentVariables(t *testing.T) {
 	}
 
 	output := stdout.String()
-	if !strings.Contains(output, "VAR1=platform_value") {
-		t.Errorf("Execute() output missing platform env var, got: %q", output)
+	if !strings.Contains(output, "VAR1=impl_value") {
+		t.Errorf("Execute() output missing implementation env var, got: %q", output)
 	}
 	if !strings.Contains(output, "VAR2=command_value") {
 		t.Errorf("Execute() output missing command env var, got: %q", output)

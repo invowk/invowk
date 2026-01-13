@@ -184,13 +184,20 @@ func registerDiscoveredCommands() {
 						// Extract --env-file flag values
 						envFiles, _ := cmd.Flags().GetStringArray("env-file")
 
-						return runCommandWithFlags(cmdName, args, flagValues, cmdFlags, cmdArgs, envFiles)
+						// Extract --env-var flag values and parse KEY=VALUE pairs
+						envVarFlags, _ := cmd.Flags().GetStringArray("env-var")
+						envVars := parseEnvVarFlags(envVarFlags)
+
+						return runCommandWithFlags(cmdName, args, flagValues, cmdFlags, cmdArgs, envFiles, envVars)
 					},
 					Args: buildCobraArgsValidator(cmdArgs),
 				}
 
 				// Add the reserved --env-file flag for loading environment variables from files
 				newCmd.Flags().StringArrayP("env-file", "e", nil, "load environment variables from file(s) (can be specified multiple times)")
+
+				// Add the reserved --env-var flag for setting environment variables
+				newCmd.Flags().StringArrayP("env-var", "E", nil, "set environment variable (KEY=VALUE, can be specified multiple times)")
 
 				// Add arguments documentation to Long description
 				if len(cmdArgs) > 0 {
@@ -545,12 +552,34 @@ func listCommands() error {
 	return nil
 }
 
+// parseEnvVarFlags parses an array of KEY=VALUE strings into a map.
+// Invalid entries (without '=') are silently ignored.
+func parseEnvVarFlags(envVarFlags []string) map[string]string {
+	if len(envVarFlags) == 0 {
+		return nil
+	}
+	result := make(map[string]string, len(envVarFlags))
+	for _, kv := range envVarFlags {
+		idx := strings.Index(kv, "=")
+		if idx > 0 {
+			key := kv[:idx]
+			value := kv[idx+1:]
+			result[key] = value
+		}
+	}
+	if len(result) == 0 {
+		return nil
+	}
+	return result
+}
+
 // runCommandWithFlags executes a command with the given flag values.
 // flagValues is a map of flag name -> value.
 // flagDefs contains the flag definitions for runtime validation (can be nil for legacy calls).
 // argDefs contains the argument definitions for setting INVOWK_ARG_* env vars (can be nil for legacy calls).
-// runtimeEnvFiles contains paths to env files specified via --env-file flag (highest precedence).
-func runCommandWithFlags(cmdName string, args []string, flagValues map[string]string, flagDefs []invkfile.Flag, argDefs []invkfile.Argument, runtimeEnvFiles []string) error {
+// runtimeEnvFiles contains paths to env files specified via --env-file flag.
+// runtimeEnvVars contains env vars specified via --env-var flag (KEY=VALUE pairs, highest precedence).
+func runCommandWithFlags(cmdName string, args []string, flagValues map[string]string, flagDefs []invkfile.Flag, argDefs []invkfile.Argument, runtimeEnvFiles []string, runtimeEnvVars map[string]string) error {
 	cfg := config.Get()
 	disc := discovery.New(cfg)
 
@@ -626,7 +655,8 @@ func runCommandWithFlags(cmdName string, args []string, flagValues map[string]st
 	ctx.SelectedRuntime = selectedRuntime
 	ctx.SelectedImpl = script
 	ctx.PositionalArgs = args             // Enable shell positional parameter access ($1, $2, etc.)
-	ctx.RuntimeEnvFiles = runtimeEnvFiles // Env files from --env-file flag (highest precedence)
+	ctx.RuntimeEnvFiles = runtimeEnvFiles // Env files from --env-file flag
+	ctx.RuntimeEnvVars = runtimeEnvVars   // Env vars from --env-var flag (highest precedence)
 
 	// Create runtime registry
 	registry := createRuntimeRegistry(cfg)
@@ -720,7 +750,7 @@ func runCommand(args []string) error {
 	cmdArgs := args[1:]
 
 	// Delegate to runCommandWithFlags with empty flag values and no arg definitions
-	return runCommandWithFlags(cmdName, cmdArgs, nil, nil, nil, nil)
+	return runCommandWithFlags(cmdName, cmdArgs, nil, nil, nil, nil, nil)
 }
 
 // createRuntimeRegistry creates and populates the runtime registry

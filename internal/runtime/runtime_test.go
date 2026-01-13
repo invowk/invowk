@@ -349,15 +349,18 @@ func TestRuntime_EnvironmentVariables(t *testing.T) {
 		Name: "env-test",
 		Implementations: []invkfile.Implementation{
 			{
-				Script: `echo "Global: $GLOBAL_VAR, Command: $CMD_VAR"`,
+				Script: `echo "Impl: $IMPL_VAR, Command: $CMD_VAR"`,
 				Target: invkfile.Target{
 					Runtimes:  []invkfile.RuntimeConfig{{Name: invkfile.RuntimeVirtual}},
-					Platforms: []invkfile.PlatformConfig{{Name: currentPlatform, Env: map[string]string{"GLOBAL_VAR": "global_value"}}},
+					Platforms: []invkfile.PlatformConfig{{Name: currentPlatform}},
 				},
+				Env: &invkfile.EnvConfig{Vars: map[string]string{"IMPL_VAR": "impl_value"}},
 			},
 		},
-		Env: map[string]string{
-			"CMD_VAR": "command_value",
+		Env: &invkfile.EnvConfig{
+			Vars: map[string]string{
+				"CMD_VAR": "command_value",
+			},
 		},
 	}
 
@@ -375,8 +378,8 @@ func TestRuntime_EnvironmentVariables(t *testing.T) {
 	}
 
 	output := stdout.String()
-	if !strings.Contains(output, "global_value") {
-		t.Errorf("Execute() output missing global env var, got: %q", output)
+	if !strings.Contains(output, "impl_value") {
+		t.Errorf("Execute() output missing impl env var, got: %q", output)
 	}
 	if !strings.Contains(output, "command_value") {
 		t.Errorf("Execute() output missing command env var, got: %q", output)

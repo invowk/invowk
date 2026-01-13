@@ -11,6 +11,19 @@
 // EnvMap defines environment variables as key-value string pairs
 #EnvMap: [string]: string
 
+// EnvConfig defines environment configuration for a command or implementation
+#EnvConfig: {
+	// files lists dotenv files to load (optional)
+	// Files are loaded in order; later files override earlier ones.
+	// Paths are relative to the invkfile location (or pack root for packs).
+	// Files suffixed with '?' are optional and will not cause an error if missing.
+	files?: [...string]
+
+	// vars contains environment variables as key-value pairs (optional)
+	// These override values loaded from files.
+	vars?: [string]: string
+}
+
 // RuntimeConfig represents a runtime configuration with type-specific options
 #RuntimeConfig: {
 	// name specifies the runtime type (required)
@@ -68,13 +81,10 @@
 	}
 }
 
-// PlatformConfig represents a platform configuration with optional environment variables
+// PlatformConfig represents a platform configuration
 #PlatformConfig: {
 	// name specifies the platform type (required)
 	name: #PlatformType
-
-	// env contains environment variables specific to this platform (optional)
-	env?: #EnvMap
 }
 
 // Target defines the runtime and platform constraints for an implementation
@@ -101,11 +111,11 @@
 	// target defines the runtime and platform constraints (required)
 	target: #Target
 
-	// env_files lists dotenv files to load for this implementation (optional)
-	// Loaded after command-level env_files; later files override earlier ones.
-	// Paths are relative to the invkfile location (or pack root for packs).
-	// Files suffixed with '?' are optional and will not cause an error if missing.
-	env_files?: [...string]
+	// env contains environment configuration for this implementation (optional)
+	// Implementation-level env is merged with command-level env.
+	// Implementation files are loaded after command-level files.
+	// Implementation vars override command-level vars.
+	env?: #EnvConfig
 
 	// depends_on specifies dependencies that must be satisfied before running this implementation (optional)
 	// These dependencies are validated according to the runtime:
@@ -335,15 +345,10 @@
 	// There cannot be duplicate combinations of platform+runtime across implementations
 	implementations: [...#Implementation] & [_, ...]
 
-	// env_files lists dotenv files to load for this command (optional)
-	// Files are loaded in order; later files override earlier ones.
-	// Paths are relative to the invkfile location (or pack root for packs).
-	// Files suffixed with '?' are optional and will not cause an error if missing.
-	env_files?: [...string]
-
-	// env contains environment variables specific to this command (optional)
-	// These override values loaded from env_files.
-	env?: [string]: string
+	// env contains environment configuration for this command (optional)
+	// Environment from files is loaded first, then vars override.
+	// Command-level env is applied before implementation-level env.
+	env?: #EnvConfig
 
 	// workdir specifies the working directory for command execution (optional)
 	// Can be absolute or relative to the invkfile location
@@ -353,7 +358,7 @@
 	depends_on?: #DependsOn
 
 	// flags specifies command-line flags for this command (optional)
-	// Note: 'env-file' (and short 'e') are reserved system flags and cannot be used.
+	// Note: 'env-file' (short 'e') and 'env-var' (short 'E') are reserved system flags and cannot be used.
 	flags?: [...#Flag]
 
 	// args specifies positional arguments for this command (optional)

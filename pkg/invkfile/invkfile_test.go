@@ -4771,10 +4771,10 @@ commands: [
 }
 
 // ============================================================================
-// Tests for EnvFiles Feature
+// Tests for Env Feature (env.files and env.vars)
 // ============================================================================
 
-func TestParseEnvFiles_CommandLevel(t *testing.T) {
+func TestParseEnv_CommandLevelFiles(t *testing.T) {
 	cueContent := `
 group: "test"
 version: "1.0"
@@ -4789,7 +4789,9 @@ commands: [
 				target: { runtimes: [{name: "native"}] }
 			}
 		]
-		env_files: [".env", "config/app.env", ".env.local?"]
+		env: {
+			files: [".env", "config/app.env", ".env.local?"]
+		}
 	}
 ]
 `
@@ -4809,19 +4811,22 @@ commands: [
 	}
 
 	cmd := inv.Commands[0]
-	if len(cmd.EnvFiles) != 3 {
-		t.Fatalf("Expected 3 env_files, got %d", len(cmd.EnvFiles))
+	if cmd.Env == nil {
+		t.Fatalf("Expected cmd.Env to be non-nil")
+	}
+	if len(cmd.Env.Files) != 3 {
+		t.Fatalf("Expected 3 env.files, got %d", len(cmd.Env.Files))
 	}
 
 	expectedFiles := []string{".env", "config/app.env", ".env.local?"}
 	for i, expected := range expectedFiles {
-		if cmd.EnvFiles[i] != expected {
-			t.Errorf("EnvFiles[%d] = %q, want %q", i, cmd.EnvFiles[i], expected)
+		if cmd.Env.Files[i] != expected {
+			t.Errorf("Env.Files[%d] = %q, want %q", i, cmd.Env.Files[i], expected)
 		}
 	}
 }
 
-func TestParseEnvFiles_ImplementationLevel(t *testing.T) {
+func TestParseEnv_ImplementationLevelFiles(t *testing.T) {
 	cueContent := `
 group: "test"
 version: "1.0"
@@ -4834,7 +4839,9 @@ commands: [
 			{
 				script: "echo deploying"
 				target: { runtimes: [{name: "native"}] }
-				env_files: ["impl.env", "secrets.env?"]
+				env: {
+					files: ["impl.env", "secrets.env?"]
+				}
 			}
 		]
 	}
@@ -4856,19 +4863,22 @@ commands: [
 	}
 
 	impl := inv.Commands[0].Implementations[0]
-	if len(impl.EnvFiles) != 2 {
-		t.Fatalf("Expected 2 env_files, got %d", len(impl.EnvFiles))
+	if impl.Env == nil {
+		t.Fatalf("Expected impl.Env to be non-nil")
+	}
+	if len(impl.Env.Files) != 2 {
+		t.Fatalf("Expected 2 env.files, got %d", len(impl.Env.Files))
 	}
 
 	expectedFiles := []string{"impl.env", "secrets.env?"}
 	for i, expected := range expectedFiles {
-		if impl.EnvFiles[i] != expected {
-			t.Errorf("EnvFiles[%d] = %q, want %q", i, impl.EnvFiles[i], expected)
+		if impl.Env.Files[i] != expected {
+			t.Errorf("Env.Files[%d] = %q, want %q", i, impl.Env.Files[i], expected)
 		}
 	}
 }
 
-func TestParseEnvFiles_BothLevels(t *testing.T) {
+func TestParseEnv_BothLevels(t *testing.T) {
 	cueContent := `
 group: "test"
 version: "1.0"
@@ -4881,10 +4891,14 @@ commands: [
 			{
 				script: "echo deploying"
 				target: { runtimes: [{name: "native"}] }
-				env_files: ["impl.env"]
+				env: {
+					files: ["impl.env"]
+				}
 			}
 		]
-		env_files: ["cmd.env"]
+		env: {
+			files: ["cmd.env"]
+		}
 	}
 ]
 `
@@ -4902,16 +4916,16 @@ commands: [
 	cmd := inv.Commands[0]
 	impl := cmd.Implementations[0]
 
-	if len(cmd.EnvFiles) != 1 || cmd.EnvFiles[0] != "cmd.env" {
-		t.Errorf("Command EnvFiles = %v, want [cmd.env]", cmd.EnvFiles)
+	if cmd.Env == nil || len(cmd.Env.Files) != 1 || cmd.Env.Files[0] != "cmd.env" {
+		t.Errorf("Command Env.Files = %v, want [cmd.env]", cmd.Env.GetFiles())
 	}
 
-	if len(impl.EnvFiles) != 1 || impl.EnvFiles[0] != "impl.env" {
-		t.Errorf("Implementation EnvFiles = %v, want [impl.env]", impl.EnvFiles)
+	if impl.Env == nil || len(impl.Env.Files) != 1 || impl.Env.Files[0] != "impl.env" {
+		t.Errorf("Implementation Env.Files = %v, want [impl.env]", impl.Env.GetFiles())
 	}
 }
 
-func TestParseEnvFiles_EmptyList(t *testing.T) {
+func TestParseEnv_EmptyFiles(t *testing.T) {
 	cueContent := `
 group: "test"
 version: "1.0"
@@ -4925,7 +4939,9 @@ commands: [
 				target: { runtimes: [{name: "native"}] }
 			}
 		]
-		env_files: []
+		env: {
+			files: []
+		}
 	}
 ]
 `
@@ -4941,12 +4957,12 @@ commands: [
 	}
 
 	cmd := inv.Commands[0]
-	if len(cmd.EnvFiles) != 0 {
-		t.Errorf("Expected 0 env_files, got %d", len(cmd.EnvFiles))
+	if cmd.Env != nil && len(cmd.Env.Files) != 0 {
+		t.Errorf("Expected 0 env.files, got %d", len(cmd.Env.Files))
 	}
 }
 
-func TestParseEnvFiles_NoField(t *testing.T) {
+func TestParseEnv_NoField(t *testing.T) {
 	cueContent := `
 group: "test"
 version: "1.0"
@@ -4975,17 +4991,86 @@ commands: [
 	}
 
 	cmd := inv.Commands[0]
-	if len(cmd.EnvFiles) != 0 {
-		t.Errorf("Expected 0 env_files when field is omitted, got %d", len(cmd.EnvFiles))
+	if cmd.Env != nil {
+		t.Errorf("Expected nil Env when field is omitted, got %+v", cmd.Env)
 	}
 
 	impl := cmd.Implementations[0]
-	if len(impl.EnvFiles) != 0 {
-		t.Errorf("Expected 0 env_files when field is omitted, got %d", len(impl.EnvFiles))
+	if impl.Env != nil {
+		t.Errorf("Expected nil Env when field is omitted, got %+v", impl.Env)
 	}
 }
 
-func TestGenerateCUE_WithEnvFiles(t *testing.T) {
+func TestParseEnv_WithVars(t *testing.T) {
+	cueContent := `
+group: "test"
+version: "1.0"
+
+commands: [
+	{
+		name: "deploy"
+		implementations: [
+			{
+				script: "echo deploying"
+				target: { runtimes: [{name: "native"}] }
+				env: {
+					vars: {
+						IMPL_VAR: "impl_value"
+					}
+				}
+			}
+		]
+		env: {
+			files: [".env"]
+			vars: {
+				CMD_VAR: "cmd_value"
+				DEBUG: "true"
+			}
+		}
+	}
+]
+`
+	tmpDir := t.TempDir()
+	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
+		t.Fatalf("Failed to write invkfile: %v", err)
+	}
+
+	inv, err := Parse(invkfilePath)
+	if err != nil {
+		t.Fatalf("Parse() error = %v", err)
+	}
+
+	cmd := inv.Commands[0]
+	if cmd.Env == nil {
+		t.Fatalf("Expected cmd.Env to be non-nil")
+	}
+	if len(cmd.Env.Files) != 1 || cmd.Env.Files[0] != ".env" {
+		t.Errorf("Command Env.Files = %v, want [\".env\"]", cmd.Env.Files)
+	}
+	if len(cmd.Env.Vars) != 2 {
+		t.Fatalf("Expected 2 command env vars, got %d", len(cmd.Env.Vars))
+	}
+	if cmd.Env.Vars["CMD_VAR"] != "cmd_value" {
+		t.Errorf("CMD_VAR = %q, want %q", cmd.Env.Vars["CMD_VAR"], "cmd_value")
+	}
+	if cmd.Env.Vars["DEBUG"] != "true" {
+		t.Errorf("DEBUG = %q, want %q", cmd.Env.Vars["DEBUG"], "true")
+	}
+
+	impl := cmd.Implementations[0]
+	if impl.Env == nil {
+		t.Fatalf("Expected impl.Env to be non-nil")
+	}
+	if len(impl.Env.Vars) != 1 {
+		t.Fatalf("Expected 1 implementation env var, got %d", len(impl.Env.Vars))
+	}
+	if impl.Env.Vars["IMPL_VAR"] != "impl_value" {
+		t.Errorf("IMPL_VAR = %q, want %q", impl.Env.Vars["IMPL_VAR"], "impl_value")
+	}
+}
+
+func TestGenerateCUE_WithEnv(t *testing.T) {
 	inv := &Invkfile{
 		Group:   "test",
 		Version: "1.0",
@@ -4999,28 +5084,35 @@ func TestGenerateCUE_WithEnvFiles(t *testing.T) {
 						Target: Target{
 							Runtimes: []RuntimeConfig{{Name: RuntimeNative}},
 						},
-						EnvFiles: []string{"impl.env", "secrets.env?"},
+						Env: &EnvConfig{
+							Files: []string{"impl.env", "secrets.env?"},
+						},
 					},
 				},
-				EnvFiles: []string{".env", "config/app.env"},
+				Env: &EnvConfig{
+					Files: []string{".env", "config/app.env"},
+				},
 			},
 		},
 	}
 
 	cue := GenerateCUE(inv)
 
-	// Check command-level env_files
-	if !strings.Contains(cue, `env_files: [".env", "config/app.env"]`) {
-		t.Errorf("GenerateCUE() should include command-level env_files, got:\n%s", cue)
+	// Check command-level env with files
+	if !strings.Contains(cue, `env: {`) {
+		t.Errorf("GenerateCUE() should include env block, got:\n%s", cue)
+	}
+	if !strings.Contains(cue, `files: [".env", "config/app.env"]`) {
+		t.Errorf("GenerateCUE() should include command-level env.files, got:\n%s", cue)
 	}
 
-	// Check implementation-level env_files
-	if !strings.Contains(cue, `env_files: ["impl.env", "secrets.env?"]`) {
-		t.Errorf("GenerateCUE() should include implementation-level env_files, got:\n%s", cue)
+	// Check implementation-level env with files
+	if !strings.Contains(cue, `files: ["impl.env", "secrets.env?"]`) {
+		t.Errorf("GenerateCUE() should include implementation-level env.files, got:\n%s", cue)
 	}
 }
 
-func TestGenerateCUE_EnvFilesRoundTrip(t *testing.T) {
+func TestGenerateCUE_EnvRoundTrip(t *testing.T) {
 	original := &Invkfile{
 		Group:   "test.roundtrip",
 		Version: "1.0",
@@ -5034,10 +5126,14 @@ func TestGenerateCUE_EnvFilesRoundTrip(t *testing.T) {
 						Target: Target{
 							Runtimes: []RuntimeConfig{{Name: RuntimeNative}},
 						},
-						EnvFiles: []string{"impl.env"},
+						Env: &EnvConfig{
+							Files: []string{"impl.env"},
+						},
 					},
 				},
-				EnvFiles: []string{".env", "config/app.env?"},
+				Env: &EnvConfig{
+					Files: []string{".env", "config/app.env?"},
+				},
 			},
 		},
 	}
@@ -5058,23 +5154,29 @@ func TestGenerateCUE_EnvFilesRoundTrip(t *testing.T) {
 		t.Fatalf("Parse() error = %v", err)
 	}
 
-	// Verify command-level env_files
-	if len(parsed.Commands[0].EnvFiles) != 2 {
-		t.Fatalf("Expected 2 command env_files, got %d", len(parsed.Commands[0].EnvFiles))
+	// Verify command-level env.files
+	if parsed.Commands[0].Env == nil {
+		t.Fatalf("Expected non-nil Env after roundtrip")
 	}
-	if parsed.Commands[0].EnvFiles[0] != ".env" {
-		t.Errorf("Command EnvFiles[0] = %q, want %q", parsed.Commands[0].EnvFiles[0], ".env")
+	if len(parsed.Commands[0].Env.Files) != 2 {
+		t.Fatalf("Expected 2 command env.files, got %d", len(parsed.Commands[0].Env.Files))
 	}
-	if parsed.Commands[0].EnvFiles[1] != "config/app.env?" {
-		t.Errorf("Command EnvFiles[1] = %q, want %q", parsed.Commands[0].EnvFiles[1], "config/app.env?")
+	if parsed.Commands[0].Env.Files[0] != ".env" {
+		t.Errorf("Command Env.Files[0] = %q, want %q", parsed.Commands[0].Env.Files[0], ".env")
+	}
+	if parsed.Commands[0].Env.Files[1] != "config/app.env?" {
+		t.Errorf("Command Env.Files[1] = %q, want %q", parsed.Commands[0].Env.Files[1], "config/app.env?")
 	}
 
-	// Verify implementation-level env_files
-	if len(parsed.Commands[0].Implementations[0].EnvFiles) != 1 {
-		t.Fatalf("Expected 1 implementation env_files, got %d", len(parsed.Commands[0].Implementations[0].EnvFiles))
+	// Verify implementation-level env.files
+	if parsed.Commands[0].Implementations[0].Env == nil {
+		t.Fatalf("Expected non-nil impl.Env after roundtrip")
 	}
-	if parsed.Commands[0].Implementations[0].EnvFiles[0] != "impl.env" {
-		t.Errorf("Implementation EnvFiles[0] = %q, want %q", parsed.Commands[0].Implementations[0].EnvFiles[0], "impl.env")
+	if len(parsed.Commands[0].Implementations[0].Env.Files) != 1 {
+		t.Fatalf("Expected 1 implementation env.files, got %d", len(parsed.Commands[0].Implementations[0].Env.Files))
+	}
+	if parsed.Commands[0].Implementations[0].Env.Files[0] != "impl.env" {
+		t.Errorf("Implementation Env.Files[0] = %q, want %q", parsed.Commands[0].Implementations[0].Env.Files[0], "impl.env")
 	}
 }
 

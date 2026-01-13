@@ -101,15 +101,18 @@ func generateInvkfile(template string) string {
 									{Name: invkfile.RuntimeContainer, Image: "golang:1.21"},
 								},
 								Platforms: []invkfile.PlatformConfig{
-									{Name: invkfile.PlatformLinux, Env: map[string]string{"PROJECT_NAME": "myproject"}},
-									{Name: invkfile.PlatformMac, Env: map[string]string{"PROJECT_NAME": "myproject"}},
-									{Name: invkfile.PlatformWindows, Env: map[string]string{"PROJECT_NAME": "myproject"}},
+									{Name: invkfile.PlatformLinux},
+									{Name: invkfile.PlatformMac},
+									{Name: invkfile.PlatformWindows},
 								},
 							},
 						},
 					},
-					Env: map[string]string{
-						"CGO_ENABLED": "0",
+					Env: &invkfile.EnvConfig{
+						Vars: map[string]string{
+							"PROJECT_NAME": "myproject",
+							"CGO_ENABLED":  "0",
+						},
 					},
 				},
 				{
