@@ -111,6 +111,18 @@
 	// target defines the runtime and platform constraints (required)
 	target: #Target
 
+	// tty indicates whether this implementation requires a TTY (pseudo-terminal) (optional)
+	// When true, the implementation requires full terminal emulation (PTY) for features like:
+	// - Interactive prompts with password masking (read -s)
+	// - Full-screen applications (vim, less, top)
+	// - Cursor positioning and terminal control sequences
+	// - Signal handling (Ctrl+C, Ctrl+Z)
+	// When false or omitted (default), the implementation can run with pipe-based I/O,
+	// which enables interactive mode (--interactive) across all runtimes including virtual.
+	// Note: tty: true with --interactive is only supported for native and container runtimes.
+	// Default: false
+	tty?: bool
+
 	// env contains environment configuration for this implementation (optional)
 	// Implementation-level env is merged with command-level env.
 	// Implementation files are loaded after command-level files.

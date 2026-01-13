@@ -2718,5 +2718,253 @@ commands: [
 			]
 		}
 	},
+
+	// SECTION 19: Interactive Mode / TTY Requirements
+	// ================================================
+	// The `tty` field in implementations controls TTY (pseudo-terminal) requirements.
+	// This affects how the --interactive flag works across different runtimes.
+	//
+	// tty: true  - Requires a full PTY (pseudo-terminal)
+	//            - Only works with native runtime in interactive mode
+	//            - Use for full-screen TUI apps: vim, less, top, htop, etc.
+	//            - Terminal provides automatic echo of typed characters
+	//
+	// tty: false - (default) Uses pipe-based I/O with local echo
+	//            - Works with ALL runtimes: native, virtual, container
+	//            - Use for simple prompts, line-based input/output
+	//            - Local echo: typed characters are displayed immediately
+	//            - Smart buffer: clears input when command produces output
+	//            - Supports backspace for line editing
+	//
+	// When --interactive is used:
+	//   - If tty: true  → PTY-based mode (native runtime only)
+	//   - If tty: false → Pipe-based mode with local echo (all runtimes)
+
+	// Example 19.1: Command requiring full TTY (for full-screen apps)
+	{
+		name:        "interactive tty"
+		description: "Command requiring full PTY for TUI applications"
+		implementations: [
+			{
+				script: """
+					echo "=========================================="
+					echo "  TTY Required: Full-Screen TUI Demo"
+					echo "=========================================="
+					echo ""
+					echo "This implementation has tty: true"
+					echo "It would be used for apps like vim, less, top, htop"
+					echo ""
+					echo "When run with --interactive:"
+					echo "  - Allocates a real PTY (pseudo-terminal)"
+					echo "  - Supports ANSI escape sequences"
+					echo "  - Handles terminal resize (SIGWINCH)"
+					echo "  - Works ONLY with native runtime"
+					echo ""
+					echo "Press Enter to continue..."
+					read
+					echo "You pressed Enter! TTY input works."
+					echo "=========================================="
+					"""
+				tty: true  // Requires full PTY - native runtime only with --interactive
+				target: {
+					runtimes: [{name: "native"}]
+				}
+			}
+		]
+	},
+
+	// Example 19.2: Command with default TTY (pipe-based, all runtimes)
+	{
+		name:        "interactive pipe"
+		description: "Command using pipe-based I/O for simple prompts"
+		implementations: [
+			{
+				script: """
+					echo "=========================================="
+					echo "  Pipe-Based Interactive Demo"
+					echo "=========================================="
+					echo ""
+					echo "This implementation has tty: false (default)"
+					echo "Uses pipe-based I/O instead of PTY"
+					echo ""
+					echo "Local Echo Features:"
+					echo "  - Characters appear as you type them"
+					echo "  - Backspace works for editing"
+					echo "  - Enter submits the line"
+					echo "  - No double-echo (smart buffer management)"
+					echo ""
+					echo "When run with --interactive:"
+					echo "  - Works with native, virtual, AND container runtimes"
+					echo "  - Line-buffered input (Enter to submit)"
+					echo "  - Great for simple prompts and confirmations"
+					echo ""
+					printf "Enter your name: "
+					read name
+					echo "Hello, $name!"
+					echo ""
+					printf "Enter a number: "
+					read num
+					echo "You entered: $num"
+					echo "=========================================="
+					"""
+				// tty: false is the default, so we can omit it
+				// tty: false
+				target: {
+					runtimes: [{name: "native"}]
+				}
+			}
+		]
+	},
+
+	// Example 19.3: Virtual runtime with interactive mode
+	{
+		name:        "interactive virtual"
+		description: "Virtual runtime with pipe-based interactive mode"
+		implementations: [
+			{
+				script: """
+					echo "=========================================="
+					echo "  Virtual Runtime Interactive Demo"
+					echo "=========================================="
+					echo ""
+					echo "Virtual runtime now supports --interactive!"
+					echo "This uses pipe-based I/O (tty: false default)"
+					echo ""
+					echo "Virtual runtime benefits:"
+					echo "  - No external shell required"
+					echo "  - Consistent cross-platform behavior"
+					echo "  - Still supports interactive prompts"
+					echo ""
+					printf "What is your favorite color? "
+					read color
+					echo "Great choice! $color is a lovely color."
+					echo "=========================================="
+					"""
+				// tty defaults to false, enabling virtual runtime interactive
+				target: {
+					runtimes: [{name: "virtual"}]
+				}
+			}
+		]
+	},
+
+	// Example 19.4: Container runtime with interactive mode
+	{
+		name:        "interactive container"
+		description: "Container runtime with pipe-based interactive mode"
+		implementations: [
+			{
+				script: """
+					echo "=========================================="
+					echo "  Container Interactive Demo"
+					echo "=========================================="
+					echo ""
+					echo "Container runtime now supports --interactive!"
+					echo "This uses pipe-based I/O (tty: false default)"
+					echo ""
+					echo "Running inside: $(cat /etc/os-release | grep PRETTY_NAME | cut -d= -f2)"
+					echo ""
+					printf "Enter a secret word: "
+					read secret
+					echo "The secret word is: $secret"
+					echo ""
+					echo "Note: enable_host_ssh is not supported in"
+					echo "      pipe-based interactive mode."
+					echo "=========================================="
+					"""
+				// tty defaults to false, enabling container runtime interactive
+				target: {
+					runtimes: [{name: "container", image: "alpine:latest"}]
+				}
+			}
+		]
+	},
+
+	// Example 19.5: Explicit tty: false for clarity
+	{
+		name:        "interactive explicit"
+		description: "Explicitly setting tty: false for cross-runtime support"
+		implementations: [
+			{
+				script: """
+					echo "=========================================="
+					echo "  Explicit tty: false Example"
+					echo "=========================================="
+					echo ""
+					echo "Sometimes you want to be explicit about"
+					echo "not requiring a PTY."
+					echo ""
+					echo "This is useful for documentation purposes"
+					echo "or when the default might change in the future."
+					echo ""
+					printf "Confirm? [y/N]: "
+					read confirm
+					case "$confirm" in
+						[yY]|[yY][eE][sS])
+							echo "Confirmed!"
+							;;
+						*)
+							echo "Cancelled."
+							;;
+					esac
+					echo "=========================================="
+					"""
+				tty: false  // Explicit: works with all runtimes
+				target: {
+					runtimes: [{name: "native"}]
+				}
+			}
+		]
+	},
+
+	// Example 19.6: Multi-runtime command with tty considerations
+	{
+		name:        "interactive multi-runtime"
+		description: "Command with different TTY requirements per platform"
+		implementations: [
+			// Linux/macOS: Use native with pipe-based I/O
+			{
+				script: """
+					echo "=========================================="
+					echo "  Multi-Runtime Interactive (Unix)"
+					echo "=========================================="
+					echo ""
+					echo "Platform: $(uname -s)"
+					echo "Runtime: Native with pipe-based I/O"
+					echo ""
+					printf "Enter something: "
+					read input
+					echo "You said: $input"
+					echo "=========================================="
+					"""
+				// tty: false allows this to potentially switch to virtual/container
+				target: {
+					platforms: [{name: "linux"}, {name: "macos"}]
+					runtimes: [{name: "native"}]
+				}
+			},
+			// Windows: Use virtual runtime (more portable)
+			{
+				script: """
+					echo "=========================================="
+					echo "  Multi-Runtime Interactive (Windows)"
+					echo "=========================================="
+					echo ""
+					echo "Platform: Windows"
+					echo "Runtime: Virtual (no external shell needed)"
+					echo ""
+					printf "Enter something: "
+					read input
+					echo "You said: $input"
+					echo "=========================================="
+					"""
+				// Virtual runtime with pipe-based I/O
+				target: {
+					platforms: [{name: "windows"}]
+					runtimes: [{name: "virtual"}]
+				}
+			}
+		]
+	},
 ]
 

@@ -420,6 +420,16 @@ type Implementation struct {
 	Script string `json:"script"`
 	// Target defines the runtime and platform constraints (required)
 	Target Target `json:"target"`
+	// TTY indicates whether this implementation requires a TTY (pseudo-terminal)
+	// When true, the implementation requires full terminal emulation (PTY) for features like:
+	// - Interactive prompts with password masking (read -s)
+	// - Full-screen applications (vim, less, top)
+	// - Cursor positioning and terminal control sequences
+	// - Signal handling (Ctrl+C, Ctrl+Z)
+	// When false (default), the implementation can run with pipe-based I/O,
+	// which enables interactive mode (--interactive) across all runtimes including virtual.
+	// Note: tty: true with --interactive is only supported for native and container runtimes.
+	TTY bool `json:"tty,omitempty"`
 	// Env contains environment configuration for this implementation (optional)
 	// Implementation-level env is merged with command-level env.
 	// Implementation files are loaded after command-level files.
@@ -734,6 +744,14 @@ func (s *Script) GetHostSSHForRuntime(runtime RuntimeMode) bool {
 		return false
 	}
 	return rc.EnableHostSSH
+}
+
+// RequiresTTY returns whether this implementation requires a TTY (pseudo-terminal).
+// When true, the implementation needs full terminal emulation (PTY) for features like
+// password prompts, full-screen applications, cursor control, etc.
+// When false (default), the implementation can run with pipe-based I/O.
+func (s *Script) RequiresTTY() bool {
+	return s.TTY
 }
 
 // HasDependencies returns true if the command has any dependencies (at command or script level)
@@ -1768,6 +1786,11 @@ func GenerateCUE(inv *Invkfile) string {
 				sb.WriteString("\t\t\t\t\t\"\"\"\n")
 			} else {
 				sb.WriteString(fmt.Sprintf("\t\t\t\tscript: %q\n", impl.Script))
+			}
+
+			// TTY field (only output if true)
+			if impl.TTY {
+				sb.WriteString("\t\t\t\ttty: true\n")
 			}
 
 			// Target with runtimes and platforms

@@ -95,6 +95,20 @@ type Runtime interface {
 	Validate(ctx *ExecutionContext) error
 }
 
+// ExecutorFunc represents a function that executes a command with provided I/O streams.
+// This abstraction allows pipe-based interactive mode to work with any runtime
+// (native, virtual, or container) since all runtimes can accept io.Reader/io.Writer.
+type ExecutorFunc func(ctx context.Context, stdin io.Reader, stdout, stderr io.Writer) error
+
+// ExecutorCapable is an optional interface for runtimes that support returning an executor function.
+// This enables pipe-based interactive mode which works across all runtimes.
+type ExecutorCapable interface {
+	Runtime
+	// GetExecutor returns an ExecutorFunc that can execute the command with the given I/O streams.
+	// The returned function can be used with pipe-based interactive mode.
+	GetExecutor(ctx *ExecutionContext) (ExecutorFunc, error)
+}
+
 // RuntimeType identifies the type of runtime
 type RuntimeType string
 

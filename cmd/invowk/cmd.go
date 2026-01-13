@@ -735,9 +735,25 @@ func runCommandWithFlags(cmdName string, args []string, flagValues map[string]st
 	var result *runtime.Result
 
 	// Check if we should use interactive mode
-	// Interactive mode is only supported for native runtime currently
-	if interactive && selectedRuntime == invkfile.RuntimeNative {
-		result = executeInteractive(ctx, registry, cmdName)
+	if interactive {
+		// Check if the implementation requires TTY (full PTY support)
+		requiresTTY := ctx.SelectedImpl.RequiresTTY()
+
+		if requiresTTY {
+			// TTY mode: requires native or container runtime with PTY support
+			// Currently only native runtime supports PTY-based interactive mode
+			if selectedRuntime == invkfile.RuntimeNative {
+				result = executeInteractivePTY(ctx, registry, cmdName)
+			} else {
+				// Container runtime with TTY would need different handling
+				// For now, fall back to standard execution with a warning
+				fmt.Fprintf(os.Stderr, "%s tty: true requires native runtime for full PTY support; falling back to standard execution\n", warningStyle.Render("Warning:"))
+				result = registry.Execute(ctx)
+			}
+		} else {
+			// Pipe-based interactive mode: works with all runtimes
+			result = executeInteractivePipe(ctx, registry, cmdName)
+		}
 	} else {
 		// Standard execution
 		result = registry.Execute(ctx)
@@ -773,10 +789,11 @@ func runCommand(args []string) error {
 	return runCommandWithFlags(cmdName, cmdArgs, nil, nil, nil, nil, nil, "")
 }
 
-// executeInteractive runs a command in interactive mode using an alternate screen buffer.
+// executeInteractivePTY runs a command in PTY-based interactive mode using an alternate screen buffer.
 // This provides a full PTY for the command, forwarding keyboard input during execution
 // and allowing output review after completion.
-func executeInteractive(ctx *runtime.ExecutionContext, registry *runtime.Registry, cmdName string) *runtime.Result {
+// This mode is required when tty: true is set in the implementation.
+func executeInteractivePTY(ctx *runtime.ExecutionContext, registry *runtime.Registry, cmdName string) *runtime.Result {
 	// Get the native runtime to prepare the command
 	rt, err := registry.Get(runtime.RuntimeTypeNative)
 	if err != nil {
@@ -812,6 +829,53 @@ func executeInteractive(ctx *runtime.ExecutionContext, registry *runtime.Registr
 			CommandName: cmdName,
 		},
 		prepared.Cmd,
+	)
+
+	if err != nil {
+		return &runtime.Result{ExitCode: 1, Error: fmt.Errorf("interactive execution failed: %w", err)}
+	}
+
+	return &runtime.Result{
+		ExitCode: interactiveResult.ExitCode,
+		Error:    interactiveResult.Error,
+	}
+}
+
+// executeInteractivePipe runs a command in pipe-based interactive mode.
+// This mode works with all runtimes (native, virtual, container) because it uses
+// standard io.Reader/io.Writer interfaces instead of PTY.
+// This is the default interactive mode when tty: false (or unset).
+func executeInteractivePipe(ctx *runtime.ExecutionContext, registry *runtime.Registry, cmdName string) *runtime.Result {
+	// Get the runtime for this context
+	rt, err := registry.GetForContext(ctx)
+	if err != nil {
+		return &runtime.Result{ExitCode: 1, Error: fmt.Errorf("runtime not available: %w", err)}
+	}
+
+	// Check if the runtime supports ExecutorCapable interface
+	execCapable, ok := rt.(runtime.ExecutorCapable)
+	if !ok {
+		return &runtime.Result{ExitCode: 1, Error: fmt.Errorf("runtime %s does not support pipe-based interactive mode", rt.Name())}
+	}
+
+	// Get the executor function
+	executor, err := execCapable.GetExecutor(ctx)
+	if err != nil {
+		return &runtime.Result{ExitCode: 1, Error: fmt.Errorf("failed to prepare executor: %w", err)}
+	}
+
+	// Convert runtime.ExecutorFunc to tui.ExecutorFunc (they have the same signature)
+	tuiExecutor := tui.ExecutorFunc(executor)
+
+	// Run in pipe-based interactive mode
+	interactiveResult, err := tui.RunInteractivePipe(
+		context.Background(),
+		tui.PipeInteractiveOptions{
+			Title:       "Running Command",
+			CommandName: cmdName,
+			EchoInput:   true, // Enable local echo since pipe-based I/O doesn't echo automatically
+		},
+		tuiExecutor,
 	)
 
 	if err != nil {

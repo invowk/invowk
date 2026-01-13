@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 
@@ -136,6 +137,95 @@ func (r *VirtualRuntime) Execute(ctx *ExecutionContext) *Result {
 	}
 
 	return &Result{ExitCode: 0}
+}
+
+// GetExecutor returns an ExecutorFunc that can execute the command with custom I/O streams.
+// This enables pipe-based interactive mode which works across all runtimes.
+func (r *VirtualRuntime) GetExecutor(ctx *ExecutionContext) (ExecutorFunc, error) {
+	// Validate the context first
+	if err := r.Validate(ctx); err != nil {
+		return nil, err
+	}
+
+	// Validate interpreter is not set (virtual runtime doesn't support custom interpreters)
+	rtConfig := ctx.SelectedImpl.GetRuntimeConfig(ctx.SelectedRuntime)
+	if rtConfig != nil {
+		if err := rtConfig.ValidateInterpreterForRuntime(); err != nil {
+			return nil, err
+		}
+	}
+
+	// Resolve the script content
+	script, err := ctx.SelectedImpl.ResolveScript(ctx.Invkfile.FilePath)
+	if err != nil {
+		return nil, err
+	}
+
+	// Parse the script upfront to catch syntax errors early
+	parser := syntax.NewParser()
+	prog, err := parser.Parse(strings.NewReader(script), "script")
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse script: %w", err)
+	}
+
+	// Determine working directory
+	workDir := r.getWorkDir(ctx)
+
+	// Build environment
+	env, err := r.buildEnv(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build environment: %w", err)
+	}
+
+	// Capture positional args for the closure
+	positionalArgs := ctx.PositionalArgs
+
+	// Return an executor function that uses the provided I/O streams
+	return func(execCtx context.Context, stdin io.Reader, stdout, stderr io.Writer) error {
+		// Create the interpreter with provided I/O
+		opts := []interp.RunnerOption{
+			interp.Dir(workDir),
+			interp.Env(expand.ListEnviron(EnvToSlice(env)...)),
+			interp.StdIO(stdin, stdout, stderr),
+			interp.ExecHandlers(r.execHandler),
+		}
+
+		// Add positional parameters for shell access ($1, $2, etc.)
+		if len(positionalArgs) > 0 {
+			opts = append(opts, interp.Params(positionalArgs...))
+		}
+
+		runner, err := interp.New(opts...)
+		if err != nil {
+			return fmt.Errorf("failed to create interpreter: %w", err)
+		}
+
+		// Execute with the provided context
+		err = runner.Run(execCtx, prog)
+		if err != nil {
+			if status, ok := interp.IsExitStatus(err); ok {
+				// Return a custom error that preserves exit status
+				return &exitStatusError{code: int(status)}
+			}
+			return fmt.Errorf("script execution failed: %w", err)
+		}
+
+		return nil
+	}, nil
+}
+
+// exitStatusError wraps a non-zero exit status as an error
+type exitStatusError struct {
+	code int
+}
+
+func (e *exitStatusError) Error() string {
+	return fmt.Sprintf("exit status %d", e.code)
+}
+
+// ExitCode returns the exit code from the error
+func (e *exitStatusError) ExitCode() int {
+	return e.code
 }
 
 // ExecuteCapture runs a command and captures its output
