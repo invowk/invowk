@@ -391,7 +391,7 @@ func TestConstants(t *testing.T) {
 		t.Errorf("ConfigFileName = %s, want config", ConfigFileName)
 	}
 
-	if ConfigFileExt != "toml" {
-		t.Errorf("ConfigFileExt = %s, want toml", ConfigFileExt)
+	if ConfigFileExt != "cue" {
+		t.Errorf("ConfigFileExt = %s, want cue", ConfigFileExt)
 	}
 }

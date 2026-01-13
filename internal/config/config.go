@@ -1,4 +1,4 @@
-// Package config handles application configuration using Viper.
+// Package config handles application configuration using Viper with CUE as the file format.
 package config
 
 import (
@@ -6,8 +6,10 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 
-	"github.com/pelletier/go-toml/v2"
+	"cuelang.org/go/cue"
+	"cuelang.org/go/cue/cuecontext"
 	"github.com/spf13/viper"
 )
 
@@ -24,29 +26,29 @@ const (
 // Config holds the application configuration
 type Config struct {
 	// ContainerEngine specifies whether to use "podman" or "docker"
-	ContainerEngine ContainerEngine `toml:"container_engine" mapstructure:"container_engine"`
+	ContainerEngine ContainerEngine `json:"container_engine" mapstructure:"container_engine"`
 	// SearchPaths contains additional directories to search for invowkfiles
-	SearchPaths []string `toml:"search_paths" mapstructure:"search_paths"`
+	SearchPaths []string `json:"search_paths" mapstructure:"search_paths"`
 	// DefaultRuntime sets the global default runtime mode
-	DefaultRuntime string `toml:"default_runtime" mapstructure:"default_runtime"`
+	DefaultRuntime string `json:"default_runtime" mapstructure:"default_runtime"`
 	// VirtualShell configures the virtual shell behavior
-	VirtualShell VirtualShellConfig `toml:"virtual_shell" mapstructure:"virtual_shell"`
+	VirtualShell VirtualShellConfig `json:"virtual_shell" mapstructure:"virtual_shell"`
 	// UI configures the user interface
-	UI UIConfig `toml:"ui" mapstructure:"ui"`
+	UI UIConfig `json:"ui" mapstructure:"ui"`
 }
 
 // VirtualShellConfig configures the virtual shell runtime
 type VirtualShellConfig struct {
 	// EnableUrootUtils enables u-root utilities in virtual shell
-	EnableUrootUtils bool `toml:"enable_uroot_utils" mapstructure:"enable_uroot_utils"`
+	EnableUrootUtils bool `json:"enable_uroot_utils" mapstructure:"enable_uroot_utils"`
 }
 
 // UIConfig configures the user interface
 type UIConfig struct {
 	// ColorScheme sets the color scheme ("auto", "dark", "light")
-	ColorScheme string `toml:"color_scheme" mapstructure:"color_scheme"`
+	ColorScheme string `json:"color_scheme" mapstructure:"color_scheme"`
 	// Verbose enables verbose output
-	Verbose bool `toml:"verbose" mapstructure:"verbose"`
+	Verbose bool `json:"verbose" mapstructure:"verbose"`
 }
 
 const (
@@ -55,7 +57,7 @@ const (
 	// ConfigFileName is the name of the config file (without extension)
 	ConfigFileName = "config"
 	// ConfigFileExt is the config file extension
-	ConfigFileExt = "toml"
+	ConfigFileExt = "cue"
 )
 
 var (
@@ -133,18 +135,6 @@ func Load() (*Config, error) {
 	}
 
 	v := viper.New()
-	v.SetConfigName(ConfigFileName)
-	v.SetConfigType(ConfigFileExt)
-
-	// Get config directory
-	cfgDir, err := ConfigDir()
-	if err != nil {
-		return nil, err
-	}
-	v.AddConfigPath(cfgDir)
-
-	// Also search in current directory
-	v.AddConfigPath(".")
 
 	// Set defaults
 	defaults := DefaultConfig()
@@ -155,17 +145,30 @@ func Load() (*Config, error) {
 	v.SetDefault("ui.color_scheme", defaults.UI.ColorScheme)
 	v.SetDefault("ui.verbose", defaults.UI.Verbose)
 
-	// Try to read config file
-	if err := v.ReadInConfig(); err != nil {
-		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
-			// Config file not found, use defaults
-			globalConfig = defaults
-			return globalConfig, nil
-		}
-		return nil, fmt.Errorf("failed to read config file: %w", err)
+	// Get config directory
+	cfgDir, err := ConfigDir()
+	if err != nil {
+		return nil, err
 	}
 
-	configPath = v.ConfigFileUsed()
+	// Try to load CUE config file
+	cuePath := filepath.Join(cfgDir, ConfigFileName+"."+ConfigFileExt)
+	if fileExists(cuePath) {
+		if err := loadCUEIntoViper(v, cuePath); err != nil {
+			return nil, fmt.Errorf("failed to load config file: %w", err)
+		}
+		configPath = cuePath
+	} else {
+		// Also check current directory
+		localCuePath := ConfigFileName + "." + ConfigFileExt
+		if fileExists(localCuePath) {
+			if err := loadCUEIntoViper(v, localCuePath); err != nil {
+				return nil, fmt.Errorf("failed to load config file: %w", err)
+			}
+			configPath = localCuePath
+		}
+		// If no config file found, use defaults (no error)
+	}
 
 	var cfg Config
 	if err := v.Unmarshal(&cfg); err != nil {
@@ -174,6 +177,49 @@ func Load() (*Config, error) {
 
 	globalConfig = &cfg
 	return globalConfig, nil
+}
+
+// loadCUEIntoViper parses a CUE file and merges its contents into Viper
+func loadCUEIntoViper(v *viper.Viper, path string) error {
+	// Read CUE file
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return fmt.Errorf("failed to read config file: %w", err)
+	}
+
+	// Parse with CUE
+	ctx := cuecontext.New()
+	value := ctx.CompileBytes(data, cue.Filename(path))
+	if err := value.Err(); err != nil {
+		return fmt.Errorf("CUE parse error: %w", err)
+	}
+
+	// Validate the CUE value (check for incomplete values, etc.)
+	if err := value.Validate(cue.Concrete(false)); err != nil {
+		return fmt.Errorf("CUE validation error: %w", err)
+	}
+
+	// Decode to Go map
+	var configMap map[string]interface{}
+	if err := value.Decode(&configMap); err != nil {
+		return fmt.Errorf("CUE decode error: %w", err)
+	}
+
+	// Merge into Viper (preserves defaults, allows env overrides)
+	if err := v.MergeConfigMap(configMap); err != nil {
+		return fmt.Errorf("failed to merge config: %w", err)
+	}
+
+	return nil
+}
+
+// fileExists checks if a file exists and is not a directory
+func fileExists(path string) bool {
+	info, err := os.Stat(path)
+	if os.IsNotExist(err) {
+		return false
+	}
+	return err == nil && !info.IsDir()
 }
 
 // Get returns the currently loaded configuration
@@ -230,18 +276,9 @@ func CreateDefaultConfig() error {
 	}
 
 	defaults := DefaultConfig()
-	data, err := toml.Marshal(defaults)
-	if err != nil {
-		return fmt.Errorf("failed to marshal default config: %w", err)
-	}
+	cueContent := GenerateCUE(defaults)
 
-	header := []byte(`# Invowk Configuration File
-# This file configures the invowk command runner.
-# See https://github.com/invowk/invowk for documentation.
-
-`)
-
-	if err := os.WriteFile(cfgPath, append(header, data...), 0644); err != nil {
+	if err := os.WriteFile(cfgPath, []byte(cueContent), 0644); err != nil {
 		return fmt.Errorf("failed to write config file: %w", err)
 	}
 
@@ -255,19 +292,57 @@ func Save(cfg *Config) error {
 		return err
 	}
 
-	cfgPath := filepath.Join(cfgDir, ConfigFileName+"."+ConfigFileExt)
-
-	data, err := toml.Marshal(cfg)
-	if err != nil {
-		return fmt.Errorf("failed to marshal config: %w", err)
+	if err := os.MkdirAll(cfgDir, 0755); err != nil {
+		return fmt.Errorf("failed to create config directory: %w", err)
 	}
 
-	if err := os.WriteFile(cfgPath, data, 0644); err != nil {
+	cfgPath := filepath.Join(cfgDir, ConfigFileName+"."+ConfigFileExt)
+
+	cueContent := GenerateCUE(cfg)
+
+	if err := os.WriteFile(cfgPath, []byte(cueContent), 0644); err != nil {
 		return fmt.Errorf("failed to write config file: %w", err)
 	}
 
 	globalConfig = cfg
+	configPath = cfgPath
 	return nil
+}
+
+// GenerateCUE generates a CUE representation of the configuration
+func GenerateCUE(cfg *Config) string {
+	var sb strings.Builder
+
+	sb.WriteString("// Invowk Configuration File\n")
+	sb.WriteString("// See https://github.com/invowk/invowk for documentation.\n\n")
+
+	// Container engine
+	sb.WriteString(fmt.Sprintf("container_engine: %q\n", cfg.ContainerEngine))
+
+	// Default runtime
+	sb.WriteString(fmt.Sprintf("default_runtime: %q\n", cfg.DefaultRuntime))
+
+	// Search paths
+	if len(cfg.SearchPaths) > 0 {
+		sb.WriteString("\nsearch_paths: [\n")
+		for _, p := range cfg.SearchPaths {
+			sb.WriteString(fmt.Sprintf("\t%q,\n", p))
+		}
+		sb.WriteString("]\n")
+	}
+
+	// Virtual shell config
+	sb.WriteString("\nvirtual_shell: {\n")
+	sb.WriteString(fmt.Sprintf("\tenable_uroot_utils: %v\n", cfg.VirtualShell.EnableUrootUtils))
+	sb.WriteString("}\n")
+
+	// UI config
+	sb.WriteString("\nui: {\n")
+	sb.WriteString(fmt.Sprintf("\tcolor_scheme: %q\n", cfg.UI.ColorScheme))
+	sb.WriteString(fmt.Sprintf("\tverbose: %v\n", cfg.UI.Verbose))
+	sb.WriteString("}\n")
+
+	return sb.String()
 }
 
 // Reset clears the cached configuration

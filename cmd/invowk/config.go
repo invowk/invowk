@@ -5,7 +5,6 @@ import (
 	"os"
 
 	"github.com/charmbracelet/lipgloss"
-	"github.com/pelletier/go-toml/v2"
 	"github.com/spf13/cobra"
 
 	"invowk-cli/internal/config"
@@ -19,9 +18,9 @@ var configCmd = &cobra.Command{
 	Long: `Manage invowk configuration.
 
 Configuration is stored in:
-  - Linux: ~/.config/invowk/config.toml
-  - macOS: ~/Library/Application Support/invowk/config.toml
-  - Windows: %APPDATA%\invowk\config.toml`,
+  - Linux: ~/.config/invowk/config.cue
+  - macOS: ~/Library/Application Support/invowk/config.cue
+  - Windows: %APPDATA%\invowk\config.cue`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return cmd.Help()
 	},
@@ -133,7 +132,7 @@ func initConfig() error {
 		return fmt.Errorf("failed to create config: %w", err)
 	}
 
-	fmt.Printf("%s Created default configuration at %s/config.toml\n", successStyle.Render("✓"), cfgDir)
+	fmt.Printf("%s Created default configuration at %s/config.cue\n", successStyle.Render("✓"), cfgDir)
 
 	// Also create commands directory
 	cmdsDir, err := config.CommandsDir()
@@ -153,7 +152,7 @@ func showConfigPath() error {
 	}
 
 	fmt.Printf("Config directory: %s\n", cfgDir)
-	fmt.Printf("Config file: %s/config.toml\n", cfgDir)
+	fmt.Printf("Config file: %s/config.cue\n", cfgDir)
 
 	cmdsDir, err := config.CommandsDir()
 	if err == nil {
@@ -203,22 +202,18 @@ func setConfigValue(key, value string) error {
 	return nil
 }
 
-// configDumpCmd outputs raw configuration as TOML
+// configDumpCmd outputs raw configuration as CUE
 var configDumpCmd = &cobra.Command{
 	Use:   "dump",
-	Short: "Output raw configuration as TOML",
+	Short: "Output raw configuration as CUE",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cfg, err := config.Load()
 		if err != nil {
 			return err
 		}
 
-		data, err := toml.Marshal(cfg)
-		if err != nil {
-			return err
-		}
-
-		fmt.Print(string(data))
+		cueContent := config.GenerateCUE(cfg)
+		fmt.Print(cueContent)
 		return nil
 	},
 }
