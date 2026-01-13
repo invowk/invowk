@@ -42,10 +42,7 @@ func Confirm(opts ConfirmOptions) (bool, error) {
 
 	form := huh.NewForm(huh.NewGroup(confirm)).
 		WithTheme(getHuhTheme(opts.Config.Theme)).
-		WithAccessible(shouldUseAccessible(opts.Config))
-
-	// Set output writer (stderr when nested to avoid $() capture)
-	form = form.WithOutput(getOutputWriter(opts.Config))
+		WithAccessible(opts.Config.Accessible)
 
 	if err := form.Run(); err != nil {
 		return false, err

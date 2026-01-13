@@ -71,10 +71,7 @@ func File(opts FileOptions) (string, error) {
 
 	form := huh.NewForm(huh.NewGroup(picker)).
 		WithTheme(getHuhTheme(opts.Config.Theme)).
-		WithAccessible(shouldUseAccessible(opts.Config))
-
-	// Set output writer (stderr when nested to avoid $() capture)
-	form = form.WithOutput(getOutputWriter(opts.Config))
+		WithAccessible(opts.Config.Accessible)
 
 	if err := form.Run(); err != nil {
 		return "", err

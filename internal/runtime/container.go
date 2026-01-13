@@ -3,11 +3,9 @@
 package runtime
 
 import (
-	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -221,142 +219,6 @@ func (r *ContainerRuntime) Execute(ctx *ExecutionContext) *Result {
 		ExitCode: result.ExitCode,
 		Error:    result.Error,
 	}
-}
-
-// GetExecutor returns an ExecutorFunc that can execute the command with custom I/O streams.
-// This enables pipe-based interactive mode which works across all runtimes.
-func (r *ContainerRuntime) GetExecutor(ctx *ExecutionContext) (ExecutorFunc, error) {
-	// Validate the context first
-	if err := r.Validate(ctx); err != nil {
-		return nil, err
-	}
-
-	// Get the container runtime config
-	rtConfig := ctx.SelectedImpl.GetRuntimeConfig(ctx.SelectedRuntime)
-	if rtConfig == nil {
-		return nil, fmt.Errorf("runtime config not found for container runtime")
-	}
-	containerCfg := containerConfigFromRuntime(rtConfig)
-	invowkDir := filepath.Dir(ctx.Invkfile.FilePath)
-
-	// Resolve the script content (from file or inline)
-	script, err := ctx.SelectedImpl.ResolveScript(ctx.Invkfile.FilePath)
-	if err != nil {
-		return nil, err
-	}
-
-	// Determine the image to use
-	image, err := r.ensureImage(ctx, containerCfg, invowkDir)
-	if err != nil {
-		return nil, fmt.Errorf("failed to prepare container image: %w", err)
-	}
-
-	// Build environment
-	env, err := r.buildEnv(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to build environment: %w", err)
-	}
-
-	// Check if host SSH is enabled for this runtime
-	hostSSHEnabled := ctx.SelectedImpl.GetHostSSHForRuntime(ctx.SelectedRuntime)
-
-	// NOTE: For pipe-based interactive mode, we don't support host SSH because
-	// managing the SSH token lifecycle across the executor closure is complex.
-	// Users requiring host SSH should use tty: true (PTY-based mode) instead.
-	if hostSSHEnabled {
-		return nil, fmt.Errorf("enable_host_ssh is not supported in pipe-based interactive mode; use tty: true for full PTY support")
-	}
-
-	// Prepare volumes
-	volumes := containerCfg.Volumes
-	// Always mount the invkfile directory
-	volumes = append(volumes, fmt.Sprintf("%s:/workspace", invowkDir))
-
-	// Resolve interpreter (defaults to "auto" which parses shebang)
-	interpInfo := rtConfig.ResolveInterpreterFromScript(script)
-
-	// Build shell command based on interpreter
-	var shellCmd []string
-	var tempScriptPath string // Track temp file for cleanup
-
-	if interpInfo.Found {
-		// Use the resolved interpreter
-		shellCmd, tempScriptPath, err = r.buildInterpreterCommand(ctx, script, interpInfo, invowkDir)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		// Use default shell execution
-		// We wrap the script in a shell to handle multi-line scripts
-		// For POSIX shells: /bin/sh -c 'script' invowk arg1 arg2 ... (args become $1, $2, etc.)
-		shellCmd = []string{"/bin/sh", "-c", script}
-		if len(ctx.PositionalArgs) > 0 {
-			shellCmd = append(shellCmd, "invowk") // $0 placeholder
-			shellCmd = append(shellCmd, ctx.PositionalArgs...)
-		}
-	}
-
-	// Determine working directory using the hierarchical override model
-	workDir := r.getContainerWorkDir(ctx, invowkDir)
-
-	// Capture values for the closure
-	capturedEngine := r.engine
-	capturedImage := image
-	capturedShellCmd := shellCmd
-	capturedWorkDir := workDir
-	capturedEnv := env
-	capturedVolumes := volumes
-	capturedPorts := containerCfg.Ports
-	capturedTempScriptPath := tempScriptPath
-
-	// Return an executor function that uses the provided I/O streams
-	return func(execCtx context.Context, stdin io.Reader, stdout, stderr io.Writer) error {
-		// Clean up temp script if created
-		if capturedTempScriptPath != "" {
-			defer os.Remove(capturedTempScriptPath)
-		}
-
-		// Run the container with the provided I/O
-		runOpts := container.RunOptions{
-			Image:       capturedImage,
-			Command:     capturedShellCmd,
-			WorkDir:     capturedWorkDir,
-			Env:         capturedEnv,
-			Volumes:     capturedVolumes,
-			Ports:       capturedPorts,
-			Remove:      true, // Always remove after execution
-			Stdin:       stdin,
-			Stdout:      stdout,
-			Stderr:      stderr,
-			Interactive: stdin != nil,
-			TTY:         false, // Pipe-based mode doesn't use TTY
-		}
-
-		result, err := capturedEngine.Run(execCtx, runOpts)
-		if err != nil {
-			return fmt.Errorf("failed to run container: %w", err)
-		}
-
-		if result.ExitCode != 0 {
-			return &containerExitError{code: result.ExitCode}
-		}
-
-		return result.Error
-	}, nil
-}
-
-// containerExitError wraps a non-zero container exit status as an error
-type containerExitError struct {
-	code int
-}
-
-func (e *containerExitError) Error() string {
-	return fmt.Sprintf("container exited with status %d", e.code)
-}
-
-// ExitCode returns the exit code from the error
-func (e *containerExitError) ExitCode() int {
-	return e.code
 }
 
 // buildInterpreterCommand builds the command array for interpreter-based execution.

@@ -4,9 +4,7 @@ package runtime
 
 import (
 	"bytes"
-	"context"
 	"fmt"
-	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -121,123 +119,6 @@ func (r *NativeRuntime) executeWithShell(ctx *ExecutionContext, script string) *
 	}
 
 	return &Result{ExitCode: 0}
-}
-
-// GetExecutor returns an ExecutorFunc that can execute the command with custom I/O streams.
-// This enables pipe-based interactive mode which works across all runtimes.
-func (r *NativeRuntime) GetExecutor(ctx *ExecutionContext) (ExecutorFunc, error) {
-	// Validate the context first
-	if err := r.Validate(ctx); err != nil {
-		return nil, err
-	}
-
-	// Resolve the script content (from file or inline)
-	script, err := ctx.SelectedImpl.ResolveScript(ctx.Invkfile.FilePath)
-	if err != nil {
-		return nil, err
-	}
-
-	// Get the runtime config to check for interpreter
-	rtConfig := ctx.SelectedImpl.GetRuntimeConfig(ctx.SelectedRuntime)
-
-	// Determine working directory
-	workDir := r.getWorkDir(ctx)
-
-	// Build environment
-	env, err := r.buildEnv(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to build environment: %w", err)
-	}
-	cmdEnv := append(FilterInvowkEnvVars(os.Environ()), EnvToSlice(env)...)
-
-	// Check if we should use interpreter-based execution
-	var interpInfo invkfile.ShebangInfo
-	useInterpreter := false
-	if rtConfig != nil {
-		interpInfo = rtConfig.ResolveInterpreterFromScript(script)
-		useInterpreter = interpInfo.Found
-	}
-
-	if useInterpreter {
-		// Return executor for interpreter-based execution
-		return r.getInterpreterExecutor(ctx, script, interpInfo, workDir, cmdEnv)
-	}
-
-	// Return executor for shell-based execution
-	return r.getShellExecutor(ctx, script, workDir, cmdEnv)
-}
-
-// getShellExecutor returns an ExecutorFunc for shell-based execution
-func (r *NativeRuntime) getShellExecutor(ctx *ExecutionContext, script, workDir string, cmdEnv []string) (ExecutorFunc, error) {
-	shell, err := r.getShell()
-	if err != nil {
-		return nil, err
-	}
-
-	// Determine shell arguments
-	args := r.getShellArgs(shell)
-	args = append(args, script)
-
-	// Append positional arguments for shell access ($1, $2, etc.)
-	args = r.appendPositionalArgs(shell, args, ctx.PositionalArgs)
-
-	return func(execCtx context.Context, stdin io.Reader, stdout, stderr io.Writer) error {
-		cmd := exec.CommandContext(execCtx, shell, args...)
-		cmd.Dir = workDir
-		cmd.Env = cmdEnv
-		cmd.Stdout = stdout
-		cmd.Stderr = stderr
-		cmd.Stdin = stdin
-
-		return cmd.Run()
-	}, nil
-}
-
-// getInterpreterExecutor returns an ExecutorFunc for interpreter-based execution
-func (r *NativeRuntime) getInterpreterExecutor(ctx *ExecutionContext, script string, interp invkfile.ShebangInfo, workDir string, cmdEnv []string) (ExecutorFunc, error) {
-	// Verify interpreter exists
-	interpreterPath, err := exec.LookPath(interp.Interpreter)
-	if err != nil {
-		return nil, fmt.Errorf("interpreter '%s' not found in PATH: %w", interp.Interpreter, err)
-	}
-
-	// Build command arguments
-	var cmdArgs []string
-	cmdArgs = append(cmdArgs, interp.Args...) // interpreter args (e.g., -u for python)
-
-	// Handle file vs inline script
-	var tempFile string
-	if ctx.SelectedImpl.IsScriptFile() {
-		// File script: interpreter [args] script-path positional-args
-		scriptPath := ctx.SelectedImpl.GetScriptFilePath(ctx.Invkfile.FilePath)
-		cmdArgs = append(cmdArgs, scriptPath)
-	} else {
-		// Inline script: create temp file
-		tempFile, err = r.createTempScript(script, interp.Interpreter)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create temp script: %w", err)
-		}
-		cmdArgs = append(cmdArgs, tempFile)
-	}
-
-	// Add positional arguments
-	cmdArgs = append(cmdArgs, ctx.PositionalArgs...)
-
-	return func(execCtx context.Context, stdin io.Reader, stdout, stderr io.Writer) error {
-		// Clean up temp file after execution if created
-		if tempFile != "" {
-			defer os.Remove(tempFile)
-		}
-
-		cmd := exec.CommandContext(execCtx, interpreterPath, cmdArgs...)
-		cmd.Dir = workDir
-		cmd.Env = cmdEnv
-		cmd.Stdout = stdout
-		cmd.Stderr = stderr
-		cmd.Stdin = stdin
-
-		return cmd.Run()
-	}, nil
 }
 
 // executeWithInterpreter executes using the specified interpreter

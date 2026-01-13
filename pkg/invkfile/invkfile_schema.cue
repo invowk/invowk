@@ -111,35 +111,6 @@
 	// target defines the runtime and platform constraints (required)
 	target: #Target
 
-	// tty indicates whether this implementation requires a TTY (pseudo-terminal) (optional)
-	// When true, the implementation requires full terminal emulation (PTY) for features like:
-	// - Interactive prompts with password masking (read -s)
-	// - Full-screen applications (vim, less, top)
-	// - Cursor positioning and terminal control sequences
-	// - Signal handling (Ctrl+C, Ctrl+Z)
-	// When false or omitted (default), the implementation can run with pipe-based I/O,
-	// which enables interactive mode (--interactive) across all runtimes including virtual.
-	// Note: tty: true with --interactive is only supported for native and container runtimes.
-	// Default: false
-	tty?: bool
-
-	// tui_passthrough enables direct terminal access for commands that use invowk's TUI
-	// components (invowk tui *) when run with --interactive flag. (optional)
-	// When true:
-	// - The outer interactive TUI suspends temporarily
-	// - The command gets direct access to the terminal
-	// - Nested TUI components render properly without garbling
-	// - The outer TUI resumes when the command completes
-	// When false or omitted (default):
-	// - Commands run through the outer TUI's viewport
-	// - Nested TUI components use accessible mode (line-based fallback)
-	// Use this when your script calls `invowk tui input`, `invowk tui choose`, etc.
-	// and you need full TUI rendering instead of accessible fallback.
-	// Note: This is most effective with native runtime. For virtual and container
-	// runtimes, the accessible mode fallback is still used as a safety measure.
-	// Default: false
-	tui_passthrough?: bool
-
 	// env contains environment configuration for this implementation (optional)
 	// Implementation-level env is merged with command-level env.
 	// Implementation files are loaded after command-level files.

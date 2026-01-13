@@ -735,31 +735,9 @@ func runCommandWithFlags(cmdName string, args []string, flagValues map[string]st
 	var result *runtime.Result
 
 	// Check if we should use interactive mode
-	if interactive {
-		// Check if the implementation requires TTY (full PTY support)
-		requiresTTY := ctx.SelectedImpl.RequiresTTY()
-		// Check if TUI passthrough is enabled (for nested invowk tui commands)
-		usePassthrough := ctx.SelectedImpl.UsesTUIPassthrough()
-
-		if usePassthrough && selectedRuntime == invkfile.RuntimeNative {
-			// TUI Passthrough mode: run command with direct terminal access
-			// This allows nested `invowk tui *` commands to work properly
-			result = executeInteractivePassthrough(ctx, registry, cmdName)
-		} else if requiresTTY {
-			// TTY mode: requires native or container runtime with PTY support
-			// Currently only native runtime supports PTY-based interactive mode
-			if selectedRuntime == invkfile.RuntimeNative {
-				result = executeInteractivePTY(ctx, registry, cmdName)
-			} else {
-				// Container runtime with TTY would need different handling
-				// For now, fall back to standard execution with a warning
-				fmt.Fprintf(os.Stderr, "%s tty: true requires native runtime for full PTY support; falling back to standard execution\n", warningStyle.Render("Warning:"))
-				result = registry.Execute(ctx)
-			}
-		} else {
-			// Pipe-based interactive mode: works with all runtimes
-			result = executeInteractivePipe(ctx, registry, cmdName)
-		}
+	// Interactive mode is only supported for native runtime currently
+	if interactive && selectedRuntime == invkfile.RuntimeNative {
+		result = executeInteractive(ctx, registry, cmdName)
 	} else {
 		// Standard execution
 		result = registry.Execute(ctx)
@@ -795,24 +773,10 @@ func runCommand(args []string) error {
 	return runCommandWithFlags(cmdName, cmdArgs, nil, nil, nil, nil, nil, "")
 }
 
-// executeInteractivePTY runs a command in PTY-based interactive mode using an alternate screen buffer.
+// executeInteractive runs a command in interactive mode using an alternate screen buffer.
 // This provides a full PTY for the command, forwarding keyboard input during execution
 // and allowing output review after completion.
-// This mode is required when tty: true is set in the implementation.
-func executeInteractivePTY(ctx *runtime.ExecutionContext, registry *runtime.Registry, cmdName string) *runtime.Result {
-	// Set INVOWK_INTERACTIVE to signal nested commands that they're running inside
-	// an interactive TUI. This allows nested `invowk tui *` commands to fall back
-	// to accessible mode to avoid TUI conflicts.
-	originalInteractive := os.Getenv("INVOWK_INTERACTIVE")
-	os.Setenv("INVOWK_INTERACTIVE", "1")
-	defer func() {
-		if originalInteractive == "" {
-			os.Unsetenv("INVOWK_INTERACTIVE")
-		} else {
-			os.Setenv("INVOWK_INTERACTIVE", originalInteractive)
-		}
-	}()
-
+func executeInteractive(ctx *runtime.ExecutionContext, registry *runtime.Registry, cmdName string) *runtime.Result {
 	// Get the native runtime to prepare the command
 	rt, err := registry.Get(runtime.RuntimeTypeNative)
 	if err != nil {
@@ -858,133 +822,6 @@ func executeInteractivePTY(ctx *runtime.ExecutionContext, registry *runtime.Regi
 		ExitCode: interactiveResult.ExitCode,
 		Error:    interactiveResult.Error,
 	}
-}
-
-// executeInteractivePipe runs a command in pipe-based interactive mode.
-// This mode works with all runtimes (native, virtual, container) because it uses
-// standard io.Reader/io.Writer interfaces instead of PTY.
-// This is the default interactive mode when tty: false (or unset).
-func executeInteractivePipe(ctx *runtime.ExecutionContext, registry *runtime.Registry, cmdName string) *runtime.Result {
-	// Set INVOWK_INTERACTIVE to signal nested commands that they're running inside
-	// an interactive TUI. This allows nested `invowk tui *` commands to fall back
-	// to accessible mode to avoid TUI conflicts.
-	originalInteractive := os.Getenv("INVOWK_INTERACTIVE")
-	os.Setenv("INVOWK_INTERACTIVE", "1")
-	defer func() {
-		if originalInteractive == "" {
-			os.Unsetenv("INVOWK_INTERACTIVE")
-		} else {
-			os.Setenv("INVOWK_INTERACTIVE", originalInteractive)
-		}
-	}()
-
-	// Get the runtime for this context
-	rt, err := registry.GetForContext(ctx)
-	if err != nil {
-		return &runtime.Result{ExitCode: 1, Error: fmt.Errorf("runtime not available: %w", err)}
-	}
-
-	// Check if the runtime supports ExecutorCapable interface
-	execCapable, ok := rt.(runtime.ExecutorCapable)
-	if !ok {
-		return &runtime.Result{ExitCode: 1, Error: fmt.Errorf("runtime %s does not support pipe-based interactive mode", rt.Name())}
-	}
-
-	// Get the executor function
-	executor, err := execCapable.GetExecutor(ctx)
-	if err != nil {
-		return &runtime.Result{ExitCode: 1, Error: fmt.Errorf("failed to prepare executor: %w", err)}
-	}
-
-	// Convert runtime.ExecutorFunc to tui.ExecutorFunc (they have the same signature)
-	tuiExecutor := tui.ExecutorFunc(executor)
-
-	// Run in pipe-based interactive mode
-	interactiveResult, err := tui.RunInteractivePipe(
-		context.Background(),
-		tui.PipeInteractiveOptions{
-			Title:       "Running Command",
-			CommandName: cmdName,
-			EchoInput:   true, // Enable local echo since pipe-based I/O doesn't echo automatically
-		},
-		tuiExecutor,
-	)
-
-	if err != nil {
-		return &runtime.Result{ExitCode: 1, Error: fmt.Errorf("interactive execution failed: %w", err)}
-	}
-
-	return &runtime.Result{
-		ExitCode: interactiveResult.ExitCode,
-		Error:    interactiveResult.Error,
-	}
-}
-
-// executeInteractivePassthrough runs a command with direct terminal access (TUI passthrough).
-// This mode bypasses the interactive TUI wrapper entirely, giving the command full
-// control of the terminal. This is needed when commands use `invowk tui *` components
-// which need to render their own TUI without interference from an outer TUI.
-//
-// Unlike executeInteractivePTY which wraps the command in a viewport TUI, this mode:
-// - Runs the command directly with os.Stdin, os.Stdout, os.Stderr
-// - Allows nested TUI components to work properly
-// - Does not provide post-execution output review (command output is lost after exit)
-//
-// This mode is triggered when tui_passthrough: true is set in the implementation.
-func executeInteractivePassthrough(ctx *runtime.ExecutionContext, registry *runtime.Registry, cmdName string) *runtime.Result {
-	// Get the native runtime to prepare the command
-	rt, err := registry.Get(runtime.RuntimeTypeNative)
-	if err != nil {
-		return &runtime.Result{ExitCode: 1, Error: fmt.Errorf("native runtime not available: %w", err)}
-	}
-
-	nativeRT, ok := rt.(*runtime.NativeRuntime)
-	if !ok {
-		return &runtime.Result{ExitCode: 1, Error: fmt.Errorf("unexpected runtime type")}
-	}
-
-	// Validate the context
-	if err := nativeRT.Validate(ctx); err != nil {
-		return &runtime.Result{ExitCode: 1, Error: err}
-	}
-
-	// Prepare the command without executing it
-	prepared, err := nativeRT.PrepareCommand(ctx)
-	if err != nil {
-		return &runtime.Result{ExitCode: 1, Error: fmt.Errorf("failed to prepare command: %w", err)}
-	}
-
-	// Ensure cleanup is called when done
-	if prepared.Cleanup != nil {
-		defer prepared.Cleanup()
-	}
-
-	// Connect the command directly to the terminal
-	prepared.Cmd.Stdin = os.Stdin
-	prepared.Cmd.Stdout = os.Stdout
-	prepared.Cmd.Stderr = os.Stderr
-
-	// Print header to indicate passthrough mode
-	fmt.Printf("\n%s Running '%s' with TUI passthrough...\n\n",
-		lipgloss.NewStyle().Foreground(lipgloss.Color("#10B981")).Render("→"),
-		cmdName,
-	)
-
-	// Run the command directly
-	err = prepared.Cmd.Run()
-
-	// Print footer
-	fmt.Println()
-
-	if err != nil {
-		// Check if it's an exit error with a non-zero exit code
-		if exitErr, ok := err.(*exec.ExitError); ok {
-			return &runtime.Result{ExitCode: exitErr.ExitCode(), Error: nil}
-		}
-		return &runtime.Result{ExitCode: 1, Error: fmt.Errorf("command execution failed: %w", err)}
-	}
-
-	return &runtime.Result{ExitCode: 0, Error: nil}
 }
 
 // createRuntimeRegistry creates and populates the runtime registry

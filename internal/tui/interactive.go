@@ -115,8 +115,6 @@ func (m *interactiveModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.viewport.SetContent(m.content.String())
 			m.viewport.GotoBottom()
 		}
-		// Return immediately after handling done to ensure the view updates
-		return m, nil
 	}
 
 	if m.ready {
