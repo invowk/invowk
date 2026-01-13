@@ -1,0 +1,80 @@
+# Invowkfile - Command definitions for invowk
+# See https://github.com/invowk/invowk for documentation
+#
+# Available runtimes:
+#   - native: Use system shell (default)
+#   - virtual: Use built-in sh interpreter
+#   - container: Run in Docker/Podman container
+#
+# Script can be:
+#   - Inline shell commands (single or multi-line using ''' in TOML)
+#   - A path to a script file (e.g., ./scripts/build.sh or /absolute/path/script.ps1)
+#
+# Example command with inline script:
+#   [[commands]]
+#   name = "build"
+#   description = "Build the project"
+#   script = '''
+#   echo "Building..."
+#   go build ./...
+#   '''
+#
+# Example command with script file:
+#   [[commands]]
+#   name = "deploy"
+#   script = "./scripts/deploy.sh"
+
+version = '1.0'
+description = 'Full example project commands'
+default_runtime = 'native'
+
+[container]
+dockerfile = 'Dockerfile'
+image = 'alpine:latest'
+
+[env]
+PROJECT_NAME = 'myproject'
+
+[[commands]]
+name = 'build'
+description = 'Build the project'
+script = '''
+echo "Building $PROJECT_NAME..."
+go build -o bin/app ./...
+'''
+
+[commands.env]
+CGO_ENABLED = '0'
+
+[[commands]]
+name = 'test unit'
+description = 'Run unit tests'
+script = 'go test -v ./...'
+
+[[commands]]
+name = 'test integration'
+description = 'Run integration tests'
+script = 'go test -v -tags=integration ./...'
+
+[[commands]]
+name = 'clean'
+description = 'Clean build artifacts'
+script = 'rm -rf bin/ dist/'
+
+[[commands]]
+name = 'docker-build'
+description = 'Build using container runtime'
+runtime = 'container'
+script = 'go build -o /workspace/bin/app ./...'
+
+[[commands]]
+name = 'container hello-invowk'
+description = 'Print a greeting from a container'
+runtime = 'container'
+script = 'echo "Hello, Invowk!"'
+
+[[commands]]
+name = 'release'
+description = 'Create a release'
+script = "echo 'Creating release...'"
+depends_on = ['clean', 'build', 'test unit']
