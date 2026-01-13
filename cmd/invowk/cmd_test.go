@@ -161,114 +161,114 @@ func TestCheckToolDependencies_MixedToolsExistAndNotExist(t *testing.T) {
 	}
 }
 
-func TestCheckToolDependencies_CustomCheckScript_Success(t *testing.T) {
+func TestCheckCustomChecks_Success(t *testing.T) {
 	cmd := testCmdWithDeps("test", "echo hello", &invowkfile.DependsOn{
-		Tools: []invowkfile.ToolDependency{
+		CustomChecks: []invowkfile.CustomCheck{
 			{
-				Name:         "sh",
+				Name:         "test-check",
 				CheckScript:  "echo 'test output'",
 				ExpectedCode: intPtr(0),
 			},
 		},
 	})
 
-	err := checkToolDependencies(cmd)
+	err := checkCustomChecks(cmd)
 	if err != nil {
-		t.Errorf("checkToolDependencies() should return nil for successful check script, got: %v", err)
+		t.Errorf("checkCustomChecks() should return nil for successful check script, got: %v", err)
 	}
 }
 
-func TestCheckToolDependencies_CustomCheckScript_WrongExitCode(t *testing.T) {
+func TestCheckCustomChecks_WrongExitCode(t *testing.T) {
 	cmd := testCmdWithDeps("test", "echo hello", &invowkfile.DependsOn{
-		Tools: []invowkfile.ToolDependency{
+		CustomChecks: []invowkfile.CustomCheck{
 			{
-				Name:         "sh",
+				Name:         "test-check",
 				CheckScript:  "exit 1",
 				ExpectedCode: intPtr(0),
 			},
 		},
 	})
 
-	err := checkToolDependencies(cmd)
+	err := checkCustomChecks(cmd)
 	if err == nil {
-		t.Error("checkToolDependencies() should return error for wrong exit code")
+		t.Error("checkCustomChecks() should return error for wrong exit code")
 	}
 
 	depErr, ok := err.(*DependencyError)
 	if !ok {
-		t.Fatalf("checkToolDependencies() should return *DependencyError, got: %T", err)
+		t.Fatalf("checkCustomChecks() should return *DependencyError, got: %T", err)
 	}
 
-	if !strings.Contains(depErr.MissingTools[0], "exit code") {
-		t.Errorf("Error message should mention exit code, got: %s", depErr.MissingTools[0])
+	if !strings.Contains(depErr.FailedCustomChecks[0], "exit code") {
+		t.Errorf("Error message should mention exit code, got: %s", depErr.FailedCustomChecks[0])
 	}
 }
 
-func TestCheckToolDependencies_CustomCheckScript_ExpectedNonZeroCode(t *testing.T) {
+func TestCheckCustomChecks_ExpectedNonZeroCode(t *testing.T) {
 	cmd := testCmdWithDeps("test", "echo hello", &invowkfile.DependsOn{
-		Tools: []invowkfile.ToolDependency{
+		CustomChecks: []invowkfile.CustomCheck{
 			{
-				Name:         "sh",
+				Name:         "test-check",
 				CheckScript:  "exit 42",
 				ExpectedCode: intPtr(42),
 			},
 		},
 	})
 
-	err := checkToolDependencies(cmd)
+	err := checkCustomChecks(cmd)
 	if err != nil {
-		t.Errorf("checkToolDependencies() should return nil when exit code matches expected, got: %v", err)
+		t.Errorf("checkCustomChecks() should return nil when exit code matches expected, got: %v", err)
 	}
 }
 
-func TestCheckToolDependencies_CustomCheckScript_OutputMatch(t *testing.T) {
+func TestCheckCustomChecks_OutputMatch(t *testing.T) {
 	cmd := testCmdWithDeps("test", "echo hello", &invowkfile.DependsOn{
-		Tools: []invowkfile.ToolDependency{
+		CustomChecks: []invowkfile.CustomCheck{
 			{
-				Name:           "sh",
+				Name:           "test-check",
 				CheckScript:    "echo 'version 1.2.3'",
 				ExpectedOutput: "version [0-9]+\\.[0-9]+\\.[0-9]+",
 			},
 		},
 	})
 
-	err := checkToolDependencies(cmd)
+	err := checkCustomChecks(cmd)
 	if err != nil {
-		t.Errorf("checkToolDependencies() should return nil for matching output, got: %v", err)
+		t.Errorf("checkCustomChecks() should return nil for matching output, got: %v", err)
 	}
 }
 
-func TestCheckToolDependencies_CustomCheckScript_OutputNoMatch(t *testing.T) {
+func TestCheckCustomChecks_OutputNoMatch(t *testing.T) {
 	cmd := testCmdWithDeps("test", "echo hello", &invowkfile.DependsOn{
-		Tools: []invowkfile.ToolDependency{
+		CustomChecks: []invowkfile.CustomCheck{
 			{
-				Name:           "sh",
+				Name:           "test-check",
 				CheckScript:    "echo 'hello world'",
 				ExpectedOutput: "^version",
 			},
 		},
 	})
 
-	err := checkToolDependencies(cmd)
+	err := checkCustomChecks(cmd)
 	if err == nil {
-		t.Error("checkToolDependencies() should return error for non-matching output")
+		t.Error("checkCustomChecks() should return error for non-matching output")
 	}
 
 	depErr, ok := err.(*DependencyError)
 	if !ok {
-		t.Fatalf("checkToolDependencies() should return *DependencyError, got: %T", err)
+		t.Fatalf("checkCustomChecks() should return *DependencyError, got: %T", err)
 	}
 
-	if !strings.Contains(depErr.MissingTools[0], "does not match pattern") {
-		t.Errorf("Error message should mention pattern mismatch, got: %s", depErr.MissingTools[0])
+	if !strings.Contains(depErr.FailedCustomChecks[0], "does not match pattern") {
+		t.Errorf("Error message should mention pattern mismatch, got: %s", depErr.FailedCustomChecks[0])
 	}
 }
 
-func TestCheckToolDependencies_CustomCheckScript_BothCodeAndOutput(t *testing.T) {
+func TestCheckCustomChecks_BothCodeAndOutput(t *testing.T) {
 	cmd := testCmdWithDeps("test", "echo hello", &invowkfile.DependsOn{
-		Tools: []invowkfile.ToolDependency{
+		CustomChecks: []invowkfile.CustomCheck{
 			{
-				Name:           "sh",
+				Name:           "test-check",
 				CheckScript:    "echo 'go version go1.21.0'",
 				ExpectedCode:   intPtr(0),
 				ExpectedOutput: "go1\\.",
@@ -276,60 +276,35 @@ func TestCheckToolDependencies_CustomCheckScript_BothCodeAndOutput(t *testing.T)
 		},
 	})
 
-	err := checkToolDependencies(cmd)
+	err := checkCustomChecks(cmd)
 	if err != nil {
-		t.Errorf("checkToolDependencies() should return nil when both code and output match, got: %v", err)
+		t.Errorf("checkCustomChecks() should return nil when both code and output match, got: %v", err)
 	}
 }
 
-func TestCheckToolDependencies_CustomCheckScript_InvalidRegex(t *testing.T) {
+func TestCheckCustomChecks_InvalidRegex(t *testing.T) {
 	cmd := testCmdWithDeps("test", "echo hello", &invowkfile.DependsOn{
-		Tools: []invowkfile.ToolDependency{
+		CustomChecks: []invowkfile.CustomCheck{
 			{
-				Name:           "sh",
+				Name:           "test-check",
 				CheckScript:    "echo 'test'",
 				ExpectedOutput: "[invalid regex(",
 			},
 		},
 	})
 
-	err := checkToolDependencies(cmd)
+	err := checkCustomChecks(cmd)
 	if err == nil {
-		t.Error("checkToolDependencies() should return error for invalid regex")
+		t.Error("checkCustomChecks() should return error for invalid regex")
 	}
 
 	depErr, ok := err.(*DependencyError)
 	if !ok {
-		t.Fatalf("checkToolDependencies() should return *DependencyError, got: %T", err)
+		t.Fatalf("checkCustomChecks() should return *DependencyError, got: %T", err)
 	}
 
-	if !strings.Contains(depErr.MissingTools[0], "invalid regex") {
-		t.Errorf("Error message should mention invalid regex, got: %s", depErr.MissingTools[0])
-	}
-}
-
-func TestCheckToolDependencies_CustomCheckScript_ToolNotInPath(t *testing.T) {
-	cmd := testCmdWithDeps("test", "echo hello", &invowkfile.DependsOn{
-		Tools: []invowkfile.ToolDependency{
-			{
-				Name:        "nonexistent-tool-xyz",
-				CheckScript: "echo 'test'",
-			},
-		},
-	})
-
-	err := checkToolDependencies(cmd)
-	if err == nil {
-		t.Error("checkToolDependencies() should return error when tool not in PATH")
-	}
-
-	depErr, ok := err.(*DependencyError)
-	if !ok {
-		t.Fatalf("checkToolDependencies() should return *DependencyError, got: %T", err)
-	}
-
-	if !strings.Contains(depErr.MissingTools[0], "not found in PATH") {
-		t.Errorf("Error message should mention not found in PATH, got: %s", depErr.MissingTools[0])
+	if !strings.Contains(depErr.FailedCustomChecks[0], "invalid regex") {
+		t.Errorf("Error message should mention invalid regex, got: %s", depErr.FailedCustomChecks[0])
 	}
 }
 

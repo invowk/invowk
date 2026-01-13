@@ -196,13 +196,7 @@ commands: [
 			tools: [
 				// Simple tool check - just verify it's in PATH
 				{name: "git"},
-				// Tool with custom validation script and output regex
-				{
-					name:            "go"
-					check_script:    "go version"
-					expected_code:   0
-					expected_output: "go1\\."  // Regex: must contain "go1."
-				},
+				{name: "go"},
 			]
 			commands: [
 				{name: "clean"},
@@ -216,6 +210,15 @@ commands: [
 				{alternatives: ["README.md", "README", "readme.md"], readable: true},
 				// Check with write permission (for output directory)
 				{alternatives: ["."], writable: true},
+			]
+			// Custom validation scripts for complex checks
+			custom_checks: [
+				{
+					name:            "go-version"
+					check_script:    "go version"
+					expected_code:   0
+					expected_output: "go1\\."  // Regex: must contain "go1."
+				},
 			]
 		}
 	},

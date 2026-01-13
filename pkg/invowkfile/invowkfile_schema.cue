@@ -91,18 +91,22 @@
 #ToolDependency: {
 	// name is the binary name that must be in PATH (required)
 	name: string & !=""
+}
 
-	// check_script is a custom script to validate the tool (optional)
-	// If provided, this script is executed instead of just checking PATH
-	// The script can verify version, configuration, or any other requirement
-	check_script?: string
+// CustomCheck represents a custom validation script to verify system requirements
+#CustomCheck: {
+	// name is an identifier for this check (required)
+	// Used for error reporting and identification
+	name: string & !=""
+
+	// check_script is the script to execute for validation (required)
+	// The script is executed using the runtime's shell
+	check_script: string & !=""
 
 	// expected_code is the expected exit code from check_script (optional, default: 0)
-	// Only used when check_script is provided
 	expected_code?: int
 
 	// expected_output is a regex pattern to match against check_script output (optional)
-	// Only used when check_script is provided
 	// Can be used together with expected_code
 	expected_output?: string
 }
@@ -147,6 +151,7 @@
 // DependsOn defines the dependencies for a command
 #DependsOn: {
 	// tools lists binaries that must be available in PATH before running
+	// Each tool is checked for existence in PATH using 'command -v' or equivalent
 	tools?: [...#ToolDependency]
 	// commands lists invowk commands that must run before this one
 	commands?: [...#CommandDependency]
@@ -155,6 +160,9 @@
 	// capabilities lists system capabilities that must be available before running
 	// Each capability name must be unique within the list
 	capabilities?: [...#CapabilityDependency]
+	// custom_checks lists custom validation scripts to verify system requirements
+	// Use this for version checks, configuration validation, or any other custom requirement
+	custom_checks?: [...#CustomCheck]
 }
 
 // Command represents a single executable command

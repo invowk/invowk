@@ -471,11 +471,14 @@ commands: [
 		depends_on: {
 			tools: [
 				{name: "git"},
-				{name: "docker", check_script: "docker --version", expected_output: "Docker"},
+				{name: "docker"},
 			]
 			commands: [
 				{name: "build"},
 				{name: "test unit"},
+			]
+			custom_checks: [
+				{name: "docker-version", check_script: "docker --version", expected_output: "Docker"},
 			]
 		}
 	}
@@ -520,12 +523,21 @@ commands: [
 		t.Errorf("Second tool name = %q, want %q", cmd.DependsOn.Tools[1].Name, "docker")
 	}
 
-	if cmd.DependsOn.Tools[1].CheckScript != "docker --version" {
-		t.Errorf("Second tool check_script = %q, want %q", cmd.DependsOn.Tools[1].CheckScript, "docker --version")
+	// Check custom_checks
+	if len(cmd.DependsOn.CustomChecks) != 1 {
+		t.Errorf("Expected 1 custom_check, got %d", len(cmd.DependsOn.CustomChecks))
 	}
 
-	if cmd.DependsOn.Tools[1].ExpectedOutput != "Docker" {
-		t.Errorf("Second tool expected_output = %q, want %q", cmd.DependsOn.Tools[1].ExpectedOutput, "Docker")
+	if cmd.DependsOn.CustomChecks[0].Name != "docker-version" {
+		t.Errorf("First custom_check name = %q, want %q", cmd.DependsOn.CustomChecks[0].Name, "docker-version")
+	}
+
+	if cmd.DependsOn.CustomChecks[0].CheckScript != "docker --version" {
+		t.Errorf("First custom_check check_script = %q, want %q", cmd.DependsOn.CustomChecks[0].CheckScript, "docker --version")
+	}
+
+	if cmd.DependsOn.CustomChecks[0].ExpectedOutput != "Docker" {
+		t.Errorf("First custom_check expected_output = %q, want %q", cmd.DependsOn.CustomChecks[0].ExpectedOutput, "Docker")
 	}
 
 	// Check commands
@@ -651,7 +663,7 @@ commands: [
 	}
 }
 
-func TestParseDependsOn_WithCustomValidation(t *testing.T) {
+func TestParseDependsOn_WithCustomChecks(t *testing.T) {
 	cueContent := `
 version: "1.0"
 
@@ -670,8 +682,11 @@ commands: [
 		depends_on: {
 			tools: [
 				{name: "make"},
+				{name: "go"},
+			]
+			custom_checks: [
 				{
-					name: "go"
+					name: "go-version"
 					check_script: "go version"
 					expected_code: 0
 					expected_output: "go1\\."
@@ -711,25 +726,31 @@ commands: [
 	if cmd.DependsOn.Tools[0].Name != "make" {
 		t.Errorf("First tool name = %q, want %q", cmd.DependsOn.Tools[0].Name, "make")
 	}
-	if cmd.DependsOn.Tools[0].CheckScript != "" {
-		t.Errorf("First tool check_script should be empty, got %q", cmd.DependsOn.Tools[0].CheckScript)
+
+	// Second tool - simple
+	if cmd.DependsOn.Tools[1].Name != "go" {
+		t.Errorf("Second tool name = %q, want %q", cmd.DependsOn.Tools[1].Name, "go")
 	}
 
-	// Second tool - with custom validation
-	goTool := cmd.DependsOn.Tools[1]
-	if goTool.Name != "go" {
-		t.Errorf("Second tool name = %q, want %q", goTool.Name, "go")
+	// Custom check with validation
+	if len(cmd.DependsOn.CustomChecks) != 1 {
+		t.Fatalf("Expected 1 custom_check, got %d", len(cmd.DependsOn.CustomChecks))
 	}
-	if goTool.CheckScript != "go version" {
-		t.Errorf("Second tool check_script = %q, want %q", goTool.CheckScript, "go version")
+
+	goCheck := cmd.DependsOn.CustomChecks[0]
+	if goCheck.Name != "go-version" {
+		t.Errorf("Custom check name = %q, want %q", goCheck.Name, "go-version")
 	}
-	if goTool.ExpectedCode == nil {
-		t.Error("Second tool expected_code should not be nil")
-	} else if *goTool.ExpectedCode != 0 {
-		t.Errorf("Second tool expected_code = %d, want 0", *goTool.ExpectedCode)
+	if goCheck.CheckScript != "go version" {
+		t.Errorf("Custom check check_script = %q, want %q", goCheck.CheckScript, "go version")
 	}
-	if goTool.ExpectedOutput != "go1\\." {
-		t.Errorf("Second tool expected_output = %q, want %q", goTool.ExpectedOutput, "go1\\.")
+	if goCheck.ExpectedCode == nil {
+		t.Error("Custom check expected_code should not be nil")
+	} else if *goCheck.ExpectedCode != 0 {
+		t.Errorf("Custom check expected_code = %d, want 0", *goCheck.ExpectedCode)
+	}
+	if goCheck.ExpectedOutput != "go1\\." {
+		t.Errorf("Custom check expected_output = %q, want %q", goCheck.ExpectedOutput, "go1\\.")
 	}
 }
 
