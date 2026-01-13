@@ -849,6 +849,38 @@ virtual_shell: {
 }`,
   },
 
+  'dependencies/commands-alternatives': {
+    language: 'cue',
+    code: `depends_on: {
+    cmds: [
+        // Either command being discoverable satisfies this dependency
+        {alternatives: ["myproject build debug", "myproject build release"]},
+    ]
+}`,
+  },
+
+  'dependencies/commands-multiple': {
+    language: 'cue',
+    code: `depends_on: {
+    cmds: [
+        {alternatives: ["myproject build"]},
+        {alternatives: ["myproject test unit", "myproject test integration"]},
+    ]
+}`,
+  },
+
+  'dependencies/commands-cross-invkfile': {
+    language: 'cue',
+    code: `depends_on: {
+    cmds: [{alternatives: ["shared generate-types"]}]
+}`,
+  },
+
+  'dependencies/commands-workflow': {
+    language: 'bash',
+    code: `invowk cmd myproject build && invowk cmd myproject deploy`,
+  },
+
   'dependencies/capabilities-basic': {
     language: 'cue',
     code: `depends_on: {
@@ -6667,7 +6699,7 @@ containerfile: "./docker/Dockerfile.build"`,
     language: 'cue',
     code: `#DependsOn: {
     tools?:         [...#ToolDependency]
-    commands?:      [...#CommandDependency]
+    cmds?:          [...#CommandDependency]
     filepaths?:     [...#FilepathDependency]
     capabilities?:  [...#CapabilityDependency]
     custom_checks?: [...#CustomCheckDependency]

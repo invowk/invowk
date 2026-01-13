@@ -21,7 +21,6 @@ func TestId_Constants(t *testing.T) {
 		ScriptExecutionFailedId,
 		ConfigLoadFailedId,
 		InvalidRuntimeModeId,
-		DependencyCycleId,
 		ShellNotFoundId,
 		PermissionDeniedId,
 		DependenciesNotSatisfiedId,
@@ -164,7 +163,6 @@ func TestGet(t *testing.T) {
 		{ScriptExecutionFailedId, false, "Script execution failed"},
 		{ConfigLoadFailedId, false, "Failed to load configuration"},
 		{InvalidRuntimeModeId, false, "Invalid runtime mode"},
-		{DependencyCycleId, false, "Dependency cycle"},
 		{ShellNotFoundId, false, "Shell not found"},
 		{PermissionDeniedId, false, "Permission denied"},
 		{DependenciesNotSatisfiedId, false, "Dependencies not satisfied"},
@@ -202,7 +200,7 @@ func TestValues(t *testing.T) {
 	}
 
 	// Count expected number of issues
-	expectedCount := 15 // Based on the number of predefined issues
+	expectedCount := 14 // Based on the number of predefined issues
 
 	if len(issues) != expectedCount {
 		t.Errorf("Values() returned %d issues, want %d", len(issues), expectedCount)
@@ -331,7 +329,6 @@ func TestIssuesMapCompleteness(t *testing.T) {
 		ScriptExecutionFailedId,
 		ConfigLoadFailedId,
 		InvalidRuntimeModeId,
-		DependencyCycleId,
 		ShellNotFoundId,
 		PermissionDeniedId,
 		DependenciesNotSatisfiedId,

@@ -189,10 +189,10 @@
 	executable?: bool
 }
 
-// CommandDependency represents another invowk command that must run first
+// CommandDependency represents another invowk command that must be discoverable
 #CommandDependency: {
 	// alternatives is a list of command names where any match satisfies the dependency (required, at least one)
-	// If any of the provided commands has already run successfully, the validation succeeds (early return).
+	// If any of the provided commands is discoverable, the dependency is satisfied (early return).
 	// This allows specifying alternative commands (e.g., ["build-debug", "build-release"]).
 	alternatives: [...string & !=""] & [_, ...]
 }
@@ -235,8 +235,8 @@
 	// Each tool is checked for existence in PATH using 'command -v' or equivalent
 	// Uses OR semantics: if any alternative in the list is found, the dependency is satisfied
 	tools?: [...#ToolDependency]
-	// cmds lists invowk commands that must run before this one
-	// Uses OR semantics: if any alternative in the list has run, the dependency is satisfied
+	// cmds lists invowk commands that must be discoverable for this command to run
+	// Uses OR semantics: if any alternative in the list is discoverable, the dependency is satisfied
 	cmds?: [...#CommandDependency]
 
 	// commands is not supported (use cmds)

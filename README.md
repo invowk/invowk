@@ -15,7 +15,7 @@ A dynamically extensible, CLI-based command runner similar to [just](https://git
 
 - **Hierarchical Commands**: Use spaces in command names to create subcommand-like hierarchies (e.g., `invowk cmd test unit`)
 
-- **Command Dependencies**: Commands can depend on other commands that run first
+- **Command Dependencies**: Commands can require other commands to be discoverable
 
 - **Multiple Command Sources**: Discover commands from:
   1. Current directory (highest priority)
@@ -248,7 +248,10 @@ invowk cmd myproject test unit
 
 ### Command Dependencies with Groups
 
-When referencing command dependencies, use the full group-prefixed name:
+Command dependencies refer to other invowk commands by name. Invowk validates that the referenced commands are discoverable (it does not execute them automatically).
+
+- Same invkfile: you can use unqualified names like `build` or `test unit`
+- Other invkfiles/packs: use full group-prefixed names like `other.project deploy`
 
 ```cue
 group: "myproject"
@@ -291,7 +294,7 @@ depends_on: {
 
 ### Command Dependencies
 
-Run other invowk commands first. Use the full group-prefixed command name:
+Require other invowk commands to be discoverable. Use full group-prefixed names when referencing commands from other invkfiles/packs:
 
 ```cue
 depends_on: {

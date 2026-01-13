@@ -22,7 +22,6 @@ const (
 	ScriptExecutionFailedId
 	ConfigLoadFailedId
 	InvalidRuntimeModeId
-	DependencyCycleId
 	ShellNotFoundId
 	PermissionDeniedId
 	DependenciesNotSatisfiedId
@@ -392,37 +391,6 @@ cmds: [
 ~~~`,
 	}
 
-	dependencyCycleIssue = &Issue{
-		id: DependencyCycleId,
-		mdMsg: `
-# Dependency cycle detected!
-
-Your command dependencies form a cycle, which would cause infinite execution.
-
-## Example of a cycle:
-~~~cue
-cmds: [
-  {
-    name: "a"
-    depends_on: {
-      cmds: [{alternatives: ["b"]}]
-    }
-  },
-  {
-    name: "b"
-    depends_on: {
-      cmds: [{alternatives: ["a"]}]  // Cycle: a -> b -> a
-    }
-  }
-]
-~~~
-
-## Things you can try:
-- Review the depends_on fields in your invkfile
-- Remove the circular dependency
-- Use a linear dependency chain instead`,
-	}
-
 	shellNotFoundIssue = &Issue{
 		id: ShellNotFoundId,
 		mdMsg: `
@@ -476,7 +444,11 @@ The command cannot run because some dependencies are not available.
 ## Things you can try:
 - Install the missing tools listed above
 - Check that the tools are in your PATH
-- Run the required commands before this one
+- Ensure referenced commands exist and are discoverable (invkfiles, packs, or configured search paths)
+- List discovered commands to see what invowk can find:
+~~~
+$ invowk cmd --list
+~~~
 - Update your invkfile to remove unnecessary dependencies`,
 	}
 
@@ -504,7 +476,6 @@ This command cannot run on your current operating system.
 		scriptExecutionFailedIssue.Id():    scriptExecutionFailedIssue,
 		configLoadFailedIssue.Id():         configLoadFailedIssue,
 		invalidRuntimeModeIssue.Id():       invalidRuntimeModeIssue,
-		dependencyCycleIssue.Id():          dependencyCycleIssue,
 		shellNotFoundIssue.Id():            shellNotFoundIssue,
 		permissionDeniedIssue.Id():         permissionDeniedIssue,
 		dependenciesNotSatisfiedIssue.Id(): dependenciesNotSatisfiedIssue,

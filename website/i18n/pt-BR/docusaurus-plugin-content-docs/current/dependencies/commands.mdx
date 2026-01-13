@@ -4,334 +4,48 @@ sidebar_position: 4
 
 import Snippet from '@site/src/components/Snippet';
 
-# Dependências de Comandos
+# Dependências de Comandos (`cmds`)
 
-Dependências de comandos garantem que outros comandos Invowk™ sejam executados com sucesso antes que seu comando execute.
+Dependências de comandos (`depends_on.cmds`) são uma **verificação de descoberta**: elas garantem que comandos Invowk™ específicos estejam disponíveis (descobertos) antes do seu comando executar.
+
+O Invowk **não** executa esses comandos automaticamente.
 
 ## Uso Básico
 
 <Snippet id="dependencies/commands-basic" />
 
-Quando você executa `deploy`, o Invowk primeiro executa `build`. Se `build` falhar, `deploy` não será executado.
+Se nenhuma das alternativas puder ser encontrada, o Invowk falha com um erro de dependência de **Missing Commands**.
 
-## Nomes Completos de Comando
+## Nomes e Resolução
 
-Sempre use o **nome completo prefixado com o grupo**:
-
-```cue
-group: "myproject"
-
-cmds: [
-    {
-        name: "build"
-        implementations: [...]
-    },
-    {
-        name: "test"
-        depends_on: {
-            cmds: [
-                // Deve incluir o prefixo do grupo "myproject"
-                {alternatives: ["myproject build"]}
-            ]
-        }
-        implementations: [...]
-    }
-]
-```
+- **Mesmo invkfile**: você pode referenciar comandos sem o prefixo do grupo (ex.: `"build"`, `"test unit"`). O Invowk resolve isso usando o `group` do invkfile atual.
+- **Outros invkfiles / packs**: use o nome completo com prefixo de grupo (ex.: `"shared generate-types"`).
 
 ## Alternativas (Semântica OU)
 
-Especifique alternativas quando qualquer comando funcionar:
+<Snippet id="dependencies/commands-alternatives" />
 
-```cue
-depends_on: {
-    cmds: [
-        // Build debug OU release
-        {alternatives: ["myproject build debug", "myproject build release"]},
-        
-        // Testes unitários OU de integração
-        {alternatives: ["myproject test unit", "myproject test integration"]},
-    ]
-}
-```
+A dependência é satisfeita se **qualquer** alternativa for descoberta.
 
-A dependência é satisfeita se **qualquer** alternativa tiver sido executada com sucesso.
+## Múltiplos Requisitos (Semântica E)
 
-## Múltiplos Requisitos de Comando
+<Snippet id="dependencies/commands-multiple" />
 
-Cada entrada é um requisito E:
+Todas as entradas devem ser satisfeitas.
 
-```cue
-depends_on: {
-    cmds: [
-        // Precisa de build E test E lint
-        {alternatives: ["myproject build"]},
-        {alternatives: ["myproject test"]},
-        {alternatives: ["myproject lint"]},
-    ]
-}
-```
+## Requisitos entre Invkfiles
 
-Todos os três comandos devem ter sucesso (embora alternativas dentro de cada um sejam OU).
+<Snippet id="dependencies/commands-cross-invkfile" />
 
-## Cadeias de Comandos
+Isso é especialmente útil quando seu invkfile espera que outro invkfile/pack esteja instalado.
 
-Construa workflows complexos com cadeias de comandos:
+## Se você quer workflows…
 
-```cue
-group: "myproject"
+Se você quer que `deploy` realmente execute `build` antes, faça isso explicitamente no seu script (ou crie um comando dedicado de “workflow”). O Invowk não orquestra execução de comandos via `depends_on.cmds`.
 
-cmds: [
-    // Comando base
-    {
-        name: "clean"
-        implementations: [{
-            script: "rm -rf build/"
-            target: {runtimes: [{name: "native"}]}
-        }]
-    },
-    
-    // Depende de clean
-    {
-        name: "build"
-        depends_on: {
-            cmds: [{alternatives: ["myproject clean"]}]
-        }
-        implementations: [{
-            script: "go build -o build/app ./..."
-            target: {runtimes: [{name: "native"}]}
-        }]
-    },
-    
-    // Depende de build
-    {
-        name: "test"
-        depends_on: {
-            cmds: [{alternatives: ["myproject build"]}]
-        }
-        implementations: [{
-            script: "go test ./..."
-            target: {runtimes: [{name: "native"}]}
-        }]
-    },
-    
-    // Depende de test (que depende de build, que depende de clean)
-    {
-        name: "release"
-        depends_on: {
-            cmds: [{alternatives: ["myproject test"]}]
-        }
-        implementations: [{
-            script: "./scripts/release.sh"
-            target: {runtimes: [{name: "native"}]}
-        }]
-    }
-]
-```
-
-Executar `release` executa: `clean` → `build` → `test` → `release`
-
-## Dependências Entre Invkfiles
-
-Comandos podem depender de comandos de outros invkfiles:
-
-```cue
-// Em frontend/invkfile.cue
-group: "frontend"
-
-cmds: [
-    {
-        name: "build"
-        depends_on: {
-            cmds: [
-                // Depende de um comando do invkfile shared
-                {alternatives: ["shared generate-types"]}
-            ]
-        }
-        implementations: [...]
-    }
-]
-```
-
-```cue
-// Em shared/invkfile.cue
-group: "shared"
-
-cmds: [
-    {
-        name: "generate-types"
-        implementations: [...]
-    }
-]
-```
-
-## Exemplos do Mundo Real
-
-### Pipeline de CI/CD
-
-```cue
-group: "myapp"
-
-cmds: [
-    {name: "lint", implementations: [...]},
-    {name: "test unit", implementations: [...]},
-    {name: "test integration", implementations: [...]},
-    {name: "build", implementations: [...]},
-    
-    {
-        name: "ci"
-        description: "Executar pipeline completo de CI"
-        depends_on: {
-            cmds: [
-                {alternatives: ["myapp lint"]},
-                {alternatives: ["myapp test unit"]},
-                {alternatives: ["myapp test integration"]},
-                {alternatives: ["myapp build"]},
-            ]
-        }
-        implementations: [{
-            script: "echo 'CI passou!'"
-            target: {runtimes: [{name: "native"}]}
-        }]
-    }
-]
-```
-
-### Variantes de Build
-
-```cue
-group: "myapp"
-
-cmds: [
-    {
-        name: "build debug"
-        implementations: [{
-            script: "go build -gcflags='all=-N -l' -o build/app-debug ./..."
-            target: {runtimes: [{name: "native"}]}
-        }]
-    },
-    {
-        name: "build release"
-        implementations: [{
-            script: "go build -ldflags='-s -w' -o build/app ./..."
-            target: {runtimes: [{name: "native"}]}
-        }]
-    },
-    
-    {
-        name: "deploy"
-        depends_on: {
-            cmds: [
-                // Deve ter executado build debug ou release
-                {alternatives: ["myapp build debug", "myapp build release"]}
-            ]
-        }
-        implementations: [{
-            script: "./scripts/deploy.sh"
-            target: {runtimes: [{name: "native"}]}
-        }]
-    }
-]
-```
-
-### Microserviços
-
-```cue
-group: "monorepo"
-
-cmds: [
-    {
-        name: "api build"
-        implementations: [...]
-    },
-    {
-        name: "web build"
-        implementations: [...]
-    },
-    {
-        name: "deploy all"
-        depends_on: {
-            cmds: [
-                {alternatives: ["monorepo api build"]},
-                {alternatives: ["monorepo web build"]},
-            ]
-        }
-        implementations: [{
-            script: "./scripts/deploy-all.sh"
-            target: {runtimes: [{name: "native"}]}
-        }]
-    }
-]
-```
-
-## Fluxo de Execução
-
-Quando um comando com dependências é executado:
-
-```
-invowk cmd myproject deploy
-       │
-       ▼
-┌──────────────────┐
-│ Verificar deps   │
-│ (lista commands) │
-└────────┬─────────┘
-         │
-    ┌────┴────┐
-    ▼         ▼
-┌───────┐ ┌───────┐
-│ build │ │ test  │
-└───┬───┘ └───┬───┘
-    │         │
-    └────┬────┘
-         │
-         ▼
-    ┌─────────┐
-    │ deploy  │
-    └─────────┘
-```
-
-Dependências são executadas na ordem especificada. Se alguma falhar, a execução para.
-
-## Herança de Runtime
-
-Comandos dependentes usam suas próprias configurações de runtime:
-
-```cue
-{
-    name: "build"
-    implementations: [{
-        script: "go build ./..."
-        target: {runtimes: [{name: "container", image: "golang:1.21"}]}
-    }]
-}
-
-{
-    name: "deploy"
-    depends_on: {
-        cmds: [{alternatives: ["myproject build"]}]
-    }
-    implementations: [{
-        script: "./scripts/deploy.sh"
-        target: {runtimes: [{name: "native"}]}
-    }]
-}
-```
-
-Quando você executa `deploy`:
-1. `build` roda em um container
-2. `deploy` roda nativamente
-
-Cada comando usa sua própria configuração.
-
-## Melhores Práticas
-
-1. **Use nomes completos**: Sempre inclua o prefixo do grupo
-2. **Mantenha cadeias rasas**: Cadeias profundas podem ser difíceis de debugar
-3. **Use alternativas sabiamente**: Para comandos verdadeiramente intercambiáveis
-4. **Considere paralelismo**: Comandos independentes podem rodar em paralelo (feature futura)
+<Snippet id="dependencies/commands-workflow" />
 
 ## Próximos Passos
 
 - [Capabilities](./capabilities) - Verificar capacidades do sistema
-- [Environment Variables](./env-vars) - Verificar variáveis de ambiente requeridas
+- [Variáveis de Ambiente](./env-vars) - Verificar variáveis de ambiente obrigatórias

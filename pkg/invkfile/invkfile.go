@@ -151,10 +151,10 @@ func (c *CustomCheckDependency) GetChecks() []CustomCheck {
 	}}
 }
 
-// CommandDependency represents another invowk command that must run first
+// CommandDependency represents another invowk command that must be discoverable.
 type CommandDependency struct {
-	// Alternatives is a list of command names where any match satisfies the dependency
-	// If any of the provided commands has already run successfully, the validation succeeds (early return).
+	// Alternatives is a list of command names where any match satisfies the dependency.
+	// If any of the provided commands is discoverable, the dependency is satisfied (early return).
 	// This allows specifying alternative commands (e.g., ["build-debug", "build-release"]).
 	Alternatives []string `json:"alternatives"`
 }
@@ -353,8 +353,8 @@ type DependsOn struct {
 	// Tools lists binaries that must be available in PATH before running
 	// Uses OR semantics: if any alternative in the list is found, the dependency is satisfied
 	Tools []ToolDependency `json:"tools,omitempty"`
-	// Commands lists invowk commands that must run before this one (invkfile field: 'cmds')
-	// Uses OR semantics: if any alternative in the list has run, the dependency is satisfied
+	// Commands lists invowk commands that must be discoverable for this command to run (invkfile field: 'cmds')
+	// Uses OR semantics: if any alternative in the list is discoverable, the dependency is satisfied
 	Commands []CommandDependency `json:"cmds,omitempty"`
 	// Filepaths lists files or directories that must exist before running
 	// Uses OR semantics: if any alternative path exists, the dependency is satisfied

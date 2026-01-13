@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"invowk-cli/internal/config"
 	"invowk-cli/internal/runtime"
 	"invowk-cli/pkg/invkfile"
 )
@@ -161,6 +162,180 @@ func TestCheckToolDependencies_MixedToolsExistAndNotExist(t *testing.T) {
 
 	if !strings.Contains(depErr.MissingTools[0], "nonexistent-tool-xyz") {
 		t.Errorf("MissingTools should contain 'nonexistent-tool-xyz', got: %s", depErr.MissingTools[0])
+	}
+}
+
+func TestCheckCommandDependenciesExist_SatisfiedByLocalUnqualifiedName(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	originalWd, _ := os.Getwd()
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatalf("failed to chdir to temp dir: %v", err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(originalWd) })
+
+	originalHome := os.Getenv("HOME")
+	originalXDGConfigHome := os.Getenv("XDG_CONFIG_HOME")
+	os.Setenv("HOME", tmpDir)
+	os.Setenv("XDG_CONFIG_HOME", tmpDir)
+	t.Cleanup(func() {
+		os.Setenv("HOME", originalHome)
+		os.Setenv("XDG_CONFIG_HOME", originalXDGConfigHome)
+	})
+
+	config.Reset()
+	t.Cleanup(config.Reset)
+
+	invkfileContent := `group: "myproject"
+version: "1.0"
+
+cmds: [
+	{
+		name: "build"
+		implementations: [{
+			script: "echo build"
+			target: {runtimes: [{name: "native"}]}
+		}]
+	},
+	{
+		name: "deploy"
+		implementations: [{
+			script: "echo deploy"
+			target: {runtimes: [{name: "native"}]}
+		}]
+	},
+]
+`
+	if err := os.WriteFile(filepath.Join(tmpDir, "invkfile.cue"), []byte(invkfileContent), 0644); err != nil {
+		t.Fatalf("failed to write invkfile: %v", err)
+	}
+
+	deps := &invkfile.DependsOn{Commands: []invkfile.CommandDependency{{Alternatives: []string{"build"}}}}
+	ctx := &runtime.ExecutionContext{Command: &invkfile.Command{Name: "deploy"}}
+
+	if err := checkCommandDependenciesExist(deps, "myproject", ctx); err != nil {
+		t.Fatalf("expected nil, got %v", err)
+	}
+}
+
+func TestCheckCommandDependenciesExist_SatisfiedByFullyQualifiedNameFromUserDir(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	originalWd, _ := os.Getwd()
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatalf("failed to chdir to temp dir: %v", err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(originalWd) })
+
+	originalHome := os.Getenv("HOME")
+	originalXDGConfigHome := os.Getenv("XDG_CONFIG_HOME")
+	os.Setenv("HOME", tmpDir)
+	os.Setenv("XDG_CONFIG_HOME", tmpDir)
+	t.Cleanup(func() {
+		os.Setenv("HOME", originalHome)
+		os.Setenv("XDG_CONFIG_HOME", originalXDGConfigHome)
+	})
+
+	config.Reset()
+	t.Cleanup(config.Reset)
+
+	invkfileContent := `group: "myproject"
+version: "1.0"
+
+cmds: [{
+	name: "deploy"
+	implementations: [{
+		script: "echo deploy"
+		target: {runtimes: [{name: "native"}]}
+	}]
+}]
+`
+	if err := os.WriteFile(filepath.Join(tmpDir, "invkfile.cue"), []byte(invkfileContent), 0644); err != nil {
+		t.Fatalf("failed to write invkfile: %v", err)
+	}
+
+	userCmdsDir := filepath.Join(tmpDir, ".invowk", "cmds", "shared")
+	if err := os.MkdirAll(userCmdsDir, 0755); err != nil {
+		t.Fatalf("failed to create user commands dir: %v", err)
+	}
+
+	userInvkfileContent := `group: "shared"
+version: "1.0"
+
+cmds: [{
+	name: "generate-types"
+	implementations: [{
+		script: "echo generate"
+		target: {runtimes: [{name: "native"}]}
+	}]
+}]
+`
+	if err := os.WriteFile(filepath.Join(userCmdsDir, "invkfile.cue"), []byte(userInvkfileContent), 0644); err != nil {
+		t.Fatalf("failed to write user invkfile: %v", err)
+	}
+
+	deps := &invkfile.DependsOn{Commands: []invkfile.CommandDependency{{Alternatives: []string{"shared generate-types"}}}}
+	ctx := &runtime.ExecutionContext{Command: &invkfile.Command{Name: "deploy"}}
+
+	if err := checkCommandDependenciesExist(deps, "myproject", ctx); err != nil {
+		t.Fatalf("expected nil, got %v", err)
+	}
+}
+
+func TestCheckCommandDependenciesExist_MissingCommand(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	originalWd, _ := os.Getwd()
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatalf("failed to chdir to temp dir: %v", err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(originalWd) })
+
+	originalHome := os.Getenv("HOME")
+	originalXDGConfigHome := os.Getenv("XDG_CONFIG_HOME")
+	os.Setenv("HOME", tmpDir)
+	os.Setenv("XDG_CONFIG_HOME", tmpDir)
+	t.Cleanup(func() {
+		os.Setenv("HOME", originalHome)
+		os.Setenv("XDG_CONFIG_HOME", originalXDGConfigHome)
+	})
+
+	config.Reset()
+	t.Cleanup(config.Reset)
+
+	invkfileContent := `group: "myproject"
+version: "1.0"
+
+cmds: [{
+	name: "deploy"
+	implementations: [{
+		script: "echo deploy"
+		target: {runtimes: [{name: "native"}]}
+	}]
+}]
+`
+	if err := os.WriteFile(filepath.Join(tmpDir, "invkfile.cue"), []byte(invkfileContent), 0644); err != nil {
+		t.Fatalf("failed to write invkfile: %v", err)
+	}
+
+	deps := &invkfile.DependsOn{Commands: []invkfile.CommandDependency{{Alternatives: []string{"build"}}}}
+	ctx := &runtime.ExecutionContext{Command: &invkfile.Command{Name: "deploy"}}
+
+	err := checkCommandDependenciesExist(deps, "myproject", ctx)
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+
+	depErr, ok := err.(*DependencyError)
+	if !ok {
+		t.Fatalf("expected *DependencyError, got %T", err)
+	}
+
+	if len(depErr.MissingCommands) != 1 {
+		t.Fatalf("expected 1 missing command, got %d", len(depErr.MissingCommands))
+	}
+	if !strings.Contains(depErr.MissingCommands[0], "build") {
+		t.Errorf("expected missing command error to mention 'build', got %q", depErr.MissingCommands[0])
 	}
 }
 
