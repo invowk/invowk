@@ -6,6 +6,19 @@ This document provides instructions for AI coding agents working in this reposit
 
 Invowk™ is a dynamically extensible command runner (like `just`) written in Go 1.25+. It supports multiple execution runtimes: native shell, virtual shell (mvdan/sh), and containerized execution (Docker/Podman). Commands are defined in `invkfile` files using CUE format.
 
+## Quick Reference
+
+| Task | Command |
+|------|---------|
+| Build | `make build` |
+| Test all | `make test` |
+| Test short | `make test-short` |
+| Single test | `go test -v -run TestName ./path/...` |
+| License check | `make license-check` |
+| Tidy deps | `make tidy` |
+| Website dev | `cd website && npm start` |
+| Website build | `cd website && npm run build` |
+
 ## License
 
 This project is licensed under the Eclipse Public License 2.0 (EPL-2.0). See the [LICENSE](LICENSE) file for the full license text.
@@ -73,6 +86,14 @@ When creating new Go source files, always include the SPDX header. The header fo
 
 **DO** include:
 - Only the SPDX-License-Identifier line with `EPL-2.0`
+
+## Prerequisites
+
+- **Go 1.25+** - Required for building
+- **Make** - Build automation
+- **Node.js 20+** - For website development (optional)
+- **Docker or Podman** - For container runtime tests (optional)
+- **UPX** - For compressed builds (optional)
 
 ## Build Commands
 
@@ -169,6 +190,21 @@ refactor(invkfile): rename commands to cmds
 - `internal/` - Private packages (config, container, discovery, issue, runtime, sshserver, tui, tuiserver)
 - `pkg/` - Public packages (pack, invkfile)
 - `packs/` - Sample invowk packs for validation and reference
+
+### Architecture Overview
+
+```
+invkfile.cue → CUE Parser → pkg/invkfile → Runtime Selection → Execution
+                                                  ↓
+                                  ┌───────────────┼───────────────┐
+                                  ↓               ↓               ↓
+                               Native         Virtual        Container
+                            (host shell)    (mvdan/sh)    (Docker/Podman)
+```
+
+- **CUE Schemas**: `pkg/invkfile/invkfile_schema.cue` defines invkfile structure, `internal/config/config_schema.cue` defines config
+- **Runtime Interface**: All runtimes implement the same interface in `internal/runtime/`
+- **TUI Components**: Built with Charm libraries (bubbletea, huh, lipgloss)
 
 ### Import Ordering
 
@@ -281,6 +317,25 @@ func TestExample(t *testing.T) {
     }
 }
 ```
+
+## Common Pitfalls
+
+- **Forgetting SPDX headers** - Every new `.go` file needs `// SPDX-License-Identifier: EPL-2.0` as the first line
+- **Unclosed CUE structs** - Always use `close({ ... })` for CUE definitions
+- **Missing i18n** - Website changes require updates to both `docs/` and `i18n/pt-BR/`
+- **Stale sample packs** - Update packs in `packs/` after pack-related changes
+- **Outdated documentation** - Check the Documentation Sync Map when modifying schemas or CLI
+
+## Agent Checklist
+
+Before considering work complete:
+
+1. **Tests pass**: `make test`
+2. **License headers**: `make license-check` (for new Go files)
+3. **Dependencies tidy**: `make tidy`
+4. **Documentation updated**: Check sync map for affected docs
+5. **Website builds**: `cd website && npm run build` (if website changed)
+6. **Sample packs valid**: `go run . pack validate packs/*.invkpack --deep` (if pack-related)
 
 ## Built-in Examples of Invowk Commands (invkfile.cue at project root)
 
