@@ -862,43 +862,140 @@ Remove either the 'args' field or the subcommands to resolve this conflict.
 
 ## Platform Compatibility
 
-Every command must specify which operating systems it supports using the `works_on` field:
+Commands specify which operating systems they support using the `platforms` field inside `target`. If no platforms are specified, the command runs on all platforms.
+
+### Basic Platform Configuration
 
 ```cue
 commands: [
-	{
-		name: "build"
-		script: "make build"
-		works_on: {
-			hosts: ["linux", "mac", "windows"]  // Runs on all platforms
-		}
-	},
-	{
-		name: "clean"
-		script: "rm -rf bin/"
-		works_on: {
-			hosts: ["linux", "mac"]  // Unix-only command
-		}
-	},
+    {
+        name: "build"
+        description: "Build the project"
+        implementations: [
+            {
+                script: "make build"
+                target: {
+                    runtimes: [{name: "native"}]
+                    // No platforms specified = runs on all platforms (linux, macos, windows)
+                }
+            }
+        ]
+    },
+    {
+        name: "clean"
+        description: "Clean build artifacts"
+        implementations: [
+            {
+                script: "rm -rf bin/"
+                target: {
+                    runtimes: [{name: "native"}]
+                    // Unix-only command
+                    platforms: [{name: "linux"}, {name: "macos"}]
+                }
+            }
+        ]
+    },
 ]
 ```
 
-**Supported host values:**
-- `linux`: Linux operating systems
-- `mac`: macOS (Darwin)
-- `windows`: Windows
+### Supported Platform Values
 
-When you run `invowk cmd list`, the supported hosts are displayed for each command:
+| Value | Description |
+|-------|-------------|
+| `linux` | Linux operating systems |
+| `macos` | macOS (Darwin) |
+| `windows` | Windows |
+
+### Platform-Specific Implementations
+
+You can provide different implementations for different platforms:
+
+```cue
+commands: [
+    {
+        name: "system info"
+        description: "Display system information"
+        implementations: [
+            // Unix implementation (Linux and macOS)
+            {
+                script: """
+                    echo "Hostname: $(hostname)"
+                    echo "Kernel: $(uname -r)"
+                    """
+                target: {
+                    runtimes: [{name: "native"}]
+                    platforms: [{name: "linux"}, {name: "macos"}]
+                }
+            },
+            // Windows implementation
+            {
+                script: """
+                    echo Hostname: %COMPUTERNAME%
+                    echo User: %USERNAME%
+                    """
+                target: {
+                    runtimes: [{name: "native"}]
+                    platforms: [{name: "windows"}]
+                }
+            }
+        ]
+    }
+]
+```
+
+### Platform-Specific Environment Variables
+
+Each platform can define its own environment variables:
+
+```cue
+commands: [
+    {
+        name: "deploy"
+        description: "Deploy with platform-specific config"
+        implementations: [
+            {
+                script: "echo \"Platform: $PLATFORM_NAME, Config: $CONFIG_PATH\""
+                target: {
+                    runtimes: [{name: "native"}]
+                    platforms: [
+                        {name: "linux", env: {PLATFORM_NAME: "Linux", CONFIG_PATH: "/etc/app/config.yaml"}},
+                        {name: "macos", env: {PLATFORM_NAME: "macOS", CONFIG_PATH: "/usr/local/etc/app/config.yaml"}},
+                    ]
+                }
+            }
+        ]
+    }
+]
+```
+
+### Command Listing
+
+When you run `invowk cmd list`, the supported platforms are displayed for each command:
 
 ```
 Available Commands
+  (* = default runtime)
 
 From current directory:
-  myproject build - Build the project [native] (linux, macos, windows)
-  myproject clean - Clean build artifacts [native] (linux, macos)
+  myproject build - Build the project [native*] (linux, macos, windows)
+  myproject clean - Clean build artifacts [native*] (linux, macos)
+  myproject system info - Display system information [native*] (linux, macos, windows)
 ```
 
-If you try to run a command on an unsupported platform, invowk displays a styled error message explaining which platforms are supported.
+### Unsupported Platform Error
+
+If you try to run a command on an unsupported platform, invowk displays a styled error message:
+
+```
+✗ Host not supported
+
+Command 'clean' cannot run on this host.
+
+Current host:     windows
+Supported hosts:  linux, macos
+
+This command is only available on the platforms listed above.
+```
 
 ## Script Sources
 
