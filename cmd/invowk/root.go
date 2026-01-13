@@ -13,6 +13,16 @@ import (
 	"invowk-cli/internal/config"
 )
 
+// Build-time variables set via ldflags
+var (
+	// Version is the semantic version (set via -ldflags)
+	Version = "dev"
+	// Commit is the git commit hash (set via -ldflags)
+	Commit = "unknown"
+	// BuildDate is the build timestamp (set via -ldflags)
+	BuildDate = "unknown"
+)
+
 var (
 	// Verbose enables verbose output
 	verbose bool
@@ -59,16 +69,25 @@ be organized hierarchically with support for dependencies.
   invowk cmd test.unit      Run nested 'test.unit' command
   invowk init               Create a new invowkfile
   invowk config show        Show current configuration`,
-	Version: "0.1.0",
+}
+
+// getVersionString returns a formatted version string for display.
+func getVersionString() string {
+	if Version == "dev" {
+		return "dev (built from source)"
+	}
+	return fmt.Sprintf("%s (commit: %s, built: %s)", Version, Commit, BuildDate)
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
 // This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() {
 	// Use fang.Execute for enhanced Cobra styling
+	// Pass version via fang.WithVersion() since fang overrides rootCmd.Version
 	if err := fang.Execute(
 		context.Background(),
 		rootCmd,
+		fang.WithVersion(getVersionString()),
 		fang.WithNotifySignal(os.Interrupt),
 	); err != nil {
 		os.Exit(1)

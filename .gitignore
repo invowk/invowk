@@ -1,0 +1,22 @@
+# Build artifacts
+bin/
+/invowk
+/invowk-upx
+
+# SSH keys generated during tests/development (keep embedded ones)
+internal/runtime/id_ed25519
+internal/runtime/id_ed25519.pub
+
+# Go build cache
+*.test
+*.out
+
+# IDE
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
