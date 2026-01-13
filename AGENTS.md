@@ -166,7 +166,7 @@ refactor(invkfile): rename commands to cmds
 ### Package Structure
 
 - `cmd/invowk/` - CLI commands using Cobra
-- `internal/` - Private packages (config, container, discovery, issue, runtime, sshserver, tui)
+- `internal/` - Private packages (config, container, discovery, issue, runtime, sshserver, tui, tuiserver)
 - `pkg/` - Public packages (pack, invkfile)
 - `packs/` - Sample invowk packs for validation and reference
 
@@ -325,41 +325,22 @@ When modifying pack-related code, verify:
 
 The `website/` directory contains a Docusaurus-based documentation website for Invowk.
 
-### CRITICAL: Read WEBSITE_DOCS.md First
+### Required Workflow
 
-**Before making ANY changes to the documentation website, you MUST read `website/WEBSITE_DOCS.md`.** This file contains essential information about:
+- Read `website/WEBSITE_DOCS.md` before any website edits.
+- Use MDX + `<Snippet>` for all code/CLI/CUE blocks.
+- Define snippets in `website/src/components/Snippet/snippets.ts` and reuse IDs across locales.
+- Escape `${...}` inside snippets as `\${...}`.
 
-- How to properly add new documentation pages (including sidebar configuration)
-- Translation requirements and file structure
-- The Snippet component pattern for code blocks
-- Common mistakes to avoid
-- Testing procedures
+### Documentation Sync Map
 
-Failure to follow the guidelines in `website/WEBSITE_DOCS.md` will result in pages not appearing in navigation, broken builds, or missing translations.
-
-### CRITICAL: Documentation Maintenance Requirement
-
-**The documentation website MUST be kept in sync with the codebase.** When making changes to the following, you MUST update the corresponding documentation:
-
-1. **Invkfile Schema Changes** (`pkg/invkfile/invkfile_schema.cue`):
-   - Update `website/docs/reference/invkfile-schema.md`
-   - Update relevant feature documentation (e.g., new runtime options go in `runtime-modes/`)
-   - Update examples in `website/docs/getting-started/` if affected
-
-2. **Configuration Schema Changes** (`internal/config/config_schema.cue`):
-   - Update `website/docs/reference/config-schema.md`
-   - Update `website/docs/configuration/options.md`
-
-3. **CLI Command Changes** (`cmd/invowk/*.go`):
-   - Update `website/docs/reference/cli.md`
-   - Update relevant feature documentation
-
-4. **New Features or Major Changes**:
-   - Add or update the appropriate section in `website/docs/`
-   - Follow the existing documentation structure and tone (friendly, slightly humorous, progressive disclosure)
-
-5. **TUI Component Changes** (`cmd/invowk/tui_*.go`):
-   - Update relevant files in `website/docs/tui/`
+| Change | Update |
+| --- | --- |
+| `pkg/invkfile/invkfile_schema.cue` | `website/docs/reference/invkfile-schema.mdx` + affected docs/snippets |
+| `internal/config/config_schema.cue` | `website/docs/reference/config-schema.mdx`, `website/docs/configuration/options.mdx` |
+| `cmd/invowk/*.go` | `website/docs/reference/cli.mdx` + relevant feature docs |
+| `cmd/invowk/tui_*.go` | `website/docs/tui/` pages + snippets |
+| New features | Add/update docs under `website/docs/` and snippets as needed |
 
 ### Documentation Structure
 
@@ -380,182 +361,29 @@ website/docs/
 
 ### Documentation Style Guide
 
-- Use a friendly, approachable tone with occasional humor
-- Follow "progressive disclosure" - start simple, add complexity gradually
-- Include practical examples for every feature
-- Use admonitions (:::tip, :::warning, :::note) for important callouts
-- Keep code examples concise and focused
+- Use a friendly, approachable tone with occasional humor.
+- Follow progressive disclosure: start simple, add complexity gradually.
+- Include practical examples for each feature.
+- Use admonitions for important callouts.
+- Keep code examples concise and focused.
 
-### CRITICAL: Reusable Code Snippets Pattern
+### Docs + i18n Checklist
 
-**All code blocks, CUE syntax examples, CLI commands, and technical snippets in documentation MUST use the reusable `<Snippet>` component** to avoid duplication across translations. This ensures:
+- Always use `.mdx` (not `.md`) in `website/docs/` and translations.
+- Update English first, then mirror the same `.mdx` path in `website/i18n/pt-BR/docusaurus-plugin-content-docs/current/`.
+- Keep translations prose-only and reuse identical snippet IDs.
+- Regenerate translation JSON when UI strings change: `cd website && npx docusaurus write-translations --locale pt-BR`.
 
-1. Code examples are updated in ONE place, not in every translation file
-2. Translations only contain translatable prose, not duplicated code
-3. Consistency across all language versions
+### Documentation Testing
 
-#### Snippet Component Usage
-
-Documentation files MUST use `.mdx` extension (not `.md`) to use React components.
-
-**Basic Usage:**
-
-```mdx
----
-sidebar_position: 1
----
-
-import Snippet from '@site/src/components/Snippet';
-
-# Page Title
-
-Here's an example of an invkfile:
-
-<Snippet id="getting-started/invkfile-basic-structure" />
-
-Run the following command:
-
-<Snippet id="cli/list-commands" />
-```
-
-**With Optional Title:**
-
-```mdx
-<Snippet id="runtime-modes/container-basic" title="container-example.cue" />
-```
-
-#### Adding New Snippets
-
-All snippets are defined in `website/src/components/Snippet/snippets.ts`. When adding new code examples:
-
-1. **Add the snippet** to `snippets.ts` with a descriptive hierarchical ID:
-   ```typescript
-   'section/feature/example-name': {
-     language: 'cue',  // or 'bash', 'text', 'dockerfile', etc.
-     code: `your code here`,
-   },
-   ```
-
-2. **Use the snippet** in both English and translated MDX files:
-   ```mdx
-   <Snippet id="section/feature/example-name" />
-   ```
-
-#### Snippet Naming Convention
-
-- Use hierarchical IDs matching documentation sections: `section/subsection/name`
-- Examples:
-  - `getting-started/invkfile-basic-structure`
-  - `cli/list-commands`
-  - `cli/output-list-commands`
-  - `runtime-modes/container-basic`
-  - `dependencies/tools-alternatives`
-
-#### Escaping Template Literals
-
-When snippets contain `${variable}` syntax (e.g., shell variables), escape them:
-
-```typescript
-// WRONG - will be interpreted as JS template literal
-code: `files: [".env.${INVOWK_ENV}"]`
-
-// CORRECT - escaped
-code: `files: [".env.\${INVOWK_ENV}"]`
-```
-
-#### Current Snippet Categories
-
-- `getting-started/*` - First invkfile examples
-- `core-concepts/*` - Schema, structure, syntax examples
-- `runtime-modes/*` - Native, virtual, container examples
-- `dependencies/*` - Tools, filepaths, capabilities, custom checks
-- `environment/*` - Env files and variables
-- `flags-args/*` - Flags and positional arguments
-- `advanced/*` - Interpreters, workdir, platform-specific
-- `packs/*` - Pack creation and validation
-- `tui/*` - TUI component examples
-- `config/*` - Configuration examples
-- `cli/*` - CLI commands and output examples
-
-#### Converting Existing Documentation
-
-When updating or creating documentation:
-
-1. **File extension**: Rename `.md` to `.mdx`
-2. **Add import**: Add `import Snippet from '@site/src/components/Snippet';` after frontmatter
-3. **Replace code blocks**: Replace inline code blocks with `<Snippet id="..." />`
-4. **Keep prose in translations**: Only translatable text should differ between locales
-5. **Update all locales**: Apply the same structure to all translation files
-
-### Testing Documentation Changes
-
-After making documentation changes:
-
-```bash
-cd website
-npm install    # First time only
-npm start      # Start dev server at localhost:3000 (English only)
-```
-
-Verify:
-1. No build errors
-2. Navigation works correctly
-3. Code examples render properly
-4. Links are not broken
-
-**Testing specific locales in dev mode:**
-```bash
-npm start -- --locale pt-BR   # Start dev server with Portuguese
-```
-
-**Testing all locales (recommended before committing):**
-```bash
-npm run build    # Build all locales
-npm run serve    # Serve at localhost:3000, language switcher works
-```
-
-### CRITICAL: Internationalization (i18n) Requirements
-
-The documentation website supports multiple languages. **All supported locales MUST be kept in sync.**
-
-**Supported Locales:**
-- `en` (English) - Primary/source language in `website/docs/`
-- `pt-BR` (Português Brasil) - Translations in `website/i18n/pt-BR/docusaurus-plugin-content-docs/current/`
-
-**Important:** The dev server (`npm start`) only serves ONE locale at a time. To test the language switcher, use `npm run build && npm run serve`.
-
-**When updating documentation:**
-
-1. **Always update the English version first** (`website/docs/`)
-2. **Then update the same file in ALL other locales** - The file structure must mirror exactly:
-   - English: `website/docs/getting-started/installation.md`
-   - Portuguese: `website/i18n/pt-BR/docusaurus-plugin-content-docs/current/getting-started/installation.md`
-
-3. **When adding new documentation files:**
-   - Create the file in `website/docs/`
-   - Copy it to ALL locale directories under `website/i18n/<locale>/docusaurus-plugin-content-docs/current/`
-
-4. **When deleting documentation files:**
-   - Remove from `website/docs/`
-   - Remove from ALL locale directories
-
-5. **Translation JSON files** (`website/i18n/<locale>/*.json`):
-   - These contain UI string translations (navbar, footer, theme labels)
-   - Regenerate with: `cd website && npx docusaurus write-translations --locale <locale>`
-
-**Verification:**
-```bash
-cd website
-npm run build  # Must succeed for ALL locales without errors
-npm run serve  # Test language switcher at localhost:3000
-```
-
-The build will fail if locale files are missing or malformed. Always test the language switcher after documentation changes.
+- `cd website && npm start` (single locale)
+- `cd website && npm start -- --locale pt-BR`
+- `cd website && npm run build` then `npm run serve` for locale switching
 
 ## Key Guidelines
 
 - In all planning and design decisions, always consider that the code must be highly testable, maintainable, and extensible.
-- Always add unit and integration tests to new code.
+- Always add or adjust unit tests for behavior changes; add integration tests when changes touch integrations or cross-component workflows.
 - Always document the code (functions, structs, etc.) with comments.
 - Always use descriptive variable names.
 - Always adjust the README and other documentation as needed when making significant changes to the codebase.
