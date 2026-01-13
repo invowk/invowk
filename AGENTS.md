@@ -78,6 +78,7 @@ When creating new Go source files, always include the SPDX header. The header fo
 
 ```bash
 # Build the binary (default, stripped)
+# On x86-64, targets x86-64-v3 microarchitecture by default (Haswell+ CPUs, 2013+)
 make build
 
 # Build with debug symbols for development
@@ -89,6 +90,12 @@ make build-upx
 # Build all variants
 make build-all
 
+# Cross-compile for multiple platforms (x86-64 targets use v3 by default)
+make build-cross
+
+# Build for maximum compatibility (baseline x86-64)
+make build GOAMD64=v1
+
 # Install to $GOPATH/bin
 make install
 
@@ -98,6 +105,16 @@ make clean
 # Tidy dependencies
 make tidy
 ```
+
+### x86-64 Microarchitecture Levels
+
+The project defaults to `GOAMD64=v3` for x86-64 builds, targeting CPUs from 2013+ (Intel Haswell, AMD Excavator). This enables AVX, AVX2, BMI1/2, FMA, and other modern instructions for better performance.
+
+Available levels:
+- `v1` - Baseline x86-64 (maximum compatibility, any 64-bit x86 CPU)
+- `v2` - Nehalem+ (2008+): SSE4.2, POPCNT
+- `v3` - Haswell+ (2013+): AVX, AVX2, BMI1/2, FMA **(default)**
+- `v4` - Skylake-X+ (2017+): AVX-512
 
 ## Test Commands
 

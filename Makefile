@@ -26,6 +26,12 @@ VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev
 COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 BUILD_DATE := $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 
+# x86-64 microarchitecture level for amd64 builds
+# v3 = Haswell/Excavator+ (2013+): AVX, AVX2, BMI1, BMI2, F16C, FMA, LZCNT, MOVBE
+# This provides better performance on modern CPUs while maintaining broad compatibility
+# Override with: make build GOAMD64=v2 (or v1 for maximum compatibility)
+GOAMD64 ?= v3
+
 # Linker flags for stripping and version info
 LDFLAGS := -s -w
 LDFLAGS += -X 'invowk-cli/cmd/invowk.Version=$(VERSION)'
@@ -39,6 +45,15 @@ BUILD_FLAGS := -trimpath -ldflags="$(LDFLAGS)"
 UPX := upx
 UPX_FLAGS := --best --lzma
 
+# Detect host architecture for applying GOAMD64
+# GOAMD64 only applies when GOARCH=amd64
+HOST_ARCH := $(shell $(GOCMD) env GOARCH)
+ifeq ($(HOST_ARCH),amd64)
+    AMD64_ENV := GOAMD64=$(GOAMD64)
+else
+    AMD64_ENV :=
+endif
+
 # Default target
 .DEFAULT_GOAL := build
 
@@ -47,10 +62,14 @@ $(BUILD_DIR):
 	mkdir -p $(BUILD_DIR)
 
 # Build stripped binary (no UPX)
+# On amd64, targets x86-64-v3 microarchitecture by default
 .PHONY: build
 build: $(BUILD_DIR)
 	@echo "Building $(BINARY_NAME) (stripped)..."
-	$(GOBUILD) $(BUILD_FLAGS) -o $(BUILD_DIR)/$(BINARY_NAME) .
+ifeq ($(HOST_ARCH),amd64)
+	@echo "  Target: x86-64-$(GOAMD64)"
+endif
+	$(AMD64_ENV) $(GOBUILD) $(BUILD_FLAGS) -o $(BUILD_DIR)/$(BINARY_NAME) .
 	@echo "Built: $(BUILD_DIR)/$(BINARY_NAME)"
 	@ls -lh $(BUILD_DIR)/$(BINARY_NAME) | awk '{print "Size:", $$5}'
 
@@ -58,8 +77,11 @@ build: $(BUILD_DIR)
 .PHONY: build-upx
 build-upx: $(BUILD_DIR)
 	@echo "Building $(BINARY_UPX) (stripped + UPX compressed)..."
+ifeq ($(HOST_ARCH),amd64)
+	@echo "  Target: x86-64-$(GOAMD64)"
+endif
 	@command -v $(UPX) >/dev/null 2>&1 || { echo "Error: UPX is not installed. Install it with your package manager."; exit 1; }
-	$(GOBUILD) $(BUILD_FLAGS) -o $(BUILD_DIR)/$(BINARY_UPX) .
+	$(AMD64_ENV) $(GOBUILD) $(BUILD_FLAGS) -o $(BUILD_DIR)/$(BINARY_UPX) .
 	@echo "Compressing with UPX..."
 	$(UPX) $(UPX_FLAGS) $(BUILD_DIR)/$(BINARY_UPX)
 	@echo "Built: $(BUILD_DIR)/$(BINARY_UPX)"
@@ -76,7 +98,10 @@ build-all: build build-upx
 .PHONY: build-dev
 build-dev: $(BUILD_DIR)
 	@echo "Building $(BINARY_NAME) (development)..."
-	$(GOBUILD) -o $(BUILD_DIR)/$(BINARY_NAME) .
+ifeq ($(HOST_ARCH),amd64)
+	@echo "  Target: x86-64-$(GOAMD64)"
+endif
+	$(AMD64_ENV) $(GOBUILD) -o $(BUILD_DIR)/$(BINARY_NAME) .
 	@echo "Built: $(BUILD_DIR)/$(BINARY_NAME)"
 	@ls -lh $(BUILD_DIR)/$(BINARY_NAME) | awk '{print "Size:", $$5}'
 
@@ -143,12 +168,15 @@ license-check:
 .PHONY: size
 size: $(BUILD_DIR)
 	@echo "Building size comparison..."
+ifeq ($(HOST_ARCH),amd64)
+	@echo "  Target: x86-64-$(GOAMD64)"
+endif
 	@echo ""
 	@echo "=== Debug build (with symbols) ==="
-	@$(GOBUILD) -o $(BUILD_DIR)/$(BINARY_NAME)-debug . && ls -lh $(BUILD_DIR)/$(BINARY_NAME)-debug | awk '{print "Size:", $$5}'
+	@$(AMD64_ENV) $(GOBUILD) -o $(BUILD_DIR)/$(BINARY_NAME)-debug . && ls -lh $(BUILD_DIR)/$(BINARY_NAME)-debug | awk '{print "Size:", $$5}'
 	@echo ""
 	@echo "=== Stripped build ==="
-	@$(GOBUILD) $(BUILD_FLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-stripped . && ls -lh $(BUILD_DIR)/$(BINARY_NAME)-stripped | awk '{print "Size:", $$5}'
+	@$(AMD64_ENV) $(GOBUILD) $(BUILD_FLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-stripped . && ls -lh $(BUILD_DIR)/$(BINARY_NAME)-stripped | awk '{print "Size:", $$5}'
 	@echo ""
 	@if command -v $(UPX) >/dev/null 2>&1; then \
 		echo "=== UPX compressed ==="; \
@@ -162,14 +190,16 @@ size: $(BUILD_DIR)
 	@rm -f $(BUILD_DIR)/$(BINARY_NAME)-debug $(BUILD_DIR)/$(BINARY_NAME)-stripped
 
 # Cross-compile for multiple platforms
+# amd64 targets use x86-64-v3 microarchitecture by default
 .PHONY: build-cross
 build-cross: $(BUILD_DIR)
 	@echo "Cross-compiling for multiple platforms..."
-	GOOS=linux GOARCH=amd64 $(GOBUILD) $(BUILD_FLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-linux-amd64 .
+	@echo "  amd64 targets: x86-64-$(GOAMD64)"
+	GOOS=linux GOARCH=amd64 GOAMD64=$(GOAMD64) $(GOBUILD) $(BUILD_FLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-linux-amd64 .
 	GOOS=linux GOARCH=arm64 $(GOBUILD) $(BUILD_FLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-linux-arm64 .
-	GOOS=darwin GOARCH=amd64 $(GOBUILD) $(BUILD_FLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-darwin-amd64 .
+	GOOS=darwin GOARCH=amd64 GOAMD64=$(GOAMD64) $(GOBUILD) $(BUILD_FLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-darwin-amd64 .
 	GOOS=darwin GOARCH=arm64 $(GOBUILD) $(BUILD_FLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-darwin-arm64 .
-	GOOS=windows GOARCH=amd64 $(GOBUILD) $(BUILD_FLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-windows-amd64.exe .
+	GOOS=windows GOARCH=amd64 GOAMD64=$(GOAMD64) $(GOBUILD) $(BUILD_FLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-windows-amd64.exe .
 	@echo ""
 	@echo "Cross-compilation complete:"
 	@ls -lh $(BUILD_DIR)/$(BINARY_NAME)-* | awk '{print $$9 ":", $$5}'
@@ -200,3 +230,13 @@ help:
 	@echo ""
 	@echo "Environment variables:"
 	@echo "  VERSION        Override version string (default: git describe)"
+	@echo "  GOAMD64        x86-64 microarchitecture level (default: v3)"
+	@echo "                 v1 = baseline x86-64 (maximum compatibility)"
+	@echo "                 v2 = Nehalem+ (2008+): CMPXCHG16B, LAHF, SAHF, POPCNT, SSE3, SSE4.1, SSE4.2, SSSE3"
+	@echo "                 v3 = Haswell+ (2013+): AVX, AVX2, BMI1, BMI2, F16C, FMA, LZCNT, MOVBE"
+	@echo "                 v4 = Skylake-X+ (2017+): AVX512F, AVX512BW, AVX512CD, AVX512DQ, AVX512VL"
+	@echo ""
+	@echo "Examples:"
+	@echo "  make build                    # Build for x86-64-v3 (default)"
+	@echo "  make build GOAMD64=v1         # Build for baseline x86-64 (max compat)"
+	@echo "  make build-cross GOAMD64=v2   # Cross-compile with x86-64-v2"

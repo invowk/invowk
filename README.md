@@ -35,15 +35,23 @@ A dynamically extensible, CLI-based command runner similar to [just](https://git
 ```bash
 git clone https://github.com/yourusername/invowk
 cd invowk
-go build -o invowk .
+make build
 ```
+
+> **Note:** On x86-64 systems, the default build targets the x86-64-v3 microarchitecture (Haswell+ CPUs from 2013+) for optimal performance. For maximum compatibility with older CPUs, use `make build GOAMD64=v1`.
 
 ### Installing the Binary
 
 Move the built binary to a location in your PATH:
 
 ```bash
-sudo mv invowk /usr/local/bin/
+sudo mv bin/invowk /usr/local/bin/
+```
+
+Or use the install target:
+
+```bash
+make install  # Installs to $GOPATH/bin
 ```
 
 ## Quick Start
