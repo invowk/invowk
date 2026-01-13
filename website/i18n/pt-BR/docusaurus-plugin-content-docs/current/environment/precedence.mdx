@@ -23,7 +23,6 @@ Da maior para a menor prioridade:
 | 7 | Vars raiz | `root.env.vars` |
 | 8 | Arquivos raiz | `root.env.files` |
 | 9 | Ambiente do sistema | Ambiente do host |
-| 10 | Vars de plataforma | `platforms[].env` |
 
 ## Hierarquia Visual
 
@@ -87,11 +86,11 @@ Arquivos são carregados em ordem; arquivos posteriores sobrescrevem anteriores:
 
 ## Variáveis Específicas de Plataforma
 
-Variáveis de plataforma são aplicadas depois de tudo:
+Para variáveis de ambiente específicas por plataforma, use implementações separadas por plataforma:
 
 <Snippet id="environment/precedence-platform" />
 
-`env` de plataforma só é aplicado se a plataforma corresponder e a variável ainda não estiver definida.
+Cada implementação tem seu próprio `env` que é aplicado quando aquela plataforma é selecionada.
 
 ## Melhores Práticas
 

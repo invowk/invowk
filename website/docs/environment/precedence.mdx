@@ -23,7 +23,6 @@ From highest to lowest priority:
 | 7 | Root vars | `root.env.vars` |
 | 8 | Root files | `root.env.files` |
 | 9 | System environment | Host's environment |
-| 10 | Platform vars | `platforms[].env` |
 
 ## Visual Hierarchy
 
@@ -87,11 +86,11 @@ Files are loaded in order; later files override earlier:
 
 ## Platform-Specific Variables
 
-Platform variables are applied after everything else:
+For platform-specific environment variables, use separate implementations per platform:
 
 <Snippet id="environment/precedence-platform" />
 
-Platform `env` is only applied if that platform matches and the variable isn't already set.
+Each implementation has its own `env` that is applied when that platform is selected.
 
 ## Best Practices
 

@@ -970,8 +970,7 @@ When a command's script invokes another invowk command (e.g., `invowk cmd other-
 This isolation prevents the parent command's arguments and flags from accidentally leaking into child commands, which could cause unexpected behavior.
 
 **Inherited Variables (standard UNIX behavior):**
-- Variables defined in the `env` construct of a command
-- Platform-level environment variables from `platforms[].env`
+- Variables defined in the `env` construct of a command or implementation
 - Any other environment variables in the process environment
 
 This follows standard UNIX semantics where child processes inherit their parent's environment. If you define `env: { MY_VAR: "value" }` in a command and that command calls another invowk command, the child will see `MY_VAR` in its environment. This is intentional and allows commands to set up environment context for nested invocations.

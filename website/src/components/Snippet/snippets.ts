@@ -978,20 +978,21 @@ cmds: [...]  // All commands get PROJECT_NAME`,
 
   'environment/scope-platform': {
     language: 'cue',
-    code: `implementations: [{
-    script: "echo $CONFIG_PATH"
-    runtimes: [{name: "native"}]
-    platforms: [
-        {
-            name: "linux"
-            env: {CONFIG_PATH: "/etc/myapp/config"}
-        },
-        {
-            name: "macos"
-            env: {CONFIG_PATH: "/usr/local/etc/myapp/config"}
-        }
-    ]
-}]`,
+    code: `// Platform-specific env requires separate implementations
+implementations: [
+    {
+        script: "echo $CONFIG_PATH"
+        runtimes: [{name: "native"}]
+        platforms: [{name: "linux"}]
+        env: {vars: {CONFIG_PATH: "/etc/myapp/config"}}
+    },
+    {
+        script: "echo $CONFIG_PATH"
+        runtimes: [{name: "native"}]
+        platforms: [{name: "macos"}]
+        env: {vars: {CONFIG_PATH: "/usr/local/etc/myapp/config"}}
+    }
+]`,
   },
 
   'environment/cli-overrides': {
@@ -1380,33 +1381,42 @@ cmds: [
 
   'environment/env-vars-scope-platform': {
     language: 'cue',
-    code: `implementations: [{
-    script: "echo $PLATFORM_CONFIG"
-    runtimes: [{name: "native"}]
-    platforms: [
-        {
-            name: "linux"
-            env: {
+    code: `// Platform-specific env requires separate implementations
+implementations: [
+    {
+        script: "echo $PLATFORM_CONFIG"
+        runtimes: [{name: "native"}]
+        platforms: [{name: "linux"}]
+        env: {
+            vars: {
                 PLATFORM_CONFIG: "/etc/myapp"
                 PLATFORM_NAME: "Linux"
             }
-        },
-        {
-            name: "macos"
-            env: {
+        }
+    },
+    {
+        script: "echo $PLATFORM_CONFIG"
+        runtimes: [{name: "native"}]
+        platforms: [{name: "macos"}]
+        env: {
+            vars: {
                 PLATFORM_CONFIG: "/usr/local/etc/myapp"
                 PLATFORM_NAME: "macOS"
             }
-        },
-        {
-            name: "windows"
-            env: {
+        }
+    },
+    {
+        script: "echo %PLATFORM_CONFIG%"
+        runtimes: [{name: "native"}]
+        platforms: [{name: "windows"}]
+        env: {
+            vars: {
                 PLATFORM_CONFIG: "%APPDATA%\\\\myapp"
                 PLATFORM_NAME: "Windows"
             }
         }
-    ]
-}]`,
+    }
+]`,
   },
 
   'environment/env-vars-combined-files': {
@@ -1646,20 +1656,31 @@ CACHE_DIR=./cache                      # From .env.build file`,
 
   'environment/precedence-platform': {
     language: 'cue',
-    code: `implementations: [{
-    script: "echo $CONFIG_PATH"
-    runtimes: [{name: "native"}]
-    platforms: [
-        {name: "linux", env: {CONFIG_PATH: "/etc/app"}}
-        {name: "macos", env: {CONFIG_PATH: "/usr/local/etc/app"}}
-    ]
-    env: {
-        vars: {
-            OTHER_VAR: "value"
-            // CONFIG_PATH not set here
+    code: `// Platform-specific env requires separate implementations
+implementations: [
+    {
+        script: "echo $CONFIG_PATH"
+        runtimes: [{name: "native"}]
+        platforms: [{name: "linux"}]
+        env: {
+            vars: {
+                CONFIG_PATH: "/etc/app"
+                OTHER_VAR: "value"
+            }
+        }
+    },
+    {
+        script: "echo $CONFIG_PATH"
+        runtimes: [{name: "native"}]
+        platforms: [{name: "macos"}]
+        env: {
+            vars: {
+                CONFIG_PATH: "/usr/local/etc/app"
+                OTHER_VAR: "value"
+            }
         }
     }
-}]`,
+]`,
   },
 
   'environment/precedence-appropriate-levels': {
@@ -3023,33 +3044,44 @@ workdir: ".\\\\src\\\\app"`,
     language: 'cue',
     code: `{
     name: "configure"
-    implementations: [{
-        script: "echo \\"Config: \$CONFIG_PATH\\""
-        runtimes: [{name: "native"}]
-        platforms: [
-            {
-                name: "linux"
-                env: {
+    implementations: [
+        // Linux implementation
+        {
+            script: "echo \\"Config: \$CONFIG_PATH\\""
+            runtimes: [{name: "native"}]
+            platforms: [{name: "linux"}]
+            env: {
+                vars: {
                     CONFIG_PATH: "/etc/myapp/config.yaml"
                     CACHE_DIR: "/var/cache/myapp"
                 }
-            },
-            {
-                name: "macos"
-                env: {
+            }
+        },
+        // macOS implementation
+        {
+            script: "echo \\"Config: \$CONFIG_PATH\\""
+            runtimes: [{name: "native"}]
+            platforms: [{name: "macos"}]
+            env: {
+                vars: {
                     CONFIG_PATH: "/usr/local/etc/myapp/config.yaml"
                     CACHE_DIR: "\${HOME}/Library/Caches/myapp"
                 }
-            },
-            {
-                name: "windows"
-                env: {
+            }
+        },
+        // Windows implementation
+        {
+            script: "echo \\"Config: %CONFIG_PATH%\\""
+            runtimes: [{name: "native"}]
+            platforms: [{name: "windows"}]
+            env: {
+                vars: {
                     CONFIG_PATH: "%APPDATA%\\\\myapp\\\\config.yaml"
                     CACHE_DIR: "%LOCALAPPDATA%\\\\myapp\\\\cache"
                 }
             }
-        ]
-    }]
+        }
+    ]
 }`,
   },
 
@@ -3057,17 +3089,20 @@ workdir: ".\\\\src\\\\app"`,
     language: 'cue',
     code: `{
     name: "build"
-    implementations: [{
-        script: """
-            go build -o \${OUTPUT_NAME} ./...
-            """
-        runtimes: [{name: "native"}]
-        platforms: [
-            {name: "linux", env: {OUTPUT_NAME: "bin/app"}},
-            {name: "macos", env: {OUTPUT_NAME: "bin/app"}},
-            {name: "windows", env: {OUTPUT_NAME: "bin/app.exe"}}
-        ]
-    }]
+    implementations: [
+        // Unix platforms (same output name)
+        {
+            script: "go build -o bin/app ./..."
+            runtimes: [{name: "native"}]
+            platforms: [{name: "linux"}, {name: "macos"}]
+        },
+        // Windows (different output name)
+        {
+            script: "go build -o bin/app.exe ./..."
+            runtimes: [{name: "native"}]
+            platforms: [{name: "windows"}]
+        }
+    ]
 }`,
   },
 
@@ -4460,25 +4495,29 @@ platforms: [
     code: `{
     name: "deploy"
     implementations: [
+        // Linux implementation with platform-specific env
         {
-            script: "echo \\"Deploying to $PLATFORM with config at $CONFIG_PATH\\""
+            script: "echo \\"Deploying to \$PLATFORM with config at \$CONFIG_PATH\\""
             runtimes: [{name: "native"}]
-            platforms: [
-                {
-                    name: "linux"
-                    env: {
-                        PLATFORM: "Linux"
-                        CONFIG_PATH: "/etc/app/config.yaml"
-                    }
-                },
-                {
-                    name: "macos"
-                    env: {
-                        PLATFORM: "macOS"
-                        CONFIG_PATH: "/usr/local/etc/app/config.yaml"
-                    }
+            platforms: [{name: "linux"}]
+            env: {
+                vars: {
+                    PLATFORM: "Linux"
+                    CONFIG_PATH: "/etc/app/config.yaml"
                 }
-            ]
+            }
+        },
+        // macOS implementation with platform-specific env
+        {
+            script: "echo \\"Deploying to \$PLATFORM with config at \$CONFIG_PATH\\""
+            runtimes: [{name: "native"}]
+            platforms: [{name: "macos"}]
+            env: {
+                vars: {
+                    PLATFORM: "macOS"
+                    CONFIG_PATH: "/usr/local/etc/app/config.yaml"
+                }
+            }
         }
     ]
 }`,
