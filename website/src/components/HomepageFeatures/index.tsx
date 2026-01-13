@@ -1,84 +1,87 @@
 import type {ReactNode} from 'react';
 import clsx from 'clsx';
+import Translate from '@docusaurus/Translate';
 import Heading from '@theme/Heading';
 import styles from './styles.module.css';
 
 type FeatureItem = {
-  title: string;
+  titleId: string;
+  titleDefault: string;
   icon: string;
   description: ReactNode;
 };
 
 const FeatureList: FeatureItem[] = [
   {
-    title: 'Three Runtime Modes',
+    titleId: 'homepage.features.threeRuntimeModes.title',
+    titleDefault: 'Three Runtime Modes',
     icon: '🚀',
     description: (
-      <>
-        Run commands with <strong>native</strong> shell, the built-in <strong>virtual</strong> shell 
-        (cross-platform POSIX), or inside <strong>containers</strong> (Docker/Podman). 
-        Pick what works best for each command.
-      </>
+      <Translate id="homepage.features.threeRuntimeModes.description">
+        Run commands with native shell, the built-in virtual shell (cross-platform POSIX), or inside containers (Docker/Podman). Pick what works best for each command.
+      </Translate>
     ),
   },
   {
-    title: 'CUE-Powered Configuration',
+    titleId: 'homepage.features.cuePowered.title',
+    titleDefault: 'CUE-Powered Configuration',
     icon: '⚙️',
     description: (
-      <>
-        Define commands in <code>invkfile.cue</code> using CUE, a powerful configuration 
-        language with built-in validation. Say goodbye to YAML indentation nightmares.
-      </>
+      <Translate id="homepage.features.cuePowered.description">
+        Define commands in invkfile.cue using CUE, a powerful configuration language with built-in validation. Say goodbye to YAML indentation nightmares.
+      </Translate>
     ),
   },
   {
-    title: 'Smart Dependencies',
+    titleId: 'homepage.features.smartDependencies.title',
+    titleDefault: 'Smart Dependencies',
     icon: '🔗',
     description: (
-      <>
-        Declare tool, file, capability, and environment dependencies. Invowk validates 
-        everything before running, giving you clear error messages when something's missing.
-      </>
+      <Translate id="homepage.features.smartDependencies.description">
+        Declare tool, file, capability, and environment dependencies. Invowk validates everything before running, giving you clear error messages when something is missing.
+      </Translate>
     ),
   },
   {
-    title: 'Cross-Platform',
+    titleId: 'homepage.features.crossPlatform.title',
+    titleDefault: 'Cross-Platform',
     icon: '🌍',
     description: (
-      <>
-        Works on Linux, macOS, and Windows. Write platform-specific implementations 
-        for the same command, and Invowk picks the right one automatically.
-      </>
+      <Translate id="homepage.features.crossPlatform.description">
+        Works on Linux, macOS, and Windows. Write platform-specific implementations for the same command, and Invowk picks the right one automatically.
+      </Translate>
     ),
   },
   {
-    title: 'Interactive TUI',
+    titleId: 'homepage.features.interactiveTui.title',
+    titleDefault: 'Interactive TUI',
     icon: '🎨',
     description: (
-      <>
-        Built-in terminal UI components (like <code>gum</code>) for creating interactive 
-        scripts: input prompts, selections, confirmations, spinners, and more.
-      </>
+      <Translate id="homepage.features.interactiveTui.description">
+        Built-in terminal UI components (like gum) for creating interactive scripts: input prompts, selections, confirmations, spinners, and more.
+      </Translate>
     ),
   },
   {
-    title: 'Distributable Packs',
+    titleId: 'homepage.features.distributablePacks.title',
+    titleDefault: 'Distributable Packs',
     icon: '📦',
     description: (
-      <>
-        Bundle commands and scripts into <strong>packs</strong> for easy sharing 
-        and distribution. Import packs from files or URLs with a single command.
-      </>
+      <Translate id="homepage.features.distributablePacks.description">
+        Bundle commands and scripts into packs for easy sharing and distribution. Import packs from files or URLs with a single command.
+      </Translate>
     ),
   },
 ];
 
-function Feature({title, icon, description}: FeatureItem) {
+function Feature({titleId, titleDefault, icon, description}: FeatureItem) {
   return (
     <div className={clsx('col col--4')}>
       <div className={clsx('text--center padding--lg', styles.featureCard)}>
         <div className={styles.featureIcon}>{icon}</div>
-        <Heading as="h3">{title}</Heading>
+        <Heading as="h3">
+          <Translate id={titleId}>{titleDefault}</Translate>
+        </Heading>
         <p>{description}</p>
       </div>
     </div>

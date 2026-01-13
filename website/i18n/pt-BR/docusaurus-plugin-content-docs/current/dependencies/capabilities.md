@@ -2,18 +2,18 @@
 sidebar_position: 5
 ---
 
-# Capability Dependencies
+# Dependências de Capacidades
 
-Capability dependencies verify that required system capabilities are available before your command runs. Currently, Invowk supports network connectivity checks.
+Dependências de capacidades verificam se capacidades de sistema necessárias estão disponíveis antes que seu comando seja executado. Atualmente, o Invowk suporta verificações de conectividade de rede.
 
-## Available Capabilities
+## Capacidades Disponíveis
 
-| Capability | Description |
-|------------|-------------|
-| `local-area-network` | Checks for LAN connectivity |
-| `internet` | Checks for internet connectivity |
+| Capacidade | Descrição |
+|------------|-----------|
+| `local-area-network` | Verifica conectividade de rede local (LAN) |
+| `internet` | Verifica conectividade com a internet |
 
-## Basic Usage
+## Uso Básico
 
 ```cue
 {
@@ -27,7 +27,7 @@ Capability dependencies verify that required system capabilities are available b
 }
 ```
 
-If internet connectivity isn't available:
+Se a conectividade com a internet não estiver disponível:
 
 ```
 ✗ Dependencies not satisfied
@@ -40,9 +40,9 @@ Missing Capabilities:
 Ensure the required capabilities are available and try again.
 ```
 
-## Internet Connectivity
+## Conectividade com a Internet
 
-Check for working internet access:
+Verifique se há acesso à internet funcionando:
 
 ```cue
 depends_on: {
@@ -52,15 +52,15 @@ depends_on: {
 }
 ```
 
-This checks:
-- DNS resolution is working
-- Can reach external hosts
-- Network is not blocked
+Isso verifica:
+- Resolução de DNS está funcionando
+- Consegue alcançar hosts externos
+- Rede não está bloqueada
 
-### Use Cases
+### Casos de Uso
 
 ```cue
-// Download dependencies
+// Baixar dependências
 {
     name: "deps"
     depends_on: {
@@ -72,7 +72,7 @@ This checks:
     }]
 }
 
-// Deploy to cloud
+// Deploy para a nuvem
 {
     name: "deploy"
     depends_on: {
@@ -84,7 +84,7 @@ This checks:
     }]
 }
 
-// Fetch remote data
+// Buscar dados remotos
 {
     name: "sync"
     depends_on: {
@@ -97,9 +97,9 @@ This checks:
 }
 ```
 
-## Local Area Network
+## Rede Local (LAN)
 
-Check for LAN connectivity:
+Verifique conectividade de rede local:
 
 ```cue
 depends_on: {
@@ -109,15 +109,15 @@ depends_on: {
 }
 ```
 
-This checks:
-- Network interface is up
-- Can communicate on local network
-- Useful for on-premise services
+Isso verifica:
+- Interface de rede está ativa
+- Pode comunicar na rede local
+- Útil para serviços on-premise
 
-### Use Cases
+### Casos de Uso
 
 ```cue
-// Connect to local database
+// Conectar ao banco de dados local
 {
     name: "db connect"
     depends_on: {
@@ -129,7 +129,7 @@ This checks:
     }]
 }
 
-// Access local services
+// Acessar serviços locais
 {
     name: "check services"
     depends_on: {
@@ -142,31 +142,31 @@ This checks:
 }
 ```
 
-## Alternatives (OR Semantics)
+## Alternativas (Semântica OU)
 
-Require either capability:
+Requer qualquer uma das capacidades:
 
 ```cue
 depends_on: {
     capabilities: [
-        // Either internet OR LAN is fine
+        // Internet OU LAN serve
         {alternatives: ["internet", "local-area-network"]}
     ]
 }
 ```
 
-This is useful when a command can work with either:
-- Remote cloud services (internet)
-- Local on-premise services (LAN)
+Isso é útil quando um comando pode funcionar com:
+- Serviços de nuvem remotos (internet)
+- Serviços on-premise locais (LAN)
 
-## Real-World Examples
+## Exemplos do Mundo Real
 
-### Package Installation
+### Instalação de Pacotes
 
 ```cue
 {
     name: "install"
-    description: "Install project dependencies"
+    description: "Instalar dependências do projeto"
     depends_on: {
         capabilities: [{alternatives: ["internet"]}]
         tools: [{alternatives: ["npm", "pnpm", "yarn"]}]
@@ -178,15 +178,15 @@ This is useful when a command can work with either:
 }
 ```
 
-### CI Pipeline
+### Pipeline de CI
 
 ```cue
 {
     name: "ci"
-    description: "Run CI pipeline with remote checks"
+    description: "Executar pipeline de CI com verificações remotas"
     depends_on: {
         capabilities: [
-            {alternatives: ["internet"]}  // For dependency download
+            {alternatives: ["internet"]}  // Para download de dependências
         ]
         tools: [
             {alternatives: ["go"]},
@@ -204,14 +204,14 @@ This is useful when a command can work with either:
 }
 ```
 
-### Hybrid Environment
+### Ambiente Híbrido
 
 ```cue
 {
     name: "backup"
-    description: "Backup to available storage"
+    description: "Fazer backup para armazenamento disponível"
     depends_on: {
-        // Can backup to cloud (internet) or NAS (LAN)
+        // Pode fazer backup para nuvem (internet) ou NAS (LAN)
         capabilities: [{alternatives: ["internet", "local-area-network"]}]
     }
     implementations: [{
@@ -227,13 +227,13 @@ This is useful when a command can work with either:
 }
 ```
 
-## Offline-First Pattern
+## Padrão Offline-First
 
-Design commands that work offline when possible:
+Projete comandos que funcionam offline quando possível:
 
 ```cue
 commands: [
-    // Online version - downloads latest
+    // Versão online - baixa o mais recente
     {
         name: "update deps"
         depends_on: {
@@ -245,10 +245,10 @@ commands: [
         }]
     },
     
-    // Offline version - uses cache
+    // Versão offline - usa cache
     {
         name: "build"
-        // No internet requirement - uses cached modules
+        // Sem requisito de internet - usa módulos em cache
         depends_on: {
             filepaths: [{alternatives: ["go.mod"]}]
         }
@@ -260,15 +260,15 @@ commands: [
 ]
 ```
 
-## Container Context
+## Contexto de Container
 
-For container runtime, capability checks are performed on the **host**, not inside the container:
+Para runtime container, verificações de capacidade são realizadas no **host**, não dentro do container:
 
 ```cue
 {
     name: "deploy"
     depends_on: {
-        // Internet check happens on HOST
+        // Verificação de internet acontece no HOST
         capabilities: [{alternatives: ["internet"]}]
     }
     implementations: [{
@@ -278,19 +278,19 @@ For container runtime, capability checks are performed on the **host**, not insi
 }
 ```
 
-This makes sense because:
-- Container networking inherits from host
-- You're checking if the deployment can reach external services
-- Container network is ephemeral
+Isso faz sentido porque:
+- Rede do container herda do host
+- Você está verificando se o deploy pode alcançar serviços externos
+- Rede do container é efêmera
 
-## Best Practices
+## Melhores Práticas
 
-1. **Only check when necessary**: Don't require internet for offline-capable tasks
-2. **Use alternatives**: When local or cloud services are interchangeable
-3. **Fail fast**: Check connectivity before starting long operations
-4. **Provide fallbacks**: Offer offline alternatives when possible
+1. **Verifique apenas quando necessário**: Não exija internet para tarefas que funcionam offline
+2. **Use alternativas**: Quando serviços locais ou de nuvem são intercambiáveis
+3. **Falhe rápido**: Verifique conectividade antes de iniciar operações longas
+4. **Forneça fallbacks**: Ofereça alternativas offline quando possível
 
-## Next Steps
+## Próximos Passos
 
-- [Environment Variables](./env-vars) - Check for required env vars
-- [Custom Checks](./custom-checks) - Write custom validation scripts
+- [Environment Variables](./env-vars) - Verificar variáveis de ambiente requeridas
+- [Custom Checks](./custom-checks) - Escrever scripts de validação personalizados

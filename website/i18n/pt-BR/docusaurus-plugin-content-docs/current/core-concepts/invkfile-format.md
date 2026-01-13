@@ -2,30 +2,30 @@
 sidebar_position: 1
 ---
 
-# Invkfile Format
+# Formato do Invkfile
 
-Invkfiles are written in [CUE](https://cuelang.org/), a powerful configuration language that's like JSON with superpowers. If you've never used CUE before, don't worry - it's intuitive and you'll pick it up quickly.
+Invkfiles são escritos em [CUE](https://cuelang.org/), uma linguagem de configuração poderosa que é como JSON com superpoderes. Se você nunca usou CUE antes, não se preocupe - é intuitivo e você vai aprender rapidamente.
 
-## Why CUE?
+## Por que CUE?
 
-We chose CUE over YAML or JSON because:
+Escolhemos CUE em vez de YAML ou JSON porque:
 
-- **Built-in validation** - CUE catches errors before you run anything
-- **No indentation nightmares** - Unlike YAML, a misplaced space won't break everything
-- **Comments!** - Yes, you can actually write comments
-- **Type safety** - Invowk's schema ensures your invkfile is correct
-- **Templating** - Reduce repetition with CUE's powerful templating
+- **Validação integrada** - CUE detecta erros antes de você executar qualquer coisa
+- **Sem pesadelos de indentação** - Diferente do YAML, um espaço mal posicionado não vai quebrar tudo
+- **Comentários!** - Sim, você pode realmente escrever comentários
+- **Tipagem segura** - O schema do Invowk garante que seu invkfile está correto
+- **Templates** - Reduza repetição com o poderoso sistema de templates do CUE
 
-## Basic Syntax
+## Sintaxe Básica
 
-CUE looks like JSON, but more readable:
+CUE parece com JSON, mas mais legível:
 
 ```cue
-// This is a comment
+// Isso é um comentário
 group: "myproject"
 version: "1.0"
 
-// Lists use square brackets
+// Listas usam colchetes
 commands: [
     {
         name: "hello"
@@ -33,42 +33,42 @@ commands: [
     }
 ]
 
-// Multi-line strings use triple quotes
+// Strings multilinha usam aspas triplas
 script: """
     echo "Line 1"
     echo "Line 2"
     """
 ```
 
-Key differences from JSON:
-- No commas needed after fields (though they're allowed)
-- Trailing commas are fine
-- Comments with `//`
-- Multi-line strings with `"""`
+Diferenças principais do JSON:
+- Vírgulas não são necessárias após campos (embora sejam permitidas)
+- Vírgulas finais são aceitas
+- Comentários com `//`
+- Strings multilinha com `"""`
 
-## Schema Overview
+## Visão Geral do Schema
 
-Every invkfile follows this structure:
+Todo invkfile segue esta estrutura:
 
 ```cue
-// Root level
-group: string           // Required: namespace prefix
-version?: string        // Optional: invkfile version (e.g., "1.0")
-description?: string    // Optional: what this file is about
-default_shell?: string  // Optional: override default shell
-workdir?: string        // Optional: default working directory
-env?: #EnvConfig        // Optional: global environment config
-depends_on?: #DependsOn // Optional: global dependencies
+// Nível raiz
+group: string           // Obrigatório: prefixo do namespace
+version?: string        // Opcional: versão do invkfile (ex: "1.0")
+description?: string    // Opcional: sobre o que é este arquivo
+default_shell?: string  // Opcional: sobrescreve o shell padrão
+workdir?: string        // Opcional: diretório de trabalho padrão
+env?: #EnvConfig        // Opcional: configuração global de ambiente
+depends_on?: #DependsOn // Opcional: dependências globais
 
-// Required: at least one command
+// Obrigatório: pelo menos um comando
 commands: [...#Command]
 ```
 
-The `?` suffix means a field is optional.
+O sufixo `?` significa que um campo é opcional.
 
-## The Group Field
+## O Campo Group
 
-The `group` is the most important field - it namespaces all your commands:
+O `group` é o campo mais importante - ele define o namespace de todos os seus comandos:
 
 ```cue
 group: "myproject"
@@ -79,66 +79,66 @@ commands: [
 ]
 ```
 
-These commands become:
+Esses comandos se tornam:
 - `myproject build`
 - `myproject test`
 
-### Group Naming Rules
+### Regras de Nomenclatura de Group
 
-- Must start with a letter
-- Can contain letters, numbers
-- Dots (`.`) create nested namespaces
-- No hyphens, underscores, or spaces
+- Deve começar com uma letra
+- Pode conter letras e números
+- Pontos (`.`) criam namespaces aninhados
+- Sem hífens, underscores ou espaços
 
-**Valid:**
+**Válidos:**
 - `myproject`
 - `my.project`
 - `com.company.tools`
 - `frontend`
 
-**Invalid:**
-- `my-project` (hyphen)
+**Inválidos:**
+- `my-project` (hífen)
 - `my_project` (underscore)
-- `.project` (starts with dot)
-- `123project` (starts with number)
+- `.project` (começa com ponto)
+- `123project` (começa com número)
 
-### RDNS Naming
+### Nomenclatura RDNS
 
-For packs or shared invkfiles, we recommend Reverse Domain Name System (RDNS) naming:
+Para packs ou invkfiles compartilhados, recomendamos a nomenclatura RDNS (Reverse Domain Name System):
 
 ```cue
 group: "com.company.devtools"
 group: "io.github.username.project"
 ```
 
-This prevents conflicts when combining multiple invkfiles.
+Isso evita conflitos ao combinar múltiplos invkfiles.
 
-## Commands Structure
+## Estrutura de Comandos
 
-Each command has this structure:
+Cada comando tem esta estrutura:
 
 ```cue
 {
-    name: string                 // Required: command name
-    description?: string         // Optional: help text
-    implementations: [...]       // Required: how to run the command
-    flags?: [...]                // Optional: command flags
-    args?: [...]                 // Optional: positional arguments
-    env?: #EnvConfig             // Optional: environment config
-    workdir?: string             // Optional: working directory
-    depends_on?: #DependsOn      // Optional: dependencies
+    name: string                 // Obrigatório: nome do comando
+    description?: string         // Opcional: texto de ajuda
+    implementations: [...]       // Obrigatório: como executar o comando
+    flags?: [...]                // Opcional: flags do comando
+    args?: [...]                 // Opcional: argumentos posicionais
+    env?: #EnvConfig             // Opcional: configuração de ambiente
+    workdir?: string             // Opcional: diretório de trabalho
+    depends_on?: #DependsOn      // Opcional: dependências
 }
 ```
 
-### Implementations
+### Implementações
 
-A command can have multiple implementations for different platforms/runtimes:
+Um comando pode ter múltiplas implementações para diferentes plataformas/runtimes:
 
 ```cue
 {
     name: "build"
     implementations: [
-        // Unix implementation
+        // Implementação Unix
         {
             script: "make build"
             target: {
@@ -146,7 +146,7 @@ A command can have multiple implementations for different platforms/runtimes:
                 platforms: [{name: "linux"}, {name: "macos"}]
             }
         },
-        // Windows implementation
+        // Implementação Windows
         {
             script: "msbuild /p:Configuration=Release"
             target: {
@@ -158,19 +158,19 @@ A command can have multiple implementations for different platforms/runtimes:
 }
 ```
 
-Invowk automatically picks the right implementation for your platform.
+O Invowk automaticamente escolhe a implementação correta para sua plataforma.
 
 ## Scripts
 
-Scripts can be inline or reference external files:
+Scripts podem ser inline ou referenciar arquivos externos:
 
-### Inline Scripts
+### Scripts Inline
 
 ```cue
-// Single line
+// Linha única
 script: "echo 'Hello!'"
 
-// Multi-line
+// Multilinha
 script: """
     #!/bin/bash
     set -e
@@ -179,28 +179,28 @@ script: """
     """
 ```
 
-### External Script Files
+### Arquivos de Script Externos
 
 ```cue
-// Relative to invkfile location
+// Relativo à localização do invkfile
 script: "./scripts/build.sh"
 
-// Just the filename (recognized extensions)
+// Apenas o nome do arquivo (extensões reconhecidas)
 script: "deploy.sh"
 ```
 
-Recognized extensions: `.sh`, `.bash`, `.ps1`, `.bat`, `.cmd`, `.py`, `.rb`, `.pl`, `.zsh`, `.fish`
+Extensões reconhecidas: `.sh`, `.bash`, `.ps1`, `.bat`, `.cmd`, `.py`, `.rb`, `.pl`, `.zsh`, `.fish`
 
-## Complete Example
+## Exemplo Completo
 
-Here's a full-featured invkfile:
+Aqui está um invkfile com todos os recursos:
 
 ```cue
 group: "myapp"
 version: "1.0"
 description: "Build and deployment commands for MyApp"
 
-// Global environment
+// Ambiente global
 env: {
     vars: {
         APP_NAME: "myapp"
@@ -208,7 +208,7 @@ env: {
     }
 }
 
-// Global dependencies
+// Dependências globais
 depends_on: {
     tools: [{alternatives: ["sh", "bash"]}]
 }
@@ -257,14 +257,14 @@ commands: [
 ]
 ```
 
-## CUE Tips & Tricks
+## Dicas e Truques do CUE
 
-### Reduce Repetition
+### Reduzir Repetição
 
-Use CUE's templating to avoid repetition:
+Use o sistema de templates do CUE para evitar repetição:
 
 ```cue
-// Define a template
+// Defina um template
 _nativeUnix: {
     target: {
         runtimes: [{name: "native"}]
@@ -288,21 +288,21 @@ commands: [
 ]
 ```
 
-### Validation
+### Validação
 
-Run your invkfile through the CUE validator:
+Execute seu invkfile através do validador CUE:
 
 ```bash
 cue vet invkfile.cue path/to/invkfile_schema.cue -d '#Invkfile'
 ```
 
-Or just try to list commands - Invowk validates automatically:
+Ou apenas tente listar comandos - o Invowk valida automaticamente:
 
 ```bash
 invowk cmd --list
 ```
 
-## Next Steps
+## Próximos Passos
 
-- [Commands and Groups](./commands-and-groups) - Naming conventions and hierarchies
-- [Implementations](./implementations) - Platforms, runtimes, and scripts
+- [Comandos e Grupos](./commands-and-groups) - Convenções de nomenclatura e hierarquias
+- [Implementações](./implementations) - Plataformas, runtimes e scripts

@@ -2,89 +2,89 @@
 sidebar_position: 1
 ---
 
-# Packs Overview
+# Visão Geral de Packs
 
-:::warning Alpha — Pack Format May Change
-The pack format and structure are still being finalized. While we aim for backwards compatibility, **breaking changes may occur** before the 1.0 release. If you're distributing packs externally, be prepared to update them when upgrading Invowk.
+:::warning Alpha — O Formato de Pack Pode Mudar
+O formato e estrutura de packs ainda estão sendo finalizados. Embora nosso objetivo seja manter compatibilidade retroativa, **mudanças incompatíveis podem ocorrer** antes do release 1.0. Se você está distribuindo packs externamente, esteja preparado para atualizá-los ao fazer upgrade do Invowk.
 :::
 
-Packs are self-contained folders that bundle an invkfile together with its script files. They're perfect for sharing commands, creating reusable toolkits, and distributing automation across teams.
+Packs são pastas autocontidas que agrupam um invkfile junto com seus arquivos de script. Eles são perfeitos para compartilhar comandos, criar toolkits reutilizáveis e distribuir automação entre equipes.
 
-## What is a Pack?
+## O que é um Pack?
 
-A pack is a directory with the `.invkpack` suffix:
+Um pack é um diretório com o sufixo `.invkpack`:
 
 ```
 mytools.invkpack/
-├── invkfile.cue          # Required: command definitions
-├── scripts/               # Optional: script files
+├── invkfile.cue          # Obrigatório: definições de comandos
+├── scripts/               # Opcional: arquivos de script
 │   ├── build.sh
 │   └── deploy.sh
-└── templates/             # Optional: other resources
+└── templates/             # Opcional: outros recursos
     └── config.yaml
 ```
 
-## Why Use Packs?
+## Por que Usar Packs?
 
-- **Portability**: Share a complete command set as a single folder
-- **Self-contained**: Scripts are bundled with the invkfile
-- **Cross-platform**: Forward slash paths work everywhere
-- **Namespace isolation**: RDNS naming prevents conflicts
-- **Easy distribution**: Zip, share, unzip
+- **Portabilidade**: Compartilhe um conjunto completo de comandos como uma única pasta
+- **Autocontido**: Scripts são agrupados com o invkfile
+- **Multiplataforma**: Caminhos com barra funcionam em qualquer lugar
+- **Isolamento de namespace**: Nomenclatura RDNS previne conflitos
+- **Fácil distribuição**: Compacte, compartilhe, descompacte
 
-## Quick Start
+## Início Rápido
 
-### Create a Pack
+### Criar um Pack
 
 ```bash
 invowk pack create mytools
 ```
 
-Creates:
+Cria:
 ```
 mytools.invkpack/
 └── invkfile.cue
 ```
 
-### Use the Pack
+### Usar o Pack
 
-Packs are automatically discovered from:
-1. Current directory
-2. `~/.invowk/cmds/` (user commands)
-3. Configured search paths
+Packs são descobertos automaticamente de:
+1. Diretório atual
+2. `~/.invowk/cmds/` (comandos do usuário)
+3. Caminhos de busca configurados
 
 ```bash
-# List commands (pack commands appear automatically)
+# Listar comandos (comandos de pack aparecem automaticamente)
 invowk cmd list
 
-# Run a pack command
+# Executar um comando de pack
 invowk cmd mytools hello
 ```
 
-### Share the Pack
+### Compartilhar o Pack
 
 ```bash
-# Create a zip archive
+# Criar um arquivo zip
 invowk pack archive mytools.invkpack
 
-# Share the zip file
-# Recipients import with:
+# Compartilhar o arquivo zip
+# Destinatários importam com:
 invowk pack import mytools.invkpack.zip
 ```
 
-## Pack Structure
+## Estrutura de Pack
 
-### Required Files
+### Arquivos Obrigatórios
 
-- **`invkfile.cue`**: Command definitions (must be at pack root)
+- **`invkfile.cue`**: Definições de comandos (deve estar na raiz do pack)
 
-### Optional Contents
+### Conteúdo Opcional
 
-- **Scripts**: Shell scripts, Python files, etc.
-- **Templates**: Configuration templates
-- **Data**: Any supporting files
+- **Scripts**: Shell scripts, arquivos Python, etc.
+- **Templates**: Templates de configuração
+- **Dados**: Quaisquer arquivos de suporte
 
-### Example Structure
+### Exemplo de Estrutura
 
 ```
 com.example.devtools.invkpack/
@@ -100,19 +100,19 @@ com.example.devtools.invkpack/
 └── README.md
 ```
 
-## Pack Naming
+## Nomenclatura de Pack
 
-Pack folder names follow these rules:
+Nomes de pasta de pack seguem estas regras:
 
-| Rule | Valid | Invalid |
-|------|-------|---------|
-| End with `.invkpack` | `mytools.invkpack` | `mytools` |
-| Start with letter | `mytools.invkpack` | `123tools.invkpack` |
-| Alphanumeric + dots | `com.example.invkpack` | `my-tools.invkpack` |
+| Regra | Válido | Inválido |
+|-------|--------|----------|
+| Terminar com `.invkpack` | `mytools.invkpack` | `mytools` |
+| Começar com letra | `mytools.invkpack` | `123tools.invkpack` |
+| Alfanumérico + pontos | `com.example.invkpack` | `my-tools.invkpack` |
 
-### RDNS Naming
+### Nomenclatura RDNS
 
-Recommended for shared packs:
+Recomendada para packs compartilhados:
 
 ```
 com.company.projectname.invkpack
@@ -120,57 +120,57 @@ io.github.username.toolkit.invkpack
 org.opensource.utilities.invkpack
 ```
 
-## Script Paths
+## Caminhos de Script
 
-Reference scripts relative to pack root with **forward slashes**:
+Referencie scripts relativos à raiz do pack com **barras normais**:
 
 ```cue
-// Inside mytools.invkpack/invkfile.cue
+// Dentro de mytools.invkpack/invkfile.cue
 group: "mytools"
 
 commands: [
     {
         name: "build"
         implementations: [{
-            script: "scripts/build.sh"  // Relative to pack root
+            script: "scripts/build.sh"  // Relativo à raiz do pack
             target: {runtimes: [{name: "native"}]}
         }]
     },
     {
         name: "deploy"
         implementations: [{
-            script: "scripts/utils/helpers.sh"  // Nested path
+            script: "scripts/utils/helpers.sh"  // Caminho aninhado
             target: {runtimes: [{name: "native"}]}
         }]
     }
 ]
 ```
 
-**Important:**
-- Always use forward slashes (`/`)
-- Paths are relative to pack root
-- No absolute paths allowed
-- Can't escape pack directory (`../` is invalid)
+**Importante:**
+- Sempre use barras normais (`/`)
+- Caminhos são relativos à raiz do pack
+- Caminhos absolutos não são permitidos
+- Não é possível escapar do diretório do pack (`../` é inválido)
 
-## Pack Commands
+## Comandos de Pack
 
-| Command | Description |
-|---------|-------------|
-| `invowk pack create` | Create a new pack |
-| `invowk pack validate` | Validate pack structure |
-| `invowk pack list` | List discovered packs |
-| `invowk pack archive` | Create zip archive |
-| `invowk pack import` | Install from zip/URL |
+| Comando | Descrição |
+|---------|-----------|
+| `invowk pack create` | Criar um novo pack |
+| `invowk pack validate` | Validar estrutura do pack |
+| `invowk pack list` | Listar packs descobertos |
+| `invowk pack archive` | Criar arquivo zip |
+| `invowk pack import` | Instalar de zip/URL |
 
-## Discovery
+## Descoberta
 
-Packs are discovered from these locations:
+Packs são descobertos dessas localizações:
 
-1. **Current directory** (highest priority)
-2. **User commands** (`~/.invowk/cmds/`)
-3. **Search paths** (from config)
+1. **Diretório atual** (maior prioridade)
+2. **Comandos do usuário** (`~/.invowk/cmds/`)
+3. **Caminhos de busca** (da configuração)
 
-Commands appear in `invowk cmd list` with their source:
+Comandos aparecem em `invowk cmd list` com sua origem:
 
 ```
 Available Commands
@@ -182,8 +182,8 @@ From user commands (~/.invowk/cmds):
   com.example.utilities hello - Greeting [native*]
 ```
 
-## Next Steps
+## Próximos Passos
 
-- [Creating Packs](./creating-packs) - Scaffold and structure packs
-- [Validating](./validating) - Ensure pack integrity
-- [Distributing](./distributing) - Share packs with others
+- [Criando Packs](./creating-packs) - Criar estrutura e organizar packs
+- [Validando](./validating) - Garantir integridade do pack
+- [Distribuindo](./distributing) - Compartilhar packs com outros

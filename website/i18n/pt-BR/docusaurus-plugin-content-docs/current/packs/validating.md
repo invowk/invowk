@@ -2,17 +2,17 @@
 sidebar_position: 3
 ---
 
-# Validating Packs
+# Validando Packs
 
-Validate your packs to ensure they're correctly structured and ready for distribution.
+Valide seus packs para garantir que estão corretamente estruturados e prontos para distribuição.
 
-## Basic Validation
+## Validação Básica
 
 ```bash
 invowk pack validate ./mytools.invkpack
 ```
 
-Output for a valid pack:
+Saída para um pack válido:
 ```
 Pack Validation
 • Path: /home/user/mytools.invkpack
@@ -25,15 +25,15 @@ Pack Validation
 ✓ Required files present
 ```
 
-## Deep Validation
+## Validação Profunda
 
-Add `--deep` to also parse and validate the invkfile:
+Adicione `--deep` para também analisar e validar o invkfile:
 
 ```bash
 invowk pack validate ./mytools.invkpack --deep
 ```
 
-Output:
+Saída:
 ```
 Pack Validation
 • Path: /home/user/mytools.invkpack
@@ -47,30 +47,30 @@ Pack Validation
 ✓ Invkfile parses successfully
 ```
 
-## What Gets Validated
+## O que é Validado
 
-### Structure Checks
+### Verificações de Estrutura
 
-- Pack directory exists
-- `invkfile.cue` is present at root
-- No nested packs (packs can't contain other packs)
+- Diretório do pack existe
+- `invkfile.cue` está presente na raiz
+- Sem packs aninhados (packs não podem conter outros packs)
 
-### Naming Checks
+### Verificações de Nomenclatura
 
-- Folder name ends with `.invkpack`
-- Name prefix follows rules (starts with letter, alphanumeric + dots)
-- No invalid characters (hyphens, underscores)
+- Nome da pasta termina com `.invkpack`
+- Prefixo do nome segue as regras (começa com letra, alfanumérico + pontos)
+- Sem caracteres inválidos (hífens, underscores)
 
-### Deep Checks (with `--deep`)
+### Verificações Profundas (com `--deep`)
 
-- Invkfile parses without errors
-- CUE syntax is valid
-- Schema constraints are met
-- Script paths are valid (relative, within pack)
+- Invkfile é parseado sem erros
+- Sintaxe CUE é válida
+- Restrições do schema são atendidas
+- Caminhos de script são válidos (relativos, dentro do pack)
 
-## Validation Errors
+## Erros de Validação
 
-### Missing Invkfile
+### Invkfile Ausente
 
 ```
 Pack Validation
@@ -81,7 +81,7 @@ Pack Validation
   1. [structure] missing required invkfile.cue
 ```
 
-### Invalid Name
+### Nome Inválido
 
 ```
 Pack Validation
@@ -92,7 +92,7 @@ Pack Validation
   1. [naming] pack name 'my-tools' contains invalid characters (hyphens not allowed)
 ```
 
-### Nested Pack
+### Pack Aninhado
 
 ```
 Pack Validation
@@ -103,7 +103,7 @@ Pack Validation
   1. [structure] nested.invkpack: nested packs are not allowed
 ```
 
-### Invalid Invkfile (deep)
+### Invkfile Inválido (deep)
 
 ```
 Pack Validation
@@ -114,23 +114,23 @@ Pack Validation
   1. [invkfile] parse error at line 15: expected '}', found EOF
 ```
 
-## Batch Validation
+## Validação em Lote
 
-Validate multiple packs:
+Valide múltiplos packs:
 
 ```bash
-# Validate all packs in a directory
+# Validar todos os packs em um diretório
 for pack in ./packs/*.invkpack; do
     invowk pack validate "$pack" --deep
 done
 ```
 
-## CI Integration
+## Integração com CI
 
-Add pack validation to your CI pipeline:
+Adicione validação de pack ao seu pipeline de CI:
 
 ```yaml
-# GitHub Actions example
+# Exemplo de GitHub Actions
 - name: Validate packs
   run: |
     for pack in packs/*.invkpack; do
@@ -138,46 +138,46 @@ Add pack validation to your CI pipeline:
     done
 ```
 
-## Common Issues
+## Problemas Comuns
 
-### Wrong Path Separators
+### Separadores de Caminho Errados
 
 ```cue
-// Bad - Windows-style
+// Ruim - estilo Windows
 script: "scripts\\build.sh"
 
-// Good - Forward slashes
+// Bom - barras normais
 script: "scripts/build.sh"
 ```
 
-### Escaping Pack Directory
+### Escapando do Diretório do Pack
 
 ```cue
-// Bad - tries to access parent
+// Ruim - tenta acessar diretório pai
 script: "../outside/script.sh"
 
-// Good - stays within pack
+// Bom - permanece dentro do pack
 script: "scripts/script.sh"
 ```
 
-### Absolute Paths
+### Caminhos Absolutos
 
 ```cue
-// Bad - absolute path
+// Ruim - caminho absoluto
 script: "/usr/local/bin/script.sh"
 
-// Good - relative path
+// Bom - caminho relativo
 script: "scripts/script.sh"
 ```
 
-## Best Practices
+## Melhores Práticas
 
-1. **Validate before committing**: Catch issues early
-2. **Use `--deep`**: Catches invkfile errors
-3. **Validate in CI**: Prevent broken packs from shipping
-4. **Fix issues immediately**: Don't let validation debt accumulate
+1. **Valide antes de commitar**: Detecte problemas cedo
+2. **Use `--deep`**: Captura erros no invkfile
+3. **Valide no CI**: Previne que packs quebrados sejam distribuídos
+4. **Corrija problemas imediatamente**: Não deixe dívida de validação acumular
 
-## Next Steps
+## Próximos Passos
 
-- [Creating Packs](./creating-packs) - Structure your pack
-- [Distributing](./distributing) - Share your pack
+- [Criando Packs](./creating-packs) - Estruturar seu pack
+- [Distribuindo](./distributing) - Compartilhar seu pack

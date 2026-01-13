@@ -2,13 +2,13 @@
 sidebar_position: 1
 ---
 
-# Interpreters
+# Interpretadores
 
-By default, Invowk executes scripts using a shell. But you can use other interpreters like Python, Ruby, Node.js, or any executable that can run scripts.
+Por padrão, o Invowk executa scripts usando um shell. Mas você pode usar outros interpretadores como Python, Ruby, Node.js ou qualquer executável que possa rodar scripts.
 
-## Auto-Detection from Shebang
+## Auto-Detecção a partir do Shebang
 
-When a script starts with a shebang (`#!`), Invowk automatically uses that interpreter:
+Quando um script começa com um shebang (`#!`), o Invowk automaticamente usa esse interpretador:
 
 ```cue
 {
@@ -27,19 +27,19 @@ When a script starts with a shebang (`#!`), Invowk automatically uses that inter
 }
 ```
 
-Common shebang patterns:
+Padrões comuns de shebang:
 
-| Shebang | Interpreter |
-|---------|-------------|
-| `#!/usr/bin/env python3` | Python 3 (portable) |
+| Shebang | Interpretador |
+|---------|---------------|
+| `#!/usr/bin/env python3` | Python 3 (portável) |
 | `#!/usr/bin/env node` | Node.js |
 | `#!/usr/bin/env ruby` | Ruby |
 | `#!/usr/bin/env perl` | Perl |
-| `#!/bin/bash` | Bash (direct path) |
+| `#!/bin/bash` | Bash (caminho direto) |
 
-## Explicit Interpreter
+## Interpretador Explícito
 
-Specify an interpreter directly in the runtime config:
+Especifique um interpretador diretamente na configuração do runtime:
 
 ```cue
 {
@@ -52,18 +52,18 @@ Specify an interpreter directly in the runtime config:
         target: {
             runtimes: [{
                 name: "native"
-                interpreter: "python3"  // Explicit
+                interpreter: "python3"  // Explícito
             }]
         }
     }]
 }
 ```
 
-The explicit interpreter takes precedence over shebang detection.
+O interpretador explícito tem precedência sobre a detecção de shebang.
 
-## Interpreter with Arguments
+## Interpretador com Argumentos
 
-Pass arguments to the interpreter:
+Passe argumentos para o interpretador:
 
 ```cue
 {
@@ -78,29 +78,29 @@ Pass arguments to the interpreter:
         target: {
             runtimes: [{
                 name: "native"
-                interpreter: "python3 -u"  // Unbuffered output
+                interpreter: "python3 -u"  // Saída sem buffer
             }]
         }
     }]
 }
 ```
 
-More examples:
+Mais exemplos:
 
 ```cue
-// Perl with warnings
+// Perl com warnings
 interpreter: "perl -w"
 
-// Ruby with debug mode
+// Ruby com modo debug
 interpreter: "ruby -d"
 
-// Node with specific options
+// Node com opções específicas
 interpreter: "node --max-old-space-size=4096"
 ```
 
-## Container Interpreters
+## Interpretadores em Containers
 
-Interpreters work in containers too:
+Interpretadores funcionam em containers também:
 
 ```cue
 {
@@ -121,7 +121,7 @@ Interpreters work in containers too:
 }
 ```
 
-Or with explicit interpreter:
+Ou com interpretador explícito:
 
 ```cue
 {
@@ -142,9 +142,9 @@ Or with explicit interpreter:
 }
 ```
 
-## Accessing Arguments
+## Acessando Argumentos
 
-Arguments work the same with any interpreter:
+Argumentos funcionam da mesma forma com qualquer interpretador:
 
 ```cue
 {
@@ -156,11 +156,11 @@ Arguments work the same with any interpreter:
             import sys
             import os
             
-            # Via command line args
+            # Via argumentos de linha de comando
             name = sys.argv[1] if len(sys.argv) > 1 else "World"
             print(f"Hello, {name}!")
             
-            # Or via environment variable
+            # Ou via variável de ambiente
             name = os.environ.get("INVOWK_ARG_NAME", "World")
             print(f"Hello again, {name}!")
             """
@@ -169,9 +169,9 @@ Arguments work the same with any interpreter:
 }
 ```
 
-## Supported Interpreters
+## Interpretadores Suportados
 
-Any executable in PATH can be used:
+Qualquer executável no PATH pode ser usado:
 
 - **Python**: `python3`, `python`
 - **JavaScript**: `node`, `deno`, `bun`
@@ -181,14 +181,14 @@ Any executable in PATH can be used:
 - **Lua**: `lua`
 - **R**: `Rscript`
 - **Shell**: `bash`, `sh`, `zsh`, `fish`
-- **Custom**: Any executable
+- **Personalizado**: Qualquer executável
 
-## Virtual Runtime Limitation
+## Limitação do Runtime Virtual
 
-The `interpreter` field is **not supported** with the virtual runtime:
+O campo `interpreter` **não é suportado** com o runtime virtual:
 
 ```cue
-// This will NOT work!
+// Isso NÃO vai funcionar!
 {
     name: "bad"
     implementations: [{
@@ -196,30 +196,30 @@ The `interpreter` field is **not supported** with the virtual runtime:
         target: {
             runtimes: [{
                 name: "virtual"
-                interpreter: "python3"  // ERROR!
+                interpreter: "python3"  // ERRO!
             }]
         }
     }]
 }
 ```
 
-The virtual runtime uses the built-in mvdan/sh interpreter and cannot execute Python, Ruby, or other interpreters. Use native or container runtime instead.
+O runtime virtual usa o interpretador mvdan/sh embutido e não pode executar Python, Ruby ou outros interpretadores. Use runtime native ou container em vez disso.
 
-## Fallback Behavior
+## Comportamento de Fallback
 
-When no shebang and no explicit interpreter:
+Quando não há shebang e nenhum interpretador explícito:
 
-- **Native runtime**: Uses system's default shell
-- **Container runtime**: Uses `/bin/sh -c`
+- **Runtime native**: Usa o shell padrão do sistema
+- **Runtime container**: Usa `/bin/sh -c`
 
-## Best Practices
+## Melhores Práticas
 
-1. **Use shebang for portability**: Scripts work standalone too
-2. **Use `/usr/bin/env`**: More portable than direct paths
-3. **Explicit interpreter for no-shebang scripts**: When you don't want a shebang line
-4. **Match container image**: Ensure interpreter exists in the image
+1. **Use shebang para portabilidade**: Scripts funcionam standalone também
+2. **Use `/usr/bin/env`**: Mais portável que caminhos diretos
+3. **Interpretador explícito para scripts sem shebang**: Quando você não quer uma linha de shebang
+4. **Combine imagem do container**: Garanta que o interpretador existe na imagem
 
-## Next Steps
+## Próximos Passos
 
-- [Working Directory](./workdir) - Control execution location
-- [Platform-Specific](./platform-specific) - Per-platform implementations
+- [Working Directory](./workdir) - Controlar local de execução
+- [Platform-Specific](./platform-specific) - Implementações por plataforma

@@ -2,19 +2,19 @@
 sidebar_position: 1
 ---
 
-# Dependencies Overview
+# Visão Geral de Dependências
 
-Dependencies let you declare what your command needs before it runs. Invowk validates all dependencies upfront and provides clear error messages when something's missing.
+Dependências permitem que você declare o que seu comando precisa antes de executar. O Invowk valida todas as dependências antecipadamente e fornece mensagens de erro claras quando algo está faltando.
 
-## Why Declare Dependencies?
+## Por Que Declarar Dependências?
 
-Without dependency checks:
+Sem verificações de dependência:
 ```bash
 $ invowk cmd myproject build
 ./scripts/build.sh: line 5: go: command not found
 ```
 
-With dependency checks:
+Com verificações de dependência:
 ```
 $ invowk cmd myproject build
 
@@ -28,24 +28,24 @@ Missing Tools:
 Install the missing tools and try again.
 ```
 
-Much better! You know exactly what's wrong before anything runs.
+Muito melhor! Você sabe exatamente o que está errado antes de qualquer coisa executar.
 
-## Dependency Types
+## Tipos de Dependência
 
-Invowk supports six types of dependencies:
+O Invowk suporta seis tipos de dependências:
 
-| Type | Checks For |
-|------|------------|
-| [tools](./tools) | Binaries in PATH |
-| [filepaths](./filepaths) | Files or directories |
-| [commands](./commands) | Other Invowk commands |
-| [capabilities](./capabilities) | System capabilities (network) |
-| [env_vars](./env-vars) | Environment variables |
-| [custom_checks](./custom-checks) | Custom validation scripts |
+| Tipo | Verifica |
+|------|----------|
+| [tools](./tools) | Binários no PATH |
+| [filepaths](./filepaths) | Arquivos ou diretórios |
+| [commands](./commands) | Outros comandos Invowk |
+| [capabilities](./capabilities) | Capacidades do sistema (rede) |
+| [env_vars](./env-vars) | Variáveis de ambiente |
+| [custom_checks](./custom-checks) | Scripts de validação personalizados |
 
-## Basic Syntax
+## Sintaxe Básica
 
-Dependencies are declared in the `depends_on` block:
+Dependências são declaradas no bloco `depends_on`:
 
 ```cue
 {
@@ -62,72 +62,72 @@ Dependencies are declared in the `depends_on` block:
 }
 ```
 
-## The Alternatives Pattern
+## O Padrão de Alternativas
 
-Every dependency uses an `alternatives` list with **OR semantics**:
+Toda dependência usa uma lista `alternatives` com **semântica OU**:
 
 ```cue
-// ANY of these tools satisfies the dependency
+// QUALQUER uma dessas ferramentas satisfaz a dependência
 tools: [
     {alternatives: ["podman", "docker"]}
 ]
 
-// ANY of these files satisfies the dependency
+// QUALQUER um desses arquivos satisfaz a dependência
 filepaths: [
     {alternatives: ["config.yaml", "config.json", "config.toml"]}
 ]
 ```
 
-If **any** alternative is found, the dependency is satisfied. Invowk uses early return - it stops checking as soon as one matches.
+Se **qualquer** alternativa for encontrada, a dependência é satisfeita. O Invowk usa retorno antecipado - ele para de verificar assim que uma corresponde.
 
-## Validation Order
+## Ordem de Validação
 
-Dependencies are validated in this order:
+Dependências são validadas nesta ordem:
 
-1. **env_vars** - Environment variables (checked first!)
-2. **tools** - Binaries in PATH
-3. **filepaths** - Files and directories
-4. **capabilities** - System capabilities
-5. **commands** - Other Invowk commands
-6. **custom_checks** - Custom validation scripts
+1. **env_vars** - Variáveis de ambiente (verificadas primeiro!)
+2. **tools** - Binários no PATH
+3. **filepaths** - Arquivos e diretórios
+4. **capabilities** - Capacidades do sistema
+5. **commands** - Outros comandos Invowk
+6. **custom_checks** - Scripts de validação personalizados
 
-Environment variables are validated first, before Invowk sets any command-level environment. This ensures you're checking the user's actual environment.
+Variáveis de ambiente são validadas primeiro, antes do Invowk definir qualquer ambiente no nível do comando. Isso garante que você está verificando o ambiente real do usuário.
 
-## Scope Levels
+## Níveis de Escopo
 
-Dependencies can be declared at three levels:
+Dependências podem ser declaradas em três níveis:
 
-### Root Level (Global)
+### Nível Raiz (Global)
 
-Applies to all commands in the invkfile:
+Aplica-se a todos os comandos no invkfile:
 
 ```cue
 group: "myproject"
 
 depends_on: {
-    tools: [{alternatives: ["git"]}]  // Required by all commands
+    tools: [{alternatives: ["git"]}]  // Requerido por todos os comandos
 }
 
 commands: [...]
 ```
 
-### Command Level
+### Nível de Comando
 
-Applies to a specific command:
+Aplica-se a um comando específico:
 
 ```cue
 {
     name: "build"
     depends_on: {
-        tools: [{alternatives: ["go"]}]  // Required by this command
+        tools: [{alternatives: ["go"]}]  // Requerido por este comando
     }
     implementations: [...]
 }
 ```
 
-### Implementation Level
+### Nível de Implementação
 
-Applies to a specific implementation:
+Aplica-se a uma implementação específica:
 
 ```cue
 {
@@ -137,7 +137,7 @@ Applies to a specific implementation:
             script: "go build ./..."
             target: {runtimes: [{name: "container", image: "golang:1.21"}]}
             depends_on: {
-                // Validated INSIDE the container
+                // Validado DENTRO do container
                 tools: [{alternatives: ["go"]}]
             }
         }
@@ -145,14 +145,14 @@ Applies to a specific implementation:
 }
 ```
 
-### Scope Inheritance
+### Herança de Escopo
 
-Dependencies are **combined** across levels:
+Dependências são **combinadas** entre níveis:
 
 ```cue
 group: "myproject"
 
-// Root level: requires git
+// Nível raiz: requer git
 depends_on: {
     tools: [{alternatives: ["git"]}]
 }
@@ -160,7 +160,7 @@ depends_on: {
 commands: [
     {
         name: "build"
-        // Command level: also requires go
+        // Nível do comando: também requer go
         depends_on: {
             tools: [{alternatives: ["go"]}]
         }
@@ -168,7 +168,7 @@ commands: [
             {
                 script: "go build ./..."
                 target: {runtimes: [{name: "native"}]}
-                // Implementation level: also requires make
+                // Nível de implementação: também requer make
                 depends_on: {
                     tools: [{alternatives: ["make"]}]
                 }
@@ -177,20 +177,20 @@ commands: [
     }
 ]
 
-// Effective dependencies for "build": git + go + make
+// Dependências efetivas para "build": git + go + make
 ```
 
-## Runtime-Aware Validation
+## Validação Consciente do Runtime
 
-Dependencies are validated according to the runtime:
+Dependências são validadas de acordo com o runtime:
 
-| Runtime | Dependencies Checked Against |
-|---------|------------------------------|
-| native | Host system |
-| virtual | Virtual shell with built-ins |
-| container | Inside the container |
+| Runtime | Dependências Verificadas Contra |
+|---------|--------------------------------|
+| native | Sistema host |
+| virtual | Shell virtual com built-ins |
+| container | Dentro do container |
 
-This is powerful for container commands:
+Isso é poderoso para comandos container:
 
 ```cue
 {
@@ -202,7 +202,7 @@ This is powerful for container commands:
                 runtimes: [{name: "container", image: "golang:1.21"}]
             }
             depends_on: {
-                // Checked INSIDE the container, not on host
+                // Verificado DENTRO do container, não no host
                 tools: [{alternatives: ["go"]}]
                 filepaths: [{alternatives: ["/workspace/go.mod"]}]
             }
@@ -211,9 +211,9 @@ This is powerful for container commands:
 }
 ```
 
-## Error Messages
+## Mensagens de Erro
 
-When dependencies aren't satisfied, Invowk shows a helpful error:
+Quando dependências não são satisfeitas, o Invowk mostra um erro útil:
 
 ```
 ✗ Dependencies not satisfied
@@ -233,34 +233,34 @@ Missing Environment Variables:
 Install the missing tools and try again.
 ```
 
-## Complete Example
+## Exemplo Completo
 
-Here's a command with multiple dependency types:
+Aqui está um comando com múltiplos tipos de dependência:
 
 ```cue
 {
     name: "deploy"
     description: "Deploy to production"
     depends_on: {
-        // Check environment first
+        // Verificar ambiente primeiro
         env_vars: [
             {alternatives: [{name: "AWS_ACCESS_KEY_ID"}, {name: "AWS_PROFILE"}]}
         ]
-        // Check required tools
+        // Verificar ferramentas requeridas
         tools: [
             {alternatives: ["docker", "podman"]},
             {alternatives: ["kubectl"]}
         ]
-        // Check required files
+        // Verificar arquivos requeridos
         filepaths: [
             {alternatives: ["Dockerfile"]},
             {alternatives: ["k8s/deployment.yaml"]}
         ]
-        // Check network connectivity
+        // Verificar conectividade de rede
         capabilities: [
             {alternatives: ["internet"]}
         ]
-        // Run other commands first
+        // Executar outros comandos primeiro
         commands: [
             {alternatives: ["myproject build"]},
             {alternatives: ["myproject test"]}
@@ -275,13 +275,13 @@ Here's a command with multiple dependency types:
 }
 ```
 
-## Next Steps
+## Próximos Passos
 
-Learn about each dependency type in detail:
+Aprenda sobre cada tipo de dependência em detalhes:
 
-- [Tools](./tools) - Check for binaries in PATH
-- [Filepaths](./filepaths) - Check for files and directories
-- [Commands](./commands) - Require other commands to run first
-- [Capabilities](./capabilities) - Check system capabilities
-- [Environment Variables](./env-vars) - Check environment variables
-- [Custom Checks](./custom-checks) - Write custom validation scripts
+- [Tools](./tools) - Verificar binários no PATH
+- [Filepaths](./filepaths) - Verificar arquivos e diretórios
+- [Commands](./commands) - Exigir que outros comandos executem primeiro
+- [Capabilities](./capabilities) - Verificar capacidades do sistema
+- [Variáveis de Ambiente](./env-vars) - Verificar variáveis de ambiente
+- [Verificações Personalizadas](./custom-checks) - Escrever scripts de validação personalizados

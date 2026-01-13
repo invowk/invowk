@@ -2,19 +2,19 @@
 sidebar_position: 3
 ---
 
-# Virtual Runtime
+# Runtime Virtual
 
-The **virtual** runtime uses Invowk's built-in POSIX-compatible shell interpreter (powered by [mvdan/sh](https://github.com/mvdan/sh)). It provides consistent shell behavior across all platforms without requiring an external shell.
+O runtime **virtual** usa o interpretador de shell POSIX-compatível integrado do Invowk (powered by [mvdan/sh](https://github.com/mvdan/sh)). Ele fornece comportamento de shell consistente em todas as plataformas sem exigir um shell externo.
 
-## How It Works
+## Como Funciona
 
-When you run a command with the virtual runtime, Invowk:
+Quando você executa um comando com o runtime virtual, o Invowk:
 
-1. Parses the script using the built-in shell parser
-2. Executes it in an embedded POSIX-like environment
-3. Provides core utilities (echo, test, etc.) built-in
+1. Faz o parse do script usando o parser de shell integrado
+2. Executa-o em um ambiente embarcado tipo POSIX
+3. Fornece utilitários core (echo, test, etc.) integrados
 
-## Basic Usage
+## Uso Básico
 
 ```cue
 {
@@ -36,16 +36,16 @@ When you run a command with the virtual runtime, Invowk:
 invowk cmd myproject build --runtime virtual
 ```
 
-## Cross-Platform Consistency
+## Consistência Multiplataforma
 
-The virtual runtime behaves identically on Linux, macOS, and Windows:
+O runtime virtual se comporta de forma idêntica no Linux, macOS e Windows:
 
 ```cue
 {
     name: "setup"
     implementations: [{
         script: """
-            # This works the same everywhere!
+            # Isso funciona igual em todos os lugares!
             if [ -d "node_modules" ]; then
                 echo "Dependencies already installed"
             else
@@ -60,59 +60,59 @@ The virtual runtime behaves identically on Linux, macOS, and Windows:
 }
 ```
 
-No more "works on my machine" for shell scripts!
+Chega de "funciona na minha máquina" para scripts shell!
 
-## Built-in Utilities
+## Utilitários Integrados
 
-The virtual shell includes core POSIX utilities:
+O shell virtual inclui utilitários POSIX core:
 
-| Utility | Description |
-|---------|-------------|
-| `echo` | Print text |
-| `printf` | Formatted output |
-| `test` / `[` | Conditionals |
-| `true` / `false` | Exit with 0/1 |
-| `pwd` | Print working directory |
-| `cd` | Change directory |
-| `read` | Read input |
-| `export` | Set environment variables |
+| Utilitário | Descrição |
+|------------|-----------|
+| `echo` | Imprimir texto |
+| `printf` | Saída formatada |
+| `test` / `[` | Condicionais |
+| `true` / `false` | Sair com 0/1 |
+| `pwd` | Imprimir diretório de trabalho |
+| `cd` | Mudar diretório |
+| `read` | Ler entrada |
+| `export` | Definir variáveis de ambiente |
 
-### Extended Utilities (u-root)
+### Utilitários Estendidos (u-root)
 
-When enabled in config, additional utilities are available:
+Quando habilitado na configuração, utilitários adicionais estão disponíveis:
 
 ```cue
-// In your config file
+// No seu arquivo de configuração
 virtual_shell: {
     enable_uroot_utils: true
 }
 ```
 
-This adds utilities like:
+Isso adiciona utilitários como:
 - `cat`, `head`, `tail`
 - `grep`, `sed`, `awk`
 - `ls`, `cp`, `mv`, `rm`
 - `mkdir`, `rmdir`
-- And many more
+- E muitos outros
 
-## POSIX Shell Features
+## Recursos do Shell POSIX
 
-The virtual shell supports standard POSIX constructs:
+O shell virtual suporta construções POSIX padrão:
 
-### Variables
+### Variáveis
 
 ```cue
 script: """
     NAME="World"
     echo "Hello, $NAME!"
     
-    # Parameter expansion
+    # Expansão de parâmetros
     echo "${NAME:-default}"
-    echo "${#NAME}"  # Length
+    echo "${#NAME}"  # Comprimento
     """
 ```
 
-### Conditionals
+### Condicionais
 
 ```cue
 script: """
@@ -130,12 +130,12 @@ script: """
 
 ```cue
 script: """
-    # For loop
+    # Loop for
     for file in *.go; do
         echo "Processing $file"
     done
     
-    # While loop
+    # Loop while
     count=0
     while [ $count -lt 5 ]; do
         echo "Count: $count"
@@ -144,7 +144,7 @@ script: """
     """
 ```
 
-### Functions
+### Funções
 
 ```cue
 script: """
@@ -157,11 +157,11 @@ script: """
     """
 ```
 
-### Subshells and Command Substitution
+### Subshells e Substituição de Comandos
 
 ```cue
 script: """
-    # Command substitution
+    # Substituição de comandos
     current_date=$(date +%Y-%m-%d)
     echo "Today is $current_date"
     
@@ -171,25 +171,25 @@ script: """
     """
 ```
 
-## Calling External Commands
+## Chamando Comandos Externos
 
-The virtual shell can call external commands installed on your system:
+O shell virtual pode chamar comandos externos instalados no seu sistema:
 
 ```cue
 script: """
-    # Calls the real 'go' binary
+    # Chama o binário 'go' real
     go version
     
-    # Calls the real 'git' binary
+    # Chama o binário 'git' real
     git status
     """
 ```
 
-External commands are found using the system's PATH.
+Comandos externos são encontrados usando o PATH do sistema.
 
-## Environment Variables
+## Variáveis de Ambiente
 
-Environment variables work the same as in native:
+Variáveis de ambiente funcionam da mesma forma que no native:
 
 ```cue
 {
@@ -211,9 +211,9 @@ Environment variables work the same as in native:
 }
 ```
 
-## Flags and Arguments
+## Flags e Argumentos
 
-Access flags and arguments the same way:
+Acesse flags e argumentos da mesma forma:
 
 ```cue
 {
@@ -221,10 +221,10 @@ Access flags and arguments the same way:
     args: [{name: "name", default_value: "World"}]
     implementations: [{
         script: """
-            # Using environment variable
+            # Usando variável de ambiente
             echo "Hello, $INVOWK_ARG_NAME!"
             
-            # Or positional parameter
+            # Ou parâmetro posicional
             echo "Hello, $1!"
             """
         target: {
@@ -234,14 +234,14 @@ Access flags and arguments the same way:
 }
 ```
 
-## Limitations
+## Limitações
 
-### No Interpreter Support
+### Sem Suporte a Interpretadores
 
-The virtual runtime **cannot** use non-shell interpreters:
+O runtime virtual **não pode** usar interpretadores não-shell:
 
 ```cue
-// This will NOT work with virtual runtime!
+// Isso NÃO funcionará com o runtime virtual!
 {
     name: "bad-example"
     implementations: [{
@@ -252,46 +252,46 @@ The virtual runtime **cannot** use non-shell interpreters:
         target: {
             runtimes: [{
                 name: "virtual"
-                interpreter: "python3"  // ERROR: Not supported
+                interpreter: "python3"  // ERRO: Não suportado
             }]
         }
     }]
 }
 ```
 
-For Python, Ruby, or other interpreters, use the native or container runtime.
+Para Python, Ruby ou outros interpretadores, use o runtime native ou container.
 
-### Bash-Specific Features
+### Recursos Específicos do Bash
 
-Some bash-specific features are not available:
+Alguns recursos específicos do bash não estão disponíveis:
 
 ```cue
-// These won't work in virtual runtime:
+// Estes não funcionarão no runtime virtual:
 script: """
-    # Bash arrays (use $@ instead)
-    declare -a arr=(1 2 3)  # Not supported
+    # Arrays do Bash (use $@ em vez disso)
+    declare -a arr=(1 2 3)  # Não suportado
     
-    # Bash-specific parameter expansion
-    ${var^^}  # Uppercase - not supported
-    ${var,,}  # Lowercase - not supported
+    # Expansão de parâmetros específica do Bash
+    ${var^^}  # Maiúsculas - não suportado
+    ${var,,}  # Minúsculas - não suportado
     
-    # Process substitution
-    diff <(cmd1) <(cmd2)  # Not supported
+    # Substituição de processo
+    diff <(cmd1) <(cmd2)  # Não suportado
     """
 ```
 
-Stick to POSIX-compatible constructs for virtual runtime.
+Mantenha construções POSIX-compatíveis para o runtime virtual.
 
-## Dependency Validation
+## Validação de Dependências
 
-Dependencies are validated against the virtual shell's capabilities:
+Dependências são validadas contra as capacidades do shell virtual:
 
 ```cue
 {
     name: "build"
     depends_on: {
         tools: [
-            // These will be checked in the virtual shell environment
+            // Estas serão verificadas no ambiente do shell virtual
             {alternatives: ["go"]},
             {alternatives: ["git"]}
         ]
@@ -305,24 +305,24 @@ Dependencies are validated against the virtual shell's capabilities:
 }
 ```
 
-## Advantages
+## Vantagens
 
-- **Consistency**: Same behavior on Linux, macOS, and Windows
-- **No shell dependency**: Works even if system shell is unavailable
-- **Portability**: Scripts work across all platforms
-- **Built-in utilities**: Core utilities always available
-- **Faster startup**: No shell process to spawn
+- **Consistência**: Mesmo comportamento no Linux, macOS e Windows
+- **Sem dependência de shell**: Funciona mesmo se o shell do sistema não estiver disponível
+- **Portabilidade**: Scripts funcionam em todas as plataformas
+- **Utilitários integrados**: Utilitários core sempre disponíveis
+- **Startup mais rápido**: Sem processo de shell para iniciar
 
-## When to Use Virtual
+## Quando Usar Virtual
 
-- **Cross-platform scripts**: When the same script must work everywhere
-- **CI/CD pipelines**: Consistent behavior across build agents
-- **Simple shell scripts**: When you don't need bash-specific features
-- **Embedded environments**: When external shells aren't available
+- **Scripts multiplataforma**: Quando o mesmo script deve funcionar em todos os lugares
+- **Pipelines CI/CD**: Comportamento consistente entre agentes de build
+- **Scripts shell simples**: Quando você não precisa de recursos específicos do bash
+- **Ambientes embarcados**: Quando shells externos não estão disponíveis
 
-## Configuration
+## Configuração
 
-Configure the virtual shell in your Invowk config file:
+Configure o shell virtual no seu arquivo de configuração do Invowk:
 
 ```cue
 // ~/.config/invowk/config.cue (Linux)
@@ -330,12 +330,12 @@ Configure the virtual shell in your Invowk config file:
 // %APPDATA%\invowk\config.cue (Windows)
 
 virtual_shell: {
-    // Enable additional utilities from u-root
+    // Habilitar utilitários adicionais do u-root
     enable_uroot_utils: true
 }
 ```
 
-## Next Steps
+## Próximos Passos
 
-- [Native Runtime](./native) - For full shell access
-- [Container Runtime](./container) - For isolated execution
+- [Runtime Native](./native) - Para acesso completo ao shell
+- [Runtime Container](./container) - Para execução isolada

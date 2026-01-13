@@ -2,11 +2,11 @@
 sidebar_position: 6
 ---
 
-# Environment Variable Dependencies
+# Dependências de Variáveis de Ambiente
 
-Environment variable dependencies verify that required environment variables exist before your command runs. They're checked **first**, before any other dependencies, against the user's actual environment.
+Dependências de variáveis de ambiente verificam se variáveis de ambiente requeridas existem antes que seu comando seja executado. Elas são verificadas **primeiro**, antes de quaisquer outras dependências, contra o ambiente real do usuário.
 
-## Basic Usage
+## Uso Básico
 
 ```cue
 {
@@ -20,7 +20,7 @@ Environment variable dependencies verify that required environment variables exi
 }
 ```
 
-If the variable isn't set:
+Se a variável não estiver definida:
 
 ```
 ✗ Dependencies not satisfied
@@ -33,14 +33,14 @@ Missing Environment Variables:
 Set the required environment variables and try again.
 ```
 
-## Alternatives (OR Semantics)
+## Alternativas (Semântica OU)
 
-Require one of multiple variables:
+Requer uma de múltiplas variáveis:
 
 ```cue
 depends_on: {
     env_vars: [
-        // Either AWS_ACCESS_KEY_ID OR AWS_PROFILE
+        // AWS_ACCESS_KEY_ID OU AWS_PROFILE
         {alternatives: [
             {name: "AWS_ACCESS_KEY_ID"},
             {name: "AWS_PROFILE"}
@@ -49,16 +49,16 @@ depends_on: {
 }
 ```
 
-The dependency is satisfied if **any** alternative exists.
+A dependência é satisfeita se **qualquer** alternativa existir.
 
-## Regex Validation
+## Validação por Regex
 
-Validate the variable's value matches a pattern:
+Valide que o valor da variável corresponde a um padrão:
 
 ```cue
 depends_on: {
     env_vars: [
-        // Must be set AND match semver format
+        // Deve estar definido E corresponder ao formato semver
         {alternatives: [{
             name: "VERSION"
             validation: "^[0-9]+\\.[0-9]+\\.[0-9]+$"
@@ -67,7 +67,7 @@ depends_on: {
 }
 ```
 
-If the value doesn't match:
+Se o valor não corresponder:
 
 ```
 ✗ Dependencies not satisfied
@@ -78,35 +78,35 @@ Invalid Environment Variables:
   • VERSION - value "invalid" does not match pattern "^[0-9]+\.[0-9]+\.[0-9]+$"
 ```
 
-## Validation Order
+## Ordem de Validação
 
-Environment variables are checked **first**, before all other dependencies:
+Variáveis de ambiente são verificadas **primeiro**, antes de todas as outras dependências:
 
-1. **env_vars** ← Checked first!
+1. **env_vars** ← Verificado primeiro!
 2. tools
 3. filepaths
 4. capabilities
 5. commands
 6. custom_checks
 
-This ensures you're validating against the user's actual environment, not variables set by Invowk's `env` construct.
+Isso garante que você está validando contra o ambiente real do usuário, não variáveis definidas pela construção `env` do Invowk.
 
-## Real-World Examples
+## Exemplos do Mundo Real
 
-### AWS Credentials
+### Credenciais AWS
 
 ```cue
 {
     name: "deploy"
-    description: "Deploy to AWS"
+    description: "Deploy para AWS"
     depends_on: {
         env_vars: [
-            // Need either access key or profile
+            // Precisa de access key ou profile
             {alternatives: [
                 {name: "AWS_ACCESS_KEY_ID"},
                 {name: "AWS_PROFILE"}
             ]},
-            // Region is required
+            // Region é obrigatória
             {alternatives: [{name: "AWS_REGION"}]}
         ]
         tools: [{alternatives: ["aws"]}]
@@ -118,17 +118,17 @@ This ensures you're validating against the user's actual environment, not variab
 }
 ```
 
-### Database Connection
+### Conexão com Banco de Dados
 
 ```cue
 {
     name: "db migrate"
-    description: "Run database migrations"
+    description: "Executar migrações do banco de dados"
     depends_on: {
         env_vars: [
             {alternatives: [{
                 name: "DATABASE_URL"
-                // Validate it looks like a connection string
+                // Validar que parece uma string de conexão
                 validation: "^postgres(ql)?://.*$"
             }]}
         ]
@@ -141,15 +141,15 @@ This ensures you're validating against the user's actual environment, not variab
 }
 ```
 
-### API Keys
+### Chaves de API
 
 ```cue
 {
     name: "publish"
-    description: "Publish package to registry"
+    description: "Publicar pacote no registry"
     depends_on: {
         env_vars: [
-            // NPM token for publishing
+            // Token NPM para publicação
             {alternatives: [{name: "NPM_TOKEN"}]},
         ]
         tools: [{alternatives: ["npm"]}]
@@ -164,15 +164,15 @@ This ensures you're validating against the user's actual environment, not variab
 }
 ```
 
-### Environment-Specific Config
+### Configuração Específica de Ambiente
 
 ```cue
 {
     name: "deploy"
-    description: "Deploy to target environment"
+    description: "Deploy para ambiente alvo"
     depends_on: {
         env_vars: [
-            // DEPLOY_ENV must be one of: dev, staging, prod
+            // DEPLOY_ENV deve ser um de: dev, staging, prod
             {alternatives: [{
                 name: "DEPLOY_ENV"
                 validation: "^(dev|staging|prod)$"
@@ -181,7 +181,7 @@ This ensures you're validating against the user's actual environment, not variab
     }
     implementations: [{
         script: """
-            echo "Deploying to $DEPLOY_ENV..."
+            echo "Fazendo deploy para $DEPLOY_ENV..."
             ./scripts/deploy-$DEPLOY_ENV.sh
             """
         target: {runtimes: [{name: "native"}]}
@@ -189,20 +189,20 @@ This ensures you're validating against the user's actual environment, not variab
 }
 ```
 
-### Version Validation
+### Validação de Versão
 
 ```cue
 {
     name: "release"
-    description: "Create a release"
+    description: "Criar um release"
     depends_on: {
         env_vars: [
-            // Version must be semantic
+            // Versão deve ser semântica
             {alternatives: [{
                 name: "VERSION"
                 validation: "^v?[0-9]+\\.[0-9]+\\.[0-9]+(-[a-zA-Z0-9]+)?$"
             }]},
-            // Git tag message
+            // Mensagem da tag git
             {alternatives: [{name: "RELEASE_NOTES"}]}
         ]
     }
@@ -216,56 +216,56 @@ This ensures you're validating against the user's actual environment, not variab
 }
 ```
 
-## Common Validation Patterns
+## Padrões Comuns de Validação
 
-### Semantic Version
+### Versão Semântica
 
 ```cue
 validation: "^[0-9]+\\.[0-9]+\\.[0-9]+$"
-// Matches: 1.0.0, 2.1.3
-// Rejects: v1.0.0, 1.0, latest
+// Corresponde: 1.0.0, 2.1.3
+// Rejeita: v1.0.0, 1.0, latest
 ```
 
 ### URL
 
 ```cue
 validation: "^https?://[^\\s]+$"
-// Matches: http://localhost, https://example.com/path
-// Rejects: ftp://server, not-a-url
+// Corresponde: http://localhost, https://example.com/path
+// Rejeita: ftp://server, not-a-url
 ```
 
-### Email-like
+### Tipo Email
 
 ```cue
 validation: "^[^@]+@[^@]+\\.[^@]+$"
-// Matches: user@example.com
-// Rejects: invalid, @example.com
+// Corresponde: user@example.com
+// Rejeita: invalid, @example.com
 ```
 
-### Alphanumeric ID
+### ID Alfanumérico
 
 ```cue
 validation: "^[a-zA-Z0-9_-]+$"
-// Matches: my-project_123, ABC
-// Rejects: my project, name@here
+// Corresponde: my-project_123, ABC
+// Rejeita: my project, name@here
 ```
 
-### AWS Region
+### Região AWS
 
 ```cue
 validation: "^[a-z]{2}-[a-z]+-[0-9]+$"
-// Matches: us-east-1, eu-west-2
-// Rejects: US-EAST-1, us_east_1
+// Corresponde: us-east-1, eu-west-2
+// Rejeita: US-EAST-1, us_east_1
 ```
 
-## Multiple Requirements
+## Múltiplos Requisitos
 
-Combine multiple env var checks (AND logic):
+Combine múltiplas verificações de variáveis de ambiente (lógica E):
 
 ```cue
 depends_on: {
     env_vars: [
-        // Need API_KEY AND API_SECRET AND API_URL
+        // Precisa de API_KEY E API_SECRET E API_URL
         {alternatives: [{name: "API_KEY"}]},
         {alternatives: [{name: "API_SECRET"}]},
         {alternatives: [{
@@ -276,39 +276,39 @@ depends_on: {
 }
 ```
 
-## Important: User Environment Only
+## Importante: Apenas Ambiente do Usuário
 
-Environment variable dependencies check the **user's environment**, not variables set by Invowk:
+Dependências de variáveis de ambiente verificam o **ambiente do usuário**, não variáveis definidas pelo Invowk:
 
 ```cue
 {
     name: "example"
     env: {
         vars: {
-            // This is set by Invowk during execution
+            // Isso é definido pelo Invowk durante a execução
             MY_VAR: "value"
         }
     }
     depends_on: {
         env_vars: [
-            // This checks the USER's environment, BEFORE Invowk sets MY_VAR
-            // So it will fail if the user hasn't set MY_VAR themselves
+            // Isso verifica o ambiente do USUÁRIO, ANTES do Invowk definir MY_VAR
+            // Então vai falhar se o usuário não tiver definido MY_VAR ele mesmo
             {alternatives: [{name: "MY_VAR"}]}
         ]
     }
 }
 ```
 
-This is intentional - you're validating what the user has configured, not what your command will set.
+Isso é intencional - você está validando o que o usuário configurou, não o que seu comando vai definir.
 
-## Best Practices
+## Melhores Práticas
 
-1. **Use alternatives for auth methods**: `{alternatives: [{name: "TOKEN"}, {name: "API_KEY"}]}`
-2. **Add validation when format matters**: Especially for URLs, versions, and IDs
-3. **Document required vars**: Users need to know what to set
-4. **Consider secrets management**: Don't log sensitive values
+1. **Use alternativas para métodos de auth**: `{alternatives: [{name: "TOKEN"}, {name: "API_KEY"}]}`
+2. **Adicione validação quando o formato importa**: Especialmente para URLs, versões e IDs
+3. **Documente variáveis requeridas**: Usuários precisam saber o que definir
+4. **Considere gerenciamento de secrets**: Não logue valores sensíveis
 
-## Next Steps
+## Próximos Passos
 
-- [Custom Checks](./custom-checks) - Write custom validation scripts
-- [Overview](./overview) - Return to dependencies overview
+- [Custom Checks](./custom-checks) - Escrever scripts de validação personalizados
+- [Overview](./overview) - Retornar à visão geral de dependências

@@ -2,22 +2,22 @@
 sidebar_position: 2
 ---
 
-# Working Directory
+# Diretório de Trabalho
 
-Control where your commands execute with the `workdir` setting. This is especially useful for monorepos and projects with complex directory structures.
+Controle onde seus comandos executam com a configuração `workdir`. Isso é especialmente útil para monorepos e projetos com estruturas de diretório complexas.
 
-## Default Behavior
+## Comportamento Padrão
 
-By default, commands run in the current directory (where you invoked `invowk`).
+Por padrão, comandos rodam no diretório atual (onde você invocou o `invowk`).
 
-## Setting Working Directory
+## Definindo o Diretório de Trabalho
 
-### Command Level
+### Nível de Comando
 
 ```cue
 {
     name: "build frontend"
-    workdir: "./frontend"  // Run in frontend subdirectory
+    workdir: "./frontend"  // Rodar no subdiretório frontend
     implementations: [{
         script: "npm run build"
         target: {runtimes: [{name: "native"}]}
@@ -25,7 +25,7 @@ By default, commands run in the current directory (where you invoked `invowk`).
 }
 ```
 
-### Implementation Level
+### Nível de Implementação
 
 ```cue
 {
@@ -34,42 +34,42 @@ By default, commands run in the current directory (where you invoked `invowk`).
         {
             script: "npm run build"
             target: {runtimes: [{name: "native"}]}
-            workdir: "./web"  // This implementation runs in ./web
+            workdir: "./web"  // Esta implementação roda em ./web
         },
         {
             script: "go build ./..."
             target: {runtimes: [{name: "native"}]}
-            workdir: "./api"  // This implementation runs in ./api
+            workdir: "./api"  // Esta implementação roda em ./api
         }
     ]
 }
 ```
 
-### Root Level
+### Nível Raiz
 
 ```cue
 group: "myproject"
-workdir: "./src"  // All commands default to ./src
+workdir: "./src"  // Todos os comandos usam ./src por padrão
 
 commands: [
     {
         name: "build"
-        // Inherits workdir: ./src
+        // Herda workdir: ./src
         implementations: [...]
     },
     {
         name: "test"
-        workdir: "./tests"  // Override to ./tests
+        workdir: "./tests"  // Sobrescrever para ./tests
         implementations: [...]
     }
 ]
 ```
 
-## Path Types
+## Tipos de Caminho
 
-### Relative Paths
+### Caminhos Relativos
 
-Relative to the invkfile location:
+Relativo à localização do invkfile:
 
 ```cue
 workdir: "./frontend"
@@ -77,36 +77,36 @@ workdir: "../shared"
 workdir: "src/app"
 ```
 
-### Absolute Paths
+### Caminhos Absolutos
 
-Full system paths:
+Caminhos completos do sistema:
 
 ```cue
 workdir: "/opt/myapp"
 workdir: "/home/user/projects/myapp"
 ```
 
-### Environment Variables
+### Variáveis de Ambiente
 
-Expand variables in paths:
+Expanda variáveis em caminhos:
 
 ```cue
 workdir: "${HOME}/projects/myapp"
 workdir: "${PROJECT_ROOT}/src"
 ```
 
-## Precedence
+## Precedência
 
-Implementation overrides command, which overrides root:
+Implementação sobrescreve comando, que sobrescreve raiz:
 
 ```cue
 group: "myproject"
-workdir: "./root"  // Default: ./root
+workdir: "./root"  // Padrão: ./root
 
 commands: [
     {
         name: "build"
-        workdir: "./command"  // Override: ./command
+        workdir: "./command"  // Sobrescrita: ./command
         implementations: [
             {
                 script: "make"
@@ -118,9 +118,9 @@ commands: [
 ]
 ```
 
-## Monorepo Pattern
+## Padrão Monorepo
 
-Perfect for monorepos with multiple packages:
+Perfeito para monorepos com múltiplos pacotes:
 
 ```cue
 group: "monorepo"
@@ -153,9 +153,9 @@ commands: [
 ]
 ```
 
-## Container Working Directory
+## Diretório de Trabalho em Container
 
-For containers, the current directory is mounted to `/workspace`:
+Para containers, o diretório atual é montado em `/workspace`:
 
 ```cue
 {
@@ -163,7 +163,7 @@ For containers, the current directory is mounted to `/workspace`:
     implementations: [{
         script: """
             pwd  # /workspace
-            ls   # Shows your project files
+            ls   # Mostra seus arquivos do projeto
             """
         target: {
             runtimes: [{name: "container", image: "alpine"}]
@@ -172,7 +172,7 @@ For containers, the current directory is mounted to `/workspace`:
 }
 ```
 
-With `workdir`, that subdirectory becomes the container's working directory:
+Com `workdir`, esse subdiretório se torna o diretório de trabalho do container:
 
 ```cue
 {
@@ -190,23 +190,23 @@ With `workdir`, that subdirectory becomes the container's working directory:
 }
 ```
 
-## Cross-Platform Paths
+## Caminhos Multiplataforma
 
-Use forward slashes for cross-platform compatibility:
+Use barras para frente para compatibilidade multiplataforma:
 
 ```cue
-// Good - works everywhere
+// Bom - funciona em qualquer lugar
 workdir: "./src/app"
 
-// Avoid - Windows-specific
+// Evite - específico do Windows
 workdir: ".\\src\\app"
 ```
 
-Invowk automatically converts to native path separators at runtime.
+O Invowk converte automaticamente para separadores de caminho nativos em tempo de execução.
 
-## Real-World Examples
+## Exemplos do Mundo Real
 
-### Frontend/Backend Split
+### Divisão Frontend/Backend
 
 ```cue
 commands: [
@@ -229,7 +229,7 @@ commands: [
 ]
 ```
 
-### Test Organization
+### Organização de Testes
 
 ```cue
 commands: [
@@ -260,7 +260,7 @@ commands: [
 ]
 ```
 
-### Build in Subdirectory
+### Build em Subdiretório
 
 ```cue
 {
@@ -268,7 +268,7 @@ commands: [
     workdir: "./src"
     implementations: [{
         script: """
-            # Now in ./src
+            # Agora em ./src
             go build -o ../bin/app ./...
             """
         target: {runtimes: [{name: "native"}]}
@@ -276,14 +276,14 @@ commands: [
 }
 ```
 
-## Best Practices
+## Melhores Práticas
 
-1. **Use relative paths**: More portable across machines
-2. **Forward slashes**: Cross-platform compatible
-3. **Root level for defaults**: Override where needed
-4. **Keep paths short**: Easier to understand
+1. **Use caminhos relativos**: Mais portável entre máquinas
+2. **Barras para frente**: Compatível com múltiplas plataformas
+3. **Nível raiz para padrões**: Sobrescreva onde necessário
+4. **Mantenha caminhos curtos**: Mais fácil de entender
 
-## Next Steps
+## Próximos Passos
 
-- [Interpreters](./interpreters) - Use non-shell interpreters
-- [Platform-Specific](./platform-specific) - Per-platform implementations
+- [Interpreters](./interpreters) - Usar interpretadores não-shell
+- [Platform-Specific](./platform-specific) - Implementações por plataforma

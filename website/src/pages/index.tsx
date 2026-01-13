@@ -1,6 +1,7 @@
 import type {ReactNode} from 'react';
 import clsx from 'clsx';
 import Link from '@docusaurus/Link';
+import Translate, {translate} from '@docusaurus/Translate';
 import useDocusaurusContext from '@docusaurus/useDocusaurusContext';
 import Layout from '@theme/Layout';
 import HomepageFeatures from '@site/src/components/HomepageFeatures';
@@ -14,24 +15,34 @@ function HomepageHeader() {
     <header className={clsx('hero hero--primary', styles.heroBanner)}>
       <div className="container">
         <div className={styles.alphaNotice}>
-          <span className={styles.alphaBadge}>ALPHA</span>
-          <span>Invowk is in early development. Expect breaking changes between releases.</span>
+          <span className={styles.alphaBadge}>
+            <Translate id="homepage.hero.alpha.badge">ALPHA</Translate>
+          </span>
+          <span>
+            <Translate id="homepage.hero.alpha.notice">
+              Invowk is in early development. Expect breaking changes between releases.
+            </Translate>
+          </span>
         </div>
         <Heading as="h1" className="hero__title">
           {siteConfig.title}
         </Heading>
-        <p className="hero__subtitle">{siteConfig.tagline}</p>
+        <p className="hero__subtitle">
+          <Translate id="homepage.hero.tagline" description="The tagline shown on the homepage hero">
+            A dynamically extensible command runner. Like `just`, but with superpowers.
+          </Translate>
+        </p>
         <div className={styles.buttons}>
           <Link
             className="button button--secondary button--lg"
             to="/docs/getting-started/installation">
-            Get Started
+            <Translate id="homepage.hero.button.getStarted">Get Started</Translate>
           </Link>
           <Link
             className="button button--outline button--lg"
             style={{marginLeft: '1rem', color: 'white', borderColor: 'white'}}
             to="/docs/getting-started/quickstart">
-            Quickstart
+            <Translate id="homepage.hero.button.quickstart">Quickstart</Translate>
           </Link>
         </div>
         <div className={styles.terminalDemo}>
@@ -61,8 +72,14 @@ export default function Home(): ReactNode {
   const {siteConfig} = useDocusaurusContext();
   return (
     <Layout
-      title="Dynamically Extensible Command Runner"
-      description="Invowk is a powerful, dynamically extensible command runner similar to just, written in Go. Define commands in CUE format and run them with native shell, virtual shell, or containers.">
+      title={translate({
+        id: 'homepage.layout.title',
+        message: 'Dynamically Extensible Command Runner',
+      })}
+      description={translate({
+        id: 'homepage.layout.description',
+        message: 'Invowk is a powerful, dynamically extensible command runner similar to just, written in Go. Define commands in CUE format and run them with native shell, virtual shell, or containers.',
+      })}>
       <HomepageHeader />
       <main>
         <HomepageFeatures />

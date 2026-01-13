@@ -2,49 +2,49 @@
 sidebar_position: 1
 ---
 
-# TUI Components Overview
+# Visão Geral de Componentes TUI
 
-Invowk includes a set of interactive terminal UI components inspired by [gum](https://github.com/charmbracelet/gum). Use them in your scripts to create interactive prompts, selections, and styled output.
+Invowk inclui um conjunto de componentes de interface de terminal interativos inspirados no [gum](https://github.com/charmbracelet/gum). Use-os em seus scripts para criar prompts interativos, seleções e saída estilizada.
 
-## Available Components
+## Componentes Disponíveis
 
-| Component | Description | Use Case |
-|-----------|-------------|----------|
-| [input](./input-and-write#input) | Single-line text input | Names, paths, simple values |
-| [write](./input-and-write#write) | Multi-line text editor | Descriptions, commit messages |
-| [choose](./choose-and-confirm#choose) | Select from options | Menus, choices |
-| [confirm](./choose-and-confirm#confirm) | Yes/no prompt | Confirmations |
-| [filter](./filter-and-file#filter) | Fuzzy filter list | Search through options |
-| [file](./filter-and-file#file) | File picker | Select files/directories |
-| [table](./table-and-spin#table) | Display tabular data | CSV, data tables |
-| [spin](./table-and-spin#spin) | Spinner with command | Long-running tasks |
-| [format](./format-and-style#format) | Format text (markdown, code) | Rendering content |
-| [style](./format-and-style#style) | Style text (colors, bold) | Decorating output |
+| Componente | Descrição | Caso de Uso |
+|------------|-----------|-------------|
+| [input](./input-and-write#input) | Entrada de texto de linha única | Nomes, caminhos, valores simples |
+| [write](./input-and-write#write) | Editor de texto multilinha | Descrições, mensagens de commit |
+| [choose](./choose-and-confirm#choose) | Selecionar de opções | Menus, escolhas |
+| [confirm](./choose-and-confirm#confirm) | Prompt sim/não | Confirmações |
+| [filter](./filter-and-file#filter) | Filtrar lista fuzzy | Buscar entre opções |
+| [file](./filter-and-file#file) | Seletor de arquivo | Selecionar arquivos/diretórios |
+| [table](./table-and-spin#table) | Exibir dados tabulares | CSV, tabelas de dados |
+| [spin](./table-and-spin#spin) | Spinner com comando | Tarefas de longa duração |
+| [format](./format-and-style#format) | Formatar texto (markdown, código) | Renderizar conteúdo |
+| [style](./format-and-style#style) | Estilizar texto (cores, negrito) | Decorar saída |
 
-## Quick Examples
+## Exemplos Rápidos
 
 ```bash
-# Get user input
+# Obter entrada do usuário
 NAME=$(invowk tui input --title "What's your name?")
 
-# Choose from options
+# Escolher de opções
 COLOR=$(invowk tui choose --title "Pick a color" red green blue)
 
-# Confirm action
+# Confirmar ação
 if invowk tui confirm "Continue?"; then
     echo "Proceeding..."
 fi
 
-# Show spinner during long task
+# Mostrar spinner durante tarefa longa
 invowk tui spin --title "Installing..." -- npm install
 
-# Style output
+# Estilizar saída
 echo "Success!" | invowk tui style --foreground "#00FF00" --bold
 ```
 
-## Using in Invkfiles
+## Usando em Invkfiles
 
-TUI components work great inside command scripts:
+Componentes TUI funcionam muito bem dentro de scripts de comando:
 
 ```cue
 {
@@ -54,21 +54,21 @@ TUI components work great inside command scripts:
         script: """
             #!/bin/bash
             
-            # Gather information
+            # Coletar informações
             NAME=$(invowk tui input --title "Project name:")
             TYPE=$(invowk tui choose --title "Type:" cli library api)
             
-            # Confirm
+            # Confirmar
             echo "Creating $TYPE project: $NAME"
             if ! invowk tui confirm "Proceed?"; then
                 echo "Cancelled."
                 exit 0
             fi
             
-            # Execute with spinner
+            # Executar com spinner
             invowk tui spin --title "Creating project..." -- mkdir -p "$NAME"
             
-            # Success message
+            # Mensagem de sucesso
             echo "Project created!" | invowk tui style --foreground "#00FF00" --bold
             """
         target: {runtimes: [{name: "native"}]}
@@ -76,9 +76,9 @@ TUI components work great inside command scripts:
 }
 ```
 
-## Common Patterns
+## Padrões Comuns
 
-### Input with Validation
+### Input com Validação
 
 ```bash
 while true; do
@@ -90,7 +90,7 @@ while true; do
 done
 ```
 
-### Menu System
+### Sistema de Menu
 
 ```bash
 ACTION=$(invowk tui choose --title "What would you like to do?" \
@@ -107,7 +107,7 @@ case "$ACTION" in
 esac
 ```
 
-### Progress Feedback
+### Feedback de Progresso
 
 ```bash
 echo "Step 1: Installing dependencies..."
@@ -119,42 +119,42 @@ invowk tui spin --title "Building..." -- npm run build
 echo "Done!" | invowk tui style --foreground "#00FF00" --bold
 ```
 
-### Styled Headers
+### Cabeçalhos Estilizados
 
 ```bash
 invowk tui style --bold --foreground "#00BFFF" "=== Project Setup ==="
 echo ""
-# ... rest of script
+# ... resto do script
 ```
 
-## Piping and Capture
+## Piping e Captura
 
-Most components work with pipes:
+A maioria dos componentes funciona com pipes:
 
 ```bash
-# Pipe to filter
+# Pipe para filter
 ls | invowk tui filter --title "Select file"
 
-# Capture output
+# Capturar saída
 SELECTED=$(invowk tui choose opt1 opt2 opt3)
 echo "You selected: $SELECTED"
 
-# Pipe for styling
+# Pipe para estilização
 echo "Important message" | invowk tui style --bold
 ```
 
-## Exit Codes
+## Códigos de Saída
 
-Components use exit codes to communicate:
+Componentes usam códigos de saída para comunicar:
 
-| Component | Exit 0 | Exit 1 |
-|-----------|--------|--------|
-| confirm | User said yes | User said no |
-| input | Value entered | Cancelled |
-| choose | Option selected | Cancelled |
-| filter | Option selected | Cancelled |
+| Componente | Exit 0 | Exit 1 |
+|------------|--------|--------|
+| confirm | Usuário disse sim | Usuário disse não |
+| input | Valor inserido | Cancelado |
+| choose | Opção selecionada | Cancelado |
+| filter | Opção selecionada | Cancelado |
 
-Use in conditionals:
+Use em condicionais:
 
 ```bash
 if invowk tui confirm "Delete files?"; then
@@ -162,12 +162,12 @@ if invowk tui confirm "Delete files?"; then
 fi
 ```
 
-## Next Steps
+## Próximos Passos
 
-Explore each component in detail:
+Explore cada componente em detalhes:
 
-- [Input and Write](./input-and-write) - Text entry
-- [Choose and Confirm](./choose-and-confirm) - Selection and confirmation
-- [Filter and File](./filter-and-file) - Search and file picking
-- [Table and Spin](./table-and-spin) - Data display and spinners
-- [Format and Style](./format-and-style) - Text formatting and styling
+- [Input e Write](./input-and-write) - Entrada de texto
+- [Choose e Confirm](./choose-and-confirm) - Seleção e confirmação
+- [Filter e File](./filter-and-file) - Busca e seleção de arquivo
+- [Table e Spin](./table-and-spin) - Exibição de dados e spinners
+- [Format e Style](./format-and-style) - Formatação e estilização de texto

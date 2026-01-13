@@ -2,23 +2,23 @@
 sidebar_position: 1
 ---
 
-# Runtime Modes Overview
+# Visão Geral dos Modos de Runtime
 
-Invowk gives you three different ways to execute commands, each with its own strengths. Choose the right runtime for your use case.
+O Invowk oferece três formas diferentes de executar comandos, cada uma com seus próprios pontos fortes. Escolha o runtime certo para seu caso de uso.
 
-## The Three Runtimes
+## Os Três Runtimes
 
-| Runtime | Description | Best For |
-|---------|-------------|----------|
-| **native** | System's default shell | Daily development, performance |
-| **virtual** | Built-in POSIX shell | Cross-platform scripts, portability |
-| **container** | Docker/Podman container | Reproducibility, isolation |
+| Runtime | Descrição | Melhor Para |
+|---------|-----------|-------------|
+| **native** | Shell padrão do sistema | Desenvolvimento diário, performance |
+| **virtual** | Shell POSIX integrado | Scripts multiplataforma, portabilidade |
+| **container** | Container Docker/Podman | Reprodutibilidade, isolamento |
 
-## Quick Comparison
+## Comparação Rápida
 
 ```cue
 commands: [
-    // Native: uses your system shell (bash, zsh, PowerShell, etc.)
+    // Native: usa o shell do seu sistema (bash, zsh, PowerShell, etc.)
     {
         name: "build native"
         implementations: [{
@@ -27,7 +27,7 @@ commands: [
         }]
     },
     
-    // Virtual: uses built-in POSIX-compatible shell
+    // Virtual: usa shell POSIX-compatível integrado
     {
         name: "build virtual"
         implementations: [{
@@ -36,7 +36,7 @@ commands: [
         }]
     },
     
-    // Container: runs inside a container
+    // Container: executa dentro de um container
     {
         name: "build container"
         implementations: [{
@@ -47,47 +47,47 @@ commands: [
 ]
 ```
 
-## When to Use Each Runtime
+## Quando Usar Cada Runtime
 
-### Native Runtime
+### Runtime Native
 
-Use **native** when you want:
-- Maximum performance
-- Access to all system tools
-- Shell-specific features (bash completions, zsh plugins)
-- Integration with your development environment
+Use **native** quando você quiser:
+- Máxima performance
+- Acesso a todas as ferramentas do sistema
+- Recursos específicos do shell (bash completions, plugins do zsh)
+- Integração com seu ambiente de desenvolvimento
 
 ```cue
 target: {runtimes: [{name: "native"}]}
 ```
 
-### Virtual Runtime
+### Runtime Virtual
 
-Use **virtual** when you want:
-- Consistent behavior across platforms
-- POSIX-compatible scripts that work everywhere
-- No external shell dependency
-- Simpler debugging of shell scripts
+Use **virtual** quando você quiser:
+- Comportamento consistente entre plataformas
+- Scripts POSIX-compatíveis que funcionam em qualquer lugar
+- Sem dependência de shell externo
+- Debug mais simples de scripts shell
 
 ```cue
 target: {runtimes: [{name: "virtual"}]}
 ```
 
-### Container Runtime
+### Runtime Container
 
-Use **container** when you want:
-- Reproducible builds
-- Isolated environments
-- Specific tool versions
-- Clean-room execution
+Use **container** quando você quiser:
+- Builds reproduzíveis
+- Ambientes isolados
+- Versões específicas de ferramentas
+- Execução em ambiente limpo
 
 ```cue
 target: {runtimes: [{name: "container", image: "golang:1.21"}]}
 ```
 
-## Multiple Runtimes Per Command
+## Múltiplos Runtimes Por Comando
 
-Commands can support multiple runtimes. The first one is the default:
+Comandos podem suportar múltiplos runtimes. O primeiro é o padrão:
 
 ```cue
 {
@@ -96,31 +96,31 @@ Commands can support multiple runtimes. The first one is the default:
         script: "go build ./..."
         target: {
             runtimes: [
-                {name: "native"},  // Default
-                {name: "virtual"}, // Alternative
-                {name: "container", image: "golang:1.21"}  // Reproducible
+                {name: "native"},  // Padrão
+                {name: "virtual"}, // Alternativa
+                {name: "container", image: "golang:1.21"}  // Reproduzível
             ]
         }
     }]
 }
 ```
 
-### Overriding at Runtime
+### Sobrescrevendo em Tempo de Execução
 
 ```bash
-# Use default (native)
+# Usar padrão (native)
 invowk cmd myproject build
 
-# Override to virtual
+# Sobrescrever para virtual
 invowk cmd myproject build --runtime virtual
 
-# Override to container
+# Sobrescrever para container
 invowk cmd myproject build --runtime container
 ```
 
-## Command Listing
+## Listagem de Comandos
 
-The command list shows available runtimes with an asterisk marking the default:
+A lista de comandos mostra runtimes disponíveis com um asterisco marcando o padrão:
 
 ```
 Available Commands
@@ -130,7 +130,7 @@ From current directory:
   myproject build - Build the project [native*, virtual, container] (linux, macos)
 ```
 
-## Runtime Selection Flow
+## Fluxo de Seleção de Runtime
 
 ```
                     ┌──────────────────┐
@@ -138,37 +138,37 @@ From current directory:
                     └────────┬─────────┘
                              │
                     ┌────────▼─────────┐
-                    │ --runtime flag?  │
+                    │ flag --runtime?  │
                     └────────┬─────────┘
                              │
               ┌──────────────┴──────────────┐
-              │ Yes                         │ No
+              │ Sim                         │ Não
               ▼                             ▼
     ┌─────────────────────┐    ┌─────────────────────┐
-    │ Use specified       │    │ Use first runtime   │
-    │ runtime             │    │ (default)           │
+    │ Usar runtime        │    │ Usar primeiro       │
+    │ especificado        │    │ runtime (padrão)    │
     └─────────────────────┘    └─────────────────────┘
 ```
 
-## Dependency Validation
+## Validação de Dependências
 
-Dependencies are validated according to the runtime:
+Dependências são validadas de acordo com o runtime:
 
-| Runtime | Dependencies Validated Against |
+| Runtime | Dependências Validadas Contra |
 |---------|-------------------------------|
-| native | Host system's shell and tools |
-| virtual | Built-in shell with core utilities |
-| container | Container's shell and environment |
+| native | Shell e ferramentas do sistema host |
+| virtual | Shell integrado com utilitários core |
+| container | Shell e ambiente do container |
 
-This means a `tools` dependency like `go` is checked:
-- **native**: Is `go` in the host's PATH?
-- **virtual**: Is `go` available in the virtual shell's built-ins?
-- **container**: Is `go` installed in the container image?
+Isso significa que uma dependência `tools` como `go` é verificada:
+- **native**: O `go` está no PATH do host?
+- **virtual**: O `go` está disponível nos built-ins do shell virtual?
+- **container**: O `go` está instalado na imagem do container?
 
-## Next Steps
+## Próximos Passos
 
-Dive deeper into each runtime:
+Aprofunde-se em cada runtime:
 
-- [Native Runtime](./native) - System shell execution
-- [Virtual Runtime](./virtual) - Built-in POSIX shell
-- [Container Runtime](./container) - Docker/Podman execution
+- [Runtime Native](./native) - Execução no shell do sistema
+- [Runtime Virtual](./virtual) - Shell POSIX integrado
+- [Runtime Container](./container) - Execução em Docker/Podman

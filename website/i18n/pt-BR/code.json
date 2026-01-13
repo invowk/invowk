@@ -179,7 +179,7 @@
     "description": "The ARIA label to collapse the sidebar category"
   },
   "theme.IconExternalLink.ariaLabel": {
-    "message": "(opens in new tab)",
+    "message": "(abre em nova aba)",
     "description": "The ARIA label for the external link icon"
   },
   "theme.NavBar.navAriaLabel": {
@@ -325,5 +325,73 @@
   "theme.tags.tagsPageTitle": {
     "message": "Etiquetas",
     "description": "The title of the tag list page"
+  },
+  "theme.announcementBar.content": {
+    "message": "⚠️ <strong>Software Alpha</strong> — Invowk está em desenvolvimento ativo. O formato do invkfile e as funcionalidades podem mudar entre versões. <a target=\"_blank\" rel=\"noopener noreferrer\" href=\"https://github.com/invowk/invowk\">Dê uma estrela no GitHub</a> para acompanhar o progresso!",
+    "description": "The announcement bar content"
+  },
+  "homepage.hero.alpha.badge": {
+    "message": "ALPHA"
+  },
+  "homepage.hero.alpha.notice": {
+    "message": "Invowk está em desenvolvimento inicial. Espere mudanças significativas entre versões."
+  },
+  "homepage.hero.tagline": {
+    "message": "Um command runner dinamicamente extensível. Como `just`, mas com superpoderes.",
+    "description": "The tagline shown on the homepage hero"
+  },
+  "homepage.hero.button.getStarted": {
+    "message": "Começar"
+  },
+  "homepage.hero.button.quickstart": {
+    "message": "Quickstart"
+  },
+  "homepage.layout.title": {
+    "message": "Command Runner Dinamicamente Extensível"
+  },
+  "homepage.layout.description": {
+    "message": "Invowk é um poderoso command runner dinamicamente extensível, similar ao just, escrito em Go. Defina comandos no formato CUE e execute-os com shell nativo, shell virtual ou containers."
+  },
+  "homepage.features.threeRuntimeModes.title": {
+    "message": "Três Modos de Runtime",
+    "description": "Title for the Three Runtime Modes feature"
+  },
+  "homepage.features.threeRuntimeModes.description": {
+    "message": "Execute comandos com shell native, o shell virtual integrado (POSIX cross-platform), ou dentro de containers (Docker/Podman). Escolha o que funciona melhor para cada comando."
+  },
+  "homepage.features.cuePowered.title": {
+    "message": "Configuração com CUE",
+    "description": "Title for the CUE-Powered Configuration feature"
+  },
+  "homepage.features.cuePowered.description": {
+    "message": "Defina comandos em invkfile.cue usando CUE, uma poderosa linguagem de configuração com validação integrada. Diga adeus aos pesadelos de indentação YAML."
+  },
+  "homepage.features.smartDependencies.title": {
+    "message": "Dependências Inteligentes",
+    "description": "Title for the Smart Dependencies feature"
+  },
+  "homepage.features.smartDependencies.description": {
+    "message": "Declare dependências de ferramentas, arquivos, capabilities e environment. O Invowk valida tudo antes de executar, fornecendo mensagens de erro claras quando algo está faltando."
+  },
+  "homepage.features.crossPlatform.title": {
+    "message": "Cross-Platform",
+    "description": "Title for the Cross-Platform feature"
+  },
+  "homepage.features.crossPlatform.description": {
+    "message": "Funciona no Linux, macOS e Windows. Escreva implementações específicas por plataforma para o mesmo comando, e o Invowk escolhe a correta automaticamente."
+  },
+  "homepage.features.interactiveTui.title": {
+    "message": "TUI Interativa",
+    "description": "Title for the Interactive TUI feature"
+  },
+  "homepage.features.interactiveTui.description": {
+    "message": "Componentes de UI de terminal integrados (como gum) para criar scripts interativos: prompts de entrada, seleções, confirmações, spinners e mais."
+  },
+  "homepage.features.distributablePacks.title": {
+    "message": "Packs Distribuíveis",
+    "description": "Title for the Distributable Packs feature"
+  },
+  "homepage.features.distributablePacks.description": {
+    "message": "Empacote comandos e scripts em packs para fácil compartilhamento e distribuição. Importe packs de arquivos ou URLs com um único comando."
   }
 }

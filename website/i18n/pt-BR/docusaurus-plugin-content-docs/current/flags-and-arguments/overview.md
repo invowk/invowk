@@ -2,34 +2,34 @@
 sidebar_position: 1
 ---
 
-# Flags and Arguments Overview
+# Visão Geral de Flags e Argumentos
 
-Commands can accept user input through **flags** (named options) and **arguments** (positional values). Both are passed to your scripts as environment variables.
+Comandos podem aceitar entrada do usuário através de **flags** (opções nomeadas) e **argumentos** (valores posicionais). Ambos são passados para seus scripts como variáveis de ambiente.
 
-## Quick Comparison
+## Comparação Rápida
 
-| Feature | Flags | Arguments |
-|---------|-------|-----------|
-| Syntax | `--name=value` or `--name value` | Positional: `value1 value2` |
-| Order | Any order | Must follow position order |
-| Boolean | Supported (`--verbose`) | Not supported |
-| Named access | `INVOWK_FLAG_NAME` | `INVOWK_ARG_NAME` |
-| Multiple values | No | Yes (variadic) |
+| Recurso | Flags | Argumentos |
+|---------|-------|------------|
+| Sintaxe | `--name=value` ou `--name value` | Posicional: `value1 value2` |
+| Ordem | Qualquer ordem | Deve seguir ordem de posição |
+| Boolean | Suportado (`--verbose`) | Não suportado |
+| Acesso nomeado | `INVOWK_FLAG_NAME` | `INVOWK_ARG_NAME` |
+| Múltiplos valores | Não | Sim (variadic) |
 
-## Example Command
+## Comando de Exemplo
 
 ```cue
 {
     name: "deploy"
-    description: "Deploy to an environment"
+    description: "Deploy para um ambiente"
     
-    // Flags - named options
+    // Flags - opções nomeadas
     flags: [
         {name: "dry-run", type: "bool", default_value: "false"},
         {name: "replicas", type: "int", default_value: "1"},
     ]
     
-    // Arguments - positional values
+    // Argumentos - valores posicionais
     args: [
         {name: "environment", required: true},
         {name: "services", variadic: true},
@@ -47,14 +47,14 @@ Commands can accept user input through **flags** (named options) and **arguments
 }
 ```
 
-Usage:
+Uso:
 ```bash
 invowk cmd myproject deploy production api web --dry-run --replicas=3
 ```
 
 ## Flags
 
-Flags are named options with `--name=value` syntax:
+Flags são opções nomeadas com sintaxe `--name=value`:
 
 ```cue
 flags: [
@@ -65,25 +65,25 @@ flags: [
 ```
 
 ```bash
-# Long form
+# Forma longa
 invowk cmd myproject build --verbose --output=./build --count=5
 
-# Short form
+# Forma curta
 invowk cmd myproject build -v -o=./build
 ```
 
-Key features:
-- Support short aliases (`-v` for `--verbose`)
-- Typed values (string, bool, int, float)
-- Optional or required
-- Default values
-- Regex validation
+Recursos principais:
+- Suportam aliases curtos (`-v` para `--verbose`)
+- Valores tipados (string, bool, int, float)
+- Opcional ou obrigatório
+- Valores padrão
+- Validação por regex
 
-See [Flags](./flags) for details.
+Veja [Flags](./flags) para detalhes.
 
-## Arguments
+## Argumentos
 
-Arguments are positional values after the command name:
+Argumentos são valores posicionais após o nome do comando:
 
 ```cue
 args: [
@@ -97,52 +97,52 @@ args: [
 invowk cmd myproject copy ./src ./dest file1.txt file2.txt
 ```
 
-Key features:
-- Position-based (order matters)
-- Required or optional
-- Default values
-- Last argument can be variadic (accept multiple values)
-- Typed values (string, int, float - but not bool)
+Recursos principais:
+- Baseado em posição (ordem importa)
+- Obrigatório ou opcional
+- Valores padrão
+- Último argumento pode ser variadic (aceita múltiplos valores)
+- Valores tipados (string, int, float - mas não bool)
 
-See [Positional Arguments](./positional-arguments) for details.
+Veja [Positional Arguments](./positional-arguments) para detalhes.
 
-## Environment Variable Access
+## Acesso via Variável de Ambiente
 
-Both flags and arguments are available as environment variables:
+Tanto flags quanto argumentos estão disponíveis como variáveis de ambiente:
 
-### Flag Variables
+### Variáveis de Flag
 
-Prefix: `INVOWK_FLAG_`
+Prefixo: `INVOWK_FLAG_`
 
-| Flag Name | Environment Variable |
-|-----------|---------------------|
+| Nome da Flag | Variável de Ambiente |
+|--------------|---------------------|
 | `verbose` | `INVOWK_FLAG_VERBOSE` |
 | `dry-run` | `INVOWK_FLAG_DRY_RUN` |
 | `output-file` | `INVOWK_FLAG_OUTPUT_FILE` |
 
-### Argument Variables
+### Variáveis de Argumento
 
-Prefix: `INVOWK_ARG_`
+Prefixo: `INVOWK_ARG_`
 
-| Argument Name | Environment Variable |
-|---------------|---------------------|
+| Nome do Argumento | Variável de Ambiente |
+|-------------------|---------------------|
 | `environment` | `INVOWK_ARG_ENVIRONMENT` |
 | `file-path` | `INVOWK_ARG_FILE_PATH` |
 
-### Variadic Arguments
+### Argumentos Variadic
 
-Additional variables for multiple values:
+Variáveis adicionais para múltiplos valores:
 
-| Variable | Description |
-|----------|-------------|
-| `INVOWK_ARG_FILES` | Space-separated values |
-| `INVOWK_ARG_FILES_COUNT` | Number of values |
-| `INVOWK_ARG_FILES_1` | First value |
-| `INVOWK_ARG_FILES_2` | Second value |
+| Variável | Descrição |
+|----------|-----------|
+| `INVOWK_ARG_FILES` | Valores separados por espaço |
+| `INVOWK_ARG_FILES_COUNT` | Número de valores |
+| `INVOWK_ARG_FILES_1` | Primeiro valor |
+| `INVOWK_ARG_FILES_2` | Segundo valor |
 
-## Shell Positional Parameters
+## Parâmetros Posicionais do Shell
 
-Arguments are also available as shell positional parameters:
+Argumentos também estão disponíveis como parâmetros posicionais do shell:
 
 ```cue
 {
@@ -153,13 +153,13 @@ Arguments are also available as shell positional parameters:
     ]
     implementations: [{
         script: """
-            # Using environment variables
+            # Usando variáveis de ambiente
             echo "Hello, $INVOWK_ARG_FIRST_NAME $INVOWK_ARG_LAST_NAME!"
             
-            # Or using positional parameters
+            # Ou usando parâmetros posicionais
             echo "Hello, $1 $2!"
             
-            # All arguments
+            # Todos os argumentos
             echo "All: $@"
             """
         target: {runtimes: [{name: "native"}]}
@@ -167,29 +167,29 @@ Arguments are also available as shell positional parameters:
 }
 ```
 
-## Mixing Flags and Arguments
+## Misturando Flags e Argumentos
 
-Flags can appear anywhere on the command line:
+Flags podem aparecer em qualquer lugar na linha de comando:
 
 ```bash
-# All equivalent
+# Todos equivalentes
 invowk cmd myproject deploy production --dry-run api web
 invowk cmd myproject deploy --dry-run production api web
 invowk cmd myproject deploy production api web --dry-run
 ```
 
-## Reserved Flags
+## Flags Reservadas
 
-Some flag names are reserved by Invowk:
+Alguns nomes de flag são reservados pelo Invowk:
 
-- `env-file` / `-e` - Load environment from file
-- `env-var` / `-E` - Set environment variable
+- `env-file` / `-e` - Carregar ambiente de arquivo
+- `env-var` / `-E` - Definir variável de ambiente
 
-Don't use these names for your flags.
+Não use esses nomes para suas flags.
 
-## Help Output
+## Saída de Ajuda
 
-Flags and arguments appear in command help:
+Flags e argumentos aparecem na ajuda do comando:
 
 ```bash
 invowk cmd myproject deploy --help
@@ -209,7 +209,7 @@ Flags:
   -h, --help             help for deploy
 ```
 
-## Next Steps
+## Próximos Passos
 
-- [Flags](./flags) - Named options with `--flag=value` syntax
-- [Positional Arguments](./positional-arguments) - Value-based input
+- [Flags](./flags) - Opções nomeadas com sintaxe `--flag=value`
+- [Positional Arguments](./positional-arguments) - Entrada baseada em valor

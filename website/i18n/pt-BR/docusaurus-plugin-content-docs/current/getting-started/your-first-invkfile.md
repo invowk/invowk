@@ -2,29 +2,29 @@
 sidebar_position: 3
 ---
 
-# Your First Invkfile
+# Seu Primeiro Invkfile
 
-Now that you've run your first command, let's build something more practical. We'll create an invkfile for a typical project with build, test, and deploy commands.
+Agora que você executou seu primeiro comando, vamos criar algo mais prático. Criaremos um invkfile para um projeto típico com comandos de build, teste e deploy.
 
-## Understanding the Structure
+## Entendendo a Estrutura
 
-An invkfile has a simple structure:
+Um invkfile tem uma estrutura simples:
 
 ```cue
-group: "myproject"           // Required: namespace for your commands
-version: "1.0"               // Optional: version of this invkfile
-description: "My commands"   // Optional: what this file is about
+group: "myproject"           // Obrigatório: namespace para seus comandos
+version: "1.0"               // Opcional: versão deste invkfile
+description: "My commands"   // Opcional: sobre o que é este arquivo
 
-commands: [                  // Required: list of commands
-    // ... your commands here
+commands: [                  // Obrigatório: lista de comandos
+    // ... seus comandos aqui
 ]
 ```
 
-The `group` is mandatory and becomes the prefix for all your commands. Think of it as a namespace that keeps your commands organized and prevents collisions with commands from other invkfiles.
+O `group` é obrigatório e se torna o prefixo para todos os seus comandos. Pense nele como um namespace que mantém seus comandos organizados e evita colisões com comandos de outros invkfiles.
 
-## A Real-World Example
+## Um Exemplo do Mundo Real
 
-Let's create an invkfile for a Go project:
+Vamos criar um invkfile para um projeto Go:
 
 ```cue
 group: "goproject"
@@ -32,7 +32,7 @@ version: "1.0"
 description: "Commands for my Go project"
 
 commands: [
-    // Simple build command
+    // Comando de build simples
     {
         name: "build"
         description: "Build the project"
@@ -50,7 +50,7 @@ commands: [
         ]
     },
 
-    // Test command with subcommand-style naming
+    // Comando de teste com nome estilo subcomando
     {
         name: "test unit"
         description: "Run unit tests"
@@ -64,7 +64,7 @@ commands: [
         ]
     },
 
-    // Test with coverage
+    // Teste com cobertura
     {
         name: "test coverage"
         description: "Run tests with coverage"
@@ -82,7 +82,7 @@ commands: [
         ]
     },
 
-    // Clean command
+    // Comando de limpeza
     {
         name: "clean"
         description: "Remove build artifacts"
@@ -99,13 +99,13 @@ commands: [
 ]
 ```
 
-Save this as `invkfile.cue` and try:
+Salve isso como `invkfile.cue` e tente:
 
 ```bash
 invowk cmd --list
 ```
 
-You'll see:
+Você verá:
 
 ```
 Available Commands
@@ -118,48 +118,48 @@ From current directory:
   goproject clean - Remove build artifacts [native*] (linux, macos)
 ```
 
-## Subcommand-Style Names
+## Nomes Estilo Subcomando
 
-Notice how `test unit` and `test coverage` create a hierarchy. You run them like:
+Note como `test unit` e `test coverage` criam uma hierarquia. Você os executa assim:
 
 ```bash
 invowk cmd goproject test unit
 invowk cmd goproject test coverage
 ```
 
-This is just naming convention - spaces in the name create a subcommand feel. It's great for organizing related commands!
+Isso é apenas convenção de nomenclatura - espaços no nome criam uma sensação de subcomando. É ótimo para organizar comandos relacionados!
 
-## Multiple Runtimes
+## Múltiplos Runtimes
 
-The `test unit` command allows both `native` and `virtual` runtimes:
+O comando `test unit` permite tanto o runtime `native` quanto o `virtual`:
 
 ```cue
 runtimes: [{name: "native"}, {name: "virtual"}]
 ```
 
-The first one is the default. You can override it:
+O primeiro é o padrão. Você pode sobrescrevê-lo:
 
 ```bash
-# Use the default (native)
+# Usar o padrão (native)
 invowk cmd goproject test unit
 
-# Explicitly use virtual runtime
+# Usar explicitamente o runtime virtual
 invowk cmd goproject test unit --runtime virtual
 ```
 
-## Platform-Specific Commands
+## Comandos Específicos por Plataforma
 
-The `clean` command only works on Linux and macOS (because it uses `rm -rf`):
+O comando `clean` só funciona no Linux e macOS (porque usa `rm -rf`):
 
 ```cue
 platforms: [{name: "linux"}, {name: "macos"}]
 ```
 
-If you try to run it on Windows, Invowk will show a helpful error message explaining the command isn't available on your platform.
+Se você tentar executá-lo no Windows, o Invowk mostrará uma mensagem de erro útil explicando que o comando não está disponível na sua plataforma.
 
-## Adding Dependencies
+## Adicionando Dependências
 
-Let's make our build command smarter by checking if Go is installed:
+Vamos tornar nosso comando de build mais inteligente verificando se o Go está instalado:
 
 ```cue
 {
@@ -188,7 +188,7 @@ Let's make our build command smarter by checking if Go is installed:
 }
 ```
 
-Now if you run `invowk cmd goproject build` without Go installed, you'll get:
+Agora se você executar `invowk cmd goproject build` sem o Go instalado, você receberá:
 
 ```
 ✗ Dependencies not satisfied
@@ -201,14 +201,14 @@ Missing Tools:
 Install the missing tools and try again.
 ```
 
-## Environment Variables
+## Variáveis de Ambiente
 
-You can set environment variables at different levels:
+Você pode definir variáveis de ambiente em diferentes níveis:
 
 ```cue
 group: "goproject"
 
-// Root-level env applies to ALL commands
+// Env no nível raiz aplica-se a TODOS os comandos
 env: {
     vars: {
         GO111MODULE: "on"
@@ -218,7 +218,7 @@ env: {
 commands: [
     {
         name: "build"
-        // Command-level env applies to this command
+        // Env no nível do comando aplica-se a este comando
         env: {
             vars: {
                 CGO_ENABLED: "0"
@@ -227,7 +227,7 @@ commands: [
         implementations: [
             {
                 script: "go build -o bin/app ./..."
-                // Implementation-level env is most specific
+                // Env no nível da implementação é o mais específico
                 env: {
                     vars: {
                         GOOS: "linux"
@@ -243,12 +243,12 @@ commands: [
 ]
 ```
 
-Environment variables merge with later levels overriding earlier ones.
+As variáveis de ambiente são mescladas, com níveis posteriores sobrescrevendo os anteriores.
 
-## What's Next?
+## Próximos Passos
 
-You now know the basics of creating invkfiles! Continue learning about:
+Agora você conhece o básico de criar invkfiles! Continue aprendendo sobre:
 
-- [Core Concepts](../core-concepts/invkfile-format) - Deep dive into the invkfile format
-- [Runtime Modes](../runtime-modes/overview) - Learn about native, virtual, and container runtimes
-- [Dependencies](../dependencies/overview) - All the ways to declare dependencies
+- [Conceitos Principais](../core-concepts/invkfile-format) - Mergulho profundo no formato do invkfile
+- [Modos de Runtime](../runtime-modes/overview) - Aprenda sobre runtimes native, virtual e container
+- [Dependências](../dependencies/overview) - Todas as formas de declarar dependências

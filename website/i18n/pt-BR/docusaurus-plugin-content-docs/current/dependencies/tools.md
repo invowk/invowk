@@ -2,11 +2,11 @@
 sidebar_position: 2
 ---
 
-# Tool Dependencies
+# Dependências de Ferramentas
 
-Tool dependencies verify that required binaries are available in PATH before your command runs.
+Dependências de ferramentas verificam se os binários necessários estão disponíveis no PATH antes que seu comando seja executado.
 
-## Basic Usage
+## Uso Básico
 
 ```cue
 {
@@ -20,7 +20,7 @@ Tool dependencies verify that required binaries are available in PATH before you
 }
 ```
 
-If `go` isn't found in PATH, the command fails with a clear error:
+Se `go` não for encontrado no PATH, o comando falha com um erro claro:
 
 ```
 ✗ Dependencies not satisfied
@@ -33,35 +33,35 @@ Missing Tools:
 Install the missing tools and try again.
 ```
 
-## Alternatives (OR Semantics)
+## Alternativas (Semântica OU)
 
-Specify multiple alternatives when any tool will work:
+Especifique múltiplas alternativas quando qualquer ferramenta funcionar:
 
 ```cue
 depends_on: {
     tools: [
-        // Either podman OR docker
+        // podman OU docker
         {alternatives: ["podman", "docker"]},
         
-        // Either vim OR nvim
+        // vim OU nvim
         {alternatives: ["nvim", "vim"]},
     ]
 }
 ```
 
-Invowk checks alternatives in order and stops at the first match. This is useful for:
-- Tools with compatible alternatives (docker/podman)
-- Editor preferences (nvim/vim/vi)
-- Version variants (python3/python)
+O Invowk verifica as alternativas em ordem e para na primeira correspondência. Isso é útil para:
+- Ferramentas com alternativas compatíveis (docker/podman)
+- Preferências de editor (nvim/vim/vi)
+- Variantes de versão (python3/python)
 
-## Multiple Tool Requirements
+## Múltiplos Requisitos de Ferramentas
 
-Each entry in `tools` is an AND requirement:
+Cada entrada em `tools` é um requisito E:
 
 ```cue
 depends_on: {
     tools: [
-        // Need (podman OR docker) AND kubectl AND helm
+        // Precisa de (podman OU docker) E kubectl E helm
         {alternatives: ["podman", "docker"]},
         {alternatives: ["kubectl"]},
         {alternatives: ["helm"]},
@@ -69,11 +69,11 @@ depends_on: {
 }
 ```
 
-All three must be satisfied (though alternatives within each are OR).
+Todos os três devem ser satisfeitos (embora alternativas dentro de cada um sejam OU).
 
-## Real-World Examples
+## Exemplos do Mundo Real
 
-### Go Project
+### Projeto Go
 
 ```cue
 {
@@ -81,7 +81,7 @@ All three must be satisfied (though alternatives within each are OR).
     depends_on: {
         tools: [
             {alternatives: ["go"]},
-            {alternatives: ["git"]},  // For version info
+            {alternatives: ["git"]},  // Para informação de versão
         ]
     }
     implementations: [{
@@ -94,14 +94,14 @@ All three must be satisfied (though alternatives within each are OR).
 }
 ```
 
-### Node.js Project
+### Projeto Node.js
 
 ```cue
 {
     name: "build"
     depends_on: {
         tools: [
-            // Prefer pnpm, but npm works too
+            // Prefere pnpm, mas npm também funciona
             {alternatives: ["pnpm", "npm", "yarn"]},
             {alternatives: ["node"]},
         ]
@@ -113,7 +113,7 @@ All three must be satisfied (though alternatives within each are OR).
 }
 ```
 
-### Kubernetes Deployment
+### Deploy Kubernetes
 
 ```cue
 {
@@ -135,16 +135,16 @@ All three must be satisfied (though alternatives within each are OR).
 }
 ```
 
-### Python Project
+### Projeto Python
 
 ```cue
 {
     name: "run"
     depends_on: {
         tools: [
-            // Python 3 with various possible names
+            // Python 3 com vários nomes possíveis
             {alternatives: ["python3", "python"]},
-            // Virtual environment tool
+            // Ferramenta de ambiente virtual
             {alternatives: ["poetry", "pipenv", "pip"]},
         ]
     }
@@ -155,19 +155,19 @@ All three must be satisfied (though alternatives within each are OR).
 }
 ```
 
-## Runtime-Aware Validation
+## Validação Consciente do Runtime
 
-Tool checks are validated according to the runtime:
+Verificações de ferramentas são validadas de acordo com o runtime:
 
-### Native Runtime
+### Runtime Native
 
-Tools are checked on the host system:
+Ferramentas são verificadas no sistema host:
 
 ```cue
 {
     name: "build"
     depends_on: {
-        tools: [{alternatives: ["go"]}]  // Checked on host
+        tools: [{alternatives: ["go"]}]  // Verificado no host
     }
     implementations: [{
         script: "go build ./..."
@@ -176,15 +176,15 @@ Tools are checked on the host system:
 }
 ```
 
-### Virtual Runtime
+### Runtime Virtual
 
-Tools are checked in the virtual shell environment:
+Ferramentas são verificadas no ambiente do shell virtual:
 
 ```cue
 {
     name: "build"
     depends_on: {
-        tools: [{alternatives: ["go"]}]  // Checked in virtual shell
+        tools: [{alternatives: ["go"]}]  // Verificado no shell virtual
     }
     implementations: [{
         script: "go build ./..."
@@ -193,9 +193,9 @@ Tools are checked in the virtual shell environment:
 }
 ```
 
-### Container Runtime
+### Runtime Container
 
-Tools are checked **inside the container**:
+Ferramentas são verificadas **dentro do container**:
 
 ```cue
 {
@@ -204,21 +204,21 @@ Tools are checked **inside the container**:
         script: "go build ./..."
         target: {runtimes: [{name: "container", image: "golang:1.21"}]}
         depends_on: {
-            // This checks for 'go' INSIDE the container
+            // Isso verifica 'go' DENTRO do container
             tools: [{alternatives: ["go"]}]
         }
     }]
 }
 ```
 
-This is especially useful because:
-- The host doesn't need Go installed
-- You're validating the actual execution environment
-- You catch missing tools in custom container images
+Isso é especialmente útil porque:
+- O host não precisa ter Go instalado
+- Você está validando o ambiente de execução real
+- Você detecta ferramentas faltando em imagens de container personalizadas
 
-## Common Patterns
+## Padrões Comuns
 
-### Check Before External Call
+### Verificar Antes de Chamada Externa
 
 ```cue
 {
@@ -233,15 +233,15 @@ This is especially useful because:
 }
 ```
 
-### Database Tools
+### Ferramentas de Banco de Dados
 
 ```cue
 {
     name: "db migrate"
     depends_on: {
         tools: [
-            {alternatives: ["psql", "pgcli"]},  // PostgreSQL client
-            {alternatives: ["migrate", "goose", "flyway"]},  // Migration tool
+            {alternatives: ["psql", "pgcli"]},  // Cliente PostgreSQL
+            {alternatives: ["migrate", "goose", "flyway"]},  // Ferramenta de migração
         ]
     }
     implementations: [{
@@ -251,14 +251,14 @@ This is especially useful because:
 }
 ```
 
-### Cross-Platform
+### Multiplataforma
 
 ```cue
 {
     name: "open docs"
     depends_on: {
         tools: [
-            // Platform-specific openers
+            // Abridores específicos de plataforma
             {alternatives: ["xdg-open", "open", "start"]},
         ]
     }
@@ -269,14 +269,14 @@ This is especially useful because:
 }
 ```
 
-## Best Practices
+## Melhores Práticas
 
-1. **Use alternatives for compatible tools**: `{alternatives: ["podman", "docker"]}`
-2. **Order alternatives by preference**: First alternative is checked first
-3. **Keep tool lists minimal**: Only require what's actually used
-4. **Consider runtime context**: Container tools are checked inside containers
+1. **Use alternativas para ferramentas compatíveis**: `{alternatives: ["podman", "docker"]}`
+2. **Ordene alternativas por preferência**: A primeira alternativa é verificada primeiro
+3. **Mantenha listas de ferramentas mínimas**: Requer apenas o que é realmente usado
+4. **Considere o contexto do runtime**: Ferramentas de container são verificadas dentro de containers
 
-## Next Steps
+## Próximos Passos
 
-- [Filepaths](./filepaths) - Check for required files
-- [Commands](./commands) - Depend on other Invowk commands
+- [Filepaths](./filepaths) - Verificar arquivos necessários
+- [Commands](./commands) - Depender de outros comandos Invowk

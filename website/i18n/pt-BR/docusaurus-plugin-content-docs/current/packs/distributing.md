@@ -2,23 +2,23 @@
 sidebar_position: 4
 ---
 
-# Distributing Packs
+# Distribuindo Packs
 
-Share your packs with teammates, across organizations, or with the world.
+Compartilhe seus packs com colegas de equipe, entre organizações ou com o mundo.
 
-## Creating Archives
+## Criando Arquivos
 
-Create a zip archive for distribution:
+Crie um arquivo zip para distribuição:
 
 ```bash
-# Default output: <pack-name>.invkpack.zip
+# Saída padrão: <pack-name>.invkpack.zip
 invowk pack archive ./mytools.invkpack
 
-# Custom output path
+# Caminho de saída customizado
 invowk pack archive ./mytools.invkpack --output ./dist/mytools.zip
 ```
 
-Output:
+Saída:
 ```
 Archive Pack
 
@@ -28,32 +28,32 @@ Archive Pack
 • Size: 2.45 KB
 ```
 
-## Importing Packs
+## Importando Packs
 
-### From Local File
+### De Arquivo Local
 
 ```bash
-# Install to ~/.invowk/cmds/
+# Instalar em ~/.invowk/cmds/
 invowk pack import ./mytools.invkpack.zip
 
-# Install to custom directory
+# Instalar em diretório customizado
 invowk pack import ./mytools.invkpack.zip --path ./local-packs
 
-# Overwrite existing
+# Sobrescrever existente
 invowk pack import ./mytools.invkpack.zip --overwrite
 ```
 
-### From URL
+### De URL
 
 ```bash
-# Download and install
+# Baixar e instalar
 invowk pack import https://example.com/packs/mytools.zip
 
-# From GitHub release
+# De release do GitHub
 invowk pack import https://github.com/user/repo/releases/download/v1.0/mytools.invkpack.zip
 ```
 
-Output:
+Saída:
 ```
 Import Pack
 
@@ -65,13 +65,13 @@ Import Pack
 • The pack commands are now available via invowk
 ```
 
-## Listing Installed Packs
+## Listando Packs Instalados
 
 ```bash
 invowk pack list
 ```
 
-Output:
+Saída:
 ```
 Discovered Packs
 
@@ -88,17 +88,17 @@ Discovered Packs
       /home/user/.invowk/cmds/io.github.user.utilities.invkpack
 ```
 
-## Distribution Methods
+## Métodos de Distribuição
 
-### Direct Sharing
+### Compartilhamento Direto
 
-1. Create archive: `invowk pack archive`
-2. Share the zip file (email, Slack, etc.)
-3. Recipient imports: `invowk pack import`
+1. Crie o arquivo: `invowk pack archive`
+2. Compartilhe o arquivo zip (email, Slack, etc.)
+3. Destinatário importa: `invowk pack import`
 
-### Git Repository
+### Repositório Git
 
-Include packs in your repo:
+Inclua packs no seu repositório:
 
 ```
 my-project/
@@ -109,49 +109,49 @@ my-project/
 └── invkfile.cue
 ```
 
-Team members get packs when they clone the repo.
+Membros da equipe obtêm os packs ao clonar o repositório.
 
-### GitHub Releases
+### Releases do GitHub
 
-1. Create archive
-2. Attach to GitHub release
-3. Share the download URL
+1. Crie o arquivo
+2. Anexe ao release do GitHub
+3. Compartilhe a URL de download
 
 ```bash
-# Recipients install with:
+# Destinatários instalam com:
 invowk pack import https://github.com/org/repo/releases/download/v1.0.0/mytools.invkpack.zip
 ```
 
-### Package Registry (Future)
+### Registro de Pacotes (Futuro)
 
-Future versions may support:
+Versões futuras podem suportar:
 ```bash
 invowk pack install com.company.devtools@1.0.0
 ```
 
-## Install Locations
+## Locais de Instalação
 
-### User Commands (Default)
+### Comandos do Usuário (Padrão)
 
 ```bash
 invowk pack import mytools.zip
-# Installed to: ~/.invowk/cmds/mytools.invkpack/
+# Instalado em: ~/.invowk/cmds/mytools.invkpack/
 ```
 
-Available globally for the user.
+Disponível globalmente para o usuário.
 
-### Project-Local
+### Local do Projeto
 
 ```bash
 invowk pack import mytools.zip --path ./packs
-# Installed to: ./packs/mytools.invkpack/
+# Instalado em: ./packs/mytools.invkpack/
 ```
 
-Only available in this project.
+Disponível apenas neste projeto.
 
-### Custom Search Path
+### Caminho de Busca Customizado
 
-Configure additional search paths:
+Configure caminhos de busca adicionais:
 
 ```cue
 // ~/.config/invowk/config.cue
@@ -160,94 +160,94 @@ search_paths: [
 ]
 ```
 
-Install there:
+Instale lá:
 ```bash
 invowk pack import mytools.zip --path /shared/company-packs
 ```
 
-## Version Management
+## Gerenciamento de Versão
 
-### Semantic Versioning
+### Versionamento Semântico
 
-Use version in your invkfile:
+Use version no seu invkfile:
 
 ```cue
 group: "com.company.tools"
 version: "1.2.0"
 ```
 
-### Archive Naming
+### Nomenclatura de Arquivo
 
-Include version in archive name:
+Inclua a versão no nome do arquivo:
 
 ```bash
 invowk pack archive ./mytools.invkpack --output ./dist/mytools-1.2.0.zip
 ```
 
-### Upgrade Process
+### Processo de Upgrade
 
 ```bash
-# Remove old version
+# Remover versão antiga
 rm -rf ~/.invowk/cmds/mytools.invkpack
 
-# Install new version
+# Instalar nova versão
 invowk pack import mytools-1.2.0.zip
 
-# Or use --overwrite
+# Ou use --overwrite
 invowk pack import mytools-1.2.0.zip --overwrite
 ```
 
-## Team Distribution
+## Distribuição para Equipe
 
-### Shared Network Location
+### Localização de Rede Compartilhada
 
 ```bash
-# Admin publishes
+# Admin publica
 invowk pack archive ./devtools.invkpack --output /shared/packs/devtools.zip
 
-# Team members import
+# Membros da equipe importam
 invowk pack import /shared/packs/devtools.zip
 ```
 
-### Internal Package Server
+### Servidor de Pacotes Interno
 
-Host packs on internal HTTP server:
+Hospede packs em servidor HTTP interno:
 
 ```bash
-# Team members import via URL
+# Membros da equipe importam via URL
 invowk pack import https://internal.company.com/packs/devtools.zip
 ```
 
-## Best Practices
+## Melhores Práticas
 
-1. **Validate before archiving**: `invowk pack validate --deep`
-2. **Use semantic versioning**: Track changes clearly
-3. **Include README**: Document pack usage
-4. **RDNS naming**: Prevent conflicts
-5. **Changelog**: Document what changed between versions
+1. **Valide antes de arquivar**: `invowk pack validate --deep`
+2. **Use versionamento semântico**: Rastreie mudanças claramente
+3. **Inclua README**: Documente o uso do pack
+4. **Nomenclatura RDNS**: Previne conflitos
+5. **Changelog**: Documente o que mudou entre versões
 
-## Example Workflow
+## Exemplo de Workflow
 
 ```bash
-# 1. Create and develop pack
+# 1. Criar e desenvolver pack
 invowk pack create com.company.mytools --scripts
-# ... add commands and scripts ...
+# ... adicionar comandos e scripts ...
 
-# 2. Validate
+# 2. Validar
 invowk pack validate ./com.company.mytools.invkpack --deep
 
-# 3. Create versioned archive
+# 3. Criar arquivo versionado
 invowk pack archive ./com.company.mytools.invkpack \
     --output ./releases/mytools-1.0.0.zip
 
-# 4. Distribute (e.g., upload to GitHub release)
+# 4. Distribuir (ex.: upload para release do GitHub)
 
-# 5. Team imports
+# 5. Equipe importa
 invowk pack import https://github.com/company/mytools/releases/download/v1.0.0/mytools-1.0.0.zip
 ```
 
-## Next Steps
+## Próximos Passos
 
-- [Overview](./overview) - Pack concepts
-- [Creating Packs](./creating-packs) - Build your pack
-- [Validating](./validating) - Ensure pack integrity
+- [Visão Geral](./overview) - Conceitos de pack
+- [Criando Packs](./creating-packs) - Construir seu pack
+- [Validando](./validating) - Garantir integridade do pack

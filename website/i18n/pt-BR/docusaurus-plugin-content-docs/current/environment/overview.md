@@ -2,20 +2,20 @@
 sidebar_position: 1
 ---
 
-# Environment Overview
+# Visão Geral de Ambiente
 
-Invowk provides powerful environment variable management for your commands. Set variables, load from files, and control precedence across multiple levels.
+O Invowk fornece gerenciamento poderoso de variáveis de ambiente para seus comandos. Defina variáveis, carregue de arquivos e controle a precedência em múltiplos níveis.
 
-## Quick Example
+## Exemplo Rápido
 
 ```cue
 {
     name: "build"
     env: {
-        // Load from .env files
-        files: [".env", ".env.local?"]  // ? means optional
+        // Carregar de arquivos .env
+        files: [".env", ".env.local?"]  // ? significa opcional
         
-        // Set variables directly
+        // Definir variáveis diretamente
         vars: {
             NODE_ENV: "production"
             BUILD_DATE: "$(date +%Y-%m-%d)"
@@ -31,27 +31,27 @@ Invowk provides powerful environment variable management for your commands. Set 
 }
 ```
 
-## Environment Sources
+## Fontes de Ambiente
 
-Variables come from multiple sources, in order of precedence (highest first):
+Variáveis vêm de múltiplas fontes, em ordem de precedência (mais alta primeiro):
 
-1. **CLI flags** - `--env-var KEY=value`
-2. **CLI env files** - `--env-file .env.custom`
-3. **Implementation vars** - Implementation-level `env.vars`
-4. **Implementation files** - Implementation-level `env.files`
-5. **Command vars** - Command-level `env.vars`
-6. **Command files** - Command-level `env.files`
-7. **Root vars** - Root-level `env.vars`
-8. **Root files** - Root-level `env.files`
-9. **System environment** - Host's environment variables
+1. **Flags da CLI** - `--env-var KEY=value`
+2. **Arquivos env da CLI** - `--env-file .env.custom`
+3. **Vars de implementação** - `env.vars` no nível de implementação
+4. **Arquivos de implementação** - `env.files` no nível de implementação
+5. **Vars de comando** - `env.vars` no nível de comando
+6. **Arquivos de comando** - `env.files` no nível de comando
+7. **Vars raiz** - `env.vars` no nível raiz
+8. **Arquivos raiz** - `env.files` no nível raiz
+9. **Ambiente do sistema** - Variáveis de ambiente do host
 
-Later sources don't override earlier ones.
+Fontes posteriores não sobrescrevem as anteriores.
 
-## Scope Levels
+## Níveis de Escopo
 
-### Root Level
+### Nível Raiz
 
-Applies to all commands in the invkfile:
+Aplica-se a todos os comandos no invkfile:
 
 ```cue
 group: "myproject"
@@ -62,12 +62,12 @@ env: {
     }
 }
 
-commands: [...]  // All commands get PROJECT_NAME
+commands: [...]  // Todos os comandos recebem PROJECT_NAME
 ```
 
-### Command Level
+### Nível de Comando
 
-Applies to a specific command:
+Aplica-se a um comando específico:
 
 ```cue
 {
@@ -81,9 +81,9 @@ Applies to a specific command:
 }
 ```
 
-### Implementation Level
+### Nível de Implementação
 
-Applies to a specific implementation:
+Aplica-se a uma implementação específica:
 
 ```cue
 {
@@ -102,9 +102,9 @@ Applies to a specific implementation:
 }
 ```
 
-### Platform Level
+### Nível de Plataforma
 
-Set variables per platform:
+Defina variáveis por plataforma:
 
 ```cue
 implementations: [{
@@ -125,27 +125,27 @@ implementations: [{
 }]
 ```
 
-## Env Files
+## Arquivos Env
 
-Load variables from `.env` files:
+Carregue variáveis de arquivos `.env`:
 
 ```cue
 env: {
     files: [
-        ".env",           // Required - fails if missing
-        ".env.local?",    // Optional - suffix with ?
-        ".env.${ENV}?",   // Interpolation - uses ENV variable
+        ".env",           // Obrigatório - falha se faltando
+        ".env.local?",    // Opcional - sufixo com ?
+        ".env.${ENV}?",   // Interpolação - usa variável ENV
     ]
 }
 ```
 
-Files are loaded in order; later files override earlier ones.
+Arquivos são carregados em ordem; arquivos posteriores sobrescrevem os anteriores.
 
-See [Env Files](./env-files) for details.
+Veja [Env Files](./env-files) para detalhes.
 
-## Environment Variables
+## Variáveis de Ambiente
 
-Set variables directly:
+Defina variáveis diretamente:
 
 ```cue
 env: {
@@ -157,44 +157,44 @@ env: {
 }
 ```
 
-See [Env Vars](./env-vars) for details.
+Veja [Env Vars](./env-vars) para detalhes.
 
-## CLI Overrides
+## Sobrescrita via CLI
 
-Override at runtime:
+Sobrescreva em tempo de execução:
 
 ```bash
-# Set a single variable
+# Definir uma única variável
 invowk cmd myproject build --env-var NODE_ENV=development
 
-# Set multiple variables
+# Definir múltiplas variáveis
 invowk cmd myproject build -E NODE_ENV=dev -E DEBUG=true
 
-# Load from a file
+# Carregar de um arquivo
 invowk cmd myproject build --env-file .env.local
 
-# Combine
+# Combinar
 invowk cmd myproject build --env-file .env.local -E OVERRIDE=value
 ```
 
-## Built-in Variables
+## Variáveis Embutidas
 
-Invowk provides these variables automatically:
+O Invowk fornece estas variáveis automaticamente:
 
-| Variable | Description |
-|----------|-------------|
-| `INVOWK_CMD_NAME` | Full command name (e.g., `myproject build`) |
-| `INVOWK_CMD_GROUP` | Command group (e.g., `myproject`) |
-| `INVOWK_RUNTIME` | Current runtime (native, virtual, container) |
-| `INVOWK_WORKDIR` | Working directory |
+| Variável | Descrição |
+|----------|-----------|
+| `INVOWK_CMD_NAME` | Nome completo do comando (ex.: `myproject build`) |
+| `INVOWK_CMD_GROUP` | Grupo do comando (ex.: `myproject`) |
+| `INVOWK_RUNTIME` | Runtime atual (native, virtual, container) |
+| `INVOWK_WORKDIR` | Diretório de trabalho |
 
-Plus flag and argument variables:
-- `INVOWK_FLAG_*` - Flag values
-- `INVOWK_ARG_*` - Argument values
+Mais variáveis de flag e argumento:
+- `INVOWK_FLAG_*` - Valores de flag
+- `INVOWK_ARG_*` - Valores de argumento
 
-## Container Environment
+## Ambiente de Container
 
-For container runtime, environment is passed into the container:
+Para runtime container, o ambiente é passado para dentro do container:
 
 ```cue
 {
@@ -205,7 +205,7 @@ For container runtime, environment is passed into the container:
         }
     }
     implementations: [{
-        script: "echo $BUILD_ENV"  // Available inside container
+        script: "echo $BUILD_ENV"  // Disponível dentro do container
         target: {
             runtimes: [{name: "container", image: "alpine"}]
         }
@@ -213,23 +213,23 @@ For container runtime, environment is passed into the container:
 }
 ```
 
-## Nested Commands
+## Comandos Aninhados
 
-When a command invokes another command, some variables are isolated:
+Quando um comando invoca outro comando, algumas variáveis são isoladas:
 
-**Isolated (NOT inherited):**
+**Isoladas (NÃO herdadas):**
 - `INVOWK_ARG_*`
 - `INVOWK_FLAG_*`
 
-**Inherited (normal UNIX behavior):**
-- Variables from `env.vars`
-- Platform-level variables
-- System environment
+**Herdadas (comportamento UNIX normal):**
+- Variáveis de `env.vars`
+- Variáveis de nível de plataforma
+- Ambiente do sistema
 
-This prevents parent command arguments from leaking into child commands.
+Isso impede que argumentos do comando pai vazem para comandos filhos.
 
-## Next Steps
+## Próximos Passos
 
-- [Env Files](./env-files) - Load from .env files
-- [Env Vars](./env-vars) - Set variables directly
-- [Precedence](./precedence) - Understand override order
+- [Env Files](./env-files) - Carregar de arquivos .env
+- [Env Vars](./env-vars) - Definir variáveis diretamente
+- [Precedence](./precedence) - Entender ordem de sobrescrita

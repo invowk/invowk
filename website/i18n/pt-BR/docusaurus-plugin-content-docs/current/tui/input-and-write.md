@@ -2,54 +2,54 @@
 sidebar_position: 2
 ---
 
-# Input and Write
+# Input e Write
 
-Text entry components for gathering user input.
+Componentes de entrada de texto para coletar informações do usuário.
 
 ## Input
 
-Single-line text input with optional validation.
+Entrada de texto de linha única com validação opcional.
 
-### Basic Usage
+### Uso Básico
 
 ```bash
 invowk tui input --title "What is your name?"
 ```
 
-### Options
+### Opções
 
-| Option | Description |
-|--------|-------------|
-| `--title` | Prompt text |
-| `--placeholder` | Placeholder text |
-| `--value` | Initial value |
-| `--password` | Hide input (for secrets) |
-| `--char-limit` | Maximum characters |
+| Opção | Descrição |
+|-------|-----------|
+| `--title` | Texto do prompt |
+| `--placeholder` | Texto de placeholder |
+| `--value` | Valor inicial |
+| `--password` | Ocultar entrada (para secrets) |
+| `--char-limit` | Máximo de caracteres |
 
-### Examples
+### Exemplos
 
 ```bash
-# With placeholder
+# Com placeholder
 invowk tui input --title "Email" --placeholder "user@example.com"
 
-# Password input (hidden)
+# Entrada de senha (oculta)
 invowk tui input --title "Password" --password
 
-# With initial value
+# Com valor inicial
 invowk tui input --title "Name" --value "John Doe"
 
-# Limited length
+# Comprimento limitado
 invowk tui input --title "Username" --char-limit 20
 ```
 
-### Capturing Output
+### Capturando Saída
 
 ```bash
 NAME=$(invowk tui input --title "Enter your name:")
 echo "Hello, $NAME!"
 ```
 
-### In Scripts
+### Em Scripts
 
 ```cue
 {
@@ -72,47 +72,47 @@ echo "Hello, $NAME!"
 
 ## Write
 
-Multi-line text editor for longer input like descriptions or commit messages.
+Editor de texto multilinha para entradas mais longas como descrições ou mensagens de commit.
 
-### Basic Usage
+### Uso Básico
 
 ```bash
 invowk tui write --title "Enter description"
 ```
 
-### Options
+### Opções
 
-| Option | Description |
-|--------|-------------|
-| `--title` | Editor title |
-| `--placeholder` | Placeholder text |
-| `--value` | Initial content |
-| `--show-line-numbers` | Display line numbers |
-| `--char-limit` | Maximum characters |
+| Opção | Descrição |
+|-------|-----------|
+| `--title` | Título do editor |
+| `--placeholder` | Texto de placeholder |
+| `--value` | Conteúdo inicial |
+| `--show-line-numbers` | Exibir números de linha |
+| `--char-limit` | Máximo de caracteres |
 
-### Examples
+### Exemplos
 
 ```bash
-# Basic editor
+# Editor básico
 invowk tui write --title "Description:"
 
-# With line numbers
+# Com números de linha
 invowk tui write --title "Code:" --show-line-numbers
 
-# With initial content
+# Com conteúdo inicial
 invowk tui write --title "Edit message:" --value "Initial text here"
 ```
 
-### Use Cases
+### Casos de Uso
 
-#### Git Commit Message
+#### Mensagem de Git Commit
 
 ```bash
 MESSAGE=$(invowk tui write --title "Commit message:")
 git commit -m "$MESSAGE"
 ```
 
-#### Multi-Line Configuration
+#### Configuração Multilinha
 
 ```bash
 CONFIG=$(invowk tui write --title "Enter YAML config:" --show-line-numbers)
@@ -126,7 +126,7 @@ NOTES=$(invowk tui write --title "Release notes:")
 gh release create v1.0.0 --notes "$NOTES"
 ```
 
-### In Scripts
+### Em Scripts
 
 ```cue
 {
@@ -134,10 +134,10 @@ gh release create v1.0.0 --notes "$NOTES"
     description: "Interactive commit with editor"
     implementations: [{
         script: """
-            # Show staged changes
+            # Mostrar mudanças staged
             git diff --cached --stat
             
-            # Get commit message
+            # Obter mensagem de commit
             MESSAGE=$(invowk tui write --title "Commit message:")
             
             if [ -z "$MESSAGE" ]; then
@@ -152,9 +152,9 @@ gh release create v1.0.0 --notes "$NOTES"
 }
 ```
 
-## Tips
+## Dicas
 
-### Handling Empty Input
+### Tratando Entrada Vazia
 
 ```bash
 NAME=$(invowk tui input --title "Name:")
@@ -164,7 +164,7 @@ if [ -z "$NAME" ]; then
 fi
 ```
 
-### Validation Loop
+### Loop de Validação
 
 ```bash
 while true; do
@@ -176,15 +176,15 @@ while true; do
 done
 ```
 
-### Default Values
+### Valores Padrão
 
 ```bash
-# Use shell default if empty
+# Usar padrão do shell se vazio
 NAME=$(invowk tui input --title "Name:" --placeholder "Anonymous")
 NAME="${NAME:-Anonymous}"
 ```
 
-## Next Steps
+## Próximos Passos
 
-- [Choose and Confirm](./choose-and-confirm) - Selection components
-- [Overview](./overview) - All TUI components
+- [Choose e Confirm](./choose-and-confirm) - Componentes de seleção
+- [Visão Geral](./overview) - Todos os componentes TUI

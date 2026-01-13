@@ -2,11 +2,11 @@
 sidebar_position: 7
 ---
 
-# Custom Check Dependencies
+# Dependências de Verificações Personalizadas
 
-Custom checks let you write validation scripts for requirements that don't fit the built-in dependency types. Check tool versions, configuration validity, or any other custom requirement.
+Verificações personalizadas permitem que você escreva scripts de validação para requisitos que não se encaixam nos tipos de dependência embutidos. Verifique versões de ferramentas, validade de configuração ou qualquer outro requisito personalizado.
 
-## Basic Usage
+## Uso Básico
 
 ```cue
 {
@@ -23,7 +23,7 @@ Custom checks let you write validation scripts for requirements that don't fit t
 }
 ```
 
-If the check fails:
+Se a verificação falhar:
 
 ```
 ✗ Dependencies not satisfied
@@ -36,71 +36,71 @@ Failed Custom Checks:
 Ensure all requirements are met and try again.
 ```
 
-## Check Properties
+## Propriedades da Verificação
 
-| Property | Required | Description |
-|----------|----------|-------------|
-| `name` | Yes | Identifier for error messages |
-| `check_script` | Yes | Script to execute |
-| `expected_code` | No | Expected exit code (default: 0) |
-| `expected_output` | No | Regex pattern to match output |
+| Propriedade | Obrigatória | Descrição |
+|-------------|-------------|-----------|
+| `name` | Sim | Identificador para mensagens de erro |
+| `check_script` | Sim | Script a executar |
+| `expected_code` | Não | Código de saída esperado (padrão: 0) |
+| `expected_output` | Não | Padrão regex para corresponder à saída |
 
-## Exit Code Validation
+## Validação de Código de Saída
 
-By default, a check passes if the script exits with code 0:
+Por padrão, uma verificação passa se o script sair com código 0:
 
 ```cue
 custom_checks: [
     {
         name: "docker-running"
         check_script: "docker info > /dev/null 2>&1"
-        // Passes if exit code is 0
+        // Passa se o código de saída for 0
     }
 ]
 ```
 
-Expect a different exit code:
+Espere um código de saída diferente:
 
 ```cue
 custom_checks: [
     {
         name: "not-production"
         check_script: "test \"$ENV\" = 'production'"
-        expected_code: 1  // Should fail (not be production)
+        expected_code: 1  // Deve falhar (não ser produção)
     }
 ]
 ```
 
-## Output Validation
+## Validação de Saída
 
-Check that output matches a pattern:
+Verifique se a saída corresponde a um padrão:
 
 ```cue
 custom_checks: [
     {
         name: "node-version"
         check_script: "node --version"
-        expected_output: "^v(18|20|22)\\."  // Major version 18, 20, or 22
+        expected_output: "^v(18|20|22)\\."  // Versão major 18, 20 ou 22
     }
 ]
 ```
 
-Both conditions must pass when used together:
+Ambas as condições devem passar quando usadas juntas:
 
 ```cue
 custom_checks: [
     {
         name: "go-version"
         check_script: "go version"
-        expected_code: 0  // Must succeed
-        expected_output: "go1\\.2[1-9]"  // Must be Go 1.21+
+        expected_code: 0  // Deve ter sucesso
+        expected_output: "go1\\.2[1-9]"  // Deve ser Go 1.21+
     }
 ]
 ```
 
-## Alternatives (OR Semantics)
+## Alternativas (Semântica OU)
 
-Provide alternative checks:
+Forneça verificações alternativas:
 
 ```cue
 custom_checks: [
@@ -119,11 +119,11 @@ custom_checks: [
 ]
 ```
 
-The dependency is satisfied if **any** alternative passes.
+A dependência é satisfeita se **qualquer** alternativa passar.
 
-## Real-World Examples
+## Exemplos do Mundo Real
 
-### Tool Version Check
+### Verificação de Versão de Ferramenta
 
 ```cue
 {
@@ -146,7 +146,7 @@ The dependency is satisfied if **any** alternative passes.
 }
 ```
 
-### Docker Running Check
+### Verificação de Docker Rodando
 
 ```cue
 {
@@ -167,7 +167,7 @@ The dependency is satisfied if **any** alternative passes.
 }
 ```
 
-### Git Status Check
+### Verificação de Status do Git
 
 ```cue
 {
@@ -192,7 +192,7 @@ The dependency is satisfied if **any** alternative passes.
 }
 ```
 
-### Configuration Validation
+### Validação de Configuração
 
 ```cue
 {
@@ -217,7 +217,7 @@ The dependency is satisfied if **any** alternative passes.
 }
 ```
 
-### Memory/Resource Check
+### Verificação de Memória/Recursos
 
 ```cue
 {
@@ -227,7 +227,7 @@ The dependency is satisfied if **any** alternative passes.
             {
                 name: "enough-memory"
                 check_script: """
-                    # Check for at least 4GB free memory
+                    # Verificar pelo menos 4GB de memória livre
                     free_mb=$(free -m | awk '/^Mem:/{print $7}')
                     [ "$free_mb" -ge 4096 ]
                     """
@@ -235,7 +235,7 @@ The dependency is satisfied if **any** alternative passes.
             {
                 name: "enough-disk"
                 check_script: """
-                    # Check for at least 10GB free disk
+                    # Verificar pelo menos 10GB de disco livre
                     free_gb=$(df -BG . | awk 'NR==2{print $4}' | tr -d 'G')
                     [ "$free_gb" -ge 10 ]
                     """
@@ -246,7 +246,7 @@ The dependency is satisfied if **any** alternative passes.
 }
 ```
 
-### Kubernetes Context
+### Contexto do Kubernetes
 
 ```cue
 {
@@ -269,7 +269,7 @@ The dependency is satisfied if **any** alternative passes.
 }
 ```
 
-### Multiple Version Options
+### Múltiplas Opções de Versão
 
 ```cue
 {
@@ -296,9 +296,9 @@ The dependency is satisfied if **any** alternative passes.
 }
 ```
 
-## Container Context
+## Contexto de Container
 
-For container runtime, custom checks run **inside the container**:
+Para runtime container, verificações personalizadas rodam **dentro do container**:
 
 ```cue
 {
@@ -310,7 +310,7 @@ For container runtime, custom checks run **inside the container**:
             custom_checks: [
                 {
                     name: "node-version"
-                    // This runs INSIDE the container
+                    // Isso roda DENTRO do container
                     check_script: "node --version"
                     expected_output: "^v20\\."
                 }
@@ -320,15 +320,15 @@ For container runtime, custom checks run **inside the container**:
 }
 ```
 
-## Script Tips
+## Dicas de Script
 
-### Keep Scripts Simple
+### Mantenha Scripts Simples
 
 ```cue
-// Good - simple and clear
+// Bom - simples e claro
 check_script: "go version | grep -q 'go1.21'"
 
-// Avoid - complex and fragile
+// Evite - complexo e frágil
 check_script: """
     set -e
     version=$(go version 2>&1)
@@ -337,10 +337,10 @@ check_script: """
     """
 ```
 
-### Use Proper Exit Codes
+### Use Códigos de Saída Apropriados
 
 ```cue
-// Script should exit 0 for success, non-zero for failure
+// Script deve sair com 0 para sucesso, não-zero para falha
 check_script: """
     if [ -f "required-file" ]; then
         exit 0
@@ -350,21 +350,21 @@ check_script: """
     """
 ```
 
-### Handle Missing Commands
+### Trate Comandos Faltando
 
 ```cue
 check_script: "command -v mytools > /dev/null && mytool --check"
 ```
 
-## Best Practices
+## Melhores Práticas
 
-1. **Name checks clearly**: Use descriptive names for error messages
-2. **Keep scripts simple**: One check, one purpose
-3. **Use exit codes**: Return 0 for success, non-zero for failure
-4. **Add output validation**: When version format matters
-5. **Consider alternatives**: Offer multiple valid configurations
+1. **Nomeie verificações claramente**: Use nomes descritivos para mensagens de erro
+2. **Mantenha scripts simples**: Uma verificação, um propósito
+3. **Use códigos de saída**: Retorne 0 para sucesso, não-zero para falha
+4. **Adicione validação de saída**: Quando o formato da versão importa
+5. **Considere alternativas**: Ofereça múltiplas configurações válidas
 
-## Next Steps
+## Próximos Passos
 
-- [Overview](./overview) - Return to dependencies overview
-- [Flags and Arguments](../flags-and-arguments/overview) - Accept user input
+- [Overview](./overview) - Retornar à visão geral de dependências
+- [Flags and Arguments](../flags-and-arguments/overview) - Aceitar entrada do usuário

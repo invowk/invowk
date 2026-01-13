@@ -2,80 +2,80 @@
 sidebar_position: 1
 ---
 
-# Configuration Overview
+# Visão Geral de Configuração
 
-Invowk uses a CUE-based configuration file to customize its behavior. This is where you set your preferences for container engines, search paths, runtime defaults, and more.
+Invowk usa um arquivo de configuração baseado em CUE para customizar seu comportamento. É aqui que você define suas preferências para container engines, caminhos de busca, padrões de runtime e mais.
 
-## Configuration File Location
+## Localização do Arquivo de Configuração
 
-The configuration file lives in your OS-specific config directory:
+O arquivo de configuração fica no diretório de configuração específico do seu SO:
 
-| Platform | Location |
-|----------|----------|
-| Linux    | `~/.config/invowk/config.cue` |
-| macOS    | `~/Library/Application Support/invowk/config.cue` |
-| Windows  | `%APPDATA%\invowk\config.cue` |
+| Plataforma | Localização |
+|------------|-------------|
+| Linux      | `~/.config/invowk/config.cue` |
+| macOS      | `~/Library/Application Support/invowk/config.cue` |
+| Windows    | `%APPDATA%\invowk\config.cue` |
 
-You can also specify a custom config file path using the `--config` flag:
+Você também pode especificar um caminho customizado para o arquivo de configuração usando a flag `--config`:
 
 ```bash
 invowk --config /path/to/my/config.cue cmd list
 ```
 
-## Creating a Configuration File
+## Criando um Arquivo de Configuração
 
-The easiest way to create a configuration file is to use the `config init` command:
+A forma mais fácil de criar um arquivo de configuração é usar o comando `config init`:
 
 ```bash
 invowk config init
 ```
 
-This creates a default configuration file with sensible defaults. If a config file already exists, it won't be overwritten (safety first!).
+Isso cria um arquivo de configuração padrão com valores sensatos. Se um arquivo de configuração já existir, ele não será sobrescrito (segurança em primeiro lugar!).
 
-## Viewing Your Configuration
+## Visualizando Sua Configuração
 
-There are several ways to inspect your current configuration:
+Existem várias formas de inspecionar sua configuração atual:
 
-### Show Human-Readable Config
+### Mostrar Configuração Legível
 
 ```bash
 invowk config show
 ```
 
-This displays your configuration in a friendly, readable format.
+Isso exibe sua configuração em um formato amigável e legível.
 
-### Show Raw CUE
+### Mostrar CUE Raw
 
 ```bash
 invowk config dump
 ```
 
-This outputs the raw CUE configuration, useful for debugging or copying to another machine.
+Isso exibe a configuração CUE raw, útil para debug ou copiar para outra máquina.
 
-### Find the Config File
+### Encontrar o Arquivo de Configuração
 
 ```bash
 invowk config path
 ```
 
-This prints the path to your configuration file. Handy when you want to edit it directly.
+Isso imprime o caminho para seu arquivo de configuração. Prático quando você quer editá-lo diretamente.
 
-## Setting Configuration Values
+## Definindo Valores de Configuração
 
-You can modify configuration values from the command line:
+Você pode modificar valores de configuração pela linha de comando:
 
 ```bash
-# Set the container engine
+# Definir o container engine
 invowk config set container_engine podman
 
-# Set the default runtime
+# Definir o runtime padrão
 invowk config set default_runtime virtual
 
-# Set the color scheme
+# Definir o esquema de cores
 invowk config set ui.color_scheme dark
 ```
 
-Or just open the config file in your favorite editor:
+Ou simplesmente abra o arquivo de configuração no seu editor favorito:
 
 ```bash
 # Linux/macOS
@@ -85,48 +85,48 @@ $EDITOR $(invowk config path)
 notepad (invowk config path)
 ```
 
-## Example Configuration
+## Exemplo de Configuração
 
-Here's what a typical configuration file looks like:
+Aqui está como um arquivo de configuração típico se parece:
 
 ```cue
 // ~/.config/invowk/config.cue
 
-// Container engine: "podman" or "docker"
+// Container engine: "podman" ou "docker"
 container_engine: "podman"
 
-// Additional directories to search for invkfiles
+// Diretórios adicionais para buscar invkfiles
 search_paths: [
     "~/.invowk/cmds",
     "~/projects/shared-commands",
 ]
 
-// Default runtime for commands that don't specify one
+// Runtime padrão para comandos que não especificam um
 default_runtime: "native"
 
-// Virtual shell configuration
+// Configuração do virtual shell
 virtual_shell: {
     enable_uroot_utils: true
 }
 
-// UI preferences
+// Preferências de UI
 ui: {
-    color_scheme: "auto"  // "auto", "dark", or "light"
+    color_scheme: "auto"  // "auto", "dark" ou "light"
     verbose: false
 }
 ```
 
-## Configuration Hierarchy
+## Hierarquia de Configuração
 
-When running a command, Invowk merges configuration from multiple sources (later sources override earlier ones):
+Ao executar um comando, Invowk mescla configuração de múltiplas fontes (fontes posteriores sobrescrevem as anteriores):
 
-1. **Built-in defaults** - Sensible defaults for all options
-2. **Configuration file** - Your `config.cue` settings
-3. **Environment variables** - `INVOWK_*` environment variables
-4. **Command-line flags** - Flags like `--verbose`, `--runtime`
+1. **Padrões internos** - Valores padrão sensatos para todas as opções
+2. **Arquivo de configuração** - Suas configurações do `config.cue`
+3. **Variáveis de ambiente** - Variáveis de ambiente `INVOWK_*`
+4. **Flags de linha de comando** - Flags como `--verbose`, `--runtime`
 
-For example, if your config file sets `verbose: false`, but you run with `--verbose`, verbose mode will be enabled.
+Por exemplo, se seu arquivo de configuração define `verbose: false`, mas você executa com `--verbose`, o modo verbose será habilitado.
 
-## What's Next?
+## Próximos Passos
 
-Head over to [Configuration Options](./options) for a complete reference of all available settings.
+Vá para [Opções de Configuração](./options) para uma referência completa de todas as configurações disponíveis.

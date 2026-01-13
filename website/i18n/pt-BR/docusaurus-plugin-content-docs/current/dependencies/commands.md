@@ -2,11 +2,11 @@
 sidebar_position: 4
 ---
 
-# Command Dependencies
+# Dependências de Comandos
 
-Command dependencies ensure that other Invowk commands run successfully before your command executes.
+Dependências de comandos garantem que outros comandos Invowk sejam executados com sucesso antes que seu comando execute.
 
-## Basic Usage
+## Uso Básico
 
 ```cue
 {
@@ -20,11 +20,11 @@ Command dependencies ensure that other Invowk commands run successfully before y
 }
 ```
 
-When you run `deploy`, Invowk first runs `build`. If `build` fails, `deploy` won't run.
+Quando você executa `deploy`, o Invowk primeiro executa `build`. Se `build` falhar, `deploy` não será executado.
 
-## Full Command Names
+## Nomes Completos de Comando
 
-Always use the **full group-prefixed name**:
+Sempre use o **nome completo prefixado com o grupo**:
 
 ```cue
 group: "myproject"
@@ -38,7 +38,7 @@ commands: [
         name: "test"
         depends_on: {
             commands: [
-                // Must include group prefix "myproject"
+                // Deve incluir o prefixo do grupo "myproject"
                 {alternatives: ["myproject build"]}
             ]
         }
@@ -47,32 +47,32 @@ commands: [
 ]
 ```
 
-## Alternatives (OR Semantics)
+## Alternativas (Semântica OU)
 
-Specify alternatives when any command will work:
+Especifique alternativas quando qualquer comando funcionar:
 
 ```cue
 depends_on: {
     commands: [
-        // Either a debug OR release build
+        // Build debug OU release
         {alternatives: ["myproject build debug", "myproject build release"]},
         
-        // Either unit OR integration tests
+        // Testes unitários OU de integração
         {alternatives: ["myproject test unit", "myproject test integration"]},
     ]
 }
 ```
 
-The dependency is satisfied if **any** alternative has run successfully.
+A dependência é satisfeita se **qualquer** alternativa tiver sido executada com sucesso.
 
-## Multiple Command Requirements
+## Múltiplos Requisitos de Comando
 
-Each entry is an AND requirement:
+Cada entrada é um requisito E:
 
 ```cue
 depends_on: {
     commands: [
-        // Need build AND test AND lint
+        // Precisa de build E test E lint
         {alternatives: ["myproject build"]},
         {alternatives: ["myproject test"]},
         {alternatives: ["myproject lint"]},
@@ -80,17 +80,17 @@ depends_on: {
 }
 ```
 
-All three commands must succeed (though alternatives within each are OR).
+Todos os três comandos devem ter sucesso (embora alternativas dentro de cada um sejam OU).
 
-## Command Chains
+## Cadeias de Comandos
 
-Build complex workflows with command chains:
+Construa workflows complexos com cadeias de comandos:
 
 ```cue
 group: "myproject"
 
 commands: [
-    // Base command
+    // Comando base
     {
         name: "clean"
         implementations: [{
@@ -99,7 +99,7 @@ commands: [
         }]
     },
     
-    // Depends on clean
+    // Depende de clean
     {
         name: "build"
         depends_on: {
@@ -111,7 +111,7 @@ commands: [
         }]
     },
     
-    // Depends on build
+    // Depende de build
     {
         name: "test"
         depends_on: {
@@ -123,7 +123,7 @@ commands: [
         }]
     },
     
-    // Depends on test (which depends on build, which depends on clean)
+    // Depende de test (que depende de build, que depende de clean)
     {
         name: "release"
         depends_on: {
@@ -137,14 +137,14 @@ commands: [
 ]
 ```
 
-Running `release` executes: `clean` → `build` → `test` → `release`
+Executar `release` executa: `clean` → `build` → `test` → `release`
 
-## Cross-Invkfile Dependencies
+## Dependências Entre Invkfiles
 
-Commands can depend on commands from other invkfiles:
+Comandos podem depender de comandos de outros invkfiles:
 
 ```cue
-// In frontend/invkfile.cue
+// Em frontend/invkfile.cue
 group: "frontend"
 
 commands: [
@@ -152,7 +152,7 @@ commands: [
         name: "build"
         depends_on: {
             commands: [
-                // Depends on a command from the shared invkfile
+                // Depende de um comando do invkfile shared
                 {alternatives: ["shared generate-types"]}
             ]
         }
@@ -162,7 +162,7 @@ commands: [
 ```
 
 ```cue
-// In shared/invkfile.cue
+// Em shared/invkfile.cue
 group: "shared"
 
 commands: [
@@ -173,9 +173,9 @@ commands: [
 ]
 ```
 
-## Real-World Examples
+## Exemplos do Mundo Real
 
-### CI/CD Pipeline
+### Pipeline de CI/CD
 
 ```cue
 group: "myapp"
@@ -188,7 +188,7 @@ commands: [
     
     {
         name: "ci"
-        description: "Run full CI pipeline"
+        description: "Executar pipeline completo de CI"
         depends_on: {
             commands: [
                 {alternatives: ["myapp lint"]},
@@ -198,14 +198,14 @@ commands: [
             ]
         }
         implementations: [{
-            script: "echo 'CI passed!'"
+            script: "echo 'CI passou!'"
             target: {runtimes: [{name: "native"}]}
         }]
     }
 ]
 ```
 
-### Build Variants
+### Variantes de Build
 
 ```cue
 group: "myapp"
@@ -230,7 +230,7 @@ commands: [
         name: "deploy"
         depends_on: {
             commands: [
-                // Must have run either debug or release build
+                // Deve ter executado build debug ou release
                 {alternatives: ["myapp build debug", "myapp build release"]}
             ]
         }
@@ -242,7 +242,7 @@ commands: [
 ]
 ```
 
-### Microservices
+### Microserviços
 
 ```cue
 group: "monorepo"
@@ -272,17 +272,17 @@ commands: [
 ]
 ```
 
-## Execution Flow
+## Fluxo de Execução
 
-When a command with dependencies runs:
+Quando um comando com dependências é executado:
 
 ```
 invowk cmd myproject deploy
        │
        ▼
 ┌──────────────────┐
-│ Check all deps   │
-│ (commands list)  │
+│ Verificar deps   │
+│ (lista commands) │
 └────────┬─────────┘
          │
     ┌────┴────┐
@@ -299,11 +299,11 @@ invowk cmd myproject deploy
     └─────────┘
 ```
 
-Dependencies run in the order specified. If any fails, execution stops.
+Dependências são executadas na ordem especificada. Se alguma falhar, a execução para.
 
-## Runtime Inheritance
+## Herança de Runtime
 
-Dependent commands use their own runtime settings:
+Comandos dependentes usam suas próprias configurações de runtime:
 
 ```cue
 {
@@ -326,20 +326,20 @@ Dependent commands use their own runtime settings:
 }
 ```
 
-When you run `deploy`:
-1. `build` runs in a container
-2. `deploy` runs natively
+Quando você executa `deploy`:
+1. `build` roda em um container
+2. `deploy` roda nativamente
 
-Each command uses its own configuration.
+Cada comando usa sua própria configuração.
 
-## Best Practices
+## Melhores Práticas
 
-1. **Use full names**: Always include the group prefix
-2. **Keep chains shallow**: Deep chains can be hard to debug
-3. **Use alternatives wisely**: For truly interchangeable commands
-4. **Consider parallelism**: Independent commands could run in parallel (future feature)
+1. **Use nomes completos**: Sempre inclua o prefixo do grupo
+2. **Mantenha cadeias rasas**: Cadeias profundas podem ser difíceis de debugar
+3. **Use alternativas sabiamente**: Para comandos verdadeiramente intercambiáveis
+4. **Considere paralelismo**: Comandos independentes podem rodar em paralelo (feature futura)
 
-## Next Steps
+## Próximos Passos
 
-- [Capabilities](./capabilities) - Check system capabilities
-- [Environment Variables](./env-vars) - Check for required env vars
+- [Capabilities](./capabilities) - Verificar capacidades do sistema
+- [Environment Variables](./env-vars) - Verificar variáveis de ambiente requeridas

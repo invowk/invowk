@@ -2,59 +2,59 @@
 sidebar_position: 4
 ---
 
-# Environment Precedence
+# Precedência de Ambiente
 
-When the same variable is defined in multiple places, Invowk follows a specific precedence order. Higher precedence sources override lower ones.
+Quando a mesma variável é definida em múltiplos lugares, o Invowk segue uma ordem de precedência específica. Fontes com maior precedência sobrescrevem as de menor.
 
-## Precedence Order
+## Ordem de Precedência
 
-From highest to lowest priority:
+Da maior para a menor prioridade:
 
-| Priority | Source | Example |
-|----------|--------|---------|
-| 1 | CLI env vars | `--env-var KEY=value` |
-| 2 | CLI env files | `--env-file .env.local` |
-| 3 | Implementation vars | `implementations[].env.vars` |
-| 4 | Implementation files | `implementations[].env.files` |
-| 5 | Command vars | `command.env.vars` |
-| 6 | Command files | `command.env.files` |
-| 7 | Root vars | `root.env.vars` |
-| 8 | Root files | `root.env.files` |
-| 9 | System environment | Host's environment |
-| 10 | Platform vars | `platforms[].env` |
+| Prioridade | Fonte | Exemplo |
+|------------|-------|---------|
+| 1 | Vars da CLI | `--env-var KEY=value` |
+| 2 | Arquivos env da CLI | `--env-file .env.local` |
+| 3 | Vars de implementação | `implementations[].env.vars` |
+| 4 | Arquivos de implementação | `implementations[].env.files` |
+| 5 | Vars de comando | `command.env.vars` |
+| 6 | Arquivos de comando | `command.env.files` |
+| 7 | Vars raiz | `root.env.vars` |
+| 8 | Arquivos raiz | `root.env.files` |
+| 9 | Ambiente do sistema | Ambiente do host |
+| 10 | Vars de plataforma | `platforms[].env` |
 
-## Visual Hierarchy
+## Hierarquia Visual
 
 ```
-CLI (highest priority)
+CLI (maior prioridade)
 ├── --env-var KEY=value
 └── --env-file .env.local
     │
-Implementation Level
+Nível de Implementação
 ├── env.vars
 └── env.files
     │
-Command Level
+Nível de Comando
 ├── env.vars
 └── env.files
     │
-Root Level
+Nível Raiz
 ├── env.vars
 └── env.files
     │
-System Environment (lowest from invkfile)
+Ambiente do Sistema (menor do invkfile)
 │
-Platform-specific env
+Env específico de plataforma
 ```
 
-## Example Walkthrough
+## Passo a Passo de Exemplo
 
-Given this invkfile:
+Dado este invkfile:
 
 ```cue
 group: "myproject"
 
-// Root level
+// Nível raiz
 env: {
     files: [".env"]
     vars: {
@@ -66,7 +66,7 @@ env: {
 commands: [
     {
         name: "build"
-        // Command level
+        // Nível de comando
         env: {
             files: [".env.build"]
             vars: {
@@ -77,7 +77,7 @@ commands: [
         implementations: [{
             script: "echo $API_URL $LOG_LEVEL $BUILD_MODE $NODE_ENV"
             target: {runtimes: [{name: "native"}]}
-            // Implementation level
+            // Nível de implementação
             env: {
                 vars: {
                     BUILD_MODE: "production"
@@ -89,7 +89,7 @@ commands: [
 ]
 ```
 
-And these files:
+E estes arquivos:
 
 ```bash
 # .env
@@ -101,78 +101,78 @@ BUILD_MODE=release
 CACHE_DIR=./cache
 ```
 
-### Resolution Order
+### Ordem de Resolução
 
-1. **Start with system environment** (e.g., `PATH`, `HOME`)
+1. **Começar com ambiente do sistema** (ex.: `PATH`, `HOME`)
 
-2. **Load root files** (`.env`):
+2. **Carregar arquivos raiz** (`.env`):
    - `API_URL=http://envfile.example.com`
    - `DATABASE_URL=postgres://localhost/db`
 
-3. **Apply root vars** (override files):
-   - `API_URL=http://root.example.com` ← overrides `.env`
+3. **Aplicar vars raiz** (sobrescrever arquivos):
+   - `API_URL=http://root.example.com` ← sobrescreve `.env`
    - `LOG_LEVEL=info`
 
-4. **Load command files** (`.env.build`):
+4. **Carregar arquivos de comando** (`.env.build`):
    - `BUILD_MODE=release`
    - `CACHE_DIR=./cache`
 
-5. **Apply command vars** (override files):
-   - `API_URL=http://command.example.com` ← overrides root
-   - `BUILD_MODE=development` ← overrides `.env.build`
+5. **Aplicar vars de comando** (sobrescrever arquivos):
+   - `API_URL=http://command.example.com` ← sobrescreve raiz
+   - `BUILD_MODE=development` ← sobrescreve `.env.build`
 
-6. **Apply implementation vars**:
-   - `BUILD_MODE=production` ← overrides command
+6. **Aplicar vars de implementação**:
+   - `BUILD_MODE=production` ← sobrescreve comando
    - `NODE_ENV=production`
 
-### Final Result
+### Resultado Final
 
 ```bash
-API_URL=http://command.example.com    # From command vars
-LOG_LEVEL=info                         # From root vars
-BUILD_MODE=production                  # From implementation vars
-NODE_ENV=production                    # From implementation vars
-DATABASE_URL=postgres://localhost/db   # From .env file
-CACHE_DIR=./cache                      # From .env.build file
+API_URL=http://command.example.com    # De vars de comando
+LOG_LEVEL=info                         # De vars raiz
+BUILD_MODE=production                  # De vars de implementação
+NODE_ENV=production                    # De vars de implementação
+DATABASE_URL=postgres://localhost/db   # De arquivo .env
+CACHE_DIR=./cache                      # De arquivo .env.build
 ```
 
-### With CLI Override
+### Com Sobrescrita da CLI
 
 ```bash
 invowk cmd myproject build --env-var API_URL=http://cli.example.com
 ```
 
-Now `API_URL=http://cli.example.com` because CLI has highest priority.
+Agora `API_URL=http://cli.example.com` porque CLI tem a maior prioridade.
 
-## Files vs Vars at Same Level
+## Arquivos vs Vars no Mesmo Nível
 
-Within the same level, `vars` override `files`:
+Dentro do mesmo nível, `vars` sobrescreve `files`:
 
 ```cue
 env: {
     files: [".env"]  // API_URL=from-file
     vars: {
-        API_URL: "from-vars"  // This wins
+        API_URL: "from-vars"  // Este ganha
     }
 }
 ```
 
-## Multiple Files at Same Level
+## Múltiplos Arquivos no Mesmo Nível
 
-Files are loaded in order; later files override earlier:
+Arquivos são carregados em ordem; arquivos posteriores sobrescrevem anteriores:
 
 ```cue
 env: {
     files: [
         ".env",           // API_URL=base
-        ".env.local",     // API_URL=local (wins)
+        ".env.local",     // API_URL=local (ganha)
     ]
 }
 ```
 
-## Platform-Specific Variables
+## Variáveis Específicas de Plataforma
 
-Platform variables are applied after everything else:
+Variáveis de plataforma são aplicadas depois de tudo:
 
 ```cue
 implementations: [{
@@ -187,20 +187,20 @@ implementations: [{
     env: {
         vars: {
             OTHER_VAR: "value"
-            // CONFIG_PATH not set here
+            // CONFIG_PATH não definido aqui
         }
     }
 }]
 ```
 
-Platform `env` is only applied if that platform matches and the variable isn't already set.
+`env` de plataforma só é aplicado se a plataforma corresponder e a variável ainda não estiver definida.
 
-## Best Practices
+## Melhores Práticas
 
-### Use Appropriate Levels
+### Use Níveis Apropriados
 
 ```cue
-// Root: shared across all commands
+// Raiz: compartilhado entre todos os comandos
 env: {
     vars: {
         PROJECT_NAME: "myapp"
@@ -208,7 +208,7 @@ env: {
     }
 }
 
-// Command: specific to this command
+// Comando: específico para este comando
 {
     name: "build"
     env: {
@@ -218,7 +218,7 @@ env: {
     }
 }
 
-// Implementation: specific to this runtime
+// Implementação: específico para este runtime
 implementations: [{
     target: {runtimes: [{name: "container", image: "node:20"}]}
     env: {
@@ -229,42 +229,42 @@ implementations: [{
 }]
 ```
 
-### Override Pattern
+### Padrão de Sobrescrita
 
-Base config in files, overrides in vars:
+Config base em arquivos, sobrescritas em vars:
 
 ```cue
 env: {
-    files: [".env"]              // Defaults
+    files: [".env"]              // Padrões
     vars: {
-        OVERRIDE_THIS: "value"   // Specific override
+        OVERRIDE_THIS: "value"   // Sobrescrita específica
     }
 }
 ```
 
-### Local Development
+### Desenvolvimento Local
 
-Use optional local files for developer overrides:
+Use arquivos locais opcionais para sobrescritas de desenvolvedor:
 
 ```cue
 env: {
     files: [
-        ".env",          // Committed defaults
-        ".env.local?",   // Not committed, personal overrides
+        ".env",          // Padrões commitados
+        ".env.local?",   // Não commitado, sobrescritas pessoais
     ]
 }
 ```
 
-### CLI for Temporary Overrides
+### CLI para Sobrescritas Temporárias
 
 ```bash
-# Quick test with different config
+# Teste rápido com config diferente
 invowk cmd myproject build -E DEBUG=true -E LOG_LEVEL=debug
 ```
 
-## Debugging Precedence
+## Debugando Precedência
 
-To see final values, add debug output:
+Para ver valores finais, adicione saída de debug:
 
 ```cue
 {
@@ -281,7 +281,7 @@ To see final values, add debug output:
 }
 ```
 
-## Next Steps
+## Próximos Passos
 
-- [Env Files](./env-files) - Load from .env files
-- [Env Vars](./env-vars) - Set variables directly
+- [Env Files](./env-files) - Carregar de arquivos .env
+- [Env Vars](./env-vars) - Definir variáveis diretamente

@@ -2,52 +2,52 @@
 sidebar_position: 3
 ---
 
-# Choose and Confirm
+# Choose e Confirm
 
-Selection and confirmation components for user decisions.
+Componentes de seleção e confirmação para decisões do usuário.
 
 ## Choose
 
-Select one or more options from a list.
+Selecione uma ou mais opções de uma lista.
 
-### Basic Usage
+### Uso Básico
 
 ```bash
 invowk tui choose "Option 1" "Option 2" "Option 3"
 ```
 
-### Options
+### Opções
 
-| Option | Description |
-|--------|-------------|
-| `--title` | Selection prompt |
-| `--limit` | Max selections (default: 1) |
-| `--no-limit` | Unlimited selections |
-| `--cursor` | Cursor character |
-| `--selected` | Pre-selected items |
+| Opção | Descrição |
+|-------|-----------|
+| `--title` | Prompt de seleção |
+| `--limit` | Máximo de seleções (padrão: 1) |
+| `--no-limit` | Seleções ilimitadas |
+| `--cursor` | Caractere do cursor |
+| `--selected` | Itens pré-selecionados |
 
-### Single Selection
+### Seleção Única
 
 ```bash
-# Basic
+# Básico
 COLOR=$(invowk tui choose red green blue)
 echo "You chose: $COLOR"
 
-# With title
+# Com título
 ENV=$(invowk tui choose --title "Select environment" dev staging prod)
 ```
 
-### Multiple Selection
+### Seleção Múltipla
 
 ```bash
-# Limited multi-select (up to 3)
+# Multi-seleção limitada (até 3)
 ITEMS=$(invowk tui choose --limit 3 "One" "Two" "Three" "Four" "Five")
 
-# Unlimited multi-select
+# Multi-seleção ilimitada
 ITEMS=$(invowk tui choose --no-limit "One" "Two" "Three" "Four" "Five")
 ```
 
-Multiple selections are returned as newline-separated values:
+Múltiplas seleções são retornadas como valores separados por nova linha:
 
 ```bash
 SERVICES=$(invowk tui choose --no-limit --title "Select services to deploy" \
@@ -58,15 +58,15 @@ echo "$SERVICES" | while read -r service; do
 done
 ```
 
-### Pre-Selected Options
+### Opções Pré-Selecionadas
 
 ```bash
 invowk tui choose --selected "Two" "One" "Two" "Three"
 ```
 
-### Real-World Examples
+### Exemplos do Mundo Real
 
-#### Environment Selection
+#### Seleção de Environment
 
 ```bash
 ENV=$(invowk tui choose --title "Deploy to which environment?" \
@@ -83,7 +83,7 @@ esac
 ./deploy.sh "$ENV"
 ```
 
-#### Service Selection
+#### Seleção de Serviço
 
 ```bash
 SERVICES=$(invowk tui choose --no-limit --title "Which services?" \
@@ -99,61 +99,61 @@ done
 
 ## Confirm
 
-Yes/no confirmation prompt.
+Prompt de confirmação sim/não.
 
-### Basic Usage
+### Uso Básico
 
 ```bash
 invowk tui confirm "Are you sure?"
 ```
 
-Returns:
-- Exit code 0 if user confirms (yes)
-- Exit code 1 if user declines (no)
+Retorna:
+- Código de saída 0 se o usuário confirmar (sim)
+- Código de saída 1 se o usuário recusar (não)
 
-### Options
+### Opções
 
-| Option | Description |
-|--------|-------------|
-| `--affirmative` | Custom "yes" label |
-| `--negative` | Custom "no" label |
-| `--default` | Default to yes |
+| Opção | Descrição |
+|-------|-----------|
+| `--affirmative` | Label customizado para "sim" |
+| `--negative` | Label customizado para "não" |
+| `--default` | Padrão para sim |
 
-### Examples
+### Exemplos
 
 ```bash
-# Basic confirmation
+# Confirmação básica
 if invowk tui confirm "Continue?"; then
     echo "Continuing..."
 else
     echo "Cancelled."
 fi
 
-# Custom labels
+# Labels customizados
 if invowk tui confirm --affirmative "Delete" --negative "Cancel" "Delete all files?"; then
     rm -rf ./temp/*
 fi
 
-# Default to yes (user just presses Enter)
+# Padrão para sim (usuário apenas pressiona Enter)
 if invowk tui confirm --default "Proceed with defaults?"; then
     echo "Using defaults..."
 fi
 ```
 
-### Conditional Execution
+### Execução Condicional
 
 ```bash
-# Simple pattern
+# Padrão simples
 invowk tui confirm "Run tests?" && npm test
 
-# Negation
+# Negação
 invowk tui confirm "Skip build?" || npm run build
 ```
 
-### Dangerous Operations
+### Operações Perigosas
 
 ```bash
-# Double confirmation for dangerous actions
+# Confirmação dupla para ações perigosas
 if invowk tui confirm "Delete production database?"; then
     echo "This cannot be undone!" | invowk tui style --foreground "#FF0000" --bold
     if invowk tui confirm --affirmative "YES, DELETE IT" --negative "No, abort" "Type to confirm:"; then
@@ -162,7 +162,7 @@ if invowk tui confirm "Delete production database?"; then
 fi
 ```
 
-### In Scripts
+### Em Scripts
 
 ```cue
 {
@@ -187,9 +187,9 @@ fi
 }
 ```
 
-## Combined Patterns
+## Padrões Combinados
 
-### Selection with Confirmation
+### Seleção com Confirmação
 
 ```bash
 ACTION=$(invowk tui choose --title "Select action" \
@@ -213,10 +213,10 @@ esac
 echo "Executing: $ACTION"
 ```
 
-### Multi-Step Wizard
+### Wizard Multi-Etapa
 
 ```bash
-# Step 1: Choose action
+# Etapa 1: Escolher ação
 ACTION=$(invowk tui choose --title "What would you like to do?" \
     "Create new project" \
     "Import existing" \
@@ -226,19 +226,19 @@ if [ "$ACTION" = "Exit" ]; then
     exit 0
 fi
 
-# Step 2: Get details
+# Etapa 2: Obter detalhes
 NAME=$(invowk tui input --title "Project name:")
 
-# Step 3: Confirm
+# Etapa 3: Confirmar
 echo "Action: $ACTION"
 echo "Name: $NAME"
 
 if invowk tui confirm "Create project?"; then
-    # proceed
+    # prosseguir
 fi
 ```
 
-## Next Steps
+## Próximos Passos
 
-- [Filter and File](./filter-and-file) - Search and file picking
-- [Overview](./overview) - All TUI components
+- [Filter e File](./filter-and-file) - Busca e seleção de arquivo
+- [Visão Geral](./overview) - Todos os componentes TUI

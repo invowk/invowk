@@ -2,11 +2,11 @@
 sidebar_position: 3
 ---
 
-# Environment Variables
+# Variáveis de Ambiente
 
-Set environment variables directly in your invkfile. These are available to your scripts during execution.
+Defina variáveis de ambiente diretamente no seu invkfile. Estas ficam disponíveis para seus scripts durante a execução.
 
-## Basic Usage
+## Uso Básico
 
 ```cue
 {
@@ -28,24 +28,24 @@ Set environment variables directly in your invkfile. These are available to your
 }
 ```
 
-## Variable Syntax
+## Sintaxe de Variáveis
 
-Variables are key-value string pairs:
+Variáveis são pares chave-valor de strings:
 
 ```cue
 vars: {
-    // Simple values
+    // Valores simples
     NAME: "value"
     
-    // Numbers (still strings in shell)
+    // Números (ainda são strings no shell)
     PORT: "3000"
     TIMEOUT: "30"
     
-    // Boolean-like (strings "true"/"false")
+    // Tipo booleano (strings "true"/"false")
     DEBUG: "true"
     VERBOSE: "false"
     
-    // Paths
+    // Caminhos
     CONFIG_PATH: "/etc/myapp/config.yaml"
     OUTPUT_DIR: "./dist"
     
@@ -54,32 +54,32 @@ vars: {
 }
 ```
 
-All values are strings. The shell interprets them as needed.
+Todos os valores são strings. O shell interpreta conforme necessário.
 
-## Referencing Other Variables
+## Referenciando Outras Variáveis
 
-Reference system environment variables:
+Referencie variáveis de ambiente do sistema:
 
 ```cue
 vars: {
-    // Use system variable
+    // Usar variável do sistema
     HOME_CONFIG: "${HOME}/.config/myapp"
     
-    // With default value
+    // Com valor padrão
     LOG_LEVEL: "${LOG_LEVEL:-info}"
     
-    // Combine variables
+    // Combinar variáveis
     FULL_PATH: "${HOME}/projects/${PROJECT_NAME}"
 }
 ```
 
-Note: References are expanded at runtime, not definition time.
+Nota: Referências são expandidas em tempo de execução, não no momento da definição.
 
-## Scope Levels
+## Níveis de Escopo
 
-### Root Level
+### Nível Raiz
 
-Available to all commands:
+Disponível para todos os comandos:
 
 ```cue
 group: "myproject"
@@ -94,20 +94,20 @@ env: {
 commands: [
     {
         name: "build"
-        // Gets PROJECT_NAME and VERSION
+        // Recebe PROJECT_NAME e VERSION
         implementations: [...]
     },
     {
         name: "deploy"
-        // Also gets PROJECT_NAME and VERSION
+        // Também recebe PROJECT_NAME e VERSION
         implementations: [...]
     }
 ]
 ```
 
-### Command Level
+### Nível de Comando
 
-Available to specific command:
+Disponível para comando específico:
 
 ```cue
 {
@@ -121,9 +121,9 @@ Available to specific command:
 }
 ```
 
-### Implementation Level
+### Nível de Implementação
 
-Available to specific implementation:
+Disponível para implementação específica:
 
 ```cue
 {
@@ -151,9 +151,9 @@ Available to specific implementation:
 }
 ```
 
-### Platform Level
+### Nível de Plataforma
 
-Per-platform variables:
+Variáveis por plataforma:
 
 ```cue
 implementations: [{
@@ -187,40 +187,40 @@ implementations: [{
 }]
 ```
 
-## Combined with Files
+## Combinado com Arquivos
 
-Variables override values from env files:
+Variáveis sobrescrevem valores de arquivos env:
 
 ```cue
 env: {
-    files: [".env"]  // Loaded first
+    files: [".env"]  // Carregado primeiro
     vars: {
-        // These override .env values
+        // Estas sobrescrevem valores do .env
         OVERRIDE: "from-invkfile"
     }
 }
 ```
 
-## CLI Override
+## Sobrescrita via CLI
 
-Override at runtime:
+Sobrescreva em tempo de execução:
 
 ```bash
-# Single variable
+# Única variável
 invowk cmd myproject build --env-var NODE_ENV=development
 
-# Short form
+# Forma curta
 invowk cmd myproject build -E NODE_ENV=development
 
-# Multiple variables
+# Múltiplas variáveis
 invowk cmd myproject build -E NODE_ENV=dev -E DEBUG=true -E PORT=8080
 ```
 
-CLI variables have the highest priority.
+Variáveis da CLI têm a maior prioridade.
 
-## Real-World Examples
+## Exemplos do Mundo Real
 
-### Build Configuration
+### Configuração de Build
 
 ```cue
 {
@@ -239,7 +239,7 @@ CLI variables have the highest priority.
 }
 ```
 
-### API Configuration
+### Configuração de API
 
 ```cue
 {
@@ -259,21 +259,21 @@ CLI variables have the highest priority.
 }
 ```
 
-### Dynamic Values
+### Valores Dinâmicos
 
 ```cue
 {
     name: "release"
     env: {
         vars: {
-            // Git-based version
+            // Versão baseada no git
             GIT_SHA: "$(git rev-parse --short HEAD)"
             GIT_BRANCH: "$(git branch --show-current)"
             
             // Timestamp
             BUILD_TIME: "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
             
-            // Combine values
+            // Combinar valores
             BUILD_ID: "${GIT_BRANCH}-${GIT_SHA}"
         }
     }
@@ -287,7 +287,7 @@ CLI variables have the highest priority.
 }
 ```
 
-### Database Configuration
+### Configuração de Banco de Dados
 
 ```cue
 {
@@ -298,7 +298,7 @@ CLI variables have the highest priority.
             DB_PORT: "${DB_PORT:-5432}"
             DB_NAME: "${DB_NAME:-myapp}"
             DB_USER: "${DB_USER:-postgres}"
-            // Construct URL from parts
+            // Construir URL das partes
             DATABASE_URL: "postgres://${DB_USER}@${DB_HOST}:${DB_PORT}/${DB_NAME}"
         }
     }
@@ -309,9 +309,9 @@ CLI variables have the highest priority.
 }
 ```
 
-## Container Environment
+## Ambiente de Container
 
-Variables are passed into containers:
+Variáveis são passadas para containers:
 
 ```cue
 {
@@ -332,15 +332,15 @@ Variables are passed into containers:
 }
 ```
 
-## Best Practices
+## Melhores Práticas
 
-1. **Use defaults**: `${VAR:-default}` for optional config
-2. **Keep secrets out**: Don't hardcode secrets; use env files or external secrets
-3. **Document variables**: Add comments explaining each variable
-4. **Use consistent naming**: `UPPER_SNAKE_CASE` convention
-5. **Scope appropriately**: Root for shared, command for specific
+1. **Use padrões**: `${VAR:-default}` para config opcional
+2. **Mantenha secrets fora**: Não hardcode secrets; use arquivos env ou secrets externos
+3. **Documente variáveis**: Adicione comentários explicando cada variável
+4. **Use nomenclatura consistente**: Convenção `UPPER_SNAKE_CASE`
+5. **Escopo apropriado**: Raiz para compartilhado, comando para específico
 
-## Next Steps
+## Próximos Passos
 
-- [Env Files](./env-files) - Load from .env files
-- [Precedence](./precedence) - Understand override order
+- [Env Files](./env-files) - Carregar de arquivos .env
+- [Precedence](./precedence) - Entender ordem de sobrescrita

@@ -2,11 +2,11 @@
 sidebar_position: 3
 ---
 
-# Filepath Dependencies
+# Dependências de Caminho de Arquivo
 
-Filepath dependencies verify that required files or directories exist before your command runs. You can also check for specific permissions.
+Dependências de caminho de arquivo verificam se arquivos ou diretórios necessários existem antes que seu comando seja executado. Você também pode verificar permissões específicas.
 
-## Basic Usage
+## Uso Básico
 
 ```cue
 {
@@ -20,7 +20,7 @@ Filepath dependencies verify that required files or directories exist before you
 }
 ```
 
-If the file doesn't exist:
+Se o arquivo não existir:
 
 ```
 ✗ Dependencies not satisfied
@@ -33,29 +33,29 @@ Missing Files:
 Ensure the required files exist and try again.
 ```
 
-## Alternatives (OR Semantics)
+## Alternativas (Semântica OU)
 
-Specify multiple alternatives when any path will work:
+Especifique múltiplas alternativas quando qualquer caminho funcionar:
 
 ```cue
 depends_on: {
     filepaths: [
-        // Config file in any format
+        // Arquivo de configuração em qualquer formato
         {alternatives: ["config.yaml", "config.json", "config.toml"]},
         
-        // Package manager lock file
+        // Arquivo lock do gerenciador de pacotes
         {alternatives: ["pnpm-lock.yaml", "package-lock.json", "yarn.lock"]},
     ]
 }
 ```
 
-Invowk checks alternatives in order and stops at the first match.
+O Invowk verifica as alternativas em ordem e para na primeira correspondência.
 
-## Path Types
+## Tipos de Caminho
 
-### Relative Paths
+### Caminhos Relativos
 
-Relative to the invkfile location:
+Relativo à localização do invkfile:
 
 ```cue
 depends_on: {
@@ -67,9 +67,9 @@ depends_on: {
 }
 ```
 
-### Absolute Paths
+### Caminhos Absolutos
 
-Full system paths:
+Caminhos completos do sistema:
 
 ```cue
 depends_on: {
@@ -80,9 +80,9 @@ depends_on: {
 }
 ```
 
-### Environment Variables in Paths
+### Variáveis de Ambiente em Caminhos
 
-Expand environment variables:
+Expanda variáveis de ambiente:
 
 ```cue
 depends_on: {
@@ -93,11 +93,11 @@ depends_on: {
 }
 ```
 
-## Permission Checks
+## Verificações de Permissão
 
-Check for specific file permissions:
+Verifique permissões específicas de arquivo:
 
-### Readable
+### Legível
 
 ```cue
 depends_on: {
@@ -107,7 +107,7 @@ depends_on: {
 }
 ```
 
-### Writable
+### Gravável
 
 ```cue
 depends_on: {
@@ -117,7 +117,7 @@ depends_on: {
 }
 ```
 
-### Executable
+### Executável
 
 ```cue
 depends_on: {
@@ -127,12 +127,12 @@ depends_on: {
 }
 ```
 
-### Combined Permissions
+### Permissões Combinadas
 
 ```cue
 depends_on: {
     filepaths: [
-        // Script must be readable AND executable
+        // Script deve ser legível E executável
         {
             alternatives: ["./scripts/run.sh"]
             readable: true
@@ -142,28 +142,28 @@ depends_on: {
 }
 ```
 
-## Directories vs Files
+## Diretórios vs Arquivos
 
-Filepath checks work for both files and directories:
+Verificações de caminho funcionam tanto para arquivos quanto para diretórios:
 
 ```cue
 depends_on: {
     filepaths: [
-        // Check for a file
+        // Verificar um arquivo
         {alternatives: ["package.json"]},
         
-        // Check for a directory
+        // Verificar um diretório
         {alternatives: ["node_modules"]},
         
-        // Check directory is writable
+        // Verificar se diretório é gravável
         {alternatives: ["./build"], writable: true},
     ]
 }
 ```
 
-## Real-World Examples
+## Exemplos do Mundo Real
 
-### Go Project
+### Projeto Go
 
 ```cue
 {
@@ -182,7 +182,7 @@ depends_on: {
 }
 ```
 
-### Node.js Project
+### Projeto Node.js
 
 ```cue
 {
@@ -190,9 +190,9 @@ depends_on: {
     depends_on: {
         filepaths: [
             {alternatives: ["package.json"]},
-            // Any lock file is fine
+            // Qualquer arquivo lock serve
             {alternatives: ["pnpm-lock.yaml", "package-lock.json", "yarn.lock"]},
-            // Dependencies must be installed
+            // Dependências devem estar instaladas
             {alternatives: ["node_modules"]},
         ]
     }
@@ -210,9 +210,9 @@ depends_on: {
     name: "docker-build"
     depends_on: {
         filepaths: [
-            // Need either Dockerfile or Containerfile
+            // Precisa de Dockerfile ou Containerfile
             {alternatives: ["Dockerfile", "Containerfile"]},
-            // And a build script
+            // E um script de build
             {alternatives: ["scripts/build.sh"], executable: true},
         ]
     }
@@ -223,14 +223,14 @@ depends_on: {
 }
 ```
 
-### Configuration Files
+### Arquivos de Configuração
 
 ```cue
 {
     name: "deploy"
     depends_on: {
         filepaths: [
-            // Check for config in order of preference
+            // Verificar config em ordem de preferência
             {
                 alternatives: [
                     "./config/production.yaml",
@@ -239,7 +239,7 @@ depends_on: {
                 ]
                 readable: true
             },
-            // Writable output directory
+            // Diretório de saída gravável
             {alternatives: ["./deploy-output"], writable: true},
         ]
     }
@@ -250,9 +250,9 @@ depends_on: {
 }
 ```
 
-## Container Context
+## Contexto de Container
 
-For container runtime, filepath checks are validated **inside the container**:
+Para runtime container, verificações de caminho são validadas **dentro do container**:
 
 ```cue
 {
@@ -262,8 +262,8 @@ For container runtime, filepath checks are validated **inside the container**:
         target: {runtimes: [{name: "container", image: "golang:1.21"}]}
         depends_on: {
             filepaths: [
-                // These are checked INSIDE the container
-                // /workspace is where your project is mounted
+                // Estes são verificados DENTRO do container
+                // /workspace é onde seu projeto está montado
                 {alternatives: ["/workspace/go.mod"]},
                 {alternatives: ["/workspace/go.sum"]},
             ]
@@ -272,9 +272,9 @@ For container runtime, filepath checks are validated **inside the container**:
 }
 ```
 
-## Platform-Specific Paths
+## Caminhos Específicos de Plataforma
 
-Use multiple implementations for platform-specific paths:
+Use múltiplas implementações para caminhos específicos de plataforma:
 
 ```cue
 {
@@ -304,9 +304,9 @@ Use multiple implementations for platform-specific paths:
 }
 ```
 
-## Error Messages
+## Mensagens de Erro
 
-Clear error messages for missing files:
+Mensagens de erro claras para arquivos faltando:
 
 ```
 ✗ Dependencies not satisfied
@@ -324,14 +324,14 @@ Permission Issues:
 Ensure the required files exist with proper permissions and try again.
 ```
 
-## Best Practices
+## Melhores Práticas
 
-1. **Use alternatives for config files**: `{alternatives: ["config.yaml", "config.json"]}`
-2. **Check permissions when needed**: Especially for scripts and output directories
-3. **Consider platform differences**: Use environment variables or multiple implementations
-4. **Check dependencies first**: Verify `node_modules` before running npm scripts
+1. **Use alternativas para arquivos de config**: `{alternatives: ["config.yaml", "config.json"]}`
+2. **Verifique permissões quando necessário**: Especialmente para scripts e diretórios de saída
+3. **Considere diferenças de plataforma**: Use variáveis de ambiente ou múltiplas implementações
+4. **Verifique dependências primeiro**: Verifique `node_modules` antes de executar scripts npm
 
-## Next Steps
+## Próximos Passos
 
-- [Commands](./commands) - Depend on other Invowk commands
-- [Environment Variables](./env-vars) - Check for required env vars
+- [Commands](./commands) - Depender de outros comandos Invowk
+- [Environment Variables](./env-vars) - Verificar variáveis de ambiente requeridas

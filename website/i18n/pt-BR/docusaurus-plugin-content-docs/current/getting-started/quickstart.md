@@ -2,20 +2,20 @@
 sidebar_position: 2
 ---
 
-# Quickstart
+# Início Rápido
 
-Let's run your first Invowk command in under 2 minutes. Seriously, grab a coffee first if you want - you'll have time to spare.
+Vamos executar seu primeiro comando Invowk em menos de 2 minutos. Sério, pegue um café antes se quiser - você terá tempo de sobra.
 
-## Create Your First Invkfile
+## Crie Seu Primeiro Invkfile
 
-Navigate to any project directory and initialize an invkfile:
+Navegue até qualquer diretório de projeto e inicialize um invkfile:
 
 ```bash
-cd my-project
+cd meu-projeto
 invowk init
 ```
 
-This creates an `invkfile.cue` with a sample command. Let's peek inside:
+Isso cria um `invkfile.cue` com um comando de exemplo. Vamos dar uma olhada:
 
 ```cue
 group: "myproject"
@@ -38,19 +38,19 @@ commands: [
 ]
 ```
 
-Don't worry about understanding everything yet - we'll cover that soon!
+Não se preocupe em entender tudo ainda - vamos cobrir isso em breve!
 
-## List Available Commands
+## Listar Comandos Disponíveis
 
-See what commands are available:
+Veja quais comandos estão disponíveis:
 
 ```bash
 invowk cmd --list
-# or just
+# ou apenas
 invowk cmd
 ```
 
-You'll see something like:
+Você verá algo como:
 
 ```
 Available Commands
@@ -60,27 +60,27 @@ From current directory:
   myproject hello - Say hello! [native*] (linux, macos, windows)
 ```
 
-Notice how the command is prefixed with `myproject` (the group name). This keeps commands organized and prevents naming conflicts.
+Note como o comando é prefixado com `myproject` (o nome do grupo). Isso mantém os comandos organizados e evita conflitos de nomes.
 
-## Run a Command
+## Executar um Comando
 
-Now let's run it:
+Agora vamos executá-lo:
 
 ```bash
 invowk cmd myproject hello
 ```
 
-Output:
+Saída:
 
 ```
 Hello from Invowk!
 ```
 
-That's it! You just ran your first Invowk command.
+É isso! Você acabou de executar seu primeiro comando Invowk.
 
-## Let's Make It More Interesting
+## Vamos Tornar Isso Mais Interessante
 
-Edit your `invkfile.cue` to add a more useful command:
+Edite seu `invkfile.cue` para adicionar um comando mais útil:
 
 ```cue
 group: "myproject"
@@ -121,17 +121,17 @@ commands: [
 ]
 ```
 
-Now run:
+Agora execute:
 
 ```bash
 invowk cmd myproject info
 ```
 
-You'll see your system information printed out nicely.
+Você verá as informações do seu sistema exibidas de forma organizada.
 
-## Try the Virtual Runtime
+## Experimente o Runtime Virtual
 
-One of Invowk's superpowers is the **virtual runtime** - a built-in shell interpreter that works the same on every platform:
+Um dos superpoderes do Invowk é o **runtime virtual** - um interpretador de shell integrado que funciona da mesma forma em todas as plataformas:
 
 ```cue
 {
@@ -148,14 +148,14 @@ One of Invowk's superpowers is the **virtual runtime** - a built-in shell interp
 }
 ```
 
-The virtual runtime uses the [mvdan/sh](https://github.com/mvdan/sh) interpreter, giving you consistent POSIX shell behavior across all platforms.
+O runtime virtual usa o interpretador [mvdan/sh](https://github.com/mvdan/sh), proporcionando comportamento consistente de shell POSIX em todas as plataformas.
 
-## What's Next?
+## Próximos Passos
 
-You've just scratched the surface! Head to [Your First Invkfile](./your-first-invkfile) to learn how to build more powerful commands with:
+Você acabou de arranhar a superfície! Vá para [Seu Primeiro Invkfile](./your-first-invkfile) para aprender como criar comandos mais poderosos com:
 
-- Multiple runtime options (native, virtual, container)
-- Dependencies that are validated before running
-- Command flags and arguments
-- Environment variables
-- And much more!
+- Múltiplas opções de runtime (native, virtual, container)
+- Dependências que são validadas antes da execução
+- Flags e argumentos de comando
+- Variáveis de ambiente
+- E muito mais!

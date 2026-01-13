@@ -2,11 +2,11 @@
 sidebar_position: 3
 ---
 
-# Positional Arguments
+# Argumentos Posicionais
 
-Positional arguments are values passed by position after the command name. They're ideal for required inputs where order is natural (like `source` and `destination`).
+Argumentos posicionais são valores passados por posição após o nome do comando. São ideais para entradas obrigatórias onde a ordem é natural (como `source` e `destination`).
 
-## Defining Arguments
+## Definindo Argumentos
 
 ```cue
 {
@@ -14,12 +14,12 @@ Positional arguments are values passed by position after the command name. They'
     args: [
         {
             name: "source"
-            description: "Source file or directory"
+            description: "Arquivo ou diretório de origem"
             required: true
         },
         {
             name: "destination"
-            description: "Destination path"
+            description: "Caminho de destino"
             required: true
         }
     ]
@@ -27,35 +27,35 @@ Positional arguments are values passed by position after the command name. They'
 }
 ```
 
-Usage:
+Uso:
 ```bash
 invowk cmd myproject copy ./src ./dest
 ```
 
-## Argument Properties
+## Propriedades dos Argumentos
 
-| Property | Required | Description |
-|----------|----------|-------------|
-| `name` | Yes | Argument name (alphanumeric, hyphens, underscores) |
-| `description` | Yes | Help text |
-| `type` | No | `string`, `int`, `float` (default: `string`) |
-| `default_value` | No | Default if not provided |
-| `required` | No | Must be provided (can't have default) |
-| `validation` | No | Regex pattern for value |
-| `variadic` | No | Accept multiple values (last arg only) |
+| Propriedade | Obrigatória | Descrição |
+|-------------|-------------|-----------|
+| `name` | Sim | Nome do argumento (alfanumérico, hífens, underscores) |
+| `description` | Sim | Texto de ajuda |
+| `type` | Não | `string`, `int`, `float` (padrão: `string`) |
+| `default_value` | Não | Valor padrão se não fornecido |
+| `required` | Não | Deve ser fornecido (não pode ter default) |
+| `validation` | Não | Padrão regex para o valor |
+| `variadic` | Não | Aceita múltiplos valores (apenas último arg) |
 
-## Types
+## Tipos
 
-### String (Default)
+### String (Padrão)
 
 ```cue
-{name: "filename", description: "File to process", type: "string"}
+{name: "filename", description: "Arquivo para processar", type: "string"}
 ```
 
 ### Integer
 
 ```cue
-{name: "count", description: "Number of items", type: "int", default_value: "10"}
+{name: "count", description: "Número de itens", type: "int", default_value: "10"}
 ```
 
 ```bash
@@ -65,81 +65,81 @@ invowk cmd myproject generate 5
 ### Float
 
 ```cue
-{name: "ratio", description: "Scaling ratio", type: "float", default_value: "1.0"}
+{name: "ratio", description: "Proporção de escala", type: "float", default_value: "1.0"}
 ```
 
 ```bash
 invowk cmd myproject scale 0.5
 ```
 
-Note: Boolean type is **not supported** for arguments. Use flags for boolean options.
+Nota: Tipo Boolean **não é suportado** para argumentos. Use flags para opções booleanas.
 
-## Required vs Optional
+## Obrigatório vs Opcional
 
-### Required Arguments
+### Argumentos Obrigatórios
 
 ```cue
 args: [
-    {name: "input", description: "Input file", required: true},
-    {name: "output", description: "Output file", required: true},
+    {name: "input", description: "Arquivo de entrada", required: true},
+    {name: "output", description: "Arquivo de saída", required: true},
 ]
 ```
 
 ```bash
-# Error: missing required argument
+# Erro: argumento obrigatório faltando
 invowk cmd myproject convert input.txt
 # Error: argument 'output' is required
 
-# Success
+# Sucesso
 invowk cmd myproject convert input.txt output.txt
 ```
 
-### Optional Arguments
+### Argumentos Opcionais
 
 ```cue
 args: [
-    {name: "input", description: "Input file", required: true},
-    {name: "format", description: "Output format", default_value: "json"},
+    {name: "input", description: "Arquivo de entrada", required: true},
+    {name: "format", description: "Formato de saída", default_value: "json"},
 ]
 ```
 
 ```bash
-# Uses default format (json)
+# Usa formato padrão (json)
 invowk cmd myproject parse input.txt
 
-# Override format
+# Sobrescrever formato
 invowk cmd myproject parse input.txt yaml
 ```
 
-### Ordering Rule
+### Regra de Ordenação
 
-Required arguments must come before optional arguments:
+Argumentos obrigatórios devem vir antes dos argumentos opcionais:
 
 ```cue
-// Good
+// Bom
 args: [
-    {name: "input", required: true},      // Required first
-    {name: "output", required: true},     // Required second
-    {name: "format", default_value: "json"}, // Optional last
+    {name: "input", required: true},      // Obrigatório primeiro
+    {name: "output", required: true},     // Obrigatório segundo
+    {name: "format", default_value: "json"}, // Opcional por último
 ]
 
-// Bad - will cause validation error
+// Ruim - causará erro de validação
 args: [
-    {name: "format", default_value: "json"}, // Optional can't come first
+    {name: "format", default_value: "json"}, // Opcional não pode vir primeiro
     {name: "input", required: true},
 ]
 ```
 
-## Variadic Arguments
+## Argumentos Variadic
 
-The last argument can accept multiple values:
+O último argumento pode aceitar múltiplos valores:
 
 ```cue
 {
     name: "process"
     args: [
-        {name: "output", description: "Output file", required: true},
-        {name: "inputs", description: "Input files", variadic: true},
+        {name: "output", description: "Arquivo de saída", required: true},
+        {name: "inputs", description: "Arquivos de entrada", variadic: true},
     ]
     implementations: [{
         script: """
@@ -167,48 +167,48 @@ invowk cmd myproject process out.txt a.txt b.txt c.txt
 # Processing: c.txt
 ```
 
-### Variadic Environment Variables
+### Variáveis de Ambiente para Variadic
 
-| Variable | Description |
-|----------|-------------|
-| `INVOWK_ARG_INPUTS` | Space-joined values |
-| `INVOWK_ARG_INPUTS_COUNT` | Number of values |
-| `INVOWK_ARG_INPUTS_1` | First value |
-| `INVOWK_ARG_INPUTS_2` | Second value |
-| ... | And so on |
+| Variável | Descrição |
+|----------|-----------|
+| `INVOWK_ARG_INPUTS` | Valores unidos por espaço |
+| `INVOWK_ARG_INPUTS_COUNT` | Número de valores |
+| `INVOWK_ARG_INPUTS_1` | Primeiro valor |
+| `INVOWK_ARG_INPUTS_2` | Segundo valor |
+| ... | E assim por diante |
 
-## Validation Patterns
+## Padrões de Validação
 
-Validate argument values with regex:
+Valide valores de argumento com regex:
 
 ```cue
 args: [
     {
         name: "environment"
-        description: "Target environment"
+        description: "Ambiente alvo"
         required: true
         validation: "^(dev|staging|prod)$"
     },
     {
         name: "version"
-        description: "Version number"
+        description: "Número da versão"
         validation: "^[0-9]+\\.[0-9]+\\.[0-9]+$"
     }
 ]
 ```
 
 ```bash
-# Valid
+# Válido
 invowk cmd myproject deploy prod 1.2.3
 
-# Invalid
+# Inválido
 invowk cmd myproject deploy production
 # Error: argument 'environment' value 'production' does not match pattern '^(dev|staging|prod)$'
 ```
 
-## Accessing in Scripts
+## Acessando em Scripts
 
-### Environment Variables
+### Variáveis de Ambiente
 
 ```cue
 {
@@ -226,17 +226,17 @@ invowk cmd myproject deploy production
 }
 ```
 
-### Naming Convention
+### Convenção de Nomenclatura
 
-| Argument Name | Environment Variable |
-|---------------|---------------------|
+| Nome do Argumento | Variável de Ambiente |
+|-------------------|---------------------|
 | `name` | `INVOWK_ARG_NAME` |
 | `file-path` | `INVOWK_ARG_FILE_PATH` |
 | `outputDir` | `INVOWK_ARG_OUTPUTDIR` |
 
-### Shell Positional Parameters
+### Parâmetros Posicionais do Shell
 
-Arguments are also available as `$1`, `$2`, etc.:
+Argumentos também estão disponíveis como `$1`, `$2`, etc.:
 
 ```cue
 {
@@ -247,13 +247,13 @@ Arguments are also available as `$1`, `$2`, etc.:
     ]
     implementations: [{
         script: """
-            # Using environment variables
+            # Usando variáveis de ambiente
             cp "$INVOWK_ARG_SOURCE" "$INVOWK_ARG_DEST"
             
-            # Or positional parameters
+            # Ou parâmetros posicionais
             cp "$1" "$2"
             
-            # All arguments
+            # Todos os argumentos
             echo "Args: $@"
             echo "Count: $#"
             """
@@ -262,37 +262,37 @@ Arguments are also available as `$1`, `$2`, etc.:
 }
 ```
 
-### Shell Compatibility
+### Compatibilidade de Shell
 
-| Shell | Positional Access |
+| Shell | Acesso Posicional |
 |-------|-------------------|
 | bash, sh, zsh | `$1`, `$2`, `$@`, `$#` |
 | PowerShell | `$args[0]`, `$args[1]` |
-| virtual runtime | `$1`, `$2`, `$@`, `$#` |
+| runtime virtual | `$1`, `$2`, `$@`, `$#` |
 | container | `$1`, `$2`, `$@`, `$#` |
 
-## Real-World Examples
+## Exemplos do Mundo Real
 
-### File Processing
+### Processamento de Arquivo
 
 ```cue
 {
     name: "convert"
-    description: "Convert file format"
+    description: "Converter formato de arquivo"
     args: [
         {
             name: "input"
-            description: "Input file"
+            description: "Arquivo de entrada"
             required: true
         },
         {
             name: "output"
-            description: "Output file"
+            description: "Arquivo de saída"
             required: true
         },
         {
             name: "format"
-            description: "Output format"
+            description: "Formato de saída"
             default_value: "json"
             validation: "^(json|yaml|toml|xml)$"
         }
@@ -307,22 +307,22 @@ Arguments are also available as `$1`, `$2`, etc.:
 }
 ```
 
-### Multi-File Operation
+### Operação Multi-Arquivo
 
 ```cue
 {
     name: "compress"
-    description: "Compress files into archive"
+    description: "Comprimir arquivos em arquivo"
     args: [
         {
             name: "archive"
-            description: "Output archive name"
+            description: "Nome do arquivo de saída"
             required: true
             validation: "\\.(zip|tar\\.gz|tgz)$"
         },
         {
             name: "files"
-            description: "Files to compress"
+            description: "Arquivos para comprimir"
             variadic: true
         }
     ]
@@ -333,7 +333,7 @@ Arguments are also available as `$1`, `$2`, etc.:
                 exit 1
             fi
             
-            # Use the space-separated list
+            # Usar a lista separada por espaço
             tar -czvf "$INVOWK_ARG_ARCHIVE" $INVOWK_ARG_FILES
             """
         target: {runtimes: [{name: "native"}]}
@@ -341,28 +341,28 @@ Arguments are also available as `$1`, `$2`, etc.:
 }
 ```
 
-### Deployment
+### Deploy
 
 ```cue
 {
     name: "deploy"
-    description: "Deploy services"
+    description: "Deploy de serviços"
     args: [
         {
             name: "env"
-            description: "Target environment"
+            description: "Ambiente alvo"
             required: true
             validation: "^(dev|staging|prod)$"
         },
         {
             name: "replicas"
-            description: "Number of replicas"
+            description: "Número de réplicas"
             type: "int"
             default_value: "1"
         },
         {
             name: "services"
-            description: "Services to deploy"
+            description: "Serviços para deploy"
             variadic: true
         }
     ]
@@ -386,22 +386,22 @@ Arguments are also available as `$1`, `$2`, etc.:
 }
 ```
 
-## Mixing with Flags
+## Misturando com Flags
 
-Flags can appear anywhere; arguments are positional:
+Flags podem aparecer em qualquer lugar; argumentos são posicionais:
 
 ```bash
-# All equivalent
+# Todos equivalentes
 invowk cmd myproject deploy prod 3 --dry-run
 invowk cmd myproject deploy --dry-run prod 3
 invowk cmd myproject deploy prod --dry-run 3
 ```
 
-Arguments are extracted in order, regardless of flag positions.
+Argumentos são extraídos em ordem, independentemente das posições das flags.
 
-## Arguments vs Subcommands
+## Argumentos vs Subcomandos
 
-A command cannot have both arguments and subcommands. If a command has subcommands, arguments are ignored:
+Um comando não pode ter ambos argumentos e subcomandos. Se um comando tem subcomandos, argumentos são ignorados:
 
 ```
 Warning: command has both args and subcommands!
@@ -410,19 +410,19 @@ Command 'deploy' defines positional arguments but also has subcommands.
 Subcommands take precedence; positional arguments will be ignored.
 ```
 
-Choose one approach:
-- Use arguments for simple commands
-- Use subcommands for complex command hierarchies
+Escolha uma abordagem:
+- Use argumentos para comandos simples
+- Use subcomandos para hierarquias de comando complexas
 
-## Best Practices
+## Melhores Práticas
 
-1. **Required args first**: Follow ordering rules
-2. **Use meaningful names**: `source` and `dest` not `arg1` and `arg2`
-3. **Validate when possible**: Catch errors early
-4. **Document with descriptions**: Help users understand
-5. **Prefer flags for optional values**: Easier to understand
+1. **Args obrigatórios primeiro**: Siga as regras de ordenação
+2. **Use nomes significativos**: `source` e `dest` não `arg1` e `arg2`
+3. **Valide quando possível**: Capture erros cedo
+4. **Documente com descrições**: Ajude usuários a entender
+5. **Prefira flags para valores opcionais**: Mais fácil de entender
 
-## Next Steps
+## Próximos Passos
 
-- [Flags](./flags) - For named optional values
-- [Environment](../environment/overview) - Configure command environment
+- [Flags](./flags) - Para valores opcionais nomeados
+- [Environment](../environment/overview) - Configurar ambiente do comando

@@ -2,20 +2,20 @@
 sidebar_position: 4
 ---
 
-# Container Runtime
+# Runtime Container
 
-The **container** runtime executes commands inside a Docker or Podman container. It provides complete isolation and reproducibility - your command runs in the exact same environment every time.
+O runtime **container** executa comandos dentro de um container Docker ou Podman. Ele fornece isolamento completo e reprodutibilidade - seu comando executa no exato mesmo ambiente toda vez.
 
-## How It Works
+## Como Funciona
 
-When you run a command with the container runtime, Invowk:
+Quando você executa um comando com o runtime container, o Invowk:
 
-1. Pulls or builds the container image (if needed)
-2. Mounts the current directory into the container
-3. Executes the script inside the container
-4. Streams output back to your terminal
+1. Baixa ou constrói a imagem do container (se necessário)
+2. Monta o diretório atual dentro do container
+3. Executa o script dentro do container
+4. Transmite a saída de volta para seu terminal
 
-## Basic Usage
+## Uso Básico
 
 ```cue
 {
@@ -25,7 +25,7 @@ When you run a command with the container runtime, Invowk:
         target: {
             runtimes: [{
                 name: "container"
-                image: "golang:1.21"  // Required: specify an image
+                image: "golang:1.21"  // Obrigatório: especifique uma imagem
             }]
         }
     }]
@@ -36,11 +36,11 @@ When you run a command with the container runtime, Invowk:
 invowk cmd myproject build
 ```
 
-## Container Image Sources
+## Fontes de Imagem de Container
 
-You must specify either an `image` or a `containerfile` - they're mutually exclusive.
+Você deve especificar ou uma `image` ou um `containerfile` - eles são mutuamente exclusivos.
 
-### Pre-built Images
+### Imagens Pré-construídas
 
 ```cue
 runtimes: [{
@@ -49,25 +49,25 @@ runtimes: [{
 }]
 ```
 
-Common images:
-- `alpine:latest` - Minimal Linux
-- `ubuntu:22.04` - Full Ubuntu
-- `golang:1.21` - Go development
-- `node:20` - Node.js development
-- `python:3.11` - Python development
+Imagens comuns:
+- `alpine:latest` - Linux mínimo
+- `ubuntu:22.04` - Ubuntu completo
+- `golang:1.21` - Desenvolvimento Go
+- `node:20` - Desenvolvimento Node.js
+- `python:3.11` - Desenvolvimento Python
 
-### Custom Containerfile
+### Containerfile Personalizado
 
-Build from a local Containerfile/Dockerfile:
+Construa a partir de um Containerfile/Dockerfile local:
 
 ```cue
 runtimes: [{
     name: "container"
-    containerfile: "./Containerfile"  // Relative to invkfile
+    containerfile: "./Containerfile"  // Relativo ao invkfile
 }]
 ```
 
-Example `Containerfile`:
+Exemplo de `Containerfile`:
 
 ```dockerfile
 FROM golang:1.21
@@ -79,27 +79,27 @@ RUN apt-get update && apt-get install -y \
 WORKDIR /workspace
 ```
 
-## Volume Mounts
+## Montagem de Volumes
 
-Mount additional directories into the container:
+Monte diretórios adicionais no container:
 
 ```cue
 runtimes: [{
     name: "container"
     image: "golang:1.21"
     volumes: [
-        "./data:/data",           // Relative path
-        "/tmp:/tmp:ro",           // Absolute path, read-only
-        "${HOME}/.cache:/cache"   // Environment variable
+        "./data:/data",           // Caminho relativo
+        "/tmp:/tmp:ro",           // Caminho absoluto, somente leitura
+        "${HOME}/.cache:/cache"   // Variável de ambiente
     ]
 }]
 ```
 
-The current working directory is automatically mounted to `/workspace`.
+O diretório de trabalho atual é automaticamente montado em `/workspace`.
 
-## Port Mappings
+## Mapeamento de Portas
 
-Expose container ports to the host:
+Exponha portas do container para o host:
 
 ```cue
 runtimes: [{
@@ -107,16 +107,16 @@ runtimes: [{
     image: "node:20"
     ports: [
         "3000:3000",      // Host:Container
-        "8080:80"         // Map container port 80 to host port 8080
+        "8080:80"         // Mapeia porta 80 do container para porta 8080 do host
     ]
 }]
 ```
 
-## Using Interpreters
+## Usando Interpretadores
 
-Like native runtime, containers support custom interpreters:
+Como o runtime native, containers suportam interpretadores personalizados:
 
-### Auto-Detection from Shebang
+### Auto-Detecção pelo Shebang
 
 ```cue
 {
@@ -137,7 +137,7 @@ Like native runtime, containers support custom interpreters:
 }
 ```
 
-### Explicit Interpreter
+### Interpretador Explícito
 
 ```cue
 {
@@ -158,9 +158,9 @@ Like native runtime, containers support custom interpreters:
 }
 ```
 
-## Environment Variables
+## Variáveis de Ambiente
 
-Environment variables are passed into the container:
+Variáveis de ambiente são passadas para o container:
 
 ```cue
 {
@@ -186,20 +186,20 @@ Environment variables are passed into the container:
 }
 ```
 
-## Host SSH Access
+## Acesso SSH ao Host
 
-Sometimes your container needs to execute commands on the host system. Enable SSH access back to the host:
+Às vezes seu container precisa executar comandos no sistema host. Habilite acesso SSH de volta ao host:
 
 ```cue
 {
     name: "deploy from container"
     implementations: [{
         script: """
-            # Connection credentials are provided via environment variables
+            # Credenciais de conexão são fornecidas via variáveis de ambiente
             echo "SSH Host: $INVOWK_SSH_HOST"
             echo "SSH Port: $INVOWK_SSH_PORT"
             
-            # Connect back to host
+            # Conectar de volta ao host
             sshpass -p $INVOWK_SSH_TOKEN ssh -o StrictHostKeyChecking=no \
                 $INVOWK_SSH_USER@$INVOWK_SSH_HOST -p $INVOWK_SSH_PORT \
                 'echo "Hello from host!"'
@@ -208,55 +208,55 @@ Sometimes your container needs to execute commands on the host system. Enable SS
             runtimes: [{
                 name: "container"
                 image: "alpine:latest"
-                enable_host_ssh: true  // Enable SSH server
+                enable_host_ssh: true  // Habilitar servidor SSH
             }]
         }
     }]
 }
 ```
 
-### SSH Environment Variables
+### Variáveis de Ambiente SSH
 
-When `enable_host_ssh: true`, these variables are available:
+Quando `enable_host_ssh: true`, estas variáveis estão disponíveis:
 
-| Variable | Description |
-|----------|-------------|
-| `INVOWK_SSH_HOST` | Host address (e.g., `host.docker.internal`) |
-| `INVOWK_SSH_PORT` | SSH server port |
-| `INVOWK_SSH_USER` | Username (`invowk`) |
-| `INVOWK_SSH_TOKEN` | One-time authentication token |
+| Variável | Descrição |
+|----------|-----------|
+| `INVOWK_SSH_HOST` | Endereço do host (ex: `host.docker.internal`) |
+| `INVOWK_SSH_PORT` | Porta do servidor SSH |
+| `INVOWK_SSH_USER` | Nome de usuário (`invowk`) |
+| `INVOWK_SSH_TOKEN` | Token de autenticação único |
 
-### Security
+### Segurança
 
-- Each command execution gets a unique token
-- Tokens are revoked when the command completes
-- The SSH server only accepts token-based authentication
-- The server shuts down after command execution
+- Cada execução de comando recebe um token único
+- Tokens são revogados quando o comando termina
+- O servidor SSH apenas aceita autenticação baseada em token
+- O servidor é encerrado após a execução do comando
 
-### Container Requirements
+### Requisitos do Container
 
-Your container needs `sshpass` or similar for password-based SSH:
+Seu container precisa de `sshpass` ou similar para SSH baseado em senha:
 
 ```dockerfile
 FROM alpine:latest
 RUN apk add --no-cache openssh-client sshpass
 ```
 
-## Dependencies
+## Dependências
 
-Container dependencies are validated **inside the container**:
+Dependências de container são validadas **dentro do container**:
 
 ```cue
 {
     name: "build"
     depends_on: {
         tools: [
-            // Checked inside the container, not on host
+            // Verificadas dentro do container, não no host
             {alternatives: ["go"]},
             {alternatives: ["make"]}
         ]
         filepaths: [
-            // Paths relative to container's /workspace
+            // Caminhos relativos ao /workspace do container
             {alternatives: ["go.mod"]}
         ]
     }
@@ -272,30 +272,30 @@ Container dependencies are validated **inside the container**:
 }
 ```
 
-## Container Engine
+## Engine de Container
 
-Invowk supports both Docker and Podman. Configure your preference:
+O Invowk suporta tanto Docker quanto Podman. Configure sua preferência:
 
 ```cue
 // ~/.config/invowk/config.cue
-container_engine: "podman"  // or "docker"
+container_engine: "podman"  // ou "docker"
 ```
 
-If not configured, Invowk tries:
-1. `podman` (if available)
+Se não configurado, o Invowk tenta:
+1. `podman` (se disponível)
 2. `docker` (fallback)
 
-## Working Directory
+## Diretório de Trabalho
 
-By default, the current directory is mounted to `/workspace` and used as the working directory:
+Por padrão, o diretório atual é montado em `/workspace` e usado como diretório de trabalho:
 
 ```cue
 {
     name: "build"
     implementations: [{
         script: """
-            pwd  # Outputs: /workspace
-            ls   # Shows your project files
+            pwd  # Saída: /workspace
+            ls   # Mostra os arquivos do seu projeto
             """
         target: {
             runtimes: [{
@@ -307,12 +307,12 @@ By default, the current directory is mounted to `/workspace` and used as the wor
 }
 ```
 
-Override with `workdir`:
+Sobrescreva com `workdir`:
 
 ```cue
 {
     name: "build frontend"
-    workdir: "./frontend"  // Mounted and used as workdir
+    workdir: "./frontend"  // Montado e usado como workdir
     implementations: [{
         script: "npm run build"
         target: {
@@ -325,9 +325,9 @@ Override with `workdir`:
 }
 ```
 
-## Complete Example
+## Exemplo Completo
 
-Here's a full-featured container command:
+Aqui está um comando container com todos os recursos:
 
 ```cue
 {
@@ -357,7 +357,7 @@ Here's a full-featured container command:
                 name: "container"
                 image: "golang:1.21-alpine"
                 volumes: [
-                    "${HOME}/go/pkg/mod:/go/pkg/mod:ro"  // Cache modules
+                    "${HOME}/go/pkg/mod:/go/pkg/mod:ro"  // Cache de módulos
                 ]
             }]
             platforms: [{name: "linux"}, {name: "macos"}]
@@ -366,65 +366,65 @@ Here's a full-featured container command:
 }
 ```
 
-## Advantages
+## Vantagens
 
-- **Reproducibility**: Same environment everywhere
-- **Isolation**: No host system pollution
-- **Version control**: Pin exact tool versions
-- **CI/CD parity**: Local builds match CI builds
-- **Clean builds**: Fresh environment each time
+- **Reprodutibilidade**: Mesmo ambiente em todos os lugares
+- **Isolamento**: Sem poluição do sistema host
+- **Controle de versão**: Fixe versões exatas de ferramentas
+- **Paridade CI/CD**: Builds locais correspondem aos builds do CI
+- **Builds limpos**: Ambiente novo cada vez
 
-## Limitations
+## Limitações
 
-- **Performance**: Container startup overhead
-- **Disk space**: Images consume storage
-- **Complexity**: Need to manage images
-- **Host access**: Limited without SSH bridge
+- **Performance**: Overhead de inicialização do container
+- **Espaço em disco**: Imagens consomem armazenamento
+- **Complexidade**: Necessário gerenciar imagens
+- **Acesso ao host**: Limitado sem ponte SSH
 
-## When to Use Container
+## Quando Usar Container
 
-- **Reproducible builds**: When consistency matters
-- **CI/CD pipelines**: Match local and CI environments
-- **Legacy projects**: Isolate old tool versions
-- **Team onboarding**: No local tool installation needed
-- **Clean-room builds**: Test without host pollution
+- **Builds reproduzíveis**: Quando consistência importa
+- **Pipelines CI/CD**: Corresponder ambientes local e CI
+- **Projetos legados**: Isolar versões antigas de ferramentas
+- **Onboarding de equipe**: Sem necessidade de instalação local de ferramentas
+- **Builds em ambiente limpo**: Testar sem poluição do host
 
-## Troubleshooting
+## Solução de Problemas
 
-### Container Not Starting
+### Container Não Inicia
 
 ```bash
-# Check if container engine is available
-docker --version  # or: podman --version
+# Verificar se engine de container está disponível
+docker --version  # ou: podman --version
 
-# Check if image exists
+# Verificar se imagem existe
 docker images | grep golang
 ```
 
-### Slow First Run
+### Primeira Execução Lenta
 
-The first run pulls the image. Subsequent runs are faster:
+A primeira execução baixa a imagem. Execuções subsequentes são mais rápidas:
 
 ```bash
-# Pre-pull images
+# Pré-baixar imagens
 docker pull golang:1.21
 docker pull node:20
 ```
 
-### Permission Issues
+### Problemas de Permissão
 
-On Linux, you may need to configure container permissions:
+No Linux, você pode precisar configurar permissões do container:
 
 ```bash
-# For Docker
+# Para Docker
 sudo usermod -aG docker $USER
 
-# For Podman (rootless)
-# Usually works out of the box
+# Para Podman (rootless)
+# Geralmente funciona sem configuração
 ```
 
-## Next Steps
+## Próximos Passos
 
-- [Native Runtime](./native) - For development speed
-- [Virtual Runtime](./virtual) - For cross-platform scripts
-- [Dependencies](../dependencies/overview) - Declare command requirements
+- [Runtime Native](./native) - Para velocidade de desenvolvimento
+- [Runtime Virtual](./virtual) - Para scripts multiplataforma
+- [Dependências](../dependencies/overview) - Declarar requisitos do comando

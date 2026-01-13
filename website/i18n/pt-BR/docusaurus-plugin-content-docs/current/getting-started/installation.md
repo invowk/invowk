@@ -2,29 +2,29 @@
 sidebar_position: 1
 ---
 
-# Installation
+# Instalação
 
-:::warning Alpha Software
-Invowk is currently in **alpha stage**. While we strive for stability, expect breaking changes between releases as we stabilize the invkfile format, pack structure, and feature set. We recommend pinning to a specific version for production use and following the [GitHub releases](https://github.com/invowk/invowk/releases) for migration guides.
+:::warning Software em Alfa
+O Invowk está atualmente em **estágio alfa**. Embora busquemos estabilidade, espere mudanças incompatíveis entre versões enquanto estabilizamos o formato do invkfile, estrutura de packs e conjunto de funcionalidades. Recomendamos fixar uma versão específica para uso em produção e acompanhar os [lançamentos no GitHub](https://github.com/invowk/invowk/releases) para guias de migração.
 :::
 
-Welcome to Invowk! Let's get you set up and running commands in no time.
+Bem-vindo ao Invowk! Vamos configurar tudo para você executar comandos rapidamente.
 
-## Requirements
+## Requisitos
 
-Before installing Invowk, make sure you have:
+Antes de instalar o Invowk, certifique-se de ter:
 
-- **Go 1.25+** (only if building from source)
-- **Linux, macOS, or Windows** - Invowk works on all three!
+- **Go 1.25+** (apenas se compilar a partir do código-fonte)
+- **Linux, macOS ou Windows** - O Invowk funciona em todos os três!
 
-For container runtime features, you'll also need:
-- **Docker** or **Podman** installed and running
+Para recursos de runtime em container, você também precisará de:
+- **Docker** ou **Podman** instalado e em execução
 
-## Installation Methods
+## Métodos de Instalação
 
-### From Source (Recommended for now)
+### A Partir do Código-Fonte (Recomendado por enquanto)
 
-If you have Go installed, building from source is straightforward:
+Se você tem o Go instalado, compilar a partir do código-fonte é simples:
 
 ```bash
 git clone https://github.com/invowk/invowk
@@ -32,65 +32,65 @@ cd invowk
 go build -o invowk .
 ```
 
-Then move the binary to your PATH:
+Depois mova o binário para o seu PATH:
 
 ```bash
 # Linux/macOS
 sudo mv invowk /usr/local/bin/
 
-# Or add to your local bin
+# Ou adicione ao seu bin local
 mv invowk ~/.local/bin/
 ```
 
-### Using Make (with more options)
+### Usando Make (com mais opções)
 
-The project includes a Makefile with several build options:
+O projeto inclui um Makefile com várias opções de compilação:
 
 ```bash
-# Standard build (stripped binary, smaller size)
+# Compilação padrão (binário stripped, tamanho menor)
 make build
 
-# Development build (with debug symbols)
+# Compilação de desenvolvimento (com símbolos de debug)
 make build-dev
 
-# Compressed build (requires UPX)
+# Compilação comprimida (requer UPX)
 make build-upx
 
-# Install to $GOPATH/bin
+# Instalar em $GOPATH/bin
 make install
 ```
 
-### Verify Installation
+### Verificar Instalação
 
-Once installed, verify everything works:
+Uma vez instalado, verifique se tudo funciona:
 
 ```bash
 invowk --version
 ```
 
-You should see the version information. If you get a "command not found" error, make sure the binary is in your PATH.
+Você deverá ver as informações de versão. Se receber um erro "command not found", certifique-se de que o binário está no seu PATH.
 
-## Shell Completion
+## Autocompletar do Shell
 
-Invowk supports tab completion for bash, zsh, fish, and PowerShell. This makes typing commands much faster!
+O Invowk suporta autocompletar com tab para bash, zsh, fish e PowerShell. Isso torna a digitação de comandos muito mais rápida!
 
 ### Bash
 
 ```bash
-# Add to ~/.bashrc
+# Adicione ao ~/.bashrc
 eval "$(invowk completion bash)"
 
-# Or install system-wide
+# Ou instale para todo o sistema
 invowk completion bash > /etc/bash_completion.d/invowk
 ```
 
 ### Zsh
 
 ```bash
-# Add to ~/.zshrc
+# Adicione ao ~/.zshrc
 eval "$(invowk completion zsh)"
 
-# Or install to fpath
+# Ou instale no fpath
 invowk completion zsh > "${fpath[1]}/_invowk"
 ```
 
@@ -105,10 +105,10 @@ invowk completion fish > ~/.config/fish/completions/invowk.fish
 ```powershell
 invowk completion powershell | Out-String | Invoke-Expression
 
-# Or add to $PROFILE for persistence
+# Ou adicione ao $PROFILE para persistência
 invowk completion powershell >> $PROFILE
 ```
 
-## What's Next?
+## Próximos Passos
 
-Now that you have Invowk installed, head over to the [Quickstart](./quickstart) guide to run your first command!
+Agora que você tem o Invowk instalado, vá para o guia de [Início Rápido](./quickstart) para executar seu primeiro comando!

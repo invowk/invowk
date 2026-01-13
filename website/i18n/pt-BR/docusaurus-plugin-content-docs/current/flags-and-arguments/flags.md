@@ -4,9 +4,9 @@ sidebar_position: 2
 
 # Flags
 
-Flags are named options passed with `--name=value` syntax. They're ideal for optional settings, boolean switches, and configuration that doesn't follow a strict order.
+Flags são opções nomeadas passadas com sintaxe `--name=value`. São ideais para configurações opcionais, switches booleanos e configurações que não seguem uma ordem estrita.
 
-## Defining Flags
+## Definindo Flags
 
 ```cue
 {
@@ -14,18 +14,18 @@ Flags are named options passed with `--name=value` syntax. They're ideal for opt
     flags: [
         {
             name: "environment"
-            description: "Target environment"
+            description: "Ambiente alvo"
             required: true
         },
         {
             name: "dry-run"
-            description: "Simulate without changes"
+            description: "Simular sem alterações"
             type: "bool"
             default_value: "false"
         },
         {
             name: "replicas"
-            description: "Number of replicas"
+            description: "Número de réplicas"
             type: "int"
             default_value: "1"
         }
@@ -34,26 +34,26 @@ Flags are named options passed with `--name=value` syntax. They're ideal for opt
 }
 ```
 
-## Flag Properties
+## Propriedades das Flags
 
-| Property | Required | Description |
-|----------|----------|-------------|
-| `name` | Yes | Flag name (alphanumeric, hyphens, underscores) |
-| `description` | Yes | Help text |
-| `type` | No | `string`, `bool`, `int`, `float` (default: `string`) |
-| `default_value` | No | Default if not provided |
-| `required` | No | Must be provided (can't have default) |
-| `short` | No | Single-letter alias |
-| `validation` | No | Regex pattern for value |
+| Propriedade | Obrigatória | Descrição |
+|-------------|-------------|-----------|
+| `name` | Sim | Nome da flag (alfanumérico, hífens, underscores) |
+| `description` | Sim | Texto de ajuda |
+| `type` | Não | `string`, `bool`, `int`, `float` (padrão: `string`) |
+| `default_value` | Não | Valor padrão se não fornecido |
+| `required` | Não | Deve ser fornecido (não pode ter default) |
+| `short` | Não | Alias de uma letra |
+| `validation` | Não | Padrão regex para o valor |
 
-## Types
+## Tipos
 
-### String (Default)
+### String (Padrão)
 
 ```cue
-{name: "message", description: "Custom message", type: "string"}
-// or simply
-{name: "message", description: "Custom message"}
+{name: "message", description: "Mensagem personalizada", type: "string"}
+// ou simplesmente
+{name: "message", description: "Mensagem personalizada"}
 ```
 
 ```bash
@@ -63,147 +63,147 @@ invowk cmd myproject run --message="Hello World"
 ### Boolean
 
 ```cue
-{name: "verbose", description: "Enable verbose output", type: "bool", default_value: "false"}
+{name: "verbose", description: "Habilitar saída detalhada", type: "bool", default_value: "false"}
 ```
 
 ```bash
-# Enable
+# Habilitar
 invowk cmd myproject run --verbose
 invowk cmd myproject run --verbose=true
 
-# Disable (explicit)
+# Desabilitar (explícito)
 invowk cmd myproject run --verbose=false
 ```
 
-Boolean flags only accept `true` or `false`.
+Flags booleanas só aceitam `true` ou `false`.
 
 ### Integer
 
 ```cue
-{name: "count", description: "Number of iterations", type: "int", default_value: "5"}
+{name: "count", description: "Número de iterações", type: "int", default_value: "5"}
 ```
 
 ```bash
 invowk cmd myproject run --count=10
-invowk cmd myproject run --count=-1  # Negative allowed
+invowk cmd myproject run --count=-1  # Negativo permitido
 ```
 
 ### Float
 
 ```cue
-{name: "threshold", description: "Confidence threshold", type: "float", default_value: "0.95"}
+{name: "threshold", description: "Limite de confiança", type: "float", default_value: "0.95"}
 ```
 
 ```bash
 invowk cmd myproject run --threshold=0.8
-invowk cmd myproject run --threshold=1.5e-3  # Scientific notation
+invowk cmd myproject run --threshold=1.5e-3  # Notação científica
 ```
 
-## Required vs Optional
+## Obrigatório vs Opcional
 
-### Required Flags
+### Flags Obrigatórias
 
 ```cue
 {
     name: "target"
-    description: "Deployment target"
-    required: true  // Must be provided
+    description: "Destino do deploy"
+    required: true  // Deve ser fornecido
 }
 ```
 
 ```bash
-# Error: missing required flag
+# Erro: flag obrigatória faltando
 invowk cmd myproject deploy
 # Error: flag 'target' is required
 
-# Success
+# Sucesso
 invowk cmd myproject deploy --target=production
 ```
 
-Required flags cannot have a `default_value`.
+Flags obrigatórias não podem ter um `default_value`.
 
-### Optional Flags
+### Flags Opcionais
 
 ```cue
 {
     name: "timeout"
-    description: "Request timeout in seconds"
+    description: "Timeout da requisição em segundos"
     type: "int"
-    default_value: "30"  // Used if not provided
+    default_value: "30"  // Usado se não fornecido
 }
 ```
 
 ```bash
-# Uses default (30)
+# Usa padrão (30)
 invowk cmd myproject request
 
-# Override
+# Sobrescrever
 invowk cmd myproject request --timeout=60
 ```
 
-## Short Aliases
+## Aliases Curtos
 
-Add single-letter shortcuts:
+Adicione atalhos de uma letra:
 
 ```cue
 flags: [
-    {name: "verbose", description: "Verbose output", type: "bool", short: "v"},
-    {name: "output", description: "Output file", short: "o"},
-    {name: "force", description: "Force overwrite", type: "bool", short: "f"},
+    {name: "verbose", description: "Saída detalhada", type: "bool", short: "v"},
+    {name: "output", description: "Arquivo de saída", short: "o"},
+    {name: "force", description: "Forçar sobrescrita", type: "bool", short: "f"},
 ]
 ```
 
 ```bash
-# Long form
+# Forma longa
 invowk cmd myproject build --verbose --output=./dist --force
 
-# Short form
+# Forma curta
 invowk cmd myproject build -v -o=./dist -f
 
-# Mixed
+# Misto
 invowk cmd myproject build -v --output=./dist -f
 ```
 
-## Validation Patterns
+## Padrões de Validação
 
-Validate flag values with regex:
+Valide valores de flag com regex:
 
 ```cue
 flags: [
     {
         name: "env"
-        description: "Environment name"
+        description: "Nome do ambiente"
         validation: "^(dev|staging|prod)$"
         default_value: "dev"
     },
     {
         name: "version"
-        description: "Semantic version"
+        description: "Versão semântica"
         validation: "^[0-9]+\\.[0-9]+\\.[0-9]+$"
     }
 ]
 ```
 
 ```bash
-# Valid
+# Válido
 invowk cmd myproject deploy --env=prod --version=1.2.3
 
-# Invalid - fails before execution
+# Inválido - falha antes da execução
 invowk cmd myproject deploy --env=production
 # Error: flag 'env' value 'production' does not match required pattern '^(dev|staging|prod)$'
 ```
 
-## Accessing in Scripts
+## Acessando em Scripts
 
-Flags are available as `INVOWK_FLAG_*` environment variables:
+Flags estão disponíveis como variáveis de ambiente `INVOWK_FLAG_*`:
 
 ```cue
 {
     name: "deploy"
     flags: [
-        {name: "env", description: "Environment", required: true},
+        {name: "env", description: "Ambiente", required: true},
         {name: "dry-run", description: "Dry run", type: "bool", default_value: "false"},
-        {name: "replica-count", description: "Replicas", type: "int", default_value: "1"},
+        {name: "replica-count", description: "Réplicas", type: "int", default_value: "1"},
     ]
     implementations: [{
         script: """
@@ -222,30 +222,30 @@ Flags are available as `INVOWK_FLAG_*` environment variables:
 }
 ```
 
-### Naming Convention
+### Convenção de Nomenclatura
 
-| Flag Name | Environment Variable |
-|-----------|---------------------|
+| Nome da Flag | Variável de Ambiente |
+|--------------|---------------------|
 | `env` | `INVOWK_FLAG_ENV` |
 | `dry-run` | `INVOWK_FLAG_DRY_RUN` |
 | `output-file` | `INVOWK_FLAG_OUTPUT_FILE` |
 | `retryCount` | `INVOWK_FLAG_RETRYCOUNT` |
 
-Hyphens become underscores, uppercase.
+Hífens se tornam underscores, maiúsculo.
 
-## Real-World Examples
+## Exemplos do Mundo Real
 
-### Build Command
+### Comando de Build
 
 ```cue
 {
     name: "build"
-    description: "Build the application"
+    description: "Build da aplicação"
     flags: [
-        {name: "mode", description: "Build mode", validation: "^(debug|release)$", default_value: "debug"},
-        {name: "output", description: "Output directory", short: "o", default_value: "./build"},
-        {name: "verbose", description: "Verbose output", type: "bool", short: "v"},
-        {name: "parallel", description: "Parallel jobs", type: "int", short: "j", default_value: "4"},
+        {name: "mode", description: "Modo de build", validation: "^(debug|release)$", default_value: "debug"},
+        {name: "output", description: "Diretório de saída", short: "o", default_value: "./build"},
+        {name: "verbose", description: "Saída detalhada", type: "bool", short: "v"},
+        {name: "parallel", description: "Jobs paralelos", type: "int", short: "j", default_value: "4"},
     ]
     implementations: [{
         script: """
@@ -263,36 +263,36 @@ Hyphens become underscores, uppercase.
 }
 ```
 
-### Deploy Command
+### Comando de Deploy
 
 ```cue
 {
     name: "deploy"
-    description: "Deploy to cloud"
+    description: "Deploy para a nuvem"
     flags: [
         {
             name: "env"
-            description: "Target environment"
+            description: "Ambiente alvo"
             short: "e"
             required: true
             validation: "^(dev|staging|prod)$"
         },
         {
             name: "version"
-            description: "Version to deploy"
+            description: "Versão para deploy"
             short: "v"
             validation: "^[0-9]+\\.[0-9]+\\.[0-9]+$"
         },
         {
             name: "dry-run"
-            description: "Simulate deployment"
+            description: "Simular deploy"
             type: "bool"
             short: "n"
             default_value: "false"
         },
         {
             name: "timeout"
-            description: "Deployment timeout (seconds)"
+            description: "Timeout do deploy (segundos)"
             type: "int"
             default_value: "300"
         }
@@ -313,52 +313,52 @@ Hyphens become underscores, uppercase.
 }
 ```
 
-## Flag Syntax Variations
+## Variações de Sintaxe de Flag
 
-All these work:
+Todas funcionam:
 
 ```bash
-# Equals sign
+# Sinal de igual
 --output=./dist
 
-# Space separator
+# Separador de espaço
 --output ./dist
 
-# Short with equals
+# Curto com igual
 -o=./dist
 
-# Short with value
+# Curto com valor
 -o ./dist
 
-# Boolean toggle (enables)
+# Toggle booleano (habilita)
 --verbose
 -v
 
-# Boolean explicit
+# Booleano explícito
 --verbose=true
 --verbose=false
 ```
 
-## Reserved Flags
+## Flags Reservadas
 
-Don't use these names - they're reserved by Invowk:
+Não use esses nomes - são reservados pelo Invowk:
 
-| Flag | Short | Description |
-|------|-------|-------------|
-| `env-file` | `e` | Load environment from file |
-| `env-var` | `E` | Set environment variable |
-| `help` | `h` | Show help |
-| `runtime` | - | Override runtime |
+| Flag | Curto | Descrição |
+|------|-------|-----------|
+| `env-file` | `e` | Carregar ambiente de arquivo |
+| `env-var` | `E` | Definir variável de ambiente |
+| `help` | `h` | Mostrar ajuda |
+| `runtime` | - | Sobrescrever runtime |
 
-## Best Practices
+## Melhores Práticas
 
-1. **Use descriptive names**: `--output-dir` not `--od`
-2. **Provide defaults when sensible**: Reduce required inputs
-3. **Add validation for constrained values**: Fail fast on invalid input
-4. **Use short aliases for common flags**: `-v`, `-o`, `-f`
-5. **Boolean flags should default to false**: Opt-in behavior
+1. **Use nomes descritivos**: `--output-dir` não `--od`
+2. **Forneça padrões quando faz sentido**: Reduzir entradas obrigatórias
+3. **Adicione validação para valores restritos**: Falhe rápido em entrada inválida
+4. **Use aliases curtos para flags comuns**: `-v`, `-o`, `-f`
+5. **Flags booleanas devem ter padrão false**: Comportamento opt-in
 
-## Next Steps
+## Próximos Passos
 
-- [Positional Arguments](./positional-arguments) - For ordered, required values
-- [Environment](../environment/overview) - Configure command environment
+- [Positional Arguments](./positional-arguments) - Para valores ordenados e obrigatórios
+- [Environment](../environment/overview) - Configurar ambiente do comando

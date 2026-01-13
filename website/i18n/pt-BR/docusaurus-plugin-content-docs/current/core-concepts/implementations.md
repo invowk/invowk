@@ -2,23 +2,23 @@
 sidebar_position: 3
 ---
 
-# Implementations
+# Implementações
 
-Every command needs at least one **implementation** - the actual code that runs when you invoke the command. Implementations define *what* runs, *where* it runs (platform), and *how* it runs (runtime).
+Todo comando precisa de pelo menos uma **implementação** - o código real que executa quando você invoca o comando. Implementações definem *o que* executa, *onde* executa (plataforma), e *como* executa (runtime).
 
-## Basic Structure
+## Estrutura Básica
 
-An implementation has three main parts:
+Uma implementação tem três partes principais:
 
 ```cue
 {
     name: "build"
     implementations: [
         {
-            // 1. The script to run
+            // 1. O script a executar
             script: "go build ./..."
             
-            // 2. Target constraints (runtime + platform)
+            // 2. Restrições de target (runtime + plataforma)
             target: {
                 runtimes: [{name: "native"}]
                 platforms: [{name: "linux"}, {name: "macos"}]
@@ -30,17 +30,17 @@ An implementation has three main parts:
 
 ## Scripts
 
-The `script` field contains the commands to execute. It can be inline or reference an external file.
+O campo `script` contém os comandos a serem executados. Pode ser inline ou referenciar um arquivo externo.
 
-### Inline Scripts
+### Scripts Inline
 
-Single-line scripts are simple:
+Scripts de uma linha são simples:
 
 ```cue
 script: "echo 'Hello, World!'"
 ```
 
-Multi-line scripts use triple quotes:
+Scripts multilinha usam aspas triplas:
 
 ```cue
 script: """
@@ -52,58 +52,58 @@ script: """
     """
 ```
 
-### External Script Files
+### Arquivos de Script Externos
 
-Reference a script file instead of inline code:
+Referencie um arquivo de script em vez de código inline:
 
 ```cue
-// Relative to invkfile location
+// Relativo à localização do invkfile
 script: "./scripts/build.sh"
 
-// Just the filename (if it has a recognized extension)
+// Apenas o nome do arquivo (se tiver extensão reconhecida)
 script: "deploy.sh"
 ```
 
-Recognized extensions: `.sh`, `.bash`, `.ps1`, `.bat`, `.cmd`, `.py`, `.rb`, `.pl`, `.zsh`, `.fish`
+Extensões reconhecidas: `.sh`, `.bash`, `.ps1`, `.bat`, `.cmd`, `.py`, `.rb`, `.pl`, `.zsh`, `.fish`
 
-### When to Use External Scripts
+### Quando Usar Scripts Externos
 
-- **Inline**: Quick, simple commands; keeps everything in one file
-- **External**: Complex scripts; reusable across commands; easier to edit with syntax highlighting
+- **Inline**: Comandos rápidos e simples; mantém tudo em um arquivo
+- **Externo**: Scripts complexos; reutilizáveis entre comandos; mais fácil de editar com syntax highlighting
 
-## Target Constraints
+## Restrições de Target
 
-The `target` field defines where and how the implementation runs.
+O campo `target` define onde e como a implementação executa.
 
 ### Runtimes
 
-Every implementation must specify at least one runtime:
+Toda implementação deve especificar pelo menos um runtime:
 
 ```cue
 target: {
     runtimes: [
-        {name: "native"},      // System shell
-        {name: "virtual"},     // Built-in POSIX shell
+        {name: "native"},      // Shell do sistema
+        {name: "virtual"},     // Shell POSIX integrado
         {name: "container", image: "alpine:latest"}  // Container
     ]
 }
 ```
 
-The **first runtime** is the default. Users can override with `--runtime`:
+O **primeiro runtime** é o padrão. Usuários podem sobrescrever com `--runtime`:
 
 ```bash
-# Uses default runtime (first in list)
+# Usa o runtime padrão (primeiro da lista)
 invowk cmd myproject build
 
-# Override to use container runtime
+# Sobrescreve para usar runtime container
 invowk cmd myproject build --runtime container
 ```
 
-See [Runtime Modes](../runtime-modes/overview) for details on each runtime.
+Veja [Modos de Runtime](../runtime-modes/overview) para detalhes sobre cada runtime.
 
-### Platforms
+### Plataformas
 
-Optionally restrict which operating systems the implementation supports:
+Opcionalmente restrinja quais sistemas operacionais a implementação suporta:
 
 ```cue
 target: {
@@ -116,21 +116,21 @@ target: {
 }
 ```
 
-If `platforms` is omitted, the implementation works on all platforms.
+Se `platforms` for omitido, a implementação funciona em todas as plataformas.
 
-Available platforms: `linux`, `macos`, `windows`
+Plataformas disponíveis: `linux`, `macos`, `windows`
 
-## Multiple Implementations
+## Múltiplas Implementações
 
-Commands can have multiple implementations for different scenarios:
+Comandos podem ter múltiplas implementações para diferentes cenários:
 
-### Platform-Specific Implementations
+### Implementações Específicas por Plataforma
 
 ```cue
 {
     name: "clean"
     implementations: [
-        // Unix implementation
+        // Implementação Unix
         {
             script: "rm -rf build/"
             target: {
@@ -138,7 +138,7 @@ Commands can have multiple implementations for different scenarios:
                 platforms: [{name: "linux"}, {name: "macos"}]
             }
         },
-        // Windows implementation
+        // Implementação Windows
         {
             script: "rmdir /s /q build"
             target: {
@@ -150,22 +150,22 @@ Commands can have multiple implementations for different scenarios:
 }
 ```
 
-Invowk automatically selects the right implementation for the current platform.
+O Invowk automaticamente seleciona a implementação correta para a plataforma atual.
 
-### Runtime-Specific Implementations
+### Implementações Específicas por Runtime
 
 ```cue
 {
     name: "build"
     implementations: [
-        // Fast native build
+        // Build nativo rápido
         {
             script: "go build ./..."
             target: {
                 runtimes: [{name: "native"}]
             }
         },
-        // Reproducible container build
+        // Build reproduzível em container
         {
             script: "go build -o /workspace/bin/app ./..."
             target: {
@@ -176,13 +176,13 @@ Invowk automatically selects the right implementation for the current platform.
 }
 ```
 
-### Combined Platform + Runtime
+### Plataforma + Runtime Combinados
 
 ```cue
 {
     name: "build"
     implementations: [
-        // Linux/macOS with multiple runtime options
+        // Linux/macOS com múltiplas opções de runtime
         {
             script: "make build"
             target: {
@@ -193,7 +193,7 @@ Invowk automatically selects the right implementation for the current platform.
                 platforms: [{name: "linux"}, {name: "macos"}]
             }
         },
-        // Windows native only
+        // Windows apenas nativo
         {
             script: "msbuild /p:Configuration=Release"
             target: {
@@ -205,9 +205,9 @@ Invowk automatically selects the right implementation for the current platform.
 }
 ```
 
-## Platform-Specific Environment
+## Ambiente Específico por Plataforma
 
-Platforms can define their own environment variables:
+Plataformas podem definir suas próprias variáveis de ambiente:
 
 ```cue
 {
@@ -239,9 +239,9 @@ Platforms can define their own environment variables:
 }
 ```
 
-## Implementation-Level Settings
+## Configurações no Nível da Implementação
 
-Implementations can have their own environment, working directory, and dependencies:
+Implementações podem ter seu próprio ambiente, diretório de trabalho e dependências:
 
 ```cue
 {
@@ -253,17 +253,17 @@ Implementations can have their own environment, working directory, and dependenc
                 runtimes: [{name: "native"}]
             }
             
-            // Implementation-specific env
+            // Env específico da implementação
             env: {
                 vars: {
                     NODE_ENV: "production"
                 }
             }
             
-            // Implementation-specific workdir
+            // Workdir específico da implementação
             workdir: "./frontend"
             
-            // Implementation-specific dependencies
+            // Dependências específicas da implementação
             depends_on: {
                 tools: [{alternatives: ["node", "npm"]}]
                 filepaths: [{alternatives: ["package.json"]}]
@@ -273,19 +273,19 @@ Implementations can have their own environment, working directory, and dependenc
 }
 ```
 
-These override command-level settings when this implementation is selected.
+Estas sobrescrevem configurações do nível do comando quando esta implementação é selecionada.
 
-## Implementation Selection
+## Seleção de Implementação
 
-When you run a command, Invowk selects an implementation based on:
+Quando você executa um comando, o Invowk seleciona uma implementação baseado em:
 
-1. **Current platform** - Filters to implementations supporting your OS
-2. **Requested runtime** - If `--runtime` specified, uses that; otherwise uses the default
-3. **First match wins** - Uses the first implementation matching both criteria
+1. **Plataforma atual** - Filtra para implementações que suportam seu SO
+2. **Runtime solicitado** - Se `--runtime` especificado, usa esse; caso contrário usa o padrão
+3. **Primeiro match vence** - Usa a primeira implementação que corresponde a ambos os critérios
 
-### Selection Examples
+### Exemplos de Seleção
 
-Given this command:
+Dado este comando:
 
 ```cue
 {
@@ -309,16 +309,16 @@ Given this command:
 }
 ```
 
-| Platform | Command | Selected |
-|----------|---------|----------|
-| Linux | `invowk cmd myproject build` | First impl, native runtime |
-| Linux | `invowk cmd myproject build --runtime virtual` | First impl, virtual runtime |
-| Windows | `invowk cmd myproject build` | Second impl, native runtime |
-| Windows | `invowk cmd myproject build --runtime virtual` | Error: no matching impl |
+| Plataforma | Comando | Selecionado |
+|------------|---------|-------------|
+| Linux | `invowk cmd myproject build` | Primeira impl, runtime native |
+| Linux | `invowk cmd myproject build --runtime virtual` | Primeira impl, runtime virtual |
+| Windows | `invowk cmd myproject build` | Segunda impl, runtime native |
+| Windows | `invowk cmd myproject build --runtime virtual` | Erro: nenhuma impl correspondente |
 
-## Command Listing
+## Listagem de Comandos
 
-The `invowk cmd list` output shows available runtimes and platforms:
+A saída de `invowk cmd list` mostra runtimes e plataformas disponíveis:
 
 ```
 Available Commands
@@ -330,15 +330,15 @@ From current directory:
   myproject docker-build - Container build [container*] (linux, macos, windows)
 ```
 
-- `[native*, virtual]` - Supports native (default) and virtual runtimes
-- `(linux, macos)` - Only available on Linux and macOS
+- `[native*, virtual]` - Suporta runtimes native (padrão) e virtual
+- `(linux, macos)` - Disponível apenas no Linux e macOS
 
-## Using CUE Templates
+## Usando Templates CUE
 
-Reduce repetition with CUE templates:
+Reduza repetição com templates CUE:
 
 ```cue
-// Define reusable templates
+// Defina templates reutilizáveis
 _unixNative: {
     target: {
         runtimes: [{name: "native"}]
@@ -374,15 +374,15 @@ commands: [
 ]
 ```
 
-## Best Practices
+## Boas Práticas
 
-1. **Start simple** - One implementation is often enough
-2. **Add platforms as needed** - Don't specify platforms unless you need platform-specific behavior
-3. **Default runtime first** - Put the most common runtime first in the list
-4. **Use templates** - Reduce repetition with CUE's templating
-5. **Keep scripts focused** - One task per command; chain with dependencies
+1. **Comece simples** - Uma implementação é frequentemente suficiente
+2. **Adicione plataformas conforme necessário** - Não especifique plataformas a menos que precise de comportamento específico
+3. **Runtime padrão primeiro** - Coloque o runtime mais comum primeiro na lista
+4. **Use templates** - Reduza repetição com o sistema de templates do CUE
+5. **Mantenha scripts focados** - Uma tarefa por comando; encadeie com dependências
 
-## Next Steps
+## Próximos Passos
 
-- [Runtime Modes](../runtime-modes/overview) - Deep dive into native, virtual, and container runtimes
-- [Dependencies](../dependencies/overview) - Declare what your implementations need
+- [Modos de Runtime](../runtime-modes/overview) - Mergulho profundo nos runtimes native, virtual e container
+- [Dependências](../dependencies/overview) - Declare o que suas implementações precisam

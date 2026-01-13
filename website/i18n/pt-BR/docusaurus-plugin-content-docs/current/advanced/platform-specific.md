@@ -2,21 +2,21 @@
 sidebar_position: 3
 ---
 
-# Platform-Specific Commands
+# Comandos Específicos de Plataforma
 
-Create commands that behave differently on Linux, macOS, and Windows. Invowk automatically selects the right implementation for the current platform.
+Crie comandos que se comportam diferentemente no Linux, macOS e Windows. O Invowk automaticamente seleciona a implementação correta para a plataforma atual.
 
-## Supported Platforms
+## Plataformas Suportadas
 
-| Value | Description |
-|-------|-------------|
-| `linux` | Linux distributions |
+| Valor | Descrição |
+|-------|-----------|
+| `linux` | Distribuições Linux |
 | `macos` | macOS (Darwin) |
 | `windows` | Windows |
 
-## Basic Platform Targeting
+## Direcionamento Básico de Plataforma
 
-Restrict an implementation to specific platforms:
+Restrinja uma implementação a plataformas específicas:
 
 ```cue
 {
@@ -47,9 +47,9 @@ Restrict an implementation to specific platforms:
 }
 ```
 
-## All Platforms (Default)
+## Todas as Plataformas (Padrão)
 
-If `platforms` is omitted, the implementation works on all platforms:
+Se `platforms` for omitido, a implementação funciona em todas as plataformas:
 
 ```cue
 {
@@ -58,15 +58,15 @@ If `platforms` is omitted, the implementation works on all platforms:
         script: "go build ./..."
         target: {
             runtimes: [{name: "native"}]
-            // No platforms = works everywhere
+            // Sem platforms = funciona em qualquer lugar
         }
     }]
 }
 ```
 
-## Unix-Only Commands
+## Comandos Apenas Unix
 
-Target both Linux and macOS:
+Direcione tanto Linux quanto macOS:
 
 ```cue
 {
@@ -84,9 +84,9 @@ Target both Linux and macOS:
 }
 ```
 
-## Platform-Specific Environment
+## Ambiente Específico de Plataforma
 
-Set different environment variables per platform:
+Defina variáveis de ambiente diferentes por plataforma:
 
 ```cue
 {
@@ -123,9 +123,9 @@ Set different environment variables per platform:
 }
 ```
 
-## Cross-Platform Scripts
+## Scripts Multiplataforma
 
-Write one script that works everywhere:
+Escreva um script que funciona em qualquer lugar:
 
 ```cue
 {
@@ -146,12 +146,12 @@ Write one script that works everywhere:
 }
 ```
 
-## CUE Templates for Platforms
+## Templates CUE para Plataformas
 
-Use CUE templates to reduce repetition:
+Use templates CUE para reduzir repetição:
 
 ```cue
-// Define platform templates
+// Definir templates de plataforma
 _linux: {name: "linux"}
 _macos: {name: "macos"}
 _windows: {name: "windows"}
@@ -163,7 +163,7 @@ commands: [
     {
         name: "clean"
         implementations: [
-            // Unix implementation
+            // Implementação Unix
             {
                 script: "rm -rf build/"
                 target: {
@@ -171,7 +171,7 @@ commands: [
                     platforms: _unix
                 }
             },
-            // Windows implementation
+            // Implementação Windows
             {
                 script: "rmdir /s /q build"
                 target: {
@@ -184,9 +184,9 @@ commands: [
 ]
 ```
 
-## Command Listing
+## Listagem de Comandos
 
-The command list shows supported platforms:
+A lista de comandos mostra plataformas suportadas:
 
 ```
 Available Commands
@@ -198,9 +198,9 @@ From current directory:
   myproject deploy - Deploy to cloud [native*] (linux)
 ```
 
-## Unsupported Platform Error
+## Erro de Plataforma Não Suportada
 
-Running a command on an unsupported platform shows a clear error:
+Executar um comando em uma plataforma não suportada mostra um erro claro:
 
 ```
 ✗ Host not supported
@@ -213,9 +213,9 @@ Supported hosts:  linux, macos
 This command is only available on the platforms listed above.
 ```
 
-## Real-World Examples
+## Exemplos do Mundo Real
 
-### System Information
+### Informações do Sistema
 
 ```cue
 {
@@ -257,7 +257,7 @@ This command is only available on the platforms listed above.
 }
 ```
 
-### Package Installation
+### Instalação de Pacotes
 
 ```cue
 {
@@ -288,14 +288,14 @@ This command is only available on the platforms listed above.
 }
 ```
 
-## Best Practices
+## Melhores Práticas
 
-1. **Start with cross-platform**: Add platform-specific only when needed
-2. **Use environment variables**: Abstract platform differences
-3. **Test on all platforms**: CI should cover all supported platforms
-4. **Document limitations**: Note which platforms are supported
+1. **Comece com multiplataforma**: Adicione específico de plataforma apenas quando necessário
+2. **Use variáveis de ambiente**: Abstraia diferenças de plataforma
+3. **Teste em todas as plataformas**: CI deve cobrir todas as plataformas suportadas
+4. **Documente limitações**: Note quais plataformas são suportadas
 
-## Next Steps
+## Próximos Passos
 
-- [Interpreters](./interpreters) - Use non-shell interpreters
-- [Working Directory](./workdir) - Control execution location
+- [Interpreters](./interpreters) - Usar interpretadores não-shell
+- [Working Directory](./workdir) - Controlar local de execução

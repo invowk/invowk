@@ -2,58 +2,58 @@
 sidebar_position: 2
 ---
 
-# Invkfile Schema Reference
+# Referência de Schema do Invkfile
 
-:::warning Alpha — Schema May Change
-The invkfile schema is still evolving. Fields, types, and validation rules **may change between releases** as we stabilize the format. Always check the [changelog](https://github.com/invowk/invowk/releases) when upgrading.
+:::warning Alpha — Schema Pode Mudar
+O schema do invkfile ainda está evoluindo. Campos, tipos e regras de validação **podem mudar entre releases** enquanto estabilizamos o formato. Sempre verifique o [changelog](https://github.com/invowk/invowk/releases) ao fazer upgrade.
 :::
 
-Complete reference for the invkfile schema. Invkfiles use [CUE](https://cuelang.org/) format for defining commands.
+Referência completa para o schema do invkfile. Invkfiles usam formato [CUE](https://cuelang.org/) para definir comandos.
 
-## Root Structure
+## Estrutura Raiz
 
-Every invkfile must have a `group` and at least one command:
+Todo invkfile deve ter um `group` e pelo menos um comando:
 
 ```cue
 #Invkfile: {
-    group:          string    // Required - prefix for all command names
-    version?:       string    // Optional - schema version (e.g., "1.0")
-    description?:   string    // Optional - describe this invkfile's purpose
-    default_shell?: string    // Optional - override default shell
-    workdir?:       string    // Optional - default working directory
-    env?:           #EnvConfig      // Optional - global environment
-    depends_on?:    #DependsOn      // Optional - global dependencies
-    commands:       [...#Command]   // Required - at least one command
+    group:          string    // Obrigatório - prefixo para todos os nomes de comando
+    version?:       string    // Opcional - versão do schema (ex.: "1.0")
+    description?:   string    // Opcional - descrever o propósito deste invkfile
+    default_shell?: string    // Opcional - sobrescrever shell padrão
+    workdir?:       string    // Opcional - diretório de trabalho padrão
+    env?:           #EnvConfig      // Opcional - environment global
+    depends_on?:    #DependsOn      // Opcional - dependências globais
+    commands:       [...#Command]   // Obrigatório - pelo menos um comando
 }
 ```
 
 ### group
 
-**Type:** `string`  
-**Required:** Yes
+**Tipo:** `string`  
+**Obrigatório:** Sim
 
-A mandatory prefix for all command names from this invkfile. Must start with a letter and can contain dot-separated segments.
+Um prefixo obrigatório para todos os nomes de comando deste invkfile. Deve começar com uma letra e pode conter segmentos separados por ponto.
 
 ```cue
-// Valid group names
+// Nomes de grupo válidos
 group: "build"
 group: "my.project"
 group: "com.example.tools"
 
-// Invalid
-group: "123abc"     // Can't start with a number
-group: ".build"     // Can't start with a dot
-group: "build."     // Can't end with a dot
-group: "my..tools"  // Can't have consecutive dots
+// Inválidos
+group: "123abc"     // Não pode começar com número
+group: ".build"     // Não pode começar com ponto
+group: "build."     // Não pode terminar com ponto
+group: "my..tools"  // Não pode ter pontos consecutivos
 ```
 
 ### version
 
-**Type:** `string` (pattern: `^[0-9]+\.[0-9]+$`)  
-**Required:** No  
-**Default:** None
+**Tipo:** `string` (padrão: `^[0-9]+\.[0-9]+$`)  
+**Obrigatório:** Não  
+**Padrão:** Nenhum
 
-The invkfile schema version. Current version is `"1.0"`.
+A versão do schema do invkfile. Versão atual é `"1.0"`.
 
 ```cue
 version: "1.0"
@@ -61,10 +61,10 @@ version: "1.0"
 
 ### description
 
-**Type:** `string`  
-**Required:** No
+**Tipo:** `string`  
+**Obrigatório:** Não
 
-A summary of this invkfile's purpose. Shown when listing commands.
+Um resumo do propósito deste invkfile. Mostrado ao listar comandos.
 
 ```cue
 description: "Build and deployment commands for the web application"
@@ -72,11 +72,11 @@ description: "Build and deployment commands for the web application"
 
 ### default_shell
 
-**Type:** `string`  
-**Required:** No  
-**Default:** System default
+**Tipo:** `string`  
+**Obrigatório:** Não  
+**Padrão:** Padrão do sistema
 
-Override the default shell for native runtime execution.
+Sobrescrever o shell padrão para execução em runtime native.
 
 ```cue
 default_shell: "/bin/bash"
@@ -85,11 +85,11 @@ default_shell: "pwsh"
 
 ### workdir
 
-**Type:** `string`  
-**Required:** No  
-**Default:** Invkfile directory
+**Tipo:** `string`  
+**Obrigatório:** Não  
+**Padrão:** Diretório do invkfile
 
-Default working directory for all commands. Can be absolute or relative to the invkfile location.
+Diretório de trabalho padrão para todos os comandos. Pode ser absoluto ou relativo à localização do invkfile.
 
 ```cue
 workdir: "./src"
@@ -98,63 +98,63 @@ workdir: "/opt/app"
 
 ### env
 
-**Type:** `#EnvConfig`  
-**Required:** No
+**Tipo:** `#EnvConfig`  
+**Obrigatório:** Não
 
-Global environment configuration applied to all commands. See [EnvConfig](#envconfig).
+Configuração de environment global aplicada a todos os comandos. Veja [EnvConfig](#envconfig).
 
 ### depends_on
 
-**Type:** `#DependsOn`  
-**Required:** No
+**Tipo:** `#DependsOn`  
+**Obrigatório:** Não
 
-Global dependencies that apply to all commands. See [DependsOn](#dependson).
+Dependências globais que se aplicam a todos os comandos. Veja [DependsOn](#dependson).
 
 ### commands
 
-**Type:** `[...#Command]`  
-**Required:** Yes (at least one)
+**Tipo:** `[...#Command]`  
+**Obrigatório:** Sim (pelo menos um)
 
-List of commands defined in this invkfile. See [Command](#command).
+Lista de comandos definidos neste invkfile. Veja [Command](#command).
 
 ---
 
 ## Command
 
-Defines an executable command:
+Define um comando executável:
 
 ```cue
 #Command: {
-    name:            string               // Required
-    description?:    string               // Optional
-    implementations: [...#Implementation] // Required - at least one
-    env?:            #EnvConfig           // Optional
-    workdir?:        string               // Optional
-    depends_on?:     #DependsOn           // Optional
-    flags?:          [...#Flag]           // Optional
-    args?:           [...#Argument]       // Optional
+    name:            string               // Obrigatório
+    description?:    string               // Opcional
+    implementations: [...#Implementation] // Obrigatório - pelo menos um
+    env?:            #EnvConfig           // Opcional
+    workdir?:        string               // Opcional
+    depends_on?:     #DependsOn           // Opcional
+    flags?:          [...#Flag]           // Opcional
+    args?:           [...#Argument]       // Opcional
 }
 ```
 
 ### name
 
-**Type:** `string` (pattern: `^[a-zA-Z][a-zA-Z0-9_ -]*$`)  
-**Required:** Yes
+**Tipo:** `string` (padrão: `^[a-zA-Z][a-zA-Z0-9_ -]*$`)  
+**Obrigatório:** Sim
 
-The command identifier. Must start with a letter.
+O identificador do comando. Deve começar com uma letra.
 
 ```cue
 name: "build"
-name: "test unit"     // Spaces allowed for subcommand-like behavior
+name: "test unit"     // Espaços permitidos para comportamento tipo subcomando
 name: "deploy-prod"
 ```
 
 ### description
 
-**Type:** `string`  
-**Required:** No
+**Tipo:** `string`  
+**Obrigatório:** Não
 
-Help text for the command.
+Texto de ajuda para o comando.
 
 ```cue
 description: "Build the application for production"
@@ -162,108 +162,108 @@ description: "Build the application for production"
 
 ### implementations
 
-**Type:** `[...#Implementation]`  
-**Required:** Yes (at least one)
+**Tipo:** `[...#Implementation]`  
+**Obrigatório:** Sim (pelo menos um)
 
-The executable implementations. See [Implementation](#implementation).
+As implementations executáveis. Veja [Implementation](#implementation).
 
 ### flags
 
-**Type:** `[...#Flag]`  
-**Required:** No
+**Tipo:** `[...#Flag]`  
+**Obrigatório:** Não
 
-Command-line flags for this command. See [Flag](#flag).
+Flags de linha de comando para este comando. Veja [Flag](#flag).
 
-:::warning Reserved Flags
-`env-file` (short `e`) and `env-var` (short `E`) are reserved system flags and cannot be used.
+:::warning Flags Reservadas
+`env-file` (curta `e`) e `env-var` (curta `E`) são flags de sistema reservadas e não podem ser usadas.
 :::
 
 ### args
 
-**Type:** `[...#Argument]`  
-**Required:** No
+**Tipo:** `[...#Argument]`  
+**Obrigatório:** Não
 
-Positional arguments for this command. See [Argument](#argument).
+Argumentos posicionais para este comando. Veja [Argument](#argument).
 
 ---
 
 ## Implementation
 
-Defines how a command is executed:
+Define como um comando é executado:
 
 ```cue
 #Implementation: {
-    script:      string       // Required - inline script or file path
-    target:      #Target      // Required - runtime and platform constraints
-    env?:        #EnvConfig   // Optional
-    workdir?:    string       // Optional
-    depends_on?: #DependsOn   // Optional
+    script:      string       // Obrigatório - script inline ou caminho de arquivo
+    target:      #Target      // Obrigatório - restrições de runtime e plataforma
+    env?:        #EnvConfig   // Opcional
+    workdir?:    string       // Opcional
+    depends_on?: #DependsOn   // Opcional
 }
 ```
 
 ### script
 
-**Type:** `string` (non-empty)  
-**Required:** Yes
+**Tipo:** `string` (não vazio)  
+**Obrigatório:** Sim
 
-The shell commands to execute OR a path to a script file.
+Os comandos de shell a executar OU um caminho para um arquivo de script.
 
 ```cue
-// Inline script
+// Script inline
 script: "echo 'Hello, World!'"
 
-// Multi-line script
+// Script multilinha
 script: """
     echo "Building..."
     go build -o app .
     echo "Done!"
     """
 
-// Script file reference
+// Referência de arquivo de script
 script: "./scripts/build.sh"
 script: "deploy.py"
 ```
 
-**Recognized extensions:** `.sh`, `.bash`, `.ps1`, `.bat`, `.cmd`, `.py`, `.rb`, `.pl`, `.zsh`, `.fish`
+**Extensões reconhecidas:** `.sh`, `.bash`, `.ps1`, `.bat`, `.cmd`, `.py`, `.rb`, `.pl`, `.zsh`, `.fish`
 
 ### target
 
-**Type:** `#Target`  
-**Required:** Yes
+**Tipo:** `#Target`  
+**Obrigatório:** Sim
 
-Defines runtime and platform constraints. See [Target](#target-1).
+Define restrições de runtime e plataforma. Veja [Target](#target-1).
 
 ---
 
 ## Target
 
-Specifies where an implementation can run:
+Especifica onde uma implementation pode executar:
 
 ```cue
 #Target: {
-    runtimes:   [...#RuntimeConfig]   // Required - at least one
-    platforms?: [...#PlatformConfig]  // Optional
+    runtimes:   [...#RuntimeConfig]   // Obrigatório - pelo menos um
+    platforms?: [...#PlatformConfig]  // Opcional
 }
 ```
 
 ### runtimes
 
-**Type:** `[...#RuntimeConfig]`  
-**Required:** Yes (at least one)
+**Tipo:** `[...#RuntimeConfig]`  
+**Obrigatório:** Sim (pelo menos um)
 
-The runtimes that can execute this implementation. The first runtime is the default.
+Os runtimes que podem executar esta implementation. O primeiro runtime é o padrão.
 
 ```cue
-// Native only
+// Apenas native
 runtimes: [{name: "native"}]
 
-// Multiple runtimes
+// Múltiplos runtimes
 runtimes: [
     {name: "native"},
     {name: "virtual"},
 ]
 
-// Container with options
+// Container com opções
 runtimes: [{
     name: "container"
     image: "golang:1.22"
@@ -273,14 +273,14 @@ runtimes: [{
 
 ### platforms
 
-**Type:** `[...#PlatformConfig]`  
-**Required:** No  
-**Default:** All platforms
+**Tipo:** `[...#PlatformConfig]`  
+**Obrigatório:** Não  
+**Padrão:** Todas as plataformas
 
-Restrict this implementation to specific operating systems.
+Restringir esta implementation a sistemas operacionais específicos.
 
 ```cue
-// Linux and macOS only
+// Apenas Linux e macOS
 platforms: [
     {name: "linux"},
     {name: "macos"},
@@ -291,16 +291,16 @@ platforms: [
 
 ## RuntimeConfig
 
-Configuration for a specific runtime:
+Configuração para um runtime específico:
 
 ```cue
 #RuntimeConfig: {
     name: "native" | "virtual" | "container"
     
-    // For native and container:
+    // Para native e container:
     interpreter?: string
     
-    // For container only:
+    // Apenas para container:
     enable_host_ssh?: bool
     containerfile?:   string
     image?:           string
@@ -311,44 +311,44 @@ Configuration for a specific runtime:
 
 ### name
 
-**Type:** `"native" | "virtual" | "container"`  
-**Required:** Yes
+**Tipo:** `"native" | "virtual" | "container"`  
+**Obrigatório:** Sim
 
-The runtime type.
+O tipo de runtime.
 
 ### interpreter
 
-**Type:** `string`  
-**Available for:** `native`, `container`  
-**Default:** `"auto"` (detect from shebang)
+**Tipo:** `string`  
+**Disponível para:** `native`, `container`  
+**Padrão:** `"auto"` (detectar do shebang)
 
-Specifies how to execute the script.
+Especifica como executar o script.
 
 ```cue
-// Auto-detect from shebang
+// Auto-detectar do shebang
 interpreter: "auto"
 
-// Specific interpreter
+// Interpreter específico
 interpreter: "python3"
 interpreter: "node"
 interpreter: "/usr/bin/ruby"
 
-// With arguments
+// Com argumentos
 interpreter: "python3 -u"
 interpreter: "/usr/bin/env perl -w"
 ```
 
 :::note
-Virtual runtime uses mvdan/sh which cannot execute non-shell interpreters.
+Virtual runtime usa mvdan/sh que não pode executar interpreters não-shell.
 :::
 
 ### enable_host_ssh
 
-**Type:** `bool`  
-**Available for:** `container`  
-**Default:** `false`
+**Tipo:** `bool`  
+**Disponível para:** `container`  
+**Padrão:** `false`
 
-Enable SSH access from container back to the host. When enabled, Invowk starts an SSH server and provides credentials via environment variables:
+Habilitar acesso SSH do container de volta ao host. Quando habilitado, Invowk inicia um servidor SSH e fornece credenciais via variáveis de ambiente:
 
 - `INVOWK_SSH_HOST`
 - `INVOWK_SSH_PORT`
@@ -365,27 +365,27 @@ runtimes: [{
 
 ### containerfile / image
 
-**Type:** `string`  
-**Available for:** `container`
+**Tipo:** `string`  
+**Disponível para:** `container`
 
-Specify the container source. These are **mutually exclusive**.
+Especificar a fonte do container. Estes são **mutuamente exclusivos**.
 
 ```cue
-// Use a pre-built image
+// Usar uma imagem pré-construída
 image: "alpine:latest"
 image: "golang:1.22"
 
-// Build from a Containerfile
+// Construir de um Containerfile
 containerfile: "./Containerfile"
 containerfile: "./docker/Dockerfile.build"
 ```
 
 ### volumes
 
-**Type:** `[...string]`  
-**Available for:** `container`
+**Tipo:** `[...string]`  
+**Disponível para:** `container`
 
-Volume mounts in `host:container[:options]` format.
+Montagens de volume no formato `host:container[:options]`.
 
 ```cue
 volumes: [
@@ -397,10 +397,10 @@ volumes: [
 
 ### ports
 
-**Type:** `[...string]`  
-**Available for:** `container`
+**Tipo:** `[...string]`  
+**Disponível para:** `container`
 
-Port mappings in `host:container` format.
+Mapeamentos de porta no formato `host:container`.
 
 ```cue
 ports: [
@@ -423,32 +423,32 @@ ports: [
 
 ## EnvConfig
 
-Environment configuration:
+Configuração de environment:
 
 ```cue
 #EnvConfig: {
-    files?: [...string]         // Dotenv files to load
-    vars?:  [string]: string    // Environment variables
+    files?: [...string]         // Arquivos dotenv para carregar
+    vars?:  [string]: string    // Variáveis de environment
 }
 ```
 
 ### files
 
-Dotenv files to load. Files are loaded in order; later files override earlier ones.
+Arquivos dotenv para carregar. Arquivos são carregados em ordem; arquivos posteriores sobrescrevem anteriores.
 
 ```cue
 env: {
     files: [
         ".env",
         ".env.local",
-        ".env.${ENVIRONMENT}?",  // '?' means optional
+        ".env.${ENVIRONMENT}?",  // '?' significa opcional
     ]
 }
 ```
 
 ### vars
 
-Environment variables as key-value pairs.
+Variáveis de environment como pares chave-valor.
 
 ```cue
 env: {
@@ -463,7 +463,7 @@ env: {
 
 ## DependsOn
 
-Dependency specification:
+Especificação de dependência:
 
 ```cue
 #DependsOn: {
@@ -480,7 +480,7 @@ Dependency specification:
 
 ```cue
 #ToolDependency: {
-    alternatives: [...string]  // At least one - tool names
+    alternatives: [...string]  // Pelo menos um - nomes de ferramentas
 }
 ```
 
@@ -488,7 +488,7 @@ Dependency specification:
 depends_on: {
     tools: [
         {alternatives: ["go"]},
-        {alternatives: ["podman", "docker"]},  // Either works
+        {alternatives: ["podman", "docker"]},  // Qualquer um funciona
     ]
 }
 ```
@@ -497,7 +497,7 @@ depends_on: {
 
 ```cue
 #CommandDependency: {
-    alternatives: [...string]  // Command names
+    alternatives: [...string]  // Nomes de comandos
 }
 ```
 
@@ -505,7 +505,7 @@ depends_on: {
 
 ```cue
 #FilepathDependency: {
-    alternatives: [...string]  // File/directory paths
+    alternatives: [...string]  // Caminhos de arquivo/diretório
     readable?:    bool
     writable?:    bool
     executable?:  bool
@@ -528,8 +528,8 @@ depends_on: {
 }
 
 #EnvVarCheck: {
-    name:        string    // Environment variable name
-    validation?: string    // Regex pattern
+    name:        string    // Nome da variável de environment
+    validation?: string    // Padrão regex
 }
 ```
 
@@ -539,10 +539,10 @@ depends_on: {
 #CustomCheckDependency: #CustomCheck | #CustomCheckAlternatives
 
 #CustomCheck: {
-    name:             string  // Check identifier
-    check_script:     string  // Script to run
-    expected_code?:   int     // Expected exit code (default: 0)
-    expected_output?: string  // Regex to match output
+    name:             string  // Identificador do check
+    check_script:     string  // Script a executar
+    expected_code?:   int     // Código de saída esperado (padrão: 0)
+    expected_output?: string  // Regex para corresponder saída
 }
 
 #CustomCheckAlternatives: {
@@ -554,17 +554,17 @@ depends_on: {
 
 ## Flag
 
-Command-line flag definition:
+Definição de flag de linha de comando:
 
 ```cue
 #Flag: {
-    name:          string    // POSIX-compliant name
-    description:   string    // Help text
-    default_value?: string   // Default value
+    name:          string    // Nome compatível com POSIX
+    description:   string    // Texto de ajuda
+    default_value?: string   // Valor padrão
     type?:         "string" | "bool" | "int" | "float"
     required?:     bool
-    short?:        string    // Single character alias
-    validation?:   string    // Regex pattern
+    short?:        string    // Alias de caractere único
+    validation?:   string    // Padrão regex
 }
 ```
 
@@ -589,17 +589,17 @@ flags: [
 
 ## Argument
 
-Positional argument definition:
+Definição de argumento posicional:
 
 ```cue
 #Argument: {
-    name:          string    // POSIX-compliant name
-    description:   string    // Help text
-    required?:     bool      // Must be provided
-    default_value?: string   // Default if not provided
+    name:          string    // Nome compatível com POSIX
+    description:   string    // Texto de ajuda
+    required?:     bool      // Deve ser fornecido
+    default_value?: string   // Padrão se não fornecido
     type?:         "string" | "int" | "float"
-    validation?:   string    // Regex pattern
-    variadic?:     bool      // Accepts multiple values (last arg only)
+    validation?:   string    // Padrão regex
+    variadic?:     bool      // Aceita múltiplos valores (apenas último arg)
 }
 ```
 
@@ -618,13 +618,13 @@ args: [
 ]
 ```
 
-**Environment Variables for Arguments:**
-- `INVOWK_ARG_<NAME>` - The argument value
-- For variadic: `INVOWK_ARG_<NAME>_COUNT`, `INVOWK_ARG_<NAME>_1`, `INVOWK_ARG_<NAME>_2`, etc.
+**Variáveis de Environment para Argumentos:**
+- `INVOWK_ARG_<NAME>` - O valor do argumento
+- Para variadic: `INVOWK_ARG_<NAME>_COUNT`, `INVOWK_ARG_<NAME>_1`, `INVOWK_ARG_<NAME>_2`, etc.
 
 ---
 
-## Complete Example
+## Exemplo Completo
 
 ```cue
 group: "myapp"

@@ -2,64 +2,64 @@
 sidebar_position: 4
 ---
 
-# Filter and File
+# Filter e File
 
-Search and file selection components.
+Componentes de busca e seleção de arquivos.
 
 ## Filter
 
-Fuzzy filter through a list of options.
+Filtrar fuzzy através de uma lista de opções.
 
-### Basic Usage
+### Uso Básico
 
 ```bash
-# From arguments
+# De argumentos
 invowk tui filter "apple" "banana" "cherry" "date"
 
-# From stdin
+# De stdin
 ls | invowk tui filter
 ```
 
-### Options
+### Opções
 
-| Option | Description |
-|--------|-------------|
-| `--title` | Filter prompt |
-| `--placeholder` | Search placeholder |
-| `--limit` | Max selections (default: 1) |
-| `--no-limit` | Unlimited selections |
-| `--indicator` | Selection indicator |
+| Opção | Descrição |
+|-------|-----------|
+| `--title` | Prompt do filtro |
+| `--placeholder` | Placeholder de busca |
+| `--limit` | Máximo de seleções (padrão: 1) |
+| `--no-limit` | Seleções ilimitadas |
+| `--indicator` | Indicador de seleção |
 
-### Examples
+### Exemplos
 
 ```bash
-# Filter files
+# Filtrar arquivos
 FILE=$(ls | invowk tui filter --title "Select file")
 
-# Multi-select filter
+# Filtro multi-seleção
 FILES=$(ls *.go | invowk tui filter --no-limit --title "Select Go files")
 
-# With placeholder
+# Com placeholder
 ITEM=$(invowk tui filter --placeholder "Type to search..." opt1 opt2 opt3)
 ```
 
-### Real-World Examples
+### Exemplos do Mundo Real
 
-#### Select Git Branch
+#### Selecionar Branch Git
 
 ```bash
 BRANCH=$(git branch --list | tr -d '* ' | invowk tui filter --title "Checkout branch")
 git checkout "$BRANCH"
 ```
 
-#### Select Docker Container
+#### Selecionar Container Docker
 
 ```bash
 CONTAINER=$(docker ps --format "{{.Names}}" | invowk tui filter --title "Select container")
 docker logs -f "$CONTAINER"
 ```
 
-#### Select Process to Kill
+#### Selecionar Processo para Matar
 
 ```bash
 PID=$(ps aux | invowk tui filter --title "Select process" | awk '{print $2}')
@@ -68,70 +68,70 @@ if [ -n "$PID" ]; then
 fi
 ```
 
-#### Filter Commands
+#### Filtrar Comandos
 
 ```bash
 CMD=$(invowk cmd --list 2>/dev/null | grep "^  " | invowk tui filter --title "Run command")
-# Extract command name and run it
+# Extrair nome do comando e executá-lo
 ```
 
 ---
 
 ## File
 
-File and directory picker with navigation.
+Seletor de arquivos e diretórios com navegação.
 
-### Basic Usage
+### Uso Básico
 
 ```bash
-# Pick any file from current directory
+# Selecionar qualquer arquivo do diretório atual
 invowk tui file
 
-# Start in specific directory
+# Iniciar em diretório específico
 invowk tui file /home/user/documents
 ```
 
-### Options
+### Opções
 
-| Option | Description |
-|--------|-------------|
-| `--directory` | Only show directories |
-| `--hidden` | Show hidden files |
-| `--allowed` | Filter by extensions |
-| `--cursor` | Cursor character |
-| `--height` | Picker height |
+| Opção | Descrição |
+|-------|-----------|
+| `--directory` | Mostrar apenas diretórios |
+| `--hidden` | Mostrar arquivos ocultos |
+| `--allowed` | Filtrar por extensões |
+| `--cursor` | Caractere do cursor |
+| `--height` | Altura do seletor |
 
-### Examples
+### Exemplos
 
 ```bash
-# Pick a file
+# Selecionar um arquivo
 FILE=$(invowk tui file)
 echo "Selected: $FILE"
 
-# Only directories
+# Apenas diretórios
 DIR=$(invowk tui file --directory)
 
-# Show hidden files
+# Mostrar arquivos ocultos
 FILE=$(invowk tui file --hidden)
 
-# Filter by extension
+# Filtrar por extensão
 FILE=$(invowk tui file --allowed ".go,.md,.txt")
 
-# Multiple extensions
+# Múltiplas extensões
 CONFIG=$(invowk tui file --allowed ".yaml,.yml,.json,.toml")
 ```
 
-### Navigation
+### Navegação
 
-In the file picker:
-- **↑/↓**: Navigate
-- **Enter**: Select file or enter directory
-- **Backspace**: Go to parent directory
-- **Esc/Ctrl+C**: Cancel
+No seletor de arquivos:
+- **↑/↓**: Navegar
+- **Enter**: Selecionar arquivo ou entrar no diretório
+- **Backspace**: Ir para diretório pai
+- **Esc/Ctrl+C**: Cancelar
 
-### Real-World Examples
+### Exemplos do Mundo Real
 
-#### Select Config File
+#### Selecionar Arquivo de Configuração
 
 ```bash
 CONFIG=$(invowk tui file --allowed ".yaml,.yml,.json" /etc/myapp)
@@ -139,7 +139,7 @@ echo "Using config: $CONFIG"
 ./myapp --config "$CONFIG"
 ```
 
-#### Select Project Directory
+#### Selecionar Diretório de Projeto
 
 ```bash
 PROJECT=$(invowk tui file --directory ~/projects)
@@ -147,7 +147,7 @@ cd "$PROJECT"
 code .
 ```
 
-#### Select Script to Run
+#### Selecionar Script para Executar
 
 ```bash
 SCRIPT=$(invowk tui file --allowed ".sh,.bash" ./scripts)
@@ -157,14 +157,14 @@ if [ -n "$SCRIPT" ]; then
 fi
 ```
 
-#### Select Log File
+#### Selecionar Arquivo de Log
 
 ```bash
 LOG=$(invowk tui file --allowed ".log" /var/log)
 less "$LOG"
 ```
 
-### In Scripts
+### Em Scripts
 
 ```cue
 {
@@ -179,7 +179,7 @@ less "$LOG"
                 exit 0
             fi
             
-            # Open in default editor
+            # Abrir no editor padrão
             ${EDITOR:-vim} "$CONFIG"
             """
         target: {runtimes: [{name: "native"}]}
@@ -187,31 +187,31 @@ less "$LOG"
 }
 ```
 
-## Combined Patterns
+## Padrões Combinados
 
-### Search Then Edit
+### Buscar e Editar
 
 ```bash
-# Find file by content, then pick from results
+# Encontrar arquivo por conteúdo, depois escolher dos resultados
 FILE=$(grep -l "TODO" *.go 2>/dev/null | invowk tui filter --title "Select file with TODOs")
 if [ -n "$FILE" ]; then
     vim "$FILE"
 fi
 ```
 
-### Directory Then File
+### Diretório e Depois Arquivo
 
 ```bash
-# First pick directory
+# Primeiro escolher diretório
 DIR=$(invowk tui file --directory ~/projects)
 
-# Then pick file in that directory
+# Depois escolher arquivo naquele diretório
 FILE=$(invowk tui file "$DIR" --allowed ".go")
 
 echo "Selected: $FILE"
 ```
 
-## Next Steps
+## Próximos Passos
 
-- [Table and Spin](./table-and-spin) - Data display and spinners
-- [Overview](./overview) - All TUI components
+- [Table e Spin](./table-and-spin) - Exibição de dados e spinners
+- [Visão Geral](./overview) - Todos os componentes TUI

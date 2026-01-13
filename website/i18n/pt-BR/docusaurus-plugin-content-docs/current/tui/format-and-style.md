@@ -2,45 +2,45 @@
 sidebar_position: 6
 ---
 
-# Format and Style
+# Format e Style
 
-Text formatting and styling components for beautiful terminal output.
+Componentes de formatação e estilização de texto para saída de terminal bonita.
 
 ## Format
 
-Format and render text as markdown, code, or emoji.
+Formatar e renderizar texto como markdown, código ou emoji.
 
-### Basic Usage
+### Uso Básico
 
 ```bash
 echo "# Hello World" | invowk tui format --type markdown
 ```
 
-### Options
+### Opções
 
-| Option | Description |
-|--------|-------------|
-| `--type` | Format type: `markdown`, `code`, `emoji` |
-| `--language` | Language for code highlighting |
+| Opção | Descrição |
+|-------|-----------|
+| `--type` | Tipo de formato: `markdown`, `code`, `emoji` |
+| `--language` | Linguagem para highlight de código |
 
 ### Markdown
 
-Render markdown with colors and formatting:
+Renderizar markdown com cores e formatação:
 
 ```bash
-# From stdin
+# De stdin
 echo "# Heading\n\nSome **bold** and *italic* text" | invowk tui format --type markdown
 
-# From file
+# De arquivo
 cat README.md | invowk tui format --type markdown
 ```
 
-### Code Highlighting
+### Highlight de Código
 
-Syntax highlight code:
+Highlight de sintaxe de código:
 
 ```bash
-# Specify language
+# Especificar linguagem
 cat main.go | invowk tui format --type code --language go
 
 # Python
@@ -50,30 +50,30 @@ cat script.py | invowk tui format --type code --language python
 cat app.js | invowk tui format --type code --language javascript
 ```
 
-### Emoji Conversion
+### Conversão de Emoji
 
-Convert emoji shortcodes to actual emojis:
+Converter shortcodes de emoji para emojis reais:
 
 ```bash
 echo "Hello :wave: World :smile:" | invowk tui format --type emoji
-# Output: Hello 👋 World 😄
+# Saída: Hello 👋 World 😄
 ```
 
-### Real-World Examples
+### Exemplos do Mundo Real
 
-#### Display README
+#### Exibir README
 
 ```bash
 cat README.md | invowk tui format --type markdown
 ```
 
-#### Show Code Diff
+#### Mostrar Diff de Código
 
 ```bash
 git diff | invowk tui format --type code --language diff
 ```
 
-#### Welcome Message
+#### Mensagem de Boas-vindas
 
 ```bash
 echo ":rocket: Welcome to MyApp :sparkles:" | invowk tui format --type emoji
@@ -83,100 +83,100 @@ echo ":rocket: Welcome to MyApp :sparkles:" | invowk tui format --type emoji
 
 ## Style
 
-Apply terminal styling to text.
+Aplicar estilização de terminal ao texto.
 
-### Basic Usage
+### Uso Básico
 
 ```bash
 invowk tui style --foreground "#FF0000" "Red text"
 ```
 
-### Options
+### Opções
 
-| Option | Description |
-|--------|-------------|
-| `--foreground` | Text color (hex or name) |
-| `--background` | Background color |
-| `--bold` | Bold text |
-| `--italic` | Italic text |
-| `--underline` | Underlined text |
-| `--strikethrough` | Strikethrough text |
-| `--faint` | Dimmed text |
-| `--border` | Border style |
+| Opção | Descrição |
+|-------|-----------|
+| `--foreground` | Cor do texto (hex ou nome) |
+| `--background` | Cor de fundo |
+| `--bold` | Texto em negrito |
+| `--italic` | Texto em itálico |
+| `--underline` | Texto sublinhado |
+| `--strikethrough` | Texto tachado |
+| `--faint` | Texto esmaecido |
+| `--border` | Estilo de borda |
 | `--padding-*` | Padding (left, right, top, bottom) |
 | `--margin-*` | Margin (left, right, top, bottom) |
-| `--width` | Fixed width |
-| `--height` | Fixed height |
-| `--align` | Text alignment: `left`, `center`, `right` |
+| `--width` | Largura fixa |
+| `--height` | Altura fixa |
+| `--align` | Alinhamento de texto: `left`, `center`, `right` |
 
-### Colors
+### Cores
 
-Use hex colors or names:
+Use cores hex ou nomes:
 
 ```bash
-# Hex colors
+# Cores hex
 invowk tui style --foreground "#FF0000" "Red"
 invowk tui style --foreground "#00FF00" "Green"
 invowk tui style --foreground "#0000FF" "Blue"
 
-# With background
+# Com fundo
 invowk tui style --foreground "#FFFFFF" --background "#FF0000" "White on Red"
 ```
 
-### Text Decorations
+### Decorações de Texto
 
 ```bash
-# Bold
+# Negrito
 invowk tui style --bold "Bold text"
 
-# Italic
+# Itálico
 invowk tui style --italic "Italic text"
 
-# Combined
+# Combinado
 invowk tui style --bold --italic --underline "All decorations"
 
-# Dimmed
+# Esmaecido
 invowk tui style --faint "Subtle text"
 ```
 
 ### Piping
 
-Style text from stdin:
+Estilizar texto de stdin:
 
 ```bash
 echo "Important message" | invowk tui style --bold --foreground "#FF0000"
 ```
 
-### Borders
+### Bordas
 
-Add borders around text:
+Adicionar bordas ao redor do texto:
 
 ```bash
-# Simple border
+# Borda simples
 invowk tui style --border normal "Boxed text"
 
-# Rounded border
+# Borda arredondada
 invowk tui style --border rounded "Rounded box"
 
-# Double border
+# Borda dupla
 invowk tui style --border double "Double border"
 
-# With padding
+# Com padding
 invowk tui style --border rounded --padding-left 2 --padding-right 2 "Padded"
 ```
 
-Border styles: `normal`, `rounded`, `double`, `thick`, `hidden`
+Estilos de borda: `normal`, `rounded`, `double`, `thick`, `hidden`
 
 ### Layout
 
 ```bash
-# Fixed width
+# Largura fixa
 invowk tui style --width 40 --align center "Centered"
 
-# With margins
+# Com margins
 invowk tui style --margin-left 4 "Indented text"
 
-# Box with all options
+# Caixa com todas as opções
 invowk tui style \
     --border rounded \
     --foreground "#FFFFFF" \
@@ -188,36 +188,36 @@ invowk tui style \
     "Styled Box"
 ```
 
-### Real-World Examples
+### Exemplos do Mundo Real
 
-#### Success/Error Messages
+#### Mensagens de Sucesso/Erro
 
 ```bash
-# Success
+# Sucesso
 echo "Build successful!" | invowk tui style --foreground "#00FF00" --bold
 
-# Error
+# Erro
 echo "Build failed!" | invowk tui style --foreground "#FF0000" --bold
 
-# Warning
+# Aviso
 echo "Deprecated feature" | invowk tui style --foreground "#FFA500" --italic
 ```
 
-#### Headers and Sections
+#### Cabeçalhos e Seções
 
 ```bash
-# Main header
+# Cabeçalho principal
 invowk tui style --bold --foreground "#00BFFF" "=== Project Setup ==="
 echo ""
 
-# Subheader
+# Subcabeçalho
 invowk tui style --foreground "#888888" "Configuration Options:"
 ```
 
-#### Status Boxes
+#### Caixas de Status
 
 ```bash
-# Info box
+# Caixa de info
 invowk tui style \
     --border rounded \
     --foreground "#FFFFFF" \
@@ -226,7 +226,7 @@ invowk tui style \
     --padding-right 1 \
     "ℹ️  Info: Server is running on port 3000"
 
-# Warning box
+# Caixa de aviso
 invowk tui style \
     --border rounded \
     --foreground "#000000" \
@@ -236,7 +236,7 @@ invowk tui style \
     "⚠️  Warning: API key will expire soon"
 ```
 
-### In Scripts
+### Em Scripts
 
 ```cue
 {
@@ -247,7 +247,7 @@ invowk tui style \
             invowk tui style --bold --foreground "#00BFFF" "System Status"
             echo ""
             
-            # Check services
+            # Verificar serviços
             if systemctl is-active nginx > /dev/null 2>&1; then
                 echo "nginx: " | tr -d '\n'
                 invowk tui style --foreground "#00FF00" "running"
@@ -269,20 +269,20 @@ invowk tui style \
 }
 ```
 
-## Combined Patterns
+## Padrões Combinados
 
-### Formatted Output
+### Saída Formatada
 
 ```bash
-# Header
+# Cabeçalho
 invowk tui style --bold --foreground "#FFD700" "📦 Package Info"
 echo ""
 
-# Render package description as markdown
+# Renderizar descrição do pacote como markdown
 cat package.md | invowk tui format --type markdown
 ```
 
-### Interactive with Styled Output
+### Interativo com Saída Estilizada
 
 ```bash
 NAME=$(invowk tui input --title "Project name:")
@@ -296,7 +296,7 @@ else
 fi
 ```
 
-## Next Steps
+## Próximos Passos
 
-- [Overview](./overview) - All TUI components
-- [Input and Write](./input-and-write) - Text entry
+- [Visão Geral](./overview) - Todos os componentes TUI
+- [Input e Write](./input-and-write) - Entrada de texto

@@ -2,13 +2,13 @@
 sidebar_position: 2
 ---
 
-# Configuration Options
+# Opções de Configuração
 
-This page documents all available configuration options for Invowk.
+Esta página documenta todas as opções de configuração disponíveis para o Invowk.
 
-## Configuration Schema
+## Schema de Configuração
 
-The configuration file uses CUE format and follows this schema:
+O arquivo de configuração usa o formato CUE e segue este schema:
 
 ```cue
 #Config: {
@@ -20,30 +20,30 @@ The configuration file uses CUE format and follows this schema:
 }
 ```
 
-## Options Reference
+## Referência de Opções
 
 ### container_engine
 
-**Type:** `"podman" | "docker"`  
-**Default:** Auto-detected (prefers Podman if available)
+**Tipo:** `"podman" | "docker"`  
+**Padrão:** Auto-detectado (prefere Podman se disponível)
 
-Specifies which container runtime to use for container-based command execution.
+Especifica qual container runtime usar para execução de comandos baseada em container.
 
 ```cue
 container_engine: "podman"
 ```
 
-Invowk will auto-detect available container engines if not specified:
-1. First checks for Podman
-2. Falls back to Docker if Podman isn't available
-3. Returns an error if neither is found (only when container runtime is needed)
+Invowk irá auto-detectar container engines disponíveis se não especificado:
+1. Primeiro verifica por Podman
+2. Volta para Docker se Podman não estiver disponível
+3. Retorna um erro se nenhum for encontrado (apenas quando container runtime é necessário)
 
 ### search_paths
 
-**Type:** `[...string]`  
-**Default:** `["~/.invowk/cmds"]`
+**Tipo:** `[...string]`  
+**Padrão:** `["~/.invowk/cmds"]`
 
-Additional directories to search for invkfiles. Paths are searched in order after the current directory.
+Diretórios adicionais para buscar invkfiles. Caminhos são buscados em ordem após o diretório atual.
 
 ```cue
 search_paths: [
@@ -53,39 +53,39 @@ search_paths: [
 ]
 ```
 
-**Search Order:**
-1. Current directory (always searched first, highest priority)
-2. Each path in `search_paths` in order
-3. `~/.invowk/cmds` (default, always included)
+**Ordem de Busca:**
+1. Diretório atual (sempre buscado primeiro, maior prioridade)
+2. Cada caminho em `search_paths` em ordem
+3. `~/.invowk/cmds` (padrão, sempre incluído)
 
-Commands from earlier paths override commands with the same name from later paths.
+Comandos de caminhos anteriores sobrescrevem comandos com o mesmo nome de caminhos posteriores.
 
 ### default_runtime
 
-**Type:** `"native" | "virtual" | "container"`  
-**Default:** `"native"`
+**Tipo:** `"native" | "virtual" | "container"`  
+**Padrão:** `"native"`
 
-Sets the global default runtime mode for commands that don't specify a runtime.
+Define o modo de runtime padrão global para comandos que não especificam um runtime.
 
 ```cue
 default_runtime: "virtual"
 ```
 
-**Runtime Options:**
-- `"native"` - Execute using the system's native shell (bash, zsh, PowerShell, etc.)
-- `"virtual"` - Execute using Invowk's built-in shell interpreter (mvdan/sh)
-- `"container"` - Execute inside a container (requires Docker or Podman)
+**Opções de Runtime:**
+- `"native"` - Executar usando o shell nativo do sistema (bash, zsh, PowerShell, etc.)
+- `"virtual"` - Executar usando o interpretador de shell embutido do Invowk (mvdan/sh)
+- `"container"` - Executar dentro de um container (requer Docker ou Podman)
 
 :::note
-Commands can override this default by specifying their own runtime in the `implementations` field.
+Comandos podem sobrescrever este padrão especificando seu próprio runtime no campo `implementations`.
 :::
 
 ### virtual_shell
 
-**Type:** `#VirtualShellConfig`  
-**Default:** `{}`
+**Tipo:** `#VirtualShellConfig`  
+**Padrão:** `{}`
 
-Configures the virtual shell runtime behavior.
+Configura o comportamento do virtual shell runtime.
 
 ```cue
 virtual_shell: {
@@ -95,10 +95,10 @@ virtual_shell: {
 
 #### virtual_shell.enable_uroot_utils
 
-**Type:** `bool`  
-**Default:** `false`
+**Tipo:** `bool`  
+**Padrão:** `false`
 
-Enables u-root utilities in the virtual shell. When enabled, additional commands like `ls`, `cat`, `grep`, and others become available in the virtual shell environment.
+Habilita utilitários u-root no virtual shell. Quando habilitado, comandos adicionais como `ls`, `cat`, `grep` e outros ficam disponíveis no ambiente virtual shell.
 
 ```cue
 virtual_shell: {
@@ -106,14 +106,14 @@ virtual_shell: {
 }
 ```
 
-This is useful when you want the virtual shell to have more capabilities beyond basic shell builtins, while still avoiding native shell execution.
+Isso é útil quando você quer que o virtual shell tenha mais capacidades além dos builtins básicos de shell, enquanto ainda evita execução de shell nativo.
 
 ### ui
 
-**Type:** `#UIConfig`  
-**Default:** `{}`
+**Tipo:** `#UIConfig`  
+**Padrão:** `{}`
 
-Configures the user interface settings.
+Configura as preferências de interface do usuário.
 
 ```cue
 ui: {
@@ -124,10 +124,10 @@ ui: {
 
 #### ui.color_scheme
 
-**Type:** `"auto" | "dark" | "light"`  
-**Default:** `"auto"`
+**Tipo:** `"auto" | "dark" | "light"`  
+**Padrão:** `"auto"`
 
-Sets the color scheme for Invowk's output.
+Define o esquema de cores para a saída do Invowk.
 
 ```cue
 ui: {
@@ -135,17 +135,17 @@ ui: {
 }
 ```
 
-**Options:**
-- `"auto"` - Detect from terminal settings (respects `COLORTERM`, `TERM`, etc.)
-- `"dark"` - Use colors optimized for dark terminals
-- `"light"` - Use colors optimized for light terminals
+**Opções:**
+- `"auto"` - Detectar das configurações do terminal (respeita `COLORTERM`, `TERM`, etc.)
+- `"dark"` - Usar cores otimizadas para terminais escuros
+- `"light"` - Usar cores otimizadas para terminais claros
 
 #### ui.verbose
 
-**Type:** `bool`  
-**Default:** `false`
+**Tipo:** `bool`  
+**Padrão:** `false`
 
-Enables verbose output by default. When enabled, Invowk prints additional information about command discovery, dependency validation, and execution.
+Habilita saída verbose por padrão. Quando habilitado, Invowk imprime informações adicionais sobre descoberta de comandos, validação de dependências e execução.
 
 ```cue
 ui: {
@@ -153,75 +153,75 @@ ui: {
 }
 ```
 
-This is equivalent to always passing `--verbose` on the command line.
+Isso é equivalente a sempre passar `--verbose` na linha de comando.
 
-## Complete Example
+## Exemplo Completo
 
-Here's a complete configuration file with all options:
+Aqui está um arquivo de configuração completo com todas as opções:
 
 ```cue
-// Invowk Configuration File
-// Located at: ~/.config/invowk/config.cue
+// Arquivo de Configuração Invowk
+// Localizado em: ~/.config/invowk/config.cue
 
-// Use Podman as the container engine
+// Usar Podman como container engine
 container_engine: "podman"
 
-// Search for invkfiles in these directories
+// Buscar invkfiles nesses diretórios
 search_paths: [
-    "~/.invowk/cmds",          // Personal commands
-    "~/work/shared-commands",   // Team shared commands
+    "~/.invowk/cmds",          // Comandos pessoais
+    "~/work/shared-commands",   // Comandos compartilhados da equipe
 ]
 
-// Default to virtual shell for portability
+// Usar virtual shell por padrão para portabilidade
 default_runtime: "virtual"
 
-// Virtual shell settings
+// Configurações do virtual shell
 virtual_shell: {
-    // Enable u-root utilities for more shell commands
+    // Habilitar utilitários u-root para mais comandos de shell
     enable_uroot_utils: true
 }
 
-// UI preferences
+// Preferências de UI
 ui: {
-    // Auto-detect color scheme from terminal
+    // Auto-detectar esquema de cores do terminal
     color_scheme: "auto"
     
-    // Don't be verbose by default
+    // Não ser verbose por padrão
     verbose: false
 }
 ```
 
-## Environment Variable Overrides
+## Overrides de Variáveis de Ambiente
 
-Some configuration options can be overridden with environment variables:
+Algumas opções de configuração podem ser sobrescritas com variáveis de ambiente:
 
-| Environment Variable | Overrides |
-|---------------------|-----------|
-| `INVOWK_CONFIG` | Config file path |
-| `INVOWK_VERBOSE` | `ui.verbose` (set to `1` or `true`) |
+| Variável de Ambiente | Sobrescreve |
+|---------------------|-------------|
+| `INVOWK_CONFIG` | Caminho do arquivo de configuração |
+| `INVOWK_VERBOSE` | `ui.verbose` (defina como `1` ou `true`) |
 | `INVOWK_CONTAINER_ENGINE` | `container_engine` |
 
 ```bash
-# Example: Use Docker instead of configured Podman
+# Exemplo: Usar Docker ao invés do Podman configurado
 INVOWK_CONTAINER_ENGINE=docker invowk cmd build
 
-# Example: Enable verbose output for this run
+# Exemplo: Habilitar saída verbose para esta execução
 INVOWK_VERBOSE=1 invowk cmd test
 ```
 
-## Command-Line Overrides
+## Overrides de Linha de Comando
 
-All configuration options can be overridden via command-line flags:
+Todas as opções de configuração podem ser sobrescritas via flags de linha de comando:
 
 ```bash
-# Override config file
+# Sobrescrever arquivo de configuração
 invowk --config /path/to/config.cue cmd list
 
-# Override verbose setting
+# Sobrescrever configuração verbose
 invowk --verbose cmd build
 
-# Override runtime for a command
+# Sobrescrever runtime para um comando
 invowk cmd build --runtime container
 ```
 
-See [CLI Reference](/docs/reference/cli) for all available flags.
+Veja [Referência CLI](/docs/reference/cli) para todas as flags disponíveis.

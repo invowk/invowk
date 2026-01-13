@@ -2,59 +2,59 @@
 sidebar_position: 5
 ---
 
-# Table and Spin
+# Table e Spin
 
-Data display and loading indicator components.
+Componentes de exibição de dados e indicador de carregamento.
 
 ## Table
 
-Display and optionally select from tabular data.
+Exibir e opcionalmente selecionar de dados tabulares.
 
-### Basic Usage
+### Uso Básico
 
 ```bash
-# From a CSV file
+# De um arquivo CSV
 invowk tui table --file data.csv
 
-# From stdin with separator
+# De stdin com separador
 echo -e "name|age|city\nAlice|30|NYC\nBob|25|LA" | invowk tui table --separator "|"
 ```
 
-### Options
+### Opções
 
-| Option | Description |
-|--------|-------------|
-| `--file` | CSV file to display |
-| `--separator` | Column separator (default: `,`) |
-| `--selectable` | Allow row selection |
-| `--height` | Table height |
+| Opção | Descrição |
+|-------|-----------|
+| `--file` | Arquivo CSV para exibir |
+| `--separator` | Separador de coluna (padrão: `,`) |
+| `--selectable` | Permitir seleção de linha |
+| `--height` | Altura da tabela |
 
-### Examples
+### Exemplos
 
 ```bash
-# Display CSV
+# Exibir CSV
 invowk tui table --file users.csv
 
-# Custom separator (TSV)
+# Separador customizado (TSV)
 invowk tui table --file data.tsv --separator $'\t'
 
-# Pipe-separated
+# Separado por pipe
 cat data.txt | invowk tui table --separator "|"
 ```
 
-### Selectable Tables
+### Tabelas Selecionáveis
 
 ```bash
-# Select a row
+# Selecionar uma linha
 SELECTED=$(invowk tui table --file servers.csv --selectable)
 echo "Selected: $SELECTED"
 ```
 
-The selected row is returned as the full CSV line.
+A linha selecionada é retornada como a linha CSV completa.
 
-### Real-World Examples
+### Exemplos do Mundo Real
 
-#### Display Server List
+#### Exibir Lista de Servidores
 
 ```bash
 # servers.csv:
@@ -66,15 +66,15 @@ The selected row is returned as the full CSV line.
 invowk tui table --file servers.csv
 ```
 
-#### Select and SSH
+#### Selecionar e SSH
 
 ```bash
-# Select a server
+# Selecionar um servidor
 SERVER=$(cat servers.csv | invowk tui table --selectable | cut -d',' -f2)
 ssh "user@$SERVER"
 ```
 
-#### Process List
+#### Lista de Processos
 
 ```bash
 ps aux --no-headers | awk '{print $1","$2","$11}' | \
@@ -86,38 +86,38 @@ ps aux --no-headers | awk '{print $1","$2","$11}' | \
 
 ## Spin
 
-Show a spinner while running a long command.
+Mostrar um spinner enquanto executa um comando longo.
 
-### Basic Usage
+### Uso Básico
 
 ```bash
 invowk tui spin --title "Installing..." -- npm install
 ```
 
-### Options
+### Opções
 
-| Option | Description |
-|--------|-------------|
-| `--title` | Spinner title/message |
-| `--type` | Spinner animation type |
-| `--show-output` | Show command output |
+| Opção | Descrição |
+|-------|-----------|
+| `--title` | Título/mensagem do spinner |
+| `--type` | Tipo de animação do spinner |
+| `--show-output` | Mostrar saída do comando |
 
-### Spinner Types
+### Tipos de Spinner
 
-Available spinner animations:
+Animações de spinner disponíveis:
 
-- `line` - Simple line
-- `dot` - Dots
-- `minidot` - Small dots
-- `jump` - Jumping dots
-- `pulse` - Pulsing dot
-- `points` - Points
-- `globe` - Spinning globe
-- `moon` - Moon phases
-- `monkey` - Monkey
-- `meter` - Progress meter
-- `hamburger` - Hamburger menu
-- `ellipsis` - Ellipsis
+- `line` - Linha simples
+- `dot` - Pontos
+- `minidot` - Pontos pequenos
+- `jump` - Pontos pulando
+- `pulse` - Ponto pulsante
+- `points` - Pontos
+- `globe` - Globo girando
+- `moon` - Fases da lua
+- `monkey` - Macaco
+- `meter` - Medidor de progresso
+- `hamburger` - Menu hamburger
+- `ellipsis` - Reticências
 
 ```bash
 invowk tui spin --type globe --title "Downloading..." -- curl -O https://example.com/file
@@ -125,20 +125,20 @@ invowk tui spin --type moon --title "Building..." -- make build
 invowk tui spin --type pulse --title "Testing..." -- npm test
 ```
 
-### Examples
+### Exemplos
 
 ```bash
-# Basic spinner
+# Spinner básico
 invowk tui spin --title "Building..." -- go build ./...
 
-# With specific type
+# Com tipo específico
 invowk tui spin --type dot --title "Installing dependencies..." -- npm install
 
-# Long-running task
+# Tarefa de longa duração
 invowk tui spin --title "Compiling assets..." -- webpack --mode production
 ```
 
-### Chained Spinners
+### Spinners Encadeados
 
 ```bash
 echo "Step 1/3: Dependencies"
@@ -153,9 +153,9 @@ invowk tui spin --title "Testing..." -- npm test
 echo "Done!" | invowk tui style --foreground "#00FF00" --bold
 ```
 
-### Exit Code Handling
+### Tratamento de Código de Saída
 
-The spin command returns the exit code of the wrapped command:
+O comando spin retorna o código de saída do comando encapsulado:
 
 ```bash
 if invowk tui spin --title "Testing..." -- npm test; then
@@ -166,7 +166,7 @@ else
 fi
 ```
 
-### In Scripts
+### Em Scripts
 
 ```cue
 {
@@ -195,29 +195,29 @@ fi
 }
 ```
 
-## Combined Patterns
+## Padrões Combinados
 
-### Select Then Execute with Spinner
+### Selecionar e Executar com Spinner
 
 ```bash
-# Choose what to build
+# Escolher o que construir
 PROJECT=$(invowk tui choose --title "Build which project?" api web worker)
 
-# Build with spinner
+# Construir com spinner
 invowk tui spin --title "Building $PROJECT..." -- make "build-$PROJECT"
 ```
 
-### Table Selection with Spinner Action
+### Seleção de Tabela com Ação de Spinner
 
 ```bash
-# Select server
+# Selecionar servidor
 SERVER=$(invowk tui table --file servers.csv --selectable | cut -d',' -f1)
 
-# Restart with spinner
+# Reiniciar com spinner
 invowk tui spin --title "Restarting $SERVER..." -- ssh "$SERVER" "systemctl restart myapp"
 ```
 
-## Next Steps
+## Próximos Passos
 
-- [Format and Style](./format-and-style) - Text formatting
-- [Overview](./overview) - All TUI components
+- [Format e Style](./format-and-style) - Formatação de texto
+- [Visão Geral](./overview) - Todos os componentes TUI

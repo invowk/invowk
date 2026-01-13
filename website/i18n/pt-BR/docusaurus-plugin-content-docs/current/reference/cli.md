@@ -2,26 +2,26 @@
 sidebar_position: 1
 ---
 
-# CLI Reference
+# Referência CLI
 
-Complete reference for all Invowk command-line commands and flags.
+Referência completa para todos os comandos e flags de linha de comando do Invowk.
 
-## Global Flags
+## Flags Globais
 
-These flags are available for all commands:
+Estas flags estão disponíveis para todos os comandos:
 
-| Flag | Short | Description |
-|------|-------|-------------|
-| `--config` | | Path to config file (default: OS-specific location) |
-| `--help` | `-h` | Show help for the command |
-| `--verbose` | `-v` | Enable verbose output |
-| `--version` | | Show version information |
+| Flag | Curta | Descrição |
+|------|-------|-----------|
+| `--config` | | Caminho para arquivo de configuração (padrão: localização específica do SO) |
+| `--help` | `-h` | Mostrar ajuda para o comando |
+| `--verbose` | `-v` | Habilitar saída verbose |
+| `--version` | | Mostrar informação de versão |
 
-## Commands
+## Comandos
 
 ### invowk
 
-The root command. Running `invowk` without arguments shows the help message.
+O comando raiz. Executar `invowk` sem argumentos mostra a mensagem de ajuda.
 
 ```bash
 invowk [flags]
@@ -32,7 +32,7 @@ invowk [command]
 
 ### invowk cmd
 
-Execute commands defined in invkfiles.
+Executar comandos definidos em invkfiles.
 
 ```bash
 invowk cmd [flags]
@@ -41,46 +41,46 @@ invowk cmd [command-name] [flags] [-- args...]
 
 **Flags:**
 
-| Flag | Short | Description |
-|------|-------|-------------|
-| `--list` | `-l` | List all available commands |
-| `--runtime` | `-r` | Override the runtime (must be allowed by the command) |
+| Flag | Curta | Descrição |
+|------|-------|-----------|
+| `--list` | `-l` | Listar todos os comandos disponíveis |
+| `--runtime` | `-r` | Sobrescrever o runtime (deve ser permitido pelo comando) |
 
-**Examples:**
+**Exemplos:**
 
 ```bash
-# List all available commands
+# Listar todos os comandos disponíveis
 invowk cmd --list
 invowk cmd -l
 
-# Run a command
+# Executar um comando
 invowk cmd build
 
-# Run a nested command
+# Executar um comando aninhado
 invowk cmd test.unit
 
-# Run with a specific runtime
+# Executar com um runtime específico
 invowk cmd build --runtime container
 
-# Run with arguments
+# Executar com argumentos
 invowk cmd greet -- "World"
 
-# Run with flags
+# Executar com flags
 invowk cmd deploy --env production
 ```
 
-**Command Discovery:**
+**Descoberta de Comandos:**
 
-Commands are discovered from (in priority order):
-1. Current directory
+Comandos são descobertos de (em ordem de prioridade):
+1. Diretório atual
 2. `~/.invowk/cmds/`
-3. Paths configured in `search_paths`
+3. Caminhos configurados em `search_paths`
 
 ---
 
 ### invowk init
 
-Create a new invkfile in the current directory.
+Criar um novo invkfile no diretório atual.
 
 ```bash
 invowk init [flags]
@@ -88,27 +88,27 @@ invowk init [flags]
 
 **Flags:**
 
-| Flag | Short | Description |
-|------|-------|-------------|
-| `--force` | `-f` | Overwrite existing invkfile |
-| `--template` | `-t` | Template to use: `default`, `minimal`, `full` |
+| Flag | Curta | Descrição |
+|------|-------|-----------|
+| `--force` | `-f` | Sobrescrever invkfile existente |
+| `--template` | `-t` | Template a usar: `default`, `minimal`, `full` |
 
 **Templates:**
 
-- `default` - A balanced template with a few example commands
-- `minimal` - Bare minimum invkfile structure
-- `full` - Comprehensive template showing all features
+- `default` - Um template equilibrado com alguns comandos de exemplo
+- `minimal` - Estrutura mínima de invkfile
+- `full` - Template abrangente mostrando todas as funcionalidades
 
-**Examples:**
+**Exemplos:**
 
 ```bash
-# Create a default invkfile
+# Criar um invkfile padrão
 invowk init
 
-# Create a minimal invkfile
+# Criar um invkfile minimal
 invowk init --template minimal
 
-# Overwrite existing invkfile
+# Sobrescrever invkfile existente
 invowk init --force
 ```
 
@@ -116,17 +116,17 @@ invowk init --force
 
 ### invowk config
 
-Manage Invowk configuration.
+Gerenciar configuração do Invowk.
 
 ```bash
 invowk config [command]
 ```
 
-**Subcommands:**
+**Subcomandos:**
 
 #### invowk config show
 
-Display current configuration in a readable format.
+Exibir configuração atual em formato legível.
 
 ```bash
 invowk config show
@@ -134,7 +134,7 @@ invowk config show
 
 #### invowk config dump
 
-Output raw configuration as CUE.
+Exibir configuração raw como CUE.
 
 ```bash
 invowk config dump
@@ -142,7 +142,7 @@ invowk config dump
 
 #### invowk config path
 
-Show the configuration file path.
+Mostrar o caminho do arquivo de configuração.
 
 ```bash
 invowk config path
@@ -150,7 +150,7 @@ invowk config path
 
 #### invowk config init
 
-Create a default configuration file.
+Criar um arquivo de configuração padrão.
 
 ```bash
 invowk config init
@@ -158,22 +158,22 @@ invowk config init
 
 #### invowk config set
 
-Set a configuration value.
+Definir um valor de configuração.
 
 ```bash
 invowk config set <key> <value>
 ```
 
-**Examples:**
+**Exemplos:**
 
 ```bash
-# Set container engine
+# Definir container engine
 invowk config set container_engine podman
 
-# Set default runtime
+# Definir runtime padrão
 invowk config set default_runtime virtual
 
-# Set nested value
+# Definir valor aninhado
 invowk config set ui.color_scheme dark
 ```
 
@@ -181,17 +181,17 @@ invowk config set ui.color_scheme dark
 
 ### invowk pack
 
-Manage invowk packs (self-contained command folders).
+Gerenciar invowk packs (pastas de comando autocontidas).
 
 ```bash
 invowk pack [command]
 ```
 
-**Subcommands:**
+**Subcomandos:**
 
 #### invowk pack create
 
-Create a new invowk pack.
+Criar um novo invowk pack.
 
 ```bash
 invowk pack create <name> [flags]
@@ -199,20 +199,20 @@ invowk pack create <name> [flags]
 
 **Flags:**
 
-| Flag | Short | Description |
-|------|-------|-------------|
-| `--output` | `-o` | Output directory (default: current directory) |
+| Flag | Curta | Descrição |
+|------|-------|-----------|
+| `--output` | `-o` | Diretório de saída (padrão: diretório atual) |
 
-**Examples:**
+**Exemplos:**
 
 ```bash
-# Create a pack with RDNS naming
+# Criar um pack com nomenclatura RDNS
 invowk pack create com.example.mytools
 ```
 
 #### invowk pack validate
 
-Validate an invowk pack.
+Validar um invowk pack.
 
 ```bash
 invowk pack validate <path> [flags]
@@ -220,23 +220,23 @@ invowk pack validate <path> [flags]
 
 **Flags:**
 
-| Flag | Short | Description |
-|------|-------|-------------|
-| `--deep` | `-d` | Perform deep validation (checks script files, etc.) |
+| Flag | Curta | Descrição |
+|------|-------|-----------|
+| `--deep` | `-d` | Executar validação profunda (verifica arquivos de script, etc.) |
 
-**Examples:**
+**Exemplos:**
 
 ```bash
-# Basic validation
+# Validação básica
 invowk pack validate ./mypack.invkpack
 
-# Deep validation
+# Validação profunda
 invowk pack validate ./mypack.invkpack --deep
 ```
 
 #### invowk pack list
 
-List all discovered packs.
+Listar todos os packs descobertos.
 
 ```bash
 invowk pack list
@@ -244,7 +244,7 @@ invowk pack list
 
 #### invowk pack archive
 
-Create a ZIP archive from a pack.
+Criar um arquivo ZIP de um pack.
 
 ```bash
 invowk pack archive <path> [flags]
@@ -252,13 +252,13 @@ invowk pack archive <path> [flags]
 
 **Flags:**
 
-| Flag | Short | Description |
-|------|-------|-------------|
-| `--output` | `-o` | Output file path |
+| Flag | Curta | Descrição |
+|------|-------|-----------|
+| `--output` | `-o` | Caminho do arquivo de saída |
 
 #### invowk pack import
 
-Import a pack from a ZIP file or URL.
+Importar um pack de um arquivo ZIP ou URL.
 
 ```bash
 invowk pack import <source> [flags]
@@ -266,29 +266,29 @@ invowk pack import <source> [flags]
 
 **Flags:**
 
-| Flag | Short | Description |
-|------|-------|-------------|
-| `--output` | `-o` | Output directory |
+| Flag | Curta | Descrição |
+|------|-------|-----------|
+| `--output` | `-o` | Diretório de saída |
 
 ---
 
 ### invowk tui
 
-Interactive terminal UI components for shell scripts.
+Componentes de interface de terminal interativos para shell scripts.
 
 ```bash
 invowk tui [command] [flags]
 ```
 
 :::tip
-TUI components work great in invkfile scripts! They provide interactive prompts, spinners, file pickers, and more.
+Componentes TUI funcionam muito bem em scripts de invkfile! Eles fornecem prompts interativos, spinners, seletores de arquivo e mais.
 :::
 
-**Subcommands:**
+**Subcomandos:**
 
 #### invowk tui input
 
-Prompt for single-line text input.
+Solicitar entrada de texto de linha única.
 
 ```bash
 invowk tui input [flags]
@@ -296,16 +296,16 @@ invowk tui input [flags]
 
 **Flags:**
 
-| Flag | Description |
-|------|-------------|
-| `--title` | Title for the input prompt |
-| `--placeholder` | Placeholder text |
-| `--default` | Default value |
-| `--password` | Hide input (for passwords) |
+| Flag | Descrição |
+|------|-----------|
+| `--title` | Título para o prompt de entrada |
+| `--placeholder` | Texto de placeholder |
+| `--default` | Valor padrão |
+| `--password` | Ocultar entrada (para senhas) |
 
 #### invowk tui write
 
-Multi-line text editor.
+Editor de texto multilinha.
 
 ```bash
 invowk tui write [flags]
@@ -313,15 +313,15 @@ invowk tui write [flags]
 
 **Flags:**
 
-| Flag | Description |
-|------|-------------|
-| `--title` | Title for the editor |
-| `--placeholder` | Placeholder text |
-| `--value` | Initial value |
+| Flag | Descrição |
+|------|-----------|
+| `--title` | Título para o editor |
+| `--placeholder` | Texto de placeholder |
+| `--value` | Valor inicial |
 
 #### invowk tui choose
 
-Select from a list of options.
+Selecionar de uma lista de opções.
 
 ```bash
 invowk tui choose [options...] [flags]
@@ -329,14 +329,14 @@ invowk tui choose [options...] [flags]
 
 **Flags:**
 
-| Flag | Description |
-|------|-------------|
-| `--title` | Title for the selection |
-| `--limit` | Maximum number of selections (default: 1) |
+| Flag | Descrição |
+|------|-----------|
+| `--title` | Título para a seleção |
+| `--limit` | Número máximo de seleções (padrão: 1) |
 
 #### invowk tui confirm
 
-Prompt for yes/no confirmation.
+Solicitar confirmação sim/não.
 
 ```bash
 invowk tui confirm [prompt] [flags]
@@ -344,25 +344,25 @@ invowk tui confirm [prompt] [flags]
 
 **Flags:**
 
-| Flag | Description |
-|------|-------------|
-| `--default` | Default value (true/false) |
-| `--affirmative` | Text for "yes" option |
-| `--negative` | Text for "no" option |
+| Flag | Descrição |
+|------|-----------|
+| `--default` | Valor padrão (true/false) |
+| `--affirmative` | Texto para opção "sim" |
+| `--negative` | Texto para opção "não" |
 
 #### invowk tui filter
 
-Fuzzy filter a list of options.
+Filtrar fuzzy uma lista de opções.
 
 ```bash
 invowk tui filter [options...] [flags]
 ```
 
-Options can also be provided via stdin.
+Opções também podem ser fornecidas via stdin.
 
 #### invowk tui file
 
-File picker.
+Seletor de arquivo.
 
 ```bash
 invowk tui file [path] [flags]
@@ -370,32 +370,32 @@ invowk tui file [path] [flags]
 
 **Flags:**
 
-| Flag | Description |
-|------|-------------|
-| `--directory` | Only show directories |
-| `--file` | Only show files |
-| `--hidden` | Show hidden files |
+| Flag | Descrição |
+|------|-----------|
+| `--directory` | Mostrar apenas diretórios |
+| `--file` | Mostrar apenas arquivos |
+| `--hidden` | Mostrar arquivos ocultos |
 
 #### invowk tui table
 
-Display and select from a table.
+Exibir e selecionar de uma tabela.
 
 ```bash
 invowk tui table [flags]
 ```
 
-Reads CSV or TSV data from stdin.
+Lê dados CSV ou TSV de stdin.
 
 **Flags:**
 
-| Flag | Description |
-|------|-------------|
-| `--separator` | Column separator (default: `,`) |
-| `--header` | First row is header |
+| Flag | Descrição |
+|------|-----------|
+| `--separator` | Separador de coluna (padrão: `,`) |
+| `--header` | Primeira linha é cabeçalho |
 
 #### invowk tui spin
 
-Show a spinner while running a command.
+Mostrar um spinner enquanto executa um comando.
 
 ```bash
 invowk tui spin [flags] -- command [args...]
@@ -403,24 +403,24 @@ invowk tui spin [flags] -- command [args...]
 
 **Flags:**
 
-| Flag | Description |
-|------|-------------|
-| `--title` | Spinner title |
-| `--spinner` | Spinner style |
+| Flag | Descrição |
+|------|-----------|
+| `--title` | Título do spinner |
+| `--spinner` | Estilo do spinner |
 
 #### invowk tui pager
 
-Scroll through content.
+Rolar através de conteúdo.
 
 ```bash
 invowk tui pager [file] [flags]
 ```
 
-Reads from file or stdin.
+Lê de arquivo ou stdin.
 
 #### invowk tui format
 
-Format text with markdown, code, or emoji.
+Formatar texto com markdown, código ou emoji.
 
 ```bash
 invowk tui format [text...] [flags]
@@ -428,14 +428,14 @@ invowk tui format [text...] [flags]
 
 **Flags:**
 
-| Flag | Description |
-|------|-------------|
-| `--type` | Format type: `markdown`, `code`, `emoji` |
-| `--language` | Language for code highlighting |
+| Flag | Descrição |
+|------|-----------|
+| `--type` | Tipo de formato: `markdown`, `code`, `emoji` |
+| `--language` | Linguagem para highlight de código |
 
 #### invowk tui style
 
-Apply styles to text.
+Aplicar estilos ao texto.
 
 ```bash
 invowk tui style [text...] [flags]
@@ -443,19 +443,19 @@ invowk tui style [text...] [flags]
 
 **Flags:**
 
-| Flag | Description |
-|------|-------------|
-| `--foreground` | Text color (hex or name) |
-| `--background` | Background color |
-| `--bold` | Bold text |
-| `--italic` | Italic text |
-| `--underline` | Underlined text |
+| Flag | Descrição |
+|------|-----------|
+| `--foreground` | Cor do texto (hex ou nome) |
+| `--background` | Cor de fundo |
+| `--bold` | Texto em negrito |
+| `--italic` | Texto em itálico |
+| `--underline` | Texto sublinhado |
 
 ---
 
 ### invowk completion
 
-Generate shell completion scripts.
+Gerar scripts de completion de shell.
 
 ```bash
 invowk completion [shell]
@@ -463,7 +463,7 @@ invowk completion [shell]
 
 **Shells:** `bash`, `zsh`, `fish`, `powershell`
 
-**Examples:**
+**Exemplos:**
 
 ```bash
 # Bash
@@ -483,13 +483,13 @@ invowk completion powershell | Out-String | Invoke-Expression
 
 ### invowk help
 
-Show help for any command.
+Mostrar ajuda para qualquer comando.
 
 ```bash
 invowk help [command]
 ```
 
-**Examples:**
+**Exemplos:**
 
 ```bash
 invowk help
@@ -497,23 +497,23 @@ invowk help cmd
 invowk help config set
 ```
 
-## Exit Codes
+## Códigos de Saída
 
-| Code | Meaning |
-|------|---------|
-| 0 | Success |
-| 1 | General error |
-| 2 | Command not found |
-| 3 | Dependency validation failed |
-| 4 | Configuration error |
-| 5 | Runtime error |
+| Código | Significado |
+|--------|-------------|
+| 0 | Sucesso |
+| 1 | Erro geral |
+| 2 | Comando não encontrado |
+| 3 | Validação de dependência falhou |
+| 4 | Erro de configuração |
+| 5 | Erro de runtime |
 
-## Environment Variables
+## Variáveis de Ambiente
 
-| Variable | Description |
-|----------|-------------|
-| `INVOWK_CONFIG` | Override config file path |
-| `INVOWK_VERBOSE` | Enable verbose output (`1` or `true`) |
-| `INVOWK_CONTAINER_ENGINE` | Override container engine |
-| `NO_COLOR` | Disable colored output |
-| `FORCE_COLOR` | Force colored output |
+| Variável | Descrição |
+|----------|-----------|
+| `INVOWK_CONFIG` | Sobrescrever caminho do arquivo de configuração |
+| `INVOWK_VERBOSE` | Habilitar saída verbose (`1` ou `true`) |
+| `INVOWK_CONTAINER_ENGINE` | Sobrescrever container engine |
+| `NO_COLOR` | Desabilitar saída colorida |
+| `FORCE_COLOR` | Forçar saída colorida |

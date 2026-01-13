@@ -2,11 +2,11 @@
 sidebar_position: 2
 ---
 
-# Env Files
+# Arquivos Env
 
-Load environment variables from `.env` files. This is a common pattern for managing configuration, especially secrets that shouldn't be committed to version control.
+Carregue variáveis de ambiente de arquivos `.env`. Este é um padrão comum para gerenciar configuração, especialmente secrets que não devem ser commitados no controle de versão.
 
-## Basic Usage
+## Uso Básico
 
 ```cue
 {
@@ -18,7 +18,7 @@ Load environment variables from `.env` files. This is a common pattern for manag
 }
 ```
 
-With a `.env` file:
+Com um arquivo `.env`:
 ```bash
 # .env
 API_KEY=secret123
@@ -26,66 +26,66 @@ DATABASE_URL=postgres://localhost/mydb
 DEBUG=false
 ```
 
-Variables are loaded and available in your script.
+Variáveis são carregadas e disponíveis no seu script.
 
-## File Format
+## Formato do Arquivo
 
-Standard `.env` format:
+Formato `.env` padrão:
 
 ```bash
-# Comments start with #
+# Comentários começam com #
 KEY=value
 
-# Quoted values (spaces preserved)
+# Valores entre aspas (espaços preservados)
 MESSAGE="Hello World"
 PATH_WITH_SPACES='/path/to/my file'
 
-# Empty value
+# Valor vazio
 EMPTY_VAR=
 
-# No value (same as empty)
+# Sem valor (mesmo que vazio)
 NO_VALUE
 
-# Multiline (use quotes)
+# Multilinhas (use aspas)
 MULTILINE="line1
 line2
 line3"
 ```
 
-## Optional Files
+## Arquivos Opcionais
 
-Suffix with `?` to make a file optional:
-
-```cue
-env: {
-    files: [
-        ".env",           // Required - error if missing
-        ".env.local?",    // Optional - ignored if missing
-        ".env.secrets?",  // Optional
-    ]
-}
-```
-
-This is useful for:
-- Local overrides that may not exist
-- Environment-specific files
-- Developer-specific settings
-
-## File Order
-
-Files are loaded in order; later files override earlier ones:
+Sufixe com `?` para tornar um arquivo opcional:
 
 ```cue
 env: {
     files: [
-        ".env",           // Base config
-        ".env.${ENV}?",   // Environment-specific overrides
-        ".env.local?",    // Local overrides (highest priority)
+        ".env",           // Obrigatório - erro se faltando
+        ".env.local?",    // Opcional - ignorado se faltando
+        ".env.secrets?",  // Opcional
     ]
 }
 ```
 
-Example with `ENV=production`:
+Isso é útil para:
+- Sobrescritas locais que podem não existir
+- Arquivos específicos de ambiente
+- Configurações específicas de desenvolvedor
+
+## Ordem dos Arquivos
+
+Arquivos são carregados em ordem; arquivos posteriores sobrescrevem os anteriores:
+
+```cue
+env: {
+    files: [
+        ".env",           // Config base
+        ".env.${ENV}?",   // Sobrescritas específicas de ambiente
+        ".env.local?",    // Sobrescritas locais (maior prioridade)
+    ]
+}
+```
+
+Exemplo com `ENV=production`:
 
 ```bash
 # .env
@@ -96,17 +96,17 @@ DEBUG=true
 API_URL=https://api.example.com
 DEBUG=false
 
-# .env.local (developer override)
+# .env.local (sobrescrita do desenvolvedor)
 DEBUG=true
 ```
 
-Result:
-- `API_URL=https://api.example.com` (from .env.production)
-- `DEBUG=true` (from .env.local)
+Resultado:
+- `API_URL=https://api.example.com` (de .env.production)
+- `DEBUG=true` (de .env.local)
 
-## Path Resolution
+## Resolução de Caminho
 
-Paths are relative to the invkfile location:
+Caminhos são relativos à localização do invkfile:
 
 ```
 project/
@@ -117,58 +117,58 @@ project/
 └── src/
 ```
 
-For packs, paths are relative to the pack root.
+Para packs, caminhos são relativos à raiz do pack.
 
-## Variable Interpolation
+## Interpolação de Variáveis
 
-Use `${VAR}` to include other environment variables:
+Use `${VAR}` para incluir outras variáveis de ambiente:
 
 ```cue
 env: {
     files: [
         ".env",
-        ".env.${NODE_ENV}?",    // Uses NODE_ENV value
-        ".env.${USER}?",        // Uses current user
+        ".env.${NODE_ENV}?",    // Usa valor de NODE_ENV
+        ".env.${USER}?",        // Usa usuário atual
     ]
 }
 ```
 
 ```bash
-# If NODE_ENV=production, loads:
+# Se NODE_ENV=production, carrega:
 # - .env
-# - .env.production (if exists)
-# - .env.john (if exists and USER=john)
+# - .env.production (se existir)
+# - .env.john (se existir e USER=john)
 ```
 
-## Scope Levels
+## Níveis de Escopo
 
-Env files can be loaded at multiple levels:
+Arquivos env podem ser carregados em múltiplos níveis:
 
-### Root Level
+### Nível Raiz
 
 ```cue
 group: "myproject"
 
 env: {
-    files: [".env"]  // Loaded for all commands
+    files: [".env"]  // Carregado para todos os comandos
 }
 
 commands: [...]
 ```
 
-### Command Level
+### Nível de Comando
 
 ```cue
 {
     name: "build"
     env: {
-        files: [".env.build"]  // Only for this command
+        files: [".env.build"]  // Apenas para este comando
     }
     implementations: [...]
 }
 ```
 
-### Implementation Level
+### Nível de Implementação
 
 ```cue
 {
@@ -178,58 +178,58 @@ commands: [...]
             script: "npm run build"
             target: {runtimes: [{name: "native"}]}
             env: {
-                files: [".env.node"]  // Only for this implementation
+                files: [".env.node"]  // Apenas para esta implementação
             }
         }
     ]
 }
 ```
 
-## Combined with Variables
+## Combinado com Variáveis
 
-Use both files and direct variables:
+Use ambos arquivos e variáveis diretas:
 
 ```cue
 env: {
     files: [".env"]
     vars: {
-        // These override values from .env
+        // Estas sobrescrevem valores do .env
         OVERRIDE_VALUE: "from-invkfile"
     }
 }
 ```
 
-Variables in `vars` always override values from files at the same level.
+Variáveis em `vars` sempre sobrescrevem valores de arquivos no mesmo nível.
 
-## CLI Override
+## Sobrescrita via CLI
 
-Load additional files at runtime:
+Carregue arquivos adicionais em tempo de execução:
 
 ```bash
-# Load extra file
+# Carregar arquivo extra
 invowk cmd myproject build --env-file .env.custom
 
-# Short form
+# Forma curta
 invowk cmd myproject build -e .env.custom
 
-# Multiple files
+# Múltiplos arquivos
 invowk cmd myproject build -e .env.custom -e .env.secrets
 ```
 
-CLI files have highest priority and override all invkfile-defined sources.
+Arquivos da CLI têm a maior prioridade e sobrescrevem todas as fontes definidas no invkfile.
 
-## Real-World Examples
+## Exemplos do Mundo Real
 
-### Development vs Production
+### Desenvolvimento vs Produção
 
 ```cue
 {
     name: "start"
     env: {
         files: [
-            ".env",                    // Base config
-            ".env.${NODE_ENV:-dev}?",  // Environment-specific
-            ".env.local?",             // Local overrides
+            ".env",                    // Config base
+            ".env.${NODE_ENV:-dev}?",  // Específico de ambiente
+            ".env.local?",             // Sobrescritas locais
         ]
     }
     implementations: [{
@@ -239,15 +239,15 @@ CLI files have highest priority and override all invkfile-defined sources.
 }
 ```
 
-### Secrets Management
+### Gerenciamento de Secrets
 
 ```cue
 {
     name: "deploy"
     env: {
         files: [
-            ".env",                    // Non-sensitive config
-            ".env.secrets?",           // Sensitive - not in git
+            ".env",                    // Config não sensível
+            ".env.secrets?",           // Sensível - não está no git
         ]
     }
     implementations: [{
@@ -266,15 +266,15 @@ CLI files have highest priority and override all invkfile-defined sources.
 .env.local
 ```
 
-### Multi-Environment
+### Multi-Ambiente
 
 ```
 project/
 ├── invkfile.cue
-├── .env                  # Shared defaults
-├── .env.development      # Dev settings
-├── .env.staging          # Staging settings
-└── .env.production       # Production settings
+├── .env                  # Padrões compartilhados
+├── .env.development      # Configurações de dev
+├── .env.staging          # Configurações de staging
+└── .env.production       # Configurações de produção
 ```
 
 ```cue
@@ -283,7 +283,7 @@ project/
     env: {
         files: [
             ".env",
-            ".env.${DEPLOY_ENV}",  // DEPLOY_ENV must be set
+            ".env.${DEPLOY_ENV}",  // DEPLOY_ENV deve estar definido
         ]
     }
     depends_on: {
@@ -295,15 +295,15 @@ project/
 }
 ```
 
-## Best Practices
+## Melhores Práticas
 
-1. **Use `.env` for defaults**: Base configuration that works for everyone
-2. **Use `.env.local` for overrides**: Developer-specific settings, not in git
-3. **Use `.env.{environment}` for environments**: Production, staging, etc.
-4. **Mark sensitive files optional**: They may not exist in all environments
-5. **Don't commit secrets**: Add `.env.secrets`, `.env.local` to `.gitignore`
+1. **Use `.env` para padrões**: Configuração base que funciona para todos
+2. **Use `.env.local` para sobrescritas**: Configurações específicas de desenvolvedor, não no git
+3. **Use `.env.{environment}` para ambientes**: Produção, staging, etc.
+4. **Marque arquivos sensíveis como opcionais**: Podem não existir em todos os ambientes
+5. **Não commite secrets**: Adicione `.env.secrets`, `.env.local` ao `.gitignore`
 
-## Next Steps
+## Próximos Passos
 
-- [Env Vars](./env-vars) - Set variables directly
-- [Precedence](./precedence) - Understand override order
+- [Env Vars](./env-vars) - Definir variáveis diretamente
+- [Precedence](./precedence) - Entender ordem de sobrescrita

@@ -2,28 +2,28 @@
 sidebar_position: 3
 ---
 
-# Configuration Schema Reference
+# Referência de Schema de Configuração
 
-:::warning Alpha — Configuration Options May Change
-The configuration schema is still being refined. Options **may be added, renamed, or removed** between releases as we finalize the feature set.
+:::warning Alpha — Opções de Configuração Podem Mudar
+O schema de configuração ainda está sendo refinado. Opções **podem ser adicionadas, renomeadas ou removidas** entre releases enquanto finalizamos o conjunto de funcionalidades.
 :::
 
-Complete reference for the Invowk configuration file schema.
+Referência completa para o schema do arquivo de configuração do Invowk.
 
-## Overview
+## Visão Geral
 
-The configuration file uses [CUE](https://cuelang.org/) format and is located at:
+O arquivo de configuração usa formato [CUE](https://cuelang.org/) e está localizado em:
 
-| Platform | Location |
-|----------|----------|
-| Linux    | `~/.config/invowk/config.cue` |
-| macOS    | `~/Library/Application Support/invowk/config.cue` |
-| Windows  | `%APPDATA%\invowk\config.cue` |
+| Plataforma | Localização |
+|------------|-------------|
+| Linux      | `~/.config/invowk/config.cue` |
+| macOS      | `~/Library/Application Support/invowk/config.cue` |
+| Windows    | `%APPDATA%\invowk\config.cue` |
 
-## Schema Definition
+## Definição do Schema
 
 ```cue
-// Root configuration structure
+// Estrutura de configuração raiz
 #Config: {
     container_engine?: "podman" | "docker"
     search_paths?:     [...string]
@@ -32,12 +32,12 @@ The configuration file uses [CUE](https://cuelang.org/) format and is located at
     ui?:               #UIConfig
 }
 
-// Virtual shell configuration
+// Configuração do virtual shell
 #VirtualShellConfig: {
     enable_uroot_utils?: bool
 }
 
-// UI configuration
+// Configuração de UI
 #UIConfig: {
     color_scheme?: "auto" | "dark" | "light"
     verbose?:      bool
@@ -46,7 +46,7 @@ The configuration file uses [CUE](https://cuelang.org/) format and is located at
 
 ## Config
 
-The root configuration object.
+O objeto de configuração raiz.
 
 ```cue
 #Config: {
@@ -60,27 +60,27 @@ The root configuration object.
 
 ### container_engine
 
-**Type:** `"podman" | "docker"`  
-**Required:** No  
-**Default:** Auto-detected
+**Tipo:** `"podman" | "docker"`  
+**Obrigatório:** Não  
+**Padrão:** Auto-detectado
 
-Specifies which container runtime to use for container-based command execution.
+Especifica qual container runtime usar para execução de comandos baseada em container.
 
 ```cue
 container_engine: "podman"
 ```
 
-**Auto-detection order:**
-1. Podman (preferred)
+**Ordem de auto-detecção:**
+1. Podman (preferido)
 2. Docker (fallback)
 
 ### search_paths
 
-**Type:** `[...string]`  
-**Required:** No  
-**Default:** `["~/.invowk/cmds"]`
+**Tipo:** `[...string]`  
+**Obrigatório:** Não  
+**Padrão:** `["~/.invowk/cmds"]`
 
-Additional directories to search for invkfiles and packs.
+Diretórios adicionais para buscar invkfiles e packs.
 
 ```cue
 search_paths: [
@@ -90,41 +90,41 @@ search_paths: [
 ]
 ```
 
-**Path resolution:**
-- Paths starting with `~` are expanded to the user's home directory
-- Relative paths are resolved from the current working directory
-- Non-existent paths are silently ignored
+**Resolução de caminho:**
+- Caminhos começando com `~` são expandidos para o diretório home do usuário
+- Caminhos relativos são resolvidos do diretório de trabalho atual
+- Caminhos inexistentes são ignorados silenciosamente
 
-**Search priority (highest to lowest):**
-1. Current directory
-2. Paths in `search_paths` (in order)
-3. Default `~/.invowk/cmds`
+**Prioridade de busca (maior para menor):**
+1. Diretório atual
+2. Caminhos em `search_paths` (em ordem)
+3. Padrão `~/.invowk/cmds`
 
 ### default_runtime
 
-**Type:** `"native" | "virtual" | "container"`  
-**Required:** No  
-**Default:** `"native"`
+**Tipo:** `"native" | "virtual" | "container"`  
+**Obrigatório:** Não  
+**Padrão:** `"native"`
 
-Sets the global default runtime mode for commands that don't specify a preferred runtime.
+Define o modo de runtime padrão global para comandos que não especificam um runtime preferido.
 
 ```cue
 default_runtime: "virtual"
 ```
 
-| Value | Description |
-|-------|-------------|
-| `"native"` | Execute using the system's native shell |
-| `"virtual"` | Execute using Invowk's built-in shell interpreter |
-| `"container"` | Execute inside a container |
+| Valor | Descrição |
+|-------|-----------|
+| `"native"` | Executar usando o shell nativo do sistema |
+| `"virtual"` | Executar usando o interpretador de shell embutido do Invowk |
+| `"container"` | Executar dentro de um container |
 
 ### virtual_shell
 
-**Type:** `#VirtualShellConfig`  
-**Required:** No  
-**Default:** `{}`
+**Tipo:** `#VirtualShellConfig`  
+**Obrigatório:** Não  
+**Padrão:** `{}`
 
-Configuration for the virtual shell runtime.
+Configuração para o virtual shell runtime.
 
 ```cue
 virtual_shell: {
@@ -134,11 +134,11 @@ virtual_shell: {
 
 ### ui
 
-**Type:** `#UIConfig`  
-**Required:** No  
-**Default:** `{}`
+**Tipo:** `#UIConfig`  
+**Obrigatório:** Não  
+**Padrão:** `{}`
 
-User interface configuration.
+Configuração de interface do usuário.
 
 ```cue
 ui: {
@@ -151,7 +151,7 @@ ui: {
 
 ## VirtualShellConfig
 
-Configuration for the virtual shell runtime (mvdan/sh).
+Configuração para o virtual shell runtime (mvdan/sh).
 
 ```cue
 #VirtualShellConfig: {
@@ -161,11 +161,11 @@ Configuration for the virtual shell runtime (mvdan/sh).
 
 ### enable_uroot_utils
 
-**Type:** `bool`  
-**Required:** No  
-**Default:** `false`
+**Tipo:** `bool`  
+**Obrigatório:** Não  
+**Padrão:** `false`
 
-Enables u-root utilities in the virtual shell environment. When enabled, provides additional commands beyond basic shell builtins.
+Habilita utilitários u-root no ambiente virtual shell. Quando habilitado, fornece comandos adicionais além dos builtins básicos de shell.
 
 ```cue
 virtual_shell: {
@@ -173,16 +173,16 @@ virtual_shell: {
 }
 ```
 
-**Available utilities when enabled:**
-- File operations: `ls`, `cat`, `cp`, `mv`, `rm`, `mkdir`, `chmod`
-- Text processing: `grep`, `sed`, `awk`, `sort`, `uniq`
-- And many more core utilities
+**Utilitários disponíveis quando habilitado:**
+- Operações de arquivo: `ls`, `cat`, `cp`, `mv`, `rm`, `mkdir`, `chmod`
+- Processamento de texto: `grep`, `sed`, `awk`, `sort`, `uniq`
+- E muitos mais utilitários core
 
 ---
 
 ## UIConfig
 
-User interface configuration.
+Configuração de interface do usuário.
 
 ```cue
 #UIConfig: {
@@ -193,11 +193,11 @@ User interface configuration.
 
 ### color_scheme
 
-**Type:** `"auto" | "dark" | "light"`  
-**Required:** No  
-**Default:** `"auto"`
+**Tipo:** `"auto" | "dark" | "light"`  
+**Obrigatório:** Não  
+**Padrão:** `"auto"`
 
-Sets the color scheme for terminal output.
+Define o esquema de cores para saída de terminal.
 
 ```cue
 ui: {
@@ -205,19 +205,19 @@ ui: {
 }
 ```
 
-| Value | Description |
-|-------|-------------|
-| `"auto"` | Detect from terminal (respects `COLORTERM`, `TERM`, etc.) |
-| `"dark"` | Colors optimized for dark terminals |
-| `"light"` | Colors optimized for light terminals |
+| Valor | Descrição |
+|-------|-----------|
+| `"auto"` | Detectar do terminal (respeita `COLORTERM`, `TERM`, etc.) |
+| `"dark"` | Cores otimizadas para terminais escuros |
+| `"light"` | Cores otimizadas para terminais claros |
 
 ### verbose
 
-**Type:** `bool`  
-**Required:** No  
-**Default:** `false`
+**Tipo:** `bool`  
+**Obrigatório:** Não  
+**Padrão:** `false`
 
-Enables verbose output by default for all commands.
+Habilita saída verbose por padrão para todos os comandos.
 
 ```cue
 ui: {
@@ -225,100 +225,100 @@ ui: {
 }
 ```
 
-Equivalent to always passing `--verbose` on the command line.
+Equivalente a sempre passar `--verbose` na linha de comando.
 
 ---
 
-## Complete Example
+## Exemplo Completo
 
-A fully documented configuration file:
+Um arquivo de configuração totalmente documentado:
 
 ```cue
-// Invowk Configuration File
-// =========================
-// Location: ~/.config/invowk/config.cue
+// Arquivo de Configuração Invowk
+// ==============================
+// Localização: ~/.config/invowk/config.cue
 
 // Container Engine
 // ----------------
-// Which container runtime to use: "podman" or "docker"
-// If not specified, Invowk auto-detects (prefers Podman)
+// Qual container runtime usar: "podman" ou "docker"
+// Se não especificado, Invowk auto-detecta (prefere Podman)
 container_engine: "podman"
 
-// Search Paths
-// ------------
-// Additional directories to search for invkfiles and packs
-// Searched in order after the current directory
+// Caminhos de Busca
+// -----------------
+// Diretórios adicionais para buscar invkfiles e packs
+// Buscados em ordem após o diretório atual
 search_paths: [
-    // Personal commands
+    // Comandos pessoais
     "~/.invowk/cmds",
     
-    // Team shared commands
+    // Comandos compartilhados da equipe
     "~/work/shared-commands",
     
-    // Organization-wide commands
+    // Comandos da organização
     "/opt/company/invowk-commands",
 ]
 
-// Default Runtime
-// ---------------
-// The runtime to use when a command doesn't specify one
-// Options: "native", "virtual", "container"
+// Runtime Padrão
+// --------------
+// O runtime a usar quando um comando não especifica um
+// Opções: "native", "virtual", "container"
 default_runtime: "native"
 
-// Virtual Shell Configuration
-// ---------------------------
-// Settings for the virtual shell runtime (mvdan/sh)
+// Configuração do Virtual Shell
+// -----------------------------
+// Configurações para o virtual shell runtime (mvdan/sh)
 virtual_shell: {
-    // Enable u-root utilities for more shell commands
-    // Provides ls, cat, grep, etc. in the virtual environment
+    // Habilitar utilitários u-root para mais comandos de shell
+    // Fornece ls, cat, grep, etc. no ambiente virtual
     enable_uroot_utils: true
 }
 
-// UI Configuration
-// ----------------
-// User interface settings
+// Configuração de UI
+// ------------------
+// Configurações de interface do usuário
 ui: {
-    // Color scheme: "auto", "dark", or "light"
-    // "auto" detects from terminal settings
+    // Esquema de cores: "auto", "dark" ou "light"
+    // "auto" detecta das configurações do terminal
     color_scheme: "auto"
     
-    // Enable verbose output by default
-    // Same as always passing --verbose
+    // Habilitar saída verbose por padrão
+    // Igual a sempre passar --verbose
     verbose: false
 }
 ```
 
 ---
 
-## Minimal Configuration
+## Configuração Mínima
 
-If you're happy with defaults, a minimal config might be:
+Se você está satisfeito com os padrões, uma configuração mínima pode ser:
 
 ```cue
-// Just override what you need
+// Apenas sobrescreva o que você precisa
 container_engine: "docker"
 ```
 
-Or even an empty file (all defaults):
+Ou até mesmo um arquivo vazio (todos os padrões):
 
 ```cue
-// Empty config - use all defaults
+// Configuração vazia - usar todos os padrões
 ```
 
 ---
 
-## Validation
+## Validação
 
-You can validate your configuration file using CUE:
+Você pode validar seu arquivo de configuração usando CUE:
 
 ```bash
 cue vet ~/.config/invowk/config.cue
 ```
 
-Or check it with Invowk:
+Ou verificá-lo com Invowk:
 
 ```bash
 invowk config show
 ```
 
-If there are any errors, Invowk will report them when loading the configuration.
+Se houver algum erro, Invowk irá reportá-los ao carregar a configuração.

@@ -2,36 +2,36 @@
 sidebar_position: 2
 ---
 
-# Native Runtime
+# Runtime Native
 
-The **native** runtime executes commands using your system's default shell. It's the most straightforward option and the one you'll use most often during development.
+O runtime **native** executa comandos usando o shell padrão do seu sistema. É a opção mais direta e a que você usará com mais frequência durante o desenvolvimento.
 
-## How It Works
+## Como Funciona
 
-When you run a command with the native runtime, Invowk:
+Quando você executa um comando com o runtime native, o Invowk:
 
-1. Detects your system's default shell
-2. Creates a temporary script file
-3. Executes it through the shell
-4. Streams output back to your terminal
+1. Detecta o shell padrão do seu sistema
+2. Cria um arquivo de script temporário
+3. Executa-o através do shell
+4. Transmite a saída de volta para seu terminal
 
-## Shell Detection
+## Detecção de Shell
 
-Invowk automatically detects the best available shell:
+O Invowk detecta automaticamente o melhor shell disponível:
 
 ### Linux/macOS
 
-1. Uses `$SHELL` environment variable if set
-2. Falls back to `bash` if available
-3. Falls back to `sh` as last resort
+1. Usa a variável de ambiente `$SHELL` se definida
+2. Usa `bash` como fallback se disponível
+3. Usa `sh` como último recurso
 
 ### Windows
 
-1. Tries `pwsh` (PowerShell Core)
-2. Falls back to `powershell` (Windows PowerShell)
-3. Falls back to `cmd.exe` as last resort
+1. Tenta `pwsh` (PowerShell Core)
+2. Usa `powershell` (Windows PowerShell) como fallback
+3. Usa `cmd.exe` como último recurso
 
-## Basic Usage
+## Uso Básico
 
 ```cue
 {
@@ -53,23 +53,23 @@ Invowk automatically detects the best available shell:
 invowk cmd myproject build
 ```
 
-## Overriding the Default Shell
+## Sobrescrevendo o Shell Padrão
 
-You can override the shell at the invkfile level:
+Você pode sobrescrever o shell no nível do invkfile:
 
 ```cue
 group: "myproject"
-default_shell: "/bin/bash"  // Force bash
+default_shell: "/bin/bash"  // Forçar bash
 
 commands: [...]
 ```
 
-This is useful when:
-- You need bash-specific features
-- Your script relies on a specific shell
-- You want consistent behavior across team machines
+Isso é útil quando:
+- Você precisa de recursos específicos do bash
+- Seu script depende de um shell específico
+- Você quer comportamento consistente entre máquinas da equipe
 
-## Shell-Specific Scripts
+## Scripts Específicos por Shell
 
 ### Bash/Zsh
 
@@ -79,9 +79,9 @@ This is useful when:
     implementations: [{
         script: """
             #!/bin/bash
-            set -euo pipefail  # Bash strict mode
+            set -euo pipefail  # Modo estrito do Bash
             
-            # Bash-specific features
+            # Recursos específicos do Bash
             declare -A config=(
                 ["env"]="production"
                 ["debug"]="false"
@@ -138,11 +138,11 @@ This is useful when:
 }
 ```
 
-## Using Interpreters
+## Usando Interpretadores
 
-The native runtime supports non-shell interpreters like Python, Ruby, or Node.js.
+O runtime native suporta interpretadores não-shell como Python, Ruby ou Node.js.
 
-### Auto-Detection from Shebang
+### Auto-Detecção pelo Shebang
 
 ```cue
 {
@@ -164,7 +164,7 @@ The native runtime supports non-shell interpreters like Python, Ruby, or Node.js
 }
 ```
 
-### Explicit Interpreter
+### Interpretador Explícito
 
 ```cue
 {
@@ -177,14 +177,14 @@ The native runtime supports non-shell interpreters like Python, Ruby, or Node.js
         target: {
             runtimes: [{
                 name: "native"
-                interpreter: "python3"  // Explicit interpreter
+                interpreter: "python3"  // Interpretador explícito
             }]
         }
     }]
 }
 ```
 
-### Interpreter with Arguments
+### Interpretador com Argumentos
 
 ```cue
 {
@@ -196,16 +196,16 @@ The native runtime supports non-shell interpreters like Python, Ruby, or Node.js
         target: {
             runtimes: [{
                 name: "native"
-                interpreter: "python3 -u"  // With arguments
+                interpreter: "python3 -u"  // Com argumentos
             }]
         }
     }]
 }
 ```
 
-## Environment Variables
+## Variáveis de Ambiente
 
-Native runtime has full access to your environment:
+O runtime native tem acesso completo ao seu ambiente:
 
 ```cue
 {
@@ -228,9 +228,9 @@ Native runtime has full access to your environment:
 }
 ```
 
-## Accessing Flags and Arguments
+## Acessando Flags e Argumentos
 
-Flags and arguments are available as environment variables:
+Flags e argumentos estão disponíveis como variáveis de ambiente:
 
 ```cue
 {
@@ -258,17 +258,17 @@ Flags and arguments are available as environment variables:
 
 ```bash
 invowk cmd myproject greet Alice --loud
-# Output: HELLO, ALICE!
+# Saída: HELLO, ALICE!
 ```
 
-## Working Directory
+## Diretório de Trabalho
 
-By default, scripts run in the current directory. Override with `workdir`:
+Por padrão, scripts executam no diretório atual. Sobrescreva com `workdir`:
 
 ```cue
 {
     name: "build frontend"
-    workdir: "./frontend"  // Run in frontend subdirectory
+    workdir: "./frontend"  // Executar no subdiretório frontend
     implementations: [{
         script: "npm run build"
         target: {
@@ -278,9 +278,9 @@ By default, scripts run in the current directory. Override with `workdir`:
 }
 ```
 
-## Dependencies
+## Dependências
 
-Native runtime validates dependencies against your host system:
+O runtime native valida dependências contra seu sistema host:
 
 ```cue
 {
@@ -303,27 +303,27 @@ Native runtime validates dependencies against your host system:
 }
 ```
 
-## Advantages
+## Vantagens
 
-- **Performance**: No overhead, direct shell execution
-- **Full access**: All system tools and environment available
-- **Familiar**: Use your preferred shell and its features
-- **Interactive**: Can run interactive commands
+- **Performance**: Sem overhead, execução direta no shell
+- **Acesso completo**: Todas as ferramentas do sistema e ambiente disponíveis
+- **Familiar**: Use seu shell preferido e seus recursos
+- **Interativo**: Pode executar comandos interativos
 
-## Limitations
+## Limitações
 
-- **Platform differences**: Scripts may behave differently across OSes
-- **Environment dependency**: Relies on installed tools
-- **Reproducibility**: Results may vary between machines
+- **Diferenças de plataforma**: Scripts podem se comportar diferentemente entre SOs
+- **Dependência de ambiente**: Depende de ferramentas instaladas
+- **Reprodutibilidade**: Resultados podem variar entre máquinas
 
-## When to Use Native
+## Quando Usar Native
 
-- **Daily development**: Fast iteration, familiar tools
-- **System integration**: When you need access to system resources
-- **Interactive tasks**: Prompts, editors, TUI applications
-- **Performance-critical**: When container overhead matters
+- **Desenvolvimento diário**: Iteração rápida, ferramentas familiares
+- **Integração com sistema**: Quando você precisa de acesso a recursos do sistema
+- **Tarefas interativas**: Prompts, editores, aplicações TUI
+- **Performance crítica**: Quando o overhead de container importa
 
-## Next Steps
+## Próximos Passos
 
-- [Virtual Runtime](./virtual) - For cross-platform consistency
-- [Container Runtime](./container) - For reproducible builds
+- [Runtime Virtual](./virtual) - Para consistência multiplataforma
+- [Runtime Container](./container) - Para builds reproduzíveis

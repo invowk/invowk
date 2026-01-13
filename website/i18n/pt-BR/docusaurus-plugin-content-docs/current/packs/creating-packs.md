@@ -2,46 +2,46 @@
 sidebar_position: 2
 ---
 
-# Creating Packs
+# Criando Packs
 
-Learn how to create, structure, and organize packs for your commands.
+Aprenda como criar, estruturar e organizar packs para seus comandos.
 
-## Quick Create
+## Criação Rápida
 
-Use `pack create` to scaffold a new pack:
+Use `pack create` para criar a estrutura de um novo pack:
 
 ```bash
-# Simple pack
+# Pack simples
 invowk pack create mytools
 
-# RDNS naming
+# Nomenclatura RDNS
 invowk pack create com.company.devtools
 
-# In specific directory
+# Em diretório específico
 invowk pack create mytools --path /path/to/packs
 
-# With scripts directory
+# Com diretório de scripts
 invowk pack create mytools --scripts
 ```
 
-## Generated Structure
+## Estrutura Gerada
 
-Basic pack:
+Pack básico:
 ```
 mytools.invkpack/
 └── invkfile.cue
 ```
 
-With `--scripts`:
+Com `--scripts`:
 ```
 mytools.invkpack/
 ├── invkfile.cue
 └── scripts/
 ```
 
-## Template Invkfile
+## Invkfile Template
 
-The generated `invkfile.cue`:
+O `invkfile.cue` gerado:
 
 ```cue
 group: "mytools"
@@ -66,24 +66,24 @@ commands: [
 ]
 ```
 
-## Manual Creation
+## Criação Manual
 
-You can also create packs manually:
+Você também pode criar packs manualmente:
 
 ```bash
 mkdir mytools.invkpack
 touch mytools.invkpack/invkfile.cue
 ```
 
-## Adding Scripts
+## Adicionando Scripts
 
-### Inline vs External
+### Inline vs Externo
 
-Choose based on complexity:
+Escolha baseado na complexidade:
 
 ```cue
 commands: [
-    // Simple: inline script
+    // Simples: script inline
     {
         name: "quick"
         implementations: [{
@@ -92,7 +92,7 @@ commands: [
         }]
     },
     
-    // Complex: external script
+    // Complexo: script externo
     {
         name: "complex"
         implementations: [{
@@ -103,49 +103,49 @@ commands: [
 ]
 ```
 
-### Script Organization
+### Organização de Scripts
 
 ```
 mytools.invkpack/
 ├── invkfile.cue
 └── scripts/
-    ├── build.sh           # Main scripts
+    ├── build.sh           # Scripts principais
     ├── deploy.sh
     ├── test.sh
-    └── lib/               # Shared utilities
+    └── lib/               # Utilitários compartilhados
         ├── logging.sh
         └── validation.sh
 ```
 
-### Script Paths
+### Caminhos de Script
 
-Always use forward slashes:
+Sempre use barras normais:
 
 ```cue
-// Good
+// Bom
 script: "scripts/build.sh"
 script: "scripts/lib/logging.sh"
 
-// Bad - will fail on some platforms
+// Ruim - vai falhar em algumas plataformas
 script: "scripts\\build.sh"
 
-// Bad - escapes pack directory
+// Ruim - escapa do diretório do pack
 script: "../outside.sh"
 ```
 
-## Environment Files
+## Arquivos de Environment
 
-Include `.env` files in your pack:
+Inclua arquivos `.env` no seu pack:
 
 ```
 mytools.invkpack/
 ├── invkfile.cue
-├── .env                   # Default config
-├── .env.example           # Template for users
+├── .env                   # Configuração padrão
+├── .env.example           # Template para usuários
 └── scripts/
 ```
 
-Reference them:
+Referencie-os:
 
 ```cue
 env: {
@@ -153,21 +153,21 @@ env: {
 }
 ```
 
-## Documentation
+## Documentação
 
-Include a README for users:
+Inclua um README para usuários:
 
 ```
 mytools.invkpack/
 ├── invkfile.cue
-├── README.md              # Usage instructions
-├── CHANGELOG.md           # Version history
+├── README.md              # Instruções de uso
+├── CHANGELOG.md           # Histórico de versões
 └── scripts/
 ```
 
-## Real-World Examples
+## Exemplos do Mundo Real
 
-### Build Tools Pack
+### Pack de Build Tools
 
 ```
 com.company.buildtools.invkpack/
@@ -216,7 +216,7 @@ commands: [
 ]
 ```
 
-### DevOps Pack
+### Pack DevOps
 
 ```
 org.devops.k8s.invkpack/
@@ -231,26 +231,26 @@ org.devops.k8s.invkpack/
 └── .env.example
 ```
 
-## Best Practices
+## Melhores Práticas
 
-1. **Use RDNS naming**: Prevents conflicts with other packs
-2. **Keep scripts focused**: One task per script
-3. **Include documentation**: README with usage examples
-4. **Version your pack**: Use semantic versioning
-5. **Forward slashes only**: Cross-platform compatibility
-6. **Validate before sharing**: Run `pack validate --deep`
+1. **Use nomenclatura RDNS**: Previne conflitos com outros packs
+2. **Mantenha scripts focados**: Uma tarefa por script
+3. **Inclua documentação**: README com exemplos de uso
+4. **Versione seu pack**: Use versionamento semântico
+5. **Apenas barras normais**: Compatibilidade multiplataforma
+6. **Valide antes de compartilhar**: Execute `pack validate --deep`
 
-## Validating Your Pack
+## Validando Seu Pack
 
-Before sharing, validate:
+Antes de compartilhar, valide:
 
 ```bash
 invowk pack validate mytools.invkpack --deep
 ```
 
-See [Validating](./validating) for details.
+Veja [Validando](./validating) para detalhes.
 
-## Next Steps
+## Próximos Passos
 
-- [Validating](./validating) - Ensure pack integrity
-- [Distributing](./distributing) - Share your pack
+- [Validando](./validating) - Garantir integridade do pack
+- [Distribuindo](./distributing) - Compartilhar seu pack

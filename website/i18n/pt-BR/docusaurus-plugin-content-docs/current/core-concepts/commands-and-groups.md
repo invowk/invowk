@@ -2,13 +2,13 @@
 sidebar_position: 2
 ---
 
-# Commands and Groups
+# Comandos e Grupos
 
-Every command in Invowk lives within a **group**. Think of groups as namespaces that organize your commands and prevent naming conflicts when you combine multiple invkfiles.
+Todo comando no Invowk vive dentro de um **grupo**. Pense nos grupos como namespaces que organizam seus comandos e evitam conflitos de nomenclatura quando você combina múltiplos invkfiles.
 
-## Understanding Groups
+## Entendendo Grupos
 
-The `group` field is required in every invkfile and becomes the first segment of all command names:
+O campo `group` é obrigatório em todo invkfile e se torna o primeiro segmento de todos os nomes de comandos:
 
 ```cue
 group: "myproject"
@@ -20,22 +20,22 @@ commands: [
 ]
 ```
 
-These commands become:
+Esses comandos se tornam:
 - `invowk cmd myproject build`
 - `invowk cmd myproject test`
 - `invowk cmd myproject deploy`
 
-## Group Naming Rules
+## Regras de Nomenclatura de Grupos
 
-Groups follow specific naming conventions:
+Grupos seguem convenções de nomenclatura específicas:
 
-| Rule | Valid | Invalid |
-|------|-------|---------|
-| Must start with a letter | `myproject`, `Project1` | `1project`, `_project` |
-| Letters and numbers only | `myproject`, `v2` | `my-project`, `my_project` |
-| Dots for nesting | `my.project`, `a.b.c` | `my..project`, `.project`, `project.` |
+| Regra | Válido | Inválido |
+|-------|--------|----------|
+| Deve começar com letra | `myproject`, `Project1` | `1project`, `_project` |
+| Apenas letras e números | `myproject`, `v2` | `my-project`, `my_project` |
+| Pontos para aninhamento | `my.project`, `a.b.c` | `my..project`, `.project`, `project.` |
 
-### Valid Examples
+### Exemplos Válidos
 
 ```cue
 group: "frontend"
@@ -45,20 +45,20 @@ group: "com.company.tools"
 group: "io.github.username.cli"
 ```
 
-### Invalid Examples
+### Exemplos Inválidos
 
 ```cue
-group: "my-project"     // Hyphens not allowed
-group: "my_project"     // Underscores not allowed
-group: ".project"       // Can't start with dot
-group: "project."       // Can't end with dot
-group: "my..project"    // No consecutive dots
-group: "123project"     // Must start with letter
+group: "my-project"     // Hífens não são permitidos
+group: "my_project"     // Underscores não são permitidos
+group: ".project"       // Não pode começar com ponto
+group: "project."       // Não pode terminar com ponto
+group: "my..project"    // Sem pontos consecutivos
+group: "123project"     // Deve começar com letra
 ```
 
-## Nested Groups
+## Grupos Aninhados
 
-Dots create hierarchical namespaces, useful for organizing large projects:
+Pontos criam namespaces hierárquicos, úteis para organizar projetos grandes:
 
 ```cue
 group: "com.company.frontend"
@@ -69,13 +69,13 @@ commands: [
 ]
 ```
 
-Commands become:
+Comandos se tornam:
 - `invowk cmd com.company.frontend build`
 - `invowk cmd com.company.frontend test`
 
-### RDNS Naming
+### Nomenclatura RDNS
 
-For packs or shared invkfiles, we recommend Reverse Domain Name System (RDNS) naming:
+Para packs ou invkfiles compartilhados, recomendamos a nomenclatura RDNS (Reverse Domain Name System):
 
 ```cue
 group: "com.yourcompany.devtools"
@@ -83,11 +83,11 @@ group: "io.github.username.project"
 group: "org.opensource.utilities"
 ```
 
-This prevents conflicts when combining commands from multiple sources.
+Isso evita conflitos ao combinar comandos de múltiplas fontes.
 
-## Command Names
+## Nomes de Comandos
 
-Within a group, command names can include spaces to create subcommand-like hierarchies:
+Dentro de um grupo, nomes de comandos podem incluir espaços para criar hierarquias estilo subcomandos:
 
 ```cue
 group: "myproject"
@@ -101,39 +101,39 @@ commands: [
 ]
 ```
 
-### Command Naming Rules
+### Regras de Nomenclatura de Comandos
 
-| Rule | Valid | Invalid |
-|------|-------|---------|
-| Must start with a letter | `build`, `Test` | `1build` |
-| Letters, numbers, spaces, hyphens, underscores | `test unit`, `build-all` | `build@all` |
+| Regra | Válido | Inválido |
+|-------|--------|----------|
+| Deve começar com letra | `build`, `Test` | `1build` |
+| Letras, números, espaços, hífens, underscores | `test unit`, `build-all` | `build@all` |
 
-### Hierarchical Commands
+### Comandos Hierárquicos
 
-Spaces in command names create natural hierarchies:
+Espaços em nomes de comandos criam hierarquias naturais:
 
 ```bash
-# List all commands
+# Listar todos os comandos
 invowk cmd list
 
-# Run top-level command
+# Executar comando de nível superior
 invowk cmd myproject test
 
-# Run nested command
+# Executar comando aninhado
 invowk cmd myproject test unit
 ```
 
-This is purely organizational - there's no special parent-child relationship. Each command is independent.
+Isso é puramente organizacional - não há relação especial pai-filho. Cada comando é independente.
 
-## Command Discovery
+## Descoberta de Comandos
 
-Invowk discovers commands from multiple sources in priority order:
+O Invowk descobre comandos de múltiplas fontes em ordem de prioridade:
 
-1. **Current directory** (highest priority)
-2. **User commands directory** (`~/.invowk/cmds/`)
-3. **Configured search paths** (from config file)
+1. **Diretório atual** (maior prioridade)
+2. **Diretório de comandos do usuário** (`~/.invowk/cmds/`)
+3. **Caminhos de busca configurados** (do arquivo de configuração)
 
-When listing commands, you'll see their source:
+Ao listar comandos, você verá sua origem:
 
 ```
 Available Commands
@@ -146,9 +146,9 @@ From user commands (~/.invowk/cmds):
   utils hello - A greeting [native*] (linux, macos)
 ```
 
-## Command Dependencies
+## Dependências de Comandos
 
-Commands can depend on other commands. Always use the full group-prefixed name:
+Comandos podem depender de outros comandos. Sempre use o nome completo com prefixo do grupo:
 
 ```cue
 group: "myproject"
@@ -163,7 +163,7 @@ commands: [
         implementations: [...]
         depends_on: {
             commands: [
-                // Reference by full name (group + command name)
+                // Referencie pelo nome completo (grupo + nome do comando)
                 {alternatives: ["myproject build"]}
             ]
         }
@@ -173,7 +173,7 @@ commands: [
         implementations: [...]
         depends_on: {
             commands: [
-                // Can depend on commands from other invkfiles too
+                // Pode depender de comandos de outros invkfiles também
                 {alternatives: ["myproject build"]},
                 {alternatives: ["myproject test"]},
                 {alternatives: ["other.project lint"]},
@@ -183,12 +183,12 @@ commands: [
 ]
 ```
 
-### Cross-Invkfile Dependencies
+### Dependências Entre Invkfiles
 
-Commands can depend on commands from other invkfiles:
+Comandos podem depender de comandos de outros invkfiles:
 
 ```cue
-// In frontend/invkfile.cue
+// Em frontend/invkfile.cue
 group: "frontend"
 
 commands: [
@@ -196,7 +196,7 @@ commands: [
         name: "build"
         depends_on: {
             commands: [
-                // Depends on backend build completing first
+                // Depende do build do backend completar primeiro
                 {alternatives: ["backend build"]}
             ]
         }
@@ -204,32 +204,32 @@ commands: [
 ]
 ```
 
-## Why Groups Matter
+## Por Que Grupos Importam
 
-1. **Namespace Isolation** - Multiple invkfiles can have `build` commands without conflict
-2. **Clear Origin** - You always know which invkfile a command comes from
-3. **Logical Organization** - Use nested groups for large projects
-4. **Tab Completion** - Groups provide natural completion boundaries
+1. **Isolamento de Namespace** - Múltiplos invkfiles podem ter comandos `build` sem conflito
+2. **Origem Clara** - Você sempre sabe de qual invkfile um comando vem
+3. **Organização Lógica** - Use grupos aninhados para projetos grandes
+4. **Autocompletar** - Grupos fornecem limites naturais para completar com tab
 
-## Best Practices
+## Boas Práticas
 
-### For Personal Projects
+### Para Projetos Pessoais
 
-Keep it simple:
+Mantenha simples:
 
 ```cue
 group: "myapp"
 ```
 
-### For Team Projects
+### Para Projetos de Equipe
 
-Use organization-based naming:
+Use nomenclatura baseada na organização:
 
 ```cue
 group: "teamname.projectname"
 ```
 
-### For Packs/Shared Commands
+### Para Packs/Comandos Compartilhados
 
 Use RDNS:
 
@@ -238,22 +238,22 @@ group: "com.company.toolname"
 group: "io.github.username.projectname"
 ```
 
-### Avoid Generic Names
+### Evite Nomes Genéricos
 
-Don't use names that might conflict:
+Não use nomes que podem conflitar:
 
 ```cue
-// Bad - too generic
+// Ruim - muito genérico
 group: "build"
 group: "test"
 group: "utils"
 
-// Good - namespaced
+// Bom - com namespace
 group: "myproject.build"
 group: "mycompany.utils"
 ```
 
-## Next Steps
+## Próximos Passos
 
-- [Implementations](./implementations) - Learn about platform-specific command implementations
-- [Runtime Modes](../runtime-modes/overview) - Understand native, virtual, and container execution
+- [Implementações](./implementations) - Aprenda sobre implementações de comandos específicas por plataforma
+- [Modos de Runtime](../runtime-modes/overview) - Entenda execução native, virtual e container
