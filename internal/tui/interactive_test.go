@@ -397,3 +397,76 @@ func TestInteractiveModel_ConcurrentOutputWrites(t *testing.T) {
 		t.Error("expected some content to be written")
 	}
 }
+
+func TestStripOSCColorResponses(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name:     "no OSC sequences",
+			input:    "Hello World!",
+			expected: "Hello World!",
+		},
+		{
+			name:     "OSC 11 background color with BEL terminator",
+			input:    "prefix\x1b]11;rgb:3030/0a0a/2424\x07suffix",
+			expected: "prefixsuffix",
+		},
+		{
+			name:     "OSC 11 background color with ST terminator",
+			input:    "prefix\x1b]11;rgb:3030/0a0a/2424\x1b\\suffix",
+			expected: "prefixsuffix",
+		},
+		{
+			name:     "OSC 11 without leading ESC (partial sequence)",
+			input:    "prefix]11;rgb:3030/0a0a/2424\\suffix",
+			expected: "prefixsuffix",
+		},
+		{
+			name:     "OSC 10 foreground color",
+			input:    "prefix\x1b]10;rgb:ffff/ffff/ffff\x07suffix",
+			expected: "prefixsuffix",
+		},
+		{
+			name:     "OSC 4 palette color",
+			input:    "prefix\x1b]4;0;rgb:0000/0000/0000\x07suffix",
+			expected: "prefixsuffix",
+		},
+		{
+			name:     "multiple OSC sequences",
+			input:    "\x1b]11;rgb:3030/0a0a/2424\x07You chose: green\x1b]11;rgb:3030/0a0a/2424\x07",
+			expected: "You chose: green",
+		},
+		{
+			name:     "OSC 8 hyperlink preserved",
+			input:    "\x1b]8;;https://example.com\x07link\x1b]8;;\x07",
+			expected: "\x1b]8;;https://example.com\x07link\x1b]8;;\x07",
+		},
+		{
+			name:     "OSC 0 window title preserved",
+			input:    "\x1b]0;My Window Title\x07",
+			expected: "\x1b]0;My Window Title\x07",
+		},
+		{
+			name:     "mixed content from screenshot",
+			input:    "]11;rgb:3030/0a0a/2424\\You chose: green",
+			expected: "You chose: green",
+		},
+		{
+			name:     "uppercase hex in color response",
+			input:    "\x1b]11;rgb:FFFF/AAAA/BBBB\x07text",
+			expected: "text",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := stripOSCColorResponses(tt.input)
+			if result != tt.expected {
+				t.Errorf("stripOSCColorResponses() mismatch\ngot:  %q\nwant: %q", result, tt.expected)
+			}
+		})
+	}
+}

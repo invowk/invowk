@@ -9,6 +9,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -53,6 +54,32 @@ const (
 	stateCompleted
 	stateTUI // Displaying an embedded TUI component
 )
+
+// oscColorResponseRe matches OSC color query responses from the terminal.
+// These are responses to queries made by libraries like lipgloss for adaptive
+// styling. They should never appear in displayed output.
+//
+// Matches:
+//   - OSC 10 (foreground): \x1b]10;rgb:RRRR/GGGG/BBBB followed by BEL or ST
+//   - OSC 11 (background): \x1b]11;rgb:RRRR/GGGG/BBBB followed by BEL or ST
+//   - OSC 4 (palette): \x1b]4;N;rgb:RRRR/GGGG/BBBB followed by BEL or ST
+//
+// Also matches partial sequences where the leading ESC (\x1b) was consumed.
+// Terminators: BEL (\x07), ST (\x1b\\), or backslash alone (\)
+var oscColorResponseRe = regexp.MustCompile(
+	`(?:\x1b)?\](?:10|11|4;\d+);rgb:[0-9a-fA-F]{4}/[0-9a-fA-F]{4}/[0-9a-fA-F]{4}(?:\x07|\x1b\\|\\)`,
+)
+
+// stripOSCColorResponses removes terminal color query responses from output.
+// These responses (OSC 4, 10, 11 with rgb: values) are never meant to be
+// displayed - they're terminal responses to color queries made by libraries
+// like lipgloss for adaptive styling.
+//
+// This preserves other OSC sequences like hyperlinks (OSC 8) and window
+// title changes (OSC 0, 1, 2) which are legitimate output.
+func stripOSCColorResponses(s string) string {
+	return oscColorResponseRe.ReplaceAllString(s, "")
+}
 
 // outputMsg is sent when new output is available from the PTY.
 type outputMsg struct {
@@ -638,7 +665,13 @@ func RunInteractiveCmd(ctx context.Context, opts InteractiveOptions, cmd *exec.C
 		for {
 			n, err := pty.Read(buf)
 			if n > 0 {
-				p.Send(outputMsg{content: string(buf[:n])})
+				// Strip OSC color query responses that terminals send back
+				// when libraries like lipgloss query for adaptive styling.
+				// These should never appear in displayed output.
+				content := stripOSCColorResponses(string(buf[:n]))
+				if content != "" {
+					p.Send(outputMsg{content: content})
+				}
 			}
 			if err != nil {
 				if err != io.EOF {
