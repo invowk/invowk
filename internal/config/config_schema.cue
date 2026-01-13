@@ -4,7 +4,7 @@
 package config
 
 // Config is the root configuration structure
-#Config: {
+#Config: close({
 	// container_engine specifies which container runtime to use
 	// Valid values: "podman", "docker"
 	container_engine?: "podman" | "docker"
@@ -24,18 +24,18 @@ package config
 
 	// container configures container runtime behavior
 	container?: #ContainerConfig
-}
+})
 
 // ContainerConfig configures container runtime behavior
-#ContainerConfig: {
+#ContainerConfig: close({
 	// auto_provision controls automatic provisioning of invowk resources
 	// into containers. When enabled, invowk binary and packs are automatically
 	// added to container images, enabling nested invowk commands.
 	auto_provision?: #AutoProvisionConfig
-}
+})
 
 // AutoProvisionConfig controls auto-provisioning of invowk resources
-#AutoProvisionConfig: {
+#AutoProvisionConfig: close({
 	// enabled enables/disables auto-provisioning (default: true)
 	enabled?: bool
 
@@ -50,16 +50,16 @@ package config
 	// cache_dir specifies where to store cached provisioned images metadata.
 	// Default: ~/.cache/invowk/provision
 	cache_dir?: string
-}
+})
 
 // VirtualShellConfig configures the virtual shell runtime
-#VirtualShellConfig: {
+#VirtualShellConfig: close({
 	// enable_uroot_utils enables u-root utilities in virtual shell
 	enable_uroot_utils?: bool
-}
+})
 
 // UIConfig configures the user interface
-#UIConfig: {
+#UIConfig: close({
 	// color_scheme sets the color scheme
 	// Valid values: "auto", "dark", "light"
 	color_scheme?: "auto" | "dark" | "light"
@@ -69,7 +69,7 @@ package config
 
 	// interactive enables alternate screen buffer mode for command execution
 	interactive?: bool
-}
+})
 
 // Validate that the configuration conforms to the schema
 #Config

@@ -391,6 +391,7 @@ website/docs/
 - Always refactor unit and integration tests when needed after code changes, considering both the design and semantics of the code changes.
 - After you finish code design and implementation changes, always double-check for leftovers that were not removed or changed after refactoring (e.g.: tests, CUE type definitions, README or documentation instructions, etc.).
 - Always follow the best practices for the programming language being used.
+- All CUE structs must be closed (use `close({ ... })`) so unknown fields cause validation errors.
 
 ## Interface Design
 

@@ -22,6 +22,8 @@ O arquivo de configuração usa formato [CUE](https://cuelang.org/) e está loca
 | macOS      | `~/Library/Application Support/invowk/config.cue` |
 | Windows    | `%APPDATA%\invowk\config.cue` |
 
+Arquivos de configuração são validados com structs fechadas, então campos desconhecidos geram erro de validação.
+
 ## Definição do Schema
 
 <Snippet id="reference/config/schema-definition" />

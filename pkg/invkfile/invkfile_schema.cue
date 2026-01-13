@@ -12,7 +12,7 @@
 #EnvMap: [string]: string
 
 // EnvConfig defines environment configuration for a command or implementation
-#EnvConfig: {
+#EnvConfig: close({
 	// files lists dotenv files to load (optional)
 	// Files are loaded in order; later files override earlier ones.
 	// Paths are relative to the invkfile location (or pack root for packs).
@@ -22,10 +22,10 @@
 	// vars contains environment variables as key-value pairs (optional)
 	// These override values loaded from files.
 	vars?: [string]: string
-}
+})
 
 // RuntimeConfig represents a runtime configuration with type-specific options
-#RuntimeConfig: {
+#RuntimeConfig: close({
 	// name specifies the runtime type (required)
 	name: #RuntimeType
 
@@ -57,7 +57,7 @@
 		// enable_host_ssh enables SSH access from container back to host (optional)
 		// When enabled, invowk starts an SSH server and provides connection credentials
 		// to the container via environment variables: INVOWK_SSH_HOST, INVOWK_SSH_PORT,
-		// INVOWK_SSH_USER, INVOWK_SSH_TOKEN
+		// INVOWK_SSH_USER, INVOWK_SSH_TOKEN, INVOWK_SSH_ENABLED
 		// Default: false
 		enable_host_ssh?: bool
 
@@ -79,16 +79,16 @@
 		// Example: ["8080:80", "3000:3000"]
 		ports?: [...string]
 	}
-}
+})
 
 // PlatformConfig represents a platform configuration
-#PlatformConfig: {
+#PlatformConfig: close({
 	// name specifies the platform type (required)
 	name: #PlatformType
-}
+})
 
 // Implementation represents an implementation with platform and runtime constraints
-#Implementation: {
+#Implementation: close({
 	// script contains the shell commands to execute OR a path to a script file (required)
 	// - Inline: shell commands (single or multi-line using triple quotes)
 	// - File: path to script file (e.g., "./scripts/build.sh", "deploy.sh")
@@ -124,18 +124,18 @@
 	// - container: validated against the container's default shell from within the container
 	// Implementation-level depends_on is combined with command-level depends_on
 	depends_on?: #DependsOn
-}
+})
 
 // ToolDependency represents a tool/binary that must be available in PATH
-#ToolDependency: {
+#ToolDependency: close({
 	// alternatives is a list of binary names where any match satisfies the dependency (required, at least one)
 	// If any of the provided tools is found in PATH, the validation succeeds (early return).
 	// This allows specifying multiple possible tools (e.g., ["podman", "docker"]).
 	alternatives: [...string & !=""] & [_, ...]
-}
+})
 
 // CustomCheck represents a custom validation script to verify system requirements
-#CustomCheck: {
+#CustomCheck: close({
 	// name is an identifier for this check (required)
 	// Used for error reporting and identification
 	name: string & !=""
@@ -150,7 +150,7 @@
 	// expected_output is a regex pattern to match against check_script output (optional)
 	// Can be used together with expected_code
 	expected_output?: string
-}
+})
 
 // CustomCheckDependency represents a custom check dependency that can be either:
 // - A single CustomCheck (direct check)
@@ -158,14 +158,14 @@
 #CustomCheckDependency: #CustomCheck | #CustomCheckAlternatives
 
 // CustomCheckAlternatives represents a list of alternative custom checks (OR semantics)
-#CustomCheckAlternatives: {
+#CustomCheckAlternatives: close({
 	// alternatives is a list of custom checks where any passing check satisfies the dependency (required, at least one)
 	// If any of the provided checks passes, the validation succeeds (early return).
 	alternatives: [...#CustomCheck] & [_, ...]
-}
+})
 
 // FilepathDependency represents a file or directory that must exist
-#FilepathDependency: {
+#FilepathDependency: close({
 	// alternatives is a list of file or directory paths (required, at least one)
 	// If any of the provided paths exists and satisfies the permission requirements,
 	// the validation succeeds (early return). This allows specifying multiple
@@ -181,31 +181,31 @@
 
 	// executable checks if the path is executable (optional, default: false)
 	executable?: bool
-}
+})
 
 // CommandDependency represents another invowk command that must be discoverable
-#CommandDependency: {
+#CommandDependency: close({
 	// alternatives is a list of command names where any match satisfies the dependency (required, at least one)
 	// If any of the provided commands is discoverable, the dependency is satisfied (early return).
 	// This allows specifying alternative commands (e.g., ["build-debug", "build-release"]).
 	alternatives: [...string & !=""] & [_, ...]
-}
+})
 
 // CapabilityName defines the supported system capability types
 #CapabilityName: "local-area-network" | "internet"
 
 // CapabilityDependency represents a system capability that must be available
-#CapabilityDependency: {
+#CapabilityDependency: close({
 	// alternatives is a list of capability identifiers where any match satisfies the dependency (required, at least one)
 	// If any of the provided capabilities is available, the validation succeeds (early return).
 	// Available capabilities:
 	//   - "local-area-network": checks for Local Area Network presence
 	//   - "internet": checks for working Internet connectivity
 	alternatives: [...#CapabilityName] & [_, ...]
-}
+})
 
 // EnvVarCheck represents a single environment variable check
-#EnvVarCheck: {
+#EnvVarCheck: close({
 	// name is the environment variable name to check (required, non-empty after trimming)
 	// The check verifies that this env var exists in the user's environment
 	name: string & =~"^\\s*\\S+\\s*$"
@@ -213,18 +213,18 @@
 	// validation is a regex pattern to validate the env var value (optional)
 	// If specified, the env var must exist AND its value must match this pattern
 	validation?: string
-}
+})
 
 // EnvVarDependency represents an environment variable that must exist
-#EnvVarDependency: {
+#EnvVarDependency: close({
 	// alternatives is a list of env var checks where any match satisfies the dependency (required, at least one)
 	// If any of the provided env vars exists (and passes validation if specified), the dependency is satisfied
 	// This allows specifying multiple possible env vars (e.g., ["AWS_ACCESS_KEY_ID", "AWS_PROFILE"])
 	alternatives: [...#EnvVarCheck] & [_, ...]
-}
+})
 
 // DependsOn defines the dependencies for a command
-#DependsOn: {
+#DependsOn: close({
 	// tools lists binaries that must be available in PATH before running
 	// Each tool is checked for existence in PATH using 'command -v' or equivalent
 	// Uses OR semantics: if any alternative in the list is found, the dependency is satisfied
@@ -249,10 +249,10 @@
 	// Uses OR semantics: if any alternative env var exists (and passes validation), the dependency is satisfied
 	// IMPORTANT: Validated against the user's environment BEFORE invowk sets command-level env vars
 	env_vars?: [...#EnvVarDependency]
-}
+})
 
 // Argument represents a positional command-line argument for a command
-#Argument: {
+#Argument: close({
 	// name is the argument identifier (required, POSIX-compliant)
 	// Used for documentation, environment variable naming (INVOWK_ARG_<NAME>), and error messages
 	// Must start with a letter, contain only alphanumeric characters, hyphens, and underscores
@@ -292,10 +292,10 @@
 	// Individual values are also available as INVOWK_ARG_<NAME>_1, INVOWK_ARG_<NAME>_2, etc.
 	// The count is available as INVOWK_ARG_<NAME>_COUNT
 	variadic?: bool
-}
+})
 
 // Flag represents a command-line flag for a command
-#Flag: {
+#Flag: close({
 	// name is the flag name (required, POSIX-compliant)
 	// Must start with a letter, contain only alphanumeric characters, hyphens, and underscores
 	// Examples: "verbose", "output-file", "num_retries"
@@ -331,10 +331,10 @@
 	// The flag value must match this pattern
 	// If default_value is specified, it must also match this pattern
 	validation?: string
-}
+})
 
 // Command represents a single executable command
-#Command: {
+#Command: close({
 	// name is the command identifier (required)
 	// Can include spaces for subcommand-like behavior (e.g., "test unit")
 	name: string & =~"^[a-zA-Z][a-zA-Z0-9_ -]*$"
@@ -373,12 +373,12 @@
 	// Rules:
 	//   - Required arguments must come before optional arguments
 	//   - Only the last argument can be variadic
-	//   - Commands with subcommands cannot have args (validated at discovery time)
+	//   - Commands with subcommands cannot have args (validated during command registration)
 	args?: [...#Argument]
-}
+})
 
 // Invkfile is the root schema for an invkfile
-#Invkfile: {
+#Invkfile: close({
 	// group is a mandatory prefix for all command names from this invkfile
 	// Must start with a letter, contain only alphanumeric characters, with optional
 	// dot-separated segments (e.g., "mygroup", "my.group", "my.nested.group")
@@ -419,8 +419,7 @@
 
 	// commands is not supported (use cmds)
 	commands?: _|_
-}
+})
 
 // Example usage with the cue command-line tool:
 //   cue vet invkfile.cue invkfile_schema.cue -d '#Invkfile'
-
