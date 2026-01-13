@@ -67,16 +67,15 @@ func generateInvowkfile(template string) string {
 	switch template {
 	case "minimal":
 		inv = &invowkfile.Invowkfile{
-			Version:        "1.0",
-			DefaultRuntime: invowkfile.RuntimeNative,
+			Version: "1.0",
 			Commands: []invowkfile.Command{
 				{
 					Name:        "hello",
 					Description: "Print a greeting",
-					Scripts: []invowkfile.Script{
+					Implementations: []invowkfile.Implementation{
 						{
-							Script:   "echo 'Hello from invowk!'",
-							Runtimes: []invowkfile.RuntimeMode{invowkfile.RuntimeNative},
+							Script: "echo 'Hello from invowk!'",
+							Target: invowkfile.Target{Runtimes: []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeNative}}},
 						},
 					},
 				},
@@ -85,25 +84,26 @@ func generateInvowkfile(template string) string {
 
 	case "full":
 		inv = &invowkfile.Invowkfile{
-			Version:        "1.0",
-			Description:    "Full example project commands",
-			DefaultRuntime: invowkfile.RuntimeNative,
-			DefaultShell:   "",
-			Container: invowkfile.ContainerConfig{
-				Dockerfile: "Dockerfile",
-				Image:      "alpine:latest",
-			},
-			Env: map[string]string{
-				"PROJECT_NAME": "myproject",
-			},
+			Version:     "1.0",
+			Description: "Full example project commands",
 			Commands: []invowkfile.Command{
 				{
 					Name:        "build",
 					Description: "Build the project",
-					Scripts: []invowkfile.Script{
+					Implementations: []invowkfile.Implementation{
 						{
-							Script:   "echo \"Building $PROJECT_NAME...\"\ngo build -o bin/app ./...",
-							Runtimes: []invowkfile.RuntimeMode{invowkfile.RuntimeNative, invowkfile.RuntimeContainer},
+							Script: "echo \"Building $PROJECT_NAME...\"\ngo build -o bin/app ./...",
+							Target: invowkfile.Target{
+								Runtimes: []invowkfile.RuntimeConfig{
+									{Name: invowkfile.RuntimeNative},
+									{Name: invowkfile.RuntimeContainer, Image: "golang:1.21"},
+								},
+								Platforms: []invowkfile.PlatformConfig{
+									{Name: invowkfile.PlatformLinux, Env: map[string]string{"PROJECT_NAME": "myproject"}},
+									{Name: invowkfile.PlatformMac, Env: map[string]string{"PROJECT_NAME": "myproject"}},
+									{Name: invowkfile.PlatformWindows, Env: map[string]string{"PROJECT_NAME": "myproject"}},
+								},
+							},
 						},
 					},
 					Env: map[string]string{
@@ -113,67 +113,73 @@ func generateInvowkfile(template string) string {
 				{
 					Name:        "test unit",
 					Description: "Run unit tests",
-					Scripts: []invowkfile.Script{
+					Implementations: []invowkfile.Implementation{
 						{
-							Script:   "go test -v ./...",
-							Runtimes: []invowkfile.RuntimeMode{invowkfile.RuntimeNative, invowkfile.RuntimeVirtual},
+							Script: "go test -v ./...",
+							Target: invowkfile.Target{Runtimes: []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeNative}, {Name: invowkfile.RuntimeVirtual}}},
 						},
 					},
 				},
 				{
 					Name:        "test integration",
 					Description: "Run integration tests",
-					Scripts: []invowkfile.Script{
+					Implementations: []invowkfile.Implementation{
 						{
-							Script:   "go test -v -tags=integration ./...",
-							Runtimes: []invowkfile.RuntimeMode{invowkfile.RuntimeNative},
+							Script: "go test -v -tags=integration ./...",
+							Target: invowkfile.Target{Runtimes: []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeNative}}},
 						},
 					},
 				},
 				{
 					Name:        "clean",
 					Description: "Clean build artifacts",
-					Scripts: []invowkfile.Script{
+					Implementations: []invowkfile.Implementation{
 						{
-							Script:    "rm -rf bin/ dist/",
-							Runtimes:  []invowkfile.RuntimeMode{invowkfile.RuntimeNative},
-							Platforms: []invowkfile.Platform{invowkfile.HostLinux, invowkfile.HostMac},
+							Script: "rm -rf bin/ dist/",
+							Target: invowkfile.Target{
+								Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeNative}},
+								Platforms: []invowkfile.PlatformConfig{{Name: invowkfile.PlatformLinux}, {Name: invowkfile.PlatformMac}},
+							},
 						},
 						{
-							Script:    "if exist bin rmdir /s /q bin && if exist dist rmdir /s /q dist",
-							Runtimes:  []invowkfile.RuntimeMode{invowkfile.RuntimeNative},
-							Platforms: []invowkfile.Platform{invowkfile.HostWindows},
+							Script: "if exist bin rmdir /s /q bin && if exist dist rmdir /s /q dist",
+							Target: invowkfile.Target{
+								Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeNative}},
+								Platforms: []invowkfile.PlatformConfig{{Name: invowkfile.PlatformWindows}},
+							},
 						},
 					},
 				},
 				{
 					Name:        "docker-build",
 					Description: "Build using container runtime",
-					Scripts: []invowkfile.Script{
+					Implementations: []invowkfile.Implementation{
 						{
-							Script:   "go build -o /workspace/bin/app ./...",
-							Runtimes: []invowkfile.RuntimeMode{invowkfile.RuntimeContainer},
+							Script: "go build -o /workspace/bin/app ./...",
+							Target: invowkfile.Target{Runtimes: []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeContainer, Image: "golang:1.21"}}},
 						},
 					},
 				},
 				{
 					Name:        "container hello-invowk",
 					Description: "Print a greeting from a container",
-					Scripts: []invowkfile.Script{
+					Implementations: []invowkfile.Implementation{
 						{
-							Script:   "echo \"Hello, Invowk!\"",
-							Runtimes: []invowkfile.RuntimeMode{invowkfile.RuntimeContainer},
+							Script: "echo \"Hello, Invowk!\"",
+							Target: invowkfile.Target{Runtimes: []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeContainer, Image: "alpine:latest"}}},
 						},
 					},
 				},
 				{
 					Name:        "release",
 					Description: "Create a release",
-					Scripts: []invowkfile.Script{
+					Implementations: []invowkfile.Implementation{
 						{
-							Script:    "echo 'Creating release...'",
-							Runtimes:  []invowkfile.RuntimeMode{invowkfile.RuntimeNative},
-							Platforms: []invowkfile.Platform{invowkfile.HostLinux, invowkfile.HostMac},
+							Script: "echo 'Creating release...'",
+							Target: invowkfile.Target{
+								Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeNative}},
+								Platforms: []invowkfile.PlatformConfig{{Name: invowkfile.PlatformLinux}, {Name: invowkfile.PlatformMac}},
+							},
 						},
 					},
 					DependsOn: &invowkfile.DependsOn{
@@ -192,37 +198,36 @@ func generateInvowkfile(template string) string {
 
 	default: // "default"
 		inv = &invowkfile.Invowkfile{
-			Version:        "1.0",
-			Description:    "Project commands",
-			DefaultRuntime: invowkfile.RuntimeNative,
+			Version:     "1.0",
+			Description: "Project commands",
 			Commands: []invowkfile.Command{
 				{
 					Name:        "build",
 					Description: "Build the project",
-					Scripts: []invowkfile.Script{
+					Implementations: []invowkfile.Implementation{
 						{
-							Script:   "echo 'Building...'\n# Add your build commands here",
-							Runtimes: []invowkfile.RuntimeMode{invowkfile.RuntimeNative},
+							Script: "echo 'Building...'\n# Add your build commands here",
+							Target: invowkfile.Target{Runtimes: []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeNative}}},
 						},
 					},
 				},
 				{
 					Name:        "test",
 					Description: "Run tests",
-					Scripts: []invowkfile.Script{
+					Implementations: []invowkfile.Implementation{
 						{
-							Script:   "echo 'Testing...'\n# Add your test commands here",
-							Runtimes: []invowkfile.RuntimeMode{invowkfile.RuntimeNative},
+							Script: "echo 'Testing...'\n# Add your test commands here",
+							Target: invowkfile.Target{Runtimes: []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeNative}}},
 						},
 					},
 				},
 				{
 					Name:        "clean",
 					Description: "Clean build artifacts",
-					Scripts: []invowkfile.Script{
+					Implementations: []invowkfile.Implementation{
 						{
-							Script:   "echo 'Cleaning...'\n# Add your clean commands here",
-							Runtimes: []invowkfile.RuntimeMode{invowkfile.RuntimeNative},
+							Script: "echo 'Cleaning...'\n# Add your clean commands here",
+							Target: invowkfile.Target{Runtimes: []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeNative}}},
 						},
 					},
 				},

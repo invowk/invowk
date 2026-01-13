@@ -11,6 +11,7 @@ import (
 	"invowk-cli/internal/config"
 	"invowk-cli/internal/container"
 	"invowk-cli/internal/sshserver"
+	"invowk-cli/pkg/invowkfile"
 )
 
 // ContainerRuntime executes commands inside a container
@@ -51,21 +52,29 @@ func (r *ContainerRuntime) Available() bool {
 
 // Validate checks if a command can be executed
 func (r *ContainerRuntime) Validate(ctx *ExecutionContext) error {
-	if ctx.SelectedScript == nil {
-		return fmt.Errorf("no script selected for execution")
+	if ctx.SelectedImpl == nil {
+		return fmt.Errorf("no implementation selected for execution")
 	}
-	if ctx.SelectedScript.Script == "" {
-		return fmt.Errorf("script has no content to execute")
+	if ctx.SelectedImpl.Script == "" {
+		return fmt.Errorf("implementation has no script to execute")
 	}
 
-	// Check for Dockerfile or image
-	containerCfg := ctx.Invowkfile.Container
-	if containerCfg.Dockerfile == "" && containerCfg.Image == "" {
-		// Check for default Dockerfile
+	// Get the container runtime config
+	rtConfig := ctx.SelectedImpl.GetRuntimeConfig(ctx.SelectedRuntime)
+	if rtConfig == nil {
+		return fmt.Errorf("runtime config not found for container runtime")
+	}
+
+	// Check for containerfile or image
+	if rtConfig.Containerfile == "" && rtConfig.Image == "" {
+		// Check for default Containerfile/Dockerfile
 		invowkDir := filepath.Dir(ctx.Invowkfile.FilePath)
+		containerfilePath := filepath.Join(invowkDir, "Containerfile")
 		dockerfilePath := filepath.Join(invowkDir, "Dockerfile")
-		if _, err := os.Stat(dockerfilePath); err != nil {
-			return fmt.Errorf("container runtime requires a Dockerfile at %s or an image specified in the invowkfile", invowkDir)
+		if _, err := os.Stat(containerfilePath); err != nil {
+			if _, err := os.Stat(dockerfilePath); err != nil {
+				return fmt.Errorf("container runtime requires a Containerfile or Dockerfile at %s, or an image specified in the runtime config", invowkDir)
+			}
 		}
 	}
 
@@ -74,11 +83,16 @@ func (r *ContainerRuntime) Validate(ctx *ExecutionContext) error {
 
 // Execute runs a command in a container
 func (r *ContainerRuntime) Execute(ctx *ExecutionContext) *Result {
-	containerCfg := r.initFromInvowkfile(ctx)
+	// Get the container runtime config
+	rtConfig := ctx.SelectedImpl.GetRuntimeConfig(ctx.SelectedRuntime)
+	if rtConfig == nil {
+		return &Result{ExitCode: 1, Error: fmt.Errorf("runtime config not found for container runtime")}
+	}
+	containerCfg := containerConfigFromRuntime(rtConfig)
 	invowkDir := filepath.Dir(ctx.Invowkfile.FilePath)
 
 	// Resolve the script content (from file or inline)
-	script, err := ctx.SelectedScript.ResolveScript(ctx.Invowkfile.FilePath)
+	script, err := ctx.SelectedImpl.ResolveScript(ctx.Invowkfile.FilePath)
 	if err != nil {
 		return &Result{ExitCode: 1, Error: err}
 	}
@@ -92,9 +106,12 @@ func (r *ContainerRuntime) Execute(ctx *ExecutionContext) *Result {
 	// Build environment
 	env := r.buildEnv(ctx)
 
+	// Check if host SSH is enabled for this runtime
+	hostSSHEnabled := ctx.SelectedImpl.GetHostSSHForRuntime(ctx.SelectedRuntime)
+
 	// Handle host SSH access if enabled
 	var sshConnInfo *sshserver.ConnectionInfo
-	if ctx.SelectedScript.HostSSH {
+	if hostSSHEnabled {
 		if r.sshServer == nil {
 			return &Result{ExitCode: 1, Error: fmt.Errorf("host_ssh is enabled but SSH server is not configured")}
 		}
@@ -151,7 +168,7 @@ func (r *ContainerRuntime) Execute(ctx *ExecutionContext) *Result {
 
 	// Build extra hosts for SSH server access
 	var extraHosts []string
-	if ctx.SelectedScript.HostSSH && sshConnInfo != nil {
+	if hostSSHEnabled && sshConnInfo != nil {
 		// Add host gateway for accessing host from container
 		extraHosts = append(extraHosts, "host.docker.internal:host-gateway")
 	}
@@ -190,15 +207,21 @@ func (r *ContainerRuntime) ensureImage(ctx *ExecutionContext, cfg invowkfileCont
 		return cfg.Image, nil
 	}
 
-	// Build from Dockerfile
-	dockerfile := cfg.Dockerfile
-	if dockerfile == "" {
-		dockerfile = "Dockerfile"
+	// Build from Containerfile/Dockerfile
+	containerfile := cfg.Containerfile
+	if containerfile == "" {
+		// Try Containerfile first, then Dockerfile
+		containerfilePath := filepath.Join(invowkDir, "Containerfile")
+		if _, err := os.Stat(containerfilePath); err == nil {
+			containerfile = "Containerfile"
+		} else {
+			containerfile = "Dockerfile"
+		}
 	}
 
-	dockerfilePath := filepath.Join(invowkDir, dockerfile)
-	if _, err := os.Stat(dockerfilePath); err != nil {
-		return "", fmt.Errorf("Dockerfile not found at %s", dockerfilePath)
+	containerfilePath := filepath.Join(invowkDir, containerfile)
+	if _, err := os.Stat(containerfilePath); err != nil {
+		return "", fmt.Errorf("containerfile not found at %s", containerfilePath)
 	}
 
 	// Generate a unique image tag based on invowkfile path
@@ -213,12 +236,12 @@ func (r *ContainerRuntime) ensureImage(ctx *ExecutionContext, cfg invowkfileCont
 
 	// Build the image
 	if ctx.Verbose {
-		fmt.Fprintf(ctx.Stdout, "Building container image from %s...\n", dockerfilePath)
+		fmt.Fprintf(ctx.Stdout, "Building container image from %s...\n", containerfilePath)
 	}
 
 	buildOpts := container.BuildOptions{
 		ContextDir: invowkDir,
-		Dockerfile: dockerfile,
+		Dockerfile: containerfile,
 		Tag:        imageTag,
 		Stdout:     ctx.Stdout,
 		Stderr:     ctx.Stderr,
@@ -243,9 +266,15 @@ func (r *ContainerRuntime) generateImageTag(invowkfilePath string) string {
 func (r *ContainerRuntime) buildEnv(ctx *ExecutionContext) map[string]string {
 	env := make(map[string]string)
 
-	// Invowkfile-level env
-	for k, v := range ctx.Invowkfile.Env {
-		env[k] = v
+	// Platform-level env from the selected implementation
+	currentPlatform := invowkfile.GetCurrentHostOS()
+	for _, p := range ctx.SelectedImpl.Target.Platforms {
+		if p.Name == currentPlatform {
+			for k, v := range p.Env {
+				env[k] = v
+			}
+			break
+		}
 	}
 
 	// Command-level env
@@ -261,12 +290,25 @@ func (r *ContainerRuntime) buildEnv(ctx *ExecutionContext) map[string]string {
 	return env
 }
 
-// invowkfileContainerConfig is a local alias for container config
+// invowkfileContainerConfig is a local type for container config extracted from RuntimeConfig
 type invowkfileContainerConfig struct {
-	Dockerfile string
-	Image      string
-	Volumes    []string
-	Ports      []string
+	Containerfile string
+	Image         string
+	Volumes       []string
+	Ports         []string
+}
+
+// containerConfigFromRuntime extracts container config from RuntimeConfig
+func containerConfigFromRuntime(rt *invowkfile.RuntimeConfig) invowkfileContainerConfig {
+	if rt == nil {
+		return invowkfileContainerConfig{}
+	}
+	return invowkfileContainerConfig{
+		Containerfile: rt.Containerfile,
+		Image:         rt.Image,
+		Volumes:       append([]string{}, rt.Volumes...),
+		Ports:         append([]string{}, rt.Ports...),
+	}
 }
 
 // CleanupImage removes the built image for an invowkfile
@@ -283,94 +325,18 @@ func (r *ContainerRuntime) GetEngineName() string {
 	return r.engine.Name()
 }
 
-// toContainerConfig converts invowkfile container config to local type
-func toContainerConfig(cfg any) invowkfileContainerConfig {
-	// Type assertion for the actual invowkfile.ContainerConfig type
-	type containerConfigLike interface {
-		GetDockerfile() string
-		GetImage() string
-		GetVolumes() []string
-		GetPorts() []string
-	}
-
-	// Use reflection or direct field access based on actual type
-	// For now, we'll use a simpler approach by directly accessing fields
-	return invowkfileContainerConfig{}
-}
-
-// fixContainerRuntime is a helper to properly initialize container runtime
-func (r *ContainerRuntime) initFromInvowkfile(ctx *ExecutionContext) invowkfileContainerConfig {
-	return invowkfileContainerConfig{
-		Dockerfile: ctx.Invowkfile.Container.Dockerfile,
-		Image:      ctx.Invowkfile.Container.Image,
-		Volumes:    append([]string{}, ctx.Invowkfile.Container.Volumes...),
-		Ports:      append([]string{}, ctx.Invowkfile.Container.Ports...),
-	}
-}
-
-// Update Execute to use the helper
-func (r *ContainerRuntime) executeContainer(ctx *ExecutionContext) *Result {
-	containerCfg := r.initFromInvowkfile(ctx)
-	invowkDir := filepath.Dir(ctx.Invowkfile.FilePath)
-
-	// Resolve the script content
-	script, err := ctx.SelectedScript.ResolveScript(ctx.Invowkfile.FilePath)
-	if err != nil {
-		return &Result{ExitCode: 1, Error: err}
-	}
-
-	image, err := r.ensureImage(ctx, containerCfg, invowkDir)
-	if err != nil {
-		return &Result{ExitCode: 1, Error: fmt.Errorf("failed to prepare container image: %w", err)}
-	}
-
-	env := r.buildEnv(ctx)
-	volumes := containerCfg.Volumes
-	volumes = append(volumes, fmt.Sprintf("%s:/workspace", invowkDir))
-
-	shellCmd := []string{"/bin/sh", "-c", script}
-
-	workDir := "/workspace"
-	if ctx.Command.WorkDir != "" {
-		if filepath.IsAbs(ctx.Command.WorkDir) {
-			workDir = ctx.Command.WorkDir
-		} else {
-			workDir = filepath.Join("/workspace", ctx.Command.WorkDir)
-		}
-	}
-
-	runOpts := container.RunOptions{
-		Image:       image,
-		Command:     shellCmd,
-		WorkDir:     workDir,
-		Env:         env,
-		Volumes:     volumes,
-		Ports:       containerCfg.Ports,
-		Remove:      true,
-		Stdin:       ctx.Stdin,
-		Stdout:      ctx.Stdout,
-		Stderr:      ctx.Stderr,
-		Interactive: ctx.Stdin != nil,
-	}
-
-	result, err := r.engine.Run(ctx.Context, runOpts)
-	if err != nil {
-		return &Result{ExitCode: 1, Error: fmt.Errorf("failed to run container: %w", err)}
-	}
-
-	return &Result{
-		ExitCode: result.ExitCode,
-		Error:    result.Error,
-	}
-}
-
 // ShellInContainer opens an interactive shell in the container
 func (r *ContainerRuntime) ShellInContainer(ctx *ExecutionContext, shell string) *Result {
 	if shell == "" {
 		shell = "/bin/sh"
 	}
 
-	containerCfg := r.initFromInvowkfile(ctx)
+	// Get the container runtime config
+	rtConfig := ctx.SelectedImpl.GetRuntimeConfig(ctx.SelectedRuntime)
+	if rtConfig == nil {
+		return &Result{ExitCode: 1, Error: fmt.Errorf("runtime config not found for container runtime")}
+	}
+	containerCfg := containerConfigFromRuntime(rtConfig)
 	invowkDir := filepath.Dir(ctx.Invowkfile.FilePath)
 
 	image, err := r.ensureImage(ctx, containerCfg, invowkDir)

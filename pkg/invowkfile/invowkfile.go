@@ -16,7 +16,7 @@ import (
 //go:embed invowkfile_schema.cue
 var invowkfileSchema string
 
-// RuntimeMode defines how commands are executed
+// RuntimeMode defines how commands are executed (the type of runtime)
 type RuntimeMode string
 
 const (
@@ -27,6 +27,57 @@ const (
 	// RuntimeContainer executes commands inside a disposable container
 	RuntimeContainer RuntimeMode = "container"
 )
+
+// RuntimeConfig represents a runtime configuration with type-specific options
+type RuntimeConfig struct {
+	// Name specifies the runtime type (required)
+	Name RuntimeMode `json:"name"`
+	// HostSSH enables SSH access from container back to host (container only)
+	// Only valid when Name is "container". Default: false
+	HostSSH bool `json:"host_ssh,omitempty"`
+	// Containerfile specifies the path to Containerfile/Dockerfile (container only)
+	// Mutually exclusive with Image
+	Containerfile string `json:"containerfile,omitempty"`
+	// Image specifies a pre-built container image to use (container only)
+	// Mutually exclusive with Containerfile
+	Image string `json:"image,omitempty"`
+	// Volumes specifies volume mounts in "host:container" format (container only)
+	Volumes []string `json:"volumes,omitempty"`
+	// Ports specifies port mappings in "host:container" format (container only)
+	Ports []string `json:"ports,omitempty"`
+}
+
+// PlatformType represents a target platform type
+type PlatformType string
+
+const (
+	// PlatformLinux represents Linux operating system
+	PlatformLinux PlatformType = "linux"
+	// PlatformMac represents macOS operating system
+	PlatformMac PlatformType = "macos"
+	// PlatformWindows represents Windows operating system
+	PlatformWindows PlatformType = "windows"
+)
+
+// PlatformConfig represents a platform configuration with optional environment variables
+type PlatformConfig struct {
+	// Name specifies the platform type (required)
+	Name PlatformType `json:"name"`
+	// Env contains environment variables specific to this platform (optional)
+	Env map[string]string `json:"env,omitempty"`
+}
+
+// Target defines the runtime and platform constraints for an implementation
+type Target struct {
+	// Runtimes specifies which runtimes can execute this implementation (required, at least one)
+	// The first element is the default runtime for this platform combination
+	// Each runtime is a struct with a Name field and optional type-specific fields
+	Runtimes []RuntimeConfig `json:"runtimes"`
+	// Platforms specifies which operating systems this implementation is for (optional)
+	// If empty/nil, the implementation applies to all platforms
+	// Each platform is a struct with a Name field
+	Platforms []PlatformConfig `json:"platforms,omitempty"`
+}
 
 // ToolDependency represents a tool/binary that must be available in PATH
 type ToolDependency struct {
@@ -75,33 +126,30 @@ type DependsOn struct {
 	Filepaths []FilepathDependency `json:"filepaths,omitempty"`
 }
 
-// HostOS represents a supported operating system
-type HostOS string
+// HostOS represents a supported operating system (deprecated, use PlatformType)
+type HostOS = PlatformType
 
 const (
 	// HostLinux represents Linux operating system
-	HostLinux HostOS = "linux"
+	HostLinux = PlatformLinux
 	// HostMac represents macOS operating system
-	HostMac HostOS = "macos"
+	HostMac = PlatformMac
 	// HostWindows represents Windows operating system
-	HostWindows HostOS = "windows"
+	HostWindows = PlatformWindows
 )
 
-// Platform represents a target platform (alias for HostOS for clarity)
-type Platform = HostOS
+// Platform represents a target platform (alias for PlatformType for clarity)
+type Platform = PlatformType
 
-// Script represents a script with platform and runtime constraints
-type Script struct {
+// Implementation represents an implementation with platform and runtime constraints
+type Implementation struct {
 	// Script contains the shell commands to execute OR a path to a script file
 	Script string `json:"script"`
-	// Runtimes specifies which runtimes can execute this script (required, at least one)
-	// The first element is the default runtime for this platform combination
-	Runtimes []RuntimeMode `json:"runtimes"`
-	// Platforms specifies which operating systems this script is for (optional)
-	// If empty/nil, the script applies to all platforms
-	Platforms []Platform `json:"platforms,omitempty"`
-	// HostSSH enables SSH access from container back to host (container runtime only)
-	HostSSH bool `json:"host_ssh,omitempty"`
+	// Target defines the runtime and platform constraints (required)
+	Target Target `json:"target"`
+	// DependsOn specifies dependencies that must be satisfied before running this implementation
+	// These dependencies are validated according to the runtime being used
+	DependsOn *DependsOn `json:"depends_on,omitempty"`
 
 	// resolvedScript caches the resolved script content
 	resolvedScript string
@@ -109,14 +157,17 @@ type Script struct {
 	scriptResolved bool
 }
 
+// Script is an alias for Implementation for backward compatibility
+type Script = Implementation
+
 // Command represents a single command that can be executed
 type Command struct {
 	// Name is the command identifier (can include spaces for subcommand-like behavior, e.g., "test unit")
 	Name string `json:"name"`
 	// Description provides help text for the command
 	Description string `json:"description,omitempty"`
-	// Scripts defines the executable scripts with platform/runtime constraints (required, at least one)
-	Scripts []Script `json:"scripts"`
+	// Implementations defines the executable implementations with platform/runtime constraints (required, at least one)
+	Implementations []Implementation `json:"implementations"`
 	// Env contains environment variables to set for this command
 	Env map[string]string `json:"env,omitempty"`
 	// WorkDir specifies the working directory for command execution
@@ -154,10 +205,10 @@ type ScriptMatch struct {
 	IsDefaultForPlatform bool
 }
 
-// GetScriptForPlatformRuntime finds the script that matches the given platform and runtime
-func (c *Command) GetScriptForPlatformRuntime(platform Platform, runtime RuntimeMode) *Script {
-	for i := range c.Scripts {
-		s := &c.Scripts[i]
+// GetImplForPlatformRuntime finds the script that matches the given platform and runtime
+func (c *Command) GetImplForPlatformRuntime(platform Platform, runtime RuntimeMode) *Script {
+	for i := range c.Implementations {
+		s := &c.Implementations[i]
 		if s.MatchesPlatform(platform) && s.HasRuntime(runtime) {
 			return s
 		}
@@ -165,20 +216,20 @@ func (c *Command) GetScriptForPlatformRuntime(platform Platform, runtime Runtime
 	return nil
 }
 
-// GetScriptsForPlatform returns all scripts that can run on the given platform
-func (c *Command) GetScriptsForPlatform(platform Platform) []*Script {
+// GetImplsForPlatform returns all scripts that can run on the given platform
+func (c *Command) GetImplsForPlatform(platform Platform) []*Script {
 	var result []*Script
-	for i := range c.Scripts {
-		if c.Scripts[i].MatchesPlatform(platform) {
-			result = append(result, &c.Scripts[i])
+	for i := range c.Implementations {
+		if c.Implementations[i].MatchesPlatform(platform) {
+			result = append(result, &c.Implementations[i])
 		}
 	}
 	return result
 }
 
-// GetDefaultScriptForPlatform returns the first script that matches the platform (default)
-func (c *Command) GetDefaultScriptForPlatform(platform Platform) *Script {
-	scripts := c.GetScriptsForPlatform(platform)
+// GetDefaultImplForPlatform returns the first script that matches the platform (default)
+func (c *Command) GetDefaultImplForPlatform(platform Platform) *Script {
+	scripts := c.GetImplsForPlatform(platform)
 	if len(scripts) == 0 {
 		return nil
 	}
@@ -188,17 +239,17 @@ func (c *Command) GetDefaultScriptForPlatform(platform Platform) *Script {
 // GetDefaultRuntimeForPlatform returns the default runtime for the given platform
 // The default runtime is the first runtime of the first script that matches the platform
 func (c *Command) GetDefaultRuntimeForPlatform(platform Platform) RuntimeMode {
-	script := c.GetDefaultScriptForPlatform(platform)
-	if script == nil || len(script.Runtimes) == 0 {
+	script := c.GetDefaultImplForPlatform(platform)
+	if script == nil || len(script.Target.Runtimes) == 0 {
 		return RuntimeNative
 	}
-	return script.Runtimes[0]
+	return script.Target.Runtimes[0].Name
 }
 
 // CanRunOnCurrentHost returns true if the command can run on the current host OS
 func (c *Command) CanRunOnCurrentHost() bool {
 	currentOS := GetCurrentHostOS()
-	return len(c.GetScriptsForPlatform(currentOS)) > 0
+	return len(c.GetImplsForPlatform(currentOS)) > 0
 }
 
 // GetSupportedPlatforms returns all platforms that this command supports
@@ -206,15 +257,15 @@ func (c *Command) GetSupportedPlatforms() []Platform {
 	platformSet := make(map[Platform]bool)
 	allPlatforms := []Platform{HostLinux, HostMac, HostWindows}
 
-	for _, s := range c.Scripts {
-		if len(s.Platforms) == 0 {
+	for _, s := range c.Implementations {
+		if len(s.Target.Platforms) == 0 {
 			// Script applies to all platforms
 			for _, p := range allPlatforms {
 				platformSet[p] = true
 			}
 		} else {
-			for _, p := range s.Platforms {
-				platformSet[p] = true
+			for _, p := range s.Target.Platforms {
+				platformSet[p.Name] = true
 			}
 		}
 	}
@@ -246,12 +297,12 @@ func (c *Command) GetAllowedRuntimesForPlatform(platform Platform) []RuntimeMode
 	runtimeSet := make(map[RuntimeMode]bool)
 	var orderedRuntimes []RuntimeMode
 
-	for _, s := range c.Scripts {
+	for _, s := range c.Implementations {
 		if s.MatchesPlatform(platform) {
-			for _, r := range s.Runtimes {
-				if !runtimeSet[r] {
-					runtimeSet[r] = true
-					orderedRuntimes = append(orderedRuntimes, r)
+			for _, r := range s.Target.Runtimes {
+				if !runtimeSet[r.Name] {
+					runtimeSet[r.Name] = true
+					orderedRuntimes = append(orderedRuntimes, r.Name)
 				}
 			}
 		}
@@ -291,21 +342,25 @@ func (c *Command) IsRuntimeAllowedForPlatform(platform Platform, runtime Runtime
 // Returns an error with a descriptive message if duplicates are found
 func (c *Command) ValidateScripts() error {
 	seen := make(map[PlatformRuntimeKey]int) // key -> script index (1-based for error messages)
-	allPlatforms := []Platform{HostLinux, HostMac, HostWindows}
+	allPlatforms := []PlatformConfig{
+		{Name: PlatformLinux},
+		{Name: PlatformMac},
+		{Name: PlatformWindows},
+	}
 
-	for i, s := range c.Scripts {
-		platforms := s.Platforms
+	for i, s := range c.Implementations {
+		platforms := s.Target.Platforms
 		if len(platforms) == 0 {
 			platforms = allPlatforms // Applies to all platforms
 		}
 
 		for _, p := range platforms {
-			for _, r := range s.Runtimes {
-				key := PlatformRuntimeKey{Platform: p, Runtime: r}
+			for _, r := range s.Target.Runtimes {
+				key := PlatformRuntimeKey{Platform: p.Name, Runtime: r.Name}
 				if existingIdx, exists := seen[key]; exists {
 					return fmt.Errorf(
 						"command '%s' has duplicate platform+runtime combination: platform=%s, runtime=%s (scripts #%d and #%d)",
-						c.Name, p, r, existingIdx, i+1,
+						c.Name, p.Name, r.Name, existingIdx, i+1,
 					)
 				}
 				seen[key] = i + 1
@@ -317,11 +372,11 @@ func (c *Command) ValidateScripts() error {
 
 // MatchesPlatform returns true if the script can run on the given platform
 func (s *Script) MatchesPlatform(platform Platform) bool {
-	if len(s.Platforms) == 0 {
+	if len(s.Target.Platforms) == 0 {
 		return true // No platforms specified = all platforms
 	}
-	for _, p := range s.Platforms {
-		if p == platform {
+	for _, p := range s.Target.Platforms {
+		if p.Name == platform {
 			return true
 		}
 	}
@@ -330,23 +385,88 @@ func (s *Script) MatchesPlatform(platform Platform) bool {
 
 // HasRuntime returns true if the script supports the given runtime
 func (s *Script) HasRuntime(runtime RuntimeMode) bool {
-	for _, r := range s.Runtimes {
-		if r == runtime {
+	for _, r := range s.Target.Runtimes {
+		if r.Name == runtime {
 			return true
 		}
 	}
 	return false
 }
 
-// HasDependencies returns true if the command has any dependencies
+// GetRuntimeConfig returns the RuntimeConfig for the given runtime type, or nil if not found
+func (s *Script) GetRuntimeConfig(runtime RuntimeMode) *RuntimeConfig {
+	for i := range s.Target.Runtimes {
+		if s.Target.Runtimes[i].Name == runtime {
+			return &s.Target.Runtimes[i]
+		}
+	}
+	return nil
+}
+
+// GetDefaultRuntime returns the default runtime type for this script (first runtime in the list)
+func (s *Script) GetDefaultRuntime() RuntimeMode {
+	if len(s.Target.Runtimes) == 0 {
+		return RuntimeNative
+	}
+	return s.Target.Runtimes[0].Name
+}
+
+// GetDefaultRuntimeConfig returns the default RuntimeConfig for this script (first in the list)
+func (s *Script) GetDefaultRuntimeConfig() *RuntimeConfig {
+	if len(s.Target.Runtimes) == 0 {
+		return nil
+	}
+	return &s.Target.Runtimes[0]
+}
+
+// HasHostSSH returns true if any runtime in this script has host_ssh enabled
+func (s *Script) HasHostSSH() bool {
+	for _, r := range s.Target.Runtimes {
+		if r.Name == RuntimeContainer && r.HostSSH {
+			return true
+		}
+	}
+	return false
+}
+
+// GetHostSSHForRuntime returns whether host_ssh is enabled for the given runtime
+func (s *Script) GetHostSSHForRuntime(runtime RuntimeMode) bool {
+	if runtime != RuntimeContainer {
+		return false // host_ssh is only valid for container runtime
+	}
+	rc := s.GetRuntimeConfig(runtime)
+	if rc == nil {
+		return false
+	}
+	return rc.HostSSH
+}
+
+// HasDependencies returns true if the command has any dependencies (at command or script level)
 func (c *Command) HasDependencies() bool {
+	// Check command-level dependencies
+	if c.DependsOn != nil {
+		if len(c.DependsOn.Tools) > 0 || len(c.DependsOn.Commands) > 0 || len(c.DependsOn.Filepaths) > 0 {
+			return true
+		}
+	}
+	// Check implementation-level dependencies
+	for _, s := range c.Implementations {
+		if s.HasDependencies() {
+			return true
+		}
+	}
+	return false
+}
+
+// HasCommandLevelDependencies returns true if the command has command-level dependencies only
+func (c *Command) HasCommandLevelDependencies() bool {
 	if c.DependsOn == nil {
 		return false
 	}
 	return len(c.DependsOn.Tools) > 0 || len(c.DependsOn.Commands) > 0 || len(c.DependsOn.Filepaths) > 0
 }
 
-// GetCommandDependencies returns the list of command dependency names
+// GetCommandDependencies returns the list of command dependency names (from command level)
 func (c *Command) GetCommandDependencies() []string {
 	if c.DependsOn == nil {
 		return nil
@@ -356,6 +476,62 @@ func (c *Command) GetCommandDependencies() []string {
 		names[i] = dep.Name
 	}
 	return names
+}
+
+// HasDependencies returns true if the script has any dependencies
+func (s *Script) HasDependencies() bool {
+	if s.DependsOn == nil {
+		return false
+	}
+	return len(s.DependsOn.Tools) > 0 || len(s.DependsOn.Commands) > 0 || len(s.DependsOn.Filepaths) > 0
+}
+
+// GetCommandDependencies returns the list of command dependency names from this script
+func (s *Script) GetCommandDependencies() []string {
+	if s.DependsOn == nil {
+		return nil
+	}
+	names := make([]string, len(s.DependsOn.Commands))
+	for i, dep := range s.DependsOn.Commands {
+		names[i] = dep.Name
+	}
+	return names
+}
+
+// MergeDependsOn merges command-level and implementation-level dependencies
+// Implementation-level dependencies are added to command-level dependencies
+// Returns a new DependsOn struct with combined dependencies
+func MergeDependsOn(cmdDeps, scriptDeps *DependsOn) *DependsOn {
+	if cmdDeps == nil && scriptDeps == nil {
+		return nil
+	}
+
+	merged := &DependsOn{
+		Tools:     make([]ToolDependency, 0),
+		Commands:  make([]CommandDependency, 0),
+		Filepaths: make([]FilepathDependency, 0),
+	}
+
+	// Add command-level dependencies first
+	if cmdDeps != nil {
+		merged.Tools = append(merged.Tools, cmdDeps.Tools...)
+		merged.Commands = append(merged.Commands, cmdDeps.Commands...)
+		merged.Filepaths = append(merged.Filepaths, cmdDeps.Filepaths...)
+	}
+
+	// Add implementation-level dependencies
+	if scriptDeps != nil {
+		merged.Tools = append(merged.Tools, scriptDeps.Tools...)
+		merged.Commands = append(merged.Commands, scriptDeps.Commands...)
+		merged.Filepaths = append(merged.Filepaths, scriptDeps.Filepaths...)
+	}
+
+	// Return nil if no dependencies after merging
+	if len(merged.Tools) == 0 && len(merged.Commands) == 0 && len(merged.Filepaths) == 0 {
+		return nil
+	}
+
+	return merged
 }
 
 // scriptFileExtensions contains extensions that indicate a script file
@@ -460,32 +636,14 @@ func (s *Script) ResolveScriptWithFS(invowkfilePath string, readFile func(path s
 	return script, nil
 }
 
-// ContainerConfig defines container-specific settings
-type ContainerConfig struct {
-	// Dockerfile specifies the path to Dockerfile (relative to invowkfile)
-	Dockerfile string `json:"dockerfile,omitempty"`
-	// Image specifies a pre-built image to use instead of building from Dockerfile
-	Image string `json:"image,omitempty"`
-	// Volumes specifies volume mounts in "host:container" format
-	Volumes []string `json:"volumes,omitempty"`
-	// Ports specifies port mappings in "host:container" format
-	Ports []string `json:"ports,omitempty"`
-}
-
 // Invowkfile represents the complete parsed invowkfile
 type Invowkfile struct {
 	// Version specifies the invowkfile schema version
 	Version string `json:"version,omitempty"`
 	// Description provides a summary of this invowkfile's purpose
 	Description string `json:"description,omitempty"`
-	// DefaultRuntime sets the default runtime for all commands
-	DefaultRuntime RuntimeMode `json:"default_runtime,omitempty"`
 	// DefaultShell overrides the default shell for native runtime
 	DefaultShell string `json:"default_shell,omitempty"`
-	// Container holds container-specific configuration
-	Container ContainerConfig `json:"container,omitempty"`
-	// Env contains environment variables applied to all commands
-	Env map[string]string `json:"env,omitempty"`
 	// Commands defines the available commands
 	Commands []Command `json:"commands"`
 
@@ -540,11 +698,6 @@ func ParseBytes(data []byte, path string) (*Invowkfile, error) {
 
 	inv.FilePath = path
 
-	// Apply defaults
-	if inv.DefaultRuntime == "" {
-		inv.DefaultRuntime = RuntimeNative
-	}
-
 	// Validate and apply command defaults
 	if err := inv.validate(); err != nil {
 		return nil, err
@@ -559,13 +712,6 @@ func (inv *Invowkfile) validate() error {
 		return fmt.Errorf("invowkfile at %s has no commands defined", inv.FilePath)
 	}
 
-	// Check container runtime requirements
-	if inv.DefaultRuntime == RuntimeContainer {
-		if err := inv.validateContainerConfig(); err != nil {
-			return err
-		}
-	}
-
 	// Validate each command
 	for i := range inv.Commands {
 		if err := inv.validateCommand(&inv.Commands[i]); err != nil {
@@ -576,11 +722,35 @@ func (inv *Invowkfile) validate() error {
 	return nil
 }
 
-// validateContainerConfig checks that container configuration is valid
-// Note: This does NOT validate Dockerfile existence - that's done at runtime
-func (inv *Invowkfile) validateContainerConfig() error {
-	// Container config validation is deferred to runtime
-	// to allow invowkfiles to be parsed even when container runtime won't be used
+// validateRuntimeConfig checks that a runtime configuration is valid
+func validateRuntimeConfig(rt *RuntimeConfig, cmdName string, implIndex int) error {
+	// Container-specific fields are only valid for container runtime
+	if rt.Name != RuntimeContainer {
+		if rt.HostSSH {
+			return fmt.Errorf("command '%s' implementation #%d: host_ssh is only valid for container runtime", cmdName, implIndex)
+		}
+		if rt.Containerfile != "" {
+			return fmt.Errorf("command '%s' implementation #%d: containerfile is only valid for container runtime", cmdName, implIndex)
+		}
+		if rt.Image != "" {
+			return fmt.Errorf("command '%s' implementation #%d: image is only valid for container runtime", cmdName, implIndex)
+		}
+		if len(rt.Volumes) > 0 {
+			return fmt.Errorf("command '%s' implementation #%d: volumes is only valid for container runtime", cmdName, implIndex)
+		}
+		if len(rt.Ports) > 0 {
+			return fmt.Errorf("command '%s' implementation #%d: ports is only valid for container runtime", cmdName, implIndex)
+		}
+	} else {
+		// For container runtime, validate mutual exclusivity of containerfile and image
+		if rt.Containerfile != "" && rt.Image != "" {
+			return fmt.Errorf("command '%s' implementation #%d: containerfile and image are mutually exclusive - specify only one", cmdName, implIndex)
+		}
+		// At least one of containerfile or image must be specified for container runtime
+		if rt.Containerfile == "" && rt.Image == "" {
+			return fmt.Errorf("command '%s' implementation #%d: container runtime requires either containerfile or image to be specified", cmdName, implIndex)
+		}
+	}
 	return nil
 }
 
@@ -590,26 +760,23 @@ func (inv *Invowkfile) validateCommand(cmd *Command) error {
 		return fmt.Errorf("command must have a name in invowkfile at %s", inv.FilePath)
 	}
 
-	if len(cmd.Scripts) == 0 {
-		return fmt.Errorf("command '%s' must have at least one script in invowkfile at %s", cmd.Name, inv.FilePath)
+	if len(cmd.Implementations) == 0 {
+		return fmt.Errorf("command '%s' must have at least one implementation in invowkfile at %s", cmd.Name, inv.FilePath)
 	}
 
-	// Validate each script
-	for i, script := range cmd.Scripts {
-		if script.Script == "" {
-			return fmt.Errorf("command '%s' script #%d must have content in invowkfile at %s", cmd.Name, i+1, inv.FilePath)
+	// Validate each implementation
+	for i, impl := range cmd.Implementations {
+		if impl.Script == "" {
+			return fmt.Errorf("command '%s' implementation #%d must have a script in invowkfile at %s", cmd.Name, i+1, inv.FilePath)
 		}
-		if len(script.Runtimes) == 0 {
-			return fmt.Errorf("command '%s' script #%d must have at least one runtime in invowkfile at %s", cmd.Name, i+1, inv.FilePath)
+		if len(impl.Target.Runtimes) == 0 {
+			return fmt.Errorf("command '%s' implementation #%d must have at least one runtime in invowkfile at %s", cmd.Name, i+1, inv.FilePath)
 		}
 
-		// Validate container config for scripts that support container runtime
-		for _, rt := range script.Runtimes {
-			if rt == RuntimeContainer {
-				if err := inv.validateContainerConfig(); err != nil {
-					return fmt.Errorf("command '%s': %w", cmd.Name, err)
-				}
-				break
+		// Validate each runtime config
+		for j := range impl.Target.Runtimes {
+			if err := validateRuntimeConfig(&impl.Target.Runtimes[j], cmd.Name, i+1); err != nil {
+				return err
 			}
 		}
 	}
@@ -668,46 +835,8 @@ func GenerateCUE(inv *Invowkfile) string {
 	if inv.Description != "" {
 		sb.WriteString(fmt.Sprintf("description: %q\n", inv.Description))
 	}
-	if inv.DefaultRuntime != "" {
-		sb.WriteString(fmt.Sprintf("default_runtime: %q\n", inv.DefaultRuntime))
-	}
 	if inv.DefaultShell != "" {
 		sb.WriteString(fmt.Sprintf("default_shell: %q\n", inv.DefaultShell))
-	}
-
-	// Container config
-	if inv.Container.Dockerfile != "" || inv.Container.Image != "" || len(inv.Container.Volumes) > 0 || len(inv.Container.Ports) > 0 {
-		sb.WriteString("\ncontainer: {\n")
-		if inv.Container.Dockerfile != "" {
-			sb.WriteString(fmt.Sprintf("\tdockerfile: %q\n", inv.Container.Dockerfile))
-		}
-		if inv.Container.Image != "" {
-			sb.WriteString(fmt.Sprintf("\timage: %q\n", inv.Container.Image))
-		}
-		if len(inv.Container.Volumes) > 0 {
-			sb.WriteString("\tvolumes: [\n")
-			for _, v := range inv.Container.Volumes {
-				sb.WriteString(fmt.Sprintf("\t\t%q,\n", v))
-			}
-			sb.WriteString("\t]\n")
-		}
-		if len(inv.Container.Ports) > 0 {
-			sb.WriteString("\tports: [\n")
-			for _, p := range inv.Container.Ports {
-				sb.WriteString(fmt.Sprintf("\t\t%q,\n", p))
-			}
-			sb.WriteString("\t]\n")
-		}
-		sb.WriteString("}\n")
-	}
-
-	// Environment variables
-	if len(inv.Env) > 0 {
-		sb.WriteString("\nenv: {\n")
-		for k, v := range inv.Env {
-			sb.WriteString(fmt.Sprintf("\t%s: %q\n", k, v))
-		}
-		sb.WriteString("}\n")
 	}
 
 	// Commands
@@ -719,46 +848,142 @@ func GenerateCUE(inv *Invowkfile) string {
 			sb.WriteString(fmt.Sprintf("\t\tdescription: %q\n", cmd.Description))
 		}
 
-		// Generate scripts list
-		sb.WriteString("\t\tscripts: [\n")
-		for _, script := range cmd.Scripts {
+		// Generate implementations list
+		sb.WriteString("\t\timplementations: [\n")
+		for _, impl := range cmd.Implementations {
 			sb.WriteString("\t\t\t{\n")
 
 			// Handle multi-line scripts with CUE's multi-line string syntax
-			if strings.Contains(script.Script, "\n") {
+			if strings.Contains(impl.Script, "\n") {
 				sb.WriteString("\t\t\t\tscript: \"\"\"\n")
-				for _, line := range strings.Split(script.Script, "\n") {
+				for _, line := range strings.Split(impl.Script, "\n") {
 					sb.WriteString(fmt.Sprintf("\t\t\t\t\t%s\n", line))
 				}
 				sb.WriteString("\t\t\t\t\t\"\"\"\n")
 			} else {
-				sb.WriteString(fmt.Sprintf("\t\t\t\tscript: %q\n", script.Script))
+				sb.WriteString(fmt.Sprintf("\t\t\t\tscript: %q\n", impl.Script))
 			}
 
-			// Runtimes
-			sb.WriteString("\t\t\t\truntimes: [")
-			for i, r := range script.Runtimes {
-				if i > 0 {
-					sb.WriteString(", ")
-				}
-				sb.WriteString(fmt.Sprintf("%q", r))
-			}
-			sb.WriteString("]\n")
+			// Target with runtimes and platforms
+			sb.WriteString("\t\t\t\ttarget: {\n")
 
-			// Platforms (optional)
-			if len(script.Platforms) > 0 {
-				sb.WriteString("\t\t\t\tplatforms: [")
-				for i, p := range script.Platforms {
-					if i > 0 {
-						sb.WriteString(", ")
+			// Runtimes (each is a struct with name and optional fields)
+			sb.WriteString("\t\t\t\t\truntimes: [\n")
+			for _, r := range impl.Target.Runtimes {
+				sb.WriteString("\t\t\t\t\t\t{")
+				sb.WriteString(fmt.Sprintf("name: %q", r.Name))
+				if r.Name == RuntimeContainer {
+					if r.HostSSH {
+						sb.WriteString(", host_ssh: true")
 					}
-					sb.WriteString(fmt.Sprintf("%q", p))
+					if r.Containerfile != "" {
+						sb.WriteString(fmt.Sprintf(", containerfile: %q", r.Containerfile))
+					}
+					if r.Image != "" {
+						sb.WriteString(fmt.Sprintf(", image: %q", r.Image))
+					}
+					if len(r.Volumes) > 0 {
+						sb.WriteString(", volumes: [")
+						for i, v := range r.Volumes {
+							if i > 0 {
+								sb.WriteString(", ")
+							}
+							sb.WriteString(fmt.Sprintf("%q", v))
+						}
+						sb.WriteString("]")
+					}
+					if len(r.Ports) > 0 {
+						sb.WriteString(", ports: [")
+						for i, p := range r.Ports {
+							if i > 0 {
+								sb.WriteString(", ")
+							}
+							sb.WriteString(fmt.Sprintf("%q", p))
+						}
+						sb.WriteString("]")
+					}
 				}
-				sb.WriteString("]\n")
+				sb.WriteString("},\n")
+			}
+			sb.WriteString("\t\t\t\t\t]\n")
+
+			// Platforms (optional, each is a struct with name and optional env)
+			if len(impl.Target.Platforms) > 0 {
+				sb.WriteString("\t\t\t\t\tplatforms: [\n")
+				for _, p := range impl.Target.Platforms {
+					if len(p.Env) > 0 {
+						sb.WriteString(fmt.Sprintf("\t\t\t\t\t\t{name: %q, env: {", p.Name))
+						first := true
+						for k, v := range p.Env {
+							if !first {
+								sb.WriteString(", ")
+							}
+							sb.WriteString(fmt.Sprintf("%s: %q", k, v))
+							first = false
+						}
+						sb.WriteString("}},\n")
+					} else {
+						sb.WriteString(fmt.Sprintf("\t\t\t\t\t\t{name: %q},\n", p.Name))
+					}
+				}
+				sb.WriteString("\t\t\t\t\t]\n")
 			}
 
-			if script.HostSSH {
-				sb.WriteString("\t\t\t\thost_ssh: true\n")
+			sb.WriteString("\t\t\t\t}\n") // close target
+
+			// Implementation-level depends_on
+			if impl.DependsOn != nil && (len(impl.DependsOn.Tools) > 0 || len(impl.DependsOn.Commands) > 0 || len(impl.DependsOn.Filepaths) > 0) {
+				sb.WriteString("\t\t\t\tdepends_on: {\n")
+				if len(impl.DependsOn.Tools) > 0 {
+					sb.WriteString("\t\t\t\t\ttools: [\n")
+					for _, tool := range impl.DependsOn.Tools {
+						sb.WriteString("\t\t\t\t\t\t{")
+						sb.WriteString(fmt.Sprintf("name: %q", tool.Name))
+						if tool.CheckScript != "" {
+							sb.WriteString(fmt.Sprintf(", check_script: %q", tool.CheckScript))
+						}
+						if tool.ExpectedCode != nil {
+							sb.WriteString(fmt.Sprintf(", expected_code: %d", *tool.ExpectedCode))
+						}
+						if tool.ExpectedOutput != "" {
+							sb.WriteString(fmt.Sprintf(", expected_output: %q", tool.ExpectedOutput))
+						}
+						sb.WriteString("},\n")
+					}
+					sb.WriteString("\t\t\t\t\t]\n")
+				}
+				if len(impl.DependsOn.Commands) > 0 {
+					sb.WriteString("\t\t\t\t\tcommands: [\n")
+					for _, dep := range impl.DependsOn.Commands {
+						sb.WriteString(fmt.Sprintf("\t\t\t\t\t\t{name: %q},\n", dep.Name))
+					}
+					sb.WriteString("\t\t\t\t\t]\n")
+				}
+				if len(impl.DependsOn.Filepaths) > 0 {
+					sb.WriteString("\t\t\t\t\tfilepaths: [\n")
+					for _, fp := range impl.DependsOn.Filepaths {
+						sb.WriteString("\t\t\t\t\t\t{alternatives: [")
+						for i, alt := range fp.Alternatives {
+							if i > 0 {
+								sb.WriteString(", ")
+							}
+							sb.WriteString(fmt.Sprintf("%q", alt))
+						}
+						sb.WriteString("]")
+						if fp.Readable {
+							sb.WriteString(", readable: true")
+						}
+						if fp.Writable {
+							sb.WriteString(", writable: true")
+						}
+						if fp.Executable {
+							sb.WriteString(", executable: true")
+						}
+						sb.WriteString("},\n")
+					}
+					sb.WriteString("\t\t\t\t\t]\n")
+				}
+				sb.WriteString("\t\t\t\t}\n")
 			}
 
 			sb.WriteString("\t\t\t},\n")

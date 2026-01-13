@@ -4,7 +4,7 @@
 // Available runtimes:
 //   - "native": Use system shell (default)
 //   - "virtual": Use built-in sh interpreter
-//   - "container": Run in Docker/Podman container
+//   - "container": Run in Docker/Podman container (requires containerfile or image)
 //
 // Available platforms:
 //   - "linux": Linux operating systems
@@ -15,60 +15,64 @@
 //   - Inline shell commands (single or multi-line using triple quotes)
 //   - A path to a script file (e.g., "./scripts/build.sh")
 //
-// Example command with platform-specific scripts:
+// Example command with platform-specific implementations:
 //   {
 //     name: "build"
-//     scripts: [
+//     implementations: [
 //       {
 //         script: "make build"
-//         runtimes: ["native"]
-//         platforms: ["linux", "macos"]
+//         target: {
+//           runtimes: [{name: "native"}]
+//           platforms: [{name: "linux", env: {PROJECT_NAME: "myproject"}}, {name: "macos"}]
+//         }
 //       },
 //       {
 //         script: "msbuild /p:Configuration=Release"
-//         runtimes: ["native"]
-//         platforms: ["windows"]
+//         target: {
+//           runtimes: [{name: "native"}]
+//           platforms: [{name: "windows"}]
+//         }
 //       }
 //     ]
 //   }
 //
-// Example command with script that runs on all platforms:
+// Example command with container runtime:
 //   {
-//     name: "test"
-//     scripts: [
+//     name: "docker-build"
+//     implementations: [
 //       {
-//         script: "go test ./..."
-//         runtimes: ["native", "virtual"]
-//         // No platforms = runs on all platforms
+//         script: "go build -o /workspace/bin/app ./..."
+//         target: {
+//           runtimes: [{name: "container", image: "golang:1.21"}]
+//         }
 //       }
 //     ]
 //   }
 
 version: "1.0"
 description: "Full example project commands"
-default_runtime: "native"
-
-container: {
-	dockerfile: "Dockerfile"
-	image:      "alpine:latest"
-}
-
-env: {
-	PROJECT_NAME: "myproject"
-}
 
 commands: [
 	{
 		name:        "build"
 		description: "Build the project"
-		scripts: [
+		implementations: [
 			{
 				script: """
-					echo "Building $PROJECT_NAME..."
+					echo "Building project..."
 					go build -o bin/app ./...
 					"""
-				runtimes: ["native", "container"]
-				// No platforms = all platforms
+				target: {
+					runtimes: [
+						{name: "native"},
+						{name: "container", image: "golang:1.21"},
+					]
+					platforms: [
+						{name: "linux", env: {PROJECT_NAME: "myproject"}},
+						{name: "macos", env: {PROJECT_NAME: "myproject"}},
+						{name: "windows", env: {PROJECT_NAME: "myproject"}},
+					]
+				}
 			}
 		]
 		env: {
@@ -78,63 +82,84 @@ commands: [
 	{
 		name:        "test unit"
 		description: "Run unit tests"
-		scripts: [
+		implementations: [
 			{
-				script:   "go test -v ./..."
-				runtimes: ["native", "virtual"]
+				script: "go test -v ./..."
+				target: {
+					runtimes: [{name: "native"}, {name: "virtual"}]
+				}
 			}
 		]
 	},
 	{
 		name:        "test integration"
 		description: "Run integration tests"
-		scripts: [
+		implementations: [
 			{
-				script:   "go test -v -tags=integration ./..."
-				runtimes: ["native"]
+				script: "go test -v -tags=integration ./..."
+				target: {
+					runtimes: [{name: "native"}]
+				}
 			}
 		]
 	},
 	{
 		name:        "clean"
 		description: "Clean build artifacts"
-		scripts: [
+		implementations: [
 			{
-				script:    "rm -rf bin/ dist/"
-				runtimes:  ["native"]
-				platforms: ["linux", "macos"]
+				script: "rm -rf bin/ dist/"
+				target: {
+					runtimes:  [{name: "native"}]
+					platforms: [{name: "linux"}, {name: "macos"}]
+				}
 			},
 			{
-				script:    "if exist bin rmdir /s /q bin && if exist dist rmdir /s /q dist"
-				runtimes:  ["native"]
-				platforms: ["windows"]
+				script: "if exist bin rmdir /s /q bin && if exist dist rmdir /s /q dist"
+				target: {
+					runtimes:  [{name: "native"}]
+					platforms: [{name: "windows"}]
+				}
 			}
 		]
 	},
 	{
 		name:        "docker-build"
 		description: "Build using container runtime"
-		scripts: [
+		implementations: [
 			{
-				script:   "go build -o /workspace/bin/app ./..."
-				runtimes: ["container"]
+				script: "go build -o /workspace/bin/app ./..."
+				target: {
+					runtimes: [{name: "container", image: "golang:1.21"}]
+				}
+				// Implementation-level depends_on - validated within the container
+				depends_on: {
+					tools: [
+						{name: "go"},
+					]
+					filepaths: [
+						{alternatives: ["/workspace/go.mod"]},
+					]
+				}
 			}
 		]
 	},
 	{
 		name:        "container hello-invowk"
 		description: "Print a greeting from a container"
-		scripts: [
+		implementations: [
 			{
-				script:   "echo \"Hello, Invowk!\""
-				runtimes: ["container"]
+				script: "echo \"Hello, Invowk!\""
+				target: {
+					runtimes: [{name: "container", image: "alpine:latest"}]
+				}
 			}
 		]
 	},
 	{
 		name:        "container host-access"
 		description: "Run a command in container with SSH access to host"
-		scripts: [
+		implementations: [
 			{
 				script: """
 					echo "Container can SSH to host using:"
@@ -144,20 +169,23 @@ commands: [
 					echo ""
 					echo "Example: sshpass -p $INVOWK_SSH_TOKEN ssh -o StrictHostKeyChecking=no $INVOWK_SSH_USER@$INVOWK_SSH_HOST -p $INVOWK_SSH_PORT 'hostname'"
 					"""
-				runtimes:  ["container"]
-				platforms: ["linux", "macos"]
-				host_ssh:  true
+				target: {
+					runtimes:  [{name: "container", image: "alpine:latest", host_ssh: true}]
+					platforms: [{name: "linux"}, {name: "macos"}]
+				}
 			}
 		]
 	},
 	{
 		name:        "release"
 		description: "Create a release"
-		scripts: [
+		implementations: [
 			{
-				script:    "echo 'Creating release...'"
-				runtimes:  ["native"]
-				platforms: ["linux", "macos"]
+				script: "echo 'Creating release...'"
+				target: {
+					runtimes:  [{name: "native"}]
+					platforms: [{name: "linux"}, {name: "macos"}]
+				}
 			}
 		]
 		depends_on: {

@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"invowk-cli/pkg/invowkfile"
+
 	"mvdan.cc/sh/v3/expand"
 	"mvdan.cc/sh/v3/interp"
 	"mvdan.cc/sh/v3/syntax"
@@ -39,15 +41,15 @@ func (r *VirtualRuntime) Available() bool {
 
 // Validate checks if a command can be executed
 func (r *VirtualRuntime) Validate(ctx *ExecutionContext) error {
-	if ctx.SelectedScript == nil {
+	if ctx.SelectedImpl == nil {
 		return fmt.Errorf("no script selected for execution")
 	}
-	if ctx.SelectedScript.Script == "" {
+	if ctx.SelectedImpl.Script == "" {
 		return fmt.Errorf("script has no content to execute")
 	}
 
 	// Resolve the script content
-	script, err := ctx.SelectedScript.ResolveScript(ctx.Invowkfile.FilePath)
+	script, err := ctx.SelectedImpl.ResolveScript(ctx.Invowkfile.FilePath)
 	if err != nil {
 		return err
 	}
@@ -64,7 +66,7 @@ func (r *VirtualRuntime) Validate(ctx *ExecutionContext) error {
 // Execute runs a command using the virtual shell
 func (r *VirtualRuntime) Execute(ctx *ExecutionContext) *Result {
 	// Resolve the script content
-	script, err := ctx.SelectedScript.ResolveScript(ctx.Invowkfile.FilePath)
+	script, err := ctx.SelectedImpl.ResolveScript(ctx.Invowkfile.FilePath)
 	if err != nil {
 		return &Result{ExitCode: 1, Error: err}
 	}
@@ -113,7 +115,7 @@ func (r *VirtualRuntime) Execute(ctx *ExecutionContext) *Result {
 // ExecuteCapture runs a command and captures its output
 func (r *VirtualRuntime) ExecuteCapture(ctx *ExecutionContext) *Result {
 	// Resolve the script content
-	script, err := ctx.SelectedScript.ResolveScript(ctx.Invowkfile.FilePath)
+	script, err := ctx.SelectedImpl.ResolveScript(ctx.Invowkfile.FilePath)
 	if err != nil {
 		return &Result{ExitCode: 1, Error: err}
 	}
@@ -223,9 +225,15 @@ func (r *VirtualRuntime) buildEnv(ctx *ExecutionContext) map[string]string {
 		}
 	}
 
-	// Invowkfile-level env
-	for k, v := range ctx.Invowkfile.Env {
-		env[k] = v
+	// Platform-level env from the selected implementation
+	currentPlatform := invowkfile.GetCurrentHostOS()
+	for _, p := range ctx.SelectedImpl.Target.Platforms {
+		if p.Name == currentPlatform {
+			for k, v := range p.Env {
+				env[k] = v
+			}
+			break
+		}
 	}
 
 	// Command-level env

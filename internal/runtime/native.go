@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+
+	"invowk-cli/pkg/invowkfile"
 )
 
 // NativeRuntime executes commands using the system's default shell
@@ -36,10 +38,10 @@ func (r *NativeRuntime) Available() bool {
 
 // Validate checks if a command can be executed
 func (r *NativeRuntime) Validate(ctx *ExecutionContext) error {
-	if ctx.SelectedScript == nil {
+	if ctx.SelectedImpl == nil {
 		return fmt.Errorf("no script selected for execution")
 	}
-	if ctx.SelectedScript.Script == "" {
+	if ctx.SelectedImpl.Script == "" {
 		return fmt.Errorf("script has no content to execute")
 	}
 	return nil
@@ -53,7 +55,7 @@ func (r *NativeRuntime) Execute(ctx *ExecutionContext) *Result {
 	}
 
 	// Resolve the script content (from file or inline)
-	script, err := ctx.SelectedScript.ResolveScript(ctx.Invowkfile.FilePath)
+	script, err := ctx.SelectedImpl.ResolveScript(ctx.Invowkfile.FilePath)
 	if err != nil {
 		return &Result{ExitCode: 1, Error: err}
 	}
@@ -98,7 +100,7 @@ func (r *NativeRuntime) ExecuteCapture(ctx *ExecutionContext) *Result {
 	}
 
 	// Resolve the script content (from file or inline)
-	script, err := ctx.SelectedScript.ResolveScript(ctx.Invowkfile.FilePath)
+	script, err := ctx.SelectedImpl.ResolveScript(ctx.Invowkfile.FilePath)
 	if err != nil {
 		return &Result{ExitCode: 1, Error: err}
 	}
@@ -211,9 +213,15 @@ func (r *NativeRuntime) getWorkDir(ctx *ExecutionContext) string {
 func (r *NativeRuntime) buildEnv(ctx *ExecutionContext) map[string]string {
 	env := make(map[string]string)
 
-	// Invowkfile-level env
-	for k, v := range ctx.Invowkfile.Env {
-		env[k] = v
+	// Platform-level env from the selected implementation
+	currentPlatform := invowkfile.GetCurrentHostOS()
+	for _, p := range ctx.SelectedImpl.Target.Platforms {
+		if p.Name == currentPlatform {
+			for k, v := range p.Env {
+				env[k] = v
+			}
+			break
+		}
 	}
 
 	// Command-level env

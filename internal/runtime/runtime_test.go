@@ -15,8 +15,8 @@ import (
 func testCommandWithScript(name string, script string, runtime invowkfile.RuntimeMode) *invowkfile.Command {
 	return &invowkfile.Command{
 		Name: name,
-		Scripts: []invowkfile.Script{
-			{Script: script, Runtimes: []invowkfile.RuntimeMode{runtime}},
+		Implementations: []invowkfile.Implementation{
+			{Script: script, Target: invowkfile.Target{Runtimes: []invowkfile.RuntimeConfig{{Name: runtime}}}},
 		},
 	}
 }
@@ -36,8 +36,7 @@ func TestNativeRuntime_InlineScript(t *testing.T) {
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.toml")
 
 	inv := &invowkfile.Invowkfile{
-		FilePath:       invowkfilePath,
-		DefaultRuntime: invowkfile.RuntimeNative,
+		FilePath: invowkfilePath,
 	}
 
 	cmd := testCommandWithScript("test", "echo 'Hello from inline'", invowkfile.RuntimeNative)
@@ -74,8 +73,7 @@ func TestNativeRuntime_MultiLineScript(t *testing.T) {
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.toml")
 
 	inv := &invowkfile.Invowkfile{
-		FilePath:       invowkfilePath,
-		DefaultRuntime: invowkfile.RuntimeNative,
+		FilePath: invowkfilePath,
 	}
 
 	// Multi-line script
@@ -126,8 +124,7 @@ echo "Hello from script file"
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.toml")
 
 	inv := &invowkfile.Invowkfile{
-		FilePath:       invowkfilePath,
-		DefaultRuntime: invowkfile.RuntimeNative,
+		FilePath: invowkfilePath,
 	}
 
 	cmd := testCommandWithScript("from-file", "./test.sh", invowkfile.RuntimeNative)
@@ -160,8 +157,7 @@ func TestVirtualRuntime_InlineScript(t *testing.T) {
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.toml")
 
 	inv := &invowkfile.Invowkfile{
-		FilePath:       invowkfilePath,
-		DefaultRuntime: invowkfile.RuntimeNative,
+		FilePath: invowkfilePath,
 	}
 
 	cmd := testCommandWithScript("test", "echo 'Hello from virtual'", invowkfile.RuntimeVirtual)
@@ -195,8 +191,7 @@ func TestVirtualRuntime_MultiLineScript(t *testing.T) {
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.toml")
 
 	inv := &invowkfile.Invowkfile{
-		FilePath:       invowkfilePath,
-		DefaultRuntime: invowkfile.RuntimeNative,
+		FilePath: invowkfilePath,
 	}
 
 	script := `VAR="test value"
@@ -242,8 +237,7 @@ func TestVirtualRuntime_ScriptFile(t *testing.T) {
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.toml")
 
 	inv := &invowkfile.Invowkfile{
-		FilePath:       invowkfilePath,
-		DefaultRuntime: invowkfile.RuntimeNative,
+		FilePath: invowkfilePath,
 	}
 
 	cmd := testCommandWithScript("from-file", "./test.sh", invowkfile.RuntimeVirtual)
@@ -277,8 +271,7 @@ func TestVirtualRuntime_Validate_ScriptSyntaxError(t *testing.T) {
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.toml")
 
 	inv := &invowkfile.Invowkfile{
-		FilePath:       invowkfilePath,
-		DefaultRuntime: invowkfile.RuntimeNative,
+		FilePath: invowkfilePath,
 	}
 
 	// Invalid shell syntax
@@ -303,8 +296,7 @@ func TestRuntime_ScriptNotFound(t *testing.T) {
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.toml")
 
 	inv := &invowkfile.Invowkfile{
-		FilePath:       invowkfilePath,
-		DefaultRuntime: invowkfile.RuntimeNative,
+		FilePath: invowkfilePath,
 	}
 
 	cmd := testCommandWithScript("missing", "./nonexistent.sh", invowkfile.RuntimeNative)
@@ -346,17 +338,20 @@ func TestRuntime_EnvironmentVariables(t *testing.T) {
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.toml")
 
 	inv := &invowkfile.Invowkfile{
-		FilePath:       invowkfilePath,
-		DefaultRuntime: invowkfile.RuntimeNative,
-		Env: map[string]string{
-			"GLOBAL_VAR": "global_value",
-		},
+		FilePath: invowkfilePath,
 	}
 
+	currentPlatform := invowkfile.GetCurrentHostOS()
 	cmd := &invowkfile.Command{
 		Name: "env-test",
-		Scripts: []invowkfile.Script{
-			{Script: `echo "Global: $GLOBAL_VAR, Command: $CMD_VAR"`, Runtimes: []invowkfile.RuntimeMode{invowkfile.RuntimeVirtual}},
+		Implementations: []invowkfile.Implementation{
+			{
+				Script: `echo "Global: $GLOBAL_VAR, Command: $CMD_VAR"`,
+				Target: invowkfile.Target{
+					Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeVirtual}},
+					Platforms: []invowkfile.PlatformConfig{{Name: currentPlatform, Env: map[string]string{"GLOBAL_VAR": "global_value"}}},
+				},
+			},
 		},
 		Env: map[string]string{
 			"CMD_VAR": "command_value",

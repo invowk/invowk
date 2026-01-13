@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"os/exec"
@@ -327,13 +328,13 @@ func runCommand(args []string) error {
 	}
 
 	// Find the matching script
-	script := cmdInfo.Command.GetScriptForPlatformRuntime(currentPlatform, selectedRuntime)
+	script := cmdInfo.Command.GetImplForPlatformRuntime(currentPlatform, selectedRuntime)
 	if script == nil {
 		return fmt.Errorf("no script found for command '%s' on platform '%s' with runtime '%s'", cmdName, currentPlatform, selectedRuntime)
 	}
 
-	// Start SSH server if host_ssh is enabled for this script
-	if script.HostSSH && selectedRuntime == invowkfile.RuntimeContainer {
+	// Start SSH server if host_ssh is enabled for this script and runtime
+	if script.GetHostSSHForRuntime(selectedRuntime) {
 		srv, err := ensureSSHServer()
 		if err != nil {
 			return fmt.Errorf("failed to start SSH server for host access: %w", err)
@@ -349,7 +350,7 @@ func runCommand(args []string) error {
 	ctx := runtime.NewExecutionContext(cmdInfo.Command, cmdInfo.Invowkfile)
 	ctx.Verbose = verbose
 	ctx.SelectedRuntime = selectedRuntime
-	ctx.SelectedScript = script
+	ctx.SelectedImpl = script
 
 	// Create runtime registry
 	registry := createRuntimeRegistry(cfg)
@@ -453,25 +454,40 @@ func stopSSHServer() {
 }
 
 // executeDependencies checks tool dependencies and runs dependent commands
+// Dependencies are merged from both command-level and script-level, and
+// validated according to the selected runtime:
+// - native: validated against the native standard shell from the host
+// - virtual: validated against invowk's built-in sh interpreter with core utils
+// - container: validated against the container's default shell from within the container
 func executeDependencies(cmdInfo *discovery.CommandInfo, registry *runtime.Registry, parentCtx *runtime.ExecutionContext) error {
-	if !cmdInfo.Command.HasDependencies() {
+	// Merge command-level and script-level dependencies
+	mergedDeps := invowkfile.MergeDependsOn(cmdInfo.Command.DependsOn, parentCtx.SelectedImpl.DependsOn)
+
+	if mergedDeps == nil {
 		return nil
 	}
 
-	// First check tool dependencies
-	if err := checkToolDependencies(cmdInfo.Command); err != nil {
+	// Get the selected runtime for context-aware validation
+	selectedRuntime := parentCtx.SelectedRuntime
+
+	// First check tool dependencies (runtime-aware)
+	if err := checkToolDependenciesWithRuntime(mergedDeps, selectedRuntime, registry, parentCtx); err != nil {
 		return err
 	}
 
-	// Then check filepath dependencies
-	if err := checkFilepathDependencies(cmdInfo.Command, cmdInfo.Invowkfile.FilePath); err != nil {
+	// Then check filepath dependencies (runtime-aware)
+	if err := checkFilepathDependenciesWithRuntime(mergedDeps, cmdInfo.Invowkfile.FilePath, selectedRuntime, registry, parentCtx); err != nil {
 		return err
 	}
 
 	// Then run command dependencies
-	cmdDeps := cmdInfo.Command.GetCommandDependencies()
-	if len(cmdDeps) == 0 {
+	if len(mergedDeps.Commands) == 0 {
 		return nil
+	}
+
+	cmdDeps := make([]string, len(mergedDeps.Commands))
+	for i, dep := range mergedDeps.Commands {
+		cmdDeps[i] = dep.Name
 	}
 
 	cfg := config.Get()
@@ -483,32 +499,36 @@ func executeDependencies(cmdInfo *discovery.CommandInfo, registry *runtime.Regis
 	return executeDepsRecursive(cmdDeps, disc, registry, parentCtx, executed)
 }
 
-// checkToolDependencies verifies all required tools are available in PATH
-func checkToolDependencies(cmd *invowkfile.Command) error {
-	if cmd.DependsOn == nil || len(cmd.DependsOn.Tools) == 0 {
+// checkToolDependenciesWithRuntime verifies all required tools are available
+// The validation method depends on the runtime:
+// - native: check against host system PATH
+// - virtual: check against built-in utilities
+// - container: check within the container environment
+func checkToolDependenciesWithRuntime(deps *invowkfile.DependsOn, runtimeMode invowkfile.RuntimeMode, registry *runtime.Registry, ctx *runtime.ExecutionContext) error {
+	if deps == nil || len(deps.Tools) == 0 {
 		return nil
 	}
 
 	var toolErrors []string
 
-	for _, tool := range cmd.DependsOn.Tools {
-		if tool.CheckScript != "" {
-			// Use custom validation script
-			if err := validateToolWithScript(tool); err != nil {
-				toolErrors = append(toolErrors, err.Error())
-			}
-		} else {
-			// Just check if tool exists in PATH
-			_, err := exec.LookPath(tool.Name)
-			if err != nil {
-				toolErrors = append(toolErrors, fmt.Sprintf("  • %s - not found in PATH", tool.Name))
-			}
+	for _, tool := range deps.Tools {
+		var err error
+		switch runtimeMode {
+		case invowkfile.RuntimeContainer:
+			err = validateToolInContainer(tool, registry, ctx)
+		case invowkfile.RuntimeVirtual:
+			err = validateToolInVirtual(tool, registry, ctx)
+		default: // native
+			err = validateToolNative(tool)
+		}
+		if err != nil {
+			toolErrors = append(toolErrors, err.Error())
 		}
 	}
 
 	if len(toolErrors) > 0 {
 		return &DependencyError{
-			CommandName:  cmd.Name,
+			CommandName:  ctx.Command.Name,
 			MissingTools: toolErrors,
 		}
 	}
@@ -516,8 +536,21 @@ func checkToolDependencies(cmd *invowkfile.Command) error {
 	return nil
 }
 
-// validateToolWithScript runs a custom validation script for a tool
-func validateToolWithScript(tool invowkfile.ToolDependency) error {
+// validateToolNative validates a tool dependency against the host system
+func validateToolNative(tool invowkfile.ToolDependency) error {
+	if tool.CheckScript != "" {
+		return validateToolWithScriptNative(tool)
+	}
+	// Just check if tool exists in PATH
+	_, err := exec.LookPath(tool.Name)
+	if err != nil {
+		return fmt.Errorf("  • %s - not found in PATH", tool.Name)
+	}
+	return nil
+}
+
+// validateToolWithScriptNative runs a custom validation script using the native shell
+func validateToolWithScriptNative(tool invowkfile.ToolDependency) error {
 	// First check if the tool exists in PATH
 	_, err := exec.LookPath(tool.Name)
 	if err != nil {
@@ -529,6 +562,93 @@ func validateToolWithScript(tool invowkfile.ToolDependency) error {
 	output, err := cmd.CombinedOutput()
 	outputStr := strings.TrimSpace(string(output))
 
+	return validateToolOutput(tool, outputStr, err)
+}
+
+// validateToolInVirtual validates a tool dependency using the virtual runtime
+func validateToolInVirtual(tool invowkfile.ToolDependency, registry *runtime.Registry, ctx *runtime.ExecutionContext) error {
+	rt, err := registry.Get(runtime.RuntimeTypeVirtual)
+	if err != nil {
+		// Fall back to native validation if virtual runtime not available
+		return validateToolNative(tool)
+	}
+
+	// For virtual runtime, check if it's a built-in command or check script
+	checkScript := tool.CheckScript
+	if checkScript == "" {
+		// Use 'command -v' to check if tool exists in virtual shell
+		checkScript = fmt.Sprintf("command -v %s", tool.Name)
+	}
+
+	// Create a minimal context for validation
+	var stdout, stderr bytes.Buffer
+	validationCtx := &runtime.ExecutionContext{
+		Command:         ctx.Command,
+		Invowkfile:      ctx.Invowkfile,
+		SelectedImpl:    &invowkfile.Implementation{Script: checkScript, Target: invowkfile.Target{Runtimes: []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeVirtual}}}},
+		SelectedRuntime: invowkfile.RuntimeVirtual,
+		Stdout:          &stdout,
+		Stderr:          &stderr,
+		Context:         ctx.Context,
+		ExtraEnv:        make(map[string]string),
+	}
+
+	result := rt.Execute(validationCtx)
+	outputStr := strings.TrimSpace(stdout.String() + stderr.String())
+
+	if tool.CheckScript != "" {
+		return validateToolOutput(tool, outputStr, result.Error)
+	}
+
+	// For simple existence check
+	if result.ExitCode != 0 {
+		return fmt.Errorf("  • %s - not available in virtual runtime", tool.Name)
+	}
+	return nil
+}
+
+// validateToolInContainer validates a tool dependency within a container
+func validateToolInContainer(tool invowkfile.ToolDependency, registry *runtime.Registry, ctx *runtime.ExecutionContext) error {
+	rt, err := registry.Get(runtime.RuntimeTypeContainer)
+	if err != nil {
+		return fmt.Errorf("  • %s - container runtime not available", tool.Name)
+	}
+
+	checkScript := tool.CheckScript
+	if checkScript == "" {
+		// Use 'command -v' or 'which' to check if tool exists in container
+		checkScript = fmt.Sprintf("command -v %s || which %s", tool.Name, tool.Name)
+	}
+
+	// Create a minimal context for validation
+	var stdout, stderr bytes.Buffer
+	validationCtx := &runtime.ExecutionContext{
+		Command:         ctx.Command,
+		Invowkfile:      ctx.Invowkfile,
+		SelectedImpl:    &invowkfile.Implementation{Script: checkScript, Target: invowkfile.Target{Runtimes: []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeContainer}}}},
+		SelectedRuntime: invowkfile.RuntimeContainer,
+		Stdout:          &stdout,
+		Stderr:          &stderr,
+		Context:         ctx.Context,
+		ExtraEnv:        make(map[string]string),
+	}
+
+	result := rt.Execute(validationCtx)
+	outputStr := strings.TrimSpace(stdout.String() + stderr.String())
+
+	if tool.CheckScript != "" {
+		return validateToolOutput(tool, outputStr, result.Error)
+	}
+
+	// For simple existence check
+	if result.ExitCode != 0 {
+		return fmt.Errorf("  • %s - not available in container", tool.Name)
+	}
+	return nil
+}
+
+// validateToolOutput validates tool check script output against expected values
+func validateToolOutput(tool invowkfile.ToolDependency, outputStr string, execErr error) error {
 	// Determine expected exit code (default: 0)
 	expectedCode := 0
 	if tool.ExpectedCode != nil {
@@ -537,11 +657,12 @@ func validateToolWithScript(tool invowkfile.ToolDependency) error {
 
 	// Check exit code
 	actualCode := 0
-	if err != nil {
-		if exitErr, ok := err.(*exec.ExitError); ok {
+	if execErr != nil {
+		if exitErr, ok := execErr.(*exec.ExitError); ok {
 			actualCode = exitErr.ExitCode()
 		} else {
-			return fmt.Errorf("  • %s - check script failed: %v", tool.Name, err)
+			// Try to get exit code from error message for non-native runtimes
+			actualCode = 1 // Default to 1 for errors
 		}
 	}
 
@@ -563,7 +684,127 @@ func validateToolWithScript(tool invowkfile.ToolDependency) error {
 	return nil
 }
 
-// checkFilepathDependencies verifies all required files/directories exist with proper permissions
+// checkFilepathDependenciesWithRuntime verifies all required files/directories exist
+// The validation method depends on the runtime:
+// - native: check against host filesystem
+// - virtual: check against host filesystem (virtual shell still uses host fs)
+// - container: check within the container filesystem
+func checkFilepathDependenciesWithRuntime(deps *invowkfile.DependsOn, invowkfilePath string, runtimeMode invowkfile.RuntimeMode, registry *runtime.Registry, ctx *runtime.ExecutionContext) error {
+	if deps == nil || len(deps.Filepaths) == 0 {
+		return nil
+	}
+
+	var filepathErrors []string
+	invowkDir := filepath.Dir(invowkfilePath)
+
+	for _, fp := range deps.Filepaths {
+		var err error
+		switch runtimeMode {
+		case invowkfile.RuntimeContainer:
+			err = validateFilepathInContainer(fp, invowkDir, registry, ctx)
+		default: // native and virtual use host filesystem
+			err = validateFilepathAlternatives(fp, invowkDir)
+		}
+		if err != nil {
+			filepathErrors = append(filepathErrors, err.Error())
+		}
+	}
+
+	if len(filepathErrors) > 0 {
+		return &DependencyError{
+			CommandName:      ctx.Command.Name,
+			MissingFilepaths: filepathErrors,
+		}
+	}
+
+	return nil
+}
+
+// validateFilepathInContainer validates a filepath dependency within a container
+func validateFilepathInContainer(fp invowkfile.FilepathDependency, invowkDir string, registry *runtime.Registry, ctx *runtime.ExecutionContext) error {
+	rt, err := registry.Get(runtime.RuntimeTypeContainer)
+	if err != nil {
+		return fmt.Errorf("  • container runtime not available")
+	}
+
+	if len(fp.Alternatives) == 0 {
+		return fmt.Errorf("  • (no paths specified) - at least one path must be provided in alternatives")
+	}
+
+	var allErrors []string
+
+	for _, altPath := range fp.Alternatives {
+		// Build a check script for this path
+		var checks []string
+
+		// Basic existence check
+		checks = append(checks, fmt.Sprintf("test -e '%s'", altPath))
+
+		if fp.Readable {
+			checks = append(checks, fmt.Sprintf("test -r '%s'", altPath))
+		}
+		if fp.Writable {
+			checks = append(checks, fmt.Sprintf("test -w '%s'", altPath))
+		}
+		if fp.Executable {
+			checks = append(checks, fmt.Sprintf("test -x '%s'", altPath))
+		}
+
+		checkScript := strings.Join(checks, " && ")
+
+		// Create a minimal context for validation
+		var stdout, stderr bytes.Buffer
+		validationCtx := &runtime.ExecutionContext{
+			Command:         ctx.Command,
+			Invowkfile:      ctx.Invowkfile,
+			SelectedImpl:    &invowkfile.Implementation{Script: checkScript, Target: invowkfile.Target{Runtimes: []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeContainer}}}},
+			SelectedRuntime: invowkfile.RuntimeContainer,
+			Stdout:          &stdout,
+			Stderr:          &stderr,
+			Context:         ctx.Context,
+			ExtraEnv:        make(map[string]string),
+		}
+
+		result := rt.Execute(validationCtx)
+		if result.ExitCode == 0 {
+			// This alternative satisfies the dependency
+			return nil
+		}
+		allErrors = append(allErrors, fmt.Sprintf("%s: not found or permission denied in container", altPath))
+	}
+
+	// None of the alternatives satisfied the requirements
+	if len(fp.Alternatives) == 1 {
+		return fmt.Errorf("  • %s - %s", fp.Alternatives[0], allErrors[0])
+	}
+	return fmt.Errorf("  • none of the alternatives satisfied the requirements in container:\n      - %s", strings.Join(allErrors, "\n      - "))
+}
+
+// checkToolDependencies verifies all required tools are available in PATH (legacy - uses native)
+func checkToolDependencies(cmd *invowkfile.Command) error {
+	if cmd.DependsOn == nil || len(cmd.DependsOn.Tools) == 0 {
+		return nil
+	}
+
+	var toolErrors []string
+
+	for _, tool := range cmd.DependsOn.Tools {
+		if err := validateToolNative(tool); err != nil {
+			toolErrors = append(toolErrors, err.Error())
+		}
+	}
+
+	if len(toolErrors) > 0 {
+		return &DependencyError{
+			CommandName:  cmd.Name,
+			MissingTools: toolErrors,
+		}
+	}
+
+	return nil
+}
+
+// checkFilepathDependencies verifies all required files/directories exist with proper permissions (legacy - uses native)
 func checkFilepathDependencies(cmd *invowkfile.Command, invowkfilePath string) error {
 	if cmd.DependsOn == nil || len(cmd.DependsOn.Filepaths) == 0 {
 		return nil

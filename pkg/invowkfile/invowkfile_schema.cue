@@ -2,35 +2,89 @@
 // This file defines the structure, types, and constraints for invowkfiles.
 // This schema is embedded in the invowk binary for validation.
 
-// RuntimeMode defines the available execution runtimes
-#RuntimeMode: "native" | "virtual" | "container"
+// RuntimeType defines the available execution runtime types
+#RuntimeType: "native" | "virtual" | "container"
 
-// Platform defines the supported operating systems
-#Platform: "linux" | "macos" | "windows"
+// PlatformType defines the supported operating system types
+#PlatformType: "linux" | "macos" | "windows"
 
-// Script represents a script with platform and runtime constraints
-#Script: {
+// EnvMap defines environment variables as key-value string pairs
+#EnvMap: [string]: string
+
+// RuntimeConfig represents a runtime configuration with type-specific options
+#RuntimeConfig: {
+	// name specifies the runtime type (required)
+	name: #RuntimeType
+
+	// Container-specific fields (only valid when name is "container")
+	if name == "container" {
+		// host_ssh enables SSH access from container back to host (optional)
+		// When enabled, invowk starts an SSH server and provides connection credentials
+		// to the container via environment variables: INVOWK_SSH_HOST, INVOWK_SSH_PORT,
+		// INVOWK_SSH_USER, INVOWK_SSH_TOKEN
+		// Default: false
+		host_ssh?: bool
+
+		// containerfile specifies the path to Containerfile/Dockerfile relative to invowkfile (optional)
+		// Used to build a container image for command execution
+		// Mutually exclusive with 'image'
+		containerfile?: string
+
+		// image specifies a pre-built container image to use (optional)
+		// Mutually exclusive with 'containerfile'
+		// Example: "alpine:latest", "ubuntu:22.04", "golang:1.21"
+		image?: string
+
+		// volumes specifies volume mounts in "host:container" format (optional)
+		// Example: ["./data:/data", "/tmp:/tmp:ro"]
+		volumes?: [...string]
+
+		// ports specifies port mappings in "host:container" format (optional)
+		// Example: ["8080:80", "3000:3000"]
+		ports?: [...string]
+	}
+}
+
+// PlatformConfig represents a platform configuration with optional environment variables
+#PlatformConfig: {
+	// name specifies the platform type (required)
+	name: #PlatformType
+
+	// env contains environment variables specific to this platform (optional)
+	env?: #EnvMap
+}
+
+// Target defines the runtime and platform constraints for an implementation
+#Target: {
+	// runtimes specifies which runtimes can execute this implementation (required, at least one)
+	// The first element is the default runtime for this platform combination
+	// Each runtime is a struct with a 'name' field and optional type-specific fields
+	runtimes: [...#RuntimeConfig] & [_, ...]
+
+	// platforms specifies which operating systems this implementation is for (optional)
+	// If not specified, the implementation applies to all platforms
+	// Each platform is a struct with a 'name' field
+	platforms?: [...#PlatformConfig] & [_, ...]
+}
+
+// Implementation represents an implementation with platform and runtime constraints
+#Implementation: {
 	// script contains the shell commands to execute OR a path to a script file (required)
 	// - Inline: shell commands (single or multi-line using triple quotes)
 	// - File: path to script file (e.g., "./scripts/build.sh", "deploy.sh")
 	// Recognized script extensions: .sh, .bash, .ps1, .bat, .cmd, .py, .rb, .pl, .zsh, .fish
 	script: string & !=""
 
-	// runtimes specifies which runtimes can execute this script (required, at least one)
-	// The first element is the default runtime for this platform combination
-	runtimes: [...#RuntimeMode] & [_, ...]
+	// target defines the runtime and platform constraints (required)
+	target: #Target
 
-	// platforms specifies which operating systems this script is for (optional)
-	// If not specified, the script applies to all platforms
-	// Valid values: "linux", "macos", "windows"
-	platforms?: [...#Platform] & [_, ...]
-
-	// host_ssh enables SSH access from container back to host (optional, container runtime only)
-	// When enabled, invowk starts an SSH server and provides connection credentials
-	// to the container via environment variables: INVOWK_SSH_HOST, INVOWK_SSH_PORT,
-	// INVOWK_SSH_USER, INVOWK_SSH_TOKEN
-	// Default: false
-	host_ssh?: bool
+	// depends_on specifies dependencies that must be satisfied before running this implementation (optional)
+	// These dependencies are validated according to the runtime:
+	// - native: validated against the native standard shell from the host
+	// - virtual: validated against invowk's built-in sh interpreter with core utils
+	// - container: validated against the container's default shell from within the container
+	// Implementation-level depends_on is combined with command-level depends_on
+	depends_on?: #DependsOn
 }
 
 // ToolDependency represents a tool/binary that must be available in PATH
@@ -97,11 +151,11 @@
 	// description provides help text for the command (optional)
 	description?: string
 
-	// scripts defines the executable scripts with platform/runtime constraints (required, at least one)
-	// Each script specifies which platforms and runtimes it supports
-	// The first script for a given platform determines the default runtime for that platform
-	// There cannot be duplicate combinations of platform+runtime across scripts
-	scripts: [...#Script] & [_, ...]
+	// implementations defines the executable implementations with platform/runtime constraints (required, at least one)
+	// Each implementation specifies which platforms and runtimes it supports
+	// The first implementation for a given platform determines the default runtime for that platform
+	// There cannot be duplicate combinations of platform+runtime across implementations
+	implementations: [...#Implementation] & [_, ...]
 
 	// env contains environment variables specific to this command (optional)
 	env?: [string]: string
@@ -114,29 +168,6 @@
 	depends_on?: #DependsOn
 }
 
-// ContainerConfig defines container-specific settings for container runtime
-#ContainerConfig: {
-	// dockerfile specifies the path to Dockerfile relative to invowkfile (optional)
-	// Used to build a container image for command execution
-	dockerfile?: string
-
-	// image specifies a pre-built container image to use (optional)
-	// If both dockerfile and image are specified, image takes precedence
-	// Example: "alpine:latest", "ubuntu:22.04", "golang:1.21"
-	image?: string
-
-	// volumes specifies volume mounts in "host:container" format (optional)
-	// Example: ["./data:/data", "/tmp:/tmp:ro"]
-	volumes?: [...string]
-
-	// ports specifies port mappings in "host:container" format (optional)
-	// Example: ["8080:80", "3000:3000"]
-	ports?: [...string]
-}
-
-// EnvMap defines environment variables as key-value string pairs
-#EnvMap: [string]: string
-
 // Invowkfile is the root schema for an invowkfile
 #Invowkfile: {
 	// version specifies the invowkfile schema version (optional but recommended)
@@ -146,20 +177,10 @@
 	// description provides a summary of this invowkfile's purpose (optional)
 	description?: string
 
-	// default_runtime sets the default runtime for all commands (optional)
-	// Defaults to "native" if not specified
-	default_runtime?: #RuntimeMode
-
 	// default_shell overrides the default shell for native runtime (optional)
 	// Example: "/bin/bash", "pwsh"
 	default_shell?: string
 
-	// container holds container-specific configuration (optional)
-	// Required if any command uses runtime: "container"
-	container?: #ContainerConfig
-
-	// env contains environment variables applied to all commands (optional)
-	env?: #EnvMap
 
 	// commands defines the available commands (required, at least one)
 	commands: [...#Command] & [_, ...]

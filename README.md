@@ -92,80 +92,98 @@ Invowkfiles are written in [CUE](https://cuelang.org/) format. CUE provides powe
 ```cue
 version: "1.0"
 description: "My project commands"
-default_runtime: "native"
-
-// Global environment variables
-env: {
-	PROJECT_NAME: "myproject"
-}
-
-// Container configuration (optional)
-container: {
-	dockerfile: "Dockerfile"
-	// Or use a pre-built image:
-	image: "alpine:latest"
-}
 
 // Define commands
 commands: [
 	{
 		name: "build"
 		description: "Build the project"
-		// Allowed runtimes (first is default)
-		runtimes: ["native", "container"]
-		// Multi-line scripts use triple quotes
-		script: """
-			echo "Building ${PROJECT_NAME}..."
-			go build -o bin/app ./...
-			"""
-		// Required: which hosts can run this command
-		works_on: {
-			hosts: ["linux", "mac", "windows"]
-		}
+		implementations: [
+			{
+				// Multi-line scripts use triple quotes
+				script: """
+					echo "Building ${PROJECT_NAME}..."
+					go build -o bin/app ./...
+					"""
+				// Allowed runtimes (first is default). Container runtime requires image or containerfile.
+				target: {
+					runtimes: [
+						{name: "native"},
+						{name: "container", image: "golang:1.21"},
+					]
+					// Platform-specific environment variables
+					platforms: [
+						{name: "linux", env: {PROJECT_NAME: "myproject"}},
+						{name: "macos", env: {PROJECT_NAME: "myproject"}},
+						{name: "windows", env: {PROJECT_NAME: "myproject"}},
+					]
+				}
+			}
+		]
 	},
 	// Use spaces in names for subcommand-like behavior
 	// This creates: invowk cmd test unit
 	{
 		name: "test unit"
 		description: "Run unit tests"
-		runtimes: ["native", "virtual"]  // Can run in native or virtual runtime
-		script: "go test ./..."
-		works_on: {
-			hosts: ["linux", "mac", "windows"]
-		}
+		implementations: [
+			{
+				script: "go test ./..."
+				target: {
+					runtimes: [{name: "native"}, {name: "virtual"}]  // Can run in native or virtual runtime
+				}
+			}
+		]
 	},
 	// Commands can also reference external script files
 	{
 		name: "deploy"
 		description: "Deploy the application"
-		runtimes: ["native"]
-		script: "./scripts/deploy.sh"
-		works_on: {
-			hosts: ["linux", "mac"]
-		}
+		implementations: [
+			{
+				script: "./scripts/deploy.sh"
+				target: {
+					runtimes: [{name: "native"}]
+					platforms: [{name: "linux"}, {name: "macos"}]
+				}
+			}
+		]
 	},
 	// Dependencies: tools (binaries in PATH) and commands (other invowk commands)
 	{
 		name: "release"
 		description: "Create a release"
+		implementations: [
+			{
+				script: "echo 'Creating release...'"
+				target: {
+					runtimes: [{name: "native"}]
+					platforms: [{name: "linux"}, {name: "macos"}]
+				}
+			}
+		]
 		depends_on: {
 			tools: [
 				{name: "git"},
-				{name: "gh", version: ">=2.0"},  // optional version constraint
 			]
 			commands: [
 				{name: "build"},
 				{name: "test unit"},
 			]
 		}
-		script: "echo 'Creating release...'"
 	},
-	// Run commands in a container
+	// Run commands in a container (requires image or containerfile)
 	{
 		name: "container hello-invowk"
 		description: "Print a greeting from a container"
-		runtime: "container"
-		script: "echo \"Hello, Invowk!\""
+		implementations: [
+			{
+				script: "echo \"Hello, Invowk!\""
+				target: {
+					runtimes: [{name: "container", image: "alpine:latest"}]
+				}
+			}
+		]
 	},
 ]
 ```
@@ -176,7 +194,7 @@ Commands can specify dependencies that must be satisfied before running:
 
 ### Tool Dependencies
 
-Verify that required binaries are available in PATH. You can also run custom validation scripts:
+Verify that required binaries are available in PATH. You can also run custom validation implementations:
 
 ```cue
 depends_on: {
@@ -262,6 +280,45 @@ depends_on: {
 Permission checks are cross-platform compatible (Linux, macOS, Windows).
 
 When dependencies are not satisfied, invowk displays a styled error message listing all issues at once.
+
+### Script-Level Dependencies
+
+Dependencies can also be specified at the script level, which is especially useful for container-based implementations:
+
+```cue
+commands: [
+	{
+		name: "docker-build"
+		implementations: [
+			{
+				script: "go build -o /workspace/bin/app ./..."
+				target: {
+					runtimes: [{name: "container", image: "golang:1.21"}]
+				}
+				// Implementation-level depends_on - validated within the container
+				depends_on: {
+					tools: [
+						{name: "go"},
+					]
+					filepaths: [
+						{alternatives: ["/workspace/go.mod"]},
+					]
+				}
+			}
+		]
+	}
+]
+```
+
+**Runtime-Aware Validation:**
+
+When either command-level or implementation-level dependencies are used, the validation behavior changes according to the runtime used at execution time:
+
+- **native**: Dependencies are validated against the native standard shell from the host system
+- **virtual**: Dependencies are validated against invowk's built-in sh interpreter with core utils  
+- **container**: Dependencies are validated against the container's default shell from within the container itself
+
+This allows you to specify dependencies that need to exist inside the container rather than on the host system.
 
 ## Platform Compatibility
 
@@ -388,27 +445,33 @@ commands: [
 
 ### Container Runtime
 
-Runs commands inside a Docker or Podman container. Requires a Dockerfile or image specification.
+Runs commands inside a Docker or Podman container. Requires an image or containerfile specification in the runtime config.
 
 ```cue
-container: {
-	dockerfile: "Dockerfile"
-	volumes: ["./data:/data"]
-	ports: ["8080:8080"]
-}
-
 commands: [
 	{
 		name: "build"
-		runtime: "container"
-		script: "make build"
+		implementations: [
+			{
+				script: "make build"
+				// Container config is specified in the runtime
+				target: {
+					runtimes: [{
+						name: "container",
+						image: "golang:1.21",
+						volumes: ["./data:/data"],
+						ports: ["8080:8080"],
+					}]
+				}
+			}
+		]
 	},
 ]
 ```
 
 ### Host SSH Access from Containers
 
-Container commands can optionally SSH back into the host system. When `host_ssh: true` is set, invowk starts a secure SSH server using the [Wish](https://github.com/charmbracelet/wish) library and provides connection credentials to the container via environment variables.
+Container commands can optionally SSH back into the host system. When `host_ssh: true` is set inside the container runtime configuration, invowk starts a secure SSH server using the [Wish](https://github.com/charmbracelet/wish) library and provides connection credentials to the container via environment variables.
 
 **Security**: The SSH server only accepts token-based authentication. Each command execution gets a unique, time-limited token that is automatically revoked after the command completes.
 
@@ -416,20 +479,26 @@ Container commands can optionally SSH back into the host system. When `host_ssh:
 commands: [
 	{
 		name: "deploy from container"
-		runtime: "container"
-		host_ssh: true  // Enable SSH access back to host
-		script: """
-			# Connection info is available via environment variables:
-			# - INVOWK_SSH_HOST: Host address (host.docker.internal or host.containers.internal)
-			# - INVOWK_SSH_PORT: SSH server port
-			# - INVOWK_SSH_USER: Username (invowk)
-			# - INVOWK_SSH_TOKEN: One-time authentication token
-			
-			# Example: Run a command on the host
-			sshpass -p $INVOWK_SSH_TOKEN ssh -o StrictHostKeyChecking=no \
-				$INVOWK_SSH_USER@$INVOWK_SSH_HOST -p $INVOWK_SSH_PORT \
-				'echo "Hello from host!"'
-			"""
+		implementations: [
+			{
+				script: """
+					# Connection info is available via environment variables:
+					# - INVOWK_SSH_HOST: Host address (host.docker.internal or host.containers.internal)
+					# - INVOWK_SSH_PORT: SSH server port
+					# - INVOWK_SSH_USER: Username (invowk)
+					# - INVOWK_SSH_TOKEN: One-time authentication token
+					
+					# Example: Run a command on the host
+					sshpass -p $INVOWK_SSH_TOKEN ssh -o StrictHostKeyChecking=no \
+						$INVOWK_SSH_USER@$INVOWK_SSH_HOST -p $INVOWK_SSH_PORT \
+						'echo "Hello from host!"'
+					"""
+				// host_ssh and image are specified inside the container runtime config
+				target: {
+					runtimes: [{name: "container", image: "alpine:latest", host_ssh: true}]
+				}
+			}
+		]
 	},
 ]
 ```
@@ -462,8 +531,6 @@ invowk config show
 # Container engine preference: "podman" or "docker"
 container_engine = "podman"
 
-# Default runtime mode: "native", "virtual", or "container"
-default_runtime = "native"
 
 # Additional directories to search for invowkfiles
 search_paths = [

@@ -32,15 +32,15 @@ type ExecutionContext struct {
 	Verbose bool
 	// SelectedRuntime is the runtime to use for execution (may differ from default)
 	SelectedRuntime invowkfile.RuntimeMode
-	// SelectedScript is the script to execute (based on platform and runtime)
-	SelectedScript *invowkfile.Script
+	// SelectedImpl is the implementation to execute (based on platform and runtime)
+	SelectedImpl *invowkfile.Implementation
 }
 
 // NewExecutionContext creates a new execution context with defaults
 func NewExecutionContext(cmd *invowkfile.Command, inv *invowkfile.Invowkfile) *ExecutionContext {
 	currentPlatform := invowkfile.GetCurrentHostOS()
 	defaultRuntime := cmd.GetDefaultRuntimeForPlatform(currentPlatform)
-	defaultScript := cmd.GetScriptForPlatformRuntime(currentPlatform, defaultRuntime)
+	defaultScript := cmd.GetImplForPlatformRuntime(currentPlatform, defaultRuntime)
 
 	return &ExecutionContext{
 		Command:         cmd,
@@ -51,7 +51,7 @@ func NewExecutionContext(cmd *invowkfile.Command, inv *invowkfile.Invowkfile) *E
 		Stdin:           os.Stdin,
 		ExtraEnv:        make(map[string]string),
 		SelectedRuntime: defaultRuntime,
-		SelectedScript:  defaultScript,
+		SelectedImpl:    defaultScript,
 	}
 }
 

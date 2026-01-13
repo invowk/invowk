@@ -11,8 +11,8 @@ import (
 func testCommand(name string, script string) Command {
 	return Command{
 		Name: name,
-		Scripts: []Script{
-			{Script: script, Runtimes: []RuntimeMode{RuntimeNative}},
+		Implementations: []Implementation{
+			{Script: script, Target: Target{Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}},
 		},
 	}
 }
@@ -20,9 +20,9 @@ func testCommand(name string, script string) Command {
 // testCommandWithDeps creates a Command with a single script and dependencies for testing
 func testCommandWithDeps(name string, script string, deps *DependsOn) Command {
 	return Command{
-		Name:      name,
-		Scripts:   []Script{{Script: script, Runtimes: []RuntimeMode{RuntimeNative}}},
-		DependsOn: deps,
+		Name:            name,
+		Implementations: []Implementation{{Script: script, Target: Target{Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}}},
+		DependsOn:       deps,
 	}
 }
 
@@ -63,7 +63,7 @@ func TestIsScriptFile(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			s := &Script{Script: tt.script, Runtimes: []RuntimeMode{RuntimeNative}}
+			s := &Implementation{Script: tt.script, Target: Target{Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}}
 			result := s.IsScriptFile()
 			if result != tt.expected {
 				t.Errorf("IsScriptFile() = %v, want %v for script %q", result, tt.expected, tt.script)
@@ -90,7 +90,7 @@ func TestGetScriptFilePath(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			s := &Script{Script: tt.script, Runtimes: []RuntimeMode{RuntimeNative}}
+			s := &Implementation{Script: tt.script, Target: Target{Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}}
 			result := s.GetScriptFilePath(invowkfilePath)
 			if tt.expectedResult {
 				if result != tt.expectedPath {
@@ -120,7 +120,7 @@ func TestResolveScript_Inline(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			s := &Script{Script: tt.script, Runtimes: []RuntimeMode{RuntimeNative}}
+			s := &Implementation{Script: tt.script, Target: Target{Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}}
 			result, err := s.ResolveScript("/fake/path/invowkfile.toml")
 			if err != nil {
 				t.Errorf("ResolveScript() error = %v", err)
@@ -152,7 +152,7 @@ func TestResolveScript_FromFile(t *testing.T) {
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.toml")
 
 	t.Run("resolve script from file", func(t *testing.T) {
-		s := &Script{Script: "./test.sh", Runtimes: []RuntimeMode{RuntimeNative}}
+		s := &Implementation{Script: "./test.sh", Target: Target{Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}}
 		result, err := s.ResolveScript(invowkfilePath)
 		if err != nil {
 			t.Errorf("ResolveScript() error = %v", err)
@@ -164,7 +164,7 @@ func TestResolveScript_FromFile(t *testing.T) {
 	})
 
 	t.Run("resolve script with absolute path", func(t *testing.T) {
-		s := &Script{Script: scriptPath, Runtimes: []RuntimeMode{RuntimeNative}}
+		s := &Implementation{Script: scriptPath, Target: Target{Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}}
 		result, err := s.ResolveScript(invowkfilePath)
 		if err != nil {
 			t.Errorf("ResolveScript() error = %v", err)
@@ -176,7 +176,7 @@ func TestResolveScript_FromFile(t *testing.T) {
 	})
 
 	t.Run("error on missing script file", func(t *testing.T) {
-		s := &Script{Script: "./nonexistent.sh", Runtimes: []RuntimeMode{RuntimeNative}}
+		s := &Implementation{Script: "./nonexistent.sh", Target: Target{Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}}
 		_, err := s.ResolveScript(invowkfilePath)
 		if err == nil {
 			t.Error("ResolveScript() expected error for missing file, got nil")
@@ -201,7 +201,7 @@ func TestResolveScriptWithFS(t *testing.T) {
 	invowkfilePath := "/project/invowkfile.toml"
 
 	t.Run("resolve script from virtual fs", func(t *testing.T) {
-		s := &Script{Script: "./scripts/build.sh", Runtimes: []RuntimeMode{RuntimeNative}}
+		s := &Implementation{Script: "./scripts/build.sh", Target: Target{Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}}
 		result, err := s.ResolveScriptWithFS(invowkfilePath, readFile)
 		if err != nil {
 			t.Errorf("ResolveScriptWithFS() error = %v", err)
@@ -214,7 +214,7 @@ func TestResolveScriptWithFS(t *testing.T) {
 	})
 
 	t.Run("inline script bypasses fs", func(t *testing.T) {
-		s := &Script{Script: "echo hello world", Runtimes: []RuntimeMode{RuntimeNative}}
+		s := &Implementation{Script: "echo hello world", Target: Target{Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}}
 		result, err := s.ResolveScriptWithFS(invowkfilePath, readFile)
 		if err != nil {
 			t.Errorf("ResolveScriptWithFS() error = %v", err)
@@ -226,7 +226,7 @@ func TestResolveScriptWithFS(t *testing.T) {
 	})
 
 	t.Run("error on missing file in virtual fs", func(t *testing.T) {
-		s := &Script{Script: "./scripts/nonexistent.sh", Runtimes: []RuntimeMode{RuntimeNative}}
+		s := &Implementation{Script: "./scripts/nonexistent.sh", Target: Target{Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}}
 		_, err := s.ResolveScriptWithFS(invowkfilePath, readFile)
 		if err == nil {
 			t.Error("ResolveScriptWithFS() expected error for missing file, got nil")
@@ -238,13 +238,12 @@ func TestMultiLineScriptParsing(t *testing.T) {
 	// Test that CUE multi-line strings are properly parsed
 	cueContent := `
 version: "1.0"
-default_runtime: "native"
 
 commands: [
 	{
 		name: "multiline-test"
 		description: "Test multi-line script"
-		scripts: [
+		implementations: [
 			{
 				script: """
 					#!/bin/bash
@@ -253,7 +252,9 @@ commands: [
 					echo "Line 2"
 					echo "Line 3"
 					"""
-				runtimes: ["native"]
+				target: {
+					runtimes: [{name: "native"}]
+				}
 			}
 		]
 	}
@@ -283,15 +284,15 @@ commands: [
 
 	cmd := inv.Commands[0]
 	// CUE multi-line strings preserve the content with tabs stripped based on first line indent
-	if len(cmd.Scripts) == 0 {
+	if len(cmd.Implementations) == 0 {
 		t.Fatal("Expected at least 1 script")
 	}
-	if !strings.Contains(cmd.Scripts[0].Script, "Line 1") || !strings.Contains(cmd.Scripts[0].Script, "Line 2") {
-		t.Errorf("Multi-line script parsing failed.\nGot: %q", cmd.Scripts[0].Script)
+	if !strings.Contains(cmd.Implementations[0].Script, "Line 1") || !strings.Contains(cmd.Implementations[0].Script, "Line 2") {
+		t.Errorf("Multi-line script parsing failed.\nGot: %q", cmd.Implementations[0].Script)
 	}
 
 	// Verify resolution works too
-	resolved, err := cmd.Scripts[0].ResolveScript(invowkfilePath)
+	resolved, err := cmd.Implementations[0].ResolveScript(invowkfilePath)
 	if err != nil {
 		t.Errorf("ResolveScript() error = %v", err)
 	}
@@ -315,7 +316,7 @@ func TestScriptCaching(t *testing.T) {
 	}
 
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.toml")
-	s := &Script{Script: "./test.sh", Runtimes: []RuntimeMode{RuntimeNative}}
+	s := &Implementation{Script: "./test.sh", Target: Target{Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}}
 
 	// First resolution
 	result1, err := s.ResolveScript(invowkfilePath)
@@ -454,16 +455,17 @@ func TestCommand_GetCommandDependencies(t *testing.T) {
 func TestParseDependsOn(t *testing.T) {
 	cueContent := `
 version: "1.0"
-default_runtime: "native"
 
 commands: [
 	{
 		name: "release"
-		scripts: [
+		implementations: [
 			{
 				script: "echo releasing"
-				runtimes: ["native"]
-				platforms: ["linux", "macos"]
+				target: {
+					runtimes: [{name: "native"}]
+					platforms: [{name: "linux"}, {name: "macos"}]
+				}
 			}
 		]
 		depends_on: {
@@ -543,15 +545,14 @@ commands: [
 func TestParseDependsOn_ToolsOnly(t *testing.T) {
 	cueContent := `
 version: "1.0"
-default_runtime: "native"
 
 commands: [
 	{
 		name: "build"
-		scripts: [
+		implementations: [
 			{
 				script: "make build"
-				runtimes: ["native"]
+				target: { runtimes: [{name: "native"}] }
 			}
 		]
 		depends_on: {
@@ -597,16 +598,17 @@ commands: [
 func TestParseDependsOn_CommandsOnly(t *testing.T) {
 	cueContent := `
 version: "1.0"
-default_runtime: "native"
 
 commands: [
 	{
 		name: "release"
-		scripts: [
+		implementations: [
 			{
 				script: "echo release"
-				runtimes: ["native"]
-				platforms: ["linux", "macos"]
+				target: {
+					runtimes: [{name: "native"}]
+					platforms: [{name: "linux"}, {name: "macos"}]
+				}
 			}
 		]
 		depends_on: {
@@ -652,16 +654,17 @@ commands: [
 func TestParseDependsOn_WithCustomValidation(t *testing.T) {
 	cueContent := `
 version: "1.0"
-default_runtime: "native"
 
 commands: [
 	{
 		name: "build"
-		scripts: [
+		implementations: [
 			{
 				script: "make build"
-				runtimes: ["native"]
-				platforms: ["linux", "macos"]
+				target: {
+					runtimes: [{name: "native"}]
+					platforms: [{name: "linux"}, {name: "macos"}]
+				}
 			}
 		]
 		depends_on: {
@@ -733,15 +736,14 @@ commands: [
 func TestParseDependsOn_WithFilepaths(t *testing.T) {
 	cueContent := `
 version: "1.0"
-default_runtime: "native"
 
 commands: [
 	{
 		name: "deploy"
-		scripts: [
+		implementations: [
 			{
 				script: "echo deploying"
-				runtimes: ["native"]
+				target: { runtimes: [{name: "native"}] }
 			}
 		]
 		depends_on: {
@@ -824,8 +826,8 @@ commands: [
 
 func TestCommand_HasDependencies_WithFilepaths(t *testing.T) {
 	cmd := Command{
-		Name:    "test",
-		Scripts: []Script{{Script: "echo", Runtimes: []RuntimeMode{RuntimeNative}, Platforms: []Platform{HostLinux}}},
+		Name:            "test",
+		Implementations: []Implementation{{Script: "echo", Target: Target{Runtimes: []RuntimeConfig{{Name: RuntimeNative}}, Platforms: []PlatformConfig{{Name: PlatformLinux}}}}},
 		DependsOn: &DependsOn{
 			Filepaths: []FilepathDependency{{Alternatives: []string{"config.yaml"}}},
 		},
@@ -838,12 +840,11 @@ func TestCommand_HasDependencies_WithFilepaths(t *testing.T) {
 
 func TestGenerateCUE_WithFilepaths(t *testing.T) {
 	inv := &Invowkfile{
-		Version:        "1.0",
-		DefaultRuntime: RuntimeNative,
+		Version: "1.0",
 		Commands: []Command{
 			{
-				Name:    "deploy",
-				Scripts: []Script{{Script: "echo deploy", Runtimes: []RuntimeMode{RuntimeNative}, Platforms: []Platform{HostLinux, HostMac}}},
+				Name:            "deploy",
+				Implementations: []Implementation{{Script: "echo deploy", Target: Target{Runtimes: []RuntimeConfig{{Name: RuntimeNative}}, Platforms: []PlatformConfig{{Name: PlatformLinux}, {Name: PlatformMac}}}}},
 				DependsOn: &DependsOn{
 					Filepaths: []FilepathDependency{
 						{Alternatives: []string{"config.yaml"}},
@@ -887,26 +888,27 @@ func TestGenerateCUE_WithFilepaths(t *testing.T) {
 func TestParsePlatforms(t *testing.T) {
 	cueContent := `
 version: "1.0"
-default_runtime: "native"
 
 commands: [
 	{
 		name: "build"
-		scripts: [
+		implementations: [
 			{
 				script: "make build"
-				runtimes: ["native"]
+				target: { runtimes: [{name: "native"}] }
 				// No platforms = all platforms
 			}
 		]
 	},
 	{
 		name: "deploy"
-		scripts: [
+		implementations: [
 			{
 				script: "deploy.sh"
-				runtimes: ["native"]
-				platforms: ["linux"]
+				target: {
+					runtimes: [{name: "native"}]
+					platforms: [{name: "linux"}]
+				}
 			}
 		]
 	}
@@ -953,19 +955,18 @@ commands: [
 
 func TestGenerateCUE_WithPlatforms(t *testing.T) {
 	inv := &Invowkfile{
-		Version:        "1.0",
-		DefaultRuntime: RuntimeNative,
+		Version: "1.0",
 		Commands: []Command{
 			{
 				Name: "build",
-				Scripts: []Script{
-					{Script: "make build", Runtimes: []RuntimeMode{RuntimeNative}},
+				Implementations: []Implementation{
+					{Script: "make build", Target: Target{Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}},
 				},
 			},
 			{
 				Name: "clean",
-				Scripts: []Script{
-					{Script: "rm -rf bin/", Runtimes: []RuntimeMode{RuntimeNative}, Platforms: []Platform{HostLinux, HostMac}},
+				Implementations: []Implementation{
+					{Script: "rm -rf bin/", Target: Target{Runtimes: []RuntimeConfig{{Name: RuntimeNative}}, Platforms: []PlatformConfig{{Name: PlatformLinux}, {Name: PlatformMac}}}},
 				},
 			},
 		},
@@ -974,12 +975,12 @@ func TestGenerateCUE_WithPlatforms(t *testing.T) {
 	output := GenerateCUE(inv)
 
 	// Check that scripts structure is present
-	if !strings.Contains(output, "scripts:") {
-		t.Error("GenerateCUE should contain 'scripts:'")
+	if !strings.Contains(output, "implementations:") {
+		t.Error("GenerateCUE should contain 'implementations:'")
 	}
 
-	if !strings.Contains(output, "runtimes:") {
-		t.Error("GenerateCUE should contain 'runtimes:'")
+	if !strings.Contains(output, "target: {") {
+		t.Error("GenerateCUE should contain 'target: {'")
 	}
 
 	if !strings.Contains(output, `"linux"`) {
