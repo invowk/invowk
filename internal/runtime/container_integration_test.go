@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: EPL-2.0
+
 // Package runtime provides integration tests for the container runtime functionality.
 // These tests verify container-based command execution using Docker or Podman.
 package runtime

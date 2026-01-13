@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: EPL-2.0
+
 // Package runtime provides the command execution runtime interface and implementations.
 package runtime
 

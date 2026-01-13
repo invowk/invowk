@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: EPL-2.0
+
 // Package pack provides functionality for working with invowk packs.
 //
 // A pack is a self-contained folder with a ".invkpack" suffix that contains

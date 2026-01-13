@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: EPL-2.0
+
 // Package tui provides a clean API for terminal user interface components.
 // It wraps charmbracelet/huh and charmbracelet/bubbles to provide reusable
 // TUI elements that can be used both programmatically and via CLI commands.

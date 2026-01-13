@@ -2150,5 +2150,7 @@ invowk-cli/
 
 ## License
 
-MIT License - see LICENSE file for details.
+This project is licensed under the Eclipse Public License 2.0 (EPL-2.0) - see the [LICENSE](LICENSE) file for details.
+
+SPDX-License-Identifier: EPL-2.0
 

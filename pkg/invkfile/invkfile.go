@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: EPL-2.0
+
 // Package invkfile defines the schema and parsing for invkfile CUE files.
 package invkfile
 

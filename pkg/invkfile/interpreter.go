@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: EPL-2.0
+
 // Package invkfile provides interpreter detection and shebang parsing utilities.
 package invkfile
 
