@@ -398,7 +398,7 @@ func TestInteractiveModel_ConcurrentOutputWrites(t *testing.T) {
 	}
 }
 
-func TestStripOSCColorResponses(t *testing.T) {
+func TestStripOSCSequences(t *testing.T) {
 	tests := []struct {
 		name     string
 		input    string
@@ -440,14 +440,14 @@ func TestStripOSCColorResponses(t *testing.T) {
 			expected: "You chose: green",
 		},
 		{
-			name:     "OSC 8 hyperlink preserved",
+			name:     "OSC 8 hyperlink also stripped in pager context",
 			input:    "\x1b]8;;https://example.com\x07link\x1b]8;;\x07",
-			expected: "\x1b]8;;https://example.com\x07link\x1b]8;;\x07",
+			expected: "link",
 		},
 		{
-			name:     "OSC 0 window title preserved",
-			input:    "\x1b]0;My Window Title\x07",
-			expected: "\x1b]0;My Window Title\x07",
+			name:     "OSC 0 window title also stripped in pager context",
+			input:    "\x1b]0;My Window Title\x07text",
+			expected: "text",
 		},
 		{
 			name:     "mixed content from screenshot",
@@ -460,27 +460,22 @@ func TestStripOSCColorResponses(t *testing.T) {
 			expected: "text",
 		},
 		{
-			name:     "fragmented - missing both ESC and bracket",
-			input:    "11;rgb:3030/0a0a/2424\\You selected: rust",
-			expected: "You selected: rust",
+			name:     "preserves regular text and ANSI colors",
+			input:    "\x1b[32mGreen text\x1b[0m",
+			expected: "\x1b[32mGreen text\x1b[0m",
 		},
 		{
-			name:     "multiple fragmented sequences",
-			input:    "11;rgb:3030/0a0a/2424\\]11;rgb:3030/0a0a/2424\\]Processing complete!",
-			expected: "]Processing complete!",
-		},
-		{
-			name:     "sequence at end of line",
-			input:    "text11;rgb:3030/0a0a/2424\\",
-			expected: "text",
+			name:     "partial sequence without ESC",
+			input:    "]0;title\x07rest of output",
+			expected: "rest of output",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := stripOSCColorResponses(tt.input)
+			result := stripOSCSequences(tt.input)
 			if result != tt.expected {
-				t.Errorf("stripOSCColorResponses() mismatch\ngot:  %q\nwant: %q", result, tt.expected)
+				t.Errorf("stripOSCSequences() mismatch\ngot:  %q\nwant: %q", result, tt.expected)
 			}
 		})
 	}

@@ -55,34 +55,30 @@ const (
 	stateTUI // Displaying an embedded TUI component
 )
 
-// oscColorResponseRe matches OSC color query responses from the terminal.
-// These are responses to queries made by libraries like lipgloss for adaptive
-// styling. They should never appear in displayed output.
+// oscSequenceRe matches all OSC (Operating System Command) escape sequences.
+// OSC sequences are used for terminal features like window titles, hyperlinks,
+// color queries, clipboard operations, etc.
 //
-// Matches:
-//   - OSC 10 (foreground): \x1b]10;rgb:RRRR/GGGG/BBBB followed by BEL or ST
-//   - OSC 11 (background): \x1b]11;rgb:RRRR/GGGG/BBBB followed by BEL or ST
-//   - OSC 4 (palette): \x1b]4;N;rgb:RRRR/GGGG/BBBB followed by BEL or ST
+// In the context of invowk's interactive pager, these sequences don't function
+// (hyperlinks aren't clickable, window titles don't apply, etc.) and can appear
+// as visual garbage when fragmented across PTY read buffers.
 //
-// Also matches partial/fragmented sequences where:
-//   - Leading ESC (\x1b) was consumed in a previous buffer
-//   - Leading ] was consumed in a previous buffer
-//   - Both ESC and ] were consumed
-//
+// Format: ESC ] <content> <terminator>
 // Terminators: BEL (\x07), ST (\x1b\\), or backslash alone (\)
-var oscColorResponseRe = regexp.MustCompile(
-	`(?:\x1b)?\]?(?:10|11|4;\d+);rgb:[0-9a-fA-F]{4}/[0-9a-fA-F]{4}/[0-9a-fA-F]{4}(?:\x07|\x1b\\|\\)`,
+//
+// Also matches partial/fragmented sequences where leading ESC was consumed.
+var oscSequenceRe = regexp.MustCompile(
+	`\x1b\][^\x07\x1b\\]*(?:\x07|\x1b\\|\\)` + // Full OSC: ESC ] ... terminator
+		`|` +
+		`\][^\x07\x1b\\]*(?:\x07|\x1b\\|\\)`, // Partial: ] ... terminator (missing ESC)
 )
 
-// stripOSCColorResponses removes terminal color query responses from output.
-// These responses (OSC 4, 10, 11 with rgb: values) are never meant to be
-// displayed - they're terminal responses to color queries made by libraries
-// like lipgloss for adaptive styling.
-//
-// This preserves other OSC sequences like hyperlinks (OSC 8) and window
-// title changes (OSC 0, 1, 2) which are legitimate output.
-func stripOSCColorResponses(s string) string {
-	return oscColorResponseRe.ReplaceAllString(s, "")
+// stripOSCSequences removes all OSC escape sequences from output.
+// In invowk's interactive pager context, OSC features don't function anyway
+// (the pager is a text viewport, not a full terminal emulator), and fragmented
+// sequences appear as visual garbage.
+func stripOSCSequences(s string) string {
+	return oscSequenceRe.ReplaceAllString(s, "")
 }
 
 // outputMsg is sent when new output is available from the PTY.
@@ -669,10 +665,9 @@ func RunInteractiveCmd(ctx context.Context, opts InteractiveOptions, cmd *exec.C
 		for {
 			n, err := pty.Read(buf)
 			if n > 0 {
-				// Strip OSC color query responses that terminals send back
-				// when libraries like lipgloss query for adaptive styling.
-				// These should never appear in displayed output.
-				content := stripOSCColorResponses(string(buf[:n]))
+				// Strip OSC sequences that don't function in the pager context
+				// and appear as visual garbage when fragmented across buffers.
+				content := stripOSCSequences(string(buf[:n]))
 				if content != "" {
 					p.Send(outputMsg{content: content})
 				}
