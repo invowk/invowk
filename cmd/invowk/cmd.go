@@ -495,9 +495,13 @@ func executeDependencies(cmdInfo *discovery.CommandInfo, registry *runtime.Regis
 		return nil
 	}
 
-	cmdDeps := make([]string, len(mergedDeps.Commands))
-	for i, dep := range mergedDeps.Commands {
-		cmdDeps[i] = dep.Name
+	// Flatten all command alternatives into a list of dependencies
+	// Each CommandDependency has alternatives with OR semantics
+	var cmdDeps []string
+	for _, dep := range mergedDeps.Commands {
+		// For OR semantics, we need to check if any alternative has run
+		// For now, add all alternatives - the execution logic will handle the OR semantics
+		cmdDeps = append(cmdDeps, dep.Alternatives...)
 	}
 
 	cfg := config.Get()
@@ -514,6 +518,7 @@ func executeDependencies(cmdInfo *discovery.CommandInfo, registry *runtime.Regis
 // - native: check against host system PATH
 // - virtual: check against built-in utilities
 // - container: check within the container environment
+// Each ToolDependency has alternatives with OR semantics (any alternative found satisfies the dependency)
 func checkToolDependenciesWithRuntime(deps *invowkfile.DependsOn, runtimeMode invowkfile.RuntimeMode, registry *runtime.Registry, ctx *runtime.ExecutionContext) error {
 	if deps == nil || len(deps.Tools) == 0 {
 		return nil
@@ -522,17 +527,31 @@ func checkToolDependenciesWithRuntime(deps *invowkfile.DependsOn, runtimeMode in
 	var toolErrors []string
 
 	for _, tool := range deps.Tools {
-		var err error
-		switch runtimeMode {
-		case invowkfile.RuntimeContainer:
-			err = validateToolInContainer(tool, registry, ctx)
-		case invowkfile.RuntimeVirtual:
-			err = validateToolInVirtual(tool, registry, ctx)
-		default: // native
-			err = validateToolNative(tool)
+		// OR semantics: try each alternative until one succeeds
+		var lastErr error
+		found := false
+		for _, alt := range tool.Alternatives {
+			var err error
+			switch runtimeMode {
+			case invowkfile.RuntimeContainer:
+				err = validateToolInContainer(alt, registry, ctx)
+			case invowkfile.RuntimeVirtual:
+				err = validateToolInVirtual(alt, registry, ctx)
+			default: // native
+				err = validateToolNative(alt)
+			}
+			if err == nil {
+				found = true
+				break // Early return on first match
+			}
+			lastErr = err
 		}
-		if err != nil {
-			toolErrors = append(toolErrors, err.Error())
+		if !found && lastErr != nil {
+			if len(tool.Alternatives) == 1 {
+				toolErrors = append(toolErrors, lastErr.Error())
+			} else {
+				toolErrors = append(toolErrors, fmt.Sprintf("  • none of [%s] found", strings.Join(tool.Alternatives, ", ")))
+			}
 		}
 	}
 
@@ -546,25 +565,27 @@ func checkToolDependenciesWithRuntime(deps *invowkfile.DependsOn, runtimeMode in
 	return nil
 }
 
-// validateToolNative validates a tool dependency against the host system PATH
-func validateToolNative(tool invowkfile.ToolDependency) error {
-	_, err := exec.LookPath(tool.Name)
+// validateToolNative validates a tool dependency against the host system PATH.
+// It accepts a tool name string and checks if it exists in the system PATH.
+func validateToolNative(toolName string) error {
+	_, err := exec.LookPath(toolName)
 	if err != nil {
-		return fmt.Errorf("  • %s - not found in PATH", tool.Name)
+		return fmt.Errorf("  • %s - not found in PATH", toolName)
 	}
 	return nil
 }
 
-// validateToolInVirtual validates a tool dependency using the virtual runtime
-func validateToolInVirtual(tool invowkfile.ToolDependency, registry *runtime.Registry, ctx *runtime.ExecutionContext) error {
+// validateToolInVirtual validates a tool dependency using the virtual runtime.
+// It accepts a tool name string and checks if it exists in the virtual shell environment.
+func validateToolInVirtual(toolName string, registry *runtime.Registry, ctx *runtime.ExecutionContext) error {
 	rt, err := registry.Get(runtime.RuntimeTypeVirtual)
 	if err != nil {
 		// Fall back to native validation if virtual runtime not available
-		return validateToolNative(tool)
+		return validateToolNative(toolName)
 	}
 
 	// Use 'command -v' to check if tool exists in virtual shell
-	checkScript := fmt.Sprintf("command -v %s", tool.Name)
+	checkScript := fmt.Sprintf("command -v %s", toolName)
 
 	// Create a minimal context for validation
 	var stdout, stderr bytes.Buffer
@@ -582,20 +603,21 @@ func validateToolInVirtual(tool invowkfile.ToolDependency, registry *runtime.Reg
 	result := rt.Execute(validationCtx)
 
 	if result.ExitCode != 0 {
-		return fmt.Errorf("  • %s - not available in virtual runtime", tool.Name)
+		return fmt.Errorf("  • %s - not available in virtual runtime", toolName)
 	}
 	return nil
 }
 
-// validateToolInContainer validates a tool dependency within a container
-func validateToolInContainer(tool invowkfile.ToolDependency, registry *runtime.Registry, ctx *runtime.ExecutionContext) error {
+// validateToolInContainer validates a tool dependency within a container.
+// It accepts a tool name string and checks if it exists in the container environment.
+func validateToolInContainer(toolName string, registry *runtime.Registry, ctx *runtime.ExecutionContext) error {
 	rt, err := registry.Get(runtime.RuntimeTypeContainer)
 	if err != nil {
-		return fmt.Errorf("  • %s - container runtime not available", tool.Name)
+		return fmt.Errorf("  • %s - container runtime not available", toolName)
 	}
 
 	// Use 'command -v' or 'which' to check if tool exists in container
-	checkScript := fmt.Sprintf("command -v %s || which %s", tool.Name, tool.Name)
+	checkScript := fmt.Sprintf("command -v %s || which %s", toolName, toolName)
 
 	// Create a minimal context for validation
 	var stdout, stderr bytes.Buffer
@@ -613,7 +635,7 @@ func validateToolInContainer(tool invowkfile.ToolDependency, registry *runtime.R
 	result := rt.Execute(validationCtx)
 
 	if result.ExitCode != 0 {
-		return fmt.Errorf("  • %s - not available in container", tool.Name)
+		return fmt.Errorf("  • %s - not available in container", toolName)
 	}
 	return nil
 }
@@ -655,11 +677,13 @@ func validateCustomCheckOutput(check invowkfile.CustomCheck, outputStr string, e
 	return nil
 }
 
-// checkCustomCheckDependencies validates all custom check scripts
+// checkCustomCheckDependencies validates all custom check scripts.
 // The validation method depends on the runtime:
 // - native: executed using the host's native shell
 // - virtual: executed using invowk's built-in sh interpreter
 // - container: executed within the container environment
+// Each CustomCheckDependency can be either a direct check or a list of alternatives.
+// For alternatives, OR semantics are used (early return on first passing check).
 func checkCustomCheckDependencies(deps *invowkfile.DependsOn, runtimeMode invowkfile.RuntimeMode, registry *runtime.Registry, ctx *runtime.ExecutionContext) error {
 	if deps == nil || len(deps.CustomChecks) == 0 {
 		return nil
@@ -667,18 +691,39 @@ func checkCustomCheckDependencies(deps *invowkfile.DependsOn, runtimeMode invowk
 
 	var checkErrors []string
 
-	for _, check := range deps.CustomChecks {
-		var err error
-		switch runtimeMode {
-		case invowkfile.RuntimeContainer:
-			err = validateCustomCheckInContainer(check, registry, ctx)
-		case invowkfile.RuntimeVirtual:
-			err = validateCustomCheckInVirtual(check, registry, ctx)
-		default: // native
-			err = validateCustomCheckNative(check)
+	for _, checkDep := range deps.CustomChecks {
+		checks := checkDep.GetChecks()
+		var lastErr error
+		passed := false
+
+		for _, check := range checks {
+			var err error
+			switch runtimeMode {
+			case invowkfile.RuntimeContainer:
+				err = validateCustomCheckInContainer(check, registry, ctx)
+			case invowkfile.RuntimeVirtual:
+				err = validateCustomCheckInVirtual(check, registry, ctx)
+			default: // native
+				err = validateCustomCheckNative(check)
+			}
+			if err == nil {
+				passed = true
+				break // Early return on first passing check
+			}
+			lastErr = err
 		}
-		if err != nil {
-			checkErrors = append(checkErrors, err.Error())
+
+		if !passed && lastErr != nil {
+			if len(checks) == 1 {
+				checkErrors = append(checkErrors, lastErr.Error())
+			} else {
+				// Collect all check names for the error message
+				names := make([]string, len(checks))
+				for i, c := range checks {
+					names[i] = c.Name
+				}
+				checkErrors = append(checkErrors, fmt.Sprintf("  • none of custom checks [%s] passed", strings.Join(names, ", ")))
+			}
 		}
 	}
 
@@ -851,6 +896,8 @@ func validateFilepathInContainer(fp invowkfile.FilepathDependency, invowkDir str
 }
 
 // checkToolDependencies verifies all required tools are available in PATH (legacy - uses native)
+// checkToolDependencies verifies all required tools are available (legacy - uses native only).
+// Each ToolDependency contains a list of alternatives; if any alternative is found, the dependency is satisfied.
 func checkToolDependencies(cmd *invowkfile.Command) error {
 	if cmd.DependsOn == nil || len(cmd.DependsOn.Tools) == 0 {
 		return nil
@@ -859,8 +906,22 @@ func checkToolDependencies(cmd *invowkfile.Command) error {
 	var toolErrors []string
 
 	for _, tool := range cmd.DependsOn.Tools {
-		if err := validateToolNative(tool); err != nil {
-			toolErrors = append(toolErrors, err.Error())
+		var lastErr error
+		found := false
+		for _, alt := range tool.Alternatives {
+			if err := validateToolNative(alt); err == nil {
+				found = true
+				break // Early return on first match
+			} else {
+				lastErr = err
+			}
+		}
+		if !found && lastErr != nil {
+			if len(tool.Alternatives) == 1 {
+				toolErrors = append(toolErrors, lastErr.Error())
+			} else {
+				toolErrors = append(toolErrors, fmt.Sprintf("  • none of [%s] found", strings.Join(tool.Alternatives, ", ")))
+			}
 		}
 	}
 
@@ -874,7 +935,9 @@ func checkToolDependencies(cmd *invowkfile.Command) error {
 	return nil
 }
 
-// checkCustomChecks verifies all custom check scripts pass (legacy - uses native)
+// checkCustomChecks verifies all custom check scripts pass (legacy - uses native).
+// Each CustomCheckDependency can be either a direct check or a list of alternatives.
+// For alternatives, OR semantics are used (early return on first passing check).
 func checkCustomChecks(cmd *invowkfile.Command) error {
 	if cmd.DependsOn == nil || len(cmd.DependsOn.CustomChecks) == 0 {
 		return nil
@@ -882,9 +945,30 @@ func checkCustomChecks(cmd *invowkfile.Command) error {
 
 	var checkErrors []string
 
-	for _, check := range cmd.DependsOn.CustomChecks {
-		if err := validateCustomCheckNative(check); err != nil {
-			checkErrors = append(checkErrors, err.Error())
+	for _, checkDep := range cmd.DependsOn.CustomChecks {
+		checks := checkDep.GetChecks()
+		var lastErr error
+		passed := false
+
+		for _, check := range checks {
+			if err := validateCustomCheckNative(check); err == nil {
+				passed = true
+				break // Early return on first passing check
+			} else {
+				lastErr = err
+			}
+		}
+
+		if !passed && lastErr != nil {
+			if len(checks) == 1 {
+				checkErrors = append(checkErrors, lastErr.Error())
+			} else {
+				names := make([]string, len(checks))
+				for i, c := range checks {
+					names[i] = c.Name
+				}
+				checkErrors = append(checkErrors, fmt.Sprintf("  • none of custom checks [%s] passed", strings.Join(names, ", ")))
+			}
 		}
 	}
 
@@ -1075,6 +1159,7 @@ func isExecutable(path string, info os.FileInfo) bool {
 // checkCapabilityDependencies verifies all required system capabilities are available.
 // Capabilities are always checked against the host system, regardless of the runtime mode.
 // For container runtimes, these checks represent the host's capabilities, not the container's.
+// Each CapabilityDependency contains a list of alternatives; if any alternative is satisfied, the dependency is met.
 func checkCapabilityDependencies(deps *invowkfile.DependsOn, ctx *runtime.ExecutionContext) error {
 	if deps == nil || len(deps.Capabilities) == 0 {
 		return nil
@@ -1082,18 +1167,46 @@ func checkCapabilityDependencies(deps *invowkfile.DependsOn, ctx *runtime.Execut
 
 	var capabilityErrors []string
 
-	// Track seen capabilities to detect duplicates (they're just skipped, not an error)
-	seen := make(map[invowkfile.CapabilityName]bool)
+	// Track seen capability sets to detect duplicates (they're just skipped, not an error)
+	seen := make(map[string]bool)
 
 	for _, cap := range deps.Capabilities {
+		// Create a unique key for this set of alternatives
+		key := strings.Join(func() []string {
+			s := make([]string, len(cap.Alternatives))
+			for i, alt := range cap.Alternatives {
+				s[i] = string(alt)
+			}
+			return s
+		}(), ",")
+
 		// Skip duplicates
-		if seen[cap.Name] {
+		if seen[key] {
 			continue
 		}
-		seen[cap.Name] = true
+		seen[key] = true
 
-		if err := invowkfile.CheckCapability(cap.Name); err != nil {
-			capabilityErrors = append(capabilityErrors, fmt.Sprintf("  • %s", err.Error()))
+		var lastErr error
+		found := false
+		for _, alt := range cap.Alternatives {
+			if err := invowkfile.CheckCapability(alt); err == nil {
+				found = true
+				break // Early return on first match
+			} else {
+				lastErr = err
+			}
+		}
+
+		if !found && lastErr != nil {
+			if len(cap.Alternatives) == 1 {
+				capabilityErrors = append(capabilityErrors, fmt.Sprintf("  • %s", lastErr.Error()))
+			} else {
+				alts := make([]string, len(cap.Alternatives))
+				for i, alt := range cap.Alternatives {
+					alts[i] = string(alt)
+				}
+				capabilityErrors = append(capabilityErrors, fmt.Sprintf("  • none of capabilities [%s] satisfied", strings.Join(alts, ", ")))
+			}
 		}
 	}
 

@@ -89,8 +89,10 @@
 
 // ToolDependency represents a tool/binary that must be available in PATH
 #ToolDependency: {
-	// name is the binary name that must be in PATH (required)
-	name: string & !=""
+	// alternatives is a list of binary names where any match satisfies the dependency (required, at least one)
+	// If any of the provided tools is found in PATH, the validation succeeds (early return).
+	// This allows specifying multiple possible tools (e.g., ["podman", "docker"]).
+	alternatives: [...string & !=""] & [_, ...]
 }
 
 // CustomCheck represents a custom validation script to verify system requirements
@@ -109,6 +111,18 @@
 	// expected_output is a regex pattern to match against check_script output (optional)
 	// Can be used together with expected_code
 	expected_output?: string
+}
+
+// CustomCheckDependency represents a custom check dependency that can be either:
+// - A single CustomCheck (direct check)
+// - An alternatives list of CustomChecks (OR semantics with early return)
+#CustomCheckDependency: #CustomCheck | #CustomCheckAlternatives
+
+// CustomCheckAlternatives represents a list of alternative custom checks (OR semantics)
+#CustomCheckAlternatives: {
+	// alternatives is a list of custom checks where any passing check satisfies the dependency (required, at least one)
+	// If any of the provided checks passes, the validation succeeds (early return).
+	alternatives: [...#CustomCheck] & [_, ...]
 }
 
 // FilepathDependency represents a file or directory that must exist
@@ -132,8 +146,10 @@
 
 // CommandDependency represents another invowk command that must run first
 #CommandDependency: {
-	// name is the command name that must run before this one (required)
-	name: string & !=""
+	// alternatives is a list of command names where any match satisfies the dependency (required, at least one)
+	// If any of the provided commands has already run successfully, the validation succeeds (early return).
+	// This allows specifying alternative commands (e.g., ["build-debug", "build-release"]).
+	alternatives: [...string & !=""] & [_, ...]
 }
 
 // CapabilityName defines the supported system capability types
@@ -141,28 +157,33 @@
 
 // CapabilityDependency represents a system capability that must be available
 #CapabilityDependency: {
-	// name is the capability identifier (required)
+	// alternatives is a list of capability identifiers where any match satisfies the dependency (required, at least one)
+	// If any of the provided capabilities is available, the validation succeeds (early return).
 	// Available capabilities:
 	//   - "local-area-network": checks for Local Area Network presence
 	//   - "internet": checks for working Internet connectivity
-	name: #CapabilityName
+	alternatives: [...#CapabilityName] & [_, ...]
 }
 
 // DependsOn defines the dependencies for a command
 #DependsOn: {
 	// tools lists binaries that must be available in PATH before running
 	// Each tool is checked for existence in PATH using 'command -v' or equivalent
+	// Uses OR semantics: if any alternative in the list is found, the dependency is satisfied
 	tools?: [...#ToolDependency]
 	// commands lists invowk commands that must run before this one
+	// Uses OR semantics: if any alternative in the list has run, the dependency is satisfied
 	commands?: [...#CommandDependency]
 	// filepaths lists files or directories that must exist before running
+	// Uses OR semantics: if any alternative path exists, the dependency is satisfied
 	filepaths?: [...#FilepathDependency]
 	// capabilities lists system capabilities that must be available before running
-	// Each capability name must be unique within the list
+	// Uses OR semantics: if any alternative capability is available, the dependency is satisfied
 	capabilities?: [...#CapabilityDependency]
 	// custom_checks lists custom validation scripts to verify system requirements
 	// Use this for version checks, configuration validation, or any other custom requirement
-	custom_checks?: [...#CustomCheck]
+	// Each entry can be a single check or an alternatives list (OR semantics)
+	custom_checks?: [...#CustomCheckDependency]
 }
 
 // Command represents a single executable command

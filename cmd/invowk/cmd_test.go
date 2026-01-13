@@ -63,7 +63,7 @@ func TestCheckToolDependencies_ToolExists(t *testing.T) {
 	}
 
 	cmd := testCmdWithDeps("test", "echo hello", &invowkfile.DependsOn{
-		Tools: []invowkfile.ToolDependency{{Name: existingTool}},
+		Tools: []invowkfile.ToolDependency{{Alternatives: []string{existingTool}}},
 	})
 
 	err := checkToolDependencies(cmd)
@@ -74,7 +74,7 @@ func TestCheckToolDependencies_ToolExists(t *testing.T) {
 
 func TestCheckToolDependencies_ToolNotExists(t *testing.T) {
 	cmd := testCmdWithDeps("test", "echo hello", &invowkfile.DependsOn{
-		Tools: []invowkfile.ToolDependency{{Name: "nonexistent-tool-xyz-12345"}},
+		Tools: []invowkfile.ToolDependency{{Alternatives: []string{"nonexistent-tool-xyz-12345"}}},
 	})
 
 	err := checkToolDependencies(cmd)
@@ -99,9 +99,9 @@ func TestCheckToolDependencies_ToolNotExists(t *testing.T) {
 func TestCheckToolDependencies_MultipleToolsNotExist(t *testing.T) {
 	cmd := testCmdWithDeps("test", "echo hello", &invowkfile.DependsOn{
 		Tools: []invowkfile.ToolDependency{
-			{Name: "nonexistent-tool-1"},
-			{Name: "nonexistent-tool-2"},
-			{Name: "nonexistent-tool-3"},
+			{Alternatives: []string{"nonexistent-tool-1"}},
+			{Alternatives: []string{"nonexistent-tool-2"}},
+			{Alternatives: []string{"nonexistent-tool-3"}},
 		},
 	})
 
@@ -136,8 +136,8 @@ func TestCheckToolDependencies_MixedToolsExistAndNotExist(t *testing.T) {
 
 	cmd := testCmdWithDeps("test", "echo hello", &invowkfile.DependsOn{
 		Tools: []invowkfile.ToolDependency{
-			{Name: existingTool},
-			{Name: "nonexistent-tool-xyz"},
+			{Alternatives: []string{existingTool}},
+			{Alternatives: []string{"nonexistent-tool-xyz"}},
 		},
 	})
 
@@ -163,7 +163,7 @@ func TestCheckToolDependencies_MixedToolsExistAndNotExist(t *testing.T) {
 
 func TestCheckCustomChecks_Success(t *testing.T) {
 	cmd := testCmdWithDeps("test", "echo hello", &invowkfile.DependsOn{
-		CustomChecks: []invowkfile.CustomCheck{
+		CustomChecks: []invowkfile.CustomCheckDependency{
 			{
 				Name:         "test-check",
 				CheckScript:  "echo 'test output'",
@@ -180,7 +180,7 @@ func TestCheckCustomChecks_Success(t *testing.T) {
 
 func TestCheckCustomChecks_WrongExitCode(t *testing.T) {
 	cmd := testCmdWithDeps("test", "echo hello", &invowkfile.DependsOn{
-		CustomChecks: []invowkfile.CustomCheck{
+		CustomChecks: []invowkfile.CustomCheckDependency{
 			{
 				Name:         "test-check",
 				CheckScript:  "exit 1",
@@ -206,7 +206,7 @@ func TestCheckCustomChecks_WrongExitCode(t *testing.T) {
 
 func TestCheckCustomChecks_ExpectedNonZeroCode(t *testing.T) {
 	cmd := testCmdWithDeps("test", "echo hello", &invowkfile.DependsOn{
-		CustomChecks: []invowkfile.CustomCheck{
+		CustomChecks: []invowkfile.CustomCheckDependency{
 			{
 				Name:         "test-check",
 				CheckScript:  "exit 42",
@@ -223,7 +223,7 @@ func TestCheckCustomChecks_ExpectedNonZeroCode(t *testing.T) {
 
 func TestCheckCustomChecks_OutputMatch(t *testing.T) {
 	cmd := testCmdWithDeps("test", "echo hello", &invowkfile.DependsOn{
-		CustomChecks: []invowkfile.CustomCheck{
+		CustomChecks: []invowkfile.CustomCheckDependency{
 			{
 				Name:           "test-check",
 				CheckScript:    "echo 'version 1.2.3'",
@@ -240,7 +240,7 @@ func TestCheckCustomChecks_OutputMatch(t *testing.T) {
 
 func TestCheckCustomChecks_OutputNoMatch(t *testing.T) {
 	cmd := testCmdWithDeps("test", "echo hello", &invowkfile.DependsOn{
-		CustomChecks: []invowkfile.CustomCheck{
+		CustomChecks: []invowkfile.CustomCheckDependency{
 			{
 				Name:           "test-check",
 				CheckScript:    "echo 'hello world'",
@@ -266,7 +266,7 @@ func TestCheckCustomChecks_OutputNoMatch(t *testing.T) {
 
 func TestCheckCustomChecks_BothCodeAndOutput(t *testing.T) {
 	cmd := testCmdWithDeps("test", "echo hello", &invowkfile.DependsOn{
-		CustomChecks: []invowkfile.CustomCheck{
+		CustomChecks: []invowkfile.CustomCheckDependency{
 			{
 				Name:           "test-check",
 				CheckScript:    "echo 'go version go1.21.0'",
@@ -284,7 +284,7 @@ func TestCheckCustomChecks_BothCodeAndOutput(t *testing.T) {
 
 func TestCheckCustomChecks_InvalidRegex(t *testing.T) {
 	cmd := testCmdWithDeps("test", "echo hello", &invowkfile.DependsOn{
-		CustomChecks: []invowkfile.CustomCheck{
+		CustomChecks: []invowkfile.CustomCheckDependency{
 			{
 				Name:           "test-check",
 				CheckScript:    "echo 'test'",
@@ -1033,9 +1033,9 @@ func TestCheckCapabilityDependencies_DuplicateSkipped(t *testing.T) {
 	// The actual success/failure depends on network connectivity
 	deps := &invowkfile.DependsOn{
 		Capabilities: []invowkfile.CapabilityDependency{
-			{Name: invowkfile.CapabilityLocalAreaNetwork},
-			{Name: invowkfile.CapabilityLocalAreaNetwork}, // duplicate
-			{Name: invowkfile.CapabilityLocalAreaNetwork}, // another duplicate
+			{Alternatives: []invowkfile.CapabilityName{invowkfile.CapabilityLocalAreaNetwork}},
+			{Alternatives: []invowkfile.CapabilityName{invowkfile.CapabilityLocalAreaNetwork}}, // duplicate
+			{Alternatives: []invowkfile.CapabilityName{invowkfile.CapabilityLocalAreaNetwork}}, // another duplicate
 		},
 	}
 

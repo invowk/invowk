@@ -360,19 +360,19 @@ func TestCommand_HasDependencies(t *testing.T) {
 		},
 		{
 			name:     "only tools",
-			cmd:      testCommandWithDeps("test", "echo", &DependsOn{Tools: []ToolDependency{{Name: "git"}}}),
+			cmd:      testCommandWithDeps("test", "echo", &DependsOn{Tools: []ToolDependency{{Alternatives: []string{"git"}}}}),
 			expected: true,
 		},
 		{
 			name:     "only commands",
-			cmd:      testCommandWithDeps("test", "echo", &DependsOn{Commands: []CommandDependency{{Name: "build"}}}),
+			cmd:      testCommandWithDeps("test", "echo", &DependsOn{Commands: []CommandDependency{{Alternatives: []string{"build"}}}}),
 			expected: true,
 		},
 		{
 			name: "both tools and commands",
 			cmd: testCommandWithDeps("test", "echo", &DependsOn{
-				Tools:    []ToolDependency{{Name: "git"}},
-				Commands: []CommandDependency{{Name: "build"}},
+				Tools:    []ToolDependency{{Alternatives: []string{"git"}}},
+				Commands: []CommandDependency{{Alternatives: []string{"build"}}},
 			}),
 			expected: true,
 		},
@@ -406,23 +406,23 @@ func TestCommand_GetCommandDependencies(t *testing.T) {
 		},
 		{
 			name:     "single command",
-			cmd:      testCommandWithDeps("test", "echo", &DependsOn{Commands: []CommandDependency{{Name: "build"}}}),
+			cmd:      testCommandWithDeps("test", "echo", &DependsOn{Commands: []CommandDependency{{Alternatives: []string{"build"}}}}),
 			expected: []string{"build"},
 		},
 		{
 			name: "multiple commands",
 			cmd: testCommandWithDeps("test", "echo", &DependsOn{
 				Commands: []CommandDependency{
-					{Name: "clean"},
-					{Name: "build"},
-					{Name: "test unit"},
+					{Alternatives: []string{"clean"}},
+					{Alternatives: []string{"build"}},
+					{Alternatives: []string{"test unit"}},
 				},
 			}),
 			expected: []string{"clean", "build", "test unit"},
 		},
 		{
 			name:     "only tools no commands",
-			cmd:      testCommandWithDeps("test", "echo", &DependsOn{Tools: []ToolDependency{{Name: "git"}}}),
+			cmd:      testCommandWithDeps("test", "echo", &DependsOn{Tools: []ToolDependency{{Alternatives: []string{"git"}}}}),
 			expected: []string{},
 		},
 	}
@@ -470,12 +470,12 @@ commands: [
 		]
 		depends_on: {
 			tools: [
-				{name: "git"},
-				{name: "docker"},
+				{alternatives: ["git"]},
+				{alternatives: ["docker"]},
 			]
 			commands: [
-				{name: "build"},
-				{name: "test unit"},
+				{alternatives: ["build"]},
+				{alternatives: ["test unit"]},
 			]
 			custom_checks: [
 				{name: "docker-version", check_script: "docker --version", expected_output: "Docker"},
@@ -515,12 +515,12 @@ commands: [
 		t.Errorf("Expected 2 tools, got %d", len(cmd.DependsOn.Tools))
 	}
 
-	if cmd.DependsOn.Tools[0].Name != "git" {
-		t.Errorf("First tool name = %q, want %q", cmd.DependsOn.Tools[0].Name, "git")
+	if len(cmd.DependsOn.Tools[0].Alternatives) == 0 || cmd.DependsOn.Tools[0].Alternatives[0] != "git" {
+		t.Errorf("First tool alternatives = %v, want [git]", cmd.DependsOn.Tools[0].Alternatives)
 	}
 
-	if cmd.DependsOn.Tools[1].Name != "docker" {
-		t.Errorf("Second tool name = %q, want %q", cmd.DependsOn.Tools[1].Name, "docker")
+	if len(cmd.DependsOn.Tools[1].Alternatives) == 0 || cmd.DependsOn.Tools[1].Alternatives[0] != "docker" {
+		t.Errorf("Second tool alternatives = %v, want [docker]", cmd.DependsOn.Tools[1].Alternatives)
 	}
 
 	// Check custom_checks
@@ -528,16 +528,21 @@ commands: [
 		t.Errorf("Expected 1 custom_check, got %d", len(cmd.DependsOn.CustomChecks))
 	}
 
-	if cmd.DependsOn.CustomChecks[0].Name != "docker-version" {
-		t.Errorf("First custom_check name = %q, want %q", cmd.DependsOn.CustomChecks[0].Name, "docker-version")
+	checks := cmd.DependsOn.CustomChecks[0].GetChecks()
+	if len(checks) == 0 {
+		t.Fatal("Expected at least one check from CustomCheckDependency")
 	}
 
-	if cmd.DependsOn.CustomChecks[0].CheckScript != "docker --version" {
-		t.Errorf("First custom_check check_script = %q, want %q", cmd.DependsOn.CustomChecks[0].CheckScript, "docker --version")
+	if checks[0].Name != "docker-version" {
+		t.Errorf("First custom_check name = %q, want %q", checks[0].Name, "docker-version")
 	}
 
-	if cmd.DependsOn.CustomChecks[0].ExpectedOutput != "Docker" {
-		t.Errorf("First custom_check expected_output = %q, want %q", cmd.DependsOn.CustomChecks[0].ExpectedOutput, "Docker")
+	if checks[0].CheckScript != "docker --version" {
+		t.Errorf("First custom_check check_script = %q, want %q", checks[0].CheckScript, "docker --version")
+	}
+
+	if checks[0].ExpectedOutput != "Docker" {
+		t.Errorf("First custom_check expected_output = %q, want %q", checks[0].ExpectedOutput, "Docker")
 	}
 
 	// Check commands
@@ -545,12 +550,12 @@ commands: [
 		t.Errorf("Expected 2 commands, got %d", len(cmd.DependsOn.Commands))
 	}
 
-	if cmd.DependsOn.Commands[0].Name != "build" {
-		t.Errorf("First command name = %q, want %q", cmd.DependsOn.Commands[0].Name, "build")
+	if len(cmd.DependsOn.Commands[0].Alternatives) == 0 || cmd.DependsOn.Commands[0].Alternatives[0] != "build" {
+		t.Errorf("First command alternatives = %v, want [build]", cmd.DependsOn.Commands[0].Alternatives)
 	}
 
-	if cmd.DependsOn.Commands[1].Name != "test unit" {
-		t.Errorf("Second command name = %q, want %q", cmd.DependsOn.Commands[1].Name, "test unit")
+	if len(cmd.DependsOn.Commands[1].Alternatives) == 0 || cmd.DependsOn.Commands[1].Alternatives[0] != "test unit" {
+		t.Errorf("Second command alternatives = %v, want [test unit]", cmd.DependsOn.Commands[1].Alternatives)
 	}
 }
 
@@ -569,8 +574,8 @@ commands: [
 		]
 		depends_on: {
 			tools: [
-				{name: "make"},
-				{name: "gcc"},
+				{alternatives: ["make"]},
+				{alternatives: ["gcc"]},
 			]
 		}
 	}
@@ -625,8 +630,8 @@ commands: [
 		]
 		depends_on: {
 			commands: [
-				{name: "build"},
-				{name: "test"},
+				{alternatives: ["build"]},
+				{alternatives: ["test"]},
 			]
 		}
 	}
@@ -681,8 +686,8 @@ commands: [
 		]
 		depends_on: {
 			tools: [
-				{name: "make"},
-				{name: "go"},
+				{alternatives: ["make"]},
+				{alternatives: ["go"]},
 			]
 			custom_checks: [
 				{
@@ -723,13 +728,13 @@ commands: [
 	}
 
 	// First tool - simple
-	if cmd.DependsOn.Tools[0].Name != "make" {
-		t.Errorf("First tool name = %q, want %q", cmd.DependsOn.Tools[0].Name, "make")
+	if len(cmd.DependsOn.Tools[0].Alternatives) == 0 || cmd.DependsOn.Tools[0].Alternatives[0] != "make" {
+		t.Errorf("First tool alternatives = %v, want [make]", cmd.DependsOn.Tools[0].Alternatives)
 	}
 
 	// Second tool - simple
-	if cmd.DependsOn.Tools[1].Name != "go" {
-		t.Errorf("Second tool name = %q, want %q", cmd.DependsOn.Tools[1].Name, "go")
+	if len(cmd.DependsOn.Tools[1].Alternatives) == 0 || cmd.DependsOn.Tools[1].Alternatives[0] != "go" {
+		t.Errorf("Second tool alternatives = %v, want [go]", cmd.DependsOn.Tools[1].Alternatives)
 	}
 
 	// Custom check with validation
@@ -737,7 +742,11 @@ commands: [
 		t.Fatalf("Expected 1 custom_check, got %d", len(cmd.DependsOn.CustomChecks))
 	}
 
-	goCheck := cmd.DependsOn.CustomChecks[0]
+	checks := cmd.DependsOn.CustomChecks[0].GetChecks()
+	if len(checks) == 0 {
+		t.Fatal("Expected at least one check from CustomCheckDependency")
+	}
+	goCheck := checks[0]
 	if goCheck.Name != "go-version" {
 		t.Errorf("Custom check name = %q, want %q", goCheck.Name, "go-version")
 	}
@@ -1471,8 +1480,8 @@ commands: [
 		]
 		depends_on: {
 			capabilities: [
-				{name: "local-area-network"},
-				{name: "internet"},
+				{alternatives: ["local-area-network"]},
+				{alternatives: ["internet"]},
 			]
 		}
 	}
@@ -1510,14 +1519,14 @@ commands: [
 
 	// First capability - local-area-network
 	cap0 := cmd.DependsOn.Capabilities[0]
-	if cap0.Name != CapabilityLocalAreaNetwork {
-		t.Errorf("First capability name = %q, want %q", cap0.Name, CapabilityLocalAreaNetwork)
+	if len(cap0.Alternatives) == 0 || cap0.Alternatives[0] != CapabilityLocalAreaNetwork {
+		t.Errorf("First capability alternatives = %v, want [%s]", cap0.Alternatives, CapabilityLocalAreaNetwork)
 	}
 
 	// Second capability - internet
 	cap1 := cmd.DependsOn.Capabilities[1]
-	if cap1.Name != CapabilityInternet {
-		t.Errorf("Second capability name = %q, want %q", cap1.Name, CapabilityInternet)
+	if len(cap1.Alternatives) == 0 || cap1.Alternatives[0] != CapabilityInternet {
+		t.Errorf("Second capability alternatives = %v, want [%s]", cap1.Alternatives, CapabilityInternet)
 	}
 }
 
@@ -1534,7 +1543,7 @@ commands: [
 				target: { runtimes: [{name: "native"}] }
 				depends_on: {
 					capabilities: [
-						{name: "internet"},
+						{alternatives: ["internet"]},
 					]
 				}
 			}
@@ -1577,8 +1586,8 @@ commands: [
 		t.Fatalf("Expected 1 capability, got %d", len(impl.DependsOn.Capabilities))
 	}
 
-	if impl.DependsOn.Capabilities[0].Name != CapabilityInternet {
-		t.Errorf("Capability name = %q, want %q", impl.DependsOn.Capabilities[0].Name, CapabilityInternet)
+	if len(impl.DependsOn.Capabilities[0].Alternatives) == 0 || impl.DependsOn.Capabilities[0].Alternatives[0] != CapabilityInternet {
+		t.Errorf("Capability alternatives = %v, want [%s]", impl.DependsOn.Capabilities[0].Alternatives, CapabilityInternet)
 	}
 }
 
@@ -1587,7 +1596,7 @@ func TestCommand_HasDependencies_WithCapabilities(t *testing.T) {
 		Name:            "test",
 		Implementations: []Implementation{{Script: "echo", Target: Target{Runtimes: []RuntimeConfig{{Name: RuntimeNative}}, Platforms: []PlatformConfig{{Name: PlatformLinux}}}}},
 		DependsOn: &DependsOn{
-			Capabilities: []CapabilityDependency{{Name: CapabilityInternet}},
+			Capabilities: []CapabilityDependency{{Alternatives: []CapabilityName{CapabilityInternet}}},
 		},
 	}
 
@@ -1601,7 +1610,7 @@ func TestCommand_HasCommandLevelDependencies_WithCapabilities(t *testing.T) {
 		Name:            "test",
 		Implementations: []Implementation{{Script: "echo", Target: Target{Runtimes: []RuntimeConfig{{Name: RuntimeNative}}, Platforms: []PlatformConfig{{Name: PlatformLinux}}}}},
 		DependsOn: &DependsOn{
-			Capabilities: []CapabilityDependency{{Name: CapabilityLocalAreaNetwork}},
+			Capabilities: []CapabilityDependency{{Alternatives: []CapabilityName{CapabilityLocalAreaNetwork}}},
 		},
 	}
 
@@ -1615,7 +1624,7 @@ func TestScript_HasDependencies_WithCapabilities(t *testing.T) {
 		Script: "echo test",
 		Target: Target{Runtimes: []RuntimeConfig{{Name: RuntimeNative}}},
 		DependsOn: &DependsOn{
-			Capabilities: []CapabilityDependency{{Name: CapabilityInternet}},
+			Capabilities: []CapabilityDependency{{Alternatives: []CapabilityName{CapabilityInternet}}},
 		},
 	}
 
@@ -1626,11 +1635,11 @@ func TestScript_HasDependencies_WithCapabilities(t *testing.T) {
 
 func TestMergeDependsOn_WithCapabilities(t *testing.T) {
 	cmdDeps := &DependsOn{
-		Capabilities: []CapabilityDependency{{Name: CapabilityLocalAreaNetwork}},
+		Capabilities: []CapabilityDependency{{Alternatives: []CapabilityName{CapabilityLocalAreaNetwork}}},
 	}
 
 	scriptDeps := &DependsOn{
-		Capabilities: []CapabilityDependency{{Name: CapabilityInternet}},
+		Capabilities: []CapabilityDependency{{Alternatives: []CapabilityName{CapabilityInternet}}},
 	}
 
 	merged := MergeDependsOn(cmdDeps, scriptDeps)
@@ -1644,12 +1653,12 @@ func TestMergeDependsOn_WithCapabilities(t *testing.T) {
 	}
 
 	// Command-level capabilities should come first
-	if merged.Capabilities[0].Name != CapabilityLocalAreaNetwork {
-		t.Errorf("First capability = %q, want %q", merged.Capabilities[0].Name, CapabilityLocalAreaNetwork)
+	if len(merged.Capabilities[0].Alternatives) == 0 || merged.Capabilities[0].Alternatives[0] != CapabilityLocalAreaNetwork {
+		t.Errorf("First capability alternatives = %v, want [%s]", merged.Capabilities[0].Alternatives, CapabilityLocalAreaNetwork)
 	}
 
-	if merged.Capabilities[1].Name != CapabilityInternet {
-		t.Errorf("Second capability = %q, want %q", merged.Capabilities[1].Name, CapabilityInternet)
+	if len(merged.Capabilities[1].Alternatives) == 0 || merged.Capabilities[1].Alternatives[0] != CapabilityInternet {
+		t.Errorf("Second capability alternatives = %v, want [%s]", merged.Capabilities[1].Alternatives, CapabilityInternet)
 	}
 }
 
@@ -1669,8 +1678,8 @@ func TestGenerateCUE_WithCapabilities(t *testing.T) {
 				},
 				DependsOn: &DependsOn{
 					Capabilities: []CapabilityDependency{
-						{Name: CapabilityInternet},
-						{Name: CapabilityLocalAreaNetwork},
+						{Alternatives: []CapabilityName{CapabilityInternet}},
+						{Alternatives: []CapabilityName{CapabilityLocalAreaNetwork}},
 					},
 				},
 			},
@@ -1684,11 +1693,11 @@ func TestGenerateCUE_WithCapabilities(t *testing.T) {
 		t.Error("GenerateCUE should include 'capabilities:' section")
 	}
 
-	if !strings.Contains(result, `name: "internet"`) {
+	if !strings.Contains(result, `"internet"`) {
 		t.Error("GenerateCUE should include internet capability")
 	}
 
-	if !strings.Contains(result, `name: "local-area-network"`) {
+	if !strings.Contains(result, `"local-area-network"`) {
 		t.Error("GenerateCUE should include local-area-network capability")
 	}
 }
@@ -1707,7 +1716,7 @@ func TestGenerateCUE_WithCapabilitiesAtImplementationLevel(t *testing.T) {
 						},
 						DependsOn: &DependsOn{
 							Capabilities: []CapabilityDependency{
-								{Name: CapabilityInternet},
+								{Alternatives: []CapabilityName{CapabilityInternet}},
 							},
 						},
 					},
@@ -1723,7 +1732,186 @@ func TestGenerateCUE_WithCapabilitiesAtImplementationLevel(t *testing.T) {
 		t.Error("GenerateCUE should include 'capabilities:' section at implementation level")
 	}
 
-	if !strings.Contains(result, `name: "internet"`) {
+	if !strings.Contains(result, `"internet"`) {
 		t.Error("GenerateCUE should include internet capability")
+	}
+}
+
+// TestCUESchema_RejectsToolDependencyWithName verifies that the CUE schema rejects
+// tool dependencies that use the old 'name' field instead of 'alternatives'
+func TestCUESchema_RejectsToolDependencyWithName(t *testing.T) {
+	cueContent := `
+version: "1.0"
+
+commands: [
+	{
+		name: "test"
+		implementations: [
+			{
+				script: "echo test"
+				target: { runtimes: [{name: "native"}] }
+			}
+		]
+		depends_on: {
+			tools: [
+				{name: "git"},
+			]
+		}
+	}
+]
+`
+	tmpDir, err := os.MkdirTemp("", "invowk-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
+	if err := os.WriteFile(invowkfilePath, []byte(cueContent), 0644); err != nil {
+		t.Fatalf("Failed to write invowkfile: %v", err)
+	}
+
+	_, err = Parse(invowkfilePath)
+	if err == nil {
+		t.Error("Parse() should reject tool dependency with 'name' field instead of 'alternatives'")
+	}
+	if !strings.Contains(err.Error(), "field not allowed") {
+		t.Errorf("Error should mention 'field not allowed', got: %v", err)
+	}
+}
+
+// TestCUESchema_RejectsCustomCheckWithBothNameAndAlternatives verifies that the CUE schema
+// rejects custom checks that have both direct fields (name, check_script) AND alternatives
+func TestCUESchema_RejectsCustomCheckWithBothNameAndAlternatives(t *testing.T) {
+	cueContent := `
+version: "1.0"
+
+commands: [
+	{
+		name: "test"
+		implementations: [
+			{
+				script: "echo test"
+				target: { runtimes: [{name: "native"}] }
+			}
+		]
+		depends_on: {
+			custom_checks: [
+				{
+					name: "should-not-have-both"
+					check_script: "echo test"
+					alternatives: [
+						{name: "alt1", check_script: "echo alt1"}
+					]
+				}
+			]
+		}
+	}
+]
+`
+	tmpDir, err := os.MkdirTemp("", "invowk-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
+	if err := os.WriteFile(invowkfilePath, []byte(cueContent), 0644); err != nil {
+		t.Fatalf("Failed to write invowkfile: %v", err)
+	}
+
+	_, err = Parse(invowkfilePath)
+	if err == nil {
+		t.Error("Parse() should reject custom check with both direct fields and alternatives")
+	}
+	// The error could be about conflicting fields or disjunction not matching
+	if !strings.Contains(err.Error(), "conflict") && !strings.Contains(err.Error(), "not allowed") {
+		t.Logf("Warning: Error message may not be ideal, got: %v", err)
+	}
+}
+
+// TestCUESchema_RejectsCapabilityDependencyWithName verifies that the CUE schema rejects
+// capability dependencies that use the old 'name' field instead of 'alternatives'
+func TestCUESchema_RejectsCapabilityDependencyWithName(t *testing.T) {
+	cueContent := `
+version: "1.0"
+
+commands: [
+	{
+		name: "test"
+		implementations: [
+			{
+				script: "echo test"
+				target: { runtimes: [{name: "native"}] }
+			}
+		]
+		depends_on: {
+			capabilities: [
+				{name: "internet"},
+			]
+		}
+	}
+]
+`
+	tmpDir, err := os.MkdirTemp("", "invowk-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
+	if err := os.WriteFile(invowkfilePath, []byte(cueContent), 0644); err != nil {
+		t.Fatalf("Failed to write invowkfile: %v", err)
+	}
+
+	_, err = Parse(invowkfilePath)
+	if err == nil {
+		t.Error("Parse() should reject capability dependency with 'name' field instead of 'alternatives'")
+	}
+	if !strings.Contains(err.Error(), "field not allowed") {
+		t.Errorf("Error should mention 'field not allowed', got: %v", err)
+	}
+}
+
+// TestCUESchema_RejectsCommandDependencyWithName verifies that the CUE schema rejects
+// command dependencies that use the old 'name' field instead of 'alternatives'
+func TestCUESchema_RejectsCommandDependencyWithName(t *testing.T) {
+	cueContent := `
+version: "1.0"
+
+commands: [
+	{
+		name: "test"
+		implementations: [
+			{
+				script: "echo test"
+				target: { runtimes: [{name: "native"}] }
+			}
+		]
+		depends_on: {
+			commands: [
+				{name: "build"},
+			]
+		}
+	}
+]
+`
+	tmpDir, err := os.MkdirTemp("", "invowk-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
+	if err := os.WriteFile(invowkfilePath, []byte(cueContent), 0644); err != nil {
+		t.Fatalf("Failed to write invowkfile: %v", err)
+	}
+
+	_, err = Parse(invowkfilePath)
+	if err == nil {
+		t.Error("Parse() should reject command dependency with 'name' field instead of 'alternatives'")
+	}
+	if !strings.Contains(err.Error(), "field not allowed") {
+		t.Errorf("Error should mention 'field not allowed', got: %v", err)
 	}
 }

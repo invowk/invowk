@@ -182,16 +182,16 @@ func generateInvowkfile(template string) string {
 							},
 						},
 					},
-					DependsOn: &invowkfile.DependsOn{
-						Tools: []invowkfile.ToolDependency{
-							{Name: "git"},
-						},
-						Commands: []invowkfile.CommandDependency{
-							{Name: "clean"},
-							{Name: "build"},
-							{Name: "test unit"},
-						},
+				DependsOn: &invowkfile.DependsOn{
+					Tools: []invowkfile.ToolDependency{
+						{Alternatives: []string{"git"}},
 					},
+					Commands: []invowkfile.CommandDependency{
+						{Alternatives: []string{"clean"}},
+						{Alternatives: []string{"build"}},
+						{Alternatives: []string{"test unit"}},
+					},
+				},
 				},
 			},
 		}

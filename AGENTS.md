@@ -1,3 +1,17 @@
+## Built-in Examples of Invowk Commands (invowkfile.cue at project root)
+
+- All commands should be idempotent and not cause any side effects on the host.
+- No commands should be related to building invowk itself or manipulating any of its source code.
+- Examples should range from simple (e.g.: native 'hello-world') to complex (e.g.: container 'hello-world' with the enable_host_ssh feature).
+- Examples should illustrate the use of different features of Invowk, such as:
+  - Native vs. Container execution
+  - Volume mounts for Container execution
+  - Environment variables
+  - Host SSH access enabled vs. disabled
+  - Capabilities checks (with and without alternatives)
+  - Tools checks (with and without alternatives)
+  - Custom checks (with and without alternatives)
+
 ## Key Guidelines
 
 - In all planning and design decisions, always consider that the code must be highly testable, maintainable, and extensible.

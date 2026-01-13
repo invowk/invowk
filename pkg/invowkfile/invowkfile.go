@@ -81,8 +81,10 @@ type Target struct {
 
 // ToolDependency represents a tool/binary that must be available in PATH
 type ToolDependency struct {
-	// Name is the binary name that must be in PATH
-	Name string `json:"name"`
+	// Alternatives is a list of binary names where any match satisfies the dependency
+	// If any of the provided tools is found in PATH, the validation succeeds (early return).
+	// This allows specifying multiple possible tools (e.g., ["podman", "docker"]).
+	Alternatives []string `json:"alternatives"`
 }
 
 // CustomCheck represents a custom validation script to verify system requirements
@@ -97,10 +99,52 @@ type CustomCheck struct {
 	ExpectedOutput string `json:"expected_output,omitempty"`
 }
 
+// CustomCheckDependency represents a custom check dependency that can be either:
+// - A single CustomCheck (direct check with name, check_script, etc.)
+// - An alternatives list of CustomChecks (OR semantics with early return)
+type CustomCheckDependency struct {
+	// Direct check fields (used when this is a single check)
+	// Name is an identifier for this check (used for error reporting)
+	Name string `json:"name,omitempty"`
+	// CheckScript is the script to execute for validation
+	CheckScript string `json:"check_script,omitempty"`
+	// ExpectedCode is the expected exit code from CheckScript (optional, default: 0)
+	ExpectedCode *int `json:"expected_code,omitempty"`
+	// ExpectedOutput is a regex pattern to match against CheckScript output (optional)
+	ExpectedOutput string `json:"expected_output,omitempty"`
+
+	// Alternatives is a list of custom checks where any passing check satisfies the dependency
+	// If any of the provided checks passes, the validation succeeds (early return).
+	// When Alternatives is set, the direct check fields above are ignored.
+	Alternatives []CustomCheck `json:"alternatives,omitempty"`
+}
+
+// IsAlternatives returns true if this dependency uses the alternatives format
+func (c *CustomCheckDependency) IsAlternatives() bool {
+	return len(c.Alternatives) > 0
+}
+
+// GetChecks returns the list of CustomCheck to validate.
+// If Alternatives is set, returns those; otherwise returns a single-element list with the direct check.
+func (c *CustomCheckDependency) GetChecks() []CustomCheck {
+	if c.IsAlternatives() {
+		return c.Alternatives
+	}
+	// Return as a single-element list
+	return []CustomCheck{{
+		Name:           c.Name,
+		CheckScript:    c.CheckScript,
+		ExpectedCode:   c.ExpectedCode,
+		ExpectedOutput: c.ExpectedOutput,
+	}}
+}
+
 // CommandDependency represents another invowk command that must run first
 type CommandDependency struct {
-	// Name is the command name that must run before this one
-	Name string `json:"name"`
+	// Alternatives is a list of command names where any match satisfies the dependency
+	// If any of the provided commands has already run successfully, the validation succeeds (early return).
+	// This allows specifying alternative commands (e.g., ["build-debug", "build-release"]).
+	Alternatives []string `json:"alternatives"`
 }
 
 // CapabilityName represents a system capability type
@@ -115,9 +159,10 @@ const (
 
 // CapabilityDependency represents a system capability that must be available
 type CapabilityDependency struct {
-	// Name is the capability identifier (required)
+	// Alternatives is a list of capability identifiers where any match satisfies the dependency
+	// If any of the provided capabilities is available, the validation succeeds (early return).
 	// Available capabilities: "local-area-network", "internet"
-	Name CapabilityName `json:"name"`
+	Alternatives []CapabilityName `json:"alternatives"`
 }
 
 // FilepathDependency represents a file or directory that must exist
@@ -138,15 +183,20 @@ type FilepathDependency struct {
 // DependsOn defines the dependencies for a command
 type DependsOn struct {
 	// Tools lists binaries that must be available in PATH before running
+	// Uses OR semantics: if any alternative in the list is found, the dependency is satisfied
 	Tools []ToolDependency `json:"tools,omitempty"`
 	// Commands lists invowk commands that must run before this one
+	// Uses OR semantics: if any alternative in the list has run, the dependency is satisfied
 	Commands []CommandDependency `json:"commands,omitempty"`
 	// Filepaths lists files or directories that must exist before running
+	// Uses OR semantics: if any alternative path exists, the dependency is satisfied
 	Filepaths []FilepathDependency `json:"filepaths,omitempty"`
 	// Capabilities lists system capabilities that must be available before running
+	// Uses OR semantics: if any alternative capability is available, the dependency is satisfied
 	Capabilities []CapabilityDependency `json:"capabilities,omitempty"`
 	// CustomChecks lists custom validation scripts to verify system requirements
-	CustomChecks []CustomCheck `json:"custom_checks,omitempty"`
+	// Each entry can be a single check or an alternatives list (OR semantics)
+	CustomChecks []CustomCheckDependency `json:"custom_checks,omitempty"`
 }
 
 // HostOS represents a supported operating system (deprecated, use PlatformType)
@@ -490,13 +540,14 @@ func (c *Command) HasCommandLevelDependencies() bool {
 }
 
 // GetCommandDependencies returns the list of command dependency names (from command level)
+// For dependencies with alternatives, returns all alternatives flattened into a single list
 func (c *Command) GetCommandDependencies() []string {
 	if c.DependsOn == nil {
 		return nil
 	}
-	names := make([]string, len(c.DependsOn.Commands))
-	for i, dep := range c.DependsOn.Commands {
-		names[i] = dep.Name
+	var names []string
+	for _, dep := range c.DependsOn.Commands {
+		names = append(names, dep.Alternatives...)
 	}
 	return names
 }
@@ -510,13 +561,14 @@ func (s *Script) HasDependencies() bool {
 }
 
 // GetCommandDependencies returns the list of command dependency names from this script
+// For dependencies with alternatives, returns all alternatives flattened into a single list
 func (s *Script) GetCommandDependencies() []string {
 	if s.DependsOn == nil {
 		return nil
 	}
-	names := make([]string, len(s.DependsOn.Commands))
-	for i, dep := range s.DependsOn.Commands {
-		names[i] = dep.Name
+	var names []string
+	for _, dep := range s.DependsOn.Commands {
+		names = append(names, dep.Alternatives...)
 	}
 	return names
 }
@@ -534,7 +586,7 @@ func MergeDependsOn(cmdDeps, scriptDeps *DependsOn) *DependsOn {
 		Commands:     make([]CommandDependency, 0),
 		Filepaths:    make([]FilepathDependency, 0),
 		Capabilities: make([]CapabilityDependency, 0),
-		CustomChecks: make([]CustomCheck, 0),
+		CustomChecks: make([]CustomCheckDependency, 0),
 	}
 
 	// Add command-level dependencies first
@@ -966,14 +1018,28 @@ func GenerateCUE(inv *Invowkfile) string {
 				if len(impl.DependsOn.Tools) > 0 {
 					sb.WriteString("\t\t\t\t\ttools: [\n")
 					for _, tool := range impl.DependsOn.Tools {
-						sb.WriteString(fmt.Sprintf("\t\t\t\t\t\t{name: %q},\n", tool.Name))
+						sb.WriteString("\t\t\t\t\t\t{alternatives: [")
+						for i, alt := range tool.Alternatives {
+							if i > 0 {
+								sb.WriteString(", ")
+							}
+							sb.WriteString(fmt.Sprintf("%q", alt))
+						}
+						sb.WriteString("]},\n")
 					}
 					sb.WriteString("\t\t\t\t\t]\n")
 				}
 				if len(impl.DependsOn.Commands) > 0 {
 					sb.WriteString("\t\t\t\t\tcommands: [\n")
 					for _, dep := range impl.DependsOn.Commands {
-						sb.WriteString(fmt.Sprintf("\t\t\t\t\t\t{name: %q},\n", dep.Name))
+						sb.WriteString("\t\t\t\t\t\t{alternatives: [")
+						for i, alt := range dep.Alternatives {
+							if i > 0 {
+								sb.WriteString(", ")
+							}
+							sb.WriteString(fmt.Sprintf("%q", alt))
+						}
+						sb.WriteString("]},\n")
 					}
 					sb.WriteString("\t\t\t\t\t]\n")
 				}
@@ -1004,22 +1070,45 @@ func GenerateCUE(inv *Invowkfile) string {
 				if len(impl.DependsOn.Capabilities) > 0 {
 					sb.WriteString("\t\t\t\t\tcapabilities: [\n")
 					for _, cap := range impl.DependsOn.Capabilities {
-						sb.WriteString(fmt.Sprintf("\t\t\t\t\t\t{name: %q},\n", cap.Name))
+						sb.WriteString("\t\t\t\t\t\t{alternatives: [")
+						for i, alt := range cap.Alternatives {
+							if i > 0 {
+								sb.WriteString(", ")
+							}
+							sb.WriteString(fmt.Sprintf("%q", alt))
+						}
+						sb.WriteString("]},\n")
 					}
 					sb.WriteString("\t\t\t\t\t]\n")
 				}
 				if len(impl.DependsOn.CustomChecks) > 0 {
 					sb.WriteString("\t\t\t\t\tcustom_checks: [\n")
 					for _, check := range impl.DependsOn.CustomChecks {
-						sb.WriteString("\t\t\t\t\t\t{")
-						sb.WriteString(fmt.Sprintf("name: %q, check_script: %q", check.Name, check.CheckScript))
-						if check.ExpectedCode != nil {
-							sb.WriteString(fmt.Sprintf(", expected_code: %d", *check.ExpectedCode))
+						if check.IsAlternatives() {
+							sb.WriteString("\t\t\t\t\t\t{alternatives: [\n")
+							for _, alt := range check.Alternatives {
+								sb.WriteString("\t\t\t\t\t\t\t{")
+								sb.WriteString(fmt.Sprintf("name: %q, check_script: %q", alt.Name, alt.CheckScript))
+								if alt.ExpectedCode != nil {
+									sb.WriteString(fmt.Sprintf(", expected_code: %d", *alt.ExpectedCode))
+								}
+								if alt.ExpectedOutput != "" {
+									sb.WriteString(fmt.Sprintf(", expected_output: %q", alt.ExpectedOutput))
+								}
+								sb.WriteString("},\n")
+							}
+							sb.WriteString("\t\t\t\t\t\t]},\n")
+						} else {
+							sb.WriteString("\t\t\t\t\t\t{")
+							sb.WriteString(fmt.Sprintf("name: %q, check_script: %q", check.Name, check.CheckScript))
+							if check.ExpectedCode != nil {
+								sb.WriteString(fmt.Sprintf(", expected_code: %d", *check.ExpectedCode))
+							}
+							if check.ExpectedOutput != "" {
+								sb.WriteString(fmt.Sprintf(", expected_output: %q", check.ExpectedOutput))
+							}
+							sb.WriteString("},\n")
 						}
-						if check.ExpectedOutput != "" {
-							sb.WriteString(fmt.Sprintf(", expected_output: %q", check.ExpectedOutput))
-						}
-						sb.WriteString("},\n")
 					}
 					sb.WriteString("\t\t\t\t\t]\n")
 				}
@@ -1045,14 +1134,28 @@ func GenerateCUE(inv *Invowkfile) string {
 			if len(cmd.DependsOn.Tools) > 0 {
 				sb.WriteString("\t\t\ttools: [\n")
 				for _, tool := range cmd.DependsOn.Tools {
-					sb.WriteString(fmt.Sprintf("\t\t\t\t{name: %q},\n", tool.Name))
+					sb.WriteString("\t\t\t\t{alternatives: [")
+					for i, alt := range tool.Alternatives {
+						if i > 0 {
+							sb.WriteString(", ")
+						}
+						sb.WriteString(fmt.Sprintf("%q", alt))
+					}
+					sb.WriteString("]},\n")
 				}
 				sb.WriteString("\t\t\t]\n")
 			}
 			if len(cmd.DependsOn.Commands) > 0 {
 				sb.WriteString("\t\t\tcommands: [\n")
 				for _, dep := range cmd.DependsOn.Commands {
-					sb.WriteString(fmt.Sprintf("\t\t\t\t{name: %q},\n", dep.Name))
+					sb.WriteString("\t\t\t\t{alternatives: [")
+					for i, alt := range dep.Alternatives {
+						if i > 0 {
+							sb.WriteString(", ")
+						}
+						sb.WriteString(fmt.Sprintf("%q", alt))
+					}
+					sb.WriteString("]},\n")
 				}
 				sb.WriteString("\t\t\t]\n")
 			}
@@ -1083,22 +1186,45 @@ func GenerateCUE(inv *Invowkfile) string {
 			if len(cmd.DependsOn.Capabilities) > 0 {
 				sb.WriteString("\t\t\tcapabilities: [\n")
 				for _, cap := range cmd.DependsOn.Capabilities {
-					sb.WriteString(fmt.Sprintf("\t\t\t\t{name: %q},\n", cap.Name))
+					sb.WriteString("\t\t\t\t{alternatives: [")
+					for i, alt := range cap.Alternatives {
+						if i > 0 {
+							sb.WriteString(", ")
+						}
+						sb.WriteString(fmt.Sprintf("%q", alt))
+					}
+					sb.WriteString("]},\n")
 				}
 				sb.WriteString("\t\t\t]\n")
 			}
 			if len(cmd.DependsOn.CustomChecks) > 0 {
 				sb.WriteString("\t\t\tcustom_checks: [\n")
 				for _, check := range cmd.DependsOn.CustomChecks {
-					sb.WriteString("\t\t\t\t{")
-					sb.WriteString(fmt.Sprintf("name: %q, check_script: %q", check.Name, check.CheckScript))
-					if check.ExpectedCode != nil {
-						sb.WriteString(fmt.Sprintf(", expected_code: %d", *check.ExpectedCode))
+					if check.IsAlternatives() {
+						sb.WriteString("\t\t\t\t{alternatives: [\n")
+						for _, alt := range check.Alternatives {
+							sb.WriteString("\t\t\t\t\t{")
+							sb.WriteString(fmt.Sprintf("name: %q, check_script: %q", alt.Name, alt.CheckScript))
+							if alt.ExpectedCode != nil {
+								sb.WriteString(fmt.Sprintf(", expected_code: %d", *alt.ExpectedCode))
+							}
+							if alt.ExpectedOutput != "" {
+								sb.WriteString(fmt.Sprintf(", expected_output: %q", alt.ExpectedOutput))
+							}
+							sb.WriteString("},\n")
+						}
+						sb.WriteString("\t\t\t\t]},\n")
+					} else {
+						sb.WriteString("\t\t\t\t{")
+						sb.WriteString(fmt.Sprintf("name: %q, check_script: %q", check.Name, check.CheckScript))
+						if check.ExpectedCode != nil {
+							sb.WriteString(fmt.Sprintf(", expected_code: %d", *check.ExpectedCode))
+						}
+						if check.ExpectedOutput != "" {
+							sb.WriteString(fmt.Sprintf(", expected_output: %q", check.ExpectedOutput))
+						}
+						sb.WriteString("},\n")
 					}
-					if check.ExpectedOutput != "" {
-						sb.WriteString(fmt.Sprintf(", expected_output: %q", check.ExpectedOutput))
-					}
-					sb.WriteString("},\n")
 				}
 				sb.WriteString("\t\t\t]\n")
 			}
