@@ -331,6 +331,211 @@ Permission checks are cross-platform compatible (Linux, macOS, Windows).
 
 When dependencies are not satisfied, invowk displays a styled error message listing all issues at once.
 
+## Command Flags
+
+Commands can define flags that are passed at runtime. Flags are made available to scripts as environment variables with the `INVOWK_FLAG_` prefix.
+
+### Defining Flags
+
+```cue
+commands: [
+    {
+        name: "deploy"
+        description: "Deploy the application"
+        implementations: [
+            {
+                script: """
+                    echo "Deploying to ${INVOWK_FLAG_ENV}..."
+                    if [ "$INVOWK_FLAG_DRY_RUN" = "true" ]; then
+                        echo "DRY RUN - no changes made"
+                    else
+                        ./scripts/deploy.sh "$INVOWK_FLAG_ENV"
+                    fi
+                    """
+                target: {
+                    runtimes: [{name: "native"}]
+                }
+            }
+        ]
+        // Define flags for this command
+        flags: [
+            {name: "env", description: "Target environment"},
+            {name: "dry-run", description: "Perform a dry run", default_value: "false"},
+            {name: "retry-count", description: "Number of retries", default_value: "3"},
+        ]
+    }
+]
+```
+
+### Flag Properties
+
+| Property | Required | Description |
+|----------|----------|-------------|
+| `name` | Yes | Flag name (POSIX-compliant: starts with letter, alphanumeric/hyphen/underscore) |
+| `description` | Yes | Description shown in help text |
+| `default_value` | No | Default value if flag is not provided (cannot be used with `required`) |
+| `type` | No | Data type: `string` (default), `bool`, `int`, or `float` |
+| `required` | No | If `true`, the flag must be provided (cannot have `default_value`) |
+| `short` | No | Single-letter alias (e.g., `v` for `-v` shorthand) |
+| `validation` | No | Regex pattern to validate flag values |
+
+### Typed Flags
+
+Flags can specify a type for better validation:
+
+```cue
+flags: [
+    {name: "verbose", description: "Enable verbose output", type: "bool", default_value: "false"},
+    {name: "count", description: "Number of iterations", type: "int", default_value: "5"},
+    {name: "threshold", description: "Confidence threshold", type: "float", default_value: "0.95"},
+    {name: "message", description: "Custom message", type: "string"},
+]
+```
+
+- **string** (default): Any value is accepted
+- **bool**: Only `true` or `false` are accepted
+- **int**: Only valid integers are accepted (including negative numbers)
+- **float**: Only valid floating-point numbers are accepted (e.g., `3.14`, `-2.5`, `1.5e-3`)
+
+### Required Flags
+
+Mark a flag as required to ensure it must be provided:
+
+```cue
+flags: [
+    {name: "target", description: "Deployment target", required: true},
+    {name: "confirm", description: "Skip confirmation", type: "bool", default_value: "false"},
+]
+```
+
+Required flags cannot have a `default_value`. If a required flag is not provided, the command will fail with an error.
+
+### Short Aliases
+
+Add single-letter shortcuts for frequently used flags:
+
+```cue
+flags: [
+    {name: "verbose", description: "Enable verbose output", type: "bool", short: "v"},
+    {name: "output", description: "Output file path", short: "o"},
+    {name: "force", description: "Force overwrite", type: "bool", short: "f"},
+]
+```
+
+Usage:
+```bash
+invowk cmd myproject build -v -o=./dist/output.txt -f
+# Equivalent to:
+invowk cmd myproject build --verbose --output=./dist/output.txt --force
+```
+
+### Validation Patterns
+
+Use regex patterns to validate flag values:
+
+```cue
+flags: [
+    {name: "env", description: "Environment", validation: "^(dev|staging|prod)$", default_value: "dev"},
+    {name: "version", description: "Version (semver)", validation: "^[0-9]+\\.[0-9]+\\.[0-9]+$"},
+]
+```
+
+If a value doesn't match the pattern, the command fails before execution:
+```
+Error: flag 'env' value 'invalid' does not match required pattern '^(dev|staging|prod)$'
+```
+
+### Complete Flag Example
+
+Here's a command using all flag features:
+
+```cue
+commands: [
+    {
+        name: "deploy"
+        description: "Deploy the application"
+        implementations: [...]
+        flags: [
+            {
+                name:        "env"
+                description: "Target environment"
+                type:        "string"
+                required:    true
+                short:       "e"
+                validation:  "^(dev|staging|prod)$"
+            },
+            {
+                name:          "replicas"
+                description:   "Number of replicas"
+                type:          "int"
+                short:         "n"
+                default_value: "1"
+            },
+            {
+                name:          "dry-run"
+                description:   "Perform a dry run"
+                type:          "bool"
+                short:         "d"
+                default_value: "false"
+            },
+        ]
+    }
+]
+```
+
+Usage:
+```bash
+invowk cmd myproject deploy -e=prod -n=3 -d
+```
+
+### Using Flags
+
+Flags are passed using standard `--flag=value` or `--flag value` syntax:
+
+```bash
+# Pass flags to a command
+invowk cmd myproject deploy --env=production --dry-run=true
+
+# Use default values
+invowk cmd myproject deploy --env=staging  # dry-run defaults to "false"
+
+# View flag help
+invowk cmd myproject deploy --help
+```
+
+### Environment Variable Naming
+
+Flag names are converted to environment variables:
+- Prefix: `INVOWK_FLAG_`
+- Hyphens (`-`) become underscores (`_`)
+- Converted to uppercase
+
+| Flag Name | Environment Variable |
+|-----------|---------------------|
+| `env` | `INVOWK_FLAG_ENV` |
+| `dry-run` | `INVOWK_FLAG_DRY_RUN` |
+| `output-file` | `INVOWK_FLAG_OUTPUT_FILE` |
+| `retry-count` | `INVOWK_FLAG_RETRY_COUNT` |
+
+### Flags in Scripts
+
+Access flag values in your scripts using the environment variables:
+
+```bash
+#!/bin/bash
+# Access flags as environment variables
+echo "Environment: $INVOWK_FLAG_ENV"
+echo "Dry run: $INVOWK_FLAG_DRY_RUN"
+
+# Conditional logic based on flags
+if [ "$INVOWK_FLAG_VERBOSE" = "true" ]; then
+    set -x  # Enable debug output
+fi
+
+# Use default value pattern if needed
+RETRIES="${INVOWK_FLAG_RETRY_COUNT:-3}"
+```
+
 ### Script-Level Dependencies
 
 Dependencies can also be specified at the script level, which is especially useful for container-based implementations:

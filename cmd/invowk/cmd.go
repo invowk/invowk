@@ -104,14 +104,88 @@ func registerDiscoveredCommands() {
 
 			if isLeaf {
 				// Leaf command - actually runs something
-				cmdName := cmdInfo.Name // Capture for closure
+				cmdName := cmdInfo.Name           // Capture for closure
+				cmdFlags := cmdInfo.Command.Flags // Capture flags for closure
 				newCmd = &cobra.Command{
 					Use:   part,
 					Short: cmdInfo.Description,
 					Long:  fmt.Sprintf("Run the '%s' command from %s", cmdInfo.Name, cmdInfo.FilePath),
 					RunE: func(cmd *cobra.Command, args []string) error {
-						return runCommand(append([]string{cmdName}, args...))
+						// Extract flag values from Cobra command based on type
+						flagValues := make(map[string]string)
+						for _, flag := range cmdFlags {
+							var val string
+							var err error
+							switch flag.GetType() {
+							case invowkfile.FlagTypeBool:
+								var boolVal bool
+								boolVal, err = cmd.Flags().GetBool(flag.Name)
+								if err == nil {
+									val = fmt.Sprintf("%t", boolVal)
+								}
+							case invowkfile.FlagTypeInt:
+								var intVal int
+								intVal, err = cmd.Flags().GetInt(flag.Name)
+								if err == nil {
+									val = fmt.Sprintf("%d", intVal)
+								}
+							case invowkfile.FlagTypeFloat:
+								var floatVal float64
+								floatVal, err = cmd.Flags().GetFloat64(flag.Name)
+								if err == nil {
+									val = fmt.Sprintf("%g", floatVal)
+								}
+							default: // FlagTypeString
+								val, err = cmd.Flags().GetString(flag.Name)
+							}
+							if err == nil {
+								flagValues[flag.Name] = val
+							}
+						}
+						return runCommandWithFlags(cmdName, args, flagValues, cmdFlags)
 					},
+				}
+				// Add flags defined in the command with proper types and short aliases
+				for _, flag := range cmdFlags {
+					switch flag.GetType() {
+					case invowkfile.FlagTypeBool:
+						defaultVal := flag.DefaultValue == "true"
+						if flag.Short != "" {
+							newCmd.Flags().BoolP(flag.Name, flag.Short, defaultVal, flag.Description)
+						} else {
+							newCmd.Flags().Bool(flag.Name, defaultVal, flag.Description)
+						}
+					case invowkfile.FlagTypeInt:
+						defaultVal := 0
+						if flag.DefaultValue != "" {
+							fmt.Sscanf(flag.DefaultValue, "%d", &defaultVal)
+						}
+						if flag.Short != "" {
+							newCmd.Flags().IntP(flag.Name, flag.Short, defaultVal, flag.Description)
+						} else {
+							newCmd.Flags().Int(flag.Name, defaultVal, flag.Description)
+						}
+					case invowkfile.FlagTypeFloat:
+						defaultVal := 0.0
+						if flag.DefaultValue != "" {
+							fmt.Sscanf(flag.DefaultValue, "%f", &defaultVal)
+						}
+						if flag.Short != "" {
+							newCmd.Flags().Float64P(flag.Name, flag.Short, defaultVal, flag.Description)
+						} else {
+							newCmd.Flags().Float64(flag.Name, defaultVal, flag.Description)
+						}
+					default: // FlagTypeString
+						if flag.Short != "" {
+							newCmd.Flags().StringP(flag.Name, flag.Short, flag.DefaultValue, flag.Description)
+						} else {
+							newCmd.Flags().String(flag.Name, flag.DefaultValue, flag.Description)
+						}
+					}
+					// Mark required flags
+					if flag.Required {
+						_ = newCmd.MarkFlagRequired(flag.Name)
+					}
 				}
 			} else {
 				// Parent command for nested structure
@@ -273,15 +347,10 @@ func listCommands() error {
 	return nil
 }
 
-// runCommand executes a command by its name
-func runCommand(args []string) error {
-	if len(args) == 0 {
-		return fmt.Errorf("no command specified")
-	}
-
-	cmdName := args[0]
-	cmdArgs := args[1:]
-
+// runCommandWithFlags executes a command with the given flag values.
+// flagValues is a map of flag name -> value.
+// flagDefs contains the flag definitions for runtime validation (can be nil for legacy calls).
+func runCommandWithFlags(cmdName string, args []string, flagValues map[string]string, flagDefs []invowkfile.Flag) error {
 	cfg := config.Get()
 	disc := discovery.New(cfg)
 
@@ -291,6 +360,11 @@ func runCommand(args []string) error {
 		rendered, _ := issue.Get(issue.CommandNotFoundId).Render("dark")
 		fmt.Fprint(os.Stderr, rendered)
 		return fmt.Errorf("command '%s' not found", cmdName)
+	}
+
+	// Validate flag values at runtime
+	if err := validateFlagValues(cmdName, flagValues, flagDefs); err != nil {
+		return err
 	}
 
 	// Get the current platform
@@ -372,10 +446,16 @@ func runCommand(args []string) error {
 	}
 
 	// Add command-line arguments as environment variables
-	for i, arg := range cmdArgs {
+	for i, arg := range args {
 		ctx.ExtraEnv[fmt.Sprintf("ARG%d", i+1)] = arg
 	}
-	ctx.ExtraEnv["ARGC"] = fmt.Sprintf("%d", len(cmdArgs))
+	ctx.ExtraEnv["ARGC"] = fmt.Sprintf("%d", len(args))
+
+	// Add flag values as environment variables
+	for name, value := range flagValues {
+		envName := FlagNameToEnvVar(name)
+		ctx.ExtraEnv[envName] = value
+	}
 
 	result := registry.Execute(ctx)
 	if result.Error != nil {
@@ -393,6 +473,19 @@ func runCommand(args []string) error {
 	}
 
 	return nil
+}
+
+// runCommand executes a command by its name (legacy - no flag values)
+func runCommand(args []string) error {
+	if len(args) == 0 {
+		return fmt.Errorf("no command specified")
+	}
+
+	cmdName := args[0]
+	cmdArgs := args[1:]
+
+	// Delegate to runCommandWithFlags with empty flag values
+	return runCommandWithFlags(cmdName, cmdArgs, nil, nil)
 }
 
 // createRuntimeRegistry creates and populates the runtime registry
@@ -1223,6 +1316,49 @@ func checkCapabilityDependencies(deps *invowkfile.DependsOn, ctx *runtime.Execut
 // isWindows returns true if running on Windows
 func isWindows() bool {
 	return os.PathSeparator == '\\' && os.PathListSeparator == ';'
+}
+
+// FlagNameToEnvVar converts a flag name to an environment variable name.
+// Example: "output-file" -> "INVOWK_FLAG_OUTPUT_FILE"
+func FlagNameToEnvVar(name string) string {
+	// Replace hyphens with underscores and convert to uppercase
+	envName := strings.ToUpper(strings.ReplaceAll(name, "-", "_"))
+	return "INVOWK_FLAG_" + envName
+}
+
+// validateFlagValues validates flag values at runtime.
+// It checks that required flags are provided and validates values against type and regex patterns.
+func validateFlagValues(cmdName string, flagValues map[string]string, flagDefs []invowkfile.Flag) error {
+	if flagDefs == nil {
+		return nil
+	}
+
+	var errors []string
+
+	for _, flag := range flagDefs {
+		value, hasValue := flagValues[flag.Name]
+
+		// Check required flags
+		// Note: Cobra handles required flag checking via MarkFlagRequired,
+		// but we double-check here for runtime validation (legacy calls)
+		if flag.Required && (!hasValue || value == "") {
+			errors = append(errors, fmt.Sprintf("required flag '--%s' was not provided", flag.Name))
+			continue
+		}
+
+		// Validate the value if provided (skip empty values for non-required flags)
+		if hasValue && value != "" {
+			if err := flag.ValidateFlagValue(value); err != nil {
+				errors = append(errors, err.Error())
+			}
+		}
+	}
+
+	if len(errors) > 0 {
+		return fmt.Errorf("flag validation failed for command '%s':\n  %s", cmdName, strings.Join(errors, "\n  "))
+	}
+
+	return nil
 }
 
 // DependencyError represents unsatisfied dependencies

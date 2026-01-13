@@ -703,11 +703,264 @@ commands: [
 	},
 
 	// ============================================================================
-	// SECTION 10: Complex Combined Examples
+	// SECTION 10: Command Flags
+	// ============================================================================
+	// These commands demonstrate the use of command-line flags.
+
+	// Example 10.1: Simple command with flags
+	{
+		name:        "flags simple"
+		description: "Command with simple flags"
+		implementations: [
+			{
+				script: """
+					echo "=== Simple Flags Demo ==="
+					echo ""
+					echo "Flags passed to this command are available as environment variables:"
+					echo "  INVOWK_FLAG_VERBOSE = '${INVOWK_FLAG_VERBOSE}'"
+					echo "  INVOWK_FLAG_OUTPUT = '${INVOWK_FLAG_OUTPUT}'"
+					echo ""
+					if [ -n "$INVOWK_FLAG_VERBOSE" ] && [ "$INVOWK_FLAG_VERBOSE" = "true" ]; then
+					    echo "[VERBOSE] Extra verbose information would appear here"
+					fi
+					if [ -n "$INVOWK_FLAG_OUTPUT" ]; then
+					    echo "[OUTPUT] Would write to: $INVOWK_FLAG_OUTPUT"
+					fi
+					echo ""
+					echo "Try: invowk cmd examples flags simple --verbose=true --output=/tmp/out.txt"
+					"""
+				target: {
+					runtimes: [{name: "native"}]
+				}
+			}
+		]
+		flags: [
+			{name: "verbose", description: "Enable verbose output"},
+			{name: "output", description: "Output file path"},
+		]
+	},
+
+	// Example 10.2: Flags with default values
+	{
+		name:        "flags defaults"
+		description: "Command with flags that have default values"
+		implementations: [
+			{
+				script: """
+					echo "=== Flags with Defaults Demo ==="
+					echo ""
+					echo "These flags have default values if not specified:"
+					echo "  INVOWK_FLAG_ENV = '${INVOWK_FLAG_ENV}' (default: development)"
+					echo "  INVOWK_FLAG_RETRY_COUNT = '${INVOWK_FLAG_RETRY_COUNT}' (default: 3)"
+					echo "  INVOWK_FLAG_DRY_RUN = '${INVOWK_FLAG_DRY_RUN}' (default: false)"
+					echo ""
+					if [ "$INVOWK_FLAG_DRY_RUN" = "true" ]; then
+					    echo "[DRY-RUN MODE] Would deploy to '$INVOWK_FLAG_ENV' with $INVOWK_FLAG_RETRY_COUNT retries"
+					else
+					    echo "Deploying to '$INVOWK_FLAG_ENV' with $INVOWK_FLAG_RETRY_COUNT retries..."
+					fi
+					echo ""
+					echo "Try: invowk cmd examples flags defaults --env=production --dry-run=true"
+					"""
+				target: {
+					runtimes: [{name: "native"}]
+				}
+			}
+		]
+		flags: [
+			{name: "env", description: "Target environment", default_value: "development"},
+			{name: "retry-count", description: "Number of retries", default_value: "3"},
+			{name: "dry-run", description: "Perform a dry run without making changes", default_value: "false"},
+		]
+	},
+
+	// Example 10.3: Typed flags (bool, int, float, string)
+	{
+		name:        "flags typed"
+		description: "Command with typed flags (bool, int, float, string)"
+		implementations: [
+			{
+				script: """
+					echo "=== Typed Flags Demo ==="
+					echo ""
+					echo "These flags have explicit types:"
+					echo "  INVOWK_FLAG_VERBOSE (bool) = '$INVOWK_FLAG_VERBOSE'"
+					echo "  INVOWK_FLAG_COUNT (int) = '$INVOWK_FLAG_COUNT'"
+					echo "  INVOWK_FLAG_THRESHOLD (float) = '$INVOWK_FLAG_THRESHOLD'"
+					echo "  INVOWK_FLAG_MESSAGE (string) = '$INVOWK_FLAG_MESSAGE'"
+					echo ""
+					echo "Typed flags are validated:"
+					echo "  - bool: only 'true' or 'false' accepted"
+					echo "  - int: only valid integers accepted"
+					echo "  - float: only valid floating-point numbers accepted"
+					echo "  - string: any value accepted (default)"
+					echo ""
+					echo "Try: invowk cmd examples flags typed --verbose --count=5 --threshold=0.95 --message='Hello World'"
+					"""
+				target: {
+					runtimes: [{name: "native"}]
+				}
+			}
+		]
+		flags: [
+			{name: "verbose", description: "Enable verbose output", type: "bool", default_value: "false"},
+			{name: "count", description: "Number of iterations", type: "int", default_value: "1"},
+			{name: "threshold", description: "Confidence threshold", type: "float", default_value: "0.75"},
+			{name: "message", description: "Message to display", type: "string", default_value: "Hello"},
+		]
+	},
+
+	// Example 10.4: Required flags
+	{
+		name:        "flags required"
+		description: "Command with required flags that must be provided"
+		implementations: [
+			{
+				script: """
+					echo "=== Required Flags Demo ==="
+					echo ""
+					echo "This command requires the --target flag to be provided."
+					echo "  INVOWK_FLAG_TARGET = '$INVOWK_FLAG_TARGET'"
+					echo ""
+					echo "Required flags cannot have default values."
+					echo ""
+					echo "Try: invowk cmd examples flags required --target=production"
+					"""
+				target: {
+					runtimes: [{name: "native"}]
+				}
+			}
+		]
+		flags: [
+			{name: "target", description: "Target to deploy to (required)", required: true},
+			{name: "confirm", description: "Skip confirmation prompt", type: "bool", default_value: "false"},
+		]
+	},
+
+	// Example 10.5: Short aliases for flags
+	{
+		name:        "flags short"
+		description: "Command with short flag aliases"
+		implementations: [
+			{
+				script: """
+					echo "=== Short Flag Aliases Demo ==="
+					echo ""
+					echo "These flags have short aliases:"
+					echo "  -v / --verbose = '$INVOWK_FLAG_VERBOSE'"
+					echo "  -o / --output = '$INVOWK_FLAG_OUTPUT'"
+					echo "  -f / --force = '$INVOWK_FLAG_FORCE'"
+					echo ""
+					echo "Short aliases make command-line usage more convenient."
+					echo ""
+					echo "Try: invowk cmd examples flags short -v -o=/tmp/out.txt -f"
+					"""
+				target: {
+					runtimes: [{name: "native"}]
+				}
+			}
+		]
+		flags: [
+			{name: "verbose", description: "Enable verbose output", type: "bool", short: "v", default_value: "false"},
+			{name: "output", description: "Output file path", short: "o"},
+			{name: "force", description: "Force overwrite", type: "bool", short: "f", default_value: "false"},
+		]
+	},
+
+	// Example 10.6: Flags with validation regex
+	{
+		name:        "flags validation"
+		description: "Command with flags validated by regex patterns"
+		implementations: [
+			{
+				script: """
+					echo "=== Flag Validation Demo ==="
+					echo ""
+					echo "These flags are validated against regex patterns:"
+					echo "  --env (dev|staging|prod) = '$INVOWK_FLAG_ENV'"
+					echo "  --version (semver) = '$INVOWK_FLAG_VERSION'"
+					echo ""
+					echo "Invalid values will be rejected before the command runs."
+					echo ""
+					echo "Try: invowk cmd examples flags validation --env=staging --version=1.2.3"
+					"""
+				target: {
+					runtimes: [{name: "native"}]
+				}
+			}
+		]
+		flags: [
+			{name: "env", description: "Environment (dev, staging, or prod)", validation: "^(dev|staging|prod)$", default_value: "dev"},
+			{name: "version", description: "Version number (semver format)", validation: "^[0-9]+\\.[0-9]+\\.[0-9]+$", default_value: "1.0.0"},
+		]
+	},
+
+	// Example 10.7: Full-featured flags combining all options
+	{
+		name:        "flags full"
+		description: "Command demonstrating all flag features combined"
+		implementations: [
+			{
+				script: """
+					echo "=== Full Flags Feature Demo ==="
+					echo ""
+					echo "This command demonstrates all flag features:"
+					echo ""
+					echo "  Required flag:"
+					echo "    --env / -e = '$INVOWK_FLAG_ENV' (validated: dev|staging|prod)"
+					echo ""
+					echo "  Typed flags with defaults:"
+					echo "    --replicas / -n (int) = '$INVOWK_FLAG_REPLICAS'"
+					echo "    --dry-run / -d (bool) = '$INVOWK_FLAG_DRY_RUN'"
+					echo "    --tag / -t (string) = '$INVOWK_FLAG_TAG' (validated: semver)"
+					echo ""
+					echo "Try: invowk cmd examples flags full -e=prod -n=3 -d -t=2.0.0"
+					"""
+				target: {
+					runtimes: [{name: "native"}]
+				}
+			}
+		]
+		flags: [
+			{
+				name:        "env"
+				description: "Target environment"
+				type:        "string"
+				required:    true
+				short:       "e"
+				validation:  "^(dev|staging|prod)$"
+			},
+			{
+				name:          "replicas"
+				description:   "Number of replicas to deploy"
+				type:          "int"
+				short:         "n"
+				default_value: "1"
+			},
+			{
+				name:          "dry-run"
+				description:   "Perform a dry run without making changes"
+				type:          "bool"
+				short:         "d"
+				default_value: "false"
+			},
+			{
+				name:          "tag"
+				description:   "Version tag (semver format)"
+				type:          "string"
+				short:         "t"
+				default_value: "1.0.0"
+				validation:    "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+			},
+		]
+	},
+
+	// ============================================================================
+	// SECTION 11: Complex Combined Examples
 	// ============================================================================
 	// These commands demonstrate combining multiple features.
 
-	// Example 10.1: Full-featured command with all dependency types
+	// Example 11.1: Full-featured command with all dependency types
 	{
 		name:        "full demo"
 		description: "Command demonstrating all dependency types"
@@ -762,10 +1015,15 @@ commands: [
 		}
 	},
 
-	// Example 10.2: Container with full features
+	// Example 11.2: Container with full features and command flags
 	{
 		name:        "full container"
 		description: "Container command with all container features"
+		flags: [
+			{name: "env", description: "Target environment (e.g., staging, production)"},
+			{name: "dry-run", description: "Perform a dry run without making changes", default_value: "false"},
+			{name: "verbose", description: "Enable verbose output"},
+		]
 		implementations: [
 			{
 				script: """

@@ -24,9 +24,9 @@ func testCmd(name string, script string) *invowkfile.Command {
 // testCmdWithDeps creates a Command with a single script and dependencies
 func testCmdWithDeps(name string, script string, deps *invowkfile.DependsOn) *invowkfile.Command {
 	return &invowkfile.Command{
-		Name:      name,
-		Implementations:   []invowkfile.Implementation{{Script: script, Target: invowkfile.Target{Runtimes: []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeNative}}}}},
-		DependsOn: deps,
+		Name:            name,
+		Implementations: []invowkfile.Implementation{{Script: script, Target: invowkfile.Target{Runtimes: []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeNative}}}}},
+		DependsOn:       deps,
 	}
 }
 
@@ -770,7 +770,7 @@ func TestCommand_CanRunOnCurrentHost(t *testing.T) {
 		{
 			name: "empty scripts list",
 			cmd: &invowkfile.Command{
-				Name:    "test",
+				Name:            "test",
 				Implementations: []invowkfile.Implementation{},
 			},
 			expected: false,
@@ -826,7 +826,7 @@ func TestCommand_GetPlatformsString(t *testing.T) {
 		{
 			name: "empty scripts",
 			cmd: &invowkfile.Command{
-				Name:    "test",
+				Name:            "test",
 				Implementations: []invowkfile.Implementation{},
 			},
 			expected: "",
@@ -888,7 +888,7 @@ func TestCommand_GetDefaultRuntimeForPlatform(t *testing.T) {
 		{
 			name: "empty scripts returns native",
 			cmd: &invowkfile.Command{
-				Name:    "test",
+				Name:            "test",
 				Implementations: []invowkfile.Implementation{},
 			},
 			expected: invowkfile.RuntimeNative,
@@ -965,7 +965,7 @@ func TestCommand_GetRuntimesStringForPlatform(t *testing.T) {
 		{
 			name: "empty scripts",
 			cmd: &invowkfile.Command{
-				Name:    "test",
+				Name:            "test",
 				Implementations: []invowkfile.Implementation{},
 			},
 			expected: "",
@@ -1133,5 +1133,163 @@ func TestRenderDependencyError_AllDependencyTypes(t *testing.T) {
 
 	if !strings.Contains(output, "Missing Capabilities") {
 		t.Error("RenderDependencyError should contain 'Missing Capabilities' section")
+	}
+}
+
+// Tests for flag functionality
+
+func TestFlagNameToEnvVar(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name:     "simple name",
+			input:    "verbose",
+			expected: "INVOWK_FLAG_VERBOSE",
+		},
+		{
+			name:     "name with hyphen",
+			input:    "output-file",
+			expected: "INVOWK_FLAG_OUTPUT_FILE",
+		},
+		{
+			name:     "name with multiple hyphens",
+			input:    "dry-run-mode",
+			expected: "INVOWK_FLAG_DRY_RUN_MODE",
+		},
+		{
+			name:     "name with underscore",
+			input:    "output_file",
+			expected: "INVOWK_FLAG_OUTPUT_FILE",
+		},
+		{
+			name:     "mixed case preserved as uppercase",
+			input:    "outputFile",
+			expected: "INVOWK_FLAG_OUTPUTFILE",
+		},
+		{
+			name:     "already uppercase",
+			input:    "VERBOSE",
+			expected: "INVOWK_FLAG_VERBOSE",
+		},
+		{
+			name:     "single character",
+			input:    "v",
+			expected: "INVOWK_FLAG_V",
+		},
+		{
+			name:     "numeric suffix",
+			input:    "level2",
+			expected: "INVOWK_FLAG_LEVEL2",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := FlagNameToEnvVar(tt.input)
+			if result != tt.expected {
+				t.Errorf("FlagNameToEnvVar(%q) = %q, want %q", tt.input, result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestRunCommandWithFlags_FlagsInjectedAsEnvVars(t *testing.T) {
+	// This test verifies that flag values are correctly converted to environment variables
+	// We'll test the FlagNameToEnvVar conversion more extensively since
+	// the actual runCommandWithFlags requires a full invowkfile setup
+
+	// Test that the conversion is consistent
+	flagName := "my-custom-flag"
+	envVar := FlagNameToEnvVar(flagName)
+
+	if envVar != "INVOWK_FLAG_MY_CUSTOM_FLAG" {
+		t.Errorf("FlagNameToEnvVar(%q) = %q, expected INVOWK_FLAG_MY_CUSTOM_FLAG", flagName, envVar)
+	}
+
+	// Verify the pattern: INVOWK_FLAG_ prefix, uppercase, hyphens replaced with underscores
+	if !strings.HasPrefix(envVar, "INVOWK_FLAG_") {
+		t.Error("FlagNameToEnvVar result should have INVOWK_FLAG_ prefix")
+	}
+
+	if strings.Contains(envVar, "-") {
+		t.Error("FlagNameToEnvVar result should not contain hyphens")
+	}
+
+	if envVar != strings.ToUpper(envVar) {
+		t.Error("FlagNameToEnvVar result should be all uppercase")
+	}
+}
+
+// testCmdWithFlags creates a Command with flags for testing
+func testCmdWithFlags(name string, script string, flags []invowkfile.Flag) *invowkfile.Command {
+	return &invowkfile.Command{
+		Name:  name,
+		Flags: flags,
+		Implementations: []invowkfile.Implementation{
+			{Script: script, Target: invowkfile.Target{Runtimes: []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeNative}}}},
+		},
+	}
+}
+
+func TestCommand_WithFlags(t *testing.T) {
+	flags := []invowkfile.Flag{
+		{Name: "env", Description: "Target environment"},
+		{Name: "dry-run", Description: "Perform dry run", DefaultValue: "false"},
+	}
+
+	cmd := testCmdWithFlags("deploy", "echo deploying", flags)
+
+	if len(cmd.Flags) != 2 {
+		t.Errorf("Command should have 2 flags, got %d", len(cmd.Flags))
+	}
+
+	// Verify flag properties
+	if cmd.Flags[0].Name != "env" {
+		t.Errorf("First flag name should be 'env', got %q", cmd.Flags[0].Name)
+	}
+
+	if cmd.Flags[1].DefaultValue != "false" {
+		t.Errorf("Second flag default value should be 'false', got %q", cmd.Flags[1].DefaultValue)
+	}
+}
+
+func TestFlagNameToEnvVar_EdgeCases(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name:     "empty string",
+			input:    "",
+			expected: "INVOWK_FLAG_",
+		},
+		{
+			name:     "only hyphens",
+			input:    "---",
+			expected: "INVOWK_FLAG____",
+		},
+		{
+			name:     "starts with hyphen",
+			input:    "-flag",
+			expected: "INVOWK_FLAG__FLAG",
+		},
+		{
+			name:     "ends with hyphen",
+			input:    "flag-",
+			expected: "INVOWK_FLAG_FLAG_",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := FlagNameToEnvVar(tt.input)
+			if result != tt.expected {
+				t.Errorf("FlagNameToEnvVar(%q) = %q, want %q", tt.input, result, tt.expected)
+			}
+		})
 	}
 }

@@ -186,6 +186,45 @@
 	custom_checks?: [...#CustomCheckDependency]
 }
 
+// Flag represents a command-line flag for a command
+#Flag: {
+	// name is the flag name (required, POSIX-compliant)
+	// Must start with a letter, contain only alphanumeric characters, hyphens, and underscores
+	// Examples: "verbose", "output-file", "num_retries"
+	name: string & =~"^[a-zA-Z][a-zA-Z0-9_-]*$" & !=""
+
+	// description provides help text for the flag (required)
+	description: string & =~"^\\s*\\S.*$"
+
+	// default_value is the default value for the flag (optional)
+	// If not specified, the flag has no default value
+	// Must be compatible with the specified type (if type is specified)
+	default_value?: string
+
+	// type specifies the data type of the flag (optional, defaults to "string")
+	// Supported types: "string", "bool", "int", "float"
+	// - "string": any string value (default)
+	// - "bool": must be "true" or "false"
+	// - "int": must be a valid integer
+	// - "float": must be a valid floating-point number
+	type?: "string" | "bool" | "int" | "float"
+
+	// required indicates whether this flag must be provided (optional, defaults to false)
+	// If true, the command will fail if the flag is not provided
+	// A flag cannot be both required and have a default_value
+	required?: bool
+
+	// short is a single-character alias for the flag (optional)
+	// Must be a single letter (a-z or A-Z)
+	// Example: short: "v" allows using -v instead of --verbose
+	short?: string & =~"^[a-zA-Z]$"
+
+	// validation is a regex pattern to validate the flag value (optional)
+	// The flag value must match this pattern
+	// If default_value is specified, it must also match this pattern
+	validation?: string
+}
+
 // Command represents a single executable command
 #Command: {
 	// name is the command identifier (required)
@@ -210,6 +249,9 @@
 
 	// depends_on specifies dependencies that must be satisfied before running (optional)
 	depends_on?: #DependsOn
+
+	// flags specifies command-line flags for this command (optional)
+	flags?: [...#Flag]
 }
 
 // Invowkfile is the root schema for an invowkfile

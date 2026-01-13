@@ -6,12 +6,17 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	goruntime "runtime"
+	"strconv"
 	"strings"
 
 	"cuelang.org/go/cue"
 	"cuelang.org/go/cue/cuecontext"
 )
+
+// flagNameRegex validates POSIX-compliant flag names
+var flagNameRegex = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9_-]*$`)
 
 //go:embed invowkfile_schema.cue
 var invowkfileSchema string
@@ -180,6 +185,47 @@ type FilepathDependency struct {
 	Executable bool `json:"executable,omitempty"`
 }
 
+// FlagType represents the data type of a flag
+type FlagType string
+
+const (
+	// FlagTypeString is the default flag type for string values
+	FlagTypeString FlagType = "string"
+	// FlagTypeBool is for boolean flags (true/false)
+	FlagTypeBool FlagType = "bool"
+	// FlagTypeInt is for integer flags
+	FlagTypeInt FlagType = "int"
+	// FlagTypeFloat is for floating-point flags
+	FlagTypeFloat FlagType = "float"
+)
+
+// Flag represents a command-line flag for a command
+type Flag struct {
+	// Name is the flag name (POSIX-compliant: starts with a letter, alphanumeric/hyphen/underscore)
+	Name string `json:"name"`
+	// Description provides help text for the flag
+	Description string `json:"description"`
+	// DefaultValue is the default value for the flag (optional)
+	DefaultValue string `json:"default_value,omitempty"`
+	// Type specifies the data type of the flag (optional, defaults to "string")
+	// Supported types: "string", "bool", "int", "float"
+	Type FlagType `json:"type,omitempty"`
+	// Required indicates whether this flag must be provided (optional, defaults to false)
+	Required bool `json:"required,omitempty"`
+	// Short is a single-character alias for the flag (optional)
+	Short string `json:"short,omitempty"`
+	// Validation is a regex pattern to validate the flag value (optional)
+	Validation string `json:"validation,omitempty"`
+}
+
+// GetType returns the effective type of the flag (defaults to "string" if not specified)
+func (f *Flag) GetType() FlagType {
+	if f.Type == "" {
+		return FlagTypeString
+	}
+	return f.Type
+}
+
 // DependsOn defines the dependencies for a command
 type DependsOn struct {
 	// Tools lists binaries that must be available in PATH before running
@@ -247,6 +293,8 @@ type Command struct {
 	WorkDir string `json:"workdir,omitempty"`
 	// DependsOn specifies dependencies that must be satisfied before running
 	DependsOn *DependsOn `json:"depends_on,omitempty"`
+	// Flags specifies command-line flags for this command
+	Flags []Flag `json:"flags,omitempty"`
 }
 
 // GetCurrentHostOS returns the current operating system as HostOS
@@ -871,6 +919,153 @@ func (inv *Invowkfile) validateCommand(cmd *Command) error {
 		return err
 	}
 
+	// Validate flags
+	if err := inv.validateFlags(cmd); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// validateFlags validates the flags for a command
+func (inv *Invowkfile) validateFlags(cmd *Command) error {
+	seenNames := make(map[string]bool)
+	seenShorts := make(map[string]bool)
+
+	for i, flag := range cmd.Flags {
+		// Validate name is not empty
+		if flag.Name == "" {
+			return fmt.Errorf("command '%s' flag #%d must have a name in invowkfile at %s", cmd.Name, i+1, inv.FilePath)
+		}
+
+		// Validate name is POSIX-compliant
+		if !flagNameRegex.MatchString(flag.Name) {
+			return fmt.Errorf("command '%s' flag '%s' has invalid name (must start with a letter, contain only alphanumeric, hyphens, and underscores) in invowkfile at %s", cmd.Name, flag.Name, inv.FilePath)
+		}
+
+		// Validate description is not empty (after trimming whitespace)
+		if strings.TrimSpace(flag.Description) == "" {
+			return fmt.Errorf("command '%s' flag '%s' must have a non-empty description in invowkfile at %s", cmd.Name, flag.Name, inv.FilePath)
+		}
+
+		// Check for duplicate flag names
+		if seenNames[flag.Name] {
+			return fmt.Errorf("command '%s' has duplicate flag name '%s' in invowkfile at %s", cmd.Name, flag.Name, inv.FilePath)
+		}
+		seenNames[flag.Name] = true
+
+		// Validate type is valid (if specified)
+		if flag.Type != "" && flag.Type != FlagTypeString && flag.Type != FlagTypeBool && flag.Type != FlagTypeInt && flag.Type != FlagTypeFloat {
+			return fmt.Errorf("command '%s' flag '%s' has invalid type '%s' (must be 'string', 'bool', 'int', or 'float') in invowkfile at %s",
+				cmd.Name, flag.Name, flag.Type, inv.FilePath)
+		}
+
+		// Validate that required flags don't have default values
+		if flag.Required && flag.DefaultValue != "" {
+			return fmt.Errorf("command '%s' flag '%s' cannot be both required and have a default_value in invowkfile at %s",
+				cmd.Name, flag.Name, inv.FilePath)
+		}
+
+		// Validate short alias format (single letter a-z or A-Z)
+		if flag.Short != "" {
+			if len(flag.Short) != 1 || !((flag.Short[0] >= 'a' && flag.Short[0] <= 'z') || (flag.Short[0] >= 'A' && flag.Short[0] <= 'Z')) {
+				return fmt.Errorf("command '%s' flag '%s' has invalid short alias '%s' (must be a single letter a-z or A-Z) in invowkfile at %s",
+					cmd.Name, flag.Name, flag.Short, inv.FilePath)
+			}
+			// Check for duplicate short aliases
+			if seenShorts[flag.Short] {
+				return fmt.Errorf("command '%s' has duplicate short alias '%s' in invowkfile at %s",
+					cmd.Name, flag.Short, inv.FilePath)
+			}
+			seenShorts[flag.Short] = true
+		}
+
+		// Validate default_value is compatible with type
+		if flag.DefaultValue != "" {
+			if err := validateFlagValueType(flag.DefaultValue, flag.GetType()); err != nil {
+				return fmt.Errorf("command '%s' flag '%s' default_value '%s' is not compatible with type '%s': %s in invowkfile at %s",
+					cmd.Name, flag.Name, flag.DefaultValue, flag.GetType(), err.Error(), inv.FilePath)
+			}
+		}
+
+		// Validate validation regex is valid
+		if flag.Validation != "" {
+			validationRegex, err := regexp.Compile(flag.Validation)
+			if err != nil {
+				return fmt.Errorf("command '%s' flag '%s' has invalid validation regex '%s': %s in invowkfile at %s",
+					cmd.Name, flag.Name, flag.Validation, err.Error(), inv.FilePath)
+			}
+
+			// Validate default_value matches validation regex (if both specified)
+			if flag.DefaultValue != "" {
+				if !validationRegex.MatchString(flag.DefaultValue) {
+					return fmt.Errorf("command '%s' flag '%s' default_value '%s' does not match validation pattern '%s' in invowkfile at %s",
+						cmd.Name, flag.Name, flag.DefaultValue, flag.Validation, inv.FilePath)
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
+// validateFlagValueType validates that a value is compatible with the specified flag type
+func validateFlagValueType(value string, flagType FlagType) error {
+	switch flagType {
+	case FlagTypeBool:
+		if value != "true" && value != "false" {
+			return fmt.Errorf("must be 'true' or 'false'")
+		}
+	case FlagTypeInt:
+		// Check if value is a valid integer
+		for i, c := range value {
+			if i == 0 && c == '-' {
+				continue // Allow negative sign at start
+			}
+			if c < '0' || c > '9' {
+				return fmt.Errorf("must be a valid integer")
+			}
+		}
+		if value == "" || value == "-" {
+			return fmt.Errorf("must be a valid integer")
+		}
+	case FlagTypeFloat:
+		// Check if value is a valid floating-point number
+		if value == "" {
+			return fmt.Errorf("must be a valid floating-point number")
+		}
+		_, err := strconv.ParseFloat(value, 64)
+		if err != nil {
+			return fmt.Errorf("must be a valid floating-point number")
+		}
+	case FlagTypeString:
+		// Any string is valid
+	default:
+		// Default to string (any value is valid)
+	}
+	return nil
+}
+
+// ValidateFlagValue validates a flag value at runtime against type and validation regex.
+// Returns nil if the value is valid, or an error describing the issue.
+func (f *Flag) ValidateFlagValue(value string) error {
+	// Validate type
+	if err := validateFlagValueType(value, f.GetType()); err != nil {
+		return fmt.Errorf("flag '%s' value '%s' is invalid: %s", f.Name, value, err.Error())
+	}
+
+	// Validate against regex pattern
+	if f.Validation != "" {
+		validationRegex, err := regexp.Compile(f.Validation)
+		if err != nil {
+			// This shouldn't happen as the regex is validated at parse time
+			return fmt.Errorf("flag '%s' has invalid validation pattern: %s", f.Name, err.Error())
+		}
+		if !validationRegex.MatchString(value) {
+			return fmt.Errorf("flag '%s' value '%s' does not match required pattern '%s'", f.Name, value, f.Validation)
+		}
+	}
+
 	return nil
 }
 
@@ -1243,6 +1438,19 @@ func GenerateCUE(inv *Invowkfile) string {
 				sb.WriteString("\t\t\t]\n")
 			}
 			sb.WriteString("\t\t}\n")
+		}
+		// Generate flags list
+		if len(cmd.Flags) > 0 {
+			sb.WriteString("\t\tflags: [\n")
+			for _, flag := range cmd.Flags {
+				sb.WriteString("\t\t\t{")
+				sb.WriteString(fmt.Sprintf("name: %q, description: %q", flag.Name, flag.Description))
+				if flag.DefaultValue != "" {
+					sb.WriteString(fmt.Sprintf(", default_value: %q", flag.DefaultValue))
+				}
+				sb.WriteString("},\n")
+			}
+			sb.WriteString("\t\t]\n")
 		}
 		sb.WriteString("\t},\n")
 	}
