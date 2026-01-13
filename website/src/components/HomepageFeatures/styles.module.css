@@ -5,10 +5,13 @@
   width: 100%;
 }
 
+.features :global(.row) {
+  row-gap: 2rem;
+}
+
 .featureCard {
   background: var(--ifm-card-background-color);
   border-radius: 12px;
-  margin-bottom: 1.5rem;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
   height: 100%;
   border: 1px solid var(--ifm-color-emphasis-200);
