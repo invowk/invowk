@@ -16,8 +16,29 @@
 	// name specifies the runtime type (required)
 	name: #RuntimeType
 
+	// Interpreter field (only valid for native and container runtimes, NOT virtual)
+	// The virtual runtime uses mvdan/sh which cannot execute non-shell interpreters
+	if name == "native" {
+		// interpreter specifies how to execute the script (optional)
+		// - Omit or empty: defaults to "auto" (detect from shebang)
+		// - "auto": detect interpreter from shebang (#!) in first line of script
+		// - Specific value: use as interpreter (e.g., "python3", "node", "/usr/bin/ruby")
+		// - Can include arguments: "python3 -u", "/usr/bin/env perl -w"
+		// If "auto" and no shebang is found, falls back to default shell behavior
+		interpreter?: string
+	}
+
 	// Container-specific fields (only valid when name is "container")
 	if name == "container" {
+		// interpreter specifies how to execute the script (optional)
+		// - Omit or empty: defaults to "auto" (detect from shebang)
+		// - "auto": detect interpreter from shebang (#!) in first line of script
+		// - Specific value: use as interpreter (e.g., "python3", "node", "/usr/bin/ruby")
+		// - Can include arguments: "python3 -u", "/usr/bin/env perl -w"
+		// If "auto" and no shebang is found, falls back to /bin/sh
+		// Note: The interpreter must exist inside the container
+		interpreter?: string
+
 		// enable_host_ssh enables SSH access from container back to host (optional)
 		// When enabled, invowk starts an SSH server and provides connection credentials
 		// to the container via environment variables: INVOWK_SSH_HOST, INVOWK_SSH_PORT,

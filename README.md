@@ -1225,6 +1225,168 @@ commands: [
 
 Recognized script extensions: `.sh`, `.bash`, `.ps1`, `.bat`, `.cmd`, `.py`, `.rb`, `.pl`, `.zsh`, `.fish`
 
+## Interpreter Support
+
+By default, invowk executes scripts using a shell (`/bin/sh` for native, the container's default shell for containers). However, you can run scripts with other interpreters like Python, Ruby, Node.js, Perl, etc.
+
+### Auto-Detection from Shebang (Default)
+
+When a script starts with a shebang line (`#!/...`), invowk automatically detects and uses that interpreter:
+
+```cue
+commands: [
+    {
+        name: "python-script"
+        description: "Python script with auto-detected interpreter"
+        implementations: [
+            {
+                script: """
+                    #!/usr/bin/env python3
+                    import sys
+                    print(f"Hello from Python {sys.version_info.major}.{sys.version_info.minor}!")
+                    """
+                target: {
+                    runtimes: [{name: "native"}]
+                }
+            }
+        ]
+    }
+]
+```
+
+The shebang is parsed to extract both the interpreter and any arguments:
+- `#!/usr/bin/env python3` → runs with `python3`
+- `#!/usr/bin/env -S python3 -u` → runs with `python3 -u` (unbuffered)
+- `#!/usr/bin/perl -w` → runs with `perl -w` (warnings enabled)
+
+### Explicit Interpreter
+
+You can explicitly specify an interpreter using the `interpreter` field in the runtime configuration:
+
+```cue
+commands: [
+    {
+        name: "ruby-script"
+        description: "Ruby script with explicit interpreter"
+        implementations: [
+            {
+                // No shebang needed when interpreter is explicit
+                script: """
+                    puts "Hello from Ruby!"
+                    puts "Ruby version: #{RUBY_VERSION}"
+                    """
+                target: {
+                    runtimes: [{name: "native", interpreter: "ruby"}]
+                }
+            }
+        ]
+    }
+]
+```
+
+The explicit interpreter takes precedence over shebang detection.
+
+### Interpreter in Containers
+
+The interpreter feature works with container runtimes as well:
+
+```cue
+commands: [
+    {
+        name: "container-python"
+        description: "Python script in container"
+        implementations: [
+            {
+                script: """
+                    #!/usr/bin/env python3
+                    import os
+                    print("Hello from Python in a container!")
+                    print(f"Working directory: {os.getcwd()}")
+                    """
+                target: {
+                    runtimes: [{
+                        name: "container"
+                        image: "python:3-alpine"
+                        // interpreter auto-detected from shebang
+                    }]
+                }
+            }
+        ]
+    },
+    {
+        name: "container-python-explicit"
+        description: "Python script with explicit interpreter in container"
+        implementations: [
+            {
+                // No shebang needed
+                script: """
+                    import sys
+                    print(f"Python {sys.version}")
+                    """
+                target: {
+                    runtimes: [{
+                        name: "container"
+                        image: "python:3-alpine"
+                        interpreter: "python3"
+                    }]
+                }
+            }
+        ]
+    }
+]
+```
+
+### Interpreter with Arguments
+
+Positional arguments are passed to interpreter scripts just like shell scripts:
+
+```cue
+commands: [
+    {
+        name: "greet-python"
+        description: "Python script with arguments"
+        implementations: [
+            {
+                script: """
+                    #!/usr/bin/env python3
+                    import sys
+                    name = sys.argv[1] if len(sys.argv) > 1 else "World"
+                    print(f"Hello, {name}!")
+                    """
+                target: {
+                    runtimes: [{name: "native"}]
+                }
+            }
+        ]
+        args: [
+            {name: "name", description: "Name to greet", default_value: "World"}
+        ]
+    }
+]
+```
+
+### Fallback Behavior
+
+When no shebang is found and no explicit interpreter is specified, invowk falls back to shell execution:
+- **Native runtime**: Uses the system's default shell
+- **Container runtime**: Uses `/bin/sh -c`
+
+### Virtual Runtime Restriction
+
+The `interpreter` field is **not supported** with the virtual runtime. The virtual runtime uses the built-in mvdan/sh interpreter and cannot execute Python, Ruby, or other interpreters. Attempting to use `interpreter` with virtual runtime will result in a validation error.
+
+### Supported Interpreters
+
+Any executable available in PATH (or in the container) can be used as an interpreter. Common examples:
+- `python3`, `python`
+- `ruby`
+- `node`
+- `perl`
+- `php`
+- `lua`
+- `Rscript`
+- Custom interpreters
+
 ## Packs
 
 Packs are self-contained folders that package an invkfile together with its associated script files for easy distribution and portability.

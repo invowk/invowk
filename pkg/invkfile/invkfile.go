@@ -37,6 +37,12 @@ const (
 type RuntimeConfig struct {
 	// Name specifies the runtime type (required)
 	Name RuntimeMode `json:"name"`
+	// Interpreter specifies how to execute the script (native and container only)
+	// - Empty: defaults to "auto" (detect from shebang)
+	// - "auto": detect interpreter from shebang (#!) in first line of script
+	// - Specific value: use as interpreter (e.g., "python3", "node")
+	// Not allowed for virtual runtime (CUE schema enforces this, Go validates as fallback)
+	Interpreter string `json:"interpreter,omitempty"`
 	// EnableHostSSH enables SSH access from container back to host (container only)
 	// Only valid when Name is "container". Default: false
 	EnableHostSSH bool `json:"enable_host_ssh,omitempty"`

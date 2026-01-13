@@ -152,13 +152,31 @@ func (r *ContainerRuntime) Execute(ctx *ExecutionContext) *Result {
 	// Always mount the invkfile directory
 	volumes = append(volumes, fmt.Sprintf("%s:/workspace", invowkDir))
 
-	// Create shell script command
-	// We wrap the script in a shell to handle multi-line scripts
-	// For POSIX shells: /bin/sh -c 'script' invowk arg1 arg2 ... (args become $1, $2, etc.)
-	shellCmd := []string{"/bin/sh", "-c", script}
-	if len(ctx.PositionalArgs) > 0 {
-		shellCmd = append(shellCmd, "invowk") // $0 placeholder
-		shellCmd = append(shellCmd, ctx.PositionalArgs...)
+	// Resolve interpreter (defaults to "auto" which parses shebang)
+	interpInfo := rtConfig.ResolveInterpreterFromScript(script)
+
+	// Build shell command based on interpreter
+	var shellCmd []string
+	var tempScriptPath string // Track temp file for cleanup
+
+	if interpInfo.Found {
+		// Use the resolved interpreter
+		shellCmd, tempScriptPath, err = r.buildInterpreterCommand(ctx, script, interpInfo, invowkDir)
+		if err != nil {
+			return &Result{ExitCode: 1, Error: err}
+		}
+		if tempScriptPath != "" {
+			defer os.Remove(tempScriptPath)
+		}
+	} else {
+		// Use default shell execution
+		// We wrap the script in a shell to handle multi-line scripts
+		// For POSIX shells: /bin/sh -c 'script' invowk arg1 arg2 ... (args become $1, $2, etc.)
+		shellCmd = []string{"/bin/sh", "-c", script}
+		if len(ctx.PositionalArgs) > 0 {
+			shellCmd = append(shellCmd, "invowk") // $0 placeholder
+			shellCmd = append(shellCmd, ctx.PositionalArgs...)
+		}
 	}
 
 	// Determine working directory
@@ -203,6 +221,65 @@ func (r *ContainerRuntime) Execute(ctx *ExecutionContext) *Result {
 		ExitCode: result.ExitCode,
 		Error:    result.Error,
 	}
+}
+
+// buildInterpreterCommand builds the command array for interpreter-based execution.
+// For inline scripts, it creates a temp file in the workspace directory (mounted in container).
+// Returns: (command []string, tempFilePath string, error)
+// The caller is responsible for cleaning up tempFilePath if non-empty.
+func (r *ContainerRuntime) buildInterpreterCommand(ctx *ExecutionContext, script string, interp invkfile.ShebangInfo, invowkDir string) ([]string, string, error) {
+	var cmd []string
+	cmd = append(cmd, interp.Interpreter)
+	cmd = append(cmd, interp.Args...)
+
+	var tempFilePath string
+
+	if ctx.SelectedImpl.IsScriptFile() {
+		// File script: use the relative path within /workspace
+		scriptPath := ctx.SelectedImpl.GetScriptFilePath(ctx.Invkfile.FilePath)
+		// Convert host path to container path (relative to /workspace)
+		relPath, err := filepath.Rel(invowkDir, scriptPath)
+		if err != nil {
+			// Fall back to just the filename
+			relPath = filepath.Base(scriptPath)
+		}
+		// Use forward slashes for container path
+		containerPath := "/workspace/" + filepath.ToSlash(relPath)
+		cmd = append(cmd, containerPath)
+	} else {
+		// Inline script: create temp file in workspace directory
+		// This ensures the script is accessible from within the container
+		ext := invkfile.GetExtensionForInterpreter(interp.Interpreter)
+		tempFile, err := os.CreateTemp(invowkDir, "invowk-script-*"+ext)
+		if err != nil {
+			return nil, "", fmt.Errorf("failed to create temp script in workspace: %w", err)
+		}
+
+		if _, err := tempFile.WriteString(script); err != nil {
+			tempFile.Close()
+			os.Remove(tempFile.Name())
+			return nil, "", fmt.Errorf("failed to write temp script: %w", err)
+		}
+
+		if err := tempFile.Close(); err != nil {
+			os.Remove(tempFile.Name())
+			return nil, "", fmt.Errorf("failed to close temp script: %w", err)
+		}
+
+		// Make executable
+		os.Chmod(tempFile.Name(), 0755)
+
+		tempFilePath = tempFile.Name()
+
+		// Get the filename for container path
+		containerPath := "/workspace/" + filepath.Base(tempFile.Name())
+		cmd = append(cmd, containerPath)
+	}
+
+	// Add positional arguments
+	cmd = append(cmd, ctx.PositionalArgs...)
+
+	return cmd, tempFilePath, nil
 }
 
 // ensureImage ensures the container image exists, building if necessary

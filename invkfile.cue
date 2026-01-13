@@ -141,11 +141,282 @@ commands: [
 	},
 
 	// ============================================================================
-	// SECTION 3: Container Runtime Commands
+	// SECTION 3: Interpreter Support
+	// ============================================================================
+	// These commands demonstrate the interpreter field for running scripts
+	// with non-shell interpreters (Python, Ruby, Node.js, etc.).
+	// The interpreter can be auto-detected from shebang or explicitly specified.
+
+	// Example 3.1: Python script with shebang (auto-detection)
+	{
+		name:        "interpreter python shebang"
+		description: "Python script with automatic shebang detection"
+		implementations: [
+			{
+				script: """
+					#!/usr/bin/env python3
+					import sys
+					print(f"Hello from Python {sys.version_info.major}.{sys.version_info.minor}!")
+					print("Interpreter was auto-detected from the shebang line.")
+					"""
+				target: {
+					// Default interpreter is "auto" - shebang is parsed automatically
+					runtimes:  [{name: "native"}]
+					platforms: [{name: "linux"}, {name: "macos"}]
+				}
+			}
+		]
+		depends_on: {
+			tools: [{alternatives: ["python3"]}]
+		}
+	},
+
+	// Example 3.2: Python script with explicit interpreter
+	{
+		name:        "interpreter python explicit"
+		description: "Python script with explicitly specified interpreter"
+		implementations: [
+			{
+				script: """
+					import sys
+					print(f"Hello from Python {sys.version_info.major}.{sys.version_info.minor}!")
+					print("Interpreter was explicitly set to 'python3'.")
+					print("No shebang needed when interpreter is explicit.")
+					"""
+				target: {
+					// Explicit interpreter - no shebang needed
+					runtimes:  [{name: "native", interpreter: "python3"}]
+					platforms: [{name: "linux"}, {name: "macos"}]
+				}
+			}
+		]
+		depends_on: {
+			tools: [{alternatives: ["python3"]}]
+		}
+	},
+
+	// Example 3.3: Python with interpreter arguments (-u for unbuffered output)
+	{
+		name:        "interpreter python args"
+		description: "Python script with interpreter arguments in shebang"
+		implementations: [
+			{
+				script: """
+					#!/usr/bin/env -S python3 -u
+					import sys
+					print("This output is unbuffered (-u flag)")
+					print(f"Arguments: {sys.argv[1:]}", file=sys.stderr)
+					"""
+				target: {
+					runtimes:  [{name: "native"}]
+					platforms: [{name: "linux"}, {name: "macos"}]
+				}
+			}
+		]
+		depends_on: {
+			tools: [{alternatives: ["python3"]}]
+		}
+	},
+
+	// Example 3.4: Python script file reference
+	{
+		name:        "interpreter python file"
+		description: "Python script loaded from external file"
+		implementations: [
+			{
+				// When script is a file path, shebang is read from the file
+				script: "./scripts/example.py"
+				target: {
+					runtimes:  [{name: "native"}]
+					platforms: [{name: "linux"}, {name: "macos"}]
+				}
+			}
+		]
+		depends_on: {
+			tools:     [{alternatives: ["python3"]}]
+			filepaths: [{alternatives: ["./scripts/example.py"]}]
+		}
+	},
+
+	// Example 3.5: Node.js script with shebang
+	{
+		name:        "interpreter node"
+		description: "Node.js script with shebang detection"
+		implementations: [
+			{
+				script: """
+					#!/usr/bin/env node
+					console.log("Hello from Node.js!");
+					console.log(`Node version: ${process.version}`);
+					console.log(`Arguments: ${process.argv.slice(2).join(', ')}`);
+					"""
+				target: {
+					runtimes:  [{name: "native"}]
+					platforms: [{name: "linux"}, {name: "macos"}]
+				}
+			}
+		]
+		depends_on: {
+			tools: [{alternatives: ["node"]}]
+		}
+	},
+
+	// Example 3.6: Ruby script with explicit interpreter
+	{
+		name:        "interpreter ruby"
+		description: "Ruby script with explicit interpreter"
+		implementations: [
+			{
+				script: """
+					puts "Hello from Ruby!"
+					puts "Ruby version: #{RUBY_VERSION}"
+					puts "Arguments: #{ARGV.join(', ')}"
+					"""
+				target: {
+					runtimes:  [{name: "native", interpreter: "ruby"}]
+					platforms: [{name: "linux"}, {name: "macos"}]
+				}
+			}
+		]
+		depends_on: {
+			tools: [{alternatives: ["ruby"]}]
+		}
+	},
+
+	// Example 3.7: Perl script with shebang and arguments
+	{
+		name:        "interpreter perl"
+		description: "Perl script with shebang including -w flag"
+		implementations: [
+			{
+				script: """
+					#!/usr/bin/perl -w
+					use strict;
+					print "Hello from Perl!\\n";
+					print "Perl version: $]\\n";
+					print "Arguments: @ARGV\\n";
+					"""
+				target: {
+					runtimes:  [{name: "native"}]
+					platforms: [{name: "linux"}, {name: "macos"}]
+				}
+			}
+		]
+		depends_on: {
+			tools: [{alternatives: ["perl"]}]
+		}
+	},
+
+	// Example 3.8: Interpreter with positional arguments
+	{
+		name:        "interpreter python positional"
+		description: "Python script receiving positional arguments"
+		implementations: [
+			{
+				script: """
+					#!/usr/bin/env python3
+					import sys
+					
+					name = sys.argv[1] if len(sys.argv) > 1 else "World"
+					count = int(sys.argv[2]) if len(sys.argv) > 2 else 1
+					
+					for i in range(count):
+					    print(f"Hello, {name}! (iteration {i+1})")
+					"""
+				target: {
+					runtimes:  [{name: "native"}]
+					platforms: [{name: "linux"}, {name: "macos"}]
+				}
+			}
+		]
+		args: [
+			{name: "name", description: "Name to greet", default_value: "World"},
+			{name: "count", description: "Number of greetings", type: "int", default_value: "3"},
+		]
+		depends_on: {
+			tools: [{alternatives: ["python3"]}]
+		}
+	},
+
+	// Example 3.9: Container with interpreter
+	{
+		name:        "interpreter container python"
+		description: "Python script running inside a container"
+		implementations: [
+			{
+				script: """
+					#!/usr/bin/env python3
+					import os
+					import sys
+					
+					print("Hello from Python inside a container!")
+					print(f"Python version: {sys.version_info.major}.{sys.version_info.minor}")
+					print(f"Working directory: {os.getcwd()}")
+					print(f"Arguments: {sys.argv[1:]}")
+					"""
+				target: {
+					runtimes: [{
+						name:  "container"
+						image: "python:3-alpine"
+						// interpreter auto-detected from shebang
+					}]
+				}
+			}
+		]
+	},
+
+	// Example 3.10: Container with explicit interpreter (no shebang)
+	{
+		name:        "interpreter container explicit"
+		description: "Container script with explicit interpreter specified"
+		implementations: [
+			{
+				script: """
+					import os
+					import sys
+					
+					print("Script without shebang, interpreter explicitly set")
+					print(f"Python version: {sys.version_info.major}.{sys.version_info.minor}")
+					print(f"Container hostname: {os.uname().nodename}")
+					"""
+				target: {
+					runtimes: [{
+						name:        "container"
+						image:       "python:3-alpine"
+						interpreter: "python3"
+					}]
+				}
+			}
+		]
+	},
+
+	// Example 3.11: Fallback to shell when no interpreter/shebang
+	{
+		name:        "interpreter fallback shell"
+		description: "Script without shebang falls back to shell execution"
+		implementations: [
+			{
+				script: """
+					echo "No shebang and no explicit interpreter"
+					echo "This script runs via the default shell (/bin/sh)"
+					echo "Working directory: $(pwd)"
+					echo "User: $(whoami)"
+					"""
+				target: {
+					// No interpreter specified, no shebang in script
+					// -> falls back to shell execution (default behavior)
+					runtimes: [{name: "native"}]
+				}
+			}
+		]
+	},
+
+	// ============================================================================
+	// SECTION 4: Container Runtime Commands
 	// ============================================================================
 	// These commands demonstrate container-based execution with Docker/Podman.
 
-	// Example 3.1: Simple container command
+	// Example 4.1: Simple container command
 	{
 		name:        "container hello"
 		description: "Print greeting from inside a container"
@@ -159,7 +430,7 @@ commands: [
 		]
 	},
 
-	// Example 3.2: Container with volume mounts
+	// Example 4.2: Container with volume mounts
 	{
 		name:        "container volumes"
 		description: "Demonstrate volume mounts in container"
@@ -190,7 +461,7 @@ commands: [
 		]
 	},
 
-	// Example 3.3: Container with port mappings
+	// Example 4.3: Container with port mappings
 	{
 		name:        "container ports"
 		description: "Demonstrate port mappings in container (prints info only)"
@@ -215,7 +486,7 @@ commands: [
 		]
 	},
 
-	// Example 3.4: Container with environment variables
+	// Example 4.4: Container with environment variables
 	{
 		name:        "container env"
 		description: "Demonstrate environment variables in container"
@@ -239,7 +510,7 @@ commands: [
 		}
 	},
 
-	// Example 3.5: Container with host SSH access enabled
+	// Example 4.5: Container with host SSH access enabled
 	{
 		name:        "container ssh"
 		description: "Container with SSH access back to host"
@@ -269,7 +540,7 @@ commands: [
 		]
 	},
 
-	// Example 3.6: Container without host SSH (explicit false)
+	// Example 4.6: Container without host SSH (explicit false)
 	{
 		name:        "container isolated"
 		description: "Container without host SSH access (isolated)"
@@ -296,11 +567,11 @@ commands: [
 	},
 
 	// ============================================================================
-	// SECTION 4: Tool Dependencies
+	// SECTION 5: Tool Dependencies
 	// ============================================================================
 	// These commands demonstrate tool/binary dependency checking.
 
-	// Example 4.1: Single tool dependency (no alternatives)
+	// Example 5.1: Single tool dependency (no alternatives)
 	{
 		name:        "deps tool single"
 		description: "Command requiring a single tool (sh)"
@@ -319,7 +590,7 @@ commands: [
 		}
 	},
 
-	// Example 4.2: Tool dependency with alternatives (OR semantics)
+	// Example 5.2: Tool dependency with alternatives (OR semantics)
 	{
 		name:        "deps tool alternatives"
 		description: "Command requiring any of: podman, docker, or nerdctl"
@@ -342,7 +613,7 @@ commands: [
 		}
 	},
 
-	// Example 4.3: Multiple tool dependencies with mixed alternatives
+	// Example 5.3: Multiple tool dependencies with mixed alternatives
 	{
 		name:        "deps tools mixed"
 		description: "Command with multiple tool dependencies"
@@ -368,11 +639,11 @@ commands: [
 	},
 
 	// ============================================================================
-	// SECTION 5: Filepath Dependencies
+	// SECTION 6: Filepath Dependencies
 	// ============================================================================
 	// These commands demonstrate file/directory dependency checking.
 
-	// Example 5.1: Single filepath dependency
+	// Example 6.1: Single filepath dependency
 	{
 		name:        "deps file single"
 		description: "Command requiring a specific file to exist"
@@ -391,7 +662,7 @@ commands: [
 		}
 	},
 
-	// Example 5.2: Filepath with alternatives
+	// Example 6.2: Filepath with alternatives
 	{
 		name:        "deps file alternatives"
 		description: "Command requiring any README file"
@@ -410,7 +681,7 @@ commands: [
 		}
 	},
 
-	// Example 5.3: Filepath with permission checks
+	// Example 6.3: Filepath with permission checks
 	{
 		name:        "deps file permissions"
 		description: "Command requiring file with specific permissions"
@@ -435,11 +706,11 @@ commands: [
 	},
 
 	// ============================================================================
-	// SECTION 6: Capability Dependencies
+	// SECTION 7: Capability Dependencies
 	// ============================================================================
 	// These commands demonstrate system capability checking.
 
-	// Example 6.1: Single capability (no alternatives)
+	// Example 7.1: Single capability (no alternatives)
 	{
 		name:        "deps cap single"
 		description: "Command requiring internet connectivity"
@@ -458,7 +729,7 @@ commands: [
 		}
 	},
 
-	// Example 6.2: Capability with alternatives
+	// Example 7.2: Capability with alternatives
 	{
 		name:        "deps cap alternatives"
 		description: "Command requiring any network connectivity"
@@ -481,7 +752,7 @@ commands: [
 		}
 	},
 
-	// Example 6.3: Multiple capability requirements
+	// Example 7.3: Multiple capability requirements
 	{
 		name:        "deps cap multiple"
 		description: "Command requiring multiple capabilities"
@@ -506,11 +777,11 @@ commands: [
 	},
 
 	// ============================================================================
-	// SECTION 7: Custom Check Dependencies
+	// SECTION 8: Custom Check Dependencies
 	// ============================================================================
 	// These commands demonstrate custom validation scripts.
 
-	// Example 7.1: Single custom check (exit code)
+	// Example 8.1: Single custom check (exit code)
 	{
 		name:        "deps check exitcode"
 		description: "Command with custom check validating exit code"
@@ -533,7 +804,7 @@ commands: [
 		}
 	},
 
-	// Example 7.2: Single custom check (output pattern)
+	// Example 8.2: Single custom check (output pattern)
 	{
 		name:        "deps check output"
 		description: "Command with custom check validating output pattern"
@@ -558,7 +829,7 @@ commands: [
 		}
 	},
 
-	// Example 7.3: Custom check with alternatives
+	// Example 8.3: Custom check with alternatives
 	{
 		name:        "deps check alternatives"
 		description: "Command with alternative custom checks (OR semantics)"
@@ -596,11 +867,11 @@ commands: [
 	},
 
 	// ============================================================================
-	// SECTION 8: Command Dependencies
+	// SECTION 9: Command Dependencies
 	// ============================================================================
 	// These commands demonstrate command chaining and dependencies.
 
-	// Example 8.1: Simple command dependency
+	// Example 9.1: Simple command dependency
 	{
 		name:        "deps cmd simple"
 		description: "Command that depends on 'hello' running first"
@@ -619,7 +890,7 @@ commands: [
 		}
 	},
 
-	// Example 8.2: Command dependency with alternatives
+	// Example 9.2: Command dependency with alternatives
 	{
 		name:        "deps cmd alternatives"
 		description: "Command that depends on any hello command"
@@ -639,7 +910,7 @@ commands: [
 		}
 	},
 
-	// Example 8.3: Multiple command dependencies
+	// Example 9.3: Multiple command dependencies
 	{
 		name:        "deps cmd chain"
 		description: "Command with a chain of dependencies"
@@ -666,11 +937,11 @@ commands: [
 	},
 
 	// ============================================================================
-	// SECTION 9: Implementation-Level Dependencies
+	// SECTION 10: Implementation-Level Dependencies
 	// ============================================================================
 	// These commands demonstrate dependencies at the implementation level.
 
-	// Example 9.1: Container with implementation-level tool check
+	// Example 10.1: Container with implementation-level tool check
 	{
 		name:        "impl deps container"
 		description: "Container command with implementation-level dependencies"
@@ -703,11 +974,11 @@ commands: [
 	},
 
 	// ============================================================================
-	// SECTION 10: Command Flags
+	// SECTION 11: Command Flags
 	// ============================================================================
 	// These commands demonstrate the use of command-line flags.
 
-	// Example 10.1: Simple command with flags
+	// Example 11.1: Simple command with flags
 	{
 		name:        "flags simple"
 		description: "Command with simple flags"
@@ -740,7 +1011,7 @@ commands: [
 		]
 	},
 
-	// Example 10.2: Flags with default values
+	// Example 11.2: Flags with default values
 	{
 		name:        "flags defaults"
 		description: "Command with flags that have default values"
@@ -774,7 +1045,7 @@ commands: [
 		]
 	},
 
-	// Example 10.3: Typed flags (bool, int, float, string)
+	// Example 11.3: Typed flags (bool, int, float, string)
 	{
 		name:        "flags typed"
 		description: "Command with typed flags (bool, int, float, string)"
@@ -810,7 +1081,7 @@ commands: [
 		]
 	},
 
-	// Example 10.4: Required flags
+	// Example 11.4: Required flags
 	{
 		name:        "flags required"
 		description: "Command with required flags that must be provided"
@@ -837,7 +1108,7 @@ commands: [
 		]
 	},
 
-	// Example 10.5: Short aliases for flags
+	// Example 11.5: Short aliases for flags
 	{
 		name:        "flags short"
 		description: "Command with short flag aliases"
@@ -867,7 +1138,7 @@ commands: [
 		]
 	},
 
-	// Example 10.6: Flags with validation regex
+	// Example 11.6: Flags with validation regex
 	{
 		name:        "flags validation"
 		description: "Command with flags validated by regex patterns"
@@ -895,7 +1166,7 @@ commands: [
 		]
 	},
 
-	// Example 10.7: Full-featured flags combining all options
+	// Example 11.7: Full-featured flags combining all options
 	{
 		name:        "flags full"
 		description: "Command demonstrating all flag features combined"
@@ -956,11 +1227,11 @@ commands: [
 	},
 
 	// ============================================================================
-	// SECTION 11: Complex Combined Examples
+	// SECTION 12: Complex Combined Examples
 	// ============================================================================
 	// These commands demonstrate combining multiple features.
 
-	// Example 11.1: Full-featured command with all dependency types
+	// Example 12.1: Full-featured command with all dependency types
 	{
 		name:        "full demo"
 		description: "Command demonstrating all dependency types"
@@ -1015,7 +1286,7 @@ commands: [
 		}
 	},
 
-	// Example 11.2: Container with full features and command flags
+	// Example 12.2: Container with full features and command flags
 	{
 		name:        "full container"
 		description: "Container command with all container features"
@@ -1079,11 +1350,11 @@ commands: [
 	},
 
 	// ============================================================================
-	// SECTION 12: Positional Arguments
+	// SECTION 13: Positional Arguments
 	// ============================================================================
 	// These commands demonstrate positional command-line arguments.
 
-	// Example 12.1: Simple command with required argument
+	// Example 13.1: Simple command with required argument
 	{
 		name:        "args simple"
 		description: "Command with a single required argument"
@@ -1109,7 +1380,7 @@ commands: [
 		]
 	},
 
-	// Example 12.2: Command with required and optional arguments
+	// Example 13.2: Command with required and optional arguments
 	{
 		name:        "args optional"
 		description: "Command with required and optional arguments"
@@ -1138,7 +1409,7 @@ commands: [
 		]
 	},
 
-	// Example 12.3: Command with typed arguments (int, float)
+	// Example 13.3: Command with typed arguments (int, float)
 	{
 		name:        "args typed"
 		description: "Command with typed positional arguments"
@@ -1170,7 +1441,7 @@ commands: [
 		]
 	},
 
-	// Example 12.4: Command with validated arguments (regex)
+	// Example 13.4: Command with validated arguments (regex)
 	{
 		name:        "args validated"
 		description: "Command with regex-validated arguments"
@@ -1198,7 +1469,7 @@ commands: [
 		]
 	},
 
-	// Example 12.5: Command with variadic arguments
+	// Example 13.5: Command with variadic arguments
 	{
 		name:        "args variadic"
 		description: "Command with variadic arguments (accepts multiple values)"
@@ -1237,7 +1508,7 @@ commands: [
 		]
 	},
 
-	// Example 12.6: Command with all argument features combined
+	// Example 13.6: Command with all argument features combined
 	{
 		name:        "args full"
 		description: "Command demonstrating all argument features"
@@ -1295,7 +1566,7 @@ commands: [
 		]
 	},
 
-	// Example 12.7: Command with both flags and arguments
+	// Example 13.7: Command with both flags and arguments
 	{
 		name:        "args with flags"
 		description: "Command combining positional arguments and flags"
@@ -1334,7 +1605,7 @@ commands: [
 		]
 	},
 
-	// Example 12.8: Shell-native positional parameters ($1, $2, $@, $#)
+	// Example 13.8: Shell-native positional parameters ($1, $2, $@, $#)
 	{
 		name:        "args shell positional"
 		description: "Access arguments via shell positional parameters ($1, $2, etc.)"
@@ -1365,7 +1636,7 @@ commands: [
 		]
 	},
 
-	// Example 12.9: Positional parameters with variadic arguments
+	// Example 13.9: Positional parameters with variadic arguments
 	{
 		name:        "args shell variadic"
 		description: "Process variadic arguments using shell positional parameters"
@@ -1398,7 +1669,7 @@ commands: [
 		]
 	},
 
-	// Example 12.10: Container with positional parameters
+	// Example 13.10: Container with positional parameters
 	{
 		name:        "args container shell"
 		description: "Access positional parameters inside a container"
@@ -1430,14 +1701,14 @@ commands: [
 	},
 
 	// ============================================================================
-	// SECTION 13: Environment Variable Isolation
+	// SECTION 14: Environment Variable Isolation
 	// ============================================================================
 	// These commands demonstrate that INVOWK_ARG_* and INVOWK_FLAG_* environment
 	// variables are isolated between nested command invocations. When a command
 	// calls another invowk command, the child does not inherit the parent's
 	// flag/arg environment variables, preventing unexpected behavior.
 
-	// Example 13.1: Child command for isolation demo (displays its own env vars)
+	// Example 14.1: Child command for isolation demo (displays its own env vars)
 	{
 		name:        "isolation child"
 		description: "Child command that displays its own flag and arg values"
@@ -1462,7 +1733,7 @@ commands: [
 		]
 	},
 
-	// Example 13.2: Parent command that demonstrates environment isolation
+	// Example 14.2: Parent command that demonstrates environment isolation
 	{
 		name:        "isolation parent"
 		description: "Parent command demonstrating env var isolation when calling child"
@@ -1515,7 +1786,7 @@ commands: [
 		}
 	},
 
-	// Example 13.3: Demonstrate isolation with virtual runtime
+	// Example 14.3: Demonstrate isolation with virtual runtime
 	{
 		name:        "isolation virtual"
 		description: "Environment isolation demo using virtual shell runtime"
@@ -1549,14 +1820,14 @@ commands: [
 	},
 
 	// ============================================================================
-	// SECTION 14: Environment Variable Dependencies
+	// SECTION 15: Environment Variable Dependencies
 	// ============================================================================
 	// These commands demonstrate the env_vars dependency type, which validates
 	// that required environment variables exist in the user's environment BEFORE
 	// invowk sets any command-level env vars. This is useful for commands that
 	// require credentials, API keys, or other configuration from the environment.
 
-	// Example 14.1: Single required environment variable
+	// Example 15.1: Single required environment variable
 	{
 		name:        "deps env single"
 		description: "Command requiring a single environment variable"
@@ -1583,7 +1854,7 @@ commands: [
 		}
 	},
 
-	// Example 14.2: Environment variable with alternatives (OR semantics)
+	// Example 15.2: Environment variable with alternatives (OR semantics)
 	{
 		name:        "deps env alternatives"
 		description: "Command requiring any of several environment variables"
@@ -1613,7 +1884,7 @@ commands: [
 		}
 	},
 
-	// Example 14.3: Environment variable with regex validation
+	// Example 15.3: Environment variable with regex validation
 	{
 		name:        "deps env validated"
 		description: "Command with regex-validated environment variable"
@@ -1645,7 +1916,7 @@ commands: [
 		}
 	},
 
-	// Example 14.4: Multiple environment variable dependencies
+	// Example 15.4: Multiple environment variable dependencies
 	{
 		name:        "deps env multiple"
 		description: "Command requiring multiple environment variables"
@@ -1676,7 +1947,7 @@ commands: [
 		}
 	},
 
-	// Example 14.5: Combining env_vars with other dependency types
+	// Example 15.5: Combining env_vars with other dependency types
 	{
 		name:        "deps env combined"
 		description: "Command combining env_vars with other dependency checks"
@@ -1723,7 +1994,7 @@ commands: [
 		}
 	},
 
-	// Example 14.6: Implementation-level env_vars dependency (container example)
+	// Example 15.6: Implementation-level env_vars dependency (container example)
 	{
 		name:        "deps env container"
 		description: "Container command with env_vars at implementation level"

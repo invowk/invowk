@@ -47,15 +47,36 @@ func (r *NativeRuntime) Validate(ctx *ExecutionContext) error {
 	return nil
 }
 
-// Execute runs a command using the system shell
+// Execute runs a command using the system shell or specified interpreter
 func (r *NativeRuntime) Execute(ctx *ExecutionContext) *Result {
-	shell, err := r.getShell()
+	// Resolve the script content (from file or inline)
+	script, err := ctx.SelectedImpl.ResolveScript(ctx.Invkfile.FilePath)
 	if err != nil {
 		return &Result{ExitCode: 1, Error: err}
 	}
 
-	// Resolve the script content (from file or inline)
-	script, err := ctx.SelectedImpl.ResolveScript(ctx.Invkfile.FilePath)
+	// Get the runtime config to check for interpreter
+	rtConfig := ctx.SelectedImpl.GetRuntimeConfig(ctx.SelectedRuntime)
+	if rtConfig == nil {
+		// Fallback to default shell execution if no runtime config
+		return r.executeWithShell(ctx, script)
+	}
+
+	// Resolve interpreter (defaults to "auto" which parses shebang)
+	interpInfo := rtConfig.ResolveInterpreterFromScript(script)
+
+	// If an interpreter was found, use interpreter-based execution
+	if interpInfo.Found {
+		return r.executeWithInterpreter(ctx, script, interpInfo)
+	}
+
+	// Otherwise, use default shell-based execution
+	return r.executeWithShell(ctx, script)
+}
+
+// executeWithShell executes the script using the system shell (current behavior)
+func (r *NativeRuntime) executeWithShell(ctx *ExecutionContext, script string) *Result {
+	shell, err := r.getShell()
 	if err != nil {
 		return &Result{ExitCode: 1, Error: err}
 	}
@@ -95,15 +116,123 @@ func (r *NativeRuntime) Execute(ctx *ExecutionContext) *Result {
 	return &Result{ExitCode: 0}
 }
 
+// executeWithInterpreter executes using the specified interpreter
+func (r *NativeRuntime) executeWithInterpreter(ctx *ExecutionContext, script string, interp invkfile.ShebangInfo) *Result {
+	// Verify interpreter exists
+	interpreterPath, err := exec.LookPath(interp.Interpreter)
+	if err != nil {
+		return &Result{ExitCode: 1, Error: fmt.Errorf("interpreter '%s' not found in PATH: %w", interp.Interpreter, err)}
+	}
+
+	// Build command arguments
+	var cmdArgs []string
+	cmdArgs = append(cmdArgs, interp.Args...) // interpreter args (e.g., -u for python)
+
+	// Handle file vs inline script
+	var tempFile string
+	if ctx.SelectedImpl.IsScriptFile() {
+		// File script: interpreter [args] script-path positional-args
+		scriptPath := ctx.SelectedImpl.GetScriptFilePath(ctx.Invkfile.FilePath)
+		cmdArgs = append(cmdArgs, scriptPath)
+	} else {
+		// Inline script: create temp file
+		tempFile, err = r.createTempScript(script, interp.Interpreter)
+		if err != nil {
+			return &Result{ExitCode: 1, Error: fmt.Errorf("failed to create temp script: %w", err)}
+		}
+		defer os.Remove(tempFile)
+		cmdArgs = append(cmdArgs, tempFile)
+	}
+
+	// Add positional arguments
+	cmdArgs = append(cmdArgs, ctx.PositionalArgs...)
+
+	cmd := exec.CommandContext(ctx.Context, interpreterPath, cmdArgs...)
+
+	// Set working directory
+	workDir := r.getWorkDir(ctx)
+	if workDir != "" {
+		cmd.Dir = workDir
+	}
+
+	// Build environment
+	env := r.buildEnv(ctx)
+	cmd.Env = append(FilterInvowkEnvVars(os.Environ()), EnvToSlice(env)...)
+
+	// Set I/O
+	cmd.Stdout = ctx.Stdout
+	cmd.Stderr = ctx.Stderr
+	cmd.Stdin = ctx.Stdin
+
+	// Execute
+	if err := cmd.Run(); err != nil {
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			return &Result{ExitCode: exitErr.ExitCode(), Error: nil}
+		}
+		return &Result{ExitCode: 1, Error: fmt.Errorf("failed to execute command: %w", err)}
+	}
+
+	return &Result{ExitCode: 0}
+}
+
+// createTempScript creates a temporary file with the script content
+func (r *NativeRuntime) createTempScript(content, interpreter string) (string, error) {
+	ext := invkfile.GetExtensionForInterpreter(interpreter)
+
+	tmpFile, err := os.CreateTemp("", "invowk-script-*"+ext)
+	if err != nil {
+		return "", err
+	}
+
+	if _, err := tmpFile.WriteString(content); err != nil {
+		tmpFile.Close()
+		os.Remove(tmpFile.Name())
+		return "", err
+	}
+
+	if err := tmpFile.Close(); err != nil {
+		os.Remove(tmpFile.Name())
+		return "", err
+	}
+
+	// Make executable (needed for some interpreters on Unix)
+	if runtime.GOOS != "windows" {
+		os.Chmod(tmpFile.Name(), 0700)
+	}
+
+	return tmpFile.Name(), nil
+}
+
 // ExecuteCapture runs a command and captures its output
 func (r *NativeRuntime) ExecuteCapture(ctx *ExecutionContext) *Result {
-	shell, err := r.getShell()
+	// Resolve the script content (from file or inline)
+	script, err := ctx.SelectedImpl.ResolveScript(ctx.Invkfile.FilePath)
 	if err != nil {
 		return &Result{ExitCode: 1, Error: err}
 	}
 
-	// Resolve the script content (from file or inline)
-	script, err := ctx.SelectedImpl.ResolveScript(ctx.Invkfile.FilePath)
+	// Get the runtime config to check for interpreter
+	rtConfig := ctx.SelectedImpl.GetRuntimeConfig(ctx.SelectedRuntime)
+	if rtConfig == nil {
+		// Fallback to default shell execution if no runtime config
+		return r.executeCaptureWithShell(ctx, script)
+	}
+
+	// Resolve interpreter (defaults to "auto" which parses shebang)
+	interpInfo := rtConfig.ResolveInterpreterFromScript(script)
+
+	// If an interpreter was found, use interpreter-based execution
+	if interpInfo.Found {
+		return r.executeCaptureWithInterpreter(ctx, script, interpInfo)
+	}
+
+	// Otherwise, use default shell-based execution
+	return r.executeCaptureWithShell(ctx, script)
+}
+
+// executeCaptureWithShell executes using shell and captures output
+func (r *NativeRuntime) executeCaptureWithShell(ctx *ExecutionContext, script string) *Result {
+	shell, err := r.getShell()
 	if err != nil {
 		return &Result{ExitCode: 1, Error: err}
 	}
@@ -115,6 +244,66 @@ func (r *NativeRuntime) ExecuteCapture(ctx *ExecutionContext) *Result {
 	args = r.appendPositionalArgs(shell, args, ctx.PositionalArgs)
 
 	cmd := exec.CommandContext(ctx.Context, shell, args...)
+
+	workDir := r.getWorkDir(ctx)
+	if workDir != "" {
+		cmd.Dir = workDir
+	}
+
+	env := r.buildEnv(ctx)
+	cmd.Env = append(FilterInvowkEnvVars(os.Environ()), EnvToSlice(env)...)
+
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	err = cmd.Run()
+	result := &Result{
+		Output:    stdout.String(),
+		ErrOutput: stderr.String(),
+	}
+
+	if err != nil {
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			result.ExitCode = exitErr.ExitCode()
+		} else {
+			result.ExitCode = 1
+			result.Error = err
+		}
+	}
+
+	return result
+}
+
+// executeCaptureWithInterpreter executes using interpreter and captures output
+func (r *NativeRuntime) executeCaptureWithInterpreter(ctx *ExecutionContext, script string, interp invkfile.ShebangInfo) *Result {
+	// Verify interpreter exists
+	interpreterPath, err := exec.LookPath(interp.Interpreter)
+	if err != nil {
+		return &Result{ExitCode: 1, Error: fmt.Errorf("interpreter '%s' not found in PATH: %w", interp.Interpreter, err)}
+	}
+
+	// Build command arguments
+	var cmdArgs []string
+	cmdArgs = append(cmdArgs, interp.Args...)
+
+	// Handle file vs inline script
+	var tempFile string
+	if ctx.SelectedImpl.IsScriptFile() {
+		scriptPath := ctx.SelectedImpl.GetScriptFilePath(ctx.Invkfile.FilePath)
+		cmdArgs = append(cmdArgs, scriptPath)
+	} else {
+		tempFile, err = r.createTempScript(script, interp.Interpreter)
+		if err != nil {
+			return &Result{ExitCode: 1, Error: fmt.Errorf("failed to create temp script: %w", err)}
+		}
+		defer os.Remove(tempFile)
+		cmdArgs = append(cmdArgs, tempFile)
+	}
+
+	cmdArgs = append(cmdArgs, ctx.PositionalArgs...)
+
+	cmd := exec.CommandContext(ctx.Context, interpreterPath, cmdArgs...)
 
 	workDir := r.getWorkDir(ctx)
 	if workDir != "" {

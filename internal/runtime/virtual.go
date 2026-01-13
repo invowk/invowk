@@ -48,6 +48,15 @@ func (r *VirtualRuntime) Validate(ctx *ExecutionContext) error {
 		return fmt.Errorf("script has no content to execute")
 	}
 
+	// Check if interpreter is configured (not allowed for virtual runtime)
+	// This is a Go-level validation in addition to CUE schema validation
+	rtConfig := ctx.SelectedImpl.GetRuntimeConfig(ctx.SelectedRuntime)
+	if rtConfig != nil {
+		if err := rtConfig.ValidateInterpreterForRuntime(); err != nil {
+			return err
+		}
+	}
+
 	// Resolve the script content
 	script, err := ctx.SelectedImpl.ResolveScript(ctx.Invkfile.FilePath)
 	if err != nil {
@@ -65,6 +74,14 @@ func (r *VirtualRuntime) Validate(ctx *ExecutionContext) error {
 
 // Execute runs a command using the virtual shell
 func (r *VirtualRuntime) Execute(ctx *ExecutionContext) *Result {
+	// Validate interpreter is not set (virtual runtime doesn't support custom interpreters)
+	rtConfig := ctx.SelectedImpl.GetRuntimeConfig(ctx.SelectedRuntime)
+	if rtConfig != nil {
+		if err := rtConfig.ValidateInterpreterForRuntime(); err != nil {
+			return &Result{ExitCode: 1, Error: err}
+		}
+	}
+
 	// Resolve the script content
 	script, err := ctx.SelectedImpl.ResolveScript(ctx.Invkfile.FilePath)
 	if err != nil {
