@@ -1344,6 +1344,22 @@ func ParseInvkpackBytes(data []byte, path string) (*Invkpack, error) {
 
 	meta.FilePath = path
 
+	// Validate pack requirement paths for security
+	for i, req := range meta.Requires {
+		if req.Path != "" {
+			if len(req.Path) > MaxPathLength {
+				return nil, fmt.Errorf("requires[%d].path: too long (%d chars, max %d) in invkpack at %s", i, len(req.Path), MaxPathLength, path)
+			}
+			if strings.ContainsRune(req.Path, '\x00') {
+				return nil, fmt.Errorf("requires[%d].path: contains null byte in invkpack at %s", i, path)
+			}
+			cleanPath := filepath.Clean(req.Path)
+			if strings.HasPrefix(cleanPath, "..") || filepath.IsAbs(cleanPath) {
+				return nil, fmt.Errorf("requires[%d].path: path traversal or absolute paths not allowed in invkpack at %s", i, path)
+			}
+		}
+	}
+
 	return &meta, nil
 }
 
@@ -1440,7 +1456,16 @@ func (inv *Invkfile) validate() error {
 		return fmt.Errorf("invkfile at %s has no commands defined (missing required 'cmds' list)", inv.FilePath)
 	}
 
-	// Validate root-level custom_checks dependencies
+	// Validate root-level env configuration
+	if err := validateEnvConfig(inv.Env, "root", inv.FilePath); err != nil {
+		return err
+	}
+
+	// Validate root-level depends_on (all dependency types)
+	if err := validateDependsOn(inv.DependsOn, "root", inv.FilePath); err != nil {
+		return err
+	}
+	// Validate root-level custom_checks dependencies (security-specific checks)
 	if inv.DependsOn != nil && len(inv.DependsOn.CustomChecks) > 0 {
 		if err := validateCustomChecks(inv.DependsOn.CustomChecks, "root", inv.FilePath); err != nil {
 			return err
@@ -1512,6 +1537,19 @@ func validateRuntimeConfig(rt *RuntimeConfig, cmdName string, implIndex int) err
 				return fmt.Errorf("command '%s' implementation #%d: invalid image: %w", cmdName, implIndex, err)
 			}
 		}
+		// Validate containerfile path for security (path traversal prevention)
+		// Note: baseDir validation is done at parse time when FilePath is available
+		if rt.Containerfile != "" {
+			if len(rt.Containerfile) > MaxPathLength {
+				return fmt.Errorf("command '%s' implementation #%d: containerfile path too long (%d chars, max %d)", cmdName, implIndex, len(rt.Containerfile), MaxPathLength)
+			}
+			if filepath.IsAbs(rt.Containerfile) {
+				return fmt.Errorf("command '%s' implementation #%d: containerfile path must be relative, not absolute", cmdName, implIndex)
+			}
+			if strings.ContainsRune(rt.Containerfile, '\x00') {
+				return fmt.Errorf("command '%s' implementation #%d: containerfile path contains null byte", cmdName, implIndex)
+			}
+		}
 		// Validate volume mounts
 		for i, vol := range rt.Volumes {
 			if err := ValidateVolumeMount(vol); err != nil {
@@ -1544,11 +1582,20 @@ func (inv *Invkfile) validateCommand(cmd *Command) error {
 		return fmt.Errorf("command '%s': %w in invkfile at %s", cmd.Name, err, inv.FilePath)
 	}
 
-	// Validate command-level custom_checks dependencies
+	// Validate command-level depends_on (all dependency types)
+	if err := validateDependsOn(cmd.DependsOn, fmt.Sprintf("command '%s'", cmd.Name), inv.FilePath); err != nil {
+		return err
+	}
+	// Validate command-level custom_checks dependencies (security-specific checks)
 	if cmd.DependsOn != nil && len(cmd.DependsOn.CustomChecks) > 0 {
 		if err := validateCustomChecks(cmd.DependsOn.CustomChecks, fmt.Sprintf("command '%s'", cmd.Name), inv.FilePath); err != nil {
 			return err
 		}
+	}
+
+	// Validate command-level env configuration
+	if err := validateEnvConfig(cmd.Env, fmt.Sprintf("command '%s'", cmd.Name), inv.FilePath); err != nil {
+		return err
 	}
 
 	if len(cmd.Implementations) == 0 {
@@ -1577,13 +1624,30 @@ func (inv *Invkfile) validateCommand(cmd *Command) error {
 			if err := validateRuntimeConfig(&impl.Runtimes[j], cmd.Name, i+1); err != nil {
 				return err
 			}
+			// Validate containerfile path traversal (requires base directory)
+			rt := &impl.Runtimes[j]
+			if rt.Name == RuntimeContainer && rt.Containerfile != "" {
+				baseDir := filepath.Dir(inv.FilePath)
+				if err := ValidateContainerfilePath(rt.Containerfile, baseDir); err != nil {
+					return fmt.Errorf("command '%s' implementation #%d runtime #%d: %w in invkfile at %s", cmd.Name, i+1, j+1, err, inv.FilePath)
+				}
+			}
 		}
 
-		// Validate implementation-level custom_checks dependencies
+		// Validate implementation-level depends_on (all dependency types)
+		if err := validateDependsOn(impl.DependsOn, fmt.Sprintf("command '%s' implementation #%d", cmd.Name, i+1), inv.FilePath); err != nil {
+			return err
+		}
+		// Validate implementation-level custom_checks dependencies (security-specific checks)
 		if impl.DependsOn != nil && len(impl.DependsOn.CustomChecks) > 0 {
 			if err := validateCustomChecks(impl.DependsOn.CustomChecks, fmt.Sprintf("command '%s' implementation #%d", cmd.Name, i+1), inv.FilePath); err != nil {
 				return err
 			}
+		}
+
+		// Validate implementation-level env configuration
+		if err := validateEnvConfig(impl.Env, fmt.Sprintf("command '%s' implementation #%d", cmd.Name, i+1), inv.FilePath); err != nil {
+			return err
 		}
 	}
 
@@ -1860,6 +1924,124 @@ func validateCustomChecks(checks []CustomCheckDependency, context string, filePa
 			}
 		}
 	}
+	return nil
+}
+
+// validateEnvConfig validates environment configuration for security.
+// It checks env file paths for traversal and env var names/values for validity.
+func validateEnvConfig(env *EnvConfig, context string, filePath string) error {
+	if env == nil {
+		return nil
+	}
+
+	// Validate env file paths
+	for i, file := range env.Files {
+		if err := ValidateEnvFilePath(file); err != nil {
+			return fmt.Errorf("%s env.files[%d]: %w in invkfile at %s", context, i+1, err, filePath)
+		}
+	}
+
+	// Validate env var names and values
+	for key, value := range env.Vars {
+		if err := ValidateEnvVarName(key); err != nil {
+			return fmt.Errorf("%s env.vars key '%s': %w in invkfile at %s", context, key, err, filePath)
+		}
+		if len(value) > MaxEnvVarValueLength {
+			return fmt.Errorf("%s env.vars['%s'] value too long (%d chars, max %d) in invkfile at %s",
+				context, key, len(value), MaxEnvVarValueLength, filePath)
+		}
+	}
+
+	return nil
+}
+
+// validateEnvVarDependencies validates env var dependencies for security.
+// It checks env var names and validation regex patterns.
+func validateEnvVarDependencies(deps []EnvVarDependency, context string, filePath string) error {
+	for i, dep := range deps {
+		for j, alt := range dep.Alternatives {
+			// Validate env var name
+			name := strings.TrimSpace(alt.Name)
+			if err := ValidateEnvVarName(name); err != nil {
+				return fmt.Errorf("%s env_vars[%d].alternatives[%d].name: %w in invkfile at %s",
+					context, i+1, j+1, err, filePath)
+			}
+			// Validate regex pattern for ReDoS safety
+			if alt.Validation != "" {
+				if err := ValidateRegexPattern(alt.Validation); err != nil {
+					return fmt.Errorf("%s env_vars[%d].alternatives[%d].validation: %w in invkfile at %s",
+						context, i+1, j+1, err, filePath)
+				}
+			}
+		}
+	}
+	return nil
+}
+
+// validateToolDependencies validates tool dependency names.
+func validateToolDependencies(deps []ToolDependency, context string, filePath string) error {
+	for i, dep := range deps {
+		for j, alt := range dep.Alternatives {
+			if err := ValidateToolName(alt); err != nil {
+				return fmt.Errorf("%s tools[%d].alternatives[%d]: %w in invkfile at %s",
+					context, i+1, j+1, err, filePath)
+			}
+		}
+	}
+	return nil
+}
+
+// validateCommandDependencies validates command dependency names.
+func validateCommandDependencies(deps []CommandDependency, context string, filePath string) error {
+	for i, dep := range deps {
+		for j, alt := range dep.Alternatives {
+			if err := ValidateCommandDependencyName(alt); err != nil {
+				return fmt.Errorf("%s cmds[%d].alternatives[%d]: %w in invkfile at %s",
+					context, i+1, j+1, err, filePath)
+			}
+		}
+	}
+	return nil
+}
+
+// validateFilepathDependencies validates filepath dependency paths.
+func validateFilepathDependencies(deps []FilepathDependency, context string, filePath string) error {
+	for i, dep := range deps {
+		if err := ValidateFilepathDependency(dep.Alternatives); err != nil {
+			return fmt.Errorf("%s filepaths[%d]: %w in invkfile at %s",
+				context, i+1, err, filePath)
+		}
+	}
+	return nil
+}
+
+// validateDependsOn validates all dependency types in a DependsOn struct.
+func validateDependsOn(deps *DependsOn, context string, filePath string) error {
+	if deps == nil {
+		return nil
+	}
+
+	// Validate tool dependencies
+	if err := validateToolDependencies(deps.Tools, context, filePath); err != nil {
+		return err
+	}
+
+	// Validate command dependencies
+	if err := validateCommandDependencies(deps.Commands, context, filePath); err != nil {
+		return err
+	}
+
+	// Validate filepath dependencies
+	if err := validateFilepathDependencies(deps.Filepaths, context, filePath); err != nil {
+		return err
+	}
+
+	// Validate env var dependencies
+	if err := validateEnvVarDependencies(deps.EnvVars, context, filePath); err != nil {
+		return err
+	}
+
+	// custom_checks are validated separately (already integrated)
 	return nil
 }
 

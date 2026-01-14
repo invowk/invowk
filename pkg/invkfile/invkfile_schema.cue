@@ -5,6 +5,8 @@
 // NOTE: Pack metadata (pack, version, description, requires) is now defined
 // in invkpack_schema.cue and must be in a separate invkpack.cue file.
 
+import "strings"
+
 // RuntimeType defines the available execution runtime types
 #RuntimeType: "native" | "virtual" | "container"
 
@@ -88,7 +90,8 @@
 	// containerfile specifies the path to Containerfile/Dockerfile relative to invkfile (optional)
 	// Used to build a container image for command execution
 	// Mutually exclusive with 'image'
-	containerfile?: string
+	// Path must be relative and cannot contain traversal sequences
+	containerfile?: string & strings.MaxRunes(4096) & !strings.HasPrefix("/") & !strings.Contains("..")
 
 	// image specifies a pre-built container image to use (optional)
 	// Mutually exclusive with 'containerfile'
@@ -138,7 +141,7 @@
 	// Overrides both root-level and command-level workdir settings.
 	// Can be absolute or relative to the invkfile location.
 	// Paths should use forward slashes for cross-platform compatibility.
-	workdir?: string
+	workdir?: string & strings.MaxRunes(4096)
 
 	// depends_on specifies dependencies that must be satisfied before running this implementation (optional)
 	// These dependencies are validated according to the runtime:
@@ -154,7 +157,8 @@
 	// alternatives is a list of binary names where any match satisfies the dependency (required, at least one)
 	// If any of the provided tools is found in PATH, the validation succeeds (early return).
 	// This allows specifying multiple possible tools (e.g., ["podman", "docker"]).
-	alternatives: [...string & !=""] & [_, ...]
+	// Tool names must be valid binary names: alphanumeric, can include . _ + -
+	alternatives: [...string & =~"^[a-zA-Z0-9][a-zA-Z0-9._+-]*$"] & [_, ...]
 })
 
 // CustomCheck represents a custom validation script to verify system requirements
@@ -168,7 +172,8 @@
 	check_script: string & !=""
 
 	// expected_code is the expected exit code from check_script (optional, default: 0)
-	expected_code?: int
+	// Must be in valid exit code range (0-255)
+	expected_code?: int & >=0 & <=255
 
 	// expected_output is a regex pattern to match against check_script output (optional)
 	// Can be used together with expected_code
@@ -211,7 +216,8 @@
 	// alternatives is a list of command names where any match satisfies the dependency (required, at least one)
 	// If any of the provided commands is discoverable, the dependency is satisfied (early return).
 	// This allows specifying alternative commands (e.g., ["build-debug", "build-release"]).
-	alternatives: [...string & !=""] & [_, ...]
+	// Command names must be valid: starts with letter, can include letters, digits, underscores, hyphens, and spaces
+	alternatives: [...string & =~"^[a-zA-Z][a-zA-Z0-9_ -]*$"] & [_, ...]
 })
 
 // CapabilityName defines the supported system capability types
@@ -231,9 +237,11 @@
 
 // EnvVarCheck represents a single environment variable check
 #EnvVarCheck: close({
-	// name is the environment variable name to check (required, non-empty after trimming)
+	// name is the environment variable name to check (required)
 	// The check verifies that this env var exists in the user's environment
-	name: string & =~"^\\s*\\S+\\s*$"
+	// Must be a valid POSIX environment variable name: starts with letter or underscore,
+	// followed by letters, digits, or underscores
+	name: string & =~"^[A-Za-z_][A-Za-z0-9_]*$"
 
 	// validation is a regex pattern to validate the env var value (optional)
 	// If specified, the env var must exist AND its value must match this pattern
@@ -382,7 +390,7 @@
 	// Overrides root-level workdir but can be overridden by implementation-level workdir.
 	// Can be absolute or relative to the invkfile location.
 	// Paths should use forward slashes for cross-platform compatibility.
-	workdir?: string
+	workdir?: string & strings.MaxRunes(4096)
 
 	// depends_on specifies dependencies that must be satisfied before running (optional)
 	depends_on?: #DependsOn
@@ -407,13 +415,13 @@
 #Invkfile: close({
 	// default_shell overrides the default shell for native runtime (optional)
 	// Example: "/bin/bash", "pwsh"
-	default_shell?: string
+	default_shell?: string & strings.MaxRunes(1024)
 
 	// workdir specifies the default working directory for all commands (optional)
 	// Can be absolute or relative to the invkfile location.
 	// Paths should use forward slashes for cross-platform compatibility.
 	// Individual commands or implementations can override this with their own workdir.
-	workdir?: string
+	workdir?: string & strings.MaxRunes(4096)
 
 	// env contains global environment configuration for all commands (optional)
 	// Root-level env is applied first (lowest priority from invkfile).

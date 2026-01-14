@@ -4,6 +4,7 @@ package invkfile
 
 import (
 	"fmt"
+	"path/filepath"
 	"regexp"
 	"strings"
 )
@@ -22,6 +23,14 @@ const (
 	MaxNestedGroups = 10
 	// MaxQuantifierRepeats limits how many repetition operators can appear in a pattern
 	MaxQuantifierRepeats = 20
+	// MaxPathLength is the maximum allowed length for file paths
+	MaxPathLength = 4096
+	// MaxShellPathLength is the maximum allowed length for shell/interpreter paths
+	MaxShellPathLength = 1024
+	// MaxEnvVarValueLength is the maximum allowed length for environment variable values
+	MaxEnvVarValueLength = 32768 // 32 KB
+	// MaxGitURLLength is the maximum allowed length for Git repository URLs
+	MaxGitURLLength = 2048
 )
 
 // dangerousPatterns contains regex patterns that are known to cause catastrophic backtracking
@@ -591,5 +600,135 @@ func ValidateFilename(name string) error {
 		return fmt.Errorf("filename cannot end with space or period")
 	}
 
+	return nil
+}
+
+// ValidateContainerfilePath validates a containerfile path for security.
+// It ensures paths are relative, don't escape the invkfile directory,
+// and contain valid filename characters.
+func ValidateContainerfilePath(containerfile, baseDir string) error {
+	if containerfile == "" {
+		return nil
+	}
+
+	// Check length limit
+	if len(containerfile) > MaxPathLength {
+		return fmt.Errorf("containerfile path too long (%d chars, max %d)", len(containerfile), MaxPathLength)
+	}
+
+	// Containerfile path must be relative
+	if filepath.IsAbs(containerfile) {
+		return fmt.Errorf("containerfile path must be relative, not absolute")
+	}
+
+	// Check for null bytes (security)
+	if strings.ContainsRune(containerfile, '\x00') {
+		return fmt.Errorf("containerfile path contains null byte")
+	}
+
+	// Convert to native path separators and resolve
+	nativePath := filepath.FromSlash(containerfile)
+	fullPath := filepath.Join(baseDir, nativePath)
+	cleanPath := filepath.Clean(fullPath)
+
+	// Verify the resolved path stays within baseDir
+	relPath, err := filepath.Rel(baseDir, cleanPath)
+	if err != nil || strings.HasPrefix(relPath, "..") {
+		return fmt.Errorf("containerfile path '%s' escapes the invkfile directory", containerfile)
+	}
+
+	// Validate the filename component
+	return ValidateFilename(filepath.Base(containerfile))
+}
+
+// ValidateEnvFilePath validates an env file path for security.
+// Env file paths support an optional '?' suffix to mark the file as optional.
+// It ensures paths are relative and don't contain path traversal sequences.
+func ValidateEnvFilePath(filePath string) error {
+	// Remove optional '?' suffix
+	cleanPath := strings.TrimSuffix(filePath, "?")
+
+	if cleanPath == "" {
+		return fmt.Errorf("env file path cannot be empty")
+	}
+
+	// Check length limit
+	if len(cleanPath) > MaxPathLength {
+		return fmt.Errorf("env file path too long (%d chars, max %d)", len(cleanPath), MaxPathLength)
+	}
+
+	// Env file path must be relative
+	if filepath.IsAbs(cleanPath) {
+		return fmt.Errorf("env file path must be relative: %s", cleanPath)
+	}
+
+	// Check for null bytes (security)
+	if strings.ContainsRune(cleanPath, '\x00') {
+		return fmt.Errorf("env file path contains null byte")
+	}
+
+	// Check for path traversal sequences
+	normalized := filepath.Clean(cleanPath)
+	if strings.HasPrefix(normalized, "..") || strings.Contains(normalized, string(filepath.Separator)+"..") {
+		return fmt.Errorf("env file path cannot contain '..': %s", filePath)
+	}
+
+	return nil
+}
+
+// ValidateFilepathDependency validates filepath dependency alternatives.
+// These paths are checked at runtime, but we validate basic security constraints.
+func ValidateFilepathDependency(paths []string) error {
+	for i, path := range paths {
+		if path == "" {
+			return fmt.Errorf("filepath alternative #%d cannot be empty", i+1)
+		}
+
+		if len(path) > MaxPathLength {
+			return fmt.Errorf("filepath alternative #%d too long (%d chars, max %d)", i+1, len(path), MaxPathLength)
+		}
+
+		// Check for null bytes (security)
+		if strings.ContainsRune(path, '\x00') {
+			return fmt.Errorf("filepath alternative #%d contains null byte", i+1)
+		}
+	}
+	return nil
+}
+
+// toolNameRegex validates tool/binary names for security.
+// Tool names must start with alphanumeric and can include . _ + -
+var toolNameRegex = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._+-]*$`)
+
+// ValidateToolName validates a tool/binary name.
+// This is a Go-level backup to the CUE schema constraint.
+func ValidateToolName(name string) error {
+	if name == "" {
+		return fmt.Errorf("tool name cannot be empty")
+	}
+	if len(name) > MaxNameLength {
+		return fmt.Errorf("tool name too long (%d chars, max %d)", len(name), MaxNameLength)
+	}
+	if !toolNameRegex.MatchString(name) {
+		return fmt.Errorf("tool name '%s' is invalid (must be alphanumeric, can include . _ + -)", name)
+	}
+	return nil
+}
+
+// cmdDependencyNameRegex validates command dependency names.
+// Command names must start with a letter, can include letters, digits, underscores, hyphens, and spaces.
+var cmdDependencyNameRegex = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9_ -]*$`)
+
+// ValidateCommandDependencyName validates a command dependency name.
+func ValidateCommandDependencyName(name string) error {
+	if name == "" {
+		return fmt.Errorf("command name cannot be empty")
+	}
+	if len(name) > MaxNameLength {
+		return fmt.Errorf("command name too long (%d chars, max %d)", len(name), MaxNameLength)
+	}
+	if !cmdDependencyNameRegex.MatchString(name) {
+		return fmt.Errorf("command name '%s' is invalid (must start with letter, can include alphanumeric, underscores, hyphens, spaces)", name)
+	}
 	return nil
 }

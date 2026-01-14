@@ -483,3 +483,240 @@ func TestValidateCustomChecks(t *testing.T) {
 		})
 	}
 }
+
+func TestValidateContainerfilePath(t *testing.T) {
+	tests := []struct {
+		name        string
+		path        string
+		baseDir     string
+		shouldError bool
+		errorMsg    string
+	}{
+		// Valid paths
+		{name: "empty path", path: "", baseDir: "/project", shouldError: false},
+		{name: "simple filename", path: "Containerfile", baseDir: "/project", shouldError: false},
+		{name: "subdirectory path", path: "docker/Containerfile", baseDir: "/project", shouldError: false},
+		{name: "deep path", path: "a/b/c/Containerfile", baseDir: "/project", shouldError: false},
+
+		// Invalid - path traversal
+		{name: "simple traversal", path: "../Containerfile", baseDir: "/project", shouldError: true, errorMsg: "escapes"},
+		{name: "nested traversal", path: "subdir/../../Containerfile", baseDir: "/project", shouldError: true, errorMsg: "escapes"},
+		{name: "deep traversal", path: "a/b/c/../../../../../../../etc/shadow", baseDir: "/project", shouldError: true, errorMsg: "escapes"},
+
+		// Invalid - absolute path
+		{name: "absolute path unix", path: "/etc/passwd", baseDir: "/project", shouldError: true, errorMsg: "must be relative"},
+
+		// Invalid - null bytes
+		{name: "null byte", path: "Container\x00file", baseDir: "/project", shouldError: true, errorMsg: "null byte"},
+
+		// Invalid - too long
+		{name: "too long", path: strings.Repeat("a/", 2050) + "Containerfile", baseDir: "/project", shouldError: true, errorMsg: "too long"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateContainerfilePath(tt.path, tt.baseDir)
+			if tt.shouldError {
+				if err == nil {
+					t.Errorf("expected error containing %q, got nil", tt.errorMsg)
+				} else if !strings.Contains(err.Error(), tt.errorMsg) {
+					t.Errorf("expected error containing %q, got %q", tt.errorMsg, err.Error())
+				}
+			} else {
+				if err != nil {
+					t.Errorf("unexpected error: %v", err)
+				}
+			}
+		})
+	}
+}
+
+func TestValidateEnvFilePath(t *testing.T) {
+	tests := []struct {
+		name        string
+		path        string
+		shouldError bool
+		errorMsg    string
+	}{
+		// Valid paths
+		{name: "simple file", path: ".env", shouldError: false},
+		{name: "subdirectory", path: "config/.env", shouldError: false},
+		{name: "optional marker", path: ".env?", shouldError: false},
+		{name: "optional with subdir", path: "config/.env.local?", shouldError: false},
+
+		// Invalid - empty
+		{name: "empty", path: "", shouldError: true, errorMsg: "cannot be empty"},
+		{name: "only optional marker", path: "?", shouldError: true, errorMsg: "cannot be empty"},
+
+		// Invalid - path traversal
+		{name: "simple traversal", path: "../.env", shouldError: true, errorMsg: "cannot contain '..'"},
+		{name: "nested traversal", path: "config/../../.env", shouldError: true, errorMsg: "cannot contain '..'"},
+
+		// Invalid - absolute path
+		{name: "absolute path", path: "/etc/environment", shouldError: true, errorMsg: "must be relative"},
+
+		// Invalid - null bytes
+		{name: "null byte", path: ".env\x00", shouldError: true, errorMsg: "null byte"},
+
+		// Invalid - too long
+		{name: "too long", path: strings.Repeat("a/", 2050) + ".env", shouldError: true, errorMsg: "too long"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateEnvFilePath(tt.path)
+			if tt.shouldError {
+				if err == nil {
+					t.Errorf("expected error containing %q, got nil", tt.errorMsg)
+				} else if !strings.Contains(err.Error(), tt.errorMsg) {
+					t.Errorf("expected error containing %q, got %q", tt.errorMsg, err.Error())
+				}
+			} else {
+				if err != nil {
+					t.Errorf("unexpected error: %v", err)
+				}
+			}
+		})
+	}
+}
+
+func TestValidateFilepathDependency(t *testing.T) {
+	tests := []struct {
+		name        string
+		paths       []string
+		shouldError bool
+		errorMsg    string
+	}{
+		// Valid paths
+		{name: "single valid path", paths: []string{"/usr/bin/go"}, shouldError: false},
+		{name: "multiple valid paths", paths: []string{"/usr/bin/go", "/usr/local/go/bin/go"}, shouldError: false},
+		{name: "relative path", paths: []string{"./build"}, shouldError: false},
+
+		// Invalid - empty path
+		{name: "empty path", paths: []string{""}, shouldError: true, errorMsg: "cannot be empty"},
+		{name: "second path empty", paths: []string{"/bin/sh", ""}, shouldError: true, errorMsg: "cannot be empty"},
+
+		// Invalid - null bytes
+		{name: "null byte", paths: []string{"/bin/\x00sh"}, shouldError: true, errorMsg: "null byte"},
+
+		// Invalid - too long
+		{name: "too long", paths: []string{strings.Repeat("/a", 2100)}, shouldError: true, errorMsg: "too long"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateFilepathDependency(tt.paths)
+			if tt.shouldError {
+				if err == nil {
+					t.Errorf("expected error containing %q, got nil", tt.errorMsg)
+				} else if !strings.Contains(err.Error(), tt.errorMsg) {
+					t.Errorf("expected error containing %q, got %q", tt.errorMsg, err.Error())
+				}
+			} else {
+				if err != nil {
+					t.Errorf("unexpected error: %v", err)
+				}
+			}
+		})
+	}
+}
+
+func TestValidateToolName(t *testing.T) {
+	tests := []struct {
+		name        string
+		toolName    string
+		shouldError bool
+		errorMsg    string
+	}{
+		// Valid tool names
+		{name: "simple name", toolName: "go", shouldError: false},
+		{name: "with version", toolName: "python3", shouldError: false},
+		{name: "with dot", toolName: "node.js", shouldError: false},
+		{name: "with underscore", toolName: "my_tool", shouldError: false},
+		{name: "with hyphen", toolName: "my-tool", shouldError: false},
+		{name: "with plus", toolName: "g++", shouldError: false},
+		{name: "complex", toolName: "clang++-14", shouldError: false},
+
+		// Invalid - empty
+		{name: "empty", toolName: "", shouldError: true, errorMsg: "cannot be empty"},
+
+		// Invalid - starts with non-alphanumeric
+		{name: "starts with hyphen", toolName: "-tool", shouldError: true, errorMsg: "invalid"},
+		{name: "starts with dot", toolName: ".tool", shouldError: true, errorMsg: "invalid"},
+
+		// Invalid - contains invalid characters
+		{name: "contains space", toolName: "my tool", shouldError: true, errorMsg: "invalid"},
+		{name: "contains slash", toolName: "/usr/bin/go", shouldError: true, errorMsg: "invalid"},
+		{name: "contains semicolon", toolName: "go;rm", shouldError: true, errorMsg: "invalid"},
+		{name: "contains pipe", toolName: "go|cat", shouldError: true, errorMsg: "invalid"},
+
+		// Invalid - too long
+		{name: "too long", toolName: strings.Repeat("a", MaxNameLength+1), shouldError: true, errorMsg: "too long"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateToolName(tt.toolName)
+			if tt.shouldError {
+				if err == nil {
+					t.Errorf("expected error containing %q, got nil", tt.errorMsg)
+				} else if !strings.Contains(err.Error(), tt.errorMsg) {
+					t.Errorf("expected error containing %q, got %q", tt.errorMsg, err.Error())
+				}
+			} else {
+				if err != nil {
+					t.Errorf("unexpected error: %v", err)
+				}
+			}
+		})
+	}
+}
+
+func TestValidateCommandDependencyName(t *testing.T) {
+	tests := []struct {
+		name        string
+		cmdName     string
+		shouldError bool
+		errorMsg    string
+	}{
+		// Valid command names
+		{name: "simple", cmdName: "build", shouldError: false},
+		{name: "with hyphen", cmdName: "build-debug", shouldError: false},
+		{name: "with underscore", cmdName: "build_debug", shouldError: false},
+		{name: "with space", cmdName: "test unit", shouldError: false},
+		{name: "with numbers", cmdName: "build2", shouldError: false},
+
+		// Invalid - empty
+		{name: "empty", cmdName: "", shouldError: true, errorMsg: "cannot be empty"},
+
+		// Invalid - starts with non-letter
+		{name: "starts with number", cmdName: "2build", shouldError: true, errorMsg: "invalid"},
+		{name: "starts with hyphen", cmdName: "-build", shouldError: true, errorMsg: "invalid"},
+		{name: "starts with space", cmdName: " build", shouldError: true, errorMsg: "invalid"},
+
+		// Invalid - contains invalid characters
+		{name: "contains semicolon", cmdName: "build;rm", shouldError: true, errorMsg: "invalid"},
+		{name: "contains pipe", cmdName: "build|cat", shouldError: true, errorMsg: "invalid"},
+		{name: "contains dot", cmdName: "build.test", shouldError: true, errorMsg: "invalid"},
+
+		// Invalid - too long
+		{name: "too long", cmdName: strings.Repeat("a", MaxNameLength+1), shouldError: true, errorMsg: "too long"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateCommandDependencyName(tt.cmdName)
+			if tt.shouldError {
+				if err == nil {
+					t.Errorf("expected error containing %q, got nil", tt.errorMsg)
+				} else if !strings.Contains(err.Error(), tt.errorMsg) {
+					t.Errorf("expected error containing %q, got %q", tt.errorMsg, err.Error())
+				}
+			} else {
+				if err != nil {
+					t.Errorf("unexpected error: %v", err)
+				}
+			}
+		})
+	}
+}

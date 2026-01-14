@@ -9,13 +9,15 @@
 //
 // Command definitions remain in invkfile.cue (separate file).
 
+import "strings"
+
 // PackRequirement represents a dependency on another pack from a Git repository
 #PackRequirement: close({
 	// git_url is the Git repository URL (required)
 	// Supports HTTPS and SSH URLs
 	// The repository name MUST end with .invkpack suffix
 	// Examples: "https://github.com/user/mytools.invkpack.git", "git@github.com:user/utils.invkpack.git"
-	git_url: string & =~"^(https://|git@|ssh://)"
+	git_url: string & =~"^(https://|git@|ssh://)" & strings.MaxRunes(2048)
 
 	// version is the semver constraint for version selection (required)
 	// Examples: "^1.2.0", "~1.2.0", ">=1.0.0", "1.2.3"
@@ -29,7 +31,8 @@
 
 	// path specifies a subdirectory containing the pack (optional)
 	// Used for monorepos with multiple packs
-	path?: string
+	// Must be relative and cannot contain path traversal sequences
+	path?: string & strings.MaxRunes(4096) & !strings.HasPrefix("/") & !strings.Contains("..")
 })
 
 // Invkpack is the root schema for pack metadata (invkpack.cue)
@@ -49,7 +52,8 @@
 	version?: string & =~"^[0-9]+\\.[0-9]+$"
 
 	// description provides a summary of this pack's purpose (optional)
-	description?: string
+	// Maximum 10KB to prevent abuse
+	description?: string & strings.MaxRunes(10240)
 
 	// requires declares dependencies on other packs from Git repositories (optional)
 	// Dependencies are resolved at pack level
