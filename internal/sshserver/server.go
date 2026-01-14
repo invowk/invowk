@@ -207,12 +207,28 @@ func (s *Server) Stop() error {
 		defer cancel()
 
 		if err := s.srv.Shutdown(ctx); err != nil {
-			return fmt.Errorf("failed to shutdown SSH server: %w", err)
+			// Ignore "use of closed network connection" errors - this is benign
+			// and happens when the listener was already closed
+			if !isClosedConnError(err) {
+				return fmt.Errorf("failed to shutdown SSH server: %w", err)
+			}
 		}
 	}
 
 	s.logger.Info("SSH server stopped")
 	return nil
+}
+
+// isClosedConnError checks if the error is a "use of closed network connection" error
+func isClosedConnError(err error) bool {
+	if err == nil {
+		return false
+	}
+	var opErr *net.OpError
+	if errors.As(err, &opErr) {
+		return opErr.Err.Error() == "use of closed network connection"
+	}
+	return false
 }
 
 // Address returns the server's listening address
