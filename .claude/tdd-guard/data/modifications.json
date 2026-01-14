@@ -1,0 +1,12 @@
+{
+  "session_id": "8344ba9b-ecf9-4695-ad3f-9b230bb1f6a7",
+  "transcript_path": "/var/home/danilo/.claude/projects/-var-home-danilo-Workspace-github-invowk-invowk/8344ba9b-ecf9-4695-ad3f-9b230bb1f6a7.jsonl",
+  "hook_event_name": "PreToolUse",
+  "tool_name": "Edit",
+  "tool_input": {
+    "file_path": "/var/home/danilo/Workspace/github/invowk/invowk/pkg/invkfile/validation.go",
+    "old_string": "// isWindowsDriveLetter returns true if c is a valid Windows drive letter.\nfunc isWindowsDriveLetter(c byte) bool {\n\treturn (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z')\n}",
+    "new_string": "// isWindowsDriveLetter returns true if c is a valid Windows drive letter.\nfunc isWindowsDriveLetter(c byte) bool {\n\treturn (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z')\n}\n\n// isAbsolutePath checks if a path is absolute on any platform.\n// This detects both Unix-style (/path) and Windows-style (C:\\path) absolute paths\n// regardless of the current OS. This is important for cross-platform validation\n// of invkfiles - a path like /etc/passwd should be detected as absolute even\n// when validating on Windows.\nfunc isAbsolutePath(path string) bool {\n\tif path == \"\" {\n\t\treturn false\n\t}\n\t// Check for Unix-style absolute path (starts with /)\n\tif path[0] == '/' {\n\t\treturn true\n\t}\n\t// Check for Windows-style absolute path (C:\\ or C:/)\n\tif len(path) >= 3 && isWindowsDriveLetter(path[0]) && path[1] == ':' &&\n\t\t(path[2] == '\\\\' || path[2] == '/') {\n\t\treturn true\n\t}\n\treturn false\n}",
+    "replace_all": false
+  }
+}

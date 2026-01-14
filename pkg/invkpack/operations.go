@@ -1,22 +1,8 @@
 // SPDX-License-Identifier: EPL-2.0
 
-// Package pack provides functionality for working with invowk packs.
-//
-// A pack is a self-contained folder with a ".invkpack" suffix that contains
-// an invkfile and optionally script files. Packs enable portable distribution
-// of invowk commands with their associated scripts.
-//
-// Pack naming follows these rules:
-//   - Folder name must end with ".invkpack"
-//   - Prefix (before .invkpack) must be POSIX-compliant: start with a letter,
-//     contain only alphanumeric characters, with optional dot-separated segments
-//   - Compatible with RDNS naming conventions (e.g., "com.example.mycommands")
-//
-// Pack structure:
-//   - Must contain exactly one invkfile.cue at the root
-//   - May contain script files referenced by implementations
-//   - Cannot be nested inside other packs
-package pack
+// Package invkpack provides pack operations: validation, creation, archiving, and dependency management.
+// Types and data structures are defined in invkpack.go.
+package invkpack
 
 import (
 	"archive/zip"
@@ -27,80 +13,12 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
-
-	"invowk-cli/pkg/invkfile"
 )
-
-// PackSuffix is the standard suffix for invowk pack directories
-const PackSuffix = ".invkpack"
-
-// VendoredPacksDir is the directory name for vendored pack dependencies
-const VendoredPacksDir = "invk_packs"
 
 // packNameRegex validates the pack folder name prefix (before .invkpack)
 // Must start with a letter, contain only alphanumeric chars, with optional dot-separated segments
 // Compatible with RDNS naming (e.g., "com.example.mycommands")
 var packNameRegex = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9]*(\.[a-zA-Z][a-zA-Z0-9]*)*$`)
-
-// ValidationIssue represents a single validation problem in a pack
-type ValidationIssue struct {
-	// Type categorizes the issue (e.g., "structure", "naming", "invkfile")
-	Type string
-	// Message describes the specific problem
-	Message string
-	// Path is the relative path within the pack where the issue was found (optional)
-	Path string
-}
-
-// Error implements the error interface for ValidationIssue
-func (v ValidationIssue) Error() string {
-	if v.Path != "" {
-		return fmt.Sprintf("[%s] %s: %s", v.Type, v.Path, v.Message)
-	}
-	return fmt.Sprintf("[%s] %s", v.Type, v.Message)
-}
-
-// ValidationResult contains the result of pack validation
-type ValidationResult struct {
-	// Valid is true if the pack passed all validation checks
-	Valid bool
-	// PackPath is the absolute path to the validated pack
-	PackPath string
-	// PackName is the extracted name from the folder (without .invkpack suffix)
-	PackName string
-	// InvkpackPath is the path to the invkpack.cue within the pack (required)
-	InvkpackPath string
-	// InvkfilePath is the path to the invkfile.cue within the pack (optional for library-only packs)
-	InvkfilePath string
-	// IsLibraryOnly is true if the pack has no invkfile.cue
-	IsLibraryOnly bool
-	// Issues contains all validation problems found
-	Issues []ValidationIssue
-}
-
-// AddIssue adds a validation issue to the result
-func (r *ValidationResult) AddIssue(issueType, message, path string) {
-	r.Issues = append(r.Issues, ValidationIssue{
-		Type:    issueType,
-		Message: message,
-		Path:    path,
-	})
-	r.Valid = false
-}
-
-// Pack represents a validated invowk pack
-type Pack struct {
-	// Path is the absolute path to the pack directory
-	Path string
-	// Name is the pack name (folder name without .invkpack suffix)
-	Name string
-	// InvkpackPath is the absolute path to the invkpack.cue (required)
-	InvkpackPath string
-	// InvkfilePath is the absolute path to the invkfile.cue (optional for library-only packs)
-	InvkfilePath string
-	// IsLibraryOnly is true if the pack has no invkfile.cue
-	IsLibraryOnly bool
-}
 
 // IsPack checks if the given path is a valid invowk pack directory.
 // This is a quick check that only verifies the folder name format and existence.
@@ -212,7 +130,7 @@ func Validate(packPath string) (*ValidationResult, error) {
 
 		// Parse invkpack.cue and validate pack field matches folder name
 		if result.PackName != "" {
-			meta, parseErr := invkfile.ParseInvkpack(invkpackPath)
+			meta, parseErr := ParseInvkpack(invkpackPath)
 			if parseErr != nil {
 				result.AddIssue("invkpack", fmt.Sprintf("failed to parse invkpack.cue: %v", parseErr), "invkpack.cue")
 			} else if meta.Pack != result.PackName {
@@ -289,7 +207,7 @@ func Validate(packPath string) (*ValidationResult, error) {
 		}
 
 		// Check for Windows reserved filenames (cross-platform compatibility)
-		if invkfile.IsWindowsReservedName(d.Name()) {
+		if IsWindowsReservedName(d.Name()) {
 			relPath, _ := filepath.Rel(absPath, path)
 			result.AddIssue("compatibility", fmt.Sprintf("filename '%s' is reserved on Windows", d.Name()), relPath)
 		}
@@ -305,6 +223,8 @@ func Validate(packPath string) (*ValidationResult, error) {
 
 // Load loads and validates a pack at the given path.
 // Returns a Pack struct if valid, or an error with validation details.
+// Note: This loads only metadata (invkpack.cue), not commands (invkfile.cue).
+// To load commands as well, use pkg/invkfile.ParsePack().
 func Load(packPath string) (*Pack, error) {
 	result, err := Validate(packPath)
 	if err != nil {
@@ -320,113 +240,20 @@ func Load(packPath string) (*Pack, error) {
 		return nil, fmt.Errorf("invalid pack: %s", strings.Join(msgs, "; "))
 	}
 
+	// Parse the metadata
+	var metadata *Invkpack
+	if result.InvkpackPath != "" {
+		metadata, err = ParseInvkpack(result.InvkpackPath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse pack metadata: %w", err)
+		}
+	}
+
 	return &Pack{
+		Metadata:      metadata,
 		Path:          result.PackPath,
-		Name:          result.PackName,
-		InvkpackPath:  result.InvkpackPath,
-		InvkfilePath:  result.InvkfilePath,
 		IsLibraryOnly: result.IsLibraryOnly,
 	}, nil
-}
-
-// ResolveScriptPath resolves a script path relative to the pack root.
-// Script paths in packs should use forward slashes for cross-platform compatibility.
-// This function converts the cross-platform path to the native format.
-func (b *Pack) ResolveScriptPath(scriptPath string) string {
-	// Convert forward slashes to native path separator
-	nativePath := filepath.FromSlash(scriptPath)
-
-	// If already absolute, return as-is
-	if filepath.IsAbs(nativePath) {
-		return nativePath
-	}
-
-	// Resolve relative to pack root
-	return filepath.Join(b.Path, nativePath)
-}
-
-// ValidateScriptPath checks if a script path is valid for this pack.
-// Returns an error if the path is invalid (e.g., escapes pack directory, is a symlink).
-func (b *Pack) ValidateScriptPath(scriptPath string) error {
-	if scriptPath == "" {
-		return fmt.Errorf("script path cannot be empty")
-	}
-
-	// Convert to native path
-	nativePath := filepath.FromSlash(scriptPath)
-
-	// Absolute paths are not allowed in packs
-	if filepath.IsAbs(nativePath) {
-		return fmt.Errorf("absolute paths are not allowed in packs; use paths relative to pack root")
-	}
-
-	// Resolve the full path
-	fullPath := filepath.Join(b.Path, nativePath)
-
-	// Ensure the resolved path is within the pack (prevent directory traversal)
-	relPath, err := filepath.Rel(b.Path, fullPath)
-	if err != nil {
-		return fmt.Errorf("failed to resolve relative path: %w", err)
-	}
-
-	// Check for path escaping (e.g., "../something")
-	if strings.HasPrefix(relPath, "..") {
-		return fmt.Errorf("script path '%s' escapes the pack directory", scriptPath)
-	}
-
-	// Check if the path or any parent is a symlink
-	if err := b.checkSymlinkSafety(fullPath); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// checkSymlinkSafety verifies that a path doesn't contain symlinks that could escape the pack.
-func (b *Pack) checkSymlinkSafety(path string) error {
-	// Get the real path by resolving all symlinks
-	realPath, err := filepath.EvalSymlinks(path)
-	if err != nil {
-		// If the file doesn't exist, that's fine - it'll be caught elsewhere
-		if os.IsNotExist(err) {
-			return nil
-		}
-		return fmt.Errorf("cannot resolve symlinks in path: %w", err)
-	}
-
-	// Ensure the real path is still within the pack
-	packRealPath, err := filepath.EvalSymlinks(b.Path)
-	if err != nil {
-		return fmt.Errorf("cannot resolve pack path: %w", err)
-	}
-
-	relPath, err := filepath.Rel(packRealPath, realPath)
-	if err != nil || strings.HasPrefix(relPath, "..") {
-		return fmt.Errorf("path resolves to location outside pack directory (symlink escape)")
-	}
-
-	return nil
-}
-
-// ContainsPath checks if the given path is inside this pack.
-func (b *Pack) ContainsPath(path string) bool {
-	absPath, err := filepath.Abs(path)
-	if err != nil {
-		return false
-	}
-
-	relPath, err := filepath.Rel(b.Path, absPath)
-	if err != nil {
-		return false
-	}
-
-	return !strings.HasPrefix(relPath, "..")
-}
-
-// GetInvkfileDir returns the directory containing the invkfile.
-// For packs, this is always the pack root.
-func (b *Pack) GetInvkfileDir() string {
-	return b.Path
 }
 
 // CreateOptions contains options for creating a new pack
@@ -581,7 +408,7 @@ func Archive(packPath, outputPath string) (string, error) {
 
 	// Determine output path
 	if outputPath == "" {
-		outputPath = b.Name + PackSuffix + ".zip"
+		outputPath = b.Name() + PackSuffix + ".zip"
 	}
 
 	// Resolve absolute output path

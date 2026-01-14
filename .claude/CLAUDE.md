@@ -21,9 +21,9 @@ invkfile.cue -> CUE Parser -> pkg/invkfile -> Runtime Selection -> Execution
                             (host shell)    (mvdan/sh)    (Docker/Podman)
 ```
 
-- **CUE Schemas**: 
+- **CUE Schemas**:
   - `pkg/invkfile/invkfile_schema.cue` defines `invkfile` structure
-  - `pkg/invkfile/invkpack_schema.cue` defines `invkpack` structure
+  - `pkg/invkpack/invkpack_schema.cue` defines `invkpack` structure
   - `internal/config/config_schema.cue` defines config structure
 - **Runtime Interface**: All runtimes implement the same interface in `internal/runtime/`.
 - **TUI Components**: Built with Charm libraries (bubbletea, huh, lipgloss).
@@ -32,7 +32,7 @@ invkfile.cue -> CUE Parser -> pkg/invkfile -> Runtime Selection -> Execution
 
 - `cmd/invowk/` - CLI commands using Cobra.
 - `internal/` - Private packages (config, container, discovery, issue, runtime, sshserver, tui, tuiserver).
-- `pkg/` - Public packages (pack, invkfile).
+- `pkg/` - Public packages (invkpack, invkfile).
 - `packs/` - Sample invowk packs for validation and reference.
 
 ## Container Runtime Limitations

@@ -6343,7 +6343,7 @@ cmds: [
 	}
 }
 
-// Note: Tests for invkpack.cue separation (ParseInvkpack, ParsePackFull, CommandScope, etc.)
+// Note: Tests for invkpack.cue separation (ParseInvkpack, ParsePack, CommandScope, etc.)
 // have been moved to invkpack_test.go
 
 func TestParseCustomChecks_ValidCheckScript(t *testing.T) {

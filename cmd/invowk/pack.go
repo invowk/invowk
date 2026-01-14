@@ -14,8 +14,7 @@ import (
 	"invowk-cli/internal/config"
 	"invowk-cli/internal/discovery"
 	"invowk-cli/pkg/invkfile"
-	"invowk-cli/pkg/pack"
-	"invowk-cli/pkg/packs"
+	"invowk-cli/pkg/invkpack"
 )
 
 var (
@@ -401,7 +400,7 @@ func runPackValidate(cmd *cobra.Command, args []string) error {
 	fmt.Printf("%s Path: %s\n", packInfoIcon, packPathStyle.Render(absPath))
 
 	// Perform validation
-	result, err := pack.Validate(packPath)
+	result, err := invkpack.Validate(packPath)
 	if err != nil {
 		return fmt.Errorf("validation error: %w", err)
 	}
@@ -465,14 +464,14 @@ func runPackCreate(cmd *cobra.Command, args []string) error {
 	packName := args[0]
 
 	// Validate pack name first
-	if err := pack.ValidateName(packName); err != nil {
+	if err := invkpack.ValidateName(packName); err != nil {
 		return err
 	}
 
 	fmt.Println(packTitleStyle.Render("Create Pack"))
 
 	// Create the pack
-	opts := pack.CreateOptions{
+	opts := invkpack.CreateOptions{
 		Name:             packName,
 		ParentDir:        packCreatePath,
 		Pack:             packCreatePack,
@@ -480,7 +479,7 @@ func runPackCreate(cmd *cobra.Command, args []string) error {
 		CreateScriptsDir: packCreateScripts,
 	}
 
-	packPath, err := pack.Create(opts)
+	packPath, err := invkpack.Create(opts)
 	if err != nil {
 		return fmt.Errorf("failed to create pack: %w", err)
 	}
@@ -566,7 +565,7 @@ func runPackList(cmd *cobra.Command, args []string) error {
 
 		fmt.Printf("%s %s:\n", packInfoIcon, source.String())
 		for _, p := range sourcePacks {
-			fmt.Printf("   %s %s\n", packSuccessIcon, cmdStyle.Render(p.Pack.Name))
+			fmt.Printf("   %s %s\n", packSuccessIcon, cmdStyle.Render(p.Pack.Name()))
 			fmt.Printf("      %s\n", packDetailStyle.Render(p.Pack.Path))
 		}
 		fmt.Println()
@@ -581,7 +580,7 @@ func runPackArchive(cmd *cobra.Command, args []string) error {
 	fmt.Println(packTitleStyle.Render("Archive Pack"))
 
 	// Archive the pack
-	zipPath, err := pack.Archive(packPath, packPackOutput)
+	zipPath, err := invkpack.Archive(packPath, packPackOutput)
 	if err != nil {
 		return fmt.Errorf("failed to archive pack: %w", err)
 	}
@@ -616,26 +615,26 @@ func runPackImport(cmd *cobra.Command, args []string) error {
 	}
 
 	// Import the pack
-	opts := pack.UnpackOptions{
+	opts := invkpack.UnpackOptions{
 		Source:    source,
 		DestDir:   destDir,
 		Overwrite: packImportOverwrite,
 	}
 
-	packPath, err := pack.Unpack(opts)
+	packPath, err := invkpack.Unpack(opts)
 	if err != nil {
 		return fmt.Errorf("failed to import pack: %w", err)
 	}
 
 	// Load the pack to get its name
-	b, err := pack.Load(packPath)
+	b, err := invkpack.Load(packPath)
 	if err != nil {
 		return fmt.Errorf("failed to load imported pack: %w", err)
 	}
 
 	fmt.Printf("%s Pack imported successfully\n", packSuccessIcon)
 	fmt.Println()
-	fmt.Printf("%s Name: %s\n", packInfoIcon, cmdStyle.Render(b.Name))
+	fmt.Printf("%s Name: %s\n", packInfoIcon, cmdStyle.Render(b.Name()))
 	fmt.Printf("%s Path: %s\n", packInfoIcon, packPathStyle.Render(packPath))
 	fmt.Println()
 	fmt.Printf("%s The pack commands are now available via invowk\n", packInfoIcon)
@@ -798,7 +797,7 @@ func runPackVendor(cmd *cobra.Command, args []string) error {
 	invkfilePath := filepath.Join(absPath, "invkfile.cue")
 	if _, err := os.Stat(invkfilePath); os.IsNotExist(err) {
 		// Maybe it's a pack directory
-		if pack.IsPack(absPath) {
+		if invkpack.IsPack(absPath) {
 			invkfilePath = filepath.Join(absPath, "invkfile.cue")
 		} else {
 			return fmt.Errorf("no invkfile.cue found in %s", absPath)
@@ -820,7 +819,7 @@ func runPackVendor(cmd *cobra.Command, args []string) error {
 	fmt.Printf("%s Found %d requirement(s) in invkpack.cue\n", packInfoIcon, len(meta.Requires))
 
 	// Determine vendor directory
-	vendorDir := pack.GetVendoredPacksDir(absPath)
+	vendorDir := invkpack.GetVendoredPacksDir(absPath)
 
 	// Handle prune mode
 	if packVendorPrune {
@@ -859,7 +858,7 @@ func pruneVendoredPacks(vendorDir string, meta *invkfile.Invkpack) error {
 	}
 
 	// List vendored packs
-	vendoredPacks, err := pack.ListVendoredPacks(filepath.Dir(vendorDir))
+	vendoredPacks, err := invkpack.ListVendoredPacks(filepath.Dir(vendorDir))
 	if err != nil {
 		return fmt.Errorf("failed to list vendored packs: %w", err)
 	}
@@ -890,13 +889,13 @@ func runPackAdd(cmd *cobra.Command, args []string) error {
 	fmt.Println(packTitleStyle.Render("Add Pack Dependency"))
 
 	// Create pack resolver
-	resolver, err := packs.NewResolver("", "")
+	resolver, err := invkpack.NewResolver("", "")
 	if err != nil {
 		return fmt.Errorf("failed to create pack resolver: %w", err)
 	}
 
 	// Create requirement
-	req := packs.PackRef{
+	req := invkpack.PackRef{
 		GitURL:  gitURL,
 		Version: version,
 		Alias:   packAddAlias,
@@ -946,7 +945,7 @@ func runPackRemove(cmd *cobra.Command, args []string) error {
 	fmt.Println(packTitleStyle.Render("Remove Pack Dependency"))
 
 	// Create pack resolver
-	resolver, err := packs.NewResolver("", "")
+	resolver, err := invkpack.NewResolver("", "")
 	if err != nil {
 		return fmt.Errorf("failed to create pack resolver: %w", err)
 	}
@@ -987,7 +986,7 @@ func runPackSync(cmd *cobra.Command, args []string) error {
 	fmt.Printf("%s Found %d requirement(s) in invkpack.cue\n", packInfoIcon, len(requirements))
 
 	// Create pack resolver
-	resolver, err := packs.NewResolver("", "")
+	resolver, err := invkpack.NewResolver("", "")
 	if err != nil {
 		return fmt.Errorf("failed to create pack resolver: %w", err)
 	}
@@ -1008,7 +1007,7 @@ func runPackSync(cmd *cobra.Command, args []string) error {
 	}
 
 	fmt.Println()
-	fmt.Printf("%s Lock file updated: %s\n", packSuccessIcon, packs.LockFileName)
+	fmt.Printf("%s Lock file updated: %s\n", packSuccessIcon, invkpack.LockFileName)
 
 	return nil
 }
@@ -1017,7 +1016,7 @@ func runPackUpdate(cmd *cobra.Command, args []string) error {
 	fmt.Println(packTitleStyle.Render("Update Pack Dependencies"))
 
 	// Create pack resolver
-	resolver, err := packs.NewResolver("", "")
+	resolver, err := invkpack.NewResolver("", "")
 	if err != nil {
 		return fmt.Errorf("failed to create pack resolver: %w", err)
 	}
@@ -1051,7 +1050,7 @@ func runPackUpdate(cmd *cobra.Command, args []string) error {
 	}
 
 	fmt.Println()
-	fmt.Printf("%s Lock file updated: %s\n", packSuccessIcon, packs.LockFileName)
+	fmt.Printf("%s Lock file updated: %s\n", packSuccessIcon, invkpack.LockFileName)
 
 	return nil
 }
@@ -1060,7 +1059,7 @@ func runPackDeps(cmd *cobra.Command, args []string) error {
 	fmt.Println(packTitleStyle.Render("Pack Dependencies"))
 
 	// Create pack resolver
-	resolver, err := packs.NewResolver("", "")
+	resolver, err := invkpack.NewResolver("", "")
 	if err != nil {
 		return fmt.Errorf("failed to create pack resolver: %w", err)
 	}
@@ -1097,15 +1096,15 @@ func runPackDeps(cmd *cobra.Command, args []string) error {
 }
 
 // extractPackRequirementsFromMetadata extracts pack requirements from Invkpack.
-func extractPackRequirementsFromMetadata(meta *invkfile.Invkpack) []packs.PackRef {
-	var reqs []packs.PackRef
+func extractPackRequirementsFromMetadata(meta *invkfile.Invkpack) []invkpack.PackRef {
+	var reqs []invkpack.PackRef
 
 	if meta == nil || meta.Requires == nil {
 		return reqs
 	}
 
 	for _, r := range meta.Requires {
-		reqs = append(reqs, packs.PackRef{
+		reqs = append(reqs, invkpack.PackRef{
 			GitURL:  r.GitURL,
 			Version: r.Version,
 			Alias:   r.Alias,

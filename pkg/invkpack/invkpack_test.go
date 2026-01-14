@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: EPL-2.0
 
-package invkfile
+package invkpack
 
 import (
 	"os"
@@ -192,8 +192,8 @@ description: "Missing pack field"
 	})
 }
 
-func TestParsePack(t *testing.T) {
-	t.Run("valid pack with both files", func(t *testing.T) {
+func TestParsePackMetadataOnly(t *testing.T) {
+	t.Run("existing invkpack.cue", func(t *testing.T) {
 		tmpDir := t.TempDir()
 		packDir := filepath.Join(tmpDir, "mypack.invkpack")
 		if err := os.MkdirAll(packDir, 0755); err != nil {
@@ -203,94 +203,38 @@ func TestParsePack(t *testing.T) {
 		// Create invkpack.cue
 		invkpackContent := `pack: "mypack"
 version: "1.0"
-description: "Test pack"
 `
 		if err := os.WriteFile(filepath.Join(packDir, "invkpack.cue"), []byte(invkpackContent), 0644); err != nil {
 			t.Fatalf("failed to write invkpack.cue: %v", err)
 		}
 
-		// Create invkfile.cue
-		invkfileContent := `cmds: [{name: "test", implementations: [{script: "echo test", runtimes: [{name: "native"}]}]}]`
-		if err := os.WriteFile(filepath.Join(packDir, "invkfile.cue"), []byte(invkfileContent), 0644); err != nil {
-			t.Fatalf("failed to write invkfile.cue: %v", err)
-		}
-
-		pack, err := ParsePack(packDir)
+		meta, err := ParsePackMetadataOnly(packDir)
 		if err != nil {
-			t.Fatalf("ParsePack() returned error: %v", err)
+			t.Fatalf("ParsePackMetadataOnly() returned error: %v", err)
 		}
 
-		if pack.Metadata == nil {
-			t.Fatal("Metadata should not be nil")
+		if meta == nil {
+			t.Fatal("ParsePackMetadataOnly() should not return nil")
 		}
-		if pack.Metadata.Pack != "mypack" {
-			t.Errorf("Metadata.Pack = %q, want %q", pack.Metadata.Pack, "mypack")
-		}
-		if pack.Commands == nil {
-			t.Fatal("Commands should not be nil")
-		}
-		cmds := GetPackCommands(pack)
-		if cmds == nil {
-			t.Fatal("GetPackCommands() returned nil")
-		}
-		if len(cmds.Commands) != 1 {
-			t.Errorf("Commands length = %d, want 1", len(cmds.Commands))
-		}
-		if pack.IsLibraryOnly {
-			t.Error("IsLibraryOnly should be false")
-		}
-		if pack.Path != packDir {
-			t.Errorf("Path = %q, want %q", pack.Path, packDir)
+		if meta.Pack != "mypack" {
+			t.Errorf("Pack = %q, want %q", meta.Pack, "mypack")
 		}
 	})
 
-	t.Run("library-only pack (no invkfile.cue)", func(t *testing.T) {
-		tmpDir := t.TempDir()
-		packDir := filepath.Join(tmpDir, "mylib.invkpack")
-		if err := os.MkdirAll(packDir, 0755); err != nil {
-			t.Fatalf("failed to create pack dir: %v", err)
-		}
-
-		// Create only invkpack.cue
-		invkpackContent := `pack: "mylib"
-version: "1.0"
-`
-		if err := os.WriteFile(filepath.Join(packDir, "invkpack.cue"), []byte(invkpackContent), 0644); err != nil {
-			t.Fatalf("failed to write invkpack.cue: %v", err)
-		}
-
-		pack, err := ParsePack(packDir)
-		if err != nil {
-			t.Fatalf("ParsePack() returned error: %v", err)
-		}
-
-		if pack.Metadata == nil {
-			t.Fatal("Metadata should not be nil")
-		}
-		if pack.Commands != nil {
-			t.Error("Commands should be nil for library-only pack")
-		}
-		if !pack.IsLibraryOnly {
-			t.Error("IsLibraryOnly should be true")
-		}
-	})
-
-	t.Run("missing invkpack.cue fails", func(t *testing.T) {
+	t.Run("missing invkpack.cue", func(t *testing.T) {
 		tmpDir := t.TempDir()
 		packDir := filepath.Join(tmpDir, "mypack.invkpack")
 		if err := os.MkdirAll(packDir, 0755); err != nil {
 			t.Fatalf("failed to create pack dir: %v", err)
 		}
 
-		// Only create invkfile.cue (no invkpack.cue)
-		invkfileContent := `cmds: []`
-		if err := os.WriteFile(filepath.Join(packDir, "invkfile.cue"), []byte(invkfileContent), 0644); err != nil {
-			t.Fatalf("failed to write invkfile.cue: %v", err)
+		meta, err := ParsePackMetadataOnly(packDir)
+		if err != nil {
+			t.Fatalf("ParsePackMetadataOnly() returned error: %v", err)
 		}
 
-		_, err := ParsePack(packDir)
-		if err == nil {
-			t.Error("ParsePack() should return error when invkpack.cue is missing")
+		if meta != nil {
+			t.Error("ParsePackMetadataOnly() should return nil for missing invkpack.cue")
 		}
 	})
 }
@@ -425,5 +369,40 @@ func TestCommandScope_AddDirectDep(t *testing.T) {
 
 	if !scope.DirectDeps["newdep"] {
 		t.Error("newdep should be in DirectDeps after AddDirectDep")
+	}
+}
+
+func TestHasInvkfile(t *testing.T) {
+	t.Run("with invkfile.cue", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		if err := os.WriteFile(filepath.Join(tmpDir, "invkfile.cue"), []byte("cmds: []"), 0644); err != nil {
+			t.Fatalf("failed to create invkfile.cue: %v", err)
+		}
+
+		if !HasInvkfile(tmpDir) {
+			t.Error("HasInvkfile() should return true when invkfile.cue exists")
+		}
+	})
+
+	t.Run("without invkfile.cue", func(t *testing.T) {
+		tmpDir := t.TempDir()
+
+		if HasInvkfile(tmpDir) {
+			t.Error("HasInvkfile() should return false when invkfile.cue doesn't exist")
+		}
+	})
+}
+
+func TestPathHelpers(t *testing.T) {
+	packDir := "/some/path/mypack.invkpack"
+
+	invkfilePath := InvkfilePath(packDir)
+	if invkfilePath != filepath.Join(packDir, "invkfile.cue") {
+		t.Errorf("InvkfilePath() = %q, want %q", invkfilePath, filepath.Join(packDir, "invkfile.cue"))
+	}
+
+	invkpackPath := InvkpackPath(packDir)
+	if invkpackPath != filepath.Join(packDir, "invkpack.cue") {
+		t.Errorf("InvkpackPath() = %q, want %q", invkpackPath, filepath.Join(packDir, "invkpack.cue"))
 	}
 }

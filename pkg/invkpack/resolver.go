@@ -1,19 +1,6 @@
 // SPDX-License-Identifier: EPL-2.0
 
-// Package packs provides functionality for managing pack dependencies from Git repositories.
-//
-// Packs enable declaring dependencies on other packs hosted in Git repositories
-// (GitHub, GitLab, etc.). Dependencies are declared in invkpack.cue using the
-// 'requires' field with semantic version constraints.
-//
-// Key features:
-//   - Git repository support (HTTPS and SSH)
-//   - Semantic versioning with constraints (^, ~, >=, <)
-//   - Transitive dependency resolution
-//   - Lock file for reproducible builds
-//   - Configurable command namespacing with aliases
-//   - Circular dependency detection
-package packs
+package invkpack
 
 import (
 	"context"
@@ -510,13 +497,13 @@ func (m *Resolver) resolveOne(ctx context.Context, req PackRef, _ map[string]boo
 	}
 
 	return &ResolvedPack{
-		PackRef:     req,
+		PackRef:         req,
 		ResolvedVersion: resolvedVersion,
 		GitCommit:       commit,
 		CachePath:       cachePath,
 		Namespace:       namespace,
 		PackName:        packName,
-		PackID:       packGroup,
+		PackID:          packGroup,
 		TransitiveDeps:  transitiveDeps,
 	}, nil
 }

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: EPL-2.0
 
-package pack
+package invkpack
 
 import (
 	"archive/zip"
@@ -542,20 +542,20 @@ func TestLoad(t *testing.T) {
 			t.Fatalf("Load() returned error: %v", err)
 		}
 
-		if pack.Name != "com.example.test" {
-			t.Errorf("pack.Name = %q, want %q", pack.Name, "com.example.test")
+		if pack.Name() != "com.example.test" {
+			t.Errorf("pack.Name() = %q, want %q", pack.Name(), "com.example.test")
 		}
 
 		// Verify invkpack.cue path is set
 		expectedInvkpackPath := filepath.Join(packPath, "invkpack.cue")
-		if pack.InvkpackPath != expectedInvkpackPath {
-			t.Errorf("pack.InvkpackPath = %q, want %q", pack.InvkpackPath, expectedInvkpackPath)
+		if pack.InvkpackPath() != expectedInvkpackPath {
+			t.Errorf("pack.InvkpackPath() = %q, want %q", pack.InvkpackPath(), expectedInvkpackPath)
 		}
 
 		// Verify invkfile.cue path is set
 		expectedInvkfilePath := filepath.Join(packPath, "invkfile.cue")
-		if pack.InvkfilePath != expectedInvkfilePath {
-			t.Errorf("pack.InvkfilePath = %q, want %q", pack.InvkfilePath, expectedInvkfilePath)
+		if pack.InvkfilePath() != expectedInvkfilePath {
+			t.Errorf("pack.InvkfilePath() = %q, want %q", pack.InvkfilePath(), expectedInvkfilePath)
 		}
 	})
 
@@ -578,8 +578,8 @@ version: "1.0"
 			t.Fatalf("Load() returned error: %v", err)
 		}
 
-		if pack.Name != "mylib" {
-			t.Errorf("pack.Name = %q, want %q", pack.Name, "mylib")
+		if pack.Name() != "mylib" {
+			t.Errorf("pack.Name() = %q, want %q", pack.Name(), "mylib")
 		}
 
 		if !pack.IsLibraryOnly {
@@ -608,9 +608,7 @@ version: "1.0"
 
 func TestPack_ResolveScriptPath(t *testing.T) {
 	pack := &Pack{
-		Path:         "/home/user/mycommands.invkpack",
-		Name:         "mycommands",
-		InvkfilePath: "/home/user/mycommands.invkpack/invkfile.cue",
+		Path: "/home/user/mycommands.invkpack",
 	}
 
 	tests := []struct {
@@ -647,9 +645,7 @@ func TestPack_ResolveScriptPath(t *testing.T) {
 
 func TestPack_ValidateScriptPath(t *testing.T) {
 	pack := &Pack{
-		Path:         "/home/user/mycommands.invkpack",
-		Name:         "mycommands",
-		InvkfilePath: "/home/user/mycommands.invkpack/invkfile.cue",
+		Path: "/home/user/mycommands.invkpack",
 	}
 
 	tests := []struct {
@@ -722,7 +718,6 @@ func TestPack_ContainsPath(t *testing.T) {
 
 	pack := &Pack{
 		Path: packPath,
-		Name: "mycommands",
 	}
 
 	tests := []struct {
@@ -1209,8 +1204,8 @@ func TestUnpack(t *testing.T) {
 			t.Fatalf("extracted pack is invalid: %v", err)
 		}
 
-		if b.Name != "mytools" {
-			t.Errorf("extracted pack name = %q, expected %q", b.Name, "mytools")
+		if b.Name() != "mytools" {
+			t.Errorf("extracted pack name = %q, expected %q", b.Name(), "mytools")
 		}
 	})
 
@@ -1438,7 +1433,7 @@ func TestListVendoredPacks(t *testing.T) {
 		// Check pack names
 		names := make(map[string]bool)
 		for _, p := range packs {
-			names[p.Name] = true
+			names[p.Name()] = true
 		}
 		if !names["vendor1"] || !names["vendor2"] {
 			t.Errorf("ListVendoredPacks() missing expected packs, got: %v", names)
@@ -1472,8 +1467,8 @@ func TestListVendoredPacks(t *testing.T) {
 		if len(packs) != 1 {
 			t.Errorf("ListVendoredPacks() returned %d packs, want 1 (should skip invalid)", len(packs))
 		}
-		if len(packs) > 0 && packs[0].Name != "valid" {
-			t.Errorf("ListVendoredPacks() returned wrong pack: %s", packs[0].Name)
+		if len(packs) > 0 && packs[0].Name() != "valid" {
+			t.Errorf("ListVendoredPacks() returned wrong pack: %s", packs[0].Name())
 		}
 	})
 }

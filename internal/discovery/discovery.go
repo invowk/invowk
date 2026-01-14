@@ -12,7 +12,7 @@ import (
 
 	"invowk-cli/internal/config"
 	"invowk-cli/pkg/invkfile"
-	"invowk-cli/pkg/pack"
+	"invowk-cli/pkg/invkpack"
 )
 
 // PackCollisionError is returned when two packs have the same pack identifier.
@@ -76,7 +76,7 @@ type DiscoveredFile struct {
 	// Error contains any error that occurred during parsing
 	Error error
 	// Pack is set if this file was discovered from a pack
-	Pack *pack.Pack
+	Pack *invkpack.Pack
 }
 
 // Discovery handles finding invkfiles
@@ -214,19 +214,19 @@ func (d *Discovery) discoverPacksInDir(dir string) []*DiscoveredFile {
 
 		// Check if it's a pack
 		entryPath := filepath.Join(absDir, entry.Name())
-		if !pack.IsPack(entryPath) {
+		if !invkpack.IsPack(entryPath) {
 			continue
 		}
 
 		// Load the pack
-		p, err := pack.Load(entryPath)
+		p, err := invkpack.Load(entryPath)
 		if err != nil {
 			// Invalid pack, skip it
 			continue
 		}
 
 		files = append(files, &DiscoveredFile{
-			Path:   p.InvkfilePath,
+			Path:   p.InvkfilePath(),
 			Source: SourcePack,
 			Pack:   p,
 		})
@@ -248,7 +248,12 @@ func (d *Discovery) LoadAll() ([]*DiscoveredFile, error) {
 
 		if file.Pack != nil {
 			// Use pack-aware parsing
-			inv, parseErr = invkfile.ParsePack(file.Pack.Path)
+			parsed, err := invkfile.ParsePack(file.Pack.Path)
+			if err != nil {
+				parseErr = err
+			} else {
+				inv = invkfile.GetPackCommands(parsed)
+			}
 		} else {
 			inv, parseErr = invkfile.Parse(file.Path)
 		}
@@ -280,7 +285,12 @@ func (d *Discovery) LoadFirst() (*DiscoveredFile, error) {
 
 	if file.Pack != nil {
 		// Use pack-aware parsing
-		inv, parseErr = invkfile.ParsePack(file.Pack.Path)
+		parsed, err := invkfile.ParsePack(file.Pack.Path)
+		if err != nil {
+			parseErr = err
+		} else {
+			inv = invkfile.GetPackCommands(parsed)
+		}
 	} else {
 		inv, parseErr = invkfile.Parse(file.Path)
 	}

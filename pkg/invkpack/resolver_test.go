@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: EPL-2.0
 
-package packs
+package invkpack
 
 import (
 	"os"
@@ -158,11 +158,11 @@ func TestNewResolver(t *testing.T) {
 
 func TestComputeNamespace(t *testing.T) {
 	tests := []struct {
-		name        string
-		packName    string
-		version     string
-		alias       string
-		expected    string
+		name     string
+		packName string
+		version  string
+		alias    string
+		expected string
 	}{
 		{
 			name:     "without alias",

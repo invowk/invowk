@@ -15,6 +15,8 @@ import (
 
 	"cuelang.org/go/cue"
 	"cuelang.org/go/cue/cuecontext"
+
+	"invowk-cli/pkg/invkpack"
 )
 
 // flagNameRegex validates POSIX-compliant flag names
@@ -26,8 +28,6 @@ var envVarNameRegex = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
 //go:embed invkfile_schema.cue
 var invkfileSchema string
 
-//go:embed invkpack_schema.cue
-var invkpackSchema string
 
 // RuntimeMode defines how commands are executed (the type of runtime)
 type RuntimeMode string
@@ -422,158 +422,32 @@ type DependsOn struct {
 }
 
 // PackRequirement represents a dependency on another pack from a Git repository.
-type PackRequirement struct {
-	// GitURL is the Git repository URL (HTTPS or SSH format).
-	// Examples: "https://github.com/user/repo.git", "git@github.com:user/repo.git"
-	GitURL string `json:"git_url"`
-	// Version is the semver constraint for version selection.
-	// Examples: "^1.2.0", "~1.2.0", ">=1.0.0 <2.0.0", "1.2.3"
-	Version string `json:"version"`
-	// Alias overrides the default namespace for imported commands (optional).
-	// If not set, the namespace is: <pack>@<resolved-version>
-	Alias string `json:"alias,omitempty"`
-	// Path specifies a subdirectory containing the pack (optional).
-	// Used for monorepos with multiple packs.
-	Path string `json:"path,omitempty"`
-}
+// This is a type alias for invkpack.PackRequirement.
+type PackRequirement = invkpack.PackRequirement
 
 // Invkpack represents pack metadata from invkpack.cue.
-// This is analogous to Go's go.mod file - it contains pack identity and dependencies.
-// Command definitions remain in invkfile.cue (separate file).
-type Invkpack struct {
-	// Pack is a MANDATORY identifier for this pack.
-	// Acts as pack identity and command namespace prefix.
-	// Must start with a letter, contain only alphanumeric characters, with optional
-	// dot-separated segments. RDNS format recommended (e.g., "io.invowk.sample", "com.example.mytools")
-	// IMPORTANT: The pack value MUST match the folder name prefix (before .invkpack)
-	Pack string `json:"pack"`
-	// Version specifies the pack schema version (optional but recommended).
-	// Current version: "1.0"
-	Version string `json:"version,omitempty"`
-	// Description provides a summary of this pack's purpose (optional).
-	Description string `json:"description,omitempty"`
-	// Requires declares dependencies on other packs from Git repositories (optional).
-	// Dependencies are resolved at pack level.
-	// All required packs are loaded and their commands made available.
-	// IMPORTANT: Commands in this pack can ONLY call:
-	//   1. Commands from globally installed packs (~/.invowk/packs/)
-	//   2. Commands from packs declared directly in THIS requires list
-	// Commands CANNOT call transitive dependencies (dependencies of dependencies).
-	Requires []PackRequirement `json:"requires,omitempty"`
-	// FilePath stores the path where this invkpack.cue was loaded from (not in CUE)
-	FilePath string `json:"-"`
-}
+// This is a type alias for invkpack.Invkpack.
+type Invkpack = invkpack.Invkpack
 
-// ParsedPack combines pack metadata (from invkpack.cue) with commands (from invkfile.cue).
-// This represents a fully parsed pack ready for use.
-type ParsedPack struct {
-	// Metadata contains pack identity and dependencies from invkpack.cue
-	Metadata *Invkpack
-	// Commands contains command definitions from invkfile.cue (nil for library-only packs)
-	Commands *Invkfile
-	// PackPath is the filesystem path to the pack directory
-	PackPath string
-	// IsLibraryOnly is true if the pack has no invkfile.cue (provides only dependencies)
-	IsLibraryOnly bool
-}
+// Pack is the unified type for a loaded invowk pack.
+// This is a type alias for invkpack.Pack.
+// Use ParsePack() to load a pack with both metadata and commands.
+type Pack = invkpack.Pack
 
 // CommandScope defines what commands a pack can access.
-// Commands in a pack can ONLY call:
-//  1. Commands from the same pack
-//  2. Commands from globally installed packs (~/.invowk/packs/)
-//  3. Commands from first-level requirements (direct dependencies in invkpack.cue:requires)
-//
-// Commands CANNOT call transitive dependencies (dependencies of dependencies).
-type CommandScope struct {
-	// PackID is the pack identifier that owns this scope
-	PackID string
-	// GlobalPacks are commands from globally installed packs (always accessible)
-	GlobalPacks map[string]bool
-	// DirectDeps are pack IDs from first-level requirements (from invkpack.cue:requires)
-	DirectDeps map[string]bool
-}
+// This is a type alias for invkpack.CommandScope.
+type CommandScope = invkpack.CommandScope
 
 // NewCommandScope creates a CommandScope for a parsed pack.
-// globalPackIDs should contain pack IDs from ~/.invowk/packs/
-// directRequirements should be the requires list from the pack's invkpack.cue
+// This is a wrapper for invkpack.NewCommandScope.
 func NewCommandScope(packID string, globalPackIDs []string, directRequirements []PackRequirement) *CommandScope {
-	scope := &CommandScope{
-		PackID:      packID,
-		GlobalPacks: make(map[string]bool),
-		DirectDeps:  make(map[string]bool),
-	}
-
-	for _, id := range globalPackIDs {
-		scope.GlobalPacks[id] = true
-	}
-
-	for _, req := range directRequirements {
-		// The direct dependency namespace uses either alias or the resolved pack ID
-		if req.Alias != "" {
-			scope.DirectDeps[req.Alias] = true
-		}
-		// Note: The actual resolved pack ID will be added during resolution
-	}
-
-	return scope
-}
-
-// CanCall checks if a command can call another command based on scope rules.
-// Returns true if allowed, false with reason if not.
-func (s *CommandScope) CanCall(targetCmd string) (bool, string) {
-	// Extract pack prefix from command name (format: "pack.name cmdname" or "pack.name@version cmdname")
-	targetPack := ExtractPackFromCommand(targetCmd)
-
-	// If no pack prefix, it's a local command (always allowed)
-	if targetPack == "" {
-		return true, ""
-	}
-
-	// Check if target is from same pack
-	if targetPack == s.PackID {
-		return true, ""
-	}
-
-	// Check if target is in global packs
-	if s.GlobalPacks[targetPack] {
-		return true, ""
-	}
-
-	// Check if target is in direct dependencies
-	if s.DirectDeps[targetPack] {
-		return true, ""
-	}
-
-	return false, fmt.Sprintf(
-		"command from pack '%s' cannot call '%s': pack '%s' is not accessible\n"+
-			"  Commands can only call:\n"+
-			"  - Commands from the same pack (%s)\n"+
-			"  - Commands from globally installed packs (~/.invowk/packs/)\n"+
-			"  - Commands from direct dependencies declared in invkpack.cue:requires\n"+
-			"  Add '%s' to your invkpack.cue requires list to use its commands",
-		s.PackID, targetCmd, targetPack, s.PackID, targetPack)
-}
-
-// AddDirectDep adds a resolved direct dependency to the scope.
-// This is called during resolution when we know the actual pack ID.
-func (s *CommandScope) AddDirectDep(packID string) {
-	s.DirectDeps[packID] = true
+	return invkpack.NewCommandScope(packID, globalPackIDs, directRequirements)
 }
 
 // ExtractPackFromCommand extracts the pack prefix from a fully qualified command name.
-// Returns empty string if no pack prefix found.
-// Examples:
-//   - "io.invowk.sample hello" -> "io.invowk.sample"
-//   - "utils@1.2.3 build" -> "utils@1.2.3"
-//   - "build" -> ""
+// This is a wrapper for invkpack.ExtractPackFromCommand.
 func ExtractPackFromCommand(cmd string) string {
-	// Command format: "pack cmdname" where pack may contain dots and @version
-	parts := strings.SplitN(cmd, " ", 2)
-	if len(parts) < 2 {
-		// No space means it's either a local command or just a pack with no command
-		return ""
-	}
-	return parts[0]
+	return invkpack.ExtractPackFromCommand(cmd)
 }
 
 // EnvConfig holds environment configuration for a command or implementation
@@ -1243,7 +1117,7 @@ type Invkfile struct {
 	// Empty string if not loaded from a pack
 	PackPath string `json:"-"`
 	// Metadata references the pack metadata from invkpack.cue (not in CUE)
-	// This is set when parsing a pack via ParsePackFull
+	// This is set when parsing a pack via ParsePack
 	Metadata *Invkpack `json:"-"`
 }
 
@@ -1266,110 +1140,28 @@ func Parse(path string) (*Invkfile, error) {
 	return ParseBytes(data, path)
 }
 
-// ParsePack reads and parses an invkfile from a pack directory.
-// The packPath should be the path to the pack directory (ending in .invkpack).
-// It parses both invkpack.cue (metadata) and invkfile.cue (commands).
-// Returns the Invkfile with Metadata populated from invkpack.cue.
-// Deprecated: Use ParsePackFull for full access to ParsedPack structure.
-func ParsePack(packPath string) (*Invkfile, error) {
-	invkpackPath := filepath.Join(packPath, "invkpack.cue")
-	invkfilePath := filepath.Join(packPath, "invkfile.cue")
-
-	// Parse invkpack.cue (required for packs)
-	var meta *Invkpack
-	if _, statErr := os.Stat(invkpackPath); statErr == nil {
-		var parseErr error
-		meta, parseErr = ParseInvkpack(invkpackPath)
-		if parseErr != nil {
-			return nil, fmt.Errorf("pack at %s: %w", packPath, parseErr)
-		}
-	}
-
-	// Parse invkfile.cue
-	data, err := os.ReadFile(invkfilePath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read invkfile at %s: %w", invkfilePath, err)
-	}
-
-	inv, err := ParseBytes(data, invkfilePath)
-	if err != nil {
-		return nil, err
-	}
-
-	// Set the pack path and metadata
-	inv.PackPath = packPath
-	inv.Metadata = meta
-
-	return inv, nil
-}
-
 // ParseInvkpack reads and parses pack metadata from invkpack.cue at the given path.
+// This is a wrapper for invkpack.ParseInvkpack.
 func ParseInvkpack(path string) (*Invkpack, error) {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read invkpack at %s: %w", path, err)
-	}
-
-	return ParseInvkpackBytes(data, path)
+	return invkpack.ParseInvkpack(path)
 }
 
 // ParseInvkpackBytes parses pack metadata content from bytes.
+// This is a wrapper for invkpack.ParseInvkpackBytes.
 func ParseInvkpackBytes(data []byte, path string) (*Invkpack, error) {
-	ctx := cuecontext.New()
-
-	// Compile the schema
-	schemaValue := ctx.CompileString(invkpackSchema)
-	if schemaValue.Err() != nil {
-		return nil, fmt.Errorf("internal error: failed to compile invkpack schema: %w", schemaValue.Err())
-	}
-
-	// Compile the user's invkpack file
-	userValue := ctx.CompileBytes(data, cue.Filename(path))
-	if userValue.Err() != nil {
-		return nil, fmt.Errorf("failed to parse invkpack at %s: %w", path, userValue.Err())
-	}
-
-	// Unify with schema to validate
-	schema := schemaValue.LookupPath(cue.ParsePath("#Invkpack"))
-	unified := schema.Unify(userValue)
-	if err := unified.Validate(cue.Concrete(true)); err != nil {
-		return nil, fmt.Errorf("invkpack validation failed at %s: %w", path, err)
-	}
-
-	// Decode into struct
-	var meta Invkpack
-	if err := unified.Decode(&meta); err != nil {
-		return nil, fmt.Errorf("failed to decode invkpack at %s: %w", path, err)
-	}
-
-	meta.FilePath = path
-
-	// Validate pack requirement paths for security
-	for i, req := range meta.Requires {
-		if req.Path != "" {
-			if len(req.Path) > MaxPathLength {
-				return nil, fmt.Errorf("requires[%d].path: too long (%d chars, max %d) in invkpack at %s", i, len(req.Path), MaxPathLength, path)
-			}
-			if strings.ContainsRune(req.Path, '\x00') {
-				return nil, fmt.Errorf("requires[%d].path: contains null byte in invkpack at %s", i, path)
-			}
-			cleanPath := filepath.Clean(req.Path)
-			if strings.HasPrefix(cleanPath, "..") || filepath.IsAbs(cleanPath) {
-				return nil, fmt.Errorf("requires[%d].path: path traversal or absolute paths not allowed in invkpack at %s", i, path)
-			}
-		}
-	}
-
-	return &meta, nil
+	return invkpack.ParseInvkpackBytes(data, path)
 }
 
-// ParsePackFull reads and parses a complete pack from the given pack directory.
+// ParsePack reads and parses a complete pack from the given pack directory.
 // It expects:
 // - invkpack.cue (required): Pack metadata (pack name, version, description, requires)
 // - invkfile.cue (optional): Command definitions (for library-only packs)
 //
 // The packPath should be the path to the pack directory (ending in .invkpack).
-func ParsePackFull(packPath string) (*ParsedPack, error) {
+// Returns a Pack with Metadata from invkpack.cue and Commands from invkfile.cue.
+// Note: Commands is stored as interface{} but is always *Invkfile when present.
+// Use GetPackCommands() for typed access.
+func ParsePack(packPath string) (*Pack, error) {
 	invkpackPath := filepath.Join(packPath, "invkpack.cue")
 	invkfilePath := filepath.Join(packPath, "invkfile.cue")
 
@@ -1380,9 +1172,9 @@ func ParsePackFull(packPath string) (*ParsedPack, error) {
 	}
 
 	// Create result
-	result := &ParsedPack{
+	result := &Pack{
 		Metadata: meta,
-		PackPath: packPath,
+		Path:     packPath,
 	}
 
 	// Parse invkfile.cue (optional - may be a library-only pack)
@@ -1409,6 +1201,18 @@ func ParsePackFull(packPath string) (*ParsedPack, error) {
 	}
 
 	return result, nil
+}
+
+// GetPackCommands returns the typed *Invkfile from a Pack.
+// Returns nil if the pack has no commands (library-only pack).
+func GetPackCommands(p *Pack) *Invkfile {
+	if p == nil || p.Commands == nil {
+		return nil
+	}
+	if inv, ok := p.Commands.(*Invkfile); ok {
+		return inv
+	}
+	return nil
 }
 
 // ParseBytes parses invkfile content from bytes

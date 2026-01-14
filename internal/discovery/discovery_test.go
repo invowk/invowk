@@ -733,7 +733,7 @@ func TestDiscoverAll_FindsPacksInCurrentDir(t *testing.T) {
 	found := false
 	for _, f := range files {
 		if f.Source == SourcePack && f.Pack != nil {
-			if f.Pack.Name == "mycommands" {
+			if f.Pack.Name() == "mycommands" {
 				found = true
 				break
 			}
@@ -779,7 +779,7 @@ func TestDiscoverAll_FindsPacksInUserDir(t *testing.T) {
 	found := false
 	for _, f := range files {
 		if f.Source == SourcePack && f.Pack != nil {
-			if f.Pack.Name == "userpack" {
+			if f.Pack.Name() == "userpack" {
 				found = true
 				break
 			}
@@ -826,7 +826,7 @@ func TestDiscoverAll_FindsPacksInConfigPath(t *testing.T) {
 	found := false
 	for _, f := range files {
 		if f.Source == SourcePack && f.Pack != nil {
-			if f.Pack.Name == "configpack" {
+			if f.Pack.Name() == "configpack" {
 				found = true
 				break
 			}
@@ -950,8 +950,8 @@ func TestDiscoverAll_SkipsInvalidPacks(t *testing.T) {
 	for _, f := range files {
 		if f.Source == SourcePack {
 			packCount++
-			if f.Pack != nil && f.Pack.Name != "valid" {
-				t.Errorf("unexpected pack found: %s", f.Pack.Name)
+			if f.Pack != nil && f.Pack.Name() != "valid" {
+				t.Errorf("unexpected pack found: %s", f.Pack.Name())
 			}
 		}
 	}
@@ -1068,8 +1068,8 @@ func TestLoadFirst_LoadsPack(t *testing.T) {
 		t.Fatal("LoadFirst().Pack should not be nil for pack source")
 	}
 
-	if file.Pack.Name != "firstpack" {
-		t.Errorf("Pack.Name = %s, want 'firstpack'", file.Pack.Name)
+	if file.Pack.Name() != "firstpack" {
+		t.Errorf("Pack.Name = %s, want 'firstpack'", file.Pack.Name())
 	}
 }
 
