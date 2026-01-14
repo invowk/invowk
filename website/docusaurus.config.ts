@@ -15,10 +15,11 @@ const config: Config = {
   },
 
   // Set the production url of your site here
-  url: 'https://invowk.github.io',
+  url: 'https://invowk.dev',
   // Set the /<baseUrl>/ pathname under which your site is served
-  // For GitHub pages deployment, it is often '/<projectName>/'
-  baseUrl: '/invowk/',
+  // For custom domains: use '/'
+  // For username.github.io/project-name: use '/project-name/'
+  baseUrl: '/',
 
   // GitHub pages deployment config.
   organizationName: 'invowk',
