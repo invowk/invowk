@@ -1,0 +1,131 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+  id-token: write  # Required for Cosign keyless signing
+
+jobs:
+  # Run tests on all platforms before releasing
+  test:
+    name: Test (${{ matrix.os }}${{ matrix.engine && format(' / {0}', matrix.engine) || '' }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: true  # Stop all jobs if one fails
+      matrix:
+        include:
+          # Ubuntu 24.04 with Docker
+          - os: ubuntu-24.04
+            runner: ubuntu-24.04
+            engine: docker
+            test-mode: full
+
+          # Ubuntu 24.04 with Podman
+          - os: ubuntu-24.04
+            runner: ubuntu-24.04
+            engine: podman
+            test-mode: full
+
+          # Ubuntu latest with Docker
+          - os: ubuntu-latest
+            runner: ubuntu-latest
+            engine: docker
+            test-mode: full
+
+          # Ubuntu latest with Podman
+          - os: ubuntu-latest
+            runner: ubuntu-latest
+            engine: podman
+            test-mode: full
+
+          # Windows with Docker
+          - os: windows
+            runner: windows-latest
+            engine: docker
+            test-mode: full
+
+          # macOS Intel (unit tests only)
+          - os: macos
+            runner: macos-13
+            engine: ""
+            test-mode: short
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      # Podman setup for Ubuntu
+      - name: Setup Podman (Ubuntu)
+        if: matrix.engine == 'podman' && startsWith(matrix.runner, 'ubuntu')
+        run: |
+          podman --version
+          systemctl --user start podman.socket || true
+
+      # Docker verification
+      - name: Verify Docker
+        if: matrix.engine == 'docker'
+        run: |
+          docker --version
+          docker info
+
+      # Set container engine preference
+      - name: Set container engine
+        if: matrix.engine != ''
+        shell: bash
+        run: |
+          echo "INVOWK_CONTAINER_ENGINE=${{ matrix.engine }}" >> $GITHUB_ENV
+
+      # Run tests
+      - name: Run tests (full)
+        if: matrix.test-mode == 'full'
+        run: go test -v -race ./...
+
+      - name: Run tests (short)
+        if: matrix.test-mode == 'short'
+        run: go test -v -race -short ./...
+
+  # Release with GoReleaser after all tests pass
+  release:
+    name: Release
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      # Install UPX for binary compression
+      - name: Install UPX
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y upx
+
+      # Install Cosign for signing
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v3
+
+      # Run GoReleaser
+      - name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          version: "~> v2"
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

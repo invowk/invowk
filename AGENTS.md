@@ -11,11 +11,14 @@ Invowk™ is a dynamically extensible command runner (like `just`) written in Go
 | Task | Command |
 |------|---------|
 | Build | `make build` |
+| Build UPX | `make build-upx` |
 | Test all | `make test` |
 | Test short | `make test-short` |
 | Single test | `go test -v -run TestName ./path/...` |
 | License check | `make license-check` |
 | Tidy deps | `make tidy` |
+| GoReleaser check | `goreleaser check` |
+| GoReleaser dry-run | `goreleaser release --snapshot --clean` |
 | Website dev | `cd website && npm start` |
 | Website build | `cd website && npm run build` |
 
@@ -162,6 +165,70 @@ go test -v -cover ./...
 go test -v ./internal/runtime/...
 go test -v ./pkg/invkfile/...
 ```
+
+## Releasing
+
+Releases are automated using [GoReleaser](https://goreleaser.com) and GitHub Actions.
+
+### How to Create a Release
+
+1. **Ensure all tests pass** on the `main` branch
+2. **Create and push a version tag**:
+   ```bash
+   git tag -s v1.0.0 -m "Release v1.0.0"
+   git push origin v1.0.0
+   ```
+3. **GitHub Actions will automatically**:
+   - Run tests on all platforms (Ubuntu, Windows, macOS)
+   - Build binaries for all target platforms (with UPX compression)
+   - Sign checksums with Cosign (keyless)
+   - Create a GitHub Release with artifacts
+
+### Release Artifacts
+
+Each release includes:
+- **Binaries**: UPX-compressed executables for Linux/macOS/Windows (amd64, arm64)
+- **Archives**: `.tar.gz` for Linux/macOS, `.zip` for Windows
+- **Checksums**: SHA256 checksums in `checksums.txt`
+- **Signatures**: Cosign signatures for verification
+
+### Local Testing
+
+Test the release process locally before pushing a tag:
+
+```bash
+# Validate GoReleaser configuration
+goreleaser check
+
+# Dry-run release (builds locally, no publishing)
+goreleaser release --snapshot --clean
+```
+
+### Verifying Signatures
+
+Users can verify release artifacts using Cosign:
+
+```bash
+cosign verify-blob \
+  --certificate checksums.txt.pem \
+  --signature checksums.txt.sig \
+  --certificate-identity-regexp='https://github\.com/invowk/invowk/.*' \
+  --certificate-oidc-issuer='https://token.actions.githubusercontent.com' \
+  checksums.txt
+```
+
+### CI/CD Workflows
+
+| Workflow | Trigger | Purpose |
+|----------|---------|---------|
+| `ci.yml` | Push/PR to main | Run tests, build verification, license check |
+| `release.yml` | Tag push (v*) | Run tests, then build and publish release |
+
+### Versioning
+
+- Use [Semantic Versioning](https://semver.org/): `vMAJOR.MINOR.PATCH`
+- Pre-releases: `v1.0.0-alpha.1`, `v1.0.0-beta.1`, `v1.0.0-rc.1`
+- Tags must be GPG-signed (`git tag -s`)
 
 ## Git Commit Messages
 

@@ -1,0 +1,202 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - 'website/**'
+      - '*.md'
+      - 'LICENSE'
+  pull_request:
+    branches:
+      - main
+    paths-ignore:
+      - 'website/**'
+      - '*.md'
+      - 'LICENSE'
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Test (${{ matrix.os }}${{ matrix.engine && format(' / {0}', matrix.engine) || '' }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Ubuntu 24.04 with Docker
+          - os: ubuntu-24.04
+            runner: ubuntu-24.04
+            engine: docker
+            test-mode: full
+
+          # Ubuntu 24.04 with Podman
+          - os: ubuntu-24.04
+            runner: ubuntu-24.04
+            engine: podman
+            test-mode: full
+
+          # Ubuntu latest with Docker
+          - os: ubuntu-latest
+            runner: ubuntu-latest
+            engine: docker
+            test-mode: full
+
+          # Ubuntu latest with Podman
+          - os: ubuntu-latest
+            runner: ubuntu-latest
+            engine: podman
+            test-mode: full
+
+          # Windows with Docker
+          - os: windows
+            runner: windows-latest
+            engine: docker
+            test-mode: full
+
+          # macOS Intel (unit tests only, no container engine)
+          - os: macos
+            runner: macos-13
+            engine: ""
+            test-mode: short
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      # Podman setup for Ubuntu
+      - name: Setup Podman (Ubuntu)
+        if: matrix.engine == 'podman' && startsWith(matrix.runner, 'ubuntu')
+        run: |
+          # Podman is pre-installed on Ubuntu runners, just verify it works
+          podman --version
+          # Start podman system service for API compatibility
+          systemctl --user start podman.socket || true
+
+      # Docker setup verification for Ubuntu
+      - name: Verify Docker (Ubuntu)
+        if: matrix.engine == 'docker' && startsWith(matrix.runner, 'ubuntu')
+        run: |
+          docker --version
+          docker info
+
+      # Docker setup for Windows
+      - name: Setup Docker (Windows)
+        if: matrix.engine == 'docker' && matrix.os == 'windows'
+        run: |
+          docker --version
+          docker info
+
+      # Set container engine preference
+      - name: Set container engine
+        if: matrix.engine != ''
+        shell: bash
+        run: |
+          echo "INVOWK_CONTAINER_ENGINE=${{ matrix.engine }}" >> $GITHUB_ENV
+
+      # Run full tests (includes integration tests with containers)
+      - name: Run tests (full)
+        if: matrix.test-mode == 'full'
+        run: go test -v -race -coverprofile=coverage.out ./...
+
+      # Run short tests (unit tests only, no container dependencies)
+      - name: Run tests (short)
+        if: matrix.test-mode == 'short'
+        run: go test -v -race -short -coverprofile=coverage.out ./...
+
+      # Upload coverage
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-${{ matrix.os }}-${{ matrix.engine || 'unit' }}
+          path: coverage.out
+          retention-days: 7
+
+  # Build verification (ensures the binary compiles on all platforms)
+  build:
+    name: Build (${{ matrix.os }}/${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: linux
+            arch: amd64
+            runner: ubuntu-latest
+          - os: linux
+            arch: arm64
+            runner: ubuntu-latest
+          - os: darwin
+            arch: amd64
+            runner: macos-13
+          - os: darwin
+            arch: arm64
+            runner: macos-14
+          - os: windows
+            arch: amd64
+            runner: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Build
+        env:
+          GOOS: ${{ matrix.os }}
+          GOARCH: ${{ matrix.arch }}
+          GOAMD64: v3
+          CGO_ENABLED: "0"
+        run: go build -trimpath -ldflags="-s -w" -o invowk${{ matrix.os == 'windows' && '.exe' || '' }} .
+
+      - name: Verify binary
+        if: matrix.os == 'linux' && matrix.arch == 'amd64' || matrix.os == 'darwin' || matrix.os == 'windows'
+        run: ./invowk${{ matrix.os == 'windows' && '.exe' || '' }} --version
+        shell: bash
+
+  # License header check
+  license-check:
+    name: License Headers
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check SPDX headers
+        run: make license-check
+
+  # GoReleaser dry-run (validates configuration)
+  goreleaser-check:
+    name: GoReleaser Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Check GoReleaser config
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          version: "~> v2"
+          args: check
