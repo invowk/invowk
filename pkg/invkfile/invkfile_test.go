@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -76,7 +77,17 @@ func TestIsScriptFile(t *testing.T) {
 }
 
 func TestGetScriptFilePath(t *testing.T) {
-	invkfilePath := "/home/user/project/invkfile.cue"
+	// Use platform-native paths for testing
+	var invkfilePath, baseDir, absScriptPath string
+	if runtime.GOOS == "windows" {
+		invkfilePath = `C:\Users\user\project\invkfile.cue`
+		baseDir = `C:\Users\user\project`
+		absScriptPath = `C:\scripts\build.sh`
+	} else {
+		invkfilePath = "/home/user/project/invkfile.cue"
+		baseDir = "/home/user/project"
+		absScriptPath = "/usr/local/bin/script.sh"
+	}
 
 	tests := []struct {
 		name           string
@@ -85,10 +96,10 @@ func TestGetScriptFilePath(t *testing.T) {
 		expectedResult bool // true if path should be non-empty
 	}{
 		{"inline script", "echo hello", "", false},
-		{"relative path", "./scripts/build.sh", "/home/user/project/scripts/build.sh", true},
-		{"absolute path", "/usr/local/bin/script.sh", "/usr/local/bin/script.sh", true},
-		{"simple filename", "build.sh", "/home/user/project/build.sh", true},
-		{"nested relative path", "scripts/deploy/prod.sh", "/home/user/project/scripts/deploy/prod.sh", true},
+		{"relative path", "./scripts/build.sh", filepath.Join(baseDir, "scripts", "build.sh"), true},
+		{"absolute path", absScriptPath, absScriptPath, true},
+		{"simple filename", "build.sh", filepath.Join(baseDir, "build.sh"), true},
+		{"nested relative path", "scripts/deploy/prod.sh", filepath.Join(baseDir, "scripts", "deploy", "prod.sh"), true},
 	}
 
 	for _, tt := range tests {
@@ -188,10 +199,17 @@ func TestResolveScript_FromFile(t *testing.T) {
 }
 
 func TestResolveScriptWithFS(t *testing.T) {
-	// Virtual filesystem
+	// Use platform-native paths for the virtual filesystem
+	var projectDir string
+	if runtime.GOOS == "windows" {
+		projectDir = `C:\project`
+	} else {
+		projectDir = "/project"
+	}
+
 	virtualFS := map[string]string{
-		"/project/scripts/build.sh":  "#!/bin/bash\ngo build ./...",
-		"/project/scripts/deploy.sh": "#!/bin/bash\nkubectl apply -f k8s/",
+		filepath.Join(projectDir, "scripts", "build.sh"):  "#!/bin/bash\ngo build ./...",
+		filepath.Join(projectDir, "scripts", "deploy.sh"): "#!/bin/bash\nkubectl apply -f k8s/",
 	}
 
 	readFile := func(path string) ([]byte, error) {
@@ -201,7 +219,7 @@ func TestResolveScriptWithFS(t *testing.T) {
 		return nil, os.ErrNotExist
 	}
 
-	invkfilePath := "/project/invkfile.cue"
+	invkfilePath := filepath.Join(projectDir, "invkfile.cue")
 
 	t.Run("resolve script from virtual fs", func(t *testing.T) {
 		s := &Implementation{Script: "./scripts/build.sh", Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}

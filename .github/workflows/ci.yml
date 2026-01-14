@@ -92,11 +92,14 @@ jobs:
       # Run full tests (includes integration tests with containers)
       - name: Run tests (full)
         if: matrix.test-mode == 'full'
+        shell: bash
         run: go test -v -race -coverprofile=coverage.out ./...
 
       # Run short tests (unit tests only, no container dependencies)
+      # Uses bash shell to avoid PowerShell parsing issues on Windows
       - name: Run tests (short)
         if: matrix.test-mode == 'short'
+        shell: bash
         run: go test -v -race -short -coverprofile=coverage.out ./...
 
       # Upload coverage
