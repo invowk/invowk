@@ -96,13 +96,6 @@ jobs:
           docker --version
           docker info
 
-      # Set container engine preference
-      - name: Set container engine
-        if: matrix.engine != ''
-        shell: bash
-        run: |
-          echo "INVOWK_CONTAINER_ENGINE=${{ matrix.engine }}" >> $GITHUB_ENV
-
       # Run full tests (includes integration tests with containers)
       - name: Run tests (full)
         if: matrix.test-mode == 'full'
