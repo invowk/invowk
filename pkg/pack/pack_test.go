@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -672,9 +673,14 @@ func TestPack_ValidateScriptPath(t *testing.T) {
 			expectErr:  true,
 		},
 		{
-			name:       "absolute path not allowed",
-			scriptPath: "/usr/bin/bash",
-			expectErr:  true,
+			name: "absolute path not allowed",
+			scriptPath: func() string {
+				if runtime.GOOS == "windows" {
+					return `C:\Windows\System32\cmd.exe`
+				}
+				return "/usr/bin/bash"
+			}(),
+			expectErr: true,
 		},
 		{
 			name:       "path escapes pack with ..",
