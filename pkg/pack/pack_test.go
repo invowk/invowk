@@ -4,6 +4,7 @@ package pack
 
 import (
 	"archive/zip"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -265,6 +266,29 @@ func TestParsePackName(t *testing.T) {
 	}
 }
 
+// Helper function to create a valid pack with both invkpack.cue and invkfile.cue
+func createValidPack(t *testing.T, dir, folderName, packID string) string {
+	t.Helper()
+	packPath := filepath.Join(dir, folderName)
+	if err := os.Mkdir(packPath, 0755); err != nil {
+		t.Fatal(err)
+	}
+	// Create invkpack.cue with metadata
+	invkpackPath := filepath.Join(packPath, "invkpack.cue")
+	invkpackContent := fmt.Sprintf(`pack: "%s"
+version: "1.0"
+`, packID)
+	if err := os.WriteFile(invkpackPath, []byte(invkpackContent), 0644); err != nil {
+		t.Fatal(err)
+	}
+	// Create invkfile.cue with commands
+	invkfilePath := filepath.Join(packPath, "invkfile.cue")
+	if err := os.WriteFile(invkfilePath, []byte("cmds: []"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	return packPath
+}
+
 func TestValidate(t *testing.T) {
 	tests := []struct {
 		name           string
@@ -274,18 +298,10 @@ func TestValidate(t *testing.T) {
 		checkIssueType string // optional: check that at least one issue has this type
 	}{
 		{
-			name: "valid pack with invkfile",
+			name: "valid pack with invkpack.cue and invkfile.cue",
 			setup: func(t *testing.T) string {
 				dir := t.TempDir()
-				packPath := filepath.Join(dir, "mycommands.invkpack")
-				if err := os.Mkdir(packPath, 0755); err != nil {
-					t.Fatal(err)
-				}
-				invkfilePath := filepath.Join(packPath, "invkfile.cue")
-				if err := os.WriteFile(invkfilePath, []byte("group: \"test\"\ncmds: []"), 0644); err != nil {
-					t.Fatal(err)
-				}
-				return packPath
+				return createValidPack(t, dir, "mycommands.invkpack", "mycommands")
 			},
 			expectValid:  true,
 			expectIssues: 0,
@@ -294,12 +310,24 @@ func TestValidate(t *testing.T) {
 			name: "valid RDNS pack",
 			setup: func(t *testing.T) string {
 				dir := t.TempDir()
-				packPath := filepath.Join(dir, "com.example.mycommands.invkpack")
+				return createValidPack(t, dir, "com.example.mycommands.invkpack", "com.example.mycommands")
+			},
+			expectValid:  true,
+			expectIssues: 0,
+		},
+		{
+			name: "library-only pack (no invkfile.cue)",
+			setup: func(t *testing.T) string {
+				dir := t.TempDir()
+				packPath := filepath.Join(dir, "mylib.invkpack")
 				if err := os.Mkdir(packPath, 0755); err != nil {
 					t.Fatal(err)
 				}
-				invkfilePath := filepath.Join(packPath, "invkfile.cue")
-				if err := os.WriteFile(invkfilePath, []byte("group: \"test\"\ncmds: []"), 0644); err != nil {
+				// Only create invkpack.cue (no invkfile.cue)
+				invkpackPath := filepath.Join(packPath, "invkpack.cue")
+				if err := os.WriteFile(invkpackPath, []byte(`pack: "mylib"
+version: "1.0"
+`), 0644); err != nil {
 					t.Fatal(err)
 				}
 				return packPath
@@ -308,11 +336,16 @@ func TestValidate(t *testing.T) {
 			expectIssues: 0,
 		},
 		{
-			name: "missing invkfile.cue",
+			name: "missing invkpack.cue (required)",
 			setup: func(t *testing.T) string {
 				dir := t.TempDir()
 				packPath := filepath.Join(dir, "mycommands.invkpack")
 				if err := os.Mkdir(packPath, 0755); err != nil {
+					t.Fatal(err)
+				}
+				// Only create invkfile.cue (missing invkpack.cue)
+				invkfilePath := filepath.Join(packPath, "invkfile.cue")
+				if err := os.WriteFile(invkfilePath, []byte("cmds: []"), 0644); err != nil {
 					t.Fatal(err)
 				}
 				return packPath
@@ -322,15 +355,40 @@ func TestValidate(t *testing.T) {
 			checkIssueType: "structure",
 		},
 		{
-			name: "invkfile.cue is a directory",
+			name: "pack field mismatches folder name",
 			setup: func(t *testing.T) string {
 				dir := t.TempDir()
 				packPath := filepath.Join(dir, "mycommands.invkpack")
 				if err := os.Mkdir(packPath, 0755); err != nil {
 					t.Fatal(err)
 				}
-				invkfileDir := filepath.Join(packPath, "invkfile.cue")
-				if err := os.Mkdir(invkfileDir, 0755); err != nil {
+				// Create invkpack.cue with WRONG pack ID
+				invkpackPath := filepath.Join(packPath, "invkpack.cue")
+				if err := os.WriteFile(invkpackPath, []byte(`pack: "wrongname"
+version: "1.0"
+`), 0644); err != nil {
+					t.Fatal(err)
+				}
+				invkfilePath := filepath.Join(packPath, "invkfile.cue")
+				if err := os.WriteFile(invkfilePath, []byte("cmds: []"), 0644); err != nil {
+					t.Fatal(err)
+				}
+				return packPath
+			},
+			expectValid:    false,
+			expectIssues:   1,
+			checkIssueType: "naming",
+		},
+		{
+			name: "invkpack.cue is a directory",
+			setup: func(t *testing.T) string {
+				dir := t.TempDir()
+				packPath := filepath.Join(dir, "mycommands.invkpack")
+				if err := os.Mkdir(packPath, 0755); err != nil {
+					t.Fatal(err)
+				}
+				invkpackDir := filepath.Join(packPath, "invkpack.cue")
+				if err := os.Mkdir(invkpackDir, 0755); err != nil {
 					t.Fatal(err)
 				}
 				return packPath
@@ -343,14 +401,7 @@ func TestValidate(t *testing.T) {
 			name: "nested pack not allowed",
 			setup: func(t *testing.T) string {
 				dir := t.TempDir()
-				packPath := filepath.Join(dir, "mycommands.invkpack")
-				if err := os.Mkdir(packPath, 0755); err != nil {
-					t.Fatal(err)
-				}
-				invkfilePath := filepath.Join(packPath, "invkfile.cue")
-				if err := os.WriteFile(invkfilePath, []byte("group: \"test\"\ncmds: []"), 0644); err != nil {
-					t.Fatal(err)
-				}
+				packPath := createValidPack(t, dir, "mycommands.invkpack", "mycommands")
 				// Create nested pack
 				nestedPath := filepath.Join(packPath, "nested.invkpack")
 				if err := os.Mkdir(nestedPath, 0755); err != nil {
@@ -370,8 +421,14 @@ func TestValidate(t *testing.T) {
 				if err := os.Mkdir(packPath, 0755); err != nil {
 					t.Fatal(err)
 				}
+				invkpackPath := filepath.Join(packPath, "invkpack.cue")
+				if err := os.WriteFile(invkpackPath, []byte(`pack: "test"
+version: "1.0"
+`), 0644); err != nil {
+					t.Fatal(err)
+				}
 				invkfilePath := filepath.Join(packPath, "invkfile.cue")
-				if err := os.WriteFile(invkfilePath, []byte("group: \"test\"\ncmds: []"), 0644); err != nil {
+				if err := os.WriteFile(invkfilePath, []byte("cmds: []"), 0644); err != nil {
 					t.Fatal(err)
 				}
 				return packPath
@@ -404,14 +461,14 @@ func TestValidate(t *testing.T) {
 			checkIssueType: "structure",
 		},
 		{
-			name: "multiple issues - missing invkfile and nested pack",
+			name: "multiple issues - missing invkpack.cue and nested pack",
 			setup: func(t *testing.T) string {
 				dir := t.TempDir()
 				packPath := filepath.Join(dir, "mycommands.invkpack")
 				if err := os.Mkdir(packPath, 0755); err != nil {
 					t.Fatal(err)
 				}
-				// Create nested pack (but no invkfile)
+				// Create nested pack (but no invkpack.cue)
 				nestedPath := filepath.Join(packPath, "nested.invkpack")
 				if err := os.Mkdir(nestedPath, 0755); err != nil {
 					t.Fatal(err)
@@ -425,14 +482,7 @@ func TestValidate(t *testing.T) {
 			name: "pack with script files - valid structure",
 			setup: func(t *testing.T) string {
 				dir := t.TempDir()
-				packPath := filepath.Join(dir, "mycommands.invkpack")
-				if err := os.Mkdir(packPath, 0755); err != nil {
-					t.Fatal(err)
-				}
-				invkfilePath := filepath.Join(packPath, "invkfile.cue")
-				if err := os.WriteFile(invkfilePath, []byte("group: \"test\"\ncmds: []"), 0644); err != nil {
-					t.Fatal(err)
-				}
+				packPath := createValidPack(t, dir, "mycommands.invkpack", "mycommands")
 				// Create scripts directory
 				scriptsDir := filepath.Join(packPath, "scripts")
 				if err := os.Mkdir(scriptsDir, 0755); err != nil {
@@ -484,14 +534,7 @@ func TestValidate(t *testing.T) {
 func TestLoad(t *testing.T) {
 	t.Run("loads valid pack", func(t *testing.T) {
 		dir := t.TempDir()
-		packPath := filepath.Join(dir, "com.example.test.invkpack")
-		if err := os.Mkdir(packPath, 0755); err != nil {
-			t.Fatal(err)
-		}
-		invkfilePath := filepath.Join(packPath, "invkfile.cue")
-		if err := os.WriteFile(invkfilePath, []byte("group: \"test\"\ncmds: []"), 0644); err != nil {
-			t.Fatal(err)
-		}
+		packPath := createValidPack(t, dir, "com.example.test.invkpack", "com.example.test")
 
 		pack, err := Load(packPath)
 		if err != nil {
@@ -502,22 +545,62 @@ func TestLoad(t *testing.T) {
 			t.Errorf("pack.Name = %q, want %q", pack.Name, "com.example.test")
 		}
 
-		if pack.InvkfilePath != invkfilePath {
-			t.Errorf("pack.InvkfilePath = %q, want %q", pack.InvkfilePath, invkfilePath)
+		// Verify invkpack.cue path is set
+		expectedInvkpackPath := filepath.Join(packPath, "invkpack.cue")
+		if pack.InvkpackPath != expectedInvkpackPath {
+			t.Errorf("pack.InvkpackPath = %q, want %q", pack.InvkpackPath, expectedInvkpackPath)
+		}
+
+		// Verify invkfile.cue path is set
+		expectedInvkfilePath := filepath.Join(packPath, "invkfile.cue")
+		if pack.InvkfilePath != expectedInvkfilePath {
+			t.Errorf("pack.InvkfilePath = %q, want %q", pack.InvkfilePath, expectedInvkfilePath)
 		}
 	})
 
-	t.Run("fails for invalid pack", func(t *testing.T) {
+	t.Run("loads library-only pack", func(t *testing.T) {
+		dir := t.TempDir()
+		packPath := filepath.Join(dir, "mylib.invkpack")
+		if err := os.Mkdir(packPath, 0755); err != nil {
+			t.Fatal(err)
+		}
+		// Only create invkpack.cue (no invkfile.cue)
+		invkpackPath := filepath.Join(packPath, "invkpack.cue")
+		if err := os.WriteFile(invkpackPath, []byte(`pack: "mylib"
+version: "1.0"
+`), 0644); err != nil {
+			t.Fatal(err)
+		}
+
+		pack, err := Load(packPath)
+		if err != nil {
+			t.Fatalf("Load() returned error: %v", err)
+		}
+
+		if pack.Name != "mylib" {
+			t.Errorf("pack.Name = %q, want %q", pack.Name, "mylib")
+		}
+
+		if !pack.IsLibraryOnly {
+			t.Error("pack.IsLibraryOnly should be true for library-only pack")
+		}
+	})
+
+	t.Run("fails for pack missing invkpack.cue", func(t *testing.T) {
 		dir := t.TempDir()
 		packPath := filepath.Join(dir, "mycommands.invkpack")
 		if err := os.Mkdir(packPath, 0755); err != nil {
 			t.Fatal(err)
 		}
-		// No invkfile.cue
+		// Only create invkfile.cue (missing invkpack.cue)
+		invkfilePath := filepath.Join(packPath, "invkfile.cue")
+		if err := os.WriteFile(invkfilePath, []byte("cmds: []"), 0644); err != nil {
+			t.Fatal(err)
+		}
 
 		_, err := Load(packPath)
 		if err == nil {
-			t.Error("Load() expected error for invalid pack, got nil")
+			t.Error("Load() expected error for pack missing invkpack.cue, got nil")
 		}
 	})
 }
@@ -818,6 +901,12 @@ func TestCreate(t *testing.T) {
 					t.Error("pack path is not a directory")
 				}
 
+				// Check invkpack.cue exists (required)
+				invkpackPath := filepath.Join(packPath, "invkpack.cue")
+				if _, err := os.Stat(invkpackPath); err != nil {
+					t.Errorf("invkpack.cue not created: %v", err)
+				}
+
 				// Check invkfile.cue exists
 				invkfilePath := filepath.Join(packPath, "invkfile.cue")
 				if _, err := os.Stat(invkfilePath); err != nil {
@@ -840,6 +929,14 @@ func TestCreate(t *testing.T) {
 			validate: func(t *testing.T, packPath string) {
 				if !strings.HasSuffix(packPath, "com.example.mytools.invkpack") {
 					t.Errorf("unexpected pack path: %s", packPath)
+				}
+				// Verify invkpack.cue contains correct pack ID
+				content, err := os.ReadFile(filepath.Join(packPath, "invkpack.cue"))
+				if err != nil {
+					t.Fatalf("failed to read invkpack.cue: %v", err)
+				}
+				if !strings.Contains(string(content), `pack: "com.example.mytools"`) {
+					t.Error("pack ID not set correctly in invkpack.cue")
 				}
 			},
 		},
@@ -868,19 +965,20 @@ func TestCreate(t *testing.T) {
 			},
 		},
 		{
-			name: "create pack with custom group",
+			name: "create pack with custom pack identifier",
 			opts: CreateOptions{
-				Name:  "mytools",
-				Group: "custom-group",
+				Name: "mytools",
+				Pack: "custom.pack",
 			},
 			expectErr: false,
 			validate: func(t *testing.T, packPath string) {
-				content, err := os.ReadFile(filepath.Join(packPath, "invkfile.cue"))
+				// Custom pack ID should be in invkpack.cue (not invkfile.cue)
+				content, err := os.ReadFile(filepath.Join(packPath, "invkpack.cue"))
 				if err != nil {
-					t.Fatalf("failed to read invkfile: %v", err)
+					t.Fatalf("failed to read invkpack.cue: %v", err)
 				}
-				if !strings.Contains(string(content), `group: "custom-group"`) {
-					t.Error("custom group not set in invkfile")
+				if !strings.Contains(string(content), `pack: "custom.pack"`) {
+					t.Error("custom pack not set in invkpack.cue")
 				}
 			},
 		},
@@ -892,12 +990,13 @@ func TestCreate(t *testing.T) {
 			},
 			expectErr: false,
 			validate: func(t *testing.T, packPath string) {
-				content, err := os.ReadFile(filepath.Join(packPath, "invkfile.cue"))
+				// Description should be in invkpack.cue (not invkfile.cue)
+				content, err := os.ReadFile(filepath.Join(packPath, "invkpack.cue"))
 				if err != nil {
-					t.Fatalf("failed to read invkfile: %v", err)
+					t.Fatalf("failed to read invkpack.cue: %v", err)
 				}
 				if !strings.Contains(string(content), `description: "My custom description"`) {
-					t.Error("custom description not set in invkfile")
+					t.Error("custom description not set in invkpack.cue")
 				}
 			},
 		},
@@ -1234,4 +1333,194 @@ func TestUnpack(t *testing.T) {
 			t.Errorf("expected 'no valid pack found' error, got: %v", err)
 		}
 	})
+}
+
+func TestVendoredPacksDir(t *testing.T) {
+	if VendoredPacksDir != "invk_packs" {
+		t.Errorf("VendoredPacksDir = %q, want %q", VendoredPacksDir, "invk_packs")
+	}
+}
+
+func TestGetVendoredPacksDir(t *testing.T) {
+	packPath := "/path/to/mypack.invkpack"
+	expected := filepath.Join(packPath, "invk_packs")
+	result := GetVendoredPacksDir(packPath)
+	if result != expected {
+		t.Errorf("GetVendoredPacksDir() = %q, want %q", result, expected)
+	}
+}
+
+func TestHasVendoredPacks(t *testing.T) {
+	t.Run("no vendored packs directory", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		packPath := createValidPack(t, tmpDir, "mypack.invkpack", "mypack")
+
+		if HasVendoredPacks(packPath) {
+			t.Error("HasVendoredPacks() should return false when invk_packs/ doesn't exist")
+		}
+	})
+
+	t.Run("empty vendored packs directory", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		packPath := createValidPack(t, tmpDir, "mypack.invkpack", "mypack")
+		vendoredDir := filepath.Join(packPath, VendoredPacksDir)
+		if err := os.Mkdir(vendoredDir, 0755); err != nil {
+			t.Fatal(err)
+		}
+
+		if HasVendoredPacks(packPath) {
+			t.Error("HasVendoredPacks() should return false when invk_packs/ is empty")
+		}
+	})
+
+	t.Run("with vendored packs", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		packPath := createValidPack(t, tmpDir, "mypack.invkpack", "mypack")
+		vendoredDir := filepath.Join(packPath, VendoredPacksDir)
+		if err := os.Mkdir(vendoredDir, 0755); err != nil {
+			t.Fatal(err)
+		}
+		// Create a vendored pack using new format
+		createValidPack(t, vendoredDir, "vendor.invkpack", "vendor")
+
+		if !HasVendoredPacks(packPath) {
+			t.Error("HasVendoredPacks() should return true when invk_packs/ has packs")
+		}
+	})
+}
+
+func TestListVendoredPacks(t *testing.T) {
+	t.Run("no vendored packs", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		packPath := filepath.Join(tmpDir, "mypack.invkpack")
+		if err := os.Mkdir(packPath, 0755); err != nil {
+			t.Fatal(err)
+		}
+
+		packs, err := ListVendoredPacks(packPath)
+		if err != nil {
+			t.Fatalf("ListVendoredPacks() error: %v", err)
+		}
+		if len(packs) != 0 {
+			t.Errorf("ListVendoredPacks() returned %d packs, want 0", len(packs))
+		}
+	})
+
+	t.Run("with vendored packs", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		packPath := filepath.Join(tmpDir, "mypack.invkpack")
+		if err := os.Mkdir(packPath, 0755); err != nil {
+			t.Fatal(err)
+		}
+		vendoredDir := filepath.Join(packPath, VendoredPacksDir)
+		if err := os.Mkdir(vendoredDir, 0755); err != nil {
+			t.Fatal(err)
+		}
+
+		// Create two vendored packs using new format
+		createValidPack(t, vendoredDir, "vendor1.invkpack", "vendor1")
+		createValidPack(t, vendoredDir, "vendor2.invkpack", "vendor2")
+
+		packs, err := ListVendoredPacks(packPath)
+		if err != nil {
+			t.Fatalf("ListVendoredPacks() error: %v", err)
+		}
+		if len(packs) != 2 {
+			t.Errorf("ListVendoredPacks() returned %d packs, want 2", len(packs))
+		}
+
+		// Check pack names
+		names := make(map[string]bool)
+		for _, p := range packs {
+			names[p.Name] = true
+		}
+		if !names["vendor1"] || !names["vendor2"] {
+			t.Errorf("ListVendoredPacks() missing expected packs, got: %v", names)
+		}
+	})
+
+	t.Run("skips invalid packs", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		packPath := filepath.Join(tmpDir, "mypack.invkpack")
+		if err := os.Mkdir(packPath, 0755); err != nil {
+			t.Fatal(err)
+		}
+		vendoredDir := filepath.Join(packPath, VendoredPacksDir)
+		if err := os.Mkdir(vendoredDir, 0755); err != nil {
+			t.Fatal(err)
+		}
+
+		// Create a valid pack using new format
+		createValidPack(t, vendoredDir, "valid.invkpack", "valid")
+
+		// Create an invalid pack (no invkpack.cue)
+		invalidPack := filepath.Join(vendoredDir, "invalid.invkpack")
+		if err := os.Mkdir(invalidPack, 0755); err != nil {
+			t.Fatal(err)
+		}
+
+		packs, err := ListVendoredPacks(packPath)
+		if err != nil {
+			t.Fatalf("ListVendoredPacks() error: %v", err)
+		}
+		if len(packs) != 1 {
+			t.Errorf("ListVendoredPacks() returned %d packs, want 1 (should skip invalid)", len(packs))
+		}
+		if len(packs) > 0 && packs[0].Name != "valid" {
+			t.Errorf("ListVendoredPacks() returned wrong pack: %s", packs[0].Name)
+		}
+	})
+}
+
+func TestValidate_AllowsNestedPacksInVendoredDir(t *testing.T) {
+	tmpDir := t.TempDir()
+	packPath := createValidPack(t, tmpDir, "mycommands.invkpack", "mycommands")
+
+	// Create invk_packs directory with a nested pack
+	vendoredDir := filepath.Join(packPath, VendoredPacksDir)
+	if err := os.Mkdir(vendoredDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	createValidPack(t, vendoredDir, "vendored.invkpack", "vendored")
+
+	result, err := Validate(packPath)
+	if err != nil {
+		t.Fatalf("Validate() returned error: %v", err)
+	}
+
+	if !result.Valid {
+		t.Errorf("Validate() should return valid for pack with nested packs in invk_packs/. Issues: %v", result.Issues)
+	}
+}
+
+func TestValidate_StillRejectsNestedPacksOutsideVendoredDir(t *testing.T) {
+	tmpDir := t.TempDir()
+	packPath := createValidPack(t, tmpDir, "mycommands.invkpack", "mycommands")
+
+	// Create a nested pack NOT in invk_packs
+	nestedPack := filepath.Join(packPath, "nested.invkpack")
+	if err := os.Mkdir(nestedPack, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := Validate(packPath)
+	if err != nil {
+		t.Fatalf("Validate() returned error: %v", err)
+	}
+
+	if result.Valid {
+		t.Error("Validate() should reject nested packs outside of invk_packs/")
+	}
+
+	// Check that the issue mentions nested pack
+	foundNestedIssue := false
+	for _, issue := range result.Issues {
+		if strings.Contains(issue.Message, "nested") {
+			foundNestedIssue = true
+			break
+		}
+	}
+	if !foundNestedIssue {
+		t.Error("Validate() should report issue about nested pack")
+	}
 }

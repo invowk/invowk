@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: EPL-2.0
 
-package modules
+package packs
 
 import (
 	"context"
@@ -19,7 +19,7 @@ import (
 	"github.com/go-git/go-git/v5/storage/memory"
 )
 
-// GitFetcher handles Git operations for module fetching.
+// GitFetcher handles Git operations for pack fetching.
 type GitFetcher struct {
 	// CacheDir is the base directory for the Git source cache.
 	CacheDir string

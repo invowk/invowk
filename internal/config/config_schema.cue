@@ -24,6 +24,10 @@ package config
 
 	// container configures container runtime behavior
 	container?: #ContainerConfig
+
+	// pack_aliases maps pack paths to alias names for collision disambiguation
+	// When two packs have the same 'pack' identifier, use aliases to differentiate them
+	pack_aliases?: [string]: string
 })
 
 // ContainerConfig configures container runtime behavior

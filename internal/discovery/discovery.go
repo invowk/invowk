@@ -15,6 +15,26 @@ import (
 	"invowk-cli/pkg/pack"
 )
 
+// PackCollisionError is returned when two packs have the same pack identifier.
+type PackCollisionError struct {
+	PackID       string
+	FirstSource  string
+	SecondSource string
+}
+
+// Error implements the error interface.
+func (e *PackCollisionError) Error() string {
+	return fmt.Sprintf(
+		"pack name collision: '%s' defined in both:\n"+
+			"  - %s\n"+
+			"  - %s\n\n"+
+			"Use an alias to disambiguate:\n"+
+			"  invowk pack alias %q <new-alias>\n"+
+			"  invowk pack alias %q <new-alias>",
+		e.PackID, e.FirstSource, e.SecondSource,
+		e.FirstSource, e.SecondSource)
+}
+
 // Source represents where an invkfile was found
 type Source int
 
@@ -363,4 +383,61 @@ func (d *Discovery) GetCommandsWithPrefix(prefix string) ([]*CommandInfo, error)
 	}
 
 	return matching, nil
+}
+
+// CheckPackCollisions checks for pack ID collisions among discovered files.
+// It returns a PackCollisionError if two packs have the same pack identifier
+// and neither has an alias configured.
+func (d *Discovery) CheckPackCollisions(files []*DiscoveredFile) error {
+	// Map pack IDs to their sources (considering aliases)
+	packSources := make(map[string]string)
+
+	for _, file := range files {
+		if file.Error != nil || file.Invkfile == nil {
+			continue
+		}
+
+		packID := file.Invkfile.GetPack()
+		if packID == "" {
+			continue
+		}
+
+		// Check if there's an alias configured for this path
+		if d.cfg != nil && d.cfg.PackAliases != nil {
+			if alias, ok := d.cfg.PackAliases[file.Path]; ok {
+				packID = alias
+			}
+		}
+
+		// Check for collision
+		if existingSource, exists := packSources[packID]; exists {
+			return &PackCollisionError{
+				PackID:       packID,
+				FirstSource:  existingSource,
+				SecondSource: file.Path,
+			}
+		}
+
+		packSources[packID] = file.Path
+	}
+
+	return nil
+}
+
+// GetEffectivePackID returns the effective pack ID for a file, considering aliases.
+func (d *Discovery) GetEffectivePackID(file *DiscoveredFile) string {
+	if file.Invkfile == nil {
+		return ""
+	}
+
+	packID := file.Invkfile.GetPack()
+
+	// Check if there's an alias configured for this path
+	if d.cfg != nil && d.cfg.PackAliases != nil {
+		if alias, ok := d.cfg.PackAliases[file.Path]; ok {
+			return alias
+		}
+	}
+
+	return packID
 }

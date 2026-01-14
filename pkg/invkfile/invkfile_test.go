@@ -240,9 +240,6 @@ func TestResolveScriptWithFS(t *testing.T) {
 func TestMultiLineScriptParsing(t *testing.T) {
 	// Test that CUE multi-line strings are properly parsed
 	cueContent := `
-group: "test"
-version: "1.0"
-
 cmds: [
 	{
 		name: "multiline-test"
@@ -457,9 +454,6 @@ func TestCommand_GetCommandDependencies(t *testing.T) {
 
 func TestParseDependsOn(t *testing.T) {
 	cueContent := `
-group: "test"
-version: "1.0"
-
 cmds: [
 	{
 		name: "release"
@@ -564,9 +558,6 @@ cmds: [
 
 func TestParseDependsOn_ToolsOnly(t *testing.T) {
 	cueContent := `
-group: "test"
-version: "1.0"
-
 cmds: [
 	{
 		name: "build"
@@ -618,9 +609,6 @@ cmds: [
 
 func TestParseDependsOn_CommandsOnly(t *testing.T) {
 	cueContent := `
-group: "test"
-version: "1.0"
-
 cmds: [
 	{
 		name: "release"
@@ -674,9 +662,6 @@ cmds: [
 
 func TestParseDependsOn_WithCustomChecks(t *testing.T) {
 	cueContent := `
-group: "test"
-version: "1.0"
-
 cmds: [
 	{
 		name: "build"
@@ -769,9 +754,6 @@ cmds: [
 
 func TestParseDependsOn_WithFilepaths(t *testing.T) {
 	cueContent := `
-group: "test"
-version: "1.0"
-
 cmds: [
 	{
 		name: "deploy"
@@ -875,8 +857,6 @@ func TestCommand_HasDependencies_WithFilepaths(t *testing.T) {
 
 func TestGenerateCUE_WithFilepaths(t *testing.T) {
 	inv := &Invkfile{
-		Group:   "test",
-		Version: "1.0",
 		Commands: []Command{
 			{
 				Name:            "deploy",
@@ -923,9 +903,6 @@ func TestGenerateCUE_WithFilepaths(t *testing.T) {
 
 func TestParsePlatforms(t *testing.T) {
 	cueContent := `
-group: "test"
-version: "1.0"
-
 cmds: [
 	{
 		name: "build"
@@ -991,8 +968,6 @@ cmds: [
 
 func TestGenerateCUE_WithPlatforms(t *testing.T) {
 	inv := &Invkfile{
-		Group:   "test",
-		Version: "1.0",
 		Commands: []Command{
 			{
 				Name: "build",
@@ -1033,9 +1008,6 @@ func TestGenerateCUE_WithPlatforms(t *testing.T) {
 
 func TestParseEnableHostSSH(t *testing.T) {
 	cueContent := `
-group: "test"
-version: "1.0"
-
 cmds: [
 	{
 		name: "container-ssh"
@@ -1097,9 +1069,6 @@ cmds: [
 
 func TestParseEnableHostSSH_DefaultFalse(t *testing.T) {
 	cueContent := `
-group: "test"
-version: "1.0"
-
 cmds: [
 	{
 		name: "container-no-ssh"
@@ -1326,8 +1295,6 @@ func TestValidateEnableHostSSH_ValidForContainer(t *testing.T) {
 
 func TestGenerateCUE_WithEnableHostSSH(t *testing.T) {
 	inv := &Invkfile{
-		Group:   "test",
-		Version: "1.0",
 		Commands: []Command{
 			{
 				Name: "container-ssh",
@@ -1358,8 +1325,6 @@ func TestGenerateCUE_WithEnableHostSSH(t *testing.T) {
 func TestGenerateCUE_WithEnableHostSSH_False(t *testing.T) {
 	// When enable_host_ssh is false (default), it should not appear in the output
 	inv := &Invkfile{
-		Group:   "test",
-		Version: "1.0",
 		Commands: []Command{
 			{
 				Name: "container-no-ssh",
@@ -1385,9 +1350,6 @@ func TestGenerateCUE_WithEnableHostSSH_False(t *testing.T) {
 
 func TestParseContainerRuntimeWithAllOptions(t *testing.T) {
 	cueContent := `
-group: "test"
-version: "1.0"
-
 cmds: [
 	{
 		name: "full-container"
@@ -1464,9 +1426,6 @@ cmds: [
 
 func TestParseDependsOn_WithCapabilities(t *testing.T) {
 	cueContent := `
-group: "test"
-version: "1.0"
-
 cmds: [
 	{
 		name: "deploy"
@@ -1530,9 +1489,6 @@ cmds: [
 
 func TestParseDependsOn_WithContainerAndTTYCapabilities(t *testing.T) {
 	cueContent := `
-group: "test"
-version: "1.0"
-
 cmds: [
 	{
 		name: "interactive-build"
@@ -1594,9 +1550,6 @@ cmds: [
 
 func TestParseDependsOn_CapabilitiesAtImplementationLevel(t *testing.T) {
 	cueContent := `
-group: "test"
-version: "1.0"
-
 cmds: [
 	{
 		name: "sync"
@@ -1727,8 +1680,6 @@ func TestMergeDependsOn_WithCapabilities(t *testing.T) {
 
 func TestGenerateCUE_WithCapabilities(t *testing.T) {
 	inv := &Invkfile{
-		Group:   "test",
-		Version: "1.0",
 		Commands: []Command{
 			{
 				Name: "deploy",
@@ -1767,8 +1718,6 @@ func TestGenerateCUE_WithCapabilities(t *testing.T) {
 
 func TestGenerateCUE_WithCapabilitiesAtImplementationLevel(t *testing.T) {
 	inv := &Invkfile{
-		Group:   "test",
-		Version: "1.0",
 		Commands: []Command{
 			{
 				Name: "sync",
@@ -1804,9 +1753,6 @@ func TestGenerateCUE_WithCapabilitiesAtImplementationLevel(t *testing.T) {
 // tool dependencies that use the old 'name' field instead of 'alternatives'
 func TestCUESchema_RejectsToolDependencyWithName(t *testing.T) {
 	cueContent := `
-group: "test"
-version: "1.0"
-
 cmds: [
 	{
 		name: "test"
@@ -1848,9 +1794,6 @@ cmds: [
 // rejects custom checks that have both direct fields (name, check_script) AND alternatives
 func TestCUESchema_RejectsCustomCheckWithBothNameAndAlternatives(t *testing.T) {
 	cueContent := `
-group: "test"
-version: "1.0"
-
 cmds: [
 	{
 		name: "test"
@@ -1899,9 +1842,6 @@ cmds: [
 // capability dependencies that use the old 'name' field instead of 'alternatives'
 func TestCUESchema_RejectsCapabilityDependencyWithName(t *testing.T) {
 	cueContent := `
-group: "test"
-version: "1.0"
-
 cmds: [
 	{
 		name: "test"
@@ -1943,9 +1883,6 @@ cmds: [
 // command dependencies that use the old 'name' field instead of 'alternatives'
 func TestCUESchema_RejectsCommandDependencyWithName(t *testing.T) {
 	cueContent := `
-group: "test"
-version: "1.0"
-
 cmds: [
 	{
 		name: "test"
@@ -1983,122 +1920,13 @@ cmds: [
 	}
 }
 
-// Tests for the group field
+// Note: TestParseInvkpack_ValidPackID and TestParseInvkpack_InvalidPackID tests
+// have been moved to invkpack_test.go
 
-func TestParseGroup_Valid(t *testing.T) {
-	tests := []struct {
-		name  string
-		group string
-	}{
-		{"simple lowercase", "mygroup"},
-		{"simple uppercase", "MyGroup"},
-		{"with numbers", "group1"},
-		{"dotted two parts", "my.group"},
-		{"dotted three parts", "my.nested.group"},
-		{"single letter", "a"},
-		{"single letter with dotted", "a.b.c"},
-		{"mixed case with dots", "My.Nested.Group1"},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			cueContent := `
-group: "` + tt.group + `"
-version: "1.0"
-
-cmds: [
-	{
-		name: "test"
-		implementations: [
-			{
-				script: "echo test"
-				runtimes: [{name: "native"}]
-			}
-		]
-	}
-]
-`
-			tmpDir, err := os.MkdirTemp("", "invowk-test-*")
-			if err != nil {
-				t.Fatalf("Failed to create temp dir: %v", err)
-			}
-			defer os.RemoveAll(tmpDir)
-
-			invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
-			if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
-				t.Fatalf("Failed to write invkfile: %v", err)
-			}
-
-			inv, err := Parse(invkfilePath)
-			if err != nil {
-				t.Fatalf("Parse() error = %v", err)
-			}
-
-			if inv.Group != tt.group {
-				t.Errorf("Group = %q, want %q", inv.Group, tt.group)
-			}
-		})
-	}
-}
-
-func TestParseGroup_Invalid(t *testing.T) {
-	tests := []struct {
-		name  string
-		group string
-	}{
-		{"starts with dot", ".group"},
-		{"ends with dot", "group."},
-		{"consecutive dots", "my..group"},
-		{"starts with number", "1group"},
-		{"contains hyphen", "my-group"},
-		{"contains underscore", "my_group"},
-		{"contains space", "my group"},
-		{"empty string", ""},
-		{"only dots", "..."},
-		{"dot then number", "a.1b"},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			cueContent := `
-group: "` + tt.group + `"
-version: "1.0"
-
-cmds: [
-	{
-		name: "test"
-		implementations: [
-			{
-				script: "echo test"
-				runtimes: [{name: "native"}]
-			}
-		]
-	}
-]
-`
-			tmpDir, err := os.MkdirTemp("", "invowk-test-*")
-			if err != nil {
-				t.Fatalf("Failed to create temp dir: %v", err)
-			}
-			defer os.RemoveAll(tmpDir)
-
-			invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
-			if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
-				t.Fatalf("Failed to write invkfile: %v", err)
-			}
-
-			_, err = Parse(invkfilePath)
-			if err == nil {
-				t.Errorf("Parse() should reject invalid group %q", tt.group)
-			}
-		})
-	}
-}
-
-func TestParseGroup_Missing(t *testing.T) {
+func TestParse_InvkfileWithoutPack_IsValid(t *testing.T) {
+	// invkfile.cue now contains only commands - pack metadata is in invkpack.cue
+	// An invkfile without pack field should be valid (pack is not allowed in invkfile.cue)
 	cueContent := `
-version: "1.0"
-
 cmds: [
 	{
 		name: "test"
@@ -2122,15 +1950,19 @@ cmds: [
 		t.Fatalf("Failed to write invkfile: %v", err)
 	}
 
-	_, err = Parse(invkfilePath)
-	if err == nil {
-		t.Error("Parse() should reject invkfile without group field")
+	inv, err := Parse(invkfilePath)
+	if err != nil {
+		t.Fatalf("Parse() should accept invkfile without pack field: %v", err)
+	}
+
+	if len(inv.Commands) != 1 {
+		t.Errorf("Expected 1 command, got %d", len(inv.Commands))
 	}
 }
 
 func TestGetFullCommandName(t *testing.T) {
 	inv := &Invkfile{
-		Group: "my.group",
+		Metadata: &Invkpack{Pack: "my.pack"},
 	}
 
 	tests := []struct {
@@ -2138,9 +1970,9 @@ func TestGetFullCommandName(t *testing.T) {
 		cmdName  string
 		expected string
 	}{
-		{"simple command", "build", "my.group build"},
-		{"subcommand with space", "test unit", "my.group test unit"},
-		{"nested subcommand", "db migrate up", "my.group db migrate up"},
+		{"simple command", "build", "my.pack build"},
+		{"subcommand with space", "test unit", "my.pack test unit"},
+		{"nested subcommand", "db migrate up", "my.pack db migrate up"},
 	}
 
 	for _, tt := range tests {
@@ -2153,9 +1985,9 @@ func TestGetFullCommandName(t *testing.T) {
 	}
 }
 
-func TestListCommands_WithGroup(t *testing.T) {
+func TestListCommands_WithPack(t *testing.T) {
 	inv := &Invkfile{
-		Group: "mygroup",
+		Metadata: &Invkpack{Pack: "mypack"},
 		Commands: []Command{
 			{Name: "build"},
 			{Name: "test"},
@@ -2165,7 +1997,7 @@ func TestListCommands_WithGroup(t *testing.T) {
 
 	names := inv.ListCommands()
 
-	expected := []string{"mygroup build", "mygroup test", "mygroup deploy prod"}
+	expected := []string{"mypack build", "mypack test", "mypack deploy prod"}
 	if len(names) != len(expected) {
 		t.Fatalf("ListCommands() returned %d names, want %d", len(names), len(expected))
 	}
@@ -2177,9 +2009,9 @@ func TestListCommands_WithGroup(t *testing.T) {
 	}
 }
 
-func TestFlattenCommands_WithGroup(t *testing.T) {
+func TestFlattenCommands_WithPack(t *testing.T) {
 	inv := &Invkfile{
-		Group: "mygroup",
+		Metadata: &Invkpack{Pack: "mypack"},
 		Commands: []Command{
 			{Name: "build", Description: "Build command"},
 			{Name: "test unit", Description: "Unit tests"},
@@ -2192,25 +2024,25 @@ func TestFlattenCommands_WithGroup(t *testing.T) {
 		t.Fatalf("FlattenCommands() returned %d commands, want 2", len(flat))
 	}
 
-	// Check that keys are prefixed with group
-	if _, ok := flat["mygroup build"]; !ok {
-		t.Error("FlattenCommands() should have key 'mygroup build'")
+	// Check that keys are prefixed with pack
+	if _, ok := flat["mypack build"]; !ok {
+		t.Error("FlattenCommands() should have key 'mypack build'")
 	}
 
-	if _, ok := flat["mygroup test unit"]; !ok {
-		t.Error("FlattenCommands() should have key 'mygroup test unit'")
+	if _, ok := flat["mypack test unit"]; !ok {
+		t.Error("FlattenCommands() should have key 'mypack test unit'")
 	}
 
 	// Check that commands are correct
-	if flat["mygroup build"].Description != "Build command" {
-		t.Errorf("flat['mygroup build'].Description = %q, want %q", flat["mygroup build"].Description, "Build command")
+	if flat["mypack build"].Description != "Build command" {
+		t.Errorf("flat['mypack build'].Description = %q, want %q", flat["mypack build"].Description, "Build command")
 	}
 }
 
-func TestGenerateCUE_WithGroup(t *testing.T) {
+func TestGenerateCUE_OutputsCommandContent(t *testing.T) {
+	// GenerateCUE only generates command content (invkfile.cue)
+	// Pack metadata is generated separately for invkpack.cue
 	inv := &Invkfile{
-		Group:   "my.group",
-		Version: "1.0",
 		Commands: []Command{
 			{
 				Name: "test",
@@ -2223,15 +2055,14 @@ func TestGenerateCUE_WithGroup(t *testing.T) {
 
 	output := GenerateCUE(inv)
 
-	if !strings.Contains(output, `group: "my.group"`) {
-		t.Error("GenerateCUE should contain 'group: \"my.group\"'")
+	// Should contain commands section
+	if !strings.Contains(output, "cmds:") {
+		t.Error("GenerateCUE should contain 'cmds:'")
 	}
 
-	// Group should appear before version
-	groupIdx := strings.Index(output, "group:")
-	versionIdx := strings.Index(output, "version:")
-	if groupIdx > versionIdx {
-		t.Error("GenerateCUE should output group before version")
+	// Should NOT contain pack (pack is in invkpack.cue, not invkfile.cue)
+	if strings.Contains(output, "pack:") {
+		t.Error("GenerateCUE should NOT contain 'pack:' - pack metadata goes in invkpack.cue")
 	}
 }
 
@@ -2241,9 +2072,6 @@ func TestGenerateCUE_WithGroup(t *testing.T) {
 
 func TestParseFlags(t *testing.T) {
 	cueContent := `
-group: "test"
-version: "1.0"
-
 cmds: [
 	{
 		name: "deploy"
@@ -2333,9 +2161,6 @@ func TestParseFlagsValidation_InvalidName(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cueContent := `
-group: "test"
-version: "1.0"
-
 cmds: [
 	{
 		name: "test"
@@ -2386,9 +2211,6 @@ func TestParseFlagsValidation_ValidNames(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cueContent := `
-group: "test"
-version: "1.0"
-
 cmds: [
 	{
 		name: "test"
@@ -2430,9 +2252,6 @@ cmds: [
 
 func TestParseFlagsValidation_EmptyDescription(t *testing.T) {
 	cueContent := `
-group: "test"
-version: "1.0"
-
 cmds: [
 	{
 		name: "test"
@@ -2467,9 +2286,6 @@ cmds: [
 
 func TestParseFlagsValidation_DuplicateNames(t *testing.T) {
 	cueContent := `
-group: "test"
-version: "1.0"
-
 cmds: [
 	{
 		name: "test"
@@ -2508,8 +2324,6 @@ cmds: [
 
 func TestGenerateCUE_WithFlags(t *testing.T) {
 	inv := &Invkfile{
-		Group:   "test",
-		Version: "1.0",
 		Commands: []Command{
 			{
 				Name: "deploy",
@@ -2545,8 +2359,6 @@ func TestGenerateCUE_WithFlags(t *testing.T) {
 
 func TestGenerateCUE_WithoutFlags(t *testing.T) {
 	inv := &Invkfile{
-		Group:   "test",
-		Version: "1.0",
 		Commands: []Command{
 			{
 				Name: "build",
@@ -2566,9 +2378,6 @@ func TestGenerateCUE_WithoutFlags(t *testing.T) {
 
 func TestParseFlags_EmptyList(t *testing.T) {
 	cueContent := `
-group: "test"
-version: "1.0"
-
 cmds: [
 	{
 		name: "test"
@@ -2605,9 +2414,6 @@ cmds: [
 
 func TestParseFlags_NoFlagsField(t *testing.T) {
 	cueContent := `
-group: "test"
-version: "1.0"
-
 cmds: [
 	{
 		name: "test"
@@ -2668,9 +2474,6 @@ func TestParseFlags_WithType(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cueContent := fmt.Sprintf(`
-group: "test"
-version: "1.0"
-
 cmds: [
 	{
 		name: "test"
@@ -2711,9 +2514,6 @@ cmds: [
 
 func TestParseFlags_TypeDefaultsToString(t *testing.T) {
 	cueContent := `
-group: "test"
-version: "1.0"
-
 cmds: [
 	{
 		name: "test"
@@ -2751,9 +2551,6 @@ cmds: [
 
 func TestParseFlagsValidation_InvalidType(t *testing.T) {
 	cueContent := `
-group: "test"
-version: "1.0"
-
 cmds: [
 	{
 		name: "test"
@@ -2799,9 +2596,6 @@ func TestParseFlagsValidation_TypeIncompatibleWithDefault(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cueContent := fmt.Sprintf(`
-group: "test"
-version: "1.0"
-
 cmds: [
 	{
 		name: "test"
@@ -2834,9 +2628,6 @@ cmds: [
 
 func TestParseFlags_RequiredFlag(t *testing.T) {
 	cueContent := `
-group: "test"
-version: "1.0"
-
 cmds: [
 	{
 		name: "test"
@@ -2871,9 +2662,6 @@ cmds: [
 
 func TestParseFlagsValidation_RequiredWithDefaultValue(t *testing.T) {
 	cueContent := `
-group: "test"
-version: "1.0"
-
 cmds: [
 	{
 		name: "test"
@@ -2906,9 +2694,6 @@ cmds: [
 
 func TestParseFlags_ShortAlias(t *testing.T) {
 	cueContent := `
-group: "test"
-version: "1.0"
-
 cmds: [
 	{
 		name: "test"
@@ -2962,9 +2747,6 @@ func TestParseFlagsValidation_InvalidShortAlias(t *testing.T) {
 		}
 		t.Run(tt.name, func(t *testing.T) {
 			cueContent := fmt.Sprintf(`
-group: "test"
-version: "1.0"
-
 cmds: [
 	{
 		name: "test"
@@ -2997,9 +2779,6 @@ cmds: [
 
 func TestParseFlagsValidation_DuplicateShortAlias(t *testing.T) {
 	cueContent := `
-group: "test"
-version: "1.0"
-
 cmds: [
 	{
 		name: "test"
@@ -3033,9 +2812,6 @@ cmds: [
 
 func TestParseFlags_ValidationRegex(t *testing.T) {
 	cueContent := `
-group: "test"
-version: "1.0"
-
 cmds: [
 	{
 		name: "test"
@@ -3070,9 +2846,6 @@ cmds: [
 
 func TestParseFlagsValidation_InvalidRegex(t *testing.T) {
 	cueContent := `
-group: "test"
-version: "1.0"
-
 cmds: [
 	{
 		name: "test"
@@ -3102,9 +2875,6 @@ cmds: [
 
 func TestParseFlagsValidation_DefaultNotMatchingValidation(t *testing.T) {
 	cueContent := `
-group: "test"
-version: "1.0"
-
 cmds: [
 	{
 		name: "test"
@@ -3134,9 +2904,6 @@ cmds: [
 
 func TestParseFlags_DefaultMatchesValidation(t *testing.T) {
 	cueContent := `
-group: "test"
-version: "1.0"
-
 cmds: [
 	{
 		name: "test"
@@ -3320,9 +3087,6 @@ func TestValidateFlagValue(t *testing.T) {
 func TestParseFlags_AllEnhancedFeatures(t *testing.T) {
 	// Test a flag with all enhanced features together
 	cueContent := `
-group: "test"
-version: "1.0"
-
 cmds: [
 	{
 		name: "deploy"
@@ -3422,9 +3186,6 @@ cmds: [
 
 func TestParseArgs_Basic(t *testing.T) {
 	cueContent := `
-group: "test"
-version: "1.0"
-
 cmds: [
 	{
 		name: "greet"
@@ -3505,9 +3266,6 @@ func TestParseArgs_WithTypes(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cueContent := fmt.Sprintf(`
-group: "test"
-version: "1.0"
-
 cmds: [
 	{
 		name: "test"
@@ -3548,9 +3306,6 @@ cmds: [
 
 func TestParseArgs_TypeDefaultsToString(t *testing.T) {
 	cueContent := `
-group: "test"
-version: "1.0"
-
 cmds: [
 	{
 		name: "test"
@@ -3588,9 +3343,6 @@ cmds: [
 
 func TestParseArgs_Variadic(t *testing.T) {
 	cueContent := `
-group: "test"
-version: "1.0"
-
 cmds: [
 	{
 		name: "copy"
@@ -3637,9 +3389,6 @@ cmds: [
 
 func TestParseArgs_ValidationRegex(t *testing.T) {
 	cueContent := `
-group: "test"
-version: "1.0"
-
 cmds: [
 	{
 		name: "deploy"
@@ -3686,9 +3435,6 @@ func TestParseArgsValidation_InvalidName(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cueContent := `
-group: "test"
-version: "1.0"
-
 cmds: [
 	{
 		name: "test"
@@ -3734,9 +3480,6 @@ func TestParseArgsValidation_ValidNames(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cueContent := `
-group: "test"
-version: "1.0"
-
 cmds: [
 	{
 		name: "test"
@@ -3773,9 +3516,6 @@ cmds: [
 
 func TestParseArgsValidation_EmptyDescription(t *testing.T) {
 	cueContent := `
-group: "test"
-version: "1.0"
-
 cmds: [
 	{
 		name: "test"
@@ -3805,9 +3545,6 @@ cmds: [
 
 func TestParseArgsValidation_DuplicateNames(t *testing.T) {
 	cueContent := `
-group: "test"
-version: "1.0"
-
 cmds: [
 	{
 		name: "test"
@@ -3841,9 +3578,6 @@ cmds: [
 
 func TestParseArgsValidation_RequiredAfterOptional(t *testing.T) {
 	cueContent := `
-group: "test"
-version: "1.0"
-
 cmds: [
 	{
 		name: "test"
@@ -3877,9 +3611,6 @@ cmds: [
 
 func TestParseArgsValidation_VariadicNotLast(t *testing.T) {
 	cueContent := `
-group: "test"
-version: "1.0"
-
 cmds: [
 	{
 		name: "test"
@@ -3913,9 +3644,6 @@ cmds: [
 
 func TestParseArgsValidation_RequiredWithDefaultValue(t *testing.T) {
 	cueContent := `
-group: "test"
-version: "1.0"
-
 cmds: [
 	{
 		name: "test"
@@ -3948,9 +3676,6 @@ cmds: [
 
 func TestParseArgsValidation_InvalidType(t *testing.T) {
 	cueContent := `
-group: "test"
-version: "1.0"
-
 cmds: [
 	{
 		name: "test"
@@ -3992,9 +3717,6 @@ func TestParseArgsValidation_TypeIncompatibleWithDefault(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cueContent := fmt.Sprintf(`
-group: "test"
-version: "1.0"
-
 cmds: [
 	{
 		name: "test"
@@ -4027,9 +3749,6 @@ cmds: [
 
 func TestParseArgsValidation_InvalidRegex(t *testing.T) {
 	cueContent := `
-group: "test"
-version: "1.0"
-
 cmds: [
 	{
 		name: "test"
@@ -4059,9 +3778,6 @@ cmds: [
 
 func TestParseArgsValidation_DefaultNotMatchingValidation(t *testing.T) {
 	cueContent := `
-group: "test"
-version: "1.0"
-
 cmds: [
 	{
 		name: "test"
@@ -4207,9 +3923,6 @@ func TestValidateArgumentValue(t *testing.T) {
 
 func TestParseArgs_EmptyList(t *testing.T) {
 	cueContent := `
-group: "test"
-version: "1.0"
-
 cmds: [
 	{
 		name: "test"
@@ -4241,9 +3954,6 @@ cmds: [
 
 func TestParseArgs_NoArgsField(t *testing.T) {
 	cueContent := `
-group: "test"
-version: "1.0"
-
 cmds: [
 	{
 		name: "test"
@@ -4275,9 +3985,6 @@ cmds: [
 func TestParseArgs_AllFeatures(t *testing.T) {
 	// Test an arg with all features together
 	cueContent := `
-group: "test"
-version: "1.0"
-
 cmds: [
 	{
 		name: "deploy"
@@ -4363,8 +4070,6 @@ cmds: [
 
 func TestGenerateCUE_WithArgs(t *testing.T) {
 	inv := &Invkfile{
-		Group:   "test",
-		Version: "1.0",
 		Commands: []Command{
 			{
 				Name:        "deploy",
@@ -4442,8 +4147,6 @@ func TestGenerateCUE_WithArgs(t *testing.T) {
 
 func TestGenerateCUE_WithArgs_StringTypeNotIncluded(t *testing.T) {
 	inv := &Invkfile{
-		Group:   "test",
-		Version: "1.0",
 		Commands: []Command{
 			{
 				Name:        "greet",
@@ -4482,8 +4185,6 @@ func TestGenerateCUE_WithArgs_StringTypeNotIncluded(t *testing.T) {
 func TestGenerateCUE_WithArgs_RoundTrip(t *testing.T) {
 	// Create an invkfile with args, generate CUE, parse it back, and verify
 	original := &Invkfile{
-		Group:   "test",
-		Version: "1.0",
 		Commands: []Command{
 			{
 				Name:        "deploy",
@@ -4578,9 +4279,6 @@ func TestGenerateCUE_WithArgs_RoundTrip(t *testing.T) {
 // empty interpreter values when the field is explicitly declared.
 func TestCUESchema_RejectsEmptyInterpreter(t *testing.T) {
 	cueContent := `
-group: "test"
-version: "1.0"
-
 cmds: [
 	{
 		name: "test"
@@ -4621,9 +4319,6 @@ func TestCUESchema_RejectsWhitespaceOnlyInterpreter(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cueContent := `
-group: "test"
-version: "1.0"
-
 cmds: [
 	{
 		name: "test"
@@ -4654,9 +4349,6 @@ cmds: [
 // rejects empty interpreter for container runtime as well.
 func TestCUESchema_RejectsEmptyInterpreterForContainer(t *testing.T) {
 	cueContent := `
-group: "test"
-version: "1.0"
-
 cmds: [
 	{
 		name: "test"
@@ -4818,9 +4510,6 @@ func TestParseInterpreter_ValidValues(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cueContent := `
-group: "test"
-version: "1.0"
-
 cmds: [
 	{
 		name: "test"
@@ -4856,9 +4545,6 @@ cmds: [
 // field entirely is valid (defaults to auto-detection).
 func TestParseInterpreter_OmittedFieldIsValid(t *testing.T) {
 	cueContent := `
-group: "test"
-version: "1.0"
-
 cmds: [
 	{
 		name: "test"
@@ -4894,9 +4580,6 @@ cmds: [
 
 func TestParseEnv_CommandLevelFiles(t *testing.T) {
 	cueContent := `
-group: "test"
-version: "1.0"
-
 cmds: [
 	{
 		name: "deploy"
@@ -4946,9 +4629,6 @@ cmds: [
 
 func TestParseEnv_ImplementationLevelFiles(t *testing.T) {
 	cueContent := `
-group: "test"
-version: "1.0"
-
 cmds: [
 	{
 		name: "deploy"
@@ -4998,9 +4678,6 @@ cmds: [
 
 func TestParseEnv_BothLevels(t *testing.T) {
 	cueContent := `
-group: "test"
-version: "1.0"
-
 cmds: [
 	{
 		name: "deploy"
@@ -5045,9 +4722,6 @@ cmds: [
 
 func TestParseEnv_EmptyFiles(t *testing.T) {
 	cueContent := `
-group: "test"
-version: "1.0"
-
 cmds: [
 	{
 		name: "deploy"
@@ -5082,9 +4756,6 @@ cmds: [
 
 func TestParseEnv_NoField(t *testing.T) {
 	cueContent := `
-group: "test"
-version: "1.0"
-
 cmds: [
 	{
 		name: "deploy"
@@ -5121,9 +4792,6 @@ cmds: [
 
 func TestParseEnv_WithVars(t *testing.T) {
 	cueContent := `
-group: "test"
-version: "1.0"
-
 cmds: [
 	{
 		name: "deploy"
@@ -5190,8 +4858,6 @@ cmds: [
 
 func TestGenerateCUE_WithEnv(t *testing.T) {
 	inv := &Invkfile{
-		Group:   "test",
-		Version: "1.0",
 		Commands: []Command{
 			{
 				Name:        "deploy",
@@ -5231,8 +4897,6 @@ func TestGenerateCUE_WithEnv(t *testing.T) {
 
 func TestGenerateCUE_EnvRoundTrip(t *testing.T) {
 	original := &Invkfile{
-		Group:   "test.roundtrip",
-		Version: "1.0",
 		Commands: []Command{
 			{
 				Name:        "deploy",
@@ -5298,9 +4962,6 @@ func TestGenerateCUE_EnvRoundTrip(t *testing.T) {
 
 func TestParseEnv_RootLevelFiles(t *testing.T) {
 	cueContent := `
-group: "test"
-version: "1.0"
-
 env: {
 	files: ["global.env", "shared.env?"]
 }
@@ -5346,9 +5007,6 @@ cmds: [
 
 func TestParseEnv_RootLevelVars(t *testing.T) {
 	cueContent := `
-group: "test"
-version: "1.0"
-
 env: {
 	vars: {
 		GLOBAL_VAR: "global_value"
@@ -5396,9 +5054,6 @@ cmds: [
 
 func TestParseEnv_AllThreeLevels(t *testing.T) {
 	cueContent := `
-group: "test"
-version: "1.0"
-
 env: {
 	files: ["global.env"]
 	vars: {
@@ -5480,8 +5135,6 @@ cmds: [
 
 func TestGenerateCUE_WithRootLevelEnv(t *testing.T) {
 	inv := &Invkfile{
-		Group:   "test",
-		Version: "1.0",
 		Env: &EnvConfig{
 			Files: []string{"global.env", "shared.env?"},
 			Vars: map[string]string{
@@ -5519,8 +5172,6 @@ func TestGenerateCUE_WithRootLevelEnv(t *testing.T) {
 
 func TestGenerateCUE_RootEnvRoundTrip(t *testing.T) {
 	original := &Invkfile{
-		Group:   "test.roundtrip",
-		Version: "1.0",
 		Env: &EnvConfig{
 			Files: []string{"global.env", "shared.env?"},
 			Vars: map[string]string{
@@ -5583,9 +5234,6 @@ func TestGenerateCUE_RootEnvRoundTrip(t *testing.T) {
 
 func TestValidateFlags_ReservedEnvFileName(t *testing.T) {
 	cueContent := `
-group: "test"
-version: "1.0"
-
 cmds: [
 	{
 		name: "deploy"
@@ -5619,9 +5267,6 @@ cmds: [
 
 func TestValidateFlags_ReservedShortAliasE(t *testing.T) {
 	cueContent := `
-group: "test"
-version: "1.0"
-
 cmds: [
 	{
 		name: "deploy"
@@ -5663,7 +5308,6 @@ func TestGetEffectiveWorkDir_DefaultToInvkfileDir(t *testing.T) {
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
 
 	inv := &Invkfile{
-		Group:    "test",
 		FilePath: invkfilePath,
 	}
 	cmd := &Command{Name: "test"}
@@ -5682,7 +5326,6 @@ func TestGetEffectiveWorkDir_RootLevel(t *testing.T) {
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
 
 	inv := &Invkfile{
-		Group:    "test",
 		FilePath: invkfilePath,
 		WorkDir:  "build",
 	}
@@ -5703,7 +5346,6 @@ func TestGetEffectiveWorkDir_CommandLevel(t *testing.T) {
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
 
 	inv := &Invkfile{
-		Group:    "test",
 		FilePath: invkfilePath,
 		WorkDir:  "root-workdir",
 	}
@@ -5724,7 +5366,6 @@ func TestGetEffectiveWorkDir_ImplementationLevel(t *testing.T) {
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
 
 	inv := &Invkfile{
-		Group:    "test",
 		FilePath: invkfilePath,
 		WorkDir:  "root-workdir",
 	}
@@ -5745,7 +5386,6 @@ func TestGetEffectiveWorkDir_CLIOverride(t *testing.T) {
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
 
 	inv := &Invkfile{
-		Group:    "test",
 		FilePath: invkfilePath,
 		WorkDir:  "root-workdir",
 	}
@@ -5767,7 +5407,6 @@ func TestGetEffectiveWorkDir_AbsolutePath(t *testing.T) {
 	absPath := filepath.Join(t.TempDir(), "absolute-workdir")
 
 	inv := &Invkfile{
-		Group:    "test",
 		FilePath: invkfilePath,
 		WorkDir:  absPath,
 	}
@@ -5787,7 +5426,6 @@ func TestGetEffectiveWorkDir_ForwardSlashConversion(t *testing.T) {
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
 
 	inv := &Invkfile{
-		Group:    "test",
 		FilePath: invkfilePath,
 		WorkDir:  "nested/deep/path", // Forward slashes (CUE format)
 	}
@@ -5808,7 +5446,6 @@ func TestGetEffectiveWorkDir_NilCommand(t *testing.T) {
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
 
 	inv := &Invkfile{
-		Group:    "test",
 		FilePath: invkfilePath,
 		WorkDir:  "root-workdir",
 	}
@@ -5827,7 +5464,6 @@ func TestGetEffectiveWorkDir_NilImplementation(t *testing.T) {
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
 
 	inv := &Invkfile{
-		Group:    "test",
 		FilePath: invkfilePath,
 	}
 	cmd := &Command{Name: "test", WorkDir: "cmd-workdir"}
@@ -5846,7 +5482,6 @@ func TestGetEffectiveWorkDir_EmptyCommandWorkDir(t *testing.T) {
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
 
 	inv := &Invkfile{
-		Group:    "test",
 		FilePath: invkfilePath,
 		WorkDir:  "root-workdir",
 	}
@@ -5871,7 +5506,6 @@ func TestGetEffectiveWorkDir_ParentDirectory(t *testing.T) {
 	invkfilePath := filepath.Join(subDir, "invkfile.cue")
 
 	inv := &Invkfile{
-		Group:    "test",
 		FilePath: invkfilePath,
 		WorkDir:  "../sibling", // Go up and into sibling directory
 	}
@@ -5892,7 +5526,6 @@ func TestGetEffectiveWorkDir_CurrentDirectory(t *testing.T) {
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
 
 	inv := &Invkfile{
-		Group:    "test",
 		FilePath: invkfilePath,
 		WorkDir:  ".",
 	}
@@ -5917,7 +5550,6 @@ func TestGetEffectiveWorkDir_PackPath(t *testing.T) {
 	invkfilePath := filepath.Join(packDir, "invkfile.cue")
 
 	inv := &Invkfile{
-		Group:    "test",
 		FilePath: invkfilePath,
 		PackPath: packDir, // Loaded from pack
 		WorkDir:  "scripts",
@@ -5937,8 +5569,6 @@ func TestGetEffectiveWorkDir_PackPath(t *testing.T) {
 func TestParseWorkDir_RootLevel(t *testing.T) {
 	// Test parsing workdir from CUE at root level
 	cueContent := `
-group: "test"
-version: "1.0"
 workdir: "build/output"
 
 cmds: [
@@ -5972,9 +5602,6 @@ cmds: [
 func TestParseWorkDir_CommandLevel(t *testing.T) {
 	// Test parsing workdir from CUE at command level
 	cueContent := `
-group: "test"
-version: "1.0"
-
 cmds: [
 	{
 		name: "test"
@@ -6007,9 +5634,6 @@ cmds: [
 func TestParseWorkDir_ImplementationLevel(t *testing.T) {
 	// Test parsing workdir from CUE at implementation level
 	cueContent := `
-group: "test"
-version: "1.0"
-
 cmds: [
 	{
 		name: "test"
@@ -6042,8 +5666,6 @@ cmds: [
 func TestParseWorkDir_AllLevels(t *testing.T) {
 	// Test parsing workdir at all levels and verify precedence
 	cueContent := `
-group: "test"
-version: "1.0"
 workdir: "root-dir"
 
 cmds: [
@@ -6096,8 +5718,6 @@ cmds: [
 
 func TestGenerateCUE_WithWorkDir(t *testing.T) {
 	inv := &Invkfile{
-		Group:   "test",
-		Version: "1.0",
 		WorkDir: "build",
 		Commands: []Command{
 			{
@@ -6136,8 +5756,6 @@ func TestGenerateCUE_WithWorkDir(t *testing.T) {
 func TestGenerateCUE_WithWorkDir_RoundTrip(t *testing.T) {
 	// Create an invkfile with workdir at all levels, generate CUE, parse it back, and verify
 	original := &Invkfile{
-		Group:   "test",
-		Version: "1.0",
 		WorkDir: "root-workdir",
 		Commands: []Command{
 			{
@@ -6185,9 +5803,6 @@ func TestGenerateCUE_WithWorkDir_RoundTrip(t *testing.T) {
 // TestParse_RootLevelDependsOn verifies that root-level depends_on is parsed correctly
 func TestParse_RootLevelDependsOn(t *testing.T) {
 	cueContent := `
-group: "test"
-version: "1.0"
-
 depends_on: {
 	tools: [{alternatives: ["sh"]}]
 	capabilities: [{alternatives: ["internet"]}]
@@ -6303,7 +5918,6 @@ func TestInvkfile_HasRootLevelDependencies(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			inv := &Invkfile{
-				Group:     "test",
 				DependsOn: tt.deps,
 				Commands:  []Command{{Name: "test", Implementations: []Implementation{{Script: "echo", Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}}}},
 			}
@@ -6429,8 +6043,6 @@ func TestMergeDependsOnAll_NilInputs(t *testing.T) {
 // TestGenerateCUE_WithRootLevelDependsOn verifies GenerateCUE produces valid CUE for root-level depends_on
 func TestGenerateCUE_WithRootLevelDependsOn(t *testing.T) {
 	inv := &Invkfile{
-		Group:   "test",
-		Version: "1.0",
 		DependsOn: &DependsOn{
 			Tools:        []ToolDependency{{Alternatives: []string{"sh", "bash"}}},
 			Capabilities: []CapabilityDependency{{Alternatives: []CapabilityName{CapabilityInternet}}},
@@ -6527,8 +6139,6 @@ func TestGenerateCUE_WithRootLevelDependsOn(t *testing.T) {
 func TestGenerateCUE_WithRootLevelDependsOn_CustomChecks(t *testing.T) {
 	expectedCode := 0
 	inv := &Invkfile{
-		Group:   "test",
-		Version: "1.0",
 		DependsOn: &DependsOn{
 			CustomChecks: []CustomCheckDependency{
 				{
@@ -6581,9 +6191,6 @@ func TestGenerateCUE_WithRootLevelDependsOn_CustomChecks(t *testing.T) {
 // TestParse_RootLevelDependsOn_CustomChecks verifies custom_checks parsing at root level
 func TestParse_RootLevelDependsOn_CustomChecks(t *testing.T) {
 	cueContent := `
-group: "test"
-version: "1.0"
-
 depends_on: {
 	custom_checks: [
 		{
@@ -6661,9 +6268,6 @@ cmds: [
 // TestParse_RootLevelDependsOn_CommandDeps verifies command dependencies parsing at root level
 func TestParse_RootLevelDependsOn_CommandDeps(t *testing.T) {
 	cueContent := `
-group: "test"
-version: "1.0"
-
 depends_on: {
 	cmds: [
 		{alternatives: ["test setup"]},
@@ -6720,3 +6324,6 @@ cmds: [
 		t.Errorf("Expected 2 alternatives in second command dep, got %d", len(parsed.DependsOn.Commands[1].Alternatives))
 	}
 }
+
+// Note: Tests for invkpack.cue separation (ParseInvkpack, ParsePackFull, CommandScope, etc.)
+// have been moved to invkpack_test.go

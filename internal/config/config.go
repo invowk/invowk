@@ -39,6 +39,8 @@ type Config struct {
 	UI UIConfig `json:"ui" mapstructure:"ui"`
 	// Container configures container runtime behavior
 	Container ContainerConfig `json:"container" mapstructure:"container"`
+	// PackAliases maps pack paths to alias names for collision disambiguation
+	PackAliases map[string]string `json:"pack_aliases" mapstructure:"pack_aliases"`
 }
 
 // ContainerConfig configures container runtime behavior

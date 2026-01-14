@@ -165,6 +165,12 @@ go test -v ./pkg/invkfile/...
 
 ## Git Commit Messages
 
+**CRITICAL: All commits MUST be GPG-signed.** The `main` branch is protected and will reject unsigned commits. Always use `git commit -S` or configure Git to sign commits by default:
+
+```bash
+git config --global commit.gpgsign true
+```
+
 All commits should include a detailed description of what changed. Use a short Conventional Commit-style subject line, and a body with bullet points describing the key modifications.
 
 - Subject: `type(scope): summary` (keep concise, <= 72 chars)

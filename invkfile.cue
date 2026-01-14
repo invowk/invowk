@@ -4,10 +4,10 @@
 // This file contains example commands that demonstrate all invowk features.
 // All commands are idempotent and do not cause side effects on the host.
 //
-// The 'group' field is mandatory and prefixes all command names.
-// Example: group: "examples" means command "hello" becomes "invowk cmd examples hello"
+// The 'pack' field is mandatory and identifies this invkfile. It prefixes all command names.
+// Example: pack: "examples" means command "hello" becomes "invowk cmd examples hello"
 
-group:       "examples"
+pack:        "examples"
 version:     "1.0"
 description: "Example commands demonstrating all invowk features"
 

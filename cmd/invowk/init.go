@@ -68,8 +68,8 @@ func generateInvkfile(template string) string {
 
 	switch template {
 	case "minimal":
+		// invkfile.cue contains only commands - pack metadata goes in invkpack.cue
 		inv = &invkfile.Invkfile{
-			Version: "1.0",
 			Commands: []invkfile.Command{
 				{
 					Name:        "hello",
@@ -85,9 +85,8 @@ func generateInvkfile(template string) string {
 		}
 
 	case "full":
+		// invkfile.cue contains only commands - pack metadata goes in invkpack.cue
 		inv = &invkfile.Invkfile{
-			Version:     "1.0",
-			Description: "Full example project commands",
 			Commands: []invkfile.Command{
 				{
 					Name:        "build",
@@ -198,9 +197,8 @@ func generateInvkfile(template string) string {
 		}
 
 	default: // "default"
+		// invkfile.cue contains only commands - pack metadata goes in invkpack.cue
 		inv = &invkfile.Invkfile{
-			Version:     "1.0",
-			Description: "Project commands",
 			Commands: []invkfile.Command{
 				{
 					Name:        "build",

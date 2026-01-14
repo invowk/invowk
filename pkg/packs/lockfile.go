@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: EPL-2.0
 
-package modules
+package packs
 
 import (
 	"fmt"
@@ -18,12 +18,12 @@ type LockFile struct {
 	// Generated is the timestamp when the lock file was generated.
 	Generated time.Time
 
-	// Modules maps module keys to their locked versions.
-	Modules map[string]LockedModule
+	// Packs maps pack keys to their locked versions.
+	Packs map[string]LockedPack
 }
 
-// LockedModule represents a locked module entry in the lock file.
-type LockedModule struct {
+// LockedPack represents a locked pack entry in the lock file.
+type LockedPack struct {
 	// GitURL is the Git repository URL.
 	GitURL string
 
@@ -51,7 +51,7 @@ func NewLockFile() *LockFile {
 	return &LockFile{
 		Version:   "1.0",
 		Generated: time.Now(),
-		Modules:   make(map[string]LockedModule),
+		Packs:     make(map[string]LockedPack),
 	}
 }
 
@@ -95,31 +95,31 @@ func (l *LockFile) Save(path string) error {
 func (l *LockFile) toCUE() string {
 	var sb strings.Builder
 
-	sb.WriteString("// invowk.lock.cue - Auto-generated lock file for module dependencies\n")
+	sb.WriteString("// invowk.lock.cue - Auto-generated lock file for pack dependencies\n")
 	sb.WriteString("// DO NOT EDIT MANUALLY\n\n")
 
 	sb.WriteString(fmt.Sprintf("version: %q\n", l.Version))
 	sb.WriteString(fmt.Sprintf("generated: %q\n\n", l.Generated.Format(time.RFC3339)))
 
-	if len(l.Modules) == 0 {
-		sb.WriteString("modules: {}\n")
+	if len(l.Packs) == 0 {
+		sb.WriteString("packs: {}\n")
 		return sb.String()
 	}
 
-	sb.WriteString("modules: {\n")
-	for key, mod := range l.Modules {
+	sb.WriteString("packs: {\n")
+	for key, pack := range l.Packs {
 		sb.WriteString(fmt.Sprintf("\t%q: {\n", key))
-		sb.WriteString(fmt.Sprintf("\t\tgit_url:          %q\n", mod.GitURL))
-		sb.WriteString(fmt.Sprintf("\t\tversion:          %q\n", mod.Version))
-		sb.WriteString(fmt.Sprintf("\t\tresolved_version: %q\n", mod.ResolvedVersion))
-		sb.WriteString(fmt.Sprintf("\t\tgit_commit:       %q\n", mod.GitCommit))
-		if mod.Alias != "" {
-			sb.WriteString(fmt.Sprintf("\t\talias:            %q\n", mod.Alias))
+		sb.WriteString(fmt.Sprintf("\t\tgit_url:          %q\n", pack.GitURL))
+		sb.WriteString(fmt.Sprintf("\t\tversion:          %q\n", pack.Version))
+		sb.WriteString(fmt.Sprintf("\t\tresolved_version: %q\n", pack.ResolvedVersion))
+		sb.WriteString(fmt.Sprintf("\t\tgit_commit:       %q\n", pack.GitCommit))
+		if pack.Alias != "" {
+			sb.WriteString(fmt.Sprintf("\t\talias:            %q\n", pack.Alias))
 		}
-		if mod.Path != "" {
-			sb.WriteString(fmt.Sprintf("\t\tpath:             %q\n", mod.Path))
+		if pack.Path != "" {
+			sb.WriteString(fmt.Sprintf("\t\tpath:             %q\n", pack.Path))
 		}
-		sb.WriteString(fmt.Sprintf("\t\tnamespace:        %q\n", mod.Namespace))
+		sb.WriteString(fmt.Sprintf("\t\tnamespace:        %q\n", pack.Namespace))
 		sb.WriteString("\t}\n")
 	}
 	sb.WriteString("}\n")
@@ -129,14 +129,15 @@ func (l *LockFile) toCUE() string {
 
 // parseLockFileCUE parses a CUE-format lock file.
 // This is a simplified parser for the lock file format.
+// It supports both the new "packs:" key and the legacy "modules:" key for migration.
 func parseLockFileCUE(content string) (*LockFile, error) {
 	lock := NewLockFile()
 
 	// Parse line by line (simplified parser)
 	lines := strings.Split(content, "\n")
-	var currentModKey string
-	var currentMod LockedModule
-	inModules := false
+	var currentPackKey string
+	var currentPack LockedPack
+	inPacks := false
 	braceDepth := 0
 
 	for _, line := range lines {
@@ -161,52 +162,52 @@ func parseLockFileCUE(content string) (*LockFile, error) {
 			continue
 		}
 
-		// Track modules block
-		if strings.HasPrefix(line, "modules:") {
-			inModules = true
+		// Track packs block (supports both "packs:" and legacy "modules:" key)
+		if strings.HasPrefix(line, "packs:") || strings.HasPrefix(line, "modules:") {
+			inPacks = true
 			continue
 		}
 
-		if !inModules {
+		if !inPacks {
 			continue
 		}
 
 		// Track brace depth
 		if strings.Contains(line, "{") {
 			braceDepth++
-			// Check if this is a new module entry
+			// Check if this is a new pack entry
 			if braceDepth == 2 && strings.Contains(line, ":") {
-				currentModKey = parseModuleKey(line)
-				currentMod = LockedModule{}
+				currentPackKey = parsePackKey(line)
+				currentPack = LockedPack{}
 			}
 		}
 		if strings.Contains(line, "}") {
-			if braceDepth == 2 && currentModKey != "" {
-				lock.Modules[currentModKey] = currentMod
-				currentModKey = ""
+			if braceDepth == 2 && currentPackKey != "" {
+				lock.Packs[currentPackKey] = currentPack
+				currentPackKey = ""
 			}
 			braceDepth--
 			if braceDepth == 0 {
-				inModules = false
+				inPacks = false
 			}
 		}
 
-		// Parse module fields
-		if braceDepth == 2 && currentModKey != "" {
+		// Parse pack fields
+		if braceDepth == 2 && currentPackKey != "" {
 			if strings.HasPrefix(line, "git_url:") {
-				currentMod.GitURL = parseStringValue(line)
+				currentPack.GitURL = parseStringValue(line)
 			} else if strings.HasPrefix(line, "version:") {
-				currentMod.Version = parseStringValue(line)
+				currentPack.Version = parseStringValue(line)
 			} else if strings.HasPrefix(line, "resolved_version:") {
-				currentMod.ResolvedVersion = parseStringValue(line)
+				currentPack.ResolvedVersion = parseStringValue(line)
 			} else if strings.HasPrefix(line, "git_commit:") {
-				currentMod.GitCommit = parseStringValue(line)
+				currentPack.GitCommit = parseStringValue(line)
 			} else if strings.HasPrefix(line, "alias:") {
-				currentMod.Alias = parseStringValue(line)
+				currentPack.Alias = parseStringValue(line)
 			} else if strings.HasPrefix(line, "path:") {
-				currentMod.Path = parseStringValue(line)
+				currentPack.Path = parseStringValue(line)
 			} else if strings.HasPrefix(line, "namespace:") {
-				currentMod.Namespace = parseStringValue(line)
+				currentPack.Namespace = parseStringValue(line)
 			}
 		}
 	}
@@ -225,8 +226,8 @@ func parseStringValue(line string) string {
 	return value
 }
 
-// parseModuleKey extracts the module key from a CUE line like `"key": {`.
-func parseModuleKey(line string) string {
+// parsePackKey extracts the pack key from a CUE line like `"key": {`.
+func parsePackKey(line string) string {
 	line = strings.TrimSpace(line)
 	// Format: "key": {
 	if strings.HasPrefix(line, "\"") {
@@ -238,27 +239,27 @@ func parseModuleKey(line string) string {
 	return ""
 }
 
-// AddModule adds a resolved module to the lock file.
-func (l *LockFile) AddModule(resolved *ResolvedModule) {
-	l.Modules[resolved.Requirement.Key()] = LockedModule{
-		GitURL:          resolved.Requirement.GitURL,
-		Version:         resolved.Requirement.Version,
+// AddPack adds a resolved pack to the lock file.
+func (l *LockFile) AddPack(resolved *ResolvedPack) {
+	l.Packs[resolved.PackRef.Key()] = LockedPack{
+		GitURL:          resolved.PackRef.GitURL,
+		Version:         resolved.PackRef.Version,
 		ResolvedVersion: resolved.ResolvedVersion,
 		GitCommit:       resolved.GitCommit,
-		Alias:           resolved.Requirement.Alias,
-		Path:            resolved.Requirement.Path,
+		Alias:           resolved.PackRef.Alias,
+		Path:            resolved.PackRef.Path,
 		Namespace:       resolved.Namespace,
 	}
 }
 
-// HasModule checks if a module is in the lock file.
-func (l *LockFile) HasModule(key string) bool {
-	_, ok := l.Modules[key]
+// HasPack checks if a pack is in the lock file.
+func (l *LockFile) HasPack(key string) bool {
+	_, ok := l.Packs[key]
 	return ok
 }
 
-// GetModule returns a module from the lock file.
-func (l *LockFile) GetModule(key string) (LockedModule, bool) {
-	mod, ok := l.Modules[key]
-	return mod, ok
+// GetPack returns a pack from the lock file.
+func (l *LockFile) GetPack(key string) (LockedPack, bool) {
+	pack, ok := l.Packs[key]
+	return pack, ok
 }

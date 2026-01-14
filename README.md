@@ -28,7 +28,7 @@ A dynamically extensible, CLI-based command runner similar to [just](https://git
 
 - **Interactive TUI Components**: Built-in gum-like terminal UI components for creating interactive shell scripts (input, choose, confirm, filter, file picker, table, spinner, pager, format, style)
 
-- **Modules**: Packs can import dependencies from remote Git repositories (GitHub, GitLab) with semantic versioning support, similar to Go modules
+- **Pack Dependencies**: Packs can import dependencies from remote Git repositories (GitHub, GitLab) with semantic versioning support, similar to Go modules
 
 ## Installation
 
@@ -72,7 +72,7 @@ invowk cmd
 invowk cmd --list
 ```
 
-The list shows all commands with their group prefix, allowed runtimes (default marked with `*`):
+The list shows all commands with their pack prefix, allowed runtimes (default marked with `*`):
 
 ```
 Available Commands
@@ -84,7 +84,7 @@ From current directory:
   myproject docker-build - Build in container [container*] (linux, macos, windows)
 ```
 
-3. **Run a command** (use the group prefix):
+3. **Run a command** (use the pack prefix):
 
 ```bash
 invowk cmd myproject build
@@ -102,7 +102,7 @@ invowk cmd myproject build --runtime container
 Invkfiles are written in [CUE](https://cuelang.org/) format. CUE provides powerful validation, templating, and a clean syntax. Here's an example:
 
 ```cue
-group: "myproject"  // Required: namespace for all commands in this file
+pack: "myproject"  // Required: namespace for all commands in this file
 version: "1.0"
 description: "My project commands"
 
@@ -191,62 +191,62 @@ cmds: [
 ]
 ```
 
-## Command Groups
+## Pack Identifier
 
-Every invkfile must specify a **group** field. The group becomes the first segment of all command names from that file, creating a namespace for the commands.
+Every invkfile must specify a **pack** field. The pack identifier becomes the first segment of all command names from that file, creating a namespace for the commands.
 
-### Group Field Format
+### Pack Field Format
 
 ```cue
-group: "mygroup"           // Simple group
-group: "my.nested.group"   // Nested group using dot notation
+pack: "mypack"           // Simple pack name
+pack: "my.nested.pack"   // Nested pack using dot notation (RDNS style)
 ```
 
 **Validation rules:**
 - Must start with a letter (a-z, A-Z)
 - Can contain letters and numbers
-- Nested groups use dots (`.`) as separators
+- Nested packs use dots (`.`) as separators
 - Each segment must start with a letter
 
 **Valid examples:** `mygroup`, `my.group`, `my.nested.group`, `Group1`, `a.b.c`
 
 **Invalid examples:** `.group`, `group.`, `my..group`, `my-group`, `my_group`, `1group`
 
-### How Groups Affect Command Names
+### How Packs Affect Command Names
 
-When you define a command in an invkfile with `group: "myproject"`:
+When you define a command in an invkfile with `pack: "myproject"`:
 
 ```cue
-group: "myproject"
+pack: "myproject"
 cmds: [
     {name: "build", ...},
     {name: "test unit", ...},
 ]
 ```
 
-The commands are accessed with the group as a prefix:
+The commands are accessed with the pack as a prefix:
 
 ```bash
 invowk cmd myproject build
 invowk cmd myproject test unit
 ```
 
-### Benefits of Command Groups
+### Benefits of Command Packs
 
 1. **Namespace isolation**: Multiple invkfiles can have commands with the same name without conflicts
 2. **Clear provenance**: You know which invkfile a command comes from
 3. **Hierarchical organization**: Use dot notation for logical grouping (e.g., `frontend.components`, `backend.api`)
-4. **Tab completion**: Groups provide natural completion boundaries
+4. **Tab completion**: Packs provide natural completion boundaries
 
-### Command Dependencies with Groups
+### Command Dependencies with Packs
 
 Command dependencies refer to other invowk commands by name. Invowk validates that the referenced commands are discoverable (it does not execute them automatically).
 
 - Same invkfile: you can use unqualified names like `build` or `test unit`
-- Other invkfiles/packs: use full group-prefixed names like `other.project deploy`
+- Other invkfiles/packs: use full pack-prefixed names like `other.project deploy`
 
 ```cue
-group: "myproject"
+pack: "myproject"
 cmds: [
     {
         name: "release"
@@ -286,7 +286,7 @@ depends_on: {
 
 ### Command Dependencies
 
-Require other invowk commands to be discoverable. Use full group-prefixed names when referencing commands from other invkfiles/packs:
+Require other invowk commands to be discoverable. Use full pack-prefixed names when referencing commands from other invkfiles/packs:
 
 ```cue
 depends_on: {
@@ -1412,7 +1412,7 @@ com.example.mytools.invkpack/
 When referencing script files in a pack's invkfile, use paths relative to the pack root with **forward slashes** for cross-platform compatibility:
 
 ```cue
-group: "mytools"
+pack: "mytools"
 cmds: [
     {
         name: "build"
@@ -1499,8 +1499,8 @@ invowk pack create mytools --path /path/to/packs
 # Create with a scripts directory
 invowk pack create mytools --scripts
 
-# Create with custom group and description
-invowk pack create mytools --group "My Tools" --description "A collection of useful commands"
+# Create with custom pack identifier and description
+invowk pack create mytools --pack-id "com.example.mytools" --description "A collection of useful commands"
 ```
 
 The created pack will contain a template `invkfile.cue` with a sample "hello" command.
@@ -1601,20 +1601,20 @@ When invowk discovers a pack, it:
 - Validates the pack structure and naming
 - Loads the invkfile from within the pack
 - Resolves script paths relative to the pack root
-- Makes all commands available with their group prefix
+- Makes all commands available with their pack prefix
 
 Commands from packs appear in `invowk cmd list` with the source indicated as "pack":
 
-## Modules
+## Pack Dependencies
 
-Modules allow packs to declare dependencies on other packs hosted in remote Git repositories (GitHub, GitLab, etc.). This enables code reuse and sharing of common command definitions across projects.
+Packs can declare dependencies on other packs hosted in remote Git repositories (GitHub, GitLab, etc.). This enables code reuse and sharing of common command definitions across projects.
 
 ### Declaring Dependencies
 
-Add a `requires` field to your invkfile to declare module dependencies:
+Add a `requires` field to your invkfile to declare pack dependencies:
 
 ```cue
-group: "myproject"
+pack: "myproject"
 version: "1.0"
 
 // Declare pack dependencies
@@ -1626,7 +1626,7 @@ requires: [
 	{
 		git_url: "https://github.com/user/deploy-utils.git"
 		version: "~2.1.0"  // Approximately 2.1.x
-		alias:   "deploy"  // Custom namespace
+		alias:   "deploy"  // Custom namespace (for collision disambiguation)
 	},
 	{
 		git_url: "https://github.com/user/monorepo.git"
@@ -1650,37 +1650,37 @@ cmds: [
 | `<2.0.0` | Less than | Maximum version |
 | `1.2.3` | Exact version | Pinned version |
 
-### Module CLI Commands
+### Pack Dependency CLI Commands
 
 ```bash
-# Add a new module dependency
-invowk module add https://github.com/user/pack.git ^1.0.0
+# Add a new pack dependency
+invowk pack add https://github.com/user/pack.git ^1.0.0
 
-# Add with custom alias
-invowk module add https://github.com/user/pack.git ^1.0.0 --alias myalias
+# Add with custom alias (for collision disambiguation)
+invowk pack add https://github.com/user/pack.git ^1.0.0 --alias myalias
 
 # Add from monorepo subdirectory
-invowk module add https://github.com/user/monorepo.git ^1.0.0 --path packages/tools
+invowk pack add https://github.com/user/monorepo.git ^1.0.0 --path packages/tools
 
-# List all resolved modules
-invowk module list
+# List all resolved dependencies
+invowk pack deps
 
 # Sync dependencies from invkfile (resolve and download)
-invowk module sync
+invowk pack sync
 
-# Update all modules to latest matching versions
-invowk module update
+# Update all dependencies to latest matching versions
+invowk pack update
 
-# Update a specific module
-invowk module update https://github.com/user/pack.git
+# Update a specific dependency
+invowk pack update https://github.com/user/pack.git
 
-# Remove a module
-invowk module remove https://github.com/user/pack.git
+# Remove a dependency
+invowk pack remove https://github.com/user/pack.git
 ```
 
 ### Lock File
 
-Module resolution creates an `invowk.lock.cue` file that records the exact versions resolved. This ensures reproducible builds across environments:
+Pack resolution creates an `invowk.lock.cue` file that records the exact versions resolved. This ensures reproducible builds across environments:
 
 ```cue
 // invowk.lock.cue - Auto-generated lock file
@@ -1689,8 +1689,8 @@ Module resolution creates an `invowk.lock.cue` file that records the exact versi
 version: "1.0"
 generated: "2025-01-12T10:30:00Z"
 
-modules: {
-	"https://github.com/user/common-tools.git": {
+packs: {
+	"github.com/user/common-tools": {
 		git_url:          "https://github.com/user/common-tools.git"
 		version:          "^1.0.0"
 		resolved_version: "1.2.3"
@@ -1702,15 +1702,15 @@ modules: {
 
 ### Command Namespacing
 
-Commands from modules are automatically namespaced to prevent conflicts:
+Commands from pack dependencies are automatically namespaced to prevent conflicts:
 
 - **Default**: `<pack-name>@<version>` (e.g., `common-tools@1.2.3`)
 - **With alias**: Uses the specified alias (e.g., `deploy`)
 
-Access module commands using the namespace:
+Access dependency commands using the namespace:
 
 ```bash
-# Run a command from a module
+# Run a command from a dependency
 invowk cmd common-tools@1.2.3 build
 
 # With alias
@@ -1719,7 +1719,7 @@ invowk cmd deploy production
 
 ### Authentication
 
-Modules support both HTTPS and SSH authentication:
+Pack dependencies support both HTTPS and SSH authentication:
 
 - **SSH**: Uses keys from `~/.ssh/` (id_ed25519, id_rsa, id_ecdsa)
 - **HTTPS**: Uses environment variables:
@@ -1727,15 +1727,68 @@ Modules support both HTTPS and SSH authentication:
   - `GITLAB_TOKEN` for GitLab
   - `GIT_TOKEN` for generic Git servers
 
-### Module Cache
+### Pack Cache
 
-Modules are cached in `~/.invowk/modules/` by default. Override with:
+Pack dependencies are cached in `~/.invowk/packs/` by default. Override with:
 
 ```bash
-export INVOWK_MODULES_PATH=/custom/path/to/modules
+export INVOWK_PACKS_PATH=/custom/path/to/packs
 ```
 
-Each module version is cached in a separate directory, allowing multiple versions to coexist.
+Each pack version is cached in a separate directory, allowing multiple versions to coexist.
+
+### Vendoring
+
+Packs can include their dependencies in an `invk_packs/` subfolder for self-contained distribution:
+
+```
+mypack.invkpack/
+├── invkfile.cue
+├── scripts/
+└── invk_packs/              # Vendored dependencies
+    ├── io.example.utils.invkpack/
+    │   └── invkfile.cue
+    └── com.other.tools.invkpack/
+        └── invkfile.cue
+```
+
+Vendored packs are resolved first, before checking the global cache. Use the vendor commands:
+
+```bash
+# Fetch dependencies into invk_packs/
+invowk pack vendor
+
+# Update vendored packs
+invowk pack vendor --update
+
+# Remove unused vendored packs
+invowk pack vendor --prune
+```
+
+### Collision Handling
+
+When two packs have the same name, invowk reports a collision error with guidance on how to disambiguate using aliases:
+
+```
+pack name collision: 'io.example.tools' defined in both
+  '/path/to/pack1.invkpack' and '/path/to/pack2.invkpack'
+  Use an alias to disambiguate:
+    - For requires: add 'alias' field to the requirement
+    - For global packs: run 'invowk pack alias <path> <alias>'
+```
+
+Manage aliases with:
+
+```bash
+# Set alias for a pack
+invowk pack alias /path/to/pack.invkpack myalias
+
+# List all aliases
+invowk pack alias --list
+
+# Remove an alias
+invowk pack alias --remove /path/to/pack.invkpack
+```
 
 ## Runtime Modes
 
@@ -2173,7 +2226,7 @@ invowk tui style --bold --foreground "#00FF00" --background "#000" "Matrix"
 The TUI components can be used within invkfile scripts to create interactive commands:
 
 ```cue
-group: "myproject"
+pack: "myproject"
 cmds: [
     {
         name: "interactive setup"
@@ -2184,7 +2237,7 @@ cmds: [
                     #!/bin/bash
                     NAME=$(invowk tui input --title "Project name:")
                     TYPE=$(invowk tui choose --title "Project type" cli library api)
-                    
+
                     if invowk tui confirm "Create project '$NAME' of type '$TYPE'?"; then
                         invowk tui spin --title "Creating project..." -- mkdir -p "$NAME"
                         echo "Project created!" | invowk tui style --foreground "#00FF00" --bold
@@ -2248,8 +2301,9 @@ invowk-cli/
 │       ├── pager.go            # Pager component
 │       └── format.go           # Format component
 ├── pkg/
-│   ├── pack/                   # Pack validation
-│   └── invkfile/             # Invkfile parsing
+│   ├── pack/                   # Pack validation and structure
+│   ├── packs/                  # Pack dependency resolution (Git, lockfile)
+│   └── invkfile/               # Invkfile parsing
 ```
 
 ## Dependencies

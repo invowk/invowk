@@ -27,10 +27,15 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+
+	"invowk-cli/pkg/invkfile"
 )
 
 // PackSuffix is the standard suffix for invowk pack directories
 const PackSuffix = ".invkpack"
+
+// VendoredPacksDir is the directory name for vendored pack dependencies
+const VendoredPacksDir = "invk_packs"
 
 // packNameRegex validates the pack folder name prefix (before .invkpack)
 // Must start with a letter, contain only alphanumeric chars, with optional dot-separated segments
@@ -63,8 +68,12 @@ type ValidationResult struct {
 	PackPath string
 	// PackName is the extracted name from the folder (without .invkpack suffix)
 	PackName string
-	// InvkfilePath is the path to the invkfile.cue within the pack
+	// InvkpackPath is the path to the invkpack.cue within the pack (required)
+	InvkpackPath string
+	// InvkfilePath is the path to the invkfile.cue within the pack (optional for library-only packs)
 	InvkfilePath string
+	// IsLibraryOnly is true if the pack has no invkfile.cue
+	IsLibraryOnly bool
 	// Issues contains all validation problems found
 	Issues []ValidationIssue
 }
@@ -85,8 +94,12 @@ type Pack struct {
 	Path string
 	// Name is the pack name (folder name without .invkpack suffix)
 	Name string
-	// InvkfilePath is the absolute path to the invkfile.cue
+	// InvkpackPath is the absolute path to the invkpack.cue (required)
+	InvkpackPath string
+	// InvkfilePath is the absolute path to the invkfile.cue (optional for library-only packs)
 	InvkfilePath string
+	// IsLibraryOnly is true if the pack has no invkfile.cue
+	IsLibraryOnly bool
 }
 
 // IsPack checks if the given path is a valid invowk pack directory.
@@ -183,12 +196,40 @@ func Validate(packPath string) (*ValidationResult, error) {
 		result.PackName = packName
 	}
 
-	// Check for invkfile.cue
+	// Check for invkpack.cue (required)
+	invkpackPath := filepath.Join(absPath, "invkpack.cue")
+	invkpackInfo, err := os.Stat(invkpackPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			result.AddIssue("structure", "missing required invkpack.cue", "")
+		} else {
+			result.AddIssue("structure", fmt.Sprintf("cannot access invkpack.cue: %v", err), "")
+		}
+	} else if invkpackInfo.IsDir() {
+		result.AddIssue("structure", "invkpack.cue must be a file, not a directory", "")
+	} else {
+		result.InvkpackPath = invkpackPath
+
+		// Parse invkpack.cue and validate pack field matches folder name
+		if result.PackName != "" {
+			meta, parseErr := invkfile.ParseInvkpack(invkpackPath)
+			if parseErr != nil {
+				result.AddIssue("invkpack", fmt.Sprintf("failed to parse invkpack.cue: %v", parseErr), "invkpack.cue")
+			} else if meta.Pack != result.PackName {
+				result.AddIssue("naming", fmt.Sprintf(
+					"pack field '%s' in invkpack.cue must match folder name '%s'",
+					meta.Pack, result.PackName), "invkpack.cue")
+			}
+		}
+	}
+
+	// Check for invkfile.cue (optional - may be a library-only pack)
 	invkfilePath := filepath.Join(absPath, "invkfile.cue")
 	invkfileInfo, err := os.Stat(invkfilePath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			result.AddIssue("structure", "missing required invkfile.cue", "")
+			// Library-only pack - no commands
+			result.IsLibraryOnly = true
 		} else {
 			result.AddIssue("structure", fmt.Sprintf("cannot access invkfile.cue: %v", err), "")
 		}
@@ -198,7 +239,7 @@ func Validate(packPath string) (*ValidationResult, error) {
 		result.InvkfilePath = invkfilePath
 	}
 
-	// Check for nested packs (not allowed)
+	// Check for nested packs (not allowed, except in invk_packs/ for vendored deps)
 	err = filepath.WalkDir(absPath, func(path string, d os.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			return nil // Continue walking even on errors
@@ -209,10 +250,15 @@ func Validate(packPath string) (*ValidationResult, error) {
 			return nil
 		}
 
-		// Check if any subdirectory is a pack
+		// Skip the vendored packs directory (invk_packs/) - nested packs are allowed there
+		if d.IsDir() && d.Name() == VendoredPacksDir {
+			return filepath.SkipDir
+		}
+
+		// Check if any other subdirectory is a pack
 		if d.IsDir() && strings.HasSuffix(d.Name(), PackSuffix) {
 			relPath, _ := filepath.Rel(absPath, path)
-			result.AddIssue("structure", "nested packs are not allowed", relPath)
+			result.AddIssue("structure", "nested packs are not allowed (except in invk_packs/)", relPath)
 		}
 
 		return nil
@@ -242,9 +288,11 @@ func Load(packPath string) (*Pack, error) {
 	}
 
 	return &Pack{
-		Path:         result.PackPath,
-		Name:         result.PackName,
-		InvkfilePath: result.InvkfilePath,
+		Path:          result.PackPath,
+		Name:          result.PackName,
+		InvkpackPath:  result.InvkpackPath,
+		InvkfilePath:  result.InvkfilePath,
+		IsLibraryOnly: result.IsLibraryOnly,
 	}, nil
 }
 
@@ -323,8 +371,8 @@ type CreateOptions struct {
 	Name string
 	// ParentDir is the directory where the pack will be created
 	ParentDir string
-	// Group is the group name for the invkfile (defaults to Name if empty)
-	Group string
+	// Pack is the pack identifier for the invkfile (defaults to Name if empty)
+	Pack string
 	// Description is an optional description for the invkfile
 	Description string
 	// CreateScriptsDir creates a scripts/ subdirectory if true
@@ -373,23 +421,45 @@ func Create(opts CreateOptions) (string, error) {
 		return "", fmt.Errorf("failed to create pack directory: %w", err)
 	}
 
-	// Use name as group if not specified
-	group := opts.Group
-	if group == "" {
-		group = opts.Name
+	// Use name as pack identifier if not specified
+	packID := opts.Pack
+	if packID == "" {
+		packID = opts.Name
 	}
 
-	// Create invkfile.cue template
+	// Create description
 	description := opts.Description
 	if description == "" {
 		description = fmt.Sprintf("Commands from %s pack", opts.Name)
 	}
 
-	invkfileContent := fmt.Sprintf(`// Invkfile for %s pack
+	// Create invkpack.cue (pack metadata)
+	invkpackContent := fmt.Sprintf(`// Invkpack - Pack metadata for %s
+// See https://github.com/invowk/invowk for documentation
 
-group: %q
+pack: %q
 version: "1.0"
 description: %q
+
+// Uncomment to add dependencies:
+// requires: [
+//     {
+//         git_url: "https://github.com/example/utils.invkpack.git"
+//         version: "^1.0.0"
+//     },
+// ]
+`, opts.Name, packID, description)
+
+	invkpackPath := filepath.Join(packPath, "invkpack.cue")
+	if err := os.WriteFile(invkpackPath, []byte(invkpackContent), 0644); err != nil {
+		// Clean up on failure
+		os.RemoveAll(packPath)
+		return "", fmt.Errorf("failed to create invkpack.cue: %w", err)
+	}
+
+	// Create invkfile.cue (command definitions only)
+	invkfileContent := fmt.Sprintf(`// Invkfile - Command definitions for %s pack
+// See https://github.com/invowk/invowk for documentation
 
 cmds: [
 	{
@@ -406,7 +476,7 @@ cmds: [
 		]
 	},
 ]
-`, opts.Name, group, description, opts.Name)
+`, opts.Name, opts.Name)
 
 	invkfilePath := filepath.Join(packPath, "invkfile.cue")
 	if err := os.WriteFile(invkfilePath, []byte(invkfileContent), 0644); err != nil {
@@ -751,4 +821,68 @@ func ValidateName(name string) error {
 	}
 
 	return nil
+}
+
+// GetVendoredPacksDir returns the path to the vendored packs directory for a given pack.
+// Returns the path whether or not the directory exists.
+func GetVendoredPacksDir(packPath string) string {
+	return filepath.Join(packPath, VendoredPacksDir)
+}
+
+// HasVendoredPacks checks if a pack has vendored dependencies.
+// Returns true only if the invk_packs/ directory exists AND contains at least one valid pack.
+func HasVendoredPacks(packPath string) bool {
+	packs, err := ListVendoredPacks(packPath)
+	if err != nil {
+		return false
+	}
+	return len(packs) > 0
+}
+
+// ListVendoredPacks returns a list of vendored packs in the given pack directory.
+// Returns nil if no invk_packs/ directory exists or it's empty.
+func ListVendoredPacks(packPath string) ([]*Pack, error) {
+	vendorDir := GetVendoredPacksDir(packPath)
+
+	// Check if vendor directory exists
+	info, err := os.Stat(vendorDir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("failed to stat vendor directory: %w", err)
+	}
+	if !info.IsDir() {
+		return nil, nil
+	}
+
+	// Read directory entries
+	entries, err := os.ReadDir(vendorDir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read vendor directory: %w", err)
+	}
+
+	var packs []*Pack
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+
+		// Check if it's a pack
+		entryPath := filepath.Join(vendorDir, entry.Name())
+		if !IsPack(entryPath) {
+			continue
+		}
+
+		// Load the pack
+		p, err := Load(entryPath)
+		if err != nil {
+			// Skip invalid packs
+			continue
+		}
+
+		packs = append(packs, p)
+	}
+
+	return packs, nil
 }

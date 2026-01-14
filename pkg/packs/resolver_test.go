@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: EPL-2.0
 
-package modules
+package packs
 
 import (
 	"os"
@@ -8,15 +8,15 @@ import (
 	"testing"
 )
 
-func TestRequirementKey(t *testing.T) {
+func TestPackRefKey(t *testing.T) {
 	tests := []struct {
 		name     string
-		req      Requirement
+		req      PackRef
 		expected string
 	}{
 		{
 			name: "simple URL",
-			req: Requirement{
+			req: PackRef{
 				GitURL:  "https://github.com/user/repo.git",
 				Version: "^1.0.0",
 			},
@@ -24,7 +24,7 @@ func TestRequirementKey(t *testing.T) {
 		},
 		{
 			name: "URL with path",
-			req: Requirement{
+			req: PackRef{
 				GitURL:  "https://github.com/user/monorepo.git",
 				Version: "^1.0.0",
 				Path:    "packages/pack1",
@@ -43,15 +43,15 @@ func TestRequirementKey(t *testing.T) {
 	}
 }
 
-func TestRequirementString(t *testing.T) {
+func TestPackRefString(t *testing.T) {
 	tests := []struct {
 		name     string
-		req      Requirement
+		req      PackRef
 		contains []string
 	}{
 		{
 			name: "simple requirement",
-			req: Requirement{
+			req: PackRef{
 				GitURL:  "https://github.com/user/repo.git",
 				Version: "^1.0.0",
 			},
@@ -59,7 +59,7 @@ func TestRequirementString(t *testing.T) {
 		},
 		{
 			name: "with alias",
-			req: Requirement{
+			req: PackRef{
 				GitURL:  "https://github.com/user/repo.git",
 				Version: "^1.0.0",
 				Alias:   "myalias",
@@ -68,7 +68,7 @@ func TestRequirementString(t *testing.T) {
 		},
 		{
 			name: "with path",
-			req: Requirement{
+			req: PackRef{
 				GitURL:  "https://github.com/user/monorepo.git",
 				Version: "~2.0.0",
 				Path:    "packages/pack1",
@@ -91,12 +91,12 @@ func TestRequirementString(t *testing.T) {
 
 func TestGetDefaultCacheDir(t *testing.T) {
 	// Save original env
-	originalEnv := os.Getenv(ModuleCachePathEnv)
-	defer os.Setenv(ModuleCachePathEnv, originalEnv)
+	originalEnv := os.Getenv(PackCachePathEnv)
+	defer os.Setenv(PackCachePathEnv, originalEnv)
 
 	t.Run("with env var", func(t *testing.T) {
 		customPath := "/custom/path/to/modules"
-		os.Setenv(ModuleCachePathEnv, customPath)
+		os.Setenv(PackCachePathEnv, customPath)
 
 		result, err := GetDefaultCacheDir()
 		if err != nil {
@@ -108,7 +108,7 @@ func TestGetDefaultCacheDir(t *testing.T) {
 	})
 
 	t.Run("without env var", func(t *testing.T) {
-		os.Unsetenv(ModuleCachePathEnv)
+		os.Unsetenv(PackCachePathEnv)
 
 		result, err := GetDefaultCacheDir()
 		if err != nil {
@@ -116,24 +116,24 @@ func TestGetDefaultCacheDir(t *testing.T) {
 		}
 
 		homeDir, _ := os.UserHomeDir()
-		expected := filepath.Join(homeDir, ".invowk", DefaultModulesDir)
+		expected := filepath.Join(homeDir, ".invowk", DefaultPacksDir)
 		if result != expected {
 			t.Errorf("GetDefaultCacheDir() = %q, want %q", result, expected)
 		}
 	})
 }
 
-func TestNewManager(t *testing.T) {
+func TestNewResolver(t *testing.T) {
 	t.Run("with valid directories", func(t *testing.T) {
 		workDir := t.TempDir()
 		cacheDir := t.TempDir()
 
-		mgr, err := NewManager(workDir, cacheDir)
+		mgr, err := NewResolver(workDir, cacheDir)
 		if err != nil {
-			t.Fatalf("NewManager() error = %v", err)
+			t.Fatalf("NewResolver() error = %v", err)
 		}
 		if mgr == nil {
-			t.Fatal("NewManager() returned nil")
+			t.Fatal("NewResolver() returned nil")
 		}
 		if mgr.WorkingDir != workDir {
 			t.Errorf("WorkingDir = %q, want %q", mgr.WorkingDir, workDir)
@@ -146,9 +146,9 @@ func TestNewManager(t *testing.T) {
 	t.Run("with empty working dir", func(t *testing.T) {
 		cacheDir := t.TempDir()
 
-		mgr, err := NewManager("", cacheDir)
+		mgr, err := NewResolver("", cacheDir)
 		if err != nil {
-			t.Fatalf("NewManager() error = %v", err)
+			t.Fatalf("NewResolver() error = %v", err)
 		}
 		if mgr.WorkingDir == "" {
 			t.Error("WorkingDir should not be empty")
@@ -235,27 +235,27 @@ func TestExtractPackName(t *testing.T) {
 	}
 }
 
-func TestExtractGroupFromInvkfile(t *testing.T) {
+func TestExtractPackFromInvkfile(t *testing.T) {
 	tests := []struct {
 		name     string
 		content  string
 		expected string
 	}{
 		{
-			name: "simple group",
-			content: `group: "mygroup"
+			name: "simple pack",
+			content: `pack: "mypack"
 cmds: []`,
-			expected: "mygroup",
+			expected: "mypack",
 		},
 		{
-			name: "dotted group",
-			content: `group: "com.example.mypack"
+			name: "dotted pack (RDNS)",
+			content: `pack: "com.example.mypack"
 version: "1.0"
 cmds: []`,
 			expected: "com.example.mypack",
 		},
 		{
-			name: "no group",
+			name: "no pack",
 			content: `cmds: []`,
 			expected: "",
 		},
@@ -263,9 +263,9 @@ cmds: []`,
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := extractGroupFromInvkfile(tt.content)
+			result := extractPackFromInvkfile(tt.content)
 			if result != tt.expected {
-				t.Errorf("extractGroupFromInvkfile() = %q, want %q", result, tt.expected)
+				t.Errorf("extractPackFromInvkfile() = %q, want %q", result, tt.expected)
 			}
 		})
 	}

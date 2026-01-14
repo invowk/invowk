@@ -186,10 +186,8 @@ func TestCheckCommandDependenciesExist_SatisfiedByLocalUnqualifiedName(t *testin
 	config.Reset()
 	t.Cleanup(config.Reset)
 
-	invkfileContent := `group: "myproject"
-version: "1.0"
-
-cmds: [
+	// invkfile.cue now only contains commands - pack metadata is in invkpack.cue
+	invkfileContent := `cmds: [
 	{
 		name: "build"
 		implementations: [{
@@ -210,10 +208,11 @@ cmds: [
 		t.Fatalf("failed to write invkfile: %v", err)
 	}
 
+	// Standalone invkfile has no pack identifier, so pass empty string
 	deps := &invkfile.DependsOn{Commands: []invkfile.CommandDependency{{Alternatives: []string{"build"}}}}
 	ctx := &runtime.ExecutionContext{Command: &invkfile.Command{Name: "deploy"}}
 
-	if err := checkCommandDependenciesExist(deps, "myproject", ctx); err != nil {
+	if err := checkCommandDependenciesExist(deps, "", ctx); err != nil {
 		t.Fatalf("expected nil, got %v", err)
 	}
 }
@@ -239,10 +238,8 @@ func TestCheckCommandDependenciesExist_SatisfiedByFullyQualifiedNameFromUserDir(
 	config.Reset()
 	t.Cleanup(config.Reset)
 
-	invkfileContent := `group: "myproject"
-version: "1.0"
-
-cmds: [{
+	// invkfile.cue now only contains commands - pack metadata is in invkpack.cue
+	invkfileContent := `cmds: [{
 	name: "deploy"
 	implementations: [{
 		script: "echo deploy"
@@ -259,10 +256,8 @@ cmds: [{
 		t.Fatalf("failed to create user commands dir: %v", err)
 	}
 
-	userInvkfileContent := `group: "shared"
-version: "1.0"
-
-cmds: [{
+	// User invkfile also cannot have pack/version fields
+	userInvkfileContent := `cmds: [{
 	name: "generate-types"
 	implementations: [{
 		script: "echo generate"
@@ -274,10 +269,11 @@ cmds: [{
 		t.Fatalf("failed to write user invkfile: %v", err)
 	}
 
-	deps := &invkfile.DependsOn{Commands: []invkfile.CommandDependency{{Alternatives: []string{"shared generate-types"}}}}
+	// Without pack prefix, command is just "generate-types"
+	deps := &invkfile.DependsOn{Commands: []invkfile.CommandDependency{{Alternatives: []string{"generate-types"}}}}
 	ctx := &runtime.ExecutionContext{Command: &invkfile.Command{Name: "deploy"}}
 
-	if err := checkCommandDependenciesExist(deps, "myproject", ctx); err != nil {
+	if err := checkCommandDependenciesExist(deps, "", ctx); err != nil {
 		t.Fatalf("expected nil, got %v", err)
 	}
 }
@@ -303,10 +299,8 @@ func TestCheckCommandDependenciesExist_MissingCommand(t *testing.T) {
 	config.Reset()
 	t.Cleanup(config.Reset)
 
-	invkfileContent := `group: "myproject"
-version: "1.0"
-
-cmds: [{
+	// invkfile.cue now only contains commands - pack metadata is in invkpack.cue
+	invkfileContent := `cmds: [{
 	name: "deploy"
 	implementations: [{
 		script: "echo deploy"
@@ -321,7 +315,7 @@ cmds: [{
 	deps := &invkfile.DependsOn{Commands: []invkfile.CommandDependency{{Alternatives: []string{"build"}}}}
 	ctx := &runtime.ExecutionContext{Command: &invkfile.Command{Name: "deploy"}}
 
-	err := checkCommandDependenciesExist(deps, "myproject", ctx)
+	err := checkCommandDependenciesExist(deps, "", ctx)
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}

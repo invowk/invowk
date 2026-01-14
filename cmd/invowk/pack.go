@@ -3,6 +3,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -14,6 +15,7 @@ import (
 	"invowk-cli/internal/discovery"
 	"invowk-cli/pkg/invkfile"
 	"invowk-cli/pkg/pack"
+	"invowk-cli/pkg/packs"
 )
 
 var (
@@ -24,8 +26,8 @@ var (
 	packCreatePath string
 	// packCreateScripts creates a scripts directory in the pack
 	packCreateScripts bool
-	// packCreateGroup is the group name for the pack
-	packCreateGroup string
+	// packCreatePack is the pack identifier for the invkfile
+	packCreatePack string
 	// packCreateDescription is the description for the pack
 	packCreateDescription string
 
@@ -45,13 +47,15 @@ var packCmd = &cobra.Command{
 	Long: `Manage invowk packs - self-contained folders containing invkfiles and scripts.
 
 A pack is a folder with the ` + cmdStyle.Render(".invkpack") + ` suffix that contains:
-  - Exactly one ` + cmdStyle.Render("invkfile.cue") + ` at the root
+  - ` + cmdStyle.Render("invkpack.cue") + ` (required): Pack metadata (name, version, dependencies)
+  - ` + cmdStyle.Render("invkfile.cue") + ` (optional): Command definitions
   - Optional script files referenced by command implementations
 
 Pack names follow these rules:
   - Must start with a letter
   - Can contain alphanumeric characters with dot-separated segments
   - Compatible with RDNS naming (e.g., ` + cmdStyle.Render("com.example.mycommands.invkpack") + `)
+  - The folder prefix must match the 'pack' field in invkpack.cue
 
 Examples:
   invowk pack validate ./mycommands.invkpack
@@ -92,7 +96,7 @@ Examples:
   invowk pack create mycommands
   invowk pack create com.example.mytools
   invowk pack create mytools --scripts
-  invowk pack create mytools --path /path/to/dir --group "My Tools"`,
+  invowk pack create mytools --path /path/to/dir --pack-id "com.example.tools"`,
 	Args: cobra.ExactArgs(1),
 	RunE: runPackCreate,
 }
@@ -143,24 +147,217 @@ Examples:
 	RunE: runPackImport,
 }
 
+// packAliasCmd manages pack aliases for collision disambiguation
+var packAliasCmd = &cobra.Command{
+	Use:   "alias",
+	Short: "Manage pack aliases",
+	Long: `Manage pack aliases for collision disambiguation.
+
+When two packs have the same 'pack' identifier, you can use aliases to
+give them different names. Aliases are stored in your invowk configuration.
+
+Examples:
+  invowk pack alias set /path/to/pack my-alias
+  invowk pack alias list
+  invowk pack alias remove /path/to/pack`,
+}
+
+// packAliasSetCmd sets an alias for a pack
+var packAliasSetCmd = &cobra.Command{
+	Use:   "set <pack-path> <alias>",
+	Short: "Set an alias for a pack",
+	Long: `Set an alias for a pack to resolve naming collisions.
+
+The alias will be used as the pack identifier instead of the pack's
+declared 'pack' field when discovering commands.
+
+Examples:
+  invowk pack alias set ./mypack.invkpack my-tools
+  invowk pack alias set /absolute/path/pack.invkpack custom-name`,
+	Args: cobra.ExactArgs(2),
+	RunE: runPackAliasSet,
+}
+
+// packAliasListCmd lists all configured aliases
+var packAliasListCmd = &cobra.Command{
+	Use:   "list",
+	Short: "List all pack aliases",
+	Long: `List all configured pack aliases.
+
+Shows a table of pack paths and their assigned aliases.
+
+Examples:
+  invowk pack alias list`,
+	RunE: runPackAliasList,
+}
+
+// packAliasRemoveCmd removes an alias for a pack
+var packAliasRemoveCmd = &cobra.Command{
+	Use:   "remove <pack-path>",
+	Short: "Remove an alias for a pack",
+	Long: `Remove a previously configured alias for a pack.
+
+The pack will revert to using its declared 'pack' identifier.
+
+Examples:
+  invowk pack alias remove ./mypack.invkpack
+  invowk pack alias remove /absolute/path/pack.invkpack`,
+	Args: cobra.ExactArgs(1),
+	RunE: runPackAliasRemove,
+}
+
+var (
+	// packVendorUpdate forces re-fetching of vendored dependencies
+	packVendorUpdate bool
+	// packVendorPrune removes unused vendored packs
+	packVendorPrune bool
+
+	// packAddAlias is the alias for the added pack dependency
+	packAddAlias string
+	// packAddPath is the subdirectory path within the repository
+	packAddPath string
+)
+
+// packVendorCmd vendors dependencies into invk_packs/
+var packVendorCmd = &cobra.Command{
+	Use:   "vendor [pack-path]",
+	Short: "Vendor pack dependencies",
+	Long: `Vendor pack dependencies into the invk_packs/ directory.
+
+This command reads the 'requires' field from the invkfile and fetches
+all dependencies into the invk_packs/ subdirectory, enabling offline
+and self-contained distribution.
+
+If no pack-path is specified, vendors dependencies for the current directory's
+invkfile or pack.
+
+Examples:
+  invowk pack vendor
+  invowk pack vendor ./mypack.invkpack
+  invowk pack vendor --update
+  invowk pack vendor --prune`,
+	Args: cobra.MaximumNArgs(1),
+	RunE: runPackVendor,
+}
+
+// packAddCmd adds a new pack dependency
+var packAddCmd = &cobra.Command{
+	Use:   "add <git-url> <version>",
+	Short: "Add a pack dependency",
+	Long: `Add a new pack dependency from a Git repository.
+
+The git-url should be an HTTPS or SSH URL to a Git repository containing
+an invowk pack. The version should be a semantic version constraint.
+
+Version constraint formats:
+  ^1.2.0  - Compatible with 1.2.0 (>=1.2.0 <2.0.0)
+  ~1.2.0  - Approximately 1.2.0 (>=1.2.0 <1.3.0)
+  >=1.0.0 - Greater than or equal to 1.0.0
+  1.2.3   - Exact version 1.2.3
+
+Examples:
+  invowk pack add https://github.com/user/pack.git ^1.0.0
+  invowk pack add git@github.com:user/pack.git ~2.0.0 --alias mypack
+  invowk pack add https://github.com/user/monorepo.git ^1.0.0 --path packs/utils`,
+	Args: cobra.ExactArgs(2),
+	RunE: runPackAdd,
+}
+
+// packRemoveCmd removes a pack dependency
+var packRemoveCmd = &cobra.Command{
+	Use:   "remove <git-url>",
+	Short: "Remove a pack dependency",
+	Long: `Remove a pack dependency from the lock file.
+
+This removes the pack from the lock file. The cached pack files are not deleted.
+Don't forget to also remove the requires entry from your invkfile.cue.
+
+Examples:
+  invowk pack remove https://github.com/user/pack.git`,
+	Args: cobra.ExactArgs(1),
+	RunE: runPackRemove,
+}
+
+// packSyncCmd syncs dependencies from the invkfile
+var packSyncCmd = &cobra.Command{
+	Use:   "sync",
+	Short: "Sync dependencies from invkfile",
+	Long: `Sync all dependencies declared in the invkfile.
+
+This reads the 'requires' field from the invkfile, resolves all version
+constraints, downloads the packs, and updates the lock file.
+
+Examples:
+  invowk pack sync`,
+	RunE: runPackSync,
+}
+
+// packUpdateCmd updates pack dependencies
+var packUpdateCmd = &cobra.Command{
+	Use:   "update [git-url]",
+	Short: "Update pack dependencies",
+	Long: `Update pack dependencies to their latest matching versions.
+
+Without arguments, updates all packs. With a git-url argument, updates
+only that specific pack.
+
+Examples:
+  invowk pack update
+  invowk pack update https://github.com/user/pack.git`,
+	RunE: runPackUpdate,
+}
+
+// packDepsCmd lists pack dependencies
+var packDepsCmd = &cobra.Command{
+	Use:   "deps",
+	Short: "List pack dependencies",
+	Long: `List all pack dependencies from the lock file.
+
+Shows all resolved packs with their versions, namespaces, and cache paths.
+
+Examples:
+  invowk pack deps`,
+	RunE: runPackDeps,
+}
+
 func init() {
 	packCmd.AddCommand(packValidateCmd)
 	packCmd.AddCommand(packCreateCmd)
 	packCmd.AddCommand(packListCmd)
 	packCmd.AddCommand(packArchiveCmd)
 	packCmd.AddCommand(packImportCmd)
+	packCmd.AddCommand(packAliasCmd)
+	packCmd.AddCommand(packVendorCmd)
+
+	// Dependency management commands
+	packCmd.AddCommand(packAddCmd)
+	packCmd.AddCommand(packRemoveCmd)
+	packCmd.AddCommand(packSyncCmd)
+	packCmd.AddCommand(packUpdateCmd)
+	packCmd.AddCommand(packDepsCmd)
+
+	// Register alias subcommands
+	packAliasCmd.AddCommand(packAliasSetCmd)
+	packAliasCmd.AddCommand(packAliasListCmd)
+	packAliasCmd.AddCommand(packAliasRemoveCmd)
 
 	packValidateCmd.Flags().BoolVar(&packValidateDeep, "deep", false, "perform deep validation including invkfile parsing")
 
 	packCreateCmd.Flags().StringVarP(&packCreatePath, "path", "p", "", "parent directory for the pack (default: current directory)")
 	packCreateCmd.Flags().BoolVar(&packCreateScripts, "scripts", false, "create a scripts/ subdirectory")
-	packCreateCmd.Flags().StringVarP(&packCreateGroup, "group", "g", "", "group name for the invkfile (default: pack name)")
+	packCreateCmd.Flags().StringVarP(&packCreatePack, "pack-id", "g", "", "pack identifier for the invkfile (default: pack name)")
 	packCreateCmd.Flags().StringVarP(&packCreateDescription, "description", "d", "", "description for the invkfile")
 
 	packArchiveCmd.Flags().StringVarP(&packPackOutput, "output", "o", "", "output path for the ZIP file (default: <pack-name>.invkpack.zip)")
 
 	packImportCmd.Flags().StringVarP(&packImportPath, "path", "p", "", "destination directory (default: ~/.invowk/cmds)")
 	packImportCmd.Flags().BoolVar(&packImportOverwrite, "overwrite", false, "overwrite existing pack if present")
+
+	packVendorCmd.Flags().BoolVar(&packVendorUpdate, "update", false, "force re-fetch of all dependencies")
+	packVendorCmd.Flags().BoolVar(&packVendorPrune, "prune", false, "remove unused vendored packs")
+
+	packAddCmd.Flags().StringVar(&packAddAlias, "alias", "", "alias for the pack namespace")
+	packAddCmd.Flags().StringVar(&packAddPath, "path", "", "subdirectory path within the repository")
 }
 
 // Style definitions for pack validation output
@@ -278,7 +475,7 @@ func runPackCreate(cmd *cobra.Command, args []string) error {
 	opts := pack.CreateOptions{
 		Name:             packName,
 		ParentDir:        packCreatePath,
-		Group:            packCreateGroup,
+		Pack:             packCreatePack,
 		Description:      packCreateDescription,
 		CreateScriptsDir: packCreateScripts,
 	}
@@ -464,4 +661,457 @@ func formatFileSize(size int64) string {
 	default:
 		return fmt.Sprintf("%d bytes", size)
 	}
+}
+
+func runPackAliasSet(cmd *cobra.Command, args []string) error {
+	packPath := args[0]
+	alias := args[1]
+
+	fmt.Println(packTitleStyle.Render("Set Pack Alias"))
+
+	// Convert to absolute path
+	absPath, err := filepath.Abs(packPath)
+	if err != nil {
+		return fmt.Errorf("failed to resolve path: %w", err)
+	}
+
+	// Verify the path exists and is a valid pack or invkfile
+	if _, err := os.Stat(absPath); os.IsNotExist(err) {
+		return fmt.Errorf("path does not exist: %s", absPath)
+	}
+
+	// Load current config
+	cfg, err := config.Load()
+	if err != nil {
+		return fmt.Errorf("failed to load config: %w", err)
+	}
+
+	// Initialize PackAliases map if nil
+	if cfg.PackAliases == nil {
+		cfg.PackAliases = make(map[string]string)
+	}
+
+	// Set the alias
+	cfg.PackAliases[absPath] = alias
+
+	// Save config
+	if err := config.Save(cfg); err != nil {
+		return fmt.Errorf("failed to save config: %w", err)
+	}
+
+	fmt.Printf("%s Alias set successfully\n", packSuccessIcon)
+	fmt.Println()
+	fmt.Printf("%s Path:  %s\n", packInfoIcon, packPathStyle.Render(absPath))
+	fmt.Printf("%s Alias: %s\n", packInfoIcon, cmdStyle.Render(alias))
+
+	return nil
+}
+
+func runPackAliasList(cmd *cobra.Command, args []string) error {
+	fmt.Println(packTitleStyle.Render("Pack Aliases"))
+
+	// Load config
+	cfg, err := config.Load()
+	if err != nil {
+		return fmt.Errorf("failed to load config: %w", err)
+	}
+
+	if cfg.PackAliases == nil || len(cfg.PackAliases) == 0 {
+		fmt.Printf("%s No aliases configured\n", packWarningIcon)
+		fmt.Println()
+		fmt.Printf("%s To set an alias: %s\n", packInfoIcon, cmdStyle.Render("invowk pack alias set <path> <alias>"))
+		return nil
+	}
+
+	fmt.Printf("%s Found %d alias(es)\n", packInfoIcon, len(cfg.PackAliases))
+	fmt.Println()
+
+	for path, alias := range cfg.PackAliases {
+		fmt.Printf("%s %s\n", packSuccessIcon, cmdStyle.Render(alias))
+		fmt.Printf("   %s\n", packDetailStyle.Render(path))
+	}
+
+	return nil
+}
+
+func runPackAliasRemove(cmd *cobra.Command, args []string) error {
+	packPath := args[0]
+
+	fmt.Println(packTitleStyle.Render("Remove Pack Alias"))
+
+	// Convert to absolute path
+	absPath, err := filepath.Abs(packPath)
+	if err != nil {
+		return fmt.Errorf("failed to resolve path: %w", err)
+	}
+
+	// Load config
+	cfg, err := config.Load()
+	if err != nil {
+		return fmt.Errorf("failed to load config: %w", err)
+	}
+
+	if cfg.PackAliases == nil {
+		return fmt.Errorf("no alias found for: %s", absPath)
+	}
+
+	// Check if alias exists
+	alias, exists := cfg.PackAliases[absPath]
+	if !exists {
+		return fmt.Errorf("no alias found for: %s", absPath)
+	}
+
+	// Remove the alias
+	delete(cfg.PackAliases, absPath)
+
+	// Save config
+	if err := config.Save(cfg); err != nil {
+		return fmt.Errorf("failed to save config: %w", err)
+	}
+
+	fmt.Printf("%s Alias removed successfully\n", packSuccessIcon)
+	fmt.Println()
+	fmt.Printf("%s Path:  %s\n", packInfoIcon, packPathStyle.Render(absPath))
+	fmt.Printf("%s Alias: %s (removed)\n", packInfoIcon, cmdStyle.Render(alias))
+
+	return nil
+}
+
+func runPackVendor(cmd *cobra.Command, args []string) error {
+	fmt.Println(packTitleStyle.Render("Vendor Pack Dependencies"))
+
+	// Determine the target directory
+	var targetDir string
+	if len(args) > 0 {
+		targetDir = args[0]
+	} else {
+		targetDir = "."
+	}
+
+	// Convert to absolute path
+	absPath, err := filepath.Abs(targetDir)
+	if err != nil {
+		return fmt.Errorf("failed to resolve path: %w", err)
+	}
+
+	// Find invkfile
+	invkfilePath := filepath.Join(absPath, "invkfile.cue")
+	if _, err := os.Stat(invkfilePath); os.IsNotExist(err) {
+		// Maybe it's a pack directory
+		if pack.IsPack(absPath) {
+			invkfilePath = filepath.Join(absPath, "invkfile.cue")
+		} else {
+			return fmt.Errorf("no invkfile.cue found in %s", absPath)
+		}
+	}
+
+	// Parse invkpack.cue to get requirements
+	invkpackPath := filepath.Join(absPath, "invkpack.cue")
+	meta, err := invkfile.ParseInvkpack(invkpackPath)
+	if err != nil {
+		return fmt.Errorf("failed to parse invkpack.cue: %w", err)
+	}
+
+	if len(meta.Requires) == 0 {
+		fmt.Printf("%s No dependencies declared in invkpack.cue\n", packWarningIcon)
+		return nil
+	}
+
+	fmt.Printf("%s Found %d requirement(s) in invkpack.cue\n", packInfoIcon, len(meta.Requires))
+
+	// Determine vendor directory
+	vendorDir := pack.GetVendoredPacksDir(absPath)
+
+	// Handle prune mode
+	if packVendorPrune {
+		return pruneVendoredPacks(vendorDir, meta)
+	}
+
+	// Create vendor directory if it doesn't exist
+	if err := os.MkdirAll(vendorDir, 0755); err != nil {
+		return fmt.Errorf("failed to create vendor directory: %w", err)
+	}
+
+	fmt.Printf("%s Vendor directory: %s\n", packInfoIcon, packPathStyle.Render(vendorDir))
+	fmt.Println()
+
+	// For now, just show what would be vendored
+	// Full implementation would use packs.Resolver to fetch and copy
+	fmt.Printf("%s Vendoring is not yet fully implemented\n", packWarningIcon)
+	fmt.Println()
+	fmt.Printf("%s The following dependencies would be vendored:\n", packInfoIcon)
+	for _, req := range meta.Requires {
+		fmt.Printf("   %s %s@%s\n", packInfoIcon, req.GitURL, req.Version)
+	}
+
+	return nil
+}
+
+// pruneVendoredPacks removes vendored packs that are not in the requirements
+func pruneVendoredPacks(vendorDir string, meta *invkfile.Invkpack) error {
+	fmt.Println()
+	fmt.Printf("%s Pruning unused vendored packs...\n", packInfoIcon)
+
+	// Check if vendor directory exists
+	if _, err := os.Stat(vendorDir); os.IsNotExist(err) {
+		fmt.Printf("%s No vendor directory found, nothing to prune\n", packWarningIcon)
+		return nil
+	}
+
+	// List vendored packs
+	vendoredPacks, err := pack.ListVendoredPacks(filepath.Dir(vendorDir))
+	if err != nil {
+		return fmt.Errorf("failed to list vendored packs: %w", err)
+	}
+
+	if len(vendoredPacks) == 0 {
+		fmt.Printf("%s No vendored packs found\n", packInfoIcon)
+		return nil
+	}
+
+	// Build a set of required pack names/URLs for comparison
+	// This is a simplified check - full implementation would match by Git URL
+	requiredSet := make(map[string]bool)
+	for _, req := range meta.Requires {
+		requiredSet[req.GitURL] = true
+	}
+
+	// For now, just list what would be pruned
+	fmt.Printf("%s Found %d vendored pack(s)\n", packInfoIcon, len(vendoredPacks))
+	fmt.Printf("%s Prune functionality not yet fully implemented\n", packWarningIcon)
+
+	return nil
+}
+
+func runPackAdd(cmd *cobra.Command, args []string) error {
+	gitURL := args[0]
+	version := args[1]
+
+	fmt.Println(packTitleStyle.Render("Add Pack Dependency"))
+
+	// Create pack resolver
+	resolver, err := packs.NewResolver("", "")
+	if err != nil {
+		return fmt.Errorf("failed to create pack resolver: %w", err)
+	}
+
+	// Create requirement
+	req := packs.PackRef{
+		GitURL:  gitURL,
+		Version: version,
+		Alias:   packAddAlias,
+		Path:    packAddPath,
+	}
+
+	fmt.Printf("%s Resolving %s@%s...\n", packInfoIcon, gitURL, version)
+
+	// Add the pack
+	ctx := context.Background()
+	resolved, err := resolver.Add(ctx, req)
+	if err != nil {
+		fmt.Printf("%s Failed to add pack: %v\n", packErrorIcon, err)
+		return err
+	}
+
+	fmt.Printf("%s Pack added successfully\n", packSuccessIcon)
+	fmt.Println()
+	fmt.Printf("%s Git URL:   %s\n", packInfoIcon, packPathStyle.Render(resolved.PackRef.GitURL))
+	fmt.Printf("%s Version:   %s → %s\n", packInfoIcon, version, cmdStyle.Render(resolved.ResolvedVersion))
+	fmt.Printf("%s Namespace: %s\n", packInfoIcon, cmdStyle.Render(resolved.Namespace))
+	fmt.Printf("%s Cache:     %s\n", packInfoIcon, packDetailStyle.Render(resolved.CachePath))
+
+	// Show how to add to invkfile
+	fmt.Println()
+	fmt.Printf("%s To use this pack, add to your invkfile.cue:\n", packInfoIcon)
+	fmt.Println()
+	fmt.Println("requires: [")
+	fmt.Printf("\t{\n")
+	fmt.Printf("\t\tgit_url: %q\n", req.GitURL)
+	fmt.Printf("\t\tversion: %q\n", req.Version)
+	if req.Alias != "" {
+		fmt.Printf("\t\talias:   %q\n", req.Alias)
+	}
+	if req.Path != "" {
+		fmt.Printf("\t\tpath:    %q\n", req.Path)
+	}
+	fmt.Printf("\t},\n")
+	fmt.Println("]")
+
+	return nil
+}
+
+func runPackRemove(cmd *cobra.Command, args []string) error {
+	gitURL := args[0]
+
+	fmt.Println(packTitleStyle.Render("Remove Pack Dependency"))
+
+	// Create pack resolver
+	resolver, err := packs.NewResolver("", "")
+	if err != nil {
+		return fmt.Errorf("failed to create pack resolver: %w", err)
+	}
+
+	fmt.Printf("%s Removing %s...\n", packInfoIcon, gitURL)
+
+	// Remove the pack
+	ctx := context.Background()
+	if err := resolver.Remove(ctx, gitURL); err != nil {
+		fmt.Printf("%s Failed to remove pack: %v\n", packErrorIcon, err)
+		return err
+	}
+
+	fmt.Printf("%s Pack removed from lock file\n", packSuccessIcon)
+	fmt.Println()
+	fmt.Printf("%s Don't forget to remove the requires entry from your invkpack.cue\n", packInfoIcon)
+
+	return nil
+}
+
+func runPackSync(cmd *cobra.Command, args []string) error {
+	fmt.Println(packTitleStyle.Render("Sync Pack Dependencies"))
+
+	// Parse invkpack.cue to get requirements
+	invkpackPath := filepath.Join(".", "invkpack.cue")
+	meta, err := invkfile.ParseInvkpack(invkpackPath)
+	if err != nil {
+		return fmt.Errorf("failed to parse invkpack.cue: %w", err)
+	}
+
+	// Extract requirements from invkpack
+	requirements := extractPackRequirementsFromMetadata(meta)
+	if len(requirements) == 0 {
+		fmt.Printf("%s No requires field found in invkpack.cue\n", packInfoIcon)
+		return nil
+	}
+
+	fmt.Printf("%s Found %d requirement(s) in invkpack.cue\n", packInfoIcon, len(requirements))
+
+	// Create pack resolver
+	resolver, err := packs.NewResolver("", "")
+	if err != nil {
+		return fmt.Errorf("failed to create pack resolver: %w", err)
+	}
+
+	// Sync packs
+	ctx := context.Background()
+	resolved, err := resolver.Sync(ctx, requirements)
+	if err != nil {
+		fmt.Printf("%s Failed to sync packs: %v\n", packErrorIcon, err)
+		return err
+	}
+
+	fmt.Println()
+	for _, p := range resolved {
+		fmt.Printf("%s %s → %s\n", packSuccessIcon,
+			cmdStyle.Render(p.Namespace),
+			packDetailStyle.Render(p.ResolvedVersion))
+	}
+
+	fmt.Println()
+	fmt.Printf("%s Lock file updated: %s\n", packSuccessIcon, packs.LockFileName)
+
+	return nil
+}
+
+func runPackUpdate(cmd *cobra.Command, args []string) error {
+	fmt.Println(packTitleStyle.Render("Update Pack Dependencies"))
+
+	// Create pack resolver
+	resolver, err := packs.NewResolver("", "")
+	if err != nil {
+		return fmt.Errorf("failed to create pack resolver: %w", err)
+	}
+
+	var gitURL string
+	if len(args) > 0 {
+		gitURL = args[0]
+		fmt.Printf("%s Updating %s...\n", packInfoIcon, gitURL)
+	} else {
+		fmt.Printf("%s Updating all packs...\n", packInfoIcon)
+	}
+
+	// Update packs
+	ctx := context.Background()
+	updated, err := resolver.Update(ctx, gitURL)
+	if err != nil {
+		fmt.Printf("%s Failed to update packs: %v\n", packErrorIcon, err)
+		return err
+	}
+
+	if len(updated) == 0 {
+		fmt.Printf("%s No packs to update\n", packInfoIcon)
+		return nil
+	}
+
+	fmt.Println()
+	for _, p := range updated {
+		fmt.Printf("%s %s → %s\n", packSuccessIcon,
+			cmdStyle.Render(p.Namespace),
+			packDetailStyle.Render(p.ResolvedVersion))
+	}
+
+	fmt.Println()
+	fmt.Printf("%s Lock file updated: %s\n", packSuccessIcon, packs.LockFileName)
+
+	return nil
+}
+
+func runPackDeps(cmd *cobra.Command, args []string) error {
+	fmt.Println(packTitleStyle.Render("Pack Dependencies"))
+
+	// Create pack resolver
+	resolver, err := packs.NewResolver("", "")
+	if err != nil {
+		return fmt.Errorf("failed to create pack resolver: %w", err)
+	}
+
+	// List packs
+	ctx := context.Background()
+	deps, err := resolver.List(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to list pack dependencies: %w", err)
+	}
+
+	if len(deps) == 0 {
+		fmt.Printf("%s No pack dependencies found\n", packInfoIcon)
+		fmt.Println()
+		fmt.Printf("%s To add packs, use: %s\n", packInfoIcon, cmdStyle.Render("invowk pack add <git-url> <version>"))
+		return nil
+	}
+
+	fmt.Printf("%s Found %d pack dependency(ies)\n", packInfoIcon, len(deps))
+	fmt.Println()
+
+	for _, dep := range deps {
+		fmt.Printf("%s %s\n", packSuccessIcon, cmdStyle.Render(dep.Namespace))
+		fmt.Printf("   Git URL:  %s\n", dep.PackRef.GitURL)
+		fmt.Printf("   Version:  %s → %s\n", dep.PackRef.Version, packDetailStyle.Render(dep.ResolvedVersion))
+		if len(dep.GitCommit) >= 12 {
+			fmt.Printf("   Commit:   %s\n", packDetailStyle.Render(dep.GitCommit[:12]))
+		}
+		fmt.Printf("   Cache:    %s\n", packDetailStyle.Render(dep.CachePath))
+		fmt.Println()
+	}
+
+	return nil
+}
+
+// extractPackRequirementsFromMetadata extracts pack requirements from Invkpack.
+func extractPackRequirementsFromMetadata(meta *invkfile.Invkpack) []packs.PackRef {
+	var reqs []packs.PackRef
+
+	if meta == nil || meta.Requires == nil {
+		return reqs
+	}
+
+	for _, r := range meta.Requires {
+		reqs = append(reqs, packs.PackRef{
+			GitURL:  r.GitURL,
+			Version: r.Version,
+			Alias:   r.Alias,
+			Path:    r.Path,
+		})
+	}
+
+	return reqs
 }

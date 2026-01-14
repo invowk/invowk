@@ -1,6 +1,9 @@
-// invkfile_schema.cue - Schema definitions for invkfile
-// This file defines the structure, types, and constraints for invkfiles.
+// invkfile_schema.cue - Schema definitions for command definitions (invkfile.cue)
+// This file defines the structure, types, and constraints for command invkfiles.
 // This schema is embedded in the invowk binary for validation.
+//
+// NOTE: Pack metadata (pack, version, description, requires) is now defined
+// in invkpack_schema.cue and must be in a separate invkpack.cue file.
 
 // RuntimeType defines the available execution runtime types
 #RuntimeType: "native" | "virtual" | "container"
@@ -399,42 +402,9 @@
 	args?: [...#Argument]
 })
 
-// ModuleRequirement represents a dependency on another pack from a Git repository
-#ModuleRequirement: close({
-	// git_url is the Git repository URL (required)
-	// Supports HTTPS and SSH URLs
-	// Examples: "https://github.com/user/repo.git", "git@github.com:user/repo.git"
-	git_url: string & =~"^(https://|git@|ssh://)"
-
-	// version is the semver constraint for version selection (required)
-	// Examples: "^1.2.0", "~1.2.0", ">=1.0.0", "1.2.3"
-	version: string & =~"^[~^>=<]?[0-9]+"
-
-	// alias overrides the default namespace for imported commands (optional)
-	// If not specified, namespace is: <pack-group>@<resolved-version>
-	// Must follow pack naming rules
-	alias?: string & =~"^[a-zA-Z][a-zA-Z0-9]*(\\.[a-zA-Z][a-zA-Z0-9]*)*$"
-
-	// path specifies a subdirectory containing the pack (optional)
-	// Used for monorepos with multiple packs
-	path?: string
-})
-
-// Invkfile is the root schema for an invkfile
+// Invkfile is the root schema for command definitions (invkfile.cue)
+// Pack metadata (pack, version, description, requires) is now in invkpack.cue
 #Invkfile: close({
-	// group is a mandatory prefix for all command names from this invkfile
-	// Must start with a letter, contain only alphanumeric characters, with optional
-	// dot-separated segments (e.g., "mygroup", "my.group", "my.nested.group")
-	// Cannot start or end with a dot, and cannot have consecutive dots
-	group: string & =~"^[a-zA-Z][a-zA-Z0-9]*(\\.[a-zA-Z][a-zA-Z0-9]*)*$"
-
-	// version specifies the invkfile schema version (optional but recommended)
-	// Current version: "1.0"
-	version?: string & =~"^[0-9]+\\.[0-9]+$"
-
-	// description provides a summary of this invkfile's purpose (optional)
-	description?: string
-
 	// default_shell overrides the default shell for native runtime (optional)
 	// Example: "/bin/bash", "pwsh"
 	default_shell?: string
@@ -460,13 +430,15 @@
 	// cmds defines the available commands (required, at least one)
 	cmds: [...#Command] & [_, ...]
 
-	// requires declares dependencies on other packs from Git repositories (optional)
-	// Dependencies are resolved at root level only (not per-command)
-	// All required modules are loaded and their commands made available
-	requires?: [...#ModuleRequirement]
-
 	// commands is not supported (use cmds)
 	commands?: _|_
+
+	// pack, version, description, requires are NOT allowed here
+	// These fields belong in invkpack.cue
+	pack?: _|_
+	version?: _|_
+	description?: _|_
+	requires?: _|_
 })
 
 // Example usage with the cue command-line tool:
