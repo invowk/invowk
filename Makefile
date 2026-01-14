@@ -8,6 +8,9 @@
 #   make test        - Run all tests
 #   make install     - Install to GOPATH/bin
 
+# Root dir
+ROOT_DIR:=$(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
+
 # Binary name
 BINARY_NAME := invowk
 BINARY_UPX := $(BINARY_NAME)-upx
@@ -115,7 +118,7 @@ test:
 .PHONY: test-short
 test-short:
 	@echo "Running tests (short mode)..."
-	$(GOTEST) -short ./...
+	$(GOTEST) -v -short ./...
 
 # Run integration tests only
 .PHONY: test-integration
