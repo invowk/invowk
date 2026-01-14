@@ -57,9 +57,9 @@ jobs:
             engine: docker
             test-mode: full
 
-          # macOS Intel (unit tests only, no container engine)
+          # macOS (unit tests only, no container engine)
           - os: macos
-            runner: macos-13
+            runner: macos-15
             engine: ""
             test-mode: short
 
@@ -137,10 +137,10 @@ jobs:
             runner: ubuntu-latest
           - os: darwin
             arch: amd64
-            runner: macos-13
+            runner: macos-15-intel
           - os: darwin
             arch: arm64
-            runner: macos-14
+            runner: macos-15
           - os: windows
             arch: amd64
             runner: windows-latest
@@ -164,7 +164,7 @@ jobs:
         run: go build -trimpath -ldflags="-s -w" -o invowk${{ matrix.os == 'windows' && '.exe' || '' }} .
 
       - name: Verify binary
-        if: matrix.os == 'linux' && matrix.arch == 'amd64' || matrix.os == 'darwin' || matrix.os == 'windows'
+        if: (matrix.os == 'linux' && matrix.arch == 'amd64') || matrix.os == 'darwin' || matrix.os == 'windows'
         run: ./invowk${{ matrix.os == 'windows' && '.exe' || '' }} --version
         shell: bash
 

@@ -48,9 +48,9 @@ jobs:
             engine: docker
             test-mode: full
 
-          # macOS Intel (unit tests only)
+          # macOS (unit tests only)
           - os: macos
-            runner: macos-13
+            runner: macos-15
             engine: ""
             test-mode: short
 
