@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	goruntime "runtime"
 	"strings"
 	"testing"
 
@@ -14,6 +15,34 @@ import (
 	"invowk-cli/internal/runtime"
 	"invowk-cli/pkg/invkfile"
 )
+
+// setHomeDirEnv sets the appropriate HOME environment variable based on platform
+// and returns a cleanup function to restore the original value
+func setHomeDirEnv(t *testing.T, dir string) func() {
+	t.Helper()
+	switch goruntime.GOOS {
+	case "windows":
+		original := os.Getenv("USERPROFILE")
+		os.Setenv("USERPROFILE", dir)
+		return func() {
+			if original != "" {
+				os.Setenv("USERPROFILE", original)
+			} else {
+				os.Unsetenv("USERPROFILE")
+			}
+		}
+	default: // Linux, macOS
+		original := os.Getenv("HOME")
+		os.Setenv("HOME", dir)
+		return func() {
+			if original != "" {
+				os.Setenv("HOME", original)
+			} else {
+				os.Unsetenv("HOME")
+			}
+		}
+	}
+}
 
 // testCmd creates a Command with a single script for testing
 func testCmd(name string, script string) *invkfile.Command {
@@ -174,14 +203,8 @@ func TestCheckCommandDependenciesExist_SatisfiedByLocalUnqualifiedName(t *testin
 	}
 	t.Cleanup(func() { _ = os.Chdir(originalWd) })
 
-	originalHome := os.Getenv("HOME")
-	originalXDGConfigHome := os.Getenv("XDG_CONFIG_HOME")
-	os.Setenv("HOME", tmpDir)
-	os.Setenv("XDG_CONFIG_HOME", tmpDir)
-	t.Cleanup(func() {
-		os.Setenv("HOME", originalHome)
-		os.Setenv("XDG_CONFIG_HOME", originalXDGConfigHome)
-	})
+	homeCleanup := setHomeDirEnv(t, tmpDir)
+	t.Cleanup(homeCleanup)
 
 	config.Reset()
 	t.Cleanup(config.Reset)
@@ -226,14 +249,8 @@ func TestCheckCommandDependenciesExist_SatisfiedByFullyQualifiedNameFromUserDir(
 	}
 	t.Cleanup(func() { _ = os.Chdir(originalWd) })
 
-	originalHome := os.Getenv("HOME")
-	originalXDGConfigHome := os.Getenv("XDG_CONFIG_HOME")
-	os.Setenv("HOME", tmpDir)
-	os.Setenv("XDG_CONFIG_HOME", tmpDir)
-	t.Cleanup(func() {
-		os.Setenv("HOME", originalHome)
-		os.Setenv("XDG_CONFIG_HOME", originalXDGConfigHome)
-	})
+	homeCleanup := setHomeDirEnv(t, tmpDir)
+	t.Cleanup(homeCleanup)
 
 	config.Reset()
 	t.Cleanup(config.Reset)
@@ -287,14 +304,8 @@ func TestCheckCommandDependenciesExist_MissingCommand(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = os.Chdir(originalWd) })
 
-	originalHome := os.Getenv("HOME")
-	originalXDGConfigHome := os.Getenv("XDG_CONFIG_HOME")
-	os.Setenv("HOME", tmpDir)
-	os.Setenv("XDG_CONFIG_HOME", tmpDir)
-	t.Cleanup(func() {
-		os.Setenv("HOME", originalHome)
-		os.Setenv("XDG_CONFIG_HOME", originalXDGConfigHome)
-	})
+	homeCleanup := setHomeDirEnv(t, tmpDir)
+	t.Cleanup(homeCleanup)
 
 	config.Reset()
 	t.Cleanup(config.Reset)
