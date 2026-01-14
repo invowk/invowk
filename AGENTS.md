@@ -534,6 +534,7 @@ website/docs/
 
 ## Key Guidelines
 
+- **Always use Context7 MCP** when you need library/API documentation, code generation, setup or configuration steps - without the user having to explicitly ask. This ensures you have accurate, up-to-date information.
 - In all planning and design decisions, always consider that the code must be highly testable, maintainable, and extensible.
 - Always add or adjust unit tests for behavior changes; add integration tests when changes touch integrations or cross-component workflows.
 - Always document the code (functions, structs, etc.) with comments.
@@ -543,6 +544,7 @@ website/docs/
 - After you finish code design and implementation changes, always double-check for leftovers that were not removed or changed after refactoring (e.g.: tests, CUE type definitions, README or documentation instructions, etc.).
 - Always follow the best practices for the programming language being used.
 - All CUE structs must be closed (use `close({ ... })`) so unknown fields cause validation errors.
+- When adding new CUE struct fields or definitions, always include appropriate validation constraints (e.g., `strings.MaxRunes()`, regex patterns with `=~`, range constraints like `>=0 & <=255`) - not just type declarations. This ensures defense-in-depth validation.
 
 ## Interface Design
 
