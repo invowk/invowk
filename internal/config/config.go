@@ -91,6 +91,10 @@ var (
 	globalConfig *Config
 	// configPath stores the path where config was loaded from
 	configPath string
+	// configDirOverride allows tests to override the config directory.
+	// This is necessary because os.UserHomeDir() doesn't reliably respect
+	// the HOME environment variable on all platforms (e.g., macOS in CI).
+	configDirOverride string
 )
 
 // DefaultConfig returns the default configuration
@@ -120,6 +124,11 @@ func DefaultConfig() *Config {
 
 // ConfigDir returns the invowk configuration directory
 func ConfigDir() (string, error) {
+	// Allow tests to override the config directory
+	if configDirOverride != "" {
+		return configDirOverride, nil
+	}
+
 	var configDir string
 
 	switch runtime.GOOS {
@@ -406,8 +415,24 @@ func GenerateCUE(cfg *Config) string {
 	return sb.String()
 }
 
-// Reset clears the cached configuration
+// Reset clears all state including cached configuration and test overrides
 func Reset() {
 	globalConfig = nil
 	configPath = ""
+	configDirOverride = ""
+}
+
+// ResetCache clears only the cached configuration, preserving any test overrides.
+// This is useful when testing scenarios that require reloading the config from disk
+// without losing the test's config directory override.
+func ResetCache() {
+	globalConfig = nil
+	configPath = ""
+}
+
+// SetConfigDirOverride sets a custom config directory path.
+// This is primarily intended for testing to bypass os.UserHomeDir() which
+// doesn't reliably respect the HOME env var on all platforms (e.g., macOS in CI).
+func SetConfigDirOverride(dir string) {
+	configDirOverride = dir
 }

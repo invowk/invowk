@@ -10,6 +10,34 @@ import (
 	"testing"
 )
 
+// setHomeDirEnv sets the appropriate HOME environment variable based on platform
+// and returns a cleanup function to restore the original value
+func setHomeDirEnv(t *testing.T, dir string) func() {
+	t.Helper()
+	switch runtime.GOOS {
+	case "windows":
+		original := os.Getenv("USERPROFILE")
+		os.Setenv("USERPROFILE", dir)
+		return func() {
+			if original != "" {
+				os.Setenv("USERPROFILE", original)
+			} else {
+				os.Unsetenv("USERPROFILE")
+			}
+		}
+	default: // Linux, macOS
+		original := os.Getenv("HOME")
+		os.Setenv("HOME", dir)
+		return func() {
+			if original != "" {
+				os.Setenv("HOME", original)
+			} else {
+				os.Unsetenv("HOME")
+			}
+		}
+	}
+}
+
 func TestDefaultConfig(t *testing.T) {
 	cfg := DefaultConfig()
 
@@ -157,33 +185,27 @@ func TestGet_ReturnsDefaultOnNoConfig(t *testing.T) {
 func TestEnsureConfigDir(t *testing.T) {
 	// Use a temp directory for testing
 	tmpDir := t.TempDir()
-	originalXDG := os.Getenv("XDG_CONFIG_HOME")
-	os.Setenv("XDG_CONFIG_HOME", tmpDir)
-	defer func() {
-		if originalXDG != "" {
-			os.Setenv("XDG_CONFIG_HOME", originalXDG)
-		} else {
-			os.Unsetenv("XDG_CONFIG_HOME")
-		}
-	}()
+	configDir := filepath.Join(tmpDir, AppName)
+
+	// Use direct override instead of env vars (more reliable across platforms)
+	SetConfigDirOverride(configDir)
+	defer Reset()
 
 	err := EnsureConfigDir()
 	if err != nil {
 		t.Fatalf("EnsureConfigDir() returned error: %v", err)
 	}
 
-	expectedDir := filepath.Join(tmpDir, AppName)
-	if _, err := os.Stat(expectedDir); os.IsNotExist(err) {
-		t.Errorf("EnsureConfigDir() did not create directory %s", expectedDir)
+	if _, err := os.Stat(configDir); os.IsNotExist(err) {
+		t.Errorf("EnsureConfigDir() did not create directory %s", configDir)
 	}
 }
 
 func TestEnsureCommandsDir(t *testing.T) {
 	// Use a temp directory for testing
 	tmpDir := t.TempDir()
-	originalHome := os.Getenv("HOME")
-	os.Setenv("HOME", tmpDir)
-	defer os.Setenv("HOME", originalHome)
+	cleanup := setHomeDirEnv(t, tmpDir)
+	defer cleanup()
 
 	err := EnsureCommandsDir()
 	if err != nil {
@@ -202,15 +224,11 @@ func TestLoadAndSave(t *testing.T) {
 
 	// Use a temp directory for testing
 	tmpDir := t.TempDir()
-	originalXDG := os.Getenv("XDG_CONFIG_HOME")
-	os.Setenv("XDG_CONFIG_HOME", tmpDir)
-	defer func() {
-		if originalXDG != "" {
-			os.Setenv("XDG_CONFIG_HOME", originalXDG)
-		} else {
-			os.Unsetenv("XDG_CONFIG_HOME")
-		}
-	}()
+	configDir := filepath.Join(tmpDir, AppName)
+
+	// Use direct override instead of env vars (more reliable across platforms)
+	SetConfigDirOverride(configDir)
+	defer Reset()
 
 	// Ensure config directory exists
 	err := EnsureConfigDir()
@@ -247,8 +265,8 @@ func TestLoadAndSave(t *testing.T) {
 		t.Fatalf("Save() returned error: %v", err)
 	}
 
-	// Reset and reload
-	Reset()
+	// Clear cached config to force reload from disk (but preserve the override)
+	ResetCache()
 
 	loaded, err := Load()
 	if err != nil {
@@ -307,15 +325,11 @@ func TestLoad_ReturnsDefaultsWhenNoConfigFile(t *testing.T) {
 
 	// Use a temp directory with no config file
 	tmpDir := t.TempDir()
-	originalXDG := os.Getenv("XDG_CONFIG_HOME")
-	os.Setenv("XDG_CONFIG_HOME", tmpDir)
-	defer func() {
-		if originalXDG != "" {
-			os.Setenv("XDG_CONFIG_HOME", originalXDG)
-		} else {
-			os.Unsetenv("XDG_CONFIG_HOME")
-		}
-	}()
+	configDir := filepath.Join(tmpDir, AppName)
+
+	// Use direct override instead of env vars (more reliable across platforms)
+	SetConfigDirOverride(configDir)
+	defer Reset()
 
 	// Change to temp dir to avoid loading config from current directory
 	originalWd, _ := os.Getwd()
@@ -365,15 +379,11 @@ func TestLoad_ReturnsCachedConfig(t *testing.T) {
 func TestCreateDefaultConfig(t *testing.T) {
 	// Use a temp directory for testing
 	tmpDir := t.TempDir()
-	originalXDG := os.Getenv("XDG_CONFIG_HOME")
-	os.Setenv("XDG_CONFIG_HOME", tmpDir)
-	defer func() {
-		if originalXDG != "" {
-			os.Setenv("XDG_CONFIG_HOME", originalXDG)
-		} else {
-			os.Unsetenv("XDG_CONFIG_HOME")
-		}
-	}()
+	configDir := filepath.Join(tmpDir, AppName)
+
+	// Use direct override instead of env vars (more reliable across platforms)
+	SetConfigDirOverride(configDir)
+	defer Reset()
 
 	err := CreateDefaultConfig()
 	if err != nil {
@@ -381,7 +391,7 @@ func TestCreateDefaultConfig(t *testing.T) {
 	}
 
 	// Check that file was created
-	expectedPath := filepath.Join(tmpDir, AppName, ConfigFileName+"."+ConfigFileExt)
+	expectedPath := filepath.Join(configDir, ConfigFileName+"."+ConfigFileExt)
 	if _, err := os.Stat(expectedPath); os.IsNotExist(err) {
 		t.Errorf("CreateDefaultConfig() did not create file at %s", expectedPath)
 	}
