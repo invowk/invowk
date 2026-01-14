@@ -34,6 +34,14 @@ Output:
 - `invkfile.cue` is present at root
 - No nested packs (packs can't contain other packs)
 
+### Security Checks
+
+- **No symlinks**: Symlinks are not allowed in packs for security reasons. They could potentially escape the pack directory during extraction (zip-slip vulnerability).
+
+### Compatibility Checks
+
+- **Windows reserved filenames**: Files named `CON`, `PRN`, `AUX`, `NUL`, `COM1`-`COM9`, or `LPT1`-`LPT9` will trigger a compatibility warning. These names are reserved on Windows and could cause issues when extracting packs on Windows systems.
+
 ### Naming Checks
 
 - Folder name ends with `.invkpack`

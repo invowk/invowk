@@ -264,6 +264,26 @@ func TestParseEnvFile_Errors(t *testing.T) {
 			content: "=value",
 			errMsg:  "empty variable name",
 		},
+		{
+			name:    "unterminated double quote",
+			content: `FOO="hello world`,
+			errMsg:  "unterminated double quote",
+		},
+		{
+			name:    "unterminated single quote",
+			content: `FOO='hello world`,
+			errMsg:  "unterminated single quote",
+		},
+		{
+			name:    "double quote only opening",
+			content: `BAR="`,
+			errMsg:  "unterminated double quote",
+		},
+		{
+			name:    "single quote only opening",
+			content: `BAR='`,
+			errMsg:  "unterminated single quote",
+		},
 	}
 
 	for _, tt := range tests {

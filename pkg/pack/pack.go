@@ -239,7 +239,7 @@ func Validate(packPath string) (*ValidationResult, error) {
 		result.InvkfilePath = invkfilePath
 	}
 
-	// Check for nested packs (not allowed, except in invk_packs/ for vendored deps)
+	// Check for nested packs and symlinks (security)
 	err = filepath.WalkDir(absPath, func(path string, d os.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			return nil // Continue walking even on errors
@@ -255,10 +255,43 @@ func Validate(packPath string) (*ValidationResult, error) {
 			return filepath.SkipDir
 		}
 
+		// Check for symlinks (security issue - could point outside pack)
+		if d.Type()&os.ModeSymlink != 0 {
+			relPath, _ := filepath.Rel(absPath, path)
+			// Check if symlink points outside the pack
+			linkTarget, err := os.Readlink(path)
+			if err != nil {
+				result.AddIssue("security", "cannot read symlink target", relPath)
+			} else {
+				// Resolve the symlink target relative to its location
+				var resolvedTarget string
+				if filepath.IsAbs(linkTarget) {
+					resolvedTarget = linkTarget
+				} else {
+					resolvedTarget = filepath.Join(filepath.Dir(path), linkTarget)
+				}
+				// Clean and resolve to check if it escapes
+				resolvedTarget = filepath.Clean(resolvedTarget)
+				relToRoot, err := filepath.Rel(absPath, resolvedTarget)
+				if err != nil || strings.HasPrefix(relToRoot, "..") {
+					result.AddIssue("security", fmt.Sprintf("symlink points outside pack directory (target: %s)", linkTarget), relPath)
+				} else {
+					// Even internal symlinks are a potential security concern during archive extraction
+					result.AddIssue("security", "symlinks are not allowed in packs (security risk during extraction)", relPath)
+				}
+			}
+		}
+
 		// Check if any other subdirectory is a pack
 		if d.IsDir() && strings.HasSuffix(d.Name(), PackSuffix) {
 			relPath, _ := filepath.Rel(absPath, path)
 			result.AddIssue("structure", "nested packs are not allowed (except in invk_packs/)", relPath)
+		}
+
+		// Check for Windows reserved filenames (cross-platform compatibility)
+		if invkfile.IsWindowsReservedName(d.Name()) {
+			relPath, _ := filepath.Rel(absPath, path)
+			result.AddIssue("compatibility", fmt.Sprintf("filename '%s' is reserved on Windows", d.Name()), relPath)
 		}
 
 		return nil
@@ -313,7 +346,7 @@ func (b *Pack) ResolveScriptPath(scriptPath string) string {
 }
 
 // ValidateScriptPath checks if a script path is valid for this pack.
-// Returns an error if the path is invalid (e.g., escapes pack directory).
+// Returns an error if the path is invalid (e.g., escapes pack directory, is a symlink).
 func (b *Pack) ValidateScriptPath(scriptPath string) error {
 	if scriptPath == "" {
 		return fmt.Errorf("script path cannot be empty")
@@ -339,6 +372,37 @@ func (b *Pack) ValidateScriptPath(scriptPath string) error {
 	// Check for path escaping (e.g., "../something")
 	if strings.HasPrefix(relPath, "..") {
 		return fmt.Errorf("script path '%s' escapes the pack directory", scriptPath)
+	}
+
+	// Check if the path or any parent is a symlink
+	if err := b.checkSymlinkSafety(fullPath); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// checkSymlinkSafety verifies that a path doesn't contain symlinks that could escape the pack.
+func (b *Pack) checkSymlinkSafety(path string) error {
+	// Get the real path by resolving all symlinks
+	realPath, err := filepath.EvalSymlinks(path)
+	if err != nil {
+		// If the file doesn't exist, that's fine - it'll be caught elsewhere
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return fmt.Errorf("cannot resolve symlinks in path: %w", err)
+	}
+
+	// Ensure the real path is still within the pack
+	packRealPath, err := filepath.EvalSymlinks(b.Path)
+	if err != nil {
+		return fmt.Errorf("cannot resolve pack path: %w", err)
+	}
+
+	relPath, err := filepath.Rel(packRealPath, realPath)
+	if err != nil || strings.HasPrefix(relPath, "..") {
+		return fmt.Errorf("path resolves to location outside pack directory (symlink escape)")
 	}
 
 	return nil

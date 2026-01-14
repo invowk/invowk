@@ -1499,6 +1499,24 @@ func validateRuntimeConfig(rt *RuntimeConfig, cmdName string, implIndex int) err
 		if rt.Containerfile == "" && rt.Image == "" {
 			return fmt.Errorf("command '%s' implementation #%d: container runtime requires either containerfile or image to be specified", cmdName, implIndex)
 		}
+		// Validate container image name format
+		if rt.Image != "" {
+			if err := ValidateContainerImage(rt.Image); err != nil {
+				return fmt.Errorf("command '%s' implementation #%d: invalid image: %w", cmdName, implIndex, err)
+			}
+		}
+		// Validate volume mounts
+		for i, vol := range rt.Volumes {
+			if err := ValidateVolumeMount(vol); err != nil {
+				return fmt.Errorf("command '%s' implementation #%d: volume #%d: %w", cmdName, implIndex, i+1, err)
+			}
+		}
+		// Validate port mappings
+		for i, port := range rt.Ports {
+			if err := ValidatePortMapping(port); err != nil {
+				return fmt.Errorf("command '%s' implementation #%d: port #%d: %w", cmdName, implIndex, i+1, err)
+			}
+		}
 	}
 	return nil
 }
@@ -1507,6 +1525,16 @@ func validateRuntimeConfig(rt *RuntimeConfig, cmdName string, implIndex int) err
 func (inv *Invkfile) validateCommand(cmd *Command) error {
 	if cmd.Name == "" {
 		return fmt.Errorf("command must have a name in invkfile at %s", inv.FilePath)
+	}
+
+	// Validate command name length
+	if err := ValidateStringLength(cmd.Name, "command name", MaxNameLength); err != nil {
+		return fmt.Errorf("command '%s': %w in invkfile at %s", cmd.Name, err, inv.FilePath)
+	}
+
+	// Validate description length
+	if err := ValidateStringLength(cmd.Description, "description", MaxDescriptionLength); err != nil {
+		return fmt.Errorf("command '%s': %w in invkfile at %s", cmd.Name, err, inv.FilePath)
 	}
 
 	if len(cmd.Implementations) == 0 {
@@ -1518,6 +1546,14 @@ func (inv *Invkfile) validateCommand(cmd *Command) error {
 		if impl.Script == "" {
 			return fmt.Errorf("command '%s' implementation #%d must have a script in invkfile at %s", cmd.Name, i+1, inv.FilePath)
 		}
+
+		// Validate script length (only for inline scripts, not file paths)
+		if !impl.IsScriptFile() {
+			if err := ValidateStringLength(impl.Script, "script", MaxScriptLength); err != nil {
+				return fmt.Errorf("command '%s' implementation #%d: %w in invkfile at %s", cmd.Name, i+1, err, inv.FilePath)
+			}
+		}
+
 		if len(impl.Runtimes) == 0 {
 			return fmt.Errorf("command '%s' implementation #%d must have at least one runtime in invkfile at %s", cmd.Name, i+1, inv.FilePath)
 		}
@@ -1559,6 +1595,11 @@ func (inv *Invkfile) validateFlags(cmd *Command) error {
 			return fmt.Errorf("command '%s' flag #%d must have a name in invkfile at %s", cmd.Name, i+1, inv.FilePath)
 		}
 
+		// Validate flag name length
+		if err := ValidateStringLength(flag.Name, "flag name", MaxNameLength); err != nil {
+			return fmt.Errorf("command '%s' flag '%s': %w in invkfile at %s", cmd.Name, flag.Name, err, inv.FilePath)
+		}
+
 		// Validate name is POSIX-compliant
 		if !flagNameRegex.MatchString(flag.Name) {
 			return fmt.Errorf("command '%s' flag '%s' has invalid name (must start with a letter, contain only alphanumeric, hyphens, and underscores) in invkfile at %s", cmd.Name, flag.Name, inv.FilePath)
@@ -1567,6 +1608,11 @@ func (inv *Invkfile) validateFlags(cmd *Command) error {
 		// Validate description is not empty (after trimming whitespace)
 		if strings.TrimSpace(flag.Description) == "" {
 			return fmt.Errorf("command '%s' flag '%s' must have a non-empty description in invkfile at %s", cmd.Name, flag.Name, inv.FilePath)
+		}
+
+		// Validate description length
+		if err := ValidateStringLength(flag.Description, "flag description", MaxDescriptionLength); err != nil {
+			return fmt.Errorf("command '%s' flag '%s': %w in invkfile at %s", cmd.Name, flag.Name, err, inv.FilePath)
 		}
 
 		// Check for duplicate flag names
@@ -1628,8 +1674,14 @@ func (inv *Invkfile) validateFlags(cmd *Command) error {
 			}
 		}
 
-		// Validate validation regex is valid
+		// Validate validation regex is valid and safe
 		if flag.Validation != "" {
+			// Check for regex complexity/safety issues first
+			if err := ValidateRegexPattern(flag.Validation); err != nil {
+				return fmt.Errorf("command '%s' flag '%s' has unsafe validation regex '%s': %s in invkfile at %s",
+					cmd.Name, flag.Name, flag.Validation, err.Error(), inv.FilePath)
+			}
+
 			validationRegex, err := regexp.Compile(flag.Validation)
 			if err != nil {
 				return fmt.Errorf("command '%s' flag '%s' has invalid validation regex '%s': %s in invkfile at %s",
@@ -1668,6 +1720,11 @@ func (inv *Invkfile) validateArgs(cmd *Command) error {
 			return fmt.Errorf("command '%s' argument #%d must have a name in invkfile at %s", cmd.Name, i+1, inv.FilePath)
 		}
 
+		// Validate argument name length
+		if err := ValidateStringLength(arg.Name, "argument name", MaxNameLength); err != nil {
+			return fmt.Errorf("command '%s' argument '%s': %w in invkfile at %s", cmd.Name, arg.Name, err, inv.FilePath)
+		}
+
 		// Validate name is POSIX-compliant
 		if !argNameRegex.MatchString(arg.Name) {
 			return fmt.Errorf("command '%s' argument '%s' has invalid name (must start with a letter, contain only alphanumeric, hyphens, and underscores) in invkfile at %s", cmd.Name, arg.Name, inv.FilePath)
@@ -1676,6 +1733,11 @@ func (inv *Invkfile) validateArgs(cmd *Command) error {
 		// Validate description is not empty (after trimming whitespace)
 		if strings.TrimSpace(arg.Description) == "" {
 			return fmt.Errorf("command '%s' argument '%s' must have a non-empty description in invkfile at %s", cmd.Name, arg.Name, inv.FilePath)
+		}
+
+		// Validate description length
+		if err := ValidateStringLength(arg.Description, "argument description", MaxDescriptionLength); err != nil {
+			return fmt.Errorf("command '%s' argument '%s': %w in invkfile at %s", cmd.Name, arg.Name, err, inv.FilePath)
 		}
 
 		// Check for duplicate argument names
@@ -1723,8 +1785,14 @@ func (inv *Invkfile) validateArgs(cmd *Command) error {
 			}
 		}
 
-		// Validate validation regex is valid
+		// Validate validation regex is valid and safe
 		if arg.Validation != "" {
+			// Check for regex complexity/safety issues first
+			if err := ValidateRegexPattern(arg.Validation); err != nil {
+				return fmt.Errorf("command '%s' argument '%s' has unsafe validation regex '%s': %s in invkfile at %s",
+					cmd.Name, arg.Name, arg.Validation, err.Error(), inv.FilePath)
+			}
+
 			validationRegex, err := regexp.Compile(arg.Validation)
 			if err != nil {
 				return fmt.Errorf("command '%s' argument '%s' has invalid validation regex '%s': %s in invkfile at %s",

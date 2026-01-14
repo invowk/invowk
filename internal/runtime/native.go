@@ -92,9 +92,12 @@ func (r *NativeRuntime) executeWithShell(ctx *ExecutionContext, script string) *
 
 	cmd := exec.CommandContext(ctx.Context, shell, args...)
 
-	// Set working directory
+	// Set working directory with pre-validation
 	workDir := r.getWorkDir(ctx)
 	if workDir != "" {
+		if err := validateWorkDir(workDir); err != nil {
+			return &Result{ExitCode: 1, Error: fmt.Errorf("invalid working directory: %w", err)}
+		}
 		cmd.Dir = workDir
 	}
 
@@ -154,9 +157,12 @@ func (r *NativeRuntime) executeWithInterpreter(ctx *ExecutionContext, script str
 
 	cmd := exec.CommandContext(ctx.Context, interpreterPath, cmdArgs...)
 
-	// Set working directory
+	// Set working directory with pre-validation
 	workDir := r.getWorkDir(ctx)
 	if workDir != "" {
+		if err := validateWorkDir(workDir); err != nil {
+			return &Result{ExitCode: 1, Error: fmt.Errorf("invalid working directory: %w", err)}
+		}
 		cmd.Dir = workDir
 	}
 

@@ -1429,3 +1429,181 @@ func TestNativeRuntime_PrepareCommandWithInterpreter(t *testing.T) {
 		t.Errorf("prepared command output = %q, want %q", output, "PrepareCommand Python test")
 	}
 }
+
+func TestVirtualRuntime_ContextCancellation(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "invowk-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+	inv := &invkfile.Invkfile{
+		FilePath: invkfilePath,
+	}
+
+	// Script that runs forever
+	script := `while true; do sleep 1; done`
+
+	cmd := testCommandWithScript("long-running", script, invkfile.RuntimeVirtual)
+
+	rt := NewVirtualRuntime(false)
+
+	// Create a context that we can cancel
+	ctx, cancel := context.WithCancel(context.Background())
+
+	execCtx := NewExecutionContext(cmd, inv)
+	execCtx.Context = ctx
+
+	var stdout bytes.Buffer
+	execCtx.Stdout = &stdout
+	execCtx.Stderr = &bytes.Buffer{}
+
+	// Cancel the context after a short delay
+	go func() {
+		cancel()
+	}()
+
+	result := rt.Execute(execCtx)
+
+	// Should exit with non-zero (or interrupted) after context cancellation
+	if result.ExitCode == 0 && result.Error == nil {
+		t.Error("Execute() should fail when context is cancelled")
+	}
+}
+
+func TestNativeRuntime_InvalidWorkingDirectory(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test in short mode")
+	}
+
+	tmpDir, err := os.MkdirTemp("", "invowk-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+	inv := &invkfile.Invkfile{
+		FilePath: invkfilePath,
+	}
+
+	script := `echo "Should not run"`
+
+	// Create command with invalid working directory
+	cmd := &invkfile.Command{
+		Name: "invalid-workdir",
+		Implementations: []invkfile.Implementation{
+			{
+				Script:   script,
+				Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeNative}},
+				WorkDir:  "/nonexistent/directory/that/does/not/exist",
+			},
+		},
+	}
+
+	rt := NewNativeRuntime()
+	ctx := NewExecutionContext(cmd, inv)
+
+	var stdout bytes.Buffer
+	ctx.Stdout = &stdout
+	ctx.Stderr = &bytes.Buffer{}
+
+	result := rt.Execute(ctx)
+
+	// Should fail due to invalid working directory
+	if result.ExitCode == 0 {
+		t.Error("Execute() should fail with invalid working directory")
+	}
+	if result.Error == nil {
+		t.Error("Execute() should return error for invalid working directory")
+	}
+	if result.Error != nil && !strings.Contains(result.Error.Error(), "directory") {
+		t.Errorf("Execute() error = %q, want error mentioning directory", result.Error)
+	}
+}
+
+func TestNativeRuntime_ExitCode(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test in short mode")
+	}
+
+	tmpDir, err := os.MkdirTemp("", "invowk-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+	inv := &invkfile.Invkfile{
+		FilePath: invkfilePath,
+	}
+
+	tests := []struct {
+		name         string
+		script       string
+		expectedCode int
+	}{
+		{"exit 0", "exit 0", 0},
+		{"exit 1", "exit 1", 1},
+		{"exit 42", "exit 42", 42},
+		{"false command", "false", 1},
+		{"true command", "true", 0},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cmd := testCommandWithScript("exit-test", tt.script, invkfile.RuntimeNative)
+			rt := NewNativeRuntime()
+			ctx := NewExecutionContext(cmd, inv)
+			ctx.Stdout = &bytes.Buffer{}
+			ctx.Stderr = &bytes.Buffer{}
+
+			result := rt.Execute(ctx)
+			if result.ExitCode != tt.expectedCode {
+				t.Errorf("Execute() exit code = %d, want %d", result.ExitCode, tt.expectedCode)
+			}
+		})
+	}
+}
+
+func TestVirtualRuntime_ExitCode(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "invowk-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+	inv := &invkfile.Invkfile{
+		FilePath: invkfilePath,
+	}
+
+	tests := []struct {
+		name         string
+		script       string
+		expectedCode int
+	}{
+		{"exit 0", "exit 0", 0},
+		{"exit 1", "exit 1", 1},
+		{"exit 42", "exit 42", 42},
+		{"false command", "false", 1},
+		{"true command", "true", 0},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cmd := testCommandWithScript("exit-test", tt.script, invkfile.RuntimeVirtual)
+			rt := NewVirtualRuntime(false)
+			ctx := NewExecutionContext(cmd, inv)
+			ctx.Context = context.Background()
+			ctx.Stdout = &bytes.Buffer{}
+			ctx.Stderr = &bytes.Buffer{}
+
+			result := rt.Execute(ctx)
+			if result.ExitCode != tt.expectedCode {
+				t.Errorf("Execute() exit code = %d, want %d", result.ExitCode, tt.expectedCode)
+			}
+		})
+	}
+}

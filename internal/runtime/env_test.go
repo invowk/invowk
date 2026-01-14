@@ -68,3 +68,60 @@ func TestBuildRuntimeEnv_InheritAllowAndDeny(t *testing.T) {
 		t.Errorf("buildRuntimeEnv() should deny DENY_ME")
 	}
 }
+
+func TestValidateWorkDir(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create a test file (not a directory)
+	testFile := filepath.Join(tmpDir, "test_file.txt")
+	if err := os.WriteFile(testFile, []byte("test"), 0644); err != nil {
+		t.Fatalf("failed to create test file: %v", err)
+	}
+
+	tests := []struct {
+		name      string
+		dir       string
+		wantErr   bool
+		errSubstr string
+	}{
+		{
+			name:    "empty string is valid (uses current dir)",
+			dir:     "",
+			wantErr: false,
+		},
+		{
+			name:    "existing directory",
+			dir:     tmpDir,
+			wantErr: false,
+		},
+		{
+			name:      "non-existent directory",
+			dir:       filepath.Join(tmpDir, "nonexistent_subdir"),
+			wantErr:   true,
+			errSubstr: "does not exist",
+		},
+		{
+			name:      "file instead of directory",
+			dir:       testFile,
+			wantErr:   true,
+			errSubstr: "not a directory",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateWorkDir(tt.dir)
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("validateWorkDir(%q) expected error, got nil", tt.dir)
+				} else if tt.errSubstr != "" && !containsString(err.Error(), tt.errSubstr) {
+					t.Errorf("validateWorkDir(%q) error = %q, want error containing %q", tt.dir, err.Error(), tt.errSubstr)
+				}
+			} else {
+				if err != nil {
+					t.Errorf("validateWorkDir(%q) unexpected error: %v", tt.dir, err)
+				}
+			}
+		})
+	}
+}

@@ -3,6 +3,7 @@
 package runtime
 
 import (
+	"fmt"
 	"os"
 
 	"invowk-cli/pkg/invkfile"
@@ -157,4 +158,29 @@ func buildHostEnv(cfg envInheritConfig) map[string]string {
 	}
 
 	return env
+}
+
+// validateWorkDir validates that a working directory exists and is accessible.
+// This provides a better error message than letting exec fail with a cryptic error.
+func validateWorkDir(dir string) error {
+	if dir == "" {
+		return nil
+	}
+
+	info, err := os.Stat(dir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return fmt.Errorf("directory does not exist: %s", dir)
+		}
+		if os.IsPermission(err) {
+			return fmt.Errorf("permission denied: %s", dir)
+		}
+		return fmt.Errorf("cannot access directory: %w", err)
+	}
+
+	if !info.IsDir() {
+		return fmt.Errorf("not a directory: %s", dir)
+	}
+
+	return nil
 }

@@ -34,6 +34,14 @@ Saída:
 - `invkfile.cue` está presente na raiz
 - Sem packs aninhados (packs não podem conter outros packs)
 
+### Verificações de Segurança
+
+- **Sem symlinks**: Links simbólicos não são permitidos em packs por razões de segurança. Eles podem potencialmente escapar do diretório do pack durante a extração (vulnerabilidade zip-slip).
+
+### Verificações de Compatibilidade
+
+- **Nomes reservados do Windows**: Arquivos chamados `CON`, `PRN`, `AUX`, `NUL`, `COM1`-`COM9`, ou `LPT1`-`LPT9` gerarão um aviso de compatibilidade. Esses nomes são reservados no Windows e podem causar problemas ao extrair packs em sistemas Windows.
+
 ### Verificações de Nomenclatura
 
 - Nome da pasta termina com `.invkpack`

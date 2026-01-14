@@ -138,12 +138,20 @@ func parseEnvValue(value string) (string, error) {
 	}
 
 	// Check for quoted values
-	if len(value) >= 2 {
-		if value[0] == '"' && value[len(value)-1] == '"' {
-			// Double-quoted: process escape sequences
+	if len(value) >= 1 {
+		if value[0] == '"' {
+			// Double-quoted value
+			if len(value) < 2 || value[len(value)-1] != '"' {
+				return "", fmt.Errorf("unterminated double quote")
+			}
+			// Process escape sequences
 			return parseDoubleQuotedValue(value[1 : len(value)-1])
 		}
-		if value[0] == '\'' && value[len(value)-1] == '\'' {
+		if value[0] == '\'' {
+			// Single-quoted value
+			if len(value) < 2 || value[len(value)-1] != '\'' {
+				return "", fmt.Errorf("unterminated single quote")
+			}
 			// Single-quoted: literal value, no escape processing
 			return value[1 : len(value)-1], nil
 		}

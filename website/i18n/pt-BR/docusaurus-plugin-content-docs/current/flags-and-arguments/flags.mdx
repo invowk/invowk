@@ -84,6 +84,15 @@ Valide valores de flag com regex:
 
 <Snippet id="flags-args/flags-validation-usage" />
 
+:::note Limites de Complexidade de Padrão
+Padrões de validação têm limites de complexidade para prevenir problemas de desempenho:
+- Comprimento máximo do padrão: 1000 caracteres
+- Máximo de grupos aninhados: 10 níveis
+- Operadores de repetição excessivos são detectados
+
+Padrões complexos como `(a+)+` ou grupos profundamente aninhados serão rejeitados durante a validação.
+:::
+
 ## Acessando em Scripts
 
 Flags estão disponíveis como variáveis de ambiente `INVOWK_FLAG_*`:

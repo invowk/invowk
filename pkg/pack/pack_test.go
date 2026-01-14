@@ -1530,3 +1530,120 @@ func TestValidate_StillRejectsNestedPacksOutsideVendoredDir(t *testing.T) {
 		t.Error("Validate() should report issue about nested pack")
 	}
 }
+
+func TestValidate_DetectsSymlinks(t *testing.T) {
+	// Skip on Windows since symlinks work differently
+	if runtime.GOOS == "windows" {
+		t.Skip("Skipping symlink test on Windows")
+	}
+
+	tmpDir := t.TempDir()
+	packPath := createValidPack(t, tmpDir, "mycommands.invkpack", "mycommands")
+
+	// Create a file outside the pack
+	outsideFile := filepath.Join(tmpDir, "outside.txt")
+	if err := os.WriteFile(outsideFile, []byte("outside content"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create a symlink inside the pack pointing outside
+	symlinkPath := filepath.Join(packPath, "link_to_outside")
+	if err := os.Symlink(outsideFile, symlinkPath); err != nil {
+		t.Fatalf("Failed to create symlink: %v", err)
+	}
+
+	result, err := Validate(packPath)
+	if err != nil {
+		t.Fatalf("Validate() returned error: %v", err)
+	}
+
+	// Should report a security issue about the symlink
+	foundSymlinkIssue := false
+	for _, issue := range result.Issues {
+		if issue.Type == "security" && strings.Contains(strings.ToLower(issue.Message), "symlink") {
+			foundSymlinkIssue = true
+			break
+		}
+	}
+	if !foundSymlinkIssue {
+		t.Error("Validate() should report security issue about symlink pointing outside pack")
+	}
+}
+
+func TestValidate_DetectsWindowsReservedFilenames(t *testing.T) {
+	tmpDir := t.TempDir()
+	packPath := createValidPack(t, tmpDir, "mycommands.invkpack", "mycommands")
+
+	// Create a file with a Windows reserved name
+	reservedFile := filepath.Join(packPath, "CON")
+	if err := os.WriteFile(reservedFile, []byte("test"), 0644); err != nil {
+		// On Windows, this might fail - that's expected
+		if runtime.GOOS == "windows" {
+			t.Skip("Cannot create reserved filename on Windows")
+		}
+		t.Fatal(err)
+	}
+
+	result, err := Validate(packPath)
+	if err != nil {
+		t.Fatalf("Validate() returned error: %v", err)
+	}
+
+	// Should report a compatibility issue about the reserved filename
+	foundReservedIssue := false
+	for _, issue := range result.Issues {
+		if issue.Type == "compatibility" && strings.Contains(issue.Message, "reserved on Windows") {
+			foundReservedIssue = true
+			break
+		}
+	}
+	if !foundReservedIssue {
+		t.Error("Validate() should report compatibility issue about Windows reserved filename")
+	}
+}
+
+func TestValidate_RejectsAllSymlinks(t *testing.T) {
+	// Skip on Windows since symlinks work differently
+	if runtime.GOOS == "windows" {
+		t.Skip("Skipping symlink test on Windows")
+	}
+
+	tmpDir := t.TempDir()
+	packPath := createValidPack(t, tmpDir, "mycommands.invkpack", "mycommands")
+
+	// Create scripts directory
+	scriptsDir := filepath.Join(packPath, "scripts")
+	if err := os.Mkdir(scriptsDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create a file inside the pack
+	internalFile := filepath.Join(scriptsDir, "original.sh")
+	if err := os.WriteFile(internalFile, []byte("#!/bin/bash\necho hello"), 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create a symlink inside the pack pointing to another file inside the pack
+	symlinkPath := filepath.Join(packPath, "link_to_internal")
+	if err := os.Symlink(internalFile, symlinkPath); err != nil {
+		t.Fatalf("Failed to create symlink: %v", err)
+	}
+
+	result, err := Validate(packPath)
+	if err != nil {
+		t.Fatalf("Validate() returned error: %v", err)
+	}
+
+	// ALL symlinks should be rejected as a security measure (even internal ones)
+	// This is intentional to prevent zip slip attacks during archive extraction
+	foundSecurityIssue := false
+	for _, issue := range result.Issues {
+		if issue.Type == "security" && strings.Contains(strings.ToLower(issue.Message), "symlink") {
+			foundSecurityIssue = true
+			break
+		}
+	}
+	if !foundSecurityIssue {
+		t.Error("Validate() should report security issue for ALL symlinks (including internal ones)")
+	}
+}

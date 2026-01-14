@@ -84,6 +84,15 @@ Validate flag values with regex:
 
 <Snippet id="flags-args/flags-validation-usage" />
 
+:::note Pattern Complexity Limits
+Validation patterns have complexity limits to prevent performance issues:
+- Maximum pattern length: 1000 characters
+- Maximum nested groups: 10 levels
+- Excessive repetition operators are detected
+
+Complex patterns like `(a+)+` or deeply nested groups will be rejected during validation.
+:::
+
 ## Accessing in Scripts
 
 Flags are available as `INVOWK_FLAG_*` environment variables:
