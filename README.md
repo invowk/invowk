@@ -1827,6 +1827,21 @@ cmds: [
 
 ### Container Runtime
 
+> ⚠️ **CRITICAL: Linux Containers Only**
+>
+> The container runtime **requires Linux-based container images** (e.g., `debian:stable-slim`).
+>
+> **NOT supported:**
+> - **Alpine-based images** (`alpine:*`) - BusyBox's `ash` shell has incompatibilities with standard scripts
+> - **Windows container images** (`mcr.microsoft.com/windows/*`) - No POSIX shell available
+>
+> **Platform compatibility:**
+> - **Linux with Docker/Podman**: Works natively
+> - **macOS with Docker Desktop**: Works (Docker Desktop uses Linux VMs)
+> - **Windows with Docker Desktop**: Requires WSL2 backend with Linux containers mode
+>
+> Scripts are executed using `/bin/sh` inside the container. Windows containers and Alpine images lack the required shell compatibility.
+
 Runs commands inside a Docker or Podman container. Requires an image or containerfile specification in the runtime config.
 
 ```cue

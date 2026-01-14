@@ -6,6 +6,23 @@ import Snippet from '@site/src/components/Snippet';
 
 # Runtime Container
 
+:::danger Apenas Containers Linux
+
+O runtime container **suporta apenas imagens de container Linux baseadas em Debian** (ex: `debian:stable-slim`).
+
+**NÃO suportado:**
+- **Imagens baseadas em Alpine** (`alpine:*`, `*-alpine`) — O shell `ash` do BusyBox tem incompatibilidades
+- **Imagens de container Windows** (`mcr.microsoft.com/windows/*`) — Não há shell POSIX disponível
+
+**Requisitos de plataforma:**
+- **Linux**: Funciona nativamente com Docker ou Podman
+- **macOS**: Funciona com Docker Desktop (usa VMs Linux internamente)
+- **Windows**: Requer Docker Desktop com backend WSL2 em modo de containers Linux
+
+Scripts são executados usando `/bin/sh` dentro do container, o que requer um ambiente Linux baseado em glibc.
+
+:::
+
 O runtime **container** executa comandos dentro de um container Docker ou Podman. Ele fornece isolamento completo e reprodutibilidade - seu comando executa no exato mesmo ambiente toda vez.
 
 ## Como Funciona

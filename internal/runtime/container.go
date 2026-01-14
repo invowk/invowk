@@ -96,6 +96,26 @@ func (r *ContainerRuntime) SetSSHServer(srv *sshserver.Server) {
 	r.sshServer = srv
 }
 
+// isWindowsContainerImage detects if an image is Windows-based by name convention.
+// The container runtime only supports Linux containers. Windows container images
+// (e.g., mcr.microsoft.com/windows/servercore) are not supported because the
+// runtime executes scripts using /bin/sh which is not available in Windows containers.
+func isWindowsContainerImage(image string) bool {
+	imageLower := strings.ToLower(image)
+	windowsPatterns := []string{
+		"mcr.microsoft.com/windows/",
+		"mcr.microsoft.com/powershell:",
+		"microsoft/windowsservercore",
+		"microsoft/nanoserver",
+	}
+	for _, pattern := range windowsPatterns {
+		if strings.Contains(imageLower, pattern) {
+			return true
+		}
+	}
+	return false
+}
+
 // Name returns the runtime name
 func (r *ContainerRuntime) Name() string {
 	return "container"
@@ -160,6 +180,14 @@ func (r *ContainerRuntime) Execute(ctx *ExecutionContext) *Result {
 	}
 	if provisionCleanup != nil {
 		defer provisionCleanup()
+	}
+
+	// Check for unsupported Windows container images
+	if isWindowsContainerImage(image) {
+		return &Result{
+			ExitCode: 1,
+			Error: fmt.Errorf("Windows container images are not supported. The container runtime requires Linux-based images (e.g., debian:stable-slim). See https://invowk.io/docs/runtime-modes/container for details"),
+		}
 	}
 
 	// Build environment
@@ -317,6 +345,14 @@ func (r *ContainerRuntime) PrepareCommand(ctx *ExecutionContext) (*PreparedComma
 	image, provisionCleanup, err := r.ensureProvisionedImage(ctx, containerCfg, invowkDir)
 	if err != nil {
 		return nil, fmt.Errorf("failed to prepare container image: %w", err)
+	}
+
+	// Check for unsupported Windows container images
+	if isWindowsContainerImage(image) {
+		if provisionCleanup != nil {
+			provisionCleanup()
+		}
+		return nil, fmt.Errorf("Windows container images are not supported. The container runtime requires Linux-based images (e.g., debian:stable-slim). See https://invowk.io/docs/runtime-modes/container for details")
 	}
 
 	// Build environment

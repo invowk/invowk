@@ -279,6 +279,29 @@ invkfile.cue → CUE Parser → pkg/invkfile → Runtime Selection → Execution
 - **Runtime Interface**: All runtimes implement the same interface in `internal/runtime/`
 - **TUI Components**: Built with Charm libraries (bubbletea, huh, lipgloss)
 
+### ⚠️ CRITICAL: Container Runtime Limitations
+
+**The container runtime ONLY supports Linux containers.** This is a fundamental design limitation:
+
+- **Supported images**: Debian-based images (e.g., `debian:stable-slim`)
+- **NOT supported**: Alpine-based images (`alpine:*`) and Windows container images
+
+**Why no Alpine support:**
+- The container runtime executes scripts using `/bin/sh` which invokes `dash` or `bash`
+- Alpine uses BusyBox's `ash` shell which has subtle incompatibilities
+- Alpine lacks many standard GNU utilities that scripts may depend on
+- We prioritize reliability over image size
+
+**Why no Windows container support:**
+- Scripts are executed with `/bin/sh -c` which doesn't exist in Windows containers
+- Windows containers use PowerShell or cmd.exe, not POSIX shells
+- The runtime architecture assumes a POSIX-compatible environment
+
+**When writing tests or examples:**
+- Always use `debian:stable-slim` as the reference container image
+- Never use Alpine images in tests, examples, or documentation
+- Never use Windows container images (e.g., `mcr.microsoft.com/windows/*`)
+
 ### Import Ordering
 
 Imports should be organized in three groups, separated by blank lines:

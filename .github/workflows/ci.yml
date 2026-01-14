@@ -51,11 +51,11 @@ jobs:
             engine: podman
             test-mode: full
 
-          # Windows with Docker
+          # Windows (unit tests only - container runtime requires Linux)
           - os: windows
             runner: windows-latest
             engine: docker
-            test-mode: full
+            test-mode: short
 
           # macOS (unit tests only, no container engine)
           - os: macos
