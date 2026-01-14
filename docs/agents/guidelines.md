@@ -1,11 +1,32 @@
 # General Guidelines
 
-- **Always use Context7 MCP** when you need library/API documentation, code generation, setup, or configuration steps without the user having to explicitly ask.
-- In all planning and design decisions, always consider that the code must be highly testable, maintainable, and extensible.
-- Always add or adjust unit tests for behavior changes; add integration tests when changes touch integrations or cross-component workflows.
-- Always document the code (functions, structs, etc.) with comments.
-- Always use descriptive variable names.
-- Always adjust the README and other documentation as needed when making significant changes to the codebase.
-- Always refactor unit and integration tests when needed after code changes, considering the design and semantics of the code changes.
-- After you finish code design and implementation changes, always double-check for leftovers that were not removed or changed after refactoring (e.g.: tests, CUE type definitions, README or documentation instructions, etc.).
-- Always follow the best practices for the programming language being used.
+## Instruction Priority
+
+- Follow system and user instructions first, then repo guidance (AGENTS and docs/agents).
+
+## Sources and Tooling
+
+- Use Context7 MCP when you need library/framework docs, setup, or config steps; follow the tool protocol (resolve library ID first, respect call limits).
+- Prefer local docs and source over external references; respect sandbox and approval constraints.
+
+## Code Quality
+
+- Keep changes focused and maintainable; favor small, testable units when designing changes.
+- Use clear, descriptive naming and follow language/project conventions.
+
+## Comments
+
+- Add comments only when behavior is non-obvious or business rules are subtle.
+
+## Tests
+
+- When behavior changes, add/update unit tests; add integration tests for cross-component or external integrations.
+- If tests are skipped, call it out and explain why.
+
+## Documentation
+
+- Update README or docs when user-facing behavior, CLI/API, or schemas change.
+
+## Cleanup
+
+- After refactors, check for stale references (tests, CUE types, docs, examples).
