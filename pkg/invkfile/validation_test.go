@@ -326,3 +326,160 @@ func TestValidateStringLength(t *testing.T) {
 		})
 	}
 }
+
+func TestValidateCustomChecks(t *testing.T) {
+	tests := []struct {
+		name        string
+		checks      []CustomCheckDependency
+		shouldError bool
+		errorMsg    string
+	}{
+		// Valid cases
+		{
+			name: "valid check",
+			checks: []CustomCheckDependency{{
+				Name:        "check-docker",
+				CheckScript: "docker --version",
+			}},
+			shouldError: false,
+		},
+		{
+			name: "valid with expected_output regex",
+			checks: []CustomCheckDependency{{
+				Name:           "version-check",
+				CheckScript:    "echo v1.2.3",
+				ExpectedOutput: `^v[0-9]+\.[0-9]+`,
+			}},
+			shouldError: false,
+		},
+		{
+			name: "valid alternatives format",
+			checks: []CustomCheckDependency{{
+				Alternatives: []CustomCheck{
+					{Name: "check-docker", CheckScript: "docker --version"},
+					{Name: "check-podman", CheckScript: "podman --version"},
+				},
+			}},
+			shouldError: false,
+		},
+		{
+			name:        "empty checks list",
+			checks:      []CustomCheckDependency{},
+			shouldError: false,
+		},
+
+		// Invalid cases - name too long
+		{
+			name: "name too long",
+			checks: []CustomCheckDependency{{
+				Name:        strings.Repeat("a", MaxNameLength+1),
+				CheckScript: "echo test",
+			}},
+			shouldError: true,
+			errorMsg:    "too long",
+		},
+
+		// Invalid cases - check_script too long
+		{
+			name: "check_script too long",
+			checks: []CustomCheckDependency{{
+				Name:        "test",
+				CheckScript: strings.Repeat("a", MaxScriptLength+1),
+			}},
+			shouldError: true,
+			errorMsg:    "too long",
+		},
+
+		// Invalid cases - dangerous expected_output regex
+		{
+			name: "expected_output dangerous pattern - nested quantifiers",
+			checks: []CustomCheckDependency{{
+				Name:           "test",
+				CheckScript:    "echo test",
+				ExpectedOutput: "(a+)+",
+			}},
+			shouldError: true,
+			errorMsg:    "nested quantifiers",
+		},
+		{
+			name: "expected_output dangerous pattern - overlapping alternation",
+			checks: []CustomCheckDependency{{
+				Name:           "test",
+				CheckScript:    "echo test",
+				ExpectedOutput: "(a|aa)+",
+			}},
+			shouldError: true,
+			errorMsg:    "overlapping",
+		},
+		{
+			name: "expected_output invalid regex syntax",
+			checks: []CustomCheckDependency{{
+				Name:           "test",
+				CheckScript:    "echo test",
+				ExpectedOutput: "[z-a]",
+			}},
+			shouldError: true,
+			errorMsg:    "invalid regex",
+		},
+		{
+			name: "expected_output too long pattern",
+			checks: []CustomCheckDependency{{
+				Name:           "test",
+				CheckScript:    "echo test",
+				ExpectedOutput: strings.Repeat("a", MaxRegexPatternLength+1),
+			}},
+			shouldError: true,
+			errorMsg:    "too long",
+		},
+
+		// Invalid cases - alternatives format
+		{
+			name: "alternatives with invalid name in second alternative",
+			checks: []CustomCheckDependency{{
+				Alternatives: []CustomCheck{
+					{Name: "good", CheckScript: "echo 1"},
+					{Name: strings.Repeat("x", MaxNameLength+1), CheckScript: "echo 2"},
+				},
+			}},
+			shouldError: true,
+			errorMsg:    "too long",
+		},
+		{
+			name: "alternatives with invalid check_script",
+			checks: []CustomCheckDependency{{
+				Alternatives: []CustomCheck{
+					{Name: "check", CheckScript: strings.Repeat("x", MaxScriptLength+1)},
+				},
+			}},
+			shouldError: true,
+			errorMsg:    "too long",
+		},
+		{
+			name: "alternatives with dangerous expected_output",
+			checks: []CustomCheckDependency{{
+				Alternatives: []CustomCheck{
+					{Name: "check", CheckScript: "echo test", ExpectedOutput: "(a+)+"},
+				},
+			}},
+			shouldError: true,
+			errorMsg:    "nested quantifiers",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateCustomChecks(tt.checks, "test", "/test/invkfile.cue")
+			if tt.shouldError {
+				if err == nil {
+					t.Errorf("expected error containing %q, got nil", tt.errorMsg)
+				} else if !strings.Contains(err.Error(), tt.errorMsg) {
+					t.Errorf("expected error containing %q, got %q", tt.errorMsg, err.Error())
+				}
+			} else {
+				if err != nil {
+					t.Errorf("unexpected error: %v", err)
+				}
+			}
+		})
+	}
+}

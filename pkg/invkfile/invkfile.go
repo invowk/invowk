@@ -1440,6 +1440,13 @@ func (inv *Invkfile) validate() error {
 		return fmt.Errorf("invkfile at %s has no commands defined (missing required 'cmds' list)", inv.FilePath)
 	}
 
+	// Validate root-level custom_checks dependencies
+	if inv.DependsOn != nil && len(inv.DependsOn.CustomChecks) > 0 {
+		if err := validateCustomChecks(inv.DependsOn.CustomChecks, "root", inv.FilePath); err != nil {
+			return err
+		}
+	}
+
 	// Validate each command
 	for i := range inv.Commands {
 		if err := inv.validateCommand(&inv.Commands[i]); err != nil {
@@ -1537,6 +1544,13 @@ func (inv *Invkfile) validateCommand(cmd *Command) error {
 		return fmt.Errorf("command '%s': %w in invkfile at %s", cmd.Name, err, inv.FilePath)
 	}
 
+	// Validate command-level custom_checks dependencies
+	if cmd.DependsOn != nil && len(cmd.DependsOn.CustomChecks) > 0 {
+		if err := validateCustomChecks(cmd.DependsOn.CustomChecks, fmt.Sprintf("command '%s'", cmd.Name), inv.FilePath); err != nil {
+			return err
+		}
+	}
+
 	if len(cmd.Implementations) == 0 {
 		return fmt.Errorf("command '%s' must have at least one implementation in invkfile at %s", cmd.Name, inv.FilePath)
 	}
@@ -1561,6 +1575,13 @@ func (inv *Invkfile) validateCommand(cmd *Command) error {
 		// Validate each runtime config
 		for j := range impl.Runtimes {
 			if err := validateRuntimeConfig(&impl.Runtimes[j], cmd.Name, i+1); err != nil {
+				return err
+			}
+		}
+
+		// Validate implementation-level custom_checks dependencies
+		if impl.DependsOn != nil && len(impl.DependsOn.CustomChecks) > 0 {
+			if err := validateCustomChecks(impl.DependsOn.CustomChecks, fmt.Sprintf("command '%s' implementation #%d", cmd.Name, i+1), inv.FilePath); err != nil {
 				return err
 			}
 		}
@@ -1809,6 +1830,36 @@ func (inv *Invkfile) validateArgs(cmd *Command) error {
 		}
 	}
 
+	return nil
+}
+
+// validateCustomChecks validates custom check dependencies for security and correctness
+func validateCustomChecks(checks []CustomCheckDependency, context string, filePath string) error {
+	for i, checkDep := range checks {
+		// Get all checks (handles both direct and alternatives formats)
+		for j, check := range checkDep.GetChecks() {
+			// Validate name length
+			if check.Name != "" {
+				if err := ValidateStringLength(check.Name, "custom_check name", MaxNameLength); err != nil {
+					return fmt.Errorf("%s custom_check #%d alternative #%d: %w in invkfile at %s", context, i+1, j+1, err, filePath)
+				}
+			}
+
+			// Validate check_script length (same limit as implementation scripts)
+			if check.CheckScript != "" {
+				if err := ValidateStringLength(check.CheckScript, "check_script", MaxScriptLength); err != nil {
+					return fmt.Errorf("%s custom_check #%d alternative #%d: %w in invkfile at %s", context, i+1, j+1, err, filePath)
+				}
+			}
+
+			// Validate expected_output regex pattern for safety
+			if check.ExpectedOutput != "" {
+				if err := ValidateRegexPattern(check.ExpectedOutput); err != nil {
+					return fmt.Errorf("%s custom_check #%d alternative #%d: expected_output: %w in invkfile at %s", context, i+1, j+1, err, filePath)
+				}
+			}
+		}
+	}
 	return nil
 }
 

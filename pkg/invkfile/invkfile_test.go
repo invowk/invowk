@@ -6345,3 +6345,253 @@ cmds: [
 
 // Note: Tests for invkpack.cue separation (ParseInvkpack, ParsePackFull, CommandScope, etc.)
 // have been moved to invkpack_test.go
+
+func TestParseCustomChecks_ValidCheckScript(t *testing.T) {
+	cueContent := `
+cmds: [
+	{
+		name: "test"
+		implementations: [
+			{
+				script: "echo test"
+				runtimes: [{name: "native"}]
+			}
+		]
+	}
+]
+depends_on: {
+	custom_checks: [
+		{name: "check-docker", check_script: "docker --version"},
+		{name: "version-check", check_script: "echo v1.0.0", expected_output: "^v[0-9]+\\.[0-9]+"},
+	]
+}
+`
+	tmpDir := t.TempDir()
+	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
+		t.Fatalf("Failed to write invkfile: %v", err)
+	}
+
+	parsed, err := Parse(invkfilePath)
+	if err != nil {
+		t.Fatalf("Parse() should accept valid custom_checks: %v", err)
+	}
+
+	if parsed.DependsOn == nil || len(parsed.DependsOn.CustomChecks) != 2 {
+		t.Errorf("Expected 2 custom_checks, got %v", parsed.DependsOn)
+	}
+}
+
+func TestParseCustomChecks_RejectsLongCheckScript(t *testing.T) {
+	// Create a check_script that exceeds MaxScriptLength
+	longScript := strings.Repeat("echo test; ", MaxScriptLength/11+1)
+
+	cueContent := fmt.Sprintf(`
+cmds: [
+	{
+		name: "test"
+		implementations: [
+			{
+				script: "echo test"
+				runtimes: [{name: "native"}]
+			}
+		]
+	}
+]
+depends_on: {
+	custom_checks: [
+		{name: "check", check_script: %q},
+	]
+}
+`, longScript)
+
+	tmpDir := t.TempDir()
+	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
+		t.Fatalf("Failed to write invkfile: %v", err)
+	}
+
+	_, err := Parse(invkfilePath)
+	if err == nil {
+		t.Errorf("Parse() should reject check_script exceeding MaxScriptLength")
+	}
+	if err != nil && !strings.Contains(err.Error(), "too long") {
+		t.Errorf("Expected error about 'too long', got: %v", err)
+	}
+}
+
+func TestParseCustomChecks_RejectsDangerousExpectedOutput(t *testing.T) {
+	cueContent := `
+cmds: [
+	{
+		name: "test"
+		implementations: [
+			{
+				script: "echo test"
+				runtimes: [{name: "native"}]
+			}
+		]
+	}
+]
+depends_on: {
+	custom_checks: [
+		{name: "check", check_script: "echo test", expected_output: "(a+)+"},
+	]
+}
+`
+	tmpDir := t.TempDir()
+	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
+		t.Fatalf("Failed to write invkfile: %v", err)
+	}
+
+	_, err := Parse(invkfilePath)
+	if err == nil {
+		t.Errorf("Parse() should reject dangerous expected_output regex pattern")
+	}
+	if err != nil && !strings.Contains(err.Error(), "nested quantifiers") {
+		t.Errorf("Expected error about nested quantifiers, got: %v", err)
+	}
+}
+
+func TestParseCustomChecks_CommandLevel(t *testing.T) {
+	cueContent := `
+cmds: [
+	{
+		name: "test"
+		implementations: [
+			{
+				script: "echo test"
+				runtimes: [{name: "native"}]
+			}
+		]
+		depends_on: {
+			custom_checks: [
+				{name: "check-docker", check_script: "docker --version"},
+			]
+		}
+	}
+]
+`
+	tmpDir := t.TempDir()
+	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
+		t.Fatalf("Failed to write invkfile: %v", err)
+	}
+
+	parsed, err := Parse(invkfilePath)
+	if err != nil {
+		t.Fatalf("Parse() should accept valid command-level custom_checks: %v", err)
+	}
+
+	if parsed.Commands[0].DependsOn == nil || len(parsed.Commands[0].DependsOn.CustomChecks) != 1 {
+		t.Errorf("Expected 1 command-level custom_check")
+	}
+}
+
+func TestParseCustomChecks_CommandLevelRejectsDangerousPattern(t *testing.T) {
+	cueContent := `
+cmds: [
+	{
+		name: "test"
+		implementations: [
+			{
+				script: "echo test"
+				runtimes: [{name: "native"}]
+			}
+		]
+		depends_on: {
+			custom_checks: [
+				{name: "check", check_script: "echo test", expected_output: "(a+)+"},
+			]
+		}
+	}
+]
+`
+	tmpDir := t.TempDir()
+	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
+		t.Fatalf("Failed to write invkfile: %v", err)
+	}
+
+	_, err := Parse(invkfilePath)
+	if err == nil {
+		t.Errorf("Parse() should reject dangerous expected_output in command-level custom_checks")
+	}
+	if err != nil && !strings.Contains(err.Error(), "command 'test'") {
+		t.Errorf("Error should mention command name, got: %v", err)
+	}
+}
+
+func TestParseCustomChecks_ImplementationLevel(t *testing.T) {
+	cueContent := `
+cmds: [
+	{
+		name: "test"
+		implementations: [
+			{
+				script: "echo test"
+				runtimes: [{name: "native"}]
+				depends_on: {
+					custom_checks: [
+						{name: "check-docker", check_script: "docker --version"},
+					]
+				}
+			}
+		]
+	}
+]
+`
+	tmpDir := t.TempDir()
+	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
+		t.Fatalf("Failed to write invkfile: %v", err)
+	}
+
+	parsed, err := Parse(invkfilePath)
+	if err != nil {
+		t.Fatalf("Parse() should accept valid implementation-level custom_checks: %v", err)
+	}
+
+	if parsed.Commands[0].Implementations[0].DependsOn == nil ||
+		len(parsed.Commands[0].Implementations[0].DependsOn.CustomChecks) != 1 {
+		t.Errorf("Expected 1 implementation-level custom_check")
+	}
+}
+
+func TestParseCustomChecks_ImplementationLevelRejectsLongCheckScript(t *testing.T) {
+	longScript := strings.Repeat("echo test; ", MaxScriptLength/11+1)
+
+	cueContent := fmt.Sprintf(`
+cmds: [
+	{
+		name: "test"
+		implementations: [
+			{
+				script: "echo test"
+				runtimes: [{name: "native"}]
+				depends_on: {
+					custom_checks: [
+						{name: "check", check_script: %q},
+					]
+				}
+			}
+		]
+	}
+]
+`, longScript)
+
+	tmpDir := t.TempDir()
+	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
+		t.Fatalf("Failed to write invkfile: %v", err)
+	}
+
+	_, err := Parse(invkfilePath)
+	if err == nil {
+		t.Errorf("Parse() should reject check_script exceeding MaxScriptLength in implementation-level custom_checks")
+	}
+	if err != nil && !strings.Contains(err.Error(), "implementation #1") {
+		t.Errorf("Error should mention implementation number, got: %v", err)
+	}
+}
