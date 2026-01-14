@@ -720,3 +720,42 @@ func TestValidateCommandDependencyName(t *testing.T) {
 		})
 	}
 }
+
+func TestIsAbsolutePath(t *testing.T) {
+	tests := []struct {
+		name     string
+		path     string
+		expected bool
+	}{
+		// Unix-style absolute paths
+		{name: "unix root", path: "/", expected: true},
+		{name: "unix absolute", path: "/etc/passwd", expected: true},
+		{name: "unix deep path", path: "/usr/local/bin/go", expected: true},
+
+		// Windows-style absolute paths
+		{name: "windows C drive backslash", path: `C:\Users\test`, expected: true},
+		{name: "windows C drive slash", path: "C:/Users/test", expected: true},
+		{name: "windows lowercase drive", path: `c:\windows`, expected: true},
+		{name: "windows D drive", path: `D:\data`, expected: true},
+
+		// Relative paths (should return false)
+		{name: "relative simple", path: "file.txt", expected: false},
+		{name: "relative subdir", path: "subdir/file.txt", expected: false},
+		{name: "relative dot", path: "./file.txt", expected: false},
+		{name: "relative parent", path: "../file.txt", expected: false},
+		{name: "empty path", path: "", expected: false},
+
+		// Edge cases
+		{name: "windows drive no slash", path: "C:file.txt", expected: false},
+		{name: "single letter not drive", path: "C", expected: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := isAbsolutePath(tt.path)
+			if got != tt.expected {
+				t.Errorf("isAbsolutePath(%q) = %v, want %v", tt.path, got, tt.expected)
+			}
+		})
+	}
+}
