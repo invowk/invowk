@@ -30,7 +30,7 @@ You'll see something like:
 
 <Snippet id="quickstart/list-output" />
 
-Notice how the command is prefixed with `myproject` (the group name). This keeps commands organized and prevents naming conflicts.
+Commands from the current directory are unprefixed. Pack commands will include a pack prefix when present.
 
 ## Run a Command
 
@@ -52,9 +52,7 @@ Edit your `invkfile.cue` to add a more useful command:
 
 Now run:
 
-```bash
-invowk cmd myproject info
-```
+<Snippet id="quickstart/run-info" />
 
 You'll see your system information printed out nicely.
 

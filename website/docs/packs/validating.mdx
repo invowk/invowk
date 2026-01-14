@@ -18,7 +18,7 @@ Output for a valid pack:
 
 ## Deep Validation
 
-Add `--deep` to also parse and validate the invkfile:
+Add `--deep` to also parse and validate the invkfile (when present):
 
 <Snippet id="packs/validate-deep" />
 
@@ -31,8 +31,9 @@ Output:
 ### Structure Checks
 
 - Pack directory exists
-- `invkfile.cue` is present at root
-- No nested packs (packs can't contain other packs)
+- Required `invkpack.cue` at root
+- `invkfile.cue` is optional (library-only packs are allowed)
+- No nested packs (except inside `invk_packs/`)
 
 ### Security Checks
 
@@ -46,17 +47,18 @@ Output:
 
 - Folder name ends with `.invkpack`
 - Name prefix follows rules (starts with letter, alphanumeric + dots)
+- Pack ID in `invkpack.cue` matches the folder name prefix
 - No invalid characters (hyphens, underscores)
 
 ### Deep Checks (with `--deep`)
 
-- Invkfile parses without errors
+- Invkfile parses without errors (if present)
 - CUE syntax is valid
 - Schema constraints are met
 
 ## Validation Errors
 
-### Missing Invkfile
+### Missing Invkpack
 
 <Snippet id="packs/error-missing-invkfile" />
 

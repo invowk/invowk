@@ -1,0 +1,88 @@
+---
+sidebar_position: 2
+---
+
+import Snippet from '@site/src/components/Snippet';
+
+# Commands and Namespaces
+
+Invowk commands are named directly in `invkfile.cue`. Namespaces come from **packs**: commands in a pack are prefixed by the pack ID from `invkpack.cue`.
+
+## Command Names
+
+Command names can include spaces to create subcommand-like hierarchies:
+
+<Snippet id="commands-namespaces/subcommand-names" />
+
+### Command Naming Rules
+
+| Rule | Valid | Invalid |
+|------|-------|---------|
+| Must start with a letter | `build`, `Test` | `1build` |
+| Letters, numbers, spaces, hyphens, underscores | `test unit`, `build-all` | `build@all` |
+
+Spaces are purely organizational - there’s no special parent-child relationship between commands.
+
+## Pack Namespaces
+
+Pack commands are namespaced by the `pack` field in `invkpack.cue`:
+
+<Snippet id="commands-namespaces/pack-prefix" />
+
+These commands become:
+- `invowk cmd com.company.frontend build`
+- `invowk cmd com.company.frontend test unit`
+
+### Pack ID Naming Rules
+
+| Rule | Valid | Invalid |
+|------|-------|---------|
+| Must start with a letter | `myproject`, `Project1` | `1project`, `_project` |
+| Letters and numbers only | `myproject`, `v2` | `my-project`, `my_project` |
+| Dots for nesting | `my.project`, `a.b.c` | `my..project`, `.project`, `project.` |
+
+#### Valid Examples
+
+<Snippet id="commands-namespaces/valid-pack-ids" />
+
+#### Invalid Examples
+
+<Snippet id="commands-namespaces/invalid-pack-ids" />
+
+For shared packs, use Reverse Domain Name System (RDNS) naming (e.g., `com.company.tools`) to prevent collisions.
+
+## Command Discovery
+
+Invowk discovers commands from multiple sources in priority order:
+
+1. **Current directory** (highest priority)
+2. **User commands directory** (`~/.invowk/cmds/`)
+3. **Configured search paths** (from config file)
+
+When listing commands, you’ll see their source:
+
+<Snippet id="commands-namespaces/discovery-output" />
+
+## Command Dependencies
+
+Commands can depend on other commands. Use the full command name as listed by `invowk cmd --list` (pack prefix when applicable):
+
+<Snippet id="commands-namespaces/command-dependency" />
+
+## Why Namespaces Matter
+
+1. **Namespace isolation** - Pack commands stay distinct across shared toolkits
+2. **Clear origin** - Pack prefixes show where commands come from
+3. **Logical organization** - Dot-separated pack IDs organize related commands
+4. **Tab completion** - Pack IDs provide natural completion boundaries
+
+## Best Practices
+
+- **Local projects**: Keep command names short and focused (no prefixes).
+- **Packs**: Use RDNS pack IDs like `com.company.devtools`.
+- **Avoid generic pack IDs**: Prefer `com.company.tools` over `tools`.
+
+## Next Steps
+
+- [Implementations](./implementations) - Learn about platform-specific command implementations
+- [Runtime Modes](../runtime-modes/overview) - Understand native, virtual, and container execution

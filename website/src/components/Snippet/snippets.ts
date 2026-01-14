@@ -43,10 +43,7 @@ export const snippets = {
 
   'getting-started/invkfile-basic-structure': {
     language: 'cue',
-    code: `group: "myproject"           // Required: namespace for your commands
-version: "1.0"               // Optional: version of this invkfile
-description: "My commands"   // Optional: what this file is about
-
+    code: `// invkfile.cue (commands only)
 cmds: [                  // Required: list of commands
     // ... your commands here
 ]`,
@@ -54,11 +51,7 @@ cmds: [                  // Required: list of commands
 
   'getting-started/go-project-full': {
     language: 'cue',
-    code: `group: "goproject"
-version: "1.0"
-description: "Commands for my Go project"
-
-cmds: [
+    code: `cmds: [
     // Simple build command
     {
         name: "build"
@@ -156,9 +149,7 @@ cmds: [
 
   'getting-started/env-vars-levels': {
     language: 'cue',
-    code: `group: "goproject"
-
-// Root-level env applies to ALL commands
+    code: `// Root-level env applies to ALL commands
 env: {
     vars: {
         GO111MODULE: "on"
@@ -202,22 +193,22 @@ cmds: [
 
   'cli/run-command': {
     language: 'bash',
-    code: `invowk cmd goproject build`,
+    code: `invowk cmd build`,
   },
 
   'cli/run-subcommands': {
     language: 'bash',
-    code: `invowk cmd goproject test unit
-invowk cmd goproject test coverage`,
+    code: `invowk cmd test unit
+invowk cmd test coverage`,
   },
 
   'cli/runtime-override': {
     language: 'bash',
     code: `# Use the default (native)
-invowk cmd goproject test unit
+invowk cmd test unit
 
 # Explicitly use virtual runtime
-invowk cmd goproject test unit --runtime virtual`,
+invowk cmd test unit --runtime virtual`,
   },
 
   'cli/cue-validate': {
@@ -235,10 +226,10 @@ invowk cmd goproject test unit --runtime virtual`,
   (* = default runtime)
 
 From current directory:
-  goproject build - Build the project [native*]
-  goproject test unit - Run unit tests [native*, virtual]
-  goproject test coverage - Run tests with coverage [native*]
-  goproject clean - Remove build artifacts [native*] (linux, macos)`,
+  build - Build the project [native*]
+  test unit - Run unit tests [native*, virtual]
+  test coverage - Run tests with coverage [native*]
+  clean - Remove build artifacts [native*] (linux, macos)`,
   },
 
   'cli/output-deps-not-satisfied': {
@@ -260,8 +251,6 @@ Install the missing tools and try again.`,
   'core-concepts/cue-basic-syntax': {
     language: 'cue',
     code: `// This is a comment
-group: "myproject"
-version: "1.0"
 
 // Lists use square brackets
 cmds: [
@@ -281,9 +270,6 @@ script: """
   'core-concepts/schema-overview': {
     language: 'cue',
     code: `// Root level
-group: string           // Required: namespace prefix
-version?: string        // Optional: invkfile version (e.g., "1.0")
-description?: string    // Optional: what this file is about
 default_shell?: string  // Optional: override default shell
 workdir?: string        // Optional: default working directory
 env?: #EnvConfig        // Optional: global environment config
@@ -291,22 +277,6 @@ depends_on?: #DependsOn // Optional: global dependencies
 
 // Required: at least one command
 cmds: [...#Command]`,
-  },
-
-  'core-concepts/group-namespace': {
-    language: 'cue',
-    code: `group: "myproject"
-
-cmds: [
-    {name: "build"},
-    {name: "test"},
-]`,
-  },
-
-  'core-concepts/rdns-naming': {
-    language: 'cue',
-    code: `group: "com.company.devtools"
-group: "io.github.username.project"`,
   },
 
   'core-concepts/command-structure': {
@@ -369,11 +339,7 @@ script: "deploy.sh"`,
 
   'core-concepts/full-example': {
     language: 'cue',
-    code: `group: "myapp"
-version: "1.0"
-description: "Build and deployment commands for MyApp"
-
-// Global environment
+    code: `// Global environment
 env: {
     vars: {
         APP_NAME: "myapp"
@@ -416,7 +382,7 @@ cmds: [
         ]
         depends_on: {
             tools: [{alternatives: ["docker", "podman"]}]
-            cmds: [{alternatives: ["myapp build"]}]
+            cmds: [{alternatives: ["build"]}]
         }
         flags: [
             {name: "env", description: "Target environment", required: true},
@@ -467,6 +433,211 @@ cmds: [
 }`,
   },
 
+  'runtime-modes/native-run': {
+    language: 'bash',
+    code: `invowk cmd build`,
+  },
+
+  'runtime-modes/native-default-shell': {
+    language: 'cue',
+    code: `default_shell: "/bin/bash"
+
+cmds: [
+    // Commands...
+]`,
+  },
+
+  'runtime-modes/native-bash-script': {
+    language: 'cue',
+    code: `{
+    name: "build"
+    implementations: [{
+        script: """
+            #!/bin/bash
+            set -euo pipefail  # Bash strict mode
+            
+            # Bash-specific features
+            declare -A config=(
+                ["env"]="production"
+                ["debug"]="false"
+            )
+            
+            echo "Building for \${config[env]}..."
+            """
+        runtimes: [{name: "native"}]
+        platforms: [{name: "linux"}, {name: "macos"}]
+    }]
+}`,
+  },
+
+  'runtime-modes/native-powershell-script': {
+    language: 'cue',
+    code: `{
+    name: "build"
+    implementations: [{
+        script: """
+            $ErrorActionPreference = "Stop"
+            
+            Write-Host "Building..." -ForegroundColor Green
+            dotnet build --configuration Release
+            Write-Host "Done!" -ForegroundColor Green
+            """
+        runtimes: [{name: "native"}]
+        platforms: [{name: "windows"}]
+    }]
+}`,
+  },
+
+  'runtime-modes/native-cmd-script': {
+    language: 'cue',
+    code: `{
+    name: "build"
+    implementations: [{
+        script: """
+            @echo off
+            echo Building...
+            msbuild /p:Configuration=Release
+            echo Done!
+            """
+        runtimes: [{name: "native"}]
+        platforms: [{name: "windows"}]
+    }]
+}`,
+  },
+
+  'runtime-modes/native-shebang-script': {
+    language: 'cue',
+    code: `{
+    name: "analyze"
+    implementations: [{
+        script: """
+            #!/usr/bin/env python3
+            import sys
+            import json
+            
+            print(f"Python {sys.version}")
+            data = {"status": "ok", "items": [1, 2, 3]}
+            print(json.dumps(data, indent=2))
+            """
+        runtimes: [{name: "native"}]
+    }]
+}`,
+  },
+
+  'runtime-modes/native-explicit-interpreter': {
+    language: 'cue',
+    code: `{
+    name: "analyze"
+    implementations: [{
+        script: """
+            import sys
+            print(f"Hello from Python {sys.version_info.major}!")
+            """
+        runtimes: [{
+            name: "native"
+            interpreter: "python3"  // Explicit interpreter
+        }]
+    }]
+}`,
+  },
+
+  'runtime-modes/native-interpreter-args': {
+    language: 'cue',
+    code: `{
+    name: "script"
+    implementations: [{
+        script: """
+            print("Unbuffered output!")
+            """
+        runtimes: [{
+            name: "native"
+            interpreter: "python3 -u"  // With arguments
+        }]
+    }]
+}`,
+  },
+
+  'runtime-modes/native-env-vars': {
+    language: 'cue',
+    code: `{
+    name: "deploy"
+    env: {
+        vars: {
+            DEPLOY_ENV: "production"
+        }
+    }
+    implementations: [{
+        script: """
+            echo "Home: $HOME"
+            echo "User: $USER"
+            echo "Deploy to: $DEPLOY_ENV"
+            """
+        runtimes: [{name: "native"}]
+    }]
+}`,
+  },
+
+  'runtime-modes/native-flags-args': {
+    language: 'cue',
+    code: `{
+    name: "greet"
+    flags: [
+        {name: "loud", type: "bool", default_value: "false"}
+    ]
+    args: [
+        {name: "name", default_value: "World"}
+    ]
+    implementations: [{
+        script: """
+            if [ "$INVOWK_FLAG_LOUD" = "true" ]; then
+                echo "HELLO, $INVOWK_ARG_NAME!"
+            else
+                echo "Hello, $INVOWK_ARG_NAME!"
+            fi
+            """
+        runtimes: [{name: "native"}]
+    }]
+}`,
+  },
+
+  'runtime-modes/native-flags-run': {
+    language: 'bash',
+    code: `invowk cmd greet Alice --loud
+# Output: HELLO, ALICE!`,
+  },
+
+  'runtime-modes/native-workdir': {
+    language: 'cue',
+    code: `{
+    name: "build frontend"
+    workdir: "./frontend"  // Run in frontend subdirectory
+    implementations: [{
+        script: "npm run build"
+        runtimes: [{name: "native"}]
+    }]
+}`,
+  },
+
+  'runtime-modes/native-deps': {
+    language: 'cue',
+    code: `{
+    name: "deploy"
+    depends_on: {
+        tools: [
+            {alternatives: ["docker", "podman"]},
+            {alternatives: ["kubectl"]}
+        ]
+        filepaths: [
+            {alternatives: ["Dockerfile"]}
+        ]
+    }
+    implementations: [{
+        script: "docker build -t myapp . && kubectl apply -f k8s/"
+        runtimes: [{name: "native"}]
+    }]
+}`,
+  },
+
   'runtime-modes/virtual-basic': {
     language: 'cue',
     code: `{
@@ -484,7 +655,7 @@ cmds: [
 
   'runtime-modes/virtual-run': {
     language: 'bash',
-    code: `invowk cmd myproject build --runtime virtual`,
+    code: `invowk cmd build --runtime virtual`,
   },
 
   'runtime-modes/virtual-cross-platform': {
@@ -798,7 +969,7 @@ virtual_shell: {
     language: 'cue',
     code: `depends_on: {
     cmds: [
-        {alternatives: ["myapp build"]}
+        {alternatives: ["build"]}
     ]
 }`,
   },
@@ -808,7 +979,7 @@ virtual_shell: {
     code: `depends_on: {
     cmds: [
         // Either command being discoverable satisfies this dependency
-        {alternatives: ["myproject build debug", "myproject build release"]},
+        {alternatives: ["build debug", "build release"]},
     ]
 }`,
   },
@@ -817,8 +988,8 @@ virtual_shell: {
     language: 'cue',
     code: `depends_on: {
     cmds: [
-        {alternatives: ["myproject build"]},
-        {alternatives: ["myproject test unit", "myproject test integration"]},
+        {alternatives: ["build"]},
+        {alternatives: ["test unit", "test integration"]},
     ]
 }`,
   },
@@ -832,7 +1003,7 @@ virtual_shell: {
 
   'dependencies/commands-workflow': {
     language: 'bash',
-    code: `invowk cmd myproject build && invowk cmd myproject deploy`,
+    code: `invowk cmd build && invowk cmd deploy`,
   },
 
   'dependencies/capabilities-basic': {
@@ -952,9 +1123,7 @@ virtual_shell: {
 
   'environment/scope-root': {
     language: 'cue',
-    code: `group: "myproject"
-
-env: {
+    code: `env: {
     vars: {
         PROJECT_NAME: "myproject"
     }
@@ -1016,16 +1185,16 @@ implementations: [
   'environment/cli-overrides': {
     language: 'bash',
     code: `# Set a single variable
-invowk cmd myproject build --env-var NODE_ENV=development
+invowk cmd build --env-var NODE_ENV=development
 
 # Set multiple variables
-invowk cmd myproject build -E NODE_ENV=dev -E DEBUG=true
+invowk cmd build -E NODE_ENV=dev -E DEBUG=true
 
 # Load from a file
-invowk cmd myproject build --env-file .env.local
+invowk cmd build --env-file .env.local
 
 # Combine
-invowk cmd myproject build --env-file .env.local -E OVERRIDE=value`,
+invowk cmd build --env-file .env.local -E OVERRIDE=value`,
   },
 
   'environment/container-env': {
@@ -1152,9 +1321,7 @@ DEBUG=true`,
 
   'environment/env-files-scope-root': {
     language: 'cue',
-    code: `group: "myproject"
-
-env: {
+    code: `env: {
     files: [".env"]  // Loaded for all commands
 }
 
@@ -1191,13 +1358,13 @@ cmds: [...]`,
   'environment/env-files-cli-override': {
     language: 'bash',
     code: `# Load extra file
-invowk cmd myproject build --env-file .env.custom
+invowk cmd build --env-file .env.custom
 
 # Short form
-invowk cmd myproject build -e .env.custom
+invowk cmd build -e .env.custom
 
 # Multiple files
-invowk cmd myproject build -e .env.custom -e .env.secrets`,
+invowk cmd build -e .env.custom -e .env.secrets`,
   },
 
   'environment/env-files-dev-prod': {
@@ -1334,9 +1501,7 @@ invowk cmd myproject build -e .env.custom -e .env.secrets`,
 
   'environment/env-vars-scope-root': {
     language: 'cue',
-    code: `group: "myproject"
-
-env: {
+    code: `env: {
     vars: {
         PROJECT_NAME: "myproject"
         VERSION: "1.0.0"
@@ -1451,13 +1616,13 @@ implementations: [
   'environment/env-vars-cli-override': {
     language: 'bash',
     code: `# Single variable
-invowk cmd myproject build --env-var NODE_ENV=development
+invowk cmd build --env-var NODE_ENV=development
 
 # Short form
-invowk cmd myproject build -E NODE_ENV=development
+invowk cmd build -E NODE_ENV=development
 
 # Multiple variables
-invowk cmd myproject build -E NODE_ENV=dev -E DEBUG=true -E PORT=8080`,
+invowk cmd build -E NODE_ENV=dev -E DEBUG=true -E PORT=8080`,
   },
 
   'environment/env-vars-build-config': {
@@ -1591,9 +1756,7 @@ System Environment (lowest priority)`,
 
   'environment/precedence-invkfile': {
     language: 'cue',
-    code: `group: "myproject"
-
-// Root level
+    code: `// Root level
 env: {
     files: [".env"]
     vars: {
@@ -1651,7 +1814,7 @@ CACHE_DIR=./cache                      # From .env.build file`,
 
   'environment/precedence-cli-override': {
     language: 'bash',
-    code: `invowk cmd myproject build --env-var API_URL=http://cli.example.com`,
+    code: `invowk cmd build --env-var API_URL=http://cli.example.com`,
   },
 
   'environment/precedence-vars-over-files': {
@@ -1757,7 +1920,7 @@ implementations: [{
   'environment/precedence-cli-temp': {
     language: 'bash',
     code: `# Quick test with different config
-invowk cmd myproject build -E DEBUG=true -E LOG_LEVEL=debug`,
+invowk cmd build -E DEBUG=true -E LOG_LEVEL=debug`,
   },
 
   'environment/precedence-debug': {
@@ -1859,7 +2022,7 @@ invowk cmd myproject build -E DEBUG=true -E LOG_LEVEL=debug`,
 
   'flags-args/overview-usage': {
     language: 'bash',
-    code: `invowk cmd myproject deploy production api web --dry-run --replicas=3`,
+    code: `invowk cmd deploy production api web --dry-run --replicas=3`,
   },
 
   'flags-args/overview-flags-example': {
@@ -1874,10 +2037,10 @@ invowk cmd myproject build -E DEBUG=true -E LOG_LEVEL=debug`,
   'flags-args/overview-flags-usage': {
     language: 'bash',
     code: `# Long form
-invowk cmd myproject build --verbose --output=./build --count=5
+invowk cmd build --verbose --output=./build --count=5
 
 # Short form
-invowk cmd myproject build -v -o=./build`,
+invowk cmd build -v -o=./build`,
   },
 
   'flags-args/overview-args-example': {
@@ -1891,7 +2054,7 @@ invowk cmd myproject build -v -o=./build`,
 
   'flags-args/overview-args-usage': {
     language: 'bash',
-    code: `invowk cmd myproject copy ./src ./dest file1.txt file2.txt`,
+    code: `invowk cmd copy ./src ./dest file1.txt file2.txt`,
   },
 
   'flags-args/overview-shell-positional': {
@@ -1921,20 +2084,20 @@ invowk cmd myproject build -v -o=./build`,
   'flags-args/overview-mixing': {
     language: 'bash',
     code: `# All equivalent
-invowk cmd myproject deploy production --dry-run api web
-invowk cmd myproject deploy --dry-run production api web
-invowk cmd myproject deploy production api web --dry-run`,
+invowk cmd deploy production --dry-run api web
+invowk cmd deploy --dry-run production api web
+invowk cmd deploy production api web --dry-run`,
   },
 
   'flags-args/overview-help': {
     language: 'bash',
-    code: `invowk cmd myproject deploy --help`,
+    code: `invowk cmd deploy --help`,
   },
 
   'flags-args/overview-help-output': {
     language: 'text',
     code: `Usage:
-  invowk cmd myproject deploy <environment> [services]... [flags]
+  invowk cmd deploy <environment> [services]... [flags]
 
 Arguments:
   environment          (required) - Target environment
@@ -1983,7 +2146,7 @@ Flags:
 
   'flags-args/flags-type-string-usage': {
     language: 'bash',
-    code: `invowk cmd myproject run --message="Hello World"`,
+    code: `invowk cmd run --message="Hello World"`,
   },
 
   'flags-args/flags-type-bool': {
@@ -1994,11 +2157,11 @@ Flags:
   'flags-args/flags-type-bool-usage': {
     language: 'bash',
     code: `# Enable
-invowk cmd myproject run --verbose
-invowk cmd myproject run --verbose=true
+invowk cmd run --verbose
+invowk cmd run --verbose=true
 
 # Disable (explicit)
-invowk cmd myproject run --verbose=false`,
+invowk cmd run --verbose=false`,
   },
 
   'flags-args/flags-type-int': {
@@ -2008,8 +2171,8 @@ invowk cmd myproject run --verbose=false`,
 
   'flags-args/flags-type-int-usage': {
     language: 'bash',
-    code: `invowk cmd myproject run --count=10
-invowk cmd myproject run --count=-1  # Negative allowed`,
+    code: `invowk cmd run --count=10
+invowk cmd run --count=-1  # Negative allowed`,
   },
 
   'flags-args/flags-type-float': {
@@ -2019,8 +2182,8 @@ invowk cmd myproject run --count=-1  # Negative allowed`,
 
   'flags-args/flags-type-float-usage': {
     language: 'bash',
-    code: `invowk cmd myproject run --threshold=0.8
-invowk cmd myproject run --threshold=1.5e-3  # Scientific notation`,
+    code: `invowk cmd run --threshold=0.8
+invowk cmd run --threshold=1.5e-3  # Scientific notation`,
   },
 
   'flags-args/flags-required': {
@@ -2035,11 +2198,11 @@ invowk cmd myproject run --threshold=1.5e-3  # Scientific notation`,
   'flags-args/flags-required-usage': {
     language: 'bash',
     code: `# Error: missing required flag
-invowk cmd myproject deploy
+invowk cmd deploy
 # Error: flag 'target' is required
 
 # Success
-invowk cmd myproject deploy --target=production`,
+invowk cmd deploy --target=production`,
   },
 
   'flags-args/flags-optional': {
@@ -2055,10 +2218,10 @@ invowk cmd myproject deploy --target=production`,
   'flags-args/flags-optional-usage': {
     language: 'bash',
     code: `# Uses default (30)
-invowk cmd myproject request
+invowk cmd request
 
 # Override
-invowk cmd myproject request --timeout=60`,
+invowk cmd request --timeout=60`,
   },
 
   'flags-args/flags-short-aliases': {
@@ -2073,13 +2236,13 @@ invowk cmd myproject request --timeout=60`,
   'flags-args/flags-short-usage': {
     language: 'bash',
     code: `# Long form
-invowk cmd myproject build --verbose --output=./dist --force
+invowk cmd build --verbose --output=./dist --force
 
 # Short form
-invowk cmd myproject build -v -o=./dist -f
+invowk cmd build -v -o=./dist -f
 
 # Mixed
-invowk cmd myproject build -v --output=./dist -f`,
+invowk cmd build -v --output=./dist -f`,
   },
 
   'flags-args/flags-validation': {
@@ -2102,10 +2265,10 @@ invowk cmd myproject build -v --output=./dist -f`,
   'flags-args/flags-validation-usage': {
     language: 'bash',
     code: `# Valid
-invowk cmd myproject deploy --env=prod --version=1.2.3
+invowk cmd deploy --env=prod --version=1.2.3
 
 # Invalid - fails before execution
-invowk cmd myproject deploy --env=production
+invowk cmd deploy --env=production
 # Error: flag 'env' value 'production' does not match required pattern '^(dev|staging|prod)$'`,
   },
 
@@ -2257,7 +2420,7 @@ invowk cmd myproject deploy --env=production
 
   'flags-args/args-defining-usage': {
     language: 'bash',
-    code: `invowk cmd myproject copy ./src ./dest`,
+    code: `invowk cmd copy ./src ./dest`,
   },
 
   'flags-args/args-type-string': {
@@ -2272,7 +2435,7 @@ invowk cmd myproject deploy --env=production
 
   'flags-args/args-type-int-usage': {
     language: 'bash',
-    code: `invowk cmd myproject generate 5`,
+    code: `invowk cmd generate 5`,
   },
 
   'flags-args/args-type-float': {
@@ -2282,7 +2445,7 @@ invowk cmd myproject deploy --env=production
 
   'flags-args/args-type-float-usage': {
     language: 'bash',
-    code: `invowk cmd myproject scale 0.5`,
+    code: `invowk cmd scale 0.5`,
   },
 
   'flags-args/args-required': {
@@ -2296,11 +2459,11 @@ invowk cmd myproject deploy --env=production
   'flags-args/args-required-usage': {
     language: 'bash',
     code: `# Error: missing required argument
-invowk cmd myproject convert input.txt
+invowk cmd convert input.txt
 # Error: argument 'output' is required
 
 # Success
-invowk cmd myproject convert input.txt output.txt`,
+invowk cmd convert input.txt output.txt`,
   },
 
   'flags-args/args-optional': {
@@ -2314,10 +2477,10 @@ invowk cmd myproject convert input.txt output.txt`,
   'flags-args/args-optional-usage': {
     language: 'bash',
     code: `# Uses default format (json)
-invowk cmd myproject parse input.txt
+invowk cmd parse input.txt
 
 # Override format
-invowk cmd myproject parse input.txt yaml`,
+invowk cmd parse input.txt yaml`,
   },
 
   'flags-args/args-ordering': {
@@ -2362,7 +2525,7 @@ args: [
 
   'flags-args/args-variadic-usage': {
     language: 'bash',
-    code: `invowk cmd myproject process out.txt a.txt b.txt c.txt
+    code: `invowk cmd process out.txt a.txt b.txt c.txt
 # Output: out.txt
 # Inputs: a.txt b.txt c.txt
 # Count: 3
@@ -2391,10 +2554,10 @@ args: [
   'flags-args/args-validation-usage': {
     language: 'bash',
     code: `# Valid
-invowk cmd myproject deploy prod 1.2.3
+invowk cmd deploy prod 1.2.3
 
 # Invalid
-invowk cmd myproject deploy production
+invowk cmd deploy production
 # Error: argument 'environment' value 'production' does not match pattern '^(dev|staging|prod)$'`,
   },
 
@@ -2553,9 +2716,9 @@ invowk cmd myproject deploy production
   'flags-args/args-mixing-flags': {
     language: 'bash',
     code: `# All equivalent
-invowk cmd myproject deploy prod 3 --dry-run
-invowk cmd myproject deploy --dry-run prod 3
-invowk cmd myproject deploy prod --dry-run 3`,
+invowk cmd deploy prod 3 --dry-run
+invowk cmd deploy --dry-run prod 3
+invowk cmd deploy prod --dry-run 3`,
   },
 
   // =============================================================================
@@ -2815,8 +2978,7 @@ interpreter: "node --max-old-space-size=4096"`,
 
   'advanced/workdir-root': {
     language: 'cue',
-    code: `group: "myproject"
-workdir: "./src"  // All commands default to ./src
+    code: `workdir: "./src"  // All commands default to ./src
 
 cmds: [
     {
@@ -2834,7 +2996,7 @@ cmds: [
 
   'advanced/workdir-cli': {
     language: 'bash',
-    code: `invowk cmd myproject build --workdir ./frontend`,
+    code: `invowk cmd build --workdir ./frontend`,
   },
 
   'advanced/workdir-relative': {
@@ -2858,8 +3020,7 @@ workdir: "\${PROJECT_ROOT}/src"`,
 
   'advanced/workdir-precedence': {
     language: 'cue',
-    code: `group: "myproject"
-workdir: "./root"  // Default: ./root
+    code: `workdir: "./root"  // Default: ./root
 
 cmds: [
     {
@@ -2878,9 +3039,7 @@ cmds: [
 
   'advanced/workdir-monorepo': {
     language: 'cue',
-    code: `group: "monorepo"
-
-cmds: [
+    code: `cmds: [
     {
         name: "web build"
         workdir: "./packages/web"
@@ -3168,9 +3327,9 @@ cmds: [
   (* = default runtime)
 
 From current directory:
-  myproject build - Build the project [native*] (linux, macos, windows)
-  myproject clean - Clean artifacts [native*] (linux, macos)
-  myproject deploy - Deploy to cloud [native*] (linux)`,
+  build - Build the project [native*] (linux, macos, windows)
+  clean - Clean artifacts [native*] (linux, macos)
+  deploy - Deploy to cloud [native*] (linux)`,
   },
 
   'advanced/platform-unsupported-error': {
@@ -3260,11 +3419,7 @@ This command is only available on the platforms listed above.`,
 
   'packs/pack-invkfile': {
     language: 'cue',
-    code: `group: "com.example.mytools"
-version: "1.0.0"
-description: "My reusable development tools"
-
-cmds: [
+    code: `cmds: [
     {
         name: "lint"
         description: "Run linters"
@@ -3282,8 +3437,9 @@ cmds: [
   'packs/structure-basic': {
     language: 'text',
     code: `mytools.invkpack/
-├── invkfile.cue          # Required: command definitions
-├── scripts/               # Optional: script files
+├── invkpack.cue          # Required: pack metadata
+├── invkfile.cue          # Optional: command definitions
+├── scripts/              # Optional: script files
 │   ├── build.sh
 │   └── deploy.sh
 └── templates/             # Optional: other resources
@@ -3298,6 +3454,7 @@ cmds: [
   'packs/quick-create-output': {
     language: 'text',
     code: `mytools.invkpack/
+├── invkpack.cue
 └── invkfile.cue`,
   },
 
@@ -3323,6 +3480,7 @@ invowk pack import mytools.invkpack.zip`,
   'packs/structure-example': {
     language: 'text',
     code: `com.example.devtools.invkpack/
+├── invkpack.cue
 ├── invkfile.cue
 ├── scripts/
 │   ├── build.sh
@@ -3345,8 +3503,6 @@ org.opensource.utilities.invkpack`,
   'packs/script-paths': {
     language: 'cue',
     code: `// Inside mytools.invkpack/invkfile.cue
-group: "mytools"
-
 cmds: [
     {
         name: "build"
@@ -3388,6 +3544,9 @@ invowk pack create com.company.devtools
 # In specific directory
 invowk pack create mytools --path /path/to/packs
 
+# Custom pack ID + description
+invowk pack create mytools --pack-id com.company.tools --description "Shared tools"
+
 # With scripts directory
 invowk pack create mytools --scripts`,
   },
@@ -3395,17 +3554,29 @@ invowk pack create mytools --scripts`,
   'packs/create-with-scripts': {
     language: 'text',
     code: `mytools.invkpack/
+├── invkpack.cue
 ├── invkfile.cue
 └── scripts/`,
   },
 
-  'packs/template-invkfile': {
+  'packs/template-invkpack': {
     language: 'cue',
-    code: `group: "mytools"
+    code: `pack: "mytools"
 version: "1.0"
 description: "Commands for mytools"
 
-cmds: [
+// Uncomment to add dependencies:
+// requires: [
+//     {
+//         git_url: "https://github.com/example/utils.invkpack.git"
+//         version: "^1.0.0"
+//     },
+// ]`,
+  },
+
+  'packs/template-invkfile': {
+    language: 'cue',
+    code: `cmds: [
     {
         name: "hello"
         description: "Say hello"
@@ -3424,6 +3595,7 @@ cmds: [
   'packs/manual-create': {
     language: 'bash',
     code: `mkdir mytools.invkpack
+touch mytools.invkpack/invkpack.cue
 touch mytools.invkpack/invkfile.cue`,
   },
 
@@ -3453,6 +3625,7 @@ touch mytools.invkpack/invkfile.cue`,
   'packs/script-organization': {
     language: 'text',
     code: `mytools.invkpack/
+├── invkpack.cue
 ├── invkfile.cue
 └── scripts/
     ├── build.sh           # Main scripts
@@ -3479,6 +3652,7 @@ script: "../outside.sh"`,
   'packs/env-files-structure': {
     language: 'text',
     code: `mytools.invkpack/
+├── invkpack.cue
 ├── invkfile.cue
 ├── .env                   # Default config
 ├── .env.example           # Template for users
@@ -3495,6 +3669,7 @@ script: "../outside.sh"`,
   'packs/docs-structure': {
     language: 'text',
     code: `mytools.invkpack/
+├── invkpack.cue
 ├── invkfile.cue
 ├── README.md              # Usage instructions
 ├── CHANGELOG.md           # Version history
@@ -3504,6 +3679,7 @@ script: "../outside.sh"`,
   'packs/buildtools-structure': {
     language: 'text',
     code: `com.company.buildtools.invkpack/
+├── invkpack.cue
 ├── invkfile.cue
 ├── scripts/
 │   ├── build-go.sh
@@ -3518,11 +3694,7 @@ script: "../outside.sh"`,
 
   'packs/buildtools-invkfile': {
     language: 'cue',
-    code: `group: "com.company.buildtools"
-version: "1.0"
-description: "Standardized build tools"
-
-cmds: [
+    code: `cmds: [
     {
         name: "go"
         description: "Build Go project"
@@ -3553,6 +3725,7 @@ cmds: [
   'packs/devops-structure': {
     language: 'text',
     code: `org.devops.k8s.invkpack/
+├── invkpack.cue
 ├── invkfile.cue
 ├── scripts/
 │   ├── deploy.sh
@@ -3614,7 +3787,7 @@ cmds: [
 
 ✗ Pack validation failed with 1 issue(s)
 
-  1. [structure] missing required invkfile.cue`,
+  1. [structure] missing required invkpack.cue`,
   },
 
   'packs/error-invalid-name': {
@@ -3634,7 +3807,7 @@ cmds: [
 
 ✗ Pack validation failed with 1 issue(s)
 
-  1. [structure] nested.invkpack: nested packs are not allowed`,
+  1. [structure] nested.invkpack: nested packs are not allowed (except in invk_packs/)`,
   },
 
   'packs/error-parse': {
@@ -3773,7 +3946,11 @@ invowk pack import https://github.com/user/repo/releases/download/v1.0/mytools.i
 ├── src/
 ├── packs/
 │   ├── devtools.invkpack/
+│   │   ├── invkpack.cue
+│   │   └── invkfile.cue
 │   └── testing.invkpack/
+│       ├── invkpack.cue
+│       └── invkfile.cue
 └── invkfile.cue`,
   },
 
@@ -3815,7 +3992,7 @@ search_paths: [
 
   'packs/version-invkfile': {
     language: 'cue',
-    code: `group: "com.company.tools"
+    code: `pack: "com.company.tools"
 version: "1.2.0"`,
   },
 
@@ -3868,6 +4045,473 @@ invowk pack archive ./com.company.mytools.invkpack \\
 
 # 5. Team imports
 invowk pack import https://github.com/company/mytools/releases/download/v1.0.0/mytools-1.0.0.zip`,
+  },
+
+  // =============================================================================
+  // PACK DEPENDENCIES
+  // =============================================================================
+
+  'packs/dependencies/quick-add': {
+    language: 'bash',
+    code: `invowk pack add https://github.com/example/common.invkpack.git ^1.0.0`,
+  },
+
+  'packs/dependencies/quick-invkpack': {
+    language: 'cue',
+    code: `pack: "com.example.mytools"
+version: "1.0"
+description: "My tools"
+
+requires: [
+    {
+        git_url: "https://github.com/example/common.invkpack.git"
+        version: "^1.0.0"
+        alias: "common"
+    },
+]`,
+  },
+
+  'packs/dependencies/quick-sync': {
+    language: 'bash',
+    code: `invowk pack sync`,
+  },
+
+  'packs/dependencies/quick-deps': {
+    language: 'bash',
+    code: `invowk pack deps`,
+  },
+
+  'packs/dependencies/namespace-usage': {
+    language: 'bash',
+    code: `# Default namespace includes the resolved version
+invowk cmd com.example.common@1.2.3 build
+
+# With alias
+invowk cmd common build`,
+  },
+
+  'packs/dependencies/cache-structure': {
+    language: 'text',
+    code: `~/.invowk/packs/
+├── sources/
+│   └── github.com/
+│       └── example/
+│           └── common.invkpack/
+└── github.com/
+    └── example/
+        └── common.invkpack/
+            └── 1.2.3/
+                ├── invkpack.cue
+                └── invkfile.cue`,
+  },
+
+  'packs/dependencies/cache-env': {
+    language: 'bash',
+    code: `export INVOWK_PACKS_PATH=/custom/cache/path`,
+  },
+
+  'packs/dependencies/basic-invkpack': {
+    language: 'cue',
+    code: `pack: "com.example.mytools"
+version: "1.0"
+
+requires: [
+    {
+        git_url: "https://github.com/example/common.invkpack.git"
+        version: "^1.0.0"
+    },
+]`,
+  },
+
+  'packs/dependencies/git-url-examples': {
+    language: 'cue',
+    code: `requires: [
+    // HTTPS (works with public repos or GITHUB_TOKEN)
+    {git_url: "https://github.com/user/tools.invkpack.git", version: "^1.0.0"},
+
+    // SSH (requires SSH key in ~/.ssh/)
+    {git_url: "git@github.com:user/tools.invkpack.git", version: "^1.0.0"},
+
+    // GitLab
+    {git_url: "https://gitlab.com/user/tools.invkpack.git", version: "^1.0.0"},
+
+    // Self-hosted
+    {git_url: "https://git.example.com/user/tools.invkpack.git", version: "^1.0.0"},
+]`,
+  },
+
+  'packs/dependencies/version-example': {
+    language: 'cue',
+    code: `requires: [
+    // Invowk tries both v1.0.0 and 1.0.0
+    {git_url: "https://github.com/user/tools.invkpack.git", version: "^1.0.0"},
+]`,
+  },
+
+  'packs/dependencies/alias-example': {
+    language: 'cue',
+    code: `requires: [
+    // Default namespace: common@1.2.3
+    {git_url: "https://github.com/user/common.invkpack.git", version: "^1.0.0"},
+
+    // Custom namespace: tools
+    {
+        git_url: "https://github.com/user/common.invkpack.git"
+        version: "^1.0.0"
+        alias: "tools"
+    },
+]`,
+  },
+
+  'packs/dependencies/alias-usage': {
+    language: 'bash',
+    code: `# Instead of: invowk cmd common@1.2.3 build
+invowk cmd tools build`,
+  },
+
+  'packs/dependencies/path-example': {
+    language: 'cue',
+    code: `requires: [
+    {
+        git_url: "https://github.com/user/monorepo.invkpack.git"
+        version: "^1.0.0"
+        path: "packs/cli-tools"
+    },
+    {
+        git_url: "https://github.com/user/monorepo.invkpack.git"
+        version: "^1.0.0"
+        path: "packs/deploy-utils"
+        alias: "deploy"
+    },
+]`,
+  },
+
+  'packs/dependencies/multiple-requires': {
+    language: 'cue',
+    code: `requires: [
+    {
+        git_url: "https://github.com/company/build-tools.invkpack.git"
+        version: "^2.0.0"
+        alias: "build"
+    },
+    {
+        git_url: "https://github.com/company/deploy-tools.invkpack.git"
+        version: "~1.5.0"
+        alias: "deploy"
+    },
+    {
+        git_url: "https://github.com/company/test-utils.invkpack.git"
+        version: ">=1.0.0 <2.0.0"
+    },
+]`,
+  },
+
+  'packs/dependencies/auth-tokens': {
+    language: 'bash',
+    code: `# GitHub
+export GITHUB_TOKEN=ghp_xxxx
+
+# GitLab
+export GITLAB_TOKEN=glpat-xxxx
+
+# Generic (any Git server)
+export GIT_TOKEN=your-token`,
+  },
+
+  'packs/dependencies/transitive-tree': {
+    language: 'text',
+    code: `com.example.app
+├── common-tools@1.2.3
+│   └── logging-utils@2.0.0
+└── deploy-utils@1.5.0
+    └── common-tools@1.2.3  (shared)`,
+  },
+
+  'packs/dependencies/circular-error': {
+    language: 'text',
+    code: `Error: circular dependency detected: https://github.com/user/pack-a.invkpack.git`,
+  },
+
+  'packs/dependencies/best-practices-version': {
+    language: 'cue',
+    code: `// Good: allows patch and minor updates
+{git_url: "...", version: "^1.0.0"}
+
+// Too strict: no updates allowed
+{git_url: "...", version: "1.0.0"}`,
+  },
+
+  'packs/dependencies/best-practices-alias': {
+    language: 'cue',
+    code: `{
+    git_url: "https://github.com/company/company-internal-build-tools.invkpack.git"
+    version: "^2.0.0"
+    alias: "build"
+}`,
+  },
+
+  'packs/dependencies/update-command': {
+    language: 'bash',
+    code: `invowk pack update`,
+  },
+
+  'packs/dependencies/lockfile-example': {
+    language: 'cue',
+    code: `version: "1.0"
+generated: "2025-01-10T12:34:56Z"
+
+packs: {
+    "https://github.com/example/common.invkpack.git": {
+        git_url:          "https://github.com/example/common.invkpack.git"
+        version:          "^1.0.0"
+        resolved_version: "1.2.3"
+        git_commit:       "abc123def4567890"
+        alias:            "common"
+        namespace:        "common"
+    }
+}`,
+  },
+
+  'packs/dependencies/lockfile-key': {
+    language: 'cue',
+    code: `packs: {
+    "https://github.com/example/monorepo.invkpack.git#packs/cli": {
+        git_url: "https://github.com/example/monorepo.invkpack.git"
+        path:    "packs/cli"
+    }
+}`,
+  },
+
+  'packs/dependencies/lockfile-workflow': {
+    language: 'bash',
+    code: `# Resolve and lock
+invowk pack sync
+
+# Commit the lock file
+git add invkpack.lock.cue
+git commit -m "Lock pack dependencies"`,
+  },
+
+  'packs/dependencies/cli/add-usage': {
+    language: 'bash',
+    code: `invowk pack add <git-url> <version> [flags]`,
+  },
+
+  'packs/dependencies/cli/add-examples': {
+    language: 'bash',
+    code: `# Add a dependency with caret version
+invowk pack add https://github.com/user/pack.invkpack.git ^1.0.0
+
+# Add with SSH URL
+invowk pack add git@github.com:user/pack.invkpack.git ~2.0.0
+
+# Add with custom alias
+invowk pack add https://github.com/user/common.invkpack.git ^1.0.0 --alias tools
+
+# Add from monorepo subdirectory
+invowk pack add https://github.com/user/monorepo.invkpack.git ^1.0.0 --path packs/cli`,
+  },
+
+  'packs/dependencies/cli/add-output': {
+    language: 'text',
+    code: `Add Pack Dependency
+
+• Resolving https://github.com/user/pack.invkpack.git@^1.0.0...
+✓ Pack added successfully
+
+• Git URL:   https://github.com/user/pack.invkpack.git
+• Version:   ^1.0.0 → 1.2.3
+• Namespace: pack@1.2.3
+• Cache:     /home/user/.invowk/packs/github.com/user/pack.invkpack/1.2.3
+
+• To use this pack, add to your invkpack.cue:
+
+requires: [
+    {
+        git_url: "https://github.com/user/pack.invkpack.git"
+        version: "^1.0.0"
+    },
+]`,
+  },
+
+  'packs/dependencies/cli/remove-usage': {
+    language: 'bash',
+    code: `invowk pack remove <git-url>`,
+  },
+
+  'packs/dependencies/cli/remove-example': {
+    language: 'bash',
+    code: `invowk pack remove https://github.com/user/pack.invkpack.git`,
+  },
+
+  'packs/dependencies/cli/remove-output': {
+    language: 'text',
+    code: `Remove Pack Dependency
+
+• Removing https://github.com/user/pack.invkpack.git...
+✓ Pack removed from lock file
+
+• Don't forget to remove the requires entry from your invkpack.cue`,
+  },
+
+  'packs/dependencies/cli/deps-usage': {
+    language: 'bash',
+    code: `invowk pack deps`,
+  },
+
+  'packs/dependencies/cli/deps-output': {
+    language: 'text',
+    code: `Pack Dependencies
+
+• Found 2 pack dependency(ies)
+
+✓ build-tools@2.3.1
+   Git URL:  https://github.com/company/build-tools.invkpack.git
+   Version:  ^2.0.0 → 2.3.1
+   Commit:   abc123def456
+   Cache:    /home/user/.invowk/packs/github.com/company/build-tools.invkpack/2.3.1
+
+✓ deploy-utils@1.5.2
+   Git URL:  https://github.com/company/deploy-tools.invkpack.git
+   Version:  ~1.5.0 → 1.5.2
+   Commit:   789xyz012abc
+   Cache:    /home/user/.invowk/packs/github.com/company/deploy-tools.invkpack/1.5.2`,
+  },
+
+  'packs/dependencies/cli/deps-empty': {
+    language: 'text',
+    code: `Pack Dependencies
+
+• No pack dependencies found
+
+• To add packs, use: invowk pack add <git-url> <version>`,
+  },
+
+  'packs/dependencies/cli/sync-usage': {
+    language: 'bash',
+    code: `invowk pack sync`,
+  },
+
+  'packs/dependencies/cli/sync-output': {
+    language: 'text',
+    code: `Sync Pack Dependencies
+
+• Found 2 requirement(s) in invkpack.cue
+
+✓ build-tools@2.3.1 → 2.3.1
+✓ deploy-utils@1.5.2 → 1.5.2
+
+✓ Lock file updated: invkpack.lock.cue`,
+  },
+
+  'packs/dependencies/cli/sync-empty': {
+    language: 'text',
+    code: `Sync Pack Dependencies
+
+• No requires field found in invkpack.cue`,
+  },
+
+  'packs/dependencies/cli/update-usage': {
+    language: 'bash',
+    code: `invowk pack update [git-url]`,
+  },
+
+  'packs/dependencies/cli/update-examples': {
+    language: 'bash',
+    code: `# Update all packs
+invowk pack update
+
+# Update a specific pack
+invowk pack update https://github.com/user/pack.invkpack.git`,
+  },
+
+  'packs/dependencies/cli/update-output': {
+    language: 'text',
+    code: `Update Pack Dependencies
+
+• Updating all packs...
+
+✓ build-tools@2.3.1 → 2.4.0
+✓ deploy-utils@1.5.2 → 1.5.3
+
+✓ Lock file updated: invkpack.lock.cue`,
+  },
+
+  'packs/dependencies/cli/update-empty': {
+    language: 'text',
+    code: `Update Pack Dependencies
+
+• Updating all packs...
+• No packs to update`,
+  },
+
+  'packs/dependencies/cli/vendor-usage': {
+    language: 'bash',
+    code: `invowk pack vendor [pack-path]`,
+  },
+
+  'packs/dependencies/cli/vendor-output': {
+    language: 'text',
+    code: `Vendor Pack Dependencies
+
+• Found 2 requirement(s) in invkpack.cue
+• Vendor directory: /home/user/project/invk_packs
+
+! Vendoring is not yet fully implemented
+
+• The following dependencies would be vendored:
+   • https://github.com/example/common.invkpack.git@^1.0.0
+   • https://github.com/example/deploy.invkpack.git@~1.5.0`,
+  },
+
+  'packs/dependencies/cli/workflow-init': {
+    language: 'bash',
+    code: `# 1. Resolve dependencies
+invowk pack add https://github.com/company/build-tools.invkpack.git ^2.0.0 --alias build
+invowk pack add https://github.com/company/deploy-tools.invkpack.git ~1.5.0 --alias deploy
+
+# 2. Add requires to invkpack.cue manually or verify
+cat invkpack.cue
+
+# 3. Sync to generate lock file
+invowk pack sync
+
+# 4. Commit the lock file
+git add invkpack.lock.cue
+git commit -m "Add pack dependencies"`,
+  },
+
+  'packs/dependencies/cli/workflow-fresh': {
+    language: 'bash',
+    code: `# On a fresh clone, sync downloads all packs
+git clone https://github.com/yourorg/project.git
+cd project
+invowk pack sync`,
+  },
+
+  'packs/dependencies/cli/workflow-update': {
+    language: 'bash',
+    code: `# Update all packs periodically
+invowk pack update
+
+# Review changes
+git diff invkpack.lock.cue
+
+# Commit if tests pass
+git add invkpack.lock.cue
+git commit -m "Update pack dependencies"`,
+  },
+
+  'packs/dependencies/cli/workflow-troubleshoot': {
+    language: 'bash',
+    code: `# List current dependencies to verify state
+invowk pack deps
+
+# Re-sync if something seems wrong
+invowk pack sync
+
+# Check commands are available
+invowk cmd --list`,
   },
 
   // =============================================================================
@@ -4159,7 +4803,7 @@ container: {
 invowk --verbose cmd build
 
 # Run command in interactive mode (alternate screen buffer)
-invowk --interactive cmd myproject build
+invowk --interactive cmd build
 
 # Override runtime for a command
 invowk cmd build --runtime container`,
@@ -4248,11 +4892,7 @@ invowk init`,
 
   'quickstart/hello-invkfile': {
     language: 'cue',
-    code: `group: "myproject"
-version: "1.0"
-description: "My project commands"
-
-cmds: [
+    code: `cmds: [
     {
         name: "hello"
         description: "Say hello!"
@@ -4272,12 +4912,12 @@ cmds: [
   (* = default runtime)
 
 From current directory:
-  myproject hello - Say hello! [native*] (linux, macos, windows)`,
+  hello - Say hello! [native*] (linux, macos, windows)`,
   },
 
   'quickstart/run-hello': {
     language: 'bash',
-    code: `invowk cmd myproject hello`,
+    code: `invowk cmd hello`,
   },
 
   'quickstart/hello-output': {
@@ -4287,11 +4927,7 @@ From current directory:
 
   'quickstart/info-command': {
     language: 'cue',
-    code: `group: "myproject"
-version: "1.0"
-description: "My project commands"
-
-cmds: [
+    code: `cmds: [
     {
         name: "hello"
         description: "Say hello!"
@@ -4321,6 +4957,11 @@ cmds: [
 ]`,
   },
 
+  'quickstart/run-info': {
+    language: 'bash',
+    code: `invowk cmd info`,
+  },
+
   'quickstart/virtual-runtime': {
     language: 'cue',
     code: `{
@@ -4336,79 +4977,66 @@ cmds: [
   },
 
   // =============================================================================
-  // COMMANDS AND GROUPS
+  // COMMANDS AND NAMESPACES
   // =============================================================================
 
-  'commands-groups/basic-group': {
+  'commands-namespaces/subcommand-names': {
     language: 'cue',
-    code: `group: "myproject"
+    code: `cmds: [
+    {name: "test"},
+    {name: "test unit"},
+    {name: "test integration"},
+    {name: "db migrate"},
+    {name: "db seed"},
+]`,
+  },
 
+  'commands-namespaces/pack-prefix': {
+    language: 'cue',
+    code: `// invkpack.cue
+pack: "com.company.frontend"
+
+// invkfile.cue
 cmds: [
     {name: "build"},
-    {name: "test"},
-    {name: "deploy"},
+    {name: "test unit"},
 ]`,
   },
 
-  'commands-groups/valid-groups': {
+  'commands-namespaces/valid-pack-ids': {
     language: 'cue',
-    code: `group: "frontend"
-group: "backend"
-group: "my.project"
-group: "com.company.tools"
-group: "io.github.username.cli"`,
+    code: `pack: "frontend"
+pack: "backend"
+pack: "my.project"
+pack: "com.company.tools"
+pack: "io.github.username.cli"`,
   },
 
-  'commands-groups/invalid-groups': {
+  'commands-namespaces/invalid-pack-ids': {
     language: 'cue',
-    code: `group: "my-project"     // Hyphens not allowed
-group: "my_project"     // Underscores not allowed
-group: ".project"       // Can't start with dot
-group: "project."       // Can't end with dot
-group: "my..project"    // No consecutive dots
-group: "123project"     // Must start with letter`,
+    code: `pack: "my-project"   // Hyphens not allowed
+pack: "my_project"   // Underscores not allowed
+pack: ".project"     // Can't start with dot
+pack: "project."     // Can't end with dot
+pack: "my..project"  // No consecutive dots
+pack: "123project"   // Must start with letter`,
   },
 
-  'commands-groups/nested-group': {
-    language: 'cue',
-    code: `group: "com.company.frontend"
-
-cmds: [
-    {name: "build"},
-    {name: "test"},
-]`,
-  },
-
-  'commands-groups/subcommand-names': {
-    language: 'cue',
-    code: `group: "myproject"
-
-cmds: [
-    {name: "test"},           // myproject test
-    {name: "test unit"},      // myproject test unit
-    {name: "test integration"}, // myproject test integration
-    {name: "db migrate"},     // myproject db migrate
-    {name: "db seed"},        // myproject db seed
-]`,
-  },
-
-  'commands-groups/discovery-output': {
+  'commands-namespaces/discovery-output': {
     language: 'text',
     code: `Available Commands
   (* = default runtime)
 
 From current directory:
-  myproject build - Build the project [native*] (linux, macos, windows)
+  build - Build the project [native*] (linux, macos, windows)
 
 From user commands (~/.invowk/cmds):
-  utils hello - A greeting [native*] (linux, macos)`,
+  com.example.tools hello - A greeting [native*] (linux, macos)`,
   },
 
-  'commands-groups/command-dependency': {
+  'commands-namespaces/command-dependency': {
     language: 'cue',
-    code: `group: "myproject"
-
-cmds: [
+    code: `cmds: [
     {
         name: "build"
         implementations: [...]
@@ -4418,8 +5046,8 @@ cmds: [
         implementations: [...]
         depends_on: {
             cmds: [
-                // Reference by full name (group + command name)
-                {alternatives: ["myproject build"]}
+                // Reference by command name in the same invkfile
+                {alternatives: ["build"]}
             ]
         }
     },
@@ -4428,28 +5056,9 @@ cmds: [
         implementations: [...]
         depends_on: {
             cmds: [
-                // Can depend on commands from other invkfiles too
-                {alternatives: ["myproject build"]},
-                {alternatives: ["myproject test"]},
-                {alternatives: ["other.project lint"]},
-            ]
-        }
-    }
-]`,
-  },
-
-  'commands-groups/cross-invkfile-dep': {
-    language: 'cue',
-    code: `// In frontend/invkfile.cue
-group: "frontend"
-
-cmds: [
-    {
-        name: "build"
-        depends_on: {
-            cmds: [
-                // Depends on backend build completing first
-                {alternatives: ["backend build"]}
+                // Pack-prefixed commands for dependencies
+                {alternatives: ["build"]},
+                {alternatives: ["com.company.tools lint"]},
             ]
         }
     }
@@ -4639,9 +5248,9 @@ platforms: [
   (* = default runtime)
 
 From current directory:
-  myproject build - Build the project [native*, virtual] (linux, macos)
-  myproject clean - Clean artifacts [native*] (linux, macos, windows)
-  myproject docker-build - Container build [container*] (linux, macos, windows)`,
+  build - Build the project [native*, virtual] (linux, macos)
+  clean - Clean artifacts [native*] (linux, macos, windows)
+  docker-build - Container build [container*] (linux, macos, windows)`,
   },
 
   'implementations/cue-templates': {
@@ -4732,13 +5341,13 @@ cmds: [
   'runtime-modes/override-cli': {
     language: 'bash',
     code: `# Use default (native)
-invowk cmd myproject build
+invowk cmd build
 
 # Override to virtual
-invowk cmd myproject build --runtime virtual
+invowk cmd build --runtime virtual
 
 # Override to container
-invowk cmd myproject build --runtime container`,
+invowk cmd build --runtime container`,
   },
 
   'runtime-modes/list-output': {
@@ -4747,7 +5356,7 @@ invowk cmd myproject build --runtime container`,
   (* = default runtime)
 
 From current directory:
-  myproject build - Build the project [native*, virtual, container] (linux, macos)`,
+  build - Build the project [native*, virtual, container] (linux, macos)`,
   },
 
   'runtime-modes/container-containerfile': {
@@ -4851,7 +5460,7 @@ WORKDIR /workspace`,
             name: "container"
             image: "golang:1.21"
             volumes: [
-                "\${HOME}/go/pkg/mod:/go/pkg/mod:ro"  // Cache modules
+                "\${HOME}/go/pkg/mod:/go/pkg/mod:ro"  // Cache Go dependencies
             ]
         }]
         platforms: [{name: "linux"}, {name: "macos"}]
@@ -4865,13 +5474,13 @@ WORKDIR /workspace`,
 
   'dependencies/without-check': {
     language: 'bash',
-    code: `$ invowk cmd myproject build
+    code: `$ invowk cmd build
 ./scripts/build.sh: line 5: go: command not found`,
   },
 
   'dependencies/with-check': {
     language: 'text',
-    code: `$ invowk cmd myproject build
+    code: `$ invowk cmd build
 
 ✗ Dependencies not satisfied
 
@@ -4914,9 +5523,7 @@ filepaths: [
 
   'dependencies/scope-root': {
     language: 'cue',
-    code: `group: "myproject"
-
-depends_on: {
+    code: `depends_on: {
     tools: [{alternatives: ["git"]}]  // Required by all commands
 }
 
@@ -4953,9 +5560,7 @@ cmds: [...]`,
 
   'dependencies/scope-inheritance': {
     language: 'cue',
-    code: `group: "myproject"
-
-// Root level: requires git
+    code: `// Root level: requires git
 depends_on: {
     tools: [{alternatives: ["git"]}]
 }
@@ -5009,8 +5614,8 @@ cmds: [
         ]
         // Run other commands first
         cmds: [
-            {alternatives: ["myproject build"]},
-            {alternatives: ["myproject test"]}
+            {alternatives: ["build"]},
+            {alternatives: ["test"]}
         ]
     }
     implementations: [
@@ -6271,7 +6876,13 @@ invowk config set ui.color_scheme dark`,
   'reference/cli/pack-create-examples': {
     language: 'bash',
     code: `# Create a pack with RDNS naming
-invowk pack create com.example.mytools`,
+invowk pack create com.example.mytools
+
+# Override pack ID and description
+invowk pack create mytools --pack-id com.example.tools --description "Shared tools"
+
+# Create with scripts directory
+invowk pack create mytools --scripts`,
   },
 
   'reference/cli/pack-validate-syntax': {
@@ -6301,6 +6912,56 @@ invowk pack validate ./mypack.invkpack --deep`,
   'reference/cli/pack-import-syntax': {
     language: 'bash',
     code: `invowk pack import <source> [flags]`,
+  },
+
+  'reference/cli/pack-alias-syntax': {
+    language: 'bash',
+    code: `invowk pack alias [command]`,
+  },
+
+  'reference/cli/pack-alias-set-syntax': {
+    language: 'bash',
+    code: `invowk pack alias set <pack-path> <alias>`,
+  },
+
+  'reference/cli/pack-alias-list-syntax': {
+    language: 'bash',
+    code: `invowk pack alias list`,
+  },
+
+  'reference/cli/pack-alias-remove-syntax': {
+    language: 'bash',
+    code: `invowk pack alias remove <pack-path>`,
+  },
+
+  'reference/cli/pack-add-syntax': {
+    language: 'bash',
+    code: `invowk pack add <git-url> <version> [flags]`,
+  },
+
+  'reference/cli/pack-remove-syntax': {
+    language: 'bash',
+    code: `invowk pack remove <git-url>`,
+  },
+
+  'reference/cli/pack-sync-syntax': {
+    language: 'bash',
+    code: `invowk pack sync`,
+  },
+
+  'reference/cli/pack-update-syntax': {
+    language: 'bash',
+    code: `invowk pack update [git-url]`,
+  },
+
+  'reference/cli/pack-deps-syntax': {
+    language: 'bash',
+    code: `invowk pack deps`,
+  },
+
+  'reference/cli/pack-vendor-syntax': {
+    language: 'bash',
+    code: `invowk pack vendor [pack-path]`,
   },
 
   'reference/cli/tui-syntax': {
@@ -6443,39 +7104,12 @@ Your invkfile contains syntax errors or invalid configuration.
   'reference/invkfile/root-structure': {
     language: 'cue',
     code: `#Invkfile: {
-    group:          string    // Required - prefix for all command names
-    version?:       string    // Optional - schema version (e.g., "1.0")
-    description?:   string    // Optional - describe this invkfile's purpose
     default_shell?: string    // Optional - override default shell
     workdir?:       string    // Optional - default working directory
     env?:           #EnvConfig      // Optional - global environment
     depends_on?:    #DependsOn      // Optional - global dependencies
     cmds:           [...#Command]   // Required - at least one command
 }`,
-  },
-
-  'reference/invkfile/group-examples': {
-    language: 'cue',
-    code: `// Valid group names
-group: "build"
-group: "my.project"
-group: "com.example.tools"
-
-// Invalid
-group: "123abc"     // Can't start with a number
-group: ".build"     // Can't start with a dot
-group: "build."     // Can't end with a dot
-group: "my..tools"  // Can't have consecutive dots`,
-  },
-
-  'reference/invkfile/version-example': {
-    language: 'cue',
-    code: `version: "1.0"`,
-  },
-
-  'reference/invkfile/description-example': {
-    language: 'cue',
-    code: `description: "Build and deployment commands for the web application"`,
   },
 
   'reference/invkfile/default-shell-example': {
@@ -6846,11 +7480,7 @@ containerfile: "./docker/Dockerfile.build"`,
 
   'reference/invkfile/complete-example': {
     language: 'cue',
-    code: `group: "myapp"
-version: "1.0"
-description: "Build and deployment commands"
-
-env: {
+    code: `env: {
     files: [".env"]
     vars: {
         APP_NAME: "myapp"
@@ -6898,6 +7528,48 @@ cmds: [
         }
     },
 ]`,
+  },
+
+  // =============================================================================
+  // REFERENCE - INVKPACK SCHEMA
+  // =============================================================================
+
+  'reference/invkpack/root-structure': {
+    language: 'cue',
+    code: `#Invkpack: {
+    pack:         string               // Required - pack identifier
+    version?:     string               // Optional - metadata version (e.g., "1.0")
+    description?: string               // Optional - pack description
+    requires?:    [...#PackRequirement] // Optional - dependencies
+}`,
+  },
+
+  'reference/invkpack/pack-examples': {
+    language: 'cue',
+    code: `pack: "mytools"
+pack: "com.company.devtools"
+pack: "io.github.username.cli"`,
+  },
+
+  'reference/invkpack/requires-example': {
+    language: 'cue',
+    code: `requires: [
+    {
+        git_url: "https://github.com/example/common.invkpack.git"
+        version: "^1.0.0"
+        alias: "common"
+    },
+]`,
+  },
+
+  'reference/invkpack/requirement-structure': {
+    language: 'cue',
+    code: `#PackRequirement: {
+    git_url: string
+    version: string
+    alias?:  string
+    path?:   string
+}`,
   },
 
   // =============================================================================
@@ -7218,10 +7890,10 @@ git diff HEAD~5 | invowk tui pager --title "Recent Changes"`,
   'interactive/basic-usage': {
     language: 'bash',
     code: `# Run a command in interactive mode
-invowk cmd myproject build --interactive
+invowk cmd build --interactive
 
 # Short form
-invowk cmd myproject build -i`,
+invowk cmd build -i`,
   },
 
   'interactive/config-enable': {

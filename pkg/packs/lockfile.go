@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-// LockFile represents the invowk.lock.cue file structure.
+// LockFile represents the invkpack.lock.cue file structure.
 type LockFile struct {
 	// Version is the lock file format version.
 	Version string
@@ -95,7 +95,7 @@ func (l *LockFile) Save(path string) error {
 func (l *LockFile) toCUE() string {
 	var sb strings.Builder
 
-	sb.WriteString("// invowk.lock.cue - Auto-generated lock file for pack dependencies\n")
+	sb.WriteString("// invkpack.lock.cue - Auto-generated lock file for pack dependencies\n")
 	sb.WriteString("// DO NOT EDIT MANUALLY\n\n")
 
 	sb.WriteString(fmt.Sprintf("version: %q\n", l.Version))
@@ -129,7 +129,7 @@ func (l *LockFile) toCUE() string {
 
 // parseLockFileCUE parses a CUE-format lock file.
 // This is a simplified parser for the lock file format.
-// It supports both the new "packs:" key and the legacy "modules:" key for migration.
+// It supports both the current "packs:" key and the legacy "modules:" key for migration.
 func parseLockFileCUE(content string) (*LockFile, error) {
 	lock := NewLockFile()
 

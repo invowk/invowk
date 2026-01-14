@@ -70,9 +70,9 @@ var packValidateCmd = &cobra.Command{
 
 Checks performed:
   - Folder name follows pack naming conventions
-  - Contains exactly one invkfile.cue at the root
+  - Contains required invkpack.cue at the root
   - No nested packs inside
-  - (with --deep) Invkfile parses successfully
+  - (with --deep) Invkfile parses successfully (if present)
 
 Examples:
   invowk pack validate ./mycommands.invkpack
@@ -224,12 +224,12 @@ var packVendorCmd = &cobra.Command{
 	Short: "Vendor pack dependencies",
 	Long: `Vendor pack dependencies into the invk_packs/ directory.
 
-This command reads the 'requires' field from the invkfile and fetches
+This command reads the 'requires' field from the invkpack.cue and fetches
 all dependencies into the invk_packs/ subdirectory, enabling offline
 and self-contained distribution.
 
 If no pack-path is specified, vendors dependencies for the current directory's
-invkfile or pack.
+pack.
 
 Examples:
   invowk pack vendor
@@ -270,7 +270,7 @@ var packRemoveCmd = &cobra.Command{
 	Long: `Remove a pack dependency from the lock file.
 
 This removes the pack from the lock file. The cached pack files are not deleted.
-Don't forget to also remove the requires entry from your invkfile.cue.
+Don't forget to also remove the requires entry from your invkpack.cue.
 
 Examples:
   invowk pack remove https://github.com/user/pack.git`,
@@ -281,10 +281,10 @@ Examples:
 // packSyncCmd syncs dependencies from the invkfile
 var packSyncCmd = &cobra.Command{
 	Use:   "sync",
-	Short: "Sync dependencies from invkfile",
-	Long: `Sync all dependencies declared in the invkfile.
+	Short: "Sync dependencies from invkpack.cue",
+	Long: `Sync all dependencies declared in invkpack.cue.
 
-This reads the 'requires' field from the invkfile, resolves all version
+This reads the 'requires' field from invkpack.cue, resolves all version
 constraints, downloads the packs, and updates the lock file.
 
 Examples:
@@ -345,8 +345,8 @@ func init() {
 
 	packCreateCmd.Flags().StringVarP(&packCreatePath, "path", "p", "", "parent directory for the pack (default: current directory)")
 	packCreateCmd.Flags().BoolVar(&packCreateScripts, "scripts", false, "create a scripts/ subdirectory")
-	packCreateCmd.Flags().StringVarP(&packCreatePack, "pack-id", "g", "", "pack identifier for the invkfile (default: pack name)")
-	packCreateCmd.Flags().StringVarP(&packCreateDescription, "description", "d", "", "description for the invkfile")
+	packCreateCmd.Flags().StringVarP(&packCreatePack, "pack-id", "g", "", "pack identifier for invkpack.cue (default: pack name)")
+	packCreateCmd.Flags().StringVarP(&packCreateDescription, "description", "d", "", "description for invkpack.cue")
 
 	packArchiveCmd.Flags().StringVarP(&packPackOutput, "output", "o", "", "output path for the ZIP file (default: <pack-name>.invkpack.zip)")
 
@@ -922,7 +922,7 @@ func runPackAdd(cmd *cobra.Command, args []string) error {
 
 	// Show how to add to invkfile
 	fmt.Println()
-	fmt.Printf("%s To use this pack, add to your invkfile.cue:\n", packInfoIcon)
+	fmt.Printf("%s To use this pack, add to your invkpack.cue:\n", packInfoIcon)
 	fmt.Println()
 	fmt.Println("requires: [")
 	fmt.Printf("\t{\n")

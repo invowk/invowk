@@ -37,20 +37,13 @@ O Invowk detecta automaticamente o melhor shell disponível:
 
 <Snippet id="runtime-modes/native-basic" />
 
-```bash
-invowk cmd myproject build
-```
+<Snippet id="runtime-modes/native-run" />
 
 ## Sobrescrevendo o Shell Padrão
 
 Você pode sobrescrever o shell no nível do invkfile:
 
-```cue
-group: "myproject"
-default_shell: "/bin/bash"  // Forçar bash
-
-cmds: [...]
-```
+<Snippet id="runtime-modes/native-default-shell" />
 
 Isso é útil quando:
 - Você precisa de recursos específicos do bash
@@ -61,64 +54,15 @@ Isso é útil quando:
 
 ### Bash/Zsh
 
-```cue
-{
-    name: "build"
-    implementations: [{
-        script: """
-            #!/bin/bash
-            set -euo pipefail  # Modo estrito do Bash
-            
-            # Recursos específicos do Bash
-            declare -A config=(
-                ["env"]="production"
-                ["debug"]="false"
-            )
-            
-            echo "Building for ${config[env]}..."
-            """
-        runtimes: [{name: "native"}]
-        platforms: [{name: "linux"}, {name: "macos"}]
-    }]
-}
-```
+<Snippet id="runtime-modes/native-bash-script" />
 
 ### PowerShell
 
-```cue
-{
-    name: "build"
-    implementations: [{
-        script: """
-            $ErrorActionPreference = "Stop"
-            
-            Write-Host "Building..." -ForegroundColor Green
-            dotnet build --configuration Release
-            Write-Host "Done!" -ForegroundColor Green
-            """
-        runtimes: [{name: "native"}]
-        platforms: [{name: "windows"}]
-    }]
-}
-```
+<Snippet id="runtime-modes/native-powershell-script" />
 
 ### cmd.exe (Windows Batch)
 
-```cue
-{
-    name: "build"
-    implementations: [{
-        script: """
-            @echo off
-            echo Building...
-            msbuild /p:Configuration=Release
-            echo Done!
-            """
-        runtimes: [{name: "native"}]
-        platforms: [{name: "windows"}]
-    }]
-}
-```
+<Snippet id="runtime-modes/native-cmd-script" />
 
 ## Usando Interpretadores
 
@@ -126,172 +70,63 @@ O runtime native suporta interpretadores não-shell como Python, Ruby ou Node.js
 
 ### Auto-Detecção pelo Shebang
 
-```cue
-{
-    name: "analyze"
-    implementations: [{
-        script: """
-            #!/usr/bin/env python3
-            import sys
-            import json
-            
-            print(f"Python {sys.version}")
-            data = {"status": "ok", "items": [1, 2, 3]}
-            print(json.dumps(data, indent=2))
-            """
-        runtimes: [{name: "native"}]
-    }]
-}
-```
+<Snippet id="runtime-modes/native-shebang-script" />
 
 ### Interpretador Explícito
 
-```cue
-{
-    name: "analyze"
-    implementations: [{
-        script: """
-            import sys
-            print(f"Hello from Python {sys.version_info.major}!")
-            """
-        runtimes: [{
-            name: "native"
-            interpreter: "python3"  // Interpretador explícito
-        }]
-    }]
-}
-```
+<Snippet id="runtime-modes/native-explicit-interpreter" />
 
 ### Interpretador com Argumentos
 
-```cue
-{
-    name: "script"
-    implementations: [{
-        script: """
-            print("Unbuffered output!")
-            """
-        runtimes: [{
-            name: "native"
-            interpreter: "python3 -u"  // Com argumentos
-        }]
-    }]
-}
-```
+<Snippet id="runtime-modes/native-interpreter-args" />
 
 ## Variáveis de Ambiente
 
 O runtime native tem acesso completo ao seu ambiente:
 
-```cue
-{
-    name: "deploy"
-    env: {
-        vars: {
-            DEPLOY_ENV: "production"
-        }
-    }
-    implementations: [{
-        script: """
-            echo "Home: $HOME"
-            echo "User: $USER"
-            echo "Deploy to: $DEPLOY_ENV"
-            """
-        runtimes: [{name: "native"}]
-    }]
-}
-```
+<Snippet id="runtime-modes/native-env-vars" />
 
 ## Acessando Flags e Argumentos
 
-Flags e argumentos estão disponíveis como variáveis de ambiente:
+Flags e argumentos ficam disponíveis como variáveis de ambiente:
 
-```cue
-{
-    name: "greet"
-    flags: [
-        {name: "loud", type: "bool", default_value: "false"}
-    ]
-    args: [
-        {name: "name", default_value: "World"}
-    ]
-    implementations: [{
-        script: """
-            if [ "$INVOWK_FLAG_LOUD" = "true" ]; then
-                echo "HELLO, $INVOWK_ARG_NAME!"
-            else
-                echo "Hello, $INVOWK_ARG_NAME!"
-            fi
-            """
-        runtimes: [{name: "native"}]
-    }]
-}
-```
+<Snippet id="runtime-modes/native-flags-args" />
 
-```bash
-invowk cmd myproject greet Alice --loud
-# Saída: HELLO, ALICE!
-```
+<Snippet id="runtime-modes/native-flags-run" />
 
 ## Diretório de Trabalho
 
-Por padrão, scripts executam no diretório atual. Sobrescreva com `workdir`:
+Por padrão, scripts rodam no diretório atual. Sobrescreva com `workdir`:
 
-```cue
-{
-    name: "build frontend"
-    workdir: "./frontend"  // Executar no subdiretório frontend
-    implementations: [{
-        script: "npm run build"
-        runtimes: [{name: "native"}]
-    }]
-}
-```
+<Snippet id="runtime-modes/native-workdir" />
 
 ## Dependências
 
-O runtime native valida dependências contra seu sistema host:
+O runtime native valida dependências no seu sistema:
 
-```cue
-{
-    name: "deploy"
-    depends_on: {
-        tools: [
-            {alternatives: ["docker", "podman"]},
-            {alternatives: ["kubectl"]}
-        ]
-        filepaths: [
-            {alternatives: ["Dockerfile"]}
-        ]
-    }
-    implementations: [{
-        script: "docker build -t myapp . && kubectl apply -f k8s/"
-        runtimes: [{name: "native"}]
-    }]
-}
-```
+<Snippet id="runtime-modes/native-deps" />
 
 ## Vantagens
 
 - **Performance**: Sem overhead, execução direta no shell
-- **Acesso completo**: Todas as ferramentas do sistema e ambiente disponíveis
+- **Acesso total**: Ferramentas do sistema e ambiente disponíveis
 - **Familiar**: Use seu shell preferido e seus recursos
 - **Interativo**: Pode executar comandos interativos
 
 ## Limitações
 
-- **Diferenças de plataforma**: Scripts podem se comportar diferentemente entre SOs
-- **Dependência de ambiente**: Depende de ferramentas instaladas
+- **Diferenças de plataforma**: Scripts podem se comportar diferente entre SOs
+- **Dependência do ambiente**: Depende de ferramentas instaladas
 - **Reprodutibilidade**: Resultados podem variar entre máquinas
 
 ## Quando Usar Native
 
 - **Desenvolvimento diário**: Iteração rápida, ferramentas familiares
-- **Integração com sistema**: Quando você precisa de acesso a recursos do sistema
+- **Integração com o sistema**: Quando precisa de acesso a recursos do sistema
 - **Tarefas interativas**: Prompts, editores, aplicações TUI
-- **Performance crítica**: Quando o overhead de container importa
+- **Performance crítica**: Quando overhead de container importa
 
 ## Próximos Passos
 
 - [Runtime Virtual](./virtual) - Para consistência multiplataforma
-- [Runtime Container](./container) - Para builds reproduzíveis
+- [Runtime Container](./container) - Para builds reprodutíveis

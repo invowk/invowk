@@ -28,7 +28,7 @@ A dynamically extensible, CLI-based command runner similar to [just](https://git
 
 - **Interactive TUI Components**: Built-in gum-like terminal UI components for creating interactive shell scripts (input, choose, confirm, filter, file picker, table, spinner, pager, format, style)
 
-- **Pack Dependencies**: Packs can import dependencies from remote Git repositories (GitHub, GitLab) with semantic versioning support, similar to Go modules
+- **Pack Dependencies**: Packs can import dependencies from remote Git repositories (GitHub, GitLab) with semantic versioning support and lock files for reproducibility
 
 ## Installation
 
@@ -72,40 +72,36 @@ invowk cmd
 invowk cmd --list
 ```
 
-The list shows all commands with their pack prefix, allowed runtimes (default marked with `*`):
+The list shows all commands and allowed runtimes (default marked with `*`). Commands from packs are prefixed with the pack name; commands from the current directory are not:
 
 ```
 Available Commands
   (* = default runtime)
 
 From current directory:
-  myproject build - Build the project [native*, container] (linux, macos, windows)
-  myproject test unit - Run unit tests [native*, virtual] (linux, macos, windows)
-  myproject docker-build - Build in container [container*] (linux, macos, windows)
+  build - Build the project [native*, container] (linux, macos, windows)
+  test unit - Run unit tests [native*, virtual] (linux, macos, windows)
+  docker-build - Build in container [container*] (linux, macos, windows)
 ```
 
-3. **Run a command** (use the pack prefix):
+3. **Run a command**:
 
 ```bash
-invowk cmd myproject build
+invowk cmd build
 ```
 
 4. **Run a command with a specific runtime**:
 
 ```bash
 # Use a non-default runtime (must be allowed by the command)
-invowk cmd myproject build --runtime container
+invowk cmd build --runtime container
 ```
 
 ## Invkfile Format
 
-Invkfiles are written in [CUE](https://cuelang.org/) format. CUE provides powerful validation, templating, and a clean syntax. Here's an example:
+Invkfiles are written in [CUE](https://cuelang.org/) format. CUE provides powerful validation, templating, and a clean syntax. Invkfiles contain **commands only**; pack metadata lives in `invkpack.cue` when you build a pack. Here's an example:
 
 ```cue
-pack: "myproject"  // Required: namespace for all commands in this file
-version: "1.0"
-description: "My project commands"
-
 // Define commands
 cmds: [
 	{
@@ -133,7 +129,7 @@ cmds: [
 		]
 	},
 	// Use spaces in names for subcommand-like behavior
-	// This creates: invowk cmd myproject test unit
+	// This creates: invowk cmd test unit
 	{
 		name: "test unit"
 		description: "Run unit tests"
@@ -172,8 +168,8 @@ cmds: [
 				{alternatives: ["git"]},
 			]
 			cmds: [
-				{alternatives: ["myproject build"]},
-				{alternatives: ["myproject test unit"]},
+				{alternatives: ["build"]},
+				{alternatives: ["test unit"]},
 			]
 		}
 	},
@@ -191,9 +187,15 @@ cmds: [
 ]
 ```
 
-## Pack Identifier
+## Pack Metadata (invkpack.cue)
 
-Every invkfile must specify a **pack** field. The pack identifier becomes the first segment of all command names from that file, creating a namespace for the commands.
+Packs (directories ending in `.invkpack`) use a separate metadata file named `invkpack.cue`. It defines the pack identifier, optional description, and dependencies.
+
+```cue
+pack: "mypack"
+version: "1.0"
+description: "Reusable build tools"
+```
 
 ### Pack Field Format
 
@@ -208,16 +210,19 @@ pack: "my.nested.pack"   // Nested pack using dot notation (RDNS style)
 - Nested packs use dots (`.`) as separators
 - Each segment must start with a letter
 
-**Valid examples:** `mygroup`, `my.group`, `my.nested.group`, `Group1`, `a.b.c`
+**Valid examples:** `mypack`, `my.pack`, `my.nested.pack`, `Pack1`, `a.b.c`
 
-**Invalid examples:** `.group`, `group.`, `my..group`, `my-group`, `my_group`, `1group`
+**Invalid examples:** `.pack`, `pack.`, `my..pack`, `my-pack`, `my_pack`, `1pack`
 
-### How Packs Affect Command Names
+### How Pack Namespacing Works
 
-When you define a command in an invkfile with `pack: "myproject"`:
+When you define a command in a pack, the pack ID becomes the namespace prefix:
 
 ```cue
+// invkpack.cue
 pack: "myproject"
+
+// invkfile.cue
 cmds: [
     {name: "build", ...},
     {name: "test unit", ...},
@@ -231,30 +236,36 @@ invowk cmd myproject build
 invowk cmd myproject test unit
 ```
 
-### Benefits of Command Packs
+Commands from standalone invkfiles (like those created by `invowk init`) are **unprefixed**:
 
-1. **Namespace isolation**: Multiple invkfiles can have commands with the same name without conflicts
+```bash
+invowk cmd build
+invowk cmd test unit
+```
+
+### Benefits of Pack Namespaces
+
+1. **Namespace isolation**: Pack command names stay distinct across shared toolkits
 2. **Clear provenance**: You know which invkfile a command comes from
 3. **Hierarchical organization**: Use dot notation for logical grouping (e.g., `frontend.components`, `backend.api`)
 4. **Tab completion**: Packs provide natural completion boundaries
 
-### Command Dependencies with Packs
+### Command Dependencies and Namespaces
 
 Command dependencies refer to other invowk commands by name. Invowk validates that the referenced commands are discoverable (it does not execute them automatically).
 
-- Same invkfile: you can use unqualified names like `build` or `test unit`
-- Other invkfiles/packs: use full pack-prefixed names like `other.project deploy`
+- Same invkfile: use unqualified names like `build` or `test unit`
+- Pack commands: use the pack prefix (or alias) like `tools deploy`
 
 ```cue
-pack: "myproject"
 cmds: [
     {
         name: "release"
         depends_on: {
             cmds: [
-                {alternatives: ["myproject build"]},      // Same-file command
-                {alternatives: ["myproject test unit"]},  // Same-file nested command
-                {alternatives: ["other.project deploy"]}, // Command from another invkfile
+                {alternatives: ["build"]},          // Same-file command
+                {alternatives: ["test unit"]},      // Same-file nested command
+                {alternatives: ["tools deploy"]},   // Command from a pack
             ]
         }
     }
@@ -286,15 +297,15 @@ depends_on: {
 
 ### Command Dependencies
 
-Require other invowk commands to be discoverable. Use full pack-prefixed names when referencing commands from other invkfiles/packs:
+Require other invowk commands to be discoverable. Use the full command name as listed by `invowk cmd --list` (pack prefix when applicable):
 
 ```cue
 depends_on: {
 	cmds: [
-		{alternatives: ["myproject clean"]},
-		{alternatives: ["myproject build"]},
+		{alternatives: ["clean"]},
+		{alternatives: ["build"]},
 		// Multiple alternatives - any one satisfies the dependency
-		{alternatives: ["myproject test unit", "myproject test integration"]},
+		{alternatives: ["test unit", "test integration"]},
 	]
 }
 ```
@@ -507,9 +518,9 @@ flags: [
 
 Usage:
 ```bash
-invowk cmd myproject build -v -o=./dist/output.txt -f
+invowk cmd build -v -o=./dist/output.txt -f
 # Equivalent to:
-invowk cmd myproject build --verbose --output=./dist/output.txt --force
+invowk cmd build --verbose --output=./dist/output.txt --force
 ```
 
 ### Validation Patterns
@@ -568,7 +579,7 @@ cmds: [
 
 Usage:
 ```bash
-invowk cmd myproject deploy -e=prod -n=3 -d
+invowk cmd deploy -e=prod -n=3 -d
 ```
 
 ### Using Flags
@@ -577,13 +588,13 @@ Flags are passed using standard `--flag=value` or `--flag value` syntax:
 
 ```bash
 # Pass flags to a command
-invowk cmd myproject deploy --env=production --dry-run=true
+invowk cmd deploy --env=production --dry-run=true
 
 # Use default values
-invowk cmd myproject deploy --env=staging  # dry-run defaults to "false"
+invowk cmd deploy --env=staging  # dry-run defaults to "false"
 
 # View flag help
-invowk cmd myproject deploy --help
+invowk cmd deploy --help
 ```
 
 ### Environment Variable Naming
@@ -771,7 +782,7 @@ args: [
 
 Usage:
 ```bash
-invowk cmd myproject deploy prod api web worker
+invowk cmd deploy prod api web worker
 ```
 
 This provides multiple environment variables:
@@ -785,22 +796,22 @@ Arguments are passed after the command name:
 
 ```bash
 # Required argument only
-invowk cmd myproject deploy prod
+invowk cmd deploy prod
 
 # With optional argument
-invowk cmd myproject deploy prod 3
+invowk cmd deploy prod 3
 
 # With variadic arguments
-invowk cmd myproject deploy prod 3 api web worker
+invowk cmd deploy prod 3 api web worker
 
 # View argument help
-invowk cmd myproject deploy --help
+invowk cmd deploy --help
 ```
 
 The help output shows argument documentation:
 ```
 Usage:
-  invowk cmd myproject deploy <env> [replicas] [services]...
+  invowk cmd deploy <env> [replicas] [services]...
 
 Arguments:
   env                  (required) - Target environment
@@ -893,13 +904,13 @@ Commands can have both arguments and flags. Flags use `--name=value` syntax and 
 
 ```bash
 # Flags before arguments
-invowk cmd myproject deploy --dry-run prod 3
+invowk cmd deploy --dry-run prod 3
 
 # Flags after arguments  
-invowk cmd myproject deploy prod 3 --verbose
+invowk cmd deploy prod 3 --verbose
 
 # Flags mixed with arguments
-invowk cmd myproject deploy prod --dry-run 3 api web --verbose
+invowk cmd deploy prod --dry-run 3 api web --verbose
 ```
 
 ### Complete Argument Example
@@ -957,7 +968,7 @@ cmds: [
 
 Usage:
 ```bash
-invowk cmd myproject deploy prod 3 api web worker --dry-run
+invowk cmd deploy prod 3 api web worker --dry-run
 ```
 
 ### Environment Variables in Nested Commands
@@ -1132,16 +1143,16 @@ cmds: [
 
 ### Command Listing
 
-When you run `invowk cmd list`, the supported platforms are displayed for each command:
+When you run `invowk cmd --list`, the supported platforms are displayed for each command:
 
 ```
 Available Commands
   (* = default runtime)
 
 From current directory:
-  myproject build - Build the project [native*] (linux, macos, windows)
-  myproject clean - Clean build artifacts [native*] (linux, macos)
-  myproject system info - Display system information [native*] (linux, macos, windows)
+  build - Build the project [native*] (linux, macos, windows)
+  clean - Clean build artifacts [native*] (linux, macos)
+  system info - Display system information [native*] (linux, macos, windows)
 ```
 
 ### Unsupported Platform Error
@@ -1361,14 +1372,17 @@ Any executable available in PATH (or in the container) can be used as an interpr
 
 ## Packs
 
-Packs are self-contained folders that package an invkfile together with its associated script files for easy distribution and portability.
+Packs are self-contained folders that bundle pack metadata with command definitions and scripts for easy distribution and portability.
 
 ### What is a Pack?
 
 A pack is a directory with the `.invkpack` suffix that contains:
-- Exactly one `invkfile.cue` at the root
+- Required `invkpack.cue` at the root (pack metadata and dependencies)
+- Optional `invkfile.cue` at the root (command definitions)
 - Optional script files referenced by command implementations
 - No nested packs (packs cannot contain other packs)
+
+`invkfile.cue` is optional for library-only packs that exist to declare dependencies.
 
 ### Pack Naming
 
@@ -1397,7 +1411,8 @@ Pack folder names follow these rules:
 
 ```
 com.example.mytools.invkpack/
-├── invkfile.cue         # Required: command definitions
+├── invkpack.cue         # Required: pack metadata + dependencies
+├── invkfile.cue         # Optional: command definitions
 ├── scripts/               # Optional: script files
 │   ├── build.sh
 │   ├── deploy.sh
@@ -1412,7 +1427,7 @@ com.example.mytools.invkpack/
 When referencing script files in a pack's invkfile, use paths relative to the pack root with **forward slashes** for cross-platform compatibility:
 
 ```cue
-pack: "mytools"
+// invkfile.cue
 cmds: [
     {
         name: "build"
@@ -1478,7 +1493,7 @@ Pack Validation
 
 ✗ Pack validation failed with 2 issue(s)
 
-  1. [structure] missing required invkfile.cue
+  1. [structure] missing required invkpack.cue
   2. [structure] nested.invkpack: nested packs are not allowed
 ```
 
@@ -1503,7 +1518,7 @@ invowk pack create mytools --scripts
 invowk pack create mytools --pack-id "com.example.mytools" --description "A collection of useful commands"
 ```
 
-The created pack will contain a template `invkfile.cue` with a sample "hello" command.
+The created pack will contain `invkpack.cue` metadata and a template `invkfile.cue` with a sample "hello" command.
 
 ### Listing Packs
 
@@ -1585,7 +1600,7 @@ Import Pack
 ### Benefits of Packs
 
 1. **Portability**: Share a complete command set as a single folder
-2. **Self-contained**: Scripts are packed with the invkfile
+2. **Self-contained**: Pack metadata and scripts travel together
 3. **Cross-platform**: Forward slash paths work on all operating systems
 4. **Namespace isolation**: RDNS naming prevents conflicts between packs
 5. **Validation**: Built-in validation ensures pack integrity
@@ -1599,11 +1614,11 @@ Packs are automatically discovered and loaded from all invowk search paths:
 
 When invowk discovers a pack, it:
 - Validates the pack structure and naming
-- Loads the invkfile from within the pack
+- Loads `invkfile.cue` from within the pack (if present)
 - Resolves script paths relative to the pack root
 - Makes all commands available with their pack prefix
 
-Commands from packs appear in `invowk cmd list` with the source indicated as "pack":
+Commands from packs appear in `invowk cmd --list` with the source indicated as "pack":
 
 ## Pack Dependencies
 
@@ -1611,9 +1626,10 @@ Packs can declare dependencies on other packs hosted in remote Git repositories 
 
 ### Declaring Dependencies
 
-Add a `requires` field to your invkfile to declare pack dependencies:
+Add a `requires` field to `invkpack.cue` to declare pack dependencies:
 
 ```cue
+// invkpack.cue
 pack: "myproject"
 version: "1.0"
 
@@ -1634,11 +1650,11 @@ requires: [
 		path:    "packages/cli-tools"  // Subdirectory within repo
 	},
 ]
-
-cmds: [
-	// Your commands here
-]
 ```
+
+The repository must contain a pack (either a `.invkpack` directory or an `invkpack.cue` file at the root).
+
+Commands in a pack can only call commands from direct dependencies or globally installed packs (transitive dependencies are not available).
 
 ### Version Constraints
 
@@ -1665,7 +1681,7 @@ invowk pack add https://github.com/user/monorepo.git ^1.0.0 --path packages/tool
 # List all resolved dependencies
 invowk pack deps
 
-# Sync dependencies from invkfile (resolve and download)
+# Sync dependencies from invkpack.cue (resolve and download)
 invowk pack sync
 
 # Update all dependencies to latest matching versions
@@ -1680,10 +1696,10 @@ invowk pack remove https://github.com/user/pack.git
 
 ### Lock File
 
-Pack resolution creates an `invowk.lock.cue` file that records the exact versions resolved. This ensures reproducible builds across environments:
+Pack resolution creates an `invkpack.lock.cue` file that records the exact versions resolved. This ensures reproducible builds across environments:
 
 ```cue
-// invowk.lock.cue - Auto-generated lock file
+// invkpack.lock.cue - Auto-generated lock file
 // DO NOT EDIT MANUALLY
 
 version: "1.0"
@@ -1702,7 +1718,7 @@ packs: {
 
 ### Command Namespacing
 
-Commands from pack dependencies are automatically namespaced to prevent conflicts:
+When dependency packs are installed or vendored, their commands are namespaced to prevent conflicts:
 
 - **Default**: `<pack-name>@<version>` (e.g., `common-tools@1.2.3`)
 - **With alias**: Uses the specified alias (e.g., `deploy`)
@@ -1743,12 +1759,15 @@ Packs can include their dependencies in an `invk_packs/` subfolder for self-cont
 
 ```
 mypack.invkpack/
+├── invkpack.cue
 ├── invkfile.cue
 ├── scripts/
 └── invk_packs/              # Vendored dependencies
     ├── io.example.utils.invkpack/
+    │   ├── invkpack.cue
     │   └── invkfile.cue
     └── com.other.tools.invkpack/
+        ├── invkpack.cue
         └── invkfile.cue
 ```
 
@@ -1765,6 +1784,8 @@ invowk pack vendor --update
 invowk pack vendor --prune
 ```
 
+> **Note:** `invowk pack vendor` currently prints the dependencies that would be vendored. Fetching and pruning vendored packs is still being finalized.
+
 ### Collision Handling
 
 When two packs have the same name, invowk reports a collision error with guidance on how to disambiguate using aliases:
@@ -1774,20 +1795,20 @@ pack name collision: 'io.example.tools' defined in both
   '/path/to/pack1.invkpack' and '/path/to/pack2.invkpack'
   Use an alias to disambiguate:
     - For requires: add 'alias' field to the requirement
-    - For global packs: run 'invowk pack alias <path> <alias>'
+    - For global packs: run 'invowk pack alias set <path> <alias>'
 ```
 
 Manage aliases with:
 
 ```bash
 # Set alias for a pack
-invowk pack alias /path/to/pack.invkpack myalias
+invowk pack alias set /path/to/pack.invkpack myalias
 
 # List all aliases
-invowk pack alias --list
+invowk pack alias list
 
 # Remove an alias
-invowk pack alias --remove /path/to/pack.invkpack
+invowk pack alias remove /path/to/pack.invkpack
 ```
 
 ## Runtime Modes
@@ -2005,27 +2026,27 @@ invowk completion powershell >> $PROFILE
 
 ### List Commands
 ```bash
-invowk cmd list
+invowk cmd --list
 ```
 
 ### Run a Command
 ```bash
-invowk cmd myproject build
+invowk cmd build
 ```
 
 ### Run a Command with Spaces in Name
 ```bash
-invowk cmd myproject test unit
+invowk cmd test unit
 ```
 
 ### Override Runtime
 ```bash
-invowk cmd myproject build --runtime virtual
+invowk cmd build --runtime virtual
 ```
 
 ### Verbose Mode
 ```bash
-invowk --verbose cmd myproject build
+invowk --verbose cmd build
 ```
 
 ## Interactive TUI Components
@@ -2241,7 +2262,6 @@ invowk tui style --bold --foreground "#00FF00" --background "#000" "Matrix"
 The TUI components can be used within invkfile scripts to create interactive commands:
 
 ```cue
-pack: "myproject"
 cmds: [
     {
         name: "interactive setup"

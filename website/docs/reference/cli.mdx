@@ -157,8 +157,8 @@ Create a new invowk pack.
 |------|-------|-------------|
 | `--path` | `-p` | Parent directory for the pack (default: current directory) |
 | `--scripts` |  | Create a `scripts/` subdirectory |
-| `--group` | `-g` | Group name for the invkfile (default: pack name) |
-| `--description` | `-d` | Description for the invkfile |
+| `--pack-id` | `-g` | Pack identifier for `invkpack.cue` (default: pack name) |
+| `--description` | `-d` | Description for `invkpack.cue` |
 
 **Examples:**
 
@@ -210,6 +210,74 @@ Import a pack from a ZIP file or URL.
 |------|-------|-------------|
 | `--path` | `-p` | Output directory |
 | `--overwrite` |  | Overwrite existing pack if present |
+
+#### invowk pack alias
+
+Manage pack aliases for collision disambiguation.
+
+<Snippet id="reference/cli/pack-alias-syntax" />
+
+#### invowk pack alias set
+
+<Snippet id="reference/cli/pack-alias-set-syntax" />
+
+#### invowk pack alias list
+
+<Snippet id="reference/cli/pack-alias-list-syntax" />
+
+#### invowk pack alias remove
+
+<Snippet id="reference/cli/pack-alias-remove-syntax" />
+
+#### invowk pack add
+
+Resolve a pack dependency and print the `requires` entry for `invkpack.cue`.
+
+<Snippet id="reference/cli/pack-add-syntax" />
+
+**Flags:**
+
+| Flag | Description |
+|------|-------------|
+| `--alias` | Alias for the pack namespace |
+| `--path` | Subdirectory path within the repository |
+
+#### invowk pack remove
+
+Remove a pack dependency from the lock file.
+
+<Snippet id="reference/cli/pack-remove-syntax" />
+
+#### invowk pack sync
+
+Sync dependencies from `invkpack.cue`.
+
+<Snippet id="reference/cli/pack-sync-syntax" />
+
+#### invowk pack update
+
+Update pack dependencies to latest matching versions.
+
+<Snippet id="reference/cli/pack-update-syntax" />
+
+#### invowk pack deps
+
+List resolved pack dependencies.
+
+<Snippet id="reference/cli/pack-deps-syntax" />
+
+#### invowk pack vendor
+
+Vendor dependencies into `invk_packs/`.
+
+<Snippet id="reference/cli/pack-vendor-syntax" />
+
+**Flags:**
+
+| Flag | Description |
+|------|-------------|
+| `--update` | Force re-fetch of all dependencies |
+| `--prune` | Remove unused vendored packs |
 
 ---
 

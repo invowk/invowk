@@ -10,7 +10,7 @@ import Snippet from '@site/src/components/Snippet';
 The pack format and structure are still being finalized. While we aim for backwards compatibility, **breaking changes may occur** before the 1.0 release. If you're distributing packs externally, be prepared to update them when upgrading Invowk™.
 :::
 
-Packs are self-contained folders that bundle an invkfile together with its script files. They're perfect for sharing commands, creating reusable toolkits, and distributing automation across teams.
+Packs are self-contained folders that bundle `invkpack.cue` metadata with optional `invkfile.cue` commands and any script files they reference. They're perfect for sharing commands, creating reusable toolkits, and distributing automation across teams.
 
 ## What is a Pack?
 
@@ -21,7 +21,7 @@ A pack is a directory with the `.invkpack` suffix:
 ## Why Use Packs?
 
 - **Portability**: Share a complete command set as a single folder
-- **Self-contained**: Scripts are bundled with the invkfile
+- **Self-contained**: Scripts are bundled with the pack
 - **Cross-platform**: Forward slash paths work everywhere
 - **Namespace isolation**: RDNS naming prevents conflicts
 - **Easy distribution**: Zip, share, unzip
@@ -53,10 +53,11 @@ Packs are automatically discovered from:
 
 ### Required Files
 
-- **`invkfile.cue`**: Command definitions (must be at pack root)
+- **`invkpack.cue`**: Pack metadata (name, version, dependencies)
 
 ### Optional Contents
 
+- **`invkfile.cue`**: Command definitions (omit for library-only packs)
 - **Scripts**: Shell scripts, Python files, etc.
 - **Templates**: Configuration templates
 - **Data**: Any supporting files
@@ -120,3 +121,4 @@ Commands appear in `invowk cmd --list` with their source:
 - [Creating Packs](./creating-packs) - Scaffold and structure packs
 - [Validating](./validating) - Ensure pack integrity
 - [Distributing](./distributing) - Share packs with others
+- [Pack Dependencies](./dependencies/overview) - Use other packs in your pack

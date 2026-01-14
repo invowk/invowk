@@ -6,7 +6,7 @@ import Snippet from '@site/src/components/Snippet';
 
 # Validando Packs
 
-Valide seus packs para garantir que estão corretamente estruturados e prontos para distribuição.
+Valide seus packs para garantir que estão estruturados corretamente e prontos para distribuição.
 
 ## Validação Básica
 
@@ -18,7 +18,7 @@ Saída para um pack válido:
 
 ## Validação Profunda
 
-Adicione `--deep` para também analisar e validar o invkfile:
+Adicione `--deep` para também fazer parse e validar o invkfile (quando presente):
 
 <Snippet id="packs/validate-deep" />
 
@@ -28,35 +28,37 @@ Saída:
 
 ## O que é Validado
 
-### Verificações de Estrutura
+### Checagens de Estrutura
 
 - Diretório do pack existe
-- `invkfile.cue` está presente na raiz
-- Sem packs aninhados (packs não podem conter outros packs)
+- `invkpack.cue` obrigatório na raiz
+- `invkfile.cue` é opcional (packs apenas de biblioteca são permitidos)
+- Sem packs aninhados (exceto dentro de `invk_packs/`)
 
-### Verificações de Segurança
+### Checagens de Segurança
 
-- **Sem symlinks**: Links simbólicos não são permitidos em packs por razões de segurança. Eles podem potencialmente escapar do diretório do pack durante a extração (vulnerabilidade zip-slip).
+- **Sem symlinks**: Symlinks não são permitidos em packs por motivos de segurança. Eles podem escapar do diretório do pack durante extração (vulnerabilidade zip-slip).
 
-### Verificações de Compatibilidade
+### Checagens de Compatibilidade
 
-- **Nomes reservados do Windows**: Arquivos chamados `CON`, `PRN`, `AUX`, `NUL`, `COM1`-`COM9`, ou `LPT1`-`LPT9` gerarão um aviso de compatibilidade. Esses nomes são reservados no Windows e podem causar problemas ao extrair packs em sistemas Windows.
+- **Nomes reservados no Windows**: Arquivos chamados `CON`, `PRN`, `AUX`, `NUL`, `COM1`-`COM9` ou `LPT1`-`LPT9` geram um aviso de compatibilidade. Esses nomes são reservados no Windows e podem causar problemas ao extrair packs em sistemas Windows.
 
-### Verificações de Nomenclatura
+### Checagens de Nomenclatura
 
 - Nome da pasta termina com `.invkpack`
 - Prefixo do nome segue as regras (começa com letra, alfanumérico + pontos)
+- ID do pack em `invkpack.cue` corresponde ao prefixo do nome da pasta
 - Sem caracteres inválidos (hífens, underscores)
 
-### Verificações Profundas (com `--deep`)
+### Checagens Profundas (com `--deep`)
 
-- Invkfile é parseado sem erros
+- Invkfile faz parse sem erros (se presente)
 - Sintaxe CUE é válida
 - Restrições do schema são atendidas
 
 ## Erros de Validação
 
-### Invkfile Ausente
+### Invkpack Ausente
 
 <Snippet id="packs/error-missing-invkfile" />
 
@@ -80,7 +82,7 @@ Valide múltiplos packs:
 
 ## Integração com CI
 
-Adicione validação de pack ao seu pipeline de CI:
+Adicione validação de packs no seu pipeline de CI:
 
 <Snippet id="packs/validate-ci" />
 
@@ -90,7 +92,7 @@ Adicione validação de pack ao seu pipeline de CI:
 
 <Snippet id="packs/path-separators-good-bad" />
 
-### Escapando do Diretório do Pack
+### Escapando o Diretório do Pack
 
 <Snippet id="packs/escape-pack-dir" />
 
@@ -101,11 +103,11 @@ Adicione validação de pack ao seu pipeline de CI:
 ## Melhores Práticas
 
 1. **Valide antes de commitar**: Detecte problemas cedo
-2. **Use `--deep`**: Captura erros no invkfile
-3. **Valide no CI**: Previne que packs quebrados sejam distribuídos
+2. **Use `--deep`**: Captura erros de invkfile
+3. **Valide no CI**: Impede packs quebrados de sair
 4. **Corrija problemas imediatamente**: Não deixe dívida de validação acumular
 
 ## Próximos Passos
 
-- [Criando Packs](./creating-packs) - Estruturar seu pack
-- [Distribuindo](./distributing) - Compartilhar seu pack
+- [Criando Packs](./creating-packs) - Estruture seu pack
+- [Distribuindo](./distributing) - Compartilhe seu pack

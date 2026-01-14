@@ -11,41 +11,17 @@ O schema do invkfile ainda está evoluindo. Campos, tipos e regras de validaçã
 :::
 
 Referência completa para o schema do invkfile. Invkfiles usam formato [CUE](https://cuelang.org/) para definir comandos.
-Invkfiles são validados com structs fechadas, então campos desconhecidos geram erro de validação.
+Invkfiles são validados como structs fechadas, então campos desconhecidos geram erro de validação.
 
 ## Estrutura Raiz
 
-Todo invkfile deve ter um `group` e pelo menos um comando:
+Todo invkfile deve definir ao menos um comando em `cmds`:
 
 <Snippet id="reference/invkfile/root-structure" />
 
-### group
-
-**Tipo:** `string`  
-**Obrigatório:** Sim
-
-Um prefixo obrigatório para todos os nomes de comando deste invkfile. Deve começar com uma letra e pode conter segmentos separados por ponto.
-
-<Snippet id="reference/invkfile/group-examples" />
-
-### version
-
-**Tipo:** `string` (padrão: `^[0-9]+\.[0-9]+$`)  
-**Obrigatório:** Não  
-**Padrão:** Nenhum
-
-A versão do schema do invkfile. Versão atual é `"1.0"`.
-
-<Snippet id="reference/invkfile/version-example" />
-
-### description
-
-**Tipo:** `string`  
-**Obrigatório:** Não
-
-Um resumo do propósito deste invkfile. Mostrado ao listar comandos.
-
-<Snippet id="reference/invkfile/description-example" />
+:::note Metadados do Pack Ficam em invkpack.cue
+Campos como `pack`, `version`, `description` e `requires` pertencem a `invkpack.cue` e são rejeitados em `invkfile.cue`.
+:::
 
 ### default_shell
 
@@ -53,7 +29,7 @@ Um resumo do propósito deste invkfile. Mostrado ao listar comandos.
 **Obrigatório:** Não  
 **Padrão:** Padrão do sistema
 
-Sobrescrever o shell padrão para execução em runtime native.
+Sobrescreve o shell padrão para execução no runtime native.
 
 <Snippet id="reference/invkfile/default-shell-example" />
 
@@ -203,7 +179,7 @@ Especifica como executar o script.
 <Snippet id="reference/invkfile/interpreter-examples" />
 
 :::note
-Virtual runtime usa mvdan/sh que não pode executar interpreters não-shell.
+O runtime virtual usa mvdan/sh e não consegue executar interpretadores não-shell.
 :::
 
 ### env_inherit_mode
@@ -219,14 +195,14 @@ Controla se o ambiente do host é herdado pelo runtime.
 **Tipo:** `[...string]`  
 **Disponível para:** `native`, `virtual`, `container`
 
-Allowlist de variáveis do host quando `env_inherit_mode` é `"allow"`.
+Lista de variáveis de ambiente permitidas quando `env_inherit_mode` é `"allow"`.
 
 ### env_inherit_deny
 
 **Tipo:** `[...string]`  
 **Disponível para:** `native`, `virtual`, `container`
 
-Denylist de variáveis do host (aplica a qualquer modo).
+Lista de variáveis de ambiente negadas (aplica-se a qualquer modo).
 
 <Snippet id="reference/invkfile/env-inherit-example" />
 
@@ -236,7 +212,7 @@ Denylist de variáveis do host (aplica a qualquer modo).
 **Disponível para:** `container`  
 **Padrão:** `false`
 
-Habilitar acesso SSH do container de volta ao host. Quando habilitado, Invowk™ inicia um servidor SSH e fornece credenciais via variáveis de environment:
+Habilita acesso SSH do container de volta para o host. Quando habilitado, o Invowk inicia um servidor SSH e fornece credenciais via variáveis de ambiente:
 
 - `INVOWK_SSH_HOST`
 - `INVOWK_SSH_PORT`
@@ -250,7 +226,7 @@ Habilitar acesso SSH do container de volta ao host. Quando habilitado, Invowk™
 **Tipo:** `string`  
 **Disponível para:** `container`
 
-Especificar a fonte do container. Estes são **mutuamente exclusivos**.
+Especifique a origem do container. São **mutuamente exclusivos**.
 
 <Snippet id="reference/invkfile/containerfile-image-examples" />
 
@@ -268,7 +244,7 @@ Montagens de volume no formato `host:container[:options]`.
 **Tipo:** `[...string]`  
 **Disponível para:** `container`
 
-Mapeamentos de porta no formato `host:container`.
+Mapeamentos de portas no formato `host:container`.
 
 <Snippet id="reference/invkfile/ports-example" />
 
@@ -288,13 +264,13 @@ Configuração de environment:
 
 ### files
 
-Arquivos dotenv para carregar. Arquivos são carregados em ordem; arquivos posteriores sobrescrevem anteriores.
+Arquivos dotenv para carregar. Arquivos são carregados em ordem; os últimos sobrescrevem os anteriores.
 
 <Snippet id="reference/invkfile/env-files-example" />
 
 ### vars
 
-Variáveis de environment como pares chave-valor.
+Variáveis de ambiente como pares chave-valor.
 
 <Snippet id="reference/invkfile/env-vars-example" />
 
@@ -302,7 +278,7 @@ Variáveis de environment como pares chave-valor.
 
 ## DependsOn
 
-Especificação de dependência:
+Especificação de dependências:
 
 <Snippet id="reference/invkfile/depends-on-structure" />
 
@@ -352,9 +328,9 @@ Definição de argumento posicional:
 
 <Snippet id="reference/invkfile/argument-example" />
 
-**Variáveis de Environment para Argumentos:**
+**Variáveis de ambiente para argumentos:**
 - `INVOWK_ARG_<NAME>` - O valor do argumento
-- Para variadic: `INVOWK_ARG_<NAME>_COUNT`, `INVOWK_ARG_<NAME>_1`, `INVOWK_ARG_<NAME>_2`, etc.
+- Para variádicos: `INVOWK_ARG_<NAME>_COUNT`, `INVOWK_ARG_<NAME>_1`, `INVOWK_ARG_<NAME>_2`, etc.
 
 ---
 

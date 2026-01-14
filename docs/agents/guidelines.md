@@ -16,7 +16,8 @@
 
 ## Comments
 
-- Add comments only when behavior is non-obvious or business rules are subtle.
+- Add comments above method/function declarations to explain the semantics of those methods/functions.
+- Add comments inside of method/function bodies only when behavior is non-obvious or business rules are subtle.
 
 ## Tests
 
@@ -25,7 +26,7 @@
 
 ## Documentation
 
-- Update README or docs when user-facing behavior, CLI/API, or schemas change.
+- Update README and docs when user-facing behavior, CLI/API, or schemas change.
 
 ## Cleanup
 

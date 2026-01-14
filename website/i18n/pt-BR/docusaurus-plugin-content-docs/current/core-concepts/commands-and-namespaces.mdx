@@ -1,0 +1,88 @@
+---
+sidebar_position: 2
+---
+
+import Snippet from '@site/src/components/Snippet';
+
+# Comandos e Namespaces
+
+Os comandos do Invowk são nomeados diretamente em `invkfile.cue`. Namespaces vêm dos **packs**: comandos em um pack são prefixados pelo ID do pack definido em `invkpack.cue`.
+
+## Nomes de Comandos
+
+Nomes de comandos podem incluir espaços para criar hierarquias estilo subcomandos:
+
+<Snippet id="commands-namespaces/subcommand-names" />
+
+### Regras de Nomenclatura de Comandos
+
+| Regra | Válido | Inválido |
+|-------|--------|----------|
+| Deve começar com letra | `build`, `Test` | `1build` |
+| Letras, números, espaços, hífens, underscores | `test unit`, `build-all` | `build@all` |
+
+Espaços são apenas organizacionais - não há relação especial pai-filho entre comandos.
+
+## Namespaces de Packs
+
+Comandos de packs são namespaced pelo campo `pack` em `invkpack.cue`:
+
+<Snippet id="commands-namespaces/pack-prefix" />
+
+Esses comandos se tornam:
+- `invowk cmd com.company.frontend build`
+- `invowk cmd com.company.frontend test unit`
+
+### Regras de Nomenclatura de IDs de Pack
+
+| Regra | Válido | Inválido |
+|-------|--------|----------|
+| Deve começar com letra | `myproject`, `Project1` | `1project`, `_project` |
+| Apenas letras e números | `myproject`, `v2` | `my-project`, `my_project` |
+| Pontos para aninhamento | `my.project`, `a.b.c` | `my..project`, `.project`, `project.` |
+
+#### Exemplos Válidos
+
+<Snippet id="commands-namespaces/valid-pack-ids" />
+
+#### Exemplos Inválidos
+
+<Snippet id="commands-namespaces/invalid-pack-ids" />
+
+Para packs compartilhados, use nomenclatura RDNS (Reverse Domain Name System), como `com.company.tools`, para evitar colisões.
+
+## Descoberta de Comandos
+
+O Invowk descobre comandos de múltiplas fontes em ordem de prioridade:
+
+1. **Diretório atual** (maior prioridade)
+2. **Diretório de comandos do usuário** (`~/.invowk/cmds/`)
+3. **Caminhos de busca configurados** (do arquivo de configuração)
+
+Ao listar comandos, você verá sua origem:
+
+<Snippet id="commands-namespaces/discovery-output" />
+
+## Dependências de Comandos
+
+Comandos podem depender de outros comandos. Use o nome completo como aparece no `invowk cmd --list` (prefixo do pack quando aplicável):
+
+<Snippet id="commands-namespaces/command-dependency" />
+
+## Por Que Namespaces Importam
+
+1. **Isolamento de namespace** - Comandos de packs ficam distintos entre toolkits compartilhados
+2. **Origem clara** - O prefixo do pack mostra de onde o comando vem
+3. **Organização lógica** - IDs de pack com pontos organizam comandos relacionados
+4. **Autocompletar** - IDs de pack criam limites naturais para completar com tab
+
+## Boas Práticas
+
+- **Projetos locais**: mantenha nomes curtos e focados (sem prefixo).
+- **Packs**: use IDs RDNS como `com.company.devtools`.
+- **Evite IDs genéricos**: prefira `com.company.tools` em vez de `tools`.
+
+## Próximos Passos
+
+- [Implementações](./implementations) - Aprenda sobre implementações de comandos específicas por plataforma
+- [Modos de Runtime](../runtime-modes/overview) - Entenda execução native, virtual e container

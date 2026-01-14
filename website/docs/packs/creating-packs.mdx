@@ -24,9 +24,15 @@ With `--scripts`:
 
 <Snippet id="packs/create-with-scripts" />
 
+## Pack Metadata (invkpack.cue)
+
+The generated `invkpack.cue` contains pack identity and dependencies:
+
+<Snippet id="packs/template-invkpack" />
+
 ## Template Invkfile
 
-The generated `invkfile.cue`:
+The generated `invkfile.cue` contains commands only:
 
 <Snippet id="packs/template-invkfile" />
 
@@ -87,7 +93,7 @@ Include a README for users:
 1. **Use RDNS naming**: Prevents conflicts with other packs
 2. **Keep scripts focused**: One task per script
 3. **Include documentation**: README with usage examples
-4. **Version your pack**: Use semantic versioning
+4. **Version your pack**: Set the version in `invkpack.cue`
 5. **Forward slashes only**: Cross-platform compatibility
 6. **Validate before sharing**: Run `pack validate --deep`
 

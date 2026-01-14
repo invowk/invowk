@@ -1,0 +1,87 @@
+---
+sidebar_position: 3
+---
+
+import Snippet from '@site/src/components/Snippet';
+
+# Referência de Schema do Invkpack
+
+:::warning Alpha — Schema Pode Mudar
+O schema do invkpack ainda está evoluindo. Campos, tipos e regras de validação **podem mudar entre releases** enquanto estabilizamos o formato. Sempre verifique o [changelog](https://github.com/invowk/invowk/releases) ao fazer upgrade.
+:::
+
+Referência completa para `invkpack.cue`, o arquivo de metadados do pack. Metadados são validados como struct fechado, então campos desconhecidos geram erro de validação.
+
+## Estrutura Raiz
+
+Todo pack deve incluir um arquivo `invkpack.cue` com esta estrutura:
+
+<Snippet id="reference/invkpack/root-structure" />
+
+### pack
+
+**Tipo:** `string` (padrão: `^[a-zA-Z][a-zA-Z0-9]*(\.[a-zA-Z][a-zA-Z0-9]*)*$`)  
+**Obrigatório:** Sim
+
+O identificador do pack. Deve corresponder ao prefixo do nome da pasta (antes de `.invkpack`).
+
+<Snippet id="reference/invkpack/pack-examples" />
+
+### version
+
+**Tipo:** `string` (padrão: `^[0-9]+\.[0-9]+$`)  
+**Obrigatório:** Não
+
+Versão dos metadados do pack. A versão atual é `"1.0"`.
+
+### description
+
+**Tipo:** `string`  
+**Obrigatório:** Não
+
+Um resumo curto do propósito do pack.
+
+### requires
+
+**Tipo:** `[...#PackRequirement]`  
+**Obrigatório:** Não
+
+Lista de dependências de packs em repositórios Git.
+
+<Snippet id="reference/invkpack/requires-example" />
+
+---
+
+## PackRequirement
+
+Define uma entrada de dependência:
+
+<Snippet id="reference/invkpack/requirement-structure" />
+
+### git_url
+
+**Tipo:** `string`  
+**Obrigatório:** Sim
+
+URL do repositório Git (HTTPS ou SSH). O repositório deve conter um pack.
+
+### version
+
+**Tipo:** `string`  
+**Obrigatório:** Sim
+
+Restrição de versão semântica usada para resolver uma tag Git.
+
+### alias
+
+**Tipo:** `string`  
+**Obrigatório:** Não
+
+Sobrescreve o namespace padrão para esta dependência (deve seguir regras de nomenclatura de packs).
+
+### path
+
+**Tipo:** `string`  
+**Obrigatório:** Não
+
+Subdiretório dentro do repositório que contém o pack. Deve ser relativo e não pode conter sequências de travessia de caminho.

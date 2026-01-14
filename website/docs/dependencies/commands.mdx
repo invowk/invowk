@@ -18,8 +18,8 @@ If none of the listed alternatives can be found, Invowk fails with a **Missing C
 
 ## Naming & Resolution
 
-- **Same invkfile**: you may reference commands without a group prefix (e.g., `"build"`, `"test unit"`). Invowk resolves these against the current invkfile `group`.
-- **Other invkfiles / packs**: use the full group-prefixed name (e.g., `"shared generate-types"`).
+- **Same invkfile**: reference commands by name (e.g., `"build"`, `"test unit"`).
+- **Packs**: use the pack-prefixed name (or alias) as shown by `invowk cmd --list` (e.g., `"shared generate-types"`).
 
 ## Alternatives (OR Semantics)
 

@@ -14,7 +14,7 @@ Um invkfile tem uma estrutura simples:
 
 <Snippet id="getting-started/invkfile-basic-structure" />
 
-O `group` é obrigatório e se torna o prefixo para todos os seus comandos. Pense nele como um namespace que mantém seus comandos organizados e evita colisões com comandos de outros invkfiles.
+Invkfiles definem comandos diretamente. Se você quiser namespacing, use um pack e defina o ID do pack em `invkpack.cue`.
 
 ## Um Exemplo do Mundo Real
 
@@ -62,7 +62,7 @@ Vamos tornar nosso comando de build mais inteligente verificando se o Go está i
 
 <Snippet id="getting-started/build-with-deps" />
 
-Agora se você executar `invowk cmd goproject build` sem o Go instalado, você receberá:
+Agora se você executar `invowk cmd build` sem o Go instalado, você receberá:
 
 <Snippet id="cli/output-deps-not-satisfied" />
 

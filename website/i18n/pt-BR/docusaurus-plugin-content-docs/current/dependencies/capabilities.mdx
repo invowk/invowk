@@ -270,7 +270,7 @@ cmds: [
     // Versão offline - usa cache
     {
         name: "build"
-        // Sem requisito de internet - usa módulos em cache
+        // Sem requisito de internet - usa dependências em cache
         depends_on: {
             filepaths: [{alternatives: ["go.mod"]}]
         }

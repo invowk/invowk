@@ -5,7 +5,7 @@ import type {SidebarsConfig} from '@docusaurus/plugin-content-docs';
  *
  * The documentation follows a gentle discovery/progression pattern:
  * - Start with installation and quickstart
- * - Move to core concepts (invkfile format, commands, groups)
+ * - Move to core concepts (invkfile format, commands, namespaces)
  * - Then dive into features (runtime modes, dependencies, etc.)
  * - Finally, reference materials (CLI, schema)
  */
@@ -27,7 +27,7 @@ const sidebars: SidebarsConfig = {
       collapsed: false,
       items: [
         'core-concepts/invkfile-format',
-        'core-concepts/commands-and-groups',
+        'core-concepts/commands-and-namespaces',
         'core-concepts/implementations',
       ],
     },
@@ -91,16 +91,16 @@ const sidebars: SidebarsConfig = {
         'packs/creating-packs',
         'packs/validating',
         'packs/distributing',
-      ],
-    },
-    {
-      type: 'category',
-      label: 'Modules',
-      items: [
-        'modules/overview',
-        'modules/declaring-dependencies',
-        'modules/cli-commands',
-        'modules/lock-file',
+        {
+          type: 'category',
+          label: 'Pack Dependencies',
+          items: [
+            'packs/dependencies/overview',
+            'packs/dependencies/declaring-dependencies',
+            'packs/dependencies/cli-commands',
+            'packs/dependencies/lock-file',
+          ],
+        },
       ],
     },
     {
@@ -130,6 +130,7 @@ const sidebars: SidebarsConfig = {
       items: [
         'reference/cli',
         'reference/invkfile-schema',
+        'reference/invkpack-schema',
         'reference/config-schema',
       ],
     },

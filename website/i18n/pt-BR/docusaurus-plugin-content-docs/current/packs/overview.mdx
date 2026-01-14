@@ -10,7 +10,7 @@ import Snippet from '@site/src/components/Snippet';
 O formato e estrutura de packs ainda estão sendo finalizados. Embora nosso objetivo seja manter compatibilidade retroativa, **mudanças incompatíveis podem ocorrer** antes do release 1.0. Se você está distribuindo packs externamente, esteja preparado para atualizá-los ao fazer upgrade do Invowk™.
 :::
 
-Packs são pastas autocontidas que agrupam um invkfile junto com seus arquivos de script. Eles são perfeitos para compartilhar comandos, criar toolkits reutilizáveis e distribuir automação entre equipes.
+Packs são pastas autocontidas que agrupam metadados `invkpack.cue` com comandos opcionais em `invkfile.cue` e quaisquer arquivos de script que eles referenciam. Eles são perfeitos para compartilhar comandos, criar toolkits reutilizáveis e distribuir automação entre equipes.
 
 ## O que é um Pack?
 
@@ -21,7 +21,7 @@ Um pack é um diretório com o sufixo `.invkpack`:
 ## Por que Usar Packs?
 
 - **Portabilidade**: Compartilhe um conjunto completo de comandos como uma única pasta
-- **Autocontido**: Scripts são agrupados com o invkfile
+- **Autocontido**: Scripts ficam agrupados no pack
 - **Multiplataforma**: Caminhos com barra funcionam em qualquer lugar
 - **Isolamento de namespace**: Nomenclatura RDNS previne conflitos
 - **Fácil distribuição**: Compacte, compartilhe, descompacte
@@ -53,10 +53,11 @@ Packs são descobertos automaticamente de:
 
 ### Arquivos Obrigatórios
 
-- **`invkfile.cue`**: Definições de comandos (deve estar na raiz do pack)
+- **`invkpack.cue`**: Metadados do pack (nome, versão, dependências)
 
 ### Conteúdo Opcional
 
+- **`invkfile.cue`**: Definições de comandos (omita para packs apenas de biblioteca)
 - **Scripts**: Shell scripts, arquivos Python, etc.
 - **Templates**: Templates de configuração
 - **Dados**: Quaisquer arquivos de suporte
@@ -120,3 +121,4 @@ Comandos aparecem em `invowk cmd --list` com sua origem:
 - [Criando Packs](./creating-packs) - Criar estrutura e organizar packs
 - [Validando](./validating) - Garantir integridade do pack
 - [Distribuindo](./distributing) - Compartilhar packs com outros
+- [Dependências de Packs](./dependencies/overview) - Usar outros packs no seu pack

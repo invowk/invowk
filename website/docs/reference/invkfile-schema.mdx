@@ -15,37 +15,13 @@ Invkfiles are validated as closed structs, so unknown fields cause a validation 
 
 ## Root Structure
 
-Every invkfile must have a `group` and at least one command:
+Every invkfile must define at least one command in `cmds`:
 
 <Snippet id="reference/invkfile/root-structure" />
 
-### group
-
-**Type:** `string`  
-**Required:** Yes
-
-A mandatory prefix for all command names from this invkfile. Must start with a letter and can contain dot-separated segments.
-
-<Snippet id="reference/invkfile/group-examples" />
-
-### version
-
-**Type:** `string` (pattern: `^[0-9]+\.[0-9]+$`)  
-**Required:** No  
-**Default:** None
-
-The invkfile schema version. Current version is `"1.0"`.
-
-<Snippet id="reference/invkfile/version-example" />
-
-### description
-
-**Type:** `string`  
-**Required:** No
-
-A summary of this invkfile's purpose. Shown when listing commands.
-
-<Snippet id="reference/invkfile/description-example" />
+:::note Pack Metadata Lives in invkpack.cue
+Fields like `pack`, `version`, `description`, and `requires` belong in `invkpack.cue` and are rejected in `invkfile.cue`.
+:::
 
 ### default_shell
 

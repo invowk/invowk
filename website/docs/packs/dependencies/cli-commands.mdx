@@ -1,0 +1,192 @@
+---
+sidebar_position: 3
+---
+
+import Snippet from '@site/src/components/Snippet';
+
+# Pack Dependency CLI Commands
+
+Invowk provides a set of `invowk pack` commands for managing pack dependencies declared in `invkpack.cue`.
+
+## Command Overview
+
+| Command | Description |
+|---------|-------------|
+| `invowk pack add` | Resolve a dependency and print a `requires` entry |
+| `invowk pack remove` | Remove a dependency from the lock file |
+| `invowk pack deps` | List resolved dependencies |
+| `invowk pack sync` | Resolve dependencies from `invkpack.cue` |
+| `invowk pack update` | Update dependencies to latest matching versions |
+| `invowk pack vendor` | Vendor dependencies into `invk_packs/` (partial) |
+
+## invowk pack add
+
+Resolve a dependency and print the `requires` entry to add to `invkpack.cue`.
+
+### Usage
+
+<Snippet id="packs/dependencies/cli/add-usage" />
+
+### Arguments
+
+| Argument | Description |
+|----------|-------------|
+| `git-url` | Git repository URL (HTTPS or SSH) |
+| `version` | Semantic version constraint |
+
+### Flags
+
+| Flag | Description |
+|------|-------------|
+| `--alias <name>` | Custom namespace for the dependency |
+| `--path <path>` | Subdirectory within the repository |
+
+### Examples
+
+<Snippet id="packs/dependencies/cli/add-examples" />
+
+### Output
+
+<Snippet id="packs/dependencies/cli/add-output" />
+
+:::note
+`invowk pack add` does not edit `invkpack.cue` for you. Copy the printed `requires` entry into your pack metadata, then run `invowk pack sync`.
+:::
+
+## invowk pack remove
+
+Remove a dependency from the lock file.
+
+### Usage
+
+<Snippet id="packs/dependencies/cli/remove-usage" />
+
+### Arguments
+
+| Argument | Description |
+|----------|-------------|
+| `git-url` | Git repository URL to remove |
+
+### Examples
+
+<Snippet id="packs/dependencies/cli/remove-example" />
+
+### Output
+
+<Snippet id="packs/dependencies/cli/remove-output" />
+
+:::note
+This command only removes the dependency from the lock file. You must manually remove the `requires` entry from `invkpack.cue`. Cached files are not deleted.
+:::
+
+## invowk pack deps
+
+List all resolved dependencies from the lock file.
+
+### Usage
+
+<Snippet id="packs/dependencies/cli/deps-usage" />
+
+### Output
+
+<Snippet id="packs/dependencies/cli/deps-output" />
+
+### No Dependencies
+
+<Snippet id="packs/dependencies/cli/deps-empty" />
+
+## invowk pack sync
+
+Sync all dependencies declared in `invkpack.cue`. This reads the `requires` field, resolves version constraints, downloads packs, and updates the lock file.
+
+### Usage
+
+<Snippet id="packs/dependencies/cli/sync-usage" />
+
+### Output
+
+<Snippet id="packs/dependencies/cli/sync-output" />
+
+### No Requirements
+
+<Snippet id="packs/dependencies/cli/sync-empty" />
+
+## invowk pack update
+
+Update dependencies to their latest versions matching the declared constraints.
+
+### Usage
+
+<Snippet id="packs/dependencies/cli/update-usage" />
+
+### Arguments
+
+| Argument | Description |
+|----------|-------------|
+| `git-url` | (Optional) Specific dependency to update |
+
+### Examples
+
+<Snippet id="packs/dependencies/cli/update-examples" />
+
+### Output
+
+<Snippet id="packs/dependencies/cli/update-output" />
+
+### No Updates
+
+<Snippet id="packs/dependencies/cli/update-empty" />
+
+## invowk pack vendor
+
+Vendor dependencies into the `invk_packs/` directory for offline use and distribution.
+
+### Usage
+
+<Snippet id="packs/dependencies/cli/vendor-usage" />
+
+### Output
+
+<Snippet id="packs/dependencies/cli/vendor-output" />
+
+:::note
+Vendoring is currently a preview. The command reports what would be vendored and creates the directory, but does not fetch dependencies yet.
+:::
+
+## Common Workflows
+
+### Initial Setup
+
+<Snippet id="packs/dependencies/cli/workflow-init" />
+
+### Fresh Clone
+
+<Snippet id="packs/dependencies/cli/workflow-fresh" />
+
+### Regular Updates
+
+<Snippet id="packs/dependencies/cli/workflow-update" />
+
+### Troubleshooting
+
+<Snippet id="packs/dependencies/cli/workflow-troubleshoot" />
+
+## Environment Variables
+
+| Variable | Description |
+|----------|-------------|
+| `INVOWK_PACKS_PATH` | Override pack cache directory |
+| `GITHUB_TOKEN` | GitHub authentication |
+| `GITLAB_TOKEN` | GitLab authentication |
+| `GIT_TOKEN` | Generic Git authentication |
+
+## Exit Codes
+
+| Code | Meaning |
+|------|---------|
+| 0 | Success |
+| 1 | General error |
+| 1 | Pack not found (for remove) |
+| 1 | No invkpack.cue found (for sync) |
+| 1 | Version resolution failed |
+| 1 | Git clone/fetch failed |

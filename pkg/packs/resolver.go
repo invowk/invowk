@@ -3,8 +3,8 @@
 // Package packs provides functionality for managing pack dependencies from Git repositories.
 //
 // Packs enable declaring dependencies on other packs hosted in Git repositories
-// (GitHub, GitLab, etc.). Dependencies are declared in the invkfile using the 'requires'
-// field with semantic version constraints.
+// (GitHub, GitLab, etc.). Dependencies are declared in invkpack.cue using the
+// 'requires' field with semantic version constraints.
 //
 // Key features:
 //   - Git repository support (HTTPS and SSH)
@@ -34,7 +34,7 @@ const DefaultPacksDir = "packs"
 // The lock file pairs naturally with invkpack.cue (like go.sum pairs with go.mod).
 const LockFileName = "invkpack.lock.cue"
 
-// PackRef represents a pack dependency declaration from an invkfile.
+// PackRef represents a pack dependency declaration from invkpack.cue.
 type PackRef struct {
 	// GitURL is the Git repository URL (HTTPS or SSH format).
 	// Examples: "https://github.com/user/repo.git", "git@github.com:user/repo.git"
@@ -96,7 +96,7 @@ type ResolvedPack struct {
 	// PackName is the name of the pack (from the folder name without .invkpack).
 	PackName string
 
-	// PackID is the pack identifier from the pack's invkfile.
+	// PackID is the pack identifier from the pack's invkpack.cue.
 	PackID string
 
 	// TransitiveDeps are dependencies declared by this pack (for recursive resolution).
@@ -108,7 +108,7 @@ type Resolver struct {
 	// CacheDir is the root directory for pack cache.
 	CacheDir string
 
-	// WorkingDir is the directory containing the invkfile (for relative path resolution).
+	// WorkingDir is the directory containing invkpack.cue (for relative path resolution).
 	WorkingDir string
 
 	// fetcher handles Git operations.
@@ -123,7 +123,7 @@ type Resolver struct {
 
 // NewResolver creates a new pack resolver.
 //
-// workingDir is the directory containing the invkfile (typically current working directory).
+// workingDir is the directory containing invkpack.cue (typically current working directory).
 // cacheDir can be empty to use the default (~/.invowk/packs or $INVOWK_PACKS_PATH).
 func NewResolver(workingDir, cacheDir string) (*Resolver, error) {
 	if workingDir == "" {
@@ -181,7 +181,7 @@ func GetDefaultCacheDir() (string, error) {
 	return filepath.Join(homeDir, ".invowk", DefaultPacksDir), nil
 }
 
-// Add adds a new pack requirement to the invkfile and resolves it.
+// Add resolves a new pack requirement and returns the resolved metadata.
 func (m *Resolver) Add(ctx context.Context, req PackRef) (*ResolvedPack, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -200,7 +200,7 @@ func (m *Resolver) Add(ctx context.Context, req PackRef) (*ResolvedPack, error) 
 	return resolved, nil
 }
 
-// Remove removes a pack requirement from the invkfile.
+// Remove removes a pack requirement from the lock file.
 func (m *Resolver) Remove(ctx context.Context, gitURL string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -289,7 +289,7 @@ func (m *Resolver) Update(ctx context.Context, gitURL string) ([]*ResolvedPack, 
 	return updated, nil
 }
 
-// Sync resolves all requirements from the invkfile and updates the lock file.
+// Sync resolves all requirements from invkpack.cue and updates the lock file.
 func (m *Resolver) Sync(ctx context.Context, requirements []PackRef) ([]*ResolvedPack, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -503,7 +503,7 @@ func (m *Resolver) resolveOne(ctx context.Context, req PackRef, _ map[string]boo
 		return nil, fmt.Errorf("failed to cache pack: %w", err)
 	}
 
-	// Load transitive dependencies from the pack's invkfile
+	// Load transitive dependencies from the pack's invkpack.cue
 	transitiveDeps, packGroup, err := m.loadTransitiveDeps(cachePath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load transitive dependencies: %w", err)
@@ -648,7 +648,7 @@ func extractPackName(key string) string {
 	return key
 }
 
-// extractPackFromInvkfile extracts the pack field from invkfile content.
+// extractPackFromInvkfile extracts the pack field from invkpack content.
 // This is a simplified implementation - full parsing uses CUE.
 func extractPackFromInvkfile(content string) string {
 	lines := strings.Split(content, "\n")
@@ -663,7 +663,7 @@ func extractPackFromInvkfile(content string) string {
 	return ""
 }
 
-// extractRequiresFromInvkfile extracts requires from invkfile content.
+// extractRequiresFromInvkfile extracts requires from invkpack content.
 // This is a simplified implementation - full parsing uses CUE.
 func extractRequiresFromInvkfile(_ string) []PackRef {
 	// Simplified: return empty for now

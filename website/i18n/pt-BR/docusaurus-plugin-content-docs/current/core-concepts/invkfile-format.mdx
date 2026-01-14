@@ -38,42 +38,11 @@ Todo invkfile segue esta estrutura:
 
 O sufixo `?` significa que um campo é opcional.
 
-## O Campo Group
+## Namespaces via Packs
 
-O `group` é o campo mais importante - ele define o namespace de todos os seus comandos:
+Invkfiles definem comandos **sem** namespace. Se você quiser namespacing, coloque seus comandos em um pack e defina o ID do pack em `invkpack.cue`.
 
-<Snippet id="core-concepts/group-namespace" />
-
-Esses comandos se tornam:
-- `myproject build`
-- `myproject test`
-
-### Regras de Nomenclatura de Group
-
-- Deve começar com uma letra
-- Pode conter letras e números
-- Pontos (`.`) criam namespaces aninhados
-- Sem hífens, underscores ou espaços
-
-**Válidos:**
-- `myproject`
-- `my.project`
-- `com.company.tools`
-- `frontend`
-
-**Inválidos:**
-- `my-project` (hífen)
-- `my_project` (underscore)
-- `.project` (começa com ponto)
-- `123project` (começa com número)
-
-### Nomenclatura RDNS
-
-Para packs ou invkfiles compartilhados, recomendamos a nomenclatura RDNS (Reverse Domain Name System):
-
-<Snippet id="core-concepts/rdns-naming" />
-
-Isso evita conflitos ao combinar múltiplos invkfiles.
+Veja [Comandos e Namespaces](./commands-and-namespaces) para regras de nomes e prefixos.
 
 ## Estrutura de Comandos
 
@@ -129,5 +98,5 @@ Ou apenas tente listar comandos - o Invowk valida automaticamente:
 
 ## Próximos Passos
 
-- [Comandos e Grupos](./commands-and-groups) - Convenções de nomenclatura e hierarquias
+- [Comandos e Namespaces](./commands-and-namespaces) - Convenções de nomenclatura e prefixos
 - [Implementações](./implementations) - Plataformas, runtimes e scripts

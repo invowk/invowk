@@ -37,20 +37,13 @@ Invowk automatically detects the best available shell:
 
 <Snippet id="runtime-modes/native-basic" />
 
-```bash
-invowk cmd myproject build
-```
+<Snippet id="runtime-modes/native-run" />
 
 ## Overriding the Default Shell
 
 You can override the shell at the invkfile level:
 
-```cue
-group: "myproject"
-default_shell: "/bin/bash"  // Force bash
-
-cmds: [...]
-```
+<Snippet id="runtime-modes/native-default-shell" />
 
 This is useful when:
 - You need bash-specific features
@@ -61,64 +54,15 @@ This is useful when:
 
 ### Bash/Zsh
 
-```cue
-{
-    name: "build"
-    implementations: [{
-        script: """
-            #!/bin/bash
-            set -euo pipefail  # Bash strict mode
-            
-            # Bash-specific features
-            declare -A config=(
-                ["env"]="production"
-                ["debug"]="false"
-            )
-            
-            echo "Building for ${config[env]}..."
-            """
-        runtimes: [{name: "native"}]
-        platforms: [{name: "linux"}, {name: "macos"}]
-    }]
-}
-```
+<Snippet id="runtime-modes/native-bash-script" />
 
 ### PowerShell
 
-```cue
-{
-    name: "build"
-    implementations: [{
-        script: """
-            $ErrorActionPreference = "Stop"
-            
-            Write-Host "Building..." -ForegroundColor Green
-            dotnet build --configuration Release
-            Write-Host "Done!" -ForegroundColor Green
-            """
-        runtimes: [{name: "native"}]
-        platforms: [{name: "windows"}]
-    }]
-}
-```
+<Snippet id="runtime-modes/native-powershell-script" />
 
 ### cmd.exe (Windows Batch)
 
-```cue
-{
-    name: "build"
-    implementations: [{
-        script: """
-            @echo off
-            echo Building...
-            msbuild /p:Configuration=Release
-            echo Done!
-            """
-        runtimes: [{name: "native"}]
-        platforms: [{name: "windows"}]
-    }]
-}
-```
+<Snippet id="runtime-modes/native-cmd-script" />
 
 ## Using Interpreters
 
@@ -126,150 +70,41 @@ The native runtime supports non-shell interpreters like Python, Ruby, or Node.js
 
 ### Auto-Detection from Shebang
 
-```cue
-{
-    name: "analyze"
-    implementations: [{
-        script: """
-            #!/usr/bin/env python3
-            import sys
-            import json
-            
-            print(f"Python {sys.version}")
-            data = {"status": "ok", "items": [1, 2, 3]}
-            print(json.dumps(data, indent=2))
-            """
-        runtimes: [{name: "native"}]
-    }]
-}
-```
+<Snippet id="runtime-modes/native-shebang-script" />
 
 ### Explicit Interpreter
 
-```cue
-{
-    name: "analyze"
-    implementations: [{
-        script: """
-            import sys
-            print(f"Hello from Python {sys.version_info.major}!")
-            """
-        runtimes: [{
-            name: "native"
-            interpreter: "python3"  // Explicit interpreter
-        }]
-    }]
-}
-```
+<Snippet id="runtime-modes/native-explicit-interpreter" />
 
 ### Interpreter with Arguments
 
-```cue
-{
-    name: "script"
-    implementations: [{
-        script: """
-            print("Unbuffered output!")
-            """
-        runtimes: [{
-            name: "native"
-            interpreter: "python3 -u"  // With arguments
-        }]
-    }]
-}
-```
+<Snippet id="runtime-modes/native-interpreter-args" />
 
 ## Environment Variables
 
 Native runtime has full access to your environment:
 
-```cue
-{
-    name: "deploy"
-    env: {
-        vars: {
-            DEPLOY_ENV: "production"
-        }
-    }
-    implementations: [{
-        script: """
-            echo "Home: $HOME"
-            echo "User: $USER"
-            echo "Deploy to: $DEPLOY_ENV"
-            """
-        runtimes: [{name: "native"}]
-    }]
-}
-```
+<Snippet id="runtime-modes/native-env-vars" />
 
 ## Accessing Flags and Arguments
 
 Flags and arguments are available as environment variables:
 
-```cue
-{
-    name: "greet"
-    flags: [
-        {name: "loud", type: "bool", default_value: "false"}
-    ]
-    args: [
-        {name: "name", default_value: "World"}
-    ]
-    implementations: [{
-        script: """
-            if [ "$INVOWK_FLAG_LOUD" = "true" ]; then
-                echo "HELLO, $INVOWK_ARG_NAME!"
-            else
-                echo "Hello, $INVOWK_ARG_NAME!"
-            fi
-            """
-        runtimes: [{name: "native"}]
-    }]
-}
-```
+<Snippet id="runtime-modes/native-flags-args" />
 
-```bash
-invowk cmd myproject greet Alice --loud
-# Output: HELLO, ALICE!
-```
+<Snippet id="runtime-modes/native-flags-run" />
 
 ## Working Directory
 
 By default, scripts run in the current directory. Override with `workdir`:
 
-```cue
-{
-    name: "build frontend"
-    workdir: "./frontend"  // Run in frontend subdirectory
-    implementations: [{
-        script: "npm run build"
-        runtimes: [{name: "native"}]
-    }]
-}
-```
+<Snippet id="runtime-modes/native-workdir" />
 
 ## Dependencies
 
 Native runtime validates dependencies against your host system:
 
-```cue
-{
-    name: "deploy"
-    depends_on: {
-        tools: [
-            {alternatives: ["docker", "podman"]},
-            {alternatives: ["kubectl"]}
-        ]
-        filepaths: [
-            {alternatives: ["Dockerfile"]}
-        ]
-    }
-    implementations: [{
-        script: "docker build -t myapp . && kubectl apply -f k8s/"
-        runtimes: [{name: "native"}]
-    }]
-}
-```
+<Snippet id="runtime-modes/native-deps" />
 
 ## Advantages
 

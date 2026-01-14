@@ -139,7 +139,7 @@ Definir um valor de configuração.
 
 ### invowk pack
 
-Gerenciar invowk packs (pastas de comando autocontidas).
+Gerenciar packs do invowk (pastas de comandos autocontidas).
 
 <Snippet id="reference/cli/pack-syntax" />
 
@@ -147,7 +147,7 @@ Gerenciar invowk packs (pastas de comando autocontidas).
 
 #### invowk pack create
 
-Criar um novo invowk pack.
+Criar um novo pack do invowk.
 
 <Snippet id="reference/cli/pack-create-syntax" />
 
@@ -157,8 +157,8 @@ Criar um novo invowk pack.
 |------|-------|-----------|
 | `--path` | `-p` | Diretório pai do pack (padrão: diretório atual) |
 | `--scripts` |  | Criar um subdiretório `scripts/` |
-| `--group` | `-g` | Nome do grupo do invkfile (padrão: nome do pack) |
-| `--description` | `-d` | Descrição do invkfile |
+| `--pack-id` | `-g` | Identificador do pack em `invkpack.cue` (padrão: nome do pack) |
+| `--description` | `-d` | Descrição para `invkpack.cue` |
 
 **Exemplos:**
 
@@ -166,7 +166,7 @@ Criar um novo invowk pack.
 
 #### invowk pack validate
 
-Validar um invowk pack.
+Validar um pack do invowk.
 
 <Snippet id="reference/cli/pack-validate-syntax" />
 
@@ -211,6 +211,74 @@ Importar um pack de um arquivo ZIP ou URL.
 | `--path` | `-p` | Diretório de saída |
 | `--overwrite` |  | Sobrescrever pack existente, se presente |
 
+#### invowk pack alias
+
+Gerenciar aliases de pack para desambiguar colisões.
+
+<Snippet id="reference/cli/pack-alias-syntax" />
+
+#### invowk pack alias set
+
+<Snippet id="reference/cli/pack-alias-set-syntax" />
+
+#### invowk pack alias list
+
+<Snippet id="reference/cli/pack-alias-list-syntax" />
+
+#### invowk pack alias remove
+
+<Snippet id="reference/cli/pack-alias-remove-syntax" />
+
+#### invowk pack add
+
+Resolver uma dependência de pack e imprimir a entrada `requires` para `invkpack.cue`.
+
+<Snippet id="reference/cli/pack-add-syntax" />
+
+**Flags:**
+
+| Flag | Descrição |
+|------|-----------|
+| `--alias` | Alias para o namespace do pack |
+| `--path` | Subdiretório dentro do repositório |
+
+#### invowk pack remove
+
+Remover uma dependência de pack do lock file.
+
+<Snippet id="reference/cli/pack-remove-syntax" />
+
+#### invowk pack sync
+
+Sincronizar dependências de `invkpack.cue`.
+
+<Snippet id="reference/cli/pack-sync-syntax" />
+
+#### invowk pack update
+
+Atualizar dependências de pack para as versões mais recentes compatíveis.
+
+<Snippet id="reference/cli/pack-update-syntax" />
+
+#### invowk pack deps
+
+Listar dependências de pack resolvidas.
+
+<Snippet id="reference/cli/pack-deps-syntax" />
+
+#### invowk pack vendor
+
+Fazer vendor de dependências em `invk_packs/`.
+
+<Snippet id="reference/cli/pack-vendor-syntax" />
+
+**Flags:**
+
+| Flag | Descrição |
+|------|-----------|
+| `--update` | Forçar re-fetch de todas as dependências |
+| `--prune` | Remover packs vendorizados não usados |
+
 ---
 
 ### invowk tui
@@ -220,14 +288,14 @@ Componentes de interface de terminal interativos para shell scripts.
 <Snippet id="reference/cli/tui-syntax" />
 
 :::tip
-Componentes TUI funcionam muito bem em scripts de invkfile! Eles fornecem prompts interativos, spinners, seletores de arquivo e mais.
+Componentes TUI funcionam muito bem em scripts de invkfile! Eles oferecem prompts interativos, spinners, file pickers e mais.
 :::
 
 **Subcomandos:**
 
 #### invowk tui input
 
-Solicitar entrada de texto de linha única.
+Prompt para entrada de texto em uma linha.
 
 <Snippet id="reference/cli/tui-input-syntax" />
 
@@ -235,18 +303,18 @@ Solicitar entrada de texto de linha única.
 
 | Flag | Descrição |
 |------|-----------|
-| `--title` | Título para o prompt de entrada |
+| `--title` | Título do prompt |
 | `--description` | Descrição abaixo do título |
-| `--placeholder` | Texto de placeholder |
+| `--placeholder` | Texto placeholder |
 | `--value` | Valor inicial |
 | `--char-limit` | Limite de caracteres |
-| `--width` | Largura do campo |
-| `--password` | Ocultar entrada (para senhas) |
-| `--prompt` | Caracter(es) de prompt antes da entrada |
+| `--width` | Largura do campo de entrada |
+| `--password` | Esconder entrada (para senhas) |
+| `--prompt` | Caractere(s) do prompt antes da entrada |
 
 #### invowk tui write
 
-Editor de texto multilinha.
+Editor de texto multi-linha.
 
 <Snippet id="reference/cli/tui-write-syntax" />
 
@@ -254,9 +322,9 @@ Editor de texto multilinha.
 
 | Flag | Descrição |
 |------|-----------|
-| `--title` | Título para o editor |
+| `--title` | Título do editor |
 | `--description` | Descrição abaixo do título |
-| `--placeholder` | Texto de placeholder |
+| `--placeholder` | Texto placeholder |
 | `--value` | Valor inicial |
 | `--char-limit` | Limite de caracteres |
 | `--width` | Largura do editor |
@@ -273,14 +341,14 @@ Selecionar de uma lista de opções.
 
 | Flag | Descrição |
 |------|-----------|
-| `--title` | Título para a seleção |
+| `--title` | Título da seleção |
 | `--limit` | Número máximo de seleções (padrão: 1) |
-| `--no-limit` | Permitir seleções ilimitadas |
+| `--no-limit` | Permite seleções ilimitadas |
 | `--height` | Altura da lista |
 
 #### invowk tui confirm
 
-Solicitar confirmação sim/não.
+Prompt de confirmação sim/não.
 
 <Snippet id="reference/cli/tui-confirm-syntax" />
 
@@ -295,7 +363,7 @@ Solicitar confirmação sim/não.
 
 #### invowk tui filter
 
-Filtrar fuzzy uma lista de opções.
+Filtrar uma lista de opções com fuzzy matching.
 
 <Snippet id="reference/cli/tui-filter-syntax" />
 
@@ -306,17 +374,17 @@ Opções também podem ser fornecidas via stdin.
 | Flag | Descrição |
 |------|-----------|
 | `--title` | Título exibido acima do filtro |
-| `--placeholder` | Texto de placeholder |
+| `--placeholder` | Texto placeholder |
 | `--width` | Largura do filtro |
 | `--height` | Altura da lista |
 | `--limit` | Máximo de seleções (padrão: 1) |
-| `--no-limit` | Permitir seleções ilimitadas |
-| `--reverse` | Exibir lista em ordem reversa |
-| `--fuzzy` | Habilitar fuzzy matching |
+| `--no-limit` | Permite seleções ilimitadas |
+| `--reverse` | Exibe a lista em ordem reversa |
+| `--fuzzy` | Habilita fuzzy matching |
 
 #### invowk tui file
 
-Seletor de arquivo.
+Seletor de arquivos.
 
 <Snippet id="reference/cli/tui-file-syntax" />
 
@@ -345,11 +413,11 @@ Lê dados CSV ou TSV de arquivo ou stdin.
 | Flag | Descrição |
 |------|-----------|
 | `--file` | Arquivo CSV para exibir |
-| `--separator` | Separador de coluna (padrão: `,`) |
-| `--columns` | Cabeçalhos de coluna (sobrescreve cabeçalho do arquivo) |
+| `--separator` | Separador de colunas (padrão: `,`) |
+| `--columns` | Cabeçalhos das colunas (sobrescreve cabeçalho do arquivo) |
 | `--widths` | Larguras de coluna |
 | `--height` | Altura da tabela |
-| `--selectable` | Habilitar seleção de linha |
+| `--selectable` | Habilita seleção de linhas |
 
 #### invowk tui spin
 
@@ -366,7 +434,7 @@ Mostrar um spinner enquanto executa um comando.
 
 #### invowk tui pager
 
-Rolar através de conteúdo.
+Scroll por conteúdo.
 
 <Snippet id="reference/cli/tui-pager-syntax" />
 
@@ -378,7 +446,7 @@ Lê de arquivo ou stdin.
 |------|-----------|
 | `--title` | Título exibido acima do pager |
 | `--line-numbers` | Mostrar números de linha |
-| `--soft-wrap` | Quebrar linhas longas automaticamente |
+| `--soft-wrap` | Quebra suave de linhas longas |
 
 #### invowk tui format
 
@@ -390,7 +458,7 @@ Formatar texto com markdown, código, emoji ou templates.
 
 | Flag | Descrição |
 |------|-----------|
-| `--type` | Tipo de formato: `markdown`, `code`, `emoji`, `template` |
+| `--type` | Tipo de formatação: `markdown`, `code`, `emoji`, `template` |
 | `--language` | Linguagem para highlight de código |
 | `--theme` | Tema do Glamour para highlight de código |
 
@@ -405,26 +473,26 @@ Aplicar estilos ao texto.
 | Flag | Descrição |
 |------|-----------|
 | `--foreground` | Cor do texto (hex ou nome) |
-| `--background` | Cor de fundo |
+| `--background` | Cor do fundo |
 | `--bold` | Texto em negrito |
 | `--italic` | Texto em itálico |
 | `--underline` | Texto sublinhado |
 | `--strikethrough` | Texto tachado |
 | `--faint` | Texto esmaecido |
 | `--blink` | Texto piscando |
-| `--reverse` | Inverter cores |
-| `--margin-*` | Margens (left/right/top/bottom) |
-| `--padding-*` | Padding (left/right/top/bottom) |
+| `--reverse` | Cores invertidas |
+| `--margin-*` | Margens (esquerda/direita/topo/baixo) |
+| `--padding-*` | Padding (esquerda/direita/topo/baixo) |
 | `--width` | Largura fixa |
 | `--height` | Altura fixa |
 | `--align` | Alinhamento de texto |
-| `--border` | Estilo de borda |
+| `--border` | Estilo da borda |
 
 ---
 
 ### invowk completion
 
-Gerar scripts de completion de shell.
+Gerar scripts de completion para o shell.
 
 <Snippet id="reference/cli/completion-syntax" />
 
@@ -446,52 +514,52 @@ Mostrar ajuda para qualquer comando.
 
 <Snippet id="reference/cli/help-examples" />
 
-## Códigos de Saída
+## Exit Codes
 
-Invowk sai com:
+Invowk termina com:
 
 - `0` em sucesso
 - `1` em erros de CLI ou runtime
-- O código de saída do comando quando um comando ou `tui spin` falha
+- O código de saída do comando executado quando um comando ou `tui spin` falha
 
 ## Mensagens de Erro
 
-O Invowk fornece mensagens de erro específicas para ajudar a diagnosticar problemas:
+O Invowk fornece mensagens específicas para ajudar no diagnóstico:
 
 ### Nenhum Invkfile Encontrado
 
-Quando nenhum invkfile é descoberto em nenhuma localização de busca:
+Quando nenhum invkfile é descoberto em nenhum local de busca:
 
 <Snippet id="reference/cli/error-no-invkfile" />
 
 **Esta mensagem aparece quando:**
-- Não existe `invkfile.cue` no diretório atual
-- Não existem invkfiles em `~/.invowk/cmds/`
-- Não existem invkfiles nos `search_paths` configurados
+- Nenhum `invkfile.cue` existe no diretório atual
+- Nenhum invkfile existe em `~/.invowk/cmds/`
+- Nenhum invkfile existe nos `search_paths` configurados
 
 **Soluções:**
 - Execute `invowk init` para criar um invkfile no diretório atual
-- Navegue até um diretório que contenha um invkfile
-- Adicione localizações de invkfile ao `search_paths` da sua configuração
+- Navegue para um diretório que contenha um invkfile
+- Adicione locais de invkfile em `search_paths` na sua configuração
 
-### Falha ao Analisar Invkfile
+### Falha ao Fazer Parse do Invkfile
 
 Quando um invkfile é encontrado mas contém erros de sintaxe ou configuração inválida:
 
 <Snippet id="reference/cli/error-parse-failed" />
 
 **Esta mensagem aparece quando:**
-- Erros de sintaxe CUE (chaves, aspas faltando, etc.)
-- Nomes de campos ou valores inválidos
+- Erros de sintaxe CUE (chaves/aspas faltando, etc.)
+- Nomes de campo ou valores inválidos
 - Falhas de validação do schema (ex.: tipo de runtime inválido)
-- Campos obrigatórios faltando
+- Campos obrigatórios ausentes
 
 **Soluções:**
-- Verifique a mensagem de erro específica mostrada acima do texto de ajuda
+- Verifique a mensagem de erro específica exibida acima do texto de ajuda
 - Valide sua sintaxe CUE: `cue vet invkfile.cue`
-- Execute com modo verbose: `invowk --verbose cmd --list`
-- Compare com a [referência do schema invkfile](./invkfile-schema)
+- Rode com modo verbose: `invowk --verbose cmd --list`
+- Compare com a [referência de schema do invkfile](./invkfile-schema)
 
 :::tip
-A mensagem de erro sempre mostra primeiro o erro de parsing específico (ex.: qual campo falhou na validação), seguido por orientações gerais de solução de problemas.
+A mensagem de erro sempre mostra primeiro o erro de parse específico (por exemplo, qual campo falhou na validação), seguido por orientações gerais de troubleshooting.
 :::

@@ -1,0 +1,52 @@
+---
+sidebar_position: 4
+---
+
+import Snippet from '@site/src/components/Snippet';
+
+# Lock File de Dependências de Packs
+
+O lock file (`invkpack.lock.cue`) registra as versões exatas de todas as dependências de pack resolvidas, garantindo builds reprodutíveis ao longo do tempo e entre máquinas.
+
+Ele é gerado automaticamente por `invowk pack sync` e `invowk pack update`.
+
+## Exemplo de Lock File
+
+<Snippet id="packs/dependencies/lockfile-example" />
+
+## Campos da Raiz
+
+| Campo | Descrição |
+|-------|-----------|
+| `version` | Versão do formato do lock file |
+| `generated` | Timestamp de criação do lock file |
+| `packs` | Mapa de chaves de pack para entradas travadas |
+
+## Campos de Entrada de Pack
+
+Cada entrada em `packs` contém:
+
+| Campo | Descrição |
+|-------|-----------|
+| `git_url` | URL do repositório Git |
+| `version` | Restrição de versão original de `invkpack.cue` |
+| `resolved_version` | Versão resolvida exata |
+| `git_commit` | SHA do commit da versão resolvida |
+| `alias` | Alias de namespace (se definido) |
+| `path` | Caminho de subdiretório (se definido) |
+| `namespace` | Namespace calculado para comandos |
+
+## Chaves de Pack
+
+A chave no mapa `packs` é derivada da URL Git e do caminho opcional:
+
+<Snippet id="packs/dependencies/lockfile-key" />
+
+## Notas de Uso
+
+- Commite `invkpack.lock.cue` no controle de versão para builds reprodutíveis.
+- `invowk pack add` **não** grava o lock file; use `invowk pack sync`.
+
+## Workflows Comuns
+
+<Snippet id="packs/dependencies/lockfile-workflow" />
