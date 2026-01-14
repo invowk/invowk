@@ -54,7 +54,7 @@ jobs:
           # Windows (unit tests only - container runtime requires Linux)
           - os: windows
             runner: windows-latest
-            engine: docker
+            engine: ""
             test-mode: short
 
           # macOS (unit tests only, no container engine)
@@ -85,13 +85,6 @@ jobs:
       # Docker setup verification for Ubuntu
       - name: Verify Docker (Ubuntu)
         if: matrix.engine == 'docker' && startsWith(matrix.runner, 'ubuntu')
-        run: |
-          docker --version
-          docker info
-
-      # Docker setup for Windows
-      - name: Setup Docker (Windows)
-        if: matrix.engine == 'docker' && matrix.os == 'windows'
         run: |
           docker --version
           docker info
