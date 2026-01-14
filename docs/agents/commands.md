@@ -1,0 +1,157 @@
+# Commands
+
+## Quick Reference
+
+| Task | Command |
+|------|---------|
+| Build | `make build` |
+| Build UPX | `make build-upx` |
+| Test all | `make test` |
+| Test short | `make test-short` |
+| Single test | `go test -v -run TestName ./path/...` |
+| License check | `make license-check` |
+| Tidy deps | `make tidy` |
+| GoReleaser check | `goreleaser check` |
+| GoReleaser dry-run | `goreleaser release --snapshot --clean` |
+| Website dev | `cd website && npm start` |
+| Website build | `cd website && npm run build` |
+
+## Prerequisites
+
+- **Go 1.25+** - Required for building.
+- **Make** - Build automation.
+- **Node.js 20+** - For website development (optional).
+- **Docker or Podman** - For container runtime tests (optional).
+- **UPX** - For compressed builds (optional).
+
+## Build Commands
+
+```bash
+# Build the binary (default, stripped)
+# On x86-64, targets x86-64-v3 microarchitecture by default (Haswell+ CPUs, 2013+)
+make build
+
+# Build with debug symbols for development
+make build-dev
+
+# Build with UPX compression (smallest size, requires UPX)
+make build-upx
+
+# Build all variants
+make build-all
+
+# Cross-compile for multiple platforms (x86-64 targets use v3 by default)
+make build-cross
+
+# Build for maximum compatibility (baseline x86-64)
+make build GOAMD64=v1
+
+# Install to $GOPATH/bin
+make install
+
+# Clean build artifacts
+make clean
+
+# Tidy dependencies
+make tidy
+```
+
+### x86-64 Microarchitecture Levels
+
+The project defaults to `GOAMD64=v3` for x86-64 builds, targeting CPUs from 2013+ (Intel Haswell, AMD Excavator). This enables AVX, AVX2, BMI1/2, FMA, and other modern instructions for better performance.
+
+Available levels:
+- `v1` - Baseline x86-64 (maximum compatibility, any 64-bit x86 CPU).
+- `v2` - Nehalem+ (2008+): SSE4.2, POPCNT.
+- `v3` - Haswell+ (2013+): AVX, AVX2, BMI1/2, FMA (default).
+- `v4` - Skylake-X+ (2017+): AVX-512.
+
+## Test Commands
+
+```bash
+# Run all tests (verbose)
+make test
+
+# Run tests in short mode (skips integration tests)
+make test-short
+
+# Run integration tests only
+make test-integration
+
+# Run a single test by name
+go test -v -run TestFunctionName ./path/to/package/...
+
+# Run a single test file
+go test -v ./internal/config/config_test.go ./internal/config/config.go
+
+# Run tests with coverage
+go test -v -cover ./...
+
+# Run tests for a specific package
+go test -v ./internal/runtime/...
+go test -v ./pkg/invkfile/...
+```
+
+## Releasing
+
+Releases are automated using [GoReleaser](https://goreleaser.com) and GitHub Actions.
+
+### How to Create a Release
+
+1. **Ensure all tests pass** on the `main` branch.
+2. **Create and push a version tag**:
+   ```bash
+   git tag -s v1.0.0 -m "Release v1.0.0"
+   git push origin v1.0.0
+   ```
+3. **GitHub Actions will automatically**:
+   - Run tests on all platforms (Ubuntu, Windows, macOS).
+   - Build binaries for all target platforms (with UPX compression).
+   - Sign checksums with Cosign (keyless).
+   - Create a GitHub Release with artifacts.
+
+### Release Artifacts
+
+Each release includes:
+- **Binaries**: UPX-compressed executables for Linux/macOS/Windows (amd64, arm64).
+- **Archives**: `.tar.gz` for Linux/macOS, `.zip` for Windows.
+- **Checksums**: SHA256 checksums in `checksums.txt`.
+- **Signatures**: Cosign signatures for verification.
+
+### Local Testing
+
+Test the release process locally before pushing a tag:
+
+```bash
+# Validate GoReleaser configuration
+goreleaser check
+
+# Dry-run release (builds locally, no publishing)
+goreleaser release --snapshot --clean
+```
+
+### Verifying Signatures
+
+Users can verify release artifacts using Cosign:
+
+```bash
+cosign verify-blob \
+  --certificate checksums.txt.pem \
+  --signature checksums.txt.sig \
+  --certificate-identity-regexp='https://github\.com/invowk/invowk/.*' \
+  --certificate-oidc-issuer='https://token.actions.githubusercontent.com' \
+  checksums.txt
+```
+
+### CI/CD Workflows
+
+| Workflow | Trigger | Purpose |
+|----------|---------|---------|
+| `ci.yml` | Push/PR to main | Run tests, build verification, license check |
+| `release.yml` | Tag push (v*) | Run tests, then build and publish release |
+
+### Versioning
+
+- Use [Semantic Versioning](https://semver.org/): `vMAJOR.MINOR.PATCH`.
+- Pre-releases: `v1.0.0-alpha.1`, `v1.0.0-beta.1`, `v1.0.0-rc.1`.
+- Tags must be GPG-signed (`git tag -s`).
