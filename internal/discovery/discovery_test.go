@@ -6,11 +6,40 @@ package discovery
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"invowk-cli/internal/config"
 	"invowk-cli/pkg/invkfile"
 )
+
+// setHomeDirEnv sets the appropriate HOME environment variable based on platform
+// and returns a cleanup function to restore the original value
+func setHomeDirEnv(t *testing.T, dir string) func() {
+	t.Helper()
+	switch runtime.GOOS {
+	case "windows":
+		original := os.Getenv("USERPROFILE")
+		os.Setenv("USERPROFILE", dir)
+		return func() {
+			if original != "" {
+				os.Setenv("USERPROFILE", original)
+			} else {
+				os.Unsetenv("USERPROFILE")
+			}
+		}
+	default: // Linux, macOS
+		original := os.Getenv("HOME")
+		os.Setenv("HOME", dir)
+		return func() {
+			if original != "" {
+				os.Setenv("HOME", original)
+			} else {
+				os.Unsetenv("HOME")
+			}
+		}
+	}
+}
 
 func TestSource_String(t *testing.T) {
 	tests := []struct {
@@ -109,9 +138,8 @@ func TestDiscoverAll_EmptyDirectory(t *testing.T) {
 	defer os.Chdir(originalWd)
 
 	// Override HOME to avoid finding real user commands
-	originalHome := os.Getenv("HOME")
-	os.Setenv("HOME", tmpDir)
-	defer os.Setenv("HOME", originalHome)
+	cleanupHome := setHomeDirEnv(t, tmpDir)
+	defer cleanupHome()
 
 	cfg := config.DefaultConfig()
 	d := New(cfg)
@@ -154,9 +182,8 @@ cmds: [
 	defer os.Chdir(originalWd)
 
 	// Override HOME to avoid finding real user commands
-	originalHome := os.Getenv("HOME")
-	os.Setenv("HOME", tmpDir)
-	defer os.Setenv("HOME", originalHome)
+	cleanupHome := setHomeDirEnv(t, tmpDir)
+	defer cleanupHome()
 
 	cfg := config.DefaultConfig()
 	d := New(cfg)
@@ -210,9 +237,8 @@ cmds: [
 	defer os.Chdir(originalWd)
 
 	// Override HOME to avoid finding real user commands
-	originalHome := os.Getenv("HOME")
-	os.Setenv("HOME", tmpDir)
-	defer os.Setenv("HOME", originalHome)
+	cleanupHome := setHomeDirEnv(t, tmpDir)
+	defer cleanupHome()
 
 	cfg := config.DefaultConfig()
 	d := New(cfg)
@@ -247,9 +273,8 @@ cmds: [{name: "test", implementations: [{script: "echo test", runtimes: [{name: 
 	defer os.Chdir(originalWd)
 
 	// Override HOME
-	originalHome := os.Getenv("HOME")
-	os.Setenv("HOME", tmpDir)
-	defer os.Setenv("HOME", originalHome)
+	cleanupHome := setHomeDirEnv(t, tmpDir)
+	defer cleanupHome()
 
 	cfg := config.DefaultConfig()
 	d := New(cfg)
@@ -296,9 +321,8 @@ cmds: [{name: "user-cmd", implementations: [{script: "echo user", runtimes: [{na
 	defer os.Chdir(originalWd)
 
 	// Override HOME
-	originalHome := os.Getenv("HOME")
-	os.Setenv("HOME", tmpDir)
-	defer os.Setenv("HOME", originalHome)
+	cleanupHome := setHomeDirEnv(t, tmpDir)
+	defer cleanupHome()
 
 	cfg := config.DefaultConfig()
 	d := New(cfg)
@@ -346,9 +370,8 @@ cmds: [{name: "custom-cmd", implementations: [{script: "echo custom", runtimes: 
 	defer os.Chdir(originalWd)
 
 	// Override HOME
-	originalHome := os.Getenv("HOME")
-	os.Setenv("HOME", tmpDir)
-	defer os.Setenv("HOME", originalHome)
+	cleanupHome := setHomeDirEnv(t, tmpDir)
+	defer cleanupHome()
 
 	cfg := config.DefaultConfig()
 	cfg.SearchPaths = []string{searchPath}
@@ -379,9 +402,8 @@ func TestLoadFirst_NoFiles(t *testing.T) {
 	os.Chdir(tmpDir)
 	defer os.Chdir(originalWd)
 
-	originalHome := os.Getenv("HOME")
-	os.Setenv("HOME", tmpDir)
-	defer os.Setenv("HOME", originalHome)
+	cleanupHome := setHomeDirEnv(t, tmpDir)
+	defer cleanupHome()
 
 	cfg := config.DefaultConfig()
 	d := New(cfg)
@@ -407,9 +429,8 @@ cmds: [{name: "test", implementations: [{script: "echo test", runtimes: [{name: 
 	os.Chdir(tmpDir)
 	defer os.Chdir(originalWd)
 
-	originalHome := os.Getenv("HOME")
-	os.Setenv("HOME", tmpDir)
-	defer os.Setenv("HOME", originalHome)
+	cleanupHome := setHomeDirEnv(t, tmpDir)
+	defer cleanupHome()
 
 	cfg := config.DefaultConfig()
 	d := New(cfg)
@@ -453,9 +474,8 @@ cmds: [{name: "user", implementations: [{script: "echo user", runtimes: [{name: 
 	os.Chdir(tmpDir)
 	defer os.Chdir(originalWd)
 
-	originalHome := os.Getenv("HOME")
-	os.Setenv("HOME", tmpDir)
-	defer os.Setenv("HOME", originalHome)
+	cleanupHome := setHomeDirEnv(t, tmpDir)
+	defer cleanupHome()
 
 	cfg := config.DefaultConfig()
 	d := New(cfg)
@@ -495,9 +515,8 @@ cmds: [
 	os.Chdir(tmpDir)
 	defer os.Chdir(originalWd)
 
-	originalHome := os.Getenv("HOME")
-	os.Setenv("HOME", tmpDir)
-	defer os.Setenv("HOME", originalHome)
+	cleanupHome := setHomeDirEnv(t, tmpDir)
+	defer cleanupHome()
 
 	cfg := config.DefaultConfig()
 	d := New(cfg)
@@ -537,9 +556,8 @@ cmds: [
 	os.Chdir(tmpDir)
 	defer os.Chdir(originalWd)
 
-	originalHome := os.Getenv("HOME")
-	os.Setenv("HOME", tmpDir)
-	defer os.Setenv("HOME", originalHome)
+	cleanupHome := setHomeDirEnv(t, tmpDir)
+	defer cleanupHome()
 
 	cfg := config.DefaultConfig()
 	d := New(cfg)
@@ -583,9 +601,8 @@ cmds: [
 	os.Chdir(tmpDir)
 	defer os.Chdir(originalWd)
 
-	originalHome := os.Getenv("HOME")
-	os.Setenv("HOME", tmpDir)
-	defer os.Setenv("HOME", originalHome)
+	cleanupHome := setHomeDirEnv(t, tmpDir)
+	defer cleanupHome()
 
 	cfg := config.DefaultConfig()
 	d := New(cfg)
@@ -652,9 +669,8 @@ cmds: [{name: "build", description: "User build", implementations: [{script: "ec
 	os.Chdir(tmpDir)
 	defer os.Chdir(originalWd)
 
-	originalHome := os.Getenv("HOME")
-	os.Setenv("HOME", tmpDir)
-	defer os.Setenv("HOME", originalHome)
+	cleanupHome := setHomeDirEnv(t, tmpDir)
+	defer cleanupHome()
 
 	cfg := config.DefaultConfig()
 	d := New(cfg)
@@ -703,9 +719,8 @@ func TestDiscoverAll_FindsPacksInCurrentDir(t *testing.T) {
 	defer os.Chdir(originalWd)
 
 	// Override HOME to avoid finding real user commands
-	originalHome := os.Getenv("HOME")
-	os.Setenv("HOME", tmpDir)
-	defer os.Setenv("HOME", originalHome)
+	cleanupHome := setHomeDirEnv(t, tmpDir)
+	defer cleanupHome()
 
 	cfg := config.DefaultConfig()
 	d := New(cfg)
@@ -750,9 +765,8 @@ func TestDiscoverAll_FindsPacksInUserDir(t *testing.T) {
 	defer os.Chdir(originalWd)
 
 	// Override HOME
-	originalHome := os.Getenv("HOME")
-	os.Setenv("HOME", tmpDir)
-	defer os.Setenv("HOME", originalHome)
+	cleanupHome := setHomeDirEnv(t, tmpDir)
+	defer cleanupHome()
 
 	cfg := config.DefaultConfig()
 	d := New(cfg)
@@ -797,9 +811,8 @@ func TestDiscoverAll_FindsPacksInConfigPath(t *testing.T) {
 	defer os.Chdir(originalWd)
 
 	// Override HOME
-	originalHome := os.Getenv("HOME")
-	os.Setenv("HOME", tmpDir)
-	defer os.Setenv("HOME", originalHome)
+	cleanupHome := setHomeDirEnv(t, tmpDir)
+	defer cleanupHome()
 
 	cfg := config.DefaultConfig()
 	cfg.SearchPaths = []string{searchPath}
@@ -871,9 +884,8 @@ version: "1.0"
 	defer os.Chdir(originalWd)
 
 	// Override HOME
-	originalHome := os.Getenv("HOME")
-	os.Setenv("HOME", tmpDir)
-	defer os.Setenv("HOME", originalHome)
+	cleanupHome := setHomeDirEnv(t, tmpDir)
+	defer cleanupHome()
 
 	cfg := config.DefaultConfig()
 	d := New(cfg)
@@ -922,9 +934,8 @@ func TestDiscoverAll_SkipsInvalidPacks(t *testing.T) {
 	defer os.Chdir(originalWd)
 
 	// Override HOME
-	originalHome := os.Getenv("HOME")
-	os.Setenv("HOME", tmpDir)
-	defer os.Setenv("HOME", originalHome)
+	cleanupHome := setHomeDirEnv(t, tmpDir)
+	defer cleanupHome()
 
 	cfg := config.DefaultConfig()
 	d := New(cfg)
@@ -978,9 +989,8 @@ description: "A test pack"
 	defer os.Chdir(originalWd)
 
 	// Override HOME
-	originalHome := os.Getenv("HOME")
-	os.Setenv("HOME", tmpDir)
-	defer os.Setenv("HOME", originalHome)
+	cleanupHome := setHomeDirEnv(t, tmpDir)
+	defer cleanupHome()
 
 	cfg := config.DefaultConfig()
 	d := New(cfg)
@@ -1035,9 +1045,8 @@ func TestLoadFirst_LoadsPack(t *testing.T) {
 	defer os.Chdir(originalWd)
 
 	// Override HOME
-	originalHome := os.Getenv("HOME")
-	os.Setenv("HOME", tmpDir)
-	defer os.Setenv("HOME", originalHome)
+	cleanupHome := setHomeDirEnv(t, tmpDir)
+	defer cleanupHome()
 
 	cfg := config.DefaultConfig()
 	d := New(cfg)
@@ -1296,9 +1305,8 @@ cmds: [{name: "cmd", implementations: [{script: "echo current", runtimes: [{name
 	defer os.Chdir(originalWd)
 
 	// Override HOME
-	originalHome := os.Getenv("HOME")
-	os.Setenv("HOME", tmpDir)
-	defer os.Setenv("HOME", originalHome)
+	cleanupHome := setHomeDirEnv(t, tmpDir)
+	defer cleanupHome()
 
 	cfg := config.DefaultConfig()
 	d := New(cfg)
