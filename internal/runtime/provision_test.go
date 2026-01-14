@@ -239,11 +239,11 @@ func TestLayerProvisionerGenerateDockerfile(t *testing.T) {
 		config: cfg,
 	}
 
-	dockerfile := provisioner.generateDockerfile("alpine:latest")
+	dockerfile := provisioner.generateDockerfile("debian:stable-slim")
 
 	// Verify Dockerfile content
-	if !strings.Contains(dockerfile, "FROM alpine:latest") {
-		t.Error("Expected FROM alpine:latest")
+	if !strings.Contains(dockerfile, "FROM debian:stable-slim") {
+		t.Error("Expected FROM debian:stable-slim")
 	}
 
 	if !strings.Contains(dockerfile, "COPY invowk /invowk/bin/invowk") {

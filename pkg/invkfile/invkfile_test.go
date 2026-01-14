@@ -1016,7 +1016,7 @@ cmds: [
 			{
 				script: "echo hello"
 				
-				runtimes: [{name: "container", image: "alpine:latest", enable_host_ssh: true}]
+				runtimes: [{name: "container", image: "debian:stable-slim", enable_host_ssh: true}]
 			}
 		]
 	}
@@ -1062,8 +1062,8 @@ cmds: [
 		t.Error("EnableHostSSH should be true")
 	}
 
-	if rt.Image != "alpine:latest" {
-		t.Errorf("Image = %q, want %q", rt.Image, "alpine:latest")
+	if rt.Image != "debian:stable-slim" {
+		t.Errorf("Image = %q, want %q", rt.Image, "debian:stable-slim")
 	}
 }
 
@@ -1076,7 +1076,7 @@ cmds: [
 			{
 				script: "echo hello"
 				
-				runtimes: [{name: "container", image: "alpine:latest"}]
+				runtimes: [{name: "container", image: "debian:stable-slim"}]
 			}
 		]
 	}
@@ -1119,7 +1119,7 @@ func TestScript_HasHostSSH(t *testing.T) {
 				Script: "echo test",
 
 				Runtimes: []RuntimeConfig{
-					{Name: RuntimeContainer, EnableHostSSH: true, Image: "alpine:latest"},
+					{Name: RuntimeContainer, EnableHostSSH: true, Image: "debian:stable-slim"},
 				},
 			},
 			expected: true,
@@ -1130,7 +1130,7 @@ func TestScript_HasHostSSH(t *testing.T) {
 				Script: "echo test",
 
 				Runtimes: []RuntimeConfig{
-					{Name: RuntimeContainer, EnableHostSSH: false, Image: "alpine:latest"},
+					{Name: RuntimeContainer, EnableHostSSH: false, Image: "debian:stable-slim"},
 				},
 			},
 			expected: false,
@@ -1153,7 +1153,7 @@ func TestScript_HasHostSSH(t *testing.T) {
 
 				Runtimes: []RuntimeConfig{
 					{Name: RuntimeNative},
-					{Name: RuntimeContainer, EnableHostSSH: true, Image: "alpine:latest"},
+					{Name: RuntimeContainer, EnableHostSSH: true, Image: "debian:stable-slim"},
 				},
 			},
 			expected: true,
@@ -1164,7 +1164,7 @@ func TestScript_HasHostSSH(t *testing.T) {
 				Script: "echo test",
 
 				Runtimes: []RuntimeConfig{
-					{Name: RuntimeContainer, EnableHostSSH: false, Image: "alpine:latest"},
+					{Name: RuntimeContainer, EnableHostSSH: false, Image: "debian:stable-slim"},
 					{Name: RuntimeNative},
 				},
 			},
@@ -1195,7 +1195,7 @@ func TestScript_GetHostSSHForRuntime(t *testing.T) {
 				Script: "echo test",
 
 				Runtimes: []RuntimeConfig{
-					{Name: RuntimeContainer, EnableHostSSH: true, Image: "alpine:latest"},
+					{Name: RuntimeContainer, EnableHostSSH: true, Image: "debian:stable-slim"},
 				},
 			},
 			runtime:  RuntimeContainer,
@@ -1207,7 +1207,7 @@ func TestScript_GetHostSSHForRuntime(t *testing.T) {
 				Script: "echo test",
 
 				Runtimes: []RuntimeConfig{
-					{Name: RuntimeContainer, EnableHostSSH: false, Image: "alpine:latest"},
+					{Name: RuntimeContainer, EnableHostSSH: false, Image: "debian:stable-slim"},
 				},
 			},
 			runtime:  RuntimeContainer,
@@ -1284,7 +1284,7 @@ func TestValidateEnableHostSSH_ValidForContainer(t *testing.T) {
 	rt := &RuntimeConfig{
 		Name:          RuntimeContainer,
 		EnableHostSSH: true,
-		Image:         "alpine:latest",
+		Image:         "debian:stable-slim",
 	}
 
 	err := validateRuntimeConfig(rt, "test-cmd", 1)
@@ -1303,7 +1303,7 @@ func TestGenerateCUE_WithEnableHostSSH(t *testing.T) {
 						Script: "echo hello",
 
 						Runtimes: []RuntimeConfig{
-							{Name: RuntimeContainer, EnableHostSSH: true, Image: "alpine:latest"},
+							{Name: RuntimeContainer, EnableHostSSH: true, Image: "debian:stable-slim"},
 						},
 					},
 				},
@@ -1317,7 +1317,7 @@ func TestGenerateCUE_WithEnableHostSSH(t *testing.T) {
 		t.Error("GenerateCUE should contain 'enable_host_ssh: true'")
 	}
 
-	if !strings.Contains(output, `image: "alpine:latest"`) {
+	if !strings.Contains(output, `image: "debian:stable-slim"`) {
 		t.Error("GenerateCUE should contain image specification")
 	}
 }
@@ -1333,7 +1333,7 @@ func TestGenerateCUE_WithEnableHostSSH_False(t *testing.T) {
 						Script: "echo hello",
 
 						Runtimes: []RuntimeConfig{
-							{Name: RuntimeContainer, EnableHostSSH: false, Image: "alpine:latest"},
+							{Name: RuntimeContainer, EnableHostSSH: false, Image: "debian:stable-slim"},
 						},
 					},
 				},
@@ -4355,7 +4355,7 @@ cmds: [
 		implementations: [
 			{
 				script: "echo test"
-				runtimes: [{name: "container", image: "alpine:latest", interpreter: ""}]
+				runtimes: [{name: "container", image: "debian:stable-slim", interpreter: ""}]
 			}
 		]
 	}

@@ -272,7 +272,7 @@ The 'container' runtime requires a Dockerfile to build the execution environment
 ## Things you can try:
 - Create a Dockerfile in the same directory as your invkfile:
 ~~~dockerfile
-FROM alpine:latest
+FROM debian:stable-slim
 RUN apk add --no-cache bash coreutils
 WORKDIR /workspace
 ~~~

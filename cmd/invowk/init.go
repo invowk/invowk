@@ -167,7 +167,7 @@ func generateInvkfile(template string) string {
 					Implementations: []invkfile.Implementation{
 						{
 							Script: "echo \"Hello, Invowk!\"",
-							Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeContainer, Image: "alpine:latest"}},
+							Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeContainer, Image: "debian:stable-slim"}},
 						},
 					},
 				},

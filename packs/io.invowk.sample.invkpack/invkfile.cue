@@ -13,7 +13,7 @@ cmds: [
 				runtimes: [
 					{name: "native"},
 					{name: "virtual"},
-					{name: "container", image: "alpine:latest"},
+					{name: "container", image: "debian:stable-slim"},
 				]
 				// No platforms specified = runs on all platforms (linux, macos, windows)
 			},

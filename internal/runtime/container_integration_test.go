@@ -57,7 +57,7 @@ func testContainerBasicExecution(t *testing.T) {
 				Script: "echo 'Hello from container'",
 				
 					Runtimes: []invkfile.RuntimeConfig{
-						{Name: invkfile.RuntimeContainer, Image: "alpine:latest"},
+						{Name: invkfile.RuntimeContainer, Image: "debian:stable-slim"},
 					},
 			},
 		},
@@ -94,7 +94,7 @@ func testContainerEnvironmentVariables(t *testing.T) {
 				Script: `echo "VAR1=$MY_VAR1 VAR2=$MY_VAR2"`,
 				
 					Runtimes: []invkfile.RuntimeConfig{
-						{Name: invkfile.RuntimeContainer, Image: "alpine:latest"},
+						{Name: invkfile.RuntimeContainer, Image: "debian:stable-slim"},
 					},
 					Platforms: []invkfile.PlatformConfig{
 						{Name: currentPlatform},
@@ -147,7 +147,7 @@ echo "Variable: $VAR"`
 				Script: script,
 				
 					Runtimes: []invkfile.RuntimeConfig{
-						{Name: invkfile.RuntimeContainer, Image: "alpine:latest"},
+						{Name: invkfile.RuntimeContainer, Image: "debian:stable-slim"},
 					},
 			},
 		},
@@ -196,7 +196,7 @@ func testContainerWorkingDirectory(t *testing.T) {
 				Script: "pwd",
 				
 					Runtimes: []invkfile.RuntimeConfig{
-						{Name: invkfile.RuntimeContainer, Image: "alpine:latest"},
+						{Name: invkfile.RuntimeContainer, Image: "debian:stable-slim"},
 					},
 			},
 		},
@@ -252,7 +252,7 @@ func testContainerVolumeMounts(t *testing.T) {
 					Runtimes: []invkfile.RuntimeConfig{
 						{
 							Name:    invkfile.RuntimeContainer,
-							Image:   "alpine:latest",
+							Image:   "debian:stable-slim",
 							Volumes: []string{dataDir + ":/data:ro"},
 						},
 					},
@@ -293,7 +293,7 @@ func testContainerExitCode(t *testing.T) {
 				Script: "exit 42",
 				
 					Runtimes: []invkfile.RuntimeConfig{
-						{Name: invkfile.RuntimeContainer, Image: "alpine:latest"},
+						{Name: invkfile.RuntimeContainer, Image: "debian:stable-slim"},
 					},
 			},
 		},
@@ -324,7 +324,7 @@ func testContainerPositionalArgs(t *testing.T) {
 				Script: `echo "ARG1=$1 ARG2=$2 ALL=$@ COUNT=$#"`,
 				
 					Runtimes: []invkfile.RuntimeConfig{
-						{Name: invkfile.RuntimeContainer, Image: "alpine:latest"},
+						{Name: invkfile.RuntimeContainer, Image: "debian:stable-slim"},
 					},
 			},
 		},
@@ -370,7 +370,7 @@ func testContainerEnableHostSSHEnvVars(t *testing.T) {
 				Script: `echo "SSH_HOST=$INVOWK_SSH_HOST SSH_PORT=$INVOWK_SSH_PORT SSH_USER=$INVOWK_SSH_USER SSH_ENABLED=$INVOWK_SSH_ENABLED"`,
 				
 					Runtimes: []invkfile.RuntimeConfig{
-						{Name: invkfile.RuntimeContainer, Image: "alpine:latest", EnableHostSSH: true},
+						{Name: invkfile.RuntimeContainer, Image: "debian:stable-slim", EnableHostSSH: true},
 					},
 			},
 		},
@@ -430,7 +430,7 @@ func TestContainerRuntime_Validate(t *testing.T) {
 						Script: "echo test",
 						
 							Runtimes: []invkfile.RuntimeConfig{
-								{Name: invkfile.RuntimeContainer, Image: "alpine:latest"},
+								{Name: invkfile.RuntimeContainer, Image: "debian:stable-slim"},
 							},
 					},
 				},
@@ -455,7 +455,7 @@ func TestContainerRuntime_Validate(t *testing.T) {
 						Script: "",
 						
 							Runtimes: []invkfile.RuntimeConfig{
-								{Name: invkfile.RuntimeContainer, Image: "alpine:latest"},
+								{Name: invkfile.RuntimeContainer, Image: "debian:stable-slim"},
 							},
 					},
 				},
@@ -502,7 +502,7 @@ func TestContainerRuntime_EnableHostSSH_NoServer(t *testing.T) {
 				Script: "echo test",
 				
 					Runtimes: []invkfile.RuntimeConfig{
-						{Name: invkfile.RuntimeContainer, Image: "alpine:latest", EnableHostSSH: true},
+						{Name: invkfile.RuntimeContainer, Image: "debian:stable-slim", EnableHostSSH: true},
 					},
 			},
 		},
@@ -540,7 +540,7 @@ func TestContainerRuntime_BuildFromContainerfile(t *testing.T) {
 	tmpDir, inv := setupTestInvkfile(t)
 
 	// Create a simple Containerfile
-	containerfileContent := `FROM alpine:latest
+	containerfileContent := `FROM debian:stable-slim
 RUN echo "Built from Containerfile" > /built.txt
 `
 	containerfilePath := filepath.Join(tmpDir, "Containerfile")

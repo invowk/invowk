@@ -145,12 +145,12 @@ func TestBuildOptions_Defaults(t *testing.T) {
 
 func TestRunOptions_Defaults(t *testing.T) {
 	opts := RunOptions{
-		Image:   "alpine:latest",
+		Image:   "debian:stable-slim",
 		Command: []string{"echo", "hello"},
 	}
 
-	if opts.Image != "alpine:latest" {
-		t.Errorf("Image = %s, want alpine:latest", opts.Image)
+	if opts.Image != "debian:stable-slim" {
+		t.Errorf("Image = %s, want debian:stable-slim", opts.Image)
 	}
 
 	if len(opts.Command) != 2 {

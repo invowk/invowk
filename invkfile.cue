@@ -371,7 +371,7 @@ cmds: [
 		implementations: [
 			{
 				script: "echo 'Hello from inside the container!'"
-				runtimes: [{name: "container", image: "alpine:latest"}]
+				runtimes: [{name: "container", image: "debian:stable-slim"}]
 			}
 		]
 	},
@@ -395,7 +395,7 @@ cmds: [
 					"""
 				runtimes: [{
 					name:  "container"
-					image: "alpine:latest"
+					image: "debian:stable-slim"
 					volumes: [
 						".:/app-data:ro",
 					]
@@ -421,7 +421,7 @@ cmds: [
 					"""
 				runtimes: [{
 					name:  "container"
-					image: "alpine:latest"
+					image: "debian:stable-slim"
 					ports: ["8080:80", "3000:3000"]
 				}]
 			}
@@ -444,7 +444,7 @@ cmds: [
 					"""
 				runtimes: [{
 					name:              "container"
-					image:             "alpine:latest"
+					image:             "debian:stable-slim"
 					env_inherit_mode:  "allow"
 					env_inherit_allow: ["TERM", "LANG"]
 				}]
@@ -479,7 +479,7 @@ cmds: [
 					"""#
 				runtimes: [{
 					name:            "container"
-					image:           "alpine:latest"
+					image:           "debian:stable-slim"
 					enable_host_ssh: true
 				}]
 				platforms: [{name: "linux"}, {name: "macos"}]
@@ -504,7 +504,7 @@ cmds: [
 					"""#
 				runtimes: [{
 					name:            "container"
-					image:           "alpine:latest"
+					image:           "debian:stable-slim"
 					enable_host_ssh: false
 				}]
 			}
@@ -904,7 +904,7 @@ cmds: [
 					"""
 				runtimes: [{
 					name:  "container"
-					image: "alpine:latest"
+					image: "debian:stable-slim"
 					volumes: [".:/app-code:ro"]
 				}]
 				// These dependencies are validated INSIDE the container
@@ -1236,7 +1236,7 @@ cmds: [
 					echo "=========================================="
 					echo ""
 					echo "Container Configuration:"
-					echo "  Image: alpine:latest"
+					echo "  Image: debian:stable-slim"
 					echo "  Volume: .:/app-src (read-only)"
 					echo "  Ports: 8080:80, 3000:3000"
 					echo "  Host SSH: enabled"
@@ -1258,7 +1258,7 @@ cmds: [
 					"""
 				runtimes: [{
 					name:  "container"
-					image: "alpine:latest"
+					image: "debian:stable-slim"
 					volumes: [".:/app-src:ro"]
 					ports: ["8080:80", "3000:3000"]
 					enable_host_ssh: true
@@ -1604,7 +1604,7 @@ cmds: [
 					echo ""
 					echo "Try: invowk cmd examples args container shell hello container"
 					"""#
-				runtimes: [{name: "container", image: "alpine:latest"}]
+				runtimes: [{name: "container", image: "debian:stable-slim"}]
 			}
 		]
 		args: [
@@ -1910,7 +1910,7 @@ cmds: [
 					echo "This is useful for ensuring the container image has"
 					echo "required environment variables configured."
 					"""
-				runtimes: [{name: "container", image: "alpine:latest"}]
+				runtimes: [{name: "container", image: "debian:stable-slim"}]
 				// These env_vars are validated INSIDE the container
 				depends_on: {
 					env_vars: [
@@ -2138,7 +2138,7 @@ cmds: [
 					echo "to the container environment."
 					echo "=========================================="
 					"""
-				runtimes: [{name: "container", image: "alpine:latest"}]
+				runtimes: [{name: "container", image: "debian:stable-slim"}]
 			},
 		]
 	},
@@ -2382,7 +2382,7 @@ cmds: [
 					"""
 				runtimes: [{
 					name:  "container"
-					image: "alpine:latest"
+					image: "debian:stable-slim"
 				}]
 				platforms: [{name: "linux"}, {name: "macos"}]
 			},
@@ -2572,7 +2572,7 @@ cmds: [
 					echo "Implementation deps validate container environment."
 					echo "=========================================="
 					"""
-				runtimes: [{name: "container", image: "alpine:latest"}]
+				runtimes: [{name: "container", image: "debian:stable-slim"}]
 				// These are validated INSIDE the container
 				depends_on: {
 					tools: [

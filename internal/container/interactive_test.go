@@ -44,7 +44,7 @@ func TestDockerEngineBuildRunArgs(t *testing.T) {
 	engine := NewDockerEngine()
 
 	opts := RunOptions{
-		Image:       "alpine:latest",
+		Image:       "debian:stable-slim",
 		Command:     []string{"echo", "hello"},
 		WorkDir:     "/workspace",
 		Remove:      true,
@@ -77,7 +77,7 @@ func TestDockerEngineBuildRunArgs(t *testing.T) {
 		"-v /tmp:/tmp",
 		"-p 8080:80",
 		"--add-host host.docker.internal:host-gateway",
-		"alpine:latest",
+		"debian:stable-slim",
 		"echo hello",
 	}
 
@@ -93,7 +93,7 @@ func TestPodmanEngineBuildRunArgs(t *testing.T) {
 	engine := NewPodmanEngine()
 
 	opts := RunOptions{
-		Image:       "alpine:latest",
+		Image:       "debian:stable-slim",
 		Command:     []string{"echo", "hello"},
 		WorkDir:     "/workspace",
 		Remove:      true,
@@ -125,7 +125,7 @@ func TestPodmanEngineBuildRunArgs(t *testing.T) {
 		"-e FOO=bar",
 		"-p 8080:80",
 		"--add-host host.containers.internal:host-gateway",
-		"alpine:latest",
+		"debian:stable-slim",
 		"echo hello",
 	}
 
@@ -148,7 +148,7 @@ func TestBuildRunArgsOptionalFlags(t *testing.T) {
 
 	// Minimal options
 	opts := RunOptions{
-		Image:   "alpine:latest",
+		Image:   "debian:stable-slim",
 		Command: []string{"sh"},
 	}
 
@@ -175,7 +175,7 @@ func TestBuildRunArgsOptionalFlags(t *testing.T) {
 	}
 
 	// Should contain image and command
-	if !strings.Contains(argsStr, "alpine:latest") || !strings.Contains(argsStr, "sh") {
+	if !strings.Contains(argsStr, "debian:stable-slim") || !strings.Contains(argsStr, "sh") {
 		t.Errorf("Expected args to contain image and command, got: %s", argsStr)
 	}
 }

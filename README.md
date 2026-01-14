@@ -184,7 +184,7 @@ cmds: [
 		implementations: [
 			{
 				script: "echo \"Hello, Invowk!\""
-				runtimes: [{name: "container", image: "alpine:latest"}]
+				runtimes: [{name: "container", image: "debian:stable-slim"}]
 			}
 		]
 	},
@@ -1283,7 +1283,7 @@ cmds: [
                     """
                 runtimes: [{
                     name: "container"
-                    image: "python:3-alpine"
+                    image: "python:3-slim"
                     // interpreter auto-detected from shebang
                 }]
             }
@@ -1301,7 +1301,7 @@ cmds: [
                     """
                 runtimes: [{
                     name: "container"
-                    image: "python:3-alpine"
+                    image: "python:3-slim"
                     interpreter: "python3"
                 }]
             }
@@ -1860,7 +1860,7 @@ cmds: [
 				script: "make build"
 				runtimes: [{
 					name:              "container",
-					image:             "alpine:latest",
+					image:             "debian:stable-slim",
 					env_inherit_mode:  "allow",
 					env_inherit_allow: ["TERM", "LANG"],
 					env_inherit_deny:  ["AWS_SECRET_ACCESS_KEY"],
@@ -1896,7 +1896,7 @@ cmds: [
 						'echo "Hello from host!"'
 					"""
 				// enable_host_ssh and image are specified inside the container runtime config
-				runtimes: [{name: "container", image: "alpine:latest", enable_host_ssh: true}]
+				runtimes: [{name: "container", image: "debian:stable-slim", enable_host_ssh: true}]
 			}
 		]
 	},

@@ -92,7 +92,7 @@
 
 	// image specifies a pre-built container image to use (optional)
 	// Mutually exclusive with 'containerfile'
-	// Example: "alpine:latest", "ubuntu:22.04", "golang:1.21"
+	// Example: "debian:stable-slim", "ubuntu:22.04", "golang:1.21"
 	image?: string
 
 	// volumes specifies volume mounts in "host:container" format (optional)
