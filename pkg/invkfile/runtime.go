@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: EPL-2.0
 
-// Package invkfile provides interpreter detection and shebang parsing utilities.
 package invkfile
 
 import (
@@ -14,6 +13,73 @@ import (
 // from the script content to determine the interpreter.
 const InterpreterAuto = "auto"
 
+// RuntimeConfig represents a runtime configuration with type-specific options
+type RuntimeConfig struct {
+	// Name specifies the runtime type (required)
+	Name RuntimeMode `json:"name"`
+	// Interpreter specifies how to execute the script (native and container only)
+	// - Omit field: defaults to "auto" (detect from shebang)
+	// - "auto": detect interpreter from shebang (#!) in first line of script
+	// - Specific value: use as interpreter (e.g., "python3", "node")
+	// When declared, interpreter must be non-empty (cannot be "" or whitespace-only)
+	// Not allowed for virtual runtime (CUE schema enforces this, Go validates as fallback)
+	Interpreter string `json:"interpreter,omitempty"`
+	// EnvInheritMode controls host environment inheritance (optional)
+	// Allowed values: "none", "allow", "all"
+	EnvInheritMode EnvInheritMode `json:"env_inherit_mode,omitempty"`
+	// EnvInheritAllow lists host env vars to allow when EnvInheritMode is "allow"
+	EnvInheritAllow []string `json:"env_inherit_allow,omitempty"`
+	// EnvInheritDeny lists host env vars to block (applies to any mode)
+	EnvInheritDeny []string `json:"env_inherit_deny,omitempty"`
+	// EnableHostSSH enables SSH access from container back to host (container only)
+	// Only valid when Name is "container". Default: false
+	EnableHostSSH bool `json:"enable_host_ssh,omitempty"`
+	// Containerfile specifies the path to Containerfile/Dockerfile (container only)
+	// Mutually exclusive with Image
+	Containerfile string `json:"containerfile,omitempty"`
+	// Image specifies a pre-built container image to use (container only)
+	// Mutually exclusive with Containerfile
+	Image string `json:"image,omitempty"`
+	// Volumes specifies volume mounts in "host:container" format (container only)
+	Volumes []string `json:"volumes,omitempty"`
+	// Ports specifies port mappings in "host:container" format (container only)
+	Ports []string `json:"ports,omitempty"`
+}
+
+// GetEffectiveInterpreter returns the effective interpreter value for a RuntimeConfig.
+// If the Interpreter field is empty, returns "auto" (the default).
+func (rc *RuntimeConfig) GetEffectiveInterpreter() string {
+	if rc.Interpreter == "" {
+		return InterpreterAuto
+	}
+	return rc.Interpreter
+}
+
+// ResolveInterpreterFromScript resolves the interpreter for this runtime config
+// using the provided script content. This is a convenience method that combines
+// GetEffectiveInterpreter with shebang parsing.
+//
+// Returns the parsed ShebangInfo. If Found is false, the caller should use
+// the default shell-based execution.
+func (rc *RuntimeConfig) ResolveInterpreterFromScript(scriptContent string) ShebangInfo {
+	return ResolveInterpreter(rc.Interpreter, scriptContent)
+}
+
+// ValidateInterpreterForRuntime checks if the interpreter configuration is valid
+// for the runtime type. Returns an error if interpreter is set for virtual runtime.
+func (rc *RuntimeConfig) ValidateInterpreterForRuntime() error {
+	if rc.Name == RuntimeVirtual && rc.Interpreter != "" {
+		return fmt.Errorf("interpreter field is not allowed for virtual runtime (got %q); virtual runtime uses mvdan/sh and cannot execute custom interpreters", rc.Interpreter)
+	}
+	return nil
+}
+
+// PlatformConfig represents a platform configuration
+type PlatformConfig struct {
+	// Name specifies the platform type (required)
+	Name PlatformType `json:"name"`
+}
+
 // ShebangInfo contains parsed shebang information from a script.
 type ShebangInfo struct {
 	// Interpreter is the interpreter path or command name (e.g., "/bin/bash", "python3")
@@ -22,6 +88,24 @@ type ShebangInfo struct {
 	Args []string
 	// Found indicates whether a valid shebang was detected
 	Found bool
+}
+
+// shellInterpreters maps shell interpreter base names to true.
+// These interpreters are compatible with the virtual runtime (mvdan/sh).
+var shellInterpreters = map[string]bool{
+	"sh": true, "bash": true, "zsh": true, "dash": true,
+	"ash": true, "ksh": true, "mksh": true,
+}
+
+// interpreterExtensions maps interpreter base names to typical file extensions.
+// Used when creating temporary script files to ensure proper syntax highlighting
+// and interpreter behavior.
+var interpreterExtensions = map[string]string{
+	"python": ".py", "python3": ".py", "python2": ".py",
+	"ruby": ".rb", "perl": ".pl", "node": ".js",
+	"bash": ".sh", "sh": ".sh", "zsh": ".zsh",
+	"fish": ".fish", "pwsh": ".ps1", "powershell": ".ps1",
+	"php": ".php", "lua": ".lua", "Rscript": ".R",
 }
 
 // ParseShebang extracts interpreter information from script content.
@@ -146,13 +230,6 @@ func ParseInterpreterString(spec string) ShebangInfo {
 	}
 }
 
-// shellInterpreters maps shell interpreter base names to true.
-// These interpreters are compatible with the virtual runtime (mvdan/sh).
-var shellInterpreters = map[string]bool{
-	"sh": true, "bash": true, "zsh": true, "dash": true,
-	"ash": true, "ksh": true, "mksh": true,
-}
-
 // IsShellInterpreter returns true if the interpreter is a POSIX-compatible shell
 // that can potentially be handled by the virtual runtime (mvdan/sh).
 // Note: Even for shell interpreters, the virtual runtime uses mvdan/sh,
@@ -162,17 +239,6 @@ func IsShellInterpreter(interpreter string) bool {
 	// Handle Windows executable extensions
 	base = strings.TrimSuffix(base, ".exe")
 	return shellInterpreters[base]
-}
-
-// interpreterExtensions maps interpreter base names to typical file extensions.
-// Used when creating temporary script files to ensure proper syntax highlighting
-// and interpreter behavior.
-var interpreterExtensions = map[string]string{
-	"python": ".py", "python3": ".py", "python2": ".py",
-	"ruby": ".rb", "perl": ".pl", "node": ".js",
-	"bash": ".sh", "sh": ".sh", "zsh": ".zsh",
-	"fish": ".fish", "pwsh": ".ps1", "powershell": ".ps1",
-	"php": ".php", "lua": ".lua", "Rscript": ".R",
 }
 
 // GetExtensionForInterpreter returns the typical file extension for an interpreter.
@@ -212,32 +278,4 @@ func ResolveInterpreter(interpreter string, scriptContent string) ShebangInfo {
 
 	// Parse explicit interpreter string
 	return ParseInterpreterString(effectiveInterpreter)
-}
-
-// GetEffectiveInterpreter returns the effective interpreter value for a RuntimeConfig.
-// If the Interpreter field is empty, returns "auto" (the default).
-func (rc *RuntimeConfig) GetEffectiveInterpreter() string {
-	if rc.Interpreter == "" {
-		return InterpreterAuto
-	}
-	return rc.Interpreter
-}
-
-// ResolveInterpreterFromScript resolves the interpreter for this runtime config
-// using the provided script content. This is a convenience method that combines
-// GetEffectiveInterpreter with shebang parsing.
-//
-// Returns the parsed ShebangInfo. If Found is false, the caller should use
-// the default shell-based execution.
-func (rc *RuntimeConfig) ResolveInterpreterFromScript(scriptContent string) ShebangInfo {
-	return ResolveInterpreter(rc.Interpreter, scriptContent)
-}
-
-// ValidateInterpreterForRuntime checks if the interpreter configuration is valid
-// for the runtime type. Returns an error if interpreter is set for virtual runtime.
-func (rc *RuntimeConfig) ValidateInterpreterForRuntime() error {
-	if rc.Name == RuntimeVirtual && rc.Interpreter != "" {
-		return fmt.Errorf("interpreter field is not allowed for virtual runtime (got %q); virtual runtime uses mvdan/sh and cannot execute custom interpreters", rc.Interpreter)
-	}
-	return nil
 }

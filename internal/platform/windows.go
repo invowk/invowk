@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: EPL-2.0
 
-package invkpack
+// Package platform provides cross-platform compatibility utilities.
+package platform
 
 import "strings"
 
 // WindowsReservedNames are filenames that cannot be used on Windows.
+// These names are reserved by the operating system regardless of file extension.
 var WindowsReservedNames = map[string]bool{
 	"CON": true, "PRN": true, "AUX": true, "NUL": true,
 	"COM1": true, "COM2": true, "COM3": true, "COM4": true,
@@ -14,6 +16,7 @@ var WindowsReservedNames = map[string]bool{
 }
 
 // IsWindowsReservedName checks if a filename is a Windows reserved name.
+// It handles filenames with extensions by checking just the base name portion.
 func IsWindowsReservedName(name string) bool {
 	// Get the base name without extension
 	upper := strings.ToUpper(name)

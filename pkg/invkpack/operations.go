@@ -13,6 +13,8 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+
+	"invowk-cli/internal/platform"
 )
 
 // packNameRegex validates the pack folder name prefix (before .invkpack)
@@ -207,7 +209,7 @@ func Validate(packPath string) (*ValidationResult, error) {
 		}
 
 		// Check for Windows reserved filenames (cross-platform compatibility)
-		if IsWindowsReservedName(d.Name()) {
+		if platform.IsWindowsReservedName(d.Name()) {
 			relPath, _ := filepath.Rel(absPath, path)
 			result.AddIssue("compatibility", fmt.Sprintf("filename '%s' is reserved on Windows", d.Name()), relPath)
 		}
@@ -222,10 +224,10 @@ func Validate(packPath string) (*ValidationResult, error) {
 }
 
 // Load loads and validates a pack at the given path.
-// Returns a Pack struct if valid, or an error with validation details.
+// Returns an Invkpack (operational wrapper) if valid, or an error with validation details.
 // Note: This loads only metadata (invkpack.cue), not commands (invkfile.cue).
 // To load commands as well, use pkg/invkfile.ParsePack().
-func Load(packPath string) (*Pack, error) {
+func Load(packPath string) (*Invkpack, error) {
 	result, err := Validate(packPath)
 	if err != nil {
 		return nil, err
@@ -241,19 +243,24 @@ func Load(packPath string) (*Pack, error) {
 	}
 
 	// Parse the metadata
-	var metadata *Invkpack
+	var pack *Invkpack
 	if result.InvkpackPath != "" {
-		metadata, err = ParseInvkpack(result.InvkpackPath)
+		pack, err = ParseInvkpack(result.InvkpackPath)
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse pack metadata: %w", err)
 		}
+		// Set runtime fields
+		pack.Path = result.PackPath
+		pack.IsLibraryOnly = result.IsLibraryOnly
+	} else {
+		// Create empty pack with runtime fields only
+		pack = &Invkpack{
+			Path:          result.PackPath,
+			IsLibraryOnly: result.IsLibraryOnly,
+		}
 	}
 
-	return &Pack{
-		Metadata:      metadata,
-		Path:          result.PackPath,
-		IsLibraryOnly: result.IsLibraryOnly,
-	}, nil
+	return pack, nil
 }
 
 // CreateOptions contains options for creating a new pack
@@ -732,7 +739,7 @@ func HasVendoredPacks(packPath string) bool {
 
 // ListVendoredPacks returns a list of vendored packs in the given pack directory.
 // Returns nil if no invk_packs/ directory exists or it's empty.
-func ListVendoredPacks(packPath string) ([]*Pack, error) {
+func ListVendoredPacks(packPath string) ([]*Invkpack, error) {
 	vendorDir := GetVendoredPacksDir(packPath)
 
 	// Check if vendor directory exists
@@ -753,7 +760,7 @@ func ListVendoredPacks(packPath string) ([]*Pack, error) {
 		return nil, fmt.Errorf("failed to read vendor directory: %w", err)
 	}
 
-	var packs []*Pack
+	var packs []*Invkpack
 	for _, entry := range entries {
 		if !entry.IsDir() {
 			continue
