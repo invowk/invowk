@@ -897,7 +897,7 @@ func executeInteractive(ctx *runtime.ExecutionContext, registry *runtime.Registr
 		return &runtime.Result{ExitCode: 1, Error: fmt.Errorf("failed to create TUI server: %w", err)}
 	}
 
-	if err := tuiServer.Start(); err != nil {
+	if err := tuiServer.Start(context.Background()); err != nil {
 		return &runtime.Result{ExitCode: 1, Error: fmt.Errorf("failed to start TUI server: %w", err)}
 	}
 	defer tuiServer.Stop()
