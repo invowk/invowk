@@ -598,8 +598,8 @@ func ValidateContainerfilePath(containerfile, baseDir string) error {
 		return fmt.Errorf("containerfile path too long (%d chars, max %d)", len(containerfile), MaxPathLength)
 	}
 
-	// Containerfile path must be relative
-	if filepath.IsAbs(containerfile) {
+	// Containerfile path must be relative (use cross-platform check)
+	if isAbsolutePath(containerfile) {
 		return fmt.Errorf("containerfile path must be relative, not absolute")
 	}
 
@@ -639,8 +639,8 @@ func ValidateEnvFilePath(filePath string) error {
 		return fmt.Errorf("env file path too long (%d chars, max %d)", len(cleanPath), MaxPathLength)
 	}
 
-	// Env file path must be relative
-	if filepath.IsAbs(cleanPath) {
+	// Env file path must be relative (use cross-platform check)
+	if isAbsolutePath(cleanPath) {
 		return fmt.Errorf("env file path must be relative: %s", cleanPath)
 	}
 
