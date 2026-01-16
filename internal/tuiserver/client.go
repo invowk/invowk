@@ -54,13 +54,13 @@ func (c *Client) IsAvailable() bool {
 	if err != nil {
 		return false
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }() // Health check; close error non-critical
 
 	return resp.StatusCode == http.StatusOK
 }
 
 // sendRequest sends a TUI request to the server and returns the response.
-func (c *Client) sendRequest(component Component, options interface{}) (*Response, error) {
+func (c *Client) sendRequest(component Component, options any) (result *Response, err error) {
 	optionsJSON, err := json.Marshal(options)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal options: %w", err)
@@ -88,7 +88,11 @@ func (c *Client) sendRequest(component Component, options interface{}) (*Respons
 	if err != nil {
 		return nil, fmt.Errorf("failed to send request: %w", err)
 	}
-	defer httpResp.Body.Close()
+	defer func() {
+		if closeErr := httpResp.Body.Close(); closeErr != nil && err == nil {
+			err = closeErr
+		}
+	}()
 
 	body, err := io.ReadAll(httpResp.Body)
 	if err != nil {

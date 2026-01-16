@@ -346,7 +346,7 @@ description: %q
 	invkpackPath := filepath.Join(packPath, "invkpack.cue")
 	if err := os.WriteFile(invkpackPath, []byte(invkpackContent), 0644); err != nil {
 		// Clean up on failure
-		os.RemoveAll(packPath)
+		_ = os.RemoveAll(packPath) // Best-effort cleanup on error path
 		return "", fmt.Errorf("failed to create invkpack.cue: %w", err)
 	}
 
@@ -374,7 +374,7 @@ cmds: [
 	invkfilePath := filepath.Join(packPath, "invkfile.cue")
 	if err := os.WriteFile(invkfilePath, []byte(invkfileContent), 0644); err != nil {
 		// Clean up on failure
-		os.RemoveAll(packPath)
+		_ = os.RemoveAll(packPath) // Best-effort cleanup on error path
 		return "", fmt.Errorf("failed to create invkfile.cue: %w", err)
 	}
 
@@ -383,7 +383,7 @@ cmds: [
 		scriptsDir := filepath.Join(packPath, "scripts")
 		if err := os.MkdirAll(scriptsDir, 0755); err != nil {
 			// Clean up on failure
-			os.RemoveAll(packPath)
+			_ = os.RemoveAll(packPath) // Best-effort cleanup on error path
 			return "", fmt.Errorf("failed to create scripts directory: %w", err)
 		}
 
@@ -391,7 +391,7 @@ cmds: [
 		gitkeepPath := filepath.Join(scriptsDir, ".gitkeep")
 		if err := os.WriteFile(gitkeepPath, []byte(""), 0644); err != nil {
 			// Clean up on failure
-			os.RemoveAll(packPath)
+			_ = os.RemoveAll(packPath) // Best-effort cleanup on error path
 			return "", fmt.Errorf("failed to create .gitkeep: %w", err)
 		}
 	}
@@ -401,7 +401,7 @@ cmds: [
 
 // Archive creates a ZIP archive of a pack.
 // Returns the path to the created ZIP file or an error.
-func Archive(packPath, outputPath string) (string, error) {
+func Archive(packPath, outputPath string) (archivePath string, err error) {
 	// Load and validate the pack first
 	b, err := Load(packPath)
 	if err != nil {
@@ -424,16 +424,24 @@ func Archive(packPath, outputPath string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to create ZIP file: %w", err)
 	}
-	defer zipFile.Close()
+	defer func() {
+		if closeErr := zipFile.Close(); closeErr != nil && err == nil {
+			err = closeErr
+		}
+	}()
 
 	zipWriter := zip.NewWriter(zipFile)
-	defer zipWriter.Close()
+	defer func() {
+		if closeErr := zipWriter.Close(); closeErr != nil && err == nil {
+			err = closeErr
+		}
+	}()
 
 	// Get the pack directory name for the ZIP root
 	packDirName := filepath.Base(b.Path)
 
 	// Walk the pack directory and add files to the ZIP
-	err = filepath.WalkDir(b.Path, func(path string, d os.DirEntry, walkErr error) error {
+	walkErr := filepath.WalkDir(b.Path, func(path string, d os.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			return walkErr
 		}
@@ -494,12 +502,12 @@ func Archive(packPath, outputPath string) (string, error) {
 		return nil
 	})
 
-	if err != nil {
-		// Clean up on failure
-		zipWriter.Close()
-		zipFile.Close()
-		os.Remove(absOutputPath)
-		return "", fmt.Errorf("failed to pack pack: %w", err)
+	if walkErr != nil {
+		// Clean up on failure - deferred closes will run, then remove the file
+		err = fmt.Errorf("failed to pack pack: %w", walkErr)
+		// Remove file after closes complete (use a separate defer to ensure order)
+		defer func() { _ = os.Remove(absOutputPath) }()
+		return "", err
 	}
 
 	return absOutputPath, nil
@@ -517,7 +525,7 @@ type UnpackOptions struct {
 
 // Unpack extracts a pack from a ZIP archive.
 // Returns the path to the extracted pack or an error.
-func Unpack(opts UnpackOptions) (string, error) {
+func Unpack(opts UnpackOptions) (extractedPath string, err error) {
 	if opts.Source == "" {
 		return "", fmt.Errorf("source cannot be empty")
 	}
@@ -525,7 +533,6 @@ func Unpack(opts UnpackOptions) (string, error) {
 	// Default destination to current directory
 	destDir := opts.DestDir
 	if destDir == "" {
-		var err error
 		destDir, err = os.Getwd()
 		if err != nil {
 			return "", fmt.Errorf("failed to get current directory: %w", err)
@@ -554,7 +561,7 @@ func Unpack(opts UnpackOptions) (string, error) {
 			return "", fmt.Errorf("failed to download pack: %w", err)
 		}
 		zipPath = tmpFile
-		cleanup = func() { os.Remove(tmpFile) }
+		cleanup = func() { _ = os.Remove(tmpFile) } // Best-effort cleanup of temp file
 	} else {
 		// Local file
 		zipPath, err = filepath.Abs(opts.Source)
@@ -570,7 +577,11 @@ func Unpack(opts UnpackOptions) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to open ZIP file: %w", err)
 	}
-	defer zipReader.Close()
+	defer func() {
+		if closeErr := zipReader.Close(); closeErr != nil && err == nil {
+			err = closeErr
+		}
+	}()
 
 	// Find the pack root directory in the ZIP
 	var packRoot string
@@ -638,8 +649,8 @@ func Unpack(opts UnpackOptions) (string, error) {
 	// Validate the extracted pack
 	_, err = Load(packPath)
 	if err != nil {
-		// Clean up on validation failure
-		os.RemoveAll(packPath)
+		// Clean up on validation failure (best-effort)
+		_ = os.RemoveAll(packPath)
 		return "", fmt.Errorf("extracted pack is invalid: %w", err)
 	}
 
@@ -647,52 +658,74 @@ func Unpack(opts UnpackOptions) (string, error) {
 }
 
 // downloadFile downloads a file from a URL and returns the path to the temporary file
-func downloadFile(url string) (string, error) {
+func downloadFile(url string) (tmpPath string, err error) {
 	// Create a temporary file
 	tmpFile, err := os.CreateTemp("", "invowk-pack-*.zip")
 	if err != nil {
 		return "", fmt.Errorf("failed to create temp file: %w", err)
 	}
-	defer tmpFile.Close()
+	tmpPath = tmpFile.Name()
+
+	// Clean up temp file on any error
+	defer func() {
+		if err != nil {
+			_ = os.Remove(tmpPath) // Best-effort cleanup
+		}
+	}()
+
+	defer func() {
+		if closeErr := tmpFile.Close(); closeErr != nil && err == nil {
+			err = closeErr
+		}
+	}()
 
 	// Download the file
-	resp, err := http.Get(url)
+	resp, err := http.Get(url) //nolint:gosec // URL is validated by caller
 	if err != nil {
-		os.Remove(tmpFile.Name())
 		return "", fmt.Errorf("failed to download: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil && err == nil {
+			err = closeErr
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
-		os.Remove(tmpFile.Name())
 		return "", fmt.Errorf("download failed with status: %s", resp.Status)
 	}
 
 	// Copy response body to file
 	_, err = io.Copy(tmpFile, resp.Body)
 	if err != nil {
-		os.Remove(tmpFile.Name())
 		return "", fmt.Errorf("failed to save downloaded file: %w", err)
 	}
 
-	return tmpFile.Name(), nil
+	return tmpPath, nil
 }
 
 // extractFile extracts a single file from the ZIP archive
-func extractFile(file *zip.File, destPath string) error {
+func extractFile(file *zip.File, destPath string) (err error) {
 	// Open the file in the ZIP
 	rc, err := file.Open()
 	if err != nil {
 		return err
 	}
-	defer rc.Close()
+	defer func() {
+		if closeErr := rc.Close(); closeErr != nil && err == nil {
+			err = closeErr
+		}
+	}()
 
 	// Create the destination file
 	destFile, err := os.OpenFile(destPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, file.Mode())
 	if err != nil {
 		return err
 	}
-	defer destFile.Close()
+	defer func() {
+		if closeErr := destFile.Close(); closeErr != nil && err == nil {
+			err = closeErr
+		}
+	}()
 
 	// Copy contents
 	_, err = io.Copy(destFile, rc)

@@ -69,7 +69,7 @@ func runTuiTable(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			return fmt.Errorf("failed to open file: %w", err)
 		}
-		defer f.Close()
+		defer func() { _ = f.Close() }() // Read-only file; close error non-critical
 
 		reader := csv.NewReader(f)
 		reader.Comma = rune(tableSeparator[0])
@@ -162,7 +162,7 @@ func runTuiTable(cmd *cobra.Command, args []string) error {
 
 	// If selectable and a row was selected, print it
 	if tableSelectable && selectedIdx >= 0 && len(selectedRow) > 0 {
-		fmt.Fprintln(os.Stdout, strings.Join(selectedRow, tableSeparator))
+		_, _ = fmt.Fprintln(os.Stdout, strings.Join(selectedRow, tableSeparator)) // Terminal output; error non-critical
 	}
 
 	return nil

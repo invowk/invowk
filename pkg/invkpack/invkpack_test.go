@@ -37,11 +37,7 @@ func TestParseInvkpack_ValidPackID(t *testing.T) {
 pack: "` + tt.pack + `"
 version: "1.0"
 `
-			tmpDir, err := os.MkdirTemp("", "invowk-test-*")
-			if err != nil {
-				t.Fatalf("Failed to create temp dir: %v", err)
-			}
-			defer os.RemoveAll(tmpDir)
+			tmpDir := t.TempDir()
 
 			invkpackPath := filepath.Join(tmpDir, "invkpack.cue")
 			if writeErr := os.WriteFile(invkpackPath, []byte(cueContent), 0644); writeErr != nil {
@@ -85,19 +81,15 @@ func TestParseInvkpack_InvalidPackID(t *testing.T) {
 pack: "` + tt.pack + `"
 version: "1.0"
 `
-			tmpDir, err := os.MkdirTemp("", "invowk-test-*")
-			if err != nil {
-				t.Fatalf("Failed to create temp dir: %v", err)
-			}
-			defer os.RemoveAll(tmpDir)
+			tmpDir := t.TempDir()
 
 			invkpackPath := filepath.Join(tmpDir, "invkpack.cue")
 			if writeErr := os.WriteFile(invkpackPath, []byte(cueContent), 0644); writeErr != nil {
 				t.Fatalf("Failed to write invkpack.cue: %v", writeErr)
 			}
 
-			_, err = ParseInvkpack(invkpackPath)
-			if err == nil {
+			_, parseErr := ParseInvkpack(invkpackPath)
+			if parseErr == nil {
 				t.Errorf("ParseInvkpack() should reject invalid pack %q", tt.pack)
 			}
 		})

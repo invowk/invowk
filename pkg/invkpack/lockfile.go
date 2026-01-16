@@ -84,7 +84,7 @@ func (l *LockFile) Save(path string) error {
 	}
 
 	if err := os.Rename(tmpPath, path); err != nil {
-		os.Remove(tmpPath)
+		_ = os.Remove(tmpPath) // Best-effort cleanup of temp file
 		return fmt.Errorf("failed to rename lock file: %w", err)
 	}
 

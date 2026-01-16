@@ -148,7 +148,7 @@ func (r *NativeRuntime) executeWithInterpreter(ctx *ExecutionContext, script str
 		if err != nil {
 			return &Result{ExitCode: 1, Error: fmt.Errorf("failed to create temp script: %w", err)}
 		}
-		defer os.Remove(tempFile)
+		defer func() { _ = os.Remove(tempFile) }() // Cleanup temp file; error non-critical
 		cmdArgs = append(cmdArgs, tempFile)
 	}
 
@@ -199,19 +199,19 @@ func (r *NativeRuntime) createTempScript(content, interpreter string) (string, e
 	}
 
 	if _, err := tmpFile.WriteString(content); err != nil {
-		tmpFile.Close()
-		os.Remove(tmpFile.Name())
+		_ = tmpFile.Close()           // Best-effort close on error path
+		_ = os.Remove(tmpFile.Name()) // Best-effort cleanup on error path
 		return "", err
 	}
 
 	if err := tmpFile.Close(); err != nil {
-		os.Remove(tmpFile.Name())
+		_ = os.Remove(tmpFile.Name()) // Best-effort cleanup on error path
 		return "", err
 	}
 
 	// Make executable (needed for some interpreters on Unix)
 	if runtime.GOOS != "windows" {
-		os.Chmod(tmpFile.Name(), 0700)
+		_ = os.Chmod(tmpFile.Name(), 0700) // Best-effort; execution may still work
 	}
 
 	return tmpFile.Name(), nil
@@ -314,7 +314,7 @@ func (r *NativeRuntime) executeCaptureWithInterpreter(ctx *ExecutionContext, scr
 		if err != nil {
 			return &Result{ExitCode: 1, Error: fmt.Errorf("failed to create temp script: %w", err)}
 		}
-		defer os.Remove(tempFile)
+		defer func() { _ = os.Remove(tempFile) }() // Cleanup temp file; error non-critical
 		cmdArgs = append(cmdArgs, tempFile)
 	}
 
@@ -546,7 +546,7 @@ func (r *NativeRuntime) prepareInterpreterCommand(ctx *ExecutionContext, script 
 			return nil, fmt.Errorf("failed to create temp script: %w", err)
 		}
 		cmdArgs = append(cmdArgs, tempFile)
-		cleanup = func() { os.Remove(tempFile) }
+		cleanup = func() { _ = os.Remove(tempFile) } // Cleanup temp file; error non-critical
 	}
 
 	// Add positional arguments

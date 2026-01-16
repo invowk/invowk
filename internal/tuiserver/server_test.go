@@ -7,9 +7,10 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
-	"os"
 	"testing"
 	"time"
+
+	"invowk-cli/internal/testutil"
 )
 
 func TestServerStartStop(t *testing.T) {
@@ -55,7 +56,7 @@ func TestServerStartStop(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to check health: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("Health check returned %d, expected %d", resp.StatusCode, http.StatusOK)
@@ -86,7 +87,7 @@ func TestServerDoubleStart(t *testing.T) {
 	if startErr := server.Start(ctx); startErr != nil {
 		t.Fatalf("Failed to start server: %v", startErr)
 	}
-	defer server.Stop()
+	defer testutil.MustStop(t, server)
 
 	// Second Start() should fail
 	err = server.Start(ctx)
@@ -147,7 +148,7 @@ func TestServerStartWithCancelledContext(t *testing.T) {
 	err = server.Start(ctx)
 	if err == nil {
 		t.Error("Start with cancelled context should return error")
-		server.Stop()
+		testutil.MustStop(t, server)
 	}
 
 	// State should be Failed
@@ -187,7 +188,7 @@ func TestServerAuthentication(t *testing.T) {
 	if startErr := server.Start(ctx); startErr != nil {
 		t.Fatalf("Failed to start server: %v", startErr)
 	}
-	defer server.Stop()
+	defer testutil.MustStop(t, server)
 
 	// Create a request without authentication
 	req := Request{
@@ -205,7 +206,7 @@ func TestServerAuthentication(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to send request: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusUnauthorized {
 		t.Errorf("Expected status %d, got %d", http.StatusUnauthorized, resp.StatusCode)
@@ -220,7 +221,7 @@ func TestServerAuthentication(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to send request: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusUnauthorized {
 		t.Errorf("Expected status %d, got %d", http.StatusUnauthorized, resp.StatusCode)
@@ -237,14 +238,14 @@ func TestServerMethodNotAllowed(t *testing.T) {
 	if startErr := server.Start(ctx); startErr != nil {
 		t.Fatalf("Failed to start server: %v", startErr)
 	}
-	defer server.Stop()
+	defer testutil.MustStop(t, server)
 
 	// Test GET request (should be method not allowed)
 	resp, err := http.Get(server.URL() + "/tui")
 	if err != nil {
 		t.Fatalf("Failed to send request: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusMethodNotAllowed {
 		t.Errorf("Expected status %d, got %d", http.StatusMethodNotAllowed, resp.StatusCode)
@@ -261,7 +262,7 @@ func TestServerUnknownComponent(t *testing.T) {
 	if startErr := server.Start(ctx); startErr != nil {
 		t.Fatalf("Failed to start server: %v", startErr)
 	}
-	defer server.Stop()
+	defer testutil.MustStop(t, server)
 
 	// Start a goroutine to consume requests from the channel and respond with error
 	go func() {
@@ -290,7 +291,7 @@ func TestServerUnknownComponent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to send request: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	// With the new architecture, the server returns 200 with an error in the response body
 	if resp.StatusCode != http.StatusOK {
@@ -318,7 +319,7 @@ func TestServerInvalidJSON(t *testing.T) {
 	if startErr := server.Start(ctx); startErr != nil {
 		t.Fatalf("Failed to start server: %v", startErr)
 	}
-	defer server.Stop()
+	defer testutil.MustStop(t, server)
 
 	// Send invalid JSON
 	httpReq, _ := http.NewRequest(http.MethodPost, server.URL()+"/tui", bytes.NewReader([]byte("not json")))
@@ -330,7 +331,7 @@ func TestServerInvalidJSON(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to send request: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusBadRequest {
 		t.Errorf("Expected status %d, got %d", http.StatusBadRequest, resp.StatusCode)
@@ -338,18 +339,20 @@ func TestServerInvalidJSON(t *testing.T) {
 }
 
 func TestClientFromEnv(t *testing.T) {
-	// Test when env vars are not set
-	os.Unsetenv(EnvTUIAddr)
-	os.Unsetenv(EnvTUIToken)
+	// Save and unset env vars for clean test state
+	restoreAddr := testutil.MustUnsetenv(t, EnvTUIAddr)
+	restoreToken := testutil.MustUnsetenv(t, EnvTUIToken)
+	defer restoreAddr()
+	defer restoreToken()
 
+	// Test when env vars are not set
 	client := NewClientFromEnv()
 	if client != nil {
 		t.Error("Expected nil client when env vars are not set")
 	}
 
 	// Test when only addr is set
-	os.Setenv(EnvTUIAddr, "http://127.0.0.1:12345")
-	os.Unsetenv(EnvTUIToken)
+	cleanupAddr := testutil.MustSetenv(t, EnvTUIAddr, "http://127.0.0.1:12345")
 
 	client = NewClientFromEnv()
 	if client != nil {
@@ -357,17 +360,16 @@ func TestClientFromEnv(t *testing.T) {
 	}
 
 	// Test when both are set
-	os.Setenv(EnvTUIAddr, "http://127.0.0.1:12345")
-	os.Setenv(EnvTUIToken, "test-token")
+	cleanupToken := testutil.MustSetenv(t, EnvTUIToken, "test-token")
 
 	client = NewClientFromEnv()
 	if client == nil {
 		t.Error("Expected client when both env vars are set")
 	}
 
-	// Cleanup
-	os.Unsetenv(EnvTUIAddr)
-	os.Unsetenv(EnvTUIToken)
+	// Cleanup within test (restores to previous state in this test)
+	cleanupToken()
+	cleanupAddr()
 }
 
 func TestClientIsAvailable(t *testing.T) {
@@ -393,7 +395,7 @@ func TestClientIsAvailable(t *testing.T) {
 	if err := server.Start(ctx); err != nil {
 		t.Fatalf("Failed to start server: %v", err)
 	}
-	defer server.Stop()
+	defer testutil.MustStop(t, server)
 
 	client = NewClient(server.URL(), server.Token())
 	if !client.IsAvailable() {

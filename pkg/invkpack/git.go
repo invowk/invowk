@@ -342,8 +342,8 @@ func (f *GitFetcher) CloneShallow(ctx context.Context, gitURL, version, destPath
 		})
 		if err != nil {
 			lastErr = err
-			// Clean up failed attempt
-			os.RemoveAll(destPath)
+			// Clean up failed attempt (best-effort)
+			_ = os.RemoveAll(destPath)
 			continue
 		}
 

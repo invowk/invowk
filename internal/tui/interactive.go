@@ -6,7 +6,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"os"
 	"os/exec"
 	"regexp"
@@ -625,10 +624,10 @@ func (m *interactiveModel) View() string {
 // RunInteractiveCmd executes a command in interactive mode with alternate screen buffer.
 // It creates a PTY for the command, forwards keyboard input during execution,
 // and allows output review after completion.
-func RunInteractiveCmd(ctx context.Context, opts InteractiveOptions, cmd *exec.Cmd) (*InteractiveResult, error) {
+func RunInteractiveCmd(ctx context.Context, opts InteractiveOptions, cmd *exec.Cmd) (result *InteractiveResult, err error) {
 	// Get terminal size for initial PTY dimensions
 	width, height := 80, 24
-	if w, h, err := getTerminalSize(); err == nil {
+	if w, h, termErr := getTerminalSize(); termErr == nil {
 		width, height = w, h
 	}
 
@@ -637,7 +636,11 @@ func RunInteractiveCmd(ctx context.Context, opts InteractiveOptions, cmd *exec.C
 	if err != nil {
 		return nil, fmt.Errorf("failed to create PTY: %w", err)
 	}
-	defer pty.Close()
+	defer func() {
+		if closeErr := pty.Close(); closeErr != nil && err == nil {
+			err = closeErr
+		}
+	}()
 
 	// Start the command on the PTY
 	if err = pty.Start(cmd); err != nil {
@@ -673,9 +676,8 @@ func RunInteractiveCmd(ctx context.Context, opts InteractiveOptions, cmd *exec.C
 				}
 			}
 			if readErr != nil {
-				if readErr != io.EOF {
-					// Log error but don't crash
-				}
+				// Non-EOF errors are ignored; PTY read errors during command
+				// execution are typically transient and don't warrant crashing
 				break
 			}
 		}

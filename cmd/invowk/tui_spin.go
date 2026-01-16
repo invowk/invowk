@@ -92,8 +92,8 @@ func runTuiSpin(cmd *cobra.Command, args []string) error {
 
 	// Print the command output
 	if len(output) > 0 {
-		fmt.Fprint(os.Stdout, strings.TrimSuffix(string(output), "\n"))
-		fmt.Fprintln(os.Stdout)
+		_, _ = fmt.Fprint(os.Stdout, strings.TrimSuffix(string(output), "\n"))
+		_, _ = fmt.Fprintln(os.Stdout)
 	}
 
 	if err != nil {

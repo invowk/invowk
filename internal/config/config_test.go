@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"runtime"
 	"testing"
+
+	"invowk-cli/internal/testutil"
 )
 
 // setHomeDirEnv sets the appropriate HOME environment variable based on platform
@@ -16,25 +18,9 @@ func setHomeDirEnv(t *testing.T, dir string) func() {
 	t.Helper()
 	switch runtime.GOOS {
 	case "windows":
-		original := os.Getenv("USERPROFILE")
-		os.Setenv("USERPROFILE", dir)
-		return func() {
-			if original != "" {
-				os.Setenv("USERPROFILE", original)
-			} else {
-				os.Unsetenv("USERPROFILE")
-			}
-		}
+		return testutil.MustSetenv(t, "USERPROFILE", dir)
 	default: // Linux, macOS
-		original := os.Getenv("HOME")
-		os.Setenv("HOME", dir)
-		return func() {
-			if original != "" {
-				os.Setenv("HOME", original)
-			} else {
-				os.Unsetenv("HOME")
-			}
-		}
+		return testutil.MustSetenv(t, "HOME", dir)
 	}
 }
 
@@ -91,16 +77,16 @@ func TestConfigDir(t *testing.T) {
 	originalXDGConfigHome := os.Getenv("XDG_CONFIG_HOME")
 	defer func() {
 		if originalXDGConfigHome != "" {
-			os.Setenv("XDG_CONFIG_HOME", originalXDGConfigHome)
+			_ = os.Setenv("XDG_CONFIG_HOME", originalXDGConfigHome) // Test cleanup; error non-critical
 		} else {
-			os.Unsetenv("XDG_CONFIG_HOME")
+			_ = os.Unsetenv("XDG_CONFIG_HOME") // Test cleanup; error non-critical
 		}
 	}()
 
 	// Test with XDG_CONFIG_HOME set (on Linux)
 	if runtime.GOOS == "linux" {
 		testXDGPath := "/tmp/test-xdg-config"
-		os.Setenv("XDG_CONFIG_HOME", testXDGPath)
+		restoreXDG := testutil.MustSetenv(t, "XDG_CONFIG_HOME", testXDGPath)
 
 		dir, err := ConfigDir()
 		if err != nil {
@@ -113,7 +99,8 @@ func TestConfigDir(t *testing.T) {
 		}
 
 		// Test with XDG_CONFIG_HOME unset
-		os.Unsetenv("XDG_CONFIG_HOME")
+		restoreXDG()
+		testutil.MustUnsetenv(t, "XDG_CONFIG_HOME")
 		dir, err = ConfigDir()
 		if err != nil {
 			t.Fatalf("ConfigDir() returned error: %v", err)
@@ -166,9 +153,8 @@ func TestGet_ReturnsDefaultOnNoConfig(t *testing.T) {
 
 	// Create a temp directory to avoid loading any real config
 	tmpDir := t.TempDir()
-	originalWd, _ := os.Getwd()
-	os.Chdir(tmpDir)
-	defer os.Chdir(originalWd)
+	restoreWd := testutil.MustChdir(t, tmpDir)
+	defer restoreWd()
 
 	cfg := Get()
 
@@ -332,9 +318,8 @@ func TestLoad_ReturnsDefaultsWhenNoConfigFile(t *testing.T) {
 	defer Reset()
 
 	// Change to temp dir to avoid loading config from current directory
-	originalWd, _ := os.Getwd()
-	os.Chdir(tmpDir)
-	defer os.Chdir(originalWd)
+	restoreWd := testutil.MustChdir(t, tmpDir)
+	defer restoreWd()
 
 	cfg, err := Load()
 	if err != nil {

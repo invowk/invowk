@@ -6,6 +6,8 @@ import (
 	"context"
 	"testing"
 	"time"
+
+	"invowk-cli/internal/testutil"
 )
 
 func TestGenerateToken(t *testing.T) {
@@ -172,7 +174,7 @@ func TestServerDoubleStart(t *testing.T) {
 	if err := srv.Start(ctx); err != nil {
 		t.Fatalf("Failed to start server: %v", err)
 	}
-	defer srv.Stop()
+	defer testutil.MustStop(t, srv)
 
 	// Second Start() should fail
 	err := srv.Start(ctx)
@@ -219,7 +221,7 @@ func TestGetConnectionInfo(t *testing.T) {
 	if startErr := srv.Start(ctx); startErr != nil {
 		t.Fatalf("Failed to start server: %v", startErr)
 	}
-	defer srv.Stop()
+	defer testutil.MustStop(t, srv)
 
 	// Should succeed after server starts
 	info, err := srv.GetConnectionInfo("test-command")
@@ -304,7 +306,7 @@ func TestServerStartWithCancelledContext(t *testing.T) {
 	err := srv.Start(ctx)
 	if err == nil {
 		t.Error("Start with cancelled context should return error")
-		srv.Stop()
+		testutil.MustStop(t, srv)
 	}
 
 	// State should be Failed

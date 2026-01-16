@@ -169,16 +169,16 @@ func checkNestingDepth(pattern string) error {
 			escaped = false
 			continue
 		}
-		if c == '\\' {
+		switch c {
+		case '\\':
 			escaped = true
 			continue
-		}
-		if c == '(' {
+		case '(':
 			currentDepth++
 			if currentDepth > maxDepth {
 				maxDepth = currentDepth
 			}
-		} else if c == ')' {
+		case ')':
 			if currentDepth > 0 {
 				currentDepth--
 			}

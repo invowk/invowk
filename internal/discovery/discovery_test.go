@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"invowk-cli/internal/config"
+	"invowk-cli/internal/testutil"
 	"invowk-cli/pkg/invkfile"
 )
 
@@ -19,25 +20,9 @@ func setHomeDirEnv(t *testing.T, dir string) func() {
 	t.Helper()
 	switch runtime.GOOS {
 	case "windows":
-		original := os.Getenv("USERPROFILE")
-		os.Setenv("USERPROFILE", dir)
-		return func() {
-			if original != "" {
-				os.Setenv("USERPROFILE", original)
-			} else {
-				os.Unsetenv("USERPROFILE")
-			}
-		}
+		return testutil.MustSetenv(t, "USERPROFILE", dir)
 	default: // Linux, macOS
-		original := os.Getenv("HOME")
-		os.Setenv("HOME", dir)
-		return func() {
-			if original != "" {
-				os.Setenv("HOME", original)
-			} else {
-				os.Unsetenv("HOME")
-			}
-		}
+		return testutil.MustSetenv(t, "HOME", dir)
 	}
 }
 
@@ -133,9 +118,8 @@ func TestDiscoverAll_EmptyDirectory(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	// Change to temp directory
-	originalWd, _ := os.Getwd()
-	os.Chdir(tmpDir)
-	defer os.Chdir(originalWd)
+	restoreWd := testutil.MustChdir(t, tmpDir)
+	defer restoreWd()
 
 	// Override HOME to avoid finding real user commands
 	cleanupHome := setHomeDirEnv(t, tmpDir)
@@ -177,9 +161,8 @@ cmds: [
 	}
 
 	// Change to temp directory
-	originalWd, _ := os.Getwd()
-	os.Chdir(tmpDir)
-	defer os.Chdir(originalWd)
+	restoreWd := testutil.MustChdir(t, tmpDir)
+	defer restoreWd()
 
 	// Override HOME to avoid finding real user commands
 	cleanupHome := setHomeDirEnv(t, tmpDir)
@@ -232,9 +215,8 @@ cmds: [
 	}
 
 	// Change to temp directory
-	originalWd, _ := os.Getwd()
-	os.Chdir(tmpDir)
-	defer os.Chdir(originalWd)
+	restoreWd := testutil.MustChdir(t, tmpDir)
+	defer restoreWd()
 
 	// Override HOME to avoid finding real user commands
 	cleanupHome := setHomeDirEnv(t, tmpDir)
@@ -268,9 +250,8 @@ cmds: [{name: "test", implementations: [{script: "echo test", runtimes: [{name: 
 	}
 
 	// Change to temp directory
-	originalWd, _ := os.Getwd()
-	os.Chdir(tmpDir)
-	defer os.Chdir(originalWd)
+	restoreWd := testutil.MustChdir(t, tmpDir)
+	defer restoreWd()
 
 	// Override HOME
 	cleanupHome := setHomeDirEnv(t, tmpDir)
@@ -316,9 +297,8 @@ cmds: [{name: "user-cmd", implementations: [{script: "echo user", runtimes: [{na
 	}
 
 	// Change to temp directory (which has no invkfile)
-	originalWd, _ := os.Getwd()
-	os.Chdir(tmpDir)
-	defer os.Chdir(originalWd)
+	restoreWd := testutil.MustChdir(t, tmpDir)
+	defer restoreWd()
 
 	// Override HOME
 	cleanupHome := setHomeDirEnv(t, tmpDir)
@@ -364,10 +344,9 @@ cmds: [{name: "custom-cmd", implementations: [{script: "echo custom", runtimes: 
 
 	// Change to temp directory (which has no invkfile)
 	emptyDir := filepath.Join(tmpDir, "empty")
-	os.MkdirAll(emptyDir, 0755)
-	originalWd, _ := os.Getwd()
-	os.Chdir(emptyDir)
-	defer os.Chdir(originalWd)
+	testutil.MustMkdirAll(t, emptyDir, 0755)
+	restoreWd := testutil.MustChdir(t, emptyDir)
+	defer restoreWd()
 
 	// Override HOME
 	cleanupHome := setHomeDirEnv(t, tmpDir)
@@ -398,9 +377,8 @@ cmds: [{name: "custom-cmd", implementations: [{script: "echo custom", runtimes: 
 func TestLoadFirst_NoFiles(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	originalWd, _ := os.Getwd()
-	os.Chdir(tmpDir)
-	defer os.Chdir(originalWd)
+	restoreWd := testutil.MustChdir(t, tmpDir)
+	defer restoreWd()
 
 	cleanupHome := setHomeDirEnv(t, tmpDir)
 	defer cleanupHome()
@@ -425,9 +403,8 @@ cmds: [{name: "test", implementations: [{script: "echo test", runtimes: [{name: 
 		t.Fatalf("failed to write invkfile: %v", err)
 	}
 
-	originalWd, _ := os.Getwd()
-	os.Chdir(tmpDir)
-	defer os.Chdir(originalWd)
+	restoreWd := testutil.MustChdir(t, tmpDir)
+	defer restoreWd()
 
 	cleanupHome := setHomeDirEnv(t, tmpDir)
 	defer cleanupHome()
@@ -462,7 +439,7 @@ cmds: [{name: "current", implementations: [{script: "echo current", runtimes: [{
 
 	// Create user commands invkfile (no pack metadata - it belongs in invkpack.cue)
 	userCmdsDir := filepath.Join(tmpDir, ".invowk", "cmds")
-	os.MkdirAll(userCmdsDir, 0755)
+	testutil.MustMkdirAll(t, userCmdsDir, 0755)
 	userContent := `
 cmds: [{name: "user", implementations: [{script: "echo user", runtimes: [{name: "native"}]}]}]
 `
@@ -470,9 +447,8 @@ cmds: [{name: "user", implementations: [{script: "echo user", runtimes: [{name: 
 		t.Fatalf("failed to write user invkfile: %v", err)
 	}
 
-	originalWd, _ := os.Getwd()
-	os.Chdir(tmpDir)
-	defer os.Chdir(originalWd)
+	restoreWd := testutil.MustChdir(t, tmpDir)
+	defer restoreWd()
 
 	cleanupHome := setHomeDirEnv(t, tmpDir)
 	defer cleanupHome()
@@ -511,9 +487,8 @@ cmds: [
 		t.Fatalf("failed to write invkfile: %v", err)
 	}
 
-	originalWd, _ := os.Getwd()
-	os.Chdir(tmpDir)
-	defer os.Chdir(originalWd)
+	restoreWd := testutil.MustChdir(t, tmpDir)
+	defer restoreWd()
 
 	cleanupHome := setHomeDirEnv(t, tmpDir)
 	defer cleanupHome()
@@ -552,9 +527,8 @@ cmds: [
 		t.Fatalf("failed to write invkfile: %v", err)
 	}
 
-	originalWd, _ := os.Getwd()
-	os.Chdir(tmpDir)
-	defer os.Chdir(originalWd)
+	restoreWd := testutil.MustChdir(t, tmpDir)
+	defer restoreWd()
 
 	cleanupHome := setHomeDirEnv(t, tmpDir)
 	defer cleanupHome()
@@ -597,9 +571,8 @@ cmds: [
 		t.Fatalf("failed to write invkfile: %v", err)
 	}
 
-	originalWd, _ := os.Getwd()
-	os.Chdir(tmpDir)
-	defer os.Chdir(originalWd)
+	restoreWd := testutil.MustChdir(t, tmpDir)
+	defer restoreWd()
 
 	cleanupHome := setHomeDirEnv(t, tmpDir)
 	defer cleanupHome()
@@ -657,7 +630,7 @@ cmds: [{name: "build", description: "Current build", implementations: [{script: 
 
 	// Create user commands invkfile with same "build" command
 	userCmdsDir := filepath.Join(tmpDir, ".invowk", "cmds")
-	os.MkdirAll(userCmdsDir, 0755)
+	testutil.MustMkdirAll(t, userCmdsDir, 0755)
 	userContent := `
 cmds: [{name: "build", description: "User build", implementations: [{script: "echo user", runtimes: [{name: "native"}]}]}]
 `
@@ -665,9 +638,8 @@ cmds: [{name: "build", description: "User build", implementations: [{script: "ec
 		t.Fatalf("failed to write user invkfile: %v", err)
 	}
 
-	originalWd, _ := os.Getwd()
-	os.Chdir(tmpDir)
-	defer os.Chdir(originalWd)
+	restoreWd := testutil.MustChdir(t, tmpDir)
+	defer restoreWd()
 
 	cleanupHome := setHomeDirEnv(t, tmpDir)
 	defer cleanupHome()
@@ -714,9 +686,8 @@ func TestDiscoverAll_FindsPacksInCurrentDir(t *testing.T) {
 	createValidDiscoveryPack(t, packDir, "mycommands", "packed-cmd")
 
 	// Change to temp directory
-	originalWd, _ := os.Getwd()
-	os.Chdir(tmpDir)
-	defer os.Chdir(originalWd)
+	restoreWd := testutil.MustChdir(t, tmpDir)
+	defer restoreWd()
 
 	// Override HOME to avoid finding real user commands
 	cleanupHome := setHomeDirEnv(t, tmpDir)
@@ -760,9 +731,8 @@ func TestDiscoverAll_FindsPacksInUserDir(t *testing.T) {
 	}
 
 	// Change to work directory
-	originalWd, _ := os.Getwd()
-	os.Chdir(workDir)
-	defer os.Chdir(originalWd)
+	restoreWd := testutil.MustChdir(t, workDir)
+	defer restoreWd()
 
 	// Override HOME
 	cleanupHome := setHomeDirEnv(t, tmpDir)
@@ -806,9 +776,8 @@ func TestDiscoverAll_FindsPacksInConfigPath(t *testing.T) {
 	}
 
 	// Change to work directory
-	originalWd, _ := os.Getwd()
-	os.Chdir(workDir)
-	defer os.Chdir(originalWd)
+	restoreWd := testutil.MustChdir(t, workDir)
+	defer restoreWd()
 
 	// Override HOME
 	cleanupHome := setHomeDirEnv(t, tmpDir)
@@ -879,9 +848,8 @@ version: "1.0"
 	}
 
 	// Change to temp directory
-	originalWd, _ := os.Getwd()
-	os.Chdir(tmpDir)
-	defer os.Chdir(originalWd)
+	restoreWd := testutil.MustChdir(t, tmpDir)
+	defer restoreWd()
 
 	// Override HOME
 	cleanupHome := setHomeDirEnv(t, tmpDir)
@@ -929,9 +897,8 @@ func TestDiscoverAll_SkipsInvalidPacks(t *testing.T) {
 	createValidDiscoveryPack(t, validPackDir, "valid", "cmd")
 
 	// Change to temp directory
-	originalWd, _ := os.Getwd()
-	os.Chdir(tmpDir)
-	defer os.Chdir(originalWd)
+	restoreWd := testutil.MustChdir(t, tmpDir)
+	defer restoreWd()
 
 	// Override HOME
 	cleanupHome := setHomeDirEnv(t, tmpDir)
@@ -984,9 +951,8 @@ description: "A test pack"
 	}
 
 	// Change to temp directory
-	originalWd, _ := os.Getwd()
-	os.Chdir(tmpDir)
-	defer os.Chdir(originalWd)
+	restoreWd := testutil.MustChdir(t, tmpDir)
+	defer restoreWd()
 
 	// Override HOME
 	cleanupHome := setHomeDirEnv(t, tmpDir)
@@ -1040,9 +1006,8 @@ func TestLoadFirst_LoadsPack(t *testing.T) {
 	createValidDiscoveryPack(t, packDir, "firstpack", "first")
 
 	// Change to temp directory
-	originalWd, _ := os.Getwd()
-	os.Chdir(tmpDir)
-	defer os.Chdir(originalWd)
+	restoreWd := testutil.MustChdir(t, tmpDir)
+	defer restoreWd()
 
 	// Override HOME
 	cleanupHome := setHomeDirEnv(t, tmpDir)
@@ -1300,9 +1265,8 @@ cmds: [{name: "cmd", implementations: [{script: "echo current", runtimes: [{name
 	createValidDiscoveryPack(t, packDir, "apack", "cmd")
 
 	// Change to temp directory
-	originalWd, _ := os.Getwd()
-	os.Chdir(tmpDir)
-	defer os.Chdir(originalWd)
+	restoreWd := testutil.MustChdir(t, tmpDir)
+	defer restoreWd()
 
 	// Override HOME
 	cleanupHome := setHomeDirEnv(t, tmpDir)

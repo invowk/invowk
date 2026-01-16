@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"invowk-cli/internal/testutil"
 )
 
 func TestDefaultProvisionConfig(t *testing.T) {
@@ -35,13 +37,13 @@ func TestCalculateFileHash(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp file: %v", err)
 	}
-	defer os.Remove(tmpFile.Name())
+	defer func() { _ = os.Remove(tmpFile.Name()) }() // Cleanup temp file; error non-critical
 
 	content := "test content for hashing"
 	if _, writeErr := tmpFile.WriteString(content); writeErr != nil {
 		t.Fatalf("Failed to write temp file: %v", writeErr)
 	}
-	tmpFile.Close()
+	testutil.MustClose(t, tmpFile)
 
 	// Calculate hash
 	hash1, err := calculateFileHash(tmpFile.Name())

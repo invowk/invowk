@@ -130,7 +130,7 @@ func registerDiscoveredCommands() {
 		parts := strings.Fields(cmdInfo.Name)
 
 		// Create parent commands if needed
-		var parent *cobra.Command = cmdCmd
+		parent := cmdCmd
 		var prefix string
 
 		for i, part := range parts {
@@ -254,7 +254,7 @@ func registerDiscoveredCommands() {
 					case invkfile.FlagTypeInt:
 						defaultVal := 0
 						if flag.DefaultValue != "" {
-							fmt.Sscanf(flag.DefaultValue, "%d", &defaultVal)
+							_, _ = fmt.Sscanf(flag.DefaultValue, "%d", &defaultVal) // Parse error uses 0
 						}
 						if flag.Short != "" {
 							newCmd.Flags().IntP(flag.Name, flag.Short, defaultVal, flag.Description)
@@ -264,7 +264,7 @@ func registerDiscoveredCommands() {
 					case invkfile.FlagTypeFloat:
 						defaultVal := 0.0
 						if flag.DefaultValue != "" {
-							fmt.Sscanf(flag.DefaultValue, "%f", &defaultVal)
+							_, _ = fmt.Sscanf(flag.DefaultValue, "%f", &defaultVal) // Parse error uses 0.0
 						}
 						if flag.Short != "" {
 							newCmd.Flags().Float64P(flag.Name, flag.Short, defaultVal, flag.Description)
@@ -900,7 +900,7 @@ func executeInteractive(ctx *runtime.ExecutionContext, registry *runtime.Registr
 	if err = tuiServer.Start(context.Background()); err != nil {
 		return &runtime.Result{ExitCode: 1, Error: fmt.Errorf("failed to start TUI server: %w", err)}
 	}
-	defer tuiServer.Stop()
+	defer func() { _ = tuiServer.Stop() }() // Best-effort cleanup
 
 	// Determine the TUI server URL for the command
 	// For container runtimes, use the container-accessible host address
@@ -1743,14 +1743,14 @@ func isReadable(path string, info os.FileInfo) bool {
 		if err != nil {
 			return false
 		}
-		f.Close()
+		_ = f.Close() // Readability check; close error non-critical
 		return true
 	}
 	f, err := os.OpenFile(path, os.O_RDONLY, 0)
 	if err != nil {
 		return false
 	}
-	f.Close()
+	_ = f.Close() // Readability check; close error non-critical
 	return true
 }
 
@@ -1763,8 +1763,8 @@ func isWritable(path string, info os.FileInfo) bool {
 		if err != nil {
 			return false
 		}
-		f.Close()
-		os.Remove(testFile)
+		_ = f.Close()         // Test file; error non-critical
+		_ = os.Remove(testFile) // Cleanup test file; error non-critical
 		return true
 	}
 	// For files, try to open for writing
@@ -1772,7 +1772,7 @@ func isWritable(path string, info os.FileInfo) bool {
 	if err != nil {
 		return false
 	}
-	f.Close()
+	_ = f.Close() // Probe only; error non-critical
 	return true
 }
 

@@ -293,20 +293,20 @@ func (r *VirtualRuntime) PrepareCommand(ctx *ExecutionContext) (*PreparedCommand
 	}
 
 	if _, err = tmpFile.WriteString(script); err != nil {
-		tmpFile.Close()
-		os.Remove(tmpFile.Name())
+		_ = tmpFile.Close()           // Best-effort close on error path
+		_ = os.Remove(tmpFile.Name()) // Best-effort cleanup on error path
 		return nil, fmt.Errorf("failed to write temp script: %w", err)
 	}
 
 	if err = tmpFile.Close(); err != nil {
-		os.Remove(tmpFile.Name())
+		_ = os.Remove(tmpFile.Name()) // Best-effort cleanup on error path
 		return nil, fmt.Errorf("failed to close temp script: %w", err)
 	}
 
 	// Get current invowk binary path
 	invowkPath, err := os.Executable()
 	if err != nil {
-		os.Remove(tmpFile.Name())
+		_ = os.Remove(tmpFile.Name()) // Best-effort cleanup on error path
 		return nil, fmt.Errorf("failed to get invowk executable path: %w", err)
 	}
 
@@ -316,14 +316,14 @@ func (r *VirtualRuntime) PrepareCommand(ctx *ExecutionContext) (*PreparedCommand
 	// Build environment
 	env, err := buildRuntimeEnv(ctx, invkfile.EnvInheritAll)
 	if err != nil {
-		os.Remove(tmpFile.Name())
+		_ = os.Remove(tmpFile.Name()) // Best-effort cleanup on error path
 		return nil, fmt.Errorf("failed to build environment: %w", err)
 	}
 
 	// Serialize environment to JSON for passing to subprocess
 	envJSON, err := json.Marshal(env)
 	if err != nil {
-		os.Remove(tmpFile.Name())
+		_ = os.Remove(tmpFile.Name()) // Best-effort cleanup on error path
 		return nil, fmt.Errorf("failed to serialize environment: %w", err)
 	}
 
@@ -348,7 +348,7 @@ func (r *VirtualRuntime) PrepareCommand(ctx *ExecutionContext) (*PreparedCommand
 	// Track temp file for cleanup
 	tempFilePath := tmpFile.Name()
 	cleanup := func() {
-		os.Remove(tempFilePath)
+		_ = os.Remove(tempFilePath) // Cleanup temp file; error non-critical
 	}
 
 	return &PreparedCommand{Cmd: cmd, Cleanup: cleanup}, nil

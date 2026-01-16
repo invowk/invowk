@@ -323,13 +323,14 @@ func (s *Server) handleTUI(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	defer func() { _ = r.Body.Close() }() // HTTP handler; close error non-critical
+
 	// Read request body
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		s.sendError(w, "failed to read request body", http.StatusBadRequest)
 		return
 	}
-	defer r.Body.Close()
 
 	// Parse the request
 	var req Request

@@ -98,6 +98,6 @@ func runTuiInput(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	fmt.Fprintln(os.Stdout, result)
+	_, _ = fmt.Fprintln(os.Stdout, result) // Terminal output; error non-critical
 	return nil
 }

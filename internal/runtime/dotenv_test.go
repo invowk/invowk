@@ -6,6 +6,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"invowk-cli/internal/testutil"
 )
 
 func TestParseEnvFile_BasicKeyValue(t *testing.T) {
@@ -417,18 +419,10 @@ func TestLoadEnvFile_ForwardSlashPath(t *testing.T) {
 }
 
 func TestLoadEnvFileFromCwd(t *testing.T) {
-	// Save current working directory
-	origWd, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("failed to get current directory: %v", err)
-	}
-	defer os.Chdir(origWd)
-
 	// Create temp directory and change to it
 	tmpDir := t.TempDir()
-	if chdirErr := os.Chdir(tmpDir); chdirErr != nil {
-		t.Fatalf("failed to change directory: %v", chdirErr)
-	}
+	restoreWd := testutil.MustChdir(t, tmpDir)
+	defer restoreWd()
 
 	// Create .env file in temp directory
 	if writeErr := os.WriteFile(filepath.Join(tmpDir, ".env"), []byte("CWD_VAR=hello"), 0644); writeErr != nil {
@@ -436,8 +430,7 @@ func TestLoadEnvFileFromCwd(t *testing.T) {
 	}
 
 	env := make(map[string]string)
-	err = LoadEnvFileFromCwd(env, ".env")
-	if err != nil {
+	if err := LoadEnvFileFromCwd(env, ".env"); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 

@@ -16,6 +16,7 @@ import (
 
 	"invowk-cli/internal/container"
 	"invowk-cli/internal/sshserver"
+	"invowk-cli/internal/testutil"
 	"invowk-cli/pkg/invkfile"
 )
 
@@ -612,7 +613,7 @@ func setupTestInvkfile(t *testing.T) (string, *invkfile.Invkfile) {
 
 	// Register cleanup to remove the temp dir after test
 	t.Cleanup(func() {
-		os.RemoveAll(tmpDir)
+		testutil.MustRemoveAll(t, tmpDir)
 	})
 
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
@@ -676,7 +677,7 @@ func createTestSSHServer(t *testing.T) (*sshserver.Server, error) {
 
 	// Register cleanup
 	t.Cleanup(func() {
-		srv.Stop()
+		testutil.MustStop(t, srv)
 	})
 
 	return srv, nil

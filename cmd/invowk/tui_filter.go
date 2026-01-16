@@ -131,6 +131,6 @@ func runTuiFilter(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	fmt.Fprintln(os.Stdout, strings.Join(results, "\n"))
+	_, _ = fmt.Fprintln(os.Stdout, strings.Join(results, "\n")) // Terminal output; error non-critical
 	return nil
 }

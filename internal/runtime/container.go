@@ -260,7 +260,7 @@ func (r *ContainerRuntime) Execute(ctx *ExecutionContext) *Result {
 			return &Result{ExitCode: 1, Error: err}
 		}
 		if tempScriptPath != "" {
-			defer os.Remove(tempScriptPath)
+			defer func() { _ = os.Remove(tempScriptPath) }() // Cleanup temp file; error non-critical
 		}
 	} else {
 		// Use default shell execution
@@ -484,7 +484,7 @@ func (r *ContainerRuntime) PrepareCommand(ctx *ExecutionContext) (*PreparedComma
 	// Prepare cleanup function
 	cleanup := func() {
 		if tempScriptPath != "" {
-			os.Remove(tempScriptPath)
+			_ = os.Remove(tempScriptPath) // Cleanup temp file; error non-critical
 		}
 		if cleanupSSH != nil {
 			cleanupSSH()
@@ -539,18 +539,18 @@ func (r *ContainerRuntime) buildInterpreterCommand(ctx *ExecutionContext, script
 		}
 
 		if _, err := tempFile.WriteString(script); err != nil {
-			tempFile.Close()
-			os.Remove(tempFile.Name())
+			_ = tempFile.Close()            // Best-effort close on error path
+			_ = os.Remove(tempFile.Name())  // Best-effort cleanup on error path
 			return nil, "", fmt.Errorf("failed to write temp script: %w", err)
 		}
 
 		if err := tempFile.Close(); err != nil {
-			os.Remove(tempFile.Name())
+			_ = os.Remove(tempFile.Name()) // Best-effort cleanup on error path
 			return nil, "", fmt.Errorf("failed to close temp script: %w", err)
 		}
 
 		// Make executable
-		os.Chmod(tempFile.Name(), 0755)
+		_ = os.Chmod(tempFile.Name(), 0755) // Best-effort; execution may still work
 
 		tempFilePath = tempFile.Name()
 
@@ -585,13 +585,13 @@ func (r *ContainerRuntime) ensureProvisionedImage(ctx *ExecutionContext, cfg inv
 
 	// Provision the image with invowk resources
 	if ctx.Verbose {
-		fmt.Fprintf(ctx.Stdout, "Provisioning container with invowk resources...\n")
+		_, _ = fmt.Fprintf(ctx.Stdout, "Provisioning container with invowk resources...\n") // Verbose output; error non-critical
 	}
 
 	result, err := r.provisioner.Provision(ctx.Context, baseImage)
 	if err != nil {
 		// If provisioning fails, warn but continue with base image
-		fmt.Fprintf(ctx.Stderr, "Warning: failed to provision container, using base image: %v\n", err)
+		_, _ = fmt.Fprintf(ctx.Stderr, "Warning: failed to provision container, using base image: %v\n", err) // Warning output; error non-critical
 		return baseImage, nil, nil
 	}
 
@@ -640,7 +640,7 @@ func (r *ContainerRuntime) ensureImage(ctx *ExecutionContext, cfg invkfileContai
 
 	// Build the image
 	if ctx.Verbose {
-		fmt.Fprintf(ctx.Stdout, "Building container image from %s...\n", containerfilePath)
+		_, _ = fmt.Fprintf(ctx.Stdout, "Building container image from %s...\n", containerfilePath) // Verbose output; error non-critical
 	}
 
 	buildOpts := container.BuildOptions{

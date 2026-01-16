@@ -153,7 +153,7 @@ func TestResolveScript_FromFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }() // Cleanup temp dir; error non-critical
 
 	// Create a test script file
 	scriptContent := "#!/bin/bash\necho 'Hello from script file!'"
@@ -284,7 +284,7 @@ cmds: [
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }() // Cleanup temp dir; error non-critical
 
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
 	if writeErr := os.WriteFile(invkfilePath, []byte(cueContent), 0644); writeErr != nil {
@@ -325,7 +325,7 @@ func TestScriptCaching(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }() // Cleanup temp dir; error non-critical
 
 	// Create a test script file
 	scriptPath := filepath.Join(tmpDir, "test.sh")
@@ -504,7 +504,7 @@ cmds: [
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }() // Cleanup temp dir; error non-critical
 
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
 	if writeErr := os.WriteFile(invkfilePath, []byte(cueContent), 0644); writeErr != nil {
@@ -599,7 +599,7 @@ cmds: [
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }() // Cleanup temp dir; error non-critical
 
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
 	if writeErr := os.WriteFile(invkfilePath, []byte(cueContent), 0644); writeErr != nil {
@@ -652,7 +652,7 @@ cmds: [
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }() // Cleanup temp dir; error non-critical
 
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
 	if writeErr := os.WriteFile(invkfilePath, []byte(cueContent), 0644); writeErr != nil {
@@ -713,7 +713,7 @@ cmds: [
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }() // Cleanup temp dir; error non-critical
 
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
 	if writeErr := os.WriteFile(invkfilePath, []byte(cueContent), 0644); writeErr != nil {
@@ -797,7 +797,7 @@ cmds: [
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }() // Cleanup temp dir; error non-critical
 
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
 	if writeErr := os.WriteFile(invkfilePath, []byte(cueContent), 0644); writeErr != nil {
@@ -950,7 +950,7 @@ cmds: [
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }() // Cleanup temp dir; error non-critical
 
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
 	if writeErr := os.WriteFile(invkfilePath, []byte(cueContent), 0644); writeErr != nil {
@@ -1045,7 +1045,7 @@ cmds: [
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }() // Cleanup temp dir; error non-critical
 
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
 	if writeErr := os.WriteFile(invkfilePath, []byte(cueContent), 0644); writeErr != nil {
@@ -1105,7 +1105,7 @@ cmds: [
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }() // Cleanup temp dir; error non-critical
 
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
 	if writeErr := os.WriteFile(invkfilePath, []byte(cueContent), 0644); writeErr != nil {
@@ -1392,7 +1392,7 @@ cmds: [
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }() // Cleanup temp dir; error non-critical
 
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
 	if writeErr := os.WriteFile(invkfilePath, []byte(cueContent), 0644); writeErr != nil {
@@ -1467,7 +1467,7 @@ cmds: [
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }() // Cleanup temp dir; error non-critical
 
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
 	if writeErr := os.WriteFile(invkfilePath, []byte(cueContent), 0644); writeErr != nil {
@@ -1530,7 +1530,7 @@ cmds: [
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }() // Cleanup temp dir; error non-critical
 
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
 	if writeErr := os.WriteFile(invkfilePath, []byte(cueContent), 0644); writeErr != nil {
@@ -1590,7 +1590,7 @@ cmds: [
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }() // Cleanup temp dir; error non-critical
 
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
 	if writeErr := os.WriteFile(invkfilePath, []byte(cueContent), 0644); writeErr != nil {
@@ -1792,7 +1792,7 @@ cmds: [
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }() // Cleanup temp dir; error non-critical
 
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
 	if writeErr := os.WriteFile(invkfilePath, []byte(cueContent), 0644); writeErr != nil {
@@ -1839,7 +1839,7 @@ cmds: [
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }() // Cleanup temp dir; error non-critical
 
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
 	if writeErr := os.WriteFile(invkfilePath, []byte(cueContent), 0644); writeErr != nil {
@@ -1881,7 +1881,7 @@ cmds: [
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }() // Cleanup temp dir; error non-critical
 
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
 	if writeErr := os.WriteFile(invkfilePath, []byte(cueContent), 0644); writeErr != nil {
@@ -1922,7 +1922,7 @@ cmds: [
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }() // Cleanup temp dir; error non-critical
 
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
 	if writeErr := os.WriteFile(invkfilePath, []byte(cueContent), 0644); writeErr != nil {
@@ -1961,7 +1961,7 @@ cmds: [
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }() // Cleanup temp dir; error non-critical
 
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
 	if writeErr := os.WriteFile(invkfilePath, []byte(cueContent), 0644); writeErr != nil {
@@ -2113,7 +2113,7 @@ cmds: [
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }() // Cleanup temp dir; error non-critical
 
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
 	if writeErr := os.WriteFile(invkfilePath, []byte(cueContent), 0644); writeErr != nil {
@@ -2198,7 +2198,7 @@ cmds: [
 			if err != nil {
 				t.Fatalf("Failed to create temp dir: %v", err)
 			}
-			defer os.RemoveAll(tmpDir)
+			defer func() { _ = os.RemoveAll(tmpDir) }() // Cleanup temp dir; error non-critical
 
 			invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
 			if writeErr := os.WriteFile(invkfilePath, []byte(cueContent), 0644); writeErr != nil {
@@ -2248,7 +2248,7 @@ cmds: [
 			if err != nil {
 				t.Fatalf("Failed to create temp dir: %v", err)
 			}
-			defer os.RemoveAll(tmpDir)
+			defer func() { _ = os.RemoveAll(tmpDir) }() // Cleanup temp dir; error non-critical
 
 			invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
 			if writeErr := os.WriteFile(invkfilePath, []byte(cueContent), 0644); writeErr != nil {
@@ -2289,7 +2289,7 @@ cmds: [
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }() // Cleanup temp dir; error non-critical
 
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
 	if writeErr := os.WriteFile(invkfilePath, []byte(cueContent), 0644); writeErr != nil {
@@ -2324,7 +2324,7 @@ cmds: [
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }() // Cleanup temp dir; error non-critical
 
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
 	if writeErr := os.WriteFile(invkfilePath, []byte(cueContent), 0644); writeErr != nil {
@@ -2413,7 +2413,7 @@ cmds: [
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }() // Cleanup temp dir; error non-critical
 
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
 	if writeErr := os.WriteFile(invkfilePath, []byte(cueContent), 0644); writeErr != nil {
@@ -2448,7 +2448,7 @@ cmds: [
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }() // Cleanup temp dir; error non-critical
 
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
 	if writeErr := os.WriteFile(invkfilePath, []byte(cueContent), 0644); writeErr != nil {
@@ -5844,7 +5844,7 @@ cmds: [
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }() // Cleanup temp dir; error non-critical
 
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
 	if writeErr := os.WriteFile(invkfilePath, []byte(cueContent), 0644); writeErr != nil {
@@ -6123,7 +6123,7 @@ func TestGenerateCUE_WithRootLevelDependsOn(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }() // Cleanup temp dir; error non-critical
 
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
 	if writeErr := os.WriteFile(invkfilePath, []byte(result), 0644); writeErr != nil {
@@ -6241,7 +6241,7 @@ cmds: [
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }() // Cleanup temp dir; error non-critical
 
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
 	if writeErr := os.WriteFile(invkfilePath, []byte(cueContent), 0644); writeErr != nil {
@@ -6309,7 +6309,7 @@ cmds: [
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }() // Cleanup temp dir; error non-critical
 
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
 	if writeErr := os.WriteFile(invkfilePath, []byte(cueContent), 0644); writeErr != nil {

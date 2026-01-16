@@ -6,6 +6,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"invowk-cli/internal/testutil"
 )
 
 func TestPackRefKey(t *testing.T) {
@@ -92,11 +94,12 @@ func TestPackRefString(t *testing.T) {
 func TestGetDefaultCacheDir(t *testing.T) {
 	// Save original env
 	originalEnv := os.Getenv(PackCachePathEnv)
-	defer os.Setenv(PackCachePathEnv, originalEnv)
+	defer func() { _ = os.Setenv(PackCachePathEnv, originalEnv) }() // Test cleanup; error non-critical
 
 	t.Run("with env var", func(t *testing.T) {
 		customPath := "/custom/path/to/modules"
-		os.Setenv(PackCachePathEnv, customPath)
+		restoreEnv := testutil.MustSetenv(t, PackCachePathEnv, customPath)
+		defer restoreEnv()
 
 		result, err := GetDefaultCacheDir()
 		if err != nil {
@@ -108,7 +111,7 @@ func TestGetDefaultCacheDir(t *testing.T) {
 	})
 
 	t.Run("without env var", func(t *testing.T) {
-		os.Unsetenv(PackCachePathEnv)
+		testutil.MustUnsetenv(t, PackCachePathEnv)
 
 		result, err := GetDefaultCacheDir()
 		if err != nil {

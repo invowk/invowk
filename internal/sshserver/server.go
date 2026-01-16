@@ -212,7 +212,7 @@ func (s *Server) Start(ctx context.Context) error {
 		),
 	)
 	if err != nil {
-		listener.Close()
+		_ = listener.Close() // Best-effort cleanup on error
 		s.transitionToFailed(fmt.Errorf("failed to create SSH server: %w", err))
 		return s.lastErr
 	}
@@ -341,7 +341,7 @@ func (s *Server) doStop() error {
 		}
 	}
 	if s.listener != nil {
-		s.listener.Close()
+		_ = s.listener.Close() // Best-effort cleanup during shutdown
 	}
 	s.stateMu.Unlock()
 
@@ -417,7 +417,9 @@ func (s *Server) Port() int {
 		return 0
 	}
 	var port int
-	fmt.Sscanf(portStr, "%d", &port)
+	if _, err := fmt.Sscanf(portStr, "%d", &port); err != nil {
+		return 0 // Invalid port string
+	}
 	return port
 }
 
@@ -623,11 +625,11 @@ func (s *Server) runInteractiveShell(sess ssh.Session) {
 	// Start the command with a pseudo-terminal
 	f, err := startPty(cmd)
 	if err != nil {
-		fmt.Fprintf(sess.Stderr(), "Error starting shell: %v\n", err)
-		sess.Exit(1)
+		_, _ = fmt.Fprintf(sess.Stderr(), "Error starting shell: %v\n", err)
+		_ = sess.Exit(1) // Terminal operation; error non-critical
 		return
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }() // PTY cleanup; error non-critical
 
 	// Handle window size changes
 	go func() {
@@ -645,11 +647,11 @@ func (s *Server) runInteractiveShell(sess ssh.Session) {
 	// Wait for command to complete
 	if err := cmd.Wait(); err != nil {
 		if exitErr, ok := err.(*exec.ExitError); ok {
-			sess.Exit(exitErr.ExitCode())
+			_ = sess.Exit(exitErr.ExitCode()) // Terminal operation; error non-critical
 			return
 		}
 	}
-	sess.Exit(0)
+	_ = sess.Exit(0) // Terminal operation; error non-critical
 }
 
 // runCommand executes a single command.
@@ -668,12 +670,12 @@ func (s *Server) runCommand(sess ssh.Session, args []string) {
 
 	if err := cmd.Run(); err != nil {
 		if exitErr, ok := err.(*exec.ExitError); ok {
-			sess.Exit(exitErr.ExitCode())
+			_ = sess.Exit(exitErr.ExitCode()) // Terminal operation; error non-critical
 			return
 		}
-		fmt.Fprintf(sess.Stderr(), "Error: %v\n", err)
-		sess.Exit(1)
+		_, _ = fmt.Fprintf(sess.Stderr(), "Error: %v\n", err)
+		_ = sess.Exit(1) // Terminal operation; error non-critical
 		return
 	}
-	sess.Exit(0)
+	_ = sess.Exit(0) // Terminal operation; error non-critical
 }

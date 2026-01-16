@@ -110,9 +110,9 @@ func runTuiFormat(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	fmt.Fprint(os.Stdout, result)
+	_, _ = fmt.Fprint(os.Stdout, result) // Terminal output; error non-critical
 	if len(result) > 0 && result[len(result)-1] != '\n' {
-		fmt.Fprintln(os.Stdout)
+		_, _ = fmt.Fprintln(os.Stdout)
 	}
 	return nil
 }

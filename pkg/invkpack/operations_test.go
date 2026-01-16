@@ -10,6 +10,8 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+
+	"invowk-cli/internal/testutil"
 )
 
 func TestIsPack(t *testing.T) {
@@ -1129,9 +1131,8 @@ func TestPack(t *testing.T) {
 		}
 
 		// Change to temp dir to test default output
-		originalWd, _ := os.Getwd()
-		defer os.Chdir(originalWd)
-		os.Chdir(tmpDir)
+		restoreWd := testutil.MustChdir(t, tmpDir)
+		defer restoreWd()
 
 		// Archive with empty output path
 		zipPath, err := Archive(packPath, "")
@@ -1182,7 +1183,7 @@ func TestUnpack(t *testing.T) {
 		}
 
 		// Remove original pack
-		os.RemoveAll(packPath)
+		testutil.MustRemoveAll(t, packPath)
 
 		// Unpack to a different directory
 		unpackDir := filepath.Join(tmpDir, "unpacked")
@@ -1319,9 +1320,9 @@ func TestUnpack(t *testing.T) {
 		}
 		zipWriter := zip.NewWriter(zipFile)
 		w, _ := zipWriter.Create("somefile.txt")
-		w.Write([]byte("content"))
-		zipWriter.Close()
-		zipFile.Close()
+		_, _ = w.Write([]byte("content")) // Test setup; error non-critical
+		_ = zipWriter.Close()             // Test setup; error non-critical
+		_ = zipFile.Close()               // Test setup; error non-critical
 
 		_, err = Unpack(UnpackOptions{
 			Source:  zipPath,

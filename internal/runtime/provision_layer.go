@@ -215,7 +215,7 @@ func (p *LayerProvisioner) prepareBuildContext(baseImage string) (string, func()
 	}
 
 	cleanup := func() {
-		os.RemoveAll(tmpDir)
+		_ = os.RemoveAll(tmpDir) // Cleanup temp dir; error non-critical
 	}
 
 	// Copy invowk binary
@@ -226,7 +226,7 @@ func (p *LayerProvisioner) prepareBuildContext(baseImage string) (string, func()
 			return "", nil, fmt.Errorf("failed to copy invowk binary: %w", err)
 		}
 		// Ensure binary is executable
-		os.Chmod(binaryDst, 0755)
+		_ = os.Chmod(binaryDst, 0755) // Best-effort; execution may still work
 	}
 
 	// Copy packs

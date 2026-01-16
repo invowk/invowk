@@ -122,11 +122,8 @@ func init() {
 
 // initRootConfig reads in config file and ENV variables if set.
 func initRootConfig() {
-	if cfgFile != "" {
-		// Use config file from the flag
-		// For now, we just load from the default location
-		// TODO: Support custom config file path
-	}
+	// TODO: Support custom config file path via cfgFile flag
+	_ = cfgFile // Currently unused; custom config file support planned
 
 	// Load configuration
 	cfg, err := config.Load()

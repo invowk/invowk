@@ -11,6 +11,7 @@ import (
 	"strings"
 	"testing"
 
+	"invowk-cli/internal/testutil"
 	"invowk-cli/pkg/invkfile"
 )
 
@@ -34,7 +35,7 @@ func TestNativeRuntime_InlineScript(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { testutil.MustRemoveAll(t, tmpDir) }()
 
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
 
@@ -71,7 +72,7 @@ func TestNativeRuntime_MultiLineScript(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { testutil.MustRemoveAll(t, tmpDir) }()
 
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
 
@@ -113,7 +114,7 @@ func TestNativeRuntime_ScriptFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { testutil.MustRemoveAll(t, tmpDir) }()
 
 	// Create a script file
 	scriptContent := `#!/bin/bash
@@ -155,7 +156,7 @@ func TestVirtualRuntime_InlineScript(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { testutil.MustRemoveAll(t, tmpDir) }()
 
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
 
@@ -189,7 +190,7 @@ func TestVirtualRuntime_MultiLineScript(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { testutil.MustRemoveAll(t, tmpDir) }()
 
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
 
@@ -227,7 +228,7 @@ func TestVirtualRuntime_ScriptFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { testutil.MustRemoveAll(t, tmpDir) }()
 
 	// Create a script file (using POSIX-compatible syntax for virtual shell)
 	scriptContent := `echo "Hello from virtual script file"
@@ -269,7 +270,7 @@ func TestVirtualRuntime_Validate_ScriptSyntaxError(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { testutil.MustRemoveAll(t, tmpDir) }()
 
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
 
@@ -294,7 +295,7 @@ func TestRuntime_ScriptNotFound(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { testutil.MustRemoveAll(t, tmpDir) }()
 
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
 
@@ -336,7 +337,7 @@ func TestRuntime_EnvironmentVariables(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { testutil.MustRemoveAll(t, tmpDir) }()
 
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
 
@@ -394,7 +395,7 @@ func TestNativeRuntime_PositionalArgs(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { testutil.MustRemoveAll(t, tmpDir) }()
 
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
 	inv := &invkfile.Invkfile{
@@ -440,7 +441,7 @@ func TestNativeRuntime_PositionalArgs_Empty(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { testutil.MustRemoveAll(t, tmpDir) }()
 
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
 	inv := &invkfile.Invkfile{
@@ -476,7 +477,7 @@ func TestVirtualRuntime_PositionalArgs(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { testutil.MustRemoveAll(t, tmpDir) }()
 
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
 	inv := &invkfile.Invkfile{
@@ -519,7 +520,7 @@ func TestVirtualRuntime_PositionalArgs_ArgCount(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { testutil.MustRemoveAll(t, tmpDir) }()
 
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
 	inv := &invkfile.Invkfile{
@@ -556,7 +557,7 @@ func TestVirtualRuntime_PositionalArgs_Empty(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { testutil.MustRemoveAll(t, tmpDir) }()
 
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
 	inv := &invkfile.Invkfile{
@@ -597,7 +598,7 @@ func TestNativeRuntime_PositionalArgs_SpecialChars(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { testutil.MustRemoveAll(t, tmpDir) }()
 
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
 	inv := &invkfile.Invkfile{
@@ -850,7 +851,7 @@ func TestNativeRuntime_EnvIsolation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { testutil.MustRemoveAll(t, tmpDir) }()
 
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
 	inv := &invkfile.Invkfile{
@@ -858,16 +859,14 @@ func TestNativeRuntime_EnvIsolation(t *testing.T) {
 	}
 
 	// Set environment variables that should be filtered
-	os.Setenv("INVOWK_ARG_PARENT", "parent_value")
-	os.Setenv("INVOWK_FLAG_PARENT", "true")
-	os.Setenv("ARGC", "5")
-	os.Setenv("ARG1", "first")
-	defer func() {
-		os.Unsetenv("INVOWK_ARG_PARENT")
-		os.Unsetenv("INVOWK_FLAG_PARENT")
-		os.Unsetenv("ARGC")
-		os.Unsetenv("ARG1")
-	}()
+	restoreArg := testutil.MustSetenv(t, "INVOWK_ARG_PARENT", "parent_value")
+	restoreFlag := testutil.MustSetenv(t, "INVOWK_FLAG_PARENT", "true")
+	restoreArgc := testutil.MustSetenv(t, "ARGC", "5")
+	restoreArg1 := testutil.MustSetenv(t, "ARG1", "first")
+	defer restoreArg()
+	defer restoreFlag()
+	defer restoreArgc()
+	defer restoreArg1()
 
 	// Script that checks if the parent's env vars are visible
 	script := `echo "INVOWK_ARG_PARENT=${INVOWK_ARG_PARENT:-unset}"
@@ -910,7 +909,7 @@ func TestVirtualRuntime_EnvIsolation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { testutil.MustRemoveAll(t, tmpDir) }()
 
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
 	inv := &invkfile.Invkfile{
@@ -918,16 +917,14 @@ func TestVirtualRuntime_EnvIsolation(t *testing.T) {
 	}
 
 	// Set environment variables that should be filtered
-	os.Setenv("INVOWK_ARG_PARENT", "parent_value")
-	os.Setenv("INVOWK_FLAG_PARENT", "true")
-	os.Setenv("ARGC", "5")
-	os.Setenv("ARG1", "first")
-	defer func() {
-		os.Unsetenv("INVOWK_ARG_PARENT")
-		os.Unsetenv("INVOWK_FLAG_PARENT")
-		os.Unsetenv("ARGC")
-		os.Unsetenv("ARG1")
-	}()
+	restoreArg := testutil.MustSetenv(t, "INVOWK_ARG_PARENT", "parent_value")
+	restoreFlag := testutil.MustSetenv(t, "INVOWK_FLAG_PARENT", "true")
+	restoreArgc := testutil.MustSetenv(t, "ARGC", "5")
+	restoreArg1 := testutil.MustSetenv(t, "ARG1", "first")
+	defer restoreArg()
+	defer restoreFlag()
+	defer restoreArgc()
+	defer restoreArg1()
 
 	// Script that checks if the parent's env vars are visible
 	script := `echo "INVOWK_ARG_PARENT=${INVOWK_ARG_PARENT:-unset}"
@@ -994,7 +991,7 @@ func TestNativeRuntime_InterpreterShebangDetection(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { testutil.MustRemoveAll(t, tmpDir) }()
 
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
 	inv := &invkfile.Invkfile{
@@ -1039,7 +1036,7 @@ func TestNativeRuntime_ExplicitInterpreter(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { testutil.MustRemoveAll(t, tmpDir) }()
 
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
 	inv := &invkfile.Invkfile{
@@ -1084,7 +1081,7 @@ func TestNativeRuntime_InterpreterWithArgs(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { testutil.MustRemoveAll(t, tmpDir) }()
 
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
 	inv := &invkfile.Invkfile{
@@ -1131,7 +1128,7 @@ func TestNativeRuntime_InterpreterScriptFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { testutil.MustRemoveAll(t, tmpDir) }()
 
 	// Create a Python script file
 	scriptContent := `#!/usr/bin/env python3
@@ -1176,7 +1173,7 @@ func TestNativeRuntime_InterpreterNotFound(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { testutil.MustRemoveAll(t, tmpDir) }()
 
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
 	inv := &invkfile.Invkfile{
@@ -1212,7 +1209,7 @@ func TestVirtualRuntime_RejectsInterpreter(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { testutil.MustRemoveAll(t, tmpDir) }()
 
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
 	inv := &invkfile.Invkfile{
@@ -1265,7 +1262,7 @@ func TestNativeRuntime_InterpreterCapture(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { testutil.MustRemoveAll(t, tmpDir) }()
 
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
 	inv := &invkfile.Invkfile{
@@ -1305,7 +1302,7 @@ func TestNativeRuntime_PrepareCommand(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { testutil.MustRemoveAll(t, tmpDir) }()
 
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
 	inv := &invkfile.Invkfile{
@@ -1377,7 +1374,7 @@ func TestNativeRuntime_PrepareCommandWithInterpreter(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { testutil.MustRemoveAll(t, tmpDir) }()
 
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
 	inv := &invkfile.Invkfile{
@@ -1435,7 +1432,7 @@ func TestVirtualRuntime_ContextCancellation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { testutil.MustRemoveAll(t, tmpDir) }()
 
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
 	inv := &invkfile.Invkfile{
@@ -1481,7 +1478,7 @@ func TestNativeRuntime_InvalidWorkingDirectory(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { testutil.MustRemoveAll(t, tmpDir) }()
 
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
 	inv := &invkfile.Invkfile{
@@ -1532,7 +1529,7 @@ func TestNativeRuntime_ExitCode(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { testutil.MustRemoveAll(t, tmpDir) }()
 
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
 	inv := &invkfile.Invkfile{
@@ -1572,7 +1569,7 @@ func TestVirtualRuntime_ExitCode(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { testutil.MustRemoveAll(t, tmpDir) }()
 
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
 	inv := &invkfile.Invkfile{

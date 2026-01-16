@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"invowk-cli/internal/testutil"
 	"invowk-cli/pkg/invkfile"
 )
 
@@ -18,12 +19,10 @@ func TestBuildRuntimeEnv_InheritAllFiltersInvowkVars(t *testing.T) {
 	cmd := testCommandWithScript("env", "echo test", invkfile.RuntimeNative)
 	ctx := NewExecutionContext(cmd, inv)
 
-	os.Setenv("INVOWK_ARG_PARENT", "parent_value")
-	os.Setenv("CUSTOM_HOST_ENV", "host_value")
-	defer func() {
-		os.Unsetenv("INVOWK_ARG_PARENT")
-		os.Unsetenv("CUSTOM_HOST_ENV")
-	}()
+	restoreParent := testutil.MustSetenv(t, "INVOWK_ARG_PARENT", "parent_value")
+	restoreHost := testutil.MustSetenv(t, "CUSTOM_HOST_ENV", "host_value")
+	defer restoreParent()
+	defer restoreHost()
 
 	env, err := buildRuntimeEnv(ctx, invkfile.EnvInheritAll)
 	if err != nil {
@@ -49,12 +48,10 @@ func TestBuildRuntimeEnv_InheritAllowAndDeny(t *testing.T) {
 	ctx.EnvInheritAllowOverride = []string{"ALLOW_ME", "DENY_ME"}
 	ctx.EnvInheritDenyOverride = []string{"DENY_ME"}
 
-	os.Setenv("ALLOW_ME", "allowed")
-	os.Setenv("DENY_ME", "denied")
-	defer func() {
-		os.Unsetenv("ALLOW_ME")
-		os.Unsetenv("DENY_ME")
-	}()
+	restoreAllow := testutil.MustSetenv(t, "ALLOW_ME", "allowed")
+	restoreDeny := testutil.MustSetenv(t, "DENY_ME", "denied")
+	defer restoreAllow()
+	defer restoreDeny()
 
 	env, err := buildRuntimeEnv(ctx, invkfile.EnvInheritAll)
 	if err != nil {

@@ -118,9 +118,10 @@ func (m *writeModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	// Check if form is complete
-	if m.form.State == huh.StateCompleted {
+	switch m.form.State {
+	case huh.StateCompleted:
 		m.done = true
-	} else if m.form.State == huh.StateAborted {
+	case huh.StateAborted:
 		m.done = true
 		m.cancelled = true
 	}

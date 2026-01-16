@@ -76,7 +76,7 @@ func runTuiChoose(cmd *cobra.Command, args []string) error {
 			if err != nil {
 				return err
 			}
-			fmt.Fprintln(os.Stdout, result)
+			_, _ = fmt.Fprintln(os.Stdout, result)
 		} else {
 			// Multi-selection mode
 			results, err := client.ChooseMultiple(tuiserver.ChooseRequest{
@@ -89,7 +89,7 @@ func runTuiChoose(cmd *cobra.Command, args []string) error {
 			if err != nil {
 				return err
 			}
-			fmt.Fprintln(os.Stdout, strings.Join(results, "\n"))
+			_, _ = fmt.Fprintln(os.Stdout, strings.Join(results, "\n"))
 		}
 		return nil
 	}
@@ -101,7 +101,7 @@ func runTuiChoose(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			return err
 		}
-		fmt.Fprintln(os.Stdout, result)
+		_, _ = fmt.Fprintln(os.Stdout, result)
 	} else {
 		// Multi-selection mode using MultiChooseStrings convenience function
 		results, err := tui.MultiChooseStrings(chooseTitle, args, limit, tui.DefaultConfig())
@@ -110,7 +110,7 @@ func runTuiChoose(cmd *cobra.Command, args []string) error {
 		}
 
 		// Print each selection on a separate line
-		fmt.Fprintln(os.Stdout, strings.Join(results, "\n"))
+		_, _ = fmt.Fprintln(os.Stdout, strings.Join(results, "\n"))
 	}
 
 	return nil

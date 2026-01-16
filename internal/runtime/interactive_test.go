@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"invowk-cli/internal/config"
+	"invowk-cli/internal/testutil"
 	"invowk-cli/pkg/invkfile"
 )
 
@@ -200,12 +201,12 @@ func TestPreparedCommandCleanup(t *testing.T) {
 		t.Fatalf("Failed to create temp file: %v", err)
 	}
 	tmpPath := tmpFile.Name()
-	tmpFile.Close()
+	testutil.MustClose(t, tmpFile)
 
 	// Create a prepared command with cleanup
 	prepared := &PreparedCommand{
 		Cleanup: func() {
-			os.Remove(tmpPath)
+			_ = os.Remove(tmpPath) // Cleanup temp file; error non-critical
 		},
 	}
 

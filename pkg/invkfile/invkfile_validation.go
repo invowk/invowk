@@ -295,7 +295,9 @@ func (inv *Invkfile) validateFlags(cmd *Command) error {
 
 		// Validate short alias format (single letter a-z or A-Z)
 		if flag.Short != "" {
-			if len(flag.Short) != 1 || !((flag.Short[0] >= 'a' && flag.Short[0] <= 'z') || (flag.Short[0] >= 'A' && flag.Short[0] <= 'Z')) {
+			isValidShort := len(flag.Short) == 1 &&
+				((flag.Short[0] >= 'a' && flag.Short[0] <= 'z') || (flag.Short[0] >= 'A' && flag.Short[0] <= 'Z'))
+			if !isValidShort {
 				return fmt.Errorf("command '%s' flag '%s' has invalid short alias '%s' (must be a single letter a-z or A-Z) in invkfile at %s",
 					cmd.Name, flag.Name, flag.Short, inv.FilePath)
 			}

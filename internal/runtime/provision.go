@@ -93,7 +93,7 @@ func calculateFileHash(path string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }() // Read-only file; close error non-critical
 
 	h := sha256.New()
 	if _, err := io.Copy(h, f); err != nil {
@@ -142,7 +142,7 @@ func discoverPacks(paths []string) []string {
 	seen := make(map[string]bool)
 
 	for _, basePath := range paths {
-		filepath.Walk(basePath, func(path string, info os.FileInfo, err error) error {
+		_ = filepath.Walk(basePath, func(path string, info os.FileInfo, err error) error { // Walk never returns error with this callback
 			if err != nil {
 				return nil
 			}
@@ -162,12 +162,12 @@ func discoverPacks(paths []string) []string {
 }
 
 // copyFile copies a file from src to dst.
-func copyFile(src, dst string) error {
+func copyFile(src, dst string) (err error) {
 	srcFile, err := os.Open(src)
 	if err != nil {
 		return fmt.Errorf("failed to open source file: %w", err)
 	}
-	defer srcFile.Close()
+	defer func() { _ = srcFile.Close() }() // Read-only file; close error non-critical
 
 	srcInfo, err := srcFile.Stat()
 	if err != nil {
@@ -178,7 +178,11 @@ func copyFile(src, dst string) error {
 	if err != nil {
 		return fmt.Errorf("failed to create destination file: %w", err)
 	}
-	defer dstFile.Close()
+	defer func() {
+		if closeErr := dstFile.Close(); closeErr != nil && err == nil {
+			err = fmt.Errorf("failed to close destination file: %w", closeErr)
+		}
+	}()
 
 	if _, err := io.Copy(dstFile, srcFile); err != nil {
 		return fmt.Errorf("failed to copy file contents: %w", err)

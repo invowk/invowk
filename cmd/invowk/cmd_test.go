@@ -13,6 +13,7 @@ import (
 
 	"invowk-cli/internal/config"
 	"invowk-cli/internal/runtime"
+	"invowk-cli/internal/testutil"
 	"invowk-cli/pkg/invkfile"
 )
 
@@ -22,25 +23,9 @@ func setHomeDirEnv(t *testing.T, dir string) func() {
 	t.Helper()
 	switch goruntime.GOOS {
 	case "windows":
-		original := os.Getenv("USERPROFILE")
-		os.Setenv("USERPROFILE", dir)
-		return func() {
-			if original != "" {
-				os.Setenv("USERPROFILE", original)
-			} else {
-				os.Unsetenv("USERPROFILE")
-			}
-		}
+		return testutil.MustSetenv(t, "USERPROFILE", dir)
 	default: // Linux, macOS
-		original := os.Getenv("HOME")
-		os.Setenv("HOME", dir)
-		return func() {
-			if original != "" {
-				os.Setenv("HOME", original)
-			} else {
-				os.Unsetenv("HOME")
-			}
-		}
+		return testutil.MustSetenv(t, "HOME", dir)
 	}
 }
 
@@ -1645,8 +1630,8 @@ func TestCaptureUserEnv(t *testing.T) {
 	// Set a test environment variable
 	testKey := "INVOWK_TEST_CAPTURE_ENV_VAR"
 	testValue := "test_value_12345"
-	os.Setenv(testKey, testValue)
-	defer os.Unsetenv(testKey)
+	cleanup := testutil.MustSetenv(t, testKey, testValue)
+	defer cleanup()
 
 	env := captureUserEnv()
 

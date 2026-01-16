@@ -192,6 +192,6 @@ func runTuiStyle(cmd *cobra.Command, args []string) error {
 		style = style.Border(lipgloss.HiddenBorder())
 	}
 
-	fmt.Fprintln(os.Stdout, style.Render(content))
+	_, _ = fmt.Fprintln(os.Stdout, style.Render(content)) // Terminal output; error non-critical
 	return nil
 }

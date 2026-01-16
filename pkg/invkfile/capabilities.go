@@ -146,7 +146,7 @@ func checkInternet() error {
 			lastErr = err
 			continue
 		}
-		conn.Close()
+		_ = conn.Close() // Connectivity check; close error non-critical
 
 		// Additionally, try a DNS lookup to verify DNS resolution works
 		// This is a lightweight operation that verifies full connectivity
