@@ -164,7 +164,7 @@ func (d *Discovery) discoverInDirRecursive(dir string, source Source) []*Discove
 
 	err = filepath.WalkDir(absDir, func(path string, d os.DirEntry, walkErr error) error {
 		if walkErr != nil {
-			return nil // Skip errors
+			return nil //nolint:nilerr // Intentionally skip errors to continue walking
 		}
 
 		if d.IsDir() {
@@ -387,7 +387,7 @@ func (d *Discovery) GetCommandsWithPrefix(prefix string) ([]*CommandInfo, error)
 
 	var matching []*CommandInfo
 	for _, cmd := range commands {
-		if len(prefix) == 0 || strings.HasPrefix(cmd.Name, prefix) {
+		if prefix == "" || strings.HasPrefix(cmd.Name, prefix) {
 			matching = append(matching, cmd)
 		}
 	}

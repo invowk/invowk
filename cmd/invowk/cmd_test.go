@@ -3,6 +3,7 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -30,7 +31,7 @@ func setHomeDirEnv(t *testing.T, dir string) func() {
 }
 
 // testCmd creates a Command with a single script for testing
-func testCmd(name string, script string) *invkfile.Command {
+func testCmd(name, script string) *invkfile.Command {
 	return &invkfile.Command{
 		Name: name,
 		Implementations: []invkfile.Implementation{
@@ -40,7 +41,7 @@ func testCmd(name string, script string) *invkfile.Command {
 }
 
 // testCmdWithDeps creates a Command with a single script and dependencies
-func testCmdWithDeps(name string, script string, deps *invkfile.DependsOn) *invkfile.Command {
+func testCmdWithDeps(name, script string, deps *invkfile.DependsOn) *invkfile.Command {
 	return &invkfile.Command{
 		Name:            name,
 		Implementations: []invkfile.Implementation{{Script: script, Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeNative}}}},
@@ -100,8 +101,8 @@ func TestCheckToolDependencies_ToolNotExists(t *testing.T) {
 		t.Error("checkToolDependencies() should return error for non-existent tool")
 	}
 
-	depErr, ok := err.(*DependencyError)
-	if !ok {
+	var depErr *DependencyError
+	if !errors.As(err, &depErr) {
 		t.Errorf("checkToolDependencies() should return *DependencyError, got: %T", err)
 	}
 
@@ -128,8 +129,8 @@ func TestCheckToolDependencies_MultipleToolsNotExist(t *testing.T) {
 		t.Error("checkToolDependencies() should return error for non-existent tools")
 	}
 
-	depErr, ok := err.(*DependencyError)
-	if !ok {
+	var depErr *DependencyError
+	if !errors.As(err, &depErr) {
 		t.Fatalf("checkToolDependencies() should return *DependencyError, got: %T", err)
 	}
 
@@ -164,8 +165,8 @@ func TestCheckToolDependencies_MixedToolsExistAndNotExist(t *testing.T) {
 		t.Error("checkToolDependencies() should return error when any tool is missing")
 	}
 
-	depErr, ok := err.(*DependencyError)
-	if !ok {
+	var depErr *DependencyError
+	if !errors.As(err, &depErr) {
 		t.Fatalf("checkToolDependencies() should return *DependencyError, got: %T", err)
 	}
 
@@ -212,7 +213,7 @@ func TestCheckCommandDependenciesExist_SatisfiedByLocalUnqualifiedName(t *testin
 	},
 ]
 `
-	if err := os.WriteFile(filepath.Join(tmpDir, "invkfile.cue"), []byte(invkfileContent), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(tmpDir, "invkfile.cue"), []byte(invkfileContent), 0o644); err != nil {
 		t.Fatalf("failed to write invkfile: %v", err)
 	}
 
@@ -249,12 +250,12 @@ func TestCheckCommandDependenciesExist_SatisfiedByFullyQualifiedNameFromUserDir(
 	}]
 }]
 `
-	if err := os.WriteFile(filepath.Join(tmpDir, "invkfile.cue"), []byte(invkfileContent), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(tmpDir, "invkfile.cue"), []byte(invkfileContent), 0o644); err != nil {
 		t.Fatalf("failed to write invkfile: %v", err)
 	}
 
 	userCmdsDir := filepath.Join(tmpDir, ".invowk", "cmds", "shared")
-	if err := os.MkdirAll(userCmdsDir, 0755); err != nil {
+	if err := os.MkdirAll(userCmdsDir, 0o755); err != nil {
 		t.Fatalf("failed to create user commands dir: %v", err)
 	}
 
@@ -267,7 +268,7 @@ func TestCheckCommandDependenciesExist_SatisfiedByFullyQualifiedNameFromUserDir(
 	}]
 }]
 `
-	if err := os.WriteFile(filepath.Join(userCmdsDir, "invkfile.cue"), []byte(userInvkfileContent), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(userCmdsDir, "invkfile.cue"), []byte(userInvkfileContent), 0o644); err != nil {
 		t.Fatalf("failed to write user invkfile: %v", err)
 	}
 
@@ -304,7 +305,7 @@ func TestCheckCommandDependenciesExist_MissingCommand(t *testing.T) {
 	}]
 }]
 `
-	if err := os.WriteFile(filepath.Join(tmpDir, "invkfile.cue"), []byte(invkfileContent), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(tmpDir, "invkfile.cue"), []byte(invkfileContent), 0o644); err != nil {
 		t.Fatalf("failed to write invkfile: %v", err)
 	}
 
@@ -316,8 +317,8 @@ func TestCheckCommandDependenciesExist_MissingCommand(t *testing.T) {
 		t.Fatal("expected error, got nil")
 	}
 
-	depErr, ok := err.(*DependencyError)
-	if !ok {
+	var depErr *DependencyError
+	if !errors.As(err, &depErr) {
 		t.Fatalf("expected *DependencyError, got %T", err)
 	}
 
@@ -362,8 +363,8 @@ func TestCheckCustomChecks_WrongExitCode(t *testing.T) {
 		t.Error("checkCustomChecks() should return error for wrong exit code")
 	}
 
-	depErr, ok := err.(*DependencyError)
-	if !ok {
+	var depErr *DependencyError
+	if !errors.As(err, &depErr) {
 		t.Fatalf("checkCustomChecks() should return *DependencyError, got: %T", err)
 	}
 
@@ -422,8 +423,8 @@ func TestCheckCustomChecks_OutputNoMatch(t *testing.T) {
 		t.Error("checkCustomChecks() should return error for non-matching output")
 	}
 
-	depErr, ok := err.(*DependencyError)
-	if !ok {
+	var depErr *DependencyError
+	if !errors.As(err, &depErr) {
 		t.Fatalf("checkCustomChecks() should return *DependencyError, got: %T", err)
 	}
 
@@ -466,8 +467,8 @@ func TestCheckCustomChecks_InvalidRegex(t *testing.T) {
 		t.Error("checkCustomChecks() should return error for invalid regex")
 	}
 
-	depErr, ok := err.(*DependencyError)
-	if !ok {
+	var depErr *DependencyError
+	if !errors.As(err, &depErr) {
 		t.Fatalf("checkCustomChecks() should return *DependencyError, got: %T", err)
 	}
 
@@ -498,7 +499,7 @@ func TestCheckFilepathDependencies_FileExists(t *testing.T) {
 	// Create a temp file
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "test.txt")
-	if err := os.WriteFile(testFile, []byte("test"), 0644); err != nil {
+	if err := os.WriteFile(testFile, []byte("test"), 0o644); err != nil {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
 
@@ -526,8 +527,8 @@ func TestCheckFilepathDependencies_FileNotExists(t *testing.T) {
 		t.Error("checkFilepathDependencies() should return error for non-existent file")
 	}
 
-	depErr, ok := err.(*DependencyError)
-	if !ok {
+	var depErr *DependencyError
+	if !errors.As(err, &depErr) {
 		t.Fatalf("checkFilepathDependencies() should return *DependencyError, got: %T", err)
 	}
 
@@ -544,7 +545,7 @@ func TestCheckFilepathDependencies_AbsolutePath(t *testing.T) {
 	// Create a temp file
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "absolute-test.txt")
-	if err := os.WriteFile(testFile, []byte("test"), 0644); err != nil {
+	if err := os.WriteFile(testFile, []byte("test"), 0o644); err != nil {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
 
@@ -562,7 +563,7 @@ func TestCheckFilepathDependencies_AbsolutePath(t *testing.T) {
 func TestCheckFilepathDependencies_ReadableFile(t *testing.T) {
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "readable.txt")
-	if err := os.WriteFile(testFile, []byte("test"), 0644); err != nil {
+	if err := os.WriteFile(testFile, []byte("test"), 0o644); err != nil {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
 
@@ -598,7 +599,7 @@ func TestCheckFilepathDependencies_WritableDirectory(t *testing.T) {
 func TestCheckFilepathDependencies_MultipleFilepathDependencies(t *testing.T) {
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "exists.txt")
-	if err := os.WriteFile(testFile, []byte("test"), 0644); err != nil {
+	if err := os.WriteFile(testFile, []byte("test"), 0o644); err != nil {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
 
@@ -616,8 +617,8 @@ func TestCheckFilepathDependencies_MultipleFilepathDependencies(t *testing.T) {
 		t.Error("checkFilepathDependencies() should return error when any filepath dependency is not satisfied")
 	}
 
-	depErr, ok := err.(*DependencyError)
-	if !ok {
+	var depErr *DependencyError
+	if !errors.As(err, &depErr) {
 		t.Fatalf("checkFilepathDependencies() should return *DependencyError, got: %T", err)
 	}
 
@@ -630,7 +631,7 @@ func TestCheckFilepathDependencies_MultipleFilepathDependencies(t *testing.T) {
 func TestCheckFilepathDependencies_AlternativesFirstExists(t *testing.T) {
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "first.txt")
-	if err := os.WriteFile(testFile, []byte("test"), 0644); err != nil {
+	if err := os.WriteFile(testFile, []byte("test"), 0o644); err != nil {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
 
@@ -650,7 +651,7 @@ func TestCheckFilepathDependencies_AlternativesFirstExists(t *testing.T) {
 func TestCheckFilepathDependencies_AlternativesSecondExists(t *testing.T) {
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "second.txt")
-	if err := os.WriteFile(testFile, []byte("test"), 0644); err != nil {
+	if err := os.WriteFile(testFile, []byte("test"), 0o644); err != nil {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
 
@@ -670,7 +671,7 @@ func TestCheckFilepathDependencies_AlternativesSecondExists(t *testing.T) {
 func TestCheckFilepathDependencies_AlternativesLastExists(t *testing.T) {
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "third.txt")
-	if err := os.WriteFile(testFile, []byte("test"), 0644); err != nil {
+	if err := os.WriteFile(testFile, []byte("test"), 0o644); err != nil {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
 
@@ -702,8 +703,8 @@ func TestCheckFilepathDependencies_AlternativesNoneExists(t *testing.T) {
 		t.Error("checkFilepathDependencies() should return error when no alternatives exist")
 	}
 
-	depErr, ok := err.(*DependencyError)
-	if !ok {
+	var depErr *DependencyError
+	if !errors.As(err, &depErr) {
 		t.Fatalf("checkFilepathDependencies() should return *DependencyError, got: %T", err)
 	}
 
@@ -721,7 +722,7 @@ func TestCheckFilepathDependencies_AlternativesWithPermissions(t *testing.T) {
 	tmpDir := t.TempDir()
 	// Create a readable file
 	readableFile := filepath.Join(tmpDir, "readable.txt")
-	if err := os.WriteFile(readableFile, []byte("test"), 0644); err != nil {
+	if err := os.WriteFile(readableFile, []byte("test"), 0o644); err != nil {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
 
@@ -743,7 +744,7 @@ func TestCheckFilepathDependencies_MultipleAlternativesExist(t *testing.T) {
 	// Create multiple files that could satisfy the requirement
 	for _, name := range []string{"first.txt", "second.txt", "third.txt"} {
 		testFile := filepath.Join(tmpDir, name)
-		if err := os.WriteFile(testFile, []byte("test"), 0644); err != nil {
+		if err := os.WriteFile(testFile, []byte("test"), 0o644); err != nil {
 			t.Fatalf("Failed to create test file: %v", err)
 		}
 	}
@@ -764,10 +765,10 @@ func TestCheckFilepathDependencies_MultipleAlternativesExist(t *testing.T) {
 func TestCheckFilepathDependencies_MultipleDependenciesWithAlternatives(t *testing.T) {
 	tmpDir := t.TempDir()
 	// Create files that satisfy different alternative dependencies
-	if err := os.WriteFile(filepath.Join(tmpDir, "go.sum"), []byte("test"), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(tmpDir, "go.sum"), []byte("test"), 0o644); err != nil {
 		t.Fatalf("Failed to create go.sum: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(tmpDir, "readme.md"), []byte("test"), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(tmpDir, "readme.md"), []byte("test"), 0o644); err != nil {
 		t.Fatalf("Failed to create readme.md: %v", err)
 	}
 
@@ -1215,8 +1216,8 @@ func TestCheckCapabilityDependencies_DuplicateSkipped(t *testing.T) {
 
 	// If there's an error, it should only report the capability once
 	if err != nil {
-		depErr, ok := err.(*DependencyError)
-		if !ok {
+		var depErr *DependencyError
+		if !errors.As(err, &depErr) {
 			t.Fatalf("checkCapabilityDependencies() should return *DependencyError, got: %T", err)
 		}
 		// Even with 3 duplicate entries, we should only have 1 error
@@ -1353,8 +1354,8 @@ func TestCheckEnvVarDependencies_MissingEnvVar(t *testing.T) {
 		t.Error("checkEnvVarDependencies() should fail when env var is missing")
 	}
 
-	depErr, ok := err.(*DependencyError)
-	if !ok {
+	var depErr *DependencyError
+	if !errors.As(err, &depErr) {
 		t.Fatalf("checkEnvVarDependencies() should return *DependencyError, got: %T", err)
 	}
 
@@ -1416,8 +1417,8 @@ func TestCheckEnvVarDependencies_ValidationRegexFail(t *testing.T) {
 		t.Error("checkEnvVarDependencies() should fail when regex doesn't match")
 	}
 
-	depErr, ok := err.(*DependencyError)
-	if !ok {
+	var depErr *DependencyError
+	if !errors.As(err, &depErr) {
 		t.Fatalf("checkEnvVarDependencies() should return *DependencyError, got: %T", err)
 	}
 
@@ -1474,8 +1475,8 @@ func TestCheckEnvVarDependencies_AlternativesORSemantics(t *testing.T) {
 		t.Error("checkEnvVarDependencies() should fail when no alternatives exist")
 	}
 
-	depErr, ok := err.(*DependencyError)
-	if !ok {
+	var depErr *DependencyError
+	if !errors.As(err, &depErr) {
 		t.Fatalf("checkEnvVarDependencies() should return *DependencyError, got: %T", err)
 	}
 
@@ -1506,8 +1507,8 @@ func TestCheckEnvVarDependencies_EmptyName(t *testing.T) {
 		t.Error("checkEnvVarDependencies() should fail with empty name")
 	}
 
-	depErr, ok := err.(*DependencyError)
-	if !ok {
+	var depErr *DependencyError
+	if !errors.As(err, &depErr) {
 		t.Fatalf("checkEnvVarDependencies() should return *DependencyError, got: %T", err)
 	}
 
@@ -1733,7 +1734,7 @@ func TestRunCommandWithFlags_FlagsInjectedAsEnvVars(t *testing.T) {
 }
 
 // testCmdWithFlags creates a Command with flags for testing
-func testCmdWithFlags(name string, script string, flags []invkfile.Flag) *invkfile.Command {
+func testCmdWithFlags(name, script string, flags []invkfile.Flag) *invkfile.Command {
 	return &invkfile.Command{
 		Name:  name,
 		Flags: flags,
@@ -2184,7 +2185,7 @@ func TestRenderArgsSubcommandConflictError(t *testing.T) {
 }
 
 // testCmdWithArgs creates a Command with args for testing
-func testCmdWithArgs(name string, script string, args []invkfile.Argument) *invkfile.Command {
+func testCmdWithArgs(name, script string, args []invkfile.Argument) *invkfile.Command {
 	return &invkfile.Command{
 		Name: name,
 		Args: args,

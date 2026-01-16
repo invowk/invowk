@@ -102,6 +102,7 @@ type RunResult struct {
 // EngineType identifies the container engine type
 type EngineType string
 
+// Container engine type constants.
 const (
 	EngineTypePodman EngineType = "podman"
 	EngineTypeDocker EngineType = "docker"

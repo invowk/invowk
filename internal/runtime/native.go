@@ -4,6 +4,7 @@ package runtime
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -115,7 +116,8 @@ func (r *NativeRuntime) executeWithShell(ctx *ExecutionContext, script string) *
 
 	// Execute
 	if err = cmd.Run(); err != nil {
-		if exitErr, ok := err.(*exec.ExitError); ok {
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) {
 			return &Result{ExitCode: exitErr.ExitCode(), Error: nil}
 		}
 		return &Result{ExitCode: 1, Error: fmt.Errorf("failed to execute command: %w", err)}
@@ -180,7 +182,8 @@ func (r *NativeRuntime) executeWithInterpreter(ctx *ExecutionContext, script str
 
 	// Execute
 	if err := cmd.Run(); err != nil {
-		if exitErr, ok := err.(*exec.ExitError); ok {
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) {
 			return &Result{ExitCode: exitErr.ExitCode(), Error: nil}
 		}
 		return &Result{ExitCode: 1, Error: fmt.Errorf("failed to execute command: %w", err)}
@@ -211,7 +214,7 @@ func (r *NativeRuntime) createTempScript(content, interpreter string) (string, e
 
 	// Make executable (needed for some interpreters on Unix)
 	if runtime.GOOS != "windows" {
-		_ = os.Chmod(tmpFile.Name(), 0700) // Best-effort; execution may still work
+		_ = os.Chmod(tmpFile.Name(), 0o700) // Best-effort; execution may still work
 	}
 
 	return tmpFile.Name(), nil
@@ -281,7 +284,8 @@ func (r *NativeRuntime) executeCaptureWithShell(ctx *ExecutionContext, script st
 	}
 
 	if err != nil {
-		if exitErr, ok := err.(*exec.ExitError); ok {
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) {
 			result.ExitCode = exitErr.ExitCode()
 		} else {
 			result.ExitCode = 1
@@ -344,7 +348,8 @@ func (r *NativeRuntime) executeCaptureWithInterpreter(ctx *ExecutionContext, scr
 	}
 
 	if err != nil {
-		if exitErr, ok := err.(*exec.ExitError); ok {
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) {
 			result.ExitCode = exitErr.ExitCode()
 		} else {
 			result.ExitCode = 1
@@ -418,7 +423,7 @@ func (r *NativeRuntime) getWorkDir(ctx *ExecutionContext) string {
 // For POSIX shells (bash, sh, zsh): args become $1, $2, ... (with "invowk" as $0)
 // For PowerShell: args become $args[0], $args[1], ...
 // For cmd.exe: no change (doesn't support inline positional args)
-func (r *NativeRuntime) appendPositionalArgs(shell string, args []string, positionalArgs []string) []string {
+func (r *NativeRuntime) appendPositionalArgs(shell string, args, positionalArgs []string) []string {
 	if len(positionalArgs) == 0 {
 		return args
 	}

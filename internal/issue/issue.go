@@ -8,8 +8,10 @@ import (
 	"golang.org/x/exp/slices"
 )
 
+// Id represents a unique identifier for an issue type.
 type Id int
 
+// Issue IDs for different error scenarios.
 const (
 	FileNotFoundId Id = iota + 1
 	TuiServerStartFailedId
@@ -28,14 +30,18 @@ const (
 	HostNotSupportedId
 )
 
+// MarkdownMsg represents markdown-formatted issue message content.
 type MarkdownMsg string
 
+// HttpLink represents a URL link for documentation or external resources.
 type HttpLink string
 
+// Renderer defines the interface for rendering markdown content.
 type Renderer interface {
 	Render(in string, stylePath string) (string, error)
 }
 
+// Issue represents a user-facing error with documentation and external links.
 type Issue struct {
 	id       Id          // ID used to lookup the issue
 	mdMsg    MarkdownMsg // Markdown text that will be rendered
@@ -43,22 +49,27 @@ type Issue struct {
 	extLinks []HttpLink  // external links that might be useful for the user
 }
 
+// Id returns the unique identifier for this issue.
 func (i *Issue) Id() Id {
 	return i.id
 }
 
+// MarkdownMsg returns the markdown-formatted message for this issue.
 func (i *Issue) MarkdownMsg() MarkdownMsg {
 	return i.mdMsg
 }
 
+// DocLinks returns a copy of the documentation links for this issue.
 func (i *Issue) DocLinks() []HttpLink {
 	return slices.Clone(i.docLinks)
 }
 
+// ExtLinks returns a copy of the external resource links for this issue.
 func (i *Issue) ExtLinks() []HttpLink {
 	return slices.Clone(i.extLinks)
 }
 
+// Render renders the issue message with documentation links using the specified style.
 func (i *Issue) Render(stylePath string) (string, error) {
 	extraMd := ""
 	if len(i.docLinks) > 0 || len(i.extLinks) > 0 {
@@ -477,10 +488,12 @@ This command cannot run on your current operating system.
 	}
 )
 
+// Values returns all registered issues.
 func Values() []*Issue {
 	return maps.Values(issues)
 }
 
+// Get returns the issue with the given ID, or nil if not found.
 func Get(id Id) *Issue {
 	return issues[id]
 }

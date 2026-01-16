@@ -4,6 +4,7 @@ package tui
 
 import (
 	"context"
+	"errors"
 	"os/exec"
 	"time"
 
@@ -163,7 +164,8 @@ func (m *spinModel) runCommand() tea.Cmd {
 		}
 
 		if err != nil {
-			if exitErr, ok := err.(*exec.ExitError); ok {
+			var exitErr *exec.ExitError
+			if errors.As(err, &exitErr) {
 				result.ExitCode = exitErr.ExitCode()
 			} else {
 				result.ExitCode = 1
@@ -186,15 +188,15 @@ func (m *spinModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case spinnerTickMsg:
 		if !m.done {
 			m.spinner = (m.spinner + 1) % len(m.frames)
-			return m, m.tick()
+			cmd := m.tick()
+			return m, cmd
 		}
 	case spinnerDoneMsg:
 		m.done = true
 		m.result = msg.result
 		return m, nil
 	case tea.KeyMsg:
-		switch msg.String() {
-		case "ctrl+c":
+		if msg.String() == "ctrl+c" {
 			m.done = true
 			return m, nil
 		}

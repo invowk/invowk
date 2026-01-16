@@ -16,10 +16,10 @@ func GenerateCUE(inv *Invkfile) string {
 	sb.WriteString("// See https://github.com/invowk/invowk for documentation\n\n")
 
 	if inv.DefaultShell != "" {
-		sb.WriteString(fmt.Sprintf("default_shell: %q\n", inv.DefaultShell))
+		fmt.Fprintf(&sb, "default_shell: %q\n", inv.DefaultShell)
 	}
 	if inv.WorkDir != "" {
-		sb.WriteString(fmt.Sprintf("workdir: %q\n", inv.WorkDir))
+		fmt.Fprintf(&sb, "workdir: %q\n", inv.WorkDir)
 	}
 
 	// Root-level env
@@ -31,14 +31,14 @@ func GenerateCUE(inv *Invkfile) string {
 				if i > 0 {
 					sb.WriteString(", ")
 				}
-				sb.WriteString(fmt.Sprintf("%q", ef))
+				fmt.Fprintf(&sb, "%q", ef)
 			}
 			sb.WriteString("]\n")
 		}
 		if len(inv.Env.Vars) > 0 {
 			sb.WriteString("\tvars: {\n")
 			for k, v := range inv.Env.Vars {
-				sb.WriteString(fmt.Sprintf("\t\t%s: %q\n", k, v))
+				fmt.Fprintf(&sb, "\t\t%s: %q\n", k, v)
 			}
 			sb.WriteString("\t}\n")
 		}
@@ -50,8 +50,8 @@ func GenerateCUE(inv *Invkfile) string {
 
 	// Commands
 	sb.WriteString("\ncmds: [\n")
-	for _, cmd := range inv.Commands {
-		generateCommand(&sb, &cmd)
+	for i := range inv.Commands {
+		generateCommand(&sb, &inv.Commands[i])
 	}
 	sb.WriteString("]\n")
 
@@ -79,7 +79,7 @@ func generateDependsOn(sb *strings.Builder, deps *DependsOn, indent string) {
 				if i > 0 {
 					sb.WriteString(", ")
 				}
-				sb.WriteString(fmt.Sprintf("%q", alt))
+				fmt.Fprintf(sb, "%q", alt)
 			}
 			sb.WriteString("]},\n")
 		}
@@ -94,7 +94,7 @@ func generateDependsOn(sb *strings.Builder, deps *DependsOn, indent string) {
 				if i > 0 {
 					sb.WriteString(", ")
 				}
-				sb.WriteString(fmt.Sprintf("%q", alt))
+				fmt.Fprintf(sb, "%q", alt)
 			}
 			sb.WriteString("]},\n")
 		}
@@ -109,7 +109,7 @@ func generateDependsOn(sb *strings.Builder, deps *DependsOn, indent string) {
 				if i > 0 {
 					sb.WriteString(", ")
 				}
-				sb.WriteString(fmt.Sprintf("%q", alt))
+				fmt.Fprintf(sb, "%q", alt)
 			}
 			sb.WriteString("]")
 			if fp.Readable {
@@ -134,7 +134,7 @@ func generateDependsOn(sb *strings.Builder, deps *DependsOn, indent string) {
 				if i > 0 {
 					sb.WriteString(", ")
 				}
-				sb.WriteString(fmt.Sprintf("%q", alt))
+				fmt.Fprintf(sb, "%q", alt)
 			}
 			sb.WriteString("]},\n")
 		}
@@ -148,24 +148,24 @@ func generateDependsOn(sb *strings.Builder, deps *DependsOn, indent string) {
 				sb.WriteString(indent + "\t{alternatives: [\n")
 				for _, alt := range check.Alternatives {
 					sb.WriteString(indent + "\t\t{")
-					sb.WriteString(fmt.Sprintf("name: %q, check_script: %q", alt.Name, alt.CheckScript))
+					fmt.Fprintf(sb, "name: %q, check_script: %q", alt.Name, alt.CheckScript)
 					if alt.ExpectedCode != nil {
-						sb.WriteString(fmt.Sprintf(", expected_code: %d", *alt.ExpectedCode))
+						fmt.Fprintf(sb, ", expected_code: %d", *alt.ExpectedCode)
 					}
 					if alt.ExpectedOutput != "" {
-						sb.WriteString(fmt.Sprintf(", expected_output: %q", alt.ExpectedOutput))
+						fmt.Fprintf(sb, ", expected_output: %q", alt.ExpectedOutput)
 					}
 					sb.WriteString("},\n")
 				}
 				sb.WriteString(indent + "\t]},\n")
 			} else {
 				sb.WriteString(indent + "\t{")
-				sb.WriteString(fmt.Sprintf("name: %q, check_script: %q", check.Name, check.CheckScript))
+				fmt.Fprintf(sb, "name: %q, check_script: %q", check.Name, check.CheckScript)
 				if check.ExpectedCode != nil {
-					sb.WriteString(fmt.Sprintf(", expected_code: %d", *check.ExpectedCode))
+					fmt.Fprintf(sb, ", expected_code: %d", *check.ExpectedCode)
 				}
 				if check.ExpectedOutput != "" {
-					sb.WriteString(fmt.Sprintf(", expected_output: %q", check.ExpectedOutput))
+					fmt.Fprintf(sb, ", expected_output: %q", check.ExpectedOutput)
 				}
 				sb.WriteString("},\n")
 			}
@@ -182,9 +182,9 @@ func generateDependsOn(sb *strings.Builder, deps *DependsOn, indent string) {
 					sb.WriteString(", ")
 				}
 				sb.WriteString("{")
-				sb.WriteString(fmt.Sprintf("name: %q", alt.Name))
+				fmt.Fprintf(sb, "name: %q", alt.Name)
 				if alt.Validation != "" {
-					sb.WriteString(fmt.Sprintf(", validation: %q", alt.Validation))
+					fmt.Fprintf(sb, ", validation: %q", alt.Validation)
 				}
 				sb.WriteString("}")
 			}
@@ -199,9 +199,9 @@ func generateDependsOn(sb *strings.Builder, deps *DependsOn, indent string) {
 // generateCommand generates CUE for a single command
 func generateCommand(sb *strings.Builder, cmd *Command) {
 	sb.WriteString("\t{\n")
-	sb.WriteString(fmt.Sprintf("\t\tname: %q\n", cmd.Name))
+	fmt.Fprintf(sb, "\t\tname: %q\n", cmd.Name)
 	if cmd.Description != "" {
-		sb.WriteString(fmt.Sprintf("\t\tdescription: %q\n", cmd.Description))
+		fmt.Fprintf(sb, "\t\tdescription: %q\n", cmd.Description)
 	}
 
 	// Generate implementations list
@@ -220,14 +220,14 @@ func generateCommand(sb *strings.Builder, cmd *Command) {
 				if i > 0 {
 					sb.WriteString(", ")
 				}
-				sb.WriteString(fmt.Sprintf("%q", ef))
+				fmt.Fprintf(sb, "%q", ef)
 			}
 			sb.WriteString("]\n")
 		}
 		if len(cmd.Env.Vars) > 0 {
 			sb.WriteString("\t\t\tvars: {\n")
 			for k, v := range cmd.Env.Vars {
-				sb.WriteString(fmt.Sprintf("\t\t\t\t%s: %q\n", k, v))
+				fmt.Fprintf(sb, "\t\t\t\t%s: %q\n", k, v)
 			}
 			sb.WriteString("\t\t\t}\n")
 		}
@@ -235,7 +235,7 @@ func generateCommand(sb *strings.Builder, cmd *Command) {
 	}
 
 	if cmd.WorkDir != "" {
-		sb.WriteString(fmt.Sprintf("\t\tworkdir: %q\n", cmd.WorkDir))
+		fmt.Fprintf(sb, "\t\tworkdir: %q\n", cmd.WorkDir)
 	}
 
 	// Command-level depends_on
@@ -246,9 +246,9 @@ func generateCommand(sb *strings.Builder, cmd *Command) {
 		sb.WriteString("\t\tflags: [\n")
 		for _, flag := range cmd.Flags {
 			sb.WriteString("\t\t\t{")
-			sb.WriteString(fmt.Sprintf("name: %q, description: %q", flag.Name, flag.Description))
+			fmt.Fprintf(sb, "name: %q, description: %q", flag.Name, flag.Description)
 			if flag.DefaultValue != "" {
-				sb.WriteString(fmt.Sprintf(", default_value: %q", flag.DefaultValue))
+				fmt.Fprintf(sb, ", default_value: %q", flag.DefaultValue)
 			}
 			sb.WriteString("},\n")
 		}
@@ -260,18 +260,18 @@ func generateCommand(sb *strings.Builder, cmd *Command) {
 		sb.WriteString("\t\targs: [\n")
 		for _, arg := range cmd.Args {
 			sb.WriteString("\t\t\t{")
-			sb.WriteString(fmt.Sprintf("name: %q, description: %q", arg.Name, arg.Description))
+			fmt.Fprintf(sb, "name: %q, description: %q", arg.Name, arg.Description)
 			if arg.Required {
 				sb.WriteString(", required: true")
 			}
 			if arg.DefaultValue != "" {
-				sb.WriteString(fmt.Sprintf(", default_value: %q", arg.DefaultValue))
+				fmt.Fprintf(sb, ", default_value: %q", arg.DefaultValue)
 			}
 			if arg.Type != "" && arg.Type != ArgumentTypeString {
-				sb.WriteString(fmt.Sprintf(", type: %q", arg.Type))
+				fmt.Fprintf(sb, ", type: %q", arg.Type)
 			}
 			if arg.Validation != "" {
-				sb.WriteString(fmt.Sprintf(", validation: %q", arg.Validation))
+				fmt.Fprintf(sb, ", validation: %q", arg.Validation)
 			}
 			if arg.Variadic {
 				sb.WriteString(", variadic: true")
@@ -292,45 +292,46 @@ func generateImplementation(sb *strings.Builder, impl *Implementation) {
 	if strings.Contains(impl.Script, "\n") {
 		sb.WriteString("\t\t\t\tscript: \"\"\"\n")
 		for _, line := range strings.Split(impl.Script, "\n") {
-			sb.WriteString(fmt.Sprintf("\t\t\t\t\t%s\n", line))
+			fmt.Fprintf(sb, "\t\t\t\t\t%s\n", line)
 		}
 		sb.WriteString("\t\t\t\t\t\"\"\"\n")
 	} else {
-		sb.WriteString(fmt.Sprintf("\t\t\t\tscript: %q\n", impl.Script))
+		fmt.Fprintf(sb, "\t\t\t\tscript: %q\n", impl.Script)
 	}
 
 	// Runtimes
 	sb.WriteString("\t\t\t\truntimes: [\n")
-	for _, r := range impl.Runtimes {
+	for i := range impl.Runtimes {
+		r := &impl.Runtimes[i]
 		sb.WriteString("\t\t\t\t\t{")
-		sb.WriteString(fmt.Sprintf("name: %q", r.Name))
+		fmt.Fprintf(sb, "name: %q", r.Name)
 		if r.Name == RuntimeContainer {
 			if r.EnableHostSSH {
 				sb.WriteString(", enable_host_ssh: true")
 			}
 			if r.Containerfile != "" {
-				sb.WriteString(fmt.Sprintf(", containerfile: %q", r.Containerfile))
+				fmt.Fprintf(sb, ", containerfile: %q", r.Containerfile)
 			}
 			if r.Image != "" {
-				sb.WriteString(fmt.Sprintf(", image: %q", r.Image))
+				fmt.Fprintf(sb, ", image: %q", r.Image)
 			}
 			if len(r.Volumes) > 0 {
 				sb.WriteString(", volumes: [")
-				for i, v := range r.Volumes {
-					if i > 0 {
+				for j, v := range r.Volumes {
+					if j > 0 {
 						sb.WriteString(", ")
 					}
-					sb.WriteString(fmt.Sprintf("%q", v))
+					fmt.Fprintf(sb, "%q", v)
 				}
 				sb.WriteString("]")
 			}
 			if len(r.Ports) > 0 {
 				sb.WriteString(", ports: [")
-				for i, p := range r.Ports {
-					if i > 0 {
+				for j, p := range r.Ports {
+					if j > 0 {
 						sb.WriteString(", ")
 					}
-					sb.WriteString(fmt.Sprintf("%q", p))
+					fmt.Fprintf(sb, "%q", p)
 				}
 				sb.WriteString("]")
 			}
@@ -343,7 +344,7 @@ func generateImplementation(sb *strings.Builder, impl *Implementation) {
 	if len(impl.Platforms) > 0 {
 		sb.WriteString("\t\t\t\tplatforms: [\n")
 		for _, p := range impl.Platforms {
-			sb.WriteString(fmt.Sprintf("\t\t\t\t\t{name: %q},\n", p.Name))
+			fmt.Fprintf(sb, "\t\t\t\t\t{name: %q},\n", p.Name)
 		}
 		sb.WriteString("\t\t\t\t]\n")
 	}
@@ -360,14 +361,14 @@ func generateImplementation(sb *strings.Builder, impl *Implementation) {
 				if i > 0 {
 					sb.WriteString(", ")
 				}
-				sb.WriteString(fmt.Sprintf("%q", ef))
+				fmt.Fprintf(sb, "%q", ef)
 			}
 			sb.WriteString("]\n")
 		}
 		if len(impl.Env.Vars) > 0 {
 			sb.WriteString("\t\t\t\t\tvars: {\n")
 			for k, v := range impl.Env.Vars {
-				sb.WriteString(fmt.Sprintf("\t\t\t\t\t\t%s: %q\n", k, v))
+				fmt.Fprintf(sb, "\t\t\t\t\t\t%s: %q\n", k, v)
 			}
 			sb.WriteString("\t\t\t\t\t}\n")
 		}
@@ -376,7 +377,7 @@ func generateImplementation(sb *strings.Builder, impl *Implementation) {
 
 	// Implementation-level workdir
 	if impl.WorkDir != "" {
-		sb.WriteString(fmt.Sprintf("\t\t\t\tworkdir: %q\n", impl.WorkDir))
+		fmt.Fprintf(sb, "\t\t\t\tworkdir: %q\n", impl.WorkDir)
 	}
 
 	sb.WriteString("\t\t\t},\n")
@@ -422,7 +423,7 @@ func generateDependsOnContent(sb *strings.Builder, deps *DependsOn, indent strin
 				if i > 0 {
 					sb.WriteString(", ")
 				}
-				sb.WriteString(fmt.Sprintf("%q", alt))
+				fmt.Fprintf(sb, "%q", alt)
 			}
 			sb.WriteString("]},\n")
 		}
@@ -437,7 +438,7 @@ func generateDependsOnContent(sb *strings.Builder, deps *DependsOn, indent strin
 				if i > 0 {
 					sb.WriteString(", ")
 				}
-				sb.WriteString(fmt.Sprintf("%q", alt))
+				fmt.Fprintf(sb, "%q", alt)
 			}
 			sb.WriteString("]},\n")
 		}
@@ -452,7 +453,7 @@ func generateDependsOnContent(sb *strings.Builder, deps *DependsOn, indent strin
 				if i > 0 {
 					sb.WriteString(", ")
 				}
-				sb.WriteString(fmt.Sprintf("%q", alt))
+				fmt.Fprintf(sb, "%q", alt)
 			}
 			sb.WriteString("]")
 			if fp.Readable {
@@ -477,7 +478,7 @@ func generateDependsOnContent(sb *strings.Builder, deps *DependsOn, indent strin
 				if i > 0 {
 					sb.WriteString(", ")
 				}
-				sb.WriteString(fmt.Sprintf("%q", alt))
+				fmt.Fprintf(sb, "%q", alt)
 			}
 			sb.WriteString("]},\n")
 		}
@@ -491,24 +492,24 @@ func generateDependsOnContent(sb *strings.Builder, deps *DependsOn, indent strin
 				sb.WriteString(indent + "\t{alternatives: [\n")
 				for _, alt := range check.Alternatives {
 					sb.WriteString(indent + "\t\t{")
-					sb.WriteString(fmt.Sprintf("name: %q, check_script: %q", alt.Name, alt.CheckScript))
+					fmt.Fprintf(sb, "name: %q, check_script: %q", alt.Name, alt.CheckScript)
 					if alt.ExpectedCode != nil {
-						sb.WriteString(fmt.Sprintf(", expected_code: %d", *alt.ExpectedCode))
+						fmt.Fprintf(sb, ", expected_code: %d", *alt.ExpectedCode)
 					}
 					if alt.ExpectedOutput != "" {
-						sb.WriteString(fmt.Sprintf(", expected_output: %q", alt.ExpectedOutput))
+						fmt.Fprintf(sb, ", expected_output: %q", alt.ExpectedOutput)
 					}
 					sb.WriteString("},\n")
 				}
 				sb.WriteString(indent + "\t]},\n")
 			} else {
 				sb.WriteString(indent + "\t{")
-				sb.WriteString(fmt.Sprintf("name: %q, check_script: %q", check.Name, check.CheckScript))
+				fmt.Fprintf(sb, "name: %q, check_script: %q", check.Name, check.CheckScript)
 				if check.ExpectedCode != nil {
-					sb.WriteString(fmt.Sprintf(", expected_code: %d", *check.ExpectedCode))
+					fmt.Fprintf(sb, ", expected_code: %d", *check.ExpectedCode)
 				}
 				if check.ExpectedOutput != "" {
-					sb.WriteString(fmt.Sprintf(", expected_output: %q", check.ExpectedOutput))
+					fmt.Fprintf(sb, ", expected_output: %q", check.ExpectedOutput)
 				}
 				sb.WriteString("},\n")
 			}
@@ -525,9 +526,9 @@ func generateDependsOnContent(sb *strings.Builder, deps *DependsOn, indent strin
 					sb.WriteString(", ")
 				}
 				sb.WriteString("{")
-				sb.WriteString(fmt.Sprintf("name: %q", alt.Name))
+				fmt.Fprintf(sb, "name: %q", alt.Name)
 				if alt.Validation != "" {
-					sb.WriteString(fmt.Sprintf(", validation: %q", alt.Validation))
+					fmt.Fprintf(sb, ", validation: %q", alt.Validation)
 				}
 				sb.WriteString("}")
 			}

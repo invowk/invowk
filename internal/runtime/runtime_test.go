@@ -16,7 +16,7 @@ import (
 )
 
 // testCommandWithScript creates a Command with a single script for testing
-func testCommandWithScript(name string, script string, runtime invkfile.RuntimeMode) *invkfile.Command {
+func testCommandWithScript(name, script string, runtime invkfile.RuntimeMode) *invkfile.Command {
 	return &invkfile.Command{
 		Name: name,
 		Implementations: []invkfile.Implementation{
@@ -121,7 +121,7 @@ func TestNativeRuntime_ScriptFile(t *testing.T) {
 echo "Hello from script file"
 `
 	scriptPath := filepath.Join(tmpDir, "test.sh")
-	if err := os.WriteFile(scriptPath, []byte(scriptContent), 0755); err != nil {
+	if err := os.WriteFile(scriptPath, []byte(scriptContent), 0o755); err != nil {
 		t.Fatalf("Failed to write script: %v", err)
 	}
 
@@ -234,7 +234,7 @@ func TestVirtualRuntime_ScriptFile(t *testing.T) {
 	scriptContent := `echo "Hello from virtual script file"
 `
 	scriptPath := filepath.Join(tmpDir, "test.sh")
-	if err := os.WriteFile(scriptPath, []byte(scriptContent), 0755); err != nil {
+	if err := os.WriteFile(scriptPath, []byte(scriptContent), 0o755); err != nil {
 		t.Fatalf("Failed to write script: %v", err)
 	}
 
@@ -1135,7 +1135,7 @@ func TestNativeRuntime_InterpreterScriptFile(t *testing.T) {
 print("Hello from Python file")
 `
 	scriptPath := filepath.Join(tmpDir, "test.py")
-	if err := os.WriteFile(scriptPath, []byte(scriptContent), 0755); err != nil {
+	if err := os.WriteFile(scriptPath, []byte(scriptContent), 0o755); err != nil {
 		t.Fatalf("Failed to write script: %v", err)
 	}
 

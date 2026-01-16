@@ -87,7 +87,7 @@ cmds: [{
 		runtimes: [{name: "native"}]
 	}]
 }]
-`), 0644)
+`), 0o644)
 	if err != nil {
 		t.Fatalf("Failed to create test invkfile: %v", err)
 	}
@@ -134,7 +134,7 @@ cmds: [{
 		runtimes: [{name: "virtual"}]
 	}]
 }]
-`), 0644)
+`), 0o644)
 	if err != nil {
 		t.Fatalf("Failed to create test invkfile: %v", err)
 	}
@@ -167,10 +167,8 @@ cmds: [{
 	args := prepared.Cmd.Args
 	if len(args) < 3 {
 		t.Errorf("Expected at least 3 args, got %d", len(args))
-	} else {
-		if args[1] != "internal" || args[2] != "exec-virtual" {
-			t.Errorf("Expected 'internal exec-virtual' args, got %v", args[1:3])
-		}
+	} else if args[1] != "internal" || args[2] != "exec-virtual" {
+		t.Errorf("Expected 'internal exec-virtual' args, got %v", args[1:3])
 	}
 
 	// Cleanup (removes temp script file)

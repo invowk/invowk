@@ -510,7 +510,7 @@ func (r *ContainerRuntime) GetHostAddressForContainer() string {
 // For inline scripts, it creates a temp file in the workspace directory (mounted in container).
 // Returns: (command []string, tempFilePath string, error)
 // The caller is responsible for cleaning up tempFilePath if non-empty.
-func (r *ContainerRuntime) buildInterpreterCommand(ctx *ExecutionContext, script string, interp invkfile.ShebangInfo, invowkDir string) ([]string, string, error) {
+func (r *ContainerRuntime) buildInterpreterCommand(ctx *ExecutionContext, script string, interp invkfile.ShebangInfo, invowkDir string) (command []string, tempFile string, err error) {
 	var cmd []string
 	cmd = append(cmd, interp.Interpreter)
 	cmd = append(cmd, interp.Args...)
@@ -550,7 +550,7 @@ func (r *ContainerRuntime) buildInterpreterCommand(ctx *ExecutionContext, script
 		}
 
 		// Make executable
-		_ = os.Chmod(tempFile.Name(), 0755) // Best-effort; execution may still work
+		_ = os.Chmod(tempFile.Name(), 0o755) // Best-effort; execution may still work
 
 		tempFilePath = tempFile.Name()
 
@@ -568,7 +568,7 @@ func (r *ContainerRuntime) buildInterpreterCommand(ctx *ExecutionContext, script
 // ensureProvisionedImage ensures the container image exists and is provisioned
 // with invowk resources (binary, packs, etc.). This enables nested invowk commands
 // inside containers.
-func (r *ContainerRuntime) ensureProvisionedImage(ctx *ExecutionContext, cfg invkfileContainerConfig, invowkDir string) (string, func(), error) {
+func (r *ContainerRuntime) ensureProvisionedImage(ctx *ExecutionContext, cfg invkfileContainerConfig, invowkDir string) (imageName string, cleanup func(), err error) {
 	// First, ensure the base image exists
 	baseImage, err := r.ensureImage(ctx, cfg, invowkDir)
 	if err != nil {

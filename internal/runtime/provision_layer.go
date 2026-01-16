@@ -186,17 +186,17 @@ func (p *LayerProvisioner) buildProvisionedImage(ctx context.Context, baseImage,
 // - CAN access visible directories in $HOME like ~/invowk-build
 //
 // We use a visible directory in the user's home as the build context location.
-func (p *LayerProvisioner) prepareBuildContext(baseImage string) (string, func(), error) {
+func (p *LayerProvisioner) prepareBuildContext(baseImage string) (buildContextDir string, cleanup func(), err error) {
 	// Use a visible directory in user's home that Docker Snap can access
 	// Snap's home interface doesn't expose hidden directories (starting with .)
 	var buildContextParent string
 
-	if home, err := os.UserHomeDir(); err == nil {
+	if home, homeErr := os.UserHomeDir(); homeErr == nil {
 		// Use a visible directory - Docker Snap can access this
 		buildContextParent = filepath.Join(home, "invowk-build")
 	} else {
 		// Fallback: try current working directory
-		if cwd, err := os.Getwd(); err == nil {
+		if cwd, cwdErr := os.Getwd(); cwdErr == nil {
 			buildContextParent = filepath.Join(cwd, ".invowk-build")
 		} else {
 			// Last resort: use system temp (may fail with Snap Docker)
@@ -205,8 +205,8 @@ func (p *LayerProvisioner) prepareBuildContext(baseImage string) (string, func()
 	}
 
 	// Ensure the parent directory exists
-	if err := os.MkdirAll(buildContextParent, 0755); err != nil {
-		return "", nil, fmt.Errorf("failed to create build context parent directory: %w", err)
+	if mkdirErr := os.MkdirAll(buildContextParent, 0o755); mkdirErr != nil {
+		return "", nil, fmt.Errorf("failed to create build context parent directory: %w", mkdirErr)
 	}
 
 	tmpDir, err := os.MkdirTemp(buildContextParent, "ctx-*")
@@ -214,7 +214,7 @@ func (p *LayerProvisioner) prepareBuildContext(baseImage string) (string, func()
 		return "", nil, fmt.Errorf("failed to create temp directory: %w", err)
 	}
 
-	cleanup := func() {
+	cleanup = func() {
 		_ = os.RemoveAll(tmpDir) // Cleanup temp dir; error non-critical
 	}
 
@@ -226,12 +226,12 @@ func (p *LayerProvisioner) prepareBuildContext(baseImage string) (string, func()
 			return "", nil, fmt.Errorf("failed to copy invowk binary: %w", err)
 		}
 		// Ensure binary is executable
-		_ = os.Chmod(binaryDst, 0755) // Best-effort; execution may still work
+		_ = os.Chmod(binaryDst, 0o755) // Best-effort; execution may still work
 	}
 
 	// Copy packs
 	packsDir := filepath.Join(tmpDir, "packs")
-	if err := os.MkdirAll(packsDir, 0755); err != nil {
+	if err := os.MkdirAll(packsDir, 0o755); err != nil {
 		cleanup()
 		return "", nil, fmt.Errorf("failed to create packs directory: %w", err)
 	}
@@ -250,7 +250,7 @@ func (p *LayerProvisioner) prepareBuildContext(baseImage string) (string, func()
 	// Generate Dockerfile
 	dockerfile := p.generateDockerfile(baseImage)
 	dockerfilePath := filepath.Join(tmpDir, "Dockerfile")
-	if err := os.WriteFile(dockerfilePath, []byte(dockerfile), 0644); err != nil {
+	if err := os.WriteFile(dockerfilePath, []byte(dockerfile), 0o644); err != nil {
 		cleanup()
 		return "", nil, fmt.Errorf("failed to write Dockerfile: %w", err)
 	}
@@ -284,7 +284,7 @@ func (p *LayerProvisioner) generateDockerfile(baseImage string) string {
 	if p.config.InvowkBinaryPath != "" {
 		sb.WriteString(fmt.Sprintf("ENV PATH=\"%s:$PATH\"\n", p.config.BinaryMountPath))
 	}
-	sb.WriteString(fmt.Sprintf("ENV INVOWK_PACK_PATH=\"%s\"\n", packsPath))
+	sb.WriteString(fmt.Sprintf("ENV INVOWK_PACK_PATH=\"%s\"\n", packsPath)) //nolint:gocritic // Dockerfile ENV syntax requires literal quotes
 
 	return sb.String()
 }

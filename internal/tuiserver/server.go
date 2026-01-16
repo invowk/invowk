@@ -117,6 +117,7 @@ func New() (*Server, error) {
 		return nil, fmt.Errorf("failed to generate token: %w", err)
 	}
 
+	//nolint:gosec // G102: Binding to 0.0.0.0 required for container runtime access to TUI server
 	listener, err := net.Listen("tcp", "0.0.0.0:0")
 	if err != nil {
 		return nil, fmt.Errorf("failed to create listener: %w", err)

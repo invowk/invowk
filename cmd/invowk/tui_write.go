@@ -96,7 +96,7 @@ func runTuiWrite(cmd *cobra.Command, args []string) error {
 	}
 
 	_, _ = fmt.Fprint(os.Stdout, result) // Terminal output; error non-critical
-	if len(result) > 0 && result[len(result)-1] != '\n' {
+	if result != "" && result[len(result)-1] != '\n' {
 		_, _ = fmt.Fprintln(os.Stdout)
 	}
 	return nil

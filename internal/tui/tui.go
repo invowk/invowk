@@ -62,9 +62,10 @@ func getHuhTheme(t Theme) *huh.Theme {
 		return huh.ThemeCatppuccin()
 	case ThemeBase16:
 		return huh.ThemeBase16()
-	default:
+	case ThemeDefault:
 		return huh.ThemeBase()
 	}
+	return huh.ThemeBase() // Fallback for any future theme values
 }
 
 // ModalBackgroundColor is the background color used for modal overlays.

@@ -4,6 +4,7 @@
 package discovery
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -156,7 +157,7 @@ cmds: [
 ]
 `
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
-	if err := os.WriteFile(invkfilePath, []byte(invkfileContent), 0644); err != nil {
+	if err := os.WriteFile(invkfilePath, []byte(invkfileContent), 0o644); err != nil {
 		t.Fatalf("failed to write invkfile: %v", err)
 	}
 
@@ -210,7 +211,7 @@ cmds: [
 ]
 `
 	invkfilePath := filepath.Join(tmpDir, "invkfile")
-	if err := os.WriteFile(invkfilePath, []byte(invkfileContent), 0644); err != nil {
+	if err := os.WriteFile(invkfilePath, []byte(invkfileContent), 0o644); err != nil {
 		t.Fatalf("failed to write invkfile: %v", err)
 	}
 
@@ -242,10 +243,10 @@ func TestDiscoverAll_PrefersInvkfileCue(t *testing.T) {
 	content := `
 cmds: [{name: "test", implementations: [{script: "echo test", runtimes: [{name: "native"}]}]}]
 `
-	if err := os.WriteFile(filepath.Join(tmpDir, "invkfile"), []byte(content), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(tmpDir, "invkfile"), []byte(content), 0o644); err != nil {
 		t.Fatalf("failed to write invkfile: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(tmpDir, "invkfile.cue"), []byte(content), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(tmpDir, "invkfile.cue"), []byte(content), 0o644); err != nil {
 		t.Fatalf("failed to write invkfile.cue: %v", err)
 	}
 
@@ -284,7 +285,7 @@ func TestDiscoverAll_FindsInUserDir(t *testing.T) {
 
 	// Create user commands directory
 	userCmdsDir := filepath.Join(tmpDir, ".invowk", "cmds")
-	if err := os.MkdirAll(userCmdsDir, 0755); err != nil {
+	if err := os.MkdirAll(userCmdsDir, 0o755); err != nil {
 		t.Fatalf("failed to create user cmds dir: %v", err)
 	}
 
@@ -292,7 +293,7 @@ func TestDiscoverAll_FindsInUserDir(t *testing.T) {
 	content := `
 cmds: [{name: "user-cmd", implementations: [{script: "echo user", runtimes: [{name: "native"}]}]}]
 `
-	if err := os.WriteFile(filepath.Join(userCmdsDir, "invkfile.cue"), []byte(content), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(userCmdsDir, "invkfile.cue"), []byte(content), 0o644); err != nil {
 		t.Fatalf("failed to write invkfile: %v", err)
 	}
 
@@ -330,7 +331,7 @@ func TestDiscoverAll_FindsInConfigPath(t *testing.T) {
 
 	// Create a config search path directory
 	searchPath := filepath.Join(tmpDir, "custom-commands")
-	if err := os.MkdirAll(searchPath, 0755); err != nil {
+	if err := os.MkdirAll(searchPath, 0o755); err != nil {
 		t.Fatalf("failed to create search path dir: %v", err)
 	}
 
@@ -338,13 +339,13 @@ func TestDiscoverAll_FindsInConfigPath(t *testing.T) {
 	content := `
 cmds: [{name: "custom-cmd", implementations: [{script: "echo custom", runtimes: [{name: "native"}]}]}]
 `
-	if err := os.WriteFile(filepath.Join(searchPath, "invkfile.cue"), []byte(content), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(searchPath, "invkfile.cue"), []byte(content), 0o644); err != nil {
 		t.Fatalf("failed to write invkfile: %v", err)
 	}
 
 	// Change to temp directory (which has no invkfile)
 	emptyDir := filepath.Join(tmpDir, "empty")
-	testutil.MustMkdirAll(t, emptyDir, 0755)
+	testutil.MustMkdirAll(t, emptyDir, 0o755)
 	restoreWd := testutil.MustChdir(t, emptyDir)
 	defer restoreWd()
 
@@ -399,7 +400,7 @@ func TestLoadFirst_WithValidFile(t *testing.T) {
 	content := `
 cmds: [{name: "test", implementations: [{script: "echo test", runtimes: [{name: "native"}]}]}]
 `
-	if err := os.WriteFile(filepath.Join(tmpDir, "invkfile.cue"), []byte(content), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(tmpDir, "invkfile.cue"), []byte(content), 0o644); err != nil {
 		t.Fatalf("failed to write invkfile: %v", err)
 	}
 
@@ -433,17 +434,17 @@ func TestLoadAll_WithMultipleFiles(t *testing.T) {
 	content := `
 cmds: [{name: "current", implementations: [{script: "echo current", runtimes: [{name: "native"}]}]}]
 `
-	if err := os.WriteFile(filepath.Join(tmpDir, "invkfile.cue"), []byte(content), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(tmpDir, "invkfile.cue"), []byte(content), 0o644); err != nil {
 		t.Fatalf("failed to write invkfile: %v", err)
 	}
 
 	// Create user commands invkfile (no pack metadata - it belongs in invkpack.cue)
 	userCmdsDir := filepath.Join(tmpDir, ".invowk", "cmds")
-	testutil.MustMkdirAll(t, userCmdsDir, 0755)
+	testutil.MustMkdirAll(t, userCmdsDir, 0o755)
 	userContent := `
 cmds: [{name: "user", implementations: [{script: "echo user", runtimes: [{name: "native"}]}]}]
 `
-	if err := os.WriteFile(filepath.Join(userCmdsDir, "invkfile.cue"), []byte(userContent), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(userCmdsDir, "invkfile.cue"), []byte(userContent), 0o644); err != nil {
 		t.Fatalf("failed to write user invkfile: %v", err)
 	}
 
@@ -483,7 +484,7 @@ cmds: [
 	{name: "test", description: "Run tests", implementations: [{script: "go test", runtimes: [{name: "native"}]}]}
 ]
 `
-	if err := os.WriteFile(filepath.Join(tmpDir, "invkfile.cue"), []byte(content), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(tmpDir, "invkfile.cue"), []byte(content), 0o644); err != nil {
 		t.Fatalf("failed to write invkfile: %v", err)
 	}
 
@@ -523,7 +524,7 @@ cmds: [
 	{name: "test", description: "Run tests", implementations: [{script: "go test", runtimes: [{name: "native"}]}]}
 ]
 `
-	if err := os.WriteFile(filepath.Join(tmpDir, "invkfile.cue"), []byte(content), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(tmpDir, "invkfile.cue"), []byte(content), 0o644); err != nil {
 		t.Fatalf("failed to write invkfile: %v", err)
 	}
 
@@ -567,7 +568,7 @@ cmds: [
 	{name: "test", implementations: [{script: "go test", runtimes: [{name: "native"}]}]}
 ]
 `
-	if err := os.WriteFile(filepath.Join(tmpDir, "invkfile.cue"), []byte(content), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(tmpDir, "invkfile.cue"), []byte(content), 0o644); err != nil {
 		t.Fatalf("failed to write invkfile: %v", err)
 	}
 
@@ -624,17 +625,17 @@ func TestDiscoverCommands_Precedence(t *testing.T) {
 	currentContent := `
 cmds: [{name: "build", description: "Current build", implementations: [{script: "echo current", runtimes: [{name: "native"}]}]}]
 `
-	if err := os.WriteFile(filepath.Join(tmpDir, "invkfile.cue"), []byte(currentContent), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(tmpDir, "invkfile.cue"), []byte(currentContent), 0o644); err != nil {
 		t.Fatalf("failed to write invkfile: %v", err)
 	}
 
 	// Create user commands invkfile with same "build" command
 	userCmdsDir := filepath.Join(tmpDir, ".invowk", "cmds")
-	testutil.MustMkdirAll(t, userCmdsDir, 0755)
+	testutil.MustMkdirAll(t, userCmdsDir, 0o755)
 	userContent := `
 cmds: [{name: "build", description: "User build", implementations: [{script: "echo user", runtimes: [{name: "native"}]}]}]
 `
-	if err := os.WriteFile(filepath.Join(userCmdsDir, "invkfile.cue"), []byte(userContent), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(userCmdsDir, "invkfile.cue"), []byte(userContent), 0o644); err != nil {
 		t.Fatalf("failed to write user invkfile: %v", err)
 	}
 
@@ -726,7 +727,7 @@ func TestDiscoverAll_FindsPacksInUserDir(t *testing.T) {
 
 	// Create an empty working directory
 	workDir := filepath.Join(tmpDir, "work")
-	if err := os.MkdirAll(workDir, 0755); err != nil {
+	if err := os.MkdirAll(workDir, 0o755); err != nil {
 		t.Fatalf("failed to create work dir: %v", err)
 	}
 
@@ -771,7 +772,7 @@ func TestDiscoverAll_FindsPacksInConfigPath(t *testing.T) {
 
 	// Create an empty working directory
 	workDir := filepath.Join(tmpDir, "work")
-	if err := os.MkdirAll(workDir, 0755); err != nil {
+	if err := os.MkdirAll(workDir, 0o755); err != nil {
 		t.Fatalf("failed to create work dir: %v", err)
 	}
 
@@ -827,14 +828,14 @@ func TestDiscoverCommands_FromPack(t *testing.T) {
 
 	// Create a valid pack with the new two-file format
 	packDir := filepath.Join(tmpDir, "testpack.invkpack")
-	if err := os.MkdirAll(packDir, 0755); err != nil {
+	if err := os.MkdirAll(packDir, 0o755); err != nil {
 		t.Fatalf("failed to create pack dir: %v", err)
 	}
 	// Create invkpack.cue with metadata
 	invkpackContent := `pack: "testpack"
 version: "1.0"
 `
-	if err := os.WriteFile(filepath.Join(packDir, "invkpack.cue"), []byte(invkpackContent), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(packDir, "invkpack.cue"), []byte(invkpackContent), 0o644); err != nil {
 		t.Fatalf("failed to write invkpack.cue: %v", err)
 	}
 	// Create invkfile.cue with commands
@@ -843,7 +844,7 @@ version: "1.0"
 	{name: "cmd2", description: "Second command", implementations: [{script: "echo 2", runtimes: [{name: "native"}]}]}
 ]
 `
-	if err := os.WriteFile(filepath.Join(packDir, "invkfile.cue"), []byte(invkfileContent), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(packDir, "invkfile.cue"), []byte(invkfileContent), 0o644); err != nil {
 		t.Fatalf("failed to write invkfile.cue: %v", err)
 	}
 
@@ -888,7 +889,7 @@ func TestDiscoverAll_SkipsInvalidPacks(t *testing.T) {
 
 	// Create an invalid pack (missing invkpack.cue - required now)
 	invalidPackDir := filepath.Join(tmpDir, "invalid.invkpack")
-	if err := os.MkdirAll(invalidPackDir, 0755); err != nil {
+	if err := os.MkdirAll(invalidPackDir, 0o755); err != nil {
 		t.Fatalf("failed to create invalid pack dir: %v", err)
 	}
 
@@ -933,7 +934,7 @@ func TestLoadAll_ParsesPacks(t *testing.T) {
 
 	// Create a valid pack with new two-file format
 	packDir := filepath.Join(tmpDir, "parsepack.invkpack")
-	if err := os.MkdirAll(packDir, 0755); err != nil {
+	if err := os.MkdirAll(packDir, 0o755); err != nil {
 		t.Fatalf("failed to create pack dir: %v", err)
 	}
 	// Create invkpack.cue with metadata
@@ -941,12 +942,12 @@ func TestLoadAll_ParsesPacks(t *testing.T) {
 version: "1.0"
 description: "A test pack"
 `
-	if err := os.WriteFile(filepath.Join(packDir, "invkpack.cue"), []byte(invkpackContent), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(packDir, "invkpack.cue"), []byte(invkpackContent), 0o644); err != nil {
 		t.Fatalf("failed to write invkpack.cue: %v", err)
 	}
 	// Create invkfile.cue with commands
 	invkfileContent := `cmds: [{name: "test", implementations: [{script: "echo test", runtimes: [{name: "native"}]}]}]`
-	if err := os.WriteFile(filepath.Join(packDir, "invkfile.cue"), []byte(invkfileContent), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(packDir, "invkfile.cue"), []byte(invkfileContent), 0o644); err != nil {
 		t.Fatalf("failed to write invkfile.cue: %v", err)
 	}
 
@@ -1099,11 +1100,11 @@ func TestCheckPackCollisions(t *testing.T) {
 			t.Error("CheckPackCollisions() should return error for collision")
 		}
 
-		collisionErr, ok := err.(*PackCollisionError)
-		if !ok {
+		var collisionErr *PackCollisionError
+		if !errors.As(err, &collisionErr) {
 			t.Errorf("error should be PackCollisionError, got %T", err)
 		}
-		if collisionErr.PackID != "io.example.same" {
+		if collisionErr != nil && collisionErr.PackID != "io.example.same" {
 			t.Errorf("PackID = %s, want io.example.same", collisionErr.PackID)
 		}
 	})
@@ -1229,21 +1230,21 @@ func containsString(s, substr string) bool {
 }
 
 // createValidDiscoveryPack creates a pack with the new two-file format (invkpack.cue + invkfile.cue)
-func createValidDiscoveryPack(t *testing.T, packDir, packID string, cmdName string) {
+func createValidDiscoveryPack(t *testing.T, packDir, packID, cmdName string) {
 	t.Helper()
-	if err := os.MkdirAll(packDir, 0755); err != nil {
+	if err := os.MkdirAll(packDir, 0o755); err != nil {
 		t.Fatalf("failed to create pack dir: %v", err)
 	}
 	// Create invkpack.cue with metadata
 	invkpackContent := `pack: "` + packID + `"
 version: "1.0"
 `
-	if err := os.WriteFile(filepath.Join(packDir, "invkpack.cue"), []byte(invkpackContent), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(packDir, "invkpack.cue"), []byte(invkpackContent), 0o644); err != nil {
 		t.Fatalf("failed to write invkpack.cue: %v", err)
 	}
 	// Create invkfile.cue with commands
 	invkfileContent := `cmds: [{name: "` + cmdName + `", implementations: [{script: "echo test", runtimes: [{name: "native"}]}]}]`
-	if err := os.WriteFile(filepath.Join(packDir, "invkfile.cue"), []byte(invkfileContent), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(packDir, "invkfile.cue"), []byte(invkfileContent), 0o644); err != nil {
 		t.Fatalf("failed to write invkfile.cue: %v", err)
 	}
 }
@@ -1256,7 +1257,7 @@ func TestDiscoverAll_CurrentDirInvkfileTakesPrecedenceOverPack(t *testing.T) {
 	currentContent := `
 cmds: [{name: "cmd", implementations: [{script: "echo current", runtimes: [{name: "native"}]}]}]
 `
-	if err := os.WriteFile(filepath.Join(tmpDir, "invkfile.cue"), []byte(currentContent), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(tmpDir, "invkfile.cue"), []byte(currentContent), 0o644); err != nil {
 		t.Fatalf("failed to write current invkfile: %v", err)
 	}
 

@@ -462,7 +462,7 @@ func (inv *Invkfile) validateArgs(cmd *Command) error {
 }
 
 // validateCustomChecks validates custom check dependencies for security and correctness
-func validateCustomChecks(checks []CustomCheckDependency, context string, filePath string) error {
+func validateCustomChecks(checks []CustomCheckDependency, context, filePath string) error {
 	for i, checkDep := range checks {
 		// Get all checks (handles both direct and alternatives formats)
 		for j, check := range checkDep.GetChecks() {
@@ -493,7 +493,7 @@ func validateCustomChecks(checks []CustomCheckDependency, context string, filePa
 
 // validateEnvConfig validates environment configuration for security.
 // It checks env file paths for traversal and env var names/values for validity.
-func validateEnvConfig(env *EnvConfig, context string, filePath string) error {
+func validateEnvConfig(env *EnvConfig, context, filePath string) error {
 	if env == nil {
 		return nil
 	}
@@ -521,7 +521,7 @@ func validateEnvConfig(env *EnvConfig, context string, filePath string) error {
 
 // validateEnvVarDependencies validates env var dependencies for security.
 // It checks env var names and validation regex patterns.
-func validateEnvVarDependencies(deps []EnvVarDependency, context string, filePath string) error {
+func validateEnvVarDependencies(deps []EnvVarDependency, context, filePath string) error {
 	for i, dep := range deps {
 		for j, alt := range dep.Alternatives {
 			// Validate env var name
@@ -543,7 +543,7 @@ func validateEnvVarDependencies(deps []EnvVarDependency, context string, filePat
 }
 
 // validateToolDependencies validates tool dependency names.
-func validateToolDependencies(deps []ToolDependency, context string, filePath string) error {
+func validateToolDependencies(deps []ToolDependency, context, filePath string) error {
 	for i, dep := range deps {
 		for j, alt := range dep.Alternatives {
 			if err := ValidateToolName(alt); err != nil {
@@ -556,7 +556,7 @@ func validateToolDependencies(deps []ToolDependency, context string, filePath st
 }
 
 // validateCommandDependencies validates command dependency names.
-func validateCommandDependencies(deps []CommandDependency, context string, filePath string) error {
+func validateCommandDependencies(deps []CommandDependency, context, filePath string) error {
 	for i, dep := range deps {
 		for j, alt := range dep.Alternatives {
 			if err := ValidateCommandDependencyName(alt); err != nil {
@@ -569,7 +569,7 @@ func validateCommandDependencies(deps []CommandDependency, context string, fileP
 }
 
 // validateFilepathDependencies validates filepath dependency paths.
-func validateFilepathDependencies(deps []FilepathDependency, context string, filePath string) error {
+func validateFilepathDependencies(deps []FilepathDependency, context, filePath string) error {
 	for i, dep := range deps {
 		if err := ValidateFilepathDependency(dep.Alternatives); err != nil {
 			return fmt.Errorf("%s filepaths[%d]: %w in invkfile at %s",
@@ -580,7 +580,7 @@ func validateFilepathDependencies(deps []FilepathDependency, context string, fil
 }
 
 // validateDependsOn validates all dependency types in a DependsOn struct.
-func validateDependsOn(deps *DependsOn, context string, filePath string) error {
+func validateDependsOn(deps *DependsOn, context, filePath string) error {
 	if deps == nil {
 		return nil
 	}

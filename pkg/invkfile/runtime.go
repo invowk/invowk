@@ -322,7 +322,7 @@ func GetExtensionForInterpreter(interpreter string) string {
 //
 // Returns the parsed ShebangInfo. If Found is false, the caller should use
 // the default shell-based execution.
-func ResolveInterpreter(interpreter string, scriptContent string) ShebangInfo {
+func ResolveInterpreter(interpreter, scriptContent string) ShebangInfo {
 	// Default to "auto" if empty
 	effectiveInterpreter := interpreter
 	if effectiveInterpreter == "" {

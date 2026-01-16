@@ -170,9 +170,8 @@ func (m *tableModel) Init() tea.Cmd {
 }
 
 func (m *tableModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	switch msg := msg.(type) {
-	case tea.KeyMsg:
-		switch msg.String() {
+	if keyMsg, ok := msg.(tea.KeyMsg); ok {
+		switch keyMsg.String() {
 		case "ctrl+c", "esc", "q":
 			m.done = true
 			m.cancelled = true
@@ -236,7 +235,7 @@ func (m *tableModel) SetSize(width, height int) {
 
 // Table displays a table and optionally allows row selection.
 // Returns the selected row index (-1 if cancelled) and the selected row values.
-func Table(opts TableOptions) (int, []string, error) {
+func Table(opts TableOptions) (selectedIdx int, row []string, err error) {
 	if len(opts.Rows) == 0 {
 		return -1, nil, nil
 	}
@@ -253,7 +252,7 @@ func Table(opts TableOptions) (int, []string, error) {
 		return -1, nil, nil
 	}
 
-	selectedIdx := m.table.Cursor()
+	selectedIdx = m.table.Cursor()
 	if selectedIdx >= 0 && selectedIdx < len(opts.Rows) {
 		return selectedIdx, opts.Rows[selectedIdx], nil
 	}
@@ -262,7 +261,7 @@ func Table(opts TableOptions) (int, []string, error) {
 }
 
 // TableFromCSV creates table options from CSV-formatted data.
-func TableFromCSV(data string, separator string, hasHeader bool) TableOptions {
+func TableFromCSV(data, separator string, hasHeader bool) TableOptions {
 	if separator == "" {
 		separator = ","
 	}
@@ -388,7 +387,7 @@ func (b *TableBuilder) Border(border bool) *TableBuilder {
 }
 
 // FromCSV loads table data from CSV.
-func (b *TableBuilder) FromCSV(data string, separator string, hasHeader bool) *TableBuilder {
+func (b *TableBuilder) FromCSV(data, separator string, hasHeader bool) *TableBuilder {
 	csvOpts := TableFromCSV(data, separator, hasHeader)
 	b.opts.Columns = csvOpts.Columns
 	b.opts.Rows = csvOpts.Rows
@@ -408,7 +407,7 @@ func (b *TableBuilder) Accessible(accessible bool) *TableBuilder {
 }
 
 // Run displays the table and returns the selected row.
-func (b *TableBuilder) Run() (int, []string, error) {
+func (b *TableBuilder) Run() (selectedIdx int, row []string, err error) {
 	return Table(b.opts)
 }
 

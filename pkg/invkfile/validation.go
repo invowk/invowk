@@ -137,7 +137,7 @@ func hasOverlappingAlternation(pattern string) bool {
 					return true
 				}
 				// Check if they start with the same literal character
-				if len(p1) > 0 && len(p2) > 0 && p1[0] == p2[0] && isLiteralChar(p1[0]) {
+				if p1 != "" && p2 != "" && p1[0] == p2[0] && isLiteralChar(p1[0]) {
 					return true
 				}
 			}

@@ -825,7 +825,7 @@ func runPackVendor(cmd *cobra.Command, args []string) error {
 	}
 
 	// Create vendor directory if it doesn't exist
-	if err := os.MkdirAll(vendorDir, 0755); err != nil {
+	if err := os.MkdirAll(vendorDir, 0o755); err != nil {
 		return fmt.Errorf("failed to create vendor directory: %w", err)
 	}
 

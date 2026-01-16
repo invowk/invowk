@@ -139,7 +139,7 @@ func NewResolver(workingDir, cacheDir string) (*Resolver, error) {
 	}
 
 	// Ensure cache directory exists
-	if err := os.MkdirAll(absCacheDir, 0755); err != nil {
+	if err := os.MkdirAll(absCacheDir, 0o755); err != nil {
 		return nil, fmt.Errorf("failed to create cache directory: %w", err)
 	}
 
@@ -533,7 +533,7 @@ func (m *Resolver) cacheModule(srcDir, dstDir string) error {
 	}
 
 	// Create parent directories
-	if err := os.MkdirAll(filepath.Dir(dstDir), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(dstDir), 0o755); err != nil {
 		return fmt.Errorf("failed to create cache directory: %w", err)
 	}
 
@@ -550,7 +550,10 @@ func (m *Resolver) loadTransitiveDeps(cachePath string) ([]PackRef, string, erro
 		// Try finding .invkpack directory
 		entries, err := os.ReadDir(cachePath)
 		if err != nil {
-			return nil, "", nil // No invkpack, no dependencies
+			if os.IsNotExist(err) {
+				return nil, "", nil // Directory doesn't exist - no dependencies
+			}
+			return nil, "", fmt.Errorf("reading cache directory %s: %w", cachePath, err)
 		}
 		for _, entry := range entries {
 			if entry.IsDir() && strings.HasSuffix(entry.Name(), ".invkpack") {
@@ -564,7 +567,10 @@ func (m *Resolver) loadTransitiveDeps(cachePath string) ([]PackRef, string, erro
 	// This is a simplified implementation - in practice, we'd use the invkfile package
 	data, err := os.ReadFile(invkpackPath)
 	if err != nil {
-		return nil, "", nil // No invkpack, no dependencies
+		if os.IsNotExist(err) {
+			return nil, "", nil // No invkpack.cue - no dependencies
+		}
+		return nil, "", fmt.Errorf("reading invkpack %s: %w", invkpackPath, err)
 	}
 
 	// Extract pack and requires from invkpack content
@@ -665,8 +671,8 @@ func copyDir(src, dst string) error {
 		return err
 	}
 
-	if err = os.MkdirAll(dst, srcInfo.Mode()); err != nil {
-		return err
+	if mkdirErr := os.MkdirAll(dst, srcInfo.Mode()); mkdirErr != nil {
+		return mkdirErr
 	}
 
 	entries, err := os.ReadDir(src)

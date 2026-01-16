@@ -137,6 +137,7 @@ type SpinResult struct {
 // ComponentType represents the type of TUI component.
 type ComponentType string
 
+// Component type constants for the TUI system.
 const (
 	ComponentTypeInput    ComponentType = "input"
 	ComponentTypeConfirm  ComponentType = "confirm"

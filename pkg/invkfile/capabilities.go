@@ -43,8 +43,8 @@ func (e *CapabilityError) Error() string {
 
 // CheckCapability validates that a system capability is available.
 // Returns nil if the capability is available, or an error describing why it's not.
-func CheckCapability(cap CapabilityName) error {
-	switch cap {
+func CheckCapability(capability CapabilityName) error {
+	switch capability {
 	case CapabilityLocalAreaNetwork:
 		return checkLocalAreaNetwork()
 	case CapabilityInternet:
@@ -55,7 +55,7 @@ func CheckCapability(cap CapabilityName) error {
 		return checkTTY()
 	default:
 		return &CapabilityError{
-			Capability: cap,
+			Capability: capability,
 			Message:    "unknown capability",
 		}
 	}

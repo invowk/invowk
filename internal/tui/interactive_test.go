@@ -219,7 +219,7 @@ func TestInteractiveModel_View_Ready(t *testing.T) {
 		t.Error("expected view to be rendered, not 'Initializing...'")
 	}
 	// The view should contain the title
-	if len(view) == 0 {
+	if view == "" {
 		t.Error("expected non-empty view")
 	}
 }
@@ -349,7 +349,7 @@ func TestInteractiveModel_AppendCompletionMessage_Success(t *testing.T) {
 	model.appendCompletionMessage()
 
 	content := model.content.String()
-	if len(content) == 0 {
+	if content == "" {
 		t.Error("expected completion message to be appended")
 	}
 	// The message should contain "COMPLETED SUCCESSFULLY" for exit code 0
@@ -368,7 +368,7 @@ func TestInteractiveModel_AppendCompletionMessage_Failure(t *testing.T) {
 	model.appendCompletionMessage()
 
 	content := model.content.String()
-	if len(content) == 0 {
+	if content == "" {
 		t.Error("expected completion message to be appended")
 	}
 }
@@ -393,7 +393,7 @@ func TestInteractiveModel_ConcurrentOutputWrites(t *testing.T) {
 
 	// Verify content was written (exact content may vary due to race, but should not panic)
 	content := model.content.String()
-	if len(content) == 0 {
+	if content == "" {
 		t.Error("expected some content to be written")
 	}
 }

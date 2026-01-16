@@ -72,17 +72,17 @@ func TestCalculateDirHash(t *testing.T) {
 
 	// Create some files
 	file1 := filepath.Join(tmpDir, "file1.txt")
-	if err := os.WriteFile(file1, []byte("content1"), 0644); err != nil {
+	if err := os.WriteFile(file1, []byte("content1"), 0o644); err != nil {
 		t.Fatalf("Failed to write file1: %v", err)
 	}
 
 	subDir := filepath.Join(tmpDir, "subdir")
-	if err := os.MkdirAll(subDir, 0755); err != nil {
+	if err := os.MkdirAll(subDir, 0o755); err != nil {
 		t.Fatalf("Failed to create subdir: %v", err)
 	}
 
 	file2 := filepath.Join(subDir, "file2.txt")
-	if err := os.WriteFile(file2, []byte("content2"), 0644); err != nil {
+	if err := os.WriteFile(file2, []byte("content2"), 0o644); err != nil {
 		t.Fatalf("Failed to write file2: %v", err)
 	}
 
@@ -113,18 +113,18 @@ func TestDiscoverPacks(t *testing.T) {
 
 	// Create some pack directories
 	pack1 := filepath.Join(tmpDir, "mypack.invkpack")
-	if err := os.MkdirAll(pack1, 0755); err != nil {
+	if err := os.MkdirAll(pack1, 0o755); err != nil {
 		t.Fatalf("Failed to create pack1: %v", err)
 	}
 
 	pack2 := filepath.Join(tmpDir, "subdir", "another.invkpack")
-	if err := os.MkdirAll(pack2, 0755); err != nil {
+	if err := os.MkdirAll(pack2, 0o755); err != nil {
 		t.Fatalf("Failed to create pack2: %v", err)
 	}
 
 	// Create a non-pack directory
 	notPack := filepath.Join(tmpDir, "notapack")
-	if err := os.MkdirAll(notPack, 0755); err != nil {
+	if err := os.MkdirAll(notPack, 0o755); err != nil {
 		t.Fatalf("Failed to create notapack: %v", err)
 	}
 
@@ -160,7 +160,7 @@ func TestCopyFile(t *testing.T) {
 	srcDir := t.TempDir()
 	srcFile := filepath.Join(srcDir, "source.txt")
 	content := "test content for copy"
-	if err := os.WriteFile(srcFile, []byte(content), 0644); err != nil {
+	if err := os.WriteFile(srcFile, []byte(content), 0o644); err != nil {
 		t.Fatalf("Failed to write source file: %v", err)
 	}
 
@@ -189,17 +189,17 @@ func TestCopyDir(t *testing.T) {
 
 	// Create files
 	file1 := filepath.Join(srcDir, "file1.txt")
-	if err := os.WriteFile(file1, []byte("content1"), 0644); err != nil {
+	if err := os.WriteFile(file1, []byte("content1"), 0o644); err != nil {
 		t.Fatalf("Failed to write file1: %v", err)
 	}
 
 	subDir := filepath.Join(srcDir, "subdir")
-	if err := os.MkdirAll(subDir, 0755); err != nil {
+	if err := os.MkdirAll(subDir, 0o755); err != nil {
 		t.Fatalf("Failed to create subdir: %v", err)
 	}
 
 	file2 := filepath.Join(subDir, "file2.txt")
-	if err := os.WriteFile(file2, []byte("content2"), 0644); err != nil {
+	if err := os.WriteFile(file2, []byte("content2"), 0o644); err != nil {
 		t.Fatalf("Failed to write file2: %v", err)
 	}
 

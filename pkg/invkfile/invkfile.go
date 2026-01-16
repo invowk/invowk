@@ -164,8 +164,8 @@ func (inv *Invkfile) GetPack() string {
 // ListCommands returns all command names at the top level (with pack prefix)
 func (inv *Invkfile) ListCommands() []string {
 	names := make([]string, len(inv.Commands))
-	for i, cmd := range inv.Commands {
-		names[i] = inv.GetFullCommandName(cmd.Name)
+	for i := range inv.Commands {
+		names[i] = inv.GetFullCommandName(inv.Commands[i].Name)
 	}
 	return names
 }

@@ -122,7 +122,9 @@ func DefaultConfig() *Config {
 	}
 }
 
-// ConfigDir returns the invowk configuration directory
+// ConfigDir returns the invowk configuration directory.
+//
+//nolint:revive // ConfigDir is more descriptive than Dir for external callers
 func ConfigDir() (string, error) {
 	// Allow tests to override the config directory
 	if configDirOverride != "" {
@@ -283,7 +285,9 @@ func Get() *Config {
 	return globalConfig
 }
 
-// ConfigFilePath returns the path to the config file
+// ConfigFilePath returns the path to the config file.
+//
+//nolint:revive // ConfigFilePath is more descriptive than FilePath for external callers
 func ConfigFilePath() string {
 	return configPath
 }
@@ -294,7 +298,7 @@ func EnsureConfigDir() error {
 	if err != nil {
 		return err
 	}
-	return os.MkdirAll(cfgDir, 0755)
+	return os.MkdirAll(cfgDir, 0o755)
 }
 
 // EnsureCommandsDir creates the commands directory if it doesn't exist
@@ -303,7 +307,7 @@ func EnsureCommandsDir() error {
 	if err != nil {
 		return err
 	}
-	return os.MkdirAll(cmdsDir, 0755)
+	return os.MkdirAll(cmdsDir, 0o755)
 }
 
 // CreateDefaultConfig creates a default config file if it doesn't exist
@@ -313,7 +317,7 @@ func CreateDefaultConfig() error {
 		return err
 	}
 
-	if err := os.MkdirAll(cfgDir, 0755); err != nil {
+	if err := os.MkdirAll(cfgDir, 0o755); err != nil {
 		return fmt.Errorf("failed to create config directory: %w", err)
 	}
 
@@ -327,7 +331,7 @@ func CreateDefaultConfig() error {
 	defaults := DefaultConfig()
 	cueContent := GenerateCUE(defaults)
 
-	if err := os.WriteFile(cfgPath, []byte(cueContent), 0644); err != nil {
+	if err := os.WriteFile(cfgPath, []byte(cueContent), 0o644); err != nil {
 		return fmt.Errorf("failed to write config file: %w", err)
 	}
 
@@ -341,7 +345,7 @@ func Save(cfg *Config) error {
 		return err
 	}
 
-	if err := os.MkdirAll(cfgDir, 0755); err != nil {
+	if err := os.MkdirAll(cfgDir, 0o755); err != nil {
 		return fmt.Errorf("failed to create config directory: %w", err)
 	}
 
@@ -349,7 +353,7 @@ func Save(cfg *Config) error {
 
 	cueContent := GenerateCUE(cfg)
 
-	if err := os.WriteFile(cfgPath, []byte(cueContent), 0644); err != nil {
+	if err := os.WriteFile(cfgPath, []byte(cueContent), 0o644); err != nil {
 		return fmt.Errorf("failed to write config file: %w", err)
 	}
 

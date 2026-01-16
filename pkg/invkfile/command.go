@@ -127,12 +127,13 @@ func (c *Command) GetAllowedRuntimesForPlatform(platform Platform) []RuntimeMode
 	runtimeSet := make(map[RuntimeMode]bool)
 	var orderedRuntimes []RuntimeMode
 
-	for _, s := range c.Implementations {
-		if s.MatchesPlatform(platform) {
-			for _, r := range s.Runtimes {
-				if !runtimeSet[r.Name] {
-					runtimeSet[r.Name] = true
-					orderedRuntimes = append(orderedRuntimes, r.Name)
+	for i := range c.Implementations {
+		if c.Implementations[i].MatchesPlatform(platform) {
+			for j := range c.Implementations[i].Runtimes {
+				name := c.Implementations[i].Runtimes[j].Name
+				if !runtimeSet[name] {
+					runtimeSet[name] = true
+					orderedRuntimes = append(orderedRuntimes, name)
 				}
 			}
 		}
@@ -178,19 +179,20 @@ func (c *Command) ValidateScripts() error {
 		{Name: PlatformWindows},
 	}
 
-	for i, s := range c.Implementations {
-		platforms := s.Platforms
+	for i := range c.Implementations {
+		impl := &c.Implementations[i]
+		platforms := impl.Platforms
 		if len(platforms) == 0 {
 			platforms = allPlatforms // Applies to all platforms
 		}
 
-		for _, p := range platforms {
-			for _, r := range s.Runtimes {
-				key := PlatformRuntimeKey{Platform: p.Name, Runtime: r.Name}
+		for j := range platforms {
+			for k := range impl.Runtimes {
+				key := PlatformRuntimeKey{Platform: platforms[j].Name, Runtime: impl.Runtimes[k].Name}
 				if existingIdx, exists := seen[key]; exists {
 					return fmt.Errorf(
 						"command '%s' has duplicate platform+runtime combination: platform=%s, runtime=%s (scripts #%d and #%d)",
-						c.Name, p.Name, r.Name, existingIdx, i+1,
+						c.Name, platforms[j].Name, impl.Runtimes[k].Name, existingIdx, i+1,
 					)
 				}
 				seen[key] = i + 1

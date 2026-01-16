@@ -59,8 +59,8 @@ func (s *Implementation) MatchesPlatform(platform Platform) bool {
 
 // HasRuntime returns true if the script supports the given runtime
 func (s *Implementation) HasRuntime(runtime RuntimeMode) bool {
-	for _, r := range s.Runtimes {
-		if r.Name == runtime {
+	for i := range s.Runtimes {
+		if s.Runtimes[i].Name == runtime {
 			return true
 		}
 	}
@@ -95,8 +95,8 @@ func (s *Implementation) GetDefaultRuntimeConfig() *RuntimeConfig {
 
 // HasHostSSH returns true if any runtime in this script has enable_host_ssh enabled
 func (s *Implementation) HasHostSSH() bool {
-	for _, r := range s.Runtimes {
-		if r.Name == RuntimeContainer && r.EnableHostSSH {
+	for i := range s.Runtimes {
+		if s.Runtimes[i].Name == RuntimeContainer && s.Runtimes[i].EnableHostSSH {
 			return true
 		}
 	}

@@ -140,6 +140,8 @@ func (m *fileModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case huh.StateAborted:
 		m.done = true
 		m.cancelled = true
+	case huh.StateNormal:
+		// Form still in progress
 	}
 
 	return m, cmd

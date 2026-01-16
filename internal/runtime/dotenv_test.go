@@ -321,7 +321,7 @@ func TestLoadEnvFile_RelativePath(t *testing.T) {
 	// Create a temp directory with a .env file
 	tmpDir := t.TempDir()
 	envFile := filepath.Join(tmpDir, "test.env")
-	if err := os.WriteFile(envFile, []byte("FOO=bar\nBAZ=qux"), 0644); err != nil {
+	if err := os.WriteFile(envFile, []byte("FOO=bar\nBAZ=qux"), 0o644); err != nil {
 		t.Fatalf("failed to create test file: %v", err)
 	}
 
@@ -342,7 +342,7 @@ func TestLoadEnvFile_RelativePath(t *testing.T) {
 func TestLoadEnvFile_AbsolutePath(t *testing.T) {
 	tmpDir := t.TempDir()
 	envFile := filepath.Join(tmpDir, "absolute.env")
-	if err := os.WriteFile(envFile, []byte("ABSOLUTE=true"), 0644); err != nil {
+	if err := os.WriteFile(envFile, []byte("ABSOLUTE=true"), 0o644); err != nil {
 		t.Fatalf("failed to create test file: %v", err)
 	}
 
@@ -378,7 +378,7 @@ func TestLoadEnvFile_RequiredMissing(t *testing.T) {
 func TestLoadEnvFile_OptionalExists(t *testing.T) {
 	tmpDir := t.TempDir()
 	envFile := filepath.Join(tmpDir, "optional.env")
-	if err := os.WriteFile(envFile, []byte("OPTIONAL=yes"), 0644); err != nil {
+	if err := os.WriteFile(envFile, []byte("OPTIONAL=yes"), 0o644); err != nil {
 		t.Fatalf("failed to create test file: %v", err)
 	}
 
@@ -398,11 +398,11 @@ func TestLoadEnvFile_ForwardSlashPath(t *testing.T) {
 	// Test that forward slashes work on all platforms
 	tmpDir := t.TempDir()
 	subDir := filepath.Join(tmpDir, "config")
-	if err := os.Mkdir(subDir, 0755); err != nil {
+	if err := os.Mkdir(subDir, 0o755); err != nil {
 		t.Fatalf("failed to create subdir: %v", err)
 	}
 	envFile := filepath.Join(subDir, "app.env")
-	if err := os.WriteFile(envFile, []byte("SUBDIR=true"), 0644); err != nil {
+	if err := os.WriteFile(envFile, []byte("SUBDIR=true"), 0o644); err != nil {
 		t.Fatalf("failed to create test file: %v", err)
 	}
 
@@ -425,7 +425,7 @@ func TestLoadEnvFileFromCwd(t *testing.T) {
 	defer restoreWd()
 
 	// Create .env file in temp directory
-	if writeErr := os.WriteFile(filepath.Join(tmpDir, ".env"), []byte("CWD_VAR=hello"), 0644); writeErr != nil {
+	if writeErr := os.WriteFile(filepath.Join(tmpDir, ".env"), []byte("CWD_VAR=hello"), 0o644); writeErr != nil {
 		t.Fatalf("failed to create test file: %v", writeErr)
 	}
 
@@ -473,7 +473,7 @@ func TestParseEnvFile_MergesIntoExisting(t *testing.T) {
 
 // containsString is a helper to check if a string contains a substring
 func containsString(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr || len(s) > 0 && containsSubstring(s, substr))
+	return len(s) >= len(substr) && (s == substr || s != "" && containsSubstring(s, substr))
 }
 
 func containsSubstring(s, substr string) bool {

@@ -40,7 +40,7 @@ version: "1.0"
 			tmpDir := t.TempDir()
 
 			invkpackPath := filepath.Join(tmpDir, "invkpack.cue")
-			if writeErr := os.WriteFile(invkpackPath, []byte(cueContent), 0644); writeErr != nil {
+			if writeErr := os.WriteFile(invkpackPath, []byte(cueContent), 0o644); writeErr != nil {
 				t.Fatalf("Failed to write invkpack.cue: %v", writeErr)
 			}
 
@@ -84,7 +84,7 @@ version: "1.0"
 			tmpDir := t.TempDir()
 
 			invkpackPath := filepath.Join(tmpDir, "invkpack.cue")
-			if writeErr := os.WriteFile(invkpackPath, []byte(cueContent), 0644); writeErr != nil {
+			if writeErr := os.WriteFile(invkpackPath, []byte(cueContent), 0o644); writeErr != nil {
 				t.Fatalf("Failed to write invkpack.cue: %v", writeErr)
 			}
 
@@ -107,7 +107,7 @@ requires: [
 	{git_url: "https://github.com/example/utils.git", version: "^1.0.0"},
 ]
 `
-		if err := os.WriteFile(invkpackPath, []byte(content), 0644); err != nil {
+		if err := os.WriteFile(invkpackPath, []byte(content), 0o644); err != nil {
 			t.Fatalf("failed to write invkpack.cue: %v", err)
 		}
 
@@ -138,7 +138,7 @@ requires: [
 		invkpackPath := filepath.Join(tmpDir, "invkpack.cue")
 		content := `pack: "mypack"
 `
-		if err := os.WriteFile(invkpackPath, []byte(content), 0644); err != nil {
+		if err := os.WriteFile(invkpackPath, []byte(content), 0o644); err != nil {
 			t.Fatalf("failed to write invkpack.cue: %v", err)
 		}
 
@@ -158,7 +158,7 @@ requires: [
 		content := `version: "1.0"
 description: "Missing pack field"
 `
-		if err := os.WriteFile(invkpackPath, []byte(content), 0644); err != nil {
+		if err := os.WriteFile(invkpackPath, []byte(content), 0o644); err != nil {
 			t.Fatalf("failed to write invkpack.cue: %v", err)
 		}
 
@@ -173,7 +173,7 @@ description: "Missing pack field"
 		invkpackPath := filepath.Join(tmpDir, "invkpack.cue")
 		content := `pack: "123invalid"
 `
-		if err := os.WriteFile(invkpackPath, []byte(content), 0644); err != nil {
+		if err := os.WriteFile(invkpackPath, []byte(content), 0o644); err != nil {
 			t.Fatalf("failed to write invkpack.cue: %v", err)
 		}
 
@@ -188,7 +188,7 @@ func TestParsePackMetadataOnly(t *testing.T) {
 	t.Run("existing invkpack.cue", func(t *testing.T) {
 		tmpDir := t.TempDir()
 		packDir := filepath.Join(tmpDir, "mypack.invkpack")
-		if err := os.MkdirAll(packDir, 0755); err != nil {
+		if err := os.MkdirAll(packDir, 0o755); err != nil {
 			t.Fatalf("failed to create pack dir: %v", err)
 		}
 
@@ -196,7 +196,7 @@ func TestParsePackMetadataOnly(t *testing.T) {
 		invkpackContent := `pack: "mypack"
 version: "1.0"
 `
-		if err := os.WriteFile(filepath.Join(packDir, "invkpack.cue"), []byte(invkpackContent), 0644); err != nil {
+		if err := os.WriteFile(filepath.Join(packDir, "invkpack.cue"), []byte(invkpackContent), 0o644); err != nil {
 			t.Fatalf("failed to write invkpack.cue: %v", err)
 		}
 
@@ -216,7 +216,7 @@ version: "1.0"
 	t.Run("missing invkpack.cue", func(t *testing.T) {
 		tmpDir := t.TempDir()
 		packDir := filepath.Join(tmpDir, "mypack.invkpack")
-		if err := os.MkdirAll(packDir, 0755); err != nil {
+		if err := os.MkdirAll(packDir, 0o755); err != nil {
 			t.Fatalf("failed to create pack dir: %v", err)
 		}
 
@@ -367,7 +367,7 @@ func TestCommandScope_AddDirectDep(t *testing.T) {
 func TestHasInvkfile(t *testing.T) {
 	t.Run("with invkfile.cue", func(t *testing.T) {
 		tmpDir := t.TempDir()
-		if err := os.WriteFile(filepath.Join(tmpDir, "invkfile.cue"), []byte("cmds: []"), 0644); err != nil {
+		if err := os.WriteFile(filepath.Join(tmpDir, "invkfile.cue"), []byte("cmds: []"), 0o644); err != nil {
 			t.Fatalf("failed to create invkfile.cue: %v", err)
 		}
 

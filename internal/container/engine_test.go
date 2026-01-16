@@ -5,6 +5,7 @@ package container
 
 import (
 	"context"
+	"errors"
 	"testing"
 )
 
@@ -73,7 +74,8 @@ func TestNewEngine_Podman(t *testing.T) {
 
 	// If neither podman nor docker is available, we should get an error
 	if err != nil {
-		if _, ok := err.(*ErrEngineNotAvailable); !ok {
+		var notAvailErr *ErrEngineNotAvailable
+		if !errors.As(err, &notAvailErr) {
 			t.Errorf("expected ErrEngineNotAvailable, got %T", err)
 		}
 		return
@@ -91,7 +93,8 @@ func TestNewEngine_Docker(t *testing.T) {
 
 	// If neither docker nor podman is available, we should get an error
 	if err != nil {
-		if _, ok := err.(*ErrEngineNotAvailable); !ok {
+		var notAvailErr *ErrEngineNotAvailable
+		if !errors.As(err, &notAvailErr) {
 			t.Errorf("expected ErrEngineNotAvailable, got %T", err)
 		}
 		return
@@ -108,7 +111,8 @@ func TestAutoDetectEngine(t *testing.T) {
 
 	// If no engine is available, we should get an error
 	if err != nil {
-		if _, ok := err.(*ErrEngineNotAvailable); !ok {
+		var notAvailErr *ErrEngineNotAvailable
+		if !errors.As(err, &notAvailErr) {
 			t.Errorf("expected ErrEngineNotAvailable, got %T: %v", err, err)
 		}
 		return

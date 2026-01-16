@@ -73,13 +73,13 @@ func (l *LockFile) Save(path string) error {
 	content := l.toCUE()
 
 	// Ensure parent directory exists
-	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return fmt.Errorf("failed to create directory: %w", err)
 	}
 
 	// Write atomically using temp file + rename
 	tmpPath := path + ".tmp"
-	if err := os.WriteFile(tmpPath, []byte(content), 0644); err != nil {
+	if err := os.WriteFile(tmpPath, []byte(content), 0o644); err != nil {
 		return fmt.Errorf("failed to write lock file: %w", err)
 	}
 
@@ -194,19 +194,20 @@ func parseLockFileCUE(content string) (*LockFile, error) {
 
 		// Parse pack fields
 		if braceDepth == 2 && currentPackKey != "" {
-			if strings.HasPrefix(line, "git_url:") {
+			switch {
+			case strings.HasPrefix(line, "git_url:"):
 				currentPack.GitURL = parseStringValue(line)
-			} else if strings.HasPrefix(line, "version:") {
+			case strings.HasPrefix(line, "version:"):
 				currentPack.Version = parseStringValue(line)
-			} else if strings.HasPrefix(line, "resolved_version:") {
+			case strings.HasPrefix(line, "resolved_version:"):
 				currentPack.ResolvedVersion = parseStringValue(line)
-			} else if strings.HasPrefix(line, "git_commit:") {
+			case strings.HasPrefix(line, "git_commit:"):
 				currentPack.GitCommit = parseStringValue(line)
-			} else if strings.HasPrefix(line, "alias:") {
+			case strings.HasPrefix(line, "alias:"):
 				currentPack.Alias = parseStringValue(line)
-			} else if strings.HasPrefix(line, "path:") {
+			case strings.HasPrefix(line, "path:"):
 				currentPack.Path = parseStringValue(line)
-			} else if strings.HasPrefix(line, "namespace:") {
+			case strings.HasPrefix(line, "namespace:"):
 				currentPack.Namespace = parseStringValue(line)
 			}
 		}

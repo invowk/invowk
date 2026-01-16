@@ -298,7 +298,7 @@ func NewCommandScope(packID string, globalPackIDs []string, directRequirements [
 
 // CanCall checks if a command can call another command based on scope rules.
 // Returns true if allowed, false with reason if not.
-func (s *CommandScope) CanCall(targetCmd string) (bool, string) {
+func (s *CommandScope) CanCall(targetCmd string) (allowed bool, reason string) {
 	// Extract pack prefix from command name (format: "pack.name cmdname" or "pack.name@version cmdname")
 	targetPack := ExtractPackFromCommand(targetCmd)
 
@@ -441,6 +441,8 @@ func InvkfilePath(packPath string) string {
 }
 
 // InvkpackPath returns the path to invkpack.cue in a pack directory.
+//
+//nolint:revive // InvkpackPath is more descriptive than Path for external callers
 func InvkpackPath(packPath string) string {
 	return filepath.Join(packPath, "invkpack.cue")
 }

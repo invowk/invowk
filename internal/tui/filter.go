@@ -510,14 +510,14 @@ func (b *FilterBuilder) Reverse(reverse bool) *FilterBuilder {
 }
 
 // Fuzzy enables or disables fuzzy matching.
-func (b *FilterBuilder) Fuzzy(fuzzy bool) *FilterBuilder {
-	b.opts.Fuzzy = fuzzy
+func (b *FilterBuilder) Fuzzy(enabled bool) *FilterBuilder {
+	b.opts.Fuzzy = enabled
 	return b
 }
 
 // Sort sorts results by match score.
-func (b *FilterBuilder) Sort(sort bool) *FilterBuilder {
-	b.opts.Sort = sort
+func (b *FilterBuilder) Sort(enabled bool) *FilterBuilder {
+	b.opts.Sort = enabled
 	return b
 }
 

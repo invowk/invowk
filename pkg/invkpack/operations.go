@@ -119,15 +119,14 @@ func Validate(packPath string) (*ValidationResult, error) {
 	// Check for invkpack.cue (required)
 	invkpackPath := filepath.Join(absPath, "invkpack.cue")
 	invkpackInfo, err := os.Stat(invkpackPath)
-	if err != nil {
-		if os.IsNotExist(err) {
-			result.AddIssue("structure", "missing required invkpack.cue", "")
-		} else {
-			result.AddIssue("structure", fmt.Sprintf("cannot access invkpack.cue: %v", err), "")
-		}
-	} else if invkpackInfo.IsDir() {
+	switch {
+	case err != nil && os.IsNotExist(err):
+		result.AddIssue("structure", "missing required invkpack.cue", "")
+	case err != nil:
+		result.AddIssue("structure", fmt.Sprintf("cannot access invkpack.cue: %v", err), "")
+	case invkpackInfo.IsDir():
 		result.AddIssue("structure", "invkpack.cue must be a file, not a directory", "")
-	} else {
+	default:
 		result.InvkpackPath = invkpackPath
 
 		// Parse invkpack.cue and validate pack field matches folder name
@@ -146,23 +145,22 @@ func Validate(packPath string) (*ValidationResult, error) {
 	// Check for invkfile.cue (optional - may be a library-only pack)
 	invkfilePath := filepath.Join(absPath, "invkfile.cue")
 	invkfileInfo, err := os.Stat(invkfilePath)
-	if err != nil {
-		if os.IsNotExist(err) {
-			// Library-only pack - no commands
-			result.IsLibraryOnly = true
-		} else {
-			result.AddIssue("structure", fmt.Sprintf("cannot access invkfile.cue: %v", err), "")
-		}
-	} else if invkfileInfo.IsDir() {
+	switch {
+	case err != nil && os.IsNotExist(err):
+		// Library-only pack - no commands
+		result.IsLibraryOnly = true
+	case err != nil:
+		result.AddIssue("structure", fmt.Sprintf("cannot access invkfile.cue: %v", err), "")
+	case invkfileInfo.IsDir():
 		result.AddIssue("structure", "invkfile.cue must be a file, not a directory", "")
-	} else {
+	default:
 		result.InvkfilePath = invkfilePath
 	}
 
 	// Check for nested packs and symlinks (security)
 	err = filepath.WalkDir(absPath, func(path string, d os.DirEntry, walkErr error) error {
 		if walkErr != nil {
-			return nil // Continue walking even on errors
+			return nil //nolint:nilerr // Intentionally skip errors to continue walking
 		}
 
 		// Skip the root directory itself
@@ -310,7 +308,7 @@ func Create(opts CreateOptions) (string, error) {
 		return "", fmt.Errorf("pack already exists at %s", packPath)
 	}
 
-	if err := os.MkdirAll(packPath, 0755); err != nil {
+	if err := os.MkdirAll(packPath, 0o755); err != nil {
 		return "", fmt.Errorf("failed to create pack directory: %w", err)
 	}
 
@@ -344,7 +342,7 @@ description: %q
 `, opts.Name, packID, description)
 
 	invkpackPath := filepath.Join(packPath, "invkpack.cue")
-	if err := os.WriteFile(invkpackPath, []byte(invkpackContent), 0644); err != nil {
+	if err := os.WriteFile(invkpackPath, []byte(invkpackContent), 0o644); err != nil {
 		// Clean up on failure
 		_ = os.RemoveAll(packPath) // Best-effort cleanup on error path
 		return "", fmt.Errorf("failed to create invkpack.cue: %w", err)
@@ -372,7 +370,7 @@ cmds: [
 `, opts.Name, opts.Name)
 
 	invkfilePath := filepath.Join(packPath, "invkfile.cue")
-	if err := os.WriteFile(invkfilePath, []byte(invkfileContent), 0644); err != nil {
+	if err := os.WriteFile(invkfilePath, []byte(invkfileContent), 0o644); err != nil {
 		// Clean up on failure
 		_ = os.RemoveAll(packPath) // Best-effort cleanup on error path
 		return "", fmt.Errorf("failed to create invkfile.cue: %w", err)
@@ -381,7 +379,7 @@ cmds: [
 	// Optionally create scripts directory
 	if opts.CreateScriptsDir {
 		scriptsDir := filepath.Join(packPath, "scripts")
-		if err := os.MkdirAll(scriptsDir, 0755); err != nil {
+		if err := os.MkdirAll(scriptsDir, 0o755); err != nil {
 			// Clean up on failure
 			_ = os.RemoveAll(packPath) // Best-effort cleanup on error path
 			return "", fmt.Errorf("failed to create scripts directory: %w", err)
@@ -389,7 +387,7 @@ cmds: [
 
 		// Create a placeholder .gitkeep file
 		gitkeepPath := filepath.Join(scriptsDir, ".gitkeep")
-		if err := os.WriteFile(gitkeepPath, []byte(""), 0644); err != nil {
+		if err := os.WriteFile(gitkeepPath, []byte(""), 0o644); err != nil {
 			// Clean up on failure
 			_ = os.RemoveAll(packPath) // Best-effort cleanup on error path
 			return "", fmt.Errorf("failed to create .gitkeep: %w", err)
@@ -546,7 +544,7 @@ func Unpack(opts UnpackOptions) (extractedPath string, err error) {
 	}
 
 	// Ensure destination exists
-	if err = os.MkdirAll(absDestDir, 0755); err != nil {
+	if err = os.MkdirAll(absDestDir, 0o755); err != nil {
 		return "", fmt.Errorf("failed to create destination directory: %w", err)
 	}
 
@@ -636,7 +634,7 @@ func Unpack(opts UnpackOptions) (extractedPath string, err error) {
 
 		// Create parent directory if needed
 		parentDir := filepath.Dir(destPath)
-		if mkdirErr := os.MkdirAll(parentDir, 0755); mkdirErr != nil {
+		if mkdirErr := os.MkdirAll(parentDir, 0o755); mkdirErr != nil {
 			return "", fmt.Errorf("failed to create parent directory: %w", mkdirErr)
 		}
 
@@ -728,6 +726,7 @@ func extractFile(file *zip.File, destPath string) (err error) {
 	}()
 
 	// Copy contents
+	//nolint:gosec // G110: ZIP extraction from user-trusted sources; size limits handled by filesystem
 	_, err = io.Copy(destFile, rc)
 	return err
 }

@@ -39,12 +39,14 @@ const (
 	EnvTUIAddr = "INVOWK_TUI_ADDR"
 
 	// EnvTUIToken is the environment variable containing the authentication token.
+	//nolint:gosec // G101: This is an env var name, not a hardcoded credential
 	EnvTUIToken = "INVOWK_TUI_TOKEN"
 )
 
 // Component represents a TUI component type.
 type Component string
 
+// TUI component type constants for the protocol.
 const (
 	ComponentInput    Component = "input"
 	ComponentConfirm  Component = "confirm"

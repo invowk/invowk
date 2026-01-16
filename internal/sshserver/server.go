@@ -646,7 +646,8 @@ func (s *Server) runInteractiveShell(sess ssh.Session) {
 
 	// Wait for command to complete
 	if err := cmd.Wait(); err != nil {
-		if exitErr, ok := err.(*exec.ExitError); ok {
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) {
 			_ = sess.Exit(exitErr.ExitCode()) // Terminal operation; error non-critical
 			return
 		}
@@ -669,7 +670,8 @@ func (s *Server) runCommand(sess ssh.Session, args []string) {
 	cmd.Stderr = sess.Stderr()
 
 	if err := cmd.Run(); err != nil {
-		if exitErr, ok := err.(*exec.ExitError); ok {
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) {
 			_ = sess.Exit(exitErr.ExitCode()) // Terminal operation; error non-critical
 			return
 		}

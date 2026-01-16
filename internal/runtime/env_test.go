@@ -71,7 +71,7 @@ func TestValidateWorkDir(t *testing.T) {
 
 	// Create a test file (not a directory)
 	testFile := filepath.Join(tmpDir, "test_file.txt")
-	if err := os.WriteFile(testFile, []byte("test"), 0644); err != nil {
+	if err := os.WriteFile(testFile, []byte("test"), 0o644); err != nil {
 		t.Fatalf("failed to create test file: %v", err)
 	}
 

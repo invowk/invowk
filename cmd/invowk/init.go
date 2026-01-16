@@ -48,7 +48,7 @@ func runInit(cmd *cobra.Command, args []string) error {
 	content := generateInvkfile(initTemplate)
 
 	// Write file
-	if err := os.WriteFile(filename, []byte(content), 0644); err != nil {
+	if err := os.WriteFile(filename, []byte(content), 0o644); err != nil {
 		return fmt.Errorf("failed to write file: %w", err)
 	}
 

@@ -280,17 +280,17 @@ func TestCopyDir(t *testing.T) {
 
 	// Create test files
 	testFile := filepath.Join(srcDir, "test.txt")
-	if err := os.WriteFile(testFile, []byte("test content"), 0644); err != nil {
+	if err := os.WriteFile(testFile, []byte("test content"), 0o644); err != nil {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
 
 	subDir := filepath.Join(srcDir, "subdir")
-	if err := os.MkdirAll(subDir, 0755); err != nil {
+	if err := os.MkdirAll(subDir, 0o755); err != nil {
 		t.Fatalf("Failed to create subdir: %v", err)
 	}
 
 	subFile := filepath.Join(subDir, "sub.txt")
-	if err := os.WriteFile(subFile, []byte("sub content"), 0644); err != nil {
+	if err := os.WriteFile(subFile, []byte("sub content"), 0o644); err != nil {
 		t.Fatalf("Failed to create sub file: %v", err)
 	}
 
@@ -321,7 +321,7 @@ func TestCopyDir(t *testing.T) {
 
 // Helper function
 func containsString(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr || len(s) > 0 && containsSubstring(s, substr))
+	return len(s) >= len(substr) && (s == substr || s != "" && containsSubstring(s, substr))
 }
 
 func containsSubstring(s, substr string) bool {

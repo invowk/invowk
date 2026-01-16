@@ -5,6 +5,7 @@ package container
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"os/exec"
 	"path/filepath"
@@ -137,7 +138,8 @@ func (e *DockerEngine) Run(ctx context.Context, opts RunOptions) (*RunResult, er
 
 	result := &RunResult{}
 	if err != nil {
-		if exitErr, ok := err.(*exec.ExitError); ok {
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) {
 			result.ExitCode = exitErr.ExitCode()
 		} else {
 			result.ExitCode = 1
@@ -211,7 +213,8 @@ func (e *DockerEngine) Exec(ctx context.Context, containerID string, command []s
 
 	result := &RunResult{ContainerID: containerID}
 	if err != nil {
-		if exitErr, ok := err.(*exec.ExitError); ok {
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) {
 			result.ExitCode = exitErr.ExitCode()
 		} else {
 			result.ExitCode = 1

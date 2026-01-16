@@ -25,7 +25,7 @@ func TestIsPack(t *testing.T) {
 			setup: func(t *testing.T) string {
 				dir := t.TempDir()
 				packPath := filepath.Join(dir, "mycommands.invkpack")
-				if err := os.Mkdir(packPath, 0755); err != nil {
+				if err := os.Mkdir(packPath, 0o755); err != nil {
 					t.Fatal(err)
 				}
 				return packPath
@@ -37,7 +37,7 @@ func TestIsPack(t *testing.T) {
 			setup: func(t *testing.T) string {
 				dir := t.TempDir()
 				packPath := filepath.Join(dir, "com.example.mycommands.invkpack")
-				if err := os.Mkdir(packPath, 0755); err != nil {
+				if err := os.Mkdir(packPath, 0o755); err != nil {
 					t.Fatal(err)
 				}
 				return packPath
@@ -49,7 +49,7 @@ func TestIsPack(t *testing.T) {
 			setup: func(t *testing.T) string {
 				dir := t.TempDir()
 				packPath := filepath.Join(dir, "mycommands")
-				if err := os.Mkdir(packPath, 0755); err != nil {
+				if err := os.Mkdir(packPath, 0o755); err != nil {
 					t.Fatal(err)
 				}
 				return packPath
@@ -61,7 +61,7 @@ func TestIsPack(t *testing.T) {
 			setup: func(t *testing.T) string {
 				dir := t.TempDir()
 				packPath := filepath.Join(dir, "mycommands.wrong")
-				if err := os.Mkdir(packPath, 0755); err != nil {
+				if err := os.Mkdir(packPath, 0o755); err != nil {
 					t.Fatal(err)
 				}
 				return packPath
@@ -73,7 +73,7 @@ func TestIsPack(t *testing.T) {
 			setup: func(t *testing.T) string {
 				dir := t.TempDir()
 				packPath := filepath.Join(dir, "123commands.invkpack")
-				if err := os.Mkdir(packPath, 0755); err != nil {
+				if err := os.Mkdir(packPath, 0o755); err != nil {
 					t.Fatal(err)
 				}
 				return packPath
@@ -87,7 +87,7 @@ func TestIsPack(t *testing.T) {
 				// Note: folder name itself doesn't start with dot, but the name part does
 				// This tests ".hidden.invkpack" - the prefix is ".hidden" which is invalid
 				packPath := filepath.Join(dir, ".hidden.invkpack")
-				if err := os.Mkdir(packPath, 0755); err != nil {
+				if err := os.Mkdir(packPath, 0o755); err != nil {
 					t.Fatal(err)
 				}
 				return packPath
@@ -99,7 +99,7 @@ func TestIsPack(t *testing.T) {
 			setup: func(t *testing.T) string {
 				dir := t.TempDir()
 				filePath := filepath.Join(dir, "mycommands.invkpack")
-				if err := os.WriteFile(filePath, []byte("test"), 0644); err != nil {
+				if err := os.WriteFile(filePath, []byte("test"), 0o644); err != nil {
 					t.Fatal(err)
 				}
 				return filePath
@@ -118,7 +118,7 @@ func TestIsPack(t *testing.T) {
 			setup: func(t *testing.T) string {
 				dir := t.TempDir()
 				packPath := filepath.Join(dir, "my-commands.invkpack")
-				if err := os.Mkdir(packPath, 0755); err != nil {
+				if err := os.Mkdir(packPath, 0o755); err != nil {
 					t.Fatal(err)
 				}
 				return packPath
@@ -130,7 +130,7 @@ func TestIsPack(t *testing.T) {
 			setup: func(t *testing.T) string {
 				dir := t.TempDir()
 				packPath := filepath.Join(dir, "my_commands.invkpack")
-				if err := os.Mkdir(packPath, 0755); err != nil {
+				if err := os.Mkdir(packPath, 0o755); err != nil {
 					t.Fatal(err)
 				}
 				return packPath
@@ -142,7 +142,7 @@ func TestIsPack(t *testing.T) {
 			setup: func(t *testing.T) string {
 				dir := t.TempDir()
 				packPath := filepath.Join(dir, "Com.Example.MyCommands.invkpack")
-				if err := os.Mkdir(packPath, 0755); err != nil {
+				if err := os.Mkdir(packPath, 0o755); err != nil {
 					t.Fatal(err)
 				}
 				return packPath
@@ -260,10 +260,8 @@ func TestParsePackName(t *testing.T) {
 				if result != tt.expectedVal {
 					t.Errorf("ParsePackName(%q) = %q, want %q", tt.folderName, result, tt.expectedVal)
 				}
-			} else {
-				if err == nil {
-					t.Errorf("ParsePackName(%q) = %q, expected error", tt.folderName, result)
-				}
+			} else if err == nil {
+				t.Errorf("ParsePackName(%q) = %q, expected error", tt.folderName, result)
 			}
 		})
 	}
@@ -273,7 +271,7 @@ func TestParsePackName(t *testing.T) {
 func createValidPack(t *testing.T, dir, folderName, packID string) string {
 	t.Helper()
 	packPath := filepath.Join(dir, folderName)
-	if err := os.Mkdir(packPath, 0755); err != nil {
+	if err := os.Mkdir(packPath, 0o755); err != nil {
 		t.Fatal(err)
 	}
 	// Create invkpack.cue with metadata
@@ -281,12 +279,12 @@ func createValidPack(t *testing.T, dir, folderName, packID string) string {
 	invkpackContent := fmt.Sprintf(`pack: "%s"
 version: "1.0"
 `, packID)
-	if err := os.WriteFile(invkpackPath, []byte(invkpackContent), 0644); err != nil {
+	if err := os.WriteFile(invkpackPath, []byte(invkpackContent), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	// Create invkfile.cue with commands
 	invkfilePath := filepath.Join(packPath, "invkfile.cue")
-	if err := os.WriteFile(invkfilePath, []byte("cmds: []"), 0644); err != nil {
+	if err := os.WriteFile(invkfilePath, []byte("cmds: []"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	return packPath
@@ -323,14 +321,14 @@ func TestValidate(t *testing.T) {
 			setup: func(t *testing.T) string {
 				dir := t.TempDir()
 				packPath := filepath.Join(dir, "mylib.invkpack")
-				if err := os.Mkdir(packPath, 0755); err != nil {
+				if err := os.Mkdir(packPath, 0o755); err != nil {
 					t.Fatal(err)
 				}
 				// Only create invkpack.cue (no invkfile.cue)
 				invkpackPath := filepath.Join(packPath, "invkpack.cue")
 				if err := os.WriteFile(invkpackPath, []byte(`pack: "mylib"
 version: "1.0"
-`), 0644); err != nil {
+`), 0o644); err != nil {
 					t.Fatal(err)
 				}
 				return packPath
@@ -343,12 +341,12 @@ version: "1.0"
 			setup: func(t *testing.T) string {
 				dir := t.TempDir()
 				packPath := filepath.Join(dir, "mycommands.invkpack")
-				if err := os.Mkdir(packPath, 0755); err != nil {
+				if err := os.Mkdir(packPath, 0o755); err != nil {
 					t.Fatal(err)
 				}
 				// Only create invkfile.cue (missing invkpack.cue)
 				invkfilePath := filepath.Join(packPath, "invkfile.cue")
-				if err := os.WriteFile(invkfilePath, []byte("cmds: []"), 0644); err != nil {
+				if err := os.WriteFile(invkfilePath, []byte("cmds: []"), 0o644); err != nil {
 					t.Fatal(err)
 				}
 				return packPath
@@ -362,18 +360,18 @@ version: "1.0"
 			setup: func(t *testing.T) string {
 				dir := t.TempDir()
 				packPath := filepath.Join(dir, "mycommands.invkpack")
-				if err := os.Mkdir(packPath, 0755); err != nil {
+				if err := os.Mkdir(packPath, 0o755); err != nil {
 					t.Fatal(err)
 				}
 				// Create invkpack.cue with WRONG pack ID
 				invkpackPath := filepath.Join(packPath, "invkpack.cue")
 				if err := os.WriteFile(invkpackPath, []byte(`pack: "wrongname"
 version: "1.0"
-`), 0644); err != nil {
+`), 0o644); err != nil {
 					t.Fatal(err)
 				}
 				invkfilePath := filepath.Join(packPath, "invkfile.cue")
-				if err := os.WriteFile(invkfilePath, []byte("cmds: []"), 0644); err != nil {
+				if err := os.WriteFile(invkfilePath, []byte("cmds: []"), 0o644); err != nil {
 					t.Fatal(err)
 				}
 				return packPath
@@ -387,11 +385,11 @@ version: "1.0"
 			setup: func(t *testing.T) string {
 				dir := t.TempDir()
 				packPath := filepath.Join(dir, "mycommands.invkpack")
-				if err := os.Mkdir(packPath, 0755); err != nil {
+				if err := os.Mkdir(packPath, 0o755); err != nil {
 					t.Fatal(err)
 				}
 				invkpackDir := filepath.Join(packPath, "invkpack.cue")
-				if err := os.Mkdir(invkpackDir, 0755); err != nil {
+				if err := os.Mkdir(invkpackDir, 0o755); err != nil {
 					t.Fatal(err)
 				}
 				return packPath
@@ -407,7 +405,7 @@ version: "1.0"
 				packPath := createValidPack(t, dir, "mycommands.invkpack", "mycommands")
 				// Create nested pack
 				nestedPath := filepath.Join(packPath, "nested.invkpack")
-				if err := os.Mkdir(nestedPath, 0755); err != nil {
+				if err := os.Mkdir(nestedPath, 0o755); err != nil {
 					t.Fatal(err)
 				}
 				return packPath
@@ -421,17 +419,17 @@ version: "1.0"
 			setup: func(t *testing.T) string {
 				dir := t.TempDir()
 				packPath := filepath.Join(dir, "123invalid.invkpack")
-				if err := os.Mkdir(packPath, 0755); err != nil {
+				if err := os.Mkdir(packPath, 0o755); err != nil {
 					t.Fatal(err)
 				}
 				invkpackPath := filepath.Join(packPath, "invkpack.cue")
 				if err := os.WriteFile(invkpackPath, []byte(`pack: "test"
 version: "1.0"
-`), 0644); err != nil {
+`), 0o644); err != nil {
 					t.Fatal(err)
 				}
 				invkfilePath := filepath.Join(packPath, "invkfile.cue")
-				if err := os.WriteFile(invkfilePath, []byte("cmds: []"), 0644); err != nil {
+				if err := os.WriteFile(invkfilePath, []byte("cmds: []"), 0o644); err != nil {
 					t.Fatal(err)
 				}
 				return packPath
@@ -454,7 +452,7 @@ version: "1.0"
 			setup: func(t *testing.T) string {
 				dir := t.TempDir()
 				filePath := filepath.Join(dir, "mycommands.invkpack")
-				if err := os.WriteFile(filePath, []byte("test"), 0644); err != nil {
+				if err := os.WriteFile(filePath, []byte("test"), 0o644); err != nil {
 					t.Fatal(err)
 				}
 				return filePath
@@ -468,12 +466,12 @@ version: "1.0"
 			setup: func(t *testing.T) string {
 				dir := t.TempDir()
 				packPath := filepath.Join(dir, "mycommands.invkpack")
-				if err := os.Mkdir(packPath, 0755); err != nil {
+				if err := os.Mkdir(packPath, 0o755); err != nil {
 					t.Fatal(err)
 				}
 				// Create nested pack (but no invkpack.cue)
 				nestedPath := filepath.Join(packPath, "nested.invkpack")
-				if err := os.Mkdir(nestedPath, 0755); err != nil {
+				if err := os.Mkdir(nestedPath, 0o755); err != nil {
 					t.Fatal(err)
 				}
 				return packPath
@@ -488,11 +486,11 @@ version: "1.0"
 				packPath := createValidPack(t, dir, "mycommands.invkpack", "mycommands")
 				// Create scripts directory
 				scriptsDir := filepath.Join(packPath, "scripts")
-				if err := os.Mkdir(scriptsDir, 0755); err != nil {
+				if err := os.Mkdir(scriptsDir, 0o755); err != nil {
 					t.Fatal(err)
 				}
 				scriptPath := filepath.Join(scriptsDir, "build.sh")
-				if err := os.WriteFile(scriptPath, []byte("#!/bin/bash\necho hello"), 0755); err != nil {
+				if err := os.WriteFile(scriptPath, []byte("#!/bin/bash\necho hello"), 0o755); err != nil {
 					t.Fatal(err)
 				}
 				return packPath
@@ -564,14 +562,14 @@ func TestLoad(t *testing.T) {
 	t.Run("loads library-only pack", func(t *testing.T) {
 		dir := t.TempDir()
 		packPath := filepath.Join(dir, "mylib.invkpack")
-		if err := os.Mkdir(packPath, 0755); err != nil {
+		if err := os.Mkdir(packPath, 0o755); err != nil {
 			t.Fatal(err)
 		}
 		// Only create invkpack.cue (no invkfile.cue)
 		invkpackPath := filepath.Join(packPath, "invkpack.cue")
 		if err := os.WriteFile(invkpackPath, []byte(`pack: "mylib"
 version: "1.0"
-`), 0644); err != nil {
+`), 0o644); err != nil {
 			t.Fatal(err)
 		}
 
@@ -592,12 +590,12 @@ version: "1.0"
 	t.Run("fails for pack missing invkpack.cue", func(t *testing.T) {
 		dir := t.TempDir()
 		packPath := filepath.Join(dir, "mycommands.invkpack")
-		if err := os.Mkdir(packPath, 0755); err != nil {
+		if err := os.Mkdir(packPath, 0o755); err != nil {
 			t.Fatal(err)
 		}
 		// Only create invkfile.cue (missing invkpack.cue)
 		invkfilePath := filepath.Join(packPath, "invkfile.cue")
-		if err := os.WriteFile(invkfilePath, []byte("cmds: []"), 0644); err != nil {
+		if err := os.WriteFile(invkfilePath, []byte("cmds: []"), 0o644); err != nil {
 			t.Fatal(err)
 		}
 
@@ -609,8 +607,9 @@ version: "1.0"
 }
 
 func TestPack_ResolveScriptPath(t *testing.T) {
+	packPath := filepath.Join(string(filepath.Separator), "home", "user", "mycommands.invkpack")
 	pack := &Pack{
-		Path: "/home/user/mycommands.invkpack",
+		Path: packPath,
 	}
 
 	tests := []struct {
@@ -621,17 +620,17 @@ func TestPack_ResolveScriptPath(t *testing.T) {
 		{
 			name:       "relative path with forward slashes",
 			scriptPath: "scripts/build.sh",
-			expected:   filepath.Join("/home/user/mycommands.invkpack", "scripts", "build.sh"),
+			expected:   filepath.Join(packPath, "scripts", "build.sh"),
 		},
 		{
 			name:       "relative path in root",
 			scriptPath: "run.sh",
-			expected:   filepath.Join("/home/user/mycommands.invkpack", "run.sh"),
+			expected:   filepath.Join(packPath, "run.sh"),
 		},
 		{
 			name:       "nested path",
 			scriptPath: "lib/utils/helper.sh",
-			expected:   filepath.Join("/home/user/mycommands.invkpack", "lib", "utils", "helper.sh"),
+			expected:   filepath.Join(packPath, "lib", "utils", "helper.sh"),
 		},
 	}
 
@@ -714,7 +713,7 @@ func TestPack_ContainsPath(t *testing.T) {
 	// Create a real temp directory for this test
 	dir := t.TempDir()
 	packPath := filepath.Join(dir, "mycommands.invkpack")
-	if err := os.Mkdir(packPath, 0755); err != nil {
+	if err := os.Mkdir(packPath, 0o755); err != nil {
 		t.Fatal(err)
 	}
 
@@ -1092,7 +1091,7 @@ func TestPack(t *testing.T) {
 
 		// Add a script file
 		scriptPath := filepath.Join(packPath, "scripts", "test.sh")
-		if writeErr := os.WriteFile(scriptPath, []byte("#!/bin/bash\necho hello"), 0755); writeErr != nil {
+		if writeErr := os.WriteFile(scriptPath, []byte("#!/bin/bash\necho hello"), 0o755); writeErr != nil {
 			t.Fatalf("failed to write script: %v", writeErr)
 		}
 
@@ -1152,7 +1151,7 @@ func TestPack(t *testing.T) {
 
 		// Create an invalid pack (no invkfile)
 		packPath := filepath.Join(tmpDir, "invalid.invkpack")
-		if err := os.Mkdir(packPath, 0755); err != nil {
+		if err := os.Mkdir(packPath, 0o755); err != nil {
 			t.Fatalf("failed to create directory: %v", err)
 		}
 
@@ -1187,7 +1186,7 @@ func TestUnpack(t *testing.T) {
 
 		// Unpack to a different directory
 		unpackDir := filepath.Join(tmpDir, "unpacked")
-		if mkdirErr := os.Mkdir(unpackDir, 0755); mkdirErr != nil {
+		if mkdirErr := os.Mkdir(unpackDir, 0o755); mkdirErr != nil {
 			t.Fatalf("failed to create unpack dir: %v", mkdirErr)
 		}
 
@@ -1262,7 +1261,7 @@ func TestUnpack(t *testing.T) {
 
 		// Modify the existing pack
 		markerFile := filepath.Join(packPath, "marker.txt")
-		if writeErr := os.WriteFile(markerFile, []byte("marker"), 0644); writeErr != nil {
+		if writeErr := os.WriteFile(markerFile, []byte("marker"), 0o644); writeErr != nil {
 			t.Fatalf("failed to create marker file: %v", writeErr)
 		}
 
@@ -1296,7 +1295,7 @@ func TestUnpack(t *testing.T) {
 
 		// Create an invalid ZIP file
 		invalidZip := filepath.Join(tmpDir, "invalid.zip")
-		if err := os.WriteFile(invalidZip, []byte("not a zip file"), 0644); err != nil {
+		if err := os.WriteFile(invalidZip, []byte("not a zip file"), 0o644); err != nil {
 			t.Fatalf("failed to create invalid ZIP: %v", err)
 		}
 
@@ -1366,7 +1365,7 @@ func TestHasVendoredPacks(t *testing.T) {
 		tmpDir := t.TempDir()
 		packPath := createValidPack(t, tmpDir, "mypack.invkpack", "mypack")
 		vendoredDir := filepath.Join(packPath, VendoredPacksDir)
-		if err := os.Mkdir(vendoredDir, 0755); err != nil {
+		if err := os.Mkdir(vendoredDir, 0o755); err != nil {
 			t.Fatal(err)
 		}
 
@@ -1379,7 +1378,7 @@ func TestHasVendoredPacks(t *testing.T) {
 		tmpDir := t.TempDir()
 		packPath := createValidPack(t, tmpDir, "mypack.invkpack", "mypack")
 		vendoredDir := filepath.Join(packPath, VendoredPacksDir)
-		if err := os.Mkdir(vendoredDir, 0755); err != nil {
+		if err := os.Mkdir(vendoredDir, 0o755); err != nil {
 			t.Fatal(err)
 		}
 		// Create a vendored pack using new format
@@ -1395,7 +1394,7 @@ func TestListVendoredPacks(t *testing.T) {
 	t.Run("no vendored packs", func(t *testing.T) {
 		tmpDir := t.TempDir()
 		packPath := filepath.Join(tmpDir, "mypack.invkpack")
-		if err := os.Mkdir(packPath, 0755); err != nil {
+		if err := os.Mkdir(packPath, 0o755); err != nil {
 			t.Fatal(err)
 		}
 
@@ -1411,11 +1410,11 @@ func TestListVendoredPacks(t *testing.T) {
 	t.Run("with vendored packs", func(t *testing.T) {
 		tmpDir := t.TempDir()
 		packPath := filepath.Join(tmpDir, "mypack.invkpack")
-		if err := os.Mkdir(packPath, 0755); err != nil {
+		if err := os.Mkdir(packPath, 0o755); err != nil {
 			t.Fatal(err)
 		}
 		vendoredDir := filepath.Join(packPath, VendoredPacksDir)
-		if err := os.Mkdir(vendoredDir, 0755); err != nil {
+		if err := os.Mkdir(vendoredDir, 0o755); err != nil {
 			t.Fatal(err)
 		}
 
@@ -1444,11 +1443,11 @@ func TestListVendoredPacks(t *testing.T) {
 	t.Run("skips invalid packs", func(t *testing.T) {
 		tmpDir := t.TempDir()
 		packPath := filepath.Join(tmpDir, "mypack.invkpack")
-		if err := os.Mkdir(packPath, 0755); err != nil {
+		if err := os.Mkdir(packPath, 0o755); err != nil {
 			t.Fatal(err)
 		}
 		vendoredDir := filepath.Join(packPath, VendoredPacksDir)
-		if err := os.Mkdir(vendoredDir, 0755); err != nil {
+		if err := os.Mkdir(vendoredDir, 0o755); err != nil {
 			t.Fatal(err)
 		}
 
@@ -1457,7 +1456,7 @@ func TestListVendoredPacks(t *testing.T) {
 
 		// Create an invalid pack (no invkpack.cue)
 		invalidPack := filepath.Join(vendoredDir, "invalid.invkpack")
-		if err := os.Mkdir(invalidPack, 0755); err != nil {
+		if err := os.Mkdir(invalidPack, 0o755); err != nil {
 			t.Fatal(err)
 		}
 
@@ -1480,7 +1479,7 @@ func TestValidate_AllowsNestedPacksInVendoredDir(t *testing.T) {
 
 	// Create invk_packs directory with a nested pack
 	vendoredDir := filepath.Join(packPath, VendoredPacksDir)
-	if err := os.Mkdir(vendoredDir, 0755); err != nil {
+	if err := os.Mkdir(vendoredDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
 	createValidPack(t, vendoredDir, "vendored.invkpack", "vendored")
@@ -1501,7 +1500,7 @@ func TestValidate_StillRejectsNestedPacksOutsideVendoredDir(t *testing.T) {
 
 	// Create a nested pack NOT in invk_packs
 	nestedPack := filepath.Join(packPath, "nested.invkpack")
-	if err := os.Mkdir(nestedPack, 0755); err != nil {
+	if err := os.Mkdir(nestedPack, 0o755); err != nil {
 		t.Fatal(err)
 	}
 
@@ -1538,7 +1537,7 @@ func TestValidate_DetectsSymlinks(t *testing.T) {
 
 	// Create a file outside the pack
 	outsideFile := filepath.Join(tmpDir, "outside.txt")
-	if err := os.WriteFile(outsideFile, []byte("outside content"), 0644); err != nil {
+	if err := os.WriteFile(outsideFile, []byte("outside content"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -1572,7 +1571,7 @@ func TestValidate_DetectsWindowsReservedFilenames(t *testing.T) {
 
 	// Create a file with a Windows reserved name
 	reservedFile := filepath.Join(packPath, "CON")
-	if err := os.WriteFile(reservedFile, []byte("test"), 0644); err != nil {
+	if err := os.WriteFile(reservedFile, []byte("test"), 0o644); err != nil {
 		// On Windows, this might fail - that's expected
 		if runtime.GOOS == "windows" {
 			t.Skip("Cannot create reserved filename on Windows")
@@ -1609,13 +1608,13 @@ func TestValidate_RejectsAllSymlinks(t *testing.T) {
 
 	// Create scripts directory
 	scriptsDir := filepath.Join(packPath, "scripts")
-	if err := os.Mkdir(scriptsDir, 0755); err != nil {
+	if err := os.Mkdir(scriptsDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
 
 	// Create a file inside the pack
 	internalFile := filepath.Join(scriptsDir, "original.sh")
-	if err := os.WriteFile(internalFile, []byte("#!/bin/bash\necho hello"), 0755); err != nil {
+	if err := os.WriteFile(internalFile, []byte("#!/bin/bash\necho hello"), 0o755); err != nil {
 		t.Fatal(err)
 	}
 

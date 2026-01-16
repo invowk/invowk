@@ -111,7 +111,7 @@ func calculateDirHash(dirPath string) (string, error) {
 	var entries []string
 	err := filepath.Walk(dirPath, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
-			return nil // Skip inaccessible files
+			return nil //nolint:nilerr // Intentionally skip inaccessible files to continue walking
 		}
 		if info.IsDir() {
 			return nil
@@ -144,7 +144,7 @@ func discoverPacks(paths []string) []string {
 	for _, basePath := range paths {
 		_ = filepath.Walk(basePath, func(path string, info os.FileInfo, err error) error { // Walk never returns error with this callback
 			if err != nil {
-				return nil
+				return nil //nolint:nilerr // Intentionally skip errors to continue walking
 			}
 			if info.IsDir() && strings.HasSuffix(info.Name(), ".invkpack") {
 				absPath, _ := filepath.Abs(path)

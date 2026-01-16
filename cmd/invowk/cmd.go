@@ -186,7 +186,7 @@ func registerDiscoveredCommands() {
 								if err == nil {
 									val = fmt.Sprintf("%g", floatVal)
 								}
-							default: // FlagTypeString
+							case invkfile.FlagTypeString:
 								val, err = cmd.Flags().GetString(flag.Name)
 							}
 							if err == nil {
@@ -271,7 +271,7 @@ func registerDiscoveredCommands() {
 						} else {
 							newCmd.Flags().Float64(flag.Name, defaultVal, flag.Description)
 						}
-					default: // FlagTypeString
+					case invkfile.FlagTypeString:
 						if flag.Short != "" {
 							newCmd.Flags().StringP(flag.Name, flag.Short, flag.DefaultValue, flag.Description)
 						} else {
@@ -312,15 +312,14 @@ func buildCommandUsageString(cmdPart string, args []invkfile.Argument) string {
 
 	for _, arg := range args {
 		var argStr string
-		if arg.Variadic {
-			if arg.Required {
-				argStr = fmt.Sprintf("<%s>...", arg.Name)
-			} else {
-				argStr = fmt.Sprintf("[%s]...", arg.Name)
-			}
-		} else if arg.Required {
+		switch {
+		case arg.Variadic && arg.Required:
+			argStr = fmt.Sprintf("<%s>...", arg.Name)
+		case arg.Variadic:
+			argStr = fmt.Sprintf("[%s]...", arg.Name)
+		case arg.Required:
 			argStr = fmt.Sprintf("<%s>", arg.Name)
-		} else {
+		default:
 			argStr = fmt.Sprintf("[%s]", arg.Name)
 		}
 		parts = append(parts, argStr)
@@ -334,11 +333,12 @@ func buildArgsDocumentation(args []invkfile.Argument) string {
 	var lines []string
 	for _, arg := range args {
 		var status string
-		if arg.Required {
+		switch {
+		case arg.Required:
 			status = "(required)"
-		} else if arg.DefaultValue != "" {
+		case arg.DefaultValue != "":
 			status = fmt.Sprintf("(default: %q)", arg.DefaultValue)
-		} else {
+		default:
 			status = "(optional)"
 		}
 
@@ -648,7 +648,7 @@ func parseEnvVarFlags(envVarFlags []string) map[string]string {
 // workdirOverride is the CLI override for working directory (--workdir flag, empty means no override).
 // envInheritModeOverride controls host env inheritance (empty means use runtime config/default).
 // envInheritAllowOverride and envInheritDenyOverride override runtime config allow/deny lists when provided.
-func runCommandWithFlags(cmdName string, args []string, flagValues map[string]string, flagDefs []invkfile.Flag, argDefs []invkfile.Argument, runtimeEnvFiles []string, runtimeEnvVars map[string]string, workdirOverride string, envInheritModeOverride string, envInheritAllowOverride []string, envInheritDenyOverride []string) error {
+func runCommandWithFlags(cmdName string, args []string, flagValues map[string]string, flagDefs []invkfile.Flag, argDefs []invkfile.Argument, runtimeEnvFiles []string, runtimeEnvVars map[string]string, workdirOverride, envInheritModeOverride string, envInheritAllowOverride, envInheritDenyOverride []string) error {
 	cfg := config.Get()
 	disc := discovery.New(cfg)
 
@@ -760,7 +760,8 @@ func runCommandWithFlags(cmdName string, args []string, flagValues map[string]st
 	// Check for dependencies
 	if err := validateDependencies(cmdInfo, registry, ctx); err != nil {
 		// Check if it's a dependency error and render it with style
-		if depErr, ok := err.(*DependencyError); ok {
+		var depErr *DependencyError
+		if errors.As(err, &depErr) {
 			fmt.Fprint(os.Stderr, RenderDependencyError(depErr))
 			rendered, _ := issue.Get(issue.DependenciesNotSatisfiedId).Render("dark")
 			fmt.Fprint(os.Stderr, rendered)
@@ -784,7 +785,8 @@ func runCommandWithFlags(cmdName string, args []string, flagValues map[string]st
 		for i, argDef := range argDefs {
 			envName := ArgNameToEnvVar(argDef.Name)
 
-			if argDef.Variadic {
+			switch {
+			case argDef.Variadic:
 				// For variadic args, collect all remaining arguments
 				var variadicValues []string
 				if i < len(args) {
@@ -801,10 +803,10 @@ func runCommandWithFlags(cmdName string, args []string, flagValues map[string]st
 
 				// Also set a space-joined version for convenience
 				ctx.ExtraEnv[envName] = strings.Join(variadicValues, " ")
-			} else if i < len(args) {
+			case i < len(args):
 				// Non-variadic arg with provided value
 				ctx.ExtraEnv[envName] = args[i]
-			} else if argDef.DefaultValue != "" {
+			case argDef.DefaultValue != "":
 				// Non-variadic arg with default value
 				ctx.ExtraEnv[envName] = argDef.DefaultValue
 			}
@@ -1193,7 +1195,7 @@ func checkToolDependenciesWithRuntime(deps *invkfile.DependsOn, runtimeMode invk
 				err = validateToolInContainer(alt, registry, ctx)
 			case invkfile.RuntimeVirtual:
 				err = validateToolInVirtual(alt, registry, ctx)
-			default: // native
+			case invkfile.RuntimeNative:
 				err = validateToolNative(alt)
 			}
 			if err == nil {
@@ -1307,7 +1309,8 @@ func validateCustomCheckOutput(check invkfile.CustomCheck, outputStr string, exe
 	// Check exit code
 	actualCode := 0
 	if execErr != nil {
-		if exitErr, ok := execErr.(*exec.ExitError); ok {
+		var exitErr *exec.ExitError
+		if errors.As(execErr, &exitErr) {
 			actualCode = exitErr.ExitCode()
 		} else {
 			// Try to get exit code from error message for non-native runtimes
@@ -1323,7 +1326,7 @@ func validateCustomCheckOutput(check invkfile.CustomCheck, outputStr string, exe
 	if check.ExpectedOutput != "" {
 		matched, err := regexp.MatchString(check.ExpectedOutput, outputStr)
 		if err != nil {
-			return fmt.Errorf("  • %s - invalid regex pattern '%s': %v", check.Name, check.ExpectedOutput, err)
+			return fmt.Errorf("  • %s - invalid regex pattern '%s': %w", check.Name, check.ExpectedOutput, err)
 		}
 		if !matched {
 			return fmt.Errorf("  • %s - check script output '%s' does not match pattern '%s'", check.Name, outputStr, check.ExpectedOutput)
@@ -1359,7 +1362,7 @@ func checkCustomCheckDependencies(deps *invkfile.DependsOn, runtimeMode invkfile
 				err = validateCustomCheckInContainer(check, registry, ctx)
 			case invkfile.RuntimeVirtual:
 				err = validateCustomCheckInVirtual(check, registry, ctx)
-			default: // native
+			case invkfile.RuntimeNative:
 				err = validateCustomCheckNative(check)
 			}
 			if err == nil {
@@ -1473,7 +1476,8 @@ func checkFilepathDependenciesWithRuntime(deps *invkfile.DependsOn, invkfilePath
 		switch runtimeMode {
 		case invkfile.RuntimeContainer:
 			err = validateFilepathInContainer(fp, invowkDir, registry, ctx)
-		default: // native and virtual use host filesystem
+		case invkfile.RuntimeNative, invkfile.RuntimeVirtual:
+			// Native and virtual use host filesystem
 			err = validateFilepathAlternatives(fp, invowkDir)
 		}
 		if err != nil {
@@ -1695,14 +1699,14 @@ func validateFilepathAlternatives(fp invkfile.FilepathDependency, invowkDir stri
 }
 
 // validateSingleFilepath checks if a single filepath exists and has the required permissions
-func validateSingleFilepath(displayPath string, resolvedPath string, fp invkfile.FilepathDependency) error {
+func validateSingleFilepath(displayPath, resolvedPath string, fp invkfile.FilepathDependency) error {
 	// Check if path exists
 	info, err := os.Stat(resolvedPath)
 	if os.IsNotExist(err) {
 		return fmt.Errorf("path does not exist")
 	}
 	if err != nil {
-		return fmt.Errorf("cannot access path: %v", err)
+		return fmt.Errorf("cannot access path: %w", err)
 	}
 
 	var permErrors []string
@@ -1801,7 +1805,7 @@ func isExecutable(path string, info os.FileInfo) bool {
 
 	// On Unix-like systems, check execute permission bit
 	mode := info.Mode()
-	return mode&0111 != 0
+	return mode&0o111 != 0
 }
 
 // checkCapabilityDependencies verifies all required system capabilities are available.
@@ -1903,7 +1907,7 @@ func checkEnvVarDependencies(deps *invkfile.DependsOn, userEnv map[string]string
 			if alt.Validation != "" {
 				matched, err := regexp.MatchString(alt.Validation, value)
 				if err != nil {
-					lastErr = fmt.Errorf("  • %s - invalid validation regex '%s': %v", name, alt.Validation, err)
+					lastErr = fmt.Errorf("  • %s - invalid validation regex '%s': %w", name, alt.Validation, err)
 					continue
 				}
 				if !matched {
@@ -1982,7 +1986,7 @@ func validateFlagValues(cmdName string, flagValues map[string]string, flagDefs [
 		return nil
 	}
 
-	var errors []string
+	var validationErrs []string
 
 	for _, flag := range flagDefs {
 		value, hasValue := flagValues[flag.Name]
@@ -1991,20 +1995,20 @@ func validateFlagValues(cmdName string, flagValues map[string]string, flagDefs [
 		// Note: Cobra handles required flag checking via MarkFlagRequired,
 		// but we double-check here for runtime validation (legacy calls)
 		if flag.Required && (!hasValue || value == "") {
-			errors = append(errors, fmt.Sprintf("required flag '--%s' was not provided", flag.Name))
+			validationErrs = append(validationErrs, fmt.Sprintf("required flag '--%s' was not provided", flag.Name))
 			continue
 		}
 
 		// Validate the value if provided (skip empty values for non-required flags)
 		if hasValue && value != "" {
 			if err := flag.ValidateFlagValue(value); err != nil {
-				errors = append(errors, err.Error())
+				validationErrs = append(validationErrs, err.Error())
 			}
 		}
 	}
 
-	if len(errors) > 0 {
-		return fmt.Errorf("flag validation failed for command '%s':\n  %s", cmdName, strings.Join(errors, "\n  "))
+	if len(validationErrs) > 0 {
+		return fmt.Errorf("flag validation failed for command '%s':\n  %s", cmdName, strings.Join(validationErrs, "\n  "))
 	}
 
 	return nil
@@ -2098,12 +2102,13 @@ func RenderArgumentValidationError(err *ArgumentValidationError) string {
 		sb.WriteString(labelStyle.Render("Expected arguments:"))
 		sb.WriteString("\n")
 		for _, arg := range err.ArgDefs {
-			reqStr := ""
-			if arg.Required {
+			var reqStr string
+			switch {
+			case arg.Required:
 				reqStr = " (required)"
-			} else if arg.DefaultValue != "" {
+			case arg.DefaultValue != "":
 				reqStr = fmt.Sprintf(" (default: %q)", arg.DefaultValue)
-			} else {
+			default:
 				reqStr = " (optional)"
 			}
 			sb.WriteString(valueStyle.Render(fmt.Sprintf("  • %s%s - %s\n", arg.Name, reqStr, arg.Description)))

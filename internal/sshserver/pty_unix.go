@@ -22,6 +22,7 @@ func startPty(cmd *exec.Cmd) (*os.File, error) {
 // setWinsize sets the window size for the PTY
 func setWinsize(f *os.File, width, height int) {
 	// TIOCSWINSZ ioctl; errors are non-fatal for terminal operation
+	//nolint:gosec // G103: unsafe.Pointer required for ioctl syscall to set terminal window size
 	_, _, _ = syscall.Syscall(syscall.SYS_IOCTL, f.Fd(), uintptr(syscall.TIOCSWINSZ),
 		uintptr(unsafe.Pointer(&struct {
 			h, w, x, y uint16

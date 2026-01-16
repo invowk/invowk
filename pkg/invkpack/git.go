@@ -4,6 +4,7 @@ package invkpack
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -145,7 +146,7 @@ func (f *GitFetcher) ListVersions(ctx context.Context, gitURL string) ([]string,
 
 // Fetch clones or fetches a Git repository and checks out the specified version.
 // Returns the path to the repository and the commit SHA.
-func (f *GitFetcher) Fetch(ctx context.Context, gitURL, version string) (string, string, error) {
+func (f *GitFetcher) Fetch(ctx context.Context, gitURL, version string) (path, commitSHA string, err error) {
 	// Generate a cache path for this repository
 	repoPath := f.getRepoCachePath(gitURL)
 
@@ -176,7 +177,7 @@ func (f *GitFetcher) Fetch(ctx context.Context, gitURL, version string) (string,
 // clone clones a repository to the specified path.
 func (f *GitFetcher) clone(ctx context.Context, gitURL, destPath string) (*git.Repository, error) {
 	// Ensure parent directory exists
-	if err := os.MkdirAll(filepath.Dir(destPath), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(destPath), 0o755); err != nil {
 		return nil, fmt.Errorf("failed to create parent directory: %w", err)
 	}
 
@@ -202,7 +203,7 @@ func (f *GitFetcher) fetch(ctx context.Context, repo *git.Repository) error {
 	})
 
 	// ErrAlreadyUpToDate is not a real error
-	if err != nil && err != git.NoErrAlreadyUpToDate {
+	if err != nil && !errors.Is(err, git.NoErrAlreadyUpToDate) {
 		return err
 	}
 
@@ -318,7 +319,7 @@ func (f *GitFetcher) GetCommitForTag(ctx context.Context, gitURL, tagName string
 // This is more efficient for modules where we only need a specific version.
 func (f *GitFetcher) CloneShallow(ctx context.Context, gitURL, version, destPath string) (string, error) {
 	// Ensure parent directory exists
-	if err := os.MkdirAll(filepath.Dir(destPath), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(destPath), 0o755); err != nil {
 		return "", fmt.Errorf("failed to create parent directory: %w", err)
 	}
 

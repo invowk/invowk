@@ -5,6 +5,7 @@ package tui
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -92,6 +93,8 @@ type doneMsg struct {
 
 // TUIComponentMsg is sent by the bridge goroutine when a child process
 // requests a TUI component to be rendered as an overlay.
+//
+//nolint:revive // TUIComponentMsg is more descriptive than ComponentMsg
 type TUIComponentMsg struct {
 	// Component is the type of TUI component to render.
 	Component ComponentType
@@ -324,11 +327,12 @@ func (m *interactiveModel) handleTUIComponentDone(msg tuiComponentDoneMsg) (tea.
 	// Build the response
 	var response tuiserver.Response
 
-	if msg.cancelled {
+	switch {
+	case msg.cancelled:
 		response.Cancelled = true
-	} else if msg.err != nil {
+	case msg.err != nil:
 		response.Error = msg.err.Error()
-	} else {
+	default:
 		// Convert the raw result to a protocol-compliant struct
 		protocolResult := convertToProtocolResult(m.activeComponentType, msg.result)
 
@@ -430,6 +434,7 @@ func (m *interactiveModel) forwardKeyToPty(msg tea.KeyMsg) {
 	// Convert the key message to bytes and write to PTY
 	var data []byte
 
+	//exhaustive:ignore
 	switch msg.Type {
 	case tea.KeyRunes:
 		data = []byte(string(msg.Runes))
@@ -694,7 +699,8 @@ func RunInteractiveCmd(ctx context.Context, opts InteractiveOptions, cmd *exec.C
 		}
 
 		if waitErr != nil {
-			if exitErr, ok := waitErr.(*exec.ExitError); ok {
+			var exitErr *exec.ExitError
+			if errors.As(waitErr, &exitErr) {
 				result.ExitCode = exitErr.ExitCode()
 			} else {
 				result.Error = waitErr

@@ -184,7 +184,7 @@ func testContainerWorkingDirectory(t *testing.T) {
 
 	// Create a subdirectory in the temp directory
 	subDir := filepath.Join(tmpDir, "subdir")
-	if err := os.MkdirAll(subDir, 0755); err != nil {
+	if err := os.MkdirAll(subDir, 0o755); err != nil {
 		t.Fatalf("Failed to create subdir: %v", err)
 	}
 
@@ -229,17 +229,17 @@ func testContainerVolumeMounts(t *testing.T) {
 	// Create a file to mount
 	testFile := filepath.Join(tmpDir, "test-data.txt")
 	testContent := "test content from host"
-	if err := os.WriteFile(testFile, []byte(testContent), 0644); err != nil {
+	if err := os.WriteFile(testFile, []byte(testContent), 0o644); err != nil {
 		t.Fatalf("Failed to write test file: %v", err)
 	}
 
 	// Create a directory for additional volume mount
 	dataDir := filepath.Join(tmpDir, "data")
-	if err := os.MkdirAll(dataDir, 0755); err != nil {
+	if err := os.MkdirAll(dataDir, 0o755); err != nil {
 		t.Fatalf("Failed to create data dir: %v", err)
 	}
 	dataFile := filepath.Join(dataDir, "data.txt")
-	if err := os.WriteFile(dataFile, []byte("data from data dir"), 0644); err != nil {
+	if err := os.WriteFile(dataFile, []byte("data from data dir"), 0o644); err != nil {
 		t.Fatalf("Failed to write data file: %v", err)
 	}
 
@@ -544,7 +544,7 @@ func TestContainerRuntime_BuildFromContainerfile(t *testing.T) {
 RUN echo "Built from Containerfile" > /built.txt
 `
 	containerfilePath := filepath.Join(tmpDir, "Containerfile")
-	if err := os.WriteFile(containerfilePath, []byte(containerfileContent), 0644); err != nil {
+	if err := os.WriteFile(containerfilePath, []byte(containerfileContent), 0o644); err != nil {
 		t.Fatalf("Failed to write Containerfile: %v", err)
 	}
 
@@ -602,7 +602,7 @@ func setupTestInvkfile(t *testing.T) (string, *invkfile.Invkfile) {
 	}
 
 	baseTmpDir := filepath.Join(homeDir, "invowk-test")
-	if mkdirErr := os.MkdirAll(baseTmpDir, 0755); mkdirErr != nil {
+	if mkdirErr := os.MkdirAll(baseTmpDir, 0o755); mkdirErr != nil {
 		t.Fatalf("Failed to create base temp dir: %v", mkdirErr)
 	}
 

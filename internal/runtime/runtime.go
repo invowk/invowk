@@ -164,9 +164,12 @@ func GetInteractiveRuntime(rt Runtime) InteractiveRuntime {
 	return nil
 }
 
-// RuntimeType identifies the type of runtime
+// RuntimeType identifies the type of runtime.
+//
+//nolint:revive // RuntimeType is more descriptive than Type for external callers
 type RuntimeType string
 
+// Runtime type constants for different execution environments.
 const (
 	RuntimeTypeNative    RuntimeType = "native"
 	RuntimeTypeVirtual   RuntimeType = "virtual"
@@ -199,8 +202,9 @@ func (r *Registry) Get(typ RuntimeType) (Runtime, error) {
 	return rt, nil
 }
 
-// GetForCommand returns the appropriate runtime for a command based on its default runtime for current platform
-// Deprecated: Use GetForContext instead for proper runtime selection
+// GetForCommand returns the appropriate runtime for a command based on its default runtime for current platform.
+//
+// Deprecated: Use GetForContext instead for proper runtime selection.
 func (r *Registry) GetForCommand(cmd *invkfile.Command) (Runtime, error) {
 	currentPlatform := invkfile.GetCurrentHostOS()
 	typ := RuntimeType(cmd.GetDefaultRuntimeForPlatform(currentPlatform))
