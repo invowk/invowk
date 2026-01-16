@@ -194,7 +194,7 @@ func copyDir(src, dst string) error {
 		return fmt.Errorf("failed to stat source directory: %w", err)
 	}
 
-	if err := os.MkdirAll(dst, srcInfo.Mode()); err != nil {
+	if err = os.MkdirAll(dst, srcInfo.Mode()); err != nil {
 		return fmt.Errorf("failed to create destination directory: %w", err)
 	}
 

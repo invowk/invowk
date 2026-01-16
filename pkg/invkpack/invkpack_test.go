@@ -44,8 +44,8 @@ version: "1.0"
 			defer os.RemoveAll(tmpDir)
 
 			invkpackPath := filepath.Join(tmpDir, "invkpack.cue")
-			if err := os.WriteFile(invkpackPath, []byte(cueContent), 0644); err != nil {
-				t.Fatalf("Failed to write invkpack.cue: %v", err)
+			if writeErr := os.WriteFile(invkpackPath, []byte(cueContent), 0644); writeErr != nil {
+				t.Fatalf("Failed to write invkpack.cue: %v", writeErr)
 			}
 
 			inv, err := ParseInvkpack(invkpackPath)
@@ -92,8 +92,8 @@ version: "1.0"
 			defer os.RemoveAll(tmpDir)
 
 			invkpackPath := filepath.Join(tmpDir, "invkpack.cue")
-			if err := os.WriteFile(invkpackPath, []byte(cueContent), 0644); err != nil {
-				t.Fatalf("Failed to write invkpack.cue: %v", err)
+			if writeErr := os.WriteFile(invkpackPath, []byte(cueContent), 0644); writeErr != nil {
+				t.Fatalf("Failed to write invkpack.cue: %v", writeErr)
 			}
 
 			_, err = ParseInvkpack(invkpackPath)

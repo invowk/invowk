@@ -216,8 +216,8 @@ func TestGetConnectionInfo(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	if err := srv.Start(ctx); err != nil {
-		t.Fatalf("Failed to start server: %v", err)
+	if startErr := srv.Start(ctx); startErr != nil {
+		t.Fatalf("Failed to start server: %v", startErr)
 	}
 	defer srv.Stop()
 

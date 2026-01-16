@@ -57,11 +57,6 @@ func Format(opts FormatOptions) (string, error) {
 
 // formatMarkdown renders markdown content using glamour.
 func formatMarkdown(opts FormatOptions) (string, error) {
-	theme := opts.GlamourTheme
-	if theme == "" {
-		theme = "auto"
-	}
-
 	var rendererOpts []glamour.TermRendererOption
 	rendererOpts = append(rendererOpts, glamour.WithAutoStyle())
 

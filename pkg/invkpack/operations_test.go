@@ -904,14 +904,14 @@ func TestCreate(t *testing.T) {
 
 				// Check invkpack.cue exists (required)
 				invkpackPath := filepath.Join(packPath, "invkpack.cue")
-				if _, err := os.Stat(invkpackPath); err != nil {
-					t.Errorf("invkpack.cue not created: %v", err)
+				if _, statErr := os.Stat(invkpackPath); statErr != nil {
+					t.Errorf("invkpack.cue not created: %v", statErr)
 				}
 
 				// Check invkfile.cue exists
 				invkfilePath := filepath.Join(packPath, "invkfile.cue")
-				if _, err := os.Stat(invkfilePath); err != nil {
-					t.Errorf("invkfile.cue not created: %v", err)
+				if _, statErr := os.Stat(invkfilePath); statErr != nil {
+					t.Errorf("invkfile.cue not created: %v", statErr)
 				}
 
 				// Verify pack is valid
@@ -1090,8 +1090,8 @@ func TestPack(t *testing.T) {
 
 		// Add a script file
 		scriptPath := filepath.Join(packPath, "scripts", "test.sh")
-		if err := os.WriteFile(scriptPath, []byte("#!/bin/bash\necho hello"), 0755); err != nil {
-			t.Fatalf("failed to write script: %v", err)
+		if writeErr := os.WriteFile(scriptPath, []byte("#!/bin/bash\necho hello"), 0755); writeErr != nil {
+			t.Fatalf("failed to write script: %v", writeErr)
 		}
 
 		// Archive the pack
@@ -1186,8 +1186,8 @@ func TestUnpack(t *testing.T) {
 
 		// Unpack to a different directory
 		unpackDir := filepath.Join(tmpDir, "unpacked")
-		if err := os.Mkdir(unpackDir, 0755); err != nil {
-			t.Fatalf("failed to create unpack dir: %v", err)
+		if mkdirErr := os.Mkdir(unpackDir, 0755); mkdirErr != nil {
+			t.Fatalf("failed to create unpack dir: %v", mkdirErr)
 		}
 
 		extractedPath, err := Unpack(UnpackOptions{
@@ -1261,8 +1261,8 @@ func TestUnpack(t *testing.T) {
 
 		// Modify the existing pack
 		markerFile := filepath.Join(packPath, "marker.txt")
-		if err := os.WriteFile(markerFile, []byte("marker"), 0644); err != nil {
-			t.Fatalf("failed to create marker file: %v", err)
+		if writeErr := os.WriteFile(markerFile, []byte("marker"), 0644); writeErr != nil {
+			t.Fatalf("failed to create marker file: %v", writeErr)
 		}
 
 		// Unpack with overwrite
@@ -1276,7 +1276,7 @@ func TestUnpack(t *testing.T) {
 		}
 
 		// Verify marker file is gone (pack was replaced)
-		if _, err := os.Stat(filepath.Join(extractedPath, "marker.txt")); !os.IsNotExist(err) {
+		if _, statErr := os.Stat(filepath.Join(extractedPath, "marker.txt")); !os.IsNotExist(statErr) {
 			t.Error("marker file should not exist after overwrite")
 		}
 	})

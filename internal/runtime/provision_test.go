@@ -38,8 +38,8 @@ func TestCalculateFileHash(t *testing.T) {
 	defer os.Remove(tmpFile.Name())
 
 	content := "test content for hashing"
-	if _, err := tmpFile.WriteString(content); err != nil {
-		t.Fatalf("Failed to write temp file: %v", err)
+	if _, writeErr := tmpFile.WriteString(content); writeErr != nil {
+		t.Fatalf("Failed to write temp file: %v", writeErr)
 	}
 	tmpFile.Close()
 

@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -133,8 +134,9 @@ func (r *VirtualRuntime) Execute(ctx *ExecutionContext) *Result {
 
 	err = runner.Run(execCtx, prog)
 	if err != nil {
-		if status, ok := interp.IsExitStatus(err); ok {
-			return &Result{ExitCode: int(status)}
+		var exitStatus interp.ExitStatus
+		if errors.As(err, &exitStatus) {
+			return &Result{ExitCode: int(exitStatus)}
 		}
 		return &Result{ExitCode: 1, Error: fmt.Errorf("script execution failed: %w", err)}
 	}
@@ -193,8 +195,9 @@ func (r *VirtualRuntime) ExecuteCapture(ctx *ExecutionContext) *Result {
 
 	err = runner.Run(execCtx, prog)
 	if err != nil {
-		if status, ok := interp.IsExitStatus(err); ok {
-			result.ExitCode = int(status)
+		var exitStatus interp.ExitStatus
+		if errors.As(err, &exitStatus) {
+			result.ExitCode = int(exitStatus)
 		} else {
 			result.ExitCode = 1
 			result.Error = err
@@ -289,13 +292,13 @@ func (r *VirtualRuntime) PrepareCommand(ctx *ExecutionContext) (*PreparedCommand
 		return nil, fmt.Errorf("failed to create temp script file: %w", err)
 	}
 
-	if _, err := tmpFile.WriteString(script); err != nil {
+	if _, err = tmpFile.WriteString(script); err != nil {
 		tmpFile.Close()
 		os.Remove(tmpFile.Name())
 		return nil, fmt.Errorf("failed to write temp script: %w", err)
 	}
 
-	if err := tmpFile.Close(); err != nil {
+	if err = tmpFile.Close(); err != nil {
 		os.Remove(tmpFile.Name())
 		return nil, fmt.Errorf("failed to close temp script: %w", err)
 	}

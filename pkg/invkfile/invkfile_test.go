@@ -287,8 +287,8 @@ cmds: [
 	defer os.RemoveAll(tmpDir)
 
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
-	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invkfile: %v", err)
+	if writeErr := os.WriteFile(invkfilePath, []byte(cueContent), 0644); writeErr != nil {
+		t.Fatalf("Failed to write invkfile: %v", writeErr)
 	}
 
 	inv, err := Parse(invkfilePath)
@@ -329,8 +329,8 @@ func TestScriptCaching(t *testing.T) {
 
 	// Create a test script file
 	scriptPath := filepath.Join(tmpDir, "test.sh")
-	if err := os.WriteFile(scriptPath, []byte("original content"), 0755); err != nil {
-		t.Fatalf("Failed to write script file: %v", err)
+	if writeErr := os.WriteFile(scriptPath, []byte("original content"), 0755); writeErr != nil {
+		t.Fatalf("Failed to write script file: %v", writeErr)
 	}
 
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
@@ -346,8 +346,8 @@ func TestScriptCaching(t *testing.T) {
 	}
 
 	// Modify the file
-	if err := os.WriteFile(scriptPath, []byte("modified content"), 0755); err != nil {
-		t.Fatalf("Failed to modify script file: %v", err)
+	if writeErr := os.WriteFile(scriptPath, []byte("modified content"), 0755); writeErr != nil {
+		t.Fatalf("Failed to modify script file: %v", writeErr)
 	}
 
 	// Second resolution should return cached content
@@ -507,8 +507,8 @@ cmds: [
 	defer os.RemoveAll(tmpDir)
 
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
-	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invkfile: %v", err)
+	if writeErr := os.WriteFile(invkfilePath, []byte(cueContent), 0644); writeErr != nil {
+		t.Fatalf("Failed to write invkfile: %v", writeErr)
 	}
 
 	inv, err := Parse(invkfilePath)
@@ -602,8 +602,8 @@ cmds: [
 	defer os.RemoveAll(tmpDir)
 
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
-	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invkfile: %v", err)
+	if writeErr := os.WriteFile(invkfilePath, []byte(cueContent), 0644); writeErr != nil {
+		t.Fatalf("Failed to write invkfile: %v", writeErr)
 	}
 
 	inv, err := Parse(invkfilePath)
@@ -655,8 +655,8 @@ cmds: [
 	defer os.RemoveAll(tmpDir)
 
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
-	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invkfile: %v", err)
+	if writeErr := os.WriteFile(invkfilePath, []byte(cueContent), 0644); writeErr != nil {
+		t.Fatalf("Failed to write invkfile: %v", writeErr)
 	}
 
 	inv, err := Parse(invkfilePath)
@@ -716,8 +716,8 @@ cmds: [
 	defer os.RemoveAll(tmpDir)
 
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
-	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invkfile: %v", err)
+	if writeErr := os.WriteFile(invkfilePath, []byte(cueContent), 0644); writeErr != nil {
+		t.Fatalf("Failed to write invkfile: %v", writeErr)
 	}
 
 	inv, err := Parse(invkfilePath)
@@ -800,8 +800,8 @@ cmds: [
 	defer os.RemoveAll(tmpDir)
 
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
-	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invkfile: %v", err)
+	if writeErr := os.WriteFile(invkfilePath, []byte(cueContent), 0644); writeErr != nil {
+		t.Fatalf("Failed to write invkfile: %v", writeErr)
 	}
 
 	inv, err := Parse(invkfilePath)
@@ -953,8 +953,8 @@ cmds: [
 	defer os.RemoveAll(tmpDir)
 
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
-	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invkfile: %v", err)
+	if writeErr := os.WriteFile(invkfilePath, []byte(cueContent), 0644); writeErr != nil {
+		t.Fatalf("Failed to write invkfile: %v", writeErr)
 	}
 
 	inv, err := Parse(invkfilePath)
@@ -1048,8 +1048,8 @@ cmds: [
 	defer os.RemoveAll(tmpDir)
 
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
-	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invkfile: %v", err)
+	if writeErr := os.WriteFile(invkfilePath, []byte(cueContent), 0644); writeErr != nil {
+		t.Fatalf("Failed to write invkfile: %v", writeErr)
 	}
 
 	inv, err := Parse(invkfilePath)
@@ -1108,8 +1108,8 @@ cmds: [
 	defer os.RemoveAll(tmpDir)
 
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
-	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invkfile: %v", err)
+	if writeErr := os.WriteFile(invkfilePath, []byte(cueContent), 0644); writeErr != nil {
+		t.Fatalf("Failed to write invkfile: %v", writeErr)
 	}
 
 	inv, err := Parse(invkfilePath)
@@ -1395,8 +1395,8 @@ cmds: [
 	defer os.RemoveAll(tmpDir)
 
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
-	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invkfile: %v", err)
+	if writeErr := os.WriteFile(invkfilePath, []byte(cueContent), 0644); writeErr != nil {
+		t.Fatalf("Failed to write invkfile: %v", writeErr)
 	}
 
 	inv, err := Parse(invkfilePath)
@@ -1470,8 +1470,8 @@ cmds: [
 	defer os.RemoveAll(tmpDir)
 
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
-	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invkfile: %v", err)
+	if writeErr := os.WriteFile(invkfilePath, []byte(cueContent), 0644); writeErr != nil {
+		t.Fatalf("Failed to write invkfile: %v", writeErr)
 	}
 
 	inv, err := Parse(invkfilePath)
@@ -1533,8 +1533,8 @@ cmds: [
 	defer os.RemoveAll(tmpDir)
 
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
-	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invkfile: %v", err)
+	if writeErr := os.WriteFile(invkfilePath, []byte(cueContent), 0644); writeErr != nil {
+		t.Fatalf("Failed to write invkfile: %v", writeErr)
 	}
 
 	inv, err := Parse(invkfilePath)
@@ -1593,8 +1593,8 @@ cmds: [
 	defer os.RemoveAll(tmpDir)
 
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
-	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invkfile: %v", err)
+	if writeErr := os.WriteFile(invkfilePath, []byte(cueContent), 0644); writeErr != nil {
+		t.Fatalf("Failed to write invkfile: %v", writeErr)
 	}
 
 	inv, err := Parse(invkfilePath)
@@ -1795,8 +1795,8 @@ cmds: [
 	defer os.RemoveAll(tmpDir)
 
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
-	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invkfile: %v", err)
+	if writeErr := os.WriteFile(invkfilePath, []byte(cueContent), 0644); writeErr != nil {
+		t.Fatalf("Failed to write invkfile: %v", writeErr)
 	}
 
 	_, err = Parse(invkfilePath)
@@ -1842,8 +1842,8 @@ cmds: [
 	defer os.RemoveAll(tmpDir)
 
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
-	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invkfile: %v", err)
+	if writeErr := os.WriteFile(invkfilePath, []byte(cueContent), 0644); writeErr != nil {
+		t.Fatalf("Failed to write invkfile: %v", writeErr)
 	}
 
 	_, err = Parse(invkfilePath)
@@ -1884,8 +1884,8 @@ cmds: [
 	defer os.RemoveAll(tmpDir)
 
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
-	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invkfile: %v", err)
+	if writeErr := os.WriteFile(invkfilePath, []byte(cueContent), 0644); writeErr != nil {
+		t.Fatalf("Failed to write invkfile: %v", writeErr)
 	}
 
 	_, err = Parse(invkfilePath)
@@ -1925,8 +1925,8 @@ cmds: [
 	defer os.RemoveAll(tmpDir)
 
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
-	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invkfile: %v", err)
+	if writeErr := os.WriteFile(invkfilePath, []byte(cueContent), 0644); writeErr != nil {
+		t.Fatalf("Failed to write invkfile: %v", writeErr)
 	}
 
 	_, err = Parse(invkfilePath)
@@ -1964,8 +1964,8 @@ cmds: [
 	defer os.RemoveAll(tmpDir)
 
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
-	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invkfile: %v", err)
+	if writeErr := os.WriteFile(invkfilePath, []byte(cueContent), 0644); writeErr != nil {
+		t.Fatalf("Failed to write invkfile: %v", writeErr)
 	}
 
 	inv, err := Parse(invkfilePath)
@@ -2116,8 +2116,8 @@ cmds: [
 	defer os.RemoveAll(tmpDir)
 
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
-	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invkfile: %v", err)
+	if writeErr := os.WriteFile(invkfilePath, []byte(cueContent), 0644); writeErr != nil {
+		t.Fatalf("Failed to write invkfile: %v", writeErr)
 	}
 
 	inv, err := Parse(invkfilePath)
@@ -2201,8 +2201,8 @@ cmds: [
 			defer os.RemoveAll(tmpDir)
 
 			invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
-			if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
-				t.Fatalf("Failed to write invkfile: %v", err)
+			if writeErr := os.WriteFile(invkfilePath, []byte(cueContent), 0644); writeErr != nil {
+				t.Fatalf("Failed to write invkfile: %v", writeErr)
 			}
 
 			_, err = Parse(invkfilePath)
@@ -2251,8 +2251,8 @@ cmds: [
 			defer os.RemoveAll(tmpDir)
 
 			invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
-			if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
-				t.Fatalf("Failed to write invkfile: %v", err)
+			if writeErr := os.WriteFile(invkfilePath, []byte(cueContent), 0644); writeErr != nil {
+				t.Fatalf("Failed to write invkfile: %v", writeErr)
 			}
 
 			inv, err := Parse(invkfilePath)
@@ -2292,8 +2292,8 @@ cmds: [
 	defer os.RemoveAll(tmpDir)
 
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
-	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invkfile: %v", err)
+	if writeErr := os.WriteFile(invkfilePath, []byte(cueContent), 0644); writeErr != nil {
+		t.Fatalf("Failed to write invkfile: %v", writeErr)
 	}
 
 	_, err = Parse(invkfilePath)
@@ -2327,8 +2327,8 @@ cmds: [
 	defer os.RemoveAll(tmpDir)
 
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
-	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invkfile: %v", err)
+	if writeErr := os.WriteFile(invkfilePath, []byte(cueContent), 0644); writeErr != nil {
+		t.Fatalf("Failed to write invkfile: %v", writeErr)
 	}
 
 	_, err = Parse(invkfilePath)
@@ -2416,8 +2416,8 @@ cmds: [
 	defer os.RemoveAll(tmpDir)
 
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
-	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invkfile: %v", err)
+	if writeErr := os.WriteFile(invkfilePath, []byte(cueContent), 0644); writeErr != nil {
+		t.Fatalf("Failed to write invkfile: %v", writeErr)
 	}
 
 	inv, err := Parse(invkfilePath)
@@ -2451,8 +2451,8 @@ cmds: [
 	defer os.RemoveAll(tmpDir)
 
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
-	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invkfile: %v", err)
+	if writeErr := os.WriteFile(invkfilePath, []byte(cueContent), 0644); writeErr != nil {
+		t.Fatalf("Failed to write invkfile: %v", writeErr)
 	}
 
 	inv, err := Parse(invkfilePath)
@@ -2460,7 +2460,7 @@ cmds: [
 		t.Fatalf("Parse() error = %v", err)
 	}
 
-	if inv.Commands[0].Flags != nil && len(inv.Commands[0].Flags) != 0 {
+	if len(inv.Commands[0].Flags) != 0 {
 		t.Errorf("Expected nil or empty flags, got %v", inv.Commands[0].Flags)
 	}
 }
@@ -2549,8 +2549,8 @@ cmds: [
 `
 	tmpDir := t.TempDir()
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
-	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invkfile: %v", err)
+	if writeErr := os.WriteFile(invkfilePath, []byte(cueContent), 0644); writeErr != nil {
+		t.Fatalf("Failed to write invkfile: %v", writeErr)
 	}
 
 	inv, err := Parse(invkfilePath)
@@ -2586,8 +2586,8 @@ cmds: [
 `
 	tmpDir := t.TempDir()
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
-	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invkfile: %v", err)
+	if writeErr := os.WriteFile(invkfilePath, []byte(cueContent), 0644); writeErr != nil {
+		t.Fatalf("Failed to write invkfile: %v", writeErr)
 	}
 
 	_, err := Parse(invkfilePath)
@@ -2663,8 +2663,8 @@ cmds: [
 `
 	tmpDir := t.TempDir()
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
-	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invkfile: %v", err)
+	if writeErr := os.WriteFile(invkfilePath, []byte(cueContent), 0644); writeErr != nil {
+		t.Fatalf("Failed to write invkfile: %v", writeErr)
 	}
 
 	inv, err := Parse(invkfilePath)
@@ -2697,8 +2697,8 @@ cmds: [
 `
 	tmpDir := t.TempDir()
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
-	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invkfile: %v", err)
+	if writeErr := os.WriteFile(invkfilePath, []byte(cueContent), 0644); writeErr != nil {
+		t.Fatalf("Failed to write invkfile: %v", writeErr)
 	}
 
 	_, err := Parse(invkfilePath)
@@ -2730,8 +2730,8 @@ cmds: [
 `
 	tmpDir := t.TempDir()
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
-	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invkfile: %v", err)
+	if writeErr := os.WriteFile(invkfilePath, []byte(cueContent), 0644); writeErr != nil {
+		t.Fatalf("Failed to write invkfile: %v", writeErr)
 	}
 
 	inv, err := Parse(invkfilePath)
@@ -2815,8 +2815,8 @@ cmds: [
 `
 	tmpDir := t.TempDir()
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
-	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invkfile: %v", err)
+	if writeErr := os.WriteFile(invkfilePath, []byte(cueContent), 0644); writeErr != nil {
+		t.Fatalf("Failed to write invkfile: %v", writeErr)
 	}
 
 	_, err := Parse(invkfilePath)
@@ -2847,8 +2847,8 @@ cmds: [
 `
 	tmpDir := t.TempDir()
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
-	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invkfile: %v", err)
+	if writeErr := os.WriteFile(invkfilePath, []byte(cueContent), 0644); writeErr != nil {
+		t.Fatalf("Failed to write invkfile: %v", writeErr)
 	}
 
 	inv, err := Parse(invkfilePath)
@@ -2881,8 +2881,8 @@ cmds: [
 `
 	tmpDir := t.TempDir()
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
-	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invkfile: %v", err)
+	if writeErr := os.WriteFile(invkfilePath, []byte(cueContent), 0644); writeErr != nil {
+		t.Fatalf("Failed to write invkfile: %v", writeErr)
 	}
 
 	_, err := Parse(invkfilePath)
@@ -2910,8 +2910,8 @@ cmds: [
 `
 	tmpDir := t.TempDir()
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
-	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invkfile: %v", err)
+	if writeErr := os.WriteFile(invkfilePath, []byte(cueContent), 0644); writeErr != nil {
+		t.Fatalf("Failed to write invkfile: %v", writeErr)
 	}
 
 	_, err := Parse(invkfilePath)
@@ -2939,8 +2939,8 @@ cmds: [
 `
 	tmpDir := t.TempDir()
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
-	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invkfile: %v", err)
+	if writeErr := os.WriteFile(invkfilePath, []byte(cueContent), 0644); writeErr != nil {
+		t.Fatalf("Failed to write invkfile: %v", writeErr)
 	}
 
 	inv, err := Parse(invkfilePath)
@@ -3144,8 +3144,8 @@ cmds: [
 `
 	tmpDir := t.TempDir()
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
-	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invkfile: %v", err)
+	if writeErr := os.WriteFile(invkfilePath, []byte(cueContent), 0644); writeErr != nil {
+		t.Fatalf("Failed to write invkfile: %v", writeErr)
 	}
 
 	inv, err := Parse(invkfilePath)
@@ -3223,8 +3223,8 @@ cmds: [
 `
 	tmpDir := t.TempDir()
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
-	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invkfile: %v", err)
+	if writeErr := os.WriteFile(invkfilePath, []byte(cueContent), 0644); writeErr != nil {
+		t.Fatalf("Failed to write invkfile: %v", writeErr)
 	}
 
 	inv, err := Parse(invkfilePath)
@@ -3341,8 +3341,8 @@ cmds: [
 `
 	tmpDir := t.TempDir()
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
-	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invkfile: %v", err)
+	if writeErr := os.WriteFile(invkfilePath, []byte(cueContent), 0644); writeErr != nil {
+		t.Fatalf("Failed to write invkfile: %v", writeErr)
 	}
 
 	inv, err := Parse(invkfilePath)
@@ -3380,8 +3380,8 @@ cmds: [
 `
 	tmpDir := t.TempDir()
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
-	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invkfile: %v", err)
+	if writeErr := os.WriteFile(invkfilePath, []byte(cueContent), 0644); writeErr != nil {
+		t.Fatalf("Failed to write invkfile: %v", writeErr)
 	}
 
 	inv, err := Parse(invkfilePath)
@@ -3424,8 +3424,8 @@ cmds: [
 `
 	tmpDir := t.TempDir()
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
-	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invkfile: %v", err)
+	if writeErr := os.WriteFile(invkfilePath, []byte(cueContent), 0644); writeErr != nil {
+		t.Fatalf("Failed to write invkfile: %v", writeErr)
 	}
 
 	inv, err := Parse(invkfilePath)
@@ -3551,8 +3551,8 @@ cmds: [
 `
 	tmpDir := t.TempDir()
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
-	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invkfile: %v", err)
+	if writeErr := os.WriteFile(invkfilePath, []byte(cueContent), 0644); writeErr != nil {
+		t.Fatalf("Failed to write invkfile: %v", writeErr)
 	}
 
 	_, err := Parse(invkfilePath)
@@ -3581,8 +3581,8 @@ cmds: [
 `
 	tmpDir := t.TempDir()
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
-	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invkfile: %v", err)
+	if writeErr := os.WriteFile(invkfilePath, []byte(cueContent), 0644); writeErr != nil {
+		t.Fatalf("Failed to write invkfile: %v", writeErr)
 	}
 
 	_, err := Parse(invkfilePath)
@@ -3614,8 +3614,8 @@ cmds: [
 `
 	tmpDir := t.TempDir()
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
-	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invkfile: %v", err)
+	if writeErr := os.WriteFile(invkfilePath, []byte(cueContent), 0644); writeErr != nil {
+		t.Fatalf("Failed to write invkfile: %v", writeErr)
 	}
 
 	_, err := Parse(invkfilePath)
@@ -3647,8 +3647,8 @@ cmds: [
 `
 	tmpDir := t.TempDir()
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
-	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invkfile: %v", err)
+	if writeErr := os.WriteFile(invkfilePath, []byte(cueContent), 0644); writeErr != nil {
+		t.Fatalf("Failed to write invkfile: %v", writeErr)
 	}
 
 	_, err := Parse(invkfilePath)
@@ -3679,8 +3679,8 @@ cmds: [
 `
 	tmpDir := t.TempDir()
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
-	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invkfile: %v", err)
+	if writeErr := os.WriteFile(invkfilePath, []byte(cueContent), 0644); writeErr != nil {
+		t.Fatalf("Failed to write invkfile: %v", writeErr)
 	}
 
 	_, err := Parse(invkfilePath)
@@ -3711,8 +3711,8 @@ cmds: [
 `
 	tmpDir := t.TempDir()
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
-	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invkfile: %v", err)
+	if writeErr := os.WriteFile(invkfilePath, []byte(cueContent), 0644); writeErr != nil {
+		t.Fatalf("Failed to write invkfile: %v", writeErr)
 	}
 
 	_, err := Parse(invkfilePath)
@@ -3784,8 +3784,8 @@ cmds: [
 `
 	tmpDir := t.TempDir()
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
-	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invkfile: %v", err)
+	if writeErr := os.WriteFile(invkfilePath, []byte(cueContent), 0644); writeErr != nil {
+		t.Fatalf("Failed to write invkfile: %v", writeErr)
 	}
 
 	_, err := Parse(invkfilePath)
@@ -3813,8 +3813,8 @@ cmds: [
 `
 	tmpDir := t.TempDir()
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
-	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invkfile: %v", err)
+	if writeErr := os.WriteFile(invkfilePath, []byte(cueContent), 0644); writeErr != nil {
+		t.Fatalf("Failed to write invkfile: %v", writeErr)
 	}
 
 	_, err := Parse(invkfilePath)
@@ -3956,8 +3956,8 @@ cmds: [
 `
 	tmpDir := t.TempDir()
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
-	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invkfile: %v", err)
+	if writeErr := os.WriteFile(invkfilePath, []byte(cueContent), 0644); writeErr != nil {
+		t.Fatalf("Failed to write invkfile: %v", writeErr)
 	}
 
 	inv, err := Parse(invkfilePath)
@@ -3986,8 +3986,8 @@ cmds: [
 `
 	tmpDir := t.TempDir()
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
-	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invkfile: %v", err)
+	if writeErr := os.WriteFile(invkfilePath, []byte(cueContent), 0644); writeErr != nil {
+		t.Fatalf("Failed to write invkfile: %v", writeErr)
 	}
 
 	inv, err := Parse(invkfilePath)
@@ -3995,7 +3995,7 @@ cmds: [
 		t.Fatalf("Parse() error = %v", err)
 	}
 
-	if inv.Commands[0].Args != nil && len(inv.Commands[0].Args) != 0 {
+	if len(inv.Commands[0].Args) != 0 {
 		t.Errorf("Expected nil or empty args, got %v", inv.Commands[0].Args)
 	}
 }
@@ -4038,8 +4038,8 @@ cmds: [
 `
 	tmpDir := t.TempDir()
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
-	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invkfile: %v", err)
+	if writeErr := os.WriteFile(invkfilePath, []byte(cueContent), 0644); writeErr != nil {
+		t.Fatalf("Failed to write invkfile: %v", writeErr)
 	}
 
 	inv, err := Parse(invkfilePath)
@@ -4242,8 +4242,8 @@ func TestGenerateCUE_WithArgs_RoundTrip(t *testing.T) {
 	// Write to temp file and parse back
 	tmpDir := t.TempDir()
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
-	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invkfile: %v", err)
+	if writeErr := os.WriteFile(invkfilePath, []byte(cueContent), 0644); writeErr != nil {
+		t.Fatalf("Failed to write invkfile: %v", writeErr)
 	}
 
 	parsed, err := Parse(invkfilePath)
@@ -4311,8 +4311,8 @@ cmds: [
 `
 	tmpDir := t.TempDir()
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
-	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invkfile: %v", err)
+	if writeErr := os.WriteFile(invkfilePath, []byte(cueContent), 0644); writeErr != nil {
+		t.Fatalf("Failed to write invkfile: %v", writeErr)
 	}
 
 	_, err := Parse(invkfilePath)
@@ -4381,8 +4381,8 @@ cmds: [
 `
 	tmpDir := t.TempDir()
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
-	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invkfile: %v", err)
+	if writeErr := os.WriteFile(invkfilePath, []byte(cueContent), 0644); writeErr != nil {
+		t.Fatalf("Failed to write invkfile: %v", writeErr)
 	}
 
 	_, err := Parse(invkfilePath)
@@ -4577,8 +4577,8 @@ cmds: [
 `
 	tmpDir := t.TempDir()
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
-	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invkfile: %v", err)
+	if writeErr := os.WriteFile(invkfilePath, []byte(cueContent), 0644); writeErr != nil {
+		t.Fatalf("Failed to write invkfile: %v", writeErr)
 	}
 
 	inv, err := Parse(invkfilePath)
@@ -4616,8 +4616,8 @@ cmds: [
 `
 	tmpDir := t.TempDir()
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
-	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invkfile: %v", err)
+	if writeErr := os.WriteFile(invkfilePath, []byte(cueContent), 0644); writeErr != nil {
+		t.Fatalf("Failed to write invkfile: %v", writeErr)
 	}
 
 	inv, err := Parse(invkfilePath)
@@ -4665,8 +4665,8 @@ cmds: [
 `
 	tmpDir := t.TempDir()
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
-	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invkfile: %v", err)
+	if writeErr := os.WriteFile(invkfilePath, []byte(cueContent), 0644); writeErr != nil {
+		t.Fatalf("Failed to write invkfile: %v", writeErr)
 	}
 
 	inv, err := Parse(invkfilePath)
@@ -4717,8 +4717,8 @@ cmds: [
 `
 	tmpDir := t.TempDir()
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
-	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invkfile: %v", err)
+	if writeErr := os.WriteFile(invkfilePath, []byte(cueContent), 0644); writeErr != nil {
+		t.Fatalf("Failed to write invkfile: %v", writeErr)
 	}
 
 	inv, err := Parse(invkfilePath)
@@ -4757,8 +4757,8 @@ cmds: [
 `
 	tmpDir := t.TempDir()
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
-	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invkfile: %v", err)
+	if writeErr := os.WriteFile(invkfilePath, []byte(cueContent), 0644); writeErr != nil {
+		t.Fatalf("Failed to write invkfile: %v", writeErr)
 	}
 
 	inv, err := Parse(invkfilePath)
@@ -4788,8 +4788,8 @@ cmds: [
 `
 	tmpDir := t.TempDir()
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
-	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invkfile: %v", err)
+	if writeErr := os.WriteFile(invkfilePath, []byte(cueContent), 0644); writeErr != nil {
+		t.Fatalf("Failed to write invkfile: %v", writeErr)
 	}
 
 	inv, err := Parse(invkfilePath)
@@ -4836,8 +4836,8 @@ cmds: [
 `
 	tmpDir := t.TempDir()
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
-	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invkfile: %v", err)
+	if writeErr := os.WriteFile(invkfilePath, []byte(cueContent), 0644); writeErr != nil {
+		t.Fatalf("Failed to write invkfile: %v", writeErr)
 	}
 
 	inv, err := Parse(invkfilePath)
@@ -4999,8 +4999,8 @@ cmds: [
 `
 	tmpDir := t.TempDir()
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
-	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invkfile: %v", err)
+	if writeErr := os.WriteFile(invkfilePath, []byte(cueContent), 0644); writeErr != nil {
+		t.Fatalf("Failed to write invkfile: %v", writeErr)
 	}
 
 	inv, err := Parse(invkfilePath)
@@ -5046,8 +5046,8 @@ cmds: [
 `
 	tmpDir := t.TempDir()
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
-	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invkfile: %v", err)
+	if writeErr := os.WriteFile(invkfilePath, []byte(cueContent), 0644); writeErr != nil {
+		t.Fatalf("Failed to write invkfile: %v", writeErr)
 	}
 
 	inv, err := Parse(invkfilePath)
@@ -5106,8 +5106,8 @@ cmds: [
 `
 	tmpDir := t.TempDir()
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
-	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invkfile: %v", err)
+	if writeErr := os.WriteFile(invkfilePath, []byte(cueContent), 0644); writeErr != nil {
+		t.Fatalf("Failed to write invkfile: %v", writeErr)
 	}
 
 	inv, err := Parse(invkfilePath)
@@ -5269,8 +5269,8 @@ cmds: [
 `
 	tmpDir := t.TempDir()
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
-	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invkfile: %v", err)
+	if writeErr := os.WriteFile(invkfilePath, []byte(cueContent), 0644); writeErr != nil {
+		t.Fatalf("Failed to write invkfile: %v", writeErr)
 	}
 
 	_, err := Parse(invkfilePath)
@@ -5302,8 +5302,8 @@ cmds: [
 `
 	tmpDir := t.TempDir()
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
-	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invkfile: %v", err)
+	if writeErr := os.WriteFile(invkfilePath, []byte(cueContent), 0644); writeErr != nil {
+		t.Fatalf("Failed to write invkfile: %v", writeErr)
 	}
 
 	_, err := Parse(invkfilePath)
@@ -5603,8 +5603,8 @@ cmds: [
 `
 	tmpDir := t.TempDir()
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
-	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invkfile: %v", err)
+	if writeErr := os.WriteFile(invkfilePath, []byte(cueContent), 0644); writeErr != nil {
+		t.Fatalf("Failed to write invkfile: %v", writeErr)
 	}
 
 	inv, err := Parse(invkfilePath)
@@ -5635,8 +5635,8 @@ cmds: [
 `
 	tmpDir := t.TempDir()
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
-	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invkfile: %v", err)
+	if writeErr := os.WriteFile(invkfilePath, []byte(cueContent), 0644); writeErr != nil {
+		t.Fatalf("Failed to write invkfile: %v", writeErr)
 	}
 
 	inv, err := Parse(invkfilePath)
@@ -5667,8 +5667,8 @@ cmds: [
 `
 	tmpDir := t.TempDir()
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
-	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invkfile: %v", err)
+	if writeErr := os.WriteFile(invkfilePath, []byte(cueContent), 0644); writeErr != nil {
+		t.Fatalf("Failed to write invkfile: %v", writeErr)
 	}
 
 	inv, err := Parse(invkfilePath)
@@ -5702,8 +5702,8 @@ cmds: [
 `
 	tmpDir := t.TempDir()
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
-	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invkfile: %v", err)
+	if writeErr := os.WriteFile(invkfilePath, []byte(cueContent), 0644); writeErr != nil {
+		t.Fatalf("Failed to write invkfile: %v", writeErr)
 	}
 
 	inv, err := Parse(invkfilePath)
@@ -5797,8 +5797,8 @@ func TestGenerateCUE_WithWorkDir_RoundTrip(t *testing.T) {
 	// Write to temp file and parse back
 	tmpDir := t.TempDir()
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
-	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invkfile: %v", err)
+	if writeErr := os.WriteFile(invkfilePath, []byte(cueContent), 0644); writeErr != nil {
+		t.Fatalf("Failed to write invkfile: %v", writeErr)
 	}
 
 	parsed, err := Parse(invkfilePath)
@@ -5847,8 +5847,8 @@ cmds: [
 	defer os.RemoveAll(tmpDir)
 
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
-	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invkfile: %v", err)
+	if writeErr := os.WriteFile(invkfilePath, []byte(cueContent), 0644); writeErr != nil {
+		t.Fatalf("Failed to write invkfile: %v", writeErr)
 	}
 
 	parsed, err := Parse(invkfilePath)
@@ -6126,8 +6126,8 @@ func TestGenerateCUE_WithRootLevelDependsOn(t *testing.T) {
 	defer os.RemoveAll(tmpDir)
 
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
-	if err := os.WriteFile(invkfilePath, []byte(result), 0644); err != nil {
-		t.Fatalf("Failed to write invkfile: %v", err)
+	if writeErr := os.WriteFile(invkfilePath, []byte(result), 0644); writeErr != nil {
+		t.Fatalf("Failed to write invkfile: %v", writeErr)
 	}
 
 	parsed, err := Parse(invkfilePath)
@@ -6244,8 +6244,8 @@ cmds: [
 	defer os.RemoveAll(tmpDir)
 
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
-	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invkfile: %v", err)
+	if writeErr := os.WriteFile(invkfilePath, []byte(cueContent), 0644); writeErr != nil {
+		t.Fatalf("Failed to write invkfile: %v", writeErr)
 	}
 
 	parsed, err := Parse(invkfilePath)
@@ -6312,8 +6312,8 @@ cmds: [
 	defer os.RemoveAll(tmpDir)
 
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
-	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invkfile: %v", err)
+	if writeErr := os.WriteFile(invkfilePath, []byte(cueContent), 0644); writeErr != nil {
+		t.Fatalf("Failed to write invkfile: %v", writeErr)
 	}
 
 	parsed, err := Parse(invkfilePath)
@@ -6368,8 +6368,8 @@ depends_on: {
 `
 	tmpDir := t.TempDir()
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
-	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invkfile: %v", err)
+	if writeErr := os.WriteFile(invkfilePath, []byte(cueContent), 0644); writeErr != nil {
+		t.Fatalf("Failed to write invkfile: %v", writeErr)
 	}
 
 	parsed, err := Parse(invkfilePath)
@@ -6407,8 +6407,8 @@ depends_on: {
 
 	tmpDir := t.TempDir()
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
-	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invkfile: %v", err)
+	if writeErr := os.WriteFile(invkfilePath, []byte(cueContent), 0644); writeErr != nil {
+		t.Fatalf("Failed to write invkfile: %v", writeErr)
 	}
 
 	_, err := Parse(invkfilePath)
@@ -6441,8 +6441,8 @@ depends_on: {
 `
 	tmpDir := t.TempDir()
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
-	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invkfile: %v", err)
+	if writeErr := os.WriteFile(invkfilePath, []byte(cueContent), 0644); writeErr != nil {
+		t.Fatalf("Failed to write invkfile: %v", writeErr)
 	}
 
 	_, err := Parse(invkfilePath)
@@ -6475,8 +6475,8 @@ cmds: [
 `
 	tmpDir := t.TempDir()
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
-	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invkfile: %v", err)
+	if writeErr := os.WriteFile(invkfilePath, []byte(cueContent), 0644); writeErr != nil {
+		t.Fatalf("Failed to write invkfile: %v", writeErr)
 	}
 
 	parsed, err := Parse(invkfilePath)
@@ -6510,8 +6510,8 @@ cmds: [
 `
 	tmpDir := t.TempDir()
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
-	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invkfile: %v", err)
+	if writeErr := os.WriteFile(invkfilePath, []byte(cueContent), 0644); writeErr != nil {
+		t.Fatalf("Failed to write invkfile: %v", writeErr)
 	}
 
 	_, err := Parse(invkfilePath)
@@ -6544,8 +6544,8 @@ cmds: [
 `
 	tmpDir := t.TempDir()
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
-	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invkfile: %v", err)
+	if writeErr := os.WriteFile(invkfilePath, []byte(cueContent), 0644); writeErr != nil {
+		t.Fatalf("Failed to write invkfile: %v", writeErr)
 	}
 
 	parsed, err := Parse(invkfilePath)
@@ -6583,8 +6583,8 @@ cmds: [
 
 	tmpDir := t.TempDir()
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
-	if err := os.WriteFile(invkfilePath, []byte(cueContent), 0644); err != nil {
-		t.Fatalf("Failed to write invkfile: %v", err)
+	if writeErr := os.WriteFile(invkfilePath, []byte(cueContent), 0644); writeErr != nil {
+		t.Fatalf("Failed to write invkfile: %v", writeErr)
 	}
 
 	_, err := Parse(invkfilePath)

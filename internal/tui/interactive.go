@@ -241,13 +241,13 @@ func (m *interactiveModel) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		case "ctrl+c", "q", "esc", "enter":
 			return m, tea.Quit
 		case "up", "k":
-			m.viewport.LineUp(1)
+			m.viewport.ScrollUp(1)
 		case "down", "j":
-			m.viewport.LineDown(1)
+			m.viewport.ScrollDown(1)
 		case "pgup", "b":
-			m.viewport.HalfViewUp()
+			m.viewport.HalfPageUp()
 		case "pgdown", "f", " ":
-			m.viewport.HalfViewDown()
+			m.viewport.HalfPageDown()
 		case "home", "g":
 			m.viewport.GotoTop()
 		case "end", "G":
@@ -640,7 +640,7 @@ func RunInteractiveCmd(ctx context.Context, opts InteractiveOptions, cmd *exec.C
 	defer pty.Close()
 
 	// Start the command on the PTY
-	if err := pty.Start(cmd); err != nil {
+	if err = pty.Start(cmd); err != nil {
 		return nil, fmt.Errorf("failed to start command on PTY: %w", err)
 	}
 
@@ -663,7 +663,7 @@ func RunInteractiveCmd(ctx context.Context, opts InteractiveOptions, cmd *exec.C
 	go func() {
 		buf := make([]byte, 4096)
 		for {
-			n, err := pty.Read(buf)
+			n, readErr := pty.Read(buf)
 			if n > 0 {
 				// Strip OSC sequences that don't function in the pager context
 				// and appear as visual garbage when fragmented across buffers.
@@ -672,8 +672,8 @@ func RunInteractiveCmd(ctx context.Context, opts InteractiveOptions, cmd *exec.C
 					p.Send(outputMsg{content: content})
 				}
 			}
-			if err != nil {
-				if err != io.EOF {
+			if readErr != nil {
+				if readErr != io.EOF {
 					// Log error but don't crash
 				}
 				break
@@ -684,18 +684,18 @@ func RunInteractiveCmd(ctx context.Context, opts InteractiveOptions, cmd *exec.C
 	// Wait for the command to complete in a goroutine
 	go func() {
 		startTime := time.Now()
-		err := xpty.WaitProcess(ctx, cmd)
+		waitErr := xpty.WaitProcess(ctx, cmd)
 		duration := time.Since(startTime)
 
 		result := InteractiveResult{
 			Duration: duration,
 		}
 
-		if err != nil {
-			if exitErr, ok := err.(*exec.ExitError); ok {
+		if waitErr != nil {
+			if exitErr, ok := waitErr.(*exec.ExitError); ok {
 				result.ExitCode = exitErr.ExitCode()
 			} else {
-				result.Error = err
+				result.Error = waitErr
 				result.ExitCode = 1
 			}
 		}

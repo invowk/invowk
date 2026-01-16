@@ -601,8 +601,8 @@ func setupTestInvkfile(t *testing.T) (string, *invkfile.Invkfile) {
 	}
 
 	baseTmpDir := filepath.Join(homeDir, "invowk-test")
-	if err := os.MkdirAll(baseTmpDir, 0755); err != nil {
-		t.Fatalf("Failed to create base temp dir: %v", err)
+	if mkdirErr := os.MkdirAll(baseTmpDir, 0755); mkdirErr != nil {
+		t.Fatalf("Failed to create base temp dir: %v", mkdirErr)
 	}
 
 	tmpDir, err := os.MkdirTemp(baseTmpDir, "container-test-*")

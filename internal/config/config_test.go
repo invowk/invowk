@@ -392,7 +392,7 @@ func TestCreateDefaultConfig(t *testing.T) {
 
 	// Check that file was created
 	expectedPath := filepath.Join(configDir, ConfigFileName+"."+ConfigFileExt)
-	if _, err := os.Stat(expectedPath); os.IsNotExist(err) {
+	if _, statErr := os.Stat(expectedPath); os.IsNotExist(statErr) {
 		t.Errorf("CreateDefaultConfig() did not create file at %s", expectedPath)
 	}
 

@@ -148,7 +148,7 @@ func (p *LayerProvisioner) buildProvisionedImage(ctx context.Context, baseImage,
 	// Verify Dockerfile exists
 	dockerfilePath := filepath.Join(buildCtx, "Dockerfile")
 	if _, err := os.Stat(dockerfilePath); os.IsNotExist(err) {
-		return fmt.Errorf("Dockerfile not found in build context: %s", dockerfilePath)
+		return fmt.Errorf("dockerfile not found in build context: %s", dockerfilePath)
 	}
 
 	// Build the image
@@ -269,14 +269,14 @@ func (p *LayerProvisioner) generateDockerfile(baseImage string) string {
 	// Copy invowk binary
 	if p.config.InvowkBinaryPath != "" {
 		binaryPath := p.config.BinaryMountPath
-		sb.WriteString(fmt.Sprintf("# Install invowk binary\n"))
+		sb.WriteString("# Install invowk binary\n")
 		sb.WriteString(fmt.Sprintf("COPY invowk %s/invowk\n", binaryPath))
 		sb.WriteString(fmt.Sprintf("RUN chmod +x %s/invowk\n\n", binaryPath))
 	}
 
 	// Copy packs
 	packsPath := p.config.PacksMountPath
-	sb.WriteString(fmt.Sprintf("# Install packs\n"))
+	sb.WriteString("# Install packs\n")
 	sb.WriteString(fmt.Sprintf("COPY packs/ %s/\n\n", packsPath))
 
 	// Set environment variables

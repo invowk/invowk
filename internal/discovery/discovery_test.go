@@ -1148,7 +1148,7 @@ func TestCheckPackCollisions(t *testing.T) {
 		cfg.PackAliases = map[string]string{
 			"/path/to/pack1": "io.example.alias1",
 		}
-		d := New(cfg)
+		dAlias := New(cfg)
 
 		files := []*DiscoveredFile{
 			{
@@ -1161,7 +1161,7 @@ func TestCheckPackCollisions(t *testing.T) {
 			},
 		}
 
-		err := d.CheckPackCollisions(files)
+		err := dAlias.CheckPackCollisions(files)
 		if err != nil {
 			t.Errorf("CheckPackCollisions() should not return error when alias resolves collision: %v", err)
 		}

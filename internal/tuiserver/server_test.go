@@ -28,8 +28,8 @@ func TestServerStartStop(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	if err := server.Start(ctx); err != nil {
-		t.Fatalf("Failed to start server: %v", err)
+	if startErr := server.Start(ctx); startErr != nil {
+		t.Fatalf("Failed to start server: %v", startErr)
 	}
 
 	// State should be Running
@@ -83,8 +83,8 @@ func TestServerDoubleStart(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	if err := server.Start(ctx); err != nil {
-		t.Fatalf("Failed to start server: %v", err)
+	if startErr := server.Start(ctx); startErr != nil {
+		t.Fatalf("Failed to start server: %v", startErr)
 	}
 	defer server.Stop()
 
@@ -102,18 +102,18 @@ func TestServerDoubleStop(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	if err := server.Start(ctx); err != nil {
-		t.Fatalf("Failed to start server: %v", err)
+	if startErr := server.Start(ctx); startErr != nil {
+		t.Fatalf("Failed to start server: %v", startErr)
 	}
 
 	// First Stop() should succeed
-	if err := server.Stop(); err != nil {
-		t.Fatalf("First Stop() failed: %v", err)
+	if stopErr := server.Stop(); stopErr != nil {
+		t.Fatalf("First Stop() failed: %v", stopErr)
 	}
 
 	// Second Stop() should be no-op (not error)
-	if err := server.Stop(); err != nil {
-		t.Errorf("Second Stop() should not error, got: %v", err)
+	if stopErr := server.Stop(); stopErr != nil {
+		t.Errorf("Second Stop() should not error, got: %v", stopErr)
 	}
 }
 
@@ -124,7 +124,7 @@ func TestStopWithoutStart(t *testing.T) {
 	}
 
 	// Stop without Start should be safe
-	if err := server.Stop(); err != nil {
+	if stopErr := server.Stop(); stopErr != nil {
 		t.Errorf("Stop without Start should not error, got: %v", err)
 	}
 
@@ -184,8 +184,8 @@ func TestServerAuthentication(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	if err := server.Start(ctx); err != nil {
-		t.Fatalf("Failed to start server: %v", err)
+	if startErr := server.Start(ctx); startErr != nil {
+		t.Fatalf("Failed to start server: %v", startErr)
 	}
 	defer server.Stop()
 
@@ -234,8 +234,8 @@ func TestServerMethodNotAllowed(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	if err := server.Start(ctx); err != nil {
-		t.Fatalf("Failed to start server: %v", err)
+	if startErr := server.Start(ctx); startErr != nil {
+		t.Fatalf("Failed to start server: %v", startErr)
 	}
 	defer server.Stop()
 
@@ -258,8 +258,8 @@ func TestServerUnknownComponent(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	if err := server.Start(ctx); err != nil {
-		t.Fatalf("Failed to start server: %v", err)
+	if startErr := server.Start(ctx); startErr != nil {
+		t.Fatalf("Failed to start server: %v", startErr)
 	}
 	defer server.Stop()
 
@@ -315,8 +315,8 @@ func TestServerInvalidJSON(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	if err := server.Start(ctx); err != nil {
-		t.Fatalf("Failed to start server: %v", err)
+	if startErr := server.Start(ctx); startErr != nil {
+		t.Fatalf("Failed to start server: %v", startErr)
 	}
 	defer server.Stop()
 

@@ -159,10 +159,9 @@ func (f *GitFetcher) Fetch(ctx context.Context, gitURL, version string) (string,
 		}
 	} else {
 		// Repository exists, fetch updates
-		if err := f.fetch(ctx, repo); err != nil {
-			// Fetch might fail for various reasons, log but continue
-			// The version might already be available locally
-		}
+		// Fetch might fail for various reasons (network, permissions), but continue
+		// since the version might already be available locally
+		_ = f.fetch(ctx, repo)
 	}
 
 	// Checkout the specified version

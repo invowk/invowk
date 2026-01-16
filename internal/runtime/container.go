@@ -186,7 +186,7 @@ func (r *ContainerRuntime) Execute(ctx *ExecutionContext) *Result {
 	if isWindowsContainerImage(image) {
 		return &Result{
 			ExitCode: 1,
-			Error: fmt.Errorf("Windows container images are not supported. The container runtime requires Linux-based images (e.g., debian:stable-slim). See https://invowk.io/docs/runtime-modes/container for details"),
+			Error:    fmt.Errorf("windows container images are not supported; the container runtime requires Linux-based images (e.g., debian:stable-slim); see https://invowk.io/docs/runtime-modes/container for details"),
 		}
 	}
 
@@ -352,7 +352,7 @@ func (r *ContainerRuntime) PrepareCommand(ctx *ExecutionContext) (*PreparedComma
 		if provisionCleanup != nil {
 			provisionCleanup()
 		}
-		return nil, fmt.Errorf("Windows container images are not supported. The container runtime requires Linux-based images (e.g., debian:stable-slim). See https://invowk.io/docs/runtime-modes/container for details")
+		return nil, fmt.Errorf("windows container images are not supported; the container runtime requires Linux-based images (e.g., debian:stable-slim); see https://invowk.io/docs/runtime-modes/container for details")
 	}
 
 	// Build environment

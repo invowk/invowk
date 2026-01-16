@@ -780,7 +780,7 @@ func runCommandWithFlags(cmdName string, args []string, flagValues map[string]st
 	ctx.ExtraEnv["ARGC"] = fmt.Sprintf("%d", len(args))
 
 	// Add arguments as INVOWK_ARG_* environment variables (new format)
-	if argDefs != nil && len(argDefs) > 0 {
+	if len(argDefs) > 0 {
 		for i, argDef := range argDefs {
 			envName := ArgNameToEnvVar(argDef.Name)
 
@@ -897,7 +897,7 @@ func executeInteractive(ctx *runtime.ExecutionContext, registry *runtime.Registr
 		return &runtime.Result{ExitCode: 1, Error: fmt.Errorf("failed to create TUI server: %w", err)}
 	}
 
-	if err := tuiServer.Start(context.Background()); err != nil {
+	if err = tuiServer.Start(context.Background()); err != nil {
 		return &runtime.Result{ExitCode: 1, Error: fmt.Errorf("failed to start TUI server: %w", err)}
 	}
 	defer tuiServer.Stop()
@@ -1733,14 +1733,6 @@ func validateSingleFilepath(displayPath string, resolvedPath string, fp invkfile
 	}
 
 	return nil
-}
-
-// validateFilepath is deprecated - use validateFilepathAlternatives instead
-func validateFilepath(fp invkfile.FilepathDependency, resolvedPath string) error {
-	if len(fp.Alternatives) == 0 {
-		return fmt.Errorf("  • (no paths specified) - at least one path must be provided in alternatives")
-	}
-	return validateSingleFilepath(fp.Alternatives[0], resolvedPath, fp)
 }
 
 // isReadable checks if a path is readable (cross-platform)

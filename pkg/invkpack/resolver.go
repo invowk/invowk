@@ -486,7 +486,7 @@ func (m *Resolver) resolveOne(ctx context.Context, req PackRef, _ map[string]boo
 
 	// Cache the pack in the versioned directory
 	cachePath := m.getCachePath(req.GitURL, resolvedVersion, req.Path)
-	if err := m.cacheModule(packDir, cachePath); err != nil {
+	if err = m.cacheModule(packDir, cachePath); err != nil {
 		return nil, fmt.Errorf("failed to cache pack: %w", err)
 	}
 
@@ -665,7 +665,7 @@ func copyDir(src, dst string) error {
 		return err
 	}
 
-	if err := os.MkdirAll(dst, srcInfo.Mode()); err != nil {
+	if err = os.MkdirAll(dst, srcInfo.Mode()); err != nil {
 		return err
 	}
 

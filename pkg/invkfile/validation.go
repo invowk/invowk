@@ -35,20 +35,6 @@ const (
 	MaxGitURLLength = 2048
 )
 
-// dangerousPatterns contains regex patterns that are known to cause catastrophic backtracking
-var dangerousPatterns = []string{
-	// Nested quantifiers on overlapping patterns
-	`(\w+)+`,
-	`(a+)+`,
-	`(a*)*`,
-	`(a+)*`,
-	`(.*)+`,
-	`(.+)+`,
-	// Alternation with overlapping patterns and quantifiers
-	`(a|a)+`,
-	`(a|aa)+`,
-}
-
 // ValidateRegexPattern validates a user-provided regex pattern for safety and complexity.
 // It checks for:
 // - Pattern length limits

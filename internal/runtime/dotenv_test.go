@@ -426,13 +426,13 @@ func TestLoadEnvFileFromCwd(t *testing.T) {
 
 	// Create temp directory and change to it
 	tmpDir := t.TempDir()
-	if err := os.Chdir(tmpDir); err != nil {
-		t.Fatalf("failed to change directory: %v", err)
+	if chdirErr := os.Chdir(tmpDir); chdirErr != nil {
+		t.Fatalf("failed to change directory: %v", chdirErr)
 	}
 
 	// Create .env file in temp directory
-	if err := os.WriteFile(filepath.Join(tmpDir, ".env"), []byte("CWD_VAR=hello"), 0644); err != nil {
-		t.Fatalf("failed to create test file: %v", err)
+	if writeErr := os.WriteFile(filepath.Join(tmpDir, ".env"), []byte("CWD_VAR=hello"), 0644); writeErr != nil {
+		t.Fatalf("failed to create test file: %v", writeErr)
 	}
 
 	env := make(map[string]string)

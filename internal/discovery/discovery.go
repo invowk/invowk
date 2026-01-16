@@ -158,12 +158,12 @@ func (d *Discovery) discoverInDirRecursive(dir string, source Source) []*Discove
 	}
 
 	// Check if directory exists
-	if _, err := os.Stat(absDir); os.IsNotExist(err) {
+	if _, statErr := os.Stat(absDir); os.IsNotExist(statErr) {
 		return files
 	}
 
-	err = filepath.WalkDir(absDir, func(path string, d os.DirEntry, err error) error {
-		if err != nil {
+	err = filepath.WalkDir(absDir, func(path string, d os.DirEntry, walkErr error) error {
+		if walkErr != nil {
 			return nil // Skip errors
 		}
 
@@ -197,7 +197,7 @@ func (d *Discovery) discoverPacksInDir(dir string) []*DiscoveredFile {
 	}
 
 	// Check if directory exists
-	if _, err := os.Stat(absDir); os.IsNotExist(err) {
+	if _, statErr := os.Stat(absDir); os.IsNotExist(statErr) {
 		return files
 	}
 

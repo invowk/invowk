@@ -675,7 +675,7 @@ func runPackAliasSet(cmd *cobra.Command, args []string) error {
 	}
 
 	// Verify the path exists and is a valid pack or invkfile
-	if _, err := os.Stat(absPath); os.IsNotExist(err) {
+	if _, statErr := os.Stat(absPath); os.IsNotExist(statErr) {
 		return fmt.Errorf("path does not exist: %s", absPath)
 	}
 
@@ -715,7 +715,7 @@ func runPackAliasList(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to load config: %w", err)
 	}
 
-	if cfg.PackAliases == nil || len(cfg.PackAliases) == 0 {
+	if len(cfg.PackAliases) == 0 {
 		fmt.Printf("%s No aliases configured\n", packWarningIcon)
 		fmt.Println()
 		fmt.Printf("%s To set an alias: %s\n", packInfoIcon, cmdStyle.Render("invowk pack alias set <path> <alias>"))
@@ -795,11 +795,9 @@ func runPackVendor(cmd *cobra.Command, args []string) error {
 
 	// Find invkfile
 	invkfilePath := filepath.Join(absPath, "invkfile.cue")
-	if _, err := os.Stat(invkfilePath); os.IsNotExist(err) {
+	if _, statErr := os.Stat(invkfilePath); os.IsNotExist(statErr) {
 		// Maybe it's a pack directory
-		if invkpack.IsPack(absPath) {
-			invkfilePath = filepath.Join(absPath, "invkfile.cue")
-		} else {
+		if !invkpack.IsPack(absPath) {
 			return fmt.Errorf("no invkfile.cue found in %s", absPath)
 		}
 	}
@@ -1104,12 +1102,7 @@ func extractPackRequirementsFromMetadata(meta *invkfile.Invkpack) []invkpack.Pac
 	}
 
 	for _, r := range meta.Requires {
-		reqs = append(reqs, invkpack.PackRef{
-			GitURL:  r.GitURL,
-			Version: r.Version,
-			Alias:   r.Alias,
-			Path:    r.Path,
-		})
+		reqs = append(reqs, invkpack.PackRef(r))
 	}
 
 	return reqs

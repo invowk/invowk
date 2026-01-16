@@ -179,8 +179,8 @@ func Validate(packPath string) (*ValidationResult, error) {
 		if d.Type()&os.ModeSymlink != 0 {
 			relPath, _ := filepath.Rel(absPath, path)
 			// Check if symlink points outside the pack
-			linkTarget, err := os.Readlink(path)
-			if err != nil {
+			linkTarget, readErr := os.Readlink(path)
+			if readErr != nil {
 				result.AddIssue("security", "cannot read symlink target", relPath)
 			} else {
 				// Resolve the symlink target relative to its location
@@ -192,8 +192,8 @@ func Validate(packPath string) (*ValidationResult, error) {
 				}
 				// Clean and resolve to check if it escapes
 				resolvedTarget = filepath.Clean(resolvedTarget)
-				relToRoot, err := filepath.Rel(absPath, resolvedTarget)
-				if err != nil || strings.HasPrefix(relToRoot, "..") {
+				relToRoot, relErr := filepath.Rel(absPath, resolvedTarget)
+				if relErr != nil || strings.HasPrefix(relToRoot, "..") {
 					result.AddIssue("security", fmt.Sprintf("symlink points outside pack directory (target: %s)", linkTarget), relPath)
 				} else {
 					// Even internal symlinks are a potential security concern during archive extraction
@@ -439,9 +439,9 @@ func Archive(packPath, outputPath string) (string, error) {
 		}
 
 		// Get relative path from pack root
-		relPath, err := filepath.Rel(b.Path, path)
-		if err != nil {
-			return fmt.Errorf("failed to get relative path: %w", err)
+		relPath, relErr := filepath.Rel(b.Path, path)
+		if relErr != nil {
+			return fmt.Errorf("failed to get relative path: %w", relErr)
 		}
 
 		// Create ZIP path with pack directory as root
@@ -452,43 +452,43 @@ func Archive(packPath, outputPath string) (string, error) {
 		if d.IsDir() {
 			// Add directory entry
 			if relPath != "." {
-				_, err := zipWriter.Create(zipPath + "/")
-				if err != nil {
-					return fmt.Errorf("failed to create directory entry: %w", err)
+				_, createErr := zipWriter.Create(zipPath + "/")
+				if createErr != nil {
+					return fmt.Errorf("failed to create directory entry: %w", createErr)
 				}
 			}
 			return nil
 		}
 
 		// Read file contents
-		fileData, err := os.ReadFile(path)
-		if err != nil {
-			return fmt.Errorf("failed to read file %s: %w", path, err)
+		fileData, readErr := os.ReadFile(path)
+		if readErr != nil {
+			return fmt.Errorf("failed to read file %s: %w", path, readErr)
 		}
 
 		// Get file info for permissions
-		fileInfo, err := d.Info()
-		if err != nil {
-			return fmt.Errorf("failed to get file info: %w", err)
+		fileInfo, infoErr := d.Info()
+		if infoErr != nil {
+			return fmt.Errorf("failed to get file info: %w", infoErr)
 		}
 
 		// Create file header with proper attributes
-		header, err := zip.FileInfoHeader(fileInfo)
-		if err != nil {
-			return fmt.Errorf("failed to create file header: %w", err)
+		header, headerErr := zip.FileInfoHeader(fileInfo)
+		if headerErr != nil {
+			return fmt.Errorf("failed to create file header: %w", headerErr)
 		}
 		header.Name = zipPath
 		header.Method = zip.Deflate
 
 		// Create file in ZIP
-		writer, err := zipWriter.CreateHeader(header)
-		if err != nil {
-			return fmt.Errorf("failed to create ZIP entry: %w", err)
+		writer, writerErr := zipWriter.CreateHeader(header)
+		if writerErr != nil {
+			return fmt.Errorf("failed to create ZIP entry: %w", writerErr)
 		}
 
-		_, err = writer.Write(fileData)
-		if err != nil {
-			return fmt.Errorf("failed to write file data: %w", err)
+		_, writeErr := writer.Write(fileData)
+		if writeErr != nil {
+			return fmt.Errorf("failed to write file data: %w", writeErr)
 		}
 
 		return nil
@@ -539,7 +539,7 @@ func Unpack(opts UnpackOptions) (string, error) {
 	}
 
 	// Ensure destination exists
-	if err := os.MkdirAll(absDestDir, 0755); err != nil {
+	if err = os.MkdirAll(absDestDir, 0755); err != nil {
 		return "", fmt.Errorf("failed to create destination directory: %w", err)
 	}
 
@@ -548,7 +548,8 @@ func Unpack(opts UnpackOptions) (string, error) {
 	var cleanup func()
 	if strings.HasPrefix(opts.Source, "http://") || strings.HasPrefix(opts.Source, "https://") {
 		// Download the file
-		tmpFile, err := downloadFile(opts.Source)
+		var tmpFile string
+		tmpFile, err = downloadFile(opts.Source)
 		if err != nil {
 			return "", fmt.Errorf("failed to download pack: %w", err)
 		}
@@ -588,12 +589,12 @@ func Unpack(opts UnpackOptions) (string, error) {
 
 	// Check if pack already exists
 	packPath := filepath.Join(absDestDir, packRoot)
-	if _, err := os.Stat(packPath); err == nil {
+	if _, statErr := os.Stat(packPath); statErr == nil {
 		if !opts.Overwrite {
 			return "", fmt.Errorf("pack already exists at %s (use overwrite option to replace)", packPath)
 		}
 		// Remove existing pack
-		if err := os.RemoveAll(packPath); err != nil {
+		if err = os.RemoveAll(packPath); err != nil {
 			return "", fmt.Errorf("failed to remove existing pack: %w", err)
 		}
 	}
@@ -609,28 +610,28 @@ func Unpack(opts UnpackOptions) (string, error) {
 		destPath := filepath.Join(absDestDir, filepath.FromSlash(file.Name))
 
 		// Validate path doesn't escape destination (security check)
-		relPath, err := filepath.Rel(absDestDir, destPath)
-		if err != nil || strings.HasPrefix(relPath, "..") {
+		relPath, relErr := filepath.Rel(absDestDir, destPath)
+		if relErr != nil || strings.HasPrefix(relPath, "..") {
 			return "", fmt.Errorf("invalid path in ZIP: %s", file.Name)
 		}
 
 		if file.FileInfo().IsDir() {
 			// Create directory
-			if err := os.MkdirAll(destPath, file.Mode()); err != nil {
-				return "", fmt.Errorf("failed to create directory: %w", err)
+			if mkdirErr := os.MkdirAll(destPath, file.Mode()); mkdirErr != nil {
+				return "", fmt.Errorf("failed to create directory: %w", mkdirErr)
 			}
 			continue
 		}
 
 		// Create parent directory if needed
 		parentDir := filepath.Dir(destPath)
-		if err := os.MkdirAll(parentDir, 0755); err != nil {
-			return "", fmt.Errorf("failed to create parent directory: %w", err)
+		if mkdirErr := os.MkdirAll(parentDir, 0755); mkdirErr != nil {
+			return "", fmt.Errorf("failed to create parent directory: %w", mkdirErr)
 		}
 
 		// Extract file
-		if err := extractFile(file, destPath); err != nil {
-			return "", fmt.Errorf("failed to extract %s: %w", file.Name, err)
+		if extractErr := extractFile(file, destPath); extractErr != nil {
+			return "", fmt.Errorf("failed to extract %s: %w", file.Name, extractErr)
 		}
 	}
 

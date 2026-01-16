@@ -130,7 +130,7 @@ func initConfig() error {
 		return err
 	}
 
-	if err := config.CreateDefaultConfig(); err != nil {
+	if err = config.CreateDefaultConfig(); err != nil {
 		return fmt.Errorf("failed to create config: %w", err)
 	}
 

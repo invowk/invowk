@@ -5,6 +5,7 @@ package cmd
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -107,10 +108,11 @@ func runInternalExecVirtual(cmd *cobra.Command, args []string) error {
 	// Execute the script
 	ctx := context.Background()
 	if err := runner.Run(ctx, prog); err != nil {
-		if status, ok := interp.IsExitStatus(err); ok {
+		var exitStatus interp.ExitStatus
+		if errors.As(err, &exitStatus) {
 			cmd.SilenceErrors = true
 			cmd.SilenceUsage = true
-			return &ExitError{Code: int(status)}
+			return &ExitError{Code: int(exitStatus)}
 		}
 		fmt.Fprintf(os.Stderr, "Error executing script: %v\n", err)
 		cmd.SilenceErrors = true
@@ -128,9 +130,7 @@ func buildVirtualEnv(envVars []string, envJSON string) ([]string, error) {
 	env := os.Environ()
 
 	// Add env vars from --env flags
-	for _, e := range envVars {
-		env = append(env, e)
-	}
+	env = append(env, envVars...)
 
 	// Add env vars from --env-json (JSON object format)
 	if envJSON != "" {

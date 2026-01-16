@@ -46,8 +46,7 @@ type FilterOptions struct {
 
 // filterItem implements list.Item for the bubbles list component.
 type filterItem struct {
-	text     string
-	selected bool
+	text string
 }
 
 func (i filterItem) Title() string       { return i.text }
@@ -60,7 +59,6 @@ type filterModel struct {
 	list      list.Model
 	items     []filterItem
 	options   []string
-	query     string
 	selected  map[int]bool
 	limit     int
 	noLimit   bool
