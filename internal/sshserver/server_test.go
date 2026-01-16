@@ -3,15 +3,13 @@
 package sshserver
 
 import (
+	"context"
 	"testing"
 	"time"
 )
 
 func TestGenerateToken(t *testing.T) {
-	srv, err := New(DefaultConfig())
-	if err != nil {
-		t.Fatalf("Failed to create server: %v", err)
-	}
+	srv := New(DefaultConfig())
 
 	token, err := srv.GenerateToken("test-command")
 	if err != nil {
@@ -30,10 +28,7 @@ func TestGenerateToken(t *testing.T) {
 }
 
 func TestValidateToken(t *testing.T) {
-	srv, err := New(DefaultConfig())
-	if err != nil {
-		t.Fatalf("Failed to create server: %v", err)
-	}
+	srv := New(DefaultConfig())
 
 	token, err := srv.GenerateToken("test-command")
 	if err != nil {
@@ -57,10 +52,7 @@ func TestValidateToken(t *testing.T) {
 }
 
 func TestRevokeToken(t *testing.T) {
-	srv, err := New(DefaultConfig())
-	if err != nil {
-		t.Fatalf("Failed to create server: %v", err)
-	}
+	srv := New(DefaultConfig())
 
 	token, err := srv.GenerateToken("test-command")
 	if err != nil {
@@ -84,10 +76,7 @@ func TestRevokeToken(t *testing.T) {
 }
 
 func TestRevokeTokensForCommand(t *testing.T) {
-	srv, err := New(DefaultConfig())
-	if err != nil {
-		t.Fatalf("Failed to create server: %v", err)
-	}
+	srv := New(DefaultConfig())
 
 	// Generate multiple tokens for same command
 	token1, _ := srv.GenerateToken("command-1")
@@ -126,17 +115,25 @@ func TestServerStartStop(t *testing.T) {
 	cfg := DefaultConfig()
 	cfg.Port = 0 // Auto-select port
 
-	srv, err := New(cfg)
-	if err != nil {
-		t.Fatalf("Failed to create server: %v", err)
+	srv := New(cfg)
+
+	// Initial state should be Created
+	if srv.State() != StateCreated {
+		t.Errorf("State should be Created, got %s", srv.State())
 	}
 
 	if srv.IsRunning() {
 		t.Error("Server should not be running before Start()")
 	}
 
-	if err := srv.Start(); err != nil {
+	ctx := context.Background()
+	if err := srv.Start(ctx); err != nil {
 		t.Fatalf("Failed to start server: %v", err)
+	}
+
+	// State should be Running
+	if srv.State() != StateRunning {
+		t.Errorf("State should be Running, got %s", srv.State())
 	}
 
 	if !srv.IsRunning() {
@@ -147,8 +144,17 @@ func TestServerStartStop(t *testing.T) {
 		t.Error("Server port should be assigned")
 	}
 
+	if srv.Address() == "" {
+		t.Error("Server address should not be empty")
+	}
+
 	if err := srv.Stop(); err != nil {
 		t.Fatalf("Failed to stop server: %v", err)
+	}
+
+	// State should be Stopped
+	if srv.State() != StateStopped {
+		t.Errorf("State should be Stopped, got %s", srv.State())
 	}
 
 	if srv.IsRunning() {
@@ -156,22 +162,61 @@ func TestServerStartStop(t *testing.T) {
 	}
 }
 
+func TestServerDoubleStart(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.Port = 0
+
+	srv := New(cfg)
+
+	ctx := context.Background()
+	if err := srv.Start(ctx); err != nil {
+		t.Fatalf("Failed to start server: %v", err)
+	}
+	defer srv.Stop()
+
+	// Second Start() should fail
+	err := srv.Start(ctx)
+	if err == nil {
+		t.Error("Second Start() should return error")
+	}
+}
+
+func TestServerDoubleStop(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.Port = 0
+
+	srv := New(cfg)
+
+	ctx := context.Background()
+	if err := srv.Start(ctx); err != nil {
+		t.Fatalf("Failed to start server: %v", err)
+	}
+
+	// First Stop() should succeed
+	if err := srv.Stop(); err != nil {
+		t.Fatalf("First Stop() failed: %v", err)
+	}
+
+	// Second Stop() should be no-op (not error)
+	if err := srv.Stop(); err != nil {
+		t.Errorf("Second Stop() should not error, got: %v", err)
+	}
+}
+
 func TestGetConnectionInfo(t *testing.T) {
 	cfg := DefaultConfig()
 	cfg.Port = 0
 
-	srv, err := New(cfg)
-	if err != nil {
-		t.Fatalf("Failed to create server: %v", err)
-	}
+	srv := New(cfg)
 
 	// Should fail before server starts
-	_, err = srv.GetConnectionInfo("test")
+	_, err := srv.GetConnectionInfo("test")
 	if err == nil {
 		t.Error("GetConnectionInfo should fail when server is not running")
 	}
 
-	if err := srv.Start(); err != nil {
+	ctx := context.Background()
+	if err := srv.Start(ctx); err != nil {
 		t.Fatalf("Failed to start server: %v", err)
 	}
 	defer srv.Stop()
@@ -200,10 +245,7 @@ func TestExpiredToken(t *testing.T) {
 	cfg := DefaultConfig()
 	cfg.TokenTTL = 1 * time.Millisecond // Very short TTL
 
-	srv, err := New(cfg)
-	if err != nil {
-		t.Fatalf("Failed to create server: %v", err)
-	}
+	srv := New(cfg)
 
 	token, err := srv.GenerateToken("test-command")
 	if err != nil {
@@ -219,3 +261,93 @@ func TestExpiredToken(t *testing.T) {
 		t.Error("Expired token should not be valid")
 	}
 }
+
+func TestServerState(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.Port = 0
+
+	srv := New(cfg)
+
+	// Test state transitions
+	if srv.State() != StateCreated {
+		t.Errorf("Initial state should be Created, got %s", srv.State())
+	}
+
+	ctx := context.Background()
+	if err := srv.Start(ctx); err != nil {
+		t.Fatalf("Failed to start: %v", err)
+	}
+
+	if srv.State() != StateRunning {
+		t.Errorf("State after Start should be Running, got %s", srv.State())
+	}
+
+	if err := srv.Stop(); err != nil {
+		t.Fatalf("Failed to stop: %v", err)
+	}
+
+	if srv.State() != StateStopped {
+		t.Errorf("State after Stop should be Stopped, got %s", srv.State())
+	}
+}
+
+func TestServerStartWithCancelledContext(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.Port = 0
+
+	srv := New(cfg)
+
+	// Create an already-cancelled context
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	err := srv.Start(ctx)
+	if err == nil {
+		t.Error("Start with cancelled context should return error")
+		srv.Stop()
+	}
+
+	// State should be Failed
+	if srv.State() != StateFailed {
+		t.Errorf("State should be Failed, got %s", srv.State())
+	}
+}
+
+func TestStopWithoutStart(t *testing.T) {
+	srv := New(DefaultConfig())
+
+	// Stop without Start should be safe
+	if err := srv.Stop(); err != nil {
+		t.Errorf("Stop without Start should not error, got: %v", err)
+	}
+
+	// State should be Stopped
+	if srv.State() != StateStopped {
+		t.Errorf("State should be Stopped, got %s", srv.State())
+	}
+}
+
+func TestServerStateString(t *testing.T) {
+	tests := []struct {
+		state    ServerState
+		expected string
+	}{
+		{StateCreated, "created"},
+		{StateStarting, "starting"},
+		{StateRunning, "running"},
+		{StateStopping, "stopping"},
+		{StateStopped, "stopped"},
+		{StateFailed, "failed"},
+		{ServerState(99), "unknown"},
+	}
+
+	for _, tt := range tests {
+		if got := tt.state.String(); got != tt.expected {
+			t.Errorf("ServerState(%d).String() = %q, want %q", tt.state, got, tt.expected)
+		}
+	}
+}
+
+// Note: Server restart (Stop then Start on the same instance) is not supported.
+// Server instances are single-use: once stopped, create a new instance.
+// This simplifies the implementation and avoids complex state management.

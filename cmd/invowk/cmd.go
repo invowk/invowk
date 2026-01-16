@@ -1018,12 +1018,10 @@ func ensureSSHServer() (*sshserver.Server, error) {
 		return sshServerInstance, nil
 	}
 
-	srv, err := sshserver.New(sshserver.DefaultConfig())
-	if err != nil {
-		return nil, fmt.Errorf("failed to create SSH server: %w", err)
-	}
+	srv := sshserver.New(sshserver.DefaultConfig())
 
-	if err := srv.Start(); err != nil {
+	// Start blocks until the server is ready to accept connections or fails
+	if err := srv.Start(context.Background()); err != nil {
 		return nil, fmt.Errorf("failed to start SSH server: %w", err)
 	}
 

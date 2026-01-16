@@ -16,6 +16,7 @@ import (
 	"os"
 	"os/exec"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/charmbracelet/log"
@@ -24,7 +25,45 @@ import (
 	"github.com/charmbracelet/wish/activeterm"
 )
 
-// Token represents an authentication token for container callbacks
+// ServerState represents the lifecycle state of the server.
+type ServerState int32
+
+const (
+	// StateCreated indicates the server has been created but not started.
+	StateCreated ServerState = iota
+	// StateStarting indicates the server is in the process of starting.
+	StateStarting
+	// StateRunning indicates the server is running and accepting connections.
+	StateRunning
+	// StateStopping indicates the server is shutting down.
+	StateStopping
+	// StateStopped indicates the server has stopped (terminal state).
+	StateStopped
+	// StateFailed indicates the server failed to start or encountered a fatal error (terminal state).
+	StateFailed
+)
+
+// String returns a human-readable representation of the server state.
+func (s ServerState) String() string {
+	switch s {
+	case StateCreated:
+		return "created"
+	case StateStarting:
+		return "starting"
+	case StateRunning:
+		return "running"
+	case StateStopping:
+		return "stopping"
+	case StateStopped:
+		return "stopped"
+	case StateFailed:
+		return "failed"
+	default:
+		return "unknown"
+	}
+}
+
+// Token represents an authentication token for container callbacks.
 type Token struct {
 	Value     string
 	CreatedAt time.Time
@@ -33,37 +72,38 @@ type Token struct {
 	Used      bool
 }
 
-// Server represents the SSH server for container callbacks
+// Server represents the SSH server for container callbacks.
+// A Server instance is single-use: once stopped or failed, create a new instance.
 type Server struct {
-	// srv is the underlying SSH server
-	srv *ssh.Server
-	// listener is the TCP listener
+	// Immutable configuration (set at creation, never modified)
+	cfg Config
+
+	// State management (atomic for lock-free reads)
+	state atomic.Int32
+
+	// Initialized during Start() - protected by stateMu for writes
+	stateMu  sync.Mutex
+	srv      *ssh.Server
 	listener net.Listener
-	// tokens holds valid authentication tokens
-	tokens map[string]*Token
-	// tokenMu protects the tokens map
+	addr     string // Actual bound address (including resolved port)
+
+	// Lifecycle management
+	ctx       context.Context
+	cancel    context.CancelFunc
+	wg        sync.WaitGroup
+	startedCh chan struct{} // Closed when server is ready to accept connections
+	errCh     chan error    // Receives fatal errors from background goroutines
+	lastErr   error         // Stores the last error for State() == StateFailed
+
+	// Token management
+	tokens  map[string]*Token
 	tokenMu sync.RWMutex
-	// port is the port the server is listening on
-	port int
-	// host is the host address
-	host string
-	// running indicates if the server is running
-	running bool
-	// runMu protects the running state
-	runMu sync.RWMutex
-	// tokenTTL is how long tokens are valid
-	tokenTTL time.Duration
-	// shutdownTimeout is the timeout for graceful shutdown
-	shutdownTimeout time.Duration
-	// stopCh signals background goroutines to stop
-	stopCh chan struct{}
-	// logger is the server logger
+
+	// Logger
 	logger *log.Logger
-	// defaultShell is the shell to use for commands
-	defaultShell string
 }
 
-// Config holds configuration for the SSH server
+// Config holds immutable configuration for the SSH server.
 type Config struct {
 	// Host is the address to bind to (default: 127.0.0.1)
 	Host string
@@ -75,25 +115,26 @@ type Config struct {
 	ShutdownTimeout time.Duration
 	// DefaultShell is the shell to use (default: /bin/sh)
 	DefaultShell string
+	// StartupTimeout is the max time to wait for server to be ready (default: 5s)
+	StartupTimeout time.Duration
 }
 
-// DefaultConfig returns a default configuration
-func DefaultConfig() *Config {
-	return &Config{
+// DefaultConfig returns a default configuration.
+func DefaultConfig() Config {
+	return Config{
 		Host:            "127.0.0.1",
-		Port:            0, // Auto-select port
+		Port:            0,
 		TokenTTL:        time.Hour,
 		ShutdownTimeout: 10 * time.Second,
 		DefaultShell:    "/bin/sh",
+		StartupTimeout:  5 * time.Second,
 	}
 }
 
-// New creates a new SSH server instance
-func New(cfg *Config) (*Server, error) {
-	if cfg == nil {
-		cfg = DefaultConfig()
-	}
-
+// New creates a new SSH server instance.
+// The server is not started; call Start() to begin accepting connections.
+func New(cfg Config) *Server {
+	// Apply defaults
 	if cfg.Host == "" {
 		cfg.Host = "127.0.0.1"
 	}
@@ -106,43 +147,61 @@ func New(cfg *Config) (*Server, error) {
 	if cfg.DefaultShell == "" {
 		cfg.DefaultShell = "/bin/sh"
 	}
+	if cfg.StartupTimeout == 0 {
+		cfg.StartupTimeout = 5 * time.Second
+	}
 
 	logger := log.NewWithOptions(os.Stderr, log.Options{
 		Prefix: "ssh-server",
 	})
 
 	s := &Server{
-		tokens:          make(map[string]*Token),
-		host:            cfg.Host,
-		port:            cfg.Port,
-		tokenTTL:        cfg.TokenTTL,
-		shutdownTimeout: cfg.ShutdownTimeout,
-		logger:          logger,
-		defaultShell:    cfg.DefaultShell,
+		cfg:       cfg,
+		tokens:    make(map[string]*Token),
+		startedCh: make(chan struct{}),
+		errCh:     make(chan error, 1), // Buffered so goroutines don't block
+		logger:    logger,
 	}
+	s.state.Store(int32(StateCreated))
 
-	return s, nil
+	return s
 }
 
-// Start starts the SSH server
-func (s *Server) Start() error {
-	s.runMu.Lock()
-	defer s.runMu.Unlock()
-
-	if s.running {
-		return fmt.Errorf("server already running")
+// Start starts the SSH server and blocks until either:
+//   - The server is ready to accept connections (returns nil)
+//   - The server fails to start (returns error)
+//   - The context is cancelled (returns context error)
+//   - The startup timeout is exceeded (returns error)
+//
+// After Start() returns nil, use Err() to monitor for runtime errors.
+func (s *Server) Start(ctx context.Context) error {
+	// Transition: Created -> Starting
+	if !s.state.CompareAndSwap(int32(StateCreated), int32(StateStarting)) {
+		currentState := ServerState(s.state.Load())
+		return fmt.Errorf("cannot start server in state %s", currentState)
 	}
 
-	addr := fmt.Sprintf("%s:%d", s.host, s.port)
+	// Create internal context for lifecycle management
+	s.ctx, s.cancel = context.WithCancel(context.Background())
+
+	// Setup timeout for startup
+	startupCtx, startupCancel := context.WithTimeout(ctx, s.cfg.StartupTimeout)
+	defer startupCancel()
+
+	// Initialize listener
+	addr := fmt.Sprintf("%s:%d", s.cfg.Host, s.cfg.Port)
 	listener, err := net.Listen("tcp", addr)
 	if err != nil {
-		return fmt.Errorf("failed to listen on %s: %w", addr, err)
+		s.transitionToFailed(fmt.Errorf("failed to listen on %s: %w", addr, err))
+		return s.lastErr
 	}
 
+	s.stateMu.Lock()
 	s.listener = listener
-	// Get the actual port if auto-selected
-	s.port = listener.Addr().(*net.TCPAddr).Port
+	s.addr = listener.Addr().String()
+	s.stateMu.Unlock()
 
+	// Create SSH server
 	srv, err := wish.NewServer(
 		wish.WithAddress(addr),
 		wish.WithPublicKeyAuth(s.publicKeyHandler),
@@ -154,72 +213,232 @@ func (s *Server) Start() error {
 	)
 	if err != nil {
 		listener.Close()
-		return fmt.Errorf("failed to create SSH server: %w", err)
+		s.transitionToFailed(fmt.Errorf("failed to create SSH server: %w", err))
+		return s.lastErr
 	}
 
+	s.stateMu.Lock()
 	s.srv = srv
-	s.stopCh = make(chan struct{})
-	s.running = true
+	s.stateMu.Unlock()
 
-	// Start serving in background
-	go func() {
-		if err := srv.Serve(listener); err != nil {
-			// Ignore expected errors during shutdown
-			if errors.Is(err, ssh.ErrServerClosed) {
-				return
-			}
-			if errors.Is(err, net.ErrClosed) {
-				return
-			}
-			s.logger.Error("SSH server error", "error", err)
-		}
-	}()
-
-	s.logger.Info("SSH server started", "address", s.Address())
+	// Start the serve goroutine
+	s.wg.Add(1)
+	go s.serve()
 
 	// Start token cleanup goroutine
+	s.wg.Add(1)
 	go s.cleanupExpiredTokens()
 
-	return nil
+	// Wait for server to be ready or fail
+	select {
+	case <-s.startedCh:
+		// Server is ready
+		s.logger.Info("SSH server started", "address", s.addr)
+		return nil
+
+	case err := <-s.errCh:
+		// Server failed during startup
+		s.transitionToFailed(err)
+		return err
+
+	case <-startupCtx.Done():
+		// Startup timeout or caller cancelled
+		s.cancel() // Stop any background work
+		s.transitionToFailed(fmt.Errorf("startup timeout: %w", startupCtx.Err()))
+		return s.lastErr
+	}
 }
 
-// Stop stops the SSH server
-func (s *Server) Stop() error {
-	s.runMu.Lock()
-	defer s.runMu.Unlock()
+// serve runs the SSH server and handles errors.
+func (s *Server) serve() {
+	defer s.wg.Done()
 
-	if !s.running {
-		return nil
+	// Transition: Starting -> Running (signals readiness)
+	if s.state.CompareAndSwap(int32(StateStarting), int32(StateRunning)) {
+		close(s.startedCh)
 	}
 
-	// Signal all background goroutines to stop
-	close(s.stopCh)
+	// Block serving connections
+	s.stateMu.Lock()
+	srv := s.srv
+	listener := s.listener
+	s.stateMu.Unlock()
 
-	s.running = false
+	if srv == nil || listener == nil {
+		return
+	}
 
-	// Close listener first to stop accepting new connections
+	err := srv.Serve(listener)
+
+	// Handle serve completion
+	if err != nil {
+		// Ignore expected shutdown errors
+		if errors.Is(err, ssh.ErrServerClosed) || errors.Is(err, net.ErrClosed) {
+			return
+		}
+
+		// Report unexpected errors
+		select {
+		case s.errCh <- fmt.Errorf("serve error: %w", err):
+		default:
+			// Error channel full, log instead
+			s.logger.Error("SSH server error (channel full)", "error", err)
+		}
+	}
+}
+
+// Stop gracefully stops the SSH server.
+// It blocks until all connections are closed or the shutdown timeout is reached.
+// Safe to call multiple times; subsequent calls are no-ops.
+func (s *Server) Stop() error {
+	// Only proceed if we're in a stoppable state
+	for {
+		currentState := ServerState(s.state.Load())
+		switch currentState {
+		case StateStopped, StateFailed:
+			return nil // Already stopped
+		case StateCreated:
+			if s.state.CompareAndSwap(int32(StateCreated), int32(StateStopped)) {
+				return nil // Never started
+			}
+			continue // State changed, retry
+		case StateStopping:
+			// Wait for ongoing stop to complete
+			s.wg.Wait()
+			return nil
+		case StateStarting, StateRunning:
+			// Transition to Stopping
+			if !s.state.CompareAndSwap(int32(currentState), int32(StateStopping)) {
+				continue // State changed, retry
+			}
+			// Proceed with shutdown
+			return s.doStop()
+		default:
+			return fmt.Errorf("unknown server state: %d", currentState)
+		}
+	}
+}
+
+// doStop performs the actual shutdown logic.
+func (s *Server) doStop() error {
+	// Signal all goroutines to stop
+	if s.cancel != nil {
+		s.cancel()
+	}
+
+	// Shutdown SSH server with timeout
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), s.cfg.ShutdownTimeout)
+	defer shutdownCancel()
+
+	var shutdownErr error
+	s.stateMu.Lock()
+	if s.srv != nil {
+		shutdownErr = s.srv.Shutdown(shutdownCtx)
+		if shutdownErr != nil && !isClosedConnError(shutdownErr) {
+			s.logger.Error("shutdown error", "error", shutdownErr)
+		} else {
+			shutdownErr = nil
+		}
+	}
 	if s.listener != nil {
 		s.listener.Close()
 	}
+	s.stateMu.Unlock()
 
-	if s.srv != nil {
-		ctx, cancel := context.WithTimeout(context.Background(), s.shutdownTimeout)
-		defer cancel()
+	// Wait for all goroutines to exit
+	s.wg.Wait()
 
-		if err := s.srv.Shutdown(ctx); err != nil {
-			// Ignore "use of closed network connection" errors - this is benign
-			// and happens when the listener was already closed
-			if !isClosedConnError(err) {
-				return fmt.Errorf("failed to shutdown SSH server: %w", err)
-			}
-		}
-	}
-
+	// Transition to Stopped
+	s.state.Store(int32(StateStopped))
 	s.logger.Info("SSH server stopped")
+
+	// Close error channel to signal consumers
+	close(s.errCh)
+
+	return shutdownErr
+}
+
+// transitionToFailed sets the server state to Failed and stores the error.
+func (s *Server) transitionToFailed(err error) {
+	s.lastErr = err
+	s.state.Store(int32(StateFailed))
+	if s.cancel != nil {
+		s.cancel()
+	}
+	// Send error to channel for Err() consumers (non-blocking)
+	select {
+	case s.errCh <- err:
+	default:
+	}
+}
+
+// Err returns a channel that receives fatal server errors.
+// Use this to monitor for unexpected failures after Start() returns.
+// The channel is closed when the server stops.
+func (s *Server) Err() <-chan error {
+	return s.errCh
+}
+
+// State returns the current server state.
+func (s *Server) State() ServerState {
+	return ServerState(s.state.Load())
+}
+
+// IsRunning returns whether the server is currently running and accepting connections.
+// This is a convenience method equivalent to State() == StateRunning.
+func (s *Server) IsRunning() bool {
+	return s.State() == StateRunning
+}
+
+// Address returns the server's bound address (host:port).
+// Blocks until the server has started or failed.
+// Returns empty string if server never started or failed.
+func (s *Server) Address() string {
+	select {
+	case <-s.startedCh:
+		s.stateMu.Lock()
+		defer s.stateMu.Unlock()
+		return s.addr
+	case <-s.ctx.Done():
+		return ""
+	}
+}
+
+// Port returns the server's listening port.
+// Blocks until the server has started or failed.
+// Returns 0 if server never started or failed.
+func (s *Server) Port() int {
+	addr := s.Address()
+	if addr == "" {
+		return 0
+	}
+	_, portStr, err := net.SplitHostPort(addr)
+	if err != nil {
+		return 0
+	}
+	var port int
+	fmt.Sscanf(portStr, "%d", &port)
+	return port
+}
+
+// Host returns the server's configured host address.
+func (s *Server) Host() string {
+	return s.cfg.Host
+}
+
+// Wait blocks until the server stops (either gracefully or due to error).
+// Returns the error if the server failed, nil otherwise.
+func (s *Server) Wait() error {
+	s.wg.Wait()
+
+	state := s.State()
+	if state == StateFailed {
+		return s.lastErr
+	}
 	return nil
 }
 
-// isClosedConnError checks if the error is a "use of closed network connection" error
+// isClosedConnError checks if the error is a "use of closed network connection" error.
 func isClosedConnError(err error) bool {
 	if err == nil {
 		return false
@@ -231,29 +450,31 @@ func isClosedConnError(err error) bool {
 	return false
 }
 
-// Address returns the server's listening address
-func (s *Server) Address() string {
-	return fmt.Sprintf("%s:%d", s.host, s.port)
+// cleanupExpiredTokens periodically removes expired tokens.
+func (s *Server) cleanupExpiredTokens() {
+	defer s.wg.Done()
+
+	ticker := time.NewTicker(5 * time.Minute)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-s.ctx.Done():
+			return
+		case <-ticker.C:
+			s.tokenMu.Lock()
+			now := time.Now()
+			for tokenValue, token := range s.tokens {
+				if now.After(token.ExpiresAt) {
+					delete(s.tokens, tokenValue)
+				}
+			}
+			s.tokenMu.Unlock()
+		}
+	}
 }
 
-// Port returns the server's listening port
-func (s *Server) Port() int {
-	return s.port
-}
-
-// Host returns the server's host address
-func (s *Server) Host() string {
-	return s.host
-}
-
-// IsRunning returns whether the server is running
-func (s *Server) IsRunning() bool {
-	s.runMu.RLock()
-	defer s.runMu.RUnlock()
-	return s.running
-}
-
-// GenerateToken creates a new authentication token for a command
+// GenerateToken creates a new authentication token for a command.
 func (s *Server) GenerateToken(commandID string) (*Token, error) {
 	// Generate random token
 	tokenBytes := make([]byte, 32)
@@ -266,7 +487,7 @@ func (s *Server) GenerateToken(commandID string) (*Token, error) {
 	token := &Token{
 		Value:     tokenValue,
 		CreatedAt: time.Now(),
-		ExpiresAt: time.Now().Add(s.tokenTTL),
+		ExpiresAt: time.Now().Add(s.cfg.TokenTTL),
 		CommandID: commandID,
 		Used:      false,
 	}
@@ -280,7 +501,7 @@ func (s *Server) GenerateToken(commandID string) (*Token, error) {
 	return token, nil
 }
 
-// ValidateToken checks if a token is valid
+// ValidateToken checks if a token is valid.
 func (s *Server) ValidateToken(tokenValue string) (*Token, bool) {
 	s.tokenMu.RLock()
 	token, exists := s.tokens[tokenValue]
@@ -298,14 +519,14 @@ func (s *Server) ValidateToken(tokenValue string) (*Token, bool) {
 	return token, true
 }
 
-// RevokeToken invalidates a token
+// RevokeToken invalidates a token.
 func (s *Server) RevokeToken(tokenValue string) {
 	s.tokenMu.Lock()
 	delete(s.tokens, tokenValue)
 	s.tokenMu.Unlock()
 }
 
-// RevokeTokensForCommand revokes all tokens for a specific command
+// RevokeTokensForCommand revokes all tokens for a specific command.
 func (s *Server) RevokeTokensForCommand(commandID string) {
 	s.tokenMu.Lock()
 	defer s.tokenMu.Unlock()
@@ -317,29 +538,37 @@ func (s *Server) RevokeTokensForCommand(commandID string) {
 	}
 }
 
-// cleanupExpiredTokens periodically removes expired tokens
-func (s *Server) cleanupExpiredTokens() {
-	ticker := time.NewTicker(5 * time.Minute)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-s.stopCh:
-			return
-		case <-ticker.C:
-			s.tokenMu.Lock()
-			now := time.Now()
-			for tokenValue, token := range s.tokens {
-				if now.After(token.ExpiresAt) {
-					delete(s.tokens, tokenValue)
-				}
-			}
-			s.tokenMu.Unlock()
-		}
-	}
+// ConnectionInfo contains information needed to connect to the SSH server.
+type ConnectionInfo struct {
+	Host     string
+	Port     int
+	Token    string
+	User     string
+	ExpireAt time.Time
 }
 
-// passwordHandler handles password authentication using tokens
+// GetConnectionInfo returns connection information for a command.
+// Returns an error if the server is not running.
+func (s *Server) GetConnectionInfo(commandID string) (*ConnectionInfo, error) {
+	if !s.IsRunning() {
+		return nil, fmt.Errorf("SSH server is not running (state: %s)", s.State())
+	}
+
+	token, err := s.GenerateToken(commandID)
+	if err != nil {
+		return nil, err
+	}
+
+	return &ConnectionInfo{
+		Host:     s.cfg.Host,
+		Port:     s.Port(),
+		Token:    token.Value,
+		User:     "invowk",
+		ExpireAt: token.ExpiresAt,
+	}, nil
+}
+
+// passwordHandler handles password authentication using tokens.
 func (s *Server) passwordHandler(ctx ssh.Context, password string) bool {
 	token, valid := s.ValidateToken(password)
 	if !valid {
@@ -355,14 +584,14 @@ func (s *Server) passwordHandler(ctx ssh.Context, password string) bool {
 	return true
 }
 
-// publicKeyHandler rejects all public key authentication
-// We only want token-based authentication
+// publicKeyHandler rejects all public key authentication.
+// We only want token-based authentication.
 func (s *Server) publicKeyHandler(ctx ssh.Context, key ssh.PublicKey) bool {
 	// Reject public key auth - we only accept token-based password auth
 	return false
 }
 
-// commandMiddleware handles command execution
+// commandMiddleware handles command execution.
 func (s *Server) commandMiddleware() wish.Middleware {
 	return func(next ssh.Handler) ssh.Handler {
 		return func(sess ssh.Session) {
@@ -379,9 +608,9 @@ func (s *Server) commandMiddleware() wish.Middleware {
 	}
 }
 
-// runInteractiveShell starts an interactive shell session
+// runInteractiveShell starts an interactive shell session.
 func (s *Server) runInteractiveShell(sess ssh.Session) {
-	shell := s.defaultShell
+	shell := s.cfg.DefaultShell
 
 	cmd := exec.Command(shell)
 	cmd.Env = append(os.Environ(), sess.Environ()...)
@@ -423,11 +652,11 @@ func (s *Server) runInteractiveShell(sess ssh.Session) {
 	sess.Exit(0)
 }
 
-// runCommand executes a single command
+// runCommand executes a single command.
 func (s *Server) runCommand(sess ssh.Session, args []string) {
 	var cmd *exec.Cmd
 	if len(args) == 1 {
-		cmd = exec.Command(s.defaultShell, "-c", args[0])
+		cmd = exec.Command(s.cfg.DefaultShell, "-c", args[0])
 	} else {
 		cmd = exec.Command(args[0], args[1:]...)
 	}
@@ -447,33 +676,4 @@ func (s *Server) runCommand(sess ssh.Session, args []string) {
 		return
 	}
 	sess.Exit(0)
-}
-
-// ConnectionInfo contains information needed to connect to the SSH server
-type ConnectionInfo struct {
-	Host     string
-	Port     int
-	Token    string
-	User     string
-	ExpireAt time.Time
-}
-
-// GetConnectionInfo returns connection information for a command
-func (s *Server) GetConnectionInfo(commandID string) (*ConnectionInfo, error) {
-	if !s.IsRunning() {
-		return nil, fmt.Errorf("SSH server is not running")
-	}
-
-	token, err := s.GenerateToken(commandID)
-	if err != nil {
-		return nil, err
-	}
-
-	return &ConnectionInfo{
-		Host:     s.host,
-		Port:     s.port,
-		Token:    token.Value,
-		User:     "invowk",
-		ExpireAt: token.ExpiresAt,
-	}, nil
 }

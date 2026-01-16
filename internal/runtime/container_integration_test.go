@@ -8,7 +8,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"net"
 	"os"
 	"path/filepath"
 	"strings"
@@ -659,27 +658,20 @@ func createTestSSHServer(t *testing.T) (*sshserver.Server, error) {
 	t.Helper()
 
 	// Create a minimal SSH server configuration
-	cfg := &sshserver.Config{
+	cfg := sshserver.Config{
 		Host:     "127.0.0.1",
 		Port:     0, // Random available port
 		TokenTTL: 5 * time.Minute,
 	}
 
-	srv, err := sshserver.New(cfg)
-	if err != nil {
-		return nil, err
-	}
+	srv := sshserver.New(cfg)
 
-	// Start the server in a goroutine
-	go func() {
-		if err := srv.Start(); err != nil {
-			t.Logf("SSH server stopped: %v", err)
-		}
-	}()
-
-	if err := waitForSSHServer(srv.Address(), 2*time.Second); err != nil {
-		_ = srv.Stop()
-		return nil, err
+	// Start the server with context. Server.Start() blocks until the server
+	// is ready to accept connections or fails, eliminating the previous race
+	// condition where we'd access srv.Address() before initialization completed.
+	ctx := context.Background()
+	if err := srv.Start(ctx); err != nil {
+		return nil, fmt.Errorf("failed to start SSH server: %w", err)
 	}
 
 	// Register cleanup
@@ -688,18 +680,4 @@ func createTestSSHServer(t *testing.T) (*sshserver.Server, error) {
 	})
 
 	return srv, nil
-}
-
-func waitForSSHServer(addr string, timeout time.Duration) error {
-	deadline := time.Now().Add(timeout)
-	for time.Now().Before(deadline) {
-		conn, err := net.DialTimeout("tcp", addr, 200*time.Millisecond)
-		if err == nil {
-			conn.Close()
-			return nil
-		}
-		time.Sleep(25 * time.Millisecond)
-	}
-
-	return fmt.Errorf("ssh server not ready at %s within %s", addr, timeout)
 }
