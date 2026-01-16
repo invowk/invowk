@@ -8,6 +8,20 @@ import (
 	"strconv"
 )
 
+// FlagType represents the data type of a flag
+type FlagType string
+
+const (
+	// FlagTypeString is the default flag type for string values
+	FlagTypeString FlagType = "string"
+	// FlagTypeBool is for boolean flags (true/false)
+	FlagTypeBool FlagType = "bool"
+	// FlagTypeInt is for integer flags
+	FlagTypeInt FlagType = "int"
+	// FlagTypeFloat is for floating-point flags
+	FlagTypeFloat FlagType = "float"
+)
+
 // Flag represents a command-line flag for a command
 type Flag struct {
 	// Name is the flag name (POSIX-compliant: starts with a letter, alphanumeric/hyphen/underscore)

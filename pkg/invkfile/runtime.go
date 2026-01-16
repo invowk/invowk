@@ -8,6 +8,64 @@ import (
 	"strings"
 )
 
+// RuntimeMode represents the execution runtime type
+type RuntimeMode string
+
+const (
+	// RuntimeNative executes commands using the system's default shell
+	RuntimeNative RuntimeMode = "native"
+	// RuntimeVirtual executes commands using mvdan/sh with u-root utilities
+	RuntimeVirtual RuntimeMode = "virtual"
+	// RuntimeContainer executes commands inside a disposable container
+	RuntimeContainer RuntimeMode = "container"
+)
+
+// EnvInheritMode defines how host environment variables are inherited
+type EnvInheritMode string
+
+const (
+	// EnvInheritNone disables host environment inheritance
+	EnvInheritNone EnvInheritMode = "none"
+	// EnvInheritAllow inherits only allowlisted host environment variables
+	EnvInheritAllow EnvInheritMode = "allow"
+	// EnvInheritAll inherits all host environment variables (filtered for invowk vars)
+	EnvInheritAll EnvInheritMode = "all"
+)
+
+// IsValid returns true if the EnvInheritMode is a valid value
+func (m EnvInheritMode) IsValid() bool {
+	switch m {
+	case EnvInheritNone, EnvInheritAllow, EnvInheritAll:
+		return true
+	default:
+		return false
+	}
+}
+
+// PlatformType represents a target platform type
+type PlatformType string
+
+const (
+	// PlatformLinux represents Linux operating system
+	PlatformLinux PlatformType = "linux"
+	// PlatformMac represents macOS operating system
+	PlatformMac PlatformType = "macos"
+	// PlatformWindows represents Windows operating system
+	PlatformWindows PlatformType = "windows"
+)
+
+// HostOS represents a supported operating system (deprecated, use PlatformType)
+type HostOS = PlatformType
+
+const (
+	// HostLinux represents Linux operating system
+	HostLinux = PlatformLinux
+	// HostMac represents macOS operating system
+	HostMac = PlatformMac
+	// HostWindows represents Windows operating system
+	HostWindows = PlatformWindows
+)
+
 // InterpreterAuto is the special value for automatic shebang detection.
 // When interpreter is empty or set to "auto", invowk will parse the shebang
 // from the script content to determine the interpreter.

@@ -8,6 +8,18 @@ import (
 	"strconv"
 )
 
+// ArgumentType represents the data type of an argument
+type ArgumentType string
+
+const (
+	// ArgumentTypeString is the default argument type for string values
+	ArgumentTypeString ArgumentType = "string"
+	// ArgumentTypeInt is for integer arguments
+	ArgumentTypeInt ArgumentType = "int"
+	// ArgumentTypeFloat is for floating-point arguments
+	ArgumentTypeFloat ArgumentType = "float"
+)
+
 // Argument represents a positional command-line argument for a command
 type Argument struct {
 	// Name is the argument name (POSIX-compliant: starts with a letter, alphanumeric/hyphen/underscore)

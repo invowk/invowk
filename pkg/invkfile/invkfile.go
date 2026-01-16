@@ -7,6 +7,12 @@ import (
 	goruntime "runtime"
 )
 
+// InvkfileName is the base name for invkfile configuration files
+const InvkfileName = "invkfile"
+
+// InvkpackName is the base name for invkpack metadata files
+const InvkpackName = "invkpack"
+
 // Invkfile represents command definitions from invkfile.cue.
 // Pack metadata (pack name, version, description, requires) is now in Invkpack.
 // This separation follows Go's pattern: invkpack.cue is like go.mod, invkfile.cue is like .go files.

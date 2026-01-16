@@ -13,6 +13,20 @@ import (
 	"golang.org/x/term"
 )
 
+// CapabilityName represents a system capability type
+type CapabilityName string
+
+const (
+	// CapabilityLocalAreaNetwork checks for Local Area Network presence
+	CapabilityLocalAreaNetwork CapabilityName = "local-area-network"
+	// CapabilityInternet checks for working Internet connectivity
+	CapabilityInternet CapabilityName = "internet"
+	// CapabilityContainers checks for available container engine (Docker or Podman)
+	CapabilityContainers CapabilityName = "containers"
+	// CapabilityTTY checks if invowk is running in an interactive TTY
+	CapabilityTTY CapabilityName = "tty"
+)
+
 // DefaultCapabilityTimeout is the default timeout for capability checks
 const DefaultCapabilityTimeout = 5 * time.Second
 
