@@ -4,12 +4,8 @@
 // This file contains example commands that demonstrate all invowk features.
 // All commands are idempotent and do not cause side effects on the host.
 //
-// The 'pack' field is mandatory and identifies this invkfile. It prefixes all command names.
-// Example: pack: "examples" means command "hello" becomes "invowk cmd examples hello"
-
-pack:        "examples"
-version:     "1.0"
-description: "Example commands demonstrating all invowk features"
+// Note: Pack metadata (pack, version, description, requires) belongs in invkpack.cue.
+// This file only contains command definitions (cmds) and shared configuration.
 
 // Global environment configuration - applied to all commands
 // Root-level env has the lowest priority from invkfile configuration.
