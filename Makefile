@@ -167,6 +167,12 @@ license-check:
 		echo "All Go files have proper SPDX license headers."; \
 	fi
 
+# Run golangci-lint
+.PHONY: lint
+lint:
+	@echo "Running golangci-lint..."
+	golangci-lint run ./...
+
 # Show binary sizes comparison
 .PHONY: size
 size: $(BUILD_DIR)
@@ -228,6 +234,7 @@ help:
 	@echo "  install        Install to GOPATH/bin"
 	@echo "  tidy           Tidy go.mod dependencies"
 	@echo "  license-check  Verify SPDX headers in all Go files"
+	@echo "  lint           Run golangci-lint on all packages"
 	@echo "  size           Compare binary sizes (debug vs stripped vs UPX)"
 	@echo "  help           Show this help message"
 	@echo ""
