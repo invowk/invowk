@@ -64,62 +64,6 @@ func (c *Client) IsAvailable() bool {
 	return resp.StatusCode == http.StatusOK
 }
 
-// sendRequest sends a TUI request to the server and returns the response.
-func (c *Client) sendRequest(component Component, options any) (result *Response, err error) {
-	optionsJSON, err := json.Marshal(options)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal options: %w", err)
-	}
-
-	req := Request{
-		Component: component,
-		Options:   optionsJSON,
-	}
-
-	reqBody, err := json.Marshal(req)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal request: %w", err)
-	}
-
-	httpReq, err := http.NewRequestWithContext(context.Background(), http.MethodPost, c.addr+"/tui", bytes.NewReader(reqBody))
-	if err != nil {
-		return nil, fmt.Errorf("failed to create HTTP request: %w", err)
-	}
-
-	httpReq.Header.Set("Content-Type", "application/json")
-	httpReq.Header.Set("Authorization", "Bearer "+c.token)
-
-	httpResp, err := c.client.Do(httpReq)
-	if err != nil {
-		return nil, fmt.Errorf("failed to send request: %w", err)
-	}
-	defer func() {
-		if closeErr := httpResp.Body.Close(); closeErr != nil && err == nil {
-			err = closeErr
-		}
-	}()
-
-	body, err := io.ReadAll(httpResp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read response: %w", err)
-	}
-
-	if httpResp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("server error (%d): %s", httpResp.StatusCode, string(body))
-	}
-
-	var resp Response
-	if err := json.Unmarshal(body, &resp); err != nil {
-		return nil, fmt.Errorf("failed to parse response: %w", err)
-	}
-
-	if resp.Error != "" {
-		return nil, fmt.Errorf("TUI error: %s", resp.Error)
-	}
-
-	return &resp, nil
-}
-
 // Input sends an input prompt request to the TUI server.
 // Returns the entered text or an error.
 func (c *Client) Input(opts InputRequest) (string, error) {
@@ -339,4 +283,60 @@ func (c *Client) Table(opts TableRequest) (*TableResult, error) {
 	}
 
 	return &result, nil
+}
+
+// sendRequest sends a TUI request to the server and returns the response.
+func (c *Client) sendRequest(component Component, options any) (result *Response, err error) {
+	optionsJSON, err := json.Marshal(options)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal options: %w", err)
+	}
+
+	req := Request{
+		Component: component,
+		Options:   optionsJSON,
+	}
+
+	reqBody, err := json.Marshal(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request: %w", err)
+	}
+
+	httpReq, err := http.NewRequestWithContext(context.Background(), http.MethodPost, c.addr+"/tui", bytes.NewReader(reqBody))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create HTTP request: %w", err)
+	}
+
+	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("Authorization", "Bearer "+c.token)
+
+	httpResp, err := c.client.Do(httpReq)
+	if err != nil {
+		return nil, fmt.Errorf("failed to send request: %w", err)
+	}
+	defer func() {
+		if closeErr := httpResp.Body.Close(); closeErr != nil && err == nil {
+			err = closeErr
+		}
+	}()
+
+	body, err := io.ReadAll(httpResp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response: %w", err)
+	}
+
+	if httpResp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("server error (%d): %s", httpResp.StatusCode, string(body))
+	}
+
+	var resp Response
+	if err := json.Unmarshal(body, &resp); err != nil {
+		return nil, fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	if resp.Error != "" {
+		return nil, fmt.Errorf("TUI error: %s", resp.Error)
+	}
+
+	return &resp, nil
 }

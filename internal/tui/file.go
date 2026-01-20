@@ -10,41 +10,49 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-// FileOptions configures the File picker component.
-type FileOptions struct {
-	// Title is the title/prompt displayed above the file picker.
-	Title string
-	// Description provides additional context below the title.
-	Description string
-	// CurrentDirectory is the starting directory (default: current working directory).
-	CurrentDirectory string
-	// AllowedExtensions limits selection to files with these extensions.
-	AllowedExtensions []string
-	// ShowHidden enables showing hidden files.
-	ShowHidden bool
-	// ShowSize enables showing file sizes.
-	ShowSize bool
-	// ShowPermissions enables showing file permissions.
-	ShowPermissions bool
-	// Height limits the visible height (0 for auto).
-	Height int
-	// FileAllowed enables file selection.
-	FileAllowed bool
-	// DirAllowed enables directory selection.
-	DirAllowed bool
-	// Config holds common TUI configuration.
-	Config Config
-}
+// All type declarations in a single block for decorder compliance.
+type (
+	// FileOptions configures the File picker component.
+	FileOptions struct {
+		// Title is the title/prompt displayed above the file picker.
+		Title string
+		// Description provides additional context below the title.
+		Description string
+		// CurrentDirectory is the starting directory (default: current working directory).
+		CurrentDirectory string
+		// AllowedExtensions limits selection to files with these extensions.
+		AllowedExtensions []string
+		// ShowHidden enables showing hidden files.
+		ShowHidden bool
+		// ShowSize enables showing file sizes.
+		ShowSize bool
+		// ShowPermissions enables showing file permissions.
+		ShowPermissions bool
+		// Height limits the visible height (0 for auto).
+		Height int
+		// FileAllowed enables file selection.
+		FileAllowed bool
+		// DirAllowed enables directory selection.
+		DirAllowed bool
+		// Config holds common TUI configuration.
+		Config Config
+	}
 
-// fileModel implements EmbeddableComponent for file picker.
-type fileModel struct {
-	form      *huh.Form
-	result    *string
-	done      bool
-	cancelled bool
-	width     int
-	height    int
-}
+	// fileModel implements EmbeddableComponent for file picker.
+	fileModel struct {
+		form      *huh.Form
+		result    *string
+		done      bool
+		cancelled bool
+		width     int
+		height    int
+	}
+
+	// FileBuilder provides a fluent API for building File picker prompts.
+	FileBuilder struct {
+		opts FileOptions
+	}
+)
 
 // NewFileModel creates an embeddable file picker component.
 func NewFileModel(opts FileOptions) *fileModel {
@@ -55,59 +63,6 @@ func NewFileModel(opts FileOptions) *fileModel {
 // This uses a theme that matches the modal overlay background to prevent color bleeding.
 func NewFileModelForModal(opts FileOptions) *fileModel {
 	return newFileModelWithTheme(opts, getModalHuhTheme())
-}
-
-// newFileModelWithTheme creates a file picker model with a specific huh theme.
-func newFileModelWithTheme(opts FileOptions, theme *huh.Theme) *fileModel {
-	var result string
-
-	picker := huh.NewFilePicker().
-		Title(opts.Title).
-		Description(opts.Description).
-		Value(&result)
-
-	if opts.CurrentDirectory != "" {
-		picker = picker.CurrentDirectory(opts.CurrentDirectory)
-	}
-
-	if len(opts.AllowedExtensions) > 0 {
-		picker = picker.AllowedTypes(opts.AllowedExtensions)
-	}
-
-	if opts.ShowHidden {
-		picker = picker.ShowHidden(true)
-	}
-
-	if opts.ShowSize {
-		picker = picker.ShowSize(true)
-	}
-
-	if opts.ShowPermissions {
-		picker = picker.ShowPermissions(true)
-	}
-
-	if opts.Height > 0 {
-		picker = picker.Height(opts.Height)
-	}
-
-	// Default to allowing files if neither is specified
-	fileAllowed := opts.FileAllowed
-	dirAllowed := opts.DirAllowed
-	if !fileAllowed && !dirAllowed {
-		fileAllowed = true
-	}
-
-	picker = picker.FileAllowed(fileAllowed)
-	picker = picker.DirAllowed(dirAllowed)
-
-	form := huh.NewForm(huh.NewGroup(picker)).
-		WithTheme(theme).
-		WithAccessible(opts.Config.Accessible)
-
-	return &fileModel{
-		form:   form,
-		result: &result,
-	}
 }
 
 // Init implements tea.Model.
@@ -203,11 +158,6 @@ func File(opts FileOptions) (string, error) {
 	return result.(string), nil
 }
 
-// FileBuilder provides a fluent API for building File picker prompts.
-type FileBuilder struct {
-	opts FileOptions
-}
-
 // NewFile creates a new FileBuilder with default options.
 func NewFile() *FileBuilder {
 	return &FileBuilder{
@@ -299,4 +249,57 @@ func (b *FileBuilder) Run() (string, error) {
 // Model returns the embeddable model for composition.
 func (b *FileBuilder) Model() EmbeddableComponent {
 	return NewFileModel(b.opts)
+}
+
+// newFileModelWithTheme creates a file picker model with a specific huh theme.
+func newFileModelWithTheme(opts FileOptions, theme *huh.Theme) *fileModel {
+	var result string
+
+	picker := huh.NewFilePicker().
+		Title(opts.Title).
+		Description(opts.Description).
+		Value(&result)
+
+	if opts.CurrentDirectory != "" {
+		picker = picker.CurrentDirectory(opts.CurrentDirectory)
+	}
+
+	if len(opts.AllowedExtensions) > 0 {
+		picker = picker.AllowedTypes(opts.AllowedExtensions)
+	}
+
+	if opts.ShowHidden {
+		picker = picker.ShowHidden(true)
+	}
+
+	if opts.ShowSize {
+		picker = picker.ShowSize(true)
+	}
+
+	if opts.ShowPermissions {
+		picker = picker.ShowPermissions(true)
+	}
+
+	if opts.Height > 0 {
+		picker = picker.Height(opts.Height)
+	}
+
+	// Default to allowing files if neither is specified
+	fileAllowed := opts.FileAllowed
+	dirAllowed := opts.DirAllowed
+	if !fileAllowed && !dirAllowed {
+		fileAllowed = true
+	}
+
+	picker = picker.FileAllowed(fileAllowed)
+	picker = picker.DirAllowed(dirAllowed)
+
+	form := huh.NewForm(huh.NewGroup(picker)).
+		WithTheme(theme).
+		WithAccessible(opts.Config.Accessible)
+
+	return &fileModel{
+		form:   form,
+		result: &result,
+	}
 }

@@ -77,6 +77,34 @@ func (p *LayerProvisioner) Provision(ctx context.Context, baseImage string) (*Pr
 	}, nil
 }
 
+// CleanupProvisionedImages removes all cached provisioned images.
+// This can be called periodically to free up disk space.
+func (p *LayerProvisioner) CleanupProvisionedImages(ctx context.Context) error {
+	// List all images with the invowk-provisioned prefix
+	// This would require adding a ListImages method to the Engine interface
+	// For now, this is a placeholder
+	return nil
+}
+
+// GetProvisionedImageTag returns the tag that would be used for a provisioned
+// image without actually building it. Useful for checking if an image is cached.
+func (p *LayerProvisioner) GetProvisionedImageTag(ctx context.Context, baseImage string) (string, error) {
+	cacheKey, err := p.calculateCacheKey(ctx, baseImage)
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("invowk-provisioned:%s", cacheKey[:12]), nil
+}
+
+// IsImageProvisioned checks if a provisioned image already exists in the cache.
+func (p *LayerProvisioner) IsImageProvisioned(ctx context.Context, baseImage string) (bool, error) {
+	tag, err := p.GetProvisionedImageTag(ctx, baseImage)
+	if err != nil {
+		return false, err
+	}
+	return p.engine.ImageExists(ctx, tag)
+}
+
 // calculateCacheKey generates a unique key based on all provisioned resources.
 func (p *LayerProvisioner) calculateCacheKey(ctx context.Context, baseImage string) (string, error) {
 	h := sha256.New()
@@ -300,32 +328,4 @@ func (p *LayerProvisioner) buildEnvVars() map[string]string {
 	env["INVOWK_MODULE_PATH"] = p.config.ModulesMountPath
 
 	return env
-}
-
-// CleanupProvisionedImages removes all cached provisioned images.
-// This can be called periodically to free up disk space.
-func (p *LayerProvisioner) CleanupProvisionedImages(ctx context.Context) error {
-	// List all images with the invowk-provisioned prefix
-	// This would require adding a ListImages method to the Engine interface
-	// For now, this is a placeholder
-	return nil
-}
-
-// GetProvisionedImageTag returns the tag that would be used for a provisioned
-// image without actually building it. Useful for checking if an image is cached.
-func (p *LayerProvisioner) GetProvisionedImageTag(ctx context.Context, baseImage string) (string, error) {
-	cacheKey, err := p.calculateCacheKey(ctx, baseImage)
-	if err != nil {
-		return "", err
-	}
-	return fmt.Sprintf("invowk-provisioned:%s", cacheKey[:12]), nil
-}
-
-// IsImageProvisioned checks if a provisioned image already exists in the cache.
-func (p *LayerProvisioner) IsImageProvisioned(ctx context.Context, baseImage string) (bool, error) {
-	tag, err := p.GetProvisionedImageTag(ctx, baseImage)
-	if err != nil {
-		return false, err
-	}
-	return p.engine.ImageExists(ctx, tag)
 }

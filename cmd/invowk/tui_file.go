@@ -19,13 +19,12 @@ var (
 	fileHidden        bool
 	fileHeight        int
 	fileAllowedExts   []string
-)
 
-// tuiFileCmd provides a file picker.
-var tuiFileCmd = &cobra.Command{
-	Use:   "file [path]",
-	Short: "File picker",
-	Long: `Browse and select files or directories.
+	// tuiFileCmd provides a file picker.
+	tuiFileCmd = &cobra.Command{
+		Use:   "file [path]",
+		Short: "File picker",
+		Long: `Browse and select files or directories.
 
 If a path is provided, the picker starts in that directory.
 Otherwise, it starts in the current directory.
@@ -49,9 +48,10 @@ Examples:
   # Use in shell script
   FILE=$(invowk tui file --allowed ".json,.yaml")
   echo "Selected: $FILE"`,
-	Args: cobra.MaximumNArgs(1),
-	RunE: runTuiFile,
-}
+		Args: cobra.MaximumNArgs(1),
+		RunE: runTuiFile,
+	}
+)
 
 func init() {
 	tuiCmd.AddCommand(tuiFileCmd)

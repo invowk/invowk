@@ -36,14 +36,49 @@ var (
 	moduleImportPath string
 	// moduleImportOverwrite allows overwriting existing modules
 	moduleImportOverwrite bool
-)
 
-// moduleCmd represents the module command group
-var moduleCmd = &cobra.Command{
-	Use:     "module",
-	Aliases: []string{"mod"},
-	Short:   "Manage invowk modules",
-	Long: `Manage invowk modules - self-contained folders containing invkfiles and scripts.
+	// moduleVendorUpdate forces re-fetching of vendored dependencies
+	moduleVendorUpdate bool
+	// moduleVendorPrune removes unused vendored modules
+	moduleVendorPrune bool
+
+	// moduleAddAlias is the alias for the added module dependency
+	moduleAddAlias string
+	// moduleAddPath is the subdirectory path within the repository
+	moduleAddPath string
+
+	// Style definitions for module validation output
+	moduleSuccessIcon = successStyle.Render("✓")
+	moduleErrorIcon   = errorStyle.Render("✗")
+	moduleWarningIcon = warningStyle.Render("!")
+	moduleInfoIcon    = subtitleStyle.Render("•")
+
+	moduleTitleStyle = lipgloss.NewStyle().
+				Bold(true).
+				Foreground(lipgloss.Color("#7C3AED")).
+				MarginBottom(1)
+
+	moduleIssueStyle = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("#EF4444")).
+				PaddingLeft(2)
+
+	moduleIssueTypeStyle = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("#6B7280")).
+				Italic(true)
+
+	modulePathStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#3B82F6"))
+
+	moduleDetailStyle = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("#6B7280")).
+				PaddingLeft(2)
+
+	// moduleCmd represents the module command group
+	moduleCmd = &cobra.Command{
+		Use:     "module",
+		Aliases: []string{"mod"},
+		Short:   "Manage invowk modules",
+		Long: `Manage invowk modules - self-contained folders containing invkfiles and scripts.
 
 A module is a folder with the ` + cmdStyle.Render(".invkmod") + ` suffix that contains:
   - ` + cmdStyle.Render("invkmod.cue") + ` (required): Module metadata (name, version, dependencies)
@@ -59,13 +94,13 @@ Module names follow these rules:
 Examples:
   invowk module validate ./mycommands.invkmod
   invowk module validate ./com.example.tools.invkmod --deep`,
-}
+	}
 
-// moduleValidateCmd validates an invowk module
-var moduleValidateCmd = &cobra.Command{
-	Use:   "validate <path>",
-	Short: "Validate an invowk module",
-	Long: `Validate the structure and contents of an invowk module.
+	// moduleValidateCmd validates an invowk module
+	moduleValidateCmd = &cobra.Command{
+		Use:   "validate <path>",
+		Short: "Validate an invowk module",
+		Long: `Validate the structure and contents of an invowk module.
 
 Checks performed:
   - Folder name follows module naming conventions
@@ -76,15 +111,15 @@ Checks performed:
 Examples:
   invowk module validate ./mycommands.invkmod
   invowk module validate ./com.example.tools.invkmod --deep`,
-	Args: cobra.ExactArgs(1),
-	RunE: runModuleValidate,
-}
+		Args: cobra.ExactArgs(1),
+		RunE: runModuleValidate,
+	}
 
-// moduleCreateCmd creates a new module
-var moduleCreateCmd = &cobra.Command{
-	Use:   "create <name>",
-	Short: "Create a new invowk module",
-	Long: `Create a new invowk module with the given name.
+	// moduleCreateCmd creates a new module
+	moduleCreateCmd = &cobra.Command{
+		Use:   "create <name>",
+		Short: "Create a new invowk module",
+		Long: `Create a new invowk module with the given name.
 
 The module name must follow naming conventions:
   - Start with a letter
@@ -96,44 +131,44 @@ Examples:
   invowk module create com.example.mytools
   invowk module create mytools --scripts
   invowk module create mytools --path /path/to/dir --module-id "com.example.tools"`,
-	Args: cobra.ExactArgs(1),
-	RunE: runModuleCreate,
-}
+		Args: cobra.ExactArgs(1),
+		RunE: runModuleCreate,
+	}
 
-// moduleListCmd lists all discovered modules
-var moduleListCmd = &cobra.Command{
-	Use:   "list",
-	Short: "List all discovered modules",
-	Long: `List all invowk modules discovered in:
+	// moduleListCmd lists all discovered modules
+	moduleListCmd = &cobra.Command{
+		Use:   "list",
+		Short: "List all discovered modules",
+		Long: `List all invowk modules discovered in:
   - Current directory
   - User commands directory (~/.invowk/cmds)
   - Configured search paths
 
 Examples:
   invowk module list`,
-	RunE: runModuleList,
-}
+		RunE: runModuleList,
+	}
 
-// moduleArchiveCmd creates a ZIP archive from a module
-var moduleArchiveCmd = &cobra.Command{
-	Use:   "archive <path>",
-	Short: "Create a ZIP archive from a module",
-	Long: `Create a ZIP archive of an invowk module for distribution.
+	// moduleArchiveCmd creates a ZIP archive from a module
+	moduleArchiveCmd = &cobra.Command{
+		Use:   "archive <path>",
+		Short: "Create a ZIP archive from a module",
+		Long: `Create a ZIP archive of an invowk module for distribution.
 
 The archive will contain the module directory with all its contents.
 
 Examples:
   invowk module archive ./mytools.invkmod
   invowk module archive ./mytools.invkmod --output ./dist/mytools.zip`,
-	Args: cobra.ExactArgs(1),
-	RunE: runModuleArchive,
-}
+		Args: cobra.ExactArgs(1),
+		RunE: runModuleArchive,
+	}
 
-// moduleImportCmd imports a module from a ZIP file or URL
-var moduleImportCmd = &cobra.Command{
-	Use:   "import <source>",
-	Short: "Import a module from a ZIP file or URL",
-	Long: `Import an invowk module from a local ZIP file or a URL.
+	// moduleImportCmd imports a module from a ZIP file or URL
+	moduleImportCmd = &cobra.Command{
+		Use:   "import <source>",
+		Short: "Import a module from a ZIP file or URL",
+		Long: `Import an invowk module from a local ZIP file or a URL.
 
 By default, modules are imported to ~/.invowk/cmds.
 
@@ -142,15 +177,15 @@ Examples:
   invowk module import https://example.com/modules/mytools.zip
   invowk module import ./module.zip --path ./local-modules
   invowk module import ./module.zip --overwrite`,
-	Args: cobra.ExactArgs(1),
-	RunE: runModuleImport,
-}
+		Args: cobra.ExactArgs(1),
+		RunE: runModuleImport,
+	}
 
-// moduleAliasCmd manages module aliases for collision disambiguation
-var moduleAliasCmd = &cobra.Command{
-	Use:   "alias",
-	Short: "Manage module aliases",
-	Long: `Manage module aliases for collision disambiguation.
+	// moduleAliasCmd manages module aliases for collision disambiguation
+	moduleAliasCmd = &cobra.Command{
+		Use:   "alias",
+		Short: "Manage module aliases",
+		Long: `Manage module aliases for collision disambiguation.
 
 When two modules have the same 'module' identifier, you can use aliases to
 give them different names. Aliases are stored in your invowk configuration.
@@ -159,13 +194,13 @@ Examples:
   invowk module alias set /path/to/module my-alias
   invowk module alias list
   invowk module alias remove /path/to/module`,
-}
+	}
 
-// moduleAliasSetCmd sets an alias for a module
-var moduleAliasSetCmd = &cobra.Command{
-	Use:   "set <module-path> <alias>",
-	Short: "Set an alias for a module",
-	Long: `Set an alias for a module to resolve naming collisions.
+	// moduleAliasSetCmd sets an alias for a module
+	moduleAliasSetCmd = &cobra.Command{
+		Use:   "set <module-path> <alias>",
+		Short: "Set an alias for a module",
+		Long: `Set an alias for a module to resolve naming collisions.
 
 The alias will be used as the module identifier instead of the module's
 declared 'module' field when discovering commands.
@@ -173,55 +208,43 @@ declared 'module' field when discovering commands.
 Examples:
   invowk module alias set ./mymodule.invkmod my-tools
   invowk module alias set /absolute/path/mymodule.invkmod custom-name`,
-	Args: cobra.ExactArgs(2),
-	RunE: runModuleAliasSet,
-}
+		Args: cobra.ExactArgs(2),
+		RunE: runModuleAliasSet,
+	}
 
-// moduleAliasListCmd lists all configured aliases
-var moduleAliasListCmd = &cobra.Command{
-	Use:   "list",
-	Short: "List all module aliases",
-	Long: `List all configured module aliases.
+	// moduleAliasListCmd lists all configured aliases
+	moduleAliasListCmd = &cobra.Command{
+		Use:   "list",
+		Short: "List all module aliases",
+		Long: `List all configured module aliases.
 
 Shows a table of module paths and their assigned aliases.
 
 Examples:
   invowk module alias list`,
-	RunE: runModuleAliasList,
-}
+		RunE: runModuleAliasList,
+	}
 
-// moduleAliasRemoveCmd removes an alias for a module
-var moduleAliasRemoveCmd = &cobra.Command{
-	Use:   "remove <module-path>",
-	Short: "Remove an alias for a module",
-	Long: `Remove a previously configured alias for a module.
+	// moduleAliasRemoveCmd removes an alias for a module
+	moduleAliasRemoveCmd = &cobra.Command{
+		Use:   "remove <module-path>",
+		Short: "Remove an alias for a module",
+		Long: `Remove a previously configured alias for a module.
 
 The module will revert to using its declared 'module' identifier.
 
 Examples:
   invowk module alias remove ./mymodule.invkmod
   invowk module alias remove /absolute/path/mymodule.invkmod`,
-	Args: cobra.ExactArgs(1),
-	RunE: runModuleAliasRemove,
-}
+		Args: cobra.ExactArgs(1),
+		RunE: runModuleAliasRemove,
+	}
 
-var (
-	// moduleVendorUpdate forces re-fetching of vendored dependencies
-	moduleVendorUpdate bool
-	// moduleVendorPrune removes unused vendored modules
-	moduleVendorPrune bool
-
-	// moduleAddAlias is the alias for the added module dependency
-	moduleAddAlias string
-	// moduleAddPath is the subdirectory path within the repository
-	moduleAddPath string
-)
-
-// moduleVendorCmd vendors dependencies into invk_modules/
-var moduleVendorCmd = &cobra.Command{
-	Use:   "vendor [module-path]",
-	Short: "Vendor module dependencies",
-	Long: `Vendor module dependencies into the invk_modules/ directory.
+	// moduleVendorCmd vendors dependencies into invk_modules/
+	moduleVendorCmd = &cobra.Command{
+		Use:   "vendor [module-path]",
+		Short: "Vendor module dependencies",
+		Long: `Vendor module dependencies into the invk_modules/ directory.
 
 This command reads the 'requires' field from the invkmod.cue and fetches
 all dependencies into the invk_modules/ subdirectory, enabling offline
@@ -235,15 +258,15 @@ Examples:
   invowk module vendor ./mymodule.invkmod
   invowk module vendor --update
   invowk module vendor --prune`,
-	Args: cobra.MaximumNArgs(1),
-	RunE: runModuleVendor,
-}
+		Args: cobra.MaximumNArgs(1),
+		RunE: runModuleVendor,
+	}
 
-// moduleAddCmd adds a new module dependency
-var moduleAddCmd = &cobra.Command{
-	Use:   "add <git-url> <version>",
-	Short: "Add a module dependency",
-	Long: `Add a new module dependency from a Git repository.
+	// moduleAddCmd adds a new module dependency
+	moduleAddCmd = &cobra.Command{
+		Use:   "add <git-url> <version>",
+		Short: "Add a module dependency",
+		Long: `Add a new module dependency from a Git repository.
 
 The git-url should be an HTTPS or SSH URL to a Git repository containing
 an invowk module. The version should be a semantic version constraint.
@@ -258,44 +281,44 @@ Examples:
   invowk module add https://github.com/user/module.git ^1.0.0
   invowk module add git@github.com:user/module.git ~2.0.0 --alias mymodule
   invowk module add https://github.com/user/monorepo.git ^1.0.0 --path modules/utils`,
-	Args: cobra.ExactArgs(2),
-	RunE: runModuleAdd,
-}
+		Args: cobra.ExactArgs(2),
+		RunE: runModuleAdd,
+	}
 
-// moduleRemoveCmd removes a module dependency
-var moduleRemoveCmd = &cobra.Command{
-	Use:   "remove <git-url>",
-	Short: "Remove a module dependency",
-	Long: `Remove a module dependency from the lock file.
+	// moduleRemoveCmd removes a module dependency
+	moduleRemoveCmd = &cobra.Command{
+		Use:   "remove <git-url>",
+		Short: "Remove a module dependency",
+		Long: `Remove a module dependency from the lock file.
 
 This removes the module from the lock file. The cached module files are not deleted.
 Don't forget to also remove the requires entry from your invkmod.cue.
 
 Examples:
   invowk module remove https://github.com/user/module.git`,
-	Args: cobra.ExactArgs(1),
-	RunE: runModuleRemove,
-}
+		Args: cobra.ExactArgs(1),
+		RunE: runModuleRemove,
+	}
 
-// moduleSyncCmd syncs dependencies from the invkfile
-var moduleSyncCmd = &cobra.Command{
-	Use:   "sync",
-	Short: "Sync dependencies from invkmod.cue",
-	Long: `Sync all dependencies declared in invkmod.cue.
+	// moduleSyncCmd syncs dependencies from the invkfile
+	moduleSyncCmd = &cobra.Command{
+		Use:   "sync",
+		Short: "Sync dependencies from invkmod.cue",
+		Long: `Sync all dependencies declared in invkmod.cue.
 
 This reads the 'requires' field from invkmod.cue, resolves all version
 constraints, downloads the modules, and updates the lock file.
 
 Examples:
   invowk module sync`,
-	RunE: runModuleSync,
-}
+		RunE: runModuleSync,
+	}
 
-// moduleUpdateCmd updates module dependencies
-var moduleUpdateCmd = &cobra.Command{
-	Use:   "update [git-url]",
-	Short: "Update module dependencies",
-	Long: `Update module dependencies to their latest matching versions.
+	// moduleUpdateCmd updates module dependencies
+	moduleUpdateCmd = &cobra.Command{
+		Use:   "update [git-url]",
+		Short: "Update module dependencies",
+		Long: `Update module dependencies to their latest matching versions.
 
 Without arguments, updates all modules. With a git-url argument, updates
 only that specific module.
@@ -303,21 +326,22 @@ only that specific module.
 Examples:
   invowk module update
   invowk module update https://github.com/user/module.git`,
-	RunE: runModuleUpdate,
-}
+		RunE: runModuleUpdate,
+	}
 
-// moduleDepsCmd lists module dependencies
-var moduleDepsCmd = &cobra.Command{
-	Use:   "deps",
-	Short: "List module dependencies",
-	Long: `List all module dependencies from the lock file.
+	// moduleDepsCmd lists module dependencies
+	moduleDepsCmd = &cobra.Command{
+		Use:   "deps",
+		Short: "List module dependencies",
+		Long: `List all module dependencies from the lock file.
 
 Shows all resolved modules with their versions, namespaces, and cache paths.
 
 Examples:
   invowk module deps`,
-	RunE: runModuleDeps,
-}
+		RunE: runModuleDeps,
+	}
+)
 
 func init() {
 	moduleCmd.AddCommand(moduleValidateCmd)
@@ -358,34 +382,6 @@ func init() {
 	moduleAddCmd.Flags().StringVar(&moduleAddAlias, "alias", "", "alias for the module namespace")
 	moduleAddCmd.Flags().StringVar(&moduleAddPath, "path", "", "subdirectory path within the repository")
 }
-
-// Style definitions for module validation output
-var (
-	moduleSuccessIcon = successStyle.Render("✓")
-	moduleErrorIcon   = errorStyle.Render("✗")
-	moduleWarningIcon = warningStyle.Render("!")
-	moduleInfoIcon    = subtitleStyle.Render("•")
-
-	moduleTitleStyle = lipgloss.NewStyle().
-				Bold(true).
-				Foreground(lipgloss.Color("#7C3AED")).
-				MarginBottom(1)
-
-	moduleIssueStyle = lipgloss.NewStyle().
-				Foreground(lipgloss.Color("#EF4444")).
-				PaddingLeft(2)
-
-	moduleIssueTypeStyle = lipgloss.NewStyle().
-				Foreground(lipgloss.Color("#6B7280")).
-				Italic(true)
-
-	modulePathStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#3B82F6"))
-
-	moduleDetailStyle = lipgloss.NewStyle().
-				Foreground(lipgloss.Color("#6B7280")).
-				PaddingLeft(2)
-)
 
 func runModuleValidate(cmd *cobra.Command, args []string) error {
 	modulePath := args[0]

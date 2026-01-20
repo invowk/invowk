@@ -17,9 +17,6 @@ import (
 	"time"
 )
 
-// ServerState represents the lifecycle state of the TUI server.
-type ServerState int32
-
 const (
 	// StateCreated indicates the server has been created but not started.
 	StateCreated ServerState = iota
@@ -33,6 +30,64 @@ const (
 	StateStopped
 	// StateFailed indicates the server failed to start or encountered a fatal error (terminal state).
 	StateFailed
+)
+
+type (
+	// ServerState represents the lifecycle state of the TUI server.
+	ServerState int32
+
+	// TUIRequest represents a request for a TUI component to be rendered.
+	// The HTTP handler sends these to the parent Bubbletea program via a channel.
+	TUIRequest struct {
+		// Component is the type of TUI component to render.
+		Component Component
+		// Options contains the component-specific options as raw JSON.
+		Options json.RawMessage
+		// ResponseCh is where the result should be sent.
+		ResponseCh chan<- Response
+	}
+
+	// Server is an HTTP server that handles TUI rendering requests from child processes.
+	// It listens on all interfaces (0.0.0.0) and requires token-based authentication.
+	//
+	// Instead of rendering TUI components directly, the server sends requests
+	// to a channel that the parent Bubbletea program reads from. This allows
+	// TUI components to be rendered as overlays within the parent's alt-screen.
+	//
+	// A Server instance is single-use: once stopped or failed, create a new instance.
+	Server struct {
+		// Immutable configuration (set at creation, never modified)
+		listener   net.Listener
+		httpServer *http.Server
+		port       int
+		token      string
+
+		// State management (atomic for lock-free reads)
+		state atomic.Int32
+
+		// State transition protection
+		stateMu sync.Mutex
+
+		// Lifecycle management
+		ctx       context.Context
+		cancel    context.CancelFunc
+		wg        sync.WaitGroup
+		startedCh chan struct{}
+		errCh     chan error
+		lastErr   error
+
+		// Shutdown coordination
+		shutdownCh   chan struct{}
+		shutdownOnce sync.Once
+
+		// Request handling - mu protects concurrent access during TUI rendering.
+		// Only one TUI component can be rendered at a time.
+		mu sync.Mutex
+
+		// requestCh receives TUI component requests from HTTP handlers.
+		// The parent Bubbletea program should read from this channel.
+		requestCh chan TUIRequest
+	}
 )
 
 // String returns a human-readable representation of the server state.
@@ -53,59 +108,6 @@ func (s ServerState) String() string {
 	default:
 		return "unknown"
 	}
-}
-
-// TUIRequest represents a request for a TUI component to be rendered.
-// The HTTP handler sends these to the parent Bubbletea program via a channel.
-type TUIRequest struct {
-	// Component is the type of TUI component to render.
-	Component Component
-	// Options contains the component-specific options as raw JSON.
-	Options json.RawMessage
-	// ResponseCh is where the result should be sent.
-	ResponseCh chan<- Response
-}
-
-// Server is an HTTP server that handles TUI rendering requests from child processes.
-// It listens on all interfaces (0.0.0.0) and requires token-based authentication.
-//
-// Instead of rendering TUI components directly, the server sends requests
-// to a channel that the parent Bubbletea program reads from. This allows
-// TUI components to be rendered as overlays within the parent's alt-screen.
-//
-// A Server instance is single-use: once stopped or failed, create a new instance.
-type Server struct {
-	// Immutable configuration (set at creation, never modified)
-	listener   net.Listener
-	httpServer *http.Server
-	port       int
-	token      string
-
-	// State management (atomic for lock-free reads)
-	state atomic.Int32
-
-	// State transition protection
-	stateMu sync.Mutex
-
-	// Lifecycle management
-	ctx       context.Context
-	cancel    context.CancelFunc
-	wg        sync.WaitGroup
-	startedCh chan struct{}
-	errCh     chan error
-	lastErr   error
-
-	// Shutdown coordination
-	shutdownCh   chan struct{}
-	shutdownOnce sync.Once
-
-	// Request handling - mu protects concurrent access during TUI rendering.
-	// Only one TUI component can be rendered at a time.
-	mu sync.Mutex
-
-	// requestCh receives TUI component requests from HTTP handlers.
-	// The parent Bubbletea program should read from this channel.
-	requestCh chan TUIRequest
 }
 
 // New creates a new TUI server listening on a random port on all interfaces.

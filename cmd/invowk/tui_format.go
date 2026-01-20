@@ -17,13 +17,12 @@ var (
 	formatType     string
 	formatLanguage string
 	formatTheme    string
-)
 
-// tuiFormatCmd formats text with styling.
-var tuiFormatCmd = &cobra.Command{
-	Use:   "format [text...]",
-	Short: "Format text with markdown, code, or emoji",
-	Long: `Format and render text with various styling options.
+	// tuiFormatCmd formats text with styling.
+	tuiFormatCmd = &cobra.Command{
+		Use:   "format [text...]",
+		Short: "Format text with markdown, code, or emoji",
+		Long: `Format and render text with various styling options.
 
 Content can be provided as arguments or piped via stdin.
 
@@ -36,17 +35,18 @@ Format types:
 Examples:
   # Format markdown
   echo "# Hello World" | invowk tui format --type markdown
-  
+
   # Syntax highlight code
   cat main.go | invowk tui format --type code --language go
-  
+
   # Convert emoji
   echo "Hello :wave: World :smile:" | invowk tui format --type emoji
-  
+
   # Format inline
   invowk tui format --type markdown "**bold** and *italic*"`,
-	RunE: runTuiFormat,
-}
+		RunE: runTuiFormat,
+	}
+)
 
 func init() {
 	tuiCmd.AddCommand(tuiFormatCmd)

@@ -10,9 +10,6 @@ import (
 	"github.com/charmbracelet/glamour"
 )
 
-// Id represents a unique identifier for an issue type.
-type Id int
-
 // Issue IDs for different error scenarios.
 const (
 	FileNotFoundId Id = iota + 1
@@ -32,61 +29,6 @@ const (
 	HostNotSupportedId
 )
 
-// MarkdownMsg represents markdown-formatted issue message content.
-type MarkdownMsg string
-
-// HttpLink represents a URL link for documentation or external resources.
-type HttpLink string
-
-// Renderer defines the interface for rendering markdown content.
-type Renderer interface {
-	Render(in string, stylePath string) (string, error)
-}
-
-// Issue represents a user-facing error with documentation and external links.
-type Issue struct {
-	id       Id          // ID used to lookup the issue
-	mdMsg    MarkdownMsg // Markdown text that will be rendered
-	docLinks []HttpLink  // must never be empty, because we need to have docs about all issue types
-	extLinks []HttpLink  // external links that might be useful for the user
-}
-
-// Id returns the unique identifier for this issue.
-func (i *Issue) Id() Id {
-	return i.id
-}
-
-// MarkdownMsg returns the markdown-formatted message for this issue.
-func (i *Issue) MarkdownMsg() MarkdownMsg {
-	return i.mdMsg
-}
-
-// DocLinks returns a copy of the documentation links for this issue.
-func (i *Issue) DocLinks() []HttpLink {
-	return slices.Clone(i.docLinks)
-}
-
-// ExtLinks returns a copy of the external resource links for this issue.
-func (i *Issue) ExtLinks() []HttpLink {
-	return slices.Clone(i.extLinks)
-}
-
-// Render renders the issue message with documentation links using the specified style.
-func (i *Issue) Render(stylePath string) (string, error) {
-	var extraMd strings.Builder
-	if len(i.docLinks) > 0 || len(i.extLinks) > 0 {
-		extraMd.WriteString("\n\n")
-		extraMd.WriteString("## See also: ")
-		for _, link := range i.docLinks {
-			extraMd.WriteString("- [" + string(link) + "]")
-		}
-		for _, link := range i.extLinks {
-			extraMd.WriteString("- [" + string(link) + "]")
-		}
-	}
-	return render(string(i.mdMsg)+extraMd.String(), stylePath)
-}
-
 var (
 	render = glamour.Render
 
@@ -97,10 +39,10 @@ var (
 We have failed to start our super powered TUI Server due to weird conditions.
 
 ## Things you can try to fix and retry
-- Run this command  
+- Run this command
 ~~~
 $ invowk fix
-~~~  
+~~~
     and try again what you doing before.`,
 	}
 
@@ -489,6 +431,66 @@ This command cannot run on your current operating system.
 		hostNotSupportedIssue.Id():         hostNotSupportedIssue,
 	}
 )
+
+type (
+	// Id represents a unique identifier for an issue type.
+	Id int
+
+	// MarkdownMsg represents markdown-formatted issue message content.
+	MarkdownMsg string
+
+	// HttpLink represents a URL link for documentation or external resources.
+	HttpLink string
+
+	// Renderer defines the interface for rendering markdown content.
+	Renderer interface {
+		Render(in string, stylePath string) (string, error)
+	}
+
+	// Issue represents a user-facing error with documentation and external links.
+	Issue struct {
+		id       Id          // ID used to lookup the issue
+		mdMsg    MarkdownMsg // Markdown text that will be rendered
+		docLinks []HttpLink  // must never be empty, because we need to have docs about all issue types
+		extLinks []HttpLink  // external links that might be useful for the user
+	}
+)
+
+// Id returns the unique identifier for this issue.
+func (i *Issue) Id() Id {
+	return i.id
+}
+
+// MarkdownMsg returns the markdown-formatted message for this issue.
+func (i *Issue) MarkdownMsg() MarkdownMsg {
+	return i.mdMsg
+}
+
+// DocLinks returns a copy of the documentation links for this issue.
+func (i *Issue) DocLinks() []HttpLink {
+	return slices.Clone(i.docLinks)
+}
+
+// ExtLinks returns a copy of the external resource links for this issue.
+func (i *Issue) ExtLinks() []HttpLink {
+	return slices.Clone(i.extLinks)
+}
+
+// Render renders the issue message with documentation links using the specified style.
+func (i *Issue) Render(stylePath string) (string, error) {
+	var extraMd strings.Builder
+	if len(i.docLinks) > 0 || len(i.extLinks) > 0 {
+		extraMd.WriteString("\n\n")
+		extraMd.WriteString("## See also: ")
+		for _, link := range i.docLinks {
+			extraMd.WriteString("- [" + string(link) + "]")
+		}
+		for _, link := range i.extLinks {
+			extraMd.WriteString("- [" + string(link) + "]")
+		}
+	}
+	return render(string(i.mdMsg)+extraMd.String(), stylePath)
+}
 
 // Values returns all registered issues.
 func Values() []*Issue {

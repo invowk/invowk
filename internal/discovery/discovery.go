@@ -14,12 +14,63 @@ import (
 	"strings"
 )
 
-// ModuleCollisionError is returned when two modules have the same module identifier.
-type ModuleCollisionError struct {
-	ModuleID     string
-	FirstSource  string
-	SecondSource string
-}
+const (
+	// SourceCurrentDir indicates the file was found in the current directory
+	SourceCurrentDir Source = iota
+	// SourceUserDir indicates the file was found in ~/.invowk/cmds
+	SourceUserDir
+	// SourceConfigPath indicates the file was found in a configured search path
+	SourceConfigPath
+	// SourceModule indicates the file was found in an invowk module
+	SourceModule
+)
+
+type (
+	// Source represents where an invkfile was found
+	Source int
+
+	// ModuleCollisionError is returned when two modules have the same module identifier.
+	ModuleCollisionError struct {
+		ModuleID     string
+		FirstSource  string
+		SecondSource string
+	}
+
+	// DiscoveredFile represents a found invkfile with its source
+	DiscoveredFile struct {
+		// Path is the absolute path to the invkfile
+		Path string
+		// Source indicates where the file was found
+		Source Source
+		// Invkfile is the parsed content (may be nil if not yet parsed)
+		Invkfile *invkfile.Invkfile
+		// Error contains any error that occurred during parsing
+		Error error
+		// Module is set if this file was discovered from a module
+		Module *invkmod.Module
+	}
+
+	// Discovery handles finding invkfiles
+	Discovery struct {
+		cfg *config.Config
+	}
+
+	// CommandInfo contains information about a discovered command
+	CommandInfo struct {
+		// Name is the command name (may include spaces, e.g., "test unit")
+		Name string
+		// Description is the command description
+		Description string
+		// Source is where the command was found
+		Source Source
+		// FilePath is the path to the invkfile containing this command
+		FilePath string
+		// Command is a reference to the actual command
+		Command *invkfile.Command
+		// Invkfile is a reference to the parent invkfile
+		Invkfile *invkfile.Invkfile
+	}
+)
 
 // Error implements the error interface.
 func (e *ModuleCollisionError) Error() string {
@@ -33,20 +84,6 @@ func (e *ModuleCollisionError) Error() string {
 		e.ModuleID, e.FirstSource, e.SecondSource,
 		e.FirstSource, e.SecondSource)
 }
-
-// Source represents where an invkfile was found
-type Source int
-
-const (
-	// SourceCurrentDir indicates the file was found in the current directory
-	SourceCurrentDir Source = iota
-	// SourceUserDir indicates the file was found in ~/.invowk/cmds
-	SourceUserDir
-	// SourceConfigPath indicates the file was found in a configured search path
-	SourceConfigPath
-	// SourceModule indicates the file was found in an invowk module
-	SourceModule
-)
 
 // String returns a human-readable source name
 func (s Source) String() string {
@@ -62,25 +99,6 @@ func (s Source) String() string {
 	default:
 		return "unknown"
 	}
-}
-
-// DiscoveredFile represents a found invkfile with its source
-type DiscoveredFile struct {
-	// Path is the absolute path to the invkfile
-	Path string
-	// Source indicates where the file was found
-	Source Source
-	// Invkfile is the parsed content (may be nil if not yet parsed)
-	Invkfile *invkfile.Invkfile
-	// Error contains any error that occurred during parsing
-	Error error
-	// Module is set if this file was discovered from a module
-	Module *invkmod.Module
-}
-
-// Discovery handles finding invkfiles
-type Discovery struct {
-	cfg *config.Config
 }
 
 // New creates a new Discovery instance
@@ -123,114 +141,6 @@ func (d *Discovery) DiscoverAll() ([]*DiscoveredFile, error) {
 	}
 
 	return files, nil
-}
-
-// discoverInDir looks for an invkfile in a specific directory
-func (d *Discovery) discoverInDir(dir string, source Source) *DiscoveredFile {
-	absDir, err := filepath.Abs(dir)
-	if err != nil {
-		return nil
-	}
-
-	// Check for invkfile.cue first (preferred)
-	path := filepath.Join(absDir, invkfile.InvkfileName+".cue")
-	if _, err := os.Stat(path); err == nil {
-		return &DiscoveredFile{Path: path, Source: source}
-	}
-
-	// Check for invkfile (no extension)
-	path = filepath.Join(absDir, invkfile.InvkfileName)
-	if _, err := os.Stat(path); err == nil {
-		return &DiscoveredFile{Path: path, Source: source}
-	}
-
-	return nil
-}
-
-// discoverInDirRecursive finds all invkfiles in a directory tree
-func (d *Discovery) discoverInDirRecursive(dir string, source Source) []*DiscoveredFile {
-	var files []*DiscoveredFile
-
-	absDir, err := filepath.Abs(dir)
-	if err != nil {
-		return files
-	}
-
-	// Check if directory exists
-	if _, statErr := os.Stat(absDir); os.IsNotExist(statErr) {
-		return files
-	}
-
-	err = filepath.WalkDir(absDir, func(path string, d os.DirEntry, walkErr error) error {
-		if walkErr != nil {
-			return nil //nolint:nilerr // Intentionally skip errors to continue walking
-		}
-
-		if d.IsDir() {
-			return nil
-		}
-
-		name := d.Name()
-		if name == invkfile.InvkfileName || name == invkfile.InvkfileName+".cue" {
-			files = append(files, &DiscoveredFile{Path: path, Source: source})
-		}
-
-		return nil
-	})
-	if err != nil {
-		return files
-	}
-
-	return files
-}
-
-// discoverModulesInDir finds all valid modules in a directory.
-// It only looks at immediate subdirectories (modules are not nested).
-func (d *Discovery) discoverModulesInDir(dir string) []*DiscoveredFile {
-	var files []*DiscoveredFile
-
-	absDir, err := filepath.Abs(dir)
-	if err != nil {
-		return files
-	}
-
-	// Check if directory exists
-	if _, statErr := os.Stat(absDir); os.IsNotExist(statErr) {
-		return files
-	}
-
-	// Read directory entries
-	entries, err := os.ReadDir(absDir)
-	if err != nil {
-		return files
-	}
-
-	for _, entry := range entries {
-		if !entry.IsDir() {
-			continue
-		}
-
-		// Check if it's a module
-		entryPath := filepath.Join(absDir, entry.Name())
-		if !invkmod.IsModule(entryPath) {
-			continue
-		}
-
-		// Load the module
-		m, err := invkmod.Load(entryPath)
-		if err != nil {
-			// Invalid module, skip it
-			continue
-		}
-
-		files = append(files, &DiscoveredFile{
-			Path:   m.InvkfilePath(),
-			Source: SourceModule,
-			Module: m,
-		})
-	}
-
-	return files
 }
 
 // LoadAll parses all discovered files
@@ -300,22 +210,6 @@ func (d *Discovery) LoadFirst() (*DiscoveredFile, error) {
 
 	file.Invkfile = inv
 	return file, nil
-}
-
-// CommandInfo contains information about a discovered command
-type CommandInfo struct {
-	// Name is the command name (may include spaces, e.g., "test unit")
-	Name string
-	// Description is the command description
-	Description string
-	// Source is where the command was found
-	Source Source
-	// FilePath is the path to the invkfile containing this command
-	FilePath string
-	// Command is a reference to the actual command
-	Command *invkfile.Command
-	// Invkfile is a reference to the parent invkfile
-	Invkfile *invkfile.Invkfile
 }
 
 // DiscoverCommands finds all available commands from all invkfiles
@@ -448,4 +342,112 @@ func (d *Discovery) GetEffectiveModuleID(file *DiscoveredFile) string {
 	}
 
 	return moduleID
+}
+
+// discoverInDir looks for an invkfile in a specific directory
+func (d *Discovery) discoverInDir(dir string, source Source) *DiscoveredFile {
+	absDir, err := filepath.Abs(dir)
+	if err != nil {
+		return nil
+	}
+
+	// Check for invkfile.cue first (preferred)
+	path := filepath.Join(absDir, invkfile.InvkfileName+".cue")
+	if _, err := os.Stat(path); err == nil {
+		return &DiscoveredFile{Path: path, Source: source}
+	}
+
+	// Check for invkfile (no extension)
+	path = filepath.Join(absDir, invkfile.InvkfileName)
+	if _, err := os.Stat(path); err == nil {
+		return &DiscoveredFile{Path: path, Source: source}
+	}
+
+	return nil
+}
+
+// discoverInDirRecursive finds all invkfiles in a directory tree
+func (d *Discovery) discoverInDirRecursive(dir string, source Source) []*DiscoveredFile {
+	var files []*DiscoveredFile
+
+	absDir, err := filepath.Abs(dir)
+	if err != nil {
+		return files
+	}
+
+	// Check if directory exists
+	if _, statErr := os.Stat(absDir); os.IsNotExist(statErr) {
+		return files
+	}
+
+	err = filepath.WalkDir(absDir, func(path string, d os.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return nil //nolint:nilerr // Intentionally skip errors to continue walking
+		}
+
+		if d.IsDir() {
+			return nil
+		}
+
+		name := d.Name()
+		if name == invkfile.InvkfileName || name == invkfile.InvkfileName+".cue" {
+			files = append(files, &DiscoveredFile{Path: path, Source: source})
+		}
+
+		return nil
+	})
+	if err != nil {
+		return files
+	}
+
+	return files
+}
+
+// discoverModulesInDir finds all valid modules in a directory.
+// It only looks at immediate subdirectories (modules are not nested).
+func (d *Discovery) discoverModulesInDir(dir string) []*DiscoveredFile {
+	var files []*DiscoveredFile
+
+	absDir, err := filepath.Abs(dir)
+	if err != nil {
+		return files
+	}
+
+	// Check if directory exists
+	if _, statErr := os.Stat(absDir); os.IsNotExist(statErr) {
+		return files
+	}
+
+	// Read directory entries
+	entries, err := os.ReadDir(absDir)
+	if err != nil {
+		return files
+	}
+
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+
+		// Check if it's a module
+		entryPath := filepath.Join(absDir, entry.Name())
+		if !invkmod.IsModule(entryPath) {
+			continue
+		}
+
+		// Load the module
+		m, err := invkmod.Load(entryPath)
+		if err != nil {
+			// Invalid module, skip it
+			continue
+		}
+
+		files = append(files, &DiscoveredFile{
+			Path:   m.InvkfilePath(),
+			Source: SourceModule,
+			Module: m,
+		})
+	}
+
+	return files
 }

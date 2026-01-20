@@ -10,48 +10,55 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-// TableColumn represents a column in the table.
-type TableColumn struct {
-	// Title is the column header text.
-	Title string
-	// Width is the column width (0 for auto).
-	Width int
-}
+type (
+	// TableColumn represents a column in the table.
+	TableColumn struct {
+		// Title is the column header text.
+		Title string
+		// Width is the column width (0 for auto).
+		Width int
+	}
 
-// TableOptions configures the Table component.
-type TableOptions struct {
-	// Title is the title displayed above the table.
-	Title string
-	// Columns defines the table columns.
-	Columns []TableColumn
-	// Rows contains the table data.
-	Rows [][]string
-	// Height limits the visible height (0 for auto).
-	Height int
-	// Width limits the visible width (0 for auto).
-	Width int
-	// Selectable enables row selection.
-	Selectable bool
-	// SelectedIndex is the initially selected row index.
-	SelectedIndex int
-	// Separator is the column separator character.
-	Separator string
-	// Border enables table border.
-	Border bool
-	// Config holds common TUI configuration.
-	Config Config
-}
+	// TableOptions configures the Table component.
+	TableOptions struct {
+		// Title is the title displayed above the table.
+		Title string
+		// Columns defines the table columns.
+		Columns []TableColumn
+		// Rows contains the table data.
+		Rows [][]string
+		// Height limits the visible height (0 for auto).
+		Height int
+		// Width limits the visible width (0 for auto).
+		Width int
+		// Selectable enables row selection.
+		Selectable bool
+		// SelectedIndex is the initially selected row index.
+		SelectedIndex int
+		// Separator is the column separator character.
+		Separator string
+		// Border enables table border.
+		Border bool
+		// Config holds common TUI configuration.
+		Config Config
+	}
 
-// tableModel is the bubbletea model for the table component.
-// It implements EmbeddableComponent for embedded use.
-type tableModel struct {
-	table     table.Model
-	rows      [][]string
-	done      bool
-	cancelled bool
-	width     int
-	height    int
-}
+	// tableModel is the bubbletea model for the table component.
+	// It implements EmbeddableComponent for embedded use.
+	tableModel struct {
+		table     table.Model
+		rows      [][]string
+		done      bool
+		cancelled bool
+		width     int
+		height    int
+	}
+
+	// TableBuilder provides a fluent API for building Table displays.
+	TableBuilder struct {
+		opts TableOptions
+	}
+)
 
 // NewTableModel creates an embeddable table component.
 func NewTableModel(opts TableOptions) *tableModel {
@@ -62,107 +69,6 @@ func NewTableModel(opts TableOptions) *tableModel {
 // This version uses styles that avoid background color bleeding.
 func NewTableModelForModal(opts TableOptions) *tableModel {
 	return newTableModelWithStyles(opts, true)
-}
-
-// newTableModelWithStyles creates a table model with optional modal-specific styling.
-func newTableModelWithStyles(opts TableOptions, forModal bool) *tableModel {
-	if len(opts.Rows) == 0 {
-		return &tableModel{
-			done: true,
-			rows: [][]string{},
-		}
-	}
-
-	// Build columns
-	columns := make([]table.Column, len(opts.Columns))
-	for i, col := range opts.Columns {
-		width := col.Width
-		if width == 0 {
-			// Auto-calculate width based on content
-			width = len(col.Title)
-			for _, row := range opts.Rows {
-				if i < len(row) && len(row[i]) > width {
-					width = len(row[i])
-				}
-			}
-			width += 2 // Add padding
-		}
-		columns[i] = table.Column{
-			Title: col.Title,
-			Width: width,
-		}
-	}
-
-	// Build rows
-	rows := make([]table.Row, len(opts.Rows))
-	for i, row := range opts.Rows {
-		rows[i] = row
-	}
-
-	tableHeight := opts.Height
-	if tableHeight == 0 {
-		tableHeight = min(len(opts.Rows)+1, 15)
-	}
-
-	t := table.New(
-		table.WithColumns(columns),
-		table.WithRows(rows),
-		table.WithFocused(true),
-		table.WithHeight(tableHeight),
-	)
-
-	s := table.DefaultStyles()
-
-	if forModal {
-		// Modal-specific styles: ALL have EXPLICIT backgrounds to prevent color bleeding
-		base := modalBaseStyle()
-		purple := lipgloss.Color("#7C3AED")
-		lightPurple := lipgloss.Color("#A78BFA")
-		white := lipgloss.Color("#FFFFFF")
-		dimmed := lipgloss.Color("#6B7280")
-
-		// Header style - explicit background with border bottom
-		s.Header = base.
-			Foreground(purple).
-			Bold(true).
-			BorderStyle(lipgloss.NormalBorder()).
-			BorderForeground(dimmed).
-			BorderBottom(true)
-
-		// Selected row - use left border indicator WITH explicit background
-		s.Selected = base.
-			Foreground(lightPurple).
-			Bold(true).
-			Border(lipgloss.NormalBorder(), false, false, false, true).
-			BorderForeground(purple)
-
-		// Cell style - explicit background
-		s.Cell = base.Foreground(white)
-	} else {
-		// Default styles
-		s.Header = s.Header.
-			BorderStyle(lipgloss.NormalBorder()).
-			BorderForeground(lipgloss.Color("240")).
-			BorderBottom(true).
-			Bold(true)
-		s.Selected = s.Selected.
-			Foreground(lipgloss.Color("229")).
-			Background(lipgloss.Color("57")).
-			Bold(false)
-	}
-
-	t.SetStyles(s)
-
-	if opts.SelectedIndex >= 0 && opts.SelectedIndex < len(opts.Rows) {
-		t.SetCursor(opts.SelectedIndex)
-	}
-
-	return &tableModel{
-		table:  t,
-		rows:   opts.Rows,
-		width:  opts.Width,
-		height: tableHeight,
-	}
 }
 
 func (m *tableModel) Init() tea.Cmd {
@@ -307,11 +213,6 @@ func TableFromCSV(data, separator string, hasHeader bool) TableOptions {
 	}
 }
 
-// TableBuilder provides a fluent API for building Table displays.
-type TableBuilder struct {
-	opts TableOptions
-}
-
 // NewTable creates a new TableBuilder with default options.
 func NewTable() *TableBuilder {
 	return &TableBuilder{
@@ -420,4 +321,105 @@ func (b *TableBuilder) Display() error {
 // Model returns the embeddable model for composition.
 func (b *TableBuilder) Model() EmbeddableComponent {
 	return NewTableModel(b.opts)
+}
+
+// newTableModelWithStyles creates a table model with optional modal-specific styling.
+func newTableModelWithStyles(opts TableOptions, forModal bool) *tableModel {
+	if len(opts.Rows) == 0 {
+		return &tableModel{
+			done: true,
+			rows: [][]string{},
+		}
+	}
+
+	// Build columns
+	columns := make([]table.Column, len(opts.Columns))
+	for i, col := range opts.Columns {
+		width := col.Width
+		if width == 0 {
+			// Auto-calculate width based on content
+			width = len(col.Title)
+			for _, row := range opts.Rows {
+				if i < len(row) && len(row[i]) > width {
+					width = len(row[i])
+				}
+			}
+			width += 2 // Add padding
+		}
+		columns[i] = table.Column{
+			Title: col.Title,
+			Width: width,
+		}
+	}
+
+	// Build rows
+	rows := make([]table.Row, len(opts.Rows))
+	for i, row := range opts.Rows {
+		rows[i] = row
+	}
+
+	tableHeight := opts.Height
+	if tableHeight == 0 {
+		tableHeight = min(len(opts.Rows)+1, 15)
+	}
+
+	t := table.New(
+		table.WithColumns(columns),
+		table.WithRows(rows),
+		table.WithFocused(true),
+		table.WithHeight(tableHeight),
+	)
+
+	s := table.DefaultStyles()
+
+	if forModal {
+		// Modal-specific styles: ALL have EXPLICIT backgrounds to prevent color bleeding
+		base := modalBaseStyle()
+		purple := lipgloss.Color("#7C3AED")
+		lightPurple := lipgloss.Color("#A78BFA")
+		white := lipgloss.Color("#FFFFFF")
+		dimmed := lipgloss.Color("#6B7280")
+
+		// Header style - explicit background with border bottom
+		s.Header = base.
+			Foreground(purple).
+			Bold(true).
+			BorderStyle(lipgloss.NormalBorder()).
+			BorderForeground(dimmed).
+			BorderBottom(true)
+
+		// Selected row - use left border indicator WITH explicit background
+		s.Selected = base.
+			Foreground(lightPurple).
+			Bold(true).
+			Border(lipgloss.NormalBorder(), false, false, false, true).
+			BorderForeground(purple)
+
+		// Cell style - explicit background
+		s.Cell = base.Foreground(white)
+	} else {
+		// Default styles
+		s.Header = s.Header.
+			BorderStyle(lipgloss.NormalBorder()).
+			BorderForeground(lipgloss.Color("240")).
+			BorderBottom(true).
+			Bold(true)
+		s.Selected = s.Selected.
+			Foreground(lipgloss.Color("229")).
+			Background(lipgloss.Color("57")).
+			Bold(false)
+	}
+
+	t.SetStyles(s)
+
+	if opts.SelectedIndex >= 0 && opts.SelectedIndex < len(opts.Rows) {
+		t.SetCursor(opts.SelectedIndex)
+	}
+
+	return &tableModel{
+		table:  t,
+		rows:   opts.Rows,
+		width:  opts.Width,
+		height: tableHeight,
+	}
 }

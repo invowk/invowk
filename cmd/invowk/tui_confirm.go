@@ -14,13 +14,12 @@ var (
 	confirmAffirmative string
 	confirmNegative    string
 	confirmDefault     bool
-)
 
-// tuiConfirmCmd provides a yes/no confirmation prompt.
-var tuiConfirmCmd = &cobra.Command{
-	Use:   "confirm [prompt]",
-	Short: "Prompt for yes/no confirmation",
-	Long: `Prompt the user for a yes/no confirmation.
+	// tuiConfirmCmd provides a yes/no confirmation prompt.
+	tuiConfirmCmd = &cobra.Command{
+		Use:   "confirm [prompt]",
+		Short: "Prompt for yes/no confirmation",
+		Long: `Prompt the user for a yes/no confirmation.
 
 Exits with code 0 if confirmed (yes), or code 1 if not confirmed (no).
 This makes it suitable for use in shell conditionals.
@@ -41,9 +40,10 @@ Examples:
   else
     echo "Cancelled."
   fi`,
-	Args: cobra.MaximumNArgs(1),
-	RunE: runTuiConfirm,
-}
+		Args: cobra.MaximumNArgs(1),
+		RunE: runTuiConfirm,
+	}
+)
 
 func init() {
 	tuiCmd.AddCommand(tuiConfirmCmd)

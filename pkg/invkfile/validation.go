@@ -34,6 +34,16 @@ const (
 	MaxGitURLLength = 2048
 )
 
+var (
+	// toolNameRegex validates tool/binary names for security.
+	// Tool names must start with alphanumeric and can include . _ + -
+	toolNameRegex = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._+-]*$`)
+
+	// cmdDependencyNameRegex validates command dependency names.
+	// Command names must start with a letter, can include letters, digits, underscores, hyphens, and spaces.
+	cmdDependencyNameRegex = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9_ -]*$`)
+)
+
 // ValidateRegexPattern validates a user-provided regex pattern for safety and complexity.
 // It checks for:
 // - Pattern length limits
@@ -663,10 +673,6 @@ func ValidateFilepathDependency(paths []string) error {
 	return nil
 }
 
-// toolNameRegex validates tool/binary names for security.
-// Tool names must start with alphanumeric and can include . _ + -
-var toolNameRegex = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._+-]*$`)
-
 // ValidateToolName validates a tool/binary name.
 // This is a Go-level backup to the CUE schema constraint.
 func ValidateToolName(name string) error {
@@ -681,10 +687,6 @@ func ValidateToolName(name string) error {
 	}
 	return nil
 }
-
-// cmdDependencyNameRegex validates command dependency names.
-// Command names must start with a letter, can include letters, digits, underscores, hyphens, and spaces.
-var cmdDependencyNameRegex = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9_ -]*$`)
 
 // ValidateCommandDependencyName validates a command dependency name.
 func ValidateCommandDependencyName(name string) error {

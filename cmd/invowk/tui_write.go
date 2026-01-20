@@ -20,13 +20,12 @@ var (
 	writeWidth       int
 	writeHeight      int
 	writeShowLineNum bool
-)
 
-// tuiWriteCmd provides a multi-line text editor.
-var tuiWriteCmd = &cobra.Command{
-	Use:   "write",
-	Short: "Multi-line text editor",
-	Long: `Open a multi-line text editor for entering longer text.
+	// tuiWriteCmd provides a multi-line text editor.
+	tuiWriteCmd = &cobra.Command{
+		Use:   "write",
+		Short: "Multi-line text editor",
+		Long: `Open a multi-line text editor for entering longer text.
 
 The result is printed to stdout when the user submits (Ctrl+D or Esc).
 Useful for commit messages, descriptions, or any multi-line input.
@@ -34,18 +33,19 @@ Useful for commit messages, descriptions, or any multi-line input.
 Examples:
   # Basic text editor
   invowk tui write --title "Enter description"
-  
+
   # With placeholder and line numbers
   invowk tui write --title "Commit message" --placeholder "Describe your changes..." --show-line-numbers
-  
+
   # With initial value
   invowk tui write --value "Initial text here"
-  
+
   # Use in shell script
   MESSAGE=$(invowk tui write --title "Enter commit message")
   git commit -m "$MESSAGE"`,
-	RunE: runTuiWrite,
-}
+		RunE: runTuiWrite,
+	}
+)
 
 func init() {
 	tuiCmd.AddCommand(tuiWriteCmd)

@@ -35,13 +35,12 @@ var (
 	styleHeight     int
 	styleAlign      string
 	styleBorder     string
-)
 
-// tuiStyleCmd applies styles to text.
-var tuiStyleCmd = &cobra.Command{
-	Use:   "style [text...]",
-	Short: "Apply styles to text",
-	Long: `Apply terminal styling to text.
+	// tuiStyleCmd applies styles to text.
+	tuiStyleCmd = &cobra.Command{
+		Use:   "style [text...]",
+		Short: "Apply styles to text",
+		Long: `Apply terminal styling to text.
 
 Content can be provided as arguments or piped via stdin.
 Uses lipgloss for rendering, supporting colors, borders, and formatting.
@@ -49,20 +48,21 @@ Uses lipgloss for rendering, supporting colors, borders, and formatting.
 Examples:
   # Colored text
   invowk tui style --foreground "#FF0000" "Red text"
-  
+
   # Bold and italic
   echo "Styled" | invowk tui style --bold --italic
-  
+
   # With background and padding
   invowk tui style --background "#333" --foreground "#FFF" --padding 1 "Box"
-  
+
   # Centered with border
   invowk tui style --border rounded --align center --width 40 "Centered Title"
-  
+
   # Multiple styles
   invowk tui style --bold --foreground "#00FF00" --background "#000" "Matrix"`,
-	RunE: runTuiStyle,
-}
+		RunE: runTuiStyle,
+	}
+)
 
 func init() {
 	tuiCmd.AddCommand(tuiStyleCmd)

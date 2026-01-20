@@ -13,12 +13,11 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-// SpinnerType represents the type of spinner animation.
-type SpinnerType int
-
+// Const block placed before type (decorder: const → var → type → func).
+// Using untyped iota pattern for SpinnerType values.
 const (
 	// SpinnerLine is a simple line spinner.
-	SpinnerLine SpinnerType = iota
+	SpinnerLine = iota
 	// SpinnerDot is a dot spinner.
 	SpinnerDot
 	// SpinnerMiniDot is a mini dot spinner.
@@ -41,6 +40,61 @@ const (
 	SpinnerHamburger
 	// SpinnerEllipsis is an ellipsis spinner.
 	SpinnerEllipsis
+)
+
+// All type declarations consolidated in a single block.
+type (
+	// SpinnerType represents the type of spinner animation.
+	SpinnerType int
+
+	// SpinOptions configures the Spin component.
+	SpinOptions struct {
+		// Title is the text displayed next to the spinner.
+		Title string
+		// Type specifies the spinner animation type.
+		Type SpinnerType
+		// Config holds common TUI configuration.
+		Config Config
+	}
+
+	// SpinCommandOptions configures an embeddable spin component with a command.
+	SpinCommandOptions struct {
+		// Title is the text displayed next to the spinner.
+		Title string
+		// Command is the command and arguments to execute.
+		Command []string
+		// Type specifies the spinner animation type.
+		Type SpinnerType
+		// Config holds common TUI configuration.
+		Config Config
+	}
+
+	// spinModel implements EmbeddableComponent for spinner with command execution.
+	spinModel struct {
+		title   string
+		command []string
+		done    bool
+		result  SpinResult
+		width   int
+		height  int
+		spinner int
+		frames  []string
+	}
+
+	// spinnerTickMsg is sent to animate the spinner.
+	spinnerTickMsg struct{}
+
+	// spinnerDoneMsg is sent when the command completes.
+	spinnerDoneMsg struct {
+		result SpinResult
+	}
+
+	// SpinBuilder provides a fluent API for building Spin prompts.
+	SpinBuilder struct {
+		opts   SpinOptions
+		action func()
+		ctx    context.Context
+	}
 )
 
 // ParseSpinnerType parses a string into a SpinnerType.
@@ -83,48 +137,6 @@ func SpinnerTypeNames() []string {
 	}
 }
 
-// SpinOptions configures the Spin component.
-type SpinOptions struct {
-	// Title is the text displayed next to the spinner.
-	Title string
-	// Type specifies the spinner animation type.
-	Type SpinnerType
-	// Config holds common TUI configuration.
-	Config Config
-}
-
-// SpinCommandOptions configures an embeddable spin component with a command.
-type SpinCommandOptions struct {
-	// Title is the text displayed next to the spinner.
-	Title string
-	// Command is the command and arguments to execute.
-	Command []string
-	// Type specifies the spinner animation type.
-	Type SpinnerType
-	// Config holds common TUI configuration.
-	Config Config
-}
-
-// spinModel implements EmbeddableComponent for spinner with command execution.
-type spinModel struct {
-	title   string
-	command []string
-	done    bool
-	result  SpinResult
-	width   int
-	height  int
-	spinner int
-	frames  []string
-}
-
-// spinnerTickMsg is sent to animate the spinner.
-type spinnerTickMsg struct{}
-
-// spinnerDoneMsg is sent when the command completes.
-type spinnerDoneMsg struct {
-	result SpinResult
-}
-
 // NewSpinModel creates an embeddable spinner component.
 func NewSpinModel(opts SpinCommandOptions) *spinModel {
 	if len(opts.Command) == 0 {
@@ -148,38 +160,6 @@ func (m *spinModel) Init() tea.Cmd {
 		m.runCommand(),
 		m.tick(),
 	)
-}
-
-func (m *spinModel) runCommand() tea.Cmd {
-	return func() tea.Msg {
-		if len(m.command) == 0 {
-			return spinnerDoneMsg{result: SpinResult{}}
-		}
-
-		cmd := exec.CommandContext(context.Background(), m.command[0], m.command[1:]...)
-		output, err := cmd.CombinedOutput()
-
-		result := SpinResult{
-			Stdout: string(output),
-		}
-
-		if err != nil {
-			var exitErr *exec.ExitError
-			if errors.As(err, &exitErr) {
-				result.ExitCode = exitErr.ExitCode()
-			} else {
-				result.ExitCode = 1
-			}
-		}
-
-		return spinnerDoneMsg{result: result}
-	}
-}
-
-func (m *spinModel) tick() tea.Cmd {
-	return tea.Tick(100*time.Millisecond, func(_ time.Time) tea.Msg {
-		return spinnerTickMsg{}
-	})
 }
 
 // Update implements tea.Model.
@@ -244,36 +224,38 @@ func (m *spinModel) SetSize(width, height int) {
 	m.height = height
 }
 
-// getSpinnerType converts SpinnerType to spinner.Type.
-func getSpinnerType(t SpinnerType) spinner.Type {
-	switch t {
-	case SpinnerLine:
-		return spinner.Line
-	case SpinnerDot:
-		return spinner.Dots
-	case SpinnerMiniDot:
-		return spinner.MiniDot
-	case SpinnerJump:
-		return spinner.Jump
-	case SpinnerPulse:
-		return spinner.Pulse
-	case SpinnerPoints:
-		return spinner.Points
-	case SpinnerGlobe:
-		return spinner.Globe
-	case SpinnerMoon:
-		return spinner.Moon
-	case SpinnerMonkey:
-		return spinner.Monkey
-	case SpinnerMeter:
-		return spinner.Meter
-	case SpinnerHamburger:
-		return spinner.Hamburger
-	case SpinnerEllipsis:
-		return spinner.Ellipsis
-	default:
-		return spinner.Line
+// runCommand starts the command execution and returns the result.
+func (m *spinModel) runCommand() tea.Cmd {
+	return func() tea.Msg {
+		if len(m.command) == 0 {
+			return spinnerDoneMsg{result: SpinResult{}}
+		}
+
+		cmd := exec.CommandContext(context.Background(), m.command[0], m.command[1:]...)
+		output, err := cmd.CombinedOutput()
+
+		result := SpinResult{
+			Stdout: string(output),
+		}
+
+		if err != nil {
+			var exitErr *exec.ExitError
+			if errors.As(err, &exitErr) {
+				result.ExitCode = exitErr.ExitCode()
+			} else {
+				result.ExitCode = 1
+			}
+		}
+
+		return spinnerDoneMsg{result: result}
 	}
+}
+
+// tick returns a command that sends a spinnerTickMsg after a short delay.
+func (m *spinModel) tick() tea.Cmd {
+	return tea.Tick(100*time.Millisecond, func(_ time.Time) tea.Msg {
+		return spinnerTickMsg{}
+	})
 }
 
 // SpinWithAction displays a spinner while running an action function.
@@ -321,13 +303,6 @@ func SpinWithCommand(opts SpinOptions, command string, args ...string) ([]byte, 
 	}
 
 	return output, cmdErr
-}
-
-// SpinBuilder provides a fluent API for building Spin prompts.
-type SpinBuilder struct {
-	opts   SpinOptions
-	action func()
-	ctx    context.Context
 }
 
 // NewSpin creates a new SpinBuilder with default options.
@@ -392,4 +367,36 @@ func (b *SpinBuilder) Run() error {
 	}
 	// If no action or context, just return immediately
 	return nil
+}
+
+// getSpinnerType converts SpinnerType to spinner.Type.
+func getSpinnerType(t SpinnerType) spinner.Type {
+	switch t {
+	case SpinnerLine:
+		return spinner.Line
+	case SpinnerDot:
+		return spinner.Dots
+	case SpinnerMiniDot:
+		return spinner.MiniDot
+	case SpinnerJump:
+		return spinner.Jump
+	case SpinnerPulse:
+		return spinner.Pulse
+	case SpinnerPoints:
+		return spinner.Points
+	case SpinnerGlobe:
+		return spinner.Globe
+	case SpinnerMoon:
+		return spinner.Moon
+	case SpinnerMonkey:
+		return spinner.Monkey
+	case SpinnerMeter:
+		return spinner.Meter
+	case SpinnerHamburger:
+		return spinner.Hamburger
+	case SpinnerEllipsis:
+		return spinner.Ellipsis
+	default:
+		return spinner.Line
+	}
 }

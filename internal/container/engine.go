@@ -9,110 +9,112 @@ import (
 	"io"
 )
 
-// Engine defines the interface for container operations
-type Engine interface {
-	// Name returns the engine name (docker or podman)
-	Name() string
-	// Available checks if the engine is available on the system
-	Available() bool
-	// Version returns the engine version
-	Version(ctx context.Context) (string, error)
-
-	// Build builds an image from a Dockerfile
-	Build(ctx context.Context, opts BuildOptions) error
-	// Run runs a command in a container
-	Run(ctx context.Context, opts RunOptions) (*RunResult, error)
-	// Remove removes a container
-	Remove(ctx context.Context, containerID string, force bool) error
-	// ImageExists checks if an image exists
-	ImageExists(ctx context.Context, image string) (bool, error)
-	// RemoveImage removes an image
-	RemoveImage(ctx context.Context, image string, force bool) error
-
-	// BinaryPath returns the path to the container engine binary.
-	// This is used when preparing commands for PTY attachment in interactive mode.
-	BinaryPath() string
-
-	// BuildRunArgs builds the argument slice for a 'run' command without executing.
-	// Returns the full argument slice including 'run' and all options.
-	// This is used for interactive mode where the command needs to be attached to a PTY.
-	BuildRunArgs(opts RunOptions) []string
-}
-
-// BuildOptions contains options for building an image
-type BuildOptions struct {
-	// ContextDir is the build context directory
-	ContextDir string
-	// Dockerfile is the path to the Dockerfile (relative to ContextDir)
-	Dockerfile string
-	// Tag is the image tag
-	Tag string
-	// BuildArgs are build-time variables
-	BuildArgs map[string]string
-	// NoCache disables the build cache
-	NoCache bool
-	// Stdout is where to write build output
-	Stdout io.Writer
-	// Stderr is where to write build errors
-	Stderr io.Writer
-}
-
-// RunOptions contains options for running a container
-type RunOptions struct {
-	// Image is the image to run
-	Image string
-	// Command is the command to run
-	Command []string
-	// WorkDir is the working directory inside the container
-	WorkDir string
-	// Env contains environment variables
-	Env map[string]string
-	// Volumes are volume mounts in "host:container" format
-	Volumes []string
-	// Ports are port mappings in "host:container" format
-	Ports []string
-	// Remove automatically removes the container after exit
-	Remove bool
-	// Name is the container name
-	Name string
-	// Stdin is the standard input
-	Stdin io.Reader
-	// Stdout is where to write standard output
-	Stdout io.Writer
-	// Stderr is where to write standard error
-	Stderr io.Writer
-	// Interactive enables interactive mode
-	Interactive bool
-	// TTY allocates a pseudo-TTY
-	TTY bool
-	// ExtraHosts are additional host-to-IP mappings (e.g., "host.docker.internal:host-gateway")
-	ExtraHosts []string
-}
-
-// RunResult contains the result of running a container
-type RunResult struct {
-	// ContainerID is the container ID
-	ContainerID string
-	// ExitCode is the exit code
-	ExitCode int
-	// Error contains any error
-	Error error
-}
-
-// EngineType identifies the container engine type
-type EngineType string
-
 // Container engine type constants.
 const (
 	EngineTypePodman EngineType = "podman"
 	EngineTypeDocker EngineType = "docker"
 )
 
-// EngineNotAvailableError is returned when a container engine is not available
-type EngineNotAvailableError struct {
-	Engine string
-	Reason string
-}
+type (
+	// EngineType identifies the container engine type
+	EngineType string
+
+	// Engine defines the interface for container operations
+	Engine interface {
+		// Name returns the engine name (docker or podman)
+		Name() string
+		// Available checks if the engine is available on the system
+		Available() bool
+		// Version returns the engine version
+		Version(ctx context.Context) (string, error)
+
+		// Build builds an image from a Dockerfile
+		Build(ctx context.Context, opts BuildOptions) error
+		// Run runs a command in a container
+		Run(ctx context.Context, opts RunOptions) (*RunResult, error)
+		// Remove removes a container
+		Remove(ctx context.Context, containerID string, force bool) error
+		// ImageExists checks if an image exists
+		ImageExists(ctx context.Context, image string) (bool, error)
+		// RemoveImage removes an image
+		RemoveImage(ctx context.Context, image string, force bool) error
+
+		// BinaryPath returns the path to the container engine binary.
+		// This is used when preparing commands for PTY attachment in interactive mode.
+		BinaryPath() string
+
+		// BuildRunArgs builds the argument slice for a 'run' command without executing.
+		// Returns the full argument slice including 'run' and all options.
+		// This is used for interactive mode where the command needs to be attached to a PTY.
+		BuildRunArgs(opts RunOptions) []string
+	}
+
+	// BuildOptions contains options for building an image
+	BuildOptions struct {
+		// ContextDir is the build context directory
+		ContextDir string
+		// Dockerfile is the path to the Dockerfile (relative to ContextDir)
+		Dockerfile string
+		// Tag is the image tag
+		Tag string
+		// BuildArgs are build-time variables
+		BuildArgs map[string]string
+		// NoCache disables the build cache
+		NoCache bool
+		// Stdout is where to write build output
+		Stdout io.Writer
+		// Stderr is where to write build errors
+		Stderr io.Writer
+	}
+
+	// RunOptions contains options for running a container
+	RunOptions struct {
+		// Image is the image to run
+		Image string
+		// Command is the command to run
+		Command []string
+		// WorkDir is the working directory inside the container
+		WorkDir string
+		// Env contains environment variables
+		Env map[string]string
+		// Volumes are volume mounts in "host:container" format
+		Volumes []string
+		// Ports are port mappings in "host:container" format
+		Ports []string
+		// Remove automatically removes the container after exit
+		Remove bool
+		// Name is the container name
+		Name string
+		// Stdin is the standard input
+		Stdin io.Reader
+		// Stdout is where to write standard output
+		Stdout io.Writer
+		// Stderr is where to write standard error
+		Stderr io.Writer
+		// Interactive enables interactive mode
+		Interactive bool
+		// TTY allocates a pseudo-TTY
+		TTY bool
+		// ExtraHosts are additional host-to-IP mappings (e.g., "host.docker.internal:host-gateway")
+		ExtraHosts []string
+	}
+
+	// RunResult contains the result of running a container
+	RunResult struct {
+		// ContainerID is the container ID
+		ContainerID string
+		// ExitCode is the exit code
+		ExitCode int
+		// Error contains any error
+		Error error
+	}
+
+	// EngineNotAvailableError is returned when a container engine is not available
+	EngineNotAvailableError struct {
+		Engine string
+		Reason string
+	}
+)
 
 func (e *EngineNotAvailableError) Error() string {
 	return fmt.Sprintf("container engine '%s' is not available: %s", e.Engine, e.Reason)

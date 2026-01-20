@@ -10,35 +10,96 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-// ChooseStringOptions configures the embeddable Choose component for strings.
-// This is used by the TUI server for dynamic component creation.
-type ChooseStringOptions struct {
-	// Title is the title/prompt displayed above the options.
-	Title string
-	// Options is the list of string options to choose from.
-	Options []string
-	// Limit is the maximum number of selections (0 or 1 for single-select, >1 for multi-select).
-	Limit int
-	// NoLimit allows unlimited selections in multi-select mode.
-	NoLimit bool
-	// Height limits the number of visible options (0 for auto).
-	Height int
-	// Config holds common TUI configuration.
-	Config Config
-}
+// All type declarations in a single block for decorder compliance.
+type (
+	// ChooseStringOptions configures the embeddable Choose component for strings.
+	// This is used by the TUI server for dynamic component creation.
+	ChooseStringOptions struct {
+		// Title is the title/prompt displayed above the options.
+		Title string
+		// Options is the list of string options to choose from.
+		Options []string
+		// Limit is the maximum number of selections (0 or 1 for single-select, >1 for multi-select).
+		Limit int
+		// NoLimit allows unlimited selections in multi-select mode.
+		NoLimit bool
+		// Height limits the number of visible options (0 for auto).
+		Height int
+		// Config holds common TUI configuration.
+		Config Config
+	}
 
-// chooseModel implements EmbeddableComponent for single and multi-select prompts.
-// This model works specifically with strings for the embeddable interface.
-type chooseModel struct {
-	form        *huh.Form
-	result      *string   // For single-select
-	multiResult *[]string // For multi-select
-	isMulti     bool
-	done        bool
-	cancelled   bool
-	width       int
-	height      int
-}
+	// chooseModel implements EmbeddableComponent for single and multi-select prompts.
+	// This model works specifically with strings for the embeddable interface.
+	chooseModel struct {
+		form        *huh.Form
+		result      *string   // For single-select
+		multiResult *[]string // For multi-select
+		isMulti     bool
+		done        bool
+		cancelled   bool
+		width       int
+		height      int
+	}
+
+	// Option represents a selectable option with a display title and value.
+	Option[T comparable] struct {
+		// Title is the display text for the option.
+		Title string
+		// Value is the underlying value of the option.
+		Value T
+		// Selected indicates if this option is pre-selected (for multi-select).
+		Selected bool
+	}
+
+	// ChooseOptions configures the Choose component.
+	ChooseOptions[T comparable] struct {
+		// Title is the title/prompt displayed above the options.
+		Title string
+		// Description provides additional context below the title.
+		Description string
+		// Options is the list of options to choose from.
+		Options []Option[T]
+		// Height limits the number of visible options (0 for auto).
+		Height int
+		// Cursor is the character used for the cursor (default: "> ").
+		Cursor string
+		// Config holds common TUI configuration.
+		Config Config
+	}
+
+	// MultiChooseOptions configures the MultiChoose component.
+	MultiChooseOptions[T comparable] struct {
+		// Title is the title/prompt displayed above the options.
+		Title string
+		// Description provides additional context below the title.
+		Description string
+		// Options is the list of options to choose from.
+		Options []Option[T]
+		// Limit is the maximum number of selections (0 for no limit).
+		Limit int
+		// Height limits the number of visible options (0 for auto).
+		Height int
+		// Config holds common TUI configuration.
+		Config Config
+	}
+
+	// ChooseBuilder provides a fluent API for building Choose prompts.
+	ChooseBuilder[T comparable] struct {
+		opts ChooseOptions[T]
+	}
+
+	// MultiChooseBuilder provides a fluent API for building MultiChoose prompts.
+	MultiChooseBuilder[T comparable] struct {
+		opts MultiChooseOptions[T]
+	}
+
+	// ChooseStringBuilder provides a fluent API for building string-based Choose prompts
+	// that can return an EmbeddableComponent.
+	ChooseStringBuilder struct {
+		opts ChooseStringOptions
+	}
+)
 
 // NewChooseModel creates an embeddable choose component for string options.
 func NewChooseModel(opts ChooseStringOptions) *chooseModel {
@@ -61,67 +122,6 @@ func NewChooseModelForModal(opts ChooseStringOptions) *chooseModel {
 		return newMultiChooseModelWithTheme(opts, theme)
 	}
 	return newSingleChooseModelWithTheme(opts, theme)
-}
-
-// newSingleChooseModelWithTheme creates a single-select choose model with a specific theme.
-func newSingleChooseModelWithTheme(opts ChooseStringOptions, theme *huh.Theme) *chooseModel {
-	var result string
-
-	huhOpts := make([]huh.Option[string], len(opts.Options))
-	for i, opt := range opts.Options {
-		huhOpts[i] = huh.NewOption(opt, opt)
-	}
-
-	sel := huh.NewSelect[string]().
-		Title(opts.Title).
-		Options(huhOpts...).
-		Value(&result)
-
-	if opts.Height > 0 {
-		sel = sel.Height(opts.Height)
-	}
-
-	form := huh.NewForm(huh.NewGroup(sel)).
-		WithTheme(theme).
-		WithAccessible(opts.Config.Accessible)
-
-	return &chooseModel{
-		form:   form,
-		result: &result,
-	}
-}
-
-// newMultiChooseModelWithTheme creates a multi-select choose model with a specific theme.
-func newMultiChooseModelWithTheme(opts ChooseStringOptions, theme *huh.Theme) *chooseModel {
-	var results []string
-
-	huhOpts := make([]huh.Option[string], len(opts.Options))
-	for i, opt := range opts.Options {
-		huhOpts[i] = huh.NewOption(opt, opt)
-	}
-
-	sel := huh.NewMultiSelect[string]().
-		Title(opts.Title).
-		Options(huhOpts...).
-		Value(&results)
-
-	if opts.Limit > 0 {
-		sel = sel.Limit(opts.Limit)
-	}
-
-	if opts.Height > 0 {
-		sel = sel.Height(opts.Height)
-	}
-
-	form := huh.NewForm(huh.NewGroup(sel)).
-		WithTheme(theme).
-		WithAccessible(opts.Config.Accessible)
-
-	return &chooseModel{
-		form:        form,
-		multiResult: &results,
-		isMulti:     true,
-	}
 }
 
 // Init implements tea.Model.
@@ -204,50 +204,6 @@ func (m *chooseModel) SetSize(width, height int) {
 	m.form = m.form.WithWidth(width).WithHeight(height)
 }
 
-// ChooseStringsWithModel is a convenience function for choosing from string options
-// using the embeddable model internally.
-func ChooseStringsWithModel(opts ChooseStringOptions) ([]string, error) {
-	model := NewChooseModel(opts)
-	p := tea.NewProgram(model)
-	finalModel, err := p.Run()
-	if err != nil {
-		return nil, err
-	}
-
-	m := finalModel.(*chooseModel)
-	if m.cancelled {
-		return nil, fmt.Errorf("user aborted")
-	}
-	result, _ := m.Result() //nolint:errcheck // Result() cannot fail after successful Run()
-	return result.([]string), nil
-}
-
-// Option represents a selectable option with a display title and value.
-type Option[T comparable] struct {
-	// Title is the display text for the option.
-	Title string
-	// Value is the underlying value of the option.
-	Value T
-	// Selected indicates if this option is pre-selected (for multi-select).
-	Selected bool
-}
-
-// ChooseOptions configures the Choose component.
-type ChooseOptions[T comparable] struct {
-	// Title is the title/prompt displayed above the options.
-	Title string
-	// Description provides additional context below the title.
-	Description string
-	// Options is the list of options to choose from.
-	Options []Option[T]
-	// Height limits the number of visible options (0 for auto).
-	Height int
-	// Cursor is the character used for the cursor (default: "> ").
-	Cursor string
-	// Config holds common TUI configuration.
-	Config Config
-}
-
 // Choose prompts the user to select one option from a list.
 // Returns the selected value or an error if the prompt was cancelled.
 func Choose[T comparable](opts ChooseOptions[T]) (T, error) {
@@ -293,20 +249,22 @@ func ChooseStrings(title string, options []string, config Config) (string, error
 	})
 }
 
-// MultiChooseOptions configures the MultiChoose component.
-type MultiChooseOptions[T comparable] struct {
-	// Title is the title/prompt displayed above the options.
-	Title string
-	// Description provides additional context below the title.
-	Description string
-	// Options is the list of options to choose from.
-	Options []Option[T]
-	// Limit is the maximum number of selections (0 for no limit).
-	Limit int
-	// Height limits the number of visible options (0 for auto).
-	Height int
-	// Config holds common TUI configuration.
-	Config Config
+// ChooseStringsWithModel is a convenience function for choosing from string options
+// using the embeddable model internally.
+func ChooseStringsWithModel(opts ChooseStringOptions) ([]string, error) {
+	model := NewChooseModel(opts)
+	p := tea.NewProgram(model)
+	finalModel, err := p.Run()
+	if err != nil {
+		return nil, err
+	}
+
+	m := finalModel.(*chooseModel)
+	if m.cancelled {
+		return nil, fmt.Errorf("user aborted")
+	}
+	result, _ := m.Result() //nolint:errcheck // Result() cannot fail after successful Run()
+	return result.([]string), nil
 }
 
 // MultiChoose prompts the user to select multiple options from a list.
@@ -360,11 +318,6 @@ func MultiChooseStrings(title string, options []string, limit int, config Config
 		Limit:   limit,
 		Config:  config,
 	})
-}
-
-// ChooseBuilder provides a fluent API for building Choose prompts.
-type ChooseBuilder[T comparable] struct {
-	opts ChooseOptions[T]
 }
 
 // NewChoose creates a new ChooseBuilder with default options.
@@ -432,11 +385,6 @@ func (b *ChooseBuilder[T]) Run() (T, error) {
 	return Choose(b.opts)
 }
 
-// MultiChooseBuilder provides a fluent API for building MultiChoose prompts.
-type MultiChooseBuilder[T comparable] struct {
-	opts MultiChooseOptions[T]
-}
-
 // NewMultiChoose creates a new MultiChooseBuilder with default options.
 func NewMultiChoose[T comparable]() *MultiChooseBuilder[T] {
 	return &MultiChooseBuilder[T]{
@@ -491,12 +439,6 @@ func (b *MultiChooseBuilder[T]) Accessible(accessible bool) *MultiChooseBuilder[
 // Run executes the multi-choose prompt and returns the results.
 func (b *MultiChooseBuilder[T]) Run() ([]T, error) {
 	return MultiChoose(b.opts)
-}
-
-// ChooseStringBuilder provides a fluent API for building string-based Choose prompts
-// that can return an EmbeddableComponent.
-type ChooseStringBuilder struct {
-	opts ChooseStringOptions
 }
 
 // NewChooseString creates a new ChooseStringBuilder with default options.
@@ -558,4 +500,65 @@ func (b *ChooseStringBuilder) Run() ([]string, error) {
 // Model returns the embeddable model for composition.
 func (b *ChooseStringBuilder) Model() EmbeddableComponent {
 	return NewChooseModel(b.opts)
+}
+
+// newSingleChooseModelWithTheme creates a single-select choose model with a specific theme.
+func newSingleChooseModelWithTheme(opts ChooseStringOptions, theme *huh.Theme) *chooseModel {
+	var result string
+
+	huhOpts := make([]huh.Option[string], len(opts.Options))
+	for i, opt := range opts.Options {
+		huhOpts[i] = huh.NewOption(opt, opt)
+	}
+
+	sel := huh.NewSelect[string]().
+		Title(opts.Title).
+		Options(huhOpts...).
+		Value(&result)
+
+	if opts.Height > 0 {
+		sel = sel.Height(opts.Height)
+	}
+
+	form := huh.NewForm(huh.NewGroup(sel)).
+		WithTheme(theme).
+		WithAccessible(opts.Config.Accessible)
+
+	return &chooseModel{
+		form:   form,
+		result: &result,
+	}
+}
+
+// newMultiChooseModelWithTheme creates a multi-select choose model with a specific theme.
+func newMultiChooseModelWithTheme(opts ChooseStringOptions, theme *huh.Theme) *chooseModel {
+	var results []string
+
+	huhOpts := make([]huh.Option[string], len(opts.Options))
+	for i, opt := range opts.Options {
+		huhOpts[i] = huh.NewOption(opt, opt)
+	}
+
+	sel := huh.NewMultiSelect[string]().
+		Title(opts.Title).
+		Options(huhOpts...).
+		Value(&results)
+
+	if opts.Limit > 0 {
+		sel = sel.Limit(opts.Limit)
+	}
+
+	if opts.Height > 0 {
+		sel = sel.Height(opts.Height)
+	}
+
+	form := huh.NewForm(huh.NewGroup(sel)).
+		WithTheme(theme).
+		WithAccessible(opts.Config.Accessible)
+
+	return &chooseModel{
+		form:        form,
+		multiResult: &results,
+		isMulti:     true,
+	}
 }

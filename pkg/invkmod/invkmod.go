@@ -14,35 +14,136 @@ import (
 	"cuelang.org/go/cue/cuecontext"
 )
 
-//go:embed invkmod_schema.cue
-var invkmodSchema string
+const (
+	// MaxPathLength is the maximum allowed length for file paths.
+	MaxPathLength = 4096
 
-// MaxPathLength is the maximum allowed length for file paths.
-const MaxPathLength = 4096
+	// ModuleSuffix is the standard suffix for invowk module directories.
+	ModuleSuffix = ".invkmod"
 
-// ModuleSuffix is the standard suffix for invowk module directories.
-const ModuleSuffix = ".invkmod"
+	// VendoredModulesDir is the directory name for vendored module dependencies.
+	VendoredModulesDir = "invk_modules"
+)
 
-// VendoredModulesDir is the directory name for vendored module dependencies.
-const VendoredModulesDir = "invk_modules"
+var (
+	//go:embed invkmod_schema.cue
+	invkmodSchema string
 
-// ErrInvkmodNotFound is returned when invkmod.cue is not found in a module directory.
-// Callers can check for this error using errors.Is(err, ErrInvkmodNotFound).
-var ErrInvkmodNotFound = errors.New("invkmod.cue not found")
+	// ErrInvkmodNotFound is returned when invkmod.cue is not found in a module directory.
+	// Callers can check for this error using errors.Is(err, ErrInvkmodNotFound).
+	ErrInvkmodNotFound = errors.New("invkmod.cue not found")
+)
 
-// ValidationIssue represents a single validation problem in a module.
-// Named "Issue" rather than "Error" because it semantically represents a validation
-// problem that may be collected, reported, and inspected - not just thrown.
-//
-//nolint:errname // Intentionally named Issue, not Error - semantic domain type
-type ValidationIssue struct {
-	// Type categorizes the issue (e.g., "structure", "naming", "invkfile")
-	Type string
-	// Message describes the specific problem
-	Message string
-	// Path is the relative path within the module where the issue was found (optional)
-	Path string
-}
+type (
+	// ValidationIssue represents a single validation problem in a module.
+	// Named "Issue" rather than "Error" because it semantically represents a validation
+	// problem that may be collected, reported, and inspected - not just thrown.
+	//
+	//nolint:errname // Intentionally named Issue, not Error - semantic domain type
+	ValidationIssue struct {
+		// Type categorizes the issue (e.g., "structure", "naming", "invkfile")
+		Type string
+		// Message describes the specific problem
+		Message string
+		// Path is the relative path within the module where the issue was found (optional)
+		Path string
+	}
+
+	// ValidationResult contains the result of module validation.
+	ValidationResult struct {
+		// Valid is true if the module passed all validation checks
+		Valid bool
+		// ModulePath is the absolute path to the validated module
+		ModulePath string
+		// ModuleName is the extracted name from the folder (without .invkmod suffix)
+		ModuleName string
+		// InvkmodPath is the path to the invkmod.cue within the module (required)
+		InvkmodPath string
+		// InvkfilePath is the path to the invkfile.cue within the module (optional for library-only modules)
+		InvkfilePath string
+		// IsLibraryOnly is true if the module has no invkfile.cue
+		IsLibraryOnly bool
+		// Issues contains all validation problems found
+		Issues []ValidationIssue
+	}
+
+	// Module represents a loaded invowk module, ready for use.
+	// This is the unified type combining filesystem structure with parsed content.
+	Module struct {
+		// Metadata is the parsed invkmod.cue content (always present after Load())
+		Metadata *Invkmod
+
+		// Commands is the parsed invkfile.cue content (nil for library-only modules)
+		// Type is any to avoid circular imports with pkg/invkfile.
+		// The actual type is *invkfile.Invkfile.
+		Commands any
+
+		// Path is the absolute filesystem path to the module directory
+		Path string
+
+		// IsLibraryOnly is true if the module has no invkfile.cue
+		IsLibraryOnly bool
+	}
+
+	// ModuleRequirement represents a dependency on another module from a Git repository.
+	ModuleRequirement struct {
+		// GitURL is the Git repository URL (HTTPS or SSH format).
+		// Examples: "https://github.com/user/repo.git", "git@github.com:user/repo.git"
+		GitURL string `json:"git_url"`
+		// Version is the semver constraint for version selection.
+		// Examples: "^1.2.0", "~1.2.0", ">=1.0.0 <2.0.0", "1.2.3"
+		Version string `json:"version"`
+		// Alias overrides the default namespace for imported commands (optional).
+		// If not set, the namespace is: <module>@<resolved-version>
+		Alias string `json:"alias,omitempty"`
+		// Path specifies a subdirectory containing the module (optional).
+		// Used for monorepos with multiple modules.
+		Path string `json:"path,omitempty"`
+	}
+
+	// Invkmod represents module metadata from invkmod.cue.
+	// This is analogous to Go's go.mod file - it contains module identity and dependencies.
+	// Command definitions remain in invkfile.cue (separate file).
+	Invkmod struct {
+		// Module is a MANDATORY identifier for this module.
+		// Acts as module identity and command namespace prefix.
+		// Must start with a letter, contain only alphanumeric characters, with optional
+		// dot-separated segments. RDNS format recommended (e.g., "io.invowk.sample", "com.example.mytools")
+		// IMPORTANT: The module value MUST match the folder name prefix (before .invkmod)
+		Module string `json:"module"`
+		// Version specifies the module schema version (optional but recommended).
+		// Current version: "1.0"
+		Version string `json:"version,omitempty"`
+		// Description provides a summary of this module's purpose (optional).
+		Description string `json:"description,omitempty"`
+		// Requires declares dependencies on other modules from Git repositories (optional).
+		// Dependencies are resolved at module level.
+		// All required modules are loaded and their commands made available.
+		// IMPORTANT: Commands in this module can ONLY call:
+		//   1. Commands from globally installed modules (~/.invowk/modules/)
+		//   2. Commands from modules declared directly in THIS requires list
+		// Commands CANNOT call transitive dependencies (dependencies of dependencies).
+		Requires []ModuleRequirement `json:"requires,omitempty"`
+		// FilePath stores the path where this invkmod.cue was loaded from (not in CUE)
+		FilePath string `json:"-"`
+	}
+
+	// CommandScope defines what commands a module can access.
+	// Commands in a module can ONLY call:
+	//  1. Commands from the same module
+	//  2. Commands from globally installed modules (~/.invowk/modules/)
+	//  3. Commands from first-level requirements (direct dependencies in invkmod.cue:requires)
+	//
+	// Commands CANNOT call transitive dependencies (dependencies of dependencies).
+	CommandScope struct {
+		// ModuleID is the module identifier that owns this scope
+		ModuleID string
+		// GlobalModules are commands from globally installed modules (always accessible)
+		GlobalModules map[string]bool
+		// DirectDeps are module IDs from first-level requirements (from invkmod.cue:requires)
+		DirectDeps map[string]bool
+	}
+)
 
 // Error implements the error interface for ValidationIssue.
 func (v ValidationIssue) Error() string {
@@ -50,24 +151,6 @@ func (v ValidationIssue) Error() string {
 		return fmt.Sprintf("[%s] %s: %s", v.Type, v.Path, v.Message)
 	}
 	return fmt.Sprintf("[%s] %s", v.Type, v.Message)
-}
-
-// ValidationResult contains the result of module validation.
-type ValidationResult struct {
-	// Valid is true if the module passed all validation checks
-	Valid bool
-	// ModulePath is the absolute path to the validated module
-	ModulePath string
-	// ModuleName is the extracted name from the folder (without .invkmod suffix)
-	ModuleName string
-	// InvkmodPath is the path to the invkmod.cue within the module (required)
-	InvkmodPath string
-	// InvkfilePath is the path to the invkfile.cue within the module (optional for library-only modules)
-	InvkfilePath string
-	// IsLibraryOnly is true if the module has no invkfile.cue
-	IsLibraryOnly bool
-	// Issues contains all validation problems found
-	Issues []ValidationIssue
 }
 
 // AddIssue adds a validation issue to the result.
@@ -78,24 +161,6 @@ func (r *ValidationResult) AddIssue(issueType, message, path string) {
 		Path:    path,
 	})
 	r.Valid = false
-}
-
-// Module represents a loaded invowk module, ready for use.
-// This is the unified type combining filesystem structure with parsed content.
-type Module struct {
-	// Metadata is the parsed invkmod.cue content (always present after Load())
-	Metadata *Invkmod
-
-	// Commands is the parsed invkfile.cue content (nil for library-only modules)
-	// Type is any to avoid circular imports with pkg/invkfile.
-	// The actual type is *invkfile.Invkfile.
-	Commands any
-
-	// Path is the absolute filesystem path to the module directory
-	Path string
-
-	// IsLibraryOnly is true if the module has no invkfile.cue
-	IsLibraryOnly bool
 }
 
 // Name returns the module identifier from metadata.
@@ -174,6 +239,27 @@ func (m *Module) ValidateScriptPath(scriptPath string) error {
 	return nil
 }
 
+// ContainsPath checks if the given path is inside this module.
+func (m *Module) ContainsPath(path string) bool {
+	absPath, err := filepath.Abs(path)
+	if err != nil {
+		return false
+	}
+
+	relPath, err := filepath.Rel(m.Path, absPath)
+	if err != nil {
+		return false
+	}
+
+	return !strings.HasPrefix(relPath, "..")
+}
+
+// GetInvkfileDir returns the directory containing the invkfile.
+// For modules, this is always the module root.
+func (m *Module) GetInvkfileDir() string {
+	return m.Path
+}
+
 // checkSymlinkSafety verifies that a path doesn't contain symlinks that could escape the module.
 func (m *Module) checkSymlinkSafety(path string) error {
 	// Get the real path by resolving all symlinks
@@ -198,86 +284,6 @@ func (m *Module) checkSymlinkSafety(path string) error {
 	}
 
 	return nil
-}
-
-// ContainsPath checks if the given path is inside this module.
-func (m *Module) ContainsPath(path string) bool {
-	absPath, err := filepath.Abs(path)
-	if err != nil {
-		return false
-	}
-
-	relPath, err := filepath.Rel(m.Path, absPath)
-	if err != nil {
-		return false
-	}
-
-	return !strings.HasPrefix(relPath, "..")
-}
-
-// GetInvkfileDir returns the directory containing the invkfile.
-// For modules, this is always the module root.
-func (m *Module) GetInvkfileDir() string {
-	return m.Path
-}
-
-// ModuleRequirement represents a dependency on another module from a Git repository.
-type ModuleRequirement struct {
-	// GitURL is the Git repository URL (HTTPS or SSH format).
-	// Examples: "https://github.com/user/repo.git", "git@github.com:user/repo.git"
-	GitURL string `json:"git_url"`
-	// Version is the semver constraint for version selection.
-	// Examples: "^1.2.0", "~1.2.0", ">=1.0.0 <2.0.0", "1.2.3"
-	Version string `json:"version"`
-	// Alias overrides the default namespace for imported commands (optional).
-	// If not set, the namespace is: <module>@<resolved-version>
-	Alias string `json:"alias,omitempty"`
-	// Path specifies a subdirectory containing the module (optional).
-	// Used for monorepos with multiple modules.
-	Path string `json:"path,omitempty"`
-}
-
-// Invkmod represents module metadata from invkmod.cue.
-// This is analogous to Go's go.mod file - it contains module identity and dependencies.
-// Command definitions remain in invkfile.cue (separate file).
-type Invkmod struct {
-	// Module is a MANDATORY identifier for this module.
-	// Acts as module identity and command namespace prefix.
-	// Must start with a letter, contain only alphanumeric characters, with optional
-	// dot-separated segments. RDNS format recommended (e.g., "io.invowk.sample", "com.example.mytools")
-	// IMPORTANT: The module value MUST match the folder name prefix (before .invkmod)
-	Module string `json:"module"`
-	// Version specifies the module schema version (optional but recommended).
-	// Current version: "1.0"
-	Version string `json:"version,omitempty"`
-	// Description provides a summary of this module's purpose (optional).
-	Description string `json:"description,omitempty"`
-	// Requires declares dependencies on other modules from Git repositories (optional).
-	// Dependencies are resolved at module level.
-	// All required modules are loaded and their commands made available.
-	// IMPORTANT: Commands in this module can ONLY call:
-	//   1. Commands from globally installed modules (~/.invowk/modules/)
-	//   2. Commands from modules declared directly in THIS requires list
-	// Commands CANNOT call transitive dependencies (dependencies of dependencies).
-	Requires []ModuleRequirement `json:"requires,omitempty"`
-	// FilePath stores the path where this invkmod.cue was loaded from (not in CUE)
-	FilePath string `json:"-"`
-}
-
-// CommandScope defines what commands a module can access.
-// Commands in a module can ONLY call:
-//  1. Commands from the same module
-//  2. Commands from globally installed modules (~/.invowk/modules/)
-//  3. Commands from first-level requirements (direct dependencies in invkmod.cue:requires)
-//
-// Commands CANNOT call transitive dependencies (dependencies of dependencies).
-type CommandScope struct {
-	// ModuleID is the module identifier that owns this scope
-	ModuleID string
-	// GlobalModules are commands from globally installed modules (always accessible)
-	GlobalModules map[string]bool
-	// DirectDeps are module IDs from first-level requirements (from invkmod.cue:requires)
-	DirectDeps map[string]bool
 }
 
 // NewCommandScope creates a CommandScope for a parsed module.

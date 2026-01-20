@@ -21,13 +21,12 @@ var (
 	tableWidths     []int
 	tableHeight     int
 	tableSelectable bool
-)
 
-// tuiTableCmd displays and optionally selects from a table.
-var tuiTableCmd = &cobra.Command{
-	Use:   "table",
-	Short: "Display and select from a table",
-	Long: `Display data in a table format with optional row selection.
+	// tuiTableCmd displays and optionally selects from a table.
+	tuiTableCmd = &cobra.Command{
+		Use:   "table",
+		Short: "Display and select from a table",
+		Long: `Display data in a table format with optional row selection.
 
 Data can be provided via:
 - A file with --file
@@ -36,17 +35,18 @@ Data can be provided via:
 Examples:
   # Display a CSV file
   invowk tui table --file data.csv
-  
+
   # Pipe data with custom separator
   echo -e "name|age|city\nAlice|30|NYC\nBob|25|LA" | invowk tui table --separator "|"
-  
+
   # Selectable rows
   cat data.csv | invowk tui table --selectable
-  
+
   # Custom column widths
   invowk tui table --file data.csv --widths 20,10,30`,
-	RunE: runTuiTable,
-}
+		RunE: runTuiTable,
+	}
+)
 
 func init() {
 	tuiCmd.AddCommand(tuiTableCmd)

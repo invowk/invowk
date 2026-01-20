@@ -22,6 +22,32 @@ import (
 // Compatible with RDNS naming (e.g., "com.example.mycommands")
 var moduleNameRegex = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9]*(\.[a-zA-Z][a-zA-Z0-9]*)*$`)
 
+type (
+	// CreateOptions contains options for creating a new module
+	CreateOptions struct {
+		// Name is the module name (e.g., "com.example.mytools")
+		Name string
+		// ParentDir is the directory where the module will be created
+		ParentDir string
+		// Module is the module identifier for the invkfile (defaults to Name if empty)
+		Module string
+		// Description is an optional description for the invkfile
+		Description string
+		// CreateScriptsDir creates a scripts/ subdirectory if true
+		CreateScriptsDir bool
+	}
+
+	// UnpackOptions contains options for unpacking a module
+	UnpackOptions struct {
+		// Source is the path to the ZIP file or URL
+		Source string
+		// DestDir is the destination directory (defaults to current directory)
+		DestDir string
+		// Overwrite allows overwriting an existing module
+		Overwrite bool
+	}
+)
+
 // IsModule checks if the given path is a valid invowk module directory.
 // This is a quick check that only verifies the folder name format and existence.
 // For full validation, use Validate().
@@ -254,20 +280,6 @@ func Load(modulePath string) (*Module, error) {
 		Path:          result.ModulePath,
 		IsLibraryOnly: result.IsLibraryOnly,
 	}, nil
-}
-
-// CreateOptions contains options for creating a new module
-type CreateOptions struct {
-	// Name is the module name (e.g., "com.example.mytools")
-	Name string
-	// ParentDir is the directory where the module will be created
-	ParentDir string
-	// Module is the module identifier for the invkfile (defaults to Name if empty)
-	Module string
-	// Description is an optional description for the invkfile
-	Description string
-	// CreateScriptsDir creates a scripts/ subdirectory if true
-	CreateScriptsDir bool
 }
 
 // Create creates a new module with the given options.
@@ -509,16 +521,6 @@ func Archive(modulePath, outputPath string) (archivePath string, err error) {
 	}
 
 	return absOutputPath, nil
-}
-
-// UnpackOptions contains options for unpacking a module
-type UnpackOptions struct {
-	// Source is the path to the ZIP file or URL
-	Source string
-	// DestDir is the destination directory (defaults to current directory)
-	DestDir string
-	// Overwrite allows overwriting an existing module
-	Overwrite bool
 }
 
 // Unpack extracts a module from a ZIP archive.

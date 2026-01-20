@@ -209,45 +209,6 @@ func (r *VirtualRuntime) ExecuteCapture(ctx *ExecutionContext) *Result {
 	return result
 }
 
-// execHandler handles external command execution
-func (r *VirtualRuntime) execHandler(next interp.ExecHandlerFunc) interp.ExecHandlerFunc {
-	return func(ctx context.Context, args []string) error {
-		// First try u-root builtins if enabled
-		if r.EnableUrootUtils {
-			if handled, err := r.tryUrootBuiltin(ctx, args); handled {
-				return err
-			}
-		}
-
-		// Fall back to default handler (external commands)
-		return next(ctx, args)
-	}
-}
-
-// tryUrootBuiltin attempts to handle a command with u-root builtins
-func (r *VirtualRuntime) tryUrootBuiltin(ctx context.Context, args []string) (bool, error) {
-	if len(args) == 0 {
-		return false, nil
-	}
-
-	// Core builtins that are commonly needed
-	// For now, we delegate to the interp default which uses the system's commands
-	// In a full implementation, you would integrate u-root/u-root commands here
-	switch args[0] {
-	case "echo", "cat", "ls", "pwd", "mkdir", "rm", "cp", "mv", "grep", "head", "tail", "wc", "sort", "uniq", "cut", "tr":
-		// These could be implemented with u-root, but for now we use system commands
-		return false, nil
-	}
-
-	return false, nil
-}
-
-// getWorkDir determines the working directory using the hierarchical override model.
-// Precedence (highest to lowest): CLI override > Implementation > Command > Root > Default
-func (r *VirtualRuntime) getWorkDir(ctx *ExecutionContext) string {
-	return ctx.Invkfile.GetEffectiveWorkDir(ctx.Command, ctx.SelectedImpl, ctx.WorkDir)
-}
-
 // SupportsInteractive returns true as the virtual runtime always supports interactive mode.
 // Interactive mode is achieved by spawning a subprocess wrapper.
 func (r *VirtualRuntime) SupportsInteractive() bool {
@@ -351,4 +312,43 @@ func (r *VirtualRuntime) PrepareCommand(ctx *ExecutionContext) (*PreparedCommand
 	}
 
 	return &PreparedCommand{Cmd: cmd, Cleanup: cleanup}, nil
+}
+
+// execHandler handles external command execution
+func (r *VirtualRuntime) execHandler(next interp.ExecHandlerFunc) interp.ExecHandlerFunc {
+	return func(ctx context.Context, args []string) error {
+		// First try u-root builtins if enabled
+		if r.EnableUrootUtils {
+			if handled, err := r.tryUrootBuiltin(ctx, args); handled {
+				return err
+			}
+		}
+
+		// Fall back to default handler (external commands)
+		return next(ctx, args)
+	}
+}
+
+// tryUrootBuiltin attempts to handle a command with u-root builtins
+func (r *VirtualRuntime) tryUrootBuiltin(ctx context.Context, args []string) (bool, error) {
+	if len(args) == 0 {
+		return false, nil
+	}
+
+	// Core builtins that are commonly needed
+	// For now, we delegate to the interp default which uses the system's commands
+	// In a full implementation, you would integrate u-root/u-root commands here
+	switch args[0] {
+	case "echo", "cat", "ls", "pwd", "mkdir", "rm", "cp", "mv", "grep", "head", "tail", "wc", "sort", "uniq", "cut", "tr":
+		// These could be implemented with u-root, but for now we use system commands
+		return false, nil
+	}
+
+	return false, nil
+}
+
+// getWorkDir determines the working directory using the hierarchical override model.
+// Precedence (highest to lowest): CLI override > Implementation > Command > Root > Default
+func (r *VirtualRuntime) getWorkDir(ctx *ExecutionContext) string {
+	return ctx.Invkfile.GetEffectiveWorkDir(ctx.Command, ctx.SelectedImpl, ctx.WorkDir)
 }

@@ -41,13 +41,8 @@ const (
 	// EnvTUIToken is the environment variable containing the authentication token.
 	//nolint:gosec // G101: This is an env var name, not a hardcoded credential
 	EnvTUIToken = "INVOWK_TUI_TOKEN"
-)
 
-// Component represents a TUI component type.
-type Component string
-
-// TUI component type constants for the protocol.
-const (
+	// TUI component type constants for the protocol.
 	ComponentInput    Component = "input"
 	ComponentConfirm  Component = "confirm"
 	ComponentChoose   Component = "choose"
@@ -60,194 +55,199 @@ const (
 	ComponentTable    Component = "table"
 )
 
-// Request is the common wrapper for all TUI requests.
-type Request struct {
-	// Component is the TUI component type (input, confirm, choose, etc.).
-	Component Component `json:"component"`
-	// Options contains component-specific options as raw JSON.
-	Options json.RawMessage `json:"options"`
-}
+type (
+	// Component represents a TUI component type.
+	Component string
 
-// Response is the common wrapper for all TUI responses.
-type Response struct {
-	// Result contains the component-specific result as raw JSON.
-	// For input: {"value": "user input"}
-	// For confirm: {"confirmed": true}
-	// For choose: {"selected": "option1"} or {"selected": ["opt1", "opt2"]}
-	Result json.RawMessage `json:"result,omitempty"`
-	// Cancelled is true if the user cancelled the prompt (Ctrl+C, Esc).
-	Cancelled bool `json:"cancelled,omitempty"`
-	// Error contains an error message if the request failed.
-	Error string `json:"error,omitempty"`
-}
+	// Request is the common wrapper for all TUI requests.
+	Request struct {
+		// Component is the TUI component type (input, confirm, choose, etc.).
+		Component Component `json:"component"`
+		// Options contains component-specific options as raw JSON.
+		Options json.RawMessage `json:"options"`
+	}
 
-// InputRequest contains options for the input component.
-type InputRequest struct {
-	Title       string `json:"title,omitempty"`
-	Description string `json:"description,omitempty"`
-	Placeholder string `json:"placeholder,omitempty"`
-	Value       string `json:"value,omitempty"`
-	CharLimit   int    `json:"char_limit,omitempty"`
-	Width       int    `json:"width,omitempty"`
-	Password    bool   `json:"password,omitempty"`
-	Prompt      string `json:"prompt,omitempty"`
-}
+	// Response is the common wrapper for all TUI responses.
+	Response struct {
+		// Result contains the component-specific result as raw JSON.
+		// For input: {"value": "user input"}
+		// For confirm: {"confirmed": true}
+		// For choose: {"selected": "option1"} or {"selected": ["opt1", "opt2"]}
+		Result json.RawMessage `json:"result,omitempty"`
+		// Cancelled is true if the user cancelled the prompt (Ctrl+C, Esc).
+		Cancelled bool `json:"cancelled,omitempty"`
+		// Error contains an error message if the request failed.
+		Error string `json:"error,omitempty"`
+	}
 
-// InputResult contains the result of an input prompt.
-type InputResult struct {
-	Value string `json:"value"`
-}
+	// InputRequest contains options for the input component.
+	InputRequest struct {
+		Title       string `json:"title,omitempty"`
+		Description string `json:"description,omitempty"`
+		Placeholder string `json:"placeholder,omitempty"`
+		Value       string `json:"value,omitempty"`
+		CharLimit   int    `json:"char_limit,omitempty"`
+		Width       int    `json:"width,omitempty"`
+		Password    bool   `json:"password,omitempty"`
+		Prompt      string `json:"prompt,omitempty"`
+	}
 
-// ConfirmRequest contains options for the confirm component.
-type ConfirmRequest struct {
-	Title       string `json:"title,omitempty"`
-	Description string `json:"description,omitempty"`
-	Affirmative string `json:"affirmative,omitempty"`
-	Negative    string `json:"negative,omitempty"`
-	Default     bool   `json:"default,omitempty"`
-}
+	// InputResult contains the result of an input prompt.
+	InputResult struct {
+		Value string `json:"value"`
+	}
 
-// ConfirmResult contains the result of a confirm prompt.
-type ConfirmResult struct {
-	Confirmed bool `json:"confirmed"`
-}
+	// ConfirmRequest contains options for the confirm component.
+	ConfirmRequest struct {
+		Title       string `json:"title,omitempty"`
+		Description string `json:"description,omitempty"`
+		Affirmative string `json:"affirmative,omitempty"`
+		Negative    string `json:"negative,omitempty"`
+		Default     bool   `json:"default,omitempty"`
+	}
 
-// ChooseRequest contains options for the choose component.
-type ChooseRequest struct {
-	Title       string   `json:"title,omitempty"`
-	Description string   `json:"description,omitempty"`
-	Options     []string `json:"options"`
-	Selected    string   `json:"selected,omitempty"`
-	Limit       int      `json:"limit,omitempty"`
-	NoLimit     bool     `json:"no_limit,omitempty"`
-	Ordered     bool     `json:"ordered,omitempty"`
-	Height      int      `json:"height,omitempty"`
-	Cursor      string   `json:"cursor,omitempty"`
-}
+	// ConfirmResult contains the result of a confirm prompt.
+	ConfirmResult struct {
+		Confirmed bool `json:"confirmed"`
+	}
 
-// ChooseResult contains the result of a choose prompt.
-type ChooseResult struct {
-	// Selected contains the selected option (single select) or options (multi-select).
-	Selected any `json:"selected"`
-}
+	// ChooseRequest contains options for the choose component.
+	ChooseRequest struct {
+		Title       string   `json:"title,omitempty"`
+		Description string   `json:"description,omitempty"`
+		Options     []string `json:"options"`
+		Selected    string   `json:"selected,omitempty"`
+		Limit       int      `json:"limit,omitempty"`
+		NoLimit     bool     `json:"no_limit,omitempty"`
+		Ordered     bool     `json:"ordered,omitempty"`
+		Height      int      `json:"height,omitempty"`
+		Cursor      string   `json:"cursor,omitempty"`
+	}
 
-// FilterRequest contains options for the filter component.
-type FilterRequest struct {
-	Title       string   `json:"title,omitempty"`
-	Description string   `json:"description,omitempty"`
-	Options     []string `json:"options"`
-	Limit       int      `json:"limit,omitempty"`
-	NoLimit     bool     `json:"no_limit,omitempty"`
-	Placeholder string   `json:"placeholder,omitempty"`
-	Prompt      string   `json:"prompt,omitempty"`
-	Width       int      `json:"width,omitempty"`
-	Height      int      `json:"height,omitempty"`
-	Value       string   `json:"value,omitempty"`
-	Reverse     bool     `json:"reverse,omitempty"`
-	Fuzzy       bool     `json:"fuzzy,omitempty"`
-	Sort        bool     `json:"sort,omitempty"`
-	Strict      bool     `json:"strict,omitempty"`
-}
+	// ChooseResult contains the result of a choose prompt.
+	ChooseResult struct {
+		// Selected contains the selected option (single select) or options (multi-select).
+		Selected any `json:"selected"`
+	}
 
-// FilterResult contains the result of a filter prompt.
-type FilterResult struct {
-	Selected []string `json:"selected"`
-}
+	// FilterRequest contains options for the filter component.
+	FilterRequest struct {
+		Title       string   `json:"title,omitempty"`
+		Description string   `json:"description,omitempty"`
+		Options     []string `json:"options"`
+		Limit       int      `json:"limit,omitempty"`
+		NoLimit     bool     `json:"no_limit,omitempty"`
+		Placeholder string   `json:"placeholder,omitempty"`
+		Prompt      string   `json:"prompt,omitempty"`
+		Width       int      `json:"width,omitempty"`
+		Height      int      `json:"height,omitempty"`
+		Value       string   `json:"value,omitempty"`
+		Reverse     bool     `json:"reverse,omitempty"`
+		Fuzzy       bool     `json:"fuzzy,omitempty"`
+		Sort        bool     `json:"sort,omitempty"`
+		Strict      bool     `json:"strict,omitempty"`
+	}
 
-// FileRequest contains options for the file picker component.
-type FileRequest struct {
-	Title       string   `json:"title,omitempty"`
-	Description string   `json:"description,omitempty"`
-	Path        string   `json:"path,omitempty"`
-	AllowedExts []string `json:"allowed_exts,omitempty"`
-	ShowHidden  bool     `json:"show_hidden,omitempty"`
-	ShowDirs    bool     `json:"show_dirs,omitempty"`
-	ShowFiles   bool     `json:"show_files,omitempty"`
-	Height      int      `json:"height,omitempty"`
-}
+	// FilterResult contains the result of a filter prompt.
+	FilterResult struct {
+		Selected []string `json:"selected"`
+	}
 
-// FileResult contains the result of a file picker.
-type FileResult struct {
-	Path string `json:"path"`
-}
+	// FileRequest contains options for the file picker component.
+	FileRequest struct {
+		Title       string   `json:"title,omitempty"`
+		Description string   `json:"description,omitempty"`
+		Path        string   `json:"path,omitempty"`
+		AllowedExts []string `json:"allowed_exts,omitempty"`
+		ShowHidden  bool     `json:"show_hidden,omitempty"`
+		ShowDirs    bool     `json:"show_dirs,omitempty"`
+		ShowFiles   bool     `json:"show_files,omitempty"`
+		Height      int      `json:"height,omitempty"`
+	}
 
-// WriteRequest contains options for the write component (styled text output).
-type WriteRequest struct {
-	Text string `json:"text"`
-	// Style options
-	Foreground       string `json:"foreground,omitempty"`
-	Background       string `json:"background,omitempty"`
-	Bold             bool   `json:"bold,omitempty"`
-	Italic           bool   `json:"italic,omitempty"`
-	Underline        bool   `json:"underline,omitempty"`
-	Strikethrough    bool   `json:"strikethrough,omitempty"`
-	Faint            bool   `json:"faint,omitempty"`
-	Blink            bool   `json:"blink,omitempty"`
-	Border           string `json:"border,omitempty"`
-	BorderForeground string `json:"border_foreground,omitempty"`
-	Width            int    `json:"width,omitempty"`
-	Align            string `json:"align,omitempty"`
-	Padding          []int  `json:"padding,omitempty"`
-	Margin           []int  `json:"margin,omitempty"`
-}
+	// FileResult contains the result of a file picker.
+	FileResult struct {
+		Path string `json:"path"`
+	}
 
-// WriteResult is empty (write doesn't return a value).
-type WriteResult struct{}
+	// WriteRequest contains options for the write component (styled text output).
+	WriteRequest struct {
+		Text string `json:"text"`
+		// Style options
+		Foreground       string `json:"foreground,omitempty"`
+		Background       string `json:"background,omitempty"`
+		Bold             bool   `json:"bold,omitempty"`
+		Italic           bool   `json:"italic,omitempty"`
+		Underline        bool   `json:"underline,omitempty"`
+		Strikethrough    bool   `json:"strikethrough,omitempty"`
+		Faint            bool   `json:"faint,omitempty"`
+		Blink            bool   `json:"blink,omitempty"`
+		Border           string `json:"border,omitempty"`
+		BorderForeground string `json:"border_foreground,omitempty"`
+		Width            int    `json:"width,omitempty"`
+		Align            string `json:"align,omitempty"`
+		Padding          []int  `json:"padding,omitempty"`
+		Margin           []int  `json:"margin,omitempty"`
+	}
 
-// TextAreaRequest contains options for the textarea component (multi-line text input).
-type TextAreaRequest struct {
-	Title           string `json:"title,omitempty"`
-	Description     string `json:"description,omitempty"`
-	Placeholder     string `json:"placeholder,omitempty"`
-	Value           string `json:"value,omitempty"`
-	CharLimit       int    `json:"char_limit,omitempty"`
-	Width           int    `json:"width,omitempty"`
-	Height          int    `json:"height,omitempty"`
-	ShowLineNumbers bool   `json:"show_line_numbers,omitempty"`
-}
+	// WriteResult is empty (write doesn't return a value).
+	WriteResult struct{}
 
-// TextAreaResult contains the result of a textarea prompt.
-type TextAreaResult struct {
-	Value string `json:"value"`
-}
+	// TextAreaRequest contains options for the textarea component (multi-line text input).
+	TextAreaRequest struct {
+		Title           string `json:"title,omitempty"`
+		Description     string `json:"description,omitempty"`
+		Placeholder     string `json:"placeholder,omitempty"`
+		Value           string `json:"value,omitempty"`
+		CharLimit       int    `json:"char_limit,omitempty"`
+		Width           int    `json:"width,omitempty"`
+		Height          int    `json:"height,omitempty"`
+		ShowLineNumbers bool   `json:"show_line_numbers,omitempty"`
+	}
 
-// SpinRequest contains options for the spin component.
-type SpinRequest struct {
-	Title   string   `json:"title,omitempty"`
-	Spinner string   `json:"spinner,omitempty"`
-	Command []string `json:"command,omitempty"`
-}
+	// TextAreaResult contains the result of a textarea prompt.
+	TextAreaResult struct {
+		Value string `json:"value"`
+	}
 
-// SpinResult contains the result of a spin operation.
-type SpinResult struct {
-	Stdout   string `json:"stdout,omitempty"`
-	Stderr   string `json:"stderr,omitempty"`
-	ExitCode int    `json:"exit_code"`
-}
+	// SpinRequest contains options for the spin component.
+	SpinRequest struct {
+		Title   string   `json:"title,omitempty"`
+		Spinner string   `json:"spinner,omitempty"`
+		Command []string `json:"command,omitempty"`
+	}
 
-// PagerRequest contains options for the pager component.
-type PagerRequest struct {
-	Content     string `json:"content"`
-	ShowLineNum bool   `json:"show_line_num,omitempty"`
-	SoftWrap    bool   `json:"soft_wrap,omitempty"`
-}
+	// SpinResult contains the result of a spin operation.
+	SpinResult struct {
+		Stdout   string `json:"stdout,omitempty"`
+		Stderr   string `json:"stderr,omitempty"`
+		ExitCode int    `json:"exit_code"`
+	}
 
-// PagerResult is empty (pager doesn't return a value).
-type PagerResult struct{}
+	// PagerRequest contains options for the pager component.
+	PagerRequest struct {
+		Content     string `json:"content"`
+		ShowLineNum bool   `json:"show_line_num,omitempty"`
+		SoftWrap    bool   `json:"soft_wrap,omitempty"`
+	}
 
-// TableRequest contains options for the table component.
-type TableRequest struct {
-	Columns   []string   `json:"columns,omitempty"`
-	Rows      [][]string `json:"rows"`
-	Widths    []int      `json:"widths,omitempty"`
-	Height    int        `json:"height,omitempty"`
-	Separator string     `json:"separator,omitempty"`
-	Border    string     `json:"border,omitempty"`
-	Print     bool       `json:"print,omitempty"`
-}
+	// PagerResult is empty (pager doesn't return a value).
+	PagerResult struct{}
 
-// TableResult contains the result of a table selection.
-type TableResult struct {
-	SelectedRow   []string `json:"selected_row,omitempty"`
-	SelectedIndex int      `json:"selected_index"`
-}
+	// TableRequest contains options for the table component.
+	TableRequest struct {
+		Columns   []string   `json:"columns,omitempty"`
+		Rows      [][]string `json:"rows"`
+		Widths    []int      `json:"widths,omitempty"`
+		Height    int        `json:"height,omitempty"`
+		Separator string     `json:"separator,omitempty"`
+		Border    string     `json:"border,omitempty"`
+		Print     bool       `json:"print,omitempty"`
+	}
+
+	// TableResult contains the result of a table selection.
+	TableResult struct {
+		SelectedRow   []string `json:"selected_row,omitempty"`
+		SelectedIndex int      `json:"selected_index"`
+	}
+)

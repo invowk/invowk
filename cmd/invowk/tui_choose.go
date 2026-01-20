@@ -17,13 +17,12 @@ var (
 	chooseLimit   int
 	chooseNoLimit bool
 	chooseHeight  int
-)
 
-// tuiChooseCmd provides single or multi-select from a list.
-var tuiChooseCmd = &cobra.Command{
-	Use:   "choose [options...]",
-	Short: "Select from a list of options",
-	Long: `Select one or more options from a list.
+	// tuiChooseCmd provides single or multi-select from a list.
+	tuiChooseCmd = &cobra.Command{
+		Use:   "choose [options...]",
+		Short: "Select from a list of options",
+		Long: `Select one or more options from a list.
 
 By default, allows selecting a single option. Use --limit to allow multiple
 selections. Each selected option is printed on a separate line.
@@ -44,9 +43,10 @@ Examples:
   # Use in shell script
   COLOR=$(invowk tui choose --title "Pick a color" red green blue)
   echo "You picked: $COLOR"`,
-	Args: cobra.MinimumNArgs(1),
-	RunE: runTuiChoose,
-}
+		Args: cobra.MinimumNArgs(1),
+		RunE: runTuiChoose,
+	}
+)
 
 func init() {
 	tuiCmd.AddCommand(tuiChooseCmd)

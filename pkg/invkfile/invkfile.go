@@ -7,45 +7,53 @@ import (
 	goruntime "runtime"
 )
 
-// InvkfileName is the base name for invkfile configuration files
-const InvkfileName = "invkfile"
+const (
+	// InvkfileName is the base name for invkfile configuration files
+	InvkfileName = "invkfile"
 
-// InvkmodName is the base name for invkmod metadata files
-const InvkmodName = "invkmod"
+	// InvkmodName is the base name for invkmod metadata files
+	InvkmodName = "invkmod"
+)
 
-// Invkfile represents command definitions from invkfile.cue.
-// Module metadata (module name, version, description, requires) is now in Invkmod.
-// This separation follows Go's pattern: invkmod.cue is like go.mod, invkfile.cue is like .go files.
-type Invkfile struct {
-	// DefaultShell overrides the default shell for native runtime
-	DefaultShell string `json:"default_shell,omitempty"`
-	// WorkDir specifies the default working directory for all commands
-	// Can be absolute or relative to the invkfile location.
-	// Forward slashes should be used for cross-platform compatibility.
-	// Individual commands or implementations can override this with their own workdir.
-	WorkDir string `json:"workdir,omitempty"`
-	// Env contains global environment configuration for all commands (optional)
-	// Root-level env is applied first (lowest priority from invkfile).
-	// Command-level and implementation-level env override root-level env.
-	Env *EnvConfig `json:"env,omitempty"`
-	// DependsOn specifies global dependencies that apply to all commands (optional)
-	// Root-level depends_on is combined with command-level and implementation-level depends_on.
-	// Root-level dependencies are validated first (lowest priority in the merge order).
-	// This is useful for defining shared prerequisites like required tools or capabilities
-	// that apply to all commands in this invkfile.
-	DependsOn *DependsOn `json:"depends_on,omitempty"`
-	// Commands defines the available commands (invkfile field: 'cmds')
-	Commands []Command `json:"cmds"`
+type (
+	// Platform represents a target platform.
+	// Alias for PlatformType for cleaner code.
+	Platform = PlatformType
 
-	// FilePath stores the path where this invkfile was loaded from (not in CUE)
-	FilePath string `json:"-"`
-	// ModulePath stores the module directory path if this invkfile is from a module (not in CUE)
-	// Empty string if not loaded from a module
-	ModulePath string `json:"-"`
-	// Metadata references the module metadata from invkmod.cue (not in CUE)
-	// This is set when parsing a module via ParseModule
-	Metadata *Invkmod `json:"-"`
-}
+	// Invkfile represents command definitions from invkfile.cue.
+	// Module metadata (module name, version, description, requires) is now in Invkmod.
+	// This separation follows Go's pattern: invkmod.cue is like go.mod, invkfile.cue is like .go files.
+	Invkfile struct {
+		// DefaultShell overrides the default shell for native runtime
+		DefaultShell string `json:"default_shell,omitempty"`
+		// WorkDir specifies the default working directory for all commands
+		// Can be absolute or relative to the invkfile location.
+		// Forward slashes should be used for cross-platform compatibility.
+		// Individual commands or implementations can override this with their own workdir.
+		WorkDir string `json:"workdir,omitempty"`
+		// Env contains global environment configuration for all commands (optional)
+		// Root-level env is applied first (lowest priority from invkfile).
+		// Command-level and implementation-level env override root-level env.
+		Env *EnvConfig `json:"env,omitempty"`
+		// DependsOn specifies global dependencies that apply to all commands (optional)
+		// Root-level depends_on is combined with command-level and implementation-level depends_on.
+		// Root-level dependencies are validated first (lowest priority in the merge order).
+		// This is useful for defining shared prerequisites like required tools or capabilities
+		// that apply to all commands in this invkfile.
+		DependsOn *DependsOn `json:"depends_on,omitempty"`
+		// Commands defines the available commands (invkfile field: 'cmds')
+		Commands []Command `json:"cmds"`
+
+		// FilePath stores the path where this invkfile was loaded from (not in CUE)
+		FilePath string `json:"-"`
+		// ModulePath stores the module directory path if this invkfile is from a module (not in CUE)
+		// Empty string if not loaded from a module
+		ModulePath string `json:"-"`
+		// Metadata references the module metadata from invkmod.cue (not in CUE)
+		// This is set when parsing a module via ParseModule
+		Metadata *Invkmod `json:"-"`
+	}
+)
 
 // GetCurrentHostOS returns the current operating system as Platform
 func GetCurrentHostOS() Platform {
@@ -187,7 +195,3 @@ func (inv *Invkfile) HasRootLevelDependencies() bool {
 	}
 	return len(inv.DependsOn.Tools) > 0 || len(inv.DependsOn.Commands) > 0 || len(inv.DependsOn.Filepaths) > 0 || len(inv.DependsOn.Capabilities) > 0 || len(inv.DependsOn.CustomChecks) > 0 || len(inv.DependsOn.EnvVars) > 0
 }
-
-// Platform represents a target platform.
-// Alias for PlatformType for cleaner code.
-type Platform = PlatformType

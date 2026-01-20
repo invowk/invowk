@@ -25,9 +25,6 @@ import (
 	"github.com/charmbracelet/wish/activeterm"
 )
 
-// ServerState represents the lifecycle state of the server.
-type ServerState int32
-
 const (
 	// StateCreated indicates the server has been created but not started.
 	StateCreated ServerState = iota
@@ -41,6 +38,76 @@ const (
 	StateStopped
 	// StateFailed indicates the server failed to start or encountered a fatal error (terminal state).
 	StateFailed
+)
+
+type (
+	// ServerState represents the lifecycle state of the server.
+	ServerState int32
+
+	// Token represents an authentication token for container callbacks.
+	Token struct {
+		Value     string
+		CreatedAt time.Time
+		ExpiresAt time.Time
+		CommandID string
+		Used      bool
+	}
+
+	// Server represents the SSH server for container callbacks.
+	// A Server instance is single-use: once stopped or failed, create a new instance.
+	Server struct {
+		// Immutable configuration (set at creation, never modified)
+		cfg Config
+
+		// State management (atomic for lock-free reads)
+		state atomic.Int32
+
+		// Initialized during Start() - protected by stateMu for writes
+		stateMu  sync.Mutex
+		srv      *ssh.Server
+		listener net.Listener
+		addr     string // Actual bound address (including resolved port)
+
+		// Lifecycle management
+		ctx       context.Context
+		cancel    context.CancelFunc
+		wg        sync.WaitGroup
+		startedCh chan struct{} // Closed when server is ready to accept connections
+		errCh     chan error    // Receives fatal errors from background goroutines
+		lastErr   error         // Stores the last error for State() == StateFailed
+
+		// Token management
+		tokens  map[string]*Token
+		tokenMu sync.RWMutex
+
+		// Logger
+		logger *log.Logger
+	}
+
+	// Config holds immutable configuration for the SSH server.
+	Config struct {
+		// Host is the address to bind to (default: 127.0.0.1)
+		Host string
+		// Port is the port to listen on (0 = auto-select)
+		Port int
+		// TokenTTL is how long tokens are valid (default: 1 hour)
+		TokenTTL time.Duration
+		// ShutdownTimeout is the timeout for graceful shutdown (default: 10s)
+		ShutdownTimeout time.Duration
+		// DefaultShell is the shell to use (default: /bin/sh)
+		DefaultShell string
+		// StartupTimeout is the max time to wait for server to be ready (default: 5s)
+		StartupTimeout time.Duration
+	}
+
+	// ConnectionInfo contains information needed to connect to the SSH server.
+	ConnectionInfo struct {
+		Host     string
+		Port     int
+		Token    string
+		User     string
+		ExpireAt time.Time
+	}
 )
 
 // String returns a human-readable representation of the server state.
@@ -61,62 +128,6 @@ func (s ServerState) String() string {
 	default:
 		return "unknown"
 	}
-}
-
-// Token represents an authentication token for container callbacks.
-type Token struct {
-	Value     string
-	CreatedAt time.Time
-	ExpiresAt time.Time
-	CommandID string
-	Used      bool
-}
-
-// Server represents the SSH server for container callbacks.
-// A Server instance is single-use: once stopped or failed, create a new instance.
-type Server struct {
-	// Immutable configuration (set at creation, never modified)
-	cfg Config
-
-	// State management (atomic for lock-free reads)
-	state atomic.Int32
-
-	// Initialized during Start() - protected by stateMu for writes
-	stateMu  sync.Mutex
-	srv      *ssh.Server
-	listener net.Listener
-	addr     string // Actual bound address (including resolved port)
-
-	// Lifecycle management
-	ctx       context.Context
-	cancel    context.CancelFunc
-	wg        sync.WaitGroup
-	startedCh chan struct{} // Closed when server is ready to accept connections
-	errCh     chan error    // Receives fatal errors from background goroutines
-	lastErr   error         // Stores the last error for State() == StateFailed
-
-	// Token management
-	tokens  map[string]*Token
-	tokenMu sync.RWMutex
-
-	// Logger
-	logger *log.Logger
-}
-
-// Config holds immutable configuration for the SSH server.
-type Config struct {
-	// Host is the address to bind to (default: 127.0.0.1)
-	Host string
-	// Port is the port to listen on (0 = auto-select)
-	Port int
-	// TokenTTL is how long tokens are valid (default: 1 hour)
-	TokenTTL time.Duration
-	// ShutdownTimeout is the timeout for graceful shutdown (default: 10s)
-	ShutdownTimeout time.Duration
-	// DefaultShell is the shell to use (default: /bin/sh)
-	DefaultShell string
-	// StartupTimeout is the max time to wait for server to be ready (default: 5s)
-	StartupTimeout time.Duration
 }
 
 // DefaultConfig returns a default configuration.
@@ -250,43 +261,6 @@ func (s *Server) Start(ctx context.Context) error {
 	}
 }
 
-// serve runs the SSH server and handles errors.
-func (s *Server) serve() {
-	defer s.wg.Done()
-
-	// Transition: Starting -> Running (signals readiness)
-	if s.state.CompareAndSwap(int32(StateStarting), int32(StateRunning)) {
-		close(s.startedCh)
-	}
-
-	// Block serving connections
-	s.stateMu.Lock()
-	srv := s.srv
-	listener := s.listener
-	s.stateMu.Unlock()
-
-	if srv == nil || listener == nil {
-		return
-	}
-
-	err := srv.Serve(listener)
-	// Handle serve completion
-	if err != nil {
-		// Ignore expected shutdown errors
-		if errors.Is(err, ssh.ErrServerClosed) || errors.Is(err, net.ErrClosed) {
-			return
-		}
-
-		// Report unexpected errors
-		select {
-		case s.errCh <- fmt.Errorf("serve error: %w", err):
-		default:
-			// Error channel full, log instead
-			s.logger.Error("SSH server error (channel full)", "error", err)
-		}
-	}
-}
-
 // Stop gracefully stops the SSH server.
 // It blocks until all connections are closed or the shutdown timeout is reached.
 // Safe to call multiple times; subsequent calls are no-ops.
@@ -316,59 +290,6 @@ func (s *Server) Stop() error {
 		default:
 			return fmt.Errorf("unknown server state: %d", currentState)
 		}
-	}
-}
-
-// doStop performs the actual shutdown logic.
-func (s *Server) doStop() error {
-	// Signal all goroutines to stop
-	if s.cancel != nil {
-		s.cancel()
-	}
-
-	// Shutdown SSH server with timeout
-	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), s.cfg.ShutdownTimeout)
-	defer shutdownCancel()
-
-	var shutdownErr error
-	s.stateMu.Lock()
-	if s.srv != nil {
-		shutdownErr = s.srv.Shutdown(shutdownCtx)
-		if shutdownErr != nil && !isClosedConnError(shutdownErr) {
-			s.logger.Error("shutdown error", "error", shutdownErr)
-		} else {
-			shutdownErr = nil
-		}
-	}
-	if s.listener != nil {
-		_ = s.listener.Close() // Best-effort cleanup during shutdown
-	}
-	s.stateMu.Unlock()
-
-	// Wait for all goroutines to exit
-	s.wg.Wait()
-
-	// Transition to Stopped
-	s.state.Store(int32(StateStopped))
-	s.logger.Info("SSH server stopped")
-
-	// Close error channel to signal consumers
-	close(s.errCh)
-
-	return shutdownErr
-}
-
-// transitionToFailed sets the server state to Failed and stores the error.
-func (s *Server) transitionToFailed(err error) {
-	s.lastErr = err
-	s.state.Store(int32(StateFailed))
-	if s.cancel != nil {
-		s.cancel()
-	}
-	// Send error to channel for Err() consumers (non-blocking)
-	select {
-	case s.errCh <- err:
-	default:
 	}
 }
 
@@ -440,42 +361,6 @@ func (s *Server) Wait() error {
 	return nil
 }
 
-// isClosedConnError checks if the error is a "use of closed network connection" error.
-func isClosedConnError(err error) bool {
-	if err == nil {
-		return false
-	}
-	var opErr *net.OpError
-	if errors.As(err, &opErr) {
-		return opErr.Err.Error() == "use of closed network connection"
-	}
-	return false
-}
-
-// cleanupExpiredTokens periodically removes expired tokens.
-func (s *Server) cleanupExpiredTokens() {
-	defer s.wg.Done()
-
-	ticker := time.NewTicker(5 * time.Minute)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-s.ctx.Done():
-			return
-		case <-ticker.C:
-			s.tokenMu.Lock()
-			now := time.Now()
-			for tokenValue, token := range s.tokens {
-				if now.After(token.ExpiresAt) {
-					delete(s.tokens, tokenValue)
-				}
-			}
-			s.tokenMu.Unlock()
-		}
-	}
-}
-
 // GenerateToken creates a new authentication token for a command.
 func (s *Server) GenerateToken(commandID string) (*Token, error) {
 	// Generate random token
@@ -540,15 +425,6 @@ func (s *Server) RevokeTokensForCommand(commandID string) {
 	}
 }
 
-// ConnectionInfo contains information needed to connect to the SSH server.
-type ConnectionInfo struct {
-	Host     string
-	Port     int
-	Token    string
-	User     string
-	ExpireAt time.Time
-}
-
 // GetConnectionInfo returns connection information for a command.
 // Returns an error if the server is not running.
 func (s *Server) GetConnectionInfo(commandID string) (*ConnectionInfo, error) {
@@ -568,6 +444,120 @@ func (s *Server) GetConnectionInfo(commandID string) (*ConnectionInfo, error) {
 		User:     "invowk",
 		ExpireAt: token.ExpiresAt,
 	}, nil
+}
+
+// serve runs the SSH server and handles errors.
+func (s *Server) serve() {
+	defer s.wg.Done()
+
+	// Transition: Starting -> Running (signals readiness)
+	if s.state.CompareAndSwap(int32(StateStarting), int32(StateRunning)) {
+		close(s.startedCh)
+	}
+
+	// Block serving connections
+	s.stateMu.Lock()
+	srv := s.srv
+	listener := s.listener
+	s.stateMu.Unlock()
+
+	if srv == nil || listener == nil {
+		return
+	}
+
+	err := srv.Serve(listener)
+	// Handle serve completion
+	if err != nil {
+		// Ignore expected shutdown errors
+		if errors.Is(err, ssh.ErrServerClosed) || errors.Is(err, net.ErrClosed) {
+			return
+		}
+
+		// Report unexpected errors
+		select {
+		case s.errCh <- fmt.Errorf("serve error: %w", err):
+		default:
+			// Error channel full, log instead
+			s.logger.Error("SSH server error (channel full)", "error", err)
+		}
+	}
+}
+
+// doStop performs the actual shutdown logic.
+func (s *Server) doStop() error {
+	// Signal all goroutines to stop
+	if s.cancel != nil {
+		s.cancel()
+	}
+
+	// Shutdown SSH server with timeout
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), s.cfg.ShutdownTimeout)
+	defer shutdownCancel()
+
+	var shutdownErr error
+	s.stateMu.Lock()
+	if s.srv != nil {
+		shutdownErr = s.srv.Shutdown(shutdownCtx)
+		if shutdownErr != nil && !isClosedConnError(shutdownErr) {
+			s.logger.Error("shutdown error", "error", shutdownErr)
+		} else {
+			shutdownErr = nil
+		}
+	}
+	if s.listener != nil {
+		_ = s.listener.Close() // Best-effort cleanup during shutdown
+	}
+	s.stateMu.Unlock()
+
+	// Wait for all goroutines to exit
+	s.wg.Wait()
+
+	// Transition to Stopped
+	s.state.Store(int32(StateStopped))
+	s.logger.Info("SSH server stopped")
+
+	// Close error channel to signal consumers
+	close(s.errCh)
+
+	return shutdownErr
+}
+
+// transitionToFailed sets the server state to Failed and stores the error.
+func (s *Server) transitionToFailed(err error) {
+	s.lastErr = err
+	s.state.Store(int32(StateFailed))
+	if s.cancel != nil {
+		s.cancel()
+	}
+	// Send error to channel for Err() consumers (non-blocking)
+	select {
+	case s.errCh <- err:
+	default:
+	}
+}
+
+// cleanupExpiredTokens periodically removes expired tokens.
+func (s *Server) cleanupExpiredTokens() {
+	defer s.wg.Done()
+
+	ticker := time.NewTicker(5 * time.Minute)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-s.ctx.Done():
+			return
+		case <-ticker.C:
+			s.tokenMu.Lock()
+			now := time.Now()
+			for tokenValue, token := range s.tokens {
+				if now.After(token.ExpiresAt) {
+					delete(s.tokens, tokenValue)
+				}
+			}
+			s.tokenMu.Unlock()
+		}
+	}
 }
 
 // passwordHandler handles password authentication using tokens.
@@ -680,4 +670,16 @@ func (s *Server) runCommand(sess ssh.Session, args []string) {
 		return
 	}
 	_ = sess.Exit(0) //nolint:errcheck // Terminal operation; error non-critical
+}
+
+// isClosedConnError checks if the error is a "use of closed network connection" error.
+func isClosedConnError(err error) bool {
+	if err == nil {
+		return false
+	}
+	var opErr *net.OpError
+	if errors.As(err, &opErr) {
+		return opErr.Err.Error() == "use of closed network connection"
+	}
+	return false
 }

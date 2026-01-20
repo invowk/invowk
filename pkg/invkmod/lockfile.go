@@ -10,41 +10,43 @@ import (
 	"time"
 )
 
-// LockFile represents the invkmod.lock.cue file structure.
-type LockFile struct {
-	// Version is the lock file format version.
-	Version string
+type (
+	// LockFile represents the invkmod.lock.cue file structure.
+	LockFile struct {
+		// Version is the lock file format version.
+		Version string
 
-	// Generated is the timestamp when the lock file was generated.
-	Generated time.Time
+		// Generated is the timestamp when the lock file was generated.
+		Generated time.Time
 
-	// Modules maps module keys to their locked versions.
-	Modules map[string]LockedModule
-}
+		// Modules maps module keys to their locked versions.
+		Modules map[string]LockedModule
+	}
 
-// LockedModule represents a locked module entry in the lock file.
-type LockedModule struct {
-	// GitURL is the Git repository URL.
-	GitURL string
+	// LockedModule represents a locked module entry in the lock file.
+	LockedModule struct {
+		// GitURL is the Git repository URL.
+		GitURL string
 
-	// Version is the original version constraint from the invkfile.
-	Version string
+		// Version is the original version constraint from the invkfile.
+		Version string
 
-	// ResolvedVersion is the exact version that was resolved.
-	ResolvedVersion string
+		// ResolvedVersion is the exact version that was resolved.
+		ResolvedVersion string
 
-	// GitCommit is the Git commit SHA for the resolved version.
-	GitCommit string
+		// GitCommit is the Git commit SHA for the resolved version.
+		GitCommit string
 
-	// Alias is the namespace alias (optional).
-	Alias string
+		// Alias is the namespace alias (optional).
+		Alias string
 
-	// Path is the subdirectory path within the repository (optional).
-	Path string
+		// Path is the subdirectory path within the repository (optional).
+		Path string
 
-	// Namespace is the computed namespace for commands.
-	Namespace string
-}
+		// Namespace is the computed namespace for commands.
+		Namespace string
+	}
+)
 
 // NewLockFile creates a new empty lock file.
 func NewLockFile() *LockFile {
@@ -89,6 +91,31 @@ func (l *LockFile) Save(path string) error {
 	}
 
 	return nil
+}
+
+// AddModule adds a resolved module to the lock file.
+func (l *LockFile) AddModule(resolved *ResolvedModule) {
+	l.Modules[resolved.ModuleRef.Key()] = LockedModule{
+		GitURL:          resolved.ModuleRef.GitURL,
+		Version:         resolved.ModuleRef.Version,
+		ResolvedVersion: resolved.ResolvedVersion,
+		GitCommit:       resolved.GitCommit,
+		Alias:           resolved.ModuleRef.Alias,
+		Path:            resolved.ModuleRef.Path,
+		Namespace:       resolved.Namespace,
+	}
+}
+
+// HasModule checks if a module is in the lock file.
+func (l *LockFile) HasModule(key string) bool {
+	_, ok := l.Modules[key]
+	return ok
+}
+
+// GetModule returns a module from the lock file.
+func (l *LockFile) GetModule(key string) (LockedModule, bool) {
+	mod, ok := l.Modules[key]
+	return mod, ok
 }
 
 // toCUE serializes the lock file to CUE format.
@@ -237,29 +264,4 @@ func parseModuleKey(line string) string {
 		}
 	}
 	return ""
-}
-
-// AddModule adds a resolved module to the lock file.
-func (l *LockFile) AddModule(resolved *ResolvedModule) {
-	l.Modules[resolved.ModuleRef.Key()] = LockedModule{
-		GitURL:          resolved.ModuleRef.GitURL,
-		Version:         resolved.ModuleRef.Version,
-		ResolvedVersion: resolved.ResolvedVersion,
-		GitCommit:       resolved.GitCommit,
-		Alias:           resolved.ModuleRef.Alias,
-		Path:            resolved.ModuleRef.Path,
-		Namespace:       resolved.Namespace,
-	}
-}
-
-// HasModule checks if a module is in the lock file.
-func (l *LockFile) HasModule(key string) bool {
-	_, ok := l.Modules[key]
-	return ok
-}
-
-// GetModule returns a module from the lock file.
-func (l *LockFile) GetModule(key string) (LockedModule, bool) {
-	mod, ok := l.Modules[key]
-	return mod, ok
 }

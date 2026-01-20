@@ -12,63 +12,82 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// configCmd is the parent command for configuration operations
-var configCmd = &cobra.Command{
-	Use:   "config",
-	Short: "Manage invowk configuration",
-	Long: `Manage invowk configuration.
+var (
+	// configCmd is the parent command for configuration operations
+	configCmd = &cobra.Command{
+		Use:   "config",
+		Short: "Manage invowk configuration",
+		Long: `Manage invowk configuration.
 
 Configuration is stored in:
   - Linux: ~/.config/invowk/config.cue
   - macOS: ~/Library/Application Support/invowk/config.cue
   - Windows: %APPDATA%\invowk\config.cue`,
-	RunE: func(cmd *cobra.Command, args []string) error {
-		return cmd.Help()
-	},
-}
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return cmd.Help()
+		},
+	}
 
-// configShowCmd displays current configuration
-var configShowCmd = &cobra.Command{
-	Use:   "show",
-	Short: "Show current configuration",
-	RunE: func(cmd *cobra.Command, args []string) error {
-		return showConfig()
-	},
-}
+	// configShowCmd displays current configuration
+	configShowCmd = &cobra.Command{
+		Use:   "show",
+		Short: "Show current configuration",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return showConfig()
+		},
+	}
 
-// configInitCmd creates a default configuration
-var configInitCmd = &cobra.Command{
-	Use:   "init",
-	Short: "Create default configuration file",
-	RunE: func(cmd *cobra.Command, args []string) error {
-		return initConfig()
-	},
-}
+	// configInitCmd creates a default configuration
+	configInitCmd = &cobra.Command{
+		Use:   "init",
+		Short: "Create default configuration file",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return initConfig()
+		},
+	}
 
-// configPathCmd shows the configuration file path
-var configPathCmd = &cobra.Command{
-	Use:   "path",
-	Short: "Show configuration file path",
-	RunE: func(cmd *cobra.Command, args []string) error {
-		return showConfigPath()
-	},
-}
+	// configPathCmd shows the configuration file path
+	configPathCmd = &cobra.Command{
+		Use:   "path",
+		Short: "Show configuration file path",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return showConfigPath()
+		},
+	}
 
-// configSetCmd sets a configuration value
-var configSetCmd = &cobra.Command{
-	Use:   "set <key> <value>",
-	Short: "Set a configuration value",
-	Args:  cobra.ExactArgs(2),
-	RunE: func(cmd *cobra.Command, args []string) error {
-		return setConfigValue(args[0], args[1])
-	},
-}
+	// configSetCmd sets a configuration value
+	configSetCmd = &cobra.Command{
+		Use:   "set <key> <value>",
+		Short: "Set a configuration value",
+		Args:  cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return setConfigValue(args[0], args[1])
+		},
+	}
+
+	// configDumpCmd outputs raw configuration as CUE
+	configDumpCmd = &cobra.Command{
+		Use:   "dump",
+		Short: "Output raw configuration as CUE",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg, err := config.Load()
+			if err != nil {
+				return err
+			}
+
+			cueContent := config.GenerateCUE(cfg)
+			fmt.Print(cueContent)
+			return nil
+		},
+	}
+)
 
 func init() {
 	configCmd.AddCommand(configShowCmd)
 	configCmd.AddCommand(configInitCmd)
 	configCmd.AddCommand(configPathCmd)
 	configCmd.AddCommand(configSetCmd)
+	configCmd.AddCommand(configDumpCmd)
 }
 
 func showConfig() error {
@@ -201,24 +220,4 @@ func setConfigValue(key, value string) error {
 
 	fmt.Printf("%s Set %s = %s\n", successStyle.Render("✓"), key, value)
 	return nil
-}
-
-// configDumpCmd outputs raw configuration as CUE
-var configDumpCmd = &cobra.Command{
-	Use:   "dump",
-	Short: "Output raw configuration as CUE",
-	RunE: func(cmd *cobra.Command, args []string) error {
-		cfg, err := config.Load()
-		if err != nil {
-			return err
-		}
-
-		cueContent := config.GenerateCUE(cfg)
-		fmt.Print(cueContent)
-		return nil
-	},
-}
-
-func init() {
-	configCmd.AddCommand(configDumpCmd)
 }

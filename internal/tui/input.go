@@ -10,37 +10,44 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-// InputOptions configures the Input component.
-type InputOptions struct {
-	// Title is the title/prompt displayed above the input.
-	Title string
-	// Description provides additional context below the title.
-	Description string
-	// Placeholder is the placeholder text shown when input is empty.
-	Placeholder string
-	// Value is the initial value of the input.
-	Value string
-	// CharLimit limits the number of characters (0 for no limit).
-	CharLimit int
-	// Width sets the width of the input field (0 for auto).
-	Width int
-	// Password hides the input characters.
-	Password bool
-	// Prompt is the character(s) shown before the input (default: "> ").
-	Prompt string
-	// Config holds common TUI configuration.
-	Config Config
-}
+type (
+	// InputOptions configures the Input component.
+	InputOptions struct {
+		// Title is the title/prompt displayed above the input.
+		Title string
+		// Description provides additional context below the title.
+		Description string
+		// Placeholder is the placeholder text shown when input is empty.
+		Placeholder string
+		// Value is the initial value of the input.
+		Value string
+		// CharLimit limits the number of characters (0 for no limit).
+		CharLimit int
+		// Width sets the width of the input field (0 for auto).
+		Width int
+		// Password hides the input characters.
+		Password bool
+		// Prompt is the character(s) shown before the input (default: "> ").
+		Prompt string
+		// Config holds common TUI configuration.
+		Config Config
+	}
 
-// inputModel implements EmbeddableComponent for text input.
-type inputModel struct {
-	form      *huh.Form
-	result    *string
-	done      bool
-	cancelled bool
-	width     int
-	height    int
-}
+	// inputModel implements EmbeddableComponent for text input.
+	inputModel struct {
+		form      *huh.Form
+		result    *string
+		done      bool
+		cancelled bool
+		width     int
+		height    int
+	}
+
+	// InputBuilder provides a fluent API for building Input prompts.
+	InputBuilder struct {
+		opts InputOptions
+	}
+)
 
 // NewInputModel creates an embeddable input component.
 func NewInputModel(opts InputOptions) *inputModel {
@@ -51,47 +58,6 @@ func NewInputModel(opts InputOptions) *inputModel {
 // This uses a theme that matches the modal overlay background to prevent color bleeding.
 func NewInputModelForModal(opts InputOptions) *inputModel {
 	return newInputModelWithTheme(opts, getModalHuhTheme())
-}
-
-// newInputModelWithTheme creates an input model with a specific huh theme.
-func newInputModelWithTheme(opts InputOptions, theme *huh.Theme) *inputModel {
-	var result string
-	if opts.Value != "" {
-		result = opts.Value
-	}
-
-	input := huh.NewInput().
-		Title(opts.Title).
-		Description(opts.Description).
-		Placeholder(opts.Placeholder).
-		Value(&result)
-
-	if opts.CharLimit > 0 {
-		input = input.CharLimit(opts.CharLimit)
-	}
-
-	if opts.Password {
-		input = input.EchoMode(huh.EchoModePassword)
-	}
-
-	if opts.Prompt != "" {
-		input = input.Prompt(opts.Prompt)
-	}
-
-	form := huh.NewForm(huh.NewGroup(input)).
-		WithTheme(theme).
-		WithAccessible(opts.Config.Accessible)
-
-	if opts.Width > 0 {
-		form = form.WithWidth(opts.Width)
-	} else if opts.Config.Width > 0 {
-		form = form.WithWidth(opts.Config.Width)
-	}
-
-	return &inputModel{
-		form:   form,
-		result: &result,
-	}
 }
 
 // Init implements tea.Model.
@@ -187,11 +153,6 @@ func Input(opts InputOptions) (string, error) {
 	return result.(string), nil
 }
 
-// InputBuilder provides a fluent API for building Input prompts.
-type InputBuilder struct {
-	opts InputOptions
-}
-
 // NewInput creates a new InputBuilder with default options.
 func NewInput() *InputBuilder {
 	return &InputBuilder{
@@ -269,4 +230,45 @@ func (b *InputBuilder) Run() (string, error) {
 // Model returns the embeddable model for composition.
 func (b *InputBuilder) Model() EmbeddableComponent {
 	return NewInputModel(b.opts)
+}
+
+// newInputModelWithTheme creates an input model with a specific huh theme.
+func newInputModelWithTheme(opts InputOptions, theme *huh.Theme) *inputModel {
+	var result string
+	if opts.Value != "" {
+		result = opts.Value
+	}
+
+	input := huh.NewInput().
+		Title(opts.Title).
+		Description(opts.Description).
+		Placeholder(opts.Placeholder).
+		Value(&result)
+
+	if opts.CharLimit > 0 {
+		input = input.CharLimit(opts.CharLimit)
+	}
+
+	if opts.Password {
+		input = input.EchoMode(huh.EchoModePassword)
+	}
+
+	if opts.Prompt != "" {
+		input = input.Prompt(opts.Prompt)
+	}
+
+	form := huh.NewForm(huh.NewGroup(input)).
+		WithTheme(theme).
+		WithAccessible(opts.Config.Accessible)
+
+	if opts.Width > 0 {
+		form = form.WithWidth(opts.Width)
+	} else if opts.Config.Width > 0 {
+		form = form.WithWidth(opts.Config.Width)
+	}
+
+	return &inputModel{
+		form:   form,
+		result: &result,
+	}
 }

@@ -12,6 +12,15 @@ import (
 	"time"
 )
 
+// simpleError is a simple error type for testing.
+type simpleError struct {
+	msg string
+}
+
+func (e *simpleError) Error() string {
+	return e.msg
+}
+
 func TestServerStartStop(t *testing.T) {
 	server, err := New()
 	if err != nil {
@@ -429,14 +438,6 @@ func TestIsUserCancelledError(t *testing.T) {
 			t.Errorf("isUserCancelledError(%v) = %v, expected %v", tt.input, result, tt.expected)
 		}
 	}
-}
-
-type simpleError struct {
-	msg string
-}
-
-func (e *simpleError) Error() string {
-	return e.msg
 }
 
 // isUserCancelledError checks if the error indicates user cancellation.

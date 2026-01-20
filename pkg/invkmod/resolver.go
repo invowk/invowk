@@ -11,34 +11,85 @@ import (
 	"sync"
 )
 
-// ModuleCachePathEnv is the environment variable for overriding the default module cache path.
-const ModuleCachePathEnv = "INVOWK_MODULES_PATH"
+const (
+	// ModuleCachePathEnv is the environment variable for overriding the default module cache path.
+	ModuleCachePathEnv = "INVOWK_MODULES_PATH"
 
-// DefaultModulesDir is the default subdirectory within ~/.invowk for module cache.
-const DefaultModulesDir = "modules"
+	// DefaultModulesDir is the default subdirectory within ~/.invowk for module cache.
+	DefaultModulesDir = "modules"
 
-// LockFileName is the name of the lock file.
-// The lock file pairs naturally with invkmod.cue (like go.sum pairs with go.mod).
-const LockFileName = "invkmod.lock.cue"
+	// LockFileName is the name of the lock file.
+	// The lock file pairs naturally with invkmod.cue (like go.sum pairs with go.mod).
+	LockFileName = "invkmod.lock.cue"
+)
 
-// ModuleRef represents a module dependency declaration from invkmod.cue.
-type ModuleRef struct {
-	// GitURL is the Git repository URL (HTTPS or SSH format).
-	// Examples: "https://github.com/user/repo.git", "git@github.com:user/repo.git"
-	GitURL string
+type (
+	// ModuleRef represents a module dependency declaration from invkmod.cue.
+	ModuleRef struct {
+		// GitURL is the Git repository URL (HTTPS or SSH format).
+		// Examples: "https://github.com/user/repo.git", "git@github.com:user/repo.git"
+		GitURL string
 
-	// Version is the semver constraint for version selection.
-	// Examples: "^1.2.0", "~1.2.0", ">=1.0.0 <2.0.0", "1.2.3"
-	Version string
+		// Version is the semver constraint for version selection.
+		// Examples: "^1.2.0", "~1.2.0", ">=1.0.0 <2.0.0", "1.2.3"
+		Version string
 
-	// Alias overrides the default namespace for imported commands (optional).
-	// If not set, the namespace is: <module>@<resolved-version>
-	Alias string
+		// Alias overrides the default namespace for imported commands (optional).
+		// If not set, the namespace is: <module>@<resolved-version>
+		Alias string
 
-	// Path specifies a subdirectory containing the module (optional).
-	// Used for monorepos with multiple modules.
-	Path string
-}
+		// Path specifies a subdirectory containing the module (optional).
+		// Used for monorepos with multiple modules.
+		Path string
+	}
+
+	// ResolvedModule represents a fully resolved and cached module.
+	ResolvedModule struct {
+		// ModuleRef is the original requirement that was resolved.
+		ModuleRef ModuleRef
+
+		// ResolvedVersion is the exact version that was selected.
+		// This is always a concrete version (e.g., "1.2.3"), not a constraint.
+		ResolvedVersion string
+
+		// GitCommit is the Git commit SHA for the resolved version.
+		GitCommit string
+
+		// CachePath is the absolute path to the cached module directory.
+		CachePath string
+
+		// Namespace is the computed namespace for this module's commands.
+		// Format: "<module>@<version>" or alias if specified.
+		Namespace string
+
+		// ModuleName is the name of the module (from the folder name without .invkmod).
+		ModuleName string
+
+		// ModuleID is the module identifier from the module's invkmod.cue.
+		ModuleID string
+
+		// TransitiveDeps are dependencies declared by this module (for recursive resolution).
+		TransitiveDeps []ModuleRef
+	}
+
+	// Resolver handles module operations including resolution, caching, and synchronization.
+	Resolver struct {
+		// CacheDir is the root directory for module cache.
+		CacheDir string
+
+		// WorkingDir is the directory containing invkmod.cue (for relative path resolution).
+		WorkingDir string
+
+		// fetcher handles Git operations.
+		fetcher *GitFetcher
+
+		// semver handles version constraint resolution.
+		semver *SemverResolver
+
+		// mu protects concurrent access to the resolver.
+		mu sync.Mutex
+	}
+)
 
 // Key returns a unique key for this requirement based on GitURL and Path.
 func (r ModuleRef) Key() string {
@@ -59,53 +110,6 @@ func (r ModuleRef) String() string {
 		s += " (alias: " + r.Alias + ")"
 	}
 	return s
-}
-
-// ResolvedModule represents a fully resolved and cached module.
-type ResolvedModule struct {
-	// ModuleRef is the original requirement that was resolved.
-	ModuleRef ModuleRef
-
-	// ResolvedVersion is the exact version that was selected.
-	// This is always a concrete version (e.g., "1.2.3"), not a constraint.
-	ResolvedVersion string
-
-	// GitCommit is the Git commit SHA for the resolved version.
-	GitCommit string
-
-	// CachePath is the absolute path to the cached module directory.
-	CachePath string
-
-	// Namespace is the computed namespace for this module's commands.
-	// Format: "<module>@<version>" or alias if specified.
-	Namespace string
-
-	// ModuleName is the name of the module (from the folder name without .invkmod).
-	ModuleName string
-
-	// ModuleID is the module identifier from the module's invkmod.cue.
-	ModuleID string
-
-	// TransitiveDeps are dependencies declared by this module (for recursive resolution).
-	TransitiveDeps []ModuleRef
-}
-
-// Resolver handles module operations including resolution, caching, and synchronization.
-type Resolver struct {
-	// CacheDir is the root directory for module cache.
-	CacheDir string
-
-	// WorkingDir is the directory containing invkmod.cue (for relative path resolution).
-	WorkingDir string
-
-	// fetcher handles Git operations.
-	fetcher *GitFetcher
-
-	// semver handles version constraint resolution.
-	semver *SemverResolver
-
-	// mu protects concurrent access to the resolver.
-	mu sync.Mutex
 }
 
 // NewResolver creates a new module resolver.

@@ -17,34 +17,34 @@ import (
 var (
 	spinTitle string
 	spinType  string
-)
 
-// tuiSpinCmd displays a spinner while running a command.
-var tuiSpinCmd = &cobra.Command{
-	Use:   "spin [flags] -- command [args...]",
-	Short: "Show a spinner while running a command",
-	Long: `Display a spinner animation while running a command.
+	// tuiSpinCmd displays a spinner while running a command.
+	tuiSpinCmd = &cobra.Command{
+		Use:   "spin [flags] -- command [args...]",
+		Short: "Show a spinner while running a command",
+		Long: `Display a spinner animation while running a command.
 
 The command's output is captured and displayed after the spinner completes.
 Use "--" to separate spin flags from the command to execute.
 
-Available spinner types: line, dot, minidot, jump, pulse, points, 
+Available spinner types: line, dot, minidot, jump, pulse, points,
 globe, moon, monkey, meter, hamburger, ellipsis
 
 Examples:
   # Run a command with spinner
   invowk tui spin --title "Installing..." -- npm install
-  
+
   # Different spinner type
   invowk tui spin --type globe --title "Downloading..." -- curl -O https://example.com/file
-  
+
   # Sleep example
   invowk tui spin --title "Please wait..." -- sleep 3
-  
+
   # Use in shell script
   invowk tui spin --title "Building project..." -- make build`,
-	RunE: runTuiSpin,
-}
+		RunE: runTuiSpin,
+	}
+)
 
 func init() {
 	tuiCmd.AddCommand(tuiSpinCmd)

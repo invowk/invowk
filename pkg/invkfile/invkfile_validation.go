@@ -9,11 +9,13 @@ import (
 	"strings"
 )
 
-// flagNameRegex validates POSIX-compliant flag names
-var flagNameRegex = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9_-]*$`)
+var (
+	// flagNameRegex validates POSIX-compliant flag names
+	flagNameRegex = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9_-]*$`)
 
-// argNameRegex validates POSIX-compliant argument names
-var argNameRegex = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9_-]*$`)
+	// argNameRegex validates POSIX-compliant argument names
+	argNameRegex = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9_-]*$`)
+)
 
 // validate checks the invkfile for errors and applies defaults
 func (inv *Invkfile) validate() error {

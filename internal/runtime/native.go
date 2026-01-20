@@ -76,6 +76,73 @@ func (r *NativeRuntime) Execute(ctx *ExecutionContext) *Result {
 	return r.executeWithShell(ctx, script)
 }
 
+// ExecuteCapture runs a command and captures its output
+func (r *NativeRuntime) ExecuteCapture(ctx *ExecutionContext) *Result {
+	// Resolve the script content (from file or inline)
+	script, err := ctx.SelectedImpl.ResolveScript(ctx.Invkfile.FilePath)
+	if err != nil {
+		return &Result{ExitCode: 1, Error: err}
+	}
+
+	// Get the runtime config to check for interpreter
+	rtConfig := ctx.SelectedImpl.GetRuntimeConfig(ctx.SelectedRuntime)
+	if rtConfig == nil {
+		// Fallback to default shell execution if no runtime config
+		return r.executeCaptureWithShell(ctx, script)
+	}
+
+	// Resolve interpreter (defaults to "auto" which parses shebang)
+	interpInfo := rtConfig.ResolveInterpreterFromScript(script)
+
+	// If an interpreter was found, use interpreter-based execution
+	if interpInfo.Found {
+		return r.executeCaptureWithInterpreter(ctx, script, interpInfo)
+	}
+
+	// Otherwise, use default shell-based execution
+	return r.executeCaptureWithShell(ctx, script)
+}
+
+// SupportsInteractive returns true as the native runtime always supports interactive mode.
+func (r *NativeRuntime) SupportsInteractive() bool {
+	return true
+}
+
+// PrepareInteractive prepares the native runtime for interactive execution.
+// This is an alias for PrepareCommand to implement the InteractiveRuntime interface.
+func (r *NativeRuntime) PrepareInteractive(ctx *ExecutionContext) (*PreparedCommand, error) {
+	return r.PrepareCommand(ctx)
+}
+
+// PrepareCommand builds an exec.Cmd for the given execution context without running it.
+// This is useful for interactive mode where the command needs to be run on a PTY.
+// The caller must call the returned cleanup function after execution.
+func (r *NativeRuntime) PrepareCommand(ctx *ExecutionContext) (*PreparedCommand, error) {
+	// Resolve the script content (from file or inline)
+	script, err := ctx.SelectedImpl.ResolveScript(ctx.Invkfile.FilePath)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get the runtime config to check for interpreter
+	rtConfig := ctx.SelectedImpl.GetRuntimeConfig(ctx.SelectedRuntime)
+	if rtConfig == nil {
+		// Fallback to default shell execution if no runtime config
+		return r.prepareShellCommand(ctx, script)
+	}
+
+	// Resolve interpreter (defaults to "auto" which parses shebang)
+	interpInfo := rtConfig.ResolveInterpreterFromScript(script)
+
+	// If an interpreter was found, use interpreter-based execution
+	if interpInfo.Found {
+		return r.prepareInterpreterCommand(ctx, script, interpInfo)
+	}
+
+	// Otherwise, use default shell-based execution
+	return r.prepareShellCommand(ctx, script)
+}
+
 // executeWithShell executes the script using the system shell (current behavior)
 func (r *NativeRuntime) executeWithShell(ctx *ExecutionContext, script string) *Result {
 	shell, err := r.getShell()
@@ -191,61 +258,6 @@ func (r *NativeRuntime) executeWithInterpreter(ctx *ExecutionContext, script str
 	return &Result{ExitCode: 0}
 }
 
-// createTempScript creates a temporary file with the script content
-func (r *NativeRuntime) createTempScript(content, interpreter string) (string, error) {
-	ext := invkfile.GetExtensionForInterpreter(interpreter)
-
-	tmpFile, err := os.CreateTemp("", "invowk-script-*"+ext)
-	if err != nil {
-		return "", err
-	}
-
-	if _, err := tmpFile.WriteString(content); err != nil {
-		_ = tmpFile.Close()           // Best-effort close on error path
-		_ = os.Remove(tmpFile.Name()) // Best-effort cleanup on error path
-		return "", err
-	}
-
-	if err := tmpFile.Close(); err != nil {
-		_ = os.Remove(tmpFile.Name()) // Best-effort cleanup on error path
-		return "", err
-	}
-
-	// Make executable (needed for some interpreters on Unix)
-	if runtime.GOOS != "windows" {
-		_ = os.Chmod(tmpFile.Name(), 0o700) // Best-effort; execution may still work
-	}
-
-	return tmpFile.Name(), nil
-}
-
-// ExecuteCapture runs a command and captures its output
-func (r *NativeRuntime) ExecuteCapture(ctx *ExecutionContext) *Result {
-	// Resolve the script content (from file or inline)
-	script, err := ctx.SelectedImpl.ResolveScript(ctx.Invkfile.FilePath)
-	if err != nil {
-		return &Result{ExitCode: 1, Error: err}
-	}
-
-	// Get the runtime config to check for interpreter
-	rtConfig := ctx.SelectedImpl.GetRuntimeConfig(ctx.SelectedRuntime)
-	if rtConfig == nil {
-		// Fallback to default shell execution if no runtime config
-		return r.executeCaptureWithShell(ctx, script)
-	}
-
-	// Resolve interpreter (defaults to "auto" which parses shebang)
-	interpInfo := rtConfig.ResolveInterpreterFromScript(script)
-
-	// If an interpreter was found, use interpreter-based execution
-	if interpInfo.Found {
-		return r.executeCaptureWithInterpreter(ctx, script, interpInfo)
-	}
-
-	// Otherwise, use default shell-based execution
-	return r.executeCaptureWithShell(ctx, script)
-}
-
 // executeCaptureWithShell executes using shell and captures output
 func (r *NativeRuntime) executeCaptureWithShell(ctx *ExecutionContext, script string) *Result {
 	shell, err := r.getShell()
@@ -359,6 +371,34 @@ func (r *NativeRuntime) executeCaptureWithInterpreter(ctx *ExecutionContext, scr
 	return result
 }
 
+// createTempScript creates a temporary file with the script content
+func (r *NativeRuntime) createTempScript(content, interpreter string) (string, error) {
+	ext := invkfile.GetExtensionForInterpreter(interpreter)
+
+	tmpFile, err := os.CreateTemp("", "invowk-script-*"+ext)
+	if err != nil {
+		return "", err
+	}
+
+	if _, err := tmpFile.WriteString(content); err != nil {
+		_ = tmpFile.Close()           // Best-effort close on error path
+		_ = os.Remove(tmpFile.Name()) // Best-effort cleanup on error path
+		return "", err
+	}
+
+	if err := tmpFile.Close(); err != nil {
+		_ = os.Remove(tmpFile.Name()) // Best-effort cleanup on error path
+		return "", err
+	}
+
+	// Make executable (needed for some interpreters on Unix)
+	if runtime.GOOS != "windows" {
+		_ = os.Chmod(tmpFile.Name(), 0o700) // Best-effort; execution may still work
+	}
+
+	return tmpFile.Name(), nil
+}
+
 // getShell determines which shell to use
 func (r *NativeRuntime) getShell() (string, error) {
 	// Use configured shell if set
@@ -450,46 +490,6 @@ func (r *NativeRuntime) appendPositionalArgs(shell string, args, positionalArgs 
 		args = append(args, "invowk") // $0 placeholder
 		return append(args, positionalArgs...)
 	}
-}
-
-// SupportsInteractive returns true as the native runtime always supports interactive mode.
-func (r *NativeRuntime) SupportsInteractive() bool {
-	return true
-}
-
-// PrepareInteractive prepares the native runtime for interactive execution.
-// This is an alias for PrepareCommand to implement the InteractiveRuntime interface.
-func (r *NativeRuntime) PrepareInteractive(ctx *ExecutionContext) (*PreparedCommand, error) {
-	return r.PrepareCommand(ctx)
-}
-
-// PrepareCommand builds an exec.Cmd for the given execution context without running it.
-// This is useful for interactive mode where the command needs to be run on a PTY.
-// The caller must call the returned cleanup function after execution.
-func (r *NativeRuntime) PrepareCommand(ctx *ExecutionContext) (*PreparedCommand, error) {
-	// Resolve the script content (from file or inline)
-	script, err := ctx.SelectedImpl.ResolveScript(ctx.Invkfile.FilePath)
-	if err != nil {
-		return nil, err
-	}
-
-	// Get the runtime config to check for interpreter
-	rtConfig := ctx.SelectedImpl.GetRuntimeConfig(ctx.SelectedRuntime)
-	if rtConfig == nil {
-		// Fallback to default shell execution if no runtime config
-		return r.prepareShellCommand(ctx, script)
-	}
-
-	// Resolve interpreter (defaults to "auto" which parses shebang)
-	interpInfo := rtConfig.ResolveInterpreterFromScript(script)
-
-	// If an interpreter was found, use interpreter-based execution
-	if interpInfo.Found {
-		return r.prepareInterpreterCommand(ctx, script, interpInfo)
-	}
-
-	// Otherwise, use default shell-based execution
-	return r.prepareShellCommand(ctx, script)
 }
 
 // prepareShellCommand builds a shell command without executing it.

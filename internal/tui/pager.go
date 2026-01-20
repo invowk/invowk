@@ -8,35 +8,42 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-// PagerOptions configures the Pager component.
-type PagerOptions struct {
-	// Content is the text content to display.
-	Content string
-	// Title is the title displayed at the top.
-	Title string
-	// Height limits the visible height (0 for auto).
-	Height int
-	// Width limits the visible width (0 for auto).
-	Width int
-	// ShowLineNumbers enables line number display.
-	ShowLineNumbers bool
-	// SoftWrap enables soft wrapping of long lines.
-	SoftWrap bool
-	// Config holds common TUI configuration.
-	Config Config
-}
+type (
+	// PagerOptions configures the Pager component.
+	PagerOptions struct {
+		// Content is the text content to display.
+		Content string
+		// Title is the title displayed at the top.
+		Title string
+		// Height limits the visible height (0 for auto).
+		Height int
+		// Width limits the visible width (0 for auto).
+		Width int
+		// ShowLineNumbers enables line number display.
+		ShowLineNumbers bool
+		// SoftWrap enables soft wrapping of long lines.
+		SoftWrap bool
+		// Config holds common TUI configuration.
+		Config Config
+	}
 
-// pagerModel is the bubbletea model for the pager component.
-// It implements EmbeddableComponent for embedded use.
-type pagerModel struct {
-	viewport viewport.Model
-	title    string
-	ready    bool
-	done     bool
-	width    int
-	height   int
-	forModal bool
-}
+	// pagerModel is the bubbletea model for the pager component.
+	// It implements EmbeddableComponent for embedded use.
+	pagerModel struct {
+		viewport viewport.Model
+		title    string
+		ready    bool
+		done     bool
+		width    int
+		height   int
+		forModal bool
+	}
+
+	// PagerBuilder provides a fluent API for building Pager displays.
+	PagerBuilder struct {
+		opts PagerOptions
+	}
+)
 
 // NewPagerModel creates an embeddable pager component.
 func NewPagerModel(opts PagerOptions) *pagerModel {
@@ -47,36 +54,6 @@ func NewPagerModel(opts PagerOptions) *pagerModel {
 // This version uses styles that avoid background color bleeding.
 func NewPagerModelForModal(opts PagerOptions) *pagerModel {
 	return newPagerModelWithStyles(opts, true)
-}
-
-// newPagerModelWithStyles creates a pager model with optional modal-specific styling.
-func newPagerModelWithStyles(opts PagerOptions, forModal bool) *pagerModel {
-	height := opts.Height
-	if height == 0 {
-		height = 20
-	}
-
-	width := opts.Width
-	if width == 0 {
-		width = 80
-	}
-
-	vpHeight := height - 4 // Leave room for title and footer
-	if vpHeight < 1 {
-		vpHeight = 10
-	}
-
-	vp := viewport.New(width, vpHeight)
-	vp.SetContent(opts.Content)
-
-	return &pagerModel{
-		viewport: vp,
-		title:    opts.Title,
-		ready:    true,
-		width:    width,
-		height:   height,
-		forModal: forModal,
-	}
 }
 
 func (m *pagerModel) Init() tea.Cmd {
@@ -185,11 +162,6 @@ func Pager(opts PagerOptions) error {
 	return err
 }
 
-// PagerBuilder provides a fluent API for building Pager displays.
-type PagerBuilder struct {
-	opts PagerOptions
-}
-
 // NewPager creates a new PagerBuilder with default options.
 func NewPager() *PagerBuilder {
 	return &PagerBuilder{
@@ -255,4 +227,34 @@ func (b *PagerBuilder) Run() error {
 // Model returns the embeddable model for composition.
 func (b *PagerBuilder) Model() EmbeddableComponent {
 	return NewPagerModel(b.opts)
+}
+
+// newPagerModelWithStyles creates a pager model with optional modal-specific styling.
+func newPagerModelWithStyles(opts PagerOptions, forModal bool) *pagerModel {
+	height := opts.Height
+	if height == 0 {
+		height = 20
+	}
+
+	width := opts.Width
+	if width == 0 {
+		width = 80
+	}
+
+	vpHeight := height - 4 // Leave room for title and footer
+	if vpHeight < 1 {
+		vpHeight = 10
+	}
+
+	vp := viewport.New(width, vpHeight)
+	vp.SetContent(opts.Content)
+
+	return &pagerModel{
+		viewport: vp,
+		title:    opts.Title,
+		ready:    true,
+		width:    width,
+		height:   height,
+		forModal: forModal,
+	}
 }

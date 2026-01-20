@@ -28,6 +28,15 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const (
+	// ArgErrMissingRequired indicates missing required arguments
+	ArgErrMissingRequired = iota
+	// ArgErrTooMany indicates too many arguments were provided
+	ArgErrTooMany
+	// ArgErrInvalidValue indicates an argument value failed validation
+	ArgErrInvalidValue
+)
+
 var (
 	// runtimeOverride allows overriding the runtime for a command
 	runtimeOverride string
@@ -35,16 +44,13 @@ var (
 	sshServerInstance *sshserver.Server
 	// sshServerMu protects the SSH server instance
 	sshServerMu sync.Mutex
-)
-
-// listFlag controls whether to list commands
-var listFlag bool
-
-// cmdCmd is the parent command for all discovered commands
-var cmdCmd = &cobra.Command{
-	Use:   "cmd [command-name]",
-	Short: "Execute commands from invkfiles",
-	Long: `Execute commands defined in invkfiles.
+	// listFlag controls whether to list commands
+	listFlag bool
+	// cmdCmd is the parent command for all discovered commands
+	cmdCmd = &cobra.Command{
+		Use:   "cmd [command-name]",
+		Short: "Execute commands from invkfiles",
+		Long: `Execute commands defined in invkfiles.
 
 Commands are discovered from:
   1. Current directory (highest priority)
@@ -54,23 +60,53 @@ Commands are discovered from:
 Use 'invowk cmd' or 'invowk cmd --list' to see all available commands.
 Use 'invowk cmd <command-name>' to execute a command.
 Use 'invowk cmd <command-name> --runtime <runtime>' to execute with a specific runtime.`,
-	RunE: func(cmd *cobra.Command, args []string) error {
-		// If --list flag is set or no arguments, show list
-		if listFlag || len(args) == 0 {
-			return listCommands()
-		}
-		err := runCommand(args)
-		if err != nil {
-			var exitErr *ExitError
-			if errors.As(err, &exitErr) {
-				cmd.SilenceErrors = true
-				cmd.SilenceUsage = true
+		RunE: func(cmd *cobra.Command, args []string) error {
+			// If --list flag is set or no arguments, show list
+			if listFlag || len(args) == 0 {
+				return listCommands()
 			}
-		}
-		return err
-	},
-	ValidArgsFunction: completeCommands,
-}
+			err := runCommand(args)
+			if err != nil {
+				exitErr := (*ExitError)(nil)
+				if errors.As(err, &exitErr) {
+					cmd.SilenceErrors = true
+					cmd.SilenceUsage = true
+				}
+			}
+			return err
+		},
+		ValidArgsFunction: completeCommands,
+	}
+)
+
+type (
+	// DependencyError represents unsatisfied dependencies
+	DependencyError struct {
+		CommandName         string
+		MissingTools        []string
+		MissingCommands     []string
+		MissingFilepaths    []string
+		MissingCapabilities []string
+		FailedCustomChecks  []string
+		MissingEnvVars      []string
+	}
+
+	// ArgErrType represents the type of argument validation error
+	ArgErrType int
+
+	// ArgumentValidationError represents an argument validation failure
+	ArgumentValidationError struct {
+		Type         ArgErrType
+		CommandName  string
+		ArgDefs      []invkfile.Argument
+		ProvidedArgs []string
+		MinArgs      int
+		MaxArgs      int
+		InvalidArg   string
+		InvalidValue string
+		ValueError   error
+	}
+)
 
 func init() {
 	cmdCmd.Flags().BoolVarP(&listFlag, "list", "l", false, "list all available commands")
@@ -79,6 +115,23 @@ func init() {
 	// Dynamically add discovered commands
 	// This happens at init time to enable shell completion
 	registerDiscoveredCommands()
+}
+
+func (e *DependencyError) Error() string {
+	return fmt.Sprintf("dependencies not satisfied for command '%s'", e.CommandName)
+}
+
+func (e *ArgumentValidationError) Error() string {
+	switch e.Type {
+	case ArgErrMissingRequired:
+		return fmt.Sprintf("missing required arguments for command '%s': expected at least %d, got %d", e.CommandName, e.MinArgs, len(e.ProvidedArgs))
+	case ArgErrTooMany:
+		return fmt.Sprintf("too many arguments for command '%s': expected at most %d, got %d", e.CommandName, e.MaxArgs, len(e.ProvidedArgs))
+	case ArgErrInvalidValue:
+		return fmt.Sprintf("invalid value for argument '%s': %v", e.InvalidArg, e.ValueError)
+	default:
+		return fmt.Sprintf("argument validation failed for command '%s'", e.CommandName)
+	}
 }
 
 // registerDiscoveredCommands adds discovered commands as subcommands
@@ -2008,59 +2061,6 @@ func validateFlagValues(cmdName string, flagValues map[string]string, flagDefs [
 	}
 
 	return nil
-}
-
-// DependencyError represents unsatisfied dependencies
-type DependencyError struct {
-	CommandName         string
-	MissingTools        []string
-	MissingCommands     []string
-	MissingFilepaths    []string
-	MissingCapabilities []string
-	FailedCustomChecks  []string
-	MissingEnvVars      []string
-}
-
-func (e *DependencyError) Error() string {
-	return fmt.Sprintf("dependencies not satisfied for command '%s'", e.CommandName)
-}
-
-// ArgErrType represents the type of argument validation error
-type ArgErrType int
-
-const (
-	// ArgErrMissingRequired indicates missing required arguments
-	ArgErrMissingRequired ArgErrType = iota
-	// ArgErrTooMany indicates too many arguments were provided
-	ArgErrTooMany
-	// ArgErrInvalidValue indicates an argument value failed validation
-	ArgErrInvalidValue
-)
-
-// ArgumentValidationError represents an argument validation failure
-type ArgumentValidationError struct {
-	Type         ArgErrType
-	CommandName  string
-	ArgDefs      []invkfile.Argument
-	ProvidedArgs []string
-	MinArgs      int
-	MaxArgs      int
-	InvalidArg   string
-	InvalidValue string
-	ValueError   error
-}
-
-func (e *ArgumentValidationError) Error() string {
-	switch e.Type {
-	case ArgErrMissingRequired:
-		return fmt.Sprintf("missing required arguments for command '%s': expected at least %d, got %d", e.CommandName, e.MinArgs, len(e.ProvidedArgs))
-	case ArgErrTooMany:
-		return fmt.Sprintf("too many arguments for command '%s': expected at most %d, got %d", e.CommandName, e.MaxArgs, len(e.ProvidedArgs))
-	case ArgErrInvalidValue:
-		return fmt.Sprintf("invalid value for argument '%s': %v", e.InvalidArg, e.ValueError)
-	default:
-		return fmt.Sprintf("argument validation failed for command '%s'", e.CommandName)
-	}
 }
 
 // RenderArgumentValidationError creates a styled error message for argument validation failures

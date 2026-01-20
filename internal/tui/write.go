@@ -10,37 +10,45 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-// WriteOptions configures the Write component (multi-line text input).
-type WriteOptions struct {
-	// Title is the title/prompt displayed above the text area.
-	Title string
-	// Description provides additional context below the title.
-	Description string
-	// Placeholder is the placeholder text shown when input is empty.
-	Placeholder string
-	// Value is the initial value of the text area.
-	Value string
-	// CharLimit limits the number of characters (0 for no limit).
-	CharLimit int
-	// Width sets the width of the text area (0 for auto).
-	Width int
-	// Height sets the height of the text area in lines (0 for auto).
-	Height int
-	// ShowLineNumbers enables line number display.
-	ShowLineNumbers bool
-	// Config holds common TUI configuration.
-	Config Config
-}
+// All type declarations consolidated in a single block.
+type (
+	// WriteOptions configures the Write component (multi-line text input).
+	WriteOptions struct {
+		// Title is the title/prompt displayed above the text area.
+		Title string
+		// Description provides additional context below the title.
+		Description string
+		// Placeholder is the placeholder text shown when input is empty.
+		Placeholder string
+		// Value is the initial value of the text area.
+		Value string
+		// CharLimit limits the number of characters (0 for no limit).
+		CharLimit int
+		// Width sets the width of the text area (0 for auto).
+		Width int
+		// Height sets the height of the text area in lines (0 for auto).
+		Height int
+		// ShowLineNumbers enables line number display.
+		ShowLineNumbers bool
+		// Config holds common TUI configuration.
+		Config Config
+	}
 
-// writeModel implements EmbeddableComponent for multi-line text input.
-type writeModel struct {
-	form      *huh.Form
-	result    *string
-	done      bool
-	cancelled bool
-	width     int
-	height    int
-}
+	// writeModel implements EmbeddableComponent for multi-line text input.
+	writeModel struct {
+		form      *huh.Form
+		result    *string
+		done      bool
+		cancelled bool
+		width     int
+		height    int
+	}
+
+	// WriteBuilder provides a fluent API for building Write prompts.
+	WriteBuilder struct {
+		opts WriteOptions
+	}
+)
 
 // NewWriteModel creates an embeddable text area component.
 func NewWriteModel(opts WriteOptions) *writeModel {
@@ -51,47 +59,6 @@ func NewWriteModel(opts WriteOptions) *writeModel {
 // This uses a theme that matches the modal overlay background to prevent color bleeding.
 func NewWriteModelForModal(opts WriteOptions) *writeModel {
 	return newWriteModelWithTheme(opts, getModalHuhTheme())
-}
-
-// newWriteModelWithTheme creates a text area model with a specific huh theme.
-func newWriteModelWithTheme(opts WriteOptions, theme *huh.Theme) *writeModel {
-	var result string
-	if opts.Value != "" {
-		result = opts.Value
-	}
-
-	text := huh.NewText().
-		Title(opts.Title).
-		Description(opts.Description).
-		Placeholder(opts.Placeholder).
-		Value(&result)
-
-	if opts.CharLimit > 0 {
-		text = text.CharLimit(opts.CharLimit)
-	}
-
-	if opts.Height > 0 {
-		text = text.Lines(opts.Height)
-	}
-
-	if opts.ShowLineNumbers {
-		text = text.ShowLineNumbers(true)
-	}
-
-	form := huh.NewForm(huh.NewGroup(text)).
-		WithTheme(theme).
-		WithAccessible(opts.Config.Accessible)
-
-	if opts.Width > 0 {
-		form = form.WithWidth(opts.Width)
-	} else if opts.Config.Width > 0 {
-		form = form.WithWidth(opts.Config.Width)
-	}
-
-	return &writeModel{
-		form:   form,
-		result: &result,
-	}
 }
 
 // Init implements tea.Model.
@@ -187,11 +154,6 @@ func Write(opts WriteOptions) (string, error) {
 	return result.(string), nil
 }
 
-// WriteBuilder provides a fluent API for building Write prompts.
-type WriteBuilder struct {
-	opts WriteOptions
-}
-
 // NewWrite creates a new WriteBuilder with default options.
 func NewWrite() *WriteBuilder {
 	return &WriteBuilder{
@@ -269,4 +231,45 @@ func (b *WriteBuilder) Run() (string, error) {
 // Model returns the embeddable model for composition.
 func (b *WriteBuilder) Model() EmbeddableComponent {
 	return NewWriteModel(b.opts)
+}
+
+// newWriteModelWithTheme creates a text area model with a specific huh theme.
+func newWriteModelWithTheme(opts WriteOptions, theme *huh.Theme) *writeModel {
+	var result string
+	if opts.Value != "" {
+		result = opts.Value
+	}
+
+	text := huh.NewText().
+		Title(opts.Title).
+		Description(opts.Description).
+		Placeholder(opts.Placeholder).
+		Value(&result)
+
+	if opts.CharLimit > 0 {
+		text = text.CharLimit(opts.CharLimit)
+	}
+
+	if opts.Height > 0 {
+		text = text.Lines(opts.Height)
+	}
+
+	if opts.ShowLineNumbers {
+		text = text.ShowLineNumbers(true)
+	}
+
+	form := huh.NewForm(huh.NewGroup(text)).
+		WithTheme(theme).
+		WithAccessible(opts.Config.Accessible)
+
+	if opts.Width > 0 {
+		form = form.WithWidth(opts.Width)
+	} else if opts.Config.Width > 0 {
+		form = form.WithWidth(opts.Config.Width)
+	}
+
+	return &writeModel{
+		form:   form,
+		result: &result,
+	}
 }

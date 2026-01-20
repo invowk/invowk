@@ -15,23 +15,21 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// Build-time variables set via ldflags
 var (
-	// Version is the semantic version (set via -ldflags)
+	// Version is the semantic version (set via -ldflags).
 	Version = "dev"
-	// Commit is the git commit hash (set via -ldflags)
+	// Commit is the git commit hash (set via -ldflags).
 	Commit = "unknown"
-	// BuildDate is the build timestamp (set via -ldflags)
+	// BuildDate is the build timestamp (set via -ldflags).
 	BuildDate = "unknown"
-)
 
-var (
 	// Verbose enables verbose output
 	verbose bool
 	// cfgFile allows specifying a custom config file
 	cfgFile string
 	// interactive enables alternate screen buffer mode for command execution
 	interactive bool
+
 	// Style definitions
 	titleStyle = lipgloss.NewStyle().
 			Bold(true).
@@ -47,13 +45,12 @@ var (
 			Foreground(lipgloss.Color("#F59E0B"))
 	cmdStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#3B82F6"))
-)
 
-// rootCmd represents the base command when called without any subcommands
-var rootCmd = &cobra.Command{
-	Use:   "invowk",
-	Short: "A dynamically extensible command runner",
-	Long: titleStyle.Render("invowk") + subtitleStyle.Render(" - A dynamically extensible command runner") + `
+	// rootCmd represents the base command when called without any subcommands
+	rootCmd = &cobra.Command{
+		Use:   "invowk",
+		Short: "A dynamically extensible command runner",
+		Long: titleStyle.Render("invowk") + subtitleStyle.Render(" - A dynamically extensible command runner") + `
 
 invowk is a powerful command runner similar to 'just' that supports
 multiple execution runtimes: native shell, virtual shell (mvdan/sh),
@@ -73,6 +70,24 @@ be organized hierarchically with support for dependencies.
   invowk cmd test.unit      Run nested 'test.unit' command
   invowk init               Create a new invkfile
   invowk config show        Show current configuration`,
+	}
+)
+
+func init() {
+	cobra.OnInitialize(initRootConfig)
+
+	// Global flags
+	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "enable verbose output")
+	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.config/invowk/config.cue)")
+	rootCmd.PersistentFlags().BoolVarP(&interactive, "interactive", "i", false, "run commands in alternate screen buffer (interactive mode)")
+
+	// Add subcommands
+	rootCmd.AddCommand(cmdCmd)
+	rootCmd.AddCommand(initCmd)
+	rootCmd.AddCommand(configCmd)
+	rootCmd.AddCommand(completionCmd)
+	rootCmd.AddCommand(tuiCmd)
+	rootCmd.AddCommand(moduleCmd)
 }
 
 // getVersionString returns a formatted version string for display.
@@ -100,23 +115,6 @@ func Execute() {
 		}
 		os.Exit(1)
 	}
-}
-
-func init() {
-	cobra.OnInitialize(initRootConfig)
-
-	// Global flags
-	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "enable verbose output")
-	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.config/invowk/config.cue)")
-	rootCmd.PersistentFlags().BoolVarP(&interactive, "interactive", "i", false, "run commands in alternate screen buffer (interactive mode)")
-
-	// Add subcommands
-	rootCmd.AddCommand(cmdCmd)
-	rootCmd.AddCommand(initCmd)
-	rootCmd.AddCommand(configCmd)
-	rootCmd.AddCommand(completionCmd)
-	rootCmd.AddCommand(tuiCmd)
-	rootCmd.AddCommand(moduleCmd)
 }
 
 // initRootConfig reads in config file and ENV variables if set.

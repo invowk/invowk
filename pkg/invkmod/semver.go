@@ -10,38 +10,42 @@ import (
 	"strings"
 )
 
-// SemverResolver handles semantic version constraint resolution.
-type SemverResolver struct{}
+var (
+	// semverRegex matches semantic version strings.
+	semverRegex = regexp.MustCompile(`^v?(\d+)(?:\.(\d+))?(?:\.(\d+))?(?:-([0-9A-Za-z\-\.]+))?(?:\+([0-9A-Za-z\-\.]+))?$`)
+
+	// constraintRegex matches version constraint strings.
+	constraintRegex = regexp.MustCompile(`^([~^]|>=|<=|>|<|=)?v?(\d+(?:\.\d+)?(?:\.\d+)?(?:-[0-9A-Za-z\-\.]+)?)$`)
+)
+
+type (
+	// SemverResolver handles semantic version constraint resolution.
+	SemverResolver struct{}
+
+	// Version represents a parsed semantic version.
+	Version struct {
+		Major      int
+		Minor      int
+		Patch      int
+		Prerelease string
+		Original   string
+	}
+
+	// Constraint represents a version constraint.
+	Constraint struct {
+		// Op is the comparison operator (=, ^, ~, >, >=, <, <=).
+		Op string
+		// Version is the version to compare against.
+		Version *Version
+		// Original is the original constraint string.
+		Original string
+	}
+)
 
 // NewSemverResolver creates a new semver resolver.
 func NewSemverResolver() *SemverResolver {
 	return &SemverResolver{}
 }
-
-// Version represents a parsed semantic version.
-type Version struct {
-	Major      int
-	Minor      int
-	Patch      int
-	Prerelease string
-	Original   string
-}
-
-// Constraint represents a version constraint.
-type Constraint struct {
-	// Op is the comparison operator (=, ^, ~, >, >=, <, <=).
-	Op string
-	// Version is the version to compare against.
-	Version *Version
-	// Original is the original constraint string.
-	Original string
-}
-
-// semverRegex matches semantic version strings.
-var semverRegex = regexp.MustCompile(`^v?(\d+)(?:\.(\d+))?(?:\.(\d+))?(?:-([0-9A-Za-z\-\.]+))?(?:\+([0-9A-Za-z\-\.]+))?$`)
-
-// constraintRegex matches version constraint strings.
-var constraintRegex = regexp.MustCompile(`^([~^]|>=|<=|>|<|=)?v?(\d+(?:\.\d+)?(?:\.\d+)?(?:-[0-9A-Za-z\-\.]+)?)$`)
 
 // ParseVersion parses a version string into a Version struct.
 func ParseVersion(s string) (*Version, error) {

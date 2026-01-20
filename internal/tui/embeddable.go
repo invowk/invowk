@@ -14,9 +14,36 @@ import (
 	"github.com/muesli/reflow/truncate"
 )
 
-// ANSI escape sequences for modal background color management.
-// These are used by the post-processing safety net to ensure the modal
-// background is restored after any ANSI reset sequences.
+// All const declarations in a single block, placed before var/type/func (decorder: const → var → type → func).
+// Using untyped const pattern for ComponentType values.
+const (
+	// modalBorderWidth is the horizontal space taken by the border (1 char each side).
+	modalBorderWidth = 2
+	// modalBorderHeight is the vertical space taken by the border (1 line each side).
+	modalBorderHeight = 2
+	// modalPaddingWidth is the horizontal space taken by padding (2 chars each side).
+	modalPaddingWidth = 4
+	// modalPaddingHeight is the vertical space taken by padding (1 line each side).
+	modalPaddingHeight = 2
+	// modalOverheadWidth is the total horizontal overhead for the modal frame.
+	modalOverheadWidth = modalBorderWidth + modalPaddingWidth // 6
+	// modalOverheadHeight is the total vertical overhead for the modal frame.
+	modalOverheadHeight = modalBorderHeight + modalPaddingHeight // 4
+
+	// Component type constants for the TUI system.
+	ComponentTypeInput    = "input"
+	ComponentTypeConfirm  = "confirm"
+	ComponentTypeChoose   = "choose"
+	ComponentTypeFilter   = "filter"
+	ComponentTypeFile     = "file"
+	ComponentTypeWrite    = "write"
+	ComponentTypeTextArea = "textarea"
+	ComponentTypeSpin     = "spin"
+	ComponentTypePager    = "pager"
+	ComponentTypeTable    = "table"
+)
+
+// All var declarations in a single block, placed after const.
 var (
 	// modalBgANSI is the ANSI escape sequence to set the modal background color.
 	// It's computed once from ModalBackgroundColor for efficiency.
@@ -30,131 +57,67 @@ var (
 	ansiResetWithBg string
 )
 
+// All type declarations in a single block, placed after var.
+type (
+	// EmbeddableComponent is a TUI component that can be embedded in a parent Bubbletea model.
+	// Unlike standalone components that run their own tea.Program, embeddable components
+	// delegate their Update and View to a parent model that owns the terminal.
+	EmbeddableComponent interface {
+		tea.Model
+
+		// IsDone returns true when the component has completed (submitted or cancelled).
+		IsDone() bool
+
+		// Result returns the component's result value. Only valid when IsDone() returns true.
+		// The type of the result depends on the component:
+		// - Input: string
+		// - Confirm: bool
+		// - Choose (single): string
+		// - Choose (multi): []string
+		// - Filter: []string
+		// - File: string
+		// - Write/TextArea: string
+		// - Table: TableSelectionResult
+		// - Pager: nil
+		// - Spin: SpinResult
+		Result() (any, error)
+
+		// Cancelled returns true if the user cancelled the component (Esc, Ctrl+C).
+		Cancelled() bool
+
+		// SetSize sets the available width and height for the component.
+		// This should be called before Init() and when the terminal is resized.
+		SetSize(width, height int)
+	}
+
+	// TableSelectionResult holds the result of a table selection.
+	TableSelectionResult struct {
+		SelectedIndex int
+		SelectedRow   []string
+	}
+
+	// SpinResult holds the result of a spin operation.
+	SpinResult struct {
+		Stdout   string
+		Stderr   string
+		ExitCode int
+	}
+
+	// ComponentType represents the type of TUI component.
+	ComponentType string
+
+	// ModalSize contains the calculated dimensions for a modal overlay.
+	ModalSize struct {
+		Width  int
+		Height int
+	}
+)
+
+// init is the first function in the file (required by decorder).
 func init() {
 	// Parse the modal background color and pre-compute the ANSI sequences
 	modalBgANSI = hexToANSIBackground(ModalBackgroundColor)
 	ansiResetWithBg = ansiReset + modalBgANSI
-}
-
-// hexToANSIBackground converts a hex color string to an ANSI 24-bit background escape sequence.
-// Supports formats: "#RRGGBB" or "RRGGBB"
-func hexToANSIBackground(hex string) string {
-	// Remove leading # if present
-	hex = strings.TrimPrefix(hex, "#")
-
-	if len(hex) != 6 {
-		return "" // Invalid format, return empty
-	}
-
-	r, err := strconv.ParseInt(hex[0:2], 16, 64)
-	if err != nil {
-		return ""
-	}
-	g, err := strconv.ParseInt(hex[2:4], 16, 64)
-	if err != nil {
-		return ""
-	}
-	b, err := strconv.ParseInt(hex[4:6], 16, 64)
-	if err != nil {
-		return ""
-	}
-
-	// ANSI 24-bit color: ESC[48;2;R;G;Bm for background
-	return fmt.Sprintf("\x1b[48;2;%d;%d;%dm", r, g, b)
-}
-
-// sanitizeModalBackground is a safety net that ensures the modal background
-// is restored after any ANSI reset sequences in the rendered content.
-// This catches any color bleeding from third-party components that we might
-// have missed in the explicit background styling.
-//
-// It replaces all occurrences of the bare ANSI reset (\x1b[0m) with
-// reset + background restore (\x1b[0m\x1b[48;2;R;G;Bm).
-func sanitizeModalBackground(content string) string {
-	if modalBgANSI == "" {
-		return content // No valid background color, skip processing
-	}
-
-	// Replace bare resets with reset + background restore
-	// We need to be careful not to double-process if ansiResetWithBg is already present
-	// First, temporarily replace existing "reset+bg" sequences to protect them
-	placeholder := "\x00MODAL_BG_SAFE\x00"
-	content = strings.ReplaceAll(content, ansiResetWithBg, placeholder)
-
-	// Now replace all remaining bare resets
-	content = strings.ReplaceAll(content, ansiReset, ansiResetWithBg)
-
-	// Restore the protected sequences
-	content = strings.ReplaceAll(content, placeholder, ansiResetWithBg)
-
-	return content
-}
-
-// EmbeddableComponent is a TUI component that can be embedded in a parent Bubbletea model.
-// Unlike standalone components that run their own tea.Program, embeddable components
-// delegate their Update and View to a parent model that owns the terminal.
-type EmbeddableComponent interface {
-	tea.Model
-
-	// IsDone returns true when the component has completed (submitted or cancelled).
-	IsDone() bool
-
-	// Result returns the component's result value. Only valid when IsDone() returns true.
-	// The type of the result depends on the component:
-	// - Input: string
-	// - Confirm: bool
-	// - Choose (single): string
-	// - Choose (multi): []string
-	// - Filter: []string
-	// - File: string
-	// - Write/TextArea: string
-	// - Table: TableSelectionResult
-	// - Pager: nil
-	// - Spin: SpinResult
-	Result() (any, error)
-
-	// Cancelled returns true if the user cancelled the component (Esc, Ctrl+C).
-	Cancelled() bool
-
-	// SetSize sets the available width and height for the component.
-	// This should be called before Init() and when the terminal is resized.
-	SetSize(width, height int)
-}
-
-// TableSelectionResult holds the result of a table selection.
-type TableSelectionResult struct {
-	SelectedIndex int
-	SelectedRow   []string
-}
-
-// SpinResult holds the result of a spin operation.
-type SpinResult struct {
-	Stdout   string
-	Stderr   string
-	ExitCode int
-}
-
-// ComponentType represents the type of TUI component.
-type ComponentType string
-
-// Component type constants for the TUI system.
-const (
-	ComponentTypeInput    ComponentType = "input"
-	ComponentTypeConfirm  ComponentType = "confirm"
-	ComponentTypeChoose   ComponentType = "choose"
-	ComponentTypeFilter   ComponentType = "filter"
-	ComponentTypeFile     ComponentType = "file"
-	ComponentTypeWrite    ComponentType = "write"
-	ComponentTypeTextArea ComponentType = "textarea"
-	ComponentTypeSpin     ComponentType = "spin"
-	ComponentTypePager    ComponentType = "pager"
-	ComponentTypeTable    ComponentType = "table"
-)
-
-// ModalSize contains the calculated dimensions for a modal overlay.
-type ModalSize struct {
-	Width  int
-	Height int
 }
 
 // CalculateModalSize calculates appropriate modal content dimensions based on component type
@@ -327,32 +290,6 @@ func CreateEmbeddableComponent(componentType ComponentType, options json.RawMess
 	}
 }
 
-// overlayStyle returns the style for the overlay border.
-func overlayStyle() lipgloss.Style {
-	return lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color("#7C3AED")).
-		Padding(1, 2).
-		Background(lipgloss.Color("#1a1a2e"))
-}
-
-// Modal style overhead constants.
-// These must match the overlayStyle() configuration.
-const (
-	// modalBorderWidth is the horizontal space taken by the border (1 char each side).
-	modalBorderWidth = 2
-	// modalBorderHeight is the vertical space taken by the border (1 line each side).
-	modalBorderHeight = 2
-	// modalPaddingWidth is the horizontal space taken by padding (2 chars each side).
-	modalPaddingWidth = 4
-	// modalPaddingHeight is the vertical space taken by padding (1 line each side).
-	modalPaddingHeight = 2
-	// modalOverheadWidth is the total horizontal overhead for the modal frame.
-	modalOverheadWidth = modalBorderWidth + modalPaddingWidth // 6
-	// modalOverheadHeight is the total vertical overhead for the modal frame.
-	modalOverheadHeight = modalBorderHeight + modalPaddingHeight // 4
-)
-
 // RenderOverlay renders an overlay component centered on top of a base view.
 // The base view remains visible around the overlay, creating a modal effect.
 // This function properly handles ANSI escape sequences in both base and overlay.
@@ -415,6 +352,69 @@ func RenderOverlay(base, overlay string, screenWidth, screenHeight int) string {
 	}
 
 	return strings.Join(result, "\n")
+}
+
+// hexToANSIBackground converts a hex color string to an ANSI 24-bit background escape sequence.
+// Supports formats: "#RRGGBB" or "RRGGBB"
+func hexToANSIBackground(hex string) string {
+	// Remove leading # if present
+	hex = strings.TrimPrefix(hex, "#")
+
+	if len(hex) != 6 {
+		return "" // Invalid format, return empty
+	}
+
+	r, err := strconv.ParseInt(hex[0:2], 16, 64)
+	if err != nil {
+		return ""
+	}
+	g, err := strconv.ParseInt(hex[2:4], 16, 64)
+	if err != nil {
+		return ""
+	}
+	b, err := strconv.ParseInt(hex[4:6], 16, 64)
+	if err != nil {
+		return ""
+	}
+
+	// ANSI 24-bit color: ESC[48;2;R;G;Bm for background
+	return fmt.Sprintf("\x1b[48;2;%d;%d;%dm", r, g, b)
+}
+
+// sanitizeModalBackground is a safety net that ensures the modal background
+// is restored after any ANSI reset sequences in the rendered content.
+// This catches any color bleeding from third-party components that we might
+// have missed in the explicit background styling.
+//
+// It replaces all occurrences of the bare ANSI reset (\x1b[0m) with
+// reset + background restore (\x1b[0m\x1b[48;2;R;G;Bm).
+func sanitizeModalBackground(content string) string {
+	if modalBgANSI == "" {
+		return content // No valid background color, skip processing
+	}
+
+	// Replace bare resets with reset + background restore
+	// We need to be careful not to double-process if ansiResetWithBg is already present
+	// First, temporarily replace existing "reset+bg" sequences to protect them
+	placeholder := "\x00MODAL_BG_SAFE\x00"
+	content = strings.ReplaceAll(content, ansiResetWithBg, placeholder)
+
+	// Now replace all remaining bare resets
+	content = strings.ReplaceAll(content, ansiReset, ansiResetWithBg)
+
+	// Restore the protected sequences
+	content = strings.ReplaceAll(content, placeholder, ansiResetWithBg)
+
+	return content
+}
+
+// overlayStyle returns the style for the overlay border.
+func overlayStyle() lipgloss.Style {
+	return lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color("#7C3AED")).
+		Padding(1, 2).
+		Background(lipgloss.Color("#1a1a2e"))
 }
 
 // compositeLineANSI overlays an overlay line onto a base line at startX position.

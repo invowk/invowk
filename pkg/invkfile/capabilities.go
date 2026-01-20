@@ -14,9 +14,6 @@ import (
 	"golang.org/x/term"
 )
 
-// CapabilityName represents a system capability type
-type CapabilityName string
-
 const (
 	// CapabilityLocalAreaNetwork checks for Local Area Network presence
 	CapabilityLocalAreaNetwork CapabilityName = "local-area-network"
@@ -26,16 +23,21 @@ const (
 	CapabilityContainers CapabilityName = "containers"
 	// CapabilityTTY checks if invowk is running in an interactive TTY
 	CapabilityTTY CapabilityName = "tty"
+
+	// DefaultCapabilityTimeout is the default timeout for capability checks
+	DefaultCapabilityTimeout = 5 * time.Second
 )
 
-// DefaultCapabilityTimeout is the default timeout for capability checks
-const DefaultCapabilityTimeout = 5 * time.Second
+type (
+	// CapabilityName represents a system capability type
+	CapabilityName string
 
-// CapabilityError represents an error when a capability check fails
-type CapabilityError struct {
-	Capability CapabilityName
-	Message    string
-}
+	// CapabilityError represents an error when a capability check fails
+	CapabilityError struct {
+		Capability CapabilityName
+		Message    string
+	}
+)
 
 // Error implements the error interface
 func (e *CapabilityError) Error() string {

@@ -13,59 +13,136 @@ import (
 	"time"
 )
 
-// ExecutionContext contains all information needed to execute a command
-type ExecutionContext struct {
-	// Command is the command to execute
-	Command *invkfile.Command
-	// Invkfile is the parent invkfile
-	Invkfile *invkfile.Invkfile
-	// Context is the Go context for cancellation
-	Context context.Context
-	// Stdout is where to write standard output
-	Stdout io.Writer
-	// Stderr is where to write standard error
-	Stderr io.Writer
-	// Stdin is where to read standard input
-	Stdin io.Reader
-	// ExtraEnv contains additional environment variables
-	ExtraEnv map[string]string
-	// WorkDir overrides the working directory
-	WorkDir string
-	// Verbose enables verbose output
-	Verbose bool
-	// SelectedRuntime is the runtime to use for execution (may differ from default)
-	SelectedRuntime invkfile.RuntimeMode
-	// SelectedImpl is the implementation to execute (based on platform and runtime)
-	SelectedImpl *invkfile.Implementation
-	// PositionalArgs contains command-line arguments to pass as shell positional parameters ($1, $2, etc.)
-	PositionalArgs []string
-	// RuntimeEnvFiles contains dotenv file paths specified via --env-file flag.
-	// These are loaded after all other env sources but before RuntimeEnvVars.
-	// Paths are relative to the current working directory where invowk was invoked.
-	RuntimeEnvFiles []string
-	// RuntimeEnvVars contains env vars specified via --env-var flag.
-	// These are set last and override all other environment variables (highest priority).
-	RuntimeEnvVars map[string]string
-	// EnvInheritModeOverride overrides the runtime config env inherit mode when set.
-	EnvInheritModeOverride invkfile.EnvInheritMode
-	// EnvInheritAllowOverride overrides the runtime config allowlist when set.
-	EnvInheritAllowOverride []string
-	// EnvInheritDenyOverride overrides the runtime config denylist when set.
-	EnvInheritDenyOverride []string
+// Runtime type constants for different execution environments.
+const (
+	RuntimeTypeNative    RuntimeType = "native"
+	RuntimeTypeVirtual   RuntimeType = "virtual"
+	RuntimeTypeContainer RuntimeType = "container"
+)
 
-	// ExecutionID is a unique identifier for this command execution.
-	ExecutionID string
+type (
+	// ExecutionContext contains all information needed to execute a command
+	ExecutionContext struct {
+		// Command is the command to execute
+		Command *invkfile.Command
+		// Invkfile is the parent invkfile
+		Invkfile *invkfile.Invkfile
+		// Context is the Go context for cancellation
+		Context context.Context
+		// Stdout is where to write standard output
+		Stdout io.Writer
+		// Stderr is where to write standard error
+		Stderr io.Writer
+		// Stdin is where to read standard input
+		Stdin io.Reader
+		// ExtraEnv contains additional environment variables
+		ExtraEnv map[string]string
+		// WorkDir overrides the working directory
+		WorkDir string
+		// Verbose enables verbose output
+		Verbose bool
+		// SelectedRuntime is the runtime to use for execution (may differ from default)
+		SelectedRuntime invkfile.RuntimeMode
+		// SelectedImpl is the implementation to execute (based on platform and runtime)
+		SelectedImpl *invkfile.Implementation
+		// PositionalArgs contains command-line arguments to pass as shell positional parameters ($1, $2, etc.)
+		PositionalArgs []string
+		// RuntimeEnvFiles contains dotenv file paths specified via --env-file flag.
+		// These are loaded after all other env sources but before RuntimeEnvVars.
+		// Paths are relative to the current working directory where invowk was invoked.
+		RuntimeEnvFiles []string
+		// RuntimeEnvVars contains env vars specified via --env-var flag.
+		// These are set last and override all other environment variables (highest priority).
+		RuntimeEnvVars map[string]string
+		// EnvInheritModeOverride overrides the runtime config env inherit mode when set.
+		EnvInheritModeOverride invkfile.EnvInheritMode
+		// EnvInheritAllowOverride overrides the runtime config allowlist when set.
+		EnvInheritAllowOverride []string
+		// EnvInheritDenyOverride overrides the runtime config denylist when set.
+		EnvInheritDenyOverride []string
 
-	// TUIServerURL is the URL of the TUI server for interactive mode.
-	// When set, runtimes should include this in the command's environment
-	// as INVOWK_TUI_ADDR. For container runtimes, this should already be
-	// translated to a container-accessible address (e.g., host.docker.internal).
-	TUIServerURL string
-	// TUIServerToken is the authentication token for the TUI server.
-	// When set, runtimes should include this in the command's environment
-	// as INVOWK_TUI_TOKEN.
-	TUIServerToken string
-}
+		// ExecutionID is a unique identifier for this command execution.
+		ExecutionID string
+
+		// TUIServerURL is the URL of the TUI server for interactive mode.
+		// When set, runtimes should include this in the command's environment
+		// as INVOWK_TUI_ADDR. For container runtimes, this should already be
+		// translated to a container-accessible address (e.g., host.docker.internal).
+		TUIServerURL string
+		// TUIServerToken is the authentication token for the TUI server.
+		// When set, runtimes should include this in the command's environment
+		// as INVOWK_TUI_TOKEN.
+		TUIServerToken string
+	}
+
+	// Result contains the result of a command execution
+	Result struct {
+		// ExitCode is the exit code of the command
+		ExitCode int
+		// Error contains any error that occurred
+		Error error
+		// Output contains captured stdout (if captured)
+		Output string
+		// ErrOutput contains captured stderr (if captured)
+		ErrOutput string
+	}
+
+	// Runtime defines the interface for command execution
+	Runtime interface {
+		// Name returns the runtime name
+		Name() string
+		// Execute runs a command in this runtime
+		Execute(ctx *ExecutionContext) *Result
+		// Available returns whether this runtime is available on the current system
+		Available() bool
+		// Validate checks if a command can be executed with this runtime
+		Validate(ctx *ExecutionContext) error
+	}
+
+	// CapturingRuntime is implemented by runtimes that support capturing output.
+	CapturingRuntime interface {
+		// ExecuteCapture runs a command and captures stdout/stderr.
+		ExecuteCapture(ctx *ExecutionContext) *Result
+	}
+
+	// InteractiveRuntime is implemented by runtimes that support interactive mode.
+	// Interactive mode allows commands to be executed with PTY attachment for
+	// full terminal interaction (keyboard input, terminal UI, etc.).
+	InteractiveRuntime interface {
+		Runtime
+
+		// SupportsInteractive returns true if this runtime can run interactively.
+		// This may depend on system configuration or the specific execution context.
+		SupportsInteractive() bool
+
+		// PrepareInteractive prepares the runtime for interactive execution.
+		// The returned PreparedCommand contains an exec.Cmd that can be attached
+		// to a PTY by the caller. The caller is responsible for calling the
+		// Cleanup function after execution completes.
+		PrepareInteractive(ctx *ExecutionContext) (*PreparedCommand, error)
+	}
+
+	// PreparedCommand contains a command ready for execution along with any cleanup function.
+	// This is used by InteractiveRuntime implementations to return a command that
+	// can be attached to a PTY for interactive execution.
+	PreparedCommand struct {
+		// Cmd is the prepared exec.Cmd ready for PTY attachment.
+		Cmd *exec.Cmd
+		// Cleanup is a function to call after execution (e.g., to remove temp files).
+		// May be nil if no cleanup is needed.
+		Cleanup func()
+	}
+
+	// RuntimeType identifies the type of runtime.
+	//
+	//nolint:revive // RuntimeType is more descriptive than Type for external callers
+	RuntimeType string
+
+	// Registry holds all available runtimes
+	Registry struct {
+		runtimes map[RuntimeType]Runtime
+	}
+)
 
 // NewExecutionContext creates a new execution context with defaults
 func NewExecutionContext(cmd *invkfile.Command, inv *invkfile.Invkfile) *ExecutionContext {
@@ -91,67 +168,9 @@ func newExecutionID() string {
 	return fmt.Sprintf("%d", time.Now().UnixNano())
 }
 
-// Result contains the result of a command execution
-type Result struct {
-	// ExitCode is the exit code of the command
-	ExitCode int
-	// Error contains any error that occurred
-	Error error
-	// Output contains captured stdout (if captured)
-	Output string
-	// ErrOutput contains captured stderr (if captured)
-	ErrOutput string
-}
-
 // Success returns true if the command executed successfully
 func (r *Result) Success() bool {
 	return r.ExitCode == 0 && r.Error == nil
-}
-
-// Runtime defines the interface for command execution
-type Runtime interface {
-	// Name returns the runtime name
-	Name() string
-	// Execute runs a command in this runtime
-	Execute(ctx *ExecutionContext) *Result
-	// Available returns whether this runtime is available on the current system
-	Available() bool
-	// Validate checks if a command can be executed with this runtime
-	Validate(ctx *ExecutionContext) error
-}
-
-// CapturingRuntime is implemented by runtimes that support capturing output.
-type CapturingRuntime interface {
-	// ExecuteCapture runs a command and captures stdout/stderr.
-	ExecuteCapture(ctx *ExecutionContext) *Result
-}
-
-// InteractiveRuntime is implemented by runtimes that support interactive mode.
-// Interactive mode allows commands to be executed with PTY attachment for
-// full terminal interaction (keyboard input, terminal UI, etc.).
-type InteractiveRuntime interface {
-	Runtime
-
-	// SupportsInteractive returns true if this runtime can run interactively.
-	// This may depend on system configuration or the specific execution context.
-	SupportsInteractive() bool
-
-	// PrepareInteractive prepares the runtime for interactive execution.
-	// The returned PreparedCommand contains an exec.Cmd that can be attached
-	// to a PTY by the caller. The caller is responsible for calling the
-	// Cleanup function after execution completes.
-	PrepareInteractive(ctx *ExecutionContext) (*PreparedCommand, error)
-}
-
-// PreparedCommand contains a command ready for execution along with any cleanup function.
-// This is used by InteractiveRuntime implementations to return a command that
-// can be attached to a PTY for interactive execution.
-type PreparedCommand struct {
-	// Cmd is the prepared exec.Cmd ready for PTY attachment.
-	Cmd *exec.Cmd
-	// Cleanup is a function to call after execution (e.g., to remove temp files).
-	// May be nil if no cleanup is needed.
-	Cleanup func()
 }
 
 // GetInteractiveRuntime returns the runtime as an InteractiveRuntime if it supports
@@ -161,23 +180,6 @@ func GetInteractiveRuntime(rt Runtime) InteractiveRuntime {
 		return ir
 	}
 	return nil
-}
-
-// RuntimeType identifies the type of runtime.
-//
-//nolint:revive // RuntimeType is more descriptive than Type for external callers
-type RuntimeType string
-
-// Runtime type constants for different execution environments.
-const (
-	RuntimeTypeNative    RuntimeType = "native"
-	RuntimeTypeVirtual   RuntimeType = "virtual"
-	RuntimeTypeContainer RuntimeType = "container"
-)
-
-// Registry holds all available runtimes
-type Registry struct {
-	runtimes map[RuntimeType]Runtime
 }
 
 // NewRegistry creates a new runtime registry

@@ -18,13 +18,12 @@ var (
 	pagerTitle    string
 	pagerLineNum  bool
 	pagerSoftWrap bool
-)
 
-// tuiPagerCmd provides content scrolling.
-var tuiPagerCmd = &cobra.Command{
-	Use:   "pager [file]",
-	Short: "Scroll through content",
-	Long: `Display content in a scrollable pager.
+	// tuiPagerCmd provides content scrolling.
+	tuiPagerCmd = &cobra.Command{
+		Use:   "pager [file]",
+		Short: "Scroll through content",
+		Long: `Display content in a scrollable pager.
 
 Content can be provided via:
 - A file path as an argument
@@ -33,21 +32,22 @@ Content can be provided via:
 Examples:
   # View a file
   invowk tui pager README.md
-  
+
   # Pipe content
   cat long-file.txt | invowk tui pager
-  
+
   # With line numbers
   invowk tui pager --line-numbers myfile.go
-  
+
   # Soft wrap long lines
   invowk tui pager --soft-wrap document.txt
-  
+
   # Use with command output
   git log | invowk tui pager --title "Git History"`,
-	Args: cobra.MaximumNArgs(1),
-	RunE: runTuiPager,
-}
+		Args: cobra.MaximumNArgs(1),
+		RunE: runTuiPager,
+	}
+)
 
 func init() {
 	tuiCmd.AddCommand(tuiPagerCmd)

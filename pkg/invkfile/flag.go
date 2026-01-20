@@ -8,9 +8,6 @@ import (
 	"strconv"
 )
 
-// FlagType represents the data type of a flag
-type FlagType string
-
 const (
 	// FlagTypeString is the default flag type for string values
 	FlagTypeString FlagType = "string"
@@ -22,24 +19,29 @@ const (
 	FlagTypeFloat FlagType = "float"
 )
 
-// Flag represents a command-line flag for a command
-type Flag struct {
-	// Name is the flag name (POSIX-compliant: starts with a letter, alphanumeric/hyphen/underscore)
-	Name string `json:"name"`
-	// Description provides help text for the flag
-	Description string `json:"description"`
-	// DefaultValue is the default value for the flag (optional)
-	DefaultValue string `json:"default_value,omitempty"`
-	// Type specifies the data type of the flag (optional, defaults to "string")
-	// Supported types: "string", "bool", "int", "float"
-	Type FlagType `json:"type,omitempty"`
-	// Required indicates whether this flag must be provided (optional, defaults to false)
-	Required bool `json:"required,omitempty"`
-	// Short is a single-character alias for the flag (optional)
-	Short string `json:"short,omitempty"`
-	// Validation is a regex pattern to validate the flag value (optional)
-	Validation string `json:"validation,omitempty"`
-}
+type (
+	// FlagType represents the data type of a flag
+	FlagType string
+
+	// Flag represents a command-line flag for a command
+	Flag struct {
+		// Name is the flag name (POSIX-compliant: starts with a letter, alphanumeric/hyphen/underscore)
+		Name string `json:"name"`
+		// Description provides help text for the flag
+		Description string `json:"description"`
+		// DefaultValue is the default value for the flag (optional)
+		DefaultValue string `json:"default_value,omitempty"`
+		// Type specifies the data type of the flag (optional, defaults to "string")
+		// Supported types: "string", "bool", "int", "float"
+		Type FlagType `json:"type,omitempty"`
+		// Required indicates whether this flag must be provided (optional, defaults to false)
+		Required bool `json:"required,omitempty"`
+		// Short is a single-character alias for the flag (optional)
+		Short string `json:"short,omitempty"`
+		// Validation is a regex pattern to validate the flag value (optional)
+		Validation string `json:"validation,omitempty"`
+	}
+)
 
 // GetType returns the effective type of the flag (defaults to "string" if not specified)
 func (f *Flag) GetType() FlagType {

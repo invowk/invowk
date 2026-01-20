@@ -12,61 +12,69 @@ import (
 	"github.com/sahilm/fuzzy"
 )
 
-// FilterOptions configures the Filter component.
-type FilterOptions struct {
-	// Title is the title/prompt displayed above the filter.
-	Title string
-	// Placeholder is the placeholder text for the search input.
-	Placeholder string
-	// Options is the list of options to filter.
-	Options []string
-	// Limit is the maximum number of selections (0 for single, >0 for multi).
-	Limit int
-	// Height limits the visible height (0 for auto).
-	Height int
-	// Width limits the visible width (0 for auto).
-	Width int
-	// Reverse reverses the order of results.
-	Reverse bool
-	// Fuzzy enables fuzzy matching (default: true).
-	Fuzzy bool
-	// Sort sorts the results by match score.
-	Sort bool
-	// NoLimit allows unlimited selections.
-	NoLimit bool
-	// Selected pre-selects these indices.
-	Selected []int
-	// Strict requires at least one match to be selected.
-	Strict bool
-	// ShowIndicator shows the selected indicator.
-	ShowIndicator bool
-	// Config holds common TUI configuration.
-	Config Config
-}
+// All type declarations in a single block for decorder compliance.
+type (
+	// FilterOptions configures the Filter component.
+	FilterOptions struct {
+		// Title is the title/prompt displayed above the filter.
+		Title string
+		// Placeholder is the placeholder text for the search input.
+		Placeholder string
+		// Options is the list of options to filter.
+		Options []string
+		// Limit is the maximum number of selections (0 for single, >0 for multi).
+		Limit int
+		// Height limits the visible height (0 for auto).
+		Height int
+		// Width limits the visible width (0 for auto).
+		Width int
+		// Reverse reverses the order of results.
+		Reverse bool
+		// Fuzzy enables fuzzy matching (default: true).
+		Fuzzy bool
+		// Sort sorts the results by match score.
+		Sort bool
+		// NoLimit allows unlimited selections.
+		NoLimit bool
+		// Selected pre-selects these indices.
+		Selected []int
+		// Strict requires at least one match to be selected.
+		Strict bool
+		// ShowIndicator shows the selected indicator.
+		ShowIndicator bool
+		// Config holds common TUI configuration.
+		Config Config
+	}
 
-// filterItem implements list.Item for the bubbles list component.
-type filterItem struct {
-	text string
-}
+	// filterItem implements list.Item for the bubbles list component.
+	filterItem struct {
+		text string
+	}
+
+	// filterModel is the bubbletea model for the filter component.
+	// It implements EmbeddableComponent for embedded use.
+	filterModel struct {
+		list      list.Model
+		items     []filterItem
+		options   []string
+		selected  map[int]bool
+		limit     int
+		noLimit   bool
+		height    int
+		width     int
+		done      bool
+		cancelled bool
+	}
+
+	// FilterBuilder provides a fluent API for building Filter prompts.
+	FilterBuilder struct {
+		opts FilterOptions
+	}
+)
 
 func (i filterItem) Title() string       { return i.text }
 func (i filterItem) Description() string { return "" }
 func (i filterItem) FilterValue() string { return i.text }
-
-// filterModel is the bubbletea model for the filter component.
-// It implements EmbeddableComponent for embedded use.
-type filterModel struct {
-	list      list.Model
-	items     []filterItem
-	options   []string
-	selected  map[int]bool
-	limit     int
-	noLimit   bool
-	height    int
-	width     int
-	done      bool
-	cancelled bool
-}
 
 // NewFilterModel creates an embeddable filter component.
 func NewFilterModel(opts FilterOptions) *filterModel {
@@ -79,159 +87,12 @@ func NewFilterModelForModal(opts FilterOptions) *filterModel {
 	return newFilterModelWithStyles(opts, true)
 }
 
-// newFilterModelWithStyles creates a filter model with optional modal-specific styling.
-func newFilterModelWithStyles(opts FilterOptions, forModal bool) *filterModel {
-	if len(opts.Options) == 0 {
-		// Empty filter - return a component that's immediately done
-		return &filterModel{
-			done:    true,
-			options: []string{},
-		}
-	}
-
-	items := make([]list.Item, len(opts.Options))
-	for i, opt := range opts.Options {
-		items[i] = filterItem{text: opt}
-	}
-
-	height := opts.Height
-	if height == 0 {
-		height = 10
-	}
-
-	width := opts.Width
-	if width == 0 {
-		width = 50
-	}
-
-	delegate := list.NewDefaultDelegate()
-
-	if forModal {
-		// Modal-specific styles: ALL have EXPLICIT backgrounds to prevent color bleeding
-		// Terminal "transparent" doesn't exist - no background = terminal default shows through
-		base := modalBaseStyle()
-
-		// Normal item styles - explicit background on everything
-		delegate.Styles.NormalTitle = base.Foreground(lipgloss.Color("#FFFFFF"))
-		delegate.Styles.NormalDesc = base.Foreground(lipgloss.Color("#6B7280"))
-
-		// Selected item - use left border indicator WITH explicit background
-		delegate.Styles.SelectedTitle = base.
-			Foreground(lipgloss.Color("#7C3AED")).
-			Bold(true).
-			Padding(0, 0, 0, 1).
-			Border(lipgloss.NormalBorder(), false, false, false, true).
-			BorderForeground(lipgloss.Color("#7C3AED"))
-		delegate.Styles.SelectedDesc = base.
-			Foreground(lipgloss.Color("#A78BFA")).
-			Padding(0, 0, 0, 1)
-
-		// Dimmed styles - explicit backgrounds
-		delegate.Styles.DimmedTitle = base.Foreground(lipgloss.Color("#6B7280"))
-		delegate.Styles.DimmedDesc = base.Foreground(lipgloss.Color("#6B7280"))
-
-		// FilterMatch style - used for highlighting matching characters during filtering
-		// MUST have explicit background to prevent color bleeding
-		delegate.Styles.FilterMatch = base.Foreground(lipgloss.Color("#A78BFA")).Bold(true)
-	} else {
-		// Default styles for non-modal usage
-		delegate.Styles.NormalTitle = lipgloss.NewStyle().Foreground(lipgloss.Color("252"))
-		delegate.Styles.NormalDesc = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
-		delegate.Styles.SelectedTitle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("212")).
-			Bold(true).
-			Padding(0, 0, 0, 1).
-			Border(lipgloss.NormalBorder(), false, false, false, true).
-			BorderForeground(lipgloss.Color("212"))
-		delegate.Styles.SelectedDesc = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("212")).
-			Padding(0, 0, 0, 1)
-		delegate.Styles.DimmedTitle = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
-		delegate.Styles.DimmedDesc = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
-	}
-	delegate.ShowDescription = false
-
-	l := list.New(items, delegate, width, height)
-	l.Title = opts.Title
-	l.SetShowStatusBar(false)
-	l.SetFilteringEnabled(true)
-
-	if forModal {
-		// Modal-specific list styles - ALL have EXPLICIT backgrounds
-		// This is critical: every single style must have the modal background
-		base := modalBaseStyle()
-
-		l.Styles.Title = base.Bold(true).Foreground(lipgloss.Color("#7C3AED"))
-		l.Styles.TitleBar = base.Padding(0, 0, 1, 0)
-		l.Styles.PaginationStyle = base.Foreground(lipgloss.Color("#6B7280"))
-		l.Styles.HelpStyle = base.Foreground(lipgloss.Color("#6B7280"))
-		l.Styles.FilterPrompt = base.Foreground(lipgloss.Color("#7C3AED"))
-		l.Styles.FilterCursor = base.Foreground(lipgloss.Color("#FFFFFF"))
-
-		// Additional styles - ALL have explicit backgrounds
-		l.Styles.NoItems = base.Foreground(lipgloss.Color("#6B7280"))
-		l.Styles.StatusBar = base.Foreground(lipgloss.Color("#6B7280"))
-		l.Styles.StatusEmpty = base.Foreground(lipgloss.Color("#6B7280"))
-		l.Styles.StatusBarActiveFilter = base.Foreground(lipgloss.Color("#7C3AED"))
-		l.Styles.StatusBarFilterCount = base.Foreground(lipgloss.Color("#6B7280"))
-		l.Styles.ActivePaginationDot = base.Foreground(lipgloss.Color("#7C3AED"))
-		l.Styles.InactivePaginationDot = base.Foreground(lipgloss.Color("#6B7280"))
-		l.Styles.DividerDot = base.Foreground(lipgloss.Color("#6B7280"))
-
-		// Additional styles - ALL have explicit backgrounds
-		l.Styles.Spinner = base.Foreground(lipgloss.Color("#7C3AED"))
-		l.Styles.DefaultFilterCharacterMatch = base.Foreground(lipgloss.Color("#A78BFA")).Bold(true)
-		l.Styles.ArabicPagination = base.Foreground(lipgloss.Color("#6B7280"))
-
-		// Customize the filter input - ALL have explicit backgrounds
-		l.FilterInput.PromptStyle = base.Foreground(lipgloss.Color("#7C3AED"))
-		l.FilterInput.TextStyle = base.Foreground(lipgloss.Color("#FFFFFF"))
-		l.FilterInput.Cursor.Style = base.Foreground(lipgloss.Color("#FFFFFF"))
-		l.FilterInput.PlaceholderStyle = base.Foreground(lipgloss.Color("#6B7280"))
-	} else {
-		// Default list styles
-		l.Styles.Title = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("212"))
-		l.Styles.TitleBar = lipgloss.NewStyle().Padding(0, 0, 1, 0)
-		l.Styles.PaginationStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
-		l.Styles.HelpStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
-		l.Styles.FilterPrompt = lipgloss.NewStyle().Foreground(lipgloss.Color("212"))
-		l.Styles.FilterCursor = lipgloss.NewStyle().Foreground(lipgloss.Color("212"))
-	}
-
-	if opts.Placeholder != "" {
-		l.FilterInput.Placeholder = opts.Placeholder
-	}
-
-	filterItems := make([]filterItem, len(opts.Options))
-	for i, opt := range opts.Options {
-		filterItems[i] = filterItem{text: opt}
-	}
-
-	m := &filterModel{
-		list:     l,
-		items:    filterItems,
-		options:  opts.Options,
-		selected: make(map[int]bool),
-		limit:    opts.Limit,
-		noLimit:  opts.NoLimit,
-		height:   height,
-		width:    width,
-	}
-
-	// Pre-select items
-	for _, idx := range opts.Selected {
-		if idx >= 0 && idx < len(opts.Options) {
-			m.selected[idx] = true
-		}
-	}
-
-	return m
-}
-
+// Init implements tea.Model.
 func (m *filterModel) Init() tea.Cmd {
 	return nil
 }
 
+// Update implements tea.Model.
 func (m *filterModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
@@ -265,6 +126,7 @@ func (m *filterModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, cmd
 }
 
+// View implements tea.Model.
 func (m *filterModel) View() string {
 	if m.done {
 		return ""
@@ -441,11 +303,6 @@ func ExactMatch(pattern string, options []string) []string {
 	return results
 }
 
-// FilterBuilder provides a fluent API for building Filter prompts.
-type FilterBuilder struct {
-	opts FilterOptions
-}
-
 // NewFilter creates a new FilterBuilder with default options.
 func NewFilter() *FilterBuilder {
 	return &FilterBuilder{
@@ -557,4 +414,153 @@ func (b *FilterBuilder) RunSingle() (string, error) {
 // Model returns the embeddable model for composition.
 func (b *FilterBuilder) Model() EmbeddableComponent {
 	return NewFilterModel(b.opts)
+}
+
+// newFilterModelWithStyles creates a filter model with optional modal-specific styling.
+func newFilterModelWithStyles(opts FilterOptions, forModal bool) *filterModel {
+	if len(opts.Options) == 0 {
+		// Empty filter - return a component that's immediately done
+		return &filterModel{
+			done:    true,
+			options: []string{},
+		}
+	}
+
+	items := make([]list.Item, len(opts.Options))
+	for i, opt := range opts.Options {
+		items[i] = filterItem{text: opt}
+	}
+
+	height := opts.Height
+	if height == 0 {
+		height = 10
+	}
+
+	width := opts.Width
+	if width == 0 {
+		width = 50
+	}
+
+	delegate := list.NewDefaultDelegate()
+
+	if forModal {
+		// Modal-specific styles: ALL have EXPLICIT backgrounds to prevent color bleeding
+		// Terminal "transparent" doesn't exist - no background = terminal default shows through
+		base := modalBaseStyle()
+
+		// Normal item styles - explicit background on everything
+		delegate.Styles.NormalTitle = base.Foreground(lipgloss.Color("#FFFFFF"))
+		delegate.Styles.NormalDesc = base.Foreground(lipgloss.Color("#6B7280"))
+
+		// Selected item - use left border indicator WITH explicit background
+		delegate.Styles.SelectedTitle = base.
+			Foreground(lipgloss.Color("#7C3AED")).
+			Bold(true).
+			Padding(0, 0, 0, 1).
+			Border(lipgloss.NormalBorder(), false, false, false, true).
+			BorderForeground(lipgloss.Color("#7C3AED"))
+		delegate.Styles.SelectedDesc = base.
+			Foreground(lipgloss.Color("#A78BFA")).
+			Padding(0, 0, 0, 1)
+
+		// Dimmed styles - explicit backgrounds
+		delegate.Styles.DimmedTitle = base.Foreground(lipgloss.Color("#6B7280"))
+		delegate.Styles.DimmedDesc = base.Foreground(lipgloss.Color("#6B7280"))
+
+		// FilterMatch style - used for highlighting matching characters during filtering
+		// MUST have explicit background to prevent color bleeding
+		delegate.Styles.FilterMatch = base.Foreground(lipgloss.Color("#A78BFA")).Bold(true)
+	} else {
+		// Default styles for non-modal usage
+		delegate.Styles.NormalTitle = lipgloss.NewStyle().Foreground(lipgloss.Color("252"))
+		delegate.Styles.NormalDesc = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
+		delegate.Styles.SelectedTitle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("212")).
+			Bold(true).
+			Padding(0, 0, 0, 1).
+			Border(lipgloss.NormalBorder(), false, false, false, true).
+			BorderForeground(lipgloss.Color("212"))
+		delegate.Styles.SelectedDesc = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("212")).
+			Padding(0, 0, 0, 1)
+		delegate.Styles.DimmedTitle = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
+		delegate.Styles.DimmedDesc = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
+	}
+	delegate.ShowDescription = false
+
+	l := list.New(items, delegate, width, height)
+	l.Title = opts.Title
+	l.SetShowStatusBar(false)
+	l.SetFilteringEnabled(true)
+
+	if forModal {
+		// Modal-specific list styles - ALL have EXPLICIT backgrounds
+		// This is critical: every single style must have the modal background
+		base := modalBaseStyle()
+
+		l.Styles.Title = base.Bold(true).Foreground(lipgloss.Color("#7C3AED"))
+		l.Styles.TitleBar = base.Padding(0, 0, 1, 0)
+		l.Styles.PaginationStyle = base.Foreground(lipgloss.Color("#6B7280"))
+		l.Styles.HelpStyle = base.Foreground(lipgloss.Color("#6B7280"))
+		l.Styles.FilterPrompt = base.Foreground(lipgloss.Color("#7C3AED"))
+		l.Styles.FilterCursor = base.Foreground(lipgloss.Color("#FFFFFF"))
+
+		// Additional styles - ALL have explicit backgrounds
+		l.Styles.NoItems = base.Foreground(lipgloss.Color("#6B7280"))
+		l.Styles.StatusBar = base.Foreground(lipgloss.Color("#6B7280"))
+		l.Styles.StatusEmpty = base.Foreground(lipgloss.Color("#6B7280"))
+		l.Styles.StatusBarActiveFilter = base.Foreground(lipgloss.Color("#7C3AED"))
+		l.Styles.StatusBarFilterCount = base.Foreground(lipgloss.Color("#6B7280"))
+		l.Styles.ActivePaginationDot = base.Foreground(lipgloss.Color("#7C3AED"))
+		l.Styles.InactivePaginationDot = base.Foreground(lipgloss.Color("#6B7280"))
+		l.Styles.DividerDot = base.Foreground(lipgloss.Color("#6B7280"))
+
+		// Additional styles - ALL have explicit backgrounds
+		l.Styles.Spinner = base.Foreground(lipgloss.Color("#7C3AED"))
+		l.Styles.DefaultFilterCharacterMatch = base.Foreground(lipgloss.Color("#A78BFA")).Bold(true)
+		l.Styles.ArabicPagination = base.Foreground(lipgloss.Color("#6B7280"))
+
+		// Customize the filter input - ALL have explicit backgrounds
+		l.FilterInput.PromptStyle = base.Foreground(lipgloss.Color("#7C3AED"))
+		l.FilterInput.TextStyle = base.Foreground(lipgloss.Color("#FFFFFF"))
+		l.FilterInput.Cursor.Style = base.Foreground(lipgloss.Color("#FFFFFF"))
+		l.FilterInput.PlaceholderStyle = base.Foreground(lipgloss.Color("#6B7280"))
+	} else {
+		// Default list styles
+		l.Styles.Title = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("212"))
+		l.Styles.TitleBar = lipgloss.NewStyle().Padding(0, 0, 1, 0)
+		l.Styles.PaginationStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
+		l.Styles.HelpStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
+		l.Styles.FilterPrompt = lipgloss.NewStyle().Foreground(lipgloss.Color("212"))
+		l.Styles.FilterCursor = lipgloss.NewStyle().Foreground(lipgloss.Color("212"))
+	}
+
+	if opts.Placeholder != "" {
+		l.FilterInput.Placeholder = opts.Placeholder
+	}
+
+	filterItems := make([]filterItem, len(opts.Options))
+	for i, opt := range opts.Options {
+		filterItems[i] = filterItem{text: opt}
+	}
+
+	m := &filterModel{
+		list:     l,
+		items:    filterItems,
+		options:  opts.Options,
+		selected: make(map[int]bool),
+		limit:    opts.Limit,
+		noLimit:  opts.NoLimit,
+		height:   height,
+		width:    width,
+	}
+
+	// Pre-select items
+	for _, idx := range opts.Selected {
+		if idx >= 0 && idx < len(opts.Options) {
+			m.selected[idx] = true
+		}
+	}
+
+	return m
 }

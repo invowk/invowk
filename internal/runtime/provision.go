@@ -14,36 +14,52 @@ import (
 	"strings"
 )
 
-// ContainerProvisionConfig holds configuration for auto-provisioning
-// invowk resources into containers.
-type ContainerProvisionConfig struct {
-	// Enabled controls whether auto-provisioning is active
-	Enabled bool
+type (
+	// ContainerProvisionConfig holds configuration for auto-provisioning
+	// invowk resources into containers.
+	ContainerProvisionConfig struct {
+		// Enabled controls whether auto-provisioning is active
+		Enabled bool
 
-	// InvowkBinaryPath is the path to the invowk binary on the host.
-	// If empty, os.Executable() will be used.
-	InvowkBinaryPath string
+		// InvowkBinaryPath is the path to the invowk binary on the host.
+		// If empty, os.Executable() will be used.
+		InvowkBinaryPath string
 
-	// ModulesPaths are paths to module directories on the host.
-	// These are discovered from config search paths and user commands dir.
-	ModulesPaths []string
+		// ModulesPaths are paths to module directories on the host.
+		// These are discovered from config search paths and user commands dir.
+		ModulesPaths []string
 
-	// InvkfilePath is the path to the current invkfile being executed.
-	// This is used to determine what needs to be provisioned.
-	InvkfilePath string
+		// InvkfilePath is the path to the current invkfile being executed.
+		// This is used to determine what needs to be provisioned.
+		InvkfilePath string
 
-	// BinaryMountPath is where to place the binary in the container.
-	// Default: /invowk/bin
-	BinaryMountPath string
+		// BinaryMountPath is where to place the binary in the container.
+		// Default: /invowk/bin
+		BinaryMountPath string
 
-	// ModulesMountPath is where to place modules in the container.
-	// Default: /invowk/modules
-	ModulesMountPath string
+		// ModulesMountPath is where to place modules in the container.
+		// Default: /invowk/modules
+		ModulesMountPath string
 
-	// CacheDir is where to store cached provisioned images metadata.
-	// Default: ~/.cache/invowk/provision
-	CacheDir string
-}
+		// CacheDir is where to store cached provisioned images metadata.
+		// Default: ~/.cache/invowk/provision
+		CacheDir string
+	}
+
+	// ProvisionResult contains the information about a provisioned container image.
+	ProvisionResult struct {
+		// ImageTag is the tag of the provisioned image to use
+		ImageTag string
+
+		// Cleanup is called to clean up temporary resources after the container exits.
+		// This may remove temporary build contexts but typically does NOT remove
+		// the cached image (for reuse).
+		Cleanup func()
+
+		// EnvVars are environment variables to set in the container
+		EnvVars map[string]string
+	}
+)
 
 // DefaultProvisionConfig returns a ContainerProvisionConfig with default values.
 func DefaultProvisionConfig() *ContainerProvisionConfig {
@@ -70,20 +86,6 @@ func DefaultProvisionConfig() *ContainerProvisionConfig {
 		ModulesMountPath: "/invowk/modules",
 		CacheDir:         cacheDir,
 	}
-}
-
-// ProvisionResult contains the information about a provisioned container image.
-type ProvisionResult struct {
-	// ImageTag is the tag of the provisioned image to use
-	ImageTag string
-
-	// Cleanup is called to clean up temporary resources after the container exits.
-	// This may remove temporary build contexts but typically does NOT remove
-	// the cached image (for reuse).
-	Cleanup func()
-
-	// EnvVars are environment variables to set in the container
-	EnvVars map[string]string
 }
 
 // calculateFileHash calculates SHA256 hash of a file's contents.

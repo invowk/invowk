@@ -22,13 +22,12 @@ var (
 	filterNoLimit     bool
 	filterReverse     bool
 	filterFuzzy       bool
-)
 
-// tuiFilterCmd provides fuzzy filtering of a list.
-var tuiFilterCmd = &cobra.Command{
-	Use:   "filter [options...]",
-	Short: "Fuzzy filter a list of options",
-	Long: `Filter a list of options using fuzzy matching.
+	// tuiFilterCmd provides fuzzy filtering of a list.
+	tuiFilterCmd = &cobra.Command{
+		Use:   "filter [options...]",
+		Short: "Fuzzy filter a list of options",
+		Long: `Filter a list of options using fuzzy matching.
 
 Options can be provided as arguments or piped via stdin (one per line).
 The selected option(s) are printed to stdout.
@@ -48,8 +47,9 @@ Examples:
   
   # Strict matching (not fuzzy)
   invowk tui filter --fuzzy=false "one" "two" "three"`,
-	RunE: runTuiFilter,
-}
+		RunE: runTuiFilter,
+	}
+)
 
 func init() {
 	tuiCmd.AddCommand(tuiFilterCmd)

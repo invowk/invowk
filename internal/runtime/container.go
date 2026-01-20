@@ -23,13 +23,23 @@ const (
 	hostGatewayMapping     = "host.docker.internal:host-gateway"
 )
 
-// ContainerRuntime executes commands inside a container
-type ContainerRuntime struct {
-	engine      container.Engine
-	sshServer   *sshserver.Server
-	provisioner *LayerProvisioner
-	cfg         *config.Config
-}
+type (
+	// ContainerRuntime executes commands inside a container
+	ContainerRuntime struct {
+		engine      container.Engine
+		sshServer   *sshserver.Server
+		provisioner *LayerProvisioner
+		cfg         *config.Config
+	}
+
+	// invkfileContainerConfig is a local type for container config extracted from RuntimeConfig
+	invkfileContainerConfig struct {
+		Containerfile string
+		Image         string
+		Volumes       []string
+		Ports         []string
+	}
+)
 
 // NewContainerRuntime creates a new container runtime
 func NewContainerRuntime(cfg *config.Config) (*ContainerRuntime, error) {
@@ -59,36 +69,6 @@ func NewContainerRuntimeWithEngine(engine container.Engine) *ContainerRuntime {
 	}
 }
 
-// buildProvisionConfig creates a ContainerProvisionConfig from the app config
-func buildProvisionConfig(cfg *config.Config) *ContainerProvisionConfig {
-	provisionCfg := DefaultProvisionConfig()
-
-	if cfg == nil {
-		return provisionCfg
-	}
-
-	// Apply config overrides
-	autoProv := cfg.Container.AutoProvision
-	provisionCfg.Enabled = autoProv.Enabled
-
-	if autoProv.BinaryPath != "" {
-		provisionCfg.InvowkBinaryPath = autoProv.BinaryPath
-	}
-
-	if len(autoProv.ModulesPaths) > 0 {
-		provisionCfg.ModulesPaths = append(provisionCfg.ModulesPaths, autoProv.ModulesPaths...)
-	}
-
-	if autoProv.CacheDir != "" {
-		provisionCfg.CacheDir = autoProv.CacheDir
-	}
-
-	// Also add config search paths to modules paths
-	provisionCfg.ModulesPaths = append(provisionCfg.ModulesPaths, cfg.SearchPaths...)
-
-	return provisionCfg
-}
-
 // SetProvisionConfig updates the provisioner configuration.
 // This is useful for setting the invkfile path before execution.
 func (r *ContainerRuntime) SetProvisionConfig(cfg *ContainerProvisionConfig) {
@@ -100,26 +80,6 @@ func (r *ContainerRuntime) SetProvisionConfig(cfg *ContainerProvisionConfig) {
 // SetSSHServer sets the SSH server for host access from containers
 func (r *ContainerRuntime) SetSSHServer(srv *sshserver.Server) {
 	r.sshServer = srv
-}
-
-// isWindowsContainerImage detects if an image is Windows-based by name convention.
-// The container runtime only supports Linux containers. Windows container images
-// (e.g., mcr.microsoft.com/windows/servercore) are not supported because the
-// runtime executes scripts using /bin/sh which is not available in Windows containers.
-func isWindowsContainerImage(image string) bool {
-	imageLower := strings.ToLower(image)
-	windowsPatterns := []string{
-		"mcr.microsoft.com/windows/",
-		"mcr.microsoft.com/powershell:",
-		"microsoft/windowsservercore",
-		"microsoft/nanoserver",
-	}
-	for _, pattern := range windowsPatterns {
-		if strings.Contains(imageLower, pattern) {
-			return true
-		}
-	}
-	return false
 }
 
 // Name returns the runtime name
@@ -512,6 +472,86 @@ func (r *ContainerRuntime) GetHostAddressForContainer() string {
 	return hostDockerInternal
 }
 
+// CleanupImage removes the built image for an invkfile
+func (r *ContainerRuntime) CleanupImage(ctx *ExecutionContext) error {
+	imageTag, err := r.generateImageTag(ctx.Invkfile.FilePath)
+	if err != nil {
+		return err
+	}
+	return r.engine.RemoveImage(ctx.Context, imageTag, true)
+}
+
+// GetEngineName returns the name of the underlying container engine
+func (r *ContainerRuntime) GetEngineName() string {
+	if r.engine == nil {
+		return "none"
+	}
+	return r.engine.Name()
+}
+
+// buildProvisionConfig creates a ContainerProvisionConfig from the app config
+func buildProvisionConfig(cfg *config.Config) *ContainerProvisionConfig {
+	provisionCfg := DefaultProvisionConfig()
+
+	if cfg == nil {
+		return provisionCfg
+	}
+
+	// Apply config overrides
+	autoProv := cfg.Container.AutoProvision
+	provisionCfg.Enabled = autoProv.Enabled
+
+	if autoProv.BinaryPath != "" {
+		provisionCfg.InvowkBinaryPath = autoProv.BinaryPath
+	}
+
+	if len(autoProv.ModulesPaths) > 0 {
+		provisionCfg.ModulesPaths = append(provisionCfg.ModulesPaths, autoProv.ModulesPaths...)
+	}
+
+	if autoProv.CacheDir != "" {
+		provisionCfg.CacheDir = autoProv.CacheDir
+	}
+
+	// Also add config search paths to modules paths
+	provisionCfg.ModulesPaths = append(provisionCfg.ModulesPaths, cfg.SearchPaths...)
+
+	return provisionCfg
+}
+
+// isWindowsContainerImage detects if an image is Windows-based by name convention.
+// The container runtime only supports Linux containers. Windows container images
+// (e.g., mcr.microsoft.com/windows/servercore) are not supported because the
+// runtime executes scripts using /bin/sh which is not available in Windows containers.
+func isWindowsContainerImage(image string) bool {
+	imageLower := strings.ToLower(image)
+	windowsPatterns := []string{
+		"mcr.microsoft.com/windows/",
+		"mcr.microsoft.com/powershell:",
+		"microsoft/windowsservercore",
+		"microsoft/nanoserver",
+	}
+	for _, pattern := range windowsPatterns {
+		if strings.Contains(imageLower, pattern) {
+			return true
+		}
+	}
+	return false
+}
+
+// containerConfigFromRuntime extracts container config from RuntimeConfig
+func containerConfigFromRuntime(rt *invkfile.RuntimeConfig) invkfileContainerConfig {
+	if rt == nil {
+		return invkfileContainerConfig{}
+	}
+	return invkfileContainerConfig{
+		Containerfile: rt.Containerfile,
+		Image:         rt.Image,
+		Volumes:       append([]string{}, rt.Volumes...),
+		Ports:         append([]string{}, rt.Ports...),
+	}
+}
+
 // buildInterpreterCommand builds the command array for interpreter-based execution.
 // For inline scripts, it creates a temp file in the workspace directory (mounted in container).
 // Returns: (command []string, tempFilePath string, error)
@@ -702,42 +742,4 @@ func (r *ContainerRuntime) getContainerWorkDir(ctx *ExecutionContext, invowkDir 
 
 	// Relative path - join with /workspace
 	return "/workspace/" + filepath.ToSlash(effectiveWorkDir)
-}
-
-// invkfileContainerConfig is a local type for container config extracted from RuntimeConfig
-type invkfileContainerConfig struct {
-	Containerfile string
-	Image         string
-	Volumes       []string
-	Ports         []string
-}
-
-// containerConfigFromRuntime extracts container config from RuntimeConfig
-func containerConfigFromRuntime(rt *invkfile.RuntimeConfig) invkfileContainerConfig {
-	if rt == nil {
-		return invkfileContainerConfig{}
-	}
-	return invkfileContainerConfig{
-		Containerfile: rt.Containerfile,
-		Image:         rt.Image,
-		Volumes:       append([]string{}, rt.Volumes...),
-		Ports:         append([]string{}, rt.Ports...),
-	}
-}
-
-// CleanupImage removes the built image for an invkfile
-func (r *ContainerRuntime) CleanupImage(ctx *ExecutionContext) error {
-	imageTag, err := r.generateImageTag(ctx.Invkfile.FilePath)
-	if err != nil {
-		return err
-	}
-	return r.engine.RemoveImage(ctx.Context, imageTag, true)
-}
-
-// GetEngineName returns the name of the underlying container engine
-func (r *ContainerRuntime) GetEngineName() string {
-	if r.engine == nil {
-		return "none"
-	}
-	return r.engine.Name()
 }

@@ -6,18 +6,20 @@ import (
 	"invowk-cli/pkg/invkmod"
 )
 
-// ModuleRequirement represents a dependency on another module from a Git repository.
-// This is the type alias for invkmod.ModuleRequirement.
-type ModuleRequirement = invkmod.ModuleRequirement
+type (
+	// ModuleRequirement represents a dependency on another module from a Git repository.
+	// This is the type alias for invkmod.ModuleRequirement.
+	ModuleRequirement = invkmod.ModuleRequirement
 
-// Invkmod represents a loaded module with metadata and optional commands.
-// This is the type alias for invkmod.Invkmod.
-// Use ParseModule() to load a module with both metadata and commands.
-type Invkmod = invkmod.Invkmod
+	// Invkmod represents a loaded module with metadata and optional commands.
+	// This is the type alias for invkmod.Invkmod.
+	// Use ParseModule() to load a module with both metadata and commands.
+	Invkmod = invkmod.Invkmod
 
-// CommandScope defines what commands a module can access.
-// This is a type alias for invkmod.CommandScope.
-type CommandScope = invkmod.CommandScope
+	// CommandScope defines what commands a module can access.
+	// This is a type alias for invkmod.CommandScope.
+	CommandScope = invkmod.CommandScope
+)
 
 // NewCommandScope creates a CommandScope for a parsed module.
 // This is a wrapper for invkmod.NewCommandScope.

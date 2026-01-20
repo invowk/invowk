@@ -10,31 +10,39 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-// ConfirmOptions configures the Confirm component.
-type ConfirmOptions struct {
-	// Title is the question/prompt to display.
-	Title string
-	// Description provides additional context below the title.
-	Description string
-	// Affirmative is the text for the affirmative option (default: "Yes").
-	Affirmative string
-	// Negative is the text for the negative option (default: "No").
-	Negative string
-	// Default is the default value (true for yes, false for no).
-	Default bool
-	// Config holds common TUI configuration.
-	Config Config
-}
+// All type declarations in a single block for decorder compliance.
+type (
+	// ConfirmOptions configures the Confirm component.
+	ConfirmOptions struct {
+		// Title is the question/prompt to display.
+		Title string
+		// Description provides additional context below the title.
+		Description string
+		// Affirmative is the text for the affirmative option (default: "Yes").
+		Affirmative string
+		// Negative is the text for the negative option (default: "No").
+		Negative string
+		// Default is the default value (true for yes, false for no).
+		Default bool
+		// Config holds common TUI configuration.
+		Config Config
+	}
 
-// confirmModel implements EmbeddableComponent for confirmation prompts.
-type confirmModel struct {
-	form      *huh.Form
-	result    *bool
-	done      bool
-	cancelled bool
-	width     int
-	height    int
-}
+	// confirmModel implements EmbeddableComponent for confirmation prompts.
+	confirmModel struct {
+		form      *huh.Form
+		result    *bool
+		done      bool
+		cancelled bool
+		width     int
+		height    int
+	}
+
+	// ConfirmBuilder provides a fluent API for building Confirm prompts.
+	ConfirmBuilder struct {
+		opts ConfirmOptions
+	}
+)
 
 // NewConfirmModel creates an embeddable confirm component.
 func NewConfirmModel(opts ConfirmOptions) *confirmModel {
@@ -45,33 +53,6 @@ func NewConfirmModel(opts ConfirmOptions) *confirmModel {
 // This uses a theme that matches the modal overlay background to prevent color bleeding.
 func NewConfirmModelForModal(opts ConfirmOptions) *confirmModel {
 	return newConfirmModelWithTheme(opts, getModalHuhTheme())
-}
-
-// newConfirmModelWithTheme creates a confirm model with a specific huh theme.
-func newConfirmModelWithTheme(opts ConfirmOptions, theme *huh.Theme) *confirmModel {
-	result := opts.Default
-
-	confirm := huh.NewConfirm().
-		Title(opts.Title).
-		Description(opts.Description).
-		Value(&result)
-
-	if opts.Affirmative != "" {
-		confirm = confirm.Affirmative(opts.Affirmative)
-	}
-
-	if opts.Negative != "" {
-		confirm = confirm.Negative(opts.Negative)
-	}
-
-	form := huh.NewForm(huh.NewGroup(confirm)).
-		WithTheme(theme).
-		WithAccessible(opts.Config.Accessible)
-
-	return &confirmModel{
-		form:   form,
-		result: &result,
-	}
 }
 
 // Init implements tea.Model.
@@ -167,11 +148,6 @@ func Confirm(opts ConfirmOptions) (bool, error) {
 	return result.(bool), nil
 }
 
-// ConfirmBuilder provides a fluent API for building Confirm prompts.
-type ConfirmBuilder struct {
-	opts ConfirmOptions
-}
-
 // NewConfirm creates a new ConfirmBuilder with default options.
 func NewConfirm() *ConfirmBuilder {
 	return &ConfirmBuilder{
@@ -234,4 +210,31 @@ func (b *ConfirmBuilder) Run() (bool, error) {
 // Model returns the embeddable model for composition.
 func (b *ConfirmBuilder) Model() EmbeddableComponent {
 	return NewConfirmModel(b.opts)
+}
+
+// newConfirmModelWithTheme creates a confirm model with a specific huh theme.
+func newConfirmModelWithTheme(opts ConfirmOptions, theme *huh.Theme) *confirmModel {
+	result := opts.Default
+
+	confirm := huh.NewConfirm().
+		Title(opts.Title).
+		Description(opts.Description).
+		Value(&result)
+
+	if opts.Affirmative != "" {
+		confirm = confirm.Affirmative(opts.Affirmative)
+	}
+
+	if opts.Negative != "" {
+		confirm = confirm.Negative(opts.Negative)
+	}
+
+	form := huh.NewForm(huh.NewGroup(confirm)).
+		WithTheme(theme).
+		WithAccessible(opts.Config.Accessible)
+
+	return &confirmModel{
+		form:   form,
+		result: &result,
+	}
 }

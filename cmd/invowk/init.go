@@ -11,20 +11,20 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// initCmd creates a new invkfile
-var initCmd = &cobra.Command{
-	Use:   "init",
-	Short: "Create a new invkfile in the current directory",
-	Long: `Create a new invkfile in the current directory with example commands.
-
-This command generates a starter invkfile with sample commands to help
-you get started quickly.`,
-	RunE: runInit,
-}
-
 var (
 	initForce    bool
 	initTemplate string
+
+	// initCmd creates a new invkfile
+	initCmd = &cobra.Command{
+		Use:   "init",
+		Short: "Create a new invkfile in the current directory",
+		Long: `Create a new invkfile in the current directory with example commands.
+
+This command generates a starter invkfile with sample commands to help
+you get started quickly.`,
+		RunE: runInit,
+	}
 )
 
 func init() {

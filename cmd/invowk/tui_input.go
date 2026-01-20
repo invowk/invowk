@@ -20,13 +20,12 @@ var (
 	inputWidth       int
 	inputPassword    bool
 	inputPrompt      string
-)
 
-// tuiInputCmd provides a single-line text input prompt.
-var tuiInputCmd = &cobra.Command{
-	Use:   "input",
-	Short: "Prompt for single-line text input",
-	Long: `Prompt the user for a single line of text input.
+	// tuiInputCmd provides a single-line text input prompt.
+	tuiInputCmd = &cobra.Command{
+		Use:   "input",
+		Short: "Prompt for single-line text input",
+		Long: `Prompt the user for a single line of text input.
 
 The result is printed to stdout, making it suitable for use in shell pipelines
 and variable assignments.
@@ -34,21 +33,22 @@ and variable assignments.
 Examples:
   # Basic input
   invowk tui input --title "What is your name?"
-  
+
   # With placeholder text
   invowk tui input --title "Email" --placeholder "user@example.com"
-  
+
   # Password input (hidden)
   invowk tui input --title "Password" --password
-  
+
   # With character limit
   invowk tui input --title "Username" --char-limit 20
-  
+
   # Use in shell script
   NAME=$(invowk tui input --title "Enter your name:")
   echo "Hello, $NAME!"`,
-	RunE: runTuiInput,
-}
+		RunE: runTuiInput,
+	}
+)
 
 func init() {
 	tuiCmd.AddCommand(tuiInputCmd)

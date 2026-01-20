@@ -21,14 +21,22 @@ import (
 	"github.com/go-git/go-git/v5/storage/memory"
 )
 
-// GitFetcher handles Git operations for module fetching.
-type GitFetcher struct {
-	// CacheDir is the base directory for the Git source cache.
-	CacheDir string
+type (
+	// GitFetcher handles Git operations for module fetching.
+	GitFetcher struct {
+		// CacheDir is the base directory for the Git source cache.
+		CacheDir string
 
-	// auth is the authentication method to use for Git operations.
-	auth transport.AuthMethod
-}
+		// auth is the authentication method to use for Git operations.
+		auth transport.AuthMethod
+	}
+
+	// TagInfo contains information about a Git tag.
+	TagInfo struct {
+		Name   string
+		Commit string
+	}
+)
 
 // NewGitFetcher creates a new Git fetcher.
 func NewGitFetcher(cacheDir string) *GitFetcher {
@@ -37,78 +45,6 @@ func NewGitFetcher(cacheDir string) *GitFetcher {
 	}
 	f.setupAuth()
 	return f
-}
-
-// setupAuth configures authentication based on available credentials.
-func (f *GitFetcher) setupAuth() {
-	// Try SSH authentication first
-	if sshAuth := f.trySSHAuth(); sshAuth != nil {
-		f.auth = sshAuth
-		return
-	}
-
-	// Try HTTPS authentication via environment variables
-	if httpAuth := f.tryHTTPAuth(); httpAuth != nil {
-		f.auth = httpAuth
-		return
-	}
-
-	// No authentication configured - will work for public repos
-}
-
-// trySSHAuth attempts to configure SSH authentication.
-func (f *GitFetcher) trySSHAuth() transport.AuthMethod {
-	// Check common SSH key locations
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return nil
-	}
-
-	keyPaths := []string{
-		filepath.Join(homeDir, ".ssh", "id_ed25519"),
-		filepath.Join(homeDir, ".ssh", "id_rsa"),
-		filepath.Join(homeDir, ".ssh", "id_ecdsa"),
-	}
-
-	for _, keyPath := range keyPaths {
-		if _, err := os.Stat(keyPath); err == nil {
-			auth, err := ssh.NewPublicKeysFromFile("git", keyPath, "")
-			if err == nil {
-				return auth
-			}
-		}
-	}
-
-	return nil
-}
-
-// tryHTTPAuth attempts to configure HTTP authentication.
-func (f *GitFetcher) tryHTTPAuth() transport.AuthMethod {
-	// Check for GitHub token
-	if token := os.Getenv("GITHUB_TOKEN"); token != "" {
-		return &http.BasicAuth{
-			Username: "x-access-token",
-			Password: token,
-		}
-	}
-
-	// Check for GitLab token
-	if token := os.Getenv("GITLAB_TOKEN"); token != "" {
-		return &http.BasicAuth{
-			Username: "gitlab-ci-token",
-			Password: token,
-		}
-	}
-
-	// Check for generic Git token
-	if token := os.Getenv("GIT_TOKEN"); token != "" {
-		return &http.BasicAuth{
-			Username: "git",
-			Password: token,
-		}
-	}
-
-	return nil
 }
 
 // ListVersions returns all version tags from a Git repository.
@@ -173,111 +109,6 @@ func (f *GitFetcher) Fetch(ctx context.Context, gitURL, version string) (path, c
 	}
 
 	return repoPath, commitHash, nil
-}
-
-// clone clones a repository to the specified path.
-func (f *GitFetcher) clone(ctx context.Context, gitURL, destPath string) (*git.Repository, error) {
-	// Ensure parent directory exists
-	if err := os.MkdirAll(filepath.Dir(destPath), 0o755); err != nil {
-		return nil, fmt.Errorf("failed to create parent directory: %w", err)
-	}
-
-	// Clone the repository
-	repo, err := git.PlainCloneContext(ctx, destPath, false, &git.CloneOptions{
-		URL:      gitURL,
-		Auth:     f.auth,
-		Progress: nil, // Could add progress reporting here
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	return repo, nil
-}
-
-// fetch fetches updates from the remote repository.
-func (f *GitFetcher) fetch(ctx context.Context, repo *git.Repository) error {
-	err := repo.FetchContext(ctx, &git.FetchOptions{
-		Auth:  f.auth,
-		Tags:  git.AllTags,
-		Force: true,
-	})
-
-	// ErrAlreadyUpToDate is not a real error
-	if err != nil && !errors.Is(err, git.NoErrAlreadyUpToDate) {
-		return err
-	}
-
-	return nil
-}
-
-// checkout checks out a specific version (tag) in the repository.
-func (f *GitFetcher) checkout(repo *git.Repository, version string) (string, error) {
-	// Get worktree
-	worktree, err := repo.Worktree()
-	if err != nil {
-		return "", fmt.Errorf("failed to get worktree: %w", err)
-	}
-
-	// Try to find the tag
-	tagRef, err := f.findTag(repo, version)
-	if err != nil {
-		return "", fmt.Errorf("tag not found: %w", err)
-	}
-
-	// Checkout the tag
-	err = worktree.Checkout(&git.CheckoutOptions{
-		Hash:  tagRef,
-		Force: true,
-	})
-	if err != nil {
-		return "", fmt.Errorf("failed to checkout: %w", err)
-	}
-
-	return tagRef.String(), nil
-}
-
-// findTag finds a tag by name, trying both with and without "v" prefix.
-func (f *GitFetcher) findTag(repo *git.Repository, version string) (plumbing.Hash, error) {
-	// Try the version as-is first
-	tagNames := []string{version}
-
-	// Also try with/without "v" prefix
-	if noV, found := strings.CutPrefix(version, "v"); found {
-		tagNames = append(tagNames, noV)
-	} else {
-		tagNames = append(tagNames, "v"+version)
-	}
-
-	for _, tagName := range tagNames {
-		// Try full reference name
-		ref, err := repo.Reference(plumbing.NewTagReferenceName(tagName), true)
-		if err == nil {
-			// If it's an annotated tag, we need to dereference it
-			tagObj, err := repo.TagObject(ref.Hash())
-			if err == nil {
-				// Annotated tag - return the commit it points to
-				return tagObj.Target, nil
-			}
-			// Lightweight tag - return the hash directly
-			return ref.Hash(), nil
-		}
-	}
-
-	return plumbing.ZeroHash, fmt.Errorf("tag %q not found", version)
-}
-
-// getRepoCachePath generates a cache path for a repository.
-func (f *GitFetcher) getRepoCachePath(gitURL string) string {
-	// Convert git URL to path-safe format
-	// e.g., "https://github.com/user/repo.git" -> "github.com/user/repo"
-	path := strings.TrimPrefix(gitURL, "https://")
-	path = strings.TrimPrefix(path, "git@")
-	path = strings.TrimPrefix(path, "ssh://")
-	path = strings.TrimSuffix(path, ".git")
-	path = strings.ReplaceAll(path, ":", "/")
-
-	return filepath.Join(f.CacheDir, "sources", path)
 }
 
 // GetCommitForTag returns the commit hash for a specific tag.
@@ -389,12 +220,6 @@ func (f *GitFetcher) ListTags(ctx context.Context, gitURL string) ([]string, err
 	return f.ListVersions(ctx, gitURL)
 }
 
-// TagInfo contains information about a Git tag.
-type TagInfo struct {
-	Name   string
-	Commit string
-}
-
 // ListTagsWithCommits returns all tags with their commit hashes.
 func (f *GitFetcher) ListTagsWithCommits(ctx context.Context, gitURL string) ([]TagInfo, error) {
 	remote := git.NewRemote(memory.NewStorage(), &config.RemoteConfig{
@@ -430,4 +255,181 @@ func (f *GitFetcher) ListTagsWithCommits(ctx context.Context, gitURL string) ([]
 	})
 
 	return tags, nil
+}
+
+// setupAuth configures authentication based on available credentials.
+func (f *GitFetcher) setupAuth() {
+	// Try SSH authentication first
+	if sshAuth := f.trySSHAuth(); sshAuth != nil {
+		f.auth = sshAuth
+		return
+	}
+
+	// Try HTTPS authentication via environment variables
+	if httpAuth := f.tryHTTPAuth(); httpAuth != nil {
+		f.auth = httpAuth
+		return
+	}
+
+	// No authentication configured - will work for public repos
+}
+
+// trySSHAuth attempts to configure SSH authentication.
+func (f *GitFetcher) trySSHAuth() transport.AuthMethod {
+	// Check common SSH key locations
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return nil
+	}
+
+	keyPaths := []string{
+		filepath.Join(homeDir, ".ssh", "id_ed25519"),
+		filepath.Join(homeDir, ".ssh", "id_rsa"),
+		filepath.Join(homeDir, ".ssh", "id_ecdsa"),
+	}
+
+	for _, keyPath := range keyPaths {
+		if _, err := os.Stat(keyPath); err == nil {
+			auth, err := ssh.NewPublicKeysFromFile("git", keyPath, "")
+			if err == nil {
+				return auth
+			}
+		}
+	}
+
+	return nil
+}
+
+// tryHTTPAuth attempts to configure HTTP authentication.
+func (f *GitFetcher) tryHTTPAuth() transport.AuthMethod {
+	// Check for GitHub token
+	if token := os.Getenv("GITHUB_TOKEN"); token != "" {
+		return &http.BasicAuth{
+			Username: "x-access-token",
+			Password: token,
+		}
+	}
+
+	// Check for GitLab token
+	if token := os.Getenv("GITLAB_TOKEN"); token != "" {
+		return &http.BasicAuth{
+			Username: "gitlab-ci-token",
+			Password: token,
+		}
+	}
+
+	// Check for generic Git token
+	if token := os.Getenv("GIT_TOKEN"); token != "" {
+		return &http.BasicAuth{
+			Username: "git",
+			Password: token,
+		}
+	}
+
+	return nil
+}
+
+// clone clones a repository to the specified path.
+func (f *GitFetcher) clone(ctx context.Context, gitURL, destPath string) (*git.Repository, error) {
+	// Ensure parent directory exists
+	if err := os.MkdirAll(filepath.Dir(destPath), 0o755); err != nil {
+		return nil, fmt.Errorf("failed to create parent directory: %w", err)
+	}
+
+	// Clone the repository
+	repo, err := git.PlainCloneContext(ctx, destPath, false, &git.CloneOptions{
+		URL:      gitURL,
+		Auth:     f.auth,
+		Progress: nil, // Could add progress reporting here
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return repo, nil
+}
+
+// fetch fetches updates from the remote repository.
+func (f *GitFetcher) fetch(ctx context.Context, repo *git.Repository) error {
+	err := repo.FetchContext(ctx, &git.FetchOptions{
+		Auth:  f.auth,
+		Tags:  git.AllTags,
+		Force: true,
+	})
+
+	// ErrAlreadyUpToDate is not a real error
+	if err != nil && !errors.Is(err, git.NoErrAlreadyUpToDate) {
+		return err
+	}
+
+	return nil
+}
+
+// checkout checks out a specific version (tag) in the repository.
+func (f *GitFetcher) checkout(repo *git.Repository, version string) (string, error) {
+	// Get worktree
+	worktree, err := repo.Worktree()
+	if err != nil {
+		return "", fmt.Errorf("failed to get worktree: %w", err)
+	}
+
+	// Try to find the tag
+	tagRef, err := f.findTag(repo, version)
+	if err != nil {
+		return "", fmt.Errorf("tag not found: %w", err)
+	}
+
+	// Checkout the tag
+	err = worktree.Checkout(&git.CheckoutOptions{
+		Hash:  tagRef,
+		Force: true,
+	})
+	if err != nil {
+		return "", fmt.Errorf("failed to checkout: %w", err)
+	}
+
+	return tagRef.String(), nil
+}
+
+// findTag finds a tag by name, trying both with and without "v" prefix.
+func (f *GitFetcher) findTag(repo *git.Repository, version string) (plumbing.Hash, error) {
+	// Try the version as-is first
+	tagNames := []string{version}
+
+	// Also try with/without "v" prefix
+	if noV, found := strings.CutPrefix(version, "v"); found {
+		tagNames = append(tagNames, noV)
+	} else {
+		tagNames = append(tagNames, "v"+version)
+	}
+
+	for _, tagName := range tagNames {
+		// Try full reference name
+		ref, err := repo.Reference(plumbing.NewTagReferenceName(tagName), true)
+		if err == nil {
+			// If it's an annotated tag, we need to dereference it
+			tagObj, err := repo.TagObject(ref.Hash())
+			if err == nil {
+				// Annotated tag - return the commit it points to
+				return tagObj.Target, nil
+			}
+			// Lightweight tag - return the hash directly
+			return ref.Hash(), nil
+		}
+	}
+
+	return plumbing.ZeroHash, fmt.Errorf("tag %q not found", version)
+}
+
+// getRepoCachePath generates a cache path for a repository.
+func (f *GitFetcher) getRepoCachePath(gitURL string) string {
+	// Convert git URL to path-safe format
+	// e.g., "https://github.com/user/repo.git" -> "github.com/user/repo"
+	path := strings.TrimPrefix(gitURL, "https://")
+	path = strings.TrimPrefix(path, "git@")
+	path = strings.TrimPrefix(path, "ssh://")
+	path = strings.TrimSuffix(path, ".git")
+	path = strings.ReplaceAll(path, ":", "/")
+
+	return filepath.Join(f.CacheDir, "sources", path)
 }

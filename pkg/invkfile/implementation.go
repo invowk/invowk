@@ -12,37 +12,53 @@ import (
 // scriptFileExtensions contains extensions that indicate a script file
 var scriptFileExtensions = []string{".sh", ".bash", ".ps1", ".bat", ".cmd", ".py", ".rb", ".pl", ".zsh", ".fish"}
 
-// Implementation represents an implementation with platform and runtime constraints
-type Implementation struct {
-	// Script contains the shell commands to execute OR a path to a script file
-	Script string `json:"script"`
-	// Runtimes specifies which runtimes can execute this implementation (required, at least one)
-	// The first element is the default runtime for this platform combination
-	// Each runtime is a struct with a Name field and optional type-specific fields
-	Runtimes []RuntimeConfig `json:"runtimes"`
-	// Platforms specifies which operating systems this implementation is for (optional)
-	// If empty/nil, the implementation applies to all platforms
-	// Each platform is a struct with a Name field
-	Platforms []PlatformConfig `json:"platforms,omitempty"`
-	// Env contains environment configuration for this implementation (optional)
-	// Implementation-level env is merged with command-level env.
-	// Implementation files are loaded after command-level files.
-	// Implementation vars override command-level vars.
-	Env *EnvConfig `json:"env,omitempty"`
-	// WorkDir specifies the working directory for this implementation (optional)
-	// Overrides both root-level and command-level workdir settings.
-	// Can be absolute or relative to the invkfile location.
-	// Forward slashes should be used for cross-platform compatibility.
-	WorkDir string `json:"workdir,omitempty"`
-	// DependsOn specifies dependencies that must be satisfied before running this implementation
-	// These dependencies are validated according to the runtime being used
-	DependsOn *DependsOn `json:"depends_on,omitempty"`
+type (
+	// Implementation represents an implementation with platform and runtime constraints
+	Implementation struct {
+		// Script contains the shell commands to execute OR a path to a script file
+		Script string `json:"script"`
+		// Runtimes specifies which runtimes can execute this implementation (required, at least one)
+		// The first element is the default runtime for this platform combination
+		// Each runtime is a struct with a Name field and optional type-specific fields
+		Runtimes []RuntimeConfig `json:"runtimes"`
+		// Platforms specifies which operating systems this implementation is for (optional)
+		// If empty/nil, the implementation applies to all platforms
+		// Each platform is a struct with a Name field
+		Platforms []PlatformConfig `json:"platforms,omitempty"`
+		// Env contains environment configuration for this implementation (optional)
+		// Implementation-level env is merged with command-level env.
+		// Implementation files are loaded after command-level files.
+		// Implementation vars override command-level vars.
+		Env *EnvConfig `json:"env,omitempty"`
+		// WorkDir specifies the working directory for this implementation (optional)
+		// Overrides both root-level and command-level workdir settings.
+		// Can be absolute or relative to the invkfile location.
+		// Forward slashes should be used for cross-platform compatibility.
+		WorkDir string `json:"workdir,omitempty"`
+		// DependsOn specifies dependencies that must be satisfied before running this implementation
+		// These dependencies are validated according to the runtime being used
+		DependsOn *DependsOn `json:"depends_on,omitempty"`
 
-	// resolvedScript caches the resolved script content
-	resolvedScript string
-	// scriptResolved indicates if the script has been resolved
-	scriptResolved bool
-}
+		// resolvedScript caches the resolved script content
+		resolvedScript string
+		// scriptResolved indicates if the script has been resolved
+		scriptResolved bool
+	}
+
+	// PlatformRuntimeKey represents a unique combination of platform and runtime
+	PlatformRuntimeKey struct {
+		Platform Platform
+		Runtime  RuntimeMode
+	}
+
+	// ScriptMatch represents a matched script for execution
+	ScriptMatch struct {
+		Implementation       *Implementation
+		Platform             Platform
+		Runtime              RuntimeMode
+		IsDefaultForPlatform bool
+	}
+)
 
 // MatchesPlatform returns true if the script can run on the given platform
 func (s *Implementation) MatchesPlatform(platform Platform) bool {
@@ -268,18 +284,4 @@ func (s *Implementation) ResolveScriptWithFSAndModule(invkfilePath, modulePath s
 
 	// Inline script - use directly
 	return script, nil
-}
-
-// PlatformRuntimeKey represents a unique combination of platform and runtime
-type PlatformRuntimeKey struct {
-	Platform Platform
-	Runtime  RuntimeMode
-}
-
-// ScriptMatch represents a matched script for execution
-type ScriptMatch struct {
-	Implementation       *Implementation
-	Platform             Platform
-	Runtime              RuntimeMode
-	IsDefaultForPlatform bool
 }
