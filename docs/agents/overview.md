@@ -21,8 +21,8 @@ invkfile.cue -> CUE Parser -> pkg/invkfile -> Runtime Selection -> Execution
 
 - `cmd/invowk/` - CLI commands using Cobra.
 - `internal/` - Private packages (config, container, discovery, issue, runtime, sshserver, tui, tuiserver).
-- `pkg/` - Public packages (pack, invkfile).
-- `packs/` - Sample invowk packs for validation and reference.
+- `pkg/` - Public packages (invkmod, invkfile).
+- `modules/` - Sample invowk modules for validation and reference.
 
 ## Container Runtime Limitations
 

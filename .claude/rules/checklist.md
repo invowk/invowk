@@ -7,4 +7,4 @@ Before considering work complete:
 3. **Dependencies tidy**: `make tidy`.
 4. **Documentation updated**: Check sync map for affected docs.
 5. **Website builds**: `cd website && npm run build` (if website changed).
-6. **Sample packs valid**: `go run . pack validate packs/*.invkpack --deep` (if pack-related).
+6. **Sample modules valid**: `go run . module validate modules/*.invkmod --deep` (if module-related).

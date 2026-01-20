@@ -63,8 +63,8 @@ func TestDefaultConfig(t *testing.T) {
 		t.Errorf("expected auto provisioning binary path to be empty, got %q", cfg.Container.AutoProvision.BinaryPath)
 	}
 
-	if len(cfg.Container.AutoProvision.PacksPaths) != 0 {
-		t.Errorf("expected auto provisioning packs paths to be empty, got %v", cfg.Container.AutoProvision.PacksPaths)
+	if len(cfg.Container.AutoProvision.ModulesPaths) != 0 {
+		t.Errorf("expected auto provisioning modules paths to be empty, got %v", cfg.Container.AutoProvision.ModulesPaths)
 	}
 
 	if cfg.Container.AutoProvision.CacheDir != "" {
@@ -239,7 +239,7 @@ func TestLoadAndSave(t *testing.T) {
 			AutoProvision: AutoProvisionConfig{
 				Enabled:    false,
 				BinaryPath: "/custom/bin/invowk",
-				PacksPaths: []string{"/packs/one"},
+				ModulesPaths: []string{"/modules/one"},
 				CacheDir:   "/tmp/invowk-cache",
 			},
 		},
@@ -296,8 +296,8 @@ func TestLoadAndSave(t *testing.T) {
 		t.Errorf("AutoProvision.BinaryPath = %q, want /custom/bin/invowk", loaded.Container.AutoProvision.BinaryPath)
 	}
 
-	if len(loaded.Container.AutoProvision.PacksPaths) != 1 || loaded.Container.AutoProvision.PacksPaths[0] != "/packs/one" {
-		t.Errorf("AutoProvision.PacksPaths = %v, want [/packs/one]", loaded.Container.AutoProvision.PacksPaths)
+	if len(loaded.Container.AutoProvision.ModulesPaths) != 1 || loaded.Container.AutoProvision.ModulesPaths[0] != "/modules/one" {
+		t.Errorf("AutoProvision.ModulesPaths = %v, want [/modules/one]", loaded.Container.AutoProvision.ModulesPaths)
 	}
 
 	if loaded.Container.AutoProvision.CacheDir != "/tmp/invowk-cache" {

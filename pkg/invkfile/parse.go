@@ -10,15 +10,15 @@ import (
 
 	"cuelang.org/go/cue"
 	"cuelang.org/go/cue/cuecontext"
-	"invowk-cli/pkg/invkpack"
+	"invowk-cli/pkg/invkmod"
 )
 
 //go:embed invkfile_schema.cue
 var invkfileSchema string
 
-// Pack represents a loaded invowk pack, ready for use.
-// This is a type alias for invkpack.Pack.
-type Pack = invkpack.Pack
+// Module represents a loaded invowk module, ready for use.
+// This is a type alias for invkmod.Module.
+type Module = invkmod.Module
 
 // Parse reads and parses an invkfile from the given path.
 func Parse(path string) (*Invkfile, error) {
@@ -69,44 +69,44 @@ func ParseBytes(data []byte, path string) (*Invkfile, error) {
 	return &inv, nil
 }
 
-// ParseInvkpack reads and parses pack metadata from invkpack.cue at the given path.
-// This is a wrapper for invkpack.ParseInvkpack.
-func ParseInvkpack(path string) (*Invkpack, error) {
-	return invkpack.ParseInvkpack(path)
+// ParseInvkmod reads and parses module metadata from invkmod.cue at the given path.
+// This is a wrapper for invkmod.ParseInvkmod.
+func ParseInvkmod(path string) (*Invkmod, error) {
+	return invkmod.ParseInvkmod(path)
 }
 
-// ParseInvkpackBytes parses pack metadata content from bytes.
-// This is a wrapper for invkpack.ParseInvkpackBytes.
-func ParseInvkpackBytes(data []byte, path string) (*Invkpack, error) {
-	return invkpack.ParseInvkpackBytes(data, path)
+// ParseInvkmodBytes parses module metadata content from bytes.
+// This is a wrapper for invkmod.ParseInvkmodBytes.
+func ParseInvkmodBytes(data []byte, path string) (*Invkmod, error) {
+	return invkmod.ParseInvkmodBytes(data, path)
 }
 
-// ParsePack reads and parses a complete pack from the given pack directory.
+// ParseModule reads and parses a complete module from the given module directory.
 // It expects:
-// - invkpack.cue (required): Pack metadata (pack name, version, description, requires)
-// - invkfile.cue (optional): Command definitions (for library-only packs)
+// - invkmod.cue (required): Module metadata (module name, version, description, requires)
+// - invkfile.cue (optional): Command definitions (for library-only modules)
 //
-// The packPath should be the path to the pack directory (ending in .invkpack).
-// Returns a Pack with Metadata from invkpack.cue and Commands from invkfile.cue.
+// The modulePath should be the path to the module directory (ending in .invkmod).
+// Returns a Module with Metadata from invkmod.cue and Commands from invkfile.cue.
 // Note: Commands is stored as any but is always *Invkfile when present.
-// Use GetPackCommands() for typed access.
-func ParsePack(packPath string) (*Pack, error) {
-	invkpackPath := filepath.Join(packPath, "invkpack.cue")
-	invkfilePath := filepath.Join(packPath, "invkfile.cue")
+// Use GetModuleCommands() for typed access.
+func ParseModule(modulePath string) (*Module, error) {
+	invkmodPath := filepath.Join(modulePath, "invkmod.cue")
+	invkfilePath := filepath.Join(modulePath, "invkfile.cue")
 
-	// Parse invkpack.cue (required)
-	meta, err := ParseInvkpack(invkpackPath)
+	// Parse invkmod.cue (required)
+	meta, err := ParseInvkmod(invkmodPath)
 	if err != nil {
-		return nil, fmt.Errorf("pack at %s: %w", packPath, err)
+		return nil, fmt.Errorf("module at %s: %w", modulePath, err)
 	}
 
 	// Create result
-	result := &Pack{
+	result := &Module{
 		Metadata: meta,
-		Path:     packPath,
+		Path:     modulePath,
 	}
 
-	// Parse invkfile.cue (optional - may be a library-only pack)
+	// Parse invkfile.cue (optional - may be a library-only module)
 	if _, statErr := os.Stat(invkfilePath); statErr == nil {
 		data, readErr := os.ReadFile(invkfilePath)
 		if readErr != nil {
@@ -118,9 +118,9 @@ func ParsePack(packPath string) (*Pack, error) {
 			return nil, parseErr
 		}
 
-		// Set metadata reference and pack path
+		// Set metadata reference and module path
 		inv.Metadata = meta
-		inv.PackPath = packPath
+		inv.ModulePath = modulePath
 
 		result.Commands = inv
 	} else {
@@ -130,13 +130,13 @@ func ParsePack(packPath string) (*Pack, error) {
 	return result, nil
 }
 
-// GetPackCommands extracts the Invkfile from a Pack.
-// Returns nil if the pack has no commands (library-only pack) or if p is nil.
-func GetPackCommands(p *Pack) *Invkfile {
-	if p == nil || p.Commands == nil {
+// GetModuleCommands extracts the Invkfile from a Module.
+// Returns nil if the module has no commands (library-only module) or if m is nil.
+func GetModuleCommands(m *Module) *Invkfile {
+	if m == nil || m.Commands == nil {
 		return nil
 	}
-	if inv, ok := p.Commands.(*Invkfile); ok {
+	if inv, ok := m.Commands.(*Invkfile); ok {
 		return inv
 	}
 	return nil

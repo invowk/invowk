@@ -69,16 +69,16 @@ func buildProvisionConfig(cfg *config.Config) *ContainerProvisionConfig {
 		provisionCfg.InvowkBinaryPath = autoProv.BinaryPath
 	}
 
-	if len(autoProv.PacksPaths) > 0 {
-		provisionCfg.PacksPaths = append(provisionCfg.PacksPaths, autoProv.PacksPaths...)
+	if len(autoProv.ModulesPaths) > 0 {
+		provisionCfg.ModulesPaths = append(provisionCfg.ModulesPaths, autoProv.ModulesPaths...)
 	}
 
 	if autoProv.CacheDir != "" {
 		provisionCfg.CacheDir = autoProv.CacheDir
 	}
 
-	// Also add config search paths to packs paths
-	provisionCfg.PacksPaths = append(provisionCfg.PacksPaths, cfg.SearchPaths...)
+	// Also add config search paths to modules paths
+	provisionCfg.ModulesPaths = append(provisionCfg.ModulesPaths, cfg.SearchPaths...)
 
 	return provisionCfg
 }

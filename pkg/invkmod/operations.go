@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: EPL-2.0
 
-// Package invkpack provides pack operations: validation, creation, archiving, and dependency management.
-// Types and data structures are defined in invkpack.go.
-package invkpack
+// Package invkmod provides module operations: validation, creation, archiving, and dependency management.
+// Types and data structures are defined in invkmod.go.
+package invkmod
 
 import (
 	"archive/zip"
@@ -17,24 +17,24 @@ import (
 	"invowk-cli/internal/platform"
 )
 
-// packNameRegex validates the pack folder name prefix (before .invkpack)
+// moduleNameRegex validates the module folder name prefix (before .invkmod)
 // Must start with a letter, contain only alphanumeric chars, with optional dot-separated segments
 // Compatible with RDNS naming (e.g., "com.example.mycommands")
-var packNameRegex = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9]*(\.[a-zA-Z][a-zA-Z0-9]*)*$`)
+var moduleNameRegex = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9]*(\.[a-zA-Z][a-zA-Z0-9]*)*$`)
 
-// IsPack checks if the given path is a valid invowk pack directory.
+// IsModule checks if the given path is a valid invowk module directory.
 // This is a quick check that only verifies the folder name format and existence.
 // For full validation, use Validate().
-func IsPack(path string) bool {
-	// Check if the path ends with .invkpack
+func IsModule(path string) bool {
+	// Check if the path ends with .invkmod
 	base := filepath.Base(path)
-	if !strings.HasSuffix(base, PackSuffix) {
+	if !strings.HasSuffix(base, ModuleSuffix) {
 		return false
 	}
 
 	// Check if the prefix is valid
-	prefix := strings.TrimSuffix(base, PackSuffix)
-	if !packNameRegex.MatchString(prefix) {
+	prefix := strings.TrimSuffix(base, ModuleSuffix)
+	if !moduleNameRegex.MatchString(prefix) {
 		return false
 	}
 
@@ -47,48 +47,48 @@ func IsPack(path string) bool {
 	return info.IsDir()
 }
 
-// ParsePackName extracts and validates the pack name from a folder name.
-// The folder name must end with .invkpack and have a valid prefix.
-// Returns the pack name (without suffix) or an error if invalid.
-func ParsePackName(folderName string) (string, error) {
-	// Must end with .invkpack
-	if !strings.HasSuffix(folderName, PackSuffix) {
-		return "", fmt.Errorf("folder name must end with '%s'", PackSuffix)
+// ParseModuleName extracts and validates the module name from a folder name.
+// The folder name must end with .invkmod and have a valid prefix.
+// Returns the module name (without suffix) or an error if invalid.
+func ParseModuleName(folderName string) (string, error) {
+	// Must end with .invkmod
+	if !strings.HasSuffix(folderName, ModuleSuffix) {
+		return "", fmt.Errorf("folder name must end with '%s'", ModuleSuffix)
 	}
 
 	// Extract prefix
-	prefix := strings.TrimSuffix(folderName, PackSuffix)
+	prefix := strings.TrimSuffix(folderName, ModuleSuffix)
 	if prefix == "" {
-		return "", fmt.Errorf("pack name cannot be empty (folder name cannot be just '%s')", PackSuffix)
+		return "", fmt.Errorf("module name cannot be empty (folder name cannot be just '%s')", ModuleSuffix)
 	}
 
 	// Must not start with a dot (hidden folder)
 	if strings.HasPrefix(prefix, ".") {
-		return "", fmt.Errorf("pack name cannot start with a dot (hidden folders not allowed)")
+		return "", fmt.Errorf("module name cannot start with a dot (hidden folders not allowed)")
 	}
 
 	// Validate prefix format
-	if !packNameRegex.MatchString(prefix) {
-		return "", fmt.Errorf("pack name '%s' is invalid: must start with a letter, contain only alphanumeric characters, with optional dot-separated segments (e.g., 'mycommands', 'com.example.utils')", prefix)
+	if !moduleNameRegex.MatchString(prefix) {
+		return "", fmt.Errorf("module name '%s' is invalid: must start with a letter, contain only alphanumeric characters, with optional dot-separated segments (e.g., 'mycommands', 'com.example.utils')", prefix)
 	}
 
 	return prefix, nil
 }
 
-// Validate performs comprehensive validation of a pack at the given path.
+// Validate performs comprehensive validation of a module at the given path.
 // Returns a ValidationResult with all issues found, or an error if the path
 // cannot be accessed.
-func Validate(packPath string) (*ValidationResult, error) {
+func Validate(modulePath string) (*ValidationResult, error) {
 	// Convert to absolute path
-	absPath, err := filepath.Abs(packPath)
+	absPath, err := filepath.Abs(modulePath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve absolute path: %w", err)
 	}
 
 	result := &ValidationResult{
-		Valid:    true,
-		PackPath: absPath,
-		Issues:   []ValidationIssue{},
+		Valid:      true,
+		ModulePath: absPath,
+		Issues:     []ValidationIssue{},
 	}
 
 	// Check if path exists
@@ -107,47 +107,47 @@ func Validate(packPath string) (*ValidationResult, error) {
 		return result, nil
 	}
 
-	// Validate folder name and extract pack name
+	// Validate folder name and extract module name
 	base := filepath.Base(absPath)
-	packName, err := ParsePackName(base)
+	moduleName, err := ParseModuleName(base)
 	if err != nil {
 		result.AddIssue("naming", err.Error(), "")
 	} else {
-		result.PackName = packName
+		result.ModuleName = moduleName
 	}
 
-	// Check for invkpack.cue (required)
-	invkpackPath := filepath.Join(absPath, "invkpack.cue")
-	invkpackInfo, err := os.Stat(invkpackPath)
+	// Check for invkmod.cue (required)
+	invkmodPath := filepath.Join(absPath, "invkmod.cue")
+	invkmodInfo, err := os.Stat(invkmodPath)
 	switch {
 	case err != nil && os.IsNotExist(err):
-		result.AddIssue("structure", "missing required invkpack.cue", "")
+		result.AddIssue("structure", "missing required invkmod.cue", "")
 	case err != nil:
-		result.AddIssue("structure", fmt.Sprintf("cannot access invkpack.cue: %v", err), "")
-	case invkpackInfo.IsDir():
-		result.AddIssue("structure", "invkpack.cue must be a file, not a directory", "")
+		result.AddIssue("structure", fmt.Sprintf("cannot access invkmod.cue: %v", err), "")
+	case invkmodInfo.IsDir():
+		result.AddIssue("structure", "invkmod.cue must be a file, not a directory", "")
 	default:
-		result.InvkpackPath = invkpackPath
+		result.InvkmodPath = invkmodPath
 
-		// Parse invkpack.cue and validate pack field matches folder name
-		if result.PackName != "" {
-			meta, parseErr := ParseInvkpack(invkpackPath)
+		// Parse invkmod.cue and validate module field matches folder name
+		if result.ModuleName != "" {
+			meta, parseErr := ParseInvkmod(invkmodPath)
 			if parseErr != nil {
-				result.AddIssue("invkpack", fmt.Sprintf("failed to parse invkpack.cue: %v", parseErr), "invkpack.cue")
-			} else if meta.Pack != result.PackName {
+				result.AddIssue("invkmod", fmt.Sprintf("failed to parse invkmod.cue: %v", parseErr), "invkmod.cue")
+			} else if meta.Module != result.ModuleName {
 				result.AddIssue("naming", fmt.Sprintf(
-					"pack field '%s' in invkpack.cue must match folder name '%s'",
-					meta.Pack, result.PackName), "invkpack.cue")
+					"module field '%s' in invkmod.cue must match folder name '%s'",
+					meta.Module, result.ModuleName), "invkmod.cue")
 			}
 		}
 	}
 
-	// Check for invkfile.cue (optional - may be a library-only pack)
+	// Check for invkfile.cue (optional - may be a library-only module)
 	invkfilePath := filepath.Join(absPath, "invkfile.cue")
 	invkfileInfo, err := os.Stat(invkfilePath)
 	switch {
 	case err != nil && os.IsNotExist(err):
-		// Library-only pack - no commands
+		// Library-only module - no commands
 		result.IsLibraryOnly = true
 	case err != nil:
 		result.AddIssue("structure", fmt.Sprintf("cannot access invkfile.cue: %v", err), "")
@@ -157,7 +157,7 @@ func Validate(packPath string) (*ValidationResult, error) {
 		result.InvkfilePath = invkfilePath
 	}
 
-	// Check for nested packs and symlinks (security)
+	// Check for nested modules and symlinks (security)
 	err = filepath.WalkDir(absPath, func(path string, d os.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			return nil //nolint:nilerr // Intentionally skip errors to continue walking
@@ -168,15 +168,15 @@ func Validate(packPath string) (*ValidationResult, error) {
 			return nil
 		}
 
-		// Skip the vendored packs directory (invk_packs/) - nested packs are allowed there
-		if d.IsDir() && d.Name() == VendoredPacksDir {
+		// Skip the vendored modules directory (invk_modules/) - nested modules are allowed there
+		if d.IsDir() && d.Name() == VendoredModulesDir {
 			return filepath.SkipDir
 		}
 
-		// Check for symlinks (security issue - could point outside pack)
+		// Check for symlinks (security issue - could point outside module)
 		if d.Type()&os.ModeSymlink != 0 {
 			relPath, _ := filepath.Rel(absPath, path)
-			// Check if symlink points outside the pack
+			// Check if symlink points outside the module
 			linkTarget, readErr := os.Readlink(path)
 			if readErr != nil {
 				result.AddIssue("security", "cannot read symlink target", relPath)
@@ -192,18 +192,18 @@ func Validate(packPath string) (*ValidationResult, error) {
 				resolvedTarget = filepath.Clean(resolvedTarget)
 				relToRoot, relErr := filepath.Rel(absPath, resolvedTarget)
 				if relErr != nil || strings.HasPrefix(relToRoot, "..") {
-					result.AddIssue("security", fmt.Sprintf("symlink points outside pack directory (target: %s)", linkTarget), relPath)
+					result.AddIssue("security", fmt.Sprintf("symlink points outside module directory (target: %s)", linkTarget), relPath)
 				} else {
 					// Even internal symlinks are a potential security concern during archive extraction
-					result.AddIssue("security", "symlinks are not allowed in packs (security risk during extraction)", relPath)
+					result.AddIssue("security", "symlinks are not allowed in modules (security risk during extraction)", relPath)
 				}
 			}
 		}
 
-		// Check if any other subdirectory is a pack
-		if d.IsDir() && strings.HasSuffix(d.Name(), PackSuffix) {
+		// Check if any other subdirectory is a module
+		if d.IsDir() && strings.HasSuffix(d.Name(), ModuleSuffix) {
 			relPath, _ := filepath.Rel(absPath, path)
-			result.AddIssue("structure", "nested packs are not allowed (except in invk_packs/)", relPath)
+			result.AddIssue("structure", "nested modules are not allowed (except in invk_modules/)", relPath)
 		}
 
 		// Check for Windows reserved filenames (cross-platform compatibility)
@@ -215,18 +215,18 @@ func Validate(packPath string) (*ValidationResult, error) {
 		return nil
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to walk pack directory: %w", err)
+		return nil, fmt.Errorf("failed to walk module directory: %w", err)
 	}
 
 	return result, nil
 }
 
-// Load loads and validates a pack at the given path.
-// Returns a Pack (operational wrapper) if valid, or an error with validation details.
-// Note: This loads only metadata (invkpack.cue), not commands (invkfile.cue).
-// To load commands as well, use pkg/invkfile.ParsePack().
-func Load(packPath string) (*Pack, error) {
-	result, err := Validate(packPath)
+// Load loads and validates a module at the given path.
+// Returns a Module (operational wrapper) if valid, or an error with validation details.
+// Note: This loads only metadata (invkmod.cue), not commands (invkfile.cue).
+// To load commands as well, use pkg/invkfile.ParseModule().
+func Load(modulePath string) (*Module, error) {
+	result, err := Validate(modulePath)
 	if err != nil {
 		return nil, err
 	}
@@ -237,50 +237,50 @@ func Load(packPath string) (*Pack, error) {
 		for _, issue := range result.Issues {
 			msgs = append(msgs, issue.Error())
 		}
-		return nil, fmt.Errorf("invalid pack: %s", strings.Join(msgs, "; "))
+		return nil, fmt.Errorf("invalid module: %s", strings.Join(msgs, "; "))
 	}
 
 	// Parse the metadata
-	var metadata *Invkpack
-	if result.InvkpackPath != "" {
-		metadata, err = ParseInvkpack(result.InvkpackPath)
+	var metadata *Invkmod
+	if result.InvkmodPath != "" {
+		metadata, err = ParseInvkmod(result.InvkmodPath)
 		if err != nil {
-			return nil, fmt.Errorf("failed to parse pack metadata: %w", err)
+			return nil, fmt.Errorf("failed to parse module metadata: %w", err)
 		}
 	}
 
-	return &Pack{
+	return &Module{
 		Metadata:      metadata,
-		Path:          result.PackPath,
+		Path:          result.ModulePath,
 		IsLibraryOnly: result.IsLibraryOnly,
 	}, nil
 }
 
-// CreateOptions contains options for creating a new pack
+// CreateOptions contains options for creating a new module
 type CreateOptions struct {
-	// Name is the pack name (e.g., "com.example.mytools")
+	// Name is the module name (e.g., "com.example.mytools")
 	Name string
-	// ParentDir is the directory where the pack will be created
+	// ParentDir is the directory where the module will be created
 	ParentDir string
-	// Pack is the pack identifier for the invkfile (defaults to Name if empty)
-	Pack string
+	// Module is the module identifier for the invkfile (defaults to Name if empty)
+	Module string
 	// Description is an optional description for the invkfile
 	Description string
 	// CreateScriptsDir creates a scripts/ subdirectory if true
 	CreateScriptsDir bool
 }
 
-// Create creates a new pack with the given options.
-// Returns the path to the created pack or an error.
+// Create creates a new module with the given options.
+// Returns the path to the created module or an error.
 func Create(opts CreateOptions) (string, error) {
-	// Validate pack name
+	// Validate module name
 	if opts.Name == "" {
-		return "", fmt.Errorf("pack name cannot be empty")
+		return "", fmt.Errorf("module name cannot be empty")
 	}
 
 	// Validate the name format
-	if !packNameRegex.MatchString(opts.Name) {
-		return "", fmt.Errorf("pack name '%s' is invalid: must start with a letter, contain only alphanumeric characters, with optional dot-separated segments (e.g., 'mycommands', 'com.example.utils')", opts.Name)
+	if !moduleNameRegex.MatchString(opts.Name) {
+		return "", fmt.Errorf("module name '%s' is invalid: must start with a letter, contain only alphanumeric characters, with optional dot-separated segments (e.g., 'mycommands', 'com.example.utils')", opts.Name)
 	}
 
 	// Default parent directory to current directory
@@ -299,57 +299,57 @@ func Create(opts CreateOptions) (string, error) {
 		return "", fmt.Errorf("failed to resolve parent directory: %w", err)
 	}
 
-	// Create pack directory
-	packDirName := opts.Name + PackSuffix
-	packPath := filepath.Join(absParentDir, packDirName)
+	// Create module directory
+	moduleDirName := opts.Name + ModuleSuffix
+	modulePath := filepath.Join(absParentDir, moduleDirName)
 
-	// Check if pack already exists
-	if _, err := os.Stat(packPath); err == nil {
-		return "", fmt.Errorf("pack already exists at %s", packPath)
+	// Check if module already exists
+	if _, err := os.Stat(modulePath); err == nil {
+		return "", fmt.Errorf("module already exists at %s", modulePath)
 	}
 
-	if err := os.MkdirAll(packPath, 0o755); err != nil {
-		return "", fmt.Errorf("failed to create pack directory: %w", err)
+	if err := os.MkdirAll(modulePath, 0o755); err != nil {
+		return "", fmt.Errorf("failed to create module directory: %w", err)
 	}
 
-	// Use name as pack identifier if not specified
-	packID := opts.Pack
-	if packID == "" {
-		packID = opts.Name
+	// Use name as module identifier if not specified
+	moduleID := opts.Module
+	if moduleID == "" {
+		moduleID = opts.Name
 	}
 
 	// Create description
 	description := opts.Description
 	if description == "" {
-		description = fmt.Sprintf("Commands from %s pack", opts.Name)
+		description = fmt.Sprintf("Commands from %s module", opts.Name)
 	}
 
-	// Create invkpack.cue (pack metadata)
-	invkpackContent := fmt.Sprintf(`// Invkpack - Pack metadata for %s
+	// Create invkmod.cue (module metadata)
+	invkmodContent := fmt.Sprintf(`// Invkmod - Module metadata for %s
 // See https://github.com/invowk/invowk for documentation
 
-pack: %q
+module: %q
 version: "1.0"
 description: %q
 
 // Uncomment to add dependencies:
 // requires: [
 //     {
-//         git_url: "https://github.com/example/utils.invkpack.git"
+//         git_url: "https://github.com/example/utils.invkmod.git"
 //         version: "^1.0.0"
 //     },
 // ]
-`, opts.Name, packID, description)
+`, opts.Name, moduleID, description)
 
-	invkpackPath := filepath.Join(packPath, "invkpack.cue")
-	if err := os.WriteFile(invkpackPath, []byte(invkpackContent), 0o644); err != nil {
+	invkmodPath := filepath.Join(modulePath, "invkmod.cue")
+	if err := os.WriteFile(invkmodPath, []byte(invkmodContent), 0o644); err != nil {
 		// Clean up on failure
-		_ = os.RemoveAll(packPath) // Best-effort cleanup on error path
-		return "", fmt.Errorf("failed to create invkpack.cue: %w", err)
+		_ = os.RemoveAll(modulePath) // Best-effort cleanup on error path
+		return "", fmt.Errorf("failed to create invkmod.cue: %w", err)
 	}
 
 	// Create invkfile.cue (command definitions only)
-	invkfileContent := fmt.Sprintf(`// Invkfile - Command definitions for %s pack
+	invkfileContent := fmt.Sprintf(`// Invkfile - Command definitions for %s module
 // See https://github.com/invowk/invowk for documentation
 
 cmds: [
@@ -369,19 +369,19 @@ cmds: [
 ]
 `, opts.Name, opts.Name)
 
-	invkfilePath := filepath.Join(packPath, "invkfile.cue")
+	invkfilePath := filepath.Join(modulePath, "invkfile.cue")
 	if err := os.WriteFile(invkfilePath, []byte(invkfileContent), 0o644); err != nil {
 		// Clean up on failure
-		_ = os.RemoveAll(packPath) // Best-effort cleanup on error path
+		_ = os.RemoveAll(modulePath) // Best-effort cleanup on error path
 		return "", fmt.Errorf("failed to create invkfile.cue: %w", err)
 	}
 
 	// Optionally create scripts directory
 	if opts.CreateScriptsDir {
-		scriptsDir := filepath.Join(packPath, "scripts")
+		scriptsDir := filepath.Join(modulePath, "scripts")
 		if err := os.MkdirAll(scriptsDir, 0o755); err != nil {
 			// Clean up on failure
-			_ = os.RemoveAll(packPath) // Best-effort cleanup on error path
+			_ = os.RemoveAll(modulePath) // Best-effort cleanup on error path
 			return "", fmt.Errorf("failed to create scripts directory: %w", err)
 		}
 
@@ -389,26 +389,26 @@ cmds: [
 		gitkeepPath := filepath.Join(scriptsDir, ".gitkeep")
 		if err := os.WriteFile(gitkeepPath, []byte(""), 0o644); err != nil {
 			// Clean up on failure
-			_ = os.RemoveAll(packPath) // Best-effort cleanup on error path
+			_ = os.RemoveAll(modulePath) // Best-effort cleanup on error path
 			return "", fmt.Errorf("failed to create .gitkeep: %w", err)
 		}
 	}
 
-	return packPath, nil
+	return modulePath, nil
 }
 
-// Archive creates a ZIP archive of a pack.
+// Archive creates a ZIP archive of a module.
 // Returns the path to the created ZIP file or an error.
-func Archive(packPath, outputPath string) (archivePath string, err error) {
-	// Load and validate the pack first
-	b, err := Load(packPath)
+func Archive(modulePath, outputPath string) (archivePath string, err error) {
+	// Load and validate the module first
+	m, err := Load(modulePath)
 	if err != nil {
-		return "", fmt.Errorf("invalid pack: %w", err)
+		return "", fmt.Errorf("invalid module: %w", err)
 	}
 
 	// Determine output path
 	if outputPath == "" {
-		outputPath = b.Name() + PackSuffix + ".zip"
+		outputPath = m.Name() + ModuleSuffix + ".zip"
 	}
 
 	// Resolve absolute output path
@@ -435,23 +435,23 @@ func Archive(packPath, outputPath string) (archivePath string, err error) {
 		}
 	}()
 
-	// Get the pack directory name for the ZIP root
-	packDirName := filepath.Base(b.Path)
+	// Get the module directory name for the ZIP root
+	moduleDirName := filepath.Base(m.Path)
 
-	// Walk the pack directory and add files to the ZIP
-	walkErr := filepath.WalkDir(b.Path, func(path string, d os.DirEntry, walkErr error) error {
+	// Walk the module directory and add files to the ZIP
+	walkErr := filepath.WalkDir(m.Path, func(path string, d os.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			return walkErr
 		}
 
-		// Get relative path from pack root
-		relPath, relErr := filepath.Rel(b.Path, path)
+		// Get relative path from module root
+		relPath, relErr := filepath.Rel(m.Path, path)
 		if relErr != nil {
 			return fmt.Errorf("failed to get relative path: %w", relErr)
 		}
 
-		// Create ZIP path with pack directory as root
-		zipPath := filepath.Join(packDirName, relPath)
+		// Create ZIP path with module directory as root
+		zipPath := filepath.Join(moduleDirName, relPath)
 		// Use forward slashes for ZIP compatibility
 		zipPath = filepath.ToSlash(zipPath)
 
@@ -502,7 +502,7 @@ func Archive(packPath, outputPath string) (archivePath string, err error) {
 
 	if walkErr != nil {
 		// Clean up on failure - deferred closes will run, then remove the file
-		err = fmt.Errorf("failed to pack pack: %w", walkErr)
+		err = fmt.Errorf("failed to archive module: %w", walkErr)
 		// Remove file after closes complete (use a separate defer to ensure order)
 		defer func() { _ = os.Remove(absOutputPath) }()
 		return "", err
@@ -511,18 +511,18 @@ func Archive(packPath, outputPath string) (archivePath string, err error) {
 	return absOutputPath, nil
 }
 
-// UnpackOptions contains options for unpacking a pack
+// UnpackOptions contains options for unpacking a module
 type UnpackOptions struct {
 	// Source is the path to the ZIP file or URL
 	Source string
 	// DestDir is the destination directory (defaults to current directory)
 	DestDir string
-	// Overwrite allows overwriting an existing pack
+	// Overwrite allows overwriting an existing module
 	Overwrite bool
 }
 
-// Unpack extracts a pack from a ZIP archive.
-// Returns the path to the extracted pack or an error.
+// Unpack extracts a module from a ZIP archive.
+// Returns the path to the extracted module or an error.
 func Unpack(opts UnpackOptions) (extractedPath string, err error) {
 	if opts.Source == "" {
 		return "", fmt.Errorf("source cannot be empty")
@@ -556,7 +556,7 @@ func Unpack(opts UnpackOptions) (extractedPath string, err error) {
 		var tmpFile string
 		tmpFile, err = downloadFile(opts.Source)
 		if err != nil {
-			return "", fmt.Errorf("failed to download pack: %w", err)
+			return "", fmt.Errorf("failed to download module: %w", err)
 		}
 		zipPath = tmpFile
 		cleanup = func() { _ = os.Remove(tmpFile) } // Best-effort cleanup of temp file
@@ -581,37 +581,37 @@ func Unpack(opts UnpackOptions) (extractedPath string, err error) {
 		}
 	}()
 
-	// Find the pack root directory in the ZIP
-	var packRoot string
+	// Find the module root directory in the ZIP
+	var moduleRoot string
 	for _, file := range zipReader.File {
-		// Look for the .invkpack directory
+		// Look for the .invkmod directory
 		parts := strings.Split(file.Name, "/")
-		if len(parts) > 0 && strings.HasSuffix(parts[0], PackSuffix) {
-			packRoot = parts[0]
+		if len(parts) > 0 && strings.HasSuffix(parts[0], ModuleSuffix) {
+			moduleRoot = parts[0]
 			break
 		}
 	}
 
-	if packRoot == "" {
-		return "", fmt.Errorf("no valid pack found in ZIP (expected directory ending with %s)", PackSuffix)
+	if moduleRoot == "" {
+		return "", fmt.Errorf("no valid module found in ZIP (expected directory ending with %s)", ModuleSuffix)
 	}
 
-	// Check if pack already exists
-	packPath := filepath.Join(absDestDir, packRoot)
-	if _, statErr := os.Stat(packPath); statErr == nil {
+	// Check if module already exists
+	modulePath := filepath.Join(absDestDir, moduleRoot)
+	if _, statErr := os.Stat(modulePath); statErr == nil {
 		if !opts.Overwrite {
-			return "", fmt.Errorf("pack already exists at %s (use overwrite option to replace)", packPath)
+			return "", fmt.Errorf("module already exists at %s (use overwrite option to replace)", modulePath)
 		}
-		// Remove existing pack
-		if err = os.RemoveAll(packPath); err != nil {
-			return "", fmt.Errorf("failed to remove existing pack: %w", err)
+		// Remove existing module
+		if err = os.RemoveAll(modulePath); err != nil {
+			return "", fmt.Errorf("failed to remove existing module: %w", err)
 		}
 	}
 
 	// Extract files
 	for _, file := range zipReader.File {
-		// Skip files not in the pack root
-		if !strings.HasPrefix(file.Name, packRoot) {
+		// Skip files not in the module root
+		if !strings.HasPrefix(file.Name, moduleRoot) {
 			continue
 		}
 
@@ -644,21 +644,21 @@ func Unpack(opts UnpackOptions) (extractedPath string, err error) {
 		}
 	}
 
-	// Validate the extracted pack
-	_, err = Load(packPath)
+	// Validate the extracted module
+	_, err = Load(modulePath)
 	if err != nil {
 		// Clean up on validation failure (best-effort)
-		_ = os.RemoveAll(packPath)
-		return "", fmt.Errorf("extracted pack is invalid: %w", err)
+		_ = os.RemoveAll(modulePath)
+		return "", fmt.Errorf("extracted module is invalid: %w", err)
 	}
 
-	return packPath, nil
+	return modulePath, nil
 }
 
 // downloadFile downloads a file from a URL and returns the path to the temporary file
 func downloadFile(url string) (tmpPath string, err error) {
 	// Create a temporary file
-	tmpFile, err := os.CreateTemp("", "invowk-pack-*.zip")
+	tmpFile, err := os.CreateTemp("", "invowk-module-*.zip")
 	if err != nil {
 		return "", fmt.Errorf("failed to create temp file: %w", err)
 	}
@@ -731,44 +731,44 @@ func extractFile(file *zip.File, destPath string) (err error) {
 	return err
 }
 
-// ValidateName checks if a pack name is valid.
+// ValidateName checks if a module name is valid.
 // Returns nil if valid, or an error describing the problem.
 func ValidateName(name string) error {
 	if name == "" {
-		return fmt.Errorf("pack name cannot be empty")
+		return fmt.Errorf("module name cannot be empty")
 	}
 
 	if strings.HasPrefix(name, ".") {
-		return fmt.Errorf("pack name cannot start with a dot")
+		return fmt.Errorf("module name cannot start with a dot")
 	}
 
-	if !packNameRegex.MatchString(name) {
-		return fmt.Errorf("pack name '%s' is invalid: must start with a letter, contain only alphanumeric characters, with optional dot-separated segments (e.g., 'mycommands', 'com.example.utils')", name)
+	if !moduleNameRegex.MatchString(name) {
+		return fmt.Errorf("module name '%s' is invalid: must start with a letter, contain only alphanumeric characters, with optional dot-separated segments (e.g., 'mycommands', 'com.example.utils')", name)
 	}
 
 	return nil
 }
 
-// GetVendoredPacksDir returns the path to the vendored packs directory for a given pack.
+// GetVendoredModulesDir returns the path to the vendored modules directory for a given module.
 // Returns the path whether or not the directory exists.
-func GetVendoredPacksDir(packPath string) string {
-	return filepath.Join(packPath, VendoredPacksDir)
+func GetVendoredModulesDir(modulePath string) string {
+	return filepath.Join(modulePath, VendoredModulesDir)
 }
 
-// HasVendoredPacks checks if a pack has vendored dependencies.
-// Returns true only if the invk_packs/ directory exists AND contains at least one valid pack.
-func HasVendoredPacks(packPath string) bool {
-	packs, err := ListVendoredPacks(packPath)
+// HasVendoredModules checks if a module has vendored dependencies.
+// Returns true only if the invk_modules/ directory exists AND contains at least one valid module.
+func HasVendoredModules(modulePath string) bool {
+	modules, err := ListVendoredModules(modulePath)
 	if err != nil {
 		return false
 	}
-	return len(packs) > 0
+	return len(modules) > 0
 }
 
-// ListVendoredPacks returns a list of vendored packs in the given pack directory.
-// Returns nil if no invk_packs/ directory exists or it's empty.
-func ListVendoredPacks(packPath string) ([]*Pack, error) {
-	vendorDir := GetVendoredPacksDir(packPath)
+// ListVendoredModules returns a list of vendored modules in the given module directory.
+// Returns nil if no invk_modules/ directory exists or it's empty.
+func ListVendoredModules(modulePath string) ([]*Module, error) {
+	vendorDir := GetVendoredModulesDir(modulePath)
 
 	// Check if vendor directory exists
 	info, err := os.Stat(vendorDir)
@@ -788,27 +788,27 @@ func ListVendoredPacks(packPath string) ([]*Pack, error) {
 		return nil, fmt.Errorf("failed to read vendor directory: %w", err)
 	}
 
-	var packs []*Pack
+	var modules []*Module
 	for _, entry := range entries {
 		if !entry.IsDir() {
 			continue
 		}
 
-		// Check if it's a pack
+		// Check if it's a module
 		entryPath := filepath.Join(vendorDir, entry.Name())
-		if !IsPack(entryPath) {
+		if !IsModule(entryPath) {
 			continue
 		}
 
-		// Load the pack
-		p, err := Load(entryPath)
+		// Load the module
+		m, err := Load(entryPath)
 		if err != nil {
-			// Skip invalid packs
+			// Skip invalid modules
 			continue
 		}
 
-		packs = append(packs, p)
+		modules = append(modules, m)
 	}
 
-	return packs, nil
+	return modules, nil
 }

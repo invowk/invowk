@@ -28,7 +28,7 @@ A dynamically extensible, CLI-based command runner similar to [just](https://git
 
 - **Interactive TUI Components**: Built-in gum-like terminal UI components for creating interactive shell scripts (input, choose, confirm, filter, file picker, table, spinner, pager, format, style)
 
-- **Pack Dependencies**: Packs can import dependencies from remote Git repositories (GitHub, GitLab) with semantic versioning support and lock files for reproducibility
+- **Module Dependencies**: Modules can import dependencies from remote Git repositories (GitHub, GitLab) with semantic versioning support and lock files for reproducibility
 
 ## Installation
 
@@ -72,7 +72,7 @@ invowk cmd
 invowk cmd --list
 ```
 
-The list shows all commands and allowed runtimes (default marked with `*`). Commands from packs are prefixed with the pack name; commands from the current directory are not:
+The list shows all commands and allowed runtimes (default marked with `*`). Commands from modules are prefixed with the module name; commands from the current directory are not:
 
 ```
 Available Commands
@@ -99,7 +99,7 @@ invowk cmd build --runtime container
 
 ## Invkfile Format
 
-Invkfiles are written in [CUE](https://cuelang.org/) format. CUE provides powerful validation, templating, and a clean syntax. Invkfiles contain **commands only**; pack metadata lives in `invkpack.cue` when you build a pack. Here's an example:
+Invkfiles are written in [CUE](https://cuelang.org/) format. CUE provides powerful validation, templating, and a clean syntax. Invkfiles contain **commands only**; module metadata lives in `invkmod.cue` when you build a module. Here's an example:
 
 ```cue
 // Define commands
@@ -187,40 +187,40 @@ cmds: [
 ]
 ```
 
-## Pack Metadata (invkpack.cue)
+## Module Metadata (invkmod.cue)
 
-Packs (directories ending in `.invkpack`) use a separate metadata file named `invkpack.cue`. It defines the pack identifier, optional description, and dependencies.
+Modules (directories ending in `.invkmod`) use a separate metadata file named `invkmod.cue`. It defines the module identifier, optional description, and dependencies.
 
 ```cue
-pack: "mypack"
+module: "mymodule"
 version: "1.0"
 description: "Reusable build tools"
 ```
 
-### Pack Field Format
+### Module Field Format
 
 ```cue
-pack: "mypack"           // Simple pack name
-pack: "my.nested.pack"   // Nested pack using dot notation (RDNS style)
+module: "mymodule"           // Simple module name
+module: "my.nested.module"   // Nested module using dot notation (RDNS style)
 ```
 
 **Validation rules:**
 - Must start with a letter (a-z, A-Z)
 - Can contain letters and numbers
-- Nested packs use dots (`.`) as separators
+- Nested modules use dots (`.`) as separators
 - Each segment must start with a letter
 
-**Valid examples:** `mypack`, `my.pack`, `my.nested.pack`, `Pack1`, `a.b.c`
+**Valid examples:** `mymodule`, `my.module`, `my.nested.module`, `Module1`, `a.b.c`
 
-**Invalid examples:** `.pack`, `pack.`, `my..pack`, `my-pack`, `my_pack`, `1pack`
+**Invalid examples:** `.module`, `module.`, `my..module`, `my-module`, `my_module`, `1module`
 
-### How Pack Namespacing Works
+### How Module Namespacing Works
 
-When you define a command in a pack, the pack ID becomes the namespace prefix:
+When you define a command in a module, the module ID becomes the namespace prefix:
 
 ```cue
-// invkpack.cue
-pack: "myproject"
+// invkmod.cue
+module: "myproject"
 
 // invkfile.cue
 cmds: [
@@ -229,7 +229,7 @@ cmds: [
 ]
 ```
 
-The commands are accessed with the pack as a prefix:
+The commands are accessed with the module as a prefix:
 
 ```bash
 invowk cmd myproject build
@@ -243,19 +243,19 @@ invowk cmd build
 invowk cmd test unit
 ```
 
-### Benefits of Pack Namespaces
+### Benefits of Module Namespaces
 
-1. **Namespace isolation**: Pack command names stay distinct across shared toolkits
+1. **Namespace isolation**: Module command names stay distinct across shared toolkits
 2. **Clear provenance**: You know which invkfile a command comes from
 3. **Hierarchical organization**: Use dot notation for logical grouping (e.g., `frontend.components`, `backend.api`)
-4. **Tab completion**: Packs provide natural completion boundaries
+4. **Tab completion**: Modules provide natural completion boundaries
 
 ### Command Dependencies and Namespaces
 
 Command dependencies refer to other invowk commands by name. Invowk validates that the referenced commands are discoverable (it does not execute them automatically).
 
 - Same invkfile: use unqualified names like `build` or `test unit`
-- Pack commands: use the pack prefix (or alias) like `tools deploy`
+- Module commands: use the module prefix (or alias) like `tools deploy`
 
 ```cue
 cmds: [
@@ -265,7 +265,7 @@ cmds: [
             cmds: [
                 {alternatives: ["build"]},          // Same-file command
                 {alternatives: ["test unit"]},      // Same-file nested command
-                {alternatives: ["tools deploy"]},   // Command from a pack
+                {alternatives: ["tools deploy"]},   // Command from a module
             ]
         }
     }
@@ -297,7 +297,7 @@ depends_on: {
 
 ### Command Dependencies
 
-Require other invowk commands to be discoverable. Use the full command name as listed by `invowk cmd --list` (pack prefix when applicable):
+Require other invowk commands to be discoverable. Use the full command name as listed by `invowk cmd --list` (module prefix when applicable):
 
 ```cue
 depends_on: {
@@ -1370,48 +1370,48 @@ Any executable available in PATH (or in the container) can be used as an interpr
 - `Rscript`
 - Custom interpreters
 
-## Packs
+## Modules
 
-Packs are self-contained folders that bundle pack metadata with command definitions and scripts for easy distribution and portability.
+Modules are self-contained folders that bundle module metadata with command definitions and scripts for easy distribution and portability.
 
-### What is a Pack?
+### What is a Module?
 
-A pack is a directory with the `.invkpack` suffix that contains:
-- Required `invkpack.cue` at the root (pack metadata and dependencies)
+A module is a directory with the `.invkmod` suffix that contains:
+- Required `invkmod.cue` at the root (module metadata and dependencies)
 - Optional `invkfile.cue` at the root (command definitions)
 - Optional script files referenced by command implementations
-- No nested packs (packs cannot contain other packs)
+- No nested modules (modules cannot contain other modules)
 
-`invkfile.cue` is optional for library-only packs that exist to declare dependencies.
+`invkfile.cue` is optional for library-only modules that exist to declare dependencies.
 
-### Pack Naming
+### Module Naming
 
-Pack folder names follow these rules:
-- Must end with `.invkpack`
-- The prefix (before `.invkpack`) must:
+Module folder names follow these rules:
+- Must end with `.invkmod`
+- The prefix (before `.invkmod`) must:
   - Start with a letter (a-z, A-Z)
   - Contain only alphanumeric characters
   - Support dot-separated segments for namespacing
 - Compatible with RDNS (Reverse Domain Name System) naming conventions
 
-**Valid pack names:**
-- `mycommands.invkpack`
-- `com.example.mytools.invkpack`
-- `org.company.project.invkpack`
-- `Utils.invkpack`
+**Valid module names:**
+- `mycommands.invkmod`
+- `com.example.mytools.invkmod`
+- `org.company.project.invkmod`
+- `Utils.invkmod`
 
-**Invalid pack names:**
-- `.hidden.invkpack` (starts with dot)
-- `my-commands.invkpack` (contains hyphen)
-- `my_commands.invkpack` (contains underscore)
-- `123commands.invkpack` (starts with number)
-- `com..example.invkpack` (empty segment)
+**Invalid module names:**
+- `.hidden.invkmod` (starts with dot)
+- `my-commands.invkmod` (contains hyphen)
+- `my_commands.invkmod` (contains underscore)
+- `123commands.invkmod` (starts with number)
+- `com..example.invkmod` (empty segment)
 
-### Pack Structure
+### Module Structure
 
 ```
-com.example.mytools.invkpack/
-├── invkpack.cue         # Required: pack metadata + dependencies
+com.example.mytools.invkmod/
+├── invkmod.cue          # Required: module metadata + dependencies
 ├── invkfile.cue         # Optional: command definitions
 ├── scripts/               # Optional: script files
 │   ├── build.sh
@@ -1422,9 +1422,9 @@ com.example.mytools.invkpack/
     └── config.yaml
 ```
 
-### Script Paths in Packs
+### Script Paths in Modules
 
-When referencing script files in a pack's invkfile, use paths relative to the pack root with **forward slashes** for cross-platform compatibility:
+When referencing script files in a module's invkfile, use paths relative to the module root with **forward slashes** for cross-platform compatibility:
 
 ```cue
 // invkfile.cue
@@ -1434,7 +1434,7 @@ cmds: [
         description: "Build the project"
         implementations: [
             {
-                // Path relative to pack root, using forward slashes
+                // Path relative to module root, using forward slashes
                 script: "scripts/build.sh"
                 runtimes: [{name: "native"}]
             }
@@ -1457,28 +1457,28 @@ cmds: [
 **Important:**
 - Always use forward slashes (`/`) in script paths, even on Windows
 - Paths are automatically converted to the native format at runtime
-- Absolute paths are not allowed in packs
-- Paths cannot escape the pack directory (e.g., `../outside.sh` is invalid)
+- Absolute paths are not allowed in modules
+- Paths cannot escape the module directory (e.g., `../outside.sh` is invalid)
 
-### Validating Packs
+### Validating Modules
 
-Use the `pack validate` command to check a pack's structure:
+Use the `module validate` command to check a module's structure:
 
 ```bash
 # Basic validation
-invowk pack validate ./com.example.mytools.invkpack
+invowk module validate ./com.example.mytools.invkmod
 
 # Deep validation (also parses the invkfile)
-invowk pack validate ./com.example.mytools.invkpack --deep
+invowk module validate ./com.example.mytools.invkmod --deep
 ```
 
-Example output for a valid pack:
+Example output for a valid module:
 ```
-Pack Validation
-• Path: /home/user/com.example.mytools.invkpack
+Module Validation
+• Path: /home/user/com.example.mytools.invkmod
 • Name: com.example.mytools
 
-✓ Pack is valid
+✓ Module is valid
 
 ✓ Structure check passed
 ✓ Naming convention check passed
@@ -1486,154 +1486,154 @@ Pack Validation
 ✓ Invkfile parses successfully
 ```
 
-Example output for an invalid pack:
+Example output for an invalid module:
 ```
-Pack Validation
-• Path: /home/user/invalid.invkpack
+Module Validation
+• Path: /home/user/invalid.invkmod
 
-✗ Pack validation failed with 2 issue(s)
+✗ Module validation failed with 2 issue(s)
 
-  1. [structure] missing required invkpack.cue
-  2. [structure] nested.invkpack: nested packs are not allowed
+  1. [structure] missing required invkmod.cue
+  2. [structure] nested.invkmod: nested modules are not allowed
 ```
 
-### Creating Packs
+### Creating Modules
 
-Use the `pack create` command to scaffold a new pack:
+Use the `module create` command to scaffold a new module:
 
 ```bash
-# Create a simple pack in the current directory
-invowk pack create mycommands
+# Create a simple module in the current directory
+invowk module create mycommands
 
-# Create a pack with RDNS naming
-invowk pack create com.example.mytools
+# Create a module with RDNS naming
+invowk module create com.example.mytools
 
-# Create a pack in a specific directory
-invowk pack create mytools --path /path/to/packs
+# Create a module in a specific directory
+invowk module create mytools --path /path/to/modules
 
 # Create with a scripts directory
-invowk pack create mytools --scripts
+invowk module create mytools --scripts
 
-# Create with custom pack identifier and description
-invowk pack create mytools --pack-id "com.example.mytools" --description "A collection of useful commands"
+# Create with custom module identifier and description
+invowk module create mytools --module-id "com.example.mytools" --description "A collection of useful commands"
 ```
 
-The created pack will contain `invkpack.cue` metadata and a template `invkfile.cue` with a sample "hello" command.
+The created module will contain `invkmod.cue` metadata and a template `invkfile.cue` with a sample "hello" command.
 
-### Listing Packs
+### Listing Modules
 
-Use the `pack list` command to see all discovered packs:
+Use the `module list` command to see all discovered modules:
 
 ```bash
-invowk pack list
+invowk module list
 ```
 
 Example output:
 ```
-Discovered Packs
+Discovered Modules
 
-• Found 3 pack(s)
+• Found 3 module(s)
 
 • current directory:
    ✓ mytools
-      /home/user/project/mytools.invkpack
+      /home/user/project/mytools.invkmod
 
 • user commands (~/.invowk/cmds):
    ✓ com.example.utilities
-      /home/user/.invowk/cmds/com.example.utilities.invkpack
+      /home/user/.invowk/cmds/com.example.utilities.invkmod
    ✓ org.company.tools
-      /home/user/.invowk/cmds/org.company.tools.invkpack
+      /home/user/.invowk/cmds/org.company.tools.invkmod
 ```
 
-### Packing Packs
+### Archiving Modules
 
-Use the `pack archive` command to create a ZIP archive for distribution:
+Use the `module archive` command to create a ZIP archive for distribution:
 
 ```bash
-# Pack a pack (creates <pack-name>.invkpack.zip in current directory)
-invowk pack archive ./mytools.invkpack
+# Archive a module (creates <module-name>.invkmod.zip in current directory)
+invowk module archive ./mytools.invkmod
 
-# Pack with custom output path
-invowk pack archive ./mytools.invkpack --output ./dist/mytools.zip
+# Archive with custom output path
+invowk module archive ./mytools.invkmod --output ./dist/mytools.zip
 ```
 
 Example output:
 ```
-Archive Pack
+Archive Module
 
-✓ Pack archived successfully
+✓ Module archived successfully
 
 • Output: /home/user/dist/mytools.zip
 • Size: 2.45 KB
 ```
 
-### Importing Packs
+### Importing Modules
 
-Use the `pack import` command to install a pack from a ZIP file or URL:
+Use the `module import` command to install a module from a ZIP file or URL:
 
 ```bash
 # Import from a local ZIP file (installs to ~/.invowk/cmds/)
-invowk pack import ./mytools.invkpack.zip
+invowk module import ./mytools.invkmod.zip
 
 # Import from a URL
-invowk pack import https://example.com/packs/mytools.zip
+invowk module import https://example.com/modules/mytools.zip
 
 # Import to a custom directory
-invowk pack import ./pack.zip --path ./local-packs
+invowk module import ./module.zip --path ./local-modules
 
-# Overwrite existing pack
-invowk pack import ./pack.zip --overwrite
+# Overwrite existing module
+invowk module import ./module.zip --overwrite
 ```
 
 Example output:
 ```
-Import Pack
+Import Module
 
-✓ Pack imported successfully
+✓ Module imported successfully
 
 • Name: mytools
-• Path: /home/user/.invowk/cmds/mytools.invkpack
+• Path: /home/user/.invowk/cmds/mytools.invkmod
 
-• The pack commands are now available via invowk
+• The module commands are now available via invowk
 ```
 
-### Benefits of Packs
+### Benefits of Modules
 
 1. **Portability**: Share a complete command set as a single folder
-2. **Self-contained**: Pack metadata and scripts travel together
+2. **Self-contained**: Module metadata and scripts travel together
 3. **Cross-platform**: Forward slash paths work on all operating systems
-4. **Namespace isolation**: RDNS naming prevents conflicts between packs
-5. **Validation**: Built-in validation ensures pack integrity
+4. **Namespace isolation**: RDNS naming prevents conflicts between modules
+5. **Validation**: Built-in validation ensures module integrity
 
-### Using Packs
+### Using Modules
 
-Packs are automatically discovered and loaded from all invowk search paths:
+Modules are automatically discovered and loaded from all invowk search paths:
 1. Current directory (highest priority)
 2. User commands directory (`~/.invowk/cmds/`)
 3. Configured search paths in your config file
 
-When invowk discovers a pack, it:
-- Validates the pack structure and naming
-- Loads `invkfile.cue` from within the pack (if present)
-- Resolves script paths relative to the pack root
-- Makes all commands available with their pack prefix
+When invowk discovers a module, it:
+- Validates the module structure and naming
+- Loads `invkfile.cue` from within the module (if present)
+- Resolves script paths relative to the module root
+- Makes all commands available with their module prefix
 
-Commands from packs appear in `invowk cmd --list` with the source indicated as "pack":
+Commands from modules appear in `invowk cmd --list` with the source indicated as "module":
 
-## Pack Dependencies
+## Module Dependencies
 
-Packs can declare dependencies on other packs hosted in remote Git repositories (GitHub, GitLab, etc.). This enables code reuse and sharing of common command definitions across projects.
+Modules can declare dependencies on other modules hosted in remote Git repositories (GitHub, GitLab, etc.). This enables code reuse and sharing of common command definitions across projects.
 
 ### Declaring Dependencies
 
-Add a `requires` field to `invkpack.cue` to declare pack dependencies:
+Add a `requires` field to `invkmod.cue` to declare module dependencies:
 
 ```cue
-// invkpack.cue
-pack: "myproject"
+// invkmod.cue
+module: "myproject"
 version: "1.0"
 
-// Declare pack dependencies
+// Declare module dependencies
 requires: [
 	{
 		git_url: "https://github.com/user/common-tools.git"
@@ -1652,9 +1652,9 @@ requires: [
 ]
 ```
 
-The repository must contain a pack (either a `.invkpack` directory or an `invkpack.cue` file at the root).
+The repository must contain a module (either a `.invkmod` directory or an `invkmod.cue` file at the root).
 
-Commands in a pack can only call commands from direct dependencies or globally installed packs (transitive dependencies are not available).
+Commands in a module can only call commands from direct dependencies or globally installed modules (transitive dependencies are not available).
 
 ### Version Constraints
 
@@ -1666,46 +1666,46 @@ Commands in a pack can only call commands from direct dependencies or globally i
 | `<2.0.0` | Less than | Maximum version |
 | `1.2.3` | Exact version | Pinned version |
 
-### Pack Dependency CLI Commands
+### Module Dependency CLI Commands
 
 ```bash
-# Add a new pack dependency
-invowk pack add https://github.com/user/pack.git ^1.0.0
+# Add a new module dependency
+invowk module add https://github.com/user/module.git ^1.0.0
 
 # Add with custom alias (for collision disambiguation)
-invowk pack add https://github.com/user/pack.git ^1.0.0 --alias myalias
+invowk module add https://github.com/user/module.git ^1.0.0 --alias myalias
 
 # Add from monorepo subdirectory
-invowk pack add https://github.com/user/monorepo.git ^1.0.0 --path packages/tools
+invowk module add https://github.com/user/monorepo.git ^1.0.0 --path packages/tools
 
 # List all resolved dependencies
-invowk pack deps
+invowk module deps
 
-# Sync dependencies from invkpack.cue (resolve and download)
-invowk pack sync
+# Sync dependencies from invkmod.cue (resolve and download)
+invowk module sync
 
 # Update all dependencies to latest matching versions
-invowk pack update
+invowk module update
 
 # Update a specific dependency
-invowk pack update https://github.com/user/pack.git
+invowk module update https://github.com/user/module.git
 
 # Remove a dependency
-invowk pack remove https://github.com/user/pack.git
+invowk module remove https://github.com/user/module.git
 ```
 
 ### Lock File
 
-Pack resolution creates an `invkpack.lock.cue` file that records the exact versions resolved. This ensures reproducible builds across environments:
+Module resolution creates an `invkmod.lock.cue` file that records the exact versions resolved. This ensures reproducible builds across environments:
 
 ```cue
-// invkpack.lock.cue - Auto-generated lock file
+// invkmod.lock.cue - Auto-generated lock file
 // DO NOT EDIT MANUALLY
 
 version: "1.0"
 generated: "2025-01-12T10:30:00Z"
 
-packs: {
+modules: {
 	"github.com/user/common-tools": {
 		git_url:          "https://github.com/user/common-tools.git"
 		version:          "^1.0.0"
@@ -1718,9 +1718,9 @@ packs: {
 
 ### Command Namespacing
 
-When dependency packs are installed or vendored, their commands are namespaced to prevent conflicts:
+When dependency modules are installed or vendored, their commands are namespaced to prevent conflicts:
 
-- **Default**: `<pack-name>@<version>` (e.g., `common-tools@1.2.3`)
+- **Default**: `<module-name>@<version>` (e.g., `common-tools@1.2.3`)
 - **With alias**: Uses the specified alias (e.g., `deploy`)
 
 Access dependency commands using the namespace:
@@ -1735,7 +1735,7 @@ invowk cmd deploy production
 
 ### Authentication
 
-Pack dependencies support both HTTPS and SSH authentication:
+Module dependencies support both HTTPS and SSH authentication:
 
 - **SSH**: Uses keys from `~/.ssh/` (id_ed25519, id_rsa, id_ecdsa)
 - **HTTPS**: Uses environment variables:
@@ -1743,72 +1743,72 @@ Pack dependencies support both HTTPS and SSH authentication:
   - `GITLAB_TOKEN` for GitLab
   - `GIT_TOKEN` for generic Git servers
 
-### Pack Cache
+### Module Cache
 
-Pack dependencies are cached in `~/.invowk/packs/` by default. Override with:
+Module dependencies are cached in `~/.invowk/modules/` by default. Override with:
 
 ```bash
-export INVOWK_PACKS_PATH=/custom/path/to/packs
+export INVOWK_MODULES_PATH=/custom/path/to/modules
 ```
 
-Each pack version is cached in a separate directory, allowing multiple versions to coexist.
+Each module version is cached in a separate directory, allowing multiple versions to coexist.
 
 ### Vendoring
 
-Packs can include their dependencies in an `invk_packs/` subfolder for self-contained distribution:
+Modules can include their dependencies in an `invk_modules/` subfolder for self-contained distribution:
 
 ```
-mypack.invkpack/
-├── invkpack.cue
+mymodule.invkmod/
+├── invkmod.cue
 ├── invkfile.cue
 ├── scripts/
-└── invk_packs/              # Vendored dependencies
-    ├── io.example.utils.invkpack/
-    │   ├── invkpack.cue
+└── invk_modules/              # Vendored dependencies
+    ├── io.example.utils.invkmod/
+    │   ├── invkmod.cue
     │   └── invkfile.cue
-    └── com.other.tools.invkpack/
-        ├── invkpack.cue
+    └── com.other.tools.invkmod/
+        ├── invkmod.cue
         └── invkfile.cue
 ```
 
-Vendored packs are resolved first, before checking the global cache. Use the vendor commands:
+Vendored modules are resolved first, before checking the global cache. Use the vendor commands:
 
 ```bash
-# Fetch dependencies into invk_packs/
-invowk pack vendor
+# Fetch dependencies into invk_modules/
+invowk module vendor
 
-# Update vendored packs
-invowk pack vendor --update
+# Update vendored modules
+invowk module vendor --update
 
-# Remove unused vendored packs
-invowk pack vendor --prune
+# Remove unused vendored modules
+invowk module vendor --prune
 ```
 
-> **Note:** `invowk pack vendor` currently prints the dependencies that would be vendored. Fetching and pruning vendored packs is still being finalized.
+> **Note:** `invowk module vendor` currently prints the dependencies that would be vendored. Fetching and pruning vendored modules is still being finalized.
 
 ### Collision Handling
 
-When two packs have the same name, invowk reports a collision error with guidance on how to disambiguate using aliases:
+When two modules have the same name, invowk reports a collision error with guidance on how to disambiguate using aliases:
 
 ```
-pack name collision: 'io.example.tools' defined in both
-  '/path/to/pack1.invkpack' and '/path/to/pack2.invkpack'
+module name collision: 'io.example.tools' defined in both
+  '/path/to/module1.invkmod' and '/path/to/module2.invkmod'
   Use an alias to disambiguate:
     - For requires: add 'alias' field to the requirement
-    - For global packs: run 'invowk pack alias set <path> <alias>'
+    - For global modules: run 'invowk module alias set <path> <alias>'
 ```
 
 Manage aliases with:
 
 ```bash
-# Set alias for a pack
-invowk pack alias set /path/to/pack.invkpack myalias
+# Set alias for a module
+invowk module alias set /path/to/module.invkmod myalias
 
 # List all aliases
-invowk pack alias list
+invowk module alias list
 
 # Remove an alias
-invowk pack alias remove /path/to/pack.invkpack
+invowk module alias remove /path/to/module.invkmod
 ```
 
 ## Runtime Modes
@@ -2294,7 +2294,7 @@ invowk-cli/
 ├── cmd/invowk/                 # CLI commands
 │   ├── root.go                 # Root command
 │   ├── cmd.go                  # cmd subcommand
-│   ├── pack.go                 # pack subcommand
+│   ├── module.go               # module subcommand
 │   ├── init.go                 # init command
 │   ├── config.go               # config commands
 │   ├── completion.go           # completion command
@@ -2336,8 +2336,7 @@ invowk-cli/
 │       ├── pager.go            # Pager component
 │       └── format.go           # Format component
 ├── pkg/
-│   ├── pack/                   # Pack validation and structure
-│   ├── packs/                  # Pack dependency resolution (Git, lockfile)
+│   ├── invkmod/                # Module validation and structure
 │   └── invkfile/               # Invkfile parsing
 ```
 

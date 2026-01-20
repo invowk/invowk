@@ -30,7 +30,7 @@ website/docs/
 |-- flags-and-arguments/ # CLI flags and positional arguments
 |-- environment/         # Env files, env vars, precedence
 |-- advanced/            # Interpreters, workdir, platform-specific
-|-- packs/               # Pack creation, validation, distribution
+|-- modules/             # Module creation, validation, distribution
 |-- tui/                 # TUI components reference
 |-- configuration/       # Config file and options
 `-- reference/           # CLI, invkfile schema, config schema

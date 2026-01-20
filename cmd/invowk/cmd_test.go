@@ -195,7 +195,7 @@ func TestCheckCommandDependenciesExist_SatisfiedByLocalUnqualifiedName(t *testin
 	config.Reset()
 	t.Cleanup(config.Reset)
 
-	// invkfile.cue now only contains commands - pack metadata is in invkpack.cue
+	// invkfile.cue now only contains commands - module metadata is in invkmod.cue
 	invkfileContent := `cmds: [
 	{
 		name: "build"
@@ -217,7 +217,7 @@ func TestCheckCommandDependenciesExist_SatisfiedByLocalUnqualifiedName(t *testin
 		t.Fatalf("failed to write invkfile: %v", err)
 	}
 
-	// Standalone invkfile has no pack identifier, so pass empty string
+	// Standalone invkfile has no module identifier, so pass empty string
 	deps := &invkfile.DependsOn{Commands: []invkfile.CommandDependency{{Alternatives: []string{"build"}}}}
 	ctx := &runtime.ExecutionContext{Command: &invkfile.Command{Name: "deploy"}}
 
@@ -241,7 +241,7 @@ func TestCheckCommandDependenciesExist_SatisfiedByFullyQualifiedNameFromUserDir(
 	config.Reset()
 	t.Cleanup(config.Reset)
 
-	// invkfile.cue now only contains commands - pack metadata is in invkpack.cue
+	// invkfile.cue now only contains commands - module metadata is in invkmod.cue
 	invkfileContent := `cmds: [{
 	name: "deploy"
 	implementations: [{
@@ -259,7 +259,7 @@ func TestCheckCommandDependenciesExist_SatisfiedByFullyQualifiedNameFromUserDir(
 		t.Fatalf("failed to create user commands dir: %v", err)
 	}
 
-	// User invkfile also cannot have pack/version fields
+	// User invkfile also cannot have module/version fields
 	userInvkfileContent := `cmds: [{
 	name: "generate-types"
 	implementations: [{
@@ -272,7 +272,7 @@ func TestCheckCommandDependenciesExist_SatisfiedByFullyQualifiedNameFromUserDir(
 		t.Fatalf("failed to write user invkfile: %v", err)
 	}
 
-	// Without pack prefix, command is just "generate-types"
+	// Without module prefix, command is just "generate-types"
 	deps := &invkfile.DependsOn{Commands: []invkfile.CommandDependency{{Alternatives: []string{"generate-types"}}}}
 	ctx := &runtime.ExecutionContext{Command: &invkfile.Command{Name: "deploy"}}
 
@@ -296,7 +296,7 @@ func TestCheckCommandDependenciesExist_MissingCommand(t *testing.T) {
 	config.Reset()
 	t.Cleanup(config.Reset)
 
-	// invkfile.cue now only contains commands - pack metadata is in invkpack.cue
+	// invkfile.cue now only contains commands - module metadata is in invkmod.cue
 	invkfileContent := `cmds: [{
 	name: "deploy"
 	implementations: [{

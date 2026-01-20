@@ -1938,12 +1938,12 @@ cmds: [
 	}
 }
 
-// Note: TestParseInvkpack_ValidPackID and TestParseInvkpack_InvalidPackID tests
-// have been moved to invkpack_test.go
+// Note: TestParseInvkmod_ValidModuleID and TestParseInvkmod_InvalidModuleID tests
+// have been moved to invkmod_test.go
 
-func TestParse_InvkfileWithoutPack_IsValid(t *testing.T) {
-	// invkfile.cue now contains only commands - pack metadata is in invkpack.cue
-	// An invkfile without pack field should be valid (pack is not allowed in invkfile.cue)
+func TestParse_InvkfileWithoutModule_IsValid(t *testing.T) {
+	// invkfile.cue now contains only commands - module metadata is in invkmod.cue
+	// An invkfile without module field should be valid (module is not allowed in invkfile.cue)
 	cueContent := `
 cmds: [
 	{
@@ -1970,7 +1970,7 @@ cmds: [
 
 	inv, err := Parse(invkfilePath)
 	if err != nil {
-		t.Fatalf("Parse() should accept invkfile without pack field: %v", err)
+		t.Fatalf("Parse() should accept invkfile without module field: %v", err)
 	}
 
 	if len(inv.Commands) != 1 {
@@ -1980,7 +1980,7 @@ cmds: [
 
 func TestGetFullCommandName(t *testing.T) {
 	inv := &Invkfile{
-		Metadata: &Invkpack{Pack: "my.pack"},
+		Metadata: &Invkmod{Module: "my.module"},
 	}
 
 	tests := []struct {
@@ -1988,9 +1988,9 @@ func TestGetFullCommandName(t *testing.T) {
 		cmdName  string
 		expected string
 	}{
-		{"simple command", "build", "my.pack build"},
-		{"subcommand with space", "test unit", "my.pack test unit"},
-		{"nested subcommand", "db migrate up", "my.pack db migrate up"},
+		{"simple command", "build", "my.module build"},
+		{"subcommand with space", "test unit", "my.module test unit"},
+		{"nested subcommand", "db migrate up", "my.module db migrate up"},
 	}
 
 	for _, tt := range tests {
@@ -2003,9 +2003,9 @@ func TestGetFullCommandName(t *testing.T) {
 	}
 }
 
-func TestListCommands_WithPack(t *testing.T) {
+func TestListCommands_WithModule(t *testing.T) {
 	inv := &Invkfile{
-		Metadata: &Invkpack{Pack: "mypack"},
+		Metadata: &Invkmod{Module: "mymodule"},
 		Commands: []Command{
 			{Name: "build"},
 			{Name: "test"},
@@ -2015,7 +2015,7 @@ func TestListCommands_WithPack(t *testing.T) {
 
 	names := inv.ListCommands()
 
-	expected := []string{"mypack build", "mypack test", "mypack deploy prod"}
+	expected := []string{"mymodule build", "mymodule test", "mymodule deploy prod"}
 	if len(names) != len(expected) {
 		t.Fatalf("ListCommands() returned %d names, want %d", len(names), len(expected))
 	}
@@ -2027,9 +2027,9 @@ func TestListCommands_WithPack(t *testing.T) {
 	}
 }
 
-func TestFlattenCommands_WithPack(t *testing.T) {
+func TestFlattenCommands_WithModule(t *testing.T) {
 	inv := &Invkfile{
-		Metadata: &Invkpack{Pack: "mypack"},
+		Metadata: &Invkmod{Module: "mymodule"},
 		Commands: []Command{
 			{Name: "build", Description: "Build command"},
 			{Name: "test unit", Description: "Unit tests"},
@@ -2042,24 +2042,24 @@ func TestFlattenCommands_WithPack(t *testing.T) {
 		t.Fatalf("FlattenCommands() returned %d commands, want 2", len(flat))
 	}
 
-	// Check that keys are prefixed with pack
-	if _, ok := flat["mypack build"]; !ok {
-		t.Error("FlattenCommands() should have key 'mypack build'")
+	// Check that keys are prefixed with module
+	if _, ok := flat["mymodule build"]; !ok {
+		t.Error("FlattenCommands() should have key 'mymodule build'")
 	}
 
-	if _, ok := flat["mypack test unit"]; !ok {
-		t.Error("FlattenCommands() should have key 'mypack test unit'")
+	if _, ok := flat["mymodule test unit"]; !ok {
+		t.Error("FlattenCommands() should have key 'mymodule test unit'")
 	}
 
 	// Check that commands are correct
-	if flat["mypack build"].Description != "Build command" {
-		t.Errorf("flat['mypack build'].Description = %q, want %q", flat["mypack build"].Description, "Build command")
+	if flat["mymodule build"].Description != "Build command" {
+		t.Errorf("flat['mymodule build'].Description = %q, want %q", flat["mymodule build"].Description, "Build command")
 	}
 }
 
 func TestGenerateCUE_OutputsCommandContent(t *testing.T) {
 	// GenerateCUE only generates command content (invkfile.cue)
-	// Pack metadata is generated separately for invkpack.cue
+	// Module metadata is generated separately for invkmod.cue
 	inv := &Invkfile{
 		Commands: []Command{
 			{
@@ -2078,9 +2078,9 @@ func TestGenerateCUE_OutputsCommandContent(t *testing.T) {
 		t.Error("GenerateCUE should contain 'cmds:'")
 	}
 
-	// Should NOT contain pack (pack is in invkpack.cue, not invkfile.cue)
-	if strings.Contains(output, "pack:") {
-		t.Error("GenerateCUE should NOT contain 'pack:' - pack metadata goes in invkpack.cue")
+	// Should NOT contain module (module is in invkmod.cue, not invkfile.cue)
+	if strings.Contains(output, "module:") {
+		t.Error("GenerateCUE should NOT contain 'module:' - module metadata goes in invkmod.cue")
 	}
 }
 
@@ -5556,26 +5556,26 @@ func TestGetEffectiveWorkDir_CurrentDirectory(t *testing.T) {
 	}
 }
 
-func TestGetEffectiveWorkDir_PackPath(t *testing.T) {
-	// When loaded from a pack, paths should resolve against pack directory
+func TestGetEffectiveWorkDir_ModulePath(t *testing.T) {
+	// When loaded from a module, paths should resolve against module directory
 	tmpDir := t.TempDir()
-	packDir := filepath.Join(tmpDir, "mypack.invkpack")
-	if err := os.MkdirAll(packDir, 0o755); err != nil {
-		t.Fatalf("Failed to create pack dir: %v", err)
+	moduleDir := filepath.Join(tmpDir, "mymodule.invkmod")
+	if err := os.MkdirAll(moduleDir, 0o755); err != nil {
+		t.Fatalf("Failed to create module dir: %v", err)
 	}
-	invkfilePath := filepath.Join(packDir, "invkfile.cue")
+	invkfilePath := filepath.Join(moduleDir, "invkfile.cue")
 
 	inv := &Invkfile{
-		FilePath: invkfilePath,
-		PackPath: packDir, // Loaded from pack
-		WorkDir:  "scripts",
+		FilePath:   invkfilePath,
+		ModulePath: moduleDir, // Loaded from module
+		WorkDir:    "scripts",
 	}
 	cmd := &Command{Name: "test"}
 	impl := &Implementation{Script: "echo test"}
 
 	result := inv.GetEffectiveWorkDir(cmd, impl, "")
-	// Should resolve against pack directory (via GetScriptBasePath)
-	expected := filepath.Join(packDir, "scripts")
+	// Should resolve against module directory (via GetScriptBasePath)
+	expected := filepath.Join(moduleDir, "scripts")
 
 	if result != expected {
 		t.Errorf("GetEffectiveWorkDir() = %q, want %q", result, expected)
@@ -6341,8 +6341,8 @@ cmds: [
 	}
 }
 
-// Note: Tests for invkpack.cue separation (ParseInvkpack, ParsePack, CommandScope, etc.)
-// have been moved to invkpack_test.go
+// Note: Tests for invkmod.cue separation (ParseInvkmod, ParseModule, CommandScope, etc.)
+// have been moved to invkmod_test.go
 
 func TestParseCustomChecks_ValidCheckScript(t *testing.T) {
 	cueContent := `

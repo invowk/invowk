@@ -25,9 +25,9 @@ type ContainerProvisionConfig struct {
 	// If empty, os.Executable() will be used.
 	InvowkBinaryPath string
 
-	// PacksPaths are paths to pack directories on the host.
+	// ModulesPaths are paths to module directories on the host.
 	// These are discovered from config search paths and user commands dir.
-	PacksPaths []string
+	ModulesPaths []string
 
 	// InvkfilePath is the path to the current invkfile being executed.
 	// This is used to determine what needs to be provisioned.
@@ -37,9 +37,9 @@ type ContainerProvisionConfig struct {
 	// Default: /invowk/bin
 	BinaryMountPath string
 
-	// PacksMountPath is where to place packs in the container.
-	// Default: /invowk/packs
-	PacksMountPath string
+	// ModulesMountPath is where to place modules in the container.
+	// Default: /invowk/modules
+	ModulesMountPath string
 
 	// CacheDir is where to store cached provisioned images metadata.
 	// Default: ~/.cache/invowk/provision
@@ -50,11 +50,11 @@ type ContainerProvisionConfig struct {
 func DefaultProvisionConfig() *ContainerProvisionConfig {
 	binaryPath, _ := os.Executable()
 
-	// Discover pack paths from user commands dir and config
-	var packsPaths []string
+	// Discover module paths from user commands dir and config
+	var modulesPaths []string
 	if userDir, err := config.CommandsDir(); err == nil {
 		if info, err := os.Stat(userDir); err == nil && info.IsDir() {
-			packsPaths = append(packsPaths, userDir)
+			modulesPaths = append(modulesPaths, userDir)
 		}
 	}
 
@@ -66,9 +66,9 @@ func DefaultProvisionConfig() *ContainerProvisionConfig {
 	return &ContainerProvisionConfig{
 		Enabled:          true,
 		InvowkBinaryPath: binaryPath,
-		PacksPaths:       packsPaths,
+		ModulesPaths:     modulesPaths,
 		BinaryMountPath:  "/invowk/bin",
-		PacksMountPath:   "/invowk/packs",
+		ModulesMountPath: "/invowk/modules",
 		CacheDir:         cacheDir,
 	}
 }
@@ -136,9 +136,9 @@ func calculateDirHash(dirPath string) (string, error) {
 	return hex.EncodeToString(h.Sum(nil)), nil
 }
 
-// discoverPacks finds all .invkpack directories in the given paths.
-func discoverPacks(paths []string) []string {
-	var packs []string
+// discoverModules finds all .invkmod directories in the given paths.
+func discoverModules(paths []string) []string {
+	var modules []string
 	seen := make(map[string]bool)
 
 	for _, basePath := range paths {
@@ -146,19 +146,19 @@ func discoverPacks(paths []string) []string {
 			if err != nil {
 				return nil //nolint:nilerr // Intentionally skip errors to continue walking
 			}
-			if info.IsDir() && strings.HasSuffix(info.Name(), ".invkpack") {
+			if info.IsDir() && strings.HasSuffix(info.Name(), ".invkmod") {
 				absPath, _ := filepath.Abs(path)
 				if !seen[absPath] {
 					seen[absPath] = true
-					packs = append(packs, absPath)
+					modules = append(modules, absPath)
 				}
-				return filepath.SkipDir // Don't descend into packs
+				return filepath.SkipDir // Don't descend into modules
 			}
 			return nil
 		})
 	}
 
-	return packs
+	return modules
 }
 
 // copyFile copies a file from src to dst.

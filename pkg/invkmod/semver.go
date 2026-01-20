@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: EPL-2.0
 
-package invkpack
+package invkmod
 
 import (
 	"fmt"

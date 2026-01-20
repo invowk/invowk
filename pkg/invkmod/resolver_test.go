@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: EPL-2.0
 
-package invkpack
+package invkmod
 
 import (
 	"os"
@@ -10,15 +10,15 @@ import (
 	"invowk-cli/internal/testutil"
 )
 
-func TestPackRefKey(t *testing.T) {
+func TestModuleRefKey(t *testing.T) {
 	tests := []struct {
 		name     string
-		req      PackRef
+		req      ModuleRef
 		expected string
 	}{
 		{
 			name: "simple URL",
-			req: PackRef{
+			req: ModuleRef{
 				GitURL:  "https://github.com/user/repo.git",
 				Version: "^1.0.0",
 			},
@@ -26,12 +26,12 @@ func TestPackRefKey(t *testing.T) {
 		},
 		{
 			name: "URL with path",
-			req: PackRef{
+			req: ModuleRef{
 				GitURL:  "https://github.com/user/monorepo.git",
 				Version: "^1.0.0",
-				Path:    "packages/pack1",
+				Path:    "packages/module1",
 			},
-			expected: "https://github.com/user/monorepo.git#packages/pack1",
+			expected: "https://github.com/user/monorepo.git#packages/module1",
 		},
 	}
 
@@ -45,15 +45,15 @@ func TestPackRefKey(t *testing.T) {
 	}
 }
 
-func TestPackRefString(t *testing.T) {
+func TestModuleRefString(t *testing.T) {
 	tests := []struct {
 		name     string
-		req      PackRef
+		req      ModuleRef
 		contains []string
 	}{
 		{
 			name: "simple requirement",
-			req: PackRef{
+			req: ModuleRef{
 				GitURL:  "https://github.com/user/repo.git",
 				Version: "^1.0.0",
 			},
@@ -61,7 +61,7 @@ func TestPackRefString(t *testing.T) {
 		},
 		{
 			name: "with alias",
-			req: PackRef{
+			req: ModuleRef{
 				GitURL:  "https://github.com/user/repo.git",
 				Version: "^1.0.0",
 				Alias:   "myalias",
@@ -70,12 +70,12 @@ func TestPackRefString(t *testing.T) {
 		},
 		{
 			name: "with path",
-			req: PackRef{
+			req: ModuleRef{
 				GitURL:  "https://github.com/user/monorepo.git",
 				Version: "~2.0.0",
-				Path:    "packages/pack1",
+				Path:    "packages/module1",
 			},
-			contains: []string{"github.com/user/monorepo.git", "#packages/pack1", "~2.0.0"},
+			contains: []string{"github.com/user/monorepo.git", "#packages/module1", "~2.0.0"},
 		},
 	}
 
@@ -93,12 +93,12 @@ func TestPackRefString(t *testing.T) {
 
 func TestGetDefaultCacheDir(t *testing.T) {
 	// Save original env
-	originalEnv := os.Getenv(PackCachePathEnv)
-	defer func() { _ = os.Setenv(PackCachePathEnv, originalEnv) }() // Test cleanup; error non-critical
+	originalEnv := os.Getenv(ModuleCachePathEnv)
+	defer func() { _ = os.Setenv(ModuleCachePathEnv, originalEnv) }() // Test cleanup; error non-critical
 
 	t.Run("with env var", func(t *testing.T) {
 		customPath := "/custom/path/to/modules"
-		restoreEnv := testutil.MustSetenv(t, PackCachePathEnv, customPath)
+		restoreEnv := testutil.MustSetenv(t, ModuleCachePathEnv, customPath)
 		defer restoreEnv()
 
 		result, err := GetDefaultCacheDir()
@@ -111,7 +111,7 @@ func TestGetDefaultCacheDir(t *testing.T) {
 	})
 
 	t.Run("without env var", func(t *testing.T) {
-		testutil.MustUnsetenv(t, PackCachePathEnv)
+		testutil.MustUnsetenv(t, ModuleCachePathEnv)
 
 		result, err := GetDefaultCacheDir()
 		if err != nil {
@@ -119,7 +119,7 @@ func TestGetDefaultCacheDir(t *testing.T) {
 		}
 
 		homeDir, _ := os.UserHomeDir()
-		expected := filepath.Join(homeDir, ".invowk", DefaultPacksDir)
+		expected := filepath.Join(homeDir, ".invowk", DefaultModulesDir)
 		if result != expected {
 			t.Errorf("GetDefaultCacheDir() = %q, want %q", result, expected)
 		}
@@ -161,38 +161,38 @@ func TestNewResolver(t *testing.T) {
 
 func TestComputeNamespace(t *testing.T) {
 	tests := []struct {
-		name     string
-		packName string
-		version  string
-		alias    string
-		expected string
+		name       string
+		moduleName string
+		version    string
+		alias      string
+		expected   string
 	}{
 		{
-			name:     "without alias",
-			packName: "mypack",
-			version:  "1.2.3",
-			alias:    "",
-			expected: "mypack@1.2.3",
+			name:       "without alias",
+			moduleName: "mymodule",
+			version:    "1.2.3",
+			alias:      "",
+			expected:   "mymodule@1.2.3",
 		},
 		{
-			name:     "with alias",
-			packName: "mypack",
-			version:  "1.2.3",
-			alias:    "mp",
-			expected: "mp",
+			name:       "with alias",
+			moduleName: "mymodule",
+			version:    "1.2.3",
+			alias:      "mp",
+			expected:   "mp",
 		},
 		{
-			name:     "version with v prefix",
-			packName: "tools",
-			version:  "v2.0.0",
-			alias:    "",
-			expected: "tools@v2.0.0",
+			name:       "version with v prefix",
+			moduleName: "tools",
+			version:    "v2.0.0",
+			alias:      "",
+			expected:   "tools@v2.0.0",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := computeNamespace(tt.packName, tt.version, tt.alias)
+			result := computeNamespace(tt.moduleName, tt.version, tt.alias)
 			if result != tt.expected {
 				t.Errorf("computeNamespace() = %q, want %q", result, tt.expected)
 			}
@@ -200,7 +200,7 @@ func TestComputeNamespace(t *testing.T) {
 	}
 }
 
-func TestExtractPackName(t *testing.T) {
+func TestExtractModuleName(t *testing.T) {
 	tests := []struct {
 		name     string
 		key      string
@@ -208,67 +208,67 @@ func TestExtractPackName(t *testing.T) {
 	}{
 		{
 			name:     "github URL",
-			key:      "github.com/user/mypack",
-			expected: "mypack",
+			key:      "github.com/user/mymodule",
+			expected: "mymodule",
 		},
 		{
 			name:     "with .git suffix",
-			key:      "github.com/user/mypack.git",
-			expected: "mypack",
+			key:      "github.com/user/mymodule.git",
+			expected: "mymodule",
 		},
 		{
 			name:     "with subpath",
-			key:      "github.com/user/monorepo#packages/pack1",
+			key:      "github.com/user/monorepo#packages/module1",
 			expected: "monorepo",
 		},
 		{
 			name:     "simple name",
-			key:      "mypack",
-			expected: "mypack",
+			key:      "mymodule",
+			expected: "mymodule",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := extractPackName(tt.key)
+			result := extractModuleName(tt.key)
 			if result != tt.expected {
-				t.Errorf("extractPackName() = %q, want %q", result, tt.expected)
+				t.Errorf("extractModuleName() = %q, want %q", result, tt.expected)
 			}
 		})
 	}
 }
 
-func TestExtractPackFromInvkfile(t *testing.T) {
+func TestExtractModuleFromInvkmod(t *testing.T) {
 	tests := []struct {
 		name     string
 		content  string
 		expected string
 	}{
 		{
-			name: "simple pack",
-			content: `pack: "mypack"
+			name: "simple module",
+			content: `module: "mymodule"
 cmds: []`,
-			expected: "mypack",
+			expected: "mymodule",
 		},
 		{
-			name: "dotted pack (RDNS)",
-			content: `pack: "com.example.mypack"
+			name: "dotted module (RDNS)",
+			content: `module: "com.example.mymodule"
 version: "1.0"
 cmds: []`,
-			expected: "com.example.mypack",
+			expected: "com.example.mymodule",
 		},
 		{
-			name: "no pack",
-			content: `cmds: []`,
+			name:     "no module",
+			content:  `cmds: []`,
 			expected: "",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := extractPackFromInvkfile(tt.content)
+			result := extractModuleFromInvkmod(tt.content)
 			if result != tt.expected {
-				t.Errorf("extractPackFromInvkfile() = %q, want %q", result, tt.expected)
+				t.Errorf("extractModuleFromInvkmod() = %q, want %q", result, tt.expected)
 			}
 		})
 	}

@@ -14,4 +14,4 @@
   - Capabilities checks (with and without alternatives).
   - Tools checks (with and without alternatives).
   - Custom checks (with and without alternatives).
-- Pack metadata does not belong in invkfile examples; it lives in `invkpack.cue` for packs.
+- Module metadata does not belong in invkfile examples; it lives in `invkmod.cue` for modules.

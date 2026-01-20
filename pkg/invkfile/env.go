@@ -15,7 +15,7 @@ var envVarNameRegex = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
 type EnvConfig struct {
 	// Files lists dotenv files to load (optional)
 	// Files are loaded in order; later files override earlier ones.
-	// Paths are relative to the invkfile location (or pack root for packs).
+	// Paths are relative to the invkfile location (or module root for modules).
 	// Files suffixed with '?' are optional and will not cause an error if missing.
 	Files []string `json:"files,omitempty"`
 	// Vars contains environment variables as key-value pairs (optional)

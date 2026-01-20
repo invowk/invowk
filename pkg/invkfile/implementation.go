@@ -167,7 +167,7 @@ func (s *Implementation) IsScriptFile() bool {
 // GetScriptFilePath returns the absolute path to the script file, if Implementation is a file reference.
 // Returns empty string if Implementation is inline content.
 // The invkfilePath parameter is used to resolve relative paths.
-// If packPath is provided (non-empty), script paths are resolved relative to the pack root
+// If modulePath is provided (non-empty), script paths are resolved relative to the module root
 // and are expected to use forward slashes for cross-platform compatibility.
 func (s *Implementation) GetScriptFilePath(invkfilePath string) string {
 	return s.GetScriptFilePathWithPack(invkfilePath, "")
@@ -175,8 +175,8 @@ func (s *Implementation) GetScriptFilePath(invkfilePath string) string {
 
 // GetScriptFilePathWithPack returns the absolute path to the script file, if Implementation is a file reference.
 // Returns empty string if Implementation is inline content.
-// The invkfilePath parameter is used to resolve relative paths when not in a pack.
-// The packPath parameter specifies the pack root directory for pack-relative paths.
+// The invkfilePath parameter is used to resolve relative paths when not in a module.
+// The modulePath parameter specifies the module root directory for module-relative paths.
 // When packPath is non-empty, script paths are expected to use forward slashes for
 // cross-platform compatibility and are resolved relative to the pack root.
 func (s *Implementation) GetScriptFilePathWithPack(invkfilePath, packPath string) string {
@@ -214,8 +214,8 @@ func (s *Implementation) ResolveScript(invkfilePath string) (string, error) {
 // ResolveScriptWithPack returns the actual script content to execute.
 // If Implementation is a file path, it reads the file content.
 // If Implementation is inline content (including multi-line), it returns it directly.
-// The invkfilePath parameter is used to resolve relative paths when not in a pack.
-// The packPath parameter specifies the pack root directory for pack-relative paths.
+// The invkfilePath parameter is used to resolve relative paths when not in a module.
+// The modulePath parameter specifies the module root directory for module-relative paths.
 func (s *Implementation) ResolveScriptWithPack(invkfilePath, packPath string) (string, error) {
 	if s.scriptResolved {
 		return s.resolvedScript, nil

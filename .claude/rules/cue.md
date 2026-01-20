@@ -3,7 +3,7 @@
 ## Schema Locations
 
 - `pkg/invkfile/invkfile_schema.cue` defines invkfile structure.
-- `pkg/invkfile/invkpack_schema.cue` defines invkpack structure.
+- `pkg/invkmod/invkmod_schema.cue` defines invkmod structure.
 - `internal/config/config_schema.cue` defines config.
 
 ## Rules

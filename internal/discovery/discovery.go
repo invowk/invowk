@@ -12,26 +12,26 @@ import (
 
 	"invowk-cli/internal/config"
 	"invowk-cli/pkg/invkfile"
-	"invowk-cli/pkg/invkpack"
+	"invowk-cli/pkg/invkmod"
 )
 
-// PackCollisionError is returned when two packs have the same pack identifier.
-type PackCollisionError struct {
-	PackID       string
+// ModuleCollisionError is returned when two modules have the same module identifier.
+type ModuleCollisionError struct {
+	ModuleID     string
 	FirstSource  string
 	SecondSource string
 }
 
 // Error implements the error interface.
-func (e *PackCollisionError) Error() string {
+func (e *ModuleCollisionError) Error() string {
 	return fmt.Sprintf(
-		"pack name collision: '%s' defined in both:\n"+
+		"module name collision: '%s' defined in both:\n"+
 			"  - %s\n"+
 			"  - %s\n\n"+
 			"Use an alias to disambiguate:\n"+
-			"  invowk pack alias %q <new-alias>\n"+
-			"  invowk pack alias %q <new-alias>",
-		e.PackID, e.FirstSource, e.SecondSource,
+			"  invowk module alias %q <new-alias>\n"+
+			"  invowk module alias %q <new-alias>",
+		e.ModuleID, e.FirstSource, e.SecondSource,
 		e.FirstSource, e.SecondSource)
 }
 
@@ -45,8 +45,8 @@ const (
 	SourceUserDir
 	// SourceConfigPath indicates the file was found in a configured search path
 	SourceConfigPath
-	// SourcePack indicates the file was found in an invowk pack
-	SourcePack
+	// SourceModule indicates the file was found in an invowk module
+	SourceModule
 )
 
 // String returns a human-readable source name
@@ -58,8 +58,8 @@ func (s Source) String() string {
 		return "user commands (~/.invowk/cmds)"
 	case SourceConfigPath:
 		return "configured search path"
-	case SourcePack:
-		return "pack"
+	case SourceModule:
+		return "module"
 	default:
 		return "unknown"
 	}
@@ -75,8 +75,8 @@ type DiscoveredFile struct {
 	Invkfile *invkfile.Invkfile
 	// Error contains any error that occurred during parsing
 	Error error
-	// Pack is set if this file was discovered from a pack
-	Pack *invkpack.Pack
+	// Module is set if this file was discovered from a module
+	Module *invkmod.Module
 }
 
 // Discovery handles finding invkfiles
@@ -98,9 +98,9 @@ func (d *Discovery) DiscoverAll() ([]*DiscoveredFile, error) {
 		files = append(files, cwdFile)
 	}
 
-	// 2. Packs in current directory
-	packFiles := d.discoverPacksInDir(".")
-	files = append(files, packFiles...)
+	// 2. Modules in current directory
+	moduleFiles := d.discoverModulesInDir(".")
+	files = append(files, moduleFiles...)
 
 	// 3. User commands directory (~/.invowk/cmds)
 	userDir, err := config.CommandsDir()
@@ -108,9 +108,9 @@ func (d *Discovery) DiscoverAll() ([]*DiscoveredFile, error) {
 		userFiles := d.discoverInDirRecursive(userDir, SourceUserDir)
 		files = append(files, userFiles...)
 
-		// Also discover packs in user commands directory
-		userPackFiles := d.discoverPacksInDir(userDir)
-		files = append(files, userPackFiles...)
+		// Also discover modules in user commands directory
+		userModuleFiles := d.discoverModulesInDir(userDir)
+		files = append(files, userModuleFiles...)
 	}
 
 	// 4. Configured search paths
@@ -118,9 +118,9 @@ func (d *Discovery) DiscoverAll() ([]*DiscoveredFile, error) {
 		pathFiles := d.discoverInDirRecursive(searchPath, SourceConfigPath)
 		files = append(files, pathFiles...)
 
-		// Also discover packs in search paths
-		searchPathPackFiles := d.discoverPacksInDir(searchPath)
-		files = append(files, searchPathPackFiles...)
+		// Also discover modules in search paths
+		searchPathModuleFiles := d.discoverModulesInDir(searchPath)
+		files = append(files, searchPathModuleFiles...)
 	}
 
 	return files, nil
@@ -186,9 +186,9 @@ func (d *Discovery) discoverInDirRecursive(dir string, source Source) []*Discove
 	return files
 }
 
-// discoverPacksInDir finds all valid packs in a directory.
-// It only looks at immediate subdirectories (packs are not nested).
-func (d *Discovery) discoverPacksInDir(dir string) []*DiscoveredFile {
+// discoverModulesInDir finds all valid modules in a directory.
+// It only looks at immediate subdirectories (modules are not nested).
+func (d *Discovery) discoverModulesInDir(dir string) []*DiscoveredFile {
 	var files []*DiscoveredFile
 
 	absDir, err := filepath.Abs(dir)
@@ -212,23 +212,23 @@ func (d *Discovery) discoverPacksInDir(dir string) []*DiscoveredFile {
 			continue
 		}
 
-		// Check if it's a pack
+		// Check if it's a module
 		entryPath := filepath.Join(absDir, entry.Name())
-		if !invkpack.IsPack(entryPath) {
+		if !invkmod.IsModule(entryPath) {
 			continue
 		}
 
-		// Load the pack
-		p, err := invkpack.Load(entryPath)
+		// Load the module
+		m, err := invkmod.Load(entryPath)
 		if err != nil {
-			// Invalid pack, skip it
+			// Invalid module, skip it
 			continue
 		}
 
 		files = append(files, &DiscoveredFile{
-			Path:   p.InvkfilePath(),
-			Source: SourcePack,
-			Pack:   p,
+			Path:   m.InvkfilePath(),
+			Source: SourceModule,
+			Module: m,
 		})
 	}
 
@@ -246,13 +246,13 @@ func (d *Discovery) LoadAll() ([]*DiscoveredFile, error) {
 		var inv *invkfile.Invkfile
 		var parseErr error
 
-		if file.Pack != nil {
-			// Use pack-aware parsing
-			parsed, err := invkfile.ParsePack(file.Pack.Path)
+		if file.Module != nil {
+			// Use module-aware parsing
+			parsed, err := invkfile.ParseModule(file.Module.Path)
 			if err != nil {
 				parseErr = err
 			} else {
-				inv = invkfile.GetPackCommands(parsed)
+				inv = invkfile.GetModuleCommands(parsed)
 			}
 		} else {
 			inv, parseErr = invkfile.Parse(file.Path)
@@ -283,13 +283,13 @@ func (d *Discovery) LoadFirst() (*DiscoveredFile, error) {
 	var inv *invkfile.Invkfile
 	var parseErr error
 
-	if file.Pack != nil {
-		// Use pack-aware parsing
-		parsed, err := invkfile.ParsePack(file.Pack.Path)
+	if file.Module != nil {
+		// Use module-aware parsing
+		parsed, err := invkfile.ParseModule(file.Module.Path)
 		if err != nil {
 			parseErr = err
 		} else {
-			inv = invkfile.GetPackCommands(parsed)
+			inv = invkfile.GetModuleCommands(parsed)
 		}
 	} else {
 		inv, parseErr = invkfile.Parse(file.Path)
@@ -395,59 +395,59 @@ func (d *Discovery) GetCommandsWithPrefix(prefix string) ([]*CommandInfo, error)
 	return matching, nil
 }
 
-// CheckPackCollisions checks for pack ID collisions among discovered files.
-// It returns a PackCollisionError if two packs have the same pack identifier
+// CheckModuleCollisions checks for module ID collisions among discovered files.
+// It returns a ModuleCollisionError if two modules have the same module identifier
 // and neither has an alias configured.
-func (d *Discovery) CheckPackCollisions(files []*DiscoveredFile) error {
-	// Map pack IDs to their sources (considering aliases)
-	packSources := make(map[string]string)
+func (d *Discovery) CheckModuleCollisions(files []*DiscoveredFile) error {
+	// Map module IDs to their sources (considering aliases)
+	moduleSources := make(map[string]string)
 
 	for _, file := range files {
 		if file.Error != nil || file.Invkfile == nil {
 			continue
 		}
 
-		packID := file.Invkfile.GetPack()
-		if packID == "" {
+		moduleID := file.Invkfile.GetModule()
+		if moduleID == "" {
 			continue
 		}
 
 		// Check if there's an alias configured for this path
-		if d.cfg != nil && d.cfg.PackAliases != nil {
-			if alias, ok := d.cfg.PackAliases[file.Path]; ok {
-				packID = alias
+		if d.cfg != nil && d.cfg.ModuleAliases != nil {
+			if alias, ok := d.cfg.ModuleAliases[file.Path]; ok {
+				moduleID = alias
 			}
 		}
 
 		// Check for collision
-		if existingSource, exists := packSources[packID]; exists {
-			return &PackCollisionError{
-				PackID:       packID,
+		if existingSource, exists := moduleSources[moduleID]; exists {
+			return &ModuleCollisionError{
+				ModuleID:     moduleID,
 				FirstSource:  existingSource,
 				SecondSource: file.Path,
 			}
 		}
 
-		packSources[packID] = file.Path
+		moduleSources[moduleID] = file.Path
 	}
 
 	return nil
 }
 
-// GetEffectivePackID returns the effective pack ID for a file, considering aliases.
-func (d *Discovery) GetEffectivePackID(file *DiscoveredFile) string {
+// GetEffectiveModuleID returns the effective module ID for a file, considering aliases.
+func (d *Discovery) GetEffectiveModuleID(file *DiscoveredFile) string {
 	if file.Invkfile == nil {
 		return ""
 	}
 
-	packID := file.Invkfile.GetPack()
+	moduleID := file.Invkfile.GetModule()
 
 	// Check if there's an alias configured for this path
-	if d.cfg != nil && d.cfg.PackAliases != nil {
-		if alias, ok := d.cfg.PackAliases[file.Path]; ok {
+	if d.cfg != nil && d.cfg.ModuleAliases != nil {
+		if alias, ok := d.cfg.ModuleAliases[file.Path]; ok {
 			return alias
 		}
 	}
 
-	return packID
+	return moduleID
 }

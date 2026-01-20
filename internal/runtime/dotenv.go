@@ -10,7 +10,7 @@ import (
 )
 
 // LoadEnvFile loads a dotenv file and merges its contents into the provided env map.
-// The path is resolved relative to basePath (invkfile directory or pack root).
+// The path is resolved relative to basePath (invkfile directory or module root).
 // Files suffixed with '?' are optional; missing optional files do not cause an error.
 // Later calls to LoadEnvFile override earlier values for the same keys.
 func LoadEnvFile(env map[string]string, path, basePath string) error {

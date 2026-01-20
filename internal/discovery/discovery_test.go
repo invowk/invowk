@@ -396,7 +396,7 @@ func TestLoadFirst_NoFiles(t *testing.T) {
 func TestLoadFirst_WithValidFile(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	// invkfile.cue now only contains commands (pack metadata is in invkpack.cue for packs)
+	// invkfile.cue now only contains commands (module metadata is in invkmod.cue for modules)
 	content := `
 cmds: [{name: "test", implementations: [{script: "echo test", runtimes: [{name: "native"}]}]}]
 `
@@ -430,7 +430,7 @@ cmds: [{name: "test", implementations: [{script: "echo test", runtimes: [{name: 
 func TestLoadAll_WithMultipleFiles(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	// Create current dir invkfile (no pack metadata - it belongs in invkpack.cue)
+	// Create current dir invkfile (no module metadata - it belongs in invkmod.cue)
 	content := `
 cmds: [{name: "current", implementations: [{script: "echo current", runtimes: [{name: "native"}]}]}]
 `
@@ -438,7 +438,7 @@ cmds: [{name: "current", implementations: [{script: "echo current", runtimes: [{
 		t.Fatalf("failed to write invkfile: %v", err)
 	}
 
-	// Create user commands invkfile (no pack metadata - it belongs in invkpack.cue)
+	// Create user commands invkfile (no module metadata - it belongs in invkmod.cue)
 	userCmdsDir := filepath.Join(tmpDir, ".invowk", "cmds")
 	testutil.MustMkdirAll(t, userCmdsDir, 0o755)
 	userContent := `
@@ -477,7 +477,7 @@ cmds: [{name: "user", implementations: [{script: "echo user", runtimes: [{name: 
 func TestDiscoverCommands(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	// invkfile.cue now contains only commands - pack metadata is in invkpack.cue for packs
+	// invkfile.cue now contains only commands - module metadata is in invkmod.cue for modules
 	content := `
 cmds: [
 	{name: "build", description: "Build the project", implementations: [{script: "go build", runtimes: [{name: "native"}]}]},
@@ -506,7 +506,7 @@ cmds: [
 		t.Errorf("DiscoverCommands() returned %d commands, want 2", len(commands))
 	}
 
-	// Commands should be sorted by name (no pack prefix for current-dir invkfiles)
+	// Commands should be sorted by name (no module prefix for current-dir invkfiles)
 	if len(commands) >= 2 {
 		if commands[0].Name != "build" || commands[1].Name != "test" {
 			t.Errorf("commands not sorted correctly: got %s, %s", commands[0].Name, commands[1].Name)
@@ -517,7 +517,7 @@ cmds: [
 func TestGetCommand(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	// invkfile.cue now contains only commands - no pack metadata
+	// invkfile.cue now contains only commands - no module metadata
 	content := `
 cmds: [
 	{name: "build", description: "Build the project", implementations: [{script: "go build", runtimes: [{name: "native"}]}]},
@@ -538,7 +538,7 @@ cmds: [
 	d := New(cfg)
 
 	t.Run("ExistingCommand", func(t *testing.T) {
-		// Current-dir invkfiles don't have pack prefix
+		// Current-dir invkfiles don't have module prefix
 		cmd, err := d.GetCommand("build")
 		if err != nil {
 			t.Fatalf("GetCommand() returned error: %v", err)
@@ -560,7 +560,7 @@ cmds: [
 func TestGetCommandsWithPrefix(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	// invkfile.cue now contains only commands - no pack metadata
+	// invkfile.cue now contains only commands - no module metadata
 	content := `
 cmds: [
 	{name: "build", implementations: [{script: "go build", runtimes: [{name: "native"}]}]},
@@ -593,7 +593,7 @@ cmds: [
 	})
 
 	t.Run("BuildPrefix", func(t *testing.T) {
-		// Current-dir invkfiles have no pack prefix
+		// Current-dir invkfiles have no module prefix
 		commands, err := d.GetCommandsWithPrefix("build")
 		if err != nil {
 			t.Fatalf("GetCommandsWithPrefix() returned error: %v", err)
@@ -620,7 +620,7 @@ func TestDiscoverCommands_Precedence(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	// Create current dir invkfile with "build" command
-	// Without pack field, commands are named directly (e.g., "build" not "project build")
+	// Without module field, commands are named directly (e.g., "build" not "project build")
 	// When same command exists in multiple sources, current dir takes precedence
 	currentContent := `
 cmds: [{name: "build", description: "Current build", implementations: [{script: "echo current", runtimes: [{name: "native"}]}]}]
@@ -654,7 +654,7 @@ cmds: [{name: "build", description: "User build", implementations: [{script: "ec
 	}
 
 	// Should only have one "build" command (from current directory, higher precedence)
-	// With no pack field, command is just "build" not "project build"
+	// With no module field, command is just "build" not "project build"
 	buildCount := 0
 	var buildCmd *CommandInfo
 	for _, cmd := range commands {
@@ -673,18 +673,18 @@ cmds: [{name: "build", description: "User build", implementations: [{script: "ec
 	}
 }
 
-func TestSourcePack_String(t *testing.T) {
-	if got := SourcePack.String(); got != "pack" {
-		t.Errorf("SourcePack.String() = %s, want pack", got)
+func TestSourceModule_String(t *testing.T) {
+	if got := SourceModule.String(); got != "module" {
+		t.Errorf("SourceModule.String() = %s, want module", got)
 	}
 }
 
-func TestDiscoverAll_FindsPacksInCurrentDir(t *testing.T) {
+func TestDiscoverAll_FindsModulesInCurrentDir(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	// Create a valid pack in the temp directory (using new two-file format)
-	packDir := filepath.Join(tmpDir, "mycommands.invkpack")
-	createValidDiscoveryPack(t, packDir, "mycommands", "packed-cmd")
+	// Create a valid module in the temp directory (using new two-file format)
+	moduleDir := filepath.Join(tmpDir, "mycommands.invkmod")
+	createValidDiscoveryModule(t, moduleDir, "mycommands", "packed-cmd")
 
 	// Change to temp directory
 	restoreWd := testutil.MustChdir(t, tmpDir)
@@ -704,8 +704,8 @@ func TestDiscoverAll_FindsPacksInCurrentDir(t *testing.T) {
 
 	found := false
 	for _, f := range files {
-		if f.Source == SourcePack && f.Pack != nil {
-			if f.Pack.Name() == "mycommands" {
+		if f.Source == SourceModule && f.Module != nil {
+			if f.Module.Name() == "mycommands" {
 				found = true
 				break
 			}
@@ -713,17 +713,17 @@ func TestDiscoverAll_FindsPacksInCurrentDir(t *testing.T) {
 	}
 
 	if !found {
-		t.Error("DiscoverAll() did not find pack in current directory")
+		t.Error("DiscoverAll() did not find module in current directory")
 	}
 }
 
-func TestDiscoverAll_FindsPacksInUserDir(t *testing.T) {
+func TestDiscoverAll_FindsModulesInUserDir(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	// Create user commands directory with a pack (using new two-file format)
+	// Create user commands directory with a module (using new two-file format)
 	userCmdsDir := filepath.Join(tmpDir, ".invowk", "cmds")
-	packDir := filepath.Join(userCmdsDir, "userpack.invkpack")
-	createValidDiscoveryPack(t, packDir, "userpack", "user-packed-cmd")
+	moduleDir := filepath.Join(userCmdsDir, "userpack.invkmod")
+	createValidDiscoveryModule(t, moduleDir, "userpack", "user-packed-cmd")
 
 	// Create an empty working directory
 	workDir := filepath.Join(tmpDir, "work")
@@ -749,8 +749,8 @@ func TestDiscoverAll_FindsPacksInUserDir(t *testing.T) {
 
 	found := false
 	for _, f := range files {
-		if f.Source == SourcePack && f.Pack != nil {
-			if f.Pack.Name() == "userpack" {
+		if f.Source == SourceModule && f.Module != nil {
+			if f.Module.Name() == "userpack" {
 				found = true
 				break
 			}
@@ -758,17 +758,17 @@ func TestDiscoverAll_FindsPacksInUserDir(t *testing.T) {
 	}
 
 	if !found {
-		t.Error("DiscoverAll() did not find pack in user commands directory")
+		t.Error("DiscoverAll() did not find module in user commands directory")
 	}
 }
 
-func TestDiscoverAll_FindsPacksInConfigPath(t *testing.T) {
+func TestDiscoverAll_FindsModulesInConfigPath(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	// Create a config search path with a pack (using new two-file format)
+	// Create a config search path with a module (using new two-file format)
 	searchPath := filepath.Join(tmpDir, "custom-commands")
-	packDir := filepath.Join(searchPath, "configpack.invkpack")
-	createValidDiscoveryPack(t, packDir, "configpack", "config-packed-cmd")
+	moduleDir := filepath.Join(searchPath, "configpack.invkmod")
+	createValidDiscoveryModule(t, moduleDir, "configpack", "config-packed-cmd")
 
 	// Create an empty working directory
 	workDir := filepath.Join(tmpDir, "work")
@@ -795,8 +795,8 @@ func TestDiscoverAll_FindsPacksInConfigPath(t *testing.T) {
 
 	found := false
 	for _, f := range files {
-		if f.Source == SourcePack && f.Pack != nil {
-			if f.Pack.Name() == "configpack" {
+		if f.Source == SourceModule && f.Module != nil {
+			if f.Module.Name() == "configpack" {
 				found = true
 				break
 			}
@@ -804,39 +804,39 @@ func TestDiscoverAll_FindsPacksInConfigPath(t *testing.T) {
 	}
 
 	if !found {
-		t.Error("DiscoverAll() did not find pack in configured search path")
+		t.Error("DiscoverAll() did not find module in configured search path")
 	}
 }
 
-func TestDiscoveredFile_PackField(t *testing.T) {
+func TestDiscoveredFile_ModuleField(t *testing.T) {
 	df := &DiscoveredFile{
-		Path:   "/path/to/pack/invkfile.cue",
-		Source: SourcePack,
+		Path:   "/path/to/module/invkfile.cue",
+		Source: SourceModule,
 	}
 
-	if df.Pack != nil {
-		t.Error("Pack should be nil by default")
+	if df.Module != nil {
+		t.Error("Module should be nil by default")
 	}
 
-	if df.Source != SourcePack {
-		t.Errorf("Source = %v, want SourcePack", df.Source)
+	if df.Source != SourceModule {
+		t.Errorf("Source = %v, want SourceModule", df.Source)
 	}
 }
 
-func TestDiscoverCommands_FromPack(t *testing.T) {
+func TestDiscoverCommands_FromModule(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	// Create a valid pack with the new two-file format
-	packDir := filepath.Join(tmpDir, "testpack.invkpack")
-	if err := os.MkdirAll(packDir, 0o755); err != nil {
-		t.Fatalf("failed to create pack dir: %v", err)
+	// Create a valid module with the new two-file format
+	moduleDir := filepath.Join(tmpDir, "testpack.invkmod")
+	if err := os.MkdirAll(moduleDir, 0o755); err != nil {
+		t.Fatalf("failed to create module dir: %v", err)
 	}
-	// Create invkpack.cue with metadata
-	invkpackContent := `pack: "testpack"
+	// Create invkmod.cue with metadata
+	invkmodContent := `module: "testpack"
 version: "1.0"
 `
-	if err := os.WriteFile(filepath.Join(packDir, "invkpack.cue"), []byte(invkpackContent), 0o644); err != nil {
-		t.Fatalf("failed to write invkpack.cue: %v", err)
+	if err := os.WriteFile(filepath.Join(moduleDir, "invkmod.cue"), []byte(invkmodContent), 0o644); err != nil {
+		t.Fatalf("failed to write invkmod.cue: %v", err)
 	}
 	// Create invkfile.cue with commands
 	invkfileContent := `cmds: [
@@ -844,7 +844,7 @@ version: "1.0"
 	{name: "cmd2", description: "Second command", implementations: [{script: "echo 2", runtimes: [{name: "native"}]}]}
 ]
 `
-	if err := os.WriteFile(filepath.Join(packDir, "invkfile.cue"), []byte(invkfileContent), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(moduleDir, "invkfile.cue"), []byte(invkfileContent), 0o644); err != nil {
 		t.Fatalf("failed to write invkfile.cue: %v", err)
 	}
 
@@ -864,38 +864,38 @@ version: "1.0"
 		t.Fatalf("DiscoverCommands() returned error: %v", err)
 	}
 
-	// Should find both commands from the pack
+	// Should find both commands from the module
 	foundCmd1 := false
 	foundCmd2 := false
 	for _, cmd := range commands {
-		if cmd.Name == "testpack cmd1" && cmd.Source == SourcePack {
+		if cmd.Name == "testpack cmd1" && cmd.Source == SourceModule {
 			foundCmd1 = true
 		}
-		if cmd.Name == "testpack cmd2" && cmd.Source == SourcePack {
+		if cmd.Name == "testpack cmd2" && cmd.Source == SourceModule {
 			foundCmd2 = true
 		}
 	}
 
 	if !foundCmd1 {
-		t.Error("DiscoverCommands() did not find 'testpack cmd1' from pack")
+		t.Error("DiscoverCommands() did not find 'testpack cmd1' from module")
 	}
 	if !foundCmd2 {
-		t.Error("DiscoverCommands() did not find 'testpack cmd2' from pack")
+		t.Error("DiscoverCommands() did not find 'testpack cmd2' from module")
 	}
 }
 
-func TestDiscoverAll_SkipsInvalidPacks(t *testing.T) {
+func TestDiscoverAll_SkipsInvalidModules(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	// Create an invalid pack (missing invkpack.cue - required now)
-	invalidPackDir := filepath.Join(tmpDir, "invalid.invkpack")
-	if err := os.MkdirAll(invalidPackDir, 0o755); err != nil {
-		t.Fatalf("failed to create invalid pack dir: %v", err)
+	// Create an invalid module (missing invkmod.cue - required now)
+	invalidModuleDir := filepath.Join(tmpDir, "invalid.invkmod")
+	if err := os.MkdirAll(invalidModuleDir, 0o755); err != nil {
+		t.Fatalf("failed to create invalid module dir: %v", err)
 	}
 
-	// Create a valid pack using new two-file format
-	validPackDir := filepath.Join(tmpDir, "valid.invkpack")
-	createValidDiscoveryPack(t, validPackDir, "valid", "cmd")
+	// Create a valid module using new two-file format
+	validModuleDir := filepath.Join(tmpDir, "valid.invkmod")
+	createValidDiscoveryModule(t, validModuleDir, "valid", "cmd")
 
 	// Change to temp directory
 	restoreWd := testutil.MustChdir(t, tmpDir)
@@ -913,41 +913,41 @@ func TestDiscoverAll_SkipsInvalidPacks(t *testing.T) {
 		t.Fatalf("DiscoverAll() returned error: %v", err)
 	}
 
-	// Should only find the valid pack
-	packCount := 0
+	// Should only find the valid module
+	moduleCount := 0
 	for _, f := range files {
-		if f.Source == SourcePack {
-			packCount++
-			if f.Pack != nil && f.Pack.Name() != "valid" {
-				t.Errorf("unexpected pack found: %s", f.Pack.Name())
+		if f.Source == SourceModule {
+			moduleCount++
+			if f.Module != nil && f.Module.Name() != "valid" {
+				t.Errorf("unexpected module found: %s", f.Module.Name())
 			}
 		}
 	}
 
-	if packCount != 1 {
-		t.Errorf("expected 1 pack, found %d", packCount)
+	if moduleCount != 1 {
+		t.Errorf("expected 1 module, found %d", moduleCount)
 	}
 }
 
-func TestLoadAll_ParsesPacks(t *testing.T) {
+func TestLoadAll_ParsesModules(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	// Create a valid pack with new two-file format
-	packDir := filepath.Join(tmpDir, "parsepack.invkpack")
-	if err := os.MkdirAll(packDir, 0o755); err != nil {
-		t.Fatalf("failed to create pack dir: %v", err)
+	// Create a valid module with new two-file format
+	moduleDir := filepath.Join(tmpDir, "parsepack.invkmod")
+	if err := os.MkdirAll(moduleDir, 0o755); err != nil {
+		t.Fatalf("failed to create module dir: %v", err)
 	}
-	// Create invkpack.cue with metadata
-	invkpackContent := `pack: "parsepack"
+	// Create invkmod.cue with metadata
+	invkmodContent := `module: "parsepack"
 version: "1.0"
-description: "A test pack"
+description: "A test module"
 `
-	if err := os.WriteFile(filepath.Join(packDir, "invkpack.cue"), []byte(invkpackContent), 0o644); err != nil {
-		t.Fatalf("failed to write invkpack.cue: %v", err)
+	if err := os.WriteFile(filepath.Join(moduleDir, "invkmod.cue"), []byte(invkmodContent), 0o644); err != nil {
+		t.Fatalf("failed to write invkmod.cue: %v", err)
 	}
 	// Create invkfile.cue with commands
 	invkfileContent := `cmds: [{name: "test", implementations: [{script: "echo test", runtimes: [{name: "native"}]}]}]`
-	if err := os.WriteFile(filepath.Join(packDir, "invkfile.cue"), []byte(invkfileContent), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(moduleDir, "invkfile.cue"), []byte(invkfileContent), 0o644); err != nil {
 		t.Fatalf("failed to write invkfile.cue: %v", err)
 	}
 
@@ -967,44 +967,44 @@ description: "A test pack"
 		t.Fatalf("LoadAll() returned error: %v", err)
 	}
 
-	// Find the pack file
-	var packFile *DiscoveredFile
+	// Find the module file
+	var moduleFile *DiscoveredFile
 	for _, f := range files {
-		if f.Source == SourcePack {
-			packFile = f
+		if f.Source == SourceModule {
+			moduleFile = f
 			break
 		}
 	}
 
-	if packFile == nil {
-		t.Fatal("LoadAll() did not find pack")
+	if moduleFile == nil {
+		t.Fatal("LoadAll() did not find module")
 	}
 
-	if packFile.Invkfile == nil {
-		t.Fatal("LoadAll() did not parse pack invkfile")
+	if moduleFile.Invkfile == nil {
+		t.Fatal("LoadAll() did not parse module invkfile")
 	}
 
 	// In the new format, description is in Metadata, not Invkfile
-	if packFile.Invkfile.Metadata == nil {
-		t.Fatal("Invkfile.Metadata should not be nil for pack-parsed file")
+	if moduleFile.Invkfile.Metadata == nil {
+		t.Fatal("Invkfile.Metadata should not be nil for module-parsed file")
 	}
 
-	if packFile.Invkfile.Metadata.Description != "A test pack" {
-		t.Errorf("Invkfile.Metadata.Description = %s, want 'A test pack'", packFile.Invkfile.Metadata.Description)
+	if moduleFile.Invkfile.Metadata.Description != "A test module" {
+		t.Errorf("Invkfile.Metadata.Description = %s, want 'A test module'", moduleFile.Invkfile.Metadata.Description)
 	}
 
-	// Verify that PackPath is set on the parsed invkfile
-	if !packFile.Invkfile.IsFromPack() {
-		t.Error("Invkfile.IsFromPack() should return true for pack-parsed file")
+	// Verify that ModulePath is set on the parsed invkfile
+	if !moduleFile.Invkfile.IsFromModule() {
+		t.Error("Invkfile.IsFromModule() should return true for module-parsed file")
 	}
 }
 
-func TestLoadFirst_LoadsPack(t *testing.T) {
+func TestLoadFirst_LoadsModule(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	// Create a valid pack (but no regular invkfile in root)
-	packDir := filepath.Join(tmpDir, "firstpack.invkpack")
-	createValidDiscoveryPack(t, packDir, "firstpack", "first")
+	// Create a valid module (but no regular invkfile in root)
+	moduleDir := filepath.Join(tmpDir, "firstpack.invkmod")
+	createValidDiscoveryModule(t, moduleDir, "firstpack", "first")
 
 	// Change to temp directory
 	restoreWd := testutil.MustChdir(t, tmpDir)
@@ -1022,33 +1022,33 @@ func TestLoadFirst_LoadsPack(t *testing.T) {
 		t.Fatalf("LoadFirst() returned error: %v", err)
 	}
 
-	if file.Source != SourcePack {
-		t.Errorf("LoadFirst().Source = %v, want SourcePack", file.Source)
+	if file.Source != SourceModule {
+		t.Errorf("LoadFirst().Source = %v, want SourceModule", file.Source)
 	}
 
 	if file.Invkfile == nil {
-		t.Fatal("LoadFirst() did not parse pack invkfile")
+		t.Fatal("LoadFirst() did not parse module invkfile")
 	}
 
-	if file.Pack == nil {
-		t.Fatal("LoadFirst().Pack should not be nil for pack source")
+	if file.Module == nil {
+		t.Fatal("LoadFirst().Module should not be nil for module source")
 	}
 
-	if file.Pack.Name() != "firstpack" {
-		t.Errorf("Pack.Name = %s, want 'firstpack'", file.Pack.Name())
+	if file.Module.Name() != "firstpack" {
+		t.Errorf("Module.Name = %s, want 'firstpack'", file.Module.Name())
 	}
 }
 
-func TestPackCollisionError(t *testing.T) {
-	err := &PackCollisionError{
-		PackID:       "io.example.tools",
+func TestModuleCollisionError(t *testing.T) {
+	err := &ModuleCollisionError{
+		ModuleID:       "io.example.tools",
 		FirstSource:  "/path/to/first",
 		SecondSource: "/path/to/second",
 	}
 
 	errMsg := err.Error()
 	if !containsString(errMsg, "io.example.tools") {
-		t.Error("error message should contain pack ID")
+		t.Error("error message should contain module ID")
 	}
 	if !containsString(errMsg, "/path/to/first") {
 		t.Error("error message should contain first source")
@@ -1061,146 +1061,146 @@ func TestPackCollisionError(t *testing.T) {
 	}
 }
 
-func TestCheckPackCollisions(t *testing.T) {
+func TestCheckModuleCollisions(t *testing.T) {
 	cfg := config.DefaultConfig()
 	d := New(cfg)
 
 	t.Run("NoCollision", func(t *testing.T) {
 		files := []*DiscoveredFile{
 			{
-				Path:     "/path/to/pack1",
-				Invkfile: &invkfile.Invkfile{Metadata: &invkfile.Invkpack{Pack: "io.example.pack1"}},
+				Path:     "/path/to/module1",
+				Invkfile: &invkfile.Invkfile{Metadata: &invkfile.Invkmod{Module: "io.example.module1"}},
 			},
 			{
-				Path:     "/path/to/pack2",
-				Invkfile: &invkfile.Invkfile{Metadata: &invkfile.Invkpack{Pack: "io.example.pack2"}},
+				Path:     "/path/to/module2",
+				Invkfile: &invkfile.Invkfile{Metadata: &invkfile.Invkmod{Module: "io.example.module2"}},
 			},
 		}
 
-		err := d.CheckPackCollisions(files)
+		err := d.CheckModuleCollisions(files)
 		if err != nil {
-			t.Errorf("CheckPackCollisions() returned unexpected error: %v", err)
+			t.Errorf("CheckModuleCollisions() returned unexpected error: %v", err)
 		}
 	})
 
 	t.Run("WithCollision", func(t *testing.T) {
 		files := []*DiscoveredFile{
 			{
-				Path:     "/path/to/pack1",
-				Invkfile: &invkfile.Invkfile{Metadata: &invkfile.Invkpack{Pack: "io.example.same"}},
+				Path:     "/path/to/module1",
+				Invkfile: &invkfile.Invkfile{Metadata: &invkfile.Invkmod{Module: "io.example.same"}},
 			},
 			{
-				Path:     "/path/to/pack2",
-				Invkfile: &invkfile.Invkfile{Metadata: &invkfile.Invkpack{Pack: "io.example.same"}},
+				Path:     "/path/to/module2",
+				Invkfile: &invkfile.Invkfile{Metadata: &invkfile.Invkmod{Module: "io.example.same"}},
 			},
 		}
 
-		err := d.CheckPackCollisions(files)
+		err := d.CheckModuleCollisions(files)
 		if err == nil {
-			t.Error("CheckPackCollisions() should return error for collision")
+			t.Error("CheckModuleCollisions() should return error for collision")
 		}
 
-		var collisionErr *PackCollisionError
+		var collisionErr *ModuleCollisionError
 		if !errors.As(err, &collisionErr) {
-			t.Errorf("error should be PackCollisionError, got %T", err)
+			t.Errorf("error should be ModuleCollisionError, got %T", err)
 		}
-		if collisionErr != nil && collisionErr.PackID != "io.example.same" {
-			t.Errorf("PackID = %s, want io.example.same", collisionErr.PackID)
+		if collisionErr != nil && collisionErr.ModuleID != "io.example.same" {
+			t.Errorf("ModuleID = %s, want io.example.same", collisionErr.ModuleID)
 		}
 	})
 
 	t.Run("CollisionResolvedByAlias", func(t *testing.T) {
 		cfg := config.DefaultConfig()
-		cfg.PackAliases = map[string]string{
-			"/path/to/pack1": "io.example.alias1",
+		cfg.ModuleAliases = map[string]string{
+			"/path/to/module1": "io.example.alias1",
 		}
 		dAlias := New(cfg)
 
 		files := []*DiscoveredFile{
 			{
-				Path:     "/path/to/pack1",
-				Invkfile: &invkfile.Invkfile{Metadata: &invkfile.Invkpack{Pack: "io.example.same"}},
+				Path:     "/path/to/module1",
+				Invkfile: &invkfile.Invkfile{Metadata: &invkfile.Invkmod{Module: "io.example.same"}},
 			},
 			{
-				Path:     "/path/to/pack2",
-				Invkfile: &invkfile.Invkfile{Metadata: &invkfile.Invkpack{Pack: "io.example.same"}},
+				Path:     "/path/to/module2",
+				Invkfile: &invkfile.Invkfile{Metadata: &invkfile.Invkmod{Module: "io.example.same"}},
 			},
 		}
 
-		err := dAlias.CheckPackCollisions(files)
+		err := dAlias.CheckModuleCollisions(files)
 		if err != nil {
-			t.Errorf("CheckPackCollisions() should not return error when alias resolves collision: %v", err)
+			t.Errorf("CheckModuleCollisions() should not return error when alias resolves collision: %v", err)
 		}
 	})
 
 	t.Run("SkipsFilesWithErrors", func(t *testing.T) {
 		files := []*DiscoveredFile{
 			{
-				Path:     "/path/to/pack1",
-				Invkfile: &invkfile.Invkfile{Metadata: &invkfile.Invkpack{Pack: "io.example.same"}},
+				Path:     "/path/to/module1",
+				Invkfile: &invkfile.Invkfile{Metadata: &invkfile.Invkmod{Module: "io.example.same"}},
 			},
 			{
-				Path:  "/path/to/pack2",
+				Path:  "/path/to/module2",
 				Error: os.ErrNotExist, // This file has an error
 			},
 		}
 
-		err := d.CheckPackCollisions(files)
+		err := d.CheckModuleCollisions(files)
 		if err != nil {
-			t.Errorf("CheckPackCollisions() should skip files with errors: %v", err)
+			t.Errorf("CheckModuleCollisions() should skip files with errors: %v", err)
 		}
 	})
 
-	t.Run("SkipsFilesWithoutPackID", func(t *testing.T) {
+	t.Run("SkipsFilesWithoutModuleID", func(t *testing.T) {
 		files := []*DiscoveredFile{
 			{
-				Path:     "/path/to/pack1",
-				Invkfile: &invkfile.Invkfile{Metadata: &invkfile.Invkpack{Pack: "io.example.pack1"}},
+				Path:     "/path/to/module1",
+				Invkfile: &invkfile.Invkfile{Metadata: &invkfile.Invkmod{Module: "io.example.module1"}},
 			},
 			{
-				Path:     "/path/to/pack2",
-				Invkfile: &invkfile.Invkfile{Metadata: &invkfile.Invkpack{Pack: ""}}, // Empty pack ID
+				Path:     "/path/to/module2",
+				Invkfile: &invkfile.Invkfile{Metadata: &invkfile.Invkmod{Module: ""}}, // Empty module ID
 			},
 		}
 
-		err := d.CheckPackCollisions(files)
+		err := d.CheckModuleCollisions(files)
 		if err != nil {
-			t.Errorf("CheckPackCollisions() should skip files without pack ID: %v", err)
+			t.Errorf("CheckModuleCollisions() should skip files without module ID: %v", err)
 		}
 	})
 }
 
-func TestGetEffectivePackID(t *testing.T) {
+func TestGetEffectiveModuleID(t *testing.T) {
 	t.Run("WithoutAlias", func(t *testing.T) {
 		cfg := config.DefaultConfig()
 		d := New(cfg)
 
 		file := &DiscoveredFile{
-			Path:     "/path/to/pack",
-			Invkfile: &invkfile.Invkfile{Metadata: &invkfile.Invkpack{Pack: "io.example.original"}},
+			Path:     "/path/to/module",
+			Invkfile: &invkfile.Invkfile{Metadata: &invkfile.Invkmod{Module: "io.example.original"}},
 		}
 
-		packID := d.GetEffectivePackID(file)
-		if packID != "io.example.original" {
-			t.Errorf("GetEffectivePackID() = %s, want io.example.original", packID)
+		moduleID := d.GetEffectiveModuleID(file)
+		if moduleID != "io.example.original" {
+			t.Errorf("GetEffectiveModuleID() = %s, want io.example.original", moduleID)
 		}
 	})
 
 	t.Run("WithAlias", func(t *testing.T) {
 		cfg := config.DefaultConfig()
-		cfg.PackAliases = map[string]string{
-			"/path/to/pack": "io.example.aliased",
+		cfg.ModuleAliases = map[string]string{
+			"/path/to/module": "io.example.aliased",
 		}
 		d := New(cfg)
 
 		file := &DiscoveredFile{
-			Path:     "/path/to/pack",
-			Invkfile: &invkfile.Invkfile{Metadata: &invkfile.Invkpack{Pack: "io.example.original"}},
+			Path:     "/path/to/module",
+			Invkfile: &invkfile.Invkfile{Metadata: &invkfile.Invkmod{Module: "io.example.original"}},
 		}
 
-		packID := d.GetEffectivePackID(file)
-		if packID != "io.example.aliased" {
-			t.Errorf("GetEffectivePackID() = %s, want io.example.aliased", packID)
+		moduleID := d.GetEffectiveModuleID(file)
+		if moduleID != "io.example.aliased" {
+			t.Errorf("GetEffectiveModuleID() = %s, want io.example.aliased", moduleID)
 		}
 	})
 
@@ -1209,13 +1209,13 @@ func TestGetEffectivePackID(t *testing.T) {
 		d := New(cfg)
 
 		file := &DiscoveredFile{
-			Path:     "/path/to/pack",
+			Path:     "/path/to/module",
 			Invkfile: nil,
 		}
 
-		packID := d.GetEffectivePackID(file)
-		if packID != "" {
-			t.Errorf("GetEffectivePackID() = %s, want empty string", packID)
+		moduleID := d.GetEffectiveModuleID(file)
+		if moduleID != "" {
+			t.Errorf("GetEffectiveModuleID() = %s, want empty string", moduleID)
 		}
 	})
 }
@@ -1229,31 +1229,31 @@ func containsString(s, substr string) bool {
 	return false
 }
 
-// createValidDiscoveryPack creates a pack with the new two-file format (invkpack.cue + invkfile.cue)
-func createValidDiscoveryPack(t *testing.T, packDir, packID, cmdName string) {
+// createValidDiscoveryModule creates a module with the new two-file format (invkmod.cue + invkfile.cue)
+func createValidDiscoveryModule(t *testing.T, moduleDir, moduleID, cmdName string) {
 	t.Helper()
-	if err := os.MkdirAll(packDir, 0o755); err != nil {
-		t.Fatalf("failed to create pack dir: %v", err)
+	if err := os.MkdirAll(moduleDir, 0o755); err != nil {
+		t.Fatalf("failed to create module dir: %v", err)
 	}
-	// Create invkpack.cue with metadata
-	invkpackContent := `pack: "` + packID + `"
+	// Create invkmod.cue with metadata
+	invkmodContent := `module: "` + moduleID + `"
 version: "1.0"
 `
-	if err := os.WriteFile(filepath.Join(packDir, "invkpack.cue"), []byte(invkpackContent), 0o644); err != nil {
-		t.Fatalf("failed to write invkpack.cue: %v", err)
+	if err := os.WriteFile(filepath.Join(moduleDir, "invkmod.cue"), []byte(invkmodContent), 0o644); err != nil {
+		t.Fatalf("failed to write invkmod.cue: %v", err)
 	}
 	// Create invkfile.cue with commands
 	invkfileContent := `cmds: [{name: "` + cmdName + `", implementations: [{script: "echo test", runtimes: [{name: "native"}]}]}]`
-	if err := os.WriteFile(filepath.Join(packDir, "invkfile.cue"), []byte(invkfileContent), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(moduleDir, "invkfile.cue"), []byte(invkfileContent), 0o644); err != nil {
 		t.Fatalf("failed to write invkfile.cue: %v", err)
 	}
 }
 
-func TestDiscoverAll_CurrentDirInvkfileTakesPrecedenceOverPack(t *testing.T) {
+func TestDiscoverAll_CurrentDirInvkfileTakesPrecedenceOverModule(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	// Create a regular invkfile in current directory
-	// Standalone invkfiles cannot have pack/version - those fields only go in invkpack.cue
+	// Standalone invkfiles cannot have module/version - those fields only go in invkmod.cue
 	currentContent := `
 cmds: [{name: "cmd", implementations: [{script: "echo current", runtimes: [{name: "native"}]}]}]
 `
@@ -1261,9 +1261,9 @@ cmds: [{name: "cmd", implementations: [{script: "echo current", runtimes: [{name
 		t.Fatalf("failed to write current invkfile: %v", err)
 	}
 
-	// Create a pack in the same directory using new two-file format
-	packDir := filepath.Join(tmpDir, "apack.invkpack")
-	createValidDiscoveryPack(t, packDir, "apack", "cmd")
+	// Create a module in the same directory using new two-file format
+	moduleDir := filepath.Join(tmpDir, "apack.invkmod")
+	createValidDiscoveryModule(t, moduleDir, "apack", "cmd")
 
 	// Change to temp directory
 	restoreWd := testutil.MustChdir(t, tmpDir)
@@ -1281,7 +1281,7 @@ cmds: [{name: "cmd", implementations: [{script: "echo current", runtimes: [{name
 		t.Fatalf("DiscoverAll() returned error: %v", err)
 	}
 
-	// First file should be from current directory, not pack
+	// First file should be from current directory, not module
 	if len(files) == 0 {
 		t.Fatal("DiscoverAll() returned no files")
 	}
@@ -1292,20 +1292,20 @@ cmds: [{name: "cmd", implementations: [{script: "echo current", runtimes: [{name
 
 	// Both should be found
 	foundCurrentDir := false
-	foundPack := false
+	foundModule := false
 	for _, f := range files {
 		if f.Source == SourceCurrentDir {
 			foundCurrentDir = true
 		}
-		if f.Source == SourcePack {
-			foundPack = true
+		if f.Source == SourceModule {
+			foundModule = true
 		}
 	}
 
 	if !foundCurrentDir {
 		t.Error("DiscoverAll() did not find invkfile in current directory")
 	}
-	if !foundPack {
-		t.Error("DiscoverAll() did not find pack")
+	if !foundModule {
+		t.Error("DiscoverAll() did not find module")
 	}
 }

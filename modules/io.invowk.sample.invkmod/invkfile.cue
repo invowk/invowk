@@ -1,6 +1,6 @@
-// Sample invowk pack commands - demonstrates the invkfile.cue format.
+// Sample invowk module commands - demonstrates the invkfile.cue format.
 // This file contains command definitions.
-// Pack metadata (name, version, dependencies) is in invkpack.cue.
+// Module metadata (name, version, dependencies) is in invkmod.cue.
 
 cmds: [
 	{

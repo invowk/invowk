@@ -75,7 +75,7 @@ func TestGetInteractiveRuntime(t *testing.T) {
 
 // TestNativeRuntimePrepareInteractive tests the NativeRuntime.PrepareInteractive method.
 func TestNativeRuntimePrepareInteractive(t *testing.T) {
-	// Create a temporary invkfile (pack metadata now in invkpack.cue, not invkfile.cue)
+	// Create a temporary invkfile (module metadata now in invkmod.cue, not invkfile.cue)
 	tmpDir := t.TempDir()
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
 
@@ -122,7 +122,7 @@ cmds: [{
 
 // TestVirtualRuntimePrepareInteractive tests the VirtualRuntime.PrepareInteractive method.
 func TestVirtualRuntimePrepareInteractive(t *testing.T) {
-	// Create a temporary invkfile (pack metadata now in invkpack.cue, not invkfile.cue)
+	// Create a temporary invkfile (module metadata now in invkmod.cue, not invkfile.cue)
 	tmpDir := t.TempDir()
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
 

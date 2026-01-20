@@ -39,8 +39,8 @@ type Config struct {
 	UI UIConfig `json:"ui" mapstructure:"ui"`
 	// Container configures container runtime behavior
 	Container ContainerConfig `json:"container" mapstructure:"container"`
-	// PackAliases maps pack paths to alias names for collision disambiguation
-	PackAliases map[string]string `json:"pack_aliases" mapstructure:"pack_aliases"`
+	// ModuleAliases maps module paths to alias names for collision disambiguation
+	ModuleAliases map[string]string `json:"module_aliases" mapstructure:"module_aliases"`
 }
 
 // ContainerConfig configures container runtime behavior
@@ -55,8 +55,8 @@ type AutoProvisionConfig struct {
 	Enabled bool `json:"enabled" mapstructure:"enabled"`
 	// BinaryPath overrides the path to the invowk binary to provision
 	BinaryPath string `json:"binary_path" mapstructure:"binary_path"`
-	// PacksPaths specifies additional directories to search for packs
-	PacksPaths []string `json:"packs_paths" mapstructure:"packs_paths"`
+	// ModulesPaths specifies additional directories to search for modules
+	ModulesPaths []string `json:"modules_paths" mapstructure:"modules_paths"`
 	// CacheDir specifies where to store cached provisioned images metadata
 	CacheDir string `json:"cache_dir" mapstructure:"cache_dir"`
 }
@@ -113,10 +113,10 @@ func DefaultConfig() *Config {
 		},
 		Container: ContainerConfig{
 			AutoProvision: AutoProvisionConfig{
-				Enabled:    true,
-				BinaryPath: "", // Will use os.Executable() if empty
-				PacksPaths: []string{},
-				CacheDir:   "", // Will use default cache dir if empty
+				Enabled:      true,
+				BinaryPath:   "", // Will use os.Executable() if empty
+				ModulesPaths: []string{},
+				CacheDir:     "", // Will use default cache dir if empty
 			},
 		},
 	}
@@ -193,7 +193,7 @@ func Load() (*Config, error) {
 	v.SetDefault("ui.interactive", defaults.UI.Interactive)
 	v.SetDefault("container.auto_provision.enabled", defaults.Container.AutoProvision.Enabled)
 	v.SetDefault("container.auto_provision.binary_path", defaults.Container.AutoProvision.BinaryPath)
-	v.SetDefault("container.auto_provision.packs_paths", defaults.Container.AutoProvision.PacksPaths)
+	v.SetDefault("container.auto_provision.modules_paths", defaults.Container.AutoProvision.ModulesPaths)
 	v.SetDefault("container.auto_provision.cache_dir", defaults.Container.AutoProvision.CacheDir)
 
 	// Get config directory
@@ -403,9 +403,9 @@ func GenerateCUE(cfg *Config) string {
 	if cfg.Container.AutoProvision.BinaryPath != "" {
 		sb.WriteString(fmt.Sprintf("\t\tbinary_path: %q\n", cfg.Container.AutoProvision.BinaryPath))
 	}
-	if len(cfg.Container.AutoProvision.PacksPaths) > 0 {
-		sb.WriteString("\t\tpacks_paths: [\n")
-		for _, p := range cfg.Container.AutoProvision.PacksPaths {
+	if len(cfg.Container.AutoProvision.ModulesPaths) > 0 {
+		sb.WriteString("\t\tmodules_paths: [\n")
+		for _, p := range cfg.Container.AutoProvision.ModulesPaths {
 			sb.WriteString(fmt.Sprintf("\t\t\t%q,\n", p))
 		}
 		sb.WriteString("\t\t]\n")

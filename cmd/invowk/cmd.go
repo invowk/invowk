@@ -1091,19 +1091,19 @@ func validateDependencies(cmdInfo *discovery.CommandInfo, registry *runtime.Regi
 	}
 
 	// Then check command dependencies (existence-only; these are not executed automatically)
-	// Get pack ID from metadata (nil for non-pack invkfiles)
-	currentPack := ""
+	// Get module ID from metadata (nil for non-module invkfiles)
+	currentModule := ""
 	if cmdInfo.Invkfile.Metadata != nil {
-		currentPack = cmdInfo.Invkfile.Metadata.Pack
+		currentModule = cmdInfo.Invkfile.Metadata.Module
 	}
-	if err := checkCommandDependenciesExist(mergedDeps, currentPack, parentCtx); err != nil {
+	if err := checkCommandDependenciesExist(mergedDeps, currentModule, parentCtx); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func checkCommandDependenciesExist(deps *invkfile.DependsOn, currentPack string, ctx *runtime.ExecutionContext) error {
+func checkCommandDependenciesExist(deps *invkfile.DependsOn, currentModule string, ctx *runtime.ExecutionContext) error {
 	if deps == nil || len(deps.Commands) == 0 {
 		return nil
 	}
@@ -1144,8 +1144,8 @@ func checkCommandDependenciesExist(deps *invkfile.DependsOn, currentPack string,
 				break
 			}
 
-			// Also allow referencing commands from the current invkfile without a pack prefix.
-			qualified := currentPack + " " + alt
+			// Also allow referencing commands from the current invkfile without a module prefix.
+			qualified := currentModule + " " + alt
 			if _, ok := available[qualified]; ok {
 				found = true
 				break

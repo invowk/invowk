@@ -2,8 +2,8 @@
 // This file defines the structure, types, and constraints for command invkfiles.
 // This schema is embedded in the invowk binary for validation.
 //
-// NOTE: Pack metadata (pack, version, description, requires) is now defined
-// in invkpack_schema.cue and must be in a separate invkpack.cue file.
+// NOTE: Module metadata (module, version, description, requires) is now defined
+// in invkmod_schema.cue and must be in a separate invkmod.cue file.
 
 import "strings"
 
@@ -20,7 +20,7 @@ import "strings"
 #EnvConfig: close({
 	// files lists dotenv files to load (optional)
 	// Files are loaded in order; later files override earlier ones.
-	// Paths are relative to the invkfile location (or pack root for packs).
+	// Paths are relative to the invkfile location (or module root for modules).
 	// Files suffixed with '?' are optional and will not cause an error if missing.
 	files?: [...string]
 
@@ -411,7 +411,7 @@ import "strings"
 })
 
 // Invkfile is the root schema for command definitions (invkfile.cue)
-// Pack metadata (pack, version, description, requires) is now in invkpack.cue
+// Module metadata (module, version, description, requires) is now in invkmod.cue
 #Invkfile: close({
 	// default_shell overrides the default shell for native runtime (optional)
 	// Example: "/bin/bash", "pwsh"
@@ -441,9 +441,9 @@ import "strings"
 	// commands is not supported (use cmds)
 	commands?: _|_
 
-	// pack, version, description, requires are NOT allowed here
-	// These fields belong in invkpack.cue
-	pack?: _|_
+	// module, version, description, requires are NOT allowed here
+	// These fields belong in invkmod.cue
+	module?: _|_
 	version?: _|_
 	description?: _|_
 	requires?: _|_

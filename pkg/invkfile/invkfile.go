@@ -10,12 +10,12 @@ import (
 // InvkfileName is the base name for invkfile configuration files
 const InvkfileName = "invkfile"
 
-// InvkpackName is the base name for invkpack metadata files
-const InvkpackName = "invkpack"
+// InvkmodName is the base name for invkmod metadata files
+const InvkmodName = "invkmod"
 
 // Invkfile represents command definitions from invkfile.cue.
-// Pack metadata (pack name, version, description, requires) is now in Invkpack.
-// This separation follows Go's pattern: invkpack.cue is like go.mod, invkfile.cue is like .go files.
+// Module metadata (module name, version, description, requires) is now in Invkmod.
+// This separation follows Go's pattern: invkmod.cue is like go.mod, invkfile.cue is like .go files.
 type Invkfile struct {
 	// DefaultShell overrides the default shell for native runtime
 	DefaultShell string `json:"default_shell,omitempty"`
@@ -39,12 +39,12 @@ type Invkfile struct {
 
 	// FilePath stores the path where this invkfile was loaded from (not in CUE)
 	FilePath string `json:"-"`
-	// PackPath stores the pack directory path if this invkfile is from a pack (not in CUE)
-	// Empty string if not loaded from a pack
-	PackPath string `json:"-"`
-	// Metadata references the pack metadata from invkpack.cue (not in CUE)
-	// This is set when parsing a pack via ParsePack
-	Metadata *Invkpack `json:"-"`
+	// ModulePath stores the module directory path if this invkfile is from a module (not in CUE)
+	// Empty string if not loaded from a module
+	ModulePath string `json:"-"`
+	// Metadata references the module metadata from invkmod.cue (not in CUE)
+	// This is set when parsing a module via ParseModule
+	Metadata *Invkmod `json:"-"`
 }
 
 // GetCurrentHostOS returns the current operating system as Platform
@@ -77,17 +77,17 @@ func (inv *Invkfile) GetCommand(name string) *Command {
 	return nil
 }
 
-// IsFromPack returns true if this invkfile was loaded from a pack
-func (inv *Invkfile) IsFromPack() bool {
-	return inv.PackPath != ""
+// IsFromModule returns true if this invkfile was loaded from a module
+func (inv *Invkfile) IsFromModule() bool {
+	return inv.ModulePath != ""
 }
 
 // GetScriptBasePath returns the base path for resolving script file references.
-// For pack invkfiles, this is the pack path.
+// For module invkfiles, this is the module path.
 // For regular invkfiles, this is the directory containing the invkfile.
 func (inv *Invkfile) GetScriptBasePath() string {
-	if inv.PackPath != "" {
-		return inv.PackPath
+	if inv.ModulePath != "" {
+		return inv.ModulePath
 	}
 	return filepath.Dir(inv.FilePath)
 }
@@ -143,25 +143,25 @@ func (inv *Invkfile) GetEffectiveWorkDir(cmd *Command, impl *Implementation, cli
 	return invkfileDir
 }
 
-// GetFullCommandName returns the fully qualified command name with the pack prefix.
-// The format is "pack cmdname" where cmdname may have spaces for subcommands.
-// Returns empty string for the pack prefix if no Metadata is set.
+// GetFullCommandName returns the fully qualified command name with the module prefix.
+// The format is "module cmdname" where cmdname may have spaces for subcommands.
+// Returns empty string for the module prefix if no Metadata is set.
 func (inv *Invkfile) GetFullCommandName(cmdName string) string {
 	if inv.Metadata != nil {
-		return inv.Metadata.Pack + " " + cmdName
+		return inv.Metadata.Module + " " + cmdName
 	}
 	return cmdName
 }
 
-// GetPack returns the pack identifier from Metadata, or empty string if not set.
-func (inv *Invkfile) GetPack() string {
+// GetModule returns the module identifier from Metadata, or empty string if not set.
+func (inv *Invkfile) GetModule() string {
 	if inv.Metadata != nil {
-		return inv.Metadata.Pack
+		return inv.Metadata.Module
 	}
 	return ""
 }
 
-// ListCommands returns all command names at the top level (with pack prefix)
+// ListCommands returns all command names at the top level (with module prefix)
 func (inv *Invkfile) ListCommands() []string {
 	names := make([]string, len(inv.Commands))
 	for i := range inv.Commands {
@@ -170,7 +170,7 @@ func (inv *Invkfile) ListCommands() []string {
 	return names
 }
 
-// FlattenCommands returns all commands keyed by their fully qualified names (with pack prefix)
+// FlattenCommands returns all commands keyed by their fully qualified names (with module prefix)
 func (inv *Invkfile) FlattenCommands() map[string]*Command {
 	result := make(map[string]*Command)
 	for i := range inv.Commands {

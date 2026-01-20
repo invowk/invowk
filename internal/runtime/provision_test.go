@@ -26,8 +26,8 @@ func TestDefaultProvisionConfig(t *testing.T) {
 		t.Errorf("Expected BinaryMountPath to be /invowk/bin, got %s", cfg.BinaryMountPath)
 	}
 
-	if cfg.PacksMountPath != "/invowk/packs" {
-		t.Errorf("Expected PacksMountPath to be /invowk/packs, got %s", cfg.PacksMountPath)
+	if cfg.ModulesMountPath != "/invowk/modules" {
+		t.Errorf("Expected ModulesMountPath to be /invowk/modules, got %s", cfg.ModulesMountPath)
 	}
 }
 
@@ -107,51 +107,51 @@ func TestCalculateDirHash(t *testing.T) {
 	}
 }
 
-func TestDiscoverPacks(t *testing.T) {
-	// Create a temp directory structure with packs
+func TestDiscoverModules(t *testing.T) {
+	// Create a temp directory structure with modules
 	tmpDir := t.TempDir()
 
-	// Create some pack directories
-	pack1 := filepath.Join(tmpDir, "mypack.invkpack")
-	if err := os.MkdirAll(pack1, 0o755); err != nil {
-		t.Fatalf("Failed to create pack1: %v", err)
+	// Create some module directories
+	module1 := filepath.Join(tmpDir, "mymodule.invkmod")
+	if err := os.MkdirAll(module1, 0o755); err != nil {
+		t.Fatalf("Failed to create module1: %v", err)
 	}
 
-	pack2 := filepath.Join(tmpDir, "subdir", "another.invkpack")
-	if err := os.MkdirAll(pack2, 0o755); err != nil {
-		t.Fatalf("Failed to create pack2: %v", err)
+	module2 := filepath.Join(tmpDir, "subdir", "another.invkmod")
+	if err := os.MkdirAll(module2, 0o755); err != nil {
+		t.Fatalf("Failed to create module2: %v", err)
 	}
 
-	// Create a non-pack directory
-	notPack := filepath.Join(tmpDir, "notapack")
-	if err := os.MkdirAll(notPack, 0o755); err != nil {
-		t.Fatalf("Failed to create notapack: %v", err)
+	// Create a non-module directory
+	notModule := filepath.Join(tmpDir, "notamodule")
+	if err := os.MkdirAll(notModule, 0o755); err != nil {
+		t.Fatalf("Failed to create notamodule: %v", err)
 	}
 
-	// Discover packs
-	packs := discoverPacks([]string{tmpDir})
+	// Discover modules
+	modules := discoverModules([]string{tmpDir})
 
-	if len(packs) != 2 {
-		t.Errorf("Expected 2 packs, got %d", len(packs))
+	if len(modules) != 2 {
+		t.Errorf("Expected 2 modules, got %d", len(modules))
 	}
 
-	// Verify pack paths
-	foundPack1 := false
-	foundPack2 := false
-	for _, p := range packs {
-		if strings.HasSuffix(p, "mypack.invkpack") {
-			foundPack1 = true
+	// Verify module paths
+	foundModule1 := false
+	foundModule2 := false
+	for _, m := range modules {
+		if strings.HasSuffix(m, "mymodule.invkmod") {
+			foundModule1 = true
 		}
-		if strings.HasSuffix(p, "another.invkpack") {
-			foundPack2 = true
+		if strings.HasSuffix(m, "another.invkmod") {
+			foundModule2 = true
 		}
 	}
 
-	if !foundPack1 {
-		t.Error("Expected to find mypack.invkpack")
+	if !foundModule1 {
+		t.Error("Expected to find mymodule.invkmod")
 	}
-	if !foundPack2 {
-		t.Error("Expected to find another.invkpack")
+	if !foundModule2 {
+		t.Error("Expected to find another.invkmod")
 	}
 }
 
@@ -234,7 +234,7 @@ func TestLayerProvisionerGenerateDockerfile(t *testing.T) {
 		Enabled:          true,
 		InvowkBinaryPath: "/usr/bin/invowk",
 		BinaryMountPath:  "/invowk/bin",
-		PacksMountPath:   "/invowk/packs",
+		ModulesMountPath: "/invowk/modules",
 	}
 
 	provisioner := &LayerProvisioner{
@@ -252,16 +252,16 @@ func TestLayerProvisionerGenerateDockerfile(t *testing.T) {
 		t.Error("Expected COPY invowk")
 	}
 
-	if !strings.Contains(dockerfile, "COPY packs/ /invowk/packs/") {
-		t.Error("Expected COPY packs/")
+	if !strings.Contains(dockerfile, "COPY modules/ /invowk/modules/") {
+		t.Error("Expected COPY modules/")
 	}
 
 	if !strings.Contains(dockerfile, "ENV PATH=\"/invowk/bin:$PATH\"") {
 		t.Error("Expected PATH env var")
 	}
 
-	if !strings.Contains(dockerfile, "ENV INVOWK_PACK_PATH=\"/invowk/packs\"") {
-		t.Error("Expected INVOWK_PACK_PATH env var")
+	if !strings.Contains(dockerfile, "ENV INVOWK_MODULE_PATH=\"/invowk/modules\"") {
+		t.Error("Expected INVOWK_MODULE_PATH env var")
 	}
 }
 
@@ -270,7 +270,7 @@ func TestLayerProvisionerBuildEnvVars(t *testing.T) {
 		Enabled:          true,
 		InvowkBinaryPath: "/usr/bin/invowk",
 		BinaryMountPath:  "/invowk/bin",
-		PacksMountPath:   "/invowk/packs",
+		ModulesMountPath: "/invowk/modules",
 	}
 
 	provisioner := &LayerProvisioner{
@@ -279,8 +279,8 @@ func TestLayerProvisionerBuildEnvVars(t *testing.T) {
 
 	envVars := provisioner.buildEnvVars()
 
-	if envVars["INVOWK_PACK_PATH"] != "/invowk/packs" {
-		t.Errorf("Expected INVOWK_PACK_PATH=/invowk/packs, got %s", envVars["INVOWK_PACK_PATH"])
+	if envVars["INVOWK_MODULE_PATH"] != "/invowk/modules" {
+		t.Errorf("Expected INVOWK_MODULE_PATH=/invowk/modules, got %s", envVars["INVOWK_MODULE_PATH"])
 	}
 
 	if !strings.Contains(envVars["PATH"], "/invowk/bin") {

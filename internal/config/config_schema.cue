@@ -25,15 +25,15 @@ package config
 	// container configures container runtime behavior
 	container?: #ContainerConfig
 
-	// pack_aliases maps pack paths to alias names for collision disambiguation
-	// When two packs have the same 'pack' identifier, use aliases to differentiate them
-	pack_aliases?: [string]: string
+	// module_aliases maps module paths to alias names for collision disambiguation
+	// When two modules have the same 'module' identifier, use aliases to differentiate them
+	module_aliases?: [string]: string
 })
 
 // ContainerConfig configures container runtime behavior
 #ContainerConfig: close({
 	// auto_provision controls automatic provisioning of invowk resources
-	// into containers. When enabled, invowk binary and packs are automatically
+	// into containers. When enabled, invowk binary and modules are automatically
 	// added to container images, enabling nested invowk commands.
 	auto_provision?: #AutoProvisionConfig
 })
@@ -47,9 +47,9 @@ package config
 	// If not set, the currently running invowk binary is used.
 	binary_path?: string
 
-	// packs_paths specifies additional directories to search for packs.
-	// These are added to the default pack search paths.
-	packs_paths?: [...string]
+	// modules_paths specifies additional directories to search for modules.
+	// These are added to the default module search paths.
+	modules_paths?: [...string]
 
 	// cache_dir specifies where to store cached provisioned images metadata.
 	// Default: ~/.cache/invowk/provision

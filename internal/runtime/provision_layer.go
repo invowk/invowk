@@ -100,16 +100,16 @@ func (p *LayerProvisioner) calculateCacheKey(ctx context.Context, baseImage stri
 		h.Write([]byte("binary:" + binaryHash))
 	}
 
-	// Include packs hash
-	packs := discoverPacks(p.config.PacksPaths)
-	for _, packPath := range packs {
-		packHash, err := calculateDirHash(packPath)
+	// Include modules hash
+	modules := discoverModules(p.config.ModulesPaths)
+	for _, modulePath := range modules {
+		moduleHash, err := calculateDirHash(modulePath)
 		if err != nil {
-			// Skip packs that can't be hashed
+			// Skip modules that can't be hashed
 			continue
 		}
-		packName := filepath.Base(packPath)
-		h.Write([]byte("pack:" + packName + ":" + packHash))
+		moduleName := filepath.Base(modulePath)
+		h.Write([]byte("module:" + moduleName + ":" + moduleHash))
 	}
 
 	// Include invkfile directory hash if set
@@ -229,20 +229,20 @@ func (p *LayerProvisioner) prepareBuildContext(baseImage string) (buildContextDi
 		_ = os.Chmod(binaryDst, 0o755) // Best-effort; execution may still work
 	}
 
-	// Copy packs
-	packsDir := filepath.Join(tmpDir, "packs")
-	if err := os.MkdirAll(packsDir, 0o755); err != nil {
+	// Copy modules
+	modulesDir := filepath.Join(tmpDir, "modules")
+	if err := os.MkdirAll(modulesDir, 0o755); err != nil {
 		cleanup()
-		return "", nil, fmt.Errorf("failed to create packs directory: %w", err)
+		return "", nil, fmt.Errorf("failed to create modules directory: %w", err)
 	}
 
-	packs := discoverPacks(p.config.PacksPaths)
-	for _, packPath := range packs {
-		packName := filepath.Base(packPath)
-		packDst := filepath.Join(packsDir, packName)
-		if err := copyDir(packPath, packDst); err != nil {
-			// Log warning but continue - don't fail the whole provision for one pack
-			fmt.Fprintf(os.Stderr, "Warning: failed to copy pack %s: %v\n", packName, err)
+	modules := discoverModules(p.config.ModulesPaths)
+	for _, modulePath := range modules {
+		moduleName := filepath.Base(modulePath)
+		moduleDst := filepath.Join(modulesDir, moduleName)
+		if err := copyDir(modulePath, moduleDst); err != nil {
+			// Log warning but continue - don't fail the whole provision for one module
+			fmt.Fprintf(os.Stderr, "Warning: failed to copy module %s: %v\n", moduleName, err)
 			continue
 		}
 	}
@@ -274,17 +274,17 @@ func (p *LayerProvisioner) generateDockerfile(baseImage string) string {
 		sb.WriteString(fmt.Sprintf("RUN chmod +x %s/invowk\n\n", binaryPath))
 	}
 
-	// Copy packs
-	packsPath := p.config.PacksMountPath
-	sb.WriteString("# Install packs\n")
-	sb.WriteString(fmt.Sprintf("COPY packs/ %s/\n\n", packsPath))
+	// Copy modules
+	modulesPath := p.config.ModulesMountPath
+	sb.WriteString("# Install modules\n")
+	sb.WriteString(fmt.Sprintf("COPY modules/ %s/\n\n", modulesPath))
 
 	// Set environment variables
 	sb.WriteString("# Configure environment\n")
 	if p.config.InvowkBinaryPath != "" {
 		sb.WriteString(fmt.Sprintf("ENV PATH=\"%s:$PATH\"\n", p.config.BinaryMountPath))
 	}
-	sb.WriteString(fmt.Sprintf("ENV INVOWK_PACK_PATH=\"%s\"\n", packsPath)) //nolint:gocritic // Dockerfile ENV syntax requires literal quotes
+	sb.WriteString(fmt.Sprintf("ENV INVOWK_MODULE_PATH=\"%s\"\n", modulesPath)) //nolint:gocritic // Dockerfile ENV syntax requires literal quotes
 
 	return sb.String()
 }
@@ -298,7 +298,7 @@ func (p *LayerProvisioner) buildEnvVars() map[string]string {
 		env["PATH"] = p.config.BinaryMountPath + ":/usr/local/bin:/usr/bin:/bin"
 	}
 
-	env["INVOWK_PACK_PATH"] = p.config.PacksMountPath
+	env["INVOWK_MODULE_PATH"] = p.config.ModulesMountPath
 
 	return env
 }
