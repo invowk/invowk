@@ -25,7 +25,7 @@ func NewDockerEngine() *DockerEngine {
 
 // Name returns the engine name
 func (e *DockerEngine) Name() string {
-	return "docker"
+	return string(EngineTypeDocker)
 }
 
 // Available checks if Docker is available
@@ -33,7 +33,7 @@ func (e *DockerEngine) Available() bool {
 	if e.binaryPath == "" {
 		return false
 	}
-	cmd := exec.Command(e.binaryPath, "version", "--format", "{{.Server.Version}}")
+	cmd := exec.CommandContext(context.Background(), e.binaryPath, "version", "--format", "{{.Server.Version}}")
 	return cmd.Run() == nil
 }
 

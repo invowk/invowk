@@ -118,7 +118,8 @@ func New() (*Server, error) {
 	}
 
 	//nolint:gosec // G102: Binding to 0.0.0.0 required for container runtime access to TUI server
-	listener, err := net.Listen("tcp", "0.0.0.0:0")
+	var lc net.ListenConfig
+	listener, err := lc.Listen(context.Background(), "tcp", "0.0.0.0:0")
 	if err != nil {
 		return nil, fmt.Errorf("failed to create listener: %w", err)
 	}
@@ -173,9 +174,7 @@ func (s *Server) Start(ctx context.Context) error {
 	}
 
 	// Start serving in background
-	s.wg.Add(1)
-	go func() {
-		defer s.wg.Done()
+	s.wg.Go(func() {
 		// Signal that we're ready to accept connections
 		close(s.startedCh)
 		if err := s.httpServer.Serve(s.listener); !errors.Is(err, http.ErrServerClosed) {
@@ -185,7 +184,7 @@ func (s *Server) Start(ctx context.Context) error {
 			default:
 			}
 		}
-	}()
+	})
 
 	// Wait for ready signal or context cancellation
 	select {

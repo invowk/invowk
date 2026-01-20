@@ -26,7 +26,7 @@ func NewPodmanEngine() *PodmanEngine {
 
 // Name returns the engine name
 func (e *PodmanEngine) Name() string {
-	return "podman"
+	return string(EngineTypePodman)
 }
 
 // Available checks if Podman is available
@@ -34,7 +34,7 @@ func (e *PodmanEngine) Available() bool {
 	if e.binaryPath == "" {
 		return false
 	}
-	cmd := exec.Command(e.binaryPath, "version", "--format", "{{.Version}}")
+	cmd := exec.CommandContext(context.Background(), e.binaryPath, "version", "--format", "{{.Version}}")
 	return cmd.Run() == nil
 }
 
@@ -271,7 +271,7 @@ func addSELinuxLabel(volume string) string {
 	if len(parts) >= 3 {
 		options := parts[len(parts)-1]
 		// Check for :z or :Z in options
-		for _, opt := range strings.Split(options, ",") {
+		for opt := range strings.SplitSeq(options, ",") {
 			if opt == "z" || opt == "Z" {
 				// Already has SELinux label
 				return volume

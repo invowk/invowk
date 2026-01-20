@@ -116,6 +116,7 @@ func MustStop(t testing.TB, s Stopper) {
 // DeferClose returns a cleanup function that closes the given io.Closer,
 // logging any errors. Useful for defer statements in tests.
 func DeferClose(t testing.TB, c io.Closer) func() {
+	t.Helper()
 	return func() {
 		t.Helper()
 		if err := c.Close(); err != nil {
@@ -127,6 +128,7 @@ func DeferClose(t testing.TB, c io.Closer) func() {
 // DeferStop returns a cleanup function that stops the given Stopper,
 // logging any errors. Useful for defer statements in tests.
 func DeferStop(t testing.TB, s Stopper) func() {
+	t.Helper()
 	return func() {
 		t.Helper()
 		if err := s.Stop(); err != nil {

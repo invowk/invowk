@@ -3,11 +3,10 @@
 package runtime
 
 import (
+	"invowk-cli/internal/testutil"
 	"os"
 	"path/filepath"
 	"testing"
-
-	"invowk-cli/internal/testutil"
 )
 
 func TestParseEnvFile_BasicKeyValue(t *testing.T) {

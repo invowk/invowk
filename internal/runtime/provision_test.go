@@ -3,12 +3,11 @@
 package runtime
 
 import (
+	"invowk-cli/internal/testutil"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
-
-	"invowk-cli/internal/testutil"
 )
 
 func TestDefaultProvisionConfig(t *testing.T) {

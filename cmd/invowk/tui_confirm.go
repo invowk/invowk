@@ -3,10 +3,10 @@
 package cmd
 
 import (
-	"github.com/spf13/cobra"
-
 	"invowk-cli/internal/tui"
 	"invowk-cli/internal/tuiserver"
+
+	"github.com/spf13/cobra"
 )
 
 var (

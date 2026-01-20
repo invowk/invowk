@@ -236,7 +236,7 @@ func (m *filterModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
-		case "ctrl+c", "esc":
+		case keyCtrlC, "esc":
 			m.done = true
 			m.cancelled = true
 			return m, tea.Quit
@@ -283,9 +283,10 @@ func (m *filterModel) IsDone() bool {
 
 // Result implements EmbeddableComponent.
 // Returns []string for selected options.
-func (m *filterModel) Result() (interface{}, error) {
+// Returns ErrCancelled if the user cancelled the operation.
+func (m *filterModel) Result() (any, error) {
 	if m.cancelled {
-		return nil, nil
+		return nil, ErrCancelled
 	}
 
 	// Handle multi-select (limit > 1 or no limit)

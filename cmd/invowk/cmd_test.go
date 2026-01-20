@@ -5,17 +5,16 @@ package cmd
 import (
 	"errors"
 	"fmt"
+	"invowk-cli/internal/config"
+	"invowk-cli/internal/runtime"
+	"invowk-cli/internal/testutil"
+	"invowk-cli/pkg/invkfile"
 	"os"
 	"os/exec"
 	"path/filepath"
 	goruntime "runtime"
 	"strings"
 	"testing"
-
-	"invowk-cli/internal/config"
-	"invowk-cli/internal/runtime"
-	"invowk-cli/internal/testutil"
-	"invowk-cli/pkg/invkfile"
 )
 
 // setHomeDirEnv sets the appropriate HOME environment variable based on platform
@@ -1213,7 +1212,6 @@ func TestCheckCapabilityDependencies_DuplicateSkipped(t *testing.T) {
 	}
 
 	err := checkCapabilityDependencies(deps, ctx)
-
 	// If there's an error, it should only report the capability once
 	if err != nil {
 		var depErr *DependencyError

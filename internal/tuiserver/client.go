@@ -4,6 +4,7 @@ package tuiserver
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -50,7 +51,11 @@ func (c *Client) IsAvailable() bool {
 		return false
 	}
 
-	resp, err := c.client.Get(c.addr + "/health")
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, c.addr+"/health", http.NoBody)
+	if err != nil {
+		return false
+	}
+	resp, err := c.client.Do(req)
 	if err != nil {
 		return false
 	}
@@ -76,7 +81,7 @@ func (c *Client) sendRequest(component Component, options any) (result *Response
 		return nil, fmt.Errorf("failed to marshal request: %w", err)
 	}
 
-	httpReq, err := http.NewRequest(http.MethodPost, c.addr+"/tui", bytes.NewReader(reqBody))
+	httpReq, err := http.NewRequestWithContext(context.Background(), http.MethodPost, c.addr+"/tui", bytes.NewReader(reqBody))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create HTTP request: %w", err)
 	}
@@ -158,7 +163,7 @@ func (c *Client) Confirm(opts ConfirmRequest) (bool, error) {
 // Choose sends a choose prompt request to the TUI server.
 // For single-select (limit <= 1), returns the selected option as a string.
 // For multi-select (limit > 1 or no_limit), returns a slice of strings.
-func (c *Client) Choose(opts ChooseRequest) (interface{}, error) {
+func (c *Client) Choose(opts ChooseRequest) (any, error) {
 	resp, err := c.sendRequest(ComponentChoose, opts)
 	if err != nil {
 		return nil, err
@@ -191,7 +196,7 @@ func (c *Client) ChooseSingle(opts ChooseRequest) (string, error) {
 	switch v := result.(type) {
 	case string:
 		return v, nil
-	case []interface{}:
+	case []any:
 		if len(v) > 0 {
 			if s, ok := v[0].(string); ok {
 				return s, nil
@@ -213,7 +218,7 @@ func (c *Client) ChooseMultiple(opts ChooseRequest) ([]string, error) {
 
 	// Result should be an array
 	switch v := result.(type) {
-	case []interface{}:
+	case []any:
 		strs := make([]string, len(v))
 		for i, item := range v {
 			if s, ok := item.(string); ok {

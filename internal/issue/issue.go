@@ -3,9 +3,11 @@
 package issue
 
 import (
+	"maps"
+	"slices"
+	"strings"
+
 	"github.com/charmbracelet/glamour"
-	"golang.org/x/exp/maps"
-	"golang.org/x/exp/slices"
 )
 
 // Id represents a unique identifier for an issue type.
@@ -71,18 +73,18 @@ func (i *Issue) ExtLinks() []HttpLink {
 
 // Render renders the issue message with documentation links using the specified style.
 func (i *Issue) Render(stylePath string) (string, error) {
-	extraMd := ""
+	var extraMd strings.Builder
 	if len(i.docLinks) > 0 || len(i.extLinks) > 0 {
-		extraMd += "\n\n"
-		extraMd += "## See also: "
+		extraMd.WriteString("\n\n")
+		extraMd.WriteString("## See also: ")
 		for _, link := range i.docLinks {
-			extraMd += "- [" + string(link) + "]"
+			extraMd.WriteString("- [" + string(link) + "]")
 		}
 		for _, link := range i.extLinks {
-			extraMd += "- [" + string(link) + "]"
+			extraMd.WriteString("- [" + string(link) + "]")
 		}
 	}
-	return render(string(i.mdMsg)+extraMd, stylePath)
+	return render(string(i.mdMsg)+extraMd.String(), stylePath)
 }
 
 var (
@@ -490,7 +492,7 @@ This command cannot run on your current operating system.
 
 // Values returns all registered issues.
 func Values() []*Issue {
-	return maps.Values(issues)
+	return slices.Collect(maps.Values(issues))
 }
 
 // Get returns the issue with the given ID, or nil if not found.

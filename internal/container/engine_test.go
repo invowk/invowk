@@ -10,24 +10,26 @@ import (
 )
 
 func TestEngineType_Constants(t *testing.T) {
-	if EngineTypePodman != "podman" {
+	// These tests verify that constants have the expected string values.
+	// Using literals is intentional - using the constants themselves would be circular.
+	if EngineTypePodman != "podman" { //nolint:goconst // Testing constant value
 		t.Errorf("EngineTypePodman = %s, want podman", EngineTypePodman)
 	}
 
-	if EngineTypeDocker != "docker" {
+	if EngineTypeDocker != "docker" { //nolint:goconst // Testing constant value
 		t.Errorf("EngineTypeDocker = %s, want docker", EngineTypeDocker)
 	}
 }
 
-func TestErrEngineNotAvailable_Error(t *testing.T) {
-	err := &ErrEngineNotAvailable{
+func TestEngineNotAvailableError_Error(t *testing.T) {
+	err := &EngineNotAvailableError{
 		Engine: "podman",
 		Reason: "not installed",
 	}
 
 	expected := "container engine 'podman' is not available: not installed"
 	if err.Error() != expected {
-		t.Errorf("ErrEngineNotAvailable.Error() = %s, want %s", err.Error(), expected)
+		t.Errorf("EngineNotAvailableError.Error() = %s, want %s", err.Error(), expected)
 	}
 }
 
@@ -71,12 +73,11 @@ func TestNewEngine_UnknownType(t *testing.T) {
 func TestNewEngine_Podman(t *testing.T) {
 	// This test verifies the logic, not actual availability
 	engine, err := NewEngine(EngineTypePodman)
-
 	// If neither podman nor docker is available, we should get an error
 	if err != nil {
-		var notAvailErr *ErrEngineNotAvailable
+		var notAvailErr *EngineNotAvailableError
 		if !errors.As(err, &notAvailErr) {
-			t.Errorf("expected ErrEngineNotAvailable, got %T", err)
+			t.Errorf("expected EngineNotAvailableError, got %T", err)
 		}
 		return
 	}
@@ -90,12 +91,11 @@ func TestNewEngine_Podman(t *testing.T) {
 func TestNewEngine_Docker(t *testing.T) {
 	// This test verifies the logic, not actual availability
 	engine, err := NewEngine(EngineTypeDocker)
-
 	// If neither docker nor podman is available, we should get an error
 	if err != nil {
-		var notAvailErr *ErrEngineNotAvailable
+		var notAvailErr *EngineNotAvailableError
 		if !errors.As(err, &notAvailErr) {
-			t.Errorf("expected ErrEngineNotAvailable, got %T", err)
+			t.Errorf("expected EngineNotAvailableError, got %T", err)
 		}
 		return
 	}
@@ -108,12 +108,11 @@ func TestNewEngine_Docker(t *testing.T) {
 
 func TestAutoDetectEngine(t *testing.T) {
 	engine, err := AutoDetectEngine()
-
 	// If no engine is available, we should get an error
 	if err != nil {
-		var notAvailErr *ErrEngineNotAvailable
+		var notAvailErr *EngineNotAvailableError
 		if !errors.As(err, &notAvailErr) {
-			t.Errorf("expected ErrEngineNotAvailable, got %T: %v", err, err)
+			t.Errorf("expected EngineNotAvailableError, got %T: %v", err, err)
 		}
 		return
 	}

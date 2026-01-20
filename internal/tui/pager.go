@@ -89,7 +89,7 @@ func (m *pagerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
-		case "ctrl+c", "q", "esc", "enter":
+		case keyCtrlC, "q", "esc", "enter":
 			m.done = true
 			return m, tea.Quit
 		}
@@ -156,8 +156,10 @@ func (m *pagerModel) IsDone() bool {
 }
 
 // Result implements EmbeddableComponent.
-// Pager has no result value.
-func (m *pagerModel) Result() (interface{}, error) {
+// Pager has no result value - it's a view-only component.
+//
+//nolint:nilnil // Pager doesn't produce a result, nil is semantically correct here
+func (m *pagerModel) Result() (any, error) {
 	return nil, nil
 }
 

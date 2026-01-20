@@ -4,11 +4,10 @@ package invkfile
 
 import (
 	"fmt"
+	"invowk-cli/internal/platform"
 	"path/filepath"
 	"regexp"
 	"strings"
-
-	"invowk-cli/internal/platform"
 )
 
 // Validation limits to prevent resource exhaustion
@@ -125,7 +124,7 @@ func hasOverlappingAlternation(pattern string) bool {
 		}
 
 		// Check if any two parts have the same starting character or one is prefix of another
-		for i := 0; i < len(parts); i++ {
+		for i := range len(parts) {
 			for j := i + 1; j < len(parts); j++ {
 				p1 := strings.TrimSpace(parts[i])
 				p2 := strings.TrimSpace(parts[j])
@@ -351,7 +350,7 @@ func ValidateVolumeMount(volume string) error {
 			"rshared": true, "rslave": true, "rprivate": true,
 			"nocopy": true, "copy": true,
 		}
-		for _, opt := range strings.Split(options, ",") {
+		for opt := range strings.SplitSeq(options, ",") {
 			opt = strings.TrimSpace(opt)
 			if opt == "" {
 				continue

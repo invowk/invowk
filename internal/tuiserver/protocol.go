@@ -128,7 +128,7 @@ type ChooseRequest struct {
 // ChooseResult contains the result of a choose prompt.
 type ChooseResult struct {
 	// Selected contains the selected option (single select) or options (multi-select).
-	Selected interface{} `json:"selected"`
+	Selected any `json:"selected"`
 }
 
 // FilterRequest contains options for the filter component.

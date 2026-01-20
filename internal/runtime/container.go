@@ -6,15 +6,21 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
-	"os"
-	"os/exec"
-	"path/filepath"
-	"strings"
-
 	"invowk-cli/internal/config"
 	"invowk-cli/internal/container"
 	"invowk-cli/internal/sshserver"
 	"invowk-cli/pkg/invkfile"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
+)
+
+// Container host addresses for SSH tunneling
+const (
+	hostDockerInternal     = "host.docker.internal"
+	hostContainersInternal = "host.containers.internal"
+	hostGatewayMapping     = "host.docker.internal:host-gateway"
 )
 
 // ContainerRuntime executes commands inside a container
@@ -221,10 +227,10 @@ func (r *ContainerRuntime) Execute(ctx *ExecutionContext) *Result {
 		}
 
 		// Add SSH connection info to environment
-		// Use host.docker.internal for Docker or host.containers.internal for Podman
-		hostAddr := "host.docker.internal"
+		// Use hostDockerInternal for Docker or hostContainersInternal for Podman
+		hostAddr := hostDockerInternal
 		if r.engine.Name() == "podman" {
-			hostAddr = "host.containers.internal"
+			hostAddr = hostContainersInternal
 		}
 
 		env["INVOWK_SSH_HOST"] = hostAddr
@@ -280,7 +286,7 @@ func (r *ContainerRuntime) Execute(ctx *ExecutionContext) *Result {
 	var extraHosts []string
 	if hostSSHEnabled && sshConnInfo != nil {
 		// Add host gateway for accessing host from container
-		extraHosts = append(extraHosts, "host.docker.internal:host-gateway")
+		extraHosts = append(extraHosts, hostGatewayMapping)
 	}
 
 	// Run the container
@@ -390,10 +396,10 @@ func (r *ContainerRuntime) PrepareCommand(ctx *ExecutionContext) (*PreparedComma
 		}
 
 		// Add SSH connection info to environment
-		// Use host.docker.internal for Docker or host.containers.internal for Podman
-		hostAddr := "host.docker.internal"
+		// Use hostDockerInternal for Docker or hostContainersInternal for Podman
+		hostAddr := hostDockerInternal
 		if r.engine.Name() == "podman" {
-			hostAddr = "host.containers.internal"
+			hostAddr = hostContainersInternal
 		}
 
 		env["INVOWK_SSH_HOST"] = hostAddr
@@ -449,8 +455,8 @@ func (r *ContainerRuntime) PrepareCommand(ctx *ExecutionContext) (*PreparedComma
 	needsHostAccess := (hostSSHEnabled && sshConnInfo != nil) || ctx.TUIServerURL != ""
 	if needsHostAccess {
 		// Add host gateway for accessing host from container
-		// This enables host.docker.internal (Docker) or host.containers.internal (Podman)
-		extraHosts = append(extraHosts, "host.docker.internal:host-gateway")
+		// This enables hostDockerInternal (Docker) or hostContainersInternal (Podman)
+		extraHosts = append(extraHosts, hostGatewayMapping)
 	}
 
 	// Add TUI server environment variables if set (for interactive mode)
@@ -501,9 +507,9 @@ func (r *ContainerRuntime) PrepareCommand(ctx *ExecutionContext) (*PreparedComma
 // to access services on the host machine.
 func (r *ContainerRuntime) GetHostAddressForContainer() string {
 	if r.engine.Name() == "podman" {
-		return "host.containers.internal"
+		return hostContainersInternal
 	}
-	return "host.docker.internal"
+	return hostDockerInternal
 }
 
 // buildInterpreterCommand builds the command array for interpreter-based execution.
@@ -539,8 +545,8 @@ func (r *ContainerRuntime) buildInterpreterCommand(ctx *ExecutionContext, script
 		}
 
 		if _, err := tempFile.WriteString(script); err != nil {
-			_ = tempFile.Close()            // Best-effort close on error path
-			_ = os.Remove(tempFile.Name())  // Best-effort cleanup on error path
+			_ = tempFile.Close()           // Best-effort close on error path
+			_ = os.Remove(tempFile.Name()) // Best-effort cleanup on error path
 			return nil, "", fmt.Errorf("failed to write temp script: %w", err)
 		}
 

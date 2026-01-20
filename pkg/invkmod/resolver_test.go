@@ -3,11 +3,10 @@
 package invkmod
 
 import (
+	"invowk-cli/internal/testutil"
 	"os"
 	"path/filepath"
 	"testing"
-
-	"invowk-cli/internal/testutil"
 )
 
 func TestModuleRefKey(t *testing.T) {

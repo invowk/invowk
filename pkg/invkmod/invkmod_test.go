@@ -3,6 +3,7 @@
 package invkmod
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -221,8 +222,8 @@ version: "1.0"
 		}
 
 		meta, err := ParseModuleMetadataOnly(moduleDir)
-		if err != nil {
-			t.Fatalf("ParseModuleMetadataOnly() returned error: %v", err)
+		if !errors.Is(err, ErrInvkmodNotFound) {
+			t.Errorf("ParseModuleMetadataOnly() should return ErrInvkmodNotFound, got: %v", err)
 		}
 
 		if meta != nil {

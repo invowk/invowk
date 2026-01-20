@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 
@@ -162,7 +163,7 @@ func (f *GitFetcher) Fetch(ctx context.Context, gitURL, version string) (path, c
 		// Repository exists, fetch updates
 		// Fetch might fail for various reasons (network, permissions), but continue
 		// since the version might already be available locally
-		_ = f.fetch(ctx, repo)
+		_ = f.fetch(ctx, repo) //nolint:errcheck // Best-effort fetch; local version may suffice
 	}
 
 	// Checkout the specified version
@@ -242,8 +243,8 @@ func (f *GitFetcher) findTag(repo *git.Repository, version string) (plumbing.Has
 	tagNames := []string{version}
 
 	// Also try with/without "v" prefix
-	if strings.HasPrefix(version, "v") {
-		tagNames = append(tagNames, strings.TrimPrefix(version, "v"))
+	if noV, found := strings.CutPrefix(version, "v"); found {
+		tagNames = append(tagNames, noV)
 	} else {
 		tagNames = append(tagNames, "v"+version)
 	}
@@ -296,19 +297,15 @@ func (f *GitFetcher) GetCommitForTag(ctx context.Context, gitURL, tagName string
 
 	// Try both with and without "v" prefix
 	tagNames := []string{tagName}
-	if strings.HasPrefix(tagName, "v") {
-		tagNames = append(tagNames, strings.TrimPrefix(tagName, "v"))
+	if noV, found := strings.CutPrefix(tagName, "v"); found {
+		tagNames = append(tagNames, noV)
 	} else {
 		tagNames = append(tagNames, "v"+tagName)
 	}
 
 	for _, ref := range refs {
-		if ref.Name().IsTag() {
-			for _, tn := range tagNames {
-				if ref.Name().Short() == tn {
-					return ref.Hash().String(), nil
-				}
-			}
+		if ref.Name().IsTag() && slices.Contains(tagNames, ref.Name().Short()) {
+			return ref.Hash().String(), nil
 		}
 	}
 
@@ -325,8 +322,8 @@ func (f *GitFetcher) CloneShallow(ctx context.Context, gitURL, version, destPath
 
 	// Try with and without v prefix
 	tagNames := []string{version}
-	if strings.HasPrefix(version, "v") {
-		tagNames = append(tagNames, strings.TrimPrefix(version, "v"))
+	if noV, found := strings.CutPrefix(version, "v"); found {
+		tagNames = append(tagNames, noV)
 	} else {
 		tagNames = append(tagNames, "v"+version)
 	}
@@ -424,8 +421,8 @@ func (f *GitFetcher) ListTagsWithCommits(ctx context.Context, gitURL string) ([]
 
 	// Sort by version
 	sort.Slice(tags, func(i, j int) bool {
-		vi, _ := ParseVersion(tags[i].Name)
-		vj, _ := ParseVersion(tags[j].Name)
+		vi, _ := ParseVersion(tags[i].Name) //nolint:errcheck // Non-semver tags sort lexically
+		vj, _ := ParseVersion(tags[j].Name) //nolint:errcheck // Non-semver tags sort lexically
 		if vi == nil || vj == nil {
 			return tags[i].Name < tags[j].Name
 		}

@@ -190,7 +190,8 @@ func (s *Server) Start(ctx context.Context) error {
 
 	// Initialize listener
 	addr := fmt.Sprintf("%s:%d", s.cfg.Host, s.cfg.Port)
-	listener, err := net.Listen("tcp", addr)
+	var lc net.ListenConfig
+	listener, err := lc.Listen(startupCtx, "tcp", addr)
 	if err != nil {
 		s.transitionToFailed(fmt.Errorf("failed to listen on %s: %w", addr, err))
 		return s.lastErr
@@ -269,7 +270,6 @@ func (s *Server) serve() {
 	}
 
 	err := srv.Serve(listener)
-
 	// Handle serve completion
 	if err != nil {
 		// Ignore expected shutdown errors
@@ -614,7 +614,7 @@ func (s *Server) commandMiddleware() wish.Middleware {
 func (s *Server) runInteractiveShell(sess ssh.Session) {
 	shell := s.cfg.DefaultShell
 
-	cmd := exec.Command(shell)
+	cmd := exec.CommandContext(sess.Context(), shell)
 	cmd.Env = append(os.Environ(), sess.Environ()...)
 
 	ptyReq, winCh, isPty := sess.Pty()
@@ -626,7 +626,7 @@ func (s *Server) runInteractiveShell(sess ssh.Session) {
 	f, err := startPty(cmd)
 	if err != nil {
 		_, _ = fmt.Fprintf(sess.Stderr(), "Error starting shell: %v\n", err)
-		_ = sess.Exit(1) // Terminal operation; error non-critical
+		_ = sess.Exit(1) //nolint:errcheck // Terminal operation; error non-critical
 		return
 	}
 	defer func() { _ = f.Close() }() // PTY cleanup; error non-critical
@@ -640,28 +640,28 @@ func (s *Server) runInteractiveShell(sess ssh.Session) {
 
 	// Copy I/O
 	go func() {
-		_, _ = copyBuffer(f, sess)
+		_, _ = copyBuffer(f, sess) //nolint:errcheck // I/O copy; errors are non-recoverable
 	}()
-	_, _ = copyBuffer(sess, f)
+	_, _ = copyBuffer(sess, f) //nolint:errcheck // I/O copy; errors are non-recoverable
 
 	// Wait for command to complete
 	if err := cmd.Wait(); err != nil {
 		var exitErr *exec.ExitError
 		if errors.As(err, &exitErr) {
-			_ = sess.Exit(exitErr.ExitCode()) // Terminal operation; error non-critical
+			_ = sess.Exit(exitErr.ExitCode()) //nolint:errcheck // Terminal operation; error non-critical
 			return
 		}
 	}
-	_ = sess.Exit(0) // Terminal operation; error non-critical
+	_ = sess.Exit(0) //nolint:errcheck // Terminal operation; error non-critical
 }
 
 // runCommand executes a single command.
 func (s *Server) runCommand(sess ssh.Session, args []string) {
 	var cmd *exec.Cmd
 	if len(args) == 1 {
-		cmd = exec.Command(s.cfg.DefaultShell, "-c", args[0])
+		cmd = exec.CommandContext(sess.Context(), s.cfg.DefaultShell, "-c", args[0])
 	} else {
-		cmd = exec.Command(args[0], args[1:]...)
+		cmd = exec.CommandContext(sess.Context(), args[0], args[1:]...)
 	}
 
 	cmd.Env = append(os.Environ(), sess.Environ()...)
@@ -672,12 +672,12 @@ func (s *Server) runCommand(sess ssh.Session, args []string) {
 	if err := cmd.Run(); err != nil {
 		var exitErr *exec.ExitError
 		if errors.As(err, &exitErr) {
-			_ = sess.Exit(exitErr.ExitCode()) // Terminal operation; error non-critical
+			_ = sess.Exit(exitErr.ExitCode()) //nolint:errcheck // Terminal operation; error non-critical
 			return
 		}
 		_, _ = fmt.Fprintf(sess.Stderr(), "Error: %v\n", err)
-		_ = sess.Exit(1) // Terminal operation; error non-critical
+		_ = sess.Exit(1) //nolint:errcheck // Terminal operation; error non-critical
 		return
 	}
-	_ = sess.Exit(0) // Terminal operation; error non-critical
+	_ = sess.Exit(0) //nolint:errcheck // Terminal operation; error non-critical
 }

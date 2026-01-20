@@ -613,8 +613,8 @@ func findModuleInDir(dir string) (moduleDir, moduleName string, err error) {
 	if _, err := os.Stat(invkmodPath); err == nil {
 		// Extract module name from directory (for .invkmod repos)
 		dirName := filepath.Base(dir)
-		if strings.HasSuffix(dirName, ".invkmod") {
-			moduleName = strings.TrimSuffix(dirName, ".invkmod")
+		if name, found := strings.CutSuffix(dirName, ".invkmod"); found {
+			moduleName = name
 		} else {
 			// Fall back to parsing invkmod.cue to get the module name
 			moduleName = dirName
@@ -644,8 +644,7 @@ func extractModuleName(key string) string {
 // extractModuleFromInvkmod extracts the module field from invkmod content.
 // This is a simplified implementation - full parsing uses CUE.
 func extractModuleFromInvkmod(content string) string {
-	lines := strings.Split(content, "\n")
-	for _, line := range lines {
+	for line := range strings.SplitSeq(content, "\n") {
 		line = strings.TrimSpace(line)
 		if value, found := strings.CutPrefix(line, "module:"); found {
 			value = strings.TrimSpace(value)

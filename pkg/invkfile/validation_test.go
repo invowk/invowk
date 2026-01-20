@@ -3,10 +3,9 @@
 package invkfile
 
 import (
+	"invowk-cli/internal/platform"
 	"strings"
 	"testing"
-
-	"invowk-cli/internal/platform"
 )
 
 func TestValidateRegexPattern(t *testing.T) {

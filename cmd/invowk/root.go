@@ -7,13 +7,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"invowk-cli/internal/config"
 	"os"
 
 	"github.com/charmbracelet/fang"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/spf13/cobra"
-
-	"invowk-cli/internal/config"
 )
 
 // Build-time variables set via ldflags

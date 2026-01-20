@@ -8,6 +8,7 @@ import (
 	"net"
 	"os"
 	"os/exec"
+	"slices"
 	"time"
 
 	"golang.org/x/term"
@@ -139,9 +140,14 @@ func checkInternet() error {
 		"208.67.222.222:53", // OpenDNS
 	}
 
+	dialer := &net.Dialer{Timeout: DefaultCapabilityTimeout}
+	resolver := &net.Resolver{}
+	ctx, cancel := context.WithTimeout(context.Background(), DefaultCapabilityTimeout)
+	defer cancel()
+
 	var lastErr error
 	for _, server := range dnsServers {
-		conn, err := net.DialTimeout("udp", server, DefaultCapabilityTimeout)
+		conn, err := dialer.DialContext(ctx, "udp", server)
 		if err != nil {
 			lastErr = err
 			continue
@@ -150,7 +156,7 @@ func checkInternet() error {
 
 		// Additionally, try a DNS lookup to verify DNS resolution works
 		// This is a lightweight operation that verifies full connectivity
-		_, err = net.LookupHost("dns.google")
+		_, err = resolver.LookupHost(ctx, "dns.google")
 		if err != nil {
 			lastErr = err
 			continue
@@ -245,10 +251,5 @@ func ValidCapabilityNames() []CapabilityName {
 
 // IsValidCapabilityName checks if a capability name is valid
 func IsValidCapabilityName(name CapabilityName) bool {
-	for _, valid := range ValidCapabilityNames() {
-		if name == valid {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(ValidCapabilityNames(), name)
 }

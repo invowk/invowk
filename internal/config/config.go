@@ -251,7 +251,7 @@ func loadCUEIntoViper(v *viper.Viper, path string) error {
 	}
 
 	// Decode to Go map
-	var configMap map[string]interface{}
+	var configMap map[string]any
 	if err := value.Decode(&configMap); err != nil {
 		return fmt.Errorf("CUE decode error: %w", err)
 	}

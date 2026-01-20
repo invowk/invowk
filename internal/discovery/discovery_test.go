@@ -5,14 +5,13 @@ package discovery
 
 import (
 	"errors"
+	"invowk-cli/internal/config"
+	"invowk-cli/internal/testutil"
+	"invowk-cli/pkg/invkfile"
 	"os"
 	"path/filepath"
 	"runtime"
 	"testing"
-
-	"invowk-cli/internal/config"
-	"invowk-cli/internal/testutil"
-	"invowk-cli/pkg/invkfile"
 )
 
 // setHomeDirEnv sets the appropriate HOME environment variable based on platform
@@ -1041,7 +1040,7 @@ func TestLoadFirst_LoadsModule(t *testing.T) {
 
 func TestModuleCollisionError(t *testing.T) {
 	err := &ModuleCollisionError{
-		ModuleID:       "io.example.tools",
+		ModuleID:     "io.example.tools",
 		FirstSource:  "/path/to/first",
 		SecondSource: "/path/to/second",
 	}

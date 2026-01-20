@@ -84,7 +84,7 @@ func (m *confirmModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// Handle cancel keys before passing to form
 	if keyMsg, ok := msg.(tea.KeyMsg); ok {
 		switch keyMsg.String() {
-		case "ctrl+c", "esc":
+		case keyCtrlC, "esc":
 			m.done = true
 			m.cancelled = true
 			return m, nil
@@ -129,9 +129,10 @@ func (m *confirmModel) IsDone() bool {
 }
 
 // Result implements EmbeddableComponent.
-func (m *confirmModel) Result() (interface{}, error) {
+// Returns ErrCancelled if the user cancelled the operation.
+func (m *confirmModel) Result() (any, error) {
 	if m.cancelled {
-		return nil, nil
+		return nil, ErrCancelled
 	}
 	return *m.result, nil
 }
@@ -162,7 +163,7 @@ func Confirm(opts ConfirmOptions) (bool, error) {
 	if m.cancelled {
 		return false, fmt.Errorf("user aborted")
 	}
-	result, _ := m.Result()
+	result, _ := m.Result() //nolint:errcheck // Result() cannot fail after successful Run()
 	return result.(bool), nil
 }
 

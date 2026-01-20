@@ -179,10 +179,7 @@ var interpreterExtensions = map[string]string{
 // If no valid shebang is found, returns ShebangInfo{Found: false}.
 func ParseShebang(content string) ShebangInfo {
 	// Get first line
-	firstLine := content
-	if idx := strings.IndexByte(content, '\n'); idx != -1 {
-		firstLine = content[:idx]
-	}
+	firstLine, _, _ := strings.Cut(content, "\n")
 	// Also handle Windows-style line endings
 	firstLine = strings.TrimSuffix(firstLine, "\r")
 	firstLine = strings.TrimSpace(firstLine)

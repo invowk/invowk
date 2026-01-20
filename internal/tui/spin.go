@@ -156,7 +156,7 @@ func (m *spinModel) runCommand() tea.Cmd {
 			return spinnerDoneMsg{result: SpinResult{}}
 		}
 
-		cmd := exec.Command(m.command[0], m.command[1:]...)
+		cmd := exec.CommandContext(context.Background(), m.command[0], m.command[1:]...)
 		output, err := cmd.CombinedOutput()
 
 		result := SpinResult{
@@ -196,7 +196,7 @@ func (m *spinModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.result = msg.result
 		return m, nil
 	case tea.KeyMsg:
-		if msg.String() == "ctrl+c" {
+		if msg.String() == keyCtrlC {
 			m.done = true
 			return m, nil
 		}
@@ -229,7 +229,7 @@ func (m *spinModel) IsDone() bool {
 }
 
 // Result implements EmbeddableComponent.
-func (m *spinModel) Result() (interface{}, error) {
+func (m *spinModel) Result() (any, error) {
 	return m.result, nil
 }
 
@@ -312,7 +312,7 @@ func SpinWithCommand(opts SpinOptions, command string, args ...string) ([]byte, 
 	var cmdErr error
 
 	action := func() {
-		cmd := exec.Command(command, args...)
+		cmd := exec.CommandContext(context.Background(), command, args...)
 		output, cmdErr = cmd.CombinedOutput()
 	}
 

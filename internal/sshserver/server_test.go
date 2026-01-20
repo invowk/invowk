@@ -4,10 +4,9 @@ package sshserver
 
 import (
 	"context"
+	"invowk-cli/internal/testutil"
 	"testing"
 	"time"
-
-	"invowk-cli/internal/testutil"
 )
 
 func TestGenerateToken(t *testing.T) {

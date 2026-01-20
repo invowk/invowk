@@ -7,11 +7,10 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"invowk-cli/internal/container"
 	"os"
 	"path/filepath"
 	"strings"
-
-	"invowk-cli/internal/container"
 )
 
 // LayerProvisioner creates ephemeral container image layers that include
@@ -59,7 +58,7 @@ func (p *LayerProvisioner) Provision(ctx context.Context, baseImage string) (*Pr
 	provisionedTag := fmt.Sprintf("invowk-provisioned:%s", cacheKey[:12])
 
 	// Check if cached image exists
-	exists, _ := p.engine.ImageExists(ctx, provisionedTag)
+	exists, _ := p.engine.ImageExists(ctx, provisionedTag) //nolint:errcheck // Error treated as "not found"
 	if exists {
 		return &ProvisionResult{
 			ImageTag: provisionedTag,

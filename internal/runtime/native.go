@@ -6,13 +6,12 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"invowk-cli/pkg/invkfile"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
-
-	"invowk-cli/pkg/invkfile"
 )
 
 // NativeRuntime executes commands using the system's default shell

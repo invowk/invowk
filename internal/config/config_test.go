@@ -4,12 +4,11 @@
 package config
 
 import (
+	"invowk-cli/internal/testutil"
 	"os"
 	"path/filepath"
 	"runtime"
 	"testing"
-
-	"invowk-cli/internal/testutil"
 )
 
 // setHomeDirEnv sets the appropriate HOME environment variable based on platform
@@ -237,10 +236,10 @@ func TestLoadAndSave(t *testing.T) {
 		},
 		Container: ContainerConfig{
 			AutoProvision: AutoProvisionConfig{
-				Enabled:    false,
-				BinaryPath: "/custom/bin/invowk",
+				Enabled:      false,
+				BinaryPath:   "/custom/bin/invowk",
 				ModulesPaths: []string{"/modules/one"},
-				CacheDir:   "/tmp/invowk-cache",
+				CacheDir:     "/tmp/invowk-cache",
 			},
 		},
 	}

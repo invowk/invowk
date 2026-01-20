@@ -108,13 +108,13 @@ const (
 	EngineTypeDocker EngineType = "docker"
 )
 
-// ErrEngineNotAvailable is returned when a container engine is not available
-type ErrEngineNotAvailable struct {
+// EngineNotAvailableError is returned when a container engine is not available
+type EngineNotAvailableError struct {
 	Engine string
 	Reason string
 }
 
-func (e *ErrEngineNotAvailable) Error() string {
+func (e *EngineNotAvailableError) Error() string {
 	return fmt.Sprintf("container engine '%s' is not available: %s", e.Engine, e.Reason)
 }
 
@@ -131,7 +131,7 @@ func NewEngine(preferredType EngineType) (Engine, error) {
 		if dockerEngine.Available() {
 			return dockerEngine, nil
 		}
-		return nil, &ErrEngineNotAvailable{
+		return nil, &EngineNotAvailableError{
 			Engine: "podman",
 			Reason: "podman is not installed or not accessible, and docker fallback is also not available",
 		}
@@ -146,7 +146,7 @@ func NewEngine(preferredType EngineType) (Engine, error) {
 		if podmanEngine.Available() {
 			return podmanEngine, nil
 		}
-		return nil, &ErrEngineNotAvailable{
+		return nil, &EngineNotAvailableError{
 			Engine: "docker",
 			Reason: "docker is not installed or not accessible, and podman fallback is also not available",
 		}
@@ -170,7 +170,7 @@ func AutoDetectEngine() (Engine, error) {
 		return docker, nil
 	}
 
-	return nil, &ErrEngineNotAvailable{
+	return nil, &EngineNotAvailableError{
 		Engine: "any",
 		Reason: "no container engine (podman or docker) is available on this system",
 	}

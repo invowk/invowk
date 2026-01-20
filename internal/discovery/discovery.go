@@ -5,14 +5,13 @@ package discovery
 
 import (
 	"fmt"
+	"invowk-cli/internal/config"
+	"invowk-cli/pkg/invkfile"
+	"invowk-cli/pkg/invkmod"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
-
-	"invowk-cli/internal/config"
-	"invowk-cli/pkg/invkfile"
-	"invowk-cli/pkg/invkmod"
 )
 
 // ModuleCollisionError is returned when two modules have the same module identifier.
@@ -178,7 +177,6 @@ func (d *Discovery) discoverInDirRecursive(dir string, source Source) []*Discove
 
 		return nil
 	})
-
 	if err != nil {
 		return files
 	}

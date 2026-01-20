@@ -4,9 +4,9 @@ package runtime
 
 import (
 	"fmt"
-	"os"
-
 	"invowk-cli/pkg/invkfile"
+	"maps"
+	"os"
 )
 
 type envInheritConfig struct {
@@ -55,24 +55,16 @@ func buildRuntimeEnv(ctx *ExecutionContext, defaultMode invkfile.EnvInheritMode)
 	}
 
 	// 5. Root-level env.vars
-	for k, v := range ctx.Invkfile.Env.GetVars() {
-		env[k] = v
-	}
+	maps.Copy(env, ctx.Invkfile.Env.GetVars())
 
 	// 6. Command-level env.vars
-	for k, v := range ctx.Command.Env.GetVars() {
-		env[k] = v
-	}
+	maps.Copy(env, ctx.Command.Env.GetVars())
 
 	// 7. Implementation-level env.vars
-	for k, v := range ctx.SelectedImpl.Env.GetVars() {
-		env[k] = v
-	}
+	maps.Copy(env, ctx.SelectedImpl.Env.GetVars())
 
 	// 8. Extra env from context (flags, args)
-	for k, v := range ctx.ExtraEnv {
-		env[k] = v
-	}
+	maps.Copy(env, ctx.ExtraEnv)
 
 	// 9. Runtime --env-file flag files
 	for _, path := range ctx.RuntimeEnvFiles {
@@ -82,9 +74,7 @@ func buildRuntimeEnv(ctx *ExecutionContext, defaultMode invkfile.EnvInheritMode)
 	}
 
 	// 10. Runtime --env-var flag values (highest priority)
-	for k, v := range ctx.RuntimeEnvVars {
-		env[k] = v
-	}
+	maps.Copy(env, ctx.RuntimeEnvVars)
 
 	return env, nil
 }

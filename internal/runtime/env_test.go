@@ -3,12 +3,11 @@
 package runtime
 
 import (
+	"invowk-cli/internal/testutil"
+	"invowk-cli/pkg/invkfile"
 	"os"
 	"path/filepath"
 	"testing"
-
-	"invowk-cli/internal/testutil"
-	"invowk-cli/pkg/invkfile"
 )
 
 func TestBuildRuntimeEnv_InheritAllFiltersInvowkVars(t *testing.T) {

@@ -4,6 +4,7 @@ package invkfile
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 )
 
@@ -161,12 +162,7 @@ func (c *Command) GetRuntimesStringForPlatform(platform Platform) string {
 
 // IsRuntimeAllowedForPlatform checks if the given runtime is allowed for the platform
 func (c *Command) IsRuntimeAllowedForPlatform(platform Platform, runtime RuntimeMode) bool {
-	for _, r := range c.GetAllowedRuntimesForPlatform(platform) {
-		if r == runtime {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(c.GetAllowedRuntimesForPlatform(platform), runtime)
 }
 
 // ValidateScripts checks that there are no duplicate platform+runtime combinations

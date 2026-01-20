@@ -28,7 +28,8 @@ import (
 - **Unexported types/vars**: camelCase (e.g., `globalConfig`, `configPath`).
 - **Constants**: PascalCase for exported, camelCase for unexported.
 - **Interfaces**: Use action-oriented names (e.g., `Engine`, `Runtime`).
-- **Error types**: Prefix with `Err` (e.g., `ErrEngineNotAvailable`).
+- **Error variables**: Prefix with `Err` (e.g., `var ErrNotFound = errors.New("not found")`).
+- **Error types**: Suffix with `Error` (e.g., `EngineNotAvailableError`).
 
 ## Error Handling
 
@@ -43,12 +44,12 @@ if err := doSomething(); err != nil {
 }
 
 // Custom error type example
-type ErrEngineNotAvailable struct {
+type EngineNotAvailableError struct {
     Engine string
     Reason string
 }
 
-func (e *ErrEngineNotAvailable) Error() string {
+func (e *EngineNotAvailableError) Error() string {
     return fmt.Sprintf("container engine '%s' is not available: %s", e.Engine, e.Reason)
 }
 ```

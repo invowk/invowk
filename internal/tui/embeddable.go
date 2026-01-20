@@ -111,7 +111,7 @@ type EmbeddableComponent interface {
 	// - Table: TableSelectionResult
 	// - Pager: nil
 	// - Spin: SpinResult
-	Result() (interface{}, error)
+	Result() (any, error)
 
 	// Cancelled returns true if the user cancelled the component (Esc, Ctrl+C).
 	Cancelled() bool

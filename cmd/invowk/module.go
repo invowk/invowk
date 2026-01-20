@@ -5,16 +5,15 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"invowk-cli/internal/config"
+	"invowk-cli/internal/discovery"
+	"invowk-cli/pkg/invkfile"
+	"invowk-cli/pkg/invkmod"
 	"os"
 	"path/filepath"
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/spf13/cobra"
-
-	"invowk-cli/internal/config"
-	"invowk-cli/internal/discovery"
-	"invowk-cli/pkg/invkfile"
-	"invowk-cli/pkg/invkmod"
 )
 
 var (
@@ -368,13 +367,13 @@ var (
 	moduleInfoIcon    = subtitleStyle.Render("•")
 
 	moduleTitleStyle = lipgloss.NewStyle().
-			Bold(true).
-			Foreground(lipgloss.Color("#7C3AED")).
-			MarginBottom(1)
+				Bold(true).
+				Foreground(lipgloss.Color("#7C3AED")).
+				MarginBottom(1)
 
 	moduleIssueStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#EF4444")).
-			PaddingLeft(2)
+				Foreground(lipgloss.Color("#EF4444")).
+				PaddingLeft(2)
 
 	moduleIssueTypeStyle = lipgloss.NewStyle().
 				Foreground(lipgloss.Color("#6B7280")).
@@ -384,8 +383,8 @@ var (
 			Foreground(lipgloss.Color("#3B82F6"))
 
 	moduleDetailStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#6B7280")).
-			PaddingLeft(2)
+				Foreground(lipgloss.Color("#6B7280")).
+				PaddingLeft(2)
 )
 
 func runModuleValidate(cmd *cobra.Command, args []string) error {

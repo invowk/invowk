@@ -6,15 +6,15 @@ package invkmod
 
 import (
 	"archive/zip"
+	"context"
 	"fmt"
+	"invowk-cli/internal/platform"
 	"io"
 	"net/http"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
-
-	"invowk-cli/internal/platform"
 )
 
 // moduleNameRegex validates the module folder name prefix (before .invkmod)
@@ -678,7 +678,11 @@ func downloadFile(url string) (tmpPath string, err error) {
 	}()
 
 	// Download the file
-	resp, err := http.Get(url) //nolint:gosec // URL is validated by caller
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, url, http.NoBody)
+	if err != nil {
+		return "", fmt.Errorf("failed to create request: %w", err)
+	}
+	resp, err := http.DefaultClient.Do(req) //nolint:gosec // URL is validated by caller
 	if err != nil {
 		return "", fmt.Errorf("failed to download: %w", err)
 	}

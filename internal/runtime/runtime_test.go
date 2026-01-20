@@ -5,14 +5,13 @@ package runtime
 import (
 	"bytes"
 	"context"
+	"invowk-cli/internal/testutil"
+	"invowk-cli/pkg/invkfile"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
-
-	"invowk-cli/internal/testutil"
-	"invowk-cli/pkg/invkfile"
 )
 
 // testCommandWithScript creates a Command with a single script for testing
@@ -351,10 +350,10 @@ func TestRuntime_EnvironmentVariables(t *testing.T) {
 		Implementations: []invkfile.Implementation{
 			{
 				Script: `echo "Impl: $IMPL_VAR, Command: $CMD_VAR"`,
-				
-					Runtimes:  []invkfile.RuntimeConfig{{Name: invkfile.RuntimeVirtual}},
-					Platforms: []invkfile.PlatformConfig{{Name: currentPlatform}},
-				Env: &invkfile.EnvConfig{Vars: map[string]string{"IMPL_VAR": "impl_value"}},
+
+				Runtimes:  []invkfile.RuntimeConfig{{Name: invkfile.RuntimeVirtual}},
+				Platforms: []invkfile.PlatformConfig{{Name: currentPlatform}},
+				Env:       &invkfile.EnvConfig{Vars: map[string]string{"IMPL_VAR": "impl_value"}},
 			},
 		},
 		Env: &invkfile.EnvConfig{
@@ -970,8 +969,8 @@ func testCommandWithInterpreter(name, script, interpreter string, runtime invkfi
 		Implementations: []invkfile.Implementation{
 			{
 				Script: script,
-				
-					Runtimes: []invkfile.RuntimeConfig{{Name: runtime, Interpreter: interpreter}},
+
+				Runtimes: []invkfile.RuntimeConfig{{Name: runtime, Interpreter: interpreter}},
 			},
 		},
 	}

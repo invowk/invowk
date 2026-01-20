@@ -15,7 +15,6 @@ func TestCheckCapability_LocalAreaNetwork(t *testing.T) {
 	// This test assumes the test machine has network connectivity
 	// In a CI environment without network, this test may fail
 	err := CheckCapability(CapabilityLocalAreaNetwork)
-
 	// We don't assert success/failure since it depends on the test environment
 	// Instead, we just verify the function runs without panicking
 	// and returns a proper error type if it fails
@@ -35,7 +34,6 @@ func TestCheckCapability_Internet(t *testing.T) {
 	// This test assumes the test machine has internet connectivity
 	// In a CI environment without internet, this test may fail
 	err := CheckCapability(CapabilityInternet)
-
 	// We don't assert success/failure since it depends on the test environment
 	// Instead, we just verify the function runs without panicking
 	// and returns a proper error type if it fails

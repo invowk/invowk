@@ -105,17 +105,15 @@ func ParseEnvFile(env map[string]string, content []byte, filename string) error 
 		line = strings.TrimSpace(line)
 
 		// Split on first '='
-		idx := strings.Index(line, "=")
-		if idx == -1 {
+		key, value, found := strings.Cut(line, "=")
+		if !found {
 			return fmt.Errorf("%s:%d: invalid format (missing '=')", filename, lineNum)
 		}
 
-		key := strings.TrimSpace(line[:idx])
+		key = strings.TrimSpace(key)
 		if key == "" {
 			return fmt.Errorf("%s:%d: empty variable name", filename, lineNum)
 		}
-
-		value := line[idx+1:]
 
 		// Parse value based on quoting
 		parsedValue, err := parseEnvValue(value)

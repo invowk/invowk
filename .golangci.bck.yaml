@@ -1,0 +1,57 @@
+run:
+  # Default timeout is 1m, increased for larger projects
+  timeout: 5m
+  # Ensures the build uses the exact versions from go.mod
+  modules-download-mode: readonly
+
+linters:
+  disable-all: true
+  enable:
+    - errcheck      # Checks for unchecked errors
+    - gosimple      # Suggests code simplifications
+    - govet         # Reports suspicious constructs (includes shadow check)
+    - ineffassign   # Detects assignments that are never used
+    - staticcheck   # Applies various static analysis security checks
+    - unused        # Checks for unused constants, variables, and functions
+    - nakedret      # Prevents naked returns in long functions
+    - revive        # Highly configurable linter for style and best practices
+    - gocritic      # Provides diagnostics, style, and performance suggestions
+    - bodyclose     # Checks whether HTTP response bodies are closed
+    - nilerr        # Finds code that returns nil instead of a caught error
+    - errorlint     # Helps find code that fails to wrap errors correctly
+    - gosec         # Inspects source code for security problems
+    - wrapcheck     # Enforces wrapping of errors from external packages (Uber style)
+    - exhaustive    # Checks exhaustiveness of enum switch statements
+
+linters-settings:
+  govet:
+    enable:
+      - shadow      # Detects variable shadowing (crucial for named returns)
+  nakedret:
+    # Disallow naked returns for functions longer than 10 lines
+    max-func-lines: 10
+  revive:
+    rules:
+      - name: exported  # Ensures public functions are documented
+        severity: warning
+  gocritic:
+    enabled-tags:
+      - diagnostic
+      - style
+      - performance
+  gosec:
+    config:
+      global:
+        tests: false # Prevents gosec from scanning test files
+  wrapcheck:
+    # Optional: ignore errors from standard library or specific internal packages
+    ignoreSigs:
+      - .Errorf(
+      - errors.New(
+      - errors.Unwrap(
+      - .Join(
+
+issues:
+  exclude-use-default: false
+  max-issues-per-linter: 0
+  max-same-issues: 0

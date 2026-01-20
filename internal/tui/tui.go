@@ -6,12 +6,17 @@
 package tui
 
 import (
+	"errors"
 	"io"
 	"os"
 
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/lipgloss"
 )
+
+// ErrCancelled is returned when a user cancels a TUI component (e.g., via Ctrl+C or Esc).
+// Callers can check for this error using errors.Is(err, tui.ErrCancelled).
+var ErrCancelled = errors.New("user cancelled")
 
 // Theme represents the visual theme for TUI components.
 type Theme string
@@ -27,6 +32,11 @@ const (
 	ThemeCatppuccin Theme = "catppuccin"
 	// ThemeBase16 uses the Base16 theme.
 	ThemeBase16 Theme = "base16"
+)
+
+// Key binding constants for TUI components.
+const (
+	keyCtrlC = "ctrl+c"
 )
 
 // Config holds common configuration for TUI components.

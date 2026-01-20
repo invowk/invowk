@@ -6,12 +6,11 @@ package runtime
 import (
 	"context"
 	"fmt"
+	"invowk-cli/pkg/invkfile"
 	"io"
 	"os"
 	"os/exec"
 	"time"
-
-	"invowk-cli/pkg/invkfile"
 )
 
 // ExecutionContext contains all information needed to execute a command

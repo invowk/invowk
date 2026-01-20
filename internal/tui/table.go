@@ -172,7 +172,7 @@ func (m *tableModel) Init() tea.Cmd {
 func (m *tableModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if keyMsg, ok := msg.(tea.KeyMsg); ok {
 		switch keyMsg.String() {
-		case "ctrl+c", "esc", "q":
+		case keyCtrlC, "esc", "q":
 			m.done = true
 			m.cancelled = true
 			return m, tea.Quit
@@ -205,7 +205,7 @@ func (m *tableModel) IsDone() bool {
 
 // Result implements EmbeddableComponent.
 // Returns TableSelectionResult with selected row info.
-func (m *tableModel) Result() (interface{}, error) {
+func (m *tableModel) Result() (any, error) {
 	if m.cancelled {
 		return TableSelectionResult{SelectedIndex: -1}, nil
 	}

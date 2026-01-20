@@ -134,7 +134,7 @@ func TestInteractiveModel_HandleKeyMsg_CompletedState(t *testing.T) {
 		{"enter", "enter", true},
 		{"q", "q", true},
 		{"esc", "esc", true},
-		{"ctrl+c", "ctrl+c", true},
+		{keyCtrlC, keyCtrlC, true},
 		{"up", "up", false},
 		{"down", "down", false},
 	}
@@ -157,7 +157,7 @@ func TestInteractiveModel_HandleKeyMsg_CompletedState(t *testing.T) {
 				keyMsg = tea.KeyMsg{Type: tea.KeyUp}
 			case "down":
 				keyMsg = tea.KeyMsg{Type: tea.KeyDown}
-			case "ctrl+c":
+			case keyCtrlC:
 				keyMsg = tea.KeyMsg{Type: tea.KeyCtrlC}
 			}
 
@@ -378,7 +378,7 @@ func TestInteractiveModel_ConcurrentOutputWrites(t *testing.T) {
 
 	// Simulate concurrent output writes (should be safe due to mutex)
 	done := make(chan bool)
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		go func(n int) {
 			msg := outputMsg{content: "output "}
 			model.Update(msg)
@@ -387,7 +387,7 @@ func TestInteractiveModel_ConcurrentOutputWrites(t *testing.T) {
 	}
 
 	// Wait for all goroutines
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		<-done
 	}
 

@@ -7,17 +7,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
-	"os/exec"
-	"path/filepath"
-	"regexp"
-	"strings"
-	"sync"
-
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
-	"github.com/spf13/cobra"
-
 	"invowk-cli/internal/config"
 	"invowk-cli/internal/discovery"
 	"invowk-cli/internal/issue"
@@ -26,6 +15,17 @@ import (
 	"invowk-cli/internal/tui"
 	"invowk-cli/internal/tuiserver"
 	"invowk-cli/pkg/invkfile"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"regexp"
+	"slices"
+	"strings"
+	"sync"
+
+	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
+	"github.com/spf13/cobra"
 )
 
 var (
@@ -961,7 +961,6 @@ func executeInteractive(ctx *runtime.ExecutionContext, registry *runtime.Registr
 		},
 		prepared.Cmd,
 	)
-
 	if err != nil {
 		return &runtime.Result{ExitCode: 1, Error: fmt.Errorf("interactive execution failed: %w", err)}
 	}
@@ -1398,7 +1397,7 @@ func checkCustomCheckDependencies(deps *invkfile.DependsOn, runtimeMode invkfile
 
 // validateCustomCheckNative runs a custom check script using the native shell
 func validateCustomCheckNative(check invkfile.CustomCheck) error {
-	cmd := exec.Command("sh", "-c", check.CheckScript)
+	cmd := exec.CommandContext(context.Background(), "sh", "-c", check.CheckScript)
 	output, err := cmd.CombinedOutput()
 	outputStr := strings.TrimSpace(string(output))
 
@@ -1767,7 +1766,7 @@ func isWritable(path string, info os.FileInfo) bool {
 		if err != nil {
 			return false
 		}
-		_ = f.Close()         // Test file; error non-critical
+		_ = f.Close()           // Test file; error non-critical
 		_ = os.Remove(testFile) // Cleanup test file; error non-critical
 		return true
 	}
@@ -1786,18 +1785,15 @@ func isExecutable(path string, info os.FileInfo) bool {
 	if isWindows() {
 		ext := strings.ToLower(filepath.Ext(path))
 		execExts := []string{".exe", ".cmd", ".bat", ".com", ".ps1"}
-		for _, e := range execExts {
-			if ext == e {
-				return true
-			}
+		if slices.Contains(execExts, ext) {
+			return true
 		}
 		// Also check PATHEXT environment variable
 		pathext := os.Getenv("PATHEXT")
 		if pathext != "" {
-			for _, e := range strings.Split(strings.ToLower(pathext), ";") {
-				if ext == e {
-					return true
-				}
+			pathExtList := strings.Split(strings.ToLower(pathext), ";")
+			if slices.Contains(pathExtList, ext) {
+				return true
 			}
 		}
 		return false
@@ -1951,8 +1947,8 @@ func checkEnvVarDependencies(deps *invkfile.DependsOn, userEnv map[string]string
 func captureUserEnv() map[string]string {
 	env := make(map[string]string)
 	for _, e := range os.Environ() {
-		if idx := strings.Index(e, "="); idx >= 0 {
-			env[e[:idx]] = e[idx+1:]
+		if key, value, found := strings.Cut(e, "="); found {
+			env[key] = value
 		}
 	}
 	return env

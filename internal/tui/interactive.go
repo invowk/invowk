@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"invowk-cli/internal/tuiserver"
 	"os"
 	"os/exec"
 	"regexp"
@@ -18,8 +19,6 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/xpty"
-
-	"invowk-cli/internal/tuiserver"
 )
 
 // InteractiveOptions configures the interactive execution mode.
@@ -106,7 +105,7 @@ type TUIComponentMsg struct {
 
 // tuiComponentDoneMsg is sent when an embedded TUI component completes.
 type tuiComponentDoneMsg struct {
-	result    interface{}
+	result    any
 	err       error
 	cancelled bool
 }
@@ -240,7 +239,7 @@ func (m *interactiveModel) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case stateCompleted:
 		// After completion, handle UI navigation
 		switch msg.String() {
-		case "ctrl+c", "q", "esc", "enter":
+		case keyCtrlC, "q", "esc", "enter":
 			return m, tea.Quit
 		case "up", "k":
 			m.viewport.ScrollUp(1)
@@ -362,7 +361,7 @@ func (m *interactiveModel) handleTUIComponentDone(msg tuiComponentDoneMsg) (tea.
 
 // convertToProtocolResult converts a raw component result to a protocol-compliant struct.
 // The tuiserver client expects specific JSON structures for each component type.
-func convertToProtocolResult(componentType ComponentType, result interface{}) interface{} {
+func convertToProtocolResult(componentType ComponentType, result any) any {
 	switch componentType {
 	case ComponentTypeInput, ComponentTypeTextArea, ComponentTypeWrite:
 		// Input, TextArea, and Write return a string
@@ -489,11 +488,7 @@ func (m *interactiveModel) handleWindowSize(msg tea.WindowSizeMsg) (tea.Model, t
 	m.height = msg.Height
 	headerHeight := 2 // Title + separator
 	footerHeight := 1 // Status line
-	viewportHeight := msg.Height - headerHeight - footerHeight
-
-	if viewportHeight < 1 {
-		viewportHeight = 1
-	}
+	viewportHeight := max(msg.Height-headerHeight-footerHeight, 1)
 
 	if !m.ready {
 		m.viewport = viewport.New(msg.Width, viewportHeight)
@@ -513,7 +508,7 @@ func (m *interactiveModel) handleWindowSize(msg tea.WindowSizeMsg) (tea.Model, t
 
 	// Resize the PTY to match
 	if m.pty != nil && m.state == stateExecuting {
-		_ = m.pty.Resize(msg.Width, viewportHeight)
+		_ = m.pty.Resize(msg.Width, viewportHeight) //nolint:errcheck // Best-effort resize
 	}
 
 	return m, nil

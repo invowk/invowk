@@ -4,6 +4,7 @@ package invkmod
 
 import (
 	_ "embed"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -25,7 +26,15 @@ const ModuleSuffix = ".invkmod"
 // VendoredModulesDir is the directory name for vendored module dependencies.
 const VendoredModulesDir = "invk_modules"
 
+// ErrInvkmodNotFound is returned when invkmod.cue is not found in a module directory.
+// Callers can check for this error using errors.Is(err, ErrInvkmodNotFound).
+var ErrInvkmodNotFound = errors.New("invkmod.cue not found")
+
 // ValidationIssue represents a single validation problem in a module.
+// Named "Issue" rather than "Error" because it semantically represents a validation
+// problem that may be collected, reported, and inspected - not just thrown.
+//
+//nolint:errname // Intentionally named Issue, not Error - semantic domain type
 type ValidationIssue struct {
 	// Type categorizes the issue (e.g., "structure", "naming", "invkfile")
 	Type string
@@ -416,12 +425,12 @@ func ParseInvkmodBytes(data []byte, path string) (*Invkmod, error) {
 
 // ParseModuleMetadataOnly reads and parses only the module metadata (invkmod.cue) from a module directory.
 // This is useful when you only need module identity and dependencies, not commands.
-// Returns nil if invkmod.cue doesn't exist.
+// Returns ErrInvkmodNotFound if invkmod.cue doesn't exist.
 func ParseModuleMetadataOnly(modulePath string) (*Invkmod, error) {
 	invkmodPath := filepath.Join(modulePath, "invkmod.cue")
 	if _, err := os.Stat(invkmodPath); err != nil {
 		if os.IsNotExist(err) {
-			return nil, nil
+			return nil, ErrInvkmodNotFound
 		}
 		return nil, fmt.Errorf("failed to check invkmod at %s: %w", invkmodPath, err)
 	}
@@ -441,6 +450,8 @@ func InvkfilePath(modulePath string) string {
 }
 
 // InvkmodPath returns the path to invkmod.cue in a module directory.
+//
+//nolint:revive // Name is intentional for consistency with Module.InvkmodPath field/method
 func InvkmodPath(modulePath string) string {
 	return filepath.Join(modulePath, "invkmod.cue")
 }

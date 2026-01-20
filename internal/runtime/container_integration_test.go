@@ -8,16 +8,15 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"invowk-cli/internal/container"
+	"invowk-cli/internal/sshserver"
+	"invowk-cli/internal/testutil"
+	"invowk-cli/pkg/invkfile"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
-
-	"invowk-cli/internal/container"
-	"invowk-cli/internal/sshserver"
-	"invowk-cli/internal/testutil"
-	"invowk-cli/pkg/invkfile"
 )
 
 // TestContainerRuntime_Integration tests the container runtime with real containers.
@@ -55,10 +54,10 @@ func testContainerBasicExecution(t *testing.T) {
 		Implementations: []invkfile.Implementation{
 			{
 				Script: "echo 'Hello from container'",
-				
-					Runtimes: []invkfile.RuntimeConfig{
-						{Name: invkfile.RuntimeContainer, Image: "debian:stable-slim"},
-					},
+
+				Runtimes: []invkfile.RuntimeConfig{
+					{Name: invkfile.RuntimeContainer, Image: "debian:stable-slim"},
+				},
 			},
 		},
 	}
@@ -92,13 +91,13 @@ func testContainerEnvironmentVariables(t *testing.T) {
 		Implementations: []invkfile.Implementation{
 			{
 				Script: `echo "VAR1=$MY_VAR1 VAR2=$MY_VAR2"`,
-				
-					Runtimes: []invkfile.RuntimeConfig{
-						{Name: invkfile.RuntimeContainer, Image: "debian:stable-slim"},
-					},
-					Platforms: []invkfile.PlatformConfig{
-						{Name: currentPlatform},
-					},
+
+				Runtimes: []invkfile.RuntimeConfig{
+					{Name: invkfile.RuntimeContainer, Image: "debian:stable-slim"},
+				},
+				Platforms: []invkfile.PlatformConfig{
+					{Name: currentPlatform},
+				},
 				Env: &invkfile.EnvConfig{Vars: map[string]string{"MY_VAR1": "impl_value"}},
 			},
 		},
@@ -145,10 +144,10 @@ echo "Variable: $VAR"`
 		Implementations: []invkfile.Implementation{
 			{
 				Script: script,
-				
-					Runtimes: []invkfile.RuntimeConfig{
-						{Name: invkfile.RuntimeContainer, Image: "debian:stable-slim"},
-					},
+
+				Runtimes: []invkfile.RuntimeConfig{
+					{Name: invkfile.RuntimeContainer, Image: "debian:stable-slim"},
+				},
 			},
 		},
 	}
@@ -194,10 +193,10 @@ func testContainerWorkingDirectory(t *testing.T) {
 		Implementations: []invkfile.Implementation{
 			{
 				Script: "pwd",
-				
-					Runtimes: []invkfile.RuntimeConfig{
-						{Name: invkfile.RuntimeContainer, Image: "debian:stable-slim"},
-					},
+
+				Runtimes: []invkfile.RuntimeConfig{
+					{Name: invkfile.RuntimeContainer, Image: "debian:stable-slim"},
+				},
 			},
 		},
 	}
@@ -248,14 +247,14 @@ func testContainerVolumeMounts(t *testing.T) {
 		Implementations: []invkfile.Implementation{
 			{
 				Script: `cat /workspace/test-data.txt && echo "" && cat /data/data.txt`,
-				
-					Runtimes: []invkfile.RuntimeConfig{
-						{
-							Name:    invkfile.RuntimeContainer,
-							Image:   "debian:stable-slim",
-							Volumes: []string{dataDir + ":/data:ro"},
-						},
+
+				Runtimes: []invkfile.RuntimeConfig{
+					{
+						Name:    invkfile.RuntimeContainer,
+						Image:   "debian:stable-slim",
+						Volumes: []string{dataDir + ":/data:ro"},
 					},
+				},
 			},
 		},
 	}
@@ -291,10 +290,10 @@ func testContainerExitCode(t *testing.T) {
 		Implementations: []invkfile.Implementation{
 			{
 				Script: "exit 42",
-				
-					Runtimes: []invkfile.RuntimeConfig{
-						{Name: invkfile.RuntimeContainer, Image: "debian:stable-slim"},
-					},
+
+				Runtimes: []invkfile.RuntimeConfig{
+					{Name: invkfile.RuntimeContainer, Image: "debian:stable-slim"},
+				},
 			},
 		},
 	}
@@ -322,10 +321,10 @@ func testContainerPositionalArgs(t *testing.T) {
 		Implementations: []invkfile.Implementation{
 			{
 				Script: `echo "ARG1=$1 ARG2=$2 ALL=$@ COUNT=$#"`,
-				
-					Runtimes: []invkfile.RuntimeConfig{
-						{Name: invkfile.RuntimeContainer, Image: "debian:stable-slim"},
-					},
+
+				Runtimes: []invkfile.RuntimeConfig{
+					{Name: invkfile.RuntimeContainer, Image: "debian:stable-slim"},
+				},
 			},
 		},
 	}
@@ -368,10 +367,10 @@ func testContainerEnableHostSSHEnvVars(t *testing.T) {
 		Implementations: []invkfile.Implementation{
 			{
 				Script: `echo "SSH_HOST=$INVOWK_SSH_HOST SSH_PORT=$INVOWK_SSH_PORT SSH_USER=$INVOWK_SSH_USER SSH_ENABLED=$INVOWK_SSH_ENABLED"`,
-				
-					Runtimes: []invkfile.RuntimeConfig{
-						{Name: invkfile.RuntimeContainer, Image: "debian:stable-slim", EnableHostSSH: true},
-					},
+
+				Runtimes: []invkfile.RuntimeConfig{
+					{Name: invkfile.RuntimeContainer, Image: "debian:stable-slim", EnableHostSSH: true},
+				},
 			},
 		},
 	}
@@ -428,10 +427,10 @@ func TestContainerRuntime_Validate(t *testing.T) {
 				Implementations: []invkfile.Implementation{
 					{
 						Script: "echo test",
-						
-							Runtimes: []invkfile.RuntimeConfig{
-								{Name: invkfile.RuntimeContainer, Image: "debian:stable-slim"},
-							},
+
+						Runtimes: []invkfile.RuntimeConfig{
+							{Name: invkfile.RuntimeContainer, Image: "debian:stable-slim"},
+						},
 					},
 				},
 			},
@@ -453,10 +452,10 @@ func TestContainerRuntime_Validate(t *testing.T) {
 				Implementations: []invkfile.Implementation{
 					{
 						Script: "",
-						
-							Runtimes: []invkfile.RuntimeConfig{
-								{Name: invkfile.RuntimeContainer, Image: "debian:stable-slim"},
-							},
+
+						Runtimes: []invkfile.RuntimeConfig{
+							{Name: invkfile.RuntimeContainer, Image: "debian:stable-slim"},
+						},
 					},
 				},
 			},
@@ -500,10 +499,10 @@ func TestContainerRuntime_EnableHostSSH_NoServer(t *testing.T) {
 		Implementations: []invkfile.Implementation{
 			{
 				Script: "echo test",
-				
-					Runtimes: []invkfile.RuntimeConfig{
-						{Name: invkfile.RuntimeContainer, Image: "debian:stable-slim", EnableHostSSH: true},
-					},
+
+				Runtimes: []invkfile.RuntimeConfig{
+					{Name: invkfile.RuntimeContainer, Image: "debian:stable-slim", EnableHostSSH: true},
+				},
 			},
 		},
 	}
@@ -553,10 +552,10 @@ RUN echo "Built from Containerfile" > /built.txt
 		Implementations: []invkfile.Implementation{
 			{
 				Script: "cat /built.txt",
-				
-					Runtimes: []invkfile.RuntimeConfig{
-						{Name: invkfile.RuntimeContainer, Containerfile: "Containerfile"},
-					},
+
+				Runtimes: []invkfile.RuntimeConfig{
+					{Name: invkfile.RuntimeContainer, Containerfile: "Containerfile"},
+				},
 			},
 		},
 	}

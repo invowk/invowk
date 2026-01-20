@@ -291,7 +291,7 @@ func generateImplementation(sb *strings.Builder, impl *Implementation) {
 	// Handle multi-line scripts with CUE's multi-line string syntax
 	if strings.Contains(impl.Script, "\n") {
 		sb.WriteString("\t\t\t\tscript: \"\"\"\n")
-		for _, line := range strings.Split(impl.Script, "\n") {
+		for line := range strings.SplitSeq(impl.Script, "\n") {
 			fmt.Fprintf(sb, "\t\t\t\t\t%s\n", line)
 		}
 		sb.WriteString("\t\t\t\t\t\"\"\"\n")

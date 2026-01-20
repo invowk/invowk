@@ -6,11 +6,10 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"invowk-cli/internal/testutil"
 	"net/http"
 	"testing"
 	"time"
-
-	"invowk-cli/internal/testutil"
 )
 
 func TestServerStartStop(t *testing.T) {
@@ -52,7 +51,11 @@ func TestServerStartStop(t *testing.T) {
 	}
 
 	// Test health endpoint
-	resp, err := http.Get(server.URL() + "/health")
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, server.URL()+"/health", http.NoBody)
+	if err != nil {
+		t.Fatalf("Failed to create request: %v", err)
+	}
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatalf("Failed to check health: %v", err)
 	}
@@ -198,7 +201,7 @@ func TestServerAuthentication(t *testing.T) {
 	reqBody, _ := json.Marshal(req)
 
 	// Test without auth header
-	httpReq, _ := http.NewRequest(http.MethodPost, server.URL()+"/tui", bytes.NewReader(reqBody))
+	httpReq, _ := http.NewRequestWithContext(context.Background(), http.MethodPost, server.URL()+"/tui", bytes.NewReader(reqBody))
 	httpReq.Header.Set("Content-Type", "application/json")
 
 	client := &http.Client{Timeout: 5 * time.Second}
@@ -213,7 +216,7 @@ func TestServerAuthentication(t *testing.T) {
 	}
 
 	// Test with wrong token
-	httpReq, _ = http.NewRequest(http.MethodPost, server.URL()+"/tui", bytes.NewReader(reqBody))
+	httpReq, _ = http.NewRequestWithContext(context.Background(), http.MethodPost, server.URL()+"/tui", bytes.NewReader(reqBody))
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.Header.Set("Authorization", "Bearer wrong-token")
 
@@ -241,7 +244,11 @@ func TestServerMethodNotAllowed(t *testing.T) {
 	defer testutil.MustStop(t, server)
 
 	// Test GET request (should be method not allowed)
-	resp, err := http.Get(server.URL() + "/tui")
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, server.URL()+"/tui", http.NoBody)
+	if err != nil {
+		t.Fatalf("Failed to create request: %v", err)
+	}
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatalf("Failed to send request: %v", err)
 	}
@@ -282,7 +289,7 @@ func TestServerUnknownComponent(t *testing.T) {
 	}
 	reqBody, _ := json.Marshal(req)
 
-	httpReq, _ := http.NewRequest(http.MethodPost, server.URL()+"/tui", bytes.NewReader(reqBody))
+	httpReq, _ := http.NewRequestWithContext(context.Background(), http.MethodPost, server.URL()+"/tui", bytes.NewReader(reqBody))
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.Header.Set("Authorization", "Bearer "+server.Token())
 
@@ -322,7 +329,7 @@ func TestServerInvalidJSON(t *testing.T) {
 	defer testutil.MustStop(t, server)
 
 	// Send invalid JSON
-	httpReq, _ := http.NewRequest(http.MethodPost, server.URL()+"/tui", bytes.NewReader([]byte("not json")))
+	httpReq, _ := http.NewRequestWithContext(context.Background(), http.MethodPost, server.URL()+"/tui", bytes.NewReader([]byte("not json")))
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.Header.Set("Authorization", "Bearer "+server.Token())
 

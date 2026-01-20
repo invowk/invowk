@@ -4,13 +4,12 @@ package cmd
 
 import (
 	"fmt"
+	"invowk-cli/internal/config"
+	"invowk-cli/internal/issue"
 	"os"
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/spf13/cobra"
-
-	"invowk-cli/internal/config"
-	"invowk-cli/internal/issue"
 )
 
 // configCmd is the parent command for configuration operations

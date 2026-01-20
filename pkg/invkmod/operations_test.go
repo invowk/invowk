@@ -5,13 +5,12 @@ package invkmod
 import (
 	"archive/zip"
 	"fmt"
+	"invowk-cli/internal/testutil"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"testing"
-
-	"invowk-cli/internal/testutil"
 )
 
 func TestIsModule(t *testing.T) {
@@ -23,6 +22,7 @@ func TestIsModule(t *testing.T) {
 		{
 			name: "valid module with simple name",
 			setup: func(t *testing.T) string {
+				t.Helper()
 				dir := t.TempDir()
 				modulePath := filepath.Join(dir, "mycommands.invkmod")
 				if err := os.Mkdir(modulePath, 0o755); err != nil {
@@ -35,6 +35,7 @@ func TestIsModule(t *testing.T) {
 		{
 			name: "valid module with RDNS name",
 			setup: func(t *testing.T) string {
+				t.Helper()
 				dir := t.TempDir()
 				modulePath := filepath.Join(dir, "com.example.mycommands.invkmod")
 				if err := os.Mkdir(modulePath, 0o755); err != nil {
@@ -47,6 +48,7 @@ func TestIsModule(t *testing.T) {
 		{
 			name: "invalid - missing suffix",
 			setup: func(t *testing.T) string {
+				t.Helper()
 				dir := t.TempDir()
 				modulePath := filepath.Join(dir, "mycommands")
 				if err := os.Mkdir(modulePath, 0o755); err != nil {
@@ -59,6 +61,7 @@ func TestIsModule(t *testing.T) {
 		{
 			name: "invalid - wrong suffix",
 			setup: func(t *testing.T) string {
+				t.Helper()
 				dir := t.TempDir()
 				modulePath := filepath.Join(dir, "mycommands.wrong")
 				if err := os.Mkdir(modulePath, 0o755); err != nil {
@@ -71,6 +74,7 @@ func TestIsModule(t *testing.T) {
 		{
 			name: "invalid - starts with number",
 			setup: func(t *testing.T) string {
+				t.Helper()
 				dir := t.TempDir()
 				modulePath := filepath.Join(dir, "123commands.invkmod")
 				if err := os.Mkdir(modulePath, 0o755); err != nil {
@@ -83,6 +87,7 @@ func TestIsModule(t *testing.T) {
 		{
 			name: "invalid - hidden folder prefix",
 			setup: func(t *testing.T) string {
+				t.Helper()
 				dir := t.TempDir()
 				// Note: folder name itself doesn't start with dot, but the name part does
 				// This tests ".hidden.invkmod" - the prefix is ".hidden" which is invalid
@@ -97,6 +102,7 @@ func TestIsModule(t *testing.T) {
 		{
 			name: "invalid - file not directory",
 			setup: func(t *testing.T) string {
+				t.Helper()
 				dir := t.TempDir()
 				filePath := filepath.Join(dir, "mycommands.invkmod")
 				if err := os.WriteFile(filePath, []byte("test"), 0o644); err != nil {
@@ -109,6 +115,7 @@ func TestIsModule(t *testing.T) {
 		{
 			name: "invalid - path does not exist",
 			setup: func(t *testing.T) string {
+				t.Helper()
 				return "/nonexistent/path/mycommands.invkmod"
 			},
 			expected: false,
@@ -116,6 +123,7 @@ func TestIsModule(t *testing.T) {
 		{
 			name: "invalid - contains hyphen in name",
 			setup: func(t *testing.T) string {
+				t.Helper()
 				dir := t.TempDir()
 				modulePath := filepath.Join(dir, "my-commands.invkmod")
 				if err := os.Mkdir(modulePath, 0o755); err != nil {
@@ -128,6 +136,7 @@ func TestIsModule(t *testing.T) {
 		{
 			name: "invalid - contains underscore in name",
 			setup: func(t *testing.T) string {
+				t.Helper()
 				dir := t.TempDir()
 				modulePath := filepath.Join(dir, "my_commands.invkmod")
 				if err := os.Mkdir(modulePath, 0o755); err != nil {
@@ -140,6 +149,7 @@ func TestIsModule(t *testing.T) {
 		{
 			name: "valid - segment starts with uppercase",
 			setup: func(t *testing.T) string {
+				t.Helper()
 				dir := t.TempDir()
 				modulePath := filepath.Join(dir, "Com.Example.MyCommands.invkmod")
 				if err := os.Mkdir(modulePath, 0o755); err != nil {
@@ -301,6 +311,7 @@ func TestValidate(t *testing.T) {
 		{
 			name: "valid module with invkmod.cue and invkfile.cue",
 			setup: func(t *testing.T) string {
+				t.Helper()
 				dir := t.TempDir()
 				return createValidModule(t, dir, "mycommands.invkmod", "mycommands")
 			},
@@ -310,6 +321,7 @@ func TestValidate(t *testing.T) {
 		{
 			name: "valid RDNS module",
 			setup: func(t *testing.T) string {
+				t.Helper()
 				dir := t.TempDir()
 				return createValidModule(t, dir, "com.example.mycommands.invkmod", "com.example.mycommands")
 			},
@@ -319,6 +331,7 @@ func TestValidate(t *testing.T) {
 		{
 			name: "library-only module (no invkfile.cue)",
 			setup: func(t *testing.T) string {
+				t.Helper()
 				dir := t.TempDir()
 				modulePath := filepath.Join(dir, "mylib.invkmod")
 				if err := os.Mkdir(modulePath, 0o755); err != nil {
@@ -339,6 +352,7 @@ version: "1.0"
 		{
 			name: "missing invkmod.cue (required)",
 			setup: func(t *testing.T) string {
+				t.Helper()
 				dir := t.TempDir()
 				modulePath := filepath.Join(dir, "mycommands.invkmod")
 				if err := os.Mkdir(modulePath, 0o755); err != nil {
@@ -358,6 +372,7 @@ version: "1.0"
 		{
 			name: "module field mismatches folder name",
 			setup: func(t *testing.T) string {
+				t.Helper()
 				dir := t.TempDir()
 				modulePath := filepath.Join(dir, "mycommands.invkmod")
 				if err := os.Mkdir(modulePath, 0o755); err != nil {
@@ -383,6 +398,7 @@ version: "1.0"
 		{
 			name: "invkmod.cue is a directory",
 			setup: func(t *testing.T) string {
+				t.Helper()
 				dir := t.TempDir()
 				modulePath := filepath.Join(dir, "mycommands.invkmod")
 				if err := os.Mkdir(modulePath, 0o755); err != nil {
@@ -401,6 +417,7 @@ version: "1.0"
 		{
 			name: "nested module not allowed",
 			setup: func(t *testing.T) string {
+				t.Helper()
 				dir := t.TempDir()
 				modulePath := createValidModule(t, dir, "mycommands.invkmod", "mycommands")
 				// Create nested module
@@ -417,6 +434,7 @@ version: "1.0"
 		{
 			name: "invalid folder name",
 			setup: func(t *testing.T) string {
+				t.Helper()
 				dir := t.TempDir()
 				modulePath := filepath.Join(dir, "123invalid.invkmod")
 				if err := os.Mkdir(modulePath, 0o755); err != nil {
@@ -441,6 +459,7 @@ version: "1.0"
 		{
 			name: "path does not exist",
 			setup: func(t *testing.T) string {
+				t.Helper()
 				return "/nonexistent/path/mycommands.invkmod"
 			},
 			expectValid:    false,
@@ -450,6 +469,7 @@ version: "1.0"
 		{
 			name: "path is a file not directory",
 			setup: func(t *testing.T) string {
+				t.Helper()
 				dir := t.TempDir()
 				filePath := filepath.Join(dir, "mycommands.invkmod")
 				if err := os.WriteFile(filePath, []byte("test"), 0o644); err != nil {
@@ -464,6 +484,7 @@ version: "1.0"
 		{
 			name: "multiple issues - missing invkmod.cue and nested module",
 			setup: func(t *testing.T) string {
+				t.Helper()
 				dir := t.TempDir()
 				modulePath := filepath.Join(dir, "mycommands.invkmod")
 				if err := os.Mkdir(modulePath, 0o755); err != nil {
@@ -482,6 +503,7 @@ version: "1.0"
 		{
 			name: "module with script files - valid structure",
 			setup: func(t *testing.T) string {
+				t.Helper()
 				dir := t.TempDir()
 				modulePath := createValidModule(t, dir, "mycommands.invkmod", "mycommands")
 				// Create scripts directory
@@ -894,6 +916,7 @@ func TestCreate(t *testing.T) {
 			},
 			expectErr: false,
 			validate: func(t *testing.T, modulePath string) {
+				t.Helper()
 				// Check module directory exists
 				info, err := os.Stat(modulePath)
 				if err != nil {
@@ -929,6 +952,7 @@ func TestCreate(t *testing.T) {
 			},
 			expectErr: false,
 			validate: func(t *testing.T, modulePath string) {
+				t.Helper()
 				if !strings.HasSuffix(modulePath, "com.example.mytools.invkmod") {
 					t.Errorf("unexpected module path: %s", modulePath)
 				}
@@ -950,6 +974,7 @@ func TestCreate(t *testing.T) {
 			},
 			expectErr: false,
 			validate: func(t *testing.T, modulePath string) {
+				t.Helper()
 				scriptsDir := filepath.Join(modulePath, "scripts")
 				info, err := os.Stat(scriptsDir)
 				if err != nil {
@@ -974,6 +999,7 @@ func TestCreate(t *testing.T) {
 			},
 			expectErr: false,
 			validate: func(t *testing.T, modulePath string) {
+				t.Helper()
 				// Custom module ID should be in invkmod.cue (not invkfile.cue)
 				content, err := os.ReadFile(filepath.Join(modulePath, "invkmod.cue"))
 				if err != nil {
@@ -992,6 +1018,7 @@ func TestCreate(t *testing.T) {
 			},
 			expectErr: false,
 			validate: func(t *testing.T, modulePath string) {
+				t.Helper()
 				// Description should be in invkmod.cue (not invkfile.cue)
 				content, err := os.ReadFile(filepath.Join(modulePath, "invkmod.cue"))
 				if err != nil {

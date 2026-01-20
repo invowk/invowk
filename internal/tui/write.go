@@ -104,7 +104,7 @@ func (m *writeModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// Handle cancel keys before passing to form
 	if keyMsg, ok := msg.(tea.KeyMsg); ok {
 		switch keyMsg.String() {
-		case "ctrl+c", "esc":
+		case keyCtrlC, "esc":
 			m.done = true
 			m.cancelled = true
 			return m, nil
@@ -149,9 +149,10 @@ func (m *writeModel) IsDone() bool {
 }
 
 // Result implements EmbeddableComponent.
-func (m *writeModel) Result() (interface{}, error) {
+// Returns ErrCancelled if the user cancelled the operation.
+func (m *writeModel) Result() (any, error) {
 	if m.cancelled {
-		return nil, nil
+		return nil, ErrCancelled
 	}
 	return *m.result, nil
 }
@@ -182,7 +183,7 @@ func Write(opts WriteOptions) (string, error) {
 	if m.cancelled {
 		return "", fmt.Errorf("user aborted")
 	}
-	result, _ := m.Result()
+	result, _ := m.Result() //nolint:errcheck // Result() cannot fail after successful Run()
 	return result.(string), nil
 }
 

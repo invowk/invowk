@@ -128,8 +128,10 @@ func TestResolveScript_Inline(t *testing.T) {
 		{"simple inline", "echo hello", "echo hello"},
 		{"multi-line inline", "echo hello\necho world", "echo hello\necho world"},
 		{"inline with variables", "echo $HOME", "echo $HOME"},
-		{"complex multi-line", "#!/bin/bash\nset -e\necho 'Starting...'\ngo build ./...\necho 'Done!'",
-			"#!/bin/bash\nset -e\necho 'Starting...'\ngo build ./...\necho 'Done!'"},
+		{
+			"complex multi-line", "#!/bin/bash\nset -e\necho 'Starting...'\ngo build ./...\necho 'Done!'",
+			"#!/bin/bash\nset -e\necho 'Starting...'\ngo build ./...\necho 'Done!'",
+		},
 	}
 
 	for _, tt := range tests {

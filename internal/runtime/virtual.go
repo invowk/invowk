@@ -8,11 +8,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"invowk-cli/pkg/invkfile"
 	"os"
 	"os/exec"
 	"strings"
-
-	"invowk-cli/pkg/invkfile"
 
 	"mvdan.cc/sh/v3/expand"
 	"mvdan.cc/sh/v3/interp"
