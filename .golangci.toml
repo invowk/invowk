@@ -1,0 +1,556 @@
+# SPDX-License-Identifier: EPL-2.0
+#
+# golangci-lint configuration for Invowk
+#
+# This configuration uses golangci-lint v2 format.
+# Run: golangci-lint run ./...
+
+version = "2"
+
+# =============================================================================
+# Run Configuration
+# =============================================================================
+
+[run]
+modules-download-mode = "readonly"  # Don't download modules during linting
+tests = true                        # Include test files in analysis
+go = ""                             # Use Go version from go.mod
+
+# =============================================================================
+# Linters Configuration
+# =============================================================================
+
+[linters]
+default = "standard"  # Start with golangci-lint's standard linter set
+
+# Enabled linters with descriptions
+enable = [
+    # modernize: A suite of analyzers that suggest simplifications to Go code,
+    # using modern language and library features.
+    "modernize",
+
+    # goconst: Finds repeated strings that could be replaced by a constant.
+    "goconst",
+
+    # CRITICAL: decorder and funcorder MUST BE KEPT enabled.
+    # These linters enforce consistent declaration ordering (const/var/type/func)
+    # and function ordering (exported before unexported) across the codebase.
+    # Do NOT disable or remove these linters.
+
+    # decorder: Check declaration order and count of types, constants, variables
+    # and functions. [fast]
+    "decorder",
+
+    # funcorder: Checks the order of functions, methods, and constructors. [fast]
+    "funcorder",
+
+    # copyloopvar: A linter detects places where loop variables are copied.
+    # [fast, auto-fix]
+    "copyloopvar",
+
+    # iotamixing: Checks if iotas are being used in const blocks with other
+    # non-iota declarations. [fast]
+    "iotamixing",
+
+    # mirror: Reports wrong mirror patterns of bytes/strings usage. [auto-fix]
+    "mirror",
+
+    # gochecksumtype: Run exhaustiveness checks on Go "sum types".
+    "gochecksumtype",
+
+    # zerologlint: Detects the wrong usage of `zerolog` that a user forgets to
+    # dispatch with `Send` or `Msg`.
+    "zerologlint",
+
+    # asasalint: Check for pass []any as any in variadic func(...any).
+    "asasalint",
+
+    # asciicheck: Checks that all code identifiers does not have non-ASCII
+    # symbols in the name. [fast]
+    "asciicheck",
+
+    # bidichk: Checks for dangerous unicode character sequences. [fast]
+    "bidichk",
+
+    # durationcheck: Check for two durations multiplied together.
+    "durationcheck",
+
+    # errname: Checks that sentinel errors are prefixed with the `Err` and error
+    # types are suffixed with the `Error`.
+    "errname",
+
+    # nilerr: Find the code that returns nil even if it checks that the error
+    # is not nil.
+    "nilerr",
+
+    # nilnil: Checks that there is no simultaneous return of `nil` error and an
+    # invalid value.
+    "nilnil",
+
+    # noctx: Detects function and method with missing usage of context.Context.
+    "noctx",
+
+    # predeclared: Find code that shadows one of Go's predeclared identifiers.
+    # [fast]
+    "predeclared",
+
+    # reassign: Checks that package variables are not reassigned.
+    "reassign",
+
+    # tagliatelle: Checks the struct tags.
+    "tagliatelle",
+
+    # testableexamples: Linter checks if examples are testable (have an expected
+    # output). [fast]
+    "testableexamples",
+
+    # thelper: Thelper detects tests helpers which do not start with the
+    # t.Helper() method.
+    "thelper",
+
+    # tparallel: Tparallel detects inappropriate usage of t.Parallel() method in
+    # your Go test codes.
+    "tparallel",
+
+    # unconvert: Remove unnecessary type conversions.
+    "unconvert",
+
+    # unused: Checks Go code for unused constants, variables, functions and
+    # types.
+    "unused",
+
+    # usestdlibvars: A linter that detect the possibility to use
+    # variables/constants from the Go standard library. [fast, auto-fix]
+    "usestdlibvars",
+
+    # wastedassign: Finds wasted assignment statements.
+    "wastedassign",
+
+    # gocritic: Provides diagnostics that check for bugs, performance and style
+    # issues. [auto-fix]
+    "gocritic",
+
+    # bodyclose: Checks whether HTTP response body is closed successfully.
+    "bodyclose",
+
+    # errcheck: Errcheck is a program for checking for unchecked errors in Go
+    # code. These unchecked errors can be critical bugs in some cases.
+    "errcheck",
+
+    # errorlint: Find code that can cause problems with the error wrapping
+    # scheme introduced in Go 1.13. [auto-fix]
+    "errorlint",
+
+    # exhaustive: Check exhaustiveness of enum switch statements.
+    "exhaustive",
+
+    # gosec: Inspects source code for security problems.
+    "gosec",
+
+    # govet: Vet examines Go source code and reports suspicious constructs. It
+    # is roughly the same as 'go vet' and uses its passes. [auto-fix]
+    "govet",
+
+    # ineffassign: Detects when assignments to existing variables are not used.
+    # [fast]
+    "ineffassign",
+
+    # nakedret: Checks that functions with naked returns are not longer than a
+    # maximum size (can be zero). [fast, auto-fix]
+    "nakedret",
+
+    # revive: Fast, configurable, extensible, flexible, and beautiful linter for
+    # Go. Drop-in replacement of golint. [auto-fix]
+    "revive",
+
+    # staticcheck: It's the set of rules from staticcheck. [auto-fix]
+    "staticcheck",
+
+    # wrapcheck: Checks that errors returned from external packages are wrapped.
+    "wrapcheck",
+]
+
+# =============================================================================
+# Linter Settings
+# =============================================================================
+
+[linters.settings]
+
+# -----------------------------------------------------------------------------
+# decorder: Declaration order enforcement
+# -----------------------------------------------------------------------------
+# CRITICAL: This linter MUST remain enabled to maintain consistent code structure.
+[linters.settings.decorder]
+dec-order = ["const", "var", "type", "func"]  # Required declaration order in files
+ignore-underscore-vars = false                 # Include underscore vars in checks
+disable-dec-order-check = false                # Enable declaration order checking
+disable-init-func-first-check = false          # init() must come before other funcs
+disable-dec-num-check = false                  # Only one const/var/type block allowed
+disable-type-dec-num-check = false             # Type blocks count toward limit
+disable-const-dec-num-check = false            # Const blocks count toward limit
+disable-var-dec-num-check = false              # Var blocks count toward limit
+
+# -----------------------------------------------------------------------------
+# gocritic: Multi-category linter for bugs, performance, and style
+# -----------------------------------------------------------------------------
+[linters.settings.gocritic]
+enabled-tags = ["diagnostic", "style", "performance"]
+disabled-checks = [
+    "hugeParam",  # TUI options are intentionally passed by value
+]
+
+# -----------------------------------------------------------------------------
+# errcheck: Unchecked error detection
+# -----------------------------------------------------------------------------
+[linters.settings.errcheck]
+# Report `a := b.(MyStruct)` when `a, ok := ...` should be.
+# Disabled: Many type assertions are in bubbletea TUI code where types are
+# guaranteed by the framework
+check-type-assertions = false
+
+# Report skipped checks: `num, _ := strconv.Atoi(numStr)`.
+check-blank = true
+
+# Functions whose error return values are safe to ignore
+exclude-functions = [
+    # Deprecated I/O functions
+    "io/ioutil.ReadFile",
+    "io.Copy(*bytes.Buffer)",
+
+    # CLI flag getters - errors only occur for undefined flags, which are caught
+    # at compile time
+    "(*github.com/spf13/pflag.FlagSet).GetString",
+    "(*github.com/spf13/pflag.FlagSet).GetStringArray",
+    "(*github.com/spf13/pflag.FlagSet).GetStringSlice",
+    "(*github.com/spf13/pflag.FlagSet).GetBool",
+    "(*github.com/spf13/pflag.FlagSet).GetInt",
+    "(*github.com/spf13/pflag.FlagSet).GetInt64",
+    "(*github.com/spf13/cobra.Command).MarkFlagRequired",
+
+    # Output functions - errors writing to stdout/stderr are not actionable
+    "fmt.Fprintln",
+    "fmt.Fprintf",
+    "fmt.Fprint",
+    "fmt.Println",
+    "fmt.Printf",
+    "fmt.Print",
+
+    # Sscanf - parse errors fall back to zero values by design
+    "fmt.Sscanf",
+    "fmt.Sscan",
+
+    # File close in defer - named return pattern recommended but explicit ignores
+    # are acceptable
+    "(*os.File).Close",
+    "(*compress/gzip.Reader).Close",
+    "(*compress/gzip.Writer).Close",
+    "(*archive/zip.ReadCloser).Close",
+
+    # Server shutdown - errors during stop are not recoverable
+    "(*invowk-cli/internal/sshserver.Server).Stop",
+    "(*invowk-cli/internal/tuiserver.Server).Stop",
+
+    # Temp file cleanup - best-effort, failures are logged but not critical
+    "os.Remove",
+    "os.RemoveAll",
+
+    # Test utilities - errors in test setup are caught by test failures
+    "os.Chdir",
+    "os.Setenv",
+    "os.Unsetenv",
+    "os.Getwd",
+    "os.UserHomeDir",
+    "io.Copy(os.Stdout)",
+
+    # Path operations - errors are handled by subsequent operations that use the
+    # path
+    "path/filepath.Rel",
+    "path/filepath.Abs",
+
+    # Archive operations in tests - setup errors are caught by test failures
+    "(*archive/zip.Writer).Create",
+    "(*archive/zip.Writer).Close",
+    "(io.Writer).Write",
+
+    # HTTP/network close - best-effort cleanup
+    "(*net/http.Response).Body.Close",
+    "(net.Conn).Close",
+    "(io.Closer).Close",
+    "(net.Listener).Close",
+    "(*net/http.Server).Close",
+
+    # HTTP request creation - setup errors caught by subsequent operations
+    "http.NewRequestWithContext",
+
+    # JSON encoding/marshal - errors in response writing are not recoverable
+    "json.Marshal",
+    "(*encoding/json.Encoder).Encode",
+
+    # HTTP response writing - errors are not recoverable, connection is already
+    # gone
+    "(net/http.ResponseWriter).Write",
+
+    # UI rendering - errors during rendering are not actionable
+    "(*invowk-cli/internal/issue.Issue).Render",
+
+    # Stdin stat - checking if stdin is a terminal, error just means no
+    "(*os.File).Stat",
+
+    # exec.LookPath - error means binary not found, handled by empty path
+    "os/exec.LookPath",
+
+    # os.Chmod - permission errors are best-effort
+    "os.Chmod",
+
+    # os.Executable - getting current executable, fallback handled
+    "os.Executable",
+
+    # os.ReadDir - directory listing errors are handled by empty list
+    "os.ReadDir",
+
+    # syscall.Syscall - low-level syscall, errors handled in return value
+    "syscall.Syscall",
+
+    # SSH session exit - errors during exit are not recoverable
+    "(*golang.org/x/crypto/ssh.Session).Exit",
+
+    # filepath.Walk - walker error handling is in callback
+    "path/filepath.Walk",
+
+    # Image exists check - error handled by false return
+    "(*invowk-cli/internal/container.Engine).ImageExists",
+]
+
+# -----------------------------------------------------------------------------
+# gosec: Security-focused linter
+# -----------------------------------------------------------------------------
+[linters.settings.gosec]
+excludes = [
+    "G104",  # Unhandled errors - covered by errcheck linter
+    "G115",  # Integer overflow - many false positives in Go
+    "G204",  # Subprocess with variable - command runner by design
+    "G301",  # Dir perms > 0750 - directories need 0755 for traversability
+    "G302",  # File created with excessive perms - config files need world-readable
+    "G304",  # File inclusion via variable - must read user config/invkfiles
+    "G306",  # WriteFile perms > 0600 - config/module files need 0644 for readability
+]
+
+[linters.settings.gosec.config.global]
+tests = false  # Don't run gosec on test files
+
+# -----------------------------------------------------------------------------
+# govet: Go vet with additional analyzers
+# -----------------------------------------------------------------------------
+[linters.settings.govet]
+enable = ["shadow"]  # Detect variable shadowing
+
+# -----------------------------------------------------------------------------
+# nakedret: Naked return length limit
+# -----------------------------------------------------------------------------
+[linters.settings.nakedret]
+max-func-lines = 10  # Max function lines with naked returns
+
+# -----------------------------------------------------------------------------
+# revive: Replacement for golint
+# -----------------------------------------------------------------------------
+[[linters.settings.revive.rules]]
+name = "exported"
+severity = "warning"
+
+# -----------------------------------------------------------------------------
+# wrapcheck: Error wrapping enforcement
+# -----------------------------------------------------------------------------
+[linters.settings.wrapcheck]
+ignore-sigs = [
+    # Error creation/wrapping functions
+    ".Errorf(",
+    "errors.New(",
+    "errors.Unwrap(",
+    ".Join(",
+
+    # Standard library signatures - context usually clear from call site
+    ".Close()",
+    ".Read(",
+    ".Write(",
+    ".WriteString(",
+    ".Run()",
+    ".Start()",
+    ".Wait()",
+    ".Open()",
+    ".Info()",
+    ".Shutdown(",
+    ".CombinedOutput()",
+
+    # Common I/O operations
+    "io.Copy(",
+    "io.ReadAll(",
+    "os.MkdirAll(",
+    "os.Open(",
+    "os.OpenFile(",
+    "os.Create(",
+    "os.CreateTemp(",
+    "os.ReadFile(",
+    "os.ReadDir(",
+    "os.WriteFile(",
+    "os.Stat(",
+    "filepath.Walk(",
+    "exec.LookPath(",
+    "json.Unmarshal(",
+    "json.Marshal(",
+]
+
+ignore-package-globs = [
+    "invowk-cli/*",              # Internal module packages - wrapped at public API boundaries
+    "github.com/charmbracelet/*", # TUI library - errors self-descriptive
+    "github.com/go-git/*",        # Git library - errors already descriptive
+    "github.com/creack/pty",      # PTY library - used in context
+    "golang.org/x/sys/*",         # Syscall wrappers - low-level
+]
+
+# -----------------------------------------------------------------------------
+# tagliatelle: Struct tag naming conventions
+# -----------------------------------------------------------------------------
+# Config and protocol files intentionally use snake_case for JSON tags to match
+# CUE/YAML conventions and maintain backward compatibility
+[linters.settings.tagliatelle.case.rules]
+json = "snake"
+
+# -----------------------------------------------------------------------------
+# thelper: Test helper detection
+# -----------------------------------------------------------------------------
+# Allow test closures (table-driven tests) without t.Helper() requirement.
+# Only check actual helper functions for t.Helper() call.
+[linters.settings.thelper.test]
+first = false  # Don't require t.Helper() to be first statement
+name = false   # Don't require parameter to be named t
+begin = true   # Do require t.Helper() at the beginning of helpers
+
+[linters.settings.thelper.benchmark]
+first = false
+name = false
+begin = true
+
+[linters.settings.thelper.tb]
+first = false
+name = false
+begin = true
+
+[linters.settings.thelper.fuzz]
+first = false
+name = false
+begin = true
+
+# -----------------------------------------------------------------------------
+# mnd: Magic number detection
+# -----------------------------------------------------------------------------
+[linters.settings.mnd]
+# Ignore common patterns that are well-understood
+ignored-numbers = [
+    "2",      # Common for version parsing (major.minor)
+    "3",      # Common for version parsing (major.minor.patch)
+    "4",      # Common for IPv4 octets, padding, quad structures
+    "5",      # Common for timeouts (5 minutes), short intervals
+    "6",      # Hex color length
+    "8",      # Byte/octet counts
+    "10",     # Base 10 for number parsing
+    "12",     # Common for short hashes, git short commits
+    "16",     # Base 16 for hex parsing, common buffer sizes
+    "20",     # Minimum widths for UI components
+    "32",     # ASCII control char limit, common buffer/hash sizes
+    "50",     # Common UI widths
+    "64",     # Common for int64 bit size
+    "90",     # Common UI widths for tables
+    "100",    # Percentages
+    "255",    # Max byte value
+    "512",    # Common path/name length limits
+    "4096",   # Common buffer/path length limits
+    "65535",  # Max uint16 (port numbers)
+]
+
+ignored-files = [
+    "_test.go",  # Tests often have magic numbers for test data
+]
+
+ignored-functions = [
+    "os.MkdirAll",      # File permissions are self-documenting
+    "time.NewTicker",   # Time durations are self-documenting
+    "min",              # UI dimension calculations
+    "max",              # UI dimension calculations
+    "os.OpenFile",      # File permissions are self-documenting
+    "os.WriteFile",     # File permissions are self-documenting
+    "os.Chmod",         # File permissions are self-documenting
+    "os.Mkdir",         # File permissions are self-documenting
+    "make",             # Capacity hints are often magic numbers
+    "strings.SplitN",   # Split count is often 2 or 3
+]
+
+checks = [
+    "argument",
+    "case",
+    "condition",
+    "return",
+]
+
+# -----------------------------------------------------------------------------
+# goconst: Constant extraction suggestions
+# -----------------------------------------------------------------------------
+[linters.settings.goconst]
+min-occurrences = 5  # Require more occurrences before suggesting constant
+min-len = 6          # Minimum string length to trigger (ignore short strings)
+# Note: Test file exclusion is handled via linters.exclusions.paths
+
+# =============================================================================
+# Exclusions Configuration
+# =============================================================================
+
+[linters.exclusions]
+generated = "lax"  # Be lenient with generated code
+
+paths = [
+    "third_party$",
+    "builtin$",
+    "examples$",
+]
+
+# Don't enforce errcheck in test files - test setup/cleanup errors are caught by
+# test failures
+[[linters.exclusions.rules]]
+linters = ["errcheck"]
+path = "_test\\.go$"
+
+# =============================================================================
+# Issues Configuration
+# =============================================================================
+
+[issues]
+max-issues-per-linter = 0  # No limit - report all issues
+max-same-issues = 0        # No limit - report all occurrences
+uniq-by-line = false       # Report all issues, even duplicates on same line
+
+# =============================================================================
+# Formatters Configuration
+# =============================================================================
+
+[formatters]
+# Might not be that important but I prefer to keep all of them.
+# `gofumpt` is amazing, kudos to Daniel Marti https://github.com/mvdan/gofumpt
+enable = [
+    # gofmt: Check if the code is formatted according to 'gofmt' command
+    "gofmt",
+
+    # gofumpt: Check if code and import statements are formatted, with
+    # additional rules
+    "gofumpt",
+
+    # goimports: Checks if the code and import statements are formatted
+    "goimports",
+]
+
+[formatters.exclusions]
+generated = "lax"
+
+paths = [
+    "third_party$",
+    "builtin$",
+    "examples$",
+]
