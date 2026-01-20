@@ -49,7 +49,10 @@ Tape files use a declarative format:
 Output vhs/output/NN-category.txt
 
 Set Shell "bash"
-Set TypingSpeed 0ms
+Set FontSize 14
+Set Width 1280
+Set Height 720
+Set TypingSpeed 50ms
 
 # Test: description
 Type "./bin/invowk cmd 'command name'"
@@ -57,11 +60,31 @@ Enter
 Sleep 500ms
 ```
 
+### Required VHS Settings
+
+**CRITICAL: All VHS tapes MUST use these settings for deterministic, working tests:**
+
+| Setting | Value | Reason |
+|---------|-------|--------|
+| `Width` | `1280` | VHS requires minimum 120x120 dimensions |
+| `Height` | `720` | Standard HD resolution, well above minimum |
+| `TypingSpeed` | `50ms` | **NOT 0ms** - Zero causes non-deterministic frame capture |
+| `FontSize` | `14` | Consistent rendering across environments |
+
+### Why TypingSpeed Must Be Non-Zero
+
+With `TypingSpeed 0ms`, VHS batches characters non-deterministically, causing frame captures to vary between runs. For example:
+- Run 1 might capture: `> ./bin/invowk cmd hello`
+- Run 2 might capture: `> ./bin/invowk cmd hell` (partial)
+
+Using `50ms` ensures each character is captured in sequence, producing deterministic output.
+
 ### Key VHS Patterns
 
-- **Deterministic timing**: Use `Set TypingSpeed 0ms` and fixed `Sleep` values.
+- **Deterministic timing**: Use `Set TypingSpeed 50ms` (not 0ms) and fixed `Sleep` values.
 - **Text output**: Use `Output *.txt` for text capture (not video).
-- **Normalization**: Variable content (paths, timestamps) is normalized before comparison.
+- **Normalization**: Variable content (paths, timestamps) is normalized via `normalize.sh`.
+- **Deduplication**: The `normalize.sh` script uses `| uniq` to collapse repeated frames.
 - **Golden files**: Committed to `vhs/golden/`, updated via `make test-vhs-update`.
 - **Native/Virtual only**: Skip container runtime tests to avoid Docker/Podman dependencies.
 

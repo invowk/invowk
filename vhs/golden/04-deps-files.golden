@@ -1,0 +1,54 @@
+>
+────────────────────────────────────────────────────────────────────────────────
+>
+────────────────────────────────────────────────────────────────────────────────
+>
+────────────────────────────────────────────────────────────────────────────────
+>
+────────────────────────────────────────────────────────────────────────────────
+>
+────────────────────────────────────────────────────────────────────────────────
+> ./bin/invowk cmd 'deps file single'
+────────────────────────────────────────────────────────────────────────────────
+> ./bin/invowk cmd 'deps file single'
+────────────────────────────────────────────────────────────────────────────────
+> ./bin/invowk cmd 'deps file single'
+README.md exists!
+>
+────────────────────────────────────────────────────────────────────────────────
+> ./bin/invowk cmd 'deps file single'
+README.md exists!
+> ./bin/invowk cmd 'deps file alternatives'
+────────────────────────────────────────────────────────────────────────────────
+> ./bin/invowk cmd 'deps file single'
+README.md exists!
+> ./bin/invowk cmd 'deps file alternatives'
+────────────────────────────────────────────────────────────────────────────────
+> ./bin/invowk cmd 'deps file single'
+README.md exists!
+> ./bin/invowk cmd 'deps file alternatives'
+A README file exists (one of: README.md, README, readme.md)
+>
+────────────────────────────────────────────────────────────────────────────────
+> ./bin/invowk cmd 'deps file single'
+README.md exists!
+> ./bin/invowk cmd 'deps file alternatives'
+A README file exists (one of: README.md, README, readme.md)
+> ./bin/invowk cmd 'deps file permissions'
+────────────────────────────────────────────────────────────────────────────────
+> ./bin/invowk cmd 'deps file single'
+README.md exists!
+> ./bin/invowk cmd 'deps file alternatives'
+A README file exists (one of: README.md, README, readme.md)
+> ./bin/invowk cmd 'deps file permissions'
+────────────────────────────────────────────────────────────────────────────────
+> ./bin/invowk cmd 'deps file single'
+README.md exists!
+> ./bin/invowk cmd 'deps file alternatives'
+A README file exists (one of: README.md, README, readme.md)
+> ./bin/invowk cmd 'deps file permissions'
+Permission checks passed!
+  - Current directory is writable
+  - README.md is readable
+>
+────────────────────────────────────────────────────────────────────────────────

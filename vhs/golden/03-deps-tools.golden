@@ -1,0 +1,58 @@
+>
+────────────────────────────────────────────────────────────────────────────────
+>
+────────────────────────────────────────────────────────────────────────────────
+>
+────────────────────────────────────────────────────────────────────────────────
+>
+────────────────────────────────────────────────────────────────────────────────
+>
+────────────────────────────────────────────────────────────────────────────────
+> ./bin/invowk cmd 'deps tool single'
+────────────────────────────────────────────────────────────────────────────────
+> ./bin/invowk cmd 'deps tool single'
+────────────────────────────────────────────────────────────────────────────────
+> ./bin/invowk cmd 'deps tool single'
+sh is available!
+>
+────────────────────────────────────────────────────────────────────────────────
+> ./bin/invowk cmd 'deps tool single'
+sh is available!
+> ./bin/invowk cmd 'deps tool alternatives' || echo 'EXPECTED: may fail without container runtime'
+────────────────────────────────────────────────────────────────────────────────
+> ./bin/invowk cmd 'deps tool single'
+sh is available!
+> ./bin/invowk cmd 'deps tool alternatives' || echo 'EXPECTED: may fail without container runtime'
+────────────────────────────────────────────────────────────────────────────────
+> ./bin/invowk cmd 'deps tool single'
+sh is available!
+> ./bin/invowk cmd 'deps tool alternatives' || echo 'EXPECTED: may fail without container runtime'
+Container runtime check passed!
+At least one of podman/docker/nerdctl is available.
+>
+────────────────────────────────────────────────────────────────────────────────
+> ./bin/invowk cmd 'deps tool single'
+sh is available!
+> ./bin/invowk cmd 'deps tool alternatives' || echo 'EXPECTED: may fail without container runtime'
+Container runtime check passed!
+At least one of podman/docker/nerdctl is available.
+> ./bin/invowk cmd 'deps tools mixed'
+────────────────────────────────────────────────────────────────────────────────
+> ./bin/invowk cmd 'deps tool single'
+sh is available!
+> ./bin/invowk cmd 'deps tool alternatives' || echo 'EXPECTED: may fail without container runtime'
+Container runtime check passed!
+At least one of podman/docker/nerdctl is available.
+> ./bin/invowk cmd 'deps tools mixed'
+────────────────────────────────────────────────────────────────────────────────
+> ./bin/invowk cmd 'deps tool single'
+sh is available!
+> ./bin/invowk cmd 'deps tool alternatives' || echo 'EXPECTED: may fail without container runtime'
+Container runtime check passed!
+At least one of podman/docker/nerdctl is available.
+> ./bin/invowk cmd 'deps tools mixed'
+All tool dependencies satisfied!
+  - sh is available
+  - Either cat or type is available
+>
+────────────────────────────────────────────────────────────────────────────────

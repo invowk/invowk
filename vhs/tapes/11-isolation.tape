@@ -8,9 +8,9 @@ Output vhs/output/11-isolation.txt
 
 Set Shell "bash"
 Set FontSize 14
-Set Width 120
-Set Height 30
-Set TypingSpeed 0ms
+Set Width 1280
+Set Height 720
+Set TypingSpeed 50ms
 
 # Test 1: isolation virtual - demonstrates env var isolation in virtual runtime
 Type "./bin/invowk cmd 'isolation virtual'"

@@ -12,9 +12,9 @@ Output vhs/output/08-flags.txt
 
 Set Shell "bash"
 Set FontSize 14
-Set Width 120
-Set Height 30
-Set TypingSpeed 0ms
+Set Width 1280
+Set Height 720
+Set TypingSpeed 50ms
 
 # Test 1: flags simple - basic flags without defaults
 Type "./bin/invowk cmd 'flags simple'"

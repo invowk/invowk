@@ -36,4 +36,4 @@ sed -E \
     -e 's/PATH = '"'"'[^'"'"']+'"'"' \(truncated\)/PATH = '"'"'[PATH]'"'"' (truncated)/g' \
     -e 's/\x1b\[[0-9;]*[a-zA-Z]//g' \
     -e '/^$/d' \
-    "$input_file"
+    "$input_file" | uniq

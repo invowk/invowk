@@ -84,14 +84,14 @@ for tape in "${TAPES[@]}"; do
     # Run VHS tape
     if ! (cd "$ROOT_DIR" && vhs "$tape" 2>/dev/null); then
         echo -e "${RED}FAIL${NC} (vhs execution error)"
-        ((FAILED++))
+        FAILED=$((FAILED + 1))
         continue
     fi
 
     # Check if output file was created
     if [[ ! -f "$output_file" ]]; then
         echo -e "${RED}FAIL${NC} (no output file)"
-        ((FAILED++))
+        FAILED=$((FAILED + 1))
         continue
     fi
 
@@ -101,7 +101,7 @@ for tape in "${TAPES[@]}"; do
     # Update golden file
     cp "$normalized_file" "$golden_file"
     echo -e "${GREEN}UPDATED${NC}"
-    ((UPDATED++))
+    UPDATED=$((UPDATED + 1))
 done
 
 echo ""

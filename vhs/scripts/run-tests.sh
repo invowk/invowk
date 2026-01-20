@@ -87,7 +87,7 @@ for tape in "${TAPES[@]}"; do
     # Check if golden file exists
     if [[ ! -f "$golden_file" ]]; then
         echo -e "${YELLOW}SKIP${NC} (no golden file)"
-        ((SKIPPED++))
+        SKIPPED=$((SKIPPED + 1))
         continue
     fi
 
@@ -96,14 +96,14 @@ for tape in "${TAPES[@]}"; do
     # We run from the root directory so paths work correctly
     if ! (cd "$ROOT_DIR" && vhs "$tape" 2>/dev/null); then
         echo -e "${RED}FAIL${NC} (vhs execution error)"
-        ((FAILED++))
+        FAILED=$((FAILED + 1))
         continue
     fi
 
     # Check if output file was created
     if [[ ! -f "$output_file" ]]; then
         echo -e "${RED}FAIL${NC} (no output file)"
-        ((FAILED++))
+        FAILED=$((FAILED + 1))
         continue
     fi
 
@@ -113,10 +113,10 @@ for tape in "${TAPES[@]}"; do
     # Compare with golden file
     if diff -q "$golden_file" "$normalized_file" > /dev/null 2>&1; then
         echo -e "${GREEN}PASS${NC}"
-        ((PASSED++))
+        PASSED=$((PASSED + 1))
     else
         echo -e "${RED}FAIL${NC}"
-        ((FAILED++))
+        FAILED=$((FAILED + 1))
         echo ""
         echo "    Differences:"
         diff -u "$golden_file" "$normalized_file" | head -30 | sed 's/^/    /'

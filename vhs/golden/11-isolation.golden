@@ -1,0 +1,26 @@
+>
+────────────────────────────────────────────────────────────────────────────────
+>
+────────────────────────────────────────────────────────────────────────────────
+>
+────────────────────────────────────────────────────────────────────────────────
+>
+────────────────────────────────────────────────────────────────────────────────
+>
+────────────────────────────────────────────────────────────────────────────────
+> ./bin/invowk cmd 'isolation virtual'
+────────────────────────────────────────────────────────────────────────────────
+> ./bin/invowk cmd 'isolation virtual'
+────────────────────────────────────────────────────────────────────────────────
+> ./bin/invowk cmd 'isolation virtual'
+=== Virtual Runtime Isolation Demo ===
+Parent values (virtual runtime):
+  INVOWK_ARG_DATA = ''
+  INVOWK_FLAG_MODE = ''
+The isolation mechanism works identically in virtual runtime.
+INVOWK_ARG_* and INVOWK_FLAG_* variables are filtered from the
+inherited environment before each command execution.
+This ensures consistent behavior across native, virtual, and
+container runtimes.
+>
+────────────────────────────────────────────────────────────────────────────────

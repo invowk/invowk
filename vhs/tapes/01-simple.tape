@@ -8,9 +8,9 @@ Output vhs/output/01-simple.txt
 
 Set Shell "bash"
 Set FontSize 14
-Set Width 120
-Set Height 30
-Set TypingSpeed 0ms
+Set Width 1280
+Set Height 720
+Set TypingSpeed 50ms
 
 # Test 1: hello command - simplest possible invowk command
 Type "./bin/invowk cmd hello"

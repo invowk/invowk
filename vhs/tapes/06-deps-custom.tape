@@ -8,9 +8,9 @@ Output vhs/output/06-deps-custom.txt
 
 Set Shell "bash"
 Set FontSize 14
-Set Width 120
-Set Height 30
-Set TypingSpeed 0ms
+Set Width 1280
+Set Height 720
+Set TypingSpeed 50ms
 
 # Test 1: deps check exitcode - validates exit code of a check script
 Type "./bin/invowk cmd 'deps check exitcode'"
