@@ -23,7 +23,7 @@ ROOT_DIR="$(dirname "$VHS_DIR")"
 TAPES_DIR="$VHS_DIR/tapes"
 GOLDEN_DIR="$VHS_DIR/golden"
 OUTPUT_DIR="$VHS_DIR/output"
-NORMALIZE_SCRIPT="$SCRIPT_DIR/normalize.sh"
+NORMALIZE_CONFIG="$VHS_DIR/normalize.cue"
 
 # Colors for output (if terminal supports it)
 if [[ -t 1 ]]; then
@@ -107,8 +107,8 @@ for tape in "${TAPES[@]}"; do
         continue
     fi
 
-    # Normalize output
-    "$NORMALIZE_SCRIPT" "$output_file" > "$normalized_file"
+    # Normalize output using Go-based normalizer
+    "$ROOT_DIR/bin/invowk" internal vhs normalize "$output_file" -c "$NORMALIZE_CONFIG" -o "$normalized_file"
 
     # Compare with golden file
     if diff -q "$golden_file" "$normalized_file" > /dev/null 2>&1; then

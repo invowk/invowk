@@ -1,25 +1,11 @@
->
-────────────────────────────────────────────────────────────────────────────────
->
-────────────────────────────────────────────────────────────────────────────────
->
-────────────────────────────────────────────────────────────────────────────────
->
-────────────────────────────────────────────────────────────────────────────────
->
-────────────────────────────────────────────────────────────────────────────────
 > ./bin/invowk cmd 'args simple' Alice
-────────────────────────────────────────────────────────────────────────────────
 > ./bin/invowk cmd 'args simple' Alice
-────────────────────────────────────────────────────────────────────────────────
 > ./bin/invowk cmd 'args simple' Alice
 === Simple Positional Argument Demo ===
 You provided the following argument:
   INVOWK_ARG_NAME = ''
 Hello, !
 Try: invowk cmd examples args simple Alice
->
-────────────────────────────────────────────────────────────────────────────────
 > ./bin/invowk cmd 'args simple' Alice
 === Simple Positional Argument Demo ===
 You provided the following argument:
@@ -27,7 +13,6 @@ You provided the following argument:
 Hello, !
 Try: invowk cmd examples args simple Alice
 > ./bin/invowk cmd 'args optional' Bob
-────────────────────────────────────────────────────────────────────────────────
 > ./bin/invowk cmd 'args simple' Alice
 === Simple Positional Argument Demo ===
 You provided the following argument:
@@ -35,7 +20,6 @@ You provided the following argument:
 Hello, !
 Try: invowk cmd examples args simple Alice
 > ./bin/invowk cmd 'args optional' Bob
-────────────────────────────────────────────────────────────────────────────────
 > ./bin/invowk cmd 'args simple' Alice
 === Simple Positional Argument Demo ===
 You provided the following argument:
@@ -50,8 +34,6 @@ Arguments received:
 , !
 Try: invowk cmd examples args optional Alice
 Try: invowk cmd examples args optional Alice 'Good morning'
->
-────────────────────────────────────────────────────────────────────────────────
 > ./bin/invowk cmd 'args simple' Alice
 === Simple Positional Argument Demo ===
 You provided the following argument:
@@ -67,7 +49,6 @@ Arguments received:
 Try: invowk cmd examples args optional Alice
 Try: invowk cmd examples args optional Alice 'Good morning'
 > ./bin/invowk cmd 'args typed' 800 600 1.5
-────────────────────────────────────────────────────────────────────────────────
 > ./bin/invowk cmd 'args simple' Alice
 === Simple Positional Argument Demo ===
 You provided the following argument:
@@ -83,7 +64,6 @@ Arguments received:
 Try: invowk cmd examples args optional Alice
 Try: invowk cmd examples args optional Alice 'Good morning'
 > ./bin/invowk cmd 'args typed' 800 600 1.5
-────────────────────────────────────────────────────────────────────────────────
 > ./bin/invowk cmd 'args simple' Alice
 === Simple Positional Argument Demo ===
 You provided the following argument:
@@ -107,7 +87,6 @@ Arguments received:
 Typed arguments are validated at runtime:
   - int: only valid integers accepted
   - float: only valid floating-point numbers accepted
-────────────────────────────────────────────────────────────────────────────────
 > ./bin/invowk cmd 'args simple' Alice
 === Simple Positional Argument Demo ===
 You provided the following argument:
@@ -131,7 +110,6 @@ Arguments received:
 Typed arguments are validated at runtime:
   - int: only valid integers accepted
   - float: only valid floating-point numbers accepted
-────────────────────────────────────────────────────────────────────────────────
 > ./bin/invowk cmd 'args simple' Alice
 === Simple Positional Argument Demo ===
 You provided the following argument:
@@ -155,7 +133,6 @@ Arguments received:
 Typed arguments are validated at runtime:
   - int: only valid integers accepted
   - float: only valid floating-point numbers accepted
-────────────────────────────────────────────────────────────────────────────────
 > ./bin/invowk cmd 'args simple' Alice
 === Simple Positional Argument Demo ===
 You provided the following argument:
@@ -179,4 +156,3 @@ Arguments received:
 Typed arguments are validated at runtime:
   - int: only valid integers accepted
   - float: only valid floating-point numbers accepted
-────────────────────────────────────────────────────────────────────────────────

@@ -15,9 +15,9 @@ vhs/
 │   └── ...
 ├── output/             # Generated output (gitignored)
 ├── scripts/
-│   ├── normalize.sh    # Output normalization script
 │   ├── run-tests.sh    # Test runner
 │   └── update-golden.sh # Golden file updater
+├── normalize.cue       # Normalization rules configuration
 └── README.md           # This file
 ```
 
@@ -138,13 +138,25 @@ make test-vhs-validate
 
 1. **Tape Execution**: VHS runs each `.tape` file, which simulates typing commands and captures terminal output to `.txt` files in `output/`.
 
-2. **Normalization**: The `normalize.sh` script filters variable content (timestamps, paths, hostnames, versions) to make output deterministic.
+2. **Normalization**: The Go-based normalizer (`invowk internal normalize`) processes the output according to rules defined in `normalize.cue`, filtering variable content and VHS artifacts to make output deterministic.
 
 3. **Comparison**: Normalized output is compared against golden files. Any differences indicate a regression or intentional change.
 
 ## Output Normalization
 
-The `normalize.sh` script handles these variable elements:
+The normalizer is implemented in Go (`internal/vhsnorm/`) and configured via `normalize.cue`. It handles:
+
+### VHS Artifact Filtering
+
+| Artifact | Action |
+|----------|--------|
+| Frame separators (`─────...`) | Removed |
+| Empty prompts (lone `>`) | Removed |
+| Consecutive duplicate lines | Collapsed |
+| ANSI escape codes | Stripped |
+| Empty lines | Removed |
+
+### Variable Content Substitution
 
 | Pattern | Replacement |
 |---------|-------------|
@@ -155,7 +167,21 @@ The `normalize.sh` script handles these variable elements:
 | Version strings | `[VERSION]` |
 | USER environment variable | `[USER]` |
 | PATH environment variable | `[PATH]` |
-| ANSI escape codes | (removed) |
+
+### Customizing Normalization
+
+Edit `normalize.cue` to add new substitution rules:
+
+```cue
+substitutions: [
+    // Existing rules...
+    {
+        name:        "my_pattern"
+        pattern:     "regex-pattern"
+        replacement: "[REPLACEMENT]"
+    },
+]
+```
 
 ## Writing New Tests
 
@@ -217,7 +243,7 @@ Check for environment differences:
 
 1. Run the command manually to see raw output
 2. Check if new variable content needs normalization
-3. Update `normalize.sh` if needed
+3. Update `normalize.cue` to add new substitution rules
 
 ### VHS hangs or times out
 

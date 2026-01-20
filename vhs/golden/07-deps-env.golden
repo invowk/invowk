@@ -1,25 +1,11 @@
->
-────────────────────────────────────────────────────────────────────────────────
->
-────────────────────────────────────────────────────────────────────────────────
->
-────────────────────────────────────────────────────────────────────────────────
->
-────────────────────────────────────────────────────────────────────────────────
->
-────────────────────────────────────────────────────────────────────────────────
 > ./bin/invowk cmd 'deps env single'
-────────────────────────────────────────────────────────────────────────────────
 > ./bin/invowk cmd 'deps env single'
-────────────────────────────────────────────────────────────────────────────────
 > ./bin/invowk cmd 'deps env single'
 === Single Env Var Dependency Demo ===
 Required environment variable is set:
   HOME = '[HOME]'
 The env_vars dependency validated that HOME exists in your
 environment before the command started.
->
-────────────────────────────────────────────────────────────────────────────────
 > ./bin/invowk cmd 'deps env single'
 === Single Env Var Dependency Demo ===
 Required environment variable is set:
@@ -27,7 +13,6 @@ Required environment variable is set:
 The env_vars dependency validated that HOME exists in your
 environment before the command started.
 > ./bin/invowk cmd 'deps env multiple'
-────────────────────────────────────────────────────────────────────────────────
 > ./bin/invowk cmd 'deps env single'
 === Single Env Var Dependency Demo ===
 Required environment variable is set:
@@ -35,7 +20,6 @@ Required environment variable is set:
 The env_vars dependency validated that HOME exists in your
 environment before the command started.
 > ./bin/invowk cmd 'deps env multiple'
-────────────────────────────────────────────────────────────────────────────────
 > ./bin/invowk cmd 'deps env single'
 === Single Env Var Dependency Demo ===
 Required environment variable is set:
@@ -52,5 +36,3 @@ All required environment variables are set:
 al/bin:/usr/bin:/var[HOME]/.local/share/JetBrains/Toolbox/scripts' (truncated)
 Each entry in env_vars is validated independently.
 All entries must be satisfied for the command to run.
->
-────────────────────────────────────────────────────────────────────────────────

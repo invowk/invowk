@@ -1,17 +1,5 @@
->
-────────────────────────────────────────────────────────────────────────────────
->
-────────────────────────────────────────────────────────────────────────────────
->
-────────────────────────────────────────────────────────────────────────────────
->
-────────────────────────────────────────────────────────────────────────────────
->
-────────────────────────────────────────────────────────────────────────────────
 > ./bin/invowk cmd 'env files basic'
-────────────────────────────────────────────────────────────────────────────────
 > ./bin/invowk cmd 'env files basic'
-────────────────────────────────────────────────────────────────────────────────
 > ./bin/invowk cmd 'env files basic'
 ==========================================
   Basic env.files Demo
@@ -26,8 +14,6 @@ The env.files field loads dotenv files before
 command execution. Paths are relative to the
 invkfile location.
 ==========================================
->
-────────────────────────────────────────────────────────────────────────────────
 > ./bin/invowk cmd 'env files basic'
 ==========================================
   Basic env.files Demo
@@ -43,7 +29,6 @@ command execution. Paths are relative to the
 invkfile location.
 ==========================================
 > ./bin/invowk cmd 'env vars override'
-────────────────────────────────────────────────────────────────────────────────
 > ./bin/invowk cmd 'env files basic'
 ==========================================
   Basic env.files Demo
@@ -59,7 +44,6 @@ command execution. Paths are relative to the
 invkfile location.
 ==========================================
 > ./bin/invowk cmd 'env vars override'
-────────────────────────────────────────────────────────────────────────────────
 > ./bin/invowk cmd 'env files basic'
 ==========================================
   Basic env.files Demo
@@ -86,4 +70,3 @@ Overridden by env.vars:
   LOG_LEVEL = 'warn' (vars overrides 'info')
 Precedence: env.files < env.vars
 Inline vars always take priority over files.
-────────────────────────────────────────────────────────────────────────────────

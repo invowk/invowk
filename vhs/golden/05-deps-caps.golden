@@ -1,33 +1,15 @@
->
-────────────────────────────────────────────────────────────────────────────────
->
-────────────────────────────────────────────────────────────────────────────────
->
-────────────────────────────────────────────────────────────────────────────────
->
-────────────────────────────────────────────────────────────────────────────────
->
-────────────────────────────────────────────────────────────────────────────────
 > ./bin/invowk cmd 'deps cap single' || echo 'EXPECTED: may fail without internet'
-────────────────────────────────────────────────────────────────────────────────
 > ./bin/invowk cmd 'deps cap single' || echo 'EXPECTED: may fail without internet'
-────────────────────────────────────────────────────────────────────────────────
 > ./bin/invowk cmd 'deps cap single' || echo 'EXPECTED: may fail without internet'
 Internet connectivity confirmed!
->
-────────────────────────────────────────────────────────────────────────────────
 > ./bin/invowk cmd 'deps cap single' || echo 'EXPECTED: may fail without internet'
 Internet connectivity confirmed!
 > ./bin/invowk cmd 'deps cap alternatives' || echo 'EXPECTED: may fail without network'
-────────────────────────────────────────────────────────────────────────────────
 > ./bin/invowk cmd 'deps cap single' || echo 'EXPECTED: may fail without internet'
 Internet connectivity confirmed!
 > ./bin/invowk cmd 'deps cap alternatives' || echo 'EXPECTED: may fail without network'
-────────────────────────────────────────────────────────────────────────────────
 > ./bin/invowk cmd 'deps cap single' || echo 'EXPECTED: may fail without internet'
 Internet connectivity confirmed!
 > ./bin/invowk cmd 'deps cap alternatives' || echo 'EXPECTED: may fail without network'
 Network connectivity confirmed!
 Either LAN or Internet is available.
->
-────────────────────────────────────────────────────────────────────────────────
