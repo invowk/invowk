@@ -4,84 +4,84 @@ sidebar_position: 3
 
 import Snippet from '@site/src/components/Snippet';
 
-# Invkpack Schema Reference
+# Invkmod Schema Reference
 
 :::warning Alpha — Schema May Change
-The invkpack schema is still evolving. Fields, types, and validation rules **may change between releases** as we stabilize the format. Always check the [changelog](https://github.com/invowk/invowk/releases) when upgrading.
+The invkmod schema is still evolving. Fields, types, and validation rules **may change between releases** as we stabilize the format. Always check the [changelog](https://github.com/invowk/invowk/releases) when upgrading.
 :::
 
-Complete reference for `invkpack.cue`, the pack metadata file. Pack metadata is validated as a closed struct, so unknown fields cause a validation error.
+Complete reference for `invkmod.cue`, the module metadata file. Module metadata is validated as a closed struct, so unknown fields cause a validation error.
 
 ## Root Structure
 
-Every pack must include an `invkpack.cue` file with this structure:
+Every module must include an `invkmod.cue` file with this structure:
 
-<Snippet id="reference/invkpack/root-structure" />
+<Snippet id="reference/invkmod/root-structure" />
 
-### pack
+### module
 
-**Type:** `string` (pattern: `^[a-zA-Z][a-zA-Z0-9]*(\.[a-zA-Z][a-zA-Z0-9]*)*$`)  
+**Type:** `string` (pattern: `^[a-zA-Z][a-zA-Z0-9]*(\.[a-zA-Z][a-zA-Z0-9]*)*$`)
 **Required:** Yes
 
-The pack identifier. It must match the folder name prefix (before `.invkpack`).
+The module identifier. It must match the folder name prefix (before `.invkmod`).
 
-<Snippet id="reference/invkpack/pack-examples" />
+<Snippet id="reference/invkmod/module-examples" />
 
 ### version
 
-**Type:** `string` (pattern: `^[0-9]+\.[0-9]+$`)  
+**Type:** `string` (pattern: `^[0-9]+\.[0-9]+$`)
 **Required:** No
 
-Pack metadata version. Current version is `"1.0"`.
+Module metadata version. Current version is `"1.0"`.
 
 ### description
 
-**Type:** `string`  
+**Type:** `string`
 **Required:** No
 
-A short summary of the pack’s purpose.
+A short summary of the module's purpose.
 
 ### requires
 
-**Type:** `[...#PackRequirement]`  
+**Type:** `[...#ModuleRequirement]`
 **Required:** No
 
-List of pack dependencies from Git repositories.
+List of module dependencies from Git repositories.
 
-<Snippet id="reference/invkpack/requires-example" />
+<Snippet id="reference/invkmod/requires-example" />
 
 ---
 
-## PackRequirement
+## ModuleRequirement
 
 Defines a single dependency entry:
 
-<Snippet id="reference/invkpack/requirement-structure" />
+<Snippet id="reference/invkmod/requirement-structure" />
 
 ### git_url
 
-**Type:** `string`  
+**Type:** `string`
 **Required:** Yes
 
-Git repository URL (HTTPS or SSH). The repository must contain a pack.
+Git repository URL (HTTPS or SSH). The repository must contain a module.
 
 ### version
 
-**Type:** `string`  
+**Type:** `string`
 **Required:** Yes
 
 Semantic version constraint used to resolve a Git tag.
 
 ### alias
 
-**Type:** `string`  
+**Type:** `string`
 **Required:** No
 
-Overrides the default namespace for this dependency (must follow pack naming rules).
+Overrides the default namespace for this dependency (must follow module naming rules).
 
 ### path
 
-**Type:** `string`  
+**Type:** `string`
 **Required:** No
 
-Subdirectory within the repository that contains the pack. Must be relative and cannot contain path traversal sequences.
+Subdirectory within the repository that contains the module. Must be relative and cannot contain path traversal sequences.

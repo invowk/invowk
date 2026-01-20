@@ -170,16 +170,16 @@ func (s *Implementation) IsScriptFile() bool {
 // If modulePath is provided (non-empty), script paths are resolved relative to the module root
 // and are expected to use forward slashes for cross-platform compatibility.
 func (s *Implementation) GetScriptFilePath(invkfilePath string) string {
-	return s.GetScriptFilePathWithPack(invkfilePath, "")
+	return s.GetScriptFilePathWithModule(invkfilePath, "")
 }
 
-// GetScriptFilePathWithPack returns the absolute path to the script file, if Implementation is a file reference.
+// GetScriptFilePathWithModule returns the absolute path to the script file, if Implementation is a file reference.
 // Returns empty string if Implementation is inline content.
 // The invkfilePath parameter is used to resolve relative paths when not in a module.
 // The modulePath parameter specifies the module root directory for module-relative paths.
-// When packPath is non-empty, script paths are expected to use forward slashes for
-// cross-platform compatibility and are resolved relative to the pack root.
-func (s *Implementation) GetScriptFilePathWithPack(invkfilePath, packPath string) string {
+// When modulePath is non-empty, script paths are expected to use forward slashes for
+// cross-platform compatibility and are resolved relative to the module root.
+func (s *Implementation) GetScriptFilePathWithModule(invkfilePath, modulePath string) string {
 	if !s.IsScriptFile() {
 		return ""
 	}
@@ -191,11 +191,11 @@ func (s *Implementation) GetScriptFilePathWithPack(invkfilePath, packPath string
 		return script
 	}
 
-	// If in a pack, resolve relative to pack root with cross-platform path conversion
-	if packPath != "" {
+	// If in a module, resolve relative to module root with cross-platform path conversion
+	if modulePath != "" {
 		// Convert forward slashes to native path separator for cross-platform compatibility
 		nativePath := filepath.FromSlash(script)
-		return filepath.Join(packPath, nativePath)
+		return filepath.Join(modulePath, nativePath)
 	}
 
 	// Resolve relative to invkfile directory
@@ -208,15 +208,15 @@ func (s *Implementation) GetScriptFilePathWithPack(invkfilePath, packPath string
 // If Implementation is inline content (including multi-line), it returns it directly.
 // The invkfilePath parameter is used to resolve relative paths.
 func (s *Implementation) ResolveScript(invkfilePath string) (string, error) {
-	return s.ResolveScriptWithPack(invkfilePath, "")
+	return s.ResolveScriptWithModule(invkfilePath, "")
 }
 
-// ResolveScriptWithPack returns the actual script content to execute.
+// ResolveScriptWithModule returns the actual script content to execute.
 // If Implementation is a file path, it reads the file content.
 // If Implementation is inline content (including multi-line), it returns it directly.
 // The invkfilePath parameter is used to resolve relative paths when not in a module.
 // The modulePath parameter specifies the module root directory for module-relative paths.
-func (s *Implementation) ResolveScriptWithPack(invkfilePath, packPath string) (string, error) {
+func (s *Implementation) ResolveScriptWithModule(invkfilePath, modulePath string) (string, error) {
 	if s.scriptResolved {
 		return s.resolvedScript, nil
 	}
@@ -227,7 +227,7 @@ func (s *Implementation) ResolveScriptWithPack(invkfilePath, packPath string) (s
 	}
 
 	if s.IsScriptFile() {
-		scriptPath := s.GetScriptFilePathWithPack(invkfilePath, packPath)
+		scriptPath := s.GetScriptFilePathWithModule(invkfilePath, modulePath)
 		content, err := os.ReadFile(scriptPath)
 		if err != nil {
 			return "", fmt.Errorf("failed to read script file '%s': %w", scriptPath, err)
@@ -245,20 +245,20 @@ func (s *Implementation) ResolveScriptWithPack(invkfilePath, packPath string) (s
 // ResolveScriptWithFS resolves the script using a custom filesystem reader function.
 // This is useful for testing with virtual filesystems.
 func (s *Implementation) ResolveScriptWithFS(invkfilePath string, readFile func(path string) ([]byte, error)) (string, error) {
-	return s.ResolveScriptWithFSAndPack(invkfilePath, "", readFile)
+	return s.ResolveScriptWithFSAndModule(invkfilePath, "", readFile)
 }
 
-// ResolveScriptWithFSAndPack resolves the script using a custom filesystem reader function.
+// ResolveScriptWithFSAndModule resolves the script using a custom filesystem reader function.
 // This is useful for testing with virtual filesystems.
-// The packPath parameter specifies the pack root directory for pack-relative paths.
-func (s *Implementation) ResolveScriptWithFSAndPack(invkfilePath, packPath string, readFile func(path string) ([]byte, error)) (string, error) {
+// The modulePath parameter specifies the module root directory for module-relative paths.
+func (s *Implementation) ResolveScriptWithFSAndModule(invkfilePath, modulePath string, readFile func(path string) ([]byte, error)) (string, error) {
 	script := s.Script
 	if script == "" {
 		return "", fmt.Errorf("script has no content")
 	}
 
 	if s.IsScriptFile() {
-		scriptPath := s.GetScriptFilePathWithPack(invkfilePath, packPath)
+		scriptPath := s.GetScriptFilePathWithModule(invkfilePath, modulePath)
 		content, err := readFile(scriptPath)
 		if err != nil {
 			return "", fmt.Errorf("failed to read script file '%s': %w", scriptPath, err)

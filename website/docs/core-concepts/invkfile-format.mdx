@@ -38,11 +38,11 @@ Every invkfile follows this structure:
 
 The `?` suffix means a field is optional.
 
-## Namespaces via Packs
+## Namespaces via Modules
 
-Invkfiles define commands **without** a namespace. If you want namespacing, put your commands in a pack and define the pack ID in `invkpack.cue`.
+Invkfiles define commands **without** a namespace. If you want namespacing, put your commands in a module and define the module ID in `invkmod.cue`.
 
-See [Commands and Namespaces](./commands-and-namespaces) for pack naming rules and command prefixes.
+See [Commands and Namespaces](./commands-and-namespaces) for module naming rules and command prefixes.
 
 ## Commands Structure
 
@@ -98,5 +98,5 @@ Or just try to list commands - Invowk validates automatically:
 
 ## Next Steps
 
-- [Commands and Namespaces](./commands-and-namespaces) - Naming conventions and pack prefixes
+- [Commands and Namespaces](./commands-and-namespaces) - Naming conventions and module prefixes
 - [Implementations](./implementations) - Platforms, runtimes, and scripts

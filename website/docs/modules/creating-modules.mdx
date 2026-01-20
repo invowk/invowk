@@ -4,43 +4,43 @@ sidebar_position: 2
 
 import Snippet from '@site/src/components/Snippet';
 
-# Creating Packs
+# Creating Modules
 
-Learn how to create, structure, and organize packs for your commands.
+Learn how to create, structure, and organize modules for your commands.
 
 ## Quick Create
 
-Use `pack create` to scaffold a new pack:
+Use `module create` to scaffold a new module:
 
-<Snippet id="packs/create-options" />
+<Snippet id="modules/create-options" />
 
 ## Generated Structure
 
-Basic pack:
+Basic module:
 
-<Snippet id="packs/quick-create-output" />
+<Snippet id="modules/quick-create-output" />
 
 With `--scripts`:
 
-<Snippet id="packs/create-with-scripts" />
+<Snippet id="modules/create-with-scripts" />
 
-## Pack Metadata (invkpack.cue)
+## Module Metadata (invkmod.cue)
 
-The generated `invkpack.cue` contains pack identity and dependencies:
+The generated `invkmod.cue` contains module identity and dependencies:
 
-<Snippet id="packs/template-invkpack" />
+<Snippet id="modules/template-invkmod" />
 
 ## Template Invkfile
 
 The generated `invkfile.cue` contains commands only:
 
-<Snippet id="packs/template-invkfile" />
+<Snippet id="modules/template-invkfile" />
 
 ## Manual Creation
 
-You can also create packs manually:
+You can also create modules manually:
 
-<Snippet id="packs/manual-create" />
+<Snippet id="modules/manual-create" />
 
 ## Adding Scripts
 
@@ -48,64 +48,64 @@ You can also create packs manually:
 
 Choose based on complexity:
 
-<Snippet id="packs/inline-vs-external" />
+<Snippet id="modules/inline-vs-external" />
 
 ### Script Organization
 
-<Snippet id="packs/script-organization" />
+<Snippet id="modules/script-organization" />
 
 ### Script Paths
 
 Always use forward slashes:
 
-<Snippet id="packs/script-paths-good-bad" />
+<Snippet id="modules/script-paths-good-bad" />
 
 ## Environment Files
 
-Include `.env` files in your pack:
+Include `.env` files in your module:
 
-<Snippet id="packs/env-files-structure" />
+<Snippet id="modules/env-files-structure" />
 
 Reference them:
 
-<Snippet id="packs/env-files-ref" />
+<Snippet id="modules/env-files-ref" />
 
 ## Documentation
 
 Include a README for users:
 
-<Snippet id="packs/docs-structure" />
+<Snippet id="modules/docs-structure" />
 
 ## Real-World Examples
 
-### Build Tools Pack
+### Build Tools Module
 
-<Snippet id="packs/buildtools-structure" />
+<Snippet id="modules/buildtools-structure" />
 
-<Snippet id="packs/buildtools-invkfile" />
+<Snippet id="modules/buildtools-invkfile" />
 
-### DevOps Pack
+### DevOps Module
 
-<Snippet id="packs/devops-structure" />
+<Snippet id="modules/devops-structure" />
 
 ## Best Practices
 
-1. **Use RDNS naming**: Prevents conflicts with other packs
+1. **Use RDNS naming**: Prevents conflicts with other modules
 2. **Keep scripts focused**: One task per script
 3. **Include documentation**: README with usage examples
-4. **Version your pack**: Set the version in `invkpack.cue`
+4. **Version your module**: Set the version in `invkmod.cue`
 5. **Forward slashes only**: Cross-platform compatibility
-6. **Validate before sharing**: Run `pack validate --deep`
+6. **Validate before sharing**: Run `module validate --deep`
 
-## Validating Your Pack
+## Validating Your Module
 
 Before sharing, validate:
 
-<Snippet id="packs/validate-before-share" />
+<Snippet id="modules/validate-before-share" />
 
 See [Validating](./validating) for details.
 
 ## Next Steps
 
-- [Validating](./validating) - Ensure pack integrity
-- [Distributing](./distributing) - Share your pack
+- [Validating](./validating) - Ensure module integrity
+- [Distributing](./distributing) - Share your module

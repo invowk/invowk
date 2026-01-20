@@ -4,50 +4,50 @@ sidebar_position: 3
 
 import Snippet from '@site/src/components/Snippet';
 
-# Validando Packs
+# Validando Módulos
 
-Valide seus packs para garantir que estão estruturados corretamente e prontos para distribuição.
+Valide seus módulos para garantir que estão estruturados corretamente e prontos para distribuição.
 
 ## Validação Básica
 
-<Snippet id="packs/validate-basic" />
+<Snippet id="modules/validate-basic" />
 
-Saída para um pack válido:
+Saída para um módulo válido:
 
-<Snippet id="packs/validate-basic-output" />
+<Snippet id="modules/validate-basic-output" />
 
 ## Validação Profunda
 
 Adicione `--deep` para também fazer parse e validar o invkfile (quando presente):
 
-<Snippet id="packs/validate-deep" />
+<Snippet id="modules/validate-deep" />
 
 Saída:
 
-<Snippet id="packs/validate-deep-output" />
+<Snippet id="modules/validate-deep-output" />
 
 ## O que é Validado
 
 ### Checagens de Estrutura
 
-- Diretório do pack existe
-- `invkpack.cue` obrigatório na raiz
-- `invkfile.cue` é opcional (packs apenas de biblioteca são permitidos)
-- Sem packs aninhados (exceto dentro de `invk_packs/`)
+- Diretório do módulo existe
+- `invkmod.cue` obrigatório na raiz
+- `invkfile.cue` é opcional (módulos apenas de biblioteca são permitidos)
+- Sem módulos aninhados (exceto dentro de `invk_mods/`)
 
 ### Checagens de Segurança
 
-- **Sem symlinks**: Symlinks não são permitidos em packs por motivos de segurança. Eles podem escapar do diretório do pack durante extração (vulnerabilidade zip-slip).
+- **Sem symlinks**: Symlinks não são permitidos em módulos por motivos de segurança. Eles podem escapar do diretório do módulo durante extração (vulnerabilidade zip-slip).
 
 ### Checagens de Compatibilidade
 
-- **Nomes reservados no Windows**: Arquivos chamados `CON`, `PRN`, `AUX`, `NUL`, `COM1`-`COM9` ou `LPT1`-`LPT9` geram um aviso de compatibilidade. Esses nomes são reservados no Windows e podem causar problemas ao extrair packs em sistemas Windows.
+- **Nomes reservados no Windows**: Arquivos chamados `CON`, `PRN`, `AUX`, `NUL`, `COM1`-`COM9` ou `LPT1`-`LPT9` geram um aviso de compatibilidade. Esses nomes são reservados no Windows e podem causar problemas ao extrair módulos em sistemas Windows.
 
 ### Checagens de Nomenclatura
 
-- Nome da pasta termina com `.invkpack`
+- Nome da pasta termina com `.invkmod`
 - Prefixo do nome segue as regras (começa com letra, alfanumérico + pontos)
-- ID do pack em `invkpack.cue` corresponde ao prefixo do nome da pasta
+- ID do módulo em `invkmod.cue` corresponde ao prefixo do nome da pasta
 - Sem caracteres inválidos (hífens, underscores)
 
 ### Checagens Profundas (com `--deep`)
@@ -58,56 +58,56 @@ Saída:
 
 ## Erros de Validação
 
-### Invkpack Ausente
+### Invkmod Ausente
 
-<Snippet id="packs/error-missing-invkfile" />
+<Snippet id="modules/error-missing-invkfile" />
 
 ### Nome Inválido
 
-<Snippet id="packs/error-invalid-name" />
+<Snippet id="modules/error-invalid-name" />
 
-### Pack Aninhado
+### Módulo Aninhado
 
-<Snippet id="packs/error-nested" />
+<Snippet id="modules/error-nested" />
 
 ### Invkfile Inválido (deep)
 
-<Snippet id="packs/error-parse" />
+<Snippet id="modules/error-parse" />
 
 ## Validação em Lote
 
-Valide múltiplos packs:
+Valide múltiplos módulos:
 
-<Snippet id="packs/validate-batch" />
+<Snippet id="modules/validate-batch" />
 
 ## Integração com CI
 
-Adicione validação de packs no seu pipeline de CI:
+Adicione validação de módulos no seu pipeline de CI:
 
-<Snippet id="packs/validate-ci" />
+<Snippet id="modules/validate-ci" />
 
 ## Problemas Comuns
 
 ### Separadores de Caminho Errados
 
-<Snippet id="packs/path-separators-good-bad" />
+<Snippet id="modules/path-separators-good-bad" />
 
-### Escapando o Diretório do Pack
+### Escapando o Diretório do Módulo
 
-<Snippet id="packs/escape-pack-dir" />
+<Snippet id="modules/escape-module-dir" />
 
 ### Caminhos Absolutos
 
-<Snippet id="packs/absolute-paths" />
+<Snippet id="modules/absolute-paths" />
 
 ## Melhores Práticas
 
 1. **Valide antes de commitar**: Detecte problemas cedo
 2. **Use `--deep`**: Captura erros de invkfile
-3. **Valide no CI**: Impede packs quebrados de sair
+3. **Valide no CI**: Impede módulos quebrados de sair
 4. **Corrija problemas imediatamente**: Não deixe dívida de validação acumular
 
 ## Próximos Passos
 
-- [Criando Packs](./creating-packs) - Estruture seu pack
-- [Distribuindo](./distributing) - Compartilhe seu pack
+- [Criando Módulos](./creating-modules) - Estruture seu módulo
+- [Distribuindo](./distributing) - Compartilhe seu módulo

@@ -6,11 +6,11 @@ import Snippet from '@site/src/components/Snippet';
 
 # Declaring Dependencies
 
-Pack dependencies are declared in the `requires` field of `invkpack.cue`. This page covers the syntax and options available.
+Module dependencies are declared in the `requires` field of `invkmod.cue`. This page covers the syntax and options available.
 
 ## Basic Syntax
 
-<Snippet id="packs/dependencies/basic-invkpack" />
+<Snippet id="modules/dependencies/basic-invkmod" />
 
 ## Requirement Fields
 
@@ -23,9 +23,9 @@ Pack dependencies are declared in the `requires` field of `invkpack.cue`. This p
 
 ### git_url
 
-The Git repository URL. Supports both HTTPS and SSH formats. The repository must contain a pack (either a `.invkpack` directory or an `invkpack.cue` at the root).
+The Git repository URL. Supports both HTTPS and SSH formats. The repository must contain a module (either a `.invkmod` directory or an `invkmod.cue` at the root).
 
-<Snippet id="packs/dependencies/git-url-examples" />
+<Snippet id="modules/dependencies/git-url-examples" />
 
 ### version
 
@@ -50,23 +50,23 @@ Invowk accepts tags with or without the `v` prefix:
 - `v1.2.3` and `1.2.3` are both valid
 - When resolving, both formats are tried automatically
 
-<Snippet id="packs/dependencies/version-example" />
+<Snippet id="modules/dependencies/version-example" />
 
 ### alias
 
-Override the default namespace for the dependency’s commands:
+Override the default namespace for the dependency's commands:
 
-<Snippet id="packs/dependencies/alias-example" />
+<Snippet id="modules/dependencies/alias-example" />
 
 Usage with alias:
 
-<Snippet id="packs/dependencies/alias-usage" />
+<Snippet id="modules/dependencies/alias-usage" />
 
 ### path
 
-For monorepos containing multiple packs, specify the subdirectory:
+For monorepos containing multiple modules, specify the subdirectory:
 
-<Snippet id="packs/dependencies/path-example" />
+<Snippet id="modules/dependencies/path-example" />
 
 Paths must be relative and cannot contain `..` or absolute paths.
 
@@ -74,7 +74,7 @@ Paths must be relative and cannot contain `..` or absolute paths.
 
 Declare multiple dependencies in the `requires` array:
 
-<Snippet id="packs/dependencies/multiple-requires" />
+<Snippet id="modules/dependencies/multiple-requires" />
 
 ## Authentication
 
@@ -90,38 +90,38 @@ For SSH URLs (`git@...`), invowk uses keys from `~/.ssh/`:
 
 For private HTTPS repositories, set environment variables:
 
-<Snippet id="packs/dependencies/auth-tokens" />
+<Snippet id="modules/dependencies/auth-tokens" />
 
 ## Transitive Dependencies
 
 Dependencies can declare their own dependencies. When you sync, invowk resolves the full dependency tree and records it in the lock file:
 
-<Snippet id="packs/dependencies/transitive-tree" />
+<Snippet id="modules/dependencies/transitive-tree" />
 
 ### Circular Dependency Detection
 
 Invowk detects and reports circular dependencies:
 
-<Snippet id="packs/dependencies/circular-error" />
+<Snippet id="modules/dependencies/circular-error" />
 
 ## Best Practices
 
 ### 1. Use Caret for Most Dependencies
 
-<Snippet id="packs/dependencies/best-practices-version" />
+<Snippet id="modules/dependencies/best-practices-version" />
 
 ### 2. Use Aliases for Cleaner Namespaces
 
-<Snippet id="packs/dependencies/best-practices-alias" />
+<Snippet id="modules/dependencies/best-practices-alias" />
 
 ### 3. Commit Your Lock File
 
-The `invkpack.lock.cue` file should be committed to version control for reproducible builds.
+The `invkmod.lock.cue` file should be committed to version control for reproducible builds.
 
 ### 4. Update Regularly
 
-<Snippet id="packs/dependencies/update-command" />
+<Snippet id="modules/dependencies/update-command" />
 
 ## Schema Reference
 
-<Snippet id="reference/invkpack/requirement-structure" />
+<Snippet id="reference/invkmod/requirement-structure" />

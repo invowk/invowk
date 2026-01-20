@@ -60,9 +60,9 @@ Built-in per-command flags:
 **Command Discovery:**
 
 Commands are discovered from (in priority order):
-1. Current directory (invkfile and packs)
-2. `~/.invowk/cmds/` (invkfiles and packs)
-3. Paths configured in `search_paths` (invkfiles and packs)
+1. Current directory (invkfile and modules)
+2. `~/.invowk/cmds/` (invkfiles and modules)
+3. Paths configured in `search_paths` (invkfiles and modules)
 
 ---
 
@@ -137,38 +137,38 @@ Set a configuration value.
 
 ---
 
-### invowk pack
+### invowk module
 
-Manage invowk packs (self-contained command folders).
+Manage invowk modules (self-contained command folders).
 
-<Snippet id="reference/cli/pack-syntax" />
+<Snippet id="reference/cli/module-syntax" />
 
 **Subcommands:**
 
-#### invowk pack create
+#### invowk module create
 
-Create a new invowk pack.
+Create a new invowk module.
 
-<Snippet id="reference/cli/pack-create-syntax" />
+<Snippet id="reference/cli/module-create-syntax" />
 
 **Flags:**
 
 | Flag | Short | Description |
 |------|-------|-------------|
-| `--path` | `-p` | Parent directory for the pack (default: current directory) |
+| `--path` | `-p` | Parent directory for the module (default: current directory) |
 | `--scripts` |  | Create a `scripts/` subdirectory |
-| `--pack-id` | `-g` | Pack identifier for `invkpack.cue` (default: pack name) |
-| `--description` | `-d` | Description for `invkpack.cue` |
+| `--module-id` | `-g` | Module identifier for `invkmod.cue` (default: module name) |
+| `--description` | `-d` | Description for `invkmod.cue` |
 
 **Examples:**
 
-<Snippet id="reference/cli/pack-create-examples" />
+<Snippet id="reference/cli/module-create-examples" />
 
-#### invowk pack validate
+#### invowk module validate
 
-Validate an invowk pack.
+Validate an invowk module.
 
-<Snippet id="reference/cli/pack-validate-syntax" />
+<Snippet id="reference/cli/module-validate-syntax" />
 
 **Flags:**
 
@@ -178,19 +178,19 @@ Validate an invowk pack.
 
 **Examples:**
 
-<Snippet id="reference/cli/pack-validate-examples" />
+<Snippet id="reference/cli/module-validate-examples" />
 
-#### invowk pack list
+#### invowk module list
 
-List all discovered packs.
+List all discovered modules.
 
-<Snippet id="reference/cli/pack-list-syntax" />
+<Snippet id="reference/cli/module-list-syntax" />
 
-#### invowk pack archive
+#### invowk module archive
 
-Create a ZIP archive from a pack.
+Create a ZIP archive from a module.
 
-<Snippet id="reference/cli/pack-archive-syntax" />
+<Snippet id="reference/cli/module-archive-syntax" />
 
 **Flags:**
 
@@ -198,86 +198,86 @@ Create a ZIP archive from a pack.
 |------|-------|-------------|
 | `--output` | `-o` | Output file path |
 
-#### invowk pack import
+#### invowk module import
 
-Import a pack from a ZIP file or URL.
+Import a module from a ZIP file or URL.
 
-<Snippet id="reference/cli/pack-import-syntax" />
+<Snippet id="reference/cli/module-import-syntax" />
 
 **Flags:**
 
 | Flag | Short | Description |
 |------|-------|-------------|
 | `--path` | `-p` | Output directory |
-| `--overwrite` |  | Overwrite existing pack if present |
+| `--overwrite` |  | Overwrite existing module if present |
 
-#### invowk pack alias
+#### invowk module alias
 
-Manage pack aliases for collision disambiguation.
+Manage module aliases for collision disambiguation.
 
-<Snippet id="reference/cli/pack-alias-syntax" />
+<Snippet id="reference/cli/module-alias-syntax" />
 
-#### invowk pack alias set
+#### invowk module alias set
 
-<Snippet id="reference/cli/pack-alias-set-syntax" />
+<Snippet id="reference/cli/module-alias-set-syntax" />
 
-#### invowk pack alias list
+#### invowk module alias list
 
-<Snippet id="reference/cli/pack-alias-list-syntax" />
+<Snippet id="reference/cli/module-alias-list-syntax" />
 
-#### invowk pack alias remove
+#### invowk module alias remove
 
-<Snippet id="reference/cli/pack-alias-remove-syntax" />
+<Snippet id="reference/cli/module-alias-remove-syntax" />
 
-#### invowk pack add
+#### invowk module add
 
-Resolve a pack dependency and print the `requires` entry for `invkpack.cue`.
+Resolve a module dependency and print the `requires` entry for `invkmod.cue`.
 
-<Snippet id="reference/cli/pack-add-syntax" />
+<Snippet id="reference/cli/module-add-syntax" />
 
 **Flags:**
 
 | Flag | Description |
 |------|-------------|
-| `--alias` | Alias for the pack namespace |
+| `--alias` | Alias for the module namespace |
 | `--path` | Subdirectory path within the repository |
 
-#### invowk pack remove
+#### invowk module remove
 
-Remove a pack dependency from the lock file.
+Remove a module dependency from the lock file.
 
-<Snippet id="reference/cli/pack-remove-syntax" />
+<Snippet id="reference/cli/module-remove-syntax" />
 
-#### invowk pack sync
+#### invowk module sync
 
-Sync dependencies from `invkpack.cue`.
+Sync dependencies from `invkmod.cue`.
 
-<Snippet id="reference/cli/pack-sync-syntax" />
+<Snippet id="reference/cli/module-sync-syntax" />
 
-#### invowk pack update
+#### invowk module update
 
-Update pack dependencies to latest matching versions.
+Update module dependencies to latest matching versions.
 
-<Snippet id="reference/cli/pack-update-syntax" />
+<Snippet id="reference/cli/module-update-syntax" />
 
-#### invowk pack deps
+#### invowk module deps
 
-List resolved pack dependencies.
+List resolved module dependencies.
 
-<Snippet id="reference/cli/pack-deps-syntax" />
+<Snippet id="reference/cli/module-deps-syntax" />
 
-#### invowk pack vendor
+#### invowk module vendor
 
-Vendor dependencies into `invk_packs/`.
+Vendor dependencies into `invk_mods/`.
 
-<Snippet id="reference/cli/pack-vendor-syntax" />
+<Snippet id="reference/cli/module-vendor-syntax" />
 
 **Flags:**
 
 | Flag | Description |
 |------|-------------|
 | `--update` | Force re-fetch of all dependencies |
-| `--prune` | Remove unused vendored packs |
+| `--prune` | Remove unused vendored modules |
 
 ---
 

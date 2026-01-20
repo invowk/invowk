@@ -4,50 +4,50 @@ sidebar_position: 3
 
 import Snippet from '@site/src/components/Snippet';
 
-# Validating Packs
+# Validating Modules
 
-Validate your packs to ensure they're correctly structured and ready for distribution.
+Validate your modules to ensure they're correctly structured and ready for distribution.
 
 ## Basic Validation
 
-<Snippet id="packs/validate-basic" />
+<Snippet id="modules/validate-basic" />
 
-Output for a valid pack:
+Output for a valid module:
 
-<Snippet id="packs/validate-basic-output" />
+<Snippet id="modules/validate-basic-output" />
 
 ## Deep Validation
 
 Add `--deep` to also parse and validate the invkfile (when present):
 
-<Snippet id="packs/validate-deep" />
+<Snippet id="modules/validate-deep" />
 
 Output:
 
-<Snippet id="packs/validate-deep-output" />
+<Snippet id="modules/validate-deep-output" />
 
 ## What Gets Validated
 
 ### Structure Checks
 
-- Pack directory exists
-- Required `invkpack.cue` at root
-- `invkfile.cue` is optional (library-only packs are allowed)
-- No nested packs (except inside `invk_packs/`)
+- Module directory exists
+- Required `invkmod.cue` at root
+- `invkfile.cue` is optional (library-only modules are allowed)
+- No nested modules (except inside `invk_mods/`)
 
 ### Security Checks
 
-- **No symlinks**: Symlinks are not allowed in packs for security reasons. They could potentially escape the pack directory during extraction (zip-slip vulnerability).
+- **No symlinks**: Symlinks are not allowed in modules for security reasons. They could potentially escape the module directory during extraction (zip-slip vulnerability).
 
 ### Compatibility Checks
 
-- **Windows reserved filenames**: Files named `CON`, `PRN`, `AUX`, `NUL`, `COM1`-`COM9`, or `LPT1`-`LPT9` will trigger a compatibility warning. These names are reserved on Windows and could cause issues when extracting packs on Windows systems.
+- **Windows reserved filenames**: Files named `CON`, `PRN`, `AUX`, `NUL`, `COM1`-`COM9`, or `LPT1`-`LPT9` will trigger a compatibility warning. These names are reserved on Windows and could cause issues when extracting modules on Windows systems.
 
 ### Naming Checks
 
-- Folder name ends with `.invkpack`
+- Folder name ends with `.invkmod`
 - Name prefix follows rules (starts with letter, alphanumeric + dots)
-- Pack ID in `invkpack.cue` matches the folder name prefix
+- Module ID in `invkmod.cue` matches the folder name prefix
 - No invalid characters (hyphens, underscores)
 
 ### Deep Checks (with `--deep`)
@@ -58,56 +58,56 @@ Output:
 
 ## Validation Errors
 
-### Missing Invkpack
+### Missing Invkmod
 
-<Snippet id="packs/error-missing-invkfile" />
+<Snippet id="modules/error-missing-invkfile" />
 
 ### Invalid Name
 
-<Snippet id="packs/error-invalid-name" />
+<Snippet id="modules/error-invalid-name" />
 
-### Nested Pack
+### Nested Module
 
-<Snippet id="packs/error-nested" />
+<Snippet id="modules/error-nested" />
 
 ### Invalid Invkfile (deep)
 
-<Snippet id="packs/error-parse" />
+<Snippet id="modules/error-parse" />
 
 ## Batch Validation
 
-Validate multiple packs:
+Validate multiple modules:
 
-<Snippet id="packs/validate-batch" />
+<Snippet id="modules/validate-batch" />
 
 ## CI Integration
 
-Add pack validation to your CI pipeline:
+Add module validation to your CI pipeline:
 
-<Snippet id="packs/validate-ci" />
+<Snippet id="modules/validate-ci" />
 
 ## Common Issues
 
 ### Wrong Path Separators
 
-<Snippet id="packs/path-separators-good-bad" />
+<Snippet id="modules/path-separators-good-bad" />
 
-### Escaping Pack Directory
+### Escaping Module Directory
 
-<Snippet id="packs/escape-pack-dir" />
+<Snippet id="modules/escape-module-dir" />
 
 ### Absolute Paths
 
-<Snippet id="packs/absolute-paths" />
+<Snippet id="modules/absolute-paths" />
 
 ## Best Practices
 
 1. **Validate before committing**: Catch issues early
 2. **Use `--deep`**: Catches invkfile errors
-3. **Validate in CI**: Prevent broken packs from shipping
+3. **Validate in CI**: Prevent broken modules from shipping
 4. **Fix issues immediately**: Don't let validation debt accumulate
 
 ## Next Steps
 
-- [Creating Packs](./creating-packs) - Structure your pack
-- [Distributing](./distributing) - Share your pack
+- [Creating Modules](./creating-modules) - Structure your module
+- [Distributing](./distributing) - Share your module

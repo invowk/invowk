@@ -652,12 +652,6 @@ func extractModuleFromInvkmod(content string) string {
 			value = strings.Trim(value, "\"")
 			return value
 		}
-		// Also support legacy "pack:" field for migration
-		if value, found := strings.CutPrefix(line, "pack:"); found {
-			value = strings.TrimSpace(value)
-			value = strings.Trim(value, "\"")
-			return value
-		}
 	}
 	return ""
 }

@@ -4,28 +4,28 @@ sidebar_position: 3
 
 import Snippet from '@site/src/components/Snippet';
 
-# Pack Dependency CLI Commands
+# Module Dependency CLI Commands
 
-Invowk provides a set of `invowk pack` commands for managing pack dependencies declared in `invkpack.cue`.
+Invowk provides a set of `invowk module` commands for managing module dependencies declared in `invkmod.cue`.
 
 ## Command Overview
 
 | Command | Description |
 |---------|-------------|
-| `invowk pack add` | Resolve a dependency and print a `requires` entry |
-| `invowk pack remove` | Remove a dependency from the lock file |
-| `invowk pack deps` | List resolved dependencies |
-| `invowk pack sync` | Resolve dependencies from `invkpack.cue` |
-| `invowk pack update` | Update dependencies to latest matching versions |
-| `invowk pack vendor` | Vendor dependencies into `invk_packs/` (partial) |
+| `invowk module add` | Resolve a dependency and print a `requires` entry |
+| `invowk module remove` | Remove a dependency from the lock file |
+| `invowk module deps` | List resolved dependencies |
+| `invowk module sync` | Resolve dependencies from `invkmod.cue` |
+| `invowk module update` | Update dependencies to latest matching versions |
+| `invowk module vendor` | Vendor dependencies into `invk_mods/` (partial) |
 
-## invowk pack add
+## invowk module add
 
-Resolve a dependency and print the `requires` entry to add to `invkpack.cue`.
+Resolve a dependency and print the `requires` entry to add to `invkmod.cue`.
 
 ### Usage
 
-<Snippet id="packs/dependencies/cli/add-usage" />
+<Snippet id="modules/dependencies/cli/add-usage" />
 
 ### Arguments
 
@@ -43,23 +43,23 @@ Resolve a dependency and print the `requires` entry to add to `invkpack.cue`.
 
 ### Examples
 
-<Snippet id="packs/dependencies/cli/add-examples" />
+<Snippet id="modules/dependencies/cli/add-examples" />
 
 ### Output
 
-<Snippet id="packs/dependencies/cli/add-output" />
+<Snippet id="modules/dependencies/cli/add-output" />
 
 :::note
-`invowk pack add` does not edit `invkpack.cue` for you. Copy the printed `requires` entry into your pack metadata, then run `invowk pack sync`.
+`invowk module add` does not edit `invkmod.cue` for you. Copy the printed `requires` entry into your module metadata, then run `invowk module sync`.
 :::
 
-## invowk pack remove
+## invowk module remove
 
 Remove a dependency from the lock file.
 
 ### Usage
 
-<Snippet id="packs/dependencies/cli/remove-usage" />
+<Snippet id="modules/dependencies/cli/remove-usage" />
 
 ### Arguments
 
@@ -69,55 +69,55 @@ Remove a dependency from the lock file.
 
 ### Examples
 
-<Snippet id="packs/dependencies/cli/remove-example" />
+<Snippet id="modules/dependencies/cli/remove-example" />
 
 ### Output
 
-<Snippet id="packs/dependencies/cli/remove-output" />
+<Snippet id="modules/dependencies/cli/remove-output" />
 
 :::note
-This command only removes the dependency from the lock file. You must manually remove the `requires` entry from `invkpack.cue`. Cached files are not deleted.
+This command only removes the dependency from the lock file. You must manually remove the `requires` entry from `invkmod.cue`. Cached files are not deleted.
 :::
 
-## invowk pack deps
+## invowk module deps
 
 List all resolved dependencies from the lock file.
 
 ### Usage
 
-<Snippet id="packs/dependencies/cli/deps-usage" />
+<Snippet id="modules/dependencies/cli/deps-usage" />
 
 ### Output
 
-<Snippet id="packs/dependencies/cli/deps-output" />
+<Snippet id="modules/dependencies/cli/deps-output" />
 
 ### No Dependencies
 
-<Snippet id="packs/dependencies/cli/deps-empty" />
+<Snippet id="modules/dependencies/cli/deps-empty" />
 
-## invowk pack sync
+## invowk module sync
 
-Sync all dependencies declared in `invkpack.cue`. This reads the `requires` field, resolves version constraints, downloads packs, and updates the lock file.
+Sync all dependencies declared in `invkmod.cue`. This reads the `requires` field, resolves version constraints, downloads modules, and updates the lock file.
 
 ### Usage
 
-<Snippet id="packs/dependencies/cli/sync-usage" />
+<Snippet id="modules/dependencies/cli/sync-usage" />
 
 ### Output
 
-<Snippet id="packs/dependencies/cli/sync-output" />
+<Snippet id="modules/dependencies/cli/sync-output" />
 
 ### No Requirements
 
-<Snippet id="packs/dependencies/cli/sync-empty" />
+<Snippet id="modules/dependencies/cli/sync-empty" />
 
-## invowk pack update
+## invowk module update
 
 Update dependencies to their latest versions matching the declared constraints.
 
 ### Usage
 
-<Snippet id="packs/dependencies/cli/update-usage" />
+<Snippet id="modules/dependencies/cli/update-usage" />
 
 ### Arguments
 
@@ -127,27 +127,27 @@ Update dependencies to their latest versions matching the declared constraints.
 
 ### Examples
 
-<Snippet id="packs/dependencies/cli/update-examples" />
+<Snippet id="modules/dependencies/cli/update-examples" />
 
 ### Output
 
-<Snippet id="packs/dependencies/cli/update-output" />
+<Snippet id="modules/dependencies/cli/update-output" />
 
 ### No Updates
 
-<Snippet id="packs/dependencies/cli/update-empty" />
+<Snippet id="modules/dependencies/cli/update-empty" />
 
-## invowk pack vendor
+## invowk module vendor
 
-Vendor dependencies into the `invk_packs/` directory for offline use and distribution.
+Vendor dependencies into the `invk_mods/` directory for offline use and distribution.
 
 ### Usage
 
-<Snippet id="packs/dependencies/cli/vendor-usage" />
+<Snippet id="modules/dependencies/cli/vendor-usage" />
 
 ### Output
 
-<Snippet id="packs/dependencies/cli/vendor-output" />
+<Snippet id="modules/dependencies/cli/vendor-output" />
 
 :::note
 Vendoring is currently a preview. The command reports what would be vendored and creates the directory, but does not fetch dependencies yet.
@@ -157,25 +157,25 @@ Vendoring is currently a preview. The command reports what would be vendored and
 
 ### Initial Setup
 
-<Snippet id="packs/dependencies/cli/workflow-init" />
+<Snippet id="modules/dependencies/cli/workflow-init" />
 
 ### Fresh Clone
 
-<Snippet id="packs/dependencies/cli/workflow-fresh" />
+<Snippet id="modules/dependencies/cli/workflow-fresh" />
 
 ### Regular Updates
 
-<Snippet id="packs/dependencies/cli/workflow-update" />
+<Snippet id="modules/dependencies/cli/workflow-update" />
 
 ### Troubleshooting
 
-<Snippet id="packs/dependencies/cli/workflow-troubleshoot" />
+<Snippet id="modules/dependencies/cli/workflow-troubleshoot" />
 
 ## Environment Variables
 
 | Variable | Description |
 |----------|-------------|
-| `INVOWK_PACKS_PATH` | Override pack cache directory |
+| `INVOWK_MODULES_PATH` | Override module cache directory |
 | `GITHUB_TOKEN` | GitHub authentication |
 | `GITLAB_TOKEN` | GitLab authentication |
 | `GIT_TOKEN` | Generic Git authentication |
@@ -186,7 +186,7 @@ Vendoring is currently a preview. The command reports what would be vendored and
 |------|---------|
 | 0 | Success |
 | 1 | General error |
-| 1 | Pack not found (for remove) |
-| 1 | No invkpack.cue found (for sync) |
+| 1 | Module not found (for remove) |
+| 1 | No invkmod.cue found (for sync) |
 | 1 | Version resolution failed |
 | 1 | Git clone/fetch failed |

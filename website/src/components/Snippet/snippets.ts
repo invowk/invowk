@@ -20,7 +20,7 @@
  * - environment/* - Snippets for environment section
  * - flags-args/* - Snippets for flags-and-arguments section
  * - advanced/* - Snippets for advanced section
- * - packs/* - Snippets for packs section
+ * - modules/* - Snippets for modules section
  * - tui/* - Snippets for TUI section
  * - config/* - Snippets for configuration section
  * - cli/* - Snippets for CLI commands and output
@@ -3404,20 +3404,20 @@ This command is only available on the platforms listed above.`,
   },
 
   // =============================================================================
-  // PACKS
+  // MODULES
   // =============================================================================
 
-  'packs/create': {
+  'modules/create': {
     language: 'bash',
-    code: `invowk pack create com.example.mytools`,
+    code: `invowk module create com.example.mytools`,
   },
 
-  'packs/validate': {
+  'modules/validate': {
     language: 'bash',
-    code: `invowk pack validate ./mypack.invkpack --deep`,
+    code: `invowk module validate ./mymod.invkmod --deep`,
   },
 
-  'packs/pack-invkfile': {
+  'modules/module-invkfile': {
     language: 'cue',
     code: `cmds: [
     {
@@ -3434,10 +3434,10 @@ This command is only available on the platforms listed above.`,
   },
 
   // Overview page snippets
-  'packs/structure-basic': {
+  'modules/structure-basic': {
     language: 'text',
-    code: `mytools.invkpack/
-├── invkpack.cue          # Required: pack metadata
+    code: `mytools.invkmod/
+├── invkmod.cue          # Required: module metadata
 ├── invkfile.cue          # Optional: command definitions
 ├── scripts/              # Optional: script files
 │   ├── build.sh
@@ -3446,41 +3446,41 @@ This command is only available on the platforms listed above.`,
     └── config.yaml`,
   },
 
-  'packs/quick-create': {
+  'modules/quick-create': {
     language: 'bash',
-    code: `invowk pack create mytools`,
+    code: `invowk module create mytools`,
   },
 
-  'packs/quick-create-output': {
+  'modules/quick-create-output': {
     language: 'text',
-    code: `mytools.invkpack/
-├── invkpack.cue
+    code: `mytools.invkmod/
+├── invkmod.cue
 └── invkfile.cue`,
   },
 
-'packs/quick-use': {
+'modules/quick-use': {
     language: 'bash',
-    code: `# List commands (pack commands appear automatically)
+    code: `# List commands (module commands appear automatically)
 invowk cmd --list
 
-# Run a pack command
+# Run a module command
 invowk cmd mytools hello`,
   },
 
-  'packs/quick-share': {
+  'modules/quick-share': {
     language: 'bash',
     code: `# Create a zip archive
-invowk pack archive mytools.invkpack
+invowk module archive mytools.invkmod
 
 # Share the zip file
 # Recipients import with:
-invowk pack import mytools.invkpack.zip`,
+invowk module import mytools.invkmod.zip`,
   },
 
-  'packs/structure-example': {
+  'modules/structure-example': {
     language: 'text',
-    code: `com.example.devtools.invkpack/
-├── invkpack.cue
+    code: `com.example.devtools.invkmod/
+├── invkmod.cue
 ├── invkfile.cue
 ├── scripts/
 │   ├── build.sh
@@ -3493,21 +3493,21 @@ invowk pack import mytools.invkpack.zip`,
 └── README.md`,
   },
 
-  'packs/rdns-naming': {
+  'modules/rdns-naming': {
     language: 'text',
-    code: `com.company.projectname.invkpack
-io.github.username.toolkit.invkpack
-org.opensource.utilities.invkpack`,
+    code: `com.company.projectname.invkmod
+io.github.username.toolkit.invkmod
+org.opensource.utilities.invkmod`,
   },
 
-  'packs/script-paths': {
+  'modules/script-paths': {
     language: 'cue',
-    code: `// Inside mytools.invkpack/invkfile.cue
+    code: `// Inside mytools.invkmod/invkfile.cue
 cmds: [
     {
         name: "build"
         implementations: [{
-            script: "scripts/build.sh"  // Relative to pack root
+            script: "scripts/build.sh"  // Relative to module root
             runtimes: [{name: "native"}]
         }]
     },
@@ -3521,7 +3521,7 @@ cmds: [
 ]`,
   },
 
-  'packs/discovery-output': {
+  'modules/discovery-output': {
     language: 'text',
     code: `Available Commands
 
@@ -3532,49 +3532,49 @@ From user commands (~/.invowk/cmds):
   com.example.utilities hello - Greeting [native*]`,
   },
 
-  // Creating packs page snippets
-  'packs/create-options': {
+  // Creating modules page snippets
+  'modules/create-options': {
     language: 'bash',
-    code: `# Simple pack
-invowk pack create mytools
+    code: `# Simple module
+invowk module create mytools
 
 # RDNS naming
-invowk pack create com.company.devtools
+invowk module create com.company.devtools
 
 # In specific directory
-invowk pack create mytools --path /path/to/packs
+invowk module create mytools --path /path/to/modules
 
-# Custom pack ID + description
-invowk pack create mytools --pack-id com.company.tools --description "Shared tools"
+# Custom module ID + description
+invowk module create mytools --module-id com.company.tools --description "Shared tools"
 
 # With scripts directory
-invowk pack create mytools --scripts`,
+invowk module create mytools --scripts`,
   },
 
-  'packs/create-with-scripts': {
+  'modules/create-with-scripts': {
     language: 'text',
-    code: `mytools.invkpack/
-├── invkpack.cue
+    code: `mytools.invkmod/
+├── invkmod.cue
 ├── invkfile.cue
 └── scripts/`,
   },
 
-  'packs/template-invkpack': {
+  'modules/template-invkmod': {
     language: 'cue',
-    code: `pack: "mytools"
+    code: `module: "mytools"
 version: "1.0"
 description: "Commands for mytools"
 
 // Uncomment to add dependencies:
 // requires: [
 //     {
-//         git_url: "https://github.com/example/utils.invkpack.git"
+//         git_url: "https://github.com/example/utils.invkmod.git"
 //         version: "^1.0.0"
 //     },
 // ]`,
   },
 
-  'packs/template-invkfile': {
+  'modules/template-invkfile': {
     language: 'cue',
     code: `cmds: [
     {
@@ -3592,14 +3592,14 @@ description: "Commands for mytools"
 ]`,
   },
 
-  'packs/manual-create': {
+  'modules/manual-create': {
     language: 'bash',
-    code: `mkdir mytools.invkpack
-touch mytools.invkpack/invkpack.cue
-touch mytools.invkpack/invkfile.cue`,
+    code: `mkdir mytools.invkmod
+touch mytools.invkmod/invkmod.cue
+touch mytools.invkmod/invkfile.cue`,
   },
 
-  'packs/inline-vs-external': {
+  'modules/inline-vs-external': {
     language: 'cue',
     code: `cmds: [
     // Simple: inline script
@@ -3610,7 +3610,7 @@ touch mytools.invkpack/invkfile.cue`,
             runtimes: [{name: "native"}]
         }]
     },
-    
+
     // Complex: external script
     {
         name: "complex"
@@ -3622,10 +3622,10 @@ touch mytools.invkpack/invkfile.cue`,
 ]`,
   },
 
-  'packs/script-organization': {
+  'modules/script-organization': {
     language: 'text',
-    code: `mytools.invkpack/
-├── invkpack.cue
+    code: `mytools.invkmod/
+├── invkmod.cue
 ├── invkfile.cue
 └── scripts/
     ├── build.sh           # Main scripts
@@ -3636,7 +3636,7 @@ touch mytools.invkpack/invkfile.cue`,
         └── validation.sh`,
   },
 
-  'packs/script-paths-good-bad': {
+  'modules/script-paths-good-bad': {
     language: 'cue',
     code: `// Good
 script: "scripts/build.sh"
@@ -3645,41 +3645,41 @@ script: "scripts/lib/logging.sh"
 // Bad - will fail on some platforms
 script: "scripts\\\\build.sh"
 
-// Bad - escapes pack directory
+// Bad - escapes module directory
 script: "../outside.sh"`,
   },
 
-  'packs/env-files-structure': {
+  'modules/env-files-structure': {
     language: 'text',
-    code: `mytools.invkpack/
-├── invkpack.cue
+    code: `mytools.invkmod/
+├── invkmod.cue
 ├── invkfile.cue
 ├── .env                   # Default config
 ├── .env.example           # Template for users
 └── scripts/`,
   },
 
-  'packs/env-files-ref': {
+  'modules/env-files-ref': {
     language: 'cue',
     code: `env: {
     files: [".env"]
 }`,
   },
 
-  'packs/docs-structure': {
+  'modules/docs-structure': {
     language: 'text',
-    code: `mytools.invkpack/
-├── invkpack.cue
+    code: `mytools.invkmod/
+├── invkmod.cue
 ├── invkfile.cue
 ├── README.md              # Usage instructions
 ├── CHANGELOG.md           # Version history
 └── scripts/`,
   },
 
-  'packs/buildtools-structure': {
+  'modules/buildtools-structure': {
     language: 'text',
-    code: `com.company.buildtools.invkpack/
-├── invkpack.cue
+    code: `com.company.buildtools.invkmod/
+├── invkmod.cue
 ├── invkfile.cue
 ├── scripts/
 │   ├── build-go.sh
@@ -3692,7 +3692,7 @@ script: "../outside.sh"`,
 └── README.md`,
   },
 
-  'packs/buildtools-invkfile': {
+  'modules/buildtools-invkfile': {
     language: 'cue',
     code: `cmds: [
     {
@@ -3722,10 +3722,10 @@ script: "../outside.sh"`,
 ]`,
   },
 
-  'packs/devops-structure': {
+  'modules/devops-structure': {
     language: 'text',
-    code: `org.devops.k8s.invkpack/
-├── invkpack.cue
+    code: `org.devops.k8s.invkmod/
+├── invkmod.cue
 ├── invkfile.cue
 ├── scripts/
 │   ├── deploy.sh
@@ -3737,42 +3737,42 @@ script: "../outside.sh"`,
 └── .env.example`,
   },
 
-  'packs/validate-before-share': {
+  'modules/validate-before-share': {
     language: 'bash',
-    code: `invowk pack validate mytools.invkpack --deep`,
+    code: `invowk module validate mytools.invkmod --deep`,
   },
 
   // Validating page snippets
-  'packs/validate-basic': {
+  'modules/validate-basic': {
     language: 'bash',
-    code: `invowk pack validate ./mytools.invkpack`,
+    code: `invowk module validate ./mytools.invkmod`,
   },
 
-  'packs/validate-basic-output': {
+  'modules/validate-basic-output': {
     language: 'text',
-    code: `Pack Validation
-• Path: /home/user/mytools.invkpack
+    code: `Module Validation
+• Path: /home/user/mytools.invkmod
 • Name: mytools
 
-✓ Pack is valid
+✓ Module is valid
 
 ✓ Structure check passed
 ✓ Naming convention check passed
 ✓ Required files present`,
   },
 
-  'packs/validate-deep': {
+  'modules/validate-deep': {
     language: 'bash',
-    code: `invowk pack validate ./mytools.invkpack --deep`,
+    code: `invowk module validate ./mytools.invkmod --deep`,
   },
 
-  'packs/validate-deep-output': {
+  'modules/validate-deep-output': {
     language: 'text',
-    code: `Pack Validation
-• Path: /home/user/mytools.invkpack
+    code: `Module Validation
+• Path: /home/user/mytools.invkmod
 • Name: mytools
 
-✓ Pack is valid
+✓ Module is valid
 
 ✓ Structure check passed
 ✓ Naming convention check passed
@@ -3780,65 +3780,65 @@ script: "../outside.sh"`,
 ✓ Invkfile parses successfully`,
   },
 
-  'packs/error-missing-invkfile': {
+  'modules/error-missing-invkfile': {
     language: 'text',
-    code: `Pack Validation
-• Path: /home/user/bad.invkpack
+    code: `Module Validation
+• Path: /home/user/bad.invkmod
 
-✗ Pack validation failed with 1 issue(s)
+✗ Module validation failed with 1 issue(s)
 
-  1. [structure] missing required invkpack.cue`,
+  1. [structure] missing required invkmod.cue`,
   },
 
-  'packs/error-invalid-name': {
+  'modules/error-invalid-name': {
     language: 'text',
-    code: `Pack Validation
-• Path: /home/user/my-tools.invkpack
+    code: `Module Validation
+• Path: /home/user/my-tools.invkmod
 
-✗ Pack validation failed with 1 issue(s)
+✗ Module validation failed with 1 issue(s)
 
-  1. [naming] pack name 'my-tools' contains invalid characters (hyphens not allowed)`,
+  1. [naming] module name 'my-tools' contains invalid characters (hyphens not allowed)`,
   },
 
-  'packs/error-nested': {
+  'modules/error-nested': {
     language: 'text',
-    code: `Pack Validation
-• Path: /home/user/parent.invkpack
+    code: `Module Validation
+• Path: /home/user/parent.invkmod
 
-✗ Pack validation failed with 1 issue(s)
+✗ Module validation failed with 1 issue(s)
 
-  1. [structure] nested.invkpack: nested packs are not allowed (except in invk_packs/)`,
+  1. [structure] nested.invkmod: nested modules are not allowed (except in invk_mods/)`,
   },
 
-  'packs/error-parse': {
+  'modules/error-parse': {
     language: 'text',
-    code: `Pack Validation
-• Path: /home/user/broken.invkpack
+    code: `Module Validation
+• Path: /home/user/broken.invkmod
 
-✗ Pack validation failed with 1 issue(s)
+✗ Module validation failed with 1 issue(s)
 
   1. [invkfile] parse error at line 15: expected '}', found EOF`,
   },
 
-  'packs/validate-batch': {
+  'modules/validate-batch': {
     language: 'bash',
-    code: `# Validate all packs in a directory
-for pack in ./packs/*.invkpack; do
-    invowk pack validate "$pack" --deep
+    code: `# Validate all modules in a directory
+for mod in ./modules/*.invkmod; do
+    invowk module validate "$mod" --deep
 done`,
   },
 
-  'packs/validate-ci': {
+  'modules/validate-ci': {
     language: 'yaml',
     code: `# GitHub Actions example
-- name: Validate packs
+- name: Validate modules
   run: |
-    for pack in packs/*.invkpack; do
-      invowk pack validate "$pack" --deep
+    for mod in modules/*.invkmod; do
+      invowk module validate "$mod" --deep
     done`,
   },
 
-  'packs/path-separators-good-bad': {
+  'modules/path-separators-good-bad': {
     language: 'cue',
     code: `// Bad - Windows-style
 script: "scripts\\\\build.sh"
@@ -3847,16 +3847,16 @@ script: "scripts\\\\build.sh"
 script: "scripts/build.sh"`,
   },
 
-  'packs/escape-pack-dir': {
+  'modules/escape-module-dir': {
     language: 'cue',
     code: `// Bad - tries to access parent
 script: "../outside/script.sh"
 
-// Good - stays within pack
+// Good - stays within module
 script: "scripts/script.sh"`,
   },
 
-  'packs/absolute-paths': {
+  'modules/absolute-paths': {
     language: 'cue',
     code: `// Bad - absolute path
 script: "/usr/local/bin/script.sh"
@@ -3866,222 +3866,222 @@ script: "scripts/script.sh"`,
   },
 
   // Distributing page snippets
-  'packs/archive-basic': {
+  'modules/archive-basic': {
     language: 'bash',
-    code: `# Default output: <pack-name>.invkpack.zip
-invowk pack archive ./mytools.invkpack
+    code: `# Default output: <module-name>.invkmod.zip
+invowk module archive ./mytools.invkmod
 
 # Custom output path
-invowk pack archive ./mytools.invkpack --output ./dist/mytools.zip`,
+invowk module archive ./mytools.invkmod --output ./dist/mytools.zip`,
   },
 
-  'packs/archive-output': {
+  'modules/archive-output': {
     language: 'text',
-    code: `Archive Pack
+    code: `Archive Module
 
-✓ Pack archived successfully
+✓ Module archived successfully
 
 • Output: /home/user/dist/mytools.zip
 • Size: 2.45 KB`,
   },
 
-  'packs/import-local': {
+  'modules/import-local': {
     language: 'bash',
     code: `# Install to ~/.invowk/cmds/
-invowk pack import ./mytools.invkpack.zip
+invowk module import ./mytools.invkmod.zip
 
 # Install to custom directory
-invowk pack import ./mytools.invkpack.zip --path ./local-packs
+invowk module import ./mytools.invkmod.zip --path ./local-modules
 
 # Overwrite existing
-invowk pack import ./mytools.invkpack.zip --overwrite`,
+invowk module import ./mytools.invkmod.zip --overwrite`,
   },
 
-  'packs/import-url': {
+  'modules/import-url': {
     language: 'bash',
     code: `# Download and install
-invowk pack import https://example.com/packs/mytools.zip
+invowk module import https://example.com/modules/mytools.zip
 
 # From GitHub release
-invowk pack import https://github.com/user/repo/releases/download/v1.0/mytools.invkpack.zip`,
+invowk module import https://github.com/user/repo/releases/download/v1.0/mytools.invkmod.zip`,
   },
 
-  'packs/import-output': {
+  'modules/import-output': {
     language: 'text',
-    code: `Import Pack
+    code: `Import Module
 
-✓ Pack imported successfully
+✓ Module imported successfully
 
 • Name: mytools
-• Path: /home/user/.invowk/cmds/mytools.invkpack
+• Path: /home/user/.invowk/cmds/mytools.invkmod
 
-• The pack commands are now available via invowk`,
+• The module commands are now available via invowk`,
   },
 
-  'packs/list': {
+  'modules/list': {
     language: 'bash',
-    code: `invowk pack list`,
+    code: `invowk module list`,
   },
 
-  'packs/list-output': {
+  'modules/list-output': {
     language: 'text',
-    code: `Discovered Packs
+    code: `Discovered Modules
 
-• Found 3 pack(s)
+• Found 3 module(s)
 
 • current directory:
    ✓ local.project
-      /home/user/project/local.project.invkpack
+      /home/user/project/local.project.invkmod
 
 • user commands (~/.invowk/cmds):
    ✓ com.company.devtools
-      /home/user/.invowk/cmds/com.company.devtools.invkpack
+      /home/user/.invowk/cmds/com.company.devtools.invkmod
    ✓ io.github.user.utilities
-      /home/user/.invowk/cmds/io.github.user.utilities.invkpack`,
+      /home/user/.invowk/cmds/io.github.user.utilities.invkmod`,
   },
 
-  'packs/git-structure': {
+  'modules/git-structure': {
     language: 'text',
     code: `my-project/
 ├── src/
-├── packs/
-│   ├── devtools.invkpack/
-│   │   ├── invkpack.cue
+├── modules/
+│   ├── devtools.invkmod/
+│   │   ├── invkmod.cue
 │   │   └── invkfile.cue
-│   └── testing.invkpack/
-│       ├── invkpack.cue
+│   └── testing.invkmod/
+│       ├── invkmod.cue
 │       └── invkfile.cue
 └── invkfile.cue`,
   },
 
-  'packs/github-release': {
+  'modules/github-release': {
     language: 'bash',
     code: `# Recipients install with:
-invowk pack import https://github.com/org/repo/releases/download/v1.0.0/mytools.invkpack.zip`,
+invowk module import https://github.com/org/repo/releases/download/v1.0.0/mytools.invkmod.zip`,
   },
 
-  'packs/future-install': {
+  'modules/future-install': {
     language: 'bash',
-    code: `invowk pack install com.company.devtools@1.0.0`,
+    code: `invowk module install com.company.devtools@1.0.0`,
   },
 
-  'packs/install-user': {
+  'modules/install-user': {
     language: 'bash',
-    code: `invowk pack import mytools.zip
-# Installed to: ~/.invowk/cmds/mytools.invkpack/`,
+    code: `invowk module import mytools.zip
+# Installed to: ~/.invowk/cmds/mytools.invkmod/`,
   },
 
-  'packs/install-project': {
+  'modules/install-project': {
     language: 'bash',
-    code: `invowk pack import mytools.zip --path ./packs
-# Installed to: ./packs/mytools.invkpack/`,
+    code: `invowk module import mytools.zip --path ./modules
+# Installed to: ./modules/mytools.invkmod/`,
   },
 
-  'packs/search-paths-config': {
+  'modules/search-paths-config': {
     language: 'cue',
     code: `// ~/.config/invowk/config.cue
 search_paths: [
-    "/shared/company-packs"
+    "/shared/company-modules"
 ]`,
   },
 
-  'packs/install-search-path': {
+  'modules/install-search-path': {
     language: 'bash',
-    code: `invowk pack import mytools.zip --path /shared/company-packs`,
+    code: `invowk module import mytools.zip --path /shared/company-modules`,
   },
 
-  'packs/version-invkfile': {
+  'modules/version-invkfile': {
     language: 'cue',
-    code: `pack: "com.company.tools"
+    code: `module: "com.company.tools"
 version: "1.2.0"`,
   },
 
-  'packs/archive-versioned': {
+  'modules/archive-versioned': {
     language: 'bash',
-    code: `invowk pack archive ./mytools.invkpack --output ./dist/mytools-1.2.0.zip`,
+    code: `invowk module archive ./mytools.invkmod --output ./dist/mytools-1.2.0.zip`,
   },
 
-  'packs/upgrade-process': {
+  'modules/upgrade-process': {
     language: 'bash',
     code: `# Remove old version
-rm -rf ~/.invowk/cmds/mytools.invkpack
+rm -rf ~/.invowk/cmds/mytools.invkmod
 
 # Install new version
-invowk pack import mytools-1.2.0.zip
+invowk module import mytools-1.2.0.zip
 
 # Or use --overwrite
-invowk pack import mytools-1.2.0.zip --overwrite`,
+invowk module import mytools-1.2.0.zip --overwrite`,
   },
 
-  'packs/team-shared-location': {
+  'modules/team-shared-location': {
     language: 'bash',
     code: `# Admin publishes
-invowk pack archive ./devtools.invkpack --output /shared/packs/devtools.zip
+invowk module archive ./devtools.invkmod --output /shared/modules/devtools.zip
 
 # Team members import
-invowk pack import /shared/packs/devtools.zip`,
+invowk module import /shared/modules/devtools.zip`,
   },
 
-  'packs/internal-server': {
+  'modules/internal-server': {
     language: 'bash',
     code: `# Team members import via URL
-invowk pack import https://internal.company.com/packs/devtools.zip`,
+invowk module import https://internal.company.com/modules/devtools.zip`,
   },
 
-  'packs/workflow-example': {
+  'modules/workflow-example': {
     language: 'bash',
-    code: `# 1. Create and develop pack
-invowk pack create com.company.mytools --scripts
+    code: `# 1. Create and develop module
+invowk module create com.company.mytools --scripts
 # ... add commands and scripts ...
 
 # 2. Validate
-invowk pack validate ./com.company.mytools.invkpack --deep
+invowk module validate ./com.company.mytools.invkmod --deep
 
 # 3. Create versioned archive
-invowk pack archive ./com.company.mytools.invkpack \\
+invowk module archive ./com.company.mytools.invkmod \\
     --output ./releases/mytools-1.0.0.zip
 
 # 4. Distribute (e.g., upload to GitHub release)
 
 # 5. Team imports
-invowk pack import https://github.com/company/mytools/releases/download/v1.0.0/mytools-1.0.0.zip`,
+invowk module import https://github.com/company/mytools/releases/download/v1.0.0/mytools-1.0.0.zip`,
   },
 
   // =============================================================================
-  // PACK DEPENDENCIES
+  // MODULE DEPENDENCIES
   // =============================================================================
 
-  'packs/dependencies/quick-add': {
+  'modules/dependencies/quick-add': {
     language: 'bash',
-    code: `invowk pack add https://github.com/example/common.invkpack.git ^1.0.0`,
+    code: `invowk module add https://github.com/example/common.invkmod.git ^1.0.0`,
   },
 
-  'packs/dependencies/quick-invkpack': {
+  'modules/dependencies/quick-invkmod': {
     language: 'cue',
-    code: `pack: "com.example.mytools"
+    code: `module: "com.example.mytools"
 version: "1.0"
 description: "My tools"
 
 requires: [
     {
-        git_url: "https://github.com/example/common.invkpack.git"
+        git_url: "https://github.com/example/common.invkmod.git"
         version: "^1.0.0"
         alias: "common"
     },
 ]`,
   },
 
-  'packs/dependencies/quick-sync': {
+  'modules/dependencies/quick-sync': {
     language: 'bash',
-    code: `invowk pack sync`,
+    code: `invowk module sync`,
   },
 
-  'packs/dependencies/quick-deps': {
+  'modules/dependencies/quick-deps': {
     language: 'bash',
-    code: `invowk pack deps`,
+    code: `invowk module deps`,
   },
 
-  'packs/dependencies/namespace-usage': {
+  'modules/dependencies/namespace-usage': {
     language: 'bash',
     code: `# Default namespace includes the resolved version
 invowk cmd com.example.common@1.2.3 build
@@ -4090,123 +4090,123 @@ invowk cmd com.example.common@1.2.3 build
 invowk cmd common build`,
   },
 
-  'packs/dependencies/cache-structure': {
+  'modules/dependencies/cache-structure': {
     language: 'text',
-    code: `~/.invowk/packs/
+    code: `~/.invowk/modules/
 ├── sources/
 │   └── github.com/
 │       └── example/
-│           └── common.invkpack/
+│           └── common.invkmod/
 └── github.com/
     └── example/
-        └── common.invkpack/
+        └── common.invkmod/
             └── 1.2.3/
-                ├── invkpack.cue
+                ├── invkmod.cue
                 └── invkfile.cue`,
   },
 
-  'packs/dependencies/cache-env': {
+  'modules/dependencies/cache-env': {
     language: 'bash',
-    code: `export INVOWK_PACKS_PATH=/custom/cache/path`,
+    code: `export INVOWK_MODULES_PATH=/custom/cache/path`,
   },
 
-  'packs/dependencies/basic-invkpack': {
+  'modules/dependencies/basic-invkmod': {
     language: 'cue',
-    code: `pack: "com.example.mytools"
+    code: `module: "com.example.mytools"
 version: "1.0"
 
 requires: [
     {
-        git_url: "https://github.com/example/common.invkpack.git"
+        git_url: "https://github.com/example/common.invkmod.git"
         version: "^1.0.0"
     },
 ]`,
   },
 
-  'packs/dependencies/git-url-examples': {
+  'modules/dependencies/git-url-examples': {
     language: 'cue',
     code: `requires: [
     // HTTPS (works with public repos or GITHUB_TOKEN)
-    {git_url: "https://github.com/user/tools.invkpack.git", version: "^1.0.0"},
+    {git_url: "https://github.com/user/tools.invkmod.git", version: "^1.0.0"},
 
     // SSH (requires SSH key in ~/.ssh/)
-    {git_url: "git@github.com:user/tools.invkpack.git", version: "^1.0.0"},
+    {git_url: "git@github.com:user/tools.invkmod.git", version: "^1.0.0"},
 
     // GitLab
-    {git_url: "https://gitlab.com/user/tools.invkpack.git", version: "^1.0.0"},
+    {git_url: "https://gitlab.com/user/tools.invkmod.git", version: "^1.0.0"},
 
     // Self-hosted
-    {git_url: "https://git.example.com/user/tools.invkpack.git", version: "^1.0.0"},
+    {git_url: "https://git.example.com/user/tools.invkmod.git", version: "^1.0.0"},
 ]`,
   },
 
-  'packs/dependencies/version-example': {
+  'modules/dependencies/version-example': {
     language: 'cue',
     code: `requires: [
     // Invowk tries both v1.0.0 and 1.0.0
-    {git_url: "https://github.com/user/tools.invkpack.git", version: "^1.0.0"},
+    {git_url: "https://github.com/user/tools.invkmod.git", version: "^1.0.0"},
 ]`,
   },
 
-  'packs/dependencies/alias-example': {
+  'modules/dependencies/alias-example': {
     language: 'cue',
     code: `requires: [
     // Default namespace: common@1.2.3
-    {git_url: "https://github.com/user/common.invkpack.git", version: "^1.0.0"},
+    {git_url: "https://github.com/user/common.invkmod.git", version: "^1.0.0"},
 
     // Custom namespace: tools
     {
-        git_url: "https://github.com/user/common.invkpack.git"
+        git_url: "https://github.com/user/common.invkmod.git"
         version: "^1.0.0"
         alias: "tools"
     },
 ]`,
   },
 
-  'packs/dependencies/alias-usage': {
+  'modules/dependencies/alias-usage': {
     language: 'bash',
     code: `# Instead of: invowk cmd common@1.2.3 build
 invowk cmd tools build`,
   },
 
-  'packs/dependencies/path-example': {
+  'modules/dependencies/path-example': {
     language: 'cue',
     code: `requires: [
     {
-        git_url: "https://github.com/user/monorepo.invkpack.git"
+        git_url: "https://github.com/user/monorepo.invkmod.git"
         version: "^1.0.0"
-        path: "packs/cli-tools"
+        path: "modules/cli-tools"
     },
     {
-        git_url: "https://github.com/user/monorepo.invkpack.git"
+        git_url: "https://github.com/user/monorepo.invkmod.git"
         version: "^1.0.0"
-        path: "packs/deploy-utils"
+        path: "modules/deploy-utils"
         alias: "deploy"
     },
 ]`,
   },
 
-  'packs/dependencies/multiple-requires': {
+  'modules/dependencies/multiple-requires': {
     language: 'cue',
     code: `requires: [
     {
-        git_url: "https://github.com/company/build-tools.invkpack.git"
+        git_url: "https://github.com/company/build-tools.invkmod.git"
         version: "^2.0.0"
         alias: "build"
     },
     {
-        git_url: "https://github.com/company/deploy-tools.invkpack.git"
+        git_url: "https://github.com/company/deploy-tools.invkmod.git"
         version: "~1.5.0"
         alias: "deploy"
     },
     {
-        git_url: "https://github.com/company/test-utils.invkpack.git"
+        git_url: "https://github.com/company/test-utils.invkmod.git"
         version: ">=1.0.0 <2.0.0"
     },
 ]`,
   },
 
-  'packs/dependencies/auth-tokens': {
+  'modules/dependencies/auth-tokens': {
     language: 'bash',
     code: `# GitHub
 export GITHUB_TOKEN=ghp_xxxx
@@ -4218,7 +4218,7 @@ export GITLAB_TOKEN=glpat-xxxx
 export GIT_TOKEN=your-token`,
   },
 
-  'packs/dependencies/transitive-tree': {
+  'modules/dependencies/transitive-tree': {
     language: 'text',
     code: `com.example.app
 ├── common-tools@1.2.3
@@ -4227,12 +4227,12 @@ export GIT_TOKEN=your-token`,
     └── common-tools@1.2.3  (shared)`,
   },
 
-  'packs/dependencies/circular-error': {
+  'modules/dependencies/circular-error': {
     language: 'text',
-    code: `Error: circular dependency detected: https://github.com/user/pack-a.invkpack.git`,
+    code: `Error: circular dependency detected: https://github.com/user/module-a.invkmod.git`,
   },
 
-  'packs/dependencies/best-practices-version': {
+  'modules/dependencies/best-practices-version': {
     language: 'cue',
     code: `// Good: allows patch and minor updates
 {git_url: "...", version: "^1.0.0"}
@@ -4241,28 +4241,28 @@ export GIT_TOKEN=your-token`,
 {git_url: "...", version: "1.0.0"}`,
   },
 
-  'packs/dependencies/best-practices-alias': {
+  'modules/dependencies/best-practices-alias': {
     language: 'cue',
     code: `{
-    git_url: "https://github.com/company/company-internal-build-tools.invkpack.git"
+    git_url: "https://github.com/company/company-internal-build-tools.invkmod.git"
     version: "^2.0.0"
     alias: "build"
 }`,
   },
 
-  'packs/dependencies/update-command': {
+  'modules/dependencies/update-command': {
     language: 'bash',
-    code: `invowk pack update`,
+    code: `invowk module update`,
   },
 
-  'packs/dependencies/lockfile-example': {
+  'modules/dependencies/lockfile-example': {
     language: 'cue',
     code: `version: "1.0"
 generated: "2025-01-10T12:34:56Z"
 
-packs: {
-    "https://github.com/example/common.invkpack.git": {
-        git_url:          "https://github.com/example/common.invkpack.git"
+modules: {
+    "https://github.com/example/common.invkmod.git": {
+        git_url:          "https://github.com/example/common.invkmod.git"
         version:          "^1.0.0"
         resolved_version: "1.2.3"
         git_commit:       "abc123def4567890"
@@ -4272,243 +4272,243 @@ packs: {
 }`,
   },
 
-  'packs/dependencies/lockfile-key': {
+  'modules/dependencies/lockfile-key': {
     language: 'cue',
-    code: `packs: {
-    "https://github.com/example/monorepo.invkpack.git#packs/cli": {
-        git_url: "https://github.com/example/monorepo.invkpack.git"
-        path:    "packs/cli"
+    code: `modules: {
+    "https://github.com/example/monorepo.invkmod.git#modules/cli": {
+        git_url: "https://github.com/example/monorepo.invkmod.git"
+        path:    "modules/cli"
     }
 }`,
   },
 
-  'packs/dependencies/lockfile-workflow': {
+  'modules/dependencies/lockfile-workflow': {
     language: 'bash',
     code: `# Resolve and lock
-invowk pack sync
+invowk module sync
 
 # Commit the lock file
-git add invkpack.lock.cue
-git commit -m "Lock pack dependencies"`,
+git add invkmod.lock.cue
+git commit -m "Lock module dependencies"`,
   },
 
-  'packs/dependencies/cli/add-usage': {
+  'modules/dependencies/cli/add-usage': {
     language: 'bash',
-    code: `invowk pack add <git-url> <version> [flags]`,
+    code: `invowk module add <git-url> <version> [flags]`,
   },
 
-  'packs/dependencies/cli/add-examples': {
+  'modules/dependencies/cli/add-examples': {
     language: 'bash',
     code: `# Add a dependency with caret version
-invowk pack add https://github.com/user/pack.invkpack.git ^1.0.0
+invowk module add https://github.com/user/mod.invkmod.git ^1.0.0
 
 # Add with SSH URL
-invowk pack add git@github.com:user/pack.invkpack.git ~2.0.0
+invowk module add git@github.com:user/mod.invkmod.git ~2.0.0
 
 # Add with custom alias
-invowk pack add https://github.com/user/common.invkpack.git ^1.0.0 --alias tools
+invowk module add https://github.com/user/common.invkmod.git ^1.0.0 --alias tools
 
 # Add from monorepo subdirectory
-invowk pack add https://github.com/user/monorepo.invkpack.git ^1.0.0 --path packs/cli`,
+invowk module add https://github.com/user/monorepo.invkmod.git ^1.0.0 --path modules/cli`,
   },
 
-  'packs/dependencies/cli/add-output': {
+  'modules/dependencies/cli/add-output': {
     language: 'text',
-    code: `Add Pack Dependency
+    code: `Add Module Dependency
 
-• Resolving https://github.com/user/pack.invkpack.git@^1.0.0...
-✓ Pack added successfully
+• Resolving https://github.com/user/mod.invkmod.git@^1.0.0...
+✓ Module added successfully
 
-• Git URL:   https://github.com/user/pack.invkpack.git
+• Git URL:   https://github.com/user/mod.invkmod.git
 • Version:   ^1.0.0 → 1.2.3
-• Namespace: pack@1.2.3
-• Cache:     /home/user/.invowk/packs/github.com/user/pack.invkpack/1.2.3
+• Namespace: mod@1.2.3
+• Cache:     /home/user/.invowk/modules/github.com/user/mod.invkmod/1.2.3
 
-• To use this pack, add to your invkpack.cue:
+• To use this module, add to your invkmod.cue:
 
 requires: [
     {
-        git_url: "https://github.com/user/pack.invkpack.git"
+        git_url: "https://github.com/user/mod.invkmod.git"
         version: "^1.0.0"
     },
 ]`,
   },
 
-  'packs/dependencies/cli/remove-usage': {
+  'modules/dependencies/cli/remove-usage': {
     language: 'bash',
-    code: `invowk pack remove <git-url>`,
+    code: `invowk module remove <git-url>`,
   },
 
-  'packs/dependencies/cli/remove-example': {
+  'modules/dependencies/cli/remove-example': {
     language: 'bash',
-    code: `invowk pack remove https://github.com/user/pack.invkpack.git`,
+    code: `invowk module remove https://github.com/user/mod.invkmod.git`,
   },
 
-  'packs/dependencies/cli/remove-output': {
+  'modules/dependencies/cli/remove-output': {
     language: 'text',
-    code: `Remove Pack Dependency
+    code: `Remove Module Dependency
 
-• Removing https://github.com/user/pack.invkpack.git...
-✓ Pack removed from lock file
+• Removing https://github.com/user/mod.invkmod.git...
+✓ Module removed from lock file
 
-• Don't forget to remove the requires entry from your invkpack.cue`,
+• Don't forget to remove the requires entry from your invkmod.cue`,
   },
 
-  'packs/dependencies/cli/deps-usage': {
+  'modules/dependencies/cli/deps-usage': {
     language: 'bash',
-    code: `invowk pack deps`,
+    code: `invowk module deps`,
   },
 
-  'packs/dependencies/cli/deps-output': {
+  'modules/dependencies/cli/deps-output': {
     language: 'text',
-    code: `Pack Dependencies
+    code: `Module Dependencies
 
-• Found 2 pack dependency(ies)
+• Found 2 module dependency(ies)
 
 ✓ build-tools@2.3.1
-   Git URL:  https://github.com/company/build-tools.invkpack.git
+   Git URL:  https://github.com/company/build-tools.invkmod.git
    Version:  ^2.0.0 → 2.3.1
    Commit:   abc123def456
-   Cache:    /home/user/.invowk/packs/github.com/company/build-tools.invkpack/2.3.1
+   Cache:    /home/user/.invowk/modules/github.com/company/build-tools.invkmod/2.3.1
 
 ✓ deploy-utils@1.5.2
-   Git URL:  https://github.com/company/deploy-tools.invkpack.git
+   Git URL:  https://github.com/company/deploy-tools.invkmod.git
    Version:  ~1.5.0 → 1.5.2
    Commit:   789xyz012abc
-   Cache:    /home/user/.invowk/packs/github.com/company/deploy-tools.invkpack/1.5.2`,
+   Cache:    /home/user/.invowk/modules/github.com/company/deploy-tools.invkmod/1.5.2`,
   },
 
-  'packs/dependencies/cli/deps-empty': {
+  'modules/dependencies/cli/deps-empty': {
     language: 'text',
-    code: `Pack Dependencies
+    code: `Module Dependencies
 
-• No pack dependencies found
+• No module dependencies found
 
-• To add packs, use: invowk pack add <git-url> <version>`,
+• To add modules, use: invowk module add <git-url> <version>`,
   },
 
-  'packs/dependencies/cli/sync-usage': {
+  'modules/dependencies/cli/sync-usage': {
     language: 'bash',
-    code: `invowk pack sync`,
+    code: `invowk module sync`,
   },
 
-  'packs/dependencies/cli/sync-output': {
+  'modules/dependencies/cli/sync-output': {
     language: 'text',
-    code: `Sync Pack Dependencies
+    code: `Sync Module Dependencies
 
-• Found 2 requirement(s) in invkpack.cue
+• Found 2 requirement(s) in invkmod.cue
 
 ✓ build-tools@2.3.1 → 2.3.1
 ✓ deploy-utils@1.5.2 → 1.5.2
 
-✓ Lock file updated: invkpack.lock.cue`,
+✓ Lock file updated: invkmod.lock.cue`,
   },
 
-  'packs/dependencies/cli/sync-empty': {
+  'modules/dependencies/cli/sync-empty': {
     language: 'text',
-    code: `Sync Pack Dependencies
+    code: `Sync Module Dependencies
 
-• No requires field found in invkpack.cue`,
+• No requires field found in invkmod.cue`,
   },
 
-  'packs/dependencies/cli/update-usage': {
+  'modules/dependencies/cli/update-usage': {
     language: 'bash',
-    code: `invowk pack update [git-url]`,
+    code: `invowk module update [git-url]`,
   },
 
-  'packs/dependencies/cli/update-examples': {
+  'modules/dependencies/cli/update-examples': {
     language: 'bash',
-    code: `# Update all packs
-invowk pack update
+    code: `# Update all modules
+invowk module update
 
-# Update a specific pack
-invowk pack update https://github.com/user/pack.invkpack.git`,
+# Update a specific module
+invowk module update https://github.com/user/mod.invkmod.git`,
   },
 
-  'packs/dependencies/cli/update-output': {
+  'modules/dependencies/cli/update-output': {
     language: 'text',
-    code: `Update Pack Dependencies
+    code: `Update Module Dependencies
 
-• Updating all packs...
+• Updating all modules...
 
 ✓ build-tools@2.3.1 → 2.4.0
 ✓ deploy-utils@1.5.2 → 1.5.3
 
-✓ Lock file updated: invkpack.lock.cue`,
+✓ Lock file updated: invkmod.lock.cue`,
   },
 
-  'packs/dependencies/cli/update-empty': {
+  'modules/dependencies/cli/update-empty': {
     language: 'text',
-    code: `Update Pack Dependencies
+    code: `Update Module Dependencies
 
-• Updating all packs...
-• No packs to update`,
+• Updating all modules...
+• No modules to update`,
   },
 
-  'packs/dependencies/cli/vendor-usage': {
+  'modules/dependencies/cli/vendor-usage': {
     language: 'bash',
-    code: `invowk pack vendor [pack-path]`,
+    code: `invowk module vendor [module-path]`,
   },
 
-  'packs/dependencies/cli/vendor-output': {
+  'modules/dependencies/cli/vendor-output': {
     language: 'text',
-    code: `Vendor Pack Dependencies
+    code: `Vendor Module Dependencies
 
-• Found 2 requirement(s) in invkpack.cue
-• Vendor directory: /home/user/project/invk_packs
+• Found 2 requirement(s) in invkmod.cue
+• Vendor directory: /home/user/project/invk_mods
 
 ! Vendoring is not yet fully implemented
 
 • The following dependencies would be vendored:
-   • https://github.com/example/common.invkpack.git@^1.0.0
-   • https://github.com/example/deploy.invkpack.git@~1.5.0`,
+   • https://github.com/example/common.invkmod.git@^1.0.0
+   • https://github.com/example/deploy.invkmod.git@~1.5.0`,
   },
 
-  'packs/dependencies/cli/workflow-init': {
+  'modules/dependencies/cli/workflow-init': {
     language: 'bash',
     code: `# 1. Resolve dependencies
-invowk pack add https://github.com/company/build-tools.invkpack.git ^2.0.0 --alias build
-invowk pack add https://github.com/company/deploy-tools.invkpack.git ~1.5.0 --alias deploy
+invowk module add https://github.com/company/build-tools.invkmod.git ^2.0.0 --alias build
+invowk module add https://github.com/company/deploy-tools.invkmod.git ~1.5.0 --alias deploy
 
-# 2. Add requires to invkpack.cue manually or verify
-cat invkpack.cue
+# 2. Add requires to invkmod.cue manually or verify
+cat invkmod.cue
 
 # 3. Sync to generate lock file
-invowk pack sync
+invowk module sync
 
 # 4. Commit the lock file
-git add invkpack.lock.cue
-git commit -m "Add pack dependencies"`,
+git add invkmod.lock.cue
+git commit -m "Add module dependencies"`,
   },
 
-  'packs/dependencies/cli/workflow-fresh': {
+  'modules/dependencies/cli/workflow-fresh': {
     language: 'bash',
-    code: `# On a fresh clone, sync downloads all packs
+    code: `# On a fresh clone, sync downloads all modules
 git clone https://github.com/yourorg/project.git
 cd project
-invowk pack sync`,
+invowk module sync`,
   },
 
-  'packs/dependencies/cli/workflow-update': {
+  'modules/dependencies/cli/workflow-update': {
     language: 'bash',
-    code: `# Update all packs periodically
-invowk pack update
+    code: `# Update all modules periodically
+invowk module update
 
 # Review changes
-git diff invkpack.lock.cue
+git diff invkmod.lock.cue
 
 # Commit if tests pass
-git add invkpack.lock.cue
-git commit -m "Update pack dependencies"`,
+git add invkmod.lock.cue
+git commit -m "Update module dependencies"`,
   },
 
-  'packs/dependencies/cli/workflow-troubleshoot': {
+  'modules/dependencies/cli/workflow-troubleshoot': {
     language: 'bash',
     code: `# List current dependencies to verify state
-invowk pack deps
+invowk module deps
 
 # Re-sync if something seems wrong
-invowk pack sync
+invowk module sync
 
 # Check commands are available
 invowk cmd --list`,
@@ -4558,8 +4558,8 @@ fi`,
     code: `// ~/.config/invowk/config.cue
 container_engine: "podman"
 search_paths: [
-    "~/.invowk/packs",
-    "/usr/local/share/invowk/packs"
+    "~/.invowk/modules",
+    "/usr/local/share/invowk/modules"
 ]
 default_runtime: "virtual"`,
   },
@@ -4572,9 +4572,9 @@ default_runtime: "virtual"`,
   'config/search-paths': {
     language: 'cue',
     code: `search_paths: [
-    "~/.invowk/packs",
-    "~/my-company/shared-packs",
-    "/opt/invowk/packs"
+    "~/.invowk/modules",
+    "~/my-company/shared-modules",
+    "/opt/invowk/modules"
 ]`,
   },
 
@@ -4690,7 +4690,7 @@ container: {
 #AutoProvisionConfig: {
     enabled?: bool
     binary_path?: string
-    packs_paths?: [...string]
+    modules_paths?: [...string]
     cache_dir?: string
 }`,
   },
@@ -4743,7 +4743,7 @@ container: {
     auto_provision: {
         enabled: true
         binary_path: "/usr/local/bin/invowk"
-        packs_paths: ["/opt/company/invowk-packs"]
+        modules_paths: ["/opt/company/invowk-modules"]
         cache_dir: "/tmp/invowk/provision"
     }
 }`,
@@ -4991,10 +4991,10 @@ From current directory:
 ]`,
   },
 
-  'commands-namespaces/pack-prefix': {
+  'commands-namespaces/module-prefix': {
     language: 'cue',
-    code: `// invkpack.cue
-pack: "com.company.frontend"
+    code: `// invkmod.cue
+module: "com.company.frontend"
 
 // invkfile.cue
 cmds: [
@@ -5003,23 +5003,23 @@ cmds: [
 ]`,
   },
 
-  'commands-namespaces/valid-pack-ids': {
+  'commands-namespaces/valid-module-ids': {
     language: 'cue',
-    code: `pack: "frontend"
-pack: "backend"
-pack: "my.project"
-pack: "com.company.tools"
-pack: "io.github.username.cli"`,
+    code: `module: "frontend"
+module: "backend"
+module: "my.project"
+module: "com.company.tools"
+module: "io.github.username.cli"`,
   },
 
-  'commands-namespaces/invalid-pack-ids': {
+  'commands-namespaces/invalid-module-ids': {
     language: 'cue',
-    code: `pack: "my-project"   // Hyphens not allowed
-pack: "my_project"   // Underscores not allowed
-pack: ".project"     // Can't start with dot
-pack: "project."     // Can't end with dot
-pack: "my..project"  // No consecutive dots
-pack: "123project"   // Must start with letter`,
+    code: `module: "my-project"   // Hyphens not allowed
+module: "my_project"   // Underscores not allowed
+module: ".project"     // Can't start with dot
+module: "project."     // Can't end with dot
+module: "my..project"  // No consecutive dots
+module: "123project"   // Must start with letter`,
   },
 
   'commands-namespaces/discovery-output': {
@@ -5056,7 +5056,7 @@ From user commands (~/.invowk/cmds):
         implementations: [...]
         depends_on: {
             cmds: [
-                // Pack-prefixed commands for dependencies
+                // Module-prefixed commands for dependencies
                 {alternatives: ["build"]},
                 {alternatives: ["com.company.tools lint"]},
             ]
@@ -6739,16 +6739,16 @@ invowk config set default_runtime virtual
 invowk config set ui.color_scheme dark`,
   },
 
-  'cli/pack-examples': {
+  'cli/module-examples': {
     language: 'bash',
-    code: `# Create a pack with RDNS naming
-invowk pack create com.example.mytools
+    code: `# Create a module with RDNS naming
+invowk module create com.example.mytools
 
 # Basic validation
-invowk pack validate ./mypack.invkpack
+invowk module validate ./mymod.invkmod
 
 # Deep validation
-invowk pack validate ./mypack.invkpack --deep`,
+invowk module validate ./mymod.invkmod --deep`,
   },
 
   'cli/completion-all': {
@@ -6863,105 +6863,105 @@ invowk config set default_runtime virtual
 invowk config set ui.color_scheme dark`,
   },
 
-  'reference/cli/pack-syntax': {
+  'reference/cli/module-syntax': {
     language: 'bash',
-    code: `invowk pack [command]`,
+    code: `invowk module [command]`,
   },
 
-  'reference/cli/pack-create-syntax': {
+  'reference/cli/module-create-syntax': {
     language: 'bash',
-    code: `invowk pack create <name> [flags]`,
+    code: `invowk module create <name> [flags]`,
   },
 
-  'reference/cli/pack-create-examples': {
+  'reference/cli/module-create-examples': {
     language: 'bash',
-    code: `# Create a pack with RDNS naming
-invowk pack create com.example.mytools
+    code: `# Create a module with RDNS naming
+invowk module create com.example.mytools
 
-# Override pack ID and description
-invowk pack create mytools --pack-id com.example.tools --description "Shared tools"
+# Override module ID and description
+invowk module create mytools --module-id com.example.tools --description "Shared tools"
 
 # Create with scripts directory
-invowk pack create mytools --scripts`,
+invowk module create mytools --scripts`,
   },
 
-  'reference/cli/pack-validate-syntax': {
+  'reference/cli/module-validate-syntax': {
     language: 'bash',
-    code: `invowk pack validate <path> [flags]`,
+    code: `invowk module validate <path> [flags]`,
   },
 
-  'reference/cli/pack-validate-examples': {
+  'reference/cli/module-validate-examples': {
     language: 'bash',
     code: `# Basic validation
-invowk pack validate ./mypack.invkpack
+invowk module validate ./mymod.invkmod
 
 # Deep validation
-invowk pack validate ./mypack.invkpack --deep`,
+invowk module validate ./mymod.invkmod --deep`,
   },
 
-  'reference/cli/pack-list-syntax': {
+  'reference/cli/module-list-syntax': {
     language: 'bash',
-    code: `invowk pack list`,
+    code: `invowk module list`,
   },
 
-  'reference/cli/pack-archive-syntax': {
+  'reference/cli/module-archive-syntax': {
     language: 'bash',
-    code: `invowk pack archive <path> [flags]`,
+    code: `invowk module archive <path> [flags]`,
   },
 
-  'reference/cli/pack-import-syntax': {
+  'reference/cli/module-import-syntax': {
     language: 'bash',
-    code: `invowk pack import <source> [flags]`,
+    code: `invowk module import <source> [flags]`,
   },
 
-  'reference/cli/pack-alias-syntax': {
+  'reference/cli/module-alias-syntax': {
     language: 'bash',
-    code: `invowk pack alias [command]`,
+    code: `invowk module alias [command]`,
   },
 
-  'reference/cli/pack-alias-set-syntax': {
+  'reference/cli/module-alias-set-syntax': {
     language: 'bash',
-    code: `invowk pack alias set <pack-path> <alias>`,
+    code: `invowk module alias set <module-path> <alias>`,
   },
 
-  'reference/cli/pack-alias-list-syntax': {
+  'reference/cli/module-alias-list-syntax': {
     language: 'bash',
-    code: `invowk pack alias list`,
+    code: `invowk module alias list`,
   },
 
-  'reference/cli/pack-alias-remove-syntax': {
+  'reference/cli/module-alias-remove-syntax': {
     language: 'bash',
-    code: `invowk pack alias remove <pack-path>`,
+    code: `invowk module alias remove <module-path>`,
   },
 
-  'reference/cli/pack-add-syntax': {
+  'reference/cli/module-add-syntax': {
     language: 'bash',
-    code: `invowk pack add <git-url> <version> [flags]`,
+    code: `invowk module add <git-url> <version> [flags]`,
   },
 
-  'reference/cli/pack-remove-syntax': {
+  'reference/cli/module-remove-syntax': {
     language: 'bash',
-    code: `invowk pack remove <git-url>`,
+    code: `invowk module remove <git-url>`,
   },
 
-  'reference/cli/pack-sync-syntax': {
+  'reference/cli/module-sync-syntax': {
     language: 'bash',
-    code: `invowk pack sync`,
+    code: `invowk module sync`,
   },
 
-  'reference/cli/pack-update-syntax': {
+  'reference/cli/module-update-syntax': {
     language: 'bash',
-    code: `invowk pack update [git-url]`,
+    code: `invowk module update [git-url]`,
   },
 
-  'reference/cli/pack-deps-syntax': {
+  'reference/cli/module-deps-syntax': {
     language: 'bash',
-    code: `invowk pack deps`,
+    code: `invowk module deps`,
   },
 
-  'reference/cli/pack-vendor-syntax': {
+  'reference/cli/module-vendor-syntax': {
     language: 'bash',
-    code: `invowk pack vendor [pack-path]`,
+    code: `invowk module vendor [module-path]`,
   },
 
   'reference/cli/tui-syntax': {
@@ -7531,40 +7531,40 @@ cmds: [
   },
 
   // =============================================================================
-  // REFERENCE - INVKPACK SCHEMA
+  // REFERENCE - INVKMOD SCHEMA
   // =============================================================================
 
-  'reference/invkpack/root-structure': {
+  'reference/invkmod/root-structure': {
     language: 'cue',
-    code: `#Invkpack: {
-    pack:         string               // Required - pack identifier
+    code: `#Invkmod: {
+    module:       string               // Required - module identifier
     version?:     string               // Optional - metadata version (e.g., "1.0")
-    description?: string               // Optional - pack description
-    requires?:    [...#PackRequirement] // Optional - dependencies
+    description?: string               // Optional - module description
+    requires?:    [...#ModuleRequirement] // Optional - dependencies
 }`,
   },
 
-  'reference/invkpack/pack-examples': {
+  'reference/invkmod/module-examples': {
     language: 'cue',
-    code: `pack: "mytools"
-pack: "com.company.devtools"
-pack: "io.github.username.cli"`,
+    code: `module: "mytools"
+module: "com.company.devtools"
+module: "io.github.username.cli"`,
   },
 
-  'reference/invkpack/requires-example': {
+  'reference/invkmod/requires-example': {
     language: 'cue',
     code: `requires: [
     {
-        git_url: "https://github.com/example/common.invkpack.git"
+        git_url: "https://github.com/example/common.invkmod.git"
         version: "^1.0.0"
         alias: "common"
     },
 ]`,
   },
 
-  'reference/invkpack/requirement-structure': {
+  'reference/invkmod/requirement-structure': {
     language: 'cue',
-    code: `#PackRequirement: {
+    code: `#ModuleRequirement: {
     git_url: string
     version: string
     alias?:  string
@@ -7609,7 +7609,7 @@ pack: "io.github.username.cli"`,
 #AutoProvisionConfig: {
     enabled?:     bool
     binary_path?: string
-    packs_paths?: [...string]
+    modules_paths?: [...string]
     cache_dir?:   string
 }`,
   },
@@ -7705,7 +7705,7 @@ pack: "io.github.username.cli"`,
     code: `#AutoProvisionConfig: {
     enabled?:     bool
     binary_path?: string
-    packs_paths?: [...string]
+    modules_paths?: [...string]
     cache_dir?:   string
 }`,
   },
@@ -7716,7 +7716,7 @@ pack: "io.github.username.cli"`,
     auto_provision: {
         enabled: true
         binary_path: "/usr/local/bin/invowk"
-        packs_paths: ["/opt/company/invowk-packs"]
+        modules_paths: ["/opt/company/invowk-modules"]
         cache_dir: "/tmp/invowk/provision"
     }
 }`,
@@ -7756,7 +7756,7 @@ container_engine: "podman"
 
 // Search Paths
 // ------------
-// Additional directories to search for invkfiles and packs
+// Additional directories to search for invkfiles and modules
 // Searched in order after the current directory
 search_paths: [
     // Personal commands

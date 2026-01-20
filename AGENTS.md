@@ -12,7 +12,7 @@ This is the index for coding agent guidance. Use the links below for the full in
 - [Testing](docs/agents/testing.md)
 - [CUE and Schemas](docs/agents/cue.md)
 - [Invkfile Examples](docs/agents/invkfile.md)
-- [Invkpack Packs](docs/agents/invkpack.md)
+- [Invkmod Modules](docs/agents/invkmod.md)
 - [Docs and Website](docs/agents/docs-website.md)
 - [Git and Commits](docs/agents/git.md)
 - [Checklist](docs/agents/checklist.md)

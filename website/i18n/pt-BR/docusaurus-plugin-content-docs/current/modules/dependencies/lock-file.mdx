@@ -4,15 +4,15 @@ sidebar_position: 4
 
 import Snippet from '@site/src/components/Snippet';
 
-# Lock File de Dependências de Packs
+# Lock File de Dependências de Módulos
 
-O lock file (`invkpack.lock.cue`) registra as versões exatas de todas as dependências de pack resolvidas, garantindo builds reprodutíveis ao longo do tempo e entre máquinas.
+O lock file (`invkmod.lock.cue`) registra as versões exatas de todas as dependências de módulo resolvidas, garantindo builds reprodutíveis ao longo do tempo e entre máquinas.
 
-Ele é gerado automaticamente por `invowk pack sync` e `invowk pack update`.
+Ele é gerado automaticamente por `invowk module sync` e `invowk module update`.
 
 ## Exemplo de Lock File
 
-<Snippet id="packs/dependencies/lockfile-example" />
+<Snippet id="modules/dependencies/lockfile-example" />
 
 ## Campos da Raiz
 
@@ -20,33 +20,33 @@ Ele é gerado automaticamente por `invowk pack sync` e `invowk pack update`.
 |-------|-----------|
 | `version` | Versão do formato do lock file |
 | `generated` | Timestamp de criação do lock file |
-| `packs` | Mapa de chaves de pack para entradas travadas |
+| `modules` | Mapa de chaves de módulo para entradas travadas |
 
-## Campos de Entrada de Pack
+## Campos de Entrada de Módulo
 
-Cada entrada em `packs` contém:
+Cada entrada em `modules` contém:
 
 | Campo | Descrição |
 |-------|-----------|
 | `git_url` | URL do repositório Git |
-| `version` | Restrição de versão original de `invkpack.cue` |
+| `version` | Restrição de versão original de `invkmod.cue` |
 | `resolved_version` | Versão resolvida exata |
 | `git_commit` | SHA do commit da versão resolvida |
 | `alias` | Alias de namespace (se definido) |
 | `path` | Caminho de subdiretório (se definido) |
 | `namespace` | Namespace calculado para comandos |
 
-## Chaves de Pack
+## Chaves de Módulo
 
-A chave no mapa `packs` é derivada da URL Git e do caminho opcional:
+A chave no mapa `modules` é derivada da URL Git e do caminho opcional:
 
-<Snippet id="packs/dependencies/lockfile-key" />
+<Snippet id="modules/dependencies/lockfile-key" />
 
 ## Notas de Uso
 
-- Commite `invkpack.lock.cue` no controle de versão para builds reprodutíveis.
-- `invowk pack add` **não** grava o lock file; use `invowk pack sync`.
+- Commite `invkmod.lock.cue` no controle de versão para builds reprodutíveis.
+- `invowk module add` **não** grava o lock file; use `invowk module sync`.
 
 ## Workflows Comuns
 
-<Snippet id="packs/dependencies/lockfile-workflow" />
+<Snippet id="modules/dependencies/lockfile-workflow" />

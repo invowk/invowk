@@ -4,57 +4,57 @@ sidebar_position: 4
 
 import Snippet from '@site/src/components/Snippet';
 
-# Distributing Packs
+# Distributing Modules
 
-Share your packs with teammates, across organizations, or with the world.
+Share your modules with teammates, across organizations, or with the world.
 
 ## Creating Archives
 
 Create a zip archive for distribution:
 
-<Snippet id="packs/archive-basic" />
+<Snippet id="modules/archive-basic" />
 
 Output:
 
-<Snippet id="packs/archive-output" />
+<Snippet id="modules/archive-output" />
 
-## Importing Packs
+## Importing Modules
 
 ### From Local File
 
-<Snippet id="packs/import-local" />
+<Snippet id="modules/import-local" />
 
 ### From URL
 
-<Snippet id="packs/import-url" />
+<Snippet id="modules/import-url" />
 
 Output:
 
-<Snippet id="packs/import-output" />
+<Snippet id="modules/import-output" />
 
-## Listing Installed Packs
+## Listing Installed Modules
 
-<Snippet id="packs/list" />
+<Snippet id="modules/list" />
 
 Output:
 
-<Snippet id="packs/list-output" />
+<Snippet id="modules/list-output" />
 
 ## Distribution Methods
 
 ### Direct Sharing
 
-1. Create archive: `invowk pack archive`
+1. Create archive: `invowk module archive`
 2. Share the zip file (email, Slack, etc.)
-3. Recipient imports: `invowk pack import`
+3. Recipient imports: `invowk module import`
 
 ### Git Repository
 
-Include packs in your repo:
+Include modules in your repo:
 
-<Snippet id="packs/git-structure" />
+<Snippet id="modules/git-structure" />
 
-Team members get packs when they clone the repo.
+Team members get modules when they clone the repo.
 
 ### GitHub Releases
 
@@ -62,25 +62,25 @@ Team members get packs when they clone the repo.
 2. Attach to GitHub release
 3. Share the download URL
 
-<Snippet id="packs/github-release" />
+<Snippet id="modules/github-release" />
 
 ### Package Registry (Future)
 
 Future versions may support:
 
-<Snippet id="packs/future-install" />
+<Snippet id="modules/future-install" />
 
 ## Install Locations
 
 ### User Commands (Default)
 
-<Snippet id="packs/install-user" />
+<Snippet id="modules/install-user" />
 
 Available globally for the user.
 
 ### Project-Local
 
-<Snippet id="packs/install-project" />
+<Snippet id="modules/install-project" />
 
 Only available in this project.
 
@@ -88,56 +88,56 @@ Only available in this project.
 
 Configure additional search paths:
 
-<Snippet id="packs/search-paths-config" />
+<Snippet id="modules/search-paths-config" />
 
 Install there:
 
-<Snippet id="packs/install-search-path" />
+<Snippet id="modules/install-search-path" />
 
 ## Version Management
 
 ### Semantic Versioning
 
-Declare a pack version in `invkpack.cue`:
+Declare a module version in `invkmod.cue`:
 
-<Snippet id="packs/version-invkfile" />
+<Snippet id="modules/version-invkfile" />
 
 ### Archive Naming
 
 Include version in archive name:
 
-<Snippet id="packs/archive-versioned" />
+<Snippet id="modules/archive-versioned" />
 
 ### Upgrade Process
 
-<Snippet id="packs/upgrade-process" />
+<Snippet id="modules/upgrade-process" />
 
 ## Team Distribution
 
 ### Shared Network Location
 
-<Snippet id="packs/team-shared-location" />
+<Snippet id="modules/team-shared-location" />
 
 ### Internal Package Server
 
-Host packs on internal HTTP server:
+Host modules on internal HTTP server:
 
-<Snippet id="packs/internal-server" />
+<Snippet id="modules/internal-server" />
 
 ## Best Practices
 
-1. **Validate before archiving**: `invowk pack validate --deep`
+1. **Validate before archiving**: `invowk module validate --deep`
 2. **Use semantic versioning**: Track changes clearly
-3. **Include README**: Document pack usage
+3. **Include README**: Document module usage
 4. **RDNS naming**: Prevent conflicts
 5. **Changelog**: Document what changed between versions
 
 ## Example Workflow
 
-<Snippet id="packs/workflow-example" />
+<Snippet id="modules/workflow-example" />
 
 ## Next Steps
 
-- [Overview](./overview) - Pack concepts
-- [Creating Packs](./creating-packs) - Build your pack
-- [Validating](./validating) - Ensure pack integrity
+- [Overview](./overview) - Module concepts
+- [Creating Modules](./creating-modules) - Build your module
+- [Validating](./validating) - Ensure module integrity

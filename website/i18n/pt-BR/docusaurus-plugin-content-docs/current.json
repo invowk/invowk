@@ -31,9 +31,9 @@
     "message": "Funcionalidades Avançadas",
     "description": "The label for category 'Advanced Features' in sidebar 'docsSidebar'"
   },
-  "sidebar.docsSidebar.category.Packs": {
-    "message": "Packs",
-    "description": "The label for category 'Packs' in sidebar 'docsSidebar'"
+  "sidebar.docsSidebar.category.Modules": {
+    "message": "Módulos",
+    "description": "The label for category 'Modules' in sidebar 'docsSidebar'"
   },
   "sidebar.docsSidebar.category.TUI Components": {
     "message": "Componentes TUI",

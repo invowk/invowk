@@ -4,7 +4,7 @@
 // This file contains example commands that demonstrate all invowk features.
 // All commands are idempotent and do not cause side effects on the host.
 //
-// Note: Pack metadata (pack, version, description, requires) belongs in invkpack.cue.
+// Note: Module metadata (module, version, description, requires) belongs in invkmod.cue.
 // This file only contains command definitions (cmds) and shared configuration.
 
 // Global environment configuration - applied to all commands

@@ -6,7 +6,7 @@ import Snippet from '@site/src/components/Snippet';
 
 # Commands and Namespaces
 
-Invowk commands are named directly in `invkfile.cue`. Namespaces come from **packs**: commands in a pack are prefixed by the pack ID from `invkpack.cue`.
+Invowk commands are named directly in `invkfile.cue`. Namespaces come from **modules**: commands in a module are prefixed by the module ID from `invkmod.cue`.
 
 ## Command Names
 
@@ -23,17 +23,17 @@ Command names can include spaces to create subcommand-like hierarchies:
 
 Spaces are purely organizational - there’s no special parent-child relationship between commands.
 
-## Pack Namespaces
+## Module Namespaces
 
-Pack commands are namespaced by the `pack` field in `invkpack.cue`:
+Module commands are namespaced by the `module` field in `invkmod.cue`:
 
-<Snippet id="commands-namespaces/pack-prefix" />
+<Snippet id="commands-namespaces/module-prefix" />
 
 These commands become:
 - `invowk cmd com.company.frontend build`
 - `invowk cmd com.company.frontend test unit`
 
-### Pack ID Naming Rules
+### Module ID Naming Rules
 
 | Rule | Valid | Invalid |
 |------|-------|---------|
@@ -43,13 +43,13 @@ These commands become:
 
 #### Valid Examples
 
-<Snippet id="commands-namespaces/valid-pack-ids" />
+<Snippet id="commands-namespaces/valid-module-ids" />
 
 #### Invalid Examples
 
-<Snippet id="commands-namespaces/invalid-pack-ids" />
+<Snippet id="commands-namespaces/invalid-module-ids" />
 
-For shared packs, use Reverse Domain Name System (RDNS) naming (e.g., `com.company.tools`) to prevent collisions.
+For shared modules, use Reverse Domain Name System (RDNS) naming (e.g., `com.company.tools`) to prevent collisions.
 
 ## Command Discovery
 
@@ -65,22 +65,22 @@ When listing commands, you’ll see their source:
 
 ## Command Dependencies
 
-Commands can depend on other commands. Use the full command name as listed by `invowk cmd --list` (pack prefix when applicable):
+Commands can depend on other commands. Use the full command name as listed by `invowk cmd --list` (module prefix when applicable):
 
 <Snippet id="commands-namespaces/command-dependency" />
 
 ## Why Namespaces Matter
 
-1. **Namespace isolation** - Pack commands stay distinct across shared toolkits
-2. **Clear origin** - Pack prefixes show where commands come from
-3. **Logical organization** - Dot-separated pack IDs organize related commands
-4. **Tab completion** - Pack IDs provide natural completion boundaries
+1. **Namespace isolation** - Module commands stay distinct across shared toolkits
+2. **Clear origin** - Module prefixes show where commands come from
+3. **Logical organization** - Dot-separated module IDs organize related commands
+4. **Tab completion** - Module IDs provide natural completion boundaries
 
 ## Best Practices
 
 - **Local projects**: Keep command names short and focused (no prefixes).
-- **Packs**: Use RDNS pack IDs like `com.company.devtools`.
-- **Avoid generic pack IDs**: Prefer `com.company.tools` over `tools`.
+- **Modules**: Use RDNS module IDs like `com.company.devtools`.
+- **Avoid generic module IDs**: Prefer `com.company.tools` over `tools`.
 
 ## Next Steps
 

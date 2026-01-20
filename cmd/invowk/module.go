@@ -229,7 +229,7 @@ all dependencies into the invk_modules/ subdirectory, enabling offline
 and self-contained distribution.
 
 If no module-path is specified, vendors dependencies for the current directory's
-pack.
+module.
 
 Examples:
   invowk module vendor
@@ -686,7 +686,7 @@ func runModuleAliasSet(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to load config: %w", err)
 	}
 
-	// Initialize PackAliases map if nil
+	// Initialize ModuleAliases map if nil
 	if cfg.ModuleAliases == nil {
 		cfg.ModuleAliases = make(map[string]string)
 	}
@@ -822,7 +822,7 @@ func runModuleVendor(cmd *cobra.Command, args []string) error {
 
 	// Handle prune mode
 	if moduleVendorPrune {
-		return pruneVendoredPacks(vendorDir, meta)
+		return pruneVendoredModules(vendorDir, meta)
 	}
 
 	// Create vendor directory if it doesn't exist
@@ -834,7 +834,7 @@ func runModuleVendor(cmd *cobra.Command, args []string) error {
 	fmt.Println()
 
 	// For now, just show what would be vendored
-	// Full implementation would use packs.Resolver to fetch and copy
+	// Full implementation would use module resolver to fetch and copy
 	fmt.Printf("%s Vendoring is not yet fully implemented\n", moduleWarningIcon)
 	fmt.Println()
 	fmt.Printf("%s The following dependencies would be vendored:\n", moduleInfoIcon)
@@ -845,8 +845,8 @@ func runModuleVendor(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-// pruneVendoredPacks removes vendored modules that are not in the requirements
-func pruneVendoredPacks(vendorDir string, meta *invkfile.Invkmod) error {
+// pruneVendoredModules removes vendored modules that are not in the requirements
+func pruneVendoredModules(vendorDir string, meta *invkfile.Invkmod) error {
 	fmt.Println()
 	fmt.Printf("%s Pruning unused vendored modules...\n", moduleInfoIcon)
 
@@ -857,12 +857,12 @@ func pruneVendoredPacks(vendorDir string, meta *invkfile.Invkmod) error {
 	}
 
 	// List vendored modules
-	vendoredPacks, err := invkmod.ListVendoredModules(filepath.Dir(vendorDir))
+	vendoredModules, err := invkmod.ListVendoredModules(filepath.Dir(vendorDir))
 	if err != nil {
 		return fmt.Errorf("failed to list vendored modules: %w", err)
 	}
 
-	if len(vendoredPacks) == 0 {
+	if len(vendoredModules) == 0 {
 		fmt.Printf("%s No vendored modules found\n", moduleInfoIcon)
 		return nil
 	}
@@ -875,7 +875,7 @@ func pruneVendoredPacks(vendorDir string, meta *invkfile.Invkmod) error {
 	}
 
 	// For now, just list what would be pruned
-	fmt.Printf("%s Found %d vendored module(s)\n", moduleInfoIcon, len(vendoredPacks))
+	fmt.Printf("%s Found %d vendored module(s)\n", moduleInfoIcon, len(vendoredModules))
 	fmt.Printf("%s Prune functionality not yet fully implemented\n", moduleWarningIcon)
 
 	return nil
@@ -887,7 +887,7 @@ func runModuleAdd(cmd *cobra.Command, args []string) error {
 
 	fmt.Println(moduleTitleStyle.Render("Add Module Dependency"))
 
-	// Create pack resolver
+	// Create module resolver
 	resolver, err := invkmod.NewResolver("", "")
 	if err != nil {
 		return fmt.Errorf("failed to create module resolver: %w", err)
@@ -943,7 +943,7 @@ func runModuleRemove(cmd *cobra.Command, args []string) error {
 
 	fmt.Println(moduleTitleStyle.Render("Remove Module Dependency"))
 
-	// Create pack resolver
+	// Create module resolver
 	resolver, err := invkmod.NewResolver("", "")
 	if err != nil {
 		return fmt.Errorf("failed to create module resolver: %w", err)
@@ -984,17 +984,17 @@ func runModuleSync(cmd *cobra.Command, args []string) error {
 
 	fmt.Printf("%s Found %d requirement(s) in invkmod.cue\n", moduleInfoIcon, len(requirements))
 
-	// Create pack resolver
+	// Create module resolver
 	resolver, err := invkmod.NewResolver("", "")
 	if err != nil {
 		return fmt.Errorf("failed to create module resolver: %w", err)
 	}
 
-	// Sync packs
+	// Sync modules
 	ctx := context.Background()
 	resolved, err := resolver.Sync(ctx, requirements)
 	if err != nil {
-		fmt.Printf("%s Failed to sync packs: %v\n", moduleErrorIcon, err)
+		fmt.Printf("%s Failed to sync modules: %v\n", moduleErrorIcon, err)
 		return err
 	}
 
@@ -1014,7 +1014,7 @@ func runModuleSync(cmd *cobra.Command, args []string) error {
 func runModuleUpdate(cmd *cobra.Command, args []string) error {
 	fmt.Println(moduleTitleStyle.Render("Update Module Dependencies"))
 
-	// Create pack resolver
+	// Create module resolver
 	resolver, err := invkmod.NewResolver("", "")
 	if err != nil {
 		return fmt.Errorf("failed to create module resolver: %w", err)
@@ -1025,19 +1025,19 @@ func runModuleUpdate(cmd *cobra.Command, args []string) error {
 		gitURL = args[0]
 		fmt.Printf("%s Updating %s...\n", moduleInfoIcon, gitURL)
 	} else {
-		fmt.Printf("%s Updating all packs...\n", moduleInfoIcon)
+		fmt.Printf("%s Updating all modules...\n", moduleInfoIcon)
 	}
 
-	// Update packs
+	// Update modules
 	ctx := context.Background()
 	updated, err := resolver.Update(ctx, gitURL)
 	if err != nil {
-		fmt.Printf("%s Failed to update packs: %v\n", moduleErrorIcon, err)
+		fmt.Printf("%s Failed to update modules: %v\n", moduleErrorIcon, err)
 		return err
 	}
 
 	if len(updated) == 0 {
-		fmt.Printf("%s No packs to update\n", moduleInfoIcon)
+		fmt.Printf("%s No modules to update\n", moduleInfoIcon)
 		return nil
 	}
 
@@ -1057,13 +1057,13 @@ func runModuleUpdate(cmd *cobra.Command, args []string) error {
 func runModuleDeps(cmd *cobra.Command, args []string) error {
 	fmt.Println(moduleTitleStyle.Render("Module Dependencies"))
 
-	// Create pack resolver
+	// Create module resolver
 	resolver, err := invkmod.NewResolver("", "")
 	if err != nil {
 		return fmt.Errorf("failed to create module resolver: %w", err)
 	}
 
-	// List packs
+	// List modules
 	ctx := context.Background()
 	deps, err := resolver.List(ctx)
 	if err != nil {
@@ -1073,7 +1073,7 @@ func runModuleDeps(cmd *cobra.Command, args []string) error {
 	if len(deps) == 0 {
 		fmt.Printf("%s No module dependencies found\n", moduleInfoIcon)
 		fmt.Println()
-		fmt.Printf("%s To add packs, use: %s\n", moduleInfoIcon, cmdStyle.Render("invowk module add <git-url> <version>"))
+		fmt.Printf("%s To add modules, use: %s\n", moduleInfoIcon, cmdStyle.Render("invowk module add <git-url> <version>"))
 		return nil
 	}
 

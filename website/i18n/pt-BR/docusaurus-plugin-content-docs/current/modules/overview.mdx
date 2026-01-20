@@ -4,109 +4,109 @@ sidebar_position: 1
 
 import Snippet from '@site/src/components/Snippet';
 
-# Visão Geral de Packs
+# Visão Geral de Módulos
 
-:::warning Alpha — O Formato de Pack Pode Mudar
-O formato e estrutura de packs ainda estão sendo finalizados. Embora nosso objetivo seja manter compatibilidade retroativa, **mudanças incompatíveis podem ocorrer** antes do release 1.0. Se você está distribuindo packs externamente, esteja preparado para atualizá-los ao fazer upgrade do Invowk™.
+:::warning Alpha — O Formato de Módulo Pode Mudar
+O formato e estrutura de módulos ainda estão sendo finalizados. Embora nosso objetivo seja manter compatibilidade retroativa, **mudanças incompatíveis podem ocorrer** antes do release 1.0. Se você está distribuindo módulos externamente, esteja preparado para atualizá-los ao fazer upgrade do Invowk™.
 :::
 
-Packs são pastas autocontidas que agrupam metadados `invkpack.cue` com comandos opcionais em `invkfile.cue` e quaisquer arquivos de script que eles referenciam. Eles são perfeitos para compartilhar comandos, criar toolkits reutilizáveis e distribuir automação entre equipes.
+Módulos são pastas autocontidas que agrupam metadados `invkmod.cue` com comandos opcionais em `invkfile.cue` e quaisquer arquivos de script que eles referenciam. Eles são perfeitos para compartilhar comandos, criar toolkits reutilizáveis e distribuir automação entre equipes.
 
-## O que é um Pack?
+## O que é um Módulo?
 
-Um pack é um diretório com o sufixo `.invkpack`:
+Um módulo é um diretório com o sufixo `.invkmod`:
 
-<Snippet id="packs/structure-basic" />
+<Snippet id="modules/structure-basic" />
 
-## Por que Usar Packs?
+## Por que Usar Módulos?
 
 - **Portabilidade**: Compartilhe um conjunto completo de comandos como uma única pasta
-- **Autocontido**: Scripts ficam agrupados no pack
+- **Autocontido**: Scripts ficam agrupados no módulo
 - **Multiplataforma**: Caminhos com barra funcionam em qualquer lugar
 - **Isolamento de namespace**: Nomenclatura RDNS previne conflitos
 - **Fácil distribuição**: Compacte, compartilhe, descompacte
 
 ## Início Rápido
 
-### Criar um Pack
+### Criar um Módulo
 
-<Snippet id="packs/quick-create" />
+<Snippet id="modules/quick-create" />
 
 Cria:
 
-<Snippet id="packs/quick-create-output" />
+<Snippet id="modules/quick-create-output" />
 
-### Usar o Pack
+### Usar o Módulo
 
-Packs são descobertos automaticamente de:
+Módulos são descobertos automaticamente de:
 1. Diretório atual
 2. `~/.invowk/cmds/` (comandos do usuário)
 3. Caminhos de busca configurados
 
-<Snippet id="packs/quick-use" />
+<Snippet id="modules/quick-use" />
 
-### Compartilhar o Pack
+### Compartilhar o Módulo
 
-<Snippet id="packs/quick-share" />
+<Snippet id="modules/quick-share" />
 
-## Estrutura de Pack
+## Estrutura de Módulo
 
 ### Arquivos Obrigatórios
 
-- **`invkpack.cue`**: Metadados do pack (nome, versão, dependências)
+- **`invkmod.cue`**: Metadados do módulo (nome, versão, dependências)
 
 ### Conteúdo Opcional
 
-- **`invkfile.cue`**: Definições de comandos (omita para packs apenas de biblioteca)
+- **`invkfile.cue`**: Definições de comandos (omita para módulos apenas de biblioteca)
 - **Scripts**: Shell scripts, arquivos Python, etc.
 - **Templates**: Templates de configuração
 - **Dados**: Quaisquer arquivos de suporte
 
 ### Exemplo de Estrutura
 
-<Snippet id="packs/structure-example" />
+<Snippet id="modules/structure-example" />
 
-## Nomenclatura de Pack
+## Nomenclatura de Módulo
 
-Nomes de pasta de pack seguem estas regras:
+Nomes de pasta de módulo seguem estas regras:
 
 | Regra | Válido | Inválido |
 |-------|--------|----------|
-| Terminar com `.invkpack` | `mytools.invkpack` | `mytools` |
-| Começar com letra | `mytools.invkpack` | `123tools.invkpack` |
-| Alfanumérico + pontos | `com.example.invkpack` | `my-tools.invkpack` |
+| Terminar com `.invkmod` | `mytools.invkmod` | `mytools` |
+| Começar com letra | `mytools.invkmod` | `123tools.invkmod` |
+| Alfanumérico + pontos | `com.example.invkmod` | `my-tools.invkmod` |
 
 ### Nomenclatura RDNS
 
-Recomendada para packs compartilhados:
+Recomendada para módulos compartilhados:
 
-<Snippet id="packs/rdns-naming" />
+<Snippet id="modules/rdns-naming" />
 
 ## Caminhos de Script
 
-Referencie scripts relativos à raiz do pack com **barras normais**:
+Referencie scripts relativos à raiz do módulo com **barras normais**:
 
-<Snippet id="packs/script-paths" />
+<Snippet id="modules/script-paths" />
 
 **Importante:**
 - Sempre use barras normais (`/`)
-- Caminhos são relativos à raiz do pack
+- Caminhos são relativos à raiz do módulo
 - Caminhos absolutos não são permitidos
-- Não é possível escapar do diretório do pack (`../` é inválido)
+- Não é possível escapar do diretório do módulo (`../` é inválido)
 
-## Comandos de Pack
+## Comandos de Módulo
 
 | Comando | Descrição |
 |---------|-----------|
-| `invowk pack create` | Criar um novo pack |
-| `invowk pack validate` | Validar estrutura do pack |
-| `invowk pack list` | Listar packs descobertos |
-| `invowk pack archive` | Criar arquivo zip |
-| `invowk pack import` | Instalar de zip/URL |
+| `invowk module create` | Criar um novo módulo |
+| `invowk module validate` | Validar estrutura do módulo |
+| `invowk module list` | Listar módulos descobertos |
+| `invowk module archive` | Criar arquivo zip |
+| `invowk module import` | Instalar de zip/URL |
 
 ## Descoberta
 
-Packs são descobertos dessas localizações:
+Módulos são descobertos dessas localizações:
 
 1. **Diretório atual** (maior prioridade)
 2. **Comandos do usuário** (`~/.invowk/cmds/`)
@@ -114,11 +114,11 @@ Packs são descobertos dessas localizações:
 
 Comandos aparecem em `invowk cmd --list` com sua origem:
 
-<Snippet id="packs/discovery-output" />
+<Snippet id="modules/discovery-output" />
 
 ## Próximos Passos
 
-- [Criando Packs](./creating-packs) - Criar estrutura e organizar packs
-- [Validando](./validating) - Garantir integridade do pack
-- [Distribuindo](./distributing) - Compartilhar packs com outros
-- [Dependências de Packs](./dependencies/overview) - Usar outros packs no seu pack
+- [Criando Módulos](./creating-modules) - Criar estrutura e organizar módulos
+- [Validando](./validating) - Garantir integridade do módulo
+- [Distribuindo](./distributing) - Compartilhar módulos com outros
+- [Dependências de Módulos](./dependencies/overview) - Usar outros módulos no seu módulo

@@ -6,7 +6,7 @@ import Snippet from '@site/src/components/Snippet';
 
 # Comandos e Namespaces
 
-Os comandos do Invowk são nomeados diretamente em `invkfile.cue`. Namespaces vêm dos **packs**: comandos em um pack são prefixados pelo ID do pack definido em `invkpack.cue`.
+Os comandos do Invowk são nomeados diretamente em `invkfile.cue`. Namespaces vêm dos **módulos**: comandos em um módulo são prefixados pelo ID do módulo definido em `invkmod.cue`.
 
 ## Nomes de Comandos
 
@@ -23,17 +23,17 @@ Nomes de comandos podem incluir espaços para criar hierarquias estilo subcomand
 
 Espaços são apenas organizacionais - não há relação especial pai-filho entre comandos.
 
-## Namespaces de Packs
+## Namespaces de Módulos
 
-Comandos de packs são namespaced pelo campo `pack` em `invkpack.cue`:
+Comandos de módulos são namespaced pelo campo `module` em `invkmod.cue`:
 
-<Snippet id="commands-namespaces/pack-prefix" />
+<Snippet id="commands-namespaces/module-prefix" />
 
 Esses comandos se tornam:
 - `invowk cmd com.company.frontend build`
 - `invowk cmd com.company.frontend test unit`
 
-### Regras de Nomenclatura de IDs de Pack
+### Regras de Nomenclatura de IDs de Módulo
 
 | Regra | Válido | Inválido |
 |-------|--------|----------|
@@ -43,13 +43,13 @@ Esses comandos se tornam:
 
 #### Exemplos Válidos
 
-<Snippet id="commands-namespaces/valid-pack-ids" />
+<Snippet id="commands-namespaces/valid-module-ids" />
 
 #### Exemplos Inválidos
 
-<Snippet id="commands-namespaces/invalid-pack-ids" />
+<Snippet id="commands-namespaces/invalid-module-ids" />
 
-Para packs compartilhados, use nomenclatura RDNS (Reverse Domain Name System), como `com.company.tools`, para evitar colisões.
+Para módulos compartilhados, use nomenclatura RDNS (Reverse Domain Name System), como `com.company.tools`, para evitar colisões.
 
 ## Descoberta de Comandos
 
@@ -65,21 +65,21 @@ Ao listar comandos, você verá sua origem:
 
 ## Dependências de Comandos
 
-Comandos podem depender de outros comandos. Use o nome completo como aparece no `invowk cmd --list` (prefixo do pack quando aplicável):
+Comandos podem depender de outros comandos. Use o nome completo como aparece no `invowk cmd --list` (prefixo do módulo quando aplicável):
 
 <Snippet id="commands-namespaces/command-dependency" />
 
 ## Por Que Namespaces Importam
 
-1. **Isolamento de namespace** - Comandos de packs ficam distintos entre toolkits compartilhados
-2. **Origem clara** - O prefixo do pack mostra de onde o comando vem
-3. **Organização lógica** - IDs de pack com pontos organizam comandos relacionados
-4. **Autocompletar** - IDs de pack criam limites naturais para completar com tab
+1. **Isolamento de namespace** - Comandos de módulos ficam distintos entre toolkits compartilhados
+2. **Origem clara** - O prefixo do módulo mostra de onde o comando vem
+3. **Organização lógica** - IDs de módulo com pontos organizam comandos relacionados
+4. **Autocompletar** - IDs de módulo criam limites naturais para completar com tab
 
 ## Boas Práticas
 
 - **Projetos locais**: mantenha nomes curtos e focados (sem prefixo).
-- **Packs**: use IDs RDNS como `com.company.devtools`.
+- **Módulos**: use IDs RDNS como `com.company.devtools`.
 - **Evite IDs genéricos**: prefira `com.company.tools` em vez de `tools`.
 
 ## Próximos Passos
