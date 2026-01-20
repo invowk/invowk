@@ -213,6 +213,27 @@ build-cross: $(BUILD_DIR)
 	@echo "Cross-compilation complete:"
 	@ls -lh $(BUILD_DIR)/$(BINARY_NAME)-* | awk '{print $$9 ":", $$5}'
 
+# VHS Integration Tests
+.PHONY: test-vhs test-vhs-update test-vhs-validate
+
+# Run VHS integration tests
+test-vhs: build
+	@echo "Running VHS integration tests..."
+	@command -v vhs >/dev/null 2>&1 || { echo "Error: VHS is not installed. Install from https://github.com/charmbracelet/vhs"; exit 1; }
+	@./vhs/scripts/run-tests.sh
+
+# Update VHS golden files
+test-vhs-update: build
+	@echo "Updating VHS golden files..."
+	@command -v vhs >/dev/null 2>&1 || { echo "Error: VHS is not installed. Install from https://github.com/charmbracelet/vhs"; exit 1; }
+	@./vhs/scripts/update-golden.sh
+
+# Validate VHS tape syntax
+test-vhs-validate:
+	@echo "Validating VHS tape syntax..."
+	@command -v vhs >/dev/null 2>&1 || { echo "Error: VHS is not installed. Install from https://github.com/charmbracelet/vhs"; exit 1; }
+	@vhs validate vhs/tapes/*.tape
+
 # Help
 .PHONY: help
 help:
@@ -230,6 +251,9 @@ help:
 	@echo "  test           Run all tests"
 	@echo "  test-short     Run tests in short mode (skip integration)"
 	@echo "  test-integration Run integration tests only"
+	@echo "  test-vhs       Run VHS integration tests (requires VHS)"
+	@echo "  test-vhs-update Update VHS golden files (requires VHS)"
+	@echo "  test-vhs-validate Validate VHS tape syntax"
 	@echo "  clean          Remove build artifacts"
 	@echo "  install        Install to GOPATH/bin"
 	@echo "  tidy           Tidy go.mod dependencies"
