@@ -186,6 +186,16 @@ func New(cfg Config) *Server {
 //
 // After Start() returns nil, use Err() to monitor for runtime errors.
 func (s *Server) Start(ctx context.Context) error {
+	// Check for already-cancelled context BEFORE any setup.
+	// This prevents a race condition where the serve goroutine could transition
+	// to StateRunning before the cancelled context is detected in the select.
+	select {
+	case <-ctx.Done():
+		s.transitionToFailed(fmt.Errorf("context cancelled before start: %w", ctx.Err()))
+		return s.lastErr
+	default:
+	}
+
 	// Transition: Created -> Starting
 	if !s.state.CompareAndSwap(int32(StateCreated), int32(StateStarting)) {
 		currentState := ServerState(s.state.Load())

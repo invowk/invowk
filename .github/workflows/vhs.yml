@@ -55,9 +55,10 @@ jobs:
           sudo mv ttyd /usr/local/bin/
 
       - name: Install VHS
-        uses: charmbracelet/vhs-action@v2
-        with:
-          path: ""  # Install VHS only, don't run any tape
+        run: go install github.com/charmbracelet/vhs@latest
+
+      - name: Verify VHS installation
+        run: vhs --version
 
       - name: Validate VHS tapes
         run: make test-vhs-validate
