@@ -42,6 +42,38 @@ sudo snap install vhs
 go install github.com/charmbracelet/vhs@latest
 ```
 
+### System Dependencies
+
+VHS requires `ffmpeg` and `ttyd` to be installed for full functionality:
+
+**Ubuntu/Debian:**
+
+```bash
+sudo apt-get install -y ffmpeg
+# ttyd from GitHub releases (apt version may be outdated)
+TTYD_VERSION="1.7.7"
+wget -q "https://github.com/tsl0922/ttyd/releases/download/${TTYD_VERSION}/ttyd.x86_64" -O ttyd
+chmod +x ttyd && sudo mv ttyd /usr/local/bin/
+```
+
+**macOS (Homebrew):**
+
+```bash
+brew install ffmpeg ttyd
+```
+
+**Fedora:**
+
+```bash
+sudo dnf install -y ffmpeg ttyd
+```
+
+**Arch Linux:**
+
+```bash
+pacman -S ffmpeg ttyd
+```
+
 ## Usage
 
 ### Running Tests

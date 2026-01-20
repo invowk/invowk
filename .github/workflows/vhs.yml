@@ -44,6 +44,16 @@ jobs:
       - name: Build invowk
         run: make build
 
+      - name: Install VHS dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+          # ttyd - install from GitHub releases (apt version may be too old)
+          TTYD_VERSION="1.7.7"
+          wget -q "https://github.com/tsl0922/ttyd/releases/download/${TTYD_VERSION}/ttyd.x86_64" -O ttyd
+          chmod +x ttyd
+          sudo mv ttyd /usr/local/bin/
+
       - name: Install VHS
         uses: charmbracelet/vhs-action@v2
         with:

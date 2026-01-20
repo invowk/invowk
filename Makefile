@@ -219,19 +219,23 @@ build-cross: $(BUILD_DIR)
 # Run VHS integration tests
 test-vhs: build
 	@echo "Running VHS integration tests..."
-	@command -v vhs >/dev/null 2>&1 || { echo "Error: VHS is not installed. Install from https://github.com/charmbracelet/vhs"; exit 1; }
+	@command -v vhs >/dev/null 2>&1 || { echo "Error: VHS is not installed. See vhs/README.md"; exit 1; }
+	@command -v ffmpeg >/dev/null 2>&1 || { echo "Error: ffmpeg is not installed. See vhs/README.md"; exit 1; }
+	@command -v ttyd >/dev/null 2>&1 || { echo "Error: ttyd is not installed. See vhs/README.md"; exit 1; }
 	@./vhs/scripts/run-tests.sh
 
 # Update VHS golden files
 test-vhs-update: build
 	@echo "Updating VHS golden files..."
-	@command -v vhs >/dev/null 2>&1 || { echo "Error: VHS is not installed. Install from https://github.com/charmbracelet/vhs"; exit 1; }
+	@command -v vhs >/dev/null 2>&1 || { echo "Error: VHS is not installed. See vhs/README.md"; exit 1; }
+	@command -v ffmpeg >/dev/null 2>&1 || { echo "Error: ffmpeg is not installed. See vhs/README.md"; exit 1; }
+	@command -v ttyd >/dev/null 2>&1 || { echo "Error: ttyd is not installed. See vhs/README.md"; exit 1; }
 	@./vhs/scripts/update-golden.sh
 
-# Validate VHS tape syntax
+# Validate VHS tape syntax (only needs vhs, no recording)
 test-vhs-validate:
 	@echo "Validating VHS tape syntax..."
-	@command -v vhs >/dev/null 2>&1 || { echo "Error: VHS is not installed. Install from https://github.com/charmbracelet/vhs"; exit 1; }
+	@command -v vhs >/dev/null 2>&1 || { echo "Error: VHS is not installed. See vhs/README.md"; exit 1; }
 	@vhs validate vhs/tapes/*.tape
 
 # Help
