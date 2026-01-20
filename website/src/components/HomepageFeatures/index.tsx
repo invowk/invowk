@@ -63,12 +63,12 @@ const FeatureList: FeatureItem[] = [
     ),
   },
   {
-    titleId: 'homepage.features.distributablePacks.title',
-    titleDefault: 'Distributable Packs',
+    titleId: 'homepage.features.distributableModules.title',
+    titleDefault: 'Distributable Modules',
     icon: '📦',
     description: (
-      <Translate id="homepage.features.distributablePacks.description">
-        Bundle commands and scripts into packs for easy sharing and distribution. Import packs from files or URLs with a single command.
+      <Translate id="homepage.features.distributableModules.description">
+        Bundle commands and scripts into modules for easy sharing and distribution. Import modules from files or URLs with a single command.
       </Translate>
     ),
   },

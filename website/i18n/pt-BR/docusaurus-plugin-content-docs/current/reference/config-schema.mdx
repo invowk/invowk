@@ -52,7 +52,7 @@ Se a engine preferida não estiver disponível, o Invowk faz fallback para a out
 **Obrigatório:** Não  
 **Padrão:** `[]`
 
-Diretórios adicionais para buscar invkfiles e packs.
+Diretórios adicionais para buscar invkfiles e módulos.
 
 <Snippet id="reference/config/search-paths-example" />
 
@@ -215,7 +215,7 @@ Configuração de auto-provisionamento para imagens container.
 **Obrigatório:** Não  
 **Padrão:** `true`
 
-Habilita o provisionamento automático do binário do invowk e packs em containers.
+Habilita o provisionamento automático do binário do invowk e módulos em containers.
 
 ### binary_path
 
@@ -225,13 +225,13 @@ Habilita o provisionamento automático do binário do invowk e packs em containe
 
 Sobrescreve o caminho do binário do invowk para provisionar.
 
-### packs_paths
+### modules_paths
 
-**Tipo:** `[...string]`  
-**Obrigatório:** Não  
+**Tipo:** `[...string]`
+**Obrigatório:** Não
 **Padrão:** `[]`
 
-Diretórios adicionais de packs para provisionar em containers.
+Diretórios adicionais de módulos para provisionar em containers.
 
 ### cache_dir
 

@@ -387,12 +387,12 @@
   "homepage.features.interactiveTui.description": {
     "message": "Componentes de UI de terminal integrados (como gum) para criar scripts interativos: prompts de entrada, seleções, confirmações, spinners e mais."
   },
-  "homepage.features.distributablePacks.title": {
-    "message": "Packs Distribuíveis",
-    "description": "Title for the Distributable Packs feature"
+  "homepage.features.distributableModules.title": {
+    "message": "Módulos Distribuíveis",
+    "description": "Title for the Distributable Modules feature"
   },
-  "homepage.features.distributablePacks.description": {
-    "message": "Empacote comandos e scripts em packs para fácil compartilhamento e distribuição. Importe packs de arquivos ou URLs com um único comando."
+  "homepage.features.distributableModules.description": {
+    "message": "Empacote comandos e scripts em módulos para fácil compartilhamento e distribuição. Importe módulos de arquivos ou URLs com um único comando."
   },
   "theme.SearchBar.label": {
     "message": "Pesquisar",

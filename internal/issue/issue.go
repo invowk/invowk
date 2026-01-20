@@ -449,7 +449,7 @@ The command cannot run because some dependencies are not available.
 ## Things you can try:
 - Install the missing tools listed above
 - Check that the tools are in your PATH
-- Ensure referenced commands exist and are discoverable (invkfiles, packs, or configured search paths)
+- Ensure referenced commands exist and are discoverable (invkfiles, modules, or configured search paths)
 - List discovered commands to see what invowk can find:
 ~~~
 $ invowk cmd --list

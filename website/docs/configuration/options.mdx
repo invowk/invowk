@@ -34,7 +34,7 @@ If the preferred engine is not available, Invowk falls back to the other engine 
 **Type:** `[...string]`  
 **Default:** `[]`
 
-Additional directories to search for invkfiles and packs. Paths are searched in order after the current directory.
+Additional directories to search for invkfiles and modules. Paths are searched in order after the current directory.
 
 <Snippet id="config/search-paths" />
 
@@ -142,7 +142,7 @@ Configures container runtime behavior.
 **Type:** `bool`  
 **Default:** `true`
 
-Enables automatic provisioning of the invowk binary and packs into container images.
+Enables automatic provisioning of the invowk binary and modules into container images.
 When enabled, Invowk builds a cached, derived image for every container run by attaching a small provisioned layer on top of your base image. If provisioning fails, Invowk warns and uses the base image.
 
 #### container.auto_provision.binary_path
@@ -152,12 +152,12 @@ When enabled, Invowk builds a cached, derived image for every container run by a
 
 Overrides the path to the invowk binary to provision into containers.
 
-#### container.auto_provision.packs_paths
+#### container.auto_provision.modules_paths
 
-**Type:** `[...string]`  
+**Type:** `[...string]`
 **Default:** `[]`
 
-Additional directories to search for packs to provision into containers.
+Additional directories to search for modules to provision into containers.
 
 #### container.auto_provision.cache_dir
 

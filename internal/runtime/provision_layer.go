@@ -15,12 +15,12 @@ import (
 )
 
 // LayerProvisioner creates ephemeral container image layers that include
-// invowk resources (binary, packs, etc.) on top of a base image.
+// invowk resources (binary, modules, etc.) on top of a base image.
 //
 // The provisioned images are cached based on a hash of:
 // - Base image digest
 // - invowk binary hash
-// - packs directory hash
+// - modules directory hash
 //
 // This allows fast reuse when resources haven't changed.
 type LayerProvisioner struct {
@@ -264,7 +264,7 @@ func (p *LayerProvisioner) generateDockerfile(baseImage string) string {
 
 	sb.WriteString(fmt.Sprintf("FROM %s\n\n", baseImage))
 	sb.WriteString("# Invowk auto-provisioned layer\n")
-	sb.WriteString("# This layer adds invowk binary and packs to enable nested invowk commands\n\n")
+	sb.WriteString("# This layer adds invowk binary and modules to enable nested invowk commands\n\n")
 
 	// Copy invowk binary
 	if p.config.InvowkBinaryPath != "" {

@@ -34,7 +34,7 @@ Se a engine preferida não estiver disponível, o Invowk faz fallback para a out
 **Tipo:** `[...string]`  
 **Padrão:** `[]`
 
-Diretórios adicionais para buscar invkfiles e packs. Caminhos são buscados em ordem após o diretório atual.
+Diretórios adicionais para buscar invkfiles e módulos. Caminhos são buscados em ordem após o diretório atual.
 
 <Snippet id="config/search-paths" />
 
@@ -142,7 +142,7 @@ Configura o comportamento do runtime container.
 **Tipo:** `bool`  
 **Padrão:** `true`
 
-Habilita o provisionamento automático do binário do invowk e packs dentro dos containers.
+Habilita o provisionamento automático do binário do invowk e módulos dentro dos containers.
 Quando habilitado, o Invowk cria uma imagem derivada em cache para cada execução de container, anexando uma pequena camada de provisionamento sobre a imagem base. Se o provisionamento falhar, o Invowk avisa e usa a imagem base.
 
 #### container.auto_provision.binary_path
@@ -152,12 +152,12 @@ Quando habilitado, o Invowk cria uma imagem derivada em cache para cada execuç�
 
 Sobrescreve o caminho do binário do invowk para provisionar.
 
-#### container.auto_provision.packs_paths
+#### container.auto_provision.modules_paths
 
-**Tipo:** `[...string]`  
+**Tipo:** `[...string]`
 **Padrão:** `[]`
 
-Diretórios adicionais de packs para provisionar dentro dos containers.
+Diretórios adicionais de módulos para provisionar dentro dos containers.
 
 #### container.auto_provision.cache_dir
 

@@ -566,7 +566,7 @@ func (r *ContainerRuntime) buildInterpreterCommand(ctx *ExecutionContext, script
 }
 
 // ensureProvisionedImage ensures the container image exists and is provisioned
-// with invowk resources (binary, packs, etc.). This enables nested invowk commands
+// with invowk resources (binary, modules, etc.). This enables nested invowk commands
 // inside containers.
 func (r *ContainerRuntime) ensureProvisionedImage(ctx *ExecutionContext, cfg invkfileContainerConfig, invowkDir string) (imageName string, cleanup func(), err error) {
 	// First, ensure the base image exists

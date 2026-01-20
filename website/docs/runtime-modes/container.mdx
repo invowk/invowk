@@ -278,7 +278,7 @@ Here's a full-featured container command:
 
 ## Auto-provisioning
 
-When `container.auto_provision.enabled` is `true` (default), Invowk builds a cached, derived image by attaching a small provisioned layer on top of your base image (either the `image` you specify or the image built from your Containerfile/Dockerfile). That layer includes the `invowk` binary and any packs, so `invowk` commands are available inside the container.
+When `container.auto_provision.enabled` is `true` (default), Invowk builds a cached, derived image by attaching a small provisioned layer on top of your base image (either the `image` you specify or the image built from your Containerfile/Dockerfile). That layer includes the `invowk` binary and any modules, so `invowk` commands are available inside the container.
 
 Auto-provisioning runs for every container execution, not just interactive mode. The derived image is cached as `invowk-provisioned:<hash>` and reused; if provisioning fails, Invowk warns and runs the base image instead.
 

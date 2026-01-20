@@ -1050,7 +1050,7 @@ func stopSSHServer() {
 // - container: validated against the container's default shell from within the container
 //
 // Note: `depends_on.cmds` is an existence check only. Invowk validates that referenced
-// commands are discoverable (in this invkfile, packs, or configured search paths),
+// commands are discoverable (in this invkfile, modules, or configured search paths),
 // but it does not execute them automatically.
 func validateDependencies(cmdInfo *discovery.CommandInfo, registry *runtime.Registry, parentCtx *runtime.ExecutionContext) error {
 	// Merge root-level, command-level, and implementation-level dependencies

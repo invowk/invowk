@@ -278,7 +278,7 @@ Aqui está um comando container com todos os recursos:
 
 ## Auto-provisionamento
 
-Quando `container.auto_provision.enabled` é `true` (padrão), o Invowk cria uma imagem derivada em cache ao anexar uma pequena camada de provisionamento sobre a sua imagem base (seja a `image` especificada ou a imagem construída pelo Containerfile/Dockerfile). Essa camada inclui o binário do `invowk` e quaisquer packs, para que comandos `invowk` estejam disponíveis dentro do container.
+Quando `container.auto_provision.enabled` é `true` (padrão), o Invowk cria uma imagem derivada em cache ao anexar uma pequena camada de provisionamento sobre a sua imagem base (seja a `image` especificada ou a imagem construída pelo Containerfile/Dockerfile). Essa camada inclui o binário do `invowk` e quaisquer módulos, para que comandos `invowk` estejam disponíveis dentro do container.
 
 O auto-provisionamento ocorre em toda execução de container, não apenas no modo interativo. A imagem derivada é cacheada como `invowk-provisioned:<hash>` e reutilizada; se o provisionamento falhar, o Invowk avisa e usa a imagem base.
 

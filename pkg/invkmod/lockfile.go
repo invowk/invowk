@@ -129,7 +129,6 @@ func (l *LockFile) toCUE() string {
 
 // parseLockFileCUE parses a CUE-format lock file.
 // This is a simplified parser for the lock file format.
-// It supports both the current "modules:" key and the legacy "packs:" key for migration.
 func parseLockFileCUE(content string) (*LockFile, error) {
 	lock := NewLockFile()
 
@@ -162,8 +161,8 @@ func parseLockFileCUE(content string) (*LockFile, error) {
 			continue
 		}
 
-		// Track modules block (supports both "modules:" and legacy "packs:" key)
-		if strings.HasPrefix(line, "modules:") || strings.HasPrefix(line, "packs:") {
+		// Track modules block
+		if strings.HasPrefix(line, "modules:") {
 			inModules = true
 			continue
 		}
