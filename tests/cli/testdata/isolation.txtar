@@ -1,0 +1,12 @@
+# Test: Environment variable isolation (11-isolation.tape equivalent)
+# Tests that INVOWK_ARG_* and INVOWK_FLAG_* are isolated between nested commands
+
+# Test 1: isolation virtual - demonstrates env var isolation in virtual runtime
+exec invowk cmd 'isolation virtual'
+stdout '=== Virtual Runtime Isolation Demo ==='
+stdout 'Parent values \(virtual runtime\):'
+stdout 'INVOWK_ARG_DATA'
+stdout 'INVOWK_FLAG_MODE'
+stdout 'The isolation mechanism works identically in virtual runtime'
+stdout 'INVOWK_ARG_\* and INVOWK_FLAG_\* variables are filtered'
+! stderr .

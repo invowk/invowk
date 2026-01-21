@@ -28,73 +28,107 @@ func TestExample(t *testing.T) {
 }
 ```
 
-## VHS Integration Tests
+## CLI Integration Tests (testscript)
 
-VHS-based integration tests live in `vhs/` and test CLI input/output behavior.
+CLI integration tests use [testscript](https://pkg.go.dev/github.com/rogpeppe/go-internal/testscript) for deterministic output verification. Tests live in `tests/cli/testdata/` as `.txtar` files.
 
-### Running VHS Tests
+### Running CLI Tests
 
 ```bash
-make test-vhs          # Run all VHS tests
-make test-vhs-update   # Update golden files
-make test-vhs-validate # Validate tape syntax
+make test-cli    # Run CLI integration tests
+make test        # Runs all tests including CLI tests
 ```
 
-### Writing VHS Tapes
+### Writing testscript Tests
 
-Tape files use a declarative format:
+Test files use the txtar format with inline assertions:
 
-```tape
-# NN-category.tape - Description
-Output vhs/output/NN-category.txt
+```txtar
+# Test: Basic command execution
+exec invowk cmd hello
+stdout 'Hello from invowk!'
+! stderr .
 
-Set Shell "bash"
-Set FontSize 14
-Set Width 1280
-Set Height 720
-Set TypingSpeed 50ms
-
-# Test: description
-Type "./bin/invowk cmd 'command name'"
-Enter
-Sleep 500ms
+# Test: Command with flags (use -- to separate invowk flags from command flags)
+exec invowk cmd 'flags validation' -- --env=staging
+stdout '=== Flag Validation Demo ==='
+! stderr .
 ```
 
-### Required VHS Settings
+### testscript Syntax Reference
 
-**CRITICAL: All VHS tapes MUST use these settings for deterministic, working tests:**
+| Command | Description |
+|---------|-------------|
+| `exec cmd args...` | Run a command |
+| `stdout 'pattern'` | Assert stdout matches regex pattern |
+| `stderr 'pattern'` | Assert stderr matches regex pattern |
+| `! stdout .` | Assert stdout is empty |
+| `! stderr .` | Assert stderr is empty |
+| `env VAR=value` | Set environment variable |
+| `cd path` | Change working directory |
 
-| Setting | Value | Reason |
-|---------|-------|--------|
-| `Width` | `1280` | VHS requires minimum 120x120 dimensions |
-| `Height` | `720` | Standard HD resolution, well above minimum |
-| `TypingSpeed` | `50ms` | **NOT 0ms** - Zero causes non-deterministic frame capture |
-| `FontSize` | `14` | Consistent rendering across environments |
+### Environment Isolation
 
-### Why TypingSpeed Must Be Non-Zero
+testscript runs tests in an isolated environment:
+- `HOME` is set to `/no-home` by default
+- `USER` and other env vars are not passed through
+- Use `env VAR=value` to explicitly set required variables
 
-With `TypingSpeed 0ms`, VHS batches characters non-deterministically, causing frame captures to vary between runs. For example:
-- Run 1 might capture: `> ./bin/invowk cmd hello`
-- Run 2 might capture: `> ./bin/invowk cmd hell` (partial)
+Example for tests that need environment variables:
 
-Using `50ms` ensures each character is captured in sequence, producing deterministic output.
+```txtar
+env HOME=/test-home
+env USER=testuser
 
-### Key VHS Patterns
+exec invowk cmd 'deps env single'
+stdout 'HOME = '
+```
 
-- **Deterministic timing**: Use `Set TypingSpeed 50ms` (not 0ms) and fixed `Sleep` values.
-- **Text output**: Use `Output *.txt` for text capture (not video).
-- **Normalization**: Variable content (paths, timestamps) is normalized via `normalize.sh`.
-- **Deduplication**: The `normalize.sh` script uses `| uniq` to collapse repeated frames.
-- **Golden files**: Committed to `vhs/golden/`, updated via `make test-vhs-update`.
-- **Native/Virtual only**: Skip container runtime tests to avoid Docker/Podman dependencies.
+### Flag Separator (`--`)
 
-### When to Add VHS Tests
+When passing flags to invowk commands (not to invowk itself), use `--` to separate:
 
-Add VHS tests when:
+```txtar
+# WRONG: --env is interpreted as invowk global flag
+exec invowk cmd 'flags validation' --env=staging
+
+# CORRECT: -- separates invowk flags from command flags
+exec invowk cmd 'flags validation' -- --env=staging
+```
+
+### Current Test Files
+
+| File | Description |
+|------|-------------|
+| `simple.txtar` | Basic hello + env hierarchy |
+| `virtual.txtar` | Virtual shell runtime |
+| `deps_tools.txtar` | Tool dependency checks |
+| `deps_files.txtar` | File dependency checks |
+| `deps_caps.txtar` | Capability checks |
+| `deps_custom.txtar` | Custom validation |
+| `deps_env.txtar` | Environment dependencies |
+| `flags.txtar` | Command flags |
+| `args.txtar` | Positional arguments |
+| `env.txtar` | Environment configuration |
+| `isolation.txtar` | Variable isolation |
+
+### When to Add CLI Tests
+
+Add CLI tests when:
 - Adding new CLI commands or subcommands
 - Changing command output format
 - Modifying flag/argument handling
 - Testing environment variable behavior
 
-For test commands, see `docs/agents/commands.md`.
-For VHS details, see `vhs/README.md`.
+## VHS Demo Recordings
+
+VHS is used **only for generating demo GIFs** for documentation and website, not for CI testing.
+
+### Generating Demos
+
+```bash
+make vhs-demos     # Generate all demo GIFs (requires VHS, ffmpeg, ttyd)
+make vhs-validate  # Validate VHS tape syntax
+```
+
+Demo tapes live in `vhs/demos/`. See `vhs/README.md` for details.

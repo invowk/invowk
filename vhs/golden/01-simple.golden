@@ -1,5 +1,0 @@
-Hello from invowk!
-=== Environment Variable Hierarchy ===
-APP_ENV: development (from root-level, not overridden)
-LOG_LEVEL: debug (from command-level, overrides root)
-RUNTIME: native (from implementation-level, overrides command)

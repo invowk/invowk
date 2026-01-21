@@ -1,0 +1,15 @@
+# Test: Basic command execution (01-simple.tape equivalent)
+# Tests the simplest native runtime commands
+
+# Test 1: hello command - simplest possible invowk command
+exec invowk cmd hello
+stdout 'Hello from invowk!'
+! stderr .
+
+# Test 2: env hierarchy - demonstrates environment variable precedence
+exec invowk cmd 'env hierarchy'
+stdout '=== Environment Variable Hierarchy ==='
+stdout 'APP_ENV: development'
+stdout 'LOG_LEVEL: debug'
+stdout 'RUNTIME: native'
+! stderr .

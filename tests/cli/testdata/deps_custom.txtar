@@ -1,0 +1,12 @@
+# Test: Custom check dependencies (06-deps-custom.tape equivalent)
+# Tests the custom validation script feature
+
+# Test 1: deps check exitcode - validates exit code of a check script
+exec invowk cmd 'deps check exitcode'
+stdout 'Custom exit code check passed!'
+! stderr .
+
+# Test 2: deps check output - validates output pattern of a check script
+exec invowk cmd 'deps check output'
+stdout 'Custom output check passed!'
+! stderr .

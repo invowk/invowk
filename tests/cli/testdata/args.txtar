@@ -1,0 +1,37 @@
+# Test: Positional argument handling (09-args.tape equivalent)
+# Tests args: simple, optional, typed, validated
+#
+# Note: These tests verify the command structure and demo output.
+# Actual argument passing via `invowk cmd <name> <arg>` requires
+# argDefs to be loaded (a known limitation for direct runCommand calls).
+
+# Test 1: args simple - demonstrates argument structure
+exec invowk cmd 'args simple'
+stdout '=== Simple Positional Argument Demo ==='
+stdout 'You provided the following argument:'
+stdout 'INVOWK_ARG_NAME'
+! stderr .
+
+# Test 2: args optional - required + optional arguments
+exec invowk cmd 'args optional'
+stdout '=== Required \+ Optional Arguments Demo ==='
+stdout 'Arguments received:'
+stdout 'INVOWK_ARG_NAME'
+stdout 'INVOWK_ARG_GREETING'
+! stderr .
+
+# Test 3: args typed - typed arguments (int, float)
+exec invowk cmd 'args typed'
+stdout '=== Typed Arguments Demo ==='
+stdout 'Arguments received:'
+stdout 'INVOWK_ARG_WIDTH \(int\)'
+stdout 'INVOWK_ARG_HEIGHT \(int\)'
+stdout 'INVOWK_ARG_SCALE \(float\)'
+! stderr .
+
+# Test 4: args validated - regex-validated arguments
+exec invowk cmd 'args validated'
+stdout '=== Validated Arguments Demo ==='
+stdout 'INVOWK_ARG_ENV'
+stdout 'INVOWK_ARG_VERSION'
+! stderr .
