@@ -65,7 +65,7 @@ be organized hierarchically with support for dependencies.
   3. Run commands with: invowk cmd <command-name>
 
 ` + subtitleStyle.Render("Examples:") + `
-  invowk cmd list           List all available commands
+  invowk cmd                List all available commands
   invowk cmd build          Run the 'build' command
   invowk cmd test.unit      Run nested 'test.unit' command
   invowk init               Create a new invkfile

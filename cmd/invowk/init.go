@@ -56,7 +56,7 @@ func runInit(cmd *cobra.Command, args []string) error {
 	fmt.Println()
 	fmt.Println(subtitleStyle.Render("Next steps:"))
 	fmt.Println("  1. Edit the invkfile to add your commands")
-	fmt.Println("  2. Run 'invowk cmd list' to see available commands")
+	fmt.Println("  2. Run 'invowk cmd' to see available commands")
 	fmt.Println("  3. Run 'invowk cmd <command>' to execute a command")
 
 	return nil
