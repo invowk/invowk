@@ -147,18 +147,23 @@ Argumentos são extraídos em ordem, independentemente das posições das flags.
 
 ## Argumentos vs Subcomandos
 
-Um comando não pode ter ambos argumentos e subcomandos. Se um comando tem subcomandos, argumentos são ignorados:
+Um comando não pode ter ambos argumentos e subcomandos. Se um comando define `args` mas também tem subcomandos, invowk falha com um erro:
 
 ```
-Warning: command has both args and subcommands!
+✖ Invalid command structure
 
-Command 'deploy' defines positional arguments but also has subcommands.
-Subcommands take precedence; positional arguments will be ignored.
+Command 'deploy' has both args and subcommands in invkfile.cue
+  defined args: env
+  subcommands: deploy status, deploy logs
+
+Remove either the 'args' field or the subcommands to resolve this conflict.
 ```
+
+Esta restrição existe porque parsers de CLI interpretam argumentos posicionais após o nome de um comando como potenciais nomes de subcomandos, tornando a combinação ambígua.
 
 Escolha uma abordagem:
-- Use argumentos para comandos simples
-- Use subcomandos para hierarquias de comando complexas
+- **Argumentos**: Para comandos folha com entradas diretas
+- **Subcomandos**: Para hierarquias de comando complexas onde usuários selecionam uma ação
 
 ## Melhores Práticas
 

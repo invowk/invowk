@@ -1025,23 +1025,19 @@ cmds: [
 
 ### Arguments vs Subcommands
 
-A command cannot have both positional arguments and subcommands. If a command defines `args` but also has subcommands (commands with the same prefix), the subcommands take precedence and a warning is shown:
+A command cannot have both positional arguments and subcommands. If a command defines `args` but also has subcommands (commands with the same prefix), invowk will fail with an error:
 
 ```
-⚠ Conflict: command has both args and subcommands!
+✖ Invalid command structure
 
-Command 'deploy' defines positional arguments but also has subcommands.
-Subcommands take precedence; positional arguments will be ignored.
-
-Defined args (ignored):
-  • env - Target environment
-
-Subcommands:
-  • deploy status
-  • deploy logs
+Command 'deploy' has both args and subcommands in invkfile.cue
+  defined args: env
+  subcommands: deploy status, deploy logs
 
 Remove either the 'args' field or the subcommands to resolve this conflict.
 ```
+
+This is enforced because CLI parsers interpret positional arguments after a command as potential subcommand names, making the combination ambiguous.
 
 ## Platform Compatibility
 
