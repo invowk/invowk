@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: MPL-2.0
+#
+# Pre-commit hooks for Invowk
+#
+# Install: pip install pre-commit && pre-commit install
+# Or: make install-hooks
+
+repos:
+  - repo: https://github.com/golangci/golangci-lint
+    rev: v2.1.6
+    hooks:
+      - id: golangci-lint
+        args: [--config=.golangci.toml]

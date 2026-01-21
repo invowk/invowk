@@ -179,6 +179,14 @@ lint:
 	@echo "Running golangci-lint..."
 	golangci-lint run ./...
 
+# Install pre-commit hooks
+.PHONY: install-hooks
+install-hooks:
+	@echo "Installing pre-commit hooks..."
+	@command -v pre-commit >/dev/null 2>&1 || { echo "Error: pre-commit not installed. Run: pip install pre-commit"; exit 1; }
+	pre-commit install
+	@echo "Pre-commit hooks installed successfully."
+
 # Show binary sizes comparison
 .PHONY: size
 size: $(BUILD_DIR)
@@ -261,6 +269,7 @@ help:
 	@echo "  tidy           Tidy go.mod dependencies"
 	@echo "  license-check  Verify SPDX headers in all Go files"
 	@echo "  lint           Run golangci-lint on all packages"
+	@echo "  install-hooks  Install pre-commit hooks (requires pre-commit)"
 	@echo "  size           Compare binary sizes (debug vs stripped vs UPX)"
 	@echo "  help           Show this help message"
 	@echo ""
