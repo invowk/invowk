@@ -1,32 +1,23 @@
-> ./bin/invowk cmd 'deps env single'
-> ./bin/invowk cmd 'deps env single'
-> ./bin/invowk cmd 'deps env single'
 === Single Env Var Dependency Demo ===
 Required environment variable is set:
   HOME = '[HOME]'
 The env_vars dependency validated that HOME exists in your
 environment before the command started.
-> ./bin/invowk cmd 'deps env single'
 === Single Env Var Dependency Demo ===
 Required environment variable is set:
   HOME = '[HOME]'
 The env_vars dependency validated that HOME exists in your
 environment before the command started.
-> ./bin/invowk cmd 'deps env multiple'
-> ./bin/invowk cmd 'deps env single'
 === Single Env Var Dependency Demo ===
 Required environment variable is set:
   HOME = '[HOME]'
 The env_vars dependency validated that HOME exists in your
 environment before the command started.
-> ./bin/invowk cmd 'deps env multiple'
-> ./bin/invowk cmd 'deps env single'
 === Single Env Var Dependency Demo ===
 Required environment variable is set:
   HOME = '[HOME]'
 The env_vars dependency validated that HOME exists in your
 environment before the command started.
-> ./bin/invowk cmd 'deps env multiple'
 === Multiple Env Var Dependencies Demo ===
 All required environment variables are set:
   HOME = '[HOME]'

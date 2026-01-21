@@ -27,9 +27,10 @@ var (
 
 // Normalizer processes VHS output to produce deterministic, comparable text.
 type Normalizer struct {
-	cfg          *Config
-	rules        []compiledRule
-	separatorSet map[rune]struct{}
+	cfg             *Config
+	rules           []compiledRule
+	separatorSet    map[rune]struct{}
+	promptLineRegex *regexp.Regexp // Compiled prompt line pattern (nil if not enabled)
 }
 
 // NewNormalizer creates a new normalizer with the given configuration.
@@ -63,10 +64,18 @@ func NewNormalizer(cfg *Config) (*Normalizer, error) {
 		}
 	}
 
+	// Compile prompt line pattern if enabled
+	var promptLineRegex *regexp.Regexp
+	if cfg.VHSArtifacts.StripPromptLines && cfg.VHSArtifacts.PromptLinePattern != "" {
+		// Pattern already validated by ValidateConfig
+		promptLineRegex = regexp.MustCompile(cfg.VHSArtifacts.PromptLinePattern)
+	}
+
 	return &Normalizer{
-		cfg:          cfg,
-		rules:        rules,
-		separatorSet: separatorSet,
+		cfg:             cfg,
+		rules:           rules,
+		separatorSet:    separatorSet,
+		promptLineRegex: promptLineRegex,
 	}, nil
 }
 
@@ -74,10 +83,10 @@ func NewNormalizer(cfg *Config) (*Normalizer, error) {
 // The processing pipeline:
 //  1. Read all lines
 //  2. Strip ANSI escape codes (if enabled)
-//  3. Filter VHS artifacts (frame separators, empty prompts, unstable frames)
+//  3. Filter VHS artifacts (frame separators, empty prompts, unstable frames, prompt lines)
 //  4. Apply substitution rules in order
-//  5. Deduplicate consecutive identical lines (if enabled)
-//  6. Remove empty lines (if enabled)
+//  5. Remove empty lines (if enabled) - before deduplication to ensure proper consecutive detection
+//  6. Deduplicate consecutive identical lines (if enabled)
 //  7. Write output
 func (n *Normalizer) Normalize(r io.Reader, w io.Writer) error {
 	scanner := bufio.NewScanner(r)
@@ -101,6 +110,9 @@ func (n *Normalizer) Normalize(r io.Reader, w io.Writer) error {
 		if n.cfg.VHSArtifacts.StripUnstableFrames && n.isUnstableFrame(line) {
 			continue
 		}
+		if n.cfg.VHSArtifacts.StripPromptLines && n.isPromptLine(line) {
+			continue
+		}
 
 		// Step 4: Apply substitution rules
 		for _, rule := range n.rules {
@@ -114,14 +126,15 @@ func (n *Normalizer) Normalize(r io.Reader, w io.Writer) error {
 		return fmt.Errorf("error reading input: %w", err)
 	}
 
-	// Step 5: Deduplicate consecutive identical lines
-	if n.cfg.VHSArtifacts.Deduplicate {
-		lines = n.deduplicate(lines)
-	}
-
-	// Step 6: Remove empty lines (if enabled)
+	// Step 5: Remove empty lines (if enabled) - BEFORE deduplication
+	// This ensures empty lines don't prevent consecutive identical lines from being deduplicated
 	if n.cfg.Filters.StripEmpty {
 		lines = n.removeEmpty(lines)
+	}
+
+	// Step 6: Deduplicate consecutive identical lines
+	if n.cfg.VHSArtifacts.Deduplicate {
+		lines = n.deduplicate(lines)
 	}
 
 	// Step 7: Write output
@@ -196,6 +209,16 @@ func (n *Normalizer) isUnstableFrame(line string) bool {
 	}
 
 	return false
+}
+
+// isPromptLine returns true if the line matches the prompt line pattern.
+// This strips all command lines (e.g., "> ./bin/invowk cmd hello") to eliminate
+// timing-dependent duplication from VHS frame capture.
+func (n *Normalizer) isPromptLine(line string) bool {
+	if n.promptLineRegex == nil {
+		return false
+	}
+	return n.promptLineRegex.MatchString(line)
 }
 
 // deduplicate removes consecutive duplicate lines.

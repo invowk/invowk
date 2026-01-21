@@ -17,6 +17,15 @@ vhs_artifacts: {
 	// Detects lines like "./bin/Hello from invowk!" where command path bleeds into output
 	strip_unstable_frames: true
 
+	// Remove all prompt lines matching the prompt_line_pattern regex.
+	// This eliminates timing-dependent command duplication from VHS frame capture.
+	// Example: "> ./bin/invowk cmd hello" lines are removed, keeping only command output.
+	strip_prompt_lines: true
+
+	// Regex pattern matching prompt lines to strip (when strip_prompt_lines is true)
+	// Matches lines starting with optional whitespace, ">", space, and any content
+	prompt_line_pattern: "^\\s*>\\s+.*$"
+
 	// Remove consecutive duplicate lines (like `uniq`)
 	deduplicate: true
 

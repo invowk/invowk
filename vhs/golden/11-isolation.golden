@@ -1,6 +1,3 @@
-> ./bin/invowk cmd 'isolation virtual'
-> ./bin/invowk cmd 'isolation virtual'
-> ./bin/invowk cmd 'isolation virtual'
 === Virtual Runtime Isolation Demo ===
 Parent values (virtual runtime):
   INVOWK_ARG_DATA = ''

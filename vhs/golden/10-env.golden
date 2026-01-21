@@ -1,6 +1,3 @@
-> ./bin/invowk cmd 'env files basic'
-> ./bin/invowk cmd 'env files basic'
-> ./bin/invowk cmd 'env files basic'
 ==========================================
   Basic env.files Demo
 ==========================================
@@ -14,7 +11,17 @@ The env.files field loads dotenv files before
 command execution. Paths are relative to the
 invkfile location.
 ==========================================
-> ./bin/invowk cmd 'env files basic'
+  Basic env.files Demo
+==========================================
+Variables loaded from examples/.env:
+  APP_NAME    = 'invowk-demo'
+  APP_VERSION = '1.0.0'
+  APP_ENV     = 'development'
+  ENABLE_DEBUG= 'true'
+  LOG_LEVEL   = 'info'
+The env.files field loads dotenv files before
+command execution. Paths are relative to the
+invkfile location.
 ==========================================
   Basic env.files Demo
 ==========================================
@@ -28,9 +35,6 @@ The env.files field loads dotenv files before
 command execution. Paths are relative to the
 invkfile location.
 ==========================================
-> ./bin/invowk cmd 'env vars override'
-> ./bin/invowk cmd 'env files basic'
-==========================================
   Basic env.files Demo
 ==========================================
 Variables loaded from examples/.env:
@@ -42,23 +46,6 @@ Variables loaded from examples/.env:
 The env.files field loads dotenv files before
 command execution. Paths are relative to the
 invkfile location.
-==========================================
-> ./bin/invowk cmd 'env vars override'
-> ./bin/invowk cmd 'env files basic'
-==========================================
-  Basic env.files Demo
-==========================================
-Variables loaded from examples/.env:
-  APP_NAME    = 'invowk-demo'
-  APP_VERSION = '1.0.0'
-  APP_ENV     = 'development'
-  ENABLE_DEBUG= 'true'
-  LOG_LEVEL   = 'info'
-The env.files field loads dotenv files before
-command execution. Paths are relative to the
-invkfile location.
-==========================================
-> ./bin/invowk cmd 'env vars override'
 ==========================================
   env.files + env.vars Demo
 ==========================================

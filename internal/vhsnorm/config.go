@@ -37,6 +37,13 @@ type (
 		// This detects frames captured mid-render where command text bleeds into output.
 		// Example: "./bin/Hello from invowk!" (should be separate lines)
 		StripUnstableFrames bool `json:"strip_unstable_frames"`
+		// StripPromptLines removes all lines that match the prompt line pattern.
+		// This eliminates timing-dependent command duplication in VHS output.
+		// Example: "> ./bin/invowk cmd hello" lines are removed, keeping only output.
+		StripPromptLines bool `json:"strip_prompt_lines"`
+		// PromptLinePattern is a regex pattern matching prompt lines to strip.
+		// Default: "^\\s*>\\s+.*$" (matches "> command" lines).
+		PromptLinePattern string `json:"prompt_line_pattern"`
 		// Deduplicate removes consecutive duplicate lines.
 		Deduplicate bool `json:"deduplicate"`
 		// PromptChar is the prompt character to detect empty prompts (default: ">").
@@ -79,6 +86,8 @@ func DefaultConfig() *Config {
 			StripFrameSeparators: true,
 			StripEmptyPrompts:    true,
 			StripUnstableFrames:  true,
+			StripPromptLines:     true,
+			PromptLinePattern:    `^\s*>\s+.*$`,
 			Deduplicate:          true,
 			PromptChar:           ">",
 			SeparatorChars:       []string{"─", "━", "═", "│", "┃", "║"},
@@ -203,6 +212,9 @@ func applyDefaults(cfg Config) Config {
 	if len(cfg.VHSArtifacts.SeparatorChars) == 0 {
 		cfg.VHSArtifacts.SeparatorChars = defaults.VHSArtifacts.SeparatorChars
 	}
+	if cfg.VHSArtifacts.PromptLinePattern == "" {
+		cfg.VHSArtifacts.PromptLinePattern = defaults.VHSArtifacts.PromptLinePattern
+	}
 
 	return cfg
 }
@@ -210,6 +222,13 @@ func applyDefaults(cfg Config) Config {
 // ValidateConfig validates the configuration and compiles all regex patterns.
 // This is called internally by NewNormalizer to provide early error detection.
 func ValidateConfig(cfg *Config) error {
+	// Validate prompt line pattern if stripping is enabled
+	if cfg.VHSArtifacts.StripPromptLines && cfg.VHSArtifacts.PromptLinePattern != "" {
+		if _, err := regexp.Compile(cfg.VHSArtifacts.PromptLinePattern); err != nil {
+			return fmt.Errorf("invalid prompt_line_pattern: %w", err)
+		}
+	}
+
 	for i, rule := range cfg.Substitutions {
 		if rule.Pattern == "" {
 			return fmt.Errorf("substitution rule %d (%s): empty pattern", i, rule.Name)

@@ -281,6 +281,7 @@ func TestNormalizerIsUnstableFrame(t *testing.T) {
 
 func TestNormalizerWithUnstableFrames(t *testing.T) {
 	cfg := DefaultConfig()
+	cfg.VHSArtifacts.StripPromptLines = false // Disable prompt stripping for this test
 	n, err := NewNormalizer(cfg)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -310,6 +311,7 @@ Hello from invowk!
 func TestNormalizerUnstableFramesDisabled(t *testing.T) {
 	cfg := DefaultConfig()
 	cfg.VHSArtifacts.StripUnstableFrames = false
+	cfg.VHSArtifacts.StripPromptLines = false // Disable prompt stripping for this test
 	n, err := NewNormalizer(cfg)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -428,8 +430,9 @@ func TestNormalizerFullPipeline(t *testing.T) {
 
 	// Simulate actual VHS output with all artifacts
 	// Note: VHS captures progressive frames as typing happens, so we get
-	// repeated commands at different stages. The normalizer removes consecutive
-	// duplicates (like `uniq`), but non-consecutive duplicates remain.
+	// repeated commands at different stages. The normalizer removes prompt lines
+	// entirely (to eliminate timing-dependent duplication), frame separators,
+	// and consecutive duplicates.
 	input := `>
 ────────────────────────────────────────────────────────────────────────────────
 >
@@ -450,16 +453,9 @@ Hello from invowk!
 invowk v1.2.3
 `
 
-	// Expected: artifacts removed, consecutive duplicates collapsed,
+	// Expected: prompt lines removed, artifacts removed, consecutive duplicates collapsed,
 	// substitutions applied (version normalized)
-	expected := `> ./bin/invowk cmd hello
-Hello from invowk!
-> ./bin/invowk cmd hello
-Hello from invowk!
-> ./bin/invowk version
-> ./bin/invowk cmd hello
-Hello from invowk!
-> ./bin/invowk version
+	expected := `Hello from invowk!
 invowk [VERSION]
 `
 
@@ -480,8 +476,9 @@ func TestNormalizerWithANSICodes(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
+	// Prompt lines are stripped (after ANSI codes are removed), so only output remains
 	input := "\x1b[1m> \x1b[32m./bin/invowk\x1b[0m cmd hello\nHello World!\n"
-	expected := "> ./bin/invowk cmd hello\nHello World!\n"
+	expected := "Hello World!\n"
 
 	result, err := n.NormalizeString(input)
 	if err != nil {
@@ -616,8 +613,8 @@ Variables loaded from examples/.env:
 ────────────────────────────────────────────────────────────────────────────────
 `
 
-	expected := `> ./bin/invowk cmd 'env files basic'
-==========================================
+	// Expected: prompt lines stripped, only command output remains
+	expected := `==========================================
   Basic env.files Demo
 ==========================================
 Variables loaded from examples/.env:
@@ -636,5 +633,110 @@ Variables loaded from examples/.env:
 
 	if result != expected {
 		t.Errorf("Realistic VHS output normalization failed.\nGot:\n%s\nWant:\n%s", result, expected)
+	}
+}
+
+func TestNormalizerIsPromptLine(t *testing.T) {
+	cfg := DefaultConfig()
+	n, err := NewNormalizer(cfg)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	tests := []struct {
+		name     string
+		line     string
+		expected bool
+	}{
+		// Lines that SHOULD be detected as prompt lines
+		{"simple command", "> ./bin/invowk cmd hello", true},
+		{"command with quotes", "> ./bin/invowk cmd 'env hierarchy'", true},
+		{"command with leading space", "  > ./bin/invowk cmd hello", true},
+		{"multiple spaces after prompt", ">   ./bin/invowk cmd hello", true},
+		{"ls command", "> ls -la", true},
+		{"echo command", "> echo hello", true},
+
+		// Lines that should NOT be detected as prompt lines
+		{"output only", "Hello from invowk!", false},
+		{"empty prompt", ">", false},
+		// Note: ">  " technically matches the pattern, but it's already handled by isEmptyPrompt
+		// in the full pipeline, so this edge case doesn't matter in practice.
+		{"prompt with only spaces", ">  ", true}, // matches pattern (handled by isEmptyPrompt first)
+		{"command output with >", "redirect > file.txt", false},
+		{"empty line", "", false},
+		{"frame separator", "────────────────────────────────", false},
+		{"version output", "invowk v1.2.3", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := n.isPromptLine(tt.line)
+			if result != tt.expected {
+				t.Errorf("isPromptLine(%q) = %v, want %v", tt.line, result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestNormalizerStripPromptLinesDisabled(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.VHSArtifacts.StripPromptLines = false
+	n, err := NewNormalizer(cfg)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// When disabled, prompt lines should be preserved
+	input := `> ./bin/invowk cmd hello
+Hello from invowk!
+> ./bin/invowk version
+invowk v1.2.3
+`
+
+	expected := `> ./bin/invowk cmd hello
+Hello from invowk!
+> ./bin/invowk version
+invowk [VERSION]
+`
+
+	result, err := n.NormalizeString(input)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if result != expected {
+		t.Errorf("With prompt line stripping disabled, prompt lines should remain.\nGot:\n%s\nWant:\n%s", result, expected)
+	}
+}
+
+func TestNormalizerCustomPromptLinePattern(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.VHSArtifacts.StripPromptLines = true
+	cfg.VHSArtifacts.PromptLinePattern = `^\$\s+.*$` // Match "$ command" style prompts
+	n, err := NewNormalizer(cfg)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// With custom pattern, only "$ ..." lines should be stripped
+	input := `$ echo hello
+Hello
+> ./bin/invowk cmd hello
+Hello from invowk!
+`
+
+	// "> ./bin/invowk cmd hello" should remain because pattern matches "$" not ">"
+	expected := `Hello
+> ./bin/invowk cmd hello
+Hello from invowk!
+`
+
+	result, err := n.NormalizeString(input)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if result != expected {
+		t.Errorf("Custom prompt pattern not working correctly.\nGot:\n%s\nWant:\n%s", result, expected)
 	}
 }

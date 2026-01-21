@@ -1,32 +1,23 @@
-> ./bin/invowk cmd 'flags simple'
-> ./bin/invowk cmd 'flags simple'
-> ./bin/invowk cmd 'flags simple'
 === Simple Flags Demo ===
 Flags passed to this command are available as environment variables:
   INVOWK_FLAG_VERBOSE = ''
   INVOWK_FLAG_OUTPUT = ''
 Try: invowk cmd examples flags simple --verbose=true --output=[TMPDIR]
-> ./bin/invowk cmd 'flags simple'
 === Simple Flags Demo ===
 Flags passed to this command are available as environment variables:
   INVOWK_FLAG_VERBOSE = ''
   INVOWK_FLAG_OUTPUT = ''
 Try: invowk cmd examples flags simple --verbose=true --output=[TMPDIR]
-> ./bin/invowk cmd 'flags defaults'
-> ./bin/invowk cmd 'flags simple'
 === Simple Flags Demo ===
 Flags passed to this command are available as environment variables:
   INVOWK_FLAG_VERBOSE = ''
   INVOWK_FLAG_OUTPUT = ''
 Try: invowk cmd examples flags simple --verbose=true --output=[TMPDIR]
-> ./bin/invowk cmd 'flags defaults'
-> ./bin/invowk cmd 'flags simple'
 === Simple Flags Demo ===
 Flags passed to this command are available as environment variables:
   INVOWK_FLAG_VERBOSE = ''
   INVOWK_FLAG_OUTPUT = ''
 Try: invowk cmd examples flags simple --verbose=true --output=[TMPDIR]
-> ./bin/invowk cmd 'flags defaults'
 === Flags with Defaults Demo ===
 These flags have default values if not specified:
   INVOWK_FLAG_ENV = '' (default: development)
@@ -34,13 +25,11 @@ These flags have default values if not specified:
   INVOWK_FLAG_DRY_RUN = '' (default: false)
 Deploying to '' with  retries...
 Try: invowk cmd examples flags defaults --env=production --dry-run=true
-> ./bin/invowk cmd 'flags simple'
 === Simple Flags Demo ===
 Flags passed to this command are available as environment variables:
   INVOWK_FLAG_VERBOSE = ''
   INVOWK_FLAG_OUTPUT = ''
 Try: invowk cmd examples flags simple --verbose=true --output=[TMPDIR]
-> ./bin/invowk cmd 'flags defaults'
 === Flags with Defaults Demo ===
 These flags have default values if not specified:
   INVOWK_FLAG_ENV = '' (default: development)
@@ -48,14 +37,11 @@ These flags have default values if not specified:
   INVOWK_FLAG_DRY_RUN = '' (default: false)
 Deploying to '' with  retries...
 Try: invowk cmd examples flags defaults --env=production --dry-run=true
-> ./bin/invowk cmd 'flags typed'
-> ./bin/invowk cmd 'flags simple'
 === Simple Flags Demo ===
 Flags passed to this command are available as environment variables:
   INVOWK_FLAG_VERBOSE = ''
   INVOWK_FLAG_OUTPUT = ''
 Try: invowk cmd examples flags simple --verbose=true --output=[TMPDIR]
-> ./bin/invowk cmd 'flags defaults'
 === Flags with Defaults Demo ===
 These flags have default values if not specified:
   INVOWK_FLAG_ENV = '' (default: development)
@@ -63,14 +49,11 @@ These flags have default values if not specified:
   INVOWK_FLAG_DRY_RUN = '' (default: false)
 Deploying to '' with  retries...
 Try: invowk cmd examples flags defaults --env=production --dry-run=true
-> ./bin/invowk cmd 'flags typed'
-> ./bin/invowk cmd 'flags simple'
 === Simple Flags Demo ===
 Flags passed to this command are available as environment variables:
   INVOWK_FLAG_VERBOSE = ''
   INVOWK_FLAG_OUTPUT = ''
 Try: invowk cmd examples flags simple --verbose=true --output=[TMPDIR]
-> ./bin/invowk cmd 'flags defaults'
 === Flags with Defaults Demo ===
 These flags have default values if not specified:
   INVOWK_FLAG_ENV = '' (default: development)
@@ -78,7 +61,6 @@ These flags have default values if not specified:
   INVOWK_FLAG_DRY_RUN = '' (default: false)
 Deploying to '' with  retries...
 Try: invowk cmd examples flags defaults --env=production --dry-run=true
-> ./bin/invowk cmd 'flags typed'
 === Typed Flags Demo ===
 These flags have explicit types:
   INVOWK_FLAG_VERBOSE (bool) = ''
@@ -87,13 +69,11 @@ These flags have explicit types:
   INVOWK_FLAG_MESSAGE (string) = ''
 Typed flags are validated:
   - bool: only 'true' or 'false' accepted
-> ./bin/invowk cmd 'flags simple'
 === Simple Flags Demo ===
 Flags passed to this command are available as environment variables:
   INVOWK_FLAG_VERBOSE = ''
   INVOWK_FLAG_OUTPUT = ''
 Try: invowk cmd examples flags simple --verbose=true --output=[TMPDIR]
-> ./bin/invowk cmd 'flags defaults'
 === Flags with Defaults Demo ===
 These flags have default values if not specified:
   INVOWK_FLAG_ENV = '' (default: development)
@@ -101,7 +81,6 @@ These flags have default values if not specified:
   INVOWK_FLAG_DRY_RUN = '' (default: false)
 Deploying to '' with  retries...
 Try: invowk cmd examples flags defaults --env=production --dry-run=true
-> ./bin/invowk cmd 'flags typed'
 === Typed Flags Demo ===
 These flags have explicit types:
   INVOWK_FLAG_VERBOSE (bool) = ''
@@ -110,13 +89,11 @@ These flags have explicit types:
   INVOWK_FLAG_MESSAGE (string) = ''
 Typed flags are validated:
   - bool: only 'true' or 'false' accepted
-> ./bin/invowk cmd 'flags simple'
 === Simple Flags Demo ===
 Flags passed to this command are available as environment variables:
   INVOWK_FLAG_VERBOSE = ''
   INVOWK_FLAG_OUTPUT = ''
 Try: invowk cmd examples flags simple --verbose=true --output=[TMPDIR]
-> ./bin/invowk cmd 'flags defaults'
 === Flags with Defaults Demo ===
 These flags have default values if not specified:
   INVOWK_FLAG_ENV = '' (default: development)
@@ -124,7 +101,6 @@ These flags have default values if not specified:
   INVOWK_FLAG_DRY_RUN = '' (default: false)
 Deploying to '' with  retries...
 Try: invowk cmd examples flags defaults --env=production --dry-run=true
-> ./bin/invowk cmd 'flags typed'
 === Typed Flags Demo ===
 These flags have explicit types:
   INVOWK_FLAG_VERBOSE (bool) = ''
@@ -133,13 +109,11 @@ These flags have explicit types:
   INVOWK_FLAG_MESSAGE (string) = ''
 Typed flags are validated:
   - bool: only 'true' or 'false' accepted
-> ./bin/invowk cmd 'flags simple'
 === Simple Flags Demo ===
 Flags passed to this command are available as environment variables:
   INVOWK_FLAG_VERBOSE = ''
   INVOWK_FLAG_OUTPUT = ''
 Try: invowk cmd examples flags simple --verbose=true --output=[TMPDIR]
-> ./bin/invowk cmd 'flags defaults'
 === Flags with Defaults Demo ===
 These flags have default values if not specified:
   INVOWK_FLAG_ENV = '' (default: development)
@@ -147,7 +121,6 @@ These flags have default values if not specified:
   INVOWK_FLAG_DRY_RUN = '' (default: false)
 Deploying to '' with  retries...
 Try: invowk cmd examples flags defaults --env=production --dry-run=true
-> ./bin/invowk cmd 'flags typed'
 === Typed Flags Demo ===
 These flags have explicit types:
   INVOWK_FLAG_VERBOSE (bool) = ''
@@ -156,13 +129,11 @@ These flags have explicit types:
   INVOWK_FLAG_MESSAGE (string) = ''
 Typed flags are validated:
   - bool: only 'true' or 'false' accepted
-> ./bin/invowk cmd 'flags simple'
 === Simple Flags Demo ===
 Flags passed to this command are available as environment variables:
   INVOWK_FLAG_VERBOSE = ''
   INVOWK_FLAG_OUTPUT = ''
 Try: invowk cmd examples flags simple --verbose=true --output=[TMPDIR]
-> ./bin/invowk cmd 'flags defaults'
 === Flags with Defaults Demo ===
 These flags have default values if not specified:
   INVOWK_FLAG_ENV = '' (default: development)
@@ -170,7 +141,6 @@ These flags have default values if not specified:
   INVOWK_FLAG_DRY_RUN = '' (default: false)
 Deploying to '' with  retries...
 Try: invowk cmd examples flags defaults --env=production --dry-run=true
-> ./bin/invowk cmd 'flags typed'
 === Typed Flags Demo ===
 These flags have explicit types:
   INVOWK_FLAG_VERBOSE (bool) = ''
@@ -179,13 +149,11 @@ These flags have explicit types:
   INVOWK_FLAG_MESSAGE (string) = ''
 Typed flags are validated:
   - bool: only 'true' or 'false' accepted
-> ./bin/invowk cmd 'flags simple'
 === Simple Flags Demo ===
 Flags passed to this command are available as environment variables:
   INVOWK_FLAG_VERBOSE = ''
   INVOWK_FLAG_OUTPUT = ''
 Try: invowk cmd examples flags simple --verbose=true --output=[TMPDIR]
-> ./bin/invowk cmd 'flags defaults'
 === Flags with Defaults Demo ===
 These flags have default values if not specified:
   INVOWK_FLAG_ENV = '' (default: development)
@@ -193,7 +161,6 @@ These flags have default values if not specified:
   INVOWK_FLAG_DRY_RUN = '' (default: false)
 Deploying to '' with  retries...
 Try: invowk cmd examples flags defaults --env=production --dry-run=true
-> ./bin/invowk cmd 'flags typed'
 === Typed Flags Demo ===
 These flags have explicit types:
   INVOWK_FLAG_VERBOSE (bool) = ''
@@ -202,13 +169,11 @@ These flags have explicit types:
   INVOWK_FLAG_MESSAGE (string) = ''
 Typed flags are validated:
   - bool: only 'true' or 'false' accepted
-> ./bin/invowk cmd 'flags simple'
 === Simple Flags Demo ===
 Flags passed to this command are available as environment variables:
   INVOWK_FLAG_VERBOSE = ''
   INVOWK_FLAG_OUTPUT = ''
 Try: invowk cmd examples flags simple --verbose=true --output=[TMPDIR]
-> ./bin/invowk cmd 'flags defaults'
 === Flags with Defaults Demo ===
 These flags have default values if not specified:
   INVOWK_FLAG_ENV = '' (default: development)
@@ -216,7 +181,6 @@ These flags have default values if not specified:
   INVOWK_FLAG_DRY_RUN = '' (default: false)
 Deploying to '' with  retries...
 Try: invowk cmd examples flags defaults --env=production --dry-run=true
-> ./bin/invowk cmd 'flags typed'
 === Typed Flags Demo ===
 These flags have explicit types:
   INVOWK_FLAG_VERBOSE (bool) = ''

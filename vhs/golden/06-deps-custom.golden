@@ -1,14 +1,2 @@
-> ./bin/invowk cmd 'deps check exitcode'
-> ./bin/invowk cmd 'deps check exitcode'
-> ./bin/invowk cmd 'deps check exitcode'
 Custom exit code check passed!
-> ./bin/invowk cmd 'deps check exitcode'
-Custom exit code check passed!
-> ./bin/invowk cmd 'deps check output'
-> ./bin/invowk cmd 'deps check exitcode'
-Custom exit code check passed!
-> ./bin/invowk cmd 'deps check output'
-> ./bin/invowk cmd 'deps check exitcode'
-Custom exit code check passed!
-> ./bin/invowk cmd 'deps check output'
 Custom output check passed!
