@@ -10,8 +10,20 @@ import (
 	"strings"
 )
 
-// ansiPattern matches ANSI escape sequences.
-var ansiPattern = regexp.MustCompile(`\x1b\[[0-9;]*[a-zA-Z]`)
+var (
+	// ansiPattern matches ANSI escape sequences.
+	ansiPattern = regexp.MustCompile(`\x1b\[[0-9;]*[a-zA-Z]`)
+
+	// unstableFramePathOutputPattern detects lines where a path (like "./bin/") is immediately
+	// followed by an uppercase letter, indicating command/output content bleeding together.
+	// Example: "./bin/Hello from invowk!" instead of separate lines.
+	unstableFramePathOutputPattern = regexp.MustCompile(`^\./bin/[A-Z]`)
+
+	// unstableFramePromptMergePattern detects lines with lowercase-to-uppercase transitions
+	// that suggest output bleeding into a prompt line.
+	// Example: "> ./bin/invowk cmd helloHello from" (command merged with output).
+	unstableFramePromptMergePattern = regexp.MustCompile(`[a-z][A-Z][a-z]+ from`)
+)
 
 // Normalizer processes VHS output to produce deterministic, comparable text.
 type Normalizer struct {
@@ -62,7 +74,7 @@ func NewNormalizer(cfg *Config) (*Normalizer, error) {
 // The processing pipeline:
 //  1. Read all lines
 //  2. Strip ANSI escape codes (if enabled)
-//  3. Filter VHS artifacts (frame separators, empty prompts)
+//  3. Filter VHS artifacts (frame separators, empty prompts, unstable frames)
 //  4. Apply substitution rules in order
 //  5. Deduplicate consecutive identical lines (if enabled)
 //  6. Remove empty lines (if enabled)
@@ -84,6 +96,9 @@ func (n *Normalizer) Normalize(r io.Reader, w io.Writer) error {
 			continue
 		}
 		if n.cfg.VHSArtifacts.StripEmptyPrompts && n.isEmptyPrompt(line) {
+			continue
+		}
+		if n.cfg.VHSArtifacts.StripUnstableFrames && n.isUnstableFrame(line) {
 			continue
 		}
 
@@ -154,6 +169,33 @@ func (n *Normalizer) isFrameSeparator(line string) bool {
 func (n *Normalizer) isEmptyPrompt(line string) bool {
 	trimmed := strings.TrimSpace(line)
 	return trimmed == n.cfg.VHSArtifacts.PromptChar
+}
+
+// isUnstableFrame detects lines with intermixed command/output content.
+// This happens when VHS captures a frame while the terminal is in a transitional state,
+// causing the command text to bleed into the output line.
+//
+// Detection patterns:
+//  1. Path followed by uppercase: "./bin/Hello from invowk!" (path bleeding into output)
+//  2. Prompt with merged content: "> ./bin/invowk cmd helloHello from" (command merged with output)
+func (n *Normalizer) isUnstableFrame(line string) bool {
+	// Pattern 1: Standalone path followed by uppercase (output bleeding)
+	// Matches: "./bin/Hello", "./bin/invowk Hello", etc.
+	if unstableFramePathOutputPattern.MatchString(line) {
+		return true
+	}
+
+	// Pattern 2: Prompt line with partial command merged with uppercase output
+	// Matches: "> ./bin/invowk cmd helloHello from"
+	trimmed := strings.TrimSpace(line)
+	if strings.HasPrefix(trimmed, "> ") {
+		// Check for lowercase-to-uppercase transition indicating output bleeding in
+		if unstableFramePromptMergePattern.MatchString(line) {
+			return true
+		}
+	}
+
+	return false
 }
 
 // deduplicate removes consecutive duplicate lines.

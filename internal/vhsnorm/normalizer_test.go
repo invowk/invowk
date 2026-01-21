@@ -239,6 +239,99 @@ func TestNormalizerRemoveEmpty(t *testing.T) {
 	}
 }
 
+func TestNormalizerIsUnstableFrame(t *testing.T) {
+	cfg := DefaultConfig()
+	n, err := NewNormalizer(cfg)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	tests := []struct {
+		name     string
+		line     string
+		expected bool
+	}{
+		// Clean lines that should NOT be detected as unstable
+		{"clean command", "> ./bin/invowk cmd hello", false},
+		{"clean output", "Hello from invowk!", false},
+		{"clean prompt only", "> ", false},
+		{"empty line", "", false},
+		{"normal camelCase command", "> ./bin/invowk cmd camelCase", false},
+		{"regular path", "./bin/invowk version", false},
+		{"path with lowercase", "./bin/hello", false},
+		{"non-prompt with uppercase", "PATH=/bin:/usr/bin", false},
+
+		// Unstable frames that SHOULD be detected
+		{"path-output bleed: Hello", "./bin/Hello from invowk!", true},
+		{"path-output bleed: World", "./bin/World output here", true},
+		{"path-output bleed: Error", "./bin/Error: something wrong", true},
+		{"prompt merge: helloHello from", "> ./bin/invowk cmd helloHello from", true},
+		{"prompt merge: testTest from", "> ./bin/invowk testTest from invowk", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := n.isUnstableFrame(tt.line)
+			if result != tt.expected {
+				t.Errorf("isUnstableFrame(%q) = %v, want %v", tt.line, result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestNormalizerWithUnstableFrames(t *testing.T) {
+	cfg := DefaultConfig()
+	n, err := NewNormalizer(cfg)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Simulate the CI failure case: intermixed command/output content
+	input := `> ./bin/invowk cmd hello
+./bin/Hello from invowk!
+> ./bin/invowk cmd hello
+Hello from invowk!
+`
+
+	// Expected: the corrupted frame "./bin/Hello from invowk!" is removed
+	expected := `> ./bin/invowk cmd hello
+Hello from invowk!
+`
+
+	result, err := n.NormalizeString(input)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if strings.TrimSpace(result) != strings.TrimSpace(expected) {
+		t.Errorf("Unstable frame filtering failed.\nGot:\n%s\nWant:\n%s", result, expected)
+	}
+}
+
+func TestNormalizerUnstableFramesDisabled(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.VHSArtifacts.StripUnstableFrames = false
+	n, err := NewNormalizer(cfg)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// When disabled, the corrupted frame should be preserved
+	input := `> ./bin/invowk cmd hello
+./bin/Hello from invowk!
+Hello from invowk!
+`
+
+	result, err := n.NormalizeString(input)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// With filtering disabled, the unstable frame should remain
+	if !strings.Contains(result, "./bin/Hello from invowk!") {
+		t.Errorf("With unstable frame filtering disabled, corrupted frames should remain.\nGot: %q", result)
+	}
+}
+
 func TestNormalizerSubstitutions(t *testing.T) {
 	cfg := DefaultConfig()
 	n, err := NewNormalizer(cfg)

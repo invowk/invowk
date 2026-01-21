@@ -33,6 +33,10 @@ type (
 		StripFrameSeparators bool `json:"strip_frame_separators"`
 		// StripEmptyPrompts removes lines that only contain the prompt character.
 		StripEmptyPrompts bool `json:"strip_empty_prompts"`
+		// StripUnstableFrames removes lines with intermixed command/output content.
+		// This detects frames captured mid-render where command text bleeds into output.
+		// Example: "./bin/Hello from invowk!" (should be separate lines)
+		StripUnstableFrames bool `json:"strip_unstable_frames"`
 		// Deduplicate removes consecutive duplicate lines.
 		Deduplicate bool `json:"deduplicate"`
 		// PromptChar is the prompt character to detect empty prompts (default: ">").
@@ -74,6 +78,7 @@ func DefaultConfig() *Config {
 		VHSArtifacts: VHSArtifactsConfig{
 			StripFrameSeparators: true,
 			StripEmptyPrompts:    true,
+			StripUnstableFrames:  true,
 			Deduplicate:          true,
 			PromptChar:           ">",
 			SeparatorChars:       []string{"─", "━", "═", "│", "┃", "║"},

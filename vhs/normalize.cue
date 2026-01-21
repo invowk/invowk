@@ -13,6 +13,10 @@ vhs_artifacts: {
 	// Remove lines containing only the shell prompt character
 	strip_empty_prompts: true
 
+	// Remove frames with intermixed command/output content (CI timing artifacts)
+	// Detects lines like "./bin/Hello from invowk!" where command path bleeds into output
+	strip_unstable_frames: true
+
 	// Remove consecutive duplicate lines (like `uniq`)
 	deduplicate: true
 
