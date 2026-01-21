@@ -27,6 +27,7 @@ const (
 	PermissionDeniedId
 	DependenciesNotSatisfiedId
 	HostNotSupportedId
+	InvalidArgumentId
 )
 
 var (
@@ -414,6 +415,29 @@ This command cannot run on your current operating system.
 - Use a container runtime to run the command on a different OS`,
 	}
 
+	invalidArgumentIssue = &Issue{
+		id: InvalidArgumentId,
+		mdMsg: `
+# Invalid arguments!
+
+The arguments provided to this command are invalid.
+
+## Common causes:
+- Missing required arguments
+- Too many arguments provided
+- Invalid argument value (wrong type or format)
+
+## Things you can try:
+- Check the command's expected arguments:
+~~~
+$ invowk cmd <command> --help
+~~~
+
+- Ensure required arguments are provided in the correct order
+- Verify argument values match the expected type (string, int, float)
+- Check validation patterns if the argument has format requirements`,
+	}
+
 	issues = map[Id]*Issue{
 		fileNotFoundIssue.Id():             fileNotFoundIssue,
 		invkfileNotFoundIssue.Id():         invkfileNotFoundIssue,
@@ -429,6 +453,7 @@ This command cannot run on your current operating system.
 		permissionDeniedIssue.Id():         permissionDeniedIssue,
 		dependenciesNotSatisfiedIssue.Id(): dependenciesNotSatisfiedIssue,
 		hostNotSupportedIssue.Id():         hostNotSupportedIssue,
+		invalidArgumentIssue.Id():          invalidArgumentIssue,
 	}
 )
 

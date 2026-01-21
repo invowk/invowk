@@ -200,7 +200,7 @@ func TestValues(t *testing.T) {
 	}
 
 	// Count expected number of issues
-	expectedCount := 14 // Based on the number of predefined issues
+	expectedCount := 15 // Based on the number of predefined issues
 
 	if len(issues) != expectedCount {
 		t.Errorf("Values() returned %d issues, want %d", len(issues), expectedCount)
@@ -333,6 +333,7 @@ func TestIssuesMapCompleteness(t *testing.T) {
 		PermissionDeniedId,
 		DependenciesNotSatisfiedId,
 		HostNotSupportedId,
+		InvalidArgumentId,
 	}
 
 	for _, id := range expectedIds {

@@ -2058,6 +2058,195 @@ func TestArgumentValidationError_Error(t *testing.T) {
 	}
 }
 
+func TestValidateArguments_NoDefinitions(t *testing.T) {
+	// When no arg definitions exist, any arguments should be allowed (backward compatible)
+	err := validateArguments("test-cmd", []string{"foo", "bar", "baz"}, nil)
+	if err != nil {
+		t.Errorf("Expected nil error when no arg definitions, got: %v", err)
+	}
+
+	err = validateArguments("test-cmd", []string{}, nil)
+	if err != nil {
+		t.Errorf("Expected nil error when no args and no definitions, got: %v", err)
+	}
+
+	err = validateArguments("test-cmd", []string{"anything"}, []invkfile.Argument{})
+	if err != nil {
+		t.Errorf("Expected nil error when empty arg definitions, got: %v", err)
+	}
+}
+
+func TestValidateArguments_MissingRequired(t *testing.T) {
+	argDefs := []invkfile.Argument{
+		{Name: "env", Description: "Target environment", Required: true},
+		{Name: "region", Description: "AWS region", Required: true},
+	}
+
+	// No arguments provided when 2 are required
+	err := validateArguments("deploy", []string{}, argDefs)
+	if err == nil {
+		t.Fatal("Expected error for missing required arguments")
+	}
+
+	var argErr *ArgumentValidationError
+	if !errors.As(err, &argErr) {
+		t.Fatalf("Expected ArgumentValidationError, got: %T", err)
+	}
+
+	if argErr.Type != ArgErrMissingRequired {
+		t.Errorf("Expected ArgErrMissingRequired, got: %v", argErr.Type)
+	}
+	if argErr.MinArgs != 2 {
+		t.Errorf("Expected MinArgs=2, got: %d", argErr.MinArgs)
+	}
+
+	// Only 1 argument provided when 2 are required
+	err = validateArguments("deploy", []string{"prod"}, argDefs)
+	if err == nil {
+		t.Fatal("Expected error for missing required arguments")
+	}
+}
+
+func TestValidateArguments_TooManyArgs(t *testing.T) {
+	argDefs := []invkfile.Argument{
+		{Name: "env", Description: "Target environment", Required: true},
+	}
+
+	// 3 arguments provided when only 1 is expected
+	err := validateArguments("deploy", []string{"prod", "extra1", "extra2"}, argDefs)
+	if err == nil {
+		t.Fatal("Expected error for too many arguments")
+	}
+
+	var argErr *ArgumentValidationError
+	if !errors.As(err, &argErr) {
+		t.Fatalf("Expected ArgumentValidationError, got: %T", err)
+	}
+
+	if argErr.Type != ArgErrTooMany {
+		t.Errorf("Expected ArgErrTooMany, got: %v", argErr.Type)
+	}
+	if argErr.MaxArgs != 1 {
+		t.Errorf("Expected MaxArgs=1, got: %d", argErr.MaxArgs)
+	}
+}
+
+func TestValidateArguments_VariadicAllowsExtra(t *testing.T) {
+	argDefs := []invkfile.Argument{
+		{Name: "env", Description: "Target environment", Required: true},
+		{Name: "services", Description: "Services to deploy", Variadic: true},
+	}
+
+	// Many arguments should be allowed when last arg is variadic
+	err := validateArguments("deploy", []string{"prod", "svc1", "svc2", "svc3", "svc4"}, argDefs)
+	if err != nil {
+		t.Errorf("Expected no error with variadic args, got: %v", err)
+	}
+
+	// Just the required arg should also be valid
+	err = validateArguments("deploy", []string{"prod"}, argDefs)
+	if err != nil {
+		t.Errorf("Expected no error with just required arg, got: %v", err)
+	}
+}
+
+func TestValidateArguments_InvalidValue(t *testing.T) {
+	argDefs := []invkfile.Argument{
+		{Name: "replicas", Description: "Number of replicas", Type: invkfile.ArgumentTypeInt, Required: true},
+	}
+
+	// Invalid integer value
+	err := validateArguments("scale", []string{"not-a-number"}, argDefs)
+	if err == nil {
+		t.Fatal("Expected error for invalid argument value")
+	}
+
+	var argErr *ArgumentValidationError
+	if !errors.As(err, &argErr) {
+		t.Fatalf("Expected ArgumentValidationError, got: %T", err)
+	}
+
+	if argErr.Type != ArgErrInvalidValue {
+		t.Errorf("Expected ArgErrInvalidValue, got: %v", argErr.Type)
+	}
+	if argErr.InvalidArg != "replicas" {
+		t.Errorf("Expected InvalidArg='replicas', got: %q", argErr.InvalidArg)
+	}
+	if argErr.InvalidValue != "not-a-number" {
+		t.Errorf("Expected InvalidValue='not-a-number', got: %q", argErr.InvalidValue)
+	}
+}
+
+func TestValidateArguments_ValidTypes(t *testing.T) {
+	tests := []struct {
+		name    string
+		argDefs []invkfile.Argument
+		args    []string
+		wantErr bool
+	}{
+		{
+			name: "valid integer",
+			argDefs: []invkfile.Argument{
+				{Name: "count", Type: invkfile.ArgumentTypeInt, Required: true},
+			},
+			args:    []string{"42"},
+			wantErr: false,
+		},
+		{
+			name: "valid float",
+			argDefs: []invkfile.Argument{
+				{Name: "scale", Type: invkfile.ArgumentTypeFloat, Required: true},
+			},
+			args:    []string{"3.14"},
+			wantErr: false,
+		},
+		{
+			name: "string allows anything",
+			argDefs: []invkfile.Argument{
+				{Name: "message", Type: invkfile.ArgumentTypeString, Required: true},
+			},
+			args:    []string{"Hello, World!"},
+			wantErr: false,
+		},
+		{
+			name: "default type is string",
+			argDefs: []invkfile.Argument{
+				{Name: "input", Required: true}, // No type specified
+			},
+			args:    []string{"any value works"},
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateArguments("test-cmd", tt.args, tt.argDefs)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("validateArguments() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestValidateArguments_OptionalWithDefault(t *testing.T) {
+	argDefs := []invkfile.Argument{
+		{Name: "env", Description: "Target environment", Required: true},
+		{Name: "replicas", Description: "Number of replicas", DefaultValue: "3"},
+	}
+
+	// Just the required argument
+	err := validateArguments("deploy", []string{"prod"}, argDefs)
+	if err != nil {
+		t.Errorf("Expected no error when optional args have defaults, got: %v", err)
+	}
+
+	// Both arguments provided
+	err = validateArguments("deploy", []string{"prod", "5"}, argDefs)
+	if err != nil {
+		t.Errorf("Expected no error when all args provided, got: %v", err)
+	}
+}
+
 func TestRenderArgumentValidationError_MissingRequired(t *testing.T) {
 	err := &ArgumentValidationError{
 		Type:        ArgErrMissingRequired,

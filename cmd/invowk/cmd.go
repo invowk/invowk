@@ -410,93 +410,14 @@ func buildArgsDocumentation(args []invkfile.Argument) string {
 	return strings.Join(lines, "\n")
 }
 
-// buildCobraArgsValidator creates a Cobra Args validator function for the given argument definitions
+// buildCobraArgsValidator creates a Cobra Args validator function for the given argument definitions.
+// It delegates to validateArguments for the actual validation logic.
 func buildCobraArgsValidator(argDefs []invkfile.Argument) cobra.PositionalArgs {
 	if len(argDefs) == 0 {
 		return cobra.ArbitraryArgs // Backward compatible: allow any args if none defined
 	}
-
-	// Count required args and check for variadic
-	minArgs := 0
-	maxArgs := len(argDefs)
-	hasVariadic := false
-
-	for _, arg := range argDefs {
-		if arg.Required {
-			minArgs++
-		}
-		if arg.Variadic {
-			hasVariadic = true
-		}
-	}
-
 	return func(cmd *cobra.Command, args []string) error {
-		// Check minimum args
-		if len(args) < minArgs {
-			return &ArgumentValidationError{
-				Type:         ArgErrMissingRequired,
-				CommandName:  cmd.Name(),
-				ArgDefs:      argDefs,
-				ProvidedArgs: args,
-				MinArgs:      minArgs,
-				MaxArgs:      maxArgs,
-			}
-		}
-
-		// Check maximum args (only if not variadic)
-		if !hasVariadic && len(args) > maxArgs {
-			return &ArgumentValidationError{
-				Type:         ArgErrTooMany,
-				CommandName:  cmd.Name(),
-				ArgDefs:      argDefs,
-				ProvidedArgs: args,
-				MinArgs:      minArgs,
-				MaxArgs:      maxArgs,
-			}
-		}
-
-		// Validate each provided argument
-		for i, argValue := range args {
-			if i >= len(argDefs) {
-				// Extra args go to the last (variadic) argument - already validated to have one
-				break
-			}
-
-			argDef := argDefs[i]
-
-			// For variadic args, validate all remaining values
-			if argDef.Variadic {
-				for j := i; j < len(args); j++ {
-					if err := argDef.ValidateArgumentValue(args[j]); err != nil {
-						return &ArgumentValidationError{
-							Type:         ArgErrInvalidValue,
-							CommandName:  cmd.Name(),
-							ArgDefs:      argDefs,
-							ProvidedArgs: args,
-							InvalidArg:   argDef.Name,
-							InvalidValue: args[j],
-							ValueError:   err,
-						}
-					}
-				}
-				break
-			}
-
-			// Validate non-variadic argument
-			if err := argDef.ValidateArgumentValue(argValue); err != nil {
-				return &ArgumentValidationError{
-					Type:         ArgErrInvalidValue,
-					CommandName:  cmd.Name(),
-					ArgDefs:      argDefs,
-					ProvidedArgs: args,
-					InvalidArg:   argDef.Name,
-					InvalidValue: argValue,
-					ValueError:   err,
-				}
-			}
-		}
-
-		return nil
+		return validateArguments(cmd.Name(), args, argDefs)
 	}
 }
 
@@ -713,8 +634,41 @@ func runCommandWithFlags(cmdName string, args []string, flagValues map[string]st
 		return fmt.Errorf("command '%s' not found", cmdName)
 	}
 
+	// Populate definitions from discovered command if not provided (fallback path).
+	// This enables validation and INVOWK_ARG_* / INVOWK_FLAG_* env var injection
+	// for commands invoked via runCommand (which passes nil for definitions).
+	if flagDefs == nil {
+		flagDefs = cmdInfo.Command.Flags
+	}
+	if argDefs == nil {
+		argDefs = cmdInfo.Command.Args
+	}
+
+	// Initialize flagValues with defaults for fallback path.
+	// The fallback path cannot parse flags from CLI (Cobra doesn't process them),
+	// so we only apply defaults here.
+	if flagValues == nil && len(flagDefs) > 0 {
+		flagValues = make(map[string]string)
+		for _, flag := range flagDefs {
+			if flag.DefaultValue != "" {
+				flagValues[flag.Name] = flag.DefaultValue
+			}
+		}
+	}
+
 	// Validate flag values at runtime
 	if err := validateFlagValues(cmdName, flagValues, flagDefs); err != nil {
+		return err
+	}
+
+	// Validate arguments
+	if err := validateArguments(cmdName, args, argDefs); err != nil {
+		var argErr *ArgumentValidationError
+		if errors.As(err, &argErr) {
+			fmt.Fprint(os.Stderr, RenderArgumentValidationError(argErr))
+			rendered, _ := issue.Get(issue.InvalidArgumentId).Render("dark")
+			fmt.Fprint(os.Stderr, rendered)
+		}
 		return err
 	}
 
@@ -2058,6 +2012,95 @@ func validateFlagValues(cmdName string, flagValues map[string]string, flagDefs [
 
 	if len(validationErrs) > 0 {
 		return fmt.Errorf("flag validation failed for command '%s':\n  %s", cmdName, strings.Join(validationErrs, "\n  "))
+	}
+
+	return nil
+}
+
+// validateArguments validates provided arguments against their definitions.
+// It returns an *ArgumentValidationError if validation fails.
+func validateArguments(cmdName string, providedArgs []string, argDefs []invkfile.Argument) error {
+	if len(argDefs) == 0 {
+		return nil // No argument definitions, allow any args (backward compatible)
+	}
+
+	// Count required args and check for variadic
+	minArgs := 0
+	maxArgs := len(argDefs)
+	hasVariadic := false
+
+	for _, arg := range argDefs {
+		if arg.Required {
+			minArgs++
+		}
+		if arg.Variadic {
+			hasVariadic = true
+		}
+	}
+
+	// Check minimum args
+	if len(providedArgs) < minArgs {
+		return &ArgumentValidationError{
+			Type:         ArgErrMissingRequired,
+			CommandName:  cmdName,
+			ArgDefs:      argDefs,
+			ProvidedArgs: providedArgs,
+			MinArgs:      minArgs,
+			MaxArgs:      maxArgs,
+		}
+	}
+
+	// Check maximum args (only if not variadic)
+	if !hasVariadic && len(providedArgs) > maxArgs {
+		return &ArgumentValidationError{
+			Type:         ArgErrTooMany,
+			CommandName:  cmdName,
+			ArgDefs:      argDefs,
+			ProvidedArgs: providedArgs,
+			MinArgs:      minArgs,
+			MaxArgs:      maxArgs,
+		}
+	}
+
+	// Validate each provided argument
+	for i, argValue := range providedArgs {
+		if i >= len(argDefs) {
+			// Extra args go to the last (variadic) argument - already validated to have one
+			break
+		}
+
+		argDef := argDefs[i]
+
+		// For variadic args, validate all remaining values
+		if argDef.Variadic {
+			for j := i; j < len(providedArgs); j++ {
+				if err := argDef.ValidateArgumentValue(providedArgs[j]); err != nil {
+					return &ArgumentValidationError{
+						Type:         ArgErrInvalidValue,
+						CommandName:  cmdName,
+						ArgDefs:      argDefs,
+						ProvidedArgs: providedArgs,
+						InvalidArg:   argDef.Name,
+						InvalidValue: providedArgs[j],
+						ValueError:   err,
+					}
+				}
+			}
+			break
+		}
+
+		// Validate non-variadic argument
+		if err := argDef.ValidateArgumentValue(argValue); err != nil {
+			return &ArgumentValidationError{
+				Type:         ArgErrInvalidValue,
+				CommandName:  cmdName,
+				ArgDefs:      argDefs,
+				ProvidedArgs: providedArgs,
+				InvalidArg:   argDef.Name,
+				InvalidValue: argValue,
+				ValueError:   err,
+			}
+		}
 	}
 
 	return nil
