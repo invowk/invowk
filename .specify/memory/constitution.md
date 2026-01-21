@@ -1,24 +1,24 @@
 <!--
 SYNC IMPACT REPORT
 ==================
-Version change: 1.0.0 → 1.1.0 (MINOR: New principle added)
+Version change: 1.1.0 → 1.2.0 (MINOR: New principle added)
 
 Modified principles: None
 
 Added sections:
-- VI. Documentation Synchronization (NON-NEGOTIABLE) - new principle
+- VII. Pre-Existing Issue Resolution (NON-NEGOTIABLE) - new principle
 
 Removed sections: None
 
 Modified sections:
-- Quality Gates: Added "Documentation Sync" row
-- Development Workflow > During Implementation: Added documentation step
-- Development Workflow > Before Committing: Added documentation verification step
+- Quality Gates: Added "Pre-Existing Issue Check" row
+- Development Workflow > During Implementation: Added pre-existing issue handling step
+- Governance > Conflict Resolution: Added reference to new principle
 
 Templates requiring updates:
-- .specify/templates/plan-template.md ✅ (Constitution Check section already generic)
-- .specify/templates/spec-template.md ✅ (No constitution-specific content)
-- .specify/templates/tasks-template.md ✅ (Task types align with principles)
+- .specify/templates/plan-template.md ✅ (Constitution Check section is generic, will pick up new principle)
+- .specify/templates/spec-template.md ✅ (No constitution-specific content requiring updates)
+- .specify/templates/tasks-template.md ✅ (Task organization unaffected; new principle applies at spec revision level)
 
 Follow-up TODOs: None
 -->
@@ -117,6 +117,49 @@ Any change that affects user-facing behavior MUST have corresponding documentati
 
 **Rationale**: Documentation that drifts from implementation creates user confusion, increases support burden, and damages project credibility. Users rely on documentation to learn the tool—stale docs teach incorrect usage.
 
+### VII. Pre-Existing Issue Resolution (NON-NEGOTIABLE)
+
+**A requirement is NOT complete if it is blocked or degraded by pre-existing issues.**
+
+When any development phase (planning, implementation, testing, review, etc.) reveals that the new requirement suffers due to a pre-existing bug, architectural flaw, or design issue, the following process MUST be followed:
+
+1. **Identification**: Document the pre-existing issue with:
+   - Clear description of the issue
+   - How it affects the current requirement
+   - Severity assessment (blocker vs. degradation)
+
+2. **Proposal Phase**: Present the user with coherent fix proposals that address BOTH the pre-existing issue AND the new requirement. Each proposal MUST include:
+   - Description of the architectural/design/bug fix approach
+   - Impact on existing functionality
+   - Compatibility with the new requirement being implemented
+   - Trade-offs and risks
+
+3. **User Decision**: The user MUST choose from the presented proposals before proceeding. Do NOT proceed with implementation until a proposal is selected.
+
+4. **Specification Revision**: After user selection, the feature specification MUST be revised to:
+   - Include the pre-existing issue fix as part of the requirement scope
+   - Update acceptance criteria to cover both the original requirement AND the fix
+   - Adjust estimates and dependencies accordingly
+
+5. **Completion Criteria**: The requirement is only complete when:
+   - The original requirement is implemented
+   - The pre-existing issue is resolved
+   - Both changes pass all quality gates
+
+**What qualifies as a pre-existing issue**:
+- Bugs in existing code that the new feature depends on or exposes
+- Architectural decisions that make the new feature unreasonably complex or fragile
+- Design patterns that conflict with or undermine the new feature's goals
+- Technical debt that would be propagated or amplified by the new feature
+- Missing abstractions that force the new feature into suboptimal patterns
+
+**Enforcement**:
+- Implementers MUST halt and report when pre-existing issues are discovered
+- Reviewers MUST verify that no pre-existing blockers were worked around rather than fixed
+- PRs that implement workarounds for pre-existing issues without addressing root causes MUST be rejected
+
+**Rationale**: Working around pre-existing issues creates compounding technical debt. Each workaround makes the codebase harder to understand and maintain. Addressing issues at discovery time—when context is fresh and the impact is understood—is more efficient than deferring fixes. This principle ensures that new development improves overall codebase health rather than degrading it.
+
 ## Quality Gates
 
 Every PR MUST pass the following gates before merge:
@@ -131,6 +174,7 @@ Every PR MUST pass the following gates before merge:
 | Module Validation | `go run . module validate modules/*.invkmod --deep` | If module logic changed |
 | Website Build | `cd website && npm run build` | If website content changed |
 | **Documentation Sync** | **Manual review** | **If ANY user-facing behavior changed** |
+| **Pre-Existing Issue Check** | **Manual review** | **If implementation revealed blocking issues** |
 
 ## Development Workflow
 
@@ -148,6 +192,7 @@ Every PR MUST pass the following gates before merge:
 4. Write tests for behavior changes
 5. Avoid introducing OWASP Top 10 vulnerabilities
 6. **Update documentation alongside code changes** (Principle VI)
+7. **HALT and report if pre-existing issues block or degrade the requirement** (Principle VII)
 
 ### Before Committing
 
@@ -156,6 +201,7 @@ Every PR MUST pass the following gates before merge:
 3. Write Conventional Commit messages with descriptive bullet points
 4. Ensure no unexplained complexity was added
 5. **Verify all user-facing documentation is updated** (Principle VI)
+6. **Verify no pre-existing issues were worked around instead of fixed** (Principle VII)
 
 ## Governance
 
@@ -172,6 +218,6 @@ This constitution is the authoritative guide for technical decisions in Invowk:
 
 4. **Reference**: The `.claude/rules/` directory contains detailed implementation guidance that operationalizes these principles. Rules files are authoritative for their specific domains.
 
-5. **Conflict Resolution**: When principles appear to conflict, Simplicity (Principle V) is the tiebreaker—choose the simpler approach unless security or correctness requires otherwise.
+5. **Conflict Resolution**: When principles appear to conflict, Simplicity (Principle V) is the tiebreaker—choose the simpler approach unless security, correctness, or pre-existing issue resolution (Principle VII) requires otherwise.
 
-**Version**: 1.1.0 | **Ratified**: 2026-01-21 | **Last Amended**: 2026-01-21
+**Version**: 1.2.0 | **Ratified**: 2026-01-21 | **Last Amended**: 2026-01-21
