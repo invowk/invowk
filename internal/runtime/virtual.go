@@ -116,8 +116,11 @@ func (r *VirtualRuntime) Execute(ctx *ExecutionContext) *Result {
 	}
 
 	// Add positional parameters for shell access ($1, $2, etc.)
+	// Prepend "--" to signal end of options; without this, args like "-v" or "--env=staging"
+	// are incorrectly interpreted as shell options by interp.Params()
 	if len(ctx.PositionalArgs) > 0 {
-		opts = append(opts, interp.Params(ctx.PositionalArgs...))
+		params := append([]string{"--"}, ctx.PositionalArgs...)
+		opts = append(opts, interp.Params(params...))
 	}
 
 	runner, err := interp.New(opts...)
@@ -173,8 +176,11 @@ func (r *VirtualRuntime) ExecuteCapture(ctx *ExecutionContext) *Result {
 	}
 
 	// Add positional parameters for shell access ($1, $2, etc.)
+	// Prepend "--" to signal end of options; without this, args like "-v" or "--env=staging"
+	// are incorrectly interpreted as shell options by interp.Params()
 	if len(ctx.PositionalArgs) > 0 {
-		opts = append(opts, interp.Params(ctx.PositionalArgs...))
+		params := append([]string{"--"}, ctx.PositionalArgs...)
+		opts = append(opts, interp.Params(params...))
 	}
 
 	runner, err := interp.New(opts...)

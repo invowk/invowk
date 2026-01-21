@@ -92,8 +92,11 @@ func runInternalExecVirtual(cmd *cobra.Command, args []string) error {
 	}
 
 	// Add positional parameters for shell access ($1, $2, etc.)
+	// Prepend "--" to signal end of options; without this, args like "-v" or "--env=staging"
+	// are incorrectly interpreted as shell options by interp.Params()
 	if len(posArgs) > 0 {
-		opts = append(opts, interp.Params(posArgs...))
+		params := append([]string{"--"}, posArgs...)
+		opts = append(opts, interp.Params(params...))
 	}
 
 	// Create the interpreter
