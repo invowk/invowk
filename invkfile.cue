@@ -34,14 +34,14 @@ cmds: [
 	// ============================================================================
 	// These commands demonstrate basic native shell execution with minimal config.
 
-	// Example 1.1: Simplest possible command - native runtime, all platforms
+	// Example 1.1: Simplest possible command - native runtime with virtual fallback
 	{
 		name:        "hello"
 		description: "Print a simple greeting (native runtime)"
 		implementations: [
 			{
 				script: "echo 'Hello from invowk!'"
-				runtimes: [{name: "native"}]
+				runtimes: [{name: "native"}, {name: "virtual"}]
 			}
 		]
 	},
@@ -61,7 +61,7 @@ cmds: [
 					echo "LOG_LEVEL: $LOG_LEVEL (from command-level, overrides root)"
 					echo "RUNTIME: $RUNTIME (from implementation-level, overrides command)"
 					"""
-				runtimes: [{name: "native"}]
+				runtimes: [{name: "native"}, {name: "virtual"}]
 				env: {
 					vars: {
 						RUNTIME: "native"
@@ -519,7 +519,7 @@ cmds: [
 		implementations: [
 			{
 				script: "echo 'sh is available!'"
-				runtimes: [{name: "native"}]
+				runtimes: [{name: "native"}, {name: "virtual"}]
 			}
 		]
 		depends_on: {
@@ -539,7 +539,7 @@ cmds: [
 					echo "Container runtime check passed!"
 					echo "At least one of podman/docker/nerdctl is available."
 					"""
-				runtimes: [{name: "native"}]
+				runtimes: [{name: "native"}, {name: "virtual"}]
 			}
 		]
 		depends_on: {
@@ -745,7 +745,7 @@ cmds: [
 		implementations: [
 			{
 				script: "echo 'Custom exit code check passed!'"
-				runtimes: [{name: "native"}]
+				runtimes: [{name: "native"}, {name: "virtual"}]
 			}
 		]
 		depends_on: {
@@ -943,7 +943,7 @@ cmds: [
 					echo ""
 					echo "Try: invowk cmd examples flags simple --verbose=true --output=/tmp/out.txt"
 					"""
-				runtimes: [{name: "native"}]
+				runtimes: [{name: "native"}, {name: "virtual"}]
 			}
 		]
 		flags: [
@@ -974,7 +974,7 @@ cmds: [
 					echo ""
 					echo "Try: invowk cmd examples flags defaults --env=production --dry-run=true"
 					"""
-				runtimes: [{name: "native"}]
+				runtimes: [{name: "native"}, {name: "virtual"}]
 			}
 		]
 		flags: [
@@ -1007,7 +1007,7 @@ cmds: [
 					echo ""
 					echo "Try: invowk cmd examples flags typed --verbose --count=5 --threshold=0.95 --message='Hello World'"
 					"""
-				runtimes: [{name: "native"}]
+				runtimes: [{name: "native"}, {name: "virtual"}]
 			}
 		]
 		flags: [
@@ -1061,7 +1061,7 @@ cmds: [
 					echo ""
 					echo "Try: invowk cmd examples flags short -v -o=/tmp/out.txt -f"
 					"""
-				runtimes: [{name: "native"}]
+				runtimes: [{name: "native"}, {name: "virtual"}]
 			}
 		]
 		flags: [
@@ -1088,7 +1088,7 @@ cmds: [
 					echo ""
 					echo "Try: invowk cmd examples flags validation --env=staging --version=1.2.3"
 					"""
-				runtimes: [{name: "native"}]
+				runtimes: [{name: "native"}, {name: "virtual"}]
 			}
 		]
 		flags: [
@@ -1299,7 +1299,7 @@ cmds: [
 					echo ""
 					echo "Try: invowk cmd examples args simple Alice"
 					"""
-				runtimes: [{name: "native"}]
+				runtimes: [{name: "native"}, {name: "virtual"}]
 			}
 		]
 		args: [
@@ -1325,7 +1325,7 @@ cmds: [
 					echo "Try: invowk cmd examples args optional Alice"
 					echo "Try: invowk cmd examples args optional Alice 'Good morning'"
 					"""
-				runtimes: [{name: "native"}]
+				runtimes: [{name: "native"}, {name: "virtual"}]
 			}
 		]
 		args: [
@@ -1354,7 +1354,7 @@ cmds: [
 					echo ""
 					echo "Try: invowk cmd examples args typed 800 600 1.5"
 					"""
-				runtimes: [{name: "native"}]
+				runtimes: [{name: "native"}, {name: "virtual"}]
 			}
 		]
 		args: [
@@ -1381,7 +1381,7 @@ cmds: [
 					echo ""
 					echo "Try: invowk cmd examples args validated staging 2.1.0"
 					"""
-				runtimes: [{name: "native"}]
+				runtimes: [{name: "native"}, {name: "virtual"}]
 			}
 		]
 		args: [
@@ -1969,7 +1969,7 @@ cmds: [
 					echo "invkfile location."
 					echo "=========================================="
 					"""
-				runtimes: [{name: "native"}]
+				runtimes: [{name: "native"}, {name: "virtual"}]
 			},
 		]
 	},
@@ -2105,7 +2105,7 @@ cmds: [
 					echo "Inline vars always take priority over files."
 					echo "=========================================="
 					"""
-				runtimes: [{name: "native"}]
+				runtimes: [{name: "native"}, {name: "virtual"}]
 			},
 		]
 	},
