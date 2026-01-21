@@ -407,11 +407,24 @@ func runModuleValidate(cmd *cobra.Command, args []string) error {
 	}
 
 	// Deep validation: parse invkfile
-	var invkfileError error
 	if moduleValidateDeep && result.InvkfilePath != "" {
-		_, invkfileError = invkfile.Parse(result.InvkfilePath)
+		inv, invkfileError := invkfile.Parse(result.InvkfilePath)
 		if invkfileError != nil {
 			result.AddIssue("invkfile", invkfileError.Error(), "invkfile.cue")
+		} else if inv != nil {
+			// Validate command tree structure (leaf-only args constraint)
+			var commands []*discovery.CommandInfo
+			for name, cmd := range inv.FlattenCommands() {
+				commands = append(commands, &discovery.CommandInfo{
+					Name:     name,
+					FilePath: result.InvkfilePath,
+					Command:  cmd,
+					Invkfile: inv,
+				})
+			}
+			if treeErr := discovery.ValidateCommandTree(commands); treeErr != nil {
+				result.AddIssue("command_tree", treeErr.Error(), result.InvkfilePath)
+			}
 		}
 	}
 

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"invowk-cli/internal/config"
+	"invowk-cli/internal/discovery"
 	"invowk-cli/internal/runtime"
 	"invowk-cli/internal/testutil"
 	"invowk-cli/pkg/invkfile"
@@ -2331,22 +2332,31 @@ func TestRenderArgumentValidationError_InvalidValue(t *testing.T) {
 }
 
 func TestRenderArgsSubcommandConflictError(t *testing.T) {
-	args := []invkfile.Argument{
-		{Name: "env", Description: "Target environment"},
-		{Name: "replicas", Description: "Number of replicas"},
+	err := &discovery.ArgsSubcommandConflictError{
+		CommandName: "deploy",
+		Args: []invkfile.Argument{
+			{Name: "env", Description: "Target environment"},
+			{Name: "replicas", Description: "Number of replicas"},
+		},
+		Subcommands: []string{"deploy status", "deploy logs"},
+		FilePath:    "/test/invkfile.cue",
 	}
-	subcommands := []string{"deploy status", "deploy logs"}
 
-	output := RenderArgsSubcommandConflictError("deploy", args, subcommands)
+	output := RenderArgsSubcommandConflictError(err)
 
-	// Check header
-	if !strings.Contains(output, "Conflict") {
-		t.Error("Should contain 'Conflict' header")
+	// Check header - now uses error styling with "Invalid command structure"
+	if !strings.Contains(output, "Invalid command structure") {
+		t.Error("Should contain 'Invalid command structure' header")
 	}
 
 	// Check command name
 	if !strings.Contains(output, "'deploy'") {
 		t.Error("Should contain command name")
+	}
+
+	// Check file path is shown
+	if !strings.Contains(output, "/test/invkfile.cue") {
+		t.Error("Should contain file path")
 	}
 
 	// Check args are listed

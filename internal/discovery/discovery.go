@@ -254,6 +254,23 @@ func (d *Discovery) DiscoverCommands() ([]*CommandInfo, error) {
 	return commands, nil
 }
 
+// DiscoverAndValidateCommands finds all commands and validates the command tree.
+// Returns an error if any command has both args and subcommands (leaf-only args constraint).
+// This method should be used instead of DiscoverCommands() when you want to ensure
+// the command tree is structurally valid before proceeding with registration.
+func (d *Discovery) DiscoverAndValidateCommands() ([]*CommandInfo, error) {
+	commands, err := d.DiscoverCommands()
+	if err != nil {
+		return nil, err
+	}
+
+	if err := ValidateCommandTree(commands); err != nil {
+		return nil, err
+	}
+
+	return commands, nil
+}
+
 // GetCommand finds a specific command by name
 func (d *Discovery) GetCommand(name string) (*CommandInfo, error) {
 	commands, err := d.DiscoverCommands()

@@ -139,45 +139,21 @@ func registerDiscoveredCommands() {
 	cfg := config.Get()
 	disc := discovery.New(cfg)
 
-	commands, err := disc.DiscoverCommands()
+	commands, err := disc.DiscoverAndValidateCommands()
 	if err != nil {
-		return // Silently fail during init
+		// Check for args/subcommand conflict - this is now a hard error
+		var conflictErr *discovery.ArgsSubcommandConflictError
+		if errors.As(err, &conflictErr) {
+			fmt.Fprintf(os.Stderr, "\n%s\n\n", RenderArgsSubcommandConflictError(conflictErr))
+			os.Exit(1)
+		}
+		return // Silently fail during init for other errors
 	}
 
 	// Build command tree for commands with spaces in names
 	commandMap := make(map[string]*cobra.Command)
 
-	// Track which commands have args defined (for conflict detection)
-	commandsWithArgs := make(map[string]*discovery.CommandInfo)
-
-	// Track parent-child relationships for conflict detection
-	childCommands := make(map[string][]string) // parent -> list of child command names
-
-	// First pass: build parent-child relationships and identify commands with args
-	for _, cmdInfo := range commands {
-		parts := strings.Fields(cmdInfo.Name)
-		if len(cmdInfo.Command.Args) > 0 {
-			commandsWithArgs[cmdInfo.Name] = cmdInfo
-		}
-
-		// Record parent-child relationships
-		for i := 1; i < len(parts); i++ {
-			parentName := strings.Join(parts[:i], " ")
-			childCommands[parentName] = append(childCommands[parentName], cmdInfo.Name)
-		}
-	}
-
-	// Detect conflicts: commands with args that also have subcommands
-	for cmdName, cmdInfo := range commandsWithArgs {
-		if children, hasChildren := childCommands[cmdName]; hasChildren {
-			// This is a conflict - command with args has subcommands
-			fmt.Fprintf(os.Stderr, "\n%s\n\n", RenderArgsSubcommandConflictError(cmdName, cmdInfo.Command.Args, children))
-			// Don't register this command's args - the subcommands take precedence
-			delete(commandsWithArgs, cmdName)
-		}
-	}
-
-	// Second pass: register commands
+	// Register commands
 	for _, cmdInfo := range commands {
 		// Split command name by spaces (e.g., "test unit" -> ["test", "unit"])
 		parts := strings.Fields(cmdInfo.Name)
@@ -2188,14 +2164,15 @@ func RenderArgumentValidationError(err *ArgumentValidationError) string {
 	return sb.String()
 }
 
-// RenderArgsSubcommandConflictError creates a styled warning message when a command
-// has both positional arguments and subcommands defined.
-func RenderArgsSubcommandConflictError(cmdName string, args []invkfile.Argument, subcommands []string) string {
+// RenderArgsSubcommandConflictError creates a styled error message when a command
+// has both positional arguments and subcommands defined. This is a structural error
+// because positional arguments can only be accepted by leaf commands.
+func RenderArgsSubcommandConflictError(err *discovery.ArgsSubcommandConflictError) string {
 	var sb strings.Builder
 
 	headerStyle := lipgloss.NewStyle().
 		Bold(true).
-		Foreground(lipgloss.Color("214")).
+		Foreground(lipgloss.Color("196")). // Red for error
 		MarginBottom(1)
 
 	commandStyle := lipgloss.NewStyle().
@@ -2209,27 +2186,34 @@ func RenderArgsSubcommandConflictError(cmdName string, args []invkfile.Argument,
 	valueStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("245"))
 
+	pathStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("242")).
+		Italic(true)
+
 	hintStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("242")).
 		Italic(true).
 		MarginTop(1)
 
-	sb.WriteString(headerStyle.Render("⚠ Conflict: command has both args and subcommands!"))
+	sb.WriteString(headerStyle.Render("✗ Invalid command structure!"))
 	sb.WriteString("\n\n")
 	sb.WriteString(fmt.Sprintf("Command %s defines positional arguments but also has subcommands.\n",
-		commandStyle.Render("'"+cmdName+"'")))
-	sb.WriteString("Subcommands take precedence; positional arguments will be ignored.\n\n")
+		commandStyle.Render("'"+err.CommandName+"'")))
+	if err.FilePath != "" {
+		sb.WriteString(pathStyle.Render(fmt.Sprintf("  in %s\n", err.FilePath)))
+	}
+	sb.WriteString("\nPositional arguments can only be defined on leaf commands (commands without subcommands).\n\n")
 
-	sb.WriteString(labelStyle.Render("Defined args (ignored):"))
+	sb.WriteString(labelStyle.Render("Defined args:"))
 	sb.WriteString("\n")
-	for _, arg := range args {
+	for _, arg := range err.Args {
 		sb.WriteString(valueStyle.Render(fmt.Sprintf("  • %s - %s\n", arg.Name, arg.Description)))
 	}
 
 	sb.WriteString("\n")
 	sb.WriteString(labelStyle.Render("Subcommands:"))
 	sb.WriteString("\n")
-	for _, subcmd := range subcommands {
+	for _, subcmd := range err.Subcommands {
 		sb.WriteString(valueStyle.Render(fmt.Sprintf("  • %s\n", subcmd)))
 	}
 

@@ -1,0 +1,27 @@
+# Test: Args and subcommand conflict detection
+# Tests that invowk fails with a clear error when a command has both args and subcommands
+
+# Change to work directory where the conflicting invkfile will be created
+cd $WORK
+
+# Running invowk cmd should fail because of the conflict
+! exec invowk cmd deploy prod
+stderr 'Invalid command structure'
+stderr 'deploy'
+stderr 'args'
+stderr 'subcommands'
+
+-- invkfile.cue --
+cmds: [
+	{
+		name: "deploy"
+		description: "Deploy command with args (conflict: also has subcommands)"
+		args: [{name: "env", description: "Environment to deploy to", required: true}]
+		implementations: [{script: "echo deploy", runtimes: [{name: "native"}]}]
+	},
+	{
+		name: "deploy staging"
+		description: "Deploy to staging"
+		implementations: [{script: "echo staging", runtimes: [{name: "native"}]}]
+	},
+]
