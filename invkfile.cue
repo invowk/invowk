@@ -40,9 +40,15 @@ cmds: [
 		description: "Print a simple greeting (native runtime)"
 		implementations: [
 			{
-				script: "echo 'Hello from invowk!'"
-				runtimes: [{name: "native"}, {name: "virtual"}]
-			}
+				script:    "echo 'Hello from invowk!'"
+				runtimes:  [{name: "native"}, {name: "virtual"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
+			},
+			{
+				script:    "echo 'Hello from invowk!'"
+				runtimes:  [{name: "virtual"}]
+				platforms: [{name: "windows"}]
+			},
 		]
 	},
 
@@ -61,13 +67,29 @@ cmds: [
 					echo "LOG_LEVEL: $LOG_LEVEL (from command-level, overrides root)"
 					echo "RUNTIME: $RUNTIME (from implementation-level, overrides command)"
 					"""
-				runtimes: [{name: "native"}, {name: "virtual"}]
+				runtimes:  [{name: "native"}, {name: "virtual"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
 				env: {
 					vars: {
 						RUNTIME: "native"
 					}
 				}
-			}
+			},
+			{
+				script: """
+					echo "=== Environment Variable Hierarchy ==="
+					echo "APP_ENV: $APP_ENV (from root-level, not overridden)"
+					echo "LOG_LEVEL: $LOG_LEVEL (from command-level, overrides root)"
+					echo "RUNTIME: $RUNTIME (from implementation-level, overrides command)"
+					"""
+				runtimes:  [{name: "virtual"}]
+				platforms: [{name: "windows"}]
+				env: {
+					vars: {
+						RUNTIME: "native"
+					}
+				}
+			},
 		]
 		env: {
 			vars: {
@@ -100,9 +122,15 @@ cmds: [
 		description: "Command that can run in native or virtual runtime"
 		implementations: [
 			{
-				script: "echo 'This can run in native (default) or virtual runtime'"
-				runtimes: [{name: "native"}, {name: "virtual"}]
-			}
+				script:    "echo 'This can run in native (default) or virtual runtime'"
+				runtimes:  [{name: "native"}, {name: "virtual"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
+			},
+			{
+				script:    "echo 'This can run in native (default) or virtual runtime'"
+				runtimes:  [{name: "virtual"}]
+				platforms: [{name: "windows"}]
+			},
 		]
 	},
 
@@ -518,9 +546,15 @@ cmds: [
 		description: "Command requiring a single tool (sh)"
 		implementations: [
 			{
-				script: "echo 'sh is available!'"
-				runtimes: [{name: "native"}, {name: "virtual"}]
-			}
+				script:    "echo 'sh is available!'"
+				runtimes:  [{name: "native"}, {name: "virtual"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
+			},
+			{
+				script:    "echo 'sh is available!'"
+				runtimes:  [{name: "virtual"}]
+				platforms: [{name: "windows"}]
+			},
 		]
 		depends_on: {
 			tools: [
@@ -539,8 +573,17 @@ cmds: [
 					echo "Container runtime check passed!"
 					echo "At least one of podman/docker/nerdctl is available."
 					"""
-				runtimes: [{name: "native"}, {name: "virtual"}]
-			}
+				runtimes:  [{name: "native"}, {name: "virtual"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
+			},
+			{
+				script: """
+					echo "Container runtime check passed!"
+					echo "At least one of podman/docker/nerdctl is available."
+					"""
+				runtimes:  [{name: "virtual"}]
+				platforms: [{name: "windows"}]
+			},
 		]
 		depends_on: {
 			tools: [
@@ -744,9 +787,15 @@ cmds: [
 		description: "Command with custom check validating exit code"
 		implementations: [
 			{
-				script: "echo 'Custom exit code check passed!'"
-				runtimes: [{name: "native"}, {name: "virtual"}]
-			}
+				script:    "echo 'Custom exit code check passed!'"
+				runtimes:  [{name: "native"}, {name: "virtual"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
+			},
+			{
+				script:    "echo 'Custom exit code check passed!'"
+				runtimes:  [{name: "virtual"}]
+				platforms: [{name: "windows"}]
+			},
 		]
 		depends_on: {
 			custom_checks: [
@@ -943,8 +992,29 @@ cmds: [
 					echo ""
 					echo "Try: invowk cmd examples flags simple --verbose=true --output=/tmp/out.txt"
 					"""
-				runtimes: [{name: "native"}, {name: "virtual"}]
-			}
+				runtimes:  [{name: "native"}, {name: "virtual"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
+			},
+			{
+				script: """
+					echo "=== Simple Flags Demo ==="
+					echo ""
+					echo "Flags passed to this command are available as environment variables:"
+					echo "  INVOWK_FLAG_VERBOSE = '${INVOWK_FLAG_VERBOSE}'"
+					echo "  INVOWK_FLAG_OUTPUT = '${INVOWK_FLAG_OUTPUT}'"
+					echo ""
+					if [ -n "$INVOWK_FLAG_VERBOSE" ] && [ "$INVOWK_FLAG_VERBOSE" = "true" ]; then
+					    echo "[VERBOSE] Extra verbose information would appear here"
+					fi
+					if [ -n "$INVOWK_FLAG_OUTPUT" ]; then
+					    echo "[OUTPUT] Would write to: $INVOWK_FLAG_OUTPUT"
+					fi
+					echo ""
+					echo "Try: invowk cmd examples flags simple --verbose=true --output=/tmp/out.txt"
+					"""
+				runtimes:  [{name: "virtual"}]
+				platforms: [{name: "windows"}]
+			},
 		]
 		flags: [
 			{name: "verbose", description: "Enable verbose output"},
@@ -974,8 +1044,29 @@ cmds: [
 					echo ""
 					echo "Try: invowk cmd examples flags defaults --env=production --dry-run=true"
 					"""
-				runtimes: [{name: "native"}, {name: "virtual"}]
-			}
+				runtimes:  [{name: "native"}, {name: "virtual"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
+			},
+			{
+				script: """
+					echo "=== Flags with Defaults Demo ==="
+					echo ""
+					echo "These flags have default values if not specified:"
+					echo "  INVOWK_FLAG_ENV = '${INVOWK_FLAG_ENV}' (default: development)"
+					echo "  INVOWK_FLAG_RETRY_COUNT = '${INVOWK_FLAG_RETRY_COUNT}' (default: 3)"
+					echo "  INVOWK_FLAG_DRY_RUN = '${INVOWK_FLAG_DRY_RUN}' (default: false)"
+					echo ""
+					if [ "$INVOWK_FLAG_DRY_RUN" = "true" ]; then
+					    echo "[DRY-RUN MODE] Would deploy to '$INVOWK_FLAG_ENV' with $INVOWK_FLAG_RETRY_COUNT retries"
+					else
+					    echo "Deploying to '$INVOWK_FLAG_ENV' with $INVOWK_FLAG_RETRY_COUNT retries..."
+					fi
+					echo ""
+					echo "Try: invowk cmd examples flags defaults --env=production --dry-run=true"
+					"""
+				runtimes:  [{name: "virtual"}]
+				platforms: [{name: "windows"}]
+			},
 		]
 		flags: [
 			{name: "env", description: "Target environment", default_value: "development"},
@@ -1007,8 +1098,30 @@ cmds: [
 					echo ""
 					echo "Try: invowk cmd examples flags typed --verbose --count=5 --threshold=0.95 --message='Hello World'"
 					"""
-				runtimes: [{name: "native"}, {name: "virtual"}]
-			}
+				runtimes:  [{name: "native"}, {name: "virtual"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
+			},
+			{
+				script: """
+					echo "=== Typed Flags Demo ==="
+					echo ""
+					echo "These flags have explicit types:"
+					echo "  INVOWK_FLAG_VERBOSE (bool) = '$INVOWK_FLAG_VERBOSE'"
+					echo "  INVOWK_FLAG_COUNT (int) = '$INVOWK_FLAG_COUNT'"
+					echo "  INVOWK_FLAG_THRESHOLD (float) = '$INVOWK_FLAG_THRESHOLD'"
+					echo "  INVOWK_FLAG_MESSAGE (string) = '$INVOWK_FLAG_MESSAGE'"
+					echo ""
+					echo "Typed flags are validated:"
+					echo "  - bool: only 'true' or 'false' accepted"
+					echo "  - int: only valid integers accepted"
+					echo "  - float: only valid floating-point numbers accepted"
+					echo "  - string: any value accepted (default)"
+					echo ""
+					echo "Try: invowk cmd examples flags typed --verbose --count=5 --threshold=0.95 --message='Hello World'"
+					"""
+				runtimes:  [{name: "virtual"}]
+				platforms: [{name: "windows"}]
+			},
 		]
 		flags: [
 			{name: "verbose", description: "Enable verbose output", type: "bool", default_value: "false"},
@@ -1061,8 +1174,25 @@ cmds: [
 					echo ""
 					echo "Try: invowk cmd examples flags short -v -o=/tmp/out.txt -f"
 					"""
-				runtimes: [{name: "native"}, {name: "virtual"}]
-			}
+				runtimes:  [{name: "native"}, {name: "virtual"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
+			},
+			{
+				script: """
+					echo "=== Short Flag Aliases Demo ==="
+					echo ""
+					echo "These flags have short aliases:"
+					echo "  -v / --verbose = '$INVOWK_FLAG_VERBOSE'"
+					echo "  -o / --output = '$INVOWK_FLAG_OUTPUT'"
+					echo "  -f / --force = '$INVOWK_FLAG_FORCE'"
+					echo ""
+					echo "Short aliases make command-line usage more convenient."
+					echo ""
+					echo "Try: invowk cmd examples flags short -v -o=/tmp/out.txt -f"
+					"""
+				runtimes:  [{name: "virtual"}]
+				platforms: [{name: "windows"}]
+			},
 		]
 		flags: [
 			{name: "verbose", description: "Enable verbose output", type: "bool", short: "v", default_value: "false"},
@@ -1088,8 +1218,24 @@ cmds: [
 					echo ""
 					echo "Try: invowk cmd examples flags validation --env=staging --version=1.2.3"
 					"""
-				runtimes: [{name: "native"}, {name: "virtual"}]
-			}
+				runtimes:  [{name: "native"}, {name: "virtual"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
+			},
+			{
+				script: """
+					echo "=== Flag Validation Demo ==="
+					echo ""
+					echo "These flags are validated against regex patterns:"
+					echo "  --env (dev|staging|prod) = '$INVOWK_FLAG_ENV'"
+					echo "  --version (semver) = '$INVOWK_FLAG_VERSION'"
+					echo ""
+					echo "Invalid values will be rejected before the command runs."
+					echo ""
+					echo "Try: invowk cmd examples flags validation --env=staging --version=1.2.3"
+					"""
+				runtimes:  [{name: "virtual"}]
+				platforms: [{name: "windows"}]
+			},
 		]
 		flags: [
 			{name: "env", description: "Environment (dev, staging, or prod)", validation: "^(dev|staging|prod)$", default_value: "dev"},
@@ -1299,8 +1445,23 @@ cmds: [
 					echo ""
 					echo "Try: invowk cmd examples args simple Alice"
 					"""
-				runtimes: [{name: "native"}, {name: "virtual"}]
-			}
+				runtimes:  [{name: "native"}, {name: "virtual"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
+			},
+			{
+				script: """
+					echo "=== Simple Positional Argument Demo ==="
+					echo ""
+					echo "You provided the following argument:"
+					echo "  INVOWK_ARG_NAME = '$INVOWK_ARG_NAME'"
+					echo ""
+					echo "Hello, $INVOWK_ARG_NAME!"
+					echo ""
+					echo "Try: invowk cmd examples args simple Alice"
+					"""
+				runtimes:  [{name: "virtual"}]
+				platforms: [{name: "windows"}]
+			},
 		]
 		args: [
 			{name: "name", description: "The name to greet", required: true},
@@ -1325,8 +1486,25 @@ cmds: [
 					echo "Try: invowk cmd examples args optional Alice"
 					echo "Try: invowk cmd examples args optional Alice 'Good morning'"
 					"""
-				runtimes: [{name: "native"}, {name: "virtual"}]
-			}
+				runtimes:  [{name: "native"}, {name: "virtual"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
+			},
+			{
+				script: """
+					echo "=== Required + Optional Arguments Demo ==="
+					echo ""
+					echo "Arguments received:"
+					echo "  INVOWK_ARG_NAME = '$INVOWK_ARG_NAME' (required)"
+					echo "  INVOWK_ARG_GREETING = '$INVOWK_ARG_GREETING' (optional, default: Hello)"
+					echo ""
+					echo "$INVOWK_ARG_GREETING, $INVOWK_ARG_NAME!"
+					echo ""
+					echo "Try: invowk cmd examples args optional Alice"
+					echo "Try: invowk cmd examples args optional Alice 'Good morning'"
+					"""
+				runtimes:  [{name: "virtual"}]
+				platforms: [{name: "windows"}]
+			},
 		]
 		args: [
 			{name: "name", description: "The name to greet", required: true},
@@ -1354,8 +1532,27 @@ cmds: [
 					echo ""
 					echo "Try: invowk cmd examples args typed 800 600 1.5"
 					"""
-				runtimes: [{name: "native"}, {name: "virtual"}]
-			}
+				runtimes:  [{name: "native"}, {name: "virtual"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
+			},
+			{
+				script: """
+					echo "=== Typed Arguments Demo ==="
+					echo ""
+					echo "Arguments received:"
+					echo "  INVOWK_ARG_WIDTH (int) = '$INVOWK_ARG_WIDTH'"
+					echo "  INVOWK_ARG_HEIGHT (int) = '$INVOWK_ARG_HEIGHT'"
+					echo "  INVOWK_ARG_SCALE (float) = '$INVOWK_ARG_SCALE'"
+					echo ""
+					echo "Typed arguments are validated at runtime:"
+					echo "  - int: only valid integers accepted"
+					echo "  - float: only valid floating-point numbers accepted"
+					echo ""
+					echo "Try: invowk cmd examples args typed 800 600 1.5"
+					"""
+				runtimes:  [{name: "virtual"}]
+				platforms: [{name: "windows"}]
+			},
 		]
 		args: [
 			{name: "width", description: "Width in pixels", required: true, type: "int"},
@@ -1381,8 +1578,24 @@ cmds: [
 					echo ""
 					echo "Try: invowk cmd examples args validated staging 2.1.0"
 					"""
-				runtimes: [{name: "native"}, {name: "virtual"}]
-			}
+				runtimes:  [{name: "native"}, {name: "virtual"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
+			},
+			{
+				script: """
+					echo "=== Validated Arguments Demo ==="
+					echo ""
+					echo "Arguments received:"
+					echo "  INVOWK_ARG_ENV = '$INVOWK_ARG_ENV' (must be dev|staging|prod)"
+					echo "  INVOWK_ARG_VERSION = '$INVOWK_ARG_VERSION' (must be semver format)"
+					echo ""
+					echo "Deploying version $INVOWK_ARG_VERSION to $INVOWK_ARG_ENV..."
+					echo ""
+					echo "Try: invowk cmd examples args validated staging 2.1.0"
+					"""
+				runtimes:  [{name: "virtual"}]
+				platforms: [{name: "windows"}]
+			},
 		]
 		args: [
 			{name: "env", description: "Target environment (dev, staging, or prod)", required: true, validation: "^(dev|staging|prod)$"},
@@ -1969,7 +2182,29 @@ cmds: [
 					echo "invkfile location."
 					echo "=========================================="
 					"""
-				runtimes: [{name: "native"}, {name: "virtual"}]
+				runtimes:  [{name: "native"}, {name: "virtual"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
+			},
+			{
+				script: """
+					echo "=========================================="
+					echo "  Basic env.files Demo"
+					echo "=========================================="
+					echo ""
+					echo "Variables loaded from examples/.env:"
+					echo "  APP_NAME    = '$APP_NAME'"
+					echo "  APP_VERSION = '$APP_VERSION'"
+					echo "  APP_ENV     = '$APP_ENV'"
+					echo "  ENABLE_DEBUG= '$ENABLE_DEBUG'"
+					echo "  LOG_LEVEL   = '$LOG_LEVEL'"
+					echo ""
+					echo "The env.files field loads dotenv files before"
+					echo "command execution. Paths are relative to the"
+					echo "invkfile location."
+					echo "=========================================="
+					"""
+				runtimes:  [{name: "virtual"}]
+				platforms: [{name: "windows"}]
 			},
 		]
 	},
@@ -2105,7 +2340,29 @@ cmds: [
 					echo "Inline vars always take priority over files."
 					echo "=========================================="
 					"""
-				runtimes: [{name: "native"}, {name: "virtual"}]
+				runtimes:  [{name: "native"}, {name: "virtual"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
+			},
+			{
+				script: """
+					echo "=========================================="
+					echo "  env.files + env.vars Demo"
+					echo "=========================================="
+					echo ""
+					echo "From env.files (examples/.env):"
+					echo "  APP_NAME    = '$APP_NAME' (from file)"
+					echo "  APP_VERSION = '$APP_VERSION' (from file)"
+					echo ""
+					echo "Overridden by env.vars:"
+					echo "  APP_ENV   = '$APP_ENV' (vars overrides 'development')"
+					echo "  LOG_LEVEL = '$LOG_LEVEL' (vars overrides 'info')"
+					echo ""
+					echo "Precedence: env.files < env.vars"
+					echo "Inline vars always take priority over files."
+					echo "=========================================="
+					"""
+				runtimes:  [{name: "virtual"}]
+				platforms: [{name: "windows"}]
 			},
 		]
 	},

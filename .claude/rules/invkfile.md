@@ -51,3 +51,65 @@ cmds: [
 This validation runs:
 1. During `invowk cmd` execution (command discovery)
 2. During `invowk module validate --deep`
+
+### Cross-Platform Runtime Selection
+
+**Bash scripts with native+virtual runtimes must use platform-specific implementations.**
+
+**The problem:** The native runtime on Windows uses PowerShell (or `cmd`), which cannot parse bash syntax. When a command declares `runtimes: [{name: "native"}, {name: "virtual"}]`, the first runtime (native) becomes the default. This causes bash scripts to fail on Windows with PowerShell parser errors.
+
+**The solution:** Split implementations by platform:
+- **Linux/macOS**: Use `runtimes: [{name: "native"}, {name: "virtual"}]` with `platforms: [{name: "linux"}, {name: "macos"}]`
+- **Windows**: Use `runtimes: [{name: "virtual"}]` with `platforms: [{name: "windows"}]` (virtual runtime uses `mvdan/sh`, a cross-platform POSIX shell)
+
+**Valid (platform-specific implementations):**
+```cue
+implementations: [
+    {
+        script: """
+            echo "Hello from bash"
+            if [ -f /etc/os-release ]; then
+                cat /etc/os-release
+            fi
+            """
+        runtimes:  [{name: "native"}, {name: "virtual"}]
+        platforms: [{name: "linux"}, {name: "macos"}]
+    },
+    {
+        script: """
+            echo "Hello from bash"
+            if [ -f /etc/os-release ]; then
+                cat /etc/os-release
+            fi
+            """
+        runtimes:  [{name: "virtual"}]
+        platforms: [{name: "windows"}]
+    },
+]
+```
+
+**Invalid (bash script without platform restriction):**
+```cue
+implementations: [
+    {
+        script: """
+            echo "Hello from bash"
+            if [ -f /etc/os-release ]; then
+                cat /etc/os-release
+            fi
+            """
+        runtimes: [{name: "native"}, {name: "virtual"}]
+        // Missing platforms restriction - will fail on Windows!
+    },
+]
+```
+
+**When to apply this pattern:**
+- Any command with bash/POSIX shell scripts
+- That declares both native and virtual runtimes
+- And should work on Windows
+
+**Exceptions (no split needed):**
+- Commands with `runtimes: [{name: "virtual"}]` only (already cross-platform)
+- Commands with `runtimes: [{name: "native"}]` only and `platforms: [{name: "linux"}, {name: "macos"}]` (Linux/macOS only)
+- Commands with PowerShell scripts intended for Windows
