@@ -604,9 +604,18 @@ cmds: [
 					echo "  - sh is available"
 					echo "  - Either cat or type is available"
 					"""
-				runtimes:  [{name: "native"}]
+				runtimes:  [{name: "native"}, {name: "virtual"}]
 				platforms: [{name: "linux"}, {name: "macos"}]
-			}
+			},
+			{
+				script: """
+					echo "All tool dependencies satisfied!"
+					echo "  - sh is available"
+					echo "  - Either cat or type is available"
+					"""
+				runtimes:  [{name: "virtual"}]
+				platforms: [{name: "windows"}]
+			},
 		]
 		depends_on: {
 			tools: [
@@ -814,10 +823,15 @@ cmds: [
 		description: "Command with custom check validating output pattern"
 		implementations: [
 			{
-				script: "echo 'Custom output check passed!'"
-				runtimes:  [{name: "native"}]
+				script:    "echo 'Custom output check passed!'"
+				runtimes:  [{name: "native"}, {name: "virtual"}]
 				platforms: [{name: "linux"}, {name: "macos"}]
-			}
+			},
+			{
+				script:    "echo 'Custom output check passed!'"
+				runtimes:  [{name: "virtual"}]
+				platforms: [{name: "windows"}]
+			},
 		]
 		depends_on: {
 			custom_checks: [
