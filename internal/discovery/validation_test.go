@@ -3,6 +3,7 @@
 package discovery
 
 import (
+	"errors"
 	"invowk-cli/pkg/invkfile"
 	"strings"
 	"testing"
@@ -96,8 +97,8 @@ func TestValidateCommandTree_Conflict(t *testing.T) {
 	}
 
 	// Check that it's the right error type
-	conflictErr, ok := err.(*ArgsSubcommandConflictError)
-	if !ok {
+	var conflictErr *ArgsSubcommandConflictError
+	if !errors.As(err, &conflictErr) {
 		t.Fatalf("Expected ArgsSubcommandConflictError, got %T", err)
 	}
 
@@ -143,8 +144,8 @@ func TestValidateCommandTree_Conflict_MultipleChildren(t *testing.T) {
 		t.Fatal("ValidateCommandTree() should have returned an error")
 	}
 
-	conflictErr, ok := err.(*ArgsSubcommandConflictError)
-	if !ok {
+	var conflictErr *ArgsSubcommandConflictError
+	if !errors.As(err, &conflictErr) {
 		t.Fatalf("Expected ArgsSubcommandConflictError, got %T", err)
 	}
 
@@ -187,8 +188,8 @@ func TestValidateCommandTree_DeepNesting(t *testing.T) {
 		t.Fatal("ValidateCommandTree() should have returned an error for deep nested conflict")
 	}
 
-	conflictErr, ok := err.(*ArgsSubcommandConflictError)
-	if !ok {
+	var conflictErr *ArgsSubcommandConflictError
+	if !errors.As(err, &conflictErr) {
 		t.Fatalf("Expected ArgsSubcommandConflictError, got %T", err)
 	}
 

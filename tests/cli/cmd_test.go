@@ -7,6 +7,7 @@
 package cli
 
 import (
+	"context"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -56,7 +57,7 @@ func TestMain(m *testing.M) {
 	binaryPath = filepath.Join(binDir, binaryName)
 
 	// Build invowk
-	cmd := exec.Command("go", "build", "-o", binaryPath, ".")
+	cmd := exec.CommandContext(context.Background(), "go", "build", "-o", binaryPath, ".")
 	cmd.Dir = projectRoot
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
