@@ -147,7 +147,7 @@ release:
 #       token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
 #     homepage: https://invowk.dev
 #     description: A dynamically extensible command runner
-#     license: EPL-2.0
+#     license: MPL-2.0
 #     install: |
 #       bin.install "invowk"
 #     test: |
@@ -158,7 +158,7 @@ release:
 #   - name: invowk
 #     publisher: invowk
 #     short_description: A dynamically extensible command runner
-#     license: EPL-2.0
+#     license: MPL-2.0
 #     homepage: https://invowk.dev
 #     repository:
 #       owner: invowk

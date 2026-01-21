@@ -2354,9 +2354,9 @@ invowk-cli/
 
 ## License
 
-This project is licensed under the Eclipse Public License 2.0 (EPL-2.0) - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the Mozilla Public License 2.0 (MPL-2.0) - see the [LICENSE](LICENSE) file for details.
 
-SPDX-License-Identifier: EPL-2.0
+SPDX-License-Identifier: MPL-2.0
 
 ## Trademark
 

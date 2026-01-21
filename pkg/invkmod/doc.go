@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: EPL-2.0
+// SPDX-License-Identifier: MPL-2.0
 
 // Package invkmod provides comprehensive functionality for working with invowk modules.
 //

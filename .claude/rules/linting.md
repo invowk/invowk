@@ -25,7 +25,7 @@ These linters enforce:
 
 Files should follow this structure:
 ```go
-// SPDX-License-Identifier: EPL-2.0
+// SPDX-License-Identifier: MPL-2.0
 
 // Package documentation
 package mypackage

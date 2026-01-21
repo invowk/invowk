@@ -185,7 +185,7 @@ const config: Config = {
           ],
         },
       ],
-      copyright: `Copyright © ${new Date().getFullYear()} Danilo Cominotti Marques. invowk™ is a trademark of Danilo Cominotti Marques. Licensed under EPL-2.0.`,
+      copyright: `Copyright © ${new Date().getFullYear()} Danilo Cominotti Marques. invowk™ is a trademark of Danilo Cominotti Marques. Licensed under MPL-2.0.`,
     },
     prism: {
       theme: prismThemes.github,

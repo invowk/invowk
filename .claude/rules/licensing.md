@@ -1,6 +1,6 @@
 # Licensing
 
-This project is licensed under the Eclipse Public License 2.0 (EPL-2.0). See the [LICENSE](../../LICENSE) file for the full license text.
+This project is licensed under the Mozilla Public License 2.0 (MPL-2.0). See the [LICENSE](../../LICENSE) file for the full license text.
 
 ## SPDX License Headers
 
@@ -11,7 +11,7 @@ This project is licensed under the Eclipse Public License 2.0 (EPL-2.0). See the
 Every `.go` file must start with this exact header:
 
 ```go
-// SPDX-License-Identifier: EPL-2.0
+// SPDX-License-Identifier: MPL-2.0
 ```
 
 ### Placement Rules
@@ -24,7 +24,7 @@ Every `.go` file must start with this exact header:
 ### Complete Example
 
 ```go
-// SPDX-License-Identifier: EPL-2.0
+// SPDX-License-Identifier: MPL-2.0
 
 // Package config handles application configuration using Viper with CUE.
 package config
@@ -37,7 +37,7 @@ import (
 ### Example Without Package Documentation
 
 ```go
-// SPDX-License-Identifier: EPL-2.0
+// SPDX-License-Identifier: MPL-2.0
 
 package main
 
@@ -64,8 +64,8 @@ When creating new Go source files, always include the SPDX header. The header fo
 - Full license text (referenced via SPDX identifier).
 
 **DO** include:
-- Only the SPDX-License-Identifier line with `EPL-2.0`.
+- Only the SPDX-License-Identifier line with `MPL-2.0`.
 
 ## Common Pitfall
 
-- **Forgetting SPDX headers** - Every new `.go` file needs `// SPDX-License-Identifier: EPL-2.0` as the first line.
+- **Forgetting SPDX headers** - Every new `.go` file needs `// SPDX-License-Identifier: MPL-2.0` as the first line.

@@ -153,15 +153,15 @@ license-check:
 	@echo "Checking SPDX license headers..."
 	@missing=0; \
 	for file in $$(find . -name "*.go" -type f); do \
-		if ! head -1 "$$file" | grep -q "SPDX-License-Identifier: EPL-2.0"; then \
+		if ! head -1 "$$file" | grep -q "SPDX-License-Identifier: MPL-2.0"; then \
 			echo "Missing SPDX header: $$file"; \
 			missing=$$((missing + 1)); \
 		fi; \
 	done; \
 	if [ $$missing -gt 0 ]; then \
 		echo ""; \
-		echo "ERROR: $$missing file(s) missing SPDX-License-Identifier: EPL-2.0 header"; \
-		echo "All Go source files must start with: // SPDX-License-Identifier: EPL-2.0"; \
+		echo "ERROR: $$missing file(s) missing SPDX-License-Identifier: MPL-2.0 header"; \
+		echo "All Go source files must start with: // SPDX-License-Identifier: MPL-2.0"; \
 		exit 1; \
 	else \
 		echo "All Go files have proper SPDX license headers."; \

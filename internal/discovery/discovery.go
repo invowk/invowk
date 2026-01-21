@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: EPL-2.0
+// SPDX-License-Identifier: MPL-2.0
 
 // Package discovery handles finding and loading invkfiles from various locations.
 package discovery

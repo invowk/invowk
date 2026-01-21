@@ -34,9 +34,5 @@
   "link.item.label.GitHub": {
     "message": "GitHub",
     "description": "The label of footer link with label=GitHub linking to https://github.com/invowk/invowk"
-  },
-  "copyright": {
-    "message": "Copyright © 2026 Danilo Cominotti Marques. invowk™ é uma marca registrada de Danilo Cominotti Marques. Licenciado sob EPL-2.0.",
-    "description": "The footer copyright"
   }
 }
