@@ -8,6 +8,32 @@
 git config --global commit.gpgsign true
 ```
 
+## Merge Strategy
+
+**All merges MUST use squash merge.** This keeps the `main` branch history clean and linear, with each feature/fix represented by a single, well-documented commit.
+
+```bash
+# Squash merge a feature branch into main
+git checkout main
+git merge --squash feature-branch
+git commit -S -m "feat(scope): summary
+
+- Bullet points describing changes
+- ...
+
+Co-Authored-By: ..."
+```
+
+**Why squash merge:**
+- Clean, linear history on `main`
+- Each feature is a single atomic commit
+- Easier to revert entire features if needed
+- Commit message can summarize all changes cohesively
+
+**After squash merge:**
+- Delete the feature branch locally: `git branch -d feature-branch`
+- Delete the remote branch: `git push origin --delete feature-branch`
+
 ## Commit Message Format
 
 All commits should include a detailed description of what changed. Use a short Conventional Commit-style subject line, and a body with bullet points describing the key modifications.
