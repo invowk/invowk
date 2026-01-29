@@ -9,6 +9,11 @@ import (
 	"testing"
 )
 
+const (
+	// testCmdDeploy is a test constant for the command name "deploy"
+	testCmdDeploy = "deploy"
+)
+
 func TestValidateCommandTree_NoConflict(t *testing.T) {
 	// Leaf commands with args are valid
 	commands := []*CommandInfo{
@@ -102,8 +107,8 @@ func TestValidateCommandTree_Conflict(t *testing.T) {
 		t.Fatalf("Expected ArgsSubcommandConflictError, got %T", err)
 	}
 
-	if conflictErr.CommandName != "deploy" {
-		t.Errorf("Expected CommandName 'deploy', got %q", conflictErr.CommandName)
+	if conflictErr.CommandName != testCmdDeploy {
+		t.Errorf("Expected CommandName %q, got %q", testCmdDeploy, conflictErr.CommandName)
 	}
 
 	if len(conflictErr.Args) != 1 || conflictErr.Args[0].Name != "env" {

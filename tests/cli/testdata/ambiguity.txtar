@@ -1,0 +1,56 @@
+# Test: Ambiguous command listing (User Story 3)
+# Tests that commands with the same name from different sources show disambiguation annotations
+# and cannot be executed without explicit source specification
+
+# Change to work directory where the test files will be created
+cd $WORK
+
+# Test 1: List commands - ambiguous commands should show source annotation
+# The "deploy" command exists in both invkfile and foo.invkmod
+exec invowk cmd
+stdout 'From invkfile:'
+stdout 'hello'
+stdout 'deploy.*@invkfile'
+stdout 'From foo.invkmod:'
+stdout 'build'
+stdout 'deploy.*@foo'
+! stderr .
+
+# Test 2: Unambiguous commands should NOT show source annotation
+# "hello" only exists in invkfile, "build" only exists in foo
+exec invowk cmd
+! stdout 'hello.*@'
+! stdout 'build.*@'
+
+-- invkfile.cue --
+cmds: [
+	{
+		name: "hello"
+		description: "Hello from root invkfile"
+		implementations: [{script: "echo 'Hello from root!'", runtimes: [{name: "virtual"}]}]
+	},
+	{
+		name: "deploy"
+		description: "Deploy from root invkfile"
+		implementations: [{script: "echo 'Deploying from invkfile!'", runtimes: [{name: "virtual"}]}]
+	},
+]
+
+-- foo.invkmod/invkmod.cue --
+module: "foo"
+version: "1.0"
+description: "Foo module"
+
+-- foo.invkmod/invkfile.cue --
+cmds: [
+	{
+		name: "build"
+		description: "Build from foo module"
+		implementations: [{script: "echo 'Building from foo!'", runtimes: [{name: "virtual"}]}]
+	},
+	{
+		name: "deploy"
+		description: "Deploy from foo module"
+		implementations: [{script: "echo 'Deploying from foo!'", runtimes: [{name: "virtual"}]}]
+	},
+]

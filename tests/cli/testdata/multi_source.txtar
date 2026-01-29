@@ -1,0 +1,71 @@
+# Test: Multi-source command discovery (User Story 1 + User Story 2)
+# Tests that invowk cmd discovers commands from both invkfile.cue AND sibling modules
+# Tests that unambiguous commands execute with simple names (transparent namespace)
+
+# Change to work directory where the test files will be created
+cd $WORK
+
+# Test 1: List commands - should show commands grouped by source
+# Commands are displayed with their SimpleName (no module prefix)
+exec invowk cmd
+stdout 'From invkfile:'
+stdout 'hello'
+stdout 'From foo.invkmod:'
+stdout 'build'
+stdout 'From bar.invkmod:'
+stdout 'test'
+! stderr .
+
+# Test 2: Run unambiguous command from invkfile using simple name
+exec invowk cmd hello
+stdout 'Hello from root!'
+! stderr .
+
+# Test 3 (US2): Run unambiguous command from module using SIMPLE name (no prefix)
+# Transparent namespace: "build" is unique, so it works without "foo" prefix
+exec invowk cmd build
+stdout 'Building from foo!'
+! stderr .
+
+# Test 4 (US2): Run another unambiguous module command using simple name
+# Transparent namespace: "test" is unique, so it works without "bar" prefix
+exec invowk cmd test
+stdout 'Testing from bar!'
+! stderr .
+
+-- invkfile.cue --
+cmds: [
+	{
+		name: "hello"
+		description: "Hello from root invkfile"
+		implementations: [{script: "echo 'Hello from root!'", runtimes: [{name: "virtual"}]}]
+	},
+]
+
+-- foo.invkmod/invkmod.cue --
+module: "foo"
+version: "1.0"
+description: "Foo module"
+
+-- foo.invkmod/invkfile.cue --
+cmds: [
+	{
+		name: "build"
+		description: "Build from foo module"
+		implementations: [{script: "echo 'Building from foo!'", runtimes: [{name: "virtual"}]}]
+	},
+]
+
+-- bar.invkmod/invkmod.cue --
+module: "bar"
+version: "1.0"
+description: "Bar module"
+
+-- bar.invkmod/invkfile.cue --
+cmds: [
+	{
+		name: "test"
+		description: "Test from bar module"
+		implementations: [{script: "echo 'Testing from bar!'", runtimes: [{name: "virtual"}]}]
+	},
+]

@@ -1,0 +1,97 @@
+# Test: Edge cases for multi-source command discovery
+# Tests error handling for edge conditions: reserved module names, source typos
+
+# Change to work directory where the test files will be created
+cd $WORK
+
+# =============================================================================
+# Test: Reserved module name (invkfile.invkmod)
+# =============================================================================
+
+# Test 1: Reserved module name 'invkfile.invkmod' should be skipped silently
+cd $WORK/reserved_name_test
+exec invowk cmd
+stdout 'From invkfile:'
+stdout 'hello'
+# The reserved module should be skipped - its commands shouldn't appear
+! stdout 'From invkfile.invkmod:'
+! stdout 'reserved-cmd'
+
+# =============================================================================
+# Test: Typos and invalid source names
+# =============================================================================
+
+cd $WORK/typo_test
+
+# Test 2: Typo in @source prefix shows helpful error with suggestions
+! exec invowk cmd @fooo deploy
+stderr 'not found'
+stderr 'Available sources'
+
+# Test 3: Typo in --from flag shows helpful error
+! exec invowk cmd --from invkfil deploy
+stderr 'not found'
+stderr 'Available sources'
+
+# Test 4: Non-existent source with similar name
+! exec invowk cmd @ba deploy
+stderr 'not found'
+
+# Test 5: Explicit source that doesn't contain the requested command
+! exec invowk cmd @foo hello
+stderr 'not found in source'
+
+# =============================================================================
+# Test files
+# =============================================================================
+
+-- reserved_name_test/invkfile.cue --
+cmds: [
+	{
+		name: "hello"
+		description: "Hello from root"
+		implementations: [{script: "echo 'Hello!'", runtimes: [{name: "virtual"}]}]
+	},
+]
+
+-- reserved_name_test/invkfile.invkmod/invkmod.cue --
+module: "invkfile"
+version: "1.0"
+description: "This module uses reserved name"
+
+-- reserved_name_test/invkfile.invkmod/invkfile.cue --
+cmds: [
+	{
+		name: "reserved-cmd"
+		description: "Command in reserved module"
+		implementations: [{script: "echo 'Reserved!'", runtimes: [{name: "virtual"}]}]
+	},
+]
+
+-- typo_test/invkfile.cue --
+cmds: [
+	{
+		name: "deploy"
+		description: "Deploy from root"
+		implementations: [{script: "echo 'Deploying from invkfile!'", runtimes: [{name: "virtual"}]}]
+	},
+	{
+		name: "hello"
+		description: "Hello from root"
+		implementations: [{script: "echo 'Hello!'", runtimes: [{name: "virtual"}]}]
+	},
+]
+
+-- typo_test/foo.invkmod/invkmod.cue --
+module: "foo"
+version: "1.0"
+description: "Foo module"
+
+-- typo_test/foo.invkmod/invkfile.cue --
+cmds: [
+	{
+		name: "deploy"
+		description: "Deploy from foo"
+		implementations: [{script: "echo 'Deploying from foo!'", runtimes: [{name: "virtual"}]}]
+	},
+]

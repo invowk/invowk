@@ -520,6 +520,18 @@ version: "1.0"
 			expectValid:  true,
 			expectIssues: 0,
 		},
+		{
+			name: "reserved module name 'invkfile' rejected (FR-015)",
+			setup: func(t *testing.T) string {
+				t.Helper()
+				dir := t.TempDir()
+				// Create module with reserved name "invkfile"
+				return createValidModule(t, dir, "invkfile.invkmod", "invkfile")
+			},
+			expectValid:    false,
+			expectIssues:   1,
+			checkIssueType: "naming",
+		},
 	}
 
 	for _, tt := range tests {

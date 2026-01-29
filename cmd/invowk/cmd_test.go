@@ -2422,3 +2422,146 @@ func TestCommand_WithArgs(t *testing.T) {
 		t.Error("Third arg should be variadic")
 	}
 }
+
+func TestNormalizeSourceName(t *testing.T) {
+	// Test T009: normalizeSourceName helper
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		// Module names
+		{"foo", "foo"},
+		{"foo.invkmod", "foo"},
+		{"@foo", "foo"},
+		{"@foo.invkmod", "foo"},
+		{"bar", "bar"},
+		{"bar.invkmod", "bar"},
+
+		// Invkfile variants
+		{"invkfile", "invkfile"},
+		{"invkfile.cue", "invkfile"},
+		{"@invkfile", "invkfile"},
+		{"@invkfile.cue", "invkfile"},
+
+		// RDNS module names
+		{"com.example.mytools", "com.example.mytools"},
+		{"com.example.mytools.invkmod", "com.example.mytools"},
+		{"@com.example.mytools.invkmod", "com.example.mytools"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			result := normalizeSourceName(tt.input)
+			if result != tt.expected {
+				t.Errorf("normalizeSourceName(%q) = %q, want %q", tt.input, result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestParseSourceFilter_FromFlag(t *testing.T) {
+	// Test T008: ParseSourceFilter with --from flag
+	args := []string{"deploy", "arg1"}
+
+	filter, remaining, err := ParseSourceFilter(args, "foo")
+	if err != nil {
+		t.Fatalf("ParseSourceFilter() error: %v", err)
+	}
+
+	if filter == nil {
+		t.Fatal("filter should not be nil when --from is specified")
+	}
+	if filter.SourceID != "foo" {
+		t.Errorf("SourceID = %q, want %q", filter.SourceID, "foo")
+	}
+	if filter.Raw != "foo" {
+		t.Errorf("Raw = %q, want %q", filter.Raw, "foo")
+	}
+
+	// Args should be unchanged
+	if len(remaining) != 2 || remaining[0] != "deploy" {
+		t.Errorf("remaining args = %v, want [deploy arg1]", remaining)
+	}
+}
+
+func TestParseSourceFilter_AtPrefix(t *testing.T) {
+	// Test T008: ParseSourceFilter with @source prefix
+	args := []string{"@foo", "deploy", "arg1"}
+
+	filter, remaining, err := ParseSourceFilter(args, "")
+	if err != nil {
+		t.Fatalf("ParseSourceFilter() error: %v", err)
+	}
+
+	if filter == nil {
+		t.Fatal("filter should not be nil when @source is specified")
+	}
+	if filter.SourceID != "foo" {
+		t.Errorf("SourceID = %q, want %q", filter.SourceID, "foo")
+	}
+	if filter.Raw != "@foo" {
+		t.Errorf("Raw = %q, want %q", filter.Raw, "@foo")
+	}
+
+	// @source should be consumed from args
+	if len(remaining) != 2 || remaining[0] != "deploy" {
+		t.Errorf("remaining args = %v, want [deploy arg1]", remaining)
+	}
+}
+
+func TestParseSourceFilter_NoFilter(t *testing.T) {
+	// Test T008: ParseSourceFilter with no filter
+	args := []string{"deploy", "arg1"}
+
+	filter, remaining, err := ParseSourceFilter(args, "")
+	if err != nil {
+		t.Fatalf("ParseSourceFilter() error: %v", err)
+	}
+
+	if filter != nil {
+		t.Error("filter should be nil when no filter is specified")
+	}
+
+	// Args should be unchanged
+	if len(remaining) != 2 || remaining[0] != "deploy" {
+		t.Errorf("remaining args = %v, want [deploy arg1]", remaining)
+	}
+}
+
+func TestParseSourceFilter_FromFlagTakesPrecedence(t *testing.T) {
+	// Test T008: --from flag takes precedence over @prefix
+	args := []string{"@bar", "deploy"}
+
+	filter, remaining, err := ParseSourceFilter(args, "foo")
+	if err != nil {
+		t.Fatalf("ParseSourceFilter() error: %v", err)
+	}
+
+	if filter == nil {
+		t.Fatal("filter should not be nil")
+	}
+	// --from foo should take precedence over @bar
+	if filter.SourceID != "foo" {
+		t.Errorf("SourceID = %q, want %q (--from takes precedence)", filter.SourceID, "foo")
+	}
+
+	// @bar should NOT be consumed since --from was used
+	if len(remaining) != 2 || remaining[0] != "@bar" {
+		t.Errorf("remaining args = %v, want [@bar deploy]", remaining)
+	}
+}
+
+func TestParseSourceFilter_EmptyArgs(t *testing.T) {
+	// Test T008: ParseSourceFilter with empty args
+	filter, remaining, err := ParseSourceFilter([]string{}, "")
+	if err != nil {
+		t.Fatalf("ParseSourceFilter() error: %v", err)
+	}
+
+	if filter != nil {
+		t.Error("filter should be nil for empty args")
+	}
+	if len(remaining) != 0 {
+		t.Errorf("remaining should be empty, got %v", remaining)
+	}
+}

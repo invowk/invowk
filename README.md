@@ -18,9 +18,12 @@ A dynamically extensible, CLI-based command runner similar to [just](https://git
 - **Command Dependencies**: Commands can require other commands to be discoverable
 
 - **Multiple Command Sources**: Discover commands from:
-  1. Current directory (highest priority)
-  2. User commands directory (`~/.invowk/cmds/`)
-  3. Configured search paths
+  1. Current directory's `invkfile.cue` (highest priority)
+  2. Sibling `*.invkmod` module directories
+  3. User commands directory (`~/.invowk/cmds/`)
+  4. Configured search paths
+
+- **Transparent Namespace**: Commands from different sources use simple names when unique. When command names conflict across sources, use `@<source>` prefix or `--from` flag to disambiguate
 
 - **Shell Completion**: Full tab completion support for bash, zsh, fish, and PowerShell
 
@@ -72,17 +75,23 @@ invowk cmd
 invowk cmd --list
 ```
 
-The list shows all commands and allowed runtimes (default marked with `*`). Commands from modules are prefixed with the module name; commands from the current directory are not:
+The list shows all commands grouped by source (invkfile or module) with allowed runtimes (default marked with `*`). Commands use their **simple names** - no module prefix is required when names are unique:
 
 ```
 Available Commands
   (* = default runtime)
 
-From current directory:
+From invkfile:
   build - Build the project [native*, container] (linux, macos, windows)
   test unit - Run unit tests [native*, virtual] (linux, macos, windows)
-  docker-build - Build in container [container*] (linux, macos, windows)
+  deploy - Deploy the application (@invkfile) [native*] (linux, macos)
+
+From tools.invkmod:
+  lint - Run linter [native*] (linux, macos, windows)
+  deploy - Deploy to staging (@tools) [native*] (linux, macos)
 ```
+
+When a command name exists in multiple sources (like `deploy` above), the listing shows a source annotation (`@invkfile`, `@tools`) to indicate disambiguation is required.
 
 3. **Run a command**:
 
@@ -214,41 +223,71 @@ module: "my.nested.module"   // Nested module using dot notation (RDNS style)
 
 **Invalid examples:** `.module`, `module.`, `my..module`, `my-module`, `my_module`, `1module`
 
-### How Module Namespacing Works
+### How Multi-Source Discovery Works
 
-When you define a command in a module, the module ID becomes the namespace prefix:
+When you run `invowk cmd` in a directory, invowk discovers commands from **multiple sources**:
 
-```cue
-// invkmod.cue
-module: "myproject"
+1. **Root invkfile**: `invkfile.cue` in the current directory
+2. **Sibling modules**: All `*.invkmod` directories at the same level (not their dependencies)
 
-// invkfile.cue
-cmds: [
-    {name: "build", ...},
-    {name: "test unit", ...},
-]
-```
-
-The commands are accessed with the module as a prefix:
+Commands from all sources are aggregated and displayed with their **simple names**. The transparent namespace system means you don't need module prefixes unless there's a naming conflict.
 
 ```bash
-invowk cmd myproject build
-invowk cmd myproject test unit
+# Directory structure:
+# .
+# ├── invkfile.cue          (contains: build, deploy)
+# ├── tools.invkmod/        (contains: lint, deploy)
+# └── testing.invkmod/      (contains: test)
+
+# Run commands with simple names (when unique)
+invowk cmd build      # Runs build from invkfile
+invowk cmd lint       # Runs lint from tools.invkmod
+invowk cmd test       # Runs test from testing.invkmod
+
+# Ambiguous commands require disambiguation (deploy exists in both sources)
+invowk cmd @invkfile deploy      # Using @source prefix
+invowk cmd @tools deploy         # Using @source prefix
+invowk cmd --from invkfile deploy  # Using --from flag
 ```
 
-Commands from standalone invkfiles (like those created by `invowk init`) are **unprefixed**:
+### Command Disambiguation
 
+When a command name exists in multiple sources, invowk requires explicit disambiguation:
+
+**Using `@source` prefix** (appears before the command name):
 ```bash
-invowk cmd build
-invowk cmd test unit
+invowk cmd @invkfile deploy           # Run deploy from invkfile
+invowk cmd @tools deploy              # Run deploy from tools.invkmod
+invowk cmd @tools.invkmod deploy      # Full name also works
 ```
 
-### Benefits of Module Namespaces
+**Using `--from` flag** (must appear after `invowk cmd`):
+```bash
+invowk cmd --from invkfile deploy
+invowk cmd --from tools deploy
+```
 
-1. **Namespace isolation**: Module command names stay distinct across shared toolkits
-2. **Clear provenance**: You know which invkfile a command comes from
-3. **Hierarchical organization**: Use dot notation for logical grouping (e.g., `frontend.components`, `backend.api`)
-4. **Tab completion**: Modules provide natural completion boundaries
+If you try to run an ambiguous command without disambiguation, invowk shows an error with available sources:
+```
+Error: 'deploy' is ambiguous. Found in:
+  - @invkfile: Deploy the application
+  - @tools: Deploy to staging
+Use 'invowk cmd @<source> deploy' or 'invowk cmd --from <source> deploy'
+```
+
+### Explicit Source for Non-Ambiguous Commands
+
+You can always specify a source explicitly, even for unique command names:
+```bash
+invowk cmd @tools lint    # Works even though lint is not ambiguous
+```
+
+### Benefits of Transparent Namespaces
+
+1. **Simple by default**: Use short command names when possible
+2. **Explicit when needed**: Disambiguation syntax is clear and consistent
+3. **Clear provenance**: Listing shows source for each command
+4. **Tab completion**: Sources provide natural completion boundaries
 
 ### Command Dependencies and Namespaces
 

@@ -140,6 +140,13 @@ func Validate(modulePath string) (*ValidationResult, error) {
 		result.AddIssue("naming", err.Error(), "")
 	} else {
 		result.ModuleName = moduleName
+
+		// Check for reserved module name "invkfile" (FR-015)
+		// This name is reserved for the canonical namespace system where @invkfile
+		// refers to the root invkfile.cue source
+		if moduleName == "invkfile" {
+			result.AddIssue("naming", "module name 'invkfile' is reserved for the root invkfile source", "")
+		}
 	}
 
 	// Check for invkmod.cue (required)

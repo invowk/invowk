@@ -114,6 +114,440 @@ func TestCommandInfo_Fields(t *testing.T) {
 	}
 }
 
+func TestCommandInfo_NewFields(t *testing.T) {
+	// Test new fields for module-aware command discovery (T003)
+	cmd := &invkfile.Command{
+		Name:        "deploy",
+		Description: "Deploy the application",
+	}
+
+	// Test command from root invkfile
+	rootCmd := &CommandInfo{
+		Name:        "deploy",
+		Description: "Deploy the application",
+		Source:      SourceCurrentDir,
+		FilePath:    "/path/to/invkfile.cue",
+		Command:     cmd,
+		SimpleName:  "deploy",
+		SourceID:    "invkfile",
+		ModuleID:    "",
+		IsAmbiguous: false,
+	}
+
+	if rootCmd.SimpleName != testCmdDeploy {
+		t.Errorf("SimpleName = %s, want deploy", rootCmd.SimpleName)
+	}
+	if rootCmd.SourceID != "invkfile" {
+		t.Errorf("SourceID = %s, want invkfile", rootCmd.SourceID)
+	}
+	if rootCmd.ModuleID != "" {
+		t.Errorf("ModuleID = %s, want empty string for root invkfile", rootCmd.ModuleID)
+	}
+	if rootCmd.IsAmbiguous {
+		t.Error("IsAmbiguous should be false by default")
+	}
+
+	// Test command from module
+	moduleCmd := &CommandInfo{
+		Name:        "foo deploy",
+		Description: "Deploy from foo module",
+		Source:      SourceModule,
+		FilePath:    "/path/to/foo.invkmod/invkfile.cue",
+		Command:     cmd,
+		SimpleName:  "deploy",
+		SourceID:    "foo",
+		ModuleID:    "io.invowk.foo",
+		IsAmbiguous: true, // Conflicts with root deploy
+	}
+
+	if moduleCmd.SimpleName != testCmdDeploy {
+		t.Errorf("SimpleName = %s, want deploy", moduleCmd.SimpleName)
+	}
+	if moduleCmd.SourceID != "foo" {
+		t.Errorf("SourceID = %s, want foo", moduleCmd.SourceID)
+	}
+	if moduleCmd.ModuleID != "io.invowk.foo" {
+		t.Errorf("ModuleID = %s, want io.invowk.foo", moduleCmd.ModuleID)
+	}
+	if !moduleCmd.IsAmbiguous {
+		t.Error("IsAmbiguous should be true when command name conflicts")
+	}
+}
+
+func TestNewDiscoveredCommandSet(t *testing.T) {
+	// Test T004/T005: DiscoveredCommandSet constructor
+	set := NewDiscoveredCommandSet()
+
+	if set == nil {
+		t.Fatal("NewDiscoveredCommandSet() returned nil")
+	}
+	if set.Commands == nil {
+		t.Error("Commands should be initialized")
+	}
+	if set.BySimpleName == nil {
+		t.Error("BySimpleName should be initialized")
+	}
+	if set.AmbiguousNames == nil {
+		t.Error("AmbiguousNames should be initialized")
+	}
+	if set.BySource == nil {
+		t.Error("BySource should be initialized")
+	}
+	if set.SourceOrder == nil {
+		t.Error("SourceOrder should be initialized")
+	}
+}
+
+func TestDiscoveredCommandSet_Add(t *testing.T) {
+	// Test T006: Add method
+	set := NewDiscoveredCommandSet()
+
+	cmd1 := &CommandInfo{
+		Name:       "hello",
+		SimpleName: "hello",
+		SourceID:   "invkfile",
+	}
+	cmd2 := &CommandInfo{
+		Name:       "build",
+		SimpleName: "build",
+		SourceID:   "foo",
+	}
+	cmd3 := &CommandInfo{
+		Name:       "deploy",
+		SimpleName: "deploy",
+		SourceID:   "foo",
+	}
+
+	set.Add(cmd1)
+	set.Add(cmd2)
+	set.Add(cmd3)
+
+	// Check Commands slice
+	if len(set.Commands) != 3 {
+		t.Errorf("len(Commands) = %d, want 3", len(set.Commands))
+	}
+
+	// Check BySimpleName index
+	if len(set.BySimpleName["hello"]) != 1 {
+		t.Errorf("len(BySimpleName[hello]) = %d, want 1", len(set.BySimpleName["hello"]))
+	}
+	if len(set.BySimpleName["build"]) != 1 {
+		t.Errorf("len(BySimpleName[build]) = %d, want 1", len(set.BySimpleName["build"]))
+	}
+
+	// Check BySource index
+	if len(set.BySource["invkfile"]) != 1 {
+		t.Errorf("len(BySource[invkfile]) = %d, want 1", len(set.BySource["invkfile"]))
+	}
+	if len(set.BySource["foo"]) != 2 {
+		t.Errorf("len(BySource[foo]) = %d, want 2", len(set.BySource["foo"]))
+	}
+
+	// Check SourceOrder
+	if len(set.SourceOrder) != 2 {
+		t.Errorf("len(SourceOrder) = %d, want 2", len(set.SourceOrder))
+	}
+}
+
+func TestDiscoveredCommandSet_Analyze_NoConflicts(t *testing.T) {
+	// Test T007: Analyze method with no conflicts
+	set := NewDiscoveredCommandSet()
+
+	set.Add(&CommandInfo{SimpleName: "hello", SourceID: "invkfile"})
+	set.Add(&CommandInfo{SimpleName: "build", SourceID: "foo"})
+	set.Add(&CommandInfo{SimpleName: "test", SourceID: "bar"})
+
+	set.Analyze()
+
+	// No ambiguous names
+	if len(set.AmbiguousNames) != 0 {
+		t.Errorf("len(AmbiguousNames) = %d, want 0", len(set.AmbiguousNames))
+	}
+
+	// All commands should not be ambiguous
+	for _, cmd := range set.Commands {
+		if cmd.IsAmbiguous {
+			t.Errorf("Command %s should not be ambiguous", cmd.SimpleName)
+		}
+	}
+
+	// SourceOrder should be sorted: invkfile first, then alphabetically
+	if set.SourceOrder[0] != "invkfile" {
+		t.Errorf("SourceOrder[0] = %s, want invkfile", set.SourceOrder[0])
+	}
+	if set.SourceOrder[1] != "bar" {
+		t.Errorf("SourceOrder[1] = %s, want bar", set.SourceOrder[1])
+	}
+	if set.SourceOrder[2] != "foo" {
+		t.Errorf("SourceOrder[2] = %s, want foo", set.SourceOrder[2])
+	}
+}
+
+func TestDiscoveredCommandSet_Analyze_WithConflicts(t *testing.T) {
+	// Test T007: Analyze method with conflicts
+	set := NewDiscoveredCommandSet()
+
+	// "deploy" exists in both invkfile and foo
+	set.Add(&CommandInfo{SimpleName: "hello", SourceID: "invkfile"})
+	set.Add(&CommandInfo{SimpleName: "deploy", SourceID: "invkfile"})
+	set.Add(&CommandInfo{SimpleName: "deploy", SourceID: "foo"})
+	set.Add(&CommandInfo{SimpleName: "build", SourceID: "foo"})
+
+	set.Analyze()
+
+	// "deploy" should be ambiguous
+	if !set.AmbiguousNames["deploy"] {
+		t.Error("'deploy' should be marked as ambiguous")
+	}
+
+	// "hello" and "build" should not be ambiguous
+	if set.AmbiguousNames["hello"] {
+		t.Error("'hello' should not be marked as ambiguous")
+	}
+	if set.AmbiguousNames["build"] {
+		t.Error("'build' should not be marked as ambiguous")
+	}
+
+	// Check IsAmbiguous flag on commands
+	for _, cmd := range set.Commands {
+		if cmd.SimpleName == "deploy" {
+			if !cmd.IsAmbiguous {
+				t.Errorf("Command 'deploy' from %s should be marked as ambiguous", cmd.SourceID)
+			}
+		} else {
+			if cmd.IsAmbiguous {
+				t.Errorf("Command '%s' should not be marked as ambiguous", cmd.SimpleName)
+			}
+		}
+	}
+}
+
+func TestDiscoveredCommandSet_Analyze_SameNameSameSource(t *testing.T) {
+	// Test: Multiple commands with same name from same source are NOT ambiguous
+	// (This could happen with command overloading or errors)
+	set := NewDiscoveredCommandSet()
+
+	set.Add(&CommandInfo{SimpleName: "build", SourceID: "foo"})
+	set.Add(&CommandInfo{SimpleName: "build", SourceID: "foo"}) // Same name, same source
+
+	set.Analyze()
+
+	// Should NOT be marked as ambiguous since they're from the same source
+	if set.AmbiguousNames["build"] {
+		t.Error("Commands with same name from same source should not be marked as ambiguous")
+	}
+}
+
+func TestDiscoveredCommandSet_MultiSourceAggregation(t *testing.T) {
+	// Test T011: Multi-source aggregation for User Story 1
+	// Simulates commands from invkfile + two modules
+
+	set := NewDiscoveredCommandSet()
+
+	// Commands from invkfile
+	set.Add(&CommandInfo{
+		Name:       "hello",
+		SimpleName: "hello",
+		SourceID:   "invkfile",
+		Source:     SourceCurrentDir,
+	})
+	set.Add(&CommandInfo{
+		Name:       "deploy",
+		SimpleName: "deploy",
+		SourceID:   "invkfile",
+		Source:     SourceCurrentDir,
+	})
+
+	// Commands from foo module
+	set.Add(&CommandInfo{
+		Name:       "foo build",
+		SimpleName: "build",
+		SourceID:   "foo",
+		ModuleID:   "io.invowk.foo",
+		Source:     SourceModule,
+	})
+	set.Add(&CommandInfo{
+		Name:       "foo deploy",
+		SimpleName: "deploy",
+		SourceID:   "foo",
+		ModuleID:   "io.invowk.foo",
+		Source:     SourceModule,
+	})
+
+	// Commands from bar module
+	set.Add(&CommandInfo{
+		Name:       "bar test",
+		SimpleName: "test",
+		SourceID:   "bar",
+		ModuleID:   "io.invowk.bar",
+		Source:     SourceModule,
+	})
+
+	set.Analyze()
+
+	// Test aggregation counts
+	if len(set.Commands) != 5 {
+		t.Errorf("len(Commands) = %d, want 5", len(set.Commands))
+	}
+
+	// Test source grouping
+	if len(set.BySource["invkfile"]) != 2 {
+		t.Errorf("len(BySource[invkfile]) = %d, want 2", len(set.BySource["invkfile"]))
+	}
+	if len(set.BySource["foo"]) != 2 {
+		t.Errorf("len(BySource[foo]) = %d, want 2", len(set.BySource["foo"]))
+	}
+	if len(set.BySource["bar"]) != 1 {
+		t.Errorf("len(BySource[bar]) = %d, want 1", len(set.BySource["bar"]))
+	}
+
+	// Test source order (invkfile first, then alphabetically)
+	if set.SourceOrder[0] != "invkfile" {
+		t.Errorf("SourceOrder[0] = %s, want invkfile", set.SourceOrder[0])
+	}
+	if set.SourceOrder[1] != "bar" {
+		t.Errorf("SourceOrder[1] = %s, want bar", set.SourceOrder[1])
+	}
+	if set.SourceOrder[2] != "foo" {
+		t.Errorf("SourceOrder[2] = %s, want foo", set.SourceOrder[2])
+	}
+
+	// Test ambiguity detection - "deploy" is in both invkfile and foo
+	if !set.AmbiguousNames["deploy"] {
+		t.Error("'deploy' should be marked as ambiguous")
+	}
+	// "hello", "build", "test" are unique
+	if set.AmbiguousNames["hello"] {
+		t.Error("'hello' should not be marked as ambiguous")
+	}
+	if set.AmbiguousNames["build"] {
+		t.Error("'build' should not be marked as ambiguous")
+	}
+	if set.AmbiguousNames["test"] {
+		t.Error("'test' should not be marked as ambiguous")
+	}
+
+	// Test IsAmbiguous flag on individual commands
+	for _, cmd := range set.Commands {
+		if cmd.SimpleName == "deploy" {
+			if !cmd.IsAmbiguous {
+				t.Errorf("Command 'deploy' from %s should be marked as ambiguous", cmd.SourceID)
+			}
+		} else {
+			if cmd.IsAmbiguous {
+				t.Errorf("Command '%s' from %s should not be marked as ambiguous", cmd.SimpleName, cmd.SourceID)
+			}
+		}
+	}
+}
+
+func TestDiscoveredCommandSet_HierarchicalAmbiguity(t *testing.T) {
+	// Test T035: Hierarchical command ambiguity detection (User Story 4)
+	// Tests that subcommands like "deploy staging" are tracked separately from "deploy"
+	// and ambiguity is detected at the correct hierarchical level
+
+	set := NewDiscoveredCommandSet()
+
+	// Commands from invkfile - parent "deploy" and subcommand "deploy staging"
+	set.Add(&CommandInfo{
+		Name:       "deploy",
+		SimpleName: "deploy",
+		SourceID:   "invkfile",
+		Source:     SourceCurrentDir,
+	})
+	set.Add(&CommandInfo{
+		Name:       "deploy staging",
+		SimpleName: "deploy staging",
+		SourceID:   "invkfile",
+		Source:     SourceCurrentDir,
+	})
+	set.Add(&CommandInfo{
+		Name:       "deploy local",
+		SimpleName: "deploy local",
+		SourceID:   "invkfile",
+		Source:     SourceCurrentDir,
+	})
+
+	// Commands from foo module - conflicting parent "deploy"
+	set.Add(&CommandInfo{
+		Name:       "foo deploy",
+		SimpleName: "deploy",
+		SourceID:   "foo",
+		ModuleID:   "io.invowk.foo",
+		Source:     SourceModule,
+	})
+
+	// Commands from bar module - conflicting "deploy staging" but unique "deploy production"
+	set.Add(&CommandInfo{
+		Name:       "bar deploy staging",
+		SimpleName: "deploy staging",
+		SourceID:   "bar",
+		ModuleID:   "io.invowk.bar",
+		Source:     SourceModule,
+	})
+	set.Add(&CommandInfo{
+		Name:       "bar deploy production",
+		SimpleName: "deploy production",
+		SourceID:   "bar",
+		ModuleID:   "io.invowk.bar",
+		Source:     SourceModule,
+	})
+
+	set.Analyze()
+
+	// Test that "deploy" is ambiguous (invkfile vs foo)
+	if !set.AmbiguousNames["deploy"] {
+		t.Error("'deploy' should be marked as ambiguous (exists in invkfile and foo)")
+	}
+
+	// Test that "deploy staging" is ambiguous (invkfile vs bar)
+	if !set.AmbiguousNames["deploy staging"] {
+		t.Error("'deploy staging' should be marked as ambiguous (exists in invkfile and bar)")
+	}
+
+	// Test that "deploy local" is NOT ambiguous (only in invkfile)
+	if set.AmbiguousNames["deploy local"] {
+		t.Error("'deploy local' should NOT be marked as ambiguous (only in invkfile)")
+	}
+
+	// Test that "deploy production" is NOT ambiguous (only in bar)
+	if set.AmbiguousNames["deploy production"] {
+		t.Error("'deploy production' should NOT be marked as ambiguous (only in bar)")
+	}
+
+	// Verify IsAmbiguous flag on individual commands
+	for _, cmd := range set.Commands {
+		switch cmd.SimpleName {
+		case "deploy":
+			if !cmd.IsAmbiguous {
+				t.Errorf("Command 'deploy' from %s should be marked as ambiguous", cmd.SourceID)
+			}
+		case "deploy staging":
+			if !cmd.IsAmbiguous {
+				t.Errorf("Command 'deploy staging' from %s should be marked as ambiguous", cmd.SourceID)
+			}
+		case "deploy local", "deploy production":
+			if cmd.IsAmbiguous {
+				t.Errorf("Command '%s' from %s should NOT be marked as ambiguous", cmd.SimpleName, cmd.SourceID)
+			}
+		}
+	}
+
+	// Verify correct command counts per SimpleName
+	if len(set.BySimpleName["deploy"]) != 2 {
+		t.Errorf("Expected 2 commands with SimpleName 'deploy', got %d", len(set.BySimpleName["deploy"]))
+	}
+	if len(set.BySimpleName["deploy staging"]) != 2 {
+		t.Errorf("Expected 2 commands with SimpleName 'deploy staging', got %d", len(set.BySimpleName["deploy staging"]))
+	}
+	if len(set.BySimpleName["deploy local"]) != 1 {
+		t.Errorf("Expected 1 command with SimpleName 'deploy local', got %d", len(set.BySimpleName["deploy local"]))
+	}
+	if len(set.BySimpleName["deploy production"]) != 1 {
+		t.Errorf("Expected 1 command with SimpleName 'deploy production', got %d", len(set.BySimpleName["deploy production"]))
+	}
+}
+
 func TestDiscoverAll_EmptyDirectory(t *testing.T) {
 	tmpDir := t.TempDir()
 
@@ -1306,5 +1740,103 @@ cmds: [{name: "cmd", implementations: [{script: "echo current", runtimes: [{name
 	}
 	if !foundModule {
 		t.Error("DiscoverAll() did not find module")
+	}
+}
+
+func TestDiscoverAll_SkipsReservedModuleName(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create invkfile.cue in tmpDir
+	invkfileContent := `cmds: [{
+		name: "root-cmd"
+		description: "Root command"
+		implementations: [{script: "echo root", runtimes: [{name: "virtual"}]}]
+	}]`
+	if err := os.WriteFile(filepath.Join(tmpDir, "invkfile.cue"), []byte(invkfileContent), 0o644); err != nil {
+		t.Fatalf("failed to create invkfile: %v", err)
+	}
+
+	// Create a valid module
+	validModDir := filepath.Join(tmpDir, "valid.invkmod")
+	if err := os.MkdirAll(validModDir, 0o755); err != nil {
+		t.Fatalf("failed to create valid module dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(validModDir, "invkmod.cue"), []byte(`module: "valid"
+version: "1.0"
+`), 0o644); err != nil {
+		t.Fatalf("failed to create invkmod.cue: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(validModDir, "invkfile.cue"), []byte(`cmds: [{
+		name: "valid-cmd"
+		description: "Valid command"
+		implementations: [{script: "echo valid", runtimes: [{name: "virtual"}]}]
+	}]`), 0o644); err != nil {
+		t.Fatalf("failed to create invkfile.cue: %v", err)
+	}
+
+	// Create a module with reserved name "invkfile" (FR-015)
+	reservedModDir := filepath.Join(tmpDir, "invkfile.invkmod")
+	if err := os.MkdirAll(reservedModDir, 0o755); err != nil {
+		t.Fatalf("failed to create reserved module dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(reservedModDir, "invkmod.cue"), []byte(`module: "invkfile"
+version: "1.0"
+`), 0o644); err != nil {
+		t.Fatalf("failed to create invkmod.cue: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(reservedModDir, "invkfile.cue"), []byte(`cmds: [{
+		name: "reserved-cmd"
+		description: "Reserved command"
+		implementations: [{script: "echo reserved", runtimes: [{name: "virtual"}]}]
+	}]`), 0o644); err != nil {
+		t.Fatalf("failed to create invkfile.cue: %v", err)
+	}
+
+	// Change to temp directory
+	restoreWd := testutil.MustChdir(t, tmpDir)
+	defer restoreWd()
+
+	// Set HOME to isolated directory
+	homeDir := filepath.Join(tmpDir, "home")
+	if err := os.MkdirAll(homeDir, 0o755); err != nil {
+		t.Fatalf("failed to create home dir: %v", err)
+	}
+	restoreHome := setHomeDirEnv(t, homeDir)
+	defer restoreHome()
+
+	cfg := config.DefaultConfig()
+	d := New(cfg)
+
+	files, err := d.DiscoverAll()
+	if err != nil {
+		t.Fatalf("DiscoverAll() error: %v", err)
+	}
+
+	// Should find invkfile.cue and valid module, but NOT the reserved module
+	foundCurrentDir := false
+	foundValidModule := false
+	foundReservedModule := false
+	for _, f := range files {
+		if f.Source == SourceCurrentDir {
+			foundCurrentDir = true
+		}
+		if f.Source == SourceModule && f.Module != nil {
+			if f.Module.Name() == "valid" {
+				foundValidModule = true
+			}
+			if f.Module.Name() == "invkfile" {
+				foundReservedModule = true
+			}
+		}
+	}
+
+	if !foundCurrentDir {
+		t.Error("DiscoverAll() did not find invkfile in current directory")
+	}
+	if !foundValidModule {
+		t.Error("DiscoverAll() did not find valid module")
+	}
+	if foundReservedModule {
+		t.Error("DiscoverAll() should skip module with reserved name 'invkfile' (FR-015)")
 	}
 }
