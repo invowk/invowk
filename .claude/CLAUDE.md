@@ -61,3 +61,10 @@ invkfile.cue -> CUE Parser -> pkg/invkfile -> Runtime Selection -> Execution
 - `cuelang.org/go` - CUE language support for configuration/schema.
 - `github.com/charmbracelet/*` - TUI components (lipgloss, bubbletea, huh).
 - `mvdan.cc/sh/v3` - Virtual shell implementation.
+
+## Active Technologies
+- Go 1.25+ + Cobra (CLI), Viper (config), CUE (schemas), Charm libraries (TUI), mvdan/sh (virtual shell) (002-codebase-cleanup-audit)
+- N/A (CLI tool, file-based configuration) (002-codebase-cleanup-audit)
+
+## Recent Changes
+- 002-codebase-cleanup-audit: Added Go 1.25+ + Cobra (CLI), Viper (config), CUE (schemas), Charm libraries (TUI), mvdan/sh (virtual shell)

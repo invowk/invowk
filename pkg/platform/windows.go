@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: MPL-2.0
 
-// Package platform provides cross-platform compatibility utilities.
 package platform
 
 import "strings"

@@ -2,7 +2,7 @@
 bin/
 /invowk
 /invowk-upx
-invowk
+/invowk-cli
 
 # SSH keys generated during tests/development (keep embedded ones)
 internal/runtime/id_ed25519

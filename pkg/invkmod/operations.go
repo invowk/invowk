@@ -8,7 +8,7 @@ import (
 	"archive/zip"
 	"context"
 	"fmt"
-	"invowk-cli/internal/platform"
+	"invowk-cli/pkg/platform"
 	"io"
 	"net/http"
 	"os"

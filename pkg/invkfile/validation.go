@@ -4,7 +4,7 @@ package invkfile
 
 import (
 	"fmt"
-	"invowk-cli/internal/platform"
+	"invowk-cli/pkg/platform"
 	"path/filepath"
 	"regexp"
 	"strings"

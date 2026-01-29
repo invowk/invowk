@@ -3,7 +3,7 @@
 package invkfile
 
 import (
-	"invowk-cli/internal/platform"
+	"invowk-cli/pkg/platform"
 	"strings"
 	"testing"
 )
