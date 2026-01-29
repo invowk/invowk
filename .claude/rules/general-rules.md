@@ -2,7 +2,7 @@
 
 ## Instruction Priority
 
-- Follow system and user instructions first, then repo guidance (AGENTS and docs/agents).
+- Follow system and user instructions first, then repo guidance (`.claude/`).
 
 ## Sources and Tooling
 
