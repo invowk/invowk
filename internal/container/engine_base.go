@@ -1,0 +1,406 @@
+// SPDX-License-Identifier: MPL-2.0
+
+package container
+
+import (
+	"bytes"
+	"context"
+	"fmt"
+	"invowk-cli/internal/issue"
+	"os/exec"
+	"path/filepath"
+	"strings"
+)
+
+type (
+	// ExecCommandFunc is the function signature for creating exec.Cmd.
+	// This allows injection of mock implementations for testing.
+	ExecCommandFunc func(ctx context.Context, name string, arg ...string) *exec.Cmd
+
+	// VolumeFormatFunc is a function that formats a volume string.
+	// This allows engines to customize volume formatting (e.g., Podman adds SELinux labels).
+	VolumeFormatFunc func(volume string) string
+
+	// BaseCLIEngineOption configures a BaseCLIEngine.
+	BaseCLIEngineOption func(*BaseCLIEngine)
+
+	// BaseCLIEngine provides common implementation for CLI-based container engines.
+	// Docker and Podman engines embed this struct.
+	BaseCLIEngine struct {
+		binaryPath      string
+		execCommand     ExecCommandFunc
+		volumeFormatter VolumeFormatFunc
+	}
+
+	// VolumeMount represents a volume mount specification.
+	VolumeMount struct {
+		HostPath      string
+		ContainerPath string
+		ReadOnly      bool
+		SELinux       string // Empty, "z", or "Z"
+	}
+
+	// PortMapping represents a port mapping specification.
+	PortMapping struct {
+		HostPort      uint16
+		ContainerPort uint16
+		Protocol      string // "tcp" or "udp", defaults to "tcp"
+	}
+)
+
+// --- Option Functions ---
+
+// WithExecCommand sets a custom exec command function for testing.
+func WithExecCommand(fn ExecCommandFunc) BaseCLIEngineOption {
+	return func(e *BaseCLIEngine) {
+		e.execCommand = fn
+	}
+}
+
+// WithVolumeFormatter sets a custom volume formatter function.
+// This is used by Podman to add SELinux labels on Linux.
+func WithVolumeFormatter(fn VolumeFormatFunc) BaseCLIEngineOption {
+	return func(e *BaseCLIEngine) {
+		e.volumeFormatter = fn
+	}
+}
+
+// --- Constructor ---
+
+// NewBaseCLIEngine creates a new base engine with the given binary path.
+func NewBaseCLIEngine(binaryPath string, opts ...BaseCLIEngineOption) *BaseCLIEngine {
+	e := &BaseCLIEngine{
+		binaryPath:      binaryPath,
+		execCommand:     exec.CommandContext,
+		volumeFormatter: func(v string) string { return v }, // identity by default
+	}
+	for _, opt := range opts {
+		opt(e)
+	}
+	return e
+}
+
+// --- Accessor Methods ---
+
+// BinaryPath returns the path to the container engine binary.
+func (e *BaseCLIEngine) BinaryPath() string {
+	return e.binaryPath
+}
+
+// --- Argument Builders ---
+
+// BuildArgs constructs arguments for a container build command.
+// Returns arguments in the order expected by docker/podman build.
+//
+// Generated command: <binary> build [options] <context>
+func (e *BaseCLIEngine) BuildArgs(opts BuildOptions) []string {
+	args := []string{"build"}
+
+	if opts.Dockerfile != "" {
+		// Resolve Dockerfile path relative to context directory
+		dockerfilePath := opts.Dockerfile
+		if !filepath.IsAbs(opts.Dockerfile) && opts.ContextDir != "" {
+			dockerfilePath = filepath.Join(opts.ContextDir, opts.Dockerfile)
+		}
+		args = append(args, "-f", dockerfilePath)
+	}
+
+	if opts.Tag != "" {
+		args = append(args, "-t", opts.Tag)
+	}
+
+	if opts.NoCache {
+		args = append(args, "--no-cache")
+	}
+
+	for k, v := range opts.BuildArgs {
+		args = append(args, "--build-arg", fmt.Sprintf("%s=%s", k, v))
+	}
+
+	args = append(args, opts.ContextDir)
+
+	return args
+}
+
+// RunArgs constructs arguments for a container run command.
+// Returns arguments in the order expected by docker/podman run.
+//
+// Generated command: <binary> run [options] <image> [command...]
+func (e *BaseCLIEngine) RunArgs(opts RunOptions) []string {
+	args := []string{"run"}
+
+	if opts.Remove {
+		args = append(args, "--rm")
+	}
+
+	if opts.Name != "" {
+		args = append(args, "--name", opts.Name)
+	}
+
+	if opts.WorkDir != "" {
+		args = append(args, "-w", opts.WorkDir)
+	}
+
+	if opts.Interactive {
+		args = append(args, "-i")
+	}
+
+	if opts.TTY {
+		args = append(args, "-t")
+	}
+
+	for k, v := range opts.Env {
+		args = append(args, "-e", fmt.Sprintf("%s=%s", k, v))
+	}
+
+	for _, v := range opts.Volumes {
+		args = append(args, "-v", e.volumeFormatter(v))
+	}
+
+	for _, p := range opts.Ports {
+		args = append(args, "-p", p)
+	}
+
+	for _, h := range opts.ExtraHosts {
+		args = append(args, "--add-host", h)
+	}
+
+	args = append(args, opts.Image)
+	args = append(args, opts.Command...)
+
+	return args
+}
+
+// ExecArgs constructs arguments for a container exec command.
+// Returns arguments in the order expected by docker/podman exec.
+//
+// Generated command: <binary> exec [options] <container> <command...>
+func (e *BaseCLIEngine) ExecArgs(containerID string, command []string, opts RunOptions) []string {
+	args := []string{"exec"}
+
+	if opts.Interactive {
+		args = append(args, "-i")
+	}
+
+	if opts.TTY {
+		args = append(args, "-t")
+	}
+
+	if opts.WorkDir != "" {
+		args = append(args, "-w", opts.WorkDir)
+	}
+
+	for k, v := range opts.Env {
+		args = append(args, "-e", fmt.Sprintf("%s=%s", k, v))
+	}
+
+	args = append(args, containerID)
+	args = append(args, command...)
+
+	return args
+}
+
+// RemoveArgs constructs arguments for a container remove command.
+func (e *BaseCLIEngine) RemoveArgs(containerID string, force bool) []string {
+	args := []string{"rm"}
+	if force {
+		args = append(args, "-f")
+	}
+	args = append(args, containerID)
+	return args
+}
+
+// RemoveImageArgs constructs arguments for an image remove command.
+func (e *BaseCLIEngine) RemoveImageArgs(image string, force bool) []string {
+	args := []string{"rmi"}
+	if force {
+		args = append(args, "-f")
+	}
+	args = append(args, image)
+	return args
+}
+
+// --- Command Execution ---
+
+// RunCommand executes a command and returns its output.
+// This is the low-level execution method used by concrete engines.
+func (e *BaseCLIEngine) RunCommand(ctx context.Context, args ...string) ([]byte, error) {
+	cmd := e.execCommand(ctx, e.binaryPath, args...)
+	out, err := cmd.Output()
+	if err != nil {
+		return nil, fmt.Errorf("command %s %v failed: %w", e.binaryPath, args, err)
+	}
+	return out, nil
+}
+
+// RunCommandCombined executes a command and returns combined stdout/stderr.
+func (e *BaseCLIEngine) RunCommandCombined(ctx context.Context, args ...string) ([]byte, error) {
+	cmd := e.execCommand(ctx, e.binaryPath, args...)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return out, fmt.Errorf("command %s %v failed: %w", e.binaryPath, args, err)
+	}
+	return out, nil
+}
+
+// RunCommandStatus executes a command and returns only the error status.
+func (e *BaseCLIEngine) RunCommandStatus(ctx context.Context, args ...string) error {
+	cmd := e.execCommand(ctx, e.binaryPath, args...)
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("command %s %v failed: %w", e.binaryPath, args, err)
+	}
+	return nil
+}
+
+// RunCommandWithOutput executes a command with stdout captured to a buffer.
+func (e *BaseCLIEngine) RunCommandWithOutput(ctx context.Context, args ...string) (string, error) {
+	cmd := e.execCommand(ctx, e.binaryPath, args...)
+	var out bytes.Buffer
+	cmd.Stdout = &out
+
+	if err := cmd.Run(); err != nil {
+		return "", fmt.Errorf("command %s %v failed: %w", e.binaryPath, args, err)
+	}
+
+	return out.String(), nil
+}
+
+// CreateCommand creates an exec.Cmd for the given arguments.
+// This is useful when the caller needs to customize stdin/stdout/stderr.
+func (e *BaseCLIEngine) CreateCommand(ctx context.Context, args ...string) *exec.Cmd {
+	return e.execCommand(ctx, e.binaryPath, args...)
+}
+
+// --- Dockerfile Resolution ---
+
+// ResolveDockerfilePath resolves a Dockerfile path relative to the build context.
+// If the path is absolute, it is returned as-is.
+// If the path is relative, it is resolved against the context path.
+// Returns the resolved path or error if path traversal is detected.
+func ResolveDockerfilePath(contextPath, dockerfilePath string) (string, error) {
+	if dockerfilePath == "" {
+		return "", nil
+	}
+
+	if filepath.IsAbs(dockerfilePath) {
+		return dockerfilePath, nil
+	}
+
+	resolved := filepath.Join(contextPath, dockerfilePath)
+
+	// Check for path traversal: the resolved path should be within the context
+	resolvedClean := filepath.Clean(resolved)
+	contextClean := filepath.Clean(contextPath)
+
+	// Ensure resolved path starts with context path
+	if !strings.HasPrefix(resolvedClean, contextClean) {
+		return "", fmt.Errorf("dockerfile path %q escapes context directory %q", dockerfilePath, contextPath)
+	}
+
+	return resolved, nil
+}
+
+// --- Volume Mount Formatting ---
+
+// FormatVolumeMount formats a volume mount as a string for -v flag.
+func FormatVolumeMount(mount VolumeMount) string {
+	var result strings.Builder
+	result.WriteString(mount.HostPath)
+	result.WriteString(":")
+	result.WriteString(mount.ContainerPath)
+
+	var options []string
+	if mount.ReadOnly {
+		options = append(options, "ro")
+	}
+	if mount.SELinux != "" {
+		options = append(options, mount.SELinux)
+	}
+
+	if len(options) > 0 {
+		result.WriteString(":")
+		result.WriteString(strings.Join(options, ","))
+	}
+
+	return result.String()
+}
+
+// ParseVolumeMount parses a volume string into a VolumeMount struct.
+// Volume format: host_path:container_path[:options]
+// Options can include: ro, rw, z, Z, and others.
+func ParseVolumeMount(volume string) VolumeMount {
+	mount := VolumeMount{}
+
+	parts := strings.Split(volume, ":")
+
+	if len(parts) >= 1 {
+		mount.HostPath = parts[0]
+	}
+	if len(parts) >= 2 {
+		mount.ContainerPath = parts[1]
+	}
+	if len(parts) >= 3 {
+		options := parts[2]
+		for opt := range strings.SplitSeq(options, ",") {
+			switch opt {
+			case "ro":
+				mount.ReadOnly = true
+			case "z", "Z":
+				mount.SELinux = opt
+			}
+		}
+	}
+
+	return mount
+}
+
+// --- Port Mapping Formatting ---
+
+// FormatPortMapping formats a port mapping as a string for -p flag.
+func FormatPortMapping(mapping PortMapping) string {
+	result := fmt.Sprintf("%d:%d", mapping.HostPort, mapping.ContainerPort)
+	if mapping.Protocol != "" && mapping.Protocol != "tcp" {
+		result += "/" + mapping.Protocol
+	}
+	return result
+}
+
+// --- Actionable Error Helpers ---
+
+// buildContainerError creates an actionable error for container build failures.
+func buildContainerError(engine string, opts BuildOptions, cause error) error {
+	ctx := issue.NewErrorContext().
+		WithOperation("build container image")
+
+	// Determine resource (Dockerfile or image tag)
+	switch {
+	case opts.Dockerfile != "":
+		ctx.WithResource(opts.Dockerfile)
+	case opts.ContextDir != "":
+		ctx.WithResource(opts.ContextDir + "/Dockerfile")
+	case opts.Tag != "":
+		ctx.WithResource(opts.Tag)
+	}
+
+	// Add suggestions based on common build issues
+	ctx.WithSuggestion("Check Dockerfile syntax for errors")
+	ctx.WithSuggestion("Verify the build context path exists and is accessible")
+	ctx.WithSuggestion("Ensure base images are available (try: " + engine + " pull <base-image>)")
+	ctx.WithSuggestion("Run with --verbose to see full build output")
+
+	return ctx.Wrap(cause).BuildError()
+}
+
+// runContainerError creates an actionable error for container run failures.
+func runContainerError(engine string, opts RunOptions, cause error) error {
+	ctx := issue.NewErrorContext().
+		WithOperation("run container").
+		WithResource(opts.Image)
+
+	ctx.WithSuggestion("Verify the image exists (try: " + engine + " images)")
+	ctx.WithSuggestion("Check that volume mount paths exist on the host")
+	ctx.WithSuggestion("Ensure port mappings don't conflict with running services")
+	ctx.WithSuggestion("Run with --verbose to see full container output")
+
+	return ctx.Wrap(cause).BuildError()
+}

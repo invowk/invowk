@@ -230,4 +230,56 @@ func TestServerStateString(t *testing.T) { ... }
 
 ## Reference Implementation
 
-See `internal/sshserver/server.go` for the canonical implementation of this pattern.
+The server state machine is extracted into a reusable package:
+
+- **Base type**: `internal/core/serverbase/` provides the `Base` struct that concrete servers embed
+- **SSH server**: `internal/sshserver/server.go` embeds `serverbase.Base`
+- **TUI server**: `internal/tuiserver/server.go` embeds `serverbase.Base`
+
+### Using serverbase.Base
+
+Concrete servers embed the base type and use its lifecycle helpers:
+
+```go
+type MyServer struct {
+    *serverbase.Base
+    // server-specific fields
+}
+
+func New() *MyServer {
+    return &MyServer{
+        Base: serverbase.NewBase(),
+    }
+}
+
+func (s *MyServer) Start(ctx context.Context) error {
+    if err := s.Base.TransitionToStarting(ctx); err != nil {
+        return err
+    }
+    // ... server-specific initialization ...
+    s.Base.TransitionToRunning()
+    return nil
+}
+
+func (s *MyServer) Stop() error {
+    if !s.Base.TransitionToStopping() {
+        return nil // Already stopped
+    }
+    // ... server-specific cleanup ...
+    s.Base.WaitForShutdown()
+    s.Base.TransitionToStopped()
+    return nil
+}
+```
+
+The serverbase package provides:
+- `TransitionToStarting(ctx)` - Checks context and transitions Created → Starting
+- `TransitionToRunning()` - Marks server ready, closes startedCh
+- `TransitionToStopping()` - Cancels context, transitions to Stopping
+- `TransitionToStopped()` - Final transition to terminal state
+- `TransitionToFailed(err)` - Records error and transitions to Failed
+- `WaitForReady(ctx)` - Blocks until running or context cancelled
+- `WaitForShutdown()` - Waits for all goroutines to exit
+- `AddGoroutine()` / `DoneGoroutine()` - WaitGroup management
+- `Context()` - Returns server's internal context
+- `SendError(err)` - Non-blocking error channel send

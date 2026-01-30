@@ -39,6 +39,8 @@ var (
 	// ErrCancelled is returned when a user cancels a TUI component (e.g., via Ctrl+C or Esc).
 	// Callers can check for this error using errors.Is(err, tui.ErrCancelled).
 	ErrCancelled = errors.New("user cancelled")
+	// errNoCommand is returned when trying to run an interactive session without a command.
+	errNoCommand = errors.New("no command provided")
 	// modalBgColor is the lipgloss.Color version of ModalBackgroundColor for internal use.
 	modalBgColor = lipgloss.Color(ModalBackgroundColor)
 )

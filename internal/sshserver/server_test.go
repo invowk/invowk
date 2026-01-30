@@ -4,6 +4,7 @@ package sshserver
 
 import (
 	"context"
+	"invowk-cli/internal/core/serverbase"
 	"invowk-cli/internal/testutil"
 	"testing"
 	"time"
@@ -119,7 +120,7 @@ func TestServerStartStop(t *testing.T) {
 	srv := New(cfg)
 
 	// Initial state should be Created
-	if srv.State() != StateCreated {
+	if srv.State() != serverbase.StateCreated {
 		t.Errorf("State should be Created, got %s", srv.State())
 	}
 
@@ -133,7 +134,7 @@ func TestServerStartStop(t *testing.T) {
 	}
 
 	// State should be Running
-	if srv.State() != StateRunning {
+	if srv.State() != serverbase.StateRunning {
 		t.Errorf("State should be Running, got %s", srv.State())
 	}
 
@@ -154,7 +155,7 @@ func TestServerStartStop(t *testing.T) {
 	}
 
 	// State should be Stopped
-	if srv.State() != StateStopped {
+	if srv.State() != serverbase.StateStopped {
 		t.Errorf("State should be Stopped, got %s", srv.State())
 	}
 
@@ -278,7 +279,7 @@ func TestServerState(t *testing.T) {
 	srv := New(cfg)
 
 	// Test state transitions
-	if srv.State() != StateCreated {
+	if srv.State() != serverbase.StateCreated {
 		t.Errorf("Initial state should be Created, got %s", srv.State())
 	}
 
@@ -287,7 +288,7 @@ func TestServerState(t *testing.T) {
 		t.Fatalf("Failed to start: %v", err)
 	}
 
-	if srv.State() != StateRunning {
+	if srv.State() != serverbase.StateRunning {
 		t.Errorf("State after Start should be Running, got %s", srv.State())
 	}
 
@@ -295,7 +296,7 @@ func TestServerState(t *testing.T) {
 		t.Fatalf("Failed to stop: %v", err)
 	}
 
-	if srv.State() != StateStopped {
+	if srv.State() != serverbase.StateStopped {
 		t.Errorf("State after Stop should be Stopped, got %s", srv.State())
 	}
 }
@@ -317,7 +318,7 @@ func TestServerStartWithCancelledContext(t *testing.T) {
 	}
 
 	// State should be Failed
-	if srv.State() != StateFailed {
+	if srv.State() != serverbase.StateFailed {
 		t.Errorf("State should be Failed, got %s", srv.State())
 	}
 }
@@ -331,28 +332,28 @@ func TestStopWithoutStart(t *testing.T) {
 	}
 
 	// State should be Stopped
-	if srv.State() != StateStopped {
+	if srv.State() != serverbase.StateStopped {
 		t.Errorf("State should be Stopped, got %s", srv.State())
 	}
 }
 
 func TestServerStateString(t *testing.T) {
 	tests := []struct {
-		state    ServerState
+		state    serverbase.State
 		expected string
 	}{
-		{StateCreated, "created"},
-		{StateStarting, "starting"},
-		{StateRunning, "running"},
-		{StateStopping, "stopping"},
-		{StateStopped, "stopped"},
-		{StateFailed, "failed"},
-		{ServerState(99), "unknown"},
+		{serverbase.StateCreated, "created"},
+		{serverbase.StateStarting, "starting"},
+		{serverbase.StateRunning, "running"},
+		{serverbase.StateStopping, "stopping"},
+		{serverbase.StateStopped, "stopped"},
+		{serverbase.StateFailed, "failed"},
+		{serverbase.State(99), "unknown"},
 	}
 
 	for _, tt := range tests {
 		if got := tt.state.String(); got != tt.expected {
-			t.Errorf("ServerState(%d).String() = %q, want %q", tt.state, got, tt.expected)
+			t.Errorf("serverbase.State(%d).String() = %q, want %q", tt.state, got, tt.expected)
 		}
 	}
 }

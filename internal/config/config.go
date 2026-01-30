@@ -6,6 +6,8 @@ package config
 import (
 	_ "embed"
 	"fmt"
+	"invowk-cli/internal/cueutil"
+	"invowk-cli/internal/issue"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -13,7 +15,6 @@ import (
 
 	"cuelang.org/go/cue"
 	"cuelang.org/go/cue/cuecontext"
-	"cuelang.org/go/cue/errors"
 	"github.com/spf13/viper"
 )
 
@@ -43,6 +44,9 @@ var (
 	// This is necessary because os.UserHomeDir() doesn't reliably respect
 	// the HOME environment variable on all platforms (e.g., macOS in CI).
 	configDirOverride string
+	// errLastLoad stores the last error from Load() for later retrieval.
+	// This allows Get() to return defaults while preserving error information.
+	errLastLoad error
 )
 
 type (
@@ -211,7 +215,14 @@ func Load() (*Config, error) {
 	cuePath := filepath.Join(cfgDir, ConfigFileName+"."+ConfigFileExt)
 	if fileExists(cuePath) {
 		if err := loadCUEIntoViper(v, cuePath); err != nil {
-			return nil, fmt.Errorf("failed to load config file: %w", err)
+			return nil, issue.NewErrorContext().
+				WithOperation("load configuration").
+				WithResource(cuePath).
+				WithSuggestion("Check that the file contains valid CUE syntax").
+				WithSuggestion("Verify the configuration values match the expected schema").
+				WithSuggestion("See 'invowk config --help' for configuration options").
+				Wrap(err).
+				BuildError()
 		}
 		configPath = cuePath
 	} else {
@@ -219,7 +230,14 @@ func Load() (*Config, error) {
 		localCuePath := ConfigFileName + "." + ConfigFileExt
 		if fileExists(localCuePath) {
 			if err := loadCUEIntoViper(v, localCuePath); err != nil {
-				return nil, fmt.Errorf("failed to load config file: %w", err)
+				return nil, issue.NewErrorContext().
+					WithOperation("load configuration").
+					WithResource(localCuePath).
+					WithSuggestion("Check that the file contains valid CUE syntax").
+					WithSuggestion("Verify the configuration values match the expected schema").
+					WithSuggestion("See 'invowk config --help' for configuration options").
+					Wrap(err).
+					BuildError()
 			}
 			configPath = localCuePath
 		}
@@ -237,12 +255,21 @@ func Load() (*Config, error) {
 
 // loadCUEIntoViper parses a CUE file, validates it against the #Config schema,
 // and merges its contents into Viper.
-// T015: Add CUE schema validation to loadCUEIntoViper
+//
+// Note: This uses manual CUE parsing instead of cueutil.ParseAndDecode because:
+// 1. Config decodes to map[string]any (not a struct) for Viper integration
+// 2. Uses Concrete(false) because config fields are optional
+// 3. Needs to merge into Viper's config map, not return a struct
 func loadCUEIntoViper(v *viper.Viper, path string) error {
 	// Read CUE file
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return fmt.Errorf("failed to read config file: %w", err)
+	}
+
+	// Check file size using cueutil
+	if err := cueutil.CheckFileSize(data, cueutil.DefaultMaxFileSize, path); err != nil {
+		return err
 	}
 
 	// Parse with CUE
@@ -257,20 +284,20 @@ func loadCUEIntoViper(v *viper.Viper, path string) error {
 	// Compile the user's config file
 	userValue := ctx.CompileBytes(data, cue.Filename(path))
 	if userValue.Err() != nil {
-		return formatCUEError(userValue.Err(), path)
+		return cueutil.FormatError(userValue.Err(), path)
 	}
 
 	// Unify with schema to validate against #Config definition
 	schema := schemaValue.LookupPath(cue.ParsePath("#Config"))
 	unified := schema.Unify(userValue)
 	if err := unified.Validate(cue.Concrete(false)); err != nil {
-		return formatCUEError(err, path)
+		return cueutil.FormatError(err, path)
 	}
 
 	// Decode to Go map
 	var configMap map[string]any
 	if err := unified.Decode(&configMap); err != nil {
-		return formatCUEError(err, path)
+		return cueutil.FormatError(err, path)
 	}
 
 	// Merge into Viper (preserves defaults, allows env overrides)
@@ -279,85 +306,6 @@ func loadCUEIntoViper(v *viper.Viper, path string) error {
 	}
 
 	return nil
-}
-
-// formatCUEError formats a CUE error with JSON path prefixes for clearer error messages.
-// It extracts the path information from CUE errors and formats them consistently.
-// For multiple errors, each error is listed on a separate line with its path.
-func formatCUEError(err error, filePath string) error {
-	if err == nil {
-		return nil
-	}
-
-	// Extract all CUE errors
-	cueErrors := errors.Errors(err)
-	if len(cueErrors) == 0 {
-		// Fallback: not a CUE error, return as-is
-		return fmt.Errorf("%s: %w", filePath, err)
-	}
-
-	var lines []string
-	for _, e := range cueErrors {
-		// Get the path to the problematic field
-		path := errors.Path(e)
-		pathStr := formatCUEPath(path)
-		msg := e.Error()
-
-		// Remove redundant path prefix from message if present
-		// CUE sometimes includes the path in the message itself
-		if pathStr != "" && strings.HasPrefix(msg, pathStr) {
-			msg = strings.TrimPrefix(msg, pathStr)
-			msg = strings.TrimPrefix(msg, ":")
-			msg = strings.TrimSpace(msg)
-		}
-
-		if pathStr != "" {
-			lines = append(lines, fmt.Sprintf("%s: %s", pathStr, msg))
-		} else {
-			lines = append(lines, msg)
-		}
-	}
-
-	if len(lines) == 1 {
-		return fmt.Errorf("%s: %s", filePath, lines[0])
-	}
-	return fmt.Errorf("%s: validation failed:\n  %s", filePath, strings.Join(lines, "\n  "))
-}
-
-// formatCUEPath converts a CUE path (slice of selectors) to a JSON-like path string.
-// Example: [container, auto_provision, enabled] -> "container.auto_provision.enabled"
-func formatCUEPath(path []string) string {
-	if len(path) == 0 {
-		return ""
-	}
-
-	// Join with dots but handle array indices specially
-	// The path from CUE is already in a good format like ["container", "0", "enabled"]
-	// We want to produce "container[0].enabled"
-	var result strings.Builder
-	for i, part := range path {
-		// Check if this looks like an array index (purely numeric)
-		isIndex := true
-		for _, c := range part {
-			if c < '0' || c > '9' {
-				isIndex = false
-				break
-			}
-		}
-
-		if isIndex && i > 0 {
-			result.WriteString("[")
-			result.WriteString(part)
-			result.WriteString("]")
-		} else {
-			if i > 0 {
-				result.WriteString(".")
-			}
-			result.WriteString(part)
-		}
-	}
-
-	return result.String()
 }
 
 // fileExists checks if a file exists and is not a directory
@@ -369,16 +317,26 @@ func fileExists(path string) bool {
 	return err == nil && !info.IsDir()
 }
 
-// Get returns the currently loaded configuration
+// Get returns the currently loaded configuration.
+// If configuration loading fails, it returns defaults and stores the error
+// for retrieval via LastLoadError().
 func Get() *Config {
 	if globalConfig == nil {
 		cfg, err := Load()
 		if err != nil {
+			errLastLoad = err
 			return DefaultConfig()
 		}
 		return cfg
 	}
 	return globalConfig
+}
+
+// LastLoadError returns the most recent error from configuration loading.
+// This is useful for surfacing config errors to users even when defaults are used.
+// Returns nil if configuration loaded successfully or was never attempted.
+func LastLoadError() error {
+	return errLastLoad
 }
 
 // ConfigFilePath returns the path to the config file.
@@ -520,6 +478,7 @@ func Reset() {
 	globalConfig = nil
 	configPath = ""
 	configDirOverride = ""
+	errLastLoad = nil
 }
 
 // ResetCache clears only the cached configuration, preserving any test overrides.
@@ -528,6 +487,7 @@ func Reset() {
 func ResetCache() {
 	globalConfig = nil
 	configPath = ""
+	errLastLoad = nil
 }
 
 // SetConfigDirOverride sets a custom config directory path.

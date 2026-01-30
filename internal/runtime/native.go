@@ -4,6 +4,7 @@ package runtime
 
 import (
 	"fmt"
+	"invowk-cli/internal/issue"
 	"invowk-cli/pkg/invkfile"
 	"io"
 	"os"
@@ -264,7 +265,10 @@ func (r *NativeRuntime) getShell() (string, error) {
 		if ps, err := exec.LookPath("powershell"); err == nil {
 			return ps, nil
 		}
-		return exec.LookPath("cmd")
+		if cmd, err := exec.LookPath("cmd"); err == nil {
+			return cmd, nil
+		}
+		return "", r.shellNotFoundError([]string{"pwsh", "powershell", "cmd"})
 	default:
 		if shell := os.Getenv("SHELL"); shell != "" {
 			return shell, nil
@@ -275,8 +279,31 @@ func (r *NativeRuntime) getShell() (string, error) {
 		if sh, err := exec.LookPath("sh"); err == nil {
 			return sh, nil
 		}
-		return "", fmt.Errorf("no shell found")
+		return "", r.shellNotFoundError([]string{"$SHELL", "bash", "sh"})
 	}
+}
+
+// shellNotFoundError creates an actionable error for shell not found scenarios.
+func (r *NativeRuntime) shellNotFoundError(attempted []string) error {
+	ctx := issue.NewErrorContext().
+		WithOperation("find shell").
+		WithResource("shells attempted: " + strings.Join(attempted, ", "))
+
+	switch runtime.GOOS {
+	case "windows":
+		ctx.WithSuggestion("Install PowerShell Core (pwsh) from https://aka.ms/powershell")
+		ctx.WithSuggestion("Or ensure PowerShell or cmd.exe is in your PATH")
+	case "darwin":
+		ctx.WithSuggestion("Set the SHELL environment variable to a valid shell path")
+		ctx.WithSuggestion("Or install bash via Homebrew: brew install bash")
+	default:
+		ctx.WithSuggestion("Set the SHELL environment variable to a valid shell path")
+		ctx.WithSuggestion("Or install bash: apt install bash (Debian/Ubuntu) or dnf install bash (Fedora)")
+	}
+
+	ctx.WithSuggestion("Alternatively, use the virtual runtime: invowk cmd <command> --runtime virtual")
+
+	return ctx.Wrap(fmt.Errorf("no shell found in PATH")).BuildError()
 }
 
 // getShellArgs returns the arguments to pass to the shell

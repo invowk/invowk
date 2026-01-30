@@ -49,7 +49,7 @@ func TestPodmanEngine_Name(t *testing.T) {
 
 func TestDockerEngine_AvailableWithNoPath(t *testing.T) {
 	// Engine created with no binary path should not be available
-	engine := &DockerEngine{binaryPath: ""}
+	engine := &DockerEngine{BaseCLIEngine: NewBaseCLIEngine("")}
 	if engine.Available() {
 		t.Error("DockerEngine with empty path should not be available")
 	}
@@ -57,7 +57,7 @@ func TestDockerEngine_AvailableWithNoPath(t *testing.T) {
 
 func TestPodmanEngine_AvailableWithNoPath(t *testing.T) {
 	// Engine created with no binary path should not be available
-	engine := &PodmanEngine{binaryPath: ""}
+	engine := &PodmanEngine{BaseCLIEngine: NewBaseCLIEngine("")}
 	if engine.Available() {
 		t.Error("PodmanEngine with empty path should not be available")
 	}

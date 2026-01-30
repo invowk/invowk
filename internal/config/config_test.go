@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 )
 
@@ -426,5 +427,135 @@ func TestConstants(t *testing.T) {
 
 	if ConfigFileExt != "cue" {
 		t.Errorf("ConfigFileExt = %s, want cue", ConfigFileExt)
+	}
+}
+
+// T097: Test config error visibility
+func TestGet_StoresLoadErrorForLaterRetrieval(t *testing.T) {
+	// Reset global state
+	Reset()
+
+	// Create a temp directory with an invalid config file
+	tmpDir := t.TempDir()
+	configDir := filepath.Join(tmpDir, AppName)
+	if err := os.MkdirAll(configDir, 0o755); err != nil {
+		t.Fatalf("failed to create config dir: %v", err)
+	}
+
+	// Write invalid CUE content
+	invalidConfig := `this is not valid CUE syntax`
+	cfgPath := filepath.Join(configDir, ConfigFileName+"."+ConfigFileExt)
+	if err := os.WriteFile(cfgPath, []byte(invalidConfig), 0o644); err != nil {
+		t.Fatalf("failed to write invalid config: %v", err)
+	}
+
+	// Use direct override
+	SetConfigDirOverride(configDir)
+	defer Reset()
+
+	// Change to temp dir to avoid loading config from current directory
+	restoreWd := testutil.MustChdir(t, tmpDir)
+	defer restoreWd()
+
+	// Get() should return defaults but store the error
+	cfg := Get()
+
+	// Should return default config
+	if cfg.ContainerEngine != ContainerEnginePodman {
+		t.Errorf("expected default container engine, got %s", cfg.ContainerEngine)
+	}
+
+	// Error should be stored and retrievable
+	err := LastLoadError()
+	if err == nil {
+		t.Fatal("expected LastLoadError() to return error for invalid config")
+	}
+
+	// Error should contain actionable context
+	errStr := err.Error()
+	if !strings.Contains(errStr, "load configuration") {
+		t.Errorf("error should contain 'load configuration', got: %s", errStr)
+	}
+}
+
+func TestLastLoadError_NilWhenSuccessful(t *testing.T) {
+	// Reset global state
+	Reset()
+
+	// Create a temp directory with a valid config file
+	tmpDir := t.TempDir()
+	configDir := filepath.Join(tmpDir, AppName)
+	if err := os.MkdirAll(configDir, 0o755); err != nil {
+		t.Fatalf("failed to create config dir: %v", err)
+	}
+
+	// Write valid CUE content
+	validConfig := `container_engine: "docker"`
+	cfgPath := filepath.Join(configDir, ConfigFileName+"."+ConfigFileExt)
+	if err := os.WriteFile(cfgPath, []byte(validConfig), 0o644); err != nil {
+		t.Fatalf("failed to write valid config: %v", err)
+	}
+
+	// Use direct override
+	SetConfigDirOverride(configDir)
+	defer Reset()
+
+	// Change to temp dir to avoid loading config from current directory
+	restoreWd := testutil.MustChdir(t, tmpDir)
+	defer restoreWd()
+
+	// Load should succeed
+	cfg := Get()
+
+	// Should load the config correctly
+	if cfg.ContainerEngine != ContainerEngineDocker {
+		t.Errorf("expected docker, got %s", cfg.ContainerEngine)
+	}
+
+	// No error should be stored
+	if err := LastLoadError(); err != nil {
+		t.Errorf("expected no error, got: %v", err)
+	}
+}
+
+func TestLoad_ActionableErrorFormat(t *testing.T) {
+	// Reset global state
+	Reset()
+
+	// Create a temp directory with an invalid config file
+	tmpDir := t.TempDir()
+	configDir := filepath.Join(tmpDir, AppName)
+	if err := os.MkdirAll(configDir, 0o755); err != nil {
+		t.Fatalf("failed to create config dir: %v", err)
+	}
+
+	// Write invalid CUE content - wrong type for container_engine
+	invalidConfig := `container_engine: 123`
+	cfgPath := filepath.Join(configDir, ConfigFileName+"."+ConfigFileExt)
+	if err := os.WriteFile(cfgPath, []byte(invalidConfig), 0o644); err != nil {
+		t.Fatalf("failed to write invalid config: %v", err)
+	}
+
+	// Use direct override
+	SetConfigDirOverride(configDir)
+	defer Reset()
+
+	// Change to temp dir to avoid loading config from current directory
+	restoreWd := testutil.MustChdir(t, tmpDir)
+	defer restoreWd()
+
+	// Load should fail with actionable error
+	_, err := Load()
+	if err == nil {
+		t.Fatal("expected Load() to return error for invalid config")
+	}
+
+	// Verify error contains actionable context
+	errStr := err.Error()
+	if !strings.Contains(errStr, "load configuration") {
+		t.Errorf("error should contain operation, got: %s", errStr)
+	}
+	if !strings.Contains(errStr, cfgPath) {
+		t.Errorf("error should contain resource path, got: %s", errStr)
 	}
 }

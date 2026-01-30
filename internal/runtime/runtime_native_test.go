@@ -4,6 +4,8 @@ package runtime
 
 import (
 	"bytes"
+	"errors"
+	"invowk-cli/internal/issue"
 	"invowk-cli/internal/testutil"
 	"invowk-cli/pkg/invkfile"
 	"os"
@@ -497,5 +499,70 @@ func TestNativeRuntime_ExitCode(t *testing.T) {
 				t.Errorf("Execute() exit code = %d, want %d", result.ExitCode, tt.expectedCode)
 			}
 		})
+	}
+}
+
+// T102: Test for shell not found error format
+func TestNativeRuntime_ShellNotFoundError(t *testing.T) {
+	rt := &NativeRuntime{
+		// Set a shell that doesn't exist to force an error
+		Shell: "/this/shell/does/not/exist",
+	}
+
+	// getShell should still succeed because it uses Shell directly
+	shell, err := rt.getShell()
+	if err != nil {
+		t.Errorf("getShell() with explicit Shell should succeed, got error: %v", err)
+	}
+	if shell != "/this/shell/does/not/exist" {
+		t.Errorf("getShell() = %q, want /this/shell/does/not/exist", shell)
+	}
+
+	// Test the shellNotFoundError helper directly
+	errActionable := rt.shellNotFoundError([]string{"$SHELL", "bash", "sh"})
+	if errActionable == nil {
+		t.Fatal("shellNotFoundError() should return error")
+	}
+
+	errStr := errActionable.Error()
+
+	// Verify error contains operation context
+	if !strings.Contains(errStr, "find shell") {
+		t.Errorf("error should contain operation 'find shell', got: %s", errStr)
+	}
+
+	// Verify error contains resource (attempted shells)
+	if !strings.Contains(errStr, "shells attempted") {
+		t.Errorf("error should contain resource 'shells attempted', got: %s", errStr)
+	}
+
+	// Verify error contains "no shell found" cause
+	if !strings.Contains(errStr, "no shell found") {
+		t.Errorf("error should contain cause 'no shell found', got: %s", errStr)
+	}
+}
+
+// TestNativeRuntime_ShellNotFoundError_Format tests the verbose formatting
+func TestNativeRuntime_ShellNotFoundError_Format(t *testing.T) {
+	rt := &NativeRuntime{}
+
+	// Get an actionable error
+	errVal := rt.shellNotFoundError([]string{"bash", "sh"})
+
+	// Check that it can be cast to *issue.ActionableError
+	var ae *issue.ActionableError
+	if !errors.As(errVal, &ae) {
+		t.Fatal("shellNotFoundError should return *issue.ActionableError")
+	}
+
+	// Test verbose format includes suggestions
+	formatted := ae.Format(false)
+	if !strings.Contains(formatted, "find shell") {
+		t.Errorf("formatted error should contain operation, got: %s", formatted)
+	}
+
+	// Test that suggestions are included
+	if !strings.Contains(formatted, "•") {
+		t.Errorf("formatted error should contain bullet points for suggestions, got: %s", formatted)
 	}
 }

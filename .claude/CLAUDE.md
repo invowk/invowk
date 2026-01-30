@@ -31,7 +31,17 @@ invkfile.cue -> CUE Parser -> pkg/invkfile -> Runtime Selection -> Execution
 ## Directory Layout
 
 - `cmd/invowk/` - CLI commands using Cobra.
-- `internal/` - Private packages (config, container, discovery, issue, runtime, sshserver, tui, tuiserver).
+- `internal/` - Private packages:
+  - `config/` - Configuration management with CUE schema.
+  - `container/` - Docker/Podman container engine abstraction.
+  - `core/serverbase/` - Shared server state machine base type (used by sshserver, tuiserver).
+  - `cueutil/` - Shared CUE parsing utilities (3-step parse pattern, error formatting).
+  - `discovery/` - Module and command discovery.
+  - `issue/` - Error handling with ActionableError type.
+  - `runtime/` - Execution runtimes (native, virtual, container).
+  - `sshserver/` - SSH server for remote execution.
+  - `tui/` - Terminal UI components.
+  - `tuiserver/` - TUI server for interactive sessions.
 - `pkg/` - Public packages (invkmod, invkfile).
 - `modules/` - Sample invowk modules for validation and reference.
 
@@ -64,6 +74,8 @@ invkfile.cue -> CUE Parser -> pkg/invkfile -> Runtime Selection -> Execution
 
 ## Active Technologies
 - N/A (no persistent storage required) (005-uroot-utils)
+- Go 1.25+ + CUE v0.15.3, Cobra, Viper, Bubble Tea, mvdan/sh (006-go-codebase-audit)
+- N/A (no persistent storage) (006-go-codebase-audit)
 
 **Core Stack**:
 - Go 1.25+ with `cuelang.org/go v0.15.3` (CUE schemas and validation)
@@ -82,6 +94,7 @@ invkfile.cue -> CUE Parser -> pkg/invkfile -> Runtime Selection -> Execution
 
 ## Recent Changes
 
+- 006-go-codebase-audit: Large file splits (>800 lines → <600 lines), extracted `internal/core/serverbase/` and `internal/cueutil/` packages, container engine base abstraction, ActionableError type, CUE schema validation constraints
 - 004-cue-lib-optimization: CUE library usage patterns documented in `.claude/rules/cue.md`, schema sync tests added for all CUE-parsed types, file size guards added to parse functions
 - 003-test-suite-audit: Comprehensive test suite improvements, testscript CLI tests
 - 002-codebase-cleanup-audit: Initial codebase cleanup and standardization

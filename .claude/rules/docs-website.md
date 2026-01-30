@@ -14,8 +14,13 @@ The `website/` directory contains a Docusaurus-based documentation website for I
 | Change | Update |
 | --- | --- |
 | `pkg/invkfile/invkfile_schema.cue` | `website/docs/reference/invkfile-schema.mdx` + affected docs/snippets |
+| `pkg/invkmod/invkmod_schema.cue` | `website/docs/modules/` pages |
+| `pkg/invkmod/operations*.go` | `website/docs/modules/` pages (validation, create, packaging, vendoring) |
 | `internal/config/config_schema.cue` | `website/docs/reference/config-schema.mdx`, `website/docs/configuration/options.mdx` |
+| `internal/runtime/container*.go` | `website/docs/runtime-modes/container.mdx` |
 | `cmd/invowk/*.go` | `website/docs/reference/cli.mdx` + relevant feature docs |
+| `cmd/invowk/module*.go` | `website/docs/modules/` pages + `website/docs/reference/cli.mdx` |
+| `cmd/invowk/cmd_validate*.go` | `website/docs/dependencies/` pages |
 | `cmd/invowk/tui_*.go` | `website/docs/tui/` pages + snippets |
 | New features | Add/update docs under `website/docs/` and snippets as needed |
 

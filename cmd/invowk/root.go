@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"invowk-cli/internal/config"
+	"invowk-cli/internal/issue"
 	"os"
 
 	"github.com/charmbracelet/fang"
@@ -125,9 +126,8 @@ func initRootConfig() {
 	// Load configuration
 	cfg, err := config.Load()
 	if err != nil {
-		if verbose {
-			fmt.Fprintln(os.Stderr, warningStyle.Render("Warning: ")+fmt.Sprintf("Failed to load config: %v", err))
-		}
+		// Always surface config loading errors to the user (FR-011)
+		fmt.Fprintln(os.Stderr, warningStyle.Render("Warning: ")+formatErrorForDisplay(err, verbose))
 	}
 
 	// Apply verbose from config if not set via flag
@@ -139,6 +139,17 @@ func initRootConfig() {
 	if cfg != nil && !interactive {
 		interactive = cfg.UI.Interactive
 	}
+}
+
+// formatErrorForDisplay formats an error for user display.
+// If the error is an ActionableError, it uses the Format method.
+// In verbose mode, shows the full error chain.
+func formatErrorForDisplay(err error, verboseMode bool) string {
+	var ae *issue.ActionableError
+	if errors.As(err, &ae) {
+		return ae.Format(verboseMode)
+	}
+	return err.Error()
 }
 
 // GetVerbose returns the verbose flag value

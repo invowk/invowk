@@ -58,7 +58,7 @@ import "strings"
 	// - Can include arguments: "python3 -u", "/usr/bin/env perl -w"
 	// If "auto" and no shebang is found, falls back to default shell behavior
 	// Note: When declared, interpreter must be non-empty (cannot be "" or whitespace-only)
-	interpreter?: string & =~"^\\s*\\S.*$"
+	interpreter?: string & =~"^\\s*\\S.*$" & strings.MaxRunes(1024)
 })
 
 #RuntimeConfigVirtual: close({
@@ -78,7 +78,7 @@ import "strings"
 	// If "auto" and no shebang is found, falls back to /bin/sh
 	// Note: The interpreter must exist inside the container
 	// Note: When declared, interpreter must be non-empty (cannot be "" or whitespace-only)
-	interpreter?: string & =~"^\\s*\\S.*$"
+	interpreter?: string & =~"^\\s*\\S.*$" & strings.MaxRunes(1024)
 
 	// enable_host_ssh enables SSH access from container back to host (optional)
 	// When enabled, invowk starts an SSH server and provides connection credentials
@@ -96,7 +96,7 @@ import "strings"
 	// image specifies a pre-built container image to use (optional)
 	// Mutually exclusive with 'containerfile'
 	// Example: "debian:stable-slim", "ubuntu:22.04", "golang:1.21"
-	image?: string
+	image?: string & strings.MaxRunes(512)
 
 	// volumes specifies volume mounts in "host:container" format (optional)
 	// Example: ["./data:/data", "/tmp:/tmp:ro"]
@@ -304,7 +304,7 @@ import "strings"
 	// default_value is the default value if the argument is not provided (optional)
 	// Cannot be specified together with required: true
 	// Must be compatible with the specified type (if type is specified)
-	default_value?: string
+	default_value?: string & strings.MaxRunes(4096)
 
 	// type specifies the data type of the argument (optional, defaults to "string")
 	// Supported types: "string", "int", "float"
@@ -340,7 +340,7 @@ import "strings"
 	// default_value is the default value for the flag (optional)
 	// If not specified, the flag has no default value
 	// Must be compatible with the specified type (if type is specified)
-	default_value?: string
+	default_value?: string & strings.MaxRunes(4096)
 
 	// type specifies the data type of the flag (optional, defaults to "string")
 	// Supported types: "string", "bool", "int", "float"
@@ -373,7 +373,8 @@ import "strings"
 	name: string & =~"^[a-zA-Z][a-zA-Z0-9_ -]*$"
 
 	// description provides help text for the command (optional)
-	description?: string
+	// When declared, description must be non-empty (cannot be "" or whitespace-only)
+	description?: string & =~"^\\s*\\S.*$"
 
 	// implementations defines the executable implementations with platform/runtime constraints (required, at least one)
 	// Each implementation specifies which platforms and runtimes it supports

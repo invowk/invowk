@@ -12,11 +12,11 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"invowk-cli/internal/core/serverbase"
 	"net"
 	"os"
 	"os/exec"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/charmbracelet/log"
@@ -25,25 +25,7 @@ import (
 	"github.com/charmbracelet/wish/activeterm"
 )
 
-const (
-	// StateCreated indicates the server has been created but not started.
-	StateCreated ServerState = iota
-	// StateStarting indicates the server is in the process of starting.
-	StateStarting
-	// StateRunning indicates the server is running and accepting connections.
-	StateRunning
-	// StateStopping indicates the server is shutting down.
-	StateStopping
-	// StateStopped indicates the server has stopped (terminal state).
-	StateStopped
-	// StateFailed indicates the server failed to start or encountered a fatal error (terminal state).
-	StateFailed
-)
-
 type (
-	// ServerState represents the lifecycle state of the server.
-	ServerState int32
-
 	// Clock abstracts time operations for deterministic testing.
 	// Production code uses realClock; tests inject a fake clock.
 	Clock interface {
@@ -64,29 +46,23 @@ type (
 
 	// Server represents the SSH server for container callbacks.
 	// A Server instance is single-use: once stopped or failed, create a new instance.
+	//
+	// Server embeds serverbase.Base for lifecycle management and state machine.
 	Server struct {
+		// Embed serverbase.Base for common server lifecycle management
+		*serverbase.Base
+
 		// Immutable configuration (set at creation, never modified)
 		cfg Config
 
 		// Clock for time operations (enables deterministic testing)
 		clock Clock
 
-		// State management (atomic for lock-free reads)
-		state atomic.Int32
-
-		// Initialized during Start() - protected by stateMu for writes
-		stateMu  sync.Mutex
+		// Initialized during Start() - protected by srvMu for writes
+		srvMu    sync.Mutex
 		srv      *ssh.Server
 		listener net.Listener
 		addr     string // Actual bound address (including resolved port)
-
-		// Lifecycle management
-		ctx       context.Context
-		cancel    context.CancelFunc
-		wg        sync.WaitGroup
-		startedCh chan struct{} // Closed when server is ready to accept connections
-		errCh     chan error    // Receives fatal errors from background goroutines
-		lastErr   error         // Stores the last error for State() == StateFailed
 
 		// Token management
 		tokens  map[string]*Token
@@ -121,26 +97,6 @@ type (
 		ExpireAt time.Time
 	}
 )
-
-// String returns a human-readable representation of the server state.
-func (s ServerState) String() string {
-	switch s {
-	case StateCreated:
-		return "created"
-	case StateStarting:
-		return "starting"
-	case StateRunning:
-		return "running"
-	case StateStopping:
-		return "stopping"
-	case StateStopped:
-		return "stopped"
-	case StateFailed:
-		return "failed"
-	default:
-		return "unknown"
-	}
-}
 
 // DefaultConfig returns a default configuration.
 func DefaultConfig() Config {
@@ -191,14 +147,12 @@ func NewWithClock(cfg Config, clock Clock) *Server {
 	})
 
 	s := &Server{
-		cfg:       cfg,
-		clock:     clock,
-		tokens:    make(map[string]*Token),
-		startedCh: make(chan struct{}),
-		errCh:     make(chan error, 1), // Buffered so goroutines don't block
-		logger:    logger,
+		Base:   serverbase.NewBase(),
+		cfg:    cfg,
+		clock:  clock,
+		tokens: make(map[string]*Token),
+		logger: logger,
 	}
-	s.state.Store(int32(StateCreated))
 
 	return s
 }
@@ -211,24 +165,11 @@ func NewWithClock(cfg Config, clock Clock) *Server {
 //
 // After Start() returns nil, use Err() to monitor for runtime errors.
 func (s *Server) Start(ctx context.Context) error {
-	// Check for already-cancelled context BEFORE any setup.
-	// This prevents a race condition where the serve goroutine could transition
-	// to StateRunning before the cancelled context is detected in the select.
-	select {
-	case <-ctx.Done():
-		s.transitionToFailed(fmt.Errorf("context cancelled before start: %w", ctx.Err()))
-		return s.lastErr
-	default:
+	// Delegate state transition to serverbase.Base
+	// This handles the cancelled context check and Created -> Starting transition
+	if err := s.TransitionToStarting(ctx); err != nil {
+		return err
 	}
-
-	// Transition: Created -> Starting
-	if !s.state.CompareAndSwap(int32(StateCreated), int32(StateStarting)) {
-		currentState := ServerState(s.state.Load())
-		return fmt.Errorf("cannot start server in state %s", currentState)
-	}
-
-	// Create internal context for lifecycle management
-	s.ctx, s.cancel = context.WithCancel(context.Background())
 
 	// Setup timeout for startup
 	startupCtx, startupCancel := context.WithTimeout(ctx, s.cfg.StartupTimeout)
@@ -239,14 +180,14 @@ func (s *Server) Start(ctx context.Context) error {
 	var lc net.ListenConfig
 	listener, err := lc.Listen(startupCtx, "tcp", addr)
 	if err != nil {
-		s.transitionToFailed(fmt.Errorf("failed to listen on %s: %w", addr, err))
-		return s.lastErr
+		s.TransitionToFailed(fmt.Errorf("failed to listen on %s: %w", addr, err))
+		return s.LastError()
 	}
 
-	s.stateMu.Lock()
+	s.srvMu.Lock()
 	s.listener = listener
 	s.addr = listener.Addr().String()
-	s.stateMu.Unlock()
+	s.srvMu.Unlock()
 
 	// Create SSH server
 	srv, err := wish.NewServer(
@@ -260,39 +201,38 @@ func (s *Server) Start(ctx context.Context) error {
 	)
 	if err != nil {
 		_ = listener.Close() // Best-effort cleanup on error
-		s.transitionToFailed(fmt.Errorf("failed to create SSH server: %w", err))
-		return s.lastErr
+		s.TransitionToFailed(fmt.Errorf("failed to create SSH server: %w", err))
+		return s.LastError()
 	}
 
-	s.stateMu.Lock()
+	s.srvMu.Lock()
 	s.srv = srv
-	s.stateMu.Unlock()
+	s.srvMu.Unlock()
 
 	// Start the serve goroutine
-	s.wg.Add(1)
+	s.AddGoroutine()
 	go s.serve()
 
 	// Start token cleanup goroutine
-	s.wg.Add(1)
+	s.AddGoroutine()
 	go s.cleanupExpiredTokens()
 
 	// Wait for server to be ready or fail
 	select {
-	case <-s.startedCh:
+	case <-s.StartedChannel():
 		// Server is ready
 		s.logger.Info("SSH server started", "address", s.addr)
 		return nil
 
-	case err := <-s.errCh:
+	case err := <-s.Err():
 		// Server failed during startup
-		s.transitionToFailed(err)
+		s.TransitionToFailed(err)
 		return err
 
 	case <-startupCtx.Done():
 		// Startup timeout or caller cancelled
-		s.cancel() // Stop any background work
-		s.transitionToFailed(fmt.Errorf("startup timeout: %w", startupCtx.Err()))
-		return s.lastErr
+		s.TransitionToFailed(fmt.Errorf("startup timeout: %w", startupCtx.Err()))
+		return s.LastError()
 	}
 }
 
@@ -300,50 +240,27 @@ func (s *Server) Start(ctx context.Context) error {
 // It blocks until all connections are closed or the shutdown timeout is reached.
 // Safe to call multiple times; subsequent calls are no-ops.
 func (s *Server) Stop() error {
-	// Only proceed if we're in a stoppable state
-	for {
-		currentState := ServerState(s.state.Load())
-		switch currentState {
-		case StateStopped, StateFailed:
-			return nil // Already stopped
-		case StateCreated:
-			if s.state.CompareAndSwap(int32(StateCreated), int32(StateStopped)) {
-				return nil // Never started
-			}
-			continue // State changed, retry
-		case StateStopping:
-			// Wait for ongoing stop to complete
-			s.wg.Wait()
-			return nil
-		case StateStarting, StateRunning:
-			// Transition to Stopping
-			if !s.state.CompareAndSwap(int32(currentState), int32(StateStopping)) {
-				continue // State changed, retry
-			}
-			// Proceed with shutdown
-			return s.doStop()
-		default:
-			return fmt.Errorf("unknown server state: %d", currentState)
-		}
+	// Use serverbase.Base to handle state transition
+	if !s.TransitionToStopping() {
+		// Already stopped, stopping, created, or failed
+		s.WaitForShutdown()
+		return nil
 	}
-}
 
-// Err returns a channel that receives fatal server errors.
-// Use this to monitor for unexpected failures after Start() returns.
-// The channel is closed when the server stops.
-func (s *Server) Err() <-chan error {
-	return s.errCh
+	// Proceed with shutdown
+	return s.doStop()
 }
 
 // State returns the current server state.
-func (s *Server) State() ServerState {
-	return ServerState(s.state.Load())
+// This delegates to the embedded serverbase.Base.
+func (s *Server) State() serverbase.State {
+	return s.Base.State()
 }
 
 // IsRunning returns whether the server is currently running and accepting connections.
-// This is a convenience method equivalent to State() == StateRunning.
+// This is a convenience method equivalent to State() == serverbase.StateRunning.
 func (s *Server) IsRunning() bool {
-	return s.State() == StateRunning
+	return s.Base.IsRunning()
 }
 
 // Address returns the server's bound address (host:port).
@@ -351,12 +268,24 @@ func (s *Server) IsRunning() bool {
 // Returns empty string if server never started or failed.
 func (s *Server) Address() string {
 	select {
-	case <-s.startedCh:
-		s.stateMu.Lock()
-		defer s.stateMu.Unlock()
+	case <-s.StartedChannel():
+		s.srvMu.Lock()
+		defer s.srvMu.Unlock()
 		return s.addr
-	case <-s.ctx.Done():
-		return ""
+	default:
+		// Server not started yet, check if context exists
+		ctx := s.Context()
+		if ctx == nil {
+			return ""
+		}
+		select {
+		case <-s.StartedChannel():
+			s.srvMu.Lock()
+			defer s.srvMu.Unlock()
+			return s.addr
+		case <-ctx.Done():
+			return ""
+		}
 	}
 }
 
@@ -387,11 +316,11 @@ func (s *Server) Host() string {
 // Wait blocks until the server stops (either gracefully or due to error).
 // Returns the error if the server failed, nil otherwise.
 func (s *Server) Wait() error {
-	s.wg.Wait()
+	s.WaitForShutdown()
 
 	state := s.State()
-	if state == StateFailed {
-		return s.lastErr
+	if state == serverbase.StateFailed {
+		return s.LastError()
 	}
 	return nil
 }
@@ -484,18 +413,16 @@ func (s *Server) GetConnectionInfo(commandID string) (*ConnectionInfo, error) {
 
 // serve runs the SSH server and handles errors.
 func (s *Server) serve() {
-	defer s.wg.Done()
+	defer s.DoneGoroutine()
 
 	// Transition: Starting -> Running (signals readiness)
-	if s.state.CompareAndSwap(int32(StateStarting), int32(StateRunning)) {
-		close(s.startedCh)
-	}
+	s.TransitionToRunning()
 
 	// Block serving connections
-	s.stateMu.Lock()
+	s.srvMu.Lock()
 	srv := s.srv
 	listener := s.listener
-	s.stateMu.Unlock()
+	s.srvMu.Unlock()
 
 	if srv == nil || listener == nil {
 		return
@@ -510,28 +437,18 @@ func (s *Server) serve() {
 		}
 
 		// Report unexpected errors
-		select {
-		case s.errCh <- fmt.Errorf("serve error: %w", err):
-		default:
-			// Error channel full, log instead
-			s.logger.Error("SSH server error (channel full)", "error", err)
-		}
+		s.SendError(fmt.Errorf("serve error: %w", err))
 	}
 }
 
 // doStop performs the actual shutdown logic.
 func (s *Server) doStop() error {
-	// Signal all goroutines to stop
-	if s.cancel != nil {
-		s.cancel()
-	}
-
 	// Shutdown SSH server with timeout
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), s.cfg.ShutdownTimeout)
 	defer shutdownCancel()
 
 	var shutdownErr error
-	s.stateMu.Lock()
+	s.srvMu.Lock()
 	if s.srv != nil {
 		shutdownErr = s.srv.Shutdown(shutdownCtx)
 		if shutdownErr != nil && !isClosedConnError(shutdownErr) {
@@ -543,45 +460,34 @@ func (s *Server) doStop() error {
 	if s.listener != nil {
 		_ = s.listener.Close() // Best-effort cleanup during shutdown
 	}
-	s.stateMu.Unlock()
+	s.srvMu.Unlock()
 
 	// Wait for all goroutines to exit
-	s.wg.Wait()
+	s.WaitForShutdown()
 
-	// Transition to Stopped
-	s.state.Store(int32(StateStopped))
+	// Transition to Stopped and close error channel
+	s.TransitionToStopped()
+	s.CloseErrChannel()
 	s.logger.Info("SSH server stopped")
-
-	// Close error channel to signal consumers
-	close(s.errCh)
 
 	return shutdownErr
 }
 
-// transitionToFailed sets the server state to Failed and stores the error.
-func (s *Server) transitionToFailed(err error) {
-	s.lastErr = err
-	s.state.Store(int32(StateFailed))
-	if s.cancel != nil {
-		s.cancel()
-	}
-	// Send error to channel for Err() consumers (non-blocking)
-	select {
-	case s.errCh <- err:
-	default:
-	}
-}
-
 // cleanupExpiredTokens periodically removes expired tokens.
 func (s *Server) cleanupExpiredTokens() {
-	defer s.wg.Done()
+	defer s.DoneGoroutine()
 
 	ticker := time.NewTicker(5 * time.Minute)
 	defer ticker.Stop()
 
+	ctx := s.Context()
+	if ctx == nil {
+		return
+	}
+
 	for {
 		select {
-		case <-s.ctx.Done():
+		case <-ctx.Done():
 			return
 		case <-ticker.C:
 			s.tokenMu.Lock()

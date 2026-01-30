@@ -12,12 +12,21 @@ import (
 // Podman Engine Mock Tests (T073)
 // =============================================================================
 
+// newTestPodmanEngine creates a PodmanEngine for testing with the mock recorder.
+// Note: SELinux volume labeling is disabled in tests to simplify assertions.
+func newTestPodmanEngine(t *testing.T, recorder *MockCommandRecorder) *PodmanEngine {
+	t.Helper()
+	return &PodmanEngine{
+		BaseCLIEngine: NewBaseCLIEngine("/usr/bin/podman", WithExecCommand(recorder.ContextCommandFunc(t))),
+	}
+}
+
 // TestPodmanEngine_Build_Arguments verifies Podman Build() constructs correct arguments.
 func TestPodmanEngine_Build_Arguments(t *testing.T) {
 	recorder, cleanup := withMockExecCommand(t)
 	defer cleanup()
 
-	engine := &PodmanEngine{binaryPath: "/usr/bin/podman"}
+	engine := newTestPodmanEngine(t, recorder)
 	ctx := context.Background()
 
 	t.Run("basic build", func(t *testing.T) {
@@ -61,7 +70,7 @@ func TestPodmanEngine_Run_Arguments(t *testing.T) {
 	recorder, cleanup := withMockExecCommand(t)
 	defer cleanup()
 
-	engine := &PodmanEngine{binaryPath: "/usr/bin/podman"}
+	engine := newTestPodmanEngine(t, recorder)
 	ctx := context.Background()
 
 	t.Run("basic run", func(t *testing.T) {
@@ -123,7 +132,7 @@ func TestPodmanEngine_ImageExists_Arguments(t *testing.T) {
 	recorder, cleanup := withMockExecCommand(t)
 	defer cleanup()
 
-	engine := &PodmanEngine{binaryPath: "/usr/bin/podman"}
+	engine := newTestPodmanEngine(t, recorder)
 	ctx := context.Background()
 
 	t.Run("podman uses image exists command", func(t *testing.T) {
@@ -148,12 +157,12 @@ func TestPodmanEngine_ImageExists_Arguments(t *testing.T) {
 
 // TestPodmanEngine_ErrorPaths verifies Podman error handling.
 func TestPodmanEngine_ErrorPaths(t *testing.T) {
-	engine := &PodmanEngine{binaryPath: "/usr/bin/podman"}
 	ctx := context.Background()
 
 	t.Run("build failure", func(t *testing.T) {
-		_, cleanup := withMockExecCommandOutput(t, "", "Error: build failed", 1)
+		recorder, cleanup := withMockExecCommandOutput(t, "", "Error: build failed", 1)
 		defer cleanup()
+		engine := newTestPodmanEngine(t, recorder)
 
 		opts := BuildOptions{
 			ContextDir: "/tmp/build",
@@ -164,14 +173,16 @@ func TestPodmanEngine_ErrorPaths(t *testing.T) {
 		if err == nil {
 			t.Fatal("expected error for failed build")
 		}
-		if !strings.Contains(err.Error(), "podman build failed") {
-			t.Errorf("expected 'podman build failed' error, got: %v", err)
+		// Build now returns an actionable error with "failed to build container image" operation
+		if !strings.Contains(err.Error(), "failed to build container image") {
+			t.Errorf("expected 'failed to build container image' error, got: %v", err)
 		}
 	})
 
 	t.Run("image not found", func(t *testing.T) {
-		_, cleanup := withMockExecCommandOutput(t, "", "Error: No such image", 1)
+		recorder, cleanup := withMockExecCommandOutput(t, "", "Error: No such image", 1)
 		defer cleanup()
+		engine := newTestPodmanEngine(t, recorder)
 
 		exists, err := engine.ImageExists(ctx, "nonexistent:latest")
 		if err != nil {
@@ -188,7 +199,7 @@ func TestPodmanEngine_Version_Arguments(t *testing.T) {
 	recorder, cleanup := withMockExecCommandOutput(t, "5.0.0", "", 0)
 	defer cleanup()
 
-	engine := &PodmanEngine{binaryPath: "/usr/bin/podman"}
+	engine := newTestPodmanEngine(t, recorder)
 	ctx := context.Background()
 
 	version, err := engine.Version(ctx)
@@ -211,7 +222,7 @@ func TestPodmanEngine_Remove_Arguments(t *testing.T) {
 	recorder, cleanup := withMockExecCommand(t)
 	defer cleanup()
 
-	engine := &PodmanEngine{binaryPath: "/usr/bin/podman"}
+	engine := newTestPodmanEngine(t, recorder)
 	ctx := context.Background()
 
 	t.Run("basic remove", func(t *testing.T) {
@@ -247,7 +258,7 @@ func TestPodmanEngine_RemoveImage_Arguments(t *testing.T) {
 	recorder, cleanup := withMockExecCommand(t)
 	defer cleanup()
 
-	engine := &PodmanEngine{binaryPath: "/usr/bin/podman"}
+	engine := newTestPodmanEngine(t, recorder)
 	ctx := context.Background()
 
 	t.Run("basic remove image", func(t *testing.T) {

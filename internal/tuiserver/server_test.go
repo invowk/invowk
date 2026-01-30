@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"invowk-cli/internal/core/serverbase"
 	"invowk-cli/internal/testutil"
 	"net/http"
 	"testing"
@@ -28,7 +29,7 @@ func TestServerStartStop(t *testing.T) {
 	}
 
 	// Initial state should be Created
-	if server.State() != StateCreated {
+	if server.State() != serverbase.StateCreated {
 		t.Errorf("State should be Created, got %s", server.State())
 	}
 
@@ -42,7 +43,7 @@ func TestServerStartStop(t *testing.T) {
 	}
 
 	// State should be Running
-	if server.State() != StateRunning {
+	if server.State() != serverbase.StateRunning {
 		t.Errorf("State should be Running, got %s", server.State())
 	}
 
@@ -80,7 +81,7 @@ func TestServerStartStop(t *testing.T) {
 	}
 
 	// State should be Stopped
-	if server.State() != StateStopped {
+	if server.State() != serverbase.StateStopped {
 		t.Errorf("State should be Stopped, got %s", server.State())
 	}
 
@@ -142,7 +143,7 @@ func TestStopWithoutStart(t *testing.T) {
 	}
 
 	// State should be Stopped
-	if server.State() != StateStopped {
+	if server.State() != serverbase.StateStopped {
 		t.Errorf("State should be Stopped, got %s", server.State())
 	}
 }
@@ -164,28 +165,28 @@ func TestServerStartWithCancelledContext(t *testing.T) {
 	}
 
 	// State should be Failed
-	if server.State() != StateFailed {
+	if server.State() != serverbase.StateFailed {
 		t.Errorf("State should be Failed, got %s", server.State())
 	}
 }
 
 func TestServerStateString(t *testing.T) {
 	tests := []struct {
-		state    ServerState
+		state    serverbase.State
 		expected string
 	}{
-		{StateCreated, "created"},
-		{StateStarting, "starting"},
-		{StateRunning, "running"},
-		{StateStopping, "stopping"},
-		{StateStopped, "stopped"},
-		{StateFailed, "failed"},
-		{ServerState(99), "unknown"},
+		{serverbase.StateCreated, "created"},
+		{serverbase.StateStarting, "starting"},
+		{serverbase.StateRunning, "running"},
+		{serverbase.StateStopping, "stopping"},
+		{serverbase.StateStopped, "stopped"},
+		{serverbase.StateFailed, "failed"},
+		{serverbase.State(99), "unknown"},
 	}
 
 	for _, tt := range tests {
 		if got := tt.state.String(); got != tt.expected {
-			t.Errorf("ServerState(%d).String() = %q, want %q", tt.state, got, tt.expected)
+			t.Errorf("serverbase.State(%d).String() = %q, want %q", tt.state, got, tt.expected)
 		}
 	}
 }

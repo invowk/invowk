@@ -3,6 +3,7 @@
 package invkfile
 
 import (
+	"fmt"
 	"reflect"
 	"slices"
 	"strings"
@@ -382,4 +383,287 @@ func TestCustomCheckSchemaSync(t *testing.T) {
 	goFields := extractGoJSONTags(t, reflect.TypeFor[CustomCheck]())
 
 	assertFieldsSync(t, "CustomCheck", cueFields, goFields)
+}
+
+// =============================================================================
+// Constraint Boundary Tests - Phase 5 (T090-T094)
+// =============================================================================
+// These tests verify CUE schema constraints reject invalid values at parse time.
+
+// validateCUE is a helper that attempts to validate data against the CUE schema.
+// Returns nil if validation succeeds, error if validation fails.
+func validateCUE(t *testing.T, cueData string) error {
+	t.Helper()
+
+	ctx := cuecontext.New()
+
+	// Compile schema
+	schemaValue := ctx.CompileString(invkfileSchema)
+	if schemaValue.Err() != nil {
+		t.Fatalf("failed to compile schema: %v", schemaValue.Err())
+	}
+
+	// Compile user data
+	userValue := ctx.CompileString(cueData)
+	if userValue.Err() != nil {
+		return fmt.Errorf("CUE compile error: %w", userValue.Err())
+	}
+
+	// Get the #Invkfile definition
+	schemaDef := schemaValue.LookupPath(cue.ParsePath("#Invkfile"))
+	if schemaDef.Err() != nil {
+		t.Fatalf("failed to lookup #Invkfile: %v", schemaDef.Err())
+	}
+
+	// Unify and validate
+	unified := schemaDef.Unify(userValue)
+	if err := unified.Validate(cue.Concrete(true)); err != nil {
+		return fmt.Errorf("CUE validation error: %w", err)
+	}
+	return nil
+}
+
+// TestImageLengthConstraint verifies #RuntimeConfigContainer.image has a 512 rune limit.
+// T090: Add boundary tests for image length constraint (512 chars)
+func TestImageLengthConstraint(t *testing.T) {
+	// Exactly 512 characters should pass
+	image512 := strings.Repeat("a", 512)
+	valid := `
+cmds: [{
+	name: "test"
+	implementations: [{
+		script: "echo hello"
+		runtimes: [{name: "container", image: "` + image512 + `"}]
+	}]
+}]`
+	if err := validateCUE(t, valid); err != nil {
+		t.Errorf("512-char image should be valid, got error: %v", err)
+	}
+
+	// 513 characters should fail
+	image513 := strings.Repeat("a", 513)
+	invalid := `
+cmds: [{
+	name: "test"
+	implementations: [{
+		script: "echo hello"
+		runtimes: [{name: "container", image: "` + image513 + `"}]
+	}]
+}]`
+	if err := validateCUE(t, invalid); err == nil {
+		t.Errorf("513-char image should fail validation, but passed")
+	}
+}
+
+// TestInterpreterLengthConstraint verifies interpreter fields have a 1024 rune limit.
+// T091: Add boundary tests for interpreter length constraint (1024 chars)
+func TestInterpreterLengthConstraint(t *testing.T) {
+	// Test native interpreter - exactly 1024 characters should pass
+	interp1024 := strings.Repeat("a", 1024)
+	valid := `
+cmds: [{
+	name: "test"
+	implementations: [{
+		script: "echo hello"
+		runtimes: [{name: "native", interpreter: "` + interp1024 + `"}]
+	}]
+}]`
+	if err := validateCUE(t, valid); err != nil {
+		t.Errorf("1024-char native interpreter should be valid, got error: %v", err)
+	}
+
+	// 1025 characters should fail
+	interp1025 := strings.Repeat("a", 1025)
+	invalid := `
+cmds: [{
+	name: "test"
+	implementations: [{
+		script: "echo hello"
+		runtimes: [{name: "native", interpreter: "` + interp1025 + `"}]
+	}]
+}]`
+	if err := validateCUE(t, invalid); err == nil {
+		t.Errorf("1025-char native interpreter should fail validation, but passed")
+	}
+
+	// Test container interpreter - exactly 1024 characters should pass
+	validContainer := `
+cmds: [{
+	name: "test"
+	implementations: [{
+		script: "echo hello"
+		runtimes: [{name: "container", image: "debian:stable-slim", interpreter: "` + interp1024 + `"}]
+	}]
+}]`
+	if err := validateCUE(t, validContainer); err != nil {
+		t.Errorf("1024-char container interpreter should be valid, got error: %v", err)
+	}
+
+	// 1025 characters should fail for container interpreter too
+	invalidContainer := `
+cmds: [{
+	name: "test"
+	implementations: [{
+		script: "echo hello"
+		runtimes: [{name: "container", image: "debian:stable-slim", interpreter: "` + interp1025 + `"}]
+	}]
+}]`
+	if err := validateCUE(t, invalidContainer); err == nil {
+		t.Errorf("1025-char container interpreter should fail validation, but passed")
+	}
+}
+
+// TestDefaultValueLengthConstraint verifies default_value fields have a 4096 rune limit.
+// T092: Add boundary tests for default_value length constraint (4096 chars)
+func TestDefaultValueLengthConstraint(t *testing.T) {
+	// Test flag default_value - exactly 4096 characters should pass
+	val4096 := strings.Repeat("a", 4096)
+	valid := `
+cmds: [{
+	name: "test"
+	implementations: [{
+		script: "echo hello"
+		runtimes: [{name: "native"}]
+	}]
+	flags: [{
+		name: "myflag"
+		description: "A test flag"
+		default_value: "` + val4096 + `"
+	}]
+}]`
+	if err := validateCUE(t, valid); err != nil {
+		t.Errorf("4096-char flag default_value should be valid, got error: %v", err)
+	}
+
+	// 4097 characters should fail
+	val4097 := strings.Repeat("a", 4097)
+	invalid := `
+cmds: [{
+	name: "test"
+	implementations: [{
+		script: "echo hello"
+		runtimes: [{name: "native"}]
+	}]
+	flags: [{
+		name: "myflag"
+		description: "A test flag"
+		default_value: "` + val4097 + `"
+	}]
+}]`
+	if err := validateCUE(t, invalid); err == nil {
+		t.Errorf("4097-char flag default_value should fail validation, but passed")
+	}
+
+	// Test argument default_value - exactly 4096 characters should pass
+	validArg := `
+cmds: [{
+	name: "test"
+	implementations: [{
+		script: "echo hello"
+		runtimes: [{name: "native"}]
+	}]
+	args: [{
+		name: "myarg"
+		description: "A test argument"
+		default_value: "` + val4096 + `"
+	}]
+}]`
+	if err := validateCUE(t, validArg); err != nil {
+		t.Errorf("4096-char argument default_value should be valid, got error: %v", err)
+	}
+
+	// 4097 characters should fail for arguments too
+	invalidArg := `
+cmds: [{
+	name: "test"
+	implementations: [{
+		script: "echo hello"
+		runtimes: [{name: "native"}]
+	}]
+	args: [{
+		name: "myarg"
+		description: "A test argument"
+		default_value: "` + val4097 + `"
+	}]
+}]`
+	if err := validateCUE(t, invalidArg); err == nil {
+		t.Errorf("4097-char argument default_value should fail validation, but passed")
+	}
+}
+
+// TestDescriptionNonEmptyWithContentConstraint verifies description fields reject empty/whitespace strings.
+// T093: Add non-empty-with-content validation tests for Command.description
+func TestDescriptionNonEmptyWithContentConstraint(t *testing.T) {
+	tests := []struct {
+		name        string
+		description string
+		shouldPass  bool
+	}{
+		{"valid description", "A valid description", true},
+		{"description with leading space", "  Valid description", true},
+		{"description with trailing space", "Valid description  ", true},
+		{"single word", "Valid", true},
+		{"empty string", "", false},
+		{"whitespace only - single space", " ", false},
+		{"whitespace only - multiple spaces", "   ", false},
+		{"whitespace only - tab", "\t", false},
+		{"whitespace only - newline", "\n", false},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// Escape special characters for CUE string literal
+			escapedDesc := strings.ReplaceAll(tc.description, "\\", "\\\\")
+			escapedDesc = strings.ReplaceAll(escapedDesc, "\"", "\\\"")
+			escapedDesc = strings.ReplaceAll(escapedDesc, "\n", "\\n")
+			escapedDesc = strings.ReplaceAll(escapedDesc, "\t", "\\t")
+
+			cueData := `
+cmds: [{
+	name: "test"
+	description: "` + escapedDesc + `"
+	implementations: [{
+		script: "echo hello"
+		runtimes: [{name: "native"}]
+	}]
+}]`
+			err := validateCUE(t, cueData)
+			if tc.shouldPass && err != nil {
+				t.Errorf("expected valid, got error: %v", err)
+			}
+			if !tc.shouldPass && err == nil {
+				t.Errorf("expected invalid, but validation passed")
+			}
+		})
+	}
+}
+
+// TestErrorMessagesIncludeCUEPaths verifies error messages include CUE paths.
+// T094: Verify error messages include CUE paths in constraint violation tests
+func TestErrorMessagesIncludeCUEPaths(t *testing.T) {
+	// Create an invalid invkfile that should produce a path-containing error
+	invalid := `
+cmds: [{
+	name: "test"
+	implementations: [{
+		script: "echo hello"
+		runtimes: [{name: "container", image: "` + strings.Repeat("a", 600) + `"}]
+	}]
+}]`
+
+	err := validateCUE(t, invalid)
+	if err == nil {
+		t.Fatalf("expected validation error for oversized image")
+	}
+
+	// The error message should contain path information
+	errStr := err.Error()
+
+	// Check that error contains path-like components (cmds, implementations, runtimes, image)
+	// CUE error formatting includes the path to the invalid field
+	if !strings.Contains(errStr, "cmds") && !strings.Contains(errStr, "implementations") &&
+		!strings.Contains(errStr, "image") && !strings.Contains(errStr, "runtimes") {
+		t.Logf("Full error: %s", errStr)
+		t.Errorf("error message should contain path information, got: %s", errStr)
+	}
 }

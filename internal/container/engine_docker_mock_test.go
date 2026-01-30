@@ -13,12 +13,20 @@ import (
 // Docker Engine Mock Tests (T069, T070, T071, T072)
 // =============================================================================
 
+// newTestDockerEngine creates a DockerEngine for testing with the mock recorder.
+func newTestDockerEngine(t *testing.T, recorder *MockCommandRecorder) *DockerEngine {
+	t.Helper()
+	return &DockerEngine{
+		BaseCLIEngine: NewBaseCLIEngine("/usr/bin/docker", WithExecCommand(recorder.ContextCommandFunc(t))),
+	}
+}
+
 // TestDockerEngine_Build_Arguments verifies Build() constructs correct arguments.
 func TestDockerEngine_Build_Arguments(t *testing.T) {
 	recorder, cleanup := withMockExecCommand(t)
 	defer cleanup()
 
-	engine := &DockerEngine{binaryPath: "/usr/bin/docker"}
+	engine := newTestDockerEngine(t, recorder)
 	ctx := context.Background()
 
 	t.Run("basic build", func(t *testing.T) {
@@ -109,7 +117,7 @@ func TestDockerEngine_Run_Arguments(t *testing.T) {
 	recorder, cleanup := withMockExecCommand(t)
 	defer cleanup()
 
-	engine := &DockerEngine{binaryPath: "/usr/bin/docker"}
+	engine := newTestDockerEngine(t, recorder)
 	ctx := context.Background()
 
 	t.Run("basic run", func(t *testing.T) {
@@ -315,7 +323,7 @@ func TestDockerEngine_ImageExists_Arguments(t *testing.T) {
 	recorder, cleanup := withMockExecCommand(t)
 	defer cleanup()
 
-	engine := &DockerEngine{binaryPath: "/usr/bin/docker"}
+	engine := newTestDockerEngine(t, recorder)
 	ctx := context.Background()
 
 	t.Run("image exists check", func(t *testing.T) {
@@ -350,12 +358,12 @@ func TestDockerEngine_ImageExists_Arguments(t *testing.T) {
 
 // TestDockerEngine_ErrorPaths verifies error handling (T072).
 func TestDockerEngine_ErrorPaths(t *testing.T) {
-	engine := &DockerEngine{binaryPath: "/usr/bin/docker"}
 	ctx := context.Background()
 
 	t.Run("build failure", func(t *testing.T) {
-		_, cleanup := withMockExecCommandOutput(t, "", "Error: build failed", 1)
+		recorder, cleanup := withMockExecCommandOutput(t, "", "Error: build failed", 1)
 		defer cleanup()
+		engine := newTestDockerEngine(t, recorder)
 
 		opts := BuildOptions{
 			ContextDir: "/tmp/build",
@@ -366,14 +374,16 @@ func TestDockerEngine_ErrorPaths(t *testing.T) {
 		if err == nil {
 			t.Fatal("expected error for failed build")
 		}
-		if !strings.Contains(err.Error(), "docker build failed") {
-			t.Errorf("expected 'docker build failed' error, got: %v", err)
+		// Build now returns an actionable error with "failed to build container image" operation
+		if !strings.Contains(err.Error(), "failed to build container image") {
+			t.Errorf("expected 'failed to build container image' error, got: %v", err)
 		}
 	})
 
 	t.Run("image not found", func(t *testing.T) {
-		_, cleanup := withMockExecCommandOutput(t, "", "Error: No such image", 1)
+		recorder, cleanup := withMockExecCommandOutput(t, "", "Error: No such image", 1)
 		defer cleanup()
+		engine := newTestDockerEngine(t, recorder)
 
 		exists, err := engine.ImageExists(ctx, "nonexistent:latest")
 		if err != nil {
@@ -386,8 +396,9 @@ func TestDockerEngine_ErrorPaths(t *testing.T) {
 	})
 
 	t.Run("run with exit code", func(t *testing.T) {
-		_, cleanup := withMockExecCommandOutput(t, "", "command failed", 42)
+		recorder, cleanup := withMockExecCommandOutput(t, "", "command failed", 42)
 		defer cleanup()
+		engine := newTestDockerEngine(t, recorder)
 
 		opts := RunOptions{
 			Image:   "debian:stable-slim",
@@ -410,7 +421,7 @@ func TestDockerEngine_Remove_Arguments(t *testing.T) {
 	recorder, cleanup := withMockExecCommand(t)
 	defer cleanup()
 
-	engine := &DockerEngine{binaryPath: "/usr/bin/docker"}
+	engine := newTestDockerEngine(t, recorder)
 	ctx := context.Background()
 
 	t.Run("basic remove", func(t *testing.T) {
@@ -445,7 +456,7 @@ func TestDockerEngine_RemoveImage_Arguments(t *testing.T) {
 	recorder, cleanup := withMockExecCommand(t)
 	defer cleanup()
 
-	engine := &DockerEngine{binaryPath: "/usr/bin/docker"}
+	engine := newTestDockerEngine(t, recorder)
 	ctx := context.Background()
 
 	t.Run("basic remove image", func(t *testing.T) {
@@ -479,7 +490,7 @@ func TestDockerEngine_Version_Arguments(t *testing.T) {
 	recorder, cleanup := withMockExecCommandOutput(t, "24.0.7", "", 0)
 	defer cleanup()
 
-	engine := &DockerEngine{binaryPath: "/usr/bin/docker"}
+	engine := newTestDockerEngine(t, recorder)
 	ctx := context.Background()
 
 	version, err := engine.Version(ctx)
