@@ -105,6 +105,34 @@ tmpDir := t.TempDir()
 f, _ := os.Create(filepath.Join(tmpDir, "test-file.txt"))
 ```
 
+### Cross-Platform Path Assertions
+
+**NEVER hardcode path separators in test assertions.** Use `filepath.Join()` to construct expected paths so they match production code behavior on all platforms.
+
+The problem: `filepath.Join()` produces OS-specific paths—forward slashes (`/`) on Unix, backslashes (`\`) on Windows. Tests that hardcode Unix-style paths will fail on Windows CI.
+
+```go
+// WRONG: Hardcoded Unix path separator - fails on Windows
+recorder.AssertArgsContain(t, "/tmp/build/Dockerfile.custom")
+// On Windows, actual value is: \tmp\build\Dockerfile.custom
+
+// CORRECT: Use filepath.Join for cross-platform compatibility
+recorder.AssertArgsContain(t, filepath.Join("/tmp/build", "Dockerfile.custom"))
+// Produces: /tmp/build/Dockerfile.custom (Unix) or \tmp\build\Dockerfile.custom (Windows)
+```
+
+**When this applies:**
+- Any test that asserts on file paths constructed by production code
+- Mock recorders that capture command-line arguments containing paths
+- Path comparison in file operation tests
+
+**Common symptom:** Tests pass locally on Linux/macOS but fail on Windows CI with errors like:
+```
+expected args to contain "/tmp/build/Dockerfile.custom", got: [build -f \tmp\build\Dockerfile.custom ...]
+```
+
+**Note:** The `gocritic` linter's `filepathJoin` check may warn when the first argument contains path separators. This is acceptable when testing production code that joins directory paths with filenames—use `//nolint:gocritic` with an explanatory comment.
+
 ## TUI Component Testing
 
 TUI components (Bubble Tea models) should have unit tests even though terminal I/O is difficult to mock. Focus on:
@@ -308,5 +336,6 @@ The `internal/testutil` package provides reusable test helpers. All helpers acce
 - **Duplicated helpers** - Consolidate common test patterns in `testutil` package.
 - **`time.Sleep()` in tests** - Use clock injection for deterministic time-dependent tests.
 - **Hardcoded `/tmp` paths** - Use `t.TempDir()` for isolation and auto-cleanup.
+- **Hardcoded path separators** - Use `filepath.Join()` in assertions; hardcoded `/` fails on Windows.
 - **Testing struct fields** - Test behavior, not that Go can store values in structs.
 - **Missing TUI tests** - Test model state transitions even if terminal I/O can't be mocked.

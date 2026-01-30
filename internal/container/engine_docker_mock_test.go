@@ -4,6 +4,7 @@ package container
 
 import (
 	"context"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -54,8 +55,9 @@ func TestDockerEngine_Build_Arguments(t *testing.T) {
 		}
 
 		recorder.AssertArgsContain(t, "-f")
-		// Dockerfile path should be joined with context dir
-		recorder.AssertArgsContain(t, "/tmp/build/Dockerfile.custom")
+		// Dockerfile path should be joined with context dir (use filepath.Join for cross-platform)
+		//nolint:gocritic // filepathJoin: testing production code that joins dir path with filename
+		recorder.AssertArgsContain(t, filepath.Join("/tmp/build", "Dockerfile.custom"))
 	})
 
 	t.Run("with no-cache", func(t *testing.T) {
