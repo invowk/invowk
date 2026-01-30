@@ -10,8 +10,6 @@ The [.claude/](.claude/) directory contains all agent configuration:
 |------|---------|
 | [.claude/CLAUDE.md](.claude/CLAUDE.md) | Main context file (project overview, architecture, key dependencies) |
 | [.claude/rules/](.claude/rules/) | Project rules and conventions (18 files covering Go style, testing, CUE schemas, git, etc.) |
-| [.claude/skills/](.claude/skills/) | Skill-based prompts invokable via `/skill-name` (speckit workflow commands) |
-| [.claude/agents/](.claude/agents/) | Agent definitions and configurations |
 | `.claude/settings.local.json` | Local permission settings (not committed) |
 
 ## Rules
@@ -36,21 +34,3 @@ The [.claude/rules/](.claude/rules/) directory contains project-specific rules:
 - [plans-and-fixes.md](.claude/rules/plans-and-fixes.md) - Comprehensive fix handling
 - [docs-website.md](.claude/rules/docs-website.md) - Documentation sync and i18n
 - [checklist.md](.claude/rules/checklist.md) - Pre-completion verification steps
-
-## Skills
-
-The [.claude/skills/](.claude/skills/) directory contains invokable skills:
-
-- [speckit.specify](.claude/skills/speckit.specify.md) - Create feature specifications
-- [speckit.clarify](.claude/skills/speckit.clarify.md) - Clarify spec requirements
-- [speckit.plan](.claude/skills/speckit.plan.md) - Generate implementation plans
-- [speckit.tasks](.claude/skills/speckit.tasks.md) - Generate task lists
-- [speckit.implement](.claude/skills/speckit.implement.md) - Execute implementation
-- [speckit.analyze](.claude/skills/speckit.analyze.md) - Cross-artifact analysis
-- [speckit.checklist](.claude/skills/speckit.checklist.md) - Generate custom checklists
-- [speckit.constitution](.claude/skills/speckit.constitution.md) - Project constitution management
-- [speckit.taskstoissues](.claude/skills/speckit.taskstoissues.md) - Convert tasks to GitHub issues
-
-## Agents
-
-The [.claude/agents/](.claude/agents/) directory is reserved for agent definitions.
