@@ -10,6 +10,20 @@ Invowk is a dynamically extensible command runner (similar to `just`, `task`, an
 
   The only guarantee Invowk provides about cross `cmd`/module visibility is that `cmds` from a given module (e.g: `module foo`) that requires another module (e.g.: `module bar`) will be able to see/call `cmds` from the required module -- or, in other words, even though transitive dependencies are supported, only first-level dependencies are effectively exposed to the caller (e.g.: `cmds` from `module foo` will be able to see/call `cmds` from `module bar`, but not from the dependencies of `module bar`).
 
+## Agentic Context Discipline & Subagent Policy
+
+**CRITICAL:** Subagents are the **PRIMARY MECHANISM** for complex and/or long exploration and implementation work.
+
+### Use Subagents (model=opus) by default for/when:
+
+- Multi-file reads/edits (≥3 files) or cross-surface edits (e.g.: "frontend" + "backend" + schemas + data etc.), *ALWAYS* launching 1 subagent per file to be read/edited
+- Research-heavy tasks (code exploration, code reviews, audits, schema analysis, migration planning)
+- Any step that might consume >20% of context budget *UNLESS* it's orchestration/planning work.
+
+### Do NOT use Subagents by default for/when:
+
+- Orchestration, planning, or any decision-making activity/step. Instead, the main agent must perform those activities/steps based on the information gathered by the subagents.
+
 ## Architecture Overview
 
 ```
