@@ -134,6 +134,137 @@ cmds: [
 		]
 	},
 
+	// Example 2.3: U-root utilities - basic file operations
+	// Tests the built-in u-root file utilities (cat, ls, mkdir, rm, touch)
+	{
+		name:        "uroot basic"
+		description: "Test basic u-root file utilities"
+		implementations: [
+			{
+				script: """
+					# Create a test directory
+					mkdir -p /tmp/invowk-uroot-test
+
+					# Create a test file using touch and echo
+					echo 'Hello from u-root!' > /tmp/invowk-uroot-test/test.txt
+
+					# Display file contents using cat
+					echo '=== cat output ==='
+					cat /tmp/invowk-uroot-test/test.txt
+
+					# List directory contents using ls
+					echo '=== ls output ==='
+					ls /tmp/invowk-uroot-test
+
+					# Cleanup
+					rm -rf /tmp/invowk-uroot-test
+
+					echo '=== uroot basic test complete ==='
+					"""
+				runtimes: [{name: "virtual"}]
+			},
+		]
+	},
+
+	// Example 2.4: U-root utilities - file operations (cp, mv)
+	{
+		name:        "uroot file ops"
+		description: "Test u-root cp and mv operations"
+		implementations: [
+			{
+				script: """
+					# Setup test directory
+					mkdir -p /tmp/invowk-uroot-fileops
+
+					# Create source file
+					echo 'Original content' > /tmp/invowk-uroot-fileops/source.txt
+
+					# Test cp
+					echo '=== Testing cp ==='
+					cp /tmp/invowk-uroot-fileops/source.txt /tmp/invowk-uroot-fileops/copy.txt
+					echo 'Source after cp:'
+					cat /tmp/invowk-uroot-fileops/source.txt
+					echo 'Copy:'
+					cat /tmp/invowk-uroot-fileops/copy.txt
+
+					# Test mv
+					echo '=== Testing mv ==='
+					mv /tmp/invowk-uroot-fileops/copy.txt /tmp/invowk-uroot-fileops/moved.txt
+					echo 'Moved file:'
+					cat /tmp/invowk-uroot-fileops/moved.txt
+
+					# List final state
+					echo '=== Final directory listing ==='
+					ls /tmp/invowk-uroot-fileops
+
+					# Cleanup
+					rm -rf /tmp/invowk-uroot-fileops
+
+					echo '=== uroot file ops test complete ==='
+					"""
+				runtimes: [{name: "virtual"}]
+			},
+		]
+	},
+
+	// Example 2.5: U-root utilities - text processing (head, tail, wc, grep, sort, uniq)
+	{
+		name:        "uroot text ops"
+		description: "Test u-root text processing operations"
+		implementations: [
+			{
+				script: """
+					# Setup test files
+					mkdir -p /tmp/invowk-uroot-textops
+
+					# Create test file with lines
+					echo 'line 1' > /tmp/invowk-uroot-textops/lines.txt
+					echo 'line 2' >> /tmp/invowk-uroot-textops/lines.txt
+					echo 'line 3' >> /tmp/invowk-uroot-textops/lines.txt
+					echo 'line 4' >> /tmp/invowk-uroot-textops/lines.txt
+					echo 'line 5' >> /tmp/invowk-uroot-textops/lines.txt
+
+					# Create test file with fruits
+					echo 'cherry' > /tmp/invowk-uroot-textops/fruits.txt
+					echo 'apple' >> /tmp/invowk-uroot-textops/fruits.txt
+					echo 'banana' >> /tmp/invowk-uroot-textops/fruits.txt
+					echo 'apple' >> /tmp/invowk-uroot-textops/fruits.txt
+					echo 'cherry' >> /tmp/invowk-uroot-textops/fruits.txt
+
+					# Test head
+					echo '=== Testing head ==='
+					head -n 3 /tmp/invowk-uroot-textops/lines.txt
+
+					# Test tail
+					echo '=== Testing tail ==='
+					tail -n 2 /tmp/invowk-uroot-textops/lines.txt
+
+					# Test wc
+					echo '=== Testing wc ==='
+					wc -l /tmp/invowk-uroot-textops/lines.txt
+
+					# Test grep
+					echo '=== Testing grep ==='
+					grep apple /tmp/invowk-uroot-textops/fruits.txt
+
+					# Test sort
+					echo '=== Testing sort ==='
+					sort /tmp/invowk-uroot-textops/fruits.txt
+
+					# Test sort | uniq
+					echo '=== Testing sort | uniq ==='
+					sort /tmp/invowk-uroot-textops/fruits.txt | uniq
+
+					# Cleanup
+					rm -rf /tmp/invowk-uroot-textops
+
+					echo '=== uroot text ops test complete ==='
+					"""
+				runtimes: [{name: "virtual"}]
+			},
+		]
+	},
+
 	// ============================================================================
 	// SECTION 3: Interpreter Support
 	// ============================================================================

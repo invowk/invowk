@@ -63,6 +63,7 @@ invkfile.cue -> CUE Parser -> pkg/invkfile -> Runtime Selection -> Execution
 - `mvdan.cc/sh/v3` - Virtual shell implementation.
 
 ## Active Technologies
+- N/A (no persistent storage required) (005-uroot-utils)
 
 **Core Stack**:
 - Go 1.25+ with `cuelang.org/go v0.15.3` (CUE schemas and validation)

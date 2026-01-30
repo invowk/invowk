@@ -74,14 +74,22 @@ Configures the virtual shell runtime behavior.
 
 #### virtual_shell.enable_uroot_utils
 
-**Type:** `bool`  
+**Type:** `bool`
 **Default:** `true`
 
-Enables u-root utilities in the virtual shell. When enabled, additional commands like `ls`, `cat`, `grep`, and others become available in the virtual shell environment.
+Enables [u-root](https://github.com/u-root/u-root) utilities in the virtual shell. When enabled, 15 additional POSIX-compliant commands become available:
+
+**File Operations:** `cat`, `cp`, `ls`, `mkdir`, `mv`, `rm`, `touch`
+
+**Text Processing:** `head`, `tail`, `wc`, `grep`, `sort`, `uniq`, `cut`, `tr`
 
 <Snippet id="config/virtual-shell" />
 
-This is useful when you want the virtual shell to have more capabilities beyond basic shell builtins, while still avoiding native shell execution.
+This makes the virtual shell self-contained, allowing scripts to execute common file and text operations without requiring external binaries on the host system.
+
+:::tip
+u-root utilities are enabled by default. Set to `false` only if you need to force scripts to use system binaries or reduce binary size.
+:::
 
 ### ui
 

@@ -22,6 +22,7 @@ require (
 	github.com/sahilm/fuzzy v0.1.1
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/viper v1.21.0
+	github.com/u-root/u-root v0.15.0
 	golang.org/x/sys v0.40.0
 	golang.org/x/term v0.39.0
 	mvdan.cc/sh/v3 v3.12.0

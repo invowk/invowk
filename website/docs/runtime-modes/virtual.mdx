@@ -47,16 +47,51 @@ The virtual shell includes core POSIX utilities:
 
 ### Extended Utilities (u-root)
 
-When enabled in config, additional utilities are available:
+When enabled in config (default: `true`), additional utilities from the [u-root](https://github.com/u-root/u-root) library are available:
 
 <Snippet id="runtime-modes/virtual-uroot-config" />
 
-This adds utilities like:
-- `cat`, `head`, `tail`
-- `grep`, `sed`, `awk`
-- `ls`, `cp`, `mv`, `rm`
-- `mkdir`, `rmdir`
-- And many more
+#### File Operations (7 utilities)
+
+| Utility | Description | Common Flags |
+|---------|-------------|--------------|
+| `cat` | Concatenate and display files | `-n` (number lines) |
+| `cp` | Copy files and directories | `-r` (recursive), `-f` (force) |
+| `ls` | List directory contents | `-l` (long), `-a` (all), `-R` (recursive) |
+| `mkdir` | Create directories | `-p` (create parents) |
+| `mv` | Move or rename files | `-f` (force), `-n` (no clobber) |
+| `rm` | Remove files and directories | `-r` (recursive), `-f` (force) |
+| `touch` | Create or update file timestamps | `-c` (no create) |
+
+#### Text Processing (8 utilities)
+
+| Utility | Description | Common Flags |
+|---------|-------------|--------------|
+| `head` | Output first N lines | `-n <num>` (default 10) |
+| `tail` | Output last N lines | `-n <num>` (default 10) |
+| `wc` | Count lines, words, bytes | `-l` (lines), `-w` (words), `-c` (bytes) |
+| `grep` | Search for patterns | `-i` (ignore case), `-v` (invert), `-n` (line numbers) |
+| `sort` | Sort lines | `-r` (reverse), `-n` (numeric) |
+| `uniq` | Filter adjacent duplicate lines | `-c` (count), `-d` (duplicates only) |
+| `cut` | Select portions of lines | `-d` (delimiter), `-f` (fields) |
+| `tr` | Translate characters | `SET1 SET2` (character mapping) |
+
+:::note
+These utilities implement POSIX behavior. GNU-specific flags (like `--color`, `--time-style`) are silently ignored for compatibility.
+:::
+
+#### Error Identification
+
+Errors from u-root utilities are prefixed with `[uroot]` for easy identification:
+
+```
+[uroot] cp: /source/file: no such file or directory
+[uroot] rm: /protected: permission denied
+```
+
+#### No Silent Fallback
+
+If a u-root command fails, it returns an error immediately. The system does **not** fall back to host binaries, ensuring bugs are caught rather than masked
 
 ## POSIX Shell Features
 

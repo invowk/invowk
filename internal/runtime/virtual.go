@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"invowk-cli/internal/uroot"
 	"invowk-cli/pkg/invkfile"
 	"os"
 	"os/exec"
@@ -335,22 +336,41 @@ func (r *VirtualRuntime) execHandler(next interp.ExecHandlerFunc) interp.ExecHan
 	}
 }
 
-// tryUrootBuiltin attempts to handle a command with u-root builtins
+// tryUrootBuiltin attempts to handle a command with u-root builtins.
+//
+// Return semantics (User Story 3 - Gradual Adoption with Fallback):
+//   - (true, nil): Command was handled successfully by u-root
+//   - (true, err): Command was handled by u-root but failed - error is propagated,
+//     NO fallback to system binary (error prefixed with [uroot])
+//   - (false, nil): Command is not registered in u-root registry - caller should
+//     fall back to system binary (enables gradual adoption)
+//
+// This design ensures:
+// 1. Unregistered commands (git, curl, etc.) transparently use system binaries
+// 2. Registered commands that fail return errors - no silent fallback that could
+//
+//	mask implementation bugs or create confusing behavior
 func (r *VirtualRuntime) tryUrootBuiltin(ctx context.Context, args []string) (bool, error) {
 	if len(args) == 0 {
 		return false, nil
 	}
 
-	// Core builtins that are commonly needed
-	// For now, we delegate to the interp default which uses the system's commands
-	// In a full implementation, you would integrate u-root/u-root commands here
-	switch args[0] {
-	case "echo", "cat", "ls", "pwd", "mkdir", "rm", "cp", "mv", "grep", "head", "tail", "wc", "sort", "uniq", "cut", "tr":
-		// These could be implemented with u-root, but for now we use system commands
+	cmdName := args[0]
+
+	// Look up the command in the u-root registry
+	// [US3-T046] Unregistered commands: Lookup returns (nil, false), we return (false, nil)
+	// This signals the caller to fall back to system binaries via next() handler
+	cmd, found := uroot.DefaultRegistry.Lookup(cmdName)
+	if !found {
 		return false, nil
 	}
 
-	return false, nil
+	// Execute the u-root command
+	// [US3-T047] If the command fails, we return (true, err) - the error is propagated
+	// directly to the caller, NO fallback to system binary occurs
+	// The command receives the full args slice (including args[0] = command name)
+	err := cmd.Run(ctx, args)
+	return true, err
 }
 
 // getWorkDir determines the working directory using the hierarchical override model.
