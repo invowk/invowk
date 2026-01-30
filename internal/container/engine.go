@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"os/exec"
 )
 
 // Container engine type constants.
@@ -14,6 +15,10 @@ const (
 	EngineTypePodman EngineType = "podman"
 	EngineTypeDocker EngineType = "docker"
 )
+
+// execCommand is a package-level variable for exec.CommandContext.
+// It can be replaced in tests to mock command execution.
+var execCommand = exec.CommandContext
 
 type (
 	// EngineType identifies the container engine type

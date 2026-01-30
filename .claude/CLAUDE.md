@@ -65,6 +65,8 @@ invkfile.cue -> CUE Parser -> pkg/invkfile -> Runtime Selection -> Execution
 ## Active Technologies
 - Go 1.25+ + Cobra (CLI), Viper (config), CUE (schemas), Charm libraries (TUI), mvdan/sh (virtual shell) (002-codebase-cleanup-audit)
 - N/A (CLI tool, file-based configuration) (002-codebase-cleanup-audit)
+- Go 1.25+ + stdlib `testing`, `github.com/charmbracelet/bubbletea` (TUI), `mvdan.cc/sh/v3` (virtual shell), `github.com/rogpeppe/go-internal/testscript` (CLI tests) (003-test-suite-audit)
+- N/A (test infrastructure only) (003-test-suite-audit)
 
 ## Recent Changes
 - 002-codebase-cleanup-audit: Added Go 1.25+ + Cobra (CLI), Viper (config), CUE (schemas), Charm libraries (TUI), mvdan/sh (virtual shell)

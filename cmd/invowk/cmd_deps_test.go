@@ -1,0 +1,486 @@
+// SPDX-License-Identifier: MPL-2.0
+
+package cmd
+
+import (
+	"errors"
+	"invowk-cli/internal/config"
+	"invowk-cli/internal/runtime"
+	"invowk-cli/internal/testutil"
+	"invowk-cli/internal/testutil/invkfiletest"
+	"invowk-cli/pkg/invkfile"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
+	"testing"
+)
+
+// intPtr is a helper to create a pointer to an int.
+func intPtr(i int) *int {
+	return &i
+}
+
+// ---------------------------------------------------------------------------
+// Tool dependency tests
+// ---------------------------------------------------------------------------
+
+func TestCheckToolDependencies_NoTools(t *testing.T) {
+	cmd := invkfiletest.NewTestCommand("test", invkfiletest.WithScript("echo hello"))
+
+	err := checkToolDependencies(cmd)
+	if err != nil {
+		t.Errorf("checkToolDependencies() should return nil for command with no dependencies, got: %v", err)
+	}
+}
+
+func TestCheckToolDependencies_EmptyDependsOn(t *testing.T) {
+	cmd := invkfiletest.NewTestCommand("test",
+		invkfiletest.WithScript("echo hello"),
+		invkfiletest.WithDependsOn(&invkfile.DependsOn{}))
+
+	err := checkToolDependencies(cmd)
+	if err != nil {
+		t.Errorf("checkToolDependencies() should return nil for empty depends_on, got: %v", err)
+	}
+}
+
+func TestCheckToolDependencies_ToolExists(t *testing.T) {
+	// Use a tool that should exist on any system
+	var existingTool string
+	for _, tool := range []string{"sh", "bash", "echo", "cat"} {
+		if _, err := exec.LookPath(tool); err == nil {
+			existingTool = tool
+			break
+		}
+	}
+
+	if existingTool == "" {
+		t.Skip("No common tools found in PATH")
+	}
+
+	cmd := invkfiletest.NewTestCommand("test",
+		invkfiletest.WithScript("echo hello"),
+		invkfiletest.WithDependsOn(&invkfile.DependsOn{
+			Tools: []invkfile.ToolDependency{{Alternatives: []string{existingTool}}},
+		}))
+
+	err := checkToolDependencies(cmd)
+	if err != nil {
+		t.Errorf("checkToolDependencies() should return nil for existing tool '%s', got: %v", existingTool, err)
+	}
+}
+
+func TestCheckToolDependencies_ToolNotExists(t *testing.T) {
+	cmd := invkfiletest.NewTestCommand("test",
+		invkfiletest.WithScript("echo hello"),
+		invkfiletest.WithDependsOn(&invkfile.DependsOn{
+			Tools: []invkfile.ToolDependency{{Alternatives: []string{"nonexistent-tool-xyz-12345"}}},
+		}))
+
+	err := checkToolDependencies(cmd)
+	if err == nil {
+		t.Error("checkToolDependencies() should return error for non-existent tool")
+	}
+
+	var depErr *DependencyError
+	if !errors.As(err, &depErr) {
+		t.Errorf("checkToolDependencies() should return *DependencyError, got: %T", err)
+	}
+
+	if depErr.CommandName != "test" {
+		t.Errorf("DependencyError.CommandName = %q, want %q", depErr.CommandName, "test")
+	}
+
+	if len(depErr.MissingTools) != 1 {
+		t.Errorf("DependencyError.MissingTools length = %d, want 1", len(depErr.MissingTools))
+	}
+}
+
+func TestCheckToolDependencies_MultipleToolsNotExist(t *testing.T) {
+	cmd := invkfiletest.NewTestCommand("test",
+		invkfiletest.WithScript("echo hello"),
+		invkfiletest.WithDependsOn(&invkfile.DependsOn{
+			Tools: []invkfile.ToolDependency{
+				{Alternatives: []string{"nonexistent-tool-1"}},
+				{Alternatives: []string{"nonexistent-tool-2"}},
+				{Alternatives: []string{"nonexistent-tool-3"}},
+			},
+		}))
+
+	err := checkToolDependencies(cmd)
+	if err == nil {
+		t.Error("checkToolDependencies() should return error for non-existent tools")
+	}
+
+	var depErr *DependencyError
+	if !errors.As(err, &depErr) {
+		t.Fatalf("checkToolDependencies() should return *DependencyError, got: %T", err)
+	}
+
+	if len(depErr.MissingTools) != 3 {
+		t.Errorf("DependencyError.MissingTools length = %d, want 3", len(depErr.MissingTools))
+	}
+}
+
+func TestCheckToolDependencies_MixedToolsExistAndNotExist(t *testing.T) {
+	// Find an existing tool
+	var existingTool string
+	for _, tool := range []string{"sh", "bash", "echo", "cat"} {
+		if _, err := exec.LookPath(tool); err == nil {
+			existingTool = tool
+			break
+		}
+	}
+
+	if existingTool == "" {
+		t.Skip("No common tools found in PATH")
+	}
+
+	cmd := invkfiletest.NewTestCommand("test",
+		invkfiletest.WithScript("echo hello"),
+		invkfiletest.WithDependsOn(&invkfile.DependsOn{
+			Tools: []invkfile.ToolDependency{
+				{Alternatives: []string{existingTool}},
+				{Alternatives: []string{"nonexistent-tool-xyz"}},
+			},
+		}))
+
+	err := checkToolDependencies(cmd)
+	if err == nil {
+		t.Error("checkToolDependencies() should return error when any tool is missing")
+	}
+
+	var depErr *DependencyError
+	if !errors.As(err, &depErr) {
+		t.Fatalf("checkToolDependencies() should return *DependencyError, got: %T", err)
+	}
+
+	// Only the non-existent tool should be in the error
+	if len(depErr.MissingTools) != 1 {
+		t.Errorf("DependencyError.MissingTools length = %d, want 1", len(depErr.MissingTools))
+	}
+
+	if !strings.Contains(depErr.MissingTools[0], "nonexistent-tool-xyz") {
+		t.Errorf("MissingTools should contain 'nonexistent-tool-xyz', got: %s", depErr.MissingTools[0])
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Command dependency tests
+// ---------------------------------------------------------------------------
+
+func TestCheckCommandDependenciesExist_SatisfiedByLocalUnqualifiedName(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	originalWd, _ := os.Getwd()
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatalf("failed to chdir to temp dir: %v", err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(originalWd) })
+
+	homeCleanup := testutil.SetHomeDir(t, tmpDir)
+	t.Cleanup(homeCleanup)
+
+	config.Reset()
+	t.Cleanup(config.Reset)
+
+	// invkfile.cue now only contains commands - module metadata is in invkmod.cue
+	invkfileContent := `cmds: [
+	{
+		name: "build"
+		implementations: [{
+			script: "echo build"
+			runtimes: [{name: "native"}]
+		}]
+	},
+	{
+		name: "deploy"
+		implementations: [{
+			script: "echo deploy"
+			runtimes: [{name: "native"}]
+		}]
+	},
+]
+`
+	if err := os.WriteFile(filepath.Join(tmpDir, "invkfile.cue"), []byte(invkfileContent), 0o644); err != nil {
+		t.Fatalf("failed to write invkfile: %v", err)
+	}
+
+	// Standalone invkfile has no module identifier, so pass empty string
+	deps := &invkfile.DependsOn{Commands: []invkfile.CommandDependency{{Alternatives: []string{"build"}}}}
+	ctx := &runtime.ExecutionContext{Command: &invkfile.Command{Name: "deploy"}}
+
+	if err := checkCommandDependenciesExist(deps, "", ctx); err != nil {
+		t.Fatalf("expected nil, got %v", err)
+	}
+}
+
+func TestCheckCommandDependenciesExist_SatisfiedByFullyQualifiedNameFromUserDir(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	originalWd, _ := os.Getwd()
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatalf("failed to chdir to temp dir: %v", err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(originalWd) })
+
+	homeCleanup := testutil.SetHomeDir(t, tmpDir)
+	t.Cleanup(homeCleanup)
+
+	config.Reset()
+	t.Cleanup(config.Reset)
+
+	// invkfile.cue now only contains commands - module metadata is in invkmod.cue
+	invkfileContent := `cmds: [{
+	name: "deploy"
+	implementations: [{
+		script: "echo deploy"
+		runtimes: [{name: "native"}]
+	}]
+}]
+`
+	if err := os.WriteFile(filepath.Join(tmpDir, "invkfile.cue"), []byte(invkfileContent), 0o644); err != nil {
+		t.Fatalf("failed to write invkfile: %v", err)
+	}
+
+	userCmdsDir := filepath.Join(tmpDir, ".invowk", "cmds", "shared")
+	if err := os.MkdirAll(userCmdsDir, 0o755); err != nil {
+		t.Fatalf("failed to create user commands dir: %v", err)
+	}
+
+	// User invkfile also cannot have module/version fields
+	userInvkfileContent := `cmds: [{
+	name: "generate-types"
+	implementations: [{
+		script: "echo generate"
+		runtimes: [{name: "native"}]
+	}]
+}]
+`
+	if err := os.WriteFile(filepath.Join(userCmdsDir, "invkfile.cue"), []byte(userInvkfileContent), 0o644); err != nil {
+		t.Fatalf("failed to write user invkfile: %v", err)
+	}
+
+	// Without module prefix, command is just "generate-types"
+	deps := &invkfile.DependsOn{Commands: []invkfile.CommandDependency{{Alternatives: []string{"generate-types"}}}}
+	ctx := &runtime.ExecutionContext{Command: &invkfile.Command{Name: "deploy"}}
+
+	if err := checkCommandDependenciesExist(deps, "", ctx); err != nil {
+		t.Fatalf("expected nil, got %v", err)
+	}
+}
+
+func TestCheckCommandDependenciesExist_MissingCommand(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	originalWd, _ := os.Getwd()
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatalf("failed to chdir to temp dir: %v", err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(originalWd) })
+
+	homeCleanup := testutil.SetHomeDir(t, tmpDir)
+	t.Cleanup(homeCleanup)
+
+	config.Reset()
+	t.Cleanup(config.Reset)
+
+	// invkfile.cue now only contains commands - module metadata is in invkmod.cue
+	invkfileContent := `cmds: [{
+	name: "deploy"
+	implementations: [{
+		script: "echo deploy"
+		runtimes: [{name: "native"}]
+	}]
+}]
+`
+	if err := os.WriteFile(filepath.Join(tmpDir, "invkfile.cue"), []byte(invkfileContent), 0o644); err != nil {
+		t.Fatalf("failed to write invkfile: %v", err)
+	}
+
+	deps := &invkfile.DependsOn{Commands: []invkfile.CommandDependency{{Alternatives: []string{"build"}}}}
+	ctx := &runtime.ExecutionContext{Command: &invkfile.Command{Name: "deploy"}}
+
+	err := checkCommandDependenciesExist(deps, "", ctx)
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+
+	var depErr *DependencyError
+	if !errors.As(err, &depErr) {
+		t.Fatalf("expected *DependencyError, got %T", err)
+	}
+
+	if len(depErr.MissingCommands) != 1 {
+		t.Fatalf("expected 1 missing command, got %d", len(depErr.MissingCommands))
+	}
+	if !strings.Contains(depErr.MissingCommands[0], "build") {
+		t.Errorf("expected missing command error to mention 'build', got %q", depErr.MissingCommands[0])
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Custom check tests
+// ---------------------------------------------------------------------------
+
+func TestCheckCustomChecks_Success(t *testing.T) {
+	cmd := invkfiletest.NewTestCommand("test",
+		invkfiletest.WithScript("echo hello"),
+		invkfiletest.WithDependsOn(&invkfile.DependsOn{
+			CustomChecks: []invkfile.CustomCheckDependency{
+				{
+					Name:         "test-check",
+					CheckScript:  "echo 'test output'",
+					ExpectedCode: intPtr(0),
+				},
+			},
+		}))
+
+	err := checkCustomChecks(cmd)
+	if err != nil {
+		t.Errorf("checkCustomChecks() should return nil for successful check script, got: %v", err)
+	}
+}
+
+func TestCheckCustomChecks_WrongExitCode(t *testing.T) {
+	cmd := invkfiletest.NewTestCommand("test",
+		invkfiletest.WithScript("echo hello"),
+		invkfiletest.WithDependsOn(&invkfile.DependsOn{
+			CustomChecks: []invkfile.CustomCheckDependency{
+				{
+					Name:         "test-check",
+					CheckScript:  "exit 1",
+					ExpectedCode: intPtr(0),
+				},
+			},
+		}))
+
+	err := checkCustomChecks(cmd)
+	if err == nil {
+		t.Error("checkCustomChecks() should return error for wrong exit code")
+	}
+
+	var depErr *DependencyError
+	if !errors.As(err, &depErr) {
+		t.Fatalf("checkCustomChecks() should return *DependencyError, got: %T", err)
+	}
+
+	if !strings.Contains(depErr.FailedCustomChecks[0], "exit code") {
+		t.Errorf("Error message should mention exit code, got: %s", depErr.FailedCustomChecks[0])
+	}
+}
+
+func TestCheckCustomChecks_ExpectedNonZeroCode(t *testing.T) {
+	cmd := invkfiletest.NewTestCommand("test",
+		invkfiletest.WithScript("echo hello"),
+		invkfiletest.WithDependsOn(&invkfile.DependsOn{
+			CustomChecks: []invkfile.CustomCheckDependency{
+				{
+					Name:         "test-check",
+					CheckScript:  "exit 42",
+					ExpectedCode: intPtr(42),
+				},
+			},
+		}))
+
+	err := checkCustomChecks(cmd)
+	if err != nil {
+		t.Errorf("checkCustomChecks() should return nil when exit code matches expected, got: %v", err)
+	}
+}
+
+func TestCheckCustomChecks_OutputMatch(t *testing.T) {
+	cmd := invkfiletest.NewTestCommand("test",
+		invkfiletest.WithScript("echo hello"),
+		invkfiletest.WithDependsOn(&invkfile.DependsOn{
+			CustomChecks: []invkfile.CustomCheckDependency{
+				{
+					Name:           "test-check",
+					CheckScript:    "echo 'version 1.2.3'",
+					ExpectedOutput: "version [0-9]+\\.[0-9]+\\.[0-9]+",
+				},
+			},
+		}))
+
+	err := checkCustomChecks(cmd)
+	if err != nil {
+		t.Errorf("checkCustomChecks() should return nil for matching output, got: %v", err)
+	}
+}
+
+func TestCheckCustomChecks_OutputNoMatch(t *testing.T) {
+	cmd := invkfiletest.NewTestCommand("test",
+		invkfiletest.WithScript("echo hello"),
+		invkfiletest.WithDependsOn(&invkfile.DependsOn{
+			CustomChecks: []invkfile.CustomCheckDependency{
+				{
+					Name:           "test-check",
+					CheckScript:    "echo 'hello world'",
+					ExpectedOutput: "^version",
+				},
+			},
+		}))
+
+	err := checkCustomChecks(cmd)
+	if err == nil {
+		t.Error("checkCustomChecks() should return error for non-matching output")
+	}
+
+	var depErr *DependencyError
+	if !errors.As(err, &depErr) {
+		t.Fatalf("checkCustomChecks() should return *DependencyError, got: %T", err)
+	}
+
+	if !strings.Contains(depErr.FailedCustomChecks[0], "does not match pattern") {
+		t.Errorf("Error message should mention pattern mismatch, got: %s", depErr.FailedCustomChecks[0])
+	}
+}
+
+func TestCheckCustomChecks_BothCodeAndOutput(t *testing.T) {
+	cmd := invkfiletest.NewTestCommand("test",
+		invkfiletest.WithScript("echo hello"),
+		invkfiletest.WithDependsOn(&invkfile.DependsOn{
+			CustomChecks: []invkfile.CustomCheckDependency{
+				{
+					Name:           "test-check",
+					CheckScript:    "echo 'go version go1.21.0'",
+					ExpectedCode:   intPtr(0),
+					ExpectedOutput: "go1\\.",
+				},
+			},
+		}))
+
+	err := checkCustomChecks(cmd)
+	if err != nil {
+		t.Errorf("checkCustomChecks() should return nil when both code and output match, got: %v", err)
+	}
+}
+
+func TestCheckCustomChecks_InvalidRegex(t *testing.T) {
+	cmd := invkfiletest.NewTestCommand("test",
+		invkfiletest.WithScript("echo hello"),
+		invkfiletest.WithDependsOn(&invkfile.DependsOn{
+			CustomChecks: []invkfile.CustomCheckDependency{
+				{
+					Name:           "test-check",
+					CheckScript:    "echo 'test'",
+					ExpectedOutput: "[invalid regex(",
+				},
+			},
+		}))
+
+	err := checkCustomChecks(cmd)
+	if err == nil {
+		t.Error("checkCustomChecks() should return error for invalid regex")
+	}
+
+	var depErr *DependencyError
+	if !errors.As(err, &depErr) {
+		t.Fatalf("checkCustomChecks() should return *DependencyError, got: %T", err)
+	}
+
+	if !strings.Contains(depErr.FailedCustomChecks[0], "invalid regex") {
+		t.Errorf("Error message should mention invalid regex, got: %s", depErr.FailedCustomChecks[0])
+	}
+}

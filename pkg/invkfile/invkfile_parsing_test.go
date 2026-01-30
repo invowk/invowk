@@ -1,0 +1,343 @@
+// SPDX-License-Identifier: MPL-2.0
+
+package invkfile
+
+import (
+	"os"
+	"path/filepath"
+	"runtime"
+	"strings"
+	"testing"
+)
+
+func TestIsScriptFile(t *testing.T) {
+	tests := []struct {
+		name     string
+		script   string
+		expected bool
+	}{
+		// Inline scripts (should return false)
+		{"empty script", "", false},
+		{"simple inline", "echo hello", false},
+		{"multi-line inline", "echo hello\necho world", false},
+		{"inline with semicolons", "echo hello; echo world", false},
+		{"inline command", "go build ./...", false},
+
+		// File paths (should return true)
+		{"relative path with ./", "./script.sh", true},
+		{"relative path with ../", "../scripts/build.sh", true},
+		{"absolute unix path", "/usr/local/bin/script.sh", true},
+		{"shell script extension", "build.sh", true},
+		{"bash script extension", "build.bash", true},
+		{"powershell extension", "build.ps1", true},
+		{"batch file extension", "deploy.bat", true},
+		{"cmd file extension", "deploy.cmd", true},
+		{"python script", "script.py", true},
+		{"ruby script", "script.rb", true},
+		{"perl script", "script.pl", true},
+		{"zsh script", "script.zsh", true},
+		{"fish script", "script.fish", true},
+		{"relative path to script", "scripts/build.sh", true},
+
+		// Edge cases
+		{"script with .sh in name but not extension", "my.sh.backup", false},
+		{"script path with spaces", "./my script.sh", true},
+		{"uppercase extension", "BUILD.SH", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := &Implementation{Script: tt.script, Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}
+			result := s.IsScriptFile()
+			if result != tt.expected {
+				t.Errorf("IsScriptFile() = %v, want %v for script %q", result, tt.expected, tt.script)
+			}
+		})
+	}
+}
+
+func TestGetScriptFilePath(t *testing.T) {
+	// Use platform-native paths for testing
+	var invkfilePath, baseDir, absScriptPath string
+	if runtime.GOOS == "windows" {
+		invkfilePath = `C:\Users\user\project\invkfile.cue`
+		baseDir = `C:\Users\user\project`
+		absScriptPath = `C:\scripts\build.sh`
+	} else {
+		invkfilePath = "/home/user/project/invkfile.cue"
+		baseDir = "/home/user/project"
+		absScriptPath = "/usr/local/bin/script.sh"
+	}
+
+	tests := []struct {
+		name           string
+		script         string
+		expectedPath   string
+		expectedResult bool // true if path should be non-empty
+	}{
+		{"inline script", "echo hello", "", false},
+		{"relative path", "./scripts/build.sh", filepath.Join(baseDir, "scripts", "build.sh"), true},
+		{"absolute path", absScriptPath, absScriptPath, true},
+		{"simple filename", "build.sh", filepath.Join(baseDir, "build.sh"), true},
+		{"nested relative path", "scripts/deploy/prod.sh", filepath.Join(baseDir, "scripts", "deploy", "prod.sh"), true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := &Implementation{Script: tt.script, Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}
+			result := s.GetScriptFilePath(invkfilePath)
+			if tt.expectedResult {
+				if result != tt.expectedPath {
+					t.Errorf("GetScriptFilePath() = %q, want %q", result, tt.expectedPath)
+				}
+			} else {
+				if result != "" {
+					t.Errorf("GetScriptFilePath() = %q, want empty string", result)
+				}
+			}
+		})
+	}
+}
+
+func TestResolveScript_Inline(t *testing.T) {
+	tests := []struct {
+		name     string
+		script   string
+		expected string
+	}{
+		{"simple inline", "echo hello", "echo hello"},
+		{"multi-line inline", "echo hello\necho world", "echo hello\necho world"},
+		{"inline with variables", "echo $HOME", "echo $HOME"},
+		{
+			"complex multi-line", "#!/bin/bash\nset -e\necho 'Starting...'\ngo build ./...\necho 'Done!'",
+			"#!/bin/bash\nset -e\necho 'Starting...'\ngo build ./...\necho 'Done!'",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := &Implementation{Script: tt.script, Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}
+			result, err := s.ResolveScript("/fake/path/invkfile.cue")
+			if err != nil {
+				t.Errorf("ResolveScript() error = %v", err)
+				return
+			}
+			if result != tt.expected {
+				t.Errorf("ResolveScript() = %q, want %q", result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestResolveScript_FromFile(t *testing.T) {
+	// Create a temporary directory
+	tmpDir, err := os.MkdirTemp("", "invowk-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer func() { _ = os.RemoveAll(tmpDir) }() // Cleanup temp dir; error non-critical
+
+	// Create a test script file
+	scriptContent := "#!/bin/bash\necho 'Hello from script file!'"
+	scriptPath := filepath.Join(tmpDir, "test.sh")
+	if err := os.WriteFile(scriptPath, []byte(scriptContent), 0o755); err != nil {
+		t.Fatalf("Failed to write script file: %v", err)
+	}
+
+	// Create invkfile path
+	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+
+	t.Run("resolve script from file", func(t *testing.T) {
+		s := &Implementation{Script: "./test.sh", Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}
+		result, err := s.ResolveScript(invkfilePath)
+		if err != nil {
+			t.Errorf("ResolveScript() error = %v", err)
+			return
+		}
+		if result != scriptContent {
+			t.Errorf("ResolveScript() = %q, want %q", result, scriptContent)
+		}
+	})
+
+	t.Run("resolve script with absolute path", func(t *testing.T) {
+		s := &Implementation{Script: scriptPath, Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}
+		result, err := s.ResolveScript(invkfilePath)
+		if err != nil {
+			t.Errorf("ResolveScript() error = %v", err)
+			return
+		}
+		if result != scriptContent {
+			t.Errorf("ResolveScript() = %q, want %q", result, scriptContent)
+		}
+	})
+
+	t.Run("error on missing script file", func(t *testing.T) {
+		s := &Implementation{Script: "./nonexistent.sh", Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}
+		_, err := s.ResolveScript(invkfilePath)
+		if err == nil {
+			t.Error("ResolveScript() expected error for missing file, got nil")
+		}
+	})
+}
+
+func TestResolveScriptWithFS(t *testing.T) {
+	// Use platform-native paths for the virtual filesystem
+	var projectDir string
+	if runtime.GOOS == "windows" {
+		projectDir = `C:\project`
+	} else {
+		projectDir = "/project"
+	}
+
+	virtualFS := map[string]string{
+		filepath.Join(projectDir, "scripts", "build.sh"):  "#!/bin/bash\ngo build ./...",
+		filepath.Join(projectDir, "scripts", "deploy.sh"): "#!/bin/bash\nkubectl apply -f k8s/",
+	}
+
+	readFile := func(path string) ([]byte, error) {
+		if content, ok := virtualFS[path]; ok {
+			return []byte(content), nil
+		}
+		return nil, os.ErrNotExist
+	}
+
+	invkfilePath := filepath.Join(projectDir, "invkfile.cue")
+
+	t.Run("resolve script from virtual fs", func(t *testing.T) {
+		s := &Implementation{Script: "./scripts/build.sh", Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}
+		result, err := s.ResolveScriptWithFS(invkfilePath, readFile)
+		if err != nil {
+			t.Errorf("ResolveScriptWithFS() error = %v", err)
+			return
+		}
+		expected := "#!/bin/bash\ngo build ./..."
+		if result != expected {
+			t.Errorf("ResolveScriptWithFS() = %q, want %q", result, expected)
+		}
+	})
+
+	t.Run("inline script bypasses fs", func(t *testing.T) {
+		s := &Implementation{Script: "echo hello world", Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}
+		result, err := s.ResolveScriptWithFS(invkfilePath, readFile)
+		if err != nil {
+			t.Errorf("ResolveScriptWithFS() error = %v", err)
+			return
+		}
+		if result != "echo hello world" {
+			t.Errorf("ResolveScriptWithFS() = %q, want %q", result, "echo hello world")
+		}
+	})
+
+	t.Run("error on missing file in virtual fs", func(t *testing.T) {
+		s := &Implementation{Script: "./scripts/nonexistent.sh", Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}
+		_, err := s.ResolveScriptWithFS(invkfilePath, readFile)
+		if err == nil {
+			t.Error("ResolveScriptWithFS() expected error for missing file, got nil")
+		}
+	})
+}
+
+func TestMultiLineScriptParsing(t *testing.T) {
+	// Test that CUE multi-line strings are properly parsed
+	cueContent := `
+cmds: [
+	{
+		name: "multiline-test"
+		description: "Test multi-line script"
+		implementations: [
+			{
+				script: """
+					#!/bin/bash
+					set -e
+					echo "Line 1"
+					echo "Line 2"
+					echo "Line 3"
+					"""
+
+				runtimes: [{name: "native"}]
+			}
+		]
+	}
+]
+`
+
+	// Create a temporary file
+	tmpDir, err := os.MkdirTemp("", "invowk-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer func() { _ = os.RemoveAll(tmpDir) }() // Cleanup temp dir; error non-critical
+
+	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+	if writeErr := os.WriteFile(invkfilePath, []byte(cueContent), 0o644); writeErr != nil {
+		t.Fatalf("Failed to write invkfile: %v", writeErr)
+	}
+
+	inv, err := Parse(invkfilePath)
+	if err != nil {
+		t.Fatalf("Parse() error = %v", err)
+	}
+
+	if len(inv.Commands) != 1 {
+		t.Fatalf("Expected 1 command, got %d", len(inv.Commands))
+	}
+
+	cmd := inv.Commands[0]
+	// CUE multi-line strings preserve the content with tabs stripped based on first line indent
+	if len(cmd.Implementations) == 0 {
+		t.Fatal("Expected at least 1 script")
+	}
+	if !strings.Contains(cmd.Implementations[0].Script, "Line 1") || !strings.Contains(cmd.Implementations[0].Script, "Line 2") {
+		t.Errorf("Multi-line script parsing failed.\nGot: %q", cmd.Implementations[0].Script)
+	}
+
+	// Verify resolution works too
+	resolved, err := cmd.Implementations[0].ResolveScript(invkfilePath)
+	if err != nil {
+		t.Errorf("ResolveScript() error = %v", err)
+	}
+	if !strings.Contains(resolved, "Line 1") {
+		t.Errorf("ResolveScript() missing expected content, got: %q", resolved)
+	}
+}
+
+func TestScriptCaching(t *testing.T) {
+	// Create a temporary directory
+	tmpDir, err := os.MkdirTemp("", "invowk-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer func() { _ = os.RemoveAll(tmpDir) }() // Cleanup temp dir; error non-critical
+
+	// Create a test script file
+	scriptPath := filepath.Join(tmpDir, "test.sh")
+	if writeErr := os.WriteFile(scriptPath, []byte("original content"), 0o755); writeErr != nil {
+		t.Fatalf("Failed to write script file: %v", writeErr)
+	}
+
+	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+	s := &Implementation{Script: "./test.sh", Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}
+
+	// First resolution
+	result1, err := s.ResolveScript(invkfilePath)
+	if err != nil {
+		t.Fatalf("First ResolveScript() error = %v", err)
+	}
+	if result1 != "original content" {
+		t.Errorf("First ResolveScript() = %q, want %q", result1, "original content")
+	}
+
+	// Modify the file
+	if writeErr := os.WriteFile(scriptPath, []byte("modified content"), 0o755); writeErr != nil {
+		t.Fatalf("Failed to modify script file: %v", writeErr)
+	}
+
+	// Second resolution should return cached content
+	result2, err := s.ResolveScript(invkfilePath)
+	if err != nil {
+		t.Fatalf("Second ResolveScript() error = %v", err)
+	}
+	if result2 != "original content" {
+		t.Errorf("Caching failed: second ResolveScript() = %q, want cached %q", result2, "original content")
+	}
+}

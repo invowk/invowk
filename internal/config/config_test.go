@@ -11,18 +11,6 @@ import (
 	"testing"
 )
 
-// setHomeDirEnv sets the appropriate HOME environment variable based on platform
-// and returns a cleanup function to restore the original value
-func setHomeDirEnv(t *testing.T, dir string) func() {
-	t.Helper()
-	switch runtime.GOOS {
-	case "windows":
-		return testutil.MustSetenv(t, "USERPROFILE", dir)
-	default: // Linux, macOS
-		return testutil.MustSetenv(t, "HOME", dir)
-	}
-}
-
 func TestDefaultConfig(t *testing.T) {
 	cfg := DefaultConfig()
 
@@ -189,7 +177,7 @@ func TestEnsureConfigDir(t *testing.T) {
 func TestEnsureCommandsDir(t *testing.T) {
 	// Use a temp directory for testing
 	tmpDir := t.TempDir()
-	cleanup := setHomeDirEnv(t, tmpDir)
+	cleanup := testutil.SetHomeDir(t, tmpDir)
 	defer cleanup()
 
 	err := EnsureCommandsDir()

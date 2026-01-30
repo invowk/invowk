@@ -510,6 +510,7 @@ paths = [
     "third_party$",
     "builtin$",
     "examples$",
+    "specs/",        # Specification/contract files are reference documentation, not production code
 ]
 
 # Don't enforce errcheck in test files - test setup/cleanup errors are caught by
@@ -553,4 +554,5 @@ paths = [
     "third_party$",
     "builtin$",
     "examples$",
+    "specs/",        # Specification/contract files are reference documentation, not production code
 ]

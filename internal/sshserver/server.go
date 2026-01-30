@@ -44,6 +44,15 @@ type (
 	// ServerState represents the lifecycle state of the server.
 	ServerState int32
 
+	// Clock abstracts time operations for deterministic testing.
+	// Production code uses realClock; tests inject a fake clock.
+	Clock interface {
+		Now() time.Time
+	}
+
+	// realClock implements Clock using actual system time.
+	realClock struct{}
+
 	// Token represents an authentication token for container callbacks.
 	Token struct {
 		Value     string
@@ -58,6 +67,9 @@ type (
 	Server struct {
 		// Immutable configuration (set at creation, never modified)
 		cfg Config
+
+		// Clock for time operations (enables deterministic testing)
+		clock Clock
 
 		// State management (atomic for lock-free reads)
 		state atomic.Int32
@@ -142,9 +154,21 @@ func DefaultConfig() Config {
 	}
 }
 
-// New creates a new SSH server instance.
+// Now returns the current system time.
+func (realClock) Now() time.Time {
+	return time.Now()
+}
+
+// New creates a new SSH server instance with real system time.
 // The server is not started; call Start() to begin accepting connections.
 func New(cfg Config) *Server {
+	return NewWithClock(cfg, realClock{})
+}
+
+// NewWithClock creates a new SSH server instance with a custom clock.
+// This is primarily used for testing with FakeClock for deterministic time control.
+// The server is not started; call Start() to begin accepting connections.
+func NewWithClock(cfg Config, clock Clock) *Server {
 	// Apply defaults
 	if cfg.Host == "" {
 		cfg.Host = "127.0.0.1"
@@ -168,6 +192,7 @@ func New(cfg Config) *Server {
 
 	s := &Server{
 		cfg:       cfg,
+		clock:     clock,
 		tokens:    make(map[string]*Token),
 		startedCh: make(chan struct{}),
 		errCh:     make(chan error, 1), // Buffered so goroutines don't block
@@ -380,11 +405,12 @@ func (s *Server) GenerateToken(commandID string) (*Token, error) {
 	}
 
 	tokenValue := hex.EncodeToString(tokenBytes)
+	now := s.clock.Now()
 
 	token := &Token{
 		Value:     tokenValue,
-		CreatedAt: time.Now(),
-		ExpiresAt: time.Now().Add(s.cfg.TokenTTL),
+		CreatedAt: now,
+		ExpiresAt: now.Add(s.cfg.TokenTTL),
 		CommandID: commandID,
 		Used:      false,
 	}
@@ -408,7 +434,7 @@ func (s *Server) ValidateToken(tokenValue string) (*Token, bool) {
 		return nil, false
 	}
 
-	if time.Now().After(token.ExpiresAt) {
+	if s.clock.Now().After(token.ExpiresAt) {
 		s.RevokeToken(tokenValue)
 		return nil, false
 	}
@@ -559,7 +585,7 @@ func (s *Server) cleanupExpiredTokens() {
 			return
 		case <-ticker.C:
 			s.tokenMu.Lock()
-			now := time.Now()
+			now := s.clock.Now()
 			for tokenValue, token := range s.tokens {
 				if now.After(token.ExpiresAt) {
 					delete(s.tokens, tokenValue)

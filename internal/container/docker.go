@@ -39,7 +39,7 @@ func (e *DockerEngine) Available() bool {
 
 // Version returns the Docker version
 func (e *DockerEngine) Version(ctx context.Context) (string, error) {
-	cmd := exec.CommandContext(ctx, e.binaryPath, "version", "--format", "{{.Server.Version}}")
+	cmd := execCommand(ctx, e.binaryPath, "version", "--format", "{{.Server.Version}}")
 	out, err := cmd.Output()
 	if err != nil {
 		return "", fmt.Errorf("failed to get docker version: %w", err)
@@ -75,7 +75,7 @@ func (e *DockerEngine) Build(ctx context.Context, opts BuildOptions) error {
 
 	args = append(args, opts.ContextDir)
 
-	cmd := exec.CommandContext(ctx, e.binaryPath, args...)
+	cmd := execCommand(ctx, e.binaryPath, args...)
 	cmd.Stdout = opts.Stdout
 	cmd.Stderr = opts.Stderr
 
@@ -129,7 +129,7 @@ func (e *DockerEngine) Run(ctx context.Context, opts RunOptions) (*RunResult, er
 	args = append(args, opts.Image)
 	args = append(args, opts.Command...)
 
-	cmd := exec.CommandContext(ctx, e.binaryPath, args...)
+	cmd := execCommand(ctx, e.binaryPath, args...)
 	cmd.Stdin = opts.Stdin
 	cmd.Stdout = opts.Stdout
 	cmd.Stderr = opts.Stderr
@@ -158,13 +158,13 @@ func (e *DockerEngine) Remove(ctx context.Context, containerID string, force boo
 	}
 	args = append(args, containerID)
 
-	cmd := exec.CommandContext(ctx, e.binaryPath, args...)
+	cmd := execCommand(ctx, e.binaryPath, args...)
 	return cmd.Run()
 }
 
 // ImageExists checks if an image exists
 func (e *DockerEngine) ImageExists(ctx context.Context, image string) (bool, error) {
-	cmd := exec.CommandContext(ctx, e.binaryPath, "image", "inspect", image)
+	cmd := execCommand(ctx, e.binaryPath, "image", "inspect", image)
 	err := cmd.Run()
 	return err == nil, nil
 }
@@ -177,7 +177,7 @@ func (e *DockerEngine) RemoveImage(ctx context.Context, image string, force bool
 	}
 	args = append(args, image)
 
-	cmd := exec.CommandContext(ctx, e.binaryPath, args...)
+	cmd := execCommand(ctx, e.binaryPath, args...)
 	return cmd.Run()
 }
 
@@ -204,7 +204,7 @@ func (e *DockerEngine) Exec(ctx context.Context, containerID string, command []s
 	args = append(args, containerID)
 	args = append(args, command...)
 
-	cmd := exec.CommandContext(ctx, e.binaryPath, args...)
+	cmd := execCommand(ctx, e.binaryPath, args...)
 	cmd.Stdin = opts.Stdin
 	cmd.Stdout = opts.Stdout
 	cmd.Stderr = opts.Stderr
@@ -227,7 +227,7 @@ func (e *DockerEngine) Exec(ctx context.Context, containerID string, command []s
 
 // InspectImage returns information about an image
 func (e *DockerEngine) InspectImage(ctx context.Context, image string) (string, error) {
-	cmd := exec.CommandContext(ctx, e.binaryPath, "image", "inspect", image)
+	cmd := execCommand(ctx, e.binaryPath, "image", "inspect", image)
 	var out bytes.Buffer
 	cmd.Stdout = &out
 

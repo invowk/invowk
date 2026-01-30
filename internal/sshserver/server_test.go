@@ -244,20 +244,28 @@ func TestGetConnectionInfo(t *testing.T) {
 
 func TestExpiredToken(t *testing.T) {
 	cfg := DefaultConfig()
-	cfg.TokenTTL = 1 * time.Millisecond // Very short TTL
+	cfg.TokenTTL = 1 * time.Hour // Use a reasonable TTL; we control time via FakeClock
 
-	srv := New(cfg)
+	// Create a FakeClock for deterministic time control
+	clock := testutil.NewFakeClock(time.Now())
+	srv := NewWithClock(cfg, clock)
 
 	token, err := srv.GenerateToken("test-command")
 	if err != nil {
 		t.Fatalf("Failed to generate token: %v", err)
 	}
 
-	// Wait for token to expire
-	time.Sleep(10 * time.Millisecond)
-
-	// Token should be expired
+	// Token should be valid immediately after creation
 	_, ok := srv.ValidateToken(token.Value)
+	if !ok {
+		t.Error("Token should be valid immediately after creation")
+	}
+
+	// Advance time past the token TTL
+	clock.Advance(cfg.TokenTTL + time.Millisecond)
+
+	// Token should now be expired
+	_, ok = srv.ValidateToken(token.Value)
 	if ok {
 		t.Error("Expired token should not be valid")
 	}
