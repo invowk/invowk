@@ -4,6 +4,7 @@
 package config
 
 import (
+	_ "embed"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -12,6 +13,7 @@ import (
 
 	"cuelang.org/go/cue"
 	"cuelang.org/go/cue/cuecontext"
+	"cuelang.org/go/cue/errors"
 	"github.com/spf13/viper"
 )
 
@@ -30,6 +32,9 @@ const (
 )
 
 var (
+	//go:embed config_schema.cue
+	configSchema string
+
 	// globalConfig holds the loaded configuration.
 	globalConfig *Config
 	// configPath stores the path where config was loaded from.
@@ -230,7 +235,9 @@ func Load() (*Config, error) {
 	return globalConfig, nil
 }
 
-// loadCUEIntoViper parses a CUE file and merges its contents into Viper
+// loadCUEIntoViper parses a CUE file, validates it against the #Config schema,
+// and merges its contents into Viper.
+// T015: Add CUE schema validation to loadCUEIntoViper
 func loadCUEIntoViper(v *viper.Viper, path string) error {
 	// Read CUE file
 	data, err := os.ReadFile(path)
@@ -240,20 +247,30 @@ func loadCUEIntoViper(v *viper.Viper, path string) error {
 
 	// Parse with CUE
 	ctx := cuecontext.New()
-	value := ctx.CompileBytes(data, cue.Filename(path))
-	if err := value.Err(); err != nil {
-		return fmt.Errorf("CUE parse error: %w", err)
+
+	// Compile the schema
+	schemaValue := ctx.CompileString(configSchema)
+	if schemaValue.Err() != nil {
+		return fmt.Errorf("internal error: failed to compile config schema: %w", schemaValue.Err())
 	}
 
-	// Validate the CUE value (check for incomplete values, etc.)
-	if err := value.Validate(cue.Concrete(false)); err != nil {
-		return fmt.Errorf("CUE validation error: %w", err)
+	// Compile the user's config file
+	userValue := ctx.CompileBytes(data, cue.Filename(path))
+	if userValue.Err() != nil {
+		return formatCUEError(userValue.Err(), path)
+	}
+
+	// Unify with schema to validate against #Config definition
+	schema := schemaValue.LookupPath(cue.ParsePath("#Config"))
+	unified := schema.Unify(userValue)
+	if err := unified.Validate(cue.Concrete(false)); err != nil {
+		return formatCUEError(err, path)
 	}
 
 	// Decode to Go map
 	var configMap map[string]any
-	if err := value.Decode(&configMap); err != nil {
-		return fmt.Errorf("CUE decode error: %w", err)
+	if err := unified.Decode(&configMap); err != nil {
+		return formatCUEError(err, path)
 	}
 
 	// Merge into Viper (preserves defaults, allows env overrides)
@@ -262,6 +279,85 @@ func loadCUEIntoViper(v *viper.Viper, path string) error {
 	}
 
 	return nil
+}
+
+// formatCUEError formats a CUE error with JSON path prefixes for clearer error messages.
+// It extracts the path information from CUE errors and formats them consistently.
+// For multiple errors, each error is listed on a separate line with its path.
+func formatCUEError(err error, filePath string) error {
+	if err == nil {
+		return nil
+	}
+
+	// Extract all CUE errors
+	cueErrors := errors.Errors(err)
+	if len(cueErrors) == 0 {
+		// Fallback: not a CUE error, return as-is
+		return fmt.Errorf("%s: %w", filePath, err)
+	}
+
+	var lines []string
+	for _, e := range cueErrors {
+		// Get the path to the problematic field
+		path := errors.Path(e)
+		pathStr := formatCUEPath(path)
+		msg := e.Error()
+
+		// Remove redundant path prefix from message if present
+		// CUE sometimes includes the path in the message itself
+		if pathStr != "" && strings.HasPrefix(msg, pathStr) {
+			msg = strings.TrimPrefix(msg, pathStr)
+			msg = strings.TrimPrefix(msg, ":")
+			msg = strings.TrimSpace(msg)
+		}
+
+		if pathStr != "" {
+			lines = append(lines, fmt.Sprintf("%s: %s", pathStr, msg))
+		} else {
+			lines = append(lines, msg)
+		}
+	}
+
+	if len(lines) == 1 {
+		return fmt.Errorf("%s: %s", filePath, lines[0])
+	}
+	return fmt.Errorf("%s: validation failed:\n  %s", filePath, strings.Join(lines, "\n  "))
+}
+
+// formatCUEPath converts a CUE path (slice of selectors) to a JSON-like path string.
+// Example: [container, auto_provision, enabled] -> "container.auto_provision.enabled"
+func formatCUEPath(path []string) string {
+	if len(path) == 0 {
+		return ""
+	}
+
+	// Join with dots but handle array indices specially
+	// The path from CUE is already in a good format like ["container", "0", "enabled"]
+	// We want to produce "container[0].enabled"
+	var result strings.Builder
+	for i, part := range path {
+		// Check if this looks like an array index (purely numeric)
+		isIndex := true
+		for _, c := range part {
+			if c < '0' || c > '9' {
+				isIndex = false
+				break
+			}
+		}
+
+		if isIndex && i > 0 {
+			result.WriteString("[")
+			result.WriteString(part)
+			result.WriteString("]")
+		} else {
+			if i > 0 {
+				result.WriteString(".")
+			}
+			result.WriteString(part)
+		}
+	}
+
+	return result.String()
 }
 
 // fileExists checks if a file exists and is not a directory

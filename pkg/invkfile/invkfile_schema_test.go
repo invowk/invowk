@@ -429,21 +429,20 @@ cmds: [
 	}
 }
 
-// TestValidateRuntimeConfig_RejectsEmptyInterpreter tests the Go-level validation
-// as a fallback for empty/whitespace interpreter rejection.
-func TestValidateRuntimeConfig_RejectsEmptyInterpreter(t *testing.T) {
+// TestValidateRuntimeConfig_ValidInterpreters tests that validateRuntimeConfig accepts valid interpreters.
+// Note: Whitespace-only interpreter rejection is now handled by CUE schema validation:
+// interpreter?: string & =~"^\\s*\\S.*$" (requires at least one non-whitespace char)
+// See TestParse_RejectsEmptyInterpreter_NativeRuntime and TestParse_RejectsEmptyInterpreter_ContainerRuntime
+// for CUE-level validation tests.
+func TestValidateRuntimeConfig_ValidInterpreters(t *testing.T) {
 	tests := []struct {
 		name        string
 		interpreter string
-		wantErr     bool
 	}{
-		{"empty string is empty so no validation triggered", "", false}, // Empty means field was not declared
-		{"whitespace only - space", " ", true},
-		{"whitespace only - tabs", "\t\t", true},
-		{"whitespace only - mixed", "  \t  ", true},
-		{"valid interpreter - auto", "auto", false},
-		{"valid interpreter - python3", "python3", false},
-		{"valid interpreter - with leading space", " python3", false}, // Has non-whitespace content
+		{"empty string is valid (field not declared)", ""},
+		{"valid interpreter - auto", "auto"},
+		{"valid interpreter - python3", "python3"},
+		{"valid interpreter - with leading space", " python3"}, // Has non-whitespace content
 	}
 
 	for _, tt := range tests {
@@ -454,15 +453,7 @@ func TestValidateRuntimeConfig_RejectsEmptyInterpreter(t *testing.T) {
 			}
 
 			err := validateRuntimeConfig(rt, "test-cmd", 1)
-
-			if tt.wantErr {
-				if err == nil {
-					t.Errorf("validateRuntimeConfig() should return error for interpreter %q", tt.interpreter)
-				}
-				if err != nil && !strings.Contains(err.Error(), "interpreter") {
-					t.Errorf("Error should mention 'interpreter', got: %v", err)
-				}
-			} else if err != nil {
+			if err != nil {
 				t.Errorf("validateRuntimeConfig() unexpected error for interpreter %q: %v", tt.interpreter, err)
 			}
 		})

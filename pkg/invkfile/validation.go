@@ -45,6 +45,10 @@ var (
 )
 
 // ValidateRegexPattern validates a user-provided regex pattern for safety and complexity.
+// [GO-ONLY] ReDoS (Regular Expression Denial of Service) prevention MUST be in Go.
+// CUE cannot analyze regex complexity or detect catastrophic backtracking patterns.
+// This is a security-critical validation that protects against malicious user input.
+//
 // It checks for:
 // - Pattern length limits
 // - Dangerous patterns that could cause catastrophic backtracking
@@ -581,6 +585,13 @@ func ValidateFilename(name string) error {
 }
 
 // ValidateContainerfilePath validates a containerfile path for security.
+// [GO-ONLY] Path traversal prevention MUST be in Go because it requires:
+// 1. Access to filesystem operations (filepath.Join, filepath.Clean, filepath.Rel)
+// 2. Knowledge of the baseDir (invkfile directory) at runtime
+// 3. Cross-platform path separator handling
+// CUE can only validate static patterns (like !strings.Contains("..")) but cannot
+// detect sophisticated path traversal via symlinks or normalized paths.
+//
 // It ensures paths are relative, don't escape the invkfile directory,
 // and contain valid filename characters.
 func ValidateContainerfilePath(containerfile, baseDir string) error {
@@ -619,6 +630,9 @@ func ValidateContainerfilePath(containerfile, baseDir string) error {
 }
 
 // ValidateEnvFilePath validates an env file path for security.
+// [GO-ONLY] Path traversal prevention and cross-platform path handling require Go.
+// CUE cannot perform filesystem operations or cross-platform path normalization.
+//
 // Env file paths support an optional '?' suffix to mark the file as optional.
 // It ensures paths are relative and don't contain path traversal sequences.
 func ValidateEnvFilePath(filePath string) error {
@@ -654,6 +668,8 @@ func ValidateEnvFilePath(filePath string) error {
 }
 
 // ValidateFilepathDependency validates filepath dependency alternatives.
+// [GO-ONLY] Security constraints (null bytes, length limits) require Go validation.
+// [CUE-VALIDATED] Basic non-empty constraint is in CUE: alternatives: [...string & !=""]
 // These paths are checked at runtime, but we validate basic security constraints.
 func ValidateFilepathDependency(paths []string) error {
 	for i, path := range paths {
@@ -674,13 +690,19 @@ func ValidateFilepathDependency(paths []string) error {
 }
 
 // ValidateToolName validates a tool/binary name.
-// This is a Go-level backup to the CUE schema constraint.
+// [CUE-VALIDATED] Format validation (alphanumeric, can include . _ + -) is in CUE schema:
+// alternatives: [...string & =~"^[a-zA-Z0-9][a-zA-Z0-9._+-]*$"]
+// [GO-ONLY] Length limit validation (MaxNameLength) is Go-only because CUE schema
+// doesn't enforce string length limits on tool names for simplicity.
 func ValidateToolName(name string) error {
-	if name == "" {
-		return fmt.Errorf("tool name cannot be empty")
-	}
+	// Length check is Go-only (not in CUE schema)
 	if len(name) > MaxNameLength {
 		return fmt.Errorf("tool name too long (%d chars, max %d)", len(name), MaxNameLength)
+	}
+	// Format validation is redundant with CUE but kept as defense-in-depth
+	// for cases where this function is called outside the CUE parse flow.
+	if name == "" {
+		return fmt.Errorf("tool name cannot be empty")
 	}
 	if !toolNameRegex.MatchString(name) {
 		return fmt.Errorf("tool name '%s' is invalid (must be alphanumeric, can include . _ + -)", name)
@@ -689,10 +711,13 @@ func ValidateToolName(name string) error {
 }
 
 // ValidateCommandDependencyName validates a command dependency name.
+// [CUE-VALIDATED] Format validation is in CUE: alternatives: [...string & =~"^[a-zA-Z][a-zA-Z0-9_ -]*$"]
+// [GO-ONLY] Length limit (MaxNameLength) is Go-only for defense-in-depth.
 func ValidateCommandDependencyName(name string) error {
 	if name == "" {
 		return fmt.Errorf("command name cannot be empty")
 	}
+	// [GO-ONLY] Length limit - not in CUE schema
 	if len(name) > MaxNameLength {
 		return fmt.Errorf("command name too long (%d chars, max %d)", len(name), MaxNameLength)
 	}

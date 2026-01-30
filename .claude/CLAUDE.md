@@ -63,10 +63,24 @@ invkfile.cue -> CUE Parser -> pkg/invkfile -> Runtime Selection -> Execution
 - `mvdan.cc/sh/v3` - Virtual shell implementation.
 
 ## Active Technologies
-- Go 1.25+ + Cobra (CLI), Viper (config), CUE (schemas), Charm libraries (TUI), mvdan/sh (virtual shell) (002-codebase-cleanup-audit)
-- N/A (CLI tool, file-based configuration) (002-codebase-cleanup-audit)
-- Go 1.25+ + stdlib `testing`, `github.com/charmbracelet/bubbletea` (TUI), `mvdan.cc/sh/v3` (virtual shell), `github.com/rogpeppe/go-internal/testscript` (CLI tests) (003-test-suite-audit)
-- N/A (test infrastructure only) (003-test-suite-audit)
+
+**Core Stack**:
+- Go 1.25+ with `cuelang.org/go v0.15.3` (CUE schemas and validation)
+- `github.com/spf13/cobra` (CLI framework)
+- `github.com/spf13/viper` (configuration management)
+- `github.com/charmbracelet/*` (TUI: lipgloss, bubbletea, huh)
+- `mvdan.cc/sh/v3` (virtual shell runtime)
+
+**Testing**:
+- Go stdlib `testing`
+- `github.com/rogpeppe/go-internal/testscript` (CLI integration tests)
+
+**Configuration**:
+- File-based CUE configuration files (`invkfile.cue`, `invkmod.cue`, `config.cue`)
+- Schema sync tests verify Go struct tags match CUE schema fields at CI time
 
 ## Recent Changes
-- 002-codebase-cleanup-audit: Added Go 1.25+ + Cobra (CLI), Viper (config), CUE (schemas), Charm libraries (TUI), mvdan/sh (virtual shell)
+
+- 004-cue-lib-optimization: CUE library usage patterns documented in `.claude/rules/cue.md`, schema sync tests added for all CUE-parsed types, file size guards added to parse functions
+- 003-test-suite-audit: Comprehensive test suite improvements, testscript CLI tests
+- 002-codebase-cleanup-audit: Initial codebase cleanup and standardization

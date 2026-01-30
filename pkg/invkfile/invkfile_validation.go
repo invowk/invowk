@@ -49,13 +49,12 @@ func (inv *Invkfile) validate() error {
 	return nil
 }
 
-// validateRuntimeConfig checks that a runtime configuration is valid
+// validateRuntimeConfig checks that a runtime configuration is valid.
+// Note: Format validation (non-empty interpreter, valid env var names) is handled by the CUE schema.
+// This function focuses on Go-only validations: cross-field logic, filesystem access, and security checks.
 func validateRuntimeConfig(rt *RuntimeConfig, cmdName string, implIndex int) error {
-	// Validate interpreter field: if declared, it must be non-empty (after trimming whitespace)
-	// This is a Go-level validation as fallback to the CUE schema constraint
-	if rt.Interpreter != "" && strings.TrimSpace(rt.Interpreter) == "" {
-		return fmt.Errorf("command '%s' implementation #%d: interpreter cannot be empty or whitespace-only when declared; omit the field to use auto-detection", cmdName, implIndex)
-	}
+	// [CUE-VALIDATED] Interpreter format validation is in CUE schema:
+	// interpreter?: string & =~"^\\s*\\S.*$" (requires at least one non-whitespace char)
 
 	// Validate env inherit mode and env var names
 	if rt.EnvInheritMode != "" && !rt.EnvInheritMode.IsValid() {
@@ -72,7 +71,10 @@ func validateRuntimeConfig(rt *RuntimeConfig, cmdName string, implIndex int) err
 		}
 	}
 
-	// Container-specific fields are only valid for container runtime
+	// [GO-ONLY] Cross-field validation: Container-specific fields are only valid for container runtime.
+	// CUE uses discriminated unions (#RuntimeConfigNative | #RuntimeConfigVirtual | #RuntimeConfigContainer)
+	// which handle field presence at the type level. This Go validation provides clearer error messages
+	// and catches any edge cases where the CUE type system might be bypassed.
 	if rt.Name != RuntimeContainer {
 		if rt.EnableHostSSH {
 			return fmt.Errorf("command '%s' implementation #%d: enable_host_ssh is only valid for container runtime", cmdName, implIndex)
@@ -463,26 +465,30 @@ func (inv *Invkfile) validateArgs(cmd *Command) error {
 	return nil
 }
 
-// validateCustomChecks validates custom check dependencies for security and correctness
+// validateCustomChecks validates custom check dependencies for security and correctness.
+// [CUE-VALIDATED] Basic structure and required fields are validated in CUE schema.
+// [GO-ONLY] Security validations that require Go:
+//   - String length limits (MaxNameLength, MaxScriptLength) for resource exhaustion prevention
+//   - ReDoS pattern safety for expected_output regex patterns
 func validateCustomChecks(checks []CustomCheckDependency, context, filePath string) error {
 	for i, checkDep := range checks {
 		// Get all checks (handles both direct and alternatives formats)
 		for j, check := range checkDep.GetChecks() {
-			// Validate name length
+			// [GO-ONLY] Length limit validation - defense against resource exhaustion
 			if check.Name != "" {
 				if err := ValidateStringLength(check.Name, "custom_check name", MaxNameLength); err != nil {
 					return fmt.Errorf("%s custom_check #%d alternative #%d: %w in invkfile at %s", context, i+1, j+1, err, filePath)
 				}
 			}
 
-			// Validate check_script length (same limit as implementation scripts)
+			// [GO-ONLY] Script length limit - defense against resource exhaustion
 			if check.CheckScript != "" {
 				if err := ValidateStringLength(check.CheckScript, "check_script", MaxScriptLength); err != nil {
 					return fmt.Errorf("%s custom_check #%d alternative #%d: %w in invkfile at %s", context, i+1, j+1, err, filePath)
 				}
 			}
 
-			// Validate expected_output regex pattern for safety
+			// [GO-ONLY] ReDoS pattern safety - CUE cannot analyze regex complexity
 			if check.ExpectedOutput != "" {
 				if err := ValidateRegexPattern(check.ExpectedOutput); err != nil {
 					return fmt.Errorf("%s custom_check #%d alternative #%d: expected_output: %w in invkfile at %s", context, i+1, j+1, err, filePath)
@@ -495,12 +501,15 @@ func validateCustomChecks(checks []CustomCheckDependency, context, filePath stri
 
 // validateEnvConfig validates environment configuration for security.
 // It checks env file paths for traversal and env var names/values for validity.
+// [GO-ONLY] Path traversal prevention for env.files requires filesystem operations.
+// [GO-ONLY] Env var value length limits prevent resource exhaustion (not in CUE schema).
+// [CUE-VALIDATED] Env var name format is validated in CUE but kept here as defense-in-depth.
 func validateEnvConfig(env *EnvConfig, context, filePath string) error {
 	if env == nil {
 		return nil
 	}
 
-	// Validate env file paths
+	// [GO-ONLY] Env file path validation - path traversal prevention requires filesystem operations
 	for i, file := range env.Files {
 		if err := ValidateEnvFilePath(file); err != nil {
 			return fmt.Errorf("%s env.files[%d]: %w in invkfile at %s", context, i+1, err, filePath)
@@ -509,9 +518,11 @@ func validateEnvConfig(env *EnvConfig, context, filePath string) error {
 
 	// Validate env var names and values
 	for key, value := range env.Vars {
+		// Env var name validation is redundant with CUE but kept as defense-in-depth
 		if err := ValidateEnvVarName(key); err != nil {
 			return fmt.Errorf("%s env.vars key '%s': %w in invkfile at %s", context, key, err, filePath)
 		}
+		// [GO-ONLY] Value length limit - prevents resource exhaustion
 		if len(value) > MaxEnvVarValueLength {
 			return fmt.Errorf("%s env.vars['%s'] value too long (%d chars, max %d) in invkfile at %s",
 				context, key, len(value), MaxEnvVarValueLength, filePath)
@@ -523,16 +534,18 @@ func validateEnvConfig(env *EnvConfig, context, filePath string) error {
 
 // validateEnvVarDependencies validates env var dependencies for security.
 // It checks env var names and validation regex patterns.
+// [CUE-VALIDATED] Env var name format is in CUE: name: string & =~"^[A-Za-z_][A-Za-z0-9_]*$"
+// [GO-ONLY] ReDoS pattern safety validation must be in Go (CUE can't analyze regex complexity).
 func validateEnvVarDependencies(deps []EnvVarDependency, context, filePath string) error {
 	for i, dep := range deps {
 		for j, alt := range dep.Alternatives {
-			// Validate env var name
+			// Env var name validation is redundant with CUE but kept as defense-in-depth
 			name := strings.TrimSpace(alt.Name)
 			if err := ValidateEnvVarName(name); err != nil {
 				return fmt.Errorf("%s env_vars[%d].alternatives[%d].name: %w in invkfile at %s",
 					context, i+1, j+1, err, filePath)
 			}
-			// Validate regex pattern for ReDoS safety
+			// [GO-ONLY] ReDoS pattern safety validation - CUE cannot analyze regex complexity
 			if alt.Validation != "" {
 				if err := ValidateRegexPattern(alt.Validation); err != nil {
 					return fmt.Errorf("%s env_vars[%d].alternatives[%d].validation: %w in invkfile at %s",
@@ -545,6 +558,8 @@ func validateEnvVarDependencies(deps []EnvVarDependency, context, filePath strin
 }
 
 // validateToolDependencies validates tool dependency names.
+// [CUE-VALIDATED] Tool name format is in CUE: alternatives: [...string & =~"^[a-zA-Z0-9][a-zA-Z0-9._+-]*$"]
+// [GO-ONLY] Length limit (MaxNameLength) is Go-only for defense-in-depth.
 func validateToolDependencies(deps []ToolDependency, context, filePath string) error {
 	for i, dep := range deps {
 		for j, alt := range dep.Alternatives {
@@ -558,6 +573,8 @@ func validateToolDependencies(deps []ToolDependency, context, filePath string) e
 }
 
 // validateCommandDependencies validates command dependency names.
+// [CUE-VALIDATED] Command name format is in CUE: alternatives: [...string & =~"^[a-zA-Z][a-zA-Z0-9_ -]*$"]
+// [GO-ONLY] Length limit (MaxNameLength) is Go-only for defense-in-depth.
 func validateCommandDependencies(deps []CommandDependency, context, filePath string) error {
 	for i, dep := range deps {
 		for j, alt := range dep.Alternatives {
@@ -571,6 +588,8 @@ func validateCommandDependencies(deps []CommandDependency, context, filePath str
 }
 
 // validateFilepathDependencies validates filepath dependency paths.
+// [GO-ONLY] Filepath validation requires filesystem operations and cross-platform path handling.
+// CUE validates basic format constraints but cannot check path security or existence.
 func validateFilepathDependencies(deps []FilepathDependency, context, filePath string) error {
 	for i, dep := range deps {
 		if err := ValidateFilepathDependency(dep.Alternatives); err != nil {
