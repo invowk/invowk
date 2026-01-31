@@ -12,17 +12,47 @@ Invowk is a dynamically extensible command runner (similar to `just`, `task`, an
 
 ## Agentic Context Discipline & Subagent Policy
 
-**CRITICAL:** Subagents are the **PRIMARY MECHANISM** for complex and/or long exploration and implementation work.
+**CRITICAL:** Subagents are **MANDATORY** for ALL code reads/explorations AND ALL code edits. The main agent must NEVER directly read source code files or edit files—these operations MUST be delegated to subagents.
 
-### Use Subagents (model=opus) by default for/when:
+### Mandatory Subagent Usage
 
-- Multi-file reads/edits (≥3 files) or cross-surface edits (e.g.: "frontend" + "backend" + schemas + data etc.), *ALWAYS* launching 1 subagent per file to be read/edited
-- Research-heavy tasks (code exploration, code reviews, audits, schema analysis, migration planning)
-- Any step that might consume >20% of context budget *UNLESS* it's orchestration/planning work.
+**ALL of the following operations MUST be delegated to subagents:**
 
-### Do NOT use Subagents by default for/when:
+1. **Code Reads/Explorations**: ANY file read for understanding code (even a single file)
+2. **Code Edits**: ANY file modification (even a single file, even a single line)
+3. **Research Tasks**: Code exploration, reviews, audits, schema analysis, migration planning
+4. **Multi-Surface Work**: Cross-domain operations (e.g., "frontend" + "backend" + schemas)
 
-- Orchestration, planning, or any decision-making activity/step. Instead, the main agent must perform those activities/steps based on the information gathered by the subagents.
+**Parallelization Rule**: When multiple files need to be read or edited, launch **1 subagent per file** in parallel (single message, multiple Task tool calls).
+
+### Sequential Task Handling
+
+When tasks have dependencies and must be executed in order:
+
+1. **STILL use subagents** for each task—sequential dependency does NOT exempt from subagent requirement
+2. **Wait for completion** of each subagent before launching the next dependent one
+3. **Main agent orchestrates** the sequence but NEVER performs the actual reads/edits directly
+
+**Example (sequential edits where B depends on A):**
+```
+1. Launch subagent A to edit file X → wait for completion
+2. Launch subagent B to edit file Y (depends on A's changes) → wait for completion
+3. Main agent synthesizes results and reports to user
+```
+
+### Agent Selection for Code Exploration
+
+**CRITICAL:** For code exploration tasks, the `code-explorer` agent (`feature-dev:code-explorer`) MUST ALWAYS be used instead of the built-in `Task(Explore)` agent. The custom `code-explorer` skill provides project-specific exploration capabilities optimized for this codebase.
+
+### What the Main Agent Does Directly (NO subagents)
+
+The main agent performs these activities directly—do NOT delegate:
+
+- **Orchestration**: Coordinating subagent launches, sequencing, and result synthesis
+- **Planning**: Designing implementation approaches, creating plans
+- **Decision-Making**: Choosing between alternatives based on subagent findings
+- **User Communication**: Explaining results, asking clarifying questions
+- **Lightweight Lookups**: Quick glob/grep for file discovery (NOT for reading file contents)
 
 ## Architecture Overview
 
