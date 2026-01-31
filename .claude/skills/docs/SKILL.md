@@ -1,6 +1,14 @@
 # Docs and Website
 
-The `website/` directory contains a Docusaurus-based documentation website for Invowk.
+This skill covers updating documentation and the Docusaurus website for Invowk.
+
+Use this skill when working on:
+- `website/` - Docusaurus documentation site
+- `website/docs/` - Documentation pages
+- `website/i18n/` - Internationalization
+- Schema changes that require documentation updates
+
+---
 
 ## Required Workflow
 
@@ -8,6 +16,8 @@ The `website/` directory contains a Docusaurus-based documentation website for I
 - Use MDX + `<Snippet>` for all code/CLI/CUE blocks.
 - Define snippets in `website/src/components/Snippet/snippets.ts` and reuse IDs across locales.
 - Escape `${...}` inside snippets as `\${...}`.
+
+---
 
 ## Documentation Sync Map
 
@@ -23,6 +33,8 @@ The `website/` directory contains a Docusaurus-based documentation website for I
 | `cmd/invowk/cmd_validate*.go` | `website/docs/dependencies/` pages |
 | `cmd/invowk/tui_*.go` | `website/docs/tui/` pages + snippets |
 | New features | Add/update docs under `website/docs/` and snippets as needed |
+
+---
 
 ## Documentation Structure
 
@@ -41,6 +53,8 @@ website/docs/
 `-- reference/           # CLI, invkfile schema, config schema
 ```
 
+---
+
 ## Documentation Style Guide
 
 - Use a friendly, approachable tone with occasional humor.
@@ -48,6 +62,8 @@ website/docs/
 - Include practical examples for each feature.
 - Use admonitions for important callouts.
 - Keep code examples concise and focused.
+
+---
 
 ## Docs + i18n Checklist
 
@@ -57,11 +73,25 @@ website/docs/
 - Keep translations prose-only and reuse identical snippet IDs.
 - Regenerate translation JSON when UI strings change: `cd website && npx docusaurus write-translations --locale pt-BR`.
 
+---
+
 ## Documentation Testing
 
-- `cd website && npm start` (single locale).
-- `cd website && npm start -- --locale pt-BR`.
-- `cd website && npm run build` then `npm run serve` for locale switching.
+```bash
+# Single locale development
+cd website && npm start
+
+# Brazilian Portuguese locale
+cd website && npm start -- --locale pt-BR
+
+# Full build (tests all locales)
+cd website && npm run build
+
+# Serve built site (for locale switching)
+cd website && npm run serve
+```
+
+---
 
 ## Common Pitfalls
 

@@ -1,6 +1,8 @@
-# Invkfile Examples
+# Invowk Schema Guidelines
 
-## Built-in Examples (`invkfile.cue` at project root)
+## Invkfile Examples
+
+### Built-in Examples (`invkfile.cue` at project root)
 
 - Always update the example file when invkfile definitions or features are added, modified, or removed.
 - All commands should be idempotent and not cause any side effects on the host.
@@ -16,9 +18,9 @@
   - Custom checks (with and without alternatives).
 - Module metadata does not belong in invkfile examples; it lives in `invkmod.cue` for modules.
 
-## Command Structure Validation
+### Command Structure Validation
 
-### Leaf-Only Args Constraint
+#### Leaf-Only Args Constraint
 
 **Commands with positional arguments (`args`) cannot have subcommands.** This is enforced during command discovery and module validation.
 
@@ -113,3 +115,35 @@ implementations: [
 - Commands with `runtimes: [{name: "virtual"}]` only (already cross-platform)
 - Commands with `runtimes: [{name: "native"}]` only and `platforms: [{name: "linux"}, {name: "macos"}]` (Linux/macOS only)
 - Commands with PowerShell scripts intended for Windows
+
+## Invkmod Modules
+
+### Samples (`modules/` directory)
+
+The `modules/` directory contains sample modules that serve as reference implementations and validation tests.
+
+- A module is a `.invkmod` directory containing `invkmod.cue` (metadata) and `invkfile.cue` (commands).
+- The invkmod schema lives in `pkg/invkmod/invkmod_schema.cue` and the invkfile schema in `pkg/invkfile/invkfile_schema.cue`.
+- Always update sample modules when the invkmod schema, validation rules, or module behavior changes.
+- Modules should demonstrate module-specific features (script file references, cross-platform paths, requirements).
+- After module-related changes, run validation: `go run . module validate modules/<module-name>.invkmod --deep`.
+
+### Current Sample Modules
+
+- `io.invowk.sample.invkmod` - Minimal cross-platform module with a simple greeting command.
+
+### Module Validation Checklist
+
+When modifying module-related code, verify:
+1. All modules in `modules/` pass validation: `go run . module validate modules/*.invkmod --deep`.
+2. Module naming conventions and module ID matching are enforced.
+3. `invkmod.cue` is required and parsed; `invkfile.cue` contains only commands.
+4. Script path resolution works correctly (forward slashes, relative paths).
+5. Nested module detection works correctly.
+6. The `pkg/invkmod/` tests pass: `go test -v ./pkg/invkmod/...`.
+
+## Common Pitfalls
+
+- **Stale sample modules** - Update modules in `modules/` after module-related changes.
+- **Missing platform restrictions** - Bash scripts with native+virtual runtimes need platform-specific implementations for Windows compatibility.
+- **Args with subcommands** - Commands with positional args cannot have subcommands.

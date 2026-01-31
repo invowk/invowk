@@ -1,6 +1,14 @@
 # Server Pattern
 
-This document describes the standard pattern for implementing long-running server components in Invowk. All servers (SSH server, TUI server, etc.) should follow this pattern to ensure consistent, race-free lifecycle management.
+This skill describes the standard pattern for implementing long-running server components in Invowk.
+
+Use this skill when working on:
+- `internal/sshserver/` - SSH server implementation
+- `internal/tuiserver/` - TUI server implementation
+- `internal/core/serverbase/` - Shared server base type
+- Adding new server components
+
+---
 
 ## State Machine
 
@@ -31,6 +39,8 @@ Servers use a formal state machine with the following states:
 | `Stopping` | `Stop()` called; server is shutting down |
 | `Stopped` | Server has stopped (terminal state) |
 | `Failed` | Server failed to start or fatal error (terminal state) |
+
+---
 
 ## Required API
 
@@ -75,6 +85,8 @@ func (s *Server) IsRunning() bool                  // Convenience: state == Runn
 func (s *Server) Wait() error                      // Block until stopped, return error
 func (s *Server) Err() <-chan error                // Async error notifications
 ```
+
+---
 
 ## Implementation Rules
 
@@ -206,6 +218,8 @@ func (s *Server) Start(ctx context.Context) error {
 }
 ```
 
+---
+
 ## Testing Requirements
 
 Server tests must verify:
@@ -227,6 +241,8 @@ func TestServerStopWithoutStart(t *testing.T) { ... }
 func TestServerStartWithCancelledContext(t *testing.T) { ... }
 func TestServerStateString(t *testing.T) { ... }
 ```
+
+---
 
 ## Reference Implementation
 

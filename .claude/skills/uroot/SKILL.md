@@ -1,5 +1,14 @@
 # u-root Utils Integration
 
+This skill covers implementing u-root utility commands in Invowk.
+
+Use this skill when working on:
+- `internal/uroot/` - u-root utility implementations
+- Adding new built-in shell utilities
+- Modifying u-root command behavior
+
+---
+
 ## Terminology
 
 **Standardized naming conventions:**
@@ -16,6 +25,8 @@
 - Config: `virtual_shell.enable_uroot_utils: true`
 
 **Rationale:** Consistent terminology reduces confusion. The hyphenated form matches the upstream project name (`github.com/u-root/u-root`), while the unhyphenated form follows Go naming conventions (hyphens are not allowed in identifiers).
+
+---
 
 ## Streaming I/O Requirement
 
@@ -78,6 +89,8 @@ All u-root utility implementations that handle file content:
 
 `sort` may need to use temporary files for inputs that exceed available memory. This is acceptable as it's the standard approach used by GNU sort (`-T` tempdir). The key constraint remains: never hold unbounded data in heap memory.
 
+---
+
 ## Symlink Handling
 
 **Default behavior: Follow symlinks (copy target content, not the link).**
@@ -95,6 +108,8 @@ Following symlinks by default prevents:
 - Accidental exposure of sensitive files via symlink indirection
 - Unexpected behavior when copying between filesystems
 
+---
+
 ## Unsupported Flag Handling
 
 When a u-root utility receives flags it doesn't support (e.g., GNU-specific extensions like `--color`):
@@ -104,6 +119,8 @@ When a u-root utility receives flags it doesn't support (e.g., GNU-specific exte
 - Do NOT emit warnings or errors for unknown flags
 
 This matches common cross-platform behavior where BSD utilities ignore GNU-specific flags.
+
+---
 
 ## Error Reporting Format
 
@@ -152,6 +169,8 @@ func (h *CpHandler) Run(ctx context.Context, args []string) error {
 - Users can immediately identify whether an error comes from u-root or system utilities
 - Simplifies debugging when both u-root and system utilities are used in the same script
 - Enables targeted troubleshooting of u-root implementations vs environment issues
+
+---
 
 ## Common Pitfalls
 

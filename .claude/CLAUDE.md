@@ -90,6 +90,8 @@ invkfile.cue -> CUE Parser -> pkg/invkfile -> Runtime Selection -> Execution
 - N/A (no persistent storage required) (005-uroot-utils)
 - Go 1.25+ + CUE v0.15.3, Cobra, Viper, Bubble Tea, mvdan/sh (006-go-codebase-audit)
 - N/A (no persistent storage) (006-go-codebase-audit)
+- Go 1.25+ with CUE v0.15.3 + Cobra, Viper, Bubble Tea, Lip Gloss, mvdan/sh (007-pkg-structure-audit)
+- N/A (file-based CUE configuration only) (007-pkg-structure-audit)
 
 **Core Stack**:
 - Go 1.25+ with `cuelang.org/go v0.15.3` (CUE schemas and validation)
