@@ -215,7 +215,7 @@ func listSourceFiles(repoRoot string, source DocumentationSource) ([]string, err
 	}
 
 	exts := extensionsForKind(source.Kind)
-	files, err := ListFiles(repoRoot, []string{source.Location}, exts)
+	files, err := listFiles(repoRoot, []string{source.Location}, exts)
 	if err != nil {
 		return nil, err
 	}
@@ -227,7 +227,7 @@ func extensionsForKind(kind DocumentationKind) []string {
 	switch kind {
 	case DocKindSample:
 		return []string{".md", ".mdx", ".cue", ".txt"}
-	case DocKindWebsite, DocKindGuide:
+	case DocKindWebsite, DocKindGuide, DocKindReadme:
 		return []string{".md", ".mdx"}
 	default:
 		return []string{".md", ".mdx"}

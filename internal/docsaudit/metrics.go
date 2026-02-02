@@ -28,7 +28,8 @@ func ComputeMetrics(surfaces []UserFacingSurface, findings []Finding) Metrics {
 		metrics.CountsBySeverity[severity] = 0
 	}
 
-	for _, finding := range findings {
+	for i := range findings {
+		finding := &findings[i]
 		if finding.MismatchType != "" {
 			metrics.CountsByMismatchType[finding.MismatchType]++
 		}

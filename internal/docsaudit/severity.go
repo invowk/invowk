@@ -9,11 +9,11 @@ func ApplySeverity(findings []Finding) []Finding {
 	}
 
 	updated := append([]Finding(nil), findings...)
-	for i, finding := range updated {
-		if finding.Severity != "" {
+	for i := range updated {
+		if updated[i].Severity != "" {
 			continue
 		}
-		updated[i].Severity = SeverityForFinding(finding)
+		updated[i].Severity = SeverityForFinding(updated[i])
 	}
 
 	return updated

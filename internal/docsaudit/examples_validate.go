@@ -74,9 +74,9 @@ func ValidateExamples(ctx context.Context, examples []Example, surfaces []UserFa
 }
 
 func validateMarkdownExample(file string, line int, knownCommands map[string]struct{}) (string, error) {
-	lines, err := ReadFileLines(file)
-	if err != nil {
-		return "", err
+	lines, readErr := readFileLines(file)
+	if readErr != nil {
+		return "", readErr
 	}
 	if line < 1 || line > len(lines) {
 		return "example line is out of range", nil
@@ -149,7 +149,7 @@ func extractFenceBlock(lines []string, startLine int) ([]string, error) {
 	return nil, errors.New("unterminated code fence")
 }
 
-func parseSourceLocation(location string) (string, int) {
+func parseSourceLocation(location string) (file string, line int) {
 	location = strings.TrimSpace(location)
 	if location == "" {
 		return "", 0
@@ -160,12 +160,12 @@ func parseSourceLocation(location string) (string, int) {
 		return location, 0
 	}
 
-	file := location[:index]
+	file = location[:index]
 	lineText := location[index+1:]
-	line, err := strconv.Atoi(lineText)
-	if err != nil || line <= 0 {
+	parsedLine, parseErr := strconv.Atoi(lineText)
+	if parseErr != nil || parsedLine <= 0 {
 		return location, 0
 	}
 
-	return file, line
+	return file, parsedLine
 }

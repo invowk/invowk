@@ -9,11 +9,11 @@ func ApplyRecommendations(findings []Finding) []Finding {
 	}
 
 	updated := append([]Finding(nil), findings...)
-	for i, finding := range updated {
-		if finding.Recommendation != "" {
+	for i := range updated {
+		if updated[i].Recommendation != "" {
 			continue
 		}
-		updated[i].Recommendation = RecommendationForFinding(finding)
+		updated[i].Recommendation = RecommendationForFinding(updated[i])
 	}
 
 	return updated

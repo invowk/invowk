@@ -4,18 +4,20 @@ package docsaudit
 
 import "context"
 
-// Result is the output of a documentation audit run.
-type Result struct {
-	Report     *AuditReport
-	ReportPath string
-	Summary    Summary
-}
+type (
+	// Result is the output of a documentation audit run.
+	Result struct {
+		Report     *AuditReport
+		ReportPath string
+		Summary    Summary
+	}
 
-// Summary captures the report path and metrics for a run.
-type Summary struct {
-	ReportPath string
-	Metrics    Metrics
-}
+	// Summary captures the report path and metrics for a run.
+	Summary struct {
+		ReportPath string
+		Metrics    Metrics
+	}
+)
 
 // Run executes a documentation audit and writes the report.
 func Run(ctx context.Context, opts Options) (*Result, error) {

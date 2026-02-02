@@ -54,10 +54,12 @@ func runDocsAudit(cmd *cobra.Command, _ []string) error {
 	if outputFormat == docsaudit.OutputFormatJSON {
 		payload, err := json.MarshalIndent(result.Summary, "", "  ")
 		if err != nil {
-			return err
+			return fmt.Errorf("marshal summary: %w", err)
 		}
-		_, err = fmt.Fprintln(cmd.OutOrStdout(), string(payload))
-		return err
+		if _, err := fmt.Fprintln(cmd.OutOrStdout(), string(payload)); err != nil {
+			return fmt.Errorf("write summary: %w", err)
+		}
+		return nil
 	}
 
 	metrics := result.Summary.Metrics

@@ -26,9 +26,9 @@ func Audit(ctx context.Context, opts Options) (*AuditReport, error) {
 
 	var surfaces []UserFacingSurface
 	if opts.RootCmd != nil {
-		cliSurfaces, err := DiscoverCLISurfaces(opts.RootCmd)
-		if err != nil {
-			return nil, err
+		cliSurfaces, cliErr := DiscoverCLISurfaces(opts.RootCmd)
+		if cliErr != nil {
+			return nil, cliErr
 		}
 		surfaces = append(surfaces, cliSurfaces...)
 	}

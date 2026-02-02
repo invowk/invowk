@@ -12,21 +12,23 @@ import (
 	"strings"
 )
 
-var claudeLinkPattern = regexp.MustCompile(`\[[^\]]+\]\(([^)]+)\)`)
+var (
+	claudeLinkPattern = regexp.MustCompile(`\[[^\]]+\]\(([^)]+)\)`)
 
-var claudeFileExtensions = map[string]struct{}{
-	".cue":  {},
-	".go":   {},
-	".json": {},
-	".md":   {},
-	".mod":  {},
-	".sh":   {},
-	".sum":  {},
-	".toml": {},
-	".txt":  {},
-	".yaml": {},
-	".yml":  {},
-}
+	claudeFileExtensions = map[string]struct{}{
+		".cue":  {},
+		".go":   {},
+		".json": {},
+		".md":   {},
+		".mod":  {},
+		".sh":   {},
+		".sum":  {},
+		".toml": {},
+		".txt":  {},
+		".yaml": {},
+		".yml":  {},
+	}
+)
 
 // AuditClaudeReferences validates references in .claude docs and rules.
 func AuditClaudeReferences(ctx context.Context, repoRoot string) ([]Finding, error) {
@@ -34,58 +36,58 @@ func AuditClaudeReferences(ctx context.Context, repoRoot string) ([]Finding, err
 		return nil, fmt.Errorf("repo root is required")
 	}
 
-	absRoot, err := filepath.Abs(repoRoot)
-	if err != nil {
-		return nil, fmt.Errorf("resolve repo root: %w", err)
+	absRoot, absErr := filepath.Abs(repoRoot)
+	if absErr != nil {
+		return nil, fmt.Errorf("resolve repo root: %w", absErr)
 	}
 	repoRoot = absRoot
 
 	claudeDir := filepath.Join(repoRoot, ".claude")
-	if _, err := os.Stat(claudeDir); err != nil {
-		if os.IsNotExist(err) {
+	if _, statErr := os.Stat(claudeDir); statErr != nil {
+		if os.IsNotExist(statErr) {
 			return []Finding{missingClaudeFinding(".claude")}, nil
 		}
-		return nil, fmt.Errorf("stat .claude: %w", err)
+		return nil, fmt.Errorf("stat .claude: %w", statErr)
 	}
 
 	claudeFile := filepath.Join(claudeDir, "CLAUDE.md")
-	if _, err := os.Stat(claudeFile); err != nil {
-		if os.IsNotExist(err) {
+	if _, statErr := os.Stat(claudeFile); statErr != nil {
+		if os.IsNotExist(statErr) {
 			return []Finding{missingClaudeFinding(".claude/CLAUDE.md")}, nil
 		}
-		return nil, fmt.Errorf("stat .claude/CLAUDE.md: %w", err)
+		return nil, fmt.Errorf("stat .claude/CLAUDE.md: %w", statErr)
 	}
 
 	rulesDir := filepath.Join(claudeDir, "rules")
-	ruleFiles, err := listClaudeRuleFiles(rulesDir)
-	if err != nil {
-		if os.IsNotExist(err) {
+	ruleFiles, ruleErr := listClaudeRuleFiles(rulesDir)
+	if ruleErr != nil {
+		if os.IsNotExist(ruleErr) {
 			return []Finding{missingClaudeFinding(".claude/rules")}, nil
 		}
-		return nil, err
+		return nil, ruleErr
 	}
 
 	files := append([]string{claudeFile}, ruleFiles...)
 	var findings []Finding
 	for _, file := range files {
-		if err := checkContext(ctx); err != nil {
-			return nil, err
+		if ctxErr := checkContext(ctx); ctxErr != nil {
+			return nil, ctxErr
 		}
 
-		lines, err := ReadFileLines(file)
-		if err != nil {
-			return nil, err
+		lines, readErr := readFileLines(file)
+		if readErr != nil {
+			return nil, readErr
 		}
-		fileFindings, err := detectClaudeReferenceFindings(file, lines, repoRoot)
-		if err != nil {
-			return nil, err
+		fileFindings, findErr := detectClaudeReferenceFindings(file, lines, repoRoot)
+		if findErr != nil {
+			return nil, findErr
 		}
 		findings = append(findings, fileFindings...)
 	}
 
-	indexFindings, err := detectRulesIndexFindings(claudeFile, ruleFiles, repoRoot)
-	if err != nil {
-		return nil, err
+	indexFindings, indexErr := detectRulesIndexFindings(claudeFile, ruleFiles, repoRoot)
+	if indexErr != nil {
+		return nil, indexErr
 	}
 	findings = append(findings, indexFindings...)
 
@@ -225,7 +227,7 @@ func normalizeClaudeReference(ref string) string {
 	return strings.TrimSpace(ref)
 }
 
-func validateClaudeReference(file string, lineNumber int, ref string, repoRoot string) (Finding, bool, error) {
+func validateClaudeReference(file string, lineNumber int, ref, repoRoot string) (Finding, bool, error) {
 	resolved := resolveClaudeReferencePath(ref, file, repoRoot)
 	if resolved == "" {
 		return Finding{}, false, nil
@@ -246,7 +248,7 @@ func validateClaudeReference(file string, lineNumber int, ref string, repoRoot s
 	return Finding{}, false, nil
 }
 
-func resolveClaudeReferencePath(ref string, file string, repoRoot string) string {
+func resolveClaudeReferencePath(ref, file, repoRoot string) string {
 	if ref == "" {
 		return ""
 	}
@@ -306,9 +308,9 @@ func isIgnoredPath(ref string) bool {
 }
 
 func detectRulesIndexFindings(claudeFile string, ruleFiles []string, repoRoot string) ([]Finding, error) {
-	lines, err := ReadFileLines(claudeFile)
-	if err != nil {
-		return nil, err
+	lines, readErr := readFileLines(claudeFile)
+	if readErr != nil {
+		return nil, readErr
 	}
 
 	indexEntries := extractRulesIndexEntries(lines)

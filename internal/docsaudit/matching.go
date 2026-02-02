@@ -11,8 +11,15 @@ import (
 	"strings"
 )
 
-var invowkCommandPattern = regexp.MustCompile(`(?i)\binvowk\s+([a-z0-9][a-z0-9_-]*(?:\s+[a-z0-9][a-z0-9_-]*){0,4})`)
-var flagPattern = regexp.MustCompile(`--[a-zA-Z0-9][a-zA-Z0-9_-]*`)
+var (
+	invowkCommandPattern = regexp.MustCompile(`(?i)\binvowk\s+([a-z0-9][a-z0-9_-]*(?:\s+[a-z0-9][a-z0-9_-]*){0,4})`)
+	flagPattern          = regexp.MustCompile(`--[a-zA-Z0-9][a-zA-Z0-9_-]*`)
+)
+
+type surfaceMatcher struct {
+	index int
+	terms []string
+}
 
 // MatchDocumentation maps documentation references to surfaces and detects docs-only features.
 func MatchDocumentation(ctx context.Context, catalog *SourceCatalog, surfaces []UserFacingSurface) ([]UserFacingSurface, []Finding, error) {
@@ -36,9 +43,9 @@ func MatchDocumentation(ctx context.Context, catalog *SourceCatalog, surfaces []
 			return nil, nil, err
 		}
 
-		lines, err := ReadFileLines(file)
-		if err != nil {
-			return nil, nil, err
+		lines, readErr := readFileLines(file)
+		if readErr != nil {
+			return nil, nil, readErr
 		}
 
 		sourceID := sourceIDForFile(catalog, file)
@@ -72,11 +79,6 @@ func MatchDocumentation(ctx context.Context, catalog *SourceCatalog, surfaces []
 	return updated, findings, nil
 }
 
-type surfaceMatcher struct {
-	index int
-	terms []string
-}
-
 func buildSurfaceMatchers(surfaces []UserFacingSurface) []surfaceMatcher {
 	flagCounts := countFlagNames(surfaces)
 	matchers := make([]surfaceMatcher, 0, len(surfaces))
@@ -104,7 +106,7 @@ func surfaceMatchTerms(surface UserFacingSurface, flagCounts map[string]int) []s
 			terms = append(terms, flagToken)
 		}
 		return terms
-	case SurfaceTypeCommand, SurfaceTypeConfigField, SurfaceTypeModule:
+	case SurfaceTypeCommand, SurfaceTypeConfigField, SurfaceTypeModule, SurfaceTypeBehavior:
 		return []string{name}
 	default:
 		return []string{name}

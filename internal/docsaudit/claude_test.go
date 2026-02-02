@@ -77,7 +77,7 @@ func TestAuditClaudeReferences_BrokenLink(t *testing.T) {
 	}
 }
 
-func writeTestFile(t testing.TB, path string, content string) {
+func writeTestFile(t testing.TB, path, content string) {
 	t.Helper()
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		t.Fatalf("mkdir %s: %v", filepath.Dir(path), err)
@@ -88,8 +88,8 @@ func writeTestFile(t testing.TB, path string, content string) {
 }
 
 func hasFindingSummary(findings []Finding, contains string) bool {
-	for _, finding := range findings {
-		if strings.Contains(finding.Summary, contains) {
+	for i := range findings {
+		if strings.Contains(findings[i].Summary, contains) {
 			return true
 		}
 	}

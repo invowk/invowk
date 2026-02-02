@@ -21,7 +21,7 @@ var defaultSkipDirs = map[string]struct{}{
 	".vscode":      {},
 }
 
-func FindRepoRoot(start string) (string, error) {
+func findRepoRoot(start string) (string, error) {
 	if start == "" {
 		cwd, err := os.Getwd()
 		if err != nil {
@@ -62,7 +62,7 @@ func FindRepoRoot(start string) (string, error) {
 	return "", fmt.Errorf("repository root not found from %s", absStart)
 }
 
-func ListFiles(root string, dirs []string, exts []string) ([]string, error) {
+func listFiles(root string, dirs, exts []string) ([]string, error) {
 	rootAbs, err := filepath.Abs(root)
 	if err != nil {
 		return nil, fmt.Errorf("resolve root: %w", err)
@@ -123,7 +123,7 @@ func ListFiles(root string, dirs []string, exts []string) ([]string, error) {
 	return files, nil
 }
 
-func ReadFileLines(path string) ([]string, error) {
+func readFileLines(path string) ([]string, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("read file: %w", err)
@@ -132,16 +132,7 @@ func ReadFileLines(path string) ([]string, error) {
 	return strings.Split(string(data), "\n"), nil
 }
 
-func ReadFileString(path string) (string, error) {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return "", fmt.Errorf("read file: %w", err)
-	}
-
-	return string(data), nil
-}
-
-func EnsureDir(path string) error {
+func ensureDir(path string) error {
 	if err := os.MkdirAll(path, 0o755); err != nil {
 		return fmt.Errorf("mkdir %s: %w", path, err)
 	}

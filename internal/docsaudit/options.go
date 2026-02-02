@@ -10,35 +10,41 @@ import (
 	"github.com/spf13/cobra"
 )
 
-type OutputFormat string
-
+// Output format options.
 const (
 	OutputFormatHuman OutputFormat = "human"
 	OutputFormatJSON  OutputFormat = "json"
 )
 
-type Options struct {
-	RepoRoot              string
-	OutputPath            string
-	OutputFormat          OutputFormat
-	DocsSources           []string
-	CanonicalExamplesPath string
-	ExcludePkgAPIs        bool
-	RootCmd               *cobra.Command
-}
+type (
+	// OutputFormat defines the output format for summaries.
+	OutputFormat string
 
+	// Options configures the documentation audit execution.
+	Options struct {
+		RepoRoot              string
+		OutputPath            string
+		OutputFormat          OutputFormat
+		DocsSources           []string
+		CanonicalExamplesPath string
+		ExcludePkgAPIs        bool
+		RootCmd               *cobra.Command
+	}
+)
+
+// Normalize fills defaults and validates the options.
 func (o *Options) Normalize() error {
 	if o.RepoRoot == "" {
-		repoRoot, err := FindRepoRoot("")
-		if err != nil {
-			return err
+		repoRoot, rootErr := findRepoRoot("")
+		if rootErr != nil {
+			return rootErr
 		}
 		o.RepoRoot = repoRoot
 	}
 	if o.RepoRoot != "" {
-		absRoot, err := filepath.Abs(o.RepoRoot)
-		if err != nil {
-			return err
+		absRoot, absErr := filepath.Abs(o.RepoRoot)
+		if absErr != nil {
+			return fmt.Errorf("resolve repo root: %w", absErr)
 		}
 		o.RepoRoot = absRoot
 	}
@@ -63,6 +69,7 @@ func (o *Options) Normalize() error {
 	return o.Validate()
 }
 
+// Validate checks required fields and values for options.
 func (o Options) Validate() error {
 	if o.RepoRoot == "" {
 		return fmt.Errorf("repo root is required")

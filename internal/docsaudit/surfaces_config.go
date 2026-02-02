@@ -13,7 +13,7 @@ import (
 
 // DiscoverConfigSurfaces inventories configuration field surfaces.
 func DiscoverConfigSurfaces() ([]UserFacingSurface, error) {
-	paths := collectConfigPaths(reflect.TypeOf(config.Config{}), "")
+	paths := collectConfigPaths(reflect.TypeFor[config.Config](), "")
 	if len(paths) == 0 {
 		return nil, fmt.Errorf("no config fields discovered")
 	}

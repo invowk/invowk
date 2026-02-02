@@ -13,10 +13,7 @@ import (
 func TestMatchDocumentation(t *testing.T) {
 	root := t.TempDir()
 	docPath := filepath.Join(root, "README.md")
-	content := strings.Join([]string{
-		"invowk internal docs audit --out docs-audit.md",
-		"invowk ghost",
-	}, "\n")
+	content := "invowk internal docs audit --out docs-audit.md\ninvowk ghost"
 	if err := os.WriteFile(docPath, []byte(content), 0o644); err != nil {
 		t.Fatalf("write doc: %v", err)
 	}

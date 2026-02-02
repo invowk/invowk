@@ -15,19 +15,21 @@ import (
 	"time"
 )
 
-var mismatchTypeOrder = []MismatchType{
-	MismatchTypeMissing,
-	MismatchTypeOutdated,
-	MismatchTypeIncorrect,
-	MismatchTypeInconsistent,
-}
+var (
+	mismatchTypeOrder = []MismatchType{
+		MismatchTypeMissing,
+		MismatchTypeOutdated,
+		MismatchTypeIncorrect,
+		MismatchTypeInconsistent,
+	}
 
-var severityOrder = []Severity{
-	SeverityCritical,
-	SeverityHigh,
-	SeverityMedium,
-	SeverityLow,
-}
+	severityOrder = []Severity{
+		SeverityCritical,
+		SeverityHigh,
+		SeverityMedium,
+		SeverityLow,
+	}
+)
 
 // WriteMarkdown writes the audit report to the specified path.
 func WriteMarkdown(report *AuditReport, path string) error {
@@ -39,7 +41,7 @@ func WriteMarkdown(report *AuditReport, path string) error {
 		return errors.New("report path is empty")
 	}
 
-	if err := EnsureDir(filepath.Dir(path)); err != nil {
+	if err := ensureDir(filepath.Dir(path)); err != nil {
 		return fmt.Errorf("ensure report dir: %w", err)
 	}
 
@@ -50,7 +52,7 @@ func WriteMarkdown(report *AuditReport, path string) error {
 
 	var sb strings.Builder
 	sb.WriteString("# Documentation/API Audit Report\n\n")
-	sb.WriteString(fmt.Sprintf("Generated: %s\n\n", generatedAt.UTC().Format(time.RFC3339)))
+	fmt.Fprintf(&sb, "Generated: %s\n\n", generatedAt.UTC().Format(time.RFC3339))
 
 	writeScopeSection(&sb, report)
 	writeMetricsSection(&sb, report.Metrics)
@@ -112,7 +114,7 @@ func writeScopeSection(sb *strings.Builder, report *AuditReport) {
 	if report.Scope.CanonicalExamplesPath == "" {
 		sb.WriteString("- Not set\n\n")
 	} else {
-		sb.WriteString(fmt.Sprintf("- %s\n\n", report.Scope.CanonicalExamplesPath))
+		fmt.Fprintf(sb, "- %s\n\n", report.Scope.CanonicalExamplesPath)
 	}
 
 	sb.WriteString("### Assumptions\n\n")
@@ -124,15 +126,15 @@ func writeScopeSection(sb *strings.Builder, report *AuditReport) {
 
 func writeMetricsSection(sb *strings.Builder, metrics Metrics) {
 	sb.WriteString("## Metrics\n\n")
-	sb.WriteString(fmt.Sprintf("- Total surfaces: %d\n", metrics.TotalSurfaces))
-	sb.WriteString(fmt.Sprintf("- Coverage percentage: %s\n\n", formatCoverage(metrics.CoveragePercentage)))
+	fmt.Fprintf(sb, "- Total surfaces: %d\n", metrics.TotalSurfaces)
+	fmt.Fprintf(sb, "- Coverage percentage: %s\n\n", formatCoverage(metrics.CoveragePercentage))
 
 	sb.WriteString("### Counts by Mismatch Type\n\n")
 	sb.WriteString("| Mismatch Type | Count |\n")
 	sb.WriteString("|---|---|\n")
 	for _, mismatchType := range mismatchTypeOrder {
 		count := metrics.CountsByMismatchType[mismatchType]
-		sb.WriteString(fmt.Sprintf("| %s | %d |\n", mismatchType, count))
+		fmt.Fprintf(sb, "| %s | %d |\n", mismatchType, count)
 	}
 	sb.WriteString("\n")
 
@@ -141,7 +143,7 @@ func writeMetricsSection(sb *strings.Builder, metrics Metrics) {
 	sb.WriteString("|---|---|\n")
 	for _, severity := range severityOrder {
 		count := metrics.CountsBySeverity[severity]
-		sb.WriteString(fmt.Sprintf("| %s | %d |\n", severity, count))
+		fmt.Fprintf(sb, "| %s | %d |\n", severity, count)
 	}
 	sb.WriteString("\n")
 }
@@ -169,11 +171,11 @@ func writeSurfacesSection(sb *strings.Builder, surfaces []UserFacingSurface) {
 	sb.WriteString("|---|---|---|\n")
 	for _, surface := range sorted {
 		docs := formatDocReferences(surface.DocumentationRefs)
-		sb.WriteString(fmt.Sprintf("| %s | %s | %s |\n",
+		fmt.Fprintf(sb, "| %s | %s | %s |\n",
 			escapeTableValue(string(surface.Type)),
 			escapeTableValue(surface.Name),
 			escapeTableValue(docs),
-		))
+		)
 	}
 	sb.WriteString("\n")
 }
@@ -194,23 +196,24 @@ func writeFindingsSection(sb *strings.Builder, findings []Finding) {
 		return
 	}
 
-	for idx, finding := range sorted {
+	for idx := range sorted {
+		finding := &sorted[idx]
 		header := finding.ID
 		if header == "" {
 			header = fmt.Sprintf("Finding %d", idx+1)
 		}
 
-		sb.WriteString(fmt.Sprintf("### %s\n\n", header))
-		sb.WriteString(fmt.Sprintf("- Severity: %s\n", emptyDash(string(finding.Severity))))
-		sb.WriteString(fmt.Sprintf("- Mismatch type: %s\n", emptyDash(string(finding.MismatchType))))
-		sb.WriteString(fmt.Sprintf("- Location: %s\n", emptyDash(finding.SourceLocation)))
+		fmt.Fprintf(sb, "### %s\n\n", header)
+		fmt.Fprintf(sb, "- Severity: %s\n", emptyDash(string(finding.Severity)))
+		fmt.Fprintf(sb, "- Mismatch type: %s\n", emptyDash(string(finding.MismatchType)))
+		fmt.Fprintf(sb, "- Location: %s\n", emptyDash(finding.SourceLocation))
 		if finding.Summary != "" {
-			sb.WriteString(fmt.Sprintf("- Summary: %s\n", finding.Summary))
+			fmt.Fprintf(sb, "- Summary: %s\n", finding.Summary)
 		}
-		sb.WriteString(fmt.Sprintf("- Expected behavior: %s\n", emptyDash(finding.ExpectedBehavior)))
-		sb.WriteString(fmt.Sprintf("- Recommendation: %s\n", emptyDash(finding.Recommendation)))
+		fmt.Fprintf(sb, "- Expected behavior: %s\n", emptyDash(finding.ExpectedBehavior))
+		fmt.Fprintf(sb, "- Recommendation: %s\n", emptyDash(finding.Recommendation))
 		if finding.RelatedSurfaceID != "" {
-			sb.WriteString(fmt.Sprintf("- Related surface: %s\n", finding.RelatedSurfaceID))
+			fmt.Fprintf(sb, "- Related surface: %s\n", finding.RelatedSurfaceID)
 		}
 		sb.WriteString("\n")
 	}
@@ -244,12 +247,12 @@ func writeExamplesSection(sb *strings.Builder, examples []Example) {
 			}
 		}
 
-		sb.WriteString(fmt.Sprintf("| %s | %s | %s | %s |\n",
+		fmt.Fprintf(sb, "| %s | %s | %s | %s |\n",
 			escapeTableValue(example.ID),
 			escapeTableValue(string(example.Status)),
 			escapeTableValue(example.SourceLocation),
 			escapeTableValue(reason),
-		))
+		)
 	}
 	sb.WriteString("\n")
 }
@@ -271,7 +274,7 @@ func writeExamplesOutsideSection(sb *strings.Builder, examples []Example) {
 	}
 
 	for _, id := range outside {
-		sb.WriteString(fmt.Sprintf("- %s\n", id))
+		fmt.Fprintf(sb, "- %s\n", id)
 	}
 	sb.WriteString("\n")
 }
@@ -300,7 +303,7 @@ func formatSourceLine(source DocumentationSource) string {
 
 func writeStringList(sb *strings.Builder, items []string, emptyLabel string) {
 	if len(items) == 0 {
-		sb.WriteString(fmt.Sprintf("- %s\n\n", emptyLabel))
+		fmt.Fprintf(sb, "- %s\n\n", emptyLabel)
 		return
 	}
 
@@ -308,7 +311,7 @@ func writeStringList(sb *strings.Builder, items []string, emptyLabel string) {
 		if strings.TrimSpace(item) == "" {
 			continue
 		}
-		sb.WriteString(fmt.Sprintf("- %s\n", item))
+		fmt.Fprintf(sb, "- %s\n", item)
 	}
 	sb.WriteString("\n")
 }
@@ -379,8 +382,8 @@ func emptyDash(value string) string {
 	return value
 }
 
-func writeFile(path string, content string) error {
-	if err := EnsureDir(filepath.Dir(path)); err != nil {
+func writeFile(path, content string) error {
+	if err := ensureDir(filepath.Dir(path)); err != nil {
 		return fmt.Errorf("ensure output dir: %w", err)
 	}
 

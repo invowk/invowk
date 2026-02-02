@@ -42,9 +42,9 @@ func ExtractExamples(ctx context.Context, catalog *SourceCatalog) ([]Example, er
 }
 
 func extractMarkdownExamples(file string) ([]Example, error) {
-	lines, err := ReadFileLines(file)
-	if err != nil {
-		return nil, err
+	lines, readErr := readFileLines(file)
+	if readErr != nil {
+		return nil, readErr
 	}
 
 	var examples []Example
