@@ -1,3 +1,20 @@
+---
+name: testing
+description: Testing patterns, testscript CLI tests, race conditions, TUI/container testing
+disable-model-invocation: true
+---
+
+# Testing Patterns
+
+Use this skill when:
+- Writing or modifying test files (`*_test.go`)
+- Working with testscript CLI integration tests (`.txtar` files)
+- Debugging flaky tests or race conditions
+- Testing TUI components (Bubble Tea models)
+- Testing container runtimes (Docker/Podman)
+
+---
+
 # Testing
 
 ## Test File Organization

@@ -1,4 +1,18 @@
-# CUE and Schemas
+---
+name: cue
+description: CUE schema patterns, 3-step parsing flow, validation matrix, error formatting
+disable-model-invocation: true
+---
+
+# CUE Schema Patterns
+
+Use this skill when:
+- Working with CUE schema files (`*.cue`)
+- Modifying parse functions in `pkg/invkfile/`, `pkg/invkmod/`, or `internal/config/`
+- Adding new CUE definitions or corresponding Go struct fields
+- Debugging CUE validation errors
+
+---
 
 ## Schema Locations
 
@@ -310,8 +324,8 @@ if len(name) > MaxNameLength {
 **Fix**: Add JSON tag matching the CUE field name:
 ```go
 type Config struct {
-    SearchPaths []string `json:"search_paths"`  // ✓ Matches CUE field
-    CachePath   string   // ✗ No JSON tag - will be empty!
+    SearchPaths []string `json:"search_paths"`  // Matches CUE field
+    CachePath   string   // No JSON tag - will be empty!
 }
 ```
 

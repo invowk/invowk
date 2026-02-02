@@ -126,4 +126,4 @@ Creating `testutil/invkfiletest/` is acceptable when:
 - The helpers are genuinely reusable across multiple test files.
 - Import cycles would otherwise occur (test package can't import the package it tests).
 
-This is already established in `.claude/rules/testing.md` for `invkfiletest`.
+This is already established in the `testing` skill (`.claude/skills/testing/`) for `invkfiletest`.

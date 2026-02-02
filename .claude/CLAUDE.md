@@ -165,6 +165,6 @@ invkfile.cue -> CUE Parser -> pkg/invkfile -> Runtime Selection -> Execution
 ## Recent Changes
 
 - 006-go-codebase-audit: Large file splits (>800 lines → <600 lines), extracted `internal/core/serverbase/` and `internal/cueutil/` packages, container engine base abstraction, ActionableError type, CUE schema validation constraints
-- 004-cue-lib-optimization: CUE library usage patterns documented in `.claude/rules/cue.md`, schema sync tests added for all CUE-parsed types, file size guards added to parse functions
+- 004-cue-lib-optimization: CUE library usage patterns documented in `.claude/skills/cue/`, schema sync tests added for all CUE-parsed types, file size guards added to parse functions
 - 003-test-suite-audit: Comprehensive test suite improvements, testscript CLI tests
 - 002-codebase-cleanup-audit: Initial codebase cleanup and standardization

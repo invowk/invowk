@@ -1,4 +1,18 @@
+---
+name: invowk-schema
+description: Invkfile/invkmod schema guidelines, cross-platform patterns, command validation
+disable-model-invocation: true
+---
+
 # Invowk Schema Guidelines
+
+Use this skill when:
+- Editing the `invkfile.cue` root example file
+- Working with sample modules in `modules/`
+- Adding or modifying command/implementation structures
+- Handling cross-platform runtime selection (native vs virtual runtimes on different platforms)
+
+---
 
 ## Invkfile Examples
 
