@@ -2084,6 +2084,14 @@ invowk cmd build --runtime virtual
 invowk --verbose cmd build
 ```
 
+### Documentation Audit
+```bash
+invowk docs audit --out docs-audit.md
+
+# Emit a JSON summary to stdout
+invowk docs audit --out docs-audit.md --output json
+```
+
 ## Interactive TUI Components
 
 invowk includes a set of interactive terminal UI components inspired by [gum](https://github.com/charmbracelet/gum). These can be used in shell scripts to create interactive prompts, selections, and styled output.

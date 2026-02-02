@@ -34,3 +34,10 @@ The [.claude/rules/](.claude/rules/) directory contains project-specific rules:
 - [plans-and-fixes.md](.claude/rules/plans-and-fixes.md) - Comprehensive fix handling
 - [docs-website.md](.claude/rules/docs-website.md) - Documentation sync and i18n
 - [checklist.md](.claude/rules/checklist.md) - Pre-completion verification steps
+
+## Active Technologies
+- Go 1.25+ + Go stdlib; existing repo libraries (cobra, viper, cuelang.org/go, mvdan.cc/sh, testscript) (008-docs-api-audit)
+- File system only (read-only scan of repo contents) (008-docs-api-audit)
+
+## Recent Changes
+- 008-docs-api-audit: Added Go 1.25+ + Go stdlib; existing repo libraries (cobra, viper, cuelang.org/go, mvdan.cc/sh, testscript)

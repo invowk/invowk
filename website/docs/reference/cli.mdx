@@ -137,6 +137,34 @@ Set a configuration value.
 
 ---
 
+### invowk docs
+
+Documentation audit utilities.
+
+<Snippet id="reference/cli/docs-syntax" />
+
+**Subcommands:**
+
+#### invowk docs audit
+
+Generate a documentation audit report and optionally emit a JSON summary.
+
+<Snippet id="reference/cli/docs-audit-syntax" />
+
+**Flags:**
+
+| Flag | Short | Description |
+|------|-------|-------------|
+| `--out` | `-o` | Write the audit report to this path (default: `docs-audit.md`) |
+| `--output` |  | Output JSON summary to stdout (`human` or `json`) |
+| `--json` |  | Output JSON summary to stdout (alias for `--output json`) |
+
+**Examples:**
+
+<Snippet id="reference/cli/docs-audit-examples" />
+
+---
+
 ### invowk module
 
 Manage invowk modules (self-contained command folders).
