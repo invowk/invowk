@@ -5,10 +5,11 @@ package cmd
 import (
 	"bufio"
 	"fmt"
-	"invowk-cli/internal/tui"
 	"io"
 	"os"
 	"strings"
+
+	"invowk-cli/internal/tui"
 
 	"github.com/spf13/cobra"
 )

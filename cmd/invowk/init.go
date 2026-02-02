@@ -4,9 +4,10 @@ package cmd
 
 import (
 	"fmt"
-	"invowk-cli/pkg/invkfile"
 	"os"
 	"path/filepath"
+
+	"invowk-cli/pkg/invkfile"
 
 	"github.com/spf13/cobra"
 )
@@ -52,9 +53,9 @@ func runInit(cmd *cobra.Command, args []string) error {
 	}
 
 	absPath, _ := filepath.Abs(filename)
-	fmt.Printf("%s Created %s\n", successStyle.Render("✓"), absPath)
+	fmt.Printf("%s Created %s\n", SuccessStyle.Render("✓"), absPath)
 	fmt.Println()
-	fmt.Println(subtitleStyle.Render("Next steps:"))
+	fmt.Println(SubtitleStyle.Render("Next steps:"))
 	fmt.Println("  1. Edit the invkfile to add your commands")
 	fmt.Println("  2. Run 'invowk cmd' to see available commands")
 	fmt.Println("  3. Run 'invowk cmd <command>' to execute a command")

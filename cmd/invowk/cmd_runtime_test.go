@@ -3,9 +3,10 @@
 package cmd
 
 import (
-	"invowk-cli/pkg/invkfile"
 	"strings"
 	"testing"
+
+	"invowk-cli/pkg/invkfile"
 )
 
 // ---------------------------------------------------------------------------

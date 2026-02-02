@@ -5,13 +5,14 @@ package runtime
 import (
 	"bytes"
 	"context"
-	"invowk-cli/internal/testutil"
-	"invowk-cli/pkg/invkfile"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"invowk-cli/internal/testutil"
+	"invowk-cli/pkg/invkfile"
 )
 
 func TestNativeRuntime_InterpreterShebangDetection(t *testing.T) {

@@ -16,24 +16,24 @@ var completionCmd = &cobra.Command{
 
 To enable shell completions, run one of the following commands:
 
-` + subtitleStyle.Render("Bash:") + `
+` + SubtitleStyle.Render("Bash:") + `
   # Add to ~/.bashrc:
   eval "$(invowk completion bash)"
 
   # Or install system-wide:
   invowk completion bash > /etc/bash_completion.d/invowk
 
-` + subtitleStyle.Render("Zsh:") + `
+` + SubtitleStyle.Render("Zsh:") + `
   # Add to ~/.zshrc:
   eval "$(invowk completion zsh)"
 
   # Or install to fpath:
   invowk completion zsh > "${fpath[1]}/_invowk"
 
-` + subtitleStyle.Render("Fish:") + `
+` + SubtitleStyle.Render("Fish:") + `
   invowk completion fish > ~/.config/fish/completions/invowk.fish
 
-` + subtitleStyle.Render("PowerShell:") + `
+` + SubtitleStyle.Render("PowerShell:") + `
   invowk completion powershell | Out-String | Invoke-Expression
 
   # Or add to $PROFILE:

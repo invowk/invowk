@@ -8,15 +8,16 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"invowk-cli/internal/container"
-	"invowk-cli/internal/sshserver"
-	"invowk-cli/internal/testutil"
-	"invowk-cli/pkg/invkfile"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
+
+	"invowk-cli/internal/container"
+	"invowk-cli/internal/sshserver"
+	"invowk-cli/internal/testutil"
+	"invowk-cli/pkg/invkfile"
 )
 
 // TestContainerRuntime_Integration tests the container runtime with real containers.

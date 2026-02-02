@@ -3,11 +3,12 @@
 package discovery
 
 import (
-	"invowk-cli/internal/config"
-	"invowk-cli/internal/testutil"
 	"os"
 	"path/filepath"
 	"testing"
+
+	"invowk-cli/internal/config"
+	"invowk-cli/internal/testutil"
 )
 
 func TestSource_String(t *testing.T) {

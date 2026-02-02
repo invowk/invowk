@@ -4,8 +4,9 @@ package cmd
 
 import (
 	"fmt"
-	"invowk-cli/internal/discovery"
 	"strings"
+
+	"invowk-cli/internal/discovery"
 
 	"github.com/charmbracelet/lipgloss"
 )

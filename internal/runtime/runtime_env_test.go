@@ -5,12 +5,13 @@ package runtime
 import (
 	"bytes"
 	"context"
-	"invowk-cli/internal/testutil"
-	"invowk-cli/pkg/invkfile"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"invowk-cli/internal/testutil"
+	"invowk-cli/pkg/invkfile"
 )
 
 // testCommandWithScript creates a Command with a single script for testing.

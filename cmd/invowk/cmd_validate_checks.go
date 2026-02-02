@@ -7,11 +7,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"invowk-cli/internal/runtime"
-	"invowk-cli/pkg/invkfile"
 	"os/exec"
 	"regexp"
 	"strings"
+
+	"invowk-cli/internal/runtime"
+	"invowk-cli/pkg/invkfile"
 )
 
 // validateCustomCheckOutput validates custom check script output against expected values

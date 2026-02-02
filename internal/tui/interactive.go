@@ -5,11 +5,12 @@ package tui
 import (
 	"context"
 	"encoding/json"
-	"invowk-cli/internal/tuiserver"
 	"os/exec"
 	"strings"
 	"sync"
 	"time"
+
+	"invowk-cli/internal/tuiserver"
 
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"

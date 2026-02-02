@@ -5,12 +5,13 @@ package cmd
 import (
 	"bytes"
 	"fmt"
-	"invowk-cli/internal/runtime"
-	"invowk-cli/pkg/invkfile"
 	"os"
 	"path/filepath"
 	"slices"
 	"strings"
+
+	"invowk-cli/internal/runtime"
+	"invowk-cli/pkg/invkfile"
 )
 
 // checkFilepathDependenciesWithRuntime verifies all required files/directories exist

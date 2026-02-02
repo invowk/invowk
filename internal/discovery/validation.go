@@ -4,8 +4,9 @@ package discovery
 
 import (
 	"fmt"
-	"invowk-cli/pkg/invkfile"
 	"strings"
+
+	"invowk-cli/pkg/invkfile"
 )
 
 // ArgsSubcommandConflictError is returned when a command defines both

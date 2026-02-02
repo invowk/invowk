@@ -547,6 +547,12 @@ enable = [
     "goimports",
 ]
 
+# -----------------------------------------------------------------------------
+# gofumpt: Stricter gofmt
+# -----------------------------------------------------------------------------
+[formatters.settings.gofumpt]
+module-path = "invowk-cli"  # Module path for import grouping (3 groups: std, external, internal)
+
 [formatters.exclusions]
 generated = "lax"
 

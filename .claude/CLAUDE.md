@@ -12,17 +12,71 @@ Invowk is a dynamically extensible command runner (similar to `just`, `task`, an
 
 ## Agentic Context Discipline & Subagent Policy
 
-**CRITICAL:** Subagents are the **PRIMARY MECHANISM** for complex and/or long exploration and implementation work.
+**CRITICAL:** Subagents are **MANDATORY** for ALL code reads/explorations AND ALL code edits. The main agent must NEVER directly read source code files or edit files—these operations MUST be delegated to subagents.
 
-### Use Subagents (model=opus) by default for/when:
+### Mandatory Subagent Usage
 
-- Multi-file reads/edits (≥3 files) or cross-surface edits (e.g.: "frontend" + "backend" + schemas + data etc.), *ALWAYS* launching 1 subagent per file to be read/edited
-- Research-heavy tasks (code exploration, code reviews, audits, schema analysis, migration planning)
-- Any step that might consume >20% of context budget *UNLESS* it's orchestration/planning work.
+**ALL of the following operations MUST be delegated to subagents:**
 
-### Do NOT use Subagents by default for/when:
+1. **Code Reads/Explorations**: ANY file read for understanding code (even a single file)
+2. **Code Edits**: ANY file modification (even a single file, even a single line)
+3. **Research Tasks**: Code exploration, reviews, audits, schema analysis, migration planning
+4. **Multi-Surface Work**: Cross-domain operations (e.g., "frontend" + "backend" + schemas)
 
-- Orchestration, planning, or any decision-making activity/step. Instead, the main agent must perform those activities/steps based on the information gathered by the subagents.
+**Parallelization Rule**: When multiple files need to be read or edited, launch **1 subagent per file** in parallel (single message, multiple Task tool calls).
+
+### Sequential Task Handling
+
+When tasks have dependencies and must be executed in order:
+
+1. **STILL use subagents** for each task—sequential dependency does NOT exempt from subagent requirement
+2. **Wait for completion** of each subagent before launching the next dependent one
+3. **Main agent orchestrates** the sequence but NEVER performs the actual reads/edits directly
+
+**Example (sequential edits where B depends on A):**
+```
+1. Launch subagent A to edit file X → wait for completion
+2. Launch subagent B to edit file Y (depends on A's changes) → wait for completion
+3. Main agent synthesizes results and reports to user
+```
+
+### gopls Requirement for All Code Operations
+
+**CRITICAL:** All agents (main and subagents) MUST use `gopls` (Go Language Server via the `gopls-lsp` MCP plugin) for ALL code operations in this Go codebase:
+
+| Operation | gopls Tool | NOT Allowed |
+|-----------|------------|-------------|
+| **Symbol lookup** | `gopls: definition`, `gopls: references` | Manual grep for function names |
+| **Code exploration** | `gopls: hover`, `gopls: documentSymbol` | Reading files and scanning by eye |
+| **Finding usages** | `gopls: references`, `gopls: implementation` | Grep for symbol names |
+| **Rename/refactor** | `gopls: rename` | Find-and-replace across files |
+| **Understanding types** | `gopls: hover`, `gopls: typeDefinition` | Inferring from context |
+| **Finding call sites** | `gopls: callHierarchy` | Grep for function calls |
+
+**Why gopls is mandatory:**
+1. **Semantic accuracy** — gopls understands Go's type system, imports, and scopes; text search does not
+2. **Refactor safety** — `gopls: rename` handles shadowing, package boundaries, and test files correctly
+3. **Cross-package navigation** — gopls resolves imports and follows symbols across package boundaries
+4. **Interface implementations** — gopls finds all implementations of an interface; grep cannot
+
+**Exceptions (gopls NOT required):**
+- Quick file discovery via `Glob` (e.g., "find all `*_test.go` files")
+- Searching for string literals, comments, or non-Go content
+- Reading configuration files (`.cue`, `.json`, `.yaml`, `.md`)
+
+**Agent Selection:**
+- For **code exploration tasks**, the `code-explorer` agent (`feature-dev:code-explorer`) MUST be used instead of the built-in `Task(Explore)` agent
+- All subagents performing Go code operations MUST have access to and use gopls tools
+
+### What the Main Agent Does Directly (NO subagents)
+
+The main agent performs these activities directly—do NOT delegate:
+
+- **Orchestration**: Coordinating subagent launches, sequencing, and result synthesis
+- **Planning**: Designing implementation approaches, creating plans
+- **Decision-Making**: Choosing between alternatives based on subagent findings
+- **User Communication**: Explaining results, asking clarifying questions
+- **Lightweight Lookups**: Quick glob/grep for file discovery (NOT for reading file contents)
 
 ## Architecture Overview
 
@@ -90,6 +144,8 @@ invkfile.cue -> CUE Parser -> pkg/invkfile -> Runtime Selection -> Execution
 - N/A (no persistent storage required) (005-uroot-utils)
 - Go 1.25+ + CUE v0.15.3, Cobra, Viper, Bubble Tea, mvdan/sh (006-go-codebase-audit)
 - N/A (no persistent storage) (006-go-codebase-audit)
+- Go 1.25+ with CUE v0.15.3 + Cobra, Viper, Bubble Tea, Lip Gloss, mvdan/sh (007-pkg-structure-audit)
+- N/A (file-based CUE configuration only) (007-pkg-structure-audit)
 
 **Core Stack**:
 - Go 1.25+ with `cuelang.org/go v0.15.3` (CUE schemas and validation)
@@ -109,6 +165,6 @@ invkfile.cue -> CUE Parser -> pkg/invkfile -> Runtime Selection -> Execution
 ## Recent Changes
 
 - 006-go-codebase-audit: Large file splits (>800 lines → <600 lines), extracted `internal/core/serverbase/` and `internal/cueutil/` packages, container engine base abstraction, ActionableError type, CUE schema validation constraints
-- 004-cue-lib-optimization: CUE library usage patterns documented in `.claude/rules/cue.md`, schema sync tests added for all CUE-parsed types, file size guards added to parse functions
+- 004-cue-lib-optimization: CUE library usage patterns documented in `.claude/skills/cue/`, schema sync tests added for all CUE-parsed types, file size guards added to parse functions
 - 003-test-suite-audit: Comprehensive test suite improvements, testscript CLI tests
 - 002-codebase-cleanup-audit: Initial codebase cleanup and standardization

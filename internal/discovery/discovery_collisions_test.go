@@ -4,12 +4,13 @@ package discovery
 
 import (
 	"errors"
-	"invowk-cli/internal/config"
-	"invowk-cli/internal/testutil"
-	"invowk-cli/pkg/invkfile"
 	"os"
 	"path/filepath"
 	"testing"
+
+	"invowk-cli/internal/config"
+	"invowk-cli/internal/testutil"
+	"invowk-cli/pkg/invkfile"
 )
 
 func TestDiscoveredCommandSet_Add(t *testing.T) {

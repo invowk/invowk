@@ -4,14 +4,15 @@ package runtime
 
 import (
 	"fmt"
-	"invowk-cli/internal/issue"
-	"invowk-cli/pkg/invkfile"
 	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
+
+	"invowk-cli/internal/issue"
+	"invowk-cli/pkg/invkfile"
 )
 
 // NativeRuntime executes commands using the system's default shell

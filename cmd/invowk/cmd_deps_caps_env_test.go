@@ -4,10 +4,11 @@ package cmd
 
 import (
 	"errors"
-	"invowk-cli/internal/runtime"
-	"invowk-cli/pkg/invkfile"
 	"strings"
 	"testing"
+
+	"invowk-cli/internal/runtime"
+	"invowk-cli/pkg/invkfile"
 )
 
 // ---------------------------------------------------------------------------

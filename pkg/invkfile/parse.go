@@ -5,10 +5,11 @@ package invkfile
 import (
 	_ "embed"
 	"fmt"
-	"invowk-cli/internal/cueutil"
-	"invowk-cli/pkg/invkmod"
 	"os"
 	"path/filepath"
+
+	"invowk-cli/internal/cueutil"
+	"invowk-cli/pkg/invkmod"
 )
 
 //go:embed invkfile_schema.cue

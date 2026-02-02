@@ -4,8 +4,9 @@ package cmd
 
 import (
 	"fmt"
-	"invowk-cli/pkg/invkmod"
 	"path/filepath"
+
+	"invowk-cli/pkg/invkmod"
 
 	"github.com/spf13/cobra"
 )
@@ -75,7 +76,7 @@ func runModuleCreate(cmd *cobra.Command, args []string) error {
 	fmt.Printf("%s Module created successfully\n", moduleSuccessIcon)
 	fmt.Println()
 	fmt.Printf("%s Path: %s\n", moduleInfoIcon, modulePathStyle.Render(modulePath))
-	fmt.Printf("%s Name: %s\n", moduleInfoIcon, cmdStyle.Render(moduleName))
+	fmt.Printf("%s Name: %s\n", moduleInfoIcon, CmdStyle.Render(moduleName))
 
 	if moduleCreateScripts {
 		fmt.Printf("%s Scripts directory created\n", moduleInfoIcon)
@@ -87,7 +88,7 @@ func runModuleCreate(cmd *cobra.Command, args []string) error {
 	if moduleCreateScripts {
 		fmt.Printf("   2. Add script files to %s\n", modulePathStyle.Render(filepath.Join(modulePath, "scripts")))
 	}
-	fmt.Printf("   3. Run %s to validate\n", cmdStyle.Render("invowk module validate "+modulePath))
+	fmt.Printf("   3. Run %s to validate\n", CmdStyle.Render("invowk module validate "+modulePath))
 
 	return nil
 }

@@ -4,11 +4,12 @@ package cmd
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
+
 	"invowk-cli/internal/discovery"
 	"invowk-cli/pkg/invkfile"
 	"invowk-cli/pkg/invkmod"
-	"os"
-	"path/filepath"
 
 	"github.com/spf13/cobra"
 )
@@ -61,7 +62,7 @@ func runModuleValidate(cmd *cobra.Command, args []string) error {
 
 	// Display module name if parsed successfully
 	if result.ModuleName != "" {
-		fmt.Printf("%s Name: %s\n", moduleInfoIcon, cmdStyle.Render(result.ModuleName))
+		fmt.Printf("%s Name: %s\n", moduleInfoIcon, CmdStyle.Render(result.ModuleName))
 	}
 
 	// Deep validation: parse invkfile

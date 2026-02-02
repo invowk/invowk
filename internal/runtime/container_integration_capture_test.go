@@ -4,10 +4,11 @@ package runtime
 
 import (
 	"context"
-	"invowk-cli/internal/container"
-	"invowk-cli/pkg/invkfile"
 	"strings"
 	"testing"
+
+	"invowk-cli/internal/container"
+	"invowk-cli/pkg/invkfile"
 )
 
 // TestContainerRuntime_ExecuteCapture tests the ExecuteCapture method that captures stdout/stderr

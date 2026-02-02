@@ -7,10 +7,11 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
-	"invowk-cli/internal/container"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"invowk-cli/internal/container"
 )
 
 // LayerProvisioner creates ephemeral container image layers that include

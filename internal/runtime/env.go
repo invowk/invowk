@@ -4,9 +4,10 @@ package runtime
 
 import (
 	"fmt"
-	"invowk-cli/pkg/invkfile"
 	"maps"
 	"os"
+
+	"invowk-cli/pkg/invkfile"
 )
 
 type envInheritConfig struct {

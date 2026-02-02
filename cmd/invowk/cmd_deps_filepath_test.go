@@ -4,12 +4,13 @@ package cmd
 
 import (
 	"errors"
-	"invowk-cli/internal/testutil/invkfiletest"
-	"invowk-cli/pkg/invkfile"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"invowk-cli/internal/testutil/invkfiletest"
+	"invowk-cli/pkg/invkfile"
 )
 
 // ============================================================================

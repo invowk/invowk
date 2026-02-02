@@ -4,11 +4,12 @@ package runtime
 
 import (
 	"fmt"
-	"invowk-cli/internal/container"
-	"invowk-cli/pkg/invkfile"
 	"os"
 	"os/exec"
 	"path/filepath"
+
+	"invowk-cli/internal/container"
+	"invowk-cli/pkg/invkfile"
 )
 
 // SupportsInteractive returns true if the container runtime can run interactively.

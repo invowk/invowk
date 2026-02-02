@@ -4,9 +4,10 @@ package cmd
 
 import (
 	"fmt"
-	"invowk-cli/pkg/invkfile"
 	"os"
 	"strings"
+
+	"invowk-cli/pkg/invkfile"
 )
 
 // captureUserEnv captures the current environment as a map.

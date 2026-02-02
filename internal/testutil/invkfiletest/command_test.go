@@ -3,8 +3,9 @@
 package invkfiletest
 
 import (
-	"invowk-cli/pkg/invkfile"
 	"testing"
+
+	"invowk-cli/pkg/invkfile"
 )
 
 func TestNewTestCommand_Defaults(t *testing.T) {

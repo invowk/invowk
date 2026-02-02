@@ -6,12 +6,13 @@ package config
 import (
 	_ "embed"
 	"fmt"
-	"invowk-cli/internal/cueutil"
-	"invowk-cli/internal/issue"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
+
+	"invowk-cli/internal/cueutil"
+	"invowk-cli/internal/issue"
 
 	"cuelang.org/go/cue"
 	"cuelang.org/go/cue/cuecontext"

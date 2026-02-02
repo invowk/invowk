@@ -7,12 +7,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"invowk-cli/internal/config"
-	"invowk-cli/internal/issue"
 	"os"
 
+	"invowk-cli/internal/config"
+	"invowk-cli/internal/issue"
+
 	"github.com/charmbracelet/fang"
-	"github.com/charmbracelet/lipgloss"
 	"github.com/spf13/cobra"
 )
 
@@ -31,27 +31,11 @@ var (
 	// interactive enables alternate screen buffer mode for command execution
 	interactive bool
 
-	// Style definitions
-	titleStyle = lipgloss.NewStyle().
-			Bold(true).
-			Foreground(lipgloss.Color("#7C3AED"))
-	subtitleStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#6B7280"))
-	successStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#10B981"))
-	errorStyle = lipgloss.NewStyle().
-			Bold(true).
-			Foreground(lipgloss.Color("#EF4444"))
-	warningStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#F59E0B"))
-	cmdStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#3B82F6"))
-
 	// rootCmd represents the base command when called without any subcommands
 	rootCmd = &cobra.Command{
 		Use:   "invowk",
 		Short: "A dynamically extensible command runner",
-		Long: titleStyle.Render("invowk") + subtitleStyle.Render(" - A dynamically extensible command runner") + `
+		Long: TitleStyle.Render("invowk") + SubtitleStyle.Render(" - A dynamically extensible command runner") + `
 
 invowk is a powerful command runner similar to 'just' that supports
 multiple execution runtimes: native shell, virtual shell (mvdan/sh),
@@ -60,12 +44,12 @@ and containerized execution (Docker/Podman).
 Commands are defined in 'invkfile' files using CUE format and can
 be organized hierarchically with support for dependencies.
 
-` + subtitleStyle.Render("Quick Start:") + `
+` + SubtitleStyle.Render("Quick Start:") + `
   1. Create an invkfile in your project directory
   2. Define commands using CUE syntax
   3. Run commands with: invowk cmd <command-name>
 
-` + subtitleStyle.Render("Examples:") + `
+` + SubtitleStyle.Render("Examples:") + `
   invowk cmd                List all available commands
   invowk cmd build          Run the 'build' command
   invowk cmd test.unit      Run nested 'test.unit' command
@@ -127,7 +111,7 @@ func initRootConfig() {
 	cfg, err := config.Load()
 	if err != nil {
 		// Always surface config loading errors to the user (FR-011)
-		fmt.Fprintln(os.Stderr, warningStyle.Render("Warning: ")+formatErrorForDisplay(err, verbose))
+		fmt.Fprintln(os.Stderr, WarningStyle.Render("Warning: ")+formatErrorForDisplay(err, verbose))
 	}
 
 	// Apply verbose from config if not set via flag

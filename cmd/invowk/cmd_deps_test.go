@@ -4,16 +4,17 @@ package cmd
 
 import (
 	"errors"
-	"invowk-cli/internal/config"
-	"invowk-cli/internal/runtime"
-	"invowk-cli/internal/testutil"
-	"invowk-cli/internal/testutil/invkfiletest"
-	"invowk-cli/pkg/invkfile"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"invowk-cli/internal/config"
+	"invowk-cli/internal/runtime"
+	"invowk-cli/internal/testutil"
+	"invowk-cli/internal/testutil/invkfiletest"
+	"invowk-cli/pkg/invkfile"
 )
 
 // intPtr is a helper to create a pointer to an int.

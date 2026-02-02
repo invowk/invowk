@@ -4,11 +4,12 @@ package cmd
 
 import (
 	"fmt"
+	"strings"
+
 	"invowk-cli/internal/config"
 	"invowk-cli/internal/discovery"
 	"invowk-cli/internal/runtime"
 	"invowk-cli/pkg/invkfile"
-	"strings"
 )
 
 // validateDependencies validates merged dependencies for a command.

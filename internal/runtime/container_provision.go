@@ -6,12 +6,13 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
-	"invowk-cli/internal/config"
-	"invowk-cli/internal/container"
-	"invowk-cli/pkg/invkfile"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"invowk-cli/internal/config"
+	"invowk-cli/internal/container"
+	"invowk-cli/pkg/invkfile"
 )
 
 // ensureProvisionedImage ensures the container image exists and is provisioned
