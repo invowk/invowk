@@ -5,11 +5,12 @@ package runtime
 import (
 	"bytes"
 	"context"
-	"invowk-cli/pkg/invkfile"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"invowk-cli/pkg/invkfile"
 )
 
 // TestContainerRuntime_Validate tests the Validate method

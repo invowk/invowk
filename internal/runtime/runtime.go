@@ -6,11 +6,12 @@ package runtime
 import (
 	"context"
 	"fmt"
-	"invowk-cli/pkg/invkfile"
 	"io"
 	"os"
 	"os/exec"
 	"time"
+
+	"invowk-cli/pkg/invkfile"
 )
 
 // Runtime type constants for different execution environments.

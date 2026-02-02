@@ -4,11 +4,12 @@ package cmd
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
+
 	"invowk-cli/internal/config"
 	"invowk-cli/pkg/invkfile"
 	"invowk-cli/pkg/invkmod"
-	"os"
-	"path/filepath"
 
 	"github.com/spf13/cobra"
 )
@@ -150,7 +151,7 @@ func runModuleImport(cmd *cobra.Command, args []string) error {
 
 	fmt.Printf("%s Module imported successfully\n", moduleSuccessIcon)
 	fmt.Println()
-	fmt.Printf("%s Name: %s\n", moduleInfoIcon, cmdStyle.Render(b.Name()))
+	fmt.Printf("%s Name: %s\n", moduleInfoIcon, CmdStyle.Render(b.Name()))
 	fmt.Printf("%s Path: %s\n", moduleInfoIcon, modulePathStyle.Render(modulePath))
 	fmt.Println()
 	fmt.Printf("%s The module commands are now available via invowk\n", moduleInfoIcon)

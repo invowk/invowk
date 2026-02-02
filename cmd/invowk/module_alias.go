@@ -4,9 +4,10 @@ package cmd
 
 import (
 	"fmt"
-	"invowk-cli/internal/config"
 	"os"
 	"path/filepath"
+
+	"invowk-cli/internal/config"
 
 	"github.com/spf13/cobra"
 )
@@ -117,7 +118,7 @@ func runModuleAliasSet(cmd *cobra.Command, args []string) error {
 	fmt.Printf("%s Alias set successfully\n", moduleSuccessIcon)
 	fmt.Println()
 	fmt.Printf("%s Path:  %s\n", moduleInfoIcon, modulePathStyle.Render(absPath))
-	fmt.Printf("%s Alias: %s\n", moduleInfoIcon, cmdStyle.Render(alias))
+	fmt.Printf("%s Alias: %s\n", moduleInfoIcon, CmdStyle.Render(alias))
 
 	return nil
 }
@@ -134,7 +135,7 @@ func runModuleAliasList(cmd *cobra.Command, args []string) error {
 	if len(cfg.ModuleAliases) == 0 {
 		fmt.Printf("%s No aliases configured\n", moduleWarningIcon)
 		fmt.Println()
-		fmt.Printf("%s To set an alias: %s\n", moduleInfoIcon, cmdStyle.Render("invowk module alias set <path> <alias>"))
+		fmt.Printf("%s To set an alias: %s\n", moduleInfoIcon, CmdStyle.Render("invowk module alias set <path> <alias>"))
 		return nil
 	}
 
@@ -142,7 +143,7 @@ func runModuleAliasList(cmd *cobra.Command, args []string) error {
 	fmt.Println()
 
 	for path, alias := range cfg.ModuleAliases {
-		fmt.Printf("%s %s\n", moduleSuccessIcon, cmdStyle.Render(alias))
+		fmt.Printf("%s %s\n", moduleSuccessIcon, CmdStyle.Render(alias))
 		fmt.Printf("   %s\n", moduleDetailStyle.Render(path))
 	}
 
@@ -187,7 +188,7 @@ func runModuleAliasRemove(cmd *cobra.Command, args []string) error {
 	fmt.Printf("%s Alias removed successfully\n", moduleSuccessIcon)
 	fmt.Println()
 	fmt.Printf("%s Path:  %s\n", moduleInfoIcon, modulePathStyle.Render(absPath))
-	fmt.Printf("%s Alias: %s (removed)\n", moduleInfoIcon, cmdStyle.Render(alias))
+	fmt.Printf("%s Alias: %s (removed)\n", moduleInfoIcon, CmdStyle.Render(alias))
 
 	return nil
 }

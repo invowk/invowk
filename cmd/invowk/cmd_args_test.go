@@ -5,10 +5,11 @@ package cmd
 import (
 	"errors"
 	"fmt"
-	"invowk-cli/internal/discovery"
-	"invowk-cli/pkg/invkfile"
 	"strings"
 	"testing"
+
+	"invowk-cli/internal/discovery"
+	"invowk-cli/pkg/invkfile"
 )
 
 // ---------------------------------------------------------------------------

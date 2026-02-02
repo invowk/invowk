@@ -5,11 +5,12 @@ package invkmod
 import (
 	"archive/zip"
 	"fmt"
-	"invowk-cli/internal/testutil"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"invowk-cli/internal/testutil"
 )
 
 // ============================================================================

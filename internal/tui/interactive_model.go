@@ -5,9 +5,10 @@ package tui
 import (
 	"encoding/json"
 	"fmt"
-	"invowk-cli/internal/tuiserver"
 	"strings"
 	"time"
+
+	"invowk-cli/internal/tuiserver"
 
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"

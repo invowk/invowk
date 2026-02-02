@@ -5,11 +5,12 @@ package cmd
 import (
 	"errors"
 	"fmt"
-	"invowk-cli/internal/tui"
-	"invowk-cli/internal/tuiserver"
 	"os"
 	"os/exec"
 	"strings"
+
+	"invowk-cli/internal/tui"
+	"invowk-cli/internal/tuiserver"
 
 	"github.com/spf13/cobra"
 )

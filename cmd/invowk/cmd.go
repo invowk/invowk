@@ -5,12 +5,13 @@ package cmd
 import (
 	"errors"
 	"fmt"
-	"invowk-cli/internal/discovery"
-	"invowk-cli/internal/sshserver"
-	"invowk-cli/pkg/invkfile"
 	"os"
 	"strings"
 	"sync"
+
+	"invowk-cli/internal/discovery"
+	"invowk-cli/internal/sshserver"
+	"invowk-cli/pkg/invkfile"
 
 	"github.com/spf13/cobra"
 )

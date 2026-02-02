@@ -4,12 +4,13 @@
 package config
 
 import (
-	"invowk-cli/internal/testutil"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"testing"
+
+	"invowk-cli/internal/testutil"
 )
 
 func TestDefaultConfig(t *testing.T) {

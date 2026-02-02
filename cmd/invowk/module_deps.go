@@ -5,9 +5,10 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"path/filepath"
+
 	"invowk-cli/pkg/invkfile"
 	"invowk-cli/pkg/invkmod"
-	"path/filepath"
 
 	"github.com/spf13/cobra"
 )
@@ -137,8 +138,8 @@ func runModuleAdd(cmd *cobra.Command, args []string) error {
 	fmt.Printf("%s Module added successfully\n", moduleSuccessIcon)
 	fmt.Println()
 	fmt.Printf("%s Git URL:   %s\n", moduleInfoIcon, modulePathStyle.Render(resolved.ModuleRef.GitURL))
-	fmt.Printf("%s Version:   %s → %s\n", moduleInfoIcon, version, cmdStyle.Render(resolved.ResolvedVersion))
-	fmt.Printf("%s Namespace: %s\n", moduleInfoIcon, cmdStyle.Render(resolved.Namespace))
+	fmt.Printf("%s Version:   %s → %s\n", moduleInfoIcon, version, CmdStyle.Render(resolved.ResolvedVersion))
+	fmt.Printf("%s Namespace: %s\n", moduleInfoIcon, CmdStyle.Render(resolved.Namespace))
 	fmt.Printf("%s Cache:     %s\n", moduleInfoIcon, moduleDetailStyle.Render(resolved.CachePath))
 
 	// Show how to add to invkfile
@@ -224,7 +225,7 @@ func runModuleSync(cmd *cobra.Command, args []string) error {
 	fmt.Println()
 	for _, p := range resolved {
 		fmt.Printf("%s %s → %s\n", moduleSuccessIcon,
-			cmdStyle.Render(p.Namespace),
+			CmdStyle.Render(p.Namespace),
 			moduleDetailStyle.Render(p.ResolvedVersion))
 	}
 
@@ -267,7 +268,7 @@ func runModuleUpdate(cmd *cobra.Command, args []string) error {
 	fmt.Println()
 	for _, p := range updated {
 		fmt.Printf("%s %s → %s\n", moduleSuccessIcon,
-			cmdStyle.Render(p.Namespace),
+			CmdStyle.Render(p.Namespace),
 			moduleDetailStyle.Render(p.ResolvedVersion))
 	}
 
@@ -296,7 +297,7 @@ func runModuleDeps(cmd *cobra.Command, args []string) error {
 	if len(deps) == 0 {
 		fmt.Printf("%s No module dependencies found\n", moduleInfoIcon)
 		fmt.Println()
-		fmt.Printf("%s To add modules, use: %s\n", moduleInfoIcon, cmdStyle.Render("invowk module add <git-url> <version>"))
+		fmt.Printf("%s To add modules, use: %s\n", moduleInfoIcon, CmdStyle.Render("invowk module add <git-url> <version>"))
 		return nil
 	}
 
@@ -304,7 +305,7 @@ func runModuleDeps(cmd *cobra.Command, args []string) error {
 	fmt.Println()
 
 	for _, dep := range deps {
-		fmt.Printf("%s %s\n", moduleSuccessIcon, cmdStyle.Render(dep.Namespace))
+		fmt.Printf("%s %s\n", moduleSuccessIcon, CmdStyle.Render(dep.Namespace))
 		fmt.Printf("   Git URL:  %s\n", dep.ModuleRef.GitURL)
 		fmt.Printf("   Version:  %s → %s\n", dep.ModuleRef.Version, moduleDetailStyle.Render(dep.ResolvedVersion))
 		if len(dep.GitCommit) >= 12 {

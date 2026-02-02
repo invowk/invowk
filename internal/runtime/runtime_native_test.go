@@ -5,13 +5,14 @@ package runtime
 import (
 	"bytes"
 	"errors"
-	"invowk-cli/internal/issue"
-	"invowk-cli/internal/testutil"
-	"invowk-cli/pkg/invkfile"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"invowk-cli/internal/issue"
+	"invowk-cli/internal/testutil"
+	"invowk-cli/pkg/invkfile"
 )
 
 func TestNativeRuntime_InlineScript(t *testing.T) {

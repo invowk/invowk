@@ -4,11 +4,11 @@ package cmd
 
 import (
 	"fmt"
-	"invowk-cli/internal/config"
-	"invowk-cli/internal/issue"
 	"os"
 
-	"github.com/charmbracelet/lipgloss"
+	"invowk-cli/internal/config"
+	"invowk-cli/internal/issue"
+
 	"github.com/spf13/cobra"
 )
 
@@ -98,10 +98,10 @@ func showConfig() error {
 		return err
 	}
 
-	// Style definitions
-	headerStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#7C3AED"))
-	keyStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#3B82F6"))
-	valueStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#10B981"))
+	// Style definitions using shared color palette
+	headerStyle := TitleStyle
+	keyStyle := CmdStyle
+	valueStyle := SuccessStyle
 
 	fmt.Println(headerStyle.Render("Current Configuration"))
 	fmt.Println()
@@ -111,7 +111,7 @@ func showConfig() error {
 	if cfgPath != "" {
 		fmt.Printf("%s: %s\n", keyStyle.Render("Config file"), cfgPath)
 	} else {
-		fmt.Printf("%s: %s\n", keyStyle.Render("Config file"), subtitleStyle.Render("(using defaults)"))
+		fmt.Printf("%s: %s\n", keyStyle.Render("Config file"), SubtitleStyle.Render("(using defaults)"))
 	}
 	fmt.Println()
 
@@ -122,7 +122,7 @@ func showConfig() error {
 	fmt.Println()
 	fmt.Printf("%s:\n", keyStyle.Render("search_paths"))
 	if len(cfg.SearchPaths) == 0 {
-		fmt.Printf("  %s\n", subtitleStyle.Render("(none configured)"))
+		fmt.Printf("  %s\n", SubtitleStyle.Render("(none configured)"))
 	} else {
 		for _, path := range cfg.SearchPaths {
 			fmt.Printf("  - %s\n", valueStyle.Render(path))
@@ -152,13 +152,13 @@ func initConfig() error {
 		return fmt.Errorf("failed to create config: %w", err)
 	}
 
-	fmt.Printf("%s Created default configuration at %s/config.cue\n", successStyle.Render("✓"), cfgDir)
+	fmt.Printf("%s Created default configuration at %s/config.cue\n", SuccessStyle.Render("✓"), cfgDir)
 
 	// Also create commands directory
 	cmdsDir, err := config.CommandsDir()
 	if err == nil {
 		if err := config.EnsureCommandsDir(); err == nil {
-			fmt.Printf("%s Created commands directory at %s\n", successStyle.Render("✓"), cmdsDir)
+			fmt.Printf("%s Created commands directory at %s\n", SuccessStyle.Render("✓"), cmdsDir)
 		}
 	}
 
@@ -218,6 +218,6 @@ func setConfigValue(key, value string) error {
 		return fmt.Errorf("failed to save config: %w", err)
 	}
 
-	fmt.Printf("%s Set %s = %s\n", successStyle.Render("✓"), key, value)
+	fmt.Printf("%s Set %s = %s\n", SuccessStyle.Render("✓"), key, value)
 	return nil
 }

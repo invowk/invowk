@@ -6,10 +6,11 @@ import (
 	_ "embed"
 	"errors"
 	"fmt"
-	"invowk-cli/internal/cueutil"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"invowk-cli/internal/cueutil"
 )
 
 const (

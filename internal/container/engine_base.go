@@ -6,10 +6,11 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"invowk-cli/internal/issue"
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"invowk-cli/internal/issue"
 )
 
 type (

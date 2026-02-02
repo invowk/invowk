@@ -6,11 +6,12 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"invowk-cli/internal/core/serverbase"
-	"invowk-cli/internal/testutil"
 	"net/http"
 	"testing"
 	"time"
+
+	"invowk-cli/internal/core/serverbase"
+	"invowk-cli/internal/testutil"
 )
 
 // simpleError is a simple error type for testing.

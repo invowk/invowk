@@ -4,9 +4,10 @@ package discovery
 
 import (
 	"errors"
-	"invowk-cli/pkg/invkfile"
 	"strings"
 	"testing"
+
+	"invowk-cli/pkg/invkfile"
 )
 
 const (

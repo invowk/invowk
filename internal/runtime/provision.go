@@ -6,12 +6,13 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
-	"invowk-cli/internal/config"
 	"io"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
+
+	"invowk-cli/internal/config"
 )
 
 type (

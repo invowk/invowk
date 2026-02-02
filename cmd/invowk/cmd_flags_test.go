@@ -3,9 +3,10 @@
 package cmd
 
 import (
-	"invowk-cli/internal/testutil"
 	"strings"
 	"testing"
+
+	"invowk-cli/internal/testutil"
 )
 
 // ---------------------------------------------------------------------------

@@ -4,6 +4,7 @@ package cmd
 
 import (
 	"fmt"
+
 	"invowk-cli/internal/config"
 	"invowk-cli/internal/discovery"
 
@@ -13,29 +14,29 @@ import (
 
 var (
 	// Style definitions for module validation output
-	moduleSuccessIcon = successStyle.Render("✓")
-	moduleErrorIcon   = errorStyle.Render("✗")
-	moduleWarningIcon = warningStyle.Render("!")
-	moduleInfoIcon    = subtitleStyle.Render("•")
+	moduleSuccessIcon = SuccessStyle.Render("✓")
+	moduleErrorIcon   = ErrorStyle.Render("✗")
+	moduleWarningIcon = WarningStyle.Render("!")
+	moduleInfoIcon    = SubtitleStyle.Render("•")
 
 	moduleTitleStyle = lipgloss.NewStyle().
 				Bold(true).
-				Foreground(lipgloss.Color("#7C3AED")).
+				Foreground(ColorPrimary).
 				MarginBottom(1)
 
 	moduleIssueStyle = lipgloss.NewStyle().
-				Foreground(lipgloss.Color("#EF4444")).
+				Foreground(ColorError).
 				PaddingLeft(2)
 
 	moduleIssueTypeStyle = lipgloss.NewStyle().
-				Foreground(lipgloss.Color("#6B7280")).
+				Foreground(ColorMuted).
 				Italic(true)
 
 	modulePathStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#3B82F6"))
+			Foreground(ColorHighlight)
 
 	moduleDetailStyle = lipgloss.NewStyle().
-				Foreground(lipgloss.Color("#6B7280")).
+				Foreground(ColorMuted).
 				PaddingLeft(2)
 
 	// moduleCmd represents the module command group
@@ -45,15 +46,15 @@ var (
 		Short:   "Manage invowk modules",
 		Long: `Manage invowk modules - self-contained folders containing invkfiles and scripts.
 
-A module is a folder with the ` + cmdStyle.Render(".invkmod") + ` suffix that contains:
-  - ` + cmdStyle.Render("invkmod.cue") + ` (required): Module metadata (name, version, dependencies)
-  - ` + cmdStyle.Render("invkfile.cue") + ` (optional): Command definitions
+A module is a folder with the ` + CmdStyle.Render(".invkmod") + ` suffix that contains:
+  - ` + CmdStyle.Render("invkmod.cue") + ` (required): Module metadata (name, version, dependencies)
+  - ` + CmdStyle.Render("invkfile.cue") + ` (optional): Command definitions
   - Optional script files referenced by command implementations
 
 Module names follow these rules:
   - Must start with a letter
   - Can contain alphanumeric characters with dot-separated segments
-  - Compatible with RDNS naming (e.g., ` + cmdStyle.Render("com.example.mycommands.invkmod") + `)
+  - Compatible with RDNS naming (e.g., ` + CmdStyle.Render("com.example.mycommands.invkmod") + `)
   - The folder prefix must match the 'module' field in invkmod.cue
 
 Examples:
@@ -162,7 +163,7 @@ func runModuleList(cmd *cobra.Command, args []string) error {
 
 		fmt.Printf("%s %s:\n", moduleInfoIcon, source.String())
 		for _, p := range sourceModules {
-			fmt.Printf("   %s %s\n", moduleSuccessIcon, cmdStyle.Render(p.Module.Name()))
+			fmt.Printf("   %s %s\n", moduleSuccessIcon, CmdStyle.Render(p.Module.Name()))
 			fmt.Printf("      %s\n", moduleDetailStyle.Render(p.Module.Path))
 		}
 		fmt.Println()

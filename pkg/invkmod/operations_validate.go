@@ -4,10 +4,11 @@ package invkmod
 
 import (
 	"fmt"
-	"invowk-cli/pkg/platform"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"invowk-cli/pkg/platform"
 )
 
 // Validate performs comprehensive validation of a module at the given path.

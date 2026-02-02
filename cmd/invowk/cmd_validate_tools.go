@@ -5,10 +5,11 @@ package cmd
 import (
 	"bytes"
 	"fmt"
-	"invowk-cli/internal/runtime"
-	"invowk-cli/pkg/invkfile"
 	"os/exec"
 	"strings"
+
+	"invowk-cli/internal/runtime"
+	"invowk-cli/pkg/invkfile"
 )
 
 // checkToolDependenciesWithRuntime verifies all required tools are available

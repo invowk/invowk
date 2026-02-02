@@ -3,9 +3,10 @@
 package tui
 
 import (
-	"invowk-cli/internal/tuiserver"
 	"os"
 	"regexp"
+
+	"invowk-cli/internal/tuiserver"
 
 	"github.com/charmbracelet/x/xpty"
 )

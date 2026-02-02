@@ -5,12 +5,13 @@ package cmd
 import (
 	"errors"
 	"fmt"
+	"os"
+	"strings"
+
 	"invowk-cli/internal/config"
 	"invowk-cli/internal/discovery"
 	"invowk-cli/internal/issue"
 	"invowk-cli/pkg/invkfile"
-	"os"
-	"strings"
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/spf13/cobra"
@@ -440,7 +441,7 @@ func listCommands() error {
 	for _, file := range files {
 		if file.Error != nil {
 			filesWithErrors++
-			fmt.Fprintf(os.Stderr, "%s Failed to parse %s: %v\n", errorStyle.Render("✗"), file.Path, file.Error)
+			fmt.Fprintf(os.Stderr, "%s Failed to parse %s: %v\n", ErrorStyle.Render("✗"), file.Path, file.Error)
 		}
 	}
 
@@ -478,14 +479,18 @@ func listCommands() error {
 		return fmt.Errorf("no commands found")
 	}
 
-	// Style for output
-	headerStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#7C3AED"))
-	verboseStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#9CA3AF"))
-	verboseHighlightStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#3B82F6"))
+	// Style for output - derived from shared color constants
+	sourceStyle := lipgloss.NewStyle().Foreground(ColorMuted).Italic(true)
+	nameStyle := lipgloss.NewStyle().Foreground(ColorHighlight).Bold(true)
+	descStyle := lipgloss.NewStyle().Foreground(ColorVerbose)
+	defaultRuntimeStyle := lipgloss.NewStyle().Foreground(ColorSuccess).Bold(true)
+	platformsStyle := lipgloss.NewStyle().Foreground(ColorWarning)
+	legendStyle := lipgloss.NewStyle().Foreground(ColorVerbose).Italic(true)
+	ambiguousStyle := lipgloss.NewStyle().Foreground(ColorError)
 
 	// Verbose mode: show discovery source details (FR-013)
 	if GetVerbose() {
-		fmt.Println(headerStyle.Render("Discovery Sources"))
+		fmt.Println(TitleStyle.Render("Discovery Sources"))
 		fmt.Println()
 
 		// Count sources by type and show details
@@ -513,28 +518,21 @@ func listCommands() error {
 				sourceType = file.Source.String()
 			}
 			fmt.Printf("  %s %s\n",
-				verboseHighlightStyle.Render("•"),
-				verboseStyle.Render(fmt.Sprintf("%s [%s]", file.Path, sourceType)))
+				VerboseHighlightStyle.Render("•"),
+				VerboseStyle.Render(fmt.Sprintf("%s [%s]", file.Path, sourceType)))
 		}
 		fmt.Println()
 
 		// Show summary
 		fmt.Printf("  %s\n",
-			verboseStyle.Render(fmt.Sprintf("Sources: %d invkfile(s), %d module(s)", invkfileCount, moduleCount)))
+			VerboseStyle.Render(fmt.Sprintf("Sources: %d invkfile(s), %d module(s)", invkfileCount, moduleCount)))
 		fmt.Printf("  %s\n",
-			verboseStyle.Render(fmt.Sprintf("Commands: %d total (%d ambiguous)",
+			VerboseStyle.Render(fmt.Sprintf("Commands: %d total (%d ambiguous)",
 				len(commandSet.Commands), len(commandSet.AmbiguousNames))))
 		fmt.Println()
 	}
-	sourceStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#6B7280")).Italic(true)
-	nameStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#3B82F6")).Bold(true)
-	descStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#9CA3AF"))
-	defaultRuntimeStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#10B981")).Bold(true)
-	platformsStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#F59E0B"))
-	legendStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#9CA3AF")).Italic(true)
-	ambiguousStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#EF4444"))
 
-	fmt.Println(headerStyle.Render("Available Commands"))
+	fmt.Println(TitleStyle.Render("Available Commands"))
 	fmt.Println(legendStyle.Render("  (* = default runtime)"))
 	fmt.Println()
 

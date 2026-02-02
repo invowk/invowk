@@ -4,12 +4,13 @@ package runtime
 
 import (
 	"context"
-	"invowk-cli/internal/config"
-	"invowk-cli/internal/testutil"
-	"invowk-cli/pkg/invkfile"
 	"os"
 	"path/filepath"
 	"testing"
+
+	"invowk-cli/internal/config"
+	"invowk-cli/internal/testutil"
+	"invowk-cli/pkg/invkfile"
 )
 
 // TestInteractiveRuntimeInterface verifies that all runtimes implement InteractiveRuntime.
