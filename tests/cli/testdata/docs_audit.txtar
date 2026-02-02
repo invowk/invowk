@@ -1,6 +1,6 @@
 # Test: docs audit report and JSON summary
 
-exec invowk docs audit --out $WORK/docs-audit.md --output json
+exec invowk internal docs audit --out $WORK/docs-audit.md --output json
 stdout '"ReportPath"'
 stdout '"total_surfaces"'
 stdout '"counts_by_mismatch_type"'

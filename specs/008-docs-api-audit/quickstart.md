@@ -5,7 +5,7 @@ Generate a single Markdown report that maps user-facing surfaces to documentatio
 
 ## Run the audit
 ```
-invowk docs audit --out docs-audit.md
+invowk internal docs audit --out docs-audit.md
 ```
 
 ## What the report includes

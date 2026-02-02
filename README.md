@@ -2084,12 +2084,15 @@ invowk cmd build --runtime virtual
 invowk --verbose cmd build
 ```
 
-### Documentation Audit
+### Internal Developer Commands
+
+Internal commands are hidden from user-facing help and are intended only for Invowk developers and agents.
+
 ```bash
-invowk docs audit --out docs-audit.md
+invowk internal docs audit --out docs-audit.md
 
 # Emit a JSON summary to stdout
-invowk docs audit --out docs-audit.md --output json
+invowk internal docs audit --out docs-audit.md --output json
 ```
 
 ## Interactive TUI Components

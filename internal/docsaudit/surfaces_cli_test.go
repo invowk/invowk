@@ -12,11 +12,13 @@ func TestDiscoverCLISurfaces(t *testing.T) {
 	root := &cobra.Command{Use: "invowk"}
 	root.PersistentFlags().Bool("verbose", false, "verbose output")
 
+	internalCmd := &cobra.Command{Use: "internal", Hidden: true}
 	docsCmd := &cobra.Command{Use: "docs"}
 	auditCmd := &cobra.Command{Use: "audit"}
 	auditCmd.Flags().StringP("out", "o", "", "output path")
 	docsCmd.AddCommand(auditCmd)
-	root.AddCommand(docsCmd)
+	internalCmd.AddCommand(docsCmd)
+	root.AddCommand(internalCmd)
 
 	surfaces, err := DiscoverCLISurfaces(root)
 	if err != nil {
@@ -28,7 +30,7 @@ func TestDiscoverCLISurfaces(t *testing.T) {
 		nameSet[surface.Name] = struct{}{}
 	}
 
-	for _, expected := range []string{"invowk", "invowk docs", "invowk docs audit", "invowk --verbose", "invowk docs audit --out"} {
+	for _, expected := range []string{"invowk", "invowk --verbose"} {
 		if _, ok := nameSet[expected]; !ok {
 			t.Fatalf("missing surface %q", expected)
 		}

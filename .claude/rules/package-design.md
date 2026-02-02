@@ -6,54 +6,38 @@ When two packages have a semantic relationship (e.g., `invkmod` and `invkfile`),
 
 ### Pattern: Lower-Level Defines Interfaces
 
-The lower-level domain defines interfaces for what it needs. The higher-level domain implements them.
+The lower-level domain defines interfaces or minimal data types for what it needs. The higher-level domain implements them.
 
 ```
 pkg/
-├── invkmod/           # Lower-level: defines interfaces
-│   ├── invkmod.go     # Core types
-│   └── interfaces.go  # CommandSource interface
-└── invkfile/          # Higher-level: implements interfaces
-    └── invkfile.go    # Invkfile implements CommandSource
+├── invkmod/           # Lower-level: defines minimal types/contracts
+│   └── invkmod.go     # Core types and module metadata
+└── invkfile/          # Higher-level: defines commands
+    └── invkfile.go    # Command definitions
 ```
 
 ### Example
 
 ```go
-// pkg/invkmod/interfaces.go
+// pkg/invkmod/invkmod.go
 package invkmod
 
-// CommandSource provides command definitions to a module.
-// Implemented by invkfile.Invkfile.
-type CommandSource interface {
-    Commands() []CommandInfo
-    // Add methods as needed
-}
-
-// CommandInfo is the minimal command metadata invkmod needs.
-type CommandInfo struct {
-    Name        string
-    Description string
+// Module represents a loaded invowk module, ready for use.
+// Commands holds parsed command definitions without importing pkg/invkfile.
+type Module struct {
+    // Commands is stored as any to avoid a dependency cycle.
+    // The concrete type is *invkfile.Invkfile.
+    Commands any
 }
 ```
 
-```go
-// pkg/invkfile/invkfile.go
-package invkfile
-
-import "invowk-cli/pkg/invkmod"
-
-// Invkfile implements invkmod.CommandSource
-func (i *Invkfile) Commands() []invkmod.CommandInfo {
-    // Convert internal commands to CommandInfo
-}
-```
+If you need a compile-time contract, introduce a small interface in `invkmod` and implement it in `invkfile`.
 
 ### Why This Pattern
 
 1. **No circular dependencies**: `invkfile → invkmod` only; `invkmod` never imports `invkfile`.
 2. **Future extensibility**: Supports 1:N relationships (one Module, many Invkfiles) without restructuring.
-3. **Testability**: `invkmod` can be tested with mock `CommandSource` implementations.
+3. **Testability**: Interfaces enable mocks when you need isolated testing.
 4. **Clear contracts**: Interfaces document exactly what the lower-level domain needs.
 
 ### When to Apply

@@ -84,7 +84,7 @@ As a release manager, I want findings categorized by severity and recommended ac
 - **FR-009**: The audit MUST be based on the current repository content and user-visible behavior only.
 - **FR-010**: The report MUST define a single canonical location for examples/samples and flag any example content located outside that canonical location.
 - **FR-011**: The audit report MUST be delivered as a single Markdown report file.
-- **FR-012**: `invowk docs audit` MUST support human-readable output (default) and JSON output for its summary via `--output human|json` (or `--json`), without changing the Markdown report file output.
+- **FR-012**: `invowk internal docs audit` MUST support human-readable output (default) and JSON output for its summary via `--output human|json` (or `--json`), without changing the Markdown report file output.
 
 ### Functional Acceptance Criteria
 

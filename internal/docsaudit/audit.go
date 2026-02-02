@@ -50,6 +50,12 @@ func Audit(ctx context.Context, opts Options) (*AuditReport, error) {
 		return nil, err
 	}
 
+	claudeFindings, err := AuditClaudeReferences(ctx, opts.RepoRoot)
+	if err != nil {
+		return nil, err
+	}
+	findings = append(findings, claudeFindings...)
+
 	findings = ApplySeverity(findings)
 	findings = ApplyRecommendations(findings)
 

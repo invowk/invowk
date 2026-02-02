@@ -70,7 +70,6 @@ func init() {
 	rootCmd.AddCommand(cmdCmd)
 	rootCmd.AddCommand(initCmd)
 	rootCmd.AddCommand(configCmd)
-	rootCmd.AddCommand(docsCmd)
 	rootCmd.AddCommand(completionCmd)
 	rootCmd.AddCommand(tuiCmd)
 	rootCmd.AddCommand(moduleCmd)

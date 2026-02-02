@@ -6863,25 +6863,6 @@ invowk config set default_runtime virtual
 invowk config set ui.color_scheme dark`,
   },
 
-  'reference/cli/docs-syntax': {
-    language: 'bash',
-    code: `invowk docs [command]`,
-  },
-
-  'reference/cli/docs-audit-syntax': {
-    language: 'bash',
-    code: `invowk docs audit [flags]`,
-  },
-
-  'reference/cli/docs-audit-examples': {
-    language: 'bash',
-    code: `# Generate a Markdown report
-invowk docs audit --out docs-audit.md
-
-# Emit JSON summary to stdout
-invowk docs audit --out docs-audit.md --output json`,
-  },
-
   'reference/cli/module-syntax': {
     language: 'bash',
     code: `invowk module [command]`,

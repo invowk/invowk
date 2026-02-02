@@ -7,6 +7,7 @@
 | Build | `make build` |
 | Build UPX | `make build-upx` |
 | Test all | `make test` |
+| Internal docs audit (hidden) | `invowk internal docs audit` |
 | Test short | `make test-short` |
 | Single test | `go test -v -run TestName ./path/...` |
 | License check | `make license-check` |
@@ -23,6 +24,12 @@
 - **Node.js 20+** - For website development (optional).
 - **Docker or Podman** - For container runtime tests (optional).
 - **UPX** - For compressed builds (optional).
+
+## Internal Commands (Hidden)
+
+- All `invowk internal *` commands and subcommands MUST remain hidden.
+- Do NOT document internal commands in website docs; only mention them in `README.md` and agent-facing docs under `.claude/`.
+- Use `invowk internal docs audit` for documentation audits as a developer/agent tool.
 
 ## Build Commands
 
@@ -147,8 +154,11 @@ cosign verify-blob \
 
 | Workflow | Trigger | Purpose |
 |----------|---------|---------|
-| `ci.yml` | Push/PR to main | Run tests, build verification, license check |
+| `ci.yml` | Push/PR to main (non-website changes) | Run tests, build verification, license check |
+| `lint.yml` | Push/PR to main (non-website changes) | Advisory golangci-lint run |
 | `release.yml` | Tag push (v*) | Run tests, then build and publish release |
+| `test-website.yml` | PR to main (website changes) | Build website for PR validation |
+| `deploy-website.yml` | Push to main (website changes) or manual | Build and deploy GitHub Pages site |
 
 ### Versioning
 

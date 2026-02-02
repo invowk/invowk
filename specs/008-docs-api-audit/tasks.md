@@ -3,7 +3,7 @@
 **Input**: Design documents from `/specs/008-docs-api-audit/`
 **Prerequisites**: plan.md (required), spec.md (required for user stories), research.md, data-model.md, contracts/, quickstart.md
 
-**Tests**: Tests are required and must include unit coverage plus testscript CLI coverage for `invowk docs audit`.
+**Tests**: Tests are required and must include unit coverage plus testscript CLI coverage for `invowk internal docs audit`.
 
 **Organization**: Tasks are grouped by user story to enable independent implementation and testing of each story.
 
@@ -18,8 +18,8 @@
 **Purpose**: Project initialization and CLI scaffolding
 
 - [X] T001 Create audit package entrypoint in `internal/docsaudit/docsaudit.go`
-- [X] T002 Create and register `docs` command group in `cmd/invowk/docs.go`
-- [X] T003 Implement `docs audit` subcommand wiring and flags (including `--output human|json`) in `cmd/invowk/docs_audit.go`
+- [X] T002 Create and register `internal docs` command group in `cmd/invowk/docs.go`
+- [X] T003 Implement `internal docs audit` subcommand wiring and flags (including `--output human|json`) in `cmd/invowk/docs_audit.go`
 
 ---
 

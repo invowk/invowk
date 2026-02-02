@@ -23,7 +23,8 @@ var (
 		Short: "Audit documentation against current features",
 		Long: `Generate a documentation audit report and emit a summary with
 coverage metrics, mismatch counts, and report path details.`,
-		RunE: runDocsAudit,
+		Hidden: true,
+		RunE:   runDocsAudit,
 	}
 )
 

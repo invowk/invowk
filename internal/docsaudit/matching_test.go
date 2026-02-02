@@ -14,7 +14,7 @@ func TestMatchDocumentation(t *testing.T) {
 	root := t.TempDir()
 	docPath := filepath.Join(root, "README.md")
 	content := strings.Join([]string{
-		"invowk docs audit --out docs-audit.md",
+		"invowk internal docs audit --out docs-audit.md",
 		"invowk ghost",
 	}, "\n")
 	if err := os.WriteFile(docPath, []byte(content), 0o644); err != nil {
@@ -39,14 +39,14 @@ func TestMatchDocumentation(t *testing.T) {
 
 	surfaces := []UserFacingSurface{
 		{
-			ID:   "cli:command:invowk docs audit",
+			ID:   "cli:command:invowk internal docs audit",
 			Type: SurfaceTypeCommand,
-			Name: "invowk docs audit",
+			Name: "invowk internal docs audit",
 		},
 		{
-			ID:   "cli:flag:invowk docs audit:out",
+			ID:   "cli:flag:invowk internal docs audit:out",
 			Type: SurfaceTypeFlag,
-			Name: "invowk docs audit --out",
+			Name: "invowk internal docs audit --out",
 		},
 	}
 

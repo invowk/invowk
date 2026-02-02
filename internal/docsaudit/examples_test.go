@@ -15,7 +15,7 @@ func TestExtractAndValidateExamples(t *testing.T) {
 	mdPath := filepath.Join(root, "README.md")
 	mdContent := strings.Join([]string{
 		"```bash",
-		"invowk docs audit",
+		"invowk internal docs audit",
 		"```",
 	}, "\n")
 	if err := os.WriteFile(mdPath, []byte(mdContent), 0o644); err != nil {
@@ -43,7 +43,7 @@ func TestExtractAndValidateExamples(t *testing.T) {
 		t.Fatalf("expected 2 examples, got %d", len(examples))
 	}
 
-	surfaces := []UserFacingSurface{{Type: SurfaceTypeCommand, Name: "invowk docs audit"}}
+	surfaces := []UserFacingSurface{{Type: SurfaceTypeCommand, Name: "invowk internal docs audit"}}
 	validated, err := ValidateExamples(context.Background(), examples, surfaces)
 	if err != nil {
 		t.Fatalf("ValidateExamples: %v", err)
