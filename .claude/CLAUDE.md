@@ -40,9 +40,33 @@ When tasks have dependencies and must be executed in order:
 3. Main agent synthesizes results and reports to user
 ```
 
-### Agent Selection for Code Exploration
+### gopls Requirement for All Code Operations
 
-**CRITICAL:** For code exploration tasks, the `code-explorer` agent (`feature-dev:code-explorer`) MUST ALWAYS be used instead of the built-in `Task(Explore)` agent. The custom `code-explorer` skill provides project-specific exploration capabilities optimized for this codebase.
+**CRITICAL:** All agents (main and subagents) MUST use `gopls` (Go Language Server via the `gopls-lsp` MCP plugin) for ALL code operations in this Go codebase:
+
+| Operation | gopls Tool | NOT Allowed |
+|-----------|------------|-------------|
+| **Symbol lookup** | `gopls: definition`, `gopls: references` | Manual grep for function names |
+| **Code exploration** | `gopls: hover`, `gopls: documentSymbol` | Reading files and scanning by eye |
+| **Finding usages** | `gopls: references`, `gopls: implementation` | Grep for symbol names |
+| **Rename/refactor** | `gopls: rename` | Find-and-replace across files |
+| **Understanding types** | `gopls: hover`, `gopls: typeDefinition` | Inferring from context |
+| **Finding call sites** | `gopls: callHierarchy` | Grep for function calls |
+
+**Why gopls is mandatory:**
+1. **Semantic accuracy** — gopls understands Go's type system, imports, and scopes; text search does not
+2. **Refactor safety** — `gopls: rename` handles shadowing, package boundaries, and test files correctly
+3. **Cross-package navigation** — gopls resolves imports and follows symbols across package boundaries
+4. **Interface implementations** — gopls finds all implementations of an interface; grep cannot
+
+**Exceptions (gopls NOT required):**
+- Quick file discovery via `Glob` (e.g., "find all `*_test.go` files")
+- Searching for string literals, comments, or non-Go content
+- Reading configuration files (`.cue`, `.json`, `.yaml`, `.md`)
+
+**Agent Selection:**
+- For **code exploration tasks**, the `code-explorer` agent (`feature-dev:code-explorer`) MUST be used instead of the built-in `Task(Explore)` agent
+- All subagents performing Go code operations MUST have access to and use gopls tools
 
 ### What the Main Agent Does Directly (NO subagents)
 
