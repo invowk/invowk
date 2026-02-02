@@ -12,6 +12,8 @@ Invowk is a dynamically extensible command runner (similar to `just`, `task`, an
 
 ## Rules for Agents (Critical)
 
+**CRITICAL:** Whenever possible and appropriate, multiple Tasks and Subagents must be used.
+
 **CRITICAL:** The files in `.claude/rules/` define the authoritative rules for agents. EVERYTIME there is ANY change to files/rules inside `.claude/rules` (new file, file rename, file removed, etc.), the index/sync map in this file MUST be updated accordingly.
 
 **Index / Sync Map (must match `.claude/rules/`):**
