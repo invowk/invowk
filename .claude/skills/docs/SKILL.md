@@ -1,3 +1,9 @@
+---
+name: docs
+description: Documentation and Docusaurus website workflow, sync map, and i18n
+disable-model-invocation: true
+---
+
 # Docs and Website
 
 This skill covers updating documentation and the Docusaurus website for Invowk.

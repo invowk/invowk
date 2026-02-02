@@ -1,3 +1,9 @@
+---
+name: uroot
+description: u-root utility implementation patterns (streaming I/O, error format, symlinks)
+disable-model-invocation: true
+---
+
 # u-root Utils Integration
 
 This skill covers implementing u-root utility commands in Invowk.

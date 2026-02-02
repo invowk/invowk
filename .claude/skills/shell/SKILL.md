@@ -1,3 +1,9 @@
+---
+name: shell
+description: Shell runtime rules for mvdan/sh and bash script execution gotchas
+disable-model-invocation: true
+---
+
 # Invowk Shell Runtime Rules
 
 This skill covers how Invowk handles shell interpreters and script execution internally.

@@ -1,3 +1,9 @@
+---
+name: server
+description: Server state machine pattern for long-running components (SSH, TUI servers)
+disable-model-invocation: true
+---
+
 # Server Pattern
 
 This skill describes the standard pattern for implementing long-running server components in Invowk.
