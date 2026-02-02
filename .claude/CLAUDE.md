@@ -25,6 +25,7 @@ Invowk is a dynamically extensible command runner (similar to `just`, `task`, an
 - One task per subagent for focused execution
 
 ### 3. Self-Improvement Loop
+- Always load all rules from `.claude/rules/` for all agents and subagents before doing anything else if those rules haven't been loaded yet
 - After ANY correction from the user or important learnings: update `tasks/lessons.md` with the pattern
 - Write rules for yourself that prevent the same mistake
 - Ruthlessly iterate on these lessons until mistake rate drops
