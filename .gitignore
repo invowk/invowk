@@ -24,3 +24,14 @@ Thumbs.db
 
 # VHS test output (generated files, not golden files)
 vhs/output/
+
+# Common local artifacts
+*.exe
+vendor/
+node_modules/
+dist/
+build/
+*.log
+.env*
+*.tmp
+.idea/

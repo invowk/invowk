@@ -1,0 +1,56 @@
+---
+openapi: 3.0.3
+info:
+  title: Documentation Audit Contract
+  version: 1.0.0
+paths:
+  /docs/audit:
+    post:
+      summary: Generate documentation audit report
+      description: Generates a single Markdown report for the current repository.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuditRequest'
+      responses:
+        '200':
+          description: Markdown audit report
+          content:
+            text/markdown:
+              schema:
+                type: string
+        '400':
+          description: Invalid request or scope
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+components:
+  schemas:
+    AuditRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        repoRoot:
+          type: string
+          description: Absolute path to repository root
+        docsSources:
+          type: array
+          items:
+            type: string
+          description: Optional list of documentation paths to include
+        canonicalExamplesPath:
+          type: string
+          description: Canonical examples or samples directory path
+        excludePkgApis:
+          type: boolean
+          default: true
+          description: Exclude pkg/ APIs unless explicitly documented
+    Error:
+      type: object
+      additionalProperties: false
+      properties:
+        message:
+          type: string

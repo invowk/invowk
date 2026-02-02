@@ -10,73 +10,76 @@ Invowk is a dynamically extensible command runner (similar to `just`, `task`, an
 
   The only guarantee Invowk provides about cross `cmd`/module visibility is that `cmds` from a given module (e.g: `module foo`) that requires another module (e.g.: `module bar`) will be able to see/call `cmds` from the required module -- or, in other words, even though transitive dependencies are supported, only first-level dependencies are effectively exposed to the caller (e.g.: `cmds` from `module foo` will be able to see/call `cmds` from `module bar`, but not from the dependencies of `module bar`).
 
-## Agentic Context Discipline & Subagent Policy
+## Workflow Orchestration
 
-**CRITICAL:** Subagents are **MANDATORY** for ALL code reads/explorations AND ALL code edits. The main agent must NEVER directly read source code files or edit files—these operations MUST be delegated to subagents.
+### 1. Plan Mode Default
+- Enter plan mode for ANY non-trivial task (3+ steps or architectural decisions)
+- If something goes sideways, STOP and re-plan immediately - don't keep pushing
+- Use plan mode for verification steps, not just building
+- Write detailed specs upfront to reduce ambiguity
 
-### Mandatory Subagent Usage
+### 2. Subagent Strategy
+- Use subagents liberally to keep main context window clean
+- Offload research, exploration, and parallel analysis to subagents
+- For complex problems, throw more compute at it via subagents
+- One task per subagent for focused execution
 
-**ALL of the following operations MUST be delegated to subagents:**
+### 3. Self-Improvement Loop
+- Always load all rules from `.claude/rules/` for all agents and subagents before doing anything else if those rules haven't been loaded yet
+- After ANY correction from the user or important learnings: update `tasks/lessons.md` with the pattern
+- Write rules for yourself that prevent the same mistake
+- Ruthlessly iterate on these lessons until mistake rate drops
+- Review lessons at session start for relevant project
 
-1. **Code Reads/Explorations**: ANY file read for understanding code (even a single file)
-2. **Code Edits**: ANY file modification (even a single file, even a single line)
-3. **Research Tasks**: Code exploration, reviews, audits, schema analysis, migration planning
-4. **Multi-Surface Work**: Cross-domain operations (e.g., "frontend" + "backend" + schemas)
+### 4. Verification Before Done
+- Never mark a task complete without proving it works
+- Diff behavior between main and your changes when relevant
+- Ask yourself: "Would a staff engineer approve this?"
+- Run tests, check logs, demonstrate correctness
 
-**Parallelization Rule**: When multiple files need to be read or edited, launch **1 subagent per file** in parallel (single message, multiple Task tool calls).
+### 5. Demand Elegance (Balanced)
+- For non-trivial changes: pause and ask "is there a more elegant way?"
+- If a fix feels hacky: "Knowing everything I know now, implement the elegant solution"
+- Skip this for simple, obvious fixes - don't over-engineer
+- Challenge your own work before presenting it
 
-### Sequential Task Handling
+### 6. Autonomous Bug Fixing
+- When given a bug report: just fix it. Don't ask for hand-holding
+- Point at logs, errors, failing tests - then resolve them
+- Zero context switching required from the user
+- Go fix failing CI tests without being told how
 
-When tasks have dependencies and must be executed in order:
+## Task Management
 
-1. **STILL use subagents** for each task—sequential dependency does NOT exempt from subagent requirement
-2. **Wait for completion** of each subagent before launching the next dependent one
-3. **Main agent orchestrates** the sequence but NEVER performs the actual reads/edits directly
+1. **Plan First**: Write plan to `tasks/todo.md` with checkable items
+2. **Verify Plan**: Check in before starting implementation
+3. **Track Progress**: Mark items complete as you go
+4. **Explain Changes**: High-level summary at each step
+5. **Document Results**: Add review section to `tasks/todo.md`
+6. **Capture Lessons**: Update `tasks/lessons.md` after corrections
+7. **Convert Lessons Into Permanent Rules**: Review and find the best place inside `.claude/rules/` to place the updated lessons from `tasks/lessons.md` if they aren't there already, write them out, then delete `tasks/lessons.md` if the user agrees
 
-**Example (sequential edits where B depends on A):**
-```
-1. Launch subagent A to edit file X → wait for completion
-2. Launch subagent B to edit file Y (depends on A's changes) → wait for completion
-3. Main agent synthesizes results and reports to user
-```
+## Core Principles
 
-### gopls Requirement for All Code Operations
+- **Simplicity First**: Make every change as simple as possible. Impact minimal code.
+- **No Laziness**: Find root causes. No temporary fixes. Senior developer standards.
+- **Minimal Impact**: Changes should only touch what's necessary. Avoid introducing bugs.
 
-**CRITICAL:** All agents (main and subagents) MUST use `gopls` (Go Language Server via the `gopls-lsp` MCP plugin) for ALL code operations in this Go codebase:
+## Rules for Agents (Critical)
 
-| Operation | gopls Tool | NOT Allowed |
-|-----------|------------|-------------|
-| **Symbol lookup** | `gopls: definition`, `gopls: references` | Manual grep for function names |
-| **Code exploration** | `gopls: hover`, `gopls: documentSymbol` | Reading files and scanning by eye |
-| **Finding usages** | `gopls: references`, `gopls: implementation` | Grep for symbol names |
-| **Rename/refactor** | `gopls: rename` | Find-and-replace across files |
-| **Understanding types** | `gopls: hover`, `gopls: typeDefinition` | Inferring from context |
-| **Finding call sites** | `gopls: callHierarchy` | Grep for function calls |
+**CRITICAL:** Whenever possible and appropriate, multiple Tasks and Subagents must be used.
 
-**Why gopls is mandatory:**
-1. **Semantic accuracy** — gopls understands Go's type system, imports, and scopes; text search does not
-2. **Refactor safety** — `gopls: rename` handles shadowing, package boundaries, and test files correctly
-3. **Cross-package navigation** — gopls resolves imports and follows symbols across package boundaries
-4. **Interface implementations** — gopls finds all implementations of an interface; grep cannot
+**CRITICAL:** The files in `.claude/rules/` define the authoritative rules for agents. EVERYTIME there is ANY change to files/rules inside `.claude/rules` (new file, file rename, file removed, etc.), the index/sync map in this file MUST be updated accordingly.
 
-**Exceptions (gopls NOT required):**
-- Quick file discovery via `Glob` (e.g., "find all `*_test.go` files")
-- Searching for string literals, comments, or non-Go content
-- Reading configuration files (`.cue`, `.json`, `.yaml`, `.md`)
-
-**Agent Selection:**
-- For **code exploration tasks**, the `code-explorer` agent (`feature-dev:code-explorer`) MUST be used instead of the built-in `Task(Explore)` agent
-- All subagents performing Go code operations MUST have access to and use gopls tools
-
-### What the Main Agent Does Directly (NO subagents)
-
-The main agent performs these activities directly—do NOT delegate:
-
-- **Orchestration**: Coordinating subagent launches, sequencing, and result synthesis
-- **Planning**: Designing implementation approaches, creating plans
-- **Decision-Making**: Choosing between alternatives based on subagent findings
-- **User Communication**: Explaining results, asking clarifying questions
-- **Lightweight Lookups**: Quick glob/grep for file discovery (NOT for reading file contents)
+**Index / Sync Map (must match `.claude/rules/`):**
+- [`.claude/rules/checklist.md`](.claude/rules/checklist.md) - Pre-completion verification steps.
+- [`.claude/rules/commands.md`](.claude/rules/commands.md) - Build, test, and release commands.
+- [`.claude/rules/general-rules.md`](.claude/rules/general-rules.md) - Instruction priority, code quality, documentation.
+- [`.claude/rules/git.md`](.claude/rules/git.md) - Commit signing, squash merge, message format.
+- [`.claude/rules/go-patterns.md`](.claude/rules/go-patterns.md) - Go style, naming, errors, interfaces.
+- [`.claude/rules/licensing.md`](.claude/rules/licensing.md) - SPDX headers and MPL-2.0 rules.
+- [`.claude/rules/package-design.md`](.claude/rules/package-design.md) - Package boundaries and module design.
+- [`.claude/rules/windows.md`](.claude/rules/windows.md) - Windows-specific constraints and guidance.
 
 ## Architecture Overview
 
@@ -141,11 +144,6 @@ invkfile.cue -> CUE Parser -> pkg/invkfile -> Runtime Selection -> Execution
 - `mvdan.cc/sh/v3` - Virtual shell implementation.
 
 ## Active Technologies
-- N/A (no persistent storage required) (005-uroot-utils)
-- Go 1.25+ + CUE v0.15.3, Cobra, Viper, Bubble Tea, mvdan/sh (006-go-codebase-audit)
-- N/A (no persistent storage) (006-go-codebase-audit)
-- Go 1.25+ with CUE v0.15.3 + Cobra, Viper, Bubble Tea, Lip Gloss, mvdan/sh (007-pkg-structure-audit)
-- N/A (file-based CUE configuration only) (007-pkg-structure-audit)
 
 **Core Stack**:
 - Go 1.25+ with `cuelang.org/go v0.15.3` (CUE schemas and validation)
@@ -159,12 +157,5 @@ invkfile.cue -> CUE Parser -> pkg/invkfile -> Runtime Selection -> Execution
 - `github.com/rogpeppe/go-internal/testscript` (CLI integration tests)
 
 **Configuration**:
-- File-based CUE configuration files (`invkfile.cue`, `invkmod.cue`, `config.cue`)
+- File-based CUE configuration files (`invkfile.cue`, `invkmod.cue`, user `config.cue`)
 - Schema sync tests verify Go struct tags match CUE schema fields at CI time
-
-## Recent Changes
-
-- 006-go-codebase-audit: Large file splits (>800 lines → <600 lines), extracted `internal/core/serverbase/` and `internal/cueutil/` packages, container engine base abstraction, ActionableError type, CUE schema validation constraints
-- 004-cue-lib-optimization: CUE library usage patterns documented in `.claude/skills/cue/`, schema sync tests added for all CUE-parsed types, file size guards added to parse functions
-- 003-test-suite-audit: Comprehensive test suite improvements, testscript CLI tests
-- 002-codebase-cleanup-audit: Initial codebase cleanup and standardization
