@@ -5,6 +5,7 @@ package container
 import (
 	"context"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"testing"
 )
@@ -14,9 +15,10 @@ func TestBaseCLIEngine_BuildArgs(t *testing.T) {
 	engine := NewBaseCLIEngine("/usr/bin/docker")
 
 	tests := []struct {
-		name     string
-		opts     BuildOptions
-		expected []string
+		name          string
+		opts          BuildOptions
+		expected      []string
+		skipOnWindows bool
 	}{
 		{
 			name: "minimal build",
@@ -48,7 +50,8 @@ func TestBaseCLIEngine_BuildArgs(t *testing.T) {
 				ContextDir: "/app",
 				Dockerfile: "/custom/Dockerfile",
 			},
-			expected: []string{"build", "-f", "/custom/Dockerfile", "/app"},
+			expected:      []string{"build", "-f", "/custom/Dockerfile", "/app"},
+			skipOnWindows: true, // Unix-style absolute paths are not meaningful on Windows
 		},
 		{
 			name: "build with no-cache",
@@ -73,6 +76,9 @@ func TestBaseCLIEngine_BuildArgs(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			if tt.skipOnWindows && runtime.GOOS == "windows" {
+				t.Skip("skipping: Unix-style absolute paths are not meaningful on Windows")
+			}
 			args := engine.BuildArgs(tt.opts)
 
 			// Check all expected args are present in order

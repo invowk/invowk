@@ -5,6 +5,7 @@ package container
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 )
 
@@ -15,6 +16,7 @@ func TestResolveDockerfilePath(t *testing.T) {
 		dockerfilePath string
 		expected       string
 		wantErr        bool
+		skipOnWindows  bool
 	}{
 		{
 			name:           "empty path",
@@ -29,6 +31,7 @@ func TestResolveDockerfilePath(t *testing.T) {
 			dockerfilePath: "/other/Dockerfile",
 			expected:       "/other/Dockerfile",
 			wantErr:        false,
+			skipOnWindows:  true, // Unix-style absolute paths are not meaningful on Windows
 		},
 		{
 			name:           "relative path",
@@ -64,6 +67,9 @@ func TestResolveDockerfilePath(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			if tt.skipOnWindows && runtime.GOOS == "windows" {
+				t.Skip("skipping: Unix-style absolute paths are not meaningful on Windows")
+			}
 			got, err := ResolveDockerfilePath(tt.contextPath, tt.dockerfilePath)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ResolveDockerfilePath() error = %v, wantErr %v", err, tt.wantErr)

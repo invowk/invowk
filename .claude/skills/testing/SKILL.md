@@ -446,7 +446,7 @@ The test passed on slower runners (ubuntu-24.04) but failed on faster ones where
 - **Duplicated helpers** - Consolidate common test patterns in `testutil` package.
 - **`time.Sleep()` in tests** - Use clock injection for deterministic time-dependent tests.
 - **Hardcoded `/tmp` paths** - Use `t.TempDir()` for isolation and auto-cleanup.
-- **Hardcoded path separators** - Use `filepath.Join()` in assertions; hardcoded `/` fails on Windows.
+- **Hardcoded path separators** - Use `filepath.Join()` in assertions; hardcoded `/` fails on Windows. See `.claude/rules/windows.md` for comprehensive path handling guidance.
 - **Testing struct fields** - Test behavior, not that Go can store values in structs.
 - **Missing TUI tests** - Test model state transitions even if terminal I/O can't be mocked.
 - **Flaky tests across environments** - Suspect race conditions; run with `-race` flag multiple times.
