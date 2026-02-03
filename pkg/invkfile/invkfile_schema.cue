@@ -90,8 +90,9 @@ import "strings"
 	// containerfile specifies the path to Containerfile/Dockerfile relative to invkfile (optional)
 	// Used to build a container image for command execution
 	// Mutually exclusive with 'image'
-	// Path must be relative and cannot contain traversal sequences
-	containerfile?: string & strings.MaxRunes(4096) & !strings.HasPrefix("/") & !strings.Contains("..")
+	// Path must be relative (not start with /) and cannot contain path traversal (..)
+	// Note: Additional path security validation is performed in Go (see validation_filesystem.go)
+	containerfile?: string & strings.MaxRunes(4096) & =~"^[^/]" & !~"\\.\\."
 
 	// image specifies a pre-built container image to use (optional)
 	// Mutually exclusive with 'containerfile'
