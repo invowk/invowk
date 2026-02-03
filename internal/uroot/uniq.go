@@ -8,8 +8,6 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"os"
-	"path/filepath"
 	"strings"
 )
 
@@ -60,25 +58,16 @@ func (c *uniqCommand) Run(ctx context.Context, args []string) error {
 	// Parse known flags, ignore errors for unsupported flags
 	_ = fs.Parse(args[1:]) //nolint:errcheck // Intentionally ignoring unsupported flags
 
+	// uniq only processes the first file (or stdin)
 	files := fs.Args()
-
-	var input io.Reader
-	if len(files) == 0 {
-		input = hc.Stdin
-	} else {
-		path := files[0]
-		if !filepath.IsAbs(path) {
-			path = filepath.Join(hc.Dir, path)
-		}
-		f, err := os.Open(path)
-		if err != nil {
-			return wrapError(c.name, err)
-		}
-		defer func() { _ = f.Close() }() // Read-only file; close error non-critical
-		input = f
+	if len(files) > 1 {
+		files = files[:1]
 	}
 
-	return c.processInput(hc.Stdout, input, *showCount, *duplicatesOnly, *uniqueOnly, *ignoreCase)
+	return ProcessFilesOrStdin(files, hc.Stdin, hc.Dir, c.name,
+		func(r io.Reader, _ string, _, _ int) error {
+			return c.processInput(hc.Stdout, r, *showCount, *duplicatesOnly, *uniqueOnly, *ignoreCase)
+		})
 }
 
 // processInput processes input and writes unique adjacent lines to output.

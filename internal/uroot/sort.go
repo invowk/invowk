@@ -8,8 +8,6 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"os"
-	"path/filepath"
 	gosort "sort"
 	"strconv"
 	"strings"
@@ -68,41 +66,20 @@ func (c *sortCommand) Run(ctx context.Context, args []string) error {
 	// Parse known flags, ignore errors for unsupported flags
 	_ = fs.Parse(args[1:]) //nolint:errcheck // Intentionally ignoring unsupported flags
 
-	files := fs.Args()
-
-	// Collect all lines
+	// Collect all lines from all files
 	var lines []string
 
-	if len(files) == 0 {
-		// Read from stdin
-		var err error
-		lines, err = c.readLines(hc.Stdin)
-		if err != nil {
-			return wrapError(c.name, err)
-		}
-	} else {
-		// Read from files
-		for _, file := range files {
-			fileLines, err := func() ([]string, error) {
-				path := file
-				if !filepath.IsAbs(path) {
-					path = filepath.Join(hc.Dir, path)
-				}
-
-				f, err := os.Open(path)
-				if err != nil {
-					return nil, err
-				}
-				defer func() { _ = f.Close() }() // Read-only file; close error non-critical
-
-				return c.readLines(f)
-			}()
-			if err != nil {
-				return wrapError(c.name, err)
+	err := ProcessFilesOrStdin(fs.Args(), hc.Stdin, hc.Dir, c.name,
+		func(r io.Reader, _ string, _, _ int) error {
+			fileLines, readErr := c.readLines(r)
+			if readErr != nil {
+				return readErr
 			}
-
 			lines = append(lines, fileLines...)
-		}
+			return nil
+		})
+	if err != nil {
+		return err
 	}
 
 	// Sort the lines

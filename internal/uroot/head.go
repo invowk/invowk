@@ -8,8 +8,6 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"os"
-	"path/filepath"
 )
 
 // headCommand implements the head utility.
@@ -53,41 +51,17 @@ func (c *headCommand) Run(ctx context.Context, args []string) error {
 	// Parse known flags, ignore errors for unsupported flags
 	_ = fs.Parse(args[1:]) //nolint:errcheck // Intentionally ignoring unsupported flags
 
-	files := fs.Args()
-	if len(files) == 0 {
-		// Read from stdin
-		return c.processReader(hc.Stdout, hc.Stdin, *numLines)
-	}
-
-	// Process files
-	for i, file := range files {
-		if err := func() error {
-			path := file
-			if !filepath.IsAbs(path) {
-				path = filepath.Join(hc.Dir, path)
-			}
-
-			f, err := os.Open(path)
-			if err != nil {
-				return err
-			}
-			defer func() { _ = f.Close() }() // Read-only file; close error non-critical
-
+	return ProcessFilesOrStdin(fs.Args(), hc.Stdin, hc.Dir, c.name,
+		func(r io.Reader, filename string, index, total int) error {
 			// Print header for multiple files
-			if len(files) > 1 {
-				if i > 0 {
+			if total > 1 {
+				if index > 0 {
 					fmt.Fprintln(hc.Stdout)
 				}
-				fmt.Fprintf(hc.Stdout, "==> %s <==\n", file)
+				fmt.Fprintf(hc.Stdout, "==> %s <==\n", filename)
 			}
-
-			return c.processReader(hc.Stdout, f, *numLines)
-		}(); err != nil {
-			return wrapError(c.name, err)
-		}
-	}
-
-	return nil
+			return c.processReader(hc.Stdout, r, *numLines)
+		})
 }
 
 // processReader outputs the first n lines from a reader using streaming I/O.
