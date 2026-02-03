@@ -1,0 +1,59 @@
+# Test: Basic container execution
+# Tests the simplest container runtime commands
+
+# Skip if no functional container runtime is available
+# Uses custom condition that checks if Docker/Podman daemon is actually running
+[!container-available] skip 'no functional container runtime available'
+
+# Change to work directory where local invkfile.cue is located
+cd $WORK
+
+# Test 1: container hello - simple greeting from inside container
+exec invowk cmd hello
+stdout 'Hello from inside the container!'
+! stderr .
+
+# Test 2: container isolated - verify SSH env vars are NOT set
+# This tests the enable_host_ssh: false behavior
+exec invowk cmd isolated
+stdout '=== Isolated Container ==='
+stdout 'This container has NO SSH access to the host.'
+stdout 'INVOWK_SSH_HOST: <not set>'
+stdout 'INVOWK_SSH_PORT: <not set>'
+! stderr .
+
+-- invkfile.cue --
+cmds: [
+	{
+		name: "hello"
+		description: "Print greeting from inside a container"
+		implementations: [
+			{
+				script: "echo 'Hello from inside the container!'"
+				runtimes: [{name: "container", image: "debian:stable-slim"}]
+			}
+		]
+	},
+	{
+		name: "isolated"
+		description: "Container without host SSH access (isolated)"
+		implementations: [
+			{
+				script: #"""
+					echo "=== Isolated Container ==="
+					echo "This container has NO SSH access to the host."
+					echo "It runs in complete isolation."
+					echo ""
+					echo "Checking if SSH env vars are set (they should NOT be):"
+					echo "  INVOWK_SSH_HOST: ${INVOWK_SSH_HOST:-<not set>}"
+					echo "  INVOWK_SSH_PORT: ${INVOWK_SSH_PORT:-<not set>}"
+					"""#
+				runtimes: [{
+					name: "container"
+					image: "debian:stable-slim"
+					enable_host_ssh: false
+				}]
+			}
+		]
+	}
+]

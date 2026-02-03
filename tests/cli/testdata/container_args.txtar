@@ -1,0 +1,69 @@
+# Test: Container argument passing
+# Tests that positional arguments are correctly passed to container commands
+
+# Skip if no functional container runtime is available
+[!container-available] skip 'no functional container runtime available'
+
+# Change to work directory where local invkfile.cue is located
+cd $WORK
+
+# Test 1: Single argument
+exec invowk cmd echo-arg -- hello
+stdout 'Argument: hello'
+! stderr .
+
+# Test 2: Multiple arguments
+exec invowk cmd echo-args -- foo bar baz
+stdout 'Argument count: 3'
+stdout 'All arguments: foo bar baz'
+stdout 'First: foo'
+stdout 'Second: bar'
+! stderr .
+
+# Test 3: No arguments (default behavior)
+exec invowk cmd echo-arg
+stdout 'Argument: <none>'
+! stderr .
+
+-- invkfile.cue --
+cmds: [
+	{
+		name: "echo-arg"
+		description: "Echo a single argument from container"
+		args: [
+			{
+				name: "value"
+				description: "Value to echo"
+				default_value: "<none>"
+			}
+		]
+		implementations: [
+			{
+				script: "echo \"Argument: $INVOWK_ARG_VALUE\""
+				runtimes: [{name: "container", image: "debian:stable-slim"}]
+			}
+		]
+	},
+	{
+		name: "echo-args"
+		description: "Echo multiple arguments from container"
+		args: [
+			{
+				name: "values"
+				description: "Values to echo"
+				variadic: true
+			}
+		]
+		implementations: [
+			{
+				script: """
+					echo "Argument count: $INVOWK_ARG_VALUES_COUNT"
+					echo "All arguments: $INVOWK_ARG_VALUES"
+					echo "First: ${INVOWK_ARG_VALUES_1:-<none>}"
+					echo "Second: ${INVOWK_ARG_VALUES_2:-<none>}"
+					"""
+				runtimes: [{name: "container", image: "debian:stable-slim"}]
+			}
+		]
+	}
+]

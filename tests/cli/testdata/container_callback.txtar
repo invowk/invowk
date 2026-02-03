@@ -1,0 +1,96 @@
+# Test: SSH callback verification
+# Tests that enable_host_ssh: true provides SSH environment variables
+
+# Skip if no functional container runtime is available
+[!container-available] skip 'no functional container runtime available'
+
+# Skip on Windows - SSH callback only works on Linux/macOS
+[windows] skip 'SSH callback not supported on Windows'
+
+# Change to work directory where local invkfile.cue is located
+cd $WORK
+
+# Test 1: container ssh - verify SSH env vars ARE set when enable_host_ssh: true
+exec invowk cmd ssh-demo
+stdout '=== Host SSH Access Demo ==='
+stdout 'SSH connection details provided by invowk:'
+stdout 'Host:'
+stdout 'Port:'
+stdout 'User:'
+! stderr .
+
+# Test 2: Verify INVOWK_SSH_ENABLED is set
+exec invowk cmd verify-ssh-vars
+stdout 'INVOWK_SSH_ENABLED: true'
+stdout 'INVOWK_SSH_HOST is set: yes'
+stdout 'INVOWK_SSH_PORT is set: yes'
+stdout 'INVOWK_SSH_USER is set: yes'
+stdout 'INVOWK_SSH_TOKEN is set: yes'
+! stderr .
+
+-- invkfile.cue --
+cmds: [
+	{
+		name: "ssh-demo"
+		description: "Container with SSH access back to host"
+		implementations: [
+			{
+				script: #"""
+					echo "=== Host SSH Access Demo ==="
+					echo "SSH connection details provided by invowk:"
+					echo "  Host:  $INVOWK_SSH_HOST"
+					echo "  Port:  $INVOWK_SSH_PORT"
+					echo "  User:  $INVOWK_SSH_USER"
+					echo "  Token: (hidden for security)"
+					"""#
+				runtimes: [{
+					name: "container"
+					image: "debian:stable-slim"
+					enable_host_ssh: true
+				}]
+				platforms: [{name: "linux"}, {name: "macos"}]
+			}
+		]
+	},
+	{
+		name: "verify-ssh-vars"
+		description: "Verify all SSH environment variables are set"
+		implementations: [
+			{
+				script: """
+					echo "INVOWK_SSH_ENABLED: ${INVOWK_SSH_ENABLED:-false}"
+
+					if [ -n "$INVOWK_SSH_HOST" ]; then
+						echo "INVOWK_SSH_HOST is set: yes"
+					else
+						echo "INVOWK_SSH_HOST is set: no"
+					fi
+
+					if [ -n "$INVOWK_SSH_PORT" ]; then
+						echo "INVOWK_SSH_PORT is set: yes"
+					else
+						echo "INVOWK_SSH_PORT is set: no"
+					fi
+
+					if [ -n "$INVOWK_SSH_USER" ]; then
+						echo "INVOWK_SSH_USER is set: yes"
+					else
+						echo "INVOWK_SSH_USER is set: no"
+					fi
+
+					if [ -n "$INVOWK_SSH_TOKEN" ]; then
+						echo "INVOWK_SSH_TOKEN is set: yes"
+					else
+						echo "INVOWK_SSH_TOKEN is set: no"
+					fi
+					"""
+				runtimes: [{
+					name: "container"
+					image: "debian:stable-slim"
+					enable_host_ssh: true
+				}]
+				platforms: [{name: "linux"}, {name: "macos"}]
+			}
+		]
+	}
+]

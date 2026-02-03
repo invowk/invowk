@@ -14,6 +14,8 @@ import (
 	"runtime"
 	"testing"
 
+	"invowk-cli/internal/container"
+
 	"github.com/rogpeppe/go-internal/testscript"
 )
 
@@ -22,6 +24,15 @@ var (
 	binaryPath string
 	// projectRoot is the path to the invowk project root.
 	projectRoot string
+	// containerAvailable checks if a functional container runtime (Docker or Podman) is available.
+	// This goes beyond just checking for the binary - it verifies the runtime is actually usable.
+	containerAvailable = func() bool {
+		engine, err := container.AutoDetectEngine()
+		if err != nil {
+			return false
+		}
+		return engine.Available()
+	}()
 )
 
 func TestMain(m *testing.M) {
@@ -84,6 +95,16 @@ func TestCLI(t *testing.T) {
 			env.Cd = projectRoot
 
 			return nil
+		},
+		// Custom conditions for testscript
+		Condition: func(cond string) (bool, error) {
+			// "container-available" returns true if a functional container runtime is available
+			// Use [!container-available] to skip tests when no container runtime works
+			if cond == "container-available" {
+				return containerAvailable, nil
+			}
+			// Return false with no error for unknown conditions - let testscript handle them
+			return false, nil
 		},
 		// Continue running all tests even if one fails
 		ContinueOnError: true,

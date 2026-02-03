@@ -1,0 +1,82 @@
+# Test: Container environment variable handling
+# Tests env vars from invkfile and CLI override via --env-var
+
+# Skip if no functional container runtime is available
+[!container-available] skip 'no functional container runtime available'
+
+# Change to work directory where local invkfile.cue is located
+cd $WORK
+
+# Test 1: verify env vars from invkfile are set
+exec invowk cmd show-env-demo
+stdout '=== Container Environment ==='
+stdout 'APP_NAME: demo-app'
+stdout 'APP_ENV: development'
+stdout 'DEBUG: true'
+! stderr .
+
+# Test 2: env-var CLI flag override
+exec invowk cmd show-env --env-var MY_VAR=from-cli
+stdout 'MY_VAR: from-cli'
+! stderr .
+
+# Test 3: env-var overrides invkfile env.vars
+exec invowk cmd show-env-with-default --env-var DEFAULT_VAR=overridden
+stdout 'DEFAULT_VAR: overridden'
+! stderr .
+
+# Test 4: invkfile env.vars without override
+exec invowk cmd show-env-with-default
+stdout 'DEFAULT_VAR: from-invkfile'
+! stderr .
+
+-- invkfile.cue --
+cmds: [
+	{
+		name: "show-env-demo"
+		description: "Demonstrate environment variables in container"
+		implementations: [
+			{
+				script: """
+					echo "=== Container Environment ==="
+					echo "APP_NAME: $APP_NAME"
+					echo "APP_ENV: $APP_ENV"
+					echo "DEBUG: $DEBUG"
+					"""
+				runtimes: [{name: "container", image: "debian:stable-slim"}]
+			}
+		]
+		env: {
+			vars: {
+				APP_NAME: "demo-app"
+				APP_ENV:  "development"
+				DEBUG:    "true"
+			}
+		}
+	},
+	{
+		name: "show-env"
+		description: "Show environment variable"
+		implementations: [
+			{
+				script: "echo \"MY_VAR: ${MY_VAR:-<not set>}\""
+				runtimes: [{name: "container", image: "debian:stable-slim"}]
+			}
+		]
+	},
+	{
+		name: "show-env-with-default"
+		description: "Show environment variable with default from invkfile"
+		implementations: [
+			{
+				script: "echo \"DEFAULT_VAR: ${DEFAULT_VAR:-<not set>}\""
+				runtimes: [{name: "container", image: "debian:stable-slim"}]
+			}
+		]
+		env: {
+			vars: {
+				DEFAULT_VAR: "from-invkfile"
+			}
+		}
+	}
+]
