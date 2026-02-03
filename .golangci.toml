@@ -519,6 +519,12 @@ paths = [
 linters = ["errcheck"]
 path = "_test\\.go$"
 
+# Don't enforce goconst in test files - test data strings are intentionally inline
+# for readability and test self-documentation
+[[linters.exclusions.rules]]
+linters = ["goconst"]
+path = "_test\\.go$"
+
 # =============================================================================
 # Issues Configuration
 # =============================================================================

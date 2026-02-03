@@ -124,7 +124,7 @@ func (s *Server) Start(ctx context.Context) error {
 	// Wait for ready signal or context cancellation
 	if err := s.WaitForReady(ctx); err != nil {
 		s.TransitionToFailed(err)
-		_ = s.httpServer.Close()
+		_ = s.httpServer.Close() // Best-effort cleanup on error
 		return err
 	}
 
@@ -138,7 +138,7 @@ func (s *Server) Stop() error {
 
 	if !s.TransitionToStopping() {
 		// Already stopped/stopping, or never started - clean up listener
-		_ = s.listener.Close()
+		_ = s.listener.Close() // Best-effort cleanup; server already stopping
 		return nil
 	}
 
