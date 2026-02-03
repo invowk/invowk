@@ -267,6 +267,177 @@ func TestFormatPortMapping(t *testing.T) {
 	}
 }
 
+// TestResolveDockerfilePath_EdgeCases tests edge cases in Dockerfile path resolution.
+func TestResolveDockerfilePath_EdgeCases(t *testing.T) {
+	tests := []struct {
+		name           string
+		contextPath    string
+		dockerfilePath string
+		expected       string
+		wantErr        bool
+		skipOnWindows  bool
+	}{
+		// Empty and dot contexts are rejected as potential traversal vectors
+		{
+			name:           "empty context path rejected",
+			contextPath:    "",
+			dockerfilePath: "Dockerfile",
+			expected:       "",
+			wantErr:        true, // Correctly rejects as traversal
+		},
+		{
+			name:           "dot context path rejected",
+			contextPath:    ".",
+			dockerfilePath: "Dockerfile",
+			expected:       "",
+			wantErr:        true, // Correctly rejects as traversal
+		},
+		{
+			name:           "dot-slash dockerfile",
+			contextPath:    "/app",
+			dockerfilePath: "./Dockerfile",
+			//nolint:gocritic // filepathJoin: testing that production code joins paths correctly
+			expected:      filepath.Join("/app", "./Dockerfile"),
+			wantErr:       false,
+			skipOnWindows: true,
+		},
+		{
+			name:           "path with spaces",
+			contextPath:    "/my app/project",
+			dockerfilePath: "docker/Dockerfile",
+			//nolint:gocritic // filepathJoin: testing that production code joins paths correctly
+			expected:      filepath.Join("/my app/project", "docker/Dockerfile"),
+			wantErr:       false,
+			skipOnWindows: true,
+		},
+		{
+			name:           "single dot traversal blocked",
+			contextPath:    "/app",
+			dockerfilePath: "./../Dockerfile",
+			expected:       "",
+			wantErr:        true,
+		},
+		{
+			name:           "deep nested relative",
+			contextPath:    "/app",
+			dockerfilePath: "a/b/c/d/Dockerfile",
+			//nolint:gocritic // filepathJoin: testing that production code joins paths correctly
+			expected:      filepath.Join("/app", "a/b/c/d/Dockerfile"),
+			wantErr:       false,
+			skipOnWindows: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.skipOnWindows && runtime.GOOS == "windows" {
+				t.Skip("skipping: Unix-style paths are not meaningful on Windows")
+			}
+			got, err := ResolveDockerfilePath(tt.contextPath, tt.dockerfilePath)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ResolveDockerfilePath() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if got != tt.expected {
+				t.Errorf("ResolveDockerfilePath() = %q, want %q", got, tt.expected)
+			}
+		})
+	}
+}
+
+// TestParseVolumeMount_EdgeCases tests edge cases in volume mount parsing.
+func TestParseVolumeMount_EdgeCases(t *testing.T) {
+	tests := []struct {
+		name     string
+		volume   string
+		expected VolumeMount
+	}{
+		{
+			name:   "empty string",
+			volume: "",
+			expected: VolumeMount{
+				HostPath: "",
+			},
+		},
+		{
+			name:   "only colons",
+			volume: "::",
+			expected: VolumeMount{
+				HostPath:      "",
+				ContainerPath: "",
+			},
+		},
+		{
+			name:   "single colon",
+			volume: ":",
+			expected: VolumeMount{
+				HostPath:      "",
+				ContainerPath: "",
+			},
+		},
+		{
+			name:   "multiple options",
+			volume: "/host:/container:ro,exec,nodev",
+			expected: VolumeMount{
+				HostPath:      "/host",
+				ContainerPath: "/container",
+				ReadOnly:      true,
+			},
+		},
+		{
+			name:   "Z label uppercase",
+			volume: "/host:/container:Z",
+			expected: VolumeMount{
+				HostPath:      "/host",
+				ContainerPath: "/container",
+				SELinux:       "Z",
+			},
+		},
+		{
+			name:   "rw option explicitly",
+			volume: "/host:/container:rw",
+			expected: VolumeMount{
+				HostPath:      "/host",
+				ContainerPath: "/container",
+				ReadOnly:      false, // rw is default, just ensure it doesn't set ReadOnly
+			},
+		},
+		{
+			name:   "named volume without host path",
+			volume: "myvolume:/data",
+			expected: VolumeMount{
+				HostPath:      "myvolume",
+				ContainerPath: "/data",
+			},
+		},
+		{
+			name:   "anonymous volume",
+			volume: "/data",
+			expected: VolumeMount{
+				HostPath: "/data",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := ParseVolumeMount(tt.volume)
+			if got.HostPath != tt.expected.HostPath {
+				t.Errorf("HostPath = %q, want %q", got.HostPath, tt.expected.HostPath)
+			}
+			if got.ContainerPath != tt.expected.ContainerPath {
+				t.Errorf("ContainerPath = %q, want %q", got.ContainerPath, tt.expected.ContainerPath)
+			}
+			if got.ReadOnly != tt.expected.ReadOnly {
+				t.Errorf("ReadOnly = %v, want %v", got.ReadOnly, tt.expected.ReadOnly)
+			}
+			if got.SELinux != tt.expected.SELinux {
+				t.Errorf("SELinux = %q, want %q", got.SELinux, tt.expected.SELinux)
+			}
+		})
+	}
+}
+
 // Integration test with real path (skipped if not on Unix)
 func TestResolveDockerfilePath_RealPaths(t *testing.T) {
 	if os.PathSeparator != '/' {

@@ -414,6 +414,63 @@ func TestDockerEngine_ErrorPaths(t *testing.T) {
 			t.Errorf("expected exit code 42, got %d", result.ExitCode)
 		}
 	})
+
+	t.Run("remove failure", func(t *testing.T) {
+		recorder, cleanup := withMockExecCommandOutput(t, "", "Error: No such container", 1)
+		defer cleanup()
+		engine := newTestDockerEngine(t, recorder)
+
+		err := engine.Remove(ctx, "nonexistent-container", false)
+		if err == nil {
+			t.Fatal("expected error for failed remove")
+		}
+		if !strings.Contains(err.Error(), "failed") {
+			t.Errorf("error should indicate failure, got: %v", err)
+		}
+	})
+
+	t.Run("remove image failure", func(t *testing.T) {
+		recorder, cleanup := withMockExecCommandOutput(t, "", "Error: image is being used", 1)
+		defer cleanup()
+		engine := newTestDockerEngine(t, recorder)
+
+		err := engine.RemoveImage(ctx, "image-in-use:latest", false)
+		if err == nil {
+			t.Fatal("expected error for failed image removal")
+		}
+		if !strings.Contains(err.Error(), "failed") {
+			t.Errorf("error should indicate failure, got: %v", err)
+		}
+	})
+
+	t.Run("version failure", func(t *testing.T) {
+		recorder, cleanup := withMockExecCommandOutput(t, "", "Cannot connect to Docker daemon", 1)
+		defer cleanup()
+		engine := newTestDockerEngine(t, recorder)
+
+		_, err := engine.Version(ctx)
+		if err == nil {
+			t.Fatal("expected error when daemon not available")
+		}
+		if !strings.Contains(err.Error(), "failed to get docker version") {
+			t.Errorf("error should indicate version failure, got: %v", err)
+		}
+	})
+
+	t.Run("exec failure", func(t *testing.T) {
+		recorder, cleanup := withMockExecCommandOutput(t, "", "Error: container is not running", 1)
+		defer cleanup()
+		engine := newTestDockerEngine(t, recorder)
+
+		result, err := engine.Exec(ctx, "stopped-container", []string{"ls"}, RunOptions{})
+		// Exec returns nil error but captures exit code
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if result.ExitCode == 0 {
+			t.Error("expected non-zero exit code for stopped container")
+		}
+	})
 }
 
 // TestDockerEngine_Remove_Arguments verifies Remove() constructs correct arguments.
@@ -505,4 +562,142 @@ func TestDockerEngine_Version_Arguments(t *testing.T) {
 	if version != "24.0.7" {
 		t.Errorf("expected version '24.0.7', got %q", version)
 	}
+}
+
+// TestDockerEngine_Exec_Arguments verifies Exec() constructs correct arguments.
+func TestDockerEngine_Exec_Arguments(t *testing.T) {
+	recorder, cleanup := withMockExecCommand(t)
+	defer cleanup()
+
+	engine := newTestDockerEngine(t, recorder)
+	ctx := context.Background()
+
+	t.Run("basic exec", func(t *testing.T) {
+		recorder.Reset()
+
+		result, err := engine.Exec(ctx, "container123", []string{"ls", "-la"}, RunOptions{})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		recorder.AssertInvocationCount(t, 1)
+		recorder.AssertCommandName(t, "/usr/bin/docker")
+		recorder.AssertFirstArg(t, "exec")
+		recorder.AssertArgsContain(t, "container123")
+		recorder.AssertArgsContain(t, "ls")
+		recorder.AssertArgsContain(t, "-la")
+
+		if result.ContainerID != "container123" {
+			t.Errorf("expected ContainerID %q, got %q", "container123", result.ContainerID)
+		}
+	})
+
+	t.Run("with interactive and tty", func(t *testing.T) {
+		recorder.Reset()
+
+		_, err := engine.Exec(ctx, "container456", []string{"bash"}, RunOptions{
+			Interactive: true,
+			TTY:         true,
+		})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		recorder.AssertArgsContain(t, "-i")
+		recorder.AssertArgsContain(t, "-t")
+		recorder.AssertArgsContain(t, "container456")
+		recorder.AssertArgsContain(t, "bash")
+	})
+
+	t.Run("with workdir and env", func(t *testing.T) {
+		recorder.Reset()
+
+		_, err := engine.Exec(ctx, "container789", []string{"./build.sh"}, RunOptions{
+			WorkDir: "/app",
+			Env: map[string]string{
+				"BUILD_MODE": "release",
+				"DEBUG":      "false",
+			},
+		})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		recorder.AssertArgsContain(t, "-w")
+		recorder.AssertArgsContain(t, "/app")
+		recorder.AssertArgsContain(t, "-e")
+
+		args := strings.Join(recorder.LastArgs(), " ")
+		if !strings.Contains(args, "BUILD_MODE=release") {
+			t.Errorf("expected BUILD_MODE env var, got: %v", recorder.LastArgs())
+		}
+		if !strings.Contains(args, "DEBUG=false") {
+			t.Errorf("expected DEBUG env var, got: %v", recorder.LastArgs())
+		}
+	})
+
+	t.Run("exit code capture", func(t *testing.T) {
+		// Use a fresh recorder with non-zero exit code
+		recorderWithExit, cleanupExit := withMockExecCommandOutput(t, "", "command failed", 42)
+		defer cleanupExit()
+		engineWithExit := newTestDockerEngine(t, recorderWithExit)
+
+		result, err := engineWithExit.Exec(ctx, "failing-container", []string{"false"}, RunOptions{})
+		// Exec returns nil error but captures exit code in result
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if result.ExitCode != 42 {
+			t.Errorf("expected exit code 42, got %d", result.ExitCode)
+		}
+	})
+}
+
+// TestDockerEngine_InspectImage_Arguments verifies InspectImage() constructs correct arguments.
+func TestDockerEngine_InspectImage_Arguments(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("basic inspect", func(t *testing.T) {
+		recorder, cleanup := withMockExecCommandOutput(t, `{"Id": "sha256:abc123"}`, "", 0)
+		defer cleanup()
+		engine := newTestDockerEngine(t, recorder)
+
+		output, err := engine.InspectImage(ctx, "debian:stable-slim")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		recorder.AssertInvocationCount(t, 1)
+		recorder.AssertFirstArg(t, "image")
+		recorder.AssertArgsContain(t, "inspect")
+		recorder.AssertArgsContain(t, "debian:stable-slim")
+
+		if !strings.Contains(output, "sha256:abc123") {
+			t.Errorf("expected output to contain image ID, got %q", output)
+		}
+	})
+
+	t.Run("with registry", func(t *testing.T) {
+		recorder, cleanup := withMockExecCommand(t)
+		defer cleanup()
+		engine := newTestDockerEngine(t, recorder)
+
+		_, err := engine.InspectImage(ctx, "ghcr.io/invowk/invowk:v1.0.0")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		recorder.AssertArgsContain(t, "ghcr.io/invowk/invowk:v1.0.0")
+	})
+
+	t.Run("image not found error", func(t *testing.T) {
+		recorder, cleanup := withMockExecCommandOutput(t, "", "Error: No such image", 1)
+		defer cleanup()
+		engine := newTestDockerEngine(t, recorder)
+
+		_, err := engine.InspectImage(ctx, "nonexistent:latest")
+		if err == nil {
+			t.Fatal("expected error for nonexistent image")
+		}
+	})
 }
