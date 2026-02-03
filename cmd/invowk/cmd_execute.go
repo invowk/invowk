@@ -137,17 +137,19 @@ func runCommandWithFlags(cmdName string, args []string, flagValues map[string]st
 	ctx.Verbose = verbose
 	ctx.SelectedRuntime = selectedRuntime
 	ctx.SelectedImpl = script
-	ctx.PositionalArgs = args             // Enable shell positional parameter access ($1, $2, etc.)
-	ctx.RuntimeEnvFiles = runtimeEnvFiles // Env files from --env-file flag
-	ctx.RuntimeEnvVars = runtimeEnvVars   // Env vars from --env-var flag (highest precedence)
-	ctx.WorkDir = workdirOverride         // CLI override for working directory (--workdir flag)
+	ctx.PositionalArgs = args     // Enable shell positional parameter access ($1, $2, etc.)
+	ctx.WorkDir = workdirOverride // CLI override for working directory (--workdir flag)
+
+	// Set environment configuration
+	ctx.Env.RuntimeEnvFiles = runtimeEnvFiles // Env files from --env-file flag
+	ctx.Env.RuntimeEnvVars = runtimeEnvVars   // Env vars from --env-var flag (highest precedence)
 
 	if envInheritModeOverride != "" {
 		mode, err := invkfile.ParseEnvInheritMode(envInheritModeOverride)
 		if err != nil {
 			return err
 		}
-		ctx.EnvInheritModeOverride = mode
+		ctx.Env.InheritModeOverride = mode
 	}
 
 	for _, name := range envInheritAllowOverride {
@@ -156,7 +158,7 @@ func runCommandWithFlags(cmdName string, args []string, flagValues map[string]st
 		}
 	}
 	if envInheritAllowOverride != nil {
-		ctx.EnvInheritAllowOverride = envInheritAllowOverride
+		ctx.Env.InheritAllowOverride = envInheritAllowOverride
 	}
 
 	for _, name := range envInheritDenyOverride {
@@ -165,7 +167,7 @@ func runCommandWithFlags(cmdName string, args []string, flagValues map[string]st
 		}
 	}
 	if envInheritDenyOverride != nil {
-		ctx.EnvInheritDenyOverride = envInheritDenyOverride
+		ctx.Env.InheritDenyOverride = envInheritDenyOverride
 	}
 
 	// Create runtime registry
@@ -190,9 +192,9 @@ func runCommandWithFlags(cmdName string, args []string, flagValues map[string]st
 
 	// Add command-line arguments as environment variables (legacy format)
 	for i, arg := range args {
-		ctx.ExtraEnv[fmt.Sprintf("ARG%d", i+1)] = arg
+		ctx.Env.ExtraEnv[fmt.Sprintf("ARG%d", i+1)] = arg
 	}
-	ctx.ExtraEnv["ARGC"] = fmt.Sprintf("%d", len(args))
+	ctx.Env.ExtraEnv["ARGC"] = fmt.Sprintf("%d", len(args))
 
 	// Add arguments as INVOWK_ARG_* environment variables (new format)
 	if len(argDefs) > 0 {
@@ -208,21 +210,21 @@ func runCommandWithFlags(cmdName string, args []string, flagValues map[string]st
 				}
 
 				// Set count
-				ctx.ExtraEnv[envName+"_COUNT"] = fmt.Sprintf("%d", len(variadicValues))
+				ctx.Env.ExtraEnv[envName+"_COUNT"] = fmt.Sprintf("%d", len(variadicValues))
 
 				// Set individual values
 				for j, val := range variadicValues {
-					ctx.ExtraEnv[fmt.Sprintf("%s_%d", envName, j+1)] = val
+					ctx.Env.ExtraEnv[fmt.Sprintf("%s_%d", envName, j+1)] = val
 				}
 
 				// Also set a space-joined version for convenience
-				ctx.ExtraEnv[envName] = strings.Join(variadicValues, " ")
+				ctx.Env.ExtraEnv[envName] = strings.Join(variadicValues, " ")
 			case i < len(args):
 				// Non-variadic arg with provided value
-				ctx.ExtraEnv[envName] = args[i]
+				ctx.Env.ExtraEnv[envName] = args[i]
 			case argDef.DefaultValue != "":
 				// Non-variadic arg with default value
-				ctx.ExtraEnv[envName] = argDef.DefaultValue
+				ctx.Env.ExtraEnv[envName] = argDef.DefaultValue
 			}
 			// If no value and no default, don't set the env var
 		}
@@ -231,7 +233,7 @@ func runCommandWithFlags(cmdName string, args []string, flagValues map[string]st
 	// Add flag values as environment variables
 	for name, value := range flagValues {
 		envName := FlagNameToEnvVar(name)
-		ctx.ExtraEnv[envName] = value
+		ctx.Env.ExtraEnv[envName] = value
 	}
 
 	var result *runtime.Result
@@ -332,8 +334,8 @@ func executeInteractive(ctx *runtime.ExecutionContext, registry *runtime.Registr
 
 	// Set TUI server info in the execution context so runtimes can include it
 	// in their environment setup (especially important for container runtime)
-	ctx.TUIServerURL = tuiServerURL
-	ctx.TUIServerToken = tuiServer.Token()
+	ctx.TUI.ServerURL = tuiServerURL
+	ctx.TUI.ServerToken = tuiServer.Token()
 
 	// Prepare the command without executing it
 	// Now that TUI server info is in the context, container runtime will

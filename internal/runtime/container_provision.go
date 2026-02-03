@@ -35,13 +35,13 @@ func (r *ContainerRuntime) ensureProvisionedImage(ctx *ExecutionContext, cfg inv
 
 	// Provision the image with invowk resources
 	if ctx.Verbose {
-		_, _ = fmt.Fprintf(ctx.Stdout, "Provisioning container with invowk resources...\n") // Verbose output; error non-critical
+		_, _ = fmt.Fprintf(ctx.IO.Stdout, "Provisioning container with invowk resources...\n") // Verbose output; error non-critical
 	}
 
 	result, err := r.provisioner.Provision(ctx.Context, baseImage)
 	if err != nil {
 		// If provisioning fails, warn but continue with base image
-		_, _ = fmt.Fprintf(ctx.Stderr, "Warning: failed to provision container, using base image: %v\n", err) // Warning output; error non-critical
+		_, _ = fmt.Fprintf(ctx.IO.Stderr, "Warning: failed to provision container, using base image: %v\n", err) // Warning output; error non-critical
 		return baseImage, nil, nil
 	}
 
@@ -90,15 +90,15 @@ func (r *ContainerRuntime) ensureImage(ctx *ExecutionContext, cfg invkfileContai
 
 	// Build the image
 	if ctx.Verbose {
-		_, _ = fmt.Fprintf(ctx.Stdout, "Building container image from %s...\n", containerfilePath) // Verbose output; error non-critical
+		_, _ = fmt.Fprintf(ctx.IO.Stdout, "Building container image from %s...\n", containerfilePath) // Verbose output; error non-critical
 	}
 
 	buildOpts := container.BuildOptions{
 		ContextDir: invowkDir,
 		Dockerfile: containerfile,
 		Tag:        imageTag,
-		Stdout:     ctx.Stdout,
-		Stderr:     ctx.Stderr,
+		Stdout:     ctx.IO.Stdout,
+		Stderr:     ctx.IO.Stderr,
 	}
 
 	if err := r.engine.Build(ctx.Context, buildOpts); err != nil {

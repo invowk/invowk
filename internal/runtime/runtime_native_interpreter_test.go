@@ -46,8 +46,8 @@ print("Hello from Python")`
 	ctx := NewExecutionContext(cmd, inv)
 
 	var stdout bytes.Buffer
-	ctx.Stdout = &stdout
-	ctx.Stderr = &bytes.Buffer{}
+	ctx.IO.Stdout = &stdout
+	ctx.IO.Stderr = &bytes.Buffer{}
 
 	result := rt.Execute(ctx)
 	if result.ExitCode != 0 {
@@ -91,8 +91,8 @@ print(f"Python version: {sys.version_info.major}.{sys.version_info.minor}")`
 	ctx := NewExecutionContext(cmd, inv)
 
 	var stdout bytes.Buffer
-	ctx.Stdout = &stdout
-	ctx.Stderr = &bytes.Buffer{}
+	ctx.IO.Stdout = &stdout
+	ctx.IO.Stderr = &bytes.Buffer{}
 
 	result := rt.Execute(ctx)
 	if result.ExitCode != 0 {
@@ -138,8 +138,8 @@ print(f"arg1={sys.argv[1] if len(sys.argv) > 1 else 'none'}")`
 	ctx.PositionalArgs = []string{"hello-world"}
 
 	var stdout bytes.Buffer
-	ctx.Stdout = &stdout
-	ctx.Stderr = &bytes.Buffer{}
+	ctx.IO.Stdout = &stdout
+	ctx.IO.Stderr = &bytes.Buffer{}
 
 	result := rt.Execute(ctx)
 	if result.ExitCode != 0 {
@@ -188,8 +188,8 @@ print("Hello from Python file")
 	ctx := NewExecutionContext(cmd, inv)
 
 	var stdout bytes.Buffer
-	ctx.Stdout = &stdout
-	ctx.Stderr = &bytes.Buffer{}
+	ctx.IO.Stdout = &stdout
+	ctx.IO.Stderr = &bytes.Buffer{}
 
 	result := rt.Execute(ctx)
 	if result.ExitCode != 0 {
@@ -227,8 +227,8 @@ func TestNativeRuntime_InterpreterNotFound(t *testing.T) {
 	ctx := NewExecutionContext(cmd, inv)
 
 	var stdout bytes.Buffer
-	ctx.Stdout = &stdout
-	ctx.Stderr = &bytes.Buffer{}
+	ctx.IO.Stdout = &stdout
+	ctx.IO.Stderr = &bytes.Buffer{}
 
 	result := rt.Execute(ctx)
 	if result.ExitCode == 0 {

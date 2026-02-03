@@ -137,10 +137,9 @@ func validateCustomCheckInVirtual(check invkfile.CustomCheck, registry *runtime.
 		Invkfile:        ctx.Invkfile,
 		SelectedImpl:    &invkfile.Implementation{Script: check.CheckScript, Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeVirtual}}},
 		SelectedRuntime: invkfile.RuntimeVirtual,
-		Stdout:          &stdout,
-		Stderr:          &stderr,
 		Context:         ctx.Context,
-		ExtraEnv:        make(map[string]string),
+		IO:              runtime.IOContext{Stdout: &stdout, Stderr: &stderr},
+		Env:             runtime.DefaultEnv(),
 	}
 
 	result := rt.Execute(validationCtx)
@@ -163,10 +162,9 @@ func validateCustomCheckInContainer(check invkfile.CustomCheck, registry *runtim
 		Invkfile:        ctx.Invkfile,
 		SelectedImpl:    &invkfile.Implementation{Script: check.CheckScript, Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeContainer}}},
 		SelectedRuntime: invkfile.RuntimeContainer,
-		Stdout:          &stdout,
-		Stderr:          &stderr,
 		Context:         ctx.Context,
-		ExtraEnv:        make(map[string]string),
+		IO:              runtime.IOContext{Stdout: &stdout, Stderr: &stderr},
+		Env:             runtime.DefaultEnv(),
 	}
 
 	result := rt.Execute(validationCtx)

@@ -120,8 +120,8 @@ func TestContainerRuntime_EnableHostSSH_NoServer(t *testing.T) {
 	execCtx.Context = context.Background()
 
 	var stdout, stderr bytes.Buffer
-	execCtx.Stdout = &stdout
-	execCtx.Stderr = &stderr
+	execCtx.IO.Stdout = &stdout
+	execCtx.IO.Stderr = &stderr
 
 	result := rt.Execute(execCtx)
 
@@ -173,8 +173,8 @@ RUN echo "Built from Containerfile" > /built.txt
 	execCtx.Verbose = true
 
 	var stdout, stderr bytes.Buffer
-	execCtx.Stdout = &stdout
-	execCtx.Stderr = &stderr
+	execCtx.IO.Stdout = &stdout
+	execCtx.IO.Stderr = &stderr
 
 	result := rt.Execute(execCtx)
 	if result.ExitCode != 0 {

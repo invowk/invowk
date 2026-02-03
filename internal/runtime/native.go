@@ -58,19 +58,19 @@ func (r *NativeRuntime) Execute(ctx *ExecutionContext) *Result {
 	}
 
 	// Create streaming output configuration
-	output := newStreamingOutput(ctx.Stdout, ctx.Stderr)
+	output := newStreamingOutput(ctx.IO.Stdout, ctx.IO.Stderr)
 
 	rtConfig := ctx.SelectedImpl.GetRuntimeConfig(ctx.SelectedRuntime)
 	if rtConfig == nil {
-		return r.executeShellCommon(ctx, script, output, nil, ctx.Stdin)
+		return r.executeShellCommon(ctx, script, output, nil, ctx.IO.Stdin)
 	}
 
 	interpInfo := rtConfig.ResolveInterpreterFromScript(script)
 	if interpInfo.Found {
-		return r.executeInterpreterCommon(ctx, script, interpInfo, output, nil, ctx.Stdin)
+		return r.executeInterpreterCommon(ctx, script, interpInfo, output, nil, ctx.IO.Stdin)
 	}
 
-	return r.executeShellCommon(ctx, script, output, nil, ctx.Stdin)
+	return r.executeShellCommon(ctx, script, output, nil, ctx.IO.Stdin)
 }
 
 // ExecuteCapture runs a command and captures its output

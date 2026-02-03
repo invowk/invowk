@@ -178,10 +178,10 @@ func (r *ContainerRuntime) Execute(ctx *ExecutionContext) *Result {
 		Volumes:     prep.volumes,
 		Ports:       prep.ports,
 		Remove:      true, // Always remove after execution
-		Stdin:       ctx.Stdin,
-		Stdout:      ctx.Stdout,
-		Stderr:      ctx.Stderr,
-		Interactive: ctx.Stdin != nil,
+		Stdin:       ctx.IO.Stdin,
+		Stdout:      ctx.IO.Stdout,
+		Stderr:      ctx.IO.Stderr,
+		Interactive: ctx.IO.Stdin != nil,
 		ExtraHosts:  prep.extraHosts,
 	}
 

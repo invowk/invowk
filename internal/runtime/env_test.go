@@ -55,9 +55,9 @@ func TestBuildRuntimeEnv_InheritAllowAndDeny(t *testing.T) {
 	}
 	cmd := testCommandWithScript("env", "echo test", invkfile.RuntimeNative)
 	ctx := NewExecutionContext(cmd, inv)
-	ctx.EnvInheritModeOverride = invkfile.EnvInheritAllow
-	ctx.EnvInheritAllowOverride = []string{"ALLOW_ME", "DENY_ME"}
-	ctx.EnvInheritDenyOverride = []string{"DENY_ME"}
+	ctx.Env.InheritModeOverride = invkfile.EnvInheritAllow
+	ctx.Env.InheritAllowOverride = []string{"ALLOW_ME", "DENY_ME"}
+	ctx.Env.InheritDenyOverride = []string{"DENY_ME"}
 
 	restoreAllow := testutil.MustSetenv(t, "ALLOW_ME", "allowed")
 	restoreDeny := testutil.MustSetenv(t, "DENY_ME", "denied")
@@ -164,7 +164,7 @@ func TestResolveEnvInheritConfig(t *testing.T) {
 		{
 			name: "context override takes precedence",
 			setupCtx: func(ctx *ExecutionContext) {
-				ctx.EnvInheritModeOverride = invkfile.EnvInheritNone
+				ctx.Env.InheritModeOverride = invkfile.EnvInheritNone
 			},
 			defaultMode: invkfile.EnvInheritAll,
 			wantMode:    invkfile.EnvInheritNone,
@@ -172,8 +172,8 @@ func TestResolveEnvInheritConfig(t *testing.T) {
 		{
 			name: "context override allow mode with allowlist",
 			setupCtx: func(ctx *ExecutionContext) {
-				ctx.EnvInheritModeOverride = invkfile.EnvInheritAllow
-				ctx.EnvInheritAllowOverride = []string{"PATH", "HOME"}
+				ctx.Env.InheritModeOverride = invkfile.EnvInheritAllow
+				ctx.Env.InheritAllowOverride = []string{"PATH", "HOME"}
 			},
 			defaultMode: invkfile.EnvInheritAll,
 			wantMode:    invkfile.EnvInheritAllow,
@@ -182,7 +182,7 @@ func TestResolveEnvInheritConfig(t *testing.T) {
 		{
 			name: "context denylist override",
 			setupCtx: func(ctx *ExecutionContext) {
-				ctx.EnvInheritDenyOverride = []string{"SECRET", "API_KEY"}
+				ctx.Env.InheritDenyOverride = []string{"SECRET", "API_KEY"}
 			},
 			defaultMode: invkfile.EnvInheritAll,
 			wantMode:    invkfile.EnvInheritAll,
@@ -206,7 +206,7 @@ func TestResolveEnvInheritConfig(t *testing.T) {
 					Name:           invkfile.RuntimeNative,
 					EnvInheritMode: invkfile.EnvInheritNone,
 				}}
-				ctx.EnvInheritModeOverride = invkfile.EnvInheritAll
+				ctx.Env.InheritModeOverride = invkfile.EnvInheritAll
 			},
 			defaultMode: invkfile.EnvInheritNone,
 			wantMode:    invkfile.EnvInheritAll,
@@ -382,9 +382,9 @@ func TestBuildRuntimeEnv_Precedence(t *testing.T) {
 	}
 
 	ctx := NewExecutionContext(cmd, inv)
-	ctx.ExtraEnv = map[string]string{"SHARED": "extra_env", "EXTRA_ONLY": "extra_value"}
-	ctx.RuntimeEnvFiles = []string{filepath.Join(tmpDir, "runtime.env")}
-	ctx.RuntimeEnvVars = map[string]string{"SHARED": "runtime_var", "RUNTIME_VAR_ONLY": "runtime_var"}
+	ctx.Env.ExtraEnv = map[string]string{"SHARED": "extra_env", "EXTRA_ONLY": "extra_value"}
+	ctx.Env.RuntimeEnvFiles = []string{filepath.Join(tmpDir, "runtime.env")}
+	ctx.Env.RuntimeEnvVars = map[string]string{"SHARED": "runtime_var", "RUNTIME_VAR_ONLY": "runtime_var"}
 
 	env, err := buildRuntimeEnv(ctx, invkfile.EnvInheritAll)
 	if err != nil {
@@ -547,8 +547,8 @@ func TestBuildRuntimeEnv_RuntimeFlags(t *testing.T) {
 	}
 	cmd := testCommandWithScript("flags-test", "echo test", invkfile.RuntimeNative)
 	ctx := NewExecutionContext(cmd, inv)
-	ctx.RuntimeEnvFiles = []string{"flag.env"}
-	ctx.RuntimeEnvVars = map[string]string{"FLAG_VAR": "from_flag_var", "SHARED": "flag_var_wins"}
+	ctx.Env.RuntimeEnvFiles = []string{"flag.env"}
+	ctx.Env.RuntimeEnvVars = map[string]string{"FLAG_VAR": "from_flag_var", "SHARED": "flag_var_wins"}
 
 	env, err := buildRuntimeEnv(ctx, invkfile.EnvInheritNone)
 	if err != nil {
@@ -629,9 +629,9 @@ func TestBuildRuntimeEnv_InheritModes(t *testing.T) {
 			}
 			cmd := testCommandWithScript("inherit-test", "echo test", invkfile.RuntimeNative)
 			ctx := NewExecutionContext(cmd, inv)
-			ctx.EnvInheritModeOverride = tt.mode
-			ctx.EnvInheritAllowOverride = tt.allow
-			ctx.EnvInheritDenyOverride = tt.deny
+			ctx.Env.InheritModeOverride = tt.mode
+			ctx.Env.InheritAllowOverride = tt.allow
+			ctx.Env.InheritDenyOverride = tt.deny
 
 			env, err := buildRuntimeEnv(ctx, invkfile.EnvInheritAll)
 			if err != nil {
@@ -661,7 +661,7 @@ func TestBuildRuntimeEnv_ExtraEnv(t *testing.T) {
 	}
 	cmd := testCommandWithScript("extra-env-test", "echo test", invkfile.RuntimeNative)
 	ctx := NewExecutionContext(cmd, inv)
-	ctx.ExtraEnv = map[string]string{
+	ctx.Env.ExtraEnv = map[string]string{
 		"INVOWK_FLAG_VERBOSE": "true",
 		"INVOWK_ARG_FILE":     "test.txt",
 		"ARG1":                "first",

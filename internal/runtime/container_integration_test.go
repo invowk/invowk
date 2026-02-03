@@ -68,8 +68,8 @@ func testContainerBasicExecution(t *testing.T) {
 	execCtx.Context = context.Background()
 
 	var stdout, stderr bytes.Buffer
-	execCtx.Stdout = &stdout
-	execCtx.Stderr = &stderr
+	execCtx.IO.Stdout = &stdout
+	execCtx.IO.Stderr = &stderr
 
 	result := rt.Execute(execCtx)
 	if result.ExitCode != 0 {
@@ -114,8 +114,8 @@ func testContainerEnvironmentVariables(t *testing.T) {
 	execCtx.Context = context.Background()
 
 	var stdout, stderr bytes.Buffer
-	execCtx.Stdout = &stdout
-	execCtx.Stderr = &stderr
+	execCtx.IO.Stdout = &stdout
+	execCtx.IO.Stderr = &stderr
 
 	result := rt.Execute(execCtx)
 	if result.ExitCode != 0 {
@@ -158,8 +158,8 @@ echo "Variable: $VAR"`
 	execCtx.Context = context.Background()
 
 	var stdout, stderr bytes.Buffer
-	execCtx.Stdout = &stdout
-	execCtx.Stderr = &stderr
+	execCtx.IO.Stdout = &stdout
+	execCtx.IO.Stderr = &stderr
 
 	result := rt.Execute(execCtx)
 	if result.ExitCode != 0 {
@@ -207,8 +207,8 @@ func testContainerWorkingDirectory(t *testing.T) {
 	execCtx.Context = context.Background()
 
 	var stdout, stderr bytes.Buffer
-	execCtx.Stdout = &stdout
-	execCtx.Stderr = &stderr
+	execCtx.IO.Stdout = &stdout
+	execCtx.IO.Stderr = &stderr
 
 	result := rt.Execute(execCtx)
 	if result.ExitCode != 0 {
@@ -265,8 +265,8 @@ func testContainerVolumeMounts(t *testing.T) {
 	execCtx.Context = context.Background()
 
 	var stdout, stderr bytes.Buffer
-	execCtx.Stdout = &stdout
-	execCtx.Stderr = &stderr
+	execCtx.IO.Stdout = &stdout
+	execCtx.IO.Stderr = &stderr
 
 	result := rt.Execute(execCtx)
 	if result.ExitCode != 0 {
@@ -304,8 +304,8 @@ func testContainerExitCode(t *testing.T) {
 	execCtx.Context = context.Background()
 
 	var stdout, stderr bytes.Buffer
-	execCtx.Stdout = &stdout
-	execCtx.Stderr = &stderr
+	execCtx.IO.Stdout = &stdout
+	execCtx.IO.Stderr = &stderr
 
 	result := rt.Execute(execCtx)
 	if result.ExitCode != 42 {
@@ -336,8 +336,8 @@ func testContainerPositionalArgs(t *testing.T) {
 	execCtx.PositionalArgs = []string{"hello", "world"}
 
 	var stdout, stderr bytes.Buffer
-	execCtx.Stdout = &stdout
-	execCtx.Stderr = &stderr
+	execCtx.IO.Stdout = &stdout
+	execCtx.IO.Stderr = &stderr
 
 	result := rt.Execute(execCtx)
 	if result.ExitCode != 0 {
@@ -381,8 +381,8 @@ func testContainerEnableHostSSHEnvVars(t *testing.T) {
 	execCtx.Context = context.Background()
 
 	var stdout, stderr bytes.Buffer
-	execCtx.Stdout = &stdout
-	execCtx.Stderr = &stderr
+	execCtx.IO.Stdout = &stdout
+	execCtx.IO.Stderr = &stderr
 
 	result := rt.Execute(execCtx)
 
