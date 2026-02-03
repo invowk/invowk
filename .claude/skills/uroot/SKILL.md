@@ -46,19 +46,23 @@ Never buffer entire file contents into memory, regardless of file size. This rul
 ### Required Pattern
 
 ```go
-// CORRECT: Streaming copy - constant memory usage
-func copyFile(src, dst string) error {
+// CORRECT: Streaming copy with proper close handling
+func copyFile(src, dst string) (err error) {
     srcFile, err := os.Open(src)
     if err != nil {
         return err
     }
-    defer srcFile.Close()
+    defer func() { _ = srcFile.Close() }() // Read-only source; close error non-critical
 
     dstFile, err := os.Create(dst)
     if err != nil {
         return err
     }
-    defer dstFile.Close()
+    defer func() {
+        if closeErr := dstFile.Close(); closeErr != nil && err == nil {
+            err = closeErr
+        }
+    }()
 
     _, err = io.Copy(dstFile, srcFile)  // Streams in chunks
     return err
@@ -182,3 +186,4 @@ func (h *CpHandler) Run(ctx context.Context, args []string) error {
 
 - **Buffering file contents** - Always use `io.Copy()` or similar streaming patterns. Never use `os.ReadFile()` or `io.ReadAll()` for arbitrary user files.
 - **Missing error prefix** - All u-root errors must include the `[uroot]` prefix for source identification.
+- **Naked defer Close()** - Never use `defer f.Close()`. For read-only files, use `defer func() { _ = f.Close() }()` with comment. For write operations, use named returns to capture close errors.

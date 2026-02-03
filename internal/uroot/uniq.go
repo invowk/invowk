@@ -74,7 +74,7 @@ func (c *uniqCommand) Run(ctx context.Context, args []string) error {
 		if err != nil {
 			return wrapError(c.name, err)
 		}
-		defer f.Close()
+		defer func() { _ = f.Close() }() // Read-only file; close error non-critical
 		input = f
 	}
 
