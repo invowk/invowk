@@ -219,11 +219,17 @@ func (p *LayerProvisioner) prepareBuildContext(baseImage string) (buildContextDi
 	// Snap's home interface doesn't expose hidden directories (starting with .)
 	var buildContextParent string
 
+	// Try HOME first, but verify it actually exists (handles cases like testscript
+	// setting HOME=/no-home or misconfigured environments)
 	if home, homeErr := os.UserHomeDir(); homeErr == nil {
-		// Use a visible directory - Docker Snap can access this
-		buildContextParent = filepath.Join(home, "invowk-build")
-	} else {
-		// Fallback: try current working directory
+		if _, statErr := os.Stat(home); statErr == nil {
+			// Use a visible directory - Docker Snap can access this
+			buildContextParent = filepath.Join(home, "invowk-build")
+		}
+	}
+
+	// Fallback if HOME is unavailable or doesn't exist
+	if buildContextParent == "" {
 		if cwd, cwdErr := os.Getwd(); cwdErr == nil {
 			buildContextParent = filepath.Join(cwd, ".invowk-build")
 		} else {
