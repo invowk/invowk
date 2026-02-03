@@ -455,3 +455,188 @@ func TestVirtualRuntime_ExitCode(t *testing.T) {
 		})
 	}
 }
+
+// ============================================================================
+// Unit Tests (Phase 5 additions)
+// ============================================================================
+
+// TestVirtualRuntime_Name tests the Name method.
+func TestVirtualRuntime_Name(t *testing.T) {
+	rt := NewVirtualRuntime(false)
+	if got := rt.Name(); got != "virtual" {
+		t.Errorf("Name() = %q, want %q", got, "virtual")
+	}
+}
+
+// TestVirtualRuntime_Available tests the Available method.
+func TestVirtualRuntime_Available(t *testing.T) {
+	rt := NewVirtualRuntime(false)
+	if !rt.Available() {
+		t.Error("Available() = false, want true (virtual runtime is always available)")
+	}
+}
+
+// TestVirtualRuntime_SupportsInteractive tests the SupportsInteractive method.
+func TestVirtualRuntime_SupportsInteractive(t *testing.T) {
+	rt := NewVirtualRuntime(false)
+	if !rt.SupportsInteractive() {
+		t.Error("SupportsInteractive() = false, want true")
+	}
+}
+
+// TestVirtualRuntime_Validate_EmptyScript tests validation for an empty script.
+func TestVirtualRuntime_Validate_EmptyScript(t *testing.T) {
+	tmpDir := t.TempDir()
+	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+
+	inv := &invkfile.Invkfile{
+		FilePath: invkfilePath,
+	}
+
+	// Create a command with an empty script
+	cmd := testCommandWithScript("empty-script", "", invkfile.RuntimeVirtual)
+
+	rt := NewVirtualRuntime(false)
+	ctx := NewExecutionContext(cmd, inv)
+
+	err := rt.Validate(ctx)
+	if err == nil {
+		t.Error("Validate() expected error for empty script, got nil")
+	}
+	if err != nil && !strings.Contains(err.Error(), "no content to execute") {
+		t.Errorf("Validate() error = %q, want error containing 'no content to execute'", err)
+	}
+}
+
+// TestVirtualRuntime_Validate_NilImpl tests validation for nil implementation.
+func TestVirtualRuntime_Validate_NilImpl(t *testing.T) {
+	tmpDir := t.TempDir()
+	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+
+	inv := &invkfile.Invkfile{
+		FilePath: invkfilePath,
+	}
+
+	cmd := &invkfile.Command{
+		Name: "nil-impl",
+	}
+
+	rt := NewVirtualRuntime(false)
+	ctx := NewExecutionContext(cmd, inv)
+	ctx.SelectedImpl = nil // Explicitly set to nil
+
+	err := rt.Validate(ctx)
+	if err == nil {
+		t.Error("Validate() expected error for nil implementation, got nil")
+	}
+	if err != nil && !strings.Contains(err.Error(), "no script selected") {
+		t.Errorf("Validate() error = %q, want error containing 'no script selected'", err)
+	}
+}
+
+// TestVirtualRuntime_getWorkDir tests working directory resolution.
+func TestVirtualRuntime_getWorkDir(t *testing.T) {
+	tmpDir := t.TempDir()
+	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+
+	tests := []struct {
+		name         string
+		ctxWorkDir   string // WorkDir set on ExecutionContext
+		cmdWorkDir   string // WorkDir set on Command
+		implWorkDir  string // WorkDir set on Implementation
+		rootWorkDir  string // WorkDir set on Invkfile
+		wantContains string // Substring expected in result
+	}{
+		{
+			name:         "defaults to invkfile directory",
+			wantContains: tmpDir,
+		},
+		{
+			name:         "context workdir takes precedence over all",
+			ctxWorkDir:   "/ctx/workdir",
+			cmdWorkDir:   "/cmd/workdir",
+			implWorkDir:  "/impl/workdir",
+			rootWorkDir:  "/root/workdir",
+			wantContains: "/ctx/workdir",
+		},
+		{
+			name:         "impl workdir takes precedence over cmd and root",
+			cmdWorkDir:   "/cmd/workdir",
+			implWorkDir:  "/impl/workdir",
+			rootWorkDir:  "/root/workdir",
+			wantContains: "/impl/workdir",
+		},
+		{
+			name:         "cmd workdir takes precedence over root",
+			cmdWorkDir:   "/cmd/workdir",
+			rootWorkDir:  "/root/workdir",
+			wantContains: "/cmd/workdir",
+		},
+		{
+			name:         "root workdir used when others not set",
+			rootWorkDir:  "/root/workdir",
+			wantContains: "/root/workdir",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			inv := &invkfile.Invkfile{
+				FilePath: invkfilePath,
+				WorkDir:  tt.rootWorkDir,
+			}
+
+			impl := invkfile.Implementation{
+				Script:   "echo test",
+				Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeVirtual}},
+				WorkDir:  tt.implWorkDir,
+			}
+
+			cmd := &invkfile.Command{
+				Name:            "test-workdir",
+				WorkDir:         tt.cmdWorkDir,
+				Implementations: []invkfile.Implementation{impl},
+			}
+
+			rt := NewVirtualRuntime(false)
+			ctx := NewExecutionContext(cmd, inv)
+			ctx.WorkDir = tt.ctxWorkDir
+			ctx.SelectedImpl = &cmd.Implementations[0]
+
+			got := rt.getWorkDir(ctx)
+			if !strings.Contains(got, tt.wantContains) {
+				t.Errorf("getWorkDir() = %q, want to contain %q", got, tt.wantContains)
+			}
+		})
+	}
+}
+
+// TestVirtualRuntime_NewVirtualRuntime tests constructor options.
+func TestVirtualRuntime_NewVirtualRuntime(t *testing.T) {
+	tests := []struct {
+		name        string
+		enableUroot bool
+		wantUroot   bool
+	}{
+		{
+			name:        "uroot disabled",
+			enableUroot: false,
+			wantUroot:   false,
+		},
+		{
+			name:        "uroot enabled",
+			enableUroot: true,
+			wantUroot:   true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rt := NewVirtualRuntime(tt.enableUroot)
+			if rt.EnableUrootUtils != tt.wantUroot {
+				t.Errorf("NewVirtualRuntime(%v).EnableUrootUtils = %v, want %v",
+					tt.enableUroot, rt.EnableUrootUtils, tt.wantUroot)
+			}
+		})
+	}
+}
