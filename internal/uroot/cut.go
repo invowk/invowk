@@ -93,19 +93,20 @@ func (c *cutCommand) Run(ctx context.Context, args []string) error {
 	}
 
 	for _, file := range files {
-		path := file
-		if !filepath.IsAbs(path) {
-			path = filepath.Join(hc.Dir, path)
-		}
+		if err := func() error {
+			path := file
+			if !filepath.IsAbs(path) {
+				path = filepath.Join(hc.Dir, path)
+			}
 
-		f, err := os.Open(path)
-		if err != nil {
-			return wrapError(c.name, err)
-		}
+			f, err := os.Open(path)
+			if err != nil {
+				return err
+			}
+			defer func() { _ = f.Close() }() // Read-only file; close error non-critical
 
-		err = c.processReader(hc.Stdout, f, ranges, *delimiter, *fields != "", *onlyDelimited)
-		f.Close()
-		if err != nil {
+			return c.processReader(hc.Stdout, f, ranges, *delimiter, *fields != "", *onlyDelimited)
+		}(); err != nil {
 			return wrapError(c.name, err)
 		}
 	}

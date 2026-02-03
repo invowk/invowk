@@ -61,29 +61,30 @@ func (c *headCommand) Run(ctx context.Context, args []string) error {
 
 	// Process files
 	for i, file := range files {
-		path := file
-		if !filepath.IsAbs(path) {
-			path = filepath.Join(hc.Dir, path)
-		}
-
-		f, err := os.Open(path)
-		if err != nil {
-			return wrapError(c.name, err)
-		}
-
-		// Print header for multiple files
-		if len(files) > 1 {
-			if i > 0 {
-				fmt.Fprintln(hc.Stdout)
+		if err := func() error {
+			path := file
+			if !filepath.IsAbs(path) {
+				path = filepath.Join(hc.Dir, path)
 			}
-			fmt.Fprintf(hc.Stdout, "==> %s <==\n", file)
-		}
 
-		if err := c.processReader(hc.Stdout, f, *numLines); err != nil {
-			f.Close()
+			f, err := os.Open(path)
+			if err != nil {
+				return err
+			}
+			defer func() { _ = f.Close() }() // Read-only file; close error non-critical
+
+			// Print header for multiple files
+			if len(files) > 1 {
+				if i > 0 {
+					fmt.Fprintln(hc.Stdout)
+				}
+				fmt.Fprintf(hc.Stdout, "==> %s <==\n", file)
+			}
+
+			return c.processReader(hc.Stdout, f, *numLines)
+		}(); err != nil {
 			return wrapError(c.name, err)
 		}
-		f.Close()
 	}
 
 	return nil

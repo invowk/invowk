@@ -104,18 +104,20 @@ func (c *grepCommand) Run(ctx context.Context, args []string) error {
 	} else {
 		// Process files
 		for _, file := range files {
-			path := file
-			if !filepath.IsAbs(path) {
-				path = filepath.Join(hc.Dir, path)
-			}
+			count, found, err := func() (int, bool, error) {
+				path := file
+				if !filepath.IsAbs(path) {
+					path = filepath.Join(hc.Dir, path)
+				}
 
-			f, err := os.Open(path)
-			if err != nil {
-				return wrapError(c.name, err)
-			}
+				f, err := os.Open(path)
+				if err != nil {
+					return 0, false, err
+				}
+				defer func() { _ = f.Close() }() // Read-only file; close error non-critical
 
-			count, found, err := c.grepReader(hc.Stdout, f, re, file, *invertMatch, *showLineNumbers, *countOnly, *filesWithMatches, showFilename)
-			f.Close()
+				return c.grepReader(hc.Stdout, f, re, file, *invertMatch, *showLineNumbers, *countOnly, *filesWithMatches, showFilename)
+			}()
 			if err != nil {
 				return wrapError(c.name, err)
 			}

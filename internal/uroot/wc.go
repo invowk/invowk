@@ -98,18 +98,20 @@ func (c *wcCommand) Run(ctx context.Context, args []string) error {
 
 	// Process files
 	for _, file := range files {
-		path := file
-		if !filepath.IsAbs(path) {
-			path = filepath.Join(hc.Dir, path)
-		}
+		counts, err := func() (wcCounts, error) {
+			path := file
+			if !filepath.IsAbs(path) {
+				path = filepath.Join(hc.Dir, path)
+			}
 
-		f, err := os.Open(path)
-		if err != nil {
-			return wrapError(c.name, err)
-		}
+			f, err := os.Open(path)
+			if err != nil {
+				return wcCounts{}, err
+			}
+			defer func() { _ = f.Close() }() // Read-only file; close error non-critical
 
-		counts, err := c.count(f)
-		f.Close()
+			return c.count(f)
+		}()
 		if err != nil {
 			return wrapError(c.name, err)
 		}

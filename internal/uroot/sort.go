@@ -83,18 +83,20 @@ func (c *sortCommand) Run(ctx context.Context, args []string) error {
 	} else {
 		// Read from files
 		for _, file := range files {
-			path := file
-			if !filepath.IsAbs(path) {
-				path = filepath.Join(hc.Dir, path)
-			}
+			fileLines, err := func() ([]string, error) {
+				path := file
+				if !filepath.IsAbs(path) {
+					path = filepath.Join(hc.Dir, path)
+				}
 
-			f, err := os.Open(path)
-			if err != nil {
-				return wrapError(c.name, err)
-			}
+				f, err := os.Open(path)
+				if err != nil {
+					return nil, err
+				}
+				defer func() { _ = f.Close() }() // Read-only file; close error non-critical
 
-			fileLines, err := c.readLines(f)
-			f.Close()
+				return c.readLines(f)
+			}()
 			if err != nil {
 				return wrapError(c.name, err)
 			}
