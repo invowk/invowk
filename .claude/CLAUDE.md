@@ -24,6 +24,7 @@ Invowk is a dynamically extensible command runner (similar to `just`, `task`, an
 - [`.claude/rules/go-patterns.md`](.claude/rules/go-patterns.md) - Go style, naming, errors, interfaces.
 - [`.claude/rules/licensing.md`](.claude/rules/licensing.md) - SPDX headers and MPL-2.0 rules.
 - [`.claude/rules/package-design.md`](.claude/rules/package-design.md) - Package boundaries and module design.
+- [`.claude/rules/testing.md`](.claude/rules/testing.md) - Test patterns, cross-platform testing, skipOnWindows.
 - [`.claude/rules/windows.md`](.claude/rules/windows.md) - Windows-specific constraints and guidance.
 
 ## Architecture Overview

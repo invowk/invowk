@@ -9,6 +9,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"sync/atomic"
 	"time"
 
 	"invowk-cli/pkg/invkfile"
@@ -20,6 +21,11 @@ const (
 	RuntimeTypeVirtual   RuntimeType = "virtual"
 	RuntimeTypeContainer RuntimeType = "container"
 )
+
+// executionIDCounter ensures unique execution IDs even when multiple IDs are
+// generated within the same nanosecond (possible on fast CPUs or systems with
+// low-precision clocks like Windows).
+var executionIDCounter atomic.Uint64
 
 type (
 	// ExecutionContext contains all information needed to execute a command
@@ -166,7 +172,7 @@ func NewExecutionContext(cmd *invkfile.Command, inv *invkfile.Invkfile) *Executi
 }
 
 func newExecutionID() string {
-	return fmt.Sprintf("%d", time.Now().UnixNano())
+	return fmt.Sprintf("%d-%d", time.Now().UnixNano(), executionIDCounter.Add(1))
 }
 
 // Success returns true if the command executed successfully

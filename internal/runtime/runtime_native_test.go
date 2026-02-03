@@ -7,6 +7,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	goruntime "runtime"
 	"strings"
 	"testing"
 
@@ -565,5 +566,347 @@ func TestNativeRuntime_ShellNotFoundError_Format(t *testing.T) {
 	// Test that suggestions are included
 	if !strings.Contains(formatted, "•") {
 		t.Errorf("formatted error should contain bullet points for suggestions, got: %s", formatted)
+	}
+}
+
+// --- Unit tests (no shell execution required) ---
+
+// TestNativeRuntime_Name tests the Name() method.
+func TestNativeRuntime_Name(t *testing.T) {
+	rt := NewNativeRuntime()
+	if name := rt.Name(); name != "native" {
+		t.Errorf("Name() = %q, want %q", name, "native")
+	}
+}
+
+// TestNativeRuntime_Available tests the Available() method.
+func TestNativeRuntime_Available(t *testing.T) {
+	rt := NewNativeRuntime()
+	// On any reasonable system, a shell should be available
+	if !rt.Available() {
+		t.Error("Available() = false, expected true on a system with a shell")
+	}
+}
+
+// TestNativeRuntime_SupportsInteractive tests the SupportsInteractive() method.
+func TestNativeRuntime_SupportsInteractive(t *testing.T) {
+	rt := NewNativeRuntime()
+	if !rt.SupportsInteractive() {
+		t.Error("SupportsInteractive() = false, want true")
+	}
+}
+
+// TestNativeRuntime_getShell tests shell detection.
+func TestNativeRuntime_getShell(t *testing.T) {
+	t.Run("uses custom shell when set", func(t *testing.T) {
+		rt := &NativeRuntime{Shell: "/custom/shell"}
+		shell, err := rt.getShell()
+		if err != nil {
+			t.Errorf("getShell() unexpected error: %v", err)
+		}
+		if shell != "/custom/shell" {
+			t.Errorf("getShell() = %q, want %q", shell, "/custom/shell")
+		}
+	})
+
+	t.Run("uses default shell when not set", func(t *testing.T) {
+		rt := NewNativeRuntime()
+		shell, err := rt.getShell()
+		if err != nil {
+			t.Errorf("getShell() unexpected error: %v", err)
+		}
+		if shell == "" {
+			t.Error("getShell() returned empty string")
+		}
+	})
+}
+
+// TestNativeRuntime_getShellArgs tests shell argument generation.
+func TestNativeRuntime_getShellArgs(t *testing.T) {
+	tests := []struct {
+		name         string
+		shell        string
+		shellArgs    []string // Custom args to set on runtime
+		want         []string
+		skipOnNonWin bool // Skip on non-Windows (backslash paths don't work cross-platform)
+	}{
+		{
+			name:  "bash",
+			shell: "/bin/bash",
+			want:  []string{"-c"},
+		},
+		{
+			name:  "sh",
+			shell: "/bin/sh",
+			want:  []string{"-c"},
+		},
+		{
+			name:  "zsh",
+			shell: "/usr/bin/zsh",
+			want:  []string{"-c"},
+		},
+		{
+			name:         "cmd.exe with Windows path",
+			shell:        "C:\\Windows\\System32\\cmd.exe",
+			want:         []string{"/C"},
+			skipOnNonWin: true, // filepath.Base doesn't handle backslashes on non-Windows
+		},
+		{
+			name:  "cmd.exe with forward slashes",
+			shell: "C:/Windows/System32/cmd.exe",
+			want:  []string{"/C"},
+		},
+		{
+			name:  "cmd without .exe",
+			shell: "/usr/bin/cmd",
+			want:  []string{"/C"},
+		},
+		{
+			name:         "powershell with Windows path",
+			shell:        "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+			want:         []string{"-NoProfile", "-Command"},
+			skipOnNonWin: true, // filepath.Base doesn't handle backslashes on non-Windows
+		},
+		{
+			name:  "powershell with forward slashes",
+			shell: "C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe",
+			want:  []string{"-NoProfile", "-Command"},
+		},
+		{
+			name:  "pwsh",
+			shell: "/usr/bin/pwsh",
+			want:  []string{"-NoProfile", "-Command"},
+		},
+		{
+			name:      "custom shell args override",
+			shell:     "/bin/bash",
+			shellArgs: []string{"--login", "-c"},
+			want:      []string{"--login", "-c"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.skipOnNonWin && goruntime.GOOS != "windows" {
+				t.Skip("skipping: Windows-style backslash paths only work on Windows")
+			}
+			testRt := &NativeRuntime{ShellArgs: tt.shellArgs}
+			got := testRt.getShellArgs(tt.shell)
+			if len(got) != len(tt.want) {
+				t.Errorf("getShellArgs(%q) length = %d, want %d", tt.shell, len(got), len(tt.want))
+				return
+			}
+			for i := range got {
+				if got[i] != tt.want[i] {
+					t.Errorf("getShellArgs(%q)[%d] = %q, want %q", tt.shell, i, got[i], tt.want[i])
+				}
+			}
+		})
+	}
+}
+
+// TestNativeRuntime_createTempScript tests temporary script file creation.
+func TestNativeRuntime_createTempScript(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping test that writes to filesystem in short mode")
+	}
+
+	rt := NewNativeRuntime()
+
+	tests := []struct {
+		name        string
+		content     string
+		interpreter string
+		wantExt     string
+	}{
+		{
+			name:        "bash script",
+			content:     "#!/bin/bash\necho hello",
+			interpreter: "bash",
+			wantExt:     ".sh",
+		},
+		{
+			name:        "python script",
+			content:     "#!/usr/bin/env python3\nprint('hello')",
+			interpreter: "python3",
+			wantExt:     ".py",
+		},
+		{
+			name:        "node script",
+			content:     "console.log('hello')",
+			interpreter: "node",
+			wantExt:     ".js",
+		},
+		{
+			name:        "ruby script",
+			content:     "puts 'hello'",
+			interpreter: "ruby",
+			wantExt:     ".rb",
+		},
+		{
+			name:        "perl script",
+			content:     "print 'hello'",
+			interpreter: "perl",
+			wantExt:     ".pl",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			path, err := rt.createTempScript(tt.content, tt.interpreter)
+			if err != nil {
+				t.Fatalf("createTempScript() error: %v", err)
+			}
+			defer func() { _ = os.Remove(path) }()
+
+			// Check extension
+			if !strings.HasSuffix(path, tt.wantExt) {
+				t.Errorf("createTempScript() path = %q, want extension %q", path, tt.wantExt)
+			}
+
+			// Check content
+			content, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatalf("failed to read temp script: %v", err)
+			}
+			if string(content) != tt.content {
+				t.Errorf("createTempScript() content = %q, want %q", string(content), tt.content)
+			}
+
+			// Check file exists and is readable
+			info, err := os.Stat(path)
+			if err != nil {
+				t.Fatalf("failed to stat temp script: %v", err)
+			}
+			if info.Size() == 0 {
+				t.Error("createTempScript() created empty file")
+			}
+		})
+	}
+}
+
+// TestNativeRuntime_Validate tests the validation logic.
+func TestNativeRuntime_Validate_Unit(t *testing.T) {
+	tmpDir := t.TempDir()
+	inv := &invkfile.Invkfile{
+		FilePath: filepath.Join(tmpDir, "invkfile.cue"),
+	}
+
+	tests := []struct {
+		name    string
+		cmd     *invkfile.Command
+		wantErr bool
+		errMsg  string
+	}{
+		{
+			name:    "valid script",
+			cmd:     testCommandWithScript("valid", "echo hello", invkfile.RuntimeNative),
+			wantErr: false,
+		},
+		{
+			name: "nil implementation",
+			cmd: &invkfile.Command{
+				Name: "nil-impl",
+			},
+			wantErr: true,
+			errMsg:  "no script selected",
+		},
+		{
+			name: "empty script",
+			cmd: &invkfile.Command{
+				Name: "empty",
+				Implementations: []invkfile.Implementation{
+					{
+						Script:   "",
+						Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeNative}},
+					},
+				},
+			},
+			wantErr: true,
+			errMsg:  "no content",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rt := NewNativeRuntime()
+			ctx := NewExecutionContext(tt.cmd, inv)
+			// For "nil implementation" test, set SelectedImpl to nil
+			if tt.name == "nil implementation" {
+				ctx.SelectedImpl = nil
+			}
+
+			err := rt.Validate(ctx)
+
+			if tt.wantErr {
+				if err == nil {
+					t.Error("Validate() expected error, got nil")
+				} else if tt.errMsg != "" && !strings.Contains(err.Error(), tt.errMsg) {
+					t.Errorf("Validate() error = %q, want error containing %q", err.Error(), tt.errMsg)
+				}
+			} else {
+				if err != nil {
+					t.Errorf("Validate() unexpected error: %v", err)
+				}
+			}
+		})
+	}
+}
+
+// TestNativeRuntime_getWorkDir tests working directory resolution.
+func TestNativeRuntime_getWorkDir(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	tests := []struct {
+		name          string
+		cmdWorkDir    string
+		ctxWorkDir    string
+		want          string
+		skipOnWindows bool
+	}{
+		{
+			name:       "no workdir uses invkfile directory",
+			cmdWorkDir: "",
+			ctxWorkDir: "",
+			want:       tmpDir,
+		},
+		{
+			name:          "context workdir takes precedence",
+			cmdWorkDir:    "cmd-dir",
+			ctxWorkDir:    "/override/dir",
+			want:          "/override/dir",
+			skipOnWindows: true, // Unix-style absolute path not meaningful on Windows
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.skipOnWindows && goruntime.GOOS == "windows" {
+				t.Skip("skipping: Unix-style absolute paths are not meaningful on Windows")
+			}
+			inv := &invkfile.Invkfile{
+				FilePath: filepath.Join(tmpDir, "invkfile.cue"),
+				WorkDir:  "",
+			}
+			cmd := &invkfile.Command{
+				Name:    "workdir-test",
+				WorkDir: tt.cmdWorkDir,
+				Implementations: []invkfile.Implementation{
+					{
+						Script:   "echo test",
+						Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeNative}},
+					},
+				},
+			}
+
+			rt := NewNativeRuntime()
+			ctx := NewExecutionContext(cmd, inv)
+			ctx.WorkDir = tt.ctxWorkDir
+
+			got := rt.getWorkDir(ctx)
+			if got != tt.want {
+				t.Errorf("getWorkDir() = %q, want %q", got, tt.want)
+			}
+		})
 	}
 }
