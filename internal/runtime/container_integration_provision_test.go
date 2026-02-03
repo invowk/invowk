@@ -49,8 +49,8 @@ func TestContainerRuntime_ProvisioningLayer_InvkfileAccess(t *testing.T) {
 	execCtx.Context = context.Background()
 
 	var stdout, stderr bytes.Buffer
-	execCtx.Stdout = &stdout
-	execCtx.Stderr = &stderr
+	execCtx.IO.Stdout = &stdout
+	execCtx.IO.Stderr = &stderr
 
 	result := rt.Execute(execCtx)
 	if result.ExitCode != 0 {
@@ -102,8 +102,8 @@ echo "Script executed from /workspace"
 	execCtx.Context = context.Background()
 
 	var stdout, stderr bytes.Buffer
-	execCtx.Stdout = &stdout
-	execCtx.Stderr = &stderr
+	execCtx.IO.Stdout = &stdout
+	execCtx.IO.Stderr = &stderr
 
 	result := rt.Execute(execCtx)
 	if result.ExitCode != 0 {
@@ -158,8 +158,8 @@ func TestContainerRuntime_ProvisioningLayer_NestedDirectories(t *testing.T) {
 	execCtx.Context = context.Background()
 
 	var stdout, stderr bytes.Buffer
-	execCtx.Stdout = &stdout
-	execCtx.Stderr = &stderr
+	execCtx.IO.Stdout = &stdout
+	execCtx.IO.Stderr = &stderr
 
 	result := rt.Execute(execCtx)
 	if result.ExitCode != 0 {
@@ -200,8 +200,8 @@ func TestContainerRuntime_ProvisioningLayer_WorkspaceIsCwd(t *testing.T) {
 	execCtx.Context = context.Background()
 
 	var stdout, stderr bytes.Buffer
-	execCtx.Stdout = &stdout
-	execCtx.Stderr = &stderr
+	execCtx.IO.Stdout = &stdout
+	execCtx.IO.Stderr = &stderr
 
 	result := rt.Execute(execCtx)
 	if result.ExitCode != 0 {

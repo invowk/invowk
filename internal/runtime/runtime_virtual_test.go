@@ -35,8 +35,8 @@ func TestVirtualRuntime_InlineScript(t *testing.T) {
 	ctx.Context = context.Background()
 
 	var stdout bytes.Buffer
-	ctx.Stdout = &stdout
-	ctx.Stderr = &bytes.Buffer{}
+	ctx.IO.Stdout = &stdout
+	ctx.IO.Stderr = &bytes.Buffer{}
 
 	result := rt.Execute(ctx)
 	if result.ExitCode != 0 {
@@ -73,8 +73,8 @@ echo "Done"`
 	ctx.Context = context.Background()
 
 	var stdout bytes.Buffer
-	ctx.Stdout = &stdout
-	ctx.Stderr = &bytes.Buffer{}
+	ctx.IO.Stdout = &stdout
+	ctx.IO.Stderr = &bytes.Buffer{}
 
 	result := rt.Execute(ctx)
 	if result.ExitCode != 0 {
@@ -115,8 +115,8 @@ func TestVirtualRuntime_ScriptFile(t *testing.T) {
 	ctx.Context = context.Background()
 
 	var stdout bytes.Buffer
-	ctx.Stdout = &stdout
-	ctx.Stderr = &bytes.Buffer{}
+	ctx.IO.Stdout = &stdout
+	ctx.IO.Stderr = &bytes.Buffer{}
 
 	result := rt.Execute(ctx)
 	if result.ExitCode != 0 {
@@ -177,8 +177,8 @@ func TestVirtualRuntime_PositionalArgs(t *testing.T) {
 	ctx.PositionalArgs = []string{"foo", "bar"}
 
 	var stdout bytes.Buffer
-	ctx.Stdout = &stdout
-	ctx.Stderr = &bytes.Buffer{}
+	ctx.IO.Stdout = &stdout
+	ctx.IO.Stderr = &bytes.Buffer{}
 
 	result := rt.Execute(ctx)
 	if result.ExitCode != 0 {
@@ -220,8 +220,8 @@ func TestVirtualRuntime_PositionalArgs_ArgCount(t *testing.T) {
 	ctx.PositionalArgs = []string{"a", "b", "c", "d", "e"}
 
 	var stdout bytes.Buffer
-	ctx.Stdout = &stdout
-	ctx.Stderr = &bytes.Buffer{}
+	ctx.IO.Stdout = &stdout
+	ctx.IO.Stderr = &bytes.Buffer{}
 
 	result := rt.Execute(ctx)
 	if result.ExitCode != 0 {
@@ -257,8 +257,8 @@ func TestVirtualRuntime_PositionalArgs_Empty(t *testing.T) {
 	// No positional args set
 
 	var stdout bytes.Buffer
-	ctx.Stdout = &stdout
-	ctx.Stderr = &bytes.Buffer{}
+	ctx.IO.Stdout = &stdout
+	ctx.IO.Stderr = &bytes.Buffer{}
 
 	result := rt.Execute(ctx)
 	if result.ExitCode != 0 {
@@ -306,8 +306,8 @@ echo "ARG1=${ARG1:-unset}"`
 	ctx.Context = context.Background()
 
 	var stdout bytes.Buffer
-	ctx.Stdout = &stdout
-	ctx.Stderr = &bytes.Buffer{}
+	ctx.IO.Stdout = &stdout
+	ctx.IO.Stderr = &bytes.Buffer{}
 
 	result := rt.Execute(ctx)
 	if result.ExitCode != 0 {
@@ -362,8 +362,8 @@ func TestVirtualRuntime_RejectsInterpreter(t *testing.T) {
 
 	// Test Execute method (as a safety net)
 	var stdout bytes.Buffer
-	ctx.Stdout = &stdout
-	ctx.Stderr = &bytes.Buffer{}
+	ctx.IO.Stdout = &stdout
+	ctx.IO.Stderr = &bytes.Buffer{}
 
 	result := rt.Execute(ctx)
 	if result.ExitCode == 0 {
@@ -400,8 +400,8 @@ func TestVirtualRuntime_ContextCancellation(t *testing.T) {
 	execCtx.Context = ctx
 
 	var stdout bytes.Buffer
-	execCtx.Stdout = &stdout
-	execCtx.Stderr = &bytes.Buffer{}
+	execCtx.IO.Stdout = &stdout
+	execCtx.IO.Stderr = &bytes.Buffer{}
 
 	// Cancel the context after a short delay
 	go func() {
@@ -446,8 +446,8 @@ func TestVirtualRuntime_ExitCode(t *testing.T) {
 			rt := NewVirtualRuntime(false)
 			ctx := NewExecutionContext(cmd, inv)
 			ctx.Context = context.Background()
-			ctx.Stdout = &bytes.Buffer{}
-			ctx.Stderr = &bytes.Buffer{}
+			ctx.IO.Stdout = &bytes.Buffer{}
+			ctx.IO.Stderr = &bytes.Buffer{}
 
 			result := rt.Execute(ctx)
 			if result.ExitCode != tt.expectedCode {

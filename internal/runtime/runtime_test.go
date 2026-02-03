@@ -61,17 +61,17 @@ func TestNewExecutionContext(t *testing.T) {
 	if ctx.Context == nil {
 		t.Error("NewExecutionContext() Context should be background context")
 	}
-	if ctx.Stdout != os.Stdout {
-		t.Error("NewExecutionContext() Stdout should default to os.Stdout")
+	if ctx.IO.Stdout != os.Stdout {
+		t.Error("NewExecutionContext() IO.Stdout should default to os.Stdout")
 	}
-	if ctx.Stderr != os.Stderr {
-		t.Error("NewExecutionContext() Stderr should default to os.Stderr")
+	if ctx.IO.Stderr != os.Stderr {
+		t.Error("NewExecutionContext() IO.Stderr should default to os.Stderr")
 	}
-	if ctx.Stdin != os.Stdin {
-		t.Error("NewExecutionContext() Stdin should default to os.Stdin")
+	if ctx.IO.Stdin != os.Stdin {
+		t.Error("NewExecutionContext() IO.Stdin should default to os.Stdin")
 	}
-	if ctx.ExtraEnv == nil {
-		t.Error("NewExecutionContext() ExtraEnv should be initialized")
+	if ctx.Env.ExtraEnv == nil {
+		t.Error("NewExecutionContext() Env.ExtraEnv should be initialized")
 	}
 	if ctx.SelectedRuntime != invkfile.RuntimeNative {
 		t.Errorf("NewExecutionContext() SelectedRuntime = %q, want %q", ctx.SelectedRuntime, invkfile.RuntimeNative)
@@ -402,8 +402,8 @@ func TestRegistry_Execute(t *testing.T) {
 
 			cmd := testCommandWithScript("test", "echo test", tt.runtime)
 			ctx := NewExecutionContext(cmd, inv)
-			ctx.Stdout = &bytes.Buffer{}
-			ctx.Stderr = &bytes.Buffer{}
+			ctx.IO.Stdout = &bytes.Buffer{}
+			ctx.IO.Stderr = &bytes.Buffer{}
 
 			result := reg.Execute(ctx)
 
@@ -554,16 +554,16 @@ func TestExecutionContext_CustomOverrides(t *testing.T) {
 
 	// Set custom overrides
 	ctx.Context = context.TODO()
-	ctx.Stdout = &bytes.Buffer{}
-	ctx.Stderr = &bytes.Buffer{}
-	ctx.ExtraEnv["CUSTOM"] = "value"
+	ctx.IO.Stdout = &bytes.Buffer{}
+	ctx.IO.Stderr = &bytes.Buffer{}
+	ctx.Env.ExtraEnv["CUSTOM"] = "value"
 	ctx.WorkDir = "/custom/dir"
 	ctx.Verbose = true
 	ctx.PositionalArgs = []string{"arg1", "arg2"}
-	ctx.RuntimeEnvFiles = []string{".env"}
-	ctx.RuntimeEnvVars = map[string]string{"VAR": "val"}
-	ctx.TUIServerURL = "http://localhost:8080"
-	ctx.TUIServerToken = "token123"
+	ctx.Env.RuntimeEnvFiles = []string{".env"}
+	ctx.Env.RuntimeEnvVars = map[string]string{"VAR": "val"}
+	ctx.TUI.ServerURL = "http://localhost:8080"
+	ctx.TUI.ServerToken = "token123"
 
 	// Verify overrides are set
 	if ctx.WorkDir != "/custom/dir" {
@@ -575,13 +575,13 @@ func TestExecutionContext_CustomOverrides(t *testing.T) {
 	if len(ctx.PositionalArgs) != 2 {
 		t.Errorf("PositionalArgs length = %d, want 2", len(ctx.PositionalArgs))
 	}
-	if ctx.ExtraEnv["CUSTOM"] != "value" {
-		t.Error("ExtraEnv not set correctly")
+	if ctx.Env.ExtraEnv["CUSTOM"] != "value" {
+		t.Error("Env.ExtraEnv not set correctly")
 	}
-	if ctx.TUIServerURL != "http://localhost:8080" {
-		t.Error("TUIServerURL not set correctly")
+	if ctx.TUI.ServerURL != "http://localhost:8080" {
+		t.Error("TUI.ServerURL not set correctly")
 	}
-	if ctx.TUIServerToken != "token123" {
-		t.Error("TUIServerToken not set correctly")
+	if ctx.TUI.ServerToken != "token123" {
+		t.Error("TUI.ServerToken not set correctly")
 	}
 }

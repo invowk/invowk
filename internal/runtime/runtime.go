@@ -4,6 +4,7 @@
 package runtime
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -28,7 +29,54 @@ const (
 var executionIDCounter atomic.Uint64
 
 type (
-	// ExecutionContext contains all information needed to execute a command
+	// IOContext holds I/O streams for command execution.
+	// This groups standard input, output, and error streams together.
+	IOContext struct {
+		// Stdout is where to write standard output
+		Stdout io.Writer
+		// Stderr is where to write standard error
+		Stderr io.Writer
+		// Stdin is where to read standard input
+		Stdin io.Reader
+	}
+
+	// EnvContext holds environment configuration for command execution.
+	// This groups all environment variable related fields together.
+	EnvContext struct {
+		// ExtraEnv contains additional environment variables (INVOWK_FLAG_*, INVOWK_ARG_*, etc.)
+		ExtraEnv map[string]string
+		// RuntimeEnvVars contains env vars specified via --env-var flag.
+		// These are set last and override all other environment variables (highest priority).
+		RuntimeEnvVars map[string]string
+		// RuntimeEnvFiles contains dotenv file paths specified via --env-file flag.
+		// These are loaded after all other env sources but before RuntimeEnvVars.
+		// Paths are relative to the current working directory where invowk was invoked.
+		RuntimeEnvFiles []string
+		// InheritModeOverride overrides the runtime config env inherit mode when set.
+		InheritModeOverride invkfile.EnvInheritMode
+		// InheritAllowOverride overrides the runtime config allowlist when set.
+		InheritAllowOverride []string
+		// InheritDenyOverride overrides the runtime config denylist when set.
+		InheritDenyOverride []string
+	}
+
+	// TUIContext holds TUI server connection details for interactive mode.
+	// This groups TUI-related fields together.
+	TUIContext struct {
+		// ServerURL is the URL of the TUI server for interactive mode.
+		// When set, runtimes should include this in the command's environment
+		// as INVOWK_TUI_ADDR. For container runtimes, this should already be
+		// translated to a container-accessible address (e.g., host.docker.internal).
+		ServerURL string
+		// ServerToken is the authentication token for the TUI server.
+		// When set, runtimes should include this in the command's environment
+		// as INVOWK_TUI_TOKEN.
+		ServerToken string
+	}
+
+	// ExecutionContext contains all information needed to execute a command.
+	// It uses composition of focused sub-types (IO, Env, TUI) for better
+	// organization and testability.
 	ExecutionContext struct {
 		// Command is the command to execute
 		Command *invkfile.Command
@@ -36,50 +84,25 @@ type (
 		Invkfile *invkfile.Invkfile
 		// Context is the Go context for cancellation
 		Context context.Context
-		// Stdout is where to write standard output
-		Stdout io.Writer
-		// Stderr is where to write standard error
-		Stderr io.Writer
-		// Stdin is where to read standard input
-		Stdin io.Reader
-		// ExtraEnv contains additional environment variables
-		ExtraEnv map[string]string
-		// WorkDir overrides the working directory
-		WorkDir string
-		// Verbose enables verbose output
-		Verbose bool
 		// SelectedRuntime is the runtime to use for execution (may differ from default)
 		SelectedRuntime invkfile.RuntimeMode
 		// SelectedImpl is the implementation to execute (based on platform and runtime)
 		SelectedImpl *invkfile.Implementation
 		// PositionalArgs contains command-line arguments to pass as shell positional parameters ($1, $2, etc.)
 		PositionalArgs []string
-		// RuntimeEnvFiles contains dotenv file paths specified via --env-file flag.
-		// These are loaded after all other env sources but before RuntimeEnvVars.
-		// Paths are relative to the current working directory where invowk was invoked.
-		RuntimeEnvFiles []string
-		// RuntimeEnvVars contains env vars specified via --env-var flag.
-		// These are set last and override all other environment variables (highest priority).
-		RuntimeEnvVars map[string]string
-		// EnvInheritModeOverride overrides the runtime config env inherit mode when set.
-		EnvInheritModeOverride invkfile.EnvInheritMode
-		// EnvInheritAllowOverride overrides the runtime config allowlist when set.
-		EnvInheritAllowOverride []string
-		// EnvInheritDenyOverride overrides the runtime config denylist when set.
-		EnvInheritDenyOverride []string
-
+		// WorkDir overrides the working directory
+		WorkDir string
+		// Verbose enables verbose output
+		Verbose bool
 		// ExecutionID is a unique identifier for this command execution.
 		ExecutionID string
 
-		// TUIServerURL is the URL of the TUI server for interactive mode.
-		// When set, runtimes should include this in the command's environment
-		// as INVOWK_TUI_ADDR. For container runtimes, this should already be
-		// translated to a container-accessible address (e.g., host.docker.internal).
-		TUIServerURL string
-		// TUIServerToken is the authentication token for the TUI server.
-		// When set, runtimes should include this in the command's environment
-		// as INVOWK_TUI_TOKEN.
-		TUIServerToken string
+		// IO holds I/O streams (Stdout, Stderr, Stdin)
+		IO IOContext
+		// Env holds environment configuration
+		Env EnvContext
+		// TUI holds TUI server connection details
+		TUI TUIContext
 	}
 
 	// Result contains the result of a command execution
@@ -151,6 +174,50 @@ type (
 	}
 )
 
+// DefaultIO returns an IOContext with standard I/O streams (os.Stdout, os.Stderr, os.Stdin).
+func DefaultIO() IOContext {
+	return IOContext{
+		Stdout: os.Stdout,
+		Stderr: os.Stderr,
+		Stdin:  os.Stdin,
+	}
+}
+
+// CaptureIO returns an IOContext configured to capture output, along with the
+// stdout and stderr buffers for reading the captured output after execution.
+func CaptureIO() (ioCtx IOContext, stdout, stderr *bytes.Buffer) {
+	stdout = &bytes.Buffer{}
+	stderr = &bytes.Buffer{}
+	ioCtx = IOContext{
+		Stdout: stdout,
+		Stderr: stderr,
+		Stdin:  nil,
+	}
+	return ioCtx, stdout, stderr
+}
+
+// DefaultEnv returns an EnvContext with an initialized ExtraEnv map.
+func DefaultEnv() EnvContext {
+	return EnvContext{
+		ExtraEnv: make(map[string]string),
+	}
+}
+
+// WithVar returns a copy of the EnvContext with the specified environment variable added.
+// This is a builder-style method for fluent configuration.
+func (e EnvContext) WithVar(key, value string) EnvContext {
+	if e.ExtraEnv == nil {
+		e.ExtraEnv = make(map[string]string)
+	}
+	e.ExtraEnv[key] = value
+	return e
+}
+
+// IsConfigured returns true if the TUI server is configured (ServerURL is set).
+func (t TUIContext) IsConfigured() bool {
+	return t.ServerURL != ""
+}
+
 // NewExecutionContext creates a new execution context with defaults
 func NewExecutionContext(cmd *invkfile.Command, inv *invkfile.Invkfile) *ExecutionContext {
 	currentPlatform := invkfile.GetCurrentHostOS()
@@ -161,13 +228,12 @@ func NewExecutionContext(cmd *invkfile.Command, inv *invkfile.Invkfile) *Executi
 		Command:         cmd,
 		Invkfile:        inv,
 		Context:         context.Background(),
-		Stdout:          os.Stdout,
-		Stderr:          os.Stderr,
-		Stdin:           os.Stdin,
-		ExtraEnv:        make(map[string]string),
 		SelectedRuntime: defaultRuntime,
 		SelectedImpl:    defaultScript,
 		ExecutionID:     newExecutionID(),
+		IO:              DefaultIO(),
+		Env:             DefaultEnv(),
+		// TUI: zero value is fine (not configured by default)
 	}
 }
 

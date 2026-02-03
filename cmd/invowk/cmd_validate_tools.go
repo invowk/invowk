@@ -93,10 +93,9 @@ func validateToolInVirtual(toolName string, registry *runtime.Registry, ctx *run
 		Invkfile:        ctx.Invkfile,
 		SelectedImpl:    &invkfile.Implementation{Script: checkScript, Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeVirtual}}},
 		SelectedRuntime: invkfile.RuntimeVirtual,
-		Stdout:          &stdout,
-		Stderr:          &stderr,
 		Context:         ctx.Context,
-		ExtraEnv:        make(map[string]string),
+		IO:              runtime.IOContext{Stdout: &stdout, Stderr: &stderr},
+		Env:             runtime.DefaultEnv(),
 	}
 
 	result := rt.Execute(validationCtx)
@@ -125,10 +124,9 @@ func validateToolInContainer(toolName string, registry *runtime.Registry, ctx *r
 		Invkfile:        ctx.Invkfile,
 		SelectedImpl:    &invkfile.Implementation{Script: checkScript, Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeContainer}}},
 		SelectedRuntime: invkfile.RuntimeContainer,
-		Stdout:          &stdout,
-		Stderr:          &stderr,
 		Context:         ctx.Context,
-		ExtraEnv:        make(map[string]string),
+		IO:              runtime.IOContext{Stdout: &stdout, Stderr: &stderr},
+		Env:             runtime.DefaultEnv(),
 	}
 
 	result := rt.Execute(validationCtx)

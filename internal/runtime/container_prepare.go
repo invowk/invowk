@@ -127,7 +127,7 @@ func (r *ContainerRuntime) PrepareCommand(ctx *ExecutionContext) (*PreparedComma
 
 	// Build extra hosts for accessing host services from container
 	var extraHosts []string
-	needsHostAccess := hostSSHEnabled || ctx.TUIServerURL != ""
+	needsHostAccess := hostSSHEnabled || ctx.TUI.ServerURL != ""
 	if needsHostAccess {
 		// Add host gateway for accessing host from container
 		// This enables hostDockerInternal (Docker) or hostContainersInternal (Podman)
@@ -135,11 +135,11 @@ func (r *ContainerRuntime) PrepareCommand(ctx *ExecutionContext) (*PreparedComma
 	}
 
 	// Add TUI server environment variables if set (for interactive mode)
-	if ctx.TUIServerURL != "" {
-		env["INVOWK_TUI_ADDR"] = ctx.TUIServerURL
+	if ctx.TUI.ServerURL != "" {
+		env["INVOWK_TUI_ADDR"] = ctx.TUI.ServerURL
 	}
-	if ctx.TUIServerToken != "" {
-		env["INVOWK_TUI_TOKEN"] = ctx.TUIServerToken
+	if ctx.TUI.ServerToken != "" {
+		env["INVOWK_TUI_TOKEN"] = ctx.TUI.ServerToken
 	}
 
 	// Build run options - enable TTY and Interactive for PTY attachment

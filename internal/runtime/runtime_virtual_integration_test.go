@@ -42,8 +42,8 @@ func testVirtualCommandSubstitution(t *testing.T) {
 	ctx.Context = context.Background()
 
 	var stdout bytes.Buffer
-	ctx.Stdout = &stdout
-	ctx.Stderr = &bytes.Buffer{}
+	ctx.IO.Stdout = &stdout
+	ctx.IO.Stderr = &bytes.Buffer{}
 
 	result := rt.Execute(ctx)
 	if result.ExitCode != 0 {
@@ -70,8 +70,8 @@ func testVirtualPipelines(t *testing.T) {
 	ctx.Context = context.Background()
 
 	var stdout bytes.Buffer
-	ctx.Stdout = &stdout
-	ctx.Stderr = &bytes.Buffer{}
+	ctx.IO.Stdout = &stdout
+	ctx.IO.Stderr = &bytes.Buffer{}
 
 	result := rt.Execute(ctx)
 	if result.ExitCode != 0 {
@@ -103,8 +103,8 @@ EOF`
 	ctx.Context = context.Background()
 
 	var stdout bytes.Buffer
-	ctx.Stdout = &stdout
-	ctx.Stderr = &bytes.Buffer{}
+	ctx.IO.Stdout = &stdout
+	ctx.IO.Stderr = &bytes.Buffer{}
 
 	result := rt.Execute(ctx)
 	if result.ExitCode != 0 {
@@ -140,8 +140,8 @@ echo "Length: ${#MYVAR}"`
 	ctx.Context = context.Background()
 
 	var stdout bytes.Buffer
-	ctx.Stdout = &stdout
-	ctx.Stderr = &bytes.Buffer{}
+	ctx.IO.Stdout = &stdout
+	ctx.IO.Stderr = &bytes.Buffer{}
 
 	result := rt.Execute(ctx)
 	if result.ExitCode != 0 {
@@ -180,8 +180,8 @@ echo "Product: $((4 * 5))"`
 	ctx.Context = context.Background()
 
 	var stdout bytes.Buffer
-	ctx.Stdout = &stdout
-	ctx.Stderr = &bytes.Buffer{}
+	ctx.IO.Stdout = &stdout
+	ctx.IO.Stderr = &bytes.Buffer{}
 
 	result := rt.Execute(ctx)
 	if result.ExitCode != 0 {
@@ -214,8 +214,8 @@ false || echo "OR_FALLBACK"`
 	ctx.Context = context.Background()
 
 	var stdout bytes.Buffer
-	ctx.Stdout = &stdout
-	ctx.Stderr = &bytes.Buffer{}
+	ctx.IO.Stdout = &stdout
+	ctx.IO.Stderr = &bytes.Buffer{}
 
 	result := rt.Execute(ctx)
 	if result.ExitCode != 0 {
@@ -262,8 +262,8 @@ func TestVirtualRuntime_ScriptFileFromSubdir(t *testing.T) {
 	ctx.Context = context.Background()
 
 	var stdout bytes.Buffer
-	ctx.Stdout = &stdout
-	ctx.Stderr = &bytes.Buffer{}
+	ctx.IO.Stdout = &stdout
+	ctx.IO.Stderr = &bytes.Buffer{}
 
 	result := rt.Execute(ctx)
 	if result.ExitCode != 0 {

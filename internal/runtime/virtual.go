@@ -113,7 +113,7 @@ func (r *VirtualRuntime) Execute(ctx *ExecutionContext) *Result {
 	opts := []interp.RunnerOption{
 		interp.Dir(workDir),
 		interp.Env(expand.ListEnviron(EnvToSlice(env)...)),
-		interp.StdIO(ctx.Stdin, ctx.Stdout, ctx.Stderr),
+		interp.StdIO(ctx.IO.Stdin, ctx.IO.Stdout, ctx.IO.Stderr),
 		interp.ExecHandlers(r.execHandler),
 	}
 

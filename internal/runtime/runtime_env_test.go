@@ -58,8 +58,8 @@ func TestRuntime_ScriptNotFound(t *testing.T) {
 	t.Run("native runtime", func(t *testing.T) {
 		rt := NewNativeRuntime()
 		ctx := NewExecutionContext(cmd, inv)
-		ctx.Stdout = &bytes.Buffer{}
-		ctx.Stderr = &bytes.Buffer{}
+		ctx.IO.Stdout = &bytes.Buffer{}
+		ctx.IO.Stderr = &bytes.Buffer{}
 
 		result := rt.Execute(ctx)
 		if result.Error == nil {
@@ -72,8 +72,8 @@ func TestRuntime_ScriptNotFound(t *testing.T) {
 		rt := NewVirtualRuntime(false)
 		ctx := NewExecutionContext(cmdVirtual, inv)
 		ctx.Context = context.Background()
-		ctx.Stdout = &bytes.Buffer{}
-		ctx.Stderr = &bytes.Buffer{}
+		ctx.IO.Stdout = &bytes.Buffer{}
+		ctx.IO.Stderr = &bytes.Buffer{}
 
 		result := rt.Execute(ctx)
 		if result.Error == nil {
@@ -119,8 +119,8 @@ func TestRuntime_EnvironmentVariables(t *testing.T) {
 	ctx.Context = context.Background()
 
 	var stdout bytes.Buffer
-	ctx.Stdout = &stdout
-	ctx.Stderr = &bytes.Buffer{}
+	ctx.IO.Stdout = &stdout
+	ctx.IO.Stderr = &bytes.Buffer{}
 
 	result := rt.Execute(ctx)
 	if result.ExitCode != 0 {

@@ -65,17 +65,17 @@ func buildRuntimeEnv(ctx *ExecutionContext, defaultMode invkfile.EnvInheritMode)
 	maps.Copy(env, ctx.SelectedImpl.Env.GetVars())
 
 	// 8. Extra env from context (flags, args)
-	maps.Copy(env, ctx.ExtraEnv)
+	maps.Copy(env, ctx.Env.ExtraEnv)
 
 	// 9. Runtime --env-file flag files
-	for _, path := range ctx.RuntimeEnvFiles {
+	for _, path := range ctx.Env.RuntimeEnvFiles {
 		if err := LoadEnvFileFromCwd(env, path); err != nil {
 			return nil, err
 		}
 	}
 
 	// 10. Runtime --env-var flag values (highest priority)
-	maps.Copy(env, ctx.RuntimeEnvVars)
+	maps.Copy(env, ctx.Env.RuntimeEnvVars)
 
 	return env, nil
 }
@@ -97,14 +97,14 @@ func resolveEnvInheritConfig(ctx *ExecutionContext, defaultMode invkfile.EnvInhe
 		}
 	}
 
-	if ctx.EnvInheritModeOverride != "" {
-		cfg.mode = ctx.EnvInheritModeOverride
+	if ctx.Env.InheritModeOverride != "" {
+		cfg.mode = ctx.Env.InheritModeOverride
 	}
-	if ctx.EnvInheritAllowOverride != nil {
-		cfg.allow = append([]string{}, ctx.EnvInheritAllowOverride...)
+	if ctx.Env.InheritAllowOverride != nil {
+		cfg.allow = append([]string{}, ctx.Env.InheritAllowOverride...)
 	}
-	if ctx.EnvInheritDenyOverride != nil {
-		cfg.deny = append([]string{}, ctx.EnvInheritDenyOverride...)
+	if ctx.Env.InheritDenyOverride != nil {
+		cfg.deny = append([]string{}, ctx.Env.InheritDenyOverride...)
 	}
 
 	return cfg

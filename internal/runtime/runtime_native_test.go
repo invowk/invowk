@@ -40,8 +40,8 @@ func TestNativeRuntime_InlineScript(t *testing.T) {
 	ctx := NewExecutionContext(cmd, inv)
 
 	var stdout bytes.Buffer
-	ctx.Stdout = &stdout
-	ctx.Stderr = &bytes.Buffer{}
+	ctx.IO.Stdout = &stdout
+	ctx.IO.Stderr = &bytes.Buffer{}
 
 	result := rt.Execute(ctx)
 	if result.ExitCode != 0 {
@@ -82,8 +82,8 @@ echo "Line 3"`
 	ctx := NewExecutionContext(cmd, inv)
 
 	var stdout bytes.Buffer
-	ctx.Stdout = &stdout
-	ctx.Stderr = &bytes.Buffer{}
+	ctx.IO.Stdout = &stdout
+	ctx.IO.Stderr = &bytes.Buffer{}
 
 	result := rt.Execute(ctx)
 	if result.ExitCode != 0 {
@@ -128,8 +128,8 @@ echo "Hello from script file"
 	ctx := NewExecutionContext(cmd, inv)
 
 	var stdout bytes.Buffer
-	ctx.Stdout = &stdout
-	ctx.Stderr = &bytes.Buffer{}
+	ctx.IO.Stdout = &stdout
+	ctx.IO.Stderr = &bytes.Buffer{}
 
 	result := rt.Execute(ctx)
 	if result.ExitCode != 0 {
@@ -168,8 +168,8 @@ func TestNativeRuntime_PositionalArgs(t *testing.T) {
 	ctx.PositionalArgs = []string{"hello", "world"}
 
 	var stdout bytes.Buffer
-	ctx.Stdout = &stdout
-	ctx.Stderr = &bytes.Buffer{}
+	ctx.IO.Stdout = &stdout
+	ctx.IO.Stderr = &bytes.Buffer{}
 
 	result := rt.Execute(ctx)
 	if result.ExitCode != 0 {
@@ -214,8 +214,8 @@ func TestNativeRuntime_PositionalArgs_Empty(t *testing.T) {
 	// No positional args set
 
 	var stdout bytes.Buffer
-	ctx.Stdout = &stdout
-	ctx.Stderr = &bytes.Buffer{}
+	ctx.IO.Stdout = &stdout
+	ctx.IO.Stderr = &bytes.Buffer{}
 
 	result := rt.Execute(ctx)
 	if result.ExitCode != 0 {
@@ -254,8 +254,8 @@ func TestNativeRuntime_PositionalArgs_SpecialChars(t *testing.T) {
 	ctx.PositionalArgs = []string{"hello world with spaces"}
 
 	var stdout bytes.Buffer
-	ctx.Stdout = &stdout
-	ctx.Stderr = &bytes.Buffer{}
+	ctx.IO.Stdout = &stdout
+	ctx.IO.Stderr = &bytes.Buffer{}
 
 	result := rt.Execute(ctx)
 	if result.ExitCode != 0 {
@@ -385,8 +385,8 @@ echo "ARG1=${ARG1:-unset}"`
 	ctx := NewExecutionContext(cmd, inv)
 
 	var stdout bytes.Buffer
-	ctx.Stdout = &stdout
-	ctx.Stderr = &bytes.Buffer{}
+	ctx.IO.Stdout = &stdout
+	ctx.IO.Stderr = &bytes.Buffer{}
 
 	result := rt.Execute(ctx)
 	if result.ExitCode != 0 {
@@ -443,8 +443,8 @@ func TestNativeRuntime_InvalidWorkingDirectory(t *testing.T) {
 	ctx := NewExecutionContext(cmd, inv)
 
 	var stdout bytes.Buffer
-	ctx.Stdout = &stdout
-	ctx.Stderr = &bytes.Buffer{}
+	ctx.IO.Stdout = &stdout
+	ctx.IO.Stderr = &bytes.Buffer{}
 
 	result := rt.Execute(ctx)
 
@@ -493,8 +493,8 @@ func TestNativeRuntime_ExitCode(t *testing.T) {
 			cmd := testCommandWithScript("exit-test", tt.script, invkfile.RuntimeNative)
 			rt := NewNativeRuntime()
 			ctx := NewExecutionContext(cmd, inv)
-			ctx.Stdout = &bytes.Buffer{}
-			ctx.Stderr = &bytes.Buffer{}
+			ctx.IO.Stdout = &bytes.Buffer{}
+			ctx.IO.Stderr = &bytes.Buffer{}
 
 			result := rt.Execute(ctx)
 			if result.ExitCode != tt.expectedCode {
