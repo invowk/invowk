@@ -8,8 +8,6 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 )
@@ -86,32 +84,10 @@ func (c *cutCommand) Run(ctx context.Context, args []string) error {
 		return wrapError(c.name, err)
 	}
 
-	files := fs.Args()
-
-	if len(files) == 0 {
-		return c.processReader(hc.Stdout, hc.Stdin, ranges, *delimiter, *fields != "", *onlyDelimited)
-	}
-
-	for _, file := range files {
-		if err := func() error {
-			path := file
-			if !filepath.IsAbs(path) {
-				path = filepath.Join(hc.Dir, path)
-			}
-
-			f, err := os.Open(path)
-			if err != nil {
-				return err
-			}
-			defer func() { _ = f.Close() }() // Read-only file; close error non-critical
-
-			return c.processReader(hc.Stdout, f, ranges, *delimiter, *fields != "", *onlyDelimited)
-		}(); err != nil {
-			return wrapError(c.name, err)
-		}
-	}
-
-	return nil
+	return ProcessFilesOrStdin(fs.Args(), hc.Stdin, hc.Dir, c.name,
+		func(r io.Reader, _ string, _, _ int) error {
+			return c.processReader(hc.Stdout, r, ranges, *delimiter, *fields != "", *onlyDelimited)
+		})
 }
 
 // parseRanges parses a range specification like "1,3-5,7-".

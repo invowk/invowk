@@ -9,8 +9,6 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"os"
-	"path/filepath"
 	"strings"
 	"unicode"
 )
@@ -86,45 +84,33 @@ func (c *wcCommand) Run(ctx context.Context, args []string) error {
 		name   string
 	}
 
-	if len(files) == 0 {
-		// Read from stdin
-		counts, err := c.count(hc.Stdin)
-		if err != nil {
-			return wrapError(c.name, err)
-		}
-		c.printCounts(hc.Stdout, counts, "", *showLines, *showWords, *showBytes, *showChars)
-		return nil
-	}
-
-	// Process files
-	for _, file := range files {
-		counts, err := func() (wcCounts, error) {
-			path := file
-			if !filepath.IsAbs(path) {
-				path = filepath.Join(hc.Dir, path)
+	err := ProcessFilesOrStdin(files, hc.Stdin, hc.Dir, c.name,
+		func(r io.Reader, filename string, _, _ int) error {
+			counts, countErr := c.count(r)
+			if countErr != nil {
+				return countErr
 			}
 
-			f, err := os.Open(path)
-			if err != nil {
-				return wcCounts{}, err
+			// For stdin, use empty name
+			name := filename
+			if filename == "-" {
+				name = ""
 			}
-			defer func() { _ = f.Close() }() // Read-only file; close error non-critical
 
-			return c.count(f)
-		}()
-		if err != nil {
-			return wrapError(c.name, err)
-		}
+			results = append(results, struct {
+				counts wcCounts
+				name   string
+			}{counts, name})
 
-		results = append(results, struct {
-			counts wcCounts
-			name   string
-		}{counts, file})
+			total.lines += counts.lines
+			total.words += counts.words
+			total.bytes += counts.bytes
+			total.chars += counts.chars
 
-		total.lines += counts.lines
-		total.words += counts.words
-		total.bytes += counts.bytes
-		total.chars += counts.chars
+			return nil
+		})
+	if err != nil {
+		return err
 	}
 
 	// Print results

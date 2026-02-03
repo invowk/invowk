@@ -8,8 +8,6 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"os"
-	"path/filepath"
 	"regexp"
 )
 
@@ -91,35 +89,20 @@ func (c *grepCommand) Run(ctx context.Context, args []string) error {
 
 	matchFound := false
 
-	if len(files) == 0 {
-		// Read from stdin
-		count, found, err := c.grepReader(hc.Stdout, hc.Stdin, re, "", *invertMatch, *showLineNumbers, *countOnly, *filesWithMatches, false)
-		if err != nil {
-			return wrapError(c.name, err)
-		}
-		if *countOnly {
-			fmt.Fprintln(hc.Stdout, count)
-		}
-		matchFound = found
-	} else {
-		// Process files
-		for _, file := range files {
-			count, found, err := func() (int, bool, error) {
-				path := file
-				if !filepath.IsAbs(path) {
-					path = filepath.Join(hc.Dir, path)
-				}
+	err = ProcessFilesOrStdin(files, hc.Stdin, hc.Dir, c.name,
+		func(r io.Reader, filename string, _, _ int) error {
+			// For stdin, use empty string for filename display
+			displayName := filename
+			if filename == "-" {
+				displayName = ""
+			}
 
-				f, err := os.Open(path)
-				if err != nil {
-					return 0, false, err
-				}
-				defer func() { _ = f.Close() }() // Read-only file; close error non-critical
-
-				return c.grepReader(hc.Stdout, f, re, file, *invertMatch, *showLineNumbers, *countOnly, *filesWithMatches, showFilename)
-			}()
-			if err != nil {
-				return wrapError(c.name, err)
+			count, found, processErr := c.grepReader(
+				hc.Stdout, r, re, displayName,
+				*invertMatch, *showLineNumbers, *countOnly, *filesWithMatches, showFilename,
+			)
+			if processErr != nil {
+				return processErr
 			}
 
 			if found {
@@ -127,17 +110,21 @@ func (c *grepCommand) Run(ctx context.Context, args []string) error {
 			}
 
 			if *countOnly {
-				if showFilename {
-					fmt.Fprintf(hc.Stdout, "%s:%d\n", file, count)
+				if showFilename && displayName != "" {
+					fmt.Fprintf(hc.Stdout, "%s:%d\n", displayName, count)
 				} else {
 					fmt.Fprintln(hc.Stdout, count)
 				}
 			}
 
-			if *filesWithMatches && found {
-				fmt.Fprintln(hc.Stdout, file)
+			if *filesWithMatches && found && displayName != "" {
+				fmt.Fprintln(hc.Stdout, displayName)
 			}
-		}
+
+			return nil
+		})
+	if err != nil {
+		return err
 	}
 
 	// grep returns exit status 1 when no matches found
