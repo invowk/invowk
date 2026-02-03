@@ -22,6 +22,10 @@ type (
 	// This allows engines to customize volume formatting (e.g., Podman adds SELinux labels).
 	VolumeFormatFunc func(volume string) string
 
+	// SELinuxCheckFunc is a function that checks if SELinux is enabled.
+	// This allows injection of mock implementations for testing.
+	SELinuxCheckFunc func() bool
+
 	// BaseCLIEngineOption configures a BaseCLIEngine.
 	BaseCLIEngineOption func(*BaseCLIEngine)
 

@@ -207,3 +207,70 @@ func TestRunContainerError(t *testing.T) {
 		t.Error("expected ActionableError")
 	}
 }
+
+// TestBaseCLIEngine_RunCommandCombined verifies RunCommandCombined captures both stdout and stderr.
+func TestBaseCLIEngine_RunCommandCombined(t *testing.T) {
+	t.Run("success with combined output", func(t *testing.T) {
+		recorder, cleanup := withMockExecCommandOutput(t, "combined output", "", 0)
+		defer cleanup()
+
+		engine := NewBaseCLIEngine("/usr/bin/docker", WithExecCommand(recorder.ContextCommandFunc(t)))
+
+		out, err := engine.RunCommandCombined(context.Background(), "version")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		// Use Contains because coverage mode may add extra output
+		if !strings.Contains(string(out), "combined output") {
+			t.Errorf("expected output to contain 'combined output', got %q", string(out))
+		}
+
+		recorder.AssertInvocationCount(t, 1)
+		recorder.AssertFirstArg(t, "version")
+	})
+
+	t.Run("error with output preserved", func(t *testing.T) {
+		recorder, cleanup := withMockExecCommandOutput(t, "error details here", "", 1)
+		defer cleanup()
+
+		engine := NewBaseCLIEngine("/usr/bin/docker", WithExecCommand(recorder.ContextCommandFunc(t)))
+
+		out, err := engine.RunCommandCombined(context.Background(), "invalid-command")
+		if err == nil {
+			t.Fatal("expected error for failed command")
+		}
+
+		// Even on error, output should be available (use Contains for coverage mode compatibility)
+		if !strings.Contains(string(out), "error details here") {
+			t.Errorf("expected output to contain 'error details here', got %q", string(out))
+		}
+
+		// Error should contain context
+		if !strings.Contains(err.Error(), "failed") {
+			t.Errorf("error should indicate failure, got: %v", err)
+		}
+	})
+}
+
+// TestBaseCLIEngine_RunCommand_ErrorHandling verifies error wrapping in RunCommand.
+func TestBaseCLIEngine_RunCommand_ErrorHandling(t *testing.T) {
+	recorder, cleanup := withMockExecCommandOutput(t, "", "command not found", 127)
+	defer cleanup()
+
+	engine := NewBaseCLIEngine("/usr/bin/docker", WithExecCommand(recorder.ContextCommandFunc(t)))
+
+	_, err := engine.RunCommand(context.Background(), "nonexistent-subcommand")
+	if err == nil {
+		t.Fatal("expected error for failed command")
+	}
+
+	// Error should contain the command and arguments
+	errStr := err.Error()
+	if !strings.Contains(errStr, "docker") {
+		t.Errorf("error should contain binary name, got: %s", errStr)
+	}
+	if !strings.Contains(errStr, "failed") {
+		t.Errorf("error should indicate failure, got: %s", errStr)
+	}
+}

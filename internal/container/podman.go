@@ -23,7 +23,23 @@ func NewPodmanEngine(opts ...BaseCLIEngineOption) *PodmanEngine {
 	path, _ := exec.LookPath("podman")
 
 	// Podman needs SELinux volume labels on Linux (prepend to user options)
-	allOpts := append([]BaseCLIEngineOption{WithVolumeFormatter(addSELinuxLabel)}, opts...)
+	// Use the default SELinux check unless overridden by options
+	selinuxLabelAdder := makeSELinuxLabelAdder(isSELinuxEnabled)
+	allOpts := append([]BaseCLIEngineOption{WithVolumeFormatter(selinuxLabelAdder)}, opts...)
+
+	return &PodmanEngine{
+		BaseCLIEngine: NewBaseCLIEngine(path, allOpts...),
+	}
+}
+
+// NewPodmanEngineWithSELinuxCheck creates a Podman engine with a custom SELinux check function.
+// This is primarily useful for testing SELinux labeling behavior on non-SELinux systems.
+func NewPodmanEngineWithSELinuxCheck(selinuxCheck SELinuxCheckFunc, opts ...BaseCLIEngineOption) *PodmanEngine {
+	path, _ := exec.LookPath("podman")
+
+	// Use the provided SELinux check function
+	selinuxLabelAdder := makeSELinuxLabelAdder(selinuxCheck)
+	allOpts := append([]BaseCLIEngineOption{WithVolumeFormatter(selinuxLabelAdder)}, opts...)
 
 	return &PodmanEngine{
 		BaseCLIEngine: NewBaseCLIEngine(path, allOpts...),
@@ -152,10 +168,20 @@ func isSELinuxEnabled() bool {
 	return strings.TrimSpace(string(data)) == "1"
 }
 
-// addSELinuxLabel adds the :z label to a volume mount if SELinux is enabled
-// and the volume doesn't already have an SELinux label (:z or :Z)
-func addSELinuxLabel(volume string) string {
-	if !isSELinuxEnabled() {
+// makeSELinuxLabelAdder creates a volume formatter function that adds SELinux labels.
+// The selinuxCheck function is called to determine if SELinux labeling should be applied.
+// This factory pattern allows injection of custom SELinux check functions for testing.
+func makeSELinuxLabelAdder(selinuxCheck SELinuxCheckFunc) VolumeFormatFunc {
+	return func(volume string) string {
+		return addSELinuxLabelWithCheck(volume, selinuxCheck)
+	}
+}
+
+// addSELinuxLabelWithCheck adds the :z label to a volume mount if SELinux is enabled
+// and the volume doesn't already have an SELinux label (:z or :Z).
+// The selinuxCheck function is called to determine if SELinux labeling should be applied.
+func addSELinuxLabelWithCheck(volume string, selinuxCheck SELinuxCheckFunc) string {
+	if !selinuxCheck() {
 		return volume
 	}
 
