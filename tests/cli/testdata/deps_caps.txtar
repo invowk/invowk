@@ -2,6 +2,9 @@
 # Tests the system capability checking feature
 # Note: These tests may fail in offline or isolated environments
 
+# Run against project's invkfile.cue
+cd $PROJECT_ROOT
+
 # Test 1: deps cap single - requires internet connectivity
 # Skip if no network available (common in CI sandboxes)
 [!net] skip 'network not available'

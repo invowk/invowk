@@ -1,6 +1,9 @@
 # Test: Filepath dependency checks (04-deps-files.tape equivalent)
 # Tests the filepath dependency checking feature
 
+# Run against project's invkfile.cue
+cd $PROJECT_ROOT
+
 # Test 1: deps file single - requires README.md to exist
 exec invowk cmd 'deps file single'
 stdout 'README\.md exists!'

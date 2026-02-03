@@ -1,6 +1,9 @@
 # Test: Custom check dependencies (06-deps-custom.tape equivalent)
 # Tests the custom validation script feature
 
+# Run against project's invkfile.cue
+cd $PROJECT_ROOT
+
 # Test 1: deps check exitcode - validates exit code of a check script
 exec invowk cmd 'deps check exitcode'
 stdout 'Custom exit code check passed!'

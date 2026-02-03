@@ -3,6 +3,9 @@
 #
 # Note: testscript isolates the environment, so we set required vars explicitly
 
+# Run against project's invkfile.cue
+cd $PROJECT_ROOT
+
 # Set required environment variables for the tests
 env HOME=/test-home
 env USER=testuser

@@ -1,6 +1,9 @@
 # Test: U-root text processing utilities (head, tail, wc, grep, sort, uniq)
 # Tests the built-in u-root text utilities in virtual runtime
 
+# Run against project's invkfile.cue
+cd $PROJECT_ROOT
+
 # Test: Combined text operations
 exec invowk cmd 'uroot text ops'
 stdout '=== Testing head ==='

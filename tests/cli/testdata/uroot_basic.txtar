@@ -1,6 +1,9 @@
 # Test: U-root basic utilities
 # Tests the built-in u-root file utilities (cat, ls, mkdir, rm, touch) in virtual runtime
 
+# Run against project's invkfile.cue
+cd $PROJECT_ROOT
+
 # Test 1: Basic u-root command - creates files, cats, lists, removes
 exec invowk cmd 'uroot basic'
 stdout '=== cat output ==='

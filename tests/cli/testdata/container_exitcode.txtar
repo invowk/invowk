@@ -70,6 +70,7 @@ cmds: [
 		implementations: [
 			{
 				script: """
+					set -e
 					echo "About to run a failing command"
 					false
 					echo "This should not be printed"
