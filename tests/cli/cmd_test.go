@@ -115,6 +115,13 @@ func TestCLI(t *testing.T) {
 			// the project's invkfile.cue should use 'cd $PROJECT_ROOT'.
 			env.Setenv("PROJECT_ROOT", projectRoot)
 
+			// Set HOME to $WORK directory for container build tests.
+			// Docker/Podman CLI requires a valid HOME to store configuration in ~/.docker/
+			// or ~/.config/containers/. By default, testscript sets HOME=/no-home which
+			// causes "mkdir /no-home: permission denied" errors during docker build.
+			// Using WorkDir ensures HOME exists and is writable for the test duration.
+			env.Setenv("HOME", env.WorkDir)
+
 			// IMPORTANT: Do NOT set env.Cd here. Each test file controls its own working
 			// directory. Tests that need the project root should use 'cd $PROJECT_ROOT'.
 			// Setting env.Cd = projectRoot globally caused container tests with embedded
