@@ -1,6 +1,9 @@
 # Test: Basic command execution (01-simple.tape equivalent)
 # Tests the simplest native runtime commands
 
+# Run against project's invkfile.cue
+cd $PROJECT_ROOT
+
 # Test 1: hello command - simplest possible invowk command
 exec invowk cmd hello
 stdout 'Hello from invowk!'

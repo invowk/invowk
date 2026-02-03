@@ -1,0 +1,51 @@
+# Test: Custom Containerfile support
+# Tests building an image from Containerfile and executing with custom tools
+
+# Skip if no functional container runtime is available
+[!container-available] skip 'no functional container runtime available'
+
+# Change to work directory where local invkfile.cue is located
+cd $WORK
+
+# Test 1: Build from Containerfile and run command
+# The Containerfile installs 'jq' which isn't in base debian:stable-slim
+exec invowk cmd json-parse
+stdout '"hello"'
+stdout '"world"'
+
+# Test 2: Verify custom environment from Containerfile
+exec invowk cmd check-custom-env
+stdout 'CUSTOM_FROM_DOCKERFILE: yes'
+
+-- invkfile.cue --
+cmds: [
+	{
+		name: "json-parse"
+		description: "Parse JSON using jq (installed via Containerfile)"
+		implementations: [
+			{
+				script: """
+					echo '{"greeting": "hello", "target": "world"}' | jq '.greeting, .target'
+					"""
+				runtimes: [{name: "container", containerfile: "Containerfile"}]
+			}
+		]
+	},
+	{
+		name: "check-custom-env"
+		description: "Check custom env var from Containerfile"
+		implementations: [
+			{
+				script: """
+					echo "CUSTOM_FROM_DOCKERFILE: ${CUSTOM_FROM_DOCKERFILE:-no}"
+					"""
+				runtimes: [{name: "container", containerfile: "Containerfile"}]
+			}
+		]
+	}
+]
+
+-- Containerfile --
+FROM debian:stable-slim
+RUN apt-get update && apt-get install -y jq && rm -rf /var/lib/apt/lists/*
+ENV CUSTOM_FROM_DOCKERFILE=yes

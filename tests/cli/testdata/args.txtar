@@ -1,6 +1,9 @@
 # Test: Positional argument handling (09-args.tape equivalent)
 # Tests args: simple, optional, typed, validated
 
+# Run against project's invkfile.cue
+cd $PROJECT_ROOT
+
 # Test 1: args simple - with required argument (should work)
 exec invowk cmd 'args simple' Alice
 stdout '=== Simple Positional Argument Demo ==='

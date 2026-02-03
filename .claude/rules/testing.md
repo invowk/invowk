@@ -60,6 +60,32 @@ func TestContainerRuntime_Integration(t *testing.T) {
 }
 ```
 
+### Testscript Environment for Container Tests
+
+The `testscript` library intentionally sets `HOME=/no-home` to sandbox tests from user configuration. This breaks tools like Docker/Podman that require a valid `HOME` directory to store configuration in `~/.docker/` or `~/.config/containers/`.
+
+**Symptom:** `mkdir /no-home: permission denied` errors during `docker build` or similar operations.
+
+**Fix:** Set `HOME` to the testscript work directory in the `Setup` function:
+
+```go
+testscript.Run(t, testscript.Params{
+    Dir: "testdata",
+    Setup: func(env *testscript.Env) error {
+        // Set HOME to $WORK directory for container build tests.
+        // Docker/Podman CLI requires a valid HOME to store configuration.
+        // By default, testscript sets HOME=/no-home which causes permission errors.
+        env.Setenv("HOME", env.WorkDir)
+        return nil
+    },
+})
+```
+
+**Why this works:**
+- Each testscript test gets a unique `$WORK` directory that's automatically cleaned up
+- Using `WorkDir` as `HOME` provides isolation while ensuring the directory exists and is writable
+- Tests using pre-built images (e.g., `debian:stable-slim`) may not trigger this issue since they don't invoke `docker build`
+
 ## Cross-Platform Testing
 
 ### The skipOnWindows Pattern
@@ -180,3 +206,4 @@ defer func() { testutil.MustRemoveAll(t, path) }()
 | Time-based uniqueness tests failing | Add atomic counter or small delay |
 | Import conflicts with `runtime` package | Use `goruntime` alias |
 | Forgetting test cleanup | Use `t.TempDir()` and `defer` patterns |
+| Testscript container tests fail with "mkdir /no-home" | Set `HOME` to `env.WorkDir` in Setup |

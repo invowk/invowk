@@ -301,6 +301,83 @@ cmds: [
 	}
 }
 
+// TestContainerfilePathCUEValidation verifies that the CUE schema correctly validates
+// containerfile paths. This is a regression test for a bug where CUE's strings.HasPrefix
+// and strings.Contains functions were used incorrectly, causing valid containerfile paths
+// to fail validation with "invalid operation !strings.HasPrefix(...)" errors.
+func TestContainerfilePathCUEValidation(t *testing.T) {
+	tests := []struct {
+		name           string
+		containerfile  string
+		shouldError    bool
+		errorSubstring string
+	}{
+		// Valid paths - should parse successfully
+		{name: "simple filename", containerfile: "Containerfile", shouldError: false},
+		{name: "subdirectory", containerfile: "docker/Containerfile", shouldError: false},
+		{name: "dot prefix", containerfile: "./Containerfile", shouldError: false},
+		{name: "deep path", containerfile: "a/b/c/Dockerfile", shouldError: false},
+
+		// Invalid paths - should be rejected by CUE schema
+		{name: "absolute path", containerfile: "/etc/Containerfile", shouldError: true, errorSubstring: "out of bound"},
+		{name: "path traversal parent", containerfile: "../Containerfile", shouldError: true, errorSubstring: "out of bound"},
+		{name: "path traversal middle", containerfile: "foo/../bar/Containerfile", shouldError: true, errorSubstring: "out of bound"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmpDir, err := os.MkdirTemp("", "invkfile-containerfile-test-*")
+			if err != nil {
+				t.Fatalf("Failed to create temp dir: %v", err)
+			}
+			defer func() { _ = os.RemoveAll(tmpDir) }()
+
+			// Create invkfile.cue with container runtime using the test containerfile path
+			cueContent := `cmds: [
+	{
+		name: "test-cmd"
+		description: "Test command"
+		implementations: [
+			{
+				script: "echo test"
+				runtimes: [{name: "container", containerfile: "` + tt.containerfile + `"}]
+			}
+		]
+	}
+]`
+			invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+			if writeErr := os.WriteFile(invkfilePath, []byte(cueContent), 0o644); writeErr != nil {
+				t.Fatalf("Failed to write invkfile: %v", writeErr)
+			}
+
+			// Also create the containerfile if it's a valid relative path (for Go validation to pass)
+			if !tt.shouldError {
+				containerfilePath := filepath.Join(tmpDir, tt.containerfile)
+				if mkdirErr := os.MkdirAll(filepath.Dir(containerfilePath), 0o755); mkdirErr != nil {
+					t.Fatalf("Failed to create containerfile dir: %v", mkdirErr)
+				}
+				if writeErr := os.WriteFile(containerfilePath, []byte("FROM debian:stable-slim\n"), 0o644); writeErr != nil {
+					t.Fatalf("Failed to write containerfile: %v", writeErr)
+				}
+			}
+
+			_, parseErr := Parse(invkfilePath)
+
+			if tt.shouldError {
+				if parseErr == nil {
+					t.Errorf("Expected CUE validation error for containerfile %q, but parsing succeeded", tt.containerfile)
+				} else if tt.errorSubstring != "" && !strings.Contains(parseErr.Error(), tt.errorSubstring) {
+					t.Errorf("Expected error containing %q, got: %v", tt.errorSubstring, parseErr)
+				}
+			} else {
+				if parseErr != nil {
+					t.Errorf("Unexpected error for valid containerfile %q: %v", tt.containerfile, parseErr)
+				}
+			}
+		})
+	}
+}
+
 func TestScriptCaching(t *testing.T) {
 	// Create a temporary directory
 	tmpDir, err := os.MkdirTemp("", "invowk-test-*")

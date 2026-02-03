@@ -4,6 +4,7 @@ package discovery
 
 import (
 	"fmt"
+	"os"
 	"sort"
 	"strings"
 
@@ -171,7 +172,12 @@ func (d *Discovery) DiscoverCommandSet() (*DiscoveredCommandSet, error) {
 	seenNonModule := make(map[string]bool)
 
 	for _, file := range files {
-		if file.Error != nil || file.Invkfile == nil {
+		if file.Error != nil {
+			// Log parsing errors to help diagnose discovery issues
+			fmt.Fprintf(os.Stderr, "Warning: skipping invkfile at %s: %v\n", file.Path, file.Error)
+			continue
+		}
+		if file.Invkfile == nil {
 			continue
 		}
 

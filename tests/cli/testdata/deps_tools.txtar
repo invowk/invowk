@@ -1,6 +1,9 @@
 # Test: Tool dependency checks (03-deps-tools.tape equivalent)
 # Tests the tool/binary dependency checking feature
 
+# Run against project's invkfile.cue
+cd $PROJECT_ROOT
+
 # Test 1: deps tool single - requires a single tool (sh)
 exec invowk cmd 'deps tool single'
 stdout 'sh is available!'

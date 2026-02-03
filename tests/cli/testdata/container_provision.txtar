@@ -1,0 +1,92 @@
+# Test: Container provisioning verification
+# Tests that invkfile.cue and custom files are provisioned to /workspace/
+
+# Skip if no functional container runtime is available
+[!container-available] skip 'no functional container runtime available'
+
+# Change to work directory where local invkfile.cue is located
+cd $WORK
+
+# Test 1: invkfile.cue is accessible at /workspace/
+exec invowk cmd check-invkfile
+stdout 'invkfile.cue exists: yes'
+stdout 'Contains cmds: yes'
+
+# Test 2: Custom files referenced in script are provisioned
+exec invowk cmd check-custom-file
+stdout 'custom.txt exists: yes'
+stdout 'Content: Hello from custom file'
+
+# Test 3: Subdirectory files are provisioned
+exec invowk cmd check-subdir-file
+stdout 'scripts/helper.sh exists: yes'
+stdout 'Helper script executed'
+
+-- invkfile.cue --
+cmds: [
+	{
+		name: "check-invkfile"
+		description: "Verify invkfile.cue is provisioned"
+		implementations: [
+			{
+				script: """
+					if [ -f /workspace/invkfile.cue ]; then
+						echo "invkfile.cue exists: yes"
+					else
+						echo "invkfile.cue exists: no"
+						exit 1
+					fi
+					if grep -q "cmds:" /workspace/invkfile.cue; then
+						echo "Contains cmds: yes"
+					else
+						echo "Contains cmds: no"
+					fi
+					"""
+				runtimes: [{name: "container", image: "debian:stable-slim"}]
+			}
+		]
+	},
+	{
+		name: "check-custom-file"
+		description: "Verify custom files are provisioned"
+		implementations: [
+			{
+				script: """
+					if [ -f /workspace/custom.txt ]; then
+						echo "custom.txt exists: yes"
+						echo "Content: $(cat /workspace/custom.txt)"
+					else
+						echo "custom.txt exists: no"
+						exit 1
+					fi
+					"""
+				runtimes: [{name: "container", image: "debian:stable-slim"}]
+			}
+		]
+	},
+	{
+		name: "check-subdir-file"
+		description: "Verify subdirectory files are provisioned"
+		implementations: [
+			{
+				script: """
+					if [ -f /workspace/scripts/helper.sh ]; then
+						echo "scripts/helper.sh exists: yes"
+						sh /workspace/scripts/helper.sh
+					else
+						echo "scripts/helper.sh exists: no"
+						exit 1
+					fi
+					"""
+				runtimes: [{name: "container", image: "debian:stable-slim"}]
+			}
+		]
+	}
+]
+
+-- custom.txt --
+Hello from custom file
+
+-- scripts/helper.sh --
+#!/bin/sh
+echo "Helper script executed"

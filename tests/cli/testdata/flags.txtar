@@ -1,6 +1,9 @@
 # Test: Command flag handling (08-flags.tape equivalent)
 # Tests flags: simple, defaults, typed, short, validation
 
+# Run against project's invkfile.cue
+cd $PROJECT_ROOT
+
 # Test 1: flags simple - basic flags without defaults
 exec invowk cmd 'flags simple'
 stdout '=== Simple Flags Demo ==='

@@ -1,6 +1,9 @@
 # Test: U-root file operations (cp, mv)
 # Tests the cp and mv utilities from u-root in virtual runtime
 
+# Run against project's invkfile.cue
+cd $PROJECT_ROOT
+
 # Test 1: File operations with cp and mv
 exec invowk cmd 'uroot file ops'
 stdout '=== Testing cp ==='
