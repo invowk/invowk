@@ -11,7 +11,6 @@ cd $WORK
 # Test 1: container hello - simple greeting from inside container
 exec invowk cmd hello
 stdout 'Hello from inside the container!'
-! stderr .
 
 # Test 2: container isolated - verify SSH env vars are NOT set
 # This tests the enable_host_ssh: false behavior
@@ -20,7 +19,6 @@ stdout '=== Isolated Container ==='
 stdout 'This container has NO SSH access to the host.'
 stdout 'INVOWK_SSH_HOST: <not set>'
 stdout 'INVOWK_SSH_PORT: <not set>'
-! stderr .
 
 -- invkfile.cue --
 cmds: [

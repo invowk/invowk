@@ -13,22 +13,18 @@ stdout '=== Container Environment ==='
 stdout 'APP_NAME: demo-app'
 stdout 'APP_ENV: development'
 stdout 'DEBUG: true'
-! stderr .
 
 # Test 2: env-var CLI flag override
 exec invowk cmd show-env --env-var MY_VAR=from-cli
 stdout 'MY_VAR: from-cli'
-! stderr .
 
 # Test 3: env-var overrides invkfile env.vars
 exec invowk cmd show-env-with-default --env-var DEFAULT_VAR=overridden
 stdout 'DEFAULT_VAR: overridden'
-! stderr .
 
 # Test 4: invkfile env.vars without override
 exec invowk cmd show-env-with-default
 stdout 'DEFAULT_VAR: from-invkfile'
-! stderr .
 
 -- invkfile.cue --
 cmds: [

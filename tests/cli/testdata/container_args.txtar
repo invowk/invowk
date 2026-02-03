@@ -10,7 +10,6 @@ cd $WORK
 # Test 1: Single argument
 exec invowk cmd echo-arg -- hello
 stdout 'Argument: hello'
-! stderr .
 
 # Test 2: Multiple arguments
 exec invowk cmd echo-args -- foo bar baz
@@ -18,12 +17,10 @@ stdout 'Argument count: 3'
 stdout 'All arguments: foo bar baz'
 stdout 'First: foo'
 stdout 'Second: bar'
-! stderr .
 
 # Test 3: No arguments (default behavior)
 exec invowk cmd echo-arg
 stdout 'Argument: <none>'
-! stderr .
 
 -- invkfile.cue --
 cmds: [

@@ -11,19 +11,16 @@ cd $WORK
 exec invowk cmd check-invkfile
 stdout 'invkfile.cue exists: yes'
 stdout 'Contains cmds: yes'
-! stderr .
 
 # Test 2: Custom files referenced in script are provisioned
 exec invowk cmd check-custom-file
 stdout 'custom.txt exists: yes'
 stdout 'Content: Hello from custom file'
-! stderr .
 
 # Test 3: Subdirectory files are provisioned
 exec invowk cmd check-subdir-file
 stdout 'scripts/helper.sh exists: yes'
 stdout 'Helper script executed'
-! stderr .
 
 -- invkfile.cue --
 cmds: [

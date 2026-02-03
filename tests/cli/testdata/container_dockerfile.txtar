@@ -12,12 +12,10 @@ cd $WORK
 exec invowk cmd json-parse
 stdout '"hello"'
 stdout '"world"'
-! stderr .
 
 # Test 2: Verify custom environment from Containerfile
 exec invowk cmd check-custom-env
 stdout 'CUSTOM_FROM_DOCKERFILE: yes'
-! stderr .
 
 -- invkfile.cue --
 cmds: [

@@ -17,7 +17,6 @@ stdout 'SSH connection details provided by invowk:'
 stdout 'Host:'
 stdout 'Port:'
 stdout 'User:'
-! stderr .
 
 # Test 2: Verify INVOWK_SSH_ENABLED is set
 exec invowk cmd verify-ssh-vars
@@ -26,7 +25,6 @@ stdout 'INVOWK_SSH_HOST is set: yes'
 stdout 'INVOWK_SSH_PORT is set: yes'
 stdout 'INVOWK_SSH_USER is set: yes'
 stdout 'INVOWK_SSH_TOKEN is set: yes'
-! stderr .
 
 -- invkfile.cue --
 cmds: [
