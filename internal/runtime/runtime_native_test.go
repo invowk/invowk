@@ -858,10 +858,11 @@ func TestNativeRuntime_getWorkDir(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	tests := []struct {
-		name       string
-		cmdWorkDir string
-		ctxWorkDir string
-		want       string
+		name          string
+		cmdWorkDir    string
+		ctxWorkDir    string
+		want          string
+		skipOnWindows bool
 	}{
 		{
 			name:       "no workdir uses invkfile directory",
@@ -870,15 +871,19 @@ func TestNativeRuntime_getWorkDir(t *testing.T) {
 			want:       tmpDir,
 		},
 		{
-			name:       "context workdir takes precedence",
-			cmdWorkDir: "cmd-dir",
-			ctxWorkDir: "/override/dir",
-			want:       "/override/dir",
+			name:          "context workdir takes precedence",
+			cmdWorkDir:    "cmd-dir",
+			ctxWorkDir:    "/override/dir",
+			want:          "/override/dir",
+			skipOnWindows: true, // Unix-style absolute path not meaningful on Windows
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			if tt.skipOnWindows && goruntime.GOOS == "windows" {
+				t.Skip("skipping: Unix-style absolute paths are not meaningful on Windows")
+			}
 			inv := &invkfile.Invkfile{
 				FilePath: filepath.Join(tmpDir, "invkfile.cue"),
 				WorkDir:  "",

@@ -7,6 +7,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	goruntime "runtime"
 	"strings"
 	"testing"
 
@@ -540,47 +541,55 @@ func TestVirtualRuntime_getWorkDir(t *testing.T) {
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
 
 	tests := []struct {
-		name         string
-		ctxWorkDir   string // WorkDir set on ExecutionContext
-		cmdWorkDir   string // WorkDir set on Command
-		implWorkDir  string // WorkDir set on Implementation
-		rootWorkDir  string // WorkDir set on Invkfile
-		wantContains string // Substring expected in result
+		name          string
+		ctxWorkDir    string // WorkDir set on ExecutionContext
+		cmdWorkDir    string // WorkDir set on Command
+		implWorkDir   string // WorkDir set on Implementation
+		rootWorkDir   string // WorkDir set on Invkfile
+		wantContains  string // Substring expected in result
+		skipOnWindows bool
 	}{
 		{
 			name:         "defaults to invkfile directory",
 			wantContains: tmpDir,
 		},
 		{
-			name:         "context workdir takes precedence over all",
-			ctxWorkDir:   "/ctx/workdir",
-			cmdWorkDir:   "/cmd/workdir",
-			implWorkDir:  "/impl/workdir",
-			rootWorkDir:  "/root/workdir",
-			wantContains: "/ctx/workdir",
+			name:          "context workdir takes precedence over all",
+			ctxWorkDir:    "/ctx/workdir",
+			cmdWorkDir:    "/cmd/workdir",
+			implWorkDir:   "/impl/workdir",
+			rootWorkDir:   "/root/workdir",
+			wantContains:  "/ctx/workdir",
+			skipOnWindows: true, // Unix-style absolute paths not meaningful on Windows
 		},
 		{
-			name:         "impl workdir takes precedence over cmd and root",
-			cmdWorkDir:   "/cmd/workdir",
-			implWorkDir:  "/impl/workdir",
-			rootWorkDir:  "/root/workdir",
-			wantContains: "/impl/workdir",
+			name:          "impl workdir takes precedence over cmd and root",
+			cmdWorkDir:    "/cmd/workdir",
+			implWorkDir:   "/impl/workdir",
+			rootWorkDir:   "/root/workdir",
+			wantContains:  "/impl/workdir",
+			skipOnWindows: true, // Unix-style absolute paths not meaningful on Windows
 		},
 		{
-			name:         "cmd workdir takes precedence over root",
-			cmdWorkDir:   "/cmd/workdir",
-			rootWorkDir:  "/root/workdir",
-			wantContains: "/cmd/workdir",
+			name:          "cmd workdir takes precedence over root",
+			cmdWorkDir:    "/cmd/workdir",
+			rootWorkDir:   "/root/workdir",
+			wantContains:  "/cmd/workdir",
+			skipOnWindows: true, // Unix-style absolute paths not meaningful on Windows
 		},
 		{
-			name:         "root workdir used when others not set",
-			rootWorkDir:  "/root/workdir",
-			wantContains: "/root/workdir",
+			name:          "root workdir used when others not set",
+			rootWorkDir:   "/root/workdir",
+			wantContains:  "/root/workdir",
+			skipOnWindows: true, // Unix-style absolute paths not meaningful on Windows
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			if tt.skipOnWindows && goruntime.GOOS == "windows" {
+				t.Skip("skipping: Unix-style absolute paths are not meaningful on Windows")
+			}
 			inv := &invkfile.Invkfile{
 				FilePath: invkfilePath,
 				WorkDir:  tt.rootWorkDir,
