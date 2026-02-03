@@ -158,6 +158,10 @@ When modifying module-related code, verify:
 
 ## Common Pitfalls
 
-- **Stale sample modules** - Update modules in `modules/` after module-related changes.
-- **Missing platform restrictions** - Bash scripts with native+virtual runtimes need platform-specific implementations for Windows compatibility.
-- **Args with subcommands** - Commands with positional args cannot have subcommands.
+| Pitfall | Symptom | Fix |
+|---------|---------|-----|
+| Stale sample modules | Validation fails after schema changes | Update modules in `modules/` after module-related changes |
+| Missing platform restrictions | Bash scripts fail on Windows | Add platform-specific implementations for native+virtual runtimes |
+| Args with subcommands | Discovery validation error | Commands with positional args cannot have subcommands |
+
+For path handling in implementations, see `.claude/rules/windows.md`.

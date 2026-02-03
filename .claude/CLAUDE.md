@@ -16,17 +16,29 @@ Invowk is a dynamically extensible command runner (similar to `just`, `task`, an
 
 **CRITICAL:** The files in `.claude/rules/` define the authoritative rules for agents. EVERYTIME there is ANY change to files/rules inside `.claude/rules` (new file, file rename, file removed, etc.), the index/sync map in this file MUST be updated accordingly.
 
-**Index / Sync Map (must match `.claude/rules/`):**
+**Rules Index / Sync Map (must match `.claude/rules/`):**
 - [`.claude/rules/checklist.md`](.claude/rules/checklist.md) - Pre-completion verification steps.
 - [`.claude/rules/commands.md`](.claude/rules/commands.md) - Build, test, and release commands.
+- [`.claude/rules/cue-patterns.md`](.claude/rules/cue-patterns.md) - CUE schema patterns, string validation, common pitfalls.
 - [`.claude/rules/general-rules.md`](.claude/rules/general-rules.md) - Instruction priority, code quality, documentation.
 - [`.claude/rules/git.md`](.claude/rules/git.md) - Commit signing, squash merge, message format.
 - [`.claude/rules/go-patterns.md`](.claude/rules/go-patterns.md) - Go style, naming, errors, interfaces.
 - [`.claude/rules/licensing.md`](.claude/rules/licensing.md) - SPDX headers and MPL-2.0 rules.
 - [`.claude/rules/package-design.md`](.claude/rules/package-design.md) - Package boundaries and module design.
 - [`.claude/rules/testing.md`](.claude/rules/testing.md) - Test patterns, cross-platform testing, skipOnWindows.
-- [`.claude/rules/testscript.md`](.claude/rules/testscript.md) - Testscript CLI integration test patterns.
 - [`.claude/rules/windows.md`](.claude/rules/windows.md) - Windows-specific constraints and guidance.
+
+**Skills Index (`.claude/skills/`):**
+
+Skills provide domain-specific procedural guidance. They are invoked when working on specific components.
+
+- [`.claude/skills/cue/`](.claude/skills/cue/) - CUE schema parsing, 3-step parse flow, validation matrix, schema sync tests.
+- [`.claude/skills/docs/`](.claude/skills/docs/) - Documentation workflow and Docusaurus website development.
+- [`.claude/skills/invowk-schema/`](.claude/skills/invowk-schema/) - Invkfile/invkmod schema guidelines, cross-platform runtime patterns.
+- [`.claude/skills/server/`](.claude/skills/server/) - Server state machine pattern for SSH and TUI servers.
+- [`.claude/skills/shell/`](.claude/skills/shell/) - Shell runtime rules for mvdan/sh virtual shell.
+- [`.claude/skills/testing/`](.claude/skills/testing/) - Testing patterns, testscript CLI tests, race conditions, TUI/container testing.
+- [`.claude/skills/uroot/`](.claude/skills/uroot/) - u-root utility implementation patterns.
 
 ## Architecture Overview
 
@@ -89,20 +101,6 @@ invkfile.cue -> CUE Parser -> pkg/invkfile -> Runtime Selection -> Execution
 - `cuelang.org/go` - CUE language support for configuration/schema.
 - `github.com/charmbracelet/*` - TUI components (lipgloss, bubbletea, huh).
 - `mvdan.cc/sh/v3` - Virtual shell implementation.
+- `github.com/rogpeppe/go-internal/testscript` - CLI integration tests.
 
-## Active Technologies
-
-**Core Stack**:
-- Go 1.25+ with `cuelang.org/go v0.15.3` (CUE schemas and validation)
-- `github.com/spf13/cobra` (CLI framework)
-- `github.com/spf13/viper` (configuration management)
-- `github.com/charmbracelet/*` (TUI: lipgloss, bubbletea, huh)
-- `mvdan.cc/sh/v3` (virtual shell runtime)
-
-**Testing**:
-- Go stdlib `testing`
-- `github.com/rogpeppe/go-internal/testscript` (CLI integration tests)
-
-**Configuration**:
-- File-based CUE configuration files (`invkfile.cue`, `invkmod.cue`, user `config.cue`)
-- Schema sync tests verify Go struct tags match CUE schema fields at CI time
+See `go.mod` for exact versions. Schema sync tests verify Go struct tags match CUE schema fields at CI time.
