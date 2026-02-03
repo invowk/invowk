@@ -136,6 +136,7 @@ func showConfig() error {
 	fmt.Println()
 	fmt.Printf("%s:\n", keyStyle.Render("ui"))
 	fmt.Printf("  color_scheme: %s\n", valueStyle.Render(cfg.UI.ColorScheme))
+	fmt.Printf("  interactive: %s\n", valueStyle.Render(fmt.Sprintf("%v", cfg.UI.Interactive)))
 	fmt.Printf("  verbose: %s\n", valueStyle.Render(fmt.Sprintf("%v", cfg.UI.Verbose)))
 
 	return nil
@@ -204,6 +205,9 @@ func setConfigValue(key, value string) error {
 	case "ui.verbose":
 		cfg.UI.Verbose = value == "true" || value == "1"
 
+	case "ui.interactive":
+		cfg.UI.Interactive = value == "true" || value == "1"
+
 	case "ui.color_scheme":
 		cfg.UI.ColorScheme = value
 
@@ -211,7 +215,7 @@ func setConfigValue(key, value string) error {
 		cfg.VirtualShell.EnableUrootUtils = value == "true" || value == "1"
 
 	default:
-		return fmt.Errorf("unknown configuration key: %s\nValid keys: container_engine, default_runtime, ui.verbose, ui.color_scheme, virtual_shell.enable_uroot_utils", key)
+		return fmt.Errorf("unknown configuration key: %s\nValid keys: container_engine, default_runtime, ui.verbose, ui.interactive, ui.color_scheme, virtual_shell.enable_uroot_utils", key)
 	}
 
 	if err := config.Save(cfg); err != nil {

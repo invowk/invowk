@@ -29,9 +29,13 @@ Module commands are namespaced by the `module` field in `invkmod.cue`:
 
 <Snippet id="commands-namespaces/module-prefix" />
 
-These commands become:
+These commands become available as:
 - `invowk cmd com.company.frontend build`
 - `invowk cmd com.company.frontend test unit`
+
+:::tip Transparent Namespaces
+When command names are **unique** across all sources, you can omit the module prefix and use just the command name (e.g., `invowk cmd build`). Invowk's transparent namespace system automatically resolves unambiguous commands. The full module prefix is only required when the same command name exists in multiple modules or sources.
+:::
 
 ### Module ID Naming Rules
 

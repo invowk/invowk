@@ -41,6 +41,7 @@ Execute commands defined in invkfiles.
 |------|-------|-------------|
 | `--list` | `-l` | List all available commands |
 | `--runtime` | `-r` | Override the runtime (must be allowed by the command) |
+| `--from` | | Source to run command from (e.g., 'invkfile' or module name) |
 
 Built-in per-command flags:
 
@@ -63,6 +64,29 @@ Commands are discovered from (in priority order):
 1. Current directory (invkfile and modules)
 2. `~/.invowk/cmds/` (invkfiles and modules)
 3. Paths configured in `search_paths` (invkfiles and modules)
+
+**Command Disambiguation:**
+
+When a command name exists in multiple sources (e.g., both `invkfile.cue` and a module), you must disambiguate:
+
+Using `@source` prefix:
+```bash
+invowk cmd @invkfile deploy      # Run deploy from invkfile
+invowk cmd @tools deploy         # Run deploy from tools.invkmod
+invowk cmd @tools.invkmod deploy # Full module name also works
+```
+
+Using `--from` flag:
+```bash
+invowk cmd --from invkfile deploy
+invowk cmd --from tools deploy
+```
+
+If you run an ambiguous command without disambiguation, invowk shows an error listing available sources.
+
+:::tip
+You can use `@source` or `--from` even for unique command names to be explicit about where a command comes from.
+:::
 
 ---
 

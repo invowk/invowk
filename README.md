@@ -1155,7 +1155,7 @@ cmds: [
 
 ### Platform-Specific Environment Variables
 
-Each platform can define its own environment variables:
+Each platform can define its own environment variables by creating separate implementations for each platform:
 
 ```cue
 cmds: [
@@ -1166,11 +1166,15 @@ cmds: [
             {
                 script: "echo \"Platform: $PLATFORM_NAME, Config: $CONFIG_PATH\""
                 runtimes: [{name: "native"}]
-                platforms: [
-                    {name: "linux", env: {PLATFORM_NAME: "Linux", CONFIG_PATH: "/etc/app/config.yaml"}},
-                    {name: "macos", env: {PLATFORM_NAME: "macOS", CONFIG_PATH: "/usr/local/etc/app/config.yaml"}},
-                ]
-            }
+                platforms: [{name: "linux"}]
+                env: {vars: {PLATFORM_NAME: "Linux", CONFIG_PATH: "/etc/app/config.yaml"}}
+            },
+            {
+                script: "echo \"Platform: $PLATFORM_NAME, Config: $CONFIG_PATH\""
+                runtimes: [{name: "native"}]
+                platforms: [{name: "macos"}]
+                env: {vars: {PLATFORM_NAME: "macOS", CONFIG_PATH: "/usr/local/etc/app/config.yaml"}}
+            },
         ]
     }
 ]
@@ -2346,30 +2350,36 @@ invowk-cli/
 │   ├── tui_format.go           # tui format subcommand
 │   └── tui_style.go            # tui style subcommand
 ├── internal/
-│   ├── config/                 # Configuration handling
+│   ├── config/                 # Configuration handling with CUE schema
 │   ├── container/              # Container engine abstraction
 │   │   ├── engine.go           # Engine interface
 │   │   ├── docker.go           # Docker implementation
 │   │   └── podman.go           # Podman implementation
-│   ├── discovery/              # Invkfile discovery
+│   ├── core/serverbase/        # Shared server state machine base
+│   ├── cueutil/                # Shared CUE parsing utilities
+│   ├── discovery/              # Invkfile and module discovery
 │   ├── issue/                  # Error types and messages
 │   ├── runtime/                # Runtime implementations
 │   │   ├── runtime.go          # Runtime interface
 │   │   ├── native.go           # Native shell runtime
 │   │   ├── virtual.go          # Virtual shell runtime
 │   │   └── container.go        # Container runtime
-│   └── tui/                    # TUI component library
-│       ├── tui.go              # Core config and themes
-│       ├── input.go            # Text input component
-│       ├── write.go            # Multi-line editor component
-│       ├── choose.go           # Selection component
-│       ├── confirm.go          # Confirmation component
-│       ├── filter.go           # Fuzzy filter component
-│       ├── file.go             # File picker component
-│       ├── table.go            # Table display component
-│       ├── spin.go             # Spinner component
-│       ├── pager.go            # Pager component
-│       └── format.go           # Format component
+│   ├── sshserver/              # SSH server for remote execution
+│   ├── testutil/               # Test utilities
+│   ├── tui/                    # TUI component library
+│   │   ├── tui.go              # Core config and themes
+│   │   ├── input.go            # Text input component
+│   │   ├── write.go            # Multi-line editor component
+│   │   ├── choose.go           # Selection component
+│   │   ├── confirm.go          # Confirmation component
+│   │   ├── filter.go           # Fuzzy filter component
+│   │   ├── file.go             # File picker component
+│   │   ├── table.go            # Table display component
+│   │   ├── spin.go             # Spinner component
+│   │   ├── pager.go            # Pager component
+│   │   └── format.go           # Format component
+│   ├── tuiserver/              # TUI server for interactive sessions
+│   └── uroot/                  # uroot utilities for virtual shell
 ├── pkg/
 │   ├── invkmod/                # Module validation and structure
 │   └── invkfile/               # Invkfile parsing

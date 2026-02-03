@@ -7,7 +7,6 @@
 | Build | `make build` |
 | Build UPX | `make build-upx` |
 | Test all | `make test` |
-| Internal docs audit (hidden) | `invowk internal docs audit` |
 | Test short | `make test-short` |
 | Single test | `go test -v -run TestName ./path/...` |
 | License check | `make license-check` |
@@ -29,7 +28,6 @@
 
 - All `invowk internal *` commands and subcommands MUST remain hidden.
 - Do NOT document internal commands in website docs; only mention them in `README.md` and agent-facing docs under `.claude/`.
-- Use `invowk internal docs audit` for documentation audits as a developer/agent tool.
 
 ## Build Commands
 
