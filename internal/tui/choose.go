@@ -4,7 +4,9 @@ package tui
 
 import (
 	"fmt"
+	"io"
 
+	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/lipgloss"
@@ -14,32 +16,57 @@ import (
 type (
 	// ChooseStringOptions configures the embeddable Choose component for strings.
 	// This is used by the TUI server for dynamic component creation.
+	// JSON tags must match the snake_case format used by ChooseRequest in protocol.go
+	// for proper unmarshaling when options are received via the TUI server JSON protocol.
 	ChooseStringOptions struct {
 		// Title is the title/prompt displayed above the options.
-		Title string
+		Title string `json:"title,omitempty"`
 		// Options is the list of string options to choose from.
-		Options []string
+		Options []string `json:"options"`
 		// Limit is the maximum number of selections (0 or 1 for single-select, >1 for multi-select).
-		Limit int
+		Limit int `json:"limit,omitempty"`
 		// NoLimit allows unlimited selections in multi-select mode.
-		NoLimit bool
+		NoLimit bool `json:"no_limit,omitempty"`
 		// Height limits the number of visible options (0 for auto).
-		Height int
-		// Config holds common TUI configuration.
-		Config Config
+		Height int `json:"height,omitempty"`
+		// Config holds common TUI configuration (internal only, not from protocol).
+		Config Config `json:"-"`
 	}
 
 	// chooseModel implements EmbeddableComponent for single and multi-select prompts.
 	// This model works specifically with strings for the embeddable interface.
 	chooseModel struct {
-		form        *huh.Form
-		result      *string   // For single-select
-		multiResult *[]string // For multi-select
+		form        *huh.Form  // Used for single-select (huh.Select)
+		list        list.Model // Used for multi-select (bubbles/list with custom delegate)
+		result      *string    // For single-select
+		multiResult *[]string  // For multi-select
 		isMulti     bool
 		done        bool
 		cancelled   bool
 		width       int
 		height      int
+
+		// Fields for multi-select mode (using bubbles/list).
+		// Following the proven pattern from filter.go, we manage selection state
+		// directly with bubbles/list instead of huh.MultiSelect, which doesn't
+		// provide visual feedback when embedded within invowk's modal overlay system.
+		options  []string     // Original options list
+		selected map[int]bool // Selection state by index
+		limit    int          // Selection limit (0 = unlimited)
+		noLimit  bool         // Allow unlimited selections
+	}
+
+	// chooseItem implements list.Item for the bubbles list component in multi-select mode.
+	chooseItem struct {
+		text  string
+		index int // Track original index for selection map
+	}
+
+	// multiChooseDelegate renders items with selection checkboxes for multi-select mode.
+	multiChooseDelegate struct {
+		styles     list.DefaultItemStyles
+		isSelected func(int) bool // Callback to check if an index is selected
+		forModal   bool
 	}
 
 	// Option represents a selectable option with a display title and value.
@@ -101,13 +128,111 @@ type (
 	}
 )
 
+// chooseItem implements list.Item interface for bubbles/list.
+func (i chooseItem) Title() string       { return i.text }
+func (i chooseItem) Description() string { return "" }
+func (i chooseItem) FilterValue() string { return i.text }
+
+// multiChooseDelegate implements list.ItemDelegate for rendering items with checkboxes.
+func newMultiChooseDelegate(forModal bool, isSelected func(int) bool) multiChooseDelegate {
+	d := multiChooseDelegate{
+		styles:     list.NewDefaultDelegate().Styles,
+		isSelected: isSelected,
+		forModal:   forModal,
+	}
+
+	if forModal {
+		// Modal-specific styles: ALL have EXPLICIT backgrounds to prevent color bleeding
+		base := modalBaseStyle()
+
+		// Normal item styles - explicit background on everything
+		d.styles.NormalTitle = base.Foreground(lipgloss.Color("#FFFFFF"))
+		d.styles.NormalDesc = base.Foreground(lipgloss.Color("#6B7280"))
+
+		// Selected item - use left border indicator WITH explicit background
+		d.styles.SelectedTitle = base.
+			Foreground(lipgloss.Color("#7C3AED")).
+			Bold(true).
+			Padding(0, 0, 0, 1).
+			Border(lipgloss.NormalBorder(), false, false, false, true).
+			BorderForeground(lipgloss.Color("#7C3AED"))
+		d.styles.SelectedDesc = base.
+			Foreground(lipgloss.Color("#A78BFA")).
+			Padding(0, 0, 0, 1)
+
+		// Dimmed styles - explicit backgrounds
+		d.styles.DimmedTitle = base.Foreground(lipgloss.Color("#6B7280"))
+		d.styles.DimmedDesc = base.Foreground(lipgloss.Color("#6B7280"))
+	} else {
+		// Default styles for non-modal usage
+		d.styles.NormalTitle = lipgloss.NewStyle().Foreground(lipgloss.Color("252"))
+		d.styles.NormalDesc = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
+		d.styles.SelectedTitle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("212")).
+			Bold(true).
+			Padding(0, 0, 0, 1).
+			Border(lipgloss.NormalBorder(), false, false, false, true).
+			BorderForeground(lipgloss.Color("212"))
+		d.styles.SelectedDesc = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("212")).
+			Padding(0, 0, 0, 1)
+		d.styles.DimmedTitle = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
+		d.styles.DimmedDesc = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
+	}
+
+	return d
+}
+
+// Height returns the height of a single item.
+func (d multiChooseDelegate) Height() int { return 1 }
+
+// Spacing returns the spacing between items.
+func (d multiChooseDelegate) Spacing() int { return 0 }
+
+// Update handles item-level updates (not used, handled at model level).
+func (d multiChooseDelegate) Update(_ tea.Msg, _ *list.Model) tea.Cmd { return nil }
+
+// Render renders a single item with a checkbox prefix based on selection state.
+// The checkbox is always rendered with NormalTitle style (left-aligned), while
+// the text uses SelectedTitle style when focused to show the emphasis indicator.
+func (d multiChooseDelegate) Render(w io.Writer, m list.Model, index int, item list.Item) {
+	i, ok := item.(chooseItem)
+	if !ok {
+		return
+	}
+
+	// Determine checkbox state using the callback
+	checkbox := "[ ] "
+	if d.isSelected(i.index) {
+		checkbox = "[x] "
+	}
+
+	// Determine if this is the cursor position
+	isCursor := index == m.Index()
+
+	// Render checkbox and text separately so focus styling only affects text.
+	// This ensures checkboxes stay left-aligned while the focus indicator (border/padding)
+	// only shifts the text portion.
+	if isCursor {
+		// For focused item: checkbox unstyled (uses NormalTitle without border/padding),
+		// text with emphasis style (SelectedTitle includes left border indicator)
+		checkboxStyle := d.styles.NormalTitle.
+			Padding(0).
+			UnsetBorderLeft()
+		fmt.Fprint(w, checkboxStyle.Render(checkbox)+d.styles.SelectedTitle.Render(i.text))
+	} else {
+		// For unfocused items: both checkbox and text with normal style
+		fmt.Fprint(w, d.styles.NormalTitle.Render(checkbox+i.text))
+	}
+}
+
 // NewChooseModel creates an embeddable choose component for string options.
 func NewChooseModel(opts ChooseStringOptions) *chooseModel {
 	// Determine if this is multi-select mode
 	isMulti := opts.Limit > 1 || opts.NoLimit
 
 	if isMulti {
-		return newMultiChooseModelWithTheme(opts, getHuhTheme(opts.Config.Theme))
+		return newMultiChooseModelWithTheme(opts, false) // not modal
 	}
 	return newSingleChooseModelWithTheme(opts, getHuhTheme(opts.Config.Theme))
 }
@@ -115,33 +240,61 @@ func NewChooseModel(opts ChooseStringOptions) *chooseModel {
 // NewChooseModelForModal creates an embeddable choose component with modal-specific styling.
 // This uses a theme that matches the modal overlay background to prevent color bleeding.
 func NewChooseModelForModal(opts ChooseStringOptions) *chooseModel {
-	theme := getModalHuhTheme()
 	isMulti := opts.Limit > 1 || opts.NoLimit
 
 	if isMulti {
-		return newMultiChooseModelWithTheme(opts, theme)
+		return newMultiChooseModelWithTheme(opts, true) // modal mode
 	}
-	return newSingleChooseModelWithTheme(opts, theme)
+	return newSingleChooseModelWithTheme(opts, getModalHuhTheme())
 }
 
 // Init implements tea.Model.
 func (m *chooseModel) Init() tea.Cmd {
+	if m.isMulti {
+		return nil // bubbles/list doesn't need init
+	}
 	return m.form.Init()
 }
 
 // Update implements tea.Model.
 func (m *chooseModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	// Handle cancel keys before passing to form
+	// Handle key events
 	if keyMsg, ok := msg.(tea.KeyMsg); ok {
 		switch keyMsg.String() {
 		case keyCtrlC, "esc":
 			m.done = true
 			m.cancelled = true
 			return m, nil
+		case " ", "x":
+			// Toggle handling for multi-select mode using bubbles/list.
+			if m.isMulti {
+				idx := m.list.Index() // Get cursor position from list
+				if m.selected[idx] {
+					delete(m.selected, idx)
+				} else if m.noLimit || m.limit <= 0 || len(m.selected) < m.limit {
+					m.selected[idx] = true
+				}
+				m.syncSelections()
+				return m, nil // Don't pass to list (we handled the toggle)
+			}
+		case "enter":
+			if m.isMulti {
+				// Sync selections and mark done
+				m.syncSelections()
+				m.done = true
+				return m, nil
+			}
 		}
 	}
 
-	// Pass to huh form
+	// Multi-select: pass to bubbles/list for navigation
+	if m.isMulti {
+		var cmd tea.Cmd
+		m.list, cmd = m.list.Update(msg)
+		return m, cmd
+	}
+
+	// Single-select: pass to huh form
 	form, cmd := m.form.Update(msg)
 	if f, ok := form.(*huh.Form); ok {
 		m.form = f
@@ -166,7 +319,14 @@ func (m *chooseModel) View() string {
 	if m.done {
 		return ""
 	}
-	// Constrain the form view to the configured width to prevent overflow
+	if m.isMulti {
+		// Multi-select: render bubbles/list
+		if m.width > 0 {
+			return lipgloss.NewStyle().MaxWidth(m.width).Render(m.list.View())
+		}
+		return m.list.View()
+	}
+	// Single-select: render huh form
 	if m.width > 0 {
 		return lipgloss.NewStyle().MaxWidth(m.width).Render(m.form.View())
 	}
@@ -201,7 +361,26 @@ func (m *chooseModel) Cancelled() bool {
 func (m *chooseModel) SetSize(width, height int) {
 	m.width = width
 	m.height = height
-	m.form = m.form.WithWidth(width).WithHeight(height)
+	if m.isMulti {
+		m.list.SetWidth(width)
+		m.list.SetHeight(height - 2)
+	} else {
+		m.form = m.form.WithWidth(width).WithHeight(height)
+	}
+}
+
+// syncSelections updates multiResult to match our tracked selection state.
+func (m *chooseModel) syncSelections() {
+	if m.multiResult == nil {
+		return
+	}
+	results := make([]string, 0, len(m.selected))
+	for i := 0; i < len(m.options); i++ {
+		if m.selected[i] {
+			results = append(results, m.options[i])
+		}
+	}
+	*m.multiResult = results
 }
 
 // Choose prompts the user to select one option from a list.
@@ -530,35 +709,69 @@ func newSingleChooseModelWithTheme(opts ChooseStringOptions, theme *huh.Theme) *
 	}
 }
 
-// newMultiChooseModelWithTheme creates a multi-select choose model with a specific theme.
-func newMultiChooseModelWithTheme(opts ChooseStringOptions, theme *huh.Theme) *chooseModel {
+// newMultiChooseModelWithTheme creates a multi-select choose model using bubbles/list.
+// This replaces huh.MultiSelect because huh doesn't provide visual feedback for toggles
+// when embedded within invowk's modal overlay system. Following the proven pattern from
+// filter.go, we use bubbles/list with a custom delegate for full rendering control.
+func newMultiChooseModelWithTheme(opts ChooseStringOptions, forModal bool) *chooseModel {
 	var results []string
 
-	huhOpts := make([]huh.Option[string], len(opts.Options))
+	// Create list items
+	items := make([]list.Item, len(opts.Options))
 	for i, opt := range opts.Options {
-		huhOpts[i] = huh.NewOption(opt, opt)
+		items[i] = chooseItem{text: opt, index: i}
 	}
 
-	sel := huh.NewMultiSelect[string]().
-		Title(opts.Title).
-		Options(huhOpts...).
-		Value(&results)
-
-	if opts.Limit > 0 {
-		sel = sel.Limit(opts.Limit)
+	height := opts.Height
+	if height == 0 {
+		height = 10
 	}
 
-	if opts.Height > 0 {
-		sel = sel.Height(opts.Height)
-	}
+	width := 50
 
-	form := huh.NewForm(huh.NewGroup(sel)).
-		WithTheme(theme).
-		WithAccessible(opts.Config.Accessible)
+	// Create selection map first - the delegate will reference this via closure
+	selected := make(map[int]bool)
+
+	// Create custom delegate with a closure that checks the selection map.
+	// This closure captures 'selected' by reference, so the delegate always
+	// sees the current selection state when rendering.
+	delegate := newMultiChooseDelegate(forModal, func(idx int) bool {
+		return selected[idx]
+	})
+
+	// Create list
+	l := list.New(items, delegate, width, height)
+	l.Title = opts.Title
+	l.SetShowStatusBar(false)
+	l.SetFilteringEnabled(false) // Disable filtering for choose (use filter.go for that)
+	l.SetShowHelp(false)
+
+	if forModal {
+		// Modal-specific list styles - ALL have EXPLICIT backgrounds
+		base := modalBaseStyle()
+
+		l.Styles.Title = base.Bold(true).Foreground(lipgloss.Color("#7C3AED"))
+		l.Styles.TitleBar = base.Padding(0, 0, 1, 0)
+		l.Styles.PaginationStyle = base.Foreground(lipgloss.Color("#6B7280"))
+		l.Styles.HelpStyle = base.Foreground(lipgloss.Color("#6B7280"))
+		l.Styles.NoItems = base.Foreground(lipgloss.Color("#6B7280"))
+	} else {
+		// Default list styles
+		l.Styles.Title = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("212"))
+		l.Styles.TitleBar = lipgloss.NewStyle().Padding(0, 0, 1, 0)
+		l.Styles.PaginationStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
+		l.Styles.HelpStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
+	}
 
 	return &chooseModel{
-		form:        form,
+		list:        l,
 		multiResult: &results,
 		isMulti:     true,
+		options:     opts.Options,
+		selected:    selected,
+		limit:       opts.Limit,
+		noLimit:     opts.NoLimit,
+		width:       width,
+		height:      height,
 	}
 }
