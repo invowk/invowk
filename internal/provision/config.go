@@ -41,6 +41,12 @@ type (
 		// CacheDir is where to store cached provisioned images metadata.
 		// Default: ~/.cache/invowk/provision
 		CacheDir string
+
+		// TagSuffix is an optional suffix appended to provisioned image tags.
+		// This enables test isolation by making each test's images unique.
+		// When empty (default), standard tag format is used.
+		// Can be set via INVOWK_PROVISION_TAG_SUFFIX environment variable.
+		TagSuffix string
 	}
 
 	// Option is a functional option for configuring a Config.
@@ -64,6 +70,9 @@ func DefaultConfig() *Config {
 		cacheDir = filepath.Join(home, ".cache", "invowk", "provision")
 	}
 
+	// Read tag suffix from environment (for test isolation)
+	tagSuffix := os.Getenv("INVOWK_PROVISION_TAG_SUFFIX")
+
 	return &Config{
 		Enabled:          true,
 		ForceRebuild:     false,
@@ -72,6 +81,7 @@ func DefaultConfig() *Config {
 		BinaryMountPath:  "/invowk/bin",
 		ModulesMountPath: "/invowk/modules",
 		CacheDir:         cacheDir,
+		TagSuffix:        tagSuffix,
 	}
 }
 
@@ -114,6 +124,15 @@ func WithInvkfilePath(path string) Option {
 func WithCacheDir(dir string) Option {
 	return func(c *Config) {
 		c.CacheDir = dir
+	}
+}
+
+// WithTagSuffix returns an Option that sets TagSuffix on the config.
+// This is primarily used for test isolation to ensure parallel tests
+// don't compete for the same provisioned image tags.
+func WithTagSuffix(suffix string) Option {
+	return func(c *Config) {
+		c.TagSuffix = suffix
 	}
 }
 

@@ -157,6 +157,24 @@ func TestMakeUsernsKeepIDAdder(t *testing.T) {
 	}
 }
 
+// TestIsSELinuxPresent verifies the SELinux detection logic.
+// The function checks for /sys/fs/selinux existence rather than enforce status
+// because :z labels are needed even when SELinux is disabled but present.
+func TestIsSELinuxPresent(t *testing.T) {
+	// This is an integration test that checks the actual system state
+	result := isSELinuxPresent()
+
+	// The result depends on whether SELinux is installed on the test system.
+	// On Linux with SELinux (Fedora, RHEL, etc.) this returns true.
+	// On Linux without SELinux (some Debian/Ubuntu) this returns false.
+	// On macOS/Windows this returns false.
+	t.Logf("isSELinuxPresent() = %v", result)
+
+	// We can't assert a specific value since it depends on the test environment,
+	// but we can verify the function doesn't panic and returns a boolean.
+	_ = result
+}
+
 // TestNewPodmanEngine_AppliesUsernsTransformer verifies the constructor wires up the transformer.
 func TestNewPodmanEngine_AppliesUsernsTransformer(t *testing.T) {
 	// Create engine with SELinux disabled to isolate the userns behavior

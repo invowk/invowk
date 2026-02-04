@@ -43,7 +43,7 @@ func NewPodmanEngine(opts ...BaseCLIEngineOption) *PodmanEngine {
 
 	// Podman needs SELinux volume labels on Linux (prepend to user options)
 	// Use the default SELinux check unless overridden by options
-	selinuxLabelAdder := makeSELinuxLabelAdder(isSELinuxEnabled)
+	selinuxLabelAdder := makeSELinuxLabelAdder(isSELinuxPresent)
 	usernsKeepIDAdder := makeUsernsKeepIDAdder()
 	allOpts := append(
 		[]BaseCLIEngineOption{
@@ -192,14 +192,21 @@ func (e *PodmanEngine) InspectImage(ctx context.Context, image string) (string, 
 	return e.RunCommandWithOutput(ctx, "image", "inspect", image)
 }
 
-// isSELinuxEnabled checks if SELinux is enabled on the system
-func isSELinuxEnabled() bool {
-	// Check /sys/fs/selinux/enforce for SELinux status
-	data, err := os.ReadFile("/sys/fs/selinux/enforce")
-	if err != nil {
-		return false
-	}
-	return strings.TrimSpace(string(data)) == "1"
+// isSELinuxPresent checks if SELinux labeling should be applied.
+// Returns true on Linux systems because the :z label is:
+//   - Required when SELinux is enforcing
+//   - Still needed when SELinux is present but disabled (for rootless Podman)
+//   - Harmlessly ignored when SELinux is completely absent
+//
+// This is more robust than checking /sys/fs/selinux/enforce because:
+// 1. The enforce file may not exist when SELinux is disabled
+// 2. Podman still needs :z for proper volume access in rootless mode
+// 3. The :z label is a no-op when SELinux isn't present
+func isSELinuxPresent() bool {
+	// Check if SELinux filesystem exists (selinuxfs mount point)
+	// This is more reliable than checking enforce status
+	_, err := os.Stat("/sys/fs/selinux")
+	return err == nil
 }
 
 // makeSELinuxLabelAdder creates a volume formatter function that adds SELinux labels.

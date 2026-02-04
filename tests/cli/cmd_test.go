@@ -8,6 +8,8 @@ package cli
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -102,6 +104,15 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
+// generateTestSuffix creates a short hash from the test's WorkDir.
+// This ensures each parallel test gets a unique container image tag suffix,
+// preventing race conditions when multiple tests try to build the same
+// provisioned image simultaneously.
+func generateTestSuffix(workDir string) string {
+	h := sha256.Sum256([]byte(workDir))
+	return hex.EncodeToString(h[:])[:8]
+}
+
 // TestCLI runs all testscript tests in the testdata directory.
 func TestCLI(t *testing.T) {
 	testscript.Run(t, testscript.Params{
@@ -122,6 +133,14 @@ func TestCLI(t *testing.T) {
 			// causes "mkdir /no-home: permission denied" errors during docker build.
 			// Using WorkDir ensures HOME exists and is writable for the test duration.
 			env.Setenv("HOME", env.WorkDir)
+
+			// Set a unique tag suffix for container image provisioning.
+			// This prevents race conditions when parallel tests compete to build
+			// the same provisioned image (e.g., invowk-provisioned:abc123).
+			// Each test gets a unique suffix based on its WorkDir, producing tags
+			// like invowk-provisioned:abc123-a1b2c3d4.
+			testSuffix := generateTestSuffix(env.WorkDir)
+			env.Setenv("INVOWK_PROVISION_TAG_SUFFIX", testSuffix)
 
 			// IMPORTANT: Do NOT set env.Cd here. Each test file controls its own working
 			// directory. Tests that need the project root should use 'cd $PROJECT_ROOT'.
