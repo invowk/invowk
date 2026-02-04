@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"invowk-cli/internal/container"
+	"invowk-cli/pkg/platform"
 
 	"github.com/rogpeppe/go-internal/testscript"
 )
@@ -132,13 +133,19 @@ func TestCLI(t *testing.T) {
 		},
 		// Custom conditions for testscript
 		Condition: func(cond string) (bool, error) {
-			// "container-available" returns true if a functional container runtime is available
-			// Use [!container-available] to skip tests when no container runtime works
-			if cond == "container-available" {
+			switch cond {
+			case "container-available":
+				// "container-available" returns true if a functional container runtime is available
+				// Use [!container-available] to skip tests when no container runtime works
 				return containerAvailable, nil
+			case "in-sandbox":
+				// "in-sandbox" returns true if running inside a Flatpak or Snap sandbox
+				// Use [in-sandbox] to skip tests that require host filesystem permissions
+				return platform.IsInSandbox(), nil
+			default:
+				// Return false with no error for unknown conditions - let testscript handle them
+				return false, nil
 			}
-			// Return false with no error for unknown conditions - let testscript handle them
-			return false, nil
 		},
 		// Continue running all tests even if one fails
 		ContinueOnError: true,

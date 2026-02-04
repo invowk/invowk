@@ -124,56 +124,69 @@ func (e *EngineNotAvailableError) Error() string {
 	return fmt.Sprintf("container engine '%s' is not available: %s", e.Engine, e.Reason)
 }
 
-// NewEngine creates a new container engine based on preference
+// NewEngine creates a new container engine based on preference.
+// The returned engine is automatically wrapped with sandbox awareness
+// when running inside Flatpak or Snap sandboxes.
 func NewEngine(preferredType EngineType) (Engine, error) {
+	var engine Engine
+
 	switch preferredType {
 	case EngineTypePodman:
-		engine := NewPodmanEngine()
-		if engine.Available() {
-			return engine, nil
-		}
-		// Fall back to Docker
-		dockerEngine := NewDockerEngine()
-		if dockerEngine.Available() {
-			return dockerEngine, nil
-		}
-		return nil, &EngineNotAvailableError{
-			Engine: "podman",
-			Reason: "podman is not installed or not accessible, and docker fallback is also not available",
+		podman := NewPodmanEngine()
+		if podman.Available() {
+			engine = podman
+		} else {
+			// Fall back to Docker
+			docker := NewDockerEngine()
+			if docker.Available() {
+				engine = docker
+			} else {
+				return nil, &EngineNotAvailableError{
+					Engine: "podman",
+					Reason: "podman is not installed or not accessible, and docker fallback is also not available",
+				}
+			}
 		}
 
 	case EngineTypeDocker:
-		engine := NewDockerEngine()
-		if engine.Available() {
-			return engine, nil
-		}
-		// Fall back to Podman
-		podmanEngine := NewPodmanEngine()
-		if podmanEngine.Available() {
-			return podmanEngine, nil
-		}
-		return nil, &EngineNotAvailableError{
-			Engine: "docker",
-			Reason: "docker is not installed or not accessible, and podman fallback is also not available",
+		docker := NewDockerEngine()
+		if docker.Available() {
+			engine = docker
+		} else {
+			// Fall back to Podman
+			podman := NewPodmanEngine()
+			if podman.Available() {
+				engine = podman
+			} else {
+				return nil, &EngineNotAvailableError{
+					Engine: "docker",
+					Reason: "docker is not installed or not accessible, and podman fallback is also not available",
+				}
+			}
 		}
 
 	default:
 		return nil, fmt.Errorf("unknown container engine type: %s", preferredType)
 	}
+
+	// Wrap with sandbox awareness for Flatpak/Snap environments
+	return NewSandboxAwareEngine(engine), nil
 }
 
-// AutoDetectEngine tries to find an available container engine
+// AutoDetectEngine tries to find an available container engine.
+// The returned engine is automatically wrapped with sandbox awareness
+// when running inside Flatpak or Snap sandboxes.
 func AutoDetectEngine() (Engine, error) {
 	// Try Podman first (more commonly available in rootless setups)
 	podman := NewPodmanEngine()
 	if podman.Available() {
-		return podman, nil
+		return NewSandboxAwareEngine(podman), nil
 	}
 
 	// Try Docker
 	docker := NewDockerEngine()
 	if docker.Available() {
-		return docker, nil
+		return NewSandboxAwareEngine(docker), nil
 	}
 
 	return nil, &EngineNotAvailableError{
