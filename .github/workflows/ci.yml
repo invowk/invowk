@@ -91,10 +91,12 @@ jobs:
           docker info
 
       # Run full tests (includes integration tests with containers)
+      # Explicit 15m timeout allows enough time for container operations (image pulls, startup)
+      # while providing a clear upper bound for CI job duration.
       - name: Run tests (full)
         if: matrix.test-mode == 'full'
         shell: bash
-        run: go test -v -race -coverprofile=coverage.out ./...
+        run: go test -v -race -timeout 15m -coverprofile=coverage.out ./...
 
       # Run short tests (unit tests only, no container dependencies)
       # Uses bash shell to avoid PowerShell parsing issues on Windows

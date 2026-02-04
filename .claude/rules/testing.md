@@ -86,6 +86,51 @@ testscript.Run(t, testscript.Params{
 - Using `WorkDir` as `HOME` provides isolation while ensuring the directory exists and is writable
 - Tests using pre-built images (e.g., `debian:stable-slim`) may not trigger this issue since they don't invoke `docker build`
 
+### Container Test Timeout Strategy
+
+Container tests use a multi-layer timeout strategy to prevent indefinite hangs:
+
+**Layer 1: Per-Test Deadline (Primary)**
+```go
+deadline := time.Now().Add(3 * time.Minute)
+
+testscript.Run(t, testscript.Params{
+    Files:    []string{testFile},
+    Setup:    containerSetup,
+    Deadline: deadline,  // Enforces 3-minute max per test
+})
+```
+
+**Layer 2: Container Cleanup on Timeout**
+```go
+func containerSetup(env *testscript.Env) error {
+    // ... common setup ...
+
+    testSuffix := generateTestSuffix(env.WorkDir)
+    containerPrefix := "invowk-test-" + testSuffix
+
+    // Cleanup runs regardless of test outcome (pass, fail, timeout, panic)
+    env.Defer(func() {
+        cleanupTestContainers(containerPrefix)
+    })
+    return nil
+}
+```
+
+**Layer 3: CI Explicit Timeout (Safety Net)**
+```yaml
+run: go test -v -race -timeout 15m -coverprofile=coverage.out ./...
+```
+
+**Why three layers:**
+1. **3-minute deadline** catches individual test hangs early
+2. **Cleanup via `env.Defer()`** prevents orphaned containers from accumulating
+3. **15-minute CI timeout** catches catastrophic failures faster than Go's default 10m
+
+**When to adjust timeouts:**
+- If tests consistently need more than 3 minutes (e.g., large image pulls), increase `containerTestTimeout`
+- The 15m CI timeout should always exceed the sum of all sequential container test deadlines
+
 ## Cross-Platform Testing
 
 ### The skipOnWindows Pattern
