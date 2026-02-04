@@ -45,6 +45,8 @@ make build
 
 > **Note:** On x86-64 systems, the default build targets the x86-64-v3 microarchitecture (Haswell+ CPUs from 2013+) for optimal performance. For maximum compatibility with older CPUs, use `make build GOAMD64=v1`.
 
+> **Performance:** Invowk uses Profile-Guided Optimization (PGO) for improved runtime performance. The pre-generated profile (`default.pgo`) is automatically detected by Go 1.20+ during builds. To regenerate the profile after significant changes: `make pgo-profile`.
+
 ### Installing the Binary
 
 Move the built binary to a location in your PATH:

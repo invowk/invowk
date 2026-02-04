@@ -11,6 +11,8 @@
 | Single test | `go test -v -run TestName ./path/...` |
 | License check | `make license-check` |
 | Tidy deps | `make tidy` |
+| PGO profile | `make pgo-profile` |
+| PGO profile (short) | `make pgo-profile-short` |
 | GoReleaser check | `goreleaser check` |
 | GoReleaser dry-run | `goreleaser release --snapshot --clean` |
 | Website dev | `cd website && npm start` |
@@ -70,6 +72,37 @@ Available levels:
 - `v2` - Nehalem+ (2008+): SSE4.2, POPCNT.
 - `v3` - Haswell+ (2013+): AVX, AVX2, BMI1/2, FMA (default).
 - `v4` - Skylake-X+ (2017+): AVX-512.
+
+## Profile-Guided Optimization (PGO)
+
+Invowk uses PGO to optimize builds based on representative runtime profiles. Go 1.20+ automatically detects `default.pgo` in the main package directory.
+
+```bash
+# Generate full PGO profile (includes container benchmarks)
+# Takes several minutes; produces default.pgo
+make pgo-profile
+
+# Generate short PGO profile (skips container benchmarks)
+# Faster but may result in less comprehensive optimization
+make pgo-profile-short
+
+# Verify PGO is active during builds
+GODEBUG=pgoinstall=1 make build 2>&1 | grep -i pgo
+```
+
+**When to regenerate profiles:**
+- After major changes to hot paths (CUE parsing, runtime execution, discovery)
+- When adding new runtimes or significantly changing existing ones
+- Before a major release to ensure optimizations are up-to-date
+
+**Profile location:** `default.pgo` in the repository root (committed).
+
+**Benchmark source:** `internal/benchmark/benchmark_test.go` contains benchmarks covering:
+- CUE parsing and schema validation
+- Module and command discovery
+- Native and virtual shell execution
+- Container runtime (when not in short mode)
+- Full end-to-end pipeline
 
 ## Test Commands
 

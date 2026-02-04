@@ -132,6 +132,33 @@ test-cli:
 	@echo "Running CLI integration tests..."
 	$(GOTEST) -v ./tests/cli/...
 
+# Generate PGO profile from benchmarks (includes container tests)
+# This produces a CPU profile that Go 1.20+ uses for Profile-Guided Optimization.
+# The profile is stored as default.pgo which Go automatically detects.
+.PHONY: pgo-profile
+pgo-profile:
+	@echo "Generating PGO profile from benchmarks..."
+	@echo "This may take several minutes..."
+	$(GOTEST) -run=^$$ -bench=. -benchtime=10s -cpuprofile=cpu.prof ./internal/benchmark/
+	@mv cpu.prof default.pgo
+	@echo ""
+	@echo "PGO profile generated: default.pgo"
+	@ls -lh default.pgo | awk '{print "Profile size:", $$5}'
+	@echo ""
+	@echo "To verify PGO is active during builds:"
+	@echo "  GODEBUG=pgoinstall=1 make build 2>&1 | grep -i pgo"
+
+# Generate PGO profile (short mode - no container benchmarks)
+# Faster but may result in less comprehensive optimization.
+.PHONY: pgo-profile-short
+pgo-profile-short:
+	@echo "Generating PGO profile (short mode)..."
+	$(GOTEST) -run=^$$ -bench=. -benchtime=10s -short -cpuprofile=cpu.prof ./internal/benchmark/
+	@mv cpu.prof default.pgo
+	@echo ""
+	@echo "PGO profile generated: default.pgo"
+	@ls -lh default.pgo | awk '{print "Profile size:", $$5}'
+
 # Clean build artifacts
 .PHONY: clean
 clean:
@@ -253,25 +280,27 @@ help:
 	@echo "  make [target]"
 	@echo ""
 	@echo "Targets:"
-	@echo "  build          Build stripped binary (default)"
-	@echo "  build-upx      Build UPX-compressed binary (requires UPX)"
-	@echo "  build-all      Build both stripped and UPX variants"
-	@echo "  build-dev      Build with debug symbols (for development)"
-	@echo "  build-cross    Cross-compile for Linux, macOS, Windows"
-	@echo "  test           Run all tests"
-	@echo "  test-short     Run tests in short mode (skip integration)"
+	@echo "  build            Build stripped binary (default)"
+	@echo "  build-upx        Build UPX-compressed binary (requires UPX)"
+	@echo "  build-all        Build both stripped and UPX variants"
+	@echo "  build-dev        Build with debug symbols (for development)"
+	@echo "  build-cross      Cross-compile for Linux, macOS, Windows"
+	@echo "  test             Run all tests"
+	@echo "  test-short       Run tests in short mode (skip integration)"
 	@echo "  test-integration Run integration tests only"
-	@echo "  test-cli       Run CLI integration tests (testscript)"
-	@echo "  vhs-demos      Generate VHS demo recordings (requires VHS)"
-	@echo "  vhs-validate   Validate VHS tape syntax"
-	@echo "  clean          Remove build artifacts"
-	@echo "  install        Install to GOPATH/bin"
-	@echo "  tidy           Tidy go.mod dependencies"
-	@echo "  license-check  Verify SPDX headers in all Go files"
-	@echo "  lint           Run golangci-lint on all packages"
-	@echo "  install-hooks  Install pre-commit hooks (requires pre-commit)"
-	@echo "  size           Compare binary sizes (debug vs stripped vs UPX)"
-	@echo "  help           Show this help message"
+	@echo "  test-cli         Run CLI integration tests (testscript)"
+	@echo "  pgo-profile      Generate PGO profile from benchmarks (full)"
+	@echo "  pgo-profile-short Generate PGO profile (short, no container benchmarks)"
+	@echo "  vhs-demos        Generate VHS demo recordings (requires VHS)"
+	@echo "  vhs-validate     Validate VHS tape syntax"
+	@echo "  clean            Remove build artifacts"
+	@echo "  install          Install to GOPATH/bin"
+	@echo "  tidy             Tidy go.mod dependencies"
+	@echo "  license-check    Verify SPDX headers in all Go files"
+	@echo "  lint             Run golangci-lint on all packages"
+	@echo "  install-hooks    Install pre-commit hooks (requires pre-commit)"
+	@echo "  size             Compare binary sizes (debug vs stripped vs UPX)"
+	@echo "  help             Show this help message"
 	@echo ""
 	@echo "Environment variables:"
 	@echo "  VERSION        Override version string (default: git describe)"

@@ -12,6 +12,10 @@ internal/runtime/id_ed25519.pub
 *.test
 *.out
 
+# PGO temporary profiles (keep committed default.pgo)
+cpu.prof
+mem.prof
+
 # IDE
 .vscode/
 *.swp
