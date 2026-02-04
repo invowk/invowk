@@ -6,10 +6,16 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"os/exec"
 	"strings"
 )
+
+// podmanBinaryNames lists Podman binary names to try in order of preference.
+// "podman" is preferred; "podman-remote" is the fallback for immutable distros
+// like Fedora Silverblue/Kinoite.
+var podmanBinaryNames = []string{"podman", "podman-remote"}
 
 // PodmanEngine implements the Engine interface using Podman CLI.
 // It embeds BaseCLIEngine for common CLI operations.
@@ -17,15 +23,35 @@ type PodmanEngine struct {
 	*BaseCLIEngine
 }
 
+// findPodmanBinary searches for an available Podman binary.
+// Returns the full path to the first found binary, or empty string if none found.
+func findPodmanBinary() string {
+	for _, name := range podmanBinaryNames {
+		if path, err := exec.LookPath(name); err == nil {
+			slog.Debug("found podman binary", "name", name, "path", path)
+			return path
+		}
+	}
+	return ""
+}
+
 // NewPodmanEngine creates a new Podman engine.
 // On Linux with SELinux enabled, volume mounts are automatically labeled with :z.
+// For rootless Podman compatibility, --userns=keep-id is automatically added to run commands.
 func NewPodmanEngine(opts ...BaseCLIEngineOption) *PodmanEngine {
-	path, _ := exec.LookPath("podman")
+	path := findPodmanBinary()
 
 	// Podman needs SELinux volume labels on Linux (prepend to user options)
 	// Use the default SELinux check unless overridden by options
 	selinuxLabelAdder := makeSELinuxLabelAdder(isSELinuxEnabled)
-	allOpts := append([]BaseCLIEngineOption{WithVolumeFormatter(selinuxLabelAdder)}, opts...)
+	usernsKeepIDAdder := makeUsernsKeepIDAdder()
+	allOpts := append(
+		[]BaseCLIEngineOption{
+			WithVolumeFormatter(selinuxLabelAdder),
+			WithRunArgsTransformer(usernsKeepIDAdder),
+		},
+		opts...,
+	)
 
 	return &PodmanEngine{
 		BaseCLIEngine: NewBaseCLIEngine(path, allOpts...),
@@ -34,12 +60,20 @@ func NewPodmanEngine(opts ...BaseCLIEngineOption) *PodmanEngine {
 
 // NewPodmanEngineWithSELinuxCheck creates a Podman engine with a custom SELinux check function.
 // This is primarily useful for testing SELinux labeling behavior on non-SELinux systems.
+// For rootless Podman compatibility, --userns=keep-id is automatically added to run commands.
 func NewPodmanEngineWithSELinuxCheck(selinuxCheck SELinuxCheckFunc, opts ...BaseCLIEngineOption) *PodmanEngine {
-	path, _ := exec.LookPath("podman")
+	path := findPodmanBinary()
 
 	// Use the provided SELinux check function
 	selinuxLabelAdder := makeSELinuxLabelAdder(selinuxCheck)
-	allOpts := append([]BaseCLIEngineOption{WithVolumeFormatter(selinuxLabelAdder)}, opts...)
+	usernsKeepIDAdder := makeUsernsKeepIDAdder()
+	allOpts := append(
+		[]BaseCLIEngineOption{
+			WithVolumeFormatter(selinuxLabelAdder),
+			WithRunArgsTransformer(usernsKeepIDAdder),
+		},
+		opts...,
+	)
 
 	return &PodmanEngine{
 		BaseCLIEngine: NewBaseCLIEngine(path, allOpts...),
@@ -211,6 +245,54 @@ func addSELinuxLabelWithCheck(volume string, selinuxCheck SELinuxCheckFunc) stri
 
 	// No options specified, add :z
 	return volume + ":z"
+}
+
+// makeUsernsKeepIDAdder creates a transformer that adds --userns=keep-id to run commands.
+// This preserves host user UID/GID in rootless Podman, preventing permission
+// issues with volume mounts. The flag is harmless in rootful mode.
+func makeUsernsKeepIDAdder() RunArgsTransformer {
+	return func(args []string) []string {
+		if len(args) == 0 || args[0] != "run" {
+			return args // Only transform run commands
+		}
+
+		// Find image position (first non-flag argument after "run")
+		// We need to insert --userns=keep-id before the image name.
+		imagePos := -1
+		skipNext := false
+		for i := 1; i < len(args); i++ {
+			if skipNext {
+				skipNext = false
+				continue
+			}
+			arg := args[i]
+			// Flags that take a separate argument value
+			if arg == "-w" || arg == "-e" || arg == "-v" || arg == "-p" ||
+				arg == "--name" || arg == "--add-host" {
+				skipNext = true
+				continue
+			}
+			// Skip flags that start with - (including --rm, -i, -t, --userns=..., etc.)
+			if strings.HasPrefix(arg, "-") {
+				continue
+			}
+			// Found the image name
+			imagePos = i
+			break
+		}
+
+		if imagePos == -1 {
+			// No image found, append at the end (unusual case)
+			return append(args, "--userns=keep-id")
+		}
+
+		// Insert --userns=keep-id before the image name
+		result := make([]string, 0, len(args)+1)
+		result = append(result, args[:imagePos]...)
+		result = append(result, "--userns=keep-id")
+		result = append(result, args[imagePos:]...)
+		return result
+	}
 }
 
 // BuildRunArgs builds the argument slice for a 'run' command without executing.

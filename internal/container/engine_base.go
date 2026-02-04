@@ -26,15 +26,20 @@ type (
 	// This allows injection of mock implementations for testing.
 	SELinuxCheckFunc func() bool
 
+	// RunArgsTransformer modifies run arguments after they're built.
+	// Used by Podman to inject --userns=keep-id for rootless compatibility.
+	RunArgsTransformer func(args []string) []string
+
 	// BaseCLIEngineOption configures a BaseCLIEngine.
 	BaseCLIEngineOption func(*BaseCLIEngine)
 
 	// BaseCLIEngine provides common implementation for CLI-based container engines.
 	// Docker and Podman engines embed this struct.
 	BaseCLIEngine struct {
-		binaryPath      string
-		execCommand     ExecCommandFunc
-		volumeFormatter VolumeFormatFunc
+		binaryPath         string
+		execCommand        ExecCommandFunc
+		volumeFormatter    VolumeFormatFunc
+		runArgsTransformer RunArgsTransformer
 	}
 
 	// VolumeMount represents a volume mount specification.
@@ -70,14 +75,24 @@ func WithVolumeFormatter(fn VolumeFormatFunc) BaseCLIEngineOption {
 	}
 }
 
+// WithRunArgsTransformer sets a custom run args transformer.
+// This is used by Podman to inject --userns=keep-id for rootless compatibility.
+func WithRunArgsTransformer(fn RunArgsTransformer) BaseCLIEngineOption {
+	return func(e *BaseCLIEngine) {
+		e.runArgsTransformer = fn
+	}
+}
+
 // --- Constructor ---
 
 // NewBaseCLIEngine creates a new base engine with the given binary path.
 func NewBaseCLIEngine(binaryPath string, opts ...BaseCLIEngineOption) *BaseCLIEngine {
 	e := &BaseCLIEngine{
-		binaryPath:      binaryPath,
-		execCommand:     exec.CommandContext,
-		volumeFormatter: func(v string) string { return v }, // identity by default
+		binaryPath:  binaryPath,
+		execCommand: exec.CommandContext,
+		// Identity functions by default
+		volumeFormatter:    func(v string) string { return v },
+		runArgsTransformer: func(args []string) []string { return args },
 	}
 	for _, opt := range opts {
 		opt(e)
@@ -173,7 +188,7 @@ func (e *BaseCLIEngine) RunArgs(opts RunOptions) []string {
 	args = append(args, opts.Image)
 	args = append(args, opts.Command...)
 
-	return args
+	return e.runArgsTransformer(args)
 }
 
 // ExecArgs constructs arguments for a container exec command.
