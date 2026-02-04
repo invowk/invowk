@@ -151,6 +151,46 @@ type Config struct {
 func Load() (*Config, error) { ... }
 ```
 
+### Package Documentation (doc.go files)
+
+For packages with extensive documentation, use a dedicated `doc.go` file:
+
+**When to use `doc.go`:**
+- Package has complex APIs requiring multi-paragraph explanation
+- Need to document architectural decisions or design rationale
+- Package has multiple concerns that should be explained together
+
+**Structure:**
+```go
+// SPDX-License-Identifier: MPL-2.0
+
+// Package name provides brief summary.
+//
+// Extended description with multiple paragraphs explaining:
+//   - Purpose and key abstractions
+//   - Important types and interfaces
+//   - Design decisions or limitations
+//   - File organization (if package spans multiple files)
+package name
+```
+
+**CRITICAL: Only one package comment per package.** When using `doc.go`, remove `// Package name ...` comments from other files (keep only `package name`). Go's `go doc` tool concatenates all package comments, causing duplicate documentation.
+
+```go
+// doc.go - Has the package documentation
+// Package config handles application configuration.
+package config
+
+// config.go - NO package comment, just package declaration
+package config
+```
+
+### Existing doc.go Examples
+
+- `internal/tui/doc.go` (9 lines): Brief, single paragraph
+- `pkg/invkfile/doc.go` (12 lines): Detailed with internal references
+- `internal/discovery/doc.go`: Multi-concern package with file organization
+
 ## Struct Tags
 
 Use JSON tags with snake_case, add mapstructure tags when using Viper:
@@ -328,3 +368,4 @@ setting-name = "value"  # Brief explanation of what this controls
 - **Silent close errors** - Use named returns with defer for resource cleanup.
 - **Missing defaults documentation** - Document default values in functional options.
 - **Wrong declaration order** - Follow const → var → type → func, exported before unexported.
+- **Duplicate package comments** - Use `doc.go` for package docs, remove `// Package` comments from other files.
