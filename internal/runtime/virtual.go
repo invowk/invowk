@@ -20,17 +20,37 @@ import (
 	"mvdan.cc/sh/v3/syntax"
 )
 
-// VirtualRuntime executes commands using mvdan/sh with optional u-root utilities
-type VirtualRuntime struct {
-	// EnableUrootUtils enables u-root built-in utilities
-	EnableUrootUtils bool
+type (
+	// VirtualRuntime executes commands using mvdan/sh with optional u-root utilities
+	VirtualRuntime struct {
+		// EnableUrootUtils enables u-root built-in utilities
+		EnableUrootUtils bool
+		// envBuilder builds environment variables for execution
+		envBuilder EnvBuilder
+	}
+
+	// VirtualRuntimeOption configures a VirtualRuntime.
+	VirtualRuntimeOption func(*VirtualRuntime)
+)
+
+// WithVirtualEnvBuilder sets the environment builder for the virtual runtime.
+// If not set, NewDefaultEnvBuilder() is used.
+func WithVirtualEnvBuilder(b EnvBuilder) VirtualRuntimeOption {
+	return func(r *VirtualRuntime) {
+		r.envBuilder = b
+	}
 }
 
-// NewVirtualRuntime creates a new virtual runtime
-func NewVirtualRuntime(enableUroot bool) *VirtualRuntime {
-	return &VirtualRuntime{
+// NewVirtualRuntime creates a new virtual runtime with optional configuration.
+func NewVirtualRuntime(enableUroot bool, opts ...VirtualRuntimeOption) *VirtualRuntime {
+	r := &VirtualRuntime{
 		EnableUrootUtils: enableUroot,
+		envBuilder:       NewDefaultEnvBuilder(),
 	}
+	for _, opt := range opts {
+		opt(r)
+	}
+	return r
 }
 
 // Name returns the runtime name
@@ -104,7 +124,7 @@ func (r *VirtualRuntime) Execute(ctx *ExecutionContext) *Result {
 	workDir := r.getWorkDir(ctx)
 
 	// Build environment
-	env, err := buildRuntimeEnv(ctx, invkfile.EnvInheritAll)
+	env, err := r.envBuilder.Build(ctx, invkfile.EnvInheritAll)
 	if err != nil {
 		return &Result{ExitCode: 1, Error: fmt.Errorf("failed to build environment: %w", err)}
 	}
@@ -163,7 +183,7 @@ func (r *VirtualRuntime) ExecuteCapture(ctx *ExecutionContext) *Result {
 	}
 
 	workDir := r.getWorkDir(ctx)
-	env, err := buildRuntimeEnv(ctx, invkfile.EnvInheritAll)
+	env, err := r.envBuilder.Build(ctx, invkfile.EnvInheritAll)
 	if err != nil {
 		return &Result{ExitCode: 1, Error: fmt.Errorf("failed to build environment: %w", err)}
 	}
@@ -282,7 +302,7 @@ func (r *VirtualRuntime) PrepareCommand(ctx *ExecutionContext) (*PreparedCommand
 	workDir := r.getWorkDir(ctx)
 
 	// Build environment
-	env, err := buildRuntimeEnv(ctx, invkfile.EnvInheritAll)
+	env, err := r.envBuilder.Build(ctx, invkfile.EnvInheritAll)
 	if err != nil {
 		_ = os.Remove(tmpFile.Name()) // Best-effort cleanup on error path
 		return nil, fmt.Errorf("failed to build environment: %w", err)

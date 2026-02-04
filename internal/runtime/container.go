@@ -33,7 +33,11 @@ type (
 		sshServer   *sshserver.Server
 		provisioner *LayerProvisioner
 		cfg         *config.Config
+		envBuilder  EnvBuilder
 	}
+
+	// ContainerRuntimeOption configures a ContainerRuntime.
+	ContainerRuntimeOption func(*ContainerRuntime)
 
 	// invkfileContainerConfig is a local type for container config extracted from RuntimeConfig
 	invkfileContainerConfig struct {
@@ -44,8 +48,16 @@ type (
 	}
 )
 
-// NewContainerRuntime creates a new container runtime
-func NewContainerRuntime(cfg *config.Config) (*ContainerRuntime, error) {
+// WithContainerEnvBuilder sets the environment builder for the container runtime.
+// If not set, NewDefaultEnvBuilder() is used.
+func WithContainerEnvBuilder(b EnvBuilder) ContainerRuntimeOption {
+	return func(r *ContainerRuntime) {
+		r.envBuilder = b
+	}
+}
+
+// NewContainerRuntime creates a new container runtime with optional configuration.
+func NewContainerRuntime(cfg *config.Config, opts ...ContainerRuntimeOption) (*ContainerRuntime, error) {
 	engineType := container.EngineType(cfg.ContainerEngine)
 	engine, err := container.NewEngine(engineType)
 	if err != nil {
@@ -56,20 +68,30 @@ func NewContainerRuntime(cfg *config.Config) (*ContainerRuntime, error) {
 	provisionCfg := buildProvisionConfig(cfg)
 	provisioner := NewLayerProvisioner(engine, provisionCfg)
 
-	return &ContainerRuntime{
+	r := &ContainerRuntime{
 		engine:      engine,
 		provisioner: provisioner,
 		cfg:         cfg,
-	}, nil
+		envBuilder:  NewDefaultEnvBuilder(),
+	}
+	for _, opt := range opts {
+		opt(r)
+	}
+	return r, nil
 }
 
-// NewContainerRuntimeWithEngine creates a container runtime with a specific engine
-func NewContainerRuntimeWithEngine(engine container.Engine) *ContainerRuntime {
+// NewContainerRuntimeWithEngine creates a container runtime with a specific engine.
+func NewContainerRuntimeWithEngine(engine container.Engine, opts ...ContainerRuntimeOption) *ContainerRuntime {
 	provisionCfg := DefaultProvisionConfig()
-	return &ContainerRuntime{
+	r := &ContainerRuntime{
 		engine:      engine,
 		provisioner: NewLayerProvisioner(engine, provisionCfg),
+		envBuilder:  NewDefaultEnvBuilder(),
 	}
+	for _, opt := range opts {
+		opt(r)
+	}
+	return r
 }
 
 // SetProvisionConfig updates the provisioner configuration.

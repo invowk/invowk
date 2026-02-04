@@ -58,7 +58,7 @@ func (r *ContainerRuntime) PrepareCommand(ctx *ExecutionContext) (*PreparedComma
 	}
 
 	// Build environment
-	env, err := buildRuntimeEnv(ctx, invkfile.EnvInheritNone)
+	env, err := r.envBuilder.Build(ctx, invkfile.EnvInheritNone)
 	if err != nil {
 		if provisionCleanup != nil {
 			provisionCleanup()

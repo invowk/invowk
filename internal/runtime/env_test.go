@@ -22,7 +22,7 @@ func createEnvFile(t *testing.T, dir, name, content string) string {
 	return path
 }
 
-func TestBuildRuntimeEnv_InheritAllFiltersInvowkVars(t *testing.T) {
+func TestDefaultEnvBuilder_InheritAllFiltersInvowkVars(t *testing.T) {
 	tmpDir := t.TempDir()
 	inv := &invkfile.Invkfile{
 		FilePath: filepath.Join(tmpDir, "invkfile.cue"),
@@ -35,20 +35,21 @@ func TestBuildRuntimeEnv_InheritAllFiltersInvowkVars(t *testing.T) {
 	defer restoreParent()
 	defer restoreHost()
 
-	env, err := buildRuntimeEnv(ctx, invkfile.EnvInheritAll)
+	builder := NewDefaultEnvBuilder()
+	env, err := builder.Build(ctx, invkfile.EnvInheritAll)
 	if err != nil {
-		t.Fatalf("buildRuntimeEnv() error: %v", err)
+		t.Fatalf("DefaultEnvBuilder.Build() error: %v", err)
 	}
 
 	if _, ok := env["INVOWK_ARG_PARENT"]; ok {
-		t.Errorf("buildRuntimeEnv() should filter INVOWK_ARG_PARENT")
+		t.Errorf("DefaultEnvBuilder.Build() should filter INVOWK_ARG_PARENT")
 	}
 	if got := env["CUSTOM_HOST_ENV"]; got != "host_value" {
-		t.Errorf("buildRuntimeEnv() CUSTOM_HOST_ENV = %q, want %q", got, "host_value")
+		t.Errorf("DefaultEnvBuilder.Build() CUSTOM_HOST_ENV = %q, want %q", got, "host_value")
 	}
 }
 
-func TestBuildRuntimeEnv_InheritAllowAndDeny(t *testing.T) {
+func TestDefaultEnvBuilder_InheritAllowAndDeny(t *testing.T) {
 	tmpDir := t.TempDir()
 	inv := &invkfile.Invkfile{
 		FilePath: filepath.Join(tmpDir, "invkfile.cue"),
@@ -64,16 +65,17 @@ func TestBuildRuntimeEnv_InheritAllowAndDeny(t *testing.T) {
 	defer restoreAllow()
 	defer restoreDeny()
 
-	env, err := buildRuntimeEnv(ctx, invkfile.EnvInheritAll)
+	builder := NewDefaultEnvBuilder()
+	env, err := builder.Build(ctx, invkfile.EnvInheritAll)
 	if err != nil {
-		t.Fatalf("buildRuntimeEnv() error: %v", err)
+		t.Fatalf("DefaultEnvBuilder.Build() error: %v", err)
 	}
 
 	if got := env["ALLOW_ME"]; got != "allowed" {
-		t.Errorf("buildRuntimeEnv() ALLOW_ME = %q, want %q", got, "allowed")
+		t.Errorf("DefaultEnvBuilder.Build() ALLOW_ME = %q, want %q", got, "allowed")
 	}
 	if _, ok := env["DENY_ME"]; ok {
-		t.Errorf("buildRuntimeEnv() should deny DENY_ME")
+		t.Errorf("DefaultEnvBuilder.Build() should deny DENY_ME")
 	}
 }
 
@@ -386,9 +388,9 @@ func TestBuildRuntimeEnv_Precedence(t *testing.T) {
 	ctx.Env.RuntimeEnvFiles = []string{filepath.Join(tmpDir, "runtime.env")}
 	ctx.Env.RuntimeEnvVars = map[string]string{"SHARED": "runtime_var", "RUNTIME_VAR_ONLY": "runtime_var"}
 
-	env, err := buildRuntimeEnv(ctx, invkfile.EnvInheritAll)
+	env, err := NewDefaultEnvBuilder().Build(ctx, invkfile.EnvInheritAll)
 	if err != nil {
-		t.Fatalf("buildRuntimeEnv() error: %v", err)
+		t.Fatalf("NewDefaultEnvBuilder().Build() error: %v", err)
 	}
 
 	// Test: RuntimeEnvVars (level 10) should win for SHARED
@@ -452,9 +454,9 @@ func TestBuildRuntimeEnv_EnvFiles(t *testing.T) {
 	}
 
 	ctx := NewExecutionContext(cmd, inv)
-	env, err := buildRuntimeEnv(ctx, invkfile.EnvInheritNone)
+	env, err := NewDefaultEnvBuilder().Build(ctx, invkfile.EnvInheritNone)
 	if err != nil {
-		t.Fatalf("buildRuntimeEnv() error: %v", err)
+		t.Fatalf("NewDefaultEnvBuilder().Build() error: %v", err)
 	}
 
 	expectedVars := map[string]string{
@@ -509,9 +511,9 @@ func TestBuildRuntimeEnv_EnvVars(t *testing.T) {
 	}
 
 	ctx := NewExecutionContext(cmd, inv)
-	env, err := buildRuntimeEnv(ctx, invkfile.EnvInheritNone)
+	env, err := NewDefaultEnvBuilder().Build(ctx, invkfile.EnvInheritNone)
 	if err != nil {
-		t.Fatalf("buildRuntimeEnv() error: %v", err)
+		t.Fatalf("NewDefaultEnvBuilder().Build() error: %v", err)
 	}
 
 	// Each level's variable should be present
@@ -550,9 +552,9 @@ func TestBuildRuntimeEnv_RuntimeFlags(t *testing.T) {
 	ctx.Env.RuntimeEnvFiles = []string{"flag.env"}
 	ctx.Env.RuntimeEnvVars = map[string]string{"FLAG_VAR": "from_flag_var", "SHARED": "flag_var_wins"}
 
-	env, err := buildRuntimeEnv(ctx, invkfile.EnvInheritNone)
+	env, err := NewDefaultEnvBuilder().Build(ctx, invkfile.EnvInheritNone)
 	if err != nil {
-		t.Fatalf("buildRuntimeEnv() error: %v", err)
+		t.Fatalf("NewDefaultEnvBuilder().Build() error: %v", err)
 	}
 
 	if got := env["FLAG_FILE_VAR"]; got != "from_flag_file" {
@@ -633,9 +635,9 @@ func TestBuildRuntimeEnv_InheritModes(t *testing.T) {
 			ctx.Env.InheritAllowOverride = tt.allow
 			ctx.Env.InheritDenyOverride = tt.deny
 
-			env, err := buildRuntimeEnv(ctx, invkfile.EnvInheritAll)
+			env, err := NewDefaultEnvBuilder().Build(ctx, invkfile.EnvInheritAll)
 			if err != nil {
-				t.Fatalf("buildRuntimeEnv() error: %v", err)
+				t.Fatalf("NewDefaultEnvBuilder().Build() error: %v", err)
 			}
 
 			for k, v := range tt.wantVars {
@@ -669,9 +671,9 @@ func TestBuildRuntimeEnv_ExtraEnv(t *testing.T) {
 		"CUSTOM_EXTRA":        "custom_value",
 	}
 
-	env, err := buildRuntimeEnv(ctx, invkfile.EnvInheritNone)
+	env, err := NewDefaultEnvBuilder().Build(ctx, invkfile.EnvInheritNone)
 	if err != nil {
-		t.Fatalf("buildRuntimeEnv() error: %v", err)
+		t.Fatalf("NewDefaultEnvBuilder().Build() error: %v", err)
 	}
 
 	// ExtraEnv variables should be present
@@ -702,9 +704,9 @@ func TestBuildRuntimeEnv_EnvFileNotFound(t *testing.T) {
 	cmd := testCommandWithScript("missing-env-test", "echo test", invkfile.RuntimeNative)
 	ctx := NewExecutionContext(cmd, inv)
 
-	_, err := buildRuntimeEnv(ctx, invkfile.EnvInheritNone)
+	_, err := NewDefaultEnvBuilder().Build(ctx, invkfile.EnvInheritNone)
 	if err == nil {
-		t.Error("buildRuntimeEnv() should error for missing required env file")
+		t.Error("NewDefaultEnvBuilder().Build() should error for missing required env file")
 	}
 	if !strings.Contains(err.Error(), "nonexistent.env") {
 		t.Errorf("error should mention the missing file, got: %v", err)
@@ -724,8 +726,8 @@ func TestBuildRuntimeEnv_OptionalEnvFile(t *testing.T) {
 	ctx := NewExecutionContext(cmd, inv)
 
 	// Optional file should not cause an error
-	_, err := buildRuntimeEnv(ctx, invkfile.EnvInheritNone)
+	_, err := NewDefaultEnvBuilder().Build(ctx, invkfile.EnvInheritNone)
 	if err != nil {
-		t.Errorf("buildRuntimeEnv() should not error for optional missing env file: %v", err)
+		t.Errorf("NewDefaultEnvBuilder().Build() should not error for optional missing env file: %v", err)
 	}
 }
