@@ -50,8 +50,6 @@ be organized hierarchically with support for dependencies.
 
 ` + SubtitleStyle.Render("Examples:") + `
   invowk cmd                List all available commands
-  invowk cmd build          Run the 'build' command
-  invowk cmd test.unit      Run nested 'test.unit' command
   invowk init               Create a new invkfile
   invowk config show        Show current configuration`,
 	}
