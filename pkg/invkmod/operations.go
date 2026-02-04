@@ -1,7 +1,5 @@
 // SPDX-License-Identifier: MPL-2.0
 
-// Package invkmod provides module operations: validation, creation, archiving, and dependency management.
-// Types and data structures are defined in invkmod.go.
 package invkmod
 
 import (

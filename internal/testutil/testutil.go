@@ -1,7 +1,5 @@
 // SPDX-License-Identifier: MPL-2.0
 
-// Package testutil provides helper functions for tests that handle errors
-// appropriately, reducing boilerplate and ensuring consistent error handling.
 package testutil
 
 import (

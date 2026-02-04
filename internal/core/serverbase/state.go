@@ -1,41 +1,5 @@
 // SPDX-License-Identifier: MPL-2.0
 
-// Package serverbase provides the base implementation for long-running server components.
-//
-// All servers (SSH server, TUI server, etc.) embed Base to get consistent lifecycle
-// management with race-free state transitions.
-//
-// # State Machine
-//
-// Servers use a formal state machine with the following states:
-//
-//	Created → Starting → Running → Stopping → Stopped
-//	              ↓                     ↑
-//	           Failed ─────────────────┘
-//
-// # Usage
-//
-// Concrete server implementations embed Base and use its lifecycle helpers:
-//
-//	type MyServer struct {
-//	    *serverbase.Base
-//	    // server-specific fields
-//	}
-//
-//	func New() *MyServer {
-//	    return &MyServer{
-//	        Base: serverbase.NewBase(),
-//	    }
-//	}
-//
-//	func (s *MyServer) Start(ctx context.Context) error {
-//	    if err := s.Base.TransitionToStarting(ctx); err != nil {
-//	        return err
-//	    }
-//	    // ... server-specific initialization ...
-//	    s.Base.TransitionToRunning()
-//	    return nil
-//	}
 package serverbase
 
 const (

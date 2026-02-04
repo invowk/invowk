@@ -1,33 +1,5 @@
 // SPDX-License-Identifier: MPL-2.0
 
-// Package tuiserver provides an HTTP server for TUI component rendering.
-//
-// When invowk runs in interactive mode (-i flag), it starts an HTTP server
-// that listens for TUI rendering requests from child processes. This allows
-// nested `invowk tui *` commands to render their TUI components through the
-// parent's terminal connection, avoiding conflicts between multiple TUI
-// instances fighting for terminal control.
-//
-// # Architecture
-//
-// Parent invowk (with -i flag):
-//   - Starts HTTP server on localhost with random port
-//   - Sets INVOWK_TUI_ADDR and INVOWK_TUI_TOKEN environment variables
-//   - Enters alternate screen buffer
-//   - Executes user command with stdout/stderr capture
-//   - Handles incoming TUI requests by rendering components to terminal
-//
-// Child invowk tui commands:
-//   - Detect INVOWK_TUI_ADDR environment variable
-//   - Send HTTP POST with TUI parameters to parent server
-//   - Receive result in HTTP response body
-//   - Print result to stdout (for shell variable capture)
-//
-// # Security
-//
-// The server uses a random token for authentication. Only requests with
-// the correct token (passed via INVOWK_TUI_TOKEN) are accepted. The server
-// only listens on localhost to prevent remote access.
 package tuiserver
 
 import "encoding/json"

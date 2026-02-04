@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: MPL-2.0
 
-// Package container provides an abstraction layer for container runtimes (Docker/Podman).
 package container
 
 import (

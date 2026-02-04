@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: MPL-2.0
 
-// Package config handles application configuration using Viper with CUE as the file format.
 package config
 
 import (
