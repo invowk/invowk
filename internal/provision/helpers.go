@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
-package runtime
+package provision
 
 import (
 	"crypto/sha256"
@@ -11,86 +11,10 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
-
-	"invowk-cli/internal/config"
 )
 
-type (
-	// ContainerProvisionConfig holds configuration for auto-provisioning
-	// invowk resources into containers.
-	ContainerProvisionConfig struct {
-		// Enabled controls whether auto-provisioning is active
-		Enabled bool
-
-		// InvowkBinaryPath is the path to the invowk binary on the host.
-		// If empty, os.Executable() will be used.
-		InvowkBinaryPath string
-
-		// ModulesPaths are paths to module directories on the host.
-		// These are discovered from config search paths and user commands dir.
-		ModulesPaths []string
-
-		// InvkfilePath is the path to the current invkfile being executed.
-		// This is used to determine what needs to be provisioned.
-		InvkfilePath string
-
-		// BinaryMountPath is where to place the binary in the container.
-		// Default: /invowk/bin
-		BinaryMountPath string
-
-		// ModulesMountPath is where to place modules in the container.
-		// Default: /invowk/modules
-		ModulesMountPath string
-
-		// CacheDir is where to store cached provisioned images metadata.
-		// Default: ~/.cache/invowk/provision
-		CacheDir string
-	}
-
-	// ProvisionResult contains the information about a provisioned container image.
-	ProvisionResult struct {
-		// ImageTag is the tag of the provisioned image to use
-		ImageTag string
-
-		// Cleanup is called to clean up temporary resources after the container exits.
-		// This may remove temporary build contexts but typically does NOT remove
-		// the cached image (for reuse).
-		Cleanup func()
-
-		// EnvVars are environment variables to set in the container
-		EnvVars map[string]string
-	}
-)
-
-// DefaultProvisionConfig returns a ContainerProvisionConfig with default values.
-func DefaultProvisionConfig() *ContainerProvisionConfig {
-	binaryPath, _ := os.Executable()
-
-	// Discover module paths from user commands dir and config
-	var modulesPaths []string
-	if userDir, err := config.CommandsDir(); err == nil {
-		if info, err := os.Stat(userDir); err == nil && info.IsDir() {
-			modulesPaths = append(modulesPaths, userDir)
-		}
-	}
-
-	cacheDir := ""
-	if home, err := os.UserHomeDir(); err == nil {
-		cacheDir = filepath.Join(home, ".cache", "invowk", "provision")
-	}
-
-	return &ContainerProvisionConfig{
-		Enabled:          true,
-		InvowkBinaryPath: binaryPath,
-		ModulesPaths:     modulesPaths,
-		BinaryMountPath:  "/invowk/bin",
-		ModulesMountPath: "/invowk/modules",
-		CacheDir:         cacheDir,
-	}
-}
-
-// calculateFileHash calculates SHA256 hash of a file's contents.
-func calculateFileHash(path string) (string, error) {
+// CalculateFileHash calculates SHA256 hash of a file's contents.
+func CalculateFileHash(path string) (string, error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return "", err
@@ -105,9 +29,9 @@ func calculateFileHash(path string) (string, error) {
 	return hex.EncodeToString(h.Sum(nil)), nil
 }
 
-// calculateDirHash calculates a hash of a directory's contents.
+// CalculateDirHash calculates a hash of a directory's contents.
 // It includes file names, sizes, and modification times for efficiency.
-func calculateDirHash(dirPath string) (string, error) {
+func CalculateDirHash(dirPath string) (string, error) {
 	h := sha256.New()
 
 	var entries []string
@@ -138,8 +62,8 @@ func calculateDirHash(dirPath string) (string, error) {
 	return hex.EncodeToString(h.Sum(nil)), nil
 }
 
-// discoverModules finds all .invkmod directories in the given paths.
-func discoverModules(paths []string) []string {
+// DiscoverModules finds all .invkmod directories in the given paths.
+func DiscoverModules(paths []string) []string {
 	var modules []string
 	seen := make(map[string]bool)
 
@@ -163,8 +87,8 @@ func discoverModules(paths []string) []string {
 	return modules
 }
 
-// copyFile copies a file from src to dst.
-func copyFile(src, dst string) (err error) {
+// CopyFile copies a file from src to dst.
+func CopyFile(src, dst string) (err error) {
 	srcFile, err := os.Open(src)
 	if err != nil {
 		return fmt.Errorf("failed to open source file: %w", err)
@@ -193,8 +117,8 @@ func copyFile(src, dst string) (err error) {
 	return nil
 }
 
-// copyDir recursively copies a directory from src to dst.
-func copyDir(src, dst string) error {
+// CopyDir recursively copies a directory from src to dst.
+func CopyDir(src, dst string) error {
 	srcInfo, err := os.Stat(src)
 	if err != nil {
 		return fmt.Errorf("failed to stat source directory: %w", err)
@@ -214,11 +138,11 @@ func copyDir(src, dst string) error {
 		dstPath := filepath.Join(dst, entry.Name())
 
 		if entry.IsDir() {
-			if err := copyDir(srcPath, dstPath); err != nil {
+			if err := CopyDir(srcPath, dstPath); err != nil {
 				return err
 			}
 		} else {
-			if err := copyFile(srcPath, dstPath); err != nil {
+			if err := CopyFile(srcPath, dstPath); err != nil {
 				return err
 			}
 		}

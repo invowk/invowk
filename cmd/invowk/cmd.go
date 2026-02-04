@@ -30,6 +30,8 @@ var (
 	runtimeOverride string
 	// fromSource allows specifying the source for disambiguation
 	fromSource string
+	// forceRebuild forces rebuilding of container images, bypassing cache
+	forceRebuild bool
 	// sshServerInstance is the global SSH server instance
 	sshServerInstance *sshserver.Server
 	// sshServerMu protects the SSH server instance
@@ -165,6 +167,7 @@ func init() {
 	cmdCmd.Flags().BoolVarP(&listFlag, "list", "l", false, "list all available commands")
 	cmdCmd.PersistentFlags().StringVarP(&runtimeOverride, "runtime", "r", "", "override the runtime (must be allowed by the command)")
 	cmdCmd.PersistentFlags().StringVar(&fromSource, "from", "", "source to run command from (e.g., 'invkfile' or module name)")
+	cmdCmd.PersistentFlags().BoolVar(&forceRebuild, "force-rebuild", false, "force rebuild of container images (container runtime only)")
 
 	// Dynamically add discovered commands
 	// This happens at init time to enable shell completion

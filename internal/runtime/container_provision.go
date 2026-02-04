@@ -12,6 +12,7 @@ import (
 
 	"invowk-cli/internal/config"
 	"invowk-cli/internal/container"
+	"invowk-cli/internal/provision"
 	"invowk-cli/pkg/invkfile"
 )
 
@@ -26,12 +27,14 @@ func (r *ContainerRuntime) ensureProvisionedImage(ctx *ExecutionContext, cfg inv
 	}
 
 	// If provisioning is disabled, return the base image
-	if r.provisioner == nil || !r.provisioner.config.Enabled {
+	if r.provisioner == nil || !r.provisioner.Config().Enabled {
 		return baseImage, nil, nil
 	}
 
-	// Update provisioner config with current invkfile path
-	r.provisioner.config.InvkfilePath = ctx.Invkfile.FilePath
+	// Update provisioner config with current invkfile path and ForceRebuild
+	provCfg := r.provisioner.Config()
+	provCfg.InvkfilePath = ctx.Invkfile.FilePath
+	provCfg.ForceRebuild = ctx.ForceRebuild
 
 	// Provision the image with invowk resources
 	if ctx.Verbose {
@@ -78,14 +81,15 @@ func (r *ContainerRuntime) ensureImage(ctx *ExecutionContext, cfg invkfileContai
 		return "", err
 	}
 
-	// Check if image already exists
-	exists, err := r.engine.ImageExists(ctx.Context, imageTag)
-	if err != nil {
-		return "", fmt.Errorf("failed to check image existence: %w", err)
-	}
-	if exists {
-		// TODO: Add an option to force rebuild
-		return imageTag, nil
+	// Check if image already exists (skip if ForceRebuild is set)
+	if !ctx.ForceRebuild {
+		exists, err := r.engine.ImageExists(ctx.Context, imageTag)
+		if err != nil {
+			return "", fmt.Errorf("failed to check image existence: %w", err)
+		}
+		if exists {
+			return imageTag, nil
+		}
 	}
 
 	// Build the image
@@ -119,9 +123,9 @@ func (r *ContainerRuntime) generateImageTag(invkfilePath string) (string, error)
 	return fmt.Sprintf("invowk-%s:latest", shortHash), nil
 }
 
-// buildProvisionConfig creates a ContainerProvisionConfig from the app config
-func buildProvisionConfig(cfg *config.Config) *ContainerProvisionConfig {
-	provisionCfg := DefaultProvisionConfig()
+// buildProvisionConfig creates a provision.Config from the app config.
+func buildProvisionConfig(cfg *config.Config) *provision.Config {
+	provisionCfg := provision.DefaultConfig()
 
 	if cfg == nil {
 		return provisionCfg

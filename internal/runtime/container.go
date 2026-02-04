@@ -9,6 +9,7 @@ import (
 
 	"invowk-cli/internal/config"
 	"invowk-cli/internal/container"
+	"invowk-cli/internal/provision"
 	"invowk-cli/internal/sshserver"
 )
 
@@ -31,7 +32,7 @@ type (
 	ContainerRuntime struct {
 		engine      container.Engine
 		sshServer   *sshserver.Server
-		provisioner *LayerProvisioner
+		provisioner *provision.LayerProvisioner
 		cfg         *config.Config
 		envBuilder  EnvBuilder
 	}
@@ -66,7 +67,7 @@ func NewContainerRuntime(cfg *config.Config, opts ...ContainerRuntimeOption) (*C
 
 	// Create provisioner with config
 	provisionCfg := buildProvisionConfig(cfg)
-	provisioner := NewLayerProvisioner(engine, provisionCfg)
+	provisioner := provision.NewLayerProvisioner(engine, provisionCfg)
 
 	r := &ContainerRuntime{
 		engine:      engine,
@@ -82,10 +83,10 @@ func NewContainerRuntime(cfg *config.Config, opts ...ContainerRuntimeOption) (*C
 
 // NewContainerRuntimeWithEngine creates a container runtime with a specific engine.
 func NewContainerRuntimeWithEngine(engine container.Engine, opts ...ContainerRuntimeOption) *ContainerRuntime {
-	provisionCfg := DefaultProvisionConfig()
+	provisionCfg := provision.DefaultConfig()
 	r := &ContainerRuntime{
 		engine:      engine,
-		provisioner: NewLayerProvisioner(engine, provisionCfg),
+		provisioner: provision.NewLayerProvisioner(engine, provisionCfg),
 		envBuilder:  NewDefaultEnvBuilder(),
 	}
 	for _, opt := range opts {
@@ -96,9 +97,9 @@ func NewContainerRuntimeWithEngine(engine container.Engine, opts ...ContainerRun
 
 // SetProvisionConfig updates the provisioner configuration.
 // This is useful for setting the invkfile path before execution.
-func (r *ContainerRuntime) SetProvisionConfig(cfg *ContainerProvisionConfig) {
+func (r *ContainerRuntime) SetProvisionConfig(cfg *provision.Config) {
 	if cfg != nil {
-		r.provisioner = NewLayerProvisioner(r.engine, cfg)
+		r.provisioner = provision.NewLayerProvisioner(r.engine, cfg)
 	}
 }
 

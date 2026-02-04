@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
-package runtime
+package provision
 
 import (
 	"os"
@@ -11,11 +11,15 @@ import (
 	"invowk-cli/internal/testutil"
 )
 
-func TestDefaultProvisionConfig(t *testing.T) {
-	cfg := DefaultProvisionConfig()
+func TestDefaultConfig(t *testing.T) {
+	cfg := DefaultConfig()
 
 	if !cfg.Enabled {
 		t.Error("Expected Enabled to be true by default")
+	}
+
+	if cfg.ForceRebuild {
+		t.Error("Expected ForceRebuild to be false by default")
 	}
 
 	if cfg.InvowkBinaryPath == "" {
@@ -28,6 +32,32 @@ func TestDefaultProvisionConfig(t *testing.T) {
 
 	if cfg.ModulesMountPath != "/invowk/modules" {
 		t.Errorf("Expected ModulesMountPath to be /invowk/modules, got %s", cfg.ModulesMountPath)
+	}
+}
+
+func TestConfigOptions(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.Apply(
+		WithForceRebuild(true),
+		WithEnabled(false),
+		WithInvowkBinaryPath("/custom/path"),
+		WithCacheDir("/custom/cache"),
+	)
+
+	if !cfg.ForceRebuild {
+		t.Error("Expected ForceRebuild to be true after WithForceRebuild(true)")
+	}
+
+	if cfg.Enabled {
+		t.Error("Expected Enabled to be false after WithEnabled(false)")
+	}
+
+	if cfg.InvowkBinaryPath != "/custom/path" {
+		t.Errorf("Expected InvowkBinaryPath to be /custom/path, got %s", cfg.InvowkBinaryPath)
+	}
+
+	if cfg.CacheDir != "/custom/cache" {
+		t.Errorf("Expected CacheDir to be /custom/cache, got %s", cfg.CacheDir)
 	}
 }
 
@@ -46,9 +76,9 @@ func TestCalculateFileHash(t *testing.T) {
 	testutil.MustClose(t, tmpFile)
 
 	// Calculate hash
-	hash1, err := calculateFileHash(tmpFile.Name())
+	hash1, err := CalculateFileHash(tmpFile.Name())
 	if err != nil {
-		t.Fatalf("calculateFileHash failed: %v", err)
+		t.Fatalf("CalculateFileHash failed: %v", err)
 	}
 
 	if hash1 == "" {
@@ -56,9 +86,9 @@ func TestCalculateFileHash(t *testing.T) {
 	}
 
 	// Calculate again - should be the same
-	hash2, err := calculateFileHash(tmpFile.Name())
+	hash2, err := CalculateFileHash(tmpFile.Name())
 	if err != nil {
-		t.Fatalf("calculateFileHash failed second time: %v", err)
+		t.Fatalf("CalculateFileHash failed second time: %v", err)
 	}
 
 	if hash1 != hash2 {
@@ -87,9 +117,9 @@ func TestCalculateDirHash(t *testing.T) {
 	}
 
 	// Calculate hash
-	hash1, err := calculateDirHash(tmpDir)
+	hash1, err := CalculateDirHash(tmpDir)
 	if err != nil {
-		t.Fatalf("calculateDirHash failed: %v", err)
+		t.Fatalf("CalculateDirHash failed: %v", err)
 	}
 
 	if hash1 == "" {
@@ -97,9 +127,9 @@ func TestCalculateDirHash(t *testing.T) {
 	}
 
 	// Calculate again - should be the same
-	hash2, err := calculateDirHash(tmpDir)
+	hash2, err := CalculateDirHash(tmpDir)
 	if err != nil {
-		t.Fatalf("calculateDirHash failed second time: %v", err)
+		t.Fatalf("CalculateDirHash failed second time: %v", err)
 	}
 
 	if hash1 != hash2 {
@@ -129,7 +159,7 @@ func TestDiscoverModules(t *testing.T) {
 	}
 
 	// Discover modules
-	modules := discoverModules([]string{tmpDir})
+	modules := DiscoverModules([]string{tmpDir})
 
 	if len(modules) != 2 {
 		t.Errorf("Expected 2 modules, got %d", len(modules))
@@ -168,8 +198,8 @@ func TestCopyFile(t *testing.T) {
 	dstDir := t.TempDir()
 	dstFile := filepath.Join(dstDir, "dest.txt")
 
-	if err := copyFile(srcFile, dstFile); err != nil {
-		t.Fatalf("copyFile failed: %v", err)
+	if err := CopyFile(srcFile, dstFile); err != nil {
+		t.Fatalf("CopyFile failed: %v", err)
 	}
 
 	// Verify content
@@ -206,8 +236,8 @@ func TestCopyDir(t *testing.T) {
 	// Copy to destination
 	dstDir := filepath.Join(t.TempDir(), "dest")
 
-	if err := copyDir(srcDir, dstDir); err != nil {
-		t.Fatalf("copyDir failed: %v", err)
+	if err := CopyDir(srcDir, dstDir); err != nil {
+		t.Fatalf("CopyDir failed: %v", err)
 	}
 
 	// Verify files exist
@@ -226,64 +256,5 @@ func TestCopyDir(t *testing.T) {
 	}
 	if string(data) != "content1" {
 		t.Errorf("Expected content1, got %s", string(data))
-	}
-}
-
-func TestLayerProvisionerGenerateDockerfile(t *testing.T) {
-	cfg := &ContainerProvisionConfig{
-		Enabled:          true,
-		InvowkBinaryPath: "/usr/bin/invowk",
-		BinaryMountPath:  "/invowk/bin",
-		ModulesMountPath: "/invowk/modules",
-	}
-
-	provisioner := &LayerProvisioner{
-		config: cfg,
-	}
-
-	dockerfile := provisioner.generateDockerfile("debian:stable-slim")
-
-	// Verify Dockerfile content
-	if !strings.Contains(dockerfile, "FROM debian:stable-slim") {
-		t.Error("Expected FROM debian:stable-slim")
-	}
-
-	if !strings.Contains(dockerfile, "COPY invowk /invowk/bin/invowk") {
-		t.Error("Expected COPY invowk")
-	}
-
-	if !strings.Contains(dockerfile, "COPY modules/ /invowk/modules/") {
-		t.Error("Expected COPY modules/")
-	}
-
-	if !strings.Contains(dockerfile, "ENV PATH=\"/invowk/bin:$PATH\"") {
-		t.Error("Expected PATH env var")
-	}
-
-	if !strings.Contains(dockerfile, "ENV INVOWK_MODULE_PATH=\"/invowk/modules\"") {
-		t.Error("Expected INVOWK_MODULE_PATH env var")
-	}
-}
-
-func TestLayerProvisionerBuildEnvVars(t *testing.T) {
-	cfg := &ContainerProvisionConfig{
-		Enabled:          true,
-		InvowkBinaryPath: "/usr/bin/invowk",
-		BinaryMountPath:  "/invowk/bin",
-		ModulesMountPath: "/invowk/modules",
-	}
-
-	provisioner := &LayerProvisioner{
-		config: cfg,
-	}
-
-	envVars := provisioner.buildEnvVars()
-
-	if envVars["INVOWK_MODULE_PATH"] != "/invowk/modules" {
-		t.Errorf("Expected INVOWK_MODULE_PATH=/invowk/modules, got %s", envVars["INVOWK_MODULE_PATH"])
-	}
-
-	if !strings.Contains(envVars["PATH"], "/invowk/bin") {
-		t.Errorf("Expected PATH to contain /invowk/bin, got %s", envVars["PATH"])
 	}
 }

@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"invowk-cli/internal/container"
+	"invowk-cli/internal/provision"
 	"invowk-cli/pkg/invkfile"
 )
 
@@ -521,7 +522,7 @@ func TestContainerRuntime_SetProvisionConfig(t *testing.T) {
 	initialProvisioner := rt.provisioner
 
 	// Set new config
-	newCfg := &ContainerProvisionConfig{
+	newCfg := &provision.Config{
 		Enabled:          true,
 		InvowkBinaryPath: "/custom/invowk",
 		BinaryMountPath:  "/opt/invowk",
@@ -562,13 +563,13 @@ func TestContainerRuntime_SupportsInteractive(t *testing.T) {
 
 // TestDefaultProvisionConfig_Defaults tests the default provisioning configuration values.
 func TestDefaultProvisionConfig_Defaults(t *testing.T) {
-	cfg := DefaultProvisionConfig()
+	cfg := provision.DefaultConfig()
 
 	if cfg == nil {
-		t.Fatal("DefaultProvisionConfig() returned nil")
+		t.Fatal("DefaultConfig() returned nil")
 	}
 
-	// Check defaults - values from provision.go
+	// Check defaults - values from provision package
 	if cfg.BinaryMountPath != "/invowk/bin" {
 		t.Errorf("BinaryMountPath = %q, want %q", cfg.BinaryMountPath, "/invowk/bin")
 	}
