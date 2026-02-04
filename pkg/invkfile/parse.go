@@ -46,9 +46,10 @@ func ParseBytes(data []byte, path string) (*Invkfile, error) {
 	inv := result.Value
 	inv.FilePath = path
 
-	// Validate and apply command defaults
-	if err := inv.validate(); err != nil {
-		return nil, err
+	// Validate and collect all errors
+	if errs := inv.Validate(); len(errs) > 0 {
+		// Return ValidationErrors which implements error interface
+		return nil, errs
 	}
 
 	return inv, nil
