@@ -1,0 +1,121 @@
+---
+sidebar_position: 5
+---
+
+import Diagram from '@site/src/components/Diagram';
+
+# Fluxograma de Seleção de Runtime
+
+Este diagrama documenta a árvore de decisão para selecionar qual runtime executa um comando. Entender isso ajuda usuários a escolher o runtime certo para seu caso de uso.
+
+## Fluxograma de Decisão
+
+<Diagram id="architecture/runtime-decision" />
+
+## Detalhes da Seleção de Plataforma
+
+<Diagram id="architecture/runtime-platform" />
+
+### Valores de Plataforma
+
+| Valor da Plataforma | Corresponde Em |
+|---------------------|----------------|
+| `"linux"` | Sistemas Linux |
+| `"darwin"` | Sistemas macOS |
+| `"windows"` | Sistemas Windows |
+| (lista vazia) | Todas as plataformas (padrão) |
+
+### Exemplo de Definição de Comando
+
+```cue
+cmds: {
+    build: {
+        default: {
+            runtime: "native"
+            script: "make build"
+        }
+        implementations: [
+            {
+                platforms: ["windows"]
+                runtime: "native"
+                script: "nmake build"
+            },
+            {
+                platforms: ["linux"]
+                runtime: "container"
+                container: {
+                    image: "golang:1.21"
+                }
+                script: "make build"
+            }
+        ]
+    }
+}
+```
+
+## Comparação de Runtimes
+
+| Aspecto | Native | Virtual | Container |
+|---------|--------|---------|-----------|
+| **Velocidade** | Mais rápido | Rápido | Mais lento (overhead) |
+| **Isolamento** | Nenhum | Processo | Completo |
+| **Portabilidade** | Dependente de plataforma | Alta | Mais alta |
+| **Recursos do shell** | Shell completo do host | Subconjunto POSIX | Completo (no container) |
+| **Dependências** | Shell do host | Nenhuma | Docker/Podman |
+| **Melhor para** | Scripts simples | Multiplataforma | Ambientes complexos |
+
+## Verificações de Disponibilidade de Runtime
+
+### Runtime Native
+
+<Diagram id="architecture/runtime-native-check" />
+
+### Runtime Virtual
+
+<Diagram id="architecture/runtime-virtual-check" />
+
+O runtime virtual está sempre disponível porque está embutido no binário do Invowk.
+
+### Runtime Container
+
+<Diagram id="architecture/runtime-container-check" />
+
+## Detalhes do Provisionamento de Container
+
+Quando o runtime container é selecionado, o Invowk cria uma camada efêmera de imagem:
+
+<Diagram id="architecture/runtime-provision" />
+
+### Por Que Camadas Efêmeras?
+
+1. **Sem poluição de imagem**: Imagens base ficam limpas
+2. **Iteração rápida**: Não precisa rebuild completo
+3. **Portável**: Comandos funcionam com qualquer imagem base compatível
+4. **Seguro**: Binário do Invowk é injetado, não instalado na imagem
+
+## Servidor SSH para Callbacks
+
+Quando `enable_host_ssh: true` é definido, o Invowk inicia um servidor SSH temporário:
+
+<Diagram id="architecture/runtime-ssh" />
+
+**Casos de uso:**
+- Acessar secrets do host
+- Executar comandos apenas do host
+- Sincronização de arquivos
+
+## Diretrizes de Decisão
+
+| Caso de Uso | Runtime Recomendado | Por Quê |
+|-------------|---------------------|---------|
+| Scripts rápidos | `native` | Mais rápido, sem overhead |
+| Comandos multiplataforma | `virtual` | Funciona em todos os lugares |
+| Pipelines CI/CD | `container` | Reproduzível |
+| Comandos que precisam de ferramentas específicas | `container` | Dependências isoladas |
+| TUI interativo | `native` ou `virtual` | Melhor suporte a terminal |
+
+## Diagramas Relacionados
+
+- [Sequência de Execução de Comando](./execution-flow) - Fluxo completo de execução
+- [Diagrama C4 de Container](./c4-container) - Relacionamentos entre componentes de runtime
+- [Fluxograma de Precedência de Descoberta](./discovery) - Como comandos são encontrados
