@@ -4,7 +4,6 @@ package runtime
 
 import (
 	"fmt"
-	"maps"
 	"os"
 
 	"invowk-cli/pkg/invkfile"
@@ -14,70 +13,6 @@ type envInheritConfig struct {
 	mode  invkfile.EnvInheritMode
 	allow []string
 	deny  []string
-}
-
-// buildRuntimeEnv builds the environment for the command with proper precedence:
-// 1. Host environment (filtered and optionally inherited)
-// 2. Root-level env.files (loaded in array order)
-// 3. Command-level env.files (loaded in array order)
-// 4. Implementation-level env.files (loaded in array order)
-// 5. Root-level env.vars (inline static variables)
-// 6. Command-level env.vars (inline static variables)
-// 7. Implementation-level env.vars (inline static variables)
-// 8. ExtraEnv: INVOWK_FLAG_*, INVOWK_ARG_*, ARGn, ARGC
-// 9. --env-file flag files (loaded in flag order)
-// 10. --env-var flag values (KEY=VALUE pairs) - HIGHEST priority
-func buildRuntimeEnv(ctx *ExecutionContext, defaultMode invkfile.EnvInheritMode) (map[string]string, error) {
-	cfg := resolveEnvInheritConfig(ctx, defaultMode)
-	env := buildHostEnv(cfg)
-
-	// Determine the base path for resolving env files
-	basePath := ctx.Invkfile.GetScriptBasePath()
-
-	// 2. Root-level env.files
-	for _, path := range ctx.Invkfile.Env.GetFiles() {
-		if err := LoadEnvFile(env, path, basePath); err != nil {
-			return nil, err
-		}
-	}
-
-	// 3. Command-level env.files
-	for _, path := range ctx.Command.Env.GetFiles() {
-		if err := LoadEnvFile(env, path, basePath); err != nil {
-			return nil, err
-		}
-	}
-
-	// 4. Implementation-level env.files
-	for _, path := range ctx.SelectedImpl.Env.GetFiles() {
-		if err := LoadEnvFile(env, path, basePath); err != nil {
-			return nil, err
-		}
-	}
-
-	// 5. Root-level env.vars
-	maps.Copy(env, ctx.Invkfile.Env.GetVars())
-
-	// 6. Command-level env.vars
-	maps.Copy(env, ctx.Command.Env.GetVars())
-
-	// 7. Implementation-level env.vars
-	maps.Copy(env, ctx.SelectedImpl.Env.GetVars())
-
-	// 8. Extra env from context (flags, args)
-	maps.Copy(env, ctx.Env.ExtraEnv)
-
-	// 9. Runtime --env-file flag files
-	for _, path := range ctx.Env.RuntimeEnvFiles {
-		if err := LoadEnvFileFromCwd(env, path); err != nil {
-			return nil, err
-		}
-	}
-
-	// 10. Runtime --env-var flag values (highest priority)
-	maps.Copy(env, ctx.Env.RuntimeEnvVars)
-
-	return env, nil
 }
 
 func resolveEnvInheritConfig(ctx *ExecutionContext, defaultMode invkfile.EnvInheritMode) envInheritConfig {

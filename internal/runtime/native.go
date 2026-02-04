@@ -15,17 +15,38 @@ import (
 	"invowk-cli/pkg/invkfile"
 )
 
-// NativeRuntime executes commands using the system's default shell
-type NativeRuntime struct {
-	// Shell overrides the default shell
-	Shell string
-	// ShellArgs are arguments passed to the shell before the script
-	ShellArgs []string
+type (
+	// NativeRuntime executes commands using the system's default shell
+	NativeRuntime struct {
+		// Shell overrides the default shell
+		Shell string
+		// ShellArgs are arguments passed to the shell before the script
+		ShellArgs []string
+		// envBuilder builds environment variables for execution
+		envBuilder EnvBuilder
+	}
+
+	// NativeRuntimeOption configures a NativeRuntime.
+	NativeRuntimeOption func(*NativeRuntime)
+)
+
+// WithEnvBuilder sets the environment builder for the native runtime.
+// If not set, NewDefaultEnvBuilder() is used.
+func WithEnvBuilder(b EnvBuilder) NativeRuntimeOption {
+	return func(r *NativeRuntime) {
+		r.envBuilder = b
+	}
 }
 
-// NewNativeRuntime creates a new native runtime
-func NewNativeRuntime() *NativeRuntime {
-	return &NativeRuntime{}
+// NewNativeRuntime creates a new native runtime with optional configuration.
+func NewNativeRuntime(opts ...NativeRuntimeOption) *NativeRuntime {
+	r := &NativeRuntime{
+		envBuilder: NewDefaultEnvBuilder(),
+	}
+	for _, opt := range opts {
+		opt(r)
+	}
+	return r
 }
 
 // Name returns the runtime name
@@ -153,7 +174,7 @@ func (r *NativeRuntime) executeShellCommon(ctx *ExecutionContext, script string,
 	}
 
 	// Build environment
-	env, err := buildRuntimeEnv(ctx, invkfile.EnvInheritAll)
+	env, err := r.envBuilder.Build(ctx, invkfile.EnvInheritAll)
 	if err != nil {
 		return &Result{ExitCode: 1, Error: fmt.Errorf("failed to build environment: %w", err)}
 	}
@@ -208,7 +229,7 @@ func (r *NativeRuntime) executeInterpreterCommon(ctx *ExecutionContext, script s
 	}
 
 	// Build environment
-	env, err := buildRuntimeEnv(ctx, invkfile.EnvInheritAll)
+	env, err := r.envBuilder.Build(ctx, invkfile.EnvInheritAll)
 	if err != nil {
 		return &Result{ExitCode: 1, Error: fmt.Errorf("failed to build environment: %w", err)}
 	}
@@ -376,7 +397,7 @@ func (r *NativeRuntime) prepareShellCommand(ctx *ExecutionContext, script string
 		cmd.Dir = workDir
 	}
 
-	env, err := buildRuntimeEnv(ctx, invkfile.EnvInheritAll)
+	env, err := r.envBuilder.Build(ctx, invkfile.EnvInheritAll)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build environment: %w", err)
 	}
@@ -418,7 +439,7 @@ func (r *NativeRuntime) prepareInterpreterCommand(ctx *ExecutionContext, script 
 		cmd.Dir = workDir
 	}
 
-	env, err := buildRuntimeEnv(ctx, invkfile.EnvInheritAll)
+	env, err := r.envBuilder.Build(ctx, invkfile.EnvInheritAll)
 	if err != nil {
 		if cleanup != nil {
 			cleanup()
