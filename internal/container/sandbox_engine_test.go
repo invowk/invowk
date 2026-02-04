@@ -11,13 +11,22 @@ import (
 	"invowk-cli/pkg/platform"
 )
 
-// mockEngine implements Engine interface for testing
-type mockEngine struct {
-	name       string
-	available  bool
-	binaryPath string
-	buildArgs  []string
-}
+var _ io.Writer = (*recordingWriter)(nil)
+
+type (
+	// mockEngine implements Engine interface for testing
+	mockEngine struct {
+		name       string
+		available  bool
+		binaryPath string
+		buildArgs  []string
+	}
+
+	// recordingWriter records what was written for testing
+	recordingWriter struct {
+		data []byte
+	}
+)
 
 func (m *mockEngine) Name() string {
 	return m.name
@@ -60,6 +69,11 @@ func (m *mockEngine) ImageExists(_ context.Context, _ string) (bool, error) {
 
 func (m *mockEngine) RemoveImage(_ context.Context, _ string, _ bool) error {
 	return nil
+}
+
+func (w *recordingWriter) Write(p []byte) (n int, err error) {
+	w.data = append(w.data, p...)
+	return len(p), nil
 }
 
 func TestSandboxAwareEngine_NoSandbox(t *testing.T) {
@@ -334,18 +348,6 @@ func TestSandboxAwareEngine_ComplexRunOptions(t *testing.T) {
 		t.Error("volume mount not found in wrapped args")
 	}
 }
-
-// recordingWriter records what was written for testing
-type recordingWriter struct {
-	data []byte
-}
-
-func (w *recordingWriter) Write(p []byte) (n int, err error) {
-	w.data = append(w.data, p...)
-	return len(p), nil
-}
-
-var _ io.Writer = (*recordingWriter)(nil)
 
 func TestSandboxAwareEngine_GetBaseCLIEngine(t *testing.T) {
 	// Test with real PodmanEngine

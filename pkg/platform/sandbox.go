@@ -7,9 +7,6 @@ import (
 	"sync"
 )
 
-// SandboxType identifies the type of application sandbox, if any.
-type SandboxType string
-
 // Sandbox type constants.
 const (
 	// SandboxNone indicates no sandbox environment detected.
@@ -24,6 +21,9 @@ var (
 	detectedSandbox SandboxType
 	sandboxOnce     sync.Once
 )
+
+// SandboxType identifies the type of application sandbox, if any.
+type SandboxType string
 
 // DetectSandbox returns the type of application sandbox the current process is running in.
 // The result is cached after the first call for performance.
@@ -50,13 +50,14 @@ func IsInSandbox() bool {
 // For Snap, returns "snap".
 func GetSpawnCommand() string {
 	switch DetectSandbox() {
+	case SandboxNone:
+		return ""
 	case SandboxFlatpak:
 		return "flatpak-spawn"
 	case SandboxSnap:
 		return "snap"
-	default:
-		return ""
 	}
+	return ""
 }
 
 // GetSpawnArgs returns the arguments needed to execute a command on the host.
@@ -67,13 +68,14 @@ func GetSpawnCommand() string {
 // For no sandbox, returns nil.
 func GetSpawnArgs() []string {
 	switch DetectSandbox() {
+	case SandboxNone:
+		return nil
 	case SandboxFlatpak:
 		return []string{"--host"}
 	case SandboxSnap:
 		return []string{"run", "--shell"}
-	default:
-		return nil
 	}
+	return nil
 }
 
 // detectSandboxInternal performs the actual sandbox detection.

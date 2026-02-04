@@ -219,15 +219,16 @@ func (e *SandboxAwareEngine) buildSpawnArgs(binary string, args []string) []stri
 // getSpawnInfo returns the spawn command and arguments based on the engine's sandbox type.
 // This uses the engine's stored sandbox type, not the global detection, allowing tests
 // to override the sandbox type.
-func (e *SandboxAwareEngine) getSpawnInfo() (string, []string) {
+func (e *SandboxAwareEngine) getSpawnInfo() (cmd string, args []string) {
 	switch e.sandboxType {
+	case platform.SandboxNone:
+		return "", nil
 	case platform.SandboxFlatpak:
 		return "flatpak-spawn", []string{"--host"}
 	case platform.SandboxSnap:
 		return "snap", []string{"run", "--shell"}
-	default:
-		return "", nil
 	}
+	return "", nil
 }
 
 // wrapArgs prepends spawn command to existing args if in sandbox.
