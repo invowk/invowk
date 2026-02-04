@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
-package runtime
+package provision
 
 import (
 	"context"
@@ -9,10 +9,12 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"invowk-cli/internal/container"
 )
+
+// Compile-time interface check
+var _ Provisioner = (*LayerProvisioner)(nil)
 
 // LayerProvisioner creates ephemeral container image layers that include
 // invowk resources (binary, modules, etc.) on top of a base image.
@@ -25,13 +27,13 @@ import (
 // This allows fast reuse when resources haven't changed.
 type LayerProvisioner struct {
 	engine container.Engine
-	config *ContainerProvisionConfig
+	config *Config
 }
 
 // NewLayerProvisioner creates a new LayerProvisioner.
-func NewLayerProvisioner(engine container.Engine, cfg *ContainerProvisionConfig) *LayerProvisioner {
+func NewLayerProvisioner(engine container.Engine, cfg *Config) *LayerProvisioner {
 	if cfg == nil {
-		cfg = DefaultProvisionConfig()
+		cfg = DefaultConfig()
 	}
 	return &LayerProvisioner{
 		engine: engine,
@@ -39,12 +41,17 @@ func NewLayerProvisioner(engine container.Engine, cfg *ContainerProvisionConfig)
 	}
 }
 
+// Config returns the provisioner's configuration.
+func (p *LayerProvisioner) Config() *Config {
+	return p.config
+}
+
 // Provision creates or retrieves a cached provisioned image based on the
-// given base image. The returned ProvisionResult contains the image tag
+// given base image. The returned Result contains the image tag
 // to use and any cleanup functions.
-func (p *LayerProvisioner) Provision(ctx context.Context, baseImage string) (*ProvisionResult, error) {
+func (p *LayerProvisioner) Provision(ctx context.Context, baseImage string) (*Result, error) {
 	if !p.config.Enabled {
-		return &ProvisionResult{
+		return &Result{
 			ImageTag: baseImage,
 			EnvVars:  make(map[string]string),
 		}, nil
@@ -58,13 +65,15 @@ func (p *LayerProvisioner) Provision(ctx context.Context, baseImage string) (*Pr
 
 	provisionedTag := fmt.Sprintf("invowk-provisioned:%s", cacheKey[:12])
 
-	// Check if cached image exists
-	exists, _ := p.engine.ImageExists(ctx, provisionedTag) //nolint:errcheck // Error treated as "not found"
-	if exists {
-		return &ProvisionResult{
-			ImageTag: provisionedTag,
-			EnvVars:  p.buildEnvVars(),
-		}, nil
+	// Check if cached image exists (skip if ForceRebuild is set)
+	if !p.config.ForceRebuild {
+		exists, _ := p.engine.ImageExists(ctx, provisionedTag) //nolint:errcheck // Error treated as "not found"
+		if exists {
+			return &Result{
+				ImageTag: provisionedTag,
+				EnvVars:  p.buildEnvVars(),
+			}, nil
+		}
 	}
 
 	// Build the provisioned image
@@ -72,7 +81,7 @@ func (p *LayerProvisioner) Provision(ctx context.Context, baseImage string) (*Pr
 		return nil, fmt.Errorf("failed to build provisioned image: %w", err)
 	}
 
-	return &ProvisionResult{
+	return &Result{
 		ImageTag: provisionedTag,
 		EnvVars:  p.buildEnvVars(),
 	}, nil
@@ -121,7 +130,7 @@ func (p *LayerProvisioner) calculateCacheKey(ctx context.Context, baseImage stri
 
 	// Include invowk binary hash
 	if p.config.InvowkBinaryPath != "" {
-		binaryHash, err := calculateFileHash(p.config.InvowkBinaryPath)
+		binaryHash, err := CalculateFileHash(p.config.InvowkBinaryPath)
 		if err != nil {
 			return "", fmt.Errorf("failed to hash invowk binary: %w", err)
 		}
@@ -129,9 +138,9 @@ func (p *LayerProvisioner) calculateCacheKey(ctx context.Context, baseImage stri
 	}
 
 	// Include modules hash
-	modules := discoverModules(p.config.ModulesPaths)
+	modules := DiscoverModules(p.config.ModulesPaths)
 	for _, modulePath := range modules {
-		moduleHash, err := calculateDirHash(modulePath)
+		moduleHash, err := CalculateDirHash(modulePath)
 		if err != nil {
 			// Skip modules that can't be hashed
 			continue
@@ -143,7 +152,7 @@ func (p *LayerProvisioner) calculateCacheKey(ctx context.Context, baseImage stri
 	// Include invkfile directory hash if set
 	if p.config.InvkfilePath != "" {
 		invkfileDir := filepath.Dir(p.config.InvkfilePath)
-		dirHash, err := calculateDirHash(invkfileDir)
+		dirHash, err := CalculateDirHash(invkfileDir)
 		if err == nil {
 			h.Write([]byte("invkfile:" + dirHash))
 		}
@@ -153,7 +162,7 @@ func (p *LayerProvisioner) calculateCacheKey(ctx context.Context, baseImage stri
 }
 
 // getImageIdentifier tries to get a stable identifier for an image.
-func (p *LayerProvisioner) getImageIdentifier(ctx context.Context, image string) (string, error) {
+func (p *LayerProvisioner) getImageIdentifier(_ context.Context, image string) (string, error) {
 	// For now, just use the image name
 	// In a more complete implementation, we'd inspect the image to get its digest
 	return image, nil
@@ -255,7 +264,7 @@ func (p *LayerProvisioner) prepareBuildContext(baseImage string) (buildContextDi
 	// Copy invowk binary
 	if p.config.InvowkBinaryPath != "" {
 		binaryDst := filepath.Join(tmpDir, "invowk")
-		if err := copyFile(p.config.InvowkBinaryPath, binaryDst); err != nil {
+		if err := CopyFile(p.config.InvowkBinaryPath, binaryDst); err != nil {
 			cleanup()
 			return "", nil, fmt.Errorf("failed to copy invowk binary: %w", err)
 		}
@@ -270,11 +279,11 @@ func (p *LayerProvisioner) prepareBuildContext(baseImage string) (buildContextDi
 		return "", nil, fmt.Errorf("failed to create modules directory: %w", err)
 	}
 
-	modules := discoverModules(p.config.ModulesPaths)
+	modules := DiscoverModules(p.config.ModulesPaths)
 	for _, modulePath := range modules {
 		moduleName := filepath.Base(modulePath)
 		moduleDst := filepath.Join(modulesDir, moduleName)
-		if err := copyDir(modulePath, moduleDst); err != nil {
+		if err := CopyDir(modulePath, moduleDst); err != nil {
 			// Log warning but continue - don't fail the whole provision for one module
 			fmt.Fprintf(os.Stderr, "Warning: failed to copy module %s: %v\n", moduleName, err)
 			continue
@@ -290,49 +299,4 @@ func (p *LayerProvisioner) prepareBuildContext(baseImage string) (buildContextDi
 	}
 
 	return tmpDir, cleanup, nil
-}
-
-// generateDockerfile creates the Dockerfile content for the provisioned image.
-func (p *LayerProvisioner) generateDockerfile(baseImage string) string {
-	var sb strings.Builder
-
-	sb.WriteString(fmt.Sprintf("FROM %s\n\n", baseImage))
-	sb.WriteString("# Invowk auto-provisioned layer\n")
-	sb.WriteString("# This layer adds invowk binary and modules to enable nested invowk commands\n\n")
-
-	// Copy invowk binary
-	if p.config.InvowkBinaryPath != "" {
-		binaryPath := p.config.BinaryMountPath
-		sb.WriteString("# Install invowk binary\n")
-		sb.WriteString(fmt.Sprintf("COPY invowk %s/invowk\n", binaryPath))
-		sb.WriteString(fmt.Sprintf("RUN chmod +x %s/invowk\n\n", binaryPath))
-	}
-
-	// Copy modules
-	modulesPath := p.config.ModulesMountPath
-	sb.WriteString("# Install modules\n")
-	sb.WriteString(fmt.Sprintf("COPY modules/ %s/\n\n", modulesPath))
-
-	// Set environment variables
-	sb.WriteString("# Configure environment\n")
-	if p.config.InvowkBinaryPath != "" {
-		sb.WriteString(fmt.Sprintf("ENV PATH=\"%s:$PATH\"\n", p.config.BinaryMountPath))
-	}
-	sb.WriteString(fmt.Sprintf("ENV INVOWK_MODULE_PATH=\"%s\"\n", modulesPath)) //nolint:gocritic // Dockerfile ENV syntax requires literal quotes
-
-	return sb.String()
-}
-
-// buildEnvVars returns environment variables to set in the container.
-func (p *LayerProvisioner) buildEnvVars() map[string]string {
-	env := make(map[string]string)
-
-	// PATH is set in the Dockerfile, but we also set it here for consistency
-	if p.config.InvowkBinaryPath != "" {
-		env["PATH"] = p.config.BinaryMountPath + ":/usr/local/bin:/usr/bin:/bin"
-	}
-
-	env["INVOWK_MODULE_PATH"] = p.config.ModulesMountPath
-
-	return env
 }

@@ -94,6 +94,8 @@ type (
 		WorkDir string
 		// Verbose enables verbose output
 		Verbose bool
+		// ForceRebuild forces container image rebuilds, bypassing cache (container runtime only)
+		ForceRebuild bool
 		// ExecutionID is a unique identifier for this command execution.
 		ExecutionID string
 

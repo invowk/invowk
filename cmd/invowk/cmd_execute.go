@@ -137,8 +137,9 @@ func runCommandWithFlags(cmdName string, args []string, flagValues map[string]st
 	ctx.Verbose = verbose
 	ctx.SelectedRuntime = selectedRuntime
 	ctx.SelectedImpl = script
-	ctx.PositionalArgs = args     // Enable shell positional parameter access ($1, $2, etc.)
-	ctx.WorkDir = workdirOverride // CLI override for working directory (--workdir flag)
+	ctx.PositionalArgs = args       // Enable shell positional parameter access ($1, $2, etc.)
+	ctx.WorkDir = workdirOverride   // CLI override for working directory (--workdir flag)
+	ctx.ForceRebuild = forceRebuild // Force rebuild container images (--force-rebuild flag)
 
 	// Set environment configuration
 	ctx.Env.RuntimeEnvFiles = runtimeEnvFiles // Env files from --env-file flag
