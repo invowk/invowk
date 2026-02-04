@@ -101,6 +101,7 @@ func (r *ContainerRuntime) ensureImage(ctx *ExecutionContext, cfg invkfileContai
 		ContextDir: invowkDir,
 		Dockerfile: containerfile,
 		Tag:        imageTag,
+		NoCache:    ctx.ForceRebuild,
 		Stdout:     ctx.IO.Stdout,
 		Stderr:     ctx.IO.Stderr,
 	}

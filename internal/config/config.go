@@ -45,6 +45,9 @@ var (
 	// This is necessary because os.UserHomeDir() doesn't reliably respect
 	// the HOME environment variable on all platforms (e.g., macOS in CI).
 	configDirOverride string
+	// configFilePathOverride allows specifying a custom config file path.
+	// This is used by the --config CLI flag to load config from a specific file.
+	configFilePathOverride string
 	// errLastLoad stores the last error from Load() for later retrieval.
 	// This allows Get() to return defaults while preserving error information.
 	errLastLoad error
@@ -206,43 +209,68 @@ func Load() (*Config, error) {
 	v.SetDefault("container.auto_provision.modules_paths", defaults.Container.AutoProvision.ModulesPaths)
 	v.SetDefault("container.auto_provision.cache_dir", defaults.Container.AutoProvision.CacheDir)
 
-	// Get config directory
-	cfgDir, err := ConfigDir()
-	if err != nil {
-		return nil, err
-	}
-
-	// Try to load CUE config file
-	cuePath := filepath.Join(cfgDir, ConfigFileName+"."+ConfigFileExt)
-	if fileExists(cuePath) {
-		if err := loadCUEIntoViper(v, cuePath); err != nil {
+	// If a custom config file path is set via --config flag, use it exclusively
+	if configFilePathOverride != "" {
+		if !fileExists(configFilePathOverride) {
 			return nil, issue.NewErrorContext().
 				WithOperation("load configuration").
-				WithResource(cuePath).
+				WithResource(configFilePathOverride).
+				WithSuggestion("Verify the file path is correct").
+				WithSuggestion("Check that the file exists and is readable").
+				WithSuggestion("Use 'invowk config show' to see default configuration").
+				Wrap(fmt.Errorf("config file not found: %s", configFilePathOverride)).
+				BuildError()
+		}
+		if err := loadCUEIntoViper(v, configFilePathOverride); err != nil {
+			return nil, issue.NewErrorContext().
+				WithOperation("load configuration").
+				WithResource(configFilePathOverride).
 				WithSuggestion("Check that the file contains valid CUE syntax").
 				WithSuggestion("Verify the configuration values match the expected schema").
 				WithSuggestion("See 'invowk config --help' for configuration options").
 				Wrap(err).
 				BuildError()
 		}
-		configPath = cuePath
+		configPath = configFilePathOverride
 	} else {
-		// Also check current directory
-		localCuePath := ConfigFileName + "." + ConfigFileExt
-		if fileExists(localCuePath) {
-			if err := loadCUEIntoViper(v, localCuePath); err != nil {
+		// Get config directory
+		cfgDir, err := ConfigDir()
+		if err != nil {
+			return nil, err
+		}
+
+		// Try to load CUE config file
+		cuePath := filepath.Join(cfgDir, ConfigFileName+"."+ConfigFileExt)
+		if fileExists(cuePath) {
+			if err := loadCUEIntoViper(v, cuePath); err != nil {
 				return nil, issue.NewErrorContext().
 					WithOperation("load configuration").
-					WithResource(localCuePath).
+					WithResource(cuePath).
 					WithSuggestion("Check that the file contains valid CUE syntax").
 					WithSuggestion("Verify the configuration values match the expected schema").
 					WithSuggestion("See 'invowk config --help' for configuration options").
 					Wrap(err).
 					BuildError()
 			}
-			configPath = localCuePath
+			configPath = cuePath
+		} else {
+			// Also check current directory
+			localCuePath := ConfigFileName + "." + ConfigFileExt
+			if fileExists(localCuePath) {
+				if err := loadCUEIntoViper(v, localCuePath); err != nil {
+					return nil, issue.NewErrorContext().
+						WithOperation("load configuration").
+						WithResource(localCuePath).
+						WithSuggestion("Check that the file contains valid CUE syntax").
+						WithSuggestion("Verify the configuration values match the expected schema").
+						WithSuggestion("See 'invowk config --help' for configuration options").
+						Wrap(err).
+						BuildError()
+				}
+				configPath = localCuePath
+			}
+			// If no config file found, use defaults (no error)
 		}
-		// If no config file found, use defaults (no error)
 	}
 
 	var cfg Config
@@ -479,6 +507,7 @@ func Reset() {
 	globalConfig = nil
 	configPath = ""
 	configDirOverride = ""
+	configFilePathOverride = ""
 	errLastLoad = nil
 }
 
@@ -496,4 +525,16 @@ func ResetCache() {
 // doesn't reliably respect the HOME env var on all platforms (e.g., macOS in CI).
 func SetConfigDirOverride(dir string) {
 	configDirOverride = dir
+}
+
+// SetConfigFilePathOverride sets a custom config file path.
+// This is used by the --config CLI flag to load config from a specific file.
+// When set, the specified file must exist or Load() will return an error.
+// This also clears the cached configuration to force reloading from the new path.
+func SetConfigFilePathOverride(path string) {
+	configFilePathOverride = path
+	// Clear cache to force reload from the new path
+	globalConfig = nil
+	configPath = ""
+	errLastLoad = nil
 }

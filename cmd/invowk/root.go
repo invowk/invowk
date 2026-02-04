@@ -104,8 +104,10 @@ func Execute() {
 
 // initRootConfig reads in config file and ENV variables if set.
 func initRootConfig() {
-	// TODO: Support custom config file path via cfgFile flag
-	_ = cfgFile // Currently unused; custom config file support planned
+	// Set custom config file path if provided via --config flag
+	if cfgFile != "" {
+		config.SetConfigFilePathOverride(cfgFile)
+	}
 
 	// Load configuration
 	cfg, err := config.Load()
