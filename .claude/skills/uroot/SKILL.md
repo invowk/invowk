@@ -1,7 +1,7 @@
 ---
 name: uroot
 description: u-root utility implementation patterns (streaming I/O, error format, symlinks)
-disable-model-invocation: true
+disable-model-invocation: false
 ---
 
 # u-root Utils Integration

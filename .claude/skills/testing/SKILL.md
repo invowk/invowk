@@ -1,7 +1,7 @@
 ---
 name: testing
 description: Testing patterns, testscript CLI tests, race conditions, TUI/container testing
-disable-model-invocation: true
+disable-model-invocation: false
 ---
 
 # Testing Patterns

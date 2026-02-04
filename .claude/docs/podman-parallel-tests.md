@@ -11,6 +11,30 @@ Error: preparing container <id> for attach: crun: write to `/proc/sys/net/ipv4/p
 
 This is a **known Podman/crun issue**, not a bug in invowk code.
 
+## Solution (Implemented)
+
+The test infrastructure now handles this automatically:
+
+1. **Sequential container tests**: `TestContainerCLI` in `tests/cli/cmd_container_test.go` runs all `container_*.txtar` tests sequentially (no `t.Parallel()`)
+2. **Parallel non-container tests**: `TestCLI` in `tests/cli/cmd_test.go` runs all other tests in parallel for speed
+3. **Smoke test retry**: The container availability check includes retry logic with exponential backoff to handle transient OCI errors
+
+### Test Execution
+
+```bash
+# Run all tests - container tests sequential, others parallel
+make test
+
+# Run only container tests (sequential)
+go test -v -run "TestContainerCLI" ./tests/cli/...
+
+# Run only non-container tests (parallel)
+go test -v -run "TestCLI$" ./tests/cli/...
+
+# Skip container tests (short mode)
+go test -v -short ./tests/cli/...
+```
+
 ## Root Cause
 
 When multiple rootless Podman containers start simultaneously, they may race to configure user namespace settings. The `ping_group_range` sysctl is particularly prone to this issue because:
@@ -25,7 +49,9 @@ When multiple rootless Podman containers start simultaneously, they may race to 
 - **Rootless Podman** on any Linux distribution
 - **CI environments** running parallel container tests
 
-## Workarounds
+## Manual Workarounds (Legacy)
+
+The following workarounds are **no longer needed** since the fix is implemented, but are documented for reference:
 
 ### 1. Run Container Tests Sequentially
 
@@ -33,11 +59,11 @@ Tests pass reliably when run one at a time:
 
 ```bash
 # Run a single container test
-go test -v -run "TestCLI/container_provision" ./tests/cli/...
+go test -v -run "TestContainerCLI/container_provision" ./tests/cli/...
 
 # Run all container tests sequentially (bash loop)
 for test in container_basic container_provision container_args container_env; do
-    go test -v -run "TestCLI/$test" ./tests/cli/...
+    go test -v -run "TestContainerCLI/$test" ./tests/cli/...
 done
 ```
 
@@ -47,8 +73,8 @@ The issue is transient - re-running often succeeds:
 
 ```bash
 # Run with retries using go-test-retry or similar
-go test -v -count=1 -run "TestCLI/container" ./tests/cli/... || \
-go test -v -count=1 -run "TestCLI/container" ./tests/cli/...
+go test -v -count=1 -run "TestContainerCLI" ./tests/cli/... || \
+go test -v -count=1 -run "TestContainerCLI" ./tests/cli/...
 ```
 
 ### 3. Reduce Parallelism
@@ -56,16 +82,8 @@ go test -v -count=1 -run "TestCLI/container" ./tests/cli/...
 Limit the number of parallel tests:
 
 ```bash
-go test -v -parallel 1 -run "TestCLI/container" ./tests/cli/...
+go test -v -parallel 1 -run "TestContainerCLI" ./tests/cli/...
 ```
-
-## CI Recommendations
-
-For CI pipelines on affected systems:
-
-1. **Accept occasional flakiness** - The tests are valid; failures are environment-specific
-2. **Configure retries** - Most CI systems support automatic retry on failure
-3. **Run container tests in a dedicated job** - Isolate from other parallel test runs
 
 ## Verification
 

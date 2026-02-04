@@ -1,7 +1,7 @@
 ---
 name: shell
 description: Shell runtime rules for mvdan/sh and bash script execution gotchas
-disable-model-invocation: true
+disable-model-invocation: false
 ---
 
 # Invowk Shell Runtime Rules

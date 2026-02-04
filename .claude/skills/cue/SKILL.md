@@ -1,7 +1,7 @@
 ---
 name: cue
 description: CUE schema patterns, 3-step parsing flow, validation matrix, error formatting
-disable-model-invocation: true
+disable-model-invocation: false
 ---
 
 # CUE Schema Patterns
