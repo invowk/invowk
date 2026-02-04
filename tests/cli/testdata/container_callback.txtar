@@ -3,6 +3,8 @@
 
 # Skip if no functional container runtime is available
 [!container-available] skip 'no functional container runtime available'
+# Skip if running inside Flatpak/Snap sandbox (filesystem permissions may prevent volume mounts)
+[in-sandbox] skip 'container tests may require --filesystem permissions in sandbox - run tests on host or grant permissions'
 
 # Skip on Windows - SSH callback only works on Linux/macOS
 [windows] skip 'SSH callback not supported on Windows'

@@ -1,7 +1,7 @@
 ---
 name: invowk-schema
 description: Invkfile/invkmod schema guidelines, cross-platform patterns, command validation
-disable-model-invocation: true
+disable-model-invocation: false
 ---
 
 # Invowk Schema Guidelines

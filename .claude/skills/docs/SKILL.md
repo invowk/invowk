@@ -1,7 +1,7 @@
 ---
 name: docs
 description: Documentation and Docusaurus website workflow, sync map, and i18n
-disable-model-invocation: true
+disable-model-invocation: false
 ---
 
 # Docs and Website

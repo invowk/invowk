@@ -63,7 +63,7 @@ func (p *LayerProvisioner) Provision(ctx context.Context, baseImage string) (*Re
 		return nil, fmt.Errorf("failed to calculate cache key: %w", err)
 	}
 
-	provisionedTag := fmt.Sprintf("invowk-provisioned:%s", cacheKey[:12])
+	provisionedTag := p.buildProvisionedTag(cacheKey[:12])
 
 	// Check if cached image exists (skip if ForceRebuild is set)
 	if !p.config.ForceRebuild {
@@ -103,7 +103,7 @@ func (p *LayerProvisioner) GetProvisionedImageTag(ctx context.Context, baseImage
 	if err != nil {
 		return "", err
 	}
-	return fmt.Sprintf("invowk-provisioned:%s", cacheKey[:12]), nil
+	return p.buildProvisionedTag(cacheKey[:12]), nil
 }
 
 // IsImageProvisioned checks if a provisioned image already exists in the cache.
@@ -113,6 +113,16 @@ func (p *LayerProvisioner) IsImageProvisioned(ctx context.Context, baseImage str
 		return false, err
 	}
 	return p.engine.ImageExists(ctx, tag)
+}
+
+// buildProvisionedTag constructs the image tag with optional suffix.
+// When TagSuffix is set, the tag format is "invowk-provisioned:<hash>-<suffix>".
+// This enables test isolation by making each test's images unique.
+func (p *LayerProvisioner) buildProvisionedTag(hash string) string {
+	if p.config.TagSuffix != "" {
+		return fmt.Sprintf("invowk-provisioned:%s-%s", hash, p.config.TagSuffix)
+	}
+	return fmt.Sprintf("invowk-provisioned:%s", hash)
 }
 
 // calculateCacheKey generates a unique key based on all provisioned resources.

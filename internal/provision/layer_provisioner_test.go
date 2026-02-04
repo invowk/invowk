@@ -3,6 +3,7 @@
 package provision
 
 import (
+	"os"
 	"strings"
 	"testing"
 )
@@ -99,5 +100,84 @@ func TestNewLayerProvisionerWithNilConfig(t *testing.T) {
 
 	if provisioner.config.BinaryMountPath != "/invowk/bin" {
 		t.Errorf("Expected BinaryMountPath to be /invowk/bin, got %s", provisioner.config.BinaryMountPath)
+	}
+}
+
+func TestBuildProvisionedTagWithoutSuffix(t *testing.T) {
+	cfg := &Config{
+		Enabled:   true,
+		TagSuffix: "", // No suffix
+	}
+	provisioner := &LayerProvisioner{config: cfg}
+
+	tag := provisioner.buildProvisionedTag("abc123def456")
+
+	expected := "invowk-provisioned:abc123def456"
+	if tag != expected {
+		t.Errorf("buildProvisionedTag without suffix: got %q, want %q", tag, expected)
+	}
+}
+
+func TestBuildProvisionedTagWithSuffix(t *testing.T) {
+	cfg := &Config{
+		Enabled:   true,
+		TagSuffix: "test1234",
+	}
+	provisioner := &LayerProvisioner{config: cfg}
+
+	tag := provisioner.buildProvisionedTag("abc123def456")
+
+	expected := "invowk-provisioned:abc123def456-test1234"
+	if tag != expected {
+		t.Errorf("buildProvisionedTag with suffix: got %q, want %q", tag, expected)
+	}
+}
+
+func TestUniqueSuffixesProduceUniqueTags(t *testing.T) {
+	hash := "abc123def456"
+
+	cfg1 := &Config{TagSuffix: "suffix1"}
+	cfg2 := &Config{TagSuffix: "suffix2"}
+
+	p1 := &LayerProvisioner{config: cfg1}
+	p2 := &LayerProvisioner{config: cfg2}
+
+	tag1 := p1.buildProvisionedTag(hash)
+	tag2 := p2.buildProvisionedTag(hash)
+
+	if tag1 == tag2 {
+		t.Errorf("Unique suffixes should produce unique tags, but both are: %s", tag1)
+	}
+
+	// Verify both contain the hash
+	if !strings.Contains(tag1, hash) {
+		t.Errorf("tag1 should contain hash %q: %s", hash, tag1)
+	}
+	if !strings.Contains(tag2, hash) {
+		t.Errorf("tag2 should contain hash %q: %s", hash, tag2)
+	}
+}
+
+func TestWithTagSuffixOption(t *testing.T) {
+	cfg := DefaultConfig()
+
+	// Apply the WithTagSuffix option
+	cfg.Apply(WithTagSuffix("my-suffix"))
+
+	if cfg.TagSuffix != "my-suffix" {
+		t.Errorf("WithTagSuffix option: got %q, want %q", cfg.TagSuffix, "my-suffix")
+	}
+}
+
+func TestDefaultConfigReadsTagSuffixFromEnv(t *testing.T) {
+	// Set the environment variable
+	const testSuffix = "env-test-suffix"
+	os.Setenv("INVOWK_PROVISION_TAG_SUFFIX", testSuffix)
+	defer os.Unsetenv("INVOWK_PROVISION_TAG_SUFFIX")
+
+	cfg := DefaultConfig()
+
+	if cfg.TagSuffix != testSuffix {
+		t.Errorf("DefaultConfig should read TagSuffix from env: got %q, want %q", cfg.TagSuffix, testSuffix)
 	}
 }

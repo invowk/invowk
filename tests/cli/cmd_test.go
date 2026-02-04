@@ -4,20 +4,34 @@
 //
 // These tests verify invowk command-line behavior with deterministic
 // output capture, replacing the flaky VHS-based tests.
+//
+// Container tests are separated into TestContainerCLI (cmd_container_test.go)
+// and run sequentially to avoid rootless Podman race conditions. See
+// .claude/docs/podman-parallel-tests.md for details.
 package cli
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 	"time"
 
 	"invowk-cli/internal/container"
+	"invowk-cli/pkg/platform"
 
 	"github.com/rogpeppe/go-internal/testscript"
+)
+
+const (
+	// maxRetries is the number of attempts for the container smoke test.
+	// Retry handles transient OCI errors on rootless Podman.
+	maxRetries = 3
 )
 
 var (
@@ -27,7 +41,10 @@ var (
 	projectRoot string
 	// containerAvailable checks if a functional container runtime (Docker or Podman) is available.
 	// This goes beyond just checking for the binary - it verifies the runtime can actually run
-	// Linux containers by performing a smoke test.
+	// Linux containers by performing a smoke test with retry logic.
+	//
+	// The retry handles transient OCI runtime errors that occur on rootless Podman when
+	// multiple containers start simultaneously (ping_group_range race condition).
 	containerAvailable = func() bool {
 		engine, err := container.AutoDetectEngine()
 		if err != nil {
@@ -37,25 +54,104 @@ var (
 			return false
 		}
 
-		// Smoke test: actually run a minimal container.
+		// Smoke test with retry: actually run a minimal container.
 		// This catches scenarios where the CLI responds but Linux containers can't run:
 		// - Windows Docker Desktop in Windows container mode
 		// - Docker daemon not actually running
 		// - Permission issues
-		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-		defer cancel()
+		//
+		// Retry logic handles transient OCI errors on rootless Podman.
+		for attempt := range maxRetries {
+			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			result, err := engine.Run(ctx, container.RunOptions{
+				Image:   "debian:stable-slim",
+				Command: []string{"echo", "ok"},
+				Remove:  true,
+			})
+			cancel()
 
-		result, err := engine.Run(ctx, container.RunOptions{
-			Image:   "debian:stable-slim",
-			Command: []string{"echo", "ok"},
-			Remove:  true,
-		})
-		if err != nil {
-			return false
+			if err == nil && result.ExitCode == 0 {
+				return true
+			}
+
+			// Check if this is a transient OCI error worth retrying
+			if !isTransientOCIError(err) {
+				return false
+			}
+
+			// Exponential backoff: 500ms, 1s, 1.5s
+			if attempt < maxRetries-1 {
+				time.Sleep(time.Duration(500*(attempt+1)) * time.Millisecond)
+			}
 		}
-		return result.ExitCode == 0
+		return false
 	}()
 )
+
+// isTransientOCIError checks if an error is a transient OCI runtime error
+// that can be retried (e.g., rootless Podman ping_group_range race).
+func isTransientOCIError(err error) bool {
+	if err == nil {
+		return false
+	}
+	errStr := err.Error()
+	return strings.Contains(errStr, "ping_group_range") ||
+		strings.Contains(errStr, "OCI runtime error")
+}
+
+// commonSetup provides the shared testscript setup function for all CLI tests.
+// This is used by both TestCLI and TestContainerCLI to ensure consistent environment.
+func commonSetup(env *testscript.Env) error {
+	// Add the binary directory to PATH so tests can run 'invowk'
+	binDir := filepath.Dir(binaryPath)
+	env.Setenv("PATH", binDir+string(os.PathListSeparator)+env.Getenv("PATH"))
+
+	// Set PROJECT_ROOT for tests that need to run against the project's invkfile.
+	// Tests with embedded invkfile.cue use 'cd $WORK', while tests that rely on
+	// the project's invkfile.cue should use 'cd $PROJECT_ROOT'.
+	env.Setenv("PROJECT_ROOT", projectRoot)
+
+	// Set HOME to $WORK directory for container build tests.
+	// Docker/Podman CLI requires a valid HOME to store configuration in ~/.docker/
+	// or ~/.config/containers/. By default, testscript sets HOME=/no-home which
+	// causes "mkdir /no-home: permission denied" errors during docker build.
+	// Using WorkDir ensures HOME exists and is writable for the test duration.
+	env.Setenv("HOME", env.WorkDir)
+
+	// Set a unique tag suffix for container image provisioning.
+	// This prevents race conditions when parallel tests compete to build
+	// the same provisioned image (e.g., invowk-provisioned:abc123).
+	// Each test gets a unique suffix based on its WorkDir, producing tags
+	// like invowk-provisioned:abc123-a1b2c3d4.
+	testSuffix := generateTestSuffix(env.WorkDir)
+	env.Setenv("INVOWK_PROVISION_TAG_SUFFIX", testSuffix)
+
+	// IMPORTANT: Do NOT set env.Cd here. Each test file controls its own working
+	// directory. Tests that need the project root should use 'cd $PROJECT_ROOT'.
+	// Setting env.Cd = projectRoot globally caused container tests with embedded
+	// invkfile.cue files to fail because invowk discovered commands from the
+	// project root instead of the test's $WORK directory.
+
+	return nil
+}
+
+// commonCondition provides the shared testscript condition function for all CLI tests.
+// This is used by both TestCLI and TestContainerCLI to ensure consistent conditions.
+func commonCondition(cond string) (bool, error) {
+	switch cond {
+	case "container-available":
+		// "container-available" returns true if a functional container runtime is available
+		// Use [!container-available] to skip tests when no container runtime works
+		return containerAvailable, nil
+	case "in-sandbox":
+		// "in-sandbox" returns true if running inside a Flatpak or Snap sandbox
+		// Use [in-sandbox] to skip tests that require host filesystem permissions
+		return platform.IsInSandbox(), nil
+	default:
+		// Return false with no error for unknown conditions - let testscript handle them
+		return false, nil
+	}
+}
 
 func TestMain(m *testing.M) {
 	// Find project root (where go.mod is located)
@@ -101,46 +197,46 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
-// TestCLI runs all testscript tests in the testdata directory.
+// generateTestSuffix creates a short hash from the test's WorkDir.
+// This ensures each parallel test gets a unique container image tag suffix,
+// preventing race conditions when multiple tests try to build the same
+// provisioned image simultaneously.
+func generateTestSuffix(workDir string) string {
+	h := sha256.Sum256([]byte(workDir))
+	return hex.EncodeToString(h[:])[:8]
+}
+
+// TestCLI runs all non-container testscript tests in the testdata directory.
+//
+// Container tests (container_*.txtar) are excluded and run separately in
+// TestContainerCLI to avoid rootless Podman race conditions. See
+// .claude/docs/podman-parallel-tests.md for details.
 func TestCLI(t *testing.T) {
-	testscript.Run(t, testscript.Params{
-		Dir: "testdata",
-		Setup: func(env *testscript.Env) error {
-			// Add the binary directory to PATH so tests can run 'invowk'
-			binDir := filepath.Dir(binaryPath)
-			env.Setenv("PATH", binDir+string(os.PathListSeparator)+env.Getenv("PATH"))
+	// Find all non-container test files
+	testdataDir := "testdata"
+	entries, err := os.ReadDir(testdataDir)
+	if err != nil {
+		t.Fatalf("failed to read testdata directory: %v", err)
+	}
 
-			// Set PROJECT_ROOT for tests that need to run against the project's invkfile.
-			// Tests with embedded invkfile.cue use 'cd $WORK', while tests that rely on
-			// the project's invkfile.cue should use 'cd $PROJECT_ROOT'.
-			env.Setenv("PROJECT_ROOT", projectRoot)
-
-			// Set HOME to $WORK directory for container build tests.
-			// Docker/Podman CLI requires a valid HOME to store configuration in ~/.docker/
-			// or ~/.config/containers/. By default, testscript sets HOME=/no-home which
-			// causes "mkdir /no-home: permission denied" errors during docker build.
-			// Using WorkDir ensures HOME exists and is writable for the test duration.
-			env.Setenv("HOME", env.WorkDir)
-
-			// IMPORTANT: Do NOT set env.Cd here. Each test file controls its own working
-			// directory. Tests that need the project root should use 'cd $PROJECT_ROOT'.
-			// Setting env.Cd = projectRoot globally caused container tests with embedded
-			// invkfile.cue files to fail because invowk discovered commands from the
-			// project root instead of the test's $WORK directory.
-
-			return nil
-		},
-		// Custom conditions for testscript
-		Condition: func(cond string) (bool, error) {
-			// "container-available" returns true if a functional container runtime is available
-			// Use [!container-available] to skip tests when no container runtime works
-			if cond == "container-available" {
-				return containerAvailable, nil
+	var nonContainerTests []string
+	for _, entry := range entries {
+		if !entry.IsDir() && strings.HasSuffix(entry.Name(), ".txtar") {
+			// Exclude container tests - they run in TestContainerCLI
+			if !strings.HasPrefix(entry.Name(), "container_") {
+				nonContainerTests = append(nonContainerTests, filepath.Join(testdataDir, entry.Name()))
 			}
-			// Return false with no error for unknown conditions - let testscript handle them
-			return false, nil
-		},
-		// Continue running all tests even if one fails
+		}
+	}
+
+	if len(nonContainerTests) == 0 {
+		t.Skip("no non-container tests found")
+	}
+
+	testscript.Run(t, testscript.Params{
+		Files:           nonContainerTests,
+		Setup:           commonSetup,
+		Condition:       commonCondition,
 		ContinueOnError: true,
 	})
 }
