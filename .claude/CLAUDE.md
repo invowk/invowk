@@ -58,7 +58,6 @@ Skills provide domain-specific procedural guidance. They are invoked when workin
 - [`.claude/skills/tmux-testing/`](.claude/skills/tmux-testing/) - tmux-based TUI testing for fast, CI-friendly text and ANSI verification.
 - [`.claude/skills/tui-testing/`](.claude/skills/tui-testing/) - VHS-based TUI testing workflow for autonomous visual analysis.
 - [`.claude/skills/uroot/`](.claude/skills/uroot/) - u-root utility implementation patterns.
-- [`.claude/skills/mermaid-diagrams/`](.claude/skills/mermaid-diagrams/) - Mermaid diagram syntax guide. Use for GitHub-native previews or existing Mermaid diagrams. For new diagrams, prefer d2-diagrams.
 
 ### Code Area → Rules/Skills Mapping
 

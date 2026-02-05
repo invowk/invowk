@@ -430,17 +430,6 @@ api --> client: 200 OK
 7. **Use dashed arrows for returns** - Visual distinction for responses
 8. **Order participants by interaction** - Left-to-right follows the flow
 
-## Comparison with Mermaid
-
-| Feature | D2 | Mermaid |
-|---------|-----|---------|
-| Participant declaration | Implicit or explicit | `participant` keyword |
-| Grouping | Spans with labels | `rect`, `loop`, `alt` |
-| Message styling | Full styling support | Limited |
-| Notes | `.note` on any element | `Note` keyword |
-| Parallel flows | Multiple spans | `par` block |
-| Layout control | TALA positioning | Automatic only |
-
 ## Common Patterns
 
 ### Request-Response

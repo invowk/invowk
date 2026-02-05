@@ -1,6 +1,6 @@
 # C4 Diagrams in D2
 
-D2 provides first-class support for C4 model diagrams through its native shapes, containers, and layer system. Unlike Mermaid's C4 extension, D2's approach is more flexible and produces superior layouts with TALA.
+D2 provides first-class support for C4 model diagrams through its native shapes, containers, and layer system, producing superior layouts with TALA.
 
 ## C4 Model Overview
 
@@ -715,14 +715,3 @@ platform.notification -> email: SMTP
 6. **Layer for complexity** - Use D2 layers for multi-level views
 7. **Keep focused** - One perspective per diagram
 8. **Document relationships** - Label every connection with purpose
-
-## C4 vs Mermaid Comparison
-
-| Feature | D2 | Mermaid C4 |
-|---------|-----|------------|
-| Layout quality | Superior (TALA) | Basic |
-| Markdown labels | Full support | Limited |
-| Multi-view | Layers/scenarios | Separate files |
-| Styling flexibility | Full CSS-like | Limited presets |
-| Nested boundaries | Unlimited | Single level |
-| Validation | `d2 validate` | Render only |

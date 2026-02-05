@@ -1,24 +1,22 @@
 ---
 name: d2-diagrams
-description: Agent-optimized D2 diagram generation with TALA layout. Use for C4 architecture, sequence, flowcharts, and any diagram requiring superior auto-layout. D2 is the DEFAULT choice for new diagrams (prefer over Mermaid). Triggers include "d2 diagram", "architecture diagram", "generate diagram", "visualize", "model", or any diagramming request. Optimized for validation, error recovery, and deterministic output.
+description: Agent-optimized D2 diagram generation with TALA layout. Use for C4 architecture, sequence, flowcharts, and any diagram requiring superior auto-layout. D2 is the DEFAULT choice for new diagrams. Triggers include "d2 diagram", "architecture diagram", "generate diagram", "visualize", "model", or any diagramming request. Optimized for validation, error recovery, and deterministic output.
 ---
 
 # D2 Diagramming (Agent-Optimized)
 
 D2 is a modern diagram scripting language designed for software architecture visualization. It produces high-quality diagrams with superior auto-layout, especially when using the TALA layout engine.
 
-**D2 is the default choice for new diagrams.** Use Mermaid only for legacy compatibility or when GitHub-native preview without CI is critical.
+**D2 is the default choice for new diagrams.**
 
 ## Why D2 for AI Agents
 
-| Feature | D2 | Mermaid |
-|---------|-----|---------|
-| Error messages | Line:col with context | Often cryptic |
-| Formatter | `d2 fmt` canonicalizes | None |
-| Validation | `d2 validate` (no render) | Must render to detect errors |
-| Layout control | TALA: `near`, grids, explicit | Limited hints |
-| Determinism | Seed configuration | Non-deterministic |
-| C4 support | First-class with layers | Basic extension |
+- **Error messages** - Line:col with context for easy debugging
+- **Formatter** - `d2 fmt` canonicalizes for determinism
+- **Validation** - `d2 validate` catches errors without rendering
+- **Layout control** - TALA provides `near`, grids, and explicit positioning
+- **Determinism** - Seed configuration ensures reproducible output
+- **C4 support** - First-class with layers and suspend pattern
 
 ## Core Syntax Structure
 
@@ -66,11 +64,6 @@ server.style: {
 4. **Validation pipeline** - `d2 validate` catches errors before rendering
 5. **Grid layouts** - TALA's grid feature for aligned components
 6. **Multi-view diagrams** - Layers/scenarios for different perspectives
-
-**Choose Mermaid when:**
-1. **GitHub-native preview** - No CI needed for rendering
-2. **Editing existing Mermaid** - Maintain consistency
-3. **Simple diagrams** - Where D2's benefits aren't needed
 
 ## Quick Start Examples
 
@@ -303,16 +296,6 @@ a -> b: {
   style.stroke-width: 3  # thick
 }
 ```
-
-## When to Use Mermaid Instead
-
-Use Mermaid for:
-- **GitHub README previews** - Native rendering without CI
-- **Existing Mermaid diagrams** - Maintain consistency in existing docs
-- **Simple flowcharts** - Where D2 overhead isn't justified
-- **Team familiarity** - When team knows Mermaid better
-
-For all other cases, prefer D2 for its superior tooling and layout capabilities.
 
 ## When to Update Diagrams
 
