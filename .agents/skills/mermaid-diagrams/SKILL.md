@@ -199,7 +199,17 @@ flowchart LR
 - **Overcomplexity** - Split complex diagrams into multiple focused views
 - **Missing relationships** - Document all important connections between entities
 
-## When to Create Diagrams
+## When to Create or Update Diagrams
+
+**Note:** For new diagrams, prefer D2 (`d2-diagrams` skill). Use Mermaid only for legacy diagrams or GitHub-native preview requirements.
+
+**Always evaluate diagrams when:**
+- Making architectural changes (new components, changed relationships)
+- Modifying execution flow or command processing
+- Changing discovery or runtime selection logic
+- Adding external integrations
+
+A code change is NOT complete until affected diagrams reflect current behavior.
 
 **Always diagram when:**
 - Starting new projects or features

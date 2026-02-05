@@ -24,9 +24,15 @@
 - When behavior changes, add/update unit tests; add and/or update integration tests for cross-component or external integrations.
 - If tests are skipped, call it out and explain why.
 
-## Documentation
+## Documentation and Diagrams
 
 - Update README and website docs when user-facing behavior/configuration, CLI/API, or schemas change.
+- **Evaluate and update architecture diagrams** (`docs/architecture/`) when changes affect:
+  - Component relationships or package boundaries
+  - Execution flow or command processing
+  - Runtime selection or discovery logic
+  - New external integrations or major features
+- A task is NOT complete until both documentation and diagrams reflect current behavior.
 
 ## Cleanup
 

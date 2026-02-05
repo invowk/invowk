@@ -314,6 +314,37 @@ Use Mermaid for:
 
 For all other cases, prefer D2 for its superior tooling and layout capabilities.
 
+## When to Update Diagrams
+
+**CRITICAL: Diagrams must stay synchronized with code.** A code change is not complete until affected diagrams are evaluated and updated.
+
+### Update Triggers
+
+| Code Change | Diagrams to Evaluate |
+|-------------|---------------------|
+| Package addition/removal | C4 Container diagram |
+| Interface/contract changes | Sequence diagrams showing that component |
+| Discovery algorithm changes | Discovery flowchart, execution sequences |
+| Runtime selection changes | Runtime selection flowchart |
+| Execution flow changes | All execution sequence diagrams |
+| New external system integration | C4 Context diagram |
+
+### Update Workflow
+
+1. **Evaluate**: Review diagrams for affected components
+2. **Update source**: Edit `.d2` files in `docs/diagrams/`
+3. **Validate**: `d2 validate <file>.d2`
+4. **Render**: `make render-diagrams`
+5. **Commit**: Both `.d2` source and `.svg` rendered files
+
+### Verification Checklist
+
+Before marking work complete, verify:
+- [ ] All affected diagrams reviewed
+- [ ] `.d2` sources updated if needed
+- [ ] `make render-diagrams` run successfully
+- [ ] SVG files committed with sources
+
 ## Common Pitfalls
 
 | Pitfall | Error | Fix |

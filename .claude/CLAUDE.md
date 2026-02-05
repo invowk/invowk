@@ -64,10 +64,10 @@ When working in a specific code area, apply these rules and skills:
 
 | Code Area | Rules | Skills |
 |-----------|-------|--------|
-| `cmd/invowk/` | go-patterns, testing, licensing, commands | cli |
+| `cmd/invowk/` | go-patterns, testing, licensing, commands | cli, d2-diagrams |
 | `internal/container/` | go-patterns, testing, windows, licensing | container |
-| `internal/discovery/` | go-patterns, testing, licensing, package-design | discovery |
-| `internal/runtime/` | go-patterns, testing, windows, licensing | shell (for virtual runtime) |
+| `internal/discovery/` | go-patterns, testing, licensing, package-design | discovery, d2-diagrams |
+| `internal/runtime/` | go-patterns, testing, windows, licensing | shell (for virtual runtime), d2-diagrams |
 | `internal/config/` | go-patterns, testing, cue-patterns, licensing | cue |
 | `internal/cueutil/` | go-patterns, testing, cue-patterns, licensing | cue |
 | `internal/sshserver/` | go-patterns, testing, licensing | server |
@@ -78,6 +78,7 @@ When working in a specific code area, apply these rules and skills:
 | `pkg/invkfile/` | go-patterns, testing, cue-patterns, licensing, package-design | cue, invowk-schema |
 | `pkg/invkmod/` | go-patterns, testing, cue-patterns, licensing, package-design | cue, invowk-schema |
 | `website/` | general-rules | docs |
+| `docs/architecture/` | general-rules | docs, d2-diagrams |
 | `tests/cli/` | testing | testing, cli |
 
 ## Architecture Overview

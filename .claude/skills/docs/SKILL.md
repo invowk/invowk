@@ -42,6 +42,23 @@ Use this skill when working on:
 
 ---
 
+## Diagram Sync Map
+
+When changes affect architectural behavior, evaluate and update these diagrams:
+
+| Change | Diagrams to Evaluate |
+| --- | --- |
+| `internal/discovery/` changes | flowchart-discovery.md, sequence-execution.md |
+| `internal/runtime/` changes | flowchart-runtime-selection.md, sequence-execution.md |
+| `cmd/invowk/` command changes | sequence-execution.md |
+| New package or component | c4-container.md |
+| External integration changes | c4-context.md |
+| Server (SSH/TUI) changes | sequence-execution.md (container/virtual variants) |
+
+**Workflow**: Edit `.d2` source → `d2 validate` → `make render-diagrams` → commit both source and SVG.
+
+---
+
 ## Documentation Structure
 
 ```

@@ -18,6 +18,7 @@ Before considering work complete:
 6. **Website builds**: `cd website && npm run build` (if website changed).
 7. **Sample modules valid**: `go run . module validate modules/*.invkmod --deep` (if module-related).
 8. **CLI tests pass**: `make test-cli` (if CLI commands/output changed).
+9. **Architecture diagrams current**: If changes affect component relationships, execution flow, discovery logic, or runtime behavior, verify diagrams in `docs/architecture/` reflect the changes. Run `make render-diagrams` if D2 sources were updated.
 
 ## Why Full Test Suite?
 
