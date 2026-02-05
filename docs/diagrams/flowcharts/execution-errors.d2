@@ -1,0 +1,89 @@
+# Execution Error Categories Flowchart
+#
+# Shows the main categories of errors that can occur during
+# command execution and their common fixes.
+#
+# Source: docs/architecture/sequence-execution.md (diagrams.ts)
+
+vars: {
+  d2-config: {
+    layout-engine: tala
+  }
+}
+
+direction: down
+
+# ==============================================================================
+# Error Categories
+# ==============================================================================
+
+errors: Error Categories {
+  style: {
+    stroke: "#1168BD"
+    stroke-dash: 3
+    fill: transparent
+  }
+
+  E1: Config Parse Error {
+    style.fill: "#FFCDD2"
+  }
+
+  E2: Discovery Error {
+    style.fill: "#FFCDD2"
+  }
+
+  E3: Command Not Found {
+    style.fill: "#FFCDD2"
+  }
+
+  E4: Runtime Unavailable {
+    style.fill: "#FFCDD2"
+  }
+
+  E5: Validation Error {
+    style.fill: "#FFCDD2"
+  }
+
+  E6: Execution Error {
+    style.fill: "#FFCDD2"
+  }
+}
+
+# ==============================================================================
+# Fixes
+# ==============================================================================
+
+Fix1: Check config.cue syntax {
+  style.fill: "#C8E6C9"
+}
+
+Fix2: Check invkfile.cue syntax {
+  style.fill: "#C8E6C9"
+}
+
+Fix3: Verify command name, check discovery {
+  style.fill: "#C8E6C9"
+}
+
+Fix4: Start container engine {
+  style.fill: "#C8E6C9"
+}
+
+Fix5: Check command implementation {
+  style.fill: "#C8E6C9"
+}
+
+Fix6: Check script content {
+  style.fill: "#C8E6C9"
+}
+
+# ==============================================================================
+# Connections
+# ==============================================================================
+
+errors.E1 -> Fix1: Invalid CUE syntax
+errors.E2 -> Fix2: Module parse failure
+errors.E3 -> Fix3: No matching command
+errors.E4 -> Fix4: e.g., Docker not running
+errors.E5 -> Fix5: Missing required fields
+errors.E6 -> Fix6: Script error

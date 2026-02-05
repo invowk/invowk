@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - 'website/**'
+      - 'docs/diagrams/rendered/**'
       - '.github/workflows/deploy-website.yml'
   # Allow manual trigger
   workflow_dispatch:

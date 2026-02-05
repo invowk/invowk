@@ -1,0 +1,376 @@
+# C4 Container Diagram (C2) - Invowk
+#
+# Zooms into Invowk to show its internal containers (major components)
+# and data stores that make up the system.
+#
+# Note: In C4 terminology, "container" refers to a separately runnable unit,
+# not Docker containers. Since Invowk is a single CLI binary, these are
+# logical containers representing major internal components.
+#
+# Source: docs/architecture/c4-container.md
+
+vars: {
+  d2-config: {
+    layout-engine: tala
+  }
+}
+
+title: |md
+  ## Container Diagram
+  **Invowk**
+|
+
+# ==============================================================================
+# User
+# ==============================================================================
+
+user: User {
+  shape: person
+  style: {
+    fill: "#08427B"
+    font-color: "#ffffff"
+  }
+  tooltip: Developer or team member
+}
+
+# ==============================================================================
+# External Systems
+# ==============================================================================
+
+docker: Docker/Podman {
+  style: {
+    fill: "#999999"
+    font-color: "#ffffff"
+  }
+  tooltip: Container engine
+}
+
+git: Git Repositories {
+  style: {
+    fill: "#999999"
+    font-color: "#ffffff"
+  }
+  tooltip: Remote modules
+}
+
+host_shell: Host Shell {
+  style: {
+    fill: "#999999"
+    font-color: "#ffffff"
+  }
+  tooltip: bash/sh/PowerShell
+}
+
+# ==============================================================================
+# System Boundary: Invowk CLI
+# ==============================================================================
+
+invowk_cli: Invowk CLI {
+  style: {
+    stroke: "#1168BD"
+    stroke-dash: 3
+    fill: transparent
+  }
+
+  # --------------------------------------------------------------------------
+  # Entry & Core
+  # --------------------------------------------------------------------------
+
+  entry_core: Entry & Core {
+    style: {
+      stroke: "#438DD5"
+      stroke-dash: 2
+      fill: transparent
+    }
+
+    cmd: CLI Commands {
+      style: {
+        fill: "#438DD5"
+        font-color: "#ffffff"
+      }
+      tooltip: |md
+        **Go/Cobra**
+        Root, cmd, init, config, module, tui, completion
+      |
+    }
+
+    discovery: Discovery Engine {
+      style: {
+        fill: "#438DD5"
+        font-color: "#ffffff"
+      }
+      tooltip: |md
+        **Go**
+        Locates invkfiles and modules with precedence ordering
+      |
+    }
+
+    config: Configuration Manager {
+      style: {
+        fill: "#438DD5"
+        font-color: "#ffffff"
+      }
+      tooltip: |md
+        **Go/Viper+CUE**
+        Loads and validates user configuration
+      |
+    }
+
+    cue_parser: CUE Parser {
+      style: {
+        fill: "#438DD5"
+        font-color: "#ffffff"
+      }
+      tooltip: |md
+        **Go/cuelang**
+        3-step parsing: compile schema, unify data, decode
+      |
+    }
+
+    module_resolver: Module Resolver {
+      style: {
+        fill: "#438DD5"
+        font-color: "#ffffff"
+      }
+      tooltip: |md
+        **Go**
+        Git-based dependency resolution with caching
+      |
+    }
+  }
+
+  # --------------------------------------------------------------------------
+  # Runtimes
+  # --------------------------------------------------------------------------
+
+  runtimes: Runtimes {
+    style: {
+      stroke: "#438DD5"
+      stroke-dash: 2
+      fill: transparent
+    }
+
+    runtime_native: Native Runtime {
+      style: {
+        fill: "#438DD5"
+        font-color: "#ffffff"
+      }
+      tooltip: |md
+        **Go**
+        Executes via host shell (bash/sh/PowerShell)
+      |
+    }
+
+    runtime_virtual: Virtual Runtime {
+      style: {
+        fill: "#438DD5"
+        font-color: "#ffffff"
+      }
+      tooltip: |md
+        **Go/mvdan-sh**
+        Embedded shell interpreter with u-root builtins
+      |
+    }
+
+    runtime_container: Container Runtime {
+      style: {
+        fill: "#438DD5"
+        font-color: "#ffffff"
+      }
+      tooltip: |md
+        **Go**
+        Executes inside Docker/Podman containers
+      |
+    }
+  }
+
+  # --------------------------------------------------------------------------
+  # Container Infrastructure
+  # --------------------------------------------------------------------------
+
+  container_infra: Container Infrastructure {
+    style: {
+      stroke: "#438DD5"
+      stroke-dash: 2
+      fill: transparent
+    }
+
+    container_engine: Container Engine {
+      style: {
+        fill: "#438DD5"
+        font-color: "#ffffff"
+      }
+      tooltip: |md
+        **Go**
+        Unified Docker/Podman interface with auto-fallback
+      |
+    }
+
+    provision: Image Provisioner {
+      style: {
+        fill: "#438DD5"
+        font-color: "#ffffff"
+      }
+      tooltip: |md
+        **Go**
+        Creates ephemeral layers with invowk binary and modules
+      |
+    }
+
+    ssh_server: SSH Server {
+      style: {
+        fill: "#438DD5"
+        font-color: "#ffffff"
+      }
+      tooltip: |md
+        **Go/Wish**
+        Enables container-to-host callbacks via SSH tunneling
+      |
+    }
+
+    tui_server: TUI Server {
+      style: {
+        fill: "#438DD5"
+        font-color: "#ffffff"
+      }
+      tooltip: |md
+        **Go/Bubble Tea**
+        HTTP server for TUI requests from child processes
+      |
+    }
+  }
+}
+
+# ==============================================================================
+# Data Stores
+# ==============================================================================
+
+config_file: Config File {
+  shape: cylinder
+  style: {
+    fill: "#438DD5"
+    font-color: "#ffffff"
+  }
+  tooltip: |md
+    **CUE**
+    ~/.config/invowk/config.cue
+  |
+}
+
+invkfiles: Invkfiles {
+  shape: cylinder
+  style: {
+    fill: "#438DD5"
+    font-color: "#ffffff"
+  }
+  tooltip: |md
+    **CUE**
+    invkfile.cue command definitions
+  |
+}
+
+modules: Modules {
+  shape: cylinder
+  style: {
+    fill: "#438DD5"
+    font-color: "#ffffff"
+  }
+  tooltip: |md
+    **Directories**
+    *.invkmod directories with invkmod.cue + invkfile.cue
+  |
+}
+
+cache: Module Cache {
+  shape: cylinder
+  style: {
+    fill: "#438DD5"
+    font-color: "#ffffff"
+  }
+  tooltip: |md
+    **Filesystem**
+    ~/.cache/invowk/modules/
+  |
+}
+
+# ==============================================================================
+# Relationships
+# ==============================================================================
+
+# User to CLI
+user -> invowk_cli.entry_core.cmd: "Runs commands\n[CLI]" {
+  style.stroke: "#707070"
+}
+
+# Entry & Core internal
+invowk_cli.entry_core.cmd -> invowk_cli.entry_core.discovery: Discovers {
+  style.stroke: "#707070"
+}
+invowk_cli.entry_core.cmd -> invowk_cli.entry_core.config: Loads config {
+  style.stroke: "#707070"
+}
+invowk_cli.entry_core.discovery -> invowk_cli.entry_core.cue_parser: Parses {
+  style.stroke: "#707070"
+}
+invowk_cli.entry_core.discovery -> invowk_cli.entry_core.module_resolver: Resolves deps {
+  style.stroke: "#707070"
+}
+invowk_cli.entry_core.config -> invowk_cli.entry_core.cue_parser: Parses {
+  style.stroke: "#707070"
+}
+
+# Data store access
+invowk_cli.entry_core.discovery -> invkfiles: Reads {
+  style.stroke: "#707070"
+}
+invowk_cli.entry_core.discovery -> modules: Reads {
+  style.stroke: "#707070"
+}
+invowk_cli.entry_core.config -> config_file: Reads {
+  style.stroke: "#707070"
+}
+invowk_cli.entry_core.module_resolver -> git: "Fetches\n[Git]" {
+  style.stroke: "#707070"
+}
+invowk_cli.entry_core.module_resolver -> cache: Caches {
+  style.stroke: "#707070"
+}
+
+# Command to Runtime fan-out
+invowk_cli.entry_core.cmd -> invowk_cli.runtimes.runtime_native: Executes {
+  style.stroke: "#707070"
+}
+invowk_cli.entry_core.cmd -> invowk_cli.runtimes.runtime_virtual: Executes {
+  style.stroke: "#707070"
+}
+invowk_cli.entry_core.cmd -> invowk_cli.runtimes.runtime_container: Executes {
+  style.stroke: "#707070"
+}
+
+# Runtime to External/Infrastructure
+invowk_cli.runtimes.runtime_native -> host_shell: "Spawns\n[exec]" {
+  style.stroke: "#707070"
+}
+invowk_cli.runtimes.runtime_virtual -> invowk_cli.container_infra.tui_server: "Requests TUI\n[HTTP]" {
+  style.stroke: "#707070"
+}
+invowk_cli.runtimes.runtime_container -> invowk_cli.container_infra.container_engine: Runs {
+  style.stroke: "#707070"
+}
+invowk_cli.runtimes.runtime_container -> invowk_cli.container_infra.provision: Provisions {
+  style.stroke: "#707070"
+}
+invowk_cli.runtimes.runtime_container -> invowk_cli.container_infra.ssh_server: Starts {
+  style.stroke: "#707070"
+}
+invowk_cli.runtimes.runtime_container -> invowk_cli.container_infra.tui_server: "Requests TUI\n[HTTP]" {
+  style.stroke: "#707070"
+}
+
+# Container infrastructure to external
+invowk_cli.container_infra.container_engine -> docker: "Executes\n[CLI/API]" {
+  style.stroke: "#707070"
+}
+invowk_cli.container_infra.provision -> invowk_cli.container_infra.container_engine: Builds {
+  style.stroke: "#707070"
+}

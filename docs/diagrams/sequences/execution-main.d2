@@ -1,0 +1,58 @@
+# Main Execution Sequence Diagram
+#
+# Shows the complete flow of command execution from user request
+# through initialization, discovery, resolution, and execution phases.
+#
+# Source: docs/architecture/sequence-execution.md
+
+vars: {
+  d2-config: {
+    layout-engine: tala
+  }
+}
+
+shape: sequence_diagram
+
+# Participants
+User
+CLI: CLI (cmd.go)
+Config: Configuration
+Disc: Discovery Engine
+CUE: CUE Parser
+Registry: Runtime Registry
+Runtime: Selected Runtime
+Exec: Executor
+
+# Entry point
+User -> CLI: "invowk cmd <name> [args...]"
+
+# 1. Initialization Phase
+CLI -> Config: Load configuration
+Config -> CUE: Parse config.cue
+CUE -> Config: Config struct
+Config -> CLI: Configuration loaded
+
+# 2. Discovery Phase
+CLI -> Disc: DiscoverCommands(searchPaths)
+Disc -> CUE: Parse invkfile.cue files
+CUE -> Disc: Invkfile structs
+Disc -> CUE: Parse *.invkmod directories
+CUE -> Disc: Module structs
+Disc -> CLI: "CommandInfo[] (unified tree)"
+
+# 3. Resolution Phase
+CLI -> CLI: Match command by name
+CLI -> CLI: Select implementation (platform match)
+CLI -> Registry: GetRuntime(implementation.runtime)
+Registry -> CLI: Runtime instance
+CLI -> Runtime: Validate(context)
+Runtime -> CLI: Validation result
+
+# 4. Execution Phase
+CLI -> Runtime: Execute(context)
+Runtime -> Exec: Run script/command
+Exec -> Runtime: Exit code, output
+Runtime -> CLI: Result
+
+# Return result
+CLI -> User: Output + Exit code

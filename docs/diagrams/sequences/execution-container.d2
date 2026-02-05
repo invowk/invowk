@@ -1,0 +1,67 @@
+# Container Runtime Execution Sequence Diagram
+#
+# Detailed flow for container runtime execution including:
+# - Provisioning phase (engine detection, image building)
+# - Server setup (SSH, TUI)
+# - Execution phase
+# - Cleanup phase
+#
+# Source: docs/architecture/sequence-execution.md
+
+vars: {
+  d2-config: {
+    layout-engine: tala
+  }
+}
+
+shape: sequence_diagram
+
+# Participants
+CLI
+ContainerRT: Container Runtime
+Engine: Engine Abstraction
+Provision: Image Provisioner
+SSH: SSH Server
+TUI: TUI Server
+Container: Docker/Podman
+
+# Entry
+CLI -> ContainerRT: Execute(context)
+
+# 1. Provisioning Phase
+ContainerRT -> Engine: Detect available engine
+Engine -> ContainerRT: docker/podman
+
+ContainerRT -> Provision: ProvisionImage(baseImage)
+Provision -> Engine: Check if base exists
+
+# Pull if missing (conditional)
+Engine -> Container: Pull image (if needed)
+Container -> Engine: Image pulled
+
+Provision -> Provision: Create ephemeral layer
+Provision -> Engine: Build provisioned image
+Engine -> Container: docker build
+Container -> Engine: Image built
+Provision -> ContainerRT: Provisioned image tag
+
+# 2. Server Setup Phase
+# SSH server (if enabled)
+ContainerRT -> SSH: Start SSH server
+SSH -> ContainerRT: Server address + token
+
+ContainerRT -> TUI: Ensure TUI server running
+TUI -> ContainerRT: TUI server address
+
+# 3. Execution Phase
+ContainerRT -> Engine: Run container
+Engine -> Container: docker run
+Container -> Engine: Exit code, output
+Engine -> ContainerRT: Result
+
+# 4. Cleanup Phase
+# Stop SSH if it was started
+ContainerRT -> SSH: Stop server
+
+# Return
+ContainerRT -> CLI: Result

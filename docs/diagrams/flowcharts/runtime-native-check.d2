@@ -1,0 +1,55 @@
+# Native Runtime Availability Check Flowchart
+#
+# Shows how Invowk determines if the native runtime is available
+# by checking for bash/sh on Unix or PowerShell on Windows.
+#
+# Source: docs/architecture/flowchart-runtime-selection.md
+
+vars: {
+  d2-config: {
+    layout-engine: tala
+  }
+}
+
+direction: right
+
+Start: Check Native
+
+Unix: Unix-like OS? {
+  shape: diamond
+  style.fill: "#FFF3E0"
+}
+
+FindShell: Find bash or sh
+
+FindPS: Find PowerShell
+
+HasShell: Found? {
+  shape: diamond
+  style.fill: "#FFF3E0"
+}
+
+HasPS: Found? {
+  shape: diamond
+  style.fill: "#FFF3E0"
+}
+
+Available: Available {
+  shape: oval
+  style.fill: "#C8E6C9"
+}
+
+Unavailable: Unavailable {
+  shape: oval
+  style.fill: "#FFCDD2"
+}
+
+Start -> Unix
+Unix -> FindShell: Yes
+Unix -> FindPS: No
+FindShell -> HasShell
+FindPS -> HasPS
+HasShell -> Available: Yes
+HasShell -> Unavailable: No
+HasPS -> Available: Yes
+HasPS -> Unavailable: No

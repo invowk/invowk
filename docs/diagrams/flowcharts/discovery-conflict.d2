@@ -1,0 +1,59 @@
+# Discovery Conflict Resolution Flowchart
+#
+# Shows how Invowk resolves conflicts when the same command
+# name exists in multiple discovery locations.
+# Key principle: Highest priority wins.
+#
+# Source: docs/architecture/flowchart-discovery.md
+
+vars: {
+  d2-config: {
+    layout-engine: tala
+  }
+}
+
+direction: down
+
+# ==============================================================================
+# Command Found in Multiple Locations
+# ==============================================================================
+
+locations: Command 'build' found in multiple locations {
+  style: {
+    stroke: "#1168BD"
+    stroke-dash: 3
+    fill: transparent
+  }
+
+  L1: ./invkfile.cue\nPriority: 1 (highest) {
+    style.fill: "#90EE90"
+  }
+
+  L2: ./mytools.invkmod\nPriority: 2 {
+    style.fill: "#FFE4B5"
+  }
+
+  L3: ~/.invowk/cmds/\nPriority: 3 {
+    style.fill: "#FFE4B5"
+  }
+
+  L4: search_paths\nPriority: 4 (lowest) {
+    style.fill: "#FFE4B5"
+  }
+}
+
+# ==============================================================================
+# Resolution
+# ==============================================================================
+
+Conflict: Same command name\nin multiple locations {
+  shape: diamond
+  style.fill: "#FFF3E0"
+}
+
+Winner: Highest priority wins {
+  style.fill: "#C8E6C9"
+}
+
+Conflict -> Winner
+Winner -> locations.L1

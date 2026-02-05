@@ -1,0 +1,80 @@
+# Module Dependency Visibility Flowchart
+#
+# Shows how command visibility works between modules.
+# Key principle: Only first-level dependencies are directly visible.
+#
+# Source: docs/architecture/flowchart-discovery.md
+
+vars: {
+  d2-config: {
+    layout-engine: tala
+  }
+}
+
+direction: down
+
+# ==============================================================================
+# Module Dependency Chain
+# ==============================================================================
+
+dep_chain: Module A requires Module B {
+  style: {
+    stroke: "#1168BD"
+    stroke-dash: 3
+    fill: transparent
+  }
+
+  ModA: Module A {
+    style.fill: "#BBDEFB"
+  }
+
+  ModB: Module B {
+    style.fill: "#BBDEFB"
+  }
+
+  ModC: Module C {
+    style.fill: "#BBDEFB"
+  }
+
+  ModA -> ModB: requires
+  ModB -> ModC: requires
+}
+
+# ==============================================================================
+# Visibility Rules
+# ==============================================================================
+
+visibility: Visibility Rules {
+  style: {
+    stroke: "#1168BD"
+    stroke-dash: 3
+    fill: transparent
+  }
+
+  CmdsA: A's commands {
+    style.fill: "#C8E6C9"
+  }
+
+  CmdsB: B's commands {
+    style.fill: "#C8E6C9"
+  }
+
+  CmdsC: C's commands {
+    style.fill: "#C8E6C9"
+  }
+
+  CmdsA -> CmdsB: can call
+  CmdsA -> CmdsC: CANNOT call {
+    style.stroke-dash: 3
+    style.stroke: "#FF5722"
+  }
+  CmdsB -> CmdsC: can call
+}
+
+# ==============================================================================
+# Explanation
+# ==============================================================================
+
+Note: Only first-level\ndependencies are\ndirectly visible {
+  style.fill: "#FFF3E0"
+}

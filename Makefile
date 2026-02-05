@@ -254,6 +254,13 @@ build-cross: $(BUILD_DIR)
 	@echo "Cross-compilation complete:"
 	@ls -lh $(BUILD_DIR)/$(BINARY_NAME)-* | awk '{print $$9 ":", $$5}'
 
+# Render D2 diagrams to SVG (requires D2 installed locally)
+# Uses TALA layout engine if available, falls back to ELK
+.PHONY: render-diagrams
+render-diagrams:
+	@echo "Rendering D2 diagrams..."
+	./scripts/render-diagrams.sh
+
 # VHS Demo Generation (not used for CI testing - see test-cli for that)
 .PHONY: vhs-demos vhs-validate
 
@@ -293,6 +300,7 @@ help:
 	@echo "  pgo-profile-short Generate PGO profile (short, no container benchmarks)"
 	@echo "  vhs-demos        Generate VHS demo recordings (requires VHS)"
 	@echo "  vhs-validate     Validate VHS tape syntax"
+	@echo "  render-diagrams  Render D2 diagrams to SVG (requires D2)"
 	@echo "  clean            Remove build artifacts"
 	@echo "  install          Install to GOPATH/bin"
 	@echo "  tidy             Tidy go.mod dependencies"

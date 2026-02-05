@@ -1,0 +1,60 @@
+# Ephemeral Layer Contents Flowchart
+#
+# Shows what Invowk adds to the base container image
+# when provisioning for container runtime execution.
+#
+# Source: docs/architecture/flowchart-runtime-selection.md
+
+vars: {
+  d2-config: {
+    layout-engine: tala
+  }
+}
+
+direction: down
+
+# ==============================================================================
+# Ephemeral Layer Contents
+# ==============================================================================
+
+layer_contents: Ephemeral Layer Contents {
+  style: {
+    stroke: "#1168BD"
+    stroke-dash: 3
+    fill: transparent
+  }
+
+  Binary: /usr/local/bin/invowk\n(Invowk binary) {
+    style.fill: "#BBDEFB"
+  }
+
+  Invkfiles: /workspace/invkfiles/\n(Command definitions) {
+    style.fill: "#BBDEFB"
+  }
+
+  Modules: /workspace/modules/\n(Required modules) {
+    style.fill: "#BBDEFB"
+  }
+
+  Scripts: /workspace/scripts/\n(Script files) {
+    style.fill: "#BBDEFB"
+  }
+}
+
+# ==============================================================================
+# Build Flow
+# ==============================================================================
+
+Base: Base Image {
+  style.fill: "#E8E8E8"
+}
+
+Layer: Ephemeral Layer {
+  style.fill: "#C8E6C9"
+}
+
+Base -> Layer
+Layer -> layer_contents.Binary
+Layer -> layer_contents.Invkfiles
+Layer -> layer_contents.Modules
+Layer -> layer_contents.Scripts

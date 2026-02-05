@@ -46,6 +46,7 @@ Skills provide domain-specific procedural guidance. They are invoked when workin
 - [`.claude/skills/cli/`](.claude/skills/cli/) - CLI command structure, Cobra patterns, execution flow, hidden internal commands.
 - [`.claude/skills/container/`](.claude/skills/container/) - Container engine abstraction, Docker/Podman patterns, path handling, Linux-only policy.
 - [`.claude/skills/cue/`](.claude/skills/cue/) - CUE schema parsing, 3-step parse flow, validation matrix, schema sync tests.
+- [`.claude/skills/d2-diagrams/`](.claude/skills/d2-diagrams/) - Agent-optimized D2 diagram generation with TALA layout, validation pipeline, deterministic output. **DEFAULT for new diagrams.**
 - [`.claude/skills/discovery/`](.claude/skills/discovery/) - Module/command discovery, precedence order, collision detection, source tracking.
 - [`.claude/skills/docs/`](.claude/skills/docs/) - Documentation workflow and Docusaurus website development.
 - [`.claude/skills/invowk-schema/`](.claude/skills/invowk-schema/) - Invkfile/invkmod schema guidelines, cross-platform runtime patterns.
@@ -55,6 +56,7 @@ Skills provide domain-specific procedural guidance. They are invoked when workin
 - [`.claude/skills/tmux-testing/`](.claude/skills/tmux-testing/) - tmux-based TUI testing for fast, CI-friendly text and ANSI verification.
 - [`.claude/skills/tui-testing/`](.claude/skills/tui-testing/) - VHS-based TUI testing workflow for autonomous visual analysis.
 - [`.claude/skills/uroot/`](.claude/skills/uroot/) - u-root utility implementation patterns.
+- [`.claude/skills/mermaid-diagrams/`](.claude/skills/mermaid-diagrams/) - Mermaid diagram syntax guide. Use for GitHub-native previews or existing Mermaid diagrams. For new diagrams, prefer d2-diagrams.
 
 ### Code Area → Rules/Skills Mapping
 

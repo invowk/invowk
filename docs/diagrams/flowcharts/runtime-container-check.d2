@@ -1,0 +1,63 @@
+# Container Runtime Availability Check Flowchart
+#
+# Shows how Invowk detects container engine availability,
+# checking preferred engine first then falling back.
+#
+# Source: docs/architecture/flowchart-runtime-selection.md
+
+vars: {
+  d2-config: {
+    layout-engine: tala
+  }
+}
+
+direction: right
+
+Start: Check Container
+
+Pref: Preferred engine\nin config? {
+  shape: diamond
+  style.fill: "#FFF3E0"
+}
+
+TryDocker: Try Docker
+
+TryPodman: Try Podman
+
+DockerOK: Docker available? {
+  shape: diamond
+  style.fill: "#FFF3E0"
+}
+
+PodmanOK: Podman available? {
+  shape: diamond
+  style.fill: "#FFF3E0"
+}
+
+UseDocker: Use Docker {
+  shape: oval
+  style.fill: "#C8E6C9"
+}
+
+UsePodman: Use Podman {
+  shape: oval
+  style.fill: "#C8E6C9"
+}
+
+Unavailable: Unavailable {
+  shape: oval
+  style.fill: "#FFCDD2"
+}
+
+Start -> Pref
+Pref -> TryDocker: docker
+Pref -> TryPodman: podman
+Pref -> TryPodman: not set
+
+TryDocker -> DockerOK
+DockerOK -> UseDocker: Yes
+DockerOK -> TryPodman: No
+
+TryPodman -> PodmanOK
+PodmanOK -> UsePodman: Yes
+PodmanOK -> Unavailable: No

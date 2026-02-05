@@ -1,0 +1,195 @@
+# Command Discovery Flow Flowchart
+#
+# Shows how Invowk discovers commands from multiple sources
+# with priority ordering: current directory > local modules >
+# user directory > search paths.
+#
+# Source: docs/architecture/flowchart-discovery.md
+
+vars: {
+  d2-config: {
+    layout-engine: tala
+  }
+}
+
+direction: down
+
+# ==============================================================================
+# Entry Point
+# ==============================================================================
+
+Start: Discovery Start {
+  shape: oval
+  style.fill: "#E8F5E9"
+}
+
+# ==============================================================================
+# Priority 1: Current Directory
+# ==============================================================================
+
+priority1: Priority 1: Current Directory {
+  style: {
+    stroke: "#1168BD"
+    stroke-dash: 3
+    fill: transparent
+  }
+
+  PWD: Check ./invkfile.cue
+
+  HasPWD: Found? {
+    shape: diamond
+    style.fill: "#FFF3E0"
+  }
+
+  ParsePWD: Parse invkfile.cue\nPriority: HIGHEST {
+    style.fill: "#C8E6C9"
+  }
+
+  Skip1: Continue
+
+  PWD -> HasPWD
+  HasPWD -> ParsePWD: Yes
+  HasPWD -> Skip1: No
+}
+
+Start -> priority1.PWD
+
+# ==============================================================================
+# Priority 2: Local Modules
+# ==============================================================================
+
+priority2: Priority 2: Local Modules {
+  style: {
+    stroke: "#1168BD"
+    stroke-dash: 3
+    fill: transparent
+  }
+
+  Modules: Scan for ./*.invkmod
+
+  HasMods: Found modules? {
+    shape: diamond
+    style.fill: "#FFF3E0"
+  }
+
+  ParseMods: Parse each module\nCheck dependencies {
+    style.fill: "#BBDEFB"
+  }
+
+  Skip2: Continue
+
+  Modules -> HasMods
+  HasMods -> ParseMods: Yes
+  HasMods -> Skip2: No
+}
+
+priority1.ParsePWD -> priority2.Modules
+priority1.Skip1 -> priority2.Modules
+
+# ==============================================================================
+# Dependency Resolution
+# ==============================================================================
+
+dep_resolution: Dependency Resolution {
+  style: {
+    stroke: "#1168BD"
+    stroke-dash: 3
+    fill: transparent
+  }
+
+  ResolveDeps: Resolve module dependencies
+
+  DepLoop: More deps? {
+    shape: diamond
+    style.fill: "#FFF3E0"
+  }
+
+  FetchDep: Fetch from Git/\ncache
+
+  ParseDep: Parse dep module
+
+  DepsResolved: All deps resolved {
+    style.fill: "#C8E6C9"
+  }
+
+  ResolveDeps -> DepLoop
+  DepLoop -> FetchDep: Yes
+  FetchDep -> ParseDep
+  ParseDep -> DepLoop
+  DepLoop -> DepsResolved: No
+}
+
+priority2.ParseMods -> dep_resolution.ResolveDeps
+
+# ==============================================================================
+# Priority 3: User Directory
+# ==============================================================================
+
+priority3: Priority 3: User Directory {
+  style: {
+    stroke: "#1168BD"
+    stroke-dash: 3
+    fill: transparent
+  }
+
+  UserDir: Check ~/.invowk/cmds/\n(invkfiles AND modules)
+
+  HasUser: Found? {
+    shape: diamond
+    style.fill: "#FFF3E0"
+  }
+
+  ParseUser: Parse user invkfiles\nand *.invkmod modules {
+    style.fill: "#BBDEFB"
+  }
+
+  Skip3: Continue
+
+  UserDir -> HasUser
+  HasUser -> ParseUser: Yes
+  HasUser -> Skip3: No
+}
+
+dep_resolution.DepsResolved -> priority3.UserDir
+priority2.Skip2 -> priority3.UserDir
+
+# ==============================================================================
+# Priority 4: Search Paths
+# ==============================================================================
+
+priority4: Priority 4: Search Paths {
+  style: {
+    stroke: "#1168BD"
+    stroke-dash: 3
+    fill: transparent
+  }
+
+  SearchPaths: Check configured\nsearch_paths\n(invkfiles AND modules)
+
+  HasPaths: Found? {
+    shape: diamond
+    style.fill: "#FFF3E0"
+  }
+
+  ParsePaths: Parse invkfiles and\n*.invkmod modules\nPriority: LOWEST {
+    style.fill: "#FFE4B5"
+  }
+
+  SearchPaths -> HasPaths
+  HasPaths -> ParsePaths: Yes
+}
+
+priority3.ParseUser -> priority4.SearchPaths
+priority3.Skip3 -> priority4.SearchPaths
+
+# ==============================================================================
+# End Point
+# ==============================================================================
+
+Done: Build unified\ncommand tree {
+  shape: oval
+  style.fill: "#E8F5E9"
+}
+
+priority4.ParsePaths -> Done
+priority4.HasPaths -> Done: No

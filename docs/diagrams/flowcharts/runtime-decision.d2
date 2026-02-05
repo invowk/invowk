@@ -1,0 +1,201 @@
+# Runtime Selection Decision Flowchart
+#
+# Shows the complete decision tree for selecting which runtime
+# executes a command, including platform matching, runtime type
+# detection, container provisioning, and SSH server setup.
+#
+# Source: docs/architecture/flowchart-runtime-selection.md
+
+vars: {
+  d2-config: {
+    layout-engine: tala
+  }
+}
+
+direction: down
+
+# ==============================================================================
+# Entry Point
+# ==============================================================================
+
+Start: Command Requested {
+  shape: oval
+  style.fill: "#E8F5E9"
+}
+
+# ==============================================================================
+# Platform Selection
+# ==============================================================================
+
+HasImpl: Has platform-specific\nimplementation? {
+  shape: diamond
+  style.fill: "#FFF3E0"
+}
+
+SelectPlatform: Select matching platform\nimplementation
+
+UseDefault: Use default implementation
+
+Start -> HasImpl
+HasImpl -> SelectPlatform: Yes
+HasImpl -> UseDefault: No
+
+# ==============================================================================
+# Runtime Type Decision
+# ==============================================================================
+
+RuntimeType: What runtime\ntype specified? {
+  shape: diamond
+  style.fill: "#FFF3E0"
+}
+
+SelectPlatform -> RuntimeType
+UseDefault -> RuntimeType
+
+# ==============================================================================
+# Native Runtime Path
+# ==============================================================================
+
+CheckNative: Host shell\navailable? {
+  shape: diamond
+  style.fill: "#FFF3E0"
+}
+
+Native: Execute via\nbash/sh/PowerShell {
+  style.fill: "#C8E6C9"
+}
+
+FallbackVirtual: Fallback to\nvirtual? {
+  shape: diamond
+  style.fill: "#FFF3E0"
+}
+
+Error1: Error: No shell found {
+  shape: oval
+  style.fill: "#FFCDD2"
+}
+
+RuntimeType -> CheckNative: native
+CheckNative -> Native: Yes
+CheckNative -> FallbackVirtual: No
+FallbackVirtual -> Error1: No
+
+# ==============================================================================
+# Virtual Runtime Path
+# ==============================================================================
+
+Virtual: Use mvdan/sh\ninterpreter {
+  style.fill: "#C8E6C9"
+}
+
+RuntimeType -> Virtual: virtual
+FallbackVirtual -> Virtual: Yes
+
+# ==============================================================================
+# Container Runtime Path
+# ==============================================================================
+
+CheckContainer: Container engine\navailable? {
+  shape: diamond
+  style.fill: "#FFF3E0"
+}
+
+Error2: Error: No container\nengine available {
+  shape: oval
+  style.fill: "#FFCDD2"
+}
+
+Provision: Provision ephemeral\nimage layer {
+  style.fill: "#BBDEFB"
+}
+
+RuntimeType -> CheckContainer: container
+CheckContainer -> Provision: Yes
+CheckContainer -> Error2: No
+
+# ==============================================================================
+# Runtime Inference
+# ==============================================================================
+
+InferRuntime: Infer from\nimplementation {
+  shape: diamond
+  style.fill: "#FFF3E0"
+}
+
+RuntimeType -> InferRuntime: not specified
+InferRuntime -> CheckContainer: has container config
+InferRuntime -> CheckNative: has script only
+
+# ==============================================================================
+# Image Provisioning
+# ==============================================================================
+
+ImageSource: Image source? {
+  shape: diamond
+  style.fill: "#FFF3E0"
+}
+
+PullCheck: Image exists\nlocally? {
+  shape: diamond
+  style.fill: "#FFF3E0"
+}
+
+BuildImage: Build from\nContainerfile
+
+UseImage: Use existing image
+
+PullImage: Pull image from registry
+
+Provision -> ImageSource
+ImageSource -> PullCheck: image specified
+ImageSource -> BuildImage: containerfile specified
+
+PullCheck -> UseImage: Yes
+PullCheck -> PullImage: No
+PullImage -> UseImage
+BuildImage -> UseImage
+
+# ==============================================================================
+# Ephemeral Layer
+# ==============================================================================
+
+AddLayer: Add ephemeral layer:\ninvowk binary + modules {
+  style.fill: "#BBDEFB"
+}
+
+UseImage -> AddLayer
+
+# ==============================================================================
+# SSH Server Decision
+# ==============================================================================
+
+SSHNeeded: enable_host_ssh\n= true? {
+  shape: diamond
+  style.fill: "#FFF3E0"
+}
+
+StartSSH: Start SSH server\nfor callbacks {
+  style.fill: "#BBDEFB"
+}
+
+RunContainer: Run container with\nmounted volumes {
+  style.fill: "#C8E6C9"
+}
+
+AddLayer -> SSHNeeded
+SSHNeeded -> StartSSH: Yes
+SSHNeeded -> RunContainer: No
+StartSSH -> RunContainer
+
+# ==============================================================================
+# Execution
+# ==============================================================================
+
+Execute: Execute command {
+  shape: oval
+  style.fill: "#E8F5E9"
+}
+
+Virtual -> Execute
+Native -> Execute
+RunContainer -> Execute

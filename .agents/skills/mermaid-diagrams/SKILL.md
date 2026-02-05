@@ -1,6 +1,6 @@
 ---
 name: mermaid-diagrams
-description: Comprehensive guide for creating software diagrams using Mermaid syntax. Use when users need to create, visualize, or document software through diagrams including class diagrams (domain modeling, object-oriented design), sequence diagrams (application flows, API interactions, code execution), flowcharts (processes, algorithms, user journeys), entity relationship diagrams (database schemas), C4 architecture diagrams (system context, containers, components), state diagrams, git graphs, pie charts, gantt charts, or any other diagram type. Triggers include requests to "diagram", "visualize", "model", "map out", "show the flow", or when explaining system architecture, database design, code structure, or user/application flows.
+description: Mermaid diagram syntax guide for class, sequence, flowcharts, ERD, C4, state diagrams, and more. **Note: D2 is now the preferred tool for new diagrams due to superior layout and agent optimization.** Use Mermaid when: (1) GitHub-native preview is required without CI, (2) editing existing Mermaid diagrams, (3) simple diagrams where D2's benefits aren't needed. For new diagrams requiring better layout control, prefer the d2-diagrams skill.
 ---
 
 # Mermaid Diagramming

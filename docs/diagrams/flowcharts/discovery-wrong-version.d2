@@ -1,0 +1,52 @@
+# Wrong Command Version Troubleshooting Flowchart
+#
+# Diagnostic flowchart for when the wrong version of a command
+# is being executed, guiding users to resolve priority conflicts.
+#
+# Source: docs/architecture/flowchart-discovery.md
+
+vars: {
+  d2-config: {
+    layout-engine: tala
+  }
+}
+
+direction: down
+
+Wrong: Wrong command version {
+  style.fill: "#FFCDD2"
+}
+
+CheckPriority: Check discovery\nsources {
+  shape: diamond
+  style.fill: "#FFF3E0"
+}
+
+ListSources: List all sources\nwith same command
+
+Identify: Identify which\nis being used
+
+Fix: Resolution {
+  shape: diamond
+  style.fill: "#FFF3E0"
+}
+
+Ensure1: Ensure ./invkfile.cue\nhas the command {
+  style.fill: "#C8E6C9"
+}
+
+Ensure2: Remove from\nhigher-priority sources {
+  style.fill: "#C8E6C9"
+}
+
+Ensure3: Remove from\nlocal sources {
+  style.fill: "#C8E6C9"
+}
+
+Wrong -> CheckPriority
+CheckPriority -> ListSources
+ListSources -> Identify
+Identify -> Fix
+Fix -> Ensure1: Want local
+Fix -> Ensure2: Want module
+Fix -> Ensure3: Want user

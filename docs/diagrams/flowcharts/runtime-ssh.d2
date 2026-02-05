@@ -1,0 +1,66 @@
+# SSH Server Callback Pattern Flowchart
+#
+# Shows how commands inside containers can call back
+# to the host using the temporary SSH server.
+#
+# Source: docs/architecture/flowchart-runtime-selection.md
+
+vars: {
+  d2-config: {
+    layout-engine: tala
+  }
+}
+
+direction: right
+
+# ==============================================================================
+# Container Side
+# ==============================================================================
+
+container: Container {
+  style: {
+    stroke: "#1168BD"
+    stroke-dash: 3
+    fill: transparent
+  }
+
+  Cmd: Command {
+    style.fill: "#BBDEFB"
+  }
+
+  SSH_Client: SSH Client {
+    style.fill: "#BBDEFB"
+  }
+
+  Cmd -> SSH_Client
+}
+
+# ==============================================================================
+# Host Side
+# ==============================================================================
+
+host: Host {
+  style: {
+    stroke: "#1168BD"
+    stroke-dash: 3
+    fill: transparent
+  }
+
+  SSH_Server: Invowk SSH Server {
+    style.fill: "#C8E6C9"
+  }
+
+  HostCmd: Host Commands {
+    style.fill: "#C8E6C9"
+  }
+
+  SSH_Server -> HostCmd
+}
+
+# ==============================================================================
+# Connection
+# ==============================================================================
+
+container.SSH_Client -> host.SSH_Server: Token auth {
+  style.stroke: "#707070"
+}

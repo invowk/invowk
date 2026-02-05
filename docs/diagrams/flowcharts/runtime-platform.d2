@@ -1,0 +1,51 @@
+# Platform Matching Flowchart
+#
+# Shows how Invowk selects the correct implementation
+# based on the current platform (OS).
+#
+# Source: docs/architecture/flowchart-runtime-selection.md
+
+vars: {
+  d2-config: {
+    layout-engine: tala
+  }
+}
+
+direction: down
+
+# ==============================================================================
+# Platform Matching Logic
+# ==============================================================================
+
+platform_matching: Platform Matching {
+  style: {
+    stroke: "#1168BD"
+    stroke-dash: 3
+    fill: transparent
+  }
+
+  Impl: Implementation List
+
+  Check1: Current OS in\nplatforms list? {
+    shape: diamond
+    style.fill: "#FFF3E0"
+  }
+
+  UseIt: Use this implementation {
+    style.fill: "#C8E6C9"
+  }
+
+  Check2: platforms list\nempty? {
+    shape: diamond
+    style.fill: "#FFF3E0"
+  }
+
+  NextImpl: Try next implementation
+
+  Impl -> Check1
+  Check1 -> UseIt: Yes
+  Check1 -> Check2: No
+  Check2 -> UseIt: Yes
+  Check2 -> NextImpl: No
+  NextImpl -> Impl
+}

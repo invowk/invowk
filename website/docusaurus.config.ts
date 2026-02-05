@@ -29,9 +29,13 @@ const config: Config = {
 
   onBrokenLinks: 'throw',
 
+  // Static directories for serving pre-rendered diagrams
+  // The docs/diagrams directory contains D2 sources and rendered SVGs
+  // Files are served under /diagrams/rendered/... path
+  staticDirectories: ['static', '../docs'],
+
   // Markdown configuration
   markdown: {
-    mermaid: true, // Enable Mermaid diagram parsing in markdown
     hooks: {
       onBrokenMarkdownLinks: 'warn',
     },
@@ -78,7 +82,6 @@ const config: Config = {
   ],
 
   themes: [
-    '@docusaurus/theme-mermaid', // Provides Mermaid diagram rendering
     [
       require.resolve('@easyops-cn/docusaurus-search-local'),
       /** @type {import("@easyops-cn/docusaurus-search-local").PluginOptions} */

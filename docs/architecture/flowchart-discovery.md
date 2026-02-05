@@ -4,77 +4,13 @@ This diagram shows how commands are discovered and how conflicts are resolved wh
 
 ## Discovery Flow
 
-```mermaid
-flowchart TD
-    Start([Discovery Start]) --> PWD
-
-    subgraph "Priority 1: Current Directory"
-        PWD[Check ./invkfile.cue] --> HasPWD{Found?}
-        HasPWD -->|Yes| ParsePWD[Parse invkfile.cue<br/>Priority: HIGHEST]
-        HasPWD -->|No| Skip1[Continue]
-    end
-
-    ParsePWD --> Modules
-    Skip1 --> Modules
-
-    subgraph "Priority 2: Local Modules"
-        Modules[Scan for ./*.invkmod] --> HasMods{Found modules?}
-        HasMods -->|Yes| ParseMods[Parse each module<br/>Check dependencies]
-        HasMods -->|No| Skip2[Continue]
-    end
-
-    ParseMods --> ResolveDeps
-    subgraph "Dependency Resolution"
-        ResolveDeps[Resolve module dependencies] --> DepLoop{More deps?}
-        DepLoop -->|Yes| FetchDep[Fetch from Git/<br/>cache]
-        FetchDep --> ParseDep[Parse dep module]
-        ParseDep --> DepLoop
-        DepLoop -->|No| DepsResolved[All deps resolved]
-    end
-
-    DepsResolved --> UserDir
-    Skip2 --> UserDir
-
-    subgraph "Priority 3: User Directory"
-        UserDir[Check ~/.invowk/cmds/] --> HasUser{Found?}
-        HasUser -->|Yes| ParseUser[Parse user commands]
-        HasUser -->|No| Skip3[Continue]
-    end
-
-    ParseUser --> SearchPaths
-    Skip3 --> SearchPaths
-
-    subgraph "Priority 4: Search Paths"
-        SearchPaths[Check configured<br/>search_paths] --> HasPaths{Found?}
-        HasPaths -->|Yes| ParsePaths[Parse from search paths<br/>Priority: LOWEST]
-        HasPaths -->|No| Done
-    end
-
-    ParsePaths --> Done([Build unified<br/>command tree])
-```
+![Discovery Flow](../diagrams/rendered/flowcharts/discovery-flow.svg)
 
 ## Conflict Resolution
 
 When the same command name exists in multiple locations:
 
-```mermaid
-flowchart TD
-    subgraph "Command 'build' found in multiple locations"
-        L1["./invkfile.cue<br/>Priority: 1 (highest)"]
-        L2["./mytools.invkmod<br/>Priority: 2"]
-        L3["~/.invowk/cmds/<br/>Priority: 3"]
-        L4["search_paths<br/>Priority: 4 (lowest)"]
-    end
-
-    Conflict{Same command name<br/>in multiple locations}
-    Conflict --> Winner["Highest priority wins"]
-    Winner --> L1
-
-    style L1 fill:#90EE90
-    style L2 fill:#FFE4B5
-    style L3 fill:#FFE4B5
-    style L4 fill:#FFE4B5
-```
+![Conflict Resolution](../diagrams/rendered/flowcharts/discovery-conflict.svg)
 
 ### Resolution Rules
 
@@ -89,21 +25,7 @@ flowchart TD
 
 ## Module Discovery Details
 
-```mermaid
-flowchart TD
-    subgraph "Module Structure"
-        ModDir["*.invkmod/"] --> InvkmodCue["invkmod.cue<br/>(metadata)"]
-        ModDir --> InvkfileCue["invkfile.cue<br/>(commands)"]
-        ModDir --> Scripts["scripts/<br/>(optional)"]
-        ModDir --> Files["other files<br/>(optional)"]
-    end
-
-    subgraph "Module Metadata (invkmod.cue)"
-        Meta["module: 'com.example.mymod'<br/>version: '1.0.0'<br/>requires: [...]"]
-    end
-
-    InvkmodCue --> Meta
-```
+![Module Structure](../diagrams/rendered/flowcharts/discovery-module-structure.svg)
 
 ### Required Module Fields
 
@@ -124,25 +46,7 @@ requires: [
 
 ## Dependency Resolution
 
-```mermaid
-flowchart TD
-    subgraph "Module A requires Module B"
-        ModA[Module A] -->|requires| ModB[Module B]
-        ModB -->|requires| ModC[Module C]
-    end
-
-    subgraph "Visibility Rules"
-        CmdsA["A's commands"]
-        CmdsB["B's commands"]
-        CmdsC["C's commands"]
-
-        CmdsA -->|can call| CmdsB
-        CmdsA -.->|CANNOT call| CmdsC
-        CmdsB -->|can call| CmdsC
-    end
-
-    Note["Only first-level<br/>dependencies are<br/>directly visible"]
-```
+![Dependency Visibility](../diagrams/rendered/flowcharts/discovery-deps.svg)
 
 ### Transitive Dependency Visibility
 
@@ -170,69 +74,17 @@ search_paths: [
 
 ### Path Resolution Order
 
-```mermaid
-flowchart LR
-    subgraph "search_paths order matters"
-        P1["/opt/company-modules"] --> P2["/home/shared"]
-        P2 --> P3["...more paths"]
-    end
-
-    P1 -->|"Higher priority"| Win[First match wins]
-    P3 -->|"Lower priority"| Win
-```
-
-## Discovery Caching
-
-```mermaid
-flowchart TD
-    Request[Discovery Request] --> CacheCheck{Cache valid?}
-
-    CacheCheck -->|Yes| UseCache[Return cached tree]
-    CacheCheck -->|No| FullScan[Perform full scan]
-
-    FullScan --> UpdateCache[Update cache]
-    UpdateCache --> Return[Return command tree]
-
-    subgraph "Cache Invalidation"
-        FileChange[File modification]
-        NewModule[New module added]
-        ConfigChange[Config change]
-    end
-
-    FileChange --> Invalidate[Invalidate cache]
-    NewModule --> Invalidate
-    ConfigChange --> Invalidate
-```
+![Search Paths Order](../diagrams/rendered/flowcharts/discovery-search-paths.svg)
 
 ## Common Discovery Issues
 
 ### Problem: Command Not Found
 
-```mermaid
-flowchart TD
-    NotFound[Command not found] --> Check1{invkfile.cue<br/>exists?}
-    Check1 -->|No| Fix1[Create invkfile.cue]
-    Check1 -->|Yes| Check2{Command defined<br/>in cmds?}
-    Check2 -->|No| Fix2[Add command to cmds]
-    Check2 -->|Yes| Check3{Syntax errors<br/>in CUE?}
-    Check3 -->|Yes| Fix3[Fix CUE syntax]
-    Check3 -->|No| Check4{Platform<br/>matches?}
-    Check4 -->|No| Fix4[Add platform or<br/>use default impl]
-    Check4 -->|Yes| Debug[Run with --verbose]
-```
+![Command Not Found Troubleshooting](../diagrams/rendered/flowcharts/discovery-not-found.svg)
 
 ### Problem: Wrong Command Version
 
-```mermaid
-flowchart TD
-    Wrong[Wrong command version] --> CheckPriority{Check discovery<br/>sources}
-    CheckPriority --> ListSources[List all sources<br/>with same command]
-    ListSources --> Identify[Identify which<br/>is being used]
-    Identify --> Fix{Resolution}
-    Fix -->|"Want local"| Ensure1[Ensure ./invkfile.cue<br/>has the command]
-    Fix -->|"Want module"| Ensure2[Remove from<br/>higher-priority sources]
-    Fix -->|"Want user"| Ensure3[Remove from<br/>local sources]
-```
+![Wrong Version Troubleshooting](../diagrams/rendered/flowcharts/discovery-wrong-version.svg)
 
 ## Debug Commands
 

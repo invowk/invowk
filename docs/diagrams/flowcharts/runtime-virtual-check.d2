@@ -1,0 +1,23 @@
+# Virtual Runtime Availability Check Flowchart
+#
+# The virtual runtime is always available because it's embedded
+# in the Invowk binary (mvdan/sh interpreter).
+#
+# Source: docs/architecture/flowchart-runtime-selection.md
+
+vars: {
+  d2-config: {
+    layout-engine: tala
+  }
+}
+
+direction: right
+
+Start: Check Virtual
+
+Always: Always Available {
+  shape: oval
+  style.fill: "#C8E6C9"
+}
+
+Start -> Always

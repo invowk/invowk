@@ -1,0 +1,68 @@
+# Command Not Found Troubleshooting Flowchart
+#
+# Diagnostic flowchart for when a command is not found,
+# guiding users through common issues and fixes.
+#
+# Source: docs/architecture/flowchart-discovery.md
+
+vars: {
+  d2-config: {
+    layout-engine: tala
+  }
+}
+
+direction: down
+
+NotFound: Command not found {
+  style.fill: "#FFCDD2"
+}
+
+Check1: invkfile.cue\nexists? {
+  shape: diamond
+  style.fill: "#FFF3E0"
+}
+
+Fix1: Create invkfile.cue {
+  style.fill: "#C8E6C9"
+}
+
+Check2: Command defined\nin cmds? {
+  shape: diamond
+  style.fill: "#FFF3E0"
+}
+
+Fix2: Add command to cmds {
+  style.fill: "#C8E6C9"
+}
+
+Check3: Syntax errors\nin CUE? {
+  shape: diamond
+  style.fill: "#FFF3E0"
+}
+
+Fix3: Fix CUE syntax {
+  style.fill: "#C8E6C9"
+}
+
+Check4: Platform\nmatches? {
+  shape: diamond
+  style.fill: "#FFF3E0"
+}
+
+Fix4: Add platform or\nuse default impl {
+  style.fill: "#C8E6C9"
+}
+
+Debug: Run with --verbose {
+  style.fill: "#BBDEFB"
+}
+
+NotFound -> Check1
+Check1 -> Fix1: No
+Check1 -> Check2: Yes
+Check2 -> Fix2: No
+Check2 -> Check3: Yes
+Check3 -> Fix3: Yes
+Check3 -> Check4: No
+Check4 -> Fix4: No
+Check4 -> Debug: Yes

@@ -4,30 +4,7 @@ This diagram shows Invowk from the highest level - the system boundaries, users,
 
 ## Diagram
 
-```mermaid
-C4Context
-    title System Context Diagram - Invowk
-
-    Person(developer, "Developer", "Uses invowk to run commands defined in invkfiles")
-    Person(team_member, "Team Member", "Runs shared commands from invkmod modules")
-
-    System(invowk, "Invowk CLI", "Dynamically extensible command runner supporting native shell, virtual shell, and containerized execution")
-
-    System_Ext(docker, "Docker Engine", "Container runtime for isolated command execution")
-    System_Ext(podman, "Podman Engine", "Alternative container runtime (rootless)")
-    System_Ext(git, "Git Repositories", "Remote module repositories (GitHub, GitLab)")
-    System_Ext(host_shell, "Host Shell", "bash/sh on Unix, PowerShell on Windows")
-    SystemDb_Ext(filesystem, "Filesystem", "invkfile.cue, *.invkmod directories, scripts")
-
-    Rel(developer, invowk, "Defines and runs commands", "CLI")
-    Rel(team_member, invowk, "Runs shared commands", "CLI")
-
-    Rel(invowk, docker, "Executes container commands", "Docker API/CLI")
-    Rel(invowk, podman, "Executes container commands", "Podman CLI")
-    Rel(invowk, git, "Fetches remote modules", "Git protocol")
-    Rel(invowk, host_shell, "Executes native commands", "exec/spawn")
-    Rel(invowk, filesystem, "Reads configs, invkfiles, modules", "File I/O")
-```
+![C4 System Context Diagram](../diagrams/rendered/c4/context.svg)
 
 ## Key Actors
 

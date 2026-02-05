@@ -23,18 +23,46 @@ For newcomers to the codebase:
 
 ## Diagram Technology
 
-All diagrams use [Mermaid](https://mermaid.js.org/) syntax, which renders natively on GitHub and in many documentation tools.
+All diagrams use [D2](https://d2lang.com/) as the source format with TALA layout engine for production-quality auto-arrangement. Diagrams are rendered to SVG and committed to the repository, ensuring consistent display across all platforms.
+
+### Diagram Sources and Renders
+
+```
+docs/diagrams/
+├── c4/                     # C4 model diagram sources (.d2)
+├── sequences/              # Sequence diagram sources (.d2)
+├── flowcharts/             # Flowchart sources (.d2)
+└── rendered/               # Pre-rendered SVG files (committed to git)
+    ├── c4/
+    ├── sequences/
+    └── flowcharts/
+```
 
 ### Viewing Diagrams
 
-- **GitHub**: Renders automatically in markdown preview
-- **VS Code**: Use the "Markdown Preview Mermaid Support" extension
-- **CLI**: Use `mmdc` (Mermaid CLI) to generate images
-- **Docusaurus**: Mermaid plugin renders diagrams in the website
+- **GitHub**: SVG images render automatically in markdown preview
+- **Docusaurus**: SVG files served from static directory
+- **Local**: Open SVG files directly in any browser
 
 ### Editing Diagrams
 
-The [Mermaid Live Editor](https://mermaid.live/) is useful for testing changes before committing.
+1. **Edit the `.d2` source file** in `docs/diagrams/`
+2. **Validate syntax**: `d2 validate <file>.d2`
+3. **Preview locally** (optional): `d2 --layout=elk <file>.d2 preview.svg`
+4. **Render all diagrams**: `make render-diagrams`
+5. **Commit both** `.d2` source and `.svg` rendered files
+
+**Note**: The `make render-diagrams` command uses TALA if available (for production quality), otherwise falls back to ELK layout engine.
+
+### Why D2 Over Mermaid?
+
+| Feature | D2 | Mermaid |
+|---------|-----|---------|
+| Error messages | Line:col with context | Often cryptic |
+| Validation | `d2 validate` (no render) | Must render to detect errors |
+| Layout quality | TALA: superior auto-arrangement | Limited hints |
+| Determinism | Seed configuration | Non-deterministic |
+| C4 support | First-class with containers | Basic extension |
 
 ## C4 Model Background
 
@@ -54,9 +82,20 @@ For Invowk (a single CLI binary), C1 and C2 are most valuable. C3 would show int
 When making significant architectural changes:
 
 1. **Check if diagrams need updates** - New components, changed relationships, removed features
-2. **Update the relevant diagram(s)** - Keep changes focused
-3. **Verify rendering** - Test in GitHub or Mermaid Live Editor
-4. **Update tables and text** - Diagrams alone may not capture all context
+2. **Edit the D2 source file** - Use `d2 validate` to check syntax
+3. **Run `make render-diagrams`** - Re-render all diagrams to SVG
+4. **Verify rendering** - Check SVG output visually
+5. **Commit both source and rendered files** - Keep them in sync
+6. **Update tables and text** - Diagrams alone may not capture all context
+
+## For External Contributors
+
+If you don't have D2 or TALA installed:
+
+1. Edit `.d2` source files
+2. Run `d2 validate` locally (D2 is free to install)
+3. Submit PR with only `.d2` changes
+4. Maintainer will run `make render-diagrams` and commit SVGs before merge
 
 ## Future Diagrams
 
@@ -64,5 +103,4 @@ Additional diagrams that could be valuable:
 
 - **State Diagram: Server Lifecycle** - SSH and TUI server state machines
 - **Class Diagram: Runtime Interface Hierarchy** - Interface relationships
-- **Flowchart: Container Provisioning** - Ephemeral layer creation
 - **ERD: Module Dependency Structure** - Module field relationships

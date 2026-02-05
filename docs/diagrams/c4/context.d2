@@ -1,0 +1,131 @@
+# C4 System Context Diagram (C1) - Invowk
+#
+# Shows Invowk from the highest level: system boundaries, users, and external
+# systems it interacts with.
+#
+# Source: docs/architecture/c4-context.md
+
+vars: {
+  d2-config: {
+    layout-engine: tala
+  }
+}
+
+title: |md
+  ## System Context Diagram
+  **Invowk**
+|
+
+# ==============================================================================
+# Actors (People)
+# ==============================================================================
+
+developer: Developer {
+  shape: person
+  style: {
+    fill: "#08427B"
+    font-color: "#ffffff"
+  }
+  tooltip: Uses invowk to run commands defined in invkfiles
+}
+
+team_member: Team Member {
+  shape: person
+  style: {
+    fill: "#08427B"
+    font-color: "#ffffff"
+  }
+  tooltip: Runs shared commands from invkmod modules
+}
+
+# ==============================================================================
+# Main System
+# ==============================================================================
+
+invowk: Invowk CLI {
+  style: {
+    fill: "#1168BD"
+    font-color: "#ffffff"
+    bold: true
+  }
+  tooltip: |md
+    Dynamically extensible command runner supporting:
+    - Native shell execution
+    - Virtual shell (mvdan/sh)
+    - Containerized execution (Docker/Podman)
+  |
+}
+
+# ==============================================================================
+# External Systems
+# ==============================================================================
+
+docker: Docker Engine {
+  style: {
+    fill: "#999999"
+    font-color: "#ffffff"
+  }
+  tooltip: Container runtime for isolated command execution
+}
+
+podman: Podman Engine {
+  style: {
+    fill: "#999999"
+    font-color: "#ffffff"
+  }
+  tooltip: Alternative container runtime (rootless)
+}
+
+git: Git Repositories {
+  style: {
+    fill: "#999999"
+    font-color: "#ffffff"
+  }
+  tooltip: Remote module repositories (GitHub, GitLab)
+}
+
+host_shell: Host Shell {
+  style: {
+    fill: "#999999"
+    font-color: "#ffffff"
+  }
+  tooltip: bash/sh on Unix, PowerShell on Windows
+}
+
+filesystem: Filesystem {
+  shape: cylinder
+  style: {
+    fill: "#999999"
+    font-color: "#ffffff"
+  }
+  tooltip: invkfile.cue, *.invkmod directories, scripts
+}
+
+# ==============================================================================
+# Relationships
+# ==============================================================================
+
+# User relationships
+developer -> invowk: Defines and runs commands {
+  style.stroke: "#707070"
+}
+team_member -> invowk: Runs shared commands {
+  style.stroke: "#707070"
+}
+
+# System relationships
+invowk -> docker: "Executes container commands\n[Docker API/CLI]" {
+  style.stroke: "#707070"
+}
+invowk -> podman: "Executes container commands\n[Podman CLI]" {
+  style.stroke: "#707070"
+}
+invowk -> git: "Fetches remote modules\n[Git protocol]" {
+  style.stroke: "#707070"
+}
+invowk -> host_shell: "Executes native commands\n[exec/spawn]" {
+  style.stroke: "#707070"
+}
+invowk -> filesystem: "Reads configs, invkfiles, modules\n[File I/O]" {
+  style.stroke: "#707070"
+}

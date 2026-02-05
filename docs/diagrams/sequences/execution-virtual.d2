@@ -1,0 +1,58 @@
+# Virtual Runtime Execution Sequence Diagram
+#
+# Shows the execution flow for the virtual (mvdan/sh) runtime:
+# - Script parsing to AST
+# - Interpretation with builtin handling
+# - TUI requests via nested invowk commands
+#
+# Note: TUI interaction happens when the script executes nested
+# `invowk tui *` commands, which use INVOWK_TUI_ADDR and
+# INVOWK_TUI_TOKEN env vars to communicate with the TUI server.
+#
+# Source: docs/architecture/sequence-execution.md
+
+vars: {
+  d2-config: {
+    layout-engine: tala
+  }
+}
+
+shape: sequence_diagram
+
+# Participants
+CLI
+VirtualRT: Virtual Runtime
+Parser: mvdan/sh Parser
+Interp: mvdan/sh Interpreter
+Builtins: u-root Builtins
+TUI: TUI Server
+
+# Entry
+CLI -> VirtualRT: Execute(context)
+
+# 1. Parse Phase
+VirtualRT -> Parser: Parse script
+Parser -> VirtualRT: AST
+
+# 2. Interpretation Phase
+VirtualRT -> Interp: Run(AST)
+
+# Command evaluation loop
+Interp -> Interp: Evaluate command
+
+# u-root builtin path
+Interp -> Builtins: Execute builtin (if applicable)
+Builtins -> Interp: Result
+
+# TUI request path (via nested invowk command)
+Interp -> Interp: Execute nested invowk tui (if applicable)
+Interp -> TUI: HTTP request via INVOWK_TUI_ADDR
+TUI -> Interp: Component result
+
+# External command path
+Interp -> Interp: Execute via host (if external)
+
+Interp -> VirtualRT: Exit code
+
+# Return
+VirtualRT -> CLI: Result
