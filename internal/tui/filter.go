@@ -97,7 +97,17 @@ func (m *filterModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
-		case keyCtrlC, "esc":
+		case keyCtrlC:
+			m.done = true
+			m.cancelled = true
+			return m, tea.Quit
+		case "esc":
+			// Two-stage escape: if actively filtering, let escape pass through
+			// to the list component which will clear the filter (via CancelWhileFiltering).
+			// Only cancel the entire component on escape if not filtering.
+			if m.list.FilterState() == list.Filtering {
+				break // Fall through to m.list.Update(msg)
+			}
 			m.done = true
 			m.cancelled = true
 			return m, tea.Quit

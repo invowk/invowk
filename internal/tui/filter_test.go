@@ -88,7 +88,7 @@ func TestNewFilterModel_NoLimit(t *testing.T) {
 	}
 }
 
-func TestFilterModel_CancelWithEsc(t *testing.T) {
+func TestFilterModel_CancelWithEsc_NotFiltering(t *testing.T) {
 	opts := FilterOptions{
 		Title:   "Test",
 		Options: []string{"A", "B"},
@@ -97,22 +97,71 @@ func TestFilterModel_CancelWithEsc(t *testing.T) {
 
 	model := NewFilterModel(opts)
 
-	// Simulate Esc key press
+	// When not in filtering mode, Esc should immediately cancel
 	keyMsg := tea.KeyMsg{Type: tea.KeyEscape}
 	updatedModel, _ := model.Update(keyMsg)
 	m := updatedModel.(*filterModel)
 
 	if !m.IsDone() {
-		t.Error("expected model to be done after Esc")
+		t.Error("expected model to be done after Esc when not filtering")
 	}
 	if !m.Cancelled() {
-		t.Error("expected model to be cancelled after Esc")
+		t.Error("expected model to be cancelled after Esc when not filtering")
 	}
 
 	// Result should return ErrCancelled
 	_, err := m.Result()
 	if !errors.Is(err, ErrCancelled) {
 		t.Errorf("expected ErrCancelled, got %v", err)
+	}
+}
+
+func TestFilterModel_TwoStageEscape(t *testing.T) {
+	opts := FilterOptions{
+		Title:   "Test",
+		Options: []string{"Apple", "Banana", "Cherry"},
+		Config:  DefaultConfig(),
+	}
+
+	model := NewFilterModel(opts)
+
+	// Step 1: Enter filter mode by pressing "/" (activates filtering)
+	slashMsg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'/'}}
+	updatedModel, _ := model.Update(slashMsg)
+	m := updatedModel.(*filterModel)
+
+	// Step 2: Type some filter text
+	typeMsg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'a'}}
+	updatedModel, _ = m.Update(typeMsg)
+	m = updatedModel.(*filterModel)
+
+	// Verify we're in filtering mode (list.Filtering = 1)
+	if m.list.FilterState() != 1 {
+		t.Logf("FilterState: %d (expected 1 for Filtering)", m.list.FilterState())
+	}
+
+	// Step 3: First Escape should clear filter, not cancel
+	escMsg := tea.KeyMsg{Type: tea.KeyEscape}
+	updatedModel, _ = m.Update(escMsg)
+	m = updatedModel.(*filterModel)
+
+	// Should NOT be done/cancelled yet - escape was passed to list to clear filter
+	if m.IsDone() {
+		t.Error("expected model NOT to be done after first Esc while filtering")
+	}
+	if m.Cancelled() {
+		t.Error("expected model NOT to be cancelled after first Esc while filtering")
+	}
+
+	// Step 4: Second Escape (when not filtering) should cancel
+	updatedModel, _ = m.Update(escMsg)
+	m = updatedModel.(*filterModel)
+
+	if !m.IsDone() {
+		t.Error("expected model to be done after second Esc")
+	}
+	if !m.Cancelled() {
+		t.Error("expected model to be cancelled after second Esc")
 	}
 }
 
