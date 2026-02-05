@@ -585,3 +585,42 @@ func TestExecutionContext_CustomOverrides(t *testing.T) {
 		t.Error("TUI.ServerToken not set correctly")
 	}
 }
+
+// TestErrRuntimeNotAvailable_Sentinel verifies the sentinel error value.
+func TestErrRuntimeNotAvailable_Sentinel(t *testing.T) {
+	if ErrRuntimeNotAvailable == nil {
+		t.Fatal("ErrRuntimeNotAvailable should not be nil")
+	}
+	if ErrRuntimeNotAvailable.Error() != "runtime not available" {
+		t.Errorf("ErrRuntimeNotAvailable.Error() = %q, want %q", ErrRuntimeNotAvailable.Error(), "runtime not available")
+	}
+}
+
+// TestRegistry_Execute_UnavailableRuntimeWraps verifies that executing on an unavailable
+// runtime produces an error wrapping ErrRuntimeNotAvailable.
+func TestRegistry_Execute_UnavailableRuntimeWraps(t *testing.T) {
+	tmpDir := t.TempDir()
+	inv := &invkfile.Invkfile{
+		FilePath: filepath.Join(tmpDir, "invkfile.cue"),
+	}
+
+	reg := NewRegistry()
+	reg.Register(RuntimeTypeNative, &mockRuntime{
+		name:      "native",
+		available: false,
+	})
+
+	cmd := testCommandWithScript("test", "echo test", invkfile.RuntimeNative)
+	ctx := NewExecutionContext(cmd, inv)
+	ctx.IO.Stdout = &bytes.Buffer{}
+	ctx.IO.Stderr = &bytes.Buffer{}
+
+	result := reg.Execute(ctx)
+
+	if result.Error == nil {
+		t.Fatal("Execute() expected error for unavailable runtime")
+	}
+	if !errors.Is(result.Error, ErrRuntimeNotAvailable) {
+		t.Errorf("Execute() error should wrap ErrRuntimeNotAvailable, got: %v", result.Error)
+	}
+}

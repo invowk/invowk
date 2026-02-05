@@ -32,6 +32,26 @@ func TestEngineNotAvailableError_Error(t *testing.T) {
 	}
 }
 
+func TestEngineNotAvailableError_UnwrapsToSentinel(t *testing.T) {
+	err := &EngineNotAvailableError{
+		Engine: "docker",
+		Reason: "not installed",
+	}
+
+	if !errors.Is(err, ErrNoEngineAvailable) {
+		t.Error("EngineNotAvailableError should unwrap to ErrNoEngineAvailable")
+	}
+}
+
+func TestErrNoEngineAvailable_Sentinel(t *testing.T) {
+	if ErrNoEngineAvailable == nil {
+		t.Fatal("ErrNoEngineAvailable should not be nil")
+	}
+	if ErrNoEngineAvailable.Error() != "no container engine available" {
+		t.Errorf("ErrNoEngineAvailable.Error() = %q, want %q", ErrNoEngineAvailable.Error(), "no container engine available")
+	}
+}
+
 func TestDockerEngine_Name(t *testing.T) {
 	engine := NewDockerEngine()
 	if engine.Name() != "docker" {

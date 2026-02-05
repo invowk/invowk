@@ -3,6 +3,7 @@
 package discovery
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -343,6 +344,18 @@ func TestLoadFirst_NoFiles(t *testing.T) {
 	_, err := d.LoadFirst()
 	if err == nil {
 		t.Error("LoadFirst() should return error when no files found")
+	}
+	if !errors.Is(err, ErrNoInvkfileFound) {
+		t.Errorf("LoadFirst() error should be ErrNoInvkfileFound, got: %v", err)
+	}
+}
+
+func TestErrNoInvkfileFound_Sentinel(t *testing.T) {
+	if ErrNoInvkfileFound == nil {
+		t.Fatal("ErrNoInvkfileFound should not be nil")
+	}
+	if ErrNoInvkfileFound.Error() != "no invkfile found" {
+		t.Errorf("ErrNoInvkfileFound.Error() = %q, want %q", ErrNoInvkfileFound.Error(), "no invkfile found")
 	}
 }
 

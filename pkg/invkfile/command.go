@@ -200,13 +200,9 @@ func (c *Command) ValidateScripts() error {
 
 // HasDependencies returns true if the command has any dependencies (at command or script level)
 func (c *Command) HasDependencies() bool {
-	// Check command-level dependencies
-	if c.DependsOn != nil {
-		if len(c.DependsOn.Tools) > 0 || len(c.DependsOn.Commands) > 0 || len(c.DependsOn.Filepaths) > 0 || len(c.DependsOn.Capabilities) > 0 || len(c.DependsOn.CustomChecks) > 0 || len(c.DependsOn.EnvVars) > 0 {
-			return true
-		}
+	if c.HasCommandLevelDependencies() {
+		return true
 	}
-	// Check implementation-level dependencies
 	for _, s := range c.Implementations {
 		if s.HasDependencies() {
 			return true

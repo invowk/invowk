@@ -4,6 +4,7 @@ package container
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os/exec"
@@ -15,9 +16,15 @@ const (
 	EngineTypeDocker EngineType = "docker"
 )
 
-// execCommand is a package-level variable for exec.CommandContext.
-// It can be replaced in tests to mock command execution.
-var execCommand = exec.CommandContext
+var (
+	// ErrNoEngineAvailable is returned when no container engine (Docker or Podman) is available.
+	// Callers can check for this error using errors.Is(err, ErrNoEngineAvailable).
+	ErrNoEngineAvailable = errors.New("no container engine available")
+
+	// execCommand is a package-level variable for exec.CommandContext.
+	// It can be replaced in tests to mock command execution.
+	execCommand = exec.CommandContext
+)
 
 type (
 	// EngineType identifies the container engine type
@@ -122,6 +129,11 @@ type (
 
 func (e *EngineNotAvailableError) Error() string {
 	return fmt.Sprintf("container engine '%s' is not available: %s", e.Engine, e.Reason)
+}
+
+// Unwrap returns the underlying sentinel error for errors.Is compatibility.
+func (e *EngineNotAvailableError) Unwrap() error {
+	return ErrNoEngineAvailable
 }
 
 // NewEngine creates a new container engine based on preference.

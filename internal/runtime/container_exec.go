@@ -33,7 +33,30 @@ type containerExecPrep struct {
 // It resolves configuration, prepares the image, builds environment, sets up
 // SSH if enabled, and constructs the shell command. Returns a prep struct
 // containing all values needed for execution, or an error Result on failure.
-func (r *ContainerRuntime) prepareContainerExecution(ctx *ExecutionContext) (*containerExecPrep, *Result) {
+//
+// Uses a deferred cleanup-on-error pattern: all acquired resources are tracked
+// and automatically released if any step fails, so individual error paths don't
+// need manual cleanup calls.
+func (r *ContainerRuntime) prepareContainerExecution(ctx *ExecutionContext) (_ *containerExecPrep, errResult *Result) {
+	// Track resources for cleanup-on-error
+	var provisionCleanup func()
+	var sshConnInfo *sshserver.ConnectionInfo
+	var tempScriptPath string
+
+	defer func() {
+		if errResult != nil {
+			if tempScriptPath != "" {
+				_ = os.Remove(tempScriptPath)
+			}
+			if sshConnInfo != nil {
+				r.sshServer.RevokeToken(sshConnInfo.Token)
+			}
+			if provisionCleanup != nil {
+				provisionCleanup()
+			}
+		}
+	}()
+
 	// Get the container runtime config
 	rtConfig := ctx.SelectedImpl.GetRuntimeConfig(ctx.SelectedRuntime)
 	if rtConfig == nil {
@@ -49,16 +72,14 @@ func (r *ContainerRuntime) prepareContainerExecution(ctx *ExecutionContext) (*co
 	}
 
 	// Determine the image to use (with provisioning if enabled)
-	image, provisionCleanup, err := r.ensureProvisionedImage(ctx, containerCfg, invowkDir)
+	image, pCleanup, err := r.ensureProvisionedImage(ctx, containerCfg, invowkDir)
 	if err != nil {
 		return nil, &Result{ExitCode: 1, Error: fmt.Errorf("failed to prepare container image: %w", err)}
 	}
+	provisionCleanup = pCleanup
 
 	// Check for unsupported Windows container images
 	if isWindowsContainerImage(image) {
-		if provisionCleanup != nil {
-			provisionCleanup()
-		}
 		return nil, &Result{
 			ExitCode: 1,
 			Error:    fmt.Errorf("windows container images are not supported; the container runtime requires Linux-based images (e.g., debian:stable-slim); see https://invowk.io/docs/runtime-modes/container for details"),
@@ -68,9 +89,6 @@ func (r *ContainerRuntime) prepareContainerExecution(ctx *ExecutionContext) (*co
 	// Build environment
 	env, err := r.envBuilder.Build(ctx, invkfile.EnvInheritNone)
 	if err != nil {
-		if provisionCleanup != nil {
-			provisionCleanup()
-		}
 		return nil, &Result{ExitCode: 1, Error: fmt.Errorf("failed to build environment: %w", err)}
 	}
 
@@ -78,13 +96,9 @@ func (r *ContainerRuntime) prepareContainerExecution(ctx *ExecutionContext) (*co
 	hostSSHEnabled := ctx.SelectedImpl.GetHostSSHForRuntime(ctx.SelectedRuntime)
 
 	// Handle host SSH access if enabled
-	var sshConnInfo *sshserver.ConnectionInfo
 	if hostSSHEnabled {
 		sshConnInfo, err = r.setupSSHConnection(ctx, env)
 		if err != nil {
-			if provisionCleanup != nil {
-				provisionCleanup()
-			}
 			return nil, &Result{ExitCode: 1, Error: err}
 		}
 	}
@@ -99,18 +113,11 @@ func (r *ContainerRuntime) prepareContainerExecution(ctx *ExecutionContext) (*co
 
 	// Build shell command based on interpreter
 	var shellCmd []string
-	var tempScriptPath string
 
 	if interpInfo.Found {
 		// Use the resolved interpreter
 		shellCmd, tempScriptPath, err = r.buildInterpreterCommand(ctx, script, interpInfo, invowkDir)
 		if err != nil {
-			if provisionCleanup != nil {
-				provisionCleanup()
-			}
-			if sshConnInfo != nil {
-				r.sshServer.RevokeToken(sshConnInfo.Token)
-			}
 			return nil, &Result{ExitCode: 1, Error: err}
 		}
 	} else {
@@ -134,7 +141,7 @@ func (r *ContainerRuntime) prepareContainerExecution(ctx *ExecutionContext) (*co
 		extraHosts = append(extraHosts, hostGatewayMapping)
 	}
 
-	// Build combined cleanup function
+	// Build combined cleanup function (used on success path by the caller)
 	cleanup := func() {
 		if tempScriptPath != "" {
 			_ = os.Remove(tempScriptPath) // Cleanup temp file; error non-critical
@@ -147,6 +154,8 @@ func (r *ContainerRuntime) prepareContainerExecution(ctx *ExecutionContext) (*co
 		}
 	}
 
+	// Success: clear errResult so the deferred cleanup doesn't run
+	// (errResult is nil by default on success since we return nil for the second value)
 	return &containerExecPrep{
 		image:          image,
 		shellCmd:       shellCmd,

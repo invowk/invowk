@@ -133,7 +133,10 @@ func runDisambiguatedCommand(filter *SourceFilter, args []string) error {
 	}
 
 	// Execute the command using its full Name (which includes any module prefix)
-	return runCommandWithFlags(targetCmd.Name, cmdArgs, nil, nil, nil, nil, nil, "", "", nil, nil)
+	return runCommandWithFlags(runCommandOptions{
+		CommandName: targetCmd.Name,
+		Args:        cmdArgs,
+	})
 }
 
 // checkAmbiguousCommand checks if a command (including subcommands) is ambiguous.

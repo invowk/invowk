@@ -214,7 +214,19 @@ func buildLeafCommand(cmdInfo *discovery.CommandInfo, cmdPart string) *cobra.Com
 			envInheritAllow, _ := cmd.Flags().GetStringArray("env-inherit-allow")
 			envInheritDeny, _ := cmd.Flags().GetStringArray("env-inherit-deny")
 
-			err := runCommandWithFlags(cmdName, args, flagValues, cmdFlags, cmdArgs, envFiles, envVars, workdirOverride, envInheritMode, envInheritAllow, envInheritDeny)
+			err := runCommandWithFlags(runCommandOptions{
+				CommandName:             cmdName,
+				Args:                    args,
+				FlagValues:              flagValues,
+				FlagDefs:                cmdFlags,
+				ArgDefs:                 cmdArgs,
+				RuntimeEnvFiles:         envFiles,
+				RuntimeEnvVars:          envVars,
+				WorkdirOverride:         workdirOverride,
+				EnvInheritModeOverride:  envInheritMode,
+				EnvInheritAllowOverride: envInheritAllow,
+				EnvInheritDenyOverride:  envInheritDeny,
+			})
 			if err != nil {
 				var exitErr *ExitError
 				if errors.As(err, &exitErr) {

@@ -3,11 +3,16 @@
 package discovery
 
 import (
+	"errors"
 	"fmt"
 
 	"invowk-cli/internal/config"
 	"invowk-cli/pkg/invkfile"
 )
+
+// ErrNoInvkfileFound is returned when no invkfile.cue is found in any search path.
+// Callers can check for this error using errors.Is(err, ErrNoInvkfileFound).
+var ErrNoInvkfileFound = errors.New("no invkfile found")
 
 type (
 	// ModuleCollisionError is returned when two modules have the same module identifier.
@@ -82,7 +87,7 @@ func (d *Discovery) LoadFirst() (*DiscoveredFile, error) {
 	}
 
 	if len(files) == 0 {
-		return nil, fmt.Errorf("no invkfile found")
+		return nil, ErrNoInvkfileFound
 	}
 
 	file := files[0]

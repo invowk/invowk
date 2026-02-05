@@ -20,33 +20,53 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-// runCommandWithFlags executes a command with the given flag values.
-// flagValues is a map of flag name -> value.
-// flagDefs contains the flag definitions for runtime validation (can be nil for legacy calls).
-// argDefs contains the argument definitions for setting INVOWK_ARG_* env vars (can be nil for legacy calls).
-// runtimeEnvFiles contains paths to env files specified via --env-file flag.
-// runtimeEnvVars contains env vars specified via --env-var flag (KEY=VALUE pairs, highest precedence).
-// workdirOverride is the CLI override for working directory (--workdir flag, empty means no override).
-// envInheritModeOverride controls host env inheritance (empty means use runtime config/default).
-// envInheritAllowOverride and envInheritDenyOverride override runtime config allow/deny lists when provided.
-func runCommandWithFlags(cmdName string, args []string, flagValues map[string]string, flagDefs []invkfile.Flag, argDefs []invkfile.Argument, runtimeEnvFiles []string, runtimeEnvVars map[string]string, workdirOverride, envInheritModeOverride string, envInheritAllowOverride, envInheritDenyOverride []string) error {
+// runCommandOptions holds all parameters for executing a discovered command.
+type runCommandOptions struct {
+	// CommandName is the fully-qualified command name (may include module prefix).
+	CommandName string
+	// Args are the positional arguments to pass to the command.
+	Args []string
+	// FlagValues contains parsed flag values (KEY=VALUE map).
+	FlagValues map[string]string
+	// FlagDefs contains flag definitions for runtime validation.
+	FlagDefs []invkfile.Flag
+	// ArgDefs contains argument definitions for setting INVOWK_ARG_* env vars.
+	ArgDefs []invkfile.Argument
+	// RuntimeEnvFiles contains paths to env files specified via --env-file flag.
+	RuntimeEnvFiles []string
+	// RuntimeEnvVars contains env vars specified via --env-var flag (highest precedence).
+	RuntimeEnvVars map[string]string
+	// WorkdirOverride is the CLI override for working directory (--workdir flag).
+	WorkdirOverride string
+	// EnvInheritModeOverride controls host env inheritance (empty = use default).
+	EnvInheritModeOverride string
+	// EnvInheritAllowOverride overrides the runtime config allow list.
+	EnvInheritAllowOverride []string
+	// EnvInheritDenyOverride overrides the runtime config deny list.
+	EnvInheritDenyOverride []string
+}
+
+// runCommandWithFlags executes a command with the given options.
+func runCommandWithFlags(opts runCommandOptions) error {
 	cfg := config.Get()
 	disc := discovery.New(cfg)
 
 	// Find the command
-	cmdInfo, err := disc.GetCommand(cmdName)
+	cmdInfo, err := disc.GetCommand(opts.CommandName)
 	if err != nil {
 		rendered, _ := issue.Get(issue.CommandNotFoundId).Render("dark")
 		fmt.Fprint(os.Stderr, rendered)
-		return fmt.Errorf("command '%s' not found", cmdName)
+		return fmt.Errorf("command '%s' not found", opts.CommandName)
 	}
 
 	// Populate definitions from discovered command if not provided (fallback path).
 	// This enables validation and INVOWK_ARG_* / INVOWK_FLAG_* env var injection
 	// for commands invoked via runCommand (which passes nil for definitions).
+	flagDefs := opts.FlagDefs
 	if flagDefs == nil {
 		flagDefs = cmdInfo.Command.Flags
 	}
+	argDefs := opts.ArgDefs
 	if argDefs == nil {
 		argDefs = cmdInfo.Command.Args
 	}
@@ -54,6 +74,7 @@ func runCommandWithFlags(cmdName string, args []string, flagValues map[string]st
 	// Initialize flagValues with defaults for fallback path.
 	// The fallback path cannot parse flags from CLI (Cobra doesn't process them),
 	// so we only apply defaults here.
+	flagValues := opts.FlagValues
 	if flagValues == nil && len(flagDefs) > 0 {
 		flagValues = make(map[string]string)
 		for _, flag := range flagDefs {
@@ -64,12 +85,12 @@ func runCommandWithFlags(cmdName string, args []string, flagValues map[string]st
 	}
 
 	// Validate flag values at runtime
-	if err := validateFlagValues(cmdName, flagValues, flagDefs); err != nil {
+	if err := validateFlagValues(opts.CommandName, flagValues, flagDefs); err != nil {
 		return err
 	}
 
 	// Validate arguments
-	if err := validateArguments(cmdName, args, argDefs); err != nil {
+	if err := validateArguments(opts.CommandName, opts.Args, argDefs); err != nil {
 		var argErr *ArgumentValidationError
 		if errors.As(err, &argErr) {
 			fmt.Fprint(os.Stderr, RenderArgumentValidationError(argErr))
@@ -85,10 +106,10 @@ func runCommandWithFlags(cmdName string, args []string, flagValues map[string]st
 	// Validate host OS compatibility
 	if !cmdInfo.Command.CanRunOnCurrentHost() {
 		supportedPlatforms := cmdInfo.Command.GetPlatformsString()
-		fmt.Fprint(os.Stderr, RenderHostNotSupportedError(cmdName, string(currentPlatform), supportedPlatforms))
+		fmt.Fprint(os.Stderr, RenderHostNotSupportedError(opts.CommandName, string(currentPlatform), supportedPlatforms))
 		rendered, _ := issue.Get(issue.HostNotSupportedId).Render("dark")
 		fmt.Fprint(os.Stderr, rendered)
-		return fmt.Errorf("command '%s' does not support platform '%s' (supported: %s)", cmdName, currentPlatform, supportedPlatforms)
+		return fmt.Errorf("command '%s' does not support platform '%s' (supported: %s)", opts.CommandName, currentPlatform, supportedPlatforms)
 	}
 
 	// Determine which runtime to use
@@ -102,10 +123,10 @@ func runCommandWithFlags(cmdName string, args []string, flagValues map[string]st
 			for i, r := range allowedRuntimes {
 				allowedStr[i] = string(r)
 			}
-			fmt.Fprint(os.Stderr, RenderRuntimeNotAllowedError(cmdName, runtimeOverride, strings.Join(allowedStr, ", ")))
+			fmt.Fprint(os.Stderr, RenderRuntimeNotAllowedError(opts.CommandName, runtimeOverride, strings.Join(allowedStr, ", ")))
 			rendered, _ := issue.Get(issue.InvalidRuntimeModeId).Render("dark")
 			fmt.Fprint(os.Stderr, rendered)
-			return fmt.Errorf("runtime '%s' is not allowed for command '%s' on platform '%s' (allowed: %s)", runtimeOverride, cmdName, currentPlatform, strings.Join(allowedStr, ", "))
+			return fmt.Errorf("runtime '%s' is not allowed for command '%s' on platform '%s' (allowed: %s)", runtimeOverride, opts.CommandName, currentPlatform, strings.Join(allowedStr, ", "))
 		}
 		selectedRuntime = overrideRuntime
 	} else {
@@ -116,7 +137,7 @@ func runCommandWithFlags(cmdName string, args []string, flagValues map[string]st
 	// Find the matching script
 	script := cmdInfo.Command.GetImplForPlatformRuntime(currentPlatform, selectedRuntime)
 	if script == nil {
-		return fmt.Errorf("no script found for command '%s' on platform '%s' with runtime '%s'", cmdName, currentPlatform, selectedRuntime)
+		return fmt.Errorf("no script found for command '%s' on platform '%s' with runtime '%s'", opts.CommandName, currentPlatform, selectedRuntime)
 	}
 
 	// Start SSH server if enable_host_ssh is enabled for this script and runtime
@@ -137,38 +158,38 @@ func runCommandWithFlags(cmdName string, args []string, flagValues map[string]st
 	ctx.Verbose = verbose
 	ctx.SelectedRuntime = selectedRuntime
 	ctx.SelectedImpl = script
-	ctx.PositionalArgs = args       // Enable shell positional parameter access ($1, $2, etc.)
-	ctx.WorkDir = workdirOverride   // CLI override for working directory (--workdir flag)
-	ctx.ForceRebuild = forceRebuild // Force rebuild container images (--force-rebuild flag)
+	ctx.PositionalArgs = opts.Args     // Enable shell positional parameter access ($1, $2, etc.)
+	ctx.WorkDir = opts.WorkdirOverride // CLI override for working directory (--workdir flag)
+	ctx.ForceRebuild = forceRebuild    // Force rebuild container images (--force-rebuild flag)
 
 	// Set environment configuration
-	ctx.Env.RuntimeEnvFiles = runtimeEnvFiles // Env files from --env-file flag
-	ctx.Env.RuntimeEnvVars = runtimeEnvVars   // Env vars from --env-var flag (highest precedence)
+	ctx.Env.RuntimeEnvFiles = opts.RuntimeEnvFiles // Env files from --env-file flag
+	ctx.Env.RuntimeEnvVars = opts.RuntimeEnvVars   // Env vars from --env-var flag (highest precedence)
 
-	if envInheritModeOverride != "" {
-		mode, err := invkfile.ParseEnvInheritMode(envInheritModeOverride)
+	if opts.EnvInheritModeOverride != "" {
+		mode, err := invkfile.ParseEnvInheritMode(opts.EnvInheritModeOverride)
 		if err != nil {
 			return err
 		}
 		ctx.Env.InheritModeOverride = mode
 	}
 
-	for _, name := range envInheritAllowOverride {
+	for _, name := range opts.EnvInheritAllowOverride {
 		if err := invkfile.ValidateEnvVarName(name); err != nil {
 			return fmt.Errorf("env-inherit-allow: %w", err)
 		}
 	}
-	if envInheritAllowOverride != nil {
-		ctx.Env.InheritAllowOverride = envInheritAllowOverride
+	if opts.EnvInheritAllowOverride != nil {
+		ctx.Env.InheritAllowOverride = opts.EnvInheritAllowOverride
 	}
 
-	for _, name := range envInheritDenyOverride {
+	for _, name := range opts.EnvInheritDenyOverride {
 		if err := invkfile.ValidateEnvVarName(name); err != nil {
 			return fmt.Errorf("env-inherit-deny: %w", err)
 		}
 	}
-	if envInheritDenyOverride != nil {
-		ctx.Env.InheritDenyOverride = envInheritDenyOverride
+	if opts.EnvInheritDenyOverride != nil {
+		ctx.Env.InheritDenyOverride = opts.EnvInheritDenyOverride
 	}
 
 	// Create runtime registry
@@ -188,14 +209,14 @@ func runCommandWithFlags(cmdName string, args []string, flagValues map[string]st
 
 	// Execute the command
 	if verbose {
-		fmt.Fprintf(os.Stdout, "%s Running '%s'...\n", SuccessStyle.Render("→"), cmdName)
+		fmt.Fprintf(os.Stdout, "%s Running '%s'...\n", SuccessStyle.Render("→"), opts.CommandName)
 	}
 
 	// Add command-line arguments as environment variables (legacy format)
-	for i, arg := range args {
+	for i, arg := range opts.Args {
 		ctx.Env.ExtraEnv[fmt.Sprintf("ARG%d", i+1)] = arg
 	}
-	ctx.Env.ExtraEnv["ARGC"] = fmt.Sprintf("%d", len(args))
+	ctx.Env.ExtraEnv["ARGC"] = fmt.Sprintf("%d", len(opts.Args))
 
 	// Add arguments as INVOWK_ARG_* environment variables (new format)
 	if len(argDefs) > 0 {
@@ -206,8 +227,8 @@ func runCommandWithFlags(cmdName string, args []string, flagValues map[string]st
 			case argDef.Variadic:
 				// For variadic args, collect all remaining arguments
 				var variadicValues []string
-				if i < len(args) {
-					variadicValues = args[i:]
+				if i < len(opts.Args) {
+					variadicValues = opts.Args[i:]
 				}
 
 				// Set count
@@ -220,9 +241,9 @@ func runCommandWithFlags(cmdName string, args []string, flagValues map[string]st
 
 				// Also set a space-joined version for convenience
 				ctx.Env.ExtraEnv[envName] = strings.Join(variadicValues, " ")
-			case i < len(args):
+			case i < len(opts.Args):
 				// Non-variadic arg with provided value
-				ctx.Env.ExtraEnv[envName] = args[i]
+				ctx.Env.ExtraEnv[envName] = opts.Args[i]
 			case argDef.DefaultValue != "":
 				// Non-variadic arg with default value
 				ctx.Env.ExtraEnv[envName] = argDef.DefaultValue
@@ -250,7 +271,7 @@ func runCommandWithFlags(cmdName string, args []string, flagValues map[string]st
 
 		interactiveRT := runtime.GetInteractiveRuntime(rt)
 		if interactiveRT != nil {
-			result = executeInteractive(ctx, registry, cmdName, interactiveRT)
+			result = executeInteractive(ctx, registry, opts.CommandName, interactiveRT)
 		} else {
 			// Runtime doesn't support interactive mode, fall back to standard execution
 			if verbose {
@@ -290,8 +311,11 @@ func runCommand(args []string) error {
 	cmdName := args[0]
 	cmdArgs := args[1:]
 
-	// Delegate to runCommandWithFlags with empty flag values, no arg definitions, and no overrides
-	return runCommandWithFlags(cmdName, cmdArgs, nil, nil, nil, nil, nil, "", "", nil, nil)
+	// Delegate to runCommandWithFlags with only command name and args
+	return runCommandWithFlags(runCommandOptions{
+		CommandName: cmdName,
+		Args:        cmdArgs,
+	})
 }
 
 // executeInteractive runs a command in interactive mode using an alternate screen buffer.

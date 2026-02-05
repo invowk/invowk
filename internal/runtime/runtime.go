@@ -5,6 +5,7 @@ package runtime
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -22,10 +23,16 @@ const (
 	RuntimeTypeContainer RuntimeType = "container"
 )
 
-// executionIDCounter ensures unique execution IDs even when multiple IDs are
-// generated within the same nanosecond (possible on fast CPUs or systems with
-// low-precision clocks like Windows).
-var executionIDCounter atomic.Uint64
+var (
+	// ErrRuntimeNotAvailable is returned when the requested runtime is not available on the current system.
+	// Callers can check for this error using errors.Is(err, ErrRuntimeNotAvailable).
+	ErrRuntimeNotAvailable = errors.New("runtime not available")
+
+	// executionIDCounter ensures unique execution IDs even when multiple IDs are
+	// generated within the same nanosecond (possible on fast CPUs or systems with
+	// low-precision clocks like Windows).
+	executionIDCounter atomic.Uint64
+)
 
 type (
 	// IOContext holds I/O streams for command execution.
@@ -313,7 +320,7 @@ func (r *Registry) Execute(ctx *ExecutionContext) *Result {
 	if !rt.Available() {
 		return &Result{
 			ExitCode: 1,
-			Error:    fmt.Errorf("runtime '%s' is not available on this system", rt.Name()),
+			Error:    fmt.Errorf("runtime '%s': %w", rt.Name(), ErrRuntimeNotAvailable),
 		}
 	}
 

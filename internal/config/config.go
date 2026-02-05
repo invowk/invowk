@@ -19,11 +19,6 @@ import (
 )
 
 const (
-	// ContainerEnginePodman uses Podman as the container runtime.
-	ContainerEnginePodman ContainerEngine = "podman"
-	// ContainerEngineDocker uses Docker as the container runtime.
-	ContainerEngineDocker ContainerEngine = "docker"
-
 	// AppName is the application name.
 	AppName = "invowk"
 	// ConfigFileName is the name of the config file (without extension).
@@ -32,107 +27,8 @@ const (
 	ConfigFileExt = "cue"
 )
 
-var (
-	//go:embed config_schema.cue
-	configSchema string
-
-	// globalConfig holds the loaded configuration.
-	globalConfig *Config
-	// configPath stores the path where config was loaded from.
-	configPath string
-	// configDirOverride allows tests to override the config directory.
-	// This is necessary because os.UserHomeDir() doesn't reliably respect
-	// the HOME environment variable on all platforms (e.g., macOS in CI).
-	configDirOverride string
-	// configFilePathOverride allows specifying a custom config file path.
-	// This is used by the --config CLI flag to load config from a specific file.
-	configFilePathOverride string
-	// errLastLoad stores the last error from Load() for later retrieval.
-	// This allows Get() to return defaults while preserving error information.
-	errLastLoad error
-)
-
-type (
-	// ContainerEngine specifies which container runtime to use.
-	ContainerEngine string
-
-	// Config holds the application configuration.
-	Config struct {
-		// ContainerEngine specifies whether to use "podman" or "docker"
-		ContainerEngine ContainerEngine `json:"container_engine" mapstructure:"container_engine"`
-		// SearchPaths contains additional directories to search for invkfiles
-		SearchPaths []string `json:"search_paths" mapstructure:"search_paths"`
-		// DefaultRuntime sets the global default runtime mode
-		DefaultRuntime string `json:"default_runtime" mapstructure:"default_runtime"`
-		// VirtualShell configures the virtual shell behavior
-		VirtualShell VirtualShellConfig `json:"virtual_shell" mapstructure:"virtual_shell"`
-		// UI configures the user interface
-		UI UIConfig `json:"ui" mapstructure:"ui"`
-		// Container configures container runtime behavior
-		Container ContainerConfig `json:"container" mapstructure:"container"`
-		// ModuleAliases maps module paths to alias names for collision disambiguation
-		ModuleAliases map[string]string `json:"module_aliases" mapstructure:"module_aliases"`
-	}
-
-	// ContainerConfig configures container runtime behavior.
-	ContainerConfig struct {
-		// AutoProvision configures automatic provisioning of invowk resources
-		AutoProvision AutoProvisionConfig `json:"auto_provision" mapstructure:"auto_provision"`
-	}
-
-	// AutoProvisionConfig controls auto-provisioning of invowk resources into containers.
-	AutoProvisionConfig struct {
-		// Enabled enables/disables auto-provisioning (default: true)
-		Enabled bool `json:"enabled" mapstructure:"enabled"`
-		// BinaryPath overrides the path to the invowk binary to provision
-		BinaryPath string `json:"binary_path" mapstructure:"binary_path"`
-		// ModulesPaths specifies additional directories to search for modules
-		ModulesPaths []string `json:"modules_paths" mapstructure:"modules_paths"`
-		// CacheDir specifies where to store cached provisioned images metadata
-		CacheDir string `json:"cache_dir" mapstructure:"cache_dir"`
-	}
-
-	// VirtualShellConfig configures the virtual shell runtime.
-	VirtualShellConfig struct {
-		// EnableUrootUtils enables u-root utilities in virtual shell
-		EnableUrootUtils bool `json:"enable_uroot_utils" mapstructure:"enable_uroot_utils"`
-	}
-
-	// UIConfig configures the user interface.
-	UIConfig struct {
-		// ColorScheme sets the color scheme ("auto", "dark", "light")
-		ColorScheme string `json:"color_scheme" mapstructure:"color_scheme"`
-		// Verbose enables verbose output
-		Verbose bool `json:"verbose" mapstructure:"verbose"`
-		// Interactive enables alternate screen buffer mode for command execution
-		Interactive bool `json:"interactive" mapstructure:"interactive"`
-	}
-)
-
-// DefaultConfig returns the default configuration
-func DefaultConfig() *Config {
-	return &Config{
-		ContainerEngine: ContainerEnginePodman,
-		SearchPaths:     []string{},
-		DefaultRuntime:  "native",
-		VirtualShell: VirtualShellConfig{
-			EnableUrootUtils: true,
-		},
-		UI: UIConfig{
-			ColorScheme: "auto",
-			Verbose:     false,
-			Interactive: false,
-		},
-		Container: ContainerConfig{
-			AutoProvision: AutoProvisionConfig{
-				Enabled:      true,
-				BinaryPath:   "", // Will use os.Executable() if empty
-				ModulesPaths: []string{},
-				CacheDir:     "", // Will use default cache dir if empty
-			},
-		},
-	}
-}
+//go:embed config_schema.cue
+var configSchema string
 
 // ConfigDir returns the invowk configuration directory.
 //
@@ -345,35 +241,6 @@ func fileExists(path string) bool {
 	return err == nil && !info.IsDir()
 }
 
-// Get returns the currently loaded configuration.
-// If configuration loading fails, it returns defaults and stores the error
-// for retrieval via LastLoadError().
-func Get() *Config {
-	if globalConfig == nil {
-		cfg, err := Load()
-		if err != nil {
-			errLastLoad = err
-			return DefaultConfig()
-		}
-		return cfg
-	}
-	return globalConfig
-}
-
-// LastLoadError returns the most recent error from configuration loading.
-// This is useful for surfacing config errors to users even when defaults are used.
-// Returns nil if configuration loaded successfully or was never attempted.
-func LastLoadError() error {
-	return errLastLoad
-}
-
-// ConfigFilePath returns the path to the config file.
-//
-//nolint:revive // ConfigFilePath is more descriptive than FilePath for external callers
-func ConfigFilePath() string {
-	return configPath
-}
-
 // EnsureConfigDir creates the config directory if it doesn't exist
 func EnsureConfigDir() error {
 	cfgDir, err := ConfigDir()
@@ -499,41 +366,4 @@ func GenerateCUE(cfg *Config) string {
 	sb.WriteString("}\n")
 
 	return sb.String()
-}
-
-// Reset clears all state including cached configuration and test overrides
-func Reset() {
-	globalConfig = nil
-	configPath = ""
-	configDirOverride = ""
-	configFilePathOverride = ""
-	errLastLoad = nil
-}
-
-// ResetCache clears only the cached configuration, preserving any test overrides.
-// This is useful when testing scenarios that require reloading the config from disk
-// without losing the test's config directory override.
-func ResetCache() {
-	globalConfig = nil
-	configPath = ""
-	errLastLoad = nil
-}
-
-// SetConfigDirOverride sets a custom config directory path.
-// This is primarily intended for testing to bypass os.UserHomeDir() which
-// doesn't reliably respect the HOME env var on all platforms (e.g., macOS in CI).
-func SetConfigDirOverride(dir string) {
-	configDirOverride = dir
-}
-
-// SetConfigFilePathOverride sets a custom config file path.
-// This is used by the --config CLI flag to load config from a specific file.
-// When set, the specified file must exist or Load() will return an error.
-// This also clears the cached configuration to force reloading from the new path.
-func SetConfigFilePathOverride(path string) {
-	configFilePathOverride = path
-	// Clear cache to force reload from the new path
-	globalConfig = nil
-	configPath = ""
-	errLastLoad = nil
 }
