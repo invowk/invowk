@@ -134,6 +134,18 @@ const sidebars: SidebarsConfig = {
         'reference/config-schema',
       ],
     },
+    {
+      type: 'category',
+      label: 'Architecture',
+      items: [
+        'architecture/overview',
+        'architecture/c4-context',
+        'architecture/c4-container',
+        'architecture/execution-flow',
+        'architecture/runtime-selection',
+        'architecture/discovery',
+      ],
+    },
   ],
 };
 

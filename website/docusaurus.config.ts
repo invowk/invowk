@@ -31,6 +31,7 @@ const config: Config = {
 
   // Markdown configuration
   markdown: {
+    mermaid: true, // Enable Mermaid diagram parsing in markdown
     hooks: {
       onBrokenMarkdownLinks: 'warn',
     },
@@ -77,6 +78,7 @@ const config: Config = {
   ],
 
   themes: [
+    '@docusaurus/theme-mermaid', // Provides Mermaid diagram rendering
     [
       require.resolve('@easyops-cn/docusaurus-search-local'),
       /** @type {import("@easyops-cn/docusaurus-search-local").PluginOptions} */
@@ -155,6 +157,10 @@ const config: Config = {
             {
               label: 'CLI Reference',
               to: '/docs/reference/cli',
+            },
+            {
+              label: 'Architecture',
+              to: '/docs/architecture/overview',
             },
           ],
         },

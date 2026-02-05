@@ -12,7 +12,15 @@ Invowk is a dynamically extensible command runner (similar to `just`, `task`, an
 
 ## Rules for Agents (Critical)
 
+### Compaction
+
+Prioritize the keeping and remembering of file paths, function and symbol names, identified issues and goals, current architectural decisions, semantic learnings, and next steps. Do not discard the output of the latest ~5 tool calls; discard the oldest ones.
+
+### Workflow Orchestration
+
 **CRITICAL:** Whenever possible and appropriate, multiple Tasks and Subagents must be used.
+
+### Rules
 
 **CRITICAL:** The files in `.claude/rules/` define the authoritative rules for agents. EVERYTIME there is ANY change to files/rules inside `.claude/rules` (new file, file rename, file removed, etc.), the index/sync map in this file MUST be updated accordingly.
 
@@ -28,6 +36,8 @@ Invowk is a dynamically extensible command runner (similar to `just`, `task`, an
 - [`.claude/rules/testing.md`](.claude/rules/testing.md) - Test patterns, cross-platform testing, skipOnWindows.
 - [`.claude/rules/windows.md`](.claude/rules/windows.md) - Windows-specific constraints and guidance.
 
+## Skills
+
 **Skills Index (`.claude/skills/`):**
 
 Skills provide domain-specific procedural guidance. They are invoked when working on specific components.
@@ -38,6 +48,8 @@ Skills provide domain-specific procedural guidance. They are invoked when workin
 - [`.claude/skills/server/`](.claude/skills/server/) - Server state machine pattern for SSH and TUI servers.
 - [`.claude/skills/shell/`](.claude/skills/shell/) - Shell runtime rules for mvdan/sh virtual shell.
 - [`.claude/skills/testing/`](.claude/skills/testing/) - Testing patterns, testscript CLI tests, race conditions, TUI/container testing.
+- [`.claude/skills/tmux-testing/`](.claude/skills/tmux-testing/) - tmux-based TUI testing for fast, CI-friendly text and ANSI verification.
+- [`.claude/skills/tui-testing/`](.claude/skills/tui-testing/) - VHS-based TUI testing workflow for autonomous visual analysis.
 - [`.claude/skills/uroot/`](.claude/skills/uroot/) - u-root utility implementation patterns.
 
 ## Architecture Overview
