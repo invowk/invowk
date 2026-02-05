@@ -1,6 +1,6 @@
 ---
 name: tui-testing
-description: VHS-based TUI testing workflow for autonomous visual analysis
+description: VHS-based TUI testing workflow using .tape files for visual analysis. Use when testing invowk tui commands, verifying visual layout/colors, or debugging TUI with screenshots.
 disable-model-invocation: false
 ---
 

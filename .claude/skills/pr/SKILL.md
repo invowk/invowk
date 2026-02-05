@@ -1,6 +1,6 @@
 ---
 name: pr
-description: Github PR workflow
+description: GitHub pull request workflow including tests, lints, license check, branch creation, conventional commits, and PR description. Use when creating commits, pushing branches, or opening pull requests.
 disable-model-invocation: true
 ---
 

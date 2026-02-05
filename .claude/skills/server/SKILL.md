@@ -1,6 +1,6 @@
 ---
 name: server
-description: Server state machine pattern for long-running components (SSH, TUI servers)
+description: Server state machine pattern for sshserver/, tuiserver/, and core/serverbase/. Covers lifecycle states (Created→Starting→Running→Stopping→Stopped), atomic state reads, idempotent stop.
 disable-model-invocation: false
 ---
 

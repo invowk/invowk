@@ -1,3 +1,10 @@
+---
+description: Package boundaries, interface decoupling, tightly-coupled concerns, utility package guidelines
+globs:
+  - "pkg/**"
+  - "internal/**"
+---
+
 # Package Design
 
 ## Cross-Domain Dependencies

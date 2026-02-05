@@ -1,3 +1,9 @@
+---
+description: Go style guide covering imports, naming, errors, interfaces, functional options, code organization
+globs:
+  - "**/*.go"
+---
+
 # Go Patterns
 
 ## Import Ordering

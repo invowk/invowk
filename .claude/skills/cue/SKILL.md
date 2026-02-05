@@ -1,6 +1,6 @@
 ---
 name: cue
-description: CUE schema patterns, 3-step parsing flow, validation matrix, error formatting
+description: CUE schema patterns for *.cue files, 3-step parsing flow, validation matrix, error formatting. Use when editing invkfile_schema.cue, invkmod_schema.cue, config_schema.cue, or working with cueutil parsing.
 disable-model-invocation: false
 ---
 

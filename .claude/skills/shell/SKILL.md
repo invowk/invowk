@@ -1,6 +1,6 @@
 ---
 name: shell
-description: Shell runtime rules for mvdan/sh and bash script execution gotchas
+description: Shell runtime rules for mvdan/sh virtual shell in internal/runtime/virtual.go. Covers positional arguments gotcha (prepend "--"), bash strict mode (set -euo pipefail), arithmetic increment pitfalls.
 disable-model-invocation: false
 ---
 

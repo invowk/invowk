@@ -1,6 +1,6 @@
 ---
 name: invowk-schema
-description: Invkfile/invkmod schema guidelines, cross-platform patterns, command validation
+description: Schema guidelines for invkfile.cue and modules/*.invkmod, cross-platform runtime patterns, command implementations, capability checks, environment variables.
 disable-model-invocation: false
 ---
 

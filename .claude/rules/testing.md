@@ -1,3 +1,11 @@
+---
+description: Test organization, table-driven tests, cross-platform testing, testscript CLI tests, container timeouts
+globs:
+  - "**/*_test.go"
+  - "tests/cli/**"
+  - "**/testdata/**"
+---
+
 # Testing
 
 ## Test Organization

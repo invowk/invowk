@@ -1,6 +1,6 @@
 ---
 name: docs
-description: Documentation and Docusaurus website workflow, sync map, and i18n
+description: Documentation workflow for website/ directory, Docusaurus, MDX snippets, i18n localization. Use when editing docs/, creating documentation pages, or updating WEBSITE_DOCS.md.
 disable-model-invocation: false
 ---
 

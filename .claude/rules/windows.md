@@ -1,3 +1,12 @@
+---
+description: Windows compatibility for path handling, reserved names, CI considerations, container path domains
+globs:
+  - "internal/container/**"
+  - "internal/runtime/**"
+  - "internal/provision/**"
+  - "pkg/platform/**"
+---
+
 # Windows Compatibility
 
 This Go codebase builds and runs on Windows. Follow these rules to ensure cross-platform compatibility.

@@ -1,3 +1,9 @@
+---
+description: SPDX license headers (MPL-2.0) required for all Go source files
+globs:
+  - "**/*.go"
+---
+
 # Licensing
 
 This project is licensed under the Mozilla Public License 2.0 (MPL-2.0). See the [LICENSE](../../LICENSE) file for the full license text.

@@ -1,6 +1,6 @@
 ---
 name: testing
-description: Testing patterns, testscript CLI tests, race conditions, TUI/container testing
+description: Testing patterns for *_test.go files, testscript CLI tests (.txtar), race conditions, TUI component testing, container test timeouts. Use when writing tests, debugging flaky tests, or setting up testscript.
 disable-model-invocation: false
 ---
 

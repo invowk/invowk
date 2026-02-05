@@ -43,7 +43,10 @@ Invowk is a dynamically extensible command runner (similar to `just`, `task`, an
 
 Skills provide domain-specific procedural guidance. They are invoked when working on specific components.
 
+- [`.claude/skills/cli/`](.claude/skills/cli/) - CLI command structure, Cobra patterns, execution flow, hidden internal commands.
+- [`.claude/skills/container/`](.claude/skills/container/) - Container engine abstraction, Docker/Podman patterns, path handling, Linux-only policy.
 - [`.claude/skills/cue/`](.claude/skills/cue/) - CUE schema parsing, 3-step parse flow, validation matrix, schema sync tests.
+- [`.claude/skills/discovery/`](.claude/skills/discovery/) - Module/command discovery, precedence order, collision detection, source tracking.
 - [`.claude/skills/docs/`](.claude/skills/docs/) - Documentation workflow and Docusaurus website development.
 - [`.claude/skills/invowk-schema/`](.claude/skills/invowk-schema/) - Invkfile/invkmod schema guidelines, cross-platform runtime patterns.
 - [`.claude/skills/server/`](.claude/skills/server/) - Server state machine pattern for SSH and TUI servers.
@@ -52,6 +55,28 @@ Skills provide domain-specific procedural guidance. They are invoked when workin
 - [`.claude/skills/tmux-testing/`](.claude/skills/tmux-testing/) - tmux-based TUI testing for fast, CI-friendly text and ANSI verification.
 - [`.claude/skills/tui-testing/`](.claude/skills/tui-testing/) - VHS-based TUI testing workflow for autonomous visual analysis.
 - [`.claude/skills/uroot/`](.claude/skills/uroot/) - u-root utility implementation patterns.
+
+### Code Area → Rules/Skills Mapping
+
+When working in a specific code area, apply these rules and skills:
+
+| Code Area | Rules | Skills |
+|-----------|-------|--------|
+| `cmd/invowk/` | go-patterns, testing, licensing, commands | cli |
+| `internal/container/` | go-patterns, testing, windows, licensing | container |
+| `internal/discovery/` | go-patterns, testing, licensing, package-design | discovery |
+| `internal/runtime/` | go-patterns, testing, windows, licensing | shell (for virtual runtime) |
+| `internal/config/` | go-patterns, testing, cue-patterns, licensing | cue |
+| `internal/cueutil/` | go-patterns, testing, cue-patterns, licensing | cue |
+| `internal/sshserver/` | go-patterns, testing, licensing | server |
+| `internal/tuiserver/` | go-patterns, testing, licensing | server |
+| `internal/tui/` | go-patterns, testing, licensing | testing, tui-testing, tmux-testing |
+| `internal/issue/` | go-patterns, testing, licensing | — |
+| `internal/provision/` | go-patterns, testing, windows, licensing | container |
+| `pkg/invkfile/` | go-patterns, testing, cue-patterns, licensing, package-design | cue, invowk-schema |
+| `pkg/invkmod/` | go-patterns, testing, cue-patterns, licensing, package-design | cue, invowk-schema |
+| `website/` | general-rules | docs |
+| `tests/cli/` | testing | testing, cli |
 
 ## Architecture Overview
 
