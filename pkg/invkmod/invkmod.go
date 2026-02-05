@@ -41,47 +41,47 @@ type (
 	//nolint:errname // Intentionally named Issue, not Error - semantic domain type
 	ValidationIssue struct {
 		// Type categorizes the issue (e.g., "structure", "naming", "invkfile")
-		Type string
+		Type string `json:"-"`
 		// Message describes the specific problem
-		Message string
+		Message string `json:"-"`
 		// Path is the relative path within the module where the issue was found (optional)
-		Path string
+		Path string `json:"-"`
 	}
 
 	// ValidationResult contains the result of module validation.
 	ValidationResult struct {
 		// Valid is true if the module passed all validation checks
-		Valid bool
+		Valid bool `json:"-"`
 		// ModulePath is the absolute path to the validated module
-		ModulePath string
+		ModulePath string `json:"-"`
 		// ModuleName is the extracted name from the folder (without .invkmod suffix)
-		ModuleName string
+		ModuleName string `json:"-"`
 		// InvkmodPath is the path to the invkmod.cue within the module (required)
-		InvkmodPath string
+		InvkmodPath string `json:"-"`
 		// InvkfilePath is the path to the invkfile.cue within the module (optional for library-only modules)
-		InvkfilePath string
+		InvkfilePath string `json:"-"`
 		// IsLibraryOnly is true if the module has no invkfile.cue
-		IsLibraryOnly bool
+		IsLibraryOnly bool `json:"-"`
 		// Issues contains all validation problems found
-		Issues []ValidationIssue
+		Issues []ValidationIssue `json:"-"`
 	}
 
 	// Module represents a loaded invowk module, ready for use.
 	// This is the unified type combining filesystem structure with parsed content.
 	Module struct {
 		// Metadata is the parsed invkmod.cue content (always present after Load())
-		Metadata *Invkmod
+		Metadata *Invkmod `json:"-"`
 
 		// Commands is the parsed invkfile.cue content (nil for library-only modules)
 		// Type is any to avoid circular imports with pkg/invkfile.
 		// The actual type is *invkfile.Invkfile.
-		Commands any
+		Commands any `json:"-"`
 
 		// Path is the absolute filesystem path to the module directory
-		Path string
+		Path string `json:"-"`
 
 		// IsLibraryOnly is true if the module has no invkfile.cue
-		IsLibraryOnly bool
+		IsLibraryOnly bool `json:"-"`
 	}
 
 	// ModuleRequirement represents a dependency on another module from a Git repository.
@@ -136,11 +136,11 @@ type (
 	// Commands CANNOT call transitive dependencies (dependencies of dependencies).
 	CommandScope struct {
 		// ModuleID is the module identifier that owns this scope
-		ModuleID string
+		ModuleID string `json:"-"`
 		// GlobalModules are commands from globally installed modules (always accessible)
-		GlobalModules map[string]bool
+		GlobalModules map[string]bool `json:"-"`
 		// DirectDeps are module IDs from first-level requirements (from invkmod.cue:requires)
-		DirectDeps map[string]bool
+		DirectDeps map[string]bool `json:"-"`
 	}
 )
 
