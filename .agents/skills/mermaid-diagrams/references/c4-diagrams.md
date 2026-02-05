@@ -9,6 +9,20 @@ The C4 model provides a hierarchical way to visualize software architecture at d
 3. **Component** - Shows internal structure of containers
 4. **Code** - Class diagrams showing implementation details (use regular class diagrams)
 
+## C4 Layout Constraints
+
+C4 diagrams in Mermaid have different layout capabilities than standard flowcharts. Understanding these limitations prevents wasted effort trying unsupported features.
+
+| Feature | Works in Flowcharts | Works in C4 | Notes |
+|---------|---------------------|-------------|-------|
+| ELK layout engine | Yes | **No** | C4 uses custom manual layout, not dagre/ELK |
+| Nested boundaries | N/A | **No** | Only one level of `Container_Boundary` allowed |
+| Direction (TB/LR/RL/BT) | Yes | **No** | Ignored; use statement order instead |
+| `linkStyle` | Yes | **No** | Use `UpdateRelStyle` for relationship styling |
+| `classDef`/`class` | Yes | **No** | C4 has built-in styling via element types |
+
+**Key takeaway**: C4 layout is controlled by definition order and explicit configuration directives, not by automatic layout engines.
+
 ## C4 Context Diagram
 
 Shows the big picture: your system and its relationships with users and external systems.
@@ -325,6 +339,121 @@ C4Container
     Rel(search, event_bus, "Consumes events", "Kafka")
 ```
 
+## Optimizing C4 Diagram Legibility
+
+Complex C4 diagrams can become hard to read due to overlapping relationship labels and dense element placement. Use these techniques to improve legibility.
+
+### Relationship Density Limits
+
+**Rule of thumb**: Aim for 12-15 relationships maximum before overlap issues become problematic. Beyond ~20 relationships, consider splitting into multiple diagrams.
+
+### UpdateLayoutConfig
+
+Controls how many shapes and boundaries appear per row:
+
+```mermaid
+C4Container
+    %% At the end of the diagram (after all relationships)
+    UpdateLayoutConfig($c4ShapeInRow="3", $c4BoundaryInRow="2")
+```
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `$c4ShapeInRow` | 4 | Number of shapes (containers/components) per row |
+| `$c4BoundaryInRow` | 2 | Number of boundaries per row |
+
+Lower values create more vertical layouts with less horizontal crowding.
+
+### UpdateRelStyle
+
+Adjusts relationship line styling and label positioning:
+
+```mermaid
+C4Container
+    %% Full signature
+    UpdateRelStyle(from, to, $textColor, $lineColor, $offsetX, $offsetY)
+
+    %% Common usage: offset overlapping labels
+    UpdateRelStyle(cmd, runtime_native, $offsetY="-10")
+    UpdateRelStyle(cmd, runtime_virtual, $offsetY="10")
+    UpdateRelStyle(cmd, runtime_container, $offsetY="30")
+```
+
+| Parameter | Description |
+|-----------|-------------|
+| `from` | Source element ID |
+| `to` | Target element ID |
+| `$textColor` | Label text color (optional) |
+| `$lineColor` | Relationship line color (optional) |
+| `$offsetX` | Horizontal offset for label in pixels (quoted string, e.g., `"-30"`) |
+| `$offsetY` | Vertical offset for label in pixels (quoted string, e.g., `"10"`) |
+
+**When to use offsets**: When multiple relationships fan out from or converge on the same element, causing label overlap.
+
+### Init Config for Spacing
+
+Use the config front matter to increase diagram margins and shape spacing:
+
+```mermaid
+---
+config:
+  c4:
+    diagramMarginX: 50
+    diagramMarginY: 20
+    c4ShapeMargin: 40
+    c4ShapePadding: 10
+---
+C4Container
+    title My Diagram
+    %% ... diagram content
+```
+
+| Config Key | Default | Description |
+|------------|---------|-------------|
+| `diagramMarginX` | 20 | Horizontal margin around the entire diagram |
+| `diagramMarginY` | 10 | Vertical margin around the entire diagram |
+| `c4ShapeMargin` | 20 | Margin around each shape |
+| `c4ShapePadding` | 5 | Padding inside each shape |
+
+### Statement Ordering
+
+Element position is primarily determined by definition order in the source. Place elements in the visual order you want them to appear:
+
+1. External systems at the top
+2. User/Person elements on the left
+3. Primary boundaries before secondary
+4. Data stores at the bottom
+
+### Multiple Boundaries Strategy
+
+You cannot nest `Container_Boundary` elements, but you CAN use multiple top-level boundaries to create logical groupings:
+
+```mermaid
+C4Container
+    Container_Boundary(core, "Core Layer") {
+        Container(a, "Component A", "Tech")
+        Container(b, "Component B", "Tech")
+    }
+
+    Container_Boundary(infra, "Infrastructure Layer") {
+        Container(c, "Component C", "Tech")
+        Container(d, "Component D", "Tech")
+    }
+```
+
+This creates visual separation without requiring nested boundaries.
+
+### C4 Anti-Patterns
+
+| Anti-Pattern | What Happens | Fix |
+|--------------|--------------|-----|
+| Nested `Container_Boundary` | Silently fails or renders incorrectly | Use multiple top-level boundaries |
+| `direction TB` / `direction LR` | Ignored completely | Use statement order + `UpdateLayoutConfig` |
+| Expecting ELK layout | No effect | C4 uses custom layout only |
+| >20 relationships in one diagram | Label overlap, visual chaos | Split into multiple diagrams or prune |
+| Dense fan-out without offsets | Overlapping labels | Use `UpdateRelStyle` with `$offsetX`/`$offsetY` |
+| Very long descriptions | Cramped layout | Use shorter descriptions, add detail in docs |
+
 ## Best Practices
 
 1. **Use appropriate level** - Context for stakeholders, Container for architects, Component for developers
@@ -337,6 +466,10 @@ C4Container
 8. **Document protocols** - Show communication methods (REST, gRPC, messaging)
 9. **Highlight external systems** - Use *_Ext variants for clarity
 10. **Start simple** - Begin with Context, drill down as needed
+11. **Limit to 12-15 relationships** per diagram for legibility
+12. **Use UpdateRelStyle offsets** when multiple arrows converge on the same target
+13. **Configure spacing** via init config when diagrams feel cramped
+14. **Split complex diagrams** into multiple views when optimization isn't sufficient
 
 ## Common Architecture Patterns
 
