@@ -79,7 +79,7 @@ func (v *StructureValidator) validateCommand(ctx *ValidationContext, inv *Invkfi
 		return errors // Can't validate further without a name
 	}
 
-	// Validate command name length
+	// [CUE-VALIDATED] Command name length also enforced by CUE schema (#Command.name MaxRunes(256))
 	if err := ValidateStringLength(cmd.Name, "command name", MaxNameLength); err != nil {
 		errors = append(errors, ValidationError{
 			Validator: v.Name(),
@@ -89,7 +89,7 @@ func (v *StructureValidator) validateCommand(ctx *ValidationContext, inv *Invkfi
 		})
 	}
 
-	// Validate description length
+	// [CUE-VALIDATED] Description length also enforced by CUE schema (#Command.description MaxRunes(10240))
 	if err := ValidateStringLength(cmd.Description, "description", MaxDescriptionLength); err != nil {
 		errors = append(errors, ValidationError{
 			Validator: v.Name(),
@@ -157,7 +157,7 @@ func (v *StructureValidator) validateImplementation(ctx *ValidationContext, inv 
 			Severity:  SeverityError,
 		})
 	} else if !impl.IsScriptFile() {
-		// Validate script length (only for inline scripts, not file paths)
+		// [CUE-VALIDATED] Script length also enforced by CUE schema (#Implementation.script MaxRunes(10485760))
 		if err := ValidateStringLength(impl.Script, "script", MaxScriptLength); err != nil {
 			errors = append(errors, ValidationError{
 				Validator: v.Name(),
@@ -411,7 +411,7 @@ func (v *StructureValidator) validateFlag(ctx *ValidationContext, cmd *Command, 
 
 	path = path.Copy().Flag(flag.Name)
 
-	// Validate flag name length
+	// [CUE-VALIDATED] Flag name length also enforced by CUE schema (#Flag.name MaxRunes(256))
 	if err := ValidateStringLength(flag.Name, "flag name", MaxNameLength); err != nil {
 		errors = append(errors, ValidationError{
 			Validator: v.Name(),
@@ -441,7 +441,7 @@ func (v *StructureValidator) validateFlag(ctx *ValidationContext, cmd *Command, 
 		})
 	}
 
-	// Validate description length
+	// [CUE-VALIDATED] Flag description length also enforced by CUE schema (#Flag.description MaxRunes(10240))
 	if err := ValidateStringLength(flag.Description, "flag description", MaxDescriptionLength); err != nil {
 		errors = append(errors, ValidationError{
 			Validator: v.Name(),
@@ -628,7 +628,7 @@ func (v *StructureValidator) validateArg(ctx *ValidationContext, cmd *Command, a
 
 	path = path.Copy().Arg(arg.Name)
 
-	// Validate argument name length
+	// [CUE-VALIDATED] Argument name length also enforced by CUE schema (#Argument.name MaxRunes(256))
 	if err := ValidateStringLength(arg.Name, "argument name", MaxNameLength); err != nil {
 		errors = append(errors, ValidationError{
 			Validator: v.Name(),
@@ -658,7 +658,7 @@ func (v *StructureValidator) validateArg(ctx *ValidationContext, cmd *Command, a
 		})
 	}
 
-	// Validate description length
+	// [CUE-VALIDATED] Argument description length also enforced by CUE schema (#Argument.description MaxRunes(10240))
 	if err := ValidateStringLength(arg.Description, "argument description", MaxDescriptionLength); err != nil {
 		errors = append(errors, ValidationError{
 			Validator: v.Name(),
@@ -840,7 +840,7 @@ func (v *StructureValidator) validateCustomChecks(ctx *ValidationContext, checks
 		for j, check := range checkDep.GetChecks() {
 			path := basePath.Copy().CustomCheck(i, j)
 
-			// Length limit validation - defense against resource exhaustion
+			// [CUE-VALIDATED] Custom check name length also enforced by CUE schema (#CustomCheck.name MaxRunes(256))
 			if check.Name != "" {
 				if err := ValidateStringLength(check.Name, "custom_check name", MaxNameLength); err != nil {
 					errors = append(errors, ValidationError{
@@ -852,7 +852,7 @@ func (v *StructureValidator) validateCustomChecks(ctx *ValidationContext, checks
 				}
 			}
 
-			// Script length limit - defense against resource exhaustion
+			// [CUE-VALIDATED] Check script length also enforced by CUE schema (#CustomCheck.check_script MaxRunes(10485760))
 			if check.CheckScript != "" {
 				if err := ValidateStringLength(check.CheckScript, "check_script", MaxScriptLength); err != nil {
 					errors = append(errors, ValidationError{
@@ -911,6 +911,7 @@ func (v *StructureValidator) validateEnvConfig(ctx *ValidationContext, env *EnvC
 				Severity:  SeverityError,
 			})
 		}
+		// [CUE-VALIDATED] Env var value length also enforced by CUE schema (#EnvConfig.vars MaxRunes(32768))
 		if len(value) > MaxEnvVarValueLength {
 			errors = append(errors, ValidationError{
 				Validator: v.Name(),

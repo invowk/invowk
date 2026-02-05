@@ -13,20 +13,17 @@ import "strings"
 // PlatformType defines the supported operating system types
 #PlatformType: "linux" | "macos" | "windows"
 
-// EnvMap defines environment variables as key-value string pairs
-#EnvMap: [string]: string
-
 // EnvConfig defines environment configuration for a command or implementation
 #EnvConfig: close({
 	// files lists dotenv files to load (optional)
 	// Files are loaded in order; later files override earlier ones.
 	// Paths are relative to the invkfile location (or module root for modules).
 	// Files suffixed with '?' are optional and will not cause an error if missing.
-	files?: [...string]
+	files?: [...string & !="" & strings.MaxRunes(4096)]
 
 	// vars contains environment variables as key-value pairs (optional)
 	// These override values loaded from files.
-	vars?: [string]: string
+	vars?: [string & =~"^[A-Za-z_][A-Za-z0-9_]*$"]: string & strings.MaxRunes(32768)
 })
 
 // RuntimeConfig represents a runtime configuration with type-specific options
@@ -41,10 +38,10 @@ import "strings"
 	env_inherit_mode?: "none" | "allow" | "all"
 
 	// env_inherit_allow lists host env vars to allow when env_inherit_mode is "allow"
-	env_inherit_allow?: [...string & =~"^[A-Za-z_][A-Za-z0-9_]*$"]
+	env_inherit_allow?: [...string & =~"^[A-Za-z_][A-Za-z0-9_]*$" & strings.MaxRunes(256)]
 
 	// env_inherit_deny lists host env vars to block (applies to any mode)
-	env_inherit_deny?: [...string & =~"^[A-Za-z_][A-Za-z0-9_]*$"]
+	env_inherit_deny?: [...string & =~"^[A-Za-z_][A-Za-z0-9_]*$" & strings.MaxRunes(256)]
 }
 
 #RuntimeConfigNative: close({
@@ -97,15 +94,15 @@ import "strings"
 	// image specifies a pre-built container image to use (optional)
 	// Mutually exclusive with 'containerfile'
 	// Example: "debian:stable-slim", "ubuntu:22.04", "golang:1.21"
-	image?: string & strings.MaxRunes(512)
+	image?: string & !="" & strings.MaxRunes(512)
 
 	// volumes specifies volume mounts in "host:container" format (optional)
 	// Example: ["./data:/data", "/tmp:/tmp:ro"]
-	volumes?: [...string]
+	volumes?: [...string & !="" & strings.MaxRunes(4096)]
 
 	// ports specifies port mappings in "host:container" format (optional)
 	// Example: ["8080:80", "3000:3000"]
-	ports?: [...string]
+	ports?: [...string & !="" & strings.MaxRunes(256)]
 })
 
 // PlatformConfig represents a platform configuration
@@ -120,7 +117,7 @@ import "strings"
 	// - Inline: shell commands (single or multi-line using triple quotes)
 	// - File: path to script file (e.g., "./scripts/build.sh", "deploy.sh")
 	// Recognized script extensions: .sh, .bash, .ps1, .bat, .cmd, .py, .rb, .pl, .zsh, .fish
-	script: string & !=""
+	script: string & !="" & strings.MaxRunes(10485760)
 
 	// runtimes specifies which runtimes can execute this implementation (required, at least one)
 	// The first element is the default runtime for this platform combination
@@ -166,11 +163,11 @@ import "strings"
 #CustomCheck: close({
 	// name is an identifier for this check (required)
 	// Used for error reporting and identification
-	name: string & !=""
+	name: string & !="" & strings.MaxRunes(256)
 
 	// check_script is the script to execute for validation (required)
 	// The script is executed using the runtime's shell
-	check_script: string & !=""
+	check_script: string & !="" & strings.MaxRunes(10485760)
 
 	// expected_code is the expected exit code from check_script (optional, default: 0)
 	// Must be in valid exit code range (0-255)
@@ -178,7 +175,7 @@ import "strings"
 
 	// expected_output is a regex pattern to match against check_script output (optional)
 	// Can be used together with expected_code
-	expected_output?: string
+	expected_output?: string & !="" & strings.MaxRunes(1000)
 })
 
 // CustomCheckDependency represents a custom check dependency that can be either:
@@ -200,7 +197,7 @@ import "strings"
 	// the validation succeeds (early return). This allows specifying multiple
 	// possible locations for a file (e.g., different paths on different systems).
 	// Paths can be absolute or relative to the invkfile location.
-	alternatives: [...string & !=""] & [_, ...]
+	alternatives: [...string & !="" & strings.MaxRunes(4096)] & [_, ...]
 
 	// readable checks if the path is readable (optional, default: false)
 	readable?: bool
@@ -246,7 +243,7 @@ import "strings"
 
 	// validation is a regex pattern to validate the env var value (optional)
 	// If specified, the env var must exist AND its value must match this pattern
-	validation?: string
+	validation?: string & !="" & strings.MaxRunes(1000)
 })
 
 // EnvVarDependency represents an environment variable that must exist
@@ -291,10 +288,10 @@ import "strings"
 	// Used for documentation, environment variable naming (INVOWK_ARG_<NAME>), and error messages
 	// Must start with a letter, contain only alphanumeric characters, hyphens, and underscores
 	// Examples: "file", "output-dir", "source_path"
-	name: string & =~"^[a-zA-Z][a-zA-Z0-9_-]*$" & !=""
+	name: string & =~"^[a-zA-Z][a-zA-Z0-9_-]*$" & !="" & strings.MaxRunes(256)
 
 	// description provides help text for the argument (required)
-	description: string & =~"^\\s*\\S.*$"
+	description: string & =~"^\\s*\\S.*$" & strings.MaxRunes(10240)
 
 	// required indicates whether this argument must be provided (optional, defaults to false)
 	// If true, the command will fail if the argument is not provided
@@ -318,7 +315,7 @@ import "strings"
 	// validation is a regex pattern to validate the argument value (optional)
 	// The argument value must match this pattern
 	// If default_value is specified, it must also match this pattern
-	validation?: string
+	validation?: string & !="" & strings.MaxRunes(1000)
 
 	// variadic indicates this argument accepts multiple values (optional, defaults to false)
 	// Only the last argument in the args list can be variadic
@@ -333,10 +330,10 @@ import "strings"
 	// name is the flag name (required, POSIX-compliant)
 	// Must start with a letter, contain only alphanumeric characters, hyphens, and underscores
 	// Examples: "verbose", "output-file", "num_retries"
-	name: string & =~"^[a-zA-Z][a-zA-Z0-9_-]*$" & !=""
+	name: string & =~"^[a-zA-Z][a-zA-Z0-9_-]*$" & !="" & strings.MaxRunes(256)
 
 	// description provides help text for the flag (required)
-	description: string & =~"^\\s*\\S.*$"
+	description: string & =~"^\\s*\\S.*$" & strings.MaxRunes(10240)
 
 	// default_value is the default value for the flag (optional)
 	// If not specified, the flag has no default value
@@ -364,18 +361,18 @@ import "strings"
 	// validation is a regex pattern to validate the flag value (optional)
 	// The flag value must match this pattern
 	// If default_value is specified, it must also match this pattern
-	validation?: string
+	validation?: string & !="" & strings.MaxRunes(1000)
 })
 
 // Command represents a single executable command
 #Command: close({
 	// name is the command identifier (required)
 	// Can include spaces for subcommand-like behavior (e.g., "test unit")
-	name: string & =~"^[a-zA-Z][a-zA-Z0-9_ -]*$"
+	name: string & =~"^[a-zA-Z][a-zA-Z0-9_ -]*$" & strings.MaxRunes(256)
 
 	// description provides help text for the command (optional)
 	// When declared, description must be non-empty (cannot be "" or whitespace-only)
-	description?: string & =~"^\\s*\\S.*$"
+	description?: string & =~"^\\s*\\S.*$" & strings.MaxRunes(10240)
 
 	// implementations defines the executable implementations with platform/runtime constraints (required, at least one)
 	// Each implementation specifies which platforms and runtimes it supports
@@ -417,7 +414,7 @@ import "strings"
 #Invkfile: close({
 	// default_shell overrides the default shell for native runtime (optional)
 	// Example: "/bin/bash", "pwsh"
-	default_shell?: string & strings.MaxRunes(1024)
+	default_shell?: string & =~"^\\s*\\S.*$" & strings.MaxRunes(1024)
 
 	// workdir specifies the default working directory for all commands (optional)
 	// Can be absolute or relative to the invkfile location.

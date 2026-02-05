@@ -667,3 +667,516 @@ cmds: [{
 		t.Errorf("error message should contain path information, got: %s", errStr)
 	}
 }
+
+// =============================================================================
+// Constraint Boundary Tests - Phase 5 (Extended)
+// =============================================================================
+// These tests verify additional CUE schema constraints at their exact boundaries.
+
+// TestCommandNameLengthConstraint verifies #Command.name has a 256 rune limit.
+func TestCommandNameLengthConstraint(t *testing.T) {
+	// Exactly 256 characters should pass (must match ^[a-zA-Z][a-zA-Z0-9_ -]*$)
+	name256 := "a" + strings.Repeat("b", 255)
+	valid := `
+cmds: [{
+	name: "` + name256 + `"
+	implementations: [{
+		script: "echo hello"
+		runtimes: [{name: "native"}]
+	}]
+}]`
+	if err := validateCUE(t, valid); err != nil {
+		t.Errorf("256-char command name should be valid, got error: %v", err)
+	}
+
+	// 257 characters should fail
+	name257 := "a" + strings.Repeat("b", 256)
+	invalid := `
+cmds: [{
+	name: "` + name257 + `"
+	implementations: [{
+		script: "echo hello"
+		runtimes: [{name: "native"}]
+	}]
+}]`
+	if err := validateCUE(t, invalid); err == nil {
+		t.Errorf("257-char command name should fail validation, but passed")
+	}
+}
+
+// TestCommandDescriptionLengthConstraint verifies #Command.description has a 10240 rune limit.
+func TestCommandDescriptionLengthConstraint(t *testing.T) {
+	// Exactly 10240 characters should pass (must match ^\\s*\\S.*$)
+	desc10240 := "A" + strings.Repeat("a", 10239)
+	valid := `
+cmds: [{
+	name: "test"
+	description: "` + desc10240 + `"
+	implementations: [{
+		script: "echo hello"
+		runtimes: [{name: "native"}]
+	}]
+}]`
+	if err := validateCUE(t, valid); err != nil {
+		t.Errorf("10240-char description should be valid, got error: %v", err)
+	}
+
+	// 10241 characters should fail
+	desc10241 := "A" + strings.Repeat("a", 10240)
+	invalid := `
+cmds: [{
+	name: "test"
+	description: "` + desc10241 + `"
+	implementations: [{
+		script: "echo hello"
+		runtimes: [{name: "native"}]
+	}]
+}]`
+	if err := validateCUE(t, invalid); err == nil {
+		t.Errorf("10241-char description should fail validation, but passed")
+	}
+}
+
+// TestCustomCheckNameLengthConstraint verifies #CustomCheck.name has a 256 rune limit.
+func TestCustomCheckNameLengthConstraint(t *testing.T) {
+	// Exactly 256 characters should pass
+	name256 := "a" + strings.Repeat("b", 255)
+	valid := `
+cmds: [{
+	name: "test"
+	implementations: [{
+		script: "echo hello"
+		runtimes: [{name: "native"}]
+	}]
+	depends_on: {
+		custom_checks: [{
+			name: "` + name256 + `"
+			check_script: "echo ok"
+		}]
+	}
+}]`
+	if err := validateCUE(t, valid); err != nil {
+		t.Errorf("256-char custom check name should be valid, got error: %v", err)
+	}
+
+	// 257 characters should fail
+	name257 := "a" + strings.Repeat("b", 256)
+	invalid := `
+cmds: [{
+	name: "test"
+	implementations: [{
+		script: "echo hello"
+		runtimes: [{name: "native"}]
+	}]
+	depends_on: {
+		custom_checks: [{
+			name: "` + name257 + `"
+			check_script: "echo ok"
+		}]
+	}
+}]`
+	if err := validateCUE(t, invalid); err == nil {
+		t.Errorf("257-char custom check name should fail validation, but passed")
+	}
+}
+
+// TestExpectedOutputLengthConstraint verifies #CustomCheck.expected_output has a 1000 rune limit.
+func TestExpectedOutputLengthConstraint(t *testing.T) {
+	// Exactly 1000 characters should pass
+	output1000 := strings.Repeat("a", 1000)
+	valid := `
+cmds: [{
+	name: "test"
+	implementations: [{
+		script: "echo hello"
+		runtimes: [{name: "native"}]
+	}]
+	depends_on: {
+		custom_checks: [{
+			name: "mycheck"
+			check_script: "echo ok"
+			expected_output: "` + output1000 + `"
+		}]
+	}
+}]`
+	if err := validateCUE(t, valid); err != nil {
+		t.Errorf("1000-char expected_output should be valid, got error: %v", err)
+	}
+
+	// 1001 characters should fail
+	output1001 := strings.Repeat("a", 1001)
+	invalid := `
+cmds: [{
+	name: "test"
+	implementations: [{
+		script: "echo hello"
+		runtimes: [{name: "native"}]
+	}]
+	depends_on: {
+		custom_checks: [{
+			name: "mycheck"
+			check_script: "echo ok"
+			expected_output: "` + output1001 + `"
+		}]
+	}
+}]`
+	if err := validateCUE(t, invalid); err == nil {
+		t.Errorf("1001-char expected_output should fail validation, but passed")
+	}
+}
+
+// TestArgumentValidationLengthConstraint verifies #Argument.validation has a 1000 rune limit.
+func TestArgumentValidationLengthConstraint(t *testing.T) {
+	// Exactly 1000 characters should pass
+	validation1000 := strings.Repeat("a", 1000)
+	valid := `
+cmds: [{
+	name: "test"
+	implementations: [{
+		script: "echo hello"
+		runtimes: [{name: "native"}]
+	}]
+	args: [{
+		name: "myarg"
+		description: "A test argument"
+		validation: "` + validation1000 + `"
+	}]
+}]`
+	if err := validateCUE(t, valid); err != nil {
+		t.Errorf("1000-char argument validation should be valid, got error: %v", err)
+	}
+
+	// 1001 characters should fail
+	validation1001 := strings.Repeat("a", 1001)
+	invalid := `
+cmds: [{
+	name: "test"
+	implementations: [{
+		script: "echo hello"
+		runtimes: [{name: "native"}]
+	}]
+	args: [{
+		name: "myarg"
+		description: "A test argument"
+		validation: "` + validation1001 + `"
+	}]
+}]`
+	if err := validateCUE(t, invalid); err == nil {
+		t.Errorf("1001-char argument validation should fail validation, but passed")
+	}
+}
+
+// TestFlagValidationLengthConstraint verifies #Flag.validation has a 1000 rune limit.
+func TestFlagValidationLengthConstraint(t *testing.T) {
+	// Exactly 1000 characters should pass
+	validation1000 := strings.Repeat("a", 1000)
+	valid := `
+cmds: [{
+	name: "test"
+	implementations: [{
+		script: "echo hello"
+		runtimes: [{name: "native"}]
+	}]
+	flags: [{
+		name: "myflag"
+		description: "A test flag"
+		validation: "` + validation1000 + `"
+	}]
+}]`
+	if err := validateCUE(t, valid); err != nil {
+		t.Errorf("1000-char flag validation should be valid, got error: %v", err)
+	}
+
+	// 1001 characters should fail
+	validation1001 := strings.Repeat("a", 1001)
+	invalid := `
+cmds: [{
+	name: "test"
+	implementations: [{
+		script: "echo hello"
+		runtimes: [{name: "native"}]
+	}]
+	flags: [{
+		name: "myflag"
+		description: "A test flag"
+		validation: "` + validation1001 + `"
+	}]
+}]`
+	if err := validateCUE(t, invalid); err == nil {
+		t.Errorf("1001-char flag validation should fail validation, but passed")
+	}
+}
+
+// TestEnvFilesElementConstraints verifies #EnvConfig.files element constraints.
+// Elements must be non-empty and at most 4096 runes.
+func TestEnvFilesElementConstraints(t *testing.T) {
+	// Empty string should fail
+	invalidEmpty := `
+cmds: [{
+	name: "test"
+	implementations: [{
+		script: "echo hello"
+		runtimes: [{name: "native"}]
+	}]
+	env: {
+		files: [""]
+	}
+}]`
+	if err := validateCUE(t, invalidEmpty); err == nil {
+		t.Errorf("empty env file path should fail validation, but passed")
+	}
+
+	// 4096-char path should pass
+	path4096 := strings.Repeat("a", 4096)
+	valid := `
+cmds: [{
+	name: "test"
+	implementations: [{
+		script: "echo hello"
+		runtimes: [{name: "native"}]
+	}]
+	env: {
+		files: ["` + path4096 + `"]
+	}
+}]`
+	if err := validateCUE(t, valid); err != nil {
+		t.Errorf("4096-char env file path should be valid, got error: %v", err)
+	}
+
+	// 4097-char path should fail
+	path4097 := strings.Repeat("a", 4097)
+	invalid := `
+cmds: [{
+	name: "test"
+	implementations: [{
+		script: "echo hello"
+		runtimes: [{name: "native"}]
+	}]
+	env: {
+		files: ["` + path4097 + `"]
+	}
+}]`
+	if err := validateCUE(t, invalid); err == nil {
+		t.Errorf("4097-char env file path should fail validation, but passed")
+	}
+}
+
+// TestEnvVarsKeyConstraint verifies #EnvConfig.vars keys must match POSIX regex.
+// Key pattern: ^[A-Za-z_][A-Za-z0-9_]*$
+func TestEnvVarsKeyConstraint(t *testing.T) {
+	// Valid POSIX key should pass
+	valid := `
+cmds: [{
+	name: "test"
+	implementations: [{
+		script: "echo hello"
+		runtimes: [{name: "native"}]
+	}]
+	env: {
+		vars: {
+			MY_VAR: "hello"
+		}
+	}
+}]`
+	if err := validateCUE(t, valid); err != nil {
+		t.Errorf("valid POSIX env var key 'MY_VAR' should pass, got error: %v", err)
+	}
+
+	// Invalid key starting with digit should fail
+	invalid := `
+cmds: [{
+	name: "test"
+	implementations: [{
+		script: "echo hello"
+		runtimes: [{name: "native"}]
+	}]
+	env: {
+		vars: {
+			"123bad": "hello"
+		}
+	}
+}]`
+	if err := validateCUE(t, invalid); err == nil {
+		t.Errorf("env var key '123bad' should fail validation, but passed")
+	}
+}
+
+// TestEnvVarsValueLengthConstraint verifies #EnvConfig.vars values have a 32768 rune limit.
+func TestEnvVarsValueLengthConstraint(t *testing.T) {
+	// Exactly 32768 characters should pass
+	val32768 := strings.Repeat("a", 32768)
+	valid := `
+cmds: [{
+	name: "test"
+	implementations: [{
+		script: "echo hello"
+		runtimes: [{name: "native"}]
+	}]
+	env: {
+		vars: {
+			MY_VAR: "` + val32768 + `"
+		}
+	}
+}]`
+	if err := validateCUE(t, valid); err != nil {
+		t.Errorf("32768-char env var value should be valid, got error: %v", err)
+	}
+
+	// 32769 characters should fail
+	val32769 := strings.Repeat("a", 32769)
+	invalid := `
+cmds: [{
+	name: "test"
+	implementations: [{
+		script: "echo hello"
+		runtimes: [{name: "native"}]
+	}]
+	env: {
+		vars: {
+			MY_VAR: "` + val32769 + `"
+		}
+	}
+}]`
+	if err := validateCUE(t, invalid); err == nil {
+		t.Errorf("32769-char env var value should fail validation, but passed")
+	}
+}
+
+// TestVolumesElementConstraints verifies #RuntimeConfigContainer.volumes element constraints.
+// Elements must be non-empty and at most 4096 runes.
+func TestVolumesElementConstraints(t *testing.T) {
+	// Empty string should fail
+	invalidEmpty := `
+cmds: [{
+	name: "test"
+	implementations: [{
+		script: "echo hello"
+		runtimes: [{name: "container", image: "debian:stable-slim", volumes: [""]}]
+	}]
+}]`
+	if err := validateCUE(t, invalidEmpty); err == nil {
+		t.Errorf("empty volume string should fail validation, but passed")
+	}
+
+	// Valid volume string should pass
+	valid := `
+cmds: [{
+	name: "test"
+	implementations: [{
+		script: "echo hello"
+		runtimes: [{name: "container", image: "debian:stable-slim", volumes: ["./data:/data"]}]
+	}]
+}]`
+	if err := validateCUE(t, valid); err != nil {
+		t.Errorf("valid volume string should pass, got error: %v", err)
+	}
+
+	// 4097-char volume string should fail
+	vol4097 := strings.Repeat("a", 4097)
+	invalid := `
+cmds: [{
+	name: "test"
+	implementations: [{
+		script: "echo hello"
+		runtimes: [{name: "container", image: "debian:stable-slim", volumes: ["` + vol4097 + `"]}]
+	}]
+}]`
+	if err := validateCUE(t, invalid); err == nil {
+		t.Errorf("4097-char volume string should fail validation, but passed")
+	}
+}
+
+// TestPortsElementConstraints verifies #RuntimeConfigContainer.ports element constraints.
+// Elements must be non-empty and at most 256 runes.
+func TestPortsElementConstraints(t *testing.T) {
+	// Empty string should fail
+	invalidEmpty := `
+cmds: [{
+	name: "test"
+	implementations: [{
+		script: "echo hello"
+		runtimes: [{name: "container", image: "debian:stable-slim", ports: [""]}]
+	}]
+}]`
+	if err := validateCUE(t, invalidEmpty); err == nil {
+		t.Errorf("empty port string should fail validation, but passed")
+	}
+
+	// Valid port mapping should pass
+	valid := `
+cmds: [{
+	name: "test"
+	implementations: [{
+		script: "echo hello"
+		runtimes: [{name: "container", image: "debian:stable-slim", ports: ["8080:80"]}]
+	}]
+}]`
+	if err := validateCUE(t, valid); err != nil {
+		t.Errorf("valid port mapping '8080:80' should pass, got error: %v", err)
+	}
+
+	// 257-char port string should fail
+	port257 := strings.Repeat("a", 257)
+	invalid := `
+cmds: [{
+	name: "test"
+	implementations: [{
+		script: "echo hello"
+		runtimes: [{name: "container", image: "debian:stable-slim", ports: ["` + port257 + `"]}]
+	}]
+}]`
+	if err := validateCUE(t, invalid); err == nil {
+		t.Errorf("257-char port string should fail validation, but passed")
+	}
+}
+
+// TestDefaultShellNonWhitespaceConstraint verifies default_shell rejects whitespace-only values.
+// Pattern: =~"^\\s*\\S.*$"
+func TestDefaultShellNonWhitespaceConstraint(t *testing.T) {
+	// Whitespace-only should fail
+	invalid := `
+cmds: [{
+	name: "test"
+	implementations: [{
+		script: "echo hello"
+		runtimes: [{name: "native"}]
+	}]
+}]
+default_shell: " "
+`
+	if err := validateCUE(t, invalid); err == nil {
+		t.Errorf("whitespace-only default_shell should fail validation, but passed")
+	}
+
+	// Valid shell path should pass
+	valid := `
+cmds: [{
+	name: "test"
+	implementations: [{
+		script: "echo hello"
+		runtimes: [{name: "native"}]
+	}]
+}]
+default_shell: "/bin/bash"
+`
+	if err := validateCUE(t, valid); err != nil {
+		t.Errorf("valid default_shell '/bin/bash' should pass, got error: %v", err)
+	}
+}
+
+// TestImageNonEmptyConstraint verifies #RuntimeConfigContainer.image rejects empty strings.
+// Constraint: !=""
+func TestImageNonEmptyConstraint(t *testing.T) {
+	// Empty image should fail
+	invalid := `
+cmds: [{
+	name: "test"
+	implementations: [{
+		script: "echo hello"
+		runtimes: [{name: "container", image: ""}]
+	}]
+}]`
+	if err := validateCUE(t, invalid); err == nil {
+		t.Errorf("empty image string should fail validation, but passed")
+	}
+}

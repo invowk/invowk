@@ -3,6 +3,8 @@
 
 package config
 
+import "strings"
+
 // Config is the root configuration structure
 #Config: close({
 	// container_engine specifies which container runtime to use
@@ -10,7 +12,7 @@ package config
 	container_engine?: "podman" | "docker"
 
 	// search_paths contains additional directories to search for invkfiles
-	search_paths?: [...string]
+	search_paths?: [...string & !="" & strings.MaxRunes(4096)]
 
 	// default_runtime sets the global default runtime mode
 	// Valid values: "native", "virtual", "container"
@@ -27,7 +29,7 @@ package config
 
 	// module_aliases maps module paths to alias names for collision disambiguation
 	// When two modules have the same 'module' identifier, use aliases to differentiate them
-	module_aliases?: [string]: string
+	module_aliases?: [string & !=""]: string & !="" & strings.MaxRunes(256)
 })
 
 // ContainerConfig configures container runtime behavior
@@ -45,15 +47,15 @@ package config
 
 	// binary_path overrides the path to the invowk binary to provision.
 	// If not set, the currently running invowk binary is used.
-	binary_path?: string
+	binary_path?: string & !="" & strings.MaxRunes(4096)
 
 	// modules_paths specifies additional directories to search for modules.
 	// These are added to the default module search paths.
-	modules_paths?: [...string]
+	modules_paths?: [...string & !="" & strings.MaxRunes(4096)]
 
 	// cache_dir specifies where to store cached provisioned images metadata.
 	// Default: ~/.cache/invowk/provision
-	cache_dir?: string
+	cache_dir?: string & !="" & strings.MaxRunes(4096)
 })
 
 // VirtualShellConfig configures the virtual shell runtime

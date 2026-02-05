@@ -21,7 +21,7 @@ func ValidateContainerImage(image string) error {
 		return nil // Empty is valid (will use Containerfile)
 	}
 
-	// Basic length check
+	// [CUE-VALIDATED] Image length also enforced by CUE schema (#RuntimeConfigContainer.image MaxRunes(512))
 	if len(image) > 512 {
 		return fmt.Errorf("container image name too long (%d chars, max 512)", len(image))
 	}
@@ -54,7 +54,7 @@ func ValidateVolumeMount(volume string) error {
 		return fmt.Errorf("volume mount cannot be empty")
 	}
 
-	// Check length
+	// [CUE-VALIDATED] Volume length also enforced by CUE schema (#RuntimeConfigContainer.volumes element MaxRunes(4096))
 	if len(volume) > 4096 {
 		return fmt.Errorf("volume mount specification too long")
 	}

@@ -3,6 +3,7 @@
 package config
 
 import (
+	"fmt"
 	"reflect"
 	"slices"
 	"strings"
@@ -212,4 +213,233 @@ func TestAutoProvisionConfigSchemaSync(t *testing.T) {
 	goFields := extractGoJSONTags(t, reflect.TypeFor[AutoProvisionConfig]())
 
 	assertFieldsSync(t, "AutoProvisionConfig", cueFields, goFields)
+}
+
+// =============================================================================
+// Schema Boundary Tests
+// =============================================================================
+// These tests verify CUE schema constraints (MaxRunes, non-empty, etc.)
+// catch invalid values at parse time. Each test validates boundary conditions
+// for string length limits and empty string rejections.
+
+// validateCUE compiles CUE test data against the embedded config schema's #Config definition.
+// It returns nil if the data is valid, or an error describing why validation failed.
+func validateCUE(t *testing.T, cueData string) error {
+	t.Helper()
+
+	ctx := cuecontext.New()
+
+	schemaValue := ctx.CompileString(configSchema)
+	if schemaValue.Err() != nil {
+		t.Fatalf("failed to compile schema: %v", schemaValue.Err())
+	}
+
+	userValue := ctx.CompileString(cueData)
+	if userValue.Err() != nil {
+		return fmt.Errorf("CUE compile error: %w", userValue.Err())
+	}
+
+	schemaDef := schemaValue.LookupPath(cue.ParsePath("#Config"))
+	if schemaDef.Err() != nil {
+		t.Fatalf("failed to lookup #Config: %v", schemaDef.Err())
+	}
+
+	unified := schemaDef.Unify(userValue)
+	if err := unified.Validate(cue.Concrete(true)); err != nil {
+		return fmt.Errorf("CUE validation error: %w", err)
+	}
+
+	return nil
+}
+
+// TestSearchPathsElementConstraints verifies search_paths elements reject empty strings
+// and enforce the 4096 rune limit.
+func TestSearchPathsElementConstraints(t *testing.T) {
+	tests := []struct {
+		name    string
+		cueData string
+		wantErr bool
+	}{
+		{
+			name:    "empty string element rejected",
+			cueData: `container_engine: "docker"` + "\n" + `search_paths: [""]`,
+			wantErr: true,
+		},
+		{
+			name:    "4096-char element accepted",
+			cueData: `container_engine: "docker"` + "\n" + `search_paths: ["` + strings.Repeat("a", 4096) + `"]`,
+			wantErr: false,
+		},
+		{
+			name:    "4097-char element rejected",
+			cueData: `container_engine: "docker"` + "\n" + `search_paths: ["` + strings.Repeat("a", 4097) + `"]`,
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateCUE(t, tt.cueData)
+			if tt.wantErr && err == nil {
+				t.Error("expected validation error, got nil")
+			}
+			if !tt.wantErr && err != nil {
+				t.Errorf("expected no error, got: %v", err)
+			}
+		})
+	}
+}
+
+// TestBinaryPathConstraints verifies container.auto_provision.binary_path rejects empty
+// strings and enforces the 4096 rune limit.
+func TestBinaryPathConstraints(t *testing.T) {
+	tests := []struct {
+		name    string
+		cueData string
+		wantErr bool
+	}{
+		{
+			name:    "empty string rejected",
+			cueData: `container: auto_provision: { binary_path: "" }`,
+			wantErr: true,
+		},
+		{
+			name:    "4096-char path accepted",
+			cueData: `container: auto_provision: { binary_path: "` + strings.Repeat("a", 4096) + `" }`,
+			wantErr: false,
+		},
+		{
+			name:    "4097-char path rejected",
+			cueData: `container: auto_provision: { binary_path: "` + strings.Repeat("a", 4097) + `" }`,
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateCUE(t, tt.cueData)
+			if tt.wantErr && err == nil {
+				t.Error("expected validation error, got nil")
+			}
+			if !tt.wantErr && err != nil {
+				t.Errorf("expected no error, got: %v", err)
+			}
+		})
+	}
+}
+
+// TestModulesPathsElementConstraints verifies container.auto_provision.modules_paths
+// elements reject empty strings and enforce the 4096 rune limit.
+func TestModulesPathsElementConstraints(t *testing.T) {
+	tests := []struct {
+		name    string
+		cueData string
+		wantErr bool
+	}{
+		{
+			name:    "empty string element rejected",
+			cueData: `container: auto_provision: { modules_paths: [""] }`,
+			wantErr: true,
+		},
+		{
+			name:    "4096-char element accepted",
+			cueData: `container: auto_provision: { modules_paths: ["` + strings.Repeat("a", 4096) + `"] }`,
+			wantErr: false,
+		},
+		{
+			name:    "4097-char element rejected",
+			cueData: `container: auto_provision: { modules_paths: ["` + strings.Repeat("a", 4097) + `"] }`,
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateCUE(t, tt.cueData)
+			if tt.wantErr && err == nil {
+				t.Error("expected validation error, got nil")
+			}
+			if !tt.wantErr && err != nil {
+				t.Errorf("expected no error, got: %v", err)
+			}
+		})
+	}
+}
+
+// TestCacheDirConstraints verifies container.auto_provision.cache_dir rejects empty
+// strings and enforces the 4096 rune limit.
+func TestCacheDirConstraints(t *testing.T) {
+	tests := []struct {
+		name    string
+		cueData string
+		wantErr bool
+	}{
+		{
+			name:    "empty string rejected",
+			cueData: `container: auto_provision: { cache_dir: "" }`,
+			wantErr: true,
+		},
+		{
+			name:    "4096-char path accepted",
+			cueData: `container: auto_provision: { cache_dir: "` + strings.Repeat("a", 4096) + `" }`,
+			wantErr: false,
+		},
+		{
+			name:    "4097-char path rejected",
+			cueData: `container: auto_provision: { cache_dir: "` + strings.Repeat("a", 4097) + `" }`,
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateCUE(t, tt.cueData)
+			if tt.wantErr && err == nil {
+				t.Error("expected validation error, got nil")
+			}
+			if !tt.wantErr && err != nil {
+				t.Errorf("expected no error, got: %v", err)
+			}
+		})
+	}
+}
+
+// TestModuleAliasesConstraints verifies module_aliases rejects empty values
+// and enforces the 256 rune limit on values.
+// Note: CUE pattern constraints on map keys ([string & !=""]:) do not reject
+// empty string keys at validation time — empty key validation must be done in Go.
+func TestModuleAliasesConstraints(t *testing.T) {
+	tests := []struct {
+		name    string
+		cueData string
+		wantErr bool
+	}{
+		{
+			name:    "empty value rejected",
+			cueData: `container_engine: "docker"` + "\n" + `module_aliases: "com.example.mod": ""`,
+			wantErr: true,
+		},
+		{
+			name:    "256-char value accepted",
+			cueData: `container_engine: "docker"` + "\n" + `module_aliases: "com.example.mod": "` + strings.Repeat("a", 256) + `"`,
+			wantErr: false,
+		},
+		{
+			name:    "257-char value rejected",
+			cueData: `container_engine: "docker"` + "\n" + `module_aliases: "com.example.mod": "` + strings.Repeat("a", 257) + `"`,
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateCUE(t, tt.cueData)
+			if tt.wantErr && err == nil {
+				t.Error("expected validation error, got nil")
+			}
+			if !tt.wantErr && err != nil {
+				t.Errorf("expected no error, got: %v", err)
+			}
+		})
+	}
 }

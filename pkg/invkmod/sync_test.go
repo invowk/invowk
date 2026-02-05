@@ -3,6 +3,7 @@
 package invkmod
 
 import (
+	"fmt"
 	"reflect"
 	"slices"
 	"strings"
@@ -183,4 +184,165 @@ func TestModuleRequirementSchemaSync(t *testing.T) {
 	goFields := extractGoJSONTags(t, reflect.TypeFor[ModuleRequirement]())
 
 	assertFieldsSync(t, "ModuleRequirement", cueFields, goFields)
+}
+
+// =============================================================================
+// Constraint Boundary Tests
+// =============================================================================
+// These tests verify CUE schema constraints reject invalid values at parse time.
+
+// validateCUEInvkmod is a helper that validates data against the #Invkmod CUE definition.
+// Returns nil if validation succeeds, error if validation fails.
+func validateCUEInvkmod(t *testing.T, cueData string) error {
+	t.Helper()
+
+	ctx := cuecontext.New()
+
+	schemaValue := ctx.CompileString(invkmodSchema)
+	if schemaValue.Err() != nil {
+		t.Fatalf("failed to compile schema: %v", schemaValue.Err())
+	}
+
+	userValue := ctx.CompileString(cueData)
+	if userValue.Err() != nil {
+		return fmt.Errorf("CUE compile error: %w", userValue.Err())
+	}
+
+	schemaDef := schemaValue.LookupPath(cue.ParsePath("#Invkmod"))
+	if schemaDef.Err() != nil {
+		t.Fatalf("failed to lookup #Invkmod: %v", schemaDef.Err())
+	}
+
+	unified := schemaDef.Unify(userValue)
+	if err := unified.Validate(cue.Concrete(true)); err != nil {
+		return fmt.Errorf("CUE validation error: %w", err)
+	}
+	return nil
+}
+
+// validateCUEModuleRequirement is a helper that validates data against the #ModuleRequirement CUE definition.
+// Returns nil if validation succeeds, error if validation fails.
+func validateCUEModuleRequirement(t *testing.T, cueData string) error {
+	t.Helper()
+
+	ctx := cuecontext.New()
+
+	schemaValue := ctx.CompileString(invkmodSchema)
+	if schemaValue.Err() != nil {
+		t.Fatalf("failed to compile schema: %v", schemaValue.Err())
+	}
+
+	userValue := ctx.CompileString(cueData)
+	if userValue.Err() != nil {
+		return fmt.Errorf("CUE compile error: %w", userValue.Err())
+	}
+
+	schemaDef := schemaValue.LookupPath(cue.ParsePath("#ModuleRequirement"))
+	if schemaDef.Err() != nil {
+		t.Fatalf("failed to lookup #ModuleRequirement: %v", schemaDef.Err())
+	}
+
+	unified := schemaDef.Unify(userValue)
+	if err := unified.Validate(cue.Concrete(true)); err != nil {
+		return fmt.Errorf("CUE validation error: %w", err)
+	}
+	return nil
+}
+
+// TestModuleNameLengthConstraint verifies #Invkmod.module has a 256 rune limit.
+func TestModuleNameLengthConstraint(t *testing.T) {
+	// Exactly 256 characters should pass (valid RDNS-style name)
+	name256 := strings.Repeat("a", 256)
+	valid := `module: "` + name256 + `"`
+	if err := validateCUEInvkmod(t, valid); err != nil {
+		t.Errorf("256-char module name should be valid, got error: %v", err)
+	}
+
+	// 257 characters should fail
+	name257 := strings.Repeat("a", 257)
+	invalid := `module: "` + name257 + `"`
+	if err := validateCUEInvkmod(t, invalid); err == nil {
+		t.Errorf("257-char module name should fail validation, but passed")
+	}
+}
+
+// TestVersionLengthConstraint verifies #ModuleRequirement.version has a 64 rune limit.
+func TestVersionLengthConstraint(t *testing.T) {
+	// Exactly 64 characters should pass (starts with digit to match regex)
+	version64 := "1" + strings.Repeat("0", 63)
+	valid := `{
+	git_url: "https://github.com/user/test.invkmod.git"
+	version: "` + version64 + `"
+}`
+	if err := validateCUEModuleRequirement(t, valid); err != nil {
+		t.Errorf("64-char version should be valid, got error: %v", err)
+	}
+
+	// 65 characters should fail
+	version65 := "1" + strings.Repeat("0", 64)
+	invalid := `{
+	git_url: "https://github.com/user/test.invkmod.git"
+	version: "` + version65 + `"
+}`
+	if err := validateCUEModuleRequirement(t, invalid); err == nil {
+		t.Errorf("65-char version should fail validation, but passed")
+	}
+}
+
+// TestAliasLengthConstraint verifies #ModuleRequirement.alias has a 256 rune limit.
+func TestAliasLengthConstraint(t *testing.T) {
+	// Exactly 256 characters should pass (valid alias matching regex)
+	alias256 := strings.Repeat("a", 256)
+	valid := `{
+	git_url: "https://github.com/user/test.invkmod.git"
+	version: "^1.0.0"
+	alias: "` + alias256 + `"
+}`
+	if err := validateCUEModuleRequirement(t, valid); err != nil {
+		t.Errorf("256-char alias should be valid, got error: %v", err)
+	}
+
+	// 257 characters should fail
+	alias257 := strings.Repeat("a", 257)
+	invalid := `{
+	git_url: "https://github.com/user/test.invkmod.git"
+	version: "^1.0.0"
+	alias: "` + alias257 + `"
+}`
+	if err := validateCUEModuleRequirement(t, invalid); err == nil {
+		t.Errorf("257-char alias should fail validation, but passed")
+	}
+}
+
+// TestPathRegexConstraints verifies #ModuleRequirement.path rejects absolute paths and path traversal.
+func TestPathRegexConstraints(t *testing.T) {
+	tests := []struct {
+		name       string
+		path       string
+		shouldPass bool
+	}{
+		{"valid relative path", "subdir/module", true},
+		{"valid single segment", "mymodule", true},
+		{"absolute path rejected", "/absolute/path", false},
+		{"path traversal rejected", "sub/../escape", false},
+		{"path traversal at start rejected", "../escape", false},
+		{"double dot in middle rejected", "a/../../etc", false},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			cueData := `{
+	git_url: "https://github.com/user/test.invkmod.git"
+	version: "^1.0.0"
+	path: "` + tc.path + `"
+}`
+			err := validateCUEModuleRequirement(t, cueData)
+			if tc.shouldPass && err != nil {
+				t.Errorf("expected valid, got error: %v", err)
+			}
+			if !tc.shouldPass && err == nil {
+				t.Errorf("expected invalid, but validation passed")
+			}
+		})
+	}
 }

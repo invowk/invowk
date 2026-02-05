@@ -19,7 +19,9 @@ Invowk is a dynamically extensible command runner (similar to `just`, `task`, an
 
 ### Workflow Orchestration
 
-**CRITICAL:** Whenever possible and appropriate, multiple Tasks and Subagents must be used.
+**CRITICAL:** Whenever possible and appropriate, multiple Tasks, Teammates, and Subagents must be used.
+
+**CRITICAL:** Teammates must always require plan approval before they make any changes.
 
 ### Rules
 

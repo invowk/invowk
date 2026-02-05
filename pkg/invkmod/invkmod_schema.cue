@@ -21,18 +21,18 @@ import "strings"
 
 	// version is the semver constraint for version selection (required)
 	// Examples: "^1.2.0", "~1.2.0", ">=1.0.0", "1.2.3"
-	version: string & =~"^[~^>=<]?[0-9]+"
+	version: string & =~"^[~^>=<]?[0-9]+" & strings.MaxRunes(64)
 
 	// alias overrides the default namespace for imported commands (optional)
 	// If not specified, namespace is: <module>@<resolved-version>
 	// Must follow module naming rules
 	// Used to disambiguate collisions between modules with same name
-	alias?: string & =~"^[a-zA-Z][a-zA-Z0-9]*(\\.[a-zA-Z][a-zA-Z0-9]*)*$"
+	alias?: string & =~"^[a-zA-Z][a-zA-Z0-9]*(\\.[a-zA-Z][a-zA-Z0-9]*)*$" & strings.MaxRunes(256)
 
 	// path specifies a subdirectory containing the module (optional)
 	// Used for monorepos with multiple modules
 	// Must be relative and cannot contain path traversal sequences
-	path?: string & strings.MaxRunes(4096) & !strings.HasPrefix("/") & !strings.Contains("..")
+	path?: string & strings.MaxRunes(4096) & =~"^[^/]" & !~"\\.\\."
 })
 
 // Invkmod is the root schema for module metadata (invkmod.cue)
@@ -45,7 +45,7 @@ import "strings"
 	// Cannot start or end with a dot, and cannot have consecutive dots
 	// IMPORTANT: The module value MUST match the folder name prefix (before .invkmod)
 	// Example: folder "io.invowk.sample.invkmod" must have module: "io.invowk.sample"
-	module: string & =~"^[a-zA-Z][a-zA-Z0-9]*(\\.[a-zA-Z][a-zA-Z0-9]*)*$"
+	module: string & =~"^[a-zA-Z][a-zA-Z0-9]*(\\.[a-zA-Z][a-zA-Z0-9]*)*$" & strings.MaxRunes(256)
 
 	// version specifies the module schema version (optional but recommended)
 	// Current version: "1.0"
