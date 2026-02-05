@@ -14,7 +14,8 @@ Invowk is a dynamically extensible command runner (similar to `just`, `task`, an
 
 ### Compaction
 
-Prioritize the keeping and remembering of file paths, function and symbol names, identified issues and goals, current architectural decisions, semantic learnings, and next steps. Do not discard the output of the latest ~5 tool calls; discard the oldest ones.
+- Prioritize the keeping and remembering of file paths, function and symbol names, identified issues and goals, current architectural decisions, semantic learnings, and next steps. Do not discard the output of the latest ~5 tool calls; discard the oldest ones.
+- Never compact the content of CLAUDE.MD or rule/agent/skill definitions.
 
 ### Workflow Orchestration
 
@@ -36,7 +37,7 @@ Prioritize the keeping and remembering of file paths, function and symbol names,
 - [`.claude/rules/testing.md`](.claude/rules/testing.md) - Test patterns, cross-platform testing, skipOnWindows.
 - [`.claude/rules/windows.md`](.claude/rules/windows.md) - Windows-specific constraints and guidance.
 
-## Skills
+### Skills
 
 **Skills Index (`.claude/skills/`):**
 
