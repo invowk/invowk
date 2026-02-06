@@ -41,6 +41,13 @@ func parseEnvVarFlags(envVarFlags []string) map[string]string {
 }
 
 // runDisambiguatedCommand executes a command from a specific source.
+// It validates that the source exists and that the command is available in that source.
+// This is used when @source prefix or --from flag is provided.
+//
+// For subcommands (e.g., "deploy staging"), this function attempts to match the longest
+// possible command name by progressively joining args. For example, with args ["deploy", "staging"],
+// it first tries "deploy staging", then falls back to "deploy" if no match is found.
+// Remaining tokens after the match are passed as positional arguments.
 func runDisambiguatedCommand(cmd *cobra.Command, app *App, rootFlags *rootFlagValues, cmdFlags *cmdFlagValues, filter *SourceFilter, args []string) error {
 	ctx := cmd.Context()
 
@@ -135,7 +142,10 @@ func runDisambiguatedCommand(cmd *cobra.Command, app *App, rootFlags *rootFlagVa
 	return nil
 }
 
-// checkAmbiguousCommand checks if a command (including subcommands) is ambiguous.
+// checkAmbiguousCommand checks if a command name (including nested subcommands) is
+// ambiguous across sources. It mirrors Cobra's longest-match resolution for nested
+// command names and returns an AmbiguousCommandError when the resolved name exists
+// in multiple sources, requiring explicit disambiguation via @source or --from.
 func checkAmbiguousCommand(ctx context.Context, app *App, rootFlags *rootFlagValues, args []string) error {
 	if len(args) == 0 {
 		return nil
@@ -184,6 +194,10 @@ func checkAmbiguousCommand(ctx context.Context, app *App, rootFlags *rootFlagVal
 }
 
 // createRuntimeRegistry creates and populates the runtime registry.
+// Native and virtual runtimes are always registered because they execute in-process.
+// The container runtime is conditionally registered based on engine availability
+// (Docker or Podman). When an SSH server is active for host access, it is forwarded
+// to the container runtime so containers can reach back into the host.
 func createRuntimeRegistry(cfg *config.Config, sshServer *sshserver.Server) *runtime.Registry {
 	registry := runtime.NewRegistry()
 	// Native and virtual runtimes are always available in-process.
@@ -202,7 +216,10 @@ func createRuntimeRegistry(cfg *config.Config, sshServer *sshserver.Server) *run
 	return registry
 }
 
-// bridgeTUIRequests reads TUI component requests from the server's channel.
+// bridgeTUIRequests bridges TUI component requests from the HTTP-based TUI server
+// to the Bubble Tea event loop. It runs as a goroutine that reads from the server's
+// request channel until closed, converting each HTTP request into a tea.Msg for
+// the interactive model to handle.
 func bridgeTUIRequests(server *tuiserver.Server, program *tea.Program) {
 	for req := range server.RequestChannel() {
 		program.Send(tui.TUIComponentMsg{

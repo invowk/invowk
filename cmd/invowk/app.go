@@ -63,12 +63,17 @@ type (
 		ExitCode int
 	}
 
-	// CommandService executes invowk commands.
+	// CommandService executes a resolved command request and returns user-renderable
+	// diagnostics. Implementations must not write directly to stdout/stderr; diagnostics
+	// are returned as structured data for the CLI layer to render.
 	CommandService interface {
 		Execute(ctx context.Context, req ExecuteRequest) (ExecuteResult, []discovery.Diagnostic, error)
 	}
 
 	// DiscoveryService discovers invowk commands and diagnostics.
+	// DiscoverCommandSet lists all available commands (for completion, listing).
+	// DiscoverAndValidateCommandSet lists and validates the command tree (for registration).
+	// GetCommand looks up a single command by name (for execution).
 	DiscoveryService interface {
 		DiscoverCommandSet(ctx context.Context) (discovery.CommandSetResult, error)
 		DiscoverAndValidateCommandSet(ctx context.Context) (discovery.CommandSetResult, error)

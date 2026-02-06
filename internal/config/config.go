@@ -31,7 +31,9 @@ const (
 //go:embed config_schema.cue
 var configSchema string
 
-// ConfigDir returns the invowk configuration directory.
+// ConfigDir returns the invowk configuration directory using platform-specific
+// conventions: Windows uses %APPDATA%, macOS uses ~/Library/Application Support,
+// and Linux/others use $XDG_CONFIG_HOME (defaulting to ~/.config).
 //
 //nolint:revive // ConfigDir is more descriptive than Dir for external callers
 func ConfigDir() (string, error) {

@@ -23,7 +23,7 @@ func captureUserEnv() map[string]string {
 	return env
 }
 
-// isWindows returns true if running on Windows
+// isWindows detects Windows by path separator heuristics without importing runtime.
 func isWindows() bool {
 	return os.PathSeparator == '\\' && os.PathListSeparator == ';'
 }
@@ -31,7 +31,6 @@ func isWindows() bool {
 // FlagNameToEnvVar converts a flag name to an environment variable name.
 // Example: "output-file" -> "INVOWK_FLAG_OUTPUT_FILE"
 func FlagNameToEnvVar(name string) string {
-	// Replace hyphens with underscores and convert to uppercase
 	envName := strings.ToUpper(strings.ReplaceAll(name, "-", "_"))
 	return "INVOWK_FLAG_" + envName
 }
@@ -39,7 +38,6 @@ func FlagNameToEnvVar(name string) string {
 // ArgNameToEnvVar converts an argument name to an environment variable name.
 // Example: "output-file" -> "INVOWK_ARG_OUTPUT_FILE"
 func ArgNameToEnvVar(name string) string {
-	// Replace hyphens with underscores and convert to uppercase
 	envName := strings.ToUpper(strings.ReplaceAll(name, "-", "_"))
 	return "INVOWK_ARG_" + envName
 }

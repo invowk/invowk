@@ -16,7 +16,12 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// registerDiscoveredCommands adds discovered commands as subcommands.
+// registerDiscoveredCommands adds discovered commands as Cobra subcommands under `cmd`.
+// Unambiguous commands are registered under their SimpleName for transparent access
+// (e.g., `invowk cmd build`), while ambiguous commands — those whose SimpleName appears
+// in multiple sources — are intentionally excluded from transparent registration. This
+// ensures ambiguous commands fail with a helpful disambiguation message rather than
+// silently picking one source. Ambiguous commands must be executed via @source or --from.
 func registerDiscoveredCommands(ctx context.Context, app *App, rootFlags *rootFlagValues, cmdFlags *cmdFlagValues, cmdCmd *cobra.Command) {
 	lookupCtx := contextWithConfigPath(ctx, rootFlags.configPath)
 	result, err := app.Discovery.DiscoverAndValidateCommandSet(lookupCtx)
@@ -106,7 +111,12 @@ func registerDiscoveredCommands(ctx context.Context, app *App, rootFlags *rootFl
 	}
 }
 
-// buildLeafCommand creates a Cobra command for a leaf command.
+// buildLeafCommand creates a Cobra command for an executable leaf node in the command
+// tree. It captures immutable discovery values (name, source, flags, args) in closures
+// so each command instance is self-contained. Flag definitions from the invkfile are
+// projected into Cobra flags with matching types, and at execution time flag values are
+// extracted and projected into INVOWK_FLAG_* env vars. When --from doesn't match the
+// registered source, the command re-routes through runDisambiguatedCommand.
 func buildLeafCommand(app *App, rootFlags *rootFlagValues, cmdFlags *cmdFlagValues, cmdInfo *discovery.CommandInfo, cmdPart string) *cobra.Command {
 	// Capture immutable values for closures created per discovered command.
 	cmdName := cmdInfo.Name

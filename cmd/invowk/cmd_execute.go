@@ -23,6 +23,8 @@ import (
 )
 
 type (
+	// commandService is the production CommandService implementation that owns
+	// the SSH server lifecycle and delegates to the runtime registry for execution.
 	commandService struct {
 		config ConfigProvider
 		stdout io.Writer
@@ -30,6 +32,9 @@ type (
 		ssh    *sshServerController
 	}
 
+	// sshServerController provides goroutine-safe SSH server lifecycle management
+	// scoped to a single commandService instance. It lazily starts the SSH server
+	// on first demand and stops it when the owning command execution completes.
 	sshServerController struct {
 		mu       sync.Mutex
 		instance *sshserver.Server
@@ -46,7 +51,13 @@ func newCommandService(configProvider ConfigProvider, stdout, stderr io.Writer) 
 	}
 }
 
-// Execute executes an invowk command.
+// Execute executes an invowk command through the full orchestration pipeline:
+//  1. Loads config and discovers the target command by name.
+//  2. Validates inputs: flags, arguments, platform compatibility, and runtime compatibility.
+//  3. Manages SSH server lifecycle when the container runtime needs host access.
+//  4. Builds execution context with env var projection (INVOWK_FLAG_*, INVOWK_ARG_*, ARGn).
+//  5. Validates command dependencies against the runtime registry.
+//  6. Dispatches to interactive mode (alternate screen + TUI server) or standard execution.
 func (s *commandService) Execute(ctx context.Context, req ExecuteRequest) (ExecuteResult, []discovery.Diagnostic, error) {
 	cfg, diags := s.loadConfig(ctx, req.ConfigPath)
 
@@ -313,7 +324,10 @@ func (s *sshServerController) current() *sshserver.Server {
 	return s.instance
 }
 
-// executeInteractive runs a command in interactive mode using an alternate screen buffer.
+// executeInteractive runs a command in interactive mode using Bubble Tea's alternate
+// screen buffer. It starts an HTTP-based TUI server for bidirectional component requests
+// between the running command and the terminal UI. For container runtimes, the TUI server
+// URL is rewritten to use the host-reachable address so containers can call back.
 func executeInteractive(ctx *runtime.ExecutionContext, registry *runtime.Registry, cmdName string, interactiveRT runtime.InteractiveRuntime) *runtime.Result {
 	if err := interactiveRT.Validate(ctx); err != nil {
 		return &runtime.Result{ExitCode: 1, Error: err}

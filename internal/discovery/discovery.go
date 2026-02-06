@@ -22,7 +22,9 @@ type (
 		SecondSource string
 	}
 
-	// Discovery handles finding invkfiles
+	// Discovery is the stateless entry point for file discovery, command set building,
+	// and single-command lookup. Each method creates fresh state from the config rather
+	// than caching results, which is appropriate for a short-lived CLI process.
 	Discovery struct {
 		cfg *config.Config
 	}
@@ -46,7 +48,11 @@ func New(cfg *config.Config) *Discovery {
 	return &Discovery{cfg: cfg}
 }
 
-// LoadAll parses all discovered files
+// LoadAll parses all discovered files into Invkfile structs. Library-only modules
+// (those without an invkfile.cue) are skipped because they provide scripts and files
+// for other modules via `requires` but contribute no commands. Module metadata is
+// reattached to parsed Invkfiles so downstream scope/dependency checks can identify
+// the owning module.
 func (d *Discovery) LoadAll() ([]*DiscoveredFile, error) {
 	files, err := d.DiscoverAll()
 	if err != nil {

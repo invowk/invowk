@@ -39,9 +39,11 @@ type (
 		// These dependencies are validated according to the runtime being used
 		DependsOn *DependsOn `json:"depends_on,omitempty"`
 
-		// resolvedScript caches the resolved script content
+		// resolvedScript caches the resolved script content (lazy memoization).
+		// Script content is resolved from file path or inline source on first
+		// ResolveScript call and reused for subsequent calls.
 		resolvedScript string
-		// scriptResolved indicates if the script has been resolved
+		// scriptResolved tracks whether resolvedScript has been populated.
 		scriptResolved bool
 	}
 

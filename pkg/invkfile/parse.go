@@ -73,9 +73,10 @@ func ParseInvkmodBytes(data []byte, path string) (*Invkmod, error) {
 }
 
 // ParseModule reads and parses a complete module from the given module directory.
-// It expects:
-// - invkmod.cue (required): Module metadata (module name, version, description, requires)
-// - invkfile.cue (optional): Command definitions (for library-only modules)
+// It loads invkmod.cue for module metadata (name, version, requires) and optionally
+// invkfile.cue for command definitions. Modules without invkfile.cue are marked as
+// library-only — they provide scripts and files for other modules to reference via
+// `requires` but contribute no commands to the CLI.
 //
 // The modulePath should be the path to the module directory (ending in .invkmod).
 // Returns a Module with Metadata from invkmod.cue and Commands from invkfile.cue.
