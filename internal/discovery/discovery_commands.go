@@ -139,7 +139,7 @@ func (s *DiscoveredCommandSet) Analyze() {
 func (d *Discovery) DiscoverCommandSet(ctx context.Context) (CommandSetResult, error) {
 	select {
 	case <-ctx.Done():
-		return CommandSetResult{}, ctx.Err()
+		return CommandSetResult{}, fmt.Errorf("discover command set canceled: %w", ctx.Err())
 	default:
 	}
 
@@ -156,7 +156,7 @@ func (d *Discovery) DiscoverCommandSet(ctx context.Context) (CommandSetResult, e
 	for _, file := range files {
 		select {
 		case <-ctx.Done():
-			return CommandSetResult{}, ctx.Err()
+			return CommandSetResult{}, fmt.Errorf("discover command set canceled while processing files: %w", ctx.Err())
 		default:
 		}
 

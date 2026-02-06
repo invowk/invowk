@@ -263,9 +263,9 @@ func executeRequest(cmd *cobra.Command, app *App, req ExecuteRequest) error {
 	return nil
 }
 
-func resolveUIFlags(ctx context.Context, app *App, cmd *cobra.Command, rootFlags *rootFlagValues) (bool, bool) {
-	verbose := rootFlags.verbose
-	interactive := rootFlags.interactive
+func resolveUIFlags(ctx context.Context, app *App, cmd *cobra.Command, rootFlags *rootFlagValues) (verbose, interactive bool) {
+	verbose = rootFlags.verbose
+	interactive = rootFlags.interactive
 
 	cfg, err := app.Config.Load(ctx, config.LoadOptions{ConfigFilePath: rootFlags.configPath})
 	if err != nil {

@@ -12,15 +12,17 @@ import (
 	"invowk-cli/pkg/invkmod"
 )
 
-//go:embed invkfile_schema.cue
-var invkfileSchema string
+var (
+	//go:embed invkfile_schema.cue
+	invkfileSchema string
+
+	// Ensure Invkfile satisfies the typed module command contract.
+	_ invkmod.ModuleCommands = (*Invkfile)(nil)
+)
 
 // Module represents a loaded invowk module, ready for use.
 // This is a type alias for invkmod.Module.
 type Module = invkmod.Module
-
-// Ensure Invkfile satisfies the typed module command contract.
-var _ invkmod.ModuleCommands = (*Invkfile)(nil)
 
 // Parse reads and parses an invkfile from the given path.
 func Parse(path string) (*Invkfile, error) {

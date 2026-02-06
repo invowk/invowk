@@ -111,7 +111,7 @@ func Load() (*Config, error) {
 func loadWithOptions(ctx context.Context, opts LoadOptions) (*Config, string, error) {
 	select {
 	case <-ctx.Done():
-		return nil, "", ctx.Err()
+		return nil, "", fmt.Errorf("load config canceled: %w", ctx.Err())
 	default:
 	}
 

@@ -22,20 +22,22 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-type commandService struct {
-	config ConfigProvider
-	stdout io.Writer
-	stderr io.Writer
-	ssh    *sshServerController
-}
+type (
+	commandService struct {
+		config ConfigProvider
+		stdout io.Writer
+		stderr io.Writer
+		ssh    *sshServerController
+	}
 
-type sshServerController struct {
-	mu       sync.Mutex
-	instance *sshserver.Server
-}
+	sshServerController struct {
+		mu       sync.Mutex
+		instance *sshserver.Server
+	}
+)
 
 // newCommandService creates the default command orchestration service.
-func newCommandService(configProvider ConfigProvider, stdout io.Writer, stderr io.Writer) CommandService {
+func newCommandService(configProvider ConfigProvider, stdout, stderr io.Writer) CommandService {
 	return &commandService{
 		config: configProvider,
 		stdout: stdout,

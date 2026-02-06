@@ -2,33 +2,35 @@
 
 package discovery
 
-// Severity represents discovery diagnostic severity.
-type Severity string
-
 const (
 	// SeverityWarning indicates a recoverable discovery warning.
-	SeverityWarning Severity = "warning"
+	SeverityWarning = "warning"
 	// SeverityError indicates a non-fatal discovery error diagnostic.
-	SeverityError Severity = "error"
+	SeverityError = "error"
 )
 
-// Diagnostic represents a structured discovery diagnostic.
-type Diagnostic struct {
-	Severity Severity
-	Code     string
-	Message  string
-	Path     string
-	Cause    error
-}
+type (
+	// Severity represents discovery diagnostic severity.
+	Severity string
 
-// CommandSetResult contains discovered commands and diagnostics.
-type CommandSetResult struct {
-	Set         *DiscoveredCommandSet
-	Diagnostics []Diagnostic
-}
+	// Diagnostic represents a structured discovery diagnostic.
+	Diagnostic struct {
+		Severity Severity
+		Code     string
+		Message  string
+		Path     string
+		Cause    error
+	}
 
-// LookupResult contains a command lookup result and diagnostics.
-type LookupResult struct {
-	Command     *CommandInfo
-	Diagnostics []Diagnostic
-}
+	// CommandSetResult contains discovered commands and diagnostics.
+	CommandSetResult struct {
+		Set         *DiscoveredCommandSet
+		Diagnostics []Diagnostic
+	}
+
+	// LookupResult contains a command lookup result and diagnostics.
+	LookupResult struct {
+		Command     *CommandInfo
+		Diagnostics []Diagnostic
+	}
+)

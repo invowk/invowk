@@ -142,44 +142,45 @@ func checkAmbiguousCommand(ctx context.Context, app *App, rootFlags *rootFlagVal
 	}
 
 	lookupCtx := contextWithConfigPath(ctx, rootFlags.configPath)
-	commandSetResult, err := app.Discovery.DiscoverCommandSet(lookupCtx)
-	if err != nil {
-		return nil
-	}
-	app.Diagnostics.Render(ctx, commandSetResult.Diagnostics, app.stderr)
+	commandSetResult, discoverErr := app.Discovery.DiscoverCommandSet(lookupCtx)
+	if discoverErr == nil {
+		app.Diagnostics.Render(ctx, commandSetResult.Diagnostics, app.stderr)
 
-	commandSet := commandSetResult.Set
-	cmdName := ""
-	// Mirror Cobra longest-match behavior for nested command names.
-	for i := len(args); i > 0; i-- {
-		candidateName := strings.Join(args[:i], " ")
-		if _, exists := commandSet.BySimpleName[candidateName]; exists {
-			cmdName = candidateName
-			break
-		}
-	}
-
-	if cmdName == "" {
-		// Unknown command path: let normal Cobra command resolution handle errors.
-		cmdName = args[0]
-	}
-
-	if !commandSet.AmbiguousNames[cmdName] {
-		return nil
-	}
-
-	sources := make([]string, 0)
-	for _, sourceID := range commandSet.SourceOrder {
-		cmdsInSource := commandSet.BySource[sourceID]
-		for _, discovered := range cmdsInSource {
-			if discovered.SimpleName == cmdName {
-				sources = append(sources, sourceID)
+		commandSet := commandSetResult.Set
+		cmdName := ""
+		// Mirror Cobra longest-match behavior for nested command names.
+		for i := len(args); i > 0; i-- {
+			candidateName := strings.Join(args[:i], " ")
+			if _, exists := commandSet.BySimpleName[candidateName]; exists {
+				cmdName = candidateName
 				break
 			}
 		}
+
+		if cmdName == "" {
+			// Unknown command path: let normal Cobra command resolution handle errors.
+			cmdName = args[0]
+		}
+
+		if !commandSet.AmbiguousNames[cmdName] {
+			return nil
+		}
+
+		sources := make([]string, 0)
+		for _, sourceID := range commandSet.SourceOrder {
+			cmdsInSource := commandSet.BySource[sourceID]
+			for _, discovered := range cmdsInSource {
+				if discovered.SimpleName == cmdName {
+					sources = append(sources, sourceID)
+					break
+				}
+			}
+		}
+
+		return &AmbiguousCommandError{CommandName: cmdName, Sources: sources}
 	}
 
-	return &AmbiguousCommandError{CommandName: cmdName, Sources: sources}
+	return nil
 }
 
 // createRuntimeRegistry creates and populates the runtime registry.

@@ -4,20 +4,22 @@ package config
 
 import "context"
 
-// LoadOptions defines explicit configuration loading inputs.
-type LoadOptions struct {
-	// ConfigFilePath forces loading from a specific config file when set.
-	ConfigFilePath string
-	// ConfigDirPath overrides the config directory lookup when set.
-	ConfigDirPath string
-}
+type (
+	// LoadOptions defines explicit configuration loading inputs.
+	LoadOptions struct {
+		// ConfigFilePath forces loading from a specific config file when set.
+		ConfigFilePath string
+		// ConfigDirPath overrides the config directory lookup when set.
+		ConfigDirPath string
+	}
 
-// Provider loads configuration from explicit options.
-type Provider interface {
-	Load(ctx context.Context, opts LoadOptions) (*Config, error)
-}
+	// Provider loads configuration from explicit options.
+	Provider interface {
+		Load(ctx context.Context, opts LoadOptions) (*Config, error)
+	}
 
-type fileProvider struct{}
+	fileProvider struct{}
+)
 
 // NewProvider creates a configuration provider.
 func NewProvider() Provider {

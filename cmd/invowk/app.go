@@ -13,76 +13,84 @@ import (
 	"invowk-cli/pkg/invkfile"
 )
 
-type configPathContextKey struct{}
+type (
+	configPathContextKey struct{}
 
-// App wires CLI services and shared dependencies.
-type App struct {
-	Config      ConfigProvider
-	Discovery   DiscoveryService
-	Commands    CommandService
-	Diagnostics DiagnosticRenderer
-	stdout      io.Writer
-	stderr      io.Writer
-}
+	// App wires CLI services and shared dependencies.
+	App struct {
+		Config      ConfigProvider
+		Discovery   DiscoveryService
+		Commands    CommandService
+		Diagnostics DiagnosticRenderer
+		stdout      io.Writer
+		stderr      io.Writer
+	}
 
-// Dependencies defines the dependencies used to build an App.
-type Dependencies struct {
-	Config      ConfigProvider
-	Discovery   DiscoveryService
-	Commands    CommandService
-	Diagnostics DiagnosticRenderer
-	Stdout      io.Writer
-	Stderr      io.Writer
-}
+	// Dependencies defines the dependencies used to build an App.
+	Dependencies struct {
+		Config      ConfigProvider
+		Discovery   DiscoveryService
+		Commands    CommandService
+		Diagnostics DiagnosticRenderer
+		Stdout      io.Writer
+		Stderr      io.Writer
+	}
 
-// ExecuteRequest captures CLI execution inputs.
-type ExecuteRequest struct {
-	Name            string
-	Args            []string
-	SourceFilter    string
-	Runtime         string
-	Interactive     bool
-	Verbose         bool
-	FromSource      string
-	ForceRebuild    bool
-	Workdir         string
-	EnvFiles        []string
-	EnvVars         map[string]string
-	ConfigPath      string
-	FlagValues      map[string]string
-	FlagDefs        []invkfile.Flag
-	ArgDefs         []invkfile.Argument
-	EnvInheritMode  string
-	EnvInheritAllow []string
-	EnvInheritDeny  []string
-}
+	// ExecuteRequest captures CLI execution inputs.
+	ExecuteRequest struct {
+		Name            string
+		Args            []string
+		SourceFilter    string
+		Runtime         string
+		Interactive     bool
+		Verbose         bool
+		FromSource      string
+		ForceRebuild    bool
+		Workdir         string
+		EnvFiles        []string
+		EnvVars         map[string]string
+		ConfigPath      string
+		FlagValues      map[string]string
+		FlagDefs        []invkfile.Flag
+		ArgDefs         []invkfile.Argument
+		EnvInheritMode  string
+		EnvInheritAllow []string
+		EnvInheritDeny  []string
+	}
 
-// ExecuteResult contains command execution outcomes.
-type ExecuteResult struct {
-	ExitCode int
-}
+	// ExecuteResult contains command execution outcomes.
+	ExecuteResult struct {
+		ExitCode int
+	}
 
-// CommandService executes invowk commands.
-type CommandService interface {
-	Execute(ctx context.Context, req ExecuteRequest) (ExecuteResult, []discovery.Diagnostic, error)
-}
+	// CommandService executes invowk commands.
+	CommandService interface {
+		Execute(ctx context.Context, req ExecuteRequest) (ExecuteResult, []discovery.Diagnostic, error)
+	}
 
-// DiscoveryService discovers invowk commands and diagnostics.
-type DiscoveryService interface {
-	DiscoverCommandSet(ctx context.Context) (discovery.CommandSetResult, error)
-	DiscoverAndValidateCommandSet(ctx context.Context) (discovery.CommandSetResult, error)
-	GetCommand(ctx context.Context, name string) (discovery.LookupResult, error)
-}
+	// DiscoveryService discovers invowk commands and diagnostics.
+	DiscoveryService interface {
+		DiscoverCommandSet(ctx context.Context) (discovery.CommandSetResult, error)
+		DiscoverAndValidateCommandSet(ctx context.Context) (discovery.CommandSetResult, error)
+		GetCommand(ctx context.Context, name string) (discovery.LookupResult, error)
+	}
 
-// DiagnosticRenderer renders structured diagnostics.
-type DiagnosticRenderer interface {
-	Render(ctx context.Context, diags []discovery.Diagnostic, stderr io.Writer)
-}
+	// DiagnosticRenderer renders structured diagnostics.
+	DiagnosticRenderer interface {
+		Render(ctx context.Context, diags []discovery.Diagnostic, stderr io.Writer)
+	}
 
-// ConfigProvider loads configuration using explicit options.
-type ConfigProvider interface {
-	Load(ctx context.Context, opts config.LoadOptions) (*config.Config, error)
-}
+	// ConfigProvider loads configuration using explicit options.
+	ConfigProvider interface {
+		Load(ctx context.Context, opts config.LoadOptions) (*config.Config, error)
+	}
+
+	appDiscoveryService struct {
+		config ConfigProvider
+	}
+
+	defaultDiagnosticRenderer struct{}
+)
 
 // NewApp creates an App with defaults for omitted dependencies.
 func NewApp(deps Dependencies) (*App, error) {
@@ -131,10 +139,6 @@ func configPathFromContext(ctx context.Context) string {
 	return ""
 }
 
-type appDiscoveryService struct {
-	config ConfigProvider
-}
-
 // DiscoverCommandSet discovers commands and prepends configuration diagnostics.
 func (s *appDiscoveryService) DiscoverCommandSet(ctx context.Context) (discovery.CommandSetResult, error) {
 	cfg, cfgDiags := s.loadConfig(ctx)
@@ -180,8 +184,6 @@ func (s *appDiscoveryService) loadConfig(ctx context.Context) (*config.Config, [
 		Cause:    err,
 	}}
 }
-
-type defaultDiagnosticRenderer struct{}
 
 // Render writes structured diagnostics to stderr.
 func (r *defaultDiagnosticRenderer) Render(_ context.Context, diags []discovery.Diagnostic, stderr io.Writer) {

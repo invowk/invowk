@@ -274,7 +274,7 @@ func buildCommandUsageString(cmdPart string, args []invkfile.Argument) string {
 
 	parts := []string{cmdPart}
 	for _, arg := range args {
-		argStr := ""
+		var argStr string
 		switch {
 		case arg.Variadic && arg.Required:
 			argStr = fmt.Sprintf("<%s>...", arg.Name)
