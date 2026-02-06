@@ -1,0 +1,519 @@
+# C4 Component Diagram (C3) - Runtime Package
+#
+# Zooms into internal/runtime to show interfaces, implementations,
+# supporting types, and external dependencies.
+#
+# In C4 terminology, this is a Level 3 (Component) diagram.
+# Components (#85BBF0) are the internal types within the runtime package.
+# External dependencies (#438DD5) are other packages consumed by runtime.
+#
+# Source: docs/architecture/c4-component-runtime.md
+
+vars: {
+  d2-config: {
+    layout-engine: tala
+  }
+}
+
+title: |md
+  ## Component Diagram
+  **Runtime Package (internal/runtime)**
+|
+
+# ==============================================================================
+# System Boundary: internal/runtime
+# ==============================================================================
+
+runtime_pkg: internal/runtime {
+  style: {
+    stroke: "#438DD5"
+    stroke-dash: 3
+    fill: transparent
+  }
+
+  # --------------------------------------------------------------------------
+  # Interfaces
+  # --------------------------------------------------------------------------
+
+  runtime_iface: Runtime {
+    style: {
+      fill: "#85BBF0"
+      font-color: "#000000"
+    }
+    tooltip: |md
+      **Interface**
+      Core execution contract: Name, Execute, Available, Validate.
+      All runtimes must implement this interface.
+    |
+  }
+
+  capturing_iface: CapturingRuntime {
+    style: {
+      fill: "#85BBF0"
+      font-color: "#000000"
+    }
+    tooltip: |md
+      **Interface**
+      Optional output capture via ExecuteCapture.
+      Captures stdout/stderr into Result fields.
+    |
+  }
+
+  interactive_iface: InteractiveRuntime {
+    style: {
+      fill: "#85BBF0"
+      font-color: "#000000"
+    }
+    tooltip: |md
+      **Interface**
+      Embeds Runtime. Adds PTY support via
+      SupportsInteractive and PrepareInteractive.
+    |
+  }
+
+  env_builder_iface: EnvBuilder {
+    style: {
+      fill: "#85BBF0"
+      font-color: "#000000"
+    }
+    tooltip: |md
+      **Interface**
+      Builds environment variables with 10-level
+      precedence hierarchy for command execution.
+    |
+  }
+
+  # --------------------------------------------------------------------------
+  # InteractiveRuntime embeds Runtime
+  # --------------------------------------------------------------------------
+
+  interactive_iface -> runtime_iface: embeds {
+    style: {
+      stroke: "#707070"
+      stroke-dash: 3
+    }
+  }
+
+  # --------------------------------------------------------------------------
+  # Implementations
+  # --------------------------------------------------------------------------
+
+  native: NativeRuntime {
+    style: {
+      fill: "#85BBF0"
+      font-color: "#000000"
+    }
+    tooltip: |md
+      **Struct**
+      Executes via the host system shell (bash/sh/PowerShell).
+      Delegates env building to EnvBuilder.
+    |
+  }
+
+  virtual: VirtualRuntime {
+    style: {
+      fill: "#85BBF0"
+      font-color: "#000000"
+    }
+    tooltip: |md
+      **Struct**
+      Embedded shell interpreter using mvdan/sh.
+      Supports u-root built-in utilities.
+      Spawns subprocess for PTY-based interactive mode.
+    |
+  }
+
+  container_rt: ContainerRuntime {
+    style: {
+      fill: "#85BBF0"
+      font-color: "#000000"
+    }
+    tooltip: |md
+      **Struct**
+      Executes inside Docker/Podman containers.
+      Uses container engine, provisioner, SSH server,
+      config, and env builder.
+    |
+  }
+
+  default_env: DefaultEnvBuilder {
+    style: {
+      fill: "#85BBF0"
+      font-color: "#000000"
+    }
+    tooltip: |md
+      **Struct**
+      Implements the standard 10-level precedence:
+      host env -> env.files -> env.vars -> extra env
+      -> --env-file -> --env-var (highest priority).
+    |
+  }
+
+  # --------------------------------------------------------------------------
+  # Registry & Dispatch
+  # --------------------------------------------------------------------------
+
+  registry: Registry {
+    style: {
+      fill: "#85BBF0"
+      font-color: "#000000"
+    }
+    tooltip: |md
+      **Struct**
+      Holds map of RuntimeType to Runtime.
+      Dispatches Execute by looking up the
+      runtime matching ExecutionContext.SelectedRuntime.
+    |
+  }
+
+  # --------------------------------------------------------------------------
+  # Data Types
+  # --------------------------------------------------------------------------
+
+  exec_ctx: ExecutionContext {
+    style: {
+      fill: "#85BBF0"
+      font-color: "#000000"
+    }
+    tooltip: |md
+      **Struct**
+      All information needed to execute a command.
+      Composed of Command, Invkfile, IOContext,
+      EnvContext, TUIContext, and runtime selection.
+    |
+  }
+
+  io_ctx: IOContext {
+    style: {
+      fill: "#85BBF0"
+      font-color: "#000000"
+    }
+    tooltip: |md
+      **Struct**
+      Groups Stdout, Stderr, Stdin streams.
+    |
+  }
+
+  env_ctx: EnvContext {
+    style: {
+      fill: "#85BBF0"
+      font-color: "#000000"
+    }
+    tooltip: |md
+      **Struct**
+      Environment configuration: ExtraEnv,
+      RuntimeEnvVars, RuntimeEnvFiles,
+      inherit mode overrides.
+    |
+  }
+
+  tui_ctx: TUIContext {
+    style: {
+      fill: "#85BBF0"
+      font-color: "#000000"
+    }
+    tooltip: |md
+      **Struct**
+      TUI server connection: ServerURL, ServerToken.
+    |
+  }
+
+  result: Result {
+    style: {
+      fill: "#85BBF0"
+      font-color: "#000000"
+    }
+    tooltip: |md
+      **Struct**
+      Execution result: ExitCode, Error,
+      captured Output and ErrOutput.
+    |
+  }
+
+  prepared_cmd: PreparedCommand {
+    style: {
+      fill: "#85BBF0"
+      font-color: "#000000"
+    }
+    tooltip: |md
+      **Struct**
+      Command ready for PTY attachment.
+      Contains exec.Cmd and Cleanup function.
+    |
+  }
+
+  # --------------------------------------------------------------------------
+  # Implements relationships (dashed = interface implementation)
+  # --------------------------------------------------------------------------
+
+  # All three runtimes implement Runtime
+  native -> runtime_iface: implements {
+    style: {
+      stroke: "#707070"
+      stroke-dash: 3
+    }
+  }
+  virtual -> runtime_iface: implements {
+    style: {
+      stroke: "#707070"
+      stroke-dash: 3
+    }
+  }
+  container_rt -> runtime_iface: implements {
+    style: {
+      stroke: "#707070"
+      stroke-dash: 3
+    }
+  }
+
+  # All three runtimes implement CapturingRuntime
+  native -> capturing_iface: implements {
+    style: {
+      stroke: "#707070"
+      stroke-dash: 3
+    }
+  }
+  virtual -> capturing_iface: implements {
+    style: {
+      stroke: "#707070"
+      stroke-dash: 3
+    }
+  }
+  container_rt -> capturing_iface: implements {
+    style: {
+      stroke: "#707070"
+      stroke-dash: 3
+    }
+  }
+
+  # All three runtimes implement InteractiveRuntime
+  native -> interactive_iface: implements {
+    style: {
+      stroke: "#707070"
+      stroke-dash: 3
+    }
+  }
+  virtual -> interactive_iface: implements {
+    style: {
+      stroke: "#707070"
+      stroke-dash: 3
+    }
+  }
+  container_rt -> interactive_iface: implements {
+    style: {
+      stroke: "#707070"
+      stroke-dash: 3
+    }
+  }
+
+  # DefaultEnvBuilder implements EnvBuilder
+  default_env -> env_builder_iface: implements {
+    style: {
+      stroke: "#707070"
+      stroke-dash: 3
+    }
+  }
+
+  # --------------------------------------------------------------------------
+  # Usage relationships (solid = depends on / uses)
+  # --------------------------------------------------------------------------
+
+  # Registry dispatches to Runtime
+  registry -> runtime_iface: "dispatches by\nRuntimeType" {
+    style.stroke: "#707070"
+  }
+
+  # Registry uses ExecutionContext to resolve runtime
+  registry -> exec_ctx: resolves from {
+    style.stroke: "#707070"
+  }
+
+  # All runtimes depend on EnvBuilder
+  native -> env_builder_iface: builds env {
+    style.stroke: "#707070"
+  }
+  virtual -> env_builder_iface: builds env {
+    style.stroke: "#707070"
+  }
+  container_rt -> env_builder_iface: builds env {
+    style.stroke: "#707070"
+  }
+
+  # All runtimes consume ExecutionContext and produce Result
+  native -> exec_ctx: reads {
+    style.stroke: "#707070"
+  }
+  native -> result: produces {
+    style.stroke: "#707070"
+  }
+
+  virtual -> exec_ctx: reads {
+    style.stroke: "#707070"
+  }
+  virtual -> result: produces {
+    style.stroke: "#707070"
+  }
+
+  container_rt -> exec_ctx: reads {
+    style.stroke: "#707070"
+  }
+  container_rt -> result: produces {
+    style.stroke: "#707070"
+  }
+
+  # InteractiveRuntime produces PreparedCommand
+  native -> prepared_cmd: returns {
+    style.stroke: "#707070"
+  }
+  virtual -> prepared_cmd: returns {
+    style.stroke: "#707070"
+  }
+  container_rt -> prepared_cmd: returns {
+    style.stroke: "#707070"
+  }
+
+  # ExecutionContext composition
+  exec_ctx -> io_ctx: contains {
+    style.stroke: "#707070"
+  }
+  exec_ctx -> env_ctx: contains {
+    style.stroke: "#707070"
+  }
+  exec_ctx -> tui_ctx: contains {
+    style.stroke: "#707070"
+  }
+}
+
+# ==============================================================================
+# External Dependencies (outside the runtime package boundary)
+# ==============================================================================
+
+invkfile_cmd: invkfile.Command {
+  style: {
+    fill: "#438DD5"
+    font-color: "#ffffff"
+  }
+  tooltip: |md
+    **pkg/invkfile**
+    Command definition parsed from invkfile.cue.
+    Input to ExecutionContext.
+  |
+}
+
+invkfile_inv: invkfile.Invkfile {
+  style: {
+    fill: "#438DD5"
+    font-color: "#ffffff"
+  }
+  tooltip: |md
+    **pkg/invkfile**
+    Root invkfile structure with env config
+    and script base path for env file resolution.
+  |
+}
+
+container_engine: container.Engine {
+  style: {
+    fill: "#438DD5"
+    font-color: "#ffffff"
+  }
+  tooltip: |md
+    **internal/container**
+    Unified Docker/Podman interface.
+    Used by ContainerRuntime for container operations.
+  |
+}
+
+provisioner: provision.LayerProvisioner {
+  style: {
+    fill: "#438DD5"
+    font-color: "#ffffff"
+  }
+  tooltip: |md
+    **internal/provision**
+    Creates ephemeral image layers containing
+    the invowk binary and modules.
+  |
+}
+
+ssh_server: sshserver.Server {
+  style: {
+    fill: "#438DD5"
+    font-color: "#ffffff"
+  }
+  tooltip: |md
+    **internal/sshserver**
+    SSH tunnel for container-to-host callbacks.
+    Optional dependency of ContainerRuntime.
+  |
+}
+
+config_pkg: config.Config {
+  style: {
+    fill: "#438DD5"
+    font-color: "#ffffff"
+  }
+  tooltip: |md
+    **internal/config**
+    Application configuration.
+    Used by ContainerRuntime for container settings.
+  |
+}
+
+mvdan_sh: mvdan/sh {
+  style: {
+    fill: "#438DD5"
+    font-color: "#ffffff"
+  }
+  tooltip: |md
+    **mvdan.cc/sh/v3**
+    Pure Go shell interpreter.
+    Powers the VirtualRuntime execution engine.
+  |
+}
+
+uroot_builtins: u-root Builtins {
+  style: {
+    fill: "#438DD5"
+    font-color: "#ffffff"
+  }
+  tooltip: |md
+    **internal/uroot**
+    Built-in shell utilities (cp, mv, etc.)
+    registered as mvdan/sh ExecHandlers.
+  |
+}
+
+# ==============================================================================
+# Relationships: internal -> external
+# ==============================================================================
+
+# ExecutionContext references invkfile types
+runtime_pkg.exec_ctx -> invkfile_cmd: "references\nCommand" {
+  style.stroke: "#707070"
+}
+runtime_pkg.exec_ctx -> invkfile_inv: "references\nInvkfile" {
+  style.stroke: "#707070"
+}
+
+# ContainerRuntime external dependencies
+runtime_pkg.container_rt -> container_engine: "runs containers\nvia Engine" {
+  style.stroke: "#707070"
+}
+runtime_pkg.container_rt -> provisioner: "provisions\nephemeral layers" {
+  style.stroke: "#707070"
+}
+runtime_pkg.container_rt -> ssh_server: "starts for\nhost callbacks" {
+  style.stroke: "#707070"
+}
+runtime_pkg.container_rt -> config_pkg: reads config {
+  style.stroke: "#707070"
+}
+
+# VirtualRuntime external dependencies
+runtime_pkg.virtual -> mvdan_sh: "interprets\nshell scripts" {
+  style.stroke: "#707070"
+}
+runtime_pkg.virtual -> uroot_builtins: "registers\nbuilt-in utils" {
+  style.stroke: "#707070"
+}

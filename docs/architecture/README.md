@@ -8,6 +8,8 @@ This directory contains C4 model diagrams and supplementary architecture documen
 |---------|------|---------|
 | [C4 Context (C1)](./c4-context.md) | C4 Model | System boundaries, users, external systems |
 | [C4 Container (C2)](./c4-container.md) | C4 Model | Internal components and data stores |
+| [C4 Component: Runtime (C3)](./c4-component-runtime.md) | C4 Model | Internal structure of the runtime package |
+| [C4 Component: Container (C3)](./c4-component-container.md) | C4 Model | Internal structure of the container package |
 | [Command Execution](./sequence-execution.md) | Sequence | Temporal flow from CLI to execution |
 | [Runtime Selection](./flowchart-runtime-selection.md) | Flowchart | Decision tree for choosing runtime |
 | [Discovery Precedence](./flowchart-discovery.md) | Flowchart | How commands are found and conflicts resolved |
@@ -18,8 +20,9 @@ For newcomers to the codebase:
 
 1. **Start with [C4 Context](./c4-context.md)** - Understand what Invowk is and what it interacts with
 2. **Then [C4 Container](./c4-container.md)** - See the major internal components
-3. **Read [Command Execution](./sequence-execution.md)** - Follow the main user journey
-4. **Reference others as needed** - Runtime selection and discovery when debugging or extending
+3. **Optionally explore [Runtime Components](./c4-component-runtime.md) or [Container Components](./c4-component-container.md)** - Deep-dive into packages with non-trivial internal structure
+4. **Read [Command Execution](./sequence-execution.md)** - Follow the main user journey
+5. **Reference others as needed** - Runtime selection and discovery when debugging or extending
 
 ## Diagram Technology
 
@@ -75,7 +78,7 @@ The [C4 model](https://c4model.com/) provides a hierarchical way to describe sof
 | C3 | Component | Internal modules within containers |
 | C4 | Code | Class/code-level details |
 
-For Invowk (a single CLI binary), C1 and C2 are most valuable. C3 would show internal Go packages, which are better documented in code.
+For Invowk (a single CLI binary), C1 and C2 are most valuable. C3 (Component) diagrams are provided selectively for packages whose internal structure is genuinely complex — specifically `internal/runtime/` (interface segregation, registry pattern, 3 implementations) and `internal/container/` (composition via embedding, decorator pattern, functional options). Other packages have flat enough structure that code documentation suffices.
 
 ## Keeping Diagrams Updated
 
@@ -102,5 +105,4 @@ If you don't have D2 or TALA installed:
 Additional diagrams that could be valuable:
 
 - **State Diagram: Server Lifecycle** - SSH and TUI server state machines
-- **Class Diagram: Runtime Interface Hierarchy** - Interface relationships
 - **ERD: Module Dependency Structure** - Module field relationships

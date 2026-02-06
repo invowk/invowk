@@ -14,6 +14,8 @@ const svgPaths: Record<string, string> = {
   // C4 Diagrams
   'architecture/c4-context': '/diagrams/rendered/c4/context.svg',
   'architecture/c4-container': '/diagrams/rendered/c4/container.svg',
+  'architecture/c4-component-runtime': '/diagrams/rendered/c4/component-runtime.svg',
+  'architecture/c4-component-container': '/diagrams/rendered/c4/component-container.svg',
 
   // Execution Sequence Diagrams
   'architecture/execution-main': '/diagrams/rendered/sequences/execution-main.svg',

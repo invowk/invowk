@@ -1,0 +1,499 @@
+# C4 Component Diagram (C3) - Container Package
+#
+# Zooms into the Container Engine container (from the C2 Container Diagram)
+# to show the internal components of internal/container/.
+#
+# This package provides a unified abstraction layer for Docker and Podman
+# container engines, using a shared base implementation with functional
+# options for engine-specific behavior (SELinux labels, rootless userns).
+#
+# Source: docs/architecture/c4-component-container.md
+
+vars: {
+  d2-config: {
+    layout-engine: tala
+  }
+}
+
+title: |md
+  ## Component Diagram
+  **Container Package (internal/container)**
+|
+
+# ==============================================================================
+# External Dependencies
+# ==============================================================================
+
+platform_detect: "platform.DetectSandbox()" {
+  style: {
+    fill: "#438DD5"
+    font-color: "#ffffff"
+  }
+  tooltip: |md
+    **pkg/platform**
+    Detects Flatpak/Snap sandbox environments
+    on the host system
+  |
+}
+
+issue_context: "issue.ErrorContext" {
+  style: {
+    fill: "#438DD5"
+    font-color: "#ffffff"
+  }
+  tooltip: |md
+    **internal/issue**
+    Creates actionable errors with
+    operation context and suggestions
+  |
+}
+
+os_exec: "os/exec" {
+  style: {
+    fill: "#999999"
+    font-color: "#ffffff"
+  }
+  tooltip: |md
+    **Go stdlib**
+    Underlying CLI process execution
+    for Docker/Podman commands
+  |
+}
+
+docker_cli: Docker CLI {
+  style: {
+    fill: "#999999"
+    font-color: "#ffffff"
+  }
+  tooltip: |md
+    **External**
+    Docker container engine binary
+    on the host system
+  |
+}
+
+podman_cli: Podman CLI {
+  style: {
+    fill: "#999999"
+    font-color: "#ffffff"
+  }
+  tooltip: |md
+    **External**
+    Podman container engine binary
+    (includes podman-remote fallback)
+  |
+}
+
+# ==============================================================================
+# System Boundary: internal/container
+# ==============================================================================
+
+container_pkg: "internal/container" {
+  style: {
+    stroke: "#438DD5"
+    stroke-dash: 3
+    fill: transparent
+  }
+
+  # --------------------------------------------------------------------------
+  # Core Interface
+  # --------------------------------------------------------------------------
+
+  engine_iface: "<<interface>>\nEngine" {
+    style: {
+      fill: "#85BBF0"
+      font-color: "#000000"
+    }
+    tooltip: |md
+      **Engine interface**
+      11-method contract for container operations:
+      Name, Available, Version, Build, Run, Remove,
+      ImageExists, RemoveImage, BinaryPath, BuildRunArgs
+    |
+  }
+
+  # --------------------------------------------------------------------------
+  # Shared Base Implementation
+  # --------------------------------------------------------------------------
+
+  base_cli: BaseCLIEngine {
+    style: {
+      fill: "#85BBF0"
+      font-color: "#000000"
+    }
+    tooltip: |md
+      **BaseCLIEngine struct**
+      Shared implementation for CLI-based engines.
+      Provides argument builders (BuildArgs, RunArgs,
+      ExecArgs, RemoveArgs, RemoveImageArgs) and
+      command execution (RunCommand, CreateCommand).
+      Configured via functional options.
+    |
+  }
+
+  # --------------------------------------------------------------------------
+  # Concrete Engine Implementations
+  # --------------------------------------------------------------------------
+
+  docker_engine: DockerEngine {
+    style: {
+      fill: "#85BBF0"
+      font-color: "#000000"
+    }
+    tooltip: |md
+      **DockerEngine struct**
+      Embeds BaseCLIEngine.
+      Implements Engine for Docker CLI.
+      Created via NewDockerEngine().
+    |
+  }
+
+  podman_engine: PodmanEngine {
+    style: {
+      fill: "#85BBF0"
+      font-color: "#000000"
+    }
+    tooltip: |md
+      **PodmanEngine struct**
+      Embeds BaseCLIEngine.
+      Implements Engine for Podman CLI.
+      Adds SELinux volume labels (:z)
+      and rootless --userns=keep-id injection.
+      Created via NewPodmanEngine().
+    |
+  }
+
+  # --------------------------------------------------------------------------
+  # Decorator
+  # --------------------------------------------------------------------------
+
+  sandbox_engine: SandboxAwareEngine {
+    style: {
+      fill: "#85BBF0"
+      font-color: "#000000"
+    }
+    tooltip: |md
+      **SandboxAwareEngine struct (decorator)**
+      Wraps any Engine for Flatpak/Snap sandboxes.
+      Prepends flatpak-spawn --host or snap run
+      to all container CLI commands so they execute
+      on the host rather than inside the sandbox.
+      Passes through when no sandbox is detected.
+    |
+  }
+
+  # --------------------------------------------------------------------------
+  # Factory Functions
+  # --------------------------------------------------------------------------
+
+  new_engine: "NewEngine()\nAutoDetectEngine()" {
+    style: {
+      fill: "#85BBF0"
+      font-color: "#000000"
+    }
+    tooltip: |md
+      **Factory functions**
+      NewEngine(preferredType) creates the preferred
+      engine with fallback to the other.
+      AutoDetectEngine() tries Podman first, then Docker.
+      Both wrap the result with SandboxAwareEngine.
+    |
+  }
+
+  # --------------------------------------------------------------------------
+  # Functional Options (sub-group)
+  # --------------------------------------------------------------------------
+
+  func_options: "Functional Options" {
+    style: {
+      stroke: "#85BBF0"
+      stroke-dash: 2
+      fill: transparent
+    }
+
+    exec_cmd_func: ExecCommandFunc {
+      style: {
+        fill: "#85BBF0"
+        font-color: "#000000"
+      }
+      tooltip: |md
+        **ExecCommandFunc type**
+        Injection point for exec.CommandContext.
+        Allows test mocking of process execution.
+      |
+    }
+
+    volume_fmt_func: VolumeFormatFunc {
+      style: {
+        fill: "#85BBF0"
+        font-color: "#000000"
+      }
+      tooltip: |md
+        **VolumeFormatFunc type**
+        Formats volume mount strings.
+        Podman uses this to add SELinux :z labels
+        when SELinux is present on the host.
+      |
+    }
+
+    run_args_xform: RunArgsTransformer {
+      style: {
+        fill: "#85BBF0"
+        font-color: "#000000"
+      }
+      tooltip: |md
+        **RunArgsTransformer type**
+        Post-processes run arguments.
+        Podman uses this to inject --userns=keep-id
+        for rootless compatibility.
+      |
+    }
+  }
+
+  # --------------------------------------------------------------------------
+  # Request/Response Types
+  # --------------------------------------------------------------------------
+
+  req_resp: "Request/Response Types" {
+    style: {
+      stroke: "#85BBF0"
+      stroke-dash: 2
+      fill: transparent
+    }
+
+    build_opts: BuildOptions {
+      style: {
+        fill: "#85BBF0"
+        font-color: "#000000"
+      }
+      tooltip: |md
+        **BuildOptions struct**
+        Image build parameters: ContextDir,
+        Dockerfile, Tag, BuildArgs, NoCache,
+        Stdout, Stderr
+      |
+    }
+
+    run_opts: RunOptions {
+      style: {
+        fill: "#85BBF0"
+        font-color: "#000000"
+      }
+      tooltip: |md
+        **RunOptions struct**
+        Container run parameters: Image, Command,
+        WorkDir, Env, Volumes, Ports, Remove, Name,
+        Stdin/Stdout/Stderr, Interactive, TTY,
+        ExtraHosts
+      |
+    }
+
+    run_result: RunResult {
+      style: {
+        fill: "#85BBF0"
+        font-color: "#000000"
+      }
+      tooltip: |md
+        **RunResult struct**
+        Execution result: ContainerID,
+        ExitCode, Error
+      |
+    }
+  }
+
+  # --------------------------------------------------------------------------
+  # Error Types
+  # --------------------------------------------------------------------------
+
+  err_types: "Error Types" {
+    style: {
+      stroke: "#85BBF0"
+      stroke-dash: 2
+      fill: transparent
+    }
+
+    err_sentinel: ErrNoEngineAvailable {
+      style: {
+        fill: "#85BBF0"
+        font-color: "#000000"
+      }
+      tooltip: |md
+        **Sentinel error**
+        Returned when no container engine
+        is found on the system
+      |
+    }
+
+    err_not_avail: EngineNotAvailableError {
+      style: {
+        fill: "#85BBF0"
+        font-color: "#000000"
+      }
+      tooltip: |md
+        **Error struct**
+        Wraps ErrNoEngineAvailable with
+        engine name and reason details.
+        Supports errors.Is() via Unwrap().
+      |
+    }
+  }
+}
+
+# ==============================================================================
+# Relationships: Implements (dashed)
+# ==============================================================================
+
+container_pkg.docker_engine -> container_pkg.engine_iface: implements {
+  style: {
+    stroke: "#707070"
+    stroke-dash: 3
+  }
+}
+
+container_pkg.podman_engine -> container_pkg.engine_iface: implements {
+  style: {
+    stroke: "#707070"
+    stroke-dash: 3
+  }
+}
+
+container_pkg.sandbox_engine -> container_pkg.engine_iface: implements {
+  style: {
+    stroke: "#707070"
+    stroke-dash: 3
+  }
+}
+
+# ==============================================================================
+# Relationships: Embeds / Composes (solid, bold label)
+# ==============================================================================
+
+container_pkg.docker_engine -> container_pkg.base_cli: embeds {
+  style: {
+    stroke: "#707070"
+    stroke-width: 2
+  }
+}
+
+container_pkg.podman_engine -> container_pkg.base_cli: embeds {
+  style: {
+    stroke: "#707070"
+    stroke-width: 2
+  }
+}
+
+# ==============================================================================
+# Relationships: Wraps / Delegates (decorator)
+# ==============================================================================
+
+container_pkg.sandbox_engine -> container_pkg.engine_iface: "wraps/delegates" {
+  style: {
+    stroke: "#707070"
+    stroke-dash: 5
+  }
+}
+
+# ==============================================================================
+# Relationships: Factory Creates
+# ==============================================================================
+
+container_pkg.new_engine -> container_pkg.docker_engine: "creates\n(with fallback)" {
+  style: {
+    stroke: "#707070"
+  }
+}
+
+container_pkg.new_engine -> container_pkg.podman_engine: "creates\n(with fallback)" {
+  style: {
+    stroke: "#707070"
+  }
+}
+
+container_pkg.new_engine -> container_pkg.sandbox_engine: wraps result {
+  style: {
+    stroke: "#707070"
+  }
+}
+
+# ==============================================================================
+# Relationships: Functional Options Configure Base
+# ==============================================================================
+
+container_pkg.func_options.exec_cmd_func -> container_pkg.base_cli: "configures\nexecCommand" {
+  style: {
+    stroke: "#707070"
+  }
+}
+
+container_pkg.func_options.volume_fmt_func -> container_pkg.base_cli: "configures\nvolumeFormatter" {
+  style: {
+    stroke: "#707070"
+  }
+}
+
+container_pkg.func_options.run_args_xform -> container_pkg.base_cli: "configures\nrunArgsTransformer" {
+  style: {
+    stroke: "#707070"
+  }
+}
+
+# ==============================================================================
+# Relationships: Podman Uses Functional Options
+# ==============================================================================
+
+container_pkg.podman_engine -> container_pkg.func_options.volume_fmt_func: "uses for\nSELinux labels" {
+  style: {
+    stroke: "#707070"
+  }
+}
+
+container_pkg.podman_engine -> container_pkg.func_options.run_args_xform: "uses for\nrootless userns" {
+  style: {
+    stroke: "#707070"
+  }
+}
+
+# ==============================================================================
+# Relationships: Error Type Wrapping
+# ==============================================================================
+
+container_pkg.err_types.err_not_avail -> container_pkg.err_types.err_sentinel: "wraps via\nUnwrap()" {
+  style: {
+    stroke: "#707070"
+    stroke-dash: 3
+  }
+}
+
+# ==============================================================================
+# Relationships: External Dependencies
+# ==============================================================================
+
+container_pkg.sandbox_engine -> platform_detect: "detects sandbox\nenvironment" {
+  style: {
+    stroke: "#707070"
+  }
+}
+
+container_pkg.base_cli -> os_exec: "executes CLI\ncommands" {
+  style: {
+    stroke: "#707070"
+  }
+}
+
+container_pkg.base_cli -> issue_context: "creates actionable\nerrors" {
+  style: {
+    stroke: "#707070"
+  }
+}
+
+container_pkg.docker_engine -> docker_cli: "invokes\ndocker binary" {
+  style: {
+    stroke: "#707070"
+  }
+}
+
+container_pkg.podman_engine -> podman_cli: "invokes\npodman binary" {
+  style: {
+    stroke: "#707070"
+  }
+}

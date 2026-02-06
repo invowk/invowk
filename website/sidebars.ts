@@ -141,6 +141,8 @@ const sidebars: SidebarsConfig = {
         'architecture/overview',
         'architecture/c4-context',
         'architecture/c4-container',
+        'architecture/c4-component-runtime',
+        'architecture/c4-component-container',
         'architecture/execution-flow',
         'architecture/runtime-selection',
         'architecture/discovery',
