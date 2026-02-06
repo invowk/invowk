@@ -8,6 +8,8 @@ import (
 )
 
 func TestFormat_Markdown(t *testing.T) {
+	t.Parallel()
+
 	opts := FormatOptions{
 		Content: "# Hello World",
 		Type:    FormatMarkdown,
@@ -26,6 +28,8 @@ func TestFormat_Markdown(t *testing.T) {
 }
 
 func TestFormat_Code(t *testing.T) {
+	t.Parallel()
+
 	opts := FormatOptions{
 		Content:  "func main() {}",
 		Type:     FormatCode,
@@ -45,6 +49,8 @@ func TestFormat_Code(t *testing.T) {
 }
 
 func TestFormat_Emoji(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name     string
 		input    string
@@ -69,6 +75,7 @@ func TestFormat_Emoji(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			opts := FormatOptions{
 				Content: tt.input,
 				Type:    FormatEmoji,
@@ -88,6 +95,8 @@ func TestFormat_Emoji(t *testing.T) {
 }
 
 func TestFormat_Emoji_MultipleReplacements(t *testing.T) {
+	t.Parallel()
+
 	opts := FormatOptions{
 		Content: "Status: :check: Done :rocket:",
 		Type:    FormatEmoji,
@@ -106,6 +115,8 @@ func TestFormat_Emoji_MultipleReplacements(t *testing.T) {
 }
 
 func TestFormat_Emoji_NoReplacements(t *testing.T) {
+	t.Parallel()
+
 	opts := FormatOptions{
 		Content: "Plain text without emoji codes",
 		Type:    FormatEmoji,
@@ -123,6 +134,8 @@ func TestFormat_Emoji_NoReplacements(t *testing.T) {
 }
 
 func TestFormat_Template(t *testing.T) {
+	t.Parallel()
+
 	opts := FormatOptions{
 		Content: "Template content",
 		Type:    FormatTemplate,
@@ -141,6 +154,8 @@ func TestFormat_Template(t *testing.T) {
 }
 
 func TestFormat_UnknownType(t *testing.T) {
+	t.Parallel()
+
 	opts := FormatOptions{
 		Content: "Some content",
 		Type:    "unknown",
@@ -159,6 +174,8 @@ func TestFormat_UnknownType(t *testing.T) {
 }
 
 func TestFormat_MarkdownWithWidth(t *testing.T) {
+	t.Parallel()
+
 	opts := FormatOptions{
 		Content: "This is a long line of text that should be wrapped at a certain width for readability.",
 		Type:    FormatMarkdown,
@@ -178,6 +195,8 @@ func TestFormat_MarkdownWithWidth(t *testing.T) {
 }
 
 func TestFormatBuilder_FluentAPI(t *testing.T) {
+	t.Parallel()
+
 	builder := NewFormat().
 		Content("# Title").
 		Type(FormatMarkdown).
@@ -199,6 +218,8 @@ func TestFormatBuilder_FluentAPI(t *testing.T) {
 }
 
 func TestFormatBuilder_Markdown(t *testing.T) {
+	t.Parallel()
+
 	builder := NewFormat().
 		Content("text").
 		Markdown()
@@ -209,6 +230,8 @@ func TestFormatBuilder_Markdown(t *testing.T) {
 }
 
 func TestFormatBuilder_Code(t *testing.T) {
+	t.Parallel()
+
 	builder := NewFormat().
 		Content("code").
 		Code().
@@ -223,6 +246,8 @@ func TestFormatBuilder_Code(t *testing.T) {
 }
 
 func TestFormatBuilder_Emoji(t *testing.T) {
+	t.Parallel()
+
 	builder := NewFormat().
 		Content(":star:").
 		Emoji()
@@ -233,6 +258,8 @@ func TestFormatBuilder_Emoji(t *testing.T) {
 }
 
 func TestFormatBuilder_Run(t *testing.T) {
+	t.Parallel()
+
 	result, err := NewFormat().
 		Content(":heart:").
 		Emoji().
@@ -246,6 +273,8 @@ func TestFormatBuilder_Run(t *testing.T) {
 }
 
 func TestFormatBuilder_DefaultValues(t *testing.T) {
+	t.Parallel()
+
 	builder := NewFormat()
 
 	if builder.opts.Type != FormatMarkdown {
@@ -254,6 +283,8 @@ func TestFormatBuilder_DefaultValues(t *testing.T) {
 }
 
 func TestFormatType_Constants(t *testing.T) {
+	t.Parallel()
+
 	if FormatMarkdown != "markdown" {
 		t.Errorf("expected FormatMarkdown to be 'markdown', got %q", FormatMarkdown)
 	}
@@ -269,6 +300,8 @@ func TestFormatType_Constants(t *testing.T) {
 }
 
 func TestFormatOptions_Fields(t *testing.T) {
+	t.Parallel()
+
 	opts := FormatOptions{
 		Content:      "test content",
 		Type:         FormatCode,
@@ -305,6 +338,8 @@ func TestFormatOptions_Fields(t *testing.T) {
 }
 
 func TestFormatCode_EmptyLanguage(t *testing.T) {
+	t.Parallel()
+
 	opts := FormatOptions{
 		Content:  "some code",
 		Type:     FormatCode,
@@ -324,6 +359,8 @@ func TestFormatCode_EmptyLanguage(t *testing.T) {
 }
 
 func TestEmojiMap_Completeness(t *testing.T) {
+	t.Parallel()
+
 	// Test that all documented emoji codes work
 	codes := []string{
 		":heart:", ":star:", ":check:", ":x:", ":warning:", ":info:",
@@ -347,6 +384,7 @@ func TestEmojiMap_Completeness(t *testing.T) {
 
 	for _, code := range codes {
 		t.Run(code, func(t *testing.T) {
+			t.Parallel()
 			opts := FormatOptions{
 				Content: code,
 				Type:    FormatEmoji,

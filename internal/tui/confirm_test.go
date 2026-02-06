@@ -10,6 +10,8 @@ import (
 )
 
 func TestNewConfirmModel(t *testing.T) {
+	t.Parallel()
+
 	opts := ConfirmOptions{
 		Title:       "Delete file?",
 		Description: "This action cannot be undone",
@@ -33,6 +35,8 @@ func TestNewConfirmModel(t *testing.T) {
 }
 
 func TestNewConfirmModel_DefaultFalse(t *testing.T) {
+	t.Parallel()
+
 	opts := ConfirmOptions{
 		Title:   "Proceed?",
 		Default: false,
@@ -49,6 +53,8 @@ func TestNewConfirmModel_DefaultFalse(t *testing.T) {
 }
 
 func TestConfirmModel_CancelWithEsc(t *testing.T) {
+	t.Parallel()
+
 	opts := ConfirmOptions{
 		Title:  "Confirm?",
 		Config: DefaultConfig(),
@@ -76,6 +82,8 @@ func TestConfirmModel_CancelWithEsc(t *testing.T) {
 }
 
 func TestConfirmModel_CancelWithCtrlC(t *testing.T) {
+	t.Parallel()
+
 	opts := ConfirmOptions{
 		Title:  "Confirm?",
 		Config: DefaultConfig(),
@@ -97,6 +105,8 @@ func TestConfirmModel_CancelWithCtrlC(t *testing.T) {
 }
 
 func TestConfirmModel_SetSize(t *testing.T) {
+	t.Parallel()
+
 	opts := ConfirmOptions{
 		Title:  "Test",
 		Config: DefaultConfig(),
@@ -114,6 +124,8 @@ func TestConfirmModel_SetSize(t *testing.T) {
 }
 
 func TestConfirmModel_ViewWhenDone(t *testing.T) {
+	t.Parallel()
+
 	opts := ConfirmOptions{
 		Title:  "Test",
 		Config: DefaultConfig(),
@@ -130,6 +142,8 @@ func TestConfirmModel_ViewWhenDone(t *testing.T) {
 }
 
 func TestConfirmModel_ViewWithWidth(t *testing.T) {
+	t.Parallel()
+
 	opts := ConfirmOptions{
 		Title:  "Test",
 		Config: DefaultConfig(),
@@ -147,6 +161,8 @@ func TestConfirmModel_ViewWithWidth(t *testing.T) {
 }
 
 func TestConfirmModel_Init(t *testing.T) {
+	t.Parallel()
+
 	opts := ConfirmOptions{
 		Title:  "Test",
 		Config: DefaultConfig(),
@@ -161,6 +177,8 @@ func TestConfirmModel_Init(t *testing.T) {
 }
 
 func TestNewConfirmModelForModal(t *testing.T) {
+	t.Parallel()
+
 	opts := ConfirmOptions{
 		Title:  "Modal Confirm",
 		Config: DefaultConfig(),
@@ -178,6 +196,8 @@ func TestNewConfirmModelForModal(t *testing.T) {
 }
 
 func TestConfirmBuilder_FluentAPI(t *testing.T) {
+	t.Parallel()
+
 	builder := NewConfirm().
 		Title("Delete all files?").
 		Description("This will permanently remove all data").
@@ -211,6 +231,8 @@ func TestConfirmBuilder_FluentAPI(t *testing.T) {
 }
 
 func TestConfirmBuilder_DefaultValues(t *testing.T) {
+	t.Parallel()
+
 	builder := NewConfirm()
 
 	// Check default values set by NewConfirm
@@ -226,6 +248,8 @@ func TestConfirmBuilder_DefaultValues(t *testing.T) {
 }
 
 func TestConfirmBuilder_Model(t *testing.T) {
+	t.Parallel()
+
 	builder := NewConfirm().
 		Title("Test")
 
@@ -240,6 +264,8 @@ func TestConfirmBuilder_Model(t *testing.T) {
 }
 
 func TestConfirmOptions_Fields(t *testing.T) {
+	t.Parallel()
+
 	opts := ConfirmOptions{
 		Title:       "Are you sure?",
 		Description: "Please confirm",

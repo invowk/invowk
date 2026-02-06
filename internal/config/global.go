@@ -5,6 +5,10 @@ package config
 // configDirOverride allows tests to override the config directory.
 // This is necessary because os.UserHomeDir() doesn't reliably respect
 // the HOME environment variable on all platforms (e.g., macOS in CI).
+//
+// Thread safety: this variable is NOT concurrent-safe. It must only be set during
+// test setup (TestMain or before t.Parallel()) and cleared via Reset() in cleanup
+// to prevent test pollution across parallel subtests.
 var configDirOverride string
 
 // Reset clears test overrides. Call from test cleanup to restore defaults.

@@ -10,7 +10,11 @@ import (
 
 // T020: Error formatting tests
 func TestFormatError(t *testing.T) {
+	t.Parallel()
+
 	t.Run("nil error returns nil", func(t *testing.T) {
+		t.Parallel()
+
 		err := FormatError(nil, "test.cue")
 		if err != nil {
 			t.Errorf("expected nil, got %v", err)
@@ -18,6 +22,8 @@ func TestFormatError(t *testing.T) {
 	})
 
 	t.Run("non-CUE error is wrapped with filepath", func(t *testing.T) {
+		t.Parallel()
+
 		originalErr := errors.New("some error")
 		err := FormatError(originalErr, "test.cue")
 		if err == nil {
@@ -33,6 +39,8 @@ func TestFormatError(t *testing.T) {
 }
 
 func TestFormatPath(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name     string
 		path     []string
@@ -72,6 +80,8 @@ func TestFormatPath(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			result := formatPath(tt.path)
 			if result != tt.expected {
 				t.Errorf("formatPath(%v) = %q, want %q", tt.path, result, tt.expected)
@@ -81,7 +91,11 @@ func TestFormatPath(t *testing.T) {
 }
 
 func TestCheckFileSize(t *testing.T) {
+	t.Parallel()
+
 	t.Run("data within limit returns nil", func(t *testing.T) {
+		t.Parallel()
+
 		data := []byte("hello world")
 		err := CheckFileSize(data, 100, "test.cue")
 		if err != nil {
@@ -90,6 +104,8 @@ func TestCheckFileSize(t *testing.T) {
 	})
 
 	t.Run("data at exact limit returns nil", func(t *testing.T) {
+		t.Parallel()
+
 		data := make([]byte, 100)
 		err := CheckFileSize(data, 100, "test.cue")
 		if err != nil {
@@ -98,6 +114,8 @@ func TestCheckFileSize(t *testing.T) {
 	})
 
 	t.Run("data exceeding limit returns error", func(t *testing.T) {
+		t.Parallel()
+
 		data := make([]byte, 101)
 		err := CheckFileSize(data, 100, "test.cue")
 		if err == nil {
@@ -115,6 +133,8 @@ func TestCheckFileSize(t *testing.T) {
 	})
 
 	t.Run("empty data returns nil", func(t *testing.T) {
+		t.Parallel()
+
 		err := CheckFileSize([]byte{}, 100, "test.cue")
 		if err != nil {
 			t.Errorf("expected nil for empty data, got %v", err)
@@ -123,7 +143,11 @@ func TestCheckFileSize(t *testing.T) {
 }
 
 func TestValidationError(t *testing.T) {
+	t.Parallel()
+
 	t.Run("Error with path", func(t *testing.T) {
+		t.Parallel()
+
 		err := &ValidationError{
 			FilePath: "config.cue",
 			CUEPath:  "cmds[0].name",
@@ -136,6 +160,8 @@ func TestValidationError(t *testing.T) {
 	})
 
 	t.Run("Error without path", func(t *testing.T) {
+		t.Parallel()
+
 		err := &ValidationError{
 			FilePath: "config.cue",
 			CUEPath:  "",
@@ -148,6 +174,8 @@ func TestValidationError(t *testing.T) {
 	})
 
 	t.Run("Unwrap returns nil", func(t *testing.T) {
+		t.Parallel()
+
 		err := &ValidationError{
 			FilePath: "config.cue",
 			Message:  "some error",

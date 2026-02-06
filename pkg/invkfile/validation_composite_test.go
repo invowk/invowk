@@ -22,6 +22,8 @@ func (v *mockValidator) Validate(_ *ValidationContext, _ *Invkfile) []Validation
 }
 
 func TestCompositeValidator_Name(t *testing.T) {
+	t.Parallel()
+
 	cv := NewCompositeValidator()
 	if cv.Name() != "composite" {
 		t.Errorf("Name() = %q, want %q", cv.Name(), "composite")
@@ -29,6 +31,8 @@ func TestCompositeValidator_Name(t *testing.T) {
 }
 
 func TestCompositeValidator_EmptyValidate(t *testing.T) {
+	t.Parallel()
+
 	cv := NewCompositeValidator()
 	ctx := &ValidationContext{}
 	inv := &Invkfile{}
@@ -40,6 +44,8 @@ func TestCompositeValidator_EmptyValidate(t *testing.T) {
 }
 
 func TestCompositeValidator_SingleValidator(t *testing.T) {
+	t.Parallel()
+
 	mock := &mockValidator{
 		name: "mock",
 		errors: []ValidationError{
@@ -61,6 +67,8 @@ func TestCompositeValidator_SingleValidator(t *testing.T) {
 }
 
 func TestCompositeValidator_MultipleValidators(t *testing.T) {
+	t.Parallel()
+
 	mock1 := &mockValidator{
 		name: "mock1",
 		errors: []ValidationError{
@@ -99,6 +107,8 @@ func TestCompositeValidator_MultipleValidators(t *testing.T) {
 }
 
 func TestCompositeValidator_Add(t *testing.T) {
+	t.Parallel()
+
 	cv := NewCompositeValidator()
 	if cv.Count() != 0 {
 		t.Errorf("initial count should be 0, got %d", cv.Count())
@@ -126,6 +136,8 @@ func TestCompositeValidator_Add(t *testing.T) {
 }
 
 func TestCompositeValidator_Validators(t *testing.T) {
+	t.Parallel()
+
 	mock1 := &mockValidator{name: "mock1"}
 	mock2 := &mockValidator{name: "mock2"}
 
@@ -138,6 +150,8 @@ func TestCompositeValidator_Validators(t *testing.T) {
 }
 
 func TestCompositeValidator_CollectsAllErrors(t *testing.T) {
+	t.Parallel()
+
 	// This test verifies that the composite collects ALL errors from all validators,
 	// not just the first error encountered.
 

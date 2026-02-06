@@ -441,4 +441,5 @@ setting-name = "value"  # Brief explanation of what this controls
 - **Silent close errors** - Use named returns with defer for resource cleanup.
 - **Missing defaults documentation** - Document default values in functional options.
 - **Wrong declaration order** - Follow const → var → type → func, exported before unexported.
+- **`reflect.DeepEqual` for typed slices** - Use `slices.Equal` (Go 1.21+) for `[]string`, `[]int`, etc. It's type-safe, gives better error messages, and avoids importing `reflect` in tests.
 - **Duplicate package comments** - Use `doc.go` for package docs, remove `// Package` comments from other files.

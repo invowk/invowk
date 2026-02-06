@@ -35,13 +35,19 @@ var (
 
 type (
 	// ModuleCommands defines the typed command contract stored in Module.Commands.
-	// Implementations provide module identity and command listing behavior.
+	// This abstraction decouples module identity from invkfile command listing,
+	// allowing Module to hold command access without depending on pkg/invkfile
+	// parsing types. GetModule returns the module identifier from invkmod.cue.
+	// ListCommands returns command names in no guaranteed order.
 	ModuleCommands interface {
 		GetModule() string
 		ListCommands() []string
 	}
 
-	// ValidationIssue represents a single validation problem in a module.
+	// ValidationIssue represents a single domain-level validation problem in a module.
+	// Use ValidationIssue for problems that are collected and reported as a batch via
+	// ValidationResult. Use error returns for I/O or infrastructure failures that
+	// prevent validation from continuing.
 	// Named "Issue" rather than "Error" because it semantically represents a validation
 	// problem that may be collected, reported, and inspected - not just thrown.
 	//

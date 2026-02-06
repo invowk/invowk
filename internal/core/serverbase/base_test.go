@@ -12,7 +12,11 @@ import (
 
 // T009: State transition tests
 func TestStateTransitions(t *testing.T) {
+	t.Parallel()
+
 	t.Run("Created to Starting to Running to Stopped", func(t *testing.T) {
+		t.Parallel()
+
 		b := NewBase()
 
 		// Initial state should be Created
@@ -54,6 +58,8 @@ func TestStateTransitions(t *testing.T) {
 	})
 
 	t.Run("Starting to Failed", func(t *testing.T) {
+		t.Parallel()
+
 		b := NewBase()
 
 		ctx := context.Background()
@@ -87,7 +93,11 @@ func TestStateTransitions(t *testing.T) {
 
 // T010: Race condition tests (run with -race flag)
 func TestRaceConditions(t *testing.T) {
+	t.Parallel()
+
 	t.Run("concurrent state reads during transitions", func(t *testing.T) {
+		t.Parallel()
+
 		b := NewBase()
 
 		var wg sync.WaitGroup
@@ -113,6 +123,8 @@ func TestRaceConditions(t *testing.T) {
 	})
 
 	t.Run("concurrent Stop calls", func(t *testing.T) {
+		t.Parallel()
+
 		b := NewBase()
 
 		ctx := context.Background()
@@ -139,7 +151,11 @@ func TestRaceConditions(t *testing.T) {
 
 // T011: Double Start/Stop idempotency tests
 func TestIdempotency(t *testing.T) {
+	t.Parallel()
+
 	t.Run("double Start returns error", func(t *testing.T) {
+		t.Parallel()
+
 		b := NewBase()
 
 		ctx := context.Background()
@@ -155,6 +171,8 @@ func TestIdempotency(t *testing.T) {
 	})
 
 	t.Run("double Stop is safe", func(t *testing.T) {
+		t.Parallel()
+
 		b := NewBase()
 
 		ctx := context.Background()
@@ -180,6 +198,8 @@ func TestIdempotency(t *testing.T) {
 	})
 
 	t.Run("Stop without Start is safe", func(t *testing.T) {
+		t.Parallel()
+
 		b := NewBase()
 
 		// Stop on Created server should transition to Stopped
@@ -193,6 +213,8 @@ func TestIdempotency(t *testing.T) {
 	})
 
 	t.Run("Stop on Failed is safe", func(t *testing.T) {
+		t.Parallel()
+
 		b := NewBase()
 
 		ctx := context.Background()
@@ -215,7 +237,11 @@ func TestIdempotency(t *testing.T) {
 
 // T012: Cancelled context tests
 func TestCancelledContext(t *testing.T) {
+	t.Parallel()
+
 	t.Run("Start with already cancelled context fails immediately", func(t *testing.T) {
+		t.Parallel()
+
 		b := NewBase()
 
 		ctx, cancel := context.WithCancel(context.Background())
@@ -232,6 +258,8 @@ func TestCancelledContext(t *testing.T) {
 	})
 
 	t.Run("WaitForReady respects context cancellation", func(t *testing.T) {
+		t.Parallel()
+
 		b := NewBase()
 
 		ctx := context.Background()
@@ -251,6 +279,8 @@ func TestCancelledContext(t *testing.T) {
 	})
 
 	t.Run("WaitForReady succeeds when server becomes ready", func(t *testing.T) {
+		t.Parallel()
+
 		b := NewBase()
 
 		ctx := context.Background()
@@ -260,7 +290,6 @@ func TestCancelledContext(t *testing.T) {
 
 		// Transition to Running in a goroutine
 		go func() {
-			time.Sleep(10 * time.Millisecond)
 			b.TransitionToRunning()
 		}()
 
@@ -276,6 +305,8 @@ func TestCancelledContext(t *testing.T) {
 
 // Test State.String()
 func TestStateString(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		state    State
 		expected string
@@ -291,6 +322,8 @@ func TestStateString(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.expected, func(t *testing.T) {
+			t.Parallel()
+
 			if got := tt.state.String(); got != tt.expected {
 				t.Errorf("State(%d).String() = %q, want %q", tt.state, got, tt.expected)
 			}
@@ -300,6 +333,8 @@ func TestStateString(t *testing.T) {
 
 // Test State.IsTerminal()
 func TestStateIsTerminal(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		state      State
 		isTerminal bool
@@ -314,6 +349,8 @@ func TestStateIsTerminal(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.state.String(), func(t *testing.T) {
+			t.Parallel()
+
 			if got := tt.state.IsTerminal(); got != tt.isTerminal {
 				t.Errorf("State(%d).IsTerminal() = %v, want %v", tt.state, got, tt.isTerminal)
 			}
@@ -323,6 +360,8 @@ func TestStateIsTerminal(t *testing.T) {
 
 // Test WithErrorChannel option
 func TestWithErrorChannel(t *testing.T) {
+	t.Parallel()
+
 	b := NewBase(WithErrorChannel(5))
 
 	// Should be able to send 5 errors without blocking
@@ -343,6 +382,8 @@ func TestWithErrorChannel(t *testing.T) {
 
 // Test goroutine tracking
 func TestGoroutineTracking(t *testing.T) {
+	t.Parallel()
+
 	b := NewBase()
 
 	ctx := context.Background()
@@ -376,6 +417,8 @@ func TestGoroutineTracking(t *testing.T) {
 
 // Test Context() returns the server context
 func TestContext(t *testing.T) {
+	t.Parallel()
+
 	b := NewBase()
 
 	// Before Start, context should be nil

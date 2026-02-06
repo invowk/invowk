@@ -10,6 +10,8 @@ import (
 )
 
 func TestValidateRegexPattern(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name        string
 		pattern     string
@@ -52,6 +54,8 @@ func TestValidateRegexPattern(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			err := ValidateRegexPattern(tt.pattern)
 			if tt.shouldError {
 				if err == nil {
@@ -69,6 +73,8 @@ func TestValidateRegexPattern(t *testing.T) {
 }
 
 func TestValidateContainerImage(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name        string
 		image       string
@@ -100,6 +106,8 @@ func TestValidateContainerImage(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			err := ValidateContainerImage(tt.image)
 			if tt.shouldError {
 				if err == nil {
@@ -117,6 +125,8 @@ func TestValidateContainerImage(t *testing.T) {
 }
 
 func TestValidateVolumeMount(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name        string
 		volume      string
@@ -156,6 +166,8 @@ func TestValidateVolumeMount(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			err := ValidateVolumeMount(tt.volume)
 			if tt.shouldError {
 				if err == nil {
@@ -173,6 +185,8 @@ func TestValidateVolumeMount(t *testing.T) {
 }
 
 func TestValidatePortMapping(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name        string
 		port        string
@@ -201,6 +215,8 @@ func TestValidatePortMapping(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			err := ValidatePortMapping(tt.port)
 			if tt.shouldError {
 				if err == nil {
@@ -218,6 +234,8 @@ func TestValidatePortMapping(t *testing.T) {
 }
 
 func TestValidateFilename(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name        string
 		filename    string
@@ -254,6 +272,8 @@ func TestValidateFilename(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			err := ValidateFilename(tt.filename)
 			if tt.shouldError {
 				if err == nil {
@@ -271,6 +291,8 @@ func TestValidateFilename(t *testing.T) {
 }
 
 func TestIsWindowsReservedName(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name     string
 		filename string
@@ -294,6 +316,8 @@ func TestIsWindowsReservedName(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			result := platform.IsWindowsReservedName(tt.filename)
 			if result != tt.expected {
 				t.Errorf("IsWindowsReservedName(%q) = %v, expected %v", tt.filename, result, tt.expected)
@@ -303,6 +327,8 @@ func TestIsWindowsReservedName(t *testing.T) {
 }
 
 func TestValidateStringLength(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name        string
 		value       string
@@ -318,6 +344,8 @@ func TestValidateStringLength(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			err := ValidateStringLength(tt.value, tt.fieldName, tt.maxLen)
 			if tt.shouldError && err == nil {
 				t.Errorf("expected error, got nil")
@@ -330,6 +358,8 @@ func TestValidateStringLength(t *testing.T) {
 }
 
 func TestValidateCustomChecks(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name        string
 		checks      []CustomCheckDependency
@@ -470,6 +500,8 @@ func TestValidateCustomChecks(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			err := validateCustomChecks(tt.checks, "test", "/test/invkfile.cue")
 			if tt.shouldError {
 				if err == nil {
@@ -487,6 +519,8 @@ func TestValidateCustomChecks(t *testing.T) {
 }
 
 func TestValidateContainerfilePath(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name        string
 		path        string
@@ -517,6 +551,8 @@ func TestValidateContainerfilePath(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			err := ValidateContainerfilePath(tt.path, tt.baseDir)
 			if tt.shouldError {
 				if err == nil {
@@ -534,6 +570,8 @@ func TestValidateContainerfilePath(t *testing.T) {
 }
 
 func TestValidateEnvFilePath(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name        string
 		path        string
@@ -566,6 +604,8 @@ func TestValidateEnvFilePath(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			err := ValidateEnvFilePath(tt.path)
 			if tt.shouldError {
 				if err == nil {
@@ -583,6 +623,8 @@ func TestValidateEnvFilePath(t *testing.T) {
 }
 
 func TestValidateFilepathDependency(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name        string
 		paths       []string
@@ -607,6 +649,8 @@ func TestValidateFilepathDependency(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			err := ValidateFilepathDependency(tt.paths)
 			if tt.shouldError {
 				if err == nil {
@@ -624,6 +668,8 @@ func TestValidateFilepathDependency(t *testing.T) {
 }
 
 func TestValidateToolName(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name        string
 		toolName    string
@@ -658,6 +704,8 @@ func TestValidateToolName(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			err := ValidateToolName(tt.toolName)
 			if tt.shouldError {
 				if err == nil {
@@ -675,6 +723,8 @@ func TestValidateToolName(t *testing.T) {
 }
 
 func TestValidateCommandDependencyName(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name        string
 		cmdName     string
@@ -707,6 +757,8 @@ func TestValidateCommandDependencyName(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			err := ValidateCommandDependencyName(tt.cmdName)
 			if tt.shouldError {
 				if err == nil {
@@ -724,6 +776,8 @@ func TestValidateCommandDependencyName(t *testing.T) {
 }
 
 func TestIsAbsolutePath(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name     string
 		path     string
@@ -754,6 +808,8 @@ func TestIsAbsolutePath(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			got := isAbsolutePath(tt.path)
 			if got != tt.expected {
 				t.Errorf("isAbsolutePath(%q) = %v, want %v", tt.path, got, tt.expected)

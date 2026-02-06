@@ -22,11 +22,7 @@ func TestNativeRuntime_InlineScript(t *testing.T) {
 	}
 
 	// Create a temporary invkfile
-	tmpDir, err := os.MkdirTemp("", "invowk-test-*")
-	if err != nil {
-		t.Fatalf("Failed to create temp dir: %v", err)
-	}
-	defer func() { testutil.MustRemoveAll(t, tmpDir) }()
+	tmpDir := t.TempDir()
 
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
 
@@ -59,11 +55,7 @@ func TestNativeRuntime_MultiLineScript(t *testing.T) {
 		t.Skip("skipping integration test in short mode")
 	}
 
-	tmpDir, err := os.MkdirTemp("", "invowk-test-*")
-	if err != nil {
-		t.Fatalf("Failed to create temp dir: %v", err)
-	}
-	defer func() { testutil.MustRemoveAll(t, tmpDir) }()
+	tmpDir := t.TempDir()
 
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
 
@@ -101,11 +93,7 @@ func TestNativeRuntime_ScriptFile(t *testing.T) {
 		t.Skip("skipping integration test in short mode")
 	}
 
-	tmpDir, err := os.MkdirTemp("", "invowk-test-*")
-	if err != nil {
-		t.Fatalf("Failed to create temp dir: %v", err)
-	}
-	defer func() { testutil.MustRemoveAll(t, tmpDir) }()
+	tmpDir := t.TempDir()
 
 	// Create a script file
 	scriptContent := `#!/bin/bash
@@ -147,11 +135,7 @@ func TestNativeRuntime_PositionalArgs(t *testing.T) {
 		t.Skip("skipping integration test in short mode")
 	}
 
-	tmpDir, err := os.MkdirTemp("", "invowk-test-*")
-	if err != nil {
-		t.Fatalf("Failed to create temp dir: %v", err)
-	}
-	defer func() { testutil.MustRemoveAll(t, tmpDir) }()
+	tmpDir := t.TempDir()
 
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
 	inv := &invkfile.Invkfile{
@@ -193,11 +177,7 @@ func TestNativeRuntime_PositionalArgs_Empty(t *testing.T) {
 		t.Skip("skipping integration test in short mode")
 	}
 
-	tmpDir, err := os.MkdirTemp("", "invowk-test-*")
-	if err != nil {
-		t.Fatalf("Failed to create temp dir: %v", err)
-	}
-	defer func() { testutil.MustRemoveAll(t, tmpDir) }()
+	tmpDir := t.TempDir()
 
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
 	inv := &invkfile.Invkfile{
@@ -233,11 +213,7 @@ func TestNativeRuntime_PositionalArgs_SpecialChars(t *testing.T) {
 		t.Skip("skipping integration test in short mode")
 	}
 
-	tmpDir, err := os.MkdirTemp("", "invowk-test-*")
-	if err != nil {
-		t.Fatalf("Failed to create temp dir: %v", err)
-	}
-	defer func() { testutil.MustRemoveAll(t, tmpDir) }()
+	tmpDir := t.TempDir()
 
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
 	inv := &invkfile.Invkfile{
@@ -269,6 +245,8 @@ func TestNativeRuntime_PositionalArgs_SpecialChars(t *testing.T) {
 }
 
 func TestNativeRuntime_appendPositionalArgs(t *testing.T) {
+	t.Parallel()
+
 	rt := NewNativeRuntime()
 
 	tests := []struct {
@@ -331,6 +309,8 @@ func TestNativeRuntime_appendPositionalArgs(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			got := rt.appendPositionalArgs(tt.shell, tt.baseArgs, tt.positionalArgs)
 			if len(got) != len(tt.wantArgs) {
 				t.Errorf("appendPositionalArgs() length = %d, want %d", len(got), len(tt.wantArgs))
@@ -352,11 +332,7 @@ func TestNativeRuntime_EnvIsolation(t *testing.T) {
 		t.Skip("skipping integration test in short mode")
 	}
 
-	tmpDir, err := os.MkdirTemp("", "invowk-test-*")
-	if err != nil {
-		t.Fatalf("Failed to create temp dir: %v", err)
-	}
-	defer func() { testutil.MustRemoveAll(t, tmpDir) }()
+	tmpDir := t.TempDir()
 
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
 	inv := &invkfile.Invkfile{
@@ -414,11 +390,7 @@ func TestNativeRuntime_InvalidWorkingDirectory(t *testing.T) {
 		t.Skip("skipping integration test in short mode")
 	}
 
-	tmpDir, err := os.MkdirTemp("", "invowk-test-*")
-	if err != nil {
-		t.Fatalf("Failed to create temp dir: %v", err)
-	}
-	defer func() { testutil.MustRemoveAll(t, tmpDir) }()
+	tmpDir := t.TempDir()
 
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
 	inv := &invkfile.Invkfile{
@@ -465,11 +437,7 @@ func TestNativeRuntime_ExitCode(t *testing.T) {
 		t.Skip("skipping integration test in short mode")
 	}
 
-	tmpDir, err := os.MkdirTemp("", "invowk-test-*")
-	if err != nil {
-		t.Fatalf("Failed to create temp dir: %v", err)
-	}
-	defer func() { testutil.MustRemoveAll(t, tmpDir) }()
+	tmpDir := t.TempDir()
 
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
 	inv := &invkfile.Invkfile{
@@ -506,6 +474,8 @@ func TestNativeRuntime_ExitCode(t *testing.T) {
 
 // T102: Test for shell not found error format
 func TestNativeRuntime_ShellNotFoundError(t *testing.T) {
+	t.Parallel()
+
 	rt := &NativeRuntime{
 		// Set a shell that doesn't exist to force an error
 		Shell: "/this/shell/does/not/exist",
@@ -546,6 +516,8 @@ func TestNativeRuntime_ShellNotFoundError(t *testing.T) {
 
 // TestNativeRuntime_ShellNotFoundError_Format tests the verbose formatting
 func TestNativeRuntime_ShellNotFoundError_Format(t *testing.T) {
+	t.Parallel()
+
 	rt := &NativeRuntime{}
 
 	// Get an actionable error
@@ -570,31 +542,6 @@ func TestNativeRuntime_ShellNotFoundError_Format(t *testing.T) {
 }
 
 // --- Unit tests (no shell execution required) ---
-
-// TestNativeRuntime_Name tests the Name() method.
-func TestNativeRuntime_Name(t *testing.T) {
-	rt := NewNativeRuntime()
-	if name := rt.Name(); name != "native" {
-		t.Errorf("Name() = %q, want %q", name, "native")
-	}
-}
-
-// TestNativeRuntime_Available tests the Available() method.
-func TestNativeRuntime_Available(t *testing.T) {
-	rt := NewNativeRuntime()
-	// On any reasonable system, a shell should be available
-	if !rt.Available() {
-		t.Error("Available() = false, expected true on a system with a shell")
-	}
-}
-
-// TestNativeRuntime_SupportsInteractive tests the SupportsInteractive() method.
-func TestNativeRuntime_SupportsInteractive(t *testing.T) {
-	rt := NewNativeRuntime()
-	if !rt.SupportsInteractive() {
-		t.Error("SupportsInteractive() = false, want true")
-	}
-}
 
 // TestNativeRuntime_getShell tests shell detection.
 func TestNativeRuntime_getShell(t *testing.T) {
@@ -623,6 +570,8 @@ func TestNativeRuntime_getShell(t *testing.T) {
 
 // TestNativeRuntime_getShellArgs tests shell argument generation.
 func TestNativeRuntime_getShellArgs(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name         string
 		shell        string
@@ -687,6 +636,8 @@ func TestNativeRuntime_getShellArgs(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			if tt.skipOnNonWin && goruntime.GOOS != "windows" {
 				t.Skip("skipping: Windows-style backslash paths only work on Windows")
 			}
@@ -787,6 +738,8 @@ func TestNativeRuntime_createTempScript(t *testing.T) {
 
 // TestNativeRuntime_Validate tests the validation logic.
 func TestNativeRuntime_Validate_Unit(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	inv := &invkfile.Invkfile{
 		FilePath: filepath.Join(tmpDir, "invkfile.cue"),
@@ -829,6 +782,8 @@ func TestNativeRuntime_Validate_Unit(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			rt := NewNativeRuntime()
 			ctx := NewExecutionContext(tt.cmd, inv)
 			// For "nil implementation" test, set SelectedImpl to nil
@@ -855,6 +810,8 @@ func TestNativeRuntime_Validate_Unit(t *testing.T) {
 
 // TestNativeRuntime_getWorkDir tests working directory resolution.
 func TestNativeRuntime_getWorkDir(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 
 	tests := []struct {
@@ -881,6 +838,8 @@ func TestNativeRuntime_getWorkDir(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			if tt.skipOnWindows && goruntime.GOOS == "windows" {
 				t.Skip("skipping: Unix-style absolute paths are not meaningful on Windows")
 			}

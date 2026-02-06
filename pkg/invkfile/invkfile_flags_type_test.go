@@ -14,6 +14,8 @@ import (
 // ============================================================================
 
 func TestParseFlags_WithType(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name         string
 		flagType     string
@@ -35,6 +37,8 @@ func TestParseFlags_WithType(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			cueContent := fmt.Sprintf(`
 cmds: [
 	{
@@ -75,6 +79,8 @@ cmds: [
 }
 
 func TestParseFlags_TypeDefaultsToString(t *testing.T) {
+	t.Parallel()
+
 	cueContent := `
 cmds: [
 	{
@@ -112,6 +118,8 @@ cmds: [
 }
 
 func TestParseFlagsValidation_InvalidType(t *testing.T) {
+	t.Parallel()
+
 	cueContent := `
 cmds: [
 	{
@@ -141,6 +149,8 @@ cmds: [
 }
 
 func TestParseFlagsValidation_TypeIncompatibleWithDefault(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name         string
 		flagType     string
@@ -157,6 +167,8 @@ func TestParseFlagsValidation_TypeIncompatibleWithDefault(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			cueContent := fmt.Sprintf(`
 cmds: [
 	{

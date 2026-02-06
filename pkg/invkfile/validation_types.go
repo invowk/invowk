@@ -37,11 +37,14 @@ type (
 	// ValidationContext provides context for validation operations.
 	// It contains information about the environment and configuration
 	// that validators may need to properly validate an invkfile.
+	//
+	// Validators apply defaults when values are zero-valued: nil FS defaults to
+	// os.DirFS(WorkDir), empty Platform defaults to the current host platform.
 	ValidationContext struct {
 		// WorkDir is the working directory for resolving relative paths.
 		WorkDir string
 		// FS is the filesystem to use for file existence checks.
-		// Defaults to os.DirFS(".") if not set.
+		// Defaults to os.DirFS(WorkDir) if nil.
 		FS fs.FS
 		// Platform is the target platform for validation (e.g., "linux", "macos", "windows").
 		// Empty string means current platform.
@@ -54,6 +57,9 @@ type (
 
 	// Validator defines the interface for invkfile validators.
 	// Validators check specific aspects of an invkfile and return all errors found.
+	// Callers should display all returned errors collectively (not stop at first).
+	// Error order is unspecified; priority is encoded in ValidationSeverity.
+	// No circuit breaker or max error count is enforced by the framework.
 	Validator interface {
 		// Name returns a unique identifier for this validator.
 		Name() string

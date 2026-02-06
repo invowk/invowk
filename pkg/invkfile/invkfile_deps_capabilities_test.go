@@ -14,6 +14,8 @@ import (
 // ============================================================================
 
 func TestParseDependsOn_WithCapabilities(t *testing.T) {
+	t.Parallel()
+
 	cueContent := `
 cmds: [
 	{
@@ -77,6 +79,8 @@ cmds: [
 }
 
 func TestParseDependsOn_WithContainerAndTTYCapabilities(t *testing.T) {
+	t.Parallel()
+
 	cueContent := `
 cmds: [
 	{
@@ -138,6 +142,8 @@ cmds: [
 }
 
 func TestParseDependsOn_CapabilitiesAtImplementationLevel(t *testing.T) {
+	t.Parallel()
+
 	cueContent := `
 cmds: [
 	{
@@ -197,6 +203,8 @@ cmds: [
 }
 
 func TestCommand_HasDependencies_WithCapabilities(t *testing.T) {
+	t.Parallel()
+
 	cmd := Command{
 		Name:            "test",
 		Implementations: []Implementation{{Script: "echo", Runtimes: []RuntimeConfig{{Name: RuntimeNative}}, Platforms: []PlatformConfig{{Name: PlatformLinux}}}},
@@ -211,6 +219,8 @@ func TestCommand_HasDependencies_WithCapabilities(t *testing.T) {
 }
 
 func TestCommand_HasCommandLevelDependencies_WithCapabilities(t *testing.T) {
+	t.Parallel()
+
 	cmd := Command{
 		Name:            "test",
 		Implementations: []Implementation{{Script: "echo", Runtimes: []RuntimeConfig{{Name: RuntimeNative}}, Platforms: []PlatformConfig{{Name: PlatformLinux}}}},
@@ -225,6 +235,8 @@ func TestCommand_HasCommandLevelDependencies_WithCapabilities(t *testing.T) {
 }
 
 func TestScript_HasDependencies_WithCapabilities(t *testing.T) {
+	t.Parallel()
+
 	impl := Implementation{
 		Script:   "echo test",
 		Runtimes: []RuntimeConfig{{Name: RuntimeNative}},
@@ -239,6 +251,8 @@ func TestScript_HasDependencies_WithCapabilities(t *testing.T) {
 }
 
 func TestMergeDependsOn_WithCapabilities(t *testing.T) {
+	t.Parallel()
+
 	cmdDeps := &DependsOn{
 		Capabilities: []CapabilityDependency{{Alternatives: []CapabilityName{CapabilityLocalAreaNetwork}}},
 	}
@@ -268,6 +282,8 @@ func TestMergeDependsOn_WithCapabilities(t *testing.T) {
 }
 
 func TestGenerateCUE_WithCapabilities(t *testing.T) {
+	t.Parallel()
+
 	inv := &Invkfile{
 		Commands: []Command{
 			{
@@ -305,6 +321,8 @@ func TestGenerateCUE_WithCapabilities(t *testing.T) {
 }
 
 func TestGenerateCUE_WithCapabilitiesAtImplementationLevel(t *testing.T) {
+	t.Parallel()
+
 	inv := &Invkfile{
 		Commands: []Command{
 			{
@@ -342,6 +360,8 @@ func TestGenerateCUE_WithCapabilitiesAtImplementationLevel(t *testing.T) {
 
 // TestParse_RootLevelDependsOn verifies that root-level depends_on is parsed correctly
 func TestParse_RootLevelDependsOn(t *testing.T) {
+	t.Parallel()
+
 	cueContent := `
 depends_on: {
 	tools: [{alternatives: ["sh"]}]
@@ -417,6 +437,8 @@ cmds: [
 
 // TestInvkfile_HasRootLevelDependencies verifies the helper method works correctly
 func TestInvkfile_HasRootLevelDependencies(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name     string
 		deps     *DependsOn
@@ -457,6 +479,8 @@ func TestInvkfile_HasRootLevelDependencies(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			inv := &Invkfile{
 				DependsOn: tt.deps,
 				Commands:  []Command{{Name: "test", Implementations: []Implementation{{Script: "echo", Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}}}},
@@ -474,6 +498,8 @@ func TestInvkfile_HasRootLevelDependencies(t *testing.T) {
 
 // TestMergeDependsOnAll verifies three-way merge works correctly
 func TestMergeDependsOnAll(t *testing.T) {
+	t.Parallel()
+
 	rootDeps := &DependsOn{
 		Tools:        []ToolDependency{{Alternatives: []string{"sh"}}},
 		Capabilities: []CapabilityDependency{{Alternatives: []CapabilityName{CapabilityLocalAreaNetwork}}},
@@ -534,6 +560,8 @@ func TestMergeDependsOnAll(t *testing.T) {
 
 // TestMergeDependsOnAll_NilInputs verifies three-way merge handles nil inputs
 func TestMergeDependsOnAll_NilInputs(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name     string
 		rootDeps *DependsOn
@@ -573,6 +601,8 @@ func TestMergeDependsOnAll_NilInputs(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			result := MergeDependsOnAll(tt.rootDeps, tt.cmdDeps, tt.implDeps)
 			if tt.expected && result == nil {
 				t.Error("MergeDependsOnAll should return non-nil result")
@@ -586,6 +616,8 @@ func TestMergeDependsOnAll_NilInputs(t *testing.T) {
 
 // TestGenerateCUE_WithRootLevelDependsOn verifies GenerateCUE produces valid CUE for root-level depends_on
 func TestGenerateCUE_WithRootLevelDependsOn(t *testing.T) {
+	t.Parallel()
+
 	inv := &Invkfile{
 		DependsOn: &DependsOn{
 			Tools:        []ToolDependency{{Alternatives: []string{"sh", "bash"}}},

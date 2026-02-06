@@ -12,6 +12,8 @@ import (
 )
 
 func TestNewChooseModel_SingleSelect(t *testing.T) {
+	t.Parallel()
+
 	opts := ChooseStringOptions{
 		Title:   "Select an option",
 		Options: []string{"Option A", "Option B", "Option C"},
@@ -36,6 +38,8 @@ func TestNewChooseModel_SingleSelect(t *testing.T) {
 }
 
 func TestNewChooseModel_MultiSelect(t *testing.T) {
+	t.Parallel()
+
 	opts := ChooseStringOptions{
 		Title:   "Select multiple",
 		Options: []string{"A", "B", "C"},
@@ -54,6 +58,8 @@ func TestNewChooseModel_MultiSelect(t *testing.T) {
 }
 
 func TestNewChooseModel_NoLimit(t *testing.T) {
+	t.Parallel()
+
 	opts := ChooseStringOptions{
 		Title:   "Select any",
 		Options: []string{"A", "B", "C"},
@@ -72,6 +78,8 @@ func TestNewChooseModel_NoLimit(t *testing.T) {
 }
 
 func TestChooseModel_CancelWithEsc(t *testing.T) {
+	t.Parallel()
+
 	opts := ChooseStringOptions{
 		Title:   "Test",
 		Options: []string{"A", "B"},
@@ -100,6 +108,8 @@ func TestChooseModel_CancelWithEsc(t *testing.T) {
 }
 
 func TestChooseModel_CancelWithCtrlC(t *testing.T) {
+	t.Parallel()
+
 	opts := ChooseStringOptions{
 		Title:   "Test",
 		Options: []string{"A", "B"},
@@ -122,6 +132,8 @@ func TestChooseModel_CancelWithCtrlC(t *testing.T) {
 }
 
 func TestChooseModel_SetSize(t *testing.T) {
+	t.Parallel()
+
 	opts := ChooseStringOptions{
 		Title:   "Test",
 		Options: []string{"A", "B"},
@@ -140,6 +152,8 @@ func TestChooseModel_SetSize(t *testing.T) {
 }
 
 func TestChooseModel_ViewWhenDone(t *testing.T) {
+	t.Parallel()
+
 	opts := ChooseStringOptions{
 		Title:   "Test",
 		Options: []string{"A", "B"},
@@ -157,6 +171,8 @@ func TestChooseModel_ViewWhenDone(t *testing.T) {
 }
 
 func TestChooseModel_ViewWithWidth(t *testing.T) {
+	t.Parallel()
+
 	opts := ChooseStringOptions{
 		Title:   "Test",
 		Options: []string{"A", "B"},
@@ -175,6 +191,8 @@ func TestChooseModel_ViewWithWidth(t *testing.T) {
 }
 
 func TestChooseModel_Init(t *testing.T) {
+	t.Parallel()
+
 	opts := ChooseStringOptions{
 		Title:   "Test",
 		Options: []string{"A", "B"},
@@ -190,6 +208,8 @@ func TestChooseModel_Init(t *testing.T) {
 }
 
 func TestNewChooseModelForModal(t *testing.T) {
+	t.Parallel()
+
 	opts := ChooseStringOptions{
 		Title:   "Modal Select",
 		Options: []string{"X", "Y", "Z"},
@@ -208,6 +228,8 @@ func TestNewChooseModelForModal(t *testing.T) {
 }
 
 func TestChooseBuilder_FluentAPI(t *testing.T) {
+	t.Parallel()
+
 	builder := NewChoose[string]().
 		Title("Pick one").
 		Description("Choose wisely").
@@ -244,6 +266,8 @@ func TestChooseBuilder_FluentAPI(t *testing.T) {
 }
 
 func TestChooseBuilder_OptionsFromSlice(t *testing.T) {
+	t.Parallel()
+
 	values := []string{"apple", "banana", "cherry"}
 	builder := NewChoose[string]().
 		OptionsFromSlice(values, func(s string) string {
@@ -262,6 +286,8 @@ func TestChooseBuilder_OptionsFromSlice(t *testing.T) {
 }
 
 func TestMultiChooseBuilder_FluentAPI(t *testing.T) {
+	t.Parallel()
+
 	builder := NewMultiChoose[string]().
 		Title("Select many").
 		Description("Pick multiple").
@@ -295,6 +321,8 @@ func TestMultiChooseBuilder_FluentAPI(t *testing.T) {
 }
 
 func TestChooseStringBuilder_FluentAPI(t *testing.T) {
+	t.Parallel()
+
 	builder := NewChooseString().
 		Title("Choose string").
 		Options("opt1", "opt2", "opt3").
@@ -324,6 +352,8 @@ func TestChooseStringBuilder_FluentAPI(t *testing.T) {
 }
 
 func TestChooseStringBuilder_NoLimit(t *testing.T) {
+	t.Parallel()
+
 	builder := NewChooseString().
 		Title("Unlimited").
 		Options("A", "B", "C").
@@ -335,6 +365,8 @@ func TestChooseStringBuilder_NoLimit(t *testing.T) {
 }
 
 func TestChooseStringBuilder_Model(t *testing.T) {
+	t.Parallel()
+
 	builder := NewChooseString().
 		Title("Test").
 		Options("A", "B")
@@ -350,6 +382,8 @@ func TestChooseStringBuilder_Model(t *testing.T) {
 }
 
 func TestOption_Fields(t *testing.T) {
+	t.Parallel()
+
 	opt := Option[int]{
 		Title:    "Number One",
 		Value:    1,
@@ -368,6 +402,8 @@ func TestOption_Fields(t *testing.T) {
 }
 
 func TestChooseModel_MultiSelectToggle(t *testing.T) {
+	t.Parallel()
+
 	opts := ChooseStringOptions{
 		Title:   "Select multiple",
 		Options: []string{"A", "B", "C"},
@@ -401,6 +437,8 @@ func TestChooseModel_MultiSelectToggle(t *testing.T) {
 }
 
 func TestChooseModel_MultiSelectToggleWithX(t *testing.T) {
+	t.Parallel()
+
 	opts := ChooseStringOptions{
 		Title:   "Select multiple",
 		Options: []string{"A", "B", "C"},
@@ -421,6 +459,8 @@ func TestChooseModel_MultiSelectToggleWithX(t *testing.T) {
 }
 
 func TestChooseModel_MultiSelectNavigation(t *testing.T) {
+	t.Parallel()
+
 	opts := ChooseStringOptions{
 		Title:   "Select multiple",
 		Options: []string{"A", "B", "C"},
@@ -489,6 +529,8 @@ func TestChooseModel_MultiSelectNavigation(t *testing.T) {
 }
 
 func TestChooseModel_MultiSelectWithLimit(t *testing.T) {
+	t.Parallel()
+
 	opts := ChooseStringOptions{
 		Title:   "Select at most 2",
 		Options: []string{"A", "B", "C"},
@@ -531,6 +573,8 @@ func TestChooseModel_MultiSelectWithLimit(t *testing.T) {
 }
 
 func TestChooseModel_MultiSelectNoLimit(t *testing.T) {
+	t.Parallel()
+
 	opts := ChooseStringOptions{
 		Title:   "Select any",
 		Options: []string{"A", "B", "C"},
@@ -561,6 +605,8 @@ func TestChooseModel_MultiSelectNoLimit(t *testing.T) {
 }
 
 func TestChooseModel_SingleSelectIgnoresSpaceToggle(t *testing.T) {
+	t.Parallel()
+
 	opts := ChooseStringOptions{
 		Title:   "Select one",
 		Options: []string{"A", "B", "C"},
@@ -583,6 +629,8 @@ func TestChooseModel_SingleSelectIgnoresSpaceToggle(t *testing.T) {
 }
 
 func TestChooseModel_SyncSelectionsOrder(t *testing.T) {
+	t.Parallel()
+
 	opts := ChooseStringOptions{
 		Title:   "Select multiple",
 		Options: []string{"A", "B", "C"},
@@ -628,6 +676,8 @@ func TestChooseModel_SyncSelectionsOrder(t *testing.T) {
 }
 
 func TestChooseModel_MultiSelectVisualFeedback(t *testing.T) {
+	t.Parallel()
+
 	// This test verifies that the multi-select model renders checkbox indicators
 	// that change when selections are toggled. This was the core bug: huh.MultiSelect
 	// didn't show visual feedback when embedded in modal overlays.
@@ -676,6 +726,8 @@ func TestChooseModel_MultiSelectVisualFeedback(t *testing.T) {
 }
 
 func TestChooseModel_MultiSelectForModal(t *testing.T) {
+	t.Parallel()
+
 	// Verify modal version also shows visual feedback
 	opts := ChooseStringOptions{
 		Title:   "Modal Select",
@@ -703,6 +755,8 @@ func TestChooseModel_MultiSelectForModal(t *testing.T) {
 }
 
 func TestChooseStringOptions_JSONUnmarshal(t *testing.T) {
+	t.Parallel()
+
 	// This test verifies that ChooseStringOptions can be unmarshaled from JSON
 	// using snake_case field names, which matches the protocol in protocol.go.
 	// This was a critical bug: the TUI server sends JSON with snake_case fields
@@ -751,6 +805,7 @@ func TestChooseStringOptions_JSONUnmarshal(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			var opts ChooseStringOptions
 			if err := json.Unmarshal([]byte(tt.jsonInput), &opts); err != nil {
 				t.Fatalf("failed to unmarshal JSON: %v", err)
@@ -782,6 +837,8 @@ func TestChooseStringOptions_JSONUnmarshal(t *testing.T) {
 }
 
 func TestChooseStringOptions_JSONUnmarshalEnablesMultiSelect(t *testing.T) {
+	t.Parallel()
+
 	// This test verifies the complete flow: JSON unmarshal -> model creation.
 	// When "no_limit": true is sent via JSON (as the TUI server does), the
 	// resulting model MUST be in multi-select mode with checkboxes.

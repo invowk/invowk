@@ -58,8 +58,9 @@ func (d *Discovery) LoadAll() ([]*DiscoveredFile, error) {
 		var parseErr error
 
 		if file.Module != nil {
-			// Library-only modules intentionally expose metadata only; they do not
-			// contribute command definitions to discovery output.
+			// Library-only modules provide scripts and files for other modules to
+			// reference via `requires`, but don't contribute their own command
+			// definitions to the CLI command tree.
 			if file.Module.IsLibraryOnly || file.Path == "" {
 				continue
 			}

@@ -170,6 +170,8 @@ func lookupDefinition(t *testing.T, schema cue.Value, defPath string) cue.Value 
 // TestInvkmodSchemaSync verifies Invkmod Go struct matches #Invkmod CUE definition.
 // T013: Create sync_test.go for Invkmod struct
 func TestInvkmodSchemaSync(t *testing.T) {
+	t.Parallel()
+
 	schema, _ := getCUESchema(t)
 	cueFields := extractCUEFields(t, lookupDefinition(t, schema, "#Invkmod"))
 	goFields := extractGoJSONTags(t, reflect.TypeFor[Invkmod]())
@@ -179,6 +181,8 @@ func TestInvkmodSchemaSync(t *testing.T) {
 
 // TestModuleRequirementSchemaSync verifies ModuleRequirement Go struct matches #ModuleRequirement CUE definition.
 func TestModuleRequirementSchemaSync(t *testing.T) {
+	t.Parallel()
+
 	schema, _ := getCUESchema(t)
 	cueFields := extractCUEFields(t, lookupDefinition(t, schema, "#ModuleRequirement"))
 	goFields := extractGoJSONTags(t, reflect.TypeFor[ModuleRequirement]())
@@ -251,6 +255,8 @@ func validateCUEModuleRequirement(t *testing.T, cueData string) error {
 
 // TestModuleNameLengthConstraint verifies #Invkmod.module has a 256 rune limit.
 func TestModuleNameLengthConstraint(t *testing.T) {
+	t.Parallel()
+
 	// Exactly 256 characters should pass (valid RDNS-style name)
 	name256 := strings.Repeat("a", 256)
 	valid := `module: "` + name256 + `"`
@@ -268,6 +274,8 @@ func TestModuleNameLengthConstraint(t *testing.T) {
 
 // TestVersionLengthConstraint verifies #ModuleRequirement.version has a 64 rune limit.
 func TestVersionLengthConstraint(t *testing.T) {
+	t.Parallel()
+
 	// Exactly 64 characters should pass (starts with digit to match regex)
 	version64 := "1" + strings.Repeat("0", 63)
 	valid := `{
@@ -291,6 +299,8 @@ func TestVersionLengthConstraint(t *testing.T) {
 
 // TestAliasLengthConstraint verifies #ModuleRequirement.alias has a 256 rune limit.
 func TestAliasLengthConstraint(t *testing.T) {
+	t.Parallel()
+
 	// Exactly 256 characters should pass (valid alias matching regex)
 	alias256 := strings.Repeat("a", 256)
 	valid := `{
@@ -316,6 +326,8 @@ func TestAliasLengthConstraint(t *testing.T) {
 
 // TestPathRegexConstraints verifies #ModuleRequirement.path rejects absolute paths and path traversal.
 func TestPathRegexConstraints(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name       string
 		path       string
@@ -331,6 +343,8 @@ func TestPathRegexConstraints(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
 			cueData := `{
 	git_url: "https://github.com/user/test.invkmod.git"
 	version: "^1.0.0"

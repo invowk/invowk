@@ -43,7 +43,11 @@ const (
 	ComponentTypeTable    = "table"
 )
 
-// All var declarations in a single block, placed after const.
+// Modal ANSI variables: modal overlays render on a styled background, but child
+// components (huh, bubbles, external tools) may emit bare ANSI resets (\x1b[0m) that
+// clear the background color, causing visual "holes." These pre-computed variables
+// enable efficient replacement of bare resets with reset+background-restore sequences
+// to maintain modal visual continuity.
 var (
 	// modalBgANSI is the ANSI escape sequence to set the modal background color.
 	// It's computed once from ModalBackgroundColor for efficiency.
@@ -62,6 +66,11 @@ type (
 	// EmbeddableComponent is a TUI component that can be embedded in a parent Bubbletea model.
 	// Unlike standalone components that run their own tea.Program, embeddable components
 	// delegate their Update and View to a parent model that owns the terminal.
+	//
+	// The parent program owns the terminal lifecycle and calls Init() on the component.
+	// SetSize must be called before the first Update and on every terminal resize.
+	// Cancelled returns true only when the user explicitly dismissed via Esc or Ctrl+C
+	// (not on normal submission).
 	EmbeddableComponent interface {
 		tea.Model
 

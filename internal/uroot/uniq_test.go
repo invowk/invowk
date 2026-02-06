@@ -12,6 +12,8 @@ import (
 )
 
 func TestUniqCommand_Name(t *testing.T) {
+	t.Parallel()
+
 	cmd := newUniqCommand()
 	if got := cmd.Name(); got != "uniq" {
 		t.Errorf("Name() = %q, want %q", got, "uniq")
@@ -19,6 +21,8 @@ func TestUniqCommand_Name(t *testing.T) {
 }
 
 func TestUniqCommand_SupportedFlags(t *testing.T) {
+	t.Parallel()
+
 	cmd := newUniqCommand()
 	flags := cmd.SupportedFlags()
 
@@ -38,6 +42,8 @@ func TestUniqCommand_SupportedFlags(t *testing.T) {
 }
 
 func TestUniqCommand_Run_Basic(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "test.txt")
 
@@ -73,6 +79,8 @@ func TestUniqCommand_Run_Basic(t *testing.T) {
 }
 
 func TestUniqCommand_Run_NonAdjacent(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "test.txt")
 
@@ -105,6 +113,8 @@ func TestUniqCommand_Run_NonAdjacent(t *testing.T) {
 }
 
 func TestUniqCommand_Run_Count(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "test.txt")
 
@@ -139,6 +149,8 @@ func TestUniqCommand_Run_Count(t *testing.T) {
 }
 
 func TestUniqCommand_Run_DuplicatesOnly(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "test.txt")
 
@@ -170,6 +182,8 @@ func TestUniqCommand_Run_DuplicatesOnly(t *testing.T) {
 }
 
 func TestUniqCommand_Run_UniqueOnly(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "test.txt")
 
@@ -201,6 +215,8 @@ func TestUniqCommand_Run_UniqueOnly(t *testing.T) {
 }
 
 func TestUniqCommand_Run_Stdin(t *testing.T) {
+	t.Parallel()
+
 	stdinContent := "apple\napple\nbanana\n"
 
 	var stdout, stderr bytes.Buffer
@@ -225,6 +241,8 @@ func TestUniqCommand_Run_Stdin(t *testing.T) {
 }
 
 func TestUniqCommand_Run_FileNotFound(t *testing.T) {
+	t.Parallel()
+
 	var stdout, stderr bytes.Buffer
 	ctx := WithHandlerContext(context.Background(), &HandlerContext{
 		Stdin:     strings.NewReader(""),
@@ -248,6 +266,8 @@ func TestUniqCommand_Run_FileNotFound(t *testing.T) {
 }
 
 func TestUniqCommand_Run_EmptyFile(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "empty.txt")
 
@@ -276,6 +296,8 @@ func TestUniqCommand_Run_EmptyFile(t *testing.T) {
 }
 
 func TestUniqCommand_Run_CaseInsensitive(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "test.txt")
 

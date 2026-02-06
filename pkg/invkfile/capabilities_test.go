@@ -8,6 +8,8 @@ import (
 )
 
 func TestCheckCapability_LocalAreaNetwork(t *testing.T) {
+	t.Parallel()
+
 	if testing.Short() {
 		t.Skip("skipping network capability test in short mode")
 	}
@@ -27,6 +29,8 @@ func TestCheckCapability_LocalAreaNetwork(t *testing.T) {
 }
 
 func TestCheckCapability_Internet(t *testing.T) {
+	t.Parallel()
+
 	if testing.Short() {
 		t.Skip("skipping network capability test in short mode")
 	}
@@ -46,6 +50,8 @@ func TestCheckCapability_Internet(t *testing.T) {
 }
 
 func TestCheckCapability_Containers(t *testing.T) {
+	t.Parallel()
+
 	if testing.Short() {
 		t.Skip("skipping container capability test in short mode")
 	}
@@ -60,6 +66,8 @@ func TestCheckCapability_Containers(t *testing.T) {
 }
 
 func TestCheckCapability_TTY(t *testing.T) {
+	t.Parallel()
+
 	err := CheckCapability(CapabilityTTY)
 	if err != nil {
 		var capErr *CapabilityError
@@ -70,6 +78,8 @@ func TestCheckCapability_TTY(t *testing.T) {
 }
 
 func TestCheckCapability_Unknown(t *testing.T) {
+	t.Parallel()
+
 	err := CheckCapability(CapabilityName("unknown-capability"))
 	if err == nil {
 		t.Error("CheckCapability should return error for unknown capability")
@@ -90,6 +100,8 @@ func TestCheckCapability_Unknown(t *testing.T) {
 }
 
 func TestCapabilityError_Error(t *testing.T) {
+	t.Parallel()
+
 	err := &CapabilityError{
 		Capability: CapabilityInternet,
 		Message:    "no connection available",
@@ -102,6 +114,8 @@ func TestCapabilityError_Error(t *testing.T) {
 }
 
 func TestValidCapabilityNames(t *testing.T) {
+	t.Parallel()
+
 	names := ValidCapabilityNames()
 
 	if len(names) != 4 {
@@ -132,6 +146,8 @@ func TestValidCapabilityNames(t *testing.T) {
 }
 
 func TestIsValidCapabilityName(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name     CapabilityName
 		expected bool
@@ -150,6 +166,8 @@ func TestIsValidCapabilityName(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(string(tt.name), func(t *testing.T) {
+			t.Parallel()
+
 			result := IsValidCapabilityName(tt.name)
 			if result != tt.expected {
 				t.Errorf("IsValidCapabilityName(%q) = %v, want %v", tt.name, result, tt.expected)
@@ -159,6 +177,8 @@ func TestIsValidCapabilityName(t *testing.T) {
 }
 
 func TestCheckLocalAreaNetwork_ReturnsCapabilityError(t *testing.T) {
+	t.Parallel()
+
 	if testing.Short() {
 		t.Skip("skipping network capability test in short mode")
 	}
@@ -178,6 +198,8 @@ func TestCheckLocalAreaNetwork_ReturnsCapabilityError(t *testing.T) {
 }
 
 func TestCheckInternet_ReturnsCapabilityError(t *testing.T) {
+	t.Parallel()
+
 	if testing.Short() {
 		t.Skip("skipping network capability test in short mode")
 	}

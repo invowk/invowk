@@ -30,11 +30,14 @@ type Base struct {
 }
 
 // NewBase creates a new Base with the given options.
-// Default error channel buffer size is 1.
+// The error channel has a buffer of 1, which allows the server goroutine to report
+// one error without blocking. Additional errors are silently dropped via non-blocking
+// send (select/default) — callers should read Err() promptly or use LastError() after
+// the server reaches a terminal state.
 func NewBase(opts ...Option) *Base {
 	b := &Base{
 		startedCh: make(chan struct{}),
-		errCh:     make(chan error, 1), // Default buffer size
+		errCh:     make(chan error, 1),
 	}
 	b.state.Store(int32(StateCreated))
 
@@ -128,6 +131,10 @@ func (b *Base) TransitionToFailed(err error) {
 // TransitionToStopping attempts to transition to Stopping state.
 // Returns true if transition occurred, false if already stopped/stopping.
 // Cancels the context and signals shutdown.
+//
+// Uses a CAS-retry loop because multiple goroutines may race to stop the server
+// (e.g., signal handler + error handler). The loop ensures exactly one caller
+// succeeds and performs cleanup (context cancellation); others return false.
 func (b *Base) TransitionToStopping() bool {
 	for {
 		currentState := State(b.state.Load())

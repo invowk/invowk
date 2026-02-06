@@ -125,7 +125,7 @@ func (v *StructureValidator) validateCommand(ctx *ValidationContext, inv *Invkfi
 	}
 
 	// Validate that there are no duplicate platform+runtime combinations
-	if err := cmd.ValidateScripts(); err != nil {
+	if err := cmd.ValidateImplementations(); err != nil {
 		errors = append(errors, ValidationError{
 			Validator: v.Name(),
 			Field:     path.String(),

@@ -11,6 +11,8 @@ import (
 )
 
 func TestNewInteractiveModel(t *testing.T) {
+	t.Parallel()
+
 	opts := InteractiveOptions{
 		Title:       "Test Title",
 		CommandName: "test-cmd",
@@ -34,6 +36,8 @@ func TestNewInteractiveModel(t *testing.T) {
 }
 
 func TestInteractiveModel_Init(t *testing.T) {
+	t.Parallel()
+
 	model := newInteractiveModel(InteractiveOptions{}, nil)
 	cmd := model.Init()
 
@@ -43,6 +47,8 @@ func TestInteractiveModel_Init(t *testing.T) {
 }
 
 func TestInteractiveModel_Update_OutputMsg(t *testing.T) {
+	t.Parallel()
+
 	model := newInteractiveModel(InteractiveOptions{}, nil)
 
 	// Send output messages
@@ -62,6 +68,8 @@ func TestInteractiveModel_Update_OutputMsg(t *testing.T) {
 }
 
 func TestInteractiveModel_Update_DoneMsg(t *testing.T) {
+	t.Parallel()
+
 	model := newInteractiveModel(InteractiveOptions{}, nil)
 
 	result := InteractiveResult{
@@ -88,6 +96,8 @@ func TestInteractiveModel_Update_DoneMsg(t *testing.T) {
 }
 
 func TestInteractiveModel_Update_DoneMsg_WithError(t *testing.T) {
+	t.Parallel()
+
 	model := newInteractiveModel(InteractiveOptions{}, nil)
 
 	result := InteractiveResult{
@@ -108,6 +118,8 @@ func TestInteractiveModel_Update_DoneMsg_WithError(t *testing.T) {
 }
 
 func TestInteractiveModel_Update_WindowSizeMsg(t *testing.T) {
+	t.Parallel()
+
 	model := newInteractiveModel(InteractiveOptions{}, nil)
 
 	msg := tea.WindowSizeMsg{Width: 120, Height: 40}
@@ -126,6 +138,8 @@ func TestInteractiveModel_Update_WindowSizeMsg(t *testing.T) {
 }
 
 func TestInteractiveModel_HandleKeyMsg_CompletedState(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name       string
 		key        string
@@ -141,6 +155,7 @@ func TestInteractiveModel_HandleKeyMsg_CompletedState(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			model := newInteractiveModel(InteractiveOptions{}, nil)
 			model.state = stateCompleted
 			model.result = &InteractiveResult{ExitCode: 0}
@@ -173,6 +188,8 @@ func TestInteractiveModel_HandleKeyMsg_CompletedState(t *testing.T) {
 }
 
 func TestInteractiveModel_HandleKeyMsg_ExecutingState(t *testing.T) {
+	t.Parallel()
+
 	model := newInteractiveModel(InteractiveOptions{}, nil)
 	model.state = stateExecuting
 
@@ -193,6 +210,8 @@ func TestInteractiveModel_HandleKeyMsg_ExecutingState(t *testing.T) {
 }
 
 func TestInteractiveModel_View_NotReady(t *testing.T) {
+	t.Parallel()
+
 	model := newInteractiveModel(InteractiveOptions{}, nil)
 
 	view := model.View()
@@ -204,6 +223,8 @@ func TestInteractiveModel_View_NotReady(t *testing.T) {
 }
 
 func TestInteractiveModel_View_Ready(t *testing.T) {
+	t.Parallel()
+
 	model := newInteractiveModel(InteractiveOptions{
 		Title:       "Test Title",
 		CommandName: "test-cmd",
@@ -225,6 +246,8 @@ func TestInteractiveModel_View_Ready(t *testing.T) {
 }
 
 func TestInteractiveBuilder(t *testing.T) {
+	t.Parallel()
+
 	builder := NewInteractive()
 
 	if builder.opts.Title != "Running Command" {
@@ -236,6 +259,8 @@ func TestInteractiveBuilder(t *testing.T) {
 }
 
 func TestInteractiveBuilder_Title(t *testing.T) {
+	t.Parallel()
+
 	builder := NewInteractive().Title("Custom Title")
 
 	if builder.opts.Title != "Custom Title" {
@@ -244,6 +269,8 @@ func TestInteractiveBuilder_Title(t *testing.T) {
 }
 
 func TestInteractiveBuilder_CommandName(t *testing.T) {
+	t.Parallel()
+
 	builder := NewInteractive().CommandName("my-command")
 
 	if builder.opts.CommandName != "my-command" {
@@ -252,6 +279,8 @@ func TestInteractiveBuilder_CommandName(t *testing.T) {
 }
 
 func TestInteractiveBuilder_Context(t *testing.T) {
+	t.Parallel()
+
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
@@ -263,6 +292,8 @@ func TestInteractiveBuilder_Context(t *testing.T) {
 }
 
 func TestInteractiveBuilder_Run_NoCommand(t *testing.T) {
+	t.Parallel()
+
 	builder := NewInteractive()
 
 	result, err := builder.Run()
@@ -279,6 +310,8 @@ func TestInteractiveBuilder_Run_NoCommand(t *testing.T) {
 }
 
 func TestInteractiveBuilder_Chaining(t *testing.T) {
+	t.Parallel()
+
 	ctx := context.Background()
 
 	builder := NewInteractive().
@@ -298,6 +331,8 @@ func TestInteractiveBuilder_Chaining(t *testing.T) {
 }
 
 func TestInteractiveResult_Fields(t *testing.T) {
+	t.Parallel()
+
 	result := InteractiveResult{
 		ExitCode: 42,
 		Duration: 5 * time.Second,
@@ -316,6 +351,8 @@ func TestInteractiveResult_Fields(t *testing.T) {
 }
 
 func TestInteractiveOptions_Fields(t *testing.T) {
+	t.Parallel()
+
 	opts := InteractiveOptions{
 		Title:       "My Title",
 		CommandName: "my-cmd",
@@ -331,6 +368,8 @@ func TestInteractiveOptions_Fields(t *testing.T) {
 }
 
 func TestExecutionState_Constants(t *testing.T) {
+	t.Parallel()
+
 	if stateExecuting != 0 {
 		t.Errorf("expected stateExecuting to be 0, got %d", stateExecuting)
 	}
@@ -340,6 +379,8 @@ func TestExecutionState_Constants(t *testing.T) {
 }
 
 func TestInteractiveModel_AppendCompletionMessage_Success(t *testing.T) {
+	t.Parallel()
+
 	model := newInteractiveModel(InteractiveOptions{}, nil)
 	model.result = &InteractiveResult{
 		ExitCode: 0,
@@ -359,6 +400,8 @@ func TestInteractiveModel_AppendCompletionMessage_Success(t *testing.T) {
 }
 
 func TestInteractiveModel_AppendCompletionMessage_Failure(t *testing.T) {
+	t.Parallel()
+
 	model := newInteractiveModel(InteractiveOptions{}, nil)
 	model.result = &InteractiveResult{
 		ExitCode: 1,
@@ -374,6 +417,8 @@ func TestInteractiveModel_AppendCompletionMessage_Failure(t *testing.T) {
 }
 
 func TestInteractiveModel_ConcurrentOutputWrites(t *testing.T) {
+	t.Parallel()
+
 	model := newInteractiveModel(InteractiveOptions{}, nil)
 
 	// Simulate concurrent output writes (should be safe due to mutex)
@@ -399,6 +444,8 @@ func TestInteractiveModel_ConcurrentOutputWrites(t *testing.T) {
 }
 
 func TestStripOSCSequences(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name     string
 		input    string
@@ -473,6 +520,7 @@ func TestStripOSCSequences(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			result := stripOSCSequences(tt.input)
 			if result != tt.expected {
 				t.Errorf("stripOSCSequences() mismatch\ngot:  %q\nwant: %q", result, tt.expected)

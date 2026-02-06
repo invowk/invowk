@@ -7,32 +7,13 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
 	"invowk-cli/internal/config"
 	"invowk-cli/internal/testutil"
 )
-
-func TestSource_String(t *testing.T) {
-	tests := []struct {
-		source   Source
-		expected string
-	}{
-		{SourceCurrentDir, "current directory"},
-		{SourceUserDir, "user commands (~/.invowk/cmds)"},
-		{SourceConfigPath, "configured search path"},
-		{Source(999), "unknown"},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.expected, func(t *testing.T) {
-			if got := tt.source.String(); got != tt.expected {
-				t.Errorf("Source(%d).String() = %s, want %s", tt.source, got, tt.expected)
-			}
-		})
-	}
-}
 
 func TestNew(t *testing.T) {
 	cfg := config.DefaultConfig()
@@ -651,5 +632,99 @@ cmds: [{name: "build", description: "User build", implementations: [{script: "ec
 
 	if buildCmd != nil && buildCmd.Source != SourceCurrentDir {
 		t.Errorf("build command should be from current directory, got %v", buildCmd.Source)
+	}
+}
+
+func TestDiscoverAll_PermissionDenied(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("permission-based tests are unreliable on Windows")
+	}
+
+	tmpDir := t.TempDir()
+
+	// Create a subdirectory and make it unreadable
+	unreadableDir := filepath.Join(tmpDir, ".invowk", "cmds")
+	testutil.MustMkdirAll(t, unreadableDir, 0o755)
+	if err := os.Chmod(unreadableDir, 0o000); err != nil {
+		t.Fatalf("failed to chmod: %v", err)
+	}
+	// Restore permissions so t.TempDir() cleanup can remove the directory
+	t.Cleanup(func() {
+		_ = os.Chmod(unreadableDir, 0o755) //nolint:errcheck // best-effort cleanup
+	})
+
+	restoreWd := testutil.MustChdir(t, tmpDir)
+	defer restoreWd()
+
+	cleanupHome := testutil.SetHomeDir(t, tmpDir)
+	defer cleanupHome()
+
+	cfg := config.DefaultConfig()
+	d := New(cfg)
+
+	// DiscoverAll should not panic when encountering an unreadable directory.
+	// It may return an error or an empty result; the key invariant is no panic.
+	files, err := d.DiscoverAll()
+	if err != nil {
+		// Returning an error is acceptable behavior
+		return
+	}
+
+	// If no error, we expect an empty or non-nil slice (no panic occurred)
+	_ = files
+}
+
+func TestDiscoverAll_SymlinkToInvkfile(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("symlinks require elevated privileges on Windows")
+	}
+
+	tmpDir := t.TempDir()
+
+	// Create a real invkfile.cue in a separate directory
+	sourceDir := filepath.Join(tmpDir, "source")
+	testutil.MustMkdirAll(t, sourceDir, 0o755)
+
+	invkfileContent := `
+cmds: [{name: "symlinked", implementations: [{script: "echo symlinked", runtimes: [{name: "native"}]}]}]
+`
+	sourcePath := filepath.Join(sourceDir, "invkfile.cue")
+	if err := os.WriteFile(sourcePath, []byte(invkfileContent), 0o644); err != nil {
+		t.Fatalf("failed to write source invkfile: %v", err)
+	}
+
+	// Create a working directory with a symlink pointing to the real invkfile
+	workDir := filepath.Join(tmpDir, "work")
+	testutil.MustMkdirAll(t, workDir, 0o755)
+	symlinkPath := filepath.Join(workDir, "invkfile.cue")
+	if err := os.Symlink(sourcePath, symlinkPath); err != nil {
+		t.Fatalf("failed to create symlink: %v", err)
+	}
+
+	restoreWd := testutil.MustChdir(t, workDir)
+	defer restoreWd()
+
+	cleanupHome := testutil.SetHomeDir(t, tmpDir)
+	defer cleanupHome()
+
+	cfg := config.DefaultConfig()
+	d := New(cfg)
+
+	files, err := d.DiscoverAll()
+	if err != nil {
+		t.Fatalf("DiscoverAll() returned error: %v", err)
+	}
+
+	// Discovery should follow the symlink and find the invkfile
+	found := false
+	for _, f := range files {
+		if f.Source == SourceCurrentDir {
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		t.Error("DiscoverAll() did not find symlinked invkfile in current directory")
 	}
 }

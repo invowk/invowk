@@ -8,6 +8,8 @@ import (
 )
 
 func TestHexToANSIBackground(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name     string
 		hex      string
@@ -52,6 +54,8 @@ func TestHexToANSIBackground(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			result := hexToANSIBackground(tt.hex)
 			if result != tt.expected {
 				t.Errorf("hexToANSIBackground(%q) = %q, want %q", tt.hex, result, tt.expected)
@@ -61,6 +65,8 @@ func TestHexToANSIBackground(t *testing.T) {
 }
 
 func TestSanitizeModalBackground(t *testing.T) {
+	t.Parallel()
+
 	// Pre-compute expected values based on ModalBackgroundColor
 	bgEscape := hexToANSIBackground(ModalBackgroundColor)
 	resetWithBg := "\x1b[0m" + bgEscape
@@ -109,6 +115,8 @@ func TestSanitizeModalBackground(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			result := sanitizeModalBackground(tt.input)
 			if result != tt.expected {
 				t.Errorf("sanitizeModalBackground() mismatch\ngot:  %q\nwant: %q", result, tt.expected)
@@ -118,6 +126,8 @@ func TestSanitizeModalBackground(t *testing.T) {
 }
 
 func TestModalBgANSIInitialized(t *testing.T) {
+	t.Parallel()
+
 	// Verify that the module-level variables are properly initialized
 	if modalBgANSI == "" {
 		t.Error("modalBgANSI should be initialized to a non-empty value")
@@ -133,6 +143,8 @@ func TestModalBgANSIInitialized(t *testing.T) {
 }
 
 func TestModalBaseStyle(t *testing.T) {
+	t.Parallel()
+
 	// Verify that modalBaseStyle returns a valid style and preserves content
 	style := modalBaseStyle()
 	rendered := style.Render("test")
@@ -148,6 +160,8 @@ func TestModalBaseStyle(t *testing.T) {
 }
 
 func TestCalculateModalSize(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name          string
 		componentType ComponentType
@@ -184,6 +198,8 @@ func TestCalculateModalSize(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			size := CalculateModalSize(tt.componentType, tt.screenWidth, tt.screenHeight)
 
 			if tt.expectWidth && size.Width <= 0 {

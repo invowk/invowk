@@ -16,6 +16,8 @@ import (
 
 // TestGenerateCUE_WithRootLevelDependsOn_CustomChecks verifies GenerateCUE handles custom_checks at root level
 func TestGenerateCUE_WithRootLevelDependsOn_CustomChecks(t *testing.T) {
+	t.Parallel()
+
 	expectedCode := 0
 	inv := &Invkfile{
 		DependsOn: &DependsOn{
@@ -68,6 +70,8 @@ func TestGenerateCUE_WithRootLevelDependsOn_CustomChecks(t *testing.T) {
 
 // TestParse_RootLevelDependsOn_CustomChecks verifies custom_checks parsing at root level
 func TestParse_RootLevelDependsOn_CustomChecks(t *testing.T) {
+	t.Parallel()
+
 	cueContent := `
 depends_on: {
 	custom_checks: [
@@ -145,6 +149,8 @@ cmds: [
 
 // TestParse_RootLevelDependsOn_CommandDeps verifies command dependencies parsing at root level
 func TestParse_RootLevelDependsOn_CommandDeps(t *testing.T) {
+	t.Parallel()
+
 	cueContent := `
 depends_on: {
 	cmds: [
@@ -204,6 +210,8 @@ cmds: [
 }
 
 func TestParseCustomChecks_ValidCheckScript(t *testing.T) {
+	t.Parallel()
+
 	cueContent := `
 cmds: [
 	{
@@ -240,6 +248,8 @@ depends_on: {
 }
 
 func TestParseCustomChecks_RejectsLongCheckScript(t *testing.T) {
+	t.Parallel()
+
 	// Create a check_script that exceeds MaxScriptLength (10MB).
 	// Since DefaultMaxCUEFileSize is 5MB, the file size guard triggers first.
 	// This is correct behavior - the file size guard prevents OOM attacks.
@@ -281,6 +291,8 @@ depends_on: {
 }
 
 func TestParseCustomChecks_RejectsDangerousExpectedOutput(t *testing.T) {
+	t.Parallel()
+
 	cueContent := `
 cmds: [
 	{
@@ -315,6 +327,8 @@ depends_on: {
 }
 
 func TestParseCustomChecks_CommandLevel(t *testing.T) {
+	t.Parallel()
+
 	cueContent := `
 cmds: [
 	{
@@ -350,6 +364,8 @@ cmds: [
 }
 
 func TestParseCustomChecks_CommandLevelRejectsDangerousPattern(t *testing.T) {
+	t.Parallel()
+
 	cueContent := `
 cmds: [
 	{
@@ -384,6 +400,8 @@ cmds: [
 }
 
 func TestParseCustomChecks_ImplementationLevel(t *testing.T) {
+	t.Parallel()
+
 	cueContent := `
 cmds: [
 	{
@@ -420,6 +438,8 @@ cmds: [
 }
 
 func TestParseCustomChecks_ImplementationLevelRejectsLongCheckScript(t *testing.T) {
+	t.Parallel()
+
 	// Create a check_script that exceeds MaxScriptLength (10MB).
 	// Since DefaultMaxCUEFileSize is 5MB, the file size guard triggers first.
 	longScript := strings.Repeat("echo test; ", MaxScriptLength/11+1)

@@ -14,6 +14,8 @@ import (
 // ============================================================================
 
 func TestParseFlags_ValidationRegex(t *testing.T) {
+	t.Parallel()
+
 	cueContent := `
 cmds: [
 	{
@@ -48,6 +50,8 @@ cmds: [
 }
 
 func TestParseFlagsValidation_InvalidRegex(t *testing.T) {
+	t.Parallel()
+
 	cueContent := `
 cmds: [
 	{
@@ -77,6 +81,8 @@ cmds: [
 }
 
 func TestParseFlagsValidation_DefaultNotMatchingValidation(t *testing.T) {
+	t.Parallel()
+
 	cueContent := `
 cmds: [
 	{
@@ -106,6 +112,8 @@ cmds: [
 }
 
 func TestParseFlags_DefaultMatchesValidation(t *testing.T) {
+	t.Parallel()
+
 	cueContent := `
 cmds: [
 	{
@@ -140,6 +148,8 @@ cmds: [
 }
 
 func TestValidateFlagValue(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name       string
 		flag       Flag
@@ -271,6 +281,8 @@ func TestValidateFlagValue(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			err := tt.flag.ValidateFlagValue(tt.value)
 			if tt.wantErr {
 				if err == nil {
@@ -288,6 +300,8 @@ func TestValidateFlagValue(t *testing.T) {
 }
 
 func TestParseFlags_AllEnhancedFeatures(t *testing.T) {
+	t.Parallel()
+
 	// Test a flag with all enhanced features together
 	cueContent := `
 cmds: [

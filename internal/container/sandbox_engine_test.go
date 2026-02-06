@@ -5,7 +5,7 @@ package container
 import (
 	"context"
 	"io"
-	"reflect"
+	"slices"
 	"testing"
 
 	"invowk-cli/pkg/platform"
@@ -77,6 +77,8 @@ func (w *recordingWriter) Write(p []byte) (n int, err error) {
 }
 
 func TestSandboxAwareEngine_NoSandbox(t *testing.T) {
+	t.Parallel()
+
 	mock := &mockEngine{
 		name:       "podman",
 		available:  true,
@@ -91,12 +93,14 @@ func TestSandboxAwareEngine_NoSandbox(t *testing.T) {
 	args := engine.BuildRunArgs(RunOptions{})
 	expected := []string{"run", "--rm", "test-image"}
 
-	if !reflect.DeepEqual(args, expected) {
+	if !slices.Equal(args, expected) {
 		t.Errorf("BuildRunArgs() = %v, want %v", args, expected)
 	}
 }
 
 func TestSandboxAwareEngine_Flatpak(t *testing.T) {
+	t.Parallel()
+
 	mock := &mockEngine{
 		name:       "podman",
 		available:  true,
@@ -111,12 +115,14 @@ func TestSandboxAwareEngine_Flatpak(t *testing.T) {
 	args := engine.BuildRunArgs(RunOptions{})
 	expected := []string{"flatpak-spawn", "--host", "/usr/bin/podman", "run", "--rm", "test-image"}
 
-	if !reflect.DeepEqual(args, expected) {
+	if !slices.Equal(args, expected) {
 		t.Errorf("BuildRunArgs() = %v, want %v", args, expected)
 	}
 }
 
 func TestSandboxAwareEngine_Snap(t *testing.T) {
+	t.Parallel()
+
 	mock := &mockEngine{
 		name:       "docker",
 		available:  true,
@@ -131,12 +137,14 @@ func TestSandboxAwareEngine_Snap(t *testing.T) {
 	args := engine.BuildRunArgs(RunOptions{})
 	expected := []string{"snap", "run", "--shell", "/usr/bin/docker", "run", "--rm", "test-image"}
 
-	if !reflect.DeepEqual(args, expected) {
+	if !slices.Equal(args, expected) {
 		t.Errorf("BuildRunArgs() = %v, want %v", args, expected)
 	}
 }
 
 func TestSandboxAwareEngine_DelegatesMethods(t *testing.T) {
+	t.Parallel()
+
 	mock := &mockEngine{
 		name:       "podman",
 		available:  true,
@@ -172,6 +180,8 @@ func TestSandboxAwareEngine_DelegatesMethods(t *testing.T) {
 }
 
 func TestSandboxAwareEngine_BuildSpawnArgs(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name        string
 		sandboxType platform.SandboxType
@@ -204,12 +214,14 @@ func TestSandboxAwareEngine_BuildSpawnArgs(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			mock := &mockEngine{binaryPath: tt.binary}
 			engine := newSandboxAwareEngineForTesting(mock, tt.sandboxType)
 
 			result := engine.buildSpawnArgs(tt.binary, tt.args)
 
-			if !reflect.DeepEqual(result, tt.expected) {
+			if !slices.Equal(result, tt.expected) {
 				t.Errorf("buildSpawnArgs() = %v, want %v", result, tt.expected)
 			}
 		})
@@ -217,6 +229,8 @@ func TestSandboxAwareEngine_BuildSpawnArgs(t *testing.T) {
 }
 
 func TestSandboxAwareEngine_WrapArgs(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name        string
 		sandboxType platform.SandboxType
@@ -245,6 +259,8 @@ func TestSandboxAwareEngine_WrapArgs(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			mock := &mockEngine{binaryPath: "/usr/bin/podman"}
 			engine := newSandboxAwareEngineForTesting(mock, tt.sandboxType)
 
@@ -257,7 +273,7 @@ func TestSandboxAwareEngine_WrapArgs(t *testing.T) {
 				}
 			} else {
 				// Should be unchanged
-				if !reflect.DeepEqual(result, tt.args) {
+				if !slices.Equal(result, tt.args) {
 					t.Errorf("wrapArgs() = %v, want %v", result, tt.args)
 				}
 			}
@@ -266,6 +282,8 @@ func TestSandboxAwareEngine_WrapArgs(t *testing.T) {
 }
 
 func TestNewSandboxAwareEngine_NoSandbox(t *testing.T) {
+	t.Parallel()
+
 	// Reset sandbox detection
 	platform.DetectSandbox() // Ensure detection runs
 
@@ -293,6 +311,8 @@ func TestNewSandboxAwareEngine_NoSandbox(t *testing.T) {
 }
 
 func TestSandboxAwareEngine_ComplexRunOptions(t *testing.T) {
+	t.Parallel()
+
 	mock := &mockEngine{
 		name:       "podman",
 		available:  true,
@@ -350,6 +370,8 @@ func TestSandboxAwareEngine_ComplexRunOptions(t *testing.T) {
 }
 
 func TestSandboxAwareEngine_GetBaseCLIEngine(t *testing.T) {
+	t.Parallel()
+
 	// Test with real PodmanEngine
 	podman := NewPodmanEngine()
 	podmanWrapper := newSandboxAwareEngineForTesting(podman, platform.SandboxFlatpak)

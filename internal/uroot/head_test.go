@@ -12,6 +12,8 @@ import (
 )
 
 func TestHeadCommand_Name(t *testing.T) {
+	t.Parallel()
+
 	cmd := newHeadCommand()
 	if got := cmd.Name(); got != "head" {
 		t.Errorf("Name() = %q, want %q", got, "head")
@@ -19,6 +21,8 @@ func TestHeadCommand_Name(t *testing.T) {
 }
 
 func TestHeadCommand_SupportedFlags(t *testing.T) {
+	t.Parallel()
+
 	cmd := newHeadCommand()
 	flags := cmd.SupportedFlags()
 
@@ -39,6 +43,8 @@ func TestHeadCommand_SupportedFlags(t *testing.T) {
 }
 
 func TestHeadCommand_Run_DefaultLines(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "test.txt")
 
@@ -84,6 +90,8 @@ func TestHeadCommand_Run_DefaultLines(t *testing.T) {
 }
 
 func TestHeadCommand_Run_CustomLines(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "test.txt")
 
@@ -118,6 +126,8 @@ func TestHeadCommand_Run_CustomLines(t *testing.T) {
 }
 
 func TestHeadCommand_Run_Stdin(t *testing.T) {
+	t.Parallel()
+
 	// Create stdin with 5 lines
 	var stdinContent strings.Builder
 	for i := 1; i <= 5; i++ {
@@ -150,6 +160,8 @@ func TestHeadCommand_Run_Stdin(t *testing.T) {
 }
 
 func TestHeadCommand_Run_FewerLinesThanRequested(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "test.txt")
 
@@ -182,6 +194,8 @@ func TestHeadCommand_Run_FewerLinesThanRequested(t *testing.T) {
 }
 
 func TestHeadCommand_Run_MultipleFiles(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	file1 := filepath.Join(tmpDir, "file1.txt")
 	file2 := filepath.Join(tmpDir, "file2.txt")
@@ -221,6 +235,8 @@ func TestHeadCommand_Run_MultipleFiles(t *testing.T) {
 }
 
 func TestHeadCommand_Run_FileNotFound(t *testing.T) {
+	t.Parallel()
+
 	var stdout, stderr bytes.Buffer
 	ctx := WithHandlerContext(context.Background(), &HandlerContext{
 		Stdin:     strings.NewReader(""),
@@ -244,6 +260,8 @@ func TestHeadCommand_Run_FileNotFound(t *testing.T) {
 }
 
 func TestHeadCommand_Run_EmptyFile(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "empty.txt")
 

@@ -13,7 +13,9 @@ import (
 //   - r: the input stream to process
 //   - filename: the original filename argument (or "-" for stdin)
 //   - index: 0-based index of current file (0 for stdin)
-//   - total: total number of files being processed (0 for stdin)
+//   - total: total number of files being processed. A total of 0 signals stdin mode
+//     (distinguishing it from "processing 0 files"), allowing processors to skip
+//     multi-file headers like "==> filename <==" when reading from stdin.
 type FileProcessor func(r io.Reader, filename string, index, total int) error
 
 // ProcessFilesOrStdin processes files from args or stdin if no files given.

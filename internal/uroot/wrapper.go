@@ -35,7 +35,9 @@ func configureCommand(ctx context.Context, cmd core.Command) {
 }
 
 // wrapError wraps an error with the [uroot] prefix format.
-// Returns nil if err is nil.
+// The [uroot] prefix identifies errors from virtual shell built-in utilities,
+// distinguishing them from host shell errors and system-level failures in
+// mixed execution output. Returns nil if err is nil.
 func wrapError(cmdName string, err error) error {
 	if err == nil {
 		return nil

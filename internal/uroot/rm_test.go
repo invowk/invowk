@@ -12,6 +12,8 @@ import (
 )
 
 func TestRmCommand_Name(t *testing.T) {
+	t.Parallel()
+
 	cmd := newRmCommand()
 	if got := cmd.Name(); got != "rm" {
 		t.Errorf("Name() = %q, want %q", got, "rm")
@@ -19,6 +21,8 @@ func TestRmCommand_Name(t *testing.T) {
 }
 
 func TestRmCommand_SupportedFlags(t *testing.T) {
+	t.Parallel()
+
 	cmd := newRmCommand()
 	flags := cmd.SupportedFlags()
 
@@ -42,6 +46,8 @@ func TestRmCommand_SupportedFlags(t *testing.T) {
 }
 
 func TestRmCommand_Run_SingleFile(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "test.txt")
 
@@ -70,6 +76,8 @@ func TestRmCommand_Run_SingleFile(t *testing.T) {
 }
 
 func TestRmCommand_Run_MultipleFiles(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	file1 := filepath.Join(tmpDir, "file1.txt")
 	file2 := filepath.Join(tmpDir, "file2.txt")
@@ -104,6 +112,8 @@ func TestRmCommand_Run_MultipleFiles(t *testing.T) {
 }
 
 func TestRmCommand_Run_NonEmptyDirectory(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	subDir := filepath.Join(tmpDir, "subdir")
 	nestedFile := filepath.Join(subDir, "file.txt")
@@ -138,6 +148,8 @@ func TestRmCommand_Run_NonEmptyDirectory(t *testing.T) {
 }
 
 func TestRmCommand_Run_RecursiveDirectory(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	subDir := filepath.Join(tmpDir, "subdir")
 	nestedFile := filepath.Join(subDir, "nested.txt")
@@ -170,6 +182,8 @@ func TestRmCommand_Run_RecursiveDirectory(t *testing.T) {
 }
 
 func TestRmCommand_Run_Force(t *testing.T) {
+	t.Parallel()
+
 	var stdout, stderr bytes.Buffer
 	ctx := WithHandlerContext(context.Background(), &HandlerContext{
 		Stdin:     strings.NewReader(""),
@@ -188,6 +202,8 @@ func TestRmCommand_Run_Force(t *testing.T) {
 }
 
 func TestRmCommand_Run_NonexistentWithoutForce(t *testing.T) {
+	t.Parallel()
+
 	var stdout, stderr bytes.Buffer
 	ctx := WithHandlerContext(context.Background(), &HandlerContext{
 		Stdin:     strings.NewReader(""),
@@ -211,6 +227,8 @@ func TestRmCommand_Run_NonexistentWithoutForce(t *testing.T) {
 }
 
 func TestRmCommand_Run_NoArgs(t *testing.T) {
+	t.Parallel()
+
 	var stdout, stderr bytes.Buffer
 	ctx := WithHandlerContext(context.Background(), &HandlerContext{
 		Stdin:     strings.NewReader(""),
@@ -228,6 +246,8 @@ func TestRmCommand_Run_NoArgs(t *testing.T) {
 }
 
 func TestRmCommand_Run_RelativePath(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "relative.txt")
 

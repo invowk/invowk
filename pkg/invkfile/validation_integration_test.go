@@ -9,6 +9,8 @@ import (
 )
 
 func TestInvkfile_Validate_CollectsAllErrors(t *testing.T) {
+	t.Parallel()
+
 	// Create an invkfile with multiple validation errors
 	inv := &Invkfile{
 		FilePath: "/test/invkfile.cue",
@@ -39,6 +41,8 @@ func TestInvkfile_Validate_CollectsAllErrors(t *testing.T) {
 }
 
 func TestInvkfile_Validate_DefaultValidators(t *testing.T) {
+	t.Parallel()
+
 	inv := &Invkfile{
 		FilePath: "/test/invkfile.cue",
 		Commands: []Command{
@@ -64,6 +68,8 @@ func TestInvkfile_Validate_DefaultValidators(t *testing.T) {
 }
 
 func TestInvkfile_Validate_WithStrictMode(t *testing.T) {
+	t.Parallel()
+
 	// Create a custom validator that returns a warning
 	warningValidator := &mockValidator{
 		name: "warning-validator",
@@ -107,6 +113,8 @@ func TestInvkfile_Validate_WithStrictMode(t *testing.T) {
 }
 
 func TestInvkfile_Validate_WithFS(t *testing.T) {
+	t.Parallel()
+
 	// Create a test filesystem
 	testFS := fstest.MapFS{
 		"Containerfile": &fstest.MapFile{Data: []byte("FROM debian:stable-slim")},
@@ -142,6 +150,8 @@ func TestInvkfile_Validate_WithFS(t *testing.T) {
 }
 
 func TestInvkfile_Validate_WithAdditionalValidators(t *testing.T) {
+	t.Parallel()
+
 	customValidator := &mockValidator{
 		name: "custom",
 		errors: []ValidationError{
@@ -181,6 +191,8 @@ func TestInvkfile_Validate_WithAdditionalValidators(t *testing.T) {
 }
 
 func TestInvkfile_Validate_NoCommands(t *testing.T) {
+	t.Parallel()
+
 	inv := &Invkfile{
 		FilePath: "/test/invkfile.cue",
 		Commands: []Command{}, // Empty
@@ -196,6 +208,8 @@ func TestInvkfile_Validate_NoCommands(t *testing.T) {
 }
 
 func TestInvkfile_Validate_ContainerRuntimeErrors(t *testing.T) {
+	t.Parallel()
+
 	inv := &Invkfile{
 		FilePath: "/test/invkfile.cue",
 		Commands: []Command{
@@ -229,6 +243,8 @@ func TestInvkfile_Validate_ContainerRuntimeErrors(t *testing.T) {
 }
 
 func TestInvkfile_Validate_MultipleErrors(t *testing.T) {
+	t.Parallel()
+
 	// Test with multiple different validation issues
 	inv := &Invkfile{
 		FilePath: "/test/invkfile.cue",
@@ -268,6 +284,8 @@ func TestInvkfile_Validate_MultipleErrors(t *testing.T) {
 }
 
 func TestDefaultValidators(t *testing.T) {
+	t.Parallel()
+
 	validators := DefaultValidators()
 	if len(validators) == 0 {
 		t.Error("DefaultValidators() should return at least one validator")
@@ -287,6 +305,8 @@ func TestDefaultValidators(t *testing.T) {
 }
 
 func TestNewDefaultValidator(t *testing.T) {
+	t.Parallel()
+
 	cv := NewDefaultValidator()
 	if cv == nil {
 		t.Fatal("NewDefaultValidator() returned nil")

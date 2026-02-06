@@ -14,6 +14,8 @@ import (
 // ============================================================================
 
 func TestGetEffectiveWorkDir_DefaultToInvkfileDir(t *testing.T) {
+	t.Parallel()
+
 	// When no workdir is specified at any level, defaults to invkfile directory
 	tmpDir := t.TempDir()
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
@@ -32,6 +34,8 @@ func TestGetEffectiveWorkDir_DefaultToInvkfileDir(t *testing.T) {
 }
 
 func TestGetEffectiveWorkDir_RootLevel(t *testing.T) {
+	t.Parallel()
+
 	// When only root-level workdir is specified
 	tmpDir := t.TempDir()
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
@@ -52,6 +56,8 @@ func TestGetEffectiveWorkDir_RootLevel(t *testing.T) {
 }
 
 func TestGetEffectiveWorkDir_CommandLevel(t *testing.T) {
+	t.Parallel()
+
 	// Command-level workdir overrides root-level
 	tmpDir := t.TempDir()
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
@@ -72,6 +78,8 @@ func TestGetEffectiveWorkDir_CommandLevel(t *testing.T) {
 }
 
 func TestGetEffectiveWorkDir_ImplementationLevel(t *testing.T) {
+	t.Parallel()
+
 	// Implementation-level workdir overrides command and root levels
 	tmpDir := t.TempDir()
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
@@ -92,6 +100,8 @@ func TestGetEffectiveWorkDir_ImplementationLevel(t *testing.T) {
 }
 
 func TestGetEffectiveWorkDir_CLIOverride(t *testing.T) {
+	t.Parallel()
+
 	// CLI override takes highest precedence
 	tmpDir := t.TempDir()
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
@@ -112,6 +122,8 @@ func TestGetEffectiveWorkDir_CLIOverride(t *testing.T) {
 }
 
 func TestGetEffectiveWorkDir_AbsolutePath(t *testing.T) {
+	t.Parallel()
+
 	// Absolute paths should be returned as-is (not joined with invkfile dir)
 	tmpDir := t.TempDir()
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
@@ -132,6 +144,8 @@ func TestGetEffectiveWorkDir_AbsolutePath(t *testing.T) {
 }
 
 func TestGetEffectiveWorkDir_ForwardSlashConversion(t *testing.T) {
+	t.Parallel()
+
 	// Forward slashes in CUE should be converted to native path separator
 	tmpDir := t.TempDir()
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
@@ -152,6 +166,8 @@ func TestGetEffectiveWorkDir_ForwardSlashConversion(t *testing.T) {
 }
 
 func TestGetEffectiveWorkDir_NilCommand(t *testing.T) {
+	t.Parallel()
+
 	// Should handle nil command gracefully
 	tmpDir := t.TempDir()
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
@@ -170,6 +186,8 @@ func TestGetEffectiveWorkDir_NilCommand(t *testing.T) {
 }
 
 func TestGetEffectiveWorkDir_NilImplementation(t *testing.T) {
+	t.Parallel()
+
 	// Should handle nil implementation gracefully
 	tmpDir := t.TempDir()
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
@@ -188,6 +206,8 @@ func TestGetEffectiveWorkDir_NilImplementation(t *testing.T) {
 }
 
 func TestGetEffectiveWorkDir_EmptyCommandWorkDir(t *testing.T) {
+	t.Parallel()
+
 	// Empty command workdir should fall through to root level
 	tmpDir := t.TempDir()
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
@@ -208,6 +228,8 @@ func TestGetEffectiveWorkDir_EmptyCommandWorkDir(t *testing.T) {
 }
 
 func TestGetEffectiveWorkDir_ParentDirectory(t *testing.T) {
+	t.Parallel()
+
 	// Relative paths with .. should work correctly
 	tmpDir := t.TempDir()
 	subDir := filepath.Join(tmpDir, "subdir")
@@ -232,6 +254,8 @@ func TestGetEffectiveWorkDir_ParentDirectory(t *testing.T) {
 }
 
 func TestGetEffectiveWorkDir_CurrentDirectory(t *testing.T) {
+	t.Parallel()
+
 	// "." should resolve to invkfile directory
 	tmpDir := t.TempDir()
 	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
@@ -252,6 +276,8 @@ func TestGetEffectiveWorkDir_CurrentDirectory(t *testing.T) {
 }
 
 func TestGetEffectiveWorkDir_ModulePath(t *testing.T) {
+	t.Parallel()
+
 	// When loaded from a module, paths should resolve against module directory
 	tmpDir := t.TempDir()
 	moduleDir := filepath.Join(tmpDir, "mymodule.invkmod")
@@ -282,6 +308,8 @@ func TestGetEffectiveWorkDir_ModulePath(t *testing.T) {
 // ============================================================================
 
 func TestParseWorkDir_RootLevel(t *testing.T) {
+	t.Parallel()
+
 	// Test parsing workdir from CUE at root level
 	cueContent := `
 workdir: "build/output"
@@ -315,6 +343,8 @@ cmds: [
 }
 
 func TestParseWorkDir_CommandLevel(t *testing.T) {
+	t.Parallel()
+
 	// Test parsing workdir from CUE at command level
 	cueContent := `
 cmds: [
@@ -347,6 +377,8 @@ cmds: [
 }
 
 func TestParseWorkDir_ImplementationLevel(t *testing.T) {
+	t.Parallel()
+
 	// Test parsing workdir from CUE at implementation level
 	cueContent := `
 cmds: [
@@ -379,6 +411,8 @@ cmds: [
 }
 
 func TestParseWorkDir_AllLevels(t *testing.T) {
+	t.Parallel()
+
 	// Test parsing workdir at all levels and verify precedence
 	cueContent := `
 workdir: "root-dir"
@@ -436,6 +470,8 @@ cmds: [
 // ============================================================================
 
 func TestGenerateCUE_WithWorkDir(t *testing.T) {
+	t.Parallel()
+
 	inv := &Invkfile{
 		WorkDir: "build",
 		Commands: []Command{
@@ -473,6 +509,8 @@ func TestGenerateCUE_WithWorkDir(t *testing.T) {
 }
 
 func TestGenerateCUE_WithWorkDir_RoundTrip(t *testing.T) {
+	t.Parallel()
+
 	// Create an invkfile with workdir at all levels, generate CUE, parse it back, and verify
 	original := &Invkfile{
 		WorkDir: "root-workdir",

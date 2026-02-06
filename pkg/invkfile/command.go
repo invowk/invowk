@@ -36,7 +36,7 @@ type Command struct {
 	Args []Argument `json:"args,omitempty"`
 }
 
-// GetImplForPlatformRuntime finds the script that matches the given platform and runtime
+// GetImplForPlatformRuntime finds the implementation that matches the given platform and runtime.
 func (c *Command) GetImplForPlatformRuntime(platform Platform, runtime RuntimeMode) *Implementation {
 	for i := range c.Implementations {
 		s := &c.Implementations[i]
@@ -47,7 +47,7 @@ func (c *Command) GetImplForPlatformRuntime(platform Platform, runtime RuntimeMo
 	return nil
 }
 
-// GetImplsForPlatform returns all scripts that can run on the given platform
+// GetImplsForPlatform returns all implementations that can run on the given platform.
 func (c *Command) GetImplsForPlatform(platform Platform) []*Implementation {
 	var result []*Implementation
 	for i := range c.Implementations {
@@ -58,23 +58,23 @@ func (c *Command) GetImplsForPlatform(platform Platform) []*Implementation {
 	return result
 }
 
-// GetDefaultImplForPlatform returns the first script that matches the platform (default)
+// GetDefaultImplForPlatform returns the first implementation that matches the platform (default).
 func (c *Command) GetDefaultImplForPlatform(platform Platform) *Implementation {
-	scripts := c.GetImplsForPlatform(platform)
-	if len(scripts) == 0 {
+	impls := c.GetImplsForPlatform(platform)
+	if len(impls) == 0 {
 		return nil
 	}
-	return scripts[0]
+	return impls[0]
 }
 
-// GetDefaultRuntimeForPlatform returns the default runtime for the given platform
-// The default runtime is the first runtime of the first script that matches the platform
+// GetDefaultRuntimeForPlatform returns the default runtime for the given platform.
+// The default runtime is the first runtime of the first implementation that matches the platform.
 func (c *Command) GetDefaultRuntimeForPlatform(platform Platform) RuntimeMode {
-	script := c.GetDefaultImplForPlatform(platform)
-	if script == nil || len(script.Runtimes) == 0 {
+	impl := c.GetDefaultImplForPlatform(platform)
+	if impl == nil || len(impl.Runtimes) == 0 {
 		return RuntimeNative
 	}
-	return script.Runtimes[0].Name
+	return impl.Runtimes[0].Name
 }
 
 // CanRunOnCurrentHost returns true if the command can run on the current host OS
@@ -165,10 +165,10 @@ func (c *Command) IsRuntimeAllowedForPlatform(platform Platform, runtime Runtime
 	return slices.Contains(c.GetAllowedRuntimesForPlatform(platform), runtime)
 }
 
-// ValidateScripts checks that there are no duplicate platform+runtime combinations
-// Returns an error with a descriptive message if duplicates are found
-func (c *Command) ValidateScripts() error {
-	seen := make(map[PlatformRuntimeKey]int) // key -> script index (1-based for error messages)
+// ValidateImplementations checks that there are no duplicate platform+runtime combinations.
+// Returns an error with a descriptive message if duplicates are found.
+func (c *Command) ValidateImplementations() error {
+	seen := make(map[PlatformRuntimeKey]int) // key -> implementation index (1-based for error messages)
 	allPlatforms := []PlatformConfig{
 		{Name: PlatformLinux},
 		{Name: PlatformMac},
@@ -187,7 +187,7 @@ func (c *Command) ValidateScripts() error {
 				key := PlatformRuntimeKey{Platform: platforms[j].Name, Runtime: impl.Runtimes[k].Name}
 				if existingIdx, exists := seen[key]; exists {
 					return fmt.Errorf(
-						"command '%s' has duplicate platform+runtime combination: platform=%s, runtime=%s (scripts #%d and #%d)",
+						"command '%s' has duplicate platform+runtime combination: platform=%s, runtime=%s (implementations #%d and #%d)",
 						c.Name, platforms[j].Name, impl.Runtimes[k].Name, existingIdx, i+1,
 					)
 				}
@@ -198,7 +198,7 @@ func (c *Command) ValidateScripts() error {
 	return nil
 }
 
-// HasDependencies returns true if the command has any dependencies (at command or script level)
+// HasDependencies returns true if the command has any dependencies (at command or implementation level).
 func (c *Command) HasDependencies() bool {
 	if c.HasCommandLevelDependencies() {
 		return true

@@ -57,6 +57,57 @@ for _, tt := range tests {
 }
 ```
 
+## Test Parallelism
+
+### Default Rule
+
+All new test functions MUST call `t.Parallel()` unless they mutate global/process-wide state.
+
+### Table-Driven Subtests
+
+When a parent test calls `t.Parallel()`, **ALL** subtests inside `t.Run()` must also call `t.Parallel()`. This is enforced by the `tparallel` linter. If even one subtest cannot be parallelized, remove `t.Parallel()` from the parent too.
+
+### Unsafe Patterns (do NOT parallelize)
+
+Do not add `t.Parallel()` to tests that use any of these:
+- `os.Chdir`, `os.Setenv`, or `t.Setenv` (process-wide side effects)
+- Global state mutators: `config.Reset()`, `config.SetConfigDirOverride()`, `testutil.MustSetenv()`, `testutil.MustChdir()`
+- `SetHomeDir` or similar process-wide overrides
+
+### Critical Footgun: TempDir Lifetime with Parallel Subtests
+
+Using `os.MkdirTemp` + `defer os.RemoveAll` in a parent test with `t.Parallel()` subtests causes data races — the parent's `defer` runs when the parent function returns, but parallel subtests are still executing.
+
+**Fix:** Use `t.TempDir()` (lifecycle-managed by the testing framework), or do not parallelize the subtests.
+
+### Correct Pattern
+
+```go
+func TestSomething(t *testing.T) {
+    t.Parallel()
+
+    tests := []struct {
+        name  string
+        input string
+        want  string
+    }{
+        {name: "case A", input: "a", want: "A"},
+        {name: "case B", input: "b", want: "B"},
+    }
+
+    for _, tt := range tests {
+        t.Run(tt.name, func(t *testing.T) {
+            t.Parallel() // Required: parent has t.Parallel()
+
+            got := Transform(tt.input)
+            if got != tt.want {
+                t.Errorf("got %q, want %q", got, tt.want)
+            }
+        })
+    }
+}
+```
+
 ### Integration vs Unit Tests
 
 - **Unit tests**: Fast, no external dependencies, run in short mode
@@ -265,3 +316,4 @@ defer func() { testutil.MustRemoveAll(t, path) }()
 | Import conflicts with `runtime` package | Use `goruntime` alias |
 | Forgetting test cleanup | Use `t.TempDir()` and `defer` patterns |
 | Testscript container tests fail with "mkdir /no-home" | Set `HOME` to `env.WorkDir` in Setup |
+| Circular/trivial tests (constant == literal, zero-value == zero) | Test behavioral contracts: sentinel errors with `errors.Is`, default configs that affect user behavior, state machine transitions |

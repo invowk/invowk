@@ -9,6 +9,8 @@ import (
 )
 
 func TestNewPagerModel(t *testing.T) {
+	t.Parallel()
+
 	opts := PagerOptions{
 		Content:         "Line 1\nLine 2\nLine 3",
 		Title:           "Test Pager",
@@ -33,6 +35,8 @@ func TestNewPagerModel(t *testing.T) {
 }
 
 func TestNewPagerModel_DefaultDimensions(t *testing.T) {
+	t.Parallel()
+
 	opts := PagerOptions{
 		Content: "Content",
 		Title:   "Test",
@@ -55,6 +59,8 @@ func TestNewPagerModel_DefaultDimensions(t *testing.T) {
 }
 
 func TestPagerModel_DismissWithQ(t *testing.T) {
+	t.Parallel()
+
 	opts := PagerOptions{
 		Content: "Content",
 		Config:  DefaultConfig(),
@@ -73,6 +79,8 @@ func TestPagerModel_DismissWithQ(t *testing.T) {
 }
 
 func TestPagerModel_DismissWithEsc(t *testing.T) {
+	t.Parallel()
+
 	opts := PagerOptions{
 		Content: "Content",
 		Config:  DefaultConfig(),
@@ -91,6 +99,8 @@ func TestPagerModel_DismissWithEsc(t *testing.T) {
 }
 
 func TestPagerModel_DismissWithEnter(t *testing.T) {
+	t.Parallel()
+
 	opts := PagerOptions{
 		Content: "Content",
 		Config:  DefaultConfig(),
@@ -109,6 +119,8 @@ func TestPagerModel_DismissWithEnter(t *testing.T) {
 }
 
 func TestPagerModel_DismissWithCtrlC(t *testing.T) {
+	t.Parallel()
+
 	opts := PagerOptions{
 		Content: "Content",
 		Config:  DefaultConfig(),
@@ -127,6 +139,8 @@ func TestPagerModel_DismissWithCtrlC(t *testing.T) {
 }
 
 func TestPagerModel_Result(t *testing.T) {
+	t.Parallel()
+
 	opts := PagerOptions{
 		Content: "Content",
 		Config:  DefaultConfig(),
@@ -146,6 +160,8 @@ func TestPagerModel_Result(t *testing.T) {
 }
 
 func TestPagerModel_Cancelled(t *testing.T) {
+	t.Parallel()
+
 	opts := PagerOptions{
 		Content: "Content",
 		Config:  DefaultConfig(),
@@ -160,6 +176,8 @@ func TestPagerModel_Cancelled(t *testing.T) {
 }
 
 func TestPagerModel_SetSize(t *testing.T) {
+	t.Parallel()
+
 	opts := PagerOptions{
 		Content: "Content",
 		Config:  DefaultConfig(),
@@ -177,6 +195,8 @@ func TestPagerModel_SetSize(t *testing.T) {
 }
 
 func TestPagerModel_ViewWhenDone(t *testing.T) {
+	t.Parallel()
+
 	opts := PagerOptions{
 		Content: "Content",
 		Config:  DefaultConfig(),
@@ -193,6 +213,8 @@ func TestPagerModel_ViewWhenDone(t *testing.T) {
 }
 
 func TestPagerModel_ViewWithTitle(t *testing.T) {
+	t.Parallel()
+
 	opts := PagerOptions{
 		Content: "Line 1\nLine 2",
 		Title:   "My Title",
@@ -211,6 +233,8 @@ func TestPagerModel_ViewWithTitle(t *testing.T) {
 }
 
 func TestPagerModel_ViewWithWidth(t *testing.T) {
+	t.Parallel()
+
 	opts := PagerOptions{
 		Content: "Content",
 		Config:  DefaultConfig(),
@@ -228,6 +252,8 @@ func TestPagerModel_ViewWithWidth(t *testing.T) {
 }
 
 func TestPagerModel_Init(t *testing.T) {
+	t.Parallel()
+
 	opts := PagerOptions{
 		Content: "Content",
 		Config:  DefaultConfig(),
@@ -243,6 +269,8 @@ func TestPagerModel_Init(t *testing.T) {
 }
 
 func TestPagerModel_WindowSizeMsg(t *testing.T) {
+	t.Parallel()
+
 	opts := PagerOptions{
 		Content: "Content",
 		Config:  DefaultConfig(),
@@ -262,6 +290,8 @@ func TestPagerModel_WindowSizeMsg(t *testing.T) {
 }
 
 func TestNewPagerModelForModal(t *testing.T) {
+	t.Parallel()
+
 	opts := PagerOptions{
 		Content: "Modal content",
 		Title:   "Modal Pager",
@@ -279,6 +309,8 @@ func TestNewPagerModelForModal(t *testing.T) {
 }
 
 func TestPagerModel_ViewForModal(t *testing.T) {
+	t.Parallel()
+
 	opts := PagerOptions{
 		Content: "Content",
 		Title:   "Title",
@@ -297,6 +329,8 @@ func TestPagerModel_ViewForModal(t *testing.T) {
 }
 
 func TestPagerBuilder_FluentAPI(t *testing.T) {
+	t.Parallel()
+
 	builder := NewPager().
 		Content("Long content here").
 		Title("Document Title").
@@ -334,6 +368,8 @@ func TestPagerBuilder_FluentAPI(t *testing.T) {
 }
 
 func TestPagerBuilder_Model(t *testing.T) {
+	t.Parallel()
+
 	builder := NewPager().
 		Content("Test content").
 		Title("Test")
@@ -349,6 +385,8 @@ func TestPagerBuilder_Model(t *testing.T) {
 }
 
 func TestPagerBuilder_DefaultValues(t *testing.T) {
+	t.Parallel()
+
 	builder := NewPager()
 
 	// Default config should be set
@@ -358,6 +396,8 @@ func TestPagerBuilder_DefaultValues(t *testing.T) {
 }
 
 func TestPagerOptions_Fields(t *testing.T) {
+	t.Parallel()
+
 	opts := PagerOptions{
 		Content:         "Multi\nLine\nContent",
 		Title:           "Pager Title",
@@ -398,6 +438,8 @@ func TestPagerOptions_Fields(t *testing.T) {
 }
 
 func TestPagerModel_ReadyState(t *testing.T) {
+	t.Parallel()
+
 	opts := PagerOptions{
 		Content: "Content",
 		Config:  DefaultConfig(),
@@ -412,6 +454,8 @@ func TestPagerModel_ReadyState(t *testing.T) {
 }
 
 func TestPagerModel_SmallHeight(t *testing.T) {
+	t.Parallel()
+
 	opts := PagerOptions{
 		Content: "Content",
 		Height:  2, // Very small height

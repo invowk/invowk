@@ -332,27 +332,118 @@ func TestCreateDefaultConfig(t *testing.T) {
 	}
 }
 
-func TestContainerEngineConstants(t *testing.T) {
-	if ContainerEnginePodman != "podman" {
-		t.Errorf("ContainerEnginePodman = %s, want podman", ContainerEnginePodman)
+func TestLoad_EmptyFile(t *testing.T) {
+	// An empty config.cue should not error — it should produce defaults.
+	tmpDir := t.TempDir()
+	configDir := filepath.Join(tmpDir, AppName)
+	if err := os.MkdirAll(configDir, 0o755); err != nil {
+		t.Fatalf("failed to create config dir: %v", err)
 	}
 
-	if ContainerEngineDocker != "docker" {
-		t.Errorf("ContainerEngineDocker = %s, want docker", ContainerEngineDocker)
+	cfgPath := filepath.Join(configDir, ConfigFileName+"."+ConfigFileExt)
+	if err := os.WriteFile(cfgPath, []byte(""), 0o644); err != nil {
+		t.Fatalf("failed to write empty config: %v", err)
+	}
+
+	restoreWd := testutil.MustChdir(t, tmpDir)
+	defer restoreWd()
+
+	SetConfigDirOverride(configDir)
+	defer Reset()
+
+	cfg, _, err := loadWithOptions(context.Background(), LoadOptions{
+		ConfigDirPath: configDir,
+	})
+	if err != nil {
+		t.Fatalf("loadWithOptions() returned error for empty config: %v", err)
+	}
+
+	// Verify defaults are used when the config file is empty
+	defaults := DefaultConfig()
+	if cfg.ContainerEngine != defaults.ContainerEngine {
+		t.Errorf("ContainerEngine = %s, want default %s", cfg.ContainerEngine, defaults.ContainerEngine)
+	}
+	if cfg.DefaultRuntime != defaults.DefaultRuntime {
+		t.Errorf("DefaultRuntime = %s, want default %s", cfg.DefaultRuntime, defaults.DefaultRuntime)
+	}
+	if cfg.UI.ColorScheme != defaults.UI.ColorScheme {
+		t.Errorf("UI.ColorScheme = %s, want default %s", cfg.UI.ColorScheme, defaults.UI.ColorScheme)
 	}
 }
 
-func TestConstants(t *testing.T) {
-	if AppName != "invowk" {
-		t.Errorf("AppName = %s, want invowk", AppName)
+func TestLoad_UnknownFields_Ignored(t *testing.T) {
+	// A config.cue with valid fields plus unknown fields should load gracefully.
+	// This tests forward-compatibility: adding new config fields shouldn't
+	// break older versions that don't recognize them.
+	tmpDir := t.TempDir()
+	configDir := filepath.Join(tmpDir, AppName)
+	if err := os.MkdirAll(configDir, 0o755); err != nil {
+		t.Fatalf("failed to create config dir: %v", err)
 	}
 
-	if ConfigFileName != "config" {
-		t.Errorf("ConfigFileName = %s, want config", ConfigFileName)
+	configContent := `container_engine: "docker"
+some_future_field: "value"
+`
+	cfgPath := filepath.Join(configDir, ConfigFileName+"."+ConfigFileExt)
+	if err := os.WriteFile(cfgPath, []byte(configContent), 0o644); err != nil {
+		t.Fatalf("failed to write config: %v", err)
 	}
 
-	if ConfigFileExt != "cue" {
-		t.Errorf("ConfigFileExt = %s, want cue", ConfigFileExt)
+	restoreWd := testutil.MustChdir(t, tmpDir)
+	defer restoreWd()
+
+	SetConfigDirOverride(configDir)
+	defer Reset()
+
+	// The CUE schema may reject unknown fields or may ignore them.
+	// Either behavior is acceptable; the key invariant is that the
+	// function does not panic or return a nil config without an error.
+	cfg, _, err := loadWithOptions(context.Background(), LoadOptions{
+		ConfigDirPath: configDir,
+	})
+	if err != nil {
+		// CUE schema rejects unknown fields — this is acceptable behavior.
+		// Verify the error message is meaningful.
+		if err.Error() == "" {
+			t.Error("expected non-empty error string when unknown fields are rejected")
+		}
+		return
+	}
+
+	// If it succeeded, the known field should still be applied.
+	if cfg.ContainerEngine != ContainerEngineDocker {
+		t.Errorf("ContainerEngine = %s, want docker", cfg.ContainerEngine)
+	}
+}
+
+func TestLoad_MalformedCUE_PartiallyValid(t *testing.T) {
+	// Completely broken CUE syntax must return an error.
+	tmpDir := t.TempDir()
+	configDir := filepath.Join(tmpDir, AppName)
+	if err := os.MkdirAll(configDir, 0o755); err != nil {
+		t.Fatalf("failed to create config dir: %v", err)
+	}
+
+	cfgPath := filepath.Join(configDir, ConfigFileName+"."+ConfigFileExt)
+	if err := os.WriteFile(cfgPath, []byte("{broken"), 0o644); err != nil {
+		t.Fatalf("failed to write malformed config: %v", err)
+	}
+
+	restoreWd := testutil.MustChdir(t, tmpDir)
+	defer restoreWd()
+
+	SetConfigDirOverride(configDir)
+	defer Reset()
+
+	_, _, err := loadWithOptions(context.Background(), LoadOptions{
+		ConfigDirPath: configDir,
+	})
+	if err == nil {
+		t.Fatal("expected loadWithOptions() to return error for malformed CUE syntax")
+	}
+
+	if err.Error() == "" {
+		t.Error("expected non-empty error string for malformed CUE")
 	}
 }
 

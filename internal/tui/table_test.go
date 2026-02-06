@@ -9,6 +9,8 @@ import (
 )
 
 func TestNewTableModel(t *testing.T) {
+	t.Parallel()
+
 	opts := TableOptions{
 		Title: "Users",
 		Columns: []TableColumn{
@@ -41,6 +43,8 @@ func TestNewTableModel(t *testing.T) {
 }
 
 func TestNewTableModel_EmptyRows(t *testing.T) {
+	t.Parallel()
+
 	opts := TableOptions{
 		Title:   "Empty Table",
 		Columns: []TableColumn{{Title: "Col1"}},
@@ -60,6 +64,8 @@ func TestNewTableModel_EmptyRows(t *testing.T) {
 }
 
 func TestNewTableModel_AutoWidth(t *testing.T) {
+	t.Parallel()
+
 	opts := TableOptions{
 		Columns: []TableColumn{
 			{Title: "Short", Width: 0},   // Auto-width
@@ -79,6 +85,8 @@ func TestNewTableModel_AutoWidth(t *testing.T) {
 }
 
 func TestTableModel_CancelWithEsc(t *testing.T) {
+	t.Parallel()
+
 	opts := TableOptions{
 		Columns: []TableColumn{{Title: "Col"}},
 		Rows:    [][]string{{"A"}, {"B"}},
@@ -101,6 +109,8 @@ func TestTableModel_CancelWithEsc(t *testing.T) {
 }
 
 func TestTableModel_CancelWithCtrlC(t *testing.T) {
+	t.Parallel()
+
 	opts := TableOptions{
 		Columns: []TableColumn{{Title: "Col"}},
 		Rows:    [][]string{{"A"}, {"B"}},
@@ -123,6 +133,8 @@ func TestTableModel_CancelWithCtrlC(t *testing.T) {
 }
 
 func TestTableModel_CancelWithQ(t *testing.T) {
+	t.Parallel()
+
 	opts := TableOptions{
 		Columns: []TableColumn{{Title: "Col"}},
 		Rows:    [][]string{{"A"}, {"B"}},
@@ -145,6 +157,8 @@ func TestTableModel_CancelWithQ(t *testing.T) {
 }
 
 func TestTableModel_SelectWithEnter(t *testing.T) {
+	t.Parallel()
+
 	opts := TableOptions{
 		Columns: []TableColumn{{Title: "Col"}},
 		Rows:    [][]string{{"A"}, {"B"}},
@@ -167,6 +181,8 @@ func TestTableModel_SelectWithEnter(t *testing.T) {
 }
 
 func TestTableModel_Result_Selected(t *testing.T) {
+	t.Parallel()
+
 	opts := TableOptions{
 		Columns: []TableColumn{{Title: "Col"}},
 		Rows:    [][]string{{"First"}, {"Second"}},
@@ -192,6 +208,8 @@ func TestTableModel_Result_Selected(t *testing.T) {
 }
 
 func TestTableModel_Result_Cancelled(t *testing.T) {
+	t.Parallel()
+
 	opts := TableOptions{
 		Columns: []TableColumn{{Title: "Col"}},
 		Rows:    [][]string{{"A"}},
@@ -218,6 +236,8 @@ func TestTableModel_Result_Cancelled(t *testing.T) {
 }
 
 func TestTableModel_SetSize(t *testing.T) {
+	t.Parallel()
+
 	opts := TableOptions{
 		Columns: []TableColumn{{Title: "Col"}},
 		Rows:    [][]string{{"A"}},
@@ -236,6 +256,8 @@ func TestTableModel_SetSize(t *testing.T) {
 }
 
 func TestTableModel_ViewWhenDone(t *testing.T) {
+	t.Parallel()
+
 	opts := TableOptions{
 		Columns: []TableColumn{{Title: "Col"}},
 		Rows:    [][]string{{"A"}},
@@ -253,6 +275,8 @@ func TestTableModel_ViewWhenDone(t *testing.T) {
 }
 
 func TestTableModel_ViewWithWidth(t *testing.T) {
+	t.Parallel()
+
 	opts := TableOptions{
 		Columns: []TableColumn{{Title: "Col"}},
 		Rows:    [][]string{{"A"}, {"B"}},
@@ -271,6 +295,8 @@ func TestTableModel_ViewWithWidth(t *testing.T) {
 }
 
 func TestTableModel_Init(t *testing.T) {
+	t.Parallel()
+
 	opts := TableOptions{
 		Columns: []TableColumn{{Title: "Col"}},
 		Rows:    [][]string{{"A"}},
@@ -287,6 +313,8 @@ func TestTableModel_Init(t *testing.T) {
 }
 
 func TestNewTableModelForModal(t *testing.T) {
+	t.Parallel()
+
 	opts := TableOptions{
 		Columns: []TableColumn{{Title: "Col"}},
 		Rows:    [][]string{{"A"}},
@@ -301,6 +329,8 @@ func TestNewTableModelForModal(t *testing.T) {
 }
 
 func TestTableFromCSV_WithHeader(t *testing.T) {
+	t.Parallel()
+
 	csv := `Name,Age,City
 Alice,30,NYC
 Bob,25,LA`
@@ -322,6 +352,8 @@ Bob,25,LA`
 }
 
 func TestTableFromCSV_WithoutHeader(t *testing.T) {
+	t.Parallel()
+
 	csv := `Alice,30,NYC
 Bob,25,LA`
 
@@ -340,6 +372,8 @@ Bob,25,LA`
 }
 
 func TestTableFromCSV_CustomSeparator(t *testing.T) {
+	t.Parallel()
+
 	csv := `Name|Age
 Alice|30`
 
@@ -354,6 +388,8 @@ Alice|30`
 }
 
 func TestTableFromCSV_EmptyData(t *testing.T) {
+	t.Parallel()
+
 	opts := TableFromCSV("", ",", true)
 
 	if len(opts.Columns) != 0 && len(opts.Rows) != 0 {
@@ -362,6 +398,8 @@ func TestTableFromCSV_EmptyData(t *testing.T) {
 }
 
 func TestTableBuilder_FluentAPI(t *testing.T) {
+	t.Parallel()
+
 	builder := NewTable().
 		Title("Products").
 		Columns(
@@ -411,6 +449,8 @@ func TestTableBuilder_FluentAPI(t *testing.T) {
 }
 
 func TestTableBuilder_ColumnsFromStrings(t *testing.T) {
+	t.Parallel()
+
 	builder := NewTable().
 		ColumnsFromStrings("Col1", "Col2", "Col3")
 
@@ -423,6 +463,8 @@ func TestTableBuilder_ColumnsFromStrings(t *testing.T) {
 }
 
 func TestTableBuilder_Rows(t *testing.T) {
+	t.Parallel()
+
 	builder := NewTable().
 		Rows(
 			[]string{"A", "B"},
@@ -435,6 +477,8 @@ func TestTableBuilder_Rows(t *testing.T) {
 }
 
 func TestTableBuilder_FromCSV(t *testing.T) {
+	t.Parallel()
+
 	csv := `Name,Value
 Test,123`
 
@@ -450,6 +494,8 @@ Test,123`
 }
 
 func TestTableBuilder_Model(t *testing.T) {
+	t.Parallel()
+
 	builder := NewTable().
 		ColumnsFromStrings("Col").
 		AddRow("A")
@@ -465,6 +511,8 @@ func TestTableBuilder_Model(t *testing.T) {
 }
 
 func TestTableBuilder_DefaultValues(t *testing.T) {
+	t.Parallel()
+
 	builder := NewTable()
 
 	if !builder.opts.Selectable {
@@ -476,6 +524,8 @@ func TestTableBuilder_DefaultValues(t *testing.T) {
 }
 
 func TestTableSelectionResult_Fields(t *testing.T) {
+	t.Parallel()
+
 	result := TableSelectionResult{
 		SelectedIndex: 2,
 		SelectedRow:   []string{"A", "B", "C"},
@@ -490,6 +540,8 @@ func TestTableSelectionResult_Fields(t *testing.T) {
 }
 
 func TestTableColumn_Fields(t *testing.T) {
+	t.Parallel()
+
 	col := TableColumn{
 		Title: "Test Column",
 		Width: 25,
@@ -504,6 +556,8 @@ func TestTableColumn_Fields(t *testing.T) {
 }
 
 func TestTableOptions_Fields(t *testing.T) {
+	t.Parallel()
+
 	opts := TableOptions{
 		Title: "My Table",
 		Columns: []TableColumn{

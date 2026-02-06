@@ -9,6 +9,8 @@ import (
 )
 
 func TestNewSpinModel(t *testing.T) {
+	t.Parallel()
+
 	opts := SpinCommandOptions{
 		Title:   "Loading...",
 		Command: []string{"echo", "hello"},
@@ -30,6 +32,8 @@ func TestNewSpinModel(t *testing.T) {
 }
 
 func TestNewSpinModel_EmptyCommand(t *testing.T) {
+	t.Parallel()
+
 	opts := SpinCommandOptions{
 		Title:   "No command",
 		Command: []string{}, // Empty command
@@ -48,6 +52,8 @@ func TestNewSpinModel_EmptyCommand(t *testing.T) {
 }
 
 func TestSpinModel_SetSize(t *testing.T) {
+	t.Parallel()
+
 	opts := SpinCommandOptions{
 		Title:   "Test",
 		Command: []string{"echo", "test"},
@@ -66,6 +72,8 @@ func TestSpinModel_SetSize(t *testing.T) {
 }
 
 func TestSpinModel_ViewWhenDone(t *testing.T) {
+	t.Parallel()
+
 	opts := SpinCommandOptions{
 		Title:   "Test",
 		Command: []string{"echo", "test"},
@@ -83,6 +91,8 @@ func TestSpinModel_ViewWhenDone(t *testing.T) {
 }
 
 func TestSpinModel_ViewWithWidth(t *testing.T) {
+	t.Parallel()
+
 	opts := SpinCommandOptions{
 		Title:   "Processing",
 		Command: []string{"echo", "test"},
@@ -101,6 +111,8 @@ func TestSpinModel_ViewWithWidth(t *testing.T) {
 }
 
 func TestSpinModel_Cancelled(t *testing.T) {
+	t.Parallel()
+
 	opts := SpinCommandOptions{
 		Title:   "Test",
 		Command: []string{"echo", "test"},
@@ -116,6 +128,8 @@ func TestSpinModel_Cancelled(t *testing.T) {
 }
 
 func TestSpinModel_Result(t *testing.T) {
+	t.Parallel()
+
 	opts := SpinCommandOptions{
 		Title:   "Test",
 		Command: []string{"echo", "test"},
@@ -148,6 +162,8 @@ func TestSpinModel_Result(t *testing.T) {
 }
 
 func TestSpinModel_UpdateTickMsg(t *testing.T) {
+	t.Parallel()
+
 	opts := SpinCommandOptions{
 		Title:   "Test",
 		Command: []string{"echo", "test"},
@@ -169,6 +185,8 @@ func TestSpinModel_UpdateTickMsg(t *testing.T) {
 }
 
 func TestSpinModel_UpdateDoneMsg(t *testing.T) {
+	t.Parallel()
+
 	opts := SpinCommandOptions{
 		Title:   "Test",
 		Command: []string{"echo", "test"},
@@ -196,6 +214,8 @@ func TestSpinModel_UpdateDoneMsg(t *testing.T) {
 }
 
 func TestSpinModel_UpdateCtrlC(t *testing.T) {
+	t.Parallel()
+
 	opts := SpinCommandOptions{
 		Title:   "Test",
 		Command: []string{"echo", "test"},
@@ -215,6 +235,8 @@ func TestSpinModel_UpdateCtrlC(t *testing.T) {
 }
 
 func TestSpinModel_Init(t *testing.T) {
+	t.Parallel()
+
 	opts := SpinCommandOptions{
 		Title:   "Test",
 		Command: []string{"echo", "test"},
@@ -231,6 +253,8 @@ func TestSpinModel_Init(t *testing.T) {
 }
 
 func TestSpinModel_Frames(t *testing.T) {
+	t.Parallel()
+
 	opts := SpinCommandOptions{
 		Title:   "Test",
 		Command: []string{"echo", "test"},
@@ -246,6 +270,8 @@ func TestSpinModel_Frames(t *testing.T) {
 }
 
 func TestParseSpinnerType(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		input    string
 		expected SpinnerType
@@ -267,6 +293,7 @@ func TestParseSpinnerType(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.input, func(t *testing.T) {
+			t.Parallel()
 			result := ParseSpinnerType(tt.input)
 			if result != tt.expected {
 				t.Errorf("ParseSpinnerType(%q) = %d, want %d", tt.input, result, tt.expected)
@@ -276,6 +303,8 @@ func TestParseSpinnerType(t *testing.T) {
 }
 
 func TestSpinnerTypeNames(t *testing.T) {
+	t.Parallel()
+
 	names := SpinnerTypeNames()
 
 	expectedNames := []string{
@@ -295,6 +324,8 @@ func TestSpinnerTypeNames(t *testing.T) {
 }
 
 func TestSpinBuilder_FluentAPI(t *testing.T) {
+	t.Parallel()
+
 	builder := NewSpin().
 		Title("Processing...").
 		Type(SpinnerDot).
@@ -316,6 +347,8 @@ func TestSpinBuilder_FluentAPI(t *testing.T) {
 }
 
 func TestSpinBuilder_TypeString(t *testing.T) {
+	t.Parallel()
+
 	builder := NewSpin().
 		TypeString("globe")
 
@@ -325,6 +358,8 @@ func TestSpinBuilder_TypeString(t *testing.T) {
 }
 
 func TestSpinBuilder_Action(t *testing.T) {
+	t.Parallel()
+
 	called := false
 	builder := NewSpin().
 		Title("Action test").
@@ -341,6 +376,8 @@ func TestSpinBuilder_Action(t *testing.T) {
 }
 
 func TestSpinBuilder_DefaultValues(t *testing.T) {
+	t.Parallel()
+
 	builder := NewSpin()
 
 	if builder.opts.Type != SpinnerLine {
@@ -349,6 +386,8 @@ func TestSpinBuilder_DefaultValues(t *testing.T) {
 }
 
 func TestSpinBuilder_RunNoActionOrContext(t *testing.T) {
+	t.Parallel()
+
 	builder := NewSpin().
 		Title("Empty")
 
@@ -360,6 +399,8 @@ func TestSpinBuilder_RunNoActionOrContext(t *testing.T) {
 }
 
 func TestSpinResult_Fields(t *testing.T) {
+	t.Parallel()
+
 	result := SpinResult{
 		Stdout:   "standard output",
 		Stderr:   "error output",
@@ -378,6 +419,8 @@ func TestSpinResult_Fields(t *testing.T) {
 }
 
 func TestSpinOptions_Fields(t *testing.T) {
+	t.Parallel()
+
 	opts := SpinOptions{
 		Title: "Loading data",
 		Type:  SpinnerPulse,
@@ -402,6 +445,8 @@ func TestSpinOptions_Fields(t *testing.T) {
 }
 
 func TestSpinCommandOptions_Fields(t *testing.T) {
+	t.Parallel()
+
 	opts := SpinCommandOptions{
 		Title:   "Running command",
 		Command: []string{"ls", "-la"},
@@ -430,6 +475,8 @@ func TestSpinCommandOptions_Fields(t *testing.T) {
 }
 
 func TestSpinnerType_Constants(t *testing.T) {
+	t.Parallel()
+
 	// Verify spinner type constants are in expected order
 	if SpinnerLine != 0 {
 		t.Errorf("expected SpinnerLine to be 0, got %d", SpinnerLine)
@@ -470,6 +517,8 @@ func TestSpinnerType_Constants(t *testing.T) {
 }
 
 func TestGetSpinnerType(t *testing.T) {
+	t.Parallel()
+
 	// Test that all spinner types map correctly
 	types := []SpinnerType{
 		SpinnerLine, SpinnerDot, SpinnerMiniDot, SpinnerJump,
@@ -485,6 +534,8 @@ func TestGetSpinnerType(t *testing.T) {
 }
 
 func TestSpinModel_TickWhenDone(t *testing.T) {
+	t.Parallel()
+
 	opts := SpinCommandOptions{
 		Title:   "Test",
 		Command: []string{"echo", "test"},

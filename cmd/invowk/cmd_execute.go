@@ -127,12 +127,12 @@ func (s *commandService) Execute(ctx context.Context, req ExecuteRequest) (Execu
 		selectedRuntime = overrideRuntime
 	}
 
-	script := cmdInfo.Command.GetImplForPlatformRuntime(currentPlatform, selectedRuntime)
-	if script == nil {
-		return ExecuteResult{}, diags, fmt.Errorf("no script found for command '%s' on platform '%s' with runtime '%s'", req.Name, currentPlatform, selectedRuntime)
+	impl := cmdInfo.Command.GetImplForPlatformRuntime(currentPlatform, selectedRuntime)
+	if impl == nil {
+		return ExecuteResult{}, diags, fmt.Errorf("no implementation found for command '%s' on platform '%s' with runtime '%s'", req.Name, currentPlatform, selectedRuntime)
 	}
 
-	if script.GetHostSSHForRuntime(selectedRuntime) {
+	if impl.GetHostSSHForRuntime(selectedRuntime) {
 		// Host SSH lifecycle is service-scoped, not package-global state.
 		srv, err := s.ssh.ensure(ctx)
 		if err != nil {
@@ -148,7 +148,7 @@ func (s *commandService) Execute(ctx context.Context, req ExecuteRequest) (Execu
 	// Request fields are projected into runtime execution context.
 	execCtx.Verbose = req.Verbose
 	execCtx.SelectedRuntime = selectedRuntime
-	execCtx.SelectedImpl = script
+	execCtx.SelectedImpl = impl
 	execCtx.PositionalArgs = req.Args
 	execCtx.WorkDir = req.Workdir
 	execCtx.ForceRebuild = req.ForceRebuild

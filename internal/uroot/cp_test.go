@@ -12,6 +12,8 @@ import (
 )
 
 func TestCpCommand_Name(t *testing.T) {
+	t.Parallel()
+
 	cmd := newCpCommand()
 	if got := cmd.Name(); got != "cp" {
 		t.Errorf("Name() = %q, want %q", got, "cp")
@@ -19,6 +21,8 @@ func TestCpCommand_Name(t *testing.T) {
 }
 
 func TestCpCommand_SupportedFlags(t *testing.T) {
+	t.Parallel()
+
 	cmd := newCpCommand()
 	flags := cmd.SupportedFlags()
 
@@ -42,6 +46,8 @@ func TestCpCommand_SupportedFlags(t *testing.T) {
 }
 
 func TestCpCommand_Run_SingleFile(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	srcFile := filepath.Join(tmpDir, "source.txt")
 	dstFile := filepath.Join(tmpDir, "dest.txt")
@@ -82,6 +88,8 @@ func TestCpCommand_Run_SingleFile(t *testing.T) {
 }
 
 func TestCpCommand_Run_ToDirectory(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	srcFile := filepath.Join(tmpDir, "source.txt")
 	dstDir := filepath.Join(tmpDir, "destdir")
@@ -121,6 +129,8 @@ func TestCpCommand_Run_ToDirectory(t *testing.T) {
 }
 
 func TestCpCommand_Run_Recursive(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	srcDir := filepath.Join(tmpDir, "srcdir")
 	dstDir := filepath.Join(tmpDir, "dstdir")
@@ -170,6 +180,8 @@ func TestCpCommand_Run_Recursive(t *testing.T) {
 }
 
 func TestCpCommand_Run_DirectoryWithoutRecursive(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	srcDir := filepath.Join(tmpDir, "srcdir")
 	dstDir := filepath.Join(tmpDir, "dstdir")
@@ -203,6 +215,8 @@ func TestCpCommand_Run_DirectoryWithoutRecursive(t *testing.T) {
 }
 
 func TestCpCommand_Run_Overwrite(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	srcFile := filepath.Join(tmpDir, "source.txt")
 	dstFile := filepath.Join(tmpDir, "dest.txt")
@@ -241,6 +255,8 @@ func TestCpCommand_Run_Overwrite(t *testing.T) {
 }
 
 func TestCpCommand_Run_SourceNotFound(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 
 	var stdout, stderr bytes.Buffer
@@ -265,6 +281,8 @@ func TestCpCommand_Run_SourceNotFound(t *testing.T) {
 }
 
 func TestCpCommand_Run_NoArgs(t *testing.T) {
+	t.Parallel()
+
 	var stdout, stderr bytes.Buffer
 	ctx := WithHandlerContext(context.Background(), &HandlerContext{
 		Stdin:     strings.NewReader(""),
@@ -282,6 +300,8 @@ func TestCpCommand_Run_NoArgs(t *testing.T) {
 }
 
 func TestCpCommand_Run_RelativePaths(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	srcFile := filepath.Join(tmpDir, "source.txt")
 	content := "relative path content\n"

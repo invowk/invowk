@@ -97,8 +97,10 @@ func (s *DiscoveredCommandSet) Add(cmd *CommandInfo) {
 }
 
 // Analyze detects conflicts and marks ambiguous commands.
-// Must be called after all commands have been added.
-// It also sorts SourceOrder to ensure "invkfile" comes first, then modules alphabetically.
+// Must be called after all commands have been added and before presenting results
+// to users. It marks SimpleName entries with commands from >1 source as IsAmbiguous,
+// and sorts SourceOrder ("invkfile" first, then modules alphabetically) for
+// consistent display ordering.
 func (s *DiscoveredCommandSet) Analyze() {
 	// Detect ambiguous names (commands with same SimpleName from different sources)
 	for simpleName, cmds := range s.BySimpleName {

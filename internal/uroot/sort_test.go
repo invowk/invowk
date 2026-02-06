@@ -13,6 +13,8 @@ import (
 )
 
 func TestSortCommand_Name(t *testing.T) {
+	t.Parallel()
+
 	cmd := newSortCommand()
 	if got := cmd.Name(); got != "sort" {
 		t.Errorf("Name() = %q, want %q", got, "sort")
@@ -20,6 +22,8 @@ func TestSortCommand_Name(t *testing.T) {
 }
 
 func TestSortCommand_SupportedFlags(t *testing.T) {
+	t.Parallel()
+
 	cmd := newSortCommand()
 	flags := cmd.SupportedFlags()
 
@@ -39,6 +43,8 @@ func TestSortCommand_SupportedFlags(t *testing.T) {
 }
 
 func TestSortCommand_Run_Basic(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "test.txt")
 
@@ -74,6 +80,8 @@ func TestSortCommand_Run_Basic(t *testing.T) {
 }
 
 func TestSortCommand_Run_Reverse(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "test.txt")
 
@@ -105,6 +113,8 @@ func TestSortCommand_Run_Reverse(t *testing.T) {
 }
 
 func TestSortCommand_Run_Numeric(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "test.txt")
 
@@ -136,6 +146,8 @@ func TestSortCommand_Run_Numeric(t *testing.T) {
 }
 
 func TestSortCommand_Run_Unique(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "test.txt")
 
@@ -166,6 +178,8 @@ func TestSortCommand_Run_Unique(t *testing.T) {
 }
 
 func TestSortCommand_Run_Stdin(t *testing.T) {
+	t.Parallel()
+
 	stdinContent := "cherry\napple\nbanana\n"
 
 	var stdout, stderr bytes.Buffer
@@ -190,6 +204,8 @@ func TestSortCommand_Run_Stdin(t *testing.T) {
 }
 
 func TestSortCommand_Run_MultipleFiles(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	file1 := filepath.Join(tmpDir, "file1.txt")
 	file2 := filepath.Join(tmpDir, "file2.txt")
@@ -228,6 +244,8 @@ func TestSortCommand_Run_MultipleFiles(t *testing.T) {
 }
 
 func TestSortCommand_Run_FileNotFound(t *testing.T) {
+	t.Parallel()
+
 	var stdout, stderr bytes.Buffer
 	ctx := WithHandlerContext(context.Background(), &HandlerContext{
 		Stdin:     strings.NewReader(""),
@@ -251,6 +269,8 @@ func TestSortCommand_Run_FileNotFound(t *testing.T) {
 }
 
 func TestSortCommand_Run_EmptyFile(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "empty.txt")
 
@@ -279,6 +299,8 @@ func TestSortCommand_Run_EmptyFile(t *testing.T) {
 }
 
 func TestSortCommand_Run_CaseInsensitive(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "test.txt")
 
