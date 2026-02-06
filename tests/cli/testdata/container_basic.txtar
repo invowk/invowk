@@ -31,6 +31,7 @@ cmds: [
 			{
 				script: "echo 'Hello from inside the container!'"
 				runtimes: [{name: "container", image: "debian:stable-slim"}]
+				platforms: [{name: "linux"}]
 			}
 		]
 	},
@@ -53,6 +54,7 @@ cmds: [
 					image: "debian:stable-slim"
 					enable_host_ssh: false
 				}]
+				platforms: [{name: "linux"}]
 			}
 		]
 	}

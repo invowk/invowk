@@ -39,6 +39,7 @@ cmds: [
 			{
 				script: "echo test"
 				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}]
 			}
 		]
 		args: [
@@ -88,6 +89,7 @@ cmds: [
 			{
 				script: "echo test"
 				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}]
 			}
 		]
 		args: [
@@ -126,6 +128,7 @@ cmds: [
 			{
 				script: "echo test"
 				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}]
 			}
 		]
 		args: [
@@ -157,6 +160,7 @@ cmds: [
 			{
 				script: "echo test"
 				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}]
 			}
 		]
 		args: [
@@ -192,6 +196,7 @@ cmds: [
 			{
 				script: "echo test"
 				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}]
 			}
 		]
 		args: [
@@ -227,6 +232,7 @@ cmds: [
 			{
 				script: "echo test"
 				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}]
 			}
 		]
 		args: [
@@ -262,6 +268,7 @@ cmds: [
 			{
 				script: "echo test"
 				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}]
 			}
 		]
 		args: [
@@ -296,6 +303,7 @@ cmds: [
 			{
 				script: "echo test"
 				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}]
 			}
 		]
 		args: [
@@ -341,6 +349,7 @@ cmds: [
 			{
 				script: "echo test"
 				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}]
 			}
 		]
 		args: [
@@ -375,6 +384,7 @@ cmds: [
 			{
 				script: "echo test"
 				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}]
 			}
 		]
 		args: [
@@ -406,6 +416,7 @@ cmds: [
 			{
 				script: "echo test"
 				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}]
 			}
 		]
 		args: [

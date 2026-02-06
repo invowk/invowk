@@ -21,6 +21,7 @@ cmds: [
 			{
 				script: "echo deploying"
 				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}]
 			}
 		]
 		env: {
@@ -72,6 +73,7 @@ cmds: [
 			{
 				script: "echo deploying"
 				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}]
 				env: {
 					files: ["impl.env", "secrets.env?"]
 				}
@@ -123,6 +125,7 @@ cmds: [
 			{
 				script: "echo deploying"
 				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}]
 				env: {
 					files: ["impl.env"]
 				}
@@ -168,6 +171,7 @@ cmds: [
 			{
 				script: "echo deploying"
 				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}]
 			}
 		]
 		env: {
@@ -204,6 +208,7 @@ cmds: [
 			{
 				script: "echo deploying"
 				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}]
 			}
 		]
 	}
@@ -242,6 +247,7 @@ cmds: [
 			{
 				script: "echo deploying"
 				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}]
 				env: {
 					vars: {
 						IMPL_VAR: "impl_value"
@@ -311,7 +317,8 @@ func TestGenerateCUE_WithEnv(t *testing.T) {
 					{
 						Script: "echo deploying",
 
-						Runtimes: []RuntimeConfig{{Name: RuntimeNative}},
+						Runtimes:  []RuntimeConfig{{Name: RuntimeNative}},
+						Platforms: []PlatformConfig{{Name: PlatformLinux}},
 						Env: &EnvConfig{
 							Files: []string{"impl.env", "secrets.env?"},
 						},
@@ -352,7 +359,8 @@ func TestGenerateCUE_EnvRoundTrip(t *testing.T) {
 					{
 						Script: "echo deploying",
 
-						Runtimes: []RuntimeConfig{{Name: RuntimeNative}},
+						Runtimes:  []RuntimeConfig{{Name: RuntimeNative}},
+						Platforms: []PlatformConfig{{Name: PlatformLinux}},
 						Env: &EnvConfig{
 							Files: []string{"impl.env"},
 						},
@@ -423,6 +431,7 @@ cmds: [
 			{
 				script: "echo deploying"
 				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}]
 			}
 		]
 	}
@@ -472,6 +481,7 @@ cmds: [
 			{
 				script: "echo deploying"
 				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}]
 			}
 		]
 	}
@@ -522,6 +532,7 @@ cmds: [
 			{
 				script: "echo deploying"
 				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}]
 				env: {
 					files: ["impl.env"]
 					vars: {
@@ -604,7 +615,8 @@ func TestGenerateCUE_WithRootLevelEnv(t *testing.T) {
 					{
 						Script: "echo deploying",
 
-						Runtimes: []RuntimeConfig{{Name: RuntimeNative}},
+						Runtimes:  []RuntimeConfig{{Name: RuntimeNative}},
+						Platforms: []PlatformConfig{{Name: PlatformLinux}},
 					},
 				},
 			},
@@ -643,7 +655,8 @@ func TestGenerateCUE_RootEnvRoundTrip(t *testing.T) {
 					{
 						Script: "echo deploying",
 
-						Runtimes: []RuntimeConfig{{Name: RuntimeNative}},
+						Runtimes:  []RuntimeConfig{{Name: RuntimeNative}},
+						Platforms: []PlatformConfig{{Name: PlatformLinux}},
 					},
 				},
 			},

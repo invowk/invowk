@@ -89,6 +89,7 @@ cmds: [
 		implementations: [{
 			script: "echo test"
 			runtimes: [{name: "native"}]
+			platforms: [{name: "linux"}, {name: "macos"}]
 		}]
 	}
 ]
@@ -143,6 +144,7 @@ cmds: [
 		implementations: [{
 			script: "echo test"
 			runtimes: [{name: "native"}]
+			platforms: [{name: "linux"}, {name: "macos"}]
 		}]
 	}
 ]
@@ -178,7 +180,7 @@ func TestDiscoverAll_PrefersInvkfileCue(t *testing.T) {
 
 	// Create both invkfile and invkfile.cue
 	content := `
-cmds: [{name: "test", implementations: [{script: "echo test", runtimes: [{name: "native"}]}]}]
+cmds: [{name: "test", implementations: [{script: "echo test", runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}]}]}]
 `
 	if err := os.WriteFile(filepath.Join(tmpDir, "invkfile"), []byte(content), 0o644); err != nil {
 		t.Fatalf("failed to write invkfile: %v", err)
@@ -228,7 +230,7 @@ func TestDiscoverAll_FindsInUserDir(t *testing.T) {
 
 	// Create an invkfile in user commands
 	content := `
-cmds: [{name: "user-cmd", implementations: [{script: "echo user", runtimes: [{name: "native"}]}]}]
+cmds: [{name: "user-cmd", implementations: [{script: "echo user", runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}]}]}]
 `
 	if err := os.WriteFile(filepath.Join(userCmdsDir, "invkfile.cue"), []byte(content), 0o644); err != nil {
 		t.Fatalf("failed to write invkfile: %v", err)
@@ -274,7 +276,7 @@ func TestDiscoverAll_FindsInConfigPath(t *testing.T) {
 
 	// Create an invkfile in search path
 	content := `
-cmds: [{name: "custom-cmd", implementations: [{script: "echo custom", runtimes: [{name: "native"}]}]}]
+cmds: [{name: "custom-cmd", implementations: [{script: "echo custom", runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}]}]}]
 `
 	if err := os.WriteFile(filepath.Join(searchPath, "invkfile.cue"), []byte(content), 0o644); err != nil {
 		t.Fatalf("failed to write invkfile: %v", err)
@@ -347,7 +349,7 @@ func TestLoadFirst_WithValidFile(t *testing.T) {
 
 	// invkfile.cue now only contains commands (module metadata is in invkmod.cue for modules)
 	content := `
-cmds: [{name: "test", implementations: [{script: "echo test", runtimes: [{name: "native"}]}]}]
+cmds: [{name: "test", implementations: [{script: "echo test", runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}]}]}]
 `
 	if err := os.WriteFile(filepath.Join(tmpDir, "invkfile.cue"), []byte(content), 0o644); err != nil {
 		t.Fatalf("failed to write invkfile: %v", err)
@@ -381,7 +383,7 @@ func TestLoadAll_WithMultipleFiles(t *testing.T) {
 
 	// Create current dir invkfile (no module metadata - it belongs in invkmod.cue)
 	content := `
-cmds: [{name: "current", implementations: [{script: "echo current", runtimes: [{name: "native"}]}]}]
+cmds: [{name: "current", implementations: [{script: "echo current", runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}]}]}]
 `
 	if err := os.WriteFile(filepath.Join(tmpDir, "invkfile.cue"), []byte(content), 0o644); err != nil {
 		t.Fatalf("failed to write invkfile: %v", err)
@@ -391,7 +393,7 @@ cmds: [{name: "current", implementations: [{script: "echo current", runtimes: [{
 	userCmdsDir := filepath.Join(tmpDir, ".invowk", "cmds")
 	testutil.MustMkdirAll(t, userCmdsDir, 0o755)
 	userContent := `
-cmds: [{name: "user", implementations: [{script: "echo user", runtimes: [{name: "native"}]}]}]
+cmds: [{name: "user", implementations: [{script: "echo user", runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}]}]}]
 `
 	if err := os.WriteFile(filepath.Join(userCmdsDir, "invkfile.cue"), []byte(userContent), 0o644); err != nil {
 		t.Fatalf("failed to write user invkfile: %v", err)
@@ -429,8 +431,8 @@ func TestDiscoverCommands(t *testing.T) {
 	// invkfile.cue now contains only commands - module metadata is in invkmod.cue for modules
 	content := `
 cmds: [
-	{name: "build", description: "Build the project", implementations: [{script: "go build", runtimes: [{name: "native"}]}]},
-	{name: "test", description: "Run tests", implementations: [{script: "go test", runtimes: [{name: "native"}]}]}
+	{name: "build", description: "Build the project", implementations: [{script: "go build", runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}]}]},
+	{name: "test", description: "Run tests", implementations: [{script: "go test", runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}]}]}
 ]
 `
 	if err := os.WriteFile(filepath.Join(tmpDir, "invkfile.cue"), []byte(content), 0o644); err != nil {
@@ -470,8 +472,8 @@ func TestGetCommand(t *testing.T) {
 	// invkfile.cue now contains only commands - no module metadata
 	content := `
 cmds: [
-	{name: "build", description: "Build the project", implementations: [{script: "go build", runtimes: [{name: "native"}]}]},
-	{name: "test", description: "Run tests", implementations: [{script: "go test", runtimes: [{name: "native"}]}]}
+	{name: "build", description: "Build the project", implementations: [{script: "go build", runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}]}]},
+	{name: "test", description: "Run tests", implementations: [{script: "go test", runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}]}]}
 ]
 `
 	if err := os.WriteFile(filepath.Join(tmpDir, "invkfile.cue"), []byte(content), 0o644); err != nil {
@@ -522,9 +524,9 @@ func TestGetCommandsWithPrefix(t *testing.T) {
 	// invkfile.cue now contains only commands - no module metadata
 	content := `
 cmds: [
-	{name: "build", implementations: [{script: "go build", runtimes: [{name: "native"}]}]},
-	{name: "build-dev", implementations: [{script: "go build -tags dev", runtimes: [{name: "native"}]}]},
-	{name: "test", implementations: [{script: "go test", runtimes: [{name: "native"}]}]}
+	{name: "build", implementations: [{script: "go build", runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}]}]},
+	{name: "build-dev", implementations: [{script: "go build -tags dev", runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}]}]},
+	{name: "test", implementations: [{script: "go test", runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}]}]}
 ]
 `
 	if err := os.WriteFile(filepath.Join(tmpDir, "invkfile.cue"), []byte(content), 0o644); err != nil {
@@ -584,7 +586,7 @@ func TestDiscoverCommands_Precedence(t *testing.T) {
 	// Without module field, commands are named directly (e.g., "build" not "project build")
 	// When same command exists in multiple sources, current dir takes precedence
 	currentContent := `
-cmds: [{name: "build", description: "Current build", implementations: [{script: "echo current", runtimes: [{name: "native"}]}]}]
+cmds: [{name: "build", description: "Current build", implementations: [{script: "echo current", runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}]}]}]
 `
 	if err := os.WriteFile(filepath.Join(tmpDir, "invkfile.cue"), []byte(currentContent), 0o644); err != nil {
 		t.Fatalf("failed to write invkfile: %v", err)
@@ -594,7 +596,7 @@ cmds: [{name: "build", description: "Current build", implementations: [{script: 
 	userCmdsDir := filepath.Join(tmpDir, ".invowk", "cmds")
 	testutil.MustMkdirAll(t, userCmdsDir, 0o755)
 	userContent := `
-cmds: [{name: "build", description: "User build", implementations: [{script: "echo user", runtimes: [{name: "native"}]}]}]
+cmds: [{name: "build", description: "User build", implementations: [{script: "echo user", runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}]}]}]
 `
 	if err := os.WriteFile(filepath.Join(userCmdsDir, "invkfile.cue"), []byte(userContent), 0o644); err != nil {
 		t.Fatalf("failed to write user invkfile: %v", err)
@@ -686,7 +688,7 @@ func TestDiscoverAll_SymlinkToInvkfile(t *testing.T) {
 	testutil.MustMkdirAll(t, sourceDir, 0o755)
 
 	invkfileContent := `
-cmds: [{name: "symlinked", implementations: [{script: "echo symlinked", runtimes: [{name: "native"}]}]}]
+cmds: [{name: "symlinked", implementations: [{script: "echo symlinked", runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}]}]}]
 `
 	sourcePath := filepath.Join(sourceDir, "invkfile.cue")
 	if err := os.WriteFile(sourcePath, []byte(invkfileContent), 0o644); err != nil {

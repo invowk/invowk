@@ -42,11 +42,11 @@ func TestCommand_CanRunOnCurrentHost(t *testing.T) {
 			expected: false,
 		},
 		{
-			name: "all hosts supported (no platforms specified)",
+			name: "all hosts supported (all platforms specified)",
 			cmd: &invkfile.Command{
 				Name: "test",
 				Implementations: []invkfile.Implementation{
-					{Script: "echo", Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeNative}}},
+					{Script: "echo", Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeNative}}, Platforms: []invkfile.PlatformConfig{{Name: invkfile.PlatformLinux}, {Name: invkfile.PlatformMac}, {Name: invkfile.PlatformWindows}}},
 				},
 			},
 			expected: true,
@@ -98,11 +98,11 @@ func TestCommand_GetPlatformsString(t *testing.T) {
 			expected: "linux, macos",
 		},
 		{
-			name: "all platforms (no platforms specified)",
+			name: "all platforms (all platforms specified)",
 			cmd: &invkfile.Command{
 				Name: "test",
 				Implementations: []invkfile.Implementation{
-					{Script: "echo", Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeNative}}},
+					{Script: "echo", Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeNative}}, Platforms: []invkfile.PlatformConfig{{Name: invkfile.PlatformLinux}, {Name: invkfile.PlatformMac}, {Name: invkfile.PlatformWindows}}},
 				},
 			},
 			expected: "linux, macos, windows",
@@ -154,7 +154,7 @@ func TestCommand_GetDefaultRuntimeForPlatform(t *testing.T) {
 			cmd: &invkfile.Command{
 				Name: "test",
 				Implementations: []invkfile.Implementation{
-					{Script: "echo", Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeNative}, {Name: invkfile.RuntimeContainer}}},
+					{Script: "echo", Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeNative}, {Name: invkfile.RuntimeContainer}}, Platforms: []invkfile.PlatformConfig{{Name: invkfile.PlatformLinux}, {Name: invkfile.PlatformMac}, {Name: invkfile.PlatformWindows}}},
 				},
 			},
 			expected: invkfile.RuntimeNative,
@@ -164,7 +164,7 @@ func TestCommand_GetDefaultRuntimeForPlatform(t *testing.T) {
 			cmd: &invkfile.Command{
 				Name: "test",
 				Implementations: []invkfile.Implementation{
-					{Script: "echo", Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeContainer}, {Name: invkfile.RuntimeNative}}},
+					{Script: "echo", Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeContainer}, {Name: invkfile.RuntimeNative}}, Platforms: []invkfile.PlatformConfig{{Name: invkfile.PlatformLinux}, {Name: invkfile.PlatformMac}, {Name: invkfile.PlatformWindows}}},
 				},
 			},
 			expected: invkfile.RuntimeContainer,
@@ -195,7 +195,7 @@ func TestCommand_IsRuntimeAllowedForPlatform(t *testing.T) {
 	cmd := &invkfile.Command{
 		Name: "test",
 		Implementations: []invkfile.Implementation{
-			{Script: "echo", Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeNative}, {Name: invkfile.RuntimeVirtual}}},
+			{Script: "echo", Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeNative}, {Name: invkfile.RuntimeVirtual}}, Platforms: []invkfile.PlatformConfig{{Name: invkfile.PlatformLinux}, {Name: invkfile.PlatformMac}, {Name: invkfile.PlatformWindows}}},
 		},
 	}
 
@@ -231,7 +231,7 @@ func TestCommand_GetRuntimesStringForPlatform(t *testing.T) {
 			cmd: &invkfile.Command{
 				Name: "test",
 				Implementations: []invkfile.Implementation{
-					{Script: "echo", Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeNative}}},
+					{Script: "echo", Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeNative}}, Platforms: []invkfile.PlatformConfig{{Name: invkfile.PlatformLinux}, {Name: invkfile.PlatformMac}, {Name: invkfile.PlatformWindows}}},
 				},
 			},
 			expected: "native*",
@@ -241,7 +241,7 @@ func TestCommand_GetRuntimesStringForPlatform(t *testing.T) {
 			cmd: &invkfile.Command{
 				Name: "test",
 				Implementations: []invkfile.Implementation{
-					{Script: "echo", Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeNative}, {Name: invkfile.RuntimeContainer}}},
+					{Script: "echo", Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeNative}, {Name: invkfile.RuntimeContainer}}, Platforms: []invkfile.PlatformConfig{{Name: invkfile.PlatformLinux}, {Name: invkfile.PlatformMac}, {Name: invkfile.PlatformWindows}}},
 				},
 			},
 			expected: "native*, container",

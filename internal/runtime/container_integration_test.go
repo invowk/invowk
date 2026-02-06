@@ -57,6 +57,7 @@ func testContainerBasicExecution(t *testing.T) {
 				Runtimes: []invkfile.RuntimeConfig{
 					{Name: invkfile.RuntimeContainer, Image: "debian:stable-slim"},
 				},
+				Platforms: []invkfile.PlatformConfig{{Name: invkfile.PlatformLinux}},
 			},
 		},
 	}
@@ -147,6 +148,7 @@ echo "Variable: $VAR"`
 				Runtimes: []invkfile.RuntimeConfig{
 					{Name: invkfile.RuntimeContainer, Image: "debian:stable-slim"},
 				},
+				Platforms: []invkfile.PlatformConfig{{Name: invkfile.PlatformLinux}},
 			},
 		},
 	}
@@ -196,6 +198,7 @@ func testContainerWorkingDirectory(t *testing.T) {
 				Runtimes: []invkfile.RuntimeConfig{
 					{Name: invkfile.RuntimeContainer, Image: "debian:stable-slim"},
 				},
+				Platforms: []invkfile.PlatformConfig{{Name: invkfile.PlatformLinux}},
 			},
 		},
 	}
@@ -254,6 +257,7 @@ func testContainerVolumeMounts(t *testing.T) {
 						Volumes: []string{dataDir + ":/data:ro"},
 					},
 				},
+				Platforms: []invkfile.PlatformConfig{{Name: invkfile.PlatformLinux}},
 			},
 		},
 	}
@@ -293,6 +297,7 @@ func testContainerExitCode(t *testing.T) {
 				Runtimes: []invkfile.RuntimeConfig{
 					{Name: invkfile.RuntimeContainer, Image: "debian:stable-slim"},
 				},
+				Platforms: []invkfile.PlatformConfig{{Name: invkfile.PlatformLinux}},
 			},
 		},
 	}
@@ -324,6 +329,7 @@ func testContainerPositionalArgs(t *testing.T) {
 				Runtimes: []invkfile.RuntimeConfig{
 					{Name: invkfile.RuntimeContainer, Image: "debian:stable-slim"},
 				},
+				Platforms: []invkfile.PlatformConfig{{Name: invkfile.PlatformLinux}},
 			},
 		},
 	}
@@ -370,6 +376,7 @@ func testContainerEnableHostSSHEnvVars(t *testing.T) {
 				Runtimes: []invkfile.RuntimeConfig{
 					{Name: invkfile.RuntimeContainer, Image: "debian:stable-slim", EnableHostSSH: true},
 				},
+				Platforms: []invkfile.PlatformConfig{{Name: invkfile.PlatformLinux}},
 			},
 		},
 	}

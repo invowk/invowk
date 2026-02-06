@@ -83,21 +83,15 @@ func (c *Command) CanRunOnCurrentHost() bool {
 	return len(c.GetImplsForPlatform(currentOS)) > 0
 }
 
-// GetSupportedPlatforms returns all platforms that this command supports
+// GetSupportedPlatforms returns all platforms that this command supports.
+// Platforms are mandatory on each implementation, so this aggregates the explicitly declared platforms.
 func (c *Command) GetSupportedPlatforms() []Platform {
 	platformSet := make(map[Platform]bool)
 	allPlatforms := []Platform{PlatformLinux, PlatformMac, PlatformWindows}
 
 	for _, s := range c.Implementations {
-		if len(s.Platforms) == 0 {
-			// Implementation applies to all platforms
-			for _, p := range allPlatforms {
-				platformSet[p] = true
-			}
-		} else {
-			for _, p := range s.Platforms {
-				platformSet[p.Name] = true
-			}
+		for _, p := range s.Platforms {
+			platformSet[p.Name] = true
 		}
 	}
 
@@ -167,28 +161,20 @@ func (c *Command) IsRuntimeAllowedForPlatform(platform Platform, runtime Runtime
 
 // ValidateImplementations checks that there are no duplicate platform+runtime combinations.
 // Returns an error with a descriptive message if duplicates are found.
+// Platforms are mandatory on each implementation, so this iterates the explicitly declared platforms.
 func (c *Command) ValidateImplementations() error {
 	seen := make(map[PlatformRuntimeKey]int) // key -> implementation index (1-based for error messages)
-	allPlatforms := []PlatformConfig{
-		{Name: PlatformLinux},
-		{Name: PlatformMac},
-		{Name: PlatformWindows},
-	}
 
 	for i := range c.Implementations {
 		impl := &c.Implementations[i]
-		platforms := impl.Platforms
-		if len(platforms) == 0 {
-			platforms = allPlatforms // Applies to all platforms
-		}
 
-		for j := range platforms {
+		for j := range impl.Platforms {
 			for k := range impl.Runtimes {
-				key := PlatformRuntimeKey{Platform: platforms[j].Name, Runtime: impl.Runtimes[k].Name}
+				key := PlatformRuntimeKey{Platform: impl.Platforms[j].Name, Runtime: impl.Runtimes[k].Name}
 				if existingIdx, exists := seen[key]; exists {
 					return fmt.Errorf(
 						"command '%s' has duplicate platform+runtime combination: platform=%s, runtime=%s (implementations #%d and #%d)",
-						c.Name, platforms[j].Name, impl.Runtimes[k].Name, existingIdx, i+1,
+						c.Name, impl.Platforms[j].Name, impl.Runtimes[k].Name, existingIdx, i+1,
 					)
 				}
 				seen[key] = i + 1

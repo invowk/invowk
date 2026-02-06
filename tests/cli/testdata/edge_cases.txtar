@@ -50,7 +50,7 @@ cmds: [
 	{
 		name: "hello"
 		description: "Hello from root"
-		implementations: [{script: "echo 'Hello!'", runtimes: [{name: "virtual"}]}]
+		implementations: [{script: "echo 'Hello!'", runtimes: [{name: "virtual"}], platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]}]
 	},
 ]
 
@@ -64,7 +64,7 @@ cmds: [
 	{
 		name: "reserved-cmd"
 		description: "Command in reserved module"
-		implementations: [{script: "echo 'Reserved!'", runtimes: [{name: "virtual"}]}]
+		implementations: [{script: "echo 'Reserved!'", runtimes: [{name: "virtual"}], platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]}]
 	},
 ]
 
@@ -73,12 +73,12 @@ cmds: [
 	{
 		name: "deploy"
 		description: "Deploy from root"
-		implementations: [{script: "echo 'Deploying from invkfile!'", runtimes: [{name: "virtual"}]}]
+		implementations: [{script: "echo 'Deploying from invkfile!'", runtimes: [{name: "virtual"}], platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]}]
 	},
 	{
 		name: "hello"
 		description: "Hello from root"
-		implementations: [{script: "echo 'Hello!'", runtimes: [{name: "virtual"}]}]
+		implementations: [{script: "echo 'Hello!'", runtimes: [{name: "virtual"}], platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]}]
 	},
 ]
 
@@ -92,6 +92,6 @@ cmds: [
 	{
 		name: "deploy"
 		description: "Deploy from foo"
-		implementations: [{script: "echo 'Deploying from foo!'", runtimes: [{name: "virtual"}]}]
+		implementations: [{script: "echo 'Deploying from foo!'", runtimes: [{name: "virtual"}], platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]}]
 	},
 ]

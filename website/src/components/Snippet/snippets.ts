@@ -64,6 +64,7 @@ cmds: [                  // Required: list of commands
                     echo "Done! Binary at bin/app"
                     """
                 runtimes: [{name: "native"}]
+                platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
             }
         ]
     },
@@ -76,6 +77,7 @@ cmds: [                  // Required: list of commands
             {
                 script: "go test -v ./..."
                 runtimes: [{name: "native"}, {name: "virtual"}]
+                platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
             }
         ]
     },
@@ -92,6 +94,7 @@ cmds: [                  // Required: list of commands
                     echo "Coverage report: coverage.html"
                     """
                 runtimes: [{name: "native"}]
+                platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
             }
         ]
     },
@@ -134,6 +137,7 @@ cmds: [                  // Required: list of commands
                 echo "Done!"
                 """
             runtimes: [{name: "native"}]
+            platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
         }
     ]
     depends_on: {
@@ -176,6 +180,7 @@ cmds: [
                     }
                 }
                 runtimes: [{name: "native"}]
+                platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
             }
         ]
     }
@@ -363,6 +368,7 @@ cmds: [
                     go build -o bin/$APP_NAME ./...
                     """
                 runtimes: [{name: "native"}]
+                platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
             }
         ]
         depends_on: {
@@ -428,6 +434,7 @@ cmds: [
         {
             script: "go build ./..."
             runtimes: [{name: "native"}]
+            platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
         }
     ]
 }`,
@@ -514,12 +521,13 @@ cmds: [
             #!/usr/bin/env python3
             import sys
             import json
-            
+
             print(f"Python {sys.version}")
             data = {"status": "ok", "items": [1, 2, 3]}
             print(json.dumps(data, indent=2))
             """
         runtimes: [{name: "native"}]
+        platforms: [{name: "linux"}, {name: "macos"}]
     }]
 }`,
   },
@@ -537,6 +545,7 @@ cmds: [
             name: "native"
             interpreter: "python3"  // Explicit interpreter
         }]
+        platforms: [{name: "linux"}, {name: "macos"}]
     }]
 }`,
   },
@@ -553,6 +562,7 @@ cmds: [
             name: "native"
             interpreter: "python3 -u"  // With arguments
         }]
+        platforms: [{name: "linux"}, {name: "macos"}]
     }]
 }`,
   },
@@ -573,6 +583,7 @@ cmds: [
             echo "Deploy to: $DEPLOY_ENV"
             """
         runtimes: [{name: "native"}]
+        platforms: [{name: "linux"}, {name: "macos"}]
     }]
 }`,
   },
@@ -596,6 +607,7 @@ cmds: [
             fi
             """
         runtimes: [{name: "native"}]
+        platforms: [{name: "linux"}, {name: "macos"}]
     }]
 }`,
   },
@@ -614,6 +626,7 @@ cmds: [
     implementations: [{
         script: "npm run build"
         runtimes: [{name: "native"}]
+        platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
     }]
 }`,
   },
@@ -634,6 +647,7 @@ cmds: [
     implementations: [{
         script: "docker build -t myapp . && kubectl apply -f k8s/"
         runtimes: [{name: "native"}]
+        platforms: [{name: "linux"}, {name: "macos"}]
     }]
 }`,
   },
@@ -649,6 +663,7 @@ cmds: [
             echo "Done!"
             """
         runtimes: [{name: "virtual"}]
+        platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
     }]
 }`,
   },
@@ -673,6 +688,7 @@ cmds: [
             fi
             """
         runtimes: [{name: "virtual"}]
+        platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
     }]
 }`,
   },
@@ -778,6 +794,7 @@ virtual_shell: {
             go build -ldflags="-s -w" ./...
             """
         runtimes: [{name: "virtual"}]
+        platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
     }]
 }`,
   },
@@ -791,11 +808,12 @@ virtual_shell: {
         script: """
             # Using environment variable
             echo "Hello, $INVOWK_ARG_NAME!"
-            
+
             # Or positional parameter
             echo "Hello, $1!"
             """
         runtimes: [{name: "virtual"}]
+        platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
     }]
 }`,
   },
@@ -848,6 +866,7 @@ script: """
     implementations: [{
         script: "go build ./..."
         runtimes: [{name: "virtual"}]
+        platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
     }]
 }`,
   },
@@ -875,6 +894,7 @@ virtual_shell: {
                 name: "container"
                 image: "golang:1.21"
             }]
+            platforms: [{name: "linux"}]
         }
     ]
 }`,
@@ -1117,6 +1137,7 @@ virtual_shell: {
             echo "Date: $BUILD_DATE"
             """
         runtimes: [{name: "native"}]
+        platforms: [{name: "linux"}, {name: "macos"}]
     }]
 }`,
   },
@@ -1153,6 +1174,7 @@ cmds: [...]  // All commands get PROJECT_NAME`,
         {
             script: "npm run build"
             runtimes: [{name: "native"}]
+            platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
             env: {
                 vars: {
                     NODE_ENV: "production"
@@ -1209,6 +1231,7 @@ invowk cmd build --env-file .env.local -E OVERRIDE=value`,
     implementations: [{
         script: "echo $BUILD_ENV"  // Available inside container
         runtimes: [{name: "container", image: "debian:bookworm-slim"}]
+        platforms: [{name: "linux"}]
     }]
 }`,
   },
@@ -1347,6 +1370,7 @@ cmds: [...]`,
         {
             script: "npm run build"
             runtimes: [{name: "native"}]
+            platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
             env: {
                 files: [".env.node"]  // Only for this implementation
             }
@@ -1381,6 +1405,7 @@ invowk cmd build -e .env.custom -e .env.secrets`,
     implementations: [{
         script: "node server.js"
         runtimes: [{name: "native"}]
+        platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
     }]
 }`,
   },
@@ -1401,6 +1426,7 @@ invowk cmd build -e .env.custom -e .env.secrets`,
             ./deploy.sh
             """
         runtimes: [{name: "native"}]
+        platforms: [{name: "linux"}, {name: "macos"}]
     }]
 }`,
   },
@@ -1458,6 +1484,7 @@ invowk cmd build -e .env.custom -e .env.secrets`,
             echo "API: $API_URL"
             """
         runtimes: [{name: "native"}]
+        platforms: [{name: "linux"}, {name: "macos"}]
     }]
 }`,
   },
@@ -1543,6 +1570,7 @@ cmds: [
         {
             script: "npm run build"
             runtimes: [{name: "native"}]
+            platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
             env: {
                 vars: {
                     NODE_ENV: "production"
@@ -1552,6 +1580,7 @@ cmds: [
         {
             script: "go build ./..."
             runtimes: [{name: "native"}]
+            platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
             env: {
                 vars: {
                     CGO_ENABLED: "0"
@@ -1639,6 +1668,7 @@ invowk cmd build -E NODE_ENV=dev -E DEBUG=true -E PORT=8080`,
     implementations: [{
         script: "npm run build"
         runtimes: [{name: "native"}]
+        platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
     }]
 }`,
   },
@@ -1658,6 +1688,7 @@ invowk cmd build -E NODE_ENV=dev -E DEBUG=true -E PORT=8080`,
     implementations: [{
         script: "go run ./cmd/server"
         runtimes: [{name: "native"}]
+        platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
     }]
 }`,
   },
@@ -1685,6 +1716,7 @@ invowk cmd build -E NODE_ENV=dev -E DEBUG=true -E PORT=8080`,
             go build -ldflags="-X main.version=$BUILD_ID" ./...
             """
         runtimes: [{name: "native"}]
+        platforms: [{name: "linux"}, {name: "macos"}]
     }]
 }`,
   },
@@ -1706,6 +1738,7 @@ invowk cmd build -E NODE_ENV=dev -E DEBUG=true -E PORT=8080`,
     implementations: [{
         script: "migrate -database $DATABASE_URL up"
         runtimes: [{name: "native"}]
+        platforms: [{name: "linux"}, {name: "macos"}]
     }]
 }`,
   },
@@ -1724,6 +1757,7 @@ invowk cmd build -E NODE_ENV=dev -E DEBUG=true -E PORT=8080`,
     implementations: [{
         script: "go build -o /workspace/bin/app ./..."
         runtimes: [{name: "container", image: "golang:1.21"}]
+        platforms: [{name: "linux"}]
     }]
 }`,
   },
@@ -1779,6 +1813,7 @@ cmds: [
         implementations: [{
             script: "echo $API_URL $LOG_LEVEL $BUILD_MODE $NODE_ENV"
             runtimes: [{name: "native"}]
+            platforms: [{name: "linux"}, {name: "macos"}]
             // Implementation level
             env: {
                 vars: {
@@ -1889,6 +1924,7 @@ env: {
 // Implementation: specific to this runtime
 implementations: [{
     runtimes: [{name: "container", image: "node:20"}]
+    platforms: [{name: "linux"}]
     env: {
         vars: {
             NODE_OPTIONS: "--max-old-space-size=4096"
@@ -1935,6 +1971,7 @@ invowk cmd build -E DEBUG=true -E LOG_LEVEL=debug`,
             env | sort
             """
         runtimes: [{name: "native"}]
+        platforms: [{name: "linux"}, {name: "macos"}]
     }]
 }`,
   },
@@ -1961,6 +1998,7 @@ invowk cmd build -E DEBUG=true -E LOG_LEVEL=debug`,
                 fi
                 """
             runtimes: [{name: "native"}]
+            platforms: [{name: "linux"}, {name: "macos"}]
         }
     ]
 }`,
@@ -1984,6 +2022,7 @@ invowk cmd build -E DEBUG=true -E LOG_LEVEL=debug`,
                 fi
                 """
             runtimes: [{name: "native"}]
+            platforms: [{name: "linux"}, {name: "macos"}]
         }
     ]
 }`,
@@ -2016,6 +2055,7 @@ invowk cmd build -E DEBUG=true -E LOG_LEVEL=debug`,
             echo "Services: $INVOWK_ARG_SERVICES"
             """
         runtimes: [{name: "native"}]
+        platforms: [{name: "linux"}, {name: "macos"}]
     }]
 }`,
   },
@@ -2077,6 +2117,7 @@ invowk cmd build -v -o=./build`,
             echo "All: $@"
             """
         runtimes: [{name: "native"}]
+        platforms: [{name: "linux"}, {name: "macos"}]
     }]
 }`,
   },
@@ -2294,6 +2335,7 @@ invowk cmd deploy --env=production
             fi
             """
         runtimes: [{name: "native"}]
+        platforms: [{name: "linux"}, {name: "macos"}]
     }]
 }`,
   },
@@ -2321,6 +2363,7 @@ invowk cmd deploy --env=production
             go build $VERBOSE -o "$INVOWK_FLAG_OUTPUT/app" ./...
             """
         runtimes: [{name: "native"}]
+        platforms: [{name: "linux"}, {name: "macos"}]
     }]
 }`,
   },
@@ -2370,6 +2413,7 @@ invowk cmd deploy --env=production
             ./scripts/deploy.sh "$INVOWK_FLAG_ENV" $ARGS
             """
         runtimes: [{name: "native"}]
+        platforms: [{name: "linux"}, {name: "macos"}]
     }]
 }`,
   },
@@ -2512,13 +2556,14 @@ args: [
             echo "Output: $INVOWK_ARG_OUTPUT"
             echo "Inputs: $INVOWK_ARG_INPUTS"
             echo "Count: $INVOWK_ARG_INPUTS_COUNT"
-            
+
             for i in $(seq 1 $INVOWK_ARG_INPUTS_COUNT); do
                 eval "file=\\$INVOWK_ARG_INPUTS_$i"
                 echo "Processing: $file"
             done
             """
         runtimes: [{name: "native"}]
+        platforms: [{name: "linux"}, {name: "macos"}]
     }]
 }`,
   },
@@ -2574,6 +2619,7 @@ invowk cmd deploy production
             echo "Hello, $INVOWK_ARG_FIRST_NAME $INVOWK_ARG_LAST_NAME!"
             """
         runtimes: [{name: "native"}]
+        platforms: [{name: "linux"}, {name: "macos"}]
     }]
 }`,
   },
@@ -2599,6 +2645,7 @@ invowk cmd deploy production
             echo "Count: $#"
             """
         runtimes: [{name: "native"}]
+        platforms: [{name: "linux"}, {name: "macos"}]
     }]
 }`,
   },
@@ -2632,6 +2679,7 @@ invowk cmd deploy production
             ./converter --input="$1" --output="$2" --format="$3"
             """
         runtimes: [{name: "native"}]
+        platforms: [{name: "linux"}, {name: "macos"}]
     }]
 }`,
   },
@@ -2665,6 +2713,7 @@ invowk cmd deploy production
             tar -czvf "$INVOWK_ARG_ARCHIVE" $INVOWK_ARG_FILES
             """
         runtimes: [{name: "native"}]
+        platforms: [{name: "linux"}, {name: "macos"}]
     }]
 }`,
   },
@@ -2709,6 +2758,7 @@ invowk cmd deploy production
             fi
             """
         runtimes: [{name: "native"}]
+        platforms: [{name: "linux"}, {name: "macos"}]
     }]
 }`,
   },
@@ -2740,6 +2790,7 @@ invowk cmd deploy prod --dry-run 3`,
                 print(f"Found {len(data)} records")
                 """
             runtimes: [{name: "native"}]
+            platforms: [{name: "linux"}, {name: "macos"}]
         }
     ]
 }`,
@@ -2758,6 +2809,7 @@ invowk cmd deploy prod --dry-run 3`,
                 console.log(\`Processing \${data.length} items\`);
                 """
             runtimes: [{name: "native"}]
+            platforms: [{name: "linux"}, {name: "macos"}]
         }
     ]
 }`,
@@ -2817,6 +2869,7 @@ cmds: [
             print(json.dumps(data, indent=2))
             """
         runtimes: [{name: "native"}]
+        platforms: [{name: "linux"}, {name: "macos"}]
     }]
 }`,
   },
@@ -2925,6 +2978,7 @@ interpreter: "node --max-old-space-size=4096"`,
             print(f"Hello again, {name}!")
             """
         runtimes: [{name: "native"}]
+        platforms: [{name: "linux"}, {name: "macos"}]
     }]
 }`,
   },
@@ -2953,6 +3007,7 @@ interpreter: "node --max-old-space-size=4096"`,
     implementations: [{
         script: "npm run build"
         runtimes: [{name: "native"}]
+        platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
     }]
 }`,
   },
@@ -2965,11 +3020,13 @@ interpreter: "node --max-old-space-size=4096"`,
         {
             script: "npm run build"
             runtimes: [{name: "native"}]
+            platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
             workdir: "./web"  // This implementation runs in ./web
         },
         {
             script: "go build ./..."
             runtimes: [{name: "native"}]
+            platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
             workdir: "./api"  // This implementation runs in ./api
         }
     ]
@@ -3031,6 +3088,7 @@ cmds: [
                 script: "make"
                 workdir: "./implementation"  // Final: ./implementation
                 runtimes: [{name: "native"}]
+                platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
             }
         ]
     }
@@ -3046,6 +3104,7 @@ cmds: [
         implementations: [{
             script: "npm run build"
             runtimes: [{name: "native"}]
+            platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
         }]
     },
     {
@@ -3054,6 +3113,7 @@ cmds: [
         implementations: [{
             script: "go build ./..."
             runtimes: [{name: "native"}]
+            platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
         }]
     },
     {
@@ -3062,6 +3122,7 @@ cmds: [
         implementations: [{
             script: "flutter build"
             runtimes: [{name: "native"}]
+            platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
         }]
     }
 ]`,
@@ -3077,6 +3138,7 @@ cmds: [
             ls   # Shows your project files
             """
         runtimes: [{name: "container", image: "debian:bookworm-slim"}]
+        platforms: [{name: "linux"}]
     }]
 }`,
   },
@@ -3092,6 +3154,7 @@ cmds: [
             npm run build
             """
         runtimes: [{name: "container", image: "node:20"}]
+        platforms: [{name: "linux"}]
     }]
 }`,
   },
@@ -3114,6 +3177,7 @@ workdir: ".\\\\src\\\\app"`,
         implementations: [{
             script: "npm run dev"
             runtimes: [{name: "native"}]
+            platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
         }]
     },
     {
@@ -3122,6 +3186,7 @@ workdir: ".\\\\src\\\\app"`,
         implementations: [{
             script: "go run ./cmd/server"
             runtimes: [{name: "native"}]
+            platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
         }]
     }
 ]`,
@@ -3136,6 +3201,7 @@ workdir: ".\\\\src\\\\app"`,
         implementations: [{
             script: "pytest"
             runtimes: [{name: "native"}]
+            platforms: [{name: "linux"}, {name: "macos"}]
         }]
     },
     {
@@ -3144,6 +3210,7 @@ workdir: ".\\\\src\\\\app"`,
         implementations: [{
             script: "pytest"
             runtimes: [{name: "native"}]
+            platforms: [{name: "linux"}, {name: "macos"}]
         }]
     },
     {
@@ -3152,6 +3219,7 @@ workdir: ".\\\\src\\\\app"`,
         implementations: [{
             script: "cypress run"
             runtimes: [{name: "native"}]
+            platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
         }]
     }
 ]`,
@@ -3168,6 +3236,7 @@ workdir: ".\\\\src\\\\app"`,
             go build -o ../bin/app ./...
             """
         runtimes: [{name: "native"}]
+        platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
     }]
 }`,
   },
@@ -3204,7 +3273,7 @@ workdir: ".\\\\src\\\\app"`,
     implementations: [{
         script: "go build ./..."
         runtimes: [{name: "native"}]
-        // No platforms = works everywhere
+        platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
     }]
 }`,
   },
@@ -3427,6 +3496,7 @@ This command is only available on the platforms listed above.`,
             {
                 script: "./scripts/lint.sh"
                 runtimes: [{name: "virtual"}]
+                platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
             }
         ]
     }
@@ -3509,6 +3579,7 @@ cmds: [
         implementations: [{
             script: "scripts/build.sh"  // Relative to module root
             runtimes: [{name: "native"}]
+            platforms: [{name: "linux"}, {name: "macos"}]
         }]
     },
     {
@@ -3516,6 +3587,7 @@ cmds: [
         implementations: [{
             script: "scripts/utils/helpers.sh"  // Nested path
             runtimes: [{name: "native"}]
+            platforms: [{name: "linux"}, {name: "macos"}]
         }]
     }
 ]`,
@@ -3586,6 +3658,7 @@ description: "Commands for mytools"
                     echo "Hello from mytools!"
                     """
                 runtimes: [{name: "native"}]
+                platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
             }
         ]
     }
@@ -3608,6 +3681,7 @@ touch mytools.invkmod/invkfile.cue`,
         implementations: [{
             script: "echo 'Quick task'"
             runtimes: [{name: "native"}]
+            platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
         }]
     },
 
@@ -3617,6 +3691,7 @@ touch mytools.invkmod/invkfile.cue`,
         implementations: [{
             script: "scripts/complex-task.sh"
             runtimes: [{name: "native"}]
+            platforms: [{name: "linux"}, {name: "macos"}]
         }]
     }
 ]`,
@@ -3701,6 +3776,7 @@ script: "../outside.sh"`,
         implementations: [{
             script: "scripts/build-go.sh"
             runtimes: [{name: "native"}]
+            platforms: [{name: "linux"}, {name: "macos"}]
         }]
     },
     {
@@ -3709,6 +3785,7 @@ script: "../outside.sh"`,
         implementations: [{
             script: "scripts/build-node.sh"
             runtimes: [{name: "native"}]
+            platforms: [{name: "linux"}, {name: "macos"}]
         }]
     },
     {
@@ -3717,6 +3794,7 @@ script: "../outside.sh"`,
         implementations: [{
             script: "scripts/build-python.sh"
             runtimes: [{name: "native"}]
+            platforms: [{name: "linux"}, {name: "macos"}]
         }]
     }
 ]`,
@@ -4900,6 +4978,7 @@ invowk init`,
             {
                 script: "echo 'Hello from Invowk!'"
                 runtimes: [{name: "native"}]
+                platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
             }
         ]
     }
@@ -4935,6 +5014,7 @@ From current directory:
             {
                 script: "echo 'Hello from Invowk!'"
                 runtimes: [{name: "native"}]
+                platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
             }
         ]
     },
@@ -4971,6 +5051,7 @@ From current directory:
         {
             script: "echo 'This runs identically on Linux, Mac, and Windows!'"
             runtimes: [{name: "virtual"}]
+            platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
         }
     ]
 }`,
@@ -5151,11 +5232,13 @@ platforms: [
         {
             script: "go build ./..."
             runtimes: [{name: "native"}]
+            platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
         },
         // Reproducible container build
         {
             script: "go build -o /workspace/bin/app ./..."
             runtimes: [{name: "container", image: "golang:1.21"}]
+            platforms: [{name: "linux"}]
         }
     ]
 }`,
@@ -5202,7 +5285,8 @@ platforms: [
         {
             script: "npm run build"
             runtimes: [{name: "native"}]
-            
+            platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+
             // Implementation-specific env
             env: {
                 vars: {
@@ -5263,6 +5347,7 @@ _unixNative: {
 
 _allPlatforms: {
     runtimes: [{name: "native"}]
+    platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 }
 
 cmds: [
@@ -5300,24 +5385,27 @@ cmds: [
         implementations: [{
             script: "go build ./..."
             runtimes: [{name: "native"}]
+            platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
         }]
     },
-    
+
     // Virtual: uses built-in POSIX-compatible shell
     {
         name: "build virtual"
         implementations: [{
             script: "go build ./..."
             runtimes: [{name: "virtual"}]
+            platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
         }]
     },
-    
+
     // Container: runs inside a container
     {
         name: "build container"
         implementations: [{
             script: "go build -o /workspace/bin/app ./..."
             runtimes: [{name: "container", image: "golang:1.21"}]
+            platforms: [{name: "linux"}]
         }]
     }
 ]`,
@@ -5549,6 +5637,7 @@ cmds: [...]`,
         {
             script: "go build ./..."
             runtimes: [{name: "container", image: "golang:1.21"}]
+            platforms: [{name: "linux"}]
             depends_on: {
                 // Validated INSIDE the container
                 tools: [{alternatives: ["go"]}]
@@ -5576,6 +5665,7 @@ cmds: [
             {
                 script: "go build ./..."
                 runtimes: [{name: "native"}]
+                platforms: [{name: "linux"}, {name: "macos"}]
                 // Implementation level: also requires make
                 depends_on: {
                     tools: [{alternatives: ["make"]}]
@@ -5622,6 +5712,7 @@ cmds: [
         {
             script: "./scripts/deploy.sh"
             runtimes: [{name: "native"}]
+            platforms: [{name: "linux"}, {name: "macos"}]
         }
     ]
 }`,
@@ -5679,6 +5770,7 @@ invowk tui input --title "Username" --char-limit 20`,
             ./scripts/create-user.sh "$USERNAME" "$EMAIL" "$PASSWORD"
             """
         runtimes: [{name: "native"}]
+        platforms: [{name: "linux"}, {name: "macos"}]
     }]
 }`,
   },
@@ -5721,6 +5813,7 @@ invowk tui write --title "Edit message:" --value "Initial text here"`,
             git commit -m "$MESSAGE"
             """
         runtimes: [{name: "native"}]
+        platforms: [{name: "linux"}, {name: "macos"}]
     }]
 }`,
   },
@@ -5793,6 +5886,7 @@ echo "Success!" | invowk tui style --foreground "#00FF00" --bold`,
             echo "Project created!" | invowk tui style --foreground "#00FF00" --bold
             """
         runtimes: [{name: "native"}]
+        platforms: [{name: "linux"}, {name: "macos"}]
     }]
 }`,
   },
@@ -5903,6 +5997,7 @@ echo "Hello, $NAME!"`,
             ./scripts/create-user.sh "$USERNAME" "$EMAIL" "$PASSWORD"
             """
         runtimes: [{name: "native"}]
+        platforms: [{name: "linux"}, {name: "macos"}]
     }]
 }`,
   },
@@ -5959,6 +6054,7 @@ gh release create v1.0.0 --notes "$NOTES"`,
             git commit -m "$MESSAGE"
             """
         runtimes: [{name: "native"}]
+        platforms: [{name: "linux"}, {name: "macos"}]
     }]
 }`,
   },
@@ -6123,6 +6219,7 @@ fi`,
             fi
             """
         runtimes: [{name: "native"}]
+        platforms: [{name: "linux"}, {name: "macos"}]
     }]
 }`,
   },
@@ -6298,6 +6395,7 @@ less "$LOG"`,
             \${EDITOR:-vim} "$CONFIG"
             """
         runtimes: [{name: "native"}]
+        platforms: [{name: "linux"}, {name: "macos"}]
     }]
 }`,
   },
@@ -6449,6 +6547,7 @@ fi`,
             echo "Deployment complete!" | invowk tui style --foreground "#00FF00" --bold
             """
         runtimes: [{name: "native"}]
+        platforms: [{name: "linux"}, {name: "macos"}]
     }]
 }`,
   },
@@ -6662,6 +6761,7 @@ invowk tui style \\
             fi
             """
         runtimes: [{name: "native"}]
+        platforms: [{name: "linux"}, {name: "macos"}]
     }]
 }`,
   },
@@ -7155,7 +7255,7 @@ name: "deploy-prod"`,
     code: `#Implementation: {
     script:      string       // Required - inline script or file path
     runtimes:    [...#RuntimeConfig] & [_, ...]  // Required - runtime configurations
-    platforms?:  [...#PlatformConfig]            // Optional - platform restrictions
+    platforms:   [...#PlatformConfig] & [_, ...]  // Required - at least one platform
     env?:        #EnvConfig   // Optional
     workdir?:    string       // Optional
     depends_on?: #DependsOn   // Optional
@@ -7870,6 +7970,7 @@ git log | invowk tui pager --title "Git History" --line-numbers`,
                 invowk tui pager --title "Application Logs" --soft-wrap
             """
         runtimes: [{name: "native"}]
+        platforms: [{name: "linux"}, {name: "macos"}]
     }]
 }`,
   },
@@ -7936,6 +8037,7 @@ invowk cmd database-cli -i`,
             fi
             """
         runtimes: [{name: "native"}]
+        platforms: [{name: "linux"}, {name: "macos"}]
     }]
 }`,
   },

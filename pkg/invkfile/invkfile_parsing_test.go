@@ -277,6 +277,7 @@ cmds: [
 					"""
 
 				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}]
 			}
 		]
 	}
@@ -367,6 +368,7 @@ func TestContainerfilePathCUEValidation(t *testing.T) {
 			{
 				script: "echo test"
 				runtimes: [{name: "container", containerfile: "` + tt.containerfile + `"}]
+				platforms: [{name: "linux"}]
 			}
 		]
 	}

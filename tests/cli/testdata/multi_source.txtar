@@ -38,7 +38,7 @@ cmds: [
 	{
 		name: "hello"
 		description: "Hello from root invkfile"
-		implementations: [{script: "echo 'Hello from root!'", runtimes: [{name: "virtual"}]}]
+		implementations: [{script: "echo 'Hello from root!'", runtimes: [{name: "virtual"}], platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]}]
 	},
 ]
 
@@ -52,7 +52,7 @@ cmds: [
 	{
 		name: "build"
 		description: "Build from foo module"
-		implementations: [{script: "echo 'Building from foo!'", runtimes: [{name: "virtual"}]}]
+		implementations: [{script: "echo 'Building from foo!'", runtimes: [{name: "virtual"}], platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]}]
 	},
 ]
 
@@ -66,6 +66,6 @@ cmds: [
 	{
 		name: "test"
 		description: "Test from bar module"
-		implementations: [{script: "echo 'Testing from bar!'", runtimes: [{name: "virtual"}]}]
+		implementations: [{script: "echo 'Testing from bar!'", runtimes: [{name: "virtual"}], platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]}]
 	},
 ]

@@ -65,11 +65,9 @@ See [Runtime Modes](../runtime-modes/overview) for details on each runtime.
 
 ### Platforms
 
-Optionally restrict which operating systems the implementation supports:
+Specify which operating systems the implementation supports. Every implementation must declare at least one platform:
 
 <Snippet id="implementations/platforms-list" />
-
-If `platforms` is omitted, the implementation works on all platforms.
 
 Available platforms: `linux`, `macos`, `windows`
 
@@ -165,7 +163,7 @@ Reduce repetition with CUE templates:
 ## Best Practices
 
 1. **Start simple** - One implementation is often enough
-2. **Add platforms as needed** - Don't specify platforms unless you need platform-specific behavior
+2. **Always specify platforms** - Every implementation must declare at least one target platform
 3. **Default runtime first** - Put the most common runtime first in the list
 4. **Use templates** - Reduce repetition with CUE's templating
 5. **Keep scripts focused** - One task per command; chain with dependencies

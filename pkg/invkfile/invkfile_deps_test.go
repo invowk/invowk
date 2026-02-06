@@ -14,7 +14,7 @@ func testCommand(name, script string) Command {
 	return Command{
 		Name: name,
 		Implementations: []Implementation{
-			{Script: script, Runtimes: []RuntimeConfig{{Name: RuntimeNative}}},
+			{Script: script, Runtimes: []RuntimeConfig{{Name: RuntimeNative}}, Platforms: []PlatformConfig{{Name: PlatformLinux}}},
 		},
 	}
 }
@@ -23,7 +23,7 @@ func testCommand(name, script string) Command {
 func testCommandWithDeps(name, script string, deps *DependsOn) Command {
 	return Command{
 		Name:            name,
-		Implementations: []Implementation{{Script: script, Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}},
+		Implementations: []Implementation{{Script: script, Runtimes: []RuntimeConfig{{Name: RuntimeNative}}, Platforms: []PlatformConfig{{Name: PlatformLinux}}}},
 		DependsOn:       deps,
 	}
 }
@@ -263,6 +263,7 @@ cmds: [
 			{
 				script: "make build"
 				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}]
 			}
 		]
 		depends_on: {
@@ -465,6 +466,7 @@ cmds: [
 			{
 				script: "echo deploying"
 				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}]
 			}
 		]
 		depends_on: {

@@ -124,10 +124,9 @@ import "strings"
 	// Each runtime is a struct with a 'name' field and optional type-specific fields
 	runtimes: [...#RuntimeConfig] & [_, ...]
 
-	// platforms specifies which operating systems this implementation is for (optional)
-	// If not specified, the implementation applies to all platforms
+	// platforms specifies which operating systems this implementation is for (required, at least one)
 	// Each platform is a struct with a 'name' field
-	platforms?: [...#PlatformConfig] & [_, ...]
+	platforms: [...#PlatformConfig] & [_, ...]
 
 	// env contains environment configuration for this implementation (optional)
 	// Implementation-level env is merged with command-level env.

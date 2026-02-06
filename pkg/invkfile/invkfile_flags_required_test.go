@@ -25,6 +25,7 @@ cmds: [
 			{
 				script: "echo test"
 				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}]
 			}
 		]
 		flags: [
@@ -61,6 +62,7 @@ cmds: [
 			{
 				script: "echo test"
 				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}]
 			}
 		]
 		flags: [
@@ -95,6 +97,7 @@ cmds: [
 			{
 				script: "echo test"
 				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}]
 			}
 		]
 		flags: [
@@ -152,6 +155,7 @@ cmds: [
 			{
 				script: "echo test"
 				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}]
 			}
 		]
 		flags: [
@@ -186,6 +190,7 @@ cmds: [
 			{
 				script: "echo test"
 				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}]
 			}
 		]
 		flags: [
@@ -225,6 +230,7 @@ cmds: [
 			{
 				script: "echo deploying"
 				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}]
 			}
 		]
 		flags: [
@@ -260,6 +266,7 @@ cmds: [
 			{
 				script: "echo deploying"
 				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}]
 			}
 		]
 		flags: [

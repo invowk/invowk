@@ -24,6 +24,7 @@ cmds: [
 			{
 				script: "rsync -avz ./dist/ user@server:/var/www/"
 				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}]
 			}
 		]
 		depends_on: {
@@ -89,6 +90,7 @@ cmds: [
 			{
 				script: "echo 'ready'"
 				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}]
 			}
 		]
 		depends_on: {
@@ -152,6 +154,7 @@ cmds: [
 			{
 				script: "rsync -avz ./dist/ user@server:/var/www/"
 				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}]
 				depends_on: {
 					capabilities: [
 						{alternatives: ["internet"]},
@@ -238,8 +241,9 @@ func TestScript_HasDependencies_WithCapabilities(t *testing.T) {
 	t.Parallel()
 
 	impl := Implementation{
-		Script:   "echo test",
-		Runtimes: []RuntimeConfig{{Name: RuntimeNative}},
+		Script:    "echo test",
+		Runtimes:  []RuntimeConfig{{Name: RuntimeNative}},
+		Platforms: []PlatformConfig{{Name: PlatformLinux}},
 		DependsOn: &DependsOn{
 			Capabilities: []CapabilityDependency{{Alternatives: []CapabilityName{CapabilityInternet}}},
 		},
@@ -290,8 +294,9 @@ func TestGenerateCUE_WithCapabilities(t *testing.T) {
 				Name: "deploy",
 				Implementations: []Implementation{
 					{
-						Script:   "rsync deploy",
-						Runtimes: []RuntimeConfig{{Name: RuntimeNative}},
+						Script:    "rsync deploy",
+						Runtimes:  []RuntimeConfig{{Name: RuntimeNative}},
+						Platforms: []PlatformConfig{{Name: PlatformLinux}},
 					},
 				},
 				DependsOn: &DependsOn{
@@ -329,8 +334,9 @@ func TestGenerateCUE_WithCapabilitiesAtImplementationLevel(t *testing.T) {
 				Name: "sync",
 				Implementations: []Implementation{
 					{
-						Script:   "rsync sync",
-						Runtimes: []RuntimeConfig{{Name: RuntimeNative}},
+						Script:    "rsync sync",
+						Runtimes:  []RuntimeConfig{{Name: RuntimeNative}},
+						Platforms: []PlatformConfig{{Name: PlatformLinux}},
 						DependsOn: &DependsOn{
 							Capabilities: []CapabilityDependency{
 								{Alternatives: []CapabilityName{CapabilityInternet}},
@@ -377,6 +383,7 @@ cmds: [
 			{
 				script: "echo hello"
 				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}]
 			}
 		]
 	}
@@ -483,7 +490,7 @@ func TestInvkfile_HasRootLevelDependencies(t *testing.T) {
 
 			inv := &Invkfile{
 				DependsOn: tt.deps,
-				Commands:  []Command{{Name: "test", Implementations: []Implementation{{Script: "echo", Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}}}},
+				Commands:  []Command{{Name: "test", Implementations: []Implementation{{Script: "echo", Runtimes: []RuntimeConfig{{Name: RuntimeNative}}, Platforms: []PlatformConfig{{Name: PlatformLinux}}}}}},
 			}
 			if got := inv.HasRootLevelDependencies(); got != tt.expected {
 				t.Errorf("HasRootLevelDependencies() = %v, want %v", got, tt.expected)
@@ -630,8 +637,9 @@ func TestGenerateCUE_WithRootLevelDependsOn(t *testing.T) {
 				Name: "hello",
 				Implementations: []Implementation{
 					{
-						Script:   "echo hello",
-						Runtimes: []RuntimeConfig{{Name: RuntimeNative}},
+						Script:    "echo hello",
+						Runtimes:  []RuntimeConfig{{Name: RuntimeNative}},
+						Platforms: []PlatformConfig{{Name: PlatformLinux}},
 					},
 				},
 			},

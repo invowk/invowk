@@ -30,6 +30,7 @@ cmds: [
 					echo '{"greeting": "hello", "target": "world"}' | jq '.greeting, .target'
 					"""
 				runtimes: [{name: "container", containerfile: "Containerfile"}]
+				platforms: [{name: "linux"}]
 			}
 		]
 	},
@@ -42,6 +43,7 @@ cmds: [
 					echo "CUSTOM_FROM_DOCKERFILE: ${CUSTOM_FROM_DOCKERFILE:-no}"
 					"""
 				runtimes: [{name: "container", containerfile: "Containerfile"}]
+				platforms: [{name: "linux"}]
 			}
 		]
 	}

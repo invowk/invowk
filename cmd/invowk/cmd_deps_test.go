@@ -190,6 +190,7 @@ func TestCheckCommandDependenciesExist_SatisfiedByLocalUnqualifiedName(t *testin
 		implementations: [{
 			script: "echo build"
 			runtimes: [{name: "native"}]
+			platforms: [{name: "linux"}, {name: "macos"}]
 		}]
 	},
 	{
@@ -197,6 +198,7 @@ func TestCheckCommandDependenciesExist_SatisfiedByLocalUnqualifiedName(t *testin
 		implementations: [{
 			script: "echo deploy"
 			runtimes: [{name: "native"}]
+			platforms: [{name: "linux"}, {name: "macos"}]
 		}]
 	},
 ]
@@ -232,6 +234,7 @@ func TestCheckCommandDependenciesExist_SatisfiedByFullyQualifiedNameFromUserDir(
 	implementations: [{
 		script: "echo deploy"
 		runtimes: [{name: "native"}]
+		platforms: [{name: "linux"}, {name: "macos"}]
 	}]
 }]
 `
@@ -250,6 +253,7 @@ func TestCheckCommandDependenciesExist_SatisfiedByFullyQualifiedNameFromUserDir(
 	implementations: [{
 		script: "echo generate"
 		runtimes: [{name: "native"}]
+		platforms: [{name: "linux"}, {name: "macos"}]
 	}]
 }]
 `
@@ -284,6 +288,7 @@ func TestCheckCommandDependenciesExist_MissingCommand(t *testing.T) {
 	implementations: [{
 		script: "echo deploy"
 		runtimes: [{name: "native"}]
+		platforms: [{name: "linux"}, {name: "macos"}]
 	}]
 }]
 `

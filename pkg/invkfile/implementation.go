@@ -21,10 +21,9 @@ type (
 		// The first element is the default runtime for this platform combination
 		// Each runtime is a struct with a Name field and optional type-specific fields
 		Runtimes []RuntimeConfig `json:"runtimes"`
-		// Platforms specifies which operating systems this implementation is for (optional)
-		// If empty/nil, the implementation applies to all platforms
+		// Platforms specifies which operating systems this implementation is for (required, at least one)
 		// Each platform is a struct with a Name field
-		Platforms []PlatformConfig `json:"platforms,omitempty"`
+		Platforms []PlatformConfig `json:"platforms"`
 		// Env contains environment configuration for this implementation (optional)
 		// Implementation-level env is merged with command-level env.
 		// Implementation files are loaded after command-level files.
@@ -64,9 +63,6 @@ type (
 
 // MatchesPlatform returns true if the implementation can run on the given platform.
 func (s *Implementation) MatchesPlatform(platform Platform) bool {
-	if len(s.Platforms) == 0 {
-		return true // No platforms specified = all platforms
-	}
 	for _, p := range s.Platforms {
 		if p.Name == platform {
 			return true

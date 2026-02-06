@@ -20,7 +20,7 @@ cmds: [
 			{
 				script: "make build"
 				runtimes: [{name: "native"}]
-				// No platforms = all platforms
+				platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 			}
 		]
 	},
@@ -58,7 +58,7 @@ cmds: [
 		t.Fatalf("Expected 2 commands, got %d", len(inv.Commands))
 	}
 
-	// First command - all platforms (no platforms specified)
+	// First command - all platforms (explicitly listed)
 	cmd1 := inv.Commands[0]
 	platforms1 := cmd1.GetSupportedPlatforms()
 	if len(platforms1) != 3 {
@@ -84,7 +84,7 @@ func TestGenerateCUE_WithPlatforms(t *testing.T) {
 			{
 				Name: "build",
 				Implementations: []Implementation{
-					{Script: "make build", Runtimes: []RuntimeConfig{{Name: RuntimeNative}}},
+					{Script: "make build", Runtimes: []RuntimeConfig{{Name: RuntimeNative}}, Platforms: []PlatformConfig{{Name: PlatformLinux}, {Name: PlatformMac}, {Name: PlatformWindows}}},
 				},
 			},
 			{
@@ -131,6 +131,7 @@ cmds: [
 				script: "echo hello"
 
 				runtimes: [{name: "container", image: "debian:stable-slim", enable_host_ssh: true}]
+				platforms: [{name: "linux"}]
 			}
 		]
 	}
@@ -193,6 +194,7 @@ cmds: [
 				script: "echo hello"
 
 				runtimes: [{name: "container", image: "debian:stable-slim"}]
+				platforms: [{name: "linux"}]
 			}
 		]
 	}
@@ -236,9 +238,8 @@ func TestScript_HasHostSSH(t *testing.T) {
 			script: Implementation{
 				Script: "echo test",
 
-				Runtimes: []RuntimeConfig{
-					{Name: RuntimeContainer, EnableHostSSH: true, Image: "debian:stable-slim"},
-				},
+				Runtimes:  []RuntimeConfig{{Name: RuntimeContainer, EnableHostSSH: true, Image: "debian:stable-slim"}},
+				Platforms: []PlatformConfig{{Name: PlatformLinux}},
 			},
 			expected: true,
 		},
@@ -247,9 +248,8 @@ func TestScript_HasHostSSH(t *testing.T) {
 			script: Implementation{
 				Script: "echo test",
 
-				Runtimes: []RuntimeConfig{
-					{Name: RuntimeContainer, EnableHostSSH: false, Image: "debian:stable-slim"},
-				},
+				Runtimes:  []RuntimeConfig{{Name: RuntimeContainer, EnableHostSSH: false, Image: "debian:stable-slim"}},
+				Platforms: []PlatformConfig{{Name: PlatformLinux}},
 			},
 			expected: false,
 		},
@@ -258,9 +258,8 @@ func TestScript_HasHostSSH(t *testing.T) {
 			script: Implementation{
 				Script: "echo test",
 
-				Runtimes: []RuntimeConfig{
-					{Name: RuntimeNative},
-				},
+				Runtimes:  []RuntimeConfig{{Name: RuntimeNative}},
+				Platforms: []PlatformConfig{{Name: PlatformLinux}},
 			},
 			expected: false,
 		},
@@ -273,6 +272,7 @@ func TestScript_HasHostSSH(t *testing.T) {
 					{Name: RuntimeNative},
 					{Name: RuntimeContainer, EnableHostSSH: true, Image: "debian:stable-slim"},
 				},
+				Platforms: []PlatformConfig{{Name: PlatformLinux}},
 			},
 			expected: true,
 		},
@@ -285,6 +285,7 @@ func TestScript_HasHostSSH(t *testing.T) {
 					{Name: RuntimeContainer, EnableHostSSH: false, Image: "debian:stable-slim"},
 					{Name: RuntimeNative},
 				},
+				Platforms: []PlatformConfig{{Name: PlatformLinux}},
 			},
 			expected: false,
 		},
@@ -316,9 +317,8 @@ func TestScript_GetHostSSHForRuntime(t *testing.T) {
 			script: Implementation{
 				Script: "echo test",
 
-				Runtimes: []RuntimeConfig{
-					{Name: RuntimeContainer, EnableHostSSH: true, Image: "debian:stable-slim"},
-				},
+				Runtimes:  []RuntimeConfig{{Name: RuntimeContainer, EnableHostSSH: true, Image: "debian:stable-slim"}},
+				Platforms: []PlatformConfig{{Name: PlatformLinux}},
 			},
 			runtime:  RuntimeContainer,
 			expected: true,
@@ -328,9 +328,8 @@ func TestScript_GetHostSSHForRuntime(t *testing.T) {
 			script: Implementation{
 				Script: "echo test",
 
-				Runtimes: []RuntimeConfig{
-					{Name: RuntimeContainer, EnableHostSSH: false, Image: "debian:stable-slim"},
-				},
+				Runtimes:  []RuntimeConfig{{Name: RuntimeContainer, EnableHostSSH: false, Image: "debian:stable-slim"}},
+				Platforms: []PlatformConfig{{Name: PlatformLinux}},
 			},
 			runtime:  RuntimeContainer,
 			expected: false,
@@ -340,9 +339,8 @@ func TestScript_GetHostSSHForRuntime(t *testing.T) {
 			script: Implementation{
 				Script: "echo test",
 
-				Runtimes: []RuntimeConfig{
-					{Name: RuntimeNative},
-				},
+				Runtimes:  []RuntimeConfig{{Name: RuntimeNative}},
+				Platforms: []PlatformConfig{{Name: PlatformLinux}},
 			},
 			runtime:  RuntimeNative,
 			expected: false,
@@ -352,9 +350,8 @@ func TestScript_GetHostSSHForRuntime(t *testing.T) {
 			script: Implementation{
 				Script: "echo test",
 
-				Runtimes: []RuntimeConfig{
-					{Name: RuntimeVirtual},
-				},
+				Runtimes:  []RuntimeConfig{{Name: RuntimeVirtual}},
+				Platforms: []PlatformConfig{{Name: PlatformLinux}},
 			},
 			runtime:  RuntimeVirtual,
 			expected: false,
@@ -364,9 +361,8 @@ func TestScript_GetHostSSHForRuntime(t *testing.T) {
 			script: Implementation{
 				Script: "echo test",
 
-				Runtimes: []RuntimeConfig{
-					{Name: RuntimeNative},
-				},
+				Runtimes:  []RuntimeConfig{{Name: RuntimeNative}},
+				Platforms: []PlatformConfig{{Name: PlatformLinux}},
 			},
 			runtime:  RuntimeContainer,
 			expected: false,
@@ -432,9 +428,8 @@ func TestGenerateCUE_WithEnableHostSSH(t *testing.T) {
 					{
 						Script: "echo hello",
 
-						Runtimes: []RuntimeConfig{
-							{Name: RuntimeContainer, EnableHostSSH: true, Image: "debian:stable-slim"},
-						},
+						Runtimes:  []RuntimeConfig{{Name: RuntimeContainer, EnableHostSSH: true, Image: "debian:stable-slim"}},
+						Platforms: []PlatformConfig{{Name: PlatformLinux}},
 					},
 				},
 			},
@@ -464,9 +459,8 @@ func TestGenerateCUE_WithEnableHostSSH_False(t *testing.T) {
 					{
 						Script: "echo hello",
 
-						Runtimes: []RuntimeConfig{
-							{Name: RuntimeContainer, EnableHostSSH: false, Image: "debian:stable-slim"},
-						},
+						Runtimes:  []RuntimeConfig{{Name: RuntimeContainer, EnableHostSSH: false, Image: "debian:stable-slim"}},
+						Platforms: []PlatformConfig{{Name: PlatformLinux}},
 					},
 				},
 			},
@@ -498,6 +492,7 @@ cmds: [
 					volumes: ["./data:/data", "/tmp:/tmp:ro"]
 					ports: ["8080:80", "3000:3000"]
 				}]
+				platforms: [{name: "linux"}]
 			}
 		]
 	}
@@ -555,5 +550,35 @@ cmds: [
 		if rt.Ports[1] != "3000:3000" {
 			t.Errorf("Ports[1] = %q, want %q", rt.Ports[1], "3000:3000")
 		}
+	}
+}
+
+func TestMissingPlatformsRejected(t *testing.T) {
+	t.Parallel()
+
+	// CUE schema now requires at least one platform per implementation.
+	// An implementation without platforms should fail CUE validation.
+	cueContent := `
+cmds: [
+	{
+		name: "no-platforms"
+		implementations: [
+			{
+				script: "echo test"
+				runtimes: [{name: "native"}]
+			}
+		]
+	}
+]
+`
+	tmpDir := t.TempDir()
+	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+	if writeErr := os.WriteFile(invkfilePath, []byte(cueContent), 0o644); writeErr != nil {
+		t.Fatalf("Failed to write invkfile: %v", writeErr)
+	}
+
+	_, err := Parse(invkfilePath)
+	if err == nil {
+		t.Error("Parse() should reject implementation without platforms")
 	}
 }

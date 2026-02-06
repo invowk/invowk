@@ -340,14 +340,12 @@ func generateImplementation(sb *strings.Builder, impl *Implementation) {
 	}
 	sb.WriteString("\t\t\t\t]\n")
 
-	// Platforms
-	if len(impl.Platforms) > 0 {
-		sb.WriteString("\t\t\t\tplatforms: [\n")
-		for _, p := range impl.Platforms {
-			fmt.Fprintf(sb, "\t\t\t\t\t{name: %q},\n", p.Name)
-		}
-		sb.WriteString("\t\t\t\t]\n")
+	// Platforms (mandatory)
+	sb.WriteString("\t\t\t\tplatforms: [\n")
+	for _, p := range impl.Platforms {
+		fmt.Fprintf(sb, "\t\t\t\t\t{name: %q},\n", p.Name)
 	}
+	sb.WriteString("\t\t\t\t]\n")
 
 	// Implementation-level depends_on
 	generateImplDependsOn(sb, impl.DependsOn)

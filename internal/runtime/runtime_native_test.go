@@ -402,9 +402,10 @@ func TestNativeRuntime_InvalidWorkingDirectory(t *testing.T) {
 		Name: "invalid-workdir",
 		Implementations: []invkfile.Implementation{
 			{
-				Script:   script,
-				Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeNative}},
-				WorkDir:  "/nonexistent/directory/that/does/not/exist",
+				Script:    script,
+				Runtimes:  []invkfile.RuntimeConfig{{Name: invkfile.RuntimeNative}},
+				Platforms: []invkfile.PlatformConfig{{Name: invkfile.PlatformLinux}, {Name: invkfile.PlatformMac}},
+				WorkDir:   "/nonexistent/directory/that/does/not/exist",
 			},
 		},
 	}
@@ -584,8 +585,9 @@ func TestNativeRuntime_Validate_Unit(t *testing.T) {
 				Name: "empty",
 				Implementations: []invkfile.Implementation{
 					{
-						Script:   "",
-						Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeNative}},
+						Script:    "",
+						Runtimes:  []invkfile.RuntimeConfig{{Name: invkfile.RuntimeNative}},
+						Platforms: []invkfile.PlatformConfig{{Name: invkfile.PlatformLinux}, {Name: invkfile.PlatformMac}},
 					},
 				},
 			},
@@ -666,8 +668,9 @@ func TestNativeRuntime_getWorkDir(t *testing.T) {
 				WorkDir: tt.cmdWorkDir,
 				Implementations: []invkfile.Implementation{
 					{
-						Script:   "echo test",
-						Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeNative}},
+						Script:    "echo test",
+						Runtimes:  []invkfile.RuntimeConfig{{Name: invkfile.RuntimeNative}},
+						Platforms: []invkfile.PlatformConfig{{Name: invkfile.PlatformLinux}, {Name: invkfile.PlatformMac}},
 					},
 				},
 			}

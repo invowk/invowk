@@ -115,23 +115,23 @@ cmds: [
 	{
 		name: "hello"
 		description: "Hello from root invkfile"
-		implementations: [{script: "echo 'Hello from root!'", runtimes: [{name: "virtual"}]}]
+		implementations: [{script: "echo 'Hello from root!'", runtimes: [{name: "virtual"}], platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]}]
 	},
 	{
 		name: "deploy"
 		description: "Deploy from root invkfile"
-		implementations: [{script: "echo 'Deploying from invkfile!'", runtimes: [{name: "virtual"}]}]
+		implementations: [{script: "echo 'Deploying from invkfile!'", runtimes: [{name: "virtual"}], platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]}]
 	},
 	// Subcommands for User Story 4 testing
 	{
 		name: "deploy staging"
 		description: "Deploy to staging from invkfile"
-		implementations: [{script: "echo 'Deploying to staging from invkfile!'", runtimes: [{name: "virtual"}]}]
+		implementations: [{script: "echo 'Deploying to staging from invkfile!'", runtimes: [{name: "virtual"}], platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]}]
 	},
 	{
 		name: "deploy local"
 		description: "Deploy to local from invkfile (unique)"
-		implementations: [{script: "echo 'Deploying to local from invkfile!'", runtimes: [{name: "virtual"}]}]
+		implementations: [{script: "echo 'Deploying to local from invkfile!'", runtimes: [{name: "virtual"}], platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]}]
 	},
 ]
 
@@ -145,12 +145,12 @@ cmds: [
 	{
 		name: "build"
 		description: "Build from foo module"
-		implementations: [{script: "echo 'Building from foo!'", runtimes: [{name: "virtual"}]}]
+		implementations: [{script: "echo 'Building from foo!'", runtimes: [{name: "virtual"}], platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]}]
 	},
 	{
 		name: "deploy"
 		description: "Deploy from foo module"
-		implementations: [{script: "echo 'Deploying from foo!'", runtimes: [{name: "virtual"}]}]
+		implementations: [{script: "echo 'Deploying from foo!'", runtimes: [{name: "virtual"}], platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]}]
 	},
 ]
 
@@ -165,12 +165,12 @@ cmds: [
 	{
 		name: "deploy staging"
 		description: "Deploy to staging from bar module"
-		implementations: [{script: "echo 'Deploying to staging from bar!'", runtimes: [{name: "virtual"}]}]
+		implementations: [{script: "echo 'Deploying to staging from bar!'", runtimes: [{name: "virtual"}], platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]}]
 	},
 	// Unique subcommand "deploy production" - only exists in bar
 	{
 		name: "deploy production"
 		description: "Deploy to production from bar module (unique)"
-		implementations: [{script: "echo 'Deploying to production from bar!'", runtimes: [{name: "virtual"}]}]
+		implementations: [{script: "echo 'Deploying to production from bar!'", runtimes: [{name: "virtual"}], platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]}]
 	},
 ]

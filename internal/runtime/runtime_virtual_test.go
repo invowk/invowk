@@ -597,9 +597,10 @@ func TestVirtualRuntime_getWorkDir(t *testing.T) {
 			}
 
 			impl := invkfile.Implementation{
-				Script:   "echo test",
-				Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeVirtual}},
-				WorkDir:  tt.implWorkDir,
+				Script:    "echo test",
+				Runtimes:  []invkfile.RuntimeConfig{{Name: invkfile.RuntimeVirtual}},
+				Platforms: []invkfile.PlatformConfig{{Name: invkfile.PlatformLinux}, {Name: invkfile.PlatformMac}, {Name: invkfile.PlatformWindows}},
+				WorkDir:   tt.implWorkDir,
 			}
 
 			cmd := &invkfile.Command{

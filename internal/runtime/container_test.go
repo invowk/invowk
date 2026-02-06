@@ -225,8 +225,9 @@ func TestContainerRuntime_Validate_Unit(t *testing.T) {
 				Name: "valid",
 				Implementations: []invkfile.Implementation{
 					{
-						Script:   "echo hello",
-						Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeContainer, Image: "debian:stable-slim"}},
+						Script:    "echo hello",
+						Runtimes:  []invkfile.RuntimeConfig{{Name: invkfile.RuntimeContainer, Image: "debian:stable-slim"}},
+						Platforms: []invkfile.PlatformConfig{{Name: invkfile.PlatformLinux}},
 					},
 				},
 			},
@@ -252,8 +253,9 @@ func TestContainerRuntime_Validate_Unit(t *testing.T) {
 				Name: "empty-script",
 				Implementations: []invkfile.Implementation{
 					{
-						Script:   "",
-						Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeContainer, Image: "debian:stable-slim"}},
+						Script:    "",
+						Runtimes:  []invkfile.RuntimeConfig{{Name: invkfile.RuntimeContainer, Image: "debian:stable-slim"}},
+						Platforms: []invkfile.PlatformConfig{{Name: invkfile.PlatformLinux}},
 					},
 				},
 			},
@@ -266,8 +268,9 @@ func TestContainerRuntime_Validate_Unit(t *testing.T) {
 				Name: "no-image",
 				Implementations: []invkfile.Implementation{
 					{
-						Script:   "echo hello",
-						Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeContainer}}, // No image
+						Script:    "echo hello",
+						Runtimes:  []invkfile.RuntimeConfig{{Name: invkfile.RuntimeContainer}}, // No image
+						Platforms: []invkfile.PlatformConfig{{Name: invkfile.PlatformLinux}},
 					},
 				},
 			},
@@ -321,8 +324,9 @@ func TestContainerRuntime_Validate_WithContainerfile(t *testing.T) {
 		Name: "with-containerfile",
 		Implementations: []invkfile.Implementation{
 			{
-				Script:   "echo hello",
-				Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeContainer}}, // No image, but Containerfile exists
+				Script:    "echo hello",
+				Runtimes:  []invkfile.RuntimeConfig{{Name: invkfile.RuntimeContainer}}, // No image, but Containerfile exists
+				Platforms: []invkfile.PlatformConfig{{Name: invkfile.PlatformLinux}},
 			},
 		},
 	}
@@ -354,8 +358,9 @@ func TestContainerRuntime_Validate_WithDockerfile(t *testing.T) {
 		Name: "with-dockerfile",
 		Implementations: []invkfile.Implementation{
 			{
-				Script:   "echo hello",
-				Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeContainer}}, // No image, but Dockerfile exists
+				Script:    "echo hello",
+				Runtimes:  []invkfile.RuntimeConfig{{Name: invkfile.RuntimeContainer}}, // No image, but Dockerfile exists
+				Platforms: []invkfile.PlatformConfig{{Name: invkfile.PlatformLinux}},
 			},
 		},
 	}
@@ -454,8 +459,9 @@ func TestGetContainerWorkDir(t *testing.T) {
 				WorkDir: tt.cmdWorkDir,
 				Implementations: []invkfile.Implementation{
 					{
-						Script:   "pwd",
-						Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeContainer, Image: "debian:stable-slim"}},
+						Script:    "pwd",
+						Runtimes:  []invkfile.RuntimeConfig{{Name: invkfile.RuntimeContainer, Image: "debian:stable-slim"}},
+						Platforms: []invkfile.PlatformConfig{{Name: invkfile.PlatformLinux}},
 					},
 				},
 			}

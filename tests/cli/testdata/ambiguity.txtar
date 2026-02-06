@@ -27,12 +27,12 @@ cmds: [
 	{
 		name: "hello"
 		description: "Hello from root invkfile"
-		implementations: [{script: "echo 'Hello from root!'", runtimes: [{name: "virtual"}]}]
+		implementations: [{script: "echo 'Hello from root!'", runtimes: [{name: "virtual"}], platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]}]
 	},
 	{
 		name: "deploy"
 		description: "Deploy from root invkfile"
-		implementations: [{script: "echo 'Deploying from invkfile!'", runtimes: [{name: "virtual"}]}]
+		implementations: [{script: "echo 'Deploying from invkfile!'", runtimes: [{name: "virtual"}], platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]}]
 	},
 ]
 
@@ -46,11 +46,11 @@ cmds: [
 	{
 		name: "build"
 		description: "Build from foo module"
-		implementations: [{script: "echo 'Building from foo!'", runtimes: [{name: "virtual"}]}]
+		implementations: [{script: "echo 'Building from foo!'", runtimes: [{name: "virtual"}], platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]}]
 	},
 	{
 		name: "deploy"
 		description: "Deploy from foo module"
-		implementations: [{script: "echo 'Deploying from foo!'", runtimes: [{name: "virtual"}]}]
+		implementations: [{script: "echo 'Deploying from foo!'", runtimes: [{name: "virtual"}], platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]}]
 	},
 ]

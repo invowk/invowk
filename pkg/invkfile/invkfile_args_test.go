@@ -26,6 +26,7 @@ cmds: [
 			{
 				script: "echo Hello $INVOWK_ARG_NAME"
 				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}]
 			}
 		]
 		args: [
@@ -109,6 +110,7 @@ cmds: [
 			{
 				script: "echo test"
 				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}]
 			}
 		]
 		args: [
@@ -151,6 +153,7 @@ cmds: [
 			{
 				script: "echo test"
 				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}]
 			}
 		]
 		args: [
@@ -191,6 +194,7 @@ cmds: [
 			{
 				script: "cp $INVOWK_ARG_FILES $INVOWK_ARG_DEST"
 				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}]
 			}
 		]
 		args: [
@@ -238,6 +242,7 @@ cmds: [
 			{
 				script: "echo deploying to $INVOWK_ARG_ENV"
 				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}]
 			}
 		]
 		args: [
@@ -274,6 +279,7 @@ cmds: [
 			{
 				script: "echo test"
 				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}]
 			}
 		]
 		args: []
@@ -307,6 +313,7 @@ cmds: [
 			{
 				script: "echo test"
 				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}]
 			}
 		]
 	}
@@ -341,6 +348,7 @@ cmds: [
 			{
 				script: "echo deploying to $INVOWK_ARG_ENV with $INVOWK_ARG_REPLICAS replicas"
 				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}]
 			}
 		]
 		args: [
@@ -430,8 +438,9 @@ func TestGenerateCUE_WithArgs(t *testing.T) {
 				Description: "Deploy to environment",
 				Implementations: []Implementation{
 					{
-						Script:   "echo deploying",
-						Runtimes: []RuntimeConfig{{Name: RuntimeNative}},
+						Script:    "echo deploying",
+						Runtimes:  []RuntimeConfig{{Name: RuntimeNative}},
+						Platforms: []PlatformConfig{{Name: PlatformLinux}},
 					},
 				},
 				Args: []Argument{
@@ -508,8 +517,9 @@ func TestGenerateCUE_WithArgs_StringTypeNotIncluded(t *testing.T) {
 				Description: "Greet someone",
 				Implementations: []Implementation{
 					{
-						Script:   "echo hello",
-						Runtimes: []RuntimeConfig{{Name: RuntimeNative}},
+						Script:    "echo hello",
+						Runtimes:  []RuntimeConfig{{Name: RuntimeNative}},
+						Platforms: []PlatformConfig{{Name: PlatformLinux}},
 					},
 				},
 				Args: []Argument{
@@ -547,8 +557,9 @@ func TestGenerateCUE_WithArgs_RoundTrip(t *testing.T) {
 				Description: "Deploy application",
 				Implementations: []Implementation{
 					{
-						Script:   "echo deploying",
-						Runtimes: []RuntimeConfig{{Name: RuntimeNative}},
+						Script:    "echo deploying",
+						Runtimes:  []RuntimeConfig{{Name: RuntimeNative}},
+						Platforms: []PlatformConfig{{Name: PlatformLinux}},
 					},
 				},
 				Args: []Argument{

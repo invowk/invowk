@@ -470,6 +470,7 @@ cmds: [{
 	implementations: [{
 		script: "echo hello"
 		runtimes: [{name: "container", image: "` + image512 + `"}]
+		platforms: [{name: "linux"}]
 	}]
 }]`
 	if err := validateCUE(t, valid); err != nil {
@@ -484,6 +485,7 @@ cmds: [{
 	implementations: [{
 		script: "echo hello"
 		runtimes: [{name: "container", image: "` + image513 + `"}]
+		platforms: [{name: "linux"}]
 	}]
 }]`
 	if err := validateCUE(t, invalid); err == nil {
@@ -504,6 +506,7 @@ cmds: [{
 	implementations: [{
 		script: "echo hello"
 		runtimes: [{name: "native", interpreter: "` + interp1024 + `"}]
+		platforms: [{name: "linux"}]
 	}]
 }]`
 	if err := validateCUE(t, valid); err != nil {
@@ -518,6 +521,7 @@ cmds: [{
 	implementations: [{
 		script: "echo hello"
 		runtimes: [{name: "native", interpreter: "` + interp1025 + `"}]
+		platforms: [{name: "linux"}]
 	}]
 }]`
 	if err := validateCUE(t, invalid); err == nil {
@@ -531,6 +535,7 @@ cmds: [{
 	implementations: [{
 		script: "echo hello"
 		runtimes: [{name: "container", image: "debian:stable-slim", interpreter: "` + interp1024 + `"}]
+		platforms: [{name: "linux"}]
 	}]
 }]`
 	if err := validateCUE(t, validContainer); err != nil {
@@ -544,6 +549,7 @@ cmds: [{
 	implementations: [{
 		script: "echo hello"
 		runtimes: [{name: "container", image: "debian:stable-slim", interpreter: "` + interp1025 + `"}]
+		platforms: [{name: "linux"}]
 	}]
 }]`
 	if err := validateCUE(t, invalidContainer); err == nil {
@@ -564,6 +570,7 @@ cmds: [{
 	implementations: [{
 		script: "echo hello"
 		runtimes: [{name: "native"}]
+		platforms: [{name: "linux"}]
 	}]
 	flags: [{
 		name: "myflag"
@@ -583,6 +590,7 @@ cmds: [{
 	implementations: [{
 		script: "echo hello"
 		runtimes: [{name: "native"}]
+		platforms: [{name: "linux"}]
 	}]
 	flags: [{
 		name: "myflag"
@@ -601,6 +609,7 @@ cmds: [{
 	implementations: [{
 		script: "echo hello"
 		runtimes: [{name: "native"}]
+		platforms: [{name: "linux"}]
 	}]
 	args: [{
 		name: "myarg"
@@ -619,6 +628,7 @@ cmds: [{
 	implementations: [{
 		script: "echo hello"
 		runtimes: [{name: "native"}]
+		platforms: [{name: "linux"}]
 	}]
 	args: [{
 		name: "myarg"
@@ -669,6 +679,7 @@ cmds: [{
 	implementations: [{
 		script: "echo hello"
 		runtimes: [{name: "native"}]
+		platforms: [{name: "linux"}]
 	}]
 }]`
 			err := validateCUE(t, cueData)
@@ -694,6 +705,7 @@ cmds: [{
 	implementations: [{
 		script: "echo hello"
 		runtimes: [{name: "container", image: "` + strings.Repeat("a", 600) + `"}]
+		platforms: [{name: "linux"}]
 	}]
 }]`
 
@@ -731,6 +743,7 @@ cmds: [{
 	implementations: [{
 		script: "echo hello"
 		runtimes: [{name: "native"}]
+		platforms: [{name: "linux"}]
 	}]
 }]`
 	if err := validateCUE(t, valid); err != nil {
@@ -745,6 +758,7 @@ cmds: [{
 	implementations: [{
 		script: "echo hello"
 		runtimes: [{name: "native"}]
+		platforms: [{name: "linux"}]
 	}]
 }]`
 	if err := validateCUE(t, invalid); err == nil {
@@ -765,6 +779,7 @@ cmds: [{
 	implementations: [{
 		script: "echo hello"
 		runtimes: [{name: "native"}]
+		platforms: [{name: "linux"}]
 	}]
 }]`
 	if err := validateCUE(t, valid); err != nil {
@@ -780,6 +795,7 @@ cmds: [{
 	implementations: [{
 		script: "echo hello"
 		runtimes: [{name: "native"}]
+		platforms: [{name: "linux"}]
 	}]
 }]`
 	if err := validateCUE(t, invalid); err == nil {
@@ -799,6 +815,7 @@ cmds: [{
 	implementations: [{
 		script: "echo hello"
 		runtimes: [{name: "native"}]
+		platforms: [{name: "linux"}]
 	}]
 	depends_on: {
 		custom_checks: [{
@@ -819,6 +836,7 @@ cmds: [{
 	implementations: [{
 		script: "echo hello"
 		runtimes: [{name: "native"}]
+		platforms: [{name: "linux"}]
 	}]
 	depends_on: {
 		custom_checks: [{
@@ -844,6 +862,7 @@ cmds: [{
 	implementations: [{
 		script: "echo hello"
 		runtimes: [{name: "native"}]
+		platforms: [{name: "linux"}]
 	}]
 	depends_on: {
 		custom_checks: [{
@@ -865,6 +884,7 @@ cmds: [{
 	implementations: [{
 		script: "echo hello"
 		runtimes: [{name: "native"}]
+		platforms: [{name: "linux"}]
 	}]
 	depends_on: {
 		custom_checks: [{
@@ -891,6 +911,7 @@ cmds: [{
 	implementations: [{
 		script: "echo hello"
 		runtimes: [{name: "native"}]
+		platforms: [{name: "linux"}]
 	}]
 	args: [{
 		name: "myarg"
@@ -910,6 +931,7 @@ cmds: [{
 	implementations: [{
 		script: "echo hello"
 		runtimes: [{name: "native"}]
+		platforms: [{name: "linux"}]
 	}]
 	args: [{
 		name: "myarg"
@@ -934,6 +956,7 @@ cmds: [{
 	implementations: [{
 		script: "echo hello"
 		runtimes: [{name: "native"}]
+		platforms: [{name: "linux"}]
 	}]
 	flags: [{
 		name: "myflag"
@@ -953,6 +976,7 @@ cmds: [{
 	implementations: [{
 		script: "echo hello"
 		runtimes: [{name: "native"}]
+		platforms: [{name: "linux"}]
 	}]
 	flags: [{
 		name: "myflag"
@@ -977,6 +1001,7 @@ cmds: [{
 	implementations: [{
 		script: "echo hello"
 		runtimes: [{name: "native"}]
+		platforms: [{name: "linux"}]
 	}]
 	env: {
 		files: [""]
@@ -994,6 +1019,7 @@ cmds: [{
 	implementations: [{
 		script: "echo hello"
 		runtimes: [{name: "native"}]
+		platforms: [{name: "linux"}]
 	}]
 	env: {
 		files: ["` + path4096 + `"]
@@ -1011,6 +1037,7 @@ cmds: [{
 	implementations: [{
 		script: "echo hello"
 		runtimes: [{name: "native"}]
+		platforms: [{name: "linux"}]
 	}]
 	env: {
 		files: ["` + path4097 + `"]
@@ -1033,6 +1060,7 @@ cmds: [{
 	implementations: [{
 		script: "echo hello"
 		runtimes: [{name: "native"}]
+		platforms: [{name: "linux"}]
 	}]
 	env: {
 		vars: {
@@ -1051,6 +1079,7 @@ cmds: [{
 	implementations: [{
 		script: "echo hello"
 		runtimes: [{name: "native"}]
+		platforms: [{name: "linux"}]
 	}]
 	env: {
 		vars: {
@@ -1075,6 +1104,7 @@ cmds: [{
 	implementations: [{
 		script: "echo hello"
 		runtimes: [{name: "native"}]
+		platforms: [{name: "linux"}]
 	}]
 	env: {
 		vars: {
@@ -1094,6 +1124,7 @@ cmds: [{
 	implementations: [{
 		script: "echo hello"
 		runtimes: [{name: "native"}]
+		platforms: [{name: "linux"}]
 	}]
 	env: {
 		vars: {
@@ -1118,6 +1149,7 @@ cmds: [{
 	implementations: [{
 		script: "echo hello"
 		runtimes: [{name: "container", image: "debian:stable-slim", volumes: [""]}]
+		platforms: [{name: "linux"}]
 	}]
 }]`
 	if err := validateCUE(t, invalidEmpty); err == nil {
@@ -1131,6 +1163,7 @@ cmds: [{
 	implementations: [{
 		script: "echo hello"
 		runtimes: [{name: "container", image: "debian:stable-slim", volumes: ["./data:/data"]}]
+		platforms: [{name: "linux"}]
 	}]
 }]`
 	if err := validateCUE(t, valid); err != nil {
@@ -1145,6 +1178,7 @@ cmds: [{
 	implementations: [{
 		script: "echo hello"
 		runtimes: [{name: "container", image: "debian:stable-slim", volumes: ["` + vol4097 + `"]}]
+		platforms: [{name: "linux"}]
 	}]
 }]`
 	if err := validateCUE(t, invalid); err == nil {
@@ -1164,6 +1198,7 @@ cmds: [{
 	implementations: [{
 		script: "echo hello"
 		runtimes: [{name: "container", image: "debian:stable-slim", ports: [""]}]
+		platforms: [{name: "linux"}]
 	}]
 }]`
 	if err := validateCUE(t, invalidEmpty); err == nil {
@@ -1177,6 +1212,7 @@ cmds: [{
 	implementations: [{
 		script: "echo hello"
 		runtimes: [{name: "container", image: "debian:stable-slim", ports: ["8080:80"]}]
+		platforms: [{name: "linux"}]
 	}]
 }]`
 	if err := validateCUE(t, valid); err != nil {
@@ -1191,6 +1227,7 @@ cmds: [{
 	implementations: [{
 		script: "echo hello"
 		runtimes: [{name: "container", image: "debian:stable-slim", ports: ["` + port257 + `"]}]
+		platforms: [{name: "linux"}]
 	}]
 }]`
 	if err := validateCUE(t, invalid); err == nil {
@@ -1210,6 +1247,7 @@ cmds: [{
 	implementations: [{
 		script: "echo hello"
 		runtimes: [{name: "native"}]
+		platforms: [{name: "linux"}]
 	}]
 }]
 default_shell: " "
@@ -1225,6 +1263,7 @@ cmds: [{
 	implementations: [{
 		script: "echo hello"
 		runtimes: [{name: "native"}]
+		platforms: [{name: "linux"}]
 	}]
 }]
 default_shell: "/bin/bash"
@@ -1246,6 +1285,7 @@ cmds: [{
 	implementations: [{
 		script: "echo hello"
 		runtimes: [{name: "container", image: ""}]
+		platforms: [{name: "linux"}]
 	}]
 }]`
 	if err := validateCUE(t, invalid); err == nil {

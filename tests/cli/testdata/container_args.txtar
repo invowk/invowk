@@ -40,6 +40,7 @@ cmds: [
 			{
 				script: "echo \"Argument: $INVOWK_ARG_VALUE\""
 				runtimes: [{name: "container", image: "debian:stable-slim"}]
+				platforms: [{name: "linux"}]
 			}
 		]
 	},
@@ -62,6 +63,7 @@ cmds: [
 					echo "Second: ${INVOWK_ARG_VALUES_2:-<none>}"
 					"""
 				runtimes: [{name: "container", image: "debian:stable-slim"}]
+				platforms: [{name: "linux"}]
 			}
 		]
 	}

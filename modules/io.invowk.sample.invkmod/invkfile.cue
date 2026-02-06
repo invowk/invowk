@@ -15,7 +15,11 @@ cmds: [
 					{name: "virtual"},
 					{name: "container", image: "debian:stable-slim"},
 				]
-				// No platforms specified = runs on all platforms (linux, macos, windows)
+				platforms: [
+					{name: "linux"},
+					{name: "macos"},
+					{name: "windows"},
+				]
 			},
 		]
 	},

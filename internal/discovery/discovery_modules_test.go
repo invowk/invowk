@@ -179,8 +179,8 @@ version: "1.0"
 	}
 	// Create invkfile.cue with commands
 	invkfileContent := `cmds: [
-	{name: "cmd1", description: "First command", implementations: [{script: "echo 1", runtimes: [{name: "native"}]}]},
-	{name: "cmd2", description: "Second command", implementations: [{script: "echo 2", runtimes: [{name: "native"}]}]}
+	{name: "cmd1", description: "First command", implementations: [{script: "echo 1", runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}]}]},
+	{name: "cmd2", description: "Second command", implementations: [{script: "echo 2", runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}]}]}
 ]
 `
 	if err := os.WriteFile(filepath.Join(moduleDir, "invkfile.cue"), []byte(invkfileContent), 0o644); err != nil {
@@ -286,7 +286,7 @@ description: "A test module"
 		t.Fatalf("failed to write invkmod.cue: %v", err)
 	}
 	// Create invkfile.cue with commands
-	invkfileContent := `cmds: [{name: "test", implementations: [{script: "echo test", runtimes: [{name: "native"}]}]}]`
+	invkfileContent := `cmds: [{name: "test", implementations: [{script: "echo test", runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}]}]}]`
 	if err := os.WriteFile(filepath.Join(moduleDir, "invkfile.cue"), []byte(invkfileContent), 0o644); err != nil {
 		t.Fatalf("failed to write invkfile.cue: %v", err)
 	}
@@ -393,7 +393,7 @@ version: "1.0"
 		t.Fatalf("failed to write invkmod.cue: %v", err)
 	}
 	// Create invkfile.cue with commands
-	invkfileContent := `cmds: [{name: "` + cmdName + `", implementations: [{script: "echo test", runtimes: [{name: "native"}]}]}]`
+	invkfileContent := `cmds: [{name: "` + cmdName + `", implementations: [{script: "echo test", runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}]}]}]`
 	if err := os.WriteFile(filepath.Join(moduleDir, "invkfile.cue"), []byte(invkfileContent), 0o644); err != nil {
 		t.Fatalf("failed to write invkfile.cue: %v", err)
 	}

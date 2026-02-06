@@ -112,6 +112,7 @@ cmds: [
 			{
 				script: "echo 'Hello from the virtual shell!'"
 				runtimes: [{name: "virtual"}]
+				platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 			}
 		]
 	},
@@ -162,6 +163,7 @@ cmds: [
 					echo '=== uroot basic test complete ==='
 					"""
 				runtimes: [{name: "virtual"}]
+				platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 			},
 		]
 	},
@@ -203,6 +205,7 @@ cmds: [
 					echo '=== uroot file ops test complete ==='
 					"""
 				runtimes: [{name: "virtual"}]
+				platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 			},
 		]
 	},
@@ -261,6 +264,7 @@ cmds: [
 					echo '=== uroot text ops test complete ==='
 					"""
 				runtimes: [{name: "virtual"}]
+				platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 			},
 		]
 	},
@@ -468,6 +472,7 @@ cmds: [
 					image: "python:3-slim"
 					// interpreter auto-detected from shebang
 				}]
+				platforms: [{name: "linux"}]
 			}
 		]
 	},
@@ -491,6 +496,7 @@ cmds: [
 					image:       "python:3-slim"
 					interpreter: "python3"
 				}]
+				platforms: [{name: "linux"}]
 			}
 		]
 	},
@@ -510,6 +516,7 @@ cmds: [
 				// No interpreter specified, no shebang in script
 				// -> falls back to shell execution (default behavior)
 				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
 			}
 		]
 	},
@@ -527,6 +534,7 @@ cmds: [
 			{
 				script: "echo 'Hello from inside the container!'"
 				runtimes: [{name: "container", image: "debian:stable-slim"}]
+				platforms: [{name: "linux"}]
 			}
 		]
 	},
@@ -579,6 +587,7 @@ cmds: [
 					image: "debian:stable-slim"
 					ports: ["8080:80", "3000:3000"]
 				}]
+				platforms: [{name: "linux"}]
 			}
 		]
 	},
@@ -603,6 +612,7 @@ cmds: [
 					env_inherit_mode:  "allow"
 					env_inherit_allow: ["TERM", "LANG"]
 				}]
+				platforms: [{name: "linux"}]
 			}
 		]
 		env: {
@@ -662,6 +672,7 @@ cmds: [
 					image:           "debian:stable-slim"
 					enable_host_ssh: false
 				}]
+				platforms: [{name: "linux"}]
 			}
 		]
 	},
@@ -769,6 +780,7 @@ cmds: [
 			{
 				script: "echo 'README.md exists!'"
 				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
 			}
 		]
 		depends_on: {
@@ -786,6 +798,7 @@ cmds: [
 			{
 				script: "echo 'A README file exists (one of: README.md, README, readme.md)'"
 				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
 			}
 		]
 		depends_on: {
@@ -807,6 +820,7 @@ cmds: [
 					echo "  - README.md is readable"
 					"""
 				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
 			}
 		]
 		depends_on: {
@@ -830,6 +844,7 @@ cmds: [
 			{
 				script: "echo 'Internet connectivity confirmed!'"
 				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
 			}
 		]
 		depends_on: {
@@ -850,6 +865,7 @@ cmds: [
 					echo "Either LAN or Internet is available."
 					"""
 				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
 			}
 		]
 		depends_on: {
@@ -872,6 +888,7 @@ cmds: [
 					echo "  - Internet is available"
 					"""
 				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
 			}
 		]
 		depends_on: {
@@ -890,6 +907,7 @@ cmds: [
 			{
 				script: "echo 'Container engine is available!'"
 				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
 			}
 		]
 		depends_on: {
@@ -907,6 +925,7 @@ cmds: [
 			{
 				script: "echo 'Interactive TTY detected!'"
 				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
 			}
 		]
 		depends_on: {
@@ -1024,6 +1043,7 @@ cmds: [
 			{
 				script: "echo 'This runs after examples hello!'"
 				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
 			}
 		]
 		depends_on: {
@@ -1041,6 +1061,7 @@ cmds: [
 			{
 				script: "echo 'This runs after any hello command!'"
 				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
 			}
 		]
 		depends_on: {
@@ -1065,6 +1086,7 @@ cmds: [
 					echo "  3. This command"
 					"""
 				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
 			}
 		]
 		depends_on: {
@@ -1097,6 +1119,7 @@ cmds: [
 					image: "debian:stable-slim"
 					volumes: [".:/app-code:ro"]
 				}]
+				platforms: [{name: "linux"}]
 				// These dependencies are validated INSIDE the container
 				depends_on: {
 					tools: [
@@ -1293,6 +1316,7 @@ cmds: [
 					echo "Try: invowk cmd examples flags required --target=production"
 					"""
 				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
 			}
 		]
 		flags: [
@@ -1410,6 +1434,7 @@ cmds: [
 					echo "Try: invowk cmd examples flags full -x=prod -n=3 -d -t=2.0.0"
 					"""
 				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
 			}
 		]
 		flags: [
@@ -1865,6 +1890,7 @@ cmds: [
 					echo "Try: invowk cmd examples args with flags file.txt /tmp --verbose --backup"
 					"""
 				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
 			}
 		]
 		args: [
@@ -1899,6 +1925,7 @@ cmds: [
 					echo "Try: invowk cmd examples args shell positional hello world"
 					"""#
 				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
 			}
 		]
 		args: [
@@ -1959,6 +1986,7 @@ cmds: [
 					echo "Try: invowk cmd examples args container shell hello container"
 					"""#
 				runtimes: [{name: "container", image: "debian:stable-slim"}]
+				platforms: [{name: "linux"}]
 			}
 		]
 		args: [
@@ -1988,6 +2016,7 @@ cmds: [
 					echo "  [CHILD] INVOWK_FLAG_PARENT_FLAG = '${INVOWK_FLAG_PARENT_FLAG:-<not set>}' (should be <not set>)"
 					"""#
 				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
 			}
 		]
 		args: [
@@ -2070,6 +2099,7 @@ cmds: [
 					echo "container runtimes."
 					"""#
 				runtimes: [{name: "virtual"}]
+				platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 			}
 		]
 		args: [
@@ -2104,6 +2134,7 @@ cmds: [
 					echo "environment before the command started."
 					"""
 				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
 			}
 		]
 		depends_on: {
@@ -2131,6 +2162,7 @@ cmds: [
 					echo "alternatives is set, the dependency is satisfied."
 					"""#
 				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
 			}
 		]
 		depends_on: {
@@ -2161,6 +2193,7 @@ cmds: [
 					echo "This is useful for validating format of credentials, API keys, etc."
 					"""
 				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
 			}
 		]
 		depends_on: {
@@ -2189,6 +2222,7 @@ cmds: [
 					echo "All entries must be satisfied for the command to run."
 					"""
 				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
 			}
 		]
 		depends_on: {
@@ -2229,6 +2263,7 @@ cmds: [
 					echo "=========================================="
 					"""
 				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
 			}
 		]
 		depends_on: {
@@ -2265,6 +2300,7 @@ cmds: [
 					echo "required environment variables configured."
 					"""
 				runtimes: [{name: "container", image: "debian:stable-slim"}]
+				platforms: [{name: "linux"}]
 				// These env_vars are validated INSIDE the container
 				depends_on: {
 					env_vars: [
@@ -2383,6 +2419,7 @@ cmds: [
 					echo "=========================================="
 					"""
 				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
 			},
 		]
 	},
@@ -2416,6 +2453,7 @@ cmds: [
 					echo "=========================================="
 					"""
 				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
 			},
 		]
 	},
@@ -2451,6 +2489,7 @@ cmds: [
 					echo "=========================================="
 					"""
 				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
 			},
 		]
 	},
@@ -2537,6 +2576,7 @@ cmds: [
 					echo "=========================================="
 					"""
 				runtimes: [{name: "container", image: "debian:stable-slim"}]
+				platforms: [{name: "linux"}]
 			},
 		]
 	},
@@ -2577,6 +2617,7 @@ cmds: [
 					echo "=========================================="
 					"""
 				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
 			},
 		]
 	},
@@ -2827,6 +2868,7 @@ cmds: [
 					echo "=========================================="
 					"""
 				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
 			}
 		]
 		// No depends_on here - inherits from root level
@@ -2857,6 +2899,7 @@ cmds: [
 					echo "=========================================="
 					"""
 				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
 			}
 		]
 		// This ADDS to root-level dependencies
@@ -2941,6 +2984,7 @@ cmds: [
 					echo "=========================================="
 					"""
 				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
 			}
 		]
 	},
@@ -2971,6 +3015,7 @@ cmds: [
 					echo "=========================================="
 					"""
 				runtimes: [{name: "container", image: "debian:stable-slim"}]
+				platforms: [{name: "linux"}]
 				// These are validated INSIDE the container
 				depends_on: {
 					tools: [
@@ -3088,6 +3133,7 @@ cmds: [
 					name: "container"
 					image: "python:3-slim"
 					}]
+				platforms: [{name: "linux"}]
 			}
 		]
 	},
@@ -3134,6 +3180,7 @@ cmds: [
 					fi
 					"""
 				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
 			}
 		]
 	},
@@ -3166,6 +3213,7 @@ cmds: [
 					echo "Table displayed successfully!"
 					"""
 				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
 			}
 		]
 	},
@@ -3232,6 +3280,7 @@ cmds: [
 					echo "Pager closed successfully!"
 					"""
 				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
 			}
 		]
 	},
@@ -3290,6 +3339,7 @@ cmds: [
 					esac
 					"""
 				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
 			}
 		]
 	},

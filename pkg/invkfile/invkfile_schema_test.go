@@ -26,6 +26,7 @@ cmds: [
 			{
 				script: "echo test"
 				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}]
 			}
 		]
 		depends_on: {
@@ -69,6 +70,7 @@ cmds: [
 			{
 				script: "echo test"
 				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}]
 			}
 		]
 		depends_on: {
@@ -119,6 +121,7 @@ cmds: [
 			{
 				script: "echo test"
 				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}]
 			}
 		]
 		depends_on: {
@@ -162,6 +165,7 @@ cmds: [
 			{
 				script: "echo test"
 				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}]
 			}
 		]
 		depends_on: {
@@ -205,6 +209,7 @@ cmds: [
 			{
 				script: "echo test"
 				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}]
 			}
 		]
 	}
@@ -328,7 +333,7 @@ func TestGenerateCUE_OutputsCommandContent(t *testing.T) {
 			{
 				Name: "test",
 				Implementations: []Implementation{
-					{Script: "echo test", Runtimes: []RuntimeConfig{{Name: RuntimeNative}}},
+					{Script: "echo test", Runtimes: []RuntimeConfig{{Name: RuntimeNative}}, Platforms: []PlatformConfig{{Name: PlatformLinux}}},
 				},
 			},
 		},
@@ -364,6 +369,7 @@ cmds: [
 			{
 				script: "echo test"
 				runtimes: [{name: "native", interpreter: ""}]
+				platforms: [{name: "linux"}]
 			}
 		]
 	}
@@ -408,6 +414,7 @@ cmds: [
 			{
 				script: "echo test"
 				runtimes: [{name: "native", interpreter: "` + tt.interpreter + `"}]
+				platforms: [{name: "linux"}]
 			}
 		]
 	}
@@ -440,6 +447,7 @@ cmds: [
 			{
 				script: "echo test"
 				runtimes: [{name: "container", image: "debian:stable-slim", interpreter: ""}]
+				platforms: [{name: "linux"}]
 			}
 		]
 	}
@@ -606,6 +614,7 @@ cmds: [
 			{
 				script: "print('hello')"
 				runtimes: [{name: "native", interpreter: "` + tt.interpreter + `"}]
+				platforms: [{name: "linux"}]
 			}
 		]
 	}
@@ -643,6 +652,7 @@ cmds: [
 			{
 				script: "echo hello"
 				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}]
 			}
 		]
 	}

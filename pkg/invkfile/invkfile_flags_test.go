@@ -25,6 +25,7 @@ cmds: [
 			{
 				script: "echo deploying"
 				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}]
 			}
 		]
 		flags: [
@@ -117,6 +118,7 @@ cmds: [
 			{
 				script: "echo test"
 				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}]
 			}
 		]
 		flags: [
@@ -171,6 +173,7 @@ cmds: [
 			{
 				script: "echo test"
 				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}]
 			}
 		]
 		flags: [
@@ -214,6 +217,7 @@ cmds: [
 			{
 				script: "echo test"
 				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}]
 			}
 		]
 		flags: [
@@ -250,6 +254,7 @@ cmds: [
 			{
 				script: "echo test"
 				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}]
 			}
 		]
 		flags: [
@@ -287,7 +292,7 @@ func TestGenerateCUE_WithFlags(t *testing.T) {
 			{
 				Name: "deploy",
 				Implementations: []Implementation{
-					{Script: "echo deploy", Runtimes: []RuntimeConfig{{Name: RuntimeNative}}},
+					{Script: "echo deploy", Runtimes: []RuntimeConfig{{Name: RuntimeNative}}, Platforms: []PlatformConfig{{Name: PlatformLinux}}},
 				},
 				Flags: []Flag{
 					{Name: "env", Description: "Target environment"},
@@ -324,7 +329,7 @@ func TestGenerateCUE_WithoutFlags(t *testing.T) {
 			{
 				Name: "build",
 				Implementations: []Implementation{
-					{Script: "echo build", Runtimes: []RuntimeConfig{{Name: RuntimeNative}}},
+					{Script: "echo build", Runtimes: []RuntimeConfig{{Name: RuntimeNative}}, Platforms: []PlatformConfig{{Name: PlatformLinux}}},
 				},
 			},
 		},
@@ -348,6 +353,7 @@ cmds: [
 			{
 				script: "echo test"
 				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}]
 			}
 		]
 		flags: []
@@ -386,6 +392,7 @@ cmds: [
 			{
 				script: "echo test"
 				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}]
 			}
 		]
 	}

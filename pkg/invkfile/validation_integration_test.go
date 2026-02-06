@@ -55,6 +55,7 @@ func TestInvkfile_Validate_DefaultValidators(t *testing.T) {
 						Runtimes: []RuntimeConfig{
 							{Name: RuntimeNative},
 						},
+						Platforms: []PlatformConfig{{Name: PlatformLinux}},
 					},
 				},
 			},
@@ -85,8 +86,9 @@ func TestInvkfile_Validate_WithStrictMode(t *testing.T) {
 				Name: "test",
 				Implementations: []Implementation{
 					{
-						Script:   "echo test",
-						Runtimes: []RuntimeConfig{{Name: RuntimeNative}},
+						Script:    "echo test",
+						Runtimes:  []RuntimeConfig{{Name: RuntimeNative}},
+						Platforms: []PlatformConfig{{Name: PlatformLinux}},
 					},
 				},
 			},
@@ -134,6 +136,7 @@ func TestInvkfile_Validate_WithFS(t *testing.T) {
 								Containerfile: "Containerfile",
 							},
 						},
+						Platforms: []PlatformConfig{{Name: PlatformLinux}},
 					},
 				},
 			},
@@ -166,8 +169,9 @@ func TestInvkfile_Validate_WithAdditionalValidators(t *testing.T) {
 				Name: "test",
 				Implementations: []Implementation{
 					{
-						Script:   "echo test",
-						Runtimes: []RuntimeConfig{{Name: RuntimeNative}},
+						Script:    "echo test",
+						Runtimes:  []RuntimeConfig{{Name: RuntimeNative}},
+						Platforms: []PlatformConfig{{Name: PlatformLinux}},
 					},
 				},
 			},
@@ -225,6 +229,7 @@ func TestInvkfile_Validate_ContainerRuntimeErrors(t *testing.T) {
 								Image:         "", // Both empty - should error
 							},
 						},
+						Platforms: []PlatformConfig{{Name: PlatformLinux}},
 					},
 				},
 			},
@@ -257,6 +262,7 @@ func TestInvkfile_Validate_MultipleErrors(t *testing.T) {
 						Runtimes: []RuntimeConfig{
 							{Name: RuntimeNative},
 						},
+						Platforms: []PlatformConfig{{Name: PlatformLinux}},
 					},
 				},
 				Flags: []Flag{

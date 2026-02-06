@@ -40,8 +40,9 @@ func TestGenerateCUE_WithRootLevelDependsOn_CustomChecks(t *testing.T) {
 				Name: "hello",
 				Implementations: []Implementation{
 					{
-						Script:   "echo hello",
-						Runtimes: []RuntimeConfig{{Name: RuntimeNative}},
+						Script:    "echo hello",
+						Runtimes:  []RuntimeConfig{{Name: RuntimeNative}},
+						Platforms: []PlatformConfig{{Name: PlatformLinux}},
 					},
 				},
 			},
@@ -96,6 +97,7 @@ cmds: [
 			{
 				script: "echo hello"
 				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}]
 			}
 		]
 	}
@@ -166,6 +168,7 @@ cmds: [
 			{
 				script: "echo hello"
 				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}]
 			}
 		]
 	}
@@ -220,6 +223,7 @@ cmds: [
 			{
 				script: "echo test"
 				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}]
 			}
 		]
 	}
@@ -263,6 +267,7 @@ cmds: [
 			{
 				script: "echo test"
 				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}]
 			}
 		]
 	}
@@ -301,6 +306,7 @@ cmds: [
 			{
 				script: "echo test"
 				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}]
 			}
 		]
 	}
@@ -337,6 +343,7 @@ cmds: [
 			{
 				script: "echo test"
 				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}]
 			}
 		]
 		depends_on: {
@@ -374,6 +381,7 @@ cmds: [
 			{
 				script: "echo test"
 				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}]
 			}
 		]
 		depends_on: {
@@ -410,6 +418,7 @@ cmds: [
 			{
 				script: "echo test"
 				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}]
 				depends_on: {
 					custom_checks: [
 						{name: "check-docker", check_script: "docker --version"},
@@ -452,6 +461,7 @@ cmds: [
 			{
 				script: "echo test"
 				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}]
 				depends_on: {
 					custom_checks: [
 						{name: "check", check_script: %q},

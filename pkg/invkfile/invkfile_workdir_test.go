@@ -321,6 +321,7 @@ cmds: [
 			{
 				script: "echo test"
 				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}]
 			}
 		]
 	}
@@ -355,6 +356,7 @@ cmds: [
 			{
 				script: "echo test"
 				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}]
 			}
 		]
 	}
@@ -389,6 +391,7 @@ cmds: [
 				script: "echo test"
 				workdir: "impl-specific"
 				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}]
 			}
 		]
 	}
@@ -426,6 +429,7 @@ cmds: [
 				script: "echo test"
 				workdir: "impl-dir"
 				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}]
 			}
 		]
 	}
@@ -483,7 +487,8 @@ func TestGenerateCUE_WithWorkDir(t *testing.T) {
 						Script:  "echo deploying",
 						WorkDir: "impl-dir",
 
-						Runtimes: []RuntimeConfig{{Name: RuntimeNative}},
+						Runtimes:  []RuntimeConfig{{Name: RuntimeNative}},
+						Platforms: []PlatformConfig{{Name: PlatformLinux}},
 					},
 				},
 			},
@@ -523,7 +528,8 @@ func TestGenerateCUE_WithWorkDir_RoundTrip(t *testing.T) {
 						Script:  "echo building",
 						WorkDir: "impl-workdir",
 
-						Runtimes: []RuntimeConfig{{Name: RuntimeNative}},
+						Runtimes:  []RuntimeConfig{{Name: RuntimeNative}},
+						Platforms: []PlatformConfig{{Name: PlatformLinux}},
 					},
 				},
 			},

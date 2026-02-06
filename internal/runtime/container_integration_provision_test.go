@@ -40,6 +40,7 @@ func TestContainerRuntime_ProvisioningLayer_InvkfileAccess(t *testing.T) {
 				Runtimes: []invkfile.RuntimeConfig{
 					{Name: invkfile.RuntimeContainer, Image: "debian:stable-slim"},
 				},
+				Platforms: []invkfile.PlatformConfig{{Name: invkfile.PlatformLinux}},
 			},
 		},
 	}
@@ -93,6 +94,7 @@ echo "Script executed from /workspace"
 				Runtimes: []invkfile.RuntimeConfig{
 					{Name: invkfile.RuntimeContainer, Image: "debian:stable-slim"},
 				},
+				Platforms: []invkfile.PlatformConfig{{Name: invkfile.PlatformLinux}},
 			},
 		},
 	}
@@ -149,6 +151,7 @@ func TestContainerRuntime_ProvisioningLayer_NestedDirectories(t *testing.T) {
 				Runtimes: []invkfile.RuntimeConfig{
 					{Name: invkfile.RuntimeContainer, Image: "debian:stable-slim"},
 				},
+				Platforms: []invkfile.PlatformConfig{{Name: invkfile.PlatformLinux}},
 			},
 		},
 	}
@@ -191,6 +194,7 @@ func TestContainerRuntime_ProvisioningLayer_WorkspaceIsCwd(t *testing.T) {
 				Runtimes: []invkfile.RuntimeConfig{
 					{Name: invkfile.RuntimeContainer, Image: "debian:stable-slim"},
 				},
+				Platforms: []invkfile.PlatformConfig{{Name: invkfile.PlatformLinux}},
 			},
 		},
 	}

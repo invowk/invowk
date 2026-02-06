@@ -17,11 +17,11 @@ cmds: [
 		name: "deploy"
 		description: "Deploy command with args (conflict: also has subcommands)"
 		args: [{name: "env", description: "Environment to deploy to", required: true}]
-		implementations: [{script: "echo deploy", runtimes: [{name: "native"}]}]
+		implementations: [{script: "echo deploy", runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}]}]
 	},
 	{
 		name: "deploy staging"
 		description: "Deploy to staging"
-		implementations: [{script: "echo staging", runtimes: [{name: "native"}]}]
+		implementations: [{script: "echo staging", runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}]}]
 	},
 ]

@@ -44,6 +44,7 @@ func testContainerExecuteCaptureBasic(t *testing.T) {
 				Runtimes: []invkfile.RuntimeConfig{
 					{Name: invkfile.RuntimeContainer, Image: "debian:stable-slim"},
 				},
+				Platforms: []invkfile.PlatformConfig{{Name: invkfile.PlatformLinux}},
 			},
 		},
 	}
@@ -75,6 +76,7 @@ func testContainerExecuteCaptureExitCode(t *testing.T) {
 				Runtimes: []invkfile.RuntimeConfig{
 					{Name: invkfile.RuntimeContainer, Image: "debian:stable-slim"},
 				},
+				Platforms: []invkfile.PlatformConfig{{Name: invkfile.PlatformLinux}},
 			},
 		},
 	}
@@ -106,6 +108,7 @@ func testContainerExecuteCaptureStderr(t *testing.T) {
 				Runtimes: []invkfile.RuntimeConfig{
 					{Name: invkfile.RuntimeContainer, Image: "debian:stable-slim"},
 				},
+				Platforms: []invkfile.PlatformConfig{{Name: invkfile.PlatformLinux}},
 			},
 		},
 	}

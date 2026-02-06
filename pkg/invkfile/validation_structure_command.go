@@ -124,6 +124,16 @@ func (v *StructureValidator) validateImplementation(ctx *ValidationContext, inv 
 		}
 	}
 
+	// [CUE-VALIDATED] Platforms list also enforced by CUE schema (#Implementation.platforms [_, ...])
+	if len(impl.Platforms) == 0 {
+		errors = append(errors, ValidationError{
+			Validator: v.Name(),
+			Field:     path.String(),
+			Message:   "must have at least one platform in invkfile at " + ctx.FilePath,
+			Severity:  SeverityError,
+		})
+	}
+
 	// Validate implementation-level depends_on (all dependency types)
 	errors = append(errors, v.validateDependsOn(ctx, impl.DependsOn, path.Copy())...)
 

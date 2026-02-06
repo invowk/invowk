@@ -65,11 +65,9 @@ Veja [Modos de Runtime](../runtime-modes/overview) para detalhes sobre cada runt
 
 ### Plataformas
 
-Opcionalmente restrinja quais sistemas operacionais a implementação suporta:
+Especifique quais sistemas operacionais a implementação suporta. Toda implementação deve declarar pelo menos uma plataforma:
 
 <Snippet id="implementations/platforms-list" />
-
-Se `platforms` for omitido, a implementação funciona em todas as plataformas.
 
 Plataformas disponíveis: `linux`, `macos`, `windows`
 
@@ -165,7 +163,7 @@ Reduza repetição com templates CUE:
 ## Boas Práticas
 
 1. **Comece simples** - Uma implementação é frequentemente suficiente
-2. **Adicione plataformas conforme necessário** - Não especifique plataformas a menos que precise de comportamento específico
+2. **Sempre especifique plataformas** - Toda implementação deve declarar pelo menos uma plataforma alvo
 3. **Runtime padrão primeiro** - Coloque o runtime mais comum primeiro na lista
 4. **Use templates** - Reduza repetição com o sistema de templates do CUE
 5. **Mantenha scripts focados** - Uma tarefa por comando; encadeie com dependências

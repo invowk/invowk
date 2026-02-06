@@ -38,6 +38,7 @@ func TestContainerRuntime_Validate(t *testing.T) {
 						Runtimes: []invkfile.RuntimeConfig{
 							{Name: invkfile.RuntimeContainer, Image: "debian:stable-slim"},
 						},
+						Platforms: []invkfile.PlatformConfig{{Name: invkfile.PlatformLinux}},
 					},
 				},
 			},
@@ -63,6 +64,7 @@ func TestContainerRuntime_Validate(t *testing.T) {
 						Runtimes: []invkfile.RuntimeConfig{
 							{Name: invkfile.RuntimeContainer, Image: "debian:stable-slim"},
 						},
+						Platforms: []invkfile.PlatformConfig{{Name: invkfile.PlatformLinux}},
 					},
 				},
 			},
@@ -110,6 +112,7 @@ func TestContainerRuntime_EnableHostSSH_NoServer(t *testing.T) {
 				Runtimes: []invkfile.RuntimeConfig{
 					{Name: invkfile.RuntimeContainer, Image: "debian:stable-slim", EnableHostSSH: true},
 				},
+				Platforms: []invkfile.PlatformConfig{{Name: invkfile.PlatformLinux}},
 			},
 		},
 	}
@@ -163,6 +166,7 @@ RUN echo "Built from Containerfile" > /built.txt
 				Runtimes: []invkfile.RuntimeConfig{
 					{Name: invkfile.RuntimeContainer, Containerfile: "Containerfile"},
 				},
+				Platforms: []invkfile.PlatformConfig{{Name: invkfile.PlatformLinux}},
 			},
 		},
 	}

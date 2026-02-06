@@ -1082,7 +1082,7 @@ This is enforced because CLI parsers interpret positional arguments after a comm
 
 ## Platform Compatibility
 
-Commands specify which operating systems they support using the `platforms` field. If no platforms are specified, the command runs on all platforms.
+Every implementation must specify which operating systems it supports using the `platforms` field. At least one platform is required.
 
 ### Basic Platform Configuration
 
@@ -1095,7 +1095,7 @@ cmds: [
             {
                 script: "make build"
                 runtimes: [{name: "native"}]
-                // No platforms specified = runs on all platforms (linux, macos, windows)
+                platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
             }
         ]
     },

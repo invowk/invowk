@@ -20,7 +20,7 @@ func testCommandWithScript(name, script string, runtime invkfile.RuntimeMode) *i
 	return &invkfile.Command{
 		Name: name,
 		Implementations: []invkfile.Implementation{
-			{Script: script, Runtimes: []invkfile.RuntimeConfig{{Name: runtime}}},
+			{Script: script, Runtimes: []invkfile.RuntimeConfig{{Name: runtime}}, Platforms: []invkfile.PlatformConfig{{Name: invkfile.PlatformLinux}, {Name: invkfile.PlatformMac}, {Name: invkfile.PlatformWindows}}},
 		},
 	}
 }
@@ -32,9 +32,9 @@ func testCommandWithInterpreter(name, script, interpreter string, runtime invkfi
 		Name: name,
 		Implementations: []invkfile.Implementation{
 			{
-				Script: script,
-
-				Runtimes: []invkfile.RuntimeConfig{{Name: runtime, Interpreter: interpreter}},
+				Script:    script,
+				Runtimes:  []invkfile.RuntimeConfig{{Name: runtime, Interpreter: interpreter}},
+				Platforms: []invkfile.PlatformConfig{{Name: invkfile.PlatformLinux}, {Name: invkfile.PlatformMac}, {Name: invkfile.PlatformWindows}},
 			},
 		},
 	}

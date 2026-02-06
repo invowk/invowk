@@ -63,8 +63,9 @@ func TestBuildRuntimeEnv_PairwisePrecedence(t *testing.T) {
 				cmd := &invkfile.Command{
 					Name: "test",
 					Implementations: []invkfile.Implementation{{
-						Script:   "echo test",
-						Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeNative}},
+						Script:    "echo test",
+						Runtimes:  []invkfile.RuntimeConfig{{Name: invkfile.RuntimeNative}},
+						Platforms: []invkfile.PlatformConfig{{Name: currentPlatform}},
 					}},
 					Env: &invkfile.EnvConfig{Files: []string{"cmd.env"}},
 				}
@@ -122,8 +123,9 @@ func TestBuildRuntimeEnv_PairwisePrecedence(t *testing.T) {
 				cmd := &invkfile.Command{
 					Name: "test",
 					Implementations: []invkfile.Implementation{{
-						Script:   "echo test",
-						Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeNative}},
+						Script:    "echo test",
+						Runtimes:  []invkfile.RuntimeConfig{{Name: invkfile.RuntimeNative}},
+						Platforms: []invkfile.PlatformConfig{{Name: currentPlatform}},
 					}},
 					Env: &invkfile.EnvConfig{Vars: map[string]string{"KEY": "level6_cmd_var"}},
 				}
@@ -250,8 +252,9 @@ func TestBuildRuntimeEnv_NilEnvConfigs(t *testing.T) {
 			cmd: &invkfile.Command{
 				Name: "test",
 				Implementations: []invkfile.Implementation{{
-					Script:   "echo test",
-					Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeNative}},
+					Script:    "echo test",
+					Runtimes:  []invkfile.RuntimeConfig{{Name: invkfile.RuntimeNative}},
+					Platforms: []invkfile.PlatformConfig{{Name: currentPlatform}},
 				}},
 				Env: nil,
 			},
