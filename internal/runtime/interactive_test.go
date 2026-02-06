@@ -85,7 +85,7 @@ cmds: [{
 	implementations: [{
 		script: "echo hello"
 		runtimes: [{name: "native"}]
-		platforms: [{name: "linux"}, {name: "macos"}]
+		platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 	}]
 }]
 `), 0o644)

@@ -3,6 +3,8 @@
 #
 # Note: testscript isolates the environment, so we set required vars explicitly
 
+[windows] skip 'deps env commands only have linux/macos implementations'
+
 # Run against project's invkfile.cue
 cd $PROJECT_ROOT
 

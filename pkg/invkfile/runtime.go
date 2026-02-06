@@ -126,6 +126,23 @@ type (
 	}
 )
 
+// AllPlatformNames returns all supported platform types in canonical order.
+// Useful for iteration where a complete platform list is needed (e.g., aggregation, validation).
+func AllPlatformNames() []PlatformType {
+	return []PlatformType{PlatformLinux, PlatformMac, PlatformWindows}
+}
+
+// AllPlatformConfigs returns PlatformConfig entries for all supported platforms.
+// Intended for use in test fixtures where platform selection is not the concern being tested,
+// ensuring tests are portable across all CI runners.
+func AllPlatformConfigs() []PlatformConfig {
+	return []PlatformConfig{
+		{Name: PlatformLinux},
+		{Name: PlatformMac},
+		{Name: PlatformWindows},
+	}
+}
+
 // IsValid returns true if the EnvInheritMode is a valid value
 func (m EnvInheritMode) IsValid() bool {
 	switch m {

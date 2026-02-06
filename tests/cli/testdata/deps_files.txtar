@@ -1,6 +1,8 @@
 # Test: Filepath dependency checks (04-deps-files.tape equivalent)
 # Tests the filepath dependency checking feature
 
+[windows] skip 'deps file commands only have linux/macos implementations'
+
 # Run against project's invkfile.cue
 cd $PROJECT_ROOT
 

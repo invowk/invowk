@@ -832,6 +832,7 @@ virtual_shell: {
             name: "virtual"
             interpreter: "python3"  // ERROR: Not supported
         }]
+        platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
     }]
 }`,
   },
@@ -2887,6 +2888,7 @@ cmds: [
             name: "native"
             interpreter: "python3"  // Explicit
         }]
+        platforms: [{name: "linux"}, {name: "macos"}]
     }]
 }`,
   },
@@ -2906,6 +2908,7 @@ cmds: [
             name: "native"
             interpreter: "python3 -u"  // Unbuffered output
         }]
+        platforms: [{name: "linux"}, {name: "macos"}]
     }]
 }`,
   },
@@ -2936,6 +2939,7 @@ interpreter: "node --max-old-space-size=4096"`,
             name: "container"
             image: "python:3.11-slim"
         }]
+        platforms: [{name: "linux"}]
     }]
 }`,
   },
@@ -2954,6 +2958,7 @@ interpreter: "node --max-old-space-size=4096"`,
             image: "node:20-slim"
             interpreter: "node"
         }]
+        platforms: [{name: "linux"}]
     }]
 }`,
   },
@@ -2994,6 +2999,7 @@ interpreter: "node --max-old-space-size=4096"`,
             name: "virtual"
             interpreter: "python3"  // ERROR!
         }]
+        platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
     }]
 }`,
   },
@@ -5422,6 +5428,7 @@ cmds: [
             {name: "virtual"}, // Alternative
             {name: "container", image: "golang:1.21"}  // Reproducible
         ]
+        platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
     }]
 }`,
   },
@@ -5492,6 +5499,7 @@ WORKDIR /workspace`,
             image: "python:3.11"
             interpreter: "python3"
         }]
+        platforms: [{name: "linux"}]
     }]
 }`,
   },
@@ -5516,6 +5524,7 @@ WORKDIR /workspace`,
             image: "debian:bookworm-slim"
             enable_host_ssh: true  // Enable SSH server
         }]
+        platforms: [{name: "linux"}]
     }]
 }`,
   },

@@ -227,7 +227,7 @@ func TestContainerRuntime_Validate_Unit(t *testing.T) {
 					{
 						Script:    "echo hello",
 						Runtimes:  []invkfile.RuntimeConfig{{Name: invkfile.RuntimeContainer, Image: "debian:stable-slim"}},
-						Platforms: []invkfile.PlatformConfig{{Name: invkfile.PlatformLinux}},
+						Platforms: invkfile.AllPlatformConfigs(),
 					},
 				},
 			},
@@ -255,7 +255,7 @@ func TestContainerRuntime_Validate_Unit(t *testing.T) {
 					{
 						Script:    "",
 						Runtimes:  []invkfile.RuntimeConfig{{Name: invkfile.RuntimeContainer, Image: "debian:stable-slim"}},
-						Platforms: []invkfile.PlatformConfig{{Name: invkfile.PlatformLinux}},
+						Platforms: invkfile.AllPlatformConfigs(),
 					},
 				},
 			},
@@ -270,7 +270,7 @@ func TestContainerRuntime_Validate_Unit(t *testing.T) {
 					{
 						Script:    "echo hello",
 						Runtimes:  []invkfile.RuntimeConfig{{Name: invkfile.RuntimeContainer}}, // No image
-						Platforms: []invkfile.PlatformConfig{{Name: invkfile.PlatformLinux}},
+						Platforms: invkfile.AllPlatformConfigs(),
 					},
 				},
 			},
@@ -326,7 +326,7 @@ func TestContainerRuntime_Validate_WithContainerfile(t *testing.T) {
 			{
 				Script:    "echo hello",
 				Runtimes:  []invkfile.RuntimeConfig{{Name: invkfile.RuntimeContainer}}, // No image, but Containerfile exists
-				Platforms: []invkfile.PlatformConfig{{Name: invkfile.PlatformLinux}},
+				Platforms: invkfile.AllPlatformConfigs(),
 			},
 		},
 	}
@@ -360,7 +360,7 @@ func TestContainerRuntime_Validate_WithDockerfile(t *testing.T) {
 			{
 				Script:    "echo hello",
 				Runtimes:  []invkfile.RuntimeConfig{{Name: invkfile.RuntimeContainer}}, // No image, but Dockerfile exists
-				Platforms: []invkfile.PlatformConfig{{Name: invkfile.PlatformLinux}},
+				Platforms: invkfile.AllPlatformConfigs(),
 			},
 		},
 	}

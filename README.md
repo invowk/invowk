@@ -148,6 +148,7 @@ cmds: [
 			{
 				script: "go test ./..."
 				runtimes: [{name: "native"}, {name: "virtual"}]  // Can run in native or virtual runtime
+				platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 			}
 		]
 	},
@@ -192,6 +193,7 @@ cmds: [
 			{
 				script: "echo \"Hello, Invowk!\""
 				runtimes: [{name: "container", image: "debian:stable-slim"}]
+				platforms: [{name: "linux"}]
 			}
 		]
 	},
@@ -429,6 +431,7 @@ cmds: [
 					aws s3 sync ./dist s3://my-bucket
 					"""
 				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
 			}
 		]
 		depends_on: {
@@ -490,6 +493,7 @@ cmds: [
                     fi
                     """
                 runtimes: [{name: "native"}]
+                platforms: [{name: "linux"}, {name: "macos"}]
             }
         ]
         // Define flags for this command
@@ -683,6 +687,7 @@ cmds: [
 			{
 				script: "go build -o /workspace/bin/app ./..."
 				runtimes: [{name: "container", image: "golang:1.21"}]
+				platforms: [{name: "linux"}]
 				// Implementation-level depends_on - validated within the container
 				depends_on: {
 					tools: [
@@ -727,6 +732,7 @@ cmds: [
                     echo "Services: ${INVOWK_ARG_SERVICES}"
                     """
                 runtimes: [{name: "native"}]
+                platforms: [{name: "linux"}, {name: "macos"}]
             }
         ]
         // Define positional arguments
@@ -979,6 +985,7 @@ cmds: [
                     fi
                     """
                 runtimes: [{name: "native"}]
+                platforms: [{name: "linux"}, {name: "macos"}]
             }
         ]
         args: [
@@ -1044,6 +1051,7 @@ cmds: [
                     # But child WILL see SHARED_CONFIG
                     """
                 runtimes: [{name: "native"}]
+                platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
             }
         ]
         args: [{name: "name", default_value: "parent-value"}]
@@ -1057,6 +1065,7 @@ cmds: [
                     echo "Child's SHARED_CONFIG: $SHARED_CONFIG"  # "/etc/app/config.yaml"
                     """
                 runtimes: [{name: "native"}]
+                platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
             }
         ]
         args: [{name: "name", default_value: "child-value"}]
@@ -1280,6 +1289,7 @@ cmds: [
                     print(f"Hello from Python {sys.version_info.major}.{sys.version_info.minor}!")
                     """
                 runtimes: [{name: "native"}]
+                platforms: [{name: "linux"}, {name: "macos"}]
             }
         ]
     }
@@ -1308,6 +1318,7 @@ cmds: [
                     puts "Ruby version: #{RUBY_VERSION}"
                     """
                 runtimes: [{name: "native", interpreter: "ruby"}]
+                platforms: [{name: "linux"}, {name: "macos"}]
             }
         ]
     }
@@ -1338,6 +1349,7 @@ cmds: [
                     image: "python:3-slim"
                     // interpreter auto-detected from shebang
                 }]
+                platforms: [{name: "linux"}]
             }
         ]
     },
@@ -1356,6 +1368,7 @@ cmds: [
                     image: "python:3-slim"
                     interpreter: "python3"
                 }]
+                platforms: [{name: "linux"}]
             }
         ]
     }
@@ -1380,6 +1393,7 @@ cmds: [
                     print(f"Hello, {name}!")
                     """
                 runtimes: [{name: "native"}]
+                platforms: [{name: "linux"}, {name: "macos"}]
             }
         ]
         args: [
@@ -1478,6 +1492,7 @@ cmds: [
                 // Path relative to module root, using forward slashes
                 script: "scripts/build.sh"
                 runtimes: [{name: "native"}]
+                platforms: [{name: "linux"}, {name: "macos"}]
             }
         ]
     },
@@ -1489,6 +1504,7 @@ cmds: [
                 // Nested script path
                 script: "scripts/utils/helper.sh"
                 runtimes: [{name: "native"}]
+                platforms: [{name: "linux"}, {name: "macos"}]
             }
         ]
     }
@@ -1920,6 +1936,7 @@ cmds: [
 					volumes: ["./data:/data"],
 					ports: ["8080:8080"],
 				}]
+				platforms: [{name: "linux"}]
 			}
 		]
 	},
@@ -1942,6 +1959,7 @@ cmds: [
 					env_inherit_allow: ["TERM", "LANG"],
 					env_inherit_deny:  ["AWS_SECRET_ACCESS_KEY"],
 				}]
+				platforms: [{name: "linux"}]
 			}
 		]
 	},
@@ -1974,6 +1992,7 @@ cmds: [
 					"""
 				// enable_host_ssh and image are specified inside the container runtime config
 				runtimes: [{name: "container", image: "debian:stable-slim", enable_host_ssh: true}]
+				platforms: [{name: "linux"}]
 			}
 		]
 	},

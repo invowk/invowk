@@ -87,7 +87,6 @@ func (c *Command) CanRunOnCurrentHost() bool {
 // Platforms are mandatory on each implementation, so this aggregates the explicitly declared platforms.
 func (c *Command) GetSupportedPlatforms() []Platform {
 	platformSet := make(map[Platform]bool)
-	allPlatforms := []Platform{PlatformLinux, PlatformMac, PlatformWindows}
 
 	for _, s := range c.Implementations {
 		for _, p := range s.Platforms {
@@ -96,7 +95,7 @@ func (c *Command) GetSupportedPlatforms() []Platform {
 	}
 
 	var result []Platform
-	for _, p := range allPlatforms {
+	for _, p := range AllPlatformNames() {
 		if platformSet[p] {
 			result = append(result, p)
 		}
