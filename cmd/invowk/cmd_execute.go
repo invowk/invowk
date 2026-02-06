@@ -274,19 +274,7 @@ func (s *commandService) Execute(ctx context.Context, req ExecuteRequest) (Execu
 }
 
 func (s *commandService) loadConfig(ctx context.Context, configPath string) (*config.Config, []discovery.Diagnostic) {
-	cfg, err := s.config.Load(ctx, config.LoadOptions{ConfigFilePath: configPath})
-	if err == nil {
-		return cfg, nil
-	}
-
-	// Keep execution usable with defaults while surfacing a structured warning.
-	return config.DefaultConfig(), []discovery.Diagnostic{{
-		Severity: discovery.SeverityWarning,
-		Code:     "config_load_failed",
-		Message:  fmt.Sprintf("failed to load config, using defaults: %v", err),
-		Path:     configPath,
-		Cause:    err,
-	}}
+	return loadConfigWithFallback(ctx, s.config, configPath)
 }
 
 func (s *sshServerController) ensure(ctx context.Context) (*sshserver.Server, error) {

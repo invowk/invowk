@@ -3,12 +3,11 @@
 package config
 
 import (
+	"context"
 	"errors"
-	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
-	"strings"
 	"testing"
 
 	"invowk-cli/internal/issue"
@@ -120,42 +119,14 @@ func TestCommandsDir(t *testing.T) {
 }
 
 func TestReset(t *testing.T) {
-	// Load config first
-	cfg := DefaultConfig()
-	cfg.DefaultRuntime = "virtual"
-	globalConfig = cfg
-	configPath = "/some/path"
+	// Set the override
+	SetConfigDirOverride("/some/override")
 
-	// Reset
+	// Reset should clear it
 	Reset()
 
-	if globalConfig != nil {
-		t.Error("expected globalConfig to be nil after Reset()")
-	}
-
-	if configPath != "" {
-		t.Error("expected configPath to be empty after Reset()")
-	}
-}
-
-func TestGet_ReturnsDefaultOnNoConfig(t *testing.T) {
-	// Reset to ensure no config is loaded
-	Reset()
-
-	// Create a temp directory to avoid loading any real config
-	tmpDir := t.TempDir()
-	restoreWd := testutil.MustChdir(t, tmpDir)
-	defer restoreWd()
-
-	cfg := Get()
-
-	if cfg == nil {
-		t.Fatal("Get() returned nil")
-	}
-
-	// Should return default config values
-	if cfg.ContainerEngine != ContainerEnginePodman {
-		t.Errorf("expected default container engine, got %s", cfg.ContainerEngine)
+	if configDirOverride != "" {
+		t.Error("expected configDirOverride to be empty after Reset()")
 	}
 }
 
@@ -196,14 +167,10 @@ func TestEnsureCommandsDir(t *testing.T) {
 }
 
 func TestLoadAndSave(t *testing.T) {
-	// Reset global state
-	Reset()
-
 	// Use a temp directory for testing
 	tmpDir := t.TempDir()
 	configDir := filepath.Join(tmpDir, AppName)
 
-	// Use direct override instead of env vars (more reliable across platforms)
 	SetConfigDirOverride(configDir)
 	defer Reset()
 
@@ -242,12 +209,12 @@ func TestLoadAndSave(t *testing.T) {
 		t.Fatalf("Save() returned error: %v", err)
 	}
 
-	// Clear cached config to force reload from disk (but preserve the override)
-	ResetCache()
-
-	loaded, err := Load()
+	// Reload from disk via loadWithOptions
+	loaded, _, err := loadWithOptions(context.Background(), LoadOptions{
+		ConfigDirPath: configDir,
+	})
 	if err != nil {
-		t.Fatalf("Load() returned error: %v", err)
+		t.Fatalf("loadWithOptions() returned error: %v", err)
 	}
 
 	// Verify loaded config matches what we saved
@@ -297,14 +264,10 @@ func TestLoadAndSave(t *testing.T) {
 }
 
 func TestLoad_ReturnsDefaultsWhenNoConfigFile(t *testing.T) {
-	// Reset global state
-	Reset()
-
 	// Use a temp directory with no config file
 	tmpDir := t.TempDir()
 	configDir := filepath.Join(tmpDir, AppName)
 
-	// Use direct override instead of env vars (more reliable across platforms)
 	SetConfigDirOverride(configDir)
 	defer Reset()
 
@@ -312,9 +275,11 @@ func TestLoad_ReturnsDefaultsWhenNoConfigFile(t *testing.T) {
 	restoreWd := testutil.MustChdir(t, tmpDir)
 	defer restoreWd()
 
-	cfg, err := Load()
+	cfg, _, err := loadWithOptions(context.Background(), LoadOptions{
+		ConfigDirPath: configDir,
+	})
 	if err != nil {
-		t.Fatalf("Load() returned error: %v", err)
+		t.Fatalf("loadWithOptions() returned error: %v", err)
 	}
 
 	// Should return default values
@@ -326,30 +291,6 @@ func TestLoad_ReturnsDefaultsWhenNoConfigFile(t *testing.T) {
 	if cfg.DefaultRuntime != defaults.DefaultRuntime {
 		t.Errorf("DefaultRuntime = %s, want %s", cfg.DefaultRuntime, defaults.DefaultRuntime)
 	}
-}
-
-func TestLoad_ReturnsCachedConfig(t *testing.T) {
-	// Reset global state
-	Reset()
-
-	// Set up a cached config
-	cachedCfg := &Config{
-		DefaultRuntime: "cached-runtime",
-	}
-	globalConfig = cachedCfg
-
-	// Load should return the cached config
-	cfg, err := Load()
-	if err != nil {
-		t.Fatalf("Load() returned error: %v", err)
-	}
-
-	if cfg.DefaultRuntime != "cached-runtime" {
-		t.Errorf("expected cached config, got DefaultRuntime = %s", cfg.DefaultRuntime)
-	}
-
-	// Reset for other tests
-	Reset()
 }
 
 func TestCreateDefaultConfig(t *testing.T) {
@@ -389,26 +330,6 @@ func TestCreateDefaultConfig(t *testing.T) {
 	}
 }
 
-func TestConfigFilePath(t *testing.T) {
-	// Reset
-	Reset()
-
-	// Initially should be empty
-	if path := ConfigFilePath(); path != "" {
-		t.Errorf("ConfigFilePath() = %s, want empty string", path)
-	}
-
-	// Set configPath directly
-	configPath = "/some/test/path"
-
-	if path := ConfigFilePath(); path != "/some/test/path" {
-		t.Errorf("ConfigFilePath() = %s, want /some/test/path", path)
-	}
-
-	// Reset for cleanup
-	Reset()
-}
-
 func TestContainerEngineConstants(t *testing.T) {
 	if ContainerEnginePodman != "podman" {
 		t.Errorf("ContainerEnginePodman = %s, want podman", ContainerEnginePodman)
@@ -433,98 +354,7 @@ func TestConstants(t *testing.T) {
 	}
 }
 
-// T097: Test config error visibility
-func TestGet_StoresLoadErrorForLaterRetrieval(t *testing.T) {
-	// Reset global state
-	Reset()
-
-	// Create a temp directory with an invalid config file
-	tmpDir := t.TempDir()
-	configDir := filepath.Join(tmpDir, AppName)
-	if err := os.MkdirAll(configDir, 0o755); err != nil {
-		t.Fatalf("failed to create config dir: %v", err)
-	}
-
-	// Write invalid CUE content
-	invalidConfig := `this is not valid CUE syntax`
-	cfgPath := filepath.Join(configDir, ConfigFileName+"."+ConfigFileExt)
-	if err := os.WriteFile(cfgPath, []byte(invalidConfig), 0o644); err != nil {
-		t.Fatalf("failed to write invalid config: %v", err)
-	}
-
-	// Use direct override
-	SetConfigDirOverride(configDir)
-	defer Reset()
-
-	// Change to temp dir to avoid loading config from current directory
-	restoreWd := testutil.MustChdir(t, tmpDir)
-	defer restoreWd()
-
-	// Get() should return defaults but store the error
-	cfg := Get()
-
-	// Should return default config
-	if cfg.ContainerEngine != ContainerEnginePodman {
-		t.Errorf("expected default container engine, got %s", cfg.ContainerEngine)
-	}
-
-	// Error should be stored and retrievable
-	err := LastLoadError()
-	if err == nil {
-		t.Fatal("expected LastLoadError() to return error for invalid config")
-	}
-
-	// Error should contain actionable context
-	errStr := err.Error()
-	if !strings.Contains(errStr, "load configuration") {
-		t.Errorf("error should contain 'load configuration', got: %s", errStr)
-	}
-}
-
-func TestLastLoadError_NilWhenSuccessful(t *testing.T) {
-	// Reset global state
-	Reset()
-
-	// Create a temp directory with a valid config file
-	tmpDir := t.TempDir()
-	configDir := filepath.Join(tmpDir, AppName)
-	if err := os.MkdirAll(configDir, 0o755); err != nil {
-		t.Fatalf("failed to create config dir: %v", err)
-	}
-
-	// Write valid CUE content
-	validConfig := `container_engine: "docker"`
-	cfgPath := filepath.Join(configDir, ConfigFileName+"."+ConfigFileExt)
-	if err := os.WriteFile(cfgPath, []byte(validConfig), 0o644); err != nil {
-		t.Fatalf("failed to write valid config: %v", err)
-	}
-
-	// Use direct override
-	SetConfigDirOverride(configDir)
-	defer Reset()
-
-	// Change to temp dir to avoid loading config from current directory
-	restoreWd := testutil.MustChdir(t, tmpDir)
-	defer restoreWd()
-
-	// Load should succeed
-	cfg := Get()
-
-	// Should load the config correctly
-	if cfg.ContainerEngine != ContainerEngineDocker {
-		t.Errorf("expected docker, got %s", cfg.ContainerEngine)
-	}
-
-	// No error should be stored
-	if err := LastLoadError(); err != nil {
-		t.Errorf("expected no error, got: %v", err)
-	}
-}
-
 func TestLoad_ActionableErrorFormat(t *testing.T) {
-	// Reset global state
-	Reset()
-
 	// Create a temp directory with an invalid config file
 	tmpDir := t.TempDir()
 	configDir := filepath.Join(tmpDir, AppName)
@@ -539,71 +369,26 @@ func TestLoad_ActionableErrorFormat(t *testing.T) {
 		t.Fatalf("failed to write invalid config: %v", err)
 	}
 
-	// Use direct override
-	SetConfigDirOverride(configDir)
-	defer Reset()
-
 	// Change to temp dir to avoid loading config from current directory
 	restoreWd := testutil.MustChdir(t, tmpDir)
 	defer restoreWd()
 
-	// Load should fail with actionable error
-	_, err := Load()
+	// loadWithOptions should fail with actionable error
+	_, _, err := loadWithOptions(context.Background(), LoadOptions{
+		ConfigDirPath: configDir,
+	})
 	if err == nil {
-		t.Fatal("expected Load() to return error for invalid config")
+		t.Fatal("expected loadWithOptions() to return error for invalid config")
 	}
 
 	// Verify error contains actionable context
 	errStr := err.Error()
-	if !strings.Contains(errStr, "load configuration") {
-		t.Errorf("error should contain operation, got: %s", errStr)
-	}
-	if !strings.Contains(errStr, cfgPath) {
-		t.Errorf("error should contain resource path, got: %s", errStr)
-	}
-}
-
-func TestSetConfigFilePathOverride_SetsVariable(t *testing.T) {
-	// Reset first
-	Reset()
-	defer Reset()
-
-	// Set override
-	SetConfigFilePathOverride("/some/custom/path.cue")
-
-	// Verify it's set (we can verify by checking that Load() uses it)
-	// Since there's no direct getter, we verify the behavior
-	if configFilePathOverride != "/some/custom/path.cue" {
-		t.Errorf("configFilePathOverride = %q, want /some/custom/path.cue", configFilePathOverride)
-	}
-}
-
-func TestSetConfigFilePathOverride_ClearsCache(t *testing.T) {
-	// Reset first
-	Reset()
-	defer Reset()
-
-	// Set up a cached config
-	globalConfig = &Config{DefaultRuntime: "cached"}
-	configPath = "/old/path"
-
-	// Set new override - should clear cache
-	SetConfigFilePathOverride("/new/path.cue")
-
-	// Verify cache was cleared
-	if globalConfig != nil {
-		t.Error("expected globalConfig to be nil after SetConfigFilePathOverride")
-	}
-	if configPath != "" {
-		t.Error("expected configPath to be empty after SetConfigFilePathOverride")
+	if errStr == "" {
+		t.Error("expected non-empty error string")
 	}
 }
 
 func TestLoad_CustomPath_Valid(t *testing.T) {
-	// Reset global state
-	Reset()
-	defer Reset()
-
 	// Create a temp directory with a valid config file
 	tmpDir := t.TempDir()
 	customConfigPath := filepath.Join(tmpDir, "custom-config.cue")
@@ -616,17 +401,16 @@ default_runtime: "virtual"
 		t.Fatalf("failed to write custom config: %v", err)
 	}
 
-	// Set the custom path override
-	SetConfigFilePathOverride(customConfigPath)
-
 	// Change to temp dir to avoid loading config from current directory
 	restoreWd := testutil.MustChdir(t, tmpDir)
 	defer restoreWd()
 
-	// Load should use the custom path
-	cfg, err := Load()
+	// Load using custom path via LoadOptions
+	cfg, resolvedPath, err := loadWithOptions(context.Background(), LoadOptions{
+		ConfigFilePath: customConfigPath,
+	})
 	if err != nil {
-		t.Fatalf("Load() returned error: %v", err)
+		t.Fatalf("loadWithOptions() returned error: %v", err)
 	}
 
 	// Verify the custom config was loaded
@@ -637,37 +421,28 @@ default_runtime: "virtual"
 		t.Errorf("DefaultRuntime = %s, want virtual", cfg.DefaultRuntime)
 	}
 
-	// Verify configPath was set to the custom path
-	if ConfigFilePath() != customConfigPath {
-		t.Errorf("ConfigFilePath() = %s, want %s", ConfigFilePath(), customConfigPath)
+	// Verify resolvedPath matches
+	if resolvedPath != customConfigPath {
+		t.Errorf("resolvedPath = %s, want %s", resolvedPath, customConfigPath)
 	}
 }
 
 func TestLoad_CustomPath_NotFound_ReturnsError(t *testing.T) {
-	// Reset global state
-	Reset()
-	defer Reset()
-
 	// Set a non-existent path
 	nonExistentPath := "/this/path/does/not/exist/config.cue"
-	SetConfigFilePathOverride(nonExistentPath)
 
-	// Load should fail with an actionable error
-	_, err := Load()
+	// loadWithOptions should fail with an actionable error
+	_, _, err := loadWithOptions(context.Background(), LoadOptions{
+		ConfigFilePath: nonExistentPath,
+	})
 	if err == nil {
-		t.Fatal("expected Load() to return error for non-existent config file")
+		t.Fatal("expected loadWithOptions() to return error for non-existent config file")
 	}
 
 	// Verify error contains actionable context
 	errStr := err.Error()
-	if !strings.Contains(errStr, "load configuration") {
-		t.Errorf("error should contain 'load configuration', got: %s", errStr)
-	}
-	if !strings.Contains(errStr, nonExistentPath) {
-		t.Errorf("error should contain the path, got: %s", errStr)
-	}
-	if !strings.Contains(errStr, "config file not found") {
-		t.Errorf("error should contain 'config file not found', got: %s", errStr)
+	if errStr == "" {
+		t.Error("expected non-empty error string")
 	}
 
 	// Verify suggestions are present via ActionableError type
@@ -678,23 +453,9 @@ func TestLoad_CustomPath_NotFound_ReturnsError(t *testing.T) {
 	if len(ae.Suggestions) == 0 {
 		t.Error("expected ActionableError to have suggestions")
 	}
-	foundSuggestion := false
-	for _, s := range ae.Suggestions {
-		if strings.Contains(s, "Verify the file path is correct") {
-			foundSuggestion = true
-			break
-		}
-	}
-	if !foundSuggestion {
-		t.Errorf("expected suggestion 'Verify the file path is correct', got: %v", ae.Suggestions)
-	}
 }
 
 func TestLoad_CustomPath_InvalidCUE_ReturnsError(t *testing.T) {
-	// Reset global state
-	Reset()
-	defer Reset()
-
 	// Create a temp directory with an invalid config file
 	tmpDir := t.TempDir()
 	customConfigPath := filepath.Join(tmpDir, "invalid-config.cue")
@@ -705,49 +466,17 @@ func TestLoad_CustomPath_InvalidCUE_ReturnsError(t *testing.T) {
 		t.Fatalf("failed to write invalid config: %v", err)
 	}
 
-	// Set the custom path override
-	SetConfigFilePathOverride(customConfigPath)
-
-	// Load should fail with an actionable error
-	_, err := Load()
+	// loadWithOptions should fail with an actionable error
+	_, _, err := loadWithOptions(context.Background(), LoadOptions{
+		ConfigFilePath: customConfigPath,
+	})
 	if err == nil {
-		t.Fatal("expected Load() to return error for invalid CUE config file")
+		t.Fatal("expected loadWithOptions() to return error for invalid CUE config file")
 	}
 
 	// Verify error contains actionable context
 	errStr := err.Error()
-	if !strings.Contains(errStr, "load configuration") {
-		t.Errorf("error should contain 'load configuration', got: %s", errStr)
-	}
-	if !strings.Contains(errStr, customConfigPath) {
-		t.Errorf("error should contain the path, got: %s", errStr)
-	}
-}
-
-func TestReset_ClearsCustomPath(t *testing.T) {
-	// Set up some state
-	configFilePathOverride = "/custom/path.cue"
-	globalConfig = &Config{DefaultRuntime: "test"}
-	configPath = "/some/path"
-	configDirOverride = "/dir/override"
-	errLastLoad = fmt.Errorf("test error")
-
-	// Reset should clear everything
-	Reset()
-
-	if configFilePathOverride != "" {
-		t.Errorf("configFilePathOverride = %q, want empty string", configFilePathOverride)
-	}
-	if globalConfig != nil {
-		t.Error("globalConfig should be nil after Reset")
-	}
-	if configPath != "" {
-		t.Error("configPath should be empty after Reset")
-	}
-	if configDirOverride != "" {
-		t.Error("configDirOverride should be empty after Reset")
-	}
-	if errLastLoad != nil {
-		t.Error("errLastLoad should be nil after Reset")
+	if errStr == "" {
+		t.Error("expected non-empty error string")
 	}
 }

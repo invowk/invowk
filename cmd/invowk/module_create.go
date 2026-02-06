@@ -11,18 +11,16 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var (
-	// moduleCreatePath is the parent directory for module creation
-	moduleCreatePath string
-	// moduleCreateScripts creates a scripts directory in the module
-	moduleCreateScripts bool
-	// moduleCreateModule is the module identifier for the invkfile
-	moduleCreateModule string
-	// moduleCreateDescription is the description for the module
-	moduleCreateDescription string
+// newModuleCreateCommand creates the `invowk module create` command.
+func newModuleCreateCommand() *cobra.Command {
+	var (
+		createPath        string
+		createScripts     bool
+		createModule      string
+		createDescription string
+	)
 
-	// moduleCreateCmd creates a new module
-	moduleCreateCmd = &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "create <name>",
 		Short: "Create a new invowk module",
 		Long: `Create a new invowk module with the given name.
@@ -38,18 +36,20 @@ Examples:
   invowk module create mytools --scripts
   invowk module create mytools --path /path/to/dir --module-id "com.example.tools"`,
 		Args: cobra.ExactArgs(1),
-		RunE: runModuleCreate,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runModuleCreate(args, createPath, createScripts, createModule, createDescription)
+		},
 	}
-)
 
-func initModuleCreateCmd() {
-	moduleCreateCmd.Flags().StringVarP(&moduleCreatePath, "path", "p", "", "parent directory for the module (default: current directory)")
-	moduleCreateCmd.Flags().BoolVar(&moduleCreateScripts, "scripts", false, "create a scripts/ subdirectory")
-	moduleCreateCmd.Flags().StringVarP(&moduleCreateModule, "module-id", "g", "", "module identifier for invkmod.cue (default: module name)")
-	moduleCreateCmd.Flags().StringVarP(&moduleCreateDescription, "description", "d", "", "description for invkmod.cue")
+	cmd.Flags().StringVarP(&createPath, "path", "p", "", "parent directory for the module (default: current directory)")
+	cmd.Flags().BoolVar(&createScripts, "scripts", false, "create a scripts/ subdirectory")
+	cmd.Flags().StringVarP(&createModule, "module-id", "g", "", "module identifier for invkmod.cue (default: module name)")
+	cmd.Flags().StringVarP(&createDescription, "description", "d", "", "description for invkmod.cue")
+
+	return cmd
 }
 
-func runModuleCreate(cmd *cobra.Command, args []string) error {
+func runModuleCreate(args []string, createPath string, createScripts bool, createModule, createDescription string) error {
 	moduleName := args[0]
 
 	// Validate module name first
@@ -62,10 +62,10 @@ func runModuleCreate(cmd *cobra.Command, args []string) error {
 	// Create the module
 	opts := invkmod.CreateOptions{
 		Name:             moduleName,
-		ParentDir:        moduleCreatePath,
-		Module:           moduleCreateModule,
-		Description:      moduleCreateDescription,
-		CreateScriptsDir: moduleCreateScripts,
+		ParentDir:        createPath,
+		Module:           createModule,
+		Description:      createDescription,
+		CreateScriptsDir: createScripts,
 	}
 
 	modulePath, err := invkmod.Create(opts)
@@ -78,14 +78,14 @@ func runModuleCreate(cmd *cobra.Command, args []string) error {
 	fmt.Printf("%s Path: %s\n", moduleInfoIcon, modulePathStyle.Render(modulePath))
 	fmt.Printf("%s Name: %s\n", moduleInfoIcon, CmdStyle.Render(moduleName))
 
-	if moduleCreateScripts {
+	if createScripts {
 		fmt.Printf("%s Scripts directory created\n", moduleInfoIcon)
 	}
 
 	fmt.Println()
 	fmt.Printf("%s Next steps:\n", moduleInfoIcon)
 	fmt.Printf("   1. Edit %s to add your commands\n", modulePathStyle.Render(filepath.Join(modulePath, "invkfile.cue")))
-	if moduleCreateScripts {
+	if createScripts {
 		fmt.Printf("   2. Add script files to %s\n", modulePathStyle.Render(filepath.Join(modulePath, "scripts")))
 	}
 	fmt.Printf("   3. Run %s to validate\n", CmdStyle.Render("invowk module validate "+modulePath))

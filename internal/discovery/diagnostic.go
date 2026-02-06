@@ -4,9 +4,9 @@ package discovery
 
 const (
 	// SeverityWarning indicates a recoverable discovery warning.
-	SeverityWarning = "warning"
+	SeverityWarning Severity = "warning"
 	// SeverityError indicates a non-fatal discovery error diagnostic.
-	SeverityError = "error"
+	SeverityError Severity = "error"
 )
 
 type (

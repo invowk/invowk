@@ -3,6 +3,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -12,9 +13,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var (
-	// moduleAliasCmd manages module aliases for collision disambiguation
-	moduleAliasCmd = &cobra.Command{
+// newModuleAliasCommand creates the `invowk module alias` command tree.
+// Alias operations load/save config and capture the App via closure.
+func newModuleAliasCommand(app *App) *cobra.Command {
+	aliasCmd := &cobra.Command{
 		Use:   "alias",
 		Short: "Manage module aliases",
 		Long: `Manage module aliases for collision disambiguation.
@@ -28,8 +30,7 @@ Examples:
   invowk module alias remove /path/to/module`,
 	}
 
-	// moduleAliasSetCmd sets an alias for a module
-	moduleAliasSetCmd = &cobra.Command{
+	aliasCmd.AddCommand(&cobra.Command{
 		Use:   "set <module-path> <alias>",
 		Short: "Set an alias for a module",
 		Long: `Set an alias for a module to resolve naming collisions.
@@ -41,11 +42,12 @@ Examples:
   invowk module alias set ./mymodule.invkmod my-tools
   invowk module alias set /absolute/path/mymodule.invkmod custom-name`,
 		Args: cobra.ExactArgs(2),
-		RunE: runModuleAliasSet,
-	}
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runModuleAliasSet(cmd.Context(), app, args)
+		},
+	})
 
-	// moduleAliasListCmd lists all configured aliases
-	moduleAliasListCmd = &cobra.Command{
+	aliasCmd.AddCommand(&cobra.Command{
 		Use:   "list",
 		Short: "List all module aliases",
 		Long: `List all configured module aliases.
@@ -54,11 +56,12 @@ Shows a table of module paths and their assigned aliases.
 
 Examples:
   invowk module alias list`,
-		RunE: runModuleAliasList,
-	}
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runModuleAliasList(cmd.Context(), app)
+		},
+	})
 
-	// moduleAliasRemoveCmd removes an alias for a module
-	moduleAliasRemoveCmd = &cobra.Command{
+	aliasCmd.AddCommand(&cobra.Command{
 		Use:   "remove <module-path>",
 		Short: "Remove an alias for a module",
 		Long: `Remove a previously configured alias for a module.
@@ -69,17 +72,15 @@ Examples:
   invowk module alias remove ./mymodule.invkmod
   invowk module alias remove /absolute/path/mymodule.invkmod`,
 		Args: cobra.ExactArgs(1),
-		RunE: runModuleAliasRemove,
-	}
-)
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runModuleAliasRemove(cmd.Context(), app, args)
+		},
+	})
 
-func initModuleAliasCmd() {
-	moduleAliasCmd.AddCommand(moduleAliasSetCmd)
-	moduleAliasCmd.AddCommand(moduleAliasListCmd)
-	moduleAliasCmd.AddCommand(moduleAliasRemoveCmd)
+	return aliasCmd
 }
 
-func runModuleAliasSet(cmd *cobra.Command, args []string) error {
+func runModuleAliasSet(ctx context.Context, app *App, args []string) error {
 	modulePath := args[0]
 	alias := args[1]
 
@@ -96,8 +97,8 @@ func runModuleAliasSet(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("path does not exist: %s", absPath)
 	}
 
-	// Load current config
-	cfg, err := config.Load()
+	// Load current config via provider
+	cfg, err := app.Config.Load(ctx, config.LoadOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to load config: %w", err)
 	}
@@ -123,11 +124,11 @@ func runModuleAliasSet(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func runModuleAliasList(cmd *cobra.Command, args []string) error {
+func runModuleAliasList(ctx context.Context, app *App) error {
 	fmt.Println(moduleTitleStyle.Render("Module Aliases"))
 
-	// Load config
-	cfg, err := config.Load()
+	// Load config via provider
+	cfg, err := app.Config.Load(ctx, config.LoadOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to load config: %w", err)
 	}
@@ -150,7 +151,7 @@ func runModuleAliasList(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func runModuleAliasRemove(cmd *cobra.Command, args []string) error {
+func runModuleAliasRemove(ctx context.Context, app *App, args []string) error {
 	modulePath := args[0]
 
 	fmt.Println(moduleTitleStyle.Render("Remove Module Alias"))
@@ -161,8 +162,8 @@ func runModuleAliasRemove(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to resolve path: %w", err)
 	}
 
-	// Load config
-	cfg, err := config.Load()
+	// Load config via provider
+	cfg, err := app.Config.Load(ctx, config.LoadOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to load config: %w", err)
 	}

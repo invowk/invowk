@@ -6,13 +6,12 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// tuiCmd is the parent command for all TUI components.
-// These commands provide gum-like interactive terminal UI elements
-// that can be used in shell scripts and pipelines.
-var tuiCmd = &cobra.Command{
-	Use:   "tui",
-	Short: "Interactive terminal UI components",
-	Long: `Interactive terminal UI components for shell scripts and pipelines.
+// newTUICommand creates the `invowk tui` command tree.
+func newTUICommand() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "tui",
+		Short: "Interactive terminal UI components",
+		Long: `Interactive terminal UI components for shell scripts and pipelines.
 
 The tui command provides a set of gum-like interactive UI elements that can
 be used to build interactive shell scripts. Each subcommand provides a
@@ -36,11 +35,22 @@ Examples:
   invowk tui confirm "Are you sure?"
   invowk tui spin --title "Working..." -- sleep 2
   echo "Hello World" | invowk tui style --foreground "#FF0000"`,
-	RunE: func(cmd *cobra.Command, args []string) error {
-		return cmd.Help()
-	},
-}
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return cmd.Help()
+		},
+	}
 
-func init() {
-	// tuiCmd is added in root.go
+	cmd.AddCommand(newTUIChooseCommand())
+	cmd.AddCommand(newTUIConfirmCommand())
+	cmd.AddCommand(newTUIInputCommand())
+	cmd.AddCommand(newTUIWriteCommand())
+	cmd.AddCommand(newTUIFilterCommand())
+	cmd.AddCommand(newTUIFileCommand())
+	cmd.AddCommand(newTUITableCommand())
+	cmd.AddCommand(newTUISpinCommand())
+	cmd.AddCommand(newTUIPagerCommand())
+	cmd.AddCommand(newTUIFormatCommand())
+	cmd.AddCommand(newTUIStyleCommand())
+
+	return cmd
 }

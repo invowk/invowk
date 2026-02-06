@@ -6,11 +6,17 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// internalCmd is the parent command for internal subcommands.
+// newInternalCommand creates the `invowk internal` command tree.
 // These are hidden commands used for inter-process communication
 // and subprocess execution patterns.
-var internalCmd = &cobra.Command{
-	Use:    "internal",
-	Short:  "Internal commands (not for direct use)",
-	Hidden: true,
+func newInternalCommand() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:    "internal",
+		Short:  "Internal commands (not for direct use)",
+		Hidden: true,
+	}
+
+	cmd.AddCommand(newInternalExecVirtualCommand())
+
+	return cmd
 }

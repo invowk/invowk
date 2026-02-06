@@ -83,29 +83,6 @@ func CommandsDir() (string, error) {
 	}
 }
 
-// Load reads and parses the configuration file
-func Load() (*Config, error) {
-	if globalConfig != nil {
-		return globalConfig, nil
-	}
-
-	cfg, resolvedPath, err := loadWithOptions(
-		context.Background(),
-		LoadOptions{
-			ConfigFilePath: configFilePathOverride,
-			ConfigDirPath:  configDirOverride,
-		},
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	configPath = resolvedPath
-	globalConfig = cfg
-
-	return globalConfig, nil
-}
-
 // loadWithOptions performs option-driven config loading without mutating
 // package-level cache state. Callers that want caching can wrap this function.
 func loadWithOptions(ctx context.Context, opts LoadOptions) (*Config, string, error) {
@@ -344,8 +321,6 @@ func Save(cfg *Config) error {
 		return fmt.Errorf("failed to write config file: %w", err)
 	}
 
-	globalConfig = cfg
-	configPath = cfgPath
 	return nil
 }
 

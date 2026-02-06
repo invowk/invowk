@@ -61,12 +61,12 @@ be organized hierarchically with support for dependencies.
 	rootCmd.PersistentFlags().BoolVarP(&rootFlags.interactive, "interactive", "i", false, "run commands in alternate screen buffer (interactive mode)")
 
 	rootCmd.AddCommand(newCmdCommand(app, rootFlags))
-	rootCmd.AddCommand(initCmd)
-	rootCmd.AddCommand(configCmd)
-	rootCmd.AddCommand(completionCmd)
-	rootCmd.AddCommand(tuiCmd)
-	rootCmd.AddCommand(moduleCmd)
-	rootCmd.AddCommand(internalCmd)
+	rootCmd.AddCommand(newInitCommand())
+	rootCmd.AddCommand(newConfigCommand(app))
+	rootCmd.AddCommand(newCompletionCommand())
+	rootCmd.AddCommand(newTUICommand())
+	rootCmd.AddCommand(newModuleCommand(app))
+	rootCmd.AddCommand(newInternalCommand())
 
 	return rootCmd
 }

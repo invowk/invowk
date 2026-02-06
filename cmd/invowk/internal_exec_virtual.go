@@ -16,29 +16,29 @@ import (
 	"mvdan.cc/sh/v3/syntax"
 )
 
-// internalExecVirtualCmd executes a script using the virtual runtime.
+// newInternalExecVirtualCommand creates the `invowk internal exec-virtual` command.
 // This is an internal command used for interactive mode, where the parent
 // process needs to attach the execution to a PTY.
 //
 // The virtual runtime (mvdan/sh) runs entirely in-process, so we need
 // a subprocess wrapper to enable PTY attachment.
-var internalExecVirtualCmd = &cobra.Command{
-	Use:    "exec-virtual",
-	Short:  "Execute a script using virtual runtime (internal use only)",
-	Hidden: true,
-	RunE:   runInternalExecVirtual,
-}
+func newInternalExecVirtualCommand() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:    "exec-virtual",
+		Short:  "Execute a script using virtual runtime (internal use only)",
+		Hidden: true,
+		RunE:   runInternalExecVirtual,
+	}
 
-func init() {
-	internalExecVirtualCmd.Flags().String("script-file", "", "path to script file to execute")
-	internalExecVirtualCmd.Flags().String("workdir", "", "working directory for execution")
-	internalExecVirtualCmd.Flags().StringArray("env", nil, "environment variables (KEY=VALUE format)")
-	internalExecVirtualCmd.Flags().StringArray("args", nil, "positional arguments for the script")
-	internalExecVirtualCmd.Flags().String("env-json", "", "environment variables as JSON object")
+	cmd.Flags().String("script-file", "", "path to script file to execute")
+	cmd.Flags().String("workdir", "", "working directory for execution")
+	cmd.Flags().StringArray("env", nil, "environment variables (KEY=VALUE format)")
+	cmd.Flags().StringArray("args", nil, "positional arguments for the script")
+	cmd.Flags().String("env-json", "", "environment variables as JSON object")
 
-	_ = internalExecVirtualCmd.MarkFlagRequired("script-file")
+	_ = cmd.MarkFlagRequired("script-file")
 
-	internalCmd.AddCommand(internalExecVirtualCmd)
+	return cmd
 }
 
 // runInternalExecVirtual executes the virtual shell script.

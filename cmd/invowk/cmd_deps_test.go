@@ -183,9 +183,6 @@ func TestCheckCommandDependenciesExist_SatisfiedByLocalUnqualifiedName(t *testin
 	homeCleanup := testutil.SetHomeDir(t, tmpDir)
 	t.Cleanup(homeCleanup)
 
-	config.Reset()
-	t.Cleanup(config.Reset)
-
 	// invkfile.cue now only contains commands - module metadata is in invkmod.cue
 	invkfileContent := `cmds: [
 	{
@@ -228,9 +225,6 @@ func TestCheckCommandDependenciesExist_SatisfiedByFullyQualifiedNameFromUserDir(
 
 	homeCleanup := testutil.SetHomeDir(t, tmpDir)
 	t.Cleanup(homeCleanup)
-
-	config.Reset()
-	t.Cleanup(config.Reset)
 
 	// invkfile.cue now only contains commands - module metadata is in invkmod.cue
 	invkfileContent := `cmds: [{
@@ -283,9 +277,6 @@ func TestCheckCommandDependenciesExist_MissingCommand(t *testing.T) {
 
 	homeCleanup := testutil.SetHomeDir(t, tmpDir)
 	t.Cleanup(homeCleanup)
-
-	config.Reset()
-	t.Cleanup(config.Reset)
 
 	// invkfile.cue now only contains commands - module metadata is in invkmod.cue
 	invkfileContent := `cmds: [{

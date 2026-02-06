@@ -3,6 +3,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"os"
 
@@ -12,9 +13,11 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var (
-	// configCmd is the parent command for configuration operations
-	configCmd = &cobra.Command{
+// newConfigCommand creates the `invowk config` command tree.
+// Subcommands that read configuration use the App's ConfigProvider
+// instead of the legacy global config.Load().
+func newConfigCommand(app *App) *cobra.Command {
+	cfgCmd := &cobra.Command{
 		Use:   "config",
 		Short: "Manage invowk configuration",
 		Long: `Manage invowk configuration.
@@ -28,49 +31,44 @@ Configuration is stored in:
 		},
 	}
 
-	// configShowCmd displays current configuration
-	configShowCmd = &cobra.Command{
+	cfgCmd.AddCommand(&cobra.Command{
 		Use:   "show",
 		Short: "Show current configuration",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return showConfig()
+			return showConfig(cmd.Context(), app)
 		},
-	}
+	})
 
-	// configInitCmd creates a default configuration
-	configInitCmd = &cobra.Command{
+	cfgCmd.AddCommand(&cobra.Command{
 		Use:   "init",
 		Short: "Create default configuration file",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return initConfig()
 		},
-	}
+	})
 
-	// configPathCmd shows the configuration file path
-	configPathCmd = &cobra.Command{
+	cfgCmd.AddCommand(&cobra.Command{
 		Use:   "path",
 		Short: "Show configuration file path",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return showConfigPath()
 		},
-	}
+	})
 
-	// configSetCmd sets a configuration value
-	configSetCmd = &cobra.Command{
+	cfgCmd.AddCommand(&cobra.Command{
 		Use:   "set <key> <value>",
 		Short: "Set a configuration value",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return setConfigValue(args[0], args[1])
+			return setConfigValue(cmd.Context(), app, args[0], args[1])
 		},
-	}
+	})
 
-	// configDumpCmd outputs raw configuration as CUE
-	configDumpCmd = &cobra.Command{
+	cfgCmd.AddCommand(&cobra.Command{
 		Use:   "dump",
 		Short: "Output raw configuration as CUE",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cfg, err := config.Load()
+			cfg, err := app.Config.Load(cmd.Context(), config.LoadOptions{})
 			if err != nil {
 				return err
 			}
@@ -79,19 +77,13 @@ Configuration is stored in:
 			fmt.Print(cueContent)
 			return nil
 		},
-	}
-)
+	})
 
-func init() {
-	configCmd.AddCommand(configShowCmd)
-	configCmd.AddCommand(configInitCmd)
-	configCmd.AddCommand(configPathCmd)
-	configCmd.AddCommand(configSetCmd)
-	configCmd.AddCommand(configDumpCmd)
+	return cfgCmd
 }
 
-func showConfig() error {
-	cfg, err := config.Load()
+func showConfig(ctx context.Context, app *App) error {
+	cfg, err := app.Config.Load(ctx, config.LoadOptions{})
 	if err != nil {
 		rendered, _ := issue.Get(issue.ConfigLoadFailedId).Render("dark")
 		fmt.Fprint(os.Stderr, rendered)
@@ -106,10 +98,16 @@ func showConfig() error {
 	fmt.Println(headerStyle.Render("Current Configuration"))
 	fmt.Println()
 
-	// Show path
-	cfgPath := config.ConfigFilePath()
-	if cfgPath != "" {
-		fmt.Printf("%s: %s\n", keyStyle.Render("Config file"), cfgPath)
+	// Derive config file path from the standard config directory since the provider
+	// does not cache resolved paths like the legacy config.ConfigFilePath() did.
+	cfgDir, dirErr := config.ConfigDir()
+	if dirErr == nil {
+		cfgPath := cfgDir + "/config.cue"
+		if fileExistsCheck(cfgPath) {
+			fmt.Printf("%s: %s\n", keyStyle.Render("Config file"), cfgPath)
+		} else {
+			fmt.Printf("%s: %s\n", keyStyle.Render("Config file"), SubtitleStyle.Render("(using defaults)"))
+		}
 	} else {
 		fmt.Printf("%s: %s\n", keyStyle.Render("Config file"), SubtitleStyle.Render("(using defaults)"))
 	}
@@ -183,8 +181,8 @@ func showConfigPath() error {
 	return nil
 }
 
-func setConfigValue(key, value string) error {
-	cfg, err := config.Load()
+func setConfigValue(ctx context.Context, app *App, key, value string) error {
+	cfg, err := app.Config.Load(ctx, config.LoadOptions{})
 	if err != nil {
 		return err
 	}
@@ -224,4 +222,13 @@ func setConfigValue(key, value string) error {
 
 	fmt.Printf("%s Set %s = %s\n", SuccessStyle.Render("✓"), key, value)
 	return nil
+}
+
+// fileExistsCheck checks if a file exists and is not a directory.
+func fileExistsCheck(path string) bool {
+	info, err := os.Stat(path)
+	if os.IsNotExist(err) {
+		return false
+	}
+	return err == nil && !info.IsDir()
 }

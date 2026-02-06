@@ -171,7 +171,13 @@ func (s *appDiscoveryService) GetCommand(ctx context.Context, name string) (disc
 // discovery operational with defaults and emits a warning diagnostic for the CLI.
 func (s *appDiscoveryService) loadConfig(ctx context.Context) (*config.Config, []discovery.Diagnostic) {
 	configPath := configPathFromContext(ctx)
-	cfg, err := s.config.Load(ctx, config.LoadOptions{ConfigFilePath: configPath})
+	return loadConfigWithFallback(ctx, s.config, configPath)
+}
+
+// loadConfigWithFallback loads configuration via the provider. On failure it
+// returns defaults and a warning diagnostic so callers stay operational.
+func loadConfigWithFallback(ctx context.Context, provider ConfigProvider, configPath string) (*config.Config, []discovery.Diagnostic) {
+	cfg, err := provider.Load(ctx, config.LoadOptions{ConfigFilePath: configPath})
 	if err == nil {
 		return cfg, nil
 	}
