@@ -1,0 +1,96 @@
+name: Version Docs
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag to version docs for (e.g., v0.1.0-alpha.1)'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+# Serialize versioning runs to prevent race conditions on versions.json
+concurrency:
+  group: version-docs
+  cancel-in-progress: false
+
+jobs:
+  version-docs:
+    name: Version Documentation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Determine tag
+        id: tag
+        env:
+          EVENT_TAG: ${{ github.event.release.tag_name }}
+          DISPATCH_TAG: ${{ github.event.inputs.tag }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
+            TAG="$DISPATCH_TAG"
+          else
+            TAG="$EVENT_TAG"
+          fi
+          if [[ -z "$TAG" ]]; then
+            echo "::error::Could not determine release tag"
+            exit 1
+          fi
+          # Strip 'v' prefix for the version string
+          VERSION="${TAG#v}"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Tag: $TAG, Version: $VERSION"
+
+      # Use a GitHub App token so the push triggers deploy-website.yml.
+      # Commits made with GITHUB_TOKEN do NOT trigger other workflows.
+      - name: Generate App token
+        id: app-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.DOCS_APP_ID }}
+          private-key: ${{ secrets.DOCS_APP_PRIVATE_KEY }}
+
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          token: ${{ steps.app-token.outputs.token }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: website/package-lock.json
+
+      - name: Install dependencies
+        working-directory: website
+        run: npm ci
+
+      - name: Version docs
+        env:
+          VERSION: ${{ steps.tag.outputs.version }}
+        run: ./scripts/version-docs.sh "$VERSION"
+
+      - name: Verify website builds
+        working-directory: website
+        run: npm run build
+
+      - name: Commit and push
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add website/
+          # Check if there are changes to commit
+          if git diff --cached --quiet; then
+            echo "No documentation changes to commit."
+            exit 0
+          fi
+          git commit -m "docs: version documentation for ${TAG}"
+          git push origin main

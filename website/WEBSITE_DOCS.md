@@ -91,7 +91,47 @@ The sidebar is manually configured in `website/sidebars.ts`. Current sections:
 - Never edit `website/versioned_docs/version-*/` or `website/versioned_sidebars/` except to fix a bug, mismatch, or critical clarification for an already-released version.
 - When you need a backport fix, update the specific `version-*` doc and the matching translation under `website/i18n/pt-BR/docusaurus-plugin-content-docs/version-*/`.
 - When behavior changes, create new snippet IDs for the upcoming version and keep existing snippet IDs unchanged to preserve older docs.
-- When cutting a release, snapshot docs with `cd website && npx docusaurus docs:version X.Y.Z`, then continue updates in `website/docs/` for the next version.
+
+### Automated Versioning (on Release)
+
+Documentation versioning runs **automatically** on every GitHub Release (stable and pre-release) via the `version-docs.yml` workflow. No manual steps are needed.
+
+**How it works:**
+
+1. A release is published (e.g., `v0.1.0-alpha.1`) via tag push or workflow dispatch.
+2. GoReleaser builds and publishes the release artifacts (`release.yml`).
+3. The `version-docs.yml` workflow triggers on the `release: published` event.
+4. The workflow runs `scripts/version-docs.sh` which:
+   - Snapshots `website/docs/` into `website/versioned_docs/version-<VERSION>/`
+   - Copies i18n translations for all locales
+   - Updates `docusaurus.config.ts` with the correct `lastVersion` and pre-release banners
+5. The versioning commit is pushed to `main`, which triggers `deploy-website.yml` to redeploy the site.
+
+**Versioning rules:**
+
+- All versions (stable and pre-release) are kept indefinitely.
+- The default landing version (`/docs/`) is the latest **stable** release.
+- If no stable release exists yet (alpha phase), the latest **pre-release** is the default.
+- Pre-release versions show an "unreleased" banner in the docs.
+- `website/docs/` always represents the unreleased "Next" development docs at `/docs/next/`.
+
+**Manual retry:**
+
+If the workflow fails, re-run it via **Actions > Version Docs > Run workflow** with the release tag (e.g., `v0.1.0-alpha.1`). The script is idempotent — it skips versions that already exist in `versions.json`.
+
+**Local testing:**
+
+```bash
+make version-docs VERSION=0.0.0-test   # Create a test version
+cd website && npm run build             # Verify the build passes
+git checkout -- website/                # Revert the test
+```
+
+**GitHub App secrets required:**
+
+The workflow uses a GitHub App token (not `GITHUB_TOKEN`) so the versioning commit triggers the website deployment workflow. Required repository secrets:
+- `DOCS_APP_ID` — The GitHub App's numeric ID.
+- `DOCS_APP_PRIVATE_KEY` — The App's PEM private key.
 
 ## Testing Changes
 

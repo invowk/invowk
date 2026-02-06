@@ -278,6 +278,15 @@ vhs-validate:
 	@command -v vhs >/dev/null 2>&1 || { echo "Error: VHS is not installed. See vhs/README.md"; exit 1; }
 	@vhs validate vhs/demos/*.tape
 
+# Version docs: snapshot documentation for a release
+# Usage: make version-docs VERSION=1.0.0
+.PHONY: version-docs
+version-docs:
+ifndef VERSION
+	$(error VERSION is required (without v prefix). Usage: make version-docs VERSION=1.0.0)
+endif
+	@./scripts/version-docs.sh "$(VERSION)"
+
 # Release: create and push a signed version tag
 # Usage: make release VERSION=v0.1.0-alpha.1 [YES=1] [DRY_RUN=1]
 .PHONY: release
@@ -319,6 +328,7 @@ help:
 	@echo "  vhs-demos        Generate VHS demo recordings (requires VHS)"
 	@echo "  vhs-validate     Validate VHS tape syntax"
 	@echo "  render-diagrams  Render D2 diagrams to SVG (requires D2)"
+	@echo "  version-docs     Snapshot docs for a release version"
 	@echo "  release          Create and push a signed version tag"
 	@echo "  release-bump     Compute next version and create signed tag"
 	@echo "  clean            Remove build artifacts"

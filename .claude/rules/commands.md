@@ -15,6 +15,7 @@
 | PGO profile (short) | `make pgo-profile-short` |
 | Release tag | `make release VERSION=v0.1.0` |
 | Release bump | `make release-bump TYPE=minor [PRERELEASE=alpha]` |
+| Version docs | `make version-docs VERSION=1.0.0` |
 | GoReleaser check | `goreleaser check` |
 | GoReleaser dry-run | `goreleaser release --snapshot --clean` |
 | Website dev | `cd website && npm start` |
@@ -236,6 +237,7 @@ cosign verify-blob \
 | `ci.yml` | Push/PR to main (non-website changes) | Run tests, build verification, license check |
 | `lint.yml` | Push/PR to main (non-website changes) | Advisory golangci-lint run |
 | `release.yml` | Tag push (v*) or manual dispatch | Validate, test, then build and publish release |
+| `version-docs.yml` | Release published or manual dispatch | Snapshot docs for the released version |
 | `test-website.yml` | PR to main (website changes) | Build website for PR validation |
 | `deploy-website.yml` | Push to main (website changes) or manual | Build and deploy GitHub Pages site |
 
