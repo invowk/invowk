@@ -208,16 +208,6 @@ func (p *LayerProvisioner) buildProvisionedImage(ctx context.Context, baseImage,
 	}
 
 	if err := p.engine.Build(ctx, buildOpts); err != nil {
-		// Log the build context path for debugging
-		fmt.Fprintf(os.Stderr, "Debug: Build context was at: %s\n", buildCtx)
-
-		// List contents of build context for debugging
-		entries, _ := os.ReadDir(buildCtx)
-		fmt.Fprintf(os.Stderr, "Debug: Build context contents:\n")
-		for _, e := range entries {
-			fmt.Fprintf(os.Stderr, "  - %s\n", e.Name())
-		}
-
 		return err
 	}
 

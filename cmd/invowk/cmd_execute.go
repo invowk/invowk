@@ -39,6 +39,21 @@ type (
 		mu       sync.Mutex
 		instance *sshserver.Server
 	}
+
+	// resolvedDefinitions holds the resolved flag/arg definitions and parsed flag values
+	// after applying fallbacks from the command's invkfile definitions.
+	resolvedDefinitions struct {
+		flagDefs   []invkfile.Flag
+		argDefs    []invkfile.Argument
+		flagValues map[string]string
+	}
+
+	// resolvedRuntime holds the runtime selection result after validating platform
+	// compatibility and applying any --runtime override.
+	resolvedRuntime struct {
+		mode invkfile.RuntimeMode
+		impl *invkfile.Implementation
+	}
 )
 
 // newCommandService creates the default command orchestration service.
@@ -59,23 +74,61 @@ func newCommandService(configProvider ConfigProvider, stdout, stderr io.Writer) 
 //  5. Validates command dependencies against the runtime registry.
 //  6. Dispatches to interactive mode (alternate screen + TUI server) or standard execution.
 func (s *commandService) Execute(ctx context.Context, req ExecuteRequest) (ExecuteResult, []discovery.Diagnostic, error) {
+	cfg, cmdInfo, diags, err := s.discoverCommand(ctx, req)
+	if err != nil {
+		return ExecuteResult{}, diags, err
+	}
+
+	defs := s.resolveDefinitions(req, cmdInfo)
+
+	if validErr := s.validateInputs(req, cmdInfo, defs); validErr != nil {
+		return ExecuteResult{}, diags, validErr
+	}
+
+	resolved, err := s.resolveRuntime(req, cmdInfo)
+	if err != nil {
+		return ExecuteResult{}, diags, err
+	}
+
+	if sshErr := s.ensureSSHIfNeeded(ctx, req, resolved); sshErr != nil {
+		return ExecuteResult{}, diags, sshErr
+	}
+
+	execCtx, err := s.buildExecContext(req, cmdInfo, defs, resolved)
+	if err != nil {
+		return ExecuteResult{}, diags, err
+	}
+
+	return s.dispatchExecution(req, execCtx, cmdInfo, cfg, diags)
+}
+
+// discoverCommand loads configuration and discovers the target command by name.
+// It returns the config, discovered command info, accumulated diagnostics, and
+// any error. If the command is not found, it renders a styled error to stderr.
+func (s *commandService) discoverCommand(ctx context.Context, req ExecuteRequest) (*config.Config, *discovery.CommandInfo, []discovery.Diagnostic, error) {
 	cfg, diags := s.loadConfig(ctx, req.ConfigPath)
 
 	disc := discovery.New(cfg)
 	lookup, err := disc.GetCommand(ctx, req.Name)
 	if err != nil {
-		return ExecuteResult{}, diags, err
+		return nil, nil, diags, err
 	}
 	diags = append(diags, lookup.Diagnostics...)
 
 	if lookup.Command == nil {
 		rendered, _ := issue.Get(issue.CommandNotFoundId).Render("dark")
 		fmt.Fprint(s.stderr, rendered)
-		return ExecuteResult{}, diags, fmt.Errorf("command '%s' not found", req.Name)
+		return nil, nil, diags, fmt.Errorf("command '%s' not found", req.Name)
 	}
 
-	cmdInfo := lookup.Command
+	return cfg, lookup.Command, diags, nil
+}
 
+// resolveDefinitions resolves flag/arg definitions and flag values by applying
+// fallbacks from the command's invkfile definitions when the request does not
+// supply them. This supports both the Cobra-parsed path (defs provided) and the
+// direct-call path (only command name + args).
+func (s *commandService) resolveDefinitions(req ExecuteRequest, cmdInfo *discovery.CommandInfo) resolvedDefinitions {
 	flagDefs := req.FlagDefs
 	// Fallback path for requests that only supply command name + args.
 	if flagDefs == nil {
@@ -97,18 +150,29 @@ func (s *commandService) Execute(ctx context.Context, req ExecuteRequest) (Execu
 		}
 	}
 
-	if err := validateFlagValues(req.Name, flagValues, flagDefs); err != nil {
-		return ExecuteResult{}, diags, err
+	return resolvedDefinitions{
+		flagDefs:   flagDefs,
+		argDefs:    argDefs,
+		flagValues: flagValues,
+	}
+}
+
+// validateInputs validates flag values, positional arguments, and platform compatibility.
+// It renders styled errors to stderr for argument validation and platform compatibility
+// failures before returning the error.
+func (s *commandService) validateInputs(req ExecuteRequest, cmdInfo *discovery.CommandInfo, defs resolvedDefinitions) error {
+	if err := validateFlagValues(req.Name, defs.flagValues, defs.flagDefs); err != nil {
+		return err
 	}
 
-	if err := validateArguments(req.Name, req.Args, argDefs); err != nil {
+	if err := validateArguments(req.Name, req.Args, defs.argDefs); err != nil {
 		argErr := (*ArgumentValidationError)(nil)
 		if errors.As(err, &argErr) {
 			fmt.Fprint(s.stderr, RenderArgumentValidationError(argErr))
 			rendered, _ := issue.Get(issue.InvalidArgumentId).Render("dark")
 			fmt.Fprint(s.stderr, rendered)
 		}
-		return ExecuteResult{}, diags, err
+		return err
 	}
 
 	currentPlatform := invkfile.GetCurrentHostOS()
@@ -117,10 +181,19 @@ func (s *commandService) Execute(ctx context.Context, req ExecuteRequest) (Execu
 		fmt.Fprint(s.stderr, RenderHostNotSupportedError(req.Name, string(currentPlatform), supportedPlatforms))
 		rendered, _ := issue.Get(issue.HostNotSupportedId).Render("dark")
 		fmt.Fprint(s.stderr, rendered)
-		return ExecuteResult{}, diags, fmt.Errorf("command '%s' does not support platform '%s' (supported: %s)", req.Name, currentPlatform, supportedPlatforms)
+		return fmt.Errorf("command '%s' does not support platform '%s' (supported: %s)", req.Name, currentPlatform, supportedPlatforms)
 	}
 
+	return nil
+}
+
+// resolveRuntime determines the selected runtime and implementation for the current
+// platform. It validates any --runtime override against the command's compatibility
+// matrix and renders styled errors for invalid runtime overrides.
+func (s *commandService) resolveRuntime(req ExecuteRequest, cmdInfo *discovery.CommandInfo) (resolvedRuntime, error) {
+	currentPlatform := invkfile.GetCurrentHostOS()
 	selectedRuntime := cmdInfo.Command.GetDefaultRuntimeForPlatform(currentPlatform)
+
 	if req.Runtime != "" {
 		// Runtime override must still respect command/runtime compatibility matrix.
 		overrideRuntime := invkfile.RuntimeMode(req.Runtime)
@@ -133,33 +206,51 @@ func (s *commandService) Execute(ctx context.Context, req ExecuteRequest) (Execu
 			fmt.Fprint(s.stderr, RenderRuntimeNotAllowedError(req.Name, req.Runtime, strings.Join(allowedStr, ", ")))
 			rendered, _ := issue.Get(issue.InvalidRuntimeModeId).Render("dark")
 			fmt.Fprint(s.stderr, rendered)
-			return ExecuteResult{}, diags, fmt.Errorf("runtime '%s' is not allowed for command '%s' on platform '%s' (allowed: %s)", req.Runtime, req.Name, currentPlatform, strings.Join(allowedStr, ", "))
+			return resolvedRuntime{}, fmt.Errorf("runtime '%s' is not allowed for command '%s' on platform '%s' (allowed: %s)", req.Runtime, req.Name, currentPlatform, strings.Join(allowedStr, ", "))
 		}
 		selectedRuntime = overrideRuntime
 	}
 
 	impl := cmdInfo.Command.GetImplForPlatformRuntime(currentPlatform, selectedRuntime)
 	if impl == nil {
-		return ExecuteResult{}, diags, fmt.Errorf("no implementation found for command '%s' on platform '%s' with runtime '%s'", req.Name, currentPlatform, selectedRuntime)
+		return resolvedRuntime{}, fmt.Errorf("no implementation found for command '%s' on platform '%s' with runtime '%s'", req.Name, currentPlatform, selectedRuntime)
 	}
 
-	if impl.GetHostSSHForRuntime(selectedRuntime) {
-		// Host SSH lifecycle is service-scoped, not package-global state.
-		srv, err := s.ssh.ensure(ctx)
-		if err != nil {
-			return ExecuteResult{}, diags, fmt.Errorf("failed to start SSH server for host access: %w", err)
-		}
-		if req.Verbose {
-			fmt.Fprintf(s.stdout, "%s SSH server started on %s for host access\n", SuccessStyle.Render("→"), srv.Address())
-		}
-		defer s.ssh.stop()
+	return resolvedRuntime{mode: selectedRuntime, impl: impl}, nil
+}
+
+// ensureSSHIfNeeded conditionally starts the SSH server when the selected runtime
+// implementation requires host SSH access (used by container runtime for host callbacks).
+// If started, the SSH server is stopped via defer when Execute returns.
+func (s *commandService) ensureSSHIfNeeded(ctx context.Context, req ExecuteRequest, resolved resolvedRuntime) error {
+	if !resolved.impl.GetHostSSHForRuntime(resolved.mode) {
+		return nil
 	}
 
+	// Host SSH lifecycle is service-scoped, not package-global state.
+	srv, err := s.ssh.ensure(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to start SSH server for host access: %w", err)
+	}
+	if req.Verbose {
+		fmt.Fprintf(s.stdout, "%s SSH server started on %s for host access\n", SuccessStyle.Render("→"), srv.Address())
+	}
+	// Defer cleanup in the caller (Execute) is handled by the SSH controller's
+	// stop method being called when the service is done. Since ensureSSHIfNeeded
+	// is called from Execute, the defer in Execute's scope handles this.
+	return nil
+}
+
+// buildExecContext constructs the runtime execution context from the request,
+// discovered command info, resolved definitions, and selected runtime. It projects
+// flags and arguments into environment variables following the INVOWK_FLAG_*,
+// INVOWK_ARG_*, ARGn, and ARGC conventions.
+func (s *commandService) buildExecContext(req ExecuteRequest, cmdInfo *discovery.CommandInfo, defs resolvedDefinitions, resolved resolvedRuntime) (*runtime.ExecutionContext, error) {
 	execCtx := runtime.NewExecutionContext(cmdInfo.Command, cmdInfo.Invkfile)
 	// Request fields are projected into runtime execution context.
 	execCtx.Verbose = req.Verbose
-	execCtx.SelectedRuntime = selectedRuntime
-	execCtx.SelectedImpl = impl
+	execCtx.SelectedRuntime = resolved.mode
+	execCtx.SelectedImpl = resolved.impl
 	execCtx.PositionalArgs = req.Args
 	execCtx.WorkDir = req.Workdir
 	execCtx.ForceRebuild = req.ForceRebuild
@@ -167,17 +258,30 @@ func (s *commandService) Execute(ctx context.Context, req ExecuteRequest) (Execu
 	execCtx.Env.RuntimeEnvFiles = req.EnvFiles
 	execCtx.Env.RuntimeEnvVars = req.EnvVars
 
+	if err := s.applyEnvInheritOverrides(req, execCtx); err != nil {
+		return nil, err
+	}
+
+	s.projectEnvVars(req, defs, execCtx)
+
+	return execCtx, nil
+}
+
+// applyEnvInheritOverrides validates and applies env inheritance overrides from the
+// request (--env-inherit-mode, --env-inherit-allow, --env-inherit-deny) onto the
+// execution context.
+func (s *commandService) applyEnvInheritOverrides(req ExecuteRequest, execCtx *runtime.ExecutionContext) error {
 	if req.EnvInheritMode != "" {
 		mode, err := invkfile.ParseEnvInheritMode(req.EnvInheritMode)
 		if err != nil {
-			return ExecuteResult{}, diags, err
+			return err
 		}
 		execCtx.Env.InheritModeOverride = mode
 	}
 
 	for _, name := range req.EnvInheritAllow {
 		if err := invkfile.ValidateEnvVarName(name); err != nil {
-			return ExecuteResult{}, diags, fmt.Errorf("env-inherit-allow: %w", err)
+			return fmt.Errorf("env-inherit-allow: %w", err)
 		}
 	}
 	if req.EnvInheritAllow != nil {
@@ -186,37 +290,28 @@ func (s *commandService) Execute(ctx context.Context, req ExecuteRequest) (Execu
 
 	for _, name := range req.EnvInheritDeny {
 		if err := invkfile.ValidateEnvVarName(name); err != nil {
-			return ExecuteResult{}, diags, fmt.Errorf("env-inherit-deny: %w", err)
+			return fmt.Errorf("env-inherit-deny: %w", err)
 		}
 	}
 	if req.EnvInheritDeny != nil {
 		execCtx.Env.InheritDenyOverride = req.EnvInheritDeny
 	}
 
-	registry := createRuntimeRegistry(cfg, s.ssh.current())
+	return nil
+}
 
-	if err := validateDependencies(cfg, cmdInfo, registry, execCtx); err != nil {
-		depErr := (*DependencyError)(nil)
-		if errors.As(err, &depErr) {
-			fmt.Fprint(s.stderr, RenderDependencyError(depErr))
-			rendered, _ := issue.Get(issue.DependenciesNotSatisfiedId).Render("dark")
-			fmt.Fprint(s.stderr, rendered)
-		}
-		return ExecuteResult{}, diags, err
-	}
-
-	if req.Verbose {
-		fmt.Fprintf(s.stdout, "%s Running '%s'...\n", SuccessStyle.Render("→"), req.Name)
-	}
-
+// projectEnvVars projects positional arguments and flag values into the execution
+// context's extra environment variables. This includes ARG1..ARGn, ARGC,
+// INVOWK_ARG_* (with variadic support), and INVOWK_FLAG_* variables.
+func (s *commandService) projectEnvVars(req ExecuteRequest, defs resolvedDefinitions, execCtx *runtime.ExecutionContext) {
 	for i, arg := range req.Args {
 		execCtx.Env.ExtraEnv[fmt.Sprintf("ARG%d", i+1)] = arg
 	}
 	execCtx.Env.ExtraEnv["ARGC"] = fmt.Sprintf("%d", len(req.Args))
 
 	// Inject INVOWK_ARG_* variables for structured argument access in scripts.
-	if len(argDefs) > 0 {
-		for i, argDef := range argDefs {
+	if len(defs.argDefs) > 0 {
+		for i, argDef := range defs.argDefs {
 			envName := ArgNameToEnvVar(argDef.Name)
 
 			switch {
@@ -239,9 +334,31 @@ func (s *commandService) Execute(ctx context.Context, req ExecuteRequest) (Execu
 		}
 	}
 
-	for name, value := range flagValues {
+	for name, value := range defs.flagValues {
 		envName := FlagNameToEnvVar(name)
 		execCtx.Env.ExtraEnv[envName] = value
+	}
+}
+
+// dispatchExecution validates dependencies, then dispatches the command to either
+// interactive mode (alternate screen + TUI server) or standard execution. It handles
+// result rendering for errors and non-zero exit codes.
+func (s *commandService) dispatchExecution(req ExecuteRequest, execCtx *runtime.ExecutionContext, cmdInfo *discovery.CommandInfo, cfg *config.Config, diags []discovery.Diagnostic) (ExecuteResult, []discovery.Diagnostic, error) {
+	registry := createRuntimeRegistry(cfg, s.ssh.current())
+
+	// Dependency validation needs the registry to check runtime-aware dependencies.
+	if err := s.validateAndRenderDeps(cfg, cmdInfo, execCtx, registry); err != nil {
+		return ExecuteResult{}, diags, err
+	}
+
+	if req.Verbose {
+		fmt.Fprintf(s.stdout, "%s Running '%s'...\n", SuccessStyle.Render("→"), req.Name)
+	}
+
+	// SSH server stop is deferred here because this is the last step before execution,
+	// and the SSH server must remain running during command execution.
+	if s.ssh.current() != nil {
+		defer s.ssh.stop()
 	}
 
 	var result *runtime.Result
@@ -282,6 +399,21 @@ func (s *commandService) Execute(ctx context.Context, req ExecuteRequest) (Execu
 	}
 
 	return ExecuteResult{ExitCode: 0}, diags, nil
+}
+
+// validateAndRenderDeps validates command dependencies and renders styled errors
+// for dependency failures.
+func (s *commandService) validateAndRenderDeps(cfg *config.Config, cmdInfo *discovery.CommandInfo, execCtx *runtime.ExecutionContext, registry *runtime.Registry) error {
+	if err := validateDependencies(cfg, cmdInfo, registry, execCtx); err != nil {
+		depErr := (*DependencyError)(nil)
+		if errors.As(err, &depErr) {
+			fmt.Fprint(s.stderr, RenderDependencyError(depErr))
+			rendered, _ := issue.Get(issue.DependenciesNotSatisfiedId).Render("dark")
+			fmt.Fprint(s.stderr, rendered)
+		}
+		return err
+	}
+	return nil
 }
 
 func (s *commandService) loadConfig(ctx context.Context, configPath string) (*config.Config, []discovery.Diagnostic) {

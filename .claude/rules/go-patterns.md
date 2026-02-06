@@ -416,6 +416,18 @@ func privateFunction() {}
 - Use `_test.go` suffix for test files only.
 - Schema files use `.cue` extension (e.g., `config_schema.cue`, `invkfile_schema.cue`).
 
+### File Splitting Protocol
+
+When splitting a large file into multiple focused files (e.g., decomposing a 975-line validator into concern-specific files), follow this strict protocol to avoid duplicate declaration errors:
+
+1. **Read the source file** and identify logical groupings of declarations (types, methods, functions, variables).
+2. **Create the new target files** with the moved declarations, including SPDX headers and necessary imports.
+3. **Remove the moved declarations from the source file** — this step is critical and frequently forgotten. In Go, all files in a package share the same namespace, so duplicate function/method/variable declarations cause compiler errors.
+4. **Clean up the source file's imports** — removing declarations often leaves unused imports behind.
+5. **Build immediately** (`go build ./...`) to verify no duplicate declarations or missing imports.
+
+**Why this matters:** Go's same-package namespace means the compiler catches duplicates instantly, but the error messages can be confusing when they reference "redeclared in this block" across two different files. The fix is always: ensure each declaration exists in exactly one file.
+
 ## Linter Configuration Documentation
 
 **The `.golangci.toml` file must be kept documented when linters, formatters, or settings are added or changed.**
@@ -445,3 +457,4 @@ setting-name = "value"  # Brief explanation of what this controls
 - **`reflect.DeepEqual` for typed slices** - Use `slices.Equal` (Go 1.21+) for `[]string`, `[]int`, etc. It's type-safe, gives better error messages, and avoids importing `reflect` in tests.
 - **Duplicate package comments** - Use `doc.go` for package docs, remove `// Package` comments from other files.
 - **Prohibited patterns in comments** - Guardrail tests (e.g., `TestNoGlobalConfigAccess`) scan all non-test `.go` files for banned call signatures using raw substring matching. Comments mentioning deprecated APIs must use indirect phrasing to avoid false positives.
+- **Duplicate declarations after file splits** - When moving functions, methods, or variables from one file to another within the same package, always delete the originals from the source file and clean up orphaned imports. This is the most common mistake during file-splitting refactors.

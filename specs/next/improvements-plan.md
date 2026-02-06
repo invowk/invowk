@@ -2,6 +2,9 @@
 
 This document provides a detailed implementation plan for codebase improvements identified during architectural analysis. Items are organized by category and priority.
 
+> **Last updated**: 2026-02-06.
+> Several items were completed by the spec-008 stateless composition refactoring and spec-005 u-root implementation. Completed items are marked with **(COMPLETED)** in their headings.
+
 **Legend:**
 - **Effort**: Low (< 1 day), Medium (1-3 days), High (> 3 days)
 - **Impact**: Low (internal cleanup), Medium (improves DX/maintainability), High (enables new capabilities)
@@ -358,13 +361,16 @@ func TestBuildRuntimeEnv(t *testing.T) {
 
 ---
 
-### 2.3 Decompose ExecutionContext into Focused Types
+### 2.3 Decompose ExecutionContext into Focused Types -- (COMPLETED)
 
 **Priority**: High
 **Effort**: Medium
 **Impact**: High (improves testability and API clarity)
 
-**Problem**: `ExecutionContext` in `internal/runtime/runtime.go` has 17 fields serving different concerns, making it a "god object" that's hard to test and understand.
+> **Completed by**: spec-008 stateless composition refactoring.
+> The monolithic `ExecutionContext` orchestration pattern was replaced by the `App`/`ExecuteRequest`/`CommandService` architecture in `cmd/invowk/app.go`. CLI handlers now build immutable `ExecuteRequest` structs and delegate to injected services, eliminating the "god object" problem through a different (and more thorough) decomposition than originally proposed here.
+
+**Original Problem**: `ExecutionContext` in `internal/runtime/runtime.go` has 17 fields serving different concerns, making it a "god object" that's hard to test and understand.
 
 **Current Structure** (lines 24-77):
 ```go
@@ -619,15 +625,18 @@ type DotenvLoader interface {
 
 ---
 
-### 3.2 Extract Provisioning to Separate Package
+### 3.2 Extract Provisioning to Separate Package -- (COMPLETED)
 
 **Priority**: Medium
 **Effort**: Medium
 **Impact**: Medium (improves separation of concerns)
 
-**Problem**: Container provisioning logic (~300 lines) is embedded in `internal/runtime/`, mixing execution and preparation concerns.
+> **Completed by**: spec-008 stateless composition refactoring.
+> Provisioning logic was extracted to `internal/provision/` as a separate package, with the `ForceRebuild` option wired through `ExecuteRequest.ForceRebuild` in `cmd/invowk/app.go:62`.
 
-**Current Files**:
+**Original Problem**: Container provisioning logic (~300 lines) is embedded in `internal/runtime/`, mixing execution and preparation concerns.
+
+**Original Files**:
 - `internal/runtime/provision.go` - Core provisioning logic
 - `internal/runtime/provision_layer.go` - Layer utilities
 - `internal/runtime/container_provision.go` - Container-specific provisioning
@@ -857,31 +866,33 @@ These items improve documentation and resolve tracked technical debt.
 
 ---
 
-### 4.2 Resolve Existing TODOs
+### 4.2 Resolve Existing TODOs -- (PARTIALLY COMPLETED)
 
 **Priority**: Medium
 **Effort**: Low-Medium
 **Impact**: Medium (completes planned features)
 
-**Outstanding TODOs**:
+> **Partially completed by**: spec-008 stateless composition refactoring.
+> Both original TODOs (custom config path and force rebuild) are now resolved:
+> - Custom config file path: `--config` flag wired through `rootFlags.configPath` into `ConfigProvider.Load()` via `config.LoadOptions.ConfigFilePath`.
+> - Force rebuild: `--force-rebuild` flag wired through `ExecuteRequest.ForceRebuild` into `internal/provision/`.
+>
+> Remaining work: verify no other stale TODOs remain in the codebase.
 
-1. **Custom Config File Path** (`cmd/invowk/root.go:107`):
-   - Already documented in `specs/next/pending-features.md`
-   - Implementation requires config package changes
+**Original TODOs** (both resolved):
 
-2. **Force Rebuild Option** (`internal/runtime/container_provision.go:87`):
-   - Will be addressed by 3.2 (Extract Provisioning Package)
-   - Add `--force-rebuild` flag to CLI
+1. **Custom Config File Path** (`cmd/invowk/root.go`):
+   - ~~Already documented in `specs/next/pending-features.md`~~ Archived to `specs/completed/pending-features.md`.
+   - Implementation requires config package changes -- **DONE** via `ConfigProvider` interface.
 
-**Implementation Steps**:
-
-See `specs/next/pending-features.md` for detailed implementation plans.
+2. **Force Rebuild Option** (`internal/provision/`):
+   - ~~Will be addressed by 3.2 (Extract Provisioning Package)~~ **DONE** via `ExecuteRequest.ForceRebuild`.
 
 **Acceptance Criteria**:
-- [ ] Custom config path working
-- [ ] Force rebuild flag added
-- [ ] TODOs removed from code
-- [ ] Features documented
+- [x] Custom config path working
+- [x] Force rebuild flag added
+- [ ] Verify no other stale TODOs remain in code
+- [ ] Features documented on website
 
 ---
 
@@ -925,26 +936,28 @@ See `specs/next/pending-features.md` for detailed implementation plans.
 
 ## Implementation Order (Recommended)
 
+> **Note**: Items marked with ~~strikethrough~~ were completed by the spec-008 stateless composition refactoring.
+
 ### Phase 1: Quick Wins (1-2 days)
 1. 1.1 - Fix error handling in uroot (2 hours)
 2. 1.3 - Add close error comments (30 minutes)
 3. 4.1 - Add package documentation (2 hours)
 
 ### Phase 2: Core Testability (1 week)
-4. 2.3 - Decompose ExecutionContext (2 days)
+4. ~~2.3 - Decompose ExecutionContext (2 days)~~ **COMPLETED** (spec-008)
 5. 2.1 - Add runtime tests (env.go first) (3 days)
 
 ### Phase 3: Architecture (1 week)
 6. 3.1 - Extract EnvBuilder interface (2 days)
 7. 1.2 - Extract file processing helper (1 day)
-8. 3.2 - Extract provisioning package (2 days)
+8. ~~3.2 - Extract provisioning package (2 days)~~ **COMPLETED** (spec-008)
 
 ### Phase 4: Extended Testing (1 week)
 9. 2.2 - Add container engine tests (2 days)
 10. 2.4 - Add container integration tests (3 days)
 
 ### Phase 5: Polish (3 days)
-11. 4.2 - Resolve TODOs (2 days)
+11. ~~4.2 - Resolve TODOs (2 days)~~ **PARTIALLY COMPLETED** (spec-008: config path + force rebuild done)
 12. 4.3 - Update website docs (1 day)
 13. 3.3 - Create Validator interface (if time permits)
 
@@ -952,16 +965,18 @@ See `specs/next/pending-features.md` for detailed implementation plans.
 
 ## Dependencies Between Items
 
+> Dependencies involving completed items (2.3, 3.2, 4.2) are now unblocked.
+
 ```
 1.1 (error handling) ─────────────────────────────────┐
                                                       │
 1.2 (file helper) ────────────────────────────────────┤
                                                       ├──► 2.1 (runtime tests)
-2.3 (ExecutionContext decomposition) ─────────────────┤
+[DONE] 2.3 (ExecutionContext decomposition) ──────────┤
                                                       │
 3.1 (EnvBuilder) ─────────────────────────────────────┘
 
-3.2 (provisioning package) ──► 4.2 (resolve TODOs - force rebuild)
+[DONE] 3.2 (provisioning package) ──► [DONE] 4.2 (resolve TODOs)
 
 2.1 (runtime tests) ──► 2.4 (container integration tests)
 
@@ -972,11 +987,13 @@ See `specs/next/pending-features.md` for detailed implementation plans.
 
 ## Success Metrics
 
-| Metric | Current | Target |
-|--------|---------|--------|
-| Runtime package test coverage | ~10% | >70% |
-| Container package test coverage | ~20% | >60% |
-| Packages with doc.go | ~60% | 100% |
-| Open TODOs in code | 2 | 0 |
-| Integration test scenarios | 19 | 25+ |
-| Linter warnings | 0 | 0 |
+| Metric | Pre-spec-008 | Post-spec-008 | Target |
+|--------|--------------|---------------|--------|
+| Runtime package test coverage | ~10% | ~10% | >70% |
+| Container package test coverage | ~20% | ~20% | >60% |
+| Packages with doc.go | ~60% | ~60% | 100% |
+| Open TODOs in code | 2 | 0 (config path + force rebuild resolved) | 0 |
+| Integration test scenarios | 19 | 19 | 25+ |
+| Linter warnings | 0 | 0 | 0 |
+| Global config state in execution paths | present | removed (ConfigProvider) | removed |
+| Untyped module command storage | `any` | `ModuleCommands` interface | typed |

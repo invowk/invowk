@@ -13,6 +13,11 @@ paths:
 
 **Naming convention for split files:** `<package>_<concern>_test.go` (e.g., `invkfile_parsing_test.go`, `invkfile_deps_test.go`). Each file should cover a single logical area.
 
+**Splitting protocol:** When moving test functions to a new file, follow the File Splitting Protocol from `go-patterns.md`. The most common mistake is copying tests to the new file but forgetting to delete the originals — Go test files in the same package share a namespace, so duplicate `Test*` function names cause compiler errors. After moving:
+1. Delete the moved test functions from the source file.
+2. Clean up unused imports in the source file (e.g., `"errors"`, `"fmt"` that were only used by moved tests).
+3. Run `go build ./path/to/package/...` immediately to catch duplicates before running `make test`.
+
 ## Test Organization
 
 ### Table-Driven Tests
@@ -318,3 +323,4 @@ defer func() { testutil.MustRemoveAll(t, path) }()
 | Testscript container tests fail with "mkdir /no-home" | Set `HOME` to `env.WorkDir` in Setup |
 | Circular/trivial tests (constant == literal, zero-value == zero) | Test behavioral contracts: sentinel errors with `errors.Is`, default configs that affect user behavior, state machine transitions |
 | Pattern guardrail tests fail after adding comments | `TestNoGlobalConfigAccess` scans all non-test `.go` files for prohibited call signatures using raw `strings.Contains`. Comments mentioning deprecated APIs (e.g., the old global config accessor) must use indirect phrasing. See go-patterns.md "Guardrail-safe references" |
+| Duplicate `Test*` declarations after file split | When splitting test files to stay under 800 lines, delete moved functions from the source file and clean up orphaned imports. Run `go build` before `make test` to catch duplicates early. See go-patterns.md "File Splitting Protocol" |

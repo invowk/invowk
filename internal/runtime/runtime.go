@@ -298,17 +298,6 @@ func (r *Registry) Get(typ RuntimeType) (Runtime, error) {
 	return rt, nil
 }
 
-// GetForCommand returns the appropriate runtime for a command based on its default runtime for current platform.
-//
-// Deprecated: Use GetForContext instead. GetForCommand uses the command's default runtime
-// for the current platform, ignoring any CLI runtime override (--runtime flag). GetForContext
-// respects ExecutionContext.SelectedRuntime, which is set after CLI flag processing.
-func (r *Registry) GetForCommand(cmd *invkfile.Command) (Runtime, error) {
-	currentPlatform := invkfile.GetCurrentHostOS()
-	typ := RuntimeType(cmd.GetDefaultRuntimeForPlatform(currentPlatform))
-	return r.Get(typ)
-}
-
 // GetForContext returns the appropriate runtime based on the execution context's selected runtime
 func (r *Registry) GetForContext(ctx *ExecutionContext) (Runtime, error) {
 	typ := RuntimeType(ctx.SelectedRuntime)

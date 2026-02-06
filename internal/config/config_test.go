@@ -270,9 +270,6 @@ func TestLoad_ReturnsDefaultsWhenNoConfigFile(t *testing.T) {
 	tmpDir := t.TempDir()
 	configDir := filepath.Join(tmpDir, AppName)
 
-	SetConfigDirOverride(configDir)
-	defer Reset()
-
 	// Change to temp dir to avoid loading config from current directory
 	restoreWd := testutil.MustChdir(t, tmpDir)
 	defer restoreWd()
@@ -348,9 +345,6 @@ func TestLoad_EmptyFile(t *testing.T) {
 	restoreWd := testutil.MustChdir(t, tmpDir)
 	defer restoreWd()
 
-	SetConfigDirOverride(configDir)
-	defer Reset()
-
 	cfg, _, err := loadWithOptions(context.Background(), LoadOptions{
 		ConfigDirPath: configDir,
 	})
@@ -392,9 +386,6 @@ some_future_field: "value"
 	restoreWd := testutil.MustChdir(t, tmpDir)
 	defer restoreWd()
 
-	SetConfigDirOverride(configDir)
-	defer Reset()
-
 	// The CUE schema may reject unknown fields or may ignore them.
 	// Either behavior is acceptable; the key invariant is that the
 	// function does not panic or return a nil config without an error.
@@ -431,9 +422,6 @@ func TestLoad_MalformedCUE_PartiallyValid(t *testing.T) {
 
 	restoreWd := testutil.MustChdir(t, tmpDir)
 	defer restoreWd()
-
-	SetConfigDirOverride(configDir)
-	defer Reset()
 
 	_, _, err := loadWithOptions(context.Background(), LoadOptions{
 		ConfigDirPath: configDir,
