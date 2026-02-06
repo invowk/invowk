@@ -3,10 +3,9 @@
 package discovery
 
 import (
+	"context"
 	"fmt"
-	"os"
 	"sort"
-	"strings"
 
 	"invowk-cli/pkg/invkfile"
 )
@@ -134,47 +133,43 @@ func (s *DiscoveredCommandSet) Analyze() {
 	})
 }
 
-// DiscoverCommands finds all available commands from all invkfiles.
-// Commands are aggregated from the root invkfile and all sibling modules,
-// with conflict detection for commands that share the same simple name.
-//
-// For non-module sources (current dir, user dir, config paths), the original
-// precedence behavior is maintained - higher precedence wins.
-// For modules in the current directory, all commands are included with
-// conflict detection when names collide across sources.
-//
-// This method delegates to DiscoverCommandSet() and extracts the sorted command list.
-func (d *Discovery) DiscoverCommands() ([]*CommandInfo, error) {
-	commandSet, err := d.DiscoverCommandSet()
-	if err != nil {
-		return nil, err
-	}
-
-	// Sort commands by name for consistent ordering
-	sort.Slice(commandSet.Commands, func(i, j int) bool {
-		return commandSet.Commands[i].Name < commandSet.Commands[j].Name
-	})
-
-	return commandSet.Commands, nil
-}
-
 // DiscoverCommandSet finds all available commands and returns them as a
 // DiscoveredCommandSet with conflict analysis. This is useful for CLI listing
 // where commands need to be grouped by source with ambiguity annotations.
-func (d *Discovery) DiscoverCommandSet() (*DiscoveredCommandSet, error) {
+func (d *Discovery) DiscoverCommandSet(ctx context.Context) (CommandSetResult, error) {
+	select {
+	case <-ctx.Done():
+		return CommandSetResult{}, ctx.Err()
+	default:
+	}
+
 	files, err := d.LoadAll()
 	if err != nil {
-		return nil, err
+		return CommandSetResult{}, err
 	}
 
 	commandSet := NewDiscoveredCommandSet()
+	diagnostics := make([]Diagnostic, 0)
 	// Track seen commands for precedence within non-module sources
 	seenNonModule := make(map[string]bool)
 
 	for _, file := range files {
+		select {
+		case <-ctx.Done():
+			return CommandSetResult{}, ctx.Err()
+		default:
+		}
+
 		if file.Error != nil {
-			// Log parsing errors to help diagnose discovery issues
-			fmt.Fprintf(os.Stderr, "Warning: skipping invkfile at %s: %v\n", file.Path, file.Error)
+			// Parse failures are recoverable for discovery: keep traversing and
+			// return structured diagnostics to the caller instead of writing output.
+			diagnostics = append(diagnostics, Diagnostic{
+				Severity: SeverityWarning,
+				Code:     "invkfile_parse_skipped",
+				Message:  fmt.Sprintf("skipping invkfile at %s: %v", file.Path, file.Error),
+				Path:     file.Path,
+				Cause:    file.Error,
+			})
 			continue
 		}
 		if file.Invkfile == nil {
@@ -228,73 +223,50 @@ func (d *Discovery) DiscoverCommandSet() (*DiscoveredCommandSet, error) {
 
 	// Analyze for conflicts
 	commandSet.Analyze()
+	sort.Slice(commandSet.Commands, func(i, j int) bool {
+		return commandSet.Commands[i].Name < commandSet.Commands[j].Name
+	})
 
-	return commandSet, nil
-}
-
-// DiscoverAndValidateCommands finds all commands and validates the command tree.
-// Returns an error if any command has both args and subcommands (leaf-only args constraint).
-// This method should be used instead of DiscoverCommands() when you want to ensure
-// the command tree is structurally valid before proceeding with registration.
-func (d *Discovery) DiscoverAndValidateCommands() ([]*CommandInfo, error) {
-	commands, err := d.DiscoverCommands()
-	if err != nil {
-		return nil, err
-	}
-
-	if err := ValidateCommandTree(commands); err != nil {
-		return nil, err
-	}
-
-	return commands, nil
+	return CommandSetResult{Set: commandSet, Diagnostics: diagnostics}, nil
 }
 
 // DiscoverAndValidateCommandSet finds all commands as a DiscoveredCommandSet
 // and validates the command tree. This method provides access to ambiguity
 // detection through AmbiguousNames, enabling transparent namespace for
 // unambiguous commands and disambiguation for ambiguous ones.
-func (d *Discovery) DiscoverAndValidateCommandSet() (*DiscoveredCommandSet, error) {
-	commandSet, err := d.DiscoverCommandSet()
+func (d *Discovery) DiscoverAndValidateCommandSet(ctx context.Context) (CommandSetResult, error) {
+	result, err := d.DiscoverCommandSet(ctx)
 	if err != nil {
-		return nil, err
+		return CommandSetResult{}, err
 	}
 
-	if err := ValidateCommandTree(commandSet.Commands); err != nil {
-		return nil, err
+	if err := ValidateCommandTree(result.Set.Commands); err != nil {
+		return result, err
 	}
 
-	return commandSet, nil
+	return result, nil
 }
 
 // GetCommand finds a specific command by name
-func (d *Discovery) GetCommand(name string) (*CommandInfo, error) {
-	commands, err := d.DiscoverCommands()
+func (d *Discovery) GetCommand(ctx context.Context, name string) (LookupResult, error) {
+	result, err := d.DiscoverCommandSet(ctx)
 	if err != nil {
-		return nil, err
+		return LookupResult{}, err
 	}
 
-	for _, cmd := range commands {
+	for _, cmd := range result.Set.Commands {
 		if cmd.Name == name {
-			return cmd, nil
+			return LookupResult{Command: cmd, Diagnostics: result.Diagnostics}, nil
 		}
 	}
 
-	return nil, fmt.Errorf("command '%s' not found", name)
-}
+	// Command-not-found is represented as a diagnostic so CLI callers can choose
+	// the rendering policy (execute/list/completion) consistently.
+	result.Diagnostics = append(result.Diagnostics, Diagnostic{
+		Severity: SeverityError,
+		Code:     "command_not_found",
+		Message:  fmt.Sprintf("command '%s' not found", name),
+	})
 
-// GetCommandsWithPrefix returns commands that start with the given prefix
-func (d *Discovery) GetCommandsWithPrefix(prefix string) ([]*CommandInfo, error) {
-	commands, err := d.DiscoverCommands()
-	if err != nil {
-		return nil, err
-	}
-
-	var matching []*CommandInfo
-	for _, cmd := range commands {
-		if prefix == "" || strings.HasPrefix(cmd.Name, prefix) {
-			matching = append(matching, cmd)
-		}
-	}
-
-	return matching, nil
+	return LookupResult{Diagnostics: result.Diagnostics}, nil
 }

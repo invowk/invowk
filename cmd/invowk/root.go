@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"os"
 
-	"invowk-cli/internal/config"
 	"invowk-cli/internal/issue"
 
 	"github.com/charmbracelet/fang"
@@ -22,16 +21,19 @@ var (
 	Commit = "unknown"
 	// BuildDate is the build timestamp (set via -ldflags).
 	BuildDate = "unknown"
+)
 
-	// Verbose enables verbose output
-	verbose bool
-	// cfgFile allows specifying a custom config file
-	cfgFile string
-	// interactive enables alternate screen buffer mode for command execution
+type rootFlagValues struct {
+	verbose     bool
 	interactive bool
+	configPath  string
+}
 
-	// rootCmd represents the base command when called without any subcommands
-	rootCmd = &cobra.Command{
+// NewRootCommand creates the root Cobra command.
+func NewRootCommand(app *App) *cobra.Command {
+	rootFlags := &rootFlagValues{}
+
+	rootCmd := &cobra.Command{
 		Use:   "invowk",
 		Short: "A dynamically extensible command runner",
 		Long: TitleStyle.Render("invowk") + SubtitleStyle.Render(" - A dynamically extensible command runner") + `
@@ -53,23 +55,44 @@ be organized hierarchically with support for dependencies.
   invowk init               Create a new invkfile
   invowk config show        Show current configuration`,
 	}
-)
 
-func init() {
-	cobra.OnInitialize(initRootConfig)
+	rootCmd.PersistentFlags().BoolVarP(&rootFlags.verbose, "verbose", "v", false, "enable verbose output")
+	rootCmd.PersistentFlags().StringVar(&rootFlags.configPath, "config", "", "config file (default is $HOME/.config/invowk/config.cue)")
+	rootCmd.PersistentFlags().BoolVarP(&rootFlags.interactive, "interactive", "i", false, "run commands in alternate screen buffer (interactive mode)")
 
-	// Global flags
-	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "enable verbose output")
-	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.config/invowk/config.cue)")
-	rootCmd.PersistentFlags().BoolVarP(&interactive, "interactive", "i", false, "run commands in alternate screen buffer (interactive mode)")
-
-	// Add subcommands
-	rootCmd.AddCommand(cmdCmd)
+	rootCmd.AddCommand(newCmdCommand(app, rootFlags))
 	rootCmd.AddCommand(initCmd)
 	rootCmd.AddCommand(configCmd)
 	rootCmd.AddCommand(completionCmd)
 	rootCmd.AddCommand(tuiCmd)
 	rootCmd.AddCommand(moduleCmd)
+	rootCmd.AddCommand(internalCmd)
+
+	return rootCmd
+}
+
+// Execute runs the invowk CLI.
+func Execute() {
+	app, err := NewApp(Dependencies{})
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to initialize app: %v\n", err)
+		os.Exit(1)
+	}
+
+	rootCmd := NewRootCommand(app)
+
+	if err := fang.Execute(
+		context.Background(),
+		rootCmd,
+		fang.WithVersion(getVersionString()),
+		fang.WithNotifySignal(os.Interrupt),
+	); err != nil {
+		exitErr := (*ExitError)(nil)
+		if errors.As(err, &exitErr) {
+			os.Exit(exitErr.Code)
+		}
+		os.Exit(1)
+	}
 }
 
 // getVersionString returns a formatted version string for display.
@@ -80,67 +103,12 @@ func getVersionString() string {
 	return fmt.Sprintf("%s (commit: %s, built: %s)", Version, Commit, BuildDate)
 }
 
-// Execute adds all child commands to the root command and sets flags appropriately.
-// This is called by main.main(). It only needs to happen once to the rootCmd.
-func Execute() {
-	// Use fang.Execute for enhanced Cobra styling
-	// Pass version via fang.WithVersion() since fang overrides rootCmd.Version
-	if err := fang.Execute(
-		context.Background(),
-		rootCmd,
-		fang.WithVersion(getVersionString()),
-		fang.WithNotifySignal(os.Interrupt),
-	); err != nil {
-		var exitErr *ExitError
-		if errors.As(err, &exitErr) {
-			os.Exit(exitErr.Code)
-		}
-		os.Exit(1)
-	}
-}
-
-// initRootConfig reads in config file and ENV variables if set.
-func initRootConfig() {
-	// Set custom config file path if provided via --config flag
-	if cfgFile != "" {
-		config.SetConfigFilePathOverride(cfgFile)
-	}
-
-	// Load configuration
-	cfg, err := config.Load()
-	if err != nil {
-		// Always surface config loading errors to the user (FR-011)
-		fmt.Fprintln(os.Stderr, WarningStyle.Render("Warning: ")+formatErrorForDisplay(err, verbose))
-	}
-
-	// Apply verbose from config if not set via flag
-	if cfg != nil && !verbose {
-		verbose = cfg.UI.Verbose
-	}
-
-	// Apply interactive from config if not set via flag
-	if cfg != nil && !interactive {
-		interactive = cfg.UI.Interactive
-	}
-}
-
 // formatErrorForDisplay formats an error for user display.
-// If the error is an ActionableError, it uses the Format method.
-// In verbose mode, shows the full error chain.
 func formatErrorForDisplay(err error, verboseMode bool) string {
-	var ae *issue.ActionableError
+	ae := (*issue.ActionableError)(nil)
 	if errors.As(err, &ae) {
 		return ae.Format(verboseMode)
 	}
+
 	return err.Error()
-}
-
-// GetVerbose returns the verbose flag value
-func GetVerbose() bool {
-	return verbose
-}
-
-// GetInteractive returns the interactive flag value
-func GetInteractive() bool {
-	return interactive
 }

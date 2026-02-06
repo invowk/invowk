@@ -13,6 +13,8 @@
 
 - Keep changes focused and maintainable; favor small, testable units when designing changes.
 - Use clear, descriptive naming and follow language/project conventions.
+- Prefer explicit dependency injection and request-scoped inputs over global mutable state.
+- Keep orchestration/parsing/rendering concerns separate from domain logic; adapters call services, services return typed results.
 
 ## Comments
 

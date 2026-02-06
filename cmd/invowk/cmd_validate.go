@@ -3,6 +3,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -22,7 +23,7 @@ import (
 // Note: `depends_on.cmds` is an existence check only. Invowk validates that referenced
 // commands are discoverable (in this invkfile, modules, or configured search paths),
 // but it does not execute them automatically.
-func validateDependencies(cmdInfo *discovery.CommandInfo, registry *runtime.Registry, parentCtx *runtime.ExecutionContext) error {
+func validateDependencies(cfg *config.Config, cmdInfo *discovery.CommandInfo, registry *runtime.Registry, parentCtx *runtime.ExecutionContext) error {
 	// Merge root-level, command-level, and implementation-level dependencies
 	mergedDeps := invkfile.MergeDependsOnAll(cmdInfo.Invkfile.DependsOn, cmdInfo.Command.DependsOn, parentCtx.SelectedImpl.DependsOn)
 
@@ -66,25 +67,31 @@ func validateDependencies(cmdInfo *discovery.CommandInfo, registry *runtime.Regi
 	if cmdInfo.Invkfile.Metadata != nil {
 		currentModule = cmdInfo.Invkfile.Metadata.Module
 	}
-	if err := checkCommandDependenciesExist(mergedDeps, currentModule, parentCtx); err != nil {
+	if err := checkCommandDependenciesExist(cfg, mergedDeps, currentModule, parentCtx); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func checkCommandDependenciesExist(deps *invkfile.DependsOn, currentModule string, ctx *runtime.ExecutionContext) error {
+func checkCommandDependenciesExist(cfg *config.Config, deps *invkfile.DependsOn, currentModule string, ctx *runtime.ExecutionContext) error {
 	if deps == nil || len(deps.Commands) == 0 {
 		return nil
 	}
 
-	cfg := config.Get()
 	disc := discovery.New(cfg)
 
-	availableCommands, err := disc.DiscoverCommands()
+	discoverCtx := context.Background()
+	if ctx != nil && ctx.Context != nil {
+		discoverCtx = ctx.Context
+	}
+
+	commandSetResult, err := disc.DiscoverCommandSet(discoverCtx)
 	if err != nil {
 		return fmt.Errorf("failed to discover commands for dependency validation: %w", err)
 	}
+
+	availableCommands := commandSetResult.Set.Commands
 
 	available := make(map[string]struct{}, len(availableCommands))
 	for _, cmd := range availableCommands {

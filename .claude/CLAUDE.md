@@ -33,7 +33,7 @@ Invowk is a dynamically extensible command runner (similar to `just`, `task`, an
 - [`.claude/rules/cue-patterns.md`](.claude/rules/cue-patterns.md) - CUE schema patterns, string validation, common pitfalls.
 - [`.claude/rules/general-rules.md`](.claude/rules/general-rules.md) - Instruction priority, code quality, documentation.
 - [`.claude/rules/git.md`](.claude/rules/git.md) - Commit signing, squash merge, message format.
-- [`.claude/rules/go-patterns.md`](.claude/rules/go-patterns.md) - Go style, naming, errors, interfaces.
+- [`.claude/rules/go-patterns.md`](.claude/rules/go-patterns.md) - Go style, naming, errors, interfaces, comments.
 - [`.claude/rules/licensing.md`](.claude/rules/licensing.md) - SPDX headers and MPL-2.0 rules.
 - [`.claude/rules/package-design.md`](.claude/rules/package-design.md) - Package boundaries and module design.
 - [`.claude/rules/testing.md`](.claude/rules/testing.md) - Test patterns, cross-platform testing, skipOnWindows.

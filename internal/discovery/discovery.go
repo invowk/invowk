@@ -58,12 +58,18 @@ func (d *Discovery) LoadAll() ([]*DiscoveredFile, error) {
 		var parseErr error
 
 		if file.Module != nil {
-			// Use module-aware parsing
-			parsed, err := invkfile.ParseModule(file.Module.Path)
-			if err != nil {
-				parseErr = err
-			} else {
-				inv = invkfile.GetModuleCommands(parsed)
+			// Library-only modules intentionally expose metadata only; they do not
+			// contribute command definitions to discovery output.
+			if file.Module.IsLibraryOnly || file.Path == "" {
+				continue
+			}
+
+			// Parse module invkfile.cue and reattach module metadata so downstream
+			// logic (scope/dependency checks) can treat it as module-backed input.
+			inv, parseErr = invkfile.Parse(file.Path)
+			if parseErr == nil {
+				inv.Metadata = file.Module.Metadata
+				inv.ModulePath = file.Module.Path
 			}
 		} else {
 			inv, parseErr = invkfile.Parse(file.Path)
@@ -95,12 +101,17 @@ func (d *Discovery) LoadFirst() (*DiscoveredFile, error) {
 	var parseErr error
 
 	if file.Module != nil {
-		// Use module-aware parsing
-		parsed, err := invkfile.ParseModule(file.Module.Path)
-		if err != nil {
-			parseErr = err
-		} else {
-			inv = invkfile.GetModuleCommands(parsed)
+		// Library-only modules can be discovered first; they are valid, but have
+		// no command-bearing invkfile to load.
+		if file.Module.IsLibraryOnly || file.Path == "" {
+			file.Invkfile = nil
+			return file, nil
+		}
+
+		inv, parseErr = invkfile.Parse(file.Path)
+		if parseErr == nil {
+			inv.Metadata = file.Module.Metadata
+			inv.ModulePath = file.Module.Path
 		}
 	} else {
 		inv, parseErr = invkfile.Parse(file.Path)

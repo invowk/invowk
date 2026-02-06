@@ -3,9 +3,11 @@
 package discovery
 
 import (
+	"context"
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"invowk-cli/internal/config"
@@ -463,10 +465,11 @@ cmds: [
 	cfg := config.DefaultConfig()
 	d := New(cfg)
 
-	commands, err := d.DiscoverCommands()
+	result, err := d.DiscoverCommandSet(context.Background())
 	if err != nil {
-		t.Fatalf("DiscoverCommands() returned error: %v", err)
+		t.Fatalf("DiscoverCommandSet() returned error: %v", err)
 	}
+	commands := result.Set.Commands
 
 	if len(commands) != 2 {
 		t.Errorf("DiscoverCommands() returned %d commands, want 2", len(commands))
@@ -505,9 +508,13 @@ cmds: [
 
 	t.Run("ExistingCommand", func(t *testing.T) {
 		// Current-dir invkfiles don't have module prefix
-		cmd, err := d.GetCommand("build")
+		lookup, err := d.GetCommand(context.Background(), "build")
 		if err != nil {
 			t.Fatalf("GetCommand() returned error: %v", err)
+		}
+		cmd := lookup.Command
+		if cmd == nil {
+			t.Fatal("GetCommand() returned nil command")
 		}
 
 		if cmd.Name != "build" {
@@ -516,9 +523,14 @@ cmds: [
 	})
 
 	t.Run("NonExistentCommand", func(t *testing.T) {
-		_, err := d.GetCommand("nonexistent")
+		lookup, err := d.GetCommand(context.Background(), "nonexistent")
 		if err == nil {
-			t.Error("GetCommand() should return error for non-existent command")
+			if lookup.Command != nil {
+				t.Error("GetCommand() should return nil command for non-existent command")
+			}
+			if len(lookup.Diagnostics) == 0 {
+				t.Error("GetCommand() should return diagnostics for non-existent command")
+			}
 		}
 	})
 }
@@ -547,37 +559,39 @@ cmds: [
 	cfg := config.DefaultConfig()
 	d := New(cfg)
 
-	t.Run("EmptyPrefix", func(t *testing.T) {
-		commands, err := d.GetCommandsWithPrefix("")
-		if err != nil {
-			t.Fatalf("GetCommandsWithPrefix() returned error: %v", err)
-		}
+	result, err := d.DiscoverCommandSet(context.Background())
+	if err != nil {
+		t.Fatalf("DiscoverCommandSet() returned error: %v", err)
+	}
 
+	filterPrefix := func(prefix string) []*CommandInfo {
+		matching := make([]*CommandInfo, 0)
+		for _, cmd := range result.Set.Commands {
+			if prefix == "" || strings.HasPrefix(cmd.Name, prefix) {
+				matching = append(matching, cmd)
+			}
+		}
+		return matching
+	}
+
+	t.Run("EmptyPrefix", func(t *testing.T) {
+		commands := filterPrefix("")
 		if len(commands) != 3 {
-			t.Errorf("GetCommandsWithPrefix('') returned %d commands, want 3", len(commands))
+			t.Errorf("prefix filter returned %d commands, want 3", len(commands))
 		}
 	})
 
 	t.Run("BuildPrefix", func(t *testing.T) {
-		// Current-dir invkfiles have no module prefix
-		commands, err := d.GetCommandsWithPrefix("build")
-		if err != nil {
-			t.Fatalf("GetCommandsWithPrefix() returned error: %v", err)
-		}
-
+		commands := filterPrefix("build")
 		if len(commands) != 2 {
-			t.Errorf("GetCommandsWithPrefix('build') returned %d commands, want 2", len(commands))
+			t.Errorf("prefix filter returned %d commands, want 2", len(commands))
 		}
 	})
 
 	t.Run("NoMatch", func(t *testing.T) {
-		commands, err := d.GetCommandsWithPrefix("xyz")
-		if err != nil {
-			t.Fatalf("GetCommandsWithPrefix() returned error: %v", err)
-		}
-
+		commands := filterPrefix("xyz")
 		if len(commands) != 0 {
-			t.Errorf("GetCommandsWithPrefix('xyz') returned %d commands, want 0", len(commands))
+			t.Errorf("prefix filter returned %d commands, want 0", len(commands))
 		}
 	})
 }
@@ -614,10 +628,11 @@ cmds: [{name: "build", description: "User build", implementations: [{script: "ec
 	cfg := config.DefaultConfig()
 	d := New(cfg)
 
-	commands, err := d.DiscoverCommands()
+	result, err := d.DiscoverCommandSet(context.Background())
 	if err != nil {
-		t.Fatalf("DiscoverCommands() returned error: %v", err)
+		t.Fatalf("DiscoverCommandSet() returned error: %v", err)
 	}
+	commands := result.Set.Commands
 
 	// Should only have one "build" command (from current directory, higher precedence)
 	// With no module field, command is just "build" not "project build"

@@ -3,12 +3,11 @@
 package cmd
 
 import (
+	"context"
 	"errors"
 	"fmt"
-	"os"
 	"strings"
 
-	"invowk-cli/internal/config"
 	"invowk-cli/internal/discovery"
 	"invowk-cli/internal/issue"
 	"invowk-cli/pkg/invkfile"
@@ -18,50 +17,36 @@ import (
 )
 
 // registerDiscoveredCommands adds discovered commands as subcommands.
-// For transparent namespace support (US2), unambiguous commands are registered
-// under their SimpleName, allowing `invowk cmd build` to work when only one
-// source defines "build". Ambiguous commands are NOT registered - they require
-// explicit disambiguation via @source or --from.
-func registerDiscoveredCommands() {
-	cfg := config.Get()
-	disc := discovery.New(cfg)
-
-	commandSet, err := disc.DiscoverAndValidateCommandSet()
+func registerDiscoveredCommands(ctx context.Context, app *App, rootFlags *rootFlagValues, cmdFlags *cmdFlagValues, cmdCmd *cobra.Command) {
+	lookupCtx := contextWithConfigPath(ctx, rootFlags.configPath)
+	result, err := app.Discovery.DiscoverAndValidateCommandSet(lookupCtx)
 	if err != nil {
-		// Check for args/subcommand conflict - this is now a hard error
-		var conflictErr *discovery.ArgsSubcommandConflictError
-		if errors.As(err, &conflictErr) {
-			fmt.Fprintf(os.Stderr, "\n%s\n\n", RenderArgsSubcommandConflictError(conflictErr))
-			os.Exit(1)
-		}
-		return // Silently fail during init for other errors
+		// Dynamic registration is best-effort: command execution paths perform
+		// validation again and surface actionable errors when needed.
+		return
 	}
 
-	// Build command tree for commands with spaces in names
+	commandSet := result.Set
+	// commandMap tracks synthesized nodes for space-separated command names.
 	commandMap := make(map[string]*cobra.Command)
-	// Track which prefixes are ambiguous so parent commands can check
+	// Ambiguous prefixes are preserved as parent nodes so they can render
+	// disambiguation guidance when invoked directly.
 	ambiguousPrefixes := make(map[string]bool)
 	for name := range commandSet.AmbiguousNames {
 		ambiguousPrefixes[name] = true
 	}
 
-	// Register commands using SimpleName for unambiguous commands (transparent namespace)
 	for _, cmdInfo := range commandSet.Commands {
-		// Skip ambiguous commands - they require explicit disambiguation via @source or --from
-		// This ensures `invowk cmd deploy` fails with a helpful message when deploy exists
-		// in multiple sources, rather than silently picking one or failing obscurely
+		// Ambiguous leaf names are intentionally excluded from transparent
+		// registration and must be executed via source disambiguation.
 		if commandSet.AmbiguousNames[cmdInfo.SimpleName] {
 			continue
 		}
 
 		registrationName := cmdInfo.SimpleName
-
-		// Split registration name by spaces (e.g., "deploy staging" -> ["deploy", "staging"])
 		parts := strings.Fields(registrationName)
-
-		// Create parent commands if needed
 		parent := cmdCmd
-		var prefix string
+		prefix := ""
 
 		for i, part := range parts {
 			if prefix != "" {
@@ -74,41 +59,33 @@ func registerDiscoveredCommands() {
 				continue
 			}
 
-			// Create new command
 			isLeaf := i == len(parts)-1
 			var newCmd *cobra.Command
-
 			if isLeaf {
-				newCmd = buildLeafCommand(cmdInfo, part)
+				newCmd = buildLeafCommand(app, rootFlags, cmdFlags, cmdInfo, part)
 			} else {
-				// Parent command for nested structure.
-				// If this parent's name is ambiguous, we need to check for ambiguity
-				// and fail with a helpful message instead of showing help.
-				parentPrefix := prefix // Capture for closure
+				// Parent nodes exist to support nested command trees and ambiguity
+				// handling for intermediate prefixes.
+				parentPrefix := prefix
 				isAmbiguous := ambiguousPrefixes[parentPrefix]
 				newCmd = &cobra.Command{
 					Use:   part,
 					Short: fmt.Sprintf("Commands under '%s'", prefix),
 					RunE: func(cmd *cobra.Command, args []string) error {
-						// Check if --from flag was specified
 						fromFlag, _ := cmd.Flags().GetString("from")
 						if fromFlag != "" {
-							// Delegate to runDisambiguatedCommand with the full command path
+							// Preserve full path for longest-match disambiguation.
 							fullArgs := append(strings.Fields(parentPrefix), args...)
-							filter := &SourceFilter{
-								SourceID: normalizeSourceName(fromFlag),
-								Raw:      fromFlag,
-							}
-							return runDisambiguatedCommand(filter, fullArgs)
+							filter := &SourceFilter{SourceID: normalizeSourceName(fromFlag), Raw: fromFlag}
+							return runDisambiguatedCommand(cmd, app, rootFlags, cmdFlags, filter, fullArgs)
 						}
 
-						// If this command name is ambiguous, show ambiguity error
 						if isAmbiguous {
 							cmdArgs := append(strings.Fields(parentPrefix), args...)
-							if err := checkAmbiguousCommand(cmdArgs); err != nil {
+							if err := checkAmbiguousCommand(cmd.Context(), app, rootFlags, cmdArgs); err != nil {
 								ambigErr := (*AmbiguousCommandError)(nil)
 								if errors.As(err, &ambigErr) {
-									fmt.Fprint(os.Stderr, RenderAmbiguousCommandError(ambigErr))
+									fmt.Fprint(app.stderr, RenderAmbiguousCommandError(ambigErr))
 									cmd.SilenceErrors = true
 									cmd.SilenceUsage = true
 								}
@@ -116,7 +93,7 @@ func registerDiscoveredCommands() {
 							}
 						}
 
-						// Not ambiguous (or didn't match ambiguous pattern), show help
+						// Non-ambiguous parents behave as help-only namespaces.
 						return cmd.Help()
 					},
 				}
@@ -129,17 +106,15 @@ func registerDiscoveredCommands() {
 	}
 }
 
-// buildLeafCommand creates a Cobra command for a leaf command (one that actually runs something).
-// Extracted to reduce complexity in registerDiscoveredCommands.
-func buildLeafCommand(cmdInfo *discovery.CommandInfo, cmdPart string) *cobra.Command {
-	// Capture for closures - these are used in the RunE function
-	cmdName := cmdInfo.Name             // Full name for command execution
-	cmdSimpleName := cmdInfo.SimpleName // SimpleName for source matching
-	cmdSourceID := cmdInfo.SourceID     // SourceID to check against --from filter
-	cmdFlags := cmdInfo.Command.Flags   // Flags for this command
-	cmdArgs := cmdInfo.Command.Args     // Positional args for this command
+// buildLeafCommand creates a Cobra command for a leaf command.
+func buildLeafCommand(app *App, rootFlags *rootFlagValues, cmdFlags *cmdFlagValues, cmdInfo *discovery.CommandInfo, cmdPart string) *cobra.Command {
+	// Capture immutable values for closures created per discovered command.
+	cmdName := cmdInfo.Name
+	cmdSimpleName := cmdInfo.SimpleName
+	cmdSourceID := cmdInfo.SourceID
+	cmdRuntimeFlags := cmdInfo.Command.Flags
+	cmdArgs := cmdInfo.Command.Args
 
-	// Build usage string with args
 	useStr := buildCommandUsageString(cmdPart, cmdArgs)
 
 	newCmd := &cobra.Command{
@@ -147,29 +122,20 @@ func buildLeafCommand(cmdInfo *discovery.CommandInfo, cmdPart string) *cobra.Com
 		Short: cmdInfo.Description,
 		Long:  fmt.Sprintf("Run the '%s' command from %s", cmdInfo.Name, cmdInfo.FilePath),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			// Check if --from flag was specified (inherited from parent).
-			// If so, we need to verify this command matches the requested source,
-			// or delegate to the correct source's command.
 			fromFlag, _ := cmd.Flags().GetString("from")
 			if fromFlag != "" {
-				filter := &SourceFilter{
-					SourceID: normalizeSourceName(fromFlag),
-					Raw:      fromFlag,
-				}
-
-				// If this command's source doesn't match the filter, we need to
-				// find and execute the correct command from the requested source.
+				filter := &SourceFilter{SourceID: normalizeSourceName(fromFlag), Raw: fromFlag}
+				// If Cobra routed to the wrong source-specific leaf, delegate to
+				// source-aware lookup instead of executing the wrong command.
 				if filter.SourceID != cmdSourceID {
-					// Build the full command path from the command tree
-					// (this command was routed to by Cobra based on SimpleName)
-					return runDisambiguatedCommand(filter, append(strings.Fields(cmdSimpleName), args...))
+					return runDisambiguatedCommand(cmd, app, rootFlags, cmdFlags, filter, append(strings.Fields(cmdSimpleName), args...))
 				}
-				// Source matches - continue to execute this command
 			}
 
-			// Extract flag values from Cobra command based on type
+			// Extract typed flag values from Cobra state for service-side validation
+			// and INVOWK_FLAG_* environment projection.
 			flagValues := make(map[string]string)
-			for _, flag := range cmdFlags {
+			for _, flag := range cmdRuntimeFlags {
 				var val string
 				var err error
 				switch flag.GetType() {
@@ -199,67 +165,63 @@ func buildLeafCommand(cmdInfo *discovery.CommandInfo, cmdPart string) *cobra.Com
 				}
 			}
 
-			// Extract --env-file flag values
 			envFiles, _ := cmd.Flags().GetStringArray("env-file")
-
-			// Extract --env-var flag values and parse KEY=VALUE pairs
 			envVarFlags, _ := cmd.Flags().GetStringArray("env-var")
 			envVars := parseEnvVarFlags(envVarFlags)
-
-			// Extract --workdir flag value
 			workdirOverride, _ := cmd.Flags().GetString("workdir")
-
-			// Extract env inherit flags
 			envInheritMode, _ := cmd.Flags().GetString("env-inherit-mode")
 			envInheritAllow, _ := cmd.Flags().GetStringArray("env-inherit-allow")
 			envInheritDeny, _ := cmd.Flags().GetStringArray("env-inherit-deny")
 
-			err := runCommandWithFlags(runCommandOptions{
-				CommandName:             cmdName,
-				Args:                    args,
-				FlagValues:              flagValues,
-				FlagDefs:                cmdFlags,
-				ArgDefs:                 cmdArgs,
-				RuntimeEnvFiles:         envFiles,
-				RuntimeEnvVars:          envVars,
-				WorkdirOverride:         workdirOverride,
-				EnvInheritModeOverride:  envInheritMode,
-				EnvInheritAllowOverride: envInheritAllow,
-				EnvInheritDenyOverride:  envInheritDeny,
-			})
+			verbose, interactive := resolveUIFlags(cmd.Context(), app, cmd, rootFlags)
+			req := ExecuteRequest{
+				Name:            cmdName,
+				Args:            args,
+				Runtime:         cmdFlags.runtimeOverride,
+				Interactive:     interactive,
+				Verbose:         verbose,
+				FromSource:      cmdFlags.fromSource,
+				ForceRebuild:    cmdFlags.forceRebuild,
+				Workdir:         workdirOverride,
+				EnvFiles:        envFiles,
+				EnvVars:         envVars,
+				ConfigPath:      rootFlags.configPath,
+				FlagValues:      flagValues,
+				FlagDefs:        cmdRuntimeFlags,
+				ArgDefs:         cmdArgs,
+				EnvInheritMode:  envInheritMode,
+				EnvInheritAllow: envInheritAllow,
+				EnvInheritDeny:  envInheritDeny,
+			}
+
+			err := executeRequest(cmd, app, req)
 			if err != nil {
-				var exitErr *ExitError
+				exitErr := (*ExitError)(nil)
 				if errors.As(err, &exitErr) {
 					cmd.SilenceErrors = true
 					cmd.SilenceUsage = true
 				}
 			}
+
 			return err
 		},
 		Args: buildCobraArgsValidator(cmdArgs),
 	}
 
-	// Add the reserved --env-file flag for loading environment variables from files
+	// Reserved runtime flags are injected for every discovered leaf.
 	newCmd.Flags().StringArrayP("env-file", "e", nil, "load environment variables from file(s) (can be specified multiple times)")
-
-	// Add the reserved --env-var flag for setting environment variables
 	newCmd.Flags().StringArrayP("env-var", "E", nil, "set environment variable (KEY=VALUE, can be specified multiple times)")
-
-	// Add the reserved flags for host env inheritance
 	newCmd.Flags().String("env-inherit-mode", "", "inherit host environment variables: none, allow, all (overrides runtime config)")
 	newCmd.Flags().StringArray("env-inherit-allow", nil, "allowlist for host environment inheritance (repeatable)")
 	newCmd.Flags().StringArray("env-inherit-deny", nil, "denylist for host environment inheritance (repeatable)")
-
-	// Add the reserved --workdir flag for overriding working directory
 	newCmd.Flags().StringP("workdir", "w", "", "override the working directory for this command")
 
-	// Add arguments documentation to Long description
 	if len(cmdArgs) > 0 {
 		newCmd.Long += "\n\nArguments:\n" + buildArgsDocumentation(cmdArgs)
 	}
 
-	// Add flags defined in the command with proper types and short aliases
-	for _, flag := range cmdFlags {
+	for _, flag := range cmdRuntimeFlags {
+		// Project invkfile flag definitions into Cobra flags with matching types.
 		switch flag.GetType() {
 		case invkfile.FlagTypeBool:
 			defaultVal := flag.DefaultValue == "true"
@@ -271,7 +233,7 @@ func buildLeafCommand(cmdInfo *discovery.CommandInfo, cmdPart string) *cobra.Com
 		case invkfile.FlagTypeInt:
 			defaultVal := 0
 			if flag.DefaultValue != "" {
-				_, _ = fmt.Sscanf(flag.DefaultValue, "%d", &defaultVal) // Parse error uses 0
+				_, _ = fmt.Sscanf(flag.DefaultValue, "%d", &defaultVal)
 			}
 			if flag.Short != "" {
 				newCmd.Flags().IntP(flag.Name, flag.Short, defaultVal, flag.Description)
@@ -281,7 +243,7 @@ func buildLeafCommand(cmdInfo *discovery.CommandInfo, cmdPart string) *cobra.Com
 		case invkfile.FlagTypeFloat:
 			defaultVal := 0.0
 			if flag.DefaultValue != "" {
-				_, _ = fmt.Sscanf(flag.DefaultValue, "%f", &defaultVal) // Parse error uses 0.0
+				_, _ = fmt.Sscanf(flag.DefaultValue, "%f", &defaultVal)
 			}
 			if flag.Short != "" {
 				newCmd.Flags().Float64P(flag.Name, flag.Short, defaultVal, flag.Description)
@@ -295,8 +257,8 @@ func buildLeafCommand(cmdInfo *discovery.CommandInfo, cmdPart string) *cobra.Com
 				newCmd.Flags().String(flag.Name, flag.DefaultValue, flag.Description)
 			}
 		}
-		// Mark required flags
 		if flag.Required {
+			// Required markers are applied at Cobra level for immediate feedback.
 			_ = newCmd.MarkFlagRequired(flag.Name)
 		}
 	}
@@ -304,17 +266,15 @@ func buildLeafCommand(cmdInfo *discovery.CommandInfo, cmdPart string) *cobra.Com
 	return newCmd
 }
 
-// buildCommandUsageString builds the Cobra Use string including argument placeholders
+// buildCommandUsageString builds the Cobra Use string including argument placeholders.
 func buildCommandUsageString(cmdPart string, args []invkfile.Argument) string {
 	if len(args) == 0 {
 		return cmdPart
 	}
 
-	var parts []string
-	parts = append(parts, cmdPart)
-
+	parts := []string{cmdPart}
 	for _, arg := range args {
-		var argStr string
+		argStr := ""
 		switch {
 		case arg.Variadic && arg.Required:
 			argStr = fmt.Sprintf("<%s>...", arg.Name)
@@ -331,21 +291,19 @@ func buildCommandUsageString(cmdPart string, args []invkfile.Argument) string {
 	return strings.Join(parts, " ")
 }
 
-// buildArgsDocumentation builds the documentation string for arguments
+// buildArgsDocumentation builds the documentation string for arguments.
 func buildArgsDocumentation(args []invkfile.Argument) string {
-	var lines []string
+	lines := make([]string, 0, len(args))
 	for _, arg := range args {
-		var status string
+		status := "(optional)"
 		switch {
 		case arg.Required:
 			status = "(required)"
 		case arg.DefaultValue != "":
 			status = fmt.Sprintf("(default: %q)", arg.DefaultValue)
-		default:
-			status = "(optional)"
 		}
 
-		var typeInfo string
+		typeInfo := ""
 		if arg.Type != "" && arg.Type != invkfile.ArgumentTypeString {
 			typeInfo = fmt.Sprintf(" [%s]", arg.Type)
 		}
@@ -357,141 +315,95 @@ func buildArgsDocumentation(args []invkfile.Argument) string {
 
 		lines = append(lines, fmt.Sprintf("  %-20s %s%s%s - %s", arg.Name, status, typeInfo, variadicInfo, arg.Description))
 	}
+
 	return strings.Join(lines, "\n")
 }
 
-// buildCobraArgsValidator creates a Cobra Args validator function for the given argument definitions.
-// It delegates to validateArguments for the actual validation logic.
+// buildCobraArgsValidator creates a Cobra Args validator function for argument definitions.
 func buildCobraArgsValidator(argDefs []invkfile.Argument) cobra.PositionalArgs {
 	if len(argDefs) == 0 {
-		return cobra.ArbitraryArgs // Backward compatible: allow any args if none defined
+		return cobra.ArbitraryArgs
 	}
+
 	return func(cmd *cobra.Command, args []string) error {
 		return validateArguments(cmd.Name(), args, argDefs)
 	}
 }
 
-// completeCommands provides shell completion for commands
-func completeCommands(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-	cfg := config.Get()
-	disc := discovery.New(cfg)
-
-	commands, err := disc.DiscoverCommands()
-	if err != nil {
-		return nil, cobra.ShellCompDirectiveError
-	}
-
-	var completions []string
-	// Build prefix from already-typed args (space-separated)
-	prefix := strings.Join(args, " ")
-	if prefix != "" {
-		prefix += " "
-	}
-
-	for _, cmdInfo := range commands {
-		cmdName := cmdInfo.Name
-
-		// Filter by prefix if we're completing a nested command
-		if prefix != "" && !strings.HasPrefix(cmdName, prefix) {
-			continue
+// completeCommands provides shell completion for commands.
+func completeCommands(app *App, rootFlags *rootFlagValues) func(*cobra.Command, []string, string) ([]string, cobra.ShellCompDirective) {
+	return func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		lookupCtx := contextWithConfigPath(cmd.Context(), rootFlags.configPath)
+		result, err := app.Discovery.DiscoverCommandSet(lookupCtx)
+		if err != nil {
+			return nil, cobra.ShellCompDirectiveError
 		}
 
-		// Remove the prefix to get relative part
-		relativeName := strings.TrimPrefix(cmdName, prefix)
-
-		// Only show the next word
-		parts := strings.Fields(relativeName)
-		if len(parts) == 0 {
-			continue
+		commands := result.Set.Commands
+		// Completion intentionally stays silent for diagnostics to avoid polluting
+		// shell completion output with stderr noise.
+		completions := make([]string, 0)
+		prefix := strings.Join(args, " ")
+		if prefix != "" {
+			prefix += " "
 		}
-		nextPart := parts[0]
 
-		// Check for duplicates
-		found := false
-		for _, c := range completions {
-			if strings.HasPrefix(c, nextPart+"\t") || c == nextPart {
-				found = true
-				break
+		for _, cmdInfo := range commands {
+			cmdName := cmdInfo.Name
+			if prefix != "" && !strings.HasPrefix(cmdName, prefix) {
+				continue
+			}
+
+			relativeName := strings.TrimPrefix(cmdName, prefix)
+			parts := strings.Fields(relativeName)
+			if len(parts) == 0 {
+				continue
+			}
+
+			// Only return the next token for nested command completion.
+			nextPart := parts[0]
+			found := false
+			for _, completion := range completions {
+				if strings.HasPrefix(completion, nextPart+"\t") || completion == nextPart {
+					found = true
+					break
+				}
+			}
+
+			if !found && strings.HasPrefix(nextPart, toComplete) {
+				desc := cmdInfo.Description
+				if len(parts) == 1 && desc != "" {
+					completions = append(completions, nextPart+"\t"+desc)
+				} else {
+					completions = append(completions, nextPart)
+				}
 			}
 		}
-		if !found && strings.HasPrefix(nextPart, toComplete) {
-			desc := cmdInfo.Description
-			if len(parts) == 1 && desc != "" {
-				// This is the actual command, show description
-				completions = append(completions, nextPart+"\t"+desc)
-			} else {
-				completions = append(completions, nextPart)
-			}
-		}
-	}
 
-	return completions, cobra.ShellCompDirectiveNoFileComp
+		return completions, cobra.ShellCompDirectiveNoFileComp
+	}
 }
 
-// listCommands displays all available commands
-func listCommands() error {
-	cfg := config.Get()
-	disc := discovery.New(cfg)
-
-	// First load all files to check for parsing errors
-	files, err := disc.LoadAll()
+// listCommands displays all available commands.
+func listCommands(cmd *cobra.Command, app *App, rootFlags *rootFlagValues) error {
+	lookupCtx := contextWithConfigPath(cmd.Context(), rootFlags.configPath)
+	result, err := app.Discovery.DiscoverCommandSet(lookupCtx)
 	if err != nil {
 		rendered, _ := issue.Get(issue.InvkfileNotFoundId).Render("dark")
-		fmt.Fprint(os.Stderr, rendered)
+		fmt.Fprint(app.stderr, rendered)
 		return err
 	}
+	app.Diagnostics.Render(cmd.Context(), result.Diagnostics, app.stderr)
 
-	// Check if we found any files at all
-	if len(files) == 0 {
+	commandSet := result.Set
+	if commandSet == nil || len(commandSet.Commands) == 0 {
 		rendered, _ := issue.Get(issue.InvkfileNotFoundId).Render("dark")
-		fmt.Fprint(os.Stderr, rendered)
-		return fmt.Errorf("no invkfile found")
-	}
-
-	// Count files with errors and show them
-	filesWithErrors := 0
-	for _, file := range files {
-		if file.Error != nil {
-			filesWithErrors++
-			fmt.Fprintf(os.Stderr, "%s Failed to parse %s: %v\n", ErrorStyle.Render("✗"), file.Path, file.Error)
-		}
-	}
-
-	// If ALL files have errors, show the parse error issue
-	if filesWithErrors == len(files) {
-		rendered, _ := issue.Get(issue.InvkfileParseErrorId).Render("dark")
-		fmt.Fprint(os.Stderr, rendered)
-		return fmt.Errorf("all invkfiles have parsing errors")
-	}
-
-	// Use DiscoverCommandSet to get grouped commands with conflict detection
-	commandSet, err := disc.DiscoverCommandSet()
-	if err != nil {
-		// If we have files but DiscoverCommandSet fails, it's likely a parse error
-		if filesWithErrors > 0 {
-			rendered, _ := issue.Get(issue.InvkfileParseErrorId).Render("dark")
-			fmt.Fprint(os.Stderr, rendered)
-		} else {
-			rendered, _ := issue.Get(issue.InvkfileNotFoundId).Render("dark")
-			fmt.Fprint(os.Stderr, rendered)
-		}
-		return err
-	}
-
-	if len(commandSet.Commands) == 0 {
-		// If we have files with errors and no commands, show parse error
-		if filesWithErrors > 0 {
-			rendered, _ := issue.Get(issue.InvkfileParseErrorId).Render("dark")
-			fmt.Fprint(os.Stderr, rendered)
-		} else {
-			// Files parsed successfully but no commands defined
-			rendered, _ := issue.Get(issue.InvkfileNotFoundId).Render("dark")
-			fmt.Fprint(os.Stderr, rendered)
-		}
+		fmt.Fprint(app.stderr, rendered)
 		return fmt.Errorf("no commands found")
 	}
 
-	// Style for output - derived from shared color constants
+	verbose, _ := resolveUIFlags(cmd.Context(), app, cmd, rootFlags)
+
 	sourceStyle := lipgloss.NewStyle().Foreground(ColorMuted).Italic(true)
 	nameStyle := lipgloss.NewStyle().Foreground(ColorHighlight).Bold(true)
 	descStyle := lipgloss.NewStyle().Foreground(ColorVerbose)
@@ -500,47 +412,22 @@ func listCommands() error {
 	legendStyle := lipgloss.NewStyle().Foreground(ColorVerbose).Italic(true)
 	ambiguousStyle := lipgloss.NewStyle().Foreground(ColorError)
 
-	// Verbose mode: show discovery source details (FR-013)
-	if GetVerbose() {
+	if verbose {
 		fmt.Println(TitleStyle.Render("Discovery Sources"))
 		fmt.Println()
-
-		// Count sources by type and show details
-		var invkfileCount, moduleCount int
-		for _, file := range files {
-			if file.Error != nil {
-				continue
-			}
-			if file.Module != nil {
-				moduleCount++
-			} else {
+		invkfileCount := 0
+		moduleCount := 0
+		for _, sourceID := range commandSet.SourceOrder {
+			if sourceID == discovery.SourceIDInvkfile {
 				invkfileCount++
-			}
-		}
-
-		// Show each discovered file with its source type
-		for _, file := range files {
-			if file.Error != nil {
-				continue
-			}
-			var sourceType string
-			if file.Module != nil {
-				sourceType = fmt.Sprintf("module (%s)", file.Module.Name())
 			} else {
-				sourceType = file.Source.String()
+				moduleCount++
 			}
-			fmt.Printf("  %s %s\n",
-				VerboseHighlightStyle.Render("•"),
-				VerboseStyle.Render(fmt.Sprintf("%s [%s]", file.Path, sourceType)))
+			fmt.Printf("  %s %s\n", VerboseHighlightStyle.Render("•"), VerboseStyle.Render(sourceID))
 		}
 		fmt.Println()
-
-		// Show summary
-		fmt.Printf("  %s\n",
-			VerboseStyle.Render(fmt.Sprintf("Sources: %d invkfile(s), %d module(s)", invkfileCount, moduleCount)))
-		fmt.Printf("  %s\n",
-			VerboseStyle.Render(fmt.Sprintf("Commands: %d total (%d ambiguous)",
-				len(commandSet.Commands), len(commandSet.AmbiguousNames))))
+		fmt.Printf("  %s\n", VerboseStyle.Render(fmt.Sprintf("Sources: %d invkfile(s), %d module(s)", invkfileCount, moduleCount)))
+		fmt.Printf("  %s\n", VerboseStyle.Render(fmt.Sprintf("Commands: %d total (%d ambiguous)", len(commandSet.Commands), len(commandSet.AmbiguousNames))))
 		fmt.Println()
 	}
 
@@ -548,35 +435,29 @@ func listCommands() error {
 	fmt.Println(legendStyle.Render("  (* = default runtime)"))
 	fmt.Println()
 
-	// Iterate in source order (invkfile first, then modules alphabetically)
 	for _, sourceID := range commandSet.SourceOrder {
 		cmds := commandSet.BySource[sourceID]
 		if len(cmds) == 0 {
 			continue
 		}
 
-		// Format source header: "From invkfile:" or "From foo.invkmod:"
 		sourceDisplay := formatSourceDisplayName(sourceID)
 		fmt.Println(sourceStyle.Render(fmt.Sprintf("From %s:", sourceDisplay)))
 
-		for _, cmd := range cmds {
-			// Display SimpleName (unprefixed) instead of full Name (which may be prefixed)
-			line := fmt.Sprintf("  %s", nameStyle.Render(cmd.SimpleName))
-			if cmd.Description != "" {
-				line += fmt.Sprintf(" - %s", descStyle.Render(cmd.Description))
+		for _, discovered := range cmds {
+			line := fmt.Sprintf("  %s", nameStyle.Render(discovered.SimpleName))
+			if discovered.Description != "" {
+				line += fmt.Sprintf(" - %s", descStyle.Render(discovered.Description))
 			}
-			// Show ambiguity annotation if this command name conflicts with another source
-			if cmd.IsAmbiguous {
+			if discovered.IsAmbiguous {
 				line += fmt.Sprintf(" %s", ambiguousStyle.Render("(@"+sourceID+")"))
 			}
-			// Show runtimes with default highlighted for current platform
 			currentPlatform := invkfile.GetCurrentHostOS()
-			runtimesStr := cmd.Command.GetRuntimesStringForPlatform(currentPlatform)
+			runtimesStr := discovered.Command.GetRuntimesStringForPlatform(currentPlatform)
 			if runtimesStr != "" {
 				line += " [" + defaultRuntimeStyle.Render(runtimesStr) + "]"
 			}
-			// Show supported platforms
-			platformsStr := cmd.Command.GetPlatformsString()
+			platformsStr := discovered.Command.GetPlatformsString()
 			if platformsStr != "" {
 				line += fmt.Sprintf(" (%s)", platformsStyle.Render(platformsStr))
 			}
@@ -589,18 +470,13 @@ func listCommands() error {
 }
 
 // formatSourceDisplayName converts a SourceID to a user-friendly display name.
-// "invkfile" -> "invkfile"
-// "foo" -> "foo.invkmod"
-// "current directory" -> "current directory" (legacy non-module sources)
 func formatSourceDisplayName(sourceID string) string {
 	if sourceID == discovery.SourceIDInvkfile {
 		return discovery.SourceIDInvkfile
 	}
-	// Check if it's a legacy source type (from Source.String())
-	// These have spaces and don't need .invkmod suffix
 	if strings.Contains(sourceID, " ") {
 		return sourceID
 	}
-	// Module source - add .invkmod suffix
+
 	return sourceID + ".invkmod"
 }

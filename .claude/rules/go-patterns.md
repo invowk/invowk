@@ -143,6 +143,46 @@ defer func() {
 - Package comments should be in the format `// Package name description.`
 - Use complete sentences starting with the item name.
 
+### Semantic Commenting (CRITICAL)
+
+Comments are not optional decoration. They are part of the contract of the code.
+
+- **Document semantics, not syntax**: Explain intent, behavior, invariants, ownership, lifecycle, precedence, and side effects. Do not restate obvious code.
+- **Document abstractions and interfaces**: For interfaces, explain what the abstraction means, who implements it, and what callers can rely on.
+- **Document function signature meaning**: Clarify non-obvious parameter semantics, required/optional values, return value meaning, error behavior, and context cancellation expectations.
+- **Document field purpose**: Add comments for fields that carry domain meaning, constraints, units, ownership, or cross-component contracts.
+- **Document subtle body logic**: Add inline comments where behavior is easy to misread (fallback chains, precedence rules, best-effort cleanup, intentionally ignored errors, ordering requirements, race-sensitive logic).
+- **Prefer why over what**: If the code already shows what it does, comment why this approach exists.
+
+**When comments are required even for unexported code:**
+- Non-trivial orchestration or state transitions
+- Security-sensitive behavior or validation rules
+- Compatibility behavior and migration shims
+- Error handling decisions that are intentional (for example, continue-on-error paths)
+
+**Comment quality rules:**
+- Keep comments precise and maintainable; update or remove stale comments when code changes.
+- Avoid boilerplate comments that only repeat identifiers.
+- If a block is subtle enough to require rereading, add a short comment before it.
+
+```go
+// GOOD: explains semantics and constraints.
+// ResolveConfigPath applies precedence: CLI flag > env override > default path.
+// It returns an absolute path so downstream checks are deterministic.
+func ResolveConfigPath(cliPath string) (string, error) { ... }
+
+// GOOD: documents abstraction contract.
+// CommandService executes a resolved command request and returns user-renderable diagnostics.
+// Implementations must not write directly to stdout/stderr.
+type CommandService interface {
+    Execute(ctx context.Context, req ExecuteRequest) (ExecuteResult, []Diagnostic, error)
+}
+
+// BAD: restates obvious code.
+// Set x to 10
+x := 10
+```
+
 ```go
 // Package config handles application configuration using Viper with CUE.
 package config
@@ -220,6 +260,33 @@ type Runtime interface {
     Available() bool
     Validate(ctx *ExecutionContext) error
 }
+```
+
+## State and Dependency Patterns
+
+### Prefer Explicit Dependencies Over Global Mutable State
+
+Use constructor-injected dependencies and request-scoped data instead of package-level mutable variables.
+
+- **Do not introduce mutable globals** for runtime flags, config paths, singleton servers, discovered command caches, or cross-command execution state.
+- **Use composition roots** (`NewApp`, `NewService`, dependency structs, functional options) to wire concrete implementations.
+- **Pass request-specific inputs explicitly** (e.g., `ExecuteRequest`, `LoadOptions`) instead of mutating shared package state.
+- **Keep global vars immutable** (constants, build metadata) unless there is a compatibility reason that is documented and tested.
+
+### Separate Orchestration from Domain Logic
+
+- **CLI/transport adapters** (Cobra handlers, HTTP handlers, etc.) should parse input, build request structs, call services, and map errors/results to user output.
+- **Domain/services** should return typed results/diagnostics and avoid terminal writes (`fmt.Print*`, direct stdout/stderr logging).
+- **Rendering policy belongs at the boundary** (CLI layer), not inside discovery/config/runtime domain packages.
+
+```go
+// GOOD: explicit dependency injection and request-scoped execution.
+type CommandService interface {
+    Execute(ctx context.Context, req ExecuteRequest) (ExecuteResult, []Diagnostic, error)
+}
+
+// BAD: hidden mutable state shared by all command executions.
+var currentConfigPath string
 ```
 
 ## Context Usage

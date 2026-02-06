@@ -19,6 +19,9 @@ var invkfileSchema string
 // This is a type alias for invkmod.Module.
 type Module = invkmod.Module
 
+// Ensure Invkfile satisfies the typed module command contract.
+var _ invkmod.ModuleCommands = (*Invkfile)(nil)
+
 // Parse reads and parses an invkfile from the given path.
 func Parse(path string) (*Invkfile, error) {
 	data, err := os.ReadFile(path)
@@ -74,8 +77,6 @@ func ParseInvkmodBytes(data []byte, path string) (*Invkmod, error) {
 //
 // The modulePath should be the path to the module directory (ending in .invkmod).
 // Returns a Module with Metadata from invkmod.cue and Commands from invkfile.cue.
-// Note: Commands is stored as any but is always *Invkfile when present.
-// Use GetModuleCommands() for typed access.
 func ParseModule(modulePath string) (*Module, error) {
 	invkmodPath := filepath.Join(modulePath, "invkmod.cue")
 	invkfilePath := filepath.Join(modulePath, "invkfile.cue")
@@ -114,18 +115,6 @@ func ParseModule(modulePath string) (*Module, error) {
 	}
 
 	return result, nil
-}
-
-// GetModuleCommands extracts the Invkfile from a Module.
-// Returns nil if the module has no commands (library-only module) or if m is nil.
-func GetModuleCommands(m *Module) *Invkfile {
-	if m == nil || m.Commands == nil {
-		return nil
-	}
-	if inv, ok := m.Commands.(*Invkfile); ok {
-		return inv
-	}
-	return nil
 }
 
 // ParseEnvInheritMode parses a string into an EnvInheritMode.

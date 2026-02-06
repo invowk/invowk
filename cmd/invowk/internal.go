@@ -14,7 +14,3 @@ var internalCmd = &cobra.Command{
 	Short:  "Internal commands (not for direct use)",
 	Hidden: true,
 }
-
-func init() {
-	rootCmd.AddCommand(internalCmd)
-}

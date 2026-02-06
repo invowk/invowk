@@ -29,12 +29,15 @@ pkg/
 // pkg/invkmod/invkmod.go
 package invkmod
 
+type ModuleCommands interface {
+    GetModule() string
+    ListCommands() []string
+}
+
 // Module represents a loaded invowk module, ready for use.
-// Commands holds parsed command definitions without importing pkg/invkfile.
+// Commands holds typed command definitions without importing pkg/invkfile.
 type Module struct {
-    // Commands is stored as any to avoid a dependency cycle.
-    // The concrete type is *invkfile.Invkfile.
-    Commands any
+	Commands ModuleCommands
 }
 ```
 
@@ -59,6 +62,34 @@ Use interface decoupling when:
 Avoid creating third "bridge" packages (e.g., `invkbridge`) that import both domains just to hold aggregations. This adds navigation complexity without providing meaningful abstraction.
 
 **Exception**: A bridge package is acceptable when it genuinely adds orchestration logic beyond simple aggregation.
+
+## State Ownership and Mutation Boundaries
+
+Design package APIs so state ownership is explicit and mutable state is localized.
+
+### Rules
+
+- Keep mutable operational state inside short-lived structs/services created by constructors.
+- Avoid package-level mutable singletons for runtime behavior (execution state, server instances, dynamic discovery caches, request config).
+- If process-wide state is unavoidable (for backward compatibility), isolate it behind a narrow API and provide deterministic reset hooks for tests.
+- Prefer immutable configuration snapshots passed into services over late global lookups.
+
+### Why
+
+1. **Predictability**: Commands become deterministic across repeated invocations.
+2. **Test isolation**: No hidden cross-test coupling via leaked global state.
+3. **Concurrency safety**: Fewer TOCTOU and race-prone shared writes.
+4. **Composability**: Different frontends (CLI/TUI/tests) can wire different implementations cleanly.
+
+## Boundary-Oriented Responsibilities
+
+Separate package responsibilities by boundary:
+
+- **Boundary packages** (e.g., `cmd/`) handle input parsing, output rendering, and transport concerns.
+- **Domain packages** (e.g., `internal/discovery`, `internal/config`) implement business/domain logic and return typed results/diagnostics.
+- **Domain packages must not perform terminal rendering** as part of core flows; return structured diagnostics/errors and let boundary packages decide presentation.
+
+This keeps package APIs reusable across CLI execution, completion, tests, and future frontends.
 
 ## Tightly-Coupled Multi-Concern Packages
 

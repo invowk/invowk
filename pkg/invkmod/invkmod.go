@@ -34,6 +34,13 @@ var (
 )
 
 type (
+	// ModuleCommands defines the typed command contract stored in Module.Commands.
+	// Implementations provide module identity and command listing behavior.
+	ModuleCommands interface {
+		GetModule() string
+		ListCommands() []string
+	}
+
 	// ValidationIssue represents a single validation problem in a module.
 	// Named "Issue" rather than "Error" because it semantically represents a validation
 	// problem that may be collected, reported, and inspected - not just thrown.
@@ -72,10 +79,8 @@ type (
 		// Metadata is the parsed invkmod.cue content (always present after Load())
 		Metadata *Invkmod `json:"-"`
 
-		// Commands is the parsed invkfile.cue content (nil for library-only modules)
-		// Type is any to avoid circular imports with pkg/invkfile.
-		// The actual type is *invkfile.Invkfile.
-		Commands any `json:"-"`
+		// Commands is the parsed invkfile.cue content (nil for library-only modules).
+		Commands ModuleCommands `json:"-"`
 
 		// Path is the absolute filesystem path to the module directory
 		Path string `json:"-"`

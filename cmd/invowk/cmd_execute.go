@@ -6,13 +6,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
+	"io"
 	"strings"
+	"sync"
 
 	"invowk-cli/internal/config"
 	"invowk-cli/internal/discovery"
 	"invowk-cli/internal/issue"
 	"invowk-cli/internal/runtime"
+	"invowk-cli/internal/sshserver"
 	"invowk-cli/internal/tui"
 	"invowk-cli/internal/tuiserver"
 	"invowk-cli/pkg/invkfile"
@@ -20,61 +22,59 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-// runCommandOptions holds all parameters for executing a discovered command.
-type runCommandOptions struct {
-	// CommandName is the fully-qualified command name (may include module prefix).
-	CommandName string
-	// Args are the positional arguments to pass to the command.
-	Args []string
-	// FlagValues contains parsed flag values (KEY=VALUE map).
-	FlagValues map[string]string
-	// FlagDefs contains flag definitions for runtime validation.
-	FlagDefs []invkfile.Flag
-	// ArgDefs contains argument definitions for setting INVOWK_ARG_* env vars.
-	ArgDefs []invkfile.Argument
-	// RuntimeEnvFiles contains paths to env files specified via --env-file flag.
-	RuntimeEnvFiles []string
-	// RuntimeEnvVars contains env vars specified via --env-var flag (highest precedence).
-	RuntimeEnvVars map[string]string
-	// WorkdirOverride is the CLI override for working directory (--workdir flag).
-	WorkdirOverride string
-	// EnvInheritModeOverride controls host env inheritance (empty = use default).
-	EnvInheritModeOverride string
-	// EnvInheritAllowOverride overrides the runtime config allow list.
-	EnvInheritAllowOverride []string
-	// EnvInheritDenyOverride overrides the runtime config deny list.
-	EnvInheritDenyOverride []string
+type commandService struct {
+	config ConfigProvider
+	stdout io.Writer
+	stderr io.Writer
+	ssh    *sshServerController
 }
 
-// runCommandWithFlags executes a command with the given options.
-func runCommandWithFlags(opts runCommandOptions) error {
-	cfg := config.Get()
-	disc := discovery.New(cfg)
+type sshServerController struct {
+	mu       sync.Mutex
+	instance *sshserver.Server
+}
 
-	// Find the command
-	cmdInfo, err := disc.GetCommand(opts.CommandName)
+// newCommandService creates the default command orchestration service.
+func newCommandService(configProvider ConfigProvider, stdout io.Writer, stderr io.Writer) CommandService {
+	return &commandService{
+		config: configProvider,
+		stdout: stdout,
+		stderr: stderr,
+		ssh:    &sshServerController{},
+	}
+}
+
+// Execute executes an invowk command.
+func (s *commandService) Execute(ctx context.Context, req ExecuteRequest) (ExecuteResult, []discovery.Diagnostic, error) {
+	cfg, diags := s.loadConfig(ctx, req.ConfigPath)
+
+	disc := discovery.New(cfg)
+	lookup, err := disc.GetCommand(ctx, req.Name)
 	if err != nil {
+		return ExecuteResult{}, diags, err
+	}
+	diags = append(diags, lookup.Diagnostics...)
+
+	if lookup.Command == nil {
 		rendered, _ := issue.Get(issue.CommandNotFoundId).Render("dark")
-		fmt.Fprint(os.Stderr, rendered)
-		return fmt.Errorf("command '%s' not found", opts.CommandName)
+		fmt.Fprint(s.stderr, rendered)
+		return ExecuteResult{}, diags, fmt.Errorf("command '%s' not found", req.Name)
 	}
 
-	// Populate definitions from discovered command if not provided (fallback path).
-	// This enables validation and INVOWK_ARG_* / INVOWK_FLAG_* env var injection
-	// for commands invoked via runCommand (which passes nil for definitions).
-	flagDefs := opts.FlagDefs
+	cmdInfo := lookup.Command
+
+	flagDefs := req.FlagDefs
+	// Fallback path for requests that only supply command name + args.
 	if flagDefs == nil {
 		flagDefs = cmdInfo.Command.Flags
 	}
-	argDefs := opts.ArgDefs
+	argDefs := req.ArgDefs
 	if argDefs == nil {
 		argDefs = cmdInfo.Command.Args
 	}
 
-	// Initialize flagValues with defaults for fallback path.
-	// The fallback path cannot parse flags from CLI (Cobra doesn't process them),
-	// so we only apply defaults here.
-	flagValues := opts.FlagValues
+	flagValues := req.FlagValues
+	// Apply command defaults when the caller did not provide parsed flag values.
 	if flagValues == nil && len(flagDefs) > 0 {
 		flagValues = make(map[string]string)
 		for _, flag := range flagDefs {
@@ -84,257 +84,251 @@ func runCommandWithFlags(opts runCommandOptions) error {
 		}
 	}
 
-	// Validate flag values at runtime
-	if err := validateFlagValues(opts.CommandName, flagValues, flagDefs); err != nil {
-		return err
+	if err := validateFlagValues(req.Name, flagValues, flagDefs); err != nil {
+		return ExecuteResult{}, diags, err
 	}
 
-	// Validate arguments
-	if err := validateArguments(opts.CommandName, opts.Args, argDefs); err != nil {
-		var argErr *ArgumentValidationError
+	if err := validateArguments(req.Name, req.Args, argDefs); err != nil {
+		argErr := (*ArgumentValidationError)(nil)
 		if errors.As(err, &argErr) {
-			fmt.Fprint(os.Stderr, RenderArgumentValidationError(argErr))
+			fmt.Fprint(s.stderr, RenderArgumentValidationError(argErr))
 			rendered, _ := issue.Get(issue.InvalidArgumentId).Render("dark")
-			fmt.Fprint(os.Stderr, rendered)
+			fmt.Fprint(s.stderr, rendered)
 		}
-		return err
+		return ExecuteResult{}, diags, err
 	}
 
-	// Get the current platform
 	currentPlatform := invkfile.GetCurrentHostOS()
-
-	// Validate host OS compatibility
 	if !cmdInfo.Command.CanRunOnCurrentHost() {
 		supportedPlatforms := cmdInfo.Command.GetPlatformsString()
-		fmt.Fprint(os.Stderr, RenderHostNotSupportedError(opts.CommandName, string(currentPlatform), supportedPlatforms))
+		fmt.Fprint(s.stderr, RenderHostNotSupportedError(req.Name, string(currentPlatform), supportedPlatforms))
 		rendered, _ := issue.Get(issue.HostNotSupportedId).Render("dark")
-		fmt.Fprint(os.Stderr, rendered)
-		return fmt.Errorf("command '%s' does not support platform '%s' (supported: %s)", opts.CommandName, currentPlatform, supportedPlatforms)
+		fmt.Fprint(s.stderr, rendered)
+		return ExecuteResult{}, diags, fmt.Errorf("command '%s' does not support platform '%s' (supported: %s)", req.Name, currentPlatform, supportedPlatforms)
 	}
 
-	// Determine which runtime to use
-	var selectedRuntime invkfile.RuntimeMode
-	if runtimeOverride != "" {
-		// Validate that the overridden runtime is allowed for this platform
-		overrideRuntime := invkfile.RuntimeMode(runtimeOverride)
+	selectedRuntime := cmdInfo.Command.GetDefaultRuntimeForPlatform(currentPlatform)
+	if req.Runtime != "" {
+		// Runtime override must still respect command/runtime compatibility matrix.
+		overrideRuntime := invkfile.RuntimeMode(req.Runtime)
 		if !cmdInfo.Command.IsRuntimeAllowedForPlatform(currentPlatform, overrideRuntime) {
 			allowedRuntimes := cmdInfo.Command.GetAllowedRuntimesForPlatform(currentPlatform)
 			allowedStr := make([]string, len(allowedRuntimes))
 			for i, r := range allowedRuntimes {
 				allowedStr[i] = string(r)
 			}
-			fmt.Fprint(os.Stderr, RenderRuntimeNotAllowedError(opts.CommandName, runtimeOverride, strings.Join(allowedStr, ", ")))
+			fmt.Fprint(s.stderr, RenderRuntimeNotAllowedError(req.Name, req.Runtime, strings.Join(allowedStr, ", ")))
 			rendered, _ := issue.Get(issue.InvalidRuntimeModeId).Render("dark")
-			fmt.Fprint(os.Stderr, rendered)
-			return fmt.Errorf("runtime '%s' is not allowed for command '%s' on platform '%s' (allowed: %s)", runtimeOverride, opts.CommandName, currentPlatform, strings.Join(allowedStr, ", "))
+			fmt.Fprint(s.stderr, rendered)
+			return ExecuteResult{}, diags, fmt.Errorf("runtime '%s' is not allowed for command '%s' on platform '%s' (allowed: %s)", req.Runtime, req.Name, currentPlatform, strings.Join(allowedStr, ", "))
 		}
 		selectedRuntime = overrideRuntime
-	} else {
-		// Use the default runtime for this platform
-		selectedRuntime = cmdInfo.Command.GetDefaultRuntimeForPlatform(currentPlatform)
 	}
 
-	// Find the matching script
 	script := cmdInfo.Command.GetImplForPlatformRuntime(currentPlatform, selectedRuntime)
 	if script == nil {
-		return fmt.Errorf("no script found for command '%s' on platform '%s' with runtime '%s'", opts.CommandName, currentPlatform, selectedRuntime)
+		return ExecuteResult{}, diags, fmt.Errorf("no script found for command '%s' on platform '%s' with runtime '%s'", req.Name, currentPlatform, selectedRuntime)
 	}
 
-	// Start SSH server if enable_host_ssh is enabled for this script and runtime
 	if script.GetHostSSHForRuntime(selectedRuntime) {
-		srv, err := ensureSSHServer()
+		// Host SSH lifecycle is service-scoped, not package-global state.
+		srv, err := s.ssh.ensure(ctx)
 		if err != nil {
-			return fmt.Errorf("failed to start SSH server for host access: %w", err)
+			return ExecuteResult{}, diags, fmt.Errorf("failed to start SSH server for host access: %w", err)
 		}
-		if verbose {
-			fmt.Fprintf(os.Stdout, "%s SSH server started on %s for host access\n", SuccessStyle.Render("→"), srv.Address())
+		if req.Verbose {
+			fmt.Fprintf(s.stdout, "%s SSH server started on %s for host access\n", SuccessStyle.Render("→"), srv.Address())
 		}
-		// Defer cleanup
-		defer stopSSHServer()
+		defer s.ssh.stop()
 	}
 
-	// Create execution context
-	ctx := runtime.NewExecutionContext(cmdInfo.Command, cmdInfo.Invkfile)
-	ctx.Verbose = verbose
-	ctx.SelectedRuntime = selectedRuntime
-	ctx.SelectedImpl = script
-	ctx.PositionalArgs = opts.Args     // Enable shell positional parameter access ($1, $2, etc.)
-	ctx.WorkDir = opts.WorkdirOverride // CLI override for working directory (--workdir flag)
-	ctx.ForceRebuild = forceRebuild    // Force rebuild container images (--force-rebuild flag)
+	execCtx := runtime.NewExecutionContext(cmdInfo.Command, cmdInfo.Invkfile)
+	// Request fields are projected into runtime execution context.
+	execCtx.Verbose = req.Verbose
+	execCtx.SelectedRuntime = selectedRuntime
+	execCtx.SelectedImpl = script
+	execCtx.PositionalArgs = req.Args
+	execCtx.WorkDir = req.Workdir
+	execCtx.ForceRebuild = req.ForceRebuild
 
-	// Set environment configuration
-	ctx.Env.RuntimeEnvFiles = opts.RuntimeEnvFiles // Env files from --env-file flag
-	ctx.Env.RuntimeEnvVars = opts.RuntimeEnvVars   // Env vars from --env-var flag (highest precedence)
+	execCtx.Env.RuntimeEnvFiles = req.EnvFiles
+	execCtx.Env.RuntimeEnvVars = req.EnvVars
 
-	if opts.EnvInheritModeOverride != "" {
-		mode, err := invkfile.ParseEnvInheritMode(opts.EnvInheritModeOverride)
+	if req.EnvInheritMode != "" {
+		mode, err := invkfile.ParseEnvInheritMode(req.EnvInheritMode)
 		if err != nil {
-			return err
+			return ExecuteResult{}, diags, err
 		}
-		ctx.Env.InheritModeOverride = mode
+		execCtx.Env.InheritModeOverride = mode
 	}
 
-	for _, name := range opts.EnvInheritAllowOverride {
+	for _, name := range req.EnvInheritAllow {
 		if err := invkfile.ValidateEnvVarName(name); err != nil {
-			return fmt.Errorf("env-inherit-allow: %w", err)
+			return ExecuteResult{}, diags, fmt.Errorf("env-inherit-allow: %w", err)
 		}
 	}
-	if opts.EnvInheritAllowOverride != nil {
-		ctx.Env.InheritAllowOverride = opts.EnvInheritAllowOverride
+	if req.EnvInheritAllow != nil {
+		execCtx.Env.InheritAllowOverride = req.EnvInheritAllow
 	}
 
-	for _, name := range opts.EnvInheritDenyOverride {
+	for _, name := range req.EnvInheritDeny {
 		if err := invkfile.ValidateEnvVarName(name); err != nil {
-			return fmt.Errorf("env-inherit-deny: %w", err)
+			return ExecuteResult{}, diags, fmt.Errorf("env-inherit-deny: %w", err)
 		}
 	}
-	if opts.EnvInheritDenyOverride != nil {
-		ctx.Env.InheritDenyOverride = opts.EnvInheritDenyOverride
+	if req.EnvInheritDeny != nil {
+		execCtx.Env.InheritDenyOverride = req.EnvInheritDeny
 	}
 
-	// Create runtime registry
-	registry := createRuntimeRegistry(cfg)
+	registry := createRuntimeRegistry(cfg, s.ssh.current())
 
-	// Check for dependencies
-	if err := validateDependencies(cmdInfo, registry, ctx); err != nil {
-		// Check if it's a dependency error and render it with style
-		var depErr *DependencyError
+	if err := validateDependencies(cfg, cmdInfo, registry, execCtx); err != nil {
+		depErr := (*DependencyError)(nil)
 		if errors.As(err, &depErr) {
-			fmt.Fprint(os.Stderr, RenderDependencyError(depErr))
+			fmt.Fprint(s.stderr, RenderDependencyError(depErr))
 			rendered, _ := issue.Get(issue.DependenciesNotSatisfiedId).Render("dark")
-			fmt.Fprint(os.Stderr, rendered)
+			fmt.Fprint(s.stderr, rendered)
 		}
-		return err
+		return ExecuteResult{}, diags, err
 	}
 
-	// Execute the command
-	if verbose {
-		fmt.Fprintf(os.Stdout, "%s Running '%s'...\n", SuccessStyle.Render("→"), opts.CommandName)
+	if req.Verbose {
+		fmt.Fprintf(s.stdout, "%s Running '%s'...\n", SuccessStyle.Render("→"), req.Name)
 	}
 
-	// Add command-line arguments as environment variables (legacy format)
-	for i, arg := range opts.Args {
-		ctx.Env.ExtraEnv[fmt.Sprintf("ARG%d", i+1)] = arg
+	for i, arg := range req.Args {
+		execCtx.Env.ExtraEnv[fmt.Sprintf("ARG%d", i+1)] = arg
 	}
-	ctx.Env.ExtraEnv["ARGC"] = fmt.Sprintf("%d", len(opts.Args))
+	execCtx.Env.ExtraEnv["ARGC"] = fmt.Sprintf("%d", len(req.Args))
 
-	// Add arguments as INVOWK_ARG_* environment variables (new format)
+	// Inject INVOWK_ARG_* variables for structured argument access in scripts.
 	if len(argDefs) > 0 {
 		for i, argDef := range argDefs {
 			envName := ArgNameToEnvVar(argDef.Name)
 
 			switch {
 			case argDef.Variadic:
-				// For variadic args, collect all remaining arguments
 				var variadicValues []string
-				if i < len(opts.Args) {
-					variadicValues = opts.Args[i:]
+				if i < len(req.Args) {
+					variadicValues = req.Args[i:]
 				}
 
-				// Set count
-				ctx.Env.ExtraEnv[envName+"_COUNT"] = fmt.Sprintf("%d", len(variadicValues))
-
-				// Set individual values
+				execCtx.Env.ExtraEnv[envName+"_COUNT"] = fmt.Sprintf("%d", len(variadicValues))
 				for j, val := range variadicValues {
-					ctx.Env.ExtraEnv[fmt.Sprintf("%s_%d", envName, j+1)] = val
+					execCtx.Env.ExtraEnv[fmt.Sprintf("%s_%d", envName, j+1)] = val
 				}
-
-				// Also set a space-joined version for convenience
-				ctx.Env.ExtraEnv[envName] = strings.Join(variadicValues, " ")
-			case i < len(opts.Args):
-				// Non-variadic arg with provided value
-				ctx.Env.ExtraEnv[envName] = opts.Args[i]
+				execCtx.Env.ExtraEnv[envName] = strings.Join(variadicValues, " ")
+			case i < len(req.Args):
+				execCtx.Env.ExtraEnv[envName] = req.Args[i]
 			case argDef.DefaultValue != "":
-				// Non-variadic arg with default value
-				ctx.Env.ExtraEnv[envName] = argDef.DefaultValue
+				execCtx.Env.ExtraEnv[envName] = argDef.DefaultValue
 			}
-			// If no value and no default, don't set the env var
 		}
 	}
 
-	// Add flag values as environment variables
 	for name, value := range flagValues {
 		envName := FlagNameToEnvVar(name)
-		ctx.Env.ExtraEnv[envName] = value
+		execCtx.Env.ExtraEnv[envName] = value
 	}
 
 	var result *runtime.Result
-
-	// Check if we should use interactive mode
-	// Interactive mode is supported for all runtimes that implement InteractiveRuntime
-	if interactive {
-		// Get the runtime and check if it supports interactive mode
-		rt, err := registry.GetForContext(ctx)
+	if req.Interactive {
+		// Interactive mode is opportunistic and falls back to standard execution
+		// when the selected runtime does not implement interactive support.
+		rt, err := registry.GetForContext(execCtx)
 		if err != nil {
-			return fmt.Errorf("failed to get runtime: %w", err)
+			return ExecuteResult{}, diags, fmt.Errorf("failed to get runtime: %w", err)
 		}
 
 		interactiveRT := runtime.GetInteractiveRuntime(rt)
 		if interactiveRT != nil {
-			result = executeInteractive(ctx, registry, opts.CommandName, interactiveRT)
+			result = executeInteractive(execCtx, registry, req.Name, interactiveRT)
 		} else {
-			// Runtime doesn't support interactive mode, fall back to standard execution
-			if verbose {
-				fmt.Fprintf(os.Stdout, "%s Runtime '%s' does not support interactive mode, using standard execution\n",
+			if req.Verbose {
+				fmt.Fprintf(s.stdout, "%s Runtime '%s' does not support interactive mode, using standard execution\n",
 					WarningStyle.Render("!"), rt.Name())
 			}
-			result = registry.Execute(ctx)
+			result = registry.Execute(execCtx)
 		}
 	} else {
-		// Standard execution
-		result = registry.Execute(ctx)
+		result = registry.Execute(execCtx)
 	}
 
 	if result.Error != nil {
 		rendered, _ := issue.Get(issue.ScriptExecutionFailedId).Render("dark")
-		fmt.Fprint(os.Stderr, rendered)
-		fmt.Fprintf(os.Stderr, "\n%s %v\n", ErrorStyle.Render("Error:"), result.Error)
-		return result.Error
+		fmt.Fprint(s.stderr, rendered)
+		fmt.Fprintf(s.stderr, "\n%s %v\n", ErrorStyle.Render("Error:"), result.Error)
+		return ExecuteResult{}, diags, result.Error
 	}
 
 	if result.ExitCode != 0 {
-		if verbose {
-			fmt.Fprintf(os.Stdout, "%s Command exited with code %d\n", WarningStyle.Render("!"), result.ExitCode)
+		if req.Verbose {
+			fmt.Fprintf(s.stdout, "%s Command exited with code %d\n", WarningStyle.Render("!"), result.ExitCode)
 		}
-		return &ExitError{Code: result.ExitCode}
+		return ExecuteResult{ExitCode: result.ExitCode}, diags, nil
 	}
 
-	return nil
+	return ExecuteResult{ExitCode: 0}, diags, nil
 }
 
-// runCommand executes a command by its name (legacy - no flag values)
-func runCommand(args []string) error {
-	if len(args) == 0 {
-		return fmt.Errorf("no command specified")
+func (s *commandService) loadConfig(ctx context.Context, configPath string) (*config.Config, []discovery.Diagnostic) {
+	cfg, err := s.config.Load(ctx, config.LoadOptions{ConfigFilePath: configPath})
+	if err == nil {
+		return cfg, nil
 	}
 
-	cmdName := args[0]
-	cmdArgs := args[1:]
+	// Keep execution usable with defaults while surfacing a structured warning.
+	return config.DefaultConfig(), []discovery.Diagnostic{{
+		Severity: discovery.SeverityWarning,
+		Code:     "config_load_failed",
+		Message:  fmt.Sprintf("failed to load config, using defaults: %v", err),
+		Path:     configPath,
+		Cause:    err,
+	}}
+}
 
-	// Delegate to runCommandWithFlags with only command name and args
-	return runCommandWithFlags(runCommandOptions{
-		CommandName: cmdName,
-		Args:        cmdArgs,
-	})
+func (s *sshServerController) ensure(ctx context.Context) (*sshserver.Server, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if s.instance != nil && s.instance.IsRunning() {
+		return s.instance, nil
+	}
+
+	// Start blocks until SSH server is ready to accept connections.
+	srv := sshserver.New(sshserver.DefaultConfig())
+	if err := srv.Start(ctx); err != nil {
+		return nil, fmt.Errorf("failed to start SSH server: %w", err)
+	}
+
+	s.instance = srv
+	return srv, nil
+}
+
+func (s *sshServerController) stop() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if s.instance != nil {
+		// Best-effort shutdown: execution already completed at this point.
+		_ = s.instance.Stop()
+		s.instance = nil
+	}
+}
+
+func (s *sshServerController) current() *sshserver.Server {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	return s.instance
 }
 
 // executeInteractive runs a command in interactive mode using an alternate screen buffer.
-// This provides a full PTY for the command, forwarding keyboard input during execution
-// and allowing output review after completion.
-// It also starts a TUI server so that nested `invowk tui *` commands can delegate
-// their rendering to the parent process.
-//
-// The interactiveRT parameter is the runtime that implements InteractiveRuntime.
-// This allows the function to work with any runtime that supports interactive mode.
 func executeInteractive(ctx *runtime.ExecutionContext, registry *runtime.Registry, cmdName string, interactiveRT runtime.InteractiveRuntime) *runtime.Result {
-	// Validate the context using the runtime
 	if err := interactiveRT.Validate(ctx); err != nil {
 		return &runtime.Result{ExitCode: 1, Error: err}
 	}
 
-	// Start the TUI server FIRST so we can pass its info to PrepareInteractive()
-	// This is necessary because container runtimes need to include the TUI server
-	// URL in the docker command arguments (as -e flags), not as process env vars.
 	tuiServer, err := tuiserver.New()
 	if err != nil {
 		return &runtime.Result{ExitCode: 1, Error: fmt.Errorf("failed to create TUI server: %w", err)}
@@ -343,47 +337,34 @@ func executeInteractive(ctx *runtime.ExecutionContext, registry *runtime.Registr
 	if err = tuiServer.Start(context.Background()); err != nil {
 		return &runtime.Result{ExitCode: 1, Error: fmt.Errorf("failed to start TUI server: %w", err)}
 	}
-	defer func() { _ = tuiServer.Stop() }() // Best-effort cleanup
+	defer func() { _ = tuiServer.Stop() }() // Best-effort cleanup.
 
-	// Determine the TUI server URL for the command
-	// For container runtimes, use the container-accessible host address
-	// (host.docker.internal or host.containers.internal)
 	var tuiServerURL string
 	if containerRT, ok := interactiveRT.(*runtime.ContainerRuntime); ok {
 		hostAddr := containerRT.GetHostAddressForContainer()
 		tuiServerURL = tuiServer.URLWithHost(hostAddr)
 	} else {
-		// Native/virtual runtimes use localhost
 		tuiServerURL = tuiServer.URL()
 	}
 
-	// Set TUI server info in the execution context so runtimes can include it
-	// in their environment setup (especially important for container runtime)
 	ctx.TUI.ServerURL = tuiServerURL
 	ctx.TUI.ServerToken = tuiServer.Token()
 
-	// Prepare the command without executing it
-	// Now that TUI server info is in the context, container runtime will
-	// include INVOWK_TUI_ADDR and INVOWK_TUI_TOKEN in the docker command args
 	prepared, err := interactiveRT.PrepareInteractive(ctx)
 	if err != nil {
 		return &runtime.Result{ExitCode: 1, Error: fmt.Errorf("failed to prepare command: %w", err)}
 	}
 
-	// Ensure cleanup is called when done
 	if prepared.Cleanup != nil {
 		defer prepared.Cleanup()
 	}
 
-	// Add TUI server environment variables to the command's process environment
-	// This is for native/virtual runtimes that run directly on the host.
-	// For container runtime, the env vars are already in the docker args.
 	prepared.Cmd.Env = append(prepared.Cmd.Env,
+		// Native/virtual runtimes read TUI server coordinates from process env.
 		fmt.Sprintf("%s=%s", tuiserver.EnvTUIAddr, tuiServerURL),
 		fmt.Sprintf("%s=%s", tuiserver.EnvTUIToken, tuiServer.Token()),
 	)
 
-	// Run the command in interactive mode
 	execCtx := ctx.Context
 	if execCtx == nil {
 		execCtx = context.Background()
@@ -395,8 +376,6 @@ func executeInteractive(ctx *runtime.ExecutionContext, registry *runtime.Registr
 			Title:       "Running Command",
 			CommandName: cmdName,
 			OnProgramReady: func(p *tea.Program) {
-				// Start a bridge goroutine that reads TUI requests from the server
-				// and sends them to the parent Bubbletea program for rendering.
 				go bridgeTUIRequests(tuiServer, p)
 			},
 		},

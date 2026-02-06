@@ -212,7 +212,7 @@ func TestCheckCommandDependenciesExist_SatisfiedByLocalUnqualifiedName(t *testin
 	deps := &invkfile.DependsOn{Commands: []invkfile.CommandDependency{{Alternatives: []string{"build"}}}}
 	ctx := &runtime.ExecutionContext{Command: &invkfile.Command{Name: "deploy"}}
 
-	if err := checkCommandDependenciesExist(deps, "", ctx); err != nil {
+	if err := checkCommandDependenciesExist(config.DefaultConfig(), deps, "", ctx); err != nil {
 		t.Fatalf("expected nil, got %v", err)
 	}
 }
@@ -267,7 +267,7 @@ func TestCheckCommandDependenciesExist_SatisfiedByFullyQualifiedNameFromUserDir(
 	deps := &invkfile.DependsOn{Commands: []invkfile.CommandDependency{{Alternatives: []string{"generate-types"}}}}
 	ctx := &runtime.ExecutionContext{Command: &invkfile.Command{Name: "deploy"}}
 
-	if err := checkCommandDependenciesExist(deps, "", ctx); err != nil {
+	if err := checkCommandDependenciesExist(config.DefaultConfig(), deps, "", ctx); err != nil {
 		t.Fatalf("expected nil, got %v", err)
 	}
 }
@@ -303,7 +303,7 @@ func TestCheckCommandDependenciesExist_MissingCommand(t *testing.T) {
 	deps := &invkfile.DependsOn{Commands: []invkfile.CommandDependency{{Alternatives: []string{"build"}}}}
 	ctx := &runtime.ExecutionContext{Command: &invkfile.Command{Name: "deploy"}}
 
-	err := checkCommandDependenciesExist(deps, "", ctx)
+	err := checkCommandDependenciesExist(config.DefaultConfig(), deps, "", ctx)
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}

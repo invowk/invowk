@@ -17,7 +17,7 @@ The [.claude/](.claude/) directory contains all agent configuration:
 The [.claude/rules/](.claude/rules/) directory contains project-specific rules:
 
 - [general-rules.md](.claude/rules/general-rules.md) - Instruction priority, code quality, documentation
-- [go-style.md](.claude/rules/go-style.md) - Go naming, imports, error handling, interfaces
+- [go-patterns.md](.claude/rules/go-patterns.md) - Go naming, imports, error handling, interfaces
 - [commands.md](.claude/rules/commands.md) - Build, test, and release commands
 - [testing.md](.claude/rules/testing.md) - Test patterns, CLI integration tests, VHS demos
 - [cue.md](.claude/rules/cue.md) - CUE schema conventions

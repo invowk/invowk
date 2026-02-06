@@ -3,6 +3,7 @@
 package config
 
 import (
+	"context"
 	_ "embed"
 	"fmt"
 	"os"
@@ -88,6 +89,32 @@ func Load() (*Config, error) {
 		return globalConfig, nil
 	}
 
+	cfg, resolvedPath, err := loadWithOptions(
+		context.Background(),
+		LoadOptions{
+			ConfigFilePath: configFilePathOverride,
+			ConfigDirPath:  configDirOverride,
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	configPath = resolvedPath
+	globalConfig = cfg
+
+	return globalConfig, nil
+}
+
+// loadWithOptions performs option-driven config loading without mutating
+// package-level cache state. Callers that want caching can wrap this function.
+func loadWithOptions(ctx context.Context, opts LoadOptions) (*Config, string, error) {
+	select {
+	case <-ctx.Done():
+		return nil, "", ctx.Err()
+	default:
+	}
+
 	v := viper.New()
 
 	// Set defaults
@@ -104,41 +131,43 @@ func Load() (*Config, error) {
 	v.SetDefault("container.auto_provision.modules_paths", defaults.Container.AutoProvision.ModulesPaths)
 	v.SetDefault("container.auto_provision.cache_dir", defaults.Container.AutoProvision.CacheDir)
 
-	// If a custom config file path is set via --config flag, use it exclusively
-	if configFilePathOverride != "" {
-		if !fileExists(configFilePathOverride) {
-			return nil, issue.NewErrorContext().
+	resolvedPath := ""
+
+	// If a custom config file path is set via --config flag, use it exclusively.
+	if opts.ConfigFilePath != "" {
+		if !fileExists(opts.ConfigFilePath) {
+			return nil, "", issue.NewErrorContext().
 				WithOperation("load configuration").
-				WithResource(configFilePathOverride).
+				WithResource(opts.ConfigFilePath).
 				WithSuggestion("Verify the file path is correct").
 				WithSuggestion("Check that the file exists and is readable").
 				WithSuggestion("Use 'invowk config show' to see default configuration").
-				Wrap(fmt.Errorf("config file not found: %s", configFilePathOverride)).
+				Wrap(fmt.Errorf("config file not found: %s", opts.ConfigFilePath)).
 				BuildError()
 		}
-		if err := loadCUEIntoViper(v, configFilePathOverride); err != nil {
-			return nil, issue.NewErrorContext().
+		if err := loadCUEIntoViper(v, opts.ConfigFilePath); err != nil {
+			return nil, "", issue.NewErrorContext().
 				WithOperation("load configuration").
-				WithResource(configFilePathOverride).
+				WithResource(opts.ConfigFilePath).
 				WithSuggestion("Check that the file contains valid CUE syntax").
 				WithSuggestion("Verify the configuration values match the expected schema").
 				WithSuggestion("See 'invowk config --help' for configuration options").
 				Wrap(err).
 				BuildError()
 		}
-		configPath = configFilePathOverride
+		resolvedPath = opts.ConfigFilePath
 	} else {
 		// Get config directory
-		cfgDir, err := ConfigDir()
+		cfgDir, err := configDirWithOverride(opts.ConfigDirPath)
 		if err != nil {
-			return nil, err
+			return nil, "", err
 		}
 
 		// Try to load CUE config file
 		cuePath := filepath.Join(cfgDir, ConfigFileName+"."+ConfigFileExt)
 		if fileExists(cuePath) {
 			if err := loadCUEIntoViper(v, cuePath); err != nil {
-				return nil, issue.NewErrorContext().
+				return nil, "", issue.NewErrorContext().
 					WithOperation("load configuration").
 					WithResource(cuePath).
 					WithSuggestion("Check that the file contains valid CUE syntax").
@@ -147,13 +176,13 @@ func Load() (*Config, error) {
 					Wrap(err).
 					BuildError()
 			}
-			configPath = cuePath
+			resolvedPath = cuePath
 		} else {
 			// Also check current directory
 			localCuePath := ConfigFileName + "." + ConfigFileExt
 			if fileExists(localCuePath) {
 				if err := loadCUEIntoViper(v, localCuePath); err != nil {
-					return nil, issue.NewErrorContext().
+					return nil, "", issue.NewErrorContext().
 						WithOperation("load configuration").
 						WithResource(localCuePath).
 						WithSuggestion("Check that the file contains valid CUE syntax").
@@ -162,7 +191,7 @@ func Load() (*Config, error) {
 						Wrap(err).
 						BuildError()
 				}
-				configPath = localCuePath
+				resolvedPath = localCuePath
 			}
 			// If no config file found, use defaults (no error)
 		}
@@ -170,11 +199,20 @@ func Load() (*Config, error) {
 
 	var cfg Config
 	if err := v.Unmarshal(&cfg); err != nil {
-		return nil, fmt.Errorf("failed to parse config: %w", err)
+		return nil, "", fmt.Errorf("failed to parse config: %w", err)
 	}
 
-	globalConfig = &cfg
-	return globalConfig, nil
+	return &cfg, resolvedPath, nil
+}
+
+// configDirWithOverride resolves the configuration directory, honoring
+// explicit provider options before platform defaults.
+func configDirWithOverride(configDirPath string) (string, error) {
+	if configDirPath != "" {
+		return configDirPath, nil
+	}
+
+	return ConfigDir()
 }
 
 // loadCUEIntoViper parses a CUE file, validates it against the #Config schema,
