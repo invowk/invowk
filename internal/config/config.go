@@ -26,6 +26,8 @@ const (
 	ConfigFileName = "config"
 	// ConfigFileExt is the config file extension.
 	ConfigFileExt = "cue"
+
+	osWindows = "windows"
 )
 
 //go:embed config_schema.cue
@@ -45,7 +47,7 @@ func ConfigDir() (string, error) {
 	var configDir string
 
 	switch runtime.GOOS {
-	case "windows":
+	case osWindows:
 		configDir = os.Getenv("APPDATA")
 		if configDir == "" {
 			configDir = filepath.Join(os.Getenv("USERPROFILE"), "AppData", "Roaming")
@@ -78,7 +80,7 @@ func CommandsDir() (string, error) {
 	}
 
 	switch runtime.GOOS {
-	case "windows":
+	case osWindows:
 		return filepath.Join(home, ".invowk", "cmds"), nil
 	default:
 		return filepath.Join(home, ".invowk", "cmds"), nil

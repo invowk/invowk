@@ -15,6 +15,8 @@ import (
 	"invowk-cli/pkg/invkfile"
 )
 
+const osWindows = "windows"
+
 type (
 	// NativeRuntime executes commands using the system's default shell
 	NativeRuntime struct {
@@ -266,7 +268,7 @@ func (r *NativeRuntime) createTempScript(content, interpreter string) (string, e
 	}
 
 	// Make executable (needed for some interpreters on Unix)
-	if runtime.GOOS != "windows" {
+	if runtime.GOOS != osWindows {
 		_ = os.Chmod(tmpFile.Name(), 0o700) // Best-effort; execution may still work
 	}
 
@@ -280,7 +282,7 @@ func (r *NativeRuntime) getShell() (string, error) {
 	}
 
 	switch runtime.GOOS {
-	case "windows":
+	case osWindows:
 		if pwsh, err := exec.LookPath("pwsh"); err == nil {
 			return pwsh, nil
 		}
@@ -312,7 +314,7 @@ func (r *NativeRuntime) shellNotFoundError(attempted []string) error {
 		WithResource("shells attempted: " + strings.Join(attempted, ", "))
 
 	switch runtime.GOOS {
-	case "windows":
+	case osWindows:
 		ctx.WithSuggestion("Install PowerShell Core (pwsh) from https://aka.ms/powershell")
 		ctx.WithSuggestion("Or ensure PowerShell or cmd.exe is in your PATH")
 	case "darwin":

@@ -13,6 +13,8 @@ const (
 
 	// InvkmodName is the base name for invkmod metadata files
 	InvkmodName = "invkmod"
+
+	osWindows = "windows"
 )
 
 type (
@@ -62,7 +64,7 @@ func GetCurrentHostOS() Platform {
 		return PlatformLinux
 	case "darwin":
 		return PlatformMac // Returns "macos"
-	case "windows":
+	case osWindows:
 		return PlatformWindows
 	default:
 		// Default to linux for unknown OS

@@ -8,8 +8,6 @@ import (
 	"testing"
 )
 
-const osWindows = "windows"
-
 func TestSetHomeDir_Linux(t *testing.T) {
 	if runtime.GOOS == osWindows {
 		t.Skip("skipping Linux-specific test on Windows")
