@@ -12,6 +12,8 @@ import (
 )
 
 func TestWcCommand_Name(t *testing.T) {
+	t.Parallel()
+
 	cmd := newWcCommand()
 	if got := cmd.Name(); got != "wc" {
 		t.Errorf("Name() = %q, want %q", got, "wc")
@@ -19,6 +21,8 @@ func TestWcCommand_Name(t *testing.T) {
 }
 
 func TestWcCommand_SupportedFlags(t *testing.T) {
+	t.Parallel()
+
 	cmd := newWcCommand()
 	flags := cmd.SupportedFlags()
 
@@ -38,6 +42,8 @@ func TestWcCommand_SupportedFlags(t *testing.T) {
 }
 
 func TestWcCommand_Run_AllCounts(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "test.txt")
 
@@ -77,6 +83,8 @@ func TestWcCommand_Run_AllCounts(t *testing.T) {
 }
 
 func TestWcCommand_Run_LinesOnly(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "test.txt")
 
@@ -108,6 +116,8 @@ func TestWcCommand_Run_LinesOnly(t *testing.T) {
 }
 
 func TestWcCommand_Run_WordsOnly(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "test.txt")
 
@@ -139,6 +149,8 @@ func TestWcCommand_Run_WordsOnly(t *testing.T) {
 }
 
 func TestWcCommand_Run_BytesOnly(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "test.txt")
 
@@ -170,6 +182,8 @@ func TestWcCommand_Run_BytesOnly(t *testing.T) {
 }
 
 func TestWcCommand_Run_Stdin(t *testing.T) {
+	t.Parallel()
+
 	stdinContent := "one two three\nfour five\n"
 
 	var stdout, stderr bytes.Buffer
@@ -195,6 +209,8 @@ func TestWcCommand_Run_Stdin(t *testing.T) {
 }
 
 func TestWcCommand_Run_MultipleFiles(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	file1 := filepath.Join(tmpDir, "file1.txt")
 	file2 := filepath.Join(tmpDir, "file2.txt")
@@ -233,6 +249,8 @@ func TestWcCommand_Run_MultipleFiles(t *testing.T) {
 }
 
 func TestWcCommand_Run_FileNotFound(t *testing.T) {
+	t.Parallel()
+
 	var stdout, stderr bytes.Buffer
 	ctx := WithHandlerContext(context.Background(), &HandlerContext{
 		Stdin:     strings.NewReader(""),
@@ -256,6 +274,8 @@ func TestWcCommand_Run_FileNotFound(t *testing.T) {
 }
 
 func TestWcCommand_Run_EmptyFile(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "empty.txt")
 
@@ -286,6 +306,8 @@ func TestWcCommand_Run_EmptyFile(t *testing.T) {
 }
 
 func TestWcCommand_Run_CombinedFlags(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "test.txt")
 

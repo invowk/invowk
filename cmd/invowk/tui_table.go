@@ -15,16 +15,9 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var (
-	tableFile       string
-	tableSeparator  string
-	tableColumns    []string
-	tableWidths     []int
-	tableHeight     int
-	tableSelectable bool
-
-	// tuiTableCmd displays and optionally selects from a table.
-	tuiTableCmd = &cobra.Command{
+// newTUITableCommand creates the `invowk tui table` command.
+func newTUITableCommand() *cobra.Command {
+	cmd := &cobra.Command{
 		Use:   "table",
 		Short: "Display and select from a table",
 		Long: `Display data in a table format with optional row selection.
@@ -47,20 +40,25 @@ Examples:
   invowk tui table --file data.csv --widths 20,10,30`,
 		RunE: runTuiTable,
 	}
-)
 
-func init() {
-	tuiCmd.AddCommand(tuiTableCmd)
+	cmd.Flags().String("file", "", "CSV file to display")
+	cmd.Flags().String("separator", ",", "column separator")
+	cmd.Flags().StringSlice("columns", nil, "column headers (overrides file header)")
+	cmd.Flags().IntSlice("widths", nil, "column widths")
+	cmd.Flags().Int("height", 0, "table height (0 for auto)")
+	cmd.Flags().Bool("selectable", false, "enable row selection")
 
-	tuiTableCmd.Flags().StringVar(&tableFile, "file", "", "CSV file to display")
-	tuiTableCmd.Flags().StringVar(&tableSeparator, "separator", ",", "column separator")
-	tuiTableCmd.Flags().StringSliceVar(&tableColumns, "columns", nil, "column headers (overrides file header)")
-	tuiTableCmd.Flags().IntSliceVar(&tableWidths, "widths", nil, "column widths")
-	tuiTableCmd.Flags().IntVar(&tableHeight, "height", 0, "table height (0 for auto)")
-	tuiTableCmd.Flags().BoolVar(&tableSelectable, "selectable", false, "enable row selection")
+	return cmd
 }
 
 func runTuiTable(cmd *cobra.Command, args []string) error {
+	tableFile, _ := cmd.Flags().GetString("file")
+	tableSeparator, _ := cmd.Flags().GetString("separator")
+	tableColumns, _ := cmd.Flags().GetStringSlice("columns")
+	tableWidths, _ := cmd.Flags().GetIntSlice("widths")
+	tableHeight, _ := cmd.Flags().GetInt("height")
+	tableSelectable, _ := cmd.Flags().GetBool("selectable")
+
 	var rows [][]string
 
 	if tableFile != "" {

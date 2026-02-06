@@ -27,7 +27,11 @@ type TestConfig struct {
 
 // T016: Tests for basic CUE parsing
 func TestParseAndDecode(t *testing.T) {
+	t.Parallel()
+
 	t.Run("valid config parses successfully", func(t *testing.T) {
+		t.Parallel()
+
 		data := []byte(`
 name: "test"
 count: 42
@@ -54,6 +58,8 @@ description: "A test config"
 	})
 
 	t.Run("optional field can be omitted", func(t *testing.T) {
+		t.Parallel()
+
 		data := []byte(`
 name: "minimal"
 count: 1
@@ -73,6 +79,8 @@ enabled: false
 	})
 
 	t.Run("invalid type returns error", func(t *testing.T) {
+		t.Parallel()
+
 		data := []byte(`
 name: "test"
 count: "not a number"  // Should be int
@@ -85,6 +93,8 @@ enabled: true
 	})
 
 	t.Run("missing required field returns error", func(t *testing.T) {
+		t.Parallel()
+
 		data := []byte(`
 name: "test"
 // count is missing
@@ -97,6 +107,8 @@ enabled: true
 	})
 
 	t.Run("WithFilename sets filename in errors", func(t *testing.T) {
+		t.Parallel()
+
 		data := []byte(`
 name: "test"
 count: "invalid"
@@ -119,6 +131,8 @@ enabled: true
 
 // T017: Tests for Invkmod type parsing (simulated)
 func TestParseInvkmodType(t *testing.T) {
+	t.Parallel()
+
 	// Simulated invkmod schema for testing
 	invkmodSchema := `
 #Invkmod: {
@@ -144,6 +158,8 @@ func TestParseInvkmodType(t *testing.T) {
 	}
 
 	t.Run("valid invkmod parses successfully", func(t *testing.T) {
+		t.Parallel()
+
 		data := []byte(`
 module: "io.example.mymodule"
 version: "1.0.0"
@@ -167,6 +183,8 @@ requires: [
 	})
 
 	t.Run("minimal invkmod parses successfully", func(t *testing.T) {
+		t.Parallel()
+
 		data := []byte(`
 module: "io.example.minimal"
 `)
@@ -183,6 +201,8 @@ module: "io.example.minimal"
 
 // T018: Tests for Config type parsing (simulated)
 func TestParseConfigType(t *testing.T) {
+	t.Parallel()
+
 	// Simulated config schema with optional fields
 	configSchema := `
 #Config: {
@@ -199,6 +219,8 @@ func TestParseConfigType(t *testing.T) {
 	}
 
 	t.Run("full config parses successfully", func(t *testing.T) {
+		t.Parallel()
+
 		data := []byte(`
 container_engine: "podman"
 search_paths: ["./", "~/.config/invowk"]
@@ -218,6 +240,8 @@ default_runtime: "virtual"
 	})
 
 	t.Run("empty config parses with WithConcrete(false)", func(t *testing.T) {
+		t.Parallel()
+
 		data := []byte(`{}`)
 		result, err := ParseAndDecode[Config](
 			[]byte(configSchema),
@@ -235,6 +259,8 @@ default_runtime: "virtual"
 	})
 
 	t.Run("invalid enum value returns error", func(t *testing.T) {
+		t.Parallel()
+
 		data := []byte(`
 container_engine: "kubernetes"  // Invalid: not docker or podman
 `)
@@ -247,7 +273,11 @@ container_engine: "kubernetes"  // Invalid: not docker or podman
 
 // T019: File size limit enforcement tests
 func TestFileSizeLimit(t *testing.T) {
+	t.Parallel()
+
 	t.Run("file within limit parses successfully", func(t *testing.T) {
+		t.Parallel()
+
 		data := []byte(`
 name: "test"
 count: 1
@@ -265,6 +295,8 @@ enabled: true
 	})
 
 	t.Run("file exceeding limit returns error", func(t *testing.T) {
+		t.Parallel()
+
 		// Create data larger than the limit
 		data := make([]byte, 200)
 		for i := range data {
@@ -286,6 +318,8 @@ enabled: true
 	})
 
 	t.Run("default limit is applied", func(t *testing.T) {
+		t.Parallel()
+
 		// Create data well under default limit
 		data := []byte(`name: "test"
 count: 1
@@ -300,6 +334,8 @@ enabled: true
 
 // Test ParseAndDecodeString convenience function
 func TestParseAndDecodeString(t *testing.T) {
+	t.Parallel()
+
 	data := []byte(`
 name: "test"
 count: 42
@@ -317,6 +353,8 @@ enabled: true
 
 // Test that Unified value is accessible
 func TestUnifiedValueAccess(t *testing.T) {
+	t.Parallel()
+
 	data := []byte(`
 name: "test"
 count: 42

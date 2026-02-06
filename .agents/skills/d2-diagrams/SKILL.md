@@ -1,6 +1,7 @@
 ---
 name: d2-diagrams
 description: Agent-optimized D2 diagram generation with TALA layout. Use for C4 architecture, sequence, flowcharts, and any diagram requiring superior auto-layout. D2 is the DEFAULT choice for new diagrams. Triggers include "d2 diagram", "architecture diagram", "generate diagram", "visualize", "model", or any diagramming request. Optimized for validation, error recovery, and deterministic output.
+disable-model-invocation: false
 ---
 
 # D2 Diagramming (Agent-Optimized)

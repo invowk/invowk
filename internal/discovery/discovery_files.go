@@ -58,7 +58,14 @@ func (s Source) String() string {
 	}
 }
 
-// DiscoverAll finds all invkfiles from all sources in order of precedence
+// DiscoverAll finds all invkfiles from all sources in 4-level precedence order:
+//  1. Current directory (highest precedence — the local invkfile.cue)
+//  2. Modules in the current directory (*.invkmod directories)
+//  3. User commands directory (~/.invowk/cmds)
+//  4. Configured search paths from config (lowest precedence)
+//
+// Earlier sources take precedence for disambiguation when the same SimpleName
+// appears in multiple sources.
 func (d *Discovery) DiscoverAll() ([]*DiscoveredFile, error) {
 	var files []*DiscoveredFile
 

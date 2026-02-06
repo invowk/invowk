@@ -15,12 +15,16 @@ import (
 // ============================================================================
 
 func TestVendoredModulesDir(t *testing.T) {
+	t.Parallel()
+
 	if VendoredModulesDir != "invk_modules" {
 		t.Errorf("VendoredModulesDir = %q, want %q", VendoredModulesDir, "invk_modules")
 	}
 }
 
 func TestGetVendoredModulesDir(t *testing.T) {
+	t.Parallel()
+
 	modulePath := "/path/to/mymodule.invkmod"
 	expected := filepath.Join(modulePath, "invk_modules")
 	result := GetVendoredModulesDir(modulePath)
@@ -30,7 +34,11 @@ func TestGetVendoredModulesDir(t *testing.T) {
 }
 
 func TestHasVendoredModules(t *testing.T) {
+	t.Parallel()
+
 	t.Run("no vendored modules directory", func(t *testing.T) {
+		t.Parallel()
+
 		tmpDir := t.TempDir()
 		modulePath := createValidModuleForPackaging(t, tmpDir, "mymodule.invkmod", "mymodule")
 
@@ -40,6 +48,8 @@ func TestHasVendoredModules(t *testing.T) {
 	})
 
 	t.Run("empty vendored modules directory", func(t *testing.T) {
+		t.Parallel()
+
 		tmpDir := t.TempDir()
 		modulePath := createValidModuleForPackaging(t, tmpDir, "mymodule.invkmod", "mymodule")
 		vendoredDir := filepath.Join(modulePath, VendoredModulesDir)
@@ -53,6 +63,8 @@ func TestHasVendoredModules(t *testing.T) {
 	})
 
 	t.Run("with vendored modules", func(t *testing.T) {
+		t.Parallel()
+
 		tmpDir := t.TempDir()
 		modulePath := createValidModuleForPackaging(t, tmpDir, "mymodule.invkmod", "mymodule")
 		vendoredDir := filepath.Join(modulePath, VendoredModulesDir)
@@ -69,7 +81,11 @@ func TestHasVendoredModules(t *testing.T) {
 }
 
 func TestListVendoredModules(t *testing.T) {
+	t.Parallel()
+
 	t.Run("no vendored modules", func(t *testing.T) {
+		t.Parallel()
+
 		tmpDir := t.TempDir()
 		modulePath := filepath.Join(tmpDir, "mymodule.invkmod")
 		if err := os.Mkdir(modulePath, 0o755); err != nil {
@@ -86,6 +102,8 @@ func TestListVendoredModules(t *testing.T) {
 	})
 
 	t.Run("with vendored modules", func(t *testing.T) {
+		t.Parallel()
+
 		tmpDir := t.TempDir()
 		modulePath := filepath.Join(tmpDir, "mymodule.invkmod")
 		if err := os.Mkdir(modulePath, 0o755); err != nil {
@@ -119,6 +137,8 @@ func TestListVendoredModules(t *testing.T) {
 	})
 
 	t.Run("skips invalid modules", func(t *testing.T) {
+		t.Parallel()
+
 		tmpDir := t.TempDir()
 		modulePath := filepath.Join(tmpDir, "mymodule.invkmod")
 		if err := os.Mkdir(modulePath, 0o755); err != nil {
@@ -156,6 +176,8 @@ func TestListVendoredModules(t *testing.T) {
 // ============================================================================
 
 func TestValidate_AllowsNestedModulesInVendoredDir(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	modulePath := createValidModuleForPackaging(t, tmpDir, "mycommands.invkmod", "mycommands")
 
@@ -177,6 +199,8 @@ func TestValidate_AllowsNestedModulesInVendoredDir(t *testing.T) {
 }
 
 func TestValidate_StillRejectsNestedModulesOutsideVendoredDir(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	modulePath := createValidModuleForPackaging(t, tmpDir, "mycommands.invkmod", "mycommands")
 
@@ -209,6 +233,8 @@ func TestValidate_StillRejectsNestedModulesOutsideVendoredDir(t *testing.T) {
 }
 
 func TestValidate_DetectsSymlinks(t *testing.T) {
+	t.Parallel()
+
 	// Skip on Windows since symlinks work differently
 	if runtime.GOOS == "windows" {
 		t.Skip("Skipping symlink test on Windows")
@@ -248,6 +274,8 @@ func TestValidate_DetectsSymlinks(t *testing.T) {
 }
 
 func TestValidate_DetectsWindowsReservedFilenames(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	modulePath := createValidModuleForPackaging(t, tmpDir, "mycommands.invkmod", "mycommands")
 
@@ -280,6 +308,8 @@ func TestValidate_DetectsWindowsReservedFilenames(t *testing.T) {
 }
 
 func TestValidate_RejectsAllSymlinks(t *testing.T) {
+	t.Parallel()
+
 	// Skip on Windows since symlinks work differently
 	if runtime.GOOS == "windows" {
 		t.Skip("Skipping symlink test on Windows")

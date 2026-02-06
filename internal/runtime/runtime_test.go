@@ -43,6 +43,8 @@ func (m *mockRuntime) Execute(_ *ExecutionContext) *Result {
 
 // TestNewExecutionContext verifies that NewExecutionContext initializes defaults correctly.
 func TestNewExecutionContext(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	inv := &invkfile.Invkfile{
 		FilePath: filepath.Join(tmpDir, "invkfile.cue"),
@@ -86,6 +88,8 @@ func TestNewExecutionContext(t *testing.T) {
 
 // TestNewExecutionContext_VirtualRuntime tests context creation for virtual runtime.
 func TestNewExecutionContext_VirtualRuntime(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	inv := &invkfile.Invkfile{
 		FilePath: filepath.Join(tmpDir, "invkfile.cue"),
@@ -101,6 +105,8 @@ func TestNewExecutionContext_VirtualRuntime(t *testing.T) {
 
 // TestResult_Success tests the Success() method for various combinations.
 func TestResult_Success(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name   string
 		result Result
@@ -140,6 +146,8 @@ func TestResult_Success(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			if got := tt.result.Success(); got != tt.want {
 				t.Errorf("Result.Success() = %v, want %v", got, tt.want)
 			}
@@ -149,6 +157,8 @@ func TestResult_Success(t *testing.T) {
 
 // TestNewRegistry verifies that NewRegistry creates an empty registry.
 func TestNewRegistry(t *testing.T) {
+	t.Parallel()
+
 	reg := NewRegistry()
 
 	if reg == nil {
@@ -164,6 +174,8 @@ func TestNewRegistry(t *testing.T) {
 
 // TestRegistry_Register tests runtime registration.
 func TestRegistry_Register(t *testing.T) {
+	t.Parallel()
+
 	reg := NewRegistry()
 	mock := &mockRuntime{name: "test", available: true}
 
@@ -184,6 +196,8 @@ func TestRegistry_Register(t *testing.T) {
 
 // TestRegistry_Register_Overwrite tests that registering the same type overwrites.
 func TestRegistry_Register_Overwrite(t *testing.T) {
+	t.Parallel()
+
 	reg := NewRegistry()
 	mock1 := &mockRuntime{name: "first", available: true}
 	mock2 := &mockRuntime{name: "second", available: true}
@@ -203,11 +217,15 @@ func TestRegistry_Register_Overwrite(t *testing.T) {
 
 // TestRegistry_Get tests retrieval of registered runtimes.
 func TestRegistry_Get(t *testing.T) {
+	t.Parallel()
+
 	reg := NewRegistry()
 	mock := &mockRuntime{name: "native", available: true}
 	reg.Register(RuntimeTypeNative, mock)
 
 	t.Run("success", func(t *testing.T) {
+		t.Parallel()
+
 		rt, err := reg.Get(RuntimeTypeNative)
 		if err != nil {
 			t.Fatalf("Get() unexpected error: %v", err)
@@ -218,6 +236,8 @@ func TestRegistry_Get(t *testing.T) {
 	})
 
 	t.Run("not found", func(t *testing.T) {
+		t.Parallel()
+
 		_, err := reg.Get(RuntimeTypeVirtual)
 		if err == nil {
 			t.Error("Get() expected error for unregistered runtime")
@@ -227,6 +247,8 @@ func TestRegistry_Get(t *testing.T) {
 
 // TestRegistry_GetForContext tests context-based runtime retrieval.
 func TestRegistry_GetForContext(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	inv := &invkfile.Invkfile{
 		FilePath: filepath.Join(tmpDir, "invkfile.cue"),
@@ -263,6 +285,8 @@ func TestRegistry_GetForContext(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			cmd := testCommandWithScript("test", "echo test", tt.runtime)
 			ctx := NewExecutionContext(cmd, inv)
 
@@ -287,6 +311,8 @@ func TestRegistry_GetForContext(t *testing.T) {
 
 // TestRegistry_Available tests listing of available runtimes.
 func TestRegistry_Available(t *testing.T) {
+	t.Parallel()
+
 	reg := NewRegistry()
 	reg.Register(RuntimeTypeNative, &mockRuntime{name: "native", available: true})
 	reg.Register(RuntimeTypeVirtual, &mockRuntime{name: "virtual", available: true})
@@ -312,6 +338,8 @@ func TestRegistry_Available(t *testing.T) {
 
 // TestRegistry_Available_Empty tests Available() with no registered runtimes.
 func TestRegistry_Available_Empty(t *testing.T) {
+	t.Parallel()
+
 	reg := NewRegistry()
 
 	available := reg.Available()
@@ -323,6 +351,8 @@ func TestRegistry_Available_Empty(t *testing.T) {
 
 // TestRegistry_Execute tests the Execute method.
 func TestRegistry_Execute(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	inv := &invkfile.Invkfile{
 		FilePath: filepath.Join(tmpDir, "invkfile.cue"),
@@ -397,6 +427,8 @@ func TestRegistry_Execute(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			reg := NewRegistry()
 			tt.setupReg(reg)
 
@@ -422,6 +454,8 @@ func TestRegistry_Execute(t *testing.T) {
 
 // TestEnvToSlice tests the map to slice conversion.
 func TestEnvToSlice(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name string
 		env  map[string]string
@@ -459,6 +493,8 @@ func TestEnvToSlice(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			got := EnvToSlice(tt.env)
 
 			if len(got) != len(tt.want) {
@@ -481,6 +517,8 @@ func TestEnvToSlice(t *testing.T) {
 
 // TestFindEnvSeparator tests the helper function for finding '=' in env strings.
 func TestFindEnvSeparator(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name  string
 		input string
@@ -520,6 +558,8 @@ func TestFindEnvSeparator(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			got := findEnvSeparator(tt.input)
 			if got != tt.want {
 				t.Errorf("findEnvSeparator(%q) = %d, want %d", tt.input, got, tt.want)
@@ -530,6 +570,8 @@ func TestFindEnvSeparator(t *testing.T) {
 
 // TestNewExecutionID tests that execution IDs are generated.
 func TestNewExecutionID(t *testing.T) {
+	t.Parallel()
+
 	id1 := newExecutionID()
 	id2 := newExecutionID()
 
@@ -544,6 +586,8 @@ func TestNewExecutionID(t *testing.T) {
 
 // TestExecutionContext_CustomOverrides tests setting custom overrides on context.
 func TestExecutionContext_CustomOverrides(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	inv := &invkfile.Invkfile{
 		FilePath: filepath.Join(tmpDir, "invkfile.cue"),
@@ -588,6 +632,8 @@ func TestExecutionContext_CustomOverrides(t *testing.T) {
 
 // TestErrRuntimeNotAvailable_Sentinel verifies the sentinel error value.
 func TestErrRuntimeNotAvailable_Sentinel(t *testing.T) {
+	t.Parallel()
+
 	if ErrRuntimeNotAvailable == nil {
 		t.Fatal("ErrRuntimeNotAvailable should not be nil")
 	}
@@ -599,6 +645,8 @@ func TestErrRuntimeNotAvailable_Sentinel(t *testing.T) {
 // TestRegistry_Execute_UnavailableRuntimeWraps verifies that executing on an unavailable
 // runtime produces an error wrapping ErrRuntimeNotAvailable.
 func TestRegistry_Execute_UnavailableRuntimeWraps(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	inv := &invkfile.Invkfile{
 		FilePath: filepath.Join(tmpDir, "invkfile.cue"),

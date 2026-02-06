@@ -14,13 +14,9 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var (
-	formatType     string
-	formatLanguage string
-	formatTheme    string
-
-	// tuiFormatCmd formats text with styling.
-	tuiFormatCmd = &cobra.Command{
+// newTUIFormatCommand creates the `invowk tui format` command.
+func newTUIFormatCommand() *cobra.Command {
+	cmd := &cobra.Command{
 		Use:   "format [text...]",
 		Short: "Format text with markdown, code, or emoji",
 		Long: `Format and render text with various styling options.
@@ -47,17 +43,19 @@ Examples:
   invowk tui format --type markdown "**bold** and *italic*"`,
 		RunE: runTuiFormat,
 	}
-)
 
-func init() {
-	tuiCmd.AddCommand(tuiFormatCmd)
+	cmd.Flags().String("type", "markdown", "format type (markdown, code, emoji, template)")
+	cmd.Flags().String("language", "", "language for code highlighting")
+	cmd.Flags().String("theme", "", "theme for code highlighting (glamour theme)")
 
-	tuiFormatCmd.Flags().StringVar(&formatType, "type", "markdown", "format type (markdown, code, emoji, template)")
-	tuiFormatCmd.Flags().StringVar(&formatLanguage, "language", "", "language for code highlighting")
-	tuiFormatCmd.Flags().StringVar(&formatTheme, "theme", "", "theme for code highlighting (glamour theme)")
+	return cmd
 }
 
 func runTuiFormat(cmd *cobra.Command, args []string) error {
+	formatType, _ := cmd.Flags().GetString("type")
+	formatLanguage, _ := cmd.Flags().GetString("language")
+	formatTheme, _ := cmd.Flags().GetString("theme")
+
 	var content string
 
 	// Get content from args or stdin

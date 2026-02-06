@@ -11,6 +11,8 @@ import (
 )
 
 func TestIsModule(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name     string
 		setup    func(t *testing.T) string // returns path to test
@@ -160,6 +162,8 @@ func TestIsModule(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			path := tt.setup(t)
 			result := IsModule(path)
 			if result != tt.expected {
@@ -170,6 +174,8 @@ func TestIsModule(t *testing.T) {
 }
 
 func TestParseModuleName(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name        string
 		folderName  string
@@ -259,6 +265,8 @@ func TestParseModuleName(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			result, err := ParseModuleName(tt.folderName)
 			if tt.expectedOK {
 				if err != nil {
@@ -298,7 +306,11 @@ version: "1.0"
 }
 
 func TestLoad(t *testing.T) {
+	t.Parallel()
+
 	t.Run("loads valid module", func(t *testing.T) {
+		t.Parallel()
+
 		dir := t.TempDir()
 		modulePath := createValidModule(t, dir, "com.example.test.invkmod", "com.example.test")
 
@@ -325,6 +337,8 @@ func TestLoad(t *testing.T) {
 	})
 
 	t.Run("loads library-only module", func(t *testing.T) {
+		t.Parallel()
+
 		dir := t.TempDir()
 		modulePath := filepath.Join(dir, "mylib.invkmod")
 		if err := os.Mkdir(modulePath, 0o755); err != nil {
@@ -353,6 +367,8 @@ version: "1.0"
 	})
 
 	t.Run("fails for module missing invkmod.cue", func(t *testing.T) {
+		t.Parallel()
+
 		dir := t.TempDir()
 		modulePath := filepath.Join(dir, "mycommands.invkmod")
 		if err := os.Mkdir(modulePath, 0o755); err != nil {
@@ -372,6 +388,8 @@ version: "1.0"
 }
 
 func TestModule_ResolveScriptPath(t *testing.T) {
+	t.Parallel()
+
 	modulePath := filepath.Join(string(filepath.Separator), "home", "user", "mycommands.invkmod")
 	module := &Module{
 		Path: modulePath,
@@ -401,6 +419,8 @@ func TestModule_ResolveScriptPath(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			result := module.ResolveScriptPath(tt.scriptPath)
 			if result != tt.expected {
 				t.Errorf("ResolveScriptPath(%q) = %q, want %q", tt.scriptPath, result, tt.expected)
@@ -410,6 +430,8 @@ func TestModule_ResolveScriptPath(t *testing.T) {
 }
 
 func TestModule_ValidateScriptPath(t *testing.T) {
+	t.Parallel()
+
 	module := &Module{
 		Path: "/home/user/mycommands.invkmod",
 	}
@@ -463,6 +485,8 @@ func TestModule_ValidateScriptPath(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			err := module.ValidateScriptPath(tt.scriptPath)
 			if tt.expectErr && err == nil {
 				t.Errorf("ValidateScriptPath(%q) expected error, got nil", tt.scriptPath)
@@ -475,6 +499,8 @@ func TestModule_ValidateScriptPath(t *testing.T) {
 }
 
 func TestModule_ContainsPath(t *testing.T) {
+	t.Parallel()
+
 	// Create a real temp directory for this test
 	dir := t.TempDir()
 	modulePath := filepath.Join(dir, "mycommands.invkmod")
@@ -520,6 +546,8 @@ func TestModule_ContainsPath(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			result := module.ContainsPath(tt.path)
 			if result != tt.expected {
 				t.Errorf("ContainsPath(%q) = %v, want %v", tt.path, result, tt.expected)

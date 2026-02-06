@@ -10,6 +10,8 @@ import (
 )
 
 func TestCreate(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name      string
 		opts      CreateOptions
@@ -161,6 +163,8 @@ func TestCreate(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			// Use temp directory as parent
 			tmpDir := t.TempDir()
 			opts := tt.opts
@@ -186,6 +190,8 @@ func TestCreate(t *testing.T) {
 }
 
 func TestCreate_ExistingModule(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 
 	// Create module first time

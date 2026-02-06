@@ -15,13 +15,9 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var (
-	pagerTitle    string
-	pagerLineNum  bool
-	pagerSoftWrap bool
-
-	// tuiPagerCmd provides content scrolling.
-	tuiPagerCmd = &cobra.Command{
+// newTUIPagerCommand creates the `invowk tui pager` command.
+func newTUIPagerCommand() *cobra.Command {
+	cmd := &cobra.Command{
 		Use:   "pager [file]",
 		Short: "Scroll through content",
 		Long: `Display content in a scrollable pager.
@@ -48,17 +44,19 @@ Examples:
 		Args: cobra.MaximumNArgs(1),
 		RunE: runTuiPager,
 	}
-)
 
-func init() {
-	tuiCmd.AddCommand(tuiPagerCmd)
+	cmd.Flags().String("title", "", "title displayed above the pager")
+	cmd.Flags().Bool("line-numbers", false, "show line numbers")
+	cmd.Flags().Bool("soft-wrap", false, "soft wrap long lines")
 
-	tuiPagerCmd.Flags().StringVar(&pagerTitle, "title", "", "title displayed above the pager")
-	tuiPagerCmd.Flags().BoolVar(&pagerLineNum, "line-numbers", false, "show line numbers")
-	tuiPagerCmd.Flags().BoolVar(&pagerSoftWrap, "soft-wrap", false, "soft wrap long lines")
+	return cmd
 }
 
 func runTuiPager(cmd *cobra.Command, args []string) error {
+	pagerTitle, _ := cmd.Flags().GetString("title")
+	pagerLineNum, _ := cmd.Flags().GetBool("line-numbers")
+	pagerSoftWrap, _ := cmd.Flags().GetBool("soft-wrap")
+
 	var content string
 
 	if len(args) > 0 {

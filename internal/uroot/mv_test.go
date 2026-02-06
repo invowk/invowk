@@ -13,6 +13,8 @@ import (
 )
 
 func TestMvCommand_Name(t *testing.T) {
+	t.Parallel()
+
 	cmd := newMvCommand()
 	if got := cmd.Name(); got != "mv" {
 		t.Errorf("Name() = %q, want %q", got, "mv")
@@ -20,6 +22,8 @@ func TestMvCommand_Name(t *testing.T) {
 }
 
 func TestMvCommand_SupportedFlags(t *testing.T) {
+	t.Parallel()
+
 	cmd := newMvCommand()
 	flags := cmd.SupportedFlags()
 
@@ -43,6 +47,8 @@ func TestMvCommand_SupportedFlags(t *testing.T) {
 }
 
 func TestMvCommand_Run_SingleFile(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	srcFile := filepath.Join(tmpDir, "source.txt")
 	dstFile := filepath.Join(tmpDir, "dest.txt")
@@ -83,6 +89,8 @@ func TestMvCommand_Run_SingleFile(t *testing.T) {
 }
 
 func TestMvCommand_Run_ToDirectory(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	srcFile := filepath.Join(tmpDir, "source.txt")
 	dstDir := filepath.Join(tmpDir, "destdir")
@@ -127,6 +135,8 @@ func TestMvCommand_Run_ToDirectory(t *testing.T) {
 }
 
 func TestMvCommand_Run_RenameDirectory(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	srcDir := filepath.Join(tmpDir, "srcdir")
 	dstDir := filepath.Join(tmpDir, "dstdir")
@@ -178,6 +188,8 @@ func TestMvCommand_Run_RenameDirectory(t *testing.T) {
 }
 
 func TestMvCommand_Run_Overwrite(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	srcFile := filepath.Join(tmpDir, "source.txt")
 	dstFile := filepath.Join(tmpDir, "dest.txt")
@@ -216,6 +228,8 @@ func TestMvCommand_Run_Overwrite(t *testing.T) {
 }
 
 func TestMvCommand_Run_NoClobber(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	srcFile := filepath.Join(tmpDir, "source.txt")
 	dstFile := filepath.Join(tmpDir, "dest.txt")
@@ -253,6 +267,8 @@ func TestMvCommand_Run_NoClobber(t *testing.T) {
 }
 
 func TestMvCommand_Run_SourceNotFound(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 
 	var stdout, stderr bytes.Buffer
@@ -277,6 +293,8 @@ func TestMvCommand_Run_SourceNotFound(t *testing.T) {
 }
 
 func TestMvCommand_Run_NoArgs(t *testing.T) {
+	t.Parallel()
+
 	var stdout, stderr bytes.Buffer
 	ctx := WithHandlerContext(context.Background(), &HandlerContext{
 		Stdin:     strings.NewReader(""),
@@ -294,6 +312,8 @@ func TestMvCommand_Run_NoArgs(t *testing.T) {
 }
 
 func TestMvCommand_Run_RelativePaths(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	srcFile := filepath.Join(tmpDir, "source.txt")
 	content := "relative path content\n"

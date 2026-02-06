@@ -19,6 +19,14 @@ func (m *interactiveModel) Init() tea.Cmd {
 	return nil
 }
 
+// Update processes messages for the interactive model, which operates in three states:
+//   - stateExecuting: PTY running, output streaming to viewport. Keys forwarded to PTY.
+//   - stateTUI: modal overlay for a child TUI component (e.g., input, choose, confirm).
+//     The overlay renders on top of the scrolling output view.
+//   - stateCompleted: output browsable with vim-style navigation, exit on keypress.
+//
+// When a child TUI component completes, we intercept its tea.Quit via tuiComponentDoneMsg
+// to prevent it from propagating and closing the parent program.
 func (m *interactiveModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
 

@@ -12,6 +12,8 @@ import (
 )
 
 func TestCatCommand_Name(t *testing.T) {
+	t.Parallel()
+
 	cmd := newCatCommand()
 	if got := cmd.Name(); got != "cat" {
 		t.Errorf("Name() = %q, want %q", got, "cat")
@@ -19,6 +21,8 @@ func TestCatCommand_Name(t *testing.T) {
 }
 
 func TestCatCommand_SupportedFlags(t *testing.T) {
+	t.Parallel()
+
 	cmd := newCatCommand()
 	flags := cmd.SupportedFlags()
 
@@ -29,6 +33,8 @@ func TestCatCommand_SupportedFlags(t *testing.T) {
 }
 
 func TestCatCommand_Run_SingleFile(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "test.txt")
 	content := "hello world\n"
@@ -62,6 +68,8 @@ func TestCatCommand_Run_SingleFile(t *testing.T) {
 }
 
 func TestCatCommand_Run_MultipleFiles(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	file1 := filepath.Join(tmpDir, "file1.txt")
 	file2 := filepath.Join(tmpDir, "file2.txt")
@@ -97,6 +105,8 @@ func TestCatCommand_Run_MultipleFiles(t *testing.T) {
 }
 
 func TestCatCommand_Run_Stdin(t *testing.T) {
+	t.Parallel()
+
 	stdinContent := "from stdin\n"
 
 	var stdout, stderr bytes.Buffer
@@ -121,6 +131,8 @@ func TestCatCommand_Run_Stdin(t *testing.T) {
 }
 
 func TestCatCommand_Run_StdinDash(t *testing.T) {
+	t.Parallel()
+
 	stdinContent := "from stdin via dash\n"
 
 	var stdout, stderr bytes.Buffer
@@ -145,6 +157,8 @@ func TestCatCommand_Run_StdinDash(t *testing.T) {
 }
 
 func TestCatCommand_Run_FileNotFound(t *testing.T) {
+	t.Parallel()
+
 	var stdout, stderr bytes.Buffer
 	ctx := WithHandlerContext(context.Background(), &HandlerContext{
 		Stdin:     strings.NewReader(""),
@@ -168,6 +182,8 @@ func TestCatCommand_Run_FileNotFound(t *testing.T) {
 }
 
 func TestCatCommand_Run_RelativePath(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "relative.txt")
 	content := "relative path content\n"

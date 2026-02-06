@@ -1,6 +1,5 @@
 ---
-description: CUE schema patterns, regex constraints, discriminated unions, validation split
-globs:
+paths:
   - "**/*.cue"
   - "pkg/invkfile/**"
   - "pkg/invkmod/**"

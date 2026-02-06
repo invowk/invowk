@@ -10,6 +10,8 @@ import (
 )
 
 func TestParseEnv_CommandLevelFiles(t *testing.T) {
+	t.Parallel()
+
 	cueContent := `
 cmds: [
 	{
@@ -59,6 +61,8 @@ cmds: [
 }
 
 func TestParseEnv_ImplementationLevelFiles(t *testing.T) {
+	t.Parallel()
+
 	cueContent := `
 cmds: [
 	{
@@ -108,6 +112,8 @@ cmds: [
 }
 
 func TestParseEnv_BothLevels(t *testing.T) {
+	t.Parallel()
+
 	cueContent := `
 cmds: [
 	{
@@ -152,6 +158,8 @@ cmds: [
 }
 
 func TestParseEnv_EmptyFiles(t *testing.T) {
+	t.Parallel()
+
 	cueContent := `
 cmds: [
 	{
@@ -186,6 +194,8 @@ cmds: [
 }
 
 func TestParseEnv_NoField(t *testing.T) {
+	t.Parallel()
+
 	cueContent := `
 cmds: [
 	{
@@ -222,6 +232,8 @@ cmds: [
 }
 
 func TestParseEnv_WithVars(t *testing.T) {
+	t.Parallel()
+
 	cueContent := `
 cmds: [
 	{
@@ -288,6 +300,8 @@ cmds: [
 }
 
 func TestGenerateCUE_WithEnv(t *testing.T) {
+	t.Parallel()
+
 	inv := &Invkfile{
 		Commands: []Command{
 			{
@@ -327,6 +341,8 @@ func TestGenerateCUE_WithEnv(t *testing.T) {
 }
 
 func TestGenerateCUE_EnvRoundTrip(t *testing.T) {
+	t.Parallel()
+
 	original := &Invkfile{
 		Commands: []Command{
 			{
@@ -392,6 +408,8 @@ func TestGenerateCUE_EnvRoundTrip(t *testing.T) {
 }
 
 func TestParseEnv_RootLevelFiles(t *testing.T) {
+	t.Parallel()
+
 	cueContent := `
 env: {
 	files: ["global.env", "shared.env?"]
@@ -437,6 +455,8 @@ cmds: [
 }
 
 func TestParseEnv_RootLevelVars(t *testing.T) {
+	t.Parallel()
+
 	cueContent := `
 env: {
 	vars: {
@@ -484,6 +504,8 @@ cmds: [
 }
 
 func TestParseEnv_AllThreeLevels(t *testing.T) {
+	t.Parallel()
+
 	cueContent := `
 env: {
 	files: ["global.env"]
@@ -565,6 +587,8 @@ cmds: [
 }
 
 func TestGenerateCUE_WithRootLevelEnv(t *testing.T) {
+	t.Parallel()
+
 	inv := &Invkfile{
 		Env: &EnvConfig{
 			Files: []string{"global.env", "shared.env?"},
@@ -602,6 +626,8 @@ func TestGenerateCUE_WithRootLevelEnv(t *testing.T) {
 }
 
 func TestGenerateCUE_RootEnvRoundTrip(t *testing.T) {
+	t.Parallel()
+
 	original := &Invkfile{
 		Env: &EnvConfig{
 			Files: []string{"global.env", "shared.env?"},

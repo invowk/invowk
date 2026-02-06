@@ -164,6 +164,8 @@ func lookupDefinition(t *testing.T, schema cue.Value, defPath string) cue.Value 
 // TestSyncHelpersSmoke verifies the sync test helpers work correctly.
 // This is a smoke test - the actual sync tests for each struct are below.
 func TestSyncHelpersSmoke(t *testing.T) {
+	t.Parallel()
+
 	schema, _ := getCUESchema(t)
 
 	// Test lookupDefinition
@@ -206,6 +208,8 @@ func TestSyncHelpersSmoke(t *testing.T) {
 // TestInvkfileSchemaSync verifies Invkfile Go struct matches #Invkfile CUE definition.
 // T007: Add sync test for Invkfile struct
 func TestInvkfileSchemaSync(t *testing.T) {
+	t.Parallel()
+
 	schema, _ := getCUESchema(t)
 	cueFields := extractCUEFields(t, lookupDefinition(t, schema, "#Invkfile"))
 	goFields := extractGoJSONTags(t, reflect.TypeFor[Invkfile]())
@@ -216,6 +220,8 @@ func TestInvkfileSchemaSync(t *testing.T) {
 // TestCommandSchemaSync verifies Command Go struct matches #Command CUE definition.
 // T008: Add sync test for Command struct
 func TestCommandSchemaSync(t *testing.T) {
+	t.Parallel()
+
 	schema, _ := getCUESchema(t)
 	cueFields := extractCUEFields(t, lookupDefinition(t, schema, "#Command"))
 	goFields := extractGoJSONTags(t, reflect.TypeFor[Command]())
@@ -226,6 +232,8 @@ func TestCommandSchemaSync(t *testing.T) {
 // TestImplementationSchemaSync verifies Implementation Go struct matches #Implementation CUE definition.
 // T009: Add sync test for Implementation struct
 func TestImplementationSchemaSync(t *testing.T) {
+	t.Parallel()
+
 	schema, _ := getCUESchema(t)
 	cueFields := extractCUEFields(t, lookupDefinition(t, schema, "#Implementation"))
 	goFields := extractGoJSONTags(t, reflect.TypeFor[Implementation]())
@@ -240,6 +248,8 @@ func TestImplementationSchemaSync(t *testing.T) {
 // while Go uses a single RuntimeConfig struct with all fields. We need to extract the union of all fields
 // from the three CUE types.
 func TestRuntimeConfigSchemaSync(t *testing.T) {
+	t.Parallel()
+
 	schema, _ := getCUESchema(t)
 
 	// Extract fields from each runtime type variant
@@ -277,6 +287,8 @@ func TestRuntimeConfigSchemaSync(t *testing.T) {
 // TestDependsOnSchemaSync verifies DependsOn Go struct matches #DependsOn CUE definition.
 // T011: Add sync test for DependsOn struct
 func TestDependsOnSchemaSync(t *testing.T) {
+	t.Parallel()
+
 	schema, _ := getCUESchema(t)
 	cueFields := extractCUEFields(t, lookupDefinition(t, schema, "#DependsOn"))
 	goFields := extractGoJSONTags(t, reflect.TypeFor[DependsOn]())
@@ -287,6 +299,8 @@ func TestDependsOnSchemaSync(t *testing.T) {
 // TestFlagSchemaSync verifies Flag Go struct matches #Flag CUE definition.
 // T012: Add sync test for Flag struct
 func TestFlagSchemaSync(t *testing.T) {
+	t.Parallel()
+
 	schema, _ := getCUESchema(t)
 	cueFields := extractCUEFields(t, lookupDefinition(t, schema, "#Flag"))
 	goFields := extractGoJSONTags(t, reflect.TypeFor[Flag]())
@@ -297,6 +311,8 @@ func TestFlagSchemaSync(t *testing.T) {
 // TestArgumentSchemaSync verifies Argument Go struct matches #Argument CUE definition.
 // T012: Add sync test for Argument struct (same task as Flag)
 func TestArgumentSchemaSync(t *testing.T) {
+	t.Parallel()
+
 	schema, _ := getCUESchema(t)
 	cueFields := extractCUEFields(t, lookupDefinition(t, schema, "#Argument"))
 	goFields := extractGoJSONTags(t, reflect.TypeFor[Argument]())
@@ -306,6 +322,8 @@ func TestArgumentSchemaSync(t *testing.T) {
 
 // TestEnvConfigSchemaSync verifies EnvConfig Go struct matches #EnvConfig CUE definition.
 func TestEnvConfigSchemaSync(t *testing.T) {
+	t.Parallel()
+
 	schema, _ := getCUESchema(t)
 	cueFields := extractCUEFields(t, lookupDefinition(t, schema, "#EnvConfig"))
 	goFields := extractGoJSONTags(t, reflect.TypeFor[EnvConfig]())
@@ -315,6 +333,8 @@ func TestEnvConfigSchemaSync(t *testing.T) {
 
 // TestPlatformConfigSchemaSync verifies PlatformConfig Go struct matches #PlatformConfig CUE definition.
 func TestPlatformConfigSchemaSync(t *testing.T) {
+	t.Parallel()
+
 	schema, _ := getCUESchema(t)
 	cueFields := extractCUEFields(t, lookupDefinition(t, schema, "#PlatformConfig"))
 	goFields := extractGoJSONTags(t, reflect.TypeFor[PlatformConfig]())
@@ -324,6 +344,8 @@ func TestPlatformConfigSchemaSync(t *testing.T) {
 
 // TestToolDependencySchemaSync verifies ToolDependency Go struct matches #ToolDependency CUE definition.
 func TestToolDependencySchemaSync(t *testing.T) {
+	t.Parallel()
+
 	schema, _ := getCUESchema(t)
 	cueFields := extractCUEFields(t, lookupDefinition(t, schema, "#ToolDependency"))
 	goFields := extractGoJSONTags(t, reflect.TypeFor[ToolDependency]())
@@ -333,6 +355,8 @@ func TestToolDependencySchemaSync(t *testing.T) {
 
 // TestFilepathDependencySchemaSync verifies FilepathDependency Go struct matches #FilepathDependency CUE definition.
 func TestFilepathDependencySchemaSync(t *testing.T) {
+	t.Parallel()
+
 	schema, _ := getCUESchema(t)
 	cueFields := extractCUEFields(t, lookupDefinition(t, schema, "#FilepathDependency"))
 	goFields := extractGoJSONTags(t, reflect.TypeFor[FilepathDependency]())
@@ -342,6 +366,8 @@ func TestFilepathDependencySchemaSync(t *testing.T) {
 
 // TestCapabilityDependencySchemaSync verifies CapabilityDependency Go struct matches #CapabilityDependency CUE definition.
 func TestCapabilityDependencySchemaSync(t *testing.T) {
+	t.Parallel()
+
 	schema, _ := getCUESchema(t)
 	cueFields := extractCUEFields(t, lookupDefinition(t, schema, "#CapabilityDependency"))
 	goFields := extractGoJSONTags(t, reflect.TypeFor[CapabilityDependency]())
@@ -351,6 +377,8 @@ func TestCapabilityDependencySchemaSync(t *testing.T) {
 
 // TestCommandDependencySchemaSync verifies CommandDependency Go struct matches #CommandDependency CUE definition.
 func TestCommandDependencySchemaSync(t *testing.T) {
+	t.Parallel()
+
 	schema, _ := getCUESchema(t)
 	cueFields := extractCUEFields(t, lookupDefinition(t, schema, "#CommandDependency"))
 	goFields := extractGoJSONTags(t, reflect.TypeFor[CommandDependency]())
@@ -360,6 +388,8 @@ func TestCommandDependencySchemaSync(t *testing.T) {
 
 // TestEnvVarCheckSchemaSync verifies EnvVarCheck Go struct matches #EnvVarCheck CUE definition.
 func TestEnvVarCheckSchemaSync(t *testing.T) {
+	t.Parallel()
+
 	schema, _ := getCUESchema(t)
 	cueFields := extractCUEFields(t, lookupDefinition(t, schema, "#EnvVarCheck"))
 	goFields := extractGoJSONTags(t, reflect.TypeFor[EnvVarCheck]())
@@ -369,6 +399,8 @@ func TestEnvVarCheckSchemaSync(t *testing.T) {
 
 // TestEnvVarDependencySchemaSync verifies EnvVarDependency Go struct matches #EnvVarDependency CUE definition.
 func TestEnvVarDependencySchemaSync(t *testing.T) {
+	t.Parallel()
+
 	schema, _ := getCUESchema(t)
 	cueFields := extractCUEFields(t, lookupDefinition(t, schema, "#EnvVarDependency"))
 	goFields := extractGoJSONTags(t, reflect.TypeFor[EnvVarDependency]())
@@ -378,6 +410,8 @@ func TestEnvVarDependencySchemaSync(t *testing.T) {
 
 // TestCustomCheckSchemaSync verifies CustomCheck Go struct matches #CustomCheck CUE definition.
 func TestCustomCheckSchemaSync(t *testing.T) {
+	t.Parallel()
+
 	schema, _ := getCUESchema(t)
 	cueFields := extractCUEFields(t, lookupDefinition(t, schema, "#CustomCheck"))
 	goFields := extractGoJSONTags(t, reflect.TypeFor[CustomCheck]())
@@ -426,6 +460,8 @@ func validateCUE(t *testing.T, cueData string) error {
 // TestImageLengthConstraint verifies #RuntimeConfigContainer.image has a 512 rune limit.
 // T090: Add boundary tests for image length constraint (512 chars)
 func TestImageLengthConstraint(t *testing.T) {
+	t.Parallel()
+
 	// Exactly 512 characters should pass
 	image512 := strings.Repeat("a", 512)
 	valid := `
@@ -458,6 +494,8 @@ cmds: [{
 // TestInterpreterLengthConstraint verifies interpreter fields have a 1024 rune limit.
 // T091: Add boundary tests for interpreter length constraint (1024 chars)
 func TestInterpreterLengthConstraint(t *testing.T) {
+	t.Parallel()
+
 	// Test native interpreter - exactly 1024 characters should pass
 	interp1024 := strings.Repeat("a", 1024)
 	valid := `
@@ -516,6 +554,8 @@ cmds: [{
 // TestDefaultValueLengthConstraint verifies default_value fields have a 4096 rune limit.
 // T092: Add boundary tests for default_value length constraint (4096 chars)
 func TestDefaultValueLengthConstraint(t *testing.T) {
+	t.Parallel()
+
 	// Test flag default_value - exactly 4096 characters should pass
 	val4096 := strings.Repeat("a", 4096)
 	valid := `
@@ -594,6 +634,8 @@ cmds: [{
 // TestDescriptionNonEmptyWithContentConstraint verifies description fields reject empty/whitespace strings.
 // T093: Add non-empty-with-content validation tests for Command.description
 func TestDescriptionNonEmptyWithContentConstraint(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name        string
 		description string
@@ -612,6 +654,8 @@ func TestDescriptionNonEmptyWithContentConstraint(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
 			// Escape special characters for CUE string literal
 			escapedDesc := strings.ReplaceAll(tc.description, "\\", "\\\\")
 			escapedDesc = strings.ReplaceAll(escapedDesc, "\"", "\\\"")
@@ -641,6 +685,8 @@ cmds: [{
 // TestErrorMessagesIncludeCUEPaths verifies error messages include CUE paths.
 // T094: Verify error messages include CUE paths in constraint violation tests
 func TestErrorMessagesIncludeCUEPaths(t *testing.T) {
+	t.Parallel()
+
 	// Create an invalid invkfile that should produce a path-containing error
 	invalid := `
 cmds: [{
@@ -675,6 +721,8 @@ cmds: [{
 
 // TestCommandNameLengthConstraint verifies #Command.name has a 256 rune limit.
 func TestCommandNameLengthConstraint(t *testing.T) {
+	t.Parallel()
+
 	// Exactly 256 characters should pass (must match ^[a-zA-Z][a-zA-Z0-9_ -]*$)
 	name256 := "a" + strings.Repeat("b", 255)
 	valid := `
@@ -706,6 +754,8 @@ cmds: [{
 
 // TestCommandDescriptionLengthConstraint verifies #Command.description has a 10240 rune limit.
 func TestCommandDescriptionLengthConstraint(t *testing.T) {
+	t.Parallel()
+
 	// Exactly 10240 characters should pass (must match ^\\s*\\S.*$)
 	desc10240 := "A" + strings.Repeat("a", 10239)
 	valid := `
@@ -739,6 +789,8 @@ cmds: [{
 
 // TestCustomCheckNameLengthConstraint verifies #CustomCheck.name has a 256 rune limit.
 func TestCustomCheckNameLengthConstraint(t *testing.T) {
+	t.Parallel()
+
 	// Exactly 256 characters should pass
 	name256 := "a" + strings.Repeat("b", 255)
 	valid := `
@@ -782,6 +834,8 @@ cmds: [{
 
 // TestExpectedOutputLengthConstraint verifies #CustomCheck.expected_output has a 1000 rune limit.
 func TestExpectedOutputLengthConstraint(t *testing.T) {
+	t.Parallel()
+
 	// Exactly 1000 characters should pass
 	output1000 := strings.Repeat("a", 1000)
 	valid := `
@@ -827,6 +881,8 @@ cmds: [{
 
 // TestArgumentValidationLengthConstraint verifies #Argument.validation has a 1000 rune limit.
 func TestArgumentValidationLengthConstraint(t *testing.T) {
+	t.Parallel()
+
 	// Exactly 1000 characters should pass
 	validation1000 := strings.Repeat("a", 1000)
 	valid := `
@@ -868,6 +924,8 @@ cmds: [{
 
 // TestFlagValidationLengthConstraint verifies #Flag.validation has a 1000 rune limit.
 func TestFlagValidationLengthConstraint(t *testing.T) {
+	t.Parallel()
+
 	// Exactly 1000 characters should pass
 	validation1000 := strings.Repeat("a", 1000)
 	valid := `
@@ -910,6 +968,8 @@ cmds: [{
 // TestEnvFilesElementConstraints verifies #EnvConfig.files element constraints.
 // Elements must be non-empty and at most 4096 runes.
 func TestEnvFilesElementConstraints(t *testing.T) {
+	t.Parallel()
+
 	// Empty string should fail
 	invalidEmpty := `
 cmds: [{
@@ -964,6 +1024,8 @@ cmds: [{
 // TestEnvVarsKeyConstraint verifies #EnvConfig.vars keys must match POSIX regex.
 // Key pattern: ^[A-Za-z_][A-Za-z0-9_]*$
 func TestEnvVarsKeyConstraint(t *testing.T) {
+	t.Parallel()
+
 	// Valid POSIX key should pass
 	valid := `
 cmds: [{
@@ -1003,6 +1065,8 @@ cmds: [{
 
 // TestEnvVarsValueLengthConstraint verifies #EnvConfig.vars values have a 32768 rune limit.
 func TestEnvVarsValueLengthConstraint(t *testing.T) {
+	t.Parallel()
+
 	// Exactly 32768 characters should pass
 	val32768 := strings.Repeat("a", 32768)
 	valid := `
@@ -1045,6 +1109,8 @@ cmds: [{
 // TestVolumesElementConstraints verifies #RuntimeConfigContainer.volumes element constraints.
 // Elements must be non-empty and at most 4096 runes.
 func TestVolumesElementConstraints(t *testing.T) {
+	t.Parallel()
+
 	// Empty string should fail
 	invalidEmpty := `
 cmds: [{
@@ -1089,6 +1155,8 @@ cmds: [{
 // TestPortsElementConstraints verifies #RuntimeConfigContainer.ports element constraints.
 // Elements must be non-empty and at most 256 runes.
 func TestPortsElementConstraints(t *testing.T) {
+	t.Parallel()
+
 	// Empty string should fail
 	invalidEmpty := `
 cmds: [{
@@ -1133,6 +1201,8 @@ cmds: [{
 // TestDefaultShellNonWhitespaceConstraint verifies default_shell rejects whitespace-only values.
 // Pattern: =~"^\\s*\\S.*$"
 func TestDefaultShellNonWhitespaceConstraint(t *testing.T) {
+	t.Parallel()
+
 	// Whitespace-only should fail
 	invalid := `
 cmds: [{
@@ -1167,6 +1237,8 @@ default_shell: "/bin/bash"
 // TestImageNonEmptyConstraint verifies #RuntimeConfigContainer.image rejects empty strings.
 // Constraint: !=""
 func TestImageNonEmptyConstraint(t *testing.T) {
+	t.Parallel()
+
 	// Empty image should fail
 	invalid := `
 cmds: [{

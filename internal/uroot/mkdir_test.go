@@ -12,6 +12,8 @@ import (
 )
 
 func TestMkdirCommand_Name(t *testing.T) {
+	t.Parallel()
+
 	cmd := newMkdirCommand()
 	if got := cmd.Name(); got != "mkdir" {
 		t.Errorf("Name() = %q, want %q", got, "mkdir")
@@ -19,6 +21,8 @@ func TestMkdirCommand_Name(t *testing.T) {
 }
 
 func TestMkdirCommand_SupportedFlags(t *testing.T) {
+	t.Parallel()
+
 	cmd := newMkdirCommand()
 	flags := cmd.SupportedFlags()
 
@@ -36,6 +40,8 @@ func TestMkdirCommand_SupportedFlags(t *testing.T) {
 }
 
 func TestMkdirCommand_Run_SingleDir(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	newDir := filepath.Join(tmpDir, "newdir")
 
@@ -64,6 +70,8 @@ func TestMkdirCommand_Run_SingleDir(t *testing.T) {
 }
 
 func TestMkdirCommand_Run_MultipleDirs(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	dir1 := filepath.Join(tmpDir, "dir1")
 	dir2 := filepath.Join(tmpDir, "dir2")
@@ -96,6 +104,8 @@ func TestMkdirCommand_Run_MultipleDirs(t *testing.T) {
 }
 
 func TestMkdirCommand_Run_Parents(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	deepDir := filepath.Join(tmpDir, "a", "b", "c")
 
@@ -124,6 +134,8 @@ func TestMkdirCommand_Run_Parents(t *testing.T) {
 }
 
 func TestMkdirCommand_Run_ParentsExisting(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	existingDir := filepath.Join(tmpDir, "existing")
 
@@ -150,6 +162,8 @@ func TestMkdirCommand_Run_ParentsExisting(t *testing.T) {
 }
 
 func TestMkdirCommand_Run_ExistingWithoutParents(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	existingDir := filepath.Join(tmpDir, "existing")
 
@@ -179,6 +193,8 @@ func TestMkdirCommand_Run_ExistingWithoutParents(t *testing.T) {
 }
 
 func TestMkdirCommand_Run_NoArgs(t *testing.T) {
+	t.Parallel()
+
 	var stdout, stderr bytes.Buffer
 	ctx := WithHandlerContext(context.Background(), &HandlerContext{
 		Stdin:     strings.NewReader(""),
@@ -196,6 +212,8 @@ func TestMkdirCommand_Run_NoArgs(t *testing.T) {
 }
 
 func TestMkdirCommand_Run_RelativePath(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 
 	var stdout, stderr bytes.Buffer

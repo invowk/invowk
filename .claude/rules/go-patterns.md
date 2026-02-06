@@ -1,6 +1,5 @@
 ---
-description: Go style guide covering imports, naming, errors, interfaces, functional options, code organization
-globs:
+paths:
   - "**/*.go"
 ---
 
@@ -136,12 +135,54 @@ defer func() {
 1. **Test code**: Use test helpers (e.g., `testutil.MustClose(t, f)`) instead of named returns.
 2. **Terminal operations in SSH sessions**: Where `sess.Exit()` errors cannot be meaningfully handled, use `_ =` with a comment explaining why.
 3. **Best-effort cleanup after primary error**: When the function already has an error, logging the close error may be appropriate rather than overwriting the primary error.
+4. **Read-only file handles**: For files opened with `os.Open()` (read-only), closing can only fail in exotic edge cases (e.g., interrupted syscall on NFS). Use `defer func() { _ = f.Close() }()` with a comment explaining the file is read-only. The named-return pattern would add unnecessary complexity here.
 
 ## Documentation
 
 - Every exported type, function, and constant MUST have a doc comment.
 - Package comments should be in the format `// Package name description.`
 - Use complete sentences starting with the item name.
+
+### Semantic Commenting (CRITICAL)
+
+Comments are not optional decoration. They are part of the contract of the code.
+
+- **Document semantics, not syntax**: Explain intent, behavior, invariants, ownership, lifecycle, precedence, and side effects. Do not restate obvious code.
+- **Document abstractions and interfaces**: For interfaces, explain what the abstraction means, who implements it, and what callers can rely on.
+- **Document function signature meaning**: Clarify non-obvious parameter semantics, required/optional values, return value meaning, error behavior, and context cancellation expectations.
+- **Document field purpose**: Add comments for fields that carry domain meaning, constraints, units, ownership, or cross-component contracts.
+- **Document subtle body logic**: Add inline comments where behavior is easy to misread (fallback chains, precedence rules, best-effort cleanup, intentionally ignored errors, ordering requirements, race-sensitive logic).
+- **Prefer why over what**: If the code already shows what it does, comment why this approach exists.
+
+**When comments are required even for unexported code:**
+- Non-trivial orchestration or state transitions
+- Security-sensitive behavior or validation rules
+- Compatibility behavior and migration shims
+- Error handling decisions that are intentional (for example, continue-on-error paths)
+
+**Comment quality rules:**
+- Keep comments precise and maintainable; update or remove stale comments when code changes.
+- Avoid boilerplate comments that only repeat identifiers.
+- If a block is subtle enough to require rereading, add a short comment before it.
+- **Guardrail-safe references**: When commenting about deprecated or removed APIs (e.g., explaining what an abstraction replaces), use indirect phrasing rather than the exact prohibited call signature. Pattern guardrail tests like `TestNoGlobalConfigAccess` scan all non-test `.go` files with raw substring matching and will flag comments containing prohibited patterns. For example, write "replaces the previous global config accessor" instead of the literal call expression.
+
+```go
+// GOOD: explains semantics and constraints.
+// ResolveConfigPath applies precedence: CLI flag > env override > default path.
+// It returns an absolute path so downstream checks are deterministic.
+func ResolveConfigPath(cliPath string) (string, error) { ... }
+
+// GOOD: documents abstraction contract.
+// CommandService executes a resolved command request and returns user-renderable diagnostics.
+// Implementations must not write directly to stdout/stderr.
+type CommandService interface {
+    Execute(ctx context.Context, req ExecuteRequest) (ExecuteResult, []Diagnostic, error)
+}
+
+// BAD: restates obvious code.
+// Set x to 10
+x := 10
+```
 
 ```go
 // Package config handles application configuration using Viper with CUE.
@@ -220,6 +261,33 @@ type Runtime interface {
     Available() bool
     Validate(ctx *ExecutionContext) error
 }
+```
+
+## State and Dependency Patterns
+
+### Prefer Explicit Dependencies Over Global Mutable State
+
+Use constructor-injected dependencies and request-scoped data instead of package-level mutable variables.
+
+- **Do not introduce mutable globals** for runtime flags, config paths, singleton servers, discovered command caches, or cross-command execution state.
+- **Use composition roots** (`NewApp`, `NewService`, dependency structs, functional options) to wire concrete implementations.
+- **Pass request-specific inputs explicitly** (e.g., `ExecuteRequest`, `LoadOptions`) instead of mutating shared package state.
+- **Keep global vars immutable** (constants, build metadata) unless there is a compatibility reason that is documented and tested.
+
+### Separate Orchestration from Domain Logic
+
+- **CLI/transport adapters** (Cobra handlers, HTTP handlers, etc.) should parse input, build request structs, call services, and map errors/results to user output.
+- **Domain/services** should return typed results/diagnostics and avoid terminal writes (`fmt.Print*`, direct stdout/stderr logging).
+- **Rendering policy belongs at the boundary** (CLI layer), not inside discovery/config/runtime domain packages.
+
+```go
+// GOOD: explicit dependency injection and request-scoped execution.
+type CommandService interface {
+    Execute(ctx context.Context, req ExecuteRequest) (ExecuteResult, []Diagnostic, error)
+}
+
+// BAD: hidden mutable state shared by all command executions.
+var currentConfigPath string
 ```
 
 ## Context Usage
@@ -348,6 +416,18 @@ func privateFunction() {}
 - Use `_test.go` suffix for test files only.
 - Schema files use `.cue` extension (e.g., `config_schema.cue`, `invkfile_schema.cue`).
 
+### File Splitting Protocol
+
+When splitting a large file into multiple focused files (e.g., decomposing a 975-line validator into concern-specific files), follow this strict protocol to avoid duplicate declaration errors:
+
+1. **Read the source file** and identify logical groupings of declarations (types, methods, functions, variables).
+2. **Create the new target files** with the moved declarations, including SPDX headers and necessary imports.
+3. **Remove the moved declarations from the source file** — this step is critical and frequently forgotten. In Go, all files in a package share the same namespace, so duplicate function/method/variable declarations cause compiler errors.
+4. **Clean up the source file's imports** — removing declarations often leaves unused imports behind.
+5. **Build immediately** (`go build ./...`) to verify no duplicate declarations or missing imports.
+
+**Why this matters:** Go's same-package namespace means the compiler catches duplicates instantly, but the error messages can be confusing when they reference "redeclared in this block" across two different files. The fix is always: ensure each declaration exists in exactly one file.
+
 ## Linter Configuration Documentation
 
 **The `.golangci.toml` file must be kept documented when linters, formatters, or settings are added or changed.**
@@ -374,4 +454,7 @@ setting-name = "value"  # Brief explanation of what this controls
 - **Silent close errors** - Use named returns with defer for resource cleanup.
 - **Missing defaults documentation** - Document default values in functional options.
 - **Wrong declaration order** - Follow const → var → type → func, exported before unexported.
+- **`reflect.DeepEqual` for typed slices** - Use `slices.Equal` (Go 1.21+) for `[]string`, `[]int`, etc. It's type-safe, gives better error messages, and avoids importing `reflect` in tests.
 - **Duplicate package comments** - Use `doc.go` for package docs, remove `// Package` comments from other files.
+- **Prohibited patterns in comments** - Guardrail tests (e.g., `TestNoGlobalConfigAccess`) scan all non-test `.go` files for banned call signatures using raw substring matching. Comments mentioning deprecated APIs must use indirect phrasing to avoid false positives.
+- **Duplicate declarations after file splits** - When moving functions, methods, or variables from one file to another within the same package, always delete the originals from the source file and clean up orphaned imports. This is the most common mistake during file-splitting refactors.

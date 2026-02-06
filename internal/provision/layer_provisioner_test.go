@@ -181,3 +181,72 @@ func TestDefaultConfigReadsTagSuffixFromEnv(t *testing.T) {
 		t.Errorf("DefaultConfig should read TagSuffix from env: got %q, want %q", cfg.TagSuffix, testSuffix)
 	}
 }
+
+func TestLayerProvisionerGenerateDockerfile_NoBinary(t *testing.T) {
+	cfg := &Config{
+		Enabled:          true,
+		InvowkBinaryPath: "", // No binary path
+		BinaryMountPath:  "/invowk/bin",
+		ModulesMountPath: "/invowk/modules",
+	}
+
+	provisioner := &LayerProvisioner{
+		config: cfg,
+	}
+
+	dockerfile := provisioner.generateDockerfile("debian:stable-slim")
+
+	// Should have FROM instruction
+	if !strings.Contains(dockerfile, "FROM debian:stable-slim") {
+		t.Error("Expected FROM debian:stable-slim")
+	}
+
+	// Should NOT have COPY invowk instruction
+	if strings.Contains(dockerfile, "COPY invowk") {
+		t.Error("Should not have COPY invowk when binary path is empty")
+	}
+
+	// Should NOT have RUN chmod instruction
+	if strings.Contains(dockerfile, "RUN chmod") {
+		t.Error("Should not have RUN chmod when binary path is empty")
+	}
+
+	// Should NOT have PATH env var
+	if strings.Contains(dockerfile, "ENV PATH=") {
+		t.Error("Should not set PATH when binary path is empty")
+	}
+
+	// Should still have modules COPY and module path env var
+	if !strings.Contains(dockerfile, "COPY modules/") {
+		t.Error("Expected COPY modules/ even without binary")
+	}
+
+	if !strings.Contains(dockerfile, "ENV INVOWK_MODULE_PATH=") {
+		t.Error("Expected INVOWK_MODULE_PATH even without binary")
+	}
+}
+
+func TestLayerProvisionerBuildEnvVars_NoBinary(t *testing.T) {
+	cfg := &Config{
+		Enabled:          true,
+		InvowkBinaryPath: "", // No binary path
+		BinaryMountPath:  "/invowk/bin",
+		ModulesMountPath: "/invowk/modules",
+	}
+
+	provisioner := &LayerProvisioner{
+		config: cfg,
+	}
+
+	envVars := provisioner.buildEnvVars()
+
+	// PATH should NOT be set when there's no binary
+	if _, ok := envVars["PATH"]; ok {
+		t.Error("PATH should not be set when binary path is empty")
+	}
+
+	// INVOWK_MODULE_PATH should still be set
+	if envVars["INVOWK_MODULE_PATH"] != "/invowk/modules" {
+		t.Errorf("Expected INVOWK_MODULE_PATH=/invowk/modules, got %q", envVars["INVOWK_MODULE_PATH"])
+	}
+}

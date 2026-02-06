@@ -1,12 +1,22 @@
 ---
-description: Test organization, table-driven tests, cross-platform testing, testscript CLI tests, container timeouts
-globs:
+paths:
   - "**/*_test.go"
   - "tests/cli/**"
   - "**/testdata/**"
 ---
 
 # Testing
+
+## Test File Size Limits
+
+**Test files MUST NOT exceed 800 lines.** Large monolithic test files are difficult to navigate and maintain. When a test file approaches this limit, split it by logical concern.
+
+**Naming convention for split files:** `<package>_<concern>_test.go` (e.g., `invkfile_parsing_test.go`, `invkfile_deps_test.go`). Each file should cover a single logical area.
+
+**Splitting protocol:** When moving test functions to a new file, follow the File Splitting Protocol from `go-patterns.md`. The most common mistake is copying tests to the new file but forgetting to delete the originals — Go test files in the same package share a namespace, so duplicate `Test*` function names cause compiler errors. After moving:
+1. Delete the moved test functions from the source file.
+2. Clean up unused imports in the source file (e.g., `"errors"`, `"fmt"` that were only used by moved tests).
+3. Run `go build ./path/to/package/...` immediately to catch duplicates before running `make test`.
 
 ## Test Organization
 
@@ -49,6 +59,57 @@ for _, tt := range tests {
             t.Errorf("got %q, want %q", got, tt.want)
         }
     })
+}
+```
+
+## Test Parallelism
+
+### Default Rule
+
+All new test functions MUST call `t.Parallel()` unless they mutate global/process-wide state.
+
+### Table-Driven Subtests
+
+When a parent test calls `t.Parallel()`, **ALL** subtests inside `t.Run()` must also call `t.Parallel()`. This is enforced by the `tparallel` linter. If even one subtest cannot be parallelized, remove `t.Parallel()` from the parent too.
+
+### Unsafe Patterns (do NOT parallelize)
+
+Do not add `t.Parallel()` to tests that use any of these:
+- `os.Chdir`, `os.Setenv`, or `t.Setenv` (process-wide side effects)
+- Global state mutators: `config.Reset()`, `config.SetConfigDirOverride()`, `testutil.MustSetenv()`, `testutil.MustChdir()`
+- `SetHomeDir` or similar process-wide overrides
+
+### Critical Footgun: TempDir Lifetime with Parallel Subtests
+
+Using `os.MkdirTemp` + `defer os.RemoveAll` in a parent test with `t.Parallel()` subtests causes data races — the parent's `defer` runs when the parent function returns, but parallel subtests are still executing.
+
+**Fix:** Use `t.TempDir()` (lifecycle-managed by the testing framework), or do not parallelize the subtests.
+
+### Correct Pattern
+
+```go
+func TestSomething(t *testing.T) {
+    t.Parallel()
+
+    tests := []struct {
+        name  string
+        input string
+        want  string
+    }{
+        {name: "case A", input: "a", want: "A"},
+        {name: "case B", input: "b", want: "B"},
+    }
+
+    for _, tt := range tests {
+        t.Run(tt.name, func(t *testing.T) {
+            t.Parallel() // Required: parent has t.Parallel()
+
+            got := Transform(tt.input)
+            if got != tt.want {
+                t.Errorf("got %q, want %q", got, tt.want)
+            }
+        })
+    }
 }
 ```
 
@@ -260,3 +321,6 @@ defer func() { testutil.MustRemoveAll(t, path) }()
 | Import conflicts with `runtime` package | Use `goruntime` alias |
 | Forgetting test cleanup | Use `t.TempDir()` and `defer` patterns |
 | Testscript container tests fail with "mkdir /no-home" | Set `HOME` to `env.WorkDir` in Setup |
+| Circular/trivial tests (constant == literal, zero-value == zero) | Test behavioral contracts: sentinel errors with `errors.Is`, default configs that affect user behavior, state machine transitions |
+| Pattern guardrail tests fail after adding comments | `TestNoGlobalConfigAccess` scans all non-test `.go` files for prohibited call signatures using raw `strings.Contains`. Comments mentioning deprecated APIs (e.g., the old global config accessor) must use indirect phrasing. See go-patterns.md "Guardrail-safe references" |
+| Duplicate `Test*` declarations after file split | When splitting test files to stay under 800 lines, delete moved functions from the source file and clean up orphaned imports. Run `go build` before `make test` to catch duplicates early. See go-patterns.md "File Splitting Protocol" |

@@ -12,17 +12,9 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var (
-	fileTitle         string
-	fileDescription   string
-	fileDirectoryOnly bool
-	fileShowFiles     bool
-	fileHidden        bool
-	fileHeight        int
-	fileAllowedExts   []string
-
-	// tuiFileCmd provides a file picker.
-	tuiFileCmd = &cobra.Command{
+// newTUIFileCommand creates the `invowk tui file` command.
+func newTUIFileCommand() *cobra.Command {
+	cmd := &cobra.Command{
 		Use:   "file [path]",
 		Short: "File picker",
 		Long: `Browse and select files or directories.
@@ -33,40 +25,46 @@ Otherwise, it starts in the current directory.
 Examples:
   # Pick any file from current directory
   invowk tui file
-  
+
   # Start in specific directory
   invowk tui file /home/user/documents
-  
+
   # Only show directories
   invowk tui file --directory
-  
+
   # Show hidden files
   invowk tui file --hidden
-  
+
   # Filter by extension
   invowk tui file --allowed ".go,.md,.txt"
-  
+
   # Use in shell script
   FILE=$(invowk tui file --allowed ".json,.yaml")
   echo "Selected: $FILE"`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: runTuiFile,
 	}
-)
 
-func init() {
-	tuiCmd.AddCommand(tuiFileCmd)
+	cmd.Flags().String("title", "", "title displayed above the file picker")
+	cmd.Flags().String("description", "", "description displayed below the title")
+	cmd.Flags().Bool("directory", false, "only show directories")
+	cmd.Flags().Bool("file", true, "show files (default true)")
+	cmd.Flags().Bool("hidden", false, "show hidden files")
+	cmd.Flags().Int("height", 0, "height of the picker (0 for auto)")
+	cmd.Flags().StringSlice("allowed", nil, "allowed file extensions (e.g., .go,.md)")
 
-	tuiFileCmd.Flags().StringVar(&fileTitle, "title", "", "title displayed above the file picker")
-	tuiFileCmd.Flags().StringVar(&fileDescription, "description", "", "description displayed below the title")
-	tuiFileCmd.Flags().BoolVar(&fileDirectoryOnly, "directory", false, "only show directories")
-	tuiFileCmd.Flags().BoolVar(&fileShowFiles, "file", true, "show files (default true)")
-	tuiFileCmd.Flags().BoolVar(&fileHidden, "hidden", false, "show hidden files")
-	tuiFileCmd.Flags().IntVar(&fileHeight, "height", 0, "height of the picker (0 for auto)")
-	tuiFileCmd.Flags().StringSliceVar(&fileAllowedExts, "allowed", nil, "allowed file extensions (e.g., .go,.md)")
+	return cmd
 }
 
 func runTuiFile(cmd *cobra.Command, args []string) error {
+	fileTitle, _ := cmd.Flags().GetString("title")
+	fileDescription, _ := cmd.Flags().GetString("description")
+	fileDirectoryOnly, _ := cmd.Flags().GetBool("directory")
+	fileShowFiles, _ := cmd.Flags().GetBool("file")
+	fileHidden, _ := cmd.Flags().GetBool("hidden")
+	fileHeight, _ := cmd.Flags().GetInt("height")
+	fileAllowedExts, _ := cmd.Flags().GetStringSlice("allowed")
+
 	startPath := "."
 	if len(args) > 0 {
 		startPath = args[0]

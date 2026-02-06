@@ -225,6 +225,7 @@ exclude-functions = [
     "(*github.com/spf13/pflag.FlagSet).GetBool",
     "(*github.com/spf13/pflag.FlagSet).GetInt",
     "(*github.com/spf13/pflag.FlagSet).GetInt64",
+    "(*github.com/spf13/pflag.FlagSet).GetIntSlice",
     "(*github.com/spf13/cobra.Command).MarkFlagRequired",
 
     # Output functions - errors writing to stdout/stderr are not actionable

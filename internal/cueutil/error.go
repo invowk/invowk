@@ -87,8 +87,10 @@ func FormatError(err error, filePath string) error {
 	return fmt.Errorf("%s: validation failed:\n  %s", filePath, strings.Join(lines, "\n  "))
 }
 
-// formatPath converts a CUE path (slice of selectors) to a JSON-like path string.
-// Example: [cmds, 0, implementations, 2, script] -> "cmds[0].implementations[2].script"
+// formatPath converts a CUE error path to JSON-path notation for user-facing messages.
+// CUE provides error paths as flat string slices (e.g., ["cmds", "0", "script"]) where
+// numeric elements represent array indices. This function converts to JSON-path notation
+// (e.g., "cmds[0].script") which is more familiar to users.
 func formatPath(path []string) string {
 	if len(path) == 0 {
 		return ""

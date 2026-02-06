@@ -10,6 +10,8 @@ import (
 )
 
 func TestNewInputModel(t *testing.T) {
+	t.Parallel()
+
 	opts := InputOptions{
 		Title:       "Enter your name",
 		Description: "We need your name for identification",
@@ -36,6 +38,8 @@ func TestNewInputModel(t *testing.T) {
 }
 
 func TestNewInputModel_Password(t *testing.T) {
+	t.Parallel()
+
 	opts := InputOptions{
 		Title:    "Enter password",
 		Password: true,
@@ -52,6 +56,8 @@ func TestNewInputModel_Password(t *testing.T) {
 }
 
 func TestInputModel_CancelWithEsc(t *testing.T) {
+	t.Parallel()
+
 	opts := InputOptions{
 		Title:  "Test input",
 		Config: DefaultConfig(),
@@ -79,6 +85,8 @@ func TestInputModel_CancelWithEsc(t *testing.T) {
 }
 
 func TestInputModel_CancelWithCtrlC(t *testing.T) {
+	t.Parallel()
+
 	opts := InputOptions{
 		Title:  "Test input",
 		Config: DefaultConfig(),
@@ -100,6 +108,8 @@ func TestInputModel_CancelWithCtrlC(t *testing.T) {
 }
 
 func TestInputModel_SetSize(t *testing.T) {
+	t.Parallel()
+
 	opts := InputOptions{
 		Title:  "Test",
 		Config: DefaultConfig(),
@@ -117,6 +127,8 @@ func TestInputModel_SetSize(t *testing.T) {
 }
 
 func TestInputModel_ViewWhenDone(t *testing.T) {
+	t.Parallel()
+
 	opts := InputOptions{
 		Title:  "Test",
 		Config: DefaultConfig(),
@@ -133,6 +145,8 @@ func TestInputModel_ViewWhenDone(t *testing.T) {
 }
 
 func TestInputModel_ViewWithWidth(t *testing.T) {
+	t.Parallel()
+
 	opts := InputOptions{
 		Title:  "Test",
 		Config: DefaultConfig(),
@@ -150,6 +164,8 @@ func TestInputModel_ViewWithWidth(t *testing.T) {
 }
 
 func TestInputModel_Init(t *testing.T) {
+	t.Parallel()
+
 	opts := InputOptions{
 		Title:  "Test",
 		Config: DefaultConfig(),
@@ -164,6 +180,8 @@ func TestInputModel_Init(t *testing.T) {
 }
 
 func TestNewInputModelForModal(t *testing.T) {
+	t.Parallel()
+
 	opts := InputOptions{
 		Title:  "Modal Input",
 		Config: DefaultConfig(),
@@ -181,6 +199,8 @@ func TestNewInputModelForModal(t *testing.T) {
 }
 
 func TestInputBuilder_FluentAPI(t *testing.T) {
+	t.Parallel()
+
 	builder := NewInput().
 		Title("Username").
 		Description("Enter your username").
@@ -222,6 +242,8 @@ func TestInputBuilder_FluentAPI(t *testing.T) {
 }
 
 func TestInputBuilder_Password(t *testing.T) {
+	t.Parallel()
+
 	builder := NewInput().
 		Title("Enter password").
 		Password()
@@ -232,6 +254,8 @@ func TestInputBuilder_Password(t *testing.T) {
 }
 
 func TestInputBuilder_Model(t *testing.T) {
+	t.Parallel()
+
 	builder := NewInput().
 		Title("Test")
 
@@ -246,6 +270,8 @@ func TestInputBuilder_Model(t *testing.T) {
 }
 
 func TestInputOptions_Fields(t *testing.T) {
+	t.Parallel()
+
 	opts := InputOptions{
 		Title:       "Email",
 		Description: "Your email address",
@@ -298,6 +324,8 @@ func TestInputOptions_Fields(t *testing.T) {
 }
 
 func TestNewInputModel_WithInitialValue(t *testing.T) {
+	t.Parallel()
+
 	opts := InputOptions{
 		Title:  "Pre-filled",
 		Value:  "Hello World",
@@ -314,6 +342,8 @@ func TestNewInputModel_WithInitialValue(t *testing.T) {
 }
 
 func TestNewInputModel_WithCharLimit(t *testing.T) {
+	t.Parallel()
+
 	opts := InputOptions{
 		Title:     "Limited",
 		CharLimit: 10,
@@ -329,6 +359,8 @@ func TestNewInputModel_WithCharLimit(t *testing.T) {
 }
 
 func TestInputBuilder_DefaultValues(t *testing.T) {
+	t.Parallel()
+
 	builder := NewInput()
 
 	// Default config should be set

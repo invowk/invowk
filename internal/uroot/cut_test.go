@@ -12,6 +12,8 @@ import (
 )
 
 func TestCutCommand_Name(t *testing.T) {
+	t.Parallel()
+
 	cmd := newCutCommand()
 	if got := cmd.Name(); got != "cut" {
 		t.Errorf("Name() = %q, want %q", got, "cut")
@@ -19,6 +21,8 @@ func TestCutCommand_Name(t *testing.T) {
 }
 
 func TestCutCommand_SupportedFlags(t *testing.T) {
+	t.Parallel()
+
 	cmd := newCutCommand()
 	flags := cmd.SupportedFlags()
 
@@ -38,6 +42,8 @@ func TestCutCommand_SupportedFlags(t *testing.T) {
 }
 
 func TestCutCommand_Run_Fields(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "test.txt")
 
@@ -72,6 +78,8 @@ func TestCutCommand_Run_Fields(t *testing.T) {
 }
 
 func TestCutCommand_Run_MultipleFields(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "test.txt")
 
@@ -103,6 +111,8 @@ func TestCutCommand_Run_MultipleFields(t *testing.T) {
 }
 
 func TestCutCommand_Run_FieldRange(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "test.txt")
 
@@ -133,6 +143,8 @@ func TestCutCommand_Run_FieldRange(t *testing.T) {
 }
 
 func TestCutCommand_Run_Characters(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "test.txt")
 
@@ -163,6 +175,8 @@ func TestCutCommand_Run_Characters(t *testing.T) {
 }
 
 func TestCutCommand_Run_TabDelimiter(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "test.txt")
 
@@ -194,6 +208,8 @@ func TestCutCommand_Run_TabDelimiter(t *testing.T) {
 }
 
 func TestCutCommand_Run_Stdin(t *testing.T) {
+	t.Parallel()
+
 	stdinContent := "apple:red\nbanana:yellow\n"
 
 	var stdout, stderr bytes.Buffer
@@ -218,6 +234,8 @@ func TestCutCommand_Run_Stdin(t *testing.T) {
 }
 
 func TestCutCommand_Run_OnlyDelimited(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "test.txt")
 
@@ -251,6 +269,8 @@ func TestCutCommand_Run_OnlyDelimited(t *testing.T) {
 }
 
 func TestCutCommand_Run_FileNotFound(t *testing.T) {
+	t.Parallel()
+
 	var stdout, stderr bytes.Buffer
 	ctx := WithHandlerContext(context.Background(), &HandlerContext{
 		Stdin:     strings.NewReader(""),
@@ -274,6 +294,8 @@ func TestCutCommand_Run_FileNotFound(t *testing.T) {
 }
 
 func TestCutCommand_Run_NoFieldOrChar(t *testing.T) {
+	t.Parallel()
+
 	var stdout, stderr bytes.Buffer
 	ctx := WithHandlerContext(context.Background(), &HandlerContext{
 		Stdin:     strings.NewReader("test\n"),
@@ -293,6 +315,8 @@ func TestCutCommand_Run_NoFieldOrChar(t *testing.T) {
 }
 
 func TestCutCommand_Run_EmptyFile(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "empty.txt")
 

@@ -33,7 +33,7 @@ Invowk is a dynamically extensible command runner (similar to `just`, `task`, an
 - [`.claude/rules/cue-patterns.md`](.claude/rules/cue-patterns.md) - CUE schema patterns, string validation, common pitfalls.
 - [`.claude/rules/general-rules.md`](.claude/rules/general-rules.md) - Instruction priority, code quality, documentation.
 - [`.claude/rules/git.md`](.claude/rules/git.md) - Commit signing, squash merge, message format.
-- [`.claude/rules/go-patterns.md`](.claude/rules/go-patterns.md) - Go style, naming, errors, interfaces.
+- [`.claude/rules/go-patterns.md`](.claude/rules/go-patterns.md) - Go style, naming, errors, interfaces, comments.
 - [`.claude/rules/licensing.md`](.claude/rules/licensing.md) - SPDX headers and MPL-2.0 rules.
 - [`.claude/rules/package-design.md`](.claude/rules/package-design.md) - Package boundaries and module design.
 - [`.claude/rules/testing.md`](.claude/rules/testing.md) - Test patterns, cross-platform testing, skipOnWindows.
@@ -80,6 +80,10 @@ When working in a specific code area, apply these rules and skills:
 | `pkg/invkmod/` | go-patterns, testing, cue-patterns, licensing, package-design | cue, invowk-schema |
 | `website/` | general-rules | docs |
 | `docs/architecture/` | general-rules | docs, d2-diagrams |
+| `internal/uroot/` | go-patterns, testing, licensing | uroot |
+| `internal/core/serverbase/` | go-patterns, testing, licensing | server |
+| `internal/benchmark/` | go-patterns, testing, licensing, commands | — |
+| `pkg/platform/` | go-patterns, testing, windows, licensing | — |
 | `tests/cli/` | testing | testing, cli |
 
 ## Architecture Overview
@@ -114,7 +118,10 @@ invkfile.cue -> CUE Parser -> pkg/invkfile -> Runtime Selection -> Execution
   - `sshserver/` - SSH server for remote execution.
   - `tui/` - Terminal UI components.
   - `tuiserver/` - TUI server for interactive sessions.
-- `pkg/` - Public packages (invkmod, invkfile).
+  - `uroot/` - u-root utility implementations for virtual shell built-ins.
+  - `benchmark/` - Benchmarks for PGO profile generation.
+  - `provision/` - Container provisioning (ephemeral layer attachment).
+- `pkg/` - Public packages (invkmod, invkfile, platform).
 - `modules/` - Sample invowk modules for validation and reference.
 
 ## Container Runtime Limitations

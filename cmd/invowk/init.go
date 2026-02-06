@@ -12,40 +12,44 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var (
-	initForce    bool
-	initTemplate string
+// newInitCommand creates the `invowk init` command.
+func newInitCommand() *cobra.Command {
+	var (
+		force    bool
+		template string
+	)
 
-	// initCmd creates a new invkfile
-	initCmd = &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "init",
 		Short: "Create a new invkfile in the current directory",
 		Long: `Create a new invkfile in the current directory with example commands.
 
 This command generates a starter invkfile with sample commands to help
 you get started quickly.`,
-		RunE: runInit,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runInit(cmd, args, force, template)
+		},
 	}
-)
 
-func init() {
-	initCmd.Flags().BoolVarP(&initForce, "force", "f", false, "overwrite existing invkfile")
-	initCmd.Flags().StringVarP(&initTemplate, "template", "t", "default", "template to use (default, minimal, full)")
+	cmd.Flags().BoolVarP(&force, "force", "f", false, "overwrite existing invkfile")
+	cmd.Flags().StringVarP(&template, "template", "t", "default", "template to use (default, minimal, full)")
+
+	return cmd
 }
 
-func runInit(cmd *cobra.Command, args []string) error {
+func runInit(_ *cobra.Command, args []string, force bool, template string) error {
 	filename := "invkfile.cue"
 	if len(args) > 0 {
 		filename = args[0]
 	}
 
 	// Check if file exists
-	if _, err := os.Stat(filename); err == nil && !initForce {
+	if _, err := os.Stat(filename); err == nil && !force {
 		return fmt.Errorf("file '%s' already exists. Use --force to overwrite", filename)
 	}
 
 	// Generate content based on template
-	content := generateInvkfile(initTemplate)
+	content := generateInvkfile(template)
 
 	// Write file
 	if err := os.WriteFile(filename, []byte(content), 0o644); err != nil {

@@ -1,6 +1,5 @@
 ---
-description: Windows compatibility for path handling, reserved names, CI considerations, container path domains
-globs:
+paths:
   - "internal/container/**"
   - "internal/runtime/**"
   - "internal/provision/**"

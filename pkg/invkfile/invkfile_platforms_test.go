@@ -10,6 +10,8 @@ import (
 )
 
 func TestParsePlatforms(t *testing.T) {
+	t.Parallel()
+
 	cueContent := `
 cmds: [
 	{
@@ -75,6 +77,8 @@ cmds: [
 }
 
 func TestGenerateCUE_WithPlatforms(t *testing.T) {
+	t.Parallel()
+
 	inv := &Invkfile{
 		Commands: []Command{
 			{
@@ -115,6 +119,8 @@ func TestGenerateCUE_WithPlatforms(t *testing.T) {
 // Tests for enable_host_ssh functionality
 
 func TestParseEnableHostSSH(t *testing.T) {
+	t.Parallel()
+
 	cueContent := `
 cmds: [
 	{
@@ -176,6 +182,8 @@ cmds: [
 }
 
 func TestParseEnableHostSSH_DefaultFalse(t *testing.T) {
+	t.Parallel()
+
 	cueContent := `
 cmds: [
 	{
@@ -216,6 +224,8 @@ cmds: [
 }
 
 func TestScript_HasHostSSH(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name     string
 		script   Implementation
@@ -282,6 +292,8 @@ func TestScript_HasHostSSH(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			result := tt.script.HasHostSSH()
 			if result != tt.expected {
 				t.Errorf("HasHostSSH() = %v, want %v", result, tt.expected)
@@ -291,6 +303,8 @@ func TestScript_HasHostSSH(t *testing.T) {
 }
 
 func TestScript_GetHostSSHForRuntime(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name     string
 		script   Implementation
@@ -361,6 +375,8 @@ func TestScript_GetHostSSHForRuntime(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			result := tt.script.GetHostSSHForRuntime(tt.runtime)
 			if result != tt.expected {
 				t.Errorf("GetHostSSHForRuntime(%s) = %v, want %v", tt.runtime, result, tt.expected)
@@ -370,6 +386,8 @@ func TestScript_GetHostSSHForRuntime(t *testing.T) {
 }
 
 func TestValidateEnableHostSSH_InvalidForNonContainer(t *testing.T) {
+	t.Parallel()
+
 	// Test that enable_host_ssh is rejected for non-container runtimes
 	// This tests the Go validation, not the CUE schema (CUE schema only allows enable_host_ssh for container)
 
@@ -389,6 +407,8 @@ func TestValidateEnableHostSSH_InvalidForNonContainer(t *testing.T) {
 }
 
 func TestValidateEnableHostSSH_ValidForContainer(t *testing.T) {
+	t.Parallel()
+
 	rt := &RuntimeConfig{
 		Name:          RuntimeContainer,
 		EnableHostSSH: true,
@@ -402,6 +422,8 @@ func TestValidateEnableHostSSH_ValidForContainer(t *testing.T) {
 }
 
 func TestGenerateCUE_WithEnableHostSSH(t *testing.T) {
+	t.Parallel()
+
 	inv := &Invkfile{
 		Commands: []Command{
 			{
@@ -431,6 +453,8 @@ func TestGenerateCUE_WithEnableHostSSH(t *testing.T) {
 }
 
 func TestGenerateCUE_WithEnableHostSSH_False(t *testing.T) {
+	t.Parallel()
+
 	// When enable_host_ssh is false (default), it should not appear in the output
 	inv := &Invkfile{
 		Commands: []Command{
@@ -457,6 +481,8 @@ func TestGenerateCUE_WithEnableHostSSH_False(t *testing.T) {
 }
 
 func TestParseContainerRuntimeWithAllOptions(t *testing.T) {
+	t.Parallel()
+
 	cueContent := `
 cmds: [
 	{

@@ -12,18 +12,9 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var (
-	writeTitle       string
-	writeDescription string
-	writePlaceholder string
-	writeValue       string
-	writeCharLimit   int
-	writeWidth       int
-	writeHeight      int
-	writeShowLineNum bool
-
-	// tuiWriteCmd provides a multi-line text editor.
-	tuiWriteCmd = &cobra.Command{
+// newTUIWriteCommand creates the `invowk tui write` command.
+func newTUIWriteCommand() *cobra.Command {
+	cmd := &cobra.Command{
 		Use:   "write",
 		Short: "Multi-line text editor",
 		Long: `Open a multi-line text editor for entering longer text.
@@ -46,22 +37,29 @@ Examples:
   git commit -m "$MESSAGE"`,
 		RunE: runTuiWrite,
 	}
-)
 
-func init() {
-	tuiCmd.AddCommand(tuiWriteCmd)
+	cmd.Flags().String("title", "", "title displayed above the editor")
+	cmd.Flags().String("description", "", "description displayed below the title")
+	cmd.Flags().String("placeholder", "", "placeholder text when editor is empty")
+	cmd.Flags().String("value", "", "initial value")
+	cmd.Flags().Int("char-limit", 0, "character limit (0 for no limit)")
+	cmd.Flags().Int("width", 0, "width of the editor (0 for auto)")
+	cmd.Flags().Int("height", 0, "height of the editor (0 for auto)")
+	cmd.Flags().Bool("show-line-numbers", false, "show line numbers")
 
-	tuiWriteCmd.Flags().StringVar(&writeTitle, "title", "", "title displayed above the editor")
-	tuiWriteCmd.Flags().StringVar(&writeDescription, "description", "", "description displayed below the title")
-	tuiWriteCmd.Flags().StringVar(&writePlaceholder, "placeholder", "", "placeholder text when editor is empty")
-	tuiWriteCmd.Flags().StringVar(&writeValue, "value", "", "initial value")
-	tuiWriteCmd.Flags().IntVar(&writeCharLimit, "char-limit", 0, "character limit (0 for no limit)")
-	tuiWriteCmd.Flags().IntVar(&writeWidth, "width", 0, "width of the editor (0 for auto)")
-	tuiWriteCmd.Flags().IntVar(&writeHeight, "height", 0, "height of the editor (0 for auto)")
-	tuiWriteCmd.Flags().BoolVar(&writeShowLineNum, "show-line-numbers", false, "show line numbers")
+	return cmd
 }
 
 func runTuiWrite(cmd *cobra.Command, args []string) error {
+	writeTitle, _ := cmd.Flags().GetString("title")
+	writeDescription, _ := cmd.Flags().GetString("description")
+	writePlaceholder, _ := cmd.Flags().GetString("placeholder")
+	writeValue, _ := cmd.Flags().GetString("value")
+	writeCharLimit, _ := cmd.Flags().GetInt("char-limit")
+	writeWidth, _ := cmd.Flags().GetInt("width")
+	writeHeight, _ := cmd.Flags().GetInt("height")
+	writeShowLineNum, _ := cmd.Flags().GetBool("show-line-numbers")
+
 	var result string
 	var err error
 

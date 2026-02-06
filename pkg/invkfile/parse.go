@@ -12,8 +12,13 @@ import (
 	"invowk-cli/pkg/invkmod"
 )
 
-//go:embed invkfile_schema.cue
-var invkfileSchema string
+var (
+	//go:embed invkfile_schema.cue
+	invkfileSchema string
+
+	// Ensure Invkfile satisfies the typed module command contract.
+	_ invkmod.ModuleCommands = (*Invkfile)(nil)
+)
 
 // Module represents a loaded invowk module, ready for use.
 // This is a type alias for invkmod.Module.
@@ -68,14 +73,13 @@ func ParseInvkmodBytes(data []byte, path string) (*Invkmod, error) {
 }
 
 // ParseModule reads and parses a complete module from the given module directory.
-// It expects:
-// - invkmod.cue (required): Module metadata (module name, version, description, requires)
-// - invkfile.cue (optional): Command definitions (for library-only modules)
+// It loads invkmod.cue for module metadata (name, version, requires) and optionally
+// invkfile.cue for command definitions. Modules without invkfile.cue are marked as
+// library-only — they provide scripts and files for other modules to reference via
+// `requires` but contribute no commands to the CLI.
 //
 // The modulePath should be the path to the module directory (ending in .invkmod).
 // Returns a Module with Metadata from invkmod.cue and Commands from invkfile.cue.
-// Note: Commands is stored as any but is always *Invkfile when present.
-// Use GetModuleCommands() for typed access.
 func ParseModule(modulePath string) (*Module, error) {
 	invkmodPath := filepath.Join(modulePath, "invkmod.cue")
 	invkfilePath := filepath.Join(modulePath, "invkfile.cue")
@@ -114,18 +118,6 @@ func ParseModule(modulePath string) (*Module, error) {
 	}
 
 	return result, nil
-}
-
-// GetModuleCommands extracts the Invkfile from a Module.
-// Returns nil if the module has no commands (library-only module) or if m is nil.
-func GetModuleCommands(m *Module) *Invkfile {
-	if m == nil || m.Commands == nil {
-		return nil
-	}
-	if inv, ok := m.Commands.(*Invkfile); ok {
-		return inv
-	}
-	return nil
 }
 
 // ParseEnvInheritMode parses a string into an EnvInheritMode.

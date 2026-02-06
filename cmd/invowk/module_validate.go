@@ -14,12 +14,11 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var (
-	// moduleValidateDeep enables deep validation including invkfile parsing
-	moduleValidateDeep bool
+// newModuleValidateCommand creates the `invowk module validate` command.
+func newModuleValidateCommand() *cobra.Command {
+	var deep bool
 
-	// moduleValidateCmd validates an invowk module
-	moduleValidateCmd = &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "validate <path>",
 		Short: "Validate an invowk module",
 		Long: `Validate the structure and contents of an invowk module.
@@ -34,15 +33,17 @@ Examples:
   invowk module validate ./mycommands.invkmod
   invowk module validate ./com.example.tools.invkmod --deep`,
 		Args: cobra.ExactArgs(1),
-		RunE: runModuleValidate,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runModuleValidate(args, deep)
+		},
 	}
-)
 
-func initModuleValidateCmd() {
-	moduleValidateCmd.Flags().BoolVar(&moduleValidateDeep, "deep", false, "perform deep validation including invkfile parsing")
+	cmd.Flags().BoolVar(&deep, "deep", false, "perform deep validation including invkfile parsing")
+
+	return cmd
 }
 
-func runModuleValidate(cmd *cobra.Command, args []string) error {
+func runModuleValidate(args []string, deep bool) error {
 	modulePath := args[0]
 
 	// Convert to absolute path for display
@@ -66,7 +67,7 @@ func runModuleValidate(cmd *cobra.Command, args []string) error {
 	}
 
 	// Deep validation: parse invkfile
-	if moduleValidateDeep && result.InvkfilePath != "" {
+	if deep && result.InvkfilePath != "" {
 		inv, invkfileError := invkfile.Parse(result.InvkfilePath)
 		if invkfileError != nil {
 			result.AddIssue("invkfile", invkfileError.Error(), "invkfile.cue")
@@ -99,7 +100,7 @@ func runModuleValidate(cmd *cobra.Command, args []string) error {
 		fmt.Printf("%s Naming convention check passed\n", moduleSuccessIcon)
 		fmt.Printf("%s Required files present\n", moduleSuccessIcon)
 
-		if moduleValidateDeep {
+		if deep {
 			fmt.Printf("%s Invkfile parses successfully\n", moduleSuccessIcon)
 		} else {
 			fmt.Printf("%s Use --deep to also validate invkfile syntax\n", moduleWarningIcon)

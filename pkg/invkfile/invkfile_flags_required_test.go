@@ -15,6 +15,8 @@ import (
 // ============================================================================
 
 func TestParseFlags_RequiredFlag(t *testing.T) {
+	t.Parallel()
+
 	cueContent := `
 cmds: [
 	{
@@ -49,6 +51,8 @@ cmds: [
 }
 
 func TestParseFlagsValidation_RequiredWithDefaultValue(t *testing.T) {
+	t.Parallel()
+
 	cueContent := `
 cmds: [
 	{
@@ -81,6 +85,8 @@ cmds: [
 }
 
 func TestParseFlags_ShortAlias(t *testing.T) {
+	t.Parallel()
+
 	cueContent := `
 cmds: [
 	{
@@ -119,6 +125,8 @@ cmds: [
 }
 
 func TestParseFlagsValidation_InvalidShortAlias(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name  string
 		short string
@@ -134,6 +142,8 @@ func TestParseFlagsValidation_InvalidShortAlias(t *testing.T) {
 			continue // Skip empty - it's valid
 		}
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			cueContent := fmt.Sprintf(`
 cmds: [
 	{
@@ -166,6 +176,8 @@ cmds: [
 }
 
 func TestParseFlagsValidation_DuplicateShortAlias(t *testing.T) {
+	t.Parallel()
+
 	cueContent := `
 cmds: [
 	{
@@ -203,6 +215,8 @@ cmds: [
 // ============================================================================
 
 func TestValidateFlags_ReservedEnvFileName(t *testing.T) {
+	t.Parallel()
+
 	cueContent := `
 cmds: [
 	{
@@ -236,6 +250,8 @@ cmds: [
 }
 
 func TestValidateFlags_ReservedShortAliasE(t *testing.T) {
+	t.Parallel()
+
 	cueContent := `
 cmds: [
 	{

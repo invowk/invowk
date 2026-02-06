@@ -1,6 +1,6 @@
 ---
 name: cli
-description: CLI command structure, Cobra patterns, execution flow, hidden internal commands
+description: CLI command structure, Cobra patterns, execution flow, hidden internal commands. Use when working on cmd/invowk/ files, adding CLI commands, or modifying Cobra command trees.
 disable-model-invocation: false
 ---
 

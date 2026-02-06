@@ -3,6 +3,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 
 	"invowk-cli/internal/config"
@@ -38,9 +39,12 @@ var (
 	moduleDetailStyle = lipgloss.NewStyle().
 				Foreground(ColorMuted).
 				PaddingLeft(2)
+)
 
-	// moduleCmd represents the module command group
-	moduleCmd = &cobra.Command{
+// newModuleCommand creates the `invowk module` command tree.
+// Subcommands that need config access capture the App via closure.
+func newModuleCommand(app *App) *cobra.Command {
+	modCmd := &cobra.Command{
 		Use:     "module",
 		Aliases: []string{"mod"},
 		Short:   "Manage invowk modules",
@@ -62,8 +66,10 @@ Examples:
   invowk module validate ./com.example.tools.invkmod --deep`,
 	}
 
-	// moduleListCmd lists all discovered modules
-	moduleListCmd = &cobra.Command{
+	// Core module commands
+	modCmd.AddCommand(newModuleValidateCommand())
+	modCmd.AddCommand(newModuleCreateCommand())
+	modCmd.AddCommand(&cobra.Command{
 		Use:   "list",
 		Short: "List all discovered modules",
 		Long: `List all invowk modules discovered in:
@@ -73,40 +79,30 @@ Examples:
 
 Examples:
   invowk module list`,
-		RunE: runModuleList,
-	}
-)
-
-func init() {
-	// Core module commands
-	moduleCmd.AddCommand(moduleValidateCmd)
-	moduleCmd.AddCommand(moduleCreateCmd)
-	moduleCmd.AddCommand(moduleListCmd)
-	moduleCmd.AddCommand(moduleArchiveCmd)
-	moduleCmd.AddCommand(moduleImportCmd)
-	moduleCmd.AddCommand(moduleAliasCmd)
-	moduleCmd.AddCommand(moduleVendorCmd)
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runModuleList(cmd.Context(), app)
+		},
+	})
+	modCmd.AddCommand(newModuleArchiveCommand())
+	modCmd.AddCommand(newModuleImportCommand())
+	modCmd.AddCommand(newModuleAliasCommand(app))
+	modCmd.AddCommand(newModuleVendorCommand())
 
 	// Dependency management commands
-	moduleCmd.AddCommand(moduleAddCmd)
-	moduleCmd.AddCommand(moduleRemoveCmd)
-	moduleCmd.AddCommand(moduleSyncCmd)
-	moduleCmd.AddCommand(moduleUpdateCmd)
-	moduleCmd.AddCommand(moduleDepsCmd)
+	modCmd.AddCommand(newModuleAddCommand())
+	modCmd.AddCommand(newModuleRemoveCommand())
+	modCmd.AddCommand(newModuleSyncCommand())
+	modCmd.AddCommand(newModuleUpdateCommand())
+	modCmd.AddCommand(newModuleDepsCommand())
 
-	// Initialize subcommand flags
-	initModuleValidateCmd()
-	initModuleCreateCmd()
-	initModuleAliasCmd()
-	initModulePackageCmd()
-	initModuleDepsCmd()
+	return modCmd
 }
 
-func runModuleList(cmd *cobra.Command, args []string) error {
+func runModuleList(ctx context.Context, app *App) error {
 	fmt.Println(moduleTitleStyle.Render("Discovered Modules"))
 
-	// Load config
-	cfg, err := config.Load()
+	// Load config via provider instead of legacy global
+	cfg, err := app.Config.Load(ctx, config.LoadOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to load config: %w", err)
 	}

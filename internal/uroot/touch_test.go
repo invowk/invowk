@@ -13,6 +13,8 @@ import (
 )
 
 func TestTouchCommand_Name(t *testing.T) {
+	t.Parallel()
+
 	cmd := newTouchCommand()
 	if got := cmd.Name(); got != "touch" {
 		t.Errorf("Name() = %q, want %q", got, "touch")
@@ -20,6 +22,8 @@ func TestTouchCommand_Name(t *testing.T) {
 }
 
 func TestTouchCommand_SupportedFlags(t *testing.T) {
+	t.Parallel()
+
 	cmd := newTouchCommand()
 	flags := cmd.SupportedFlags()
 
@@ -37,6 +41,8 @@ func TestTouchCommand_SupportedFlags(t *testing.T) {
 }
 
 func TestTouchCommand_Run_CreateFile(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	newFile := filepath.Join(tmpDir, "newfile.txt")
 
@@ -65,6 +71,8 @@ func TestTouchCommand_Run_CreateFile(t *testing.T) {
 }
 
 func TestTouchCommand_Run_MultipleFiles(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	file1 := filepath.Join(tmpDir, "file1.txt")
 	file2 := filepath.Join(tmpDir, "file2.txt")
@@ -92,6 +100,8 @@ func TestTouchCommand_Run_MultipleFiles(t *testing.T) {
 }
 
 func TestTouchCommand_Run_UpdateTimestamp(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "existing.txt")
 
@@ -110,9 +120,6 @@ func TestTouchCommand_Run_UpdateTimestamp(t *testing.T) {
 		t.Fatalf("failed to stat file: %v", err)
 	}
 	modTimeBefore := infoBefore.ModTime()
-
-	// Small delay to ensure timestamp difference
-	time.Sleep(10 * time.Millisecond)
 
 	var stdout, stderr bytes.Buffer
 	ctx := WithHandlerContext(context.Background(), &HandlerContext{
@@ -141,6 +148,8 @@ func TestTouchCommand_Run_UpdateTimestamp(t *testing.T) {
 }
 
 func TestTouchCommand_Run_NoCreate(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	nonexistentFile := filepath.Join(tmpDir, "nonexistent.txt")
 
@@ -166,6 +175,8 @@ func TestTouchCommand_Run_NoCreate(t *testing.T) {
 }
 
 func TestTouchCommand_Run_NoArgs(t *testing.T) {
+	t.Parallel()
+
 	var stdout, stderr bytes.Buffer
 	ctx := WithHandlerContext(context.Background(), &HandlerContext{
 		Stdin:     strings.NewReader(""),
@@ -183,6 +194,8 @@ func TestTouchCommand_Run_NoArgs(t *testing.T) {
 }
 
 func TestTouchCommand_Run_RelativePath(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 
 	var stdout, stderr bytes.Buffer

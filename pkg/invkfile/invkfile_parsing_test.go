@@ -11,6 +11,8 @@ import (
 )
 
 func TestIsScriptFile(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name     string
 		script   string
@@ -47,6 +49,8 @@ func TestIsScriptFile(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			s := &Implementation{Script: tt.script, Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}
 			result := s.IsScriptFile()
 			if result != tt.expected {
@@ -57,6 +61,8 @@ func TestIsScriptFile(t *testing.T) {
 }
 
 func TestGetScriptFilePath(t *testing.T) {
+	t.Parallel()
+
 	// Use platform-native paths for testing
 	var invkfilePath, baseDir, absScriptPath string
 	if runtime.GOOS == "windows" {
@@ -84,6 +90,8 @@ func TestGetScriptFilePath(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			s := &Implementation{Script: tt.script, Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}
 			result := s.GetScriptFilePath(invkfilePath)
 			if tt.expectedResult {
@@ -100,6 +108,8 @@ func TestGetScriptFilePath(t *testing.T) {
 }
 
 func TestResolveScript_Inline(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name     string
 		script   string
@@ -116,6 +126,8 @@ func TestResolveScript_Inline(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			s := &Implementation{Script: tt.script, Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}
 			result, err := s.ResolveScript("/fake/path/invkfile.cue")
 			if err != nil {
@@ -181,6 +193,8 @@ func TestResolveScript_FromFile(t *testing.T) {
 }
 
 func TestResolveScriptWithFS(t *testing.T) {
+	t.Parallel()
+
 	// Use platform-native paths for the virtual filesystem
 	var projectDir string
 	if runtime.GOOS == "windows" {
@@ -204,6 +218,8 @@ func TestResolveScriptWithFS(t *testing.T) {
 	invkfilePath := filepath.Join(projectDir, "invkfile.cue")
 
 	t.Run("resolve script from virtual fs", func(t *testing.T) {
+		t.Parallel()
+
 		s := &Implementation{Script: "./scripts/build.sh", Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}
 		result, err := s.ResolveScriptWithFS(invkfilePath, readFile)
 		if err != nil {
@@ -217,6 +233,8 @@ func TestResolveScriptWithFS(t *testing.T) {
 	})
 
 	t.Run("inline script bypasses fs", func(t *testing.T) {
+		t.Parallel()
+
 		s := &Implementation{Script: "echo hello world", Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}
 		result, err := s.ResolveScriptWithFS(invkfilePath, readFile)
 		if err != nil {
@@ -229,6 +247,8 @@ func TestResolveScriptWithFS(t *testing.T) {
 	})
 
 	t.Run("error on missing file in virtual fs", func(t *testing.T) {
+		t.Parallel()
+
 		s := &Implementation{Script: "./scripts/nonexistent.sh", Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}
 		_, err := s.ResolveScriptWithFS(invkfilePath, readFile)
 		if err == nil {
@@ -238,6 +258,8 @@ func TestResolveScriptWithFS(t *testing.T) {
 }
 
 func TestMultiLineScriptParsing(t *testing.T) {
+	t.Parallel()
+
 	// Test that CUE multi-line strings are properly parsed
 	cueContent := `
 cmds: [
@@ -306,6 +328,8 @@ cmds: [
 // and strings.Contains functions were used incorrectly, causing valid containerfile paths
 // to fail validation with "invalid operation !strings.HasPrefix(...)" errors.
 func TestContainerfilePathCUEValidation(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name           string
 		containerfile  string
@@ -326,6 +350,8 @@ func TestContainerfilePathCUEValidation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			tmpDir, err := os.MkdirTemp("", "invkfile-containerfile-test-*")
 			if err != nil {
 				t.Fatalf("Failed to create temp dir: %v", err)
@@ -379,6 +405,8 @@ func TestContainerfilePathCUEValidation(t *testing.T) {
 }
 
 func TestScriptCaching(t *testing.T) {
+	t.Parallel()
+
 	// Create a temporary directory
 	tmpDir, err := os.MkdirTemp("", "invowk-test-*")
 	if err != nil {

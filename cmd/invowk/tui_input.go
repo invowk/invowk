@@ -12,18 +12,9 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var (
-	inputTitle       string
-	inputDescription string
-	inputPlaceholder string
-	inputValue       string
-	inputCharLimit   int
-	inputWidth       int
-	inputPassword    bool
-	inputPrompt      string
-
-	// tuiInputCmd provides a single-line text input prompt.
-	tuiInputCmd = &cobra.Command{
+// newTUIInputCommand creates the `invowk tui input` command.
+func newTUIInputCommand() *cobra.Command {
+	cmd := &cobra.Command{
 		Use:   "input",
 		Short: "Prompt for single-line text input",
 		Long: `Prompt the user for a single line of text input.
@@ -49,22 +40,29 @@ Examples:
   echo "Hello, $NAME!"`,
 		RunE: runTuiInput,
 	}
-)
 
-func init() {
-	tuiCmd.AddCommand(tuiInputCmd)
+	cmd.Flags().String("title", "", "title/prompt displayed above the input")
+	cmd.Flags().String("description", "", "description displayed below the title")
+	cmd.Flags().String("placeholder", "", "placeholder text when input is empty")
+	cmd.Flags().String("value", "", "initial value of the input")
+	cmd.Flags().Int("char-limit", 0, "character limit (0 for no limit)")
+	cmd.Flags().Int("width", 0, "width of the input field (0 for auto)")
+	cmd.Flags().Bool("password", false, "hide input characters (password mode)")
+	cmd.Flags().String("prompt", "", "prompt character(s) before input")
 
-	tuiInputCmd.Flags().StringVar(&inputTitle, "title", "", "title/prompt displayed above the input")
-	tuiInputCmd.Flags().StringVar(&inputDescription, "description", "", "description displayed below the title")
-	tuiInputCmd.Flags().StringVar(&inputPlaceholder, "placeholder", "", "placeholder text when input is empty")
-	tuiInputCmd.Flags().StringVar(&inputValue, "value", "", "initial value of the input")
-	tuiInputCmd.Flags().IntVar(&inputCharLimit, "char-limit", 0, "character limit (0 for no limit)")
-	tuiInputCmd.Flags().IntVar(&inputWidth, "width", 0, "width of the input field (0 for auto)")
-	tuiInputCmd.Flags().BoolVar(&inputPassword, "password", false, "hide input characters (password mode)")
-	tuiInputCmd.Flags().StringVar(&inputPrompt, "prompt", "", "prompt character(s) before input")
+	return cmd
 }
 
 func runTuiInput(cmd *cobra.Command, args []string) error {
+	inputTitle, _ := cmd.Flags().GetString("title")
+	inputDescription, _ := cmd.Flags().GetString("description")
+	inputPlaceholder, _ := cmd.Flags().GetString("placeholder")
+	inputValue, _ := cmd.Flags().GetString("value")
+	inputCharLimit, _ := cmd.Flags().GetInt("char-limit")
+	inputWidth, _ := cmd.Flags().GetInt("width")
+	inputPassword, _ := cmd.Flags().GetBool("password")
+	inputPrompt, _ := cmd.Flags().GetString("prompt")
+
 	var result string
 	var err error
 

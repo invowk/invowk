@@ -1,6 +1,6 @@
 ---
 name: uroot
-description: u-root utility implementation patterns (streaming I/O, error format, symlinks)
+description: u-root utility implementation patterns (streaming I/O, error format, symlinks). Use when working on internal/uroot/ files or implementing built-in shell utilities.
 disable-model-invocation: false
 ---
 

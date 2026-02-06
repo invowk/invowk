@@ -12,6 +12,8 @@ import (
 )
 
 func TestLsCommand_Name(t *testing.T) {
+	t.Parallel()
+
 	cmd := newLsCommand()
 	if got := cmd.Name(); got != "ls" {
 		t.Errorf("Name() = %q, want %q", got, "ls")
@@ -19,6 +21,8 @@ func TestLsCommand_Name(t *testing.T) {
 }
 
 func TestLsCommand_SupportedFlags(t *testing.T) {
+	t.Parallel()
+
 	cmd := newLsCommand()
 	flags := cmd.SupportedFlags()
 
@@ -40,6 +44,8 @@ func TestLsCommand_SupportedFlags(t *testing.T) {
 }
 
 func TestLsCommand_Run_CurrentDirectory(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 
 	// Create some files
@@ -82,6 +88,8 @@ func TestLsCommand_Run_CurrentDirectory(t *testing.T) {
 }
 
 func TestLsCommand_Run_SpecificDirectory(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	subDir := filepath.Join(tmpDir, "subdir")
 
@@ -114,6 +122,8 @@ func TestLsCommand_Run_SpecificDirectory(t *testing.T) {
 }
 
 func TestLsCommand_Run_LongFormat(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 
 	if err := os.WriteFile(filepath.Join(tmpDir, "file.txt"), []byte("content"), 0o644); err != nil {
@@ -153,6 +163,8 @@ func TestLsCommand_Run_LongFormat(t *testing.T) {
 }
 
 func TestLsCommand_Run_All(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 
 	// Create a hidden file
@@ -189,6 +201,8 @@ func TestLsCommand_Run_All(t *testing.T) {
 }
 
 func TestLsCommand_Run_Recursive(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	subDir := filepath.Join(tmpDir, "subdir")
 
@@ -228,6 +242,8 @@ func TestLsCommand_Run_Recursive(t *testing.T) {
 }
 
 func TestLsCommand_Run_SpecificFile(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "specific.txt")
 
@@ -257,6 +273,8 @@ func TestLsCommand_Run_SpecificFile(t *testing.T) {
 }
 
 func TestLsCommand_Run_NonexistentPath(t *testing.T) {
+	t.Parallel()
+
 	var stdout, stderr bytes.Buffer
 	ctx := WithHandlerContext(context.Background(), &HandlerContext{
 		Stdin:     strings.NewReader(""),
@@ -281,6 +299,8 @@ func TestLsCommand_Run_NonexistentPath(t *testing.T) {
 }
 
 func TestLsCommand_Run_RelativePath(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	subDir := filepath.Join(tmpDir, "reldir")
 

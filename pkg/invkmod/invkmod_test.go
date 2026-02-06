@@ -15,6 +15,8 @@ import (
 // ============================================
 
 func TestParseInvkmod_ValidModuleID(t *testing.T) {
+	t.Parallel()
+
 	// Tests valid module IDs in invkmod.cue (module metadata file)
 	tests := []struct {
 		name   string
@@ -33,6 +35,8 @@ func TestParseInvkmod_ValidModuleID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			// Module metadata is now in invkmod.cue, not invkfile.cue
 			cueContent := `
 module: "` + tt.module + `"
@@ -58,6 +62,8 @@ version: "1.0"
 }
 
 func TestParseInvkmod_InvalidModuleID(t *testing.T) {
+	t.Parallel()
+
 	// Tests invalid module IDs in invkmod.cue are rejected
 	tests := []struct {
 		name   string
@@ -77,6 +83,8 @@ func TestParseInvkmod_InvalidModuleID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			// Module metadata is now in invkmod.cue
 			cueContent := `
 module: "` + tt.module + `"
@@ -98,7 +106,11 @@ version: "1.0"
 }
 
 func TestParseInvkmod(t *testing.T) {
+	t.Parallel()
+
 	t.Run("valid invkmod with all fields", func(t *testing.T) {
+		t.Parallel()
+
 		tmpDir := t.TempDir()
 		invkmodPath := filepath.Join(tmpDir, "invkmod.cue")
 		content := `module: "io.example.mymodule"
@@ -135,6 +147,8 @@ requires: [
 	})
 
 	t.Run("minimal invkmod (module only)", func(t *testing.T) {
+		t.Parallel()
+
 		tmpDir := t.TempDir()
 		invkmodPath := filepath.Join(tmpDir, "invkmod.cue")
 		content := `module: "mymodule"
@@ -154,6 +168,8 @@ requires: [
 	})
 
 	t.Run("invalid invkmod - missing module", func(t *testing.T) {
+		t.Parallel()
+
 		tmpDir := t.TempDir()
 		invkmodPath := filepath.Join(tmpDir, "invkmod.cue")
 		content := `version: "1.0"
@@ -170,6 +186,8 @@ description: "Missing module field"
 	})
 
 	t.Run("invalid module name format", func(t *testing.T) {
+		t.Parallel()
+
 		tmpDir := t.TempDir()
 		invkmodPath := filepath.Join(tmpDir, "invkmod.cue")
 		content := `module: "123invalid"
@@ -186,7 +204,11 @@ description: "Missing module field"
 }
 
 func TestParseModuleMetadataOnly(t *testing.T) {
+	t.Parallel()
+
 	t.Run("existing invkmod.cue", func(t *testing.T) {
+		t.Parallel()
+
 		tmpDir := t.TempDir()
 		moduleDir := filepath.Join(tmpDir, "mymodule.invkmod")
 		if err := os.MkdirAll(moduleDir, 0o755); err != nil {
@@ -215,6 +237,8 @@ version: "1.0"
 	})
 
 	t.Run("missing invkmod.cue", func(t *testing.T) {
+		t.Parallel()
+
 		tmpDir := t.TempDir()
 		moduleDir := filepath.Join(tmpDir, "mymodule.invkmod")
 		if err := os.MkdirAll(moduleDir, 0o755); err != nil {
@@ -237,6 +261,8 @@ version: "1.0"
 // ============================================
 
 func TestCommandScope_CanCall(t *testing.T) {
+	t.Parallel()
+
 	scope := &CommandScope{
 		ModuleID:      "io.example.mymodule",
 		GlobalModules: map[string]bool{"global.tools": true},
@@ -290,6 +316,8 @@ func TestCommandScope_CanCall(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			allowed, reason := scope.CanCall(tt.targetCmd)
 			if allowed != tt.expectOK {
 				t.Errorf("CanCall(%q) = %v, want %v", tt.targetCmd, allowed, tt.expectOK)
@@ -302,6 +330,8 @@ func TestCommandScope_CanCall(t *testing.T) {
 }
 
 func TestExtractModuleFromCommand(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		cmd      string
 		expected string
@@ -316,6 +346,8 @@ func TestExtractModuleFromCommand(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.cmd, func(t *testing.T) {
+			t.Parallel()
+
 			result := ExtractModuleFromCommand(tt.cmd)
 			if result != tt.expected {
 				t.Errorf("ExtractModuleFromCommand(%q) = %q, want %q", tt.cmd, result, tt.expected)
@@ -325,6 +357,8 @@ func TestExtractModuleFromCommand(t *testing.T) {
 }
 
 func TestNewCommandScope(t *testing.T) {
+	t.Parallel()
+
 	globalIDs := []string{"global.module1", "global.module2"}
 	requirements := []ModuleRequirement{
 		{GitURL: "https://github.com/example/dep1.git", Version: "^1.0.0"},
@@ -352,6 +386,8 @@ func TestNewCommandScope(t *testing.T) {
 }
 
 func TestCommandScope_AddDirectDep(t *testing.T) {
+	t.Parallel()
+
 	scope := &CommandScope{
 		ModuleID:      "mymodule",
 		GlobalModules: make(map[string]bool),
@@ -366,7 +402,11 @@ func TestCommandScope_AddDirectDep(t *testing.T) {
 }
 
 func TestHasInvkfile(t *testing.T) {
+	t.Parallel()
+
 	t.Run("with invkfile.cue", func(t *testing.T) {
+		t.Parallel()
+
 		tmpDir := t.TempDir()
 		if err := os.WriteFile(filepath.Join(tmpDir, "invkfile.cue"), []byte("cmds: []"), 0o644); err != nil {
 			t.Fatalf("failed to create invkfile.cue: %v", err)
@@ -378,6 +418,8 @@ func TestHasInvkfile(t *testing.T) {
 	})
 
 	t.Run("without invkfile.cue", func(t *testing.T) {
+		t.Parallel()
+
 		tmpDir := t.TempDir()
 
 		if HasInvkfile(tmpDir) {
@@ -387,6 +429,8 @@ func TestHasInvkfile(t *testing.T) {
 }
 
 func TestPathHelpers(t *testing.T) {
+	t.Parallel()
+
 	moduleDir := "/some/path/mymodule.invkmod"
 
 	invkfilePath := InvkfilePath(moduleDir)

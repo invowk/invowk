@@ -258,3 +258,196 @@ func TestCopyDir(t *testing.T) {
 		t.Errorf("Expected content1, got %s", string(data))
 	}
 }
+
+// --- Error Path Tests ---
+
+func TestCalculateFileHash_NonExistentFile(t *testing.T) {
+	_, err := CalculateFileHash("/nonexistent/path/file.txt")
+	if err == nil {
+		t.Fatal("expected error for non-existent file")
+	}
+}
+
+func TestCalculateFileHash_DifferentContent(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	file1 := filepath.Join(tmpDir, "file1.txt")
+	if err := os.WriteFile(file1, []byte("content-alpha"), 0o644); err != nil {
+		t.Fatalf("failed to write file1: %v", err)
+	}
+
+	file2 := filepath.Join(tmpDir, "file2.txt")
+	if err := os.WriteFile(file2, []byte("content-beta"), 0o644); err != nil {
+		t.Fatalf("failed to write file2: %v", err)
+	}
+
+	hash1, err := CalculateFileHash(file1)
+	if err != nil {
+		t.Fatalf("CalculateFileHash(file1) failed: %v", err)
+	}
+
+	hash2, err := CalculateFileHash(file2)
+	if err != nil {
+		t.Fatalf("CalculateFileHash(file2) failed: %v", err)
+	}
+
+	if hash1 == hash2 {
+		t.Error("expected different hashes for different content")
+	}
+}
+
+func TestCalculateDirHash_EmptyDir(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	hash, err := CalculateDirHash(tmpDir)
+	if err != nil {
+		t.Fatalf("CalculateDirHash failed on empty dir: %v", err)
+	}
+
+	if hash == "" {
+		t.Error("expected non-empty hash for empty directory")
+	}
+}
+
+func TestCalculateDirHash_NonExistentDir(t *testing.T) {
+	// filepath.Walk silently skips the non-existent root (callback returns nil
+	// on error), so CalculateDirHash returns the hash of an empty entry list.
+	hash, err := CalculateDirHash("/nonexistent/directory/path")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Should still produce a non-empty hash (hash of empty input)
+	if hash == "" {
+		t.Error("expected non-empty hash even for non-existent directory")
+	}
+
+	// Hash should match the empty directory hash (same empty entry list)
+	emptyDirHash, err := CalculateDirHash(t.TempDir())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if hash != emptyDirHash {
+		t.Errorf("non-existent dir hash should match empty dir hash, got %q vs %q", hash, emptyDirHash)
+	}
+}
+
+func TestCopyFile_SourceNotFound(t *testing.T) {
+	dstDir := t.TempDir()
+	err := CopyFile("/nonexistent/file.txt", filepath.Join(dstDir, "dest.txt"))
+	if err == nil {
+		t.Fatal("expected error when source file does not exist")
+	}
+
+	if !strings.Contains(err.Error(), "failed to open source file") {
+		t.Errorf("expected 'failed to open source file' in error, got: %v", err)
+	}
+}
+
+func TestCopyFile_PreservesPermissions(t *testing.T) {
+	srcDir := t.TempDir()
+	srcFile := filepath.Join(srcDir, "executable.sh")
+	if err := os.WriteFile(srcFile, []byte("#!/bin/sh\necho hello"), 0o755); err != nil {
+		t.Fatalf("failed to write source file: %v", err)
+	}
+
+	dstDir := t.TempDir()
+	dstFile := filepath.Join(dstDir, "copy.sh")
+
+	if err := CopyFile(srcFile, dstFile); err != nil {
+		t.Fatalf("CopyFile failed: %v", err)
+	}
+
+	srcInfo, err := os.Stat(srcFile)
+	if err != nil {
+		t.Fatalf("failed to stat source: %v", err)
+	}
+
+	dstInfo, err := os.Stat(dstFile)
+	if err != nil {
+		t.Fatalf("failed to stat destination: %v", err)
+	}
+
+	if srcInfo.Mode() != dstInfo.Mode() {
+		t.Errorf("expected mode %v, got %v", srcInfo.Mode(), dstInfo.Mode())
+	}
+}
+
+func TestCopyDir_SourceNotFound(t *testing.T) {
+	err := CopyDir("/nonexistent/directory", filepath.Join(t.TempDir(), "dest"))
+	if err == nil {
+		t.Fatal("expected error when source directory does not exist")
+	}
+
+	if !strings.Contains(err.Error(), "failed to stat source directory") {
+		t.Errorf("expected 'failed to stat source directory' in error, got: %v", err)
+	}
+}
+
+func TestDiscoverModules_EmptyPaths(t *testing.T) {
+	modules := DiscoverModules(nil)
+	if len(modules) != 0 {
+		t.Errorf("expected 0 modules for nil paths, got %d", len(modules))
+	}
+
+	modules = DiscoverModules([]string{})
+	if len(modules) != 0 {
+		t.Errorf("expected 0 modules for empty paths, got %d", len(modules))
+	}
+}
+
+func TestDiscoverModules_Deduplication(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	modPath := filepath.Join(tmpDir, "test.invkmod")
+	if err := os.MkdirAll(modPath, 0o755); err != nil {
+		t.Fatalf("failed to create module dir: %v", err)
+	}
+
+	// Pass the same path twice
+	modules := DiscoverModules([]string{tmpDir, tmpDir})
+
+	if len(modules) != 1 {
+		t.Errorf("expected 1 module after deduplication, got %d: %v", len(modules), modules)
+	}
+}
+
+func TestDiscoverModules_MultiplePaths(t *testing.T) {
+	dir1 := t.TempDir()
+	dir2 := t.TempDir()
+
+	mod1 := filepath.Join(dir1, "mod1.invkmod")
+	if err := os.MkdirAll(mod1, 0o755); err != nil {
+		t.Fatalf("failed to create mod1: %v", err)
+	}
+
+	mod2 := filepath.Join(dir2, "mod2.invkmod")
+	if err := os.MkdirAll(mod2, 0o755); err != nil {
+		t.Fatalf("failed to create mod2: %v", err)
+	}
+
+	modules := DiscoverModules([]string{dir1, dir2})
+
+	if len(modules) != 2 {
+		t.Errorf("expected 2 modules across paths, got %d: %v", len(modules), modules)
+	}
+
+	// Verify both are found
+	found1, found2 := false, false
+	for _, m := range modules {
+		if strings.HasSuffix(m, "mod1.invkmod") {
+			found1 = true
+		}
+		if strings.HasSuffix(m, "mod2.invkmod") {
+			found2 = true
+		}
+	}
+
+	if !found1 {
+		t.Error("expected to find mod1.invkmod")
+	}
+	if !found2 {
+		t.Error("expected to find mod2.invkmod")
+	}
+}

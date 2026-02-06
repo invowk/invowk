@@ -12,6 +12,8 @@ import (
 )
 
 func TestProcessFilesOrStdin_EmptyArgs_UsesStdin(t *testing.T) {
+	t.Parallel()
+
 	stdinContent := "stdin data\n"
 
 	var called bool
@@ -59,6 +61,8 @@ func TestProcessFilesOrStdin_EmptyArgs_UsesStdin(t *testing.T) {
 }
 
 func TestProcessFilesOrStdin_SingleFile(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "test.txt")
 	fileContent := "file content\n"
@@ -109,6 +113,8 @@ func TestProcessFilesOrStdin_SingleFile(t *testing.T) {
 }
 
 func TestProcessFilesOrStdin_MultipleFiles(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	file1 := filepath.Join(tmpDir, "file1.txt")
 	file2 := filepath.Join(tmpDir, "file2.txt")
@@ -179,6 +185,8 @@ func TestProcessFilesOrStdin_MultipleFiles(t *testing.T) {
 }
 
 func TestProcessFilesOrStdin_FileNotFound(t *testing.T) {
+	t.Parallel()
+
 	err := ProcessFilesOrStdin(
 		[]string{"/nonexistent/file.txt"},
 		strings.NewReader("unused stdin"),
@@ -201,6 +209,8 @@ func TestProcessFilesOrStdin_FileNotFound(t *testing.T) {
 }
 
 func TestProcessFilesOrStdin_ProcessorError(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "test.txt")
 
@@ -229,6 +239,8 @@ func TestProcessFilesOrStdin_ProcessorError(t *testing.T) {
 }
 
 func TestProcessFilesOrStdin_StopsOnFirstError(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	file1 := filepath.Join(tmpDir, "file1.txt")
 	file2 := filepath.Join(tmpDir, "file2.txt")
@@ -263,6 +275,8 @@ func TestProcessFilesOrStdin_StopsOnFirstError(t *testing.T) {
 }
 
 func TestProcessFilesOrStdin_RelativePath(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "test.txt")
 	fileContent := "relative path content\n"
@@ -297,6 +311,8 @@ func TestProcessFilesOrStdin_RelativePath(t *testing.T) {
 }
 
 func TestProcessFilesOrStdin_AbsolutePath(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "test.txt")
 	fileContent := "absolute path content\n"
@@ -331,6 +347,8 @@ func TestProcessFilesOrStdin_AbsolutePath(t *testing.T) {
 }
 
 func TestProcessFilesOrStdin_StdinProcessorError(t *testing.T) {
+	t.Parallel()
+
 	expectedErr := errors.New("stdin processor failed")
 
 	err := ProcessFilesOrStdin(
@@ -352,6 +370,8 @@ func TestProcessFilesOrStdin_StdinProcessorError(t *testing.T) {
 }
 
 func TestProcessFilesOrStdin_PreservesFilenameArgument(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 
 	// Create file in subdirectory

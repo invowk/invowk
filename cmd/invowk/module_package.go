@@ -14,22 +14,11 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var (
-	// moduleArchiveOutput is the output path for the archived module
-	moduleArchiveOutput string
+// newModuleArchiveCommand creates the `invowk module archive` command.
+func newModuleArchiveCommand() *cobra.Command {
+	var output string
 
-	// moduleImportPath is the destination directory for imported modules
-	moduleImportPath string
-	// moduleImportOverwrite allows overwriting existing modules
-	moduleImportOverwrite bool
-
-	// moduleVendorUpdate forces re-fetching of vendored dependencies
-	moduleVendorUpdate bool
-	// moduleVendorPrune removes unused vendored modules
-	moduleVendorPrune bool
-
-	// moduleArchiveCmd creates a ZIP archive from a module
-	moduleArchiveCmd = &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "archive <path>",
 		Short: "Create a ZIP archive from a module",
 		Long: `Create a ZIP archive of an invowk module for distribution.
@@ -40,11 +29,24 @@ Examples:
   invowk module archive ./mytools.invkmod
   invowk module archive ./mytools.invkmod --output ./dist/mytools.zip`,
 		Args: cobra.ExactArgs(1),
-		RunE: runModuleArchive,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runModuleArchive(args, output)
+		},
 	}
 
-	// moduleImportCmd imports a module from a ZIP file or URL
-	moduleImportCmd = &cobra.Command{
+	cmd.Flags().StringVarP(&output, "output", "o", "", "output path for the ZIP file (default: <module-name>.invkmod.zip)")
+
+	return cmd
+}
+
+// newModuleImportCommand creates the `invowk module import` command.
+func newModuleImportCommand() *cobra.Command {
+	var (
+		importPath      string
+		importOverwrite bool
+	)
+
+	cmd := &cobra.Command{
 		Use:   "import <source>",
 		Short: "Import a module from a ZIP file or URL",
 		Long: `Import an invowk module from a local ZIP file or a URL.
@@ -57,11 +59,25 @@ Examples:
   invowk module import ./module.zip --path ./local-modules
   invowk module import ./module.zip --overwrite`,
 		Args: cobra.ExactArgs(1),
-		RunE: runModuleImport,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runModuleImport(args, importPath, importOverwrite)
+		},
 	}
 
-	// moduleVendorCmd vendors dependencies into invk_modules/
-	moduleVendorCmd = &cobra.Command{
+	cmd.Flags().StringVarP(&importPath, "path", "p", "", "destination directory (default: ~/.invowk/cmds)")
+	cmd.Flags().BoolVar(&importOverwrite, "overwrite", false, "overwrite existing module if present")
+
+	return cmd
+}
+
+// newModuleVendorCommand creates the `invowk module vendor` command.
+func newModuleVendorCommand() *cobra.Command {
+	var (
+		vendorUpdate bool
+		vendorPrune  bool
+	)
+
+	cmd := &cobra.Command{
 		Use:   "vendor [module-path]",
 		Short: "Vendor module dependencies",
 		Long: `Vendor module dependencies into the invk_modules/ directory.
@@ -79,25 +95,24 @@ Examples:
   invowk module vendor --update
   invowk module vendor --prune`,
 		Args: cobra.MaximumNArgs(1),
-		RunE: runModuleVendor,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runModuleVendor(args, vendorPrune)
+		},
 	}
-)
 
-func initModulePackageCmd() {
-	moduleArchiveCmd.Flags().StringVarP(&moduleArchiveOutput, "output", "o", "", "output path for the ZIP file (default: <module-name>.invkmod.zip)")
-	moduleImportCmd.Flags().StringVarP(&moduleImportPath, "path", "p", "", "destination directory (default: ~/.invowk/cmds)")
-	moduleImportCmd.Flags().BoolVar(&moduleImportOverwrite, "overwrite", false, "overwrite existing module if present")
-	moduleVendorCmd.Flags().BoolVar(&moduleVendorUpdate, "update", false, "force re-fetch of all dependencies")
-	moduleVendorCmd.Flags().BoolVar(&moduleVendorPrune, "prune", false, "remove unused vendored modules")
+	cmd.Flags().BoolVar(&vendorUpdate, "update", false, "force re-fetch of all dependencies")
+	cmd.Flags().BoolVar(&vendorPrune, "prune", false, "remove unused vendored modules")
+
+	return cmd
 }
 
-func runModuleArchive(cmd *cobra.Command, args []string) error {
+func runModuleArchive(args []string, output string) error {
 	modulePath := args[0]
 
 	fmt.Println(moduleTitleStyle.Render("Archive Module"))
 
 	// Archive the module
-	zipPath, err := invkmod.Archive(modulePath, moduleArchiveOutput)
+	zipPath, err := invkmod.Archive(modulePath, output)
 	if err != nil {
 		return fmt.Errorf("failed to archive module: %w", err)
 	}
@@ -116,13 +131,13 @@ func runModuleArchive(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func runModuleImport(cmd *cobra.Command, args []string) error {
+func runModuleImport(args []string, importPath string, importOverwrite bool) error {
 	source := args[0]
 
 	fmt.Println(moduleTitleStyle.Render("Import Module"))
 
 	// Default destination to user commands directory
-	destDir := moduleImportPath
+	destDir := importPath
 	if destDir == "" {
 		var err error
 		destDir, err = config.CommandsDir()
@@ -135,7 +150,7 @@ func runModuleImport(cmd *cobra.Command, args []string) error {
 	opts := invkmod.UnpackOptions{
 		Source:    source,
 		DestDir:   destDir,
-		Overwrite: moduleImportOverwrite,
+		Overwrite: importOverwrite,
 	}
 
 	modulePath, err := invkmod.Unpack(opts)
@@ -159,7 +174,7 @@ func runModuleImport(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func runModuleVendor(cmd *cobra.Command, args []string) error {
+func runModuleVendor(args []string, vendorPrune bool) error {
 	fmt.Println(moduleTitleStyle.Render("Vendor Module Dependencies"))
 
 	// Determine the target directory
@@ -203,7 +218,7 @@ func runModuleVendor(cmd *cobra.Command, args []string) error {
 	vendorDir := invkmod.GetVendoredModulesDir(absPath)
 
 	// Handle prune mode
-	if moduleVendorPrune {
+	if vendorPrune {
 		return pruneVendoredModules(vendorDir, meta)
 	}
 

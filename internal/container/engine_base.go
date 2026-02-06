@@ -19,7 +19,9 @@ type (
 	ExecCommandFunc func(ctx context.Context, name string, arg ...string) *exec.Cmd
 
 	// VolumeFormatFunc is a function that formats a volume string.
-	// This allows engines to customize volume formatting (e.g., Podman adds SELinux labels).
+	// Podman uses this to add SELinux labels (:z/:Z) which are required in
+	// SELinux-enforcing environments for proper volume isolation — without them,
+	// container processes cannot access bind-mounted host paths.
 	VolumeFormatFunc func(volume string) string
 
 	// SELinuxCheckFunc is a function that checks if SELinux is enabled.
@@ -117,7 +119,9 @@ func (e *BaseCLIEngine) BuildArgs(opts BuildOptions) []string {
 	args := []string{"build"}
 
 	if opts.Dockerfile != "" {
-		// Resolve Dockerfile path relative to context directory
+		// Resolve Dockerfile path relative to context directory.
+		// If ContextDir is empty, the Dockerfile path is used as-is
+		// (assumed resolvable from CWD by the container engine).
 		dockerfilePath := opts.Dockerfile
 		if !filepath.IsAbs(opts.Dockerfile) && opts.ContextDir != "" {
 			dockerfilePath = filepath.Join(opts.ContextDir, opts.Dockerfile)

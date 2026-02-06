@@ -13,14 +13,9 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var (
-	chooseTitle   string
-	chooseLimit   int
-	chooseNoLimit bool
-	chooseHeight  int
-
-	// tuiChooseCmd provides single or multi-select from a list.
-	tuiChooseCmd = &cobra.Command{
+// newTUIChooseCommand creates the `invowk tui choose` command.
+func newTUIChooseCommand() *cobra.Command {
+	cmd := &cobra.Command{
 		Use:   "choose [options...]",
 		Short: "Select from a list of options",
 		Long: `Select one or more options from a list.
@@ -31,34 +26,37 @@ selections. Each selected option is printed on a separate line.
 Examples:
   # Single selection
   invowk tui choose "Option 1" "Option 2" "Option 3"
-  
+
   # With title
   invowk tui choose --title "Pick a color" red green blue
-  
+
   # Multi-select (up to 3)
   invowk tui choose --limit 3 "One" "Two" "Three" "Four"
-  
+
   # Unlimited multi-select
   invowk tui choose --no-limit "One" "Two" "Three"
-  
+
   # Use in shell script
   COLOR=$(invowk tui choose --title "Pick a color" red green blue)
   echo "You picked: $COLOR"`,
 		Args: cobra.MinimumNArgs(1),
 		RunE: runTuiChoose,
 	}
-)
 
-func init() {
-	tuiCmd.AddCommand(tuiChooseCmd)
+	cmd.Flags().String("title", "", "title displayed above the list")
+	cmd.Flags().Int("limit", 1, "maximum number of selections (1 for single select)")
+	cmd.Flags().Bool("no-limit", false, "allow unlimited selections")
+	cmd.Flags().Int("height", 0, "height of the list (0 for auto)")
 
-	tuiChooseCmd.Flags().StringVar(&chooseTitle, "title", "", "title displayed above the list")
-	tuiChooseCmd.Flags().IntVar(&chooseLimit, "limit", 1, "maximum number of selections (1 for single select)")
-	tuiChooseCmd.Flags().BoolVar(&chooseNoLimit, "no-limit", false, "allow unlimited selections")
-	tuiChooseCmd.Flags().IntVar(&chooseHeight, "height", 0, "height of the list (0 for auto)")
+	return cmd
 }
 
 func runTuiChoose(cmd *cobra.Command, args []string) error {
+	chooseTitle, _ := cmd.Flags().GetString("title")
+	chooseLimit, _ := cmd.Flags().GetInt("limit")
+	chooseNoLimit, _ := cmd.Flags().GetBool("no-limit")
+	chooseHeight, _ := cmd.Flags().GetInt("height")
+
 	limit := chooseLimit
 	if chooseNoLimit {
 		limit = 0 // 0 means unlimited in multi-select

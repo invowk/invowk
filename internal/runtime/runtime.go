@@ -83,6 +83,11 @@ type (
 	// ExecutionContext contains all information needed to execute a command.
 	// It uses composition of focused sub-types (IO, Env, TUI) for better
 	// organization and testability.
+	//
+	// SelectedRuntime and SelectedImpl are resolved together: SelectedImpl is the
+	// implementation matching SelectedRuntime + current platform. Both are populated
+	// by NewExecutionContext using the command's defaults and can be overridden by
+	// CLI flag processing (e.g., --runtime flag).
 	ExecutionContext struct {
 		// Command is the command to execute
 		Command *invkfile.Command
@@ -125,7 +130,14 @@ type (
 		ErrOutput string
 	}
 
-	// Runtime defines the interface for command execution
+	// Runtime defines the interface for command execution.
+	//
+	// Execute may return a non-zero ExitCode without an Error — this represents a
+	// normal process exit with non-zero status. Error is reserved for infrastructure
+	// failures (binary not found, container failed to start, etc.). Callers should
+	// check both fields: ExitCode for process-level success and Error for runtime
+	// failures. Validate should be called before Execute to catch configuration
+	// problems early.
 	Runtime interface {
 		// Name returns the runtime name
 		Name() string
@@ -230,14 +242,14 @@ func (t TUIContext) IsConfigured() bool {
 func NewExecutionContext(cmd *invkfile.Command, inv *invkfile.Invkfile) *ExecutionContext {
 	currentPlatform := invkfile.GetCurrentHostOS()
 	defaultRuntime := cmd.GetDefaultRuntimeForPlatform(currentPlatform)
-	defaultScript := cmd.GetImplForPlatformRuntime(currentPlatform, defaultRuntime)
+	defaultImpl := cmd.GetImplForPlatformRuntime(currentPlatform, defaultRuntime)
 
 	return &ExecutionContext{
 		Command:         cmd,
 		Invkfile:        inv,
 		Context:         context.Background(),
 		SelectedRuntime: defaultRuntime,
-		SelectedImpl:    defaultScript,
+		SelectedImpl:    defaultImpl,
 		ExecutionID:     newExecutionID(),
 		IO:              DefaultIO(),
 		Env:             DefaultEnv(),
@@ -255,7 +267,9 @@ func (r *Result) Success() bool {
 }
 
 // GetInteractiveRuntime returns the runtime as an InteractiveRuntime if it supports
-// interactive mode, otherwise returns nil.
+// interactive mode, otherwise returns nil. This is a combined type-assertion +
+// capability check: nil means either the runtime doesn't implement InteractiveRuntime
+// OR SupportsInteractive() returned false (e.g., no PTY support on this system).
 func GetInteractiveRuntime(rt Runtime) InteractiveRuntime {
 	if ir, ok := rt.(InteractiveRuntime); ok && ir.SupportsInteractive() {
 		return ir
@@ -282,15 +296,6 @@ func (r *Registry) Get(typ RuntimeType) (Runtime, error) {
 		return nil, fmt.Errorf("runtime '%s' not registered", typ)
 	}
 	return rt, nil
-}
-
-// GetForCommand returns the appropriate runtime for a command based on its default runtime for current platform.
-//
-// Deprecated: Use GetForContext instead for proper runtime selection.
-func (r *Registry) GetForCommand(cmd *invkfile.Command) (Runtime, error) {
-	currentPlatform := invkfile.GetCurrentHostOS()
-	typ := RuntimeType(cmd.GetDefaultRuntimeForPlatform(currentPlatform))
-	return r.Get(typ)
 }
 
 // GetForContext returns the appropriate runtime based on the execution context's selected runtime

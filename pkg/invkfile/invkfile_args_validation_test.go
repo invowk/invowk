@@ -15,6 +15,8 @@ import (
 // ============================================================================
 
 func TestParseArgsValidation_InvalidName(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name    string
 		argName string
@@ -27,6 +29,8 @@ func TestParseArgsValidation_InvalidName(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			cueContent := `
 cmds: [
 	{
@@ -58,6 +62,8 @@ cmds: [
 }
 
 func TestParseArgsValidation_ValidNames(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name    string
 		argName string
@@ -72,6 +78,8 @@ func TestParseArgsValidation_ValidNames(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			cueContent := `
 cmds: [
 	{
@@ -108,6 +116,8 @@ cmds: [
 }
 
 func TestParseArgsValidation_EmptyDescription(t *testing.T) {
+	t.Parallel()
+
 	cueContent := `
 cmds: [
 	{
@@ -137,6 +147,8 @@ cmds: [
 }
 
 func TestParseArgsValidation_DuplicateNames(t *testing.T) {
+	t.Parallel()
+
 	cueContent := `
 cmds: [
 	{
@@ -170,6 +182,8 @@ cmds: [
 }
 
 func TestParseArgsValidation_RequiredAfterOptional(t *testing.T) {
+	t.Parallel()
+
 	cueContent := `
 cmds: [
 	{
@@ -203,6 +217,8 @@ cmds: [
 }
 
 func TestParseArgsValidation_VariadicNotLast(t *testing.T) {
+	t.Parallel()
+
 	cueContent := `
 cmds: [
 	{
@@ -236,6 +252,8 @@ cmds: [
 }
 
 func TestParseArgsValidation_RequiredWithDefaultValue(t *testing.T) {
+	t.Parallel()
+
 	cueContent := `
 cmds: [
 	{
@@ -268,6 +286,8 @@ cmds: [
 }
 
 func TestParseArgsValidation_InvalidType(t *testing.T) {
+	t.Parallel()
+
 	cueContent := `
 cmds: [
 	{
@@ -297,6 +317,8 @@ cmds: [
 }
 
 func TestParseArgsValidation_TypeIncompatibleWithDefault(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name         string
 		argType      string
@@ -309,6 +331,8 @@ func TestParseArgsValidation_TypeIncompatibleWithDefault(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			cueContent := fmt.Sprintf(`
 cmds: [
 	{
@@ -341,6 +365,8 @@ cmds: [
 }
 
 func TestParseArgsValidation_InvalidRegex(t *testing.T) {
+	t.Parallel()
+
 	cueContent := `
 cmds: [
 	{
@@ -370,6 +396,8 @@ cmds: [
 }
 
 func TestParseArgsValidation_DefaultNotMatchingValidation(t *testing.T) {
+	t.Parallel()
+
 	cueContent := `
 cmds: [
 	{
@@ -399,6 +427,8 @@ cmds: [
 }
 
 func TestValidateArgumentValue(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name       string
 		arg        Argument
@@ -498,6 +528,8 @@ func TestValidateArgumentValue(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			err := tt.arg.ValidateArgumentValue(tt.value)
 			if tt.wantErr {
 				if err == nil {

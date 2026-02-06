@@ -3,43 +3,95 @@
 package cmd
 
 import (
+	"context"
 	"errors"
 	"fmt"
-	"os"
 	"strings"
-	"sync"
 
+	"invowk-cli/internal/config"
 	"invowk-cli/internal/discovery"
-	"invowk-cli/internal/sshserver"
 	"invowk-cli/pkg/invkfile"
 
 	"github.com/spf13/cobra"
 )
 
 const (
-	// ArgErrMissingRequired indicates missing required arguments
+	// ArgErrMissingRequired indicates missing required arguments.
 	ArgErrMissingRequired = iota
-	// ArgErrTooMany indicates too many arguments were provided
+	// ArgErrTooMany indicates too many arguments were provided.
 	ArgErrTooMany
-	// ArgErrInvalidValue indicates an argument value failed validation
+	// ArgErrInvalidValue indicates an argument value failed validation.
 	ArgErrInvalidValue
 )
 
-var (
-	// runtimeOverride allows overriding the runtime for a command
-	runtimeOverride string
-	// fromSource allows specifying the source for disambiguation
-	fromSource string
-	// forceRebuild forces rebuilding of container images, bypassing cache
-	forceRebuild bool
-	// sshServerInstance is the global SSH server instance
-	sshServerInstance *sshserver.Server
-	// sshServerMu protects the SSH server instance
-	sshServerMu sync.Mutex
-	// listFlag controls whether to list commands
-	listFlag bool
-	// cmdCmd is the parent command for all discovered commands
-	cmdCmd = &cobra.Command{
+type (
+	// cmdFlagValues holds the flag bindings for the `invowk cmd` subcommand.
+	// These correspond to persistent and local flags registered on the cmdCmd command.
+	cmdFlagValues struct {
+		// listFlag triggers command listing mode instead of execution.
+		listFlag bool
+		// runtimeOverride is the --runtime flag value (e.g., "container", "virtual").
+		runtimeOverride string
+		// fromSource is the --from flag value for source disambiguation.
+		fromSource string
+		// forceRebuild forces container image rebuilds, bypassing cache.
+		forceRebuild bool
+	}
+
+	// DependencyError represents unsatisfied dependencies.
+	DependencyError struct {
+		CommandName         string
+		MissingTools        []string
+		MissingCommands     []string
+		MissingFilepaths    []string
+		MissingCapabilities []string
+		FailedCustomChecks  []string
+		MissingEnvVars      []string
+	}
+
+	// ArgErrType represents the type of argument validation error.
+	ArgErrType int
+
+	// ArgumentValidationError represents an argument validation failure.
+	ArgumentValidationError struct {
+		Type         ArgErrType
+		CommandName  string
+		ArgDefs      []invkfile.Argument
+		ProvidedArgs []string
+		MinArgs      int
+		MaxArgs      int
+		InvalidArg   string
+		InvalidValue string
+		ValueError   error
+	}
+
+	// SourceFilter represents a user-specified source constraint for disambiguation.
+	// Parsed from @source prefix in args or --from flag.
+	SourceFilter struct {
+		// SourceID is the normalized source identifier (e.g., "invkfile", "foo").
+		SourceID string
+		// Raw is the original user input before normalization (e.g., "@foo.invkmod").
+		Raw string
+	}
+
+	// SourceNotFoundError is returned when a specified source does not exist.
+	SourceNotFoundError struct {
+		Source           string
+		AvailableSources []string
+	}
+
+	// AmbiguousCommandError is returned when a command exists in multiple sources.
+	AmbiguousCommandError struct {
+		CommandName string
+		Sources     []string
+	}
+)
+
+// newCmdCommand creates the `invowk cmd` command tree.
+func newCmdCommand(app *App, rootFlags *rootFlagValues) *cobra.Command {
+	cmdFlags := &cmdFlagValues{}
+
+	cmdCmd := &cobra.Command{
 		Use:   "cmd [command-name]",
 		Short: "Execute commands from invkfiles",
 		Long: `Execute commands defined in invkfiles and sibling modules.
@@ -65,31 +117,36 @@ Examples:
   invowk cmd @foo deploy                  Run 'deploy' from foo.invkmod
   invowk cmd --from invkfile deploy       Same using --from flag`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			// If --list flag is set or no arguments, show list
-			if listFlag || len(args) == 0 {
-				return listCommands()
+			// Validate structural command constraints in runtime flow so
+			// dynamic registration failures do not break unrelated commands.
+			if err := validateCommandTree(cmd.Context(), app, rootFlags); err != nil {
+				return err
 			}
 
-			// Parse source filter from @prefix or --from flag
-			filter, remainingArgs, err := ParseSourceFilter(args, fromSource)
+			// `invowk cmd` with no args behaves as command listing.
+			if cmdFlags.listFlag || len(args) == 0 {
+				return listCommands(cmd, app, rootFlags)
+			}
+
+			// Parse source disambiguation from `--from` or `@source` prefix.
+			filter, remainingArgs, err := ParseSourceFilter(args, cmdFlags.fromSource)
 			if err != nil {
 				return err
 			}
 
-			// If we have a source filter, try to run the disambiguated command
+			// Source-filtered execution performs longest-match lookup in the
+			// requested source before dispatching to the service layer.
 			if filter != nil {
-				return runDisambiguatedCommand(filter, remainingArgs)
+				return runDisambiguatedCommand(cmd, app, rootFlags, cmdFlags, filter, remainingArgs)
 			}
 
-			// Check if the command is ambiguous (exists in multiple sources)
-			// This handles the case where user types `invowk cmd deploy` and deploy is ambiguous.
-			// For subcommands like `invowk cmd deploy staging`, we check progressively longer
-			// command names to detect ambiguity at the correct hierarchical level.
+			// Without explicit source selection, detect ambiguity up front and
+			// show disambiguation guidance.
 			if len(args) > 0 {
-				if ambigCheckErr := checkAmbiguousCommand(args); ambigCheckErr != nil {
+				if ambigCheckErr := checkAmbiguousCommand(cmd.Context(), app, rootFlags, args); ambigCheckErr != nil {
 					ambigErr := (*AmbiguousCommandError)(nil)
 					if errors.As(ambigCheckErr, &ambigErr) {
-						fmt.Fprint(os.Stderr, RenderAmbiguousCommandError(ambigErr))
+						fmt.Fprint(app.stderr, RenderAmbiguousCommandError(ambigErr))
 						cmd.SilenceErrors = true
 						cmd.SilenceUsage = true
 					}
@@ -97,81 +154,21 @@ Examples:
 				}
 			}
 
-			// No disambiguation needed, run normally (Cobra will handle registered commands)
-			err = runCommand(args)
-			if err != nil {
-				exitErr := (*ExitError)(nil)
-				if errors.As(err, &exitErr) {
-					cmd.SilenceErrors = true
-					cmd.SilenceUsage = true
-				}
-			}
-			return err
+			// Default path delegates request mapping + execution to CommandService.
+			return runCommand(cmd, app, rootFlags, cmdFlags, args)
 		},
-		ValidArgsFunction: completeCommands,
-	}
-)
-
-type (
-	// DependencyError represents unsatisfied dependencies
-	DependencyError struct {
-		CommandName         string
-		MissingTools        []string
-		MissingCommands     []string
-		MissingFilepaths    []string
-		MissingCapabilities []string
-		FailedCustomChecks  []string
-		MissingEnvVars      []string
+		ValidArgsFunction: completeCommands(app, rootFlags),
 	}
 
-	// ArgErrType represents the type of argument validation error
-	ArgErrType int
+	cmdCmd.Flags().BoolVarP(&cmdFlags.listFlag, "list", "l", false, "list all available commands")
+	cmdCmd.PersistentFlags().StringVarP(&cmdFlags.runtimeOverride, "runtime", "r", "", "override the runtime (must be allowed by the command)")
+	cmdCmd.PersistentFlags().StringVar(&cmdFlags.fromSource, "from", "", "source to run command from (e.g., 'invkfile' or module name)")
+	cmdCmd.PersistentFlags().BoolVar(&cmdFlags.forceRebuild, "force-rebuild", false, "force rebuild of container images (container runtime only)")
 
-	// ArgumentValidationError represents an argument validation failure
-	ArgumentValidationError struct {
-		Type         ArgErrType
-		CommandName  string
-		ArgDefs      []invkfile.Argument
-		ProvidedArgs []string
-		MinArgs      int
-		MaxArgs      int
-		InvalidArg   string
-		InvalidValue string
-		ValueError   error
-	}
+	// Build dynamic command leaves at construction time (instead of package init).
+	registerDiscoveredCommands(context.Background(), app, rootFlags, cmdFlags, cmdCmd)
 
-	// SourceFilter represents a user-specified source constraint for disambiguation.
-	// It is used to filter commands to a specific source when executing ambiguous commands.
-	SourceFilter struct {
-		// SourceID is the normalized source name (e.g., "foo" not "foo.invkmod")
-		SourceID string
-		// Raw is the original input (e.g., "@foo.invkmod" or "foo" from --from)
-		Raw string
-	}
-
-	// SourceNotFoundError is returned when a specified source does not exist.
-	SourceNotFoundError struct {
-		Source           string
-		AvailableSources []string
-	}
-
-	// AmbiguousCommandError is returned when trying to execute a command that exists
-	// in multiple sources without explicit disambiguation.
-	AmbiguousCommandError struct {
-		CommandName string
-		Sources     []string // SourceIDs where the command exists
-	}
-)
-
-func init() {
-	cmdCmd.Flags().BoolVarP(&listFlag, "list", "l", false, "list all available commands")
-	cmdCmd.PersistentFlags().StringVarP(&runtimeOverride, "runtime", "r", "", "override the runtime (must be allowed by the command)")
-	cmdCmd.PersistentFlags().StringVar(&fromSource, "from", "", "source to run command from (e.g., 'invkfile' or module name)")
-	cmdCmd.PersistentFlags().BoolVar(&forceRebuild, "force-rebuild", false, "force rebuild of container images (container runtime only)")
-
-	// Dynamically add discovered commands
-	// This happens at init time to enable shell completion
-	registerDiscoveredCommands()
+	return cmdCmd
 }
 
 func (e *DependencyError) Error() string {
@@ -200,18 +197,13 @@ func (e *AmbiguousCommandError) Error() string {
 }
 
 // normalizeSourceName converts various source name formats to a canonical form.
-// It accepts: "foo", "foo.invkmod", "invkfile", "invkfile.cue"
-// And returns: "foo" or "invkfile"
 func normalizeSourceName(raw string) string {
-	// Remove @ prefix if present
 	name := strings.TrimPrefix(raw, "@")
 
-	// Handle invkfile variants
 	if name == "invkfile.cue" || name == discovery.SourceIDInvkfile {
 		return discovery.SourceIDInvkfile
 	}
 
-	// Handle module variants - strip .invkmod suffix
 	if moduleName, found := strings.CutSuffix(name, ".invkmod"); found {
 		return moduleName
 	}
@@ -220,27 +212,116 @@ func normalizeSourceName(raw string) string {
 }
 
 // ParseSourceFilter extracts source filter from @prefix in args or --from flag.
-// Returns the filter (may be nil if no filter specified), remaining args, and any error.
-// The @source prefix must be the first argument if present.
+// --from takes precedence because Cobra parsed it explicitly as a named flag.
+// @source is only recognized as the first positional token to avoid ambiguity
+// with command arguments that happen to start with @.
 func ParseSourceFilter(args []string, fromFlag string) (*SourceFilter, []string, error) {
-	// --from flag takes precedence (already parsed by Cobra)
+	// `--from` takes precedence because Cobra parsed it explicitly.
 	if fromFlag != "" {
-		return &SourceFilter{
-			SourceID: normalizeSourceName(fromFlag),
-			Raw:      fromFlag,
-		}, args, nil
+		return &SourceFilter{SourceID: normalizeSourceName(fromFlag), Raw: fromFlag}, args, nil
 	}
 
-	// Check for @source prefix in first arg
+	// `@source` is only recognized as the first positional token.
 	if len(args) > 0 && strings.HasPrefix(args[0], "@") {
 		raw := args[0]
-		sourceID := normalizeSourceName(raw)
-		return &SourceFilter{
-			SourceID: sourceID,
-			Raw:      raw,
-		}, args[1:], nil
+		return &SourceFilter{SourceID: normalizeSourceName(raw), Raw: raw}, args[1:], nil
 	}
 
-	// No filter specified
 	return nil, args, nil
+}
+
+// runCommand builds an ExecuteRequest from CLI arguments and delegates to
+// the CommandService. This is the default execution path when no source
+// disambiguation (@source / --from) is specified and no ambiguity is detected.
+func runCommand(cmd *cobra.Command, app *App, rootFlags *rootFlagValues, cmdFlags *cmdFlagValues, args []string) error {
+	if len(args) == 0 {
+		return fmt.Errorf("no command specified")
+	}
+
+	// Resolve UI flags with CLI-over-config precedence before building the request.
+	verbose, interactive := resolveUIFlags(cmd.Context(), app, cmd, rootFlags)
+	req := ExecuteRequest{
+		Name:         args[0],
+		Args:         args[1:],
+		Runtime:      cmdFlags.runtimeOverride,
+		Interactive:  interactive,
+		Verbose:      verbose,
+		FromSource:   cmdFlags.fromSource,
+		ForceRebuild: cmdFlags.forceRebuild,
+		ConfigPath:   rootFlags.configPath,
+	}
+
+	err := executeRequest(cmd, app, req)
+	if err != nil {
+		exitErr := (*ExitError)(nil)
+		if errors.As(err, &exitErr) {
+			cmd.SilenceErrors = true
+			cmd.SilenceUsage = true
+		}
+	}
+
+	return err
+}
+
+// executeRequest dispatches an ExecuteRequest through the App's CommandService
+// and renders any diagnostics to stderr. Non-zero exit codes are wrapped in
+// ExitError to signal Cobra to exit without printing usage.
+func executeRequest(cmd *cobra.Command, app *App, req ExecuteRequest) error {
+	// Cobra adapters always render service diagnostics in the CLI layer.
+	result, diags, err := app.Commands.Execute(cmd.Context(), req)
+	app.Diagnostics.Render(cmd.Context(), diags, app.stderr)
+	if err != nil {
+		return err
+	}
+
+	if result.ExitCode != 0 {
+		return &ExitError{Code: result.ExitCode}
+	}
+
+	return nil
+}
+
+// resolveUIFlags applies CLI-over-config precedence for verbose and interactive flags.
+// Explicitly set CLI flags (--verbose, --interactive) take priority over config values
+// (ui.verbose, ui.interactive). Config values serve as defaults when flags are not set.
+func resolveUIFlags(ctx context.Context, app *App, cmd *cobra.Command, rootFlags *rootFlagValues) (verbose, interactive bool) {
+	verbose = rootFlags.verbose
+	interactive = rootFlags.interactive
+
+	cfg, err := app.Config.Load(ctx, config.LoadOptions{ConfigFilePath: rootFlags.configPath})
+	if err != nil {
+		fmt.Fprintln(app.stderr, WarningStyle.Render("Warning: ")+formatErrorForDisplay(err, rootFlags.verbose))
+		return verbose, interactive
+	}
+
+	// CLI flags win over config values when explicitly set.
+	if !cmd.Root().PersistentFlags().Changed("verbose") {
+		verbose = cfg.UI.Verbose
+	}
+
+	if !cmd.Root().PersistentFlags().Changed("interactive") {
+		interactive = cfg.UI.Interactive
+	}
+
+	return verbose, interactive
+}
+
+// validateCommandTree discovers all commands and validates the command tree for
+// structural conflicts (e.g., commands with both args and subcommands). It renders
+// non-fatal diagnostics and returns ArgsSubcommandConflictError if found.
+func validateCommandTree(ctx context.Context, app *App, rootFlags *rootFlagValues) error {
+	lookupCtx := contextWithConfigPath(ctx, rootFlags.configPath)
+	result, err := app.Discovery.DiscoverAndValidateCommandSet(lookupCtx)
+	// Always render non-fatal diagnostics produced during discovery.
+	app.Diagnostics.Render(ctx, result.Diagnostics, app.stderr)
+	if err == nil {
+		return nil
+	}
+
+	conflictErr := (*discovery.ArgsSubcommandConflictError)(nil)
+	if errors.As(err, &conflictErr) {
+		fmt.Fprintf(app.stderr, "\n%s\n\n", RenderArgsSubcommandConflictError(conflictErr))
+	}
+
+	return err
 }

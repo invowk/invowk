@@ -15,6 +15,8 @@ import (
 // ============================================================================
 
 func TestParseArgs_Basic(t *testing.T) {
+	t.Parallel()
+
 	cueContent := `
 cmds: [
 	{
@@ -79,6 +81,8 @@ cmds: [
 }
 
 func TestParseArgs_WithTypes(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name         string
 		argType      string
@@ -95,6 +99,8 @@ func TestParseArgs_WithTypes(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			cueContent := fmt.Sprintf(`
 cmds: [
 	{
@@ -135,6 +141,8 @@ cmds: [
 }
 
 func TestParseArgs_TypeDefaultsToString(t *testing.T) {
+	t.Parallel()
+
 	cueContent := `
 cmds: [
 	{
@@ -172,6 +180,8 @@ cmds: [
 }
 
 func TestParseArgs_Variadic(t *testing.T) {
+	t.Parallel()
+
 	cueContent := `
 cmds: [
 	{
@@ -218,6 +228,8 @@ cmds: [
 }
 
 func TestParseArgs_ValidationRegex(t *testing.T) {
+	t.Parallel()
+
 	cueContent := `
 cmds: [
 	{
@@ -252,6 +264,8 @@ cmds: [
 }
 
 func TestParseArgs_EmptyList(t *testing.T) {
+	t.Parallel()
+
 	cueContent := `
 cmds: [
 	{
@@ -283,6 +297,8 @@ cmds: [
 }
 
 func TestParseArgs_NoArgsField(t *testing.T) {
+	t.Parallel()
+
 	cueContent := `
 cmds: [
 	{
@@ -313,6 +329,8 @@ cmds: [
 }
 
 func TestParseArgs_AllFeatures(t *testing.T) {
+	t.Parallel()
+
 	// Test an arg with all features together
 	cueContent := `
 cmds: [
@@ -403,6 +421,8 @@ cmds: [
 // ============================================================================
 
 func TestGenerateCUE_WithArgs(t *testing.T) {
+	t.Parallel()
+
 	inv := &Invkfile{
 		Commands: []Command{
 			{
@@ -479,6 +499,8 @@ func TestGenerateCUE_WithArgs(t *testing.T) {
 }
 
 func TestGenerateCUE_WithArgs_StringTypeNotIncluded(t *testing.T) {
+	t.Parallel()
+
 	inv := &Invkfile{
 		Commands: []Command{
 			{
@@ -515,6 +537,8 @@ func TestGenerateCUE_WithArgs_StringTypeNotIncluded(t *testing.T) {
 }
 
 func TestGenerateCUE_WithArgs_RoundTrip(t *testing.T) {
+	t.Parallel()
+
 	// Create an invkfile with args, generate CUE, parse it back, and verify
 	original := &Invkfile{
 		Commands: []Command{

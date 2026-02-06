@@ -14,6 +14,8 @@ import (
 // ============================================================================
 
 func TestParseFlags(t *testing.T) {
+	t.Parallel()
+
 	cueContent := `
 cmds: [
 	{
@@ -91,6 +93,8 @@ cmds: [
 }
 
 func TestParseFlagsValidation_InvalidName(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name     string
 		flagName string
@@ -103,6 +107,8 @@ func TestParseFlagsValidation_InvalidName(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			cueContent := `
 cmds: [
 	{
@@ -139,6 +145,8 @@ cmds: [
 }
 
 func TestParseFlagsValidation_ValidNames(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name     string
 		flagName string
@@ -153,6 +161,8 @@ func TestParseFlagsValidation_ValidNames(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			cueContent := `
 cmds: [
 	{
@@ -194,6 +204,8 @@ cmds: [
 }
 
 func TestParseFlagsValidation_EmptyDescription(t *testing.T) {
+	t.Parallel()
+
 	cueContent := `
 cmds: [
 	{
@@ -228,6 +240,8 @@ cmds: [
 }
 
 func TestParseFlagsValidation_DuplicateNames(t *testing.T) {
+	t.Parallel()
+
 	cueContent := `
 cmds: [
 	{
@@ -266,6 +280,8 @@ cmds: [
 }
 
 func TestGenerateCUE_WithFlags(t *testing.T) {
+	t.Parallel()
+
 	inv := &Invkfile{
 		Commands: []Command{
 			{
@@ -301,6 +317,8 @@ func TestGenerateCUE_WithFlags(t *testing.T) {
 }
 
 func TestGenerateCUE_WithoutFlags(t *testing.T) {
+	t.Parallel()
+
 	inv := &Invkfile{
 		Commands: []Command{
 			{
@@ -320,6 +338,8 @@ func TestGenerateCUE_WithoutFlags(t *testing.T) {
 }
 
 func TestParseFlags_EmptyList(t *testing.T) {
+	t.Parallel()
+
 	cueContent := `
 cmds: [
 	{
@@ -356,6 +376,8 @@ cmds: [
 }
 
 func TestParseFlags_NoFlagsField(t *testing.T) {
+	t.Parallel()
+
 	cueContent := `
 cmds: [
 	{

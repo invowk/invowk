@@ -13,31 +13,9 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var (
-	styleForeground string
-	styleBackground string
-	styleBold       bool
-	styleItalic     bool
-	styleUnderline  bool
-	styleStrike     bool
-	styleFaint      bool
-	styleBlink      bool
-	styleReverse    bool
-	styleMarginL    int
-	styleMarginR    int
-	styleMarginT    int
-	styleMarginB    int
-	stylePaddingL   int
-	stylePaddingR   int
-	stylePaddingT   int
-	stylePaddingB   int
-	styleWidth      int
-	styleHeight     int
-	styleAlign      string
-	styleBorder     string
-
-	// tuiStyleCmd applies styles to text.
-	tuiStyleCmd = &cobra.Command{
+// newTUIStyleCommand creates the `invowk tui style` command.
+func newTUIStyleCommand() *cobra.Command {
+	cmd := &cobra.Command{
 		Use:   "style [text...]",
 		Short: "Apply styles to text",
 		Long: `Apply terminal styling to text.
@@ -62,35 +40,55 @@ Examples:
   invowk tui style --bold --foreground "#00FF00" --background "#000" "Matrix"`,
 		RunE: runTuiStyle,
 	}
-)
 
-func init() {
-	tuiCmd.AddCommand(tuiStyleCmd)
+	cmd.Flags().String("foreground", "", "foreground color (hex or ANSI)")
+	cmd.Flags().String("background", "", "background color (hex or ANSI)")
+	cmd.Flags().Bool("bold", false, "bold text")
+	cmd.Flags().Bool("italic", false, "italic text")
+	cmd.Flags().Bool("underline", false, "underlined text")
+	cmd.Flags().Bool("strikethrough", false, "strikethrough text")
+	cmd.Flags().Bool("faint", false, "faint/dim text")
+	cmd.Flags().Bool("blink", false, "blinking text")
+	cmd.Flags().Bool("reverse", false, "reverse colors")
+	cmd.Flags().Int("margin-left", 0, "left margin")
+	cmd.Flags().Int("margin-right", 0, "right margin")
+	cmd.Flags().Int("margin-top", 0, "top margin")
+	cmd.Flags().Int("margin-bottom", 0, "bottom margin")
+	cmd.Flags().Int("padding-left", 0, "left padding")
+	cmd.Flags().Int("padding-right", 0, "right padding")
+	cmd.Flags().Int("padding-top", 0, "top padding")
+	cmd.Flags().Int("padding-bottom", 0, "bottom padding")
+	cmd.Flags().Int("width", 0, "fixed width (0 for auto)")
+	cmd.Flags().Int("height", 0, "fixed height (0 for auto)")
+	cmd.Flags().String("align", "", "text alignment (left, center, right)")
+	cmd.Flags().String("border", "", "border style (normal, rounded, thick, double, hidden, none)")
 
-	tuiStyleCmd.Flags().StringVar(&styleForeground, "foreground", "", "foreground color (hex or ANSI)")
-	tuiStyleCmd.Flags().StringVar(&styleBackground, "background", "", "background color (hex or ANSI)")
-	tuiStyleCmd.Flags().BoolVar(&styleBold, "bold", false, "bold text")
-	tuiStyleCmd.Flags().BoolVar(&styleItalic, "italic", false, "italic text")
-	tuiStyleCmd.Flags().BoolVar(&styleUnderline, "underline", false, "underlined text")
-	tuiStyleCmd.Flags().BoolVar(&styleStrike, "strikethrough", false, "strikethrough text")
-	tuiStyleCmd.Flags().BoolVar(&styleFaint, "faint", false, "faint/dim text")
-	tuiStyleCmd.Flags().BoolVar(&styleBlink, "blink", false, "blinking text")
-	tuiStyleCmd.Flags().BoolVar(&styleReverse, "reverse", false, "reverse colors")
-	tuiStyleCmd.Flags().IntVar(&styleMarginL, "margin-left", 0, "left margin")
-	tuiStyleCmd.Flags().IntVar(&styleMarginR, "margin-right", 0, "right margin")
-	tuiStyleCmd.Flags().IntVar(&styleMarginT, "margin-top", 0, "top margin")
-	tuiStyleCmd.Flags().IntVar(&styleMarginB, "margin-bottom", 0, "bottom margin")
-	tuiStyleCmd.Flags().IntVar(&stylePaddingL, "padding-left", 0, "left padding")
-	tuiStyleCmd.Flags().IntVar(&stylePaddingR, "padding-right", 0, "right padding")
-	tuiStyleCmd.Flags().IntVar(&stylePaddingT, "padding-top", 0, "top padding")
-	tuiStyleCmd.Flags().IntVar(&stylePaddingB, "padding-bottom", 0, "bottom padding")
-	tuiStyleCmd.Flags().IntVar(&styleWidth, "width", 0, "fixed width (0 for auto)")
-	tuiStyleCmd.Flags().IntVar(&styleHeight, "height", 0, "fixed height (0 for auto)")
-	tuiStyleCmd.Flags().StringVar(&styleAlign, "align", "", "text alignment (left, center, right)")
-	tuiStyleCmd.Flags().StringVar(&styleBorder, "border", "", "border style (normal, rounded, thick, double, hidden, none)")
+	return cmd
 }
 
 func runTuiStyle(cmd *cobra.Command, args []string) error {
+	styleForeground, _ := cmd.Flags().GetString("foreground")
+	styleBackground, _ := cmd.Flags().GetString("background")
+	styleBold, _ := cmd.Flags().GetBool("bold")
+	styleItalic, _ := cmd.Flags().GetBool("italic")
+	styleUnderline, _ := cmd.Flags().GetBool("underline")
+	styleStrike, _ := cmd.Flags().GetBool("strikethrough")
+	styleFaint, _ := cmd.Flags().GetBool("faint")
+	styleBlink, _ := cmd.Flags().GetBool("blink")
+	styleReverse, _ := cmd.Flags().GetBool("reverse")
+	styleMarginL, _ := cmd.Flags().GetInt("margin-left")
+	styleMarginR, _ := cmd.Flags().GetInt("margin-right")
+	styleMarginT, _ := cmd.Flags().GetInt("margin-top")
+	styleMarginB, _ := cmd.Flags().GetInt("margin-bottom")
+	stylePaddingL, _ := cmd.Flags().GetInt("padding-left")
+	stylePaddingR, _ := cmd.Flags().GetInt("padding-right")
+	stylePaddingT, _ := cmd.Flags().GetInt("padding-top")
+	stylePaddingB, _ := cmd.Flags().GetInt("padding-bottom")
+	styleWidth, _ := cmd.Flags().GetInt("width")
+	styleHeight, _ := cmd.Flags().GetInt("height")
+	styleAlign, _ := cmd.Flags().GetString("align")
+	styleBorder, _ := cmd.Flags().GetString("border")
+
 	var content string
 
 	// Get content from args or stdin

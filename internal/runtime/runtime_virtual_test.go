@@ -5,6 +5,7 @@ package runtime
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	goruntime "runtime"
@@ -647,5 +648,144 @@ func TestVirtualRuntime_NewVirtualRuntime(t *testing.T) {
 					tt.enableUroot, rt.EnableUrootUtils, tt.wantUroot)
 			}
 		})
+	}
+}
+
+// TestVirtualRuntime_PositionalArgs_DashPrefix verifies that positional arguments
+// starting with "-" or "--" are correctly passed as $1, $2, etc. and NOT interpreted
+// as shell options by interp.Params(). This exercises the "--" prefix guard in virtual.go.
+func TestVirtualRuntime_PositionalArgs_DashPrefix(t *testing.T) {
+	tmpDir := t.TempDir()
+	inv := &invkfile.Invkfile{FilePath: filepath.Join(tmpDir, "invkfile.cue")}
+
+	tests := []struct {
+		name   string
+		script string
+		args   []string
+		want   string
+	}{
+		{"single dash flag becomes positional", `echo "arg1=$1"`, []string{"-v"}, "arg1=-v"},
+		{"double dash flag becomes positional", `echo "arg1=$1"`, []string{"--env=staging"}, "arg1=--env=staging"},
+		{"mixed dash and normal args", `echo "count=$#"`, []string{"-v", "hello", "--debug"}, "count=3"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cmd := testCommandWithScript("dash-args", tt.script, invkfile.RuntimeVirtual)
+			rt := NewVirtualRuntime(false)
+			ctx := NewExecutionContext(cmd, inv)
+			ctx.Context = context.Background()
+			ctx.PositionalArgs = tt.args
+
+			var stdout bytes.Buffer
+			ctx.IO.Stdout = &stdout
+			ctx.IO.Stderr = &bytes.Buffer{}
+
+			result := rt.Execute(ctx)
+			if result.ExitCode != 0 {
+				t.Fatalf("Execute() exit code = %d, want 0, error: %v", result.ExitCode, result.Error)
+			}
+			if got := strings.TrimSpace(stdout.String()); got != tt.want {
+				t.Errorf("Execute() output = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+// TestVirtualRuntime_ExecuteCapture tests that ExecuteCapture correctly captures
+// stdout and stderr into separate Result fields.
+func TestVirtualRuntime_ExecuteCapture(t *testing.T) {
+	tmpDir := t.TempDir()
+	inv := &invkfile.Invkfile{
+		FilePath: filepath.Join(tmpDir, "invkfile.cue"),
+	}
+
+	script := `echo "captured stdout"
+echo "captured stderr" >&2`
+
+	cmd := testCommandWithScript("capture-test", script, invkfile.RuntimeVirtual)
+	rt := NewVirtualRuntime(false)
+	ctx := NewExecutionContext(cmd, inv)
+	ctx.Context = context.Background()
+	ctx.IO.Stdout = &bytes.Buffer{}
+	ctx.IO.Stderr = &bytes.Buffer{}
+
+	result := rt.ExecuteCapture(ctx)
+	if result.ExitCode != 0 {
+		t.Fatalf("ExecuteCapture() exit code = %d, want 0, error: %v", result.ExitCode, result.Error)
+	}
+
+	if !strings.Contains(result.Output, "captured stdout") {
+		t.Errorf("ExecuteCapture() Output = %q, want to contain 'captured stdout'", result.Output)
+	}
+	if !strings.Contains(result.ErrOutput, "captured stderr") {
+		t.Errorf("ExecuteCapture() ErrOutput = %q, want to contain 'captured stderr'", result.ErrOutput)
+	}
+}
+
+// TestVirtualRuntime_MockEnvBuilder_Error tests that the virtual runtime correctly
+// propagates errors from the EnvBuilder during execution.
+func TestVirtualRuntime_MockEnvBuilder_Error(t *testing.T) {
+	tmpDir := t.TempDir()
+	inv := &invkfile.Invkfile{
+		FilePath: filepath.Join(tmpDir, "invkfile.cue"),
+	}
+
+	cmd := testCommandWithScript("env-error", "echo test", invkfile.RuntimeVirtual)
+
+	mockErr := fmt.Errorf("mock virtual env build failure")
+	rt := NewVirtualRuntime(false, WithVirtualEnvBuilder(&MockEnvBuilder{Err: mockErr}))
+	ctx := NewExecutionContext(cmd, inv)
+	ctx.Context = context.Background()
+	ctx.IO.Stdout = &bytes.Buffer{}
+	ctx.IO.Stderr = &bytes.Buffer{}
+
+	result := rt.Execute(ctx)
+	if result.ExitCode == 0 {
+		t.Error("Execute() should fail when EnvBuilder returns error")
+	}
+	if result.Error == nil {
+		t.Fatal("Execute() should return error when EnvBuilder fails")
+	}
+	if !strings.Contains(result.Error.Error(), "mock virtual env build failure") {
+		t.Errorf("Execute() error = %q, want to contain 'mock virtual env build failure'", result.Error)
+	}
+}
+
+// TestVirtualRuntime_SetE_StopsOnError verifies that "set -e" (errexit) in a virtual
+// script terminates execution immediately when a command fails, and the exit code
+// is propagated correctly through the interp.ExitStatus error type.
+func TestVirtualRuntime_SetE_StopsOnError(t *testing.T) {
+	tmpDir := t.TempDir()
+	inv := &invkfile.Invkfile{
+		FilePath: filepath.Join(tmpDir, "invkfile.cue"),
+	}
+
+	// "set -e" should abort the script at "false" and not reach "echo after"
+	script := `set -e
+echo "before"
+false
+echo "after"`
+
+	cmd := testCommandWithScript("set-e", script, invkfile.RuntimeVirtual)
+	rt := NewVirtualRuntime(false)
+	ctx := NewExecutionContext(cmd, inv)
+	ctx.Context = context.Background()
+
+	var stdout bytes.Buffer
+	ctx.IO.Stdout = &stdout
+	ctx.IO.Stderr = &bytes.Buffer{}
+
+	result := rt.Execute(ctx)
+	if result.ExitCode != 1 {
+		t.Errorf("Execute() exit code = %d, want 1", result.ExitCode)
+	}
+
+	output := stdout.String()
+	if !strings.Contains(output, "before") {
+		t.Error("Execute() should have printed 'before' prior to failure")
+	}
+	if strings.Contains(output, "after") {
+		t.Error("Execute() should NOT have printed 'after' since 'set -e' aborts on 'false'")
 	}
 }

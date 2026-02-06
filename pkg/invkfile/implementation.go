@@ -39,9 +39,11 @@ type (
 		// These dependencies are validated according to the runtime being used
 		DependsOn *DependsOn `json:"depends_on,omitempty"`
 
-		// resolvedScript caches the resolved script content
+		// resolvedScript caches the resolved script content (lazy memoization).
+		// Script content is resolved from file path or inline source on first
+		// ResolveScript call and reused for subsequent calls.
 		resolvedScript string
-		// scriptResolved indicates if the script has been resolved
+		// scriptResolved tracks whether resolvedScript has been populated.
 		scriptResolved bool
 	}
 
@@ -51,8 +53,8 @@ type (
 		Runtime  RuntimeMode
 	}
 
-	// ScriptMatch represents a matched script for execution
-	ScriptMatch struct {
+	// ImplementationMatch represents a matched implementation for execution.
+	ImplementationMatch struct {
 		Implementation       *Implementation
 		Platform             Platform
 		Runtime              RuntimeMode
@@ -60,7 +62,7 @@ type (
 	}
 )
 
-// MatchesPlatform returns true if the script can run on the given platform
+// MatchesPlatform returns true if the implementation can run on the given platform.
 func (s *Implementation) MatchesPlatform(platform Platform) bool {
 	if len(s.Platforms) == 0 {
 		return true // No platforms specified = all platforms
@@ -73,7 +75,7 @@ func (s *Implementation) MatchesPlatform(platform Platform) bool {
 	return false
 }
 
-// HasRuntime returns true if the script supports the given runtime
+// HasRuntime returns true if the implementation supports the given runtime.
 func (s *Implementation) HasRuntime(runtime RuntimeMode) bool {
 	for i := range s.Runtimes {
 		if s.Runtimes[i].Name == runtime {
@@ -83,7 +85,7 @@ func (s *Implementation) HasRuntime(runtime RuntimeMode) bool {
 	return false
 }
 
-// GetRuntimeConfig returns the RuntimeConfig for the given runtime type, or nil if not found
+// GetRuntimeConfig returns the RuntimeConfig for the given runtime type, or nil if not found.
 func (s *Implementation) GetRuntimeConfig(runtime RuntimeMode) *RuntimeConfig {
 	for i := range s.Runtimes {
 		if s.Runtimes[i].Name == runtime {
@@ -93,7 +95,7 @@ func (s *Implementation) GetRuntimeConfig(runtime RuntimeMode) *RuntimeConfig {
 	return nil
 }
 
-// GetDefaultRuntime returns the default runtime type for this script (first runtime in the list)
+// GetDefaultRuntime returns the default runtime type for this implementation (first runtime in the list).
 func (s *Implementation) GetDefaultRuntime() RuntimeMode {
 	if len(s.Runtimes) == 0 {
 		return RuntimeNative
@@ -101,7 +103,7 @@ func (s *Implementation) GetDefaultRuntime() RuntimeMode {
 	return s.Runtimes[0].Name
 }
 
-// GetDefaultRuntimeConfig returns the default RuntimeConfig for this script (first in the list)
+// GetDefaultRuntimeConfig returns the default RuntimeConfig for this implementation (first in the list).
 func (s *Implementation) GetDefaultRuntimeConfig() *RuntimeConfig {
 	if len(s.Runtimes) == 0 {
 		return nil
@@ -109,7 +111,7 @@ func (s *Implementation) GetDefaultRuntimeConfig() *RuntimeConfig {
 	return &s.Runtimes[0]
 }
 
-// HasHostSSH returns true if any runtime in this script has enable_host_ssh enabled
+// HasHostSSH returns true if any runtime in this implementation has enable_host_ssh enabled.
 func (s *Implementation) HasHostSSH() bool {
 	for i := range s.Runtimes {
 		if s.Runtimes[i].Name == RuntimeContainer && s.Runtimes[i].EnableHostSSH {
@@ -131,7 +133,7 @@ func (s *Implementation) GetHostSSHForRuntime(runtime RuntimeMode) bool {
 	return rc.EnableHostSSH
 }
 
-// HasDependencies returns true if the script has any dependencies
+// HasDependencies returns true if the implementation has any dependencies.
 func (s *Implementation) HasDependencies() bool {
 	if s.DependsOn == nil {
 		return false
@@ -139,8 +141,8 @@ func (s *Implementation) HasDependencies() bool {
 	return len(s.DependsOn.Tools) > 0 || len(s.DependsOn.Commands) > 0 || len(s.DependsOn.Filepaths) > 0 || len(s.DependsOn.Capabilities) > 0 || len(s.DependsOn.CustomChecks) > 0 || len(s.DependsOn.EnvVars) > 0
 }
 
-// GetCommandDependencies returns the list of command dependency names from this script
-// For dependencies with alternatives, returns all alternatives flattened into a single list
+// GetCommandDependencies returns the list of command dependency names from this implementation.
+// For dependencies with alternatives, returns all alternatives flattened into a single list.
 func (s *Implementation) GetCommandDependencies() []string {
 	if s.DependsOn == nil {
 		return nil

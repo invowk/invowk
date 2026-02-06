@@ -14,18 +14,9 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var (
-	filterTitle       string
-	filterPlaceholder string
-	filterWidth       int
-	filterHeight      int
-	filterLimit       int
-	filterNoLimit     bool
-	filterReverse     bool
-	filterFuzzy       bool
-
-	// tuiFilterCmd provides fuzzy filtering of a list.
-	tuiFilterCmd = &cobra.Command{
+// newTUIFilterCommand creates the `invowk tui filter` command.
+func newTUIFilterCommand() *cobra.Command {
+	cmd := &cobra.Command{
 		Use:   "filter [options...]",
 		Short: "Fuzzy filter a list of options",
 		Long: `Filter a list of options using fuzzy matching.
@@ -36,36 +27,43 @@ The selected option(s) are printed to stdout.
 Examples:
   # Filter from arguments
   invowk tui filter "apple" "banana" "cherry" "date"
-  
+
   # Filter from stdin
   ls | invowk tui filter --title "Select a file"
-  
+
   # Multi-select filter
   cat files.txt | invowk tui filter --no-limit
-  
+
   # With custom placeholder
   invowk tui filter --placeholder "Type to search..." opt1 opt2 opt3
-  
+
   # Strict matching (not fuzzy)
   invowk tui filter --fuzzy=false "one" "two" "three"`,
 		RunE: runTuiFilter,
 	}
-)
 
-func init() {
-	tuiCmd.AddCommand(tuiFilterCmd)
+	cmd.Flags().String("title", "", "title displayed above the filter")
+	cmd.Flags().String("placeholder", "Type to filter...", "placeholder text in search box")
+	cmd.Flags().Int("width", 0, "width of the filter (0 for auto)")
+	cmd.Flags().Int("height", 0, "height of the list (0 for auto)")
+	cmd.Flags().Int("limit", 1, "maximum selections (1 for single)")
+	cmd.Flags().Bool("no-limit", false, "allow unlimited selections")
+	cmd.Flags().Bool("reverse", false, "display list in reverse order")
+	cmd.Flags().Bool("fuzzy", true, "enable fuzzy matching")
 
-	tuiFilterCmd.Flags().StringVar(&filterTitle, "title", "", "title displayed above the filter")
-	tuiFilterCmd.Flags().StringVar(&filterPlaceholder, "placeholder", "Type to filter...", "placeholder text in search box")
-	tuiFilterCmd.Flags().IntVar(&filterWidth, "width", 0, "width of the filter (0 for auto)")
-	tuiFilterCmd.Flags().IntVar(&filterHeight, "height", 0, "height of the list (0 for auto)")
-	tuiFilterCmd.Flags().IntVar(&filterLimit, "limit", 1, "maximum selections (1 for single)")
-	tuiFilterCmd.Flags().BoolVar(&filterNoLimit, "no-limit", false, "allow unlimited selections")
-	tuiFilterCmd.Flags().BoolVar(&filterReverse, "reverse", false, "display list in reverse order")
-	tuiFilterCmd.Flags().BoolVar(&filterFuzzy, "fuzzy", true, "enable fuzzy matching")
+	return cmd
 }
 
 func runTuiFilter(cmd *cobra.Command, args []string) error {
+	filterTitle, _ := cmd.Flags().GetString("title")
+	filterPlaceholder, _ := cmd.Flags().GetString("placeholder")
+	filterWidth, _ := cmd.Flags().GetInt("width")
+	filterHeight, _ := cmd.Flags().GetInt("height")
+	filterLimit, _ := cmd.Flags().GetInt("limit")
+	filterNoLimit, _ := cmd.Flags().GetBool("no-limit")
+	filterReverse, _ := cmd.Flags().GetBool("reverse")
+	filterFuzzy, _ := cmd.Flags().GetBool("fuzzy")
+
 	var options []string
 
 	// Check if we have stdin input

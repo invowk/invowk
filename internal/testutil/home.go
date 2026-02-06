@@ -7,6 +7,8 @@ import (
 	"testing"
 )
 
+const osWindows = "windows"
+
 // SetHomeDir sets the appropriate HOME environment variable based on platform
 // and returns a cleanup function to restore the original value.
 //
@@ -41,7 +43,7 @@ func SetHomeDir(t testing.TB, dir string) func() {
 	t.Helper()
 
 	switch runtime.GOOS {
-	case "windows":
+	case osWindows:
 		return MustSetenv(t, "USERPROFILE", dir)
 	default:
 		return MustSetenv(t, "HOME", dir)

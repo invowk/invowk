@@ -39,6 +39,8 @@ func newMockCommand(name string) *mockCommand {
 }
 
 func TestNewRegistry(t *testing.T) {
+	t.Parallel()
+
 	r := NewRegistry()
 	if r == nil {
 		t.Fatal("NewRegistry returned nil")
@@ -52,6 +54,8 @@ func TestNewRegistry(t *testing.T) {
 }
 
 func TestRegistry_Register(t *testing.T) {
+	t.Parallel()
+
 	r := NewRegistry()
 	cmd := newMockCommand("test")
 
@@ -66,6 +70,8 @@ func TestRegistry_Register(t *testing.T) {
 }
 
 func TestRegistry_Register_Multiple(t *testing.T) {
+	t.Parallel()
+
 	r := NewRegistry()
 	r.Register(newMockCommand("cat"))
 	r.Register(newMockCommand("ls"))
@@ -77,6 +83,8 @@ func TestRegistry_Register_Multiple(t *testing.T) {
 }
 
 func TestRegistry_Register_PanicOnDuplicate(t *testing.T) {
+	t.Parallel()
+
 	r := NewRegistry()
 	r.Register(newMockCommand("test"))
 
@@ -90,6 +98,8 @@ func TestRegistry_Register_PanicOnDuplicate(t *testing.T) {
 }
 
 func TestRegistry_Register_PanicOnEmptyName(t *testing.T) {
+	t.Parallel()
+
 	r := NewRegistry()
 
 	defer func() {
@@ -102,6 +112,8 @@ func TestRegistry_Register_PanicOnEmptyName(t *testing.T) {
 }
 
 func TestRegistry_Lookup(t *testing.T) {
+	t.Parallel()
+
 	r := NewRegistry()
 	cmd := newMockCommand("test")
 	r.Register(cmd)
@@ -116,6 +128,8 @@ func TestRegistry_Lookup(t *testing.T) {
 }
 
 func TestRegistry_Lookup_NotFound(t *testing.T) {
+	t.Parallel()
+
 	r := NewRegistry()
 
 	_, ok := r.Lookup("nonexistent")
@@ -125,6 +139,8 @@ func TestRegistry_Lookup_NotFound(t *testing.T) {
 }
 
 func TestRegistry_Names(t *testing.T) {
+	t.Parallel()
+
 	r := NewRegistry()
 	r.Register(newMockCommand("cat"))
 	r.Register(newMockCommand("ls"))
@@ -146,6 +162,8 @@ func TestRegistry_Names(t *testing.T) {
 }
 
 func TestRegistry_Names_Empty(t *testing.T) {
+	t.Parallel()
+
 	r := NewRegistry()
 
 	names := r.Names()
@@ -156,6 +174,8 @@ func TestRegistry_Names_Empty(t *testing.T) {
 }
 
 func TestRegistry_Run(t *testing.T) {
+	t.Parallel()
+
 	r := NewRegistry()
 	cmd := newMockCommand("echo")
 	r.Register(cmd)
@@ -174,6 +194,8 @@ func TestRegistry_Run(t *testing.T) {
 }
 
 func TestRegistry_Run_NotFound(t *testing.T) {
+	t.Parallel()
+
 	r := NewRegistry()
 
 	ctx := context.Background()
@@ -191,6 +213,8 @@ func TestRegistry_Run_NotFound(t *testing.T) {
 }
 
 func TestRegistry_Run_CommandError(t *testing.T) {
+	t.Parallel()
+
 	r := NewRegistry()
 	expectedErr := errors.New("[uroot] test: something went wrong")
 	cmd := &mockCommand{
@@ -210,6 +234,8 @@ func TestRegistry_Run_CommandError(t *testing.T) {
 }
 
 func TestRegistry_ConcurrentAccess(t *testing.T) {
+	t.Parallel()
+
 	r := NewRegistry()
 
 	// Register some commands
@@ -235,6 +261,8 @@ func TestRegistry_ConcurrentAccess(t *testing.T) {
 }
 
 func TestDefaultRegistry(t *testing.T) {
+	t.Parallel()
+
 	// DefaultRegistry should be initialized
 	if DefaultRegistry == nil {
 		t.Fatal("DefaultRegistry is nil")
@@ -242,6 +270,8 @@ func TestDefaultRegistry(t *testing.T) {
 }
 
 func TestHandlerContext_WithContext(t *testing.T) {
+	t.Parallel()
+
 	stdin := strings.NewReader("input")
 	stdout := &bytes.Buffer{}
 	stderr := &bytes.Buffer{}
@@ -282,6 +312,8 @@ func TestHandlerContext_WithContext(t *testing.T) {
 }
 
 func TestHandlerContext_ReadWrite(t *testing.T) {
+	t.Parallel()
+
 	stdin := strings.NewReader("test input")
 	stdout := &bytes.Buffer{}
 	stderr := &bytes.Buffer{}
@@ -321,6 +353,8 @@ func TestHandlerContext_ReadWrite(t *testing.T) {
 }
 
 func TestFlagInfo(t *testing.T) {
+	t.Parallel()
+
 	flags := []FlagInfo{
 		{Name: "recursive", ShortName: "r", Description: "Copy recursively", TakesValue: false},
 		{Name: "n", ShortName: "", Description: "Number of lines", TakesValue: true},
@@ -354,6 +388,8 @@ func TestFlagInfo(t *testing.T) {
 //
 // [US3] T044: Fallback behavior - unregistered commands use system
 func TestRegistry_Lookup_FallbackBehavior(t *testing.T) {
+	t.Parallel()
+
 	r := NewRegistry()
 
 	// Register only specific commands
@@ -406,6 +442,8 @@ func TestRegistry_Lookup_FallbackBehavior(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			cmd, ok := r.Lookup(tt.cmdName)
 			if ok != tt.wantOK {
 				t.Errorf("Lookup(%q) ok = %v, want %v (%s)",
@@ -427,6 +465,8 @@ func TestRegistry_Lookup_FallbackBehavior(t *testing.T) {
 //
 // [US3] T045: No silent fallback - u-root errors are propagated
 func TestRegistry_Run_NoSilentFallback(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name        string
 		cmdName     string
@@ -467,6 +507,8 @@ func TestRegistry_Run_NoSilentFallback(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			r := NewRegistry()
 
 			// Create command that returns a specific error
@@ -507,6 +549,8 @@ func TestRegistry_Run_NoSilentFallback(t *testing.T) {
 //
 // [US3] T045: Additional verification that errors are not swallowed
 func TestRegistry_CommandError_NotSwallowed(t *testing.T) {
+	t.Parallel()
+
 	r := NewRegistry()
 
 	// Counters to verify command was actually executed

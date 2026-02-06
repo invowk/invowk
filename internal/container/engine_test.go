@@ -8,19 +8,9 @@ import (
 	"testing"
 )
 
-func TestEngineType_Constants(t *testing.T) {
-	// These tests verify that constants have the expected string values.
-	// Using literals is intentional - using the constants themselves would be circular.
-	if EngineTypePodman != "podman" { //nolint:goconst // Testing constant value
-		t.Errorf("EngineTypePodman = %s, want podman", EngineTypePodman)
-	}
-
-	if EngineTypeDocker != "docker" { //nolint:goconst // Testing constant value
-		t.Errorf("EngineTypeDocker = %s, want docker", EngineTypeDocker)
-	}
-}
-
 func TestEngineNotAvailableError_Error(t *testing.T) {
+	t.Parallel()
+
 	err := &EngineNotAvailableError{
 		Engine: "podman",
 		Reason: "not installed",
@@ -33,6 +23,8 @@ func TestEngineNotAvailableError_Error(t *testing.T) {
 }
 
 func TestEngineNotAvailableError_UnwrapsToSentinel(t *testing.T) {
+	t.Parallel()
+
 	err := &EngineNotAvailableError{
 		Engine: "docker",
 		Reason: "not installed",
@@ -44,6 +36,8 @@ func TestEngineNotAvailableError_UnwrapsToSentinel(t *testing.T) {
 }
 
 func TestErrNoEngineAvailable_Sentinel(t *testing.T) {
+	t.Parallel()
+
 	if ErrNoEngineAvailable == nil {
 		t.Fatal("ErrNoEngineAvailable should not be nil")
 	}
@@ -52,21 +46,9 @@ func TestErrNoEngineAvailable_Sentinel(t *testing.T) {
 	}
 }
 
-func TestDockerEngine_Name(t *testing.T) {
-	engine := NewDockerEngine()
-	if engine.Name() != "docker" {
-		t.Errorf("DockerEngine.Name() = %s, want docker", engine.Name())
-	}
-}
-
-func TestPodmanEngine_Name(t *testing.T) {
-	engine := NewPodmanEngine()
-	if engine.Name() != "podman" {
-		t.Errorf("PodmanEngine.Name() = %s, want podman", engine.Name())
-	}
-}
-
 func TestDockerEngine_AvailableWithNoPath(t *testing.T) {
+	t.Parallel()
+
 	// Engine created with no binary path should not be available
 	engine := &DockerEngine{BaseCLIEngine: NewBaseCLIEngine("")}
 	if engine.Available() {
@@ -75,6 +57,8 @@ func TestDockerEngine_AvailableWithNoPath(t *testing.T) {
 }
 
 func TestPodmanEngine_AvailableWithNoPath(t *testing.T) {
+	t.Parallel()
+
 	// Engine created with no binary path should not be available
 	engine := &PodmanEngine{BaseCLIEngine: NewBaseCLIEngine("")}
 	if engine.Available() {
@@ -83,6 +67,8 @@ func TestPodmanEngine_AvailableWithNoPath(t *testing.T) {
 }
 
 func TestNewEngine_UnknownType(t *testing.T) {
+	t.Parallel()
+
 	_, err := NewEngine("unknown")
 	if err == nil {
 		t.Error("NewEngine with unknown type should return error")
@@ -90,6 +76,8 @@ func TestNewEngine_UnknownType(t *testing.T) {
 }
 
 func TestNewEngine_Podman(t *testing.T) {
+	t.Parallel()
+
 	// This test verifies the logic, not actual availability
 	engine, err := NewEngine(EngineTypePodman)
 	// If neither podman nor docker is available, we should get an error
@@ -108,6 +96,8 @@ func TestNewEngine_Podman(t *testing.T) {
 }
 
 func TestNewEngine_Docker(t *testing.T) {
+	t.Parallel()
+
 	// This test verifies the logic, not actual availability
 	engine, err := NewEngine(EngineTypeDocker)
 	// If neither docker nor podman is available, we should get an error
@@ -126,6 +116,8 @@ func TestNewEngine_Docker(t *testing.T) {
 }
 
 func TestAutoDetectEngine(t *testing.T) {
+	t.Parallel()
+
 	engine, err := AutoDetectEngine()
 	// If no engine is available, we should get an error
 	if err != nil {
@@ -139,72 +131,6 @@ func TestAutoDetectEngine(t *testing.T) {
 	// If we got an engine, it should be either podman or docker
 	if engine.Name() != "podman" && engine.Name() != "docker" {
 		t.Errorf("expected podman or docker engine, got %s", engine.Name())
-	}
-}
-
-func TestBuildOptions_Defaults(t *testing.T) {
-	opts := BuildOptions{
-		ContextDir: "/tmp/build",
-		Tag:        "myimage:latest",
-	}
-
-	if opts.ContextDir != "/tmp/build" {
-		t.Errorf("ContextDir = %s, want /tmp/build", opts.ContextDir)
-	}
-
-	if opts.Tag != "myimage:latest" {
-		t.Errorf("Tag = %s, want myimage:latest", opts.Tag)
-	}
-
-	if opts.NoCache {
-		t.Error("NoCache should default to false")
-	}
-
-	if opts.Dockerfile != "" {
-		t.Errorf("Dockerfile should default to empty, got %s", opts.Dockerfile)
-	}
-}
-
-func TestRunOptions_Defaults(t *testing.T) {
-	opts := RunOptions{
-		Image:   "debian:stable-slim",
-		Command: []string{"echo", "hello"},
-	}
-
-	if opts.Image != "debian:stable-slim" {
-		t.Errorf("Image = %s, want debian:stable-slim", opts.Image)
-	}
-
-	if len(opts.Command) != 2 {
-		t.Errorf("Command length = %d, want 2", len(opts.Command))
-	}
-
-	if opts.Remove {
-		t.Error("Remove should default to false")
-	}
-
-	if opts.Interactive {
-		t.Error("Interactive should default to false")
-	}
-
-	if opts.TTY {
-		t.Error("TTY should default to false")
-	}
-}
-
-func TestRunResult_Defaults(t *testing.T) {
-	result := &RunResult{}
-
-	if result.ContainerID != "" {
-		t.Errorf("ContainerID should default to empty, got %s", result.ContainerID)
-	}
-
-	if result.ExitCode != 0 {
-		t.Errorf("ExitCode should default to 0, got %d", result.ExitCode)
-	}
-
-	if result.Error != nil {
-		t.Errorf("Error should default to nil, got %v", result.Error)
 	}
 }
 

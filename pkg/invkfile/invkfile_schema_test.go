@@ -16,6 +16,8 @@ import (
 // TestCUESchema_RejectsToolDependencyWithName verifies that the CUE schema rejects
 // tool dependencies that use the old 'name' field instead of 'alternatives'
 func TestCUESchema_RejectsToolDependencyWithName(t *testing.T) {
+	t.Parallel()
+
 	cueContent := `
 cmds: [
 	{
@@ -57,6 +59,8 @@ cmds: [
 // TestCUESchema_RejectsCustomCheckWithBothNameAndAlternatives verifies that the CUE schema
 // rejects custom checks that have both direct fields (name, check_script) AND alternatives
 func TestCUESchema_RejectsCustomCheckWithBothNameAndAlternatives(t *testing.T) {
+	t.Parallel()
+
 	cueContent := `
 cmds: [
 	{
@@ -105,6 +109,8 @@ cmds: [
 // TestCUESchema_RejectsCapabilityDependencyWithName verifies that the CUE schema rejects
 // capability dependencies that use the old 'name' field instead of 'alternatives'
 func TestCUESchema_RejectsCapabilityDependencyWithName(t *testing.T) {
+	t.Parallel()
+
 	cueContent := `
 cmds: [
 	{
@@ -146,6 +152,8 @@ cmds: [
 // TestCUESchema_RejectsCommandDependencyWithName verifies that the CUE schema rejects
 // command dependencies that use the old 'name' field instead of 'alternatives'
 func TestCUESchema_RejectsCommandDependencyWithName(t *testing.T) {
+	t.Parallel()
+
 	cueContent := `
 cmds: [
 	{
@@ -185,6 +193,8 @@ cmds: [
 }
 
 func TestParse_InvkfileWithoutModule_IsValid(t *testing.T) {
+	t.Parallel()
+
 	// invkfile.cue now contains only commands - module metadata is in invkmod.cue
 	// An invkfile without module field should be valid (module is not allowed in invkfile.cue)
 	cueContent := `
@@ -222,6 +232,8 @@ cmds: [
 }
 
 func TestGetFullCommandName(t *testing.T) {
+	t.Parallel()
+
 	inv := &Invkfile{
 		Metadata: &Invkmod{Module: "my.module"},
 	}
@@ -238,6 +250,8 @@ func TestGetFullCommandName(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			result := inv.GetFullCommandName(tt.cmdName)
 			if result != tt.expected {
 				t.Errorf("GetFullCommandName(%q) = %q, want %q", tt.cmdName, result, tt.expected)
@@ -247,6 +261,8 @@ func TestGetFullCommandName(t *testing.T) {
 }
 
 func TestListCommands_WithModule(t *testing.T) {
+	t.Parallel()
+
 	inv := &Invkfile{
 		Metadata: &Invkmod{Module: "mymodule"},
 		Commands: []Command{
@@ -271,6 +287,8 @@ func TestListCommands_WithModule(t *testing.T) {
 }
 
 func TestFlattenCommands_WithModule(t *testing.T) {
+	t.Parallel()
+
 	inv := &Invkfile{
 		Metadata: &Invkmod{Module: "mymodule"},
 		Commands: []Command{
@@ -301,6 +319,8 @@ func TestFlattenCommands_WithModule(t *testing.T) {
 }
 
 func TestGenerateCUE_OutputsCommandContent(t *testing.T) {
+	t.Parallel()
+
 	// GenerateCUE only generates command content (invkfile.cue)
 	// Module metadata is generated separately for invkmod.cue
 	inv := &Invkfile{
@@ -334,6 +354,8 @@ func TestGenerateCUE_OutputsCommandContent(t *testing.T) {
 // TestCUESchema_RejectsEmptyInterpreter verifies that the CUE schema rejects
 // empty interpreter values when the field is explicitly declared.
 func TestCUESchema_RejectsEmptyInterpreter(t *testing.T) {
+	t.Parallel()
+
 	cueContent := `
 cmds: [
 	{
@@ -362,6 +384,8 @@ cmds: [
 // TestCUESchema_RejectsWhitespaceOnlyInterpreter verifies that the CUE schema rejects
 // whitespace-only interpreter values when the field is explicitly declared.
 func TestCUESchema_RejectsWhitespaceOnlyInterpreter(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name        string
 		interpreter string
@@ -374,6 +398,8 @@ func TestCUESchema_RejectsWhitespaceOnlyInterpreter(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			cueContent := `
 cmds: [
 	{
@@ -404,6 +430,8 @@ cmds: [
 // TestCUESchema_RejectsEmptyInterpreterForContainer verifies that the CUE schema
 // rejects empty interpreter for container runtime as well.
 func TestCUESchema_RejectsEmptyInterpreterForContainer(t *testing.T) {
+	t.Parallel()
+
 	cueContent := `
 cmds: [
 	{
@@ -435,6 +463,8 @@ cmds: [
 // See TestParse_RejectsEmptyInterpreter_NativeRuntime and TestParse_RejectsEmptyInterpreter_ContainerRuntime
 // for CUE-level validation tests.
 func TestValidateRuntimeConfig_ValidInterpreters(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name        string
 		interpreter string
@@ -447,6 +477,8 @@ func TestValidateRuntimeConfig_ValidInterpreters(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			rt := &RuntimeConfig{
 				Name:        RuntimeNative,
 				Interpreter: tt.interpreter,
@@ -461,6 +493,8 @@ func TestValidateRuntimeConfig_ValidInterpreters(t *testing.T) {
 }
 
 func TestValidateRuntimeConfig_EnvInheritMode(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name    string
 		mode    EnvInheritMode
@@ -475,6 +509,8 @@ func TestValidateRuntimeConfig_EnvInheritMode(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			rt := &RuntimeConfig{
 				Name:           RuntimeNative,
 				EnvInheritMode: tt.mode,
@@ -494,6 +530,8 @@ func TestValidateRuntimeConfig_EnvInheritMode(t *testing.T) {
 }
 
 func TestValidateRuntimeConfig_EnvInheritNames(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name    string
 		rt      *RuntimeConfig
@@ -528,6 +566,8 @@ func TestValidateRuntimeConfig_EnvInheritNames(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			err := validateRuntimeConfig(tt.rt, "test-cmd", 1)
 			if tt.wantErr && err == nil {
 				t.Errorf("validateRuntimeConfig() should return error")
@@ -541,6 +581,8 @@ func TestValidateRuntimeConfig_EnvInheritNames(t *testing.T) {
 
 // TestParseInterpreter_ValidValues verifies that valid interpreter values work correctly.
 func TestParseInterpreter_ValidValues(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name        string
 		interpreter string
@@ -554,6 +596,8 @@ func TestParseInterpreter_ValidValues(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			cueContent := `
 cmds: [
 	{
@@ -589,6 +633,8 @@ cmds: [
 // TestParseInterpreter_OmittedFieldIsValid verifies that omitting the interpreter
 // field entirely is valid (defaults to auto-detection).
 func TestParseInterpreter_OmittedFieldIsValid(t *testing.T) {
+	t.Parallel()
+
 	cueContent := `
 cmds: [
 	{

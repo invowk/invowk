@@ -9,12 +9,20 @@ import (
 	"invowk-cli/pkg/invkfile"
 )
 
+// envInheritConfig is the resolved environment inheritance configuration after
+// applying the 3-level precedence chain: default mode → runtime config overrides
+// → CLI flag overrides. Each level can independently override mode, allow list,
+// and deny list.
 type envInheritConfig struct {
 	mode  invkfile.EnvInheritMode
 	allow []string
 	deny  []string
 }
 
+// resolveEnvInheritConfig applies the 3-level precedence chain to produce a final
+// inheritance config. Level 1: the caller-supplied defaultMode (runtime-specific default).
+// Level 2: the implementation's runtime config block (invkfile per-runtime overrides).
+// Level 3: CLI flag overrides from the execution context (--env-inherit-mode, etc.).
 func resolveEnvInheritConfig(ctx *ExecutionContext, defaultMode invkfile.EnvInheritMode) envInheritConfig {
 	cfg := envInheritConfig{
 		mode: defaultMode,
@@ -45,6 +53,10 @@ func resolveEnvInheritConfig(ctx *ExecutionContext, defaultMode invkfile.EnvInhe
 	return cfg
 }
 
+// buildHostEnv filters the host environment according to the resolved inheritance config.
+// Mode "none" returns an empty map. Mode "allow" returns only allowlisted vars.
+// Mode "all" returns everything except denylisted vars. In all modes, INVOWK_* vars
+// are excluded via FilterInvowkEnvVars to prevent leaking internal state into commands.
 func buildHostEnv(cfg envInheritConfig) map[string]string {
 	env := make(map[string]string)
 	if cfg.mode == invkfile.EnvInheritNone {

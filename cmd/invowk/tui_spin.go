@@ -15,12 +15,9 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var (
-	spinTitle string
-	spinType  string
-
-	// tuiSpinCmd displays a spinner while running a command.
-	tuiSpinCmd = &cobra.Command{
+// newTUISpinCommand creates the `invowk tui spin` command.
+func newTUISpinCommand() *cobra.Command {
+	cmd := &cobra.Command{
 		Use:   "spin [flags] -- command [args...]",
 		Short: "Show a spinner while running a command",
 		Long: `Display a spinner animation while running a command.
@@ -45,16 +42,17 @@ Examples:
   invowk tui spin --title "Building project..." -- make build`,
 		RunE: runTuiSpin,
 	}
-)
 
-func init() {
-	tuiCmd.AddCommand(tuiSpinCmd)
+	cmd.Flags().String("title", "Loading...", "text displayed next to the spinner")
+	cmd.Flags().String("type", "line", "spinner animation type")
 
-	tuiSpinCmd.Flags().StringVar(&spinTitle, "title", "Loading...", "text displayed next to the spinner")
-	tuiSpinCmd.Flags().StringVar(&spinType, "type", "line", "spinner animation type")
+	return cmd
 }
 
 func runTuiSpin(cmd *cobra.Command, args []string) error {
+	spinTitle, _ := cmd.Flags().GetString("title")
+	spinType, _ := cmd.Flags().GetString("type")
+
 	if len(args) == 0 {
 		return fmt.Errorf("no command specified; use -- to separate spin flags from the command")
 	}

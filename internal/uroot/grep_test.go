@@ -12,6 +12,8 @@ import (
 )
 
 func TestGrepCommand_Name(t *testing.T) {
+	t.Parallel()
+
 	cmd := newGrepCommand()
 	if got := cmd.Name(); got != "grep" {
 		t.Errorf("Name() = %q, want %q", got, "grep")
@@ -19,6 +21,8 @@ func TestGrepCommand_Name(t *testing.T) {
 }
 
 func TestGrepCommand_SupportedFlags(t *testing.T) {
+	t.Parallel()
+
 	cmd := newGrepCommand()
 	flags := cmd.SupportedFlags()
 
@@ -38,6 +42,8 @@ func TestGrepCommand_SupportedFlags(t *testing.T) {
 }
 
 func TestGrepCommand_Run_BasicMatch(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "test.txt")
 
@@ -72,6 +78,8 @@ func TestGrepCommand_Run_BasicMatch(t *testing.T) {
 }
 
 func TestGrepCommand_Run_NoMatch(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "test.txt")
 
@@ -103,6 +111,8 @@ func TestGrepCommand_Run_NoMatch(t *testing.T) {
 }
 
 func TestGrepCommand_Run_CaseInsensitive(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "test.txt")
 
@@ -133,6 +143,8 @@ func TestGrepCommand_Run_CaseInsensitive(t *testing.T) {
 }
 
 func TestGrepCommand_Run_InvertMatch(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "test.txt")
 
@@ -163,6 +175,8 @@ func TestGrepCommand_Run_InvertMatch(t *testing.T) {
 }
 
 func TestGrepCommand_Run_LineNumbers(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "test.txt")
 
@@ -197,6 +211,8 @@ func TestGrepCommand_Run_LineNumbers(t *testing.T) {
 }
 
 func TestGrepCommand_Run_Count(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "test.txt")
 
@@ -227,6 +243,8 @@ func TestGrepCommand_Run_Count(t *testing.T) {
 }
 
 func TestGrepCommand_Run_Stdin(t *testing.T) {
+	t.Parallel()
+
 	stdinContent := "hello world\nfoo bar\nhello again\n"
 
 	var stdout, stderr bytes.Buffer
@@ -251,6 +269,8 @@ func TestGrepCommand_Run_Stdin(t *testing.T) {
 }
 
 func TestGrepCommand_Run_Regex(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "test.txt")
 
@@ -281,6 +301,8 @@ func TestGrepCommand_Run_Regex(t *testing.T) {
 }
 
 func TestGrepCommand_Run_MultipleFiles(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	file1 := filepath.Join(tmpDir, "file1.txt")
 	file2 := filepath.Join(tmpDir, "file2.txt")
@@ -315,6 +337,8 @@ func TestGrepCommand_Run_MultipleFiles(t *testing.T) {
 }
 
 func TestGrepCommand_Run_FileNotFound(t *testing.T) {
+	t.Parallel()
+
 	var stdout, stderr bytes.Buffer
 	ctx := WithHandlerContext(context.Background(), &HandlerContext{
 		Stdin:     strings.NewReader(""),
@@ -338,6 +362,8 @@ func TestGrepCommand_Run_FileNotFound(t *testing.T) {
 }
 
 func TestGrepCommand_Run_InvalidRegex(t *testing.T) {
+	t.Parallel()
+
 	var stdout, stderr bytes.Buffer
 	ctx := WithHandlerContext(context.Background(), &HandlerContext{
 		Stdin:     strings.NewReader("test input\n"),
@@ -362,6 +388,8 @@ func TestGrepCommand_Run_InvalidRegex(t *testing.T) {
 }
 
 func TestGrepCommand_Run_NoPattern(t *testing.T) {
+	t.Parallel()
+
 	var stdout, stderr bytes.Buffer
 	ctx := WithHandlerContext(context.Background(), &HandlerContext{
 		Stdin:     strings.NewReader("test input\n"),

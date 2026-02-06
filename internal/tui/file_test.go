@@ -10,6 +10,8 @@ import (
 )
 
 func TestNewFileModel(t *testing.T) {
+	t.Parallel()
+
 	opts := FileOptions{
 		Title:             "Select a file",
 		Description:       "Choose a configuration file",
@@ -38,6 +40,8 @@ func TestNewFileModel(t *testing.T) {
 }
 
 func TestNewFileModel_Defaults(t *testing.T) {
+	t.Parallel()
+
 	opts := FileOptions{
 		Title:  "Select",
 		Config: DefaultConfig(),
@@ -52,6 +56,8 @@ func TestNewFileModel_Defaults(t *testing.T) {
 }
 
 func TestFileModel_CancelWithEsc(t *testing.T) {
+	t.Parallel()
+
 	opts := FileOptions{
 		Title:       "Test",
 		FileAllowed: true,
@@ -80,6 +86,8 @@ func TestFileModel_CancelWithEsc(t *testing.T) {
 }
 
 func TestFileModel_CancelWithCtrlC(t *testing.T) {
+	t.Parallel()
+
 	opts := FileOptions{
 		Title:       "Test",
 		FileAllowed: true,
@@ -102,6 +110,8 @@ func TestFileModel_CancelWithCtrlC(t *testing.T) {
 }
 
 func TestFileModel_SetSize(t *testing.T) {
+	t.Parallel()
+
 	opts := FileOptions{
 		Title:       "Test",
 		FileAllowed: true,
@@ -120,6 +130,8 @@ func TestFileModel_SetSize(t *testing.T) {
 }
 
 func TestFileModel_ViewWhenDone(t *testing.T) {
+	t.Parallel()
+
 	opts := FileOptions{
 		Title:       "Test",
 		FileAllowed: true,
@@ -137,6 +149,8 @@ func TestFileModel_ViewWhenDone(t *testing.T) {
 }
 
 func TestFileModel_ViewWithWidth(t *testing.T) {
+	t.Parallel()
+
 	opts := FileOptions{
 		Title:       "Test",
 		FileAllowed: true,
@@ -155,6 +169,8 @@ func TestFileModel_ViewWithWidth(t *testing.T) {
 }
 
 func TestFileModel_Init(t *testing.T) {
+	t.Parallel()
+
 	opts := FileOptions{
 		Title:       "Test",
 		FileAllowed: true,
@@ -169,6 +185,8 @@ func TestFileModel_Init(t *testing.T) {
 }
 
 func TestNewFileModelForModal(t *testing.T) {
+	t.Parallel()
+
 	opts := FileOptions{
 		Title:       "Modal File Picker",
 		FileAllowed: true,
@@ -183,6 +201,8 @@ func TestNewFileModelForModal(t *testing.T) {
 }
 
 func TestFileBuilder_FluentAPI(t *testing.T) {
+	t.Parallel()
+
 	builder := NewFile().
 		Title("Choose File").
 		Description("Select a configuration file").
@@ -236,6 +256,8 @@ func TestFileBuilder_FluentAPI(t *testing.T) {
 }
 
 func TestFileBuilder_DefaultValues(t *testing.T) {
+	t.Parallel()
+
 	builder := NewFile()
 
 	// Default should allow files
@@ -249,6 +271,8 @@ func TestFileBuilder_DefaultValues(t *testing.T) {
 }
 
 func TestFileBuilder_Model(t *testing.T) {
+	t.Parallel()
+
 	builder := NewFile().
 		Title("Test")
 
@@ -263,6 +287,8 @@ func TestFileBuilder_Model(t *testing.T) {
 }
 
 func TestFileOptions_Fields(t *testing.T) {
+	t.Parallel()
+
 	opts := FileOptions{
 		Title:             "File Picker",
 		Description:       "Pick a file",
@@ -319,6 +345,8 @@ func TestFileOptions_Fields(t *testing.T) {
 }
 
 func TestNewFileModel_DirOnly(t *testing.T) {
+	t.Parallel()
+
 	opts := FileOptions{
 		Title:       "Select Directory",
 		FileAllowed: false,
@@ -334,6 +362,8 @@ func TestNewFileModel_DirOnly(t *testing.T) {
 }
 
 func TestNewFileModel_BothFileAndDir(t *testing.T) {
+	t.Parallel()
+
 	opts := FileOptions{
 		Title:       "Select File or Directory",
 		FileAllowed: true,
@@ -349,6 +379,8 @@ func TestNewFileModel_BothFileAndDir(t *testing.T) {
 }
 
 func TestNewFileModel_NeitherFileNorDir(t *testing.T) {
+	t.Parallel()
+
 	opts := FileOptions{
 		Title:       "Neither",
 		FileAllowed: false,
@@ -365,6 +397,8 @@ func TestNewFileModel_NeitherFileNorDir(t *testing.T) {
 }
 
 func TestNewFileModel_WithExtensions(t *testing.T) {
+	t.Parallel()
+
 	opts := FileOptions{
 		Title:             "Select Config",
 		AllowedExtensions: []string{".json", ".yaml", ".yml", ".toml"},
@@ -380,6 +414,8 @@ func TestNewFileModel_WithExtensions(t *testing.T) {
 }
 
 func TestNewFileModel_WithAllOptions(t *testing.T) {
+	t.Parallel()
+
 	opts := FileOptions{
 		Title:             "Full Options",
 		Description:       "All options enabled",
@@ -402,6 +438,8 @@ func TestNewFileModel_WithAllOptions(t *testing.T) {
 }
 
 func TestFileBuilder_DirAllowed(t *testing.T) {
+	t.Parallel()
+
 	builder := NewFile().
 		Title("Directory Picker").
 		FileAllowed(false).
@@ -416,6 +454,8 @@ func TestFileBuilder_DirAllowed(t *testing.T) {
 }
 
 func TestFileBuilder_ShowOptions(t *testing.T) {
+	t.Parallel()
+
 	builder := NewFile().
 		ShowHidden(true).
 		ShowSize(true).
@@ -433,6 +473,8 @@ func TestFileBuilder_ShowOptions(t *testing.T) {
 }
 
 func TestFileBuilder_Height(t *testing.T) {
+	t.Parallel()
+
 	builder := NewFile().
 		Height(30)
 

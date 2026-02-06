@@ -13,14 +13,14 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var (
-	// moduleAddAlias is the alias for the added module dependency
-	moduleAddAlias string
-	// moduleAddPath is the subdirectory path within the repository
-	moduleAddPath string
+// newModuleAddCommand creates the `invowk module add` command.
+func newModuleAddCommand() *cobra.Command {
+	var (
+		addAlias string
+		addPath  string
+	)
 
-	// moduleAddCmd adds a new module dependency
-	moduleAddCmd = &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "add <git-url> <version>",
 		Short: "Add a module dependency",
 		Long: `Add a new module dependency from a Git repository.
@@ -39,11 +39,20 @@ Examples:
   invowk module add git@github.com:user/module.git ~2.0.0 --alias mymodule
   invowk module add https://github.com/user/monorepo.git ^1.0.0 --path modules/utils`,
 		Args: cobra.ExactArgs(2),
-		RunE: runModuleAdd,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runModuleAdd(args, addAlias, addPath)
+		},
 	}
 
-	// moduleRemoveCmd removes a module dependency
-	moduleRemoveCmd = &cobra.Command{
+	cmd.Flags().StringVar(&addAlias, "alias", "", "alias for the module namespace")
+	cmd.Flags().StringVar(&addPath, "path", "", "subdirectory path within the repository")
+
+	return cmd
+}
+
+// newModuleRemoveCommand creates the `invowk module remove` command.
+func newModuleRemoveCommand() *cobra.Command {
+	return &cobra.Command{
 		Use:   "remove <git-url>",
 		Short: "Remove a module dependency",
 		Long: `Remove a module dependency from the lock file.
@@ -56,9 +65,11 @@ Examples:
 		Args: cobra.ExactArgs(1),
 		RunE: runModuleRemove,
 	}
+}
 
-	// moduleSyncCmd syncs dependencies from the invkfile
-	moduleSyncCmd = &cobra.Command{
+// newModuleSyncCommand creates the `invowk module sync` command.
+func newModuleSyncCommand() *cobra.Command {
+	return &cobra.Command{
 		Use:   "sync",
 		Short: "Sync dependencies from invkmod.cue",
 		Long: `Sync all dependencies declared in invkmod.cue.
@@ -70,9 +81,11 @@ Examples:
   invowk module sync`,
 		RunE: runModuleSync,
 	}
+}
 
-	// moduleUpdateCmd updates module dependencies
-	moduleUpdateCmd = &cobra.Command{
+// newModuleUpdateCommand creates the `invowk module update` command.
+func newModuleUpdateCommand() *cobra.Command {
+	return &cobra.Command{
 		Use:   "update [git-url]",
 		Short: "Update module dependencies",
 		Long: `Update module dependencies to their latest matching versions.
@@ -85,9 +98,11 @@ Examples:
   invowk module update https://github.com/user/module.git`,
 		RunE: runModuleUpdate,
 	}
+}
 
-	// moduleDepsCmd lists module dependencies
-	moduleDepsCmd = &cobra.Command{
+// newModuleDepsCommand creates the `invowk module deps` command.
+func newModuleDepsCommand() *cobra.Command {
+	return &cobra.Command{
 		Use:   "deps",
 		Short: "List module dependencies",
 		Long: `List all module dependencies from the lock file.
@@ -98,14 +113,9 @@ Examples:
   invowk module deps`,
 		RunE: runModuleDeps,
 	}
-)
-
-func initModuleDepsCmd() {
-	moduleAddCmd.Flags().StringVar(&moduleAddAlias, "alias", "", "alias for the module namespace")
-	moduleAddCmd.Flags().StringVar(&moduleAddPath, "path", "", "subdirectory path within the repository")
 }
 
-func runModuleAdd(cmd *cobra.Command, args []string) error {
+func runModuleAdd(args []string, addAlias, addPath string) error {
 	gitURL := args[0]
 	version := args[1]
 
@@ -121,8 +131,8 @@ func runModuleAdd(cmd *cobra.Command, args []string) error {
 	req := invkmod.ModuleRef{
 		GitURL:  gitURL,
 		Version: version,
-		Alias:   moduleAddAlias,
-		Path:    moduleAddPath,
+		Alias:   addAlias,
+		Path:    addPath,
 	}
 
 	fmt.Printf("%s Resolving %s@%s...\n", moduleInfoIcon, gitURL, version)

@@ -29,6 +29,8 @@ func testCommandWithDeps(name, script string, deps *DependsOn) Command {
 }
 
 func TestCommand_HasDependencies(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name     string
 		cmd      Command
@@ -66,6 +68,8 @@ func TestCommand_HasDependencies(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			result := tt.cmd.HasDependencies()
 			if result != tt.expected {
 				t.Errorf("HasDependencies() = %v, want %v", result, tt.expected)
@@ -75,6 +79,8 @@ func TestCommand_HasDependencies(t *testing.T) {
 }
 
 func TestCommand_GetCommandDependencies(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name     string
 		cmd      Command
@@ -115,6 +121,8 @@ func TestCommand_GetCommandDependencies(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			result := tt.cmd.GetCommandDependencies()
 
 			if tt.expected == nil {
@@ -139,6 +147,8 @@ func TestCommand_GetCommandDependencies(t *testing.T) {
 }
 
 func TestParseDependsOn(t *testing.T) {
+	t.Parallel()
+
 	cueContent := `
 cmds: [
 	{
@@ -243,6 +253,8 @@ cmds: [
 }
 
 func TestParseDependsOn_ToolsOnly(t *testing.T) {
+	t.Parallel()
+
 	cueContent := `
 cmds: [
 	{
@@ -294,6 +306,8 @@ cmds: [
 }
 
 func TestParseDependsOn_CommandsOnly(t *testing.T) {
+	t.Parallel()
+
 	cueContent := `
 cmds: [
 	{
@@ -347,6 +361,8 @@ cmds: [
 }
 
 func TestParseDependsOn_WithCustomChecks(t *testing.T) {
+	t.Parallel()
+
 	cueContent := `
 cmds: [
 	{
@@ -439,6 +455,8 @@ cmds: [
 }
 
 func TestParseDependsOn_WithFilepaths(t *testing.T) {
+	t.Parallel()
+
 	cueContent := `
 cmds: [
 	{
@@ -528,6 +546,8 @@ cmds: [
 }
 
 func TestCommand_HasDependencies_WithFilepaths(t *testing.T) {
+	t.Parallel()
+
 	cmd := Command{
 		Name:            "test",
 		Implementations: []Implementation{{Script: "echo", Runtimes: []RuntimeConfig{{Name: RuntimeNative}}, Platforms: []PlatformConfig{{Name: PlatformLinux}}}},
@@ -542,6 +562,8 @@ func TestCommand_HasDependencies_WithFilepaths(t *testing.T) {
 }
 
 func TestGenerateCUE_WithFilepaths(t *testing.T) {
+	t.Parallel()
+
 	inv := &Invkfile{
 		Commands: []Command{
 			{

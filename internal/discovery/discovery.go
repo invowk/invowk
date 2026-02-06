@@ -22,7 +22,9 @@ type (
 		SecondSource string
 	}
 
-	// Discovery handles finding invkfiles
+	// Discovery is the stateless entry point for file discovery, command set building,
+	// and single-command lookup. Each method creates fresh state from the config rather
+	// than caching results, which is appropriate for a short-lived CLI process.
 	Discovery struct {
 		cfg *config.Config
 	}
@@ -46,7 +48,11 @@ func New(cfg *config.Config) *Discovery {
 	return &Discovery{cfg: cfg}
 }
 
-// LoadAll parses all discovered files
+// LoadAll parses all discovered files into Invkfile structs. Library-only modules
+// (those without an invkfile.cue) are skipped because they provide scripts and files
+// for other modules via `requires` but contribute no commands. Module metadata is
+// reattached to parsed Invkfiles so downstream scope/dependency checks can identify
+// the owning module.
 func (d *Discovery) LoadAll() ([]*DiscoveredFile, error) {
 	files, err := d.DiscoverAll()
 	if err != nil {
@@ -58,12 +64,19 @@ func (d *Discovery) LoadAll() ([]*DiscoveredFile, error) {
 		var parseErr error
 
 		if file.Module != nil {
-			// Use module-aware parsing
-			parsed, err := invkfile.ParseModule(file.Module.Path)
-			if err != nil {
-				parseErr = err
-			} else {
-				inv = invkfile.GetModuleCommands(parsed)
+			// Library-only modules provide scripts and files for other modules to
+			// reference via `requires`, but don't contribute their own command
+			// definitions to the CLI command tree.
+			if file.Module.IsLibraryOnly || file.Path == "" {
+				continue
+			}
+
+			// Parse module invkfile.cue and reattach module metadata so downstream
+			// logic (scope/dependency checks) can treat it as module-backed input.
+			inv, parseErr = invkfile.Parse(file.Path)
+			if parseErr == nil {
+				inv.Metadata = file.Module.Metadata
+				inv.ModulePath = file.Module.Path
 			}
 		} else {
 			inv, parseErr = invkfile.Parse(file.Path)
@@ -95,12 +108,17 @@ func (d *Discovery) LoadFirst() (*DiscoveredFile, error) {
 	var parseErr error
 
 	if file.Module != nil {
-		// Use module-aware parsing
-		parsed, err := invkfile.ParseModule(file.Module.Path)
-		if err != nil {
-			parseErr = err
-		} else {
-			inv = invkfile.GetModuleCommands(parsed)
+		// Library-only modules can be discovered first; they are valid, but have
+		// no command-bearing invkfile to load.
+		if file.Module.IsLibraryOnly || file.Path == "" {
+			file.Invkfile = nil
+			return file, nil
+		}
+
+		inv, parseErr = invkfile.Parse(file.Path)
+		if parseErr == nil {
+			inv.Metadata = file.Module.Metadata
+			inv.ModulePath = file.Module.Path
 		}
 	} else {
 		inv, parseErr = invkfile.Parse(file.Path)

@@ -13,6 +13,8 @@ import (
 // ============================================================================
 
 func TestValidate(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name           string
 		setup          func(t *testing.T) string // returns path to module
@@ -248,6 +250,8 @@ version: "1.0"
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			path := tt.setup(t)
 			result, err := Validate(path)
 			if err != nil {
@@ -283,6 +287,8 @@ version: "1.0"
 // ============================================================================
 
 func TestValidationIssue_Error(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name     string
 		issue    ValidationIssue
@@ -310,6 +316,8 @@ func TestValidationIssue_Error(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			result := tt.issue.Error()
 			if result != tt.expected {
 				t.Errorf("Error() = %q, want %q", result, tt.expected)
@@ -323,6 +331,8 @@ func TestValidationIssue_Error(t *testing.T) {
 // ============================================================================
 
 func TestValidateName(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name       string
 		moduleName string
@@ -392,6 +402,8 @@ func TestValidateName(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			err := ValidateName(tt.moduleName)
 			if tt.expectErr && err == nil {
 				t.Errorf("ValidateName(%q) expected error, got nil", tt.moduleName)

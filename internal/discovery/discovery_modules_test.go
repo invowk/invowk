@@ -3,6 +3,7 @@
 package discovery
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -197,10 +198,11 @@ version: "1.0"
 	cfg := config.DefaultConfig()
 	d := New(cfg)
 
-	commands, err := d.DiscoverCommands()
+	result, err := d.DiscoverCommandSet(context.Background())
 	if err != nil {
-		t.Fatalf("DiscoverCommands() returned error: %v", err)
+		t.Fatalf("DiscoverCommandSet() returned error: %v", err)
 	}
+	commands := result.Set.Commands
 
 	// Should find both commands from the module
 	foundCmd1 := false

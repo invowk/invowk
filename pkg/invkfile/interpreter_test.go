@@ -8,6 +8,8 @@ import (
 )
 
 func TestParseShebang(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name     string
 		content  string
@@ -219,6 +221,8 @@ func TestParseShebang(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			result := ParseShebang(tt.content)
 
 			if result.Found != tt.expected.Found {
@@ -244,6 +248,8 @@ func TestParseShebang(t *testing.T) {
 }
 
 func TestParseInterpreterString(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name     string
 		spec     string
@@ -362,6 +368,8 @@ func TestParseInterpreterString(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			result := ParseInterpreterString(tt.spec)
 
 			if result.Found != tt.expected.Found {
@@ -387,6 +395,8 @@ func TestParseInterpreterString(t *testing.T) {
 }
 
 func TestIsShellInterpreter(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		interpreter string
 		expected    bool
@@ -421,6 +431,8 @@ func TestIsShellInterpreter(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.interpreter, func(t *testing.T) {
+			t.Parallel()
+
 			result := IsShellInterpreter(tt.interpreter)
 			if result != tt.expected {
 				t.Errorf("IsShellInterpreter(%q) = %v, want %v", tt.interpreter, result, tt.expected)
@@ -430,6 +442,8 @@ func TestIsShellInterpreter(t *testing.T) {
 }
 
 func TestGetExtensionForInterpreter(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		interpreter string
 		expected    string
@@ -476,6 +490,8 @@ func TestGetExtensionForInterpreter(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.interpreter, func(t *testing.T) {
+			t.Parallel()
+
 			result := GetExtensionForInterpreter(tt.interpreter)
 			if result != tt.expected {
 				t.Errorf("GetExtensionForInterpreter(%q) = %q, want %q", tt.interpreter, result, tt.expected)
@@ -485,6 +501,8 @@ func TestGetExtensionForInterpreter(t *testing.T) {
 }
 
 func TestResolveInterpreter(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name          string
 		interpreter   string
@@ -566,6 +584,8 @@ func TestResolveInterpreter(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			result := ResolveInterpreter(tt.interpreter, tt.scriptContent)
 
 			if result.Found != tt.expected.Found {

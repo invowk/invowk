@@ -10,6 +10,8 @@ import (
 )
 
 func TestNewFilterModel(t *testing.T) {
+	t.Parallel()
+
 	opts := FilterOptions{
 		Title:       "Search files",
 		Placeholder: "Type to filter...",
@@ -35,6 +37,8 @@ func TestNewFilterModel(t *testing.T) {
 }
 
 func TestNewFilterModel_EmptyOptions(t *testing.T) {
+	t.Parallel()
+
 	opts := FilterOptions{
 		Title:   "Empty filter",
 		Options: []string{},
@@ -53,6 +57,8 @@ func TestNewFilterModel_EmptyOptions(t *testing.T) {
 }
 
 func TestNewFilterModel_MultiSelect(t *testing.T) {
+	t.Parallel()
+
 	opts := FilterOptions{
 		Title:   "Multi-select",
 		Options: []string{"A", "B", "C"},
@@ -71,6 +77,8 @@ func TestNewFilterModel_MultiSelect(t *testing.T) {
 }
 
 func TestNewFilterModel_NoLimit(t *testing.T) {
+	t.Parallel()
+
 	opts := FilterOptions{
 		Title:   "Unlimited",
 		Options: []string{"A", "B", "C"},
@@ -89,6 +97,8 @@ func TestNewFilterModel_NoLimit(t *testing.T) {
 }
 
 func TestFilterModel_CancelWithEsc_NotFiltering(t *testing.T) {
+	t.Parallel()
+
 	opts := FilterOptions{
 		Title:   "Test",
 		Options: []string{"A", "B"},
@@ -117,6 +127,8 @@ func TestFilterModel_CancelWithEsc_NotFiltering(t *testing.T) {
 }
 
 func TestFilterModel_TwoStageEscape(t *testing.T) {
+	t.Parallel()
+
 	opts := FilterOptions{
 		Title:   "Test",
 		Options: []string{"Apple", "Banana", "Cherry"},
@@ -166,6 +178,8 @@ func TestFilterModel_TwoStageEscape(t *testing.T) {
 }
 
 func TestFilterModel_CancelWithCtrlC(t *testing.T) {
+	t.Parallel()
+
 	opts := FilterOptions{
 		Title:   "Test",
 		Options: []string{"A", "B"},
@@ -188,6 +202,8 @@ func TestFilterModel_CancelWithCtrlC(t *testing.T) {
 }
 
 func TestFilterModel_SetSize(t *testing.T) {
+	t.Parallel()
+
 	opts := FilterOptions{
 		Title:   "Test",
 		Options: []string{"A", "B"},
@@ -206,6 +222,8 @@ func TestFilterModel_SetSize(t *testing.T) {
 }
 
 func TestFilterModel_ViewWhenDone(t *testing.T) {
+	t.Parallel()
+
 	opts := FilterOptions{
 		Title:   "Test",
 		Options: []string{"A", "B"},
@@ -223,6 +241,8 @@ func TestFilterModel_ViewWhenDone(t *testing.T) {
 }
 
 func TestFilterModel_ViewWithWidth(t *testing.T) {
+	t.Parallel()
+
 	opts := FilterOptions{
 		Title:   "Test",
 		Options: []string{"A", "B"},
@@ -241,6 +261,8 @@ func TestFilterModel_ViewWithWidth(t *testing.T) {
 }
 
 func TestFilterModel_Init(t *testing.T) {
+	t.Parallel()
+
 	opts := FilterOptions{
 		Title:   "Test",
 		Options: []string{"A", "B"},
@@ -257,6 +279,8 @@ func TestFilterModel_Init(t *testing.T) {
 }
 
 func TestNewFilterModelForModal(t *testing.T) {
+	t.Parallel()
+
 	opts := FilterOptions{
 		Title:   "Modal Filter",
 		Options: []string{"X", "Y", "Z"},
@@ -271,6 +295,8 @@ func TestNewFilterModelForModal(t *testing.T) {
 }
 
 func TestFilterModel_ToggleSelection(t *testing.T) {
+	t.Parallel()
+
 	opts := FilterOptions{
 		Title:   "Multi-select",
 		Options: []string{"A", "B", "C"},
@@ -307,6 +333,8 @@ func TestFilterModel_ToggleSelection(t *testing.T) {
 }
 
 func TestFilterModel_PreSelected(t *testing.T) {
+	t.Parallel()
+
 	opts := FilterOptions{
 		Title:    "Pre-selected",
 		Options:  []string{"A", "B", "C"},
@@ -329,6 +357,8 @@ func TestFilterModel_PreSelected(t *testing.T) {
 }
 
 func TestFilterModel_EnterSelection(t *testing.T) {
+	t.Parallel()
+
 	opts := FilterOptions{
 		Title:   "Test",
 		Options: []string{"A", "B"},
@@ -351,6 +381,8 @@ func TestFilterModel_EnterSelection(t *testing.T) {
 }
 
 func TestFilterModel_WindowSizeMsg(t *testing.T) {
+	t.Parallel()
+
 	opts := FilterOptions{
 		Title:   "Test",
 		Options: []string{"A", "B"},
@@ -369,6 +401,8 @@ func TestFilterModel_WindowSizeMsg(t *testing.T) {
 }
 
 func TestFuzzyMatch(t *testing.T) {
+	t.Parallel()
+
 	options := []string{"hello", "world", "help", "helicopter"}
 
 	tests := []struct {
@@ -384,6 +418,7 @@ func TestFuzzyMatch(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			results := FuzzyMatch(tt.pattern, options)
 			if len(results) != tt.expected {
 				t.Errorf("FuzzyMatch(%q) returned %d results, expected %d",
@@ -394,6 +429,8 @@ func TestFuzzyMatch(t *testing.T) {
 }
 
 func TestFuzzyMatchWithScore(t *testing.T) {
+	t.Parallel()
+
 	options := []string{"hello", "world", "help"}
 
 	// Empty pattern
@@ -417,6 +454,8 @@ func TestFuzzyMatchWithScore(t *testing.T) {
 }
 
 func TestExactMatch(t *testing.T) {
+	t.Parallel()
+
 	options := []string{"Hello World", "hello there", "goodbye", "HELLO"}
 
 	tests := []struct {
@@ -432,6 +471,7 @@ func TestExactMatch(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			results := ExactMatch(tt.pattern, options)
 			if len(results) != tt.expected {
 				t.Errorf("ExactMatch(%q) returned %d results, expected %d",
@@ -442,6 +482,8 @@ func TestExactMatch(t *testing.T) {
 }
 
 func TestFilterBuilder_FluentAPI(t *testing.T) {
+	t.Parallel()
+
 	builder := NewFilter().
 		Title("Search").
 		Placeholder("Type to search...").
@@ -495,6 +537,8 @@ func TestFilterBuilder_FluentAPI(t *testing.T) {
 }
 
 func TestFilterBuilder_OptionsFromSlice(t *testing.T) {
+	t.Parallel()
+
 	options := []string{"apple", "banana", "cherry"}
 	builder := NewFilter().
 		OptionsFromSlice(options)
@@ -508,6 +552,8 @@ func TestFilterBuilder_OptionsFromSlice(t *testing.T) {
 }
 
 func TestFilterBuilder_NoLimit(t *testing.T) {
+	t.Parallel()
+
 	builder := NewFilter().
 		Options("A", "B", "C").
 		NoLimit(true)
@@ -518,6 +564,8 @@ func TestFilterBuilder_NoLimit(t *testing.T) {
 }
 
 func TestFilterBuilder_Model(t *testing.T) {
+	t.Parallel()
+
 	builder := NewFilter().
 		Title("Test").
 		Options("A", "B")
@@ -533,6 +581,8 @@ func TestFilterBuilder_Model(t *testing.T) {
 }
 
 func TestFilterBuilder_DefaultValues(t *testing.T) {
+	t.Parallel()
+
 	builder := NewFilter()
 
 	// Fuzzy should default to true
@@ -542,6 +592,8 @@ func TestFilterBuilder_DefaultValues(t *testing.T) {
 }
 
 func TestFilterItem(t *testing.T) {
+	t.Parallel()
+
 	item := filterItem{text: "test item"}
 
 	if item.Title() != "test item" {
@@ -556,6 +608,8 @@ func TestFilterItem(t *testing.T) {
 }
 
 func TestFilterOptions_Fields(t *testing.T) {
+	t.Parallel()
+
 	opts := FilterOptions{
 		Title:         "Filter Test",
 		Placeholder:   "Search...",
