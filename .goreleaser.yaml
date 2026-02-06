@@ -121,9 +121,11 @@ release:
     A dynamically extensible command runner.
   footer: |
     ---
-
+    {{ if .PreviousTag }}
     **Full Changelog**: https://github.com/invowk/invowk/compare/{{ .PreviousTag }}...{{ .Tag }}
-
+    {{ else }}
+    **Full Changelog**: https://github.com/invowk/invowk/commits/{{ .Tag }}
+    {{ end }}
     ### Verify Signatures
 
     All release artifacts are signed with [Cosign](https://github.com/sigstore/cosign) using keyless signing.

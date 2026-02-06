@@ -278,6 +278,24 @@ vhs-validate:
 	@command -v vhs >/dev/null 2>&1 || { echo "Error: VHS is not installed. See vhs/README.md"; exit 1; }
 	@vhs validate vhs/demos/*.tape
 
+# Release: create and push a signed version tag
+# Usage: make release VERSION=v0.1.0-alpha.1 [YES=1] [DRY_RUN=1]
+.PHONY: release
+release:
+ifeq ($(filter command line,$(origin VERSION)),)
+	$(error VERSION is required. Usage: make release VERSION=v0.1.0-alpha.1)
+endif
+	@./scripts/release.sh tag "$(VERSION)" "$(YES)" "$(DRY_RUN)"
+
+# Release bump: compute next version and create signed tag
+# Usage: make release-bump TYPE=minor [PRERELEASE=alpha] [PROMOTE=1] [YES=1] [DRY_RUN=1]
+.PHONY: release-bump
+release-bump:
+ifndef TYPE
+	$(error TYPE is required (major, minor, or patch). Usage: make release-bump TYPE=minor)
+endif
+	@./scripts/release.sh bump "$(TYPE)" "$(PRERELEASE)" "$(PROMOTE)" "$(YES)" "$(DRY_RUN)"
+
 # Help
 .PHONY: help
 help:
@@ -301,6 +319,8 @@ help:
 	@echo "  vhs-demos        Generate VHS demo recordings (requires VHS)"
 	@echo "  vhs-validate     Validate VHS tape syntax"
 	@echo "  render-diagrams  Render D2 diagrams to SVG (requires D2)"
+	@echo "  release          Create and push a signed version tag"
+	@echo "  release-bump     Compute next version and create signed tag"
 	@echo "  clean            Remove build artifacts"
 	@echo "  install          Install to GOPATH/bin"
 	@echo "  tidy             Tidy go.mod dependencies"
@@ -317,8 +337,18 @@ help:
 	@echo "                 v2 = Nehalem+ (2008+): CMPXCHG16B, LAHF, SAHF, POPCNT, SSE3, SSE4.1, SSE4.2, SSSE3"
 	@echo "                 v3 = Haswell+ (2013+): AVX, AVX2, BMI1, BMI2, F16C, FMA, LZCNT, MOVBE"
 	@echo "                 v4 = Skylake-X+ (2017+): AVX512F, AVX512BW, AVX512CD, AVX512DQ, AVX512VL"
+	@echo "  TYPE           Bump type for release-bump: major, minor, or patch"
+	@echo "  PRERELEASE     Pre-release label: alpha, beta, or rc (optional)"
+	@echo "  PROMOTE        Set to 1 to allow promoting a prerelease stream to stable"
+	@echo "  YES            Set to 1 to skip confirmation prompts"
+	@echo "  DRY_RUN        Set to 1 to show actions without executing them"
 	@echo ""
 	@echo "Examples:"
-	@echo "  make build                    # Build for x86-64-v3 (default)"
-	@echo "  make build GOAMD64=v1         # Build for baseline x86-64 (max compat)"
-	@echo "  make build-cross GOAMD64=v2   # Cross-compile with x86-64-v2"
+	@echo "  make build                                  # Build for x86-64-v3 (default)"
+	@echo "  make build GOAMD64=v1                       # Build for baseline x86-64 (max compat)"
+	@echo "  make build-cross GOAMD64=v2                 # Cross-compile with x86-64-v2"
+	@echo "  make release VERSION=v1.0.0                 # Tag and push v1.0.0"
+	@echo "  make release-bump TYPE=minor                # Bump minor version (e.g., v1.0.0 -> v1.1.0)"
+	@echo "  make release-bump TYPE=minor PRERELEASE=alpha  # Start/continue alpha stream"
+	@echo "  make release-bump TYPE=minor PROMOTE=1      # Promote prerelease to stable"
+	@echo "  make release-bump TYPE=patch DRY_RUN=1      # Preview next patch version"

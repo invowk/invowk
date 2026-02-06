@@ -5,15 +5,77 @@ on:
     tags:
       - 'v*'
   workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (e.g., v1.0.0, v0.1.0-alpha.1)'
+        required: true
+        type: string
+      dry_run:
+        description: 'Dry run (build but do not publish)'
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: write
   id-token: write  # Required for Cosign keyless signing
 
+concurrency:
+  group: release-${{ github.ref_name || github.event.inputs.version }}
+  cancel-in-progress: false
+
 jobs:
+  # Validate inputs for manual dispatch (skipped for tag-push)
+  validate:
+    name: Validate
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.validate.outputs.version }}
+    steps:
+      - name: Validate version format
+        id: validate
+        env:
+          VERSION: ${{ github.event.inputs.version }}
+        run: |
+          if [[ ! "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9]+(\.[a-zA-Z0-9]+)*)?$ ]]; then
+            echo "::error::Invalid version format: $VERSION"
+            echo "Version must match: v<MAJOR>.<MINOR>.<PATCH>[-<prerelease>]"
+            echo "Examples: v1.0.0, v0.1.0-alpha.1, v2.0.0-rc.1"
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Validated version: $VERSION"
+
+      - name: Validate branch
+        env:
+          BRANCH: ${{ github.ref_name }}
+        run: |
+          if [[ "$BRANCH" != "main" ]]; then
+            echo "::error::Releases must be created from the main branch (current: $BRANCH)"
+            exit 1
+          fi
+
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Verify tag is new
+        env:
+          VERSION: ${{ github.event.inputs.version }}
+        run: |
+          if git rev-parse "$VERSION" >/dev/null 2>&1; then
+            echo "::error::Tag $VERSION already exists"
+            exit 1
+          fi
+          echo "Tag $VERSION does not exist yet — proceeding"
+
   # Run tests on all platforms before releasing
   test:
     name: Test (${{ matrix.os }}${{ matrix.engine && format(' / {0}', matrix.engine) || '' }})
+    needs: [validate]
+    if: always() && (needs.validate.result == 'success' || needs.validate.result == 'skipped')
     runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: true  # Stop all jobs if one fails
@@ -43,11 +105,11 @@ jobs:
             engine: podman
             test-mode: full
 
-          # Windows with Docker
+          # Windows (unit tests only - container runtime requires Linux)
           - os: windows
             runner: windows-latest
-            engine: docker
-            test-mode: full
+            engine: ""
+            test-mode: short
 
           # macOS (unit tests only)
           - os: macos
@@ -82,16 +144,19 @@ jobs:
       # Run tests
       - name: Run tests (full)
         if: matrix.test-mode == 'full'
-        run: go test -v -race ./...
+        shell: bash
+        run: go test -v -race -timeout 15m ./...
 
       - name: Run tests (short)
         if: matrix.test-mode == 'short'
+        shell: bash
         run: go test -v -race -short ./...
 
   # Release with GoReleaser after all tests pass
   release:
     name: Release
-    needs: test
+    needs: [validate, test]
+    if: always() && needs.test.result == 'success' && (needs.validate.result == 'success' || needs.validate.result == 'skipped')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -105,6 +170,30 @@ jobs:
           go-version-file: go.mod
           cache: true
 
+      # Create and push tag for workflow_dispatch
+      - name: Create tag
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          VERSION: ${{ needs.validate.outputs.version }}
+        run: |
+          git tag "$VERSION"
+          git push origin "$VERSION"
+          echo "Created and pushed tag: $VERSION"
+
+      # Determine the effective tag for GoReleaser
+      - name: Determine tag
+        id: tag
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          DISPATCH_VERSION: ${{ needs.validate.outputs.version }}
+          TAG_REF: ${{ github.ref_name }}
+        run: |
+          if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
+            echo "name=$DISPATCH_VERSION" >> "$GITHUB_OUTPUT"
+          else
+            echo "name=$TAG_REF" >> "$GITHUB_OUTPUT"
+          fi
+
       # Install UPX for binary compression
       - name: Install UPX
         run: |
@@ -115,11 +204,24 @@ jobs:
       - name: Install Cosign
         uses: sigstore/cosign-installer@v3
 
-      # Run GoReleaser
+      # Run GoReleaser (publish)
       - name: Run GoReleaser
+        if: "!(github.event_name == 'workflow_dispatch' && github.event.inputs.dry_run == 'true')"
         uses: goreleaser/goreleaser-action@v6
         with:
           version: "~> v2"
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GORELEASER_CURRENT_TAG: ${{ steps.tag.outputs.name }}
+
+      # Run GoReleaser (dry run)
+      - name: Run GoReleaser (dry run)
+        if: github.event_name == 'workflow_dispatch' && github.event.inputs.dry_run == 'true'
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          version: "~> v2"
+          args: release --clean --snapshot
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GORELEASER_CURRENT_TAG: ${{ steps.tag.outputs.name }}

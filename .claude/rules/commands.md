@@ -13,6 +13,8 @@
 | Tidy deps | `make tidy` |
 | PGO profile | `make pgo-profile` |
 | PGO profile (short) | `make pgo-profile-short` |
+| Release tag | `make release VERSION=v0.1.0` |
+| Release bump | `make release-bump TYPE=minor [PRERELEASE=alpha]` |
 | GoReleaser check | `goreleaser check` |
 | GoReleaser dry-run | `goreleaser release --snapshot --clean` |
 | Website dev | `cd website && npm start` |
@@ -136,8 +138,14 @@ Releases are automated using [GoReleaser](https://goreleaser.com) and GitHub Act
 
 ### How to Create a Release
 
+There are two paths to create a release:
+
+#### Option 1: Tag Push (recommended for production releases)
+
+Produces GPG/SSH-signed tags. Use this for stable releases.
+
 1. **Ensure all tests pass** on the `main` branch.
-2. **Create and push a version tag**:
+2. **Create and push a signed version tag**:
    ```bash
    git tag -s v1.0.0 -m "Release v1.0.0"
    git push origin v1.0.0
@@ -147,6 +155,46 @@ Releases are automated using [GoReleaser](https://goreleaser.com) and GitHub Act
    - Build binaries for all target platforms (with UPX compression).
    - Sign checksums with Cosign (keyless).
    - Create a GitHub Release with artifacts.
+
+#### Option 2: Workflow Dispatch (good for pre-releases and quick iteration)
+
+Creates lightweight tags from the CI runner. Use this for alpha/beta/RC releases or when you want a dry-run first.
+
+1. Go to **Actions > Release > Run workflow** in the GitHub UI.
+2. Enter the version (e.g., `v0.1.0-alpha.1`) and optionally enable **dry run**.
+3. The workflow validates the version format, checks the branch is `main`, and verifies the tag doesn't already exist.
+4. After tests pass, it creates the tag and runs GoReleaser (or builds without publishing in dry-run mode).
+
+**Dry run** builds all artifacts locally without creating a GitHub Release. Use this to validate the release pipeline before committing to a real release.
+
+#### Option 3: Makefile Targets (convenience wrapper for Option 1)
+
+Uses `scripts/release.sh` to validate, tag, and push in one command.
+
+```bash
+# Tag a specific version
+make release VERSION=v1.0.0
+
+# Compute next version and tag (auto-bumps from latest stable tag)
+make release-bump TYPE=minor                        # v1.0.0 -> v1.1.0
+make release-bump TYPE=minor PRERELEASE=alpha       # v1.0.0 -> v1.1.0-alpha.1
+make release-bump TYPE=minor PRERELEASE=alpha       # v1.1.0-alpha.1 -> v1.1.0-alpha.2
+make release-bump TYPE=minor PROMOTE=1              # Promote prerelease to v1.1.0
+
+# Preview without creating tags
+make release-bump TYPE=patch DRY_RUN=1
+
+# Skip confirmation prompt
+make release VERSION=v1.0.0 YES=1
+```
+
+**Parameters:**
+- `VERSION` - Exact semver version (for `release` target).
+- `TYPE` - Bump type: `major`, `minor`, or `patch` (for `release-bump` target).
+- `PRERELEASE` - Pre-release label: `alpha`, `beta`, or `rc` (optional).
+- `PROMOTE=1` - Required when a stable bump would overlap with existing prerelease tags.
+- `YES=1` - Skip the confirmation prompt.
+- `DRY_RUN=1` - Show computed version and summary without creating tags.
 
 ### Release Artifacts
 
@@ -187,7 +235,7 @@ cosign verify-blob \
 |----------|---------|---------|
 | `ci.yml` | Push/PR to main (non-website changes) | Run tests, build verification, license check |
 | `lint.yml` | Push/PR to main (non-website changes) | Advisory golangci-lint run |
-| `release.yml` | Tag push (v*) | Run tests, then build and publish release |
+| `release.yml` | Tag push (v*) or manual dispatch | Validate, test, then build and publish release |
 | `test-website.yml` | PR to main (website changes) | Build website for PR validation |
 | `deploy-website.yml` | Push to main (website changes) or manual | Build and deploy GitHub Pages site |
 
@@ -195,4 +243,5 @@ cosign verify-blob \
 
 - Use [Semantic Versioning](https://semver.org/): `vMAJOR.MINOR.PATCH`.
 - Pre-releases: `v1.0.0-alpha.1`, `v1.0.0-beta.1`, `v1.0.0-rc.1`.
-- Tags must be GPG-signed (`git tag -s`).
+- Tags from tag-push path should be GPG/SSH-signed (`git tag -s`).
+- Tags from workflow dispatch are lightweight (CI runners lack signing keys).
