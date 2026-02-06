@@ -25,11 +25,17 @@ const (
 )
 
 type (
+	// cmdFlagValues holds the flag bindings for the `invowk cmd` subcommand.
+	// These correspond to persistent and local flags registered on the cmdCmd command.
 	cmdFlagValues struct {
-		listFlag        bool
+		// listFlag triggers command listing mode instead of execution.
+		listFlag bool
+		// runtimeOverride is the --runtime flag value (e.g., "container", "virtual").
 		runtimeOverride string
-		fromSource      string
-		forceRebuild    bool
+		// fromSource is the --from flag value for source disambiguation.
+		fromSource string
+		// forceRebuild forces container image rebuilds, bypassing cache.
+		forceRebuild bool
 	}
 
 	// DependencyError represents unsatisfied dependencies.
@@ -60,9 +66,12 @@ type (
 	}
 
 	// SourceFilter represents a user-specified source constraint for disambiguation.
+	// Parsed from @source prefix in args or --from flag.
 	SourceFilter struct {
+		// SourceID is the normalized source identifier (e.g., "invkfile", "foo").
 		SourceID string
-		Raw      string
+		// Raw is the original user input before normalization (e.g., "@foo.invkmod").
+		Raw string
 	}
 
 	// SourceNotFoundError is returned when a specified source does not exist.
@@ -203,6 +212,9 @@ func normalizeSourceName(raw string) string {
 }
 
 // ParseSourceFilter extracts source filter from @prefix in args or --from flag.
+// --from takes precedence because Cobra parsed it explicitly as a named flag.
+// @source is only recognized as the first positional token to avoid ambiguity
+// with command arguments that happen to start with @.
 func ParseSourceFilter(args []string, fromFlag string) (*SourceFilter, []string, error) {
 	// `--from` takes precedence because Cobra parsed it explicitly.
 	if fromFlag != "" {
@@ -218,6 +230,9 @@ func ParseSourceFilter(args []string, fromFlag string) (*SourceFilter, []string,
 	return nil, args, nil
 }
 
+// runCommand builds an ExecuteRequest from CLI arguments and delegates to
+// the CommandService. This is the default execution path when no source
+// disambiguation (@source / --from) is specified and no ambiguity is detected.
 func runCommand(cmd *cobra.Command, app *App, rootFlags *rootFlagValues, cmdFlags *cmdFlagValues, args []string) error {
 	if len(args) == 0 {
 		return fmt.Errorf("no command specified")
@@ -248,6 +263,9 @@ func runCommand(cmd *cobra.Command, app *App, rootFlags *rootFlagValues, cmdFlag
 	return err
 }
 
+// executeRequest dispatches an ExecuteRequest through the App's CommandService
+// and renders any diagnostics to stderr. Non-zero exit codes are wrapped in
+// ExitError to signal Cobra to exit without printing usage.
 func executeRequest(cmd *cobra.Command, app *App, req ExecuteRequest) error {
 	// Cobra adapters always render service diagnostics in the CLI layer.
 	result, diags, err := app.Commands.Execute(cmd.Context(), req)
@@ -263,6 +281,9 @@ func executeRequest(cmd *cobra.Command, app *App, req ExecuteRequest) error {
 	return nil
 }
 
+// resolveUIFlags applies CLI-over-config precedence for verbose and interactive flags.
+// Explicitly set CLI flags (--verbose, --interactive) take priority over config values
+// (ui.verbose, ui.interactive). Config values serve as defaults when flags are not set.
 func resolveUIFlags(ctx context.Context, app *App, cmd *cobra.Command, rootFlags *rootFlagValues) (verbose, interactive bool) {
 	verbose = rootFlags.verbose
 	interactive = rootFlags.interactive
@@ -285,6 +306,9 @@ func resolveUIFlags(ctx context.Context, app *App, cmd *cobra.Command, rootFlags
 	return verbose, interactive
 }
 
+// validateCommandTree discovers all commands and validates the command tree for
+// structural conflicts (e.g., commands with both args and subcommands). It renders
+// non-fatal diagnostics and returns ArgsSubcommandConflictError if found.
 func validateCommandTree(ctx context.Context, app *App, rootFlags *rootFlagValues) error {
 	lookupCtx := contextWithConfigPath(ctx, rootFlags.configPath)
 	result, err := app.Discovery.DiscoverAndValidateCommandSet(lookupCtx)

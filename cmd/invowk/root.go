@@ -23,10 +23,15 @@ var (
 	BuildDate = "unknown"
 )
 
+// rootFlagValues holds the persistent flag bindings for the root command.
+// These flags are inherited by all subcommands via Cobra's persistent flag mechanism.
 type rootFlagValues struct {
-	verbose     bool
+	// verbose enables verbose output across all subcommands.
+	verbose bool
+	// interactive enables alternate screen buffer (interactive mode) for execution.
 	interactive bool
-	configPath  string
+	// configPath overrides the default config file location (--config flag).
+	configPath string
 }
 
 // NewRootCommand creates the root Cobra command.
@@ -71,7 +76,9 @@ be organized hierarchically with support for dependencies.
 	return rootCmd
 }
 
-// Execute runs the invowk CLI.
+// Execute runs the invowk CLI. It creates the App with default dependencies,
+// builds the Cobra command tree, and uses fang for graceful signal handling.
+// Non-zero exit codes from ExitError are propagated to os.Exit.
 func Execute() {
 	app, err := NewApp(Dependencies{})
 	if err != nil {

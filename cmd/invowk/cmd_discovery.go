@@ -340,7 +340,10 @@ func buildCobraArgsValidator(argDefs []invkfile.Argument) cobra.PositionalArgs {
 	}
 }
 
-// completeCommands provides shell completion for commands.
+// completeCommands provides shell completion for the `invowk cmd` command.
+// It returns next-token completions using longest-prefix matching against all
+// discovered command names. Diagnostics are intentionally suppressed to avoid
+// polluting shell completion output with stderr noise.
 func completeCommands(app *App, rootFlags *rootFlagValues) func(*cobra.Command, []string, string) ([]string, cobra.ShellCompDirective) {
 	return func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 		lookupCtx := contextWithConfigPath(cmd.Context(), rootFlags.configPath)
@@ -394,7 +397,9 @@ func completeCommands(app *App, rootFlags *rootFlagValues) func(*cobra.Command, 
 	}
 }
 
-// listCommands displays all available commands.
+// listCommands displays all available commands grouped by source. Each command
+// shows its name, description, available runtimes (with default marked by *),
+// and supported platforms. Ambiguous commands are annotated with their source ID.
 func listCommands(cmd *cobra.Command, app *App, rootFlags *rootFlagValues) error {
 	lookupCtx := contextWithConfigPath(cmd.Context(), rootFlags.configPath)
 	result, err := app.Discovery.DiscoverCommandSet(lookupCtx)

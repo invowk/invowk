@@ -16,7 +16,9 @@ import (
 type (
 	configPathContextKey struct{}
 
-	// App wires CLI services and shared dependencies.
+	// App wires CLI services and shared dependencies. It is the composition root for
+	// the CLI layer — all Cobra command handlers receive an App reference and delegate
+	// business logic through its service interfaces (Commands, Discovery, Config).
 	App struct {
 		Config      ConfigProvider
 		Discovery   DiscoveryService
@@ -26,7 +28,9 @@ type (
 		stderr      io.Writer
 	}
 
-	// Dependencies defines the dependencies used to build an App.
+	// Dependencies defines the injection points for building an App. Nil fields are
+	// replaced with production defaults by NewApp. Tests can supply mock implementations
+	// to isolate specific service behavior.
 	Dependencies struct {
 		Config      ConfigProvider
 		Discovery   DiscoveryService
@@ -36,26 +40,46 @@ type (
 		Stderr      io.Writer
 	}
 
-	// ExecuteRequest captures CLI execution inputs.
+	// ExecuteRequest captures all CLI execution inputs as an immutable value.
+	// It is the request-scoped data contract between the CLI layer (Cobra handlers)
+	// and the CommandService implementation.
 	ExecuteRequest struct {
-		Name            string
-		Args            []string
-		SourceFilter    string
-		Runtime         string
-		Interactive     bool
-		Verbose         bool
-		FromSource      string
-		ForceRebuild    bool
-		Workdir         string
-		EnvFiles        []string
-		EnvVars         map[string]string
-		ConfigPath      string
-		FlagValues      map[string]string
-		FlagDefs        []invkfile.Flag
-		ArgDefs         []invkfile.Argument
-		EnvInheritMode  string
+		// Name is the fully-qualified command name (e.g., "io.invowk.sample build").
+		Name string
+		// Args are positional arguments to pass to the command script ($1, $2, etc.).
+		Args []string
+		// SourceFilter is the source filter string (deprecated, use FromSource).
+		SourceFilter string
+		// Runtime is the --runtime override (e.g., "container", "virtual").
+		Runtime string
+		// Interactive enables alternate screen buffer with TUI server.
+		Interactive bool
+		// Verbose enables verbose diagnostic output.
+		Verbose bool
+		// FromSource is the --from flag value for source disambiguation.
+		FromSource string
+		// ForceRebuild forces container image rebuilds, bypassing cache.
+		ForceRebuild bool
+		// Workdir overrides the working directory for the command.
+		Workdir string
+		// EnvFiles are dotenv file paths from --env-file flags.
+		EnvFiles []string
+		// EnvVars are KEY=VALUE pairs from --env-var flags (highest env priority).
+		EnvVars map[string]string
+		// ConfigPath is the explicit --config flag value.
+		ConfigPath string
+		// FlagValues are parsed flag values from Cobra state (key: flag name).
+		FlagValues map[string]string
+		// FlagDefs are the command's flag definitions from the invkfile.
+		FlagDefs []invkfile.Flag
+		// ArgDefs are the command's argument definitions from the invkfile.
+		ArgDefs []invkfile.Argument
+		// EnvInheritMode overrides the runtime config env inherit mode.
+		EnvInheritMode string
+		// EnvInheritAllow overrides the runtime config env allowlist.
 		EnvInheritAllow []string
-		EnvInheritDeny  []string
+		// EnvInheritDeny overrides the runtime config env denylist.
+		EnvInheritDeny []string
 	}
 
 	// ExecuteResult contains command execution outcomes.
@@ -85,11 +109,15 @@ type (
 		Render(ctx context.Context, diags []discovery.Diagnostic, stderr io.Writer)
 	}
 
-	// ConfigProvider loads configuration using explicit options.
+	// ConfigProvider loads configuration using explicit options rather than global state.
+	// This abstraction replaces the previous global config accessor and enables
+	// testing with custom config sources.
 	ConfigProvider interface {
 		Load(ctx context.Context, opts config.LoadOptions) (*config.Config, error)
 	}
 
+	// appDiscoveryService implements DiscoveryService by creating a fresh
+	// discovery.Discovery instance per call, prepending configuration diagnostics.
 	appDiscoveryService struct {
 		config ConfigProvider
 	}

@@ -164,6 +164,7 @@ Comments are not optional decoration. They are part of the contract of the code.
 - Keep comments precise and maintainable; update or remove stale comments when code changes.
 - Avoid boilerplate comments that only repeat identifiers.
 - If a block is subtle enough to require rereading, add a short comment before it.
+- **Guardrail-safe references**: When commenting about deprecated or removed APIs (e.g., explaining what an abstraction replaces), use indirect phrasing rather than the exact prohibited call signature. Pattern guardrail tests like `TestNoGlobalConfigAccess` scan all non-test `.go` files with raw substring matching and will flag comments containing prohibited patterns. For example, write "replaces the previous global config accessor" instead of the literal call expression.
 
 ```go
 // GOOD: explains semantics and constraints.
@@ -443,3 +444,4 @@ setting-name = "value"  # Brief explanation of what this controls
 - **Wrong declaration order** - Follow const → var → type → func, exported before unexported.
 - **`reflect.DeepEqual` for typed slices** - Use `slices.Equal` (Go 1.21+) for `[]string`, `[]int`, etc. It's type-safe, gives better error messages, and avoids importing `reflect` in tests.
 - **Duplicate package comments** - Use `doc.go` for package docs, remove `// Package` comments from other files.
+- **Prohibited patterns in comments** - Guardrail tests (e.g., `TestNoGlobalConfigAccess`) scan all non-test `.go` files for banned call signatures using raw substring matching. Comments mentioning deprecated APIs must use indirect phrasing to avoid false positives.

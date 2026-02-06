@@ -288,6 +288,9 @@ func (s *commandService) loadConfig(ctx context.Context, configPath string) (*co
 	return loadConfigWithFallback(ctx, s.config, configPath)
 }
 
+// ensure lazily starts the SSH server if not already running. It blocks until
+// the server is ready to accept connections. The server is reused across
+// multiple calls within the same command execution.
 func (s *sshServerController) ensure(ctx context.Context) (*sshserver.Server, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -306,6 +309,8 @@ func (s *sshServerController) ensure(ctx context.Context) (*sshserver.Server, er
 	return srv, nil
 }
 
+// stop shuts down the SSH server if running. This is a best-effort operation
+// called via defer after command execution completes.
 func (s *sshServerController) stop() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -317,6 +322,8 @@ func (s *sshServerController) stop() {
 	}
 }
 
+// current returns the active SSH server instance, or nil if not started.
+// Used to pass the server reference to the container runtime for host access.
 func (s *sshServerController) current() *sshserver.Server {
 	s.mu.Lock()
 	defer s.mu.Unlock()

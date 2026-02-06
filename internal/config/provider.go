@@ -13,11 +13,14 @@ type (
 		ConfigDirPath string
 	}
 
-	// Provider loads configuration from explicit options.
+	// Provider loads configuration from explicit options rather than package-level
+	// state. This replaces the previous global config accessors and enables testing
+	// with custom config sources or mock implementations.
 	Provider interface {
 		Load(ctx context.Context, opts LoadOptions) (*Config, error)
 	}
 
+	// fileProvider is the production Provider that loads configuration from the filesystem.
 	fileProvider struct{}
 )
 

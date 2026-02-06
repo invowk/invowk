@@ -317,3 +317,4 @@ defer func() { testutil.MustRemoveAll(t, path) }()
 | Forgetting test cleanup | Use `t.TempDir()` and `defer` patterns |
 | Testscript container tests fail with "mkdir /no-home" | Set `HOME` to `env.WorkDir` in Setup |
 | Circular/trivial tests (constant == literal, zero-value == zero) | Test behavioral contracts: sentinel errors with `errors.Is`, default configs that affect user behavior, state machine transitions |
+| Pattern guardrail tests fail after adding comments | `TestNoGlobalConfigAccess` scans all non-test `.go` files for prohibited call signatures using raw `strings.Contains`. Comments mentioning deprecated APIs (e.g., the old global config accessor) must use indirect phrasing. See go-patterns.md "Guardrail-safe references" |
