@@ -85,6 +85,8 @@ title: |md
 # External actors
 customer: Customer {
   shape: person
+  width: 70
+  height: 100
   style.fill: "#08427B"
 }
 
@@ -271,7 +273,7 @@ rect: Rectangle
 oval: Oval { shape: oval }
 diamond: Decision { shape: diamond }
 cylinder: Database { shape: cylinder }
-person: User { shape: person }
+person: User { shape: person; width: 70; height: 100 }
 cloud: Cloud Service { shape: cloud }
 queue: Message Queue { shape: queue }
 package: Package { shape: package }
@@ -297,6 +299,26 @@ a -> b: {
   style.stroke-width: 3  # thick
 }
 ```
+
+## Person Shape Aspect Ratio
+
+D2's `person` shape does **not** enforce an intrinsic aspect ratio. The TALA layout engine auto-sizes the bounding box based on label text width, which causes wider labels (e.g., "Team Member") to stretch the person figure horizontally compared to shorter labels (e.g., "User").
+
+**Always set explicit `width` and `height` on person shapes:**
+
+```d2
+developer: Developer {
+  shape: person
+  width: 70
+  height: 100
+  style.fill: "#08427B"
+  style.font-color: "#ffffff"
+}
+```
+
+- Use `width: 70` and `height: 100` (0.7:1 ratio) as the standard for natural upright proportions.
+- Apply identical dimensions to all person shapes within and across diagrams for visual consistency.
+- Without explicit dimensions, a label like "Personal Banking Customer" will produce a visibly wide, squat figure.
 
 ## When to Update Diagrams
 
@@ -339,3 +361,4 @@ Before marking work complete, verify:
 | Missing layout-engine config | Inconsistent layouts | Always set `layout-engine: tala` in d2-config |
 | Using TALA-specific config with ELK | Config validation errors | Keep d2-config layout-agnostic |
 | `Participant."Label": { }` for sequence grouping | All arrows route to first participant | Use flat structure with comments or proper `.span:` syntax |
+| `person` shapes stretch with long labels | TALA sizes bounding box by label width, distorting the figure | Set explicit `width` and `height` (e.g., `width: 70`, `height: 100`) on all person shapes |

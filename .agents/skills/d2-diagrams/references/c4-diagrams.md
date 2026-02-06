@@ -15,8 +15,8 @@ The C4 model provides four levels of abstraction:
 
 | C4 Element | D2 Shape | Styling Convention |
 |------------|----------|-------------------|
-| Person | `shape: person` | Blue fill (#08427B) |
-| External Person | `shape: person` | Gray fill (#999999) |
+| Person | `shape: person` + `width: 70` + `height: 100` | Blue fill (#08427B) |
+| External Person | `shape: person` + `width: 70` + `height: 100` | Gray fill (#999999) |
 | System | Rectangle (default) | Blue fill (#1168BD) |
 | External System | Rectangle | Gray fill (#999999) |
 | Container | Rectangle | Light blue (#438DD5) |
@@ -44,6 +44,8 @@ title: |md
 # Actors
 customer: Personal Banking Customer {
   shape: person
+  width: 70
+  height: 100
   style.fill: "#08427B"
   style.font-color: "#ffffff"
 }
@@ -92,6 +94,8 @@ title: |md
 # External actors
 customer: Personal Banking Customer {
   shape: person
+  width: 70
+  height: 100
   style.fill: "#08427B"
   style.font-color: "#ffffff"
 }
@@ -342,6 +346,8 @@ vars: {
 # Base elements (shared across layers)
 customer: Customer {
   shape: person
+  width: 70
+  height: 100
   style.fill: "#08427B"
   style.font-color: "#ffffff"
 }
@@ -407,6 +413,8 @@ vars: {
 # Define all elements (suspended - not rendered)
 _.customer: Customer {
   shape: person
+  width: 70
+  height: 100
   style.fill: "#08427B"
   style.font-color: "#ffffff"
 }
@@ -483,18 +491,24 @@ title: |md
 # Actors
 customer: Online Customer {
   shape: person
+  width: 70
+  height: 100
   style.fill: "#08427B"
   style.font-color: "#ffffff"
 }
 
 admin: Administrator {
   shape: person
+  width: 70
+  height: 100
   style.fill: "#08427B"
   style.font-color: "#ffffff"
 }
 
 warehouse: Warehouse Staff {
   shape: person
+  width: 70
+  height: 100
   style.fill: "#08427B"
   style.font-color: "#ffffff"
 }
@@ -555,6 +569,8 @@ title: |md
 # Actors
 customer: Customer {
   shape: person
+  width: 70
+  height: 100
   style.fill: "#08427B"
   style.font-color: "#ffffff"
 }
@@ -715,3 +731,4 @@ platform.notification -> email: SMTP
 6. **Layer for complexity** - Use D2 layers for multi-level views
 7. **Keep focused** - One perspective per diagram
 8. **Document relationships** - Label every connection with purpose
+9. **Constrain person shapes** - Always set `width: 70` and `height: 100` to prevent TALA from stretching the figure based on label width
