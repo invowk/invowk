@@ -1,6 +1,5 @@
 ---
-description: Package boundaries, interface decoupling, tightly-coupled concerns, utility package guidelines
-globs:
+paths:
   - "pkg/**"
   - "internal/**"
 ---

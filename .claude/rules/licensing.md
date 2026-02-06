@@ -1,6 +1,5 @@
 ---
-description: SPDX license headers (MPL-2.0) required for all Go source files
-globs:
+paths:
   - "**/*.go"
 ---
 

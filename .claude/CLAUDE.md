@@ -80,6 +80,10 @@ When working in a specific code area, apply these rules and skills:
 | `pkg/invkmod/` | go-patterns, testing, cue-patterns, licensing, package-design | cue, invowk-schema |
 | `website/` | general-rules | docs |
 | `docs/architecture/` | general-rules | docs, d2-diagrams |
+| `internal/uroot/` | go-patterns, testing, licensing | uroot |
+| `internal/core/serverbase/` | go-patterns, testing, licensing | server |
+| `internal/benchmark/` | go-patterns, testing, licensing, commands | — |
+| `pkg/platform/` | go-patterns, testing, windows, licensing | — |
 | `tests/cli/` | testing | testing, cli |
 
 ## Architecture Overview
@@ -114,7 +118,10 @@ invkfile.cue -> CUE Parser -> pkg/invkfile -> Runtime Selection -> Execution
   - `sshserver/` - SSH server for remote execution.
   - `tui/` - Terminal UI components.
   - `tuiserver/` - TUI server for interactive sessions.
-- `pkg/` - Public packages (invkmod, invkfile).
+  - `uroot/` - u-root utility implementations for virtual shell built-ins.
+  - `benchmark/` - Benchmarks for PGO profile generation.
+  - `provision/` - Container provisioning (ephemeral layer attachment).
+- `pkg/` - Public packages (invkmod, invkfile, platform).
 - `modules/` - Sample invowk modules for validation and reference.
 
 ## Container Runtime Limitations

@@ -1,6 +1,6 @@
 ---
 name: discovery
-description: Module/command discovery, precedence order, collision detection, source tracking
+description: Module/command discovery, precedence order, collision detection, source tracking. Use when working on internal/discovery/ files or modifying how invkfiles and modules are found and aggregated.
 disable-model-invocation: false
 ---
 

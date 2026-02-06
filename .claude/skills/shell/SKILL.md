@@ -85,7 +85,7 @@ This issue manifests on Windows CI because the virtual runtime is the only bash-
 
 ### Strict Mode (`set -euo pipefail`)
 
-All bash scripts in this project use strict mode for safety:
+All bash scripts in this project's source tree (build scripts, CI scripts, test harnesses) use strict mode for safety. **Note:** This applies to project-level bash scripts, not to CUE command scripts executed via container runtimes (`/bin/sh -c`). For container script behavior, see the testing skill's "Shell Script Behavior in Containers" section.
 
 ```bash
 set -euo pipefail

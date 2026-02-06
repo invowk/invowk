@@ -1,6 +1,5 @@
 ---
-description: Go style guide covering imports, naming, errors, interfaces, functional options, code organization
-globs:
+paths:
   - "**/*.go"
 ---
 
@@ -136,6 +135,7 @@ defer func() {
 1. **Test code**: Use test helpers (e.g., `testutil.MustClose(t, f)`) instead of named returns.
 2. **Terminal operations in SSH sessions**: Where `sess.Exit()` errors cannot be meaningfully handled, use `_ =` with a comment explaining why.
 3. **Best-effort cleanup after primary error**: When the function already has an error, logging the close error may be appropriate rather than overwriting the primary error.
+4. **Read-only file handles**: For files opened with `os.Open()` (read-only), closing can only fail in exotic edge cases (e.g., interrupted syscall on NFS). Use `defer func() { _ = f.Close() }()` with a comment explaining the file is read-only. The named-return pattern would add unnecessary complexity here.
 
 ## Documentation
 

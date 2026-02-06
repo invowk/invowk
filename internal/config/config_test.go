@@ -5,9 +5,11 @@ package config
 import (
 	"context"
 	"errors"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 
 	"invowk-cli/internal/issue"
@@ -455,6 +457,80 @@ func TestLoad_CustomPath_NotFound_ReturnsError(t *testing.T) {
 	}
 }
 
+func TestNewProvider_Load(t *testing.T) {
+	tmpDir := t.TempDir()
+	configDir := filepath.Join(tmpDir, AppName)
+	if err := os.MkdirAll(configDir, 0o755); err != nil {
+		t.Fatalf("failed to create config dir: %v", err)
+	}
+
+	validConfig := `container_engine: "docker"
+default_runtime: "virtual"
+`
+	cfgPath := filepath.Join(configDir, ConfigFileName+"."+ConfigFileExt)
+	if err := os.WriteFile(cfgPath, []byte(validConfig), 0o644); err != nil {
+		t.Fatalf("failed to write config: %v", err)
+	}
+
+	restoreWd := testutil.MustChdir(t, tmpDir)
+	defer restoreWd()
+
+	provider := NewProvider()
+
+	t.Run("loads config from directory", func(t *testing.T) {
+		cfg, err := provider.Load(context.Background(), LoadOptions{
+			ConfigDirPath: configDir,
+		})
+		if err != nil {
+			t.Fatalf("Provider.Load() returned error: %v", err)
+		}
+
+		if cfg.ContainerEngine != ContainerEngineDocker {
+			t.Errorf("ContainerEngine = %s, want docker", cfg.ContainerEngine)
+		}
+		if cfg.DefaultRuntime != "virtual" {
+			t.Errorf("DefaultRuntime = %s, want virtual", cfg.DefaultRuntime)
+		}
+	})
+
+	t.Run("loads config from explicit file path", func(t *testing.T) {
+		cfg, err := provider.Load(context.Background(), LoadOptions{
+			ConfigFilePath: cfgPath,
+		})
+		if err != nil {
+			t.Fatalf("Provider.Load() returned error: %v", err)
+		}
+
+		if cfg.ContainerEngine != ContainerEngineDocker {
+			t.Errorf("ContainerEngine = %s, want docker", cfg.ContainerEngine)
+		}
+	})
+
+	t.Run("returns defaults when no config exists", func(t *testing.T) {
+		emptyDir := t.TempDir()
+		cfg, err := provider.Load(context.Background(), LoadOptions{
+			ConfigDirPath: emptyDir,
+		})
+		if err != nil {
+			t.Fatalf("Provider.Load() returned error: %v", err)
+		}
+
+		defaults := DefaultConfig()
+		if cfg.ContainerEngine != defaults.ContainerEngine {
+			t.Errorf("ContainerEngine = %s, want %s", cfg.ContainerEngine, defaults.ContainerEngine)
+		}
+	})
+
+	t.Run("returns error for non-existent explicit path", func(t *testing.T) {
+		_, err := provider.Load(context.Background(), LoadOptions{
+			ConfigFilePath: "/this/path/does/not/exist.cue",
+		})
+		if err == nil {
+			t.Fatal("expected Provider.Load() to return error for non-existent path")
+		}
+	})
+}
+
 func TestLoad_CustomPath_InvalidCUE_ReturnsError(t *testing.T) {
 	// Create a temp directory with an invalid config file
 	tmpDir := t.TempDir()
@@ -478,5 +554,66 @@ func TestLoad_CustomPath_InvalidCUE_ReturnsError(t *testing.T) {
 	errStr := err.Error()
 	if errStr == "" {
 		t.Error("expected non-empty error string")
+	}
+}
+
+// TestNoGlobalConfigAccess guards against re-introduction of config.Get() or
+// equivalent global config accessors in production code paths. The stateless
+// refactoring (spec-008) removed all global config state; this test ensures
+// the pattern doesn't resurface. See specs/008-code-refactoring/proposal.md.
+func TestNoGlobalConfigAccess(t *testing.T) {
+	// Derive project root from this test file's location (internal/config/).
+	_, thisFile, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatal("unable to determine test file path via runtime.Caller")
+	}
+	projectRoot := filepath.Dir(filepath.Dir(filepath.Dir(thisFile)))
+
+	// Patterns that must not appear in production Go source files.
+	prohibited := []struct {
+		pattern string
+		reason  string
+	}{
+		{"config.Get()", "use config.Provider.Load() with explicit LoadOptions instead"},
+	}
+
+	dirs := []string{
+		filepath.Join(projectRoot, "cmd"),
+		filepath.Join(projectRoot, "internal"),
+	}
+
+	for _, dir := range dirs {
+		err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, walkErr error) error {
+			if walkErr != nil {
+				return walkErr
+			}
+			if d.IsDir() || !strings.HasSuffix(path, ".go") {
+				return nil
+			}
+			// Skip test files — they may reference patterns for assertion purposes.
+			if strings.HasSuffix(path, "_test.go") {
+				return nil
+			}
+
+			content, readErr := os.ReadFile(path)
+			if readErr != nil {
+				t.Errorf("failed to read %s: %v", path, readErr)
+				return nil
+			}
+
+			src := string(content)
+			rel, _ := filepath.Rel(projectRoot, path)
+
+			for _, p := range prohibited {
+				if strings.Contains(src, p.pattern) {
+					t.Errorf("%s: contains prohibited pattern %q — %s", rel, p.pattern, p.reason)
+				}
+			}
+
+			return nil
+		})
+		if err != nil {
+			t.Fatalf("failed to walk %s: %v", dir, err)
+		}
 	}
 }

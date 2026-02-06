@@ -140,6 +140,11 @@ func configPathFromContext(ctx context.Context) string {
 }
 
 // DiscoverCommandSet discovers commands and prepends configuration diagnostics.
+// Each call creates a fresh discovery.Discovery instance rather than caching results.
+// This is intentionally stateless: it avoids shared mutable caches and invalidation
+// complexity, which is appropriate for a CLI tool where each process invocation is
+// short-lived. If per-process caching is needed in the future, it should be scoped
+// to the App lifetime rather than introduced as package-level state.
 func (s *appDiscoveryService) DiscoverCommandSet(ctx context.Context) (discovery.CommandSetResult, error) {
 	cfg, cfgDiags := s.loadConfig(ctx)
 	result, err := discovery.New(cfg).DiscoverCommandSet(ctx)

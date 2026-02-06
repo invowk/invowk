@@ -13,19 +13,13 @@ Use this skill when:
 - Testing TUI components (Bubble Tea models)
 - Testing container runtimes (Docker/Podman)
 
+**Cross-references**: For universal test patterns (table-driven tests, `testing.Short()`, `skipOnWindows`, `t.TempDir()`, testscript HOME fix, container test timeouts, cross-platform path assertions, test file size limits), see `.claude/rules/testing.md`. This skill covers domain-specific testing guidance that extends those rules.
+
 ---
 
 # Testing
 
 ## Test File Organization
-
-### Size Limits
-
-**Test files MUST NOT exceed 800 lines.** Large monolithic test files are difficult to navigate and maintain for both humans and AI agents. When a test file approaches this limit, split it by logical concern.
-
-**Naming convention for split files:**
-- `<package>_<concern>_test.go` (e.g., `invkfile_parsing_test.go`, `invkfile_deps_test.go`)
-- Each file should cover a single logical area (parsing, dependencies, flags, schema validation, etc.)
 
 ### Test Helper Consolidation
 
@@ -54,34 +48,6 @@ When you need a test helper that might be useful elsewhere, add it to `testutil`
 - `pkg/invkfile/invkfile_deps_test.go`: `testCommand()`, `testCommandWithDeps()` (import cycle)
 - `internal/runtime/runtime_env_test.go`: `testCommandWithScript()`, `testCommandWithInterpreter()` (specialized signatures)
 
-## Testing Patterns
-
-- Test files are named `*_test.go` in the same package.
-- Use `t.TempDir()` for temporary directories (auto-cleaned).
-- Use table-driven tests for multiple cases.
-- Skip integration tests with `if testing.Short() { t.Skip(...) }`.
-- Reset global state in tests using cleanup functions.
-
-```go
-func TestExample(t *testing.T) {
-    // Setup
-    tmpDir := t.TempDir()
-    originalEnv := os.Getenv("VAR")
-    defer os.Setenv("VAR", originalEnv)
-
-    // Test
-    result, err := DoSomething()
-    if err != nil {
-        t.Fatalf("unexpected error: %v", err)
-    }
-
-    // Assert
-    if result != expected {
-        t.Errorf("got %v, want %v", result, expected)
-    }
-}
-```
-
 ## Avoiding Flaky Tests
 
 ### Time-Dependent Tests
@@ -108,47 +74,6 @@ func TestTokenExpiration(t *testing.T) {
     }
 }
 ```
-
-### Filesystem Paths
-
-**Always use `t.TempDir()` instead of hardcoded paths like `/tmp`.**
-
-```go
-// WRONG: May fail on some systems, leaves files behind
-f, _ := os.Create("/tmp/test-file.txt")
-
-// CORRECT: Auto-cleaned, isolated per test
-tmpDir := t.TempDir()
-f, _ := os.Create(filepath.Join(tmpDir, "test-file.txt"))
-```
-
-### Cross-Platform Path Assertions
-
-**NEVER hardcode path separators in test assertions.** Use `filepath.Join()` to construct expected paths so they match production code behavior on all platforms.
-
-The problem: `filepath.Join()` produces OS-specific paths—forward slashes (`/`) on Unix, backslashes (`\`) on Windows. Tests that hardcode Unix-style paths will fail on Windows CI.
-
-```go
-// WRONG: Hardcoded Unix path separator - fails on Windows
-recorder.AssertArgsContain(t, "/tmp/build/Dockerfile.custom")
-// On Windows, actual value is: \tmp\build\Dockerfile.custom
-
-// CORRECT: Use filepath.Join for cross-platform compatibility
-recorder.AssertArgsContain(t, filepath.Join("/tmp/build", "Dockerfile.custom"))
-// Produces: /tmp/build/Dockerfile.custom (Unix) or \tmp\build\Dockerfile.custom (Windows)
-```
-
-**When this applies:**
-- Any test that asserts on file paths constructed by production code
-- Mock recorders that capture command-line arguments containing paths
-- Path comparison in file operation tests
-
-**Common symptom:** Tests pass locally on Linux/macOS but fail on Windows CI with errors like:
-```
-expected args to contain "/tmp/build/Dockerfile.custom", got: [build -f \tmp\build\Dockerfile.custom ...]
-```
-
-**Note:** The `gocritic` linter's `filepathJoin` check may warn when the first argument contains path separators. This is acceptable when testing production code that joins directory paths with filenames—use `//nolint:gocritic` with an explanatory comment.
 
 ## TUI Component Testing
 
@@ -203,6 +128,42 @@ func TestDockerBuild_Integration(t *testing.T) {
 }
 ```
 
+### Container Runtime Test Conditions
+
+**Custom conditions** for container tests must verify actual functionality, not just CLI availability:
+
+```go
+containerAvailable = func() bool {
+    engine, err := container.AutoDetectEngine()
+    if err != nil || !engine.Available() {
+        return false
+    }
+    // CRITICAL: Run a smoke test to verify Linux containers work.
+    // This catches Windows Docker in Windows-container mode.
+    ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+    defer cancel()
+    result, err := engine.Run(ctx, container.RunOptions{
+        Image:   "debian:stable-slim",
+        Command: []string{"echo", "ok"},
+        Remove:  true,
+    })
+    return err == nil && result.ExitCode == 0
+}()
+```
+
+### Shell Script Behavior in Containers
+
+Scripts executed via `/bin/sh -c` do NOT have `set -e` by default. Always add `set -e` when you want scripts to fail on any command failure. **Note:** This applies to CUE command scripts executed in container runtimes, not to project-level bash scripts (for those, see the shell skill).
+
+```cue
+script: """
+    set -e  # Required for fail-on-error behavior
+    echo "Starting..."
+    some_command_that_might_fail
+    echo "Done"
+    """
+```
+
 ## CLI Integration Tests (testscript)
 
 CLI integration tests use [testscript](https://pkg.go.dev/github.com/rogpeppe/go-internal/testscript) for deterministic output verification. Tests live in `tests/cli/testdata/` as `.txtar` files.
@@ -255,42 +216,6 @@ Setup: func(env *testscript.Env) error {
 - Only set environment variables that are actually used by production code.
 - Do NOT set placeholder env vars "for future use" - they cause confusion.
 - If a test needs a specific env var cleared, do it in the test file: `env MY_VAR=`
-
-### Container Runtime Test Conditions
-
-**Custom conditions** for container tests must verify actual functionality, not just CLI availability:
-
-```go
-containerAvailable = func() bool {
-    engine, err := container.AutoDetectEngine()
-    if err != nil || !engine.Available() {
-        return false
-    }
-    // CRITICAL: Run a smoke test to verify Linux containers work.
-    // This catches Windows Docker in Windows-container mode.
-    ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-    defer cancel()
-    result, err := engine.Run(ctx, container.RunOptions{
-        Image:   "debian:stable-slim",
-        Command: []string{"echo", "ok"},
-        Remove:  true,
-    })
-    return err == nil && result.ExitCode == 0
-}()
-```
-
-### Shell Script Behavior in Containers
-
-Scripts executed via `/bin/sh -c` do NOT have `set -e` by default. Always add `set -e` when you want scripts to fail on any command failure:
-
-```cue
-script: """
-    set -e  # Required for fail-on-error behavior
-    echo "Starting..."
-    some_command_that_might_fail
-    echo "Done"
-    """
-```
 
 ### Writing testscript Tests
 
@@ -433,20 +358,15 @@ The `internal/testutil` package provides reusable test helpers. All helpers acce
 | `MustStop(t, stopper)` | Stops server; logs warning on error |
 | `DeferClose(t, closer)` | Returns cleanup function for io.Closer |
 | `DeferStop(t, stopper)` | Returns cleanup function for Stopper |
-
-### New Helpers (003-test-suite-audit)
-
-**internal/testutil** (clock and home directory):
-
-| Function | Description |
-|----------|-------------|
 | `SetHomeDir(t, dir)` | Sets HOME/USERPROFILE; returns cleanup function |
 | `NewFakeClock(initial)` | Creates fake clock for time mocking |
 | `Clock` interface | `Now()`, `After(d)`, `Since(t)` for time abstraction |
 | `RealClock` | Production clock using actual time |
 | `FakeClock` | Test clock with `Advance(d)` and `Set(t)` |
 
-**internal/testutil/invkfiletest** (command builder - separate package to avoid import cycles):
+### invkfiletest Package
+
+**`internal/testutil/invkfiletest`** (separate package to avoid import cycles):
 
 | Function | Description |
 |----------|-------------|
@@ -552,11 +472,9 @@ The test passed on slower runners (ubuntu-24.04) but failed on faster ones where
 
 | Pitfall | Symptom | Fix |
 |---------|---------|-----|
-| Large test files | Hard to navigate, maintain | Split files exceeding 800 lines by logical concern |
+| Large test files | Hard to navigate, maintain | Split files exceeding 800 lines by logical concern (see rules/testing.md) |
 | Duplicated helpers | Same code in multiple test files | Consolidate in `testutil` package |
 | `time.Sleep()` in tests | Flaky, timing-dependent failures | Use clock injection for deterministic tests |
-| Hardcoded `/tmp` paths | Isolation issues, leftover files | Use `t.TempDir()` for auto-cleanup |
-| Hardcoded path separators | Tests fail on Windows | Use `filepath.Join()` in assertions |
 | Testing struct fields | Testing Go's ability to store values | Test behavior, not struct storage |
 | Missing TUI tests | State bugs not caught | Test model state transitions |
 | Flaky tests across environments | Passes locally, fails in CI | Suspect race conditions; run with `-race` |
@@ -565,4 +483,4 @@ The test passed on slower runners (ubuntu-24.04) but failed on faster ones where
 | Missing `set -e` in scripts | Failed commands don't cause script failure | Add `set -e` at script start |
 | Unused env vars in testscript Setup | Confusion, false assumptions | Only set vars used by production code |
 
-See `.claude/rules/windows.md` for comprehensive path handling guidance.
+For cross-platform testing pitfalls (path separators, `skipOnWindows`, `filepath.Join()`), see `.claude/rules/testing.md` and `.claude/rules/windows.md`.

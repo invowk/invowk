@@ -222,7 +222,7 @@ func formatCUEError(err error, filePath string) error {
 CUE is pinned in `go.mod`:
 
 ```
-cuelang.org/go v0.15.3
+cuelang.org/go v0.15.4
 ```
 
 ### Upgrade Process

@@ -1,12 +1,17 @@
 ---
-description: Test organization, table-driven tests, cross-platform testing, testscript CLI tests, container timeouts
-globs:
+paths:
   - "**/*_test.go"
   - "tests/cli/**"
   - "**/testdata/**"
 ---
 
 # Testing
+
+## Test File Size Limits
+
+**Test files MUST NOT exceed 800 lines.** Large monolithic test files are difficult to navigate and maintain. When a test file approaches this limit, split it by logical concern.
+
+**Naming convention for split files:** `<package>_<concern>_test.go` (e.g., `invkfile_parsing_test.go`, `invkfile_deps_test.go`). Each file should cover a single logical area.
 
 ## Test Organization
 
