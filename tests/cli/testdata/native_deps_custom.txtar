@@ -1,0 +1,71 @@
+# Test: Custom check dependencies using native runtime
+# Mirrors virtual_deps_custom.txtar but with platform-split native implementations
+# Note: custom_checks.check_script runs in virtual runtime for dependency
+# evaluation regardless of main command runtime
+
+cd $WORK
+
+# Test 1: deps check exitcode - validates exit code of a check script
+exec invowk cmd 'deps check exitcode'
+stdout 'Custom exit code check passed!'
+! stderr .
+
+# Test 2: deps check output - validates output pattern of a check script
+exec invowk cmd 'deps check output'
+stdout 'Custom output check passed!'
+! stderr .
+
+-- invkfile.cue --
+cmds: [
+	{
+		name:        "deps check exitcode"
+		description: "Command with custom check validating exit code"
+		implementations: [
+			{
+				script:    "echo 'Custom exit code check passed!'"
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
+			},
+			{
+				script:    "Write-Output 'Custom exit code check passed!'"
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "windows"}]
+			},
+		]
+		depends_on: {
+			custom_checks: [
+				{
+					name:          "true-command"
+					check_script:  "true"
+					expected_code: 0
+				},
+			]
+		}
+	},
+	{
+		name:        "deps check output"
+		description: "Command with custom check validating output pattern"
+		implementations: [
+			{
+				script:    "echo 'Custom output check passed!'"
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
+			},
+			{
+				script:    "Write-Output 'Custom output check passed!'"
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "windows"}]
+			},
+		]
+		depends_on: {
+			custom_checks: [
+				{
+					name:            "hostname-check"
+					check_script:    "hostname"
+					expected_code:   0
+					expected_output: ".*"
+				},
+			]
+		}
+	},
+]

@@ -1,0 +1,71 @@
+# Test: Capability dependency checks using native runtime
+# Mirrors virtual_deps_caps.txtar but with platform-split native implementations
+# Note: These tests may fail in offline or isolated environments
+
+cd $WORK
+
+# Test 1: deps cap single - requires internet connectivity
+# Skip if no network available (common in CI sandboxes)
+[!net] skip 'network not available'
+exec invowk cmd 'deps cap single'
+stdout 'Internet connectivity confirmed!'
+! stderr .
+
+# Test 2: deps cap alternatives - requires any network connectivity (LAN or internet)
+[!net] skip 'network not available'
+exec invowk cmd 'deps cap alternatives'
+stdout 'Network connectivity confirmed!'
+stdout 'Either LAN or Internet is available'
+! stderr .
+
+-- invkfile.cue --
+cmds: [
+	{
+		name:        "deps cap single"
+		description: "Command requiring internet connectivity"
+		implementations: [
+			{
+				script:    "echo 'Internet connectivity confirmed!'"
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
+			},
+			{
+				script:    "Write-Output 'Internet connectivity confirmed!'"
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "windows"}]
+			},
+		]
+		depends_on: {
+			capabilities: [
+				{alternatives: ["internet"]},
+			]
+		}
+	},
+	{
+		name:        "deps cap alternatives"
+		description: "Command requiring any network connectivity"
+		implementations: [
+			{
+				script: """
+					echo "Network connectivity confirmed!"
+					echo "Either LAN or Internet is available."
+					"""
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
+			},
+			{
+				script: """
+					Write-Output "Network connectivity confirmed!"
+					Write-Output "Either LAN or Internet is available."
+					"""
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "windows"}]
+			},
+		]
+		depends_on: {
+			capabilities: [
+				{alternatives: ["local-area-network", "internet"]},
+			]
+		}
+	},
+]

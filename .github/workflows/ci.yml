@@ -105,6 +105,14 @@ jobs:
         shell: bash
         run: go test -v -race -short -coverprofile=coverage.out ./...
 
+      # Run CLI integration tests on Windows/macOS
+      # CLI tests use testscript with inline CUE and virtual runtime for cross-platform support.
+      # Container tests auto-skip via [!container-available] guard.
+      - name: Run CLI integration tests
+        if: matrix.test-mode == 'short'
+        shell: bash
+        run: go test -v -race -timeout 5m ./tests/cli/...
+
       # Upload coverage
       - name: Upload coverage
         uses: actions/upload-artifact@v6

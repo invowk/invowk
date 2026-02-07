@@ -1,0 +1,265 @@
+# Test: Command disambiguation using native runtime (User Story 3)
+# Mirrors virtual_disambiguation.txtar but with platform-split native implementations
+# Tests @source prefix and --from flag for disambiguating ambiguous commands
+
+# Change to work directory where the test files will be created
+cd $WORK
+
+# Test 1: @source prefix disambiguation - run deploy from invkfile
+exec invowk cmd @invkfile deploy
+stdout 'Deploying from invkfile!'
+! stderr .
+
+# Test 2: @source prefix disambiguation - run deploy from foo module
+exec invowk cmd @foo deploy
+stdout 'Deploying from foo!'
+! stderr .
+
+# Test 3: --from flag disambiguation - run deploy from invkfile
+exec invowk cmd --from invkfile deploy
+stdout 'Deploying from invkfile!'
+! stderr .
+
+# Test 4: --from flag disambiguation - run deploy from foo module
+exec invowk cmd --from foo deploy
+stdout 'Deploying from foo!'
+! stderr .
+
+# Test 5: Accept full module name with .invkmod suffix
+exec invowk cmd @foo.invkmod deploy
+stdout 'Deploying from foo!'
+! stderr .
+
+# Test 6: Accept invkfile.cue as source name
+exec invowk cmd @invkfile.cue deploy
+stdout 'Deploying from invkfile!'
+! stderr .
+
+# Test 7: --from with full module name
+exec invowk cmd --from foo.invkmod deploy
+stdout 'Deploying from foo!'
+! stderr .
+
+# Test 8: Explicit source on non-ambiguous command should work without warning
+exec invowk cmd @invkfile hello
+stdout 'Hello from root!'
+! stderr .
+
+# Test 9: Explicit source for module-only command
+exec invowk cmd @foo build
+stdout 'Building from foo!'
+! stderr .
+
+# Test 10: Invalid source should show helpful error
+! exec invowk cmd @nonexistent deploy
+stderr 'Source.*nonexistent.*not found'
+
+# Test 11: Invalid source with --from should show helpful error
+! exec invowk cmd --from badmodule deploy
+stderr 'Source.*badmodule.*not found'
+
+# Test 12: Attempting ambiguous command without disambiguation should fail with suggestions
+! exec invowk cmd deploy
+stderr 'ambiguous'
+stderr '@invkfile'
+stderr '@foo'
+
+# =============================================================================
+# User Story 4: Subcommand Ambiguity Handling (T034)
+# =============================================================================
+
+# Test 13: Subcommand disambiguation with @source prefix - run "deploy staging" from invkfile
+exec invowk cmd @invkfile deploy staging
+stdout 'Deploying to staging from invkfile!'
+! stderr .
+
+# Test 14: Subcommand disambiguation with @source prefix - run "deploy staging" from bar module
+exec invowk cmd @bar deploy staging
+stdout 'Deploying to staging from bar!'
+! stderr .
+
+# Test 15: Subcommand disambiguation with --from flag
+exec invowk cmd --from invkfile deploy staging
+stdout 'Deploying to staging from invkfile!'
+! stderr .
+
+# Test 16: Subcommand disambiguation with --from flag for module
+exec invowk cmd --from bar deploy staging
+stdout 'Deploying to staging from bar!'
+! stderr .
+
+# Test 17: Attempting ambiguous subcommand without disambiguation should fail
+! exec invowk cmd deploy staging
+stderr 'ambiguous'
+stderr '@invkfile'
+stderr '@bar'
+
+# Test 18: Non-ambiguous subcommand (only in one source) should work without disambiguation
+exec invowk cmd deploy production
+stdout 'Deploying to production from bar!'
+! stderr .
+
+# Test 19: Ambiguity at parent level doesn't affect unambiguous subcommands
+# "deploy" is ambiguous but "deploy production" is unique to bar
+exec invowk cmd deploy production
+stdout 'Deploying to production from bar!'
+! stderr .
+
+# Test 20: Different subcommand paths are tracked separately for ambiguity
+# "deploy local" exists only in invkfile, should work without disambiguation
+exec invowk cmd deploy local
+stdout 'Deploying to local from invkfile!'
+! stderr .
+
+-- invkfile.cue --
+cmds: [
+	{
+		name:        "hello"
+		description: "Hello from root invkfile"
+		implementations: [
+			{
+				script:    "echo 'Hello from root!'"
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
+			},
+			{
+				script:    "Write-Output 'Hello from root!'"
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "windows"}]
+			},
+		]
+	},
+	{
+		name:        "deploy"
+		description: "Deploy from root invkfile"
+		implementations: [
+			{
+				script:    "echo 'Deploying from invkfile!'"
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
+			},
+			{
+				script:    "Write-Output 'Deploying from invkfile!'"
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "windows"}]
+			},
+		]
+	},
+	// Subcommands for User Story 4 testing
+	{
+		name:        "deploy staging"
+		description: "Deploy to staging from invkfile"
+		implementations: [
+			{
+				script:    "echo 'Deploying to staging from invkfile!'"
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
+			},
+			{
+				script:    "Write-Output 'Deploying to staging from invkfile!'"
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "windows"}]
+			},
+		]
+	},
+	{
+		name:        "deploy local"
+		description: "Deploy to local from invkfile (unique)"
+		implementations: [
+			{
+				script:    "echo 'Deploying to local from invkfile!'"
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
+			},
+			{
+				script:    "Write-Output 'Deploying to local from invkfile!'"
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "windows"}]
+			},
+		]
+	},
+]
+
+-- foo.invkmod/invkmod.cue --
+module: "foo"
+version: "1.0"
+description: "Foo module"
+
+-- foo.invkmod/invkfile.cue --
+cmds: [
+	{
+		name:        "build"
+		description: "Build from foo module"
+		implementations: [
+			{
+				script:    "echo 'Building from foo!'"
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
+			},
+			{
+				script:    "Write-Output 'Building from foo!'"
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "windows"}]
+			},
+		]
+	},
+	{
+		name:        "deploy"
+		description: "Deploy from foo module"
+		implementations: [
+			{
+				script:    "echo 'Deploying from foo!'"
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
+			},
+			{
+				script:    "Write-Output 'Deploying from foo!'"
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "windows"}]
+			},
+		]
+	},
+]
+
+-- bar.invkmod/invkmod.cue --
+module: "bar"
+version: "1.0"
+description: "Bar module for subcommand testing"
+
+-- bar.invkmod/invkfile.cue --
+cmds: [
+	// Subcommand "deploy staging" that conflicts with invkfile's "deploy staging"
+	{
+		name:        "deploy staging"
+		description: "Deploy to staging from bar module"
+		implementations: [
+			{
+				script:    "echo 'Deploying to staging from bar!'"
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
+			},
+			{
+				script:    "Write-Output 'Deploying to staging from bar!'"
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "windows"}]
+			},
+		]
+	},
+	// Unique subcommand "deploy production" - only exists in bar
+	{
+		name:        "deploy production"
+		description: "Deploy to production from bar module (unique)"
+		implementations: [
+			{
+				script:    "echo 'Deploying to production from bar!'"
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
+			},
+			{
+				script:    "Write-Output 'Deploying to production from bar!'"
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "windows"}]
+			},
+		]
+	},
+]

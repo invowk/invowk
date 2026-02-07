@@ -1,0 +1,233 @@
+# Test: Positional argument handling using native runtime
+# Mirrors virtual_args.txtar but with platform-split native implementations
+
+cd $WORK
+
+# Test 1: args simple - with required argument (should work)
+exec invowk cmd 'args simple' Alice
+stdout '=== Simple Positional Argument Demo ==='
+stdout 'INVOWK_ARG_NAME.*Alice'
+stdout 'Hello, Alice!'
+! stderr .
+
+# Test 2: args simple - missing required argument (should fail)
+! exec invowk cmd 'args simple'
+stderr 'Missing required arguments'
+stderr 'args simple'
+stderr 'name'
+stderr 'required'
+
+# Test 3: args optional - with only required argument
+exec invowk cmd 'args optional' Bob
+stdout '=== Required \+ Optional Arguments Demo ==='
+stdout 'INVOWK_ARG_NAME.*Bob'
+stdout 'INVOWK_ARG_GREETING.*Hello'
+! stderr .
+
+# Test 4: args optional - with both required and optional arguments
+exec invowk cmd 'args optional' Charlie Howdy
+stdout 'INVOWK_ARG_NAME.*Charlie'
+stdout 'INVOWK_ARG_GREETING.*Howdy'
+! stderr .
+
+# Test 5: args typed - with valid typed arguments (int, int, float)
+exec invowk cmd 'args typed' 800 600 1.5
+stdout '=== Typed Arguments Demo ==='
+stdout 'INVOWK_ARG_WIDTH.*800'
+stdout 'INVOWK_ARG_HEIGHT.*600'
+stdout 'INVOWK_ARG_SCALE.*1.5'
+! stderr .
+
+# Test 6: args typed - with invalid type (should fail)
+! exec invowk cmd 'args typed' not-a-number 600 1.5
+stderr 'Invalid argument value'
+stderr 'width'
+
+# Test 7: args validated - with valid values matching regex patterns
+# Note: version must be semver format X.Y.Z (no 'v' prefix)
+exec invowk cmd 'args validated' prod 1.2.3
+stdout '=== Validated Arguments Demo ==='
+stdout 'INVOWK_ARG_ENV.*prod'
+stdout 'INVOWK_ARG_VERSION.*1.2.3'
+! stderr .
+
+# Test 8: args validated - with invalid env value (should fail)
+! exec invowk cmd 'args validated' invalid-env 1.0.0
+stderr 'Invalid argument value'
+stderr 'env'
+
+# Test 9: args validated - with invalid version format (should fail)
+# 'v1.0.0' is invalid because the pattern requires X.Y.Z without the 'v' prefix
+! exec invowk cmd 'args validated' dev v1.0.0
+stderr 'Invalid argument value'
+stderr 'version'
+
+-- invkfile.cue --
+cmds: [
+	{
+		name:        "args simple"
+		description: "Command with a single required argument"
+		implementations: [
+			{
+				script: """
+					echo "=== Simple Positional Argument Demo ==="
+					echo ""
+					echo "You provided the following argument:"
+					echo "  INVOWK_ARG_NAME = '$INVOWK_ARG_NAME'"
+					echo ""
+					echo "Hello, $INVOWK_ARG_NAME!"
+					echo ""
+					echo "Try: invowk cmd examples args simple Alice"
+					"""
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
+			},
+			{
+				script: """
+					Write-Output "=== Simple Positional Argument Demo ==="
+					Write-Output ""
+					Write-Output "You provided the following argument:"
+					Write-Output "  INVOWK_ARG_NAME = '$($env:INVOWK_ARG_NAME)'"
+					Write-Output ""
+					Write-Output "Hello, $($env:INVOWK_ARG_NAME)!"
+					Write-Output ""
+					Write-Output "Try: invowk cmd examples args simple Alice"
+					"""
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "windows"}]
+			},
+		]
+		args: [
+			{name: "name", description: "The name to greet", required: true},
+		]
+	},
+	{
+		name:        "args optional"
+		description: "Command with required and optional arguments"
+		implementations: [
+			{
+				script: """
+					echo "=== Required + Optional Arguments Demo ==="
+					echo ""
+					echo "Arguments received:"
+					echo "  INVOWK_ARG_NAME = '$INVOWK_ARG_NAME' (required)"
+					echo "  INVOWK_ARG_GREETING = '$INVOWK_ARG_GREETING' (optional, default: Hello)"
+					echo ""
+					echo "$INVOWK_ARG_GREETING, $INVOWK_ARG_NAME!"
+					echo ""
+					echo "Try: invowk cmd examples args optional Alice"
+					echo "Try: invowk cmd examples args optional Alice 'Good morning'"
+					"""
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
+			},
+			{
+				script: """
+					Write-Output "=== Required + Optional Arguments Demo ==="
+					Write-Output ""
+					Write-Output "Arguments received:"
+					Write-Output "  INVOWK_ARG_NAME = '$($env:INVOWK_ARG_NAME)' (required)"
+					Write-Output "  INVOWK_ARG_GREETING = '$($env:INVOWK_ARG_GREETING)' (optional, default: Hello)"
+					Write-Output ""
+					Write-Output "$($env:INVOWK_ARG_GREETING), $($env:INVOWK_ARG_NAME)!"
+					Write-Output ""
+					Write-Output "Try: invowk cmd examples args optional Alice"
+					Write-Output "Try: invowk cmd examples args optional Alice 'Good morning'"
+					"""
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "windows"}]
+			},
+		]
+		args: [
+			{name: "name", description: "The name to greet", required: true},
+			{name: "greeting", description: "The greeting to use", default_value: "Hello"},
+		]
+	},
+	{
+		name:        "args typed"
+		description: "Command with typed positional arguments"
+		implementations: [
+			{
+				script: """
+					echo "=== Typed Arguments Demo ==="
+					echo ""
+					echo "Arguments received:"
+					echo "  INVOWK_ARG_WIDTH (int) = '$INVOWK_ARG_WIDTH'"
+					echo "  INVOWK_ARG_HEIGHT (int) = '$INVOWK_ARG_HEIGHT'"
+					echo "  INVOWK_ARG_SCALE (float) = '$INVOWK_ARG_SCALE'"
+					echo ""
+					echo "Typed arguments are validated at runtime:"
+					echo "  - int: only valid integers accepted"
+					echo "  - float: only valid floating-point numbers accepted"
+					echo ""
+					echo "Try: invowk cmd examples args typed 800 600 1.5"
+					"""
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
+			},
+			{
+				script: """
+					Write-Output "=== Typed Arguments Demo ==="
+					Write-Output ""
+					Write-Output "Arguments received:"
+					Write-Output "  INVOWK_ARG_WIDTH (int) = '$($env:INVOWK_ARG_WIDTH)'"
+					Write-Output "  INVOWK_ARG_HEIGHT (int) = '$($env:INVOWK_ARG_HEIGHT)'"
+					Write-Output "  INVOWK_ARG_SCALE (float) = '$($env:INVOWK_ARG_SCALE)'"
+					Write-Output ""
+					Write-Output "Typed arguments are validated at runtime:"
+					Write-Output "  - int: only valid integers accepted"
+					Write-Output "  - float: only valid floating-point numbers accepted"
+					Write-Output ""
+					Write-Output "Try: invowk cmd examples args typed 800 600 1.5"
+					"""
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "windows"}]
+			},
+		]
+		args: [
+			{name: "width", description: "Width in pixels", required: true, type: "int"},
+			{name: "height", description: "Height in pixels", required: true, type: "int"},
+			{name: "scale", description: "Scale factor", type: "float", default_value: "1.0"},
+		]
+	},
+	{
+		name:        "args validated"
+		description: "Command with regex-validated arguments"
+		implementations: [
+			{
+				script: """
+					echo "=== Validated Arguments Demo ==="
+					echo ""
+					echo "Arguments received:"
+					echo "  INVOWK_ARG_ENV = '$INVOWK_ARG_ENV' (must be dev|staging|prod)"
+					echo "  INVOWK_ARG_VERSION = '$INVOWK_ARG_VERSION' (must be semver format)"
+					echo ""
+					echo "Deploying version $INVOWK_ARG_VERSION to $INVOWK_ARG_ENV..."
+					echo ""
+					echo "Try: invowk cmd examples args validated staging 2.1.0"
+					"""
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
+			},
+			{
+				script: """
+					Write-Output "=== Validated Arguments Demo ==="
+					Write-Output ""
+					Write-Output "Arguments received:"
+					Write-Output "  INVOWK_ARG_ENV = '$($env:INVOWK_ARG_ENV)' (must be dev|staging|prod)"
+					Write-Output "  INVOWK_ARG_VERSION = '$($env:INVOWK_ARG_VERSION)' (must be semver format)"
+					Write-Output ""
+					Write-Output "Deploying version $($env:INVOWK_ARG_VERSION) to $($env:INVOWK_ARG_ENV)..."
+					Write-Output ""
+					Write-Output "Try: invowk cmd examples args validated staging 2.1.0"
+					"""
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "windows"}]
+			},
+		]
+		args: [
+			{name: "env", description: "Target environment (dev, staging, or prod)", required: true, validation: "^(dev|staging|prod)$"},
+			{name: "version", description: "Version to deploy (semver format)", required: true, validation: #"^[0-9]+\.[0-9]+\.[0-9]+$"#},
+		]
+	},
+]

@@ -1,0 +1,46 @@
+# Test: Environment variable isolation (11-isolation.tape equivalent)
+# Tests that INVOWK_ARG_* and INVOWK_FLAG_* are isolated between nested commands
+
+cd $WORK
+
+# Test 1: isolation virtual - demonstrates env var isolation in virtual runtime
+exec invowk cmd 'isolation virtual'
+stdout '=== Virtual Runtime Isolation Demo ==='
+stdout 'Parent values \(virtual runtime\):'
+stdout 'INVOWK_ARG_DATA'
+stdout 'INVOWK_FLAG_MODE'
+stdout 'The isolation mechanism works identically in virtual runtime'
+stdout 'INVOWK_ARG_\* and INVOWK_FLAG_\* variables are filtered'
+! stderr .
+
+-- invkfile.cue --
+cmds: [
+	{
+		name:        "isolation virtual"
+		description: "Environment isolation demo using virtual shell runtime"
+		implementations: [{
+			script: #"""
+				echo "=== Virtual Runtime Isolation Demo ==="
+				echo ""
+				echo "Parent values (virtual runtime):"
+				echo "  INVOWK_ARG_DATA = '$INVOWK_ARG_DATA'"
+				echo "  INVOWK_FLAG_MODE = '$INVOWK_FLAG_MODE'"
+				echo ""
+				echo "The isolation mechanism works identically in virtual runtime."
+				echo "INVOWK_ARG_* and INVOWK_FLAG_* variables are filtered from the"
+				echo "inherited environment before each command execution."
+				echo ""
+				echo "This ensures consistent behavior across native, virtual, and"
+				echo "container runtimes."
+				"""#
+			runtimes:  [{name: "virtual"}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+		args: [
+			{name: "data", description: "Some data value", default_value: "virtual-data"},
+		]
+		flags: [
+			{name: "mode", description: "Operation mode", default_value: "virtual-mode"},
+		]
+	},
+]

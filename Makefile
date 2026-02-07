@@ -130,7 +130,7 @@ test-integration:
 .PHONY: test-cli
 test-cli:
 	@echo "Running CLI integration tests..."
-	$(GOTEST) -v ./tests/cli/...
+	$(GOTEST) -v -race -timeout 5m ./tests/cli/...
 
 # Generate PGO profile from benchmarks (includes container tests)
 # This produces a CPU profile that Go 1.20+ uses for Profile-Guided Optimization.

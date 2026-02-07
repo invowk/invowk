@@ -178,6 +178,40 @@ go test -v ./internal/container/...
 go test -short ./...
 ```
 
+### PowerShell Script Testing in Testscript
+
+Native runtime tests (`native_*.txtar`) include PowerShell implementations for Windows. These tests exercise the native shell path through Invowk, where Invowk internally selects PowerShell as the native shell on Windows.
+
+**How native tests work in CI:**
+- The testscript runner itself uses the Go test runner (bash-based on all CI platforms)
+- The `exec invowk cmd ...` calls within testscript invoke Invowk, which internally selects the native shell per platform
+- On Windows CI: Invowk selects PowerShell to execute the command's script
+- The testscript `stdout`/`stderr` assertions verify the output regardless of which shell produced it
+
+**PowerShell version guidance:**
+- Scripts MUST be compatible with both PowerShell 5.1 (Windows built-in) and PowerShell 7+ (cross-platform)
+- Avoid PowerShell 7-only features (e.g., ternary operator `? :`, null-coalescing `??`, pipeline chain operators `&&`/`||`)
+- Use `Write-Output` instead of `echo` for explicit intent
+
+**Common PowerShell CI pitfalls:**
+
+| Pitfall | Symptom | Fix |
+|---------|---------|-----|
+| Using `$VAR` instead of `$env:VAR` | Empty value; PowerShell treats `$VAR` as PS variable | Always use `$env:VAR` for environment variables |
+| `\r\n` line endings in output | Extra blank lines or assertion mismatches | Testscript normalizes line endings; no action needed |
+| Using bash comparison syntax (`=`, `!=`) | PowerShell parse error | Use `-eq`, `-ne`, `-lt`, `-gt`, `-like`, `-match` |
+| Using `echo` for reliable output | Inconsistent behavior across PS versions | Use `Write-Output` for string output |
+| Relying on `set -e` behavior | PowerShell does not support `set -e` | Use `$ErrorActionPreference = 'Stop'` at script start |
+
+**Local testing on Windows:**
+```powershell
+# Run all CLI tests (includes native tests)
+make test-cli
+
+# Run a specific native test
+go test -v -run TestCLI/native_simple ./tests/cli/...
+```
+
 ## Common Pitfalls
 
 | Pitfall | Symptom | Fix |

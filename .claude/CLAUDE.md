@@ -84,7 +84,7 @@ When working in a specific code area, apply these rules and skills:
 | `internal/core/serverbase/` | go-patterns, testing, licensing | server |
 | `internal/benchmark/` | go-patterns, testing, licensing, commands | — |
 | `pkg/platform/` | go-patterns, testing, windows, licensing | — |
-| `tests/cli/` | testing | testing, cli |
+| `tests/cli/` | testing | testing, cli, invowk-schema |
 
 ## Architecture Overview
 

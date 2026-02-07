@@ -1,0 +1,286 @@
+# Test: Command flag handling using native runtime
+# Mirrors virtual_flags.txtar but with platform-split native implementations
+
+cd $WORK
+
+# Test 1: flags simple - basic flags without defaults
+exec invowk cmd 'flags simple'
+stdout '=== Simple Flags Demo ==='
+stdout 'Flags passed to this command are available as environment variables:'
+stdout 'INVOWK_FLAG_VERBOSE'
+stdout 'INVOWK_FLAG_OUTPUT'
+! stderr .
+
+# Test 2: flags defaults - flags with default values
+exec invowk cmd 'flags defaults'
+stdout '=== Flags with Defaults Demo ==='
+stdout 'These flags have default values if not specified:'
+stdout 'INVOWK_FLAG_ENV'
+stdout 'INVOWK_FLAG_RETRY_COUNT'
+stdout 'INVOWK_FLAG_DRY_RUN'
+! stderr .
+
+# Test 3: flags typed - typed flags (bool, int, float, string)
+exec invowk cmd 'flags typed'
+stdout '=== Typed Flags Demo ==='
+stdout 'These flags have explicit types:'
+stdout 'INVOWK_FLAG_VERBOSE \(bool\)'
+stdout 'INVOWK_FLAG_COUNT \(int\)'
+stdout 'INVOWK_FLAG_THRESHOLD \(float\)'
+stdout 'INVOWK_FLAG_MESSAGE \(string\)'
+! stderr .
+
+# Test 4: flags short - flags with short aliases
+# Note: Using -- to separate invowk flags from command flags
+exec invowk cmd 'flags short' -- -v
+stdout '=== Short Flag Aliases Demo ==='
+! stderr .
+
+# Test 5: flags validation - regex-validated flags
+# Note: Using -- to separate invowk flags from command flags
+exec invowk cmd 'flags validation' -- --env=staging
+stdout '=== Flag Validation Demo ==='
+stdout 'regex patterns'
+! stderr .
+
+-- invkfile.cue --
+cmds: [
+	{
+		name:        "flags simple"
+		description: "Command with simple flags"
+		implementations: [
+			{
+				script: """
+					echo "=== Simple Flags Demo ==="
+					echo ""
+					echo "Flags passed to this command are available as environment variables:"
+					echo "  INVOWK_FLAG_VERBOSE = '${INVOWK_FLAG_VERBOSE}'"
+					echo "  INVOWK_FLAG_OUTPUT = '${INVOWK_FLAG_OUTPUT}'"
+					echo ""
+					if [ -n "$INVOWK_FLAG_VERBOSE" ] && [ "$INVOWK_FLAG_VERBOSE" = "true" ]; then
+					    echo "[VERBOSE] Extra verbose information would appear here"
+					fi
+					if [ -n "$INVOWK_FLAG_OUTPUT" ]; then
+					    echo "[OUTPUT] Would write to: $INVOWK_FLAG_OUTPUT"
+					fi
+					echo ""
+					echo "Try: invowk cmd examples flags simple --verbose=true --output=/tmp/out.txt"
+					"""
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
+			},
+			{
+				script: """
+					Write-Output "=== Simple Flags Demo ==="
+					Write-Output ""
+					Write-Output "Flags passed to this command are available as environment variables:"
+					Write-Output "  INVOWK_FLAG_VERBOSE = '$($env:INVOWK_FLAG_VERBOSE)'"
+					Write-Output "  INVOWK_FLAG_OUTPUT = '$($env:INVOWK_FLAG_OUTPUT)'"
+					Write-Output ""
+					if ($env:INVOWK_FLAG_VERBOSE -eq 'true') {
+					    Write-Output "[VERBOSE] Extra verbose information would appear here"
+					}
+					if ($env:INVOWK_FLAG_OUTPUT) {
+					    Write-Output "[OUTPUT] Would write to: $($env:INVOWK_FLAG_OUTPUT)"
+					}
+					Write-Output ""
+					Write-Output "Try: invowk cmd examples flags simple --verbose=true --output=/tmp/out.txt"
+					"""
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "windows"}]
+			},
+		]
+		flags: [
+			{name: "verbose", description: "Enable verbose output"},
+			{name: "output", description: "Output file path"},
+		]
+	},
+	{
+		name:        "flags defaults"
+		description: "Command with flags that have default values"
+		implementations: [
+			{
+				script: """
+					echo "=== Flags with Defaults Demo ==="
+					echo ""
+					echo "These flags have default values if not specified:"
+					echo "  INVOWK_FLAG_ENV = '${INVOWK_FLAG_ENV}' (default: development)"
+					echo "  INVOWK_FLAG_RETRY_COUNT = '${INVOWK_FLAG_RETRY_COUNT}' (default: 3)"
+					echo "  INVOWK_FLAG_DRY_RUN = '${INVOWK_FLAG_DRY_RUN}' (default: false)"
+					echo ""
+					if [ "$INVOWK_FLAG_DRY_RUN" = "true" ]; then
+					    echo "[DRY-RUN MODE] Would deploy to '$INVOWK_FLAG_ENV' with $INVOWK_FLAG_RETRY_COUNT retries"
+					else
+					    echo "Deploying to '$INVOWK_FLAG_ENV' with $INVOWK_FLAG_RETRY_COUNT retries..."
+					fi
+					echo ""
+					echo "Try: invowk cmd examples flags defaults --env=production --dry-run=true"
+					"""
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
+			},
+			{
+				script: """
+					Write-Output "=== Flags with Defaults Demo ==="
+					Write-Output ""
+					Write-Output "These flags have default values if not specified:"
+					Write-Output "  INVOWK_FLAG_ENV = '$($env:INVOWK_FLAG_ENV)' (default: development)"
+					Write-Output "  INVOWK_FLAG_RETRY_COUNT = '$($env:INVOWK_FLAG_RETRY_COUNT)' (default: 3)"
+					Write-Output "  INVOWK_FLAG_DRY_RUN = '$($env:INVOWK_FLAG_DRY_RUN)' (default: false)"
+					Write-Output ""
+					if ($env:INVOWK_FLAG_DRY_RUN -eq 'true') {
+					    Write-Output "[DRY-RUN MODE] Would deploy to '$($env:INVOWK_FLAG_ENV)' with $($env:INVOWK_FLAG_RETRY_COUNT) retries"
+					} else {
+					    Write-Output "Deploying to '$($env:INVOWK_FLAG_ENV)' with $($env:INVOWK_FLAG_RETRY_COUNT) retries..."
+					}
+					Write-Output ""
+					Write-Output "Try: invowk cmd examples flags defaults --env=production --dry-run=true"
+					"""
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "windows"}]
+			},
+		]
+		flags: [
+			{name: "env", description: "Target environment", default_value: "development"},
+			{name: "retry-count", description: "Number of retries", default_value: "3"},
+			{name: "dry-run", description: "Perform a dry run without making changes", default_value: "false"},
+		]
+	},
+	{
+		name:        "flags typed"
+		description: "Command with typed flags (bool, int, float, string)"
+		implementations: [
+			{
+				script: """
+					echo "=== Typed Flags Demo ==="
+					echo ""
+					echo "These flags have explicit types:"
+					echo "  INVOWK_FLAG_VERBOSE (bool) = '$INVOWK_FLAG_VERBOSE'"
+					echo "  INVOWK_FLAG_COUNT (int) = '$INVOWK_FLAG_COUNT'"
+					echo "  INVOWK_FLAG_THRESHOLD (float) = '$INVOWK_FLAG_THRESHOLD'"
+					echo "  INVOWK_FLAG_MESSAGE (string) = '$INVOWK_FLAG_MESSAGE'"
+					echo ""
+					echo "Typed flags are validated:"
+					echo "  - bool: only 'true' or 'false' accepted"
+					echo "  - int: only valid integers accepted"
+					echo "  - float: only valid floating-point numbers accepted"
+					echo "  - string: any value accepted (default)"
+					echo ""
+					echo "Try: invowk cmd examples flags typed --verbose --count=5 --threshold=0.95 --message='Hello World'"
+					"""
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
+			},
+			{
+				script: """
+					Write-Output "=== Typed Flags Demo ==="
+					Write-Output ""
+					Write-Output "These flags have explicit types:"
+					Write-Output "  INVOWK_FLAG_VERBOSE (bool) = '$($env:INVOWK_FLAG_VERBOSE)'"
+					Write-Output "  INVOWK_FLAG_COUNT (int) = '$($env:INVOWK_FLAG_COUNT)'"
+					Write-Output "  INVOWK_FLAG_THRESHOLD (float) = '$($env:INVOWK_FLAG_THRESHOLD)'"
+					Write-Output "  INVOWK_FLAG_MESSAGE (string) = '$($env:INVOWK_FLAG_MESSAGE)'"
+					Write-Output ""
+					Write-Output "Typed flags are validated:"
+					Write-Output "  - bool: only 'true' or 'false' accepted"
+					Write-Output "  - int: only valid integers accepted"
+					Write-Output "  - float: only valid floating-point numbers accepted"
+					Write-Output "  - string: any value accepted (default)"
+					Write-Output ""
+					Write-Output "Try: invowk cmd examples flags typed --verbose --count=5 --threshold=0.95 --message='Hello World'"
+					"""
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "windows"}]
+			},
+		]
+		flags: [
+			{name: "verbose", description: "Enable verbose output", type: "bool", default_value: "false"},
+			{name: "count", description: "Number of iterations", type: "int", default_value: "1"},
+			{name: "threshold", description: "Confidence threshold", type: "float", default_value: "0.75"},
+			{name: "message", description: "Message to display", type: "string", default_value: "Hello"},
+		]
+	},
+	{
+		name:        "flags short"
+		description: "Command with short flag aliases"
+		implementations: [
+			{
+				script: """
+					echo "=== Short Flag Aliases Demo ==="
+					echo ""
+					echo "These flags have short aliases:"
+					echo "  -v / --verbose = '$INVOWK_FLAG_VERBOSE'"
+					echo "  -o / --output = '$INVOWK_FLAG_OUTPUT'"
+					echo "  -f / --force = '$INVOWK_FLAG_FORCE'"
+					echo ""
+					echo "Short aliases make command-line usage more convenient."
+					echo ""
+					echo "Try: invowk cmd examples flags short -v -o=/tmp/out.txt -f"
+					"""
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
+			},
+			{
+				script: """
+					Write-Output "=== Short Flag Aliases Demo ==="
+					Write-Output ""
+					Write-Output "These flags have short aliases:"
+					Write-Output "  -v / --verbose = '$($env:INVOWK_FLAG_VERBOSE)'"
+					Write-Output "  -o / --output = '$($env:INVOWK_FLAG_OUTPUT)'"
+					Write-Output "  -f / --force = '$($env:INVOWK_FLAG_FORCE)'"
+					Write-Output ""
+					Write-Output "Short aliases make command-line usage more convenient."
+					Write-Output ""
+					Write-Output "Try: invowk cmd examples flags short -v -o=/tmp/out.txt -f"
+					"""
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "windows"}]
+			},
+		]
+		flags: [
+			{name: "verbose", description: "Enable verbose output", type: "bool", short: "v", default_value: "false"},
+			{name: "output", description: "Output file path", short: "o"},
+			{name: "force", description: "Force overwrite", type: "bool", short: "f", default_value: "false"},
+		]
+	},
+	{
+		name:        "flags validation"
+		description: "Command with flags validated by regex patterns"
+		implementations: [
+			{
+				script: """
+					echo "=== Flag Validation Demo ==="
+					echo ""
+					echo "These flags are validated against regex patterns:"
+					echo "  --env (dev|staging|prod) = '$INVOWK_FLAG_ENV'"
+					echo "  --version (semver) = '$INVOWK_FLAG_VERSION'"
+					echo ""
+					echo "Invalid values will be rejected before the command runs."
+					echo ""
+					echo "Try: invowk cmd examples flags validation --env=staging --version=1.2.3"
+					"""
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
+			},
+			{
+				script: """
+					Write-Output "=== Flag Validation Demo ==="
+					Write-Output ""
+					Write-Output "These flags are validated against regex patterns:"
+					Write-Output "  --env (dev|staging|prod) = '$($env:INVOWK_FLAG_ENV)'"
+					Write-Output "  --version (semver) = '$($env:INVOWK_FLAG_VERSION)'"
+					Write-Output ""
+					Write-Output "Invalid values will be rejected before the command runs."
+					Write-Output ""
+					Write-Output "Try: invowk cmd examples flags validation --env=staging --version=1.2.3"
+					"""
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "windows"}]
+			},
+		]
+		flags: [
+			{name: "env", description: "Environment (dev, staging, or prod)", validation: "^(dev|staging|prod)$", default_value: "dev"},
+			{name: "version", description: "Version number (semver format)", validation: #"^[0-9]+\.[0-9]+\.[0-9]+$"#, default_value: "1.0.0"},
+		]
+	},
+]

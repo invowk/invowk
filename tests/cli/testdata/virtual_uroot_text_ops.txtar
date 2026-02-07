@@ -1,0 +1,84 @@
+# Test: U-root text processing utilities (head, tail, wc, grep, sort, uniq)
+# Tests the built-in u-root text utilities in virtual runtime
+
+cd $WORK
+
+# Test: Combined text operations
+exec invowk cmd 'uroot text ops'
+stdout '=== Testing head ==='
+stdout 'line 1'
+stdout 'line 3'
+stdout '=== Testing tail ==='
+stdout 'line 4'
+stdout 'line 5'
+stdout '=== Testing wc ==='
+stdout '5'
+stdout '=== Testing grep ==='
+stdout 'apple'
+stdout '=== Testing sort ==='
+stdout 'apple'
+stdout '=== Testing sort | uniq ==='
+stdout 'apple'
+stdout 'banana'
+stdout 'cherry'
+stdout '=== uroot text ops test complete ==='
+! stderr .
+
+-- invkfile.cue --
+cmds: [
+	{
+		name:        "uroot text ops"
+		description: "Test u-root text processing operations"
+		implementations: [{
+			script: """
+				# Setup test files
+				mkdir -p /tmp/invowk-uroot-textops
+
+				# Create test file with lines
+				echo 'line 1' > /tmp/invowk-uroot-textops/lines.txt
+				echo 'line 2' >> /tmp/invowk-uroot-textops/lines.txt
+				echo 'line 3' >> /tmp/invowk-uroot-textops/lines.txt
+				echo 'line 4' >> /tmp/invowk-uroot-textops/lines.txt
+				echo 'line 5' >> /tmp/invowk-uroot-textops/lines.txt
+
+				# Create test file with fruits
+				echo 'cherry' > /tmp/invowk-uroot-textops/fruits.txt
+				echo 'apple' >> /tmp/invowk-uroot-textops/fruits.txt
+				echo 'banana' >> /tmp/invowk-uroot-textops/fruits.txt
+				echo 'apple' >> /tmp/invowk-uroot-textops/fruits.txt
+				echo 'cherry' >> /tmp/invowk-uroot-textops/fruits.txt
+
+				# Test head
+				echo '=== Testing head ==='
+				head -n 3 /tmp/invowk-uroot-textops/lines.txt
+
+				# Test tail
+				echo '=== Testing tail ==='
+				tail -n 2 /tmp/invowk-uroot-textops/lines.txt
+
+				# Test wc
+				echo '=== Testing wc ==='
+				wc -l /tmp/invowk-uroot-textops/lines.txt
+
+				# Test grep
+				echo '=== Testing grep ==='
+				grep apple /tmp/invowk-uroot-textops/fruits.txt
+
+				# Test sort
+				echo '=== Testing sort ==='
+				sort /tmp/invowk-uroot-textops/fruits.txt
+
+				# Test sort | uniq
+				echo '=== Testing sort | uniq ==='
+				sort /tmp/invowk-uroot-textops/fruits.txt | uniq
+
+				# Cleanup
+				rm -rf /tmp/invowk-uroot-textops
+
+				echo '=== uroot text ops test complete ==='
+				"""
+			runtimes: [{name: "virtual"}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+	},
+]

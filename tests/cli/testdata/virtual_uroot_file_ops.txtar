@@ -1,0 +1,46 @@
+# Test: U-root file operations (cp, mv)
+# Tests the cp and mv utilities from u-root in virtual runtime
+
+cd $WORK
+
+# Test 1: File operations with cp and mv
+exec invowk cmd 'uroot file ops'
+stdout '=== Testing cp ==='
+stdout 'Original content'
+stdout '=== Testing mv ==='
+stdout 'Moved file:'
+stdout '=== Final directory listing ==='
+stdout 'source.txt'
+stdout 'moved.txt'
+stdout '=== uroot file ops test complete ==='
+! stderr .
+
+-- invkfile.cue --
+cmds: [
+	{
+		name:        "uroot file ops"
+		description: "Test u-root file copy and move operations"
+		implementations: [{
+			script: """
+				mkdir -p /tmp/invowk-uroot-fileops
+				echo 'Original content' > /tmp/invowk-uroot-fileops/source.txt
+				echo '=== Testing cp ==='
+				cp /tmp/invowk-uroot-fileops/source.txt /tmp/invowk-uroot-fileops/copy.txt
+				echo 'Source after cp:'
+				cat /tmp/invowk-uroot-fileops/source.txt
+				echo 'Copy:'
+				cat /tmp/invowk-uroot-fileops/copy.txt
+				echo '=== Testing mv ==='
+				mv /tmp/invowk-uroot-fileops/copy.txt /tmp/invowk-uroot-fileops/moved.txt
+				echo 'Moved file:'
+				cat /tmp/invowk-uroot-fileops/moved.txt
+				echo '=== Final directory listing ==='
+				ls /tmp/invowk-uroot-fileops
+				rm -rf /tmp/invowk-uroot-fileops
+				echo '=== uroot file ops test complete ==='
+				"""
+			runtimes: [{name: "virtual"}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+	},
+]

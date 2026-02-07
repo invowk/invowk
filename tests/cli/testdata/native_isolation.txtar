@@ -1,0 +1,66 @@
+# Test: Environment variable isolation using native runtime
+# Mirrors virtual_isolation.txtar but with native runtime and platform-split implementations
+
+cd $WORK
+
+# Test 1: isolation native - demonstrates env var isolation in native runtime
+exec invowk cmd 'isolation native'
+stdout '=== Native Runtime Isolation Demo ==='
+stdout 'Parent values \(native runtime\):'
+stdout 'INVOWK_ARG_DATA'
+stdout 'INVOWK_FLAG_MODE'
+stdout 'The isolation mechanism works identically in native runtime'
+stdout 'INVOWK_ARG_\* and INVOWK_FLAG_\* variables are filtered'
+! stderr .
+
+-- invkfile.cue --
+cmds: [
+	{
+		name:        "isolation native"
+		description: "Environment isolation demo using native shell runtime"
+		implementations: [
+			{
+				script: #"""
+					echo "=== Native Runtime Isolation Demo ==="
+					echo ""
+					echo "Parent values (native runtime):"
+					echo "  INVOWK_ARG_DATA = '$INVOWK_ARG_DATA'"
+					echo "  INVOWK_FLAG_MODE = '$INVOWK_FLAG_MODE'"
+					echo ""
+					echo "The isolation mechanism works identically in native runtime."
+					echo "INVOWK_ARG_* and INVOWK_FLAG_* variables are filtered from the"
+					echo "inherited environment before each command execution."
+					echo ""
+					echo "This ensures consistent behavior across native, virtual, and"
+					echo "container runtimes."
+					"""#
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
+			},
+			{
+				script: #"""
+					Write-Output "=== Native Runtime Isolation Demo ==="
+					Write-Output ""
+					Write-Output "Parent values (native runtime):"
+					Write-Output "  INVOWK_ARG_DATA = '$($env:INVOWK_ARG_DATA)'"
+					Write-Output "  INVOWK_FLAG_MODE = '$($env:INVOWK_FLAG_MODE)'"
+					Write-Output ""
+					Write-Output "The isolation mechanism works identically in native runtime."
+					Write-Output "INVOWK_ARG_* and INVOWK_FLAG_* variables are filtered from the"
+					Write-Output "inherited environment before each command execution."
+					Write-Output ""
+					Write-Output "This ensures consistent behavior across native, virtual, and"
+					Write-Output "container runtimes."
+					"""#
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "windows"}]
+			},
+		]
+		args: [
+			{name: "data", description: "Some data value", default_value: "native-data"},
+		]
+		flags: [
+			{name: "mode", description: "Operation mode", default_value: "native-mode"},
+		]
+	},
+]

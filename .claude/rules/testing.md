@@ -274,6 +274,137 @@ import (
 )
 ```
 
+## Cross-Platform Test Coverage Requirements
+
+### Mandatory Platform Coverage
+
+**CRITICAL**: All user-facing features MUST be tested on Linux, macOS, AND Windows.
+
+The CI pipeline tests on three platform tiers:
+- **Linux (Ubuntu)**: Full test suite (unit + integration + CLI + container)
+- **macOS**: Unit tests (short) + CLI integration tests
+- **Windows**: Unit tests (short) + CLI integration tests
+
+### Runtime Coverage Requirements
+
+Each test file exercises a specific runtime path through the system:
+
+| Runtime | Linux Shell | macOS Shell | Windows Shell | When Used |
+|---------|-------------|-------------|---------------|-----------|
+| **virtual** | mvdan/sh | mvdan/sh | mvdan/sh | Cross-platform POSIX scripts (default for feature tests) |
+| **native** | bash | zsh | PowerShell | Platform-specific shell integration |
+| **container** | /bin/sh (in container) | N/A | N/A | Linux-only container execution |
+
+**What native runtime tests catch that virtual tests miss:**
+- Shell-specific quoting/escaping differences (bash vs zsh vs PowerShell)
+- Environment variable expansion syntax (`$VAR` vs `$env:VAR`)
+- Platform-specific command availability and behavior
+- Real shell startup behavior (profile loading, PATH resolution)
+- PowerShell-specific gotchas (cmdlet aliases, object pipeline, encoding)
+
+### Full Feature Mirror Requirement
+
+**CRITICAL**: Every feature-level testscript file that uses the virtual runtime MUST have a corresponding native runtime mirror that tests the same behaviors using native shell implementations.
+
+The pattern is:
+- `virtual_<feature>.txtar` — Tests with `runtimes: [{name: "virtual"}]`, all platforms
+- `native_<feature>.txtar` — Tests with `runtimes: [{name: "native"}]`, platform-split CUE (bash for Linux/macOS, PowerShell for Windows)
+
+This ensures that features work correctly through both the virtual shell (mvdan/sh) and each platform's native shell.
+
+### Exemptions from the Feature Mirror
+
+| Test Category | Files | Reason |
+|---------------|-------|--------|
+| **u-root** | `virtual_uroot_basic.txtar`, `virtual_uroot_file_ops.txtar`, `virtual_uroot_text_ops.txtar` | u-root commands are virtual shell built-ins; native shell has its own implementations |
+| **virtual shell** | `virtual_shell.txtar` | Tests virtual-shell-specific features (u-root integration, cross-platform POSIX semantics) |
+| **container** | `container_*.txtar` | Linux-only by design; container runtime is not a native shell |
+| **CUE validation** | `virtual_edge_cases.txtar`, `virtual_args_subcommand_conflict.txtar` | Tests schema parsing and validation, not runtime behavior |
+| **discovery/ambiguity** | `virtual_ambiguity.txtar`, `virtual_disambiguation.txtar`, `virtual_multi_source.txtar` | Tests command resolution logic, not shell execution |
+| **dogfooding** | `dogfooding_invkfile.txtar` | Already exercises native runtime through the project's own invkfile.cue |
+
+### Testscript (.txtar) Test Strategy
+
+**Preferred: Inline CUE** — All new testscript tests MUST use inline CUE:
+
+````txtar
+cd $WORK
+
+exec invowk cmd hello
+stdout 'Hello!'
+
+-- invkfile.cue --
+cmds: [{
+    name: "hello"
+    description: "Test command"
+    implementations: [{
+        script: "echo 'Hello!'"
+        runtimes: [{name: "virtual"}]
+        platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+    }]
+}]
+````
+
+**Why inline CUE over referencing project invkfile.cue:**
+- Self-contained: test is readable without cross-referencing
+- Cross-platform: can declare all platforms using virtual runtime
+- Isolated: changes to project invkfile.cue don't break feature tests
+- Portable: runs on all CI platforms without platform skips
+
+**Exception: Dogfooding tests** in `tests/cli/testdata/dogfooding_*.txtar` MAY reference `$PROJECT_ROOT` to validate the actual project configuration.
+
+### Native Runtime Tests
+
+Native runtime tests use platform-split CUE with separate implementations for Unix shells (bash/zsh) and Windows PowerShell:
+
+````cue
+implementations: [
+    {
+        script: """
+            echo "Hello from native shell"
+            echo "VAR=$MY_VAR"
+            """
+        runtimes:  [{name: "native"}]
+        platforms: [{name: "linux"}, {name: "macos"}]
+    },
+    {
+        script: """
+            Write-Output "Hello from native shell"
+            Write-Output "VAR=$($env:MY_VAR)"
+            """
+        runtimes:  [{name: "native"}]
+        platforms: [{name: "windows"}]
+    },
+]
+````
+
+**Key design rules for native tests:**
+
+1. **Always platform-split**: Every native command needs separate Linux/macOS and Windows implementations. Bash syntax fails in PowerShell and vice versa.
+2. **Same assertions**: The `stdout` assertions in the txtar file must be identical for all platforms — only the script syntax differs, not the output.
+3. **Use `Write-Output` on Windows**: Prefer `Write-Output` over `echo` in PowerShell implementations for consistent behavior.
+4. **Use `$env:VAR` on Windows**: PowerShell accesses environment variables via `$env:VAR`, not `$VAR`.
+5. **No virtual fallback**: Native tests declare `runtimes: [{name: "native"}]` only — adding a virtual fallback would defeat the purpose of testing native shell behavior.
+
+### Platform Skip Policy
+
+**Allowed platform skips** (document the design constraint):
+- `[!container-available] skip` — Container tests (Linux-only by design)
+- `[!net] skip` — Tests requiring network connectivity
+- `[in-sandbox] skip` — Tests incompatible with Flatpak/Snap sandboxes
+
+**NOT allowed** (fix the implementation instead):
+- `[windows] skip 'command only has linux/macos implementations'`
+- `[macos] skip 'not implemented'`
+
+### When Adding New Commands
+
+1. All implementations MUST declare all applicable platforms
+2. Use virtual runtime for cross-platform portability
+3. Create both `virtual_<feature>.txtar` (all platforms) and `native_<feature>.txtar` (platform-split CUE for bash on Linux/macOS and PowerShell on Windows) mirrors
+4. Add testscript test with inline CUE covering all platforms
+5. Container runtime commands are exempt (Linux-only by design)
+
 ## Test Helpers
 
 ### Cleanup with t.TempDir()

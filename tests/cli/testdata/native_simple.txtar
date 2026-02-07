@@ -1,0 +1,86 @@
+# Test: Basic command execution using native runtime
+# Mirrors virtual_simple.txtar but with platform-split native implementations
+
+cd $WORK
+
+# Test 1: hello command - simplest possible invowk command
+exec invowk cmd hello
+stdout 'Hello from invowk!'
+! stderr .
+
+# Test 2: env hierarchy - demonstrates environment variable precedence
+exec invowk cmd 'env hierarchy'
+stdout '=== Environment Variable Hierarchy ==='
+stdout 'APP_ENV: development'
+stdout 'LOG_LEVEL: debug'
+stdout 'RUNTIME: native'
+! stderr .
+
+-- invkfile.cue --
+env: {
+	vars: {
+		APP_ENV:   "development"
+		LOG_LEVEL: "info"
+	}
+}
+
+cmds: [
+	{
+		name:        "hello"
+		description: "Print a simple greeting"
+		implementations: [
+			{
+				script:    "echo 'Hello from invowk!'"
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
+			},
+			{
+				script:    "Write-Output 'Hello from invowk!'"
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "windows"}]
+			},
+		]
+	},
+	{
+		name:        "env hierarchy"
+		description: "Demonstrate environment variable precedence across levels"
+		implementations: [
+			{
+				script: """
+					echo "=== Environment Variable Hierarchy ==="
+					echo "APP_ENV: $APP_ENV (from root-level, not overridden)"
+					echo "LOG_LEVEL: $LOG_LEVEL (from command-level, overrides root)"
+					echo "RUNTIME: $RUNTIME (from implementation-level, overrides command)"
+					"""
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
+				env: {
+					vars: {
+						RUNTIME: "native"
+					}
+				}
+			},
+			{
+				script: """
+					Write-Output "=== Environment Variable Hierarchy ==="
+					Write-Output "APP_ENV: $($env:APP_ENV) (from root-level, not overridden)"
+					Write-Output "LOG_LEVEL: $($env:LOG_LEVEL) (from command-level, overrides root)"
+					Write-Output "RUNTIME: $($env:RUNTIME) (from implementation-level, overrides command)"
+					"""
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "windows"}]
+				env: {
+					vars: {
+						RUNTIME: "native"
+					}
+				}
+			},
+		]
+		env: {
+			vars: {
+				LOG_LEVEL: "debug"
+				RUNTIME:   "unknown"
+			}
+		}
+	},
+]

@@ -130,6 +130,35 @@ implementations: [
 - Commands with `runtimes: [{name: "native"}]` only and `platforms: [{name: "linux"}, {name: "macos"}]` (Linux/macOS only)
 - Commands with PowerShell scripts intended for Windows
 
+**Native-only platform-split pattern (for testing):**
+
+When writing native runtime mirror tests (`native_*.txtar`), use native-only implementations without a virtual fallback:
+
+```cue
+implementations: [
+    {
+        script: """
+            echo "Hello from native shell"
+            echo "VAR=$MY_VAR"
+            """
+        runtimes:  [{name: "native"}]
+        platforms: [{name: "linux"}, {name: "macos"}]
+    },
+    {
+        script: """
+            Write-Output "Hello from native shell"
+            Write-Output "VAR=$($env:MY_VAR)"
+            """
+        runtimes:  [{name: "native"}]
+        platforms: [{name: "windows"}]
+    },
+]
+```
+
+**When to use native-only vs native+virtual:**
+- **Native-only** (`runtimes: [{name: "native"}]`): For test files that specifically validate native shell behavior on each platform. Used in `native_*.txtar` mirror tests.
+- **Native+virtual** (`runtimes: [{name: "native"}, {name: "virtual"}]`): For production commands that prefer native shell but fall back to virtual shell. Requires the standard platform-split pattern (see above) to avoid PowerShell parsing bash syntax on Windows.
+
 ## Invkmod Modules
 
 ### Samples (`modules/` directory)

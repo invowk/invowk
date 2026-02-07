@@ -304,21 +304,218 @@ exec invowk cmd 'flags validation' --env=staging
 exec invowk cmd 'flags validation' -- --env=staging
 ```
 
+### Cross-Platform Testscript Patterns
+
+**All testscript tests must support Linux, macOS, and Windows** unless platform-specific by design.
+
+**Standard cross-platform command pattern:**
+```cue
+cmds: [{
+    name: "test-cmd"
+    description: "Description"
+    implementations: [{
+        script: "echo 'output'"
+        runtimes: [{name: "virtual"}]
+        platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+    }]
+}]
+```
+
+**Linux-only container command pattern:**
+```cue
+cmds: [{
+    name: "test-cmd"
+    description: "Description"
+    implementations: [{
+        script: "echo 'output'"
+        runtimes: [{name: "container", image: "debian:stable-slim"}]
+        platforms: [{name: "linux"}]
+    }]
+}]
+```
+
+**Native-only platform-split pattern** (for `native_*.txtar` mirror tests):
+
+Basic hello (native-only, platform-split):
+```cue
+implementations: [
+    {
+        script:    "echo 'Hello from invowk!'"
+        runtimes:  [{name: "native"}]
+        platforms: [{name: "linux"}, {name: "macos"}]
+    },
+    {
+        script:    "Write-Output 'Hello from invowk!'"
+        runtimes:  [{name: "native"}]
+        platforms: [{name: "windows"}]
+    },
+]
+```
+
+Env vars access (native with `$env:VAR` for Windows):
+```cue
+implementations: [
+    {
+        script: """
+            echo "APP_ENV: $APP_ENV"
+            echo "LOG_LEVEL: $LOG_LEVEL"
+            """
+        runtimes:  [{name: "native"}]
+        platforms: [{name: "linux"}, {name: "macos"}]
+        env: { vars: { LOG_LEVEL: "debug" } }
+    },
+    {
+        script: """
+            Write-Output "APP_ENV: $($env:APP_ENV)"
+            Write-Output "LOG_LEVEL: $($env:LOG_LEVEL)"
+            """
+        runtimes:  [{name: "native"}]
+        platforms: [{name: "windows"}]
+        env: { vars: { LOG_LEVEL: "debug" } }
+    },
+]
+```
+
+Flags/args (native with `$env:INVOWK_ARG_NAME` for Windows):
+```cue
+implementations: [
+    {
+        script: """
+            echo "Name: $INVOWK_ARG_NAME"
+            echo "Env: $INVOWK_FLAG_ENV"
+            """
+        runtimes:  [{name: "native"}]
+        platforms: [{name: "linux"}, {name: "macos"}]
+    },
+    {
+        script: """
+            Write-Output "Name: $($env:INVOWK_ARG_NAME)"
+            Write-Output "Env: $($env:INVOWK_FLAG_ENV)"
+            """
+        runtimes:  [{name: "native"}]
+        platforms: [{name: "windows"}]
+    },
+]
+```
+
+Conditionals (native with `if`/`else` for each shell):
+```cue
+implementations: [
+    {
+        script: """
+            if [ "$INVOWK_FLAG_VERBOSE" = "true" ]; then
+                echo "Verbose mode ON"
+            else
+                echo "Verbose mode OFF"
+            fi
+            """
+        runtimes:  [{name: "native"}]
+        platforms: [{name: "linux"}, {name: "macos"}]
+    },
+    {
+        script: """
+            if ($env:INVOWK_FLAG_VERBOSE -eq 'true') {
+                Write-Output 'Verbose mode ON'
+            } else {
+                Write-Output 'Verbose mode OFF'
+            }
+            """
+        runtimes:  [{name: "native"}]
+        platforms: [{name: "windows"}]
+    },
+]
+```
+
+### PowerShell Equivalents Reference
+
+When writing native test mirrors for Windows, use these translations:
+
+**Output and Variables:**
+
+| Bash/Zsh | PowerShell | Notes |
+|----------|------------|-------|
+| `echo "text"` | `Write-Output "text"` | `echo` is an alias but `Write-Output` is explicit |
+| `echo -n "text"` | `Write-Host -NoNewline "text"` | No trailing newline |
+| `$VAR` | `$env:VAR` | Environment variable access |
+| `$($VAR)` | `$($env:VAR)` | Embedded in double-quoted strings |
+| `export VAR=val` | `$env:VAR = 'val'` | Set environment variable |
+
+**Conditionals:**
+
+| Bash/Zsh | PowerShell | Notes |
+|----------|------------|-------|
+| `if [ "$V" = "x" ]; then ... fi` | `if ($env:V -eq 'x') { ... }` | String equality |
+| `if [ -n "$V" ]; then ...` | `if ($env:V) { ... }` | Non-empty check |
+| `if [ -z "$V" ]; then ...` | `if (-not $env:V) { ... }` | Empty check |
+| `if [ "$A" != "$B" ]; then ...` | `if ($env:A -ne $env:B) { ... }` | Inequality |
+
+**Loops and Flow Control:**
+
+| Bash/Zsh | PowerShell | Notes |
+|----------|------------|-------|
+| `for x in a b c; do ... done` | `foreach ($x in @('a','b','c')) { ... }` | Iteration |
+| `exit 1` | `exit 1` | Same syntax |
+| `set -e` | `$ErrorActionPreference = 'Stop'` | Fail on error |
+
+**String Operations:**
+
+| Bash/Zsh | PowerShell | Notes |
+|----------|------------|-------|
+| `${VAR:-default}` | `if ($env:VAR) { $env:VAR } else { 'default' }` | Default value |
+| `${VAR^^}` | `$env:VAR.ToUpper()` | Uppercase |
+| `${VAR,,}` | `$env:VAR.ToLower()` | Lowercase |
+
+**Invowk-Specific Patterns:**
+
+| Pattern | Bash/Zsh | PowerShell |
+|---------|----------|------------|
+| Flag check | `echo "flag: $INVOWK_FLAG_NAME"` | `Write-Output "flag: $($env:INVOWK_FLAG_NAME)"` |
+| Arg access | `echo "arg: $INVOWK_ARG_NAME"` | `Write-Output "arg: $($env:INVOWK_ARG_NAME)"` |
+| Variadic args | `echo "args: $INVOWK_ARGS"` | `Write-Output "args: $($env:INVOWK_ARGS)"` |
+
+**Key PowerShell gotchas:**
+
+1. **`$VAR` vs `$env:VAR`**: In PowerShell, `$VAR` is a PowerShell variable, `$env:VAR` is an environment variable. Invowk sets environment variables, so always use `$env:`.
+2. **Interpolation in strings**: Use `$()` subexpression syntax inside double-quoted strings: `"Value: $($env:MY_VAR)"`.
+3. **Line endings**: PowerShell on Windows may produce `\r\n`. Testscript normalizes line endings, so `stdout` assertions work cross-platform.
+4. **Boolean comparisons**: PowerShell uses `-eq`, `-ne`, `-lt`, `-gt` operators, not `=`, `!=`, `<`, `>`.
+5. **Semicolons as statement separators**: PowerShell uses newlines or `;` as statement separators, not `&&` or `||` (use `-and`/`-or` in conditionals).
+
 ### Current Test Files
 
-| File | Description |
-|------|-------------|
-| `simple.txtar` | Basic hello + env hierarchy |
-| `virtual.txtar` | Virtual shell runtime |
-| `deps_tools.txtar` | Tool dependency checks |
-| `deps_files.txtar` | File dependency checks |
-| `deps_caps.txtar` | Capability checks |
-| `deps_custom.txtar` | Custom validation |
-| `deps_env.txtar` | Environment dependencies |
-| `flags.txtar` | Command flags |
-| `args.txtar` | Positional arguments |
-| `env.txtar` | Environment configuration |
-| `isolation.txtar` | Variable isolation |
+| File | Runtime | Description | Strategy |
+|------|---------|-------------|----------|
+| `virtual_simple.txtar` | virtual | Basic hello + env hierarchy | Inline CUE, all platforms |
+| `native_simple.txtar` | native | Native mirror of virtual_simple.txtar | Inline CUE, platform-split |
+| `virtual_shell.txtar` | virtual | Virtual shell runtime tests | Inline CUE, all platforms |
+| `virtual_flags.txtar` | virtual | Command flags | Inline CUE, all platforms |
+| `native_flags.txtar` | native | Native mirror of virtual_flags.txtar | Inline CUE, platform-split |
+| `virtual_args.txtar` | virtual | Positional arguments | Inline CUE, all platforms |
+| `native_args.txtar` | native | Native mirror of virtual_args.txtar | Inline CUE, platform-split |
+| `virtual_env.txtar` | virtual | Environment configuration | Inline CUE, all platforms |
+| `native_env.txtar` | native | Native mirror of virtual_env.txtar | Inline CUE, platform-split |
+| `virtual_isolation.txtar` | virtual | Variable isolation | Inline CUE, all platforms |
+| `native_isolation.txtar` | native | Native mirror of virtual_isolation.txtar | Inline CUE, platform-split |
+| `virtual_deps_tools.txtar` | virtual | Tool dependency checks | Inline CUE, all platforms |
+| `native_deps_tools.txtar` | native | Native mirror of virtual_deps_tools.txtar | Inline CUE, platform-split |
+| `virtual_deps_files.txtar` | virtual | File dependency checks | Inline CUE, all platforms |
+| `native_deps_files.txtar` | native | Native mirror of virtual_deps_files.txtar | Inline CUE, platform-split |
+| `virtual_deps_env.txtar` | virtual | Environment dependencies | Inline CUE, all platforms |
+| `native_deps_env.txtar` | native | Native mirror of virtual_deps_env.txtar | Inline CUE, platform-split |
+| `virtual_deps_caps.txtar` | virtual | Capability checks | Inline CUE, all platforms |
+| `native_deps_caps.txtar` | native | Native mirror of virtual_deps_caps.txtar | Inline CUE, platform-split |
+| `virtual_deps_custom.txtar` | virtual | Custom validation | Inline CUE, all platforms |
+| `native_deps_custom.txtar` | native | Native mirror of virtual_deps_custom.txtar | Inline CUE, platform-split |
+| `virtual_uroot_basic.txtar` | virtual | U-root basic utilities (exempt) | Inline CUE, all platforms |
+| `virtual_uroot_file_ops.txtar` | virtual | U-root file operations (exempt) | Inline CUE, all platforms |
+| `virtual_uroot_text_ops.txtar` | virtual | U-root text processing (exempt) | Inline CUE, all platforms |
+| `virtual_multi_source.txtar` | virtual | Multi-source discovery (exempt) | Inline CUE, all platforms |
+| `virtual_ambiguity.txtar` | virtual | Ambiguous command detection (exempt) | Inline CUE, all platforms |
+| `virtual_disambiguation.txtar` | virtual | Disambiguation prompt (exempt) | Inline CUE, all platforms |
+| `virtual_edge_cases.txtar` | virtual | Edge case handling (exempt) | Inline CUE, all platforms |
+| `virtual_args_subcommand_conflict.txtar` | virtual | Args+subcommand conflict (exempt) | Inline CUE, all platforms |
+| `dogfooding_invkfile.txtar` | native | Project invkfile smoke test (exempt) | `$PROJECT_ROOT` (dogfooding) |
+| `container_*.txtar` | container | Container runtime tests (exempt) | Inline CUE, Linux only |
 
 ### When to Add CLI Tests
 
@@ -327,6 +524,21 @@ Add CLI tests when:
 - Changing command output format
 - Modifying flag/argument handling
 - Testing environment variable behavior
+
+**Native mirror creation checklist:**
+1. Create `virtual_<feature>.txtar` with virtual runtime (all platforms)
+2. Create `native_<feature>.txtar` with native runtime (platform-split)
+3. Verify both files produce identical `stdout` assertions
+4. Ensure Windows PowerShell implementations use `$env:VAR` and `Write-Output`
+5. Run `make test-cli` to validate both virtual and native tests pass
+
+**Exempt from native mirrors** (do NOT create `native_` versions for):
+- `virtual_uroot_*.txtar` — u-root commands are virtual shell built-ins
+- `virtual_shell.txtar` — tests virtual shell-specific behavior
+- `container_*.txtar` — Linux-only container runtime
+- `virtual_ambiguity.txtar`, `virtual_disambiguation.txtar`, `virtual_multi_source.txtar` — command resolution logic
+- `virtual_edge_cases.txtar`, `virtual_args_subcommand_conflict.txtar` — CUE schema validation
+- `dogfooding_invkfile.txtar` — already exercises native runtime
 
 ## VHS Demo Recordings
 

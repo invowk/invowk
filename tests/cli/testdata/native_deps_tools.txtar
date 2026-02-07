@@ -1,0 +1,106 @@
+# Test: Tool dependency checks using native runtime
+# Mirrors virtual_deps_tools.txtar but with platform-split native implementations
+
+cd $WORK
+
+# Test 1: deps tool single - requires a single tool (sh)
+exec invowk cmd 'deps tool single'
+stdout 'sh is available!'
+! stderr .
+
+# Test 2: deps tool alternatives - requires any of: podman, docker, nerdctl
+# Note: This may fail if no container runtime is installed, which is acceptable
+[!exec:docker] [!exec:podman] skip 'no container runtime available'
+exec invowk cmd 'deps tool alternatives'
+stdout 'Container runtime check passed!'
+stdout 'At least one of podman/docker/nerdctl is available'
+! stderr .
+
+# Test 3: deps tools mixed - multiple tool dependencies with mixed alternatives
+exec invowk cmd 'deps tools mixed'
+stdout 'All tool dependencies satisfied!'
+stdout 'sh is available'
+stdout 'Either cat or type is available'
+! stderr .
+
+-- invkfile.cue --
+cmds: [
+	{
+		name:        "deps tool single"
+		description: "Command requiring a single tool (sh)"
+		implementations: [
+			{
+				script:    "echo 'sh is available!'"
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
+			},
+			{
+				script:    "Write-Output 'sh is available!'"
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "windows"}]
+			},
+		]
+		depends_on: {
+			tools: [
+				{alternatives: ["sh"]},
+			]
+		}
+	},
+	{
+		name:        "deps tool alternatives"
+		description: "Command requiring any of: podman, docker, or nerdctl"
+		implementations: [
+			{
+				script: """
+					echo "Container runtime check passed!"
+					echo "At least one of podman/docker/nerdctl is available."
+					"""
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
+			},
+			{
+				script: """
+					Write-Output "Container runtime check passed!"
+					Write-Output "At least one of podman/docker/nerdctl is available."
+					"""
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "windows"}]
+			},
+		]
+		depends_on: {
+			tools: [
+				{alternatives: ["podman", "docker", "nerdctl"]},
+			]
+		}
+	},
+	{
+		name:        "deps tools mixed"
+		description: "Command with multiple tool dependencies"
+		implementations: [
+			{
+				script: """
+					echo "All tool dependencies satisfied!"
+					echo "  - sh is available"
+					echo "  - Either cat or type is available"
+					"""
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
+			},
+			{
+				script: """
+					Write-Output "All tool dependencies satisfied!"
+					Write-Output "  - sh is available"
+					Write-Output "  - Either cat or type is available"
+					"""
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "windows"}]
+			},
+		]
+		depends_on: {
+			tools: [
+				{alternatives: ["sh"]},
+				{alternatives: ["cat", "type"]},
+			]
+		}
+	},
+]

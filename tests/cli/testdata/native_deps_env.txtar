@@ -1,0 +1,110 @@
+# Test: Environment variable dependencies using native runtime
+# Mirrors virtual_deps_env.txtar but with platform-split native implementations
+#
+# Note: testscript isolates the environment, so we set required vars explicitly
+
+cd $WORK
+
+# Set required environment variables for the tests
+env HOME=/test-home
+env USER=testuser
+
+# Test 1: deps env single - requires HOME environment variable
+exec invowk cmd 'deps env single'
+stdout '=== Single Env Var Dependency Demo ==='
+stdout 'Required environment variable is set:'
+stdout 'HOME = '
+! stderr .
+
+# Test 2: deps env multiple - requires multiple environment variables
+exec invowk cmd 'deps env multiple'
+stdout '=== Multiple Env Var Dependencies Demo ==='
+stdout 'All required environment variables are set:'
+stdout 'HOME = '
+stdout 'USER = '
+stdout 'PATH = '
+! stderr .
+
+-- invkfile.cue --
+cmds: [
+	{
+		name:        "deps env single"
+		description: "Command requiring a single environment variable"
+		implementations: [
+			{
+				script: """
+					echo "=== Single Env Var Dependency Demo ==="
+					echo ""
+					echo "Required environment variable is set:"
+					echo "  HOME = '$HOME'"
+					echo ""
+					echo "The env_vars dependency validated that HOME exists in your"
+					echo "environment before the command started."
+					"""
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
+			},
+			{
+				script: """
+					Write-Output "=== Single Env Var Dependency Demo ==="
+					Write-Output ""
+					Write-Output "Required environment variable is set:"
+					Write-Output "  HOME = '$($env:HOME)'"
+					Write-Output ""
+					Write-Output "The env_vars dependency validated that HOME exists in your"
+					Write-Output "environment before the command started."
+					"""
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "windows"}]
+			},
+		]
+		depends_on: {
+			env_vars: [
+				{alternatives: [{name: "HOME"}]},
+			]
+		}
+	},
+	{
+		name:        "deps env multiple"
+		description: "Command requiring multiple environment variables"
+		implementations: [
+			{
+				script: """
+					echo "=== Multiple Env Var Dependencies Demo ==="
+					echo ""
+					echo "All required environment variables are set:"
+					echo "  HOME = '$HOME'"
+					echo "  USER = '$USER'"
+					echo "  PATH = '$PATH' (truncated)"
+					echo ""
+					echo "Each entry in env_vars is validated independently."
+					echo "All entries must be satisfied for the command to run."
+					"""
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
+			},
+			{
+				script: """
+					Write-Output "=== Multiple Env Var Dependencies Demo ==="
+					Write-Output ""
+					Write-Output "All required environment variables are set:"
+					Write-Output "  HOME = '$($env:HOME)'"
+					Write-Output "  USER = '$($env:USER)'"
+					Write-Output "  PATH = '$($env:PATH)' (truncated)"
+					Write-Output ""
+					Write-Output "Each entry in env_vars is validated independently."
+					Write-Output "All entries must be satisfied for the command to run."
+					"""
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "windows"}]
+			},
+		]
+		depends_on: {
+			env_vars: [
+				{alternatives: [{name: "HOME"}]},
+				{alternatives: [{name: "USER"}]},
+				{alternatives: [{name: "PATH"}]},
+			]
+		}
+	},
+]

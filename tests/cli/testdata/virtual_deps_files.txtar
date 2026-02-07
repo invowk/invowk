@@ -1,0 +1,76 @@
+# Test: Filepath dependency checks
+# Tests the filepath dependency checking feature
+
+cd $WORK
+
+# Test 1: deps file single - requires README.md to exist
+exec invowk cmd 'deps file single'
+stdout 'README\.md exists!'
+! stderr .
+
+# Test 2: deps file alternatives - requires any README variant
+exec invowk cmd 'deps file alternatives'
+stdout 'A README file exists'
+! stderr .
+
+# Test 3: deps file permissions - requires specific file permissions
+exec invowk cmd 'deps file permissions'
+stdout 'Permission checks passed!'
+stdout 'Current directory is writable'
+stdout 'README\.md is readable'
+! stderr .
+
+-- invkfile.cue --
+cmds: [
+	{
+		name:        "deps file single"
+		description: "Command requiring a specific file to exist"
+		implementations: [{
+			script:   "echo 'README.md exists!'"
+			runtimes: [{name: "virtual"}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+		depends_on: {
+			filepaths: [
+				{alternatives: ["README.md"]},
+			]
+		}
+	},
+	{
+		name:        "deps file alternatives"
+		description: "Command requiring any README file"
+		implementations: [{
+			script:   "echo 'A README file exists (one of: README.md, README, readme.md)'"
+			runtimes: [{name: "virtual"}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+		depends_on: {
+			filepaths: [
+				{alternatives: ["README.md", "README", "readme.md", "README.txt"]},
+			]
+		}
+	},
+	{
+		name:        "deps file permissions"
+		description: "Command requiring file with specific permissions"
+		implementations: [{
+			script: """
+				echo "Permission checks passed!"
+				echo "  - Current directory is writable"
+				echo "  - README.md is readable"
+				"""
+			runtimes: [{name: "virtual"}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+		depends_on: {
+			filepaths: [
+				{alternatives: ["."], writable: true},
+				{alternatives: ["README.md"], readable: true},
+			]
+		}
+	},
+]
+
+-- README.md --
+# Test README
+This file exists so that filepath dependency checks can find it.
