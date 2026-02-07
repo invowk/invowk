@@ -98,22 +98,23 @@ jobs:
 
           HEAD_SHA=$(git rev-parse HEAD)
 
-          # Build additions array: non-deleted files as {path, contents (base64)}
-          ADDITIONS=$(
-            while IFS= read -r file; do
-              jq -n --arg p "$file" --arg c "$(base64 -w 0 < "$file")" \
-                '{path: $p, contents: $c}'
-            done < <(git diff --cached --name-only --diff-filter=d) | jq -s '.'
-          )
+          # Write additions to a temp file to avoid ARG_MAX limits.
+          # Each non-deleted file becomes {path, contents (base64)}.
+          ADDITIONS_FILE=$(mktemp)
+          while IFS= read -r file; do
+            jq -n --arg p "$file" --arg c "$(base64 -w 0 < "$file")" \
+              '{path: $p, contents: $c}'
+          done < <(git diff --cached --name-only --diff-filter=d) | jq -s '.' > "$ADDITIONS_FILE"
 
-          # Build deletions array: deleted files as {path}
-          DELETIONS=$(
-            while IFS= read -r file; do
-              jq -n --arg p "$file" '{path: $p}'
-            done < <(git diff --cached --name-only --diff-filter=D) | jq -s '.'
-          )
+          # Write deletions to a temp file (deleted files as {path}).
+          DELETIONS_FILE=$(mktemp)
+          while IFS= read -r file; do
+            jq -n --arg p "$file" '{path: $p}'
+          done < <(git diff --cached --name-only --diff-filter=D) | jq -s '.' > "$DELETIONS_FILE"
 
-          # Create verified commit via GitHub API
+          # Create verified commit via GitHub API.
+          # --slurpfile reads from files instead of command-line args,
+          # avoiding the ARG_MAX limit for large doc snapshots.
           QUERY='
             mutation ($input: CreateCommitOnBranchInput!) {
               createCommitOnBranch(input: $input) {
@@ -126,8 +127,8 @@ jobs:
             --arg repo "$GITHUB_REPOSITORY" \
             --arg headline "docs: version documentation for ${TAG}" \
             --arg oid "$HEAD_SHA" \
-            --argjson additions "${ADDITIONS:-[]}" \
-            --argjson deletions "${DELETIONS:-[]}" \
+            --slurpfile additions "$ADDITIONS_FILE" \
+            --slurpfile deletions "$DELETIONS_FILE" \
             '{
               query: $query,
               variables: {
@@ -138,12 +139,13 @@ jobs:
                   },
                   message: { headline: $headline },
                   fileChanges: {
-                    additions: $additions,
-                    deletions: $deletions
+                    additions: $additions[0],
+                    deletions: $deletions[0]
                   },
                   expectedHeadOid: $oid
                 }
               }
             }' | gh api graphql --input -)
 
+          rm -f "$ADDITIONS_FILE" "$DELETIONS_FILE"
           echo "$RESULT" | jq -r '.data.createCommitOnBranch.commit | "Created commit \(.oid)\n\(.url)"'
