@@ -65,11 +65,14 @@ const config: Config = {
           sidebarPath: './sidebars.ts',
           editUrl: 'https://github.com/invowk/invowk/tree/main/website/',
           // Versioning
-          lastVersion: 'current',
+          lastVersion: '0.1.0-alpha.1',
           versions: {
             current: {
               label: 'Next',
-              path: '',
+              path: 'next',
+            },
+            '0.1.0-alpha.1': {
+              banner: 'unreleased',
             },
           },
         },

@@ -1,0 +1,106 @@
+---
+sidebar_position: 2
+---
+
+import Snippet from '@site/src/components/Snippet';
+
+# Input and Write
+
+Text entry components for gathering user input.
+
+## Input
+
+Single-line text input with optional validation.
+
+### Basic Usage
+
+<Snippet id="tui/input-basic" />
+
+### Options
+
+| Option | Description |
+|--------|-------------|
+| `--title` | Prompt text |
+| `--description` | Description below the title |
+| `--placeholder` | Placeholder text |
+| `--value` | Initial value |
+| `--password` | Hide input (for secrets) |
+| `--char-limit` | Maximum characters |
+| `--width` | Input field width |
+| `--prompt` | Prompt character(s) before input |
+
+### Examples
+
+<Snippet id="tui/input-examples" />
+
+### Capturing Output
+
+<Snippet id="tui/input-capture" />
+
+### In Scripts
+
+<Snippet id="tui/input-script" />
+
+---
+
+## Write
+
+Multi-line text editor for longer input like descriptions or commit messages.
+
+### Basic Usage
+
+<Snippet id="tui/write-basic" />
+
+### Options
+
+| Option | Description |
+|--------|-------------|
+| `--title` | Editor title |
+| `--description` | Description below the title |
+| `--placeholder` | Placeholder text |
+| `--value` | Initial content |
+| `--show-line-numbers` | Display line numbers |
+| `--char-limit` | Maximum characters |
+| `--width` | Editor width |
+| `--height` | Editor height |
+
+### Examples
+
+<Snippet id="tui/write-examples" />
+
+### Use Cases
+
+#### Git Commit Message
+
+<Snippet id="tui/write-git-commit" />
+
+#### Multi-Line Configuration
+
+<Snippet id="tui/write-yaml-config" />
+
+#### Release Notes
+
+<Snippet id="tui/write-release-notes" />
+
+### In Scripts
+
+<Snippet id="tui/write-script" />
+
+## Tips
+
+### Handling Empty Input
+
+<Snippet id="tui/input-empty-handling" />
+
+### Validation Loop
+
+<Snippet id="tui/input-validation" />
+
+### Default Values
+
+<Snippet id="tui/input-default-value" />
+
+## Next Steps
+
+- [Choose and Confirm](./choose-and-confirm) - Selection components
+- [Overview](./overview) - All TUI components

@@ -1,0 +1,153 @@
+---
+sidebar_position: 3
+---
+
+import Snippet from '@site/src/components/Snippet';
+
+# Runtime Virtual
+
+O runtime **virtual** usa o interpretador de shell POSIX-compatível integrado do Invowk™ (powered by [mvdan/sh](https://github.com/mvdan/sh)). Ele fornece comportamento de shell consistente em todas as plataformas sem exigir um shell externo.
+
+## Como Funciona
+
+Quando você executa um comando com o runtime virtual, o Invowk:
+
+1. Faz o parse do script usando o parser de shell integrado
+2. Executa-o em um ambiente embarcado tipo POSIX
+3. Fornece utilitários core (echo, test, etc.) integrados
+
+## Uso Básico
+
+<Snippet id="runtime-modes/virtual-basic" />
+
+<Snippet id="runtime-modes/virtual-run" />
+
+## Consistência Multiplataforma
+
+O runtime virtual se comporta de forma idêntica no Linux, macOS e Windows:
+
+<Snippet id="runtime-modes/virtual-cross-platform" />
+
+Chega de "funciona na minha máquina" para scripts shell!
+
+## Utilitários Integrados
+
+O shell virtual inclui utilitários POSIX core:
+
+| Utilitário | Descrição |
+|------------|-----------|
+| `echo` | Imprimir texto |
+| `printf` | Saída formatada |
+| `test` / `[` | Condicionais |
+| `true` / `false` | Sair com 0/1 |
+| `pwd` | Imprimir diretório de trabalho |
+| `cd` | Mudar diretório |
+| `read` | Ler entrada |
+| `export` | Definir variáveis de ambiente |
+
+### Utilitários Estendidos (u-root)
+
+Quando habilitado na configuração, utilitários adicionais estão disponíveis:
+
+<Snippet id="runtime-modes/virtual-uroot-config" />
+
+Isso adiciona utilitários como:
+- `cat`, `head`, `tail`
+- `grep`, `sed`, `awk`
+- `ls`, `cp`, `mv`, `rm`
+- `mkdir`, `rmdir`
+- E muitos outros
+
+## Recursos do Shell POSIX
+
+O shell virtual suporta construções POSIX padrão:
+
+### Variáveis
+
+<Snippet id="runtime-modes/virtual-variables" />
+
+### Condicionais
+
+<Snippet id="runtime-modes/virtual-conditionals" />
+
+### Loops
+
+<Snippet id="runtime-modes/virtual-loops" />
+
+### Funções
+
+<Snippet id="runtime-modes/virtual-functions" />
+
+### Subshells e Substituição de Comandos
+
+<Snippet id="runtime-modes/virtual-subshells" />
+
+## Chamando Comandos Externos
+
+O shell virtual pode chamar comandos externos instalados no seu sistema:
+
+<Snippet id="runtime-modes/virtual-external-commands" />
+
+Comandos externos são encontrados usando o PATH do sistema.
+
+## Variáveis de Ambiente
+
+Variáveis de ambiente funcionam da mesma forma que no native:
+
+<Snippet id="runtime-modes/virtual-env-vars" />
+
+## Flags e Argumentos
+
+Acesse flags e argumentos da mesma forma:
+
+<Snippet id="runtime-modes/virtual-args" />
+
+## Limitações
+
+### Sem Suporte a Interpretadores
+
+O runtime virtual **não pode** usar interpretadores não-shell:
+
+<Snippet id="runtime-modes/virtual-no-interpreter" />
+
+Para Python, Ruby ou outros interpretadores, use o runtime native ou container.
+
+### Recursos Específicos do Bash
+
+Alguns recursos específicos do bash não estão disponíveis:
+
+<Snippet id="runtime-modes/virtual-bash-limitations" />
+
+Mantenha construções POSIX-compatíveis para o runtime virtual.
+
+## Validação de Dependências
+
+Dependências são validadas contra as capacidades do shell virtual:
+
+<Snippet id="runtime-modes/virtual-deps" />
+
+## Vantagens
+
+- **Consistência**: Mesmo comportamento no Linux, macOS e Windows
+- **Sem dependência de shell**: Funciona mesmo se o shell do sistema não estiver disponível
+- **Portabilidade**: Scripts funcionam em todas as plataformas
+- **Utilitários integrados**: Utilitários core sempre disponíveis
+- **Startup mais rápido**: Sem processo de shell para iniciar
+
+## Quando Usar Virtual
+
+- **Scripts multiplataforma**: Quando o mesmo script deve funcionar em todos os lugares
+- **Pipelines CI/CD**: Comportamento consistente entre agentes de build
+- **Scripts shell simples**: Quando você não precisa de recursos específicos do bash
+- **Ambientes embarcados**: Quando shells externos não estão disponíveis
+
+## Configuração
+
+Configure o shell virtual no seu arquivo de configuração do Invowk:
+
+<Snippet id="runtime-modes/virtual-config" />
+
+## Próximos Passos
+
+- [Runtime Native](./native) - Para acesso completo ao shell
+- [Runtime Container](./container) - Para execução isolada

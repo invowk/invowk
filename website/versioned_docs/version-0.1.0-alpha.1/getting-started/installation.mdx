@@ -1,0 +1,73 @@
+---
+sidebar_position: 1
+---
+
+import Snippet from '@site/src/components/Snippet';
+
+# Installation
+
+:::warning Alpha Software
+Invowk™ is currently in **alpha stage**. While we strive for stability, expect breaking changes between releases as we stabilize the invkfile format, module structure, and feature set. We recommend pinning to a specific version for production use and following the [GitHub releases](https://github.com/invowk/invowk/releases) for migration guides.
+:::
+
+Welcome to Invowk! Let's get you set up and running commands in no time.
+
+## Requirements
+
+Before installing Invowk, make sure you have:
+
+- **Go 1.25+** (only if building from source)
+- **Linux, macOS, or Windows** - Invowk works on all three!
+
+For container runtime features, you'll also need:
+- **Docker** or **Podman** installed and running
+
+## Installation Methods
+
+### From Source (Recommended for now)
+
+If you have Go installed, building from source is straightforward:
+
+<Snippet id="installation/build-from-source" />
+
+Then move the binary to your PATH:
+
+<Snippet id="installation/move-to-path" />
+
+### Using Make (with more options)
+
+The project includes a Makefile with several build options:
+
+<Snippet id="installation/make-options" />
+
+### Verify Installation
+
+Once installed, verify everything works:
+
+<Snippet id="installation/verify" />
+
+You should see the version information. If you get a "command not found" error, make sure the binary is in your PATH.
+
+## Shell Completion
+
+Invowk supports tab completion for bash, zsh, fish, and PowerShell. This makes typing commands much faster!
+
+### Bash
+
+<Snippet id="installation/completion-bash" />
+
+### Zsh
+
+<Snippet id="installation/completion-zsh" />
+
+### Fish
+
+<Snippet id="installation/completion-fish" />
+
+### PowerShell
+
+<Snippet id="installation/completion-powershell" />
+
+## What's Next?
+
+Now that you have Invowk installed, head over to the [Quickstart](./quickstart) guide to run your first command!

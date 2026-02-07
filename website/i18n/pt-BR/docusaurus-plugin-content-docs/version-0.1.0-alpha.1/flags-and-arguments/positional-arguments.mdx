@@ -1,0 +1,179 @@
+---
+sidebar_position: 3
+---
+
+import Snippet from '@site/src/components/Snippet';
+
+# Argumentos Posicionais
+
+Argumentos posicionais são valores passados por posição após o nome do comando. São ideais para entradas obrigatórias onde a ordem é natural (como `source` e `destination`).
+
+## Definindo Argumentos
+
+<Snippet id="flags-args/args-defining" />
+
+Uso:
+
+<Snippet id="flags-args/args-defining-usage" />
+
+## Propriedades dos Argumentos
+
+| Propriedade | Obrigatória | Descrição |
+|-------------|-------------|-----------|
+| `name` | Sim | Nome do argumento (alfanumérico, hífens, underscores) |
+| `description` | Sim | Texto de ajuda |
+| `type` | Não | `string`, `int`, `float` (padrão: `string`) |
+| `default_value` | Não | Valor padrão se não fornecido |
+| `required` | Não | Deve ser fornecido (não pode ter default) |
+| `validation` | Não | Padrão regex para o valor |
+| `variadic` | Não | Aceita múltiplos valores (apenas último arg) |
+
+## Tipos
+
+### String (Padrão)
+
+<Snippet id="flags-args/args-type-string" />
+
+### Integer
+
+<Snippet id="flags-args/args-type-int" />
+
+<Snippet id="flags-args/args-type-int-usage" />
+
+### Float
+
+<Snippet id="flags-args/args-type-float" />
+
+<Snippet id="flags-args/args-type-float-usage" />
+
+Nota: Tipo Boolean **não é suportado** para argumentos. Use flags para opções booleanas.
+
+## Obrigatório vs Opcional
+
+### Argumentos Obrigatórios
+
+<Snippet id="flags-args/args-required" />
+
+<Snippet id="flags-args/args-required-usage" />
+
+### Argumentos Opcionais
+
+<Snippet id="flags-args/args-optional" />
+
+<Snippet id="flags-args/args-optional-usage" />
+
+### Regra de Ordenação
+
+Argumentos obrigatórios devem vir antes dos argumentos opcionais:
+
+<Snippet id="flags-args/args-ordering" />
+
+## Argumentos Variadic
+
+O último argumento pode aceitar múltiplos valores:
+
+<Snippet id="flags-args/args-variadic" />
+
+<Snippet id="flags-args/args-variadic-usage" />
+
+### Variáveis de Ambiente para Variadic
+
+| Variável | Descrição |
+|----------|-----------|
+| `INVOWK_ARG_INPUTS` | Valores unidos por espaço |
+| `INVOWK_ARG_INPUTS_COUNT` | Número de valores |
+| `INVOWK_ARG_INPUTS_1` | Primeiro valor |
+| `INVOWK_ARG_INPUTS_2` | Segundo valor |
+| ... | E assim por diante |
+
+## Padrões de Validação
+
+Valide valores de argumento com regex:
+
+<Snippet id="flags-args/args-validation" />
+
+<Snippet id="flags-args/args-validation-usage" />
+
+## Acessando em Scripts
+
+### Variáveis de Ambiente
+
+<Snippet id="flags-args/args-accessing" />
+
+### Convenção de Nomenclatura
+
+| Nome do Argumento | Variável de Ambiente |
+|-------------------|---------------------|
+| `name` | `INVOWK_ARG_NAME` |
+| `file-path` | `INVOWK_ARG_FILE_PATH` |
+| `outputDir` | `INVOWK_ARG_OUTPUTDIR` |
+
+### Parâmetros Posicionais do Shell
+
+Argumentos também estão disponíveis como `$1`, `$2`, etc.:
+
+<Snippet id="flags-args/args-positional-params" />
+
+### Compatibilidade de Shell
+
+| Shell | Acesso Posicional |
+|-------|-------------------|
+| bash, sh, zsh | `$1`, `$2`, `$@`, `$#` |
+| PowerShell | `$args[0]`, `$args[1]` |
+| runtime virtual | `$1`, `$2`, `$@`, `$#` |
+| container | `$1`, `$2`, `$@`, `$#` |
+
+## Exemplos do Mundo Real
+
+### Processamento de Arquivo
+
+<Snippet id="flags-args/args-convert-example" />
+
+### Operação Multi-Arquivo
+
+<Snippet id="flags-args/args-compress-example" />
+
+### Deploy
+
+<Snippet id="flags-args/args-deploy-example" />
+
+## Misturando com Flags
+
+Flags podem aparecer em qualquer lugar; argumentos são posicionais:
+
+<Snippet id="flags-args/args-mixing-flags" />
+
+Argumentos são extraídos em ordem, independentemente das posições das flags.
+
+## Argumentos vs Subcomandos
+
+Um comando não pode ter ambos argumentos e subcomandos. Se um comando define `args` mas também tem subcomandos, invowk falha com um erro:
+
+```
+✖ Invalid command structure
+
+Command 'deploy' has both args and subcommands in invkfile.cue
+  defined args: env
+  subcommands: deploy status, deploy logs
+
+Remove either the 'args' field or the subcommands to resolve this conflict.
+```
+
+Esta restrição existe porque parsers de CLI interpretam argumentos posicionais após o nome de um comando como potenciais nomes de subcomandos, tornando a combinação ambígua.
+
+Escolha uma abordagem:
+- **Argumentos**: Para comandos folha com entradas diretas
+- **Subcomandos**: Para hierarquias de comando complexas onde usuários selecionam uma ação
+
+## Melhores Práticas
+
+1. **Args obrigatórios primeiro**: Siga as regras de ordenação
+2. **Use nomes significativos**: `source` e `dest` não `arg1` e `arg2`
+3. **Valide quando possível**: Capture erros cedo
+4. **Documente com descrições**: Ajude usuários a entender
+5. **Prefira flags para valores opcionais**: Mais fácil de entender
+
+## Próximos Passos
+
+- [Flags](./flags) - Para valores opcionais nomeados
+- [Environment](../environment/overview) - Configurar ambiente do comando

@@ -1,0 +1,87 @@
+---
+sidebar_position: 3
+---
+
+import Snippet from '@site/src/components/Snippet';
+
+# Comandos Específicos de Plataforma
+
+Crie comandos que se comportam diferentemente no Linux, macOS e Windows. O Invowk™ automaticamente seleciona a implementação correta para a plataforma atual.
+
+## Plataformas Suportadas
+
+| Valor | Descrição |
+|-------|-----------|
+| `linux` | Distribuições Linux |
+| `macos` | macOS (Darwin) |
+| `windows` | Windows |
+
+## Direcionamento Básico de Plataforma
+
+Restrinja uma implementação a plataformas específicas:
+
+<Snippet id="advanced/platform-open-browser" />
+
+## Direcionando Todas as Plataformas
+
+Para direcionar todas as plataformas, liste-as explicitamente:
+
+<Snippet id="advanced/platform-all-default" />
+
+## Comandos Apenas Unix
+
+Direcione tanto Linux quanto macOS:
+
+<Snippet id="advanced/platform-unix-only" />
+
+## Ambiente Específico de Plataforma
+
+Defina variáveis de ambiente diferentes por plataforma:
+
+<Snippet id="advanced/platform-env" />
+
+## Scripts Multiplataforma
+
+Escreva um script que funciona em qualquer lugar:
+
+<Snippet id="advanced/platform-cross-script" />
+
+## Templates CUE para Plataformas
+
+Use templates CUE para reduzir repetição:
+
+<Snippet id="advanced/platform-cue-templates" />
+
+## Listagem de Comandos
+
+A lista de comandos mostra plataformas suportadas:
+
+<Snippet id="advanced/platform-list-output" />
+
+## Erro de Plataforma Não Suportada
+
+Executar um comando em uma plataforma não suportada mostra um erro claro:
+
+<Snippet id="advanced/platform-unsupported-error" />
+
+## Exemplos do Mundo Real
+
+### Informações do Sistema
+
+<Snippet id="advanced/platform-sysinfo" />
+
+### Instalação de Pacotes
+
+<Snippet id="advanced/platform-install-deps" />
+
+## Melhores Práticas
+
+1. **Comece com multiplataforma**: Adicione específico de plataforma apenas quando necessário
+2. **Use variáveis de ambiente**: Abstraia diferenças de plataforma
+3. **Teste em todas as plataformas**: CI deve cobrir todas as plataformas suportadas
+4. **Documente limitações**: Note quais plataformas são suportadas
+
+## Próximos Passos
+
+- [Interpreters](./interpreters) - Usar interpretadores não-shell
+- [Working Directory](./workdir) - Controlar local de execução

@@ -1,0 +1,109 @@
+---
+sidebar_position: 2
+---
+
+import Snippet from '@site/src/components/Snippet';
+
+# Diretório de Trabalho
+
+Controle onde seus comandos executam com a configuração `workdir`. Isso é especialmente útil para monorepos e projetos com estruturas de diretório complexas.
+
+## Comportamento Padrão
+
+Por padrão, comandos rodam no diretório atual (onde você invocou o `invowk`).
+
+## Definindo o Diretório de Trabalho
+
+### Nível de Comando
+
+<Snippet id="advanced/workdir-command" />
+
+### Nível de Implementação
+
+<Snippet id="advanced/workdir-implementation" />
+
+### Nível Raiz
+
+<Snippet id="advanced/workdir-root" />
+
+### Sobrescrita pela CLI
+
+Sobrescreva o diretório de trabalho em tempo de execução:
+
+<Snippet id="advanced/workdir-cli" />
+
+## Tipos de Caminho
+
+### Caminhos Relativos
+
+Relativo à localização do invkfile:
+
+<Snippet id="advanced/workdir-relative" />
+
+### Caminhos Absolutos
+
+Caminhos completos do sistema:
+
+<Snippet id="advanced/workdir-absolute" />
+
+### Variáveis de Ambiente
+
+Expanda variáveis em caminhos:
+
+<Snippet id="advanced/workdir-env-vars" />
+
+## Precedência
+
+Implementação sobrescreve comando, que sobrescreve raiz:
+
+<Snippet id="advanced/workdir-precedence" />
+
+## Padrão Monorepo
+
+Perfeito para monorepos com múltiplos pacotes:
+
+<Snippet id="advanced/workdir-monorepo" />
+
+## Diretório de Trabalho em Container
+
+Para containers, o diretório atual é montado em `/workspace`:
+
+<Snippet id="advanced/workdir-container-default" />
+
+Com `workdir`, esse subdiretório se torna o diretório de trabalho do container:
+
+<Snippet id="advanced/workdir-container-subdir" />
+
+## Caminhos Multiplataforma
+
+Use barras para frente para compatibilidade multiplataforma:
+
+<Snippet id="advanced/workdir-cross-platform" />
+
+O Invowk™ converte automaticamente para separadores de caminho nativos em tempo de execução.
+
+## Exemplos do Mundo Real
+
+### Divisão Frontend/Backend
+
+<Snippet id="advanced/workdir-frontend-backend" />
+
+### Organização de Testes
+
+<Snippet id="advanced/workdir-tests" />
+
+### Build em Subdiretório
+
+<Snippet id="advanced/workdir-build-subdir" />
+
+## Melhores Práticas
+
+1. **Use caminhos relativos**: Mais portável entre máquinas
+2. **Barras para frente**: Compatível com múltiplas plataformas
+3. **Nível raiz para padrões**: Sobrescreva onde necessário
+4. **Mantenha caminhos curtos**: Mais fácil de entender
+
+## Próximos Passos
+
+- [Interpreters](./interpreters) - Usar interpretadores não-shell
+- [Platform-Specific](./platform-specific) - Implementações por plataforma

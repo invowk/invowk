@@ -1,0 +1,141 @@
+---
+sidebar_position: 1
+---
+
+import Snippet from '@site/src/components/Snippet';
+
+# Dependencies Overview
+
+Dependencies let you declare what your command needs before it runs. Invowk™ validates all dependencies upfront and provides clear error messages when something's missing.
+
+## Why Declare Dependencies?
+
+Without dependency checks:
+
+<Snippet id="dependencies/without-check" />
+
+With dependency checks:
+
+<Snippet id="dependencies/with-check" />
+
+Much better! You know exactly what's wrong before anything runs.
+
+## Dependency Types
+
+Invowk supports six types of dependencies:
+
+| Type | Checks For |
+|------|------------|
+| [tools](./tools) | Binaries in PATH |
+| [filepaths](./filepaths) | Files or directories |
+| [cmds](./commands) | Other Invowk commands |
+| [capabilities](./capabilities) | System capabilities |
+| [env_vars](./env-vars) | Environment variables |
+| [custom_checks](./custom-checks) | Custom validation scripts |
+
+## Basic Syntax
+
+Dependencies are declared in the `depends_on` block:
+
+<Snippet id="dependencies/basic-syntax" />
+
+## The Alternatives Pattern
+
+Every dependency uses an `alternatives` list with **OR semantics**:
+
+<Snippet id="dependencies/alternatives-pattern" />
+
+If **any** alternative is found, the dependency is satisfied. Invowk uses early return - it stops checking as soon as one matches.
+
+## Validation Order
+
+Dependencies are validated in this order:
+
+1. **env_vars** - Environment variables (checked first!)
+2. **tools** - Binaries in PATH
+3. **filepaths** - Files and directories
+4. **capabilities** - System capabilities
+5. **cmds** - Other Invowk commands
+6. **custom_checks** - Custom validation scripts
+
+Environment variables are validated first, before Invowk sets any command-level environment. This ensures you're checking the user's actual environment.
+
+## Scope Levels
+
+Dependencies can be declared at three levels:
+
+### Root Level (Global)
+
+Applies to all commands in the invkfile:
+
+<Snippet id="dependencies/scope-root" />
+
+### Command Level
+
+Applies to a specific command:
+
+<Snippet id="dependencies/scope-command" />
+
+### Implementation Level
+
+Applies to a specific implementation:
+
+<Snippet id="dependencies/scope-implementation" />
+
+### Scope Inheritance
+
+Dependencies are **combined** across levels:
+
+<Snippet id="dependencies/scope-inheritance" />
+
+## Runtime-Aware Validation
+
+Dependencies are validated according to the runtime:
+
+| Runtime | Dependencies Checked Against |
+|---------|------------------------------|
+| native | Host system |
+| virtual | Virtual shell with built-ins |
+| container | Inside the container |
+
+This is powerful for container commands:
+
+```cue
+{
+    name: "build"
+    implementations: [
+        {
+            script: "go build ./..."
+            runtimes: [{name: "container", image: "golang:1.21"}]
+            depends_on: {
+                // Checked INSIDE the container, not on host
+                tools: [{alternatives: ["go"]}]
+                filepaths: [{alternatives: ["/workspace/go.mod"]}]
+            }
+        }
+    ]
+}
+```
+
+## Error Messages
+
+When dependencies aren't satisfied, Invowk shows a helpful error:
+
+<Snippet id="dependencies/error-output" />
+
+## Complete Example
+
+Here's a command with multiple dependency types:
+
+<Snippet id="dependencies/complete-example" />
+
+## Next Steps
+
+Learn about each dependency type in detail:
+
+- [Tools](./tools) - Check for binaries in PATH
+- [Filepaths](./filepaths) - Check for files and directories
+- [Commands](./commands) - Use `cmds` to require other commands to be discoverable
+- [Capabilities](./capabilities) - Check system capabilities
+- [Environment Variables](./env-vars) - Check environment variables
+- [Custom Checks](./custom-checks) - Write custom validation scripts
