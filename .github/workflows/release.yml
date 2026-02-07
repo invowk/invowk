@@ -194,15 +194,28 @@ jobs:
             echo "name=$TAG_REF" >> "$GITHUB_OUTPUT"
           fi
 
-      # Install UPX for binary compression
+      # Install UPX for binary compression (pinned to avoid apt repo drift)
       - name: Install UPX
         run: |
-          sudo apt-get update
-          sudo apt-get install -y upx
+          UPX_VERSION="5.1.0"
+          curl -fsSL "https://github.com/upx/upx/releases/download/v${UPX_VERSION}/upx-${UPX_VERSION}-amd64_linux.tar.xz" -o /tmp/upx.tar.xz
+          tar -xJf /tmp/upx.tar.xz -C /tmp
+          sudo install -m 755 "/tmp/upx-${UPX_VERSION}-amd64_linux/upx" /usr/local/bin/upx
+          rm -rf /tmp/upx.tar.xz "/tmp/upx-${UPX_VERSION}-amd64_linux"
+          upx --version
 
       # Install Cosign for signing
       - name: Install Cosign
         uses: sigstore/cosign-installer@v3
+
+      # Use a GitHub App token so the release event triggers version-docs.yml.
+      # Releases created with GITHUB_TOKEN do NOT trigger other workflows.
+      - name: Generate App token
+        id: app-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.DOCS_APP_ID }}
+          private-key: ${{ secrets.DOCS_APP_PRIVATE_KEY }}
 
       # Run GoReleaser (publish)
       - name: Run GoReleaser
@@ -212,7 +225,7 @@ jobs:
           version: "~> v2"
           args: release --clean
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
           GORELEASER_CURRENT_TAG: ${{ steps.tag.outputs.name }}
 
       # Run GoReleaser (dry run)
@@ -223,5 +236,5 @@ jobs:
           version: "~> v2"
           args: release --clean --snapshot
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
           GORELEASER_CURRENT_TAG: ${{ steps.tag.outputs.name }}
