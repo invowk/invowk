@@ -80,17 +80,70 @@ jobs:
         working-directory: website
         run: npm run build
 
+      # Create a verified commit via the GitHub GraphQL API.
+      # Direct git commits on the runner are unsigned and rejected by the
+      # branch protection rule "Commits must have verified signatures".
+      # Commits created through the API are automatically signed by GitHub.
       - name: Commit and push
         env:
           TAG: ${{ steps.tag.outputs.tag }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add website/
-          # Check if there are changes to commit
+          # Exit early if no changes
           if git diff --cached --quiet; then
             echo "No documentation changes to commit."
             exit 0
           fi
-          git commit -m "docs: version documentation for ${TAG}"
-          git push origin main
+
+          HEAD_SHA=$(git rev-parse HEAD)
+
+          # Build additions array: non-deleted files as {path, contents (base64)}
+          ADDITIONS=$(
+            while IFS= read -r file; do
+              jq -n --arg p "$file" --arg c "$(base64 -w 0 < "$file")" \
+                '{path: $p, contents: $c}'
+            done < <(git diff --cached --name-only --diff-filter=d) | jq -s '.'
+          )
+
+          # Build deletions array: deleted files as {path}
+          DELETIONS=$(
+            while IFS= read -r file; do
+              jq -n --arg p "$file" '{path: $p}'
+            done < <(git diff --cached --name-only --diff-filter=D) | jq -s '.'
+          )
+
+          # Create verified commit via GitHub API
+          QUERY='
+            mutation ($input: CreateCommitOnBranchInput!) {
+              createCommitOnBranch(input: $input) {
+                commit { oid url }
+              }
+            }'
+
+          RESULT=$(jq -n \
+            --arg query "$QUERY" \
+            --arg repo "$GITHUB_REPOSITORY" \
+            --arg headline "docs: version documentation for ${TAG}" \
+            --arg oid "$HEAD_SHA" \
+            --argjson additions "${ADDITIONS:-[]}" \
+            --argjson deletions "${DELETIONS:-[]}" \
+            '{
+              query: $query,
+              variables: {
+                input: {
+                  branch: {
+                    repositoryNameWithOwner: $repo,
+                    branchName: "main"
+                  },
+                  message: { headline: $headline },
+                  fileChanges: {
+                    additions: $additions,
+                    deletions: $deletions
+                  },
+                  expectedHeadOid: $oid
+                }
+              }
+            }' | gh api graphql --input -)
+
+          echo "$RESULT" | jq -r '.data.createCommitOnBranch.commit | "Created commit \(.oid)\n\(.url)"'
