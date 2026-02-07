@@ -587,7 +587,7 @@ func TestNativeRuntime_Validate_Unit(t *testing.T) {
 					{
 						Script:    "",
 						Runtimes:  []invkfile.RuntimeConfig{{Name: invkfile.RuntimeNative}},
-						Platforms: []invkfile.PlatformConfig{{Name: invkfile.PlatformLinux}, {Name: invkfile.PlatformMac}},
+						Platforms: []invkfile.PlatformConfig{{Name: invkfile.PlatformLinux}, {Name: invkfile.PlatformMac}, {Name: invkfile.PlatformWindows}},
 					},
 				},
 			},
