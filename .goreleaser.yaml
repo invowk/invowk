@@ -40,9 +40,9 @@ builds:
     hooks:
       post:
         # UPX compression for smaller binaries
-        # Skip on macOS arm64 (UPX doesn't support it well)
+        # Skip on macOS (UPX on Linux cannot compress Mach-O binaries)
         # Skip on Windows (UPX can cause antivirus false positives)
-        - cmd: bash -c '{{ if eq .Os "windows" }}echo "Skipping UPX for Windows"{{ else if and (eq .Os "darwin") (eq .Arch "arm64") }}echo "Skipping UPX for macOS arm64"{{ else }}upx --best --lzma "{{ .Path }}"{{ end }}'
+        - cmd: bash -c '{{ if eq .Os "windows" }}echo "Skipping UPX for Windows"{{ else if eq .Os "darwin" }}echo "Skipping UPX for macOS"{{ else }}upx --best --lzma "{{ .Path }}"{{ end }}'
           output: true
 
 archives:
