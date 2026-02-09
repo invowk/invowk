@@ -71,9 +71,6 @@ const config: Config = {
               label: 'Next',
               path: 'next',
             },
-            '0.1.0-alpha.1': {
-              banner: 'unreleased',
-            },
           },
         },
         blog: false, // Blog disabled until content is ready

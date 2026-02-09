@@ -211,8 +211,11 @@ update_docusaurus_config() {
         versionsEntries.push(\"              path: 'next',\");
         versionsEntries.push(\"            },\");
 
-        // Add banner entries for pre-release versions
+        // Add banner entries for pre-release versions.
+        // Skip the lastVersion — Docusaurus's 'unreleased' banner links TO lastVersion,
+        // so setting it ON lastVersion creates a contradictory self-referential message.
         for (const pre of prereleaseVersions) {
+            if (pre === lastVersion) continue;
             versionsEntries.push(\"            '\" + pre + \"': {\");
             versionsEntries.push(\"              banner: 'unreleased',\");
             versionsEntries.push(\"            },\");

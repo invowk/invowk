@@ -112,7 +112,7 @@ Documentation versioning runs **automatically** on every GitHub Release (stable 
 - All versions (stable and pre-release) are kept indefinitely.
 - The default landing version (`/docs/`) is the latest **stable** release.
 - If no stable release exists yet (alpha phase), the latest **pre-release** is the default.
-- Pre-release versions show an "unreleased" banner in the docs.
+- Pre-release versions show an "unreleased" banner in the docs, except for the version serving as `lastVersion` (to avoid a self-referential banner).
 - `website/docs/` always represents the unreleased "Next" development docs at `/docs/next/`.
 
 **Manual retry:**
