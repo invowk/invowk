@@ -38,7 +38,7 @@ jobs:
           cache: true
 
       - name: golangci-lint
-        uses: golangci/golangci-lint-action@v8
+        uses: golangci/golangci-lint-action@v9
         with:
           version: latest
           # Run full-codebase lint (not just new issues) so CI matches local `make lint`
