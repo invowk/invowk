@@ -915,21 +915,27 @@ virtual_shell: {
 
   'runtime-modes/container-env': {
     language: 'cue',
-    code: `runtimes: [{
-    name: "container"
-    image: "node:18"
+    code: `// env belongs on the implementation, not on the runtime
+implementations: [{
+    script: "node index.js"
+    runtimes: [{name: "container", image: "node:18"}]
+    platforms: [{name: "linux"}]
     env: {
-        NODE_ENV: "production"
-        DEBUG: "app:*"
+        vars: {
+            NODE_ENV: "production"
+            DEBUG: "app:*"
+        }
     }
 }]`,
   },
 
   'runtime-modes/container-workdir': {
     language: 'cue',
-    code: `runtimes: [{
-    name: "container"
-    image: "python:3.11"
+    code: `// workdir belongs on the implementation, not on the runtime
+implementations: [{
+    script: "python main.py"
+    runtimes: [{name: "container", image: "python:3.11"}]
+    platforms: [{name: "linux"}]
     workdir: "/app"
 }]`,
   },
@@ -981,7 +987,7 @@ virtual_shell: {
     filepaths: [
         {alternatives: ["config.yaml", "config.json"], readable: true},
         {alternatives: ["./output"], writable: true},
-        {alternatives: [".env"], must_exist: true}
+        {alternatives: [".env"], readable: true}
     ]
 }`,
   },
@@ -1059,8 +1065,8 @@ virtual_shell: {
     language: 'cue',
     code: `depends_on: {
     env_vars: [
-        {alternatives: ["API_KEY"]},
-        {alternatives: ["DATABASE_URL", "DB_URL"]}
+        {alternatives: [{name: "API_KEY"}]},
+        {alternatives: [{name: "DATABASE_URL"}, {name: "DB_URL"}]}
     ]
 }`,
   },
@@ -1068,12 +1074,11 @@ virtual_shell: {
   'dependencies/custom-checks': {
     language: 'cue',
     code: `depends_on: {
-    custom: [
+    custom_checks: [
         {
             alternatives: [{
                 name: "docker-running"
-                description: "Docker daemon must be running"
-                check: "docker info > /dev/null 2>&1"
+                check_script: "docker info > /dev/null 2>&1"
             }]
         }
     ]

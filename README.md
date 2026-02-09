@@ -130,12 +130,9 @@ cmds: [
 					{name: "native"},
 					{name: "container", image: "golang:1.21"},
 				]
-				// Platform-specific environment variables
-				platforms: [
-					{name: "linux", env: {PROJECT_NAME: "myproject"}},
-					{name: "macos", env: {PROJECT_NAME: "myproject"}},
-					{name: "windows", env: {PROJECT_NAME: "myproject"}},
-				]
+				platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+				// Environment variables for this implementation
+				env: {vars: {PROJECT_NAME: "myproject"}}
 			}
 		]
 	},
@@ -1042,7 +1039,7 @@ This follows standard UNIX semantics where child processes inherit their parent'
 cmds: [
     {
         name: "parent"
-        env: { SHARED_CONFIG: "/etc/app/config.yaml" }  // Inherited by children
+        env: {vars: {SHARED_CONFIG: "/etc/app/config.yaml"}}  // Inherited by children
         implementations: [
             {
                 script: """
@@ -1232,12 +1229,18 @@ Use single-line or multi-line (with triple quotes `"""`) CUE strings:
 cmds: [
 	{
 		name: "build"
-		script: """
-			#!/bin/bash
-			set -e
-			echo "Building..."
-			go build ./...
-			"""
+		implementations: [
+			{
+				script: """
+					#!/bin/bash
+					set -e
+					echo "Building..."
+					go build ./...
+					"""
+				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
+			},
+		]
 	},
 ]
 ```
@@ -1251,17 +1254,24 @@ cmds: [
 	// Relative to invkfile location
 	{
 		name: "deploy"
-		script: "./scripts/deploy.sh"
-	},
-	// Absolute path
-	{
-		name: "system-check"
-		script: "/usr/local/bin/check.sh"
+		implementations: [
+			{
+				script: "./scripts/deploy.sh"
+				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
+			},
+		]
 	},
 	// Just the filename (if it has a recognized extension)
 	{
 		name: "test"
-		script: "run-tests.sh"
+		implementations: [
+			{
+				script: "run-tests.sh"
+				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
+			},
+		]
 	},
 ]
 ```
@@ -1880,8 +1890,13 @@ Uses the system's default shell:
 cmds: [
 	{
 		name: "build"
-		runtime: "native"
-		script: "go build ./..."
+		implementations: [
+			{
+				script: "go build ./..."
+				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+			},
+		]
 	},
 ]
 ```
@@ -1894,11 +1909,16 @@ Uses the built-in [mvdan/sh](https://github.com/mvdan/sh) shell interpreter. Thi
 cmds: [
 	{
 		name: "build"
-		runtime: "virtual"
-		script: """
-			echo "Building..."
-			go build ./...
-			"""
+		implementations: [
+			{
+				script: """
+					echo "Building..."
+					go build ./...
+					"""
+				runtimes: [{name: "virtual"}]
+				platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+			},
+		]
 	},
 ]
 ```
