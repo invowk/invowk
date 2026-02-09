@@ -128,7 +128,7 @@ cmds: [
 				// Allowed runtimes (first is default). Container runtime requires image or containerfile.
 				runtimes: [
 					{name: "native"},
-					{name: "container", image: "golang:1.21"},
+					{name: "container", image: "golang:1.25"},
 				]
 				platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 				// Environment variables for this implementation
@@ -195,6 +195,87 @@ cmds: [
 		]
 	},
 ]
+```
+
+### Root-Level Settings
+
+Invkfiles support several root-level settings that apply to all commands:
+
+```cue
+// Override the default shell for native runtime (optional)
+default_shell: "/bin/bash"
+
+// Set a default working directory for all commands (optional)
+// Can be absolute or relative to the invkfile location
+workdir: "./src"
+
+// Global environment configuration (optional)
+// Applied to all commands; command-level and implementation-level env override these
+env: {
+	files: [".env", ".env.local?"]  // Load from .env files ('?' suffix = optional)
+	vars: {
+		PROJECT_NAME: "myapp"
+	}
+}
+
+// Global dependencies that apply to all commands (optional)
+depends_on: {
+	tools: [{alternatives: ["git"]}]
+}
+
+cmds: [...]
+```
+
+**Root-level fields:**
+
+| Field | Description |
+|-------|-------------|
+| `default_shell` | Override the default shell for native runtime (e.g., `/bin/bash`, `pwsh`) |
+| `workdir` | Default working directory for all commands (overridable per command/implementation) |
+| `env` | Global environment config with `files` (dotenv loading) and `vars` (key-value pairs) |
+| `depends_on` | Global dependencies validated for every command in this invkfile |
+
+### Env Files
+
+Load environment variables from `.env` files at any scope level:
+
+```cue
+env: {
+	// Files are loaded in order; later files override earlier ones
+	// Suffix with '?' to make a file optional (no error if missing)
+	files: [".env", ".env.local?", ".env.${ENV}?"]
+	vars: {
+		// Direct variables override values from files
+		APP_NAME: "myapp"
+	}
+}
+```
+
+### Working Directory
+
+Control where commands execute using `workdir` at root, command, or implementation level. Implementation-level overrides command-level, which overrides root-level:
+
+```cue
+cmds: [
+	{
+		name: "test"
+		workdir: "./packages/api"  // Command-level workdir
+		implementations: [
+			{
+				script: "go test ./..."
+				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
+				workdir: "./packages/api/v2"  // Implementation-level override
+			}
+		]
+	}
+]
+```
+
+You can also override the working directory at runtime with the `--workdir` / `-w` flag:
+
+```bash
+invowk cmd test --workdir=./packages/frontend
 ```
 
 ## Module Metadata (invkmod.cue)
@@ -468,6 +549,86 @@ Missing or Invalid Environment Variables:
 Install the missing tools and try again, or update your invkfile to remove unnecessary dependencies.
 ```
 
+### Capability Dependencies
+
+Verify that required system capabilities are available. Invowk supports checking for network connectivity, container engine availability, and interactive TTY:
+
+```cue
+depends_on: {
+	capabilities: [
+		// Check for internet connectivity
+		{alternatives: ["internet"]},
+
+		// Check that Docker or Podman is installed and responding
+		{alternatives: ["containers"]},
+
+		// Check for interactive TTY
+		{alternatives: ["tty"]},
+
+		// OR semantics: either internet or LAN connectivity
+		{alternatives: ["internet", "local-area-network"]},
+	]
+}
+```
+
+**Available capabilities:**
+
+| Capability | Description |
+|------------|-------------|
+| `local-area-network` | Checks for LAN connectivity |
+| `internet` | Checks for internet connectivity |
+| `containers` | Checks that Docker or Podman is installed and responding |
+| `tty` | Checks that invowk is running in an interactive TTY |
+
+### Custom Check Dependencies
+
+Write custom validation scripts for requirements that don't fit built-in dependency types. Check tool versions, configuration validity, or any other custom requirement:
+
+```cue
+depends_on: {
+	custom_checks: [
+		// Simple exit code check (passes if script exits with 0)
+		{
+			name: "docker-running"
+			check_script: "docker info > /dev/null 2>&1"
+		},
+
+		// Exit code + output validation
+		{
+			name: "go-version"
+			check_script: "go version"
+			expected_code: 0
+			expected_output: "go1\\.2[1-9]"  // Must be Go 1.21+
+		},
+
+		// Alternatives (OR semantics)
+		{
+			alternatives: [
+				{
+					name: "python-3.11"
+					check_script: "python3 --version"
+					expected_output: "^Python 3\\.11"
+				},
+				{
+					name: "python-3.12"
+					check_script: "python3 --version"
+					expected_output: "^Python 3\\.12"
+				},
+			]
+		},
+	]
+}
+```
+
+**Custom check properties:**
+
+| Property | Required | Description |
+|----------|----------|-------------|
+| `name` | Yes | Identifier for error messages |
+| `check_script` | Yes | Script to execute for validation |
+| `expected_code` | No | Expected exit code (default: 0) |
+| `expected_output` | No | Regex pattern to match against script output |
+
 ## Command Flags
 
 Commands can define flags that are passed at runtime. Flags are made available to scripts as environment variables with the `INVOWK_FLAG_` prefix.
@@ -683,7 +844,7 @@ cmds: [
 		implementations: [
 			{
 				script: "go build -o /workspace/bin/app ./..."
-				runtimes: [{name: "container", image: "golang:1.21"}]
+				runtimes: [{name: "container", image: "golang:1.25"}]
 				platforms: [{name: "linux"}]
 				// Implementation-level depends_on - validated within the container
 				depends_on: {
@@ -1952,7 +2113,7 @@ cmds: [
 				// Container config is specified in the runtime
 				runtimes: [{
 					name: "container",
-					image: "golang:1.21",
+					image: "golang:1.25",
 					volumes: ["./data:/data"],
 					ports: ["8080:8080"],
 				}]
@@ -2047,21 +2208,40 @@ invowk config show
 // Container engine preference: "podman" or "docker"
 container_engine: "podman"
 
+// Default runtime mode: "native", "virtual", or "container"
+default_runtime: "native"
 
 // Additional directories to search for invkfiles
 search_paths: [
     "/home/user/global-commands"
 ]
 
+// Module aliases for collision disambiguation
+// Maps module paths to alias names when two modules share the same identifier
+module_aliases: {
+    "/path/to/module.invkmod": "myalias"
+}
+
 // Virtual shell options
 virtual_shell: {
   enable_uroot_utils: true
 }
 
+// Container runtime options
+container: {
+  auto_provision: {
+    enabled: true                         // Enable/disable auto-provisioning of invowk into containers (default: true)
+    binary_path: "/usr/local/bin/invowk"  // Override path to invowk binary to provision (optional)
+    modules_paths: ["/extra/modules"]     // Additional module search paths for provisioning (optional)
+    cache_dir: "~/.cache/invowk/provision" // Cache directory for provisioned image metadata (optional)
+  }
+}
+
 // UI options
 ui: {
-  color_scheme: "auto"  // "auto", "dark", "light"
+  color_scheme: "auto"    // "auto", "dark", "light"
   verbose: false
+  interactive: false      // Enable alternate screen buffer mode for command execution
 }
 ```
 
@@ -2124,9 +2304,43 @@ invowk cmd test unit
 invowk cmd build --runtime virtual
 ```
 
+### Force Container Image Rebuild
+```bash
+invowk cmd build --force-rebuild
+```
+
 ### Verbose Mode
 ```bash
 invowk --verbose cmd build
+```
+
+### Interactive Mode (Alternate Screen Buffer)
+```bash
+invowk --interactive cmd build
+# or
+invowk -i cmd build
+```
+
+### Override Config File
+```bash
+invowk --config /path/to/custom/config.cue cmd build
+```
+
+### Environment Overrides
+```bash
+# Load additional env file at runtime
+invowk cmd deploy --env-file .env.production
+
+# Set an environment variable
+invowk cmd deploy --env-var API_KEY=secret123
+
+# Control host environment inheritance
+invowk cmd build --env-inherit-mode allow --env-inherit-allow TERM --env-inherit-allow LANG
+```
+
+### Override Working Directory
+```bash
+invowk cmd test --workdir ./packages/api
 ```
 
 ## Interactive TUI Components
@@ -2369,74 +2583,66 @@ cmds: [
 ## Project Structure
 
 ```
-invowk-cli/
+invowk/
 ├── main.go                     # Entry point
-├── cmd/invowk/                 # CLI commands
-│   ├── root.go                 # Root command
-│   ├── cmd.go                  # cmd subcommand
-│   ├── module.go               # module subcommand
+├── cmd/invowk/                 # CLI commands (Cobra command tree)
+│   ├── root.go                 # Root command and global flags
+│   ├── cmd.go                  # cmd subcommand (command execution)
+│   ├── cmd_discovery.go        # Dynamic command registration and discovery
+│   ├── cmd_execute.go          # Command execution pipeline
+│   ├── module.go               # module subcommand tree
 │   ├── init.go                 # init command
 │   ├── config.go               # config commands
-│   ├── completion.go           # completion command
+│   ├── completion.go           # Shell completion generation
 │   ├── tui.go                  # tui parent command
-│   ├── tui_input.go            # tui input subcommand
-│   ├── tui_write.go            # tui write subcommand
-│   ├── tui_choose.go           # tui choose subcommand
-│   ├── tui_confirm.go          # tui confirm subcommand
-│   ├── tui_filter.go           # tui filter subcommand
-│   ├── tui_file.go             # tui file subcommand
-│   ├── tui_table.go            # tui table subcommand
-│   ├── tui_spin.go             # tui spin subcommand
-│   ├── tui_pager.go            # tui pager subcommand
-│   ├── tui_format.go           # tui format subcommand
-│   └── tui_style.go            # tui style subcommand
+│   ├── tui_*.go                # TUI subcommands (input, write, choose, confirm, filter, file, table, spin, pager, format, style)
+│   └── internal.go             # Hidden internal commands
 ├── internal/
-│   ├── config/                 # Configuration handling with CUE schema
-│   ├── container/              # Container engine abstraction
-│   │   ├── engine.go           # Engine interface
-│   │   ├── docker.go           # Docker implementation
-│   │   └── podman.go           # Podman implementation
+│   ├── benchmark/              # Benchmarks for PGO profile generation
+│   ├── config/                 # Configuration management with CUE schema
+│   ├── container/              # Container engine abstraction (Docker, Podman, sandbox)
 │   ├── core/serverbase/        # Shared server state machine base
 │   ├── cueutil/                # Shared CUE parsing utilities
 │   ├── discovery/              # Invkfile and module discovery
-│   ├── issue/                  # Error types and messages
-│   ├── runtime/                # Runtime implementations
-│   │   ├── runtime.go          # Runtime interface
-│   │   ├── native.go           # Native shell runtime
-│   │   ├── virtual.go          # Virtual shell runtime
-│   │   └── container.go        # Container runtime
-│   ├── sshserver/              # SSH server for remote execution
+│   ├── issue/                  # Error types and ActionableError
+│   ├── provision/              # Container provisioning (ephemeral layer attachment)
+│   ├── runtime/                # Runtime implementations (native, virtual, container)
+│   ├── sshserver/              # SSH server for host access from containers
 │   ├── testutil/               # Test utilities
-│   ├── tui/                    # TUI component library
-│   │   ├── tui.go              # Core config and themes
-│   │   ├── input.go            # Text input component
-│   │   ├── write.go            # Multi-line editor component
-│   │   ├── choose.go           # Selection component
-│   │   ├── confirm.go          # Confirmation component
-│   │   ├── filter.go           # Fuzzy filter component
-│   │   ├── file.go             # File picker component
-│   │   ├── table.go            # Table display component
-│   │   ├── spin.go             # Spinner component
-│   │   ├── pager.go            # Pager component
-│   │   └── format.go           # Format component
+│   ├── tui/                    # TUI component library and interactive execution
 │   ├── tuiserver/              # TUI server for interactive sessions
-│   └── uroot/                  # uroot utilities for virtual shell
+│   └── uroot/                  # u-root utilities for virtual shell built-ins
 ├── pkg/
 │   ├── invkmod/                # Module validation and structure
-│   └── invkfile/               # Invkfile parsing
+│   ├── invkfile/               # Invkfile parsing and validation
+│   └── platform/               # Cross-platform utilities
 ```
 
 ## Dependencies
 
+**Core:**
 - [Cobra](https://github.com/spf13/cobra) - CLI framework
 - [Viper](https://github.com/spf13/viper) - Configuration management
 - [CUE](https://cuelang.org/) - Configuration language
 - [mvdan/sh](https://github.com/mvdan/sh) - Virtual shell interpreter
+
+**TUI & Styling:**
 - [Lip Gloss](https://github.com/charmbracelet/lipgloss) - Terminal styling
 - [Glamour](https://github.com/charmbracelet/glamour) - Markdown rendering
 - [Huh](https://github.com/charmbracelet/huh) - Terminal forms and prompts
 - [Bubbles](https://github.com/charmbracelet/bubbles) - TUI components
 - [Bubbletea](https://github.com/charmbracelet/bubbletea) - TUI framework
+
+**SSH & PTY:**
+- [Wish](https://github.com/charmbracelet/wish) - SSH server framework (for host SSH access from containers)
+- [Charmbracelet SSH](https://github.com/charmbracelet/ssh) - SSH transport layer
+- [creack/pty](https://github.com/creack/pty) - PTY handling
+
+**Module Dependencies:**
+- [go-git](https://github.com/go-git/go-git) - Git operations for remote module resolution
+
+**Virtual Shell:**
+- [u-root](https://github.com/u-root/u-root) - Core utilities for virtual shell built-ins (cat, cp, ls, grep, etc.)
 
 ## License
 

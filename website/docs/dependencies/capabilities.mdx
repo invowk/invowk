@@ -294,8 +294,11 @@ For container runtime, capability checks are performed on the **host**, not insi
         capabilities: [{alternatives: ["internet"]}]
     }
     implementations: [{
-        script: "kubectl apply -f k8s/"
-        runtimes: [{name: "container", image: "bitnami/kubectl"}]
+        script: """
+            apt-get update && apt-get install -y kubectl
+            kubectl apply -f k8s/
+            """
+        runtimes: [{name: "container", image: "debian:stable-slim"}]
     }]
 }
 ```
