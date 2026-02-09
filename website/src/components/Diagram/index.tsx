@@ -1,5 +1,4 @@
 import React from 'react';
-import { useColorMode } from '@docusaurus/theme-common';
 
 /**
  * Mapping of diagram IDs to their SVG file paths.
@@ -73,7 +72,6 @@ export interface DiagramProps {
  * ```
  */
 export default function Diagram({ id, alt }: DiagramProps): React.ReactElement {
-  const { colorMode } = useColorMode();
   const path = svgPaths[id];
 
   if (!path) {
@@ -98,24 +96,11 @@ export default function Diagram({ id, alt }: DiagramProps): React.ReactElement {
   }
 
   return (
-    <div
-      style={{
-        textAlign: 'center',
-        margin: '1.5rem 0',
-        padding: '1rem',
-        backgroundColor: colorMode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.02)',
-        borderRadius: '8px',
-      }}
-    >
+    <div className="diagram-wrapper">
       <img
+        className="diagram-img"
         src={path}
         alt={alt || `Diagram: ${id}`}
-        style={{
-          maxWidth: '100%',
-          height: 'auto',
-          // Invert colors slightly in dark mode for better visibility
-          filter: colorMode === 'dark' ? 'invert(0.9) hue-rotate(180deg)' : 'none',
-        }}
       />
     </div>
   );

@@ -148,3 +148,40 @@ pre::-webkit-scrollbar-thumb {
 pre::-webkit-scrollbar-thumb:hover {
   background: rgba(99, 102, 241, 0.5);
 }
+
+/* ── Diagram component ── */
+.diagram-wrapper {
+  text-align: center;
+  margin: 1.5rem 0;
+  padding: 1rem;
+  background-color: rgba(0, 0, 0, 0.02);
+  border-radius: 8px;
+}
+
+[data-theme='dark'] .diagram-wrapper {
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+.diagram-img {
+  max-width: 100%;
+  height: auto;
+  cursor: zoom-in;
+}
+
+[data-theme='dark'] .diagram-img {
+  filter: invert(0.9) hue-rotate(180deg);
+}
+
+/* ── medium-zoom overlay ── */
+.medium-zoom-overlay {
+  z-index: 100;
+}
+
+.medium-zoom-image--opened {
+  z-index: 101;
+}
+
+/* Keep the dark-mode filter on the zoomed clone */
+[data-theme='dark'] .medium-zoom-image--opened.diagram-img {
+  filter: invert(0.9) hue-rotate(180deg);
+}
