@@ -39,6 +39,19 @@ Invowk is a dynamically extensible command runner (similar to `just`, `task`, an
 - [`.claude/rules/testing.md`](.claude/rules/testing.md) - Test patterns, cross-platform testing, skipOnWindows.
 - [`.claude/rules/windows.md`](.claude/rules/windows.md) - Windows-specific constraints and guidance.
 
+### Agents
+
+**Agents Index (`.claude/agents/`):**
+
+Agents are specialized reviewers and generators that can be spawned as subagents for focused tasks.
+
+- [`.claude/agents/code-reviewer.md`](.claude/agents/code-reviewer.md) - Go code review: decorder, sentinel errors, wrapcheck, SPDX headers, guardrail compliance.
+- [`.claude/agents/cue-schema-agent.md`](.claude/agents/cue-schema-agent.md) - CUE schema specialist: 3-step parse flow, sync tests, validation matrix.
+- [`.claude/agents/doc-updater.md`](.claude/agents/doc-updater.md) - Documentation sync: code→doc sync map, MDX snippets, i18n mirrors, diagram updates.
+- [`.claude/agents/performance-analyzer.md`](.claude/agents/performance-analyzer.md) - Benchmark-aware reviewer: CUE hot path, discovery traversal, PGO profile maintenance.
+- [`.claude/agents/security-reviewer.md`](.claude/agents/security-reviewer.md) - Security reviewer: SSH auth, container injection, gosec exclusions, env var handling.
+- [`.claude/agents/test-writer.md`](.claude/agents/test-writer.md) - Testscript generator: virtual/native txtar pairs, platform-split CUE, exemption rules.
+
 ### Skills
 
 **Skills Index (`.claude/skills/`):**
@@ -52,6 +65,8 @@ Skills provide domain-specific procedural guidance. They are invoked when workin
 - [`.claude/skills/discovery/`](.claude/skills/discovery/) - Module/command discovery, precedence order, collision detection, source tracking.
 - [`.claude/skills/docs/`](.claude/skills/docs/) - Documentation workflow and Docusaurus website development.
 - [`.claude/skills/invowk-schema/`](.claude/skills/invowk-schema/) - Invkfile/invkmod schema guidelines, cross-platform runtime patterns.
+- [`.claude/skills/native-mirror/`](.claude/skills/native-mirror/) - User-invokable (`/native-mirror`). Generate native_*.txtar mirrors from virtual tests with platform-split CUE.
+- [`.claude/skills/schema-sync-check/`](.claude/skills/schema-sync-check/) - User-invokable (`/schema-sync-check`). Validate CUE schema ↔ Go struct JSON tag alignment.
 - [`.claude/skills/server/`](.claude/skills/server/) - Server state machine pattern for SSH and TUI servers.
 - [`.claude/skills/shell/`](.claude/skills/shell/) - Shell runtime rules for mvdan/sh virtual shell.
 - [`.claude/skills/testing/`](.claude/skills/testing/) - Testing patterns, testscript CLI tests, race conditions, TUI/container testing.

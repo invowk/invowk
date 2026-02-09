@@ -1,0 +1,41 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "has_go=false; for f in $CLAUDE_FILE_PATHS; do case \"$f\" in *.go) has_go=true; break;; esac; done; if $has_go; then gofumpt -l -w $CLAUDE_FILE_PATHS 2>/dev/null; fi; true",
+            "timeout": 10000
+          },
+          {
+            "type": "command",
+            "command": "blocked=false; for f in $CLAUDE_FILE_PATHS; do case \"$f\" in */go.sum|*/default.pgo|*/node_modules/*|*/website/build/*) blocked=true; break;; esac; done; if $blocked; then echo 'BLOCK: Do not edit generated/vendored files (go.sum, default.pgo, node_modules/, website/build/)'; exit 1; fi; exit 0",
+            "timeout": 5000
+          },
+          {
+            "type": "command",
+            "command": "for f in $CLAUDE_FILE_PATHS; do case \"$f\" in *.go) if ! head -1 \"$f\" | grep -q 'SPDX-License-Identifier'; then tmp=$(mktemp) && { echo '// SPDX-License-Identifier: MPL-2.0'; echo ''; cat \"$f\"; } > \"$tmp\" && mv \"$tmp\" \"$f\"; fi;; esac; done; true",
+            "timeout": 10000
+          },
+          {
+            "type": "command",
+            "command": "for f in $CLAUDE_FILE_PATHS; do case \"$f\" in *.d2) if command -v d2 >/dev/null 2>&1; then d2 fmt \"$f\" 2>/dev/null; fi;; esac; done; true",
+            "timeout": 15000
+          },
+          {
+            "type": "command",
+            "command": "has_schema=false; for f in $CLAUDE_FILE_PATHS; do case \"$f\" in *_schema.cue|*/pkg/invkfile/*|*/pkg/invkmod/*|*/internal/config/types.go) has_schema=true; break;; esac; done; if $has_schema; then echo 'CUE schema or Go struct changed. Run sync tests: go test -v -run Sync ./pkg/invkfile/ ./pkg/invkmod/ ./internal/config/'; fi; true",
+            "timeout": 5000
+          },
+          {
+            "type": "command",
+            "command": "has_website=false; for f in $CLAUDE_FILE_PATHS; do case \"$f\" in */website/*) has_website=true; break;; esac; done; if $has_website; then cd website 2>/dev/null && npm run build --silent 2>&1 | tail -5; fi; true",
+            "timeout": 120000
+          }
+        ]
+      }
+    ]
+  }
+}
