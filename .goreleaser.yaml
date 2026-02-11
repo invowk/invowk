@@ -90,7 +90,7 @@ release:
     name: invowk
   draft: false
   prerelease: auto
-  make_latest: true
+  make_latest: auto
   mode: replace
   header: |
     ## invowk {{ .Version }}
