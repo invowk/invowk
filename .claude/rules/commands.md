@@ -234,8 +234,8 @@ cosign verify-blob \
 
 | Workflow | Trigger | Purpose |
 |----------|---------|---------|
-| `ci.yml` | Push/PR to main (non-website changes) | Run tests, build verification, license check |
-| `lint.yml` | Push/PR to main (non-website changes) | Advisory golangci-lint run |
+| `ci.yml` | Push/PR to main (Go code/build changes) | Run tests, build verification, license check |
+| `lint.yml` | Push/PR to main (Go code/lint config changes) | Advisory golangci-lint run |
 | `release.yml` | Tag push (v*) or manual dispatch | Validate, test, then build and publish release |
 | `version-docs.yml` | Release published or manual dispatch | Snapshot docs for the released version |
 | `test-website.yml` | PR to main (website changes) | Build website for PR validation |

@@ -4,17 +4,33 @@ on:
   push:
     branches:
       - main
-    paths-ignore:
-      - 'website/**'
-      - '*.md'
-      - 'LICENSE'
+    paths:
+      - 'cmd/**'
+      - 'internal/**'
+      - 'pkg/**'
+      - 'tests/**'
+      - '*.go'
+      - 'go.mod'
+      - 'go.sum'
+      - 'Makefile'
+      - 'default.pgo'
+      - '.goreleaser.yaml'
+      - '.github/workflows/ci.yml'
   pull_request:
     branches:
       - main
-    paths-ignore:
-      - 'website/**'
-      - '*.md'
-      - 'LICENSE'
+    paths:
+      - 'cmd/**'
+      - 'internal/**'
+      - 'pkg/**'
+      - 'tests/**'
+      - '*.go'
+      - 'go.mod'
+      - 'go.sum'
+      - 'Makefile'
+      - 'default.pgo'
+      - '.goreleaser.yaml'
+      - '.github/workflows/ci.yml'
   workflow_dispatch:
 
 permissions:

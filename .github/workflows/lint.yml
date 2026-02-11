@@ -4,17 +4,29 @@ on:
   push:
     branches:
       - main
-    paths-ignore:
-      - 'website/**'
-      - '*.md'
-      - 'LICENSE'
+    paths:
+      - 'cmd/**'
+      - 'internal/**'
+      - 'pkg/**'
+      - 'tests/**'
+      - '*.go'
+      - 'go.mod'
+      - 'go.sum'
+      - '.golangci.toml'
+      - '.github/workflows/lint.yml'
   pull_request:
     branches:
       - main
-    paths-ignore:
-      - 'website/**'
-      - '*.md'
-      - 'LICENSE'
+    paths:
+      - 'cmd/**'
+      - 'internal/**'
+      - 'pkg/**'
+      - 'tests/**'
+      - '*.go'
+      - 'go.mod'
+      - 'go.sum'
+      - '.golangci.toml'
+      - '.github/workflows/lint.yml'
   workflow_dispatch:
 
 permissions:
