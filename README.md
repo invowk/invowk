@@ -2644,6 +2644,10 @@ invowk/
 **Virtual Shell:**
 - [u-root](https://github.com/u-root/u-root) - Core utilities for virtual shell built-ins (cat, cp, ls, grep, etc.)
 
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for how to participate.
+
 ## License
 
 This project is licensed under the Mozilla Public License 2.0 (MPL-2.0) - see the [LICENSE](LICENSE) file for details.
