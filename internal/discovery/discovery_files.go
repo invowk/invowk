@@ -89,15 +89,9 @@ func (d *Discovery) DiscoverAll() ([]*DiscoveredFile, error) {
 		files = append(files, userModuleFiles...)
 	}
 
-	// 4. Configured search paths
-	for _, searchPath := range d.cfg.SearchPaths {
-		pathFiles := d.discoverInDirRecursive(searchPath, SourceConfigPath)
-		files = append(files, pathFiles...)
-
-		// Also discover modules in search paths
-		searchPathModuleFiles := d.discoverModulesInDir(searchPath)
-		files = append(files, searchPathModuleFiles...)
-	}
+	// 4. Configured includes (explicit invkfiles and modules from config)
+	includeFiles := d.loadIncludes()
+	files = append(files, includeFiles...)
 
 	return files, nil
 }
@@ -214,6 +208,45 @@ func (d *Discovery) discoverModulesInDir(dir string) []*DiscoveredFile {
 			Source: SourceModule,
 			Module: m,
 		})
+	}
+
+	return files
+}
+
+// loadIncludes processes configured include entries from config. Each entry is either:
+//   - A direct invkfile path (invkfile.cue or invkfile) -> SourceConfigPath
+//   - A module directory path (*.invkmod) -> SourceModule
+//
+// Entries that do not exist on disk are silently skipped (they may reference
+// optional or environment-specific paths).
+func (d *Discovery) loadIncludes() []*DiscoveredFile {
+	var files []*DiscoveredFile
+
+	for _, entry := range d.cfg.Includes {
+		if entry.IsModule() {
+			// Module entry - load as module
+			if !invkmod.IsModule(entry.Path) {
+				continue
+			}
+			moduleName := strings.TrimSuffix(filepath.Base(entry.Path), invkmod.ModuleSuffix)
+			if moduleName == SourceIDInvkfile {
+				continue // Skip reserved module name (FR-015)
+			}
+			m, err := invkmod.Load(entry.Path)
+			if err != nil {
+				continue // Skip invalid modules
+			}
+			files = append(files, &DiscoveredFile{
+				Path:   m.InvkfilePath(),
+				Source: SourceModule,
+				Module: m,
+			})
+		} else {
+			// Invkfile entry - load directly
+			if _, err := os.Stat(entry.Path); err == nil {
+				files = append(files, &DiscoveredFile{Path: entry.Path, Source: SourceConfigPath})
+			}
+		}
 	}
 
 	return files

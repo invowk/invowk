@@ -293,7 +293,9 @@ cmds: [{name: "custom-cmd", implementations: [{script: "echo custom", runtimes: 
 	defer cleanupHome()
 
 	cfg := config.DefaultConfig()
-	cfg.SearchPaths = []string{searchPath}
+	cfg.Includes = []config.IncludeEntry{
+		{Path: filepath.Join(searchPath, "invkfile.cue")},
+	}
 	d := New(cfg)
 
 	files, err := d.DiscoverAll()

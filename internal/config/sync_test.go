@@ -250,28 +250,73 @@ func validateCUE(t *testing.T, cueData string) error {
 	return nil
 }
 
-// TestSearchPathsElementConstraints verifies search_paths elements reject empty strings
-// and enforce the 4096 rune limit.
-func TestSearchPathsElementConstraints(t *testing.T) {
+// TestIncludeEntrySchemaSync verifies IncludeEntry Go struct matches #IncludeEntry CUE definition.
+func TestIncludeEntrySchemaSync(t *testing.T) {
+	schema, _ := getCUESchema(t)
+	cueFields := extractCUEFields(t, lookupDefinition(t, schema, "#IncludeEntry"))
+	goFields := extractGoJSONTags(t, reflect.TypeFor[IncludeEntry]())
+
+	assertFieldsSync(t, "IncludeEntry", cueFields, goFields)
+}
+
+// TestIncludesEntryConstraints verifies #IncludeEntry path rejects empty strings,
+// enforces the 4096 rune limit, and only accepts paths ending with .invkmod,
+// invkfile.cue, or invkfile.
+func TestIncludesEntryConstraints(t *testing.T) {
 	tests := []struct {
 		name    string
 		cueData string
 		wantErr bool
 	}{
 		{
-			name:    "empty string element rejected",
-			cueData: `container_engine: "docker"` + "\n" + `search_paths: [""]`,
+			name:    "empty path rejected",
+			cueData: `includes: [{path: ""}]`,
 			wantErr: true,
 		},
 		{
-			name:    "4096-char element accepted",
-			cueData: `container_engine: "docker"` + "\n" + `search_paths: ["` + strings.Repeat("a", 4096) + `"]`,
+			name:    "path not ending with invkfile or invkmod rejected",
+			cueData: `includes: [{path: "/some/random/path"}]`,
+			wantErr: true,
+		},
+		{
+			name:    "invkfile.cue path accepted",
+			cueData: `includes: [{path: "/home/user/invkfile.cue"}]`,
 			wantErr: false,
 		},
 		{
-			name:    "4097-char element rejected",
-			cueData: `container_engine: "docker"` + "\n" + `search_paths: ["` + strings.Repeat("a", 4097) + `"]`,
+			name:    "invkfile path accepted",
+			cueData: `includes: [{path: "/home/user/invkfile"}]`,
+			wantErr: false,
+		},
+		{
+			name:    "invkmod path accepted",
+			cueData: `includes: [{path: "/home/user/mymod.invkmod"}]`,
+			wantErr: false,
+		},
+		{
+			name:    "path over 4096 chars rejected",
+			cueData: `includes: [{path: "/` + strings.Repeat("a", 4090) + `.invkmod"}]`,
 			wantErr: true,
+		},
+		{
+			name:    "alias on invkmod accepted",
+			cueData: `includes: [{path: "/home/user/mymod.invkmod", alias: "my-alias"}]`,
+			wantErr: false,
+		},
+		{
+			name:    "empty alias rejected",
+			cueData: `includes: [{path: "/home/user/mymod.invkmod", alias: ""}]`,
+			wantErr: true,
+		},
+		{
+			name:    "alias over 256 chars rejected",
+			cueData: `includes: [{path: "/home/user/mymod.invkmod", alias: "` + strings.Repeat("a", 257) + `"}]`,
+			wantErr: true,
+		},
+		{
+			name:    "alias at 256 chars accepted",
+			cueData: `includes: [{path: "/home/user/mymod.invkmod", alias: "` + strings.Repeat("a", 256) + `"}]`,
+			wantErr: false,
 		},
 	}
 
@@ -402,36 +447,78 @@ func TestCacheDirConstraints(t *testing.T) {
 	}
 }
 
-// TestModuleAliasesConstraints verifies module_aliases rejects empty values
-// and enforces the 256 rune limit on values.
-// Note: CUE pattern constraints on map keys ([string & !=""]:) do not reject
-// empty string keys at validation time — empty key validation must be done in Go.
-func TestModuleAliasesConstraints(t *testing.T) {
+// TestValidateIncludes verifies the Go-level validation for includes constraints
+// that CUE cannot express (alias uniqueness across entries, alias-only-for-modules).
+func TestValidateIncludes(t *testing.T) {
 	tests := []struct {
-		name    string
-		cueData string
-		wantErr bool
+		name     string
+		includes []IncludeEntry
+		wantErr  bool
 	}{
 		{
-			name:    "empty value rejected",
-			cueData: `container_engine: "docker"` + "\n" + `module_aliases: "com.example.mod": ""`,
-			wantErr: true,
+			name:     "empty includes valid",
+			includes: nil,
+			wantErr:  false,
 		},
 		{
-			name:    "256-char value accepted",
-			cueData: `container_engine: "docker"` + "\n" + `module_aliases: "com.example.mod": "` + strings.Repeat("a", 256) + `"`,
+			name: "module with alias valid",
+			includes: []IncludeEntry{
+				{Path: "/path/to/mymod.invkmod", Alias: "my-alias"},
+			},
 			wantErr: false,
 		},
 		{
-			name:    "257-char value rejected",
-			cueData: `container_engine: "docker"` + "\n" + `module_aliases: "com.example.mod": "` + strings.Repeat("a", 257) + `"`,
+			name: "invkfile with alias rejected",
+			includes: []IncludeEntry{
+				{Path: "/path/to/invkfile.cue", Alias: "my-alias"},
+			},
+			wantErr: true,
+		},
+		{
+			name: "duplicate alias rejected",
+			includes: []IncludeEntry{
+				{Path: "/path/to/mod1.invkmod", Alias: "same-alias"},
+				{Path: "/path/to/mod2.invkmod", Alias: "same-alias"},
+			},
+			wantErr: true,
+		},
+		{
+			name: "different aliases accepted",
+			includes: []IncludeEntry{
+				{Path: "/path/to/mod1.invkmod", Alias: "alias-one"},
+				{Path: "/path/to/mod2.invkmod", Alias: "alias-two"},
+			},
+			wantErr: false,
+		},
+		{
+			name: "entries without alias skip validation",
+			includes: []IncludeEntry{
+				{Path: "/path/to/invkfile.cue"},
+				{Path: "/path/to/mymod.invkmod"},
+			},
+			wantErr: false,
+		},
+		{
+			name: "duplicate path rejected",
+			includes: []IncludeEntry{
+				{Path: "/path/to/mymod.invkmod"},
+				{Path: "/path/to/mymod.invkmod"},
+			},
+			wantErr: true,
+		},
+		{
+			name: "duplicate path with trailing slash rejected",
+			includes: []IncludeEntry{
+				{Path: "/path/to/mymod.invkmod"},
+				{Path: "/path/to/mymod.invkmod/"},
+			},
 			wantErr: true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := validateCUE(t, tt.cueData)
+			err := validateIncludes(tt.includes)
 			if tt.wantErr && err == nil {
 				t.Error("expected validation error, got nil")
 			}

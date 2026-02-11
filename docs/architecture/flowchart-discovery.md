@@ -61,14 +61,14 @@ requires: [
 - Makes dependencies explicit in each module
 - Enables dependency upgrades without breaking consumers
 
-## Search Path Configuration
+## Includes Configuration
 
-Search paths are configured in `~/.config/invowk/config.cue`:
+Additional invkfiles and modules are configured in `~/.config/invowk/config.cue`:
 
 ```cue
-search_paths: [
-    "/opt/company-invowk-modules",
-    "/home/shared/invowk",
+includes: [
+    {path: "/opt/company-invowk-modules/tools.invkmod"},
+    {path: "/home/shared/invowk/invkfile.cue"},
 ]
 ```
 

@@ -27,8 +27,8 @@ func TestDefaultConfig(t *testing.T) {
 		t.Errorf("expected default runtime to be native, got %s", cfg.DefaultRuntime)
 	}
 
-	if len(cfg.SearchPaths) != 0 {
-		t.Errorf("expected default search paths to be empty, got %v", cfg.SearchPaths)
+	if len(cfg.Includes) != 0 {
+		t.Errorf("expected default includes to be empty, got %v", cfg.Includes)
 	}
 
 	if !cfg.VirtualShell.EnableUrootUtils {
@@ -185,8 +185,11 @@ func TestLoadAndSave(t *testing.T) {
 	// Create a custom config
 	cfg := &Config{
 		ContainerEngine: ContainerEngineDocker,
-		SearchPaths:     []string{"/path/one", "/path/two"},
-		DefaultRuntime:  "container",
+		Includes: []IncludeEntry{
+			{Path: "/path/one/invkfile.cue"},
+			{Path: "/path/two.invkmod", Alias: "two-alias"},
+		},
+		DefaultRuntime: "container",
 		VirtualShell: VirtualShellConfig{
 			EnableUrootUtils: false,
 		},
@@ -228,8 +231,8 @@ func TestLoadAndSave(t *testing.T) {
 		t.Errorf("DefaultRuntime = %s, want container", loaded.DefaultRuntime)
 	}
 
-	if len(loaded.SearchPaths) != 2 {
-		t.Errorf("SearchPaths length = %d, want 2", len(loaded.SearchPaths))
+	if len(loaded.Includes) != 2 {
+		t.Errorf("Includes length = %d, want 2", len(loaded.Includes))
 	}
 
 	if loaded.VirtualShell.EnableUrootUtils != false {

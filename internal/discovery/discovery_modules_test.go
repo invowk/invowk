@@ -124,7 +124,9 @@ func TestDiscoverAll_FindsModulesInConfigPath(t *testing.T) {
 	defer cleanupHome()
 
 	cfg := config.DefaultConfig()
-	cfg.SearchPaths = []string{searchPath}
+	cfg.Includes = []config.IncludeEntry{
+		{Path: moduleDir},
+	}
 	d := New(cfg)
 
 	files, err := d.DiscoverAll()
@@ -143,7 +145,7 @@ func TestDiscoverAll_FindsModulesInConfigPath(t *testing.T) {
 	}
 
 	if !found {
-		t.Error("DiscoverAll() did not find module in configured search path")
+		t.Error("DiscoverAll() did not find module in configured includes")
 	}
 }
 

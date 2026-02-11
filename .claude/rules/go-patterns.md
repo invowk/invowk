@@ -245,7 +245,7 @@ Use JSON tags with snake_case, add mapstructure tags when using Viper:
 ```go
 type Config struct {
     ContainerEngine ContainerEngine `json:"container_engine" mapstructure:"container_engine"`
-    SearchPaths     []string        `json:"search_paths" mapstructure:"search_paths"`
+    Includes        []IncludeEntry  `json:"includes" mapstructure:"includes"`
 }
 ```
 

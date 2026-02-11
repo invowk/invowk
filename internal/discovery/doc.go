@@ -19,7 +19,7 @@
 //  1. Current directory invkfile.cue (highest)
 //  2. Modules in current directory (*.invkmod)
 //  3. User commands directory (~/.invowk/cmds)
-//  4. Configured search paths
+//  4. Configured includes
 //
 // For command aggregation, local invkfile commands take highest precedence. Commands from
 // sibling modules are included with conflict detection when names collide across sources.

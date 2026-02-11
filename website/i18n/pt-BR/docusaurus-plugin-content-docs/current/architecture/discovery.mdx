@@ -67,18 +67,18 @@ requires: [
 - Torna dependências explícitas em cada módulo
 - Permite upgrades de dependências sem quebrar consumidores
 
-## Configuração de Search Path
+## Configuração de Includes
 
-Search paths são configurados em `~/.config/invowk/config.cue`:
+Invkfiles e módulos adicionais são configurados em `~/.config/invowk/config.cue`:
 
 ```cue
-search_paths: [
-    "/opt/company-invowk-modules",
-    "/home/shared/invowk",
+includes: [
+    {path: "/opt/company-invowk-modules/tools.invkmod"},
+    {path: "/home/shared/invowk/invkfile.cue"},
 ]
 ```
 
-### Ordem de Resolução de Path
+### Ordem de Processamento de Entradas
 
 <Diagram id="architecture/discovery-search-paths" />
 

@@ -118,12 +118,16 @@ func showConfig(ctx context.Context, app *App) error {
 	fmt.Printf("%s: %s\n", keyStyle.Render("default_runtime"), valueStyle.Render(cfg.DefaultRuntime))
 
 	fmt.Println()
-	fmt.Printf("%s:\n", keyStyle.Render("search_paths"))
-	if len(cfg.SearchPaths) == 0 {
+	fmt.Printf("%s:\n", keyStyle.Render("includes"))
+	if len(cfg.Includes) == 0 {
 		fmt.Printf("  %s\n", SubtitleStyle.Render("(none configured)"))
 	} else {
-		for _, path := range cfg.SearchPaths {
-			fmt.Printf("  - %s\n", valueStyle.Render(path))
+		for _, inc := range cfg.Includes {
+			if inc.Alias != "" {
+				fmt.Printf("  - %s (alias: %s)\n", valueStyle.Render(inc.Path), valueStyle.Render(inc.Alias))
+			} else {
+				fmt.Printf("  - %s\n", valueStyle.Render(inc.Path))
+			}
 		}
 	}
 

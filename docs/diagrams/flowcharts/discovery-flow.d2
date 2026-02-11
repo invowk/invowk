@@ -2,7 +2,7 @@
 #
 # Shows how Invowk discovers commands from multiple sources
 # with priority ordering: current directory > local modules >
-# user directory > search paths.
+# user directory > configured includes.
 #
 # Source: docs/architecture/flowchart-discovery.md
 
@@ -154,17 +154,17 @@ dep_resolution.DepsResolved -> priority3.UserDir
 priority2.Skip2 -> priority3.UserDir
 
 # ==============================================================================
-# Priority 4: Search Paths
+# Priority 4: Configured Includes
 # ==============================================================================
 
-priority4: Priority 4: Search Paths {
+priority4: Priority 4: Configured Includes {
   style: {
     stroke: "#1168BD"
     stroke-dash: 3
     fill: transparent
   }
 
-  SearchPaths: Check configured\nsearch_paths\n(invkfiles AND modules)
+  SearchPaths: Check configured\nincludes\n(invkfiles AND modules)
 
   HasPaths: Found? {
     shape: diamond

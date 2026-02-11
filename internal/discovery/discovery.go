@@ -5,6 +5,7 @@ package discovery
 import (
 	"errors"
 	"fmt"
+	"path/filepath"
 
 	"invowk-cli/internal/config"
 	"invowk-cli/pkg/invkfile"
@@ -36,11 +37,10 @@ func (e *ModuleCollisionError) Error() string {
 		"module name collision: '%s' defined in both:\n"+
 			"  - %s\n"+
 			"  - %s\n\n"+
-			"Use an alias to disambiguate:\n"+
-			"  invowk module alias %q <new-alias>\n"+
-			"  invowk module alias %q <new-alias>",
+			"Add an alias to disambiguate in your config:\n"+
+			"  includes: [{path: %q, alias: \"<new-alias>\"}]",
 		e.ModuleID, e.FirstSource, e.SecondSource,
-		e.FirstSource, e.SecondSource)
+		e.SecondSource)
 }
 
 // New creates a new Discovery instance
@@ -89,6 +89,14 @@ func (d *Discovery) LoadAll() ([]*DiscoveredFile, error) {
 		}
 	}
 
+	// Detect module ID collisions after all files are parsed. This catches
+	// two modules that declare the same module identifier and neither has
+	// an alias to disambiguate. Callers receive a ModuleCollisionError with
+	// actionable remediation (add an alias in the includes config).
+	if err := d.CheckModuleCollisions(files); err != nil {
+		return nil, err
+	}
+
 	return files, nil
 }
 
@@ -135,9 +143,9 @@ func (d *Discovery) LoadFirst() (*DiscoveredFile, error) {
 
 // CheckModuleCollisions checks for module ID collisions among discovered files.
 // It returns a ModuleCollisionError if two modules have the same module identifier
-// and neither has an alias configured.
+// and neither has an alias configured via includes.
 func (d *Discovery) CheckModuleCollisions(files []*DiscoveredFile) error {
-	// Map module IDs to their sources (considering aliases)
+	// Map effective module IDs to their source paths for collision detection.
 	moduleSources := make(map[string]string)
 
 	for _, file := range files {
@@ -145,34 +153,36 @@ func (d *Discovery) CheckModuleCollisions(files []*DiscoveredFile) error {
 			continue
 		}
 
-		moduleID := file.Invkfile.GetModule()
+		moduleID := d.GetEffectiveModuleID(file)
 		if moduleID == "" {
 			continue
 		}
 
-		// Check if there's an alias configured for this path
-		if d.cfg != nil && d.cfg.ModuleAliases != nil {
-			if alias, ok := d.cfg.ModuleAliases[file.Path]; ok {
-				moduleID = alias
-			}
+		// Use the module directory path (not the invkfile inside it) so
+		// the error message shows the path users need for their includes config.
+		sourcePath := file.Path
+		if file.Module != nil {
+			sourcePath = file.Module.Path
 		}
 
-		// Check for collision
 		if existingSource, exists := moduleSources[moduleID]; exists {
 			return &ModuleCollisionError{
 				ModuleID:     moduleID,
 				FirstSource:  existingSource,
-				SecondSource: file.Path,
+				SecondSource: sourcePath,
 			}
 		}
 
-		moduleSources[moduleID] = file.Path
+		moduleSources[moduleID] = sourcePath
 	}
 
 	return nil
 }
 
-// GetEffectiveModuleID returns the effective module ID for a file, considering aliases.
+// GetEffectiveModuleID returns the effective module ID for a file, considering
+// aliases from the includes config. For module-backed files, if the module's
+// directory matches an include entry with an alias, the alias overrides the
+// module's declared ID.
 func (d *Discovery) GetEffectiveModuleID(file *DiscoveredFile) string {
 	if file.Invkfile == nil {
 		return ""
@@ -180,12 +190,35 @@ func (d *Discovery) GetEffectiveModuleID(file *DiscoveredFile) string {
 
 	moduleID := file.Invkfile.GetModule()
 
-	// Check if there's an alias configured for this path
-	if d.cfg != nil && d.cfg.ModuleAliases != nil {
-		if alias, ok := d.cfg.ModuleAliases[file.Path]; ok {
+	// Module-backed files can have aliases configured in includes.
+	// Match against Module.Path (the module directory), not file.Path
+	// (the invkfile inside the module), because includes reference
+	// module directories.
+	if file.Module != nil {
+		if alias := d.getAliasForModulePath(file.Module.Path); alias != "" {
 			return alias
 		}
 	}
 
 	return moduleID
+}
+
+// getAliasForModulePath looks up an alias for the given module directory path
+// from the includes config. Paths are normalized with filepath.Clean before
+// comparison to handle trailing slashes and redundant separators. Returns the
+// alias if found, or empty string if no alias is configured.
+func (d *Discovery) getAliasForModulePath(modulePath string) string {
+	if d.cfg == nil {
+		return ""
+	}
+
+	cleanPath := filepath.Clean(modulePath)
+
+	for _, inc := range d.cfg.Includes {
+		if inc.Alias != "" && filepath.Clean(inc.Path) == cleanPath {
+			return inc.Alias
+		}
+	}
+
+	return ""
 }

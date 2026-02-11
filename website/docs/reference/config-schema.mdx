@@ -46,25 +46,30 @@ Specifies which container runtime to use for container-based command execution.
 
 If the preferred engine is not available, Invowk falls back to the other engine when container runtime is needed.
 
-### search_paths
+### includes
 
-**Type:** `[...string]`  
-**Required:** No  
+**Type:** `[...#IncludeEntry]`
+**Required:** No
 **Default:** `[]`
 
-Additional directories to search for invkfiles and modules.
+Additional invkfiles and modules to include in command discovery. Each entry specifies a path to an `invkfile.cue`, `invkfile`, or `*.invkmod` directory. Modules may have an optional `alias` for collision disambiguation.
 
-<Snippet id="reference/config/search-paths-example" />
+<Snippet id="reference/config/includes-example" />
 
-**Path resolution:**
-- Paths starting with `~` are expanded to the user's home directory
-- Relative paths are resolved from the current working directory
+**Path requirements:**
+- Paths must be absolute and end with `.invkmod`, `/invkfile.cue`, or `/invkfile`
 - Non-existent paths are silently ignored
+- Duplicate paths are rejected
 
-**Search priority (highest to lowest):**
+**Alias rules:**
+- Aliases are optional and only valid for `.invkmod` paths
+- Each alias must be unique across all includes entries
+- Aliases override the module's declared identifier for collision resolution
+
+**Discovery priority (highest to lowest):**
 1. Current directory
-2. Paths in `search_paths` (in order)
-3. `~/.invowk/cmds`
+2. `~/.invowk/cmds`
+3. Configured `includes` (in order)
 
 ### default_runtime
 

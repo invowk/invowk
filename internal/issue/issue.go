@@ -300,8 +300,8 @@ $ rm ~/.config/invowk/config.cue
 ~~~cue
 container_engine: "podman"
 default_runtime: "native"
-search_paths: [
-    "/home/user/global-commands"
+includes: [
+    {path: "/home/user/global-commands/invkfile.cue"}
 ]
 
 ui: {
@@ -394,7 +394,7 @@ The command cannot run because some dependencies are not available.
 ## Things you can try:
 - Install the missing tools listed above
 - Check that the tools are in your PATH
-- Ensure referenced commands exist and are discoverable (invkfiles, modules, or configured search paths)
+- Ensure referenced commands exist and are discoverable (invkfiles, modules, or configured includes)
 - List discovered commands to see what invowk can find:
 ~~~
 $ invowk cmd --list

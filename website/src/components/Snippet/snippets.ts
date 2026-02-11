@@ -4066,15 +4066,15 @@ invowk module import https://github.com/org/repo/releases/download/v1.0.0/mytool
 # Installed to: ./modules/mytools.invkmod/`,
   },
 
-  'modules/search-paths-config': {
+  'modules/includes-config': {
     language: 'cue',
     code: `// ~/.config/invowk/config.cue
-search_paths: [
-    "/shared/company-modules"
+includes: [
+    {path: "/shared/company-modules/tools.invkmod"},
 ]`,
   },
 
-  'modules/install-search-path': {
+  'modules/install-custom-path': {
     language: 'bash',
     code: `invowk module import mytools.zip --path /shared/company-modules`,
   },
@@ -4646,9 +4646,9 @@ fi`,
     language: 'cue',
     code: `// ~/.config/invowk/config.cue
 container_engine: "podman"
-search_paths: [
-    "~/.invowk/modules",
-    "/usr/local/share/invowk/modules"
+includes: [
+    {path: "~/.invowk/modules/tools.invkmod"},
+    {path: "/usr/local/share/invowk/invkfile.cue"},
 ]
 default_runtime: "virtual"`,
   },
@@ -4658,12 +4658,12 @@ default_runtime: "virtual"`,
     code: `container_engine: "docker"  // or "podman"`,
   },
 
-  'config/search-paths': {
+  'config/includes': {
     language: 'cue',
-    code: `search_paths: [
-    "~/.invowk/modules",
-    "~/my-company/shared-modules",
-    "/opt/invowk/modules"
+    code: `includes: [
+    {path: "~/.invowk/modules/tools.invkmod"},
+    {path: "~/my-company/shared.invkmod", alias: "company"},
+    {path: "/opt/invowk/invkfile.cue"},
 ]`,
   },
 
@@ -4722,10 +4722,10 @@ notepad (invowk config path)`,
 // Container engine: "podman" or "docker"
 container_engine: "podman"
 
-// Additional directories to search for invkfiles
-search_paths: [
-    "~/.invowk/cmds",
-    "~/projects/shared-commands",
+// Additional invkfiles and modules to include in discovery
+includes: [
+    {path: "~/.invowk/cmds/invkfile.cue"},
+    {path: "~/projects/shared.invkmod", alias: "shared"},
 ]
 
 // Default runtime for commands that don't specify one
@@ -4755,11 +4755,16 @@ container: {
     language: 'cue',
     code: `#Config: {
     container_engine?: "podman" | "docker"
-    search_paths?: [...string]
+    includes?: [...#IncludeEntry]
     default_runtime?: "native" | "virtual" | "container"
     virtual_shell?: #VirtualShellConfig
     ui?: #UIConfig
     container?: #ContainerConfig
+}
+
+#IncludeEntry: {
+    path:   string  // Must end with .invkmod, /invkfile.cue, or /invkfile
+    alias?: string  // Optional, only valid for .invkmod paths
 }
 
 #VirtualShellConfig: {
@@ -4846,10 +4851,10 @@ container: {
 // Use Podman as the container engine
 container_engine: "podman"
 
-// Search for invkfiles in these directories
-search_paths: [
-    "~/.invowk/cmds",          // Personal commands
-    "~/work/shared-commands",   // Team shared commands
+// Additional invkfiles and modules to include in discovery
+includes: [
+    {path: "~/.invowk/cmds/invkfile.cue"},          // Personal commands
+    {path: "~/work/shared.invkmod", alias: "team"},  // Team shared module
 ]
 
 // Default to virtual shell for portability
@@ -7028,26 +7033,6 @@ invowk module validate ./mymod.invkmod --deep`,
     code: `invowk module import <source> [flags]`,
   },
 
-  'reference/cli/module-alias-syntax': {
-    language: 'bash',
-    code: `invowk module alias [command]`,
-  },
-
-  'reference/cli/module-alias-set-syntax': {
-    language: 'bash',
-    code: `invowk module alias set <module-path> <alias>`,
-  },
-
-  'reference/cli/module-alias-list-syntax': {
-    language: 'bash',
-    code: `invowk module alias list`,
-  },
-
-  'reference/cli/module-alias-remove-syntax': {
-    language: 'bash',
-    code: `invowk module alias remove <module-path>`,
-  },
-
   'reference/cli/module-add-syntax': {
     language: 'bash',
     code: `invowk module add <git-url> <version> [flags]`,
@@ -7695,11 +7680,17 @@ module: "io.github.username.cli"`,
     code: `// Root configuration structure
 #Config: {
     container_engine?: "podman" | "docker"
-    search_paths?:     [...string]
+    includes?:         [...#IncludeEntry]
     default_runtime?:  "native" | "virtual" | "container"
     virtual_shell?:    #VirtualShellConfig
     ui?:               #UIConfig
     container?:        #ContainerConfig
+}
+
+// Include entry for invkfiles and modules
+#IncludeEntry: {
+    path:   string  // Must end with .invkmod, /invkfile.cue, or /invkfile
+    alias?: string  // Optional, only valid for .invkmod paths
 }
 
 // Virtual shell configuration
@@ -7732,7 +7723,7 @@ module: "io.github.username.cli"`,
     language: 'cue',
     code: `#Config: {
     container_engine?: "podman" | "docker"
-    search_paths?:     [...string]
+    includes?:         [...#IncludeEntry]
     default_runtime?:  "native" | "virtual" | "container"
     virtual_shell?:    #VirtualShellConfig
     ui?:               #UIConfig
@@ -7745,12 +7736,12 @@ module: "io.github.username.cli"`,
     code: `container_engine: "podman"`,
   },
 
-  'reference/config/search-paths-example': {
+  'reference/config/includes-example': {
     language: 'cue',
-    code: `search_paths: [
-    "~/.invowk/cmds",
-    "~/projects/shared-commands",
-    "/opt/company/invowk-commands",
+    code: `includes: [
+    {path: "~/.invowk/cmds/invkfile.cue"},
+    {path: "~/projects/shared.invkmod", alias: "shared"},
+    {path: "/opt/company/tools.invkmod"},
 ]`,
   },
 
@@ -7868,19 +7859,20 @@ module: "io.github.username.cli"`,
 // Which container runtime to use: "podman" or "docker"
 container_engine: "podman"
 
-// Search Paths
-// ------------
-// Additional directories to search for invkfiles and modules
-// Searched in order after the current directory
-search_paths: [
+// Includes
+// --------
+// Additional invkfiles and modules to include in discovery.
+// Each entry specifies a path to an invkfile.cue, invkfile, or *.invkmod.
+// Modules may have an optional alias for collision disambiguation.
+includes: [
     // Personal commands
-    "~/.invowk/cmds",
-    
-    // Team shared commands
-    "~/work/shared-commands",
-    
-    // Organization-wide commands
-    "/opt/company/invowk-commands",
+    {path: "~/.invowk/cmds/invkfile.cue"},
+
+    // Team shared module (with alias)
+    {path: "~/work/shared.invkmod", alias: "team"},
+
+    // Organization-wide module
+    {path: "/opt/company/tools.invkmod"},
 ]
 
 // Default Runtime
@@ -8073,6 +8065,68 @@ invowk cmd database-cli -i`,
   Home/g        → Go to top
   End/G         → Go to bottom
   q/Esc/Enter   → Exit and return to terminal`,
+  },
+  // =============================================================================
+  // LEGACY STUBS (for versioned docs that reference old snippet IDs)
+  // =============================================================================
+  // These snippets were renamed when search_paths/module_aliases were unified
+  // into the `includes` field. Versioned docs still reference the old IDs.
+
+  'config/search-paths': {
+    language: 'cue',
+    code: `// NOTE: search_paths has been replaced by includes in newer versions.
+// See the latest docs for the current schema.
+search_paths: [
+    "~/.invowk/modules",
+    "~/my-company/shared-modules",
+    "/opt/invowk/modules"
+]`,
+  },
+
+  'modules/search-paths-config': {
+    language: 'cue',
+    code: `// NOTE: search_paths has been replaced by includes in newer versions.
+// ~/.config/invowk/config.cue
+search_paths: [
+    "/shared/company-modules"
+]`,
+  },
+
+  'modules/install-search-path': {
+    language: 'bash',
+    code: `invowk module import mytools.zip --path /shared/company-modules`,
+  },
+
+  'reference/config/search-paths-example': {
+    language: 'cue',
+    code: `// NOTE: search_paths has been replaced by includes in newer versions.
+search_paths: [
+    "~/.invowk/cmds",
+    "~/projects/shared-commands",
+    "/opt/company/invowk-commands",
+]`,
+  },
+
+  'reference/cli/module-alias-syntax': {
+    language: 'bash',
+    code: `// NOTE: module alias commands have been removed in newer versions.
+// Aliases are now configured inline in the includes field.
+invowk module alias [command]`,
+  },
+
+  'reference/cli/module-alias-set-syntax': {
+    language: 'bash',
+    code: `invowk module alias set <module-path> <alias>`,
+  },
+
+  'reference/cli/module-alias-list-syntax': {
+    language: 'bash',
+    code: `invowk module alias list`,
+  },
+
+  'reference/cli/module-alias-remove-syntax': {
+    language: 'bash',
+    code: `invowk module alias remove <module-path>`,
   },
 } as const;
 

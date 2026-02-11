@@ -142,7 +142,7 @@ CUE uses `snake_case`, Go uses `PascalCase`. The JSON tag bridges them:
 // CUE Schema (snake_case)
 #Config: close({
     container_engine: #ContainerEngine
-    search_paths:     [...string]
+    includes:         [...#IncludeEntry]
     default_runtime:  #RuntimeType
 })
 ```
@@ -151,7 +151,7 @@ CUE uses `snake_case`, Go uses `PascalCase`. The JSON tag bridges them:
 // Go Struct (PascalCase with JSON tags)
 type Config struct {
     ContainerEngine ContainerEngine `json:"container_engine"`
-    SearchPaths     []string        `json:"search_paths"`
+    Includes        []IncludeEntry  `json:"includes"`
     DefaultRuntime  RuntimeMode     `json:"default_runtime"`
 }
 ```
@@ -324,8 +324,8 @@ if len(name) > MaxNameLength {
 **Fix**: Add JSON tag matching the CUE field name:
 ```go
 type Config struct {
-    SearchPaths []string `json:"search_paths"`  // Matches CUE field
-    CachePath   string   // No JSON tag - will be empty!
+    Includes  []IncludeEntry `json:"includes"`  // Matches CUE field
+    CachePath string         // No JSON tag - will be empty!
 }
 ```
 

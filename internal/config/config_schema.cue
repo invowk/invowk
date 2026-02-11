@@ -11,8 +11,10 @@ import "strings"
 	// Valid values: "podman", "docker"
 	container_engine?: "podman" | "docker"
 
-	// search_paths contains additional directories to search for invkfiles
-	search_paths?: [...string & !="" & strings.MaxRunes(4096)]
+	// includes specifies invkfiles and modules to include in command discovery.
+	// Each entry points to an invkfile.cue, invkfile, or *.invkmod directory.
+	// Modules may have an optional alias for collision disambiguation.
+	includes?: [...#IncludeEntry]
 
 	// default_runtime sets the global default runtime mode
 	// Valid values: "native", "virtual", "container"
@@ -26,10 +28,18 @@ import "strings"
 
 	// container configures container runtime behavior
 	container?: #ContainerConfig
+})
 
-	// module_aliases maps module paths to alias names for collision disambiguation
-	// When two modules have the same 'module' identifier, use aliases to differentiate them
-	module_aliases?: [string & !=""]: string & !="" & strings.MaxRunes(256)
+// IncludeEntry specifies a single invkfile or module to include in discovery.
+// The path must end with "invkfile.cue", "invkfile", or ".invkmod".
+#IncludeEntry: close({
+	// path is the absolute filesystem path to an invkfile.cue, invkfile, or *.invkmod directory.
+	path: string & !="" & strings.MaxRunes(4096) & (=~"\\.invkmod$" | =~"/invkfile\\.cue$" | =~"/invkfile$")
+
+	// alias optionally overrides the module identifier for collision disambiguation.
+	// Only valid for module paths (those ending in .invkmod).
+	// Must be unique across all includes entries.
+	alias?: string & !="" & strings.MaxRunes(256)
 })
 
 // ContainerConfig configures container runtime behavior

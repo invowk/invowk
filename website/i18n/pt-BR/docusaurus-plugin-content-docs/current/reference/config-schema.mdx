@@ -46,25 +46,29 @@ Especifica qual container runtime usar para execução de comandos baseada em co
 
 Se a engine preferida não estiver disponível, o Invowk faz fallback para a outra quando o runtime container é necessário.
 
-### search_paths
+### includes
 
-**Tipo:** `[...string]`  
-**Obrigatório:** Não  
+**Tipo:** `[...#IncludeEntry]`
+**Obrigatório:** Não
 **Padrão:** `[]`
 
-Diretórios adicionais para buscar invkfiles e módulos.
+Invkfiles e módulos adicionais para incluir na descoberta de comandos. Cada entrada especifica um caminho para um `invkfile.cue`, `invkfile`, ou diretório `*.invkmod`. Módulos podem ter um `alias` opcional para desambiguação de colisões.
 
-<Snippet id="reference/config/search-paths-example" />
+<Snippet id="reference/config/includes-example" />
 
-**Resolução de caminho:**
-- Caminhos começando com `~` são expandidos para o diretório home do usuário
-- Caminhos relativos são resolvidos do diretório de trabalho atual
+**Requisitos de caminho:**
+- Caminhos devem ser absolutos e terminar com `.invkmod`, `/invkfile.cue`, ou `/invkfile`
 - Caminhos inexistentes são ignorados silenciosamente
+- Caminhos duplicados são rejeitados
 
-**Prioridade de busca (maior para menor):**
+**Regras de alias:**
+- Aliases são opcionais e válidos apenas para caminhos `.invkmod`
+- Cada alias deve ser único entre todas as entradas includes
+
+**Prioridade de descoberta (maior para menor):**
 1. Diretório atual
-2. Caminhos em `search_paths` (em ordem)
-3. `~/.invowk/cmds`
+2. `~/.invowk/cmds`
+3. `includes` configurados (em ordem)
 
 ### default_runtime
 

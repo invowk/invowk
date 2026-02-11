@@ -142,7 +142,7 @@ CUE field names use `snake_case`, mapped to Go `PascalCase` via JSON tags:
 // CUE Schema
 #Config: close({
     container_engine: #ContainerEngine
-    search_paths:     [...string]
+    includes:         [...#IncludeEntry]
     default_runtime:  #RuntimeType
 })
 ```
@@ -151,7 +151,7 @@ CUE field names use `snake_case`, mapped to Go `PascalCase` via JSON tags:
 // Go Struct
 type Config struct {
     ContainerEngine ContainerEngine `json:"container_engine"`
-    SearchPaths     []string        `json:"search_paths"`
+    Includes        []IncludeEntry  `json:"includes"`
     DefaultRuntime  RuntimeMode     `json:"default_runtime"`
 }
 ```

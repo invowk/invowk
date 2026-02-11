@@ -75,7 +75,7 @@ Examples:
 		Long: `List all invowk modules discovered in:
   - Current directory
   - User commands directory (~/.invowk/cmds)
-  - Configured search paths
+  - Configured includes
 
 Examples:
   invowk module list`,
@@ -85,7 +85,6 @@ Examples:
 	})
 	modCmd.AddCommand(newModuleArchiveCommand())
 	modCmd.AddCommand(newModuleImportCommand())
-	modCmd.AddCommand(newModuleAliasCommand(app))
 	modCmd.AddCommand(newModuleVendorCommand())
 
 	// Dependency management commands
@@ -130,7 +129,7 @@ func runModuleList(ctx context.Context, app *App) error {
 		fmt.Printf("%s Modules are discovered in:\n", moduleInfoIcon)
 		fmt.Printf("   - Current directory\n")
 		fmt.Printf("   - User commands directory (~/.invowk/cmds)\n")
-		fmt.Printf("   - Configured search paths\n")
+		fmt.Printf("   - Configured includes\n")
 		return nil
 	}
 

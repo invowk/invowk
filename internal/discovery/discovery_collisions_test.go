@@ -11,6 +11,7 @@ import (
 	"invowk-cli/internal/config"
 	"invowk-cli/internal/testutil"
 	"invowk-cli/pkg/invkfile"
+	"invowk-cli/pkg/invkmod"
 )
 
 func TestDiscoveredCommandSet_Add(t *testing.T) {
@@ -435,19 +436,21 @@ func TestCheckModuleCollisions(t *testing.T) {
 
 	t.Run("CollisionResolvedByAlias", func(t *testing.T) {
 		cfg := config.DefaultConfig()
-		cfg.ModuleAliases = map[string]string{
-			"/path/to/module1": "io.example.alias1",
+		cfg.Includes = []config.IncludeEntry{
+			{Path: "/path/to/module1.invkmod", Alias: "io.example.alias1"},
 		}
 		dAlias := New(cfg)
 
 		files := []*DiscoveredFile{
 			{
-				Path:     "/path/to/module1",
+				Path:     "/path/to/module1.invkmod/invkfile.cue",
 				Invkfile: &invkfile.Invkfile{Metadata: &invkfile.Invkmod{Module: "io.example.same"}},
+				Module:   &invkmod.Module{Path: "/path/to/module1.invkmod"},
 			},
 			{
-				Path:     "/path/to/module2",
+				Path:     "/path/to/module2.invkmod/invkfile.cue",
 				Invkfile: &invkfile.Invkfile{Metadata: &invkfile.Invkmod{Module: "io.example.same"}},
+				Module:   &invkmod.Module{Path: "/path/to/module2.invkmod"},
 			},
 		}
 
@@ -512,14 +515,15 @@ func TestGetEffectiveModuleID(t *testing.T) {
 
 	t.Run("WithAlias", func(t *testing.T) {
 		cfg := config.DefaultConfig()
-		cfg.ModuleAliases = map[string]string{
-			"/path/to/module": "io.example.aliased",
+		cfg.Includes = []config.IncludeEntry{
+			{Path: "/path/to/module.invkmod", Alias: "io.example.aliased"},
 		}
 		d := New(cfg)
 
 		file := &DiscoveredFile{
-			Path:     "/path/to/module",
+			Path:     "/path/to/module.invkmod/invkfile.cue",
 			Invkfile: &invkfile.Invkfile{Metadata: &invkfile.Invkmod{Module: "io.example.original"}},
+			Module:   &invkmod.Module{Path: "/path/to/module.invkmod"},
 		}
 
 		moduleID := d.GetEffectiveModuleID(file)

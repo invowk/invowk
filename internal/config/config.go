@@ -101,7 +101,7 @@ func loadWithOptions(ctx context.Context, opts LoadOptions) (*Config, string, er
 	// Set defaults
 	defaults := DefaultConfig()
 	v.SetDefault("container_engine", defaults.ContainerEngine)
-	v.SetDefault("search_paths", defaults.SearchPaths)
+	v.SetDefault("includes", defaults.Includes)
 	v.SetDefault("default_runtime", defaults.DefaultRuntime)
 	v.SetDefault("virtual_shell.enable_uroot_utils", defaults.VirtualShell.EnableUrootUtils)
 	v.SetDefault("ui.color_scheme", defaults.UI.ColorScheme)
@@ -183,6 +183,17 @@ func loadWithOptions(ctx context.Context, opts LoadOptions) (*Config, string, er
 		return nil, "", fmt.Errorf("failed to parse config: %w", err)
 	}
 
+	// Validate includes constraints that CUE cannot express:
+	// alias uniqueness across all entries and alias-only-for-modules.
+	if err := validateIncludes(cfg.Includes); err != nil {
+		return nil, "", issue.NewErrorContext().
+			WithOperation("validate configuration").
+			WithSuggestion("Ensure each alias is unique across all includes entries").
+			WithSuggestion("Aliases are only valid for module paths ending in .invkmod").
+			Wrap(err).
+			BuildError()
+	}
+
 	return &cfg, resolvedPath, nil
 }
 
@@ -248,6 +259,36 @@ func loadCUEIntoViper(v *viper.Viper, path string) error {
 		return fmt.Errorf("failed to merge config: %w", err)
 	}
 
+	return nil
+}
+
+// validateIncludes checks include entries for constraints that CUE cannot express:
+//   - alias is only valid when path ends with .invkmod
+//   - all non-empty aliases must be globally unique across entries
+func validateIncludes(includes []IncludeEntry) error {
+	seenAliases := make(map[string]string) // alias -> path of first occurrence
+	seenPaths := make(map[string]int)      // cleaned path -> index of first occurrence
+	for i, entry := range includes {
+		// Check path uniqueness (normalized to handle trailing slashes and redundant separators)
+		cleanPath := filepath.Clean(entry.Path)
+		if firstIdx, exists := seenPaths[cleanPath]; exists {
+			return fmt.Errorf("includes[%d]: duplicate path %q (same as includes[%d])", i, entry.Path, firstIdx)
+		}
+		seenPaths[cleanPath] = i
+
+		if entry.Alias == "" {
+			continue
+		}
+		// Alias is only meaningful for module paths
+		if !entry.IsModule() {
+			return fmt.Errorf("includes[%d]: alias %q is only valid for module paths (.invkmod), but path is %q", i, entry.Alias, entry.Path)
+		}
+		// Check alias uniqueness
+		if existingPath, exists := seenAliases[entry.Alias]; exists {
+			return fmt.Errorf("includes: duplicate alias %q used by both %q and %q", entry.Alias, existingPath, entry.Path)
+		}
+		seenAliases[entry.Alias] = entry.Path
+	}
 	return nil
 }
 
@@ -341,11 +382,15 @@ func GenerateCUE(cfg *Config) string {
 	// Default runtime
 	sb.WriteString(fmt.Sprintf("default_runtime: %q\n", cfg.DefaultRuntime))
 
-	// Search paths
-	if len(cfg.SearchPaths) > 0 {
-		sb.WriteString("\nsearch_paths: [\n")
-		for _, p := range cfg.SearchPaths {
-			sb.WriteString(fmt.Sprintf("\t%q,\n", p))
+	// Includes
+	if len(cfg.Includes) > 0 {
+		sb.WriteString("\nincludes: [\n")
+		for _, entry := range cfg.Includes {
+			if entry.Alias != "" {
+				sb.WriteString(fmt.Sprintf("\t{path: %q, alias: %q},\n", entry.Path, entry.Alias))
+			} else {
+				sb.WriteString(fmt.Sprintf("\t{path: %q},\n", entry.Path))
+			}
 		}
 		sb.WriteString("]\n")
 	}

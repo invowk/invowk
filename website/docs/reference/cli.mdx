@@ -63,7 +63,7 @@ Built-in per-command flags:
 Commands are discovered from (in priority order):
 1. Current directory (invkfile and modules)
 2. `~/.invowk/cmds/` (invkfiles and modules)
-3. Paths configured in `search_paths` (invkfiles and modules)
+3. Configured `includes` entries (invkfiles and modules)
 
 **Command Disambiguation:**
 
@@ -234,24 +234,6 @@ Import a module from a ZIP file or URL.
 |------|-------|-------------|
 | `--path` | `-p` | Output directory |
 | `--overwrite` |  | Overwrite existing module if present |
-
-#### invowk module alias
-
-Manage module aliases for collision disambiguation.
-
-<Snippet id="reference/cli/module-alias-syntax" />
-
-#### invowk module alias set
-
-<Snippet id="reference/cli/module-alias-set-syntax" />
-
-#### invowk module alias list
-
-<Snippet id="reference/cli/module-alias-list-syntax" />
-
-#### invowk module alias remove
-
-<Snippet id="reference/cli/module-alias-remove-syntax" />
 
 #### invowk module add
 
@@ -559,12 +541,12 @@ When no invkfile is discovered in any search location:
 **This message appears when:**
 - No `invkfile.cue` exists in the current directory
 - No invkfiles exist in `~/.invowk/cmds/`
-- No invkfiles exist in configured `search_paths`
+- No invkfiles exist in configured `includes`
 
 **Solutions:**
 - Run `invowk init` to create an invkfile in the current directory
 - Navigate to a directory containing an invkfile
-- Add invkfile locations to your config's `search_paths`
+- Add invkfile or module paths to your config's `includes`
 
 ### Failed to Parse Invkfile
 

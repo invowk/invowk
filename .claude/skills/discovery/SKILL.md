@@ -173,12 +173,12 @@ type ModuleCollisionError struct {
     Sources  []string
 }
 
-// Validation
+// Validation (wired into LoadAll automatically)
 err := discovery.CheckModuleCollisions()
-// Returns actionable guidance: "invowk module alias <source> <new-alias>"
+// Returns actionable guidance: add alias in includes config
 ```
 
-**Module Aliases:** Configured in `config.ModuleAliases` map to disambiguate collisions.
+**Module Aliases:** Configured inline via `config.Includes` entries (each `IncludeEntry` can have an optional `Alias` field for module paths).
 
 ### Command Scope Rules
 

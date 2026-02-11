@@ -148,8 +148,13 @@ func buildProvisionConfig(cfg *config.Config) *provision.Config {
 		provisionCfg.CacheDir = autoProv.CacheDir
 	}
 
-	// Also add config search paths to modules paths
-	provisionCfg.ModulesPaths = append(provisionCfg.ModulesPaths, cfg.SearchPaths...)
+	// Also include module paths from the config includes entries so provisioned
+	// containers can resolve all configured modules.
+	for _, inc := range cfg.Includes {
+		if inc.IsModule() {
+			provisionCfg.ModulesPaths = append(provisionCfg.ModulesPaths, inc.Path)
+		}
+	}
 
 	return provisionCfg
 }

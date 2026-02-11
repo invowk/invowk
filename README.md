@@ -2211,16 +2211,12 @@ container_engine: "podman"
 // Default runtime mode: "native", "virtual", or "container"
 default_runtime: "native"
 
-// Additional directories to search for invkfiles
-search_paths: [
-    "/home/user/global-commands"
+// Include additional invkfiles and modules in command discovery
+// Each entry points to a specific invkfile.cue, invkfile, or *.invkmod directory
+includes: [
+    {path: "/home/user/global-commands/invkfile.cue"},
+    {path: "/path/to/module.invkmod", alias: "myalias"},
 ]
-
-// Module aliases for collision disambiguation
-// Maps module paths to alias names when two modules share the same identifier
-module_aliases: {
-    "/path/to/module.invkmod": "myalias"
-}
 
 // Virtual shell options
 virtual_shell: {

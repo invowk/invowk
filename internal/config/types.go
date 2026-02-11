@@ -2,23 +2,43 @@
 
 package config
 
+import (
+	"path/filepath"
+	"strings"
+)
+
 const (
 	// ContainerEnginePodman uses Podman as the container runtime.
 	ContainerEnginePodman ContainerEngine = "podman"
 	// ContainerEngineDocker uses Docker as the container runtime.
 	ContainerEngineDocker ContainerEngine = "docker"
+
+	// moduleSuffix is the filesystem suffix for invkmod directories.
+	// Defined locally to avoid coupling config to pkg/invkmod.
+	moduleSuffix = ".invkmod"
 )
 
 type (
 	// ContainerEngine specifies which container runtime to use.
 	ContainerEngine string
 
+	// IncludeEntry specifies an invkfile or module to include in command discovery.
+	// Each entry must point to a specific invkfile.cue, invkfile, or *.invkmod directory
+	// via an absolute filesystem path.
+	IncludeEntry struct {
+		// Path is the absolute filesystem path to an invkfile.cue, invkfile, or *.invkmod directory.
+		Path string `json:"path" mapstructure:"path"`
+		// Alias optionally overrides the module identifier for collision disambiguation.
+		// Only valid when Path refers to a module (.invkmod).
+		Alias string `json:"alias,omitempty" mapstructure:"alias"`
+	}
+
 	// Config holds the application configuration.
 	Config struct {
 		// ContainerEngine specifies whether to use "podman" or "docker"
 		ContainerEngine ContainerEngine `json:"container_engine" mapstructure:"container_engine"`
-		// SearchPaths contains additional directories to search for invkfiles
-		SearchPaths []string `json:"search_paths" mapstructure:"search_paths"`
+		// Includes specifies invkfiles and modules to include in command discovery.
+		Includes []IncludeEntry `json:"includes" mapstructure:"includes"`
 		// DefaultRuntime sets the global default runtime mode
 		DefaultRuntime string `json:"default_runtime" mapstructure:"default_runtime"`
 		// VirtualShell configures the virtual shell behavior
@@ -27,8 +47,6 @@ type (
 		UI UIConfig `json:"ui" mapstructure:"ui"`
 		// Container configures container runtime behavior
 		Container ContainerConfig `json:"container" mapstructure:"container"`
-		// ModuleAliases maps module paths to alias names for collision disambiguation
-		ModuleAliases map[string]string `json:"module_aliases" mapstructure:"module_aliases"`
 	}
 
 	// ContainerConfig configures container runtime behavior.
@@ -66,11 +84,22 @@ type (
 	}
 )
 
+// IsModule reports whether this entry points to a module directory (.invkmod).
+func (e IncludeEntry) IsModule() bool {
+	return strings.HasSuffix(e.Path, moduleSuffix)
+}
+
+// IsInvkfile reports whether this entry points to an invkfile (invkfile.cue or invkfile).
+func (e IncludeEntry) IsInvkfile() bool {
+	base := filepath.Base(e.Path)
+	return base == "invkfile.cue" || base == "invkfile"
+}
+
 // DefaultConfig returns the default configuration
 func DefaultConfig() *Config {
 	return &Config{
 		ContainerEngine: ContainerEnginePodman,
-		SearchPaths:     []string{},
+		Includes:        []IncludeEntry{},
 		DefaultRuntime:  "native",
 		VirtualShell: VirtualShellConfig{
 			EnableUrootUtils: true,
