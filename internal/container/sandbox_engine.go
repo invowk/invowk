@@ -130,8 +130,7 @@ func (e *SandboxAwareEngine) Run(ctx context.Context, opts RunOptions) (*RunResu
 
 	result := &RunResult{}
 	if err != nil {
-		var exitErr *exec.ExitError
-		if errors.As(err, &exitErr) {
+		if exitErr, ok := errors.AsType[*exec.ExitError](err); ok {
 			result.ExitCode = exitErr.ExitCode()
 		} else {
 			result.ExitCode = 1

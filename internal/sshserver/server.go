@@ -202,8 +202,7 @@ func (s *Server) runInteractiveShell(sess ssh.Session) {
 
 	// Wait for command to complete
 	if err := cmd.Wait(); err != nil {
-		var exitErr *exec.ExitError
-		if errors.As(err, &exitErr) {
+		if exitErr, ok := errors.AsType[*exec.ExitError](err); ok {
 			_ = sess.Exit(exitErr.ExitCode()) //nolint:errcheck // Terminal operation; error non-critical
 			return
 		}
@@ -226,8 +225,7 @@ func (s *Server) runCommand(sess ssh.Session, args []string) {
 	cmd.Stderr = sess.Stderr()
 
 	if err := cmd.Run(); err != nil {
-		var exitErr *exec.ExitError
-		if errors.As(err, &exitErr) {
+		if exitErr, ok := errors.AsType[*exec.ExitError](err); ok {
 			_ = sess.Exit(exitErr.ExitCode()) //nolint:errcheck // Terminal operation; error non-critical
 			return
 		}
@@ -243,8 +241,7 @@ func isClosedConnError(err error) bool {
 	if err == nil {
 		return false
 	}
-	var opErr *netOpError
-	if errors.As(err, &opErr) {
+	if opErr, ok := errors.AsType[*netOpError](err); ok {
 		return opErr.Err.Error() == "use of closed network connection"
 	}
 	return false

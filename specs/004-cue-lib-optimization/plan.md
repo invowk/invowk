@@ -17,7 +17,7 @@ Optimize Invowk's CUE library usage to be idiomatic, type-safe, and maintainable
 
 ## Technical Context
 
-**Language/Version**: Go 1.25+
+**Language/Version**: Go 1.26+
 **Primary Dependencies**: `cuelang.org/go v0.15.3`, `github.com/spf13/cobra`, `github.com/spf13/viper`
 **Storage**: File-based (CUE configuration files)
 **Testing**: `testing` package with table-driven tests, `testscript` for CLI

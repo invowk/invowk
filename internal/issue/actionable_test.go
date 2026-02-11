@@ -301,8 +301,7 @@ func TestErrorContext_BuildError(t *testing.T) {
 	}
 
 	// Verify it's an *ActionableError
-	var ae *ActionableError
-	if !errors.As(err, &ae) {
+	if _, ok := errors.AsType[*ActionableError](err); !ok {
 		t.Error("BuildError() should return *ActionableError")
 	}
 

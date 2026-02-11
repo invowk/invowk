@@ -59,8 +59,8 @@ func TestCheckCapabilityDependencies_DuplicateSkipped(t *testing.T) {
 	err := checkCapabilityDependencies(deps, ctx)
 	// If there's an error, it should only report the capability once
 	if err != nil {
-		var depErr *DependencyError
-		if !errors.As(err, &depErr) {
+		depErr, ok := errors.AsType[*DependencyError](err)
+		if !ok {
 			t.Fatalf("checkCapabilityDependencies() should return *DependencyError, got: %T", err)
 		}
 		// Even with 3 duplicate entries, we should only have 1 error
@@ -199,8 +199,8 @@ func TestCheckEnvVarDependencies_MissingEnvVar(t *testing.T) {
 		t.Error("checkEnvVarDependencies() should fail when env var is missing")
 	}
 
-	var depErr *DependencyError
-	if !errors.As(err, &depErr) {
+	depErr, ok := errors.AsType[*DependencyError](err)
+	if !ok {
 		t.Fatalf("checkEnvVarDependencies() should return *DependencyError, got: %T", err)
 	}
 
@@ -225,7 +225,7 @@ func TestCheckEnvVarDependencies_ValidationRegexPass(t *testing.T) {
 	}
 
 	userEnv := map[string]string{
-		"GO_VERSION": "1.25.0",
+		"GO_VERSION": "1.26.0",
 	}
 
 	ctx := &runtime.ExecutionContext{
@@ -262,8 +262,8 @@ func TestCheckEnvVarDependencies_ValidationRegexFail(t *testing.T) {
 		t.Error("checkEnvVarDependencies() should fail when regex doesn't match")
 	}
 
-	var depErr *DependencyError
-	if !errors.As(err, &depErr) {
+	depErr, ok := errors.AsType[*DependencyError](err)
+	if !ok {
 		t.Fatalf("checkEnvVarDependencies() should return *DependencyError, got: %T", err)
 	}
 
@@ -320,8 +320,8 @@ func TestCheckEnvVarDependencies_AlternativesORSemantics(t *testing.T) {
 		t.Error("checkEnvVarDependencies() should fail when no alternatives exist")
 	}
 
-	var depErr *DependencyError
-	if !errors.As(err, &depErr) {
+	depErr, ok := errors.AsType[*DependencyError](err)
+	if !ok {
 		t.Fatalf("checkEnvVarDependencies() should return *DependencyError, got: %T", err)
 	}
 
@@ -352,8 +352,8 @@ func TestCheckEnvVarDependencies_EmptyName(t *testing.T) {
 		t.Error("checkEnvVarDependencies() should fail with empty name")
 	}
 
-	var depErr *DependencyError
-	if !errors.As(err, &depErr) {
+	depErr, ok := errors.AsType[*DependencyError](err)
+	if !ok {
 		t.Fatalf("checkEnvVarDependencies() should return *DependencyError, got: %T", err)
 	}
 

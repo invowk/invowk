@@ -271,7 +271,7 @@ github.com/u-root/u-root v0.15.0
 
 ### Compatibility
 
-- The u-root library requires Go 1.24.0+ (Invowk requires Go 1.25+, so compatible)
+- The u-root library requires Go 1.24.0+ (Invowk requires Go 1.26+, so compatible)
 - The u-root library depends on mvdan.cc/sh (same as Invowk, no version conflict expected)
 - BSD-3-Clause license compatible with MPL-2.0
 

@@ -4,6 +4,7 @@ package invkfile
 
 import (
 	"fmt"
+	"maps"
 	"reflect"
 	"slices"
 	"strings"
@@ -78,9 +79,7 @@ func extractGoJSONTags(t *testing.T, typ reflect.Type) map[string]bool {
 
 	fields := make(map[string]bool)
 
-	for i := range typ.NumField() {
-		field := typ.Field(i)
-
+	for field := range typ.Fields() {
 		// Skip unexported fields
 		if !field.IsExported() {
 			continue
@@ -260,9 +259,7 @@ func TestRuntimeConfigSchemaSync(t *testing.T) {
 	// Merge all CUE fields (the Go struct has the union of all fields)
 	// We can't use maps.Copy because we need custom merge logic that OR's the optional flags
 	allCUEFields := make(map[string]bool)
-	for field, optional := range nativeFields {
-		allCUEFields[field] = optional //nolint:modernize // Custom merge logic needed - can't use maps.Copy
-	}
+	maps.Copy(allCUEFields, nativeFields)
 	for field, optional := range virtualFields {
 		// If already present from native, use the more lenient (optional = true) value
 		if existing, ok := allCUEFields[field]; ok {

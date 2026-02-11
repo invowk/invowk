@@ -16,7 +16,7 @@ Extend `invowk cmd` to discover and list commands from multiple sources: the roo
 
 ## Technical Context
 
-**Language/Version**: Go 1.25+
+**Language/Version**: Go 1.26+
 **Primary Dependencies**:
 - `github.com/spf13/cobra` - CLI framework
 - `cuelang.org/go` - CUE parsing for invkfile/invkmod

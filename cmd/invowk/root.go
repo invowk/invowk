@@ -94,8 +94,7 @@ func Execute() {
 		fang.WithVersion(getVersionString()),
 		fang.WithNotifySignal(os.Interrupt),
 	); err != nil {
-		exitErr := (*ExitError)(nil)
-		if errors.As(err, &exitErr) {
+		if exitErr, ok := errors.AsType[*ExitError](err); ok {
 			os.Exit(exitErr.Code)
 		}
 		os.Exit(1)
@@ -112,8 +111,7 @@ func getVersionString() string {
 
 // formatErrorForDisplay formats an error for user display.
 func formatErrorForDisplay(err error, verboseMode bool) string {
-	ae := (*issue.ActionableError)(nil)
-	if errors.As(err, &ae) {
+	if ae, ok := errors.AsType[*issue.ActionableError](err); ok {
 		return ae.Format(verboseMode)
 	}
 

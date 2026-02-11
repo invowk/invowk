@@ -84,9 +84,7 @@ func extractGoJSONTags(t *testing.T, typ reflect.Type) map[string]bool {
 
 	fields := make(map[string]bool)
 
-	for i := range typ.NumField() {
-		field := typ.Field(i)
-
+	for field := range typ.Fields() {
 		// Skip unexported fields
 		if !field.IsExported() {
 			continue

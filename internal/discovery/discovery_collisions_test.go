@@ -424,8 +424,8 @@ func TestCheckModuleCollisions(t *testing.T) {
 			t.Error("CheckModuleCollisions() should return error for collision")
 		}
 
-		var collisionErr *ModuleCollisionError
-		if !errors.As(err, &collisionErr) {
+		collisionErr, ok := errors.AsType[*ModuleCollisionError](err)
+		if !ok {
 			t.Errorf("error should be ModuleCollisionError, got %T", err)
 		}
 		if collisionErr != nil && collisionErr.ModuleID != "io.example.same" {

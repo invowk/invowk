@@ -88,8 +88,7 @@ func registerDiscoveredCommands(ctx context.Context, app *App, rootFlags *rootFl
 						if isAmbiguous {
 							cmdArgs := append(strings.Fields(parentPrefix), args...)
 							if err := checkAmbiguousCommand(cmd.Context(), app, rootFlags, cmdArgs); err != nil {
-								ambigErr := (*AmbiguousCommandError)(nil)
-								if errors.As(err, &ambigErr) {
+								if ambigErr, ok := errors.AsType[*AmbiguousCommandError](err); ok {
 									fmt.Fprint(app.stderr, RenderAmbiguousCommandError(ambigErr))
 									cmd.SilenceErrors = true
 									cmd.SilenceUsage = true
@@ -206,8 +205,7 @@ func buildLeafCommand(app *App, rootFlags *rootFlagValues, cmdFlags *cmdFlagValu
 
 			err := executeRequest(cmd, app, req)
 			if err != nil {
-				exitErr := (*ExitError)(nil)
-				if errors.As(err, &exitErr) {
+				if _, ok := errors.AsType[*ExitError](err); ok { //nolint:errcheck // type match only; error is handled via ok
 					cmd.SilenceErrors = true
 					cmd.SilenceUsage = true
 				}

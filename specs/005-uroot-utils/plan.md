@@ -9,7 +9,7 @@ Enable built-in file utilities in Invowk's virtual shell runtime by integrating 
 
 ## Technical Context
 
-**Language/Version**: Go 1.25+
+**Language/Version**: Go 1.26+
 **Primary Dependencies**:
 - `mvdan.cc/sh/v3` v3.12.0 (existing - virtual shell interpreter)
 - `github.com/u-root/u-root` v0.15.0 (new - utility implementations)
@@ -227,7 +227,7 @@ The u-root library brings minimal transitive dependencies. Key ones:
 
 ### Compatibility Notes
 
-- The u-root library requires Go 1.24+; Invowk requires Go 1.25+ (compatible)
+- The u-root library requires Go 1.24+; Invowk requires Go 1.26+ (compatible)
 - The u-root library is BSD-3-Clause licensed (compatible with MPL-2.0)
 - No breaking changes expected from u-root's stable pkg/core API
 

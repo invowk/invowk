@@ -300,8 +300,8 @@ func TestValidateArguments_MissingRequired(t *testing.T) {
 		t.Fatal("Expected error for missing required arguments")
 	}
 
-	var argErr *ArgumentValidationError
-	if !errors.As(err, &argErr) {
+	argErr, ok := errors.AsType[*ArgumentValidationError](err)
+	if !ok {
 		t.Fatalf("Expected ArgumentValidationError, got: %T", err)
 	}
 
@@ -330,8 +330,8 @@ func TestValidateArguments_TooManyArgs(t *testing.T) {
 		t.Fatal("Expected error for too many arguments")
 	}
 
-	var argErr *ArgumentValidationError
-	if !errors.As(err, &argErr) {
+	argErr, ok := errors.AsType[*ArgumentValidationError](err)
+	if !ok {
 		t.Fatalf("Expected ArgumentValidationError, got: %T", err)
 	}
 
@@ -373,8 +373,8 @@ func TestValidateArguments_InvalidValue(t *testing.T) {
 		t.Fatal("Expected error for invalid argument value")
 	}
 
-	var argErr *ArgumentValidationError
-	if !errors.As(err, &argErr) {
+	argErr, ok := errors.AsType[*ArgumentValidationError](err)
+	if !ok {
 		t.Fatalf("Expected ArgumentValidationError, got: %T", err)
 	}
 

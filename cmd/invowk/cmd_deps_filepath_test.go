@@ -73,8 +73,8 @@ func TestCheckFilepathDependencies_FileNotExists(t *testing.T) {
 		t.Error("checkFilepathDependencies() should return error for non-existent file")
 	}
 
-	var depErr *DependencyError
-	if !errors.As(err, &depErr) {
+	depErr, ok := errors.AsType[*DependencyError](err)
+	if !ok {
 		t.Fatalf("checkFilepathDependencies() should return *DependencyError, got: %T", err)
 	}
 
@@ -171,8 +171,8 @@ func TestCheckFilepathDependencies_MultipleFilepathDependencies(t *testing.T) {
 		t.Error("checkFilepathDependencies() should return error when any filepath dependency is not satisfied")
 	}
 
-	var depErr *DependencyError
-	if !errors.As(err, &depErr) {
+	depErr, ok := errors.AsType[*DependencyError](err)
+	if !ok {
 		t.Fatalf("checkFilepathDependencies() should return *DependencyError, got: %T", err)
 	}
 
@@ -265,8 +265,8 @@ func TestCheckFilepathDependencies_AlternativesNoneExists(t *testing.T) {
 		t.Error("checkFilepathDependencies() should return error when no alternatives exist")
 	}
 
-	var depErr *DependencyError
-	if !errors.As(err, &depErr) {
+	depErr, ok := errors.AsType[*DependencyError](err)
+	if !ok {
 		t.Fatalf("checkFilepathDependencies() should return *DependencyError, got: %T", err)
 	}
 

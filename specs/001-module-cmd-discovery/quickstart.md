@@ -16,7 +16,7 @@ Commands are displayed with simple names when unique, or with source annotations
 ### Prerequisites
 
 ```bash
-# Ensure Go 1.25+ is installed
+# Ensure Go 1.26+ is installed
 go version
 
 # Clone and build

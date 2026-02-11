@@ -527,8 +527,8 @@ func TestLoad_CustomPath_NotFound_ReturnsError(t *testing.T) {
 	}
 
 	// Verify suggestions are present via ActionableError type
-	var ae *issue.ActionableError
-	if !errors.As(err, &ae) {
+	ae, ok := errors.AsType[*issue.ActionableError](err)
+	if !ok {
 		t.Fatal("expected error to be *issue.ActionableError")
 	}
 	if len(ae.Suggestions) == 0 {

@@ -132,8 +132,7 @@ func (e *PodmanEngine) Run(ctx context.Context, opts RunOptions) (*RunResult, er
 
 	result := &RunResult{}
 	if err != nil {
-		var exitErr *exec.ExitError
-		if errors.As(err, &exitErr) {
+		if exitErr, ok := errors.AsType[*exec.ExitError](err); ok {
 			result.ExitCode = exitErr.ExitCode()
 		} else {
 			result.ExitCode = 1
@@ -175,8 +174,7 @@ func (e *PodmanEngine) Exec(ctx context.Context, containerID string, command []s
 
 	result := &RunResult{ContainerID: containerID}
 	if err != nil {
-		var exitErr *exec.ExitError
-		if errors.As(err, &exitErr) {
+		if exitErr, ok := errors.AsType[*exec.ExitError](err); ok {
 			result.ExitCode = exitErr.ExitCode()
 		} else {
 			result.ExitCode = 1

@@ -193,8 +193,8 @@ func TestSandboxAwareEngine_BuildSpawnArgs(t *testing.T) {
 			name:        "flatpak simple",
 			sandboxType: platform.SandboxFlatpak,
 			binary:      "/usr/bin/podman",
-			args:        []string{"run", "--rm", "alpine"},
-			expected:    []string{"flatpak-spawn", "--host", "/usr/bin/podman", "run", "--rm", "alpine"},
+			args:        []string{"run", "--rm", "debian:stable-slim"},
+			expected:    []string{"flatpak-spawn", "--host", "/usr/bin/podman", "run", "--rm", "debian:stable-slim"},
 		},
 		{
 			name:        "flatpak with volume",
@@ -240,19 +240,19 @@ func TestSandboxAwareEngine_WrapArgs(t *testing.T) {
 		{
 			name:        "no sandbox - no wrap",
 			sandboxType: platform.SandboxNone,
-			args:        []string{"run", "--rm", "alpine"},
+			args:        []string{"run", "--rm", "debian:stable-slim"},
 			wantWrapped: false,
 		},
 		{
 			name:        "flatpak - wrap",
 			sandboxType: platform.SandboxFlatpak,
-			args:        []string{"run", "--rm", "alpine"},
+			args:        []string{"run", "--rm", "debian:stable-slim"},
 			wantWrapped: true,
 		},
 		{
 			name:        "snap - wrap",
 			sandboxType: platform.SandboxSnap,
-			args:        []string{"run", "--rm", "alpine"},
+			args:        []string{"run", "--rm", "debian:stable-slim"},
 			wantWrapped: true,
 		},
 	}

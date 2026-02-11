@@ -158,8 +158,7 @@ func (r *VirtualRuntime) Execute(ctx *ExecutionContext) *Result {
 
 	err = runner.Run(execCtx, prog)
 	if err != nil {
-		var exitStatus interp.ExitStatus
-		if errors.As(err, &exitStatus) {
+		if exitStatus, ok := errors.AsType[interp.ExitStatus](err); ok {
 			return &Result{ExitCode: int(exitStatus)}
 		}
 		return &Result{ExitCode: 1, Error: fmt.Errorf("script execution failed: %w", err)}
@@ -222,8 +221,7 @@ func (r *VirtualRuntime) ExecuteCapture(ctx *ExecutionContext) *Result {
 
 	err = runner.Run(execCtx, prog)
 	if err != nil {
-		var exitStatus interp.ExitStatus
-		if errors.As(err, &exitStatus) {
+		if exitStatus, ok := errors.AsType[interp.ExitStatus](err); ok {
 			result.ExitCode = int(exitStatus)
 		} else {
 			result.ExitCode = 1

@@ -49,7 +49,7 @@ func TestBaseCLIEngine_WithVolumeFormatter(t *testing.T) {
 	engine := NewBaseCLIEngine("/usr/bin/podman", WithVolumeFormatter(formatter))
 
 	args := engine.RunArgs(RunOptions{
-		Image:   "alpine",
+		Image:   "debian:stable-slim",
 		Volumes: []string{"/host:/container"},
 	})
 
@@ -160,8 +160,7 @@ func TestBuildContainerError(t *testing.T) {
 			}
 
 			// Check formatted output for suggestions (requires type assertion)
-			var ae *issue.ActionableError
-			if errors.As(err, &ae) {
+			if ae, ok := errors.AsType[*issue.ActionableError](err); ok {
 				formatted := ae.Format(false)
 				for _, exp := range tt.formatContains {
 					if !strings.Contains(formatted, exp) {
@@ -197,8 +196,7 @@ func TestRunContainerError(t *testing.T) {
 	}
 
 	// Check formatted output for suggestions
-	var ae *issue.ActionableError
-	if errors.As(err, &ae) {
+	if ae, ok := errors.AsType[*issue.ActionableError](err); ok {
 		formatted := ae.Format(false)
 		if !strings.Contains(formatted, "docker images") {
 			t.Errorf("formatted error should contain suggestion, got: %s", formatted)

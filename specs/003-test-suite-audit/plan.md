@@ -9,7 +9,7 @@ Comprehensive audit and refactoring of Go test files to improve maintainability,
 
 ## Technical Context
 
-**Language/Version**: Go 1.25+
+**Language/Version**: Go 1.26+
 **Primary Dependencies**: stdlib `testing`, `github.com/charmbracelet/bubbletea` (TUI), `mvdan.cc/sh/v3` (virtual shell), `github.com/rogpeppe/go-internal/testscript` (CLI tests)
 **Storage**: N/A (test infrastructure only)
 **Testing**: Go's built-in `testing` package, testscript for CLI integration tests

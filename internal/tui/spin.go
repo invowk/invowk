@@ -239,8 +239,7 @@ func (m *spinModel) runCommand() tea.Cmd {
 		}
 
 		if err != nil {
-			var exitErr *exec.ExitError
-			if errors.As(err, &exitErr) {
+			if exitErr, ok := errors.AsType[*exec.ExitError](err); ok {
 				result.ExitCode = exitErr.ExitCode()
 			} else {
 				result.ExitCode = 1

@@ -144,8 +144,7 @@ Examples:
 			// show disambiguation guidance.
 			if len(args) > 0 {
 				if ambigCheckErr := checkAmbiguousCommand(cmd.Context(), app, rootFlags, args); ambigCheckErr != nil {
-					ambigErr := (*AmbiguousCommandError)(nil)
-					if errors.As(ambigCheckErr, &ambigErr) {
+					if ambigErr, ok := errors.AsType[*AmbiguousCommandError](ambigCheckErr); ok {
 						fmt.Fprint(app.stderr, RenderAmbiguousCommandError(ambigErr))
 						cmd.SilenceErrors = true
 						cmd.SilenceUsage = true
@@ -253,8 +252,7 @@ func runCommand(cmd *cobra.Command, app *App, rootFlags *rootFlagValues, cmdFlag
 
 	err := executeRequest(cmd, app, req)
 	if err != nil {
-		exitErr := (*ExitError)(nil)
-		if errors.As(err, &exitErr) {
+		if _, ok := errors.AsType[*ExitError](err); ok { //nolint:errcheck // type match only; error is handled via ok
 			cmd.SilenceErrors = true
 			cmd.SilenceUsage = true
 		}
@@ -318,8 +316,7 @@ func validateCommandTree(ctx context.Context, app *App, rootFlags *rootFlagValue
 		return nil
 	}
 
-	conflictErr := (*discovery.ArgsSubcommandConflictError)(nil)
-	if errors.As(err, &conflictErr) {
+	if conflictErr, ok := errors.AsType[*discovery.ArgsSubcommandConflictError](err); ok {
 		fmt.Fprintf(app.stderr, "\n%s\n\n", RenderArgsSubcommandConflictError(conflictErr))
 	}
 

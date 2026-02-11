@@ -17,11 +17,6 @@ import (
 	"invowk-cli/pkg/invkfile"
 )
 
-// intPtr is a helper to create a pointer to an int.
-func intPtr(i int) *int {
-	return &i
-}
-
 // ---------------------------------------------------------------------------
 // Tool dependency tests
 // ---------------------------------------------------------------------------
@@ -84,8 +79,8 @@ func TestCheckToolDependencies_ToolNotExists(t *testing.T) {
 		t.Error("checkToolDependencies() should return error for non-existent tool")
 	}
 
-	var depErr *DependencyError
-	if !errors.As(err, &depErr) {
+	depErr, ok := errors.AsType[*DependencyError](err)
+	if !ok {
 		t.Errorf("checkToolDependencies() should return *DependencyError, got: %T", err)
 	}
 
@@ -114,8 +109,8 @@ func TestCheckToolDependencies_MultipleToolsNotExist(t *testing.T) {
 		t.Error("checkToolDependencies() should return error for non-existent tools")
 	}
 
-	var depErr *DependencyError
-	if !errors.As(err, &depErr) {
+	depErr, ok := errors.AsType[*DependencyError](err)
+	if !ok {
 		t.Fatalf("checkToolDependencies() should return *DependencyError, got: %T", err)
 	}
 
@@ -152,8 +147,8 @@ func TestCheckToolDependencies_MixedToolsExistAndNotExist(t *testing.T) {
 		t.Error("checkToolDependencies() should return error when any tool is missing")
 	}
 
-	var depErr *DependencyError
-	if !errors.As(err, &depErr) {
+	depErr, ok := errors.AsType[*DependencyError](err)
+	if !ok {
 		t.Fatalf("checkToolDependencies() should return *DependencyError, got: %T", err)
 	}
 
@@ -304,8 +299,8 @@ func TestCheckCommandDependenciesExist_MissingCommand(t *testing.T) {
 		t.Fatal("expected error, got nil")
 	}
 
-	var depErr *DependencyError
-	if !errors.As(err, &depErr) {
+	depErr, ok := errors.AsType[*DependencyError](err)
+	if !ok {
 		t.Fatalf("expected *DependencyError, got %T", err)
 	}
 
@@ -329,7 +324,7 @@ func TestCheckCustomChecks_Success(t *testing.T) {
 				{
 					Name:         "test-check",
 					CheckScript:  "echo 'test output'",
-					ExpectedCode: intPtr(0),
+					ExpectedCode: new(0),
 				},
 			},
 		}))
@@ -348,7 +343,7 @@ func TestCheckCustomChecks_WrongExitCode(t *testing.T) {
 				{
 					Name:         "test-check",
 					CheckScript:  "exit 1",
-					ExpectedCode: intPtr(0),
+					ExpectedCode: new(0),
 				},
 			},
 		}))
@@ -358,8 +353,8 @@ func TestCheckCustomChecks_WrongExitCode(t *testing.T) {
 		t.Error("checkCustomChecks() should return error for wrong exit code")
 	}
 
-	var depErr *DependencyError
-	if !errors.As(err, &depErr) {
+	depErr, ok := errors.AsType[*DependencyError](err)
+	if !ok {
 		t.Fatalf("checkCustomChecks() should return *DependencyError, got: %T", err)
 	}
 
@@ -376,7 +371,7 @@ func TestCheckCustomChecks_ExpectedNonZeroCode(t *testing.T) {
 				{
 					Name:         "test-check",
 					CheckScript:  "exit 42",
-					ExpectedCode: intPtr(42),
+					ExpectedCode: new(42),
 				},
 			},
 		}))
@@ -424,8 +419,8 @@ func TestCheckCustomChecks_OutputNoMatch(t *testing.T) {
 		t.Error("checkCustomChecks() should return error for non-matching output")
 	}
 
-	var depErr *DependencyError
-	if !errors.As(err, &depErr) {
+	depErr, ok := errors.AsType[*DependencyError](err)
+	if !ok {
 		t.Fatalf("checkCustomChecks() should return *DependencyError, got: %T", err)
 	}
 
@@ -442,7 +437,7 @@ func TestCheckCustomChecks_BothCodeAndOutput(t *testing.T) {
 				{
 					Name:           "test-check",
 					CheckScript:    "echo 'go version go1.21.0'",
-					ExpectedCode:   intPtr(0),
+					ExpectedCode:   new(0),
 					ExpectedOutput: "go1\\.",
 				},
 			},
@@ -472,8 +467,8 @@ func TestCheckCustomChecks_InvalidRegex(t *testing.T) {
 		t.Error("checkCustomChecks() should return error for invalid regex")
 	}
 
-	var depErr *DependencyError
-	if !errors.As(err, &depErr) {
+	depErr, ok := errors.AsType[*DependencyError](err)
+	if !ok {
 		t.Fatalf("checkCustomChecks() should return *DependencyError, got: %T", err)
 	}
 

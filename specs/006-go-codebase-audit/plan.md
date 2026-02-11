@@ -15,7 +15,7 @@ This audit addresses technical debt in the Invowk Go codebase by:
 
 ## Technical Context
 
-**Language/Version**: Go 1.25+
+**Language/Version**: Go 1.26+
 **Primary Dependencies**: CUE v0.15.3, Cobra, Viper, Bubble Tea, mvdan/sh
 **Storage**: N/A (no persistent storage)
 **Testing**: Go stdlib `testing`, `testscript` for CLI integration
