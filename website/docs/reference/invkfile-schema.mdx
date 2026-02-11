@@ -105,7 +105,11 @@ The executable implementations. See [Implementation](#implementation).
 Command-line flags for this command. See [Flag](#flag).
 
 :::warning Reserved Flags
-`env-file` (short `e`) and `env-var` (short `E`) are reserved system flags and cannot be used.
+The following flags are reserved by invowk and cannot be used in user-defined commands:
+- `env-file` (short `e`), `env-var` (short `E`)
+- `env-inherit-mode`, `env-inherit-allow`, `env-inherit-deny`
+- `workdir` (short `w`), `help` (short `h`), `runtime` (short `r`)
+- `from`, `force-rebuild`, `list` (short `l`)
 :::
 
 ### args

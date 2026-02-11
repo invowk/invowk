@@ -340,7 +340,7 @@ cmds: [
 				description: "Number of replicas"
 				type: "int"
 				default_value: "3"
-				short: "r"
+				short: "n"
 			},
 		]
 	}

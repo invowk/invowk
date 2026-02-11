@@ -4,8 +4,37 @@ package invkfile
 
 import "regexp"
 
-// flagNameRegex validates POSIX-compliant flag names.
-var flagNameRegex = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9_-]*$`)
+var (
+	// flagNameRegex validates POSIX-compliant flag names.
+	flagNameRegex = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9_-]*$`)
+
+	// reservedFlagNames maps system-reserved flag names to the long flag they belong to.
+	// User-defined flags with these names would conflict with flags injected by invowk
+	// at CLI construction time (leaf flags, parent persistent flags, and Cobra built-ins).
+	reservedFlagNames = map[string]string{
+		"env-file":          "env-file",
+		"env-var":           "env-var",
+		"env-inherit-mode":  "env-inherit-mode",
+		"env-inherit-allow": "env-inherit-allow",
+		"env-inherit-deny":  "env-inherit-deny",
+		"workdir":           "workdir",
+		"help":              "help",
+		"runtime":           "runtime",
+		"from":              "from",
+		"force-rebuild":     "force-rebuild",
+		"list":              "list",
+	}
+
+	// reservedShortAliases maps reserved single-letter short aliases to the long flag they belong to.
+	reservedShortAliases = map[string]string{
+		"e": "env-file",
+		"E": "env-var",
+		"w": "workdir",
+		"h": "help",
+		"r": "runtime",
+		"l": "list",
+	}
+)
 
 // validateFlags validates all flags for a command and collects all errors.
 func (v *StructureValidator) validateFlags(ctx *ValidationContext, cmd *Command) []ValidationError {
@@ -92,19 +121,11 @@ func (v *StructureValidator) validateFlag(ctx *ValidationContext, cmd *Command, 
 	seenNames[flag.Name] = true
 
 	// Check for reserved flag names
-	if flag.Name == "env-file" {
+	if longFlag, reserved := reservedFlagNames[flag.Name]; reserved {
 		errors = append(errors, ValidationError{
 			Validator: v.Name(),
 			Field:     path.String(),
-			Message:   "'env-file' is a reserved system flag and cannot be used in invkfile at " + ctx.FilePath,
-			Severity:  SeverityError,
-		})
-	}
-	if flag.Name == "env-var" {
-		errors = append(errors, ValidationError{
-			Validator: v.Name(),
-			Field:     path.String(),
-			Message:   "'env-var' is a reserved system flag and cannot be used in invkfile at " + ctx.FilePath,
+			Message:   "'" + longFlag + "' is a reserved system flag and cannot be used in invkfile at " + ctx.FilePath,
 			Severity:  SeverityError,
 		})
 	}
@@ -143,19 +164,11 @@ func (v *StructureValidator) validateFlag(ctx *ValidationContext, cmd *Command, 
 		}
 
 		// Check for reserved short aliases
-		if flag.Short == "e" {
+		if longFlag, reserved := reservedShortAliases[flag.Short]; reserved {
 			errors = append(errors, ValidationError{
 				Validator: v.Name(),
 				Field:     path.String(),
-				Message:   "short alias 'e' is reserved for the system --env-file flag in invkfile at " + ctx.FilePath,
-				Severity:  SeverityError,
-			})
-		}
-		if flag.Short == "E" {
-			errors = append(errors, ValidationError{
-				Validator: v.Name(),
-				Field:     path.String(),
-				Message:   "short alias 'E' is reserved for the system --env-var flag in invkfile at " + ctx.FilePath,
+				Message:   "short alias '" + flag.Short + "' is reserved for the system --" + longFlag + " flag in invkfile at " + ctx.FilePath,
 				Severity:  SeverityError,
 			})
 		}

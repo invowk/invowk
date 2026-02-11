@@ -290,3 +290,105 @@ cmds: [
 		t.Errorf("Error should mention 'reserved', got: %v", err)
 	}
 }
+
+func TestValidateFlags_ReservedFlagNames(t *testing.T) {
+	t.Parallel()
+
+	reservedNames := []string{
+		"env-inherit-mode", "env-inherit-allow", "env-inherit-deny",
+		"workdir", "help", "runtime", "from", "force-rebuild", "list",
+	}
+
+	for _, name := range reservedNames {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			cueContent := fmt.Sprintf(`
+cmds: [
+	{
+		name: "deploy"
+		implementations: [
+			{
+				script: "echo deploying"
+				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}]
+			}
+		]
+		flags: [
+			{name: "%s", description: "This should fail - reserved flag name"}
+		]
+	}
+]
+`, name)
+			tmpDir := t.TempDir()
+			invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+			if writeErr := os.WriteFile(invkfilePath, []byte(cueContent), 0o644); writeErr != nil {
+				t.Fatalf("Failed to write invkfile: %v", writeErr)
+			}
+
+			_, err := Parse(invkfilePath)
+			if err == nil {
+				t.Fatalf("Parse() should fail for reserved flag name %q, got nil error", name)
+			}
+
+			if !strings.Contains(err.Error(), "reserved") {
+				t.Errorf("Error should mention 'reserved', got: %v", err)
+			}
+		})
+	}
+}
+
+func TestValidateFlags_ReservedShortAliases(t *testing.T) {
+	t.Parallel()
+
+	reservedShorts := []struct {
+		short    string
+		longFlag string
+	}{
+		{"w", "workdir"},
+		{"h", "help"},
+		{"r", "runtime"},
+		{"l", "list"},
+	}
+
+	for _, tc := range reservedShorts {
+		t.Run(tc.short, func(t *testing.T) {
+			t.Parallel()
+
+			cueContent := fmt.Sprintf(`
+cmds: [
+	{
+		name: "deploy"
+		implementations: [
+			{
+				script: "echo deploying"
+				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}]
+			}
+		]
+		flags: [
+			{name: "myflag", short: "%s", description: "This should fail - reserved short alias"}
+		]
+	}
+]
+`, tc.short)
+			tmpDir := t.TempDir()
+			invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+			if writeErr := os.WriteFile(invkfilePath, []byte(cueContent), 0o644); writeErr != nil {
+				t.Fatalf("Failed to write invkfile: %v", writeErr)
+			}
+
+			_, err := Parse(invkfilePath)
+			if err == nil {
+				t.Fatalf("Parse() should fail for reserved short alias %q (--"+tc.longFlag+"), got nil error", tc.short)
+			}
+
+			if !strings.Contains(err.Error(), "reserved") {
+				t.Errorf("Error should mention 'reserved', got: %v", err)
+			}
+			if !strings.Contains(err.Error(), tc.longFlag) {
+				t.Errorf("Error should mention the long flag '--%s', got: %v", tc.longFlag, err)
+			}
+		})
+	}
+}
