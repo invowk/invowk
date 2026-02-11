@@ -116,6 +116,31 @@ cd website && npm run serve
 
 ---
 
+## Frozen Snippets Convention
+
+Docusaurus versioned docs are independent MDX snapshots that **share React components** via `@site/`. There is no built-in version-specific component override. When a snippet ID is renamed or removed during a schema/API migration, old versioned docs still reference the old ID through the shared `<Snippet>` component.
+
+### Rules
+
+- Old snippet entries are preserved with their **exact original content** -- no deprecation notes, no modifications.
+- Old entries live in a clearly marked `// FROZEN SNIPPETS` section at the end of `snippets.ts`.
+- Each frozen entry gets a brief maintainer comment noting when it was frozen and what replaced it (e.g., `// Frozen in v0.1.0-alpha.3. Current: 'new-id'`). This is for maintainer context only and is not rendered to users.
+- Current docs use new IDs; versioned docs keep referencing old IDs naturally.
+
+### Migration Process (for any schema/API change that renames snippets)
+
+1. Create the new snippet with the new ID.
+2. Move the old snippet entry to the Frozen section (preserve exact original content).
+3. Add a maintainer comment: `// Frozen in vX.Y.Z. Current: 'new-id'` (or `(command removed)` / `(unchanged content)` as appropriate).
+4. Update current + i18n current docs to reference new IDs.
+5. Never touch versioned docs -- they reference old IDs and the frozen entries serve them.
+
+### Scaling
+
+When the frozen section grows beyond ~30 entries, extract it to a separate `frozenSnippets.ts` file and merge it into the Snippet component's lookup map.
+
+---
+
 ## Common Pitfalls
 
 - **Missing i18n** - Website changes require updates to both `docs/` and `i18n/pt-BR/`.

@@ -8067,64 +8067,59 @@ invowk cmd database-cli -i`,
   q/Esc/Enter   → Exit and return to terminal`,
   },
   // =============================================================================
-  // LEGACY STUBS (for versioned docs that reference old snippet IDs)
+  // FROZEN SNIPPETS
+  // Snippets preserved for versioned docs that reference old IDs.
+  // Each entry contains the EXACT original content. Do not add deprecation
+  // notes -- versioned docs render these in their historical context.
   // =============================================================================
-  // These snippets were renamed when search_paths/module_aliases were unified
-  // into the `includes` field. Versioned docs still reference the old IDs.
 
-  'config/search-paths': {
+  'config/search-paths': { // Frozen in v0.1.0-alpha.3. Current: 'config/includes'
     language: 'cue',
-    code: `// NOTE: search_paths has been replaced by includes in newer versions.
-// See the latest docs for the current schema.
-search_paths: [
+    code: `search_paths: [
     "~/.invowk/modules",
     "~/my-company/shared-modules",
     "/opt/invowk/modules"
 ]`,
   },
 
-  'modules/search-paths-config': {
+  'modules/search-paths-config': { // Frozen in v0.1.0-alpha.3. Current: 'modules/includes-config'
     language: 'cue',
-    code: `// NOTE: search_paths has been replaced by includes in newer versions.
-// ~/.config/invowk/config.cue
+    code: `// ~/.config/invowk/config.cue
 search_paths: [
     "/shared/company-modules"
 ]`,
   },
 
-  'modules/install-search-path': {
+  'modules/install-search-path': { // Frozen in v0.1.0-alpha.3. (unchanged content)
     language: 'bash',
     code: `invowk module import mytools.zip --path /shared/company-modules`,
   },
 
-  'reference/config/search-paths-example': {
+  'reference/config/search-paths-example': { // Frozen in v0.1.0-alpha.3. Current: 'reference/config/includes-example'
     language: 'cue',
-    code: `// NOTE: search_paths has been replaced by includes in newer versions.
-search_paths: [
+    code: `search_paths: [
     "~/.invowk/cmds",
     "~/projects/shared-commands",
     "/opt/company/invowk-commands",
 ]`,
   },
 
-  'reference/cli/module-alias-syntax': {
+  'reference/cli/module-alias-syntax': { // Frozen in v0.1.0-alpha.3. (command removed)
     language: 'bash',
-    code: `// NOTE: module alias commands have been removed in newer versions.
-// Aliases are now configured inline in the includes field.
-invowk module alias [command]`,
+    code: `invowk module alias [command]`,
   },
 
-  'reference/cli/module-alias-set-syntax': {
+  'reference/cli/module-alias-set-syntax': { // Frozen in v0.1.0-alpha.3. (command removed)
     language: 'bash',
     code: `invowk module alias set <module-path> <alias>`,
   },
 
-  'reference/cli/module-alias-list-syntax': {
+  'reference/cli/module-alias-list-syntax': { // Frozen in v0.1.0-alpha.3. (command removed)
     language: 'bash',
     code: `invowk module alias list`,
   },
 
-  'reference/cli/module-alias-remove-syntax': {
+  'reference/cli/module-alias-remove-syntax': { // Frozen in v0.1.0-alpha.3. (command removed)
     language: 'bash',
     code: `invowk module alias remove <module-path>`,
   },
