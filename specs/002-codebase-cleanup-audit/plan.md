@@ -14,7 +14,7 @@ This is an internal refactoring effort to improve codebase maintainability witho
 
 ## Technical Context
 
-**Language/Version**: Go 1.25+
+**Language/Version**: Go 1.26+
 **Primary Dependencies**: Cobra (CLI), Viper (config), CUE (schemas), Charm libraries (TUI), mvdan/sh (virtual shell)
 **Storage**: N/A (CLI tool, file-based configuration)
 **Testing**: Go test with testscript for CLI integration tests
@@ -217,7 +217,7 @@ pkg/platform/
 
 **Alternatives Considered**:
 1. ❌ Extract to `internal/serverbase/` (over-engineering for 2 servers)
-2. ❌ Use generics (Go 1.25 generics don't improve this pattern)
+2. ❌ Use generics (Go 1.26 generics don't improve this pattern)
 3. ✅ Defer (servers work correctly, documented pattern is sufficient)
 
 ---

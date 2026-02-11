@@ -128,7 +128,7 @@ cmds: [
 				// Allowed runtimes (first is default). Container runtime requires image or containerfile.
 				runtimes: [
 					{name: "native"},
-					{name: "container", image: "golang:1.25"},
+					{name: "container", image: "golang:1.26"},
 				]
 				platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 				// Environment variables for this implementation
@@ -844,7 +844,7 @@ cmds: [
 		implementations: [
 			{
 				script: "go build -o /workspace/bin/app ./..."
-				runtimes: [{name: "container", image: "golang:1.25"}]
+				runtimes: [{name: "container", image: "golang:1.26"}]
 				platforms: [{name: "linux"}]
 				// Implementation-level depends_on - validated within the container
 				depends_on: {
@@ -2113,7 +2113,7 @@ cmds: [
 				// Container config is specified in the runtime
 				runtimes: [{
 					name: "container",
-					image: "golang:1.25",
+					image: "golang:1.26",
 					volumes: ["./data:/data"],
 					ports: ["8080:8080"],
 				}]

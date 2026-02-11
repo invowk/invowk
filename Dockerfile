@@ -1,15 +1,16 @@
-FROM alpine:3.19
+FROM debian:stable-slim
 
 # Install common utilities
-RUN apk add --no-cache \
+RUN apt-get update && apt-get install -y --no-install-recommends \
     bash \
     coreutils \
-    go \
+    golang-go \
     git \
-    make
+    make \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /workspace
 
 # Default command
-CMD ["/bin/sh"]
-
+CMD ["/bin/bash"]

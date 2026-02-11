@@ -109,22 +109,22 @@ func TestBaseCLIEngine_RunArgs(t *testing.T) {
 		{
 			name: "minimal run",
 			opts: RunOptions{
-				Image: "alpine",
+				Image: "debian:stable-slim",
 			},
-			contains: []string{"run", "alpine"},
+			contains: []string{"run", "debian:stable-slim"},
 		},
 		{
 			name: "run with rm",
 			opts: RunOptions{
-				Image:  "alpine",
+				Image:  "debian:stable-slim",
 				Remove: true,
 			},
-			contains: []string{"run", "--rm", "alpine"},
+			contains: []string{"run", "--rm", "debian:stable-slim"},
 		},
 		{
 			name: "run with name",
 			opts: RunOptions{
-				Image: "alpine",
+				Image: "debian:stable-slim",
 				Name:  "mycontainer",
 			},
 			contains: []string{"--name", "mycontainer"},
@@ -132,7 +132,7 @@ func TestBaseCLIEngine_RunArgs(t *testing.T) {
 		{
 			name: "run with workdir",
 			opts: RunOptions{
-				Image:   "alpine",
+				Image:   "debian:stable-slim",
 				WorkDir: "/app",
 			},
 			contains: []string{"-w", "/app"},
@@ -140,7 +140,7 @@ func TestBaseCLIEngine_RunArgs(t *testing.T) {
 		{
 			name: "run interactive with tty",
 			opts: RunOptions{
-				Image:       "alpine",
+				Image:       "debian:stable-slim",
 				Interactive: true,
 				TTY:         true,
 			},
@@ -149,7 +149,7 @@ func TestBaseCLIEngine_RunArgs(t *testing.T) {
 		{
 			name: "run with volumes",
 			opts: RunOptions{
-				Image:   "alpine",
+				Image:   "debian:stable-slim",
 				Volumes: []string{"/host:/container"},
 			},
 			contains: []string{"-v", "/host:/container"},
@@ -165,7 +165,7 @@ func TestBaseCLIEngine_RunArgs(t *testing.T) {
 		{
 			name: "run with extra hosts",
 			opts: RunOptions{
-				Image:      "alpine",
+				Image:      "debian:stable-slim",
 				ExtraHosts: []string{"host.docker.internal:host-gateway"},
 			},
 			contains: []string{"--add-host", "host.docker.internal:host-gateway"},
@@ -173,10 +173,10 @@ func TestBaseCLIEngine_RunArgs(t *testing.T) {
 		{
 			name: "run with command",
 			opts: RunOptions{
-				Image:   "alpine",
+				Image:   "debian:stable-slim",
 				Command: []string{"echo", "hello"},
 			},
-			contains: []string{"alpine", "echo", "hello"},
+			contains: []string{"debian:stable-slim", "echo", "hello"},
 		},
 	}
 
@@ -394,7 +394,7 @@ func TestBaseCLIEngine_RunArgsWithEnv(t *testing.T) {
 	engine := NewBaseCLIEngine("/usr/bin/docker")
 
 	args := engine.RunArgs(RunOptions{
-		Image: "alpine",
+		Image: "debian:stable-slim",
 		Env: map[string]string{
 			"FOO": "bar",
 			"BAZ": "qux",

@@ -21,8 +21,7 @@ func TestCheckCapability_LocalAreaNetwork(t *testing.T) {
 	// Instead, we just verify the function runs without panicking
 	// and returns a proper error type if it fails
 	if err != nil {
-		var capErr *CapabilityError
-		if !errors.As(err, &capErr) {
+		if _, ok := errors.AsType[*CapabilityError](err); !ok {
 			t.Errorf("CheckCapability(CapabilityLocalAreaNetwork) returned wrong error type: %T", err)
 		}
 	}
@@ -42,8 +41,7 @@ func TestCheckCapability_Internet(t *testing.T) {
 	// Instead, we just verify the function runs without panicking
 	// and returns a proper error type if it fails
 	if err != nil {
-		var capErr *CapabilityError
-		if !errors.As(err, &capErr) {
+		if _, ok := errors.AsType[*CapabilityError](err); !ok {
 			t.Errorf("CheckCapability(CapabilityInternet) returned wrong error type: %T", err)
 		}
 	}
@@ -58,8 +56,7 @@ func TestCheckCapability_Containers(t *testing.T) {
 
 	err := CheckCapability(CapabilityContainers)
 	if err != nil {
-		var capErr *CapabilityError
-		if !errors.As(err, &capErr) {
+		if _, ok := errors.AsType[*CapabilityError](err); !ok {
 			t.Errorf("CheckCapability(CapabilityContainers) returned wrong error type: %T", err)
 		}
 	}
@@ -70,8 +67,7 @@ func TestCheckCapability_TTY(t *testing.T) {
 
 	err := CheckCapability(CapabilityTTY)
 	if err != nil {
-		var capErr *CapabilityError
-		if !errors.As(err, &capErr) {
+		if _, ok := errors.AsType[*CapabilityError](err); !ok {
 			t.Errorf("CheckCapability(CapabilityTTY) returned wrong error type: %T", err)
 		}
 	}
@@ -85,8 +81,8 @@ func TestCheckCapability_Unknown(t *testing.T) {
 		t.Error("CheckCapability should return error for unknown capability")
 	}
 
-	var capErr *CapabilityError
-	if !errors.As(err, &capErr) {
+	capErr, ok := errors.AsType[*CapabilityError](err)
+	if !ok {
 		t.Fatalf("CheckCapability should return *CapabilityError, got: %T", err)
 	}
 
@@ -187,8 +183,8 @@ func TestCheckLocalAreaNetwork_ReturnsCapabilityError(t *testing.T) {
 	// This will succeed or fail based on the environment
 	err := checkLocalAreaNetwork()
 	if err != nil {
-		var capErr *CapabilityError
-		if !errors.As(err, &capErr) {
+		capErr, ok := errors.AsType[*CapabilityError](err)
+		if !ok {
 			t.Errorf("checkLocalAreaNetwork() returned wrong error type: %T", err)
 		}
 		if capErr != nil && capErr.Capability != CapabilityLocalAreaNetwork {
@@ -208,8 +204,8 @@ func TestCheckInternet_ReturnsCapabilityError(t *testing.T) {
 	// This will succeed or fail based on the environment
 	err := checkInternet()
 	if err != nil {
-		var capErr *CapabilityError
-		if !errors.As(err, &capErr) {
+		capErr, ok := errors.AsType[*CapabilityError](err)
+		if !ok {
 			t.Errorf("checkInternet() returned wrong error type: %T", err)
 		}
 		if capErr != nil && capErr.Capability != CapabilityInternet {

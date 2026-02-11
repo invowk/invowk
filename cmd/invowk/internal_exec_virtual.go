@@ -111,8 +111,7 @@ func runInternalExecVirtual(cmd *cobra.Command, args []string) error {
 	// Execute the script
 	ctx := context.Background()
 	if err := runner.Run(ctx, prog); err != nil {
-		var exitStatus interp.ExitStatus
-		if errors.As(err, &exitStatus) {
+		if exitStatus, ok := errors.AsType[interp.ExitStatus](err); ok {
 			cmd.SilenceErrors = true
 			cmd.SilenceUsage = true
 			return &ExitError{Code: int(exitStatus)}

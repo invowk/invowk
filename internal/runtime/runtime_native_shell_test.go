@@ -222,8 +222,8 @@ func TestNativeRuntime_ShellNotFoundError_Format(t *testing.T) {
 	errVal := rt.shellNotFoundError([]string{"bash", "sh"})
 
 	// Check that it can be cast to *issue.ActionableError
-	var ae *issue.ActionableError
-	if !errors.As(errVal, &ae) {
+	ae, ok := errors.AsType[*issue.ActionableError](errVal)
+	if !ok {
 		t.Fatal("shellNotFoundError should return *issue.ActionableError")
 	}
 

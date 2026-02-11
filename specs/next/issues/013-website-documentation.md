@@ -226,7 +226,7 @@ We welcome contributions! This guide helps you get started.
 
 ### Prerequisites
 
-- Go 1.25+
+- Go 1.26+
 - Make
 - Docker or Podman (for container tests)
 - Node.js 20+ (for website development)

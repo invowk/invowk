@@ -11,7 +11,7 @@ Audit and restructure the Go codebase for better package organization, file size
 
 ## Technical Context
 
-**Language/Version**: Go 1.25+ with CUE v0.15.3
+**Language/Version**: Go 1.26+ with CUE v0.15.3
 **Primary Dependencies**: Cobra, Viper, Bubble Tea, Lip Gloss, mvdan/sh
 **Storage**: N/A (file-based CUE configuration only)
 **Testing**: Go stdlib `testing` + `testscript` for CLI integration tests

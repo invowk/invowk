@@ -166,8 +166,7 @@ func (s *commandService) validateInputs(req ExecuteRequest, cmdInfo *discovery.C
 	}
 
 	if err := validateArguments(req.Name, req.Args, defs.argDefs); err != nil {
-		argErr := (*ArgumentValidationError)(nil)
-		if errors.As(err, &argErr) {
+		if argErr, ok := errors.AsType[*ArgumentValidationError](err); ok {
 			fmt.Fprint(s.stderr, RenderArgumentValidationError(argErr))
 			rendered, _ := issue.Get(issue.InvalidArgumentId).Render("dark")
 			fmt.Fprint(s.stderr, rendered)
@@ -405,8 +404,7 @@ func (s *commandService) dispatchExecution(req ExecuteRequest, execCtx *runtime.
 // for dependency failures.
 func (s *commandService) validateAndRenderDeps(cfg *config.Config, cmdInfo *discovery.CommandInfo, execCtx *runtime.ExecutionContext, registry *runtime.Registry) error {
 	if err := validateDependencies(cfg, cmdInfo, registry, execCtx); err != nil {
-		depErr := (*DependencyError)(nil)
-		if errors.As(err, &depErr) {
+		if depErr, ok := errors.AsType[*DependencyError](err); ok {
 			fmt.Fprint(s.stderr, RenderDependencyError(depErr))
 			rendered, _ := issue.Get(issue.DependenciesNotSatisfiedId).Render("dark")
 			fmt.Fprint(s.stderr, rendered)

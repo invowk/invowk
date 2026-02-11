@@ -611,7 +611,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.25'
+          go-version: '1.26'
 
       - name: Install tmux
         run: sudo apt-get install -y tmux

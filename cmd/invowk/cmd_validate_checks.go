@@ -26,8 +26,7 @@ func validateCustomCheckOutput(check invkfile.CustomCheck, outputStr string, exe
 	// Check exit code
 	actualCode := 0
 	if execErr != nil {
-		var exitErr *exec.ExitError
-		if errors.As(execErr, &exitErr) {
+		if exitErr, ok := errors.AsType[*exec.ExitError](execErr); ok {
 			actualCode = exitErr.ExitCode()
 		} else {
 			// Try to get exit code from error message for non-native runtimes

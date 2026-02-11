@@ -229,8 +229,7 @@ Container engines distinguish between process exit codes and errors:
 ```go
 result := &RunResult{}
 if err != nil {
-    var exitErr *exec.ExitError
-    if errors.As(err, &exitErr) {
+    if exitErr, ok := errors.AsType[*exec.ExitError](err); ok {
         result.ExitCode = exitErr.ExitCode()  // Process exited non-zero
     } else {
         result.ExitCode = 1

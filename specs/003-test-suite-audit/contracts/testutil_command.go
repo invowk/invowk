@@ -30,7 +30,7 @@ type TestCommand struct {
 	Flags           []TestFlag
 	Args            []TestArg
 	WorkDir         string
-	Dependencies    []interface{} // Simplified for contract
+	Dependencies    []any // Simplified for contract
 	Implementations []TestImplementation
 }
 

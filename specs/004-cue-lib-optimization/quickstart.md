@@ -101,8 +101,8 @@ Ensure all CUE errors include full paths:
 
 ```go
 func formatCUEError(err error) error {
-    var cueErr errors.Error
-    if !errors.As(err, &cueErr) {
+    cueErr, ok := errors.AsType[errors.Error](err)
+    if !ok {
         return err
     }
 

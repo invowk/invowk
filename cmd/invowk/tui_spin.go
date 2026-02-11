@@ -97,8 +97,7 @@ func runTuiSpin(cmd *cobra.Command, args []string) error {
 
 	if err != nil {
 		// If it's an exec.ExitError, exit with the same code
-		var exitErr *exec.ExitError
-		if errors.As(err, &exitErr) {
+		if exitErr, ok := errors.AsType[*exec.ExitError](err); ok {
 			cmd.SilenceErrors = true
 			cmd.SilenceUsage = true
 			return &ExitError{Code: exitErr.ExitCode()}

@@ -86,8 +86,7 @@ func RunInteractiveCmd(ctx context.Context, opts InteractiveOptions, cmd *exec.C
 		}
 
 		if waitErr != nil {
-			var exitErr *exec.ExitError
-			if errors.As(waitErr, &exitErr) {
+			if exitErr, ok := errors.AsType[*exec.ExitError](waitErr); ok {
 				result.ExitCode = exitErr.ExitCode()
 			} else {
 				result.Error = waitErr

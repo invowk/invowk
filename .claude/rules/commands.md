@@ -23,7 +23,7 @@
 
 ## Prerequisites
 
-- **Go 1.25+** - Required for building.
+- **Go 1.26+** - Required for building.
 - **Make** - Build automation.
 - **Node.js 20+** - For website development (optional).
 - **Docker or Podman** - For container runtime tests (optional).
