@@ -1,0 +1,276 @@
+---
+sidebar_position: 3
+---
+
+import Snippet from '@site/src/components/Snippet';
+
+# Configuration Schema Reference
+
+:::warning Alpha — Configuration Options May Change
+The configuration schema is still being refined. Options **may be added, renamed, or removed** between releases as we finalize the feature set.
+:::
+
+Complete reference for the Invowk™ configuration file schema.
+
+## Overview
+
+The configuration file uses [CUE](https://cuelang.org/) format and is located at:
+
+| Platform | Location |
+|----------|----------|
+| Linux    | `~/.config/invowk/config.cue` |
+| macOS    | `~/Library/Application Support/invowk/config.cue` |
+| Windows  | `%APPDATA%\invowk\config.cue` |
+
+Configuration files are validated as closed structs, so unknown fields cause a validation error.
+
+## Schema Definition
+
+<Snippet id="reference/config/schema-definition" />
+
+## Config
+
+The root configuration object.
+
+<Snippet id="reference/config/config-structure" />
+
+### container_engine
+
+**Type:** `"podman" | "docker"`  
+**Required:** No  
+**Default:** `"podman"`
+
+Specifies which container runtime to use for container-based command execution.
+
+<Snippet id="reference/config/container-engine-example" />
+
+If the preferred engine is not available, Invowk falls back to the other engine when container runtime is needed.
+
+### search_paths
+
+**Type:** `[...string]`  
+**Required:** No  
+**Default:** `[]`
+
+Additional directories to search for invkfiles and modules.
+
+<Snippet id="reference/config/search-paths-example" />
+
+**Path resolution:**
+- Paths starting with `~` are expanded to the user's home directory
+- Relative paths are resolved from the current working directory
+- Non-existent paths are silently ignored
+
+**Search priority (highest to lowest):**
+1. Current directory
+2. Paths in `search_paths` (in order)
+3. `~/.invowk/cmds`
+
+### default_runtime
+
+**Type:** `"native" | "virtual" | "container"`  
+**Required:** No  
+**Default:** `"native"`
+
+Sets the global default runtime mode for commands that don't specify a preferred runtime.
+
+<Snippet id="reference/config/default-runtime-example" />
+
+| Value | Description |
+|-------|-------------|
+| `"native"` | Execute using the system's native shell |
+| `"virtual"` | Execute using Invowk's built-in shell interpreter |
+| `"container"` | Execute inside a container |
+
+### virtual_shell
+
+**Type:** `#VirtualShellConfig`  
+**Required:** No  
+**Default:** `{}`
+
+Configuration for the virtual shell runtime.
+
+<Snippet id="reference/config/virtual-shell-example" />
+
+### ui
+
+**Type:** `#UIConfig`  
+**Required:** No  
+**Default:** `{}`
+
+User interface configuration.
+
+<Snippet id="reference/config/ui-example" />
+
+### container
+
+**Type:** `#ContainerConfig`  
+**Required:** No  
+**Default:** `{}`
+
+Container runtime configuration.
+
+<Snippet id="reference/config/container-example" />
+
+---
+
+## VirtualShellConfig
+
+Configuration for the virtual shell runtime (mvdan/sh).
+
+<Snippet id="reference/config/virtual-shell-config-structure" />
+
+### enable_uroot_utils
+
+**Type:** `bool`  
+**Required:** No  
+**Default:** `true`
+
+Enables u-root utilities in the virtual shell environment. When enabled, provides additional commands beyond basic shell builtins.
+
+<Snippet id="reference/config/enable-uroot-utils-example" />
+
+**Available utilities when enabled:**
+- File operations: `ls`, `cat`, `cp`, `mv`, `rm`, `mkdir`, `chmod`
+- Text processing: `grep`, `sed`, `awk`, `sort`, `uniq`
+- And many more core utilities
+
+---
+
+## UIConfig
+
+User interface configuration.
+
+<Snippet id="reference/config/ui-config-structure" />
+
+### color_scheme
+
+**Type:** `"auto" | "dark" | "light"`  
+**Required:** No  
+**Default:** `"auto"`
+
+Sets the color scheme for terminal output.
+
+<Snippet id="reference/config/color-scheme-example" />
+
+| Value | Description |
+|-------|-------------|
+| `"auto"` | Detect from terminal (respects `COLORTERM`, `TERM`, etc.) |
+| `"dark"` | Colors optimized for dark terminals |
+| `"light"` | Colors optimized for light terminals |
+
+### verbose
+
+**Type:** `bool`  
+**Required:** No  
+**Default:** `false`
+
+Enables verbose output by default for all commands.
+
+<Snippet id="reference/config/verbose-example" />
+
+Equivalent to always passing `--verbose` on the command line.
+
+### interactive
+
+**Type:** `bool`  
+**Required:** No  
+**Default:** `false`
+
+Enables interactive mode by default (alternate screen buffer with PTY).
+
+<Snippet id="reference/config/interactive-example" />
+
+---
+
+## ContainerConfig
+
+Configuration for container runtime behavior.
+
+<Snippet id="reference/config/container-config-structure" />
+
+### auto_provision
+
+**Type:** `#AutoProvisionConfig`  
+**Required:** No  
+**Default:** `{}`
+
+Controls automatic provisioning of invowk resources into containers.
+
+<Snippet id="reference/config/auto-provision-example" />
+
+With auto-provisioning enabled, Invowk builds a cached, derived image by attaching a small provisioned layer on top of your base image. This runs for every container execution (interactive or not); if provisioning fails, Invowk warns and uses the base image.
+
+---
+
+## AutoProvisionConfig
+
+Auto-provisioning configuration for container images.
+
+<Snippet id="reference/config/auto-provision-config-structure" />
+
+### enabled
+
+**Type:** `bool`  
+**Required:** No  
+**Default:** `true`
+
+Enables auto-provisioning of the invowk binary and modules into containers.
+
+### binary_path
+
+**Type:** `string`  
+**Required:** No  
+**Default:** *(empty; uses the running invowk binary)*
+
+Overrides the path to the invowk binary to provision.
+
+### modules_paths
+
+**Type:** `[...string]`
+**Required:** No
+**Default:** `[]`
+
+Additional module directories to provision into containers.
+
+### cache_dir
+
+**Type:** `string`  
+**Required:** No  
+**Default:** `~/.cache/invowk/provision`
+
+Overrides the cache directory for provisioned image metadata.
+
+---
+
+## Complete Example
+
+A fully documented configuration file:
+
+<Snippet id="reference/config/complete-example" />
+
+---
+
+## Minimal Configuration
+
+If you're happy with defaults, a minimal config might be:
+
+<Snippet id="reference/config/minimal-example" />
+
+Or even an empty file (all defaults):
+
+<Snippet id="reference/config/empty-example" />
+
+---
+
+## Validation
+
+You can validate your configuration file using CUE:
+
+<Snippet id="reference/config/cue-validate" />
+
+Or check it with Invowk:
+
+<Snippet id="reference/config/invowk-validate" />
+
+If there are any errors, Invowk will report them when loading the configuration.

@@ -1,0 +1,73 @@
+---
+sidebar_position: 1
+---
+
+import Snippet from '@site/src/components/Snippet';
+
+# Instalação
+
+:::warning Software em Alfa
+O Invowk™ está atualmente em **estágio alfa**. Embora busquemos estabilidade, espere mudanças incompatíveis entre versões enquanto estabilizamos o formato do invkfile, estrutura de módulos e conjunto de funcionalidades. Recomendamos fixar uma versão específica para uso em produção e acompanhar os [lançamentos no GitHub](https://github.com/invowk/invowk/releases) para guias de migração.
+:::
+
+Bem-vindo ao Invowk! Vamos configurar tudo para você executar comandos rapidamente.
+
+## Requisitos
+
+Antes de instalar o Invowk, certifique-se de ter:
+
+- **Go 1.26+** (apenas se compilar a partir do código-fonte)
+- **Linux, macOS ou Windows** - O Invowk funciona em todos os três!
+
+Para recursos de runtime em container, você também precisará de:
+- **Docker** ou **Podman** instalado e em execução
+
+## Métodos de Instalação
+
+### A Partir do Código-Fonte (Recomendado por enquanto)
+
+Se você tem o Go instalado, compilar a partir do código-fonte é simples:
+
+<Snippet id="installation/build-from-source" />
+
+Depois mova o binário para o seu PATH:
+
+<Snippet id="installation/move-to-path" />
+
+### Usando Make (com mais opções)
+
+O projeto inclui um Makefile com várias opções de compilação:
+
+<Snippet id="installation/make-options" />
+
+### Verificar Instalação
+
+Uma vez instalado, verifique se tudo funciona:
+
+<Snippet id="installation/verify" />
+
+Você deverá ver as informações de versão. Se receber um erro "command not found", certifique-se de que o binário está no seu PATH.
+
+## Autocompletar do Shell
+
+O Invowk suporta autocompletar com tab para bash, zsh, fish e PowerShell. Isso torna a digitação de comandos muito mais rápida!
+
+### Bash
+
+<Snippet id="installation/completion-bash" />
+
+### Zsh
+
+<Snippet id="installation/completion-zsh" />
+
+### Fish
+
+<Snippet id="installation/completion-fish" />
+
+### PowerShell
+
+<Snippet id="installation/completion-powershell" />
+
+## Próximos Passos
+
+Agora que você tem o Invowk instalado, vá para o guia de [Início Rápido](./quickstart) para executar seu primeiro comando!

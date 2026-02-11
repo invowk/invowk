@@ -1,0 +1,116 @@
+---
+sidebar_position: 6
+---
+
+import Diagram from '@site/src/components/Diagram';
+
+# Discovery Precedence Flowchart
+
+This diagram shows how commands are discovered and how conflicts are resolved when the same command name appears in multiple locations.
+
+## Discovery Flow
+
+<Diagram id="architecture/discovery-flow" />
+
+## Conflict Resolution
+
+When the same command name exists in multiple locations:
+
+<Diagram id="architecture/discovery-conflict" />
+
+### Resolution Rules
+
+| Priority | Source | Example Path |
+|----------|--------|--------------|
+| 1 (highest) | Current directory invkfile | `./invkfile.cue` |
+| 2 | Local modules | `./mytools.invkmod/` |
+| 3 | User directory | `~/.invowk/cmds/invkfile.cue` |
+| 4 (lowest) | Search paths | `/opt/invowk-modules/` |
+
+**Key principle**: Closer to the working directory = higher priority.
+
+## Module Discovery Details
+
+<Diagram id="architecture/discovery-module-structure" />
+
+### Required Module Fields
+
+```cue
+// invkmod.cue
+module: "com.example.mymodule"  // RDNS naming convention
+version: "1.0.0"                // Semantic version
+
+// Optional
+description: "My useful module"
+requires: [
+    {
+        git: "https://github.com/org/repo.git"
+        version: "v1.0.0"
+    }
+]
+```
+
+## Dependency Resolution
+
+<Diagram id="architecture/discovery-deps" />
+
+### Transitive Dependency Visibility
+
+| From | Can Access | Cannot Access |
+|------|------------|---------------|
+| Module A | A's commands, B's commands | C's commands (transitive) |
+| Module B | B's commands, C's commands | - |
+| Root invkfile | Own commands, direct deps | Transitive deps |
+
+**Why this restriction?**
+- Prevents implicit coupling to transitive dependencies
+- Makes dependencies explicit in each module
+- Enables dependency upgrades without breaking consumers
+
+## Search Path Configuration
+
+Search paths are configured in `~/.config/invowk/config.cue`:
+
+```cue
+search_paths: [
+    "/opt/company-invowk-modules",
+    "/home/shared/invowk",
+]
+```
+
+### Path Resolution Order
+
+<Diagram id="architecture/discovery-search-paths" />
+
+## Discovery Caching
+
+<Diagram id="architecture/discovery-cache" />
+
+## Common Discovery Issues
+
+### Problem: Command Not Found
+
+<Diagram id="architecture/discovery-not-found" />
+
+### Problem: Wrong Command Version
+
+<Diagram id="architecture/discovery-wrong-version" />
+
+## Debug Commands
+
+```bash
+# List all discovered commands with sources
+invowk cmd --list --verbose
+
+# Show discovery order and conflicts
+invowk internal discovery --debug
+
+# Validate module structure
+invowk module validate ./mymodule.invkmod
+```
+
+## Related Diagrams
+
+- [Command Execution Sequence](./execution-flow) - What happens after discovery
+- [Runtime Selection Flowchart](./runtime-selection) - How runtimes are chosen
+- [C4 Container Diagram](./c4-container) - Discovery component context

@@ -1,0 +1,75 @@
+---
+sidebar_position: 2
+---
+
+import Snippet from '@site/src/components/Snippet';
+
+# Quickstart
+
+Let's run your first Invowk™ command in under 2 minutes. Seriously, grab a coffee first if you want - you'll have time to spare.
+
+## Create Your First Invkfile
+
+Navigate to any project directory and initialize an invkfile:
+
+<Snippet id="quickstart/init" />
+
+This creates an `invkfile.cue` with a sample command. Let's peek inside:
+
+<Snippet id="quickstart/hello-invkfile" />
+
+Don't worry about understanding everything yet - we'll cover that soon!
+
+## List Available Commands
+
+See what commands are available:
+
+<Snippet id="cli/list-commands" />
+
+You'll see something like:
+
+<Snippet id="quickstart/list-output" />
+
+Commands from the current directory are unprefixed. Module commands will include a module prefix when present.
+
+## Run a Command
+
+Now let's run it:
+
+<Snippet id="quickstart/run-hello" />
+
+Output:
+
+<Snippet id="quickstart/hello-output" />
+
+That's it! You just ran your first Invowk command.
+
+## Let's Make It More Interesting
+
+Edit your `invkfile.cue` to add a more useful command:
+
+<Snippet id="quickstart/info-command" />
+
+Now run:
+
+<Snippet id="quickstart/run-info" />
+
+You'll see your system information printed out nicely.
+
+## Try the Virtual Runtime
+
+One of Invowk's superpowers is the **virtual runtime** - a built-in shell interpreter that works the same on every platform:
+
+<Snippet id="quickstart/virtual-runtime" />
+
+The virtual runtime uses the [mvdan/sh](https://github.com/mvdan/sh) interpreter, giving you consistent POSIX shell behavior across all platforms.
+
+## What's Next?
+
+You've just scratched the surface! Head to [Your First Invkfile](./your-first-invkfile) to learn how to build more powerful commands with:
+
+- Multiple runtime options (native, virtual, container)
+- Dependencies that are validated before running
+- Command flags and arguments
+- Environment variables
+- And much more!

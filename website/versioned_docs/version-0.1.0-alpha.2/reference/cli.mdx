@@ -1,0 +1,589 @@
+---
+sidebar_position: 1
+---
+
+import Snippet from '@site/src/components/Snippet';
+
+# CLI Reference
+
+Complete reference for all Invowk™ command-line commands and flags.
+
+## Global Flags
+
+These flags are available for all commands:
+
+| Flag | Short | Description |
+|------|-------|-------------|
+| `--help` | `-h` | Show help for the command |
+| `--interactive` | `-i` | Run commands in alternate screen buffer (interactive mode) |
+| `--verbose` | `-v` | Enable verbose output |
+| `--version` | | Show version information |
+
+## Commands
+
+### invowk
+
+The root command. Running `invowk` without arguments shows the help message.
+
+<Snippet id="reference/cli/invowk-syntax" />
+
+---
+
+### invowk cmd
+
+Execute commands defined in invkfiles.
+
+<Snippet id="reference/cli/cmd-syntax" />
+
+**Flags:**
+
+| Flag | Short | Description |
+|------|-------|-------------|
+| `--list` | `-l` | List all available commands |
+| `--runtime` | `-r` | Override the runtime (must be allowed by the command) |
+| `--from` | | Source to run command from (e.g., 'invkfile' or module name) |
+
+Built-in per-command flags:
+
+| Flag | Short | Description |
+|------|-------|-------------|
+| `--env-file` | `-e` | Load environment variables from file (repeatable) |
+| `--env-var` | `-E` | Set environment variable (KEY=VALUE, repeatable) |
+| `--env-inherit-mode` |  | Inherit host environment variables: `none`, `allow`, `all` |
+| `--env-inherit-allow` |  | Allowlist host env vars to inherit (repeatable) |
+| `--env-inherit-deny` |  | Denylist host env vars to inherit (repeatable) |
+| `--workdir` | `-w` | Override working directory for this command |
+
+**Examples:**
+
+<Snippet id="reference/cli/cmd-examples" />
+
+**Command Discovery:**
+
+Commands are discovered from (in priority order):
+1. Current directory (invkfile and modules)
+2. `~/.invowk/cmds/` (invkfiles and modules)
+3. Paths configured in `search_paths` (invkfiles and modules)
+
+**Command Disambiguation:**
+
+When a command name exists in multiple sources (e.g., both `invkfile.cue` and a module), you must disambiguate:
+
+Using `@source` prefix:
+```bash
+invowk cmd @invkfile deploy      # Run deploy from invkfile
+invowk cmd @tools deploy         # Run deploy from tools.invkmod
+invowk cmd @tools.invkmod deploy # Full module name also works
+```
+
+Using `--from` flag:
+```bash
+invowk cmd --from invkfile deploy
+invowk cmd --from tools deploy
+```
+
+If you run an ambiguous command without disambiguation, invowk shows an error listing available sources.
+
+:::tip
+You can use `@source` or `--from` even for unique command names to be explicit about where a command comes from.
+:::
+
+---
+
+### invowk init
+
+Create a new invkfile in the current directory.
+
+<Snippet id="reference/cli/init-syntax" />
+
+Optionally pass a custom filename to write.
+
+**Flags:**
+
+| Flag | Short | Description |
+|------|-------|-------------|
+| `--force` | `-f` | Overwrite existing invkfile |
+| `--template` | `-t` | Template to use: `default`, `minimal`, `full` |
+
+**Templates:**
+
+- `default` - A balanced template with a few example commands
+- `minimal` - Bare minimum invkfile structure
+- `full` - Comprehensive template showing all features
+
+**Examples:**
+
+<Snippet id="reference/cli/init-examples" />
+
+---
+
+### invowk config
+
+Manage Invowk configuration.
+
+<Snippet id="reference/cli/config-syntax" />
+
+**Subcommands:**
+
+#### invowk config show
+
+Display current configuration in a readable format.
+
+<Snippet id="reference/cli/config-show-syntax" />
+
+#### invowk config dump
+
+Output raw configuration as CUE.
+
+<Snippet id="reference/cli/config-dump-syntax" />
+
+#### invowk config path
+
+Show the configuration file path.
+
+<Snippet id="reference/cli/config-path-syntax" />
+
+#### invowk config init
+
+Create a default configuration file.
+
+<Snippet id="reference/cli/config-init-syntax" />
+
+#### invowk config set
+
+Set a configuration value.
+
+<Snippet id="reference/cli/config-set-syntax" />
+
+**Examples:**
+
+<Snippet id="reference/cli/config-set-examples" />
+
+---
+
+### invowk module
+
+Manage invowk modules (self-contained command folders).
+
+<Snippet id="reference/cli/module-syntax" />
+
+**Subcommands:**
+
+#### invowk module create
+
+Create a new invowk module.
+
+<Snippet id="reference/cli/module-create-syntax" />
+
+**Flags:**
+
+| Flag | Short | Description |
+|------|-------|-------------|
+| `--path` | `-p` | Parent directory for the module (default: current directory) |
+| `--scripts` |  | Create a `scripts/` subdirectory |
+| `--module-id` | `-g` | Module identifier for `invkmod.cue` (default: module name) |
+| `--description` | `-d` | Description for `invkmod.cue` |
+
+**Examples:**
+
+<Snippet id="reference/cli/module-create-examples" />
+
+#### invowk module validate
+
+Validate an invowk module.
+
+<Snippet id="reference/cli/module-validate-syntax" />
+
+**Flags:**
+
+| Flag | Short | Description |
+|------|-------|-------------|
+| `--deep` |  | Also validate invkfile syntax |
+
+**Examples:**
+
+<Snippet id="reference/cli/module-validate-examples" />
+
+#### invowk module list
+
+List all discovered modules.
+
+<Snippet id="reference/cli/module-list-syntax" />
+
+#### invowk module archive
+
+Create a ZIP archive from a module.
+
+<Snippet id="reference/cli/module-archive-syntax" />
+
+**Flags:**
+
+| Flag | Short | Description |
+|------|-------|-------------|
+| `--output` | `-o` | Output file path |
+
+#### invowk module import
+
+Import a module from a ZIP file or URL.
+
+<Snippet id="reference/cli/module-import-syntax" />
+
+**Flags:**
+
+| Flag | Short | Description |
+|------|-------|-------------|
+| `--path` | `-p` | Output directory |
+| `--overwrite` |  | Overwrite existing module if present |
+
+#### invowk module alias
+
+Manage module aliases for collision disambiguation.
+
+<Snippet id="reference/cli/module-alias-syntax" />
+
+#### invowk module alias set
+
+<Snippet id="reference/cli/module-alias-set-syntax" />
+
+#### invowk module alias list
+
+<Snippet id="reference/cli/module-alias-list-syntax" />
+
+#### invowk module alias remove
+
+<Snippet id="reference/cli/module-alias-remove-syntax" />
+
+#### invowk module add
+
+Resolve a module dependency and print the `requires` entry for `invkmod.cue`.
+
+<Snippet id="reference/cli/module-add-syntax" />
+
+**Flags:**
+
+| Flag | Description |
+|------|-------------|
+| `--alias` | Alias for the module namespace |
+| `--path` | Subdirectory path within the repository |
+
+#### invowk module remove
+
+Remove a module dependency from the lock file.
+
+<Snippet id="reference/cli/module-remove-syntax" />
+
+#### invowk module sync
+
+Sync dependencies from `invkmod.cue`.
+
+<Snippet id="reference/cli/module-sync-syntax" />
+
+#### invowk module update
+
+Update module dependencies to latest matching versions.
+
+<Snippet id="reference/cli/module-update-syntax" />
+
+#### invowk module deps
+
+List resolved module dependencies.
+
+<Snippet id="reference/cli/module-deps-syntax" />
+
+#### invowk module vendor
+
+Vendor dependencies into `invk_mods/`.
+
+<Snippet id="reference/cli/module-vendor-syntax" />
+
+**Flags:**
+
+| Flag | Description |
+|------|-------------|
+| `--update` | Force re-fetch of all dependencies |
+| `--prune` | Remove unused vendored modules |
+
+---
+
+### invowk tui
+
+Interactive terminal UI components for shell scripts.
+
+<Snippet id="reference/cli/tui-syntax" />
+
+:::tip
+TUI components work great in invkfile scripts! They provide interactive prompts, spinners, file pickers, and more.
+:::
+
+**Subcommands:**
+
+#### invowk tui input
+
+Prompt for single-line text input.
+
+<Snippet id="reference/cli/tui-input-syntax" />
+
+**Flags:**
+
+| Flag | Description |
+|------|-------------|
+| `--title` | Title for the input prompt |
+| `--description` | Description below the title |
+| `--placeholder` | Placeholder text |
+| `--value` | Initial value |
+| `--char-limit` | Character limit |
+| `--width` | Input field width |
+| `--password` | Hide input (for passwords) |
+| `--prompt` | Prompt character(s) before input |
+
+#### invowk tui write
+
+Multi-line text editor.
+
+<Snippet id="reference/cli/tui-write-syntax" />
+
+**Flags:**
+
+| Flag | Description |
+|------|-------------|
+| `--title` | Title for the editor |
+| `--description` | Description below the title |
+| `--placeholder` | Placeholder text |
+| `--value` | Initial value |
+| `--char-limit` | Character limit |
+| `--width` | Editor width |
+| `--height` | Editor height |
+| `--show-line-numbers` | Show line numbers |
+
+#### invowk tui choose
+
+Select from a list of options.
+
+<Snippet id="reference/cli/tui-choose-syntax" />
+
+**Flags:**
+
+| Flag | Description |
+|------|-------------|
+| `--title` | Title for the selection |
+| `--limit` | Maximum number of selections (default: 1) |
+| `--no-limit` | Allow unlimited selections |
+| `--height` | List height |
+
+#### invowk tui confirm
+
+Prompt for yes/no confirmation.
+
+<Snippet id="reference/cli/tui-confirm-syntax" />
+
+**Flags:**
+
+| Flag | Description |
+|------|-------------|
+| `--title` | Title displayed above the prompt |
+| `--default` | Default value (true/false) |
+| `--affirmative` | Text for "yes" option |
+| `--negative` | Text for "no" option |
+
+#### invowk tui filter
+
+Fuzzy filter a list of options.
+
+<Snippet id="reference/cli/tui-filter-syntax" />
+
+Options can also be provided via stdin.
+
+**Flags:**
+
+| Flag | Description |
+|------|-------------|
+| `--title` | Title displayed above the filter |
+| `--placeholder` | Placeholder text |
+| `--width` | Filter width |
+| `--height` | List height |
+| `--limit` | Maximum selections (default: 1) |
+| `--no-limit` | Allow unlimited selections |
+| `--reverse` | Display list in reverse order |
+| `--fuzzy` | Enable fuzzy matching |
+
+#### invowk tui file
+
+File picker.
+
+<Snippet id="reference/cli/tui-file-syntax" />
+
+**Flags:**
+
+| Flag | Description |
+|------|-------------|
+| `--title` | Title displayed above the picker |
+| `--description` | Description below the title |
+| `--directory` | Only show directories |
+| `--file` | Only show files |
+| `--hidden` | Show hidden files |
+| `--height` | Picker height |
+| `--allowed` | Allowed file extensions |
+
+#### invowk tui table
+
+Display and select from a table.
+
+<Snippet id="reference/cli/tui-table-syntax" />
+
+Reads CSV or TSV data from file or stdin.
+
+**Flags:**
+
+| Flag | Description |
+|------|-------------|
+| `--file` | CSV file to display |
+| `--separator` | Column separator (default: `,`) |
+| `--columns` | Column headers (override file header) |
+| `--widths` | Column widths |
+| `--height` | Table height |
+| `--selectable` | Enable row selection |
+
+#### invowk tui spin
+
+Show a spinner while running a command.
+
+<Snippet id="reference/cli/tui-spin-syntax" />
+
+**Flags:**
+
+| Flag | Description |
+|------|-------------|
+| `--title` | Spinner title |
+| `--type` | Spinner style |
+
+#### invowk tui pager
+
+Scroll through content.
+
+<Snippet id="reference/cli/tui-pager-syntax" />
+
+Reads from file or stdin.
+
+**Flags:**
+
+| Flag | Description |
+|------|-------------|
+| `--title` | Title displayed above the pager |
+| `--line-numbers` | Show line numbers |
+| `--soft-wrap` | Soft wrap long lines |
+
+#### invowk tui format
+
+Format text with markdown, code, emoji, or templates.
+
+<Snippet id="reference/cli/tui-format-syntax" />
+
+**Flags:**
+
+| Flag | Description |
+|------|-------------|
+| `--type` | Format type: `markdown`, `code`, `emoji`, `template` |
+| `--language` | Language for code highlighting |
+| `--theme` | Glamour theme for code highlighting |
+
+#### invowk tui style
+
+Apply styles to text.
+
+<Snippet id="reference/cli/tui-style-syntax" />
+
+**Flags:**
+
+| Flag | Description |
+|------|-------------|
+| `--foreground` | Text color (hex or name) |
+| `--background` | Background color |
+| `--bold` | Bold text |
+| `--italic` | Italic text |
+| `--underline` | Underlined text |
+| `--strikethrough` | Strikethrough text |
+| `--faint` | Dimmed text |
+| `--blink` | Blinking text |
+| `--reverse` | Reverse colors |
+| `--margin-*` | Margins (left/right/top/bottom) |
+| `--padding-*` | Padding (left/right/top/bottom) |
+| `--width` | Fixed width |
+| `--height` | Fixed height |
+| `--align` | Text alignment |
+| `--border` | Border style |
+
+---
+
+### invowk completion
+
+Generate shell completion scripts.
+
+<Snippet id="reference/cli/completion-syntax" />
+
+**Shells:** `bash`, `zsh`, `fish`, `powershell`
+
+**Examples:**
+
+<Snippet id="reference/cli/completion-examples" />
+
+---
+
+### invowk help
+
+Show help for any command.
+
+<Snippet id="reference/cli/help-syntax" />
+
+**Examples:**
+
+<Snippet id="reference/cli/help-examples" />
+
+## Exit Codes
+
+Invowk exits with:
+
+- `0` on success
+- `1` on CLI or runtime errors
+- The wrapped command's exit code when a command or `tui spin` fails
+
+## Error Messages
+
+Invowk provides specific error messages to help diagnose issues:
+
+### No Invkfile Found
+
+When no invkfile is discovered in any search location:
+
+<Snippet id="reference/cli/error-no-invkfile" />
+
+**This message appears when:**
+- No `invkfile.cue` exists in the current directory
+- No invkfiles exist in `~/.invowk/cmds/`
+- No invkfiles exist in configured `search_paths`
+
+**Solutions:**
+- Run `invowk init` to create an invkfile in the current directory
+- Navigate to a directory containing an invkfile
+- Add invkfile locations to your config's `search_paths`
+
+### Failed to Parse Invkfile
+
+When an invkfile is found but contains syntax errors or invalid configuration:
+
+<Snippet id="reference/cli/error-parse-failed" />
+
+**This message appears when:**
+- CUE syntax errors (missing braces, quotes, etc.)
+- Invalid field names or values
+- Schema validation failures (e.g., invalid runtime type)
+- Missing required fields
+
+**Solutions:**
+- Check the specific error message shown above the help text
+- Validate your CUE syntax: `cue vet invkfile.cue`
+- Run with verbose mode: `invowk --verbose cmd --list`
+- Compare against the [invkfile schema reference](./invkfile-schema)
+
+:::tip
+The error message always shows the specific parsing error first (e.g., which field failed validation), followed by general troubleshooting guidance.
+:::

@@ -1,0 +1,123 @@
+---
+sidebar_position: 4
+---
+
+import Snippet from '@site/src/components/Snippet';
+
+# Filter e File
+
+Componentes de busca e seleção de arquivos.
+
+## Filter
+
+Filtrar fuzzy através de uma lista de opções.
+
+### Uso Básico
+
+<Snippet id="tui/filter-basic" />
+
+### Opções
+
+| Opção | Descrição |
+|-------|-----------|
+| `--title` | Prompt do filtro |
+| `--placeholder` | Placeholder de busca |
+| `--width` | Largura do filtro |
+| `--height` | Altura da lista |
+| `--limit` | Máximo de seleções (padrão: 1) |
+| `--no-limit` | Seleções ilimitadas |
+| `--reverse` | Exibir lista em ordem reversa |
+| `--fuzzy` | Habilitar fuzzy matching |
+
+### Exemplos
+
+<Snippet id="tui/filter-examples" />
+
+### Exemplos do Mundo Real
+
+#### Selecionar Branch Git
+
+<Snippet id="tui/filter-git-branch" />
+
+#### Selecionar Container Docker
+
+<Snippet id="tui/filter-docker-container" />
+
+#### Selecionar Processo para Matar
+
+<Snippet id="tui/filter-kill-process" />
+
+#### Filtrar Comandos
+
+<Snippet id="tui/filter-commands" />
+
+---
+
+## File
+
+Seletor de arquivos e diretórios com navegação.
+
+### Uso Básico
+
+<Snippet id="tui/file-basic" />
+
+### Opções
+
+| Opção | Descrição |
+|-------|-----------|
+| `--title` | Título exibido acima do seletor |
+| `--description` | Descrição abaixo do título |
+| `--directory` | Mostrar apenas diretórios |
+| `--file` | Mostrar apenas arquivos |
+| `--hidden` | Mostrar arquivos ocultos |
+| `--allowed` | Filtrar por extensões |
+| `--height` | Altura do seletor |
+
+### Exemplos
+
+<Snippet id="tui/file-examples" />
+
+### Navegação
+
+No seletor de arquivos:
+- **Cima/Baixo**: Navegar
+- **Enter**: Selecionar arquivo ou entrar no diretório
+- **Backspace**: Ir para diretório pai
+- **Esc/Ctrl+C**: Cancelar
+
+### Exemplos do Mundo Real
+
+#### Selecionar Arquivo de Configuração
+
+<Snippet id="tui/file-config" />
+
+#### Selecionar Diretório de Projeto
+
+<Snippet id="tui/file-project-dir" />
+
+#### Selecionar Script para Executar
+
+<Snippet id="tui/file-script-run" />
+
+#### Selecionar Arquivo de Log
+
+<Snippet id="tui/file-log" />
+
+### Em Scripts
+
+<Snippet id="tui/file-script" />
+
+## Padrões Combinados
+
+### Buscar e Editar
+
+<Snippet id="tui/filter-file-search-edit" />
+
+### Diretório e Depois Arquivo
+
+<Snippet id="tui/filter-file-dir-then-file" />
+
+## Próximos Passos
+
+- [Table e Spin](./table-and-spin) - Exibição de dados e spinners
+- [Visão Geral](./overview) - Todos os componentes TUI

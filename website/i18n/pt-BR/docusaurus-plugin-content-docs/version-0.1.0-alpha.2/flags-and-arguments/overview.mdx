@@ -1,0 +1,131 @@
+---
+sidebar_position: 1
+---
+
+import Snippet from '@site/src/components/Snippet';
+
+# Visão Geral de Flags e Argumentos
+
+Comandos podem aceitar entrada do usuário através de **flags** (opções nomeadas) e **argumentos** (valores posicionais). Ambos são passados para seus scripts como variáveis de ambiente.
+
+## Comparação Rápida
+
+| Recurso | Flags | Argumentos |
+|---------|-------|------------|
+| Sintaxe | `--name=value` ou `--name value` | Posicional: `value1 value2` |
+| Ordem | Qualquer ordem | Deve seguir ordem de posição |
+| Boolean | Suportado (`--verbose`) | Não suportado |
+| Acesso nomeado | `INVOWK_FLAG_NAME` | `INVOWK_ARG_NAME` |
+| Múltiplos valores | Não | Sim (variadic) |
+
+## Comando de Exemplo
+
+<Snippet id="flags-args/overview-example-command" />
+
+Uso:
+
+<Snippet id="flags-args/overview-usage" />
+
+## Flags
+
+Flags são opções nomeadas com sintaxe `--name=value`:
+
+<Snippet id="flags-args/overview-flags-example" />
+
+<Snippet id="flags-args/overview-flags-usage" />
+
+Recursos principais:
+- Suportam aliases curtos (`-v` para `--verbose`)
+- Valores tipados (string, bool, int, float)
+- Opcional ou obrigatório
+- Valores padrão
+- Validação por regex
+
+Veja [Flags](./flags) para detalhes.
+
+## Argumentos
+
+Argumentos são valores posicionais após o nome do comando:
+
+<Snippet id="flags-args/overview-args-example" />
+
+<Snippet id="flags-args/overview-args-usage" />
+
+Recursos principais:
+- Baseado em posição (ordem importa)
+- Obrigatório ou opcional
+- Valores padrão
+- Último argumento pode ser variadic (aceita múltiplos valores)
+- Valores tipados (string, int, float - mas não bool)
+
+Veja [Positional Arguments](./positional-arguments) para detalhes.
+
+## Acesso via Variável de Ambiente
+
+Tanto flags quanto argumentos estão disponíveis como variáveis de ambiente:
+
+### Variáveis de Flag
+
+Prefixo: `INVOWK_FLAG_`
+
+| Nome da Flag | Variável de Ambiente |
+|--------------|---------------------|
+| `verbose` | `INVOWK_FLAG_VERBOSE` |
+| `dry-run` | `INVOWK_FLAG_DRY_RUN` |
+| `output-file` | `INVOWK_FLAG_OUTPUT_FILE` |
+
+### Variáveis de Argumento
+
+Prefixo: `INVOWK_ARG_`
+
+| Nome do Argumento | Variável de Ambiente |
+|-------------------|---------------------|
+| `environment` | `INVOWK_ARG_ENVIRONMENT` |
+| `file-path` | `INVOWK_ARG_FILE_PATH` |
+
+### Argumentos Variadic
+
+Variáveis adicionais para múltiplos valores:
+
+| Variável | Descrição |
+|----------|-----------|
+| `INVOWK_ARG_FILES` | Valores separados por espaço |
+| `INVOWK_ARG_FILES_COUNT` | Número de valores |
+| `INVOWK_ARG_FILES_1` | Primeiro valor |
+| `INVOWK_ARG_FILES_2` | Segundo valor |
+
+## Parâmetros Posicionais do Shell
+
+Argumentos também estão disponíveis como parâmetros posicionais do shell:
+
+<Snippet id="flags-args/overview-shell-positional" />
+
+## Misturando Flags e Argumentos
+
+Flags podem aparecer em qualquer lugar na linha de comando:
+
+<Snippet id="flags-args/overview-mixing" />
+
+## Flags Reservadas
+
+Alguns nomes de flag são reservados pelo Invowk™:
+
+- `env-file` / `-e` - Carregar ambiente de arquivo
+- `env-var` / `-E` - Definir variável de ambiente
+- `workdir` / `-w` - Sobrescrever diretório de trabalho
+- `runtime` / `-r` - Sobrescrever runtime
+
+Não use esses nomes para suas flags.
+
+## Saída de Ajuda
+
+Flags e argumentos aparecem na ajuda do comando:
+
+<Snippet id="flags-args/overview-help" />
+
+<Snippet id="flags-args/overview-help-output" />
+
+## Próximos Passos
+
+- [Flags](./flags) - Opções nomeadas com sintaxe `--flag=value`
+- [Positional Arguments](./positional-arguments) - Entrada baseada em valor

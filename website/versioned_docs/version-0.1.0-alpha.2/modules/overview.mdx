@@ -1,0 +1,124 @@
+---
+sidebar_position: 1
+---
+
+import Snippet from '@site/src/components/Snippet';
+
+# Modules Overview
+
+:::warning Alpha — Module Format May Change
+The module format and structure are still being finalized. While we aim for backwards compatibility, **breaking changes may occur** before the 1.0 release. If you're distributing modules externally, be prepared to update them when upgrading Invowk™.
+:::
+
+Modules are self-contained folders that bundle `invkmod.cue` metadata with optional `invkfile.cue` commands and any script files they reference. They're perfect for sharing commands, creating reusable toolkits, and distributing automation across teams.
+
+## What is a Module?
+
+A module is a directory with the `.invkmod` suffix:
+
+<Snippet id="modules/structure-basic" />
+
+## Why Use Modules?
+
+- **Portability**: Share a complete command set as a single folder
+- **Self-contained**: Scripts are bundled with the module
+- **Cross-platform**: Forward slash paths work everywhere
+- **Namespace isolation**: RDNS naming prevents conflicts
+- **Easy distribution**: Zip, share, unzip
+
+## Quick Start
+
+### Create a Module
+
+<Snippet id="modules/quick-create" />
+
+Creates:
+
+<Snippet id="modules/quick-create-output" />
+
+### Use the Module
+
+Modules are automatically discovered from:
+1. Current directory
+2. `~/.invowk/cmds/` (user commands)
+3. Configured search paths
+
+<Snippet id="modules/quick-use" />
+
+### Share the Module
+
+<Snippet id="modules/quick-share" />
+
+## Module Structure
+
+### Required Files
+
+- **`invkmod.cue`**: Module metadata (name, version, dependencies)
+
+### Optional Contents
+
+- **`invkfile.cue`**: Command definitions (omit for library-only modules)
+- **Scripts**: Shell scripts, Python files, etc.
+- **Templates**: Configuration templates
+- **Data**: Any supporting files
+
+### Example Structure
+
+<Snippet id="modules/structure-example" />
+
+## Module Naming
+
+Module folder names follow these rules:
+
+| Rule | Valid | Invalid |
+|------|-------|---------|
+| End with `.invkmod` | `mytools.invkmod` | `mytools` |
+| Start with letter | `mytools.invkmod` | `123tools.invkmod` |
+| Alphanumeric + dots | `com.example.invkmod` | `my-tools.invkmod` |
+
+### RDNS Naming
+
+Recommended for shared modules:
+
+<Snippet id="modules/rdns-naming" />
+
+## Script Paths
+
+Reference scripts relative to module root with **forward slashes**:
+
+<Snippet id="modules/script-paths" />
+
+**Important:**
+- Always use forward slashes (`/`)
+- Paths are relative to module root
+- No absolute paths allowed
+- Can't escape module directory (`../` is invalid)
+
+## Module Commands
+
+| Command | Description |
+|---------|-------------|
+| `invowk module create` | Create a new module |
+| `invowk module validate` | Validate module structure |
+| `invowk module list` | List discovered modules |
+| `invowk module archive` | Create zip archive |
+| `invowk module import` | Install from zip/URL |
+
+## Discovery
+
+Modules are discovered from these locations:
+
+1. **Current directory** (highest priority)
+2. **User commands** (`~/.invowk/cmds/`)
+3. **Search paths** (from config)
+
+Commands appear in `invowk cmd --list` with their source:
+
+<Snippet id="modules/discovery-output" />
+
+## Next Steps
+
+- [Creating Modules](./creating-modules) - Scaffold and structure modules
+- [Validating](./validating) - Ensure module integrity
+- [Distributing](./distributing) - Share modules with others
+- [Module Dependencies](./dependencies/overview) - Use other modules in your module

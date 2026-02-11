@@ -1,0 +1,181 @@
+---
+sidebar_position: 2
+---
+
+import Snippet from '@site/src/components/Snippet';
+
+# Configuration Options
+
+This page documents all available configuration options for Invowk™.
+
+## Configuration Schema
+
+The configuration file uses CUE format and follows this schema:
+
+<Snippet id="config/schema" />
+
+Unknown fields are rejected, so keep config files limited to the schema-defined options.
+
+## Options Reference
+
+### container_engine
+
+**Type:** `"podman" | "docker"`  
+**Default:** `"podman"`
+
+Specifies which container runtime to use for container-based command execution.
+
+<Snippet id="config/container-engine" />
+
+If the preferred engine is not available, Invowk falls back to the other engine when container runtime is needed.
+
+### search_paths
+
+**Type:** `[...string]`  
+**Default:** `[]`
+
+Additional directories to search for invkfiles and modules. Paths are searched in order after the current directory.
+
+<Snippet id="config/search-paths" />
+
+**Search Order:**
+1. Current directory (always searched first, highest priority)
+2. Each path in `search_paths` in order
+3. `~/.invowk/cmds` (always included)
+
+Commands from earlier paths override commands with the same name from later paths.
+
+### default_runtime
+
+**Type:** `"native" | "virtual" | "container"`  
+**Default:** `"native"`
+
+Sets the global default runtime mode for commands that don't specify a runtime.
+
+<Snippet id="config/default-runtime" />
+
+**Runtime Options:**
+- `"native"` - Execute using the system's native shell (bash, zsh, PowerShell, etc.)
+- `"virtual"` - Execute using Invowk's built-in shell interpreter (mvdan/sh)
+- `"container"` - Execute inside a container (requires Docker or Podman)
+
+:::note
+Commands can override this default by specifying their own runtime in the `implementations` field.
+:::
+
+### virtual_shell
+
+**Type:** `#VirtualShellConfig`  
+**Default:** `{}`
+
+Configures the virtual shell runtime behavior.
+
+<Snippet id="config/virtual-shell" />
+
+#### virtual_shell.enable_uroot_utils
+
+**Type:** `bool`
+**Default:** `true`
+
+Enables [u-root](https://github.com/u-root/u-root) utilities in the virtual shell. When enabled, 15 additional POSIX-compliant commands become available:
+
+**File Operations:** `cat`, `cp`, `ls`, `mkdir`, `mv`, `rm`, `touch`
+
+**Text Processing:** `head`, `tail`, `wc`, `grep`, `sort`, `uniq`, `cut`, `tr`
+
+<Snippet id="config/virtual-shell" />
+
+This makes the virtual shell self-contained, allowing scripts to execute common file and text operations without requiring external binaries on the host system.
+
+:::tip
+u-root utilities are enabled by default. Set to `false` only if you need to force scripts to use system binaries or reduce binary size.
+:::
+
+### ui
+
+**Type:** `#UIConfig`  
+**Default:** `{}`
+
+Configures the user interface settings.
+
+<Snippet id="config/ui" />
+
+#### ui.color_scheme
+
+**Type:** `"auto" | "dark" | "light"`  
+**Default:** `"auto"`
+
+Sets the color scheme for Invowk's output.
+
+<Snippet id="config/ui-color-scheme" />
+
+**Options:**
+- `"auto"` - Detect from terminal settings (respects `COLORTERM`, `TERM`, etc.)
+- `"dark"` - Use colors optimized for dark terminals
+- `"light"` - Use colors optimized for light terminals
+
+#### ui.verbose
+
+**Type:** `bool`  
+**Default:** `false`
+
+Enables verbose output by default. When enabled, Invowk prints additional information about command discovery, dependency validation, and execution.
+
+<Snippet id="config/ui-verbose" />
+
+This is equivalent to always passing `--verbose` on the command line.
+
+#### ui.interactive
+
+**Type:** `bool`  
+**Default:** `false`
+
+Enables interactive mode by default. When enabled, commands run in an alternate screen buffer with full PTY support, allowing interactive programs like password prompts, confirmations, and other stdin-based interactions to work properly.
+
+<Snippet id="config/ui-interactive" />
+
+This is equivalent to always passing `--interactive` on the command line.
+
+### container
+
+**Type:** `#ContainerConfig`  
+**Default:** `{}`
+
+Configures container runtime behavior.
+
+<Snippet id="config/container-auto-provision" />
+
+#### container.auto_provision.enabled
+
+**Type:** `bool`  
+**Default:** `true`
+
+Enables automatic provisioning of the invowk binary and modules into container images.
+When enabled, Invowk builds a cached, derived image for every container run by attaching a small provisioned layer on top of your base image. If provisioning fails, Invowk warns and uses the base image.
+
+#### container.auto_provision.binary_path
+
+**Type:** `string`  
+**Default:** *(empty; uses the running invowk binary)*
+
+Overrides the path to the invowk binary to provision into containers.
+
+#### container.auto_provision.modules_paths
+
+**Type:** `[...string]`
+**Default:** `[]`
+
+Additional directories to search for modules to provision into containers.
+
+#### container.auto_provision.cache_dir
+
+**Type:** `string`  
+**Default:** `~/.cache/invowk/provision`
+
+Overrides the cache directory for provisioned image metadata.
+
+## Complete Example
+
+Here's a complete configuration file with all options:
+
+<Snippet id="config/complete-example" />

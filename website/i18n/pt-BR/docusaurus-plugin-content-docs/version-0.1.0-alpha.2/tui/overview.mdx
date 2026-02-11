@@ -1,0 +1,90 @@
+---
+sidebar_position: 1
+---
+
+import Snippet from '@site/src/components/Snippet';
+
+# Visão Geral de Componentes TUI
+
+Invowk™ inclui um conjunto de componentes de interface de terminal interativos inspirados no [gum](https://github.com/charmbracelet/gum). Use-os em seus scripts para criar prompts interativos, seleções e saída estilizada.
+
+## Componentes Disponíveis
+
+| Componente | Descrição | Caso de Uso |
+|------------|-----------|-------------|
+| [input](./input-and-write#input) | Entrada de texto de linha única | Nomes, caminhos, valores simples |
+| [write](./input-and-write#write) | Editor de texto multilinha | Descrições, mensagens de commit |
+| [choose](./choose-and-confirm#choose) | Selecionar de opções | Menus, escolhas |
+| [confirm](./choose-and-confirm#confirm) | Prompt sim/não | Confirmações |
+| [filter](./filter-and-file#filter) | Filtrar lista fuzzy | Buscar entre opções |
+| [file](./filter-and-file#file) | Seletor de arquivo | Selecionar arquivos/diretórios |
+| [table](./table-and-spin#table) | Exibir dados tabulares | CSV, tabelas de dados |
+| [spin](./table-and-spin#spin) | Spinner com comando | Tarefas de longa duração |
+| [pager](./pager) | Visualizador de conteúdo rolável | Logs, revisão de código, saídas longas |
+| [format](./format-and-style#format) | Formatar texto (markdown, código) | Renderizar conteúdo |
+| [style](./format-and-style#style) | Estilizar texto (cores, negrito) | Decorar saída |
+
+## Exemplos Rápidos
+
+<Snippet id="tui/overview-quick-examples" />
+
+## Usando em Invkfiles
+
+Componentes TUI funcionam muito bem dentro de scripts de comando, incluindo aqueles executando em containers com modo interativo (`-i`):
+
+:::tip Suporte a Container
+Componentes TUI funcionam perfeitamente dentro de containers ao usar o modo interativo. Os componentes são renderizados como overlays modais no seu terminal do host. Veja [Runtime Container - Modo Interativo](/docs/runtime-modes/container#modo-interativo) para detalhes.
+:::
+
+<Snippet id="tui/overview-invkfile-example" />
+
+## Padrões Comuns
+
+### Input com Validação
+
+<Snippet id="tui/overview-input-validation" />
+
+### Sistema de Menu
+
+<Snippet id="tui/overview-menu-system" />
+
+### Feedback de Progresso
+
+<Snippet id="tui/overview-progress-feedback" />
+
+### Cabeçalhos Estilizados
+
+<Snippet id="tui/overview-styled-headers" />
+
+## Piping e Captura
+
+A maioria dos componentes funciona com pipes:
+
+<Snippet id="tui/overview-piping" />
+
+## Códigos de Saída
+
+Componentes usam códigos de saída para comunicar:
+
+| Componente | Exit 0 | Exit 1 |
+|------------|--------|--------|
+| confirm | Usuário disse sim | Usuário disse não |
+| input | Valor inserido | Cancelado |
+| choose | Opção selecionada | Cancelado |
+| filter | Opção selecionada | Cancelado |
+| pager | Saiu normalmente | Erro ocorreu |
+
+Use em condicionais:
+
+<Snippet id="tui/overview-exit-codes" />
+
+## Próximos Passos
+
+Explore cada componente em detalhes:
+
+- [Input e Write](./input-and-write) - Entrada de texto
+- [Choose e Confirm](./choose-and-confirm) - Seleção e confirmação
+- [Filter e File](./filter-and-file) - Busca e seleção de arquivo
+- [Table e Spin](./table-and-spin) - Exibição de dados e spinners
+- [Pager](./pager) - Visualização de conteúdo rolável
+- [Format e Style](./format-and-style) - Formatação e estilização de texto

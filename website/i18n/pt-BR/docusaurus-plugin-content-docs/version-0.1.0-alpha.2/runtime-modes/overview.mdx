@@ -1,0 +1,112 @@
+---
+sidebar_position: 1
+---
+
+import Snippet from '@site/src/components/Snippet';
+
+# Visão Geral dos Modos de Runtime
+
+O Invowk™ oferece três formas diferentes de executar comandos, cada uma com seus próprios pontos fortes. Escolha o runtime certo para seu caso de uso.
+
+## Os Três Runtimes
+
+| Runtime | Descrição | Melhor Para |
+|---------|-----------|-------------|
+| **native** | Shell padrão do sistema | Desenvolvimento diário, performance |
+| **virtual** | Shell POSIX integrado | Scripts multiplataforma, portabilidade |
+| **container** | Container Docker/Podman | Reprodutibilidade, isolamento |
+
+## Comparação Rápida
+
+<Snippet id="runtime-modes/comparison" />
+
+## Quando Usar Cada Runtime
+
+### Runtime Native
+
+Use **native** quando você quiser:
+- Máxima performance
+- Acesso a todas as ferramentas do sistema
+- Recursos específicos do shell (bash completions, plugins do zsh)
+- Integração com seu ambiente de desenvolvimento
+
+<Snippet id="runtime-modes/native-basic" />
+
+### Runtime Virtual
+
+Use **virtual** quando você quiser:
+- Comportamento consistente entre plataformas
+- Scripts POSIX-compatíveis que funcionam em qualquer lugar
+- Sem dependência de shell externo
+- Debug mais simples de scripts shell
+
+<Snippet id="runtime-modes/virtual-basic" />
+
+### Runtime Container
+
+Use **container** quando você quiser:
+- Builds reproduzíveis
+- Ambientes isolados
+- Versões específicas de ferramentas
+- Execução em ambiente limpo
+
+<Snippet id="runtime-modes/container-basic" />
+
+## Múltiplos Runtimes Por Comando
+
+Comandos podem suportar múltiplos runtimes. O primeiro é o padrão:
+
+<Snippet id="runtime-modes/multiple-runtimes" />
+
+### Sobrescrevendo em Tempo de Execução
+
+<Snippet id="runtime-modes/override-cli" />
+
+## Listagem de Comandos
+
+A lista de comandos mostra runtimes disponíveis com um asterisco marcando o padrão:
+
+<Snippet id="runtime-modes/list-output" />
+
+## Fluxo de Seleção de Runtime
+
+```
+                    ┌──────────────────┐
+                    │  invowk cmd run  │
+                    └────────┬─────────┘
+                             │
+                    ┌────────▼─────────┐
+                    │ flag --runtime?  │
+                    └────────┬─────────┘
+                             │
+              ┌──────────────┴──────────────┐
+              │ Sim                         │ Não
+              ▼                             ▼
+    ┌─────────────────────┐    ┌─────────────────────┐
+    │ Usar runtime        │    │ Usar primeiro       │
+    │ especificado        │    │ runtime (padrão)    │
+    └─────────────────────┘    └─────────────────────┘
+```
+
+## Validação de Dependências
+
+Dependências são validadas de acordo com o runtime:
+
+| Runtime | Dependências Validadas Contra |
+|---------|-------------------------------|
+| native | Shell e ferramentas do sistema host |
+| virtual | Shell integrado com utilitários core |
+| container | Shell e ambiente do container |
+
+Isso significa que uma dependência `tools` como `go` é verificada:
+- **native**: O `go` está no PATH do host?
+- **virtual**: O `go` está disponível nos built-ins do shell virtual?
+- **container**: O `go` está instalado na imagem do container?
+
+## Próximos Passos
+
+Aprofunde-se em cada runtime:
+
+- [Runtime Native](./native) - Execução no shell do sistema
+- [Runtime Virtual](./virtual) - Shell POSIX integrado
+- [Runtime Container](./container) - Execução em Docker/Podman

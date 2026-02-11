@@ -1,0 +1,111 @@
+---
+sidebar_position: 2
+---
+
+import Snippet from '@site/src/components/Snippet';
+
+# Creating Modules
+
+Learn how to create, structure, and organize modules for your commands.
+
+## Quick Create
+
+Use `module create` to scaffold a new module:
+
+<Snippet id="modules/create-options" />
+
+## Generated Structure
+
+Basic module:
+
+<Snippet id="modules/quick-create-output" />
+
+With `--scripts`:
+
+<Snippet id="modules/create-with-scripts" />
+
+## Module Metadata (invkmod.cue)
+
+The generated `invkmod.cue` contains module identity and dependencies:
+
+<Snippet id="modules/template-invkmod" />
+
+## Template Invkfile
+
+The generated `invkfile.cue` contains commands only:
+
+<Snippet id="modules/template-invkfile" />
+
+## Manual Creation
+
+You can also create modules manually:
+
+<Snippet id="modules/manual-create" />
+
+## Adding Scripts
+
+### Inline vs External
+
+Choose based on complexity:
+
+<Snippet id="modules/inline-vs-external" />
+
+### Script Organization
+
+<Snippet id="modules/script-organization" />
+
+### Script Paths
+
+Always use forward slashes:
+
+<Snippet id="modules/script-paths-good-bad" />
+
+## Environment Files
+
+Include `.env` files in your module:
+
+<Snippet id="modules/env-files-structure" />
+
+Reference them:
+
+<Snippet id="modules/env-files-ref" />
+
+## Documentation
+
+Include a README for users:
+
+<Snippet id="modules/docs-structure" />
+
+## Real-World Examples
+
+### Build Tools Module
+
+<Snippet id="modules/buildtools-structure" />
+
+<Snippet id="modules/buildtools-invkfile" />
+
+### DevOps Module
+
+<Snippet id="modules/devops-structure" />
+
+## Best Practices
+
+1. **Use RDNS naming**: Prevents conflicts with other modules
+2. **Keep scripts focused**: One task per script
+3. **Include documentation**: README with usage examples
+4. **Version your module**: Set the version in `invkmod.cue`
+5. **Forward slashes only**: Cross-platform compatibility
+6. **Validate before sharing**: Run `module validate --deep`
+
+## Validating Your Module
+
+Before sharing, validate:
+
+<Snippet id="modules/validate-before-share" />
+
+See [Validating](./validating) for details.
+
+## Next Steps
+
+- [Validating](./validating) - Ensure module integrity
+- [Distributing](./distributing) - Share your module
