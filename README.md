@@ -18,10 +18,9 @@ A dynamically extensible, CLI-based command runner similar to [just](https://git
 - **Command Dependencies**: Commands can require other commands to be discoverable
 
 - **Multiple Command Sources**: Discover commands from:
-  1. Current directory's `invkfile.cue` (highest priority)
-  2. Sibling `*.invkmod` module directories
-  3. User commands directory (`~/.invowk/cmds/`)
-  4. Configured search paths
+  1. Current directory (`invkfile.cue` + sibling `*.invkmod` modules, highest priority)
+  2. User commands directory (`~/.invowk/cmds/`)
+  3. Configured includes
 
 - **Transparent Namespace**: Commands from different sources use simple names when unique. When command names conflict across sources, use `@<source>` prefix or `--from` flag to disambiguate
 
@@ -1835,10 +1834,10 @@ Import Module
 
 ### Using Modules
 
-Modules are automatically discovered and loaded from all invowk search paths:
+Modules are automatically discovered and loaded from all configured sources:
 1. Current directory (highest priority)
 2. User commands directory (`~/.invowk/cmds/`)
-3. Configured search paths in your config file
+3. Configured includes in your config file
 
 When invowk discovers a module, it:
 - Validates the module structure and naming
@@ -2022,21 +2021,8 @@ When two modules have the same name, invowk reports a collision error with guida
 module name collision: 'io.example.tools' defined in both
   '/path/to/module1.invkmod' and '/path/to/module2.invkmod'
   Use an alias to disambiguate:
-    - For requires: add 'alias' field to the requirement
-    - For global modules: run 'invowk module alias set <path> <alias>'
-```
-
-Manage aliases with:
-
-```bash
-# Set alias for a module
-invowk module alias set /path/to/module.invkmod myalias
-
-# List all aliases
-invowk module alias list
-
-# Remove an alias
-invowk module alias remove /path/to/module.invkmod
+    - For requires: add 'alias' field to the requirement in invkmod.cue
+    - For config includes: add 'alias' field to the include entry in config.cue
 ```
 
 ## Runtime Modes
@@ -2161,6 +2147,7 @@ cmds: [
 			{
 				script: """
 					# Connection info is available via environment variables:
+					# - INVOWK_SSH_ENABLED: Set to "true" when host SSH is active
 					# - INVOWK_SSH_HOST: Host address (host.docker.internal or host.containers.internal)
 					# - INVOWK_SSH_PORT: SSH server port
 					# - INVOWK_SSH_USER: Username (invowk)

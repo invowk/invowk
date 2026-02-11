@@ -207,14 +207,14 @@ func TestParseConfigType(t *testing.T) {
 	configSchema := `
 #Config: {
 	container_engine?: "docker" | "podman"
-	search_paths?: [...string]
+	includes?: [...string]
 	default_runtime?: "native" | "virtual" | "container"
 }
 `
 
 	type Config struct {
 		ContainerEngine string   `json:"container_engine,omitempty"`
-		SearchPaths     []string `json:"search_paths,omitempty"`
+		Includes        []string `json:"includes,omitempty"`
 		DefaultRuntime  string   `json:"default_runtime,omitempty"`
 	}
 
@@ -223,7 +223,7 @@ func TestParseConfigType(t *testing.T) {
 
 		data := []byte(`
 container_engine: "podman"
-search_paths: ["./", "~/.config/invowk"]
+includes: ["./", "~/.config/invowk"]
 default_runtime: "virtual"
 `)
 		result, err := ParseAndDecode[Config]([]byte(configSchema), data, "#Config")
@@ -234,8 +234,8 @@ default_runtime: "virtual"
 		if result.Value.ContainerEngine != "podman" {
 			t.Errorf("expected container_engine='podman', got %q", result.Value.ContainerEngine)
 		}
-		if len(result.Value.SearchPaths) != 2 {
-			t.Errorf("expected 2 search_paths, got %d", len(result.Value.SearchPaths))
+		if len(result.Value.Includes) != 2 {
+			t.Errorf("expected 2 includes, got %d", len(result.Value.Includes))
 		}
 	})
 

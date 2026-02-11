@@ -29,7 +29,7 @@ The virtual runtime uses the embedded mvdan/sh interpreter:
 
 **Key decisions made:**
 - Container engine preference (docker vs podman)
-- Search paths for invkfiles/modules
+- Includes for invkfiles/modules
 - Default runtime if not specified
 
 ### 2. Discovery Phase
@@ -45,7 +45,7 @@ The virtual runtime uses the embedded mvdan/sh interpreter:
 1. Current directory `invkfile.cue`
 2. Current directory `*.invkmod`
 3. User directory `~/.invowk/cmds/`
-4. Configured search paths
+4. Configured includes
 
 ### 3. Resolution Phase
 
@@ -88,7 +88,7 @@ The virtual runtime uses the embedded mvdan/sh interpreter:
 | Execution | Variable | Depends on command |
 
 **Bottlenecks to watch:**
-- Many modules in search paths → slower discovery
+- Many modules in configured includes → slower discovery
 - Large invkfiles → slower parsing
 - Container image pulls → can be minutes
 

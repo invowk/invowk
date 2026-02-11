@@ -19,7 +19,7 @@ When the same command name exists in multiple locations:
 | 1 (highest) | Current directory invkfile | `./invkfile.cue` |
 | 2 | Local modules | `./mytools.invkmod/` |
 | 3 | User directory | `~/.invowk/cmds/invkfile.cue` |
-| 4 (lowest) | Search paths | `/opt/invowk-modules/` |
+| 4 (lowest) | Configured includes | `/opt/invowk-modules/` |
 
 **Key principle**: Closer to the working directory = higher priority.
 
@@ -74,7 +74,7 @@ includes: [
 
 ### Path Resolution Order
 
-![Search Paths Order](../diagrams/rendered/flowcharts/discovery-search-paths.svg)
+![Includes Resolution Order](../diagrams/rendered/flowcharts/discovery-includes.svg)
 
 ## Common Discovery Issues
 

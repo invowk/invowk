@@ -51,8 +51,8 @@ This diagram zooms into Invowk to show its internal containers - the major appli
 
 | Store | Format | Location | Purpose |
 |-------|--------|----------|---------|
-| **Config File** | CUE | `~/.config/invowk/config.cue` | User preferences: container engine, search paths, etc. |
-| **Invkfiles** | CUE | `./invkfile.cue`, search paths | Command definitions with implementations |
+| **Config File** | CUE | `~/.config/invowk/config.cue` | User preferences: container engine, includes, etc. |
+| **Invkfiles** | CUE | `./invkfile.cue`, configured includes | Command definitions with implementations |
 | **Modules** | Directories | `*.invkmod/` | Packaged commands with `invkmod.cue` metadata |
 | **Module Cache** | Filesystem | `~/.cache/invowk/modules/` | Cached Git-fetched remote modules |
 

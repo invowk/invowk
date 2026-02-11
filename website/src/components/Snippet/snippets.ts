@@ -3896,7 +3896,7 @@ script: "../outside.sh"`,
 
 ✗ Module validation failed with 1 issue(s)
 
-  1. [structure] nested.invkmod: nested modules are not allowed (except in invk_mods/)`,
+  1. [structure] nested.invkmod: nested modules are not allowed (except in invk_modules/)`,
   },
 
   'modules/error-parse': {
@@ -4544,7 +4544,7 @@ invowk module update https://github.com/user/mod.invkmod.git`,
     code: `Vendor Module Dependencies
 
 • Found 2 requirement(s) in invkmod.cue
-• Vendor directory: /home/user/project/invk_mods
+• Vendor directory: /home/user/project/invk_modules
 
 ! Vendoring is not yet fully implemented
 
