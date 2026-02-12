@@ -75,6 +75,8 @@ Skills provide domain-specific procedural guidance. They are invoked when workin
 - [`.claude/skills/uroot/`](.claude/skills/uroot/) - u-root utility implementation patterns.
 - [`.claude/skills/learn/`](.claude/skills/learn/) - User-invokable (`/learn`). Post-work learning review to keep CLAUDE.md, hooks, rules, and skills up-to-date.
 - [`.claude/skills/pr/`](.claude/skills/pr/) - GitHub PR workflow: tests, lints, license check, branch creation, conventional commits, and PR description.
+- [`.claude/skills/changelog/`](.claude/skills/changelog/) - User-invokable (`/changelog`). Generate release notes from conventional commits since last tag.
+- [`.claude/skills/dep-audit/`](.claude/skills/dep-audit/) - User-invokable (`/dep-audit`). Audit Go dependencies for vulnerabilities and available updates.
 
 ### Code Area → Rules/Skills Mapping
 
