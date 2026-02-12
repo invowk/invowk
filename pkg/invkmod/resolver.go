@@ -81,7 +81,45 @@ type (
 		// mu protects concurrent access to the resolver.
 		mu sync.Mutex
 	}
+
+	// RemoveResult contains metadata about a removed module for CLI reporting.
+	RemoveResult struct {
+		// LockKey is the lock file key that was removed.
+		LockKey string
+		// RemovedEntry is the lock file entry that was removed.
+		RemovedEntry LockedModule
+	}
+
+	// AmbiguousMatch describes a single ambiguous lock file entry.
+	AmbiguousMatch struct {
+		// LockKey is the lock file key.
+		LockKey string
+		// Namespace is the computed namespace.
+		Namespace string
+		// GitURL is the Git repository URL.
+		GitURL string
+	}
+
+	// AmbiguousIdentifierError is returned when a module identifier matches
+	// multiple lock file entries and the user must be more specific.
+	AmbiguousIdentifierError struct {
+		// Identifier is the user-provided identifier that was ambiguous.
+		Identifier string
+		// Matches contains all matching entries.
+		Matches []AmbiguousMatch
+	}
 )
+
+// Error implements the error interface for AmbiguousIdentifierError.
+func (e *AmbiguousIdentifierError) Error() string {
+	var sb strings.Builder
+	fmt.Fprintf(&sb, "ambiguous identifier %q matches %d modules:\n", e.Identifier, len(e.Matches))
+	for _, m := range e.Matches {
+		fmt.Fprintf(&sb, "  - %s (namespace: %s, url: %s)\n", m.LockKey, m.Namespace, m.GitURL)
+	}
+	sb.WriteString("specify a more precise identifier to disambiguate")
+	return sb.String()
+}
 
 // Key returns a unique key for this requirement based on GitURL and Path.
 func (r ModuleRef) Key() string {
@@ -147,7 +185,7 @@ func NewResolver(workingDir, cacheDir string) (*Resolver, error) {
 	}, nil
 }
 
-// Add resolves a new module requirement and returns the resolved metadata.
+// Add resolves a new module requirement, caches it, and updates the lock file.
 func (m *Resolver) Add(ctx context.Context, req ModuleRef) (*ResolvedModule, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -163,45 +201,23 @@ func (m *Resolver) Add(ctx context.Context, req ModuleRef) (*ResolvedModule, err
 		return nil, fmt.Errorf("failed to resolve module: %w", err)
 	}
 
-	return resolved, nil
-}
-
-// Remove removes a module requirement from the lock file.
-func (m *Resolver) Remove(ctx context.Context, gitURL string) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	// Load current lock file
+	// Persist to lock file so Add is a complete single-step operation
 	lockPath := filepath.Join(m.WorkingDir, LockFileName)
 	lock, err := LoadLockFile(lockPath)
 	if err != nil {
-		return fmt.Errorf("failed to load lock file: %w", err)
+		return nil, fmt.Errorf("failed to load lock file: %w", err)
 	}
-
-	// Find and remove the module
-	found := false
-	for key := range lock.Modules {
-		if strings.HasPrefix(key, gitURL) {
-			delete(lock.Modules, key)
-			found = true
-		}
-	}
-
-	if !found {
-		return fmt.Errorf("module not found: %s", gitURL)
-	}
-
-	// Save updated lock file
+	lock.AddModule(resolved)
 	if err := lock.Save(lockPath); err != nil {
-		return fmt.Errorf("failed to save lock file: %w", err)
+		return nil, fmt.Errorf("failed to save lock file: %w", err)
 	}
 
-	return nil
+	return resolved, nil
 }
 
-// Update updates one or all modules to their latest matching versions.
-// If gitURL is empty, all modules are updated.
-func (m *Resolver) Update(ctx context.Context, gitURL string) ([]*ResolvedModule, error) {
+// Remove removes module(s) matching the identifier from the lock file.
+// The identifier can be a git URL, lock file key, namespace, or module name.
+func (m *Resolver) Remove(_ context.Context, identifier string) ([]RemoveResult, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -212,15 +228,65 @@ func (m *Resolver) Update(ctx context.Context, gitURL string) ([]*ResolvedModule
 		return nil, fmt.Errorf("failed to load lock file: %w", err)
 	}
 
+	// Resolve identifier to lock file keys
+	keys, err := resolveIdentifier(identifier, lock.Modules)
+	if err != nil {
+		return nil, err
+	}
+
+	// Collect results and delete entries
+	results := make([]RemoveResult, 0, len(keys))
+	for _, key := range keys {
+		entry := lock.Modules[key]
+		results = append(results, RemoveResult{
+			LockKey:      key,
+			RemovedEntry: entry,
+		})
+		delete(lock.Modules, key)
+	}
+
+	// Save updated lock file
+	if err := lock.Save(lockPath); err != nil {
+		return nil, fmt.Errorf("failed to save lock file: %w", err)
+	}
+
+	return results, nil
+}
+
+// Update updates one or all modules to their latest matching versions.
+// If identifier is empty, all modules are updated. The identifier can be a
+// git URL, lock file key, namespace, or module name.
+func (m *Resolver) Update(ctx context.Context, identifier string) ([]*ResolvedModule, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	// Load current lock file
+	lockPath := filepath.Join(m.WorkingDir, LockFileName)
+	lock, err := LoadLockFile(lockPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load lock file: %w", err)
+	}
+
+	// Determine which keys to update
+	var keysToUpdate []string
+	if identifier == "" {
+		for key := range lock.Modules {
+			keysToUpdate = append(keysToUpdate, key)
+		}
+	} else {
+		keysToUpdate, err = resolveIdentifier(identifier, lock.Modules)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	var updated []*ResolvedModule
 	visited := make(map[string]bool)
 
-	for key, entry := range lock.Modules {
-		if gitURL != "" && !strings.HasPrefix(key, gitURL) {
-			continue
-		}
+	for _, key := range keysToUpdate {
+		entry := lock.Modules[key]
 
-		// Re-resolve with force flag to bypass cache
+		// Re-resolve to get the latest matching version
 		req := ModuleRef{
 			GitURL:  entry.GitURL,
 			Version: entry.Version,
@@ -334,4 +400,79 @@ func (m *Resolver) List(ctx context.Context) ([]*ResolvedModule, error) {
 // This is used for command discovery when a lock file already exists.
 func (m *Resolver) LoadFromLock(ctx context.Context) ([]*ResolvedModule, error) {
 	return m.List(ctx)
+}
+
+// isGitURL returns true if s looks like a Git URL.
+// Matches the CUE schema regex at invkmod_schema.cue (https://, git@, ssh://).
+func isGitURL(s string) bool {
+	return strings.HasPrefix(s, "https://") || strings.HasPrefix(s, "git@") || strings.HasPrefix(s, "ssh://")
+}
+
+// resolveIdentifier resolves a user-provided identifier to lock file keys.
+// Priority: git URL prefix match → exact lock key → exact namespace → namespace prefix.
+// Returns matched keys or an error if no match or ambiguous.
+func resolveIdentifier(identifier string, modules map[string]LockedModule) ([]string, error) {
+	if isGitURL(identifier) {
+		// Git URL mode: prefix-match on lock keys (preserves monorepo #subpath matching)
+		var keys []string
+		for key := range modules {
+			if strings.HasPrefix(key, identifier) {
+				keys = append(keys, key)
+			}
+		}
+		if len(keys) == 0 {
+			return nil, fmt.Errorf("no module found matching git URL %q", identifier)
+		}
+		return keys, nil
+	}
+
+	// Exact lock key match
+	if _, ok := modules[identifier]; ok {
+		return []string{identifier}, nil
+	}
+
+	// Namespace match: exact and prefix (bare name without @version)
+	var exactMatches, prefixMatches []string
+	for key, entry := range modules {
+		if entry.Namespace == identifier {
+			exactMatches = append(exactMatches, key)
+		} else if strings.HasPrefix(entry.Namespace, identifier+"@") {
+			prefixMatches = append(prefixMatches, key)
+		}
+	}
+
+	// Prefer exact namespace matches
+	if len(exactMatches) == 1 {
+		return exactMatches, nil
+	}
+	if len(exactMatches) > 1 {
+		return nil, buildAmbiguousError(identifier, exactMatches, modules)
+	}
+
+	// Fall back to prefix matches (bare module name)
+	if len(prefixMatches) == 1 {
+		return prefixMatches, nil
+	}
+	if len(prefixMatches) > 1 {
+		return nil, buildAmbiguousError(identifier, prefixMatches, modules)
+	}
+
+	return nil, fmt.Errorf("no module found matching %q", identifier)
+}
+
+// buildAmbiguousError creates an AmbiguousIdentifierError from matched keys.
+func buildAmbiguousError(identifier string, keys []string, modules map[string]LockedModule) *AmbiguousIdentifierError {
+	matches := make([]AmbiguousMatch, 0, len(keys))
+	for _, key := range keys {
+		entry := modules[key]
+		matches = append(matches, AmbiguousMatch{
+			LockKey:   key,
+			Namespace: entry.Namespace,
+			GitURL:    entry.GitURL,
+		})
+	}
+	return &AmbiguousIdentifierError{
+		Identifier: identifier,
+		Matches:    matches,
+	}
 }

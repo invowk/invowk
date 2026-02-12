@@ -4,7 +4,9 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 
 	"invowk-cli/pkg/invkfile"
@@ -53,15 +55,22 @@ Examples:
 // newModuleRemoveCommand creates the `invowk module remove` command.
 func newModuleRemoveCommand() *cobra.Command {
 	return &cobra.Command{
-		Use:   "remove <git-url>",
+		Use:   "remove <identifier>",
 		Short: "Remove a module dependency",
-		Long: `Remove a module dependency from the lock file.
+		Long: `Remove a module dependency from both the lock file and invkmod.cue.
 
-This removes the module from the lock file. The cached module files are not deleted.
-Don't forget to also remove the requires entry from your invkmod.cue.
+The identifier can be:
+  - A git URL:   https://github.com/user/module.git
+  - A namespace: myalias (if alias was set)
+  - A name:      modulename (bare name without @version)
+  - A full key:  modulename@1.2.3
+
+The cached module files are not deleted.
 
 Examples:
-  invowk module remove https://github.com/user/module.git`,
+  invowk module remove https://github.com/user/module.git
+  invowk module remove myalias
+  invowk module remove modulename`,
 		Args: cobra.ExactArgs(1),
 		RunE: runModuleRemove,
 	}
@@ -86,16 +95,24 @@ Examples:
 // newModuleUpdateCommand creates the `invowk module update` command.
 func newModuleUpdateCommand() *cobra.Command {
 	return &cobra.Command{
-		Use:   "update [git-url]",
+		Use:   "update [identifier]",
 		Short: "Update module dependencies",
 		Long: `Update module dependencies to their latest matching versions.
 
-Without arguments, updates all modules. With a git-url argument, updates
-only that specific module.
+Without arguments, updates all modules. With an identifier, updates
+only the matching module(s).
+
+The identifier can be:
+  - A git URL:   https://github.com/user/module.git
+  - A namespace: myalias (if alias was set)
+  - A name:      modulename (bare name without @version)
+  - A full key:  modulename@1.2.3
 
 Examples:
   invowk module update
-  invowk module update https://github.com/user/module.git`,
+  invowk module update https://github.com/user/module.git
+  invowk module update myalias
+  invowk module update modulename`,
 		RunE: runModuleUpdate,
 	}
 }
@@ -137,7 +154,7 @@ func runModuleAdd(args []string, addAlias, addPath string) error {
 
 	fmt.Printf("%s Resolving %s@%s...\n", moduleInfoIcon, gitURL, version)
 
-	// Add the module
+	// Add the module (resolves, caches, and updates lock file)
 	ctx := context.Background()
 	resolved, err := resolver.Add(ctx, req)
 	if err != nil {
@@ -145,35 +162,32 @@ func runModuleAdd(args []string, addAlias, addPath string) error {
 		return err
 	}
 
-	fmt.Printf("%s Module added successfully\n", moduleSuccessIcon)
+	fmt.Printf("%s Module resolved and lock file updated\n", moduleSuccessIcon)
 	fmt.Println()
 	fmt.Printf("%s Git URL:   %s\n", moduleInfoIcon, modulePathStyle.Render(resolved.ModuleRef.GitURL))
 	fmt.Printf("%s Version:   %s → %s\n", moduleInfoIcon, version, CmdStyle.Render(resolved.ResolvedVersion))
 	fmt.Printf("%s Namespace: %s\n", moduleInfoIcon, CmdStyle.Render(resolved.Namespace))
 	fmt.Printf("%s Cache:     %s\n", moduleInfoIcon, moduleDetailStyle.Render(resolved.CachePath))
 
-	// Show how to add to invkfile
-	fmt.Println()
-	fmt.Printf("%s To use this module, add to your invkmod.cue:\n", moduleInfoIcon)
-	fmt.Println()
-	fmt.Println("requires: [")
-	fmt.Printf("\t{\n")
-	fmt.Printf("\t\tgit_url: %q\n", req.GitURL)
-	fmt.Printf("\t\tversion: %q\n", req.Version)
-	if req.Alias != "" {
-		fmt.Printf("\t\talias:   %q\n", req.Alias)
+	// Auto-edit invkmod.cue to add the requires entry
+	invkmodPath := filepath.Join(".", "invkmod.cue")
+	if editErr := invkmod.AddRequirement(invkmodPath, req); editErr != nil {
+		if os.IsNotExist(editErr) {
+			fmt.Println()
+			fmt.Printf("%s invkmod.cue not found — lock file was updated but you need to create invkmod.cue\n", moduleInfoIcon)
+		} else {
+			fmt.Println()
+			fmt.Printf("%s Could not auto-edit invkmod.cue: %v\n", moduleInfoIcon, editErr)
+		}
+	} else {
+		fmt.Printf("%s Updated invkmod.cue with new requires entry\n", moduleSuccessIcon)
 	}
-	if req.Path != "" {
-		fmt.Printf("\t\tpath:    %q\n", req.Path)
-	}
-	fmt.Printf("\t},\n")
-	fmt.Println("]")
 
 	return nil
 }
 
 func runModuleRemove(cmd *cobra.Command, args []string) error {
-	gitURL := args[0]
+	identifier := args[0]
 
 	fmt.Println(moduleTitleStyle.Render("Remove Module Dependency"))
 
@@ -183,18 +197,36 @@ func runModuleRemove(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to create module resolver: %w", err)
 	}
 
-	fmt.Printf("%s Removing %s...\n", moduleInfoIcon, gitURL)
+	fmt.Printf("%s Removing %s...\n", moduleInfoIcon, identifier)
 
-	// Remove the module
+	// Remove from lock file
 	ctx := context.Background()
-	if err := resolver.Remove(ctx, gitURL); err != nil {
+	results, err := resolver.Remove(ctx, identifier)
+	if err != nil {
+		// Format ambiguous matches nicely
+		var ambigErr *invkmod.AmbiguousIdentifierError
+		if errors.As(err, &ambigErr) {
+			fmt.Printf("%s %v\n", moduleErrorIcon, err)
+			return err
+		}
 		fmt.Printf("%s Failed to remove module: %v\n", moduleErrorIcon, err)
 		return err
 	}
 
-	fmt.Printf("%s Module removed from lock file\n", moduleSuccessIcon)
+	// Auto-edit invkmod.cue to remove the requires entries
+	invkmodPath := filepath.Join(".", "invkmod.cue")
+	for i := range results {
+		if editErr := invkmod.RemoveRequirement(invkmodPath, results[i].RemovedEntry.GitURL, results[i].RemovedEntry.Path); editErr != nil {
+			fmt.Printf("%s Could not auto-edit invkmod.cue: %v\n", moduleInfoIcon, editErr)
+		}
+	}
+
+	for i := range results {
+		fmt.Printf("%s Removed %s\n", moduleSuccessIcon, CmdStyle.Render(results[i].RemovedEntry.Namespace))
+	}
+
 	fmt.Println()
-	fmt.Printf("%s Don't forget to remove the requires entry from your invkmod.cue\n", moduleInfoIcon)
+	fmt.Printf("%s Lock file and invkmod.cue updated\n", moduleSuccessIcon)
 
 	return nil
 }
@@ -254,18 +286,24 @@ func runModuleUpdate(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to create module resolver: %w", err)
 	}
 
-	var gitURL string
+	var identifier string
 	if len(args) > 0 {
-		gitURL = args[0]
-		fmt.Printf("%s Updating %s...\n", moduleInfoIcon, gitURL)
+		identifier = args[0]
+		fmt.Printf("%s Updating %s...\n", moduleInfoIcon, identifier)
 	} else {
 		fmt.Printf("%s Updating all modules...\n", moduleInfoIcon)
 	}
 
 	// Update modules
 	ctx := context.Background()
-	updated, err := resolver.Update(ctx, gitURL)
+	updated, err := resolver.Update(ctx, identifier)
 	if err != nil {
+		// Format ambiguous matches nicely
+		var ambigErr *invkmod.AmbiguousIdentifierError
+		if errors.As(err, &ambigErr) {
+			fmt.Printf("%s %v\n", moduleErrorIcon, err)
+			return err
+		}
 		fmt.Printf("%s Failed to update modules: %v\n", moduleErrorIcon, err)
 		return err
 	}

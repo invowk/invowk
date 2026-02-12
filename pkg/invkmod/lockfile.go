@@ -188,10 +188,9 @@ func parseLockFileCUE(content string) (*LockFile, error) {
 			continue
 		}
 
-		// Track modules block
+		// Track modules block — fall through to process any { on this line
 		if strings.HasPrefix(line, "modules:") {
 			inModules = true
-			continue
 		}
 
 		if !inModules {
