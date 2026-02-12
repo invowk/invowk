@@ -1,0 +1,87 @@
+---
+sidebar_position: 3
+---
+
+import Snippet from '@site/src/components/Snippet';
+
+# Invkmod Schema Reference
+
+:::warning Alpha — Schema May Change
+The invkmod schema is still evolving. Fields, types, and validation rules **may change between releases** as we stabilize the format. Always check the [changelog](https://github.com/invowk/invowk/releases) when upgrading.
+:::
+
+Complete reference for `invkmod.cue`, the module metadata file. Module metadata is validated as a closed struct, so unknown fields cause a validation error.
+
+## Root Structure
+
+Every module must include an `invkmod.cue` file with this structure:
+
+<Snippet id="reference/invkmod/root-structure" />
+
+### module
+
+**Type:** `string` (pattern: `^[a-zA-Z][a-zA-Z0-9]*(\.[a-zA-Z][a-zA-Z0-9]*)*$`)
+**Required:** Yes
+
+The module identifier. It must match the folder name prefix (before `.invkmod`).
+
+<Snippet id="reference/invkmod/module-examples" />
+
+### version
+
+**Type:** `string` (pattern: `^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9a-zA-Z-]+(\.[0-9a-zA-Z-]+)*)?$`)
+**Required:** Yes
+
+Module version in semver format (e.g., `"1.0.0"`, `"2.1.0-beta.1"`).
+
+### description
+
+**Type:** `string`
+**Required:** No
+
+A short summary of the module's purpose.
+
+### requires
+
+**Type:** `[...#ModuleRequirement]`
+**Required:** No
+
+List of module dependencies from Git repositories.
+
+<Snippet id="reference/invkmod/requires-example" />
+
+---
+
+## ModuleRequirement
+
+Defines a single dependency entry:
+
+<Snippet id="reference/invkmod/requirement-structure" />
+
+### git_url
+
+**Type:** `string`
+**Required:** Yes
+
+Git repository URL (HTTPS or SSH). The repository must contain a module.
+
+### version
+
+**Type:** `string`
+**Required:** Yes
+
+Semantic version constraint used to resolve a Git tag.
+
+### alias
+
+**Type:** `string`
+**Required:** No
+
+Overrides the default namespace for this dependency (must follow module naming rules).
+
+### path
+
+**Type:** `string`
+**Required:** No
+
+Subdirectory within the repository that contains the module. Must be relative and cannot contain path traversal sequences.

@@ -66,9 +66,10 @@ Módulos adicionais para incluir na descoberta de comandos. Cada entrada especif
 - Cada alias deve ser único entre todas as entradas includes
 
 **Prioridade de descoberta (maior para menor):**
-1. Diretório atual
-2. `~/.invowk/cmds`
-3. `includes` configurados (em ordem)
+1. invkfile do diretório atual
+2. Módulos locais (`*.invkmod` no diretório atual)
+3. `~/.invowk/cmds`
+4. `includes` configurados (em ordem)
 
 ### default_runtime
 
@@ -134,10 +135,9 @@ Habilita utilitários u-root no ambiente virtual shell. Quando habilitado, forne
 
 <Snippet id="reference/config/enable-uroot-utils-example" />
 
-**Utilitários disponíveis quando habilitado:**
-- Operações de arquivo: `ls`, `cat`, `cp`, `mv`, `rm`, `mkdir`, `chmod`
-- Processamento de texto: `grep`, `sed`, `awk`, `sort`, `uniq`
-- E muitos mais utilitários core
+**Utilitários disponíveis quando habilitado (15 no total):**
+- Operações de arquivo (7): `cat`, `cp`, `ls`, `mkdir`, `mv`, `rm`, `touch`
+- Processamento de texto (8): `head`, `tail`, `wc`, `grep`, `sort`, `uniq`, `cut`, `tr`
 
 ---
 

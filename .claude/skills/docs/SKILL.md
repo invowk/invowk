@@ -162,3 +162,5 @@ website/static/diagrams/v{VERSION}/        # Per-version SVG copies
 
 - **Missing i18n** - Website changes require updates to both `docs/` and `i18n/pt-BR/`.
 - **Outdated documentation** - Check the Documentation Sync Map when modifying schemas or CLI.
+- **Versioning chicken-and-egg** - `docusaurus.config.ts` `lastVersion` must reference a version that already exists in `versions.json`. If `lastVersion` is set to a version before `docs:version` creates it, Docusaurus validation fails on initialization. Fix: temporarily set `lastVersion` to an existing version, run `version-docs.sh`, which will restore `lastVersion` to the new version in step 4.
+- **Doc-then-version ordering** - Always fix documentation issues in `website/docs/` BEFORE running `version-docs.sh`, since the script snapshots the current docs into `versioned_docs/`. Versioning first means the snapshot preserves bugs.

@@ -90,7 +90,9 @@
     ]
   },
   "model": "opus",
+  "outputStyle": "Explanatory",
   "env": {
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1",
     "CLAUDE_CODE_SUBAGENT_MODEL": "opus",
     "ANTHROPIC_DEFAULT_SONNET_MODEL": "opus"
   }

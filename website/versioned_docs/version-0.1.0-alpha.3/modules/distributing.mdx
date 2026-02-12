@@ -1,0 +1,143 @@
+---
+sidebar_position: 4
+---
+
+import Snippet from '@site/src/components/Snippet';
+
+# Distributing Modules
+
+Share your modules with teammates, across organizations, or with the world.
+
+## Creating Archives
+
+Create a zip archive for distribution:
+
+<Snippet id="modules/archive-basic" />
+
+Output:
+
+<Snippet id="modules/archive-output" />
+
+## Importing Modules
+
+### From Local File
+
+<Snippet id="modules/import-local" />
+
+### From URL
+
+<Snippet id="modules/import-url" />
+
+Output:
+
+<Snippet id="modules/import-output" />
+
+## Listing Installed Modules
+
+<Snippet id="modules/list" />
+
+Output:
+
+<Snippet id="modules/list-output" />
+
+## Distribution Methods
+
+### Direct Sharing
+
+1. Create archive: `invowk module archive`
+2. Share the zip file (email, Slack, etc.)
+3. Recipient imports: `invowk module import`
+
+### Git Repository
+
+Include modules in your repo:
+
+<Snippet id="modules/git-structure" />
+
+Team members get modules when they clone the repo.
+
+### GitHub Releases
+
+1. Create archive
+2. Attach to GitHub release
+3. Share the download URL
+
+<Snippet id="modules/github-release" />
+
+### Package Registry (Future)
+
+Future versions may support:
+
+<Snippet id="modules/future-install" />
+
+## Install Locations
+
+### User Commands (Default)
+
+<Snippet id="modules/install-user" />
+
+Available globally for the user.
+
+### Project-Local
+
+<Snippet id="modules/install-project" />
+
+Only available in this project.
+
+### Custom Include Path
+
+Configure additional includes:
+
+<Snippet id="modules/includes-config" />
+
+Install there:
+
+<Snippet id="modules/install-custom-path" />
+
+## Version Management
+
+### Semantic Versioning
+
+Declare a module version in `invkmod.cue`:
+
+<Snippet id="modules/version-invkfile" />
+
+### Archive Naming
+
+Include version in archive name:
+
+<Snippet id="modules/archive-versioned" />
+
+### Upgrade Process
+
+<Snippet id="modules/upgrade-process" />
+
+## Team Distribution
+
+### Shared Network Location
+
+<Snippet id="modules/team-shared-location" />
+
+### Internal Package Server
+
+Host modules on internal HTTP server:
+
+<Snippet id="modules/internal-server" />
+
+## Best Practices
+
+1. **Validate before archiving**: `invowk module validate --deep`
+2. **Use semantic versioning**: Track changes clearly
+3. **Include README**: Document module usage
+4. **RDNS naming**: Prevent conflicts
+5. **Changelog**: Document what changed between versions
+
+## Example Workflow
+
+<Snippet id="modules/workflow-example" />
+
+## Next Steps
+
+- [Overview](./overview) - Module concepts
+- [Creating Modules](./creating-modules) - Build your module
+- [Validating](./validating) - Ensure module integrity

@@ -2198,10 +2198,9 @@ container_engine: "podman"
 // Default runtime mode: "native", "virtual", or "container"
 default_runtime: "native"
 
-// Include additional invkfiles and modules in command discovery
-// Each entry points to a specific invkfile.cue, invkfile, or *.invkmod directory
+// Include additional modules in command discovery
 includes: [
-    {path: "/home/user/global-commands/invkfile.cue"},
+    {path: "/home/user/my-tools.invkmod"},
     {path: "/path/to/module.invkmod", alias: "myalias"},
 ]
 
@@ -2586,7 +2585,6 @@ invowk/
 │   ├── config/                 # Configuration management with CUE schema
 │   ├── container/              # Container engine abstraction (Docker, Podman, sandbox)
 │   ├── core/serverbase/        # Shared server state machine base
-│   ├── cueutil/                # Shared CUE parsing utilities
 │   ├── discovery/              # Invkfile and module discovery
 │   ├── issue/                  # Error types and ActionableError
 │   ├── provision/              # Container provisioning (ephemeral layer attachment)
@@ -2597,6 +2595,7 @@ invowk/
 │   ├── tuiserver/              # TUI server for interactive sessions
 │   └── uroot/                  # u-root utilities for virtual shell built-ins
 ├── pkg/
+│   ├── cueutil/                # Shared CUE parsing utilities
 │   ├── invkmod/                # Module validation and structure
 │   ├── invkfile/               # Invkfile parsing and validation
 │   └── platform/               # Cross-platform utilities

@@ -1,0 +1,148 @@
+---
+sidebar_position: 6
+---
+
+import Snippet from '@site/src/components/Snippet';
+
+# Format and Style
+
+Text formatting and styling components for beautiful terminal output.
+
+## Format
+
+Format and render text as markdown, code, emoji, or templates.
+
+### Basic Usage
+
+<Snippet id="tui/format-basic" />
+
+### Options
+
+| Option | Description |
+|--------|-------------|
+| `--type` | Format type: `markdown`, `code`, `emoji`, `template` |
+| `--language` | Language for code highlighting |
+| `--theme` | Glamour theme for code highlighting |
+
+### Markdown
+
+Render markdown with colors and formatting:
+
+<Snippet id="tui/format-markdown" />
+
+### Code Highlighting
+
+Syntax highlight code:
+
+<Snippet id="tui/format-code" />
+
+### Emoji Conversion
+
+Convert emoji shortcodes to actual emojis:
+
+<Snippet id="tui/format-emoji" />
+
+### Real-World Examples
+
+#### Display README
+
+<Snippet id="tui/format-readme" />
+
+#### Show Code Diff
+
+<Snippet id="tui/format-diff" />
+
+#### Welcome Message
+
+<Snippet id="tui/format-welcome" />
+
+---
+
+## Style
+
+Apply terminal styling to text.
+
+### Basic Usage
+
+<Snippet id="tui/style-basic" />
+
+### Options
+
+| Option | Description |
+|--------|-------------|
+| `--foreground` | Text color (hex or name) |
+| `--background` | Background color |
+| `--bold` | Bold text |
+| `--italic` | Italic text |
+| `--underline` | Underlined text |
+| `--strikethrough` | Strikethrough text |
+| `--faint` | Dimmed text |
+| `--blink` | Blinking text |
+| `--reverse` | Reverse colors |
+| `--border` | Border style |
+| `--padding-*` | Padding (left, right, top, bottom) |
+| `--margin-*` | Margin (left, right, top, bottom) |
+| `--width` | Fixed width |
+| `--height` | Fixed height |
+| `--align` | Text alignment: `left`, `center`, `right` |
+
+### Colors
+
+Use hex colors or names:
+
+<Snippet id="tui/style-colors" />
+
+### Text Decorations
+
+<Snippet id="tui/style-decorations" />
+
+### Piping
+
+Style text from stdin:
+
+<Snippet id="tui/style-piping" />
+
+### Borders
+
+Add borders around text:
+
+<Snippet id="tui/style-borders" />
+
+Border styles: `normal`, `rounded`, `double`, `thick`, `hidden`
+
+### Layout
+
+<Snippet id="tui/style-layout" />
+
+### Real-World Examples
+
+#### Success/Error Messages
+
+<Snippet id="tui/style-messages" />
+
+#### Headers and Sections
+
+<Snippet id="tui/style-headers" />
+
+#### Status Boxes
+
+<Snippet id="tui/style-boxes" />
+
+### In Scripts
+
+<Snippet id="tui/style-script" />
+
+## Combined Patterns
+
+### Formatted Output
+
+<Snippet id="tui/format-style-combined" />
+
+### Interactive with Styled Output
+
+<Snippet id="tui/interactive-styled" />
+
+## Next Steps
+
+- [Overview](./overview) - All TUI components
+- [Input and Write](./input-and-write) - Text entry

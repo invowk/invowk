@@ -1,0 +1,90 @@
+---
+sidebar_position: 1
+---
+
+import Snippet from '@site/src/components/Snippet';
+
+# TUI Components Overview
+
+Invowk™ includes a set of interactive terminal UI components inspired by [gum](https://github.com/charmbracelet/gum). Use them in your scripts to create interactive prompts, selections, and styled output.
+
+## Available Components
+
+| Component | Description | Use Case |
+|-----------|-------------|----------|
+| [input](./input-and-write#input) | Single-line text input | Names, paths, simple values |
+| [write](./input-and-write#write) | Multi-line text editor | Descriptions, commit messages |
+| [choose](./choose-and-confirm#choose) | Select from options | Menus, choices |
+| [confirm](./choose-and-confirm#confirm) | Yes/no prompt | Confirmations |
+| [filter](./filter-and-file#filter) | Fuzzy filter list | Search through options |
+| [file](./filter-and-file#file) | File picker | Select files/directories |
+| [table](./table-and-spin#table) | Display tabular data | CSV, data tables |
+| [spin](./table-and-spin#spin) | Spinner with command | Long-running tasks |
+| [pager](./pager) | Scrollable content viewer | Logs, code review, long output |
+| [format](./format-and-style#format) | Format text (markdown, code) | Rendering content |
+| [style](./format-and-style#style) | Style text (colors, bold) | Decorating output |
+
+## Quick Examples
+
+<Snippet id="tui/overview-quick-examples" />
+
+## Using in Invkfiles
+
+TUI components work great inside command scripts, including those running in containers with interactive mode (`-i`):
+
+:::tip Container Support
+TUI components work seamlessly inside containers when using interactive mode. The components render as modal overlays on your host terminal. See [Container Runtime - Interactive Mode](/docs/runtime-modes/container#interactive-mode) for details.
+:::
+
+<Snippet id="tui/overview-invkfile-example" />
+
+## Common Patterns
+
+### Input with Validation
+
+<Snippet id="tui/overview-input-validation" />
+
+### Menu System
+
+<Snippet id="tui/overview-menu-system" />
+
+### Progress Feedback
+
+<Snippet id="tui/overview-progress-feedback" />
+
+### Styled Headers
+
+<Snippet id="tui/overview-styled-headers" />
+
+## Piping and Capture
+
+Most components work with pipes:
+
+<Snippet id="tui/overview-piping" />
+
+## Exit Codes
+
+Components use exit codes to communicate:
+
+| Component | Exit 0 | Exit 1 |
+|-----------|--------|--------|
+| confirm | User said yes | User said no |
+| input | Value entered | Cancelled |
+| choose | Option selected | Cancelled |
+| filter | Option selected | Cancelled |
+| pager | Exited normally | Error occurred |
+
+Use in conditionals:
+
+<Snippet id="tui/overview-exit-codes" />
+
+## Next Steps
+
+Explore each component in detail:
+
+- [Input and Write](./input-and-write) - Text entry
+- [Choose and Confirm](./choose-and-confirm) - Selection and confirmation
+- [Filter and File](./filter-and-file) - Search and file picking
+- [Table and Spin](./table-and-spin) - Data display and spinners
+- [Pager](./pager) - Scrollable content viewing
+- [Format and Style](./format-and-style) - Text formatting and styling

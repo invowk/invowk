@@ -15,6 +15,7 @@ Estas flags estão disponíveis para todos os comandos:
 | Flag | Curta | Descrição |
 |------|-------|-----------|
 | `--help` | `-h` | Mostrar ajuda para o comando |
+| `--invk-config` | `-c` | Caminho do arquivo de configuração (padrão: `$HOME/.config/invowk/config.cue`) |
 | `--invk-interactive` | `-i` | Executar comandos em buffer de tela alternativo (modo interativo) |
 | `--invk-verbose` | `-v` | Habilitar saída verbose |
 | `--version` | | Mostrar informação de versão |
@@ -263,6 +264,10 @@ Fazer vendor de dependências em `invk_modules/`.
 |------|-----------|
 | `--update` | Forçar re-fetch de todas as dependências |
 | `--prune` | Remover módulos vendorizados não usados |
+
+:::note
+Vendoring atualmente é uma funcionalidade em preview. O comando reporta o que seria vendorizado e cria a estrutura de diretórios, mas ainda não faz download das dependências.
+:::
 
 ---
 

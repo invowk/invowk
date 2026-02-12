@@ -39,7 +39,7 @@ Cria:
 ### Usar o Módulo
 
 Módulos são descobertos automaticamente de:
-1. Diretório atual
+1. Diretório atual (invkfile e módulos locais)
 2. `~/.invowk/cmds/` (comandos do usuário)
 3. Caminhos de busca configurados
 
@@ -108,9 +108,10 @@ Referencie scripts relativos à raiz do módulo com **barras normais**:
 
 Módulos são descobertos dessas localizações:
 
-1. **Diretório atual** (maior prioridade)
-2. **Comandos do usuário** (`~/.invowk/cmds/`)
-3. **Caminhos de busca** (da configuração)
+1. **invkfile do diretório atual** (maior prioridade)
+2. **Módulos locais** (`*.invkmod` no diretório atual)
+3. **Comandos do usuário** (`~/.invowk/cmds/`)
+4. **Caminhos de busca** (da configuração)
 
 Comandos aparecem em `invowk cmd` com sua origem:
 

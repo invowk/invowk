@@ -55,9 +55,10 @@ Para módulos compartilhados, use nomenclatura RDNS (Reverse Domain Name System)
 
 O Invowk descobre comandos de múltiplas fontes em ordem de prioridade:
 
-1. **Diretório atual** (maior prioridade)
-2. **Diretório de comandos do usuário** (`~/.invowk/cmds/`)
-3. **Caminhos de busca configurados** (do arquivo de configuração)
+1. **invkfile do diretório atual** (maior prioridade)
+2. **Módulos locais** (`*.invkmod` no diretório atual)
+3. **Diretório de comandos do usuário** (`~/.invowk/cmds/`)
+4. **Caminhos de busca configurados** (do arquivo de configuração)
 
 Ao listar comandos, você verá sua origem:
 

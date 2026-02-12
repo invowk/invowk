@@ -1,0 +1,192 @@
+---
+sidebar_position: 3
+---
+
+import Snippet from '@site/src/components/Snippet';
+
+# Module Dependency CLI Commands
+
+Invowk provides a set of `invowk module` commands for managing module dependencies declared in `invkmod.cue`.
+
+## Command Overview
+
+| Command | Description |
+|---------|-------------|
+| `invowk module add` | Resolve a dependency and print a `requires` entry |
+| `invowk module remove` | Remove a dependency from the lock file |
+| `invowk module deps` | List resolved dependencies |
+| `invowk module sync` | Resolve dependencies from `invkmod.cue` |
+| `invowk module update` | Update dependencies to latest matching versions |
+| `invowk module vendor` | Vendor dependencies into `invk_modules/` (partial) |
+
+## invowk module add
+
+Resolve a dependency and print the `requires` entry to add to `invkmod.cue`.
+
+### Usage
+
+<Snippet id="modules/dependencies/cli/add-usage" />
+
+### Arguments
+
+| Argument | Description |
+|----------|-------------|
+| `git-url` | Git repository URL (HTTPS or SSH) |
+| `version` | Semantic version constraint |
+
+### Flags
+
+| Flag | Description |
+|------|-------------|
+| `--alias <name>` | Custom namespace for the dependency |
+| `--path <path>` | Subdirectory within the repository |
+
+### Examples
+
+<Snippet id="modules/dependencies/cli/add-examples" />
+
+### Output
+
+<Snippet id="modules/dependencies/cli/add-output" />
+
+:::note
+`invowk module add` does not edit `invkmod.cue` for you. Copy the printed `requires` entry into your module metadata, then run `invowk module sync`.
+:::
+
+## invowk module remove
+
+Remove a dependency from the lock file.
+
+### Usage
+
+<Snippet id="modules/dependencies/cli/remove-usage" />
+
+### Arguments
+
+| Argument | Description |
+|----------|-------------|
+| `git-url` | Git repository URL to remove |
+
+### Examples
+
+<Snippet id="modules/dependencies/cli/remove-example" />
+
+### Output
+
+<Snippet id="modules/dependencies/cli/remove-output" />
+
+:::note
+This command only removes the dependency from the lock file. You must manually remove the `requires` entry from `invkmod.cue`. Cached files are not deleted.
+:::
+
+## invowk module deps
+
+List all resolved dependencies from the lock file.
+
+### Usage
+
+<Snippet id="modules/dependencies/cli/deps-usage" />
+
+### Output
+
+<Snippet id="modules/dependencies/cli/deps-output" />
+
+### No Dependencies
+
+<Snippet id="modules/dependencies/cli/deps-empty" />
+
+## invowk module sync
+
+Sync all dependencies declared in `invkmod.cue`. This reads the `requires` field, resolves version constraints, downloads modules, and updates the lock file.
+
+### Usage
+
+<Snippet id="modules/dependencies/cli/sync-usage" />
+
+### Output
+
+<Snippet id="modules/dependencies/cli/sync-output" />
+
+### No Requirements
+
+<Snippet id="modules/dependencies/cli/sync-empty" />
+
+## invowk module update
+
+Update dependencies to their latest versions matching the declared constraints.
+
+### Usage
+
+<Snippet id="modules/dependencies/cli/update-usage" />
+
+### Arguments
+
+| Argument | Description |
+|----------|-------------|
+| `git-url` | (Optional) Specific dependency to update |
+
+### Examples
+
+<Snippet id="modules/dependencies/cli/update-examples" />
+
+### Output
+
+<Snippet id="modules/dependencies/cli/update-output" />
+
+### No Updates
+
+<Snippet id="modules/dependencies/cli/update-empty" />
+
+## invowk module vendor
+
+Vendor dependencies into the `invk_modules/` directory for offline use and distribution.
+
+### Usage
+
+<Snippet id="modules/dependencies/cli/vendor-usage" />
+
+### Output
+
+<Snippet id="modules/dependencies/cli/vendor-output" />
+
+:::note
+Vendoring is currently a preview. The command reports what would be vendored and creates the directory, but does not fetch dependencies yet.
+:::
+
+## Common Workflows
+
+### Initial Setup
+
+<Snippet id="modules/dependencies/cli/workflow-init" />
+
+### Fresh Clone
+
+<Snippet id="modules/dependencies/cli/workflow-fresh" />
+
+### Regular Updates
+
+<Snippet id="modules/dependencies/cli/workflow-update" />
+
+### Troubleshooting
+
+<Snippet id="modules/dependencies/cli/workflow-troubleshoot" />
+
+## Environment Variables
+
+| Variable | Description |
+|----------|-------------|
+| `INVOWK_MODULES_PATH` | Override module cache directory |
+| `GITHUB_TOKEN` | GitHub authentication |
+| `GITLAB_TOKEN` | GitLab authentication |
+| `GIT_TOKEN` | Generic Git authentication |
+
+## Exit Codes
+
+| Code | Meaning |
+|------|---------|
+| 0 | Success |
+| 1 | General error |
+| 1 | Module not found (for remove) |
+| 1 | No invkmod.cue found (for sync) |
+| 1 | Version resolution failed |
+| 1 | Git clone/fetch failed |

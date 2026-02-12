@@ -1,0 +1,174 @@
+---
+sidebar_position: 3
+---
+
+import Snippet from '@site/src/components/Snippet';
+
+# Implementations
+
+Every command needs at least one **implementation** - the actual code that runs when you invoke the command. Implementations define *what* runs, *where* it runs (platform), and *how* it runs (runtime).
+
+## Basic Structure
+
+An implementation has three main parts:
+
+<Snippet id="implementations/basic-structure" />
+
+## Scripts
+
+The `script` field contains the commands to execute. It can be inline or reference an external file.
+
+### Inline Scripts
+
+Single-line scripts are simple:
+
+<Snippet id="implementations/inline-single" />
+
+Multi-line scripts use triple quotes:
+
+<Snippet id="implementations/inline-multi" />
+
+### External Script Files
+
+Reference a script file instead of inline code:
+
+<Snippet id="core-concepts/script-external" />
+
+Recognized extensions: `.sh`, `.bash`, `.ps1`, `.bat`, `.cmd`, `.py`, `.rb`, `.pl`, `.zsh`, `.fish`
+
+### When to Use External Scripts
+
+- **Inline**: Quick, simple commands; keeps everything in one file
+- **External**: Complex scripts; reusable across commands; easier to edit with syntax highlighting
+
+## Runtime and Platform Constraints
+
+Each implementation specifies where and how it runs using the `runtimes` and `platforms` fields.
+
+### Runtimes
+
+Every implementation must specify at least one runtime:
+
+<Snippet id="implementations/runtimes-list" />
+
+The **first runtime** is the default. Users can override with `--invk-runtime`:
+
+```bash
+# Uses default runtime (first in list)
+invowk cmd myproject build
+
+# Override to use container runtime
+invowk cmd myproject build --invk-runtime container
+```
+
+See [Runtime Modes](../runtime-modes/overview) for details on each runtime.
+
+### Platforms
+
+Specify which operating systems the implementation supports. Every implementation must declare at least one platform:
+
+<Snippet id="implementations/platforms-list" />
+
+Available platforms: `linux`, `macos`, `windows`
+
+## Multiple Implementations
+
+Commands can have multiple implementations for different scenarios:
+
+### Platform-Specific Implementations
+
+<Snippet id="implementations/platform-specific" />
+
+Invowk™ automatically selects the right implementation for the current platform.
+
+### Runtime-Specific Implementations
+
+<Snippet id="implementations/runtime-specific" />
+
+### Combined Platform + Runtime
+
+```cue
+{
+    name: "build"
+    implementations: [
+        // Linux/macOS with multiple runtime options
+        {
+            script: "make build"
+            runtimes: [
+                {name: "native"},
+                {name: "container", image: "ubuntu:22.04"}
+            ]
+            platforms: [{name: "linux"}, {name: "macos"}]
+        },
+        // Windows native only
+        {
+            script: "msbuild /p:Configuration=Release"
+            runtimes: [{name: "native"}]
+            platforms: [{name: "windows"}]
+        }
+    ]
+}
+```
+
+## Platform-Specific Environment
+
+For platform-specific environment variables, use separate implementations per platform, each with its own `env`:
+
+<Snippet id="implementations/platform-env" />
+
+## Implementation-Level Settings
+
+Implementations can have their own environment, working directory, and dependencies:
+
+<Snippet id="implementations/impl-level-settings" />
+
+These override command-level settings when this implementation is selected.
+
+## Implementation Selection
+
+When you run a command, Invowk selects an implementation based on:
+
+1. **Current platform** - Filters to implementations supporting your OS
+2. **Requested runtime** - If `--invk-runtime` specified, uses that; otherwise uses the default
+3. **First match wins** - Uses the first implementation matching both criteria
+
+### Selection Examples
+
+Given this command:
+
+<Snippet id="implementations/selection-example" />
+
+| Platform | Command | Selected |
+|----------|---------|----------|
+| Linux | `invowk cmd myproject build` | First impl, native runtime |
+| Linux | `invowk cmd myproject build --invk-runtime virtual` | First impl, virtual runtime |
+| Windows | `invowk cmd myproject build` | Second impl, native runtime |
+| Windows | `invowk cmd myproject build --invk-runtime virtual` | Error: no matching impl |
+
+## Command Listing
+
+The `invowk cmd` output shows available runtimes and platforms:
+
+<Snippet id="implementations/list-output" />
+
+- `[native*, virtual]` - Supports native (default) and virtual runtimes
+- `(linux, macos)` - Only available on Linux and macOS
+
+## Using CUE Templates
+
+Reduce repetition with CUE templates:
+
+<Snippet id="implementations/cue-templates" />
+
+## Best Practices
+
+1. **Start simple** - One implementation is often enough
+2. **Always specify platforms** - Every implementation must declare at least one target platform
+3. **Default runtime first** - Put the most common runtime first in the list
+4. **Use templates** - Reduce repetition with CUE's templating
+5. **Keep scripts focused** - One task per command; chain with dependencies
+
+## Next Steps
+
+- [Runtime Modes](../runtime-modes/overview) - Deep dive into native, virtual, and container runtimes
+- [Dependencies](../dependencies/overview) - Declare what your implementations need

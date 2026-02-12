@@ -79,8 +79,12 @@ func newModuleVendorCommand() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "vendor [module-path]",
-		Short: "Vendor module dependencies",
+		Short: "Vendor module dependencies (preview)",
 		Long: `Vendor module dependencies into the invk_modules/ directory.
+
+NOTE: This command is a preview feature and is not yet fully implemented.
+Dependency fetching is currently stubbed — running it will show what would
+be vendored but will not actually download modules.
 
 This command reads the 'requires' field from the invkmod.cue and fetches
 all dependencies into the invk_modules/ subdirectory, enabling offline
