@@ -4,7 +4,7 @@ paths:
   - "pkg/invkfile/**"
   - "pkg/invkmod/**"
   - "internal/config/**"
-  - "internal/cueutil/**"
+  - "pkg/cueutil/**"
 ---
 
 # CUE Patterns

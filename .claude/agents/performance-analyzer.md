@@ -31,7 +31,7 @@ benchstat old.txt new.txt
 
 ## Hot Paths
 
-### 1. CUE Parsing (`internal/cueutil/parse.go`)
+### 1. CUE Parsing (`pkg/cueutil/parse.go`)
 
 This is the project's most performance-critical path. Every command execution involves CUE parsing:
 

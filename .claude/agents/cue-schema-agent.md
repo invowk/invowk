@@ -12,7 +12,7 @@ You are a CUE schema specialist for the Invowk project. Your role is to safely m
 
 ## The 3-Step Parse Flow
 
-All CUE parsing follows this pattern (see `internal/cueutil/parse.go`):
+All CUE parsing follows this pattern (see `pkg/cueutil/parse.go`):
 
 ```
 Step 1: Compile embedded schema → cue.Value
