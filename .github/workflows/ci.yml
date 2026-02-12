@@ -106,6 +106,12 @@ jobs:
           docker --version
           docker info
 
+      # Pre-pull base image to avoid network flakiness during container builds.
+      # This removes the image-pull dependency from the critical path of test builds.
+      - name: Pre-pull container test images
+        if: matrix.engine != '' && startsWith(matrix.runner, 'ubuntu')
+        run: ${{ matrix.engine }} pull debian:stable-slim
+
       # Run full tests (includes integration tests with containers)
       # Explicit 15m timeout allows enough time for container operations (image pulls, startup)
       # while providing a clear upper bound for CI job duration.

@@ -88,15 +88,11 @@ var (
 	}()
 )
 
-// isTransientOCIError checks if an error is a transient OCI runtime error
-// that can be retried (e.g., rootless Podman ping_group_range race).
+// isTransientOCIError checks if an error is a transient container engine error
+// that can be retried. Delegates to the shared classifier in the container package
+// which covers rootless Podman races, exit code 125, network errors, and more.
 func isTransientOCIError(err error) bool {
-	if err == nil {
-		return false
-	}
-	errStr := err.Error()
-	return strings.Contains(errStr, "ping_group_range") ||
-		strings.Contains(errStr, "OCI runtime error")
+	return container.IsTransientError(err)
 }
 
 // commonSetup provides the shared testscript setup function for all CLI tests.

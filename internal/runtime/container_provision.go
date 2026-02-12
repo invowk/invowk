@@ -9,11 +9,23 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"invowk-cli/internal/config"
 	"invowk-cli/internal/container"
 	"invowk-cli/internal/provision"
 	"invowk-cli/pkg/invkfile"
+)
+
+const (
+	// maxBuildRetries is the number of attempts for container image builds.
+	// Retries handle transient engine errors (exit code 125, network timeouts,
+	// storage driver races) that occur on rootless Podman in CI environments.
+	maxBuildRetries = 3
+
+	// baseBuildBackoff is the initial backoff duration between build retries.
+	// Builds are heavier than runs, so we use a longer base than the smoke test.
+	baseBuildBackoff = 2 * time.Second
 )
 
 // ensureProvisionedImage ensures the container image exists and is provisioned
@@ -106,11 +118,28 @@ func (r *ContainerRuntime) ensureImage(ctx *ExecutionContext, cfg invkfileContai
 		Stderr:     ctx.IO.Stderr,
 	}
 
-	if err := r.engine.Build(ctx.Context, buildOpts); err != nil {
-		return "", err
+	// Retry build on transient engine errors (exit code 125, network failures,
+	// storage driver races). The caller's context deadline naturally bounds
+	// total retry time.
+	var lastErr error
+	for attempt := range maxBuildRetries {
+		if attempt > 0 {
+			if ctx.Verbose {
+				_, _ = fmt.Fprintf(ctx.IO.Stdout, "Retrying container build (attempt %d/%d) after transient error: %v\n", attempt+1, maxBuildRetries, lastErr)
+			}
+			time.Sleep(baseBuildBackoff * time.Duration(1<<(attempt-1)))
+		}
+
+		lastErr = r.engine.Build(ctx.Context, buildOpts)
+		if lastErr == nil {
+			return imageTag, nil
+		}
+		if !container.IsTransientError(lastErr) {
+			return "", lastErr
+		}
 	}
 
-	return imageTag, nil
+	return "", lastErr
 }
 
 // generateImageTag generates a unique image tag for an invkfile

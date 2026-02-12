@@ -141,6 +141,11 @@ jobs:
           docker --version
           docker info
 
+      # Pre-pull base image to avoid network flakiness during container builds.
+      - name: Pre-pull container test images
+        if: matrix.engine != '' && startsWith(matrix.runner, 'ubuntu')
+        run: ${{ matrix.engine }} pull debian:stable-slim
+
       # Run tests
       - name: Run tests (full)
         if: matrix.test-mode == 'full'
