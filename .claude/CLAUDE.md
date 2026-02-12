@@ -73,6 +73,8 @@ Skills provide domain-specific procedural guidance. They are invoked when workin
 - [`.claude/skills/tmux-testing/`](.claude/skills/tmux-testing/) - tmux-based TUI testing for fast, CI-friendly text and ANSI verification.
 - [`.claude/skills/tui-testing/`](.claude/skills/tui-testing/) - VHS-based TUI testing workflow for autonomous visual analysis.
 - [`.claude/skills/uroot/`](.claude/skills/uroot/) - u-root utility implementation patterns.
+- [`.claude/skills/learn/`](.claude/skills/learn/) - User-invokable (`/learn`). Post-work learning review to keep CLAUDE.md, hooks, rules, and skills up-to-date.
+- [`.claude/skills/pr/`](.claude/skills/pr/) - GitHub PR workflow: tests, lints, license check, branch creation, conventional commits, and PR description.
 
 ### Code Area → Rules/Skills Mapping
 
