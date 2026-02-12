@@ -20,8 +20,8 @@ type (
 	//  6. Command-level env.vars
 	//  7. Implementation-level env.vars
 	//  8. ExtraEnv (INVOWK_FLAG_*, INVOWK_ARG_*, ARGn, ARGC)
-	//  9. RuntimeEnvFiles (--env-file flag)
-	//  10. RuntimeEnvVars (--env-var flag) - HIGHEST priority
+	//  9. RuntimeEnvFiles (--invk-env-file flag)
+	//  10. RuntimeEnvVars (--invk-env-var flag) - HIGHEST priority
 	//
 	// This interface enables:
 	//   - Testability: runtimes can be tested with mock env builders
@@ -92,14 +92,14 @@ func (b *DefaultEnvBuilder) Build(ctx *ExecutionContext, defaultMode invkfile.En
 	// 8. Extra env from context (flags, args)
 	maps.Copy(env, ctx.Env.ExtraEnv)
 
-	// 9. Runtime --env-file flag files
+	// 9. Runtime --invk-env-file flag files
 	for _, path := range ctx.Env.RuntimeEnvFiles {
 		if err := LoadEnvFileFromCwd(env, path); err != nil {
 			return nil, err
 		}
 	}
 
-	// 10. Runtime --env-var flag values (highest priority)
+	// 10. Runtime --invk-env-var flag values (highest priority)
 	maps.Copy(env, ctx.Env.RuntimeEnvVars)
 
 	return env, nil

@@ -193,7 +193,7 @@ cmds: [
 
   'cli/list-commands': {
     language: 'bash',
-    code: `invowk cmd --list`,
+    code: `invowk cmd`,
   },
 
   'cli/run-command': {
@@ -213,7 +213,7 @@ invowk cmd test coverage`,
 invowk cmd test unit
 
 # Explicitly use virtual runtime
-invowk cmd test unit --runtime virtual`,
+invowk cmd test unit --invk-runtime virtual`,
   },
 
   'cli/cue-validate': {
@@ -670,7 +670,7 @@ cmds: [
 
   'runtime-modes/virtual-run': {
     language: 'bash',
-    code: `invowk cmd build --runtime virtual`,
+    code: `invowk cmd build --invk-runtime virtual`,
   },
 
   'runtime-modes/virtual-cross-platform': {
@@ -1213,16 +1213,16 @@ implementations: [
   'environment/cli-overrides': {
     language: 'bash',
     code: `# Set a single variable
-invowk cmd build --env-var NODE_ENV=development
+invowk cmd build --invk-env-var NODE_ENV=development
 
 # Set multiple variables
-invowk cmd build -E NODE_ENV=dev -E DEBUG=true
+invowk cmd build --invk-env-var NODE_ENV=dev --invk-env-var DEBUG=true
 
 # Load from a file
-invowk cmd build --env-file .env.local
+invowk cmd build --invk-env-file .env.local
 
 # Combine
-invowk cmd build --env-file .env.local -E OVERRIDE=value`,
+invowk cmd build --invk-env-file .env.local --invk-env-var OVERRIDE=value`,
   },
 
   'environment/container-env': {
@@ -1388,13 +1388,10 @@ cmds: [...]`,
   'environment/env-files-cli-override': {
     language: 'bash',
     code: `# Load extra file
-invowk cmd build --env-file .env.custom
-
-# Short form
-invowk cmd build -e .env.custom
+invowk cmd build --invk-env-file .env.custom
 
 # Multiple files
-invowk cmd build -e .env.custom -e .env.secrets`,
+invowk cmd build --invk-env-file .env.custom --invk-env-file .env.secrets`,
   },
 
   'environment/env-files-dev-prod': {
@@ -1651,13 +1648,10 @@ implementations: [
   'environment/env-vars-cli-override': {
     language: 'bash',
     code: `# Single variable
-invowk cmd build --env-var NODE_ENV=development
-
-# Short form
-invowk cmd build -E NODE_ENV=development
+invowk cmd build --invk-env-var NODE_ENV=development
 
 # Multiple variables
-invowk cmd build -E NODE_ENV=dev -E DEBUG=true -E PORT=8080`,
+invowk cmd build --invk-env-var NODE_ENV=dev --invk-env-var DEBUG=true --invk-env-var PORT=8080`,
   },
 
   'environment/env-vars-build-config': {
@@ -1772,8 +1766,8 @@ invowk cmd build -E NODE_ENV=dev -E DEBUG=true -E PORT=8080`,
   'environment/precedence-hierarchy': {
     language: 'text',
     code: `CLI (highest priority)
-├── --env-var KEY=value
-└── --env-file .env.local
+├── --invk-env-var KEY=value
+└── --invk-env-file .env.local
     │
 Invowk Vars
 ├── INVOWK_FLAG_*
@@ -1855,7 +1849,7 @@ CACHE_DIR=./cache                      # From .env.build file`,
 
   'environment/precedence-cli-override': {
     language: 'bash',
-    code: `invowk cmd build --env-var API_URL=http://cli.example.com`,
+    code: `invowk cmd build --invk-env-var API_URL=http://cli.example.com`,
   },
 
   'environment/precedence-vars-over-files': {
@@ -1962,7 +1956,7 @@ implementations: [{
   'environment/precedence-cli-temp': {
     language: 'bash',
     code: `# Quick test with different config
-invowk cmd build -E DEBUG=true -E LOG_LEVEL=debug`,
+invowk cmd build --invk-env-var DEBUG=true --invk-env-var LOG_LEVEL=debug`,
   },
 
   'environment/precedence-debug': {
@@ -3064,7 +3058,7 @@ cmds: [
 
   'advanced/workdir-cli': {
     language: 'bash',
-    code: `invowk cmd build --workdir ./frontend`,
+    code: `invowk cmd build --invk-workdir ./frontend`,
   },
 
   'advanced/workdir-relative': {
@@ -3542,7 +3536,7 @@ This command is only available on the platforms listed above.`,
 'modules/quick-use': {
     language: 'bash',
     code: `# List commands (module commands appear automatically)
-invowk cmd --list
+invowk cmd
 
 # Run a module command
 invowk cmd mytools hello`,
@@ -4600,7 +4594,7 @@ invowk module deps
 invowk module sync
 
 # Check commands are available
-invowk cmd --list`,
+invowk cmd`,
   },
 
   // =============================================================================
@@ -4894,13 +4888,13 @@ container: {
   'config/cli-override-examples': {
     language: 'bash',
     code: `# Enable verbose output for a run
-invowk --verbose cmd build
+invowk --invk-verbose cmd build
 
 # Run command in interactive mode (alternate screen buffer)
-invowk --interactive cmd build
+invowk --invk-interactive cmd build
 
 # Override runtime for a command
-invowk cmd build --runtime container`,
+invowk cmd build --invk-runtime container`,
   },
 
   // =============================================================================
@@ -5449,10 +5443,10 @@ cmds: [
 invowk cmd build
 
 # Override to virtual
-invowk cmd build --runtime virtual
+invowk cmd build --invk-runtime virtual
 
 # Override to container
-invowk cmd build --runtime container`,
+invowk cmd build --invk-runtime container`,
   },
 
   'runtime-modes/list-output': {
@@ -6334,7 +6328,7 @@ fi`,
 
   'tui/filter-commands': {
     language: 'bash',
-    code: `CMD=$(invowk cmd --list 2>/dev/null | grep "^  " | invowk tui filter --title "Run command")
+    code: `CMD=$(invowk cmd 2>/dev/null | grep "^  " | invowk tui filter --title "Run command")
 # Extract command name and run it`,
   },
 
@@ -6815,8 +6809,7 @@ fi`,
   'cli/cmd-examples': {
     language: 'bash',
     code: `# List all available commands
-invowk cmd --list
-invowk cmd -l
+invowk cmd
 
 # Run a command
 invowk cmd build
@@ -6825,7 +6818,7 @@ invowk cmd build
 invowk cmd test unit
 
 # Run with a specific runtime
-invowk cmd build --runtime container
+invowk cmd build --invk-runtime container
 
 # Run with arguments
 invowk cmd greet -- "World"
@@ -6904,8 +6897,7 @@ invowk cmd [command-name] [flags] [-- args...]`,
   'reference/cli/cmd-examples': {
     language: 'bash',
     code: `# List all available commands
-invowk cmd --list
-invowk cmd -l
+invowk cmd
 
 # Run a command
 invowk cmd build
@@ -6914,7 +6906,7 @@ invowk cmd build
 invowk cmd test unit
 
 # Run with a specific runtime
-invowk cmd build --runtime container
+invowk cmd build --invk-runtime container
 
 # Run with arguments
 invowk cmd greet -- "World"
@@ -7193,7 +7185,7 @@ Your invkfile contains syntax errors or invalid configuration.
 - Check the error message above for the specific line/column
 - Validate your CUE syntax using the cue command-line tool
 - Run with verbose mode for more details:
-  $ invowk --verbose cmd --list`,
+  $ invowk --invk-verbose cmd`,
   },
 
   // =============================================================================
@@ -7357,10 +7349,10 @@ interpreter: "/usr/bin/env perl -w"`,
   'environment/env-inherit-cli': {
     language: 'bash',
     code: `invowk cmd examples hello \\
-  --env-inherit-mode allow \\
-  --env-inherit-allow TERM \\
-  --env-inherit-allow LANG \\
-  --env-inherit-deny AWS_SECRET_ACCESS_KEY`,
+  --invk-env-inherit-mode allow \\
+  --invk-env-inherit-allow TERM \\
+  --invk-env-inherit-allow LANG \\
+  --invk-env-inherit-deny AWS_SECRET_ACCESS_KEY`,
   },
 
   'reference/invkfile/enable-host-ssh-example': {
@@ -7899,7 +7891,7 @@ ui: {
     color_scheme: "auto"
     
     // Enable verbose output by default
-    // Same as always passing --verbose
+    // Same as always passing --invk-verbose
     verbose: false
 
     // Enable interactive mode by default
@@ -7997,10 +7989,7 @@ git diff HEAD~5 | invowk tui pager --title "Recent Changes"`,
   'interactive/basic-usage': {
     language: 'bash',
     code: `# Run a command in interactive mode
-invowk cmd build --interactive
-
-# Short form
-invowk cmd build -i`,
+invowk cmd build --invk-interactive`,
   },
 
   'interactive/config-enable': {
@@ -8014,16 +8003,16 @@ ui: {
   'interactive/use-cases': {
     language: 'bash',
     code: `# Commands with password prompts
-invowk cmd deploy --interactive
+invowk cmd deploy --invk-interactive
 
 # Commands with sudo
-invowk cmd system-update -i
+invowk cmd system-update --invk-interactive
 
 # SSH sessions
-invowk cmd remote-shell -i
+invowk cmd remote-shell --invk-interactive
 
 # Any command with interactive input
-invowk cmd database-cli -i`,
+invowk cmd database-cli --invk-interactive`,
   },
 
   'interactive/embedded-tui': {
@@ -8033,7 +8022,7 @@ invowk cmd database-cli -i`,
     description: "Setup with embedded TUI prompts"
     implementations: [{
         script: """
-            # When run with -i, TUI components appear as overlays
+            # When run with --invk-interactive, TUI components appear as overlays
             NAME=$(invowk tui input --title "Project name:")
             TYPE=$(invowk tui choose --title "Type:" api cli library)
             

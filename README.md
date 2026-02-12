@@ -22,7 +22,7 @@ A dynamically extensible, CLI-based command runner similar to [just](https://git
   2. User commands directory (`~/.invowk/cmds/`)
   3. Configured includes
 
-- **Transparent Namespace**: Commands from different sources use simple names when unique. When command names conflict across sources, use `@<source>` prefix or `--from` flag to disambiguate
+- **Transparent Namespace**: Commands from different sources use simple names when unique. When command names conflict across sources, use `@<source>` prefix or `--invk-from` flag to disambiguate
 
 - **Shell Completion**: Full tab completion support for bash, zsh, fish, and PowerShell
 
@@ -72,8 +72,6 @@ invowk init
 
 ```bash
 invowk cmd
-# or
-invowk cmd --list
 ```
 
 The list shows all commands grouped by source (invkfile or module) with allowed runtimes (default marked with `*`). Commands use their **simple names** - no module prefix is required when names are unique:
@@ -104,7 +102,7 @@ invowk cmd build
 
 ```bash
 # Use a non-default runtime (must be allowed by the command)
-invowk cmd build --runtime container
+invowk cmd build --invk-runtime container
 ```
 
 ## Invkfile Format
@@ -271,10 +269,10 @@ cmds: [
 ]
 ```
 
-You can also override the working directory at runtime with the `--workdir` / `-w` flag:
+You can also override the working directory at runtime with the `--invk-workdir` / `-w` flag:
 
 ```bash
-invowk cmd test --workdir=./packages/frontend
+invowk cmd test --invk-workdir=./packages/frontend
 ```
 
 ## Module Metadata (invkmod.cue)
@@ -328,7 +326,7 @@ invowk cmd test       # Runs test from testing.invkmod
 # Ambiguous commands require disambiguation (deploy exists in both sources)
 invowk cmd @invkfile deploy      # Using @source prefix
 invowk cmd @tools deploy         # Using @source prefix
-invowk cmd --from invkfile deploy  # Using --from flag
+invowk cmd --invk-from invkfile deploy  # Using --invk-from flag
 ```
 
 ### Command Disambiguation
@@ -342,10 +340,10 @@ invowk cmd @tools deploy              # Run deploy from tools.invkmod
 invowk cmd @tools.invkmod deploy      # Full name also works
 ```
 
-**Using `--from` flag** (must appear after `invowk cmd`):
+**Using `--invk-from` flag** (must appear after `invowk cmd`):
 ```bash
-invowk cmd --from invkfile deploy
-invowk cmd --from tools deploy
+invowk cmd --invk-from invkfile deploy
+invowk cmd --invk-from tools deploy
 ```
 
 If you try to run an ambiguous command without disambiguation, invowk shows an error with available sources:
@@ -353,7 +351,7 @@ If you try to run an ambiguous command without disambiguation, invowk shows an e
 Error: 'deploy' is ambiguous. Found in:
   - @invkfile: Deploy the application
   - @tools: Deploy to staging
-Use 'invowk cmd @<source> deploy' or 'invowk cmd --from <source> deploy'
+Use 'invowk cmd @<source> deploy' or 'invowk cmd --invk-from <source> deploy'
 ```
 
 ### Explicit Source for Non-Ambiguous Commands
@@ -417,7 +415,7 @@ depends_on: {
 
 ### Command Dependencies
 
-Require other invowk commands to be discoverable. Use the full command name as listed by `invowk cmd --list` (module prefix when applicable):
+Require other invowk commands to be discoverable. Use the full command name as listed by `invowk cmd` (module prefix when applicable):
 
 ```cue
 depends_on: {
@@ -674,6 +672,8 @@ cmds: [
 | `required` | No | If `true`, the flag must be provided (cannot have `default_value`) |
 | `short` | No | Single-letter alias (e.g., `v` for `-v` shorthand) |
 | `validation` | No | Regex pattern to validate flag values |
+
+> **Reserved prefixes:** The `invk-`, `invowk-`, and `i-` prefixes are reserved for system flags. Additionally, `help` and `version` are reserved built-in flag names.
 
 ### Typed Flags
 
@@ -1350,7 +1350,7 @@ cmds: [
 
 ### Command Listing
 
-When you run `invowk cmd --list`, the supported platforms are displayed for each command:
+When you run `invowk cmd`, the supported platforms are displayed for each command:
 
 ```
 Available Commands
@@ -1845,7 +1845,7 @@ When invowk discovers a module, it:
 - Resolves script paths relative to the module root
 - Makes all commands available with their module prefix
 
-Commands from modules appear in `invowk cmd --list` with the source indicated as "module":
+Commands from modules appear in `invowk cmd` with the source indicated as "module":
 
 ## Module Dependencies
 
@@ -2269,7 +2269,7 @@ invowk completion powershell >> $PROFILE
 
 ### List Commands
 ```bash
-invowk cmd --list
+invowk cmd
 ```
 
 ### Run a Command
@@ -2284,46 +2284,46 @@ invowk cmd test unit
 
 ### Override Runtime
 ```bash
-invowk cmd build --runtime virtual
+invowk cmd build --invk-runtime virtual
 ```
 
 ### Force Container Image Rebuild
 ```bash
-invowk cmd build --force-rebuild
+invowk cmd build --invk-force-rebuild
 ```
 
 ### Verbose Mode
 ```bash
-invowk --verbose cmd build
+invowk --invk-verbose cmd build
 ```
 
 ### Interactive Mode (Alternate Screen Buffer)
 ```bash
-invowk --interactive cmd build
+invowk --invk-interactive cmd build
 # or
 invowk -i cmd build
 ```
 
 ### Override Config File
 ```bash
-invowk --config /path/to/custom/config.cue cmd build
+invowk --invk-config /path/to/custom/config.cue cmd build
 ```
 
 ### Environment Overrides
 ```bash
 # Load additional env file at runtime
-invowk cmd deploy --env-file .env.production
+invowk cmd deploy --invk-env-file .env.production
 
 # Set an environment variable
-invowk cmd deploy --env-var API_KEY=secret123
+invowk cmd deploy --invk-env-var API_KEY=secret123
 
 # Control host environment inheritance
-invowk cmd build --env-inherit-mode allow --env-inherit-allow TERM --env-inherit-allow LANG
+invowk cmd build --invk-env-inherit-mode allow --invk-env-inherit-allow TERM --invk-env-inherit-allow LANG
 ```
 
 ### Override Working Directory
 ```bash
-invowk cmd test --workdir ./packages/api
+invowk cmd test --invk-workdir ./packages/api
 ```
 
 ## Interactive TUI Components

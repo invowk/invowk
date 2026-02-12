@@ -51,14 +51,14 @@ Toda implementação deve especificar pelo menos um runtime:
 
 <Snippet id="implementations/runtimes-list" />
 
-O **primeiro runtime** é o padrão. Usuários podem sobrescrever com `--runtime`:
+O **primeiro runtime** é o padrão. Usuários podem sobrescrever com `--invk-runtime`:
 
 ```bash
 # Usa o runtime padrão (primeiro da lista)
 invowk cmd myproject build
 
 # Sobrescreve para usar runtime container
-invowk cmd myproject build --runtime container
+invowk cmd myproject build --invk-runtime container
 ```
 
 Veja [Modos de Runtime](../runtime-modes/overview) para detalhes sobre cada runtime.
@@ -129,7 +129,7 @@ Estas sobrescrevem configurações do nível do comando quando esta implementaç
 Quando você executa um comando, o Invowk seleciona uma implementação baseado em:
 
 1. **Plataforma atual** - Filtra para implementações que suportam seu SO
-2. **Runtime solicitado** - Se `--runtime` especificado, usa esse; caso contrário usa o padrão
+2. **Runtime solicitado** - Se `--invk-runtime` especificado, usa esse; caso contrário usa o padrão
 3. **Primeiro match vence** - Usa a primeira implementação que corresponde a ambos os critérios
 
 ### Exemplos de Seleção
@@ -141,13 +141,13 @@ Dado este comando:
 | Plataforma | Comando | Selecionado |
 |------------|---------|-------------|
 | Linux | `invowk cmd myproject build` | Primeira impl, runtime native |
-| Linux | `invowk cmd myproject build --runtime virtual` | Primeira impl, runtime virtual |
+| Linux | `invowk cmd myproject build --invk-runtime virtual` | Primeira impl, runtime virtual |
 | Windows | `invowk cmd myproject build` | Segunda impl, runtime native |
-| Windows | `invowk cmd myproject build --runtime virtual` | Erro: nenhuma impl correspondente |
+| Windows | `invowk cmd myproject build --invk-runtime virtual` | Erro: nenhuma impl correspondente |
 
 ## Listagem de Comandos
 
-A saída de `invowk cmd --list` mostra runtimes e plataformas disponíveis:
+A saída de `invowk cmd` mostra runtimes e plataformas disponíveis:
 
 <Snippet id="implementations/list-output" />
 

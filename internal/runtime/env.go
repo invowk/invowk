@@ -22,7 +22,7 @@ type envInheritConfig struct {
 // resolveEnvInheritConfig applies the 3-level precedence chain to produce a final
 // inheritance config. Level 1: the caller-supplied defaultMode (runtime-specific default).
 // Level 2: the implementation's runtime config block (invkfile per-runtime overrides).
-// Level 3: CLI flag overrides from the execution context (--env-inherit-mode, etc.).
+// Level 3: CLI flag overrides from the execution context (--invk-env-inherit-mode, etc.).
 func resolveEnvInheritConfig(ctx *ExecutionContext, defaultMode invkfile.EnvInheritMode) envInheritConfig {
 	cfg := envInheritConfig{
 		mode: defaultMode,

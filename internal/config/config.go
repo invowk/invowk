@@ -114,7 +114,7 @@ func loadWithOptions(ctx context.Context, opts LoadOptions) (*Config, string, er
 
 	resolvedPath := ""
 
-	// If a custom config file path is set via --config flag, use it exclusively.
+	// If a custom config file path is set via --invk-config flag, use it exclusively.
 	if opts.ConfigFilePath != "" {
 		if !fileExists(opts.ConfigFilePath) {
 			return nil, "", issue.NewErrorContext().

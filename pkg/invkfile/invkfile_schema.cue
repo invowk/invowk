@@ -394,9 +394,8 @@ import "strings"
 	depends_on?: #DependsOn
 
 	// flags specifies command-line flags for this command (optional)
-	// Reserved system flags that cannot be used: env-file (e), env-var (E),
-	// env-inherit-mode, env-inherit-allow, env-inherit-deny, workdir (w),
-	// help (h), runtime (r), from, force-rebuild, list (l).
+	// The 'invk-', 'invowk-', and 'i-' prefixes are reserved for system flags and cannot be used.
+	// Reserved built-in flags: help (h), version.
 	flags?: [...#Flag]
 
 	// args specifies positional arguments for this command (optional)

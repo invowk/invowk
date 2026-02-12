@@ -28,11 +28,9 @@ type (
 	// cmdFlagValues holds the flag bindings for the `invowk cmd` subcommand.
 	// These correspond to persistent and local flags registered on the cmdCmd command.
 	cmdFlagValues struct {
-		// listFlag triggers command listing mode instead of execution.
-		listFlag bool
-		// runtimeOverride is the --runtime flag value (e.g., "container", "virtual").
+		// runtimeOverride is the --invk-runtime flag value (e.g., "container", "virtual").
 		runtimeOverride string
-		// fromSource is the --from flag value for source disambiguation.
+		// fromSource is the --invk-from flag value for source disambiguation.
 		fromSource string
 		// forceRebuild forces container image rebuilds, bypassing cache.
 		forceRebuild bool
@@ -66,7 +64,7 @@ type (
 	}
 
 	// SourceFilter represents a user-specified source constraint for disambiguation.
-	// Parsed from @source prefix in args or --from flag.
+	// Parsed from @source prefix in args or --invk-from flag.
 	SourceFilter struct {
 		// SourceID is the normalized source identifier (e.g., "invkfile", "foo").
 		SourceID string
@@ -106,16 +104,16 @@ Commands use their simple names when unique across sources. When a command
 name exists in multiple sources, disambiguation is required.
 
 Usage:
-  invowk cmd                              List all available commands
-  invowk cmd <command-name>               Execute a command (if unambiguous)
-  invowk cmd @<source> <command-name>     Disambiguate with @source prefix
-  invowk cmd --from <source> <command-name>  Disambiguate with --from flag
+  invowk cmd                                        List all available commands
+  invowk cmd <command-name>                         Execute a command (if unambiguous)
+  invowk cmd @<source> <command-name>               Disambiguate with @source prefix
+  invowk cmd --invk-from <source> <command-name>    Disambiguate with --invk-from flag
 
 Examples:
   invowk cmd build                        Run unique 'build' command
   invowk cmd @invkfile deploy             Run 'deploy' from invkfile
   invowk cmd @foo deploy                  Run 'deploy' from foo.invkmod
-  invowk cmd --from invkfile deploy       Same using --from flag`,
+  invowk cmd --invk-from invkfile deploy  Same using --invk-from flag`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Validate structural command constraints in runtime flow so
 			// dynamic registration failures do not break unrelated commands.
@@ -124,11 +122,11 @@ Examples:
 			}
 
 			// `invowk cmd` with no args behaves as command listing.
-			if cmdFlags.listFlag || len(args) == 0 {
+			if len(args) == 0 {
 				return listCommands(cmd, app, rootFlags)
 			}
 
-			// Parse source disambiguation from `--from` or `@source` prefix.
+			// Parse source disambiguation from `--invk-from` or `@source` prefix.
 			filter, remainingArgs, err := ParseSourceFilter(args, cmdFlags.fromSource)
 			if err != nil {
 				return err
@@ -159,10 +157,9 @@ Examples:
 		ValidArgsFunction: completeCommands(app, rootFlags),
 	}
 
-	cmdCmd.Flags().BoolVarP(&cmdFlags.listFlag, "list", "l", false, "list all available commands")
-	cmdCmd.PersistentFlags().StringVarP(&cmdFlags.runtimeOverride, "runtime", "r", "", "override the runtime (must be allowed by the command)")
-	cmdCmd.PersistentFlags().StringVar(&cmdFlags.fromSource, "from", "", "source to run command from (e.g., 'invkfile' or module name)")
-	cmdCmd.PersistentFlags().BoolVar(&cmdFlags.forceRebuild, "force-rebuild", false, "force rebuild of container images (container runtime only)")
+	cmdCmd.PersistentFlags().StringVarP(&cmdFlags.runtimeOverride, "invk-runtime", "r", "", "override the runtime (must be allowed by the command)")
+	cmdCmd.PersistentFlags().StringVarP(&cmdFlags.fromSource, "invk-from", "f", "", "source to run command from (e.g., 'invkfile' or module name)")
+	cmdCmd.PersistentFlags().BoolVar(&cmdFlags.forceRebuild, "invk-force-rebuild", false, "force rebuild of container images (container runtime only)")
 
 	// Build dynamic command leaves at construction time (instead of package init).
 	registerDiscoveredCommands(context.Background(), app, rootFlags, cmdFlags, cmdCmd)
@@ -210,12 +207,12 @@ func normalizeSourceName(raw string) string {
 	return name
 }
 
-// ParseSourceFilter extracts source filter from @prefix in args or --from flag.
-// --from takes precedence because Cobra parsed it explicitly as a named flag.
+// ParseSourceFilter extracts source filter from @prefix in args or --invk-from flag.
+// --invk-from takes precedence because Cobra parsed it explicitly as a named flag.
 // @source is only recognized as the first positional token to avoid ambiguity
 // with command arguments that happen to start with @.
 func ParseSourceFilter(args []string, fromFlag string) (*SourceFilter, []string, error) {
-	// `--from` takes precedence because Cobra parsed it explicitly.
+	// `--invk-from` takes precedence because Cobra parsed it explicitly.
 	if fromFlag != "" {
 		return &SourceFilter{SourceID: normalizeSourceName(fromFlag), Raw: fromFlag}, args, nil
 	}
@@ -231,7 +228,7 @@ func ParseSourceFilter(args []string, fromFlag string) (*SourceFilter, []string,
 
 // runCommand builds an ExecuteRequest from CLI arguments and delegates to
 // the CommandService. This is the default execution path when no source
-// disambiguation (@source / --from) is specified and no ambiguity is detected.
+// disambiguation (@source / --invk-from) is specified and no ambiguity is detected.
 func runCommand(cmd *cobra.Command, app *App, rootFlags *rootFlagValues, cmdFlags *cmdFlagValues, args []string) error {
 	if len(args) == 0 {
 		return fmt.Errorf("no command specified")
@@ -280,7 +277,7 @@ func executeRequest(cmd *cobra.Command, app *App, req ExecuteRequest) error {
 }
 
 // resolveUIFlags applies CLI-over-config precedence for verbose and interactive flags.
-// Explicitly set CLI flags (--verbose, --interactive) take priority over config values
+// Explicitly set CLI flags (--invk-verbose, --invk-interactive) take priority over config values
 // (ui.verbose, ui.interactive). Config values serve as defaults when flags are not set.
 func resolveUIFlags(ctx context.Context, app *App, cmd *cobra.Command, rootFlags *rootFlagValues) (verbose, interactive bool) {
 	verbose = rootFlags.verbose
@@ -293,11 +290,11 @@ func resolveUIFlags(ctx context.Context, app *App, cmd *cobra.Command, rootFlags
 	}
 
 	// CLI flags win over config values when explicitly set.
-	if !cmd.Root().PersistentFlags().Changed("verbose") {
+	if !cmd.Root().PersistentFlags().Changed("invk-verbose") {
 		verbose = cfg.UI.Verbose
 	}
 
-	if !cmd.Root().PersistentFlags().Changed("interactive") {
+	if !cmd.Root().PersistentFlags().Changed("invk-interactive") {
 		interactive = cfg.UI.Interactive
 	}
 

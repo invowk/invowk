@@ -1,5 +1,5 @@
 # Test: Container environment variable handling
-# Tests env vars from invkfile and CLI override via --env-var
+# Tests env vars from invkfile and CLI override via --invk-env-var
 
 # Skip if no functional container runtime is available
 [!container-available] skip 'no functional container runtime available'
@@ -17,11 +17,11 @@ stdout 'APP_ENV: development'
 stdout 'DEBUG: true'
 
 # Test 2: env-var CLI flag override
-exec invowk cmd show-env --env-var MY_VAR=from-cli
+exec invowk cmd show-env --invk-env-var MY_VAR=from-cli
 stdout 'MY_VAR: from-cli'
 
 # Test 3: env-var overrides invkfile env.vars
-exec invowk cmd show-env-with-default --env-var DEFAULT_VAR=overridden
+exec invowk cmd show-env-with-default --invk-env-var DEFAULT_VAR=overridden
 stdout 'DEFAULT_VAR: overridden'
 
 # Test 4: invkfile env.vars without override

@@ -75,7 +75,7 @@ invowk cmd build
 
 # Multiple sources define "deploy" → requires disambiguation
 invowk cmd @foo deploy      # Using @source prefix
-invowk cmd --from foo deploy  # Using --from flag
+invowk cmd --invk-from foo deploy  # Using --invk-from flag
 ```
 
 ### Hierarchical Tree Building
@@ -171,10 +171,10 @@ invowk cmd @foo deploy      # Run deploy from foo.invkmod
 invowk cmd @invkfile build  # Run build from invkfile.cue
 ```
 
-### --from Flag
+### --invk-from Flag
 
 ```bash
-invowk cmd --from foo deploy
+invowk cmd --invk-from foo deploy
 ```
 
 ### Source Name Normalization
@@ -239,17 +239,17 @@ Unified color palette (`styles.go`):
 ### Root Command (Persistent)
 
 ```go
---verbose, -v     // Enable verbose output
---config          // Custom config file path
---interactive, -i // Run in alternate screen buffer
+--invk-verbose, -v     // Enable verbose output
+--invk-config          // Custom config file path
+--invk-interactive, -i // Run in alternate screen buffer
 ```
 
 ### Cmd Command
 
 ```go
---runtime, -r     // Override runtime (must be allowed)
---from            // Specify source for disambiguation
---force-rebuild   // Force container image rebuild
+--invk-runtime, -r     // Override runtime (must be allowed)
+--invk-from            // Specify source for disambiguation
+--invk-force-rebuild   // Force container image rebuild
 ```
 
 ---
@@ -262,7 +262,7 @@ Flow from `root.go`:
 Execute()
     ↓
 cobra.OnInitialize(initRootConfig)
-    ├── Apply --config flag override
+    ├── Apply --invk-config flag override
     ├── Load config via config.Load()
     ├── Surface errors as warnings (non-fatal)
     ├── Apply verbose/interactive from config if not set via flags
@@ -323,7 +323,7 @@ files, err := disc.DiscoverAll()
 | Principle | Implementation |
 |-----------|----------------|
 | Transparent namespace | Users don't specify source for unambiguous commands |
-| Explicit disambiguation | Require @source or --from for ambiguous commands |
+| Explicit disambiguation | Require @source or --invk-from for ambiguous commands |
 | Platform-aware execution | Different runtimes, validation per platform |
 | Dual-layer TUI | Support standalone and server-delegated rendering |
 | Styled consistency | Unified color palette across all output |

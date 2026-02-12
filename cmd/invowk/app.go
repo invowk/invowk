@@ -50,23 +50,23 @@ type (
 		Args []string
 		// SourceFilter is the source filter string (deprecated, use FromSource).
 		SourceFilter string
-		// Runtime is the --runtime override (e.g., "container", "virtual").
+		// Runtime is the --invk-runtime override (e.g., "container", "virtual").
 		Runtime string
 		// Interactive enables alternate screen buffer with TUI server.
 		Interactive bool
 		// Verbose enables verbose diagnostic output.
 		Verbose bool
-		// FromSource is the --from flag value for source disambiguation.
+		// FromSource is the --invk-from flag value for source disambiguation.
 		FromSource string
 		// ForceRebuild forces container image rebuilds, bypassing cache.
 		ForceRebuild bool
 		// Workdir overrides the working directory for the command.
 		Workdir string
-		// EnvFiles are dotenv file paths from --env-file flags.
+		// EnvFiles are dotenv file paths from --invk-env-file flags.
 		EnvFiles []string
-		// EnvVars are KEY=VALUE pairs from --env-var flags (highest env priority).
+		// EnvVars are KEY=VALUE pairs from --invk-env-var flags (highest env priority).
 		EnvVars map[string]string
-		// ConfigPath is the explicit --config flag value.
+		// ConfigPath is the explicit --invk-config flag value.
 		ConfigPath string
 		// FlagValues are parsed flag values from Cobra state (key: flag name).
 		FlagValues map[string]string
@@ -156,7 +156,7 @@ func NewApp(deps Dependencies) (*App, error) {
 	}, nil
 }
 
-// contextWithConfigPath attaches the explicit --config value to the request context.
+// contextWithConfigPath attaches the explicit --invk-config value to the request context.
 // Discovery and execution services use this value to load configuration from the same
 // source as the originating Cobra command.
 func contextWithConfigPath(ctx context.Context, configPath string) context.Context {

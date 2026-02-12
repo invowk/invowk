@@ -27,8 +27,9 @@ type Command struct {
 	WorkDir string `json:"workdir,omitempty"`
 	// DependsOn specifies dependencies that must be satisfied before running
 	DependsOn *DependsOn `json:"depends_on,omitempty"`
-	// Flags specifies command-line flags for this command
-	// Note: 'env-file' (short 'e') and 'env-var' (short 'E') are reserved system flags and cannot be used.
+	// Flags specifies command-line flags for this command.
+	// Note: All flags starting with 'invk-', 'invowk-', or 'i-' are reserved for system use.
+	// Additionally, 'help' and 'version' are reserved built-in flags.
 	Flags []Flag `json:"flags,omitempty"`
 	// Args specifies positional arguments for this command
 	// Arguments are passed as environment variables: INVOWK_ARG_<NAME>

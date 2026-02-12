@@ -30,7 +30,7 @@ type rootFlagValues struct {
 	verbose bool
 	// interactive enables alternate screen buffer (interactive mode) for execution.
 	interactive bool
-	// configPath overrides the default config file location (--config flag).
+	// configPath overrides the default config file location (--invk-config flag).
 	configPath string
 }
 
@@ -61,9 +61,9 @@ be organized hierarchically with support for dependencies.
   invowk config show        Show current configuration`,
 	}
 
-	rootCmd.PersistentFlags().BoolVarP(&rootFlags.verbose, "verbose", "v", false, "enable verbose output")
-	rootCmd.PersistentFlags().StringVar(&rootFlags.configPath, "config", "", "config file (default is $HOME/.config/invowk/config.cue)")
-	rootCmd.PersistentFlags().BoolVarP(&rootFlags.interactive, "interactive", "i", false, "run commands in alternate screen buffer (interactive mode)")
+	rootCmd.PersistentFlags().BoolVarP(&rootFlags.verbose, "invk-verbose", "v", false, "enable verbose output")
+	rootCmd.PersistentFlags().StringVarP(&rootFlags.configPath, "invk-config", "c", "", "config file (default is $HOME/.config/invowk/config.cue)")
+	rootCmd.PersistentFlags().BoolVarP(&rootFlags.interactive, "invk-interactive", "i", false, "run commands in alternate screen buffer (interactive mode)")
 
 	rootCmd.AddCommand(newCmdCommand(app, rootFlags))
 	rootCmd.AddCommand(newInitCommand())

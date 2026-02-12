@@ -51,10 +51,10 @@ type (
 	EnvContext struct {
 		// ExtraEnv contains additional environment variables (INVOWK_FLAG_*, INVOWK_ARG_*, etc.)
 		ExtraEnv map[string]string
-		// RuntimeEnvVars contains env vars specified via --env-var flag.
+		// RuntimeEnvVars contains env vars specified via --invk-env-var flag.
 		// These are set last and override all other environment variables (highest priority).
 		RuntimeEnvVars map[string]string
-		// RuntimeEnvFiles contains dotenv file paths specified via --env-file flag.
+		// RuntimeEnvFiles contains dotenv file paths specified via --invk-env-file flag.
 		// These are loaded after all other env sources but before RuntimeEnvVars.
 		// Paths are relative to the current working directory where invowk was invoked.
 		RuntimeEnvFiles []string
@@ -87,7 +87,7 @@ type (
 	// SelectedRuntime and SelectedImpl are resolved together: SelectedImpl is the
 	// implementation matching SelectedRuntime + current platform. Both are populated
 	// by NewExecutionContext using the command's defaults and can be overridden by
-	// CLI flag processing (e.g., --runtime flag).
+	// CLI flag processing (e.g., --invk-runtime flag).
 	ExecutionContext struct {
 		// Command is the command to execute
 		Command *invkfile.Command

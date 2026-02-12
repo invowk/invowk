@@ -49,7 +49,7 @@ type (
 	}
 
 	// resolvedRuntime holds the runtime selection result after validating platform
-	// compatibility and applying any --runtime override.
+	// compatibility and applying any --invk-runtime override.
 	resolvedRuntime struct {
 		mode invkfile.RuntimeMode
 		impl *invkfile.Implementation
@@ -187,7 +187,7 @@ func (s *commandService) validateInputs(req ExecuteRequest, cmdInfo *discovery.C
 }
 
 // resolveRuntime determines the selected runtime and implementation for the current
-// platform. It validates any --runtime override against the command's compatibility
+// platform. It validates any --invk-runtime override against the command's compatibility
 // matrix and renders styled errors for invalid runtime overrides.
 func (s *commandService) resolveRuntime(req ExecuteRequest, cmdInfo *discovery.CommandInfo) (resolvedRuntime, error) {
 	currentPlatform := invkfile.GetCurrentHostOS()
@@ -267,7 +267,7 @@ func (s *commandService) buildExecContext(req ExecuteRequest, cmdInfo *discovery
 }
 
 // applyEnvInheritOverrides validates and applies env inheritance overrides from the
-// request (--env-inherit-mode, --env-inherit-allow, --env-inherit-deny) onto the
+// request (--invk-env-inherit-mode, --invk-env-inherit-allow, --invk-env-inherit-deny) onto the
 // execution context.
 func (s *commandService) applyEnvInheritOverrides(req ExecuteRequest, execCtx *runtime.ExecutionContext) error {
 	if req.EnvInheritMode != "" {

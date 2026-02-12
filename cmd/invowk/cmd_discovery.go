@@ -21,7 +21,7 @@ import (
 // (e.g., `invowk cmd build`), while ambiguous commands — those whose SimpleName appears
 // in multiple sources — are intentionally excluded from transparent registration. This
 // ensures ambiguous commands fail with a helpful disambiguation message rather than
-// silently picking one source. Ambiguous commands must be executed via @source or --from.
+// silently picking one source. Ambiguous commands must be executed via @source or --invk-from.
 func registerDiscoveredCommands(ctx context.Context, app *App, rootFlags *rootFlagValues, cmdFlags *cmdFlagValues, cmdCmd *cobra.Command) {
 	lookupCtx := contextWithConfigPath(ctx, rootFlags.configPath)
 	result, err := app.Discovery.DiscoverAndValidateCommandSet(lookupCtx)
@@ -77,7 +77,7 @@ func registerDiscoveredCommands(ctx context.Context, app *App, rootFlags *rootFl
 					Use:   part,
 					Short: fmt.Sprintf("Commands under '%s'", prefix),
 					RunE: func(cmd *cobra.Command, args []string) error {
-						fromFlag, _ := cmd.Flags().GetString("from")
+						fromFlag, _ := cmd.Flags().GetString("invk-from")
 						if fromFlag != "" {
 							// Preserve full path for longest-match disambiguation.
 							fullArgs := append(strings.Fields(parentPrefix), args...)
@@ -114,7 +114,7 @@ func registerDiscoveredCommands(ctx context.Context, app *App, rootFlags *rootFl
 // tree. It captures immutable discovery values (name, source, flags, args) in closures
 // so each command instance is self-contained. Flag definitions from the invkfile are
 // projected into Cobra flags with matching types, and at execution time flag values are
-// extracted and projected into INVOWK_FLAG_* env vars. When --from doesn't match the
+// extracted and projected into INVOWK_FLAG_* env vars. When --invk-from doesn't match the
 // registered source, the command re-routes through runDisambiguatedCommand.
 func buildLeafCommand(app *App, rootFlags *rootFlagValues, cmdFlags *cmdFlagValues, cmdInfo *discovery.CommandInfo, cmdPart string) *cobra.Command {
 	// Capture immutable values for closures created per discovered command.
@@ -131,7 +131,7 @@ func buildLeafCommand(app *App, rootFlags *rootFlagValues, cmdFlags *cmdFlagValu
 		Short: cmdInfo.Description,
 		Long:  fmt.Sprintf("Run the '%s' command from %s", cmdInfo.Name, cmdInfo.FilePath),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			fromFlag, _ := cmd.Flags().GetString("from")
+			fromFlag, _ := cmd.Flags().GetString("invk-from")
 			if fromFlag != "" {
 				filter := &SourceFilter{SourceID: normalizeSourceName(fromFlag), Raw: fromFlag}
 				// If Cobra routed to the wrong source-specific leaf, delegate to
@@ -174,13 +174,13 @@ func buildLeafCommand(app *App, rootFlags *rootFlagValues, cmdFlags *cmdFlagValu
 				}
 			}
 
-			envFiles, _ := cmd.Flags().GetStringArray("env-file")
-			envVarFlags, _ := cmd.Flags().GetStringArray("env-var")
+			envFiles, _ := cmd.Flags().GetStringArray("invk-env-file")
+			envVarFlags, _ := cmd.Flags().GetStringArray("invk-env-var")
 			envVars := parseEnvVarFlags(envVarFlags)
-			workdirOverride, _ := cmd.Flags().GetString("workdir")
-			envInheritMode, _ := cmd.Flags().GetString("env-inherit-mode")
-			envInheritAllow, _ := cmd.Flags().GetStringArray("env-inherit-allow")
-			envInheritDeny, _ := cmd.Flags().GetStringArray("env-inherit-deny")
+			workdirOverride, _ := cmd.Flags().GetString("invk-workdir")
+			envInheritMode, _ := cmd.Flags().GetString("invk-env-inherit-mode")
+			envInheritAllow, _ := cmd.Flags().GetStringArray("invk-env-inherit-allow")
+			envInheritDeny, _ := cmd.Flags().GetStringArray("invk-env-inherit-deny")
 
 			verbose, interactive := resolveUIFlags(cmd.Context(), app, cmd, rootFlags)
 			req := ExecuteRequest{
@@ -217,12 +217,12 @@ func buildLeafCommand(app *App, rootFlags *rootFlagValues, cmdFlags *cmdFlagValu
 	}
 
 	// Reserved runtime flags are injected for every discovered leaf.
-	newCmd.Flags().StringArrayP("env-file", "e", nil, "load environment variables from file(s) (can be specified multiple times)")
-	newCmd.Flags().StringArrayP("env-var", "E", nil, "set environment variable (KEY=VALUE, can be specified multiple times)")
-	newCmd.Flags().String("env-inherit-mode", "", "inherit host environment variables: none, allow, all (overrides runtime config)")
-	newCmd.Flags().StringArray("env-inherit-allow", nil, "allowlist for host environment inheritance (repeatable)")
-	newCmd.Flags().StringArray("env-inherit-deny", nil, "denylist for host environment inheritance (repeatable)")
-	newCmd.Flags().StringP("workdir", "w", "", "override the working directory for this command")
+	newCmd.Flags().StringArrayP("invk-env-file", "e", nil, "load environment variables from file(s) (can be specified multiple times)")
+	newCmd.Flags().StringArrayP("invk-env-var", "E", nil, "set environment variable (KEY=VALUE, can be specified multiple times)")
+	newCmd.Flags().String("invk-env-inherit-mode", "", "inherit host environment variables: none, allow, all (overrides runtime config)")
+	newCmd.Flags().StringArray("invk-env-inherit-allow", nil, "allowlist for host environment inheritance (repeatable)")
+	newCmd.Flags().StringArray("invk-env-inherit-deny", nil, "denylist for host environment inheritance (repeatable)")
+	newCmd.Flags().StringP("invk-workdir", "w", "", "override the working directory for this command")
 
 	if len(cmdArgs) > 0 {
 		newCmd.Long += "\n\nArguments:\n" + buildArgsDocumentation(cmdArgs)

@@ -41,7 +41,7 @@ func LoadEnvFile(env map[string]string, path, basePath string) error {
 }
 
 // LoadEnvFileFromCwd loads a dotenv file relative to the current working directory.
-// This is used for --env-file flag files specified at runtime.
+// This is used for --invk-env-file flag files specified at runtime.
 // Files suffixed with '?' are optional; missing optional files do not cause an error.
 func LoadEnvFileFromCwd(env map[string]string, path string) error {
 	optional := strings.HasSuffix(path, "?")
@@ -49,7 +49,7 @@ func LoadEnvFileFromCwd(env map[string]string, path string) error {
 		path = strings.TrimSuffix(path, "?")
 	}
 
-	// --env-file paths are relative to CWD (where invowk was invoked)
+	// --invk-env-file paths are relative to CWD (where invowk was invoked)
 	// If path is already absolute, use it as-is
 	var fullPath string
 	if filepath.IsAbs(path) {

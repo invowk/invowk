@@ -28,8 +28,8 @@ cd $WORK/typo_test
 stderr 'not found'
 stderr 'Available sources'
 
-# Test 3: Typo in --from flag shows helpful error
-! exec invowk cmd --from invkfil deploy
+# Test 3: Typo in --invk-from flag shows helpful error
+! exec invowk cmd --invk-from invkfil deploy
 stderr 'not found'
 stderr 'Available sources'
 

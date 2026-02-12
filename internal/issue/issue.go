@@ -68,7 +68,7 @@ $ invowk init
 - Or specify a different directory:
 ~~~
 $ cd /path/to/your/project
-$ invowk cmd list
+$ invowk cmd
 ~~~
 
 ## Example invkfile structure:
@@ -109,7 +109,7 @@ Your invkfile contains syntax errors or invalid configuration.
 - Validate your CUE syntax using the cue command-line tool
 - Run with verbose mode for more details:
 ~~~
-$ invowk --verbose cmd list
+$ invowk --invk-verbose cmd
 ~~~
 
 ## Example of valid command definition:
@@ -142,7 +142,7 @@ The command you specified was not found in any of the available invkfiles.
 ## Things you can try:
 - List all available commands:
 ~~~
-$ invowk cmd list
+$ invowk cmd
 ~~~
 
 - Check for typos in the command name
@@ -264,7 +264,7 @@ The command's script failed to execute properly.
 ## Things you can try:
 - Run with verbose mode for more details:
 ~~~
-$ invowk --verbose cmd <command>
+$ invowk --invk-verbose cmd <command>
 ~~~
 
 - Test the script manually in your shell
@@ -397,7 +397,7 @@ The command cannot run because some dependencies are not available.
 - Ensure referenced commands exist and are discoverable (invkfiles, modules, or configured includes)
 - List discovered commands to see what invowk can find:
 ~~~
-$ invowk cmd --list
+$ invowk cmd
 ~~~
 - Update your invkfile to remove unnecessary dependencies`,
 	}

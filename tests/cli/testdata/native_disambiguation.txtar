@@ -1,6 +1,6 @@
 # Test: Command disambiguation using native runtime (User Story 3)
 # Mirrors virtual_disambiguation.txtar but with platform-split native implementations
-# Tests @source prefix and --from flag for disambiguating ambiguous commands
+# Tests @source prefix and --invk-from flag for disambiguating ambiguous commands
 
 # Change to work directory where the test files will be created
 cd $WORK
@@ -15,13 +15,13 @@ exec invowk cmd @foo deploy
 stdout 'Deploying from foo!'
 ! stderr .
 
-# Test 3: --from flag disambiguation - run deploy from invkfile
-exec invowk cmd --from invkfile deploy
+# Test 3: --invk-from flag disambiguation - run deploy from invkfile
+exec invowk cmd --invk-from invkfile deploy
 stdout 'Deploying from invkfile!'
 ! stderr .
 
-# Test 4: --from flag disambiguation - run deploy from foo module
-exec invowk cmd --from foo deploy
+# Test 4: --invk-from flag disambiguation - run deploy from foo module
+exec invowk cmd --invk-from foo deploy
 stdout 'Deploying from foo!'
 ! stderr .
 
@@ -35,8 +35,8 @@ exec invowk cmd @invkfile.cue deploy
 stdout 'Deploying from invkfile!'
 ! stderr .
 
-# Test 7: --from with full module name
-exec invowk cmd --from foo.invkmod deploy
+# Test 7: --invk-from with full module name
+exec invowk cmd --invk-from foo.invkmod deploy
 stdout 'Deploying from foo!'
 ! stderr .
 
@@ -54,8 +54,8 @@ stdout 'Building from foo!'
 ! exec invowk cmd @nonexistent deploy
 stderr 'Source.*nonexistent.*not found'
 
-# Test 11: Invalid source with --from should show helpful error
-! exec invowk cmd --from badmodule deploy
+# Test 11: Invalid source with --invk-from should show helpful error
+! exec invowk cmd --invk-from badmodule deploy
 stderr 'Source.*badmodule.*not found'
 
 # Test 12: Attempting ambiguous command without disambiguation should fail with suggestions
@@ -78,13 +78,13 @@ exec invowk cmd @bar deploy staging
 stdout 'Deploying to staging from bar!'
 ! stderr .
 
-# Test 15: Subcommand disambiguation with --from flag
-exec invowk cmd --from invkfile deploy staging
+# Test 15: Subcommand disambiguation with --invk-from flag
+exec invowk cmd --invk-from invkfile deploy staging
 stdout 'Deploying to staging from invkfile!'
 ! stderr .
 
-# Test 16: Subcommand disambiguation with --from flag for module
-exec invowk cmd --from bar deploy staging
+# Test 16: Subcommand disambiguation with --invk-from flag for module
+exec invowk cmd --invk-from bar deploy staging
 stdout 'Deploying to staging from bar!'
 ! stderr .
 

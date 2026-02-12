@@ -325,7 +325,7 @@ func RenderRuntimeNotAllowedError(cmdName, selectedRuntime, allowedRuntimes stri
 	sb.WriteString(labelStyle.Render("Allowed runtimes: "))
 	sb.WriteString(valueStyle.Render(allowedRuntimes))
 	sb.WriteString("\n\n")
-	sb.WriteString(hintStyle.Render("Use one of the allowed runtimes with --runtime flag, or update the 'runtimes' setting in your invkfile."))
+	sb.WriteString(hintStyle.Render("Use one of the allowed runtimes with --invk-runtime flag, or update the 'runtimes' setting in your invkfile."))
 	sb.WriteString("\n")
 
 	return sb.String()
@@ -370,7 +370,7 @@ func RenderSourceNotFoundError(err *SourceNotFoundError) string {
 		sb.WriteString(valueStyle.Render("(none)"))
 	}
 	sb.WriteString("\n\n")
-	sb.WriteString(hintStyle.Render("Use @<source> or --from <source> with a valid source name."))
+	sb.WriteString(hintStyle.Render("Use @<source> or --invk-from <source> with a valid source name."))
 	sb.WriteString("\n")
 
 	return sb.String()
@@ -417,11 +417,11 @@ func RenderAmbiguousCommandError(err *AmbiguousCommandError) string {
 	if len(err.Sources) > 0 {
 		firstSource := err.Sources[0]
 		sb.WriteString(fmt.Sprintf("  invowk cmd %s %s\n", sourceStyle.Render("@"+firstSource), err.CommandName))
-		sb.WriteString(fmt.Sprintf("  invowk cmd %s %s %s\n", sourceStyle.Render("--from"), firstSource, err.CommandName))
+		sb.WriteString(fmt.Sprintf("  invowk cmd %s %s %s\n", sourceStyle.Render("--invk-from"), firstSource, err.CommandName))
 	}
 
 	sb.WriteString("\n")
-	sb.WriteString(hintStyle.Render("Use 'invowk cmd --list' to see all commands with their sources."))
+	sb.WriteString(hintStyle.Render("Use 'invowk cmd' to see all commands with their sources."))
 	sb.WriteString("\n")
 
 	return sb.String()

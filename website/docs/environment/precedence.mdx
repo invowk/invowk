@@ -14,8 +14,8 @@ From highest to lowest priority:
 
 | Priority | Source | Example |
 |----------|--------|---------|
-| 1 | CLI env vars | `--env-var KEY=value` |
-| 2 | CLI env files | `--env-file .env.local` |
+| 1 | CLI env vars | `--invk-env-var KEY=value` |
+| 2 | CLI env files | `--invk-env-file .env.local` |
 | 3 | Invowk vars | `INVOWK_FLAG_*`, `INVOWK_ARG_*` |
 | 4 | Implementation vars | `implementations[].env.vars` |
 | 5 | Command vars | `command.env.vars` |
@@ -70,7 +70,7 @@ And these files:
    - `INVOWK_FLAG_*`, `INVOWK_ARG_*` (if present)
 
 9. **Apply CLI overrides** (if provided):
-   - `--env-file` then `--env-var` (highest priority)
+   - `--invk-env-file` then `--invk-env-var` (highest priority)
 
 ### Final Result
 

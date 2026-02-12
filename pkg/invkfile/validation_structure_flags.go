@@ -8,31 +8,48 @@ var (
 	// flagNameRegex validates POSIX-compliant flag names.
 	flagNameRegex = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9_-]*$`)
 
+	// invkPrefixRegex matches flags starting with the reserved "invk-" prefix.
+	// The "invk-", "invowk-", and "i-" prefix namespaces are all reserved for system flags.
+	invkPrefixRegex = regexp.MustCompile(`^invk-`)
+
+	// invowkPrefixRegex matches flags starting with the reserved "invowk-" prefix.
+	invowkPrefixRegex = regexp.MustCompile(`^invowk-`)
+
+	// iPrefixRegex matches flags starting with the reserved "i-" prefix.
+	iPrefixRegex = regexp.MustCompile(`^i-`)
+
 	// reservedFlagNames maps system-reserved flag names to the long flag they belong to.
 	// User-defined flags with these names would conflict with flags injected by invowk
-	// at CLI construction time (leaf flags, parent persistent flags, and Cobra built-ins).
+	// at CLI construction time (leaf flags, parent persistent flags, and Cobra/fang built-ins).
+	// All invowk system flags use the "invk-" prefix except Cobra's "help" and fang's "version".
 	reservedFlagNames = map[string]string{
-		"env-file":          "env-file",
-		"env-var":           "env-var",
-		"env-inherit-mode":  "env-inherit-mode",
-		"env-inherit-allow": "env-inherit-allow",
-		"env-inherit-deny":  "env-inherit-deny",
-		"workdir":           "workdir",
-		"help":              "help",
-		"runtime":           "runtime",
-		"from":              "from",
-		"force-rebuild":     "force-rebuild",
-		"list":              "list",
+		"invk-env-file":          "invk-env-file",
+		"invk-env-var":           "invk-env-var",
+		"invk-env-inherit-mode":  "invk-env-inherit-mode",
+		"invk-env-inherit-allow": "invk-env-inherit-allow",
+		"invk-env-inherit-deny":  "invk-env-inherit-deny",
+		"invk-workdir":           "invk-workdir",
+		"invk-runtime":           "invk-runtime",
+		"invk-from":              "invk-from",
+		"invk-force-rebuild":     "invk-force-rebuild",
+		"invk-verbose":           "invk-verbose",
+		"invk-config":            "invk-config",
+		"invk-interactive":       "invk-interactive",
+		"help":                   "help",
+		"version":                "version",
 	}
 
 	// reservedShortAliases maps reserved single-letter short aliases to the long flag they belong to.
 	reservedShortAliases = map[string]string{
-		"e": "env-file",
-		"E": "env-var",
-		"w": "workdir",
+		"e": "invk-env-file",
+		"E": "invk-env-var",
+		"w": "invk-workdir",
 		"h": "help",
-		"r": "runtime",
-		"l": "list",
+		"r": "invk-runtime",
+		"v": "invk-verbose",
+		"i": "invk-interactive",
+		"c": "invk-config",
+		"f": "invk-from",
 	}
 )
 
@@ -119,6 +136,35 @@ func (v *StructureValidator) validateFlag(ctx *ValidationContext, cmd *Command, 
 		})
 	}
 	seenNames[flag.Name] = true
+
+	// Reject any flag starting with the reserved "invk-", "invowk-", or "i-" prefixes.
+	// These namespaces are reserved for system flags to prevent future conflicts.
+	if invkPrefixRegex.MatchString(flag.Name) {
+		errors = append(errors, ValidationError{
+			Validator: v.Name(),
+			Field:     path.String(),
+			Message:   "the 'invk-' prefix is reserved for system flags and cannot be used for user-defined flags in invkfile at " + ctx.FilePath,
+			Severity:  SeverityError,
+		})
+	}
+
+	if invowkPrefixRegex.MatchString(flag.Name) {
+		errors = append(errors, ValidationError{
+			Validator: v.Name(),
+			Field:     path.String(),
+			Message:   "the 'invowk-' prefix is reserved for system flags and cannot be used for user-defined flags in invkfile at " + ctx.FilePath,
+			Severity:  SeverityError,
+		})
+	}
+
+	if iPrefixRegex.MatchString(flag.Name) {
+		errors = append(errors, ValidationError{
+			Validator: v.Name(),
+			Field:     path.String(),
+			Message:   "the 'i-' prefix is reserved for system flags and cannot be used for user-defined flags in invkfile at " + ctx.FilePath,
+			Severity:  SeverityError,
+		})
+	}
 
 	// Check for reserved flag names
 	if longFlag, reserved := reservedFlagNames[flag.Name]; reserved {

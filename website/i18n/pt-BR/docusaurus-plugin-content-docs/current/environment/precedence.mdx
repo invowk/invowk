@@ -14,8 +14,8 @@ Da maior para a menor prioridade:
 
 | Prioridade | Fonte | Exemplo |
 |------------|-------|---------|
-| 1 | Vars da CLI | `--env-var KEY=value` |
-| 2 | Arquivos env da CLI | `--env-file .env.local` |
+| 1 | Vars da CLI | `--invk-env-var KEY=value` |
+| 2 | Arquivos env da CLI | `--invk-env-file .env.local` |
 | 3 | Vars do Invowk | `INVOWK_FLAG_*`, `INVOWK_ARG_*` |
 | 4 | Vars de implementação | `implementations[].env.vars` |
 | 5 | Vars de comando | `command.env.vars` |
@@ -70,7 +70,7 @@ E estes arquivos:
    - `INVOWK_FLAG_*`, `INVOWK_ARG_*` (se presentes)
 
 9. **Aplicar sobrescritas da CLI** (se fornecidas):
-   - `--env-file` e depois `--env-var` (maior prioridade)
+   - `--invk-env-file` e depois `--invk-env-var` (maior prioridade)
 
 ### Resultado Final
 

@@ -1335,13 +1335,13 @@ cmds: [
 					echo "=== Short Flag Aliases Demo ==="
 					echo ""
 					echo "These flags have short aliases:"
-					echo "  -v / --verbose = '$INVOWK_FLAG_VERBOSE'"
+					echo "  -V / --verbose = '$INVOWK_FLAG_VERBOSE'"
 					echo "  -o / --output = '$INVOWK_FLAG_OUTPUT'"
-					echo "  -f / --force = '$INVOWK_FLAG_FORCE'"
+					echo "  -F / --force = '$INVOWK_FLAG_FORCE'"
 					echo ""
 					echo "Short aliases make command-line usage more convenient."
 					echo ""
-					echo "Try: invowk cmd examples flags short -v -o=/tmp/out.txt -f"
+					echo "Try: invowk cmd examples flags short -V -o=/tmp/out.txt -F"
 					"""
 				runtimes:  [{name: "native"}, {name: "virtual"}]
 				platforms: [{name: "linux"}, {name: "macos"}]
@@ -1351,22 +1351,22 @@ cmds: [
 					echo "=== Short Flag Aliases Demo ==="
 					echo ""
 					echo "These flags have short aliases:"
-					echo "  -v / --verbose = '$INVOWK_FLAG_VERBOSE'"
+					echo "  -V / --verbose = '$INVOWK_FLAG_VERBOSE'"
 					echo "  -o / --output = '$INVOWK_FLAG_OUTPUT'"
-					echo "  -f / --force = '$INVOWK_FLAG_FORCE'"
+					echo "  -F / --force = '$INVOWK_FLAG_FORCE'"
 					echo ""
 					echo "Short aliases make command-line usage more convenient."
 					echo ""
-					echo "Try: invowk cmd examples flags short -v -o=/tmp/out.txt -f"
+					echo "Try: invowk cmd examples flags short -V -o=/tmp/out.txt -F"
 					"""
 				runtimes:  [{name: "virtual"}]
 				platforms: [{name: "windows"}]
 			},
 		]
 		flags: [
-			{name: "verbose", description: "Enable verbose output", type: "bool", short: "v", default_value: "false"},
+			{name: "verbose", description: "Enable verbose output", type: "bool", short: "V", default_value: "false"},
 			{name: "output", description: "Output file path", short: "o"},
-			{name: "force", description: "Force overwrite", type: "bool", short: "f", default_value: "false"},
+			{name: "force", description: "Force overwrite", type: "bool", short: "F", default_value: "false"},
 		]
 	},
 
@@ -1381,11 +1381,11 @@ cmds: [
 					echo ""
 					echo "These flags are validated against regex patterns:"
 					echo "  --env (dev|staging|prod) = '$INVOWK_FLAG_ENV'"
-					echo "  --version (semver) = '$INVOWK_FLAG_VERSION'"
+					echo "  --app-version (semver) = '$INVOWK_FLAG_APP_VERSION'"
 					echo ""
 					echo "Invalid values will be rejected before the command runs."
 					echo ""
-					echo "Try: invowk cmd examples flags validation --env=staging --version=1.2.3"
+					echo "Try: invowk cmd examples flags validation --env=staging --app-version=1.2.3"
 					"""
 				runtimes:  [{name: "native"}, {name: "virtual"}]
 				platforms: [{name: "linux"}, {name: "macos"}]
@@ -1396,11 +1396,11 @@ cmds: [
 					echo ""
 					echo "These flags are validated against regex patterns:"
 					echo "  --env (dev|staging|prod) = '$INVOWK_FLAG_ENV'"
-					echo "  --version (semver) = '$INVOWK_FLAG_VERSION'"
+					echo "  --app-version (semver) = '$INVOWK_FLAG_APP_VERSION'"
 					echo ""
 					echo "Invalid values will be rejected before the command runs."
 					echo ""
-					echo "Try: invowk cmd examples flags validation --env=staging --version=1.2.3"
+					echo "Try: invowk cmd examples flags validation --env=staging --app-version=1.2.3"
 					"""
 				runtimes:  [{name: "virtual"}]
 				platforms: [{name: "windows"}]
@@ -1408,7 +1408,7 @@ cmds: [
 		]
 		flags: [
 			{name: "env", description: "Environment (dev, staging, or prod)", validation: "^(dev|staging|prod)$", default_value: "dev"},
-			{name: "version", description: "Version number (semver format)", validation: #"^[0-9]+\.[0-9]+\.[0-9]+$"#, default_value: "1.0.0"},
+			{name: "app-version", description: "Version number (semver format)", validation: #"^[0-9]+\.[0-9]+\.[0-9]+$"#, default_value: "1.0.0"},
 		]
 	},
 
@@ -1898,8 +1898,8 @@ cmds: [
 			{name: "destination", description: "Destination directory", required: true},
 		]
 		flags: [
-			{name: "verbose", description: "Enable verbose output", type: "bool", short: "v", default_value: "false"},
-			{name: "force", description: "Force overwrite", type: "bool", short: "f", default_value: "false"},
+			{name: "verbose", description: "Enable verbose output", type: "bool", short: "V", default_value: "false"},
+			{name: "force", description: "Force overwrite", type: "bool", short: "F", default_value: "false"},
 			{name: "backup", description: "Create backup before overwriting", type: "bool", short: "b", default_value: "false"},
 		]
 	},

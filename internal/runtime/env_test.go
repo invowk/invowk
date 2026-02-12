@@ -533,11 +533,11 @@ func TestBuildRuntimeEnv_EnvVars(t *testing.T) {
 	}
 }
 
-// TestBuildRuntimeEnv_RuntimeFlags tests --env-file and --env-var flag handling.
+// TestBuildRuntimeEnv_RuntimeFlags tests --invk-env-file and --invk-env-var flag handling.
 func TestBuildRuntimeEnv_RuntimeFlags(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	// Create runtime env file (loaded via --env-file flag)
+	// Create runtime env file (loaded via --invk-env-file flag)
 	createEnvFile(t, tmpDir, "flag.env", "FLAG_FILE_VAR=from_flag_file\nSHARED=flag_file")
 
 	// Change to tmpDir so relative path works
@@ -564,9 +564,9 @@ func TestBuildRuntimeEnv_RuntimeFlags(t *testing.T) {
 		t.Errorf("FLAG_VAR = %q, want %q", got, "from_flag_var")
 	}
 
-	// --env-var takes precedence over --env-file
+	// --invk-env-var takes precedence over --invk-env-file
 	if got := env["SHARED"]; got != "flag_var_wins" {
-		t.Errorf("SHARED = %q, want %q (--env-var should override --env-file)", got, "flag_var_wins")
+		t.Errorf("SHARED = %q, want %q (--invk-env-var should override --invk-env-file)", got, "flag_var_wins")
 	}
 }
 

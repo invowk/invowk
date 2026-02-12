@@ -281,7 +281,7 @@ cmdInfo, err := disc.GetCommand("foo build")
 | Pitfall | Symptom | Fix |
 |---------|---------|-----|
 | Expecting transitive deps | Command can't call dep-of-dep | Add explicit first-level requirement |
-| Forgetting disambiguation | "ambiguous command" error | Use `@source` prefix or `--from` flag |
+| Forgetting disambiguation | "ambiguous command" error | Use `@source` prefix or `--invk-from` flag |
 | Args + subcommands together | ArgsSubcommandConflictError | Make args-only or subcommands-only |
 | Testing non-module shadowing | Later source visible | Only first non-module source wins |
 | Module with reserved name "invkfile" | Module silently skipped | Use different module name |

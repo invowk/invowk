@@ -51,7 +51,7 @@ function HomepageHeader() {
 {`$ invowk init
 Created invkfile.cue
 
-$ invowk cmd --list
+$ invowk cmd
 Available Commands
   myproject build - Build the project [native*]
   myproject test unit - Run unit tests [native*, virtual]

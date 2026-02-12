@@ -410,7 +410,7 @@ func buildContainerError(engine string, opts BuildOptions, cause error) error {
 	ctx.WithSuggestion("Check Dockerfile syntax for errors")
 	ctx.WithSuggestion("Verify the build context path exists and is accessible")
 	ctx.WithSuggestion("Ensure base images are available (try: " + engine + " pull <base-image>)")
-	ctx.WithSuggestion("Run with --verbose to see full build output")
+	ctx.WithSuggestion("Run with --invk-verbose to see full build output")
 
 	return ctx.Wrap(cause).BuildError()
 }
@@ -424,7 +424,7 @@ func runContainerError(engine string, opts RunOptions, cause error) error {
 	ctx.WithSuggestion("Verify the image exists (try: " + engine + " images)")
 	ctx.WithSuggestion("Check that volume mount paths exist on the host")
 	ctx.WithSuggestion("Ensure port mappings don't conflict with running services")
-	ctx.WithSuggestion("Run with --verbose to see full container output")
+	ctx.WithSuggestion("Run with --invk-verbose to see full container output")
 
 	return ctx.Wrap(cause).BuildError()
 }

@@ -21,8 +21,8 @@ import (
 //  6. Command-level env.vars
 //  7. Implementation-level env.vars
 //  8. ExtraEnv (INVOWK_FLAG_*, INVOWK_ARG_*, ARGn, ARGC)
-//  9. RuntimeEnvFiles (--env-file flag)
-//  10. RuntimeEnvVars (--env-var flag) - HIGHEST priority
+//  9. RuntimeEnvFiles (--invk-env-file flag)
+//  10. RuntimeEnvVars (--invk-env-var flag) - HIGHEST priority
 func TestBuildRuntimeEnv_PairwisePrecedence(t *testing.T) {
 	tmpDir := t.TempDir()
 

@@ -325,7 +325,7 @@ func (r *NativeRuntime) shellNotFoundError(attempted []string) error {
 		ctx.WithSuggestion("Or install bash: apt install bash (Debian/Ubuntu) or dnf install bash (Fedora)")
 	}
 
-	ctx.WithSuggestion("Alternatively, use the virtual runtime: invowk cmd <command> --runtime virtual")
+	ctx.WithSuggestion("Alternatively, use the virtual runtime: invowk cmd <command> --invk-runtime virtual")
 
 	return ctx.Wrap(fmt.Errorf("no shell found in PATH")).BuildError()
 }

@@ -101,7 +101,7 @@ cmds: [
 			}
 		]
 		flags: [
-			{name: "verbose", description: "Enable verbose output", short: "v"},
+			{name: "verbose", description: "Enable verbose output", short: "x"},
 			{name: "quiet", description: "Quiet mode", short: "q"},
 		]
 	}
@@ -119,8 +119,8 @@ cmds: [
 	}
 
 	flags := inv.Commands[0].Flags
-	if flags[0].Short != "v" {
-		t.Errorf("Flag[0].Short = %q, want %q", flags[0].Short, "v")
+	if flags[0].Short != "x" {
+		t.Errorf("Flag[0].Short = %q, want %q", flags[0].Short, "x")
 	}
 	if flags[1].Short != "q" {
 		t.Errorf("Flag[1].Short = %q, want %q", flags[1].Short, "q")
@@ -194,8 +194,8 @@ cmds: [
 			}
 		]
 		flags: [
-			{name: "verbose", description: "Enable verbose output", short: "v"},
-			{name: "version", description: "Show version", short: "v"},
+			{name: "verbose", description: "Enable verbose output", short: "x"},
+			{name: "version", description: "Show version", short: "x"},
 		]
 	}
 ]
@@ -219,7 +219,7 @@ cmds: [
 // Tests for Reserved Flag Names and Short Aliases
 // ============================================================================
 
-func TestValidateFlags_ReservedEnvFileName(t *testing.T) {
+func TestValidateFlags_ReservedInvkEnvFileName(t *testing.T) {
 	t.Parallel()
 
 	cueContent := `
@@ -234,7 +234,7 @@ cmds: [
 			}
 		]
 		flags: [
-			{name: "env-file", description: "This should fail - reserved flag name"}
+			{name: "invk-env-file", description: "This should fail - reserved flag name"}
 		]
 	}
 ]
@@ -247,7 +247,7 @@ cmds: [
 
 	_, err := Parse(invkfilePath)
 	if err == nil {
-		t.Fatal("Parse() should fail for reserved flag name 'env-file', got nil error")
+		t.Fatal("Parse() should fail for reserved flag name 'invk-env-file', got nil error")
 	}
 
 	if !strings.Contains(err.Error(), "reserved") {
@@ -289,14 +289,18 @@ cmds: [
 	if !strings.Contains(err.Error(), "reserved") {
 		t.Errorf("Error should mention 'reserved', got: %v", err)
 	}
+	if !strings.Contains(err.Error(), "invk-env-file") {
+		t.Errorf("Error should mention 'invk-env-file', got: %v", err)
+	}
 }
 
 func TestValidateFlags_ReservedFlagNames(t *testing.T) {
 	t.Parallel()
 
 	reservedNames := []string{
-		"env-inherit-mode", "env-inherit-allow", "env-inherit-deny",
-		"workdir", "help", "runtime", "from", "force-rebuild", "list",
+		"invk-env-inherit-mode", "invk-env-inherit-allow", "invk-env-inherit-deny",
+		"invk-workdir", "help", "invk-runtime", "invk-from", "invk-force-rebuild",
+		"version", "invk-verbose", "invk-config", "invk-interactive",
 	}
 
 	for _, name := range reservedNames {
@@ -345,10 +349,13 @@ func TestValidateFlags_ReservedShortAliases(t *testing.T) {
 		short    string
 		longFlag string
 	}{
-		{"w", "workdir"},
+		{"w", "invk-workdir"},
 		{"h", "help"},
-		{"r", "runtime"},
-		{"l", "list"},
+		{"r", "invk-runtime"},
+		{"v", "invk-verbose"},
+		{"i", "invk-interactive"},
+		{"c", "invk-config"},
+		{"f", "invk-from"},
 	}
 
 	for _, tc := range reservedShorts {
@@ -388,6 +395,151 @@ cmds: [
 			}
 			if !strings.Contains(err.Error(), tc.longFlag) {
 				t.Errorf("Error should mention the long flag '--%s', got: %v", tc.longFlag, err)
+			}
+		})
+	}
+}
+
+func TestValidateFlags_InvkPrefixReserved(t *testing.T) {
+	t.Parallel()
+
+	// Any flag starting with "invk-" should be rejected, even if not an existing system flag.
+	prefixedNames := []string{
+		"invk-foobar",
+		"invk-custom",
+		"invk-my-flag",
+	}
+
+	for _, name := range prefixedNames {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			cueContent := fmt.Sprintf(`
+cmds: [
+	{
+		name: "deploy"
+		implementations: [
+			{
+				script: "echo deploying"
+				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}]
+			}
+		]
+		flags: [
+			{name: "%s", description: "This should fail - invk- prefix is reserved"}
+		]
+	}
+]
+`, name)
+			tmpDir := t.TempDir()
+			invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+			if writeErr := os.WriteFile(invkfilePath, []byte(cueContent), 0o644); writeErr != nil {
+				t.Fatalf("Failed to write invkfile: %v", writeErr)
+			}
+
+			_, err := Parse(invkfilePath)
+			if err == nil {
+				t.Fatalf("Parse() should fail for invk- prefixed flag name %q, got nil error", name)
+			}
+
+			if !strings.Contains(err.Error(), "invk-") {
+				t.Errorf("Error should mention 'invk-' prefix, got: %v", err)
+			}
+		})
+	}
+}
+
+func TestValidateFlags_InvowkPrefixReserved(t *testing.T) {
+	t.Parallel()
+
+	// Any flag starting with "invowk-" should be rejected.
+	prefixedNames := []string{
+		"invowk-foobar",
+		"invowk-custom",
+	}
+
+	for _, name := range prefixedNames {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			cueContent := fmt.Sprintf(`
+cmds: [
+	{
+		name: "deploy"
+		implementations: [
+			{
+				script: "echo deploying"
+				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}]
+			}
+		]
+		flags: [
+			{name: "%s", description: "This should fail - invowk- prefix is reserved"}
+		]
+	}
+]
+`, name)
+			tmpDir := t.TempDir()
+			invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+			if writeErr := os.WriteFile(invkfilePath, []byte(cueContent), 0o644); writeErr != nil {
+				t.Fatalf("Failed to write invkfile: %v", writeErr)
+			}
+
+			_, err := Parse(invkfilePath)
+			if err == nil {
+				t.Fatalf("Parse() should fail for invowk- prefixed flag name %q, got nil error", name)
+			}
+
+			if !strings.Contains(err.Error(), "invowk-") {
+				t.Errorf("Error should mention 'invowk-' prefix, got: %v", err)
+			}
+		})
+	}
+}
+
+func TestValidateFlags_IPrefixReserved(t *testing.T) {
+	t.Parallel()
+
+	// Any flag starting with "i-" should be rejected.
+	prefixedNames := []string{
+		"i-foobar",
+		"i-custom",
+	}
+
+	for _, name := range prefixedNames {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			cueContent := fmt.Sprintf(`
+cmds: [
+	{
+		name: "deploy"
+		implementations: [
+			{
+				script: "echo deploying"
+				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}]
+			}
+		]
+		flags: [
+			{name: "%s", description: "This should fail - i- prefix is reserved"}
+		]
+	}
+]
+`, name)
+			tmpDir := t.TempDir()
+			invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+			if writeErr := os.WriteFile(invkfilePath, []byte(cueContent), 0o644); writeErr != nil {
+				t.Fatalf("Failed to write invkfile: %v", writeErr)
+			}
+
+			_, err := Parse(invkfilePath)
+			if err == nil {
+				t.Fatalf("Parse() should fail for i- prefixed flag name %q, got nil error", name)
+			}
+
+			if !strings.Contains(err.Error(), "i-") {
+				t.Errorf("Error should mention 'i-' prefix, got: %v", err)
 			}
 		})
 	}

@@ -51,14 +51,14 @@ Every implementation must specify at least one runtime:
 
 <Snippet id="implementations/runtimes-list" />
 
-The **first runtime** is the default. Users can override with `--runtime`:
+The **first runtime** is the default. Users can override with `--invk-runtime`:
 
 ```bash
 # Uses default runtime (first in list)
 invowk cmd myproject build
 
 # Override to use container runtime
-invowk cmd myproject build --runtime container
+invowk cmd myproject build --invk-runtime container
 ```
 
 See [Runtime Modes](../runtime-modes/overview) for details on each runtime.
@@ -129,7 +129,7 @@ These override command-level settings when this implementation is selected.
 When you run a command, Invowk selects an implementation based on:
 
 1. **Current platform** - Filters to implementations supporting your OS
-2. **Requested runtime** - If `--runtime` specified, uses that; otherwise uses the default
+2. **Requested runtime** - If `--invk-runtime` specified, uses that; otherwise uses the default
 3. **First match wins** - Uses the first implementation matching both criteria
 
 ### Selection Examples
@@ -141,13 +141,13 @@ Given this command:
 | Platform | Command | Selected |
 |----------|---------|----------|
 | Linux | `invowk cmd myproject build` | First impl, native runtime |
-| Linux | `invowk cmd myproject build --runtime virtual` | First impl, virtual runtime |
+| Linux | `invowk cmd myproject build --invk-runtime virtual` | First impl, virtual runtime |
 | Windows | `invowk cmd myproject build` | Second impl, native runtime |
-| Windows | `invowk cmd myproject build --runtime virtual` | Error: no matching impl |
+| Windows | `invowk cmd myproject build --invk-runtime virtual` | Error: no matching impl |
 
 ## Command Listing
 
-The `invowk cmd --list` output shows available runtimes and platforms:
+The `invowk cmd` output shows available runtimes and platforms:
 
 <Snippet id="implementations/list-output" />
 

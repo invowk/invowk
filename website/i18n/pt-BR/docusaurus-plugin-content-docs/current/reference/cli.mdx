@@ -15,8 +15,8 @@ Estas flags estão disponíveis para todos os comandos:
 | Flag | Curta | Descrição |
 |------|-------|-----------|
 | `--help` | `-h` | Mostrar ajuda para o comando |
-| `--interactive` | `-i` | Executar comandos em buffer de tela alternativo (modo interativo) |
-| `--verbose` | `-v` | Habilitar saída verbose |
+| `--invk-interactive` | `-i` | Executar comandos em buffer de tela alternativo (modo interativo) |
+| `--invk-verbose` | `-v` | Habilitar saída verbose |
 | `--version` | | Mostrar informação de versão |
 
 ## Comandos
@@ -39,19 +39,22 @@ Executar comandos definidos em invkfiles.
 
 | Flag | Curta | Descrição |
 |------|-------|-----------|
-| `--list` | `-l` | Listar todos os comandos disponíveis |
-| `--runtime` | `-r` | Sobrescrever o runtime (deve ser permitido pelo comando) |
+| `--invk-runtime` | `-r` | Sobrescrever o runtime (deve ser permitido pelo comando) |
 
 Flags embutidas por comando:
 
 | Flag | Curta | Descrição |
 |------|-------|-----------|
-| `--env-file` | `-e` | Carregar variáveis de ambiente de arquivo (repetível) |
-| `--env-var` | `-E` | Definir variável de ambiente (KEY=VALUE, repetível) |
-| `--env-inherit-mode` |  | Herdar variáveis do host: `none`, `allow`, `all` |
-| `--env-inherit-allow` |  | Allowlist de variáveis do host (repetível) |
-| `--env-inherit-deny` |  | Denylist de variáveis do host (repetível) |
-| `--workdir` | `-w` | Sobrescrever diretório de trabalho do comando |
+| `--invk-env-file` | `-e` | Carregar variáveis de ambiente de arquivo (repetível) |
+| `--invk-env-var` | `-E` | Definir variável de ambiente (KEY=VALUE, repetível) |
+| `--invk-env-inherit-mode` |  | Herdar variáveis do host: `none`, `allow`, `all` |
+| `--invk-env-inherit-allow` |  | Allowlist de variáveis do host (repetível) |
+| `--invk-env-inherit-deny` |  | Denylist de variáveis do host (repetível) |
+| `--invk-workdir` | `-w` | Sobrescrever diretório de trabalho do comando |
+
+:::note
+Os prefixos `invk-`, `invowk-` e `i-` são reservados para flags do sistema e não podem ser usados para flags definidas pelo usuário.
+:::
 
 **Exemplos:**
 
@@ -539,7 +542,7 @@ Quando um invkfile é encontrado mas contém erros de sintaxe ou configuração 
 **Soluções:**
 - Verifique a mensagem de erro específica exibida acima do texto de ajuda
 - Valide sua sintaxe CUE: `cue vet invkfile.cue`
-- Rode com modo verbose: `invowk --verbose cmd --list`
+- Rode com modo verbose: `invowk --invk-verbose cmd`
 - Compare com a [referência de schema do invkfile](./invkfile-schema)
 
 :::tip

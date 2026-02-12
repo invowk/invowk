@@ -43,7 +43,7 @@ func (e *EnvConfig) GetVars() map[string]string {
 // [CUE-REDUNDANT] For invkfile parsing, this is also validated in CUE schema:
 // env_inherit_allow?: [...string & =~"^[A-Za-z_][A-Za-z0-9_]*$"]
 // [GO-REQUIRED] This function is also called from CLI code (cmd_execute.go)
-// to validate user-provided --env-var flags, which don't go through CUE.
+// to validate user-provided --invk-env-var flags, which don't go through CUE.
 // Therefore, this Go validation MUST be kept.
 func ValidateEnvVarName(name string) error {
 	if strings.TrimSpace(name) == "" {

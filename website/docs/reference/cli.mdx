@@ -15,8 +15,8 @@ These flags are available for all commands:
 | Flag | Short | Description |
 |------|-------|-------------|
 | `--help` | `-h` | Show help for the command |
-| `--interactive` | `-i` | Run commands in alternate screen buffer (interactive mode) |
-| `--verbose` | `-v` | Enable verbose output |
+| `--invk-interactive` | `-i` | Run commands in alternate screen buffer (interactive mode) |
+| `--invk-verbose` | `-v` | Enable verbose output |
 | `--version` | | Show version information |
 
 ## Commands
@@ -39,20 +39,23 @@ Execute commands defined in invkfiles.
 
 | Flag | Short | Description |
 |------|-------|-------------|
-| `--list` | `-l` | List all available commands |
-| `--runtime` | `-r` | Override the runtime (must be allowed by the command) |
-| `--from` | | Source to run command from (e.g., 'invkfile' or module name) |
+| `--invk-runtime` | `-r` | Override the runtime (must be allowed by the command) |
+| `--invk-from` | | Source to run command from (e.g., 'invkfile' or module name) |
 
 Built-in per-command flags:
 
 | Flag | Short | Description |
 |------|-------|-------------|
-| `--env-file` | `-e` | Load environment variables from file (repeatable) |
-| `--env-var` | `-E` | Set environment variable (KEY=VALUE, repeatable) |
-| `--env-inherit-mode` |  | Inherit host environment variables: `none`, `allow`, `all` |
-| `--env-inherit-allow` |  | Allowlist host env vars to inherit (repeatable) |
-| `--env-inherit-deny` |  | Denylist host env vars to inherit (repeatable) |
-| `--workdir` | `-w` | Override working directory for this command |
+| `--invk-env-file` | `-e` | Load environment variables from file (repeatable) |
+| `--invk-env-var` | `-E` | Set environment variable (KEY=VALUE, repeatable) |
+| `--invk-env-inherit-mode` |  | Inherit host environment variables: `none`, `allow`, `all` |
+| `--invk-env-inherit-allow` |  | Allowlist host env vars to inherit (repeatable) |
+| `--invk-env-inherit-deny` |  | Denylist host env vars to inherit (repeatable) |
+| `--invk-workdir` | `-w` | Override working directory for this command |
+
+:::note
+The `invk-`, `invowk-`, and `i-` prefixes are reserved for system flags and cannot be used for user-defined flags.
+:::
 
 **Examples:**
 
@@ -76,16 +79,16 @@ invowk cmd @tools deploy         # Run deploy from tools.invkmod
 invowk cmd @tools.invkmod deploy # Full module name also works
 ```
 
-Using `--from` flag:
+Using `--invk-from` flag:
 ```bash
-invowk cmd --from invkfile deploy
-invowk cmd --from tools deploy
+invowk cmd --invk-from invkfile deploy
+invowk cmd --invk-from tools deploy
 ```
 
 If you run an ambiguous command without disambiguation, invowk shows an error listing available sources.
 
 :::tip
-You can use `@source` or `--from` even for unique command names to be explicit about where a command comes from.
+You can use `@source` or `--invk-from` even for unique command names to be explicit about where a command comes from.
 :::
 
 ---
@@ -563,7 +566,7 @@ When an invkfile is found but contains syntax errors or invalid configuration:
 **Solutions:**
 - Check the specific error message shown above the help text
 - Validate your CUE syntax: `cue vet invkfile.cue`
-- Run with verbose mode: `invowk --verbose cmd --list`
+- Run with verbose mode: `invowk --invk-verbose cmd`
 - Compare against the [invkfile schema reference](./invkfile-schema)
 
 :::tip

@@ -110,19 +110,18 @@ Flags can appear anywhere on the command line:
 
 Some flag names are reserved by Invowk™:
 
-- `env-file` / `-e` - Load environment from file
-- `env-var` / `-E` - Set environment variable
-- `env-inherit-mode` - Inherit host environment variables
-- `env-inherit-allow` - Allowlist host env vars to inherit
-- `env-inherit-deny` - Denylist host env vars to inherit
-- `workdir` / `-w` - Override working directory
+- `invk-env-file` / `-e` - Load environment from file
+- `invk-env-var` / `-E` - Set environment variable
+- `invk-env-inherit-mode` - Inherit host environment variables
+- `invk-env-inherit-allow` - Allowlist host env vars to inherit
+- `invk-env-inherit-deny` - Denylist host env vars to inherit
+- `invk-workdir` / `-w` - Override working directory
 - `help` / `-h` - Show help
-- `runtime` / `-r` - Override runtime
-- `from` - Override container image
-- `force-rebuild` - Force container rebuild
-- `list` / `-l` - List available commands
+- `invk-runtime` / `-r` - Override runtime
+- `invk-from` - Override container image
+- `invk-force-rebuild` - Force container rebuild
 
-Don't use these names for your flags.
+Additionally, the `invk-`, `invowk-`, and `i-` prefixes are reserved for system flags. Don't use these prefixes or names for your flags.
 
 ## Help Output
 
