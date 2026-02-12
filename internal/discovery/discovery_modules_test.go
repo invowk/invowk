@@ -381,6 +381,67 @@ func TestLoadFirst_LoadsModule(t *testing.T) {
 	}
 }
 
+func TestDiscoverAll_ConfigIncludesPrecedeUserDir(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create a config-include module
+	configModuleDir := filepath.Join(tmpDir, "custom-path", "configmod.invkmod")
+	createValidDiscoveryModule(t, configModuleDir, "configmod", "config-cmd")
+
+	// Create a user-dir module
+	userCmdsDir := filepath.Join(tmpDir, ".invowk", "cmds")
+	userModuleDir := filepath.Join(userCmdsDir, "usermod.invkmod")
+	createValidDiscoveryModule(t, userModuleDir, "usermod", "user-cmd")
+
+	// Create an empty working directory
+	workDir := filepath.Join(tmpDir, "work")
+	if err := os.MkdirAll(workDir, 0o755); err != nil {
+		t.Fatalf("failed to create work dir: %v", err)
+	}
+
+	restoreWd := testutil.MustChdir(t, workDir)
+	defer restoreWd()
+
+	cleanupHome := testutil.SetHomeDir(t, tmpDir)
+	defer cleanupHome()
+
+	cfg := config.DefaultConfig()
+	cfg.Includes = []config.IncludeEntry{
+		{Path: configModuleDir},
+	}
+	d := New(cfg)
+
+	files, err := d.DiscoverAll()
+	if err != nil {
+		t.Fatalf("DiscoverAll() returned error: %v", err)
+	}
+
+	// Config-include module should appear before user-dir module
+	configIdx := -1
+	userIdx := -1
+	for i, f := range files {
+		if f.Module == nil {
+			continue
+		}
+		if f.Module.Name() == "configmod" {
+			configIdx = i
+		}
+		if f.Module.Name() == "usermod" {
+			userIdx = i
+		}
+	}
+
+	if configIdx == -1 {
+		t.Fatal("config-include module not found in discovered files")
+	}
+	if userIdx == -1 {
+		t.Fatal("user-dir module not found in discovered files")
+	}
+	if configIdx >= userIdx {
+		t.Errorf("config-include module (index %d) should appear before user-dir module (index %d)", configIdx, userIdx)
+	}
+}
+
 // createValidDiscoveryModule creates a module with the new two-file format (invkmod.cue + invkfile.cue)
 func createValidDiscoveryModule(t *testing.T, moduleDir, moduleID, cmdName string) {
 	t.Helper()

@@ -24,10 +24,13 @@ When the same command name exists in multiple locations:
 |----------|--------|--------------|
 | 1 (highest) | Current directory invkfile | `./invkfile.cue` |
 | 2 | Local modules | `./mytools.invkmod/` |
-| 3 | User directory | `~/.invowk/cmds/invkfile.cue` |
-| 4 (lowest) | Configured includes | `/opt/invowk-modules/` |
+| 3 | Configured includes | `/opt/invowk-modules/tools.invkmod` |
+| 4 (lowest) | User commands directory | `~/.invowk/cmds/mytools.invkmod/` |
 
-**Key principle**: Closer to the working directory = higher priority.
+**Key principles**:
+- Closer to the working directory = higher priority.
+- Configured includes take precedence over the user commands directory because they represent explicit, intentional configuration.
+- The user commands directory (`~/.invowk/cmds/`) only discovers `*.invkmod` directories as immediate children (non-recursive). Loose invkfiles are not discovered from this location.
 
 ## Module Discovery Details
 

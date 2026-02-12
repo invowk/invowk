@@ -18,8 +18,8 @@
 // Discovery follows a precedence order:
 //  1. Current directory invkfile.cue (highest)
 //  2. Modules in current directory (*.invkmod)
-//  3. User commands directory (~/.invowk/cmds)
-//  4. Configured includes
+//  3. Configured includes (module paths from config)
+//  4. User commands directory (~/.invowk/cmds — modules only, non-recursive)
 //
 // For command aggregation, local invkfile commands take highest precedence. Commands from
 // sibling modules are included with conflict detection when names collide across sources.

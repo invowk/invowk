@@ -211,7 +211,7 @@ func TestCheckCommandDependenciesExist_SatisfiedByLocalUnqualifiedName(t *testin
 	}
 }
 
-func TestCheckCommandDependenciesExist_SatisfiedByFullyQualifiedNameFromUserDir(t *testing.T) {
+func TestCheckCommandDependenciesExist_SatisfiedByModuleFromUserDir(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	originalWd, _ := os.Getwd()
@@ -223,7 +223,7 @@ func TestCheckCommandDependenciesExist_SatisfiedByFullyQualifiedNameFromUserDir(
 	homeCleanup := testutil.SetHomeDir(t, tmpDir)
 	t.Cleanup(homeCleanup)
 
-	// invkfile.cue now only contains commands - module metadata is in invkmod.cue
+	// Root invkfile with a command that depends on a user-dir module command
 	invkfileContent := `cmds: [{
 	name: "deploy"
 	implementations: [{
@@ -237,12 +237,17 @@ func TestCheckCommandDependenciesExist_SatisfiedByFullyQualifiedNameFromUserDir(
 		t.Fatalf("failed to write invkfile: %v", err)
 	}
 
-	userCmdsDir := filepath.Join(tmpDir, ".invowk", "cmds", "shared")
-	if err := os.MkdirAll(userCmdsDir, 0o755); err != nil {
-		t.Fatalf("failed to create user commands dir: %v", err)
+	// Create a module in ~/.invowk/cmds/ (user-dir discovers modules only)
+	userModuleDir := filepath.Join(tmpDir, ".invowk", "cmds", "shared.invkmod")
+	if err := os.MkdirAll(userModuleDir, 0o755); err != nil {
+		t.Fatalf("failed to create user module dir: %v", err)
 	}
-
-	// User invkfile also cannot have module/version fields
+	invkmodContent := `module: "shared"
+version: "1.0.0"
+`
+	if err := os.WriteFile(filepath.Join(userModuleDir, "invkmod.cue"), []byte(invkmodContent), 0o644); err != nil {
+		t.Fatalf("failed to write invkmod.cue: %v", err)
+	}
 	userInvkfileContent := `cmds: [{
 	name: "generate-types"
 	implementations: [{
@@ -252,12 +257,12 @@ func TestCheckCommandDependenciesExist_SatisfiedByFullyQualifiedNameFromUserDir(
 	}]
 }]
 `
-	if err := os.WriteFile(filepath.Join(userCmdsDir, "invkfile.cue"), []byte(userInvkfileContent), 0o644); err != nil {
-		t.Fatalf("failed to write user invkfile: %v", err)
+	if err := os.WriteFile(filepath.Join(userModuleDir, "invkfile.cue"), []byte(userInvkfileContent), 0o644); err != nil {
+		t.Fatalf("failed to write user module invkfile: %v", err)
 	}
 
-	// Without module prefix, command is just "generate-types"
-	deps := &invkfile.DependsOn{Commands: []invkfile.CommandDependency{{Alternatives: []string{"generate-types"}}}}
+	// Module command is prefixed: "shared generate-types"
+	deps := &invkfile.DependsOn{Commands: []invkfile.CommandDependency{{Alternatives: []string{"shared generate-types"}}}}
 	ctx := &runtime.ExecutionContext{Command: &invkfile.Command{Name: "deploy"}}
 
 	if err := checkCommandDependenciesExist(config.DefaultConfig(), deps, "", ctx); err != nil {

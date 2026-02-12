@@ -219,16 +219,15 @@ cmds: [{name: "test", implementations: [{script: "echo test", runtimes: [{name: 
 	}
 }
 
-func TestDiscoverAll_FindsInUserDir(t *testing.T) {
+func TestDiscoverAll_UserDirInvkfileNotDiscovered(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	// Create user commands directory
+	// Create user commands directory with a loose invkfile (not in a module)
 	userCmdsDir := filepath.Join(tmpDir, ".invowk", "cmds")
 	if err := os.MkdirAll(userCmdsDir, 0o755); err != nil {
 		t.Fatalf("failed to create user cmds dir: %v", err)
 	}
 
-	// Create an invkfile in user commands
 	content := `
 cmds: [{name: "user-cmd", implementations: [{script: "echo user", runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}]}]}]
 `
@@ -236,11 +235,12 @@ cmds: [{name: "user-cmd", implementations: [{script: "echo user", runtimes: [{na
 		t.Fatalf("failed to write invkfile: %v", err)
 	}
 
-	// Change to temp directory (which has no invkfile)
-	restoreWd := testutil.MustChdir(t, tmpDir)
+	// Create an empty working directory
+	workDir := filepath.Join(tmpDir, "work")
+	testutil.MustMkdirAll(t, workDir, 0o755)
+	restoreWd := testutil.MustChdir(t, workDir)
 	defer restoreWd()
 
-	// Override HOME
 	cleanupHome := testutil.SetHomeDir(t, tmpDir)
 	defer cleanupHome()
 
@@ -252,16 +252,43 @@ cmds: [{name: "user-cmd", implementations: [{script: "echo user", runtimes: [{na
 		t.Fatalf("DiscoverAll() returned error: %v", err)
 	}
 
-	found := false
-	for _, f := range files {
-		if f.Source == SourceUserDir {
-			found = true
-			break
-		}
+	// Loose invkfiles in ~/.invowk/cmds/ should NOT be discovered
+	if len(files) != 0 {
+		t.Errorf("DiscoverAll() returned %d files, want 0 (user-dir invkfiles should not be discovered)", len(files))
+	}
+}
+
+func TestDiscoverAll_UserDirNonRecursive(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create a module in a subdirectory of ~/.invowk/cmds/ (nested)
+	userCmdsDir := filepath.Join(tmpDir, ".invowk", "cmds")
+	nestedModuleDir := filepath.Join(userCmdsDir, "subdir", "nested.invkmod")
+	createValidDiscoveryModule(t, nestedModuleDir, "nested", "nested-cmd")
+
+	// Create an empty working directory
+	workDir := filepath.Join(tmpDir, "work")
+	testutil.MustMkdirAll(t, workDir, 0o755)
+	restoreWd := testutil.MustChdir(t, workDir)
+	defer restoreWd()
+
+	cleanupHome := testutil.SetHomeDir(t, tmpDir)
+	defer cleanupHome()
+
+	cfg := config.DefaultConfig()
+	d := New(cfg)
+
+	files, err := d.DiscoverAll()
+	if err != nil {
+		t.Fatalf("DiscoverAll() returned error: %v", err)
 	}
 
-	if !found {
-		t.Error("DiscoverAll() did not find invkfile in user commands directory")
+	// Modules in subdirectories of ~/.invowk/cmds/ should NOT be discovered
+	// (only immediate children are scanned)
+	for _, f := range files {
+		if f.Module != nil && f.Module.Name() == "nested" {
+			t.Error("DiscoverAll() should not discover modules in subdirectories of user commands dir")
+		}
 	}
 }
 
@@ -392,7 +419,7 @@ cmds: [{name: "test", implementations: [{script: "echo test", runtimes: [{name: 
 func TestLoadAll_WithMultipleFiles(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	// Create current dir invkfile (no module metadata - it belongs in invkmod.cue)
+	// Create current dir invkfile
 	content := `
 cmds: [{name: "current", implementations: [{script: "echo current", runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}]}]}]
 `
@@ -400,15 +427,9 @@ cmds: [{name: "current", implementations: [{script: "echo current", runtimes: [{
 		t.Fatalf("failed to write invkfile: %v", err)
 	}
 
-	// Create user commands invkfile (no module metadata - it belongs in invkmod.cue)
-	userCmdsDir := filepath.Join(tmpDir, ".invowk", "cmds")
-	testutil.MustMkdirAll(t, userCmdsDir, 0o755)
-	userContent := `
-cmds: [{name: "user", implementations: [{script: "echo user", runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}]}]}]
-`
-	if err := os.WriteFile(filepath.Join(userCmdsDir, "invkfile.cue"), []byte(userContent), 0o644); err != nil {
-		t.Fatalf("failed to write user invkfile: %v", err)
-	}
+	// Create a local module (provides second file)
+	moduleDir := filepath.Join(tmpDir, "extra.invkmod")
+	createValidDiscoveryModule(t, moduleDir, "extra", "extra-cmd")
 
 	restoreWd := testutil.MustChdir(t, tmpDir)
 	defer restoreWd()
@@ -594,8 +615,6 @@ func TestDiscoverCommands_Precedence(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	// Create current dir invkfile with "build" command
-	// Without module field, commands are named directly (e.g., "build" not "project build")
-	// When same command exists in multiple sources, current dir takes precedence
 	currentContent := `
 cmds: [{name: "build", description: "Current build", implementations: [{script: "echo current", runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}]}]}]
 `
@@ -603,15 +622,9 @@ cmds: [{name: "build", description: "Current build", implementations: [{script: 
 		t.Fatalf("failed to write invkfile: %v", err)
 	}
 
-	// Create user commands invkfile with same "build" command
-	userCmdsDir := filepath.Join(tmpDir, ".invowk", "cmds")
-	testutil.MustMkdirAll(t, userCmdsDir, 0o755)
-	userContent := `
-cmds: [{name: "build", description: "User build", implementations: [{script: "echo user", runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}]}]}]
-`
-	if err := os.WriteFile(filepath.Join(userCmdsDir, "invkfile.cue"), []byte(userContent), 0o644); err != nil {
-		t.Fatalf("failed to write user invkfile: %v", err)
-	}
+	// Create a local module with a "build" command (different source)
+	moduleDir := filepath.Join(tmpDir, "tools.invkmod")
+	createValidDiscoveryModule(t, moduleDir, "tools", "build")
 
 	restoreWd := testutil.MustChdir(t, tmpDir)
 	defer restoreWd()
@@ -626,25 +639,24 @@ cmds: [{name: "build", description: "User build", implementations: [{script: "ec
 	if err != nil {
 		t.Fatalf("DiscoverCommandSet() returned error: %v", err)
 	}
-	commands := result.Set.Commands
 
-	// Should only have one "build" command (from current directory, higher precedence)
-	// With no module field, command is just "build" not "project build"
-	buildCount := 0
-	var buildCmd *CommandInfo
-	for _, cmd := range commands {
-		if cmd.Name == "build" {
-			buildCount++
-			buildCmd = cmd
+	// Both commands should exist: "build" from invkfile and "tools build" from module.
+	// The root invkfile "build" and module "tools build" are separate commands.
+	// The "build" SimpleName should be ambiguous (invkfile vs tools).
+	if !result.Set.AmbiguousNames["build"] {
+		t.Error("'build' should be marked as ambiguous (invkfile vs module)")
+	}
+
+	// Verify current-dir invkfile command exists
+	found := false
+	for _, cmd := range result.Set.Commands {
+		if cmd.Name == "build" && cmd.Source == SourceCurrentDir {
+			found = true
+			break
 		}
 	}
-
-	if buildCount != 1 {
-		t.Errorf("expected 1 'build' command, got %d", buildCount)
-	}
-
-	if buildCmd != nil && buildCmd.Source != SourceCurrentDir {
-		t.Errorf("build command should be from current directory, got %v", buildCmd.Source)
+	if !found {
+		t.Error("expected 'build' command from current directory")
 	}
 }
 
