@@ -90,7 +90,7 @@ The sidebar is manually configured in `website/sidebars.ts`. Current sections:
 - Treat `website/docs/` as the upcoming (unreleased) version. Only update it for changes targeting the next release.
 - Never edit `website/versioned_docs/version-*/` or `website/versioned_sidebars/` except to fix a bug, mismatch, or critical clarification for an already-released version.
 - When you need a backport fix, update the specific `version-*` doc and the matching translation under `website/i18n/pt-BR/docusaurus-plugin-content-docs/version-*/`.
-- When behavior changes, create new snippet IDs for the upcoming version and keep existing snippet IDs unchanged to preserve older docs.
+- When behavior changes, create new snippet IDs for the upcoming version. Old snippet IDs can be safely removed from `snippets.ts` — versioned docs resolve from immutable per-version snapshots.
 
 ### Automated Versioning (on Release)
 
@@ -103,8 +103,10 @@ Documentation versioning runs **automatically** on every GitHub Release (stable 
 3. The `version-docs.yml` workflow triggers on the `release: published` event.
 4. The workflow runs `scripts/version-docs.sh` which:
    - Snapshots `website/docs/` into `website/versioned_docs/version-<VERSION>/`
+   - Snapshots version assets (snippets + diagrams) into immutable per-version files
    - Copies i18n translations for all locales
    - Updates `docusaurus.config.ts` with the correct `lastVersion` and pre-release banners
+   - Validates all snippet/diagram references resolve correctly
 5. The versioning commit is pushed to `main`, which triggers `deploy-website.yml` to redeploy the site.
 
 **Versioning rules:**

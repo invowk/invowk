@@ -1,0 +1,6891 @@
+// AUTO-GENERATED snippet snapshot for v0.1.0-alpha.2 — do not edit manually.
+// Snippet IDs extracted from versioned_docs/version-0.1.0-alpha.2/**/*.mdx
+import type { Snippet } from '../snippets';
+
+const snippets: Record<string, Snippet> = {
+  'advanced/interpreter-args': {
+    language: 'cue',
+    code: `{
+    name: "unbuffered"
+    implementations: [{
+        script: """
+            import time
+            for i in range(5):
+                print(f"Count: {i}")
+                time.sleep(1)
+            """
+        runtimes: [{
+            name: "native"
+            interpreter: "python3 -u"  // Unbuffered output
+        }]
+        platforms: [{name: "linux"}, {name: "macos"}]
+    }]
+}`,
+  },
+  'advanced/interpreter-args-access': {
+    language: 'cue',
+    code: `{
+    name: "greet"
+    args: [{name: "name", default_value: "World"}]
+    implementations: [{
+        script: """
+            #!/usr/bin/env python3
+            import sys
+            import os
+            
+            # Via command line args
+            name = sys.argv[1] if len(sys.argv) > 1 else "World"
+            print(f"Hello, {name}!")
+            
+            # Or via environment variable
+            name = os.environ.get("INVOWK_ARG_NAME", "World")
+            print(f"Hello again, {name}!")
+            """
+        runtimes: [{name: "native"}]
+        platforms: [{name: "linux"}, {name: "macos"}]
+    }]
+}`,
+  },
+  'advanced/interpreter-container-explicit': {
+    language: 'cue',
+    code: `{
+    name: "script"
+    implementations: [{
+        script: """
+            console.log('Hello from Node in container!')
+            console.log('Node version:', process.version)
+            """
+        runtimes: [{
+            name: "container"
+            image: "node:20-slim"
+            interpreter: "node"
+        }]
+        platforms: [{name: "linux"}]
+    }]
+}`,
+  },
+  'advanced/interpreter-container-shebang': {
+    language: 'cue',
+    code: `{
+    name: "analyze"
+    implementations: [{
+        script: """
+            #!/usr/bin/env python3
+            import os
+            print(f"Running in container at {os.getcwd()}")
+            """
+        runtimes: [{
+            name: "container"
+            image: "python:3.11-slim"
+        }]
+        platforms: [{name: "linux"}]
+    }]
+}`,
+  },
+  'advanced/interpreter-explicit': {
+    language: 'cue',
+    code: `{
+    name: "script"
+    implementations: [{
+        script: """
+            import sys
+            print(f"Python {sys.version_info.major}.{sys.version_info.minor}")
+            """
+        runtimes: [{
+            name: "native"
+            interpreter: "python3"  // Explicit
+        }]
+        platforms: [{name: "linux"}, {name: "macos"}]
+    }]
+}`,
+  },
+  'advanced/interpreter-more-args': {
+    language: 'cue',
+    code: `// Perl with warnings
+interpreter: "perl -w"
+
+// Ruby with debug mode
+interpreter: "ruby -d"
+
+// Node with specific options
+interpreter: "node --max-old-space-size=4096"`,
+  },
+  'advanced/interpreter-shebang': {
+    language: 'cue',
+    code: `{
+    name: "analyze"
+    implementations: [{
+        script: """
+            #!/usr/bin/env python3
+            import sys
+            import json
+            
+            data = {"status": "ok", "python": sys.version}
+            print(json.dumps(data, indent=2))
+            """
+        runtimes: [{name: "native"}]
+        platforms: [{name: "linux"}, {name: "macos"}]
+    }]
+}`,
+  },
+  'advanced/interpreter-virtual-error': {
+    language: 'cue',
+    code: `// This will NOT work!
+{
+    name: "bad"
+    implementations: [{
+        script: "print('hello')"
+        runtimes: [{
+            name: "virtual"
+            interpreter: "python3"  // ERROR!
+        }]
+        platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+    }]
+}`,
+  },
+  'advanced/platform-all-default': {
+    language: 'cue',
+    code: `{
+    name: "build"
+    implementations: [{
+        script: "go build ./..."
+        runtimes: [{name: "native"}]
+        platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+    }]
+}`,
+  },
+  'advanced/platform-cross-script': {
+    language: 'cue',
+    code: `{
+    name: "build"
+    implementations: [
+        // Unix platforms (same output name)
+        {
+            script: "go build -o bin/app ./..."
+            runtimes: [{name: "native"}]
+            platforms: [{name: "linux"}, {name: "macos"}]
+        },
+        // Windows (different output name)
+        {
+            script: "go build -o bin/app.exe ./..."
+            runtimes: [{name: "native"}]
+            platforms: [{name: "windows"}]
+        }
+    ]
+}`,
+  },
+  'advanced/platform-cue-templates': {
+    language: 'cue',
+    code: `// Define platform templates
+_linux: {name: "linux"}
+_macos: {name: "macos"}
+_windows: {name: "windows"}
+
+_unix: [{name: "linux"}, {name: "macos"}]
+_all: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+
+cmds: [
+    {
+        name: "clean"
+        implementations: [
+            // Unix implementation
+            {
+                script: "rm -rf build/"
+                runtimes: [{name: "native"}]
+                platforms: _unix
+            },
+            // Windows implementation
+            {
+                script: "rmdir /s /q build"
+                runtimes: [{name: "native"}]
+                platforms: [_windows]
+            }
+        ]
+    }
+]`,
+  },
+  'advanced/platform-env': {
+    language: 'cue',
+    code: `{
+    name: "configure"
+    implementations: [
+        // Linux implementation
+        {
+            script: "echo \\"Config: $CONFIG_PATH\\""
+            runtimes: [{name: "native"}]
+            platforms: [{name: "linux"}]
+            env: {
+                vars: {
+                    CONFIG_PATH: "/etc/myapp/config.yaml"
+                    CACHE_DIR: "/var/cache/myapp"
+                }
+            }
+        },
+        // macOS implementation
+        {
+            script: "echo \\"Config: $CONFIG_PATH\\""
+            runtimes: [{name: "native"}]
+            platforms: [{name: "macos"}]
+            env: {
+                vars: {
+                    CONFIG_PATH: "/usr/local/etc/myapp/config.yaml"
+                    CACHE_DIR: "\${HOME}/Library/Caches/myapp"
+                }
+            }
+        },
+        // Windows implementation
+        {
+            script: "echo \\"Config: %CONFIG_PATH%\\""
+            runtimes: [{name: "native"}]
+            platforms: [{name: "windows"}]
+            env: {
+                vars: {
+                    CONFIG_PATH: "%APPDATA%\\\\myapp\\\\config.yaml"
+                    CACHE_DIR: "%LOCALAPPDATA%\\\\myapp\\\\cache"
+                }
+            }
+        }
+    ]
+}`,
+  },
+  'advanced/platform-install-deps': {
+    language: 'cue',
+    code: `{
+    name: "install-deps"
+    implementations: [
+        {
+            script: "apt-get install -y build-essential"
+            runtimes: [{name: "native"}]
+            platforms: [{name: "linux"}]
+        },
+        {
+            script: "brew install coreutils"
+            runtimes: [{name: "native"}]
+            platforms: [{name: "macos"}]
+        },
+        {
+            script: "choco install make"
+            runtimes: [{name: "native"}]
+            platforms: [{name: "windows"}]
+        }
+    ]
+}`,
+  },
+  'advanced/platform-list-output': {
+    language: 'text',
+    code: `Available Commands
+  (* = default runtime)
+
+From current directory:
+  build - Build the project [native*] (linux, macos, windows)
+  clean - Clean artifacts [native*] (linux, macos)
+  deploy - Deploy to cloud [native*] (linux)`,
+  },
+  'advanced/platform-open-browser': {
+    language: 'cue',
+    code: `{
+    name: "open-browser"
+    implementations: [
+        {
+            script: "xdg-open http://localhost:3000"
+            runtimes: [{name: "native"}]
+            platforms: [{name: "linux"}]
+        },
+        {
+            script: "open http://localhost:3000"
+            runtimes: [{name: "native"}]
+            platforms: [{name: "macos"}]
+        },
+        {
+            script: "start http://localhost:3000"
+            runtimes: [{name: "native"}]
+            platforms: [{name: "windows"}]
+        }
+    ]
+}`,
+  },
+  'advanced/platform-sysinfo': {
+    language: 'cue',
+    code: `{
+    name: "sysinfo"
+    implementations: [
+        {
+            script: """
+                echo "Hostname: $(hostname)"
+                echo "Kernel: $(uname -r)"
+                echo "Memory: $(free -h | awk '/^Mem:/{print $2}')"
+                """
+            runtimes: [{name: "native"}]
+            platforms: [{name: "linux"}]
+        },
+        {
+            script: """
+                echo "Hostname: $(hostname)"
+                echo "Kernel: $(uname -r)"
+                echo "Memory: $(sysctl -n hw.memsize | awk '{print $0/1024/1024/1024 "GB"}')"
+                """
+            runtimes: [{name: "native"}]
+            platforms: [{name: "macos"}]
+        },
+        {
+            script: """
+                echo Hostname: %COMPUTERNAME%
+                systeminfo | findstr "Total Physical Memory"
+                """
+            runtimes: [{name: "native"}]
+            platforms: [{name: "windows"}]
+        }
+    ]
+}`,
+  },
+  'advanced/platform-unix-only': {
+    language: 'cue',
+    code: `{
+    name: "check-permissions"
+    implementations: [{
+        script: """
+            chmod +x ./scripts/*.sh
+            ls -la ./scripts/
+            """
+        runtimes: [{name: "native"}]
+        platforms: [{name: "linux"}, {name: "macos"}]
+    }]
+}`,
+  },
+  'advanced/platform-unsupported-error': {
+    language: 'text',
+    code: `✗ Host not supported
+
+Command 'deploy' cannot run on this host.
+
+Current host:     windows
+Supported hosts:  linux, macos
+
+This command is only available on the platforms listed above.`,
+  },
+  'advanced/workdir-absolute': {
+    language: 'cue',
+    code: `workdir: "/opt/myapp"
+workdir: "/home/user/projects/myapp"`,
+  },
+  'advanced/workdir-build-subdir': {
+    language: 'cue',
+    code: `{
+    name: "build"
+    workdir: "./src"
+    implementations: [{
+        script: """
+            # Now in ./src
+            go build -o ../bin/app ./...
+            """
+        runtimes: [{name: "native"}]
+        platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+    }]
+}`,
+  },
+  'advanced/workdir-cli': {
+    language: 'bash',
+    code: `invowk cmd build --invk-workdir ./frontend`,
+  },
+  'advanced/workdir-command': {
+    language: 'cue',
+    code: `{
+    name: "build frontend"
+    workdir: "./frontend"  // Run in frontend subdirectory
+    implementations: [{
+        script: "npm run build"
+        runtimes: [{name: "native"}]
+        platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+    }]
+}`,
+  },
+  'advanced/workdir-container-default': {
+    language: 'cue',
+    code: `{
+    name: "build"
+    implementations: [{
+        script: """
+            pwd  # /workspace
+            ls   # Shows your project files
+            """
+        runtimes: [{name: "container", image: "debian:bookworm-slim"}]
+        platforms: [{name: "linux"}]
+    }]
+}`,
+  },
+  'advanced/workdir-container-subdir': {
+    language: 'cue',
+    code: `{
+    name: "build frontend"
+    workdir: "./frontend"
+    implementations: [{
+        script: """
+            pwd  # /workspace/frontend
+            npm run build
+            """
+        runtimes: [{name: "container", image: "node:20"}]
+        platforms: [{name: "linux"}]
+    }]
+}`,
+  },
+  'advanced/workdir-cross-platform': {
+    language: 'cue',
+    code: `// Good - works everywhere
+workdir: "./src/app"
+
+// Avoid - Windows-specific
+workdir: ".\\\\src\\\\app"`,
+  },
+  'advanced/workdir-env-vars': {
+    language: 'cue',
+    code: `workdir: "\${HOME}/projects/myapp"
+workdir: "\${PROJECT_ROOT}/src"`,
+  },
+  'advanced/workdir-frontend-backend': {
+    language: 'cue',
+    code: `cmds: [
+    {
+        name: "start frontend"
+        workdir: "./frontend"
+        implementations: [{
+            script: "npm run dev"
+            runtimes: [{name: "native"}]
+            platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+        }]
+    },
+    {
+        name: "start backend"
+        workdir: "./backend"
+        implementations: [{
+            script: "go run ./cmd/server"
+            runtimes: [{name: "native"}]
+            platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+        }]
+    }
+]`,
+  },
+  'advanced/workdir-implementation': {
+    language: 'cue',
+    code: `{
+    name: "build"
+    implementations: [
+        {
+            script: "npm run build"
+            runtimes: [{name: "native"}]
+            platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+            workdir: "./web"  // This implementation runs in ./web
+        },
+        {
+            script: "go build ./..."
+            runtimes: [{name: "native"}]
+            platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+            workdir: "./api"  // This implementation runs in ./api
+        }
+    ]
+}`,
+  },
+  'advanced/workdir-monorepo': {
+    language: 'cue',
+    code: `cmds: [
+    {
+        name: "web build"
+        workdir: "./packages/web"
+        implementations: [{
+            script: "npm run build"
+            runtimes: [{name: "native"}]
+            platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+        }]
+    },
+    {
+        name: "api build"
+        workdir: "./packages/api"
+        implementations: [{
+            script: "go build ./..."
+            runtimes: [{name: "native"}]
+            platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+        }]
+    },
+    {
+        name: "mobile build"
+        workdir: "./packages/mobile"
+        implementations: [{
+            script: "flutter build"
+            runtimes: [{name: "native"}]
+            platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+        }]
+    }
+]`,
+  },
+  'advanced/workdir-precedence': {
+    language: 'cue',
+    code: `workdir: "./root"  // Default: ./root
+
+cmds: [
+    {
+        name: "build"
+        workdir: "./command"  // Override: ./command
+        implementations: [
+            {
+                script: "make"
+                workdir: "./implementation"  // Final: ./implementation
+                runtimes: [{name: "native"}]
+                platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+            }
+        ]
+    }
+]`,
+  },
+  'advanced/workdir-relative': {
+    language: 'cue',
+    code: `workdir: "./frontend"
+workdir: "../shared"
+workdir: "src/app"`,
+  },
+  'advanced/workdir-root': {
+    language: 'cue',
+    code: `workdir: "./src"  // All commands default to ./src
+
+cmds: [
+    {
+        name: "build"
+        // Inherits workdir: ./src
+        implementations: [...]
+    },
+    {
+        name: "test"
+        workdir: "./tests"  // Override to ./tests
+        implementations: [...]
+    }
+]`,
+  },
+  'advanced/workdir-tests': {
+    language: 'cue',
+    code: `cmds: [
+    {
+        name: "test unit"
+        workdir: "./tests/unit"
+        implementations: [{
+            script: "pytest"
+            runtimes: [{name: "native"}]
+            platforms: [{name: "linux"}, {name: "macos"}]
+        }]
+    },
+    {
+        name: "test integration"
+        workdir: "./tests/integration"
+        implementations: [{
+            script: "pytest"
+            runtimes: [{name: "native"}]
+            platforms: [{name: "linux"}, {name: "macos"}]
+        }]
+    },
+    {
+        name: "test e2e"
+        workdir: "./tests/e2e"
+        implementations: [{
+            script: "cypress run"
+            runtimes: [{name: "native"}]
+            platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+        }]
+    }
+]`,
+  },
+  'cli/cue-validate': {
+    language: 'bash',
+    code: `cue vet invkfile.cue path/to/invkfile_schema.cue -d '#Invkfile'`,
+  },
+  'cli/list-commands': {
+    language: 'bash',
+    code: `invowk cmd`,
+  },
+  'cli/output-deps-not-satisfied': {
+    language: 'text',
+    code: `✗ Dependencies not satisfied
+
+Command 'build' has unmet dependencies:
+
+Missing Tools:
+  • go - not found in PATH
+
+Install the missing tools and try again.`,
+  },
+  'cli/output-list-commands': {
+    language: 'text',
+    code: `Available Commands
+  (* = default runtime)
+
+From current directory:
+  build - Build the project [native*]
+  test unit - Run unit tests [native*, virtual]
+  test coverage - Run tests with coverage [native*]
+  clean - Remove build artifacts [native*] (linux, macos)`,
+  },
+  'cli/run-subcommands': {
+    language: 'bash',
+    code: `invowk cmd test unit
+invowk cmd test coverage`,
+  },
+  'cli/runtime-override': {
+    language: 'bash',
+    code: `# Use the default (native)
+invowk cmd test unit
+
+# Explicitly use virtual runtime
+invowk cmd test unit --invk-runtime virtual`,
+  },
+  'commands-namespaces/command-dependency': {
+    language: 'cue',
+    code: `cmds: [
+    {
+        name: "build"
+        implementations: [...]
+    },
+    {
+        name: "test"
+        implementations: [...]
+        depends_on: {
+            cmds: [
+                // Reference by command name in the same invkfile
+                {alternatives: ["build"]}
+            ]
+        }
+    },
+    {
+        name: "release"
+        implementations: [...]
+        depends_on: {
+            cmds: [
+                // Module-prefixed commands for dependencies
+                {alternatives: ["build"]},
+                {alternatives: ["com.company.tools lint"]},
+            ]
+        }
+    }
+]`,
+  },
+  'commands-namespaces/discovery-output': {
+    language: 'text',
+    code: `Available Commands
+  (* = default runtime)
+
+From current directory:
+  build - Build the project [native*] (linux, macos, windows)
+
+From user commands (~/.invowk/cmds):
+  com.example.tools hello - A greeting [native*] (linux, macos)`,
+  },
+  'commands-namespaces/invalid-module-ids': {
+    language: 'cue',
+    code: `module: "my-project"   // Hyphens not allowed
+module: "my_project"   // Underscores not allowed
+module: ".project"     // Can't start with dot
+module: "project."     // Can't end with dot
+module: "my..project"  // No consecutive dots
+module: "123project"   // Must start with letter`,
+  },
+  'commands-namespaces/module-prefix': {
+    language: 'cue',
+    code: `// invkmod.cue
+module: "com.company.frontend"
+
+// invkfile.cue
+cmds: [
+    {name: "build"},
+    {name: "test unit"},
+]`,
+  },
+  'commands-namespaces/subcommand-names': {
+    language: 'cue',
+    code: `cmds: [
+    {name: "test"},
+    {name: "test unit"},
+    {name: "test integration"},
+    {name: "db migrate"},
+    {name: "db seed"},
+]`,
+  },
+  'commands-namespaces/valid-module-ids': {
+    language: 'cue',
+    code: `module: "frontend"
+module: "backend"
+module: "my.project"
+module: "com.company.tools"
+module: "io.github.username.cli"`,
+  },
+  'config/complete-example': {
+    language: 'cue',
+    code: `// Invowk Configuration File
+// Located at: ~/.config/invowk/config.cue
+
+// Use Podman as the container engine
+container_engine: "podman"
+
+// Additional invkfiles and modules to include in discovery
+includes: [
+    {path: "~/.invowk/cmds/invkfile.cue"},          // Personal commands
+    {path: "~/work/shared.invkmod", alias: "team"},  // Team shared module
+]
+
+// Default to virtual shell for portability
+default_runtime: "virtual"
+
+// Virtual shell settings
+virtual_shell: {
+    // Enable u-root utilities for more shell commands
+    enable_uroot_utils: true
+}
+
+// UI preferences
+ui: {
+    // Auto-detect color scheme from terminal
+    color_scheme: "auto"
+    
+    // Don't be verbose by default
+    verbose: false
+    
+    // Enable interactive mode for commands with stdin (e.g., password prompts)
+    interactive: false
+}
+
+// Container provisioning
+container: {
+    auto_provision: {
+        enabled: true
+    }
+}`,
+  },
+  'config/container-auto-provision': {
+    language: 'cue',
+    code: `container: {
+    auto_provision: {
+        enabled: true
+        binary_path: "/usr/local/bin/invowk"
+        modules_paths: ["/opt/company/invowk-modules"]
+        cache_dir: "/tmp/invowk/provision"
+    }
+}`,
+  },
+  'config/container-engine': {
+    language: 'cue',
+    code: `container_engine: "docker"  // or "podman"`,
+  },
+  'config/default-runtime': {
+    language: 'cue',
+    code: `default_runtime: "virtual"`,
+  },
+  'config/dump': {
+    language: 'bash',
+    code: `invowk config dump`,
+  },
+  'config/edit-linux-macos': {
+    language: 'bash',
+    code: `# Linux/macOS
+$EDITOR $(invowk config path)
+
+# Windows PowerShell
+notepad (invowk config path)`,
+  },
+  'config/full-example': {
+    language: 'cue',
+    code: `// ~/.config/invowk/config.cue
+
+// Container engine: "podman" or "docker"
+container_engine: "podman"
+
+// Additional invkfiles and modules to include in discovery
+includes: [
+    {path: "~/.invowk/cmds/invkfile.cue"},
+    {path: "~/projects/shared.invkmod", alias: "shared"},
+]
+
+// Default runtime for commands that don't specify one
+default_runtime: "native"
+
+// Virtual shell configuration
+virtual_shell: {
+    enable_uroot_utils: true
+}
+
+// UI preferences
+ui: {
+    color_scheme: "auto"  // "auto", "dark", or "light"
+    verbose: false
+    interactive: false    // Enable alternate screen buffer mode
+}
+
+// Container provisioning
+container: {
+    auto_provision: {
+        enabled: true
+    }
+}`,
+  },
+  'config/init': {
+    language: 'bash',
+    code: `invowk config init`,
+  },
+  'config/path': {
+    language: 'bash',
+    code: `invowk config path`,
+  },
+  'config/schema': {
+    language: 'cue',
+    code: `#Config: {
+    container_engine?: "podman" | "docker"
+    includes?: [...#IncludeEntry]
+    default_runtime?: "native" | "virtual" | "container"
+    virtual_shell?: #VirtualShellConfig
+    ui?: #UIConfig
+    container?: #ContainerConfig
+}
+
+#IncludeEntry: {
+    path:   string  // Must end with .invkmod, /invkfile.cue, or /invkfile
+    alias?: string  // Optional, only valid for .invkmod paths
+}
+
+#VirtualShellConfig: {
+    enable_uroot_utils?: bool
+}
+
+#UIConfig: {
+    color_scheme?: "auto" | "dark" | "light"
+    verbose?: bool
+    interactive?: bool
+}
+
+#ContainerConfig: {
+    auto_provision?: #AutoProvisionConfig
+}
+
+#AutoProvisionConfig: {
+    enabled?: bool
+    binary_path?: string
+    modules_paths?: [...string]
+    cache_dir?: string
+}`,
+  },
+  'config/search-paths': {
+    language: 'cue',
+    code: `search_paths: [
+    "~/.invowk/modules",
+    "~/my-company/shared-modules",
+    "/opt/invowk/modules"
+]`,
+  },
+  'config/set-examples': {
+    language: 'bash',
+    code: `# Set the container engine
+invowk config set container_engine podman
+
+# Set the default runtime
+invowk config set default_runtime virtual
+
+# Set the color scheme
+invowk config set ui.color_scheme dark`,
+  },
+  'config/show': {
+    language: 'bash',
+    code: `invowk config show`,
+  },
+  'config/ui': {
+    language: 'cue',
+    code: `ui: {
+    color_scheme: "dark"
+    verbose: false
+    interactive: false
+}`,
+  },
+  'config/ui-color-scheme': {
+    language: 'cue',
+    code: `ui: {
+    color_scheme: "auto"
+}`,
+  },
+  'config/ui-interactive': {
+    language: 'cue',
+    code: `ui: {
+    interactive: true
+}`,
+  },
+  'config/ui-verbose': {
+    language: 'cue',
+    code: `ui: {
+    verbose: true
+}`,
+  },
+  'config/virtual-shell': {
+    language: 'cue',
+    code: `virtual_shell: {
+    enable_uroot_utils: true
+}`,
+  },
+  'core-concepts/command-structure': {
+    language: 'cue',
+    code: `{
+    name: string                 // Required: command name
+    description?: string         // Optional: help text
+    implementations: [...]       // Required: how to run the command
+    flags?: [...]                // Optional: command flags
+    args?: [...]                 // Optional: positional arguments
+    env?: #EnvConfig             // Optional: environment config
+    workdir?: string             // Optional: working directory
+    depends_on?: #DependsOn      // Optional: dependencies
+}`,
+  },
+  'core-concepts/cue-basic-syntax': {
+    language: 'cue',
+    code: `// This is a comment
+
+// Lists use square brackets
+cmds: [
+    {
+        name: "hello"
+        description: "A greeting command"
+    }
+]
+
+// Multi-line strings use triple quotes
+script: """
+    echo "Line 1"
+    echo "Line 2"
+    """`,
+  },
+  'core-concepts/cue-template': {
+    language: 'cue',
+    code: `// Define a template
+_nativeUnix: {
+    runtimes: [{name: "native"}]
+    platforms: [{name: "linux"}, {name: "macos"}]
+}
+
+cmds: [
+    {
+        name: "build"
+        implementations: [
+            _nativeUnix & {script: "make build"}
+        ]
+    },
+    {
+        name: "test"
+        implementations: [
+            _nativeUnix & {script: "make test"}
+        ]
+    }
+]`,
+  },
+  'core-concepts/full-example': {
+    language: 'cue',
+    code: `// Global environment
+env: {
+    vars: {
+        APP_NAME: "myapp"
+        LOG_LEVEL: "info"
+    }
+}
+
+// Global dependencies
+depends_on: {
+    tools: [{alternatives: ["sh", "bash"]}]
+}
+
+cmds: [
+    {
+        name: "build"
+        description: "Build the application"
+        implementations: [
+            {
+                script: """
+                    echo "Building $APP_NAME..."
+                    go build -o bin/$APP_NAME ./...
+                    """
+                runtimes: [{name: "native"}]
+                platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+            }
+        ]
+        depends_on: {
+            tools: [{alternatives: ["go"]}]
+            filepaths: [{alternatives: ["go.mod"]}]
+        }
+    },
+    {
+        name: "deploy"
+        description: "Deploy to production"
+        implementations: [
+            {
+                script: "./scripts/deploy.sh"
+                runtimes: [{name: "native"}]
+                platforms: [{name: "linux"}, {name: "macos"}]
+            }
+        ]
+        depends_on: {
+            tools: [{alternatives: ["docker", "podman"]}]
+            cmds: [{alternatives: ["build"]}]
+        }
+        flags: [
+            {name: "env", description: "Target environment", required: true},
+            {name: "dry-run", description: "Simulate deployment", type: "bool", default_value: "false"}
+        ]
+    }
+]`,
+  },
+  'core-concepts/multi-platform-impl': {
+    language: 'cue',
+    code: `{
+    name: "build"
+    implementations: [
+        // Unix implementation
+        {
+            script: "make build"
+            runtimes: [{name: "native"}]
+            platforms: [{name: "linux"}, {name: "macos"}]
+        },
+        // Windows implementation
+        {
+            script: "msbuild /p:Configuration=Release"
+            runtimes: [{name: "native"}]
+            platforms: [{name: "windows"}]
+        }
+    ]
+}`,
+  },
+  'core-concepts/schema-overview': {
+    language: 'cue',
+    code: `// Root level
+default_shell?: string  // Optional: override default shell
+workdir?: string        // Optional: default working directory
+env?: #EnvConfig        // Optional: global environment config
+depends_on?: #DependsOn // Optional: global dependencies
+
+// Required: at least one command
+cmds: [...#Command]`,
+  },
+  'core-concepts/script-external': {
+    language: 'cue',
+    code: `// Relative to invkfile location
+script: "./scripts/build.sh"
+
+// Just the filename (recognized extensions)
+script: "deploy.sh"`,
+  },
+  'core-concepts/script-inline': {
+    language: 'cue',
+    code: `// Single line
+script: "echo 'Hello!'"
+
+// Multi-line
+script: """
+    #!/bin/bash
+    set -e
+    echo "Building..."
+    go build ./...
+    """`,
+  },
+  'dependencies/alternatives-pattern': {
+    language: 'cue',
+    code: `// ANY of these tools satisfies the dependency
+tools: [
+    {alternatives: ["podman", "docker"]}
+]
+
+// ANY of these files satisfies the dependency
+filepaths: [
+    {alternatives: ["config.yaml", "config.json", "config.toml"]}
+]`,
+  },
+  'dependencies/basic-syntax': {
+    language: 'cue',
+    code: `{
+    name: "build"
+    depends_on: {
+        tools: [
+            {alternatives: ["go"]}
+        ]
+        filepaths: [
+            {alternatives: ["go.mod"]}
+        ]
+    }
+    implementations: [...]
+}`,
+  },
+  'dependencies/capabilities-basic': {
+    language: 'cue',
+    code: `depends_on: {
+    capabilities: [
+        {alternatives: ["internet"]},
+        {alternatives: ["local-area-network"]}
+    ]
+}`,
+  },
+  'dependencies/capabilities-containers': {
+    language: 'cue',
+    code: `depends_on: {
+    capabilities: [
+        {alternatives: ["containers"]}
+    ]
+}`,
+  },
+  'dependencies/capabilities-tty': {
+    language: 'cue',
+    code: `depends_on: {
+    capabilities: [
+        {alternatives: ["tty"]}
+    ]
+}`,
+  },
+  'dependencies/commands-alternatives': {
+    language: 'cue',
+    code: `depends_on: {
+    cmds: [
+        // Either command being discoverable satisfies this dependency
+        {alternatives: ["build debug", "build release"]},
+    ]
+}`,
+  },
+  'dependencies/commands-basic': {
+    language: 'cue',
+    code: `depends_on: {
+    cmds: [
+        {alternatives: ["build"]}
+    ]
+}`,
+  },
+  'dependencies/commands-cross-invkfile': {
+    language: 'cue',
+    code: `depends_on: {
+    cmds: [{alternatives: ["shared generate-types"]}]
+}`,
+  },
+  'dependencies/commands-multiple': {
+    language: 'cue',
+    code: `depends_on: {
+    cmds: [
+        {alternatives: ["build"]},
+        {alternatives: ["test unit", "test integration"]},
+    ]
+}`,
+  },
+  'dependencies/commands-workflow': {
+    language: 'bash',
+    code: `invowk cmd build && invowk cmd deploy`,
+  },
+  'dependencies/complete-example': {
+    language: 'cue',
+    code: `{
+    name: "deploy"
+    description: "Deploy to production"
+    depends_on: {
+        // Check environment first
+        env_vars: [
+            {alternatives: [{name: "AWS_ACCESS_KEY_ID"}, {name: "AWS_PROFILE"}]}
+        ]
+        // Check required tools
+        tools: [
+            {alternatives: ["docker", "podman"]},
+            {alternatives: ["kubectl"]}
+        ]
+        // Check required files
+        filepaths: [
+            {alternatives: ["Dockerfile"]},
+            {alternatives: ["k8s/deployment.yaml"]}
+        ]
+        // Check network connectivity
+        capabilities: [
+            {alternatives: ["internet"]}
+        ]
+        // Run other commands first
+        cmds: [
+            {alternatives: ["build"]},
+            {alternatives: ["test"]}
+        ]
+    }
+    implementations: [
+        {
+            script: "./scripts/deploy.sh"
+            runtimes: [{name: "native"}]
+            platforms: [{name: "linux"}, {name: "macos"}]
+        }
+    ]
+}`,
+  },
+  'dependencies/custom-checks': {
+    language: 'cue',
+    code: `depends_on: {
+    custom_checks: [
+        {
+            alternatives: [{
+                name: "docker-running"
+                check_script: "docker info > /dev/null 2>&1"
+            }]
+        }
+    ]
+}`,
+  },
+  'dependencies/env-vars-basic': {
+    language: 'cue',
+    code: `depends_on: {
+    env_vars: [
+        {alternatives: [{name: "API_KEY"}]},
+        {alternatives: [{name: "DATABASE_URL"}, {name: "DB_URL"}]}
+    ]
+}`,
+  },
+  'dependencies/error-output': {
+    language: 'text',
+    code: `✗ Dependencies not satisfied
+
+Command 'deploy' has unmet dependencies:
+
+Missing Tools:
+  • docker - not found in PATH
+  • kubectl - not found in PATH
+
+Missing Files:
+  • Dockerfile - file not found
+
+Missing Environment Variables:
+  • AWS_ACCESS_KEY_ID - not set in environment
+
+Install the missing tools and try again.`,
+  },
+  'dependencies/filepaths-basic': {
+    language: 'cue',
+    code: `depends_on: {
+    filepaths: [
+        {alternatives: ["go.mod"]}
+    ]
+}`,
+  },
+  'dependencies/filepaths-options': {
+    language: 'cue',
+    code: `depends_on: {
+    filepaths: [
+        {alternatives: ["config.yaml", "config.json"], readable: true},
+        {alternatives: ["./output"], writable: true},
+        {alternatives: [".env"], readable: true}
+    ]
+}`,
+  },
+  'dependencies/scope-command': {
+    language: 'cue',
+    code: `{
+    name: "build"
+    depends_on: {
+        tools: [{alternatives: ["go"]}]  // Required by this command
+    }
+    implementations: [...]
+}`,
+  },
+  'dependencies/scope-implementation': {
+    language: 'cue',
+    code: `{
+    name: "build"
+    implementations: [
+        {
+            script: "go build ./..."
+            runtimes: [{name: "container", image: "golang:1.21"}]
+            platforms: [{name: "linux"}]
+            depends_on: {
+                // Validated INSIDE the container
+                tools: [{alternatives: ["go"]}]
+            }
+        }
+    ]
+}`,
+  },
+  'dependencies/scope-inheritance': {
+    language: 'cue',
+    code: `// Root level: requires git
+depends_on: {
+    tools: [{alternatives: ["git"]}]
+}
+
+cmds: [
+    {
+        name: "build"
+        // Command level: also requires go
+        depends_on: {
+            tools: [{alternatives: ["go"]}]
+        }
+        implementations: [
+            {
+                script: "go build ./..."
+                runtimes: [{name: "native"}]
+                platforms: [{name: "linux"}, {name: "macos"}]
+                // Implementation level: also requires make
+                depends_on: {
+                    tools: [{alternatives: ["make"]}]
+                }
+            }
+        ]
+    }
+]
+
+// Effective dependencies for "build": git + go + make`,
+  },
+  'dependencies/scope-root': {
+    language: 'cue',
+    code: `depends_on: {
+    tools: [{alternatives: ["git"]}]  // Required by all commands
+}
+
+cmds: [...]`,
+  },
+  'dependencies/tools-alternatives': {
+    language: 'cue',
+    code: `depends_on: {
+    tools: [
+        {alternatives: ["docker", "podman"]},
+        {alternatives: ["node", "nodejs"]}
+    ]
+}`,
+  },
+  'dependencies/tools-basic': {
+    language: 'cue',
+    code: `depends_on: {
+    tools: [
+        {alternatives: ["go"]}
+    ]
+}`,
+  },
+  'dependencies/with-check': {
+    language: 'text',
+    code: `$ invowk cmd build
+
+✗ Dependencies not satisfied
+
+Command 'build' has unmet dependencies:
+
+Missing Tools:
+  • go - not found in PATH
+
+Install the missing tools and try again.`,
+  },
+  'dependencies/without-check': {
+    language: 'bash',
+    code: `$ invowk cmd build
+./scripts/build.sh: line 5: go: command not found`,
+  },
+  'environment/cli-overrides': {
+    language: 'bash',
+    code: `# Set a single variable
+invowk cmd build --invk-env-var NODE_ENV=development
+
+# Set multiple variables
+invowk cmd build --invk-env-var NODE_ENV=dev --invk-env-var DEBUG=true
+
+# Load from a file
+invowk cmd build --invk-env-file .env.local
+
+# Combine
+invowk cmd build --invk-env-file .env.local --invk-env-var OVERRIDE=value`,
+  },
+  'environment/container-env': {
+    language: 'cue',
+    code: `{
+    name: "build"
+    env: {
+        vars: {
+            BUILD_ENV: "container"
+        }
+    }
+    implementations: [{
+        script: "echo $BUILD_ENV"  // Available inside container
+        runtimes: [{name: "container", image: "debian:bookworm-slim"}]
+        platforms: [{name: "linux"}]
+    }]
+}`,
+  },
+  'environment/dotenv-example': {
+    language: 'bash',
+    code: `# .env
+API_KEY=secret123
+DATABASE_URL=postgres://localhost/mydb
+DEBUG=false`,
+  },
+  'environment/dotenv-format': {
+    language: 'bash',
+    code: `# Comments start with #
+KEY=value
+
+# Quoted values (spaces preserved)
+MESSAGE="Hello World"
+PATH_WITH_SPACES='/path/to/my file'
+
+# Empty value
+EMPTY_VAR=
+
+# No value (same as empty)
+NO_VALUE
+
+# Multiline (use quotes)
+MULTILINE="line1
+line2
+line3"`,
+  },
+  'environment/env-combined': {
+    language: 'cue',
+    code: `env: {
+    files: [".env"]
+    vars: {
+        // These override values from .env
+        OVERRIDE_VALUE: "from-invkfile"
+    }
+}`,
+  },
+  'environment/env-files': {
+    language: 'cue',
+    code: `env: {
+    files: [
+        ".env",           // Required - fails if missing
+        ".env.local?",    // Optional - suffix with ?
+        ".env.\${ENV}?",   // Interpolation - uses ENV variable
+    ]
+}`,
+  },
+  'environment/env-files-basic': {
+    language: 'cue',
+    code: `{
+    name: "build"
+    env: {
+        files: [".env"]
+    }
+    implementations: [...]
+}`,
+  },
+  'environment/env-files-cli-override': {
+    language: 'bash',
+    code: `# Load extra file
+invowk cmd build --invk-env-file .env.custom
+
+# Multiple files
+invowk cmd build --invk-env-file .env.custom --invk-env-file .env.secrets`,
+  },
+  'environment/env-files-dev-prod': {
+    language: 'cue',
+    code: `{
+    name: "start"
+    env: {
+        files: [
+            ".env",                    // Base config
+            ".env.\${NODE_ENV:-dev}?",  // Environment-specific
+            ".env.local?",             // Local overrides
+        ]
+    }
+    implementations: [{
+        script: "node server.js"
+        runtimes: [{name: "native"}]
+        platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+    }]
+}`,
+  },
+  'environment/env-files-interpolation': {
+    language: 'cue',
+    code: `env: {
+    files: [
+        ".env",
+        ".env.\${NODE_ENV}?",    // Uses NODE_ENV value
+        ".env.\${USER}?",        // Uses current user
+    ]
+}`,
+  },
+  'environment/env-files-interpolation-result': {
+    language: 'bash',
+    code: `# If NODE_ENV=production, loads:
+# - .env
+# - .env.production (if exists)
+# - .env.john (if exists and USER=john)`,
+  },
+  'environment/env-files-multi-env': {
+    language: 'cue',
+    code: `{
+    name: "deploy"
+    env: {
+        files: [
+            ".env",
+            ".env.\${DEPLOY_ENV}",  // DEPLOY_ENV must be set
+        ]
+    }
+    depends_on: {
+        env_vars: [
+            {alternatives: [{name: "DEPLOY_ENV", validation: "^(development|staging|production)$"}]}
+        ]
+    }
+    implementations: [...]
+}`,
+  },
+  'environment/env-files-multi-env-structure': {
+    language: 'text',
+    code: `project/
+├── invkfile.cue
+├── .env                  # Shared defaults
+├── .env.development      # Dev settings
+├── .env.staging          # Staging settings
+└── .env.production       # Production settings`,
+  },
+  'environment/env-files-optional': {
+    language: 'cue',
+    code: `env: {
+    files: [
+        ".env",           // Required - error if missing
+        ".env.local?",    // Optional - ignored if missing
+        ".env.secrets?",  // Optional
+    ]
+}`,
+  },
+  'environment/env-files-order': {
+    language: 'cue',
+    code: `env: {
+    files: [
+        ".env",           // Base config
+        ".env.\${ENV}?",   // Environment-specific overrides
+        ".env.local?",    // Local overrides (highest priority)
+    ]
+}`,
+  },
+  'environment/env-files-order-example': {
+    language: 'bash',
+    code: `# .env
+API_URL=http://localhost:3000
+DEBUG=true
+
+# .env.production
+API_URL=https://api.example.com
+DEBUG=false
+
+# .env.local (developer override)
+DEBUG=true`,
+  },
+  'environment/env-files-path-resolution': {
+    language: 'text',
+    code: `project/
+├── invkfile.cue
+├── .env                  # files: [".env"]
+├── config/
+│   └── .env.prod         # files: ["config/.env.prod"]
+└── src/`,
+  },
+  'environment/env-files-scope-command': {
+    language: 'cue',
+    code: `{
+    name: "build"
+    env: {
+        files: [".env.build"]  // Only for this command
+    }
+    implementations: [...]
+}`,
+  },
+  'environment/env-files-scope-implementation': {
+    language: 'cue',
+    code: `{
+    name: "build"
+    implementations: [
+        {
+            script: "npm run build"
+            runtimes: [{name: "native"}]
+            platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+            env: {
+                files: [".env.node"]  // Only for this implementation
+            }
+        }
+    ]
+}`,
+  },
+  'environment/env-files-scope-root': {
+    language: 'cue',
+    code: `env: {
+    files: [".env"]  // Loaded for all commands
+}
+
+cmds: [...]`,
+  },
+  'environment/env-files-secrets': {
+    language: 'cue',
+    code: `{
+    name: "deploy"
+    env: {
+        files: [
+            ".env",                    // Non-sensitive config
+            ".env.secrets?",           // Sensitive - not in git
+        ]
+    }
+    implementations: [{
+        script: """
+            echo "Deploying with API_KEY..."
+            ./deploy.sh
+            """
+        runtimes: [{name: "native"}]
+        platforms: [{name: "linux"}, {name: "macos"}]
+    }]
+}`,
+  },
+  'environment/env-inherit-cli': {
+    language: 'bash',
+    code: `invowk cmd examples hello \\
+  --invk-env-inherit-mode allow \\
+  --invk-env-inherit-allow TERM \\
+  --invk-env-inherit-allow LANG \\
+  --invk-env-inherit-deny AWS_SECRET_ACCESS_KEY`,
+  },
+  'environment/env-vars': {
+    language: 'cue',
+    code: `env: {
+    vars: {
+        API_URL: "https://api.example.com"
+        DEBUG: "true"
+        VERSION: "1.0.0"
+    }
+}`,
+  },
+  'environment/env-vars-api-config': {
+    language: 'cue',
+    code: `{
+    name: "start"
+    env: {
+        vars: {
+            API_HOST: "0.0.0.0"
+            API_PORT: "3000"
+            API_PREFIX: "/api/v1"
+            CORS_ORIGIN: "*"
+        }
+    }
+    implementations: [{
+        script: "go run ./cmd/server"
+        runtimes: [{name: "native"}]
+        platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+    }]
+}`,
+  },
+  'environment/env-vars-basic': {
+    language: 'cue',
+    code: `{
+    name: "build"
+    env: {
+        vars: {
+            NODE_ENV: "production"
+            API_URL: "https://api.example.com"
+            DEBUG: "false"
+        }
+    }
+    implementations: [{
+        script: """
+            echo "Building for $NODE_ENV"
+            echo "API: $API_URL"
+            """
+        runtimes: [{name: "native"}]
+        platforms: [{name: "linux"}, {name: "macos"}]
+    }]
+}`,
+  },
+  'environment/env-vars-build-config': {
+    language: 'cue',
+    code: `{
+    name: "build"
+    env: {
+        vars: {
+            NODE_ENV: "production"
+            BUILD_TARGET: "es2020"
+            SOURCEMAP: "false"
+        }
+    }
+    implementations: [{
+        script: "npm run build"
+        runtimes: [{name: "native"}]
+        platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+    }]
+}`,
+  },
+  'environment/env-vars-cli-override': {
+    language: 'bash',
+    code: `# Single variable
+invowk cmd build --invk-env-var NODE_ENV=development
+
+# Multiple variables
+invowk cmd build --invk-env-var NODE_ENV=dev --invk-env-var DEBUG=true --invk-env-var PORT=8080`,
+  },
+  'environment/env-vars-combined-files': {
+    language: 'cue',
+    code: `env: {
+    files: [".env"]  // Loaded first
+    vars: {
+        // These override .env values
+        OVERRIDE: "from-invkfile"
+    }
+}`,
+  },
+  'environment/env-vars-container': {
+    language: 'cue',
+    code: `{
+    name: "build"
+    env: {
+        vars: {
+            GOOS: "linux"
+            GOARCH: "amd64"
+            CGO_ENABLED: "0"
+        }
+    }
+    implementations: [{
+        script: "go build -o /workspace/bin/app ./..."
+        runtimes: [{name: "container", image: "golang:1.21"}]
+        platforms: [{name: "linux"}]
+    }]
+}`,
+  },
+  'environment/env-vars-database': {
+    language: 'cue',
+    code: `{
+    name: "db migrate"
+    env: {
+        vars: {
+            DB_HOST: "\${DB_HOST:-localhost}"
+            DB_PORT: "\${DB_PORT:-5432}"
+            DB_NAME: "\${DB_NAME:-myapp}"
+            DB_USER: "\${DB_USER:-postgres}"
+            // Construct URL from parts
+            DATABASE_URL: "postgres://\${DB_USER}@\${DB_HOST}:\${DB_PORT}/\${DB_NAME}"
+        }
+    }
+    implementations: [{
+        script: "migrate -database $DATABASE_URL up"
+        runtimes: [{name: "native"}]
+        platforms: [{name: "linux"}, {name: "macos"}]
+    }]
+}`,
+  },
+  'environment/env-vars-dynamic': {
+    language: 'cue',
+    code: `{
+    name: "release"
+    env: {
+        vars: {
+            // Git-based version
+            GIT_SHA: "$(git rev-parse --short HEAD)"
+            GIT_BRANCH: "$(git branch --show-current)"
+            
+            // Timestamp
+            BUILD_TIME: "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            
+            // Combine values
+            BUILD_ID: "\${GIT_BRANCH}-\${GIT_SHA}"
+        }
+    }
+    implementations: [{
+        script: """
+            echo "Building $BUILD_ID at $BUILD_TIME"
+            go build -ldflags="-X main.version=$BUILD_ID" ./...
+            """
+        runtimes: [{name: "native"}]
+        platforms: [{name: "linux"}, {name: "macos"}]
+    }]
+}`,
+  },
+  'environment/env-vars-references': {
+    language: 'cue',
+    code: `vars: {
+    // Use system variable
+    HOME_CONFIG: "\${HOME}/.config/myapp"
+    
+    // With default value
+    LOG_LEVEL: "\${LOG_LEVEL:-info}"
+    
+    // Combine variables
+    FULL_PATH: "\${HOME}/projects/\${PROJECT_NAME}"
+}`,
+  },
+  'environment/env-vars-scope-command': {
+    language: 'cue',
+    code: `{
+    name: "build"
+    env: {
+        vars: {
+            BUILD_MODE: "release"
+        }
+    }
+    implementations: [...]
+}`,
+  },
+  'environment/env-vars-scope-implementation': {
+    language: 'cue',
+    code: `{
+    name: "build"
+    implementations: [
+        {
+            script: "npm run build"
+            runtimes: [{name: "native"}]
+            platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+            env: {
+                vars: {
+                    NODE_ENV: "production"
+                }
+            }
+        },
+        {
+            script: "go build ./..."
+            runtimes: [{name: "native"}]
+            platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+            env: {
+                vars: {
+                    CGO_ENABLED: "0"
+                }
+            }
+        }
+    ]
+}`,
+  },
+  'environment/env-vars-scope-platform': {
+    language: 'cue',
+    code: `// Platform-specific env requires separate implementations
+implementations: [
+    {
+        script: "echo $PLATFORM_CONFIG"
+        runtimes: [{name: "native"}]
+        platforms: [{name: "linux"}]
+        env: {
+            vars: {
+                PLATFORM_CONFIG: "/etc/myapp"
+                PLATFORM_NAME: "Linux"
+            }
+        }
+    },
+    {
+        script: "echo $PLATFORM_CONFIG"
+        runtimes: [{name: "native"}]
+        platforms: [{name: "macos"}]
+        env: {
+            vars: {
+                PLATFORM_CONFIG: "/usr/local/etc/myapp"
+                PLATFORM_NAME: "macOS"
+            }
+        }
+    },
+    {
+        script: "echo %PLATFORM_CONFIG%"
+        runtimes: [{name: "native"}]
+        platforms: [{name: "windows"}]
+        env: {
+            vars: {
+                PLATFORM_CONFIG: "%APPDATA%\\\\myapp"
+                PLATFORM_NAME: "Windows"
+            }
+        }
+    }
+]`,
+  },
+  'environment/env-vars-scope-root': {
+    language: 'cue',
+    code: `env: {
+    vars: {
+        PROJECT_NAME: "myproject"
+        VERSION: "1.0.0"
+    }
+}
+
+cmds: [
+    {
+        name: "build"
+        // Gets PROJECT_NAME and VERSION
+        implementations: [...]
+    },
+    {
+        name: "deploy"
+        // Also gets PROJECT_NAME and VERSION
+        implementations: [...]
+    }
+]`,
+  },
+  'environment/env-vars-syntax': {
+    language: 'cue',
+    code: `vars: {
+    // Simple values
+    NAME: "value"
+    
+    // Numbers (still strings in shell)
+    PORT: "3000"
+    TIMEOUT: "30"
+    
+    // Boolean-like (strings "true"/"false")
+    DEBUG: "true"
+    VERBOSE: "false"
+    
+    // Paths
+    CONFIG_PATH: "/etc/myapp/config.yaml"
+    OUTPUT_DIR: "./dist"
+    
+    // URLs
+    API_URL: "https://api.example.com"
+}`,
+  },
+  'environment/gitignore-env': {
+    language: 'text',
+    code: `.env.secrets
+.env.local`,
+  },
+  'environment/overview-quick-example': {
+    language: 'cue',
+    code: `{
+    name: "build"
+    env: {
+        // Load from .env files
+        files: [".env", ".env.local?"]  // ? means optional
+        
+        // Set variables directly
+        vars: {
+            NODE_ENV: "production"
+            BUILD_DATE: "$(date +%Y-%m-%d)"
+        }
+    }
+    implementations: [{
+        script: """
+            echo "Building for $NODE_ENV"
+            echo "Date: $BUILD_DATE"
+            """
+        runtimes: [{name: "native"}]
+        platforms: [{name: "linux"}, {name: "macos"}]
+    }]
+}`,
+  },
+  'environment/precedence-appropriate-levels': {
+    language: 'cue',
+    code: `// Root: shared across all commands
+env: {
+    vars: {
+        PROJECT_NAME: "myapp"
+        VERSION: "1.0.0"
+    }
+}
+
+// Command: specific to this command
+{
+    name: "build"
+    env: {
+        vars: {
+            BUILD_TARGET: "production"
+        }
+    }
+}
+
+// Implementation: specific to this runtime
+implementations: [{
+    runtimes: [{name: "container", image: "node:20"}]
+    platforms: [{name: "linux"}]
+    env: {
+        vars: {
+            NODE_OPTIONS: "--max-old-space-size=4096"
+        }
+    }
+}]`,
+  },
+  'environment/precedence-cli-override': {
+    language: 'bash',
+    code: `invowk cmd build --invk-env-var API_URL=http://cli.example.com`,
+  },
+  'environment/precedence-cli-temp': {
+    language: 'bash',
+    code: `# Quick test with different config
+invowk cmd build --invk-env-var DEBUG=true --invk-env-var LOG_LEVEL=debug`,
+  },
+  'environment/precedence-debug': {
+    language: 'cue',
+    code: `{
+    name: "debug-env"
+    implementations: [{
+        script: """
+            echo "API_URL=$API_URL"
+            echo "LOG_LEVEL=$LOG_LEVEL"
+            echo "BUILD_MODE=$BUILD_MODE"
+            env | sort
+            """
+        runtimes: [{name: "native"}]
+        platforms: [{name: "linux"}, {name: "macos"}]
+    }]
+}`,
+  },
+  'environment/precedence-env-files': {
+    language: 'bash',
+    code: `# .env
+API_URL=http://envfile.example.com
+DATABASE_URL=postgres://localhost/db
+
+# .env.build
+BUILD_MODE=release
+CACHE_DIR=./cache`,
+  },
+  'environment/precedence-hierarchy': {
+    language: 'text',
+    code: `CLI (highest priority)
+├── --invk-env-var KEY=value
+└── --invk-env-file .env.local
+    │
+Invowk Vars
+├── INVOWK_FLAG_*
+└── INVOWK_ARG_*
+    │
+Implementation Level
+├── env.vars
+└── env.files
+    │
+Command Level
+├── env.vars
+└── env.files
+    │
+Root Level
+├── env.vars
+└── env.files
+    │
+System Environment (lowest priority)`,
+  },
+  'environment/precedence-invkfile': {
+    language: 'cue',
+    code: `// Root level
+env: {
+    files: [".env"]
+    vars: {
+        API_URL: "http://root.example.com"
+        LOG_LEVEL: "info"
+    }
+}
+
+cmds: [
+    {
+        name: "build"
+        // Command level
+        env: {
+            files: [".env.build"]
+            vars: {
+                API_URL: "http://command.example.com"
+                BUILD_MODE: "development"
+            }
+        }
+        implementations: [{
+            script: "echo $API_URL $LOG_LEVEL $BUILD_MODE $NODE_ENV"
+            runtimes: [{name: "native"}]
+            platforms: [{name: "linux"}, {name: "macos"}]
+            // Implementation level
+            env: {
+                vars: {
+                    BUILD_MODE: "production"
+                    NODE_ENV: "production"
+                }
+            }
+        }]
+    }
+]`,
+  },
+  'environment/precedence-local-dev': {
+    language: 'cue',
+    code: `env: {
+    files: [
+        ".env",          // Committed defaults
+        ".env.local?",   // Not committed, personal overrides
+    ]
+}`,
+  },
+  'environment/precedence-multiple-files': {
+    language: 'cue',
+    code: `env: {
+    files: [
+        ".env",           // API_URL=base
+        ".env.local",     // API_URL=local (wins)
+    ]
+}`,
+  },
+  'environment/precedence-override-pattern': {
+    language: 'cue',
+    code: `env: {
+    files: [".env"]              // Defaults
+    vars: {
+        OVERRIDE_THIS: "value"   // Specific override
+    }
+}`,
+  },
+  'environment/precedence-platform': {
+    language: 'cue',
+    code: `// Platform-specific env requires separate implementations
+implementations: [
+    {
+        script: "echo $CONFIG_PATH"
+        runtimes: [{name: "native"}]
+        platforms: [{name: "linux"}]
+        env: {
+            vars: {
+                CONFIG_PATH: "/etc/app"
+                OTHER_VAR: "value"
+            }
+        }
+    },
+    {
+        script: "echo $CONFIG_PATH"
+        runtimes: [{name: "native"}]
+        platforms: [{name: "macos"}]
+        env: {
+            vars: {
+                CONFIG_PATH: "/usr/local/etc/app"
+                OTHER_VAR: "value"
+            }
+        }
+    }
+]`,
+  },
+  'environment/precedence-result': {
+    language: 'bash',
+    code: `API_URL=http://command.example.com    # From command vars
+LOG_LEVEL=info                         # From root vars
+BUILD_MODE=production                  # From implementation vars
+NODE_ENV=production                    # From implementation vars
+DATABASE_URL=postgres://localhost/db   # From .env file
+CACHE_DIR=./cache                      # From .env.build file`,
+  },
+  'environment/precedence-vars-over-files': {
+    language: 'cue',
+    code: `env: {
+    files: [".env"]  // API_URL=from-file
+    vars: {
+        API_URL: "from-vars"  // This wins
+    }
+}`,
+  },
+  'environment/scope-command': {
+    language: 'cue',
+    code: `{
+    name: "build"
+    env: {
+        vars: {
+            BUILD_MODE: "release"
+        }
+    }
+    implementations: [...]
+}`,
+  },
+  'environment/scope-implementation': {
+    language: 'cue',
+    code: `{
+    name: "build"
+    implementations: [
+        {
+            script: "npm run build"
+            runtimes: [{name: "native"}]
+            platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+            env: {
+                vars: {
+                    NODE_ENV: "production"
+                }
+            }
+        }
+    ]
+}`,
+  },
+  'environment/scope-platform': {
+    language: 'cue',
+    code: `// Platform-specific env requires separate implementations
+implementations: [
+    {
+        script: "echo $CONFIG_PATH"
+        runtimes: [{name: "native"}]
+        platforms: [{name: "linux"}]
+        env: {vars: {CONFIG_PATH: "/etc/myapp/config"}}
+    },
+    {
+        script: "echo $CONFIG_PATH"
+        runtimes: [{name: "native"}]
+        platforms: [{name: "macos"}]
+        env: {vars: {CONFIG_PATH: "/usr/local/etc/myapp/config"}}
+    }
+]`,
+  },
+  'environment/scope-root': {
+    language: 'cue',
+    code: `env: {
+    vars: {
+        PROJECT_NAME: "myproject"
+    }
+}
+
+cmds: [...]  // All commands get PROJECT_NAME`,
+  },
+  'flags-args/args-accessing': {
+    language: 'cue',
+    code: `{
+    name: "greet"
+    args: [
+        {name: "first-name", required: true},
+        {name: "last-name", default_value: "User"},
+    ]
+    implementations: [{
+        script: """
+            echo "Hello, $INVOWK_ARG_FIRST_NAME $INVOWK_ARG_LAST_NAME!"
+            """
+        runtimes: [{name: "native"}]
+        platforms: [{name: "linux"}, {name: "macos"}]
+    }]
+}`,
+  },
+  'flags-args/args-compress-example': {
+    language: 'cue',
+    code: `{
+    name: "compress"
+    description: "Compress files into archive"
+    args: [
+        {
+            name: "archive"
+            description: "Output archive name"
+            required: true
+            validation: "\\\\.(zip|tar\\\\.gz|tgz)$"
+        },
+        {
+            name: "files"
+            description: "Files to compress"
+            variadic: true
+        }
+    ]
+    implementations: [{
+        script: """
+            if [ -z "$INVOWK_ARG_FILES" ]; then
+                echo "No files specified!"
+                exit 1
+            fi
+            
+            # Use the space-separated list
+            tar -czvf "$INVOWK_ARG_ARCHIVE" $INVOWK_ARG_FILES
+            """
+        runtimes: [{name: "native"}]
+        platforms: [{name: "linux"}, {name: "macos"}]
+    }]
+}`,
+  },
+  'flags-args/args-convert-example': {
+    language: 'cue',
+    code: `{
+    name: "convert"
+    description: "Convert file format"
+    args: [
+        {
+            name: "input"
+            description: "Input file"
+            required: true
+        },
+        {
+            name: "output"
+            description: "Output file"
+            required: true
+        },
+        {
+            name: "format"
+            description: "Output format"
+            default_value: "json"
+            validation: "^(json|yaml|toml|xml)$"
+        }
+    ]
+    implementations: [{
+        script: """
+            echo "Converting $1 to $2 as $3"
+            ./converter --input="$1" --output="$2" --format="$3"
+            """
+        runtimes: [{name: "native"}]
+        platforms: [{name: "linux"}, {name: "macos"}]
+    }]
+}`,
+  },
+  'flags-args/args-defining': {
+    language: 'cue',
+    code: `{
+    name: "copy"
+    args: [
+        {
+            name: "source"
+            description: "Source file or directory"
+            required: true
+        },
+        {
+            name: "destination"
+            description: "Destination path"
+            required: true
+        }
+    ]
+    implementations: [...]
+}`,
+  },
+  'flags-args/args-defining-usage': {
+    language: 'bash',
+    code: `invowk cmd copy ./src ./dest`,
+  },
+  'flags-args/args-deploy-example': {
+    language: 'cue',
+    code: `{
+    name: "deploy"
+    description: "Deploy services"
+    args: [
+        {
+            name: "env"
+            description: "Target environment"
+            required: true
+            validation: "^(dev|staging|prod)$"
+        },
+        {
+            name: "replicas"
+            description: "Number of replicas"
+            type: "int"
+            default_value: "1"
+        },
+        {
+            name: "services"
+            description: "Services to deploy"
+            variadic: true
+        }
+    ]
+    implementations: [{
+        script: """
+            echo "Deploying to $INVOWK_ARG_ENV with $INVOWK_ARG_REPLICAS replicas"
+            
+            if [ -n "$INVOWK_ARG_SERVICES" ]; then
+                for i in $(seq 1 $INVOWK_ARG_SERVICES_COUNT); do
+                    eval "service=\\$INVOWK_ARG_SERVICES_$i"
+                    echo "Deploying $service..."
+                    kubectl scale deployment/$service --replicas=$INVOWK_ARG_REPLICAS
+                done
+            else
+                echo "Deploying all services..."
+                kubectl scale deployment --all --replicas=$INVOWK_ARG_REPLICAS
+            fi
+            """
+        runtimes: [{name: "native"}]
+        platforms: [{name: "linux"}, {name: "macos"}]
+    }]
+}`,
+  },
+  'flags-args/args-mixing-flags': {
+    language: 'bash',
+    code: `# All equivalent
+invowk cmd deploy prod 3 --dry-run
+invowk cmd deploy --dry-run prod 3
+invowk cmd deploy prod --dry-run 3`,
+  },
+  'flags-args/args-optional': {
+    language: 'cue',
+    code: `args: [
+    {name: "input", description: "Input file", required: true},
+    {name: "format", description: "Output format", default_value: "json"},
+]`,
+  },
+  'flags-args/args-optional-usage': {
+    language: 'bash',
+    code: `# Uses default format (json)
+invowk cmd parse input.txt
+
+# Override format
+invowk cmd parse input.txt yaml`,
+  },
+  'flags-args/args-ordering': {
+    language: 'cue',
+    code: `// Good
+args: [
+    {name: "input", required: true},      // Required first
+    {name: "output", required: true},     // Required second
+    {name: "format", default_value: "json"}, // Optional last
+]
+
+// Bad - will cause validation error
+args: [
+    {name: "format", default_value: "json"}, // Optional can't come first
+    {name: "input", required: true},
+]`,
+  },
+  'flags-args/args-positional-params': {
+    language: 'cue',
+    code: `{
+    name: "copy"
+    args: [
+        {name: "source", required: true},
+        {name: "dest", required: true},
+    ]
+    implementations: [{
+        script: """
+            # Using environment variables
+            cp "$INVOWK_ARG_SOURCE" "$INVOWK_ARG_DEST"
+            
+            # Or positional parameters
+            cp "$1" "$2"
+            
+            # All arguments
+            echo "Args: $@"
+            echo "Count: $#"
+            """
+        runtimes: [{name: "native"}]
+        platforms: [{name: "linux"}, {name: "macos"}]
+    }]
+}`,
+  },
+  'flags-args/args-required': {
+    language: 'cue',
+    code: `args: [
+    {name: "input", description: "Input file", required: true},
+    {name: "output", description: "Output file", required: true},
+]`,
+  },
+  'flags-args/args-required-usage': {
+    language: 'bash',
+    code: `# Error: missing required argument
+invowk cmd convert input.txt
+# Error: argument 'output' is required
+
+# Success
+invowk cmd convert input.txt output.txt`,
+  },
+  'flags-args/args-type-float': {
+    language: 'cue',
+    code: `{name: "ratio", description: "Scaling ratio", type: "float", default_value: "1.0"}`,
+  },
+  'flags-args/args-type-float-usage': {
+    language: 'bash',
+    code: `invowk cmd scale 0.5`,
+  },
+  'flags-args/args-type-int': {
+    language: 'cue',
+    code: `{name: "count", description: "Number of items", type: "int", default_value: "10"}`,
+  },
+  'flags-args/args-type-int-usage': {
+    language: 'bash',
+    code: `invowk cmd generate 5`,
+  },
+  'flags-args/args-type-string': {
+    language: 'cue',
+    code: `{name: "filename", description: "File to process", type: "string"}`,
+  },
+  'flags-args/args-validation': {
+    language: 'cue',
+    code: `args: [
+    {
+        name: "environment"
+        description: "Target environment"
+        required: true
+        validation: "^(dev|staging|prod)$"
+    },
+    {
+        name: "version"
+        description: "Version number"
+        validation: "^[0-9]+\\\\.[0-9]+\\\\.[0-9]+$"
+    }
+]`,
+  },
+  'flags-args/args-validation-usage': {
+    language: 'bash',
+    code: `# Valid
+invowk cmd deploy prod 1.2.3
+
+# Invalid
+invowk cmd deploy production
+# Error: argument 'environment' value 'production' does not match pattern '^(dev|staging|prod)$'`,
+  },
+  'flags-args/args-variadic': {
+    language: 'cue',
+    code: `{
+    name: "process"
+    args: [
+        {name: "output", description: "Output file", required: true},
+        {name: "inputs", description: "Input files", variadic: true},
+    ]
+    implementations: [{
+        script: """
+            echo "Output: $INVOWK_ARG_OUTPUT"
+            echo "Inputs: $INVOWK_ARG_INPUTS"
+            echo "Count: $INVOWK_ARG_INPUTS_COUNT"
+
+            for i in $(seq 1 $INVOWK_ARG_INPUTS_COUNT); do
+                eval "file=\\$INVOWK_ARG_INPUTS_$i"
+                echo "Processing: $file"
+            done
+            """
+        runtimes: [{name: "native"}]
+        platforms: [{name: "linux"}, {name: "macos"}]
+    }]
+}`,
+  },
+  'flags-args/args-variadic-usage': {
+    language: 'bash',
+    code: `invowk cmd process out.txt a.txt b.txt c.txt
+# Output: out.txt
+# Inputs: a.txt b.txt c.txt
+# Count: 3
+# Processing: a.txt
+# Processing: b.txt
+# Processing: c.txt`,
+  },
+  'flags-args/flags-accessing': {
+    language: 'cue',
+    code: `{
+    name: "deploy"
+    flags: [
+        {name: "env", description: "Environment", required: true},
+        {name: "dry-run", description: "Dry run", type: "bool", default_value: "false"},
+        {name: "replica-count", description: "Replicas", type: "int", default_value: "1"},
+    ]
+    implementations: [{
+        script: """
+            echo "Environment: $INVOWK_FLAG_ENV"
+            echo "Dry run: $INVOWK_FLAG_DRY_RUN"
+            echo "Replicas: $INVOWK_FLAG_REPLICA_COUNT"
+            
+            if [ "$INVOWK_FLAG_DRY_RUN" = "true" ]; then
+                echo "Would deploy $INVOWK_FLAG_REPLICA_COUNT replicas to $INVOWK_FLAG_ENV"
+            else
+                ./deploy.sh "$INVOWK_FLAG_ENV" "$INVOWK_FLAG_REPLICA_COUNT"
+            fi
+            """
+        runtimes: [{name: "native"}]
+        platforms: [{name: "linux"}, {name: "macos"}]
+    }]
+}`,
+  },
+  'flags-args/flags-build-example': {
+    language: 'cue',
+    code: `{
+    name: "build"
+    description: "Build the application"
+    flags: [
+        {name: "mode", description: "Build mode", validation: "^(debug|release)$", default_value: "debug"},
+        {name: "output", description: "Output directory", short: "o", default_value: "./build"},
+        {name: "verbose", description: "Verbose output", type: "bool", short: "v"},
+        {name: "parallel", description: "Parallel jobs", type: "int", short: "j", default_value: "4"},
+    ]
+    implementations: [{
+        script: """
+            mkdir -p "$INVOWK_FLAG_OUTPUT"
+            
+            VERBOSE=""
+            if [ "$INVOWK_FLAG_VERBOSE" = "true" ]; then
+                VERBOSE="-v"
+            fi
+            
+            go build $VERBOSE -o "$INVOWK_FLAG_OUTPUT/app" ./...
+            """
+        runtimes: [{name: "native"}]
+        platforms: [{name: "linux"}, {name: "macos"}]
+    }]
+}`,
+  },
+  'flags-args/flags-defining': {
+    language: 'cue',
+    code: `{
+    name: "deploy"
+    flags: [
+        {
+            name: "environment"
+            description: "Target environment"
+            required: true
+        },
+        {
+            name: "dry-run"
+            description: "Simulate without changes"
+            type: "bool"
+            default_value: "false"
+        },
+        {
+            name: "replicas"
+            description: "Number of replicas"
+            type: "int"
+            default_value: "1"
+        }
+    ]
+    implementations: [...]
+}`,
+  },
+  'flags-args/flags-deploy-example': {
+    language: 'cue',
+    code: `{
+    name: "deploy"
+    description: "Deploy to cloud"
+    flags: [
+        {
+            name: "env"
+            description: "Target environment"
+            short: "e"
+            required: true
+            validation: "^(dev|staging|prod)$"
+        },
+        {
+            name: "version"
+            description: "Version to deploy"
+            short: "v"
+            validation: "^[0-9]+\\\\.[0-9]+\\\\.[0-9]+$"
+        },
+        {
+            name: "dry-run"
+            description: "Simulate deployment"
+            type: "bool"
+            short: "n"
+            default_value: "false"
+        },
+        {
+            name: "timeout"
+            description: "Deployment timeout (seconds)"
+            type: "int"
+            default_value: "300"
+        }
+    ]
+    implementations: [{
+        script: """
+            echo "Deploying version \${INVOWK_FLAG_VERSION:-latest} to $INVOWK_FLAG_ENV"
+            
+            ARGS="--timeout=$INVOWK_FLAG_TIMEOUT"
+            if [ "$INVOWK_FLAG_DRY_RUN" = "true" ]; then
+                ARGS="$ARGS --dry-run"
+            fi
+            
+            ./scripts/deploy.sh "$INVOWK_FLAG_ENV" $ARGS
+            """
+        runtimes: [{name: "native"}]
+        platforms: [{name: "linux"}, {name: "macos"}]
+    }]
+}`,
+  },
+  'flags-args/flags-optional': {
+    language: 'cue',
+    code: `{
+    name: "timeout"
+    description: "Request timeout in seconds"
+    type: "int"
+    default_value: "30"  // Used if not provided
+}`,
+  },
+  'flags-args/flags-optional-usage': {
+    language: 'bash',
+    code: `# Uses default (30)
+invowk cmd request
+
+# Override
+invowk cmd request --timeout=60`,
+  },
+  'flags-args/flags-required': {
+    language: 'cue',
+    code: `{
+    name: "target"
+    description: "Deployment target"
+    required: true  // Must be provided
+}`,
+  },
+  'flags-args/flags-required-usage': {
+    language: 'bash',
+    code: `# Error: missing required flag
+invowk cmd deploy
+# Error: flag 'target' is required
+
+# Success
+invowk cmd deploy --target=production`,
+  },
+  'flags-args/flags-short-aliases': {
+    language: 'cue',
+    code: `flags: [
+    {name: "verbose", description: "Verbose output", type: "bool", short: "v"},
+    {name: "output", description: "Output file", short: "o"},
+    {name: "force", description: "Force overwrite", type: "bool", short: "f"},
+]`,
+  },
+  'flags-args/flags-short-usage': {
+    language: 'bash',
+    code: `# Long form
+invowk cmd build --verbose --output=./dist --force
+
+# Short form
+invowk cmd build -v -o=./dist -f
+
+# Mixed
+invowk cmd build -v --output=./dist -f`,
+  },
+  'flags-args/flags-syntax': {
+    language: 'bash',
+    code: `# Equals sign
+--output=./dist
+
+# Space separator
+--output ./dist
+
+# Short with equals
+-o=./dist
+
+# Short with value
+-o ./dist
+
+# Boolean toggle (enables)
+--verbose
+-v
+
+# Boolean explicit
+--verbose=true
+--verbose=false`,
+  },
+  'flags-args/flags-type-bool': {
+    language: 'cue',
+    code: `{name: "verbose", description: "Enable verbose output", type: "bool", default_value: "false"}`,
+  },
+  'flags-args/flags-type-bool-usage': {
+    language: 'bash',
+    code: `# Enable
+invowk cmd run --verbose
+invowk cmd run --verbose=true
+
+# Disable (explicit)
+invowk cmd run --verbose=false`,
+  },
+  'flags-args/flags-type-float': {
+    language: 'cue',
+    code: `{name: "threshold", description: "Confidence threshold", type: "float", default_value: "0.95"}`,
+  },
+  'flags-args/flags-type-float-usage': {
+    language: 'bash',
+    code: `invowk cmd run --threshold=0.8
+invowk cmd run --threshold=1.5e-3  # Scientific notation`,
+  },
+  'flags-args/flags-type-int': {
+    language: 'cue',
+    code: `{name: "count", description: "Number of iterations", type: "int", default_value: "5"}`,
+  },
+  'flags-args/flags-type-int-usage': {
+    language: 'bash',
+    code: `invowk cmd run --count=10
+invowk cmd run --count=-1  # Negative allowed`,
+  },
+  'flags-args/flags-type-string': {
+    language: 'cue',
+    code: `{name: "message", description: "Custom message", type: "string"}
+// or simply
+{name: "message", description: "Custom message"}`,
+  },
+  'flags-args/flags-type-string-usage': {
+    language: 'bash',
+    code: `invowk cmd run --message="Hello World"`,
+  },
+  'flags-args/flags-validation': {
+    language: 'cue',
+    code: `flags: [
+    {
+        name: "env"
+        description: "Environment name"
+        validation: "^(dev|staging|prod)$"
+        default_value: "dev"
+    },
+    {
+        name: "version"
+        description: "Semantic version"
+        validation: "^[0-9]+\\\\.[0-9]+\\\\.[0-9]+$"
+    }
+]`,
+  },
+  'flags-args/flags-validation-usage': {
+    language: 'bash',
+    code: `# Valid
+invowk cmd deploy --env=prod --version=1.2.3
+
+# Invalid - fails before execution
+invowk cmd deploy --env=production
+# Error: flag 'env' value 'production' does not match required pattern '^(dev|staging|prod)$'`,
+  },
+  'flags-args/overview-args-example': {
+    language: 'cue',
+    code: `args: [
+    {name: "source", required: true},
+    {name: "destination", default_value: "./output"},
+    {name: "files", variadic: true},
+]`,
+  },
+  'flags-args/overview-args-usage': {
+    language: 'bash',
+    code: `invowk cmd copy ./src ./dest file1.txt file2.txt`,
+  },
+  'flags-args/overview-example-command': {
+    language: 'cue',
+    code: `{
+    name: "deploy"
+    description: "Deploy to an environment"
+    
+    // Flags - named options
+    flags: [
+        {name: "dry-run", type: "bool", default_value: "false"},
+        {name: "replicas", type: "int", default_value: "1"},
+    ]
+    
+    // Arguments - positional values
+    args: [
+        {name: "environment", required: true},
+        {name: "services", variadic: true},
+    ]
+    
+    implementations: [{
+        script: """
+            echo "Deploying to $INVOWK_ARG_ENVIRONMENT"
+            echo "Replicas: $INVOWK_FLAG_REPLICAS"
+            echo "Dry run: $INVOWK_FLAG_DRY_RUN"
+            echo "Services: $INVOWK_ARG_SERVICES"
+            """
+        runtimes: [{name: "native"}]
+        platforms: [{name: "linux"}, {name: "macos"}]
+    }]
+}`,
+  },
+  'flags-args/overview-flags-example': {
+    language: 'cue',
+    code: `flags: [
+    {name: "verbose", type: "bool", short: "v"},
+    {name: "output", type: "string", short: "o", default_value: "./dist"},
+    {name: "count", type: "int", default_value: "1"},
+]`,
+  },
+  'flags-args/overview-flags-usage': {
+    language: 'bash',
+    code: `# Long form
+invowk cmd build --verbose --output=./build --count=5
+
+# Short form
+invowk cmd build -v -o=./build`,
+  },
+  'flags-args/overview-help': {
+    language: 'bash',
+    code: `invowk cmd deploy --help`,
+  },
+  'flags-args/overview-help-output': {
+    language: 'text',
+    code: `Usage:
+  invowk cmd deploy <environment> [services]... [flags]
+
+Arguments:
+  environment          (required) - Target environment
+  services             (optional) (variadic) - Services to deploy
+
+Flags:
+      --dry-run          Perform a dry run (default: false)
+  -n, --replicas int     Number of replicas (default: 1)
+  -h, --help             help for deploy`,
+  },
+  'flags-args/overview-mixing': {
+    language: 'bash',
+    code: `# All equivalent
+invowk cmd deploy production --dry-run api web
+invowk cmd deploy --dry-run production api web
+invowk cmd deploy production api web --dry-run`,
+  },
+  'flags-args/overview-shell-positional': {
+    language: 'cue',
+    code: `{
+    name: "greet"
+    args: [
+        {name: "first-name"},
+        {name: "last-name"},
+    ]
+    implementations: [{
+        script: """
+            # Using environment variables
+            echo "Hello, $INVOWK_ARG_FIRST_NAME $INVOWK_ARG_LAST_NAME!"
+            
+            # Or using positional parameters
+            echo "Hello, $1 $2!"
+            
+            # All arguments
+            echo "All: $@"
+            """
+        runtimes: [{name: "native"}]
+        platforms: [{name: "linux"}, {name: "macos"}]
+    }]
+}`,
+  },
+  'flags-args/overview-usage': {
+    language: 'bash',
+    code: `invowk cmd deploy production api web --dry-run --replicas=3`,
+  },
+  'getting-started/build-with-deps': {
+    language: 'cue',
+    code: `{
+    name: "build"
+    description: "Build the project"
+    implementations: [
+        {
+            script: """
+                echo "Building..."
+                go build -o bin/app ./...
+                echo "Done!"
+                """
+            runtimes: [{name: "native"}]
+            platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+        }
+    ]
+    depends_on: {
+        tools: [
+            {alternatives: ["go"]}
+        ]
+        filepaths: [
+            {alternatives: ["go.mod"], readable: true}
+        ]
+    }
+}`,
+  },
+  'getting-started/env-vars-levels': {
+    language: 'cue',
+    code: `// Root-level env applies to ALL commands
+env: {
+    vars: {
+        GO111MODULE: "on"
+    }
+}
+
+cmds: [
+    {
+        name: "build"
+        // Command-level env applies to this command
+        env: {
+            vars: {
+                CGO_ENABLED: "0"
+            }
+        }
+        implementations: [
+            {
+                script: "go build -o bin/app ./..."
+                // Implementation-level env is most specific
+                env: {
+                    vars: {
+                        GOOS: "linux"
+                        GOARCH: "amd64"
+                    }
+                }
+                runtimes: [{name: "native"}]
+                platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+            }
+        ]
+    }
+]`,
+  },
+  'getting-started/go-project-full': {
+    language: 'cue',
+    code: `cmds: [
+    // Simple build command
+    {
+        name: "build"
+        description: "Build the project"
+        implementations: [
+            {
+                script: """
+                    echo "Building..."
+                    go build -o bin/app ./...
+                    echo "Done! Binary at bin/app"
+                    """
+                runtimes: [{name: "native"}]
+                platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+            }
+        ]
+    },
+
+    // Test command with subcommand-style naming
+    {
+        name: "test unit"
+        description: "Run unit tests"
+        implementations: [
+            {
+                script: "go test -v ./..."
+                runtimes: [{name: "native"}, {name: "virtual"}]
+                platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+            }
+        ]
+    },
+
+    // Test with coverage
+    {
+        name: "test coverage"
+        description: "Run tests with coverage"
+        implementations: [
+            {
+                script: """
+                    go test -coverprofile=coverage.out ./...
+                    go tool cover -html=coverage.out -o coverage.html
+                    echo "Coverage report: coverage.html"
+                    """
+                runtimes: [{name: "native"}]
+                platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+            }
+        ]
+    },
+
+    // Clean command
+    {
+        name: "clean"
+        description: "Remove build artifacts"
+        implementations: [
+            {
+                script: "rm -rf bin/ coverage.out coverage.html"
+                runtimes: [{name: "native"}]
+                platforms: [{name: "linux"}, {name: "macos"}]
+            }
+        ]
+    }
+]`,
+  },
+  'getting-started/invkfile-basic-structure': {
+    language: 'cue',
+    code: `// invkfile.cue (commands only)
+cmds: [                  // Required: list of commands
+    // ... your commands here
+]`,
+  },
+  'getting-started/platforms-linux-macos': {
+    language: 'cue',
+    code: `platforms: [{name: "linux"}, {name: "macos"}]`,
+  },
+  'getting-started/runtimes-multiple': {
+    language: 'cue',
+    code: `runtimes: [{name: "native"}, {name: "virtual"}]`,
+  },
+  'implementations/basic-structure': {
+    language: 'cue',
+    code: `{
+    name: "build"
+    implementations: [
+        {
+            // 1. The script to run
+            script: "go build ./..."
+            
+            // 2. Target constraints (runtime + platform)
+            runtimes: [{name: "native"}]
+            platforms: [{name: "linux"}, {name: "macos"}]
+        }
+    ]
+}`,
+  },
+  'implementations/cue-templates': {
+    language: 'cue',
+    code: `// Define reusable templates
+_unixNative: {
+    runtimes: [{name: "native"}]
+    platforms: [{name: "linux"}, {name: "macos"}]
+}
+
+_allPlatforms: {
+    runtimes: [{name: "native"}]
+    platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+}
+
+cmds: [
+    {
+        name: "build"
+        implementations: [
+            _unixNative & {script: "make build"}
+        ]
+    },
+    {
+        name: "test"
+        implementations: [
+            _unixNative & {script: "make test"}
+        ]
+    },
+    {
+        name: "version"
+        implementations: [
+            _allPlatforms & {script: "cat VERSION"}
+        ]
+    }
+]`,
+  },
+  'implementations/impl-level-settings': {
+    language: 'cue',
+    code: `{
+    name: "build"
+    implementations: [
+        {
+            script: "npm run build"
+            runtimes: [{name: "native"}]
+            platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+
+            // Implementation-specific env
+            env: {
+                vars: {
+                    NODE_ENV: "production"
+                }
+            }
+            
+            // Implementation-specific workdir
+            workdir: "./frontend"
+            
+            // Implementation-specific dependencies
+            depends_on: {
+                tools: [{alternatives: ["node", "npm"]}]
+                filepaths: [{alternatives: ["package.json"]}]
+            }
+        }
+    ]
+}`,
+  },
+  'implementations/inline-multi': {
+    language: 'cue',
+    code: `script: """
+    #!/bin/bash
+    set -e
+    echo "Building..."
+    go build -o bin/app ./...
+    echo "Done!"
+    """`,
+  },
+  'implementations/inline-single': {
+    language: 'cue',
+    code: `script: "echo 'Hello, World!'"`,
+  },
+  'implementations/list-output': {
+    language: 'text',
+    code: `Available Commands
+  (* = default runtime)
+
+From current directory:
+  build - Build the project [native*, virtual] (linux, macos)
+  clean - Clean artifacts [native*] (linux, macos, windows)
+  docker-build - Container build [container*] (linux, macos, windows)`,
+  },
+  'implementations/platform-env': {
+    language: 'cue',
+    code: `{
+    name: "deploy"
+    implementations: [
+        // Linux implementation with platform-specific env
+        {
+            script: "echo \\"Deploying to $PLATFORM with config at $CONFIG_PATH\\""
+            runtimes: [{name: "native"}]
+            platforms: [{name: "linux"}]
+            env: {
+                vars: {
+                    PLATFORM: "Linux"
+                    CONFIG_PATH: "/etc/app/config.yaml"
+                }
+            }
+        },
+        // macOS implementation with platform-specific env
+        {
+            script: "echo \\"Deploying to $PLATFORM with config at $CONFIG_PATH\\""
+            runtimes: [{name: "native"}]
+            platforms: [{name: "macos"}]
+            env: {
+                vars: {
+                    PLATFORM: "macOS"
+                    CONFIG_PATH: "/usr/local/etc/app/config.yaml"
+                }
+            }
+        }
+    ]
+}`,
+  },
+  'implementations/platform-specific': {
+    language: 'cue',
+    code: `{
+    name: "clean"
+    implementations: [
+        // Unix implementation
+        {
+            script: "rm -rf build/"
+            runtimes: [{name: "native"}]
+            platforms: [{name: "linux"}, {name: "macos"}]
+        },
+        // Windows implementation
+        {
+            script: "rmdir /s /q build"
+            runtimes: [{name: "native"}]
+            platforms: [{name: "windows"}]
+        }
+    ]
+}`,
+  },
+  'implementations/platforms-list': {
+    language: 'cue',
+    code: `runtimes: [{name: "native"}]
+platforms: [
+    {name: "linux"},
+    {name: "macos"},
+    {name: "windows"}
+]`,
+  },
+  'implementations/runtime-specific': {
+    language: 'cue',
+    code: `{
+    name: "build"
+    implementations: [
+        // Fast native build
+        {
+            script: "go build ./..."
+            runtimes: [{name: "native"}]
+            platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+        },
+        // Reproducible container build
+        {
+            script: "go build -o /workspace/bin/app ./..."
+            runtimes: [{name: "container", image: "golang:1.21"}]
+            platforms: [{name: "linux"}]
+        }
+    ]
+}`,
+  },
+  'implementations/runtimes-list': {
+    language: 'cue',
+    code: `runtimes: [
+    {name: "native"},      // System shell
+    {name: "virtual"},     // Built-in POSIX shell
+    {name: "container", image: "debian:bookworm-slim"}  // Container
+]`,
+  },
+  'implementations/selection-example': {
+    language: 'cue',
+    code: `{
+    name: "build"
+    implementations: [
+        {
+            script: "make build"
+            runtimes: [{name: "native"}, {name: "virtual"}]
+            platforms: [{name: "linux"}, {name: "macos"}]
+        },
+        {
+            script: "msbuild"
+            runtimes: [{name: "native"}]
+            platforms: [{name: "windows"}]
+        }
+    ]
+}`,
+  },
+  'installation/build-from-source': {
+    language: 'bash',
+    code: `git clone https://github.com/invowk/invowk
+cd invowk
+go build -o invowk .`,
+  },
+  'installation/completion-bash': {
+    language: 'bash',
+    code: `# Add to ~/.bashrc
+eval "$(invowk completion bash)"
+
+# Or install system-wide
+invowk completion bash > /etc/bash_completion.d/invowk`,
+  },
+  'installation/completion-fish': {
+    language: 'bash',
+    code: `invowk completion fish > ~/.config/fish/completions/invowk.fish`,
+  },
+  'installation/completion-powershell': {
+    language: 'powershell',
+    code: `invowk completion powershell | Out-String | Invoke-Expression
+
+# Or add to $PROFILE for persistence
+invowk completion powershell >> $PROFILE`,
+  },
+  'installation/completion-zsh': {
+    language: 'bash',
+    code: `# Add to ~/.zshrc
+eval "$(invowk completion zsh)"
+
+# Or install to fpath
+invowk completion zsh > "\${fpath[1]}/_invowk"`,
+  },
+  'installation/make-options': {
+    language: 'bash',
+    code: `# Standard build (stripped binary, smaller size)
+make build
+
+# Development build (with debug symbols)
+make build-dev
+
+# Compressed build (requires UPX)
+make build-upx
+
+# Install to $GOPATH/bin
+make install`,
+  },
+  'installation/move-to-path': {
+    language: 'bash',
+    code: `# Linux/macOS
+sudo mv invowk /usr/local/bin/
+
+# Or add to your local bin
+mv invowk ~/.local/bin/`,
+  },
+  'installation/verify': {
+    language: 'bash',
+    code: `invowk --version`,
+  },
+  'interactive/basic-usage': {
+    language: 'bash',
+    code: `# Run a command in interactive mode
+invowk cmd build --invk-interactive`,
+  },
+  'interactive/config-enable': {
+    language: 'cue',
+    code: `// In config file: ~/.config/invowk/config.cue
+ui: {
+    interactive: true  // Enable by default
+}`,
+  },
+  'interactive/embedded-tui': {
+    language: 'cue',
+    code: `{
+    name: "interactive-setup"
+    description: "Setup with embedded TUI prompts"
+    implementations: [{
+        script: """
+            # When run with --invk-interactive, TUI components appear as overlays
+            NAME=$(invowk tui input --title "Project name:")
+            TYPE=$(invowk tui choose --title "Type:" api cli library)
+            
+            if invowk tui confirm "Create $TYPE project '$NAME'?"; then
+                mkdir -p "$NAME"
+                echo "Created $NAME"
+            fi
+            """
+        runtimes: [{name: "native"}]
+        platforms: [{name: "linux"}, {name: "macos"}]
+    }]
+}`,
+  },
+  'interactive/key-bindings-completed': {
+    language: 'text',
+    code: `After command completion:
+  ↑/k           → Scroll up one line
+  ↓/j           → Scroll down one line
+  PgUp/b        → Scroll up half page
+  PgDown/f/Space→ Scroll down half page
+  Home/g        → Go to top
+  End/G         → Go to bottom
+  q/Esc/Enter   → Exit and return to terminal`,
+  },
+  'interactive/key-bindings-executing': {
+    language: 'text',
+    code: `During command execution:
+  All keys      → Forwarded to running command
+  Ctrl+\\        → Emergency quit (force exit)`,
+  },
+  'interactive/use-cases': {
+    language: 'bash',
+    code: `# Commands with password prompts
+invowk cmd deploy --invk-interactive
+
+# Commands with sudo
+invowk cmd system-update --invk-interactive
+
+# SSH sessions
+invowk cmd remote-shell --invk-interactive
+
+# Any command with interactive input
+invowk cmd database-cli --invk-interactive`,
+  },
+  'modules/absolute-paths': {
+    language: 'cue',
+    code: `// Bad - absolute path
+script: "/usr/local/bin/script.sh"
+
+// Good - relative path
+script: "scripts/script.sh"`,
+  },
+  'modules/archive-basic': {
+    language: 'bash',
+    code: `# Default output: <module-name>.invkmod.zip
+invowk module archive ./mytools.invkmod
+
+# Custom output path
+invowk module archive ./mytools.invkmod --output ./dist/mytools.zip`,
+  },
+  'modules/archive-output': {
+    language: 'text',
+    code: `Archive Module
+
+✓ Module archived successfully
+
+• Output: /home/user/dist/mytools.zip
+• Size: 2.45 KB`,
+  },
+  'modules/archive-versioned': {
+    language: 'bash',
+    code: `invowk module archive ./mytools.invkmod --output ./dist/mytools-1.2.0.zip`,
+  },
+  'modules/buildtools-invkfile': {
+    language: 'cue',
+    code: `cmds: [
+    {
+        name: "go"
+        description: "Build Go project"
+        implementations: [{
+            script: "scripts/build-go.sh"
+            runtimes: [{name: "native"}]
+            platforms: [{name: "linux"}, {name: "macos"}]
+        }]
+    },
+    {
+        name: "node"
+        description: "Build Node.js project"
+        implementations: [{
+            script: "scripts/build-node.sh"
+            runtimes: [{name: "native"}]
+            platforms: [{name: "linux"}, {name: "macos"}]
+        }]
+    },
+    {
+        name: "python"
+        description: "Build Python project"
+        implementations: [{
+            script: "scripts/build-python.sh"
+            runtimes: [{name: "native"}]
+            platforms: [{name: "linux"}, {name: "macos"}]
+        }]
+    }
+]`,
+  },
+  'modules/buildtools-structure': {
+    language: 'text',
+    code: `com.company.buildtools.invkmod/
+├── invkmod.cue
+├── invkfile.cue
+├── scripts/
+│   ├── build-go.sh
+│   ├── build-node.sh
+│   └── build-python.sh
+├── templates/
+│   ├── Dockerfile.go
+│   ├── Dockerfile.node
+│   └── Dockerfile.python
+└── README.md`,
+  },
+  'modules/create-options': {
+    language: 'bash',
+    code: `# Simple module
+invowk module create mytools
+
+# RDNS naming
+invowk module create com.company.devtools
+
+# In specific directory
+invowk module create mytools --path /path/to/modules
+
+# Custom module ID + description
+invowk module create mytools --module-id com.company.tools --description "Shared tools"
+
+# With scripts directory
+invowk module create mytools --scripts`,
+  },
+  'modules/create-with-scripts': {
+    language: 'text',
+    code: `mytools.invkmod/
+├── invkmod.cue
+├── invkfile.cue
+└── scripts/`,
+  },
+  'modules/dependencies/alias-example': {
+    language: 'cue',
+    code: `requires: [
+    // Default namespace: common@1.2.3
+    {git_url: "https://github.com/user/common.invkmod.git", version: "^1.0.0"},
+
+    // Custom namespace: tools
+    {
+        git_url: "https://github.com/user/common.invkmod.git"
+        version: "^1.0.0"
+        alias: "tools"
+    },
+]`,
+  },
+  'modules/dependencies/alias-usage': {
+    language: 'bash',
+    code: `# Instead of: invowk cmd common@1.2.3 build
+invowk cmd tools build`,
+  },
+  'modules/dependencies/auth-tokens': {
+    language: 'bash',
+    code: `# GitHub
+export GITHUB_TOKEN=ghp_xxxx
+
+# GitLab
+export GITLAB_TOKEN=glpat-xxxx
+
+# Generic (any Git server)
+export GIT_TOKEN=your-token`,
+  },
+  'modules/dependencies/basic-invkmod': {
+    language: 'cue',
+    code: `module: "com.example.mytools"
+version: "1.0"
+
+requires: [
+    {
+        git_url: "https://github.com/example/common.invkmod.git"
+        version: "^1.0.0"
+    },
+]`,
+  },
+  'modules/dependencies/best-practices-alias': {
+    language: 'cue',
+    code: `{
+    git_url: "https://github.com/company/company-internal-build-tools.invkmod.git"
+    version: "^2.0.0"
+    alias: "build"
+}`,
+  },
+  'modules/dependencies/best-practices-version': {
+    language: 'cue',
+    code: `// Good: allows patch and minor updates
+{git_url: "...", version: "^1.0.0"}
+
+// Too strict: no updates allowed
+{git_url: "...", version: "1.0.0"}`,
+  },
+  'modules/dependencies/cache-env': {
+    language: 'bash',
+    code: `export INVOWK_MODULES_PATH=/custom/cache/path`,
+  },
+  'modules/dependencies/cache-structure': {
+    language: 'text',
+    code: `~/.invowk/modules/
+├── sources/
+│   └── github.com/
+│       └── example/
+│           └── common.invkmod/
+└── github.com/
+    └── example/
+        └── common.invkmod/
+            └── 1.2.3/
+                ├── invkmod.cue
+                └── invkfile.cue`,
+  },
+  'modules/dependencies/circular-error': {
+    language: 'text',
+    code: `Error: circular dependency detected: https://github.com/user/module-a.invkmod.git`,
+  },
+  'modules/dependencies/cli/add-examples': {
+    language: 'bash',
+    code: `# Add a dependency with caret version
+invowk module add https://github.com/user/mod.invkmod.git ^1.0.0
+
+# Add with SSH URL
+invowk module add git@github.com:user/mod.invkmod.git ~2.0.0
+
+# Add with custom alias
+invowk module add https://github.com/user/common.invkmod.git ^1.0.0 --alias tools
+
+# Add from monorepo subdirectory
+invowk module add https://github.com/user/monorepo.invkmod.git ^1.0.0 --path modules/cli`,
+  },
+  'modules/dependencies/cli/add-output': {
+    language: 'text',
+    code: `Add Module Dependency
+
+• Resolving https://github.com/user/mod.invkmod.git@^1.0.0...
+✓ Module added successfully
+
+• Git URL:   https://github.com/user/mod.invkmod.git
+• Version:   ^1.0.0 → 1.2.3
+• Namespace: mod@1.2.3
+• Cache:     /home/user/.invowk/modules/github.com/user/mod.invkmod/1.2.3
+
+• To use this module, add to your invkmod.cue:
+
+requires: [
+    {
+        git_url: "https://github.com/user/mod.invkmod.git"
+        version: "^1.0.0"
+    },
+]`,
+  },
+  'modules/dependencies/cli/add-usage': {
+    language: 'bash',
+    code: `invowk module add <git-url> <version> [flags]`,
+  },
+  'modules/dependencies/cli/deps-empty': {
+    language: 'text',
+    code: `Module Dependencies
+
+• No module dependencies found
+
+• To add modules, use: invowk module add <git-url> <version>`,
+  },
+  'modules/dependencies/cli/deps-output': {
+    language: 'text',
+    code: `Module Dependencies
+
+• Found 2 module dependency(ies)
+
+✓ build-tools@2.3.1
+   Git URL:  https://github.com/company/build-tools.invkmod.git
+   Version:  ^2.0.0 → 2.3.1
+   Commit:   abc123def456
+   Cache:    /home/user/.invowk/modules/github.com/company/build-tools.invkmod/2.3.1
+
+✓ deploy-utils@1.5.2
+   Git URL:  https://github.com/company/deploy-tools.invkmod.git
+   Version:  ~1.5.0 → 1.5.2
+   Commit:   789xyz012abc
+   Cache:    /home/user/.invowk/modules/github.com/company/deploy-tools.invkmod/1.5.2`,
+  },
+  'modules/dependencies/cli/deps-usage': {
+    language: 'bash',
+    code: `invowk module deps`,
+  },
+  'modules/dependencies/cli/remove-example': {
+    language: 'bash',
+    code: `invowk module remove https://github.com/user/mod.invkmod.git`,
+  },
+  'modules/dependencies/cli/remove-output': {
+    language: 'text',
+    code: `Remove Module Dependency
+
+• Removing https://github.com/user/mod.invkmod.git...
+✓ Module removed from lock file
+
+• Don't forget to remove the requires entry from your invkmod.cue`,
+  },
+  'modules/dependencies/cli/remove-usage': {
+    language: 'bash',
+    code: `invowk module remove <git-url>`,
+  },
+  'modules/dependencies/cli/sync-empty': {
+    language: 'text',
+    code: `Sync Module Dependencies
+
+• No requires field found in invkmod.cue`,
+  },
+  'modules/dependencies/cli/sync-output': {
+    language: 'text',
+    code: `Sync Module Dependencies
+
+• Found 2 requirement(s) in invkmod.cue
+
+✓ build-tools@2.3.1 → 2.3.1
+✓ deploy-utils@1.5.2 → 1.5.2
+
+✓ Lock file updated: invkmod.lock.cue`,
+  },
+  'modules/dependencies/cli/sync-usage': {
+    language: 'bash',
+    code: `invowk module sync`,
+  },
+  'modules/dependencies/cli/update-empty': {
+    language: 'text',
+    code: `Update Module Dependencies
+
+• Updating all modules...
+• No modules to update`,
+  },
+  'modules/dependencies/cli/update-examples': {
+    language: 'bash',
+    code: `# Update all modules
+invowk module update
+
+# Update a specific module
+invowk module update https://github.com/user/mod.invkmod.git`,
+  },
+  'modules/dependencies/cli/update-output': {
+    language: 'text',
+    code: `Update Module Dependencies
+
+• Updating all modules...
+
+✓ build-tools@2.3.1 → 2.4.0
+✓ deploy-utils@1.5.2 → 1.5.3
+
+✓ Lock file updated: invkmod.lock.cue`,
+  },
+  'modules/dependencies/cli/update-usage': {
+    language: 'bash',
+    code: `invowk module update [git-url]`,
+  },
+  'modules/dependencies/cli/vendor-output': {
+    language: 'text',
+    code: `Vendor Module Dependencies
+
+• Found 2 requirement(s) in invkmod.cue
+• Vendor directory: /home/user/project/invk_modules
+
+! Vendoring is not yet fully implemented
+
+• The following dependencies would be vendored:
+   • https://github.com/example/common.invkmod.git@^1.0.0
+   • https://github.com/example/deploy.invkmod.git@~1.5.0`,
+  },
+  'modules/dependencies/cli/vendor-usage': {
+    language: 'bash',
+    code: `invowk module vendor [module-path]`,
+  },
+  'modules/dependencies/cli/workflow-fresh': {
+    language: 'bash',
+    code: `# On a fresh clone, sync downloads all modules
+git clone https://github.com/yourorg/project.git
+cd project
+invowk module sync`,
+  },
+  'modules/dependencies/cli/workflow-init': {
+    language: 'bash',
+    code: `# 1. Resolve dependencies
+invowk module add https://github.com/company/build-tools.invkmod.git ^2.0.0 --alias build
+invowk module add https://github.com/company/deploy-tools.invkmod.git ~1.5.0 --alias deploy
+
+# 2. Add requires to invkmod.cue manually or verify
+cat invkmod.cue
+
+# 3. Sync to generate lock file
+invowk module sync
+
+# 4. Commit the lock file
+git add invkmod.lock.cue
+git commit -m "Add module dependencies"`,
+  },
+  'modules/dependencies/cli/workflow-troubleshoot': {
+    language: 'bash',
+    code: `# List current dependencies to verify state
+invowk module deps
+
+# Re-sync if something seems wrong
+invowk module sync
+
+# Check commands are available
+invowk cmd`,
+  },
+  'modules/dependencies/cli/workflow-update': {
+    language: 'bash',
+    code: `# Update all modules periodically
+invowk module update
+
+# Review changes
+git diff invkmod.lock.cue
+
+# Commit if tests pass
+git add invkmod.lock.cue
+git commit -m "Update module dependencies"`,
+  },
+  'modules/dependencies/git-url-examples': {
+    language: 'cue',
+    code: `requires: [
+    // HTTPS (works with public repos or GITHUB_TOKEN)
+    {git_url: "https://github.com/user/tools.invkmod.git", version: "^1.0.0"},
+
+    // SSH (requires SSH key in ~/.ssh/)
+    {git_url: "git@github.com:user/tools.invkmod.git", version: "^1.0.0"},
+
+    // GitLab
+    {git_url: "https://gitlab.com/user/tools.invkmod.git", version: "^1.0.0"},
+
+    // Self-hosted
+    {git_url: "https://git.example.com/user/tools.invkmod.git", version: "^1.0.0"},
+]`,
+  },
+  'modules/dependencies/lockfile-example': {
+    language: 'cue',
+    code: `version: "1.0"
+generated: "2025-01-10T12:34:56Z"
+
+modules: {
+    "https://github.com/example/common.invkmod.git": {
+        git_url:          "https://github.com/example/common.invkmod.git"
+        version:          "^1.0.0"
+        resolved_version: "1.2.3"
+        git_commit:       "abc123def4567890"
+        alias:            "common"
+        namespace:        "common"
+    }
+}`,
+  },
+  'modules/dependencies/lockfile-key': {
+    language: 'cue',
+    code: `modules: {
+    "https://github.com/example/monorepo.invkmod.git#modules/cli": {
+        git_url: "https://github.com/example/monorepo.invkmod.git"
+        path:    "modules/cli"
+    }
+}`,
+  },
+  'modules/dependencies/lockfile-workflow': {
+    language: 'bash',
+    code: `# Resolve and lock
+invowk module sync
+
+# Commit the lock file
+git add invkmod.lock.cue
+git commit -m "Lock module dependencies"`,
+  },
+  'modules/dependencies/multiple-requires': {
+    language: 'cue',
+    code: `requires: [
+    {
+        git_url: "https://github.com/company/build-tools.invkmod.git"
+        version: "^2.0.0"
+        alias: "build"
+    },
+    {
+        git_url: "https://github.com/company/deploy-tools.invkmod.git"
+        version: "~1.5.0"
+        alias: "deploy"
+    },
+    {
+        git_url: "https://github.com/company/test-utils.invkmod.git"
+        version: ">=1.0.0 <2.0.0"
+    },
+]`,
+  },
+  'modules/dependencies/namespace-usage': {
+    language: 'bash',
+    code: `# Default namespace includes the resolved version
+invowk cmd com.example.common@1.2.3 build
+
+# With alias
+invowk cmd common build`,
+  },
+  'modules/dependencies/path-example': {
+    language: 'cue',
+    code: `requires: [
+    {
+        git_url: "https://github.com/user/monorepo.invkmod.git"
+        version: "^1.0.0"
+        path: "modules/cli-tools"
+    },
+    {
+        git_url: "https://github.com/user/monorepo.invkmod.git"
+        version: "^1.0.0"
+        path: "modules/deploy-utils"
+        alias: "deploy"
+    },
+]`,
+  },
+  'modules/dependencies/quick-add': {
+    language: 'bash',
+    code: `invowk module add https://github.com/example/common.invkmod.git ^1.0.0`,
+  },
+  'modules/dependencies/quick-deps': {
+    language: 'bash',
+    code: `invowk module deps`,
+  },
+  'modules/dependencies/quick-invkmod': {
+    language: 'cue',
+    code: `module: "com.example.mytools"
+version: "1.0"
+description: "My tools"
+
+requires: [
+    {
+        git_url: "https://github.com/example/common.invkmod.git"
+        version: "^1.0.0"
+        alias: "common"
+    },
+]`,
+  },
+  'modules/dependencies/quick-sync': {
+    language: 'bash',
+    code: `invowk module sync`,
+  },
+  'modules/dependencies/transitive-tree': {
+    language: 'text',
+    code: `com.example.app
+├── common-tools@1.2.3
+│   └── logging-utils@2.0.0
+└── deploy-utils@1.5.0
+    └── common-tools@1.2.3  (shared)`,
+  },
+  'modules/dependencies/update-command': {
+    language: 'bash',
+    code: `invowk module update`,
+  },
+  'modules/dependencies/version-example': {
+    language: 'cue',
+    code: `requires: [
+    // Invowk tries both v1.0.0 and 1.0.0
+    {git_url: "https://github.com/user/tools.invkmod.git", version: "^1.0.0"},
+]`,
+  },
+  'modules/devops-structure': {
+    language: 'text',
+    code: `org.devops.k8s.invkmod/
+├── invkmod.cue
+├── invkfile.cue
+├── scripts/
+│   ├── deploy.sh
+│   ├── rollback.sh
+│   └── status.sh
+├── manifests/
+│   ├── deployment.yaml
+│   └── service.yaml
+└── .env.example`,
+  },
+  'modules/discovery-output': {
+    language: 'text',
+    code: `Available Commands
+
+From current directory:
+  mytools build - Build the project [native*]
+
+From user commands (~/.invowk/cmds):
+  com.example.utilities hello - Greeting [native*]`,
+  },
+  'modules/docs-structure': {
+    language: 'text',
+    code: `mytools.invkmod/
+├── invkmod.cue
+├── invkfile.cue
+├── README.md              # Usage instructions
+├── CHANGELOG.md           # Version history
+└── scripts/`,
+  },
+  'modules/env-files-ref': {
+    language: 'cue',
+    code: `env: {
+    files: [".env"]
+}`,
+  },
+  'modules/env-files-structure': {
+    language: 'text',
+    code: `mytools.invkmod/
+├── invkmod.cue
+├── invkfile.cue
+├── .env                   # Default config
+├── .env.example           # Template for users
+└── scripts/`,
+  },
+  'modules/error-invalid-name': {
+    language: 'text',
+    code: `Module Validation
+• Path: /home/user/my-tools.invkmod
+
+✗ Module validation failed with 1 issue(s)
+
+  1. [naming] module name 'my-tools' contains invalid characters (hyphens not allowed)`,
+  },
+  'modules/error-missing-invkfile': {
+    language: 'text',
+    code: `Module Validation
+• Path: /home/user/bad.invkmod
+
+✗ Module validation failed with 1 issue(s)
+
+  1. [structure] missing required invkmod.cue`,
+  },
+  'modules/error-nested': {
+    language: 'text',
+    code: `Module Validation
+• Path: /home/user/parent.invkmod
+
+✗ Module validation failed with 1 issue(s)
+
+  1. [structure] nested.invkmod: nested modules are not allowed (except in invk_modules/)`,
+  },
+  'modules/error-parse': {
+    language: 'text',
+    code: `Module Validation
+• Path: /home/user/broken.invkmod
+
+✗ Module validation failed with 1 issue(s)
+
+  1. [invkfile] parse error at line 15: expected '}', found EOF`,
+  },
+  'modules/escape-module-dir': {
+    language: 'cue',
+    code: `// Bad - tries to access parent
+script: "../outside/script.sh"
+
+// Good - stays within module
+script: "scripts/script.sh"`,
+  },
+  'modules/future-install': {
+    language: 'bash',
+    code: `invowk module install com.company.devtools@1.0.0`,
+  },
+  'modules/git-structure': {
+    language: 'text',
+    code: `my-project/
+├── src/
+├── modules/
+│   ├── devtools.invkmod/
+│   │   ├── invkmod.cue
+│   │   └── invkfile.cue
+│   └── testing.invkmod/
+│       ├── invkmod.cue
+│       └── invkfile.cue
+└── invkfile.cue`,
+  },
+  'modules/github-release': {
+    language: 'bash',
+    code: `# Recipients install with:
+invowk module import https://github.com/org/repo/releases/download/v1.0.0/mytools.invkmod.zip`,
+  },
+  'modules/import-local': {
+    language: 'bash',
+    code: `# Install to ~/.invowk/cmds/
+invowk module import ./mytools.invkmod.zip
+
+# Install to custom directory
+invowk module import ./mytools.invkmod.zip --path ./local-modules
+
+# Overwrite existing
+invowk module import ./mytools.invkmod.zip --overwrite`,
+  },
+  'modules/import-output': {
+    language: 'text',
+    code: `Import Module
+
+✓ Module imported successfully
+
+• Name: mytools
+• Path: /home/user/.invowk/cmds/mytools.invkmod
+
+• The module commands are now available via invowk`,
+  },
+  'modules/import-url': {
+    language: 'bash',
+    code: `# Download and install
+invowk module import https://example.com/modules/mytools.zip
+
+# From GitHub release
+invowk module import https://github.com/user/repo/releases/download/v1.0/mytools.invkmod.zip`,
+  },
+  'modules/inline-vs-external': {
+    language: 'cue',
+    code: `cmds: [
+    // Simple: inline script
+    {
+        name: "quick"
+        implementations: [{
+            script: "echo 'Quick task'"
+            runtimes: [{name: "native"}]
+            platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+        }]
+    },
+
+    // Complex: external script
+    {
+        name: "complex"
+        implementations: [{
+            script: "scripts/complex-task.sh"
+            runtimes: [{name: "native"}]
+            platforms: [{name: "linux"}, {name: "macos"}]
+        }]
+    }
+]`,
+  },
+  'modules/install-project': {
+    language: 'bash',
+    code: `invowk module import mytools.zip --path ./modules
+# Installed to: ./modules/mytools.invkmod/`,
+  },
+  'modules/install-search-path': {
+    language: 'bash',
+    code: `invowk module import mytools.zip --path /shared/company-modules`,
+  },
+  'modules/install-user': {
+    language: 'bash',
+    code: `invowk module import mytools.zip
+# Installed to: ~/.invowk/cmds/mytools.invkmod/`,
+  },
+  'modules/internal-server': {
+    language: 'bash',
+    code: `# Team members import via URL
+invowk module import https://internal.company.com/modules/devtools.zip`,
+  },
+  'modules/list': {
+    language: 'bash',
+    code: `invowk module list`,
+  },
+  'modules/list-output': {
+    language: 'text',
+    code: `Discovered Modules
+
+• Found 3 module(s)
+
+• current directory:
+   ✓ local.project
+      /home/user/project/local.project.invkmod
+
+• user commands (~/.invowk/cmds):
+   ✓ com.company.devtools
+      /home/user/.invowk/cmds/com.company.devtools.invkmod
+   ✓ io.github.user.utilities
+      /home/user/.invowk/cmds/io.github.user.utilities.invkmod`,
+  },
+  'modules/manual-create': {
+    language: 'bash',
+    code: `mkdir mytools.invkmod
+touch mytools.invkmod/invkmod.cue
+touch mytools.invkmod/invkfile.cue`,
+  },
+  'modules/path-separators-good-bad': {
+    language: 'cue',
+    code: `// Bad - Windows-style
+script: "scripts\\\\build.sh"
+
+// Good - Forward slashes
+script: "scripts/build.sh"`,
+  },
+  'modules/quick-create': {
+    language: 'bash',
+    code: `invowk module create mytools`,
+  },
+  'modules/quick-create-output': {
+    language: 'text',
+    code: `mytools.invkmod/
+├── invkmod.cue
+└── invkfile.cue`,
+  },
+  'modules/quick-share': {
+    language: 'bash',
+    code: `# Create a zip archive
+invowk module archive mytools.invkmod
+
+# Share the zip file
+# Recipients import with:
+invowk module import mytools.invkmod.zip`,
+  },
+  'modules/quick-use': {
+    language: 'bash',
+    code: `# List commands (module commands appear automatically)
+invowk cmd
+
+# Run a module command
+invowk cmd mytools hello`,
+  },
+  'modules/rdns-naming': {
+    language: 'text',
+    code: `com.company.projectname.invkmod
+io.github.username.toolkit.invkmod
+org.opensource.utilities.invkmod`,
+  },
+  'modules/script-organization': {
+    language: 'text',
+    code: `mytools.invkmod/
+├── invkmod.cue
+├── invkfile.cue
+└── scripts/
+    ├── build.sh           # Main scripts
+    ├── deploy.sh
+    ├── test.sh
+    └── lib/               # Shared utilities
+        ├── logging.sh
+        └── validation.sh`,
+  },
+  'modules/script-paths': {
+    language: 'cue',
+    code: `// Inside mytools.invkmod/invkfile.cue
+cmds: [
+    {
+        name: "build"
+        implementations: [{
+            script: "scripts/build.sh"  // Relative to module root
+            runtimes: [{name: "native"}]
+            platforms: [{name: "linux"}, {name: "macos"}]
+        }]
+    },
+    {
+        name: "deploy"
+        implementations: [{
+            script: "scripts/utils/helpers.sh"  // Nested path
+            runtimes: [{name: "native"}]
+            platforms: [{name: "linux"}, {name: "macos"}]
+        }]
+    }
+]`,
+  },
+  'modules/script-paths-good-bad': {
+    language: 'cue',
+    code: `// Good
+script: "scripts/build.sh"
+script: "scripts/lib/logging.sh"
+
+// Bad - will fail on some platforms
+script: "scripts\\\\build.sh"
+
+// Bad - escapes module directory
+script: "../outside.sh"`,
+  },
+  'modules/search-paths-config': {
+    language: 'cue',
+    code: `// ~/.config/invowk/config.cue
+search_paths: [
+    "/shared/company-modules"
+]`,
+  },
+  'modules/structure-basic': {
+    language: 'text',
+    code: `mytools.invkmod/
+├── invkmod.cue          # Required: module metadata
+├── invkfile.cue          # Optional: command definitions
+├── scripts/              # Optional: script files
+│   ├── build.sh
+│   └── deploy.sh
+└── templates/             # Optional: other resources
+    └── config.yaml`,
+  },
+  'modules/structure-example': {
+    language: 'text',
+    code: `com.example.devtools.invkmod/
+├── invkmod.cue
+├── invkfile.cue
+├── scripts/
+│   ├── build.sh
+│   ├── deploy.sh
+│   └── utils/
+│       └── helpers.sh
+├── templates/
+│   ├── Dockerfile.tmpl
+│   └── config.yaml.tmpl
+└── README.md`,
+  },
+  'modules/team-shared-location': {
+    language: 'bash',
+    code: `# Admin publishes
+invowk module archive ./devtools.invkmod --output /shared/modules/devtools.zip
+
+# Team members import
+invowk module import /shared/modules/devtools.zip`,
+  },
+  'modules/template-invkfile': {
+    language: 'cue',
+    code: `cmds: [
+    {
+        name: "hello"
+        description: "Say hello"
+        implementations: [
+            {
+                script: """
+                    echo "Hello from mytools!"
+                    """
+                runtimes: [{name: "native"}]
+                platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+            }
+        ]
+    }
+]`,
+  },
+  'modules/template-invkmod': {
+    language: 'cue',
+    code: `module: "mytools"
+version: "1.0"
+description: "Commands for mytools"
+
+// Uncomment to add dependencies:
+// requires: [
+//     {
+//         git_url: "https://github.com/example/utils.invkmod.git"
+//         version: "^1.0.0"
+//     },
+// ]`,
+  },
+  'modules/upgrade-process': {
+    language: 'bash',
+    code: `# Remove old version
+rm -rf ~/.invowk/cmds/mytools.invkmod
+
+# Install new version
+invowk module import mytools-1.2.0.zip
+
+# Or use --overwrite
+invowk module import mytools-1.2.0.zip --overwrite`,
+  },
+  'modules/validate-basic': {
+    language: 'bash',
+    code: `invowk module validate ./mytools.invkmod`,
+  },
+  'modules/validate-basic-output': {
+    language: 'text',
+    code: `Module Validation
+• Path: /home/user/mytools.invkmod
+• Name: mytools
+
+✓ Module is valid
+
+✓ Structure check passed
+✓ Naming convention check passed
+✓ Required files present`,
+  },
+  'modules/validate-batch': {
+    language: 'bash',
+    code: `# Validate all modules in a directory
+for mod in ./modules/*.invkmod; do
+    invowk module validate "$mod" --deep
+done`,
+  },
+  'modules/validate-before-share': {
+    language: 'bash',
+    code: `invowk module validate mytools.invkmod --deep`,
+  },
+  'modules/validate-ci': {
+    language: 'yaml',
+    code: `# GitHub Actions example
+- name: Validate modules
+  run: |
+    for mod in modules/*.invkmod; do
+      invowk module validate "$mod" --deep
+    done`,
+  },
+  'modules/validate-deep': {
+    language: 'bash',
+    code: `invowk module validate ./mytools.invkmod --deep`,
+  },
+  'modules/validate-deep-output': {
+    language: 'text',
+    code: `Module Validation
+• Path: /home/user/mytools.invkmod
+• Name: mytools
+
+✓ Module is valid
+
+✓ Structure check passed
+✓ Naming convention check passed
+✓ Required files present
+✓ Invkfile parses successfully`,
+  },
+  'modules/version-invkfile': {
+    language: 'cue',
+    code: `module: "com.company.tools"
+version: "1.2.0"`,
+  },
+  'modules/workflow-example': {
+    language: 'bash',
+    code: `# 1. Create and develop module
+invowk module create com.company.mytools --scripts
+# ... add commands and scripts ...
+
+# 2. Validate
+invowk module validate ./com.company.mytools.invkmod --deep
+
+# 3. Create versioned archive
+invowk module archive ./com.company.mytools.invkmod \\
+    --output ./releases/mytools-1.0.0.zip
+
+# 4. Distribute (e.g., upload to GitHub release)
+
+# 5. Team imports
+invowk module import https://github.com/company/mytools/releases/download/v1.0.0/mytools-1.0.0.zip`,
+  },
+  'quickstart/hello-invkfile': {
+    language: 'cue',
+    code: `cmds: [
+    {
+        name: "hello"
+        description: "Say hello!"
+        implementations: [
+            {
+                script: "echo 'Hello from Invowk!'"
+                runtimes: [{name: "native"}]
+                platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+            }
+        ]
+    }
+]`,
+  },
+  'quickstart/hello-output': {
+    language: 'text',
+    code: `Hello from Invowk!`,
+  },
+  'quickstart/info-command': {
+    language: 'cue',
+    code: `cmds: [
+    {
+        name: "hello"
+        description: "Say hello!"
+        implementations: [
+            {
+                script: "echo 'Hello from Invowk!'"
+                runtimes: [{name: "native"}]
+                platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+            }
+        ]
+    },
+    {
+        name: "info"
+        description: "Show system information"
+        implementations: [
+            {
+                script: """
+                    echo "=== System Info ==="
+                    echo "User: $USER"
+                    echo "Directory: $(pwd)"
+                    echo "Date: $(date)"
+                    """
+                runtimes: [{name: "native"}]
+                platforms: [{name: "linux"}, {name: "macos"}]
+            }
+        ]
+    }
+]`,
+  },
+  'quickstart/init': {
+    language: 'bash',
+    code: `cd my-project
+invowk init`,
+  },
+  'quickstart/list-output': {
+    language: 'text',
+    code: `Available Commands
+  (* = default runtime)
+
+From current directory:
+  hello - Say hello! [native*] (linux, macos, windows)`,
+  },
+  'quickstart/run-hello': {
+    language: 'bash',
+    code: `invowk cmd hello`,
+  },
+  'quickstart/run-info': {
+    language: 'bash',
+    code: `invowk cmd info`,
+  },
+  'quickstart/virtual-runtime': {
+    language: 'cue',
+    code: `{
+    name: "cross-platform"
+    description: "Works the same everywhere!"
+    implementations: [
+        {
+            script: "echo 'This runs identically on Linux, Mac, and Windows!'"
+            runtimes: [{name: "virtual"}]
+            platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+        }
+    ]
+}`,
+  },
+  'reference/cli/cmd-examples': {
+    language: 'bash',
+    code: `# List all available commands
+invowk cmd
+
+# Run a command
+invowk cmd build
+
+# Run a nested command
+invowk cmd test unit
+
+# Run with a specific runtime
+invowk cmd build --invk-runtime container
+
+# Run with arguments
+invowk cmd greet -- "World"
+
+# Run with flags
+invowk cmd deploy --env production`,
+  },
+  'reference/cli/cmd-syntax': {
+    language: 'bash',
+    code: `invowk cmd [flags]
+invowk cmd [command-name] [flags] [-- args...]`,
+  },
+  'reference/cli/completion-examples': {
+    language: 'bash',
+    code: `# Bash
+eval "$(invowk completion bash)"
+
+# Zsh
+eval "$(invowk completion zsh)"
+
+# Fish
+invowk completion fish > ~/.config/fish/completions/invowk.fish
+
+# PowerShell
+invowk completion powershell | Out-String | Invoke-Expression`,
+  },
+  'reference/cli/completion-syntax': {
+    language: 'bash',
+    code: `invowk completion [shell]`,
+  },
+  'reference/cli/config-dump-syntax': {
+    language: 'bash',
+    code: `invowk config dump`,
+  },
+  'reference/cli/config-init-syntax': {
+    language: 'bash',
+    code: `invowk config init`,
+  },
+  'reference/cli/config-path-syntax': {
+    language: 'bash',
+    code: `invowk config path`,
+  },
+  'reference/cli/config-set-examples': {
+    language: 'bash',
+    code: `# Set container engine
+invowk config set container_engine podman
+
+# Set default runtime
+invowk config set default_runtime virtual
+
+# Set nested value
+invowk config set ui.color_scheme dark`,
+  },
+  'reference/cli/config-set-syntax': {
+    language: 'bash',
+    code: `invowk config set <key> <value>`,
+  },
+  'reference/cli/config-show-syntax': {
+    language: 'bash',
+    code: `invowk config show`,
+  },
+  'reference/cli/config-syntax': {
+    language: 'bash',
+    code: `invowk config [command]`,
+  },
+  'reference/cli/error-no-invkfile': {
+    language: 'text',
+    code: `# No invkfile found!
+
+We searched for an invkfile but couldn't find one in the expected locations.
+
+## Search locations (in order of precedence):
+1. Current directory
+2. ~/.invowk/cmds/
+3. Paths configured in your config file
+
+## Things you can try:
+• Create an invkfile in your current directory:
+  $ invowk init
+
+• Or specify a different directory:
+  $ cd /path/to/your/project`,
+  },
+  'reference/cli/error-parse-failed': {
+    language: 'text',
+    code: `✗ Failed to parse /path/to/invkfile.cue: invkfile validation failed:
+  #Invkfile.cmds.0.implementations.0.runtimes.0.name: 3 errors in empty disjunction
+
+# Failed to parse invkfile!
+
+Your invkfile contains syntax errors or invalid configuration.
+
+## Common issues:
+- Invalid CUE syntax (missing quotes, braces, etc.)
+- Unknown field names
+- Invalid values for known fields
+- Missing required fields (name, script for commands)
+
+## Things you can try:
+- Check the error message above for the specific line/column
+- Validate your CUE syntax using the cue command-line tool
+- Run with verbose mode for more details:
+  $ invowk --invk-verbose cmd`,
+  },
+  'reference/cli/help-examples': {
+    language: 'bash',
+    code: `invowk help
+invowk help cmd
+invowk help config set`,
+  },
+  'reference/cli/help-syntax': {
+    language: 'bash',
+    code: `invowk help [command]`,
+  },
+  'reference/cli/init-examples': {
+    language: 'bash',
+    code: `# Create a default invkfile
+invowk init
+
+# Create a minimal invkfile
+invowk init --template minimal
+
+# Overwrite existing invkfile
+invowk init --force`,
+  },
+  'reference/cli/init-syntax': {
+    language: 'bash',
+    code: `invowk init [flags] [path]`,
+  },
+  'reference/cli/invowk-syntax': {
+    language: 'bash',
+    code: `invowk [flags]
+invowk [command]`,
+  },
+  'reference/cli/module-add-syntax': {
+    language: 'bash',
+    code: `invowk module add <git-url> <version> [flags]`,
+  },
+  'reference/cli/module-alias-list-syntax': {
+    language: 'bash',
+    code: `invowk module alias list`,
+  },
+  'reference/cli/module-alias-remove-syntax': {
+    language: 'bash',
+    code: `invowk module alias remove <module-path>`,
+  },
+  'reference/cli/module-alias-set-syntax': {
+    language: 'bash',
+    code: `invowk module alias set <module-path> <alias>`,
+  },
+  'reference/cli/module-alias-syntax': {
+    language: 'bash',
+    code: `invowk module alias [command]`,
+  },
+  'reference/cli/module-archive-syntax': {
+    language: 'bash',
+    code: `invowk module archive <path> [flags]`,
+  },
+  'reference/cli/module-create-examples': {
+    language: 'bash',
+    code: `# Create a module with RDNS naming
+invowk module create com.example.mytools
+
+# Override module ID and description
+invowk module create mytools --module-id com.example.tools --description "Shared tools"
+
+# Create with scripts directory
+invowk module create mytools --scripts`,
+  },
+  'reference/cli/module-create-syntax': {
+    language: 'bash',
+    code: `invowk module create <name> [flags]`,
+  },
+  'reference/cli/module-deps-syntax': {
+    language: 'bash',
+    code: `invowk module deps`,
+  },
+  'reference/cli/module-import-syntax': {
+    language: 'bash',
+    code: `invowk module import <source> [flags]`,
+  },
+  'reference/cli/module-list-syntax': {
+    language: 'bash',
+    code: `invowk module list`,
+  },
+  'reference/cli/module-remove-syntax': {
+    language: 'bash',
+    code: `invowk module remove <git-url>`,
+  },
+  'reference/cli/module-sync-syntax': {
+    language: 'bash',
+    code: `invowk module sync`,
+  },
+  'reference/cli/module-syntax': {
+    language: 'bash',
+    code: `invowk module [command]`,
+  },
+  'reference/cli/module-update-syntax': {
+    language: 'bash',
+    code: `invowk module update [git-url]`,
+  },
+  'reference/cli/module-validate-examples': {
+    language: 'bash',
+    code: `# Basic validation
+invowk module validate ./mymod.invkmod
+
+# Deep validation
+invowk module validate ./mymod.invkmod --deep`,
+  },
+  'reference/cli/module-validate-syntax': {
+    language: 'bash',
+    code: `invowk module validate <path> [flags]`,
+  },
+  'reference/cli/module-vendor-syntax': {
+    language: 'bash',
+    code: `invowk module vendor [module-path]`,
+  },
+  'reference/cli/tui-choose-syntax': {
+    language: 'bash',
+    code: `invowk tui choose [options...] [flags]`,
+  },
+  'reference/cli/tui-confirm-syntax': {
+    language: 'bash',
+    code: `invowk tui confirm [prompt] [flags]`,
+  },
+  'reference/cli/tui-file-syntax': {
+    language: 'bash',
+    code: `invowk tui file [path] [flags]`,
+  },
+  'reference/cli/tui-filter-syntax': {
+    language: 'bash',
+    code: `invowk tui filter [options...] [flags]`,
+  },
+  'reference/cli/tui-format-syntax': {
+    language: 'bash',
+    code: `invowk tui format [text...] [flags]`,
+  },
+  'reference/cli/tui-input-syntax': {
+    language: 'bash',
+    code: `invowk tui input [flags]`,
+  },
+  'reference/cli/tui-pager-syntax': {
+    language: 'bash',
+    code: `invowk tui pager [file] [flags]`,
+  },
+  'reference/cli/tui-spin-syntax': {
+    language: 'bash',
+    code: `invowk tui spin [flags] -- command [args...]`,
+  },
+  'reference/cli/tui-style-syntax': {
+    language: 'bash',
+    code: `invowk tui style [text...] [flags]`,
+  },
+  'reference/cli/tui-syntax': {
+    language: 'bash',
+    code: `invowk tui [command] [flags]`,
+  },
+  'reference/cli/tui-table-syntax': {
+    language: 'bash',
+    code: `invowk tui table [flags]`,
+  },
+  'reference/cli/tui-write-syntax': {
+    language: 'bash',
+    code: `invowk tui write [flags]`,
+  },
+  'reference/config/auto-provision-config-structure': {
+    language: 'cue',
+    code: `#AutoProvisionConfig: {
+    enabled?:     bool
+    binary_path?: string
+    modules_paths?: [...string]
+    cache_dir?:   string
+}`,
+  },
+  'reference/config/auto-provision-example': {
+    language: 'cue',
+    code: `container: {
+    auto_provision: {
+        enabled: true
+        binary_path: "/usr/local/bin/invowk"
+        modules_paths: ["/opt/company/invowk-modules"]
+        cache_dir: "/tmp/invowk/provision"
+    }
+}`,
+  },
+  'reference/config/color-scheme-example': {
+    language: 'cue',
+    code: `ui: {
+    color_scheme: "auto"
+}`,
+  },
+  'reference/config/complete-example': {
+    language: 'cue',
+    code: `// Invowk Configuration File
+// =========================
+// Location: ~/.config/invowk/config.cue
+
+// Container Engine
+// ----------------
+// Which container runtime to use: "podman" or "docker"
+container_engine: "podman"
+
+// Includes
+// --------
+// Additional invkfiles and modules to include in discovery.
+// Each entry specifies a path to an invkfile.cue, invkfile, or *.invkmod.
+// Modules may have an optional alias for collision disambiguation.
+includes: [
+    // Personal commands
+    {path: "~/.invowk/cmds/invkfile.cue"},
+
+    // Team shared module (with alias)
+    {path: "~/work/shared.invkmod", alias: "team"},
+
+    // Organization-wide module
+    {path: "/opt/company/tools.invkmod"},
+]
+
+// Default Runtime
+// ---------------
+// The runtime to use when a command doesn't specify one
+// Options: "native", "virtual", "container"
+default_runtime: "native"
+
+// Virtual Shell Configuration
+// ---------------------------
+// Settings for the virtual shell runtime (mvdan/sh)
+virtual_shell: {
+    // Enable u-root utilities for more shell commands
+    // Provides ls, cat, grep, etc. in the virtual environment
+    enable_uroot_utils: true
+}
+
+// UI Configuration
+// ----------------
+// User interface settings
+ui: {
+    // Color scheme: "auto", "dark", or "light"
+    // "auto" detects from terminal settings
+    color_scheme: "auto"
+    
+    // Enable verbose output by default
+    // Same as always passing --invk-verbose
+    verbose: false
+
+    // Enable interactive mode by default
+    interactive: false
+}
+
+// Container provisioning
+// ----------------------
+container: {
+    auto_provision: {
+        enabled: true
+    }
+}`,
+  },
+  'reference/config/config-structure': {
+    language: 'cue',
+    code: `#Config: {
+    container_engine?: "podman" | "docker"
+    includes?:         [...#IncludeEntry]
+    default_runtime?:  "native" | "virtual" | "container"
+    virtual_shell?:    #VirtualShellConfig
+    ui?:               #UIConfig
+    container?:        #ContainerConfig
+}`,
+  },
+  'reference/config/container-config-structure': {
+    language: 'cue',
+    code: `#ContainerConfig: {
+    auto_provision?: #AutoProvisionConfig
+}`,
+  },
+  'reference/config/container-engine-example': {
+    language: 'cue',
+    code: `container_engine: "podman"`,
+  },
+  'reference/config/container-example': {
+    language: 'cue',
+    code: `container: {
+    auto_provision: {
+        enabled: true
+    }
+}`,
+  },
+  'reference/config/cue-validate': {
+    language: 'bash',
+    code: `cue vet ~/.config/invowk/config.cue`,
+  },
+  'reference/config/default-runtime-example': {
+    language: 'cue',
+    code: `default_runtime: "virtual"`,
+  },
+  'reference/config/empty-example': {
+    language: 'cue',
+    code: `// Empty config - use all defaults`,
+  },
+  'reference/config/enable-uroot-utils-example': {
+    language: 'cue',
+    code: `virtual_shell: {
+    enable_uroot_utils: true
+}`,
+  },
+  'reference/config/interactive-example': {
+    language: 'cue',
+    code: `ui: {
+    interactive: true
+}`,
+  },
+  'reference/config/invowk-validate': {
+    language: 'bash',
+    code: `invowk config show`,
+  },
+  'reference/config/minimal-example': {
+    language: 'cue',
+    code: `// Just override what you need
+container_engine: "docker"`,
+  },
+  'reference/config/schema-definition': {
+    language: 'cue',
+    code: `// Root configuration structure
+#Config: {
+    container_engine?: "podman" | "docker"
+    includes?:         [...#IncludeEntry]
+    default_runtime?:  "native" | "virtual" | "container"
+    virtual_shell?:    #VirtualShellConfig
+    ui?:               #UIConfig
+    container?:        #ContainerConfig
+}
+
+// Include entry for invkfiles and modules
+#IncludeEntry: {
+    path:   string  // Must end with .invkmod, /invkfile.cue, or /invkfile
+    alias?: string  // Optional, only valid for .invkmod paths
+}
+
+// Virtual shell configuration
+#VirtualShellConfig: {
+    enable_uroot_utils?: bool
+}
+
+// UI configuration
+#UIConfig: {
+    color_scheme?: "auto" | "dark" | "light"
+    verbose?:      bool
+    interactive?:  bool
+}
+
+// Container configuration
+#ContainerConfig: {
+    auto_provision?: #AutoProvisionConfig
+}
+
+// Auto-provisioning configuration
+#AutoProvisionConfig: {
+    enabled?:     bool
+    binary_path?: string
+    modules_paths?: [...string]
+    cache_dir?:   string
+}`,
+  },
+  'reference/config/search-paths-example': {
+    language: 'cue',
+    code: `search_paths: [
+    "~/.invowk/cmds",
+    "~/projects/shared-commands",
+    "/opt/company/invowk-commands",
+]`,
+  },
+  'reference/config/ui-config-structure': {
+    language: 'cue',
+    code: `#UIConfig: {
+    color_scheme?: "auto" | "dark" | "light"
+    verbose?:      bool
+    interactive?:  bool
+}`,
+  },
+  'reference/config/ui-example': {
+    language: 'cue',
+    code: `ui: {
+    color_scheme: "dark"
+    verbose: false
+    interactive: false
+}`,
+  },
+  'reference/config/verbose-example': {
+    language: 'cue',
+    code: `ui: {
+    verbose: true
+}`,
+  },
+  'reference/config/virtual-shell-config-structure': {
+    language: 'cue',
+    code: `#VirtualShellConfig: {
+    enable_uroot_utils?: bool
+}`,
+  },
+  'reference/config/virtual-shell-example': {
+    language: 'cue',
+    code: `virtual_shell: {
+    enable_uroot_utils: true
+}`,
+  },
+  'reference/invkfile/argument-example': {
+    language: 'cue',
+    code: `args: [
+    {
+        name: "target"
+        description: "Build target"
+        required: true
+    },
+    {
+        name: "files"
+        description: "Files to process"
+        variadic: true
+    },
+]`,
+  },
+  'reference/invkfile/argument-structure': {
+    language: 'cue',
+    code: `#Argument: {
+    name:          string    // POSIX-compliant name
+    description:   string    // Help text
+    required?:     bool      // Must be provided
+    default_value?: string   // Default if not provided
+    type?:         "string" | "int" | "float"
+    validation?:   string    // Regex pattern
+    variadic?:     bool      // Accepts multiple values (last arg only)
+}`,
+  },
+  'reference/invkfile/capability-dependency-structure': {
+    language: 'cue',
+    code: `#CapabilityDependency: {
+    alternatives: [...("local-area-network" | "internet" | "containers" | "tty")]
+}`,
+  },
+  'reference/invkfile/command-dependency-structure': {
+    language: 'cue',
+    code: `#CommandDependency: {
+    alternatives: [...string]  // Command names
+}`,
+  },
+  'reference/invkfile/command-description-example': {
+    language: 'cue',
+    code: `description: "Build the application for production"`,
+  },
+  'reference/invkfile/command-name-examples': {
+    language: 'cue',
+    code: `name: "build"
+name: "test unit"     // Spaces allowed for subcommand-like behavior
+name: "deploy-prod"`,
+  },
+  'reference/invkfile/command-structure': {
+    language: 'cue',
+    code: `#Command: {
+    name:            string               // Required
+    description?:    string               // Optional
+    implementations: [...#Implementation] // Required - at least one
+    env?:            #EnvConfig           // Optional
+    workdir?:        string               // Optional
+    depends_on?:     #DependsOn           // Optional
+    flags?:          [...#Flag]           // Optional
+    args?:           [...#Argument]       // Optional
+}`,
+  },
+  'reference/invkfile/complete-example': {
+    language: 'cue',
+    code: `env: {
+    files: [".env"]
+    vars: {
+        APP_NAME: "myapp"
+    }
+}
+
+cmds: [
+    {
+        name: "build"
+        description: "Build the application"
+        
+        flags: [
+            {
+                name: "release"
+                short: "r"
+                description: "Build for release"
+                type: "bool"
+            },
+        ]
+        
+        implementations: [
+            {
+                script: """
+                    if [ "$INVOWK_FLAG_RELEASE" = "true" ]; then
+                        go build -ldflags="-s -w" -o app .
+                    else
+                        go build -o app .
+                    fi
+                    """
+                runtimes: [{name: "native"}]
+                platforms: [{name: "linux"}, {name: "macos"}]
+            },
+            {
+                script: """
+                    $flags = if ($env:INVOWK_FLAG_RELEASE -eq "true") { "-ldflags=-s -w" } else { "" }
+                    go build $flags -o app.exe .
+                    """
+                runtimes: [{name: "native", interpreter: "pwsh"}]
+                platforms: [{name: "windows"}]
+            },
+        ]
+        
+        depends_on: {
+            tools: [{alternatives: ["go"]}]
+        }
+    },
+]`,
+  },
+  'reference/invkfile/containerfile-image-examples': {
+    language: 'cue',
+    code: `// Use a pre-built image
+image: "debian:bookworm-slim"
+image: "golang:1.22"
+
+// Build from a Containerfile
+containerfile: "./Containerfile"
+containerfile: "./docker/Dockerfile.build"`,
+  },
+  'reference/invkfile/custom-check-dependency-structure': {
+    language: 'cue',
+    code: `#CustomCheckDependency: #CustomCheck | #CustomCheckAlternatives
+
+#CustomCheck: {
+    name:             string  // Check identifier
+    check_script:     string  // Script to run
+    expected_code?:   int     // Expected exit code (default: 0)
+    expected_output?: string  // Regex to match output
+}
+
+#CustomCheckAlternatives: {
+    alternatives: [...#CustomCheck]
+}`,
+  },
+  'reference/invkfile/default-shell-example': {
+    language: 'cue',
+    code: `default_shell: "/bin/bash"
+default_shell: "pwsh"`,
+  },
+  'reference/invkfile/depends-on-structure': {
+    language: 'cue',
+    code: `#DependsOn: {
+    tools?:         [...#ToolDependency]
+    cmds?:          [...#CommandDependency]
+    filepaths?:     [...#FilepathDependency]
+    capabilities?:  [...#CapabilityDependency]
+    custom_checks?: [...#CustomCheckDependency]
+    env_vars?:      [...#EnvVarDependency]
+}`,
+  },
+  'reference/invkfile/enable-host-ssh-example': {
+    language: 'cue',
+    code: `runtimes: [{
+    name: "container"
+    image: "debian:bookworm-slim"
+    enable_host_ssh: true
+}]`,
+  },
+  'reference/invkfile/env-config-structure': {
+    language: 'cue',
+    code: `#EnvConfig: {
+    files?: [...string]         // Dotenv files to load
+    vars?:  [string]: string    // Environment variables
+}`,
+  },
+  'reference/invkfile/env-files-example': {
+    language: 'cue',
+    code: `env: {
+    files: [
+        ".env",
+        ".env.local",
+        ".env.\${ENVIRONMENT}?",  // '?' means optional
+    ]
+}`,
+  },
+  'reference/invkfile/env-inherit-example': {
+    language: 'cue',
+    code: `runtimes: [{
+    name:              "container"
+    image:             "alpine:latest"
+    env_inherit_mode:  "allow"
+    env_inherit_allow: ["TERM", "LANG"]
+    env_inherit_deny:  ["AWS_SECRET_ACCESS_KEY"]
+}]`,
+  },
+  'reference/invkfile/env-var-dependency-structure': {
+    language: 'cue',
+    code: `#EnvVarDependency: {
+    alternatives: [...#EnvVarCheck]
+}
+
+#EnvVarCheck: {
+    name:        string    // Environment variable name
+    validation?: string    // Regex pattern
+}`,
+  },
+  'reference/invkfile/env-vars-example': {
+    language: 'cue',
+    code: `env: {
+    vars: {
+        NODE_ENV: "production"
+        DEBUG: "false"
+    }
+}`,
+  },
+  'reference/invkfile/filepath-dependency-structure': {
+    language: 'cue',
+    code: `#FilepathDependency: {
+    alternatives: [...string]  // File/directory paths
+    readable?:    bool
+    writable?:    bool
+    executable?:  bool
+}`,
+  },
+  'reference/invkfile/flag-example': {
+    language: 'cue',
+    code: `flags: [
+    {
+        name: "output"
+        short: "o"
+        description: "Output file path"
+        default_value: "./build"
+    },
+    {
+        name: "verbose"
+        short: "v"
+        description: "Enable verbose output"
+        type: "bool"
+    },
+]`,
+  },
+  'reference/invkfile/flag-structure': {
+    language: 'cue',
+    code: `#Flag: {
+    name:          string    // POSIX-compliant name
+    description:   string    // Help text
+    default_value?: string   // Default value
+    type?:         "string" | "bool" | "int" | "float"
+    required?:     bool
+    short?:        string    // Single character alias
+    validation?:   string    // Regex pattern
+}`,
+  },
+  'reference/invkfile/implementation-structure': {
+    language: 'cue',
+    code: `#Implementation: {
+    script:      string       // Required - inline script or file path
+    runtimes:    [...#RuntimeConfig] & [_, ...]  // Required - runtime configurations
+    platforms:   [...#PlatformConfig] & [_, ...]  // Required - at least one platform
+    env?:        #EnvConfig   // Optional
+    workdir?:    string       // Optional
+    depends_on?: #DependsOn   // Optional
+}`,
+  },
+  'reference/invkfile/interpreter-examples': {
+    language: 'cue',
+    code: `// Auto-detect from shebang
+interpreter: "auto"
+
+// Specific interpreter
+interpreter: "python3"
+interpreter: "node"
+interpreter: "/usr/bin/ruby"
+
+// With arguments
+interpreter: "python3 -u"
+interpreter: "/usr/bin/env perl -w"`,
+  },
+  'reference/invkfile/platform-config-structure': {
+    language: 'cue',
+    code: `#PlatformConfig: {
+    name: "linux" | "macos" | "windows"
+}`,
+  },
+  'reference/invkfile/platforms-example': {
+    language: 'cue',
+    code: `// Linux and macOS only
+platforms: [
+    {name: "linux"},
+    {name: "macos"},
+]`,
+  },
+  'reference/invkfile/ports-example': {
+    language: 'cue',
+    code: `ports: [
+    "8080:80",
+    "3000:3000",
+]`,
+  },
+  'reference/invkfile/root-structure': {
+    language: 'cue',
+    code: `#Invkfile: {
+    default_shell?: string    // Optional - override default shell
+    workdir?:       string    // Optional - default working directory
+    env?:           #EnvConfig      // Optional - global environment
+    depends_on?:    #DependsOn      // Optional - global dependencies
+    cmds:           [...#Command]   // Required - at least one command
+}`,
+  },
+  'reference/invkfile/runtime-config-structure': {
+    language: 'cue',
+    code: `#RuntimeConfig: {
+    name: "native" | "virtual" | "container"
+    
+    // Host environment inheritance:
+    env_inherit_mode?:  "none" | "allow" | "all"
+    env_inherit_allow?: [...string]
+    env_inherit_deny?:  [...string]
+
+    // For native and container:
+    interpreter?: string
+    
+    // For container only:
+    enable_host_ssh?: bool
+    containerfile?:   string
+    image?:           string
+    volumes?:         [...string]
+    ports?:           [...string]
+}`,
+  },
+  'reference/invkfile/runtimes-examples': {
+    language: 'cue',
+    code: `// Native only
+runtimes: [{name: "native"}]
+
+// Multiple runtimes
+runtimes: [
+    {name: "native"},
+    {name: "virtual"},
+]
+
+// Container with options
+runtimes: [{
+    name: "container"
+    image: "golang:1.22"
+    volumes: ["./:/app"]
+}]`,
+  },
+  'reference/invkfile/script-examples': {
+    language: 'cue',
+    code: `// Inline script
+script: "echo 'Hello, World!'"
+
+// Multi-line script
+script: """
+    echo "Building..."
+    go build -o app .
+    echo "Done!"
+    """
+
+// Script file reference
+script: "./scripts/build.sh"
+script: "deploy.py"`,
+  },
+  'reference/invkfile/tool-dependency-example': {
+    language: 'cue',
+    code: `depends_on: {
+    tools: [
+        {alternatives: ["go"]},
+        {alternatives: ["podman", "docker"]},  // Either works
+    ]
+}`,
+  },
+  'reference/invkfile/tool-dependency-structure': {
+    language: 'cue',
+    code: `#ToolDependency: {
+    alternatives: [...string]  // At least one - tool names
+}`,
+  },
+  'reference/invkfile/volumes-example': {
+    language: 'cue',
+    code: `volumes: [
+    "./src:/app/src",
+    "/tmp:/tmp:ro",
+    "\${HOME}/.cache:/cache",
+]`,
+  },
+  'reference/invkfile/workdir-example': {
+    language: 'cue',
+    code: `workdir: "./src"
+workdir: "/opt/app"`,
+  },
+  'reference/invkmod/module-examples': {
+    language: 'cue',
+    code: `module: "mytools"
+module: "com.company.devtools"
+module: "io.github.username.cli"`,
+  },
+  'reference/invkmod/requirement-structure': {
+    language: 'cue',
+    code: `#ModuleRequirement: {
+    git_url: string
+    version: string
+    alias?:  string
+    path?:   string
+}`,
+  },
+  'reference/invkmod/requires-example': {
+    language: 'cue',
+    code: `requires: [
+    {
+        git_url: "https://github.com/example/common.invkmod.git"
+        version: "^1.0.0"
+        alias: "common"
+    },
+]`,
+  },
+  'reference/invkmod/root-structure': {
+    language: 'cue',
+    code: `#Invkmod: {
+    module:       string               // Required - module identifier
+    version?:     string               // Optional - metadata version (e.g., "1.0")
+    description?: string               // Optional - module description
+    requires?:    [...#ModuleRequirement] // Optional - dependencies
+}`,
+  },
+  'runtime-modes/comparison': {
+    language: 'cue',
+    code: `cmds: [
+    // Native: uses your system shell (bash, zsh, PowerShell, etc.)
+    {
+        name: "build native"
+        implementations: [{
+            script: "go build ./..."
+            runtimes: [{name: "native"}]
+            platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+        }]
+    },
+
+    // Virtual: uses built-in POSIX-compatible shell
+    {
+        name: "build virtual"
+        implementations: [{
+            script: "go build ./..."
+            runtimes: [{name: "virtual"}]
+            platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+        }]
+    },
+
+    // Container: runs inside a container
+    {
+        name: "build container"
+        implementations: [{
+            script: "go build -o /workspace/bin/app ./..."
+            runtimes: [{name: "container", image: "golang:1.21"}]
+            platforms: [{name: "linux"}]
+        }]
+    }
+]`,
+  },
+  'runtime-modes/container-basic': {
+    language: 'cue',
+    code: `{
+    name: "build"
+    implementations: [
+        {
+            script: "go build -o /workspace/bin/app ./..."
+            runtimes: [{
+                name: "container"
+                image: "golang:1.21"
+            }]
+            platforms: [{name: "linux"}]
+        }
+    ]
+}`,
+  },
+  'runtime-modes/container-containerfile': {
+    language: 'cue',
+    code: `runtimes: [{
+    name: "container"
+    containerfile: "./Containerfile"  // Relative to invkfile
+}]`,
+  },
+  'runtime-modes/container-full-example': {
+    language: 'cue',
+    code: `{
+    name: "build and test"
+    description: "Build and test in isolated container"
+    env: {
+        vars: {
+            GO_ENV: "test"
+            CGO_ENABLED: "0"
+        }
+    }
+    depends_on: {
+        tools: [{alternatives: ["go"]}]
+        filepaths: [{alternatives: ["go.mod"]}]
+    }
+    implementations: [{
+        script: """
+            echo "Go version: $(go version)"
+            echo "Building..."
+            go build -o /workspace/bin/app ./...
+            echo "Testing..."
+            go test -v ./...
+            echo "Done!"
+            """
+        runtimes: [{
+            name: "container"
+            image: "golang:1.21"
+            volumes: [
+                "\${HOME}/go/pkg/mod:/go/pkg/mod:ro"  // Cache Go dependencies
+            ]
+        }]
+        platforms: [{name: "linux"}, {name: "macos"}]
+    }]
+}`,
+  },
+  'runtime-modes/container-interpreter': {
+    language: 'cue',
+    code: `{
+    name: "analyze"
+    implementations: [{
+        script: """
+            import sys
+            print(f"Running on Python {sys.version_info.major}")
+            """
+        runtimes: [{
+            name: "container"
+            image: "python:3.11"
+            interpreter: "python3"
+        }]
+        platforms: [{name: "linux"}]
+    }]
+}`,
+  },
+  'runtime-modes/container-ports': {
+    language: 'cue',
+    code: `runtimes: [{
+    name: "container"
+    image: "node:20"
+    ports: [
+        "3000:3000",      // Host:Container
+        "8080:80"         // Map container port 80 to host port 8080
+    ]
+}]`,
+  },
+  'runtime-modes/container-ssh-example': {
+    language: 'cue',
+    code: `{
+    name: "deploy from container"
+    implementations: [{
+        script: """
+            # Connection credentials are provided via environment variables
+            echo "SSH Host: $INVOWK_SSH_HOST"
+            echo "SSH Port: $INVOWK_SSH_PORT"
+            
+            # Connect back to host
+            sshpass -p $INVOWK_SSH_TOKEN ssh -o StrictHostKeyChecking=no \\
+                $INVOWK_SSH_USER@$INVOWK_SSH_HOST -p $INVOWK_SSH_PORT \\
+                'echo "Hello from host!"'
+            """
+        runtimes: [{
+            name: "container"
+            image: "debian:bookworm-slim"
+            enable_host_ssh: true  // Enable SSH server
+        }]
+        platforms: [{name: "linux"}]
+    }]
+}`,
+  },
+  'runtime-modes/containerfile-example': {
+    language: 'dockerfile',
+    code: `FROM golang:1.21
+
+RUN apt-get update && apt-get install -y \\
+    make \\
+    git
+
+WORKDIR /workspace`,
+  },
+  'runtime-modes/list-output': {
+    language: 'text',
+    code: `Available Commands
+  (* = default runtime)
+
+From current directory:
+  build - Build the project [native*, virtual, container] (linux, macos)`,
+  },
+  'runtime-modes/multiple-runtimes': {
+    language: 'cue',
+    code: `{
+    name: "build"
+    implementations: [{
+        script: "go build ./..."
+        runtimes: [
+            {name: "native"},  // Default
+            {name: "virtual"}, // Alternative
+            {name: "container", image: "golang:1.21"}  // Reproducible
+        ]
+        platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+    }]
+}`,
+  },
+  'runtime-modes/native-bash-script': {
+    language: 'cue',
+    code: `{
+    name: "build"
+    implementations: [{
+        script: """
+            #!/bin/bash
+            set -euo pipefail  # Bash strict mode
+            
+            # Bash-specific features
+            declare -A config=(
+                ["env"]="production"
+                ["debug"]="false"
+            )
+            
+            echo "Building for \${config[env]}..."
+            """
+        runtimes: [{name: "native"}]
+        platforms: [{name: "linux"}, {name: "macos"}]
+    }]
+}`,
+  },
+  'runtime-modes/native-basic': {
+    language: 'cue',
+    code: `{
+    name: "build"
+    implementations: [
+        {
+            script: "go build ./..."
+            runtimes: [{name: "native"}]
+            platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+        }
+    ]
+}`,
+  },
+  'runtime-modes/native-cmd-script': {
+    language: 'cue',
+    code: `{
+    name: "build"
+    implementations: [{
+        script: """
+            @echo off
+            echo Building...
+            msbuild /p:Configuration=Release
+            echo Done!
+            """
+        runtimes: [{name: "native"}]
+        platforms: [{name: "windows"}]
+    }]
+}`,
+  },
+  'runtime-modes/native-default-shell': {
+    language: 'cue',
+    code: `default_shell: "/bin/bash"
+
+cmds: [
+    // Commands...
+]`,
+  },
+  'runtime-modes/native-deps': {
+    language: 'cue',
+    code: `{
+    name: "deploy"
+    depends_on: {
+        tools: [
+            {alternatives: ["docker", "podman"]},
+            {alternatives: ["kubectl"]}
+        ]
+        filepaths: [
+            {alternatives: ["Dockerfile"]}
+        ]
+    }
+    implementations: [{
+        script: "docker build -t myapp . && kubectl apply -f k8s/"
+        runtimes: [{name: "native"}]
+        platforms: [{name: "linux"}, {name: "macos"}]
+    }]
+}`,
+  },
+  'runtime-modes/native-env-vars': {
+    language: 'cue',
+    code: `{
+    name: "deploy"
+    env: {
+        vars: {
+            DEPLOY_ENV: "production"
+        }
+    }
+    implementations: [{
+        script: """
+            echo "Home: $HOME"
+            echo "User: $USER"
+            echo "Deploy to: $DEPLOY_ENV"
+            """
+        runtimes: [{name: "native"}]
+        platforms: [{name: "linux"}, {name: "macos"}]
+    }]
+}`,
+  },
+  'runtime-modes/native-explicit-interpreter': {
+    language: 'cue',
+    code: `{
+    name: "analyze"
+    implementations: [{
+        script: """
+            import sys
+            print(f"Hello from Python {sys.version_info.major}!")
+            """
+        runtimes: [{
+            name: "native"
+            interpreter: "python3"  // Explicit interpreter
+        }]
+        platforms: [{name: "linux"}, {name: "macos"}]
+    }]
+}`,
+  },
+  'runtime-modes/native-flags-args': {
+    language: 'cue',
+    code: `{
+    name: "greet"
+    flags: [
+        {name: "loud", type: "bool", default_value: "false"}
+    ]
+    args: [
+        {name: "name", default_value: "World"}
+    ]
+    implementations: [{
+        script: """
+            if [ "$INVOWK_FLAG_LOUD" = "true" ]; then
+                echo "HELLO, $INVOWK_ARG_NAME!"
+            else
+                echo "Hello, $INVOWK_ARG_NAME!"
+            fi
+            """
+        runtimes: [{name: "native"}]
+        platforms: [{name: "linux"}, {name: "macos"}]
+    }]
+}`,
+  },
+  'runtime-modes/native-flags-run': {
+    language: 'bash',
+    code: `invowk cmd greet Alice --loud
+# Output: HELLO, ALICE!`,
+  },
+  'runtime-modes/native-interpreter-args': {
+    language: 'cue',
+    code: `{
+    name: "script"
+    implementations: [{
+        script: """
+            print("Unbuffered output!")
+            """
+        runtimes: [{
+            name: "native"
+            interpreter: "python3 -u"  // With arguments
+        }]
+        platforms: [{name: "linux"}, {name: "macos"}]
+    }]
+}`,
+  },
+  'runtime-modes/native-powershell-script': {
+    language: 'cue',
+    code: `{
+    name: "build"
+    implementations: [{
+        script: """
+            $ErrorActionPreference = "Stop"
+            
+            Write-Host "Building..." -ForegroundColor Green
+            dotnet build --configuration Release
+            Write-Host "Done!" -ForegroundColor Green
+            """
+        runtimes: [{name: "native"}]
+        platforms: [{name: "windows"}]
+    }]
+}`,
+  },
+  'runtime-modes/native-run': {
+    language: 'bash',
+    code: `invowk cmd build`,
+  },
+  'runtime-modes/native-shebang-script': {
+    language: 'cue',
+    code: `{
+    name: "analyze"
+    implementations: [{
+        script: """
+            #!/usr/bin/env python3
+            import sys
+            import json
+
+            print(f"Python {sys.version}")
+            data = {"status": "ok", "items": [1, 2, 3]}
+            print(json.dumps(data, indent=2))
+            """
+        runtimes: [{name: "native"}]
+        platforms: [{name: "linux"}, {name: "macos"}]
+    }]
+}`,
+  },
+  'runtime-modes/native-workdir': {
+    language: 'cue',
+    code: `{
+    name: "build frontend"
+    workdir: "./frontend"  // Run in frontend subdirectory
+    implementations: [{
+        script: "npm run build"
+        runtimes: [{name: "native"}]
+        platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+    }]
+}`,
+  },
+  'runtime-modes/override-cli': {
+    language: 'bash',
+    code: `# Use default (native)
+invowk cmd build
+
+# Override to virtual
+invowk cmd build --invk-runtime virtual
+
+# Override to container
+invowk cmd build --invk-runtime container`,
+  },
+  'runtime-modes/virtual-args': {
+    language: 'cue',
+    code: `{
+    name: "greet"
+    args: [{name: "name", default_value: "World"}]
+    implementations: [{
+        script: """
+            # Using environment variable
+            echo "Hello, $INVOWK_ARG_NAME!"
+
+            # Or positional parameter
+            echo "Hello, $1!"
+            """
+        runtimes: [{name: "virtual"}]
+        platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+    }]
+}`,
+  },
+  'runtime-modes/virtual-bash-limitations': {
+    language: 'cue',
+    code: `// These won't work in virtual runtime:
+script: """
+    # Bash arrays (use $@ instead)
+    declare -a arr=(1 2 3)  # Not supported
+    
+    # Bash-specific parameter expansion
+    \${var^^}  # Uppercase - not supported
+    \${var,,}  # Lowercase - not supported
+    
+    # Process substitution
+    diff <(cmd1) <(cmd2)  # Not supported
+    """`,
+  },
+  'runtime-modes/virtual-basic': {
+    language: 'cue',
+    code: `{
+    name: "build"
+    implementations: [{
+        script: """
+            echo "Building..."
+            go build -o bin/app ./...
+            echo "Done!"
+            """
+        runtimes: [{name: "virtual"}]
+        platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+    }]
+}`,
+  },
+  'runtime-modes/virtual-conditionals': {
+    language: 'cue',
+    code: `script: """
+    if [ "$ENV" = "production" ]; then
+        echo "Production mode"
+    elif [ "$ENV" = "staging" ]; then
+        echo "Staging mode"
+    else
+        echo "Development mode"
+    fi
+    """`,
+  },
+  'runtime-modes/virtual-config': {
+    language: 'cue',
+    code: `// ~/.config/invowk/config.cue (Linux)
+// ~/Library/Application Support/invowk/config.cue (macOS)
+// %APPDATA%\\invowk\\config.cue (Windows)
+
+virtual_shell: {
+    // Enable additional utilities from u-root
+    enable_uroot_utils: true
+}`,
+  },
+  'runtime-modes/virtual-cross-platform': {
+    language: 'cue',
+    code: `{
+    name: "setup"
+    implementations: [{
+        script: """
+            # This works the same everywhere!
+            if [ -d "node_modules" ]; then
+                echo "Dependencies already installed"
+            else
+                echo "Installing dependencies..."
+                npm install
+            fi
+            """
+        runtimes: [{name: "virtual"}]
+        platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+    }]
+}`,
+  },
+  'runtime-modes/virtual-deps': {
+    language: 'cue',
+    code: `{
+    name: "build"
+    depends_on: {
+        tools: [
+            // These will be checked in the virtual shell environment
+            {alternatives: ["go"]},
+            {alternatives: ["git"]}
+        ]
+    }
+    implementations: [{
+        script: "go build ./..."
+        runtimes: [{name: "virtual"}]
+        platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+    }]
+}`,
+  },
+  'runtime-modes/virtual-env-vars': {
+    language: 'cue',
+    code: `{
+    name: "build"
+    env: {
+        vars: {
+            BUILD_MODE: "release"
+        }
+    }
+    implementations: [{
+        script: """
+            echo "Building in $BUILD_MODE mode"
+            go build -ldflags="-s -w" ./...
+            """
+        runtimes: [{name: "virtual"}]
+        platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+    }]
+}`,
+  },
+  'runtime-modes/virtual-external-commands': {
+    language: 'cue',
+    code: `script: """
+    # Calls the real 'go' binary
+    go version
+    
+    # Calls the real 'git' binary
+    git status
+    """`,
+  },
+  'runtime-modes/virtual-functions': {
+    language: 'cue',
+    code: `script: """
+    greet() {
+        echo "Hello, $1!"
+    }
+    
+    greet "World"
+    greet "Invowk"
+    """`,
+  },
+  'runtime-modes/virtual-loops': {
+    language: 'cue',
+    code: `script: """
+    # For loop
+    for file in *.go; do
+        echo "Processing $file"
+    done
+    
+    # While loop
+    count=0
+    while [ $count -lt 5 ]; do
+        echo "Count: $count"
+        count=$((count + 1))
+    done
+    """`,
+  },
+  'runtime-modes/virtual-no-interpreter': {
+    language: 'cue',
+    code: `// This will NOT work with virtual runtime!
+{
+    name: "bad-example"
+    implementations: [{
+        script: """
+            #!/usr/bin/env python3
+            print("This won't work!")
+            """
+        runtimes: [{
+            name: "virtual"
+            interpreter: "python3"  // ERROR: Not supported
+        }]
+        platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+    }]
+}`,
+  },
+  'runtime-modes/virtual-run': {
+    language: 'bash',
+    code: `invowk cmd build --invk-runtime virtual`,
+  },
+  'runtime-modes/virtual-subshells': {
+    language: 'cue',
+    code: `script: """
+    # Command substitution
+    current_date=$(date +%Y-%m-%d)
+    echo "Today is $current_date"
+    
+    # Subshell
+    (cd /tmp && echo "In temp: $(pwd)")
+    echo "Still in: $(pwd)"
+    """`,
+  },
+  'runtime-modes/virtual-uroot-config': {
+    language: 'cue',
+    code: `// In your config file
+virtual_shell: {
+    enable_uroot_utils: true
+}`,
+  },
+  'runtime-modes/virtual-variables': {
+    language: 'cue',
+    code: `script: """
+    NAME="World"
+    echo "Hello, $NAME!"
+    
+    # Parameter expansion
+    echo "\${NAME:-default}"
+    echo "\${#NAME}"  # Length
+    """`,
+  },
+  'tui/choose-basic': {
+    language: 'bash',
+    code: `invowk tui choose "Option 1" "Option 2" "Option 3"`,
+  },
+  'tui/choose-confirm-combined': {
+    language: 'bash',
+    code: `ACTION=$(invowk tui choose --title "Select action" \\
+    "Deploy to staging" \\
+    "Deploy to production" \\
+    "Rollback" \\
+    "Cancel")
+
+case "$ACTION" in
+    "Cancel")
+        exit 0
+        ;;
+    "Deploy to production")
+        if ! invowk tui confirm --affirmative "Yes, deploy" "Deploy to PRODUCTION?"; then
+            echo "Aborted."
+            exit 1
+        fi
+        ;;
+esac
+
+echo "Executing: $ACTION"`,
+  },
+  'tui/choose-env-selection': {
+    language: 'bash',
+    code: `ENV=$(invowk tui choose --title "Deploy to which environment?" \\
+    development staging production)
+
+case "$ENV" in
+    production)
+        if ! invowk tui confirm "Are you sure? This is PRODUCTION!"; then
+            exit 1
+        fi
+        ;;
+esac
+
+./deploy.sh "$ENV"`,
+  },
+  'tui/choose-multi-process': {
+    language: 'bash',
+    code: `SERVICES=$(invowk tui choose --no-limit --title "Select services to deploy" \\
+    api web worker scheduler)
+
+echo "$SERVICES" | while read -r service; do
+    echo "Deploying: $service"
+done`,
+  },
+  'tui/choose-multiple': {
+    language: 'bash',
+    code: `# Limited multi-select (up to 3)
+ITEMS=$(invowk tui choose --limit 3 "One" "Two" "Three" "Four" "Five")
+
+# Unlimited multi-select
+ITEMS=$(invowk tui choose --no-limit "One" "Two" "Three" "Four" "Five")`,
+  },
+  'tui/choose-service-selection': {
+    language: 'bash',
+    code: `SERVICES=$(invowk tui choose --no-limit --title "Which services?" \\
+    api web worker cron)
+
+for service in $SERVICES; do
+    echo "Restarting $service..."
+    systemctl restart "$service"
+done`,
+  },
+  'tui/choose-single': {
+    language: 'bash',
+    code: `# Basic
+COLOR=$(invowk tui choose red green blue)
+echo "You chose: $COLOR"
+
+# With title
+ENV=$(invowk tui choose --title "Select environment" dev staging prod)`,
+  },
+  'tui/confirm-basic': {
+    language: 'bash',
+    code: `invowk tui confirm "Are you sure?"`,
+  },
+  'tui/confirm-conditional': {
+    language: 'bash',
+    code: `# Simple pattern
+invowk tui confirm "Run tests?" && npm test
+
+# Negation
+invowk tui confirm "Skip build?" || npm run build`,
+  },
+  'tui/confirm-dangerous': {
+    language: 'bash',
+    code: `# Double confirmation for dangerous actions
+if invowk tui confirm "Delete production database?"; then
+    echo "This cannot be undone!" | invowk tui style --foreground "#FF0000" --bold
+    if invowk tui confirm --affirmative "YES, DELETE IT" --negative "No, abort" "Type to confirm:"; then
+        ./scripts/delete-production-db.sh
+    fi
+fi`,
+  },
+  'tui/confirm-examples': {
+    language: 'bash',
+    code: `# Basic confirmation
+if invowk tui confirm "Continue?"; then
+    echo "Continuing..."
+else
+    echo "Cancelled."
+fi
+
+# Custom labels
+if invowk tui confirm --affirmative "Delete" --negative "Cancel" "Delete all files?"; then
+    rm -rf ./temp/*
+fi
+
+# Default to yes (user just presses Enter)
+if invowk tui confirm --default "Proceed with defaults?"; then
+    echo "Using defaults..."
+fi`,
+  },
+  'tui/confirm-script': {
+    language: 'cue',
+    code: `{
+    name: "clean"
+    description: "Clean build artifacts"
+    implementations: [{
+        script: """
+            echo "This will delete:"
+            echo "  - ./build/"
+            echo "  - ./dist/"
+            echo "  - ./node_modules/"
+            
+            if invowk tui confirm "Proceed with cleanup?"; then
+                rm -rf build/ dist/ node_modules/
+                echo "Cleaned!" | invowk tui style --foreground "#00FF00"
+            else
+                echo "Cancelled."
+            fi
+            """
+        runtimes: [{name: "native"}]
+        platforms: [{name: "linux"}, {name: "macos"}]
+    }]
+}`,
+  },
+  'tui/file-basic': {
+    language: 'bash',
+    code: `# Pick any file from current directory
+invowk tui file
+
+# Start in specific directory
+invowk tui file /home/user/documents`,
+  },
+  'tui/file-config': {
+    language: 'bash',
+    code: `CONFIG=$(invowk tui file --allowed ".yaml,.yml,.json" /etc/myapp)
+echo "Using config: $CONFIG"
+./myapp --config "$CONFIG"`,
+  },
+  'tui/file-examples': {
+    language: 'bash',
+    code: `# Pick a file
+FILE=$(invowk tui file)
+echo "Selected: $FILE"
+
+# Only directories
+DIR=$(invowk tui file --directory)
+
+# Show hidden files
+FILE=$(invowk tui file --hidden)
+
+# Filter by extension
+FILE=$(invowk tui file --allowed ".go,.md,.txt")
+
+# Multiple extensions
+CONFIG=$(invowk tui file --allowed ".yaml,.yml,.json,.toml")`,
+  },
+  'tui/file-log': {
+    language: 'bash',
+    code: `LOG=$(invowk tui file --allowed ".log" /var/log)
+less "$LOG"`,
+  },
+  'tui/file-project-dir': {
+    language: 'bash',
+    code: `PROJECT=$(invowk tui file --directory ~/projects)
+cd "$PROJECT"
+code .`,
+  },
+  'tui/file-script': {
+    language: 'cue',
+    code: `{
+    name: "edit-config"
+    description: "Edit a configuration file"
+    implementations: [{
+        script: """
+            CONFIG=$(invowk tui file --allowed ".yaml,.yml,.json,.toml" ./config)
+            
+            if [ -z "$CONFIG" ]; then
+                echo "No file selected."
+                exit 0
+            fi
+            
+            # Open in default editor
+            \${EDITOR:-vim} "$CONFIG"
+            """
+        runtimes: [{name: "native"}]
+        platforms: [{name: "linux"}, {name: "macos"}]
+    }]
+}`,
+  },
+  'tui/file-script-run': {
+    language: 'bash',
+    code: `SCRIPT=$(invowk tui file --allowed ".sh,.bash" ./scripts)
+if [ -n "$SCRIPT" ]; then
+    chmod +x "$SCRIPT"
+    "$SCRIPT"
+fi`,
+  },
+  'tui/filter-basic': {
+    language: 'bash',
+    code: `# From arguments
+invowk tui filter "apple" "banana" "cherry" "date"
+
+# From stdin
+ls | invowk tui filter`,
+  },
+  'tui/filter-commands': {
+    language: 'bash',
+    code: `CMD=$(invowk cmd 2>/dev/null | grep "^  " | invowk tui filter --title "Run command")
+# Extract command name and run it`,
+  },
+  'tui/filter-docker-container': {
+    language: 'bash',
+    code: `CONTAINER=$(docker ps --format "{{.Names}}" | invowk tui filter --title "Select container")
+docker logs -f "$CONTAINER"`,
+  },
+  'tui/filter-examples': {
+    language: 'bash',
+    code: `# Filter files
+FILE=$(ls | invowk tui filter --title "Select file")
+
+# Multi-select filter
+FILES=$(ls *.go | invowk tui filter --no-limit --title "Select Go files")
+
+# With placeholder
+ITEM=$(invowk tui filter --placeholder "Type to search..." opt1 opt2 opt3)`,
+  },
+  'tui/filter-file-dir-then-file': {
+    language: 'bash',
+    code: `# First pick directory
+DIR=$(invowk tui file --directory ~/projects)
+
+# Then pick file in that directory
+FILE=$(invowk tui file "$DIR" --allowed ".go")
+
+echo "Selected: $FILE"`,
+  },
+  'tui/filter-file-search-edit': {
+    language: 'bash',
+    code: `# Find file by content, then pick from results
+FILE=$(grep -l "TODO" *.go 2>/dev/null | invowk tui filter --title "Select file with TODOs")
+if [ -n "$FILE" ]; then
+    vim "$FILE"
+fi`,
+  },
+  'tui/filter-git-branch': {
+    language: 'bash',
+    code: `BRANCH=$(git branch --list | tr -d '* ' | invowk tui filter --title "Checkout branch")
+git checkout "$BRANCH"`,
+  },
+  'tui/filter-kill-process': {
+    language: 'bash',
+    code: `PID=$(ps aux | invowk tui filter --title "Select process" | awk '{print $2}')
+if [ -n "$PID" ]; then
+    kill "$PID"
+fi`,
+  },
+  'tui/format-basic': {
+    language: 'bash',
+    code: `echo "# Hello World" | invowk tui format --type markdown`,
+  },
+  'tui/format-code': {
+    language: 'bash',
+    code: `# Specify language
+cat main.go | invowk tui format --type code --language go
+
+# Python
+cat script.py | invowk tui format --type code --language python
+
+# JavaScript
+cat app.js | invowk tui format --type code --language javascript`,
+  },
+  'tui/format-diff': {
+    language: 'bash',
+    code: `git diff | invowk tui format --type code --language diff`,
+  },
+  'tui/format-emoji': {
+    language: 'bash',
+    code: `echo "Hello :wave: World :smile:" | invowk tui format --type emoji
+# Output: Hello 👋 World 😄`,
+  },
+  'tui/format-markdown': {
+    language: 'bash',
+    code: `# From stdin
+echo "# Heading\\n\\nSome **bold** and *italic* text" | invowk tui format --type markdown
+
+# From file
+cat README.md | invowk tui format --type markdown`,
+  },
+  'tui/format-readme': {
+    language: 'bash',
+    code: `cat README.md | invowk tui format --type markdown`,
+  },
+  'tui/format-style-combined': {
+    language: 'bash',
+    code: `# Header
+invowk tui style --bold --foreground "#FFD700" "Package Info"
+echo ""
+
+# Render package description as markdown
+cat package.md | invowk tui format --type markdown`,
+  },
+  'tui/format-welcome': {
+    language: 'bash',
+    code: `echo ":rocket: Welcome to MyApp :sparkles:" | invowk tui format --type emoji`,
+  },
+  'tui/input-basic': {
+    language: 'bash',
+    code: `invowk tui input --title "What is your name?"`,
+  },
+  'tui/input-capture': {
+    language: 'bash',
+    code: `NAME=$(invowk tui input --title "Enter your name:")
+echo "Hello, $NAME!"`,
+  },
+  'tui/input-default-value': {
+    language: 'bash',
+    code: `# Use shell default if empty
+NAME=$(invowk tui input --title "Name:" --placeholder "Anonymous")
+NAME="\${NAME:-Anonymous}"`,
+  },
+  'tui/input-empty-handling': {
+    language: 'bash',
+    code: `NAME=$(invowk tui input --title "Name:")
+if [ -z "$NAME" ]; then
+    echo "Name is required!"
+    exit 1
+fi`,
+  },
+  'tui/input-examples': {
+    language: 'bash',
+    code: `# With placeholder
+invowk tui input --title "Email" --placeholder "user@example.com"
+
+# Password input (hidden)
+invowk tui input --title "Password" --password
+
+# With initial value
+invowk tui input --title "Name" --value "John Doe"
+
+# Limited length
+invowk tui input --title "Username" --char-limit 20`,
+  },
+  'tui/input-script': {
+    language: 'cue',
+    code: `{
+    name: "create-user"
+    implementations: [{
+        script: """
+            USERNAME=$(invowk tui input --title "Username:" --char-limit 20)
+            EMAIL=$(invowk tui input --title "Email:" --placeholder "user@example.com")
+            PASSWORD=$(invowk tui input --title "Password:" --password)
+            
+            echo "Creating user: $USERNAME ($EMAIL)"
+            ./scripts/create-user.sh "$USERNAME" "$EMAIL" "$PASSWORD"
+            """
+        runtimes: [{name: "native"}]
+        platforms: [{name: "linux"}, {name: "macos"}]
+    }]
+}`,
+  },
+  'tui/input-validation': {
+    language: 'bash',
+    code: `while true; do
+    EMAIL=$(invowk tui input --title "Email:")
+    if echo "$EMAIL" | grep -qE '^[^@]+@[^@]+\\.[^@]+$'; then
+        break
+    fi
+    echo "Invalid email format, try again."
+done`,
+  },
+  'tui/interactive-styled': {
+    language: 'bash',
+    code: `NAME=$(invowk tui input --title "Project name:")
+
+if invowk tui confirm "Create $NAME?"; then
+    invowk tui spin --title "Creating..." -- mkdir -p "$NAME"
+    echo "" 
+    invowk tui style --foreground "#00FF00" --bold "Created $NAME successfully!"
+else
+    invowk tui style --foreground "#FF0000" "Cancelled"
+fi`,
+  },
+  'tui/multistep-wizard': {
+    language: 'bash',
+    code: `# Step 1: Choose action
+ACTION=$(invowk tui choose --title "What would you like to do?" \\
+    "Create new project" \\
+    "Import existing" \\
+    "Exit")
+
+if [ "$ACTION" = "Exit" ]; then
+    exit 0
+fi
+
+# Step 2: Get details
+NAME=$(invowk tui input --title "Project name:")
+
+# Step 3: Confirm
+echo "Action: $ACTION"
+echo "Name: $NAME"
+
+if invowk tui confirm "Create project?"; then
+    # proceed
+fi`,
+  },
+  'tui/overview-exit-codes': {
+    language: 'bash',
+    code: `if invowk tui confirm "Delete files?"; then
+    rm -rf ./temp
+fi`,
+  },
+  'tui/overview-input-validation': {
+    language: 'bash',
+    code: `while true; do
+    EMAIL=$(invowk tui input --title "Email address:")
+    if echo "$EMAIL" | grep -qE '^[^@]+@[^@]+\\.[^@]+$'; then
+        break
+    fi
+    echo "Invalid email format" | invowk tui style --foreground "#FF0000"
+done`,
+  },
+  'tui/overview-invkfile-example': {
+    language: 'cue',
+    code: `{
+    name: "setup"
+    description: "Interactive project setup"
+    implementations: [{
+        script: """
+            #!/bin/bash
+            
+            # Gather information
+            NAME=$(invowk tui input --title "Project name:")
+            TYPE=$(invowk tui choose --title "Type:" cli library api)
+            
+            # Confirm
+            echo "Creating $TYPE project: $NAME"
+            if ! invowk tui confirm "Proceed?"; then
+                echo "Cancelled."
+                exit 0
+            fi
+            
+            # Execute with spinner
+            invowk tui spin --title "Creating project..." -- mkdir -p "$NAME"
+            
+            # Success message
+            echo "Project created!" | invowk tui style --foreground "#00FF00" --bold
+            """
+        runtimes: [{name: "native"}]
+        platforms: [{name: "linux"}, {name: "macos"}]
+    }]
+}`,
+  },
+  'tui/overview-menu-system': {
+    language: 'bash',
+    code: `ACTION=$(invowk tui choose --title "What would you like to do?" \\
+    "Build project" \\
+    "Run tests" \\
+    "Deploy" \\
+    "Exit")
+
+case "$ACTION" in
+    "Build project") make build ;;
+    "Run tests") make test ;;
+    "Deploy") make deploy ;;
+    "Exit") exit 0 ;;
+esac`,
+  },
+  'tui/overview-piping': {
+    language: 'bash',
+    code: `# Pipe to filter
+ls | invowk tui filter --title "Select file"
+
+# Capture output
+SELECTED=$(invowk tui choose opt1 opt2 opt3)
+echo "You selected: $SELECTED"
+
+# Pipe for styling
+echo "Important message" | invowk tui style --bold`,
+  },
+  'tui/overview-progress-feedback': {
+    language: 'bash',
+    code: `echo "Step 1: Installing dependencies..."
+invowk tui spin --title "Installing..." -- npm install
+
+echo "Step 2: Building..."
+invowk tui spin --title "Building..." -- npm run build
+
+echo "Done!" | invowk tui style --foreground "#00FF00" --bold`,
+  },
+  'tui/overview-quick-examples': {
+    language: 'bash',
+    code: `# Get user input
+NAME=$(invowk tui input --title "What's your name?")
+
+# Choose from options
+COLOR=$(invowk tui choose --title "Pick a color" red green blue)
+
+# Confirm action
+if invowk tui confirm "Continue?"; then
+    echo "Proceeding..."
+fi
+
+# Show spinner during long task
+invowk tui spin --title "Installing..." -- npm install
+
+# Style output
+echo "Success!" | invowk tui style --foreground "#00FF00" --bold`,
+  },
+  'tui/overview-styled-headers': {
+    language: 'bash',
+    code: `invowk tui style --bold --foreground "#00BFFF" "=== Project Setup ==="
+echo ""
+# ... rest of script`,
+  },
+  'tui/pager-basic': {
+    language: 'bash',
+    code: `# View a file
+invowk tui pager README.md
+
+# Pipe content
+cat long-output.txt | invowk tui pager`,
+  },
+  'tui/pager-code-review': {
+    language: 'bash',
+    code: `# Review code with line numbers
+invowk tui pager --line-numbers --title "Code Review" src/main.go
+
+# View diff output
+git diff HEAD~5 | invowk tui pager --title "Recent Changes"`,
+  },
+  'tui/pager-options': {
+    language: 'bash',
+    code: `# With title
+invowk tui pager --title "Log Output" app.log
+
+# Show line numbers
+invowk tui pager --line-numbers main.go
+
+# Soft wrap long lines
+invowk tui pager --soft-wrap document.txt
+
+# Combine options
+git log | invowk tui pager --title "Git History" --line-numbers`,
+  },
+  'tui/pager-script': {
+    language: 'cue',
+    code: `{
+    name: "view-logs"
+    description: "View application logs interactively"
+    implementations: [{
+        script: """
+            # Get recent logs and display in pager
+            journalctl -u myapp --no-pager -n 500 | \\
+                invowk tui pager --title "Application Logs" --soft-wrap
+            """
+        runtimes: [{name: "native"}]
+        platforms: [{name: "linux"}, {name: "macos"}]
+    }]
+}`,
+  },
+  'tui/spin-basic': {
+    language: 'bash',
+    code: `invowk tui spin --title "Installing..." -- npm install`,
+  },
+  'tui/spin-chained': {
+    language: 'bash',
+    code: `echo "Step 1/3: Dependencies"
+invowk tui spin --title "Installing..." -- npm install
+
+echo "Step 2/3: Build"
+invowk tui spin --title "Building..." -- npm run build
+
+echo "Step 3/3: Tests"
+invowk tui spin --title "Testing..." -- npm test
+
+echo "Done!" | invowk tui style --foreground "#00FF00" --bold`,
+  },
+  'tui/spin-examples': {
+    language: 'bash',
+    code: `# Basic spinner
+invowk tui spin --title "Building..." -- go build ./...
+
+# With specific type
+invowk tui spin --type dot --title "Installing dependencies..." -- npm install
+
+# Long-running task
+invowk tui spin --title "Compiling assets..." -- webpack --mode production`,
+  },
+  'tui/spin-exit-code': {
+    language: 'bash',
+    code: `if invowk tui spin --title "Testing..." -- npm test; then
+    echo "Tests passed!"
+else
+    echo "Tests failed!"
+    exit 1
+fi`,
+  },
+  'tui/spin-script': {
+    language: 'cue',
+    code: `{
+    name: "deploy"
+    description: "Deploy with progress indication"
+    implementations: [{
+        script: """
+            echo "Deploying application..."
+            
+            invowk tui spin --title "Building Docker image..." -- \\
+                docker build -t myapp .
+            
+            invowk tui spin --title "Pushing to registry..." -- \\
+                docker push myapp
+            
+            invowk tui spin --title "Updating Kubernetes..." -- \\
+                kubectl rollout restart deployment/myapp
+            
+            invowk tui spin --title "Waiting for rollout..." -- \\
+                kubectl rollout status deployment/myapp
+            
+            echo "Deployment complete!" | invowk tui style --foreground "#00FF00" --bold
+            """
+        runtimes: [{name: "native"}]
+        platforms: [{name: "linux"}, {name: "macos"}]
+    }]
+}`,
+  },
+  'tui/spin-select-execute': {
+    language: 'bash',
+    code: `# Choose what to build
+PROJECT=$(invowk tui choose --title "Build which project?" api web worker)
+
+# Build with spinner
+invowk tui spin --title "Building $PROJECT..." -- make "build-$PROJECT"`,
+  },
+  'tui/spin-types': {
+    language: 'bash',
+    code: `invowk tui spin --type globe --title "Downloading..." -- curl -O https://example.com/file
+invowk tui spin --type moon --title "Building..." -- make build
+invowk tui spin --type pulse --title "Testing..." -- npm test`,
+  },
+  'tui/style-basic': {
+    language: 'bash',
+    code: `invowk tui style --foreground "#FF0000" "Red text"`,
+  },
+  'tui/style-borders': {
+    language: 'bash',
+    code: `# Simple border
+invowk tui style --border normal "Boxed text"
+
+# Rounded border
+invowk tui style --border rounded "Rounded box"
+
+# Double border
+invowk tui style --border double "Double border"
+
+# With padding
+invowk tui style --border rounded --padding-left 2 --padding-right 2 "Padded"`,
+  },
+  'tui/style-boxes': {
+    language: 'bash',
+    code: `# Info box
+invowk tui style \\
+    --border rounded \\
+    --foreground "#FFFFFF" \\
+    --background "#0066CC" \\
+    --padding-left 1 \\
+    --padding-right 1 \\
+    "Info: Server is running on port 3000"
+
+# Warning box
+invowk tui style \\
+    --border rounded \\
+    --foreground "#000000" \\
+    --background "#FFCC00" \\
+    --padding-left 1 \\
+    --padding-right 1 \\
+    "Warning: API key will expire soon"`,
+  },
+  'tui/style-colors': {
+    language: 'bash',
+    code: `# Hex colors
+invowk tui style --foreground "#FF0000" "Red"
+invowk tui style --foreground "#00FF00" "Green"
+invowk tui style --foreground "#0000FF" "Blue"
+
+# With background
+invowk tui style --foreground "#FFFFFF" --background "#FF0000" "White on Red"`,
+  },
+  'tui/style-decorations': {
+    language: 'bash',
+    code: `# Bold
+invowk tui style --bold "Bold text"
+
+# Italic
+invowk tui style --italic "Italic text"
+
+# Combined
+invowk tui style --bold --italic --underline "All decorations"
+
+# Dimmed
+invowk tui style --faint "Subtle text"`,
+  },
+  'tui/style-headers': {
+    language: 'bash',
+    code: `# Main header
+invowk tui style --bold --foreground "#00BFFF" "=== Project Setup ==="
+echo ""
+
+# Subheader
+invowk tui style --foreground "#888888" "Configuration Options:"`,
+  },
+  'tui/style-layout': {
+    language: 'bash',
+    code: `# Fixed width
+invowk tui style --width 40 --align center "Centered"
+
+# With margins
+invowk tui style --margin-left 4 "Indented text"
+
+# Box with all options
+invowk tui style \\
+    --border rounded \\
+    --foreground "#FFFFFF" \\
+    --background "#333333" \\
+    --padding-left 2 \\
+    --padding-right 2 \\
+    --width 50 \\
+    --align center \\
+    "Styled Box"`,
+  },
+  'tui/style-messages': {
+    language: 'bash',
+    code: `# Success
+echo "Build successful!" | invowk tui style --foreground "#00FF00" --bold
+
+# Error
+echo "Build failed!" | invowk tui style --foreground "#FF0000" --bold
+
+# Warning
+echo "Deprecated feature" | invowk tui style --foreground "#FFA500" --italic`,
+  },
+  'tui/style-piping': {
+    language: 'bash',
+    code: `echo "Important message" | invowk tui style --bold --foreground "#FF0000"`,
+  },
+  'tui/style-script': {
+    language: 'cue',
+    code: `{
+    name: "status"
+    description: "Show system status"
+    implementations: [{
+        script: """
+            invowk tui style --bold --foreground "#00BFFF" "System Status"
+            echo ""
+            
+            # Check services
+            if systemctl is-active nginx > /dev/null 2>&1; then
+                echo "nginx: " | tr -d '\\n'
+                invowk tui style --foreground "#00FF00" "running"
+            else
+                echo "nginx: " | tr -d '\\n'
+                invowk tui style --foreground "#FF0000" "stopped"
+            fi
+            
+            if systemctl is-active postgresql > /dev/null 2>&1; then
+                echo "postgres: " | tr -d '\\n'
+                invowk tui style --foreground "#00FF00" "running"
+            else
+                echo "postgres: " | tr -d '\\n'
+                invowk tui style --foreground "#FF0000" "stopped"
+            fi
+            """
+        runtimes: [{name: "native"}]
+        platforms: [{name: "linux"}, {name: "macos"}]
+    }]
+}`,
+  },
+  'tui/table-basic': {
+    language: 'bash',
+    code: `# From a CSV file
+invowk tui table --file data.csv
+
+# From stdin with separator
+echo -e "name|age|city\\nAlice|30|NYC\\nBob|25|LA" | invowk tui table --separator "|"`,
+  },
+  'tui/table-examples': {
+    language: 'bash',
+    code: `# Display CSV
+invowk tui table --file users.csv
+
+# Custom separator (TSV)
+invowk tui table --file data.tsv --separator $'\\t'
+
+# Pipe-separated
+cat data.txt | invowk tui table --separator "|"`,
+  },
+  'tui/table-process': {
+    language: 'bash',
+    code: `ps aux --no-headers | awk '{print $1","$2","$11}' | \\
+    (echo "USER,PID,COMMAND"; cat) | \\
+    invowk tui table --selectable`,
+  },
+  'tui/table-selectable': {
+    language: 'bash',
+    code: `# Select a row
+SELECTED=$(invowk tui table --file servers.csv --selectable)
+echo "Selected: $SELECTED"`,
+  },
+  'tui/table-servers': {
+    language: 'bash',
+    code: `# servers.csv:
+# name,ip,status
+# web-1,10.0.0.1,running
+# web-2,10.0.0.2,running
+# db-1,10.0.0.3,stopped
+
+invowk tui table --file servers.csv`,
+  },
+  'tui/table-spin-combined': {
+    language: 'bash',
+    code: `# Select server
+SERVER=$(invowk tui table --file servers.csv --selectable | cut -d',' -f1)
+
+# Restart with spinner
+invowk tui spin --title "Restarting $SERVER..." -- ssh "$SERVER" "systemctl restart myapp"`,
+  },
+  'tui/table-ssh': {
+    language: 'bash',
+    code: `# Select a server
+SERVER=$(cat servers.csv | invowk tui table --selectable | cut -d',' -f2)
+ssh "user@$SERVER"`,
+  },
+  'tui/write-basic': {
+    language: 'bash',
+    code: `invowk tui write --title "Enter description"`,
+  },
+  'tui/write-examples': {
+    language: 'bash',
+    code: `# Basic editor
+invowk tui write --title "Description:"
+
+# With line numbers
+invowk tui write --title "Code:" --show-line-numbers
+
+# With initial content
+invowk tui write --title "Edit message:" --value "Initial text here"`,
+  },
+  'tui/write-git-commit': {
+    language: 'bash',
+    code: `MESSAGE=$(invowk tui write --title "Commit message:")
+git commit -m "$MESSAGE"`,
+  },
+  'tui/write-release-notes': {
+    language: 'bash',
+    code: `NOTES=$(invowk tui write --title "Release notes:")
+gh release create v1.0.0 --notes "$NOTES"`,
+  },
+  'tui/write-script': {
+    language: 'cue',
+    code: `{
+    name: "commit"
+    description: "Interactive commit with editor"
+    implementations: [{
+        script: """
+            # Show staged changes
+            git diff --cached --stat
+            
+            # Get commit message
+            MESSAGE=$(invowk tui write --title "Commit message:")
+            
+            if [ -z "$MESSAGE" ]; then
+                echo "Commit cancelled (empty message)"
+                exit 1
+            fi
+            
+            git commit -m "$MESSAGE"
+            """
+        runtimes: [{name: "native"}]
+        platforms: [{name: "linux"}, {name: "macos"}]
+    }]
+}`,
+  },
+  'tui/write-yaml-config': {
+    language: 'bash',
+    code: `CONFIG=$(invowk tui write --title "Enter YAML config:" --show-line-numbers)
+echo "$CONFIG" > config.yaml`,
+  },
+};
+
+export default snippets;

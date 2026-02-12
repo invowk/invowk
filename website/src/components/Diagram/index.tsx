@@ -1,4 +1,6 @@
 import React from 'react';
+import { useActiveDocContext } from '@docusaurus/plugin-content-docs/client';
+import { resolveVersionDiagramPaths } from './versions';
 
 /**
  * Mapping of diagram IDs to their SVG file paths.
@@ -39,7 +41,7 @@ const svgPaths: Record<string, string> = {
   'architecture/discovery-module-structure': '/diagrams/rendered/flowcharts/discovery-module-structure.svg',
   'architecture/discovery-deps': '/diagrams/rendered/flowcharts/discovery-deps.svg',
   'architecture/discovery-includes': '/diagrams/rendered/flowcharts/discovery-includes.svg',
-  'architecture/discovery-search-paths': '/diagrams/rendered/flowcharts/discovery-search-paths.svg', // Frozen: original SVG for versioned docs
+  'architecture/discovery-search-paths': '/diagrams/rendered/flowcharts/discovery-search-paths.svg',
   'architecture/discovery-cache': '/diagrams/rendered/flowcharts/discovery-cache.svg',
   'architecture/discovery-not-found': '/diagrams/rendered/flowcharts/discovery-not-found.svg',
   'architecture/discovery-wrong-version': '/diagrams/rendered/flowcharts/discovery-wrong-version.svg',
@@ -55,15 +57,29 @@ export interface DiagramProps {
 }
 
 /**
+ * Resolves a diagram SVG path by ID, checking version-scoped snapshots first.
+ *
+ * For versioned docs (non-'current'), looks up the per-version path map
+ * created at release time, which points to SVG copies in static/diagrams/v{VERSION}/.
+ * Falls back to the live svgPaths map for current/next docs.
+ */
+function resolveDiagramPath(id: string, versionName: string | undefined): string | undefined {
+  if (versionName && versionName !== 'current') {
+    const versionPaths = resolveVersionDiagramPaths(versionName);
+    if (versionPaths?.[id]) {
+      return versionPaths[id];
+    }
+  }
+  return svgPaths[id as DiagramId];
+}
+
+/**
  * Diagram component for rendering pre-rendered SVG diagrams.
  *
  * Diagrams are rendered from D2 sources using TALA layout engine and
- * committed as SVG files. This approach:
- *
- * 1. Eliminates runtime Mermaid rendering overhead
- * 2. Ensures identical diagrams on GitHub and Docusaurus
- * 3. Provides production-quality layouts via TALA
- * 4. Supports deterministic, reproducible diagram generation
+ * committed as SVG files. For versioned docs, diagrams resolve from
+ * immutable per-version SVG copies so that updates to current/next
+ * never affect released docs.
  *
  * Usage in MDX:
  * ```mdx
@@ -73,10 +89,12 @@ export interface DiagramProps {
  * ```
  */
 export default function Diagram({ id, alt }: DiagramProps): React.ReactElement {
-  const path = svgPaths[id];
+  const versionName = useActiveDocContext('default')?.activeVersion?.name;
+  const resolvedPath = resolveDiagramPath(id, versionName);
 
-  if (!path) {
-    console.error(`Diagram with id "${id}" not found. Available IDs:`, Object.keys(svgPaths));
+  if (!resolvedPath) {
+    const versionInfo = versionName ? ` (version: ${versionName})` : '';
+    console.error(`Diagram with id "${id}" not found${versionInfo}. Available IDs:`, Object.keys(svgPaths));
     return (
       <div
         style={{
@@ -87,7 +105,7 @@ export default function Diagram({ id, alt }: DiagramProps): React.ReactElement {
           backgroundColor: 'rgba(255, 0, 0, 0.1)',
         }}
       >
-        <strong>Diagram not found:</strong> {id}
+        <strong>Diagram not found:</strong> {id}{versionInfo}
         <br />
         <small>
           Run <code>make render-diagrams</code> to generate SVG files from D2 sources.
@@ -100,7 +118,7 @@ export default function Diagram({ id, alt }: DiagramProps): React.ReactElement {
     <div className="diagram-wrapper">
       <img
         className="diagram-img"
-        src={path}
+        src={resolvedPath}
         alt={alt || `Diagram: ${id}`}
       />
     </div>

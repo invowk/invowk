@@ -4,7 +4,9 @@
 # Automated documentation versioning for the Docusaurus website.
 #
 # This script snapshots the current docs for a given release version,
-# copies i18n translations, and updates docusaurus.config.ts.
+# creates immutable version-scoped asset snapshots (snippets + diagrams),
+# copies i18n translations, updates docusaurus.config.ts, and validates
+# all version asset references.
 #
 # All versions (stable and pre-release) are kept indefinitely. The default
 # landing version is the latest stable release; if none exists, the latest
@@ -283,18 +285,28 @@ main() {
     fi
 
     # Step 1: Create version snapshot
-    info "Step 1/3: Creating docs version snapshot..."
+    info "Step 1/5: Creating docs version snapshot..."
     create_version_snapshot "$version"
     echo ""
 
-    # Step 2: Copy i18n translations
-    info "Step 2/3: Copying i18n translations..."
+    # Step 2: Snapshot version assets (snippets + diagrams)
+    info "Step 2/5: Snapshotting version assets..."
+    node "$REPO_ROOT/scripts/snapshot-version-assets.mjs" "$version"
+    echo ""
+
+    # Step 3: Copy i18n translations
+    info "Step 3/5: Copying i18n translations..."
     copy_i18n_translations "$version"
     echo ""
 
-    # Step 3: Update docusaurus.config.ts
-    info "Step 3/3: Updating docusaurus.config.ts..."
+    # Step 4: Update docusaurus.config.ts
+    info "Step 4/5: Updating docusaurus.config.ts..."
     update_docusaurus_config "$version"
+    echo ""
+
+    # Step 5: Validate version assets
+    info "Step 5/5: Validating version assets..."
+    node "$REPO_ROOT/scripts/validate-version-assets.mjs"
     echo ""
 
     ok "Documentation versioning complete for ${BOLD}v${version}${RESET}!"
@@ -303,6 +315,11 @@ main() {
     info "  - website/versions.json"
     info "  - website/versioned_docs/version-${version}/"
     info "  - website/versioned_sidebars/version-${version}-sidebars.json"
+    info "  - website/src/components/Snippet/versions/v${version}.ts"
+    info "  - website/src/components/Snippet/versions/index.ts"
+    info "  - website/src/components/Diagram/versions/v${version}.ts"
+    info "  - website/src/components/Diagram/versions/index.ts"
+    info "  - website/static/diagrams/v${version}/"
     for locale_dir in "$WEBSITE_DIR"/i18n/*/; do
         [ -d "$locale_dir" ] || continue
         local locale

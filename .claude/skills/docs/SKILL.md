@@ -116,28 +116,45 @@ cd website && npm run serve
 
 ---
 
-## Frozen Snippets Convention
+## Version-Scoped Asset Snapshots
 
-Docusaurus versioned docs are independent MDX snapshots that **share React components** via `@site/`. There is no built-in version-specific component override. When a snippet ID is renamed or removed during a schema/API migration, old versioned docs still reference the old ID through the shared `<Snippet>` component.
+Versioned docs resolve snippets and diagrams from **immutable per-version snapshots** created at release time. Updates to `snippets.ts` or live SVGs never affect versioned docs.
 
-### Rules
+### How It Works
 
-- Old snippet entries are preserved with their **exact original content** -- no deprecation notes, no modifications.
-- Old entries live in a clearly marked `// FROZEN SNIPPETS` section at the end of `snippets.ts`.
-- Each frozen entry gets a brief maintainer comment noting when it was frozen and what replaced it (e.g., `// Frozen in v0.1.0-alpha.3. Current: 'new-id'`). This is for maintainer context only and is not rendered to users.
-- Current docs use new IDs; versioned docs keep referencing old IDs naturally.
+1. When `scripts/version-docs.sh` runs, it calls `scripts/snapshot-version-assets.mjs <version>`.
+2. The snapshot script scans `versioned_docs/version-{VERSION}/**/*.mdx` for all `<Snippet id="...">` and `<Diagram id="...">` references.
+3. Referenced snippet entries are extracted into `Snippet/versions/v{VERSION}.ts`.
+4. Referenced SVGs are copied to `static/diagrams/v{VERSION}/` and paths recorded in `Diagram/versions/v{VERSION}.ts`.
+5. Barrel files (`versions/index.ts`) are regenerated for both components.
+6. `scripts/validate-version-assets.mjs` verifies all references resolve correctly.
 
-### Migration Process (for any schema/API change that renames snippets)
+### Component Resolution
 
-1. Create the new snippet with the new ID.
-2. Move the old snippet entry to the Frozen section (preserve exact original content).
-3. Add a maintainer comment: `// Frozen in vX.Y.Z. Current: 'new-id'` (or `(command removed)` / `(unchanged content)` as appropriate).
-4. Update current + i18n current docs to reference new IDs.
-5. Never touch versioned docs -- they reference old IDs and the frozen entries serve them.
+Both `<Snippet>` and `<Diagram>` use `useActiveDocContext('default')` to detect the doc version:
+- **Versioned docs**: Resolve from the per-version snapshot first, fall back to live data.
+- **Current/next docs**: Resolve from live `snippets.ts` / `svgPaths` directly.
 
-### Scaling
+### Migration Process (for schema/API changes that rename snippets)
 
-When the frozen section grows beyond ~30 entries, extract it to a separate `frozenSnippets.ts` file and merge it into the Snippet component's lookup map.
+1. Create the new snippet with the new ID in `snippets.ts`.
+2. Update current + i18n current docs to reference the new ID.
+3. **Remove the old snippet entry** from `snippets.ts` — it's already captured in version snapshots.
+4. Never touch versioned docs — they resolve old IDs from their immutable snapshots.
+
+### Backport Fixes
+
+To add content to a versioned doc (e.g., a critical correction):
+1. Edit the versioned MDX to add the new `<Snippet>` or `<Diagram>` reference.
+2. Run `node scripts/snapshot-version-assets.mjs <version> --update` to add the missing entry without overwriting existing ones.
+
+### Generated Files (auto-generated, do not edit manually)
+
+```
+website/src/components/Snippet/versions/   # Per-version snippet snapshots + barrel
+website/src/components/Diagram/versions/   # Per-version diagram path maps + barrel
+website/static/diagrams/v{VERSION}/        # Per-version SVG copies
+```
 
 ---
 

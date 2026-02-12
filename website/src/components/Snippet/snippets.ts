@@ -8055,63 +8055,6 @@ invowk cmd database-cli --invk-interactive`,
   End/G         → Go to bottom
   q/Esc/Enter   → Exit and return to terminal`,
   },
-  // =============================================================================
-  // FROZEN SNIPPETS
-  // Snippets preserved for versioned docs that reference old IDs.
-  // Each entry contains the EXACT original content. Do not add deprecation
-  // notes -- versioned docs render these in their historical context.
-  // =============================================================================
-
-  'config/search-paths': { // Frozen in v0.1.0-alpha.3. Current: 'config/includes'
-    language: 'cue',
-    code: `search_paths: [
-    "~/.invowk/modules",
-    "~/my-company/shared-modules",
-    "/opt/invowk/modules"
-]`,
-  },
-
-  'modules/search-paths-config': { // Frozen in v0.1.0-alpha.3. Current: 'modules/includes-config'
-    language: 'cue',
-    code: `// ~/.config/invowk/config.cue
-search_paths: [
-    "/shared/company-modules"
-]`,
-  },
-
-  'modules/install-search-path': { // Frozen in v0.1.0-alpha.3. (unchanged content)
-    language: 'bash',
-    code: `invowk module import mytools.zip --path /shared/company-modules`,
-  },
-
-  'reference/config/search-paths-example': { // Frozen in v0.1.0-alpha.3. Current: 'reference/config/includes-example'
-    language: 'cue',
-    code: `search_paths: [
-    "~/.invowk/cmds",
-    "~/projects/shared-commands",
-    "/opt/company/invowk-commands",
-]`,
-  },
-
-  'reference/cli/module-alias-syntax': { // Frozen in v0.1.0-alpha.3. (command removed)
-    language: 'bash',
-    code: `invowk module alias [command]`,
-  },
-
-  'reference/cli/module-alias-set-syntax': { // Frozen in v0.1.0-alpha.3. (command removed)
-    language: 'bash',
-    code: `invowk module alias set <module-path> <alias>`,
-  },
-
-  'reference/cli/module-alias-list-syntax': { // Frozen in v0.1.0-alpha.3. (command removed)
-    language: 'bash',
-    code: `invowk module alias list`,
-  },
-
-  'reference/cli/module-alias-remove-syntax': { // Frozen in v0.1.0-alpha.3. (command removed)
-    language: 'bash',
-    code: `invowk module alias remove <module-path>`,
-  },
 } as const;
 
 // Type-safe snippet IDs
