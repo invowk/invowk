@@ -61,8 +61,8 @@ Invowk discovers commands from multiple sources in priority order:
 
 1. **Current directory invkfile** (highest priority)
 2. **Local modules** (`*.invkmod` in current directory)
-3. **User commands directory** (`~/.invowk/cmds/`)
-4. **Configured includes** (from config file)
+3. **Configured includes** (module paths from config file)
+4. **User commands directory** (`~/.invowk/cmds/` — `*.invkmod` only, non-recursive)
 
 When listing commands, you’ll see their source:
 

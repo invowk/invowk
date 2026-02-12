@@ -24,12 +24,13 @@ The discovery system implements a **strict 4-level precedence hierarchy**:
 |----------|--------|-------------|
 | 1 (Highest) | Current Directory | `invkfile.cue` in the working directory |
 | 2 | Local Modules | Sibling `*.invkmod` directories in current directory |
-| 3 | User Commands | `~/.invowk/cmds/` with recursive search |
-| 4 (Lowest) | Config Paths | Custom paths from config, searched recursively |
+| 3 | Config Includes | Module paths from `config.Includes` |
+| 4 (Lowest) | User Commands | `~/.invowk/cmds/` — modules only, non-recursive |
 
 **Key Behavior:**
-- Non-module sources (current dir, user dir, config paths): First source **shadows** later ones
+- Non-module sources (current dir invkfile): First source **shadows** later ones
 - Module commands: **All included** with ambiguity flagging for transparent namespace
+- User commands dir only discovers `*.invkmod` immediate children (no loose invkfiles, no recursion)
 
 ---
 
@@ -40,14 +41,13 @@ Discovery has two parallel tracks:
 ### Track A: Invkfile Discovery
 
 ```go
-// Single-level check (current directory)
+// Single-level check (current directory only)
 discoverInDir(dir)  // Looks for invkfile.cue OR invkfile
-
-// Recursive search (user dir, config paths)
-discoverInDirRecursive(dir)  // Uses filepath.WalkDir()
 ```
 
 **File Priority:** `.cue` extension preferred over non-suffixed `invkfile`
+
+**Note:** Invkfile discovery is limited to the current directory. The user commands directory (`~/.invowk/cmds/`) only discovers modules, not loose invkfiles.
 
 ### Track B: Module Discovery
 
@@ -70,7 +70,6 @@ discoverModulesInDir(dir)
 ```go
 const (
     SourceCurrentDir   Source = iota  // "current directory"
-    SourceUserDir                     // "user commands (~/.invowk/cmds)"
     SourceModule                      // "module" (from .invkmod)
 )
 ```
@@ -139,8 +138,8 @@ The `DiscoveredCommandSet` provides:
 
 | Source Type | Behavior |
 |-------------|----------|
-| Non-module (current dir, user dir, config) | First source **WINS** (shadows later) |
-| Module (sibling .invkmod directories) | **ALL included** with ambiguity flagging |
+| Non-module (current dir invkfile) | First source **WINS** (shadows later) |
+| Module (local, config includes, user-dir) | **ALL included** with ambiguity flagging |
 
 **IsAmbiguous Flag:** Set to `true` when a simple name conflicts across sources. This enables:
 - **Transparent namespace** for unambiguous commands: `invowk cmd build`

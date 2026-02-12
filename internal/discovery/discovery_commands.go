@@ -186,12 +186,9 @@ func (d *Discovery) DiscoverCommandSet(ctx context.Context) (CommandSetResult, e
 			// From a module - use short name from folder
 			sourceID = getModuleShortName(file.Module.Path)
 			moduleID = file.Module.Name()
-		case file.Source == SourceCurrentDir:
-			// From root invkfile in current directory
-			sourceID = SourceIDInvkfile
 		default:
-			// From user directory or config path - use source type as ID
-			sourceID = file.Source.String()
+			// Non-module source: root invkfile in current directory
+			sourceID = SourceIDInvkfile
 		}
 
 		flatCmds := file.Invkfile.FlattenCommands()

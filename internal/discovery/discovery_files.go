@@ -15,8 +15,6 @@ import (
 const (
 	// SourceCurrentDir indicates the file was found in the current directory
 	SourceCurrentDir Source = iota
-	// SourceUserDir indicates the file was found in ~/.invowk/cmds
-	SourceUserDir
 	// SourceModule indicates the file was found in an invowk module
 	SourceModule
 )
@@ -45,8 +43,6 @@ func (s Source) String() string {
 	switch s {
 	case SourceCurrentDir:
 		return "current directory"
-	case SourceUserDir:
-		return "user commands (~/.invowk/cmds)"
 	case SourceModule:
 		return "module"
 	default:
@@ -57,8 +53,8 @@ func (s Source) String() string {
 // DiscoverAll finds all invkfiles from all sources in 4-level precedence order:
 //  1. Current directory (highest precedence — the local invkfile.cue)
 //  2. Modules in the current directory (*.invkmod directories)
-//  3. User commands directory (~/.invowk/cmds)
-//  4. Configured search paths from config (lowest precedence)
+//  3. Configured includes from config (module paths)
+//  4. User commands directory (~/.invowk/cmds — modules only, non-recursive)
 //
 // Earlier sources take precedence for disambiguation when the same SimpleName
 // appears in multiple sources.
@@ -74,20 +70,16 @@ func (d *Discovery) DiscoverAll() ([]*DiscoveredFile, error) {
 	moduleFiles := d.discoverModulesInDir(".")
 	files = append(files, moduleFiles...)
 
-	// 3. User commands directory (~/.invowk/cmds)
+	// 3. Configured includes (explicit module paths from config)
+	includeFiles := d.loadIncludes()
+	files = append(files, includeFiles...)
+
+	// 4. User commands directory (~/.invowk/cmds — modules only, non-recursive)
 	userDir, err := config.CommandsDir()
 	if err == nil {
-		userFiles := d.discoverInDirRecursive(userDir, SourceUserDir)
-		files = append(files, userFiles...)
-
-		// Also discover modules in user commands directory
 		userModuleFiles := d.discoverModulesInDir(userDir)
 		files = append(files, userModuleFiles...)
 	}
-
-	// 4. Configured includes (explicit invkfiles and modules from config)
-	includeFiles := d.loadIncludes()
-	files = append(files, includeFiles...)
 
 	return files, nil
 }
@@ -112,43 +104,6 @@ func (d *Discovery) discoverInDir(dir string, source Source) *DiscoveredFile {
 	}
 
 	return nil
-}
-
-// discoverInDirRecursive finds all invkfiles in a directory tree
-func (d *Discovery) discoverInDirRecursive(dir string, source Source) []*DiscoveredFile {
-	var files []*DiscoveredFile
-
-	absDir, err := filepath.Abs(dir)
-	if err != nil {
-		return files
-	}
-
-	// Check if directory exists
-	if _, statErr := os.Stat(absDir); os.IsNotExist(statErr) {
-		return files
-	}
-
-	err = filepath.WalkDir(absDir, func(path string, d os.DirEntry, walkErr error) error {
-		if walkErr != nil {
-			return nil //nolint:nilerr // Intentionally skip errors to continue walking
-		}
-
-		if d.IsDir() {
-			return nil
-		}
-
-		name := d.Name()
-		if name == invkfile.InvkfileName || name == invkfile.InvkfileName+".cue" {
-			files = append(files, &DiscoveredFile{Path: path, Source: source})
-		}
-
-		return nil
-	})
-	if err != nil {
-		return files
-	}
-
-	return files
 }
 
 // discoverModulesInDir finds all valid modules in a directory.

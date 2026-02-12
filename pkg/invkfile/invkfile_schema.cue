@@ -442,10 +442,10 @@ import "strings"
 
 	// module, version, description, requires are NOT allowed here
 	// These fields belong in invkmod.cue
-	module?: _|_
-	version?: _|_
+	module?:      _|_
+	version?:     _|_
 	description?: _|_
-	requires?: _|_
+	requires?:    _|_
 })
 
 // Example usage with the cue command-line tool:

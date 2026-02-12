@@ -40,8 +40,8 @@ Creates:
 
 Modules are automatically discovered from:
 1. Current directory (invkfile and local modules)
-2. `~/.invowk/cmds/` (user commands)
-3. Configured `includes` entries
+2. Configured `includes` entries
+3. `~/.invowk/cmds/` (user modules — `*.invkmod` only, non-recursive)
 
 <Snippet id="modules/quick-use" />
 
@@ -110,8 +110,8 @@ Modules are discovered from these locations:
 
 1. **Current directory invkfile** (highest priority)
 2. **Local modules** (`*.invkmod` in current directory)
-3. **User commands** (`~/.invowk/cmds/`)
-4. **Configured includes** (from config)
+3. **Configured includes** (module paths from config)
+4. **User commands directory** (`~/.invowk/cmds/` — `*.invkmod` only, non-recursive)
 
 Commands appear in `invowk cmd` output with their source:
 

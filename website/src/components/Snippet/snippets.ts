@@ -3605,7 +3605,7 @@ cmds: [
 From current directory:
   mytools build - Build the project [native*]
 
-From user commands (~/.invowk/cmds):
+From user modules (~/.invowk/cmds):
   com.example.utilities hello - Greeting [native*]`,
   },
 
@@ -4016,7 +4016,7 @@ invowk module import https://github.com/user/repo/releases/download/v1.0/mytools
    ✓ local.project
       /home/user/project/local.project.invkmod
 
-• user commands (~/.invowk/cmds):
+• user modules (~/.invowk/cmds):
    ✓ com.company.devtools
       /home/user/.invowk/cmds/com.company.devtools.invkmod
    ✓ io.github.user.utilities
@@ -5124,7 +5124,7 @@ module: "123project"   // Must start with letter`,
 From current directory:
   build - Build the project [native*] (linux, macos, windows)
 
-From user commands (~/.invowk/cmds):
+From user modules (~/.invowk/cmds):
   com.example.tools hello - A greeting [native*] (linux, macos)`,
   },
 

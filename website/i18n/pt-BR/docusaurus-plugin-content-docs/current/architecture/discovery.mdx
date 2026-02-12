@@ -24,10 +24,13 @@ Quando o mesmo nome de comando existe em múltiplos locais:
 |------------|-------|-------------------|
 | 1 (maior) | invkfile do diretório atual | `./invkfile.cue` |
 | 2 | Módulos locais | `./mytools.invkmod/` |
-| 3 | Diretório do usuário | `~/.invowk/cmds/invkfile.cue` |
-| 4 (menor) | Search paths | `/opt/invowk-modules/` |
+| 3 | Includes configurados | `/opt/invowk-modules/tools.invkmod` |
+| 4 (menor) | Diretório de comandos do usuário | `~/.invowk/cmds/mytools.invkmod/` |
 
-**Princípio chave**: Mais perto do diretório de trabalho = maior prioridade.
+**Princípios chave**:
+- Mais perto do diretório de trabalho = maior prioridade.
+- Includes configurados têm precedência sobre o diretório de comandos do usuário porque representam configuração explícita e intencional.
+- O diretório de comandos do usuário (`~/.invowk/cmds/`) descobre apenas diretórios `*.invkmod` como filhos imediatos (não recursivo). Invkfiles avulsos não são descobertos a partir desse local.
 
 ## Detalhes da Descoberta de Módulos
 

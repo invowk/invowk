@@ -50,8 +50,8 @@ O runtime virtual usa o interpretador mvdan/sh embutido:
 **Ordem de precedência (maior para menor):**
 1. `invkfile.cue` do diretório atual
 2. `*.invkmod` do diretório atual
-3. Diretório do usuário `~/.invowk/cmds/`
-4. Search paths configurados
+3. Includes configurados
+4. Diretório de comandos do usuário `~/.invowk/cmds/` (apenas módulos, não recursivo)
 
 ### 3. Fase de Resolução
 

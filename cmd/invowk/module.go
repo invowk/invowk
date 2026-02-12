@@ -145,7 +145,6 @@ func runModuleList(ctx context.Context, app *App) error {
 	// Display modules by source
 	sources := []discovery.Source{
 		discovery.SourceCurrentDir,
-		discovery.SourceUserDir,
 		discovery.SourceModule,
 	}
 

@@ -1,5 +1,17 @@
 {
   "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "blocked=false; for f in $CLAUDE_FILE_PATHS; do case \"$f\" in *.env|*.env.*|*credentials*|*secret*|*.key|*.pem) blocked=true; break;; esac; done; if $blocked; then echo 'BLOCK: Refusing to edit sensitive file (*.env, credentials, secrets, keys, certs). Ask user for confirmation first.'; exit 1; fi; exit 0",
+            "timeout": 5000
+          }
+        ]
+      }
+    ],
     "PostToolUse": [
       {
         "matcher": "Edit|Write",
@@ -23,6 +35,11 @@
             "type": "command",
             "command": "for f in $CLAUDE_FILE_PATHS; do case \"$f\" in *.d2) if command -v d2 >/dev/null 2>&1; then d2 fmt \"$f\" 2>/dev/null; fi;; esac; done; true",
             "timeout": 15000
+          },
+          {
+            "type": "command",
+            "command": "for f in $CLAUDE_FILE_PATHS; do case \"$f\" in *.cue) if command -v cue >/dev/null 2>&1; then cue fmt \"$f\" 2>/dev/null; fi;; esac; done; true",
+            "timeout": 10000
           },
           {
             "type": "command",

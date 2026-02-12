@@ -18,10 +18,10 @@ When the same command name exists in multiple locations:
 |----------|--------|--------------|
 | 1 (highest) | Current directory invkfile | `./invkfile.cue` |
 | 2 | Local modules | `./mytools.invkmod/` |
-| 3 | User directory | `~/.invowk/cmds/invkfile.cue` |
-| 4 (lowest) | Configured includes | `/opt/invowk-modules/` |
+| 3 | Configured includes | Module paths from `config.Includes` |
+| 4 (lowest) | User commands directory | `~/.invowk/cmds/*.invkmod` (modules only, non-recursive) |
 
-**Key principle**: Closer to the working directory = higher priority.
+**Key principle**: Explicit configuration takes precedence over implicit discovery. The user commands directory acts as a catch-all module shelf for globally available modules.
 
 ## Module Discovery Details
 

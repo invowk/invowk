@@ -14,7 +14,7 @@
 type CommandInfo struct {
     Name        string              // Fully qualified name
     Description string              // Command description
-    Source      Source              // SourceCurrentDir, SourceUserDir, SourceModule
+    Source      Source              // SourceCurrentDir, SourceModule
     FilePath    string              // Path to invkfile
     Command     *invkfile.Command   // Command definition
     Invkfile    *invkfile.Invkfile  // Parent invkfile
