@@ -137,7 +137,7 @@ cmds: [
 
 -- foo.invkmod/invkmod.cue --
 module: "foo"
-version: "1.0"
+version: "1.0.0"
 description: "Foo module"
 
 -- foo.invkmod/invkfile.cue --
@@ -156,7 +156,7 @@ cmds: [
 
 -- bar.invkmod/invkmod.cue --
 module: "bar"
-version: "1.0"
+version: "1.0.0"
 description: "Bar module for subcommand testing"
 
 -- bar.invkmod/invkfile.cue --

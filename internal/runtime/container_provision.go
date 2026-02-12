@@ -140,20 +140,20 @@ func buildProvisionConfig(cfg *config.Config) *provision.Config {
 		provisionCfg.InvowkBinaryPath = autoProv.BinaryPath
 	}
 
-	if len(autoProv.ModulesPaths) > 0 {
-		provisionCfg.ModulesPaths = append(provisionCfg.ModulesPaths, autoProv.ModulesPaths...)
+	// Add modules from auto_provision includes (explicit provisioning paths).
+	for _, inc := range autoProv.Includes {
+		provisionCfg.ModulesPaths = append(provisionCfg.ModulesPaths, inc.Path)
+	}
+
+	// Conditionally inherit root-level includes into provisioning.
+	if autoProv.InheritIncludes {
+		for _, inc := range cfg.Includes {
+			provisionCfg.ModulesPaths = append(provisionCfg.ModulesPaths, inc.Path)
+		}
 	}
 
 	if autoProv.CacheDir != "" {
 		provisionCfg.CacheDir = autoProv.CacheDir
-	}
-
-	// Also include module paths from the config includes entries so provisioned
-	// containers can resolve all configured modules.
-	for _, inc := range cfg.Includes {
-		if inc.IsModule() {
-			provisionCfg.ModulesPaths = append(provisionCfg.ModulesPaths, inc.Path)
-		}
 	}
 
 	return provisionCfg

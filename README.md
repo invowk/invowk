@@ -281,7 +281,7 @@ Modules (directories ending in `.invkmod`) use a separate metadata file named `i
 
 ```cue
 module: "mymodule"
-version: "1.0"
+version: "1.0.0"
 description: "Reusable build tools"
 ```
 
@@ -1858,7 +1858,7 @@ Add a `requires` field to `invkmod.cue` to declare module dependencies:
 ```cue
 // invkmod.cue
 module: "myproject"
-version: "1.0"
+version: "1.0.0"
 
 // Declare module dependencies
 requires: [
@@ -2215,7 +2215,8 @@ container: {
   auto_provision: {
     enabled: true                         // Enable/disable auto-provisioning of invowk into containers (default: true)
     binary_path: "/usr/local/bin/invowk"  // Override path to invowk binary to provision (optional)
-    modules_paths: ["/extra/modules"]     // Additional module search paths for provisioning (optional)
+    includes: [{path: "/extra/modules.invkmod"}] // Modules to provision into containers (optional)
+    inherit_includes: true                // Inherit root-level includes for provisioning (default: true)
     cache_dir: "~/.cache/invowk/provision" // Cache directory for provisioned image metadata (optional)
   }
 }

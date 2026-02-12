@@ -109,7 +109,8 @@ func loadWithOptions(ctx context.Context, opts LoadOptions) (*Config, string, er
 	v.SetDefault("ui.interactive", defaults.UI.Interactive)
 	v.SetDefault("container.auto_provision.enabled", defaults.Container.AutoProvision.Enabled)
 	v.SetDefault("container.auto_provision.binary_path", defaults.Container.AutoProvision.BinaryPath)
-	v.SetDefault("container.auto_provision.modules_paths", defaults.Container.AutoProvision.ModulesPaths)
+	v.SetDefault("container.auto_provision.includes", defaults.Container.AutoProvision.Includes)
+	v.SetDefault("container.auto_provision.inherit_includes", defaults.Container.AutoProvision.InheritIncludes)
 	v.SetDefault("container.auto_provision.cache_dir", defaults.Container.AutoProvision.CacheDir)
 
 	resolvedPath := ""
@@ -184,12 +185,22 @@ func loadWithOptions(ctx context.Context, opts LoadOptions) (*Config, string, er
 	}
 
 	// Validate includes constraints that CUE cannot express:
-	// alias uniqueness across all entries and alias-only-for-modules.
-	if err := validateIncludes(cfg.Includes); err != nil {
+	// path uniqueness, alias uniqueness, and short-name collision disambiguation.
+	if err := validateIncludes("includes", cfg.Includes); err != nil {
 		return nil, "", issue.NewErrorContext().
 			WithOperation("validate configuration").
 			WithSuggestion("Ensure each alias is unique across all includes entries").
-			WithSuggestion("Aliases are only valid for module paths ending in .invkmod").
+			WithSuggestion("When two modules share the same short name, all must have unique aliases").
+			Wrap(err).
+			BuildError()
+	}
+
+	// Validate auto_provision includes with the same rules.
+	if err := validateIncludes("container.auto_provision.includes", cfg.Container.AutoProvision.Includes); err != nil {
+		return nil, "", issue.NewErrorContext().
+			WithOperation("validate configuration").
+			WithSuggestion("Ensure each alias is unique across all auto_provision includes entries").
+			WithSuggestion("When two modules share the same short name, all must have unique aliases").
 			Wrap(err).
 			BuildError()
 	}
@@ -263,32 +274,55 @@ func loadCUEIntoViper(v *viper.Viper, path string) error {
 }
 
 // validateIncludes checks include entries for constraints that CUE cannot express:
-//   - alias is only valid when path ends with .invkmod
+//   - all paths must be unique (normalized via filepath.Clean)
 //   - all non-empty aliases must be globally unique across entries
-func validateIncludes(includes []IncludeEntry) error {
+//   - when two or more entries share the same filesystem short name (e.g., "foo.invkmod"),
+//     ALL entries with that short name must have a non-empty alias for disambiguation
+//
+// The fieldName parameter is used in error messages to identify which includes
+// section failed validation (e.g., "includes" vs "container.auto_provision.includes").
+func validateIncludes(fieldName string, includes []IncludeEntry) error {
 	seenAliases := make(map[string]string) // alias -> path of first occurrence
 	seenPaths := make(map[string]int)      // cleaned path -> index of first occurrence
+	shortNames := make(map[string][]int)   // short name -> indices of entries with that name
+
 	for i, entry := range includes {
 		// Check path uniqueness (normalized to handle trailing slashes and redundant separators)
 		cleanPath := filepath.Clean(entry.Path)
 		if firstIdx, exists := seenPaths[cleanPath]; exists {
-			return fmt.Errorf("includes[%d]: duplicate path %q (same as includes[%d])", i, entry.Path, firstIdx)
+			return fmt.Errorf("%s[%d]: duplicate path %q (same as %s[%d])", fieldName, i, entry.Path, fieldName, firstIdx)
 		}
 		seenPaths[cleanPath] = i
 
-		if entry.Alias == "" {
+		// Track short name for collision detection
+		shortName := strings.TrimSuffix(filepath.Base(entry.Path), moduleSuffix)
+		shortNames[shortName] = append(shortNames[shortName], i)
+
+		// Check alias uniqueness
+		if entry.Alias != "" {
+			if existingPath, exists := seenAliases[entry.Alias]; exists {
+				return fmt.Errorf("%s: duplicate alias %q used by both %q and %q", fieldName, entry.Alias, existingPath, entry.Path)
+			}
+			seenAliases[entry.Alias] = entry.Path
+		}
+	}
+
+	// Enforce short-name collision rule: if 2+ entries share the same short name,
+	// ALL of those entries must have non-empty aliases for disambiguation.
+	for shortName, indices := range shortNames {
+		if len(indices) < 2 {
 			continue
 		}
-		// Alias is only meaningful for module paths
-		if !entry.IsModule() {
-			return fmt.Errorf("includes[%d]: alias %q is only valid for module paths (.invkmod), but path is %q", i, entry.Alias, entry.Path)
+		for _, idx := range indices {
+			if includes[idx].Alias == "" {
+				return fmt.Errorf(
+					"%s[%d]: module %q shares short name %q with %d other entry(ies); all entries with this short name must have unique aliases",
+					fieldName, idx, includes[idx].Path, shortName, len(indices)-1,
+				)
+			}
 		}
-		// Check alias uniqueness
-		if existingPath, exists := seenAliases[entry.Alias]; exists {
-			return fmt.Errorf("includes: duplicate alias %q used by both %q and %q", entry.Alias, existingPath, entry.Path)
-		}
-		seenAliases[entry.Alias] = entry.Path
 	}
+
 	return nil
 }
 
@@ -414,13 +448,18 @@ func GenerateCUE(cfg *Config) string {
 	if cfg.Container.AutoProvision.BinaryPath != "" {
 		sb.WriteString(fmt.Sprintf("\t\tbinary_path: %q\n", cfg.Container.AutoProvision.BinaryPath))
 	}
-	if len(cfg.Container.AutoProvision.ModulesPaths) > 0 {
-		sb.WriteString("\t\tmodules_paths: [\n")
-		for _, p := range cfg.Container.AutoProvision.ModulesPaths {
-			sb.WriteString(fmt.Sprintf("\t\t\t%q,\n", p))
+	if len(cfg.Container.AutoProvision.Includes) > 0 {
+		sb.WriteString("\t\tincludes: [\n")
+		for _, entry := range cfg.Container.AutoProvision.Includes {
+			if entry.Alias != "" {
+				sb.WriteString(fmt.Sprintf("\t\t\t{path: %q, alias: %q},\n", entry.Path, entry.Alias))
+			} else {
+				sb.WriteString(fmt.Sprintf("\t\t\t{path: %q},\n", entry.Path))
+			}
 		}
 		sb.WriteString("\t\t]\n")
 	}
+	sb.WriteString(fmt.Sprintf("\t\tinherit_includes: %v\n", cfg.Container.AutoProvision.InheritIncludes))
 	if cfg.Container.AutoProvision.CacheDir != "" {
 		sb.WriteString(fmt.Sprintf("\t\tcache_dir: %q\n", cfg.Container.AutoProvision.CacheDir))
 	}

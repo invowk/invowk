@@ -292,7 +292,7 @@ func createValidModule(t *testing.T, dir, folderName, moduleID string) string {
 	// Create invkmod.cue with metadata
 	invkmodPath := filepath.Join(modulePath, "invkmod.cue")
 	invkmodContent := fmt.Sprintf(`module: "%s"
-version: "1.0"
+version: "1.0.0"
 `, moduleID)
 	if err := os.WriteFile(invkmodPath, []byte(invkmodContent), 0o644); err != nil {
 		t.Fatal(err)
@@ -347,7 +347,7 @@ func TestLoad(t *testing.T) {
 		// Only create invkmod.cue (no invkfile.cue)
 		invkmodPath := filepath.Join(modulePath, "invkmod.cue")
 		if err := os.WriteFile(invkmodPath, []byte(`module: "mylib"
-version: "1.0"
+version: "1.0.0"
 `), 0o644); err != nil {
 			t.Fatal(err)
 		}

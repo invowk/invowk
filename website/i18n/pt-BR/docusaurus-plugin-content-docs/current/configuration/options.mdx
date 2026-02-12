@@ -34,16 +34,16 @@ Se a engine preferida não estiver disponível, o Invowk faz fallback para a out
 **Tipo:** `[...#IncludeEntry]`
 **Padrão:** `[]`
 
-Invkfiles e módulos adicionais para incluir na descoberta de comandos. Cada entrada é um `#IncludeEntry` com `path` obrigatório e `alias` opcional.
+Módulos adicionais para incluir na descoberta de comandos. Cada entrada é um `#IncludeEntry` com `path` obrigatório (deve terminar com `.invkmod`) e `alias` opcional.
 
 <Snippet id="config/includes" />
 
 **Requisitos de caminho:**
-- Deve terminar com `.invkmod`, `/invkfile.cue`, ou `/invkfile`
+- Deve terminar com `.invkmod`
 - Caminhos duplicados são rejeitados
 
 **Regras de alias:**
-- Válido apenas para caminhos `.invkmod`
+- Opcional, para desambiguação de colisões
 - Deve ser único entre todas as entradas includes
 
 **Ordem de Descoberta:**
@@ -160,12 +160,19 @@ Quando habilitado, o Invowk cria uma imagem derivada em cache para cada execuç�
 
 Sobrescreve o caminho do binário do invowk para provisionar.
 
-#### container.auto_provision.modules_paths
+#### container.auto_provision.includes
 
-**Tipo:** `[...string]`
+**Tipo:** `[...#IncludeEntry]`
 **Padrão:** `[]`
 
-Diretórios adicionais de módulos para provisionar dentro dos containers.
+Módulos adicionais para provisionar dentro dos containers. Usa o mesmo formato `#IncludeEntry` do `includes` raiz (cada entrada tem um `path` terminando com `.invkmod` e um `alias` opcional).
+
+#### container.auto_provision.inherit_includes
+
+**Tipo:** `bool`
+**Padrão:** `true`
+
+Quando `true`, as entradas de `includes` do nível raiz são automaticamente herdadas pelo auto-provisionamento. Defina como `false` para provisionar apenas os módulos listados explicitamente em `container.auto_provision.includes`.
 
 #### container.auto_provision.cache_dir
 

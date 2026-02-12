@@ -56,7 +56,7 @@ cmds: [
 
 -- reserved_name_test/invkfile.invkmod/invkmod.cue --
 module: "invkfile"
-version: "1.0"
+version: "1.0.0"
 description: "This module uses reserved name"
 
 -- reserved_name_test/invkfile.invkmod/invkfile.cue --
@@ -84,7 +84,7 @@ cmds: [
 
 -- typo_test/foo.invkmod/invkmod.cue --
 module: "foo"
-version: "1.0"
+version: "1.0.0"
 description: "Foo module"
 
 -- typo_test/foo.invkmod/invkfile.cue --

@@ -38,7 +38,7 @@ cmds: [
 
 -- foo.invkmod/invkmod.cue --
 module: "foo"
-version: "1.0"
+version: "1.0.0"
 description: "Foo module"
 
 -- foo.invkmod/invkfile.cue --

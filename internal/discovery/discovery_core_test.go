@@ -265,21 +265,30 @@ cmds: [{name: "user-cmd", implementations: [{script: "echo user", runtimes: [{na
 	}
 }
 
-func TestDiscoverAll_FindsInConfigPath(t *testing.T) {
+func TestDiscoverAll_FindsModuleFromIncludes(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	// Create a config search path directory
-	searchPath := filepath.Join(tmpDir, "custom-commands")
-	if err := os.MkdirAll(searchPath, 0o755); err != nil {
-		t.Fatalf("failed to create search path dir: %v", err)
+	// Create a module directory in a custom path
+	modulePath := filepath.Join(tmpDir, "custom-modules", "custom.invkmod")
+	if err := os.MkdirAll(modulePath, 0o755); err != nil {
+		t.Fatalf("failed to create module dir: %v", err)
 	}
 
-	// Create an invkfile in search path
-	content := `
+	// Create invkmod.cue (module metadata, matching folder prefix "custom")
+	invkmodContent := `module: "custom"
+version: "1.0.0"
+description: "Test module for config includes"
+`
+	if err := os.WriteFile(filepath.Join(modulePath, "invkmod.cue"), []byte(invkmodContent), 0o644); err != nil {
+		t.Fatalf("failed to write invkmod.cue: %v", err)
+	}
+
+	// Create invkfile.cue with a command
+	invkfileContent := `
 cmds: [{name: "custom-cmd", implementations: [{script: "echo custom", runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}]}]}]
 `
-	if err := os.WriteFile(filepath.Join(searchPath, "invkfile.cue"), []byte(content), 0o644); err != nil {
-		t.Fatalf("failed to write invkfile: %v", err)
+	if err := os.WriteFile(filepath.Join(modulePath, "invkfile.cue"), []byte(invkfileContent), 0o644); err != nil {
+		t.Fatalf("failed to write invkfile.cue: %v", err)
 	}
 
 	// Change to temp directory (which has no invkfile)
@@ -294,7 +303,7 @@ cmds: [{name: "custom-cmd", implementations: [{script: "echo custom", runtimes: 
 
 	cfg := config.DefaultConfig()
 	cfg.Includes = []config.IncludeEntry{
-		{Path: filepath.Join(searchPath, "invkfile.cue")},
+		{Path: modulePath},
 	}
 	d := New(cfg)
 
@@ -305,14 +314,14 @@ cmds: [{name: "custom-cmd", implementations: [{script: "echo custom", runtimes: 
 
 	found := false
 	for _, f := range files {
-		if f.Source == SourceConfigPath {
+		if f.Source == SourceModule && f.Module != nil && f.Module.Name() == "custom" {
 			found = true
 			break
 		}
 	}
 
 	if !found {
-		t.Error("DiscoverAll() did not find invkfile in configured search path")
+		t.Error("DiscoverAll() did not find module from configured includes")
 	}
 }
 

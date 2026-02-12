@@ -2,10 +2,7 @@
 
 package config
 
-import (
-	"path/filepath"
-	"strings"
-)
+import "strings"
 
 const (
 	// ContainerEnginePodman uses Podman as the container runtime.
@@ -22,14 +19,12 @@ type (
 	// ContainerEngine specifies which container runtime to use.
 	ContainerEngine string
 
-	// IncludeEntry specifies an invkfile or module to include in command discovery.
-	// Each entry must point to a specific invkfile.cue, invkfile, or *.invkmod directory
-	// via an absolute filesystem path.
+	// IncludeEntry specifies a module to include in command discovery.
+	// Each entry must point to a *.invkmod directory via an absolute filesystem path.
 	IncludeEntry struct {
-		// Path is the absolute filesystem path to an invkfile.cue, invkfile, or *.invkmod directory.
+		// Path is the absolute filesystem path to a *.invkmod directory.
 		Path string `json:"path" mapstructure:"path"`
 		// Alias optionally overrides the module identifier for collision disambiguation.
-		// Only valid when Path refers to a module (.invkmod).
 		Alias string `json:"alias,omitempty" mapstructure:"alias"`
 	}
 
@@ -37,7 +32,7 @@ type (
 	Config struct {
 		// ContainerEngine specifies whether to use "podman" or "docker"
 		ContainerEngine ContainerEngine `json:"container_engine" mapstructure:"container_engine"`
-		// Includes specifies invkfiles and modules to include in command discovery.
+		// Includes specifies modules to include in command discovery.
 		Includes []IncludeEntry `json:"includes" mapstructure:"includes"`
 		// DefaultRuntime sets the global default runtime mode
 		DefaultRuntime string `json:"default_runtime" mapstructure:"default_runtime"`
@@ -61,8 +56,11 @@ type (
 		Enabled bool `json:"enabled" mapstructure:"enabled"`
 		// BinaryPath overrides the path to the invowk binary to provision
 		BinaryPath string `json:"binary_path" mapstructure:"binary_path"`
-		// ModulesPaths specifies additional directories to search for modules
-		ModulesPaths []string `json:"modules_paths" mapstructure:"modules_paths"`
+		// Includes specifies modules to provision into containers.
+		Includes []IncludeEntry `json:"includes" mapstructure:"includes"`
+		// InheritIncludes controls whether root-level includes are automatically
+		// merged into container provisioning (default: true).
+		InheritIncludes bool `json:"inherit_includes" mapstructure:"inherit_includes"`
 		// CacheDir specifies where to store cached provisioned images metadata
 		CacheDir string `json:"cache_dir" mapstructure:"cache_dir"`
 	}
@@ -89,12 +87,6 @@ func (e IncludeEntry) IsModule() bool {
 	return strings.HasSuffix(e.Path, moduleSuffix)
 }
 
-// IsInvkfile reports whether this entry points to an invkfile (invkfile.cue or invkfile).
-func (e IncludeEntry) IsInvkfile() bool {
-	base := filepath.Base(e.Path)
-	return base == "invkfile.cue" || base == "invkfile"
-}
-
 // DefaultConfig returns the default configuration
 func DefaultConfig() *Config {
 	return &Config{
@@ -111,10 +103,11 @@ func DefaultConfig() *Config {
 		},
 		Container: ContainerConfig{
 			AutoProvision: AutoProvisionConfig{
-				Enabled:      true,
-				BinaryPath:   "", // Will use os.Executable() if empty
-				ModulesPaths: []string{},
-				CacheDir:     "", // Will use default cache dir if empty
+				Enabled:         true,
+				BinaryPath:      "", // Will use os.Executable() if empty
+				Includes:        []IncludeEntry{},
+				InheritIncludes: true,
+				CacheDir:        "", // Will use default cache dir if empty
 			},
 		},
 	}

@@ -257,14 +257,14 @@ func TestModuleNameLengthConstraint(t *testing.T) {
 
 	// Exactly 256 characters should pass (valid RDNS-style name)
 	name256 := strings.Repeat("a", 256)
-	valid := `module: "` + name256 + `"`
+	valid := "module: \"" + name256 + "\"\nversion: \"1.0.0\""
 	if err := validateCUEInvkmod(t, valid); err != nil {
 		t.Errorf("256-char module name should be valid, got error: %v", err)
 	}
 
 	// 257 characters should fail
 	name257 := strings.Repeat("a", 257)
-	invalid := `module: "` + name257 + `"`
+	invalid := "module: \"" + name257 + "\"\nversion: \"1.0.0\""
 	if err := validateCUEInvkmod(t, invalid); err == nil {
 		t.Errorf("257-char module name should fail validation, but passed")
 	}
@@ -319,6 +319,94 @@ func TestAliasLengthConstraint(t *testing.T) {
 }`
 	if err := validateCUEModuleRequirement(t, invalid); err == nil {
 		t.Errorf("257-char alias should fail validation, but passed")
+	}
+}
+
+// TestInvkmodVersionConstraint verifies #Invkmod.version accepts valid semver and rejects invalid formats.
+func TestInvkmodVersionConstraint(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		version    string
+		shouldPass bool
+	}{
+		// Valid semver versions
+		{"valid zero version", "0.0.0", true},
+		{"valid basic", "1.0.0", true},
+		{"valid with all segments", "2.1.3", true},
+		{"valid large numbers", "10.20.30", true},
+		{"valid pre-release alpha", "1.0.0-alpha", true},
+		{"valid pre-release alpha.1", "1.0.0-alpha.1", true},
+		{"valid pre-release rc.2", "1.0.0-rc.2", true},
+		{"valid pre-release beta on minor", "0.1.0-beta", true},
+		{"valid pre-release x.y.z", "1.0.0-x.y.z", true},
+		{"valid pre-release alpha1", "1.0.0-alpha1", true},
+		{"valid large version numbers", "999.999.999", true},
+		{"valid pre-release with hyphen", "1.0.0-pre-release", true},
+
+		// Invalid versions
+		{"invalid old format two segments", "1.0", false},
+		{"invalid only major", "1", false},
+		{"invalid v prefix", "v1.0.0", false},
+		{"invalid leading zero major", "01.0.0", false},
+		{"invalid leading zero minor", "1.01.0", false},
+		{"invalid leading zero patch", "1.0.01", false},
+		{"invalid build metadata", "1.0.0+build", false},
+		{"invalid empty pre-release", "1.0.0-", false},
+		{"invalid trailing dot in pre-release", "1.0.0-alpha.", false},
+		{"invalid empty string", "", false},
+		{"invalid four segments", "1.0.0.0", false},
+		{"invalid non-numeric", "abc", false},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			cueData := fmt.Sprintf("module: \"test.module\"\nversion: %q\n", tc.version)
+			_, err := ParseInvkmodBytes([]byte(cueData), "test.cue")
+			if tc.shouldPass && err != nil {
+				t.Errorf("version %q should be valid, got error: %v", tc.version, err)
+			}
+			if !tc.shouldPass && err == nil {
+				t.Errorf("version %q should be invalid, but validation passed", tc.version)
+			}
+		})
+	}
+}
+
+// TestInvkmodVersionLengthConstraint verifies #Invkmod.version has a 64-rune MaxRunes limit.
+func TestInvkmodVersionLengthConstraint(t *testing.T) {
+	t.Parallel()
+
+	// Build a valid semver base and pad to exact lengths.
+	// "1.0.0-" is 6 chars, so 58 more chars reach exactly 64.
+	base := "1.0.0-"
+	pad58 := strings.Repeat("a", 58)
+	pad59 := strings.Repeat("a", 59)
+
+	version64 := base + pad58
+	version65 := base + pad59
+
+	// Sanity check lengths
+	if len(version64) != 64 {
+		t.Fatalf("expected 64-char version, got %d", len(version64))
+	}
+	if len(version65) != 65 {
+		t.Fatalf("expected 65-char version, got %d", len(version65))
+	}
+
+	// Exactly 64 characters should pass
+	cueData64 := fmt.Sprintf("module: \"test.module\"\nversion: %q\n", version64)
+	if _, err := ParseInvkmodBytes([]byte(cueData64), "test.cue"); err != nil {
+		t.Errorf("64-char version should be valid, got error: %v", err)
+	}
+
+	// 65 characters should fail
+	cueData65 := fmt.Sprintf("module: \"test.module\"\nversion: %q\n", version65)
+	if _, err := ParseInvkmodBytes([]byte(cueData65), "test.cue"); err == nil {
+		t.Errorf("65-char version should fail validation, but passed")
 	}
 }
 

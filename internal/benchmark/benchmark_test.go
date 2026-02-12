@@ -113,7 +113,7 @@ depends_on: {
 	// sampleInvkmod is a representative invkmod.cue for benchmarking module parsing.
 	sampleInvkmod = `
 module: "io.invowk.benchmark"
-version: "1.0"
+version: "1.0.0"
 description: "Benchmark test module for PGO profiling"
 `
 
@@ -636,7 +636,7 @@ func BenchmarkModuleValidation(b *testing.B) {
 	// Create invkmod.cue with module name matching folder
 	invkmodContent := `
 module: "benchmark"
-version: "1.0"
+version: "1.0.0"
 description: "Benchmark test module for PGO profiling"
 `
 	if err := os.WriteFile(filepath.Join(modDir, "invkmod.cue"), []byte(invkmodContent), 0o644); err != nil {

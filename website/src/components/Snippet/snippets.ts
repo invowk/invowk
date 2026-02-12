@@ -3639,7 +3639,7 @@ invowk module create mytools --scripts`,
   'modules/template-invkmod': {
     language: 'cue',
     code: `module: "mytools"
-version: "1.0"
+version: "1.0.0"
 description: "Commands for mytools"
 
 // Uncomment to add dependencies:
@@ -4142,7 +4142,7 @@ invowk module import https://github.com/company/mytools/releases/download/v1.0.0
   'modules/dependencies/quick-invkmod': {
     language: 'cue',
     code: `module: "com.example.mytools"
-version: "1.0"
+version: "1.0.0"
 description: "My tools"
 
 requires: [
@@ -4196,7 +4196,7 @@ invowk cmd common build`,
   'modules/dependencies/basic-invkmod': {
     language: 'cue',
     code: `module: "com.example.mytools"
-version: "1.0"
+version: "1.0.0"
 
 requires: [
     {
@@ -4642,7 +4642,7 @@ fi`,
 container_engine: "podman"
 includes: [
     {path: "~/.invowk/modules/tools.invkmod"},
-    {path: "/usr/local/share/invowk/invkfile.cue"},
+    {path: "/usr/local/share/invowk/shared.invkmod"},
 ]
 default_runtime: "virtual"`,
   },
@@ -4657,7 +4657,6 @@ default_runtime: "virtual"`,
     code: `includes: [
     {path: "~/.invowk/modules/tools.invkmod"},
     {path: "~/my-company/shared.invkmod", alias: "company"},
-    {path: "/opt/invowk/invkfile.cue"},
 ]`,
   },
 
@@ -4716,9 +4715,9 @@ notepad (invowk config path)`,
 // Container engine: "podman" or "docker"
 container_engine: "podman"
 
-// Additional invkfiles and modules to include in discovery
+// Additional modules to include in discovery
 includes: [
-    {path: "~/.invowk/cmds/invkfile.cue"},
+    {path: "~/.invowk/modules/tools.invkmod"},
     {path: "~/projects/shared.invkmod", alias: "shared"},
 ]
 
@@ -4757,8 +4756,8 @@ container: {
 }
 
 #IncludeEntry: {
-    path:   string  // Must end with .invkmod, /invkfile.cue, or /invkfile
-    alias?: string  // Optional, only valid for .invkmod paths
+    path:   string  // Must end with .invkmod
+    alias?: string  // Optional, for collision disambiguation
 }
 
 #VirtualShellConfig: {
@@ -4778,7 +4777,8 @@ container: {
 #AutoProvisionConfig: {
     enabled?: bool
     binary_path?: string
-    modules_paths?: [...string]
+    includes?: [...#IncludeEntry]
+    inherit_includes?: bool
     cache_dir?: string
 }`,
   },
@@ -4831,7 +4831,10 @@ container: {
     auto_provision: {
         enabled: true
         binary_path: "/usr/local/bin/invowk"
-        modules_paths: ["/opt/company/invowk-modules"]
+        includes: [
+            {path: "/opt/company/modules/tools.invkmod"},
+        ]
+        inherit_includes: true
         cache_dir: "/tmp/invowk/provision"
     }
 }`,
@@ -4845,10 +4848,10 @@ container: {
 // Use Podman as the container engine
 container_engine: "podman"
 
-// Additional invkfiles and modules to include in discovery
+// Additional modules to include in discovery
 includes: [
-    {path: "~/.invowk/cmds/invkfile.cue"},          // Personal commands
-    {path: "~/work/shared.invkmod", alias: "team"},  // Team shared module
+    {path: "~/.invowk/modules/tools.invkmod"},       // Personal modules
+    {path: "~/work/shared.invkmod", alias: "team"},   // Team shared module
 ]
 
 // Default to virtual shell for portability
@@ -7629,7 +7632,7 @@ cmds: [
     language: 'cue',
     code: `#Invkmod: {
     module:       string               // Required - module identifier
-    version?:     string               // Optional - metadata version (e.g., "1.0")
+    version:      string               // Required - semver version (e.g., "1.0.0")
     description?: string               // Optional - module description
     requires?:    [...#ModuleRequirement] // Optional - dependencies
 }`,
@@ -7679,10 +7682,10 @@ module: "io.github.username.cli"`,
     container?:        #ContainerConfig
 }
 
-// Include entry for invkfiles and modules
+// Include entry for modules
 #IncludeEntry: {
-    path:   string  // Must end with .invkmod, /invkfile.cue, or /invkfile
-    alias?: string  // Optional, only valid for .invkmod paths
+    path:   string  // Must end with .invkmod
+    alias?: string  // Optional, for collision disambiguation
 }
 
 // Virtual shell configuration
@@ -7704,10 +7707,11 @@ module: "io.github.username.cli"`,
 
 // Auto-provisioning configuration
 #AutoProvisionConfig: {
-    enabled?:     bool
-    binary_path?: string
-    modules_paths?: [...string]
-    cache_dir?:   string
+    enabled?:          bool
+    binary_path?:      string
+    includes?:         [...#IncludeEntry]
+    inherit_includes?: bool
+    cache_dir?:        string
 }`,
   },
 
@@ -7731,7 +7735,7 @@ module: "io.github.username.cli"`,
   'reference/config/includes-example': {
     language: 'cue',
     code: `includes: [
-    {path: "~/.invowk/cmds/invkfile.cue"},
+    {path: "~/.invowk/modules/tools.invkmod"},
     {path: "~/projects/shared.invkmod", alias: "shared"},
     {path: "/opt/company/tools.invkmod"},
 ]`,
@@ -7800,10 +7804,11 @@ module: "io.github.username.cli"`,
   'reference/config/auto-provision-config-structure': {
     language: 'cue',
     code: `#AutoProvisionConfig: {
-    enabled?:     bool
-    binary_path?: string
-    modules_paths?: [...string]
-    cache_dir?:   string
+    enabled?:          bool
+    binary_path?:      string
+    includes?:         [...#IncludeEntry]
+    inherit_includes?: bool
+    cache_dir?:        string
 }`,
   },
 
@@ -7813,7 +7818,10 @@ module: "io.github.username.cli"`,
     auto_provision: {
         enabled: true
         binary_path: "/usr/local/bin/invowk"
-        modules_paths: ["/opt/company/invowk-modules"]
+        includes: [
+            {path: "/opt/company/modules/tools.invkmod"},
+        ]
+        inherit_includes: true
         cache_dir: "/tmp/invowk/provision"
     }
 }`,
@@ -7853,12 +7861,12 @@ container_engine: "podman"
 
 // Includes
 // --------
-// Additional invkfiles and modules to include in discovery.
-// Each entry specifies a path to an invkfile.cue, invkfile, or *.invkmod.
+// Additional modules to include in discovery.
+// Each entry specifies a path to an *.invkmod directory.
 // Modules may have an optional alias for collision disambiguation.
 includes: [
-    // Personal commands
-    {path: "~/.invowk/cmds/invkfile.cue"},
+    // Personal modules
+    {path: "~/.invowk/modules/tools.invkmod"},
 
     // Team shared module (with alias)
     {path: "~/work/shared.invkmod", alias: "team"},

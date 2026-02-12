@@ -71,7 +71,6 @@ discoverModulesInDir(dir)
 const (
     SourceCurrentDir   Source = iota  // "current directory"
     SourceUserDir                     // "user commands (~/.invowk/cmds)"
-    SourceConfigPath                  // "configured search path"
     SourceModule                      // "module" (from .invkmod)
 )
 ```

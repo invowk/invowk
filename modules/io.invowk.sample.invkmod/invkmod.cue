@@ -3,7 +3,7 @@
 // Command definitions are in invkfile.cue (separate file).
 
 module: "io.invowk.sample"
-version: "1.0"
+version: "1.0.0"
 description: "Sample invowk module with a simple cross-platform greeting command"
 
 // Uncomment to add dependencies:

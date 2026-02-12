@@ -67,7 +67,7 @@ func Create(opts CreateOptions) (string, error) {
 // See https://github.com/invowk/invowk for documentation
 
 module: %q
-version: "1.0"
+version: "1.0.0"
 description: %q
 
 // Uncomment to add dependencies:

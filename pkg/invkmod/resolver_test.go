@@ -253,7 +253,7 @@ cmds: []`,
 		{
 			name: "dotted module (RDNS)",
 			content: `module: "com.example.mymodule"
-version: "1.0"
+version: "1.0.0"
 cmds: []`,
 			expected: "com.example.mymodule",
 		},

@@ -11,8 +11,8 @@ import "strings"
 	// Valid values: "podman", "docker"
 	container_engine?: "podman" | "docker"
 
-	// includes specifies invkfiles and modules to include in command discovery.
-	// Each entry points to an invkfile.cue, invkfile, or *.invkmod directory.
+	// includes specifies modules to include in command discovery.
+	// Each entry points to a *.invkmod directory.
 	// Modules may have an optional alias for collision disambiguation.
 	includes?: [...#IncludeEntry]
 
@@ -30,14 +30,13 @@ import "strings"
 	container?: #ContainerConfig
 })
 
-// IncludeEntry specifies a single invkfile or module to include in discovery.
-// The path must end with "invkfile.cue", "invkfile", or ".invkmod".
+// IncludeEntry specifies a module to include in command discovery.
+// The path must end with ".invkmod".
 #IncludeEntry: close({
-	// path is the absolute filesystem path to an invkfile.cue, invkfile, or *.invkmod directory.
-	path: string & !="" & strings.MaxRunes(4096) & (=~"\\.invkmod$" | =~"/invkfile\\.cue$" | =~"/invkfile$")
+	// path is the absolute filesystem path to a *.invkmod directory.
+	path: string & !="" & strings.MaxRunes(4096) & =~"\\.invkmod$"
 
 	// alias optionally overrides the module identifier for collision disambiguation.
-	// Only valid for module paths (those ending in .invkmod).
 	// Must be unique across all includes entries.
 	alias?: string & !="" & strings.MaxRunes(256)
 })
@@ -59,9 +58,13 @@ import "strings"
 	// If not set, the currently running invowk binary is used.
 	binary_path?: string & !="" & strings.MaxRunes(4096)
 
-	// modules_paths specifies additional directories to search for modules.
-	// These are added to the default module search paths.
-	modules_paths?: [...string & !="" & strings.MaxRunes(4096)]
+	// includes specifies modules to provision into containers.
+	// Uses the same IncludeEntry format as root-level includes.
+	includes?: [...#IncludeEntry]
+
+	// inherit_includes controls whether root-level includes are automatically
+	// merged into container provisioning. Default: true.
+	inherit_includes?: bool
 
 	// cache_dir specifies where to store cached provisioned images metadata.
 	// Default: ~/.cache/invowk/provision

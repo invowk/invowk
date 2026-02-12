@@ -17,8 +17,6 @@ const (
 	SourceCurrentDir Source = iota
 	// SourceUserDir indicates the file was found in ~/.invowk/cmds
 	SourceUserDir
-	// SourceConfigPath indicates the file was found in a configured search path
-	SourceConfigPath
 	// SourceModule indicates the file was found in an invowk module
 	SourceModule
 )
@@ -49,8 +47,6 @@ func (s Source) String() string {
 		return "current directory"
 	case SourceUserDir:
 		return "user commands (~/.invowk/cmds)"
-	case SourceConfigPath:
-		return "configured search path"
 	case SourceModule:
 		return "module"
 	default:
@@ -213,40 +209,31 @@ func (d *Discovery) discoverModulesInDir(dir string) []*DiscoveredFile {
 	return files
 }
 
-// loadIncludes processes configured include entries from config. Each entry is either:
-//   - A direct invkfile path (invkfile.cue or invkfile) -> SourceConfigPath
-//   - A module directory path (*.invkmod) -> SourceModule
+// loadIncludes processes configured module include entries from config.
+// All entries are module directory paths (*.invkmod) and are loaded as SourceModule.
 //
-// Entries that do not exist on disk are silently skipped (they may reference
-// optional or environment-specific paths).
+// Entries that do not exist on disk or fail validation are silently skipped
+// (they may reference optional or environment-specific paths).
 func (d *Discovery) loadIncludes() []*DiscoveredFile {
 	var files []*DiscoveredFile
 
 	for _, entry := range d.cfg.Includes {
-		if entry.IsModule() {
-			// Module entry - load as module
-			if !invkmod.IsModule(entry.Path) {
-				continue
-			}
-			moduleName := strings.TrimSuffix(filepath.Base(entry.Path), invkmod.ModuleSuffix)
-			if moduleName == SourceIDInvkfile {
-				continue // Skip reserved module name (FR-015)
-			}
-			m, err := invkmod.Load(entry.Path)
-			if err != nil {
-				continue // Skip invalid modules
-			}
-			files = append(files, &DiscoveredFile{
-				Path:   m.InvkfilePath(),
-				Source: SourceModule,
-				Module: m,
-			})
-		} else {
-			// Invkfile entry - load directly
-			if _, err := os.Stat(entry.Path); err == nil {
-				files = append(files, &DiscoveredFile{Path: entry.Path, Source: SourceConfigPath})
-			}
+		if !invkmod.IsModule(entry.Path) {
+			continue
 		}
+		moduleName := strings.TrimSuffix(filepath.Base(entry.Path), invkmod.ModuleSuffix)
+		if moduleName == SourceIDInvkfile {
+			continue // Skip reserved module name (FR-015)
+		}
+		m, err := invkmod.Load(entry.Path)
+		if err != nil {
+			continue // Skip invalid modules
+		}
+		files = append(files, &DiscoveredFile{
+			Path:   m.InvkfilePath(),
+			Source: SourceModule,
+			Module: m,
+		})
 	}
 
 	return files

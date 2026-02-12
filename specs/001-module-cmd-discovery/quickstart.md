@@ -52,7 +52,7 @@ EOF
 mkdir -p foo.invkmod
 cat > foo.invkmod/invkmod.cue << 'EOF'
 module: "foo"
-version: "1.0"
+version: "1.0.0"
 description: "Foo module"
 EOF
 
@@ -75,7 +75,7 @@ EOF
 mkdir -p bar.invkmod
 cat > bar.invkmod/invkmod.cue << 'EOF'
 module: "bar"
-version: "1.0"
+version: "1.0.0"
 description: "Bar module"
 EOF
 

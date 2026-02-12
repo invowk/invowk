@@ -260,8 +260,7 @@ func TestIncludeEntrySchemaSync(t *testing.T) {
 }
 
 // TestIncludesEntryConstraints verifies #IncludeEntry path rejects empty strings,
-// enforces the 4096 rune limit, and only accepts paths ending with .invkmod,
-// invkfile.cue, or invkfile.
+// enforces the 4096 rune limit, and only accepts paths ending with .invkmod.
 func TestIncludesEntryConstraints(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -274,19 +273,19 @@ func TestIncludesEntryConstraints(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name:    "path not ending with invkfile or invkmod rejected",
+			name:    "path not ending with invkmod rejected",
 			cueData: `includes: [{path: "/some/random/path"}]`,
 			wantErr: true,
 		},
 		{
-			name:    "invkfile.cue path accepted",
+			name:    "invkfile.cue path rejected",
 			cueData: `includes: [{path: "/home/user/invkfile.cue"}]`,
-			wantErr: false,
+			wantErr: true,
 		},
 		{
-			name:    "invkfile path accepted",
+			name:    "invkfile path rejected",
 			cueData: `includes: [{path: "/home/user/invkfile"}]`,
-			wantErr: false,
+			wantErr: true,
 		},
 		{
 			name:    "invkmod path accepted",
@@ -371,28 +370,38 @@ func TestBinaryPathConstraints(t *testing.T) {
 	}
 }
 
-// TestModulesPathsElementConstraints verifies container.auto_provision.modules_paths
-// elements reject empty strings and enforce the 4096 rune limit.
-func TestModulesPathsElementConstraints(t *testing.T) {
+// TestAutoProvisionIncludesConstraints verifies container.auto_provision.includes
+// uses the same #IncludeEntry schema (modules-only paths).
+func TestAutoProvisionIncludesConstraints(t *testing.T) {
 	tests := []struct {
 		name    string
 		cueData string
 		wantErr bool
 	}{
 		{
-			name:    "empty string element rejected",
-			cueData: `container: auto_provision: { modules_paths: [""] }`,
-			wantErr: true,
-		},
-		{
-			name:    "4096-char element accepted",
-			cueData: `container: auto_provision: { modules_paths: ["` + strings.Repeat("a", 4096) + `"] }`,
+			name:    "invkmod path accepted",
+			cueData: `container: auto_provision: { includes: [{path: "/home/user/mymod.invkmod"}] }`,
 			wantErr: false,
 		},
 		{
-			name:    "4097-char element rejected",
-			cueData: `container: auto_provision: { modules_paths: ["` + strings.Repeat("a", 4097) + `"] }`,
+			name:    "invkfile path rejected",
+			cueData: `container: auto_provision: { includes: [{path: "/home/user/invkfile.cue"}] }`,
 			wantErr: true,
+		},
+		{
+			name:    "empty path rejected",
+			cueData: `container: auto_provision: { includes: [{path: ""}] }`,
+			wantErr: true,
+		},
+		{
+			name:    "alias accepted",
+			cueData: `container: auto_provision: { includes: [{path: "/home/user/mymod.invkmod", alias: "my-alias"}] }`,
+			wantErr: false,
+		},
+		{
+			name:    "inherit_includes boolean accepted",
+			cueData: `container: auto_provision: { inherit_includes: false }`,
+			wantErr: false,
 		},
 	}
 
@@ -448,7 +457,7 @@ func TestCacheDirConstraints(t *testing.T) {
 }
 
 // TestValidateIncludes verifies the Go-level validation for includes constraints
-// that CUE cannot express (alias uniqueness across entries, alias-only-for-modules).
+// that CUE cannot express (path uniqueness, alias uniqueness, short-name collision).
 func TestValidateIncludes(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -468,11 +477,11 @@ func TestValidateIncludes(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "invkfile with alias rejected",
+			name: "module without alias valid",
 			includes: []IncludeEntry{
-				{Path: "/path/to/invkfile.cue", Alias: "my-alias"},
+				{Path: "/path/to/mymod.invkmod"},
 			},
-			wantErr: true,
+			wantErr: false,
 		},
 		{
 			name: "duplicate alias rejected",
@@ -491,12 +500,36 @@ func TestValidateIncludes(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "entries without alias skip validation",
+			name: "two modules different short names no aliases accepted",
 			includes: []IncludeEntry{
-				{Path: "/path/to/invkfile.cue"},
-				{Path: "/path/to/mymod.invkmod"},
+				{Path: "/path/to/foo.invkmod"},
+				{Path: "/path/to/bar.invkmod"},
 			},
 			wantErr: false,
+		},
+		{
+			name: "two modules same short name no aliases rejected",
+			includes: []IncludeEntry{
+				{Path: "/path/a/foo.invkmod"},
+				{Path: "/path/b/foo.invkmod"},
+			},
+			wantErr: true,
+		},
+		{
+			name: "two modules same short name unique aliases accepted",
+			includes: []IncludeEntry{
+				{Path: "/path/a/foo.invkmod", Alias: "foo-a"},
+				{Path: "/path/b/foo.invkmod", Alias: "foo-b"},
+			},
+			wantErr: false,
+		},
+		{
+			name: "two modules same short name only one has alias rejected",
+			includes: []IncludeEntry{
+				{Path: "/path/a/foo.invkmod", Alias: "foo-a"},
+				{Path: "/path/b/foo.invkmod"},
+			},
+			wantErr: true,
 		},
 		{
 			name: "duplicate path rejected",
@@ -518,7 +551,58 @@ func TestValidateIncludes(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := validateIncludes(tt.includes)
+			err := validateIncludes("includes", tt.includes)
+			if tt.wantErr && err == nil {
+				t.Error("expected validation error, got nil")
+			}
+			if !tt.wantErr && err != nil {
+				t.Errorf("expected no error, got: %v", err)
+			}
+		})
+	}
+}
+
+// TestValidateAutoProvisionIncludes verifies that the same validation rules
+// apply to container.auto_provision.includes entries.
+func TestValidateAutoProvisionIncludes(t *testing.T) {
+	tests := []struct {
+		name     string
+		includes []IncludeEntry
+		wantErr  bool
+	}{
+		{
+			name:     "empty includes valid",
+			includes: nil,
+			wantErr:  false,
+		},
+		{
+			name: "module accepted",
+			includes: []IncludeEntry{
+				{Path: "/path/to/mymod.invkmod"},
+			},
+			wantErr: false,
+		},
+		{
+			name: "same short name collision rejected",
+			includes: []IncludeEntry{
+				{Path: "/a/foo.invkmod"},
+				{Path: "/b/foo.invkmod"},
+			},
+			wantErr: true,
+		},
+		{
+			name: "same short name with aliases accepted",
+			includes: []IncludeEntry{
+				{Path: "/a/foo.invkmod", Alias: "foo-a"},
+				{Path: "/b/foo.invkmod", Alias: "foo-b"},
+			},
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateIncludes("container.auto_provision.includes", tt.includes)
 			if tt.wantErr && err == nil {
 				t.Error("expected validation error, got nil")
 			}

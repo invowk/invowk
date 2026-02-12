@@ -628,7 +628,7 @@ func TestDiscoverAll_SkipsReservedModuleName(t *testing.T) {
 		t.Fatalf("failed to create valid module dir: %v", err)
 	}
 	if err := os.WriteFile(filepath.Join(validModDir, "invkmod.cue"), []byte(`module: "valid"
-version: "1.0"
+version: "1.0.0"
 `), 0o644); err != nil {
 		t.Fatalf("failed to create invkmod.cue: %v", err)
 	}
@@ -646,7 +646,7 @@ version: "1.0"
 		t.Fatalf("failed to create reserved module dir: %v", err)
 	}
 	if err := os.WriteFile(filepath.Join(reservedModDir, "invkmod.cue"), []byte(`module: "invkfile"
-version: "1.0"
+version: "1.0.0"
 `), 0o644); err != nil {
 		t.Fatalf("failed to create invkmod.cue: %v", err)
 	}
@@ -725,7 +725,7 @@ func createValidCollisionTestModule(t *testing.T, moduleDir, moduleID, cmdName s
 	}
 	// Create invkmod.cue with metadata
 	invkmodContent := `module: "` + moduleID + `"
-version: "1.0"
+version: "1.0.0"
 `
 	if err := os.WriteFile(filepath.Join(moduleDir, "invkmod.cue"), []byte(invkmodContent), 0o644); err != nil {
 		t.Fatalf("failed to write invkmod.cue: %v", err)

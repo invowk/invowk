@@ -121,9 +121,10 @@ type (
 		// dot-separated segments. RDNS format recommended (e.g., "io.invowk.sample", "com.example.mytools")
 		// IMPORTANT: The module value MUST match the folder name prefix (before .invkmod)
 		Module string `json:"module"`
-		// Version specifies the module schema version (optional but recommended).
-		// Current version: "1.0"
-		Version string `json:"version,omitempty"`
+		// Version specifies the module version using semantic versioning (mandatory).
+		// Format: MAJOR.MINOR.PATCH with optional pre-release label (e.g., "1.0.0", "2.1.0-alpha.1").
+		// No "v" prefix, no build metadata, no leading zeros on numeric segments.
+		Version string `json:"version"`
 		// Description provides a summary of this module's purpose (optional).
 		Description string `json:"description,omitempty"`
 		// Requires declares dependencies on other modules from Git repositories (optional).

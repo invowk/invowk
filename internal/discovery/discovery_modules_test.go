@@ -174,7 +174,7 @@ func TestDiscoverCommands_FromModule(t *testing.T) {
 	}
 	// Create invkmod.cue with metadata
 	invkmodContent := `module: "testpack"
-version: "1.0"
+version: "1.0.0"
 `
 	if err := os.WriteFile(filepath.Join(moduleDir, "invkmod.cue"), []byte(invkmodContent), 0o644); err != nil {
 		t.Fatalf("failed to write invkmod.cue: %v", err)
@@ -281,7 +281,7 @@ func TestLoadAll_ParsesModules(t *testing.T) {
 	}
 	// Create invkmod.cue with metadata
 	invkmodContent := `module: "parsepack"
-version: "1.0"
+version: "1.0.0"
 description: "A test module"
 `
 	if err := os.WriteFile(filepath.Join(moduleDir, "invkmod.cue"), []byte(invkmodContent), 0o644); err != nil {
@@ -389,7 +389,7 @@ func createValidDiscoveryModule(t *testing.T, moduleDir, moduleID, cmdName strin
 	}
 	// Create invkmod.cue with metadata
 	invkmodContent := `module: "` + moduleID + `"
-version: "1.0"
+version: "1.0.0"
 `
 	if err := os.WriteFile(filepath.Join(moduleDir, "invkmod.cue"), []byte(invkmodContent), 0o644); err != nil {
 		t.Fatalf("failed to write invkmod.cue: %v", err)

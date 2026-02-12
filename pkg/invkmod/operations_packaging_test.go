@@ -27,7 +27,7 @@ func createValidModuleForPackaging(t *testing.T, dir, folderName, moduleID strin
 	// Create invkmod.cue with metadata
 	invkmodPath := filepath.Join(modulePath, "invkmod.cue")
 	invkmodContent := fmt.Sprintf(`module: "%s"
-version: "1.0"
+version: "1.0.0"
 `, moduleID)
 	if err := os.WriteFile(invkmodPath, []byte(invkmodContent), 0o644); err != nil {
 		t.Fatal(err)

@@ -52,17 +52,17 @@ If the preferred engine is not available, Invowk falls back to the other engine 
 **Required:** No
 **Default:** `[]`
 
-Additional invkfiles and modules to include in command discovery. Each entry specifies a path to an `invkfile.cue`, `invkfile`, or `*.invkmod` directory. Modules may have an optional `alias` for collision disambiguation.
+Additional modules to include in command discovery. Each entry specifies a path to an `*.invkmod` directory with an optional `alias` for collision disambiguation.
 
 <Snippet id="reference/config/includes-example" />
 
 **Path requirements:**
-- Paths must be absolute and end with `.invkmod`, `/invkfile.cue`, or `/invkfile`
+- Paths must be absolute and end with `.invkmod`
 - Non-existent paths are silently ignored
 - Duplicate paths are rejected
 
 **Alias rules:**
-- Aliases are optional and only valid for `.invkmod` paths
+- Aliases are optional, for collision disambiguation
 - Each alias must be unique across all includes entries
 - Aliases override the module's declared identifier for collision resolution
 
@@ -230,13 +230,21 @@ Enables auto-provisioning of the invowk binary and modules into containers.
 
 Overrides the path to the invowk binary to provision.
 
-### modules_paths
+### includes
 
-**Type:** `[...string]`
+**Type:** `[...#IncludeEntry]`
 **Required:** No
 **Default:** `[]`
 
-Additional module directories to provision into containers.
+Additional modules to provision into containers. Uses the same `#IncludeEntry` format as root `includes` (each entry has a `path` ending with `.invkmod` and an optional `alias`).
+
+### inherit_includes
+
+**Type:** `bool`
+**Required:** No
+**Default:** `true`
+
+When `true`, the root-level `includes` entries are automatically inherited by auto-provisioning. Set to `false` to provision only the modules explicitly listed in `container.auto_provision.includes`.
 
 ### cache_dir
 

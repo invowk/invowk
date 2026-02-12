@@ -40,7 +40,7 @@ func TestParseInvkmod_ValidModuleID(t *testing.T) {
 			// Module metadata is now in invkmod.cue, not invkfile.cue
 			cueContent := `
 module: "` + tt.module + `"
-version: "1.0"
+version: "1.0.0"
 `
 			tmpDir := t.TempDir()
 
@@ -88,7 +88,7 @@ func TestParseInvkmod_InvalidModuleID(t *testing.T) {
 			// Module metadata is now in invkmod.cue
 			cueContent := `
 module: "` + tt.module + `"
-version: "1.0"
+version: "1.0.0"
 `
 			tmpDir := t.TempDir()
 
@@ -114,7 +114,7 @@ func TestParseInvkmod(t *testing.T) {
 		tmpDir := t.TempDir()
 		invkmodPath := filepath.Join(tmpDir, "invkmod.cue")
 		content := `module: "io.example.mymodule"
-version: "1.0"
+version: "1.0.0"
 description: "A test module"
 requires: [
 	{git_url: "https://github.com/example/utils.git", version: "^1.0.0"},
@@ -132,8 +132,8 @@ requires: [
 		if meta.Module != "io.example.mymodule" {
 			t.Errorf("Module = %q, want %q", meta.Module, "io.example.mymodule")
 		}
-		if meta.Version != "1.0" {
-			t.Errorf("Version = %q, want %q", meta.Version, "1.0")
+		if meta.Version != "1.0.0" {
+			t.Errorf("Version = %q, want %q", meta.Version, "1.0.0")
 		}
 		if meta.Description != "A test module" {
 			t.Errorf("Description = %q, want %q", meta.Description, "A test module")
@@ -146,12 +146,13 @@ requires: [
 		}
 	})
 
-	t.Run("minimal invkmod (module only)", func(t *testing.T) {
+	t.Run("minimal invkmod (required fields only)", func(t *testing.T) {
 		t.Parallel()
 
 		tmpDir := t.TempDir()
 		invkmodPath := filepath.Join(tmpDir, "invkmod.cue")
 		content := `module: "mymodule"
+version: "1.0.0"
 `
 		if err := os.WriteFile(invkmodPath, []byte(content), 0o644); err != nil {
 			t.Fatalf("failed to write invkmod.cue: %v", err)
@@ -167,12 +168,29 @@ requires: [
 		}
 	})
 
+	t.Run("invalid invkmod - missing version", func(t *testing.T) {
+		t.Parallel()
+
+		tmpDir := t.TempDir()
+		invkmodPath := filepath.Join(tmpDir, "invkmod.cue")
+		content := `module: "mymodule"
+`
+		if err := os.WriteFile(invkmodPath, []byte(content), 0o644); err != nil {
+			t.Fatalf("failed to write invkmod.cue: %v", err)
+		}
+
+		_, err := ParseInvkmod(invkmodPath)
+		if err == nil {
+			t.Error("ParseInvkmod() should return error for missing version field")
+		}
+	})
+
 	t.Run("invalid invkmod - missing module", func(t *testing.T) {
 		t.Parallel()
 
 		tmpDir := t.TempDir()
 		invkmodPath := filepath.Join(tmpDir, "invkmod.cue")
-		content := `version: "1.0"
+		content := `version: "1.0.0"
 description: "Missing module field"
 `
 		if err := os.WriteFile(invkmodPath, []byte(content), 0o644); err != nil {
@@ -217,7 +235,7 @@ func TestParseModuleMetadataOnly(t *testing.T) {
 
 		// Create invkmod.cue
 		invkmodContent := `module: "mymodule"
-version: "1.0"
+version: "1.0.0"
 `
 		if err := os.WriteFile(filepath.Join(moduleDir, "invkmod.cue"), []byte(invkmodContent), 0o644); err != nil {
 			t.Fatalf("failed to write invkmod.cue: %v", err)

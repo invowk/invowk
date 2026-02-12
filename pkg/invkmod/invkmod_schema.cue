@@ -47,9 +47,10 @@ import "strings"
 	// Example: folder "io.invowk.sample.invkmod" must have module: "io.invowk.sample"
 	module: string & =~"^[a-zA-Z][a-zA-Z0-9]*(\\.[a-zA-Z][a-zA-Z0-9]*)*$" & strings.MaxRunes(256)
 
-	// version specifies the module schema version (optional but recommended)
-	// Current version: "1.0"
-	version?: string & =~"^[0-9]+\\.[0-9]+$"
+	// version specifies the module version using semantic versioning (mandatory)
+	// Format: MAJOR.MINOR.PATCH with optional pre-release label (e.g., "1.0.0", "2.1.0-alpha.1")
+	// No "v" prefix, no build metadata, no leading zeros on numeric segments
+	version: string & =~"^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(-[0-9a-zA-Z-]+(\\.[0-9a-zA-Z-]+)*)?$" & strings.MaxRunes(64)
 
 	// description provides a summary of this module's purpose (optional)
 	// Maximum 10KB to prevent abuse
@@ -68,7 +69,7 @@ import "strings"
 // Example invkmod.cue:
 //
 //   module: "io.invowk.sample"
-//   version: "1.0"
+//   version: "1.0.0"
 //   description: "Sample module demonstrating invowk capabilities"
 //
 //   requires: [

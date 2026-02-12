@@ -54,7 +54,7 @@ func TestValidate(t *testing.T) {
 				// Only create invkmod.cue (no invkfile.cue)
 				invkmodPath := filepath.Join(modulePath, "invkmod.cue")
 				if err := os.WriteFile(invkmodPath, []byte(`module: "mylib"
-version: "1.0"
+version: "1.0.0"
 `), 0o644); err != nil {
 					t.Fatal(err)
 				}
@@ -95,7 +95,7 @@ version: "1.0"
 				// Create invkmod.cue with WRONG module ID
 				invkmodPath := filepath.Join(modulePath, "invkmod.cue")
 				if err := os.WriteFile(invkmodPath, []byte(`module: "wrongname"
-version: "1.0"
+version: "1.0.0"
 `), 0o644); err != nil {
 					t.Fatal(err)
 				}
@@ -156,7 +156,7 @@ version: "1.0"
 				}
 				invkmodPath := filepath.Join(modulePath, "invkmod.cue")
 				if err := os.WriteFile(invkmodPath, []byte(`module: "test"
-version: "1.0"
+version: "1.0.0"
 `), 0o644); err != nil {
 					t.Fatal(err)
 				}
