@@ -90,7 +90,9 @@ release:
     name: invowk
   draft: false
   prerelease: auto
-  make_latest: auto
+  # Prereleases must not be marked as "latest" — GitHub API rejects
+  # PATCH requests that set both prerelease=true and make_latest=true.
+  make_latest: "{{ if .Prerelease }}false{{ else }}true{{ end }}"
   mode: replace
   header: |
     ## invowk {{ .Version }}
