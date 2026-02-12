@@ -293,6 +293,27 @@ Multi-layer timeout strategy prevents indefinite hangs:
 
 ---
 
+## Transient Error Classification
+
+The `IsTransientError()` function (`transient.go`) is a shared classifier for transient container engine errors that may succeed on retry. It is used by both production retry logic (`ensureImage()` in `internal/runtime/container_provision.go`) and the test smoke test (`tests/cli/cmd_test.go`).
+
+**Classified as transient:**
+- Exit code 125 (generic engine error — storage/cgroup issues)
+- `ping_group_range` (rootless Podman user namespace race)
+- `OCI runtime error` (generic OCI failures)
+- Network errors: `Temporary failure resolving`, `Could not resolve host`, `connection timed out`, `connection refused`
+- Storage errors: `error creating overlay mount`, `error mounting layer`
+
+**Explicitly NOT transient:**
+- `nil` errors
+- `context.Canceled` / `context.DeadlineExceeded` (retrying cancelled operations is never useful)
+
+### Build Retry in ensureImage()
+
+Container image builds (`engine.Build()`) are retried up to 3 times with exponential backoff (2s, 4s) on transient errors. Non-transient errors fail immediately. The caller's context deadline naturally bounds total retry time.
+
+---
+
 ## File Organization
 
 | File | Purpose |
@@ -302,6 +323,7 @@ Multi-layer timeout strategy prevents indefinite hangs:
 | `docker.go` | Docker concrete implementation |
 | `podman.go` | Podman + SELinux/rootless logic |
 | `sandbox_engine.go` | Flatpak/Snap wrapper decorator |
+| `transient.go` | Shared transient error classifier |
 | `doc.go` | Package documentation |
 
 ---
@@ -315,3 +337,4 @@ Multi-layer timeout strategy prevents indefinite hangs:
 | Testing with Alpine images | Unexpected musl behavior | Always use `debian:stable-slim` |
 | Missing SELinux labels | Permission denied in Podman | Use Podman's auto-labeling or explicit `:z` |
 | Container tests hanging | CI timeout | Use per-test deadline + cleanup in `env.Defer()` |
+| Flaky container builds in CI | Exit code 125, DNS failures | `IsTransientError()` + build retry in `ensureImage()` handles this; CI pre-pulls `debian:stable-slim` |
