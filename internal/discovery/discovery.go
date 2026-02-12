@@ -43,6 +43,9 @@ func (e *ModuleCollisionError) Error() string {
 		e.SecondSource)
 }
 
+// Unwrap returns nil; ModuleCollisionError has no underlying cause.
+func (e *ModuleCollisionError) Unwrap() error { return nil }
+
 // New creates a new Discovery instance
 func New(cfg *config.Config) *Discovery {
 	return &Discovery{cfg: cfg}
@@ -100,7 +103,9 @@ func (d *Discovery) LoadAll() ([]*DiscoveredFile, error) {
 	return files, nil
 }
 
-// LoadFirst loads the first valid invkfile found (respecting precedence)
+// LoadFirst loads the first valid invkfile found (respecting precedence).
+// This method is currently used only in tests to verify single-file
+// precedence behavior; production code uses LoadAll or the command set methods.
 func (d *Discovery) LoadFirst() (*DiscoveredFile, error) {
 	files, err := d.DiscoverAll()
 	if err != nil {

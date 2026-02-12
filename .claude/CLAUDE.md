@@ -85,7 +85,7 @@ When working in a specific code area, apply these rules and skills:
 | `internal/discovery/` | go-patterns, testing, licensing, package-design | discovery, d2-diagrams |
 | `internal/runtime/` | go-patterns, testing, windows, licensing | shell (for virtual runtime), d2-diagrams |
 | `internal/config/` | go-patterns, testing, cue-patterns, licensing | cue |
-| `internal/cueutil/` | go-patterns, testing, cue-patterns, licensing | cue |
+| `pkg/cueutil/` | go-patterns, testing, cue-patterns, licensing | cue |
 | `internal/sshserver/` | go-patterns, testing, licensing | server |
 | `internal/tuiserver/` | go-patterns, testing, licensing | server |
 | `internal/tui/` | go-patterns, testing, licensing | testing, tui-testing, tmux-testing |
@@ -126,7 +126,6 @@ invkfile.cue -> CUE Parser -> pkg/invkfile -> Runtime Selection -> Execution
   - `config/` - Configuration management with CUE schema.
   - `container/` - Docker/Podman container engine abstraction.
   - `core/serverbase/` - Shared server state machine base type (used by sshserver, tuiserver).
-  - `cueutil/` - Shared CUE parsing utilities (3-step parse pattern, error formatting).
   - `discovery/` - Module and command discovery.
   - `issue/` - Error handling with ActionableError type.
   - `runtime/` - Execution runtimes (native, virtual, container).
@@ -136,7 +135,7 @@ invkfile.cue -> CUE Parser -> pkg/invkfile -> Runtime Selection -> Execution
   - `uroot/` - u-root utility implementations for virtual shell built-ins.
   - `benchmark/` - Benchmarks for PGO profile generation.
   - `provision/` - Container provisioning (ephemeral layer attachment).
-- `pkg/` - Public packages (invkmod, invkfile, platform).
+- `pkg/` - Public packages (cueutil, invkmod, invkfile, platform).
 - `modules/` - Sample invowk modules for validation and reference.
 
 ## Container Runtime Limitations

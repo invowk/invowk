@@ -85,7 +85,7 @@ func (s *commandService) Execute(ctx context.Context, req ExecuteRequest) (Execu
 		return ExecuteResult{}, diags, validErr
 	}
 
-	resolved, err := s.resolveRuntime(req, cmdInfo)
+	resolved, err := s.resolveRuntime(req, cmdInfo, cfg)
 	if err != nil {
 		return ExecuteResult{}, diags, err
 	}
@@ -104,7 +104,7 @@ func (s *commandService) Execute(ctx context.Context, req ExecuteRequest) (Execu
 
 // discoverCommand loads configuration and discovers the target command by name.
 // It returns the config, discovered command info, accumulated diagnostics, and
-// any error. If the command is not found, it renders a styled error to stderr.
+// any error. It returns a ServiceError with rendering info when the command is not found.
 func (s *commandService) discoverCommand(ctx context.Context, req ExecuteRequest) (*config.Config, *discovery.CommandInfo, []discovery.Diagnostic, error) {
 	cfg, diags := s.loadConfig(ctx, req.ConfigPath)
 
@@ -116,9 +116,10 @@ func (s *commandService) discoverCommand(ctx context.Context, req ExecuteRequest
 	diags = append(diags, lookup.Diagnostics...)
 
 	if lookup.Command == nil {
-		rendered, _ := issue.Get(issue.CommandNotFoundId).Render("dark")
-		fmt.Fprint(s.stderr, rendered)
-		return nil, nil, diags, fmt.Errorf("command '%s' not found", req.Name)
+		return nil, nil, diags, &ServiceError{
+			Err:     fmt.Errorf("command '%s' not found", req.Name),
+			IssueID: issue.CommandNotFoundId,
+		}
 	}
 
 	return cfg, lookup.Command, diags, nil
@@ -158,8 +159,8 @@ func (s *commandService) resolveDefinitions(req ExecuteRequest, cmdInfo *discove
 }
 
 // validateInputs validates flag values, positional arguments, and platform compatibility.
-// It renders styled errors to stderr for argument validation and platform compatibility
-// failures before returning the error.
+// It returns ServiceError with rendering info for argument validation and platform
+// compatibility failures.
 func (s *commandService) validateInputs(req ExecuteRequest, cmdInfo *discovery.CommandInfo, defs resolvedDefinitions) error {
 	if err := validateFlagValues(req.Name, defs.flagValues, defs.flagDefs); err != nil {
 		return err
@@ -167,9 +168,11 @@ func (s *commandService) validateInputs(req ExecuteRequest, cmdInfo *discovery.C
 
 	if err := validateArguments(req.Name, req.Args, defs.argDefs); err != nil {
 		if argErr, ok := errors.AsType[*ArgumentValidationError](err); ok {
-			fmt.Fprint(s.stderr, RenderArgumentValidationError(argErr))
-			rendered, _ := issue.Get(issue.InvalidArgumentId).Render("dark")
-			fmt.Fprint(s.stderr, rendered)
+			return &ServiceError{
+				Err:           err,
+				IssueID:       issue.InvalidArgumentId,
+				StyledMessage: RenderArgumentValidationError(argErr),
+			}
 		}
 		return err
 	}
@@ -177,24 +180,28 @@ func (s *commandService) validateInputs(req ExecuteRequest, cmdInfo *discovery.C
 	currentPlatform := invkfile.GetCurrentHostOS()
 	if !cmdInfo.Command.CanRunOnCurrentHost() {
 		supportedPlatforms := cmdInfo.Command.GetPlatformsString()
-		fmt.Fprint(s.stderr, RenderHostNotSupportedError(req.Name, string(currentPlatform), supportedPlatforms))
-		rendered, _ := issue.Get(issue.HostNotSupportedId).Render("dark")
-		fmt.Fprint(s.stderr, rendered)
-		return fmt.Errorf("command '%s' does not support platform '%s' (supported: %s)", req.Name, currentPlatform, supportedPlatforms)
+		return &ServiceError{
+			Err:           fmt.Errorf("command '%s' does not support platform '%s' (supported: %s)", req.Name, currentPlatform, supportedPlatforms),
+			IssueID:       issue.HostNotSupportedId,
+			StyledMessage: RenderHostNotSupportedError(req.Name, string(currentPlatform), supportedPlatforms),
+		}
 	}
 
 	return nil
 }
 
 // resolveRuntime determines the selected runtime and implementation for the current
-// platform. It validates any --invk-runtime override against the command's compatibility
-// matrix and renders styled errors for invalid runtime overrides.
-func (s *commandService) resolveRuntime(req ExecuteRequest, cmdInfo *discovery.CommandInfo) (resolvedRuntime, error) {
+// platform using 3-tier precedence:
+//  1. CLI flag (--invk-runtime) — hard override, errors if incompatible.
+//  2. Config default runtime (cfg.DefaultRuntime) — soft, silently falls back if incompatible.
+//  3. Per-command default — first runtime of the first matching implementation.
+//
+// It returns ServiceError with rendering info for invalid runtime overrides (Tier 1 only).
+func (s *commandService) resolveRuntime(req ExecuteRequest, cmdInfo *discovery.CommandInfo, cfg *config.Config) (resolvedRuntime, error) {
 	currentPlatform := invkfile.GetCurrentHostOS()
-	selectedRuntime := cmdInfo.Command.GetDefaultRuntimeForPlatform(currentPlatform)
 
+	// Tier 1: CLI flag override (hard — errors if incompatible).
 	if req.Runtime != "" {
-		// Runtime override must still respect command/runtime compatibility matrix.
 		overrideRuntime := invkfile.RuntimeMode(req.Runtime)
 		if !cmdInfo.Command.IsRuntimeAllowedForPlatform(currentPlatform, overrideRuntime) {
 			allowedRuntimes := cmdInfo.Command.GetAllowedRuntimesForPlatform(currentPlatform)
@@ -202,14 +209,34 @@ func (s *commandService) resolveRuntime(req ExecuteRequest, cmdInfo *discovery.C
 			for i, r := range allowedRuntimes {
 				allowedStr[i] = string(r)
 			}
-			fmt.Fprint(s.stderr, RenderRuntimeNotAllowedError(req.Name, req.Runtime, strings.Join(allowedStr, ", ")))
-			rendered, _ := issue.Get(issue.InvalidRuntimeModeId).Render("dark")
-			fmt.Fprint(s.stderr, rendered)
-			return resolvedRuntime{}, fmt.Errorf("runtime '%s' is not allowed for command '%s' on platform '%s' (allowed: %s)", req.Runtime, req.Name, currentPlatform, strings.Join(allowedStr, ", "))
+			return resolvedRuntime{}, &ServiceError{
+				Err:           fmt.Errorf("runtime '%s' is not allowed for command '%s' on platform '%s' (allowed: %s)", req.Runtime, req.Name, currentPlatform, strings.Join(allowedStr, ", ")),
+				IssueID:       issue.InvalidRuntimeModeId,
+				StyledMessage: RenderRuntimeNotAllowedError(req.Name, req.Runtime, strings.Join(allowedStr, ", ")),
+			}
 		}
-		selectedRuntime = overrideRuntime
+
+		impl := cmdInfo.Command.GetImplForPlatformRuntime(currentPlatform, overrideRuntime)
+		if impl == nil {
+			return resolvedRuntime{}, fmt.Errorf("no implementation found for command '%s' on platform '%s' with runtime '%s'", req.Name, currentPlatform, overrideRuntime)
+		}
+		return resolvedRuntime{mode: overrideRuntime, impl: impl}, nil
 	}
 
+	// Tier 2: Config default runtime (soft — silently falls back if incompatible).
+	if cfg != nil && cfg.DefaultRuntime != "" {
+		configRuntime := invkfile.RuntimeMode(cfg.DefaultRuntime)
+		if cmdInfo.Command.IsRuntimeAllowedForPlatform(currentPlatform, configRuntime) {
+			impl := cmdInfo.Command.GetImplForPlatformRuntime(currentPlatform, configRuntime)
+			if impl != nil {
+				return resolvedRuntime{mode: configRuntime, impl: impl}, nil
+			}
+		}
+		// Config default not compatible with this command — fall through silently.
+	}
+
+	// Tier 3: Per-command default runtime.
+	selectedRuntime := cmdInfo.Command.GetDefaultRuntimeForPlatform(currentPlatform)
 	impl := cmdInfo.Command.GetImplForPlatformRuntime(currentPlatform, selectedRuntime)
 	if impl == nil {
 		return resolvedRuntime{}, fmt.Errorf("no implementation found for command '%s' on platform '%s' with runtime '%s'", req.Name, currentPlatform, selectedRuntime)
@@ -384,10 +411,11 @@ func (s *commandService) dispatchExecution(req ExecuteRequest, execCtx *runtime.
 	}
 
 	if result.Error != nil {
-		rendered, _ := issue.Get(issue.ScriptExecutionFailedId).Render("dark")
-		fmt.Fprint(s.stderr, rendered)
-		fmt.Fprintf(s.stderr, "\n%s %v\n", ErrorStyle.Render("Error:"), result.Error)
-		return ExecuteResult{}, diags, result.Error
+		return ExecuteResult{}, diags, &ServiceError{
+			Err:           result.Error,
+			IssueID:       issue.ScriptExecutionFailedId,
+			StyledMessage: fmt.Sprintf("\n%s %v\n", ErrorStyle.Render("Error:"), result.Error),
+		}
 	}
 
 	if result.ExitCode != 0 {
@@ -400,14 +428,16 @@ func (s *commandService) dispatchExecution(req ExecuteRequest, execCtx *runtime.
 	return ExecuteResult{ExitCode: 0}, diags, nil
 }
 
-// validateAndRenderDeps validates command dependencies and renders styled errors
+// validateAndRenderDeps validates command dependencies and returns ServiceError
 // for dependency failures.
 func (s *commandService) validateAndRenderDeps(cfg *config.Config, cmdInfo *discovery.CommandInfo, execCtx *runtime.ExecutionContext, registry *runtime.Registry) error {
 	if err := validateDependencies(cfg, cmdInfo, registry, execCtx); err != nil {
 		if depErr, ok := errors.AsType[*DependencyError](err); ok {
-			fmt.Fprint(s.stderr, RenderDependencyError(depErr))
-			rendered, _ := issue.Get(issue.DependenciesNotSatisfiedId).Render("dark")
-			fmt.Fprint(s.stderr, rendered)
+			return &ServiceError{
+				Err:           err,
+				IssueID:       issue.DependenciesNotSatisfiedId,
+				StyledMessage: RenderDependencyError(depErr),
+			}
 		}
 		return err
 	}

@@ -5,7 +5,7 @@
 // Package cueutil provides shared CUE parsing utilities.
 //
 // This is a CONTRACT FILE for planning purposes. It defines the API that will be
-// implemented in internal/cueutil/.
+// implemented in pkg/cueutil/.
 //
 // The package consolidates the 3-step CUE parsing pattern used across invkfile,
 // invkmod, and config packages.

@@ -4,11 +4,13 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
 	"invowk-cli/internal/config"
 	"invowk-cli/internal/discovery"
+	"invowk-cli/internal/issue"
 	"invowk-cli/internal/runtime"
 	"invowk-cli/internal/sshserver"
 	"invowk-cli/internal/tui"
@@ -133,6 +135,16 @@ func runDisambiguatedCommand(cmd *cobra.Command, app *App, rootFlags *rootFlagVa
 	result, diags, err := app.Commands.Execute(ctx, req)
 	app.Diagnostics.Render(ctx, diags, app.stderr)
 	if err != nil {
+		var svcErr *ServiceError
+		if errors.As(err, &svcErr) {
+			if svcErr.StyledMessage != "" {
+				fmt.Fprint(app.stderr, svcErr.StyledMessage)
+			}
+			if svcErr.IssueID != 0 {
+				rendered, _ := issue.Get(svcErr.IssueID).Render("dark")
+				fmt.Fprint(app.stderr, rendered)
+			}
+		}
 		return err
 	}
 	if result.ExitCode != 0 {

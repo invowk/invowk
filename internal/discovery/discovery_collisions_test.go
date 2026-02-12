@@ -384,6 +384,10 @@ func TestModuleCollisionError(t *testing.T) {
 	if !containsString(errMsg, "alias") {
 		t.Error("error message should mention alias as a solution")
 	}
+
+	if err.Unwrap() != nil {
+		t.Error("Unwrap() should return nil")
+	}
 }
 
 func TestCheckModuleCollisions(t *testing.T) {

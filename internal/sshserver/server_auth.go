@@ -65,6 +65,9 @@ func (s *Server) RevokeToken(tokenValue string) {
 }
 
 // RevokeTokensForCommand revokes all tokens for a specific command.
+// This is useful for cleanup when a command execution completes.
+// Currently exercised by tests; production callers will use this
+// when command lifecycle management is fully integrated.
 func (s *Server) RevokeTokensForCommand(commandID string) {
 	s.tokenMu.Lock()
 	defer s.tokenMu.Unlock()

@@ -4,6 +4,9 @@ package sshserver
 
 import (
 	"context"
+	"errors"
+	"net"
+	"strings"
 	"testing"
 	"time"
 
@@ -356,6 +359,139 @@ func TestServerStateString(t *testing.T) {
 		if got := tt.state.String(); got != tt.expected {
 			t.Errorf("serverbase.State(%d).String() = %q, want %q", tt.state, got, tt.expected)
 		}
+	}
+}
+
+func TestIsClosedConnError(t *testing.T) {
+	tests := []struct {
+		name string
+		err  error
+		want bool
+	}{
+		{"nil error", nil, false},
+		{"generic error", errors.New("something"), false},
+		{"closed conn OpError", &net.OpError{Op: "read", Err: errors.New("use of closed network connection")}, true},
+		{"different OpError", &net.OpError{Op: "read", Err: errors.New("different error")}, false},
+		{"non-OpError type", errors.New("use of closed network connection"), false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := isClosedConnError(tt.err); got != tt.want {
+				t.Errorf("isClosedConnError() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestServerStartWithUsedPort(t *testing.T) {
+	cfg1 := DefaultConfig()
+	cfg1.Port = 0
+	srv1 := New(cfg1)
+
+	ctx := context.Background()
+	if err := srv1.Start(ctx); err != nil {
+		t.Fatalf("Failed to start server1: %v", err)
+	}
+	defer testutil.MustStop(t, srv1)
+
+	// Create server2 targeting the same port
+	cfg2 := DefaultConfig()
+	cfg2.Port = srv1.Port()
+	srv2 := New(cfg2)
+
+	err := srv2.Start(ctx)
+	if err == nil {
+		testutil.MustStop(t, srv2)
+		t.Fatal("Start with used port should return error")
+	}
+
+	if srv2.State() != serverbase.StateFailed {
+		t.Errorf("State should be Failed, got %s", srv2.State())
+	}
+}
+
+func TestServerAccessorsAfterStart(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.Port = 0
+	srv := New(cfg)
+
+	ctx := context.Background()
+	if err := srv.Start(ctx); err != nil {
+		t.Fatalf("Failed to start server: %v", err)
+	}
+	defer testutil.MustStop(t, srv)
+
+	if !strings.Contains(srv.Address(), ":") {
+		t.Errorf("Address() = %q, should contain ':'", srv.Address())
+	}
+	if srv.Port() <= 0 {
+		t.Errorf("Port() = %d, should be > 0", srv.Port())
+	}
+	if srv.Host() != "127.0.0.1" {
+		t.Errorf("Host() = %q, want %q", srv.Host(), "127.0.0.1")
+	}
+}
+
+func TestServerWaitAfterStop(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.Port = 0
+	srv := New(cfg)
+
+	ctx := context.Background()
+	if err := srv.Start(ctx); err != nil {
+		t.Fatalf("Failed to start server: %v", err)
+	}
+
+	if err := srv.Stop(); err != nil {
+		t.Fatalf("Failed to stop server: %v", err)
+	}
+
+	if err := srv.Wait(); err != nil {
+		t.Errorf("Wait() after Stop should return nil, got: %v", err)
+	}
+}
+
+func TestServerWaitAfterFail(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.Port = 0
+	srv := New(cfg)
+
+	// Use an already-cancelled context to force Start to fail
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	if err := srv.Start(ctx); err == nil {
+		testutil.MustStop(t, srv)
+		t.Fatal("Start with cancelled context should return error")
+	}
+
+	err := srv.Wait()
+	if err == nil {
+		t.Error("Wait() after failed Start should return non-nil error")
+	}
+}
+
+func TestDefaultConfig(t *testing.T) {
+	cfg := DefaultConfig()
+
+	if cfg.Host != "127.0.0.1" {
+		t.Errorf("Host = %q, want %q", cfg.Host, "127.0.0.1")
+	}
+	if cfg.Port != 0 {
+		t.Errorf("Port = %d, want 0", cfg.Port)
+	}
+	if cfg.TokenTTL != time.Hour {
+		t.Errorf("TokenTTL = %v, want %v", cfg.TokenTTL, time.Hour)
+	}
+	if cfg.ShutdownTimeout != 10*time.Second {
+		t.Errorf("ShutdownTimeout = %v, want %v", cfg.ShutdownTimeout, 10*time.Second)
+	}
+	if cfg.DefaultShell != "/bin/sh" {
+		t.Errorf("DefaultShell = %q, want %q", cfg.DefaultShell, "/bin/sh")
+	}
+	if cfg.StartupTimeout != 5*time.Second {
+		t.Errorf("StartupTimeout = %v, want %v", cfg.StartupTimeout, 5*time.Second)
 	}
 }
 

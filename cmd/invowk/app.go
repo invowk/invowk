@@ -48,8 +48,6 @@ type (
 		Name string
 		// Args are positional arguments to pass to the command script ($1, $2, etc.).
 		Args []string
-		// SourceFilter is the source filter string (deprecated, use FromSource).
-		SourceFilter string
 		// Runtime is the --invk-runtime override (e.g., "container", "virtual").
 		Runtime string
 		// Interactive enables alternate screen buffer with TUI server.

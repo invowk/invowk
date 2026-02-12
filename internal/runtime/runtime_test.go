@@ -597,7 +597,7 @@ func TestExecutionContext_CustomOverrides(t *testing.T) {
 	ctx := NewExecutionContext(cmd, inv)
 
 	// Set custom overrides
-	ctx.Context = context.TODO()
+	ctx.Context = context.Background()
 	ctx.IO.Stdout = &bytes.Buffer{}
 	ctx.IO.Stderr = &bytes.Buffer{}
 	ctx.Env.ExtraEnv["CUSTOM"] = "value"

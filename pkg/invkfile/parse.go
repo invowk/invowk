@@ -8,7 +8,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"invowk-cli/internal/cueutil"
+	"invowk-cli/pkg/cueutil"
 	"invowk-cli/pkg/invkmod"
 )
 

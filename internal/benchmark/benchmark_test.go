@@ -175,7 +175,7 @@ cmds: [
 )
 
 // BenchmarkCUEParsing benchmarks CUE schema compilation and validation.
-// This exercises the hot path in internal/cueutil/parse.go.
+// This exercises the hot path in pkg/cueutil/parse.go.
 func BenchmarkCUEParsing(b *testing.B) {
 	data := []byte(sampleInvkfile)
 
