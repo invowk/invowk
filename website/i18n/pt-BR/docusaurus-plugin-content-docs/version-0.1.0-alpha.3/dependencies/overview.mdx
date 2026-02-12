@@ -1,0 +1,141 @@
+---
+sidebar_position: 1
+---
+
+import Snippet from '@site/src/components/Snippet';
+
+# Visão Geral de Dependências
+
+Dependências permitem que você declare o que seu comando precisa antes de executar. O Invowk™ valida todas as dependências antecipadamente e fornece mensagens de erro claras quando algo está faltando.
+
+## Por Que Declarar Dependências?
+
+Sem verificações de dependência:
+
+<Snippet id="dependencies/without-check" />
+
+Com verificações de dependência:
+
+<Snippet id="dependencies/with-check" />
+
+Muito melhor! Você sabe exatamente o que está errado antes de qualquer coisa executar.
+
+## Tipos de Dependência
+
+O Invowk suporta seis tipos de dependências:
+
+| Tipo | Verifica |
+|------|----------|
+| [tools](./tools) | Binários no PATH |
+| [filepaths](./filepaths) | Arquivos ou diretórios |
+| [cmds](./commands) | Outros comandos Invowk |
+| [capabilities](./capabilities) | Capacidades do sistema |
+| [env_vars](./env-vars) | Variáveis de ambiente |
+| [custom_checks](./custom-checks) | Scripts de validação personalizados |
+
+## Sintaxe Básica
+
+Dependências são declaradas no bloco `depends_on`:
+
+<Snippet id="dependencies/basic-syntax" />
+
+## O Padrão de Alternativas
+
+Toda dependência usa uma lista `alternatives` com **semântica OU**:
+
+<Snippet id="dependencies/alternatives-pattern" />
+
+Se **qualquer** alternativa for encontrada, a dependência é satisfeita. O Invowk usa retorno antecipado - ele para de verificar assim que uma corresponde.
+
+## Ordem de Validação
+
+Dependências são validadas nesta ordem:
+
+1. **env_vars** - Variáveis de ambiente (verificadas primeiro!)
+2. **tools** - Binários no PATH
+3. **filepaths** - Arquivos e diretórios
+4. **capabilities** - Capacidades do sistema
+5. **cmds** - Outros comandos Invowk
+6. **custom_checks** - Scripts de validação personalizados
+
+Variáveis de ambiente são validadas primeiro, antes do Invowk definir qualquer ambiente no nível do comando. Isso garante que você está verificando o ambiente real do usuário.
+
+## Níveis de Escopo
+
+Dependências podem ser declaradas em três níveis:
+
+### Nível Raiz (Global)
+
+Aplica-se a todos os comandos no invkfile:
+
+<Snippet id="dependencies/scope-root" />
+
+### Nível de Comando
+
+Aplica-se a um comando específico:
+
+<Snippet id="dependencies/scope-command" />
+
+### Nível de Implementação
+
+Aplica-se a uma implementação específica:
+
+<Snippet id="dependencies/scope-implementation" />
+
+### Herança de Escopo
+
+Dependências são **combinadas** entre níveis:
+
+<Snippet id="dependencies/scope-inheritance" />
+
+## Validação Consciente do Runtime
+
+Dependências são validadas de acordo com o runtime:
+
+| Runtime | Dependências Verificadas Contra |
+|---------|--------------------------------|
+| native | Sistema host |
+| virtual | Shell virtual com built-ins |
+| container | Dentro do container |
+
+Isso é poderoso para comandos container:
+
+```cue
+{
+    name: "build"
+    implementations: [
+        {
+            script: "go build ./..."
+            runtimes: [{name: "container", image: "golang:1.21"}]
+            depends_on: {
+                // Verificado DENTRO do container, não no host
+                tools: [{alternatives: ["go"]}]
+                filepaths: [{alternatives: ["/workspace/go.mod"]}]
+            }
+        }
+    ]
+}
+```
+
+## Mensagens de Erro
+
+Quando dependências não são satisfeitas, o Invowk mostra um erro útil:
+
+<Snippet id="dependencies/error-output" />
+
+## Exemplo Completo
+
+Aqui está um comando com múltiplos tipos de dependência:
+
+<Snippet id="dependencies/complete-example" />
+
+## Próximos Passos
+
+Aprenda sobre cada tipo de dependência em detalhes:
+
+- [Tools](./tools) - Verificar binários no PATH
+- [Filepaths](./filepaths) - Verificar arquivos e diretórios
+- [Commands](./commands) - Use `cmds` para exigir que outros comandos estejam disponíveis
+- [Capabilities](./capabilities) - Verificar capacidades do sistema
+- [Variáveis de Ambiente](./env-vars) - Verificar variáveis de ambiente
+- [Verificações Personalizadas](./custom-checks) - Escrever scripts de validação personalizados

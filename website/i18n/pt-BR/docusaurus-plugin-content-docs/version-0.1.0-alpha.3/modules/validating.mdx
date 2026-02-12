@@ -1,0 +1,113 @@
+---
+sidebar_position: 3
+---
+
+import Snippet from '@site/src/components/Snippet';
+
+# Validando Módulos
+
+Valide seus módulos para garantir que estão estruturados corretamente e prontos para distribuição.
+
+## Validação Básica
+
+<Snippet id="modules/validate-basic" />
+
+Saída para um módulo válido:
+
+<Snippet id="modules/validate-basic-output" />
+
+## Validação Profunda
+
+Adicione `--deep` para também fazer parse e validar o invkfile (quando presente):
+
+<Snippet id="modules/validate-deep" />
+
+Saída:
+
+<Snippet id="modules/validate-deep-output" />
+
+## O que é Validado
+
+### Checagens de Estrutura
+
+- Diretório do módulo existe
+- `invkmod.cue` obrigatório na raiz
+- `invkfile.cue` é opcional (módulos apenas de biblioteca são permitidos)
+- Sem módulos aninhados (exceto dentro de `invk_modules/`)
+
+### Checagens de Segurança
+
+- **Sem symlinks**: Symlinks não são permitidos em módulos por motivos de segurança. Eles podem escapar do diretório do módulo durante extração (vulnerabilidade zip-slip).
+
+### Checagens de Compatibilidade
+
+- **Nomes reservados no Windows**: Arquivos chamados `CON`, `PRN`, `AUX`, `NUL`, `COM1`-`COM9` ou `LPT1`-`LPT9` geram um aviso de compatibilidade. Esses nomes são reservados no Windows e podem causar problemas ao extrair módulos em sistemas Windows.
+
+### Checagens de Nomenclatura
+
+- Nome da pasta termina com `.invkmod`
+- Prefixo do nome segue as regras (começa com letra, alfanumérico + pontos)
+- ID do módulo em `invkmod.cue` corresponde ao prefixo do nome da pasta
+- Sem caracteres inválidos (hífens, underscores)
+
+### Checagens Profundas (com `--deep`)
+
+- Invkfile faz parse sem erros (se presente)
+- Sintaxe CUE é válida
+- Restrições do schema são atendidas
+
+## Erros de Validação
+
+### Invkmod Ausente
+
+<Snippet id="modules/error-missing-invkfile" />
+
+### Nome Inválido
+
+<Snippet id="modules/error-invalid-name" />
+
+### Módulo Aninhado
+
+<Snippet id="modules/error-nested" />
+
+### Invkfile Inválido (deep)
+
+<Snippet id="modules/error-parse" />
+
+## Validação em Lote
+
+Valide múltiplos módulos:
+
+<Snippet id="modules/validate-batch" />
+
+## Integração com CI
+
+Adicione validação de módulos no seu pipeline de CI:
+
+<Snippet id="modules/validate-ci" />
+
+## Problemas Comuns
+
+### Separadores de Caminho Errados
+
+<Snippet id="modules/path-separators-good-bad" />
+
+### Escapando o Diretório do Módulo
+
+<Snippet id="modules/escape-module-dir" />
+
+### Caminhos Absolutos
+
+<Snippet id="modules/absolute-paths" />
+
+## Melhores Práticas
+
+1. **Valide antes de commitar**: Detecte problemas cedo
+2. **Use `--deep`**: Captura erros de invkfile
+3. **Valide no CI**: Impede módulos quebrados de sair
+4. **Corrija problemas imediatamente**: Não deixe dívida de validação acumular
+
+## Próximos Passos
+
+- [Criando Módulos](./creating-modules) - Estruture seu módulo
+- [Distribuindo](./distributing) - Compartilhe seu módulo

@@ -1,0 +1,102 @@
+---
+sidebar_position: 1
+---
+
+import Snippet from '@site/src/components/Snippet';
+
+# Formato do Invkfile
+
+Invkfiles são escritos em [CUE](https://cuelang.org/), uma linguagem de configuração poderosa que é como JSON com superpoderes. Se você nunca usou CUE antes, não se preocupe - é intuitivo e você vai aprender rapidamente.
+
+## Por que CUE?
+
+Escolhemos CUE em vez de YAML ou JSON porque:
+
+- **Validação integrada** - CUE detecta erros antes de você executar qualquer coisa
+- **Sem pesadelos de indentação** - Diferente do YAML, um espaço mal posicionado não vai quebrar tudo
+- **Comentários!** - Sim, você pode realmente escrever comentários
+- **Tipagem segura** - O schema do Invowk™ garante que seu invkfile está correto
+- **Templates** - Reduza repetição com o poderoso sistema de templates do CUE
+
+## Sintaxe Básica
+
+CUE parece com JSON, mas mais legível:
+
+<Snippet id="core-concepts/cue-basic-syntax" />
+
+Diferenças principais do JSON:
+- Vírgulas não são necessárias após campos (embora sejam permitidas)
+- Vírgulas finais são aceitas
+- Comentários com `//`
+- Strings multilinha com `"""`
+
+## Visão Geral do Schema
+
+Todo invkfile segue esta estrutura:
+
+<Snippet id="core-concepts/schema-overview" />
+
+O sufixo `?` significa que um campo é opcional.
+
+## Namespaces via Módulos
+
+Invkfiles definem comandos **sem** namespace. Se você quiser namespacing, coloque seus comandos em um módulo e defina o ID do módulo em `invkmod.cue`.
+
+Veja [Comandos e Namespaces](./commands-and-namespaces) para regras de nomes e prefixos.
+
+## Estrutura de Comandos
+
+Cada comando tem esta estrutura:
+
+<Snippet id="core-concepts/command-structure" />
+
+### Implementações
+
+Um comando pode ter múltiplas implementações para diferentes plataformas/runtimes:
+
+<Snippet id="core-concepts/multi-platform-impl" />
+
+O Invowk automaticamente escolhe a implementação correta para sua plataforma.
+
+## Scripts
+
+Scripts podem ser inline ou referenciar arquivos externos:
+
+### Scripts Inline
+
+<Snippet id="core-concepts/script-inline" />
+
+### Arquivos de Script Externos
+
+<Snippet id="core-concepts/script-external" />
+
+Extensões reconhecidas: `.sh`, `.bash`, `.ps1`, `.bat`, `.cmd`, `.py`, `.rb`, `.pl`, `.zsh`, `.fish`
+
+## Exemplo Completo
+
+Aqui está um invkfile com todos os recursos:
+
+<Snippet id="core-concepts/full-example" />
+
+## Dicas e Truques do CUE
+
+### Reduzir Repetição
+
+Use o sistema de templates do CUE para evitar repetição:
+
+<Snippet id="core-concepts/cue-template" />
+
+### Validação
+
+Execute seu invkfile através do validador CUE:
+
+<Snippet id="cli/cue-validate" />
+
+Ou apenas tente listar comandos - o Invowk valida automaticamente:
+
+<Snippet id="cli/list-commands" />
+
+## Próximos Passos
+
+- [Comandos e Namespaces](./commands-and-namespaces) - Convenções de nomenclatura e prefixos
+- [Implementações](./implementations) - Plataformas, runtimes e scripts

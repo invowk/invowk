@@ -1,0 +1,51 @@
+---
+sidebar_position: 4
+---
+
+import Snippet from '@site/src/components/Snippet';
+
+# Dependências de Comandos (`cmds`)
+
+Dependências de comandos (`depends_on.cmds`) são uma **verificação de descoberta**: elas garantem que comandos Invowk™ específicos estejam disponíveis (descobertos) antes do seu comando executar.
+
+O Invowk **não** executa esses comandos automaticamente.
+
+## Uso Básico
+
+<Snippet id="dependencies/commands-basic" />
+
+Se nenhuma das alternativas puder ser encontrada, o Invowk falha com um erro de dependência de **Missing Commands**.
+
+## Nomes e Resolução
+
+- **Mesmo invkfile**: referencie comandos pelo nome (ex.: `"build"`, `"test unit"`).
+- **Módulos**: use o nome com prefixo do módulo (ou alias) como aparece no `invowk cmd` (ex.: `"shared generate-types"`).
+
+## Alternativas (Semântica OU)
+
+<Snippet id="dependencies/commands-alternatives" />
+
+A dependência é satisfeita se **qualquer** alternativa for descoberta.
+
+## Múltiplos Requisitos (Semântica E)
+
+<Snippet id="dependencies/commands-multiple" />
+
+Todas as entradas devem ser satisfeitas.
+
+## Requisitos entre Invkfiles
+
+<Snippet id="dependencies/commands-cross-invkfile" />
+
+Isso é especialmente útil quando seu invkfile espera que outro invkfile/módulo esteja instalado.
+
+## Se você quer workflows…
+
+Se você quer que `deploy` realmente execute `build` antes, faça isso explicitamente no seu script (ou crie um comando dedicado de “workflow”). O Invowk não orquestra execução de comandos via `depends_on.cmds`.
+
+<Snippet id="dependencies/commands-workflow" />
+
+## Próximos Passos
+
+- [Capabilities](./capabilities) - Verificar capacidades do sistema
+- [Variáveis de Ambiente](./env-vars) - Verificar variáveis de ambiente obrigatórias
