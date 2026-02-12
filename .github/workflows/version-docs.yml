@@ -100,16 +100,36 @@ jobs:
 
           # Write additions to a temp file to avoid ARG_MAX limits.
           # Each non-deleted file becomes {path, contents (base64)}.
+          # Uses --rawfile instead of --arg for the base64 content to bypass
+          # Linux MAX_ARG_STRLEN (128KB per argument) which silently truncates
+          # large files when passed via command-line arguments.
           ADDITIONS_FILE=$(mktemp)
           while IFS= read -r file; do
-            jq -n --arg p "$file" --arg c "$(base64 -w 0 < "$file")" \
-              '{path: $p, contents: $c}'
+            B64_FILE=$(mktemp)
+            base64 -w 0 < "$file" > "$B64_FILE"
+            jq -n --arg p "$file" --rawfile c "$B64_FILE" '{path: $p, contents: $c}' || {
+              echo "::error::Failed to encode file: $file"
+              rm -f "$B64_FILE"
+              exit 1
+            }
+            rm -f "$B64_FILE"
           done < <(git diff --cached --name-only --diff-filter=d) | jq -s '.' > "$ADDITIONS_FILE"
+
+          # Validate that all staged files were encoded successfully.
+          STAGED_COUNT=$(git diff --cached --name-only --diff-filter=d | wc -l)
+          ENCODED_COUNT=$(jq 'length' < "$ADDITIONS_FILE")
+          if [ "$STAGED_COUNT" -ne "$ENCODED_COUNT" ]; then
+            echo "::error::File count mismatch: $STAGED_COUNT staged but only $ENCODED_COUNT encoded"
+            exit 1
+          fi
 
           # Write deletions to a temp file (deleted files as {path}).
           DELETIONS_FILE=$(mktemp)
           while IFS= read -r file; do
-            jq -n --arg p "$file" '{path: $p}'
+            jq -n --arg p "$file" '{path: $p}' || {
+              echo "::error::Failed to process deleted file: $file"
+              exit 1
+            }
           done < <(git diff --cached --name-only --diff-filter=D) | jq -s '.' > "$DELETIONS_FILE"
 
           # Create verified commit via GitHub API.
