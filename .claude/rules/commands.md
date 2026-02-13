@@ -28,6 +28,7 @@
 - **Node.js 20+** - For website development (optional).
 - **Docker or Podman** - For container runtime tests (optional).
 - **UPX** - For compressed builds (optional).
+- **gotestsum** - Enhanced test runner with `--rerun-fails` support (optional locally, used in CI). Install: `go install gotest.tools/gotestsum@v1.13.0`.
 
 ## Internal Commands (Hidden)
 
@@ -111,6 +112,7 @@ GODEBUG=pgoinstall=1 make build 2>&1 | grep -i pgo
 
 ```bash
 # Run all tests (verbose)
+# Uses gotestsum with --rerun-fails when available, falls back to go test
 make test
 
 # Run tests in short mode (skips integration tests)
@@ -118,6 +120,9 @@ make test-short
 
 # Run integration tests only
 make test-integration
+
+# Run CLI integration tests (testscript-based)
+make test-cli
 
 # Run a single test by name
 go test -v -run TestFunctionName ./path/to/package/...
@@ -132,6 +137,35 @@ go test -v -cover ./...
 go test -v ./internal/runtime/...
 go test -v ./pkg/invowkfile/...
 ```
+
+### gotestsum (CI-Level Retry and Reporting)
+
+CI uses `gotestsum` to wrap `go test` with transient failure retry and JUnit XML reporting. Locally, `make test` auto-detects `gotestsum` and uses it when available.
+
+```bash
+# Install gotestsum
+go install gotest.tools/gotestsum@v1.13.0
+
+# Run tests with gotestsum directly (rerun up to 5 transient failures)
+gotestsum --format testdox --rerun-fails --rerun-fails-max-failures 5 --packages ./... -- -v
+
+# Run with JUnit XML output and flake report
+gotestsum \
+  --format testdox \
+  --junitfile test-results.xml \
+  --rerun-fails \
+  --rerun-fails-max-failures 5 \
+  --rerun-fails-report rerun-report.txt \
+  --packages ./... \
+  -- -v
+```
+
+**Key flags:**
+- `--rerun-fails`: Re-run only failing tests after the full suite completes.
+- `--rerun-fails-max-failures N`: Skip reruns if more than N tests fail (real regression, not flakiness).
+- `--rerun-fails-report FILE`: Log which tests needed reruns (flake signal).
+- `--junitfile FILE`: JUnit XML for GitHub Actions test reporting.
+- `--format testdox`: Human-readable output (test names as sentences).
 
 ## Releasing
 
@@ -239,6 +273,7 @@ cosign verify-blob \
 | `release.yml` | Tag push (v*) or manual dispatch | Validate, test, then build and publish release |
 | `version-docs.yml` | Release published or manual dispatch | Snapshot docs for the released version |
 | `test-website.yml` | PR to main (website changes) | Build website for PR validation |
+| `validate-diagrams.yml` | PR/push to main (diagram changes) | Validate D2 syntax and check SVG renders exist |
 | `deploy-website.yml` | Push to main (website changes) or manual | Build and deploy GitHub Pages site |
 
 ### Versioning
