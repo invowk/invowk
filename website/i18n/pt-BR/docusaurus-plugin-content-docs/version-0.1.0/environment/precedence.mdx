@@ -1,0 +1,136 @@
+---
+sidebar_position: 4
+---
+
+import Snippet from '@site/src/components/Snippet';
+
+# Precedência de Ambiente
+
+Quando a mesma variável é definida em múltiplos lugares, o Invowk™ segue uma ordem de precedência específica. Fontes com maior precedência sobrescrevem as de menor.
+
+## Ordem de Precedência
+
+Da maior para a menor prioridade:
+
+| Prioridade | Fonte | Exemplo |
+|------------|-------|---------|
+| 1 | Vars da CLI | `--ivk-env-var KEY=value` |
+| 2 | Arquivos env da CLI | `--ivk-env-file .env.local` |
+| 3 | Vars do Invowk | `INVOWK_FLAG_*`, `INVOWK_ARG_*` |
+| 4 | Vars de implementação | `implementations[].env.vars` |
+| 5 | Vars de comando | `command.env.vars` |
+| 6 | Vars raiz | `root.env.vars` |
+| 7 | Arquivos de implementação | `implementations[].env.files` |
+| 8 | Arquivos de comando | `command.env.files` |
+| 9 | Arquivos raiz | `root.env.files` |
+| 10 | Ambiente do sistema | Ambiente do host (se `env_inherit_mode` permitir) |
+
+## Hierarquia Visual
+
+<Snippet id="environment/precedence-hierarchy" />
+
+## Passo a Passo de Exemplo
+
+Dado este invowkfile:
+
+<Snippet id="environment/precedence-invowkfile" />
+
+E estes arquivos:
+
+<Snippet id="environment/precedence-env-files" />
+
+### Ordem de Resolução
+
+1. **Começar com ambiente do sistema** (ex.: `PATH`, `HOME`) se `env_inherit_mode` não for `none`
+
+2. **Carregar arquivos raiz** (`.env`):
+   - `API_URL=http://envfile.example.com`
+   - `DATABASE_URL=postgres://localhost/db`
+
+3. **Carregar arquivos de comando** (`.env.build`):
+   - `BUILD_MODE=release`
+   - `CACHE_DIR=./cache`
+
+4. **Carregar arquivos de implementação** (`implementations[].env.files`):
+   - (nenhum neste exemplo)
+
+5. **Aplicar vars raiz** (sobrescrever arquivos):
+   - `API_URL=http://root.example.com` ← sobrescreve `.env`
+   - `LOG_LEVEL=info`
+
+6. **Aplicar vars de comando** (sobrescrever arquivos):
+   - `API_URL=http://command.example.com` ← sobrescreve raiz
+   - `BUILD_MODE=development` ← sobrescreve `.env.build`
+
+7. **Aplicar vars de implementação**:
+   - `BUILD_MODE=production` ← sobrescreve comando
+   - `NODE_ENV=production`
+
+8. **Aplicar vars do Invowk** (flags/args):
+   - `INVOWK_FLAG_*`, `INVOWK_ARG_*` (se presentes)
+
+9. **Aplicar sobrescritas da CLI** (se fornecidas):
+   - `--ivk-env-file` e depois `--ivk-env-var` (maior prioridade)
+
+### Resultado Final
+
+<Snippet id="environment/precedence-result" />
+
+### Com Sobrescrita da CLI
+
+<Snippet id="environment/precedence-cli-override" />
+
+Agora `API_URL=http://cli.example.com` porque CLI tem a maior prioridade.
+
+## Arquivos vs Vars no Mesmo Nível
+
+Dentro do mesmo nível, `vars` sobrescreve `files`:
+
+<Snippet id="environment/precedence-vars-over-files" />
+
+## Múltiplos Arquivos no Mesmo Nível
+
+Arquivos são carregados em ordem; arquivos posteriores sobrescrevem anteriores:
+
+<Snippet id="environment/precedence-multiple-files" />
+
+## Variáveis Específicas de Plataforma
+
+Para variáveis de ambiente específicas por plataforma, use implementações separadas por plataforma:
+
+<Snippet id="environment/precedence-platform" />
+
+Cada implementação tem seu próprio `env` que é aplicado quando aquela plataforma é selecionada.
+
+## Melhores Práticas
+
+### Use Níveis Apropriados
+
+<Snippet id="environment/precedence-appropriate-levels" />
+
+### Padrão de Sobrescrita
+
+Config base em arquivos, sobrescritas em vars:
+
+<Snippet id="environment/precedence-override-pattern" />
+
+### Desenvolvimento Local
+
+Use arquivos locais opcionais para sobrescritas de desenvolvedor:
+
+<Snippet id="environment/precedence-local-dev" />
+
+### CLI para Sobrescritas Temporárias
+
+<Snippet id="environment/precedence-cli-temp" />
+
+## Debugando Precedência
+
+Para ver valores finais, adicione saída de debug:
+
+<Snippet id="environment/precedence-debug" />
+
+## Próximos Passos
+
+- [Env Files](./env-files) - Carregar de arquivos .env
+- [Env Vars](./env-vars) - Definir variáveis diretamente

@@ -1,0 +1,148 @@
+---
+sidebar_position: 6
+---
+
+import Snippet from '@site/src/components/Snippet';
+
+# Format e Style
+
+Componentes de formatação e estilização de texto para saída de terminal bonita.
+
+## Format
+
+Formatar e renderizar texto como markdown, código, emoji ou templates.
+
+### Uso Básico
+
+<Snippet id="tui/format-basic" />
+
+### Opções
+
+| Opção | Descrição |
+|-------|-----------|
+| `--type` | Tipo de formato: `markdown`, `code`, `emoji`, `template` |
+| `--language` | Linguagem para highlight de código |
+| `--theme` | Tema do Glamour para highlight de código |
+
+### Markdown
+
+Renderizar markdown com cores e formatação:
+
+<Snippet id="tui/format-markdown" />
+
+### Highlight de Código
+
+Highlight de sintaxe de código:
+
+<Snippet id="tui/format-code" />
+
+### Conversão de Emoji
+
+Converter shortcodes de emoji para emojis reais:
+
+<Snippet id="tui/format-emoji" />
+
+### Exemplos do Mundo Real
+
+#### Exibir README
+
+<Snippet id="tui/format-readme" />
+
+#### Mostrar Diff de Código
+
+<Snippet id="tui/format-diff" />
+
+#### Mensagem de Boas-vindas
+
+<Snippet id="tui/format-welcome" />
+
+---
+
+## Style
+
+Aplicar estilização de terminal ao texto.
+
+### Uso Básico
+
+<Snippet id="tui/style-basic" />
+
+### Opções
+
+| Opção | Descrição |
+|-------|-----------|
+| `--foreground` | Cor do texto (hex ou nome) |
+| `--background` | Cor de fundo |
+| `--bold` | Texto em negrito |
+| `--italic` | Texto em itálico |
+| `--underline` | Texto sublinhado |
+| `--strikethrough` | Texto tachado |
+| `--faint` | Texto esmaecido |
+| `--blink` | Texto piscando |
+| `--reverse` | Inverter cores |
+| `--border` | Estilo de borda |
+| `--padding-*` | Padding (left, right, top, bottom) |
+| `--margin-*` | Margin (left, right, top, bottom) |
+| `--width` | Largura fixa |
+| `--height` | Altura fixa |
+| `--align` | Alinhamento de texto: `left`, `center`, `right` |
+
+### Cores
+
+Use cores hex ou nomes:
+
+<Snippet id="tui/style-colors" />
+
+### Decorações de Texto
+
+<Snippet id="tui/style-decorations" />
+
+### Piping
+
+Estilizar texto de stdin:
+
+<Snippet id="tui/style-piping" />
+
+### Bordas
+
+Adicionar bordas ao redor do texto:
+
+<Snippet id="tui/style-borders" />
+
+Estilos de borda: `normal`, `rounded`, `double`, `thick`, `hidden`
+
+### Layout
+
+<Snippet id="tui/style-layout" />
+
+### Exemplos do Mundo Real
+
+#### Mensagens de Sucesso/Erro
+
+<Snippet id="tui/style-messages" />
+
+#### Cabeçalhos e Seções
+
+<Snippet id="tui/style-headers" />
+
+#### Caixas de Status
+
+<Snippet id="tui/style-boxes" />
+
+### Em Scripts
+
+<Snippet id="tui/style-script" />
+
+## Padrões Combinados
+
+### Saída Formatada
+
+<Snippet id="tui/format-style-combined" />
+
+### Interativo com Saída Estilizada
+
+<Snippet id="tui/interactive-styled" />
+
+## Próximos Passos
+
+- [Visão Geral](./overview) - Todos os componentes TUI
+- [Input e Write](./input-and-write) - Entrada de texto

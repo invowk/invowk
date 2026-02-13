@@ -1,0 +1,391 @@
+---
+sidebar_position: 4
+---
+
+import Snippet from '@site/src/components/Snippet';
+
+# Runtime Container
+
+:::danger Apenas Containers Linux
+
+O runtime container **suporta apenas imagens de container Linux baseadas em Debian** (ex: `debian:stable-slim`).
+
+**NÃO suportado:**
+- **Imagens baseadas em Alpine** (`alpine:*`, `*-alpine`) — O shell `ash` do BusyBox tem incompatibilidades
+- **Imagens de container Windows** (`mcr.microsoft.com/windows/*`) — Não há shell POSIX disponível
+
+**Requisitos de plataforma:**
+- **Linux**: Funciona nativamente com Docker ou Podman
+- **macOS**: Funciona com Docker Desktop (usa VMs Linux internamente)
+- **Windows**: Requer Docker Desktop com backend WSL2 em modo de containers Linux
+
+Scripts são executados usando `/bin/sh` dentro do container, o que requer um ambiente Linux baseado em glibc.
+
+:::
+
+O runtime **container** executa comandos dentro de um container Docker ou Podman. Ele fornece isolamento completo e reprodutibilidade - seu comando executa no exato mesmo ambiente toda vez.
+
+## Como Funciona
+
+Quando você executa um comando com o runtime container, o Invowk™:
+
+1. Baixa ou constrói a imagem do container (se necessário)
+2. Monta o diretório atual dentro do container
+3. Executa o script dentro do container
+4. Transmite a saída de volta para seu terminal
+
+## Uso Básico
+
+<Snippet id="runtime-modes/container-basic" />
+
+```bash
+invowk cmd myproject build
+```
+
+## Fontes de Imagem de Container
+
+Você deve especificar ou uma `image` ou um `containerfile` - eles são mutuamente exclusivos.
+
+### Imagens Pré-construídas
+
+```cue
+runtimes: [{
+    name: "container"
+    image: "golang:1.21"
+}]
+```
+
+Imagens comuns:
+- `debian:bookworm-slim` - Debian mínimo
+- `ubuntu:22.04` - Ubuntu completo
+- `golang:1.21` - Desenvolvimento Go
+- `node:20` - Desenvolvimento Node.js
+- `python:3.11-slim` - Desenvolvimento Python
+
+:::warning Requisito de glibc
+O binário do invowk é linkado dinamicamente contra **glibc**. Imagens de container usando musl libc (como Alpine Linux) **não são compatíveis**. Use imagens baseadas em glibc como:
+- Imagens baseadas em Debian/Ubuntu (padrão para a maioria das imagens oficiais)
+- Imagens com sufixo `-slim` (ex: `python:3.11-slim`, `node:20-slim`)
+- Imagens oficiais de linguagens sem sufixo `-alpine`
+
+**Não suportado:** `alpine`, `busybox`, imagens com sufixo `-alpine`
+:::
+
+### Containerfile Personalizado
+
+Construa a partir de um Containerfile/Dockerfile local:
+
+<Snippet id="runtime-modes/container-containerfile" />
+
+Exemplo de `Containerfile`:
+
+<Snippet id="runtime-modes/containerfile-example" />
+
+## Montagem de Volumes
+
+Monte diretórios adicionais no container:
+
+```cue
+runtimes: [{
+    name: "container"
+    image: "golang:1.21"
+    volumes: [
+        "./data:/data",           // Caminho relativo
+        "/tmp:/tmp:ro",           // Caminho absoluto, somente leitura
+        "${HOME}/.cache:/cache"   // Variável de ambiente
+    ]
+}]
+```
+
+O diretório de trabalho atual é automaticamente montado em `/workspace`.
+
+## Mapeamento de Portas
+
+Exponha portas do container para o host:
+
+<Snippet id="runtime-modes/container-ports" />
+
+## Usando Interpretadores
+
+Como o runtime native, containers suportam interpretadores personalizados:
+
+### Auto-Detecção pelo Shebang
+
+```cue
+{
+    name: "analyze"
+    implementations: [{
+        script: """
+            #!/usr/bin/env python3
+            import sys
+            print(f"Python {sys.version} in container!")
+            """
+        runtimes: [{
+            name: "container"
+            image: "python:3.11"
+        }]
+    }]
+}
+```
+
+### Interpretador Explícito
+
+<Snippet id="runtime-modes/container-interpreter" />
+
+## Variáveis de Ambiente
+
+Variáveis de ambiente são passadas para o container:
+
+```cue
+{
+    name: "deploy"
+    env: {
+        vars: {
+            DEPLOY_ENV: "production"
+            API_URL: "https://api.example.com"
+        }
+    }
+    implementations: [{
+        script: """
+            echo "Deploying to $DEPLOY_ENV"
+            echo "API: $API_URL"
+            """
+        runtimes: [{
+            name: "container"
+            image: "debian:bookworm-slim"
+        }]
+    }]
+}
+```
+
+## Acesso SSH ao Host
+
+Às vezes seu container precisa executar comandos no sistema host. Habilite acesso SSH de volta ao host:
+
+<Snippet id="runtime-modes/container-ssh-example" />
+
+### Variáveis de Ambiente SSH
+
+Quando `enable_host_ssh: true`, estas variáveis estão disponíveis:
+
+| Variável | Descrição |
+|----------|-----------|
+| `INVOWK_SSH_HOST` | Endereço do host (ex: `host.docker.internal`) |
+| `INVOWK_SSH_PORT` | Porta do servidor SSH |
+| `INVOWK_SSH_USER` | Nome de usuário (`invowk`) |
+| `INVOWK_SSH_TOKEN` | Token de autenticação único |
+
+### Segurança
+
+- Cada execução de comando recebe um token único
+- Tokens são revogados quando o comando termina
+- O servidor SSH apenas aceita autenticação baseada em token
+- O servidor é encerrado após a execução do comando
+
+### Requisitos do Container
+
+Seu container precisa de `sshpass` ou similar para SSH baseado em senha:
+
+```dockerfile
+FROM debian:bookworm-slim
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    openssh-client sshpass \
+    && rm -rf /var/lib/apt/lists/*
+```
+
+## Dependências
+
+Dependências de container são validadas **dentro do container**:
+
+```cue
+{
+    name: "build"
+    depends_on: {
+        tools: [
+            // Verificadas dentro do container, não no host
+            {alternatives: ["go"]},
+            {alternatives: ["make"]}
+        ]
+        filepaths: [
+            // Caminhos relativos ao /workspace do container
+            {alternatives: ["go.mod"]}
+        ]
+    }
+    implementations: [{
+        script: "make build"
+        runtimes: [{
+            name: "container"
+            image: "golang:1.21"
+        }]
+    }]
+}
+```
+
+## Engine de Container
+
+O Invowk suporta tanto Docker quanto Podman. Configure sua preferência:
+
+```cue
+// ~/.config/invowk/config.cue
+container_engine: "podman"  // ou "docker"
+```
+
+Se não configurado, o Invowk tenta:
+1. `podman` (se disponível)
+2. `docker` (fallback)
+
+## Diretório de Trabalho
+
+Por padrão, o diretório atual é montado em `/workspace` e usado como diretório de trabalho:
+
+```cue
+{
+    name: "build"
+    implementations: [{
+        script: """
+            pwd  # Saída: /workspace
+            ls   # Mostra os arquivos do seu projeto
+            """
+        runtimes: [{
+            name: "container"
+            image: "debian:bookworm-slim"
+        }]
+    }]
+}
+```
+
+Sobrescreva com `workdir`:
+
+```cue
+{
+    name: "build frontend"
+    workdir: "./frontend"  // Montado e usado como workdir
+    implementations: [{
+        script: "npm run build"
+        runtimes: [{
+            name: "container"
+            image: "node:20"
+        }]
+    }]
+}
+```
+
+## Exemplo Completo
+
+Aqui está um comando container com todos os recursos:
+
+<Snippet id="runtime-modes/container-full-example" />
+
+## Auto-provisionamento
+
+Quando `container.auto_provision.enabled` é `true` (padrão), o Invowk cria uma imagem derivada em cache ao anexar uma pequena camada de provisionamento sobre a sua imagem base (seja a `image` especificada ou a imagem construída pelo Containerfile/Dockerfile). Essa camada inclui o binário do `invowk` e quaisquer módulos, para que comandos `invowk` estejam disponíveis dentro do container.
+
+O auto-provisionamento ocorre em toda execução de container, não apenas no modo interativo. A imagem derivada é cacheada como `invowk-provisioned:<hash>` e reutilizada; se o provisionamento falhar, o Invowk avisa e usa a imagem base.
+
+## Modo Interativo
+
+O runtime container suporta totalmente o modo interativo (`-i`). Execuções interativas usam a mesma camada provisionada descrita acima (quando habilitada) e adicionam a infraestrutura de TUI no host, habilitando:
+
+- Componentes TUI como overlays modais
+- Suporte completo a PTY para prompts de senha e confirmações
+- Integração transparente com o terminal do host
+
+```bash
+# Executar um comando de container interativamente
+invowk cmd myproject build -i -r container
+```
+
+Quando você executa com `-i`, o Invowk:
+
+1. **Usa a camada de imagem provisionada** (se habilitada)
+2. **Inicia um servidor TUI** no host
+3. **Encaminha requisições TUI** do container para o host
+4. **Renderiza overlays** no seu terminal
+
+Isso significa que seus scripts podem usar comandos `invowk tui` dentro de containers:
+
+```cue
+{
+    name: "deploy container"
+    implementations: [{
+        script: """
+            # Este TUI confirm aparece como um overlay no seu terminal
+            if invowk tui confirm "Deploy em produção?"; then
+                echo "Fazendo deploy..."
+                ./deploy.sh
+            fi
+            """
+        runtimes: [{
+            name: "container"
+            image: "debian:bookworm-slim"
+        }]
+    }]
+}
+```
+
+:::tip
+A imagem provisionada é cacheada como `invowk-provisioned:<hash>`, então execuções subsequentes são rápidas.
+:::
+
+## Vantagens
+
+- **Reprodutibilidade**: Mesmo ambiente em todos os lugares
+- **Isolamento**: Sem poluição do sistema host
+- **Controle de versão**: Fixe versões exatas de ferramentas
+- **Paridade CI/CD**: Builds locais correspondem aos builds do CI
+- **Builds limpos**: Ambiente novo cada vez
+
+## Limitações
+
+- **Performance**: Overhead de inicialização do container
+- **Espaço em disco**: Imagens consomem armazenamento
+- **Complexidade**: Necessário gerenciar imagens
+- **Acesso ao host**: Limitado sem ponte SSH
+
+## Quando Usar Container
+
+- **Builds reproduzíveis**: Quando consistência importa
+- **Pipelines CI/CD**: Corresponder ambientes local e CI
+- **Projetos legados**: Isolar versões antigas de ferramentas
+- **Onboarding de equipe**: Sem necessidade de instalação local de ferramentas
+- **Builds em ambiente limpo**: Testar sem poluição do host
+
+## Solução de Problemas
+
+### Container Não Inicia
+
+```bash
+# Verificar se engine de container está disponível
+docker --version  # ou: podman --version
+
+# Verificar se imagem existe
+docker images | grep golang
+```
+
+### Primeira Execução Lenta
+
+A primeira execução baixa a imagem. Execuções subsequentes são mais rápidas:
+
+```bash
+# Pré-baixar imagens
+docker pull golang:1.21
+docker pull node:20
+```
+
+### Problemas de Permissão
+
+No Linux, você pode precisar configurar permissões do container:
+
+```bash
+# Para Docker
+sudo usermod -aG docker $USER
+
+# Para Podman (rootless)
+# Geralmente funciona sem configuração
+```
+
+## Próximos Passos
+
+- [Runtime Native](./native) - Para velocidade de desenvolvimento
+- [Runtime Virtual](./virtual) - Para scripts multiplataforma
+- [Dependências](../dependencies/overview) - Declarar requisitos do comando

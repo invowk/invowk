@@ -1,0 +1,132 @@
+---
+sidebar_position: 2
+---
+
+import Snippet from '@site/src/components/Snippet';
+
+# Native Runtime
+
+The **native** runtime executes commands using your system's default shell. It's the most straightforward option and the one you'll use most often during development.
+
+## How It Works
+
+When you run a command with the native runtime, Invowk™:
+
+1. Detects your system's default shell
+2. Creates a temporary script file
+3. Executes it through the shell
+4. Streams output back to your terminal
+
+## Shell Detection
+
+Invowk automatically detects the best available shell:
+
+### Linux/macOS
+
+1. Uses `$SHELL` environment variable if set
+2. Falls back to `bash` if available
+3. Falls back to `sh` as last resort
+
+### Windows
+
+1. Tries `pwsh` (PowerShell Core)
+2. Falls back to `powershell` (Windows PowerShell)
+3. Falls back to `cmd.exe` as last resort
+
+## Basic Usage
+
+<Snippet id="runtime-modes/native-basic" />
+
+<Snippet id="runtime-modes/native-run" />
+
+## Overriding the Default Shell
+
+You can override the shell at the invowkfile level:
+
+<Snippet id="runtime-modes/native-default-shell" />
+
+This is useful when:
+- You need bash-specific features
+- Your script relies on a specific shell
+- You want consistent behavior across team machines
+
+## Shell-Specific Scripts
+
+### Bash/Zsh
+
+<Snippet id="runtime-modes/native-bash-script" />
+
+### PowerShell
+
+<Snippet id="runtime-modes/native-powershell-script" />
+
+### cmd.exe (Windows Batch)
+
+<Snippet id="runtime-modes/native-cmd-script" />
+
+## Using Interpreters
+
+The native runtime supports non-shell interpreters like Python, Ruby, or Node.js.
+
+### Auto-Detection from Shebang
+
+<Snippet id="runtime-modes/native-shebang-script" />
+
+### Explicit Interpreter
+
+<Snippet id="runtime-modes/native-explicit-interpreter" />
+
+### Interpreter with Arguments
+
+<Snippet id="runtime-modes/native-interpreter-args" />
+
+## Environment Variables
+
+Native runtime has full access to your environment:
+
+<Snippet id="runtime-modes/native-env-vars" />
+
+## Accessing Flags and Arguments
+
+Flags and arguments are available as environment variables:
+
+<Snippet id="runtime-modes/native-flags-args" />
+
+<Snippet id="runtime-modes/native-flags-run" />
+
+## Working Directory
+
+By default, scripts run in the current directory. Override with `workdir`:
+
+<Snippet id="runtime-modes/native-workdir" />
+
+## Dependencies
+
+Native runtime validates dependencies against your host system:
+
+<Snippet id="runtime-modes/native-deps" />
+
+## Advantages
+
+- **Performance**: No overhead, direct shell execution
+- **Full access**: All system tools and environment available
+- **Familiar**: Use your preferred shell and its features
+- **Interactive**: Can run interactive commands
+
+## Limitations
+
+- **Platform differences**: Scripts may behave differently across OSes
+- **Environment dependency**: Relies on installed tools
+- **Reproducibility**: Results may vary between machines
+
+## When to Use Native
+
+- **Daily development**: Fast iteration, familiar tools
+- **System integration**: When you need access to system resources
+- **Interactive tasks**: Prompts, editors, TUI applications
+- **Performance-critical**: When container overhead matters
+
+## Next Steps
+
+- [Virtual Runtime](./virtual) - For cross-platform consistency
+- [Container Runtime](./container) - For reproducible builds

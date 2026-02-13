@@ -1,0 +1,127 @@
+---
+sidebar_position: 2
+---
+
+import Snippet from '@site/src/components/Snippet';
+
+# Declaring Dependencies
+
+Module dependencies are declared in the `requires` field of `invowkmod.cue`. This page covers the syntax and options available.
+
+## Basic Syntax
+
+<Snippet id="modules/dependencies/basic-invowkmod" />
+
+## Requirement Fields
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `git_url` | Yes | Git repository URL (HTTPS or SSH) |
+| `version` | Yes | Semantic version constraint |
+| `alias` | No | Custom namespace for commands |
+| `path` | No | Subdirectory within the repository |
+
+### git_url
+
+The Git repository URL. Supports both HTTPS and SSH formats. The repository must contain a module (either a `.invowkmod` directory or an `invowkmod.cue` at the root).
+
+<Snippet id="modules/dependencies/git-url-examples" />
+
+### version
+
+Semantic version constraint. The repository must have Git tags matching the constraint.
+
+#### Version Constraint Formats
+
+| Format | Description | Matches |
+|--------|-------------|---------|
+| `^1.2.3` | Compatible (same major) | `>=1.2.3 <2.0.0` |
+| `~1.2.3` | Approximately (same minor) | `>=1.2.3 <1.3.0` |
+| `>=1.0.0` | Greater than or equal | `1.0.0`, `1.5.0`, `2.0.0`, ... |
+| `>1.0.0` | Greater than | `1.0.1`, `1.5.0`, `2.0.0`, ... |
+| `<2.0.0` | Less than | `1.9.9`, `1.0.0`, `0.5.0`, ... |
+| `<=2.0.0` | Less than or equal | `2.0.0`, `1.9.9`, `1.0.0`, ... |
+| `1.2.3` | Exact version | Only `1.2.3` |
+
+#### Version Tag Formats
+
+Invowk accepts tags with or without the `v` prefix:
+
+- `v1.2.3` and `1.2.3` are both valid
+- When resolving, both formats are tried automatically
+
+<Snippet id="modules/dependencies/version-example" />
+
+### alias
+
+Override the default namespace for the dependency's commands:
+
+<Snippet id="modules/dependencies/alias-example" />
+
+Usage with alias:
+
+<Snippet id="modules/dependencies/alias-usage" />
+
+### path
+
+For monorepos containing multiple modules, specify the subdirectory:
+
+<Snippet id="modules/dependencies/path-example" />
+
+Paths must be relative and cannot contain `..` or absolute paths.
+
+## Multiple Dependencies
+
+Declare multiple dependencies in the `requires` array:
+
+<Snippet id="modules/dependencies/multiple-requires" />
+
+## Authentication
+
+### SSH Keys
+
+For SSH URLs (`git@...`), invowk uses keys from `~/.ssh/`:
+
+1. `~/.ssh/id_ed25519` (preferred)
+2. `~/.ssh/id_rsa`
+3. `~/.ssh/id_ecdsa`
+
+### HTTPS Tokens
+
+For private HTTPS repositories, set environment variables:
+
+<Snippet id="modules/dependencies/auth-tokens" />
+
+## Transitive Dependencies
+
+Dependencies can declare their own dependencies. When you sync, invowk resolves the full dependency tree and records it in the lock file:
+
+<Snippet id="modules/dependencies/transitive-tree" />
+
+### Circular Dependency Detection
+
+Invowk detects and reports circular dependencies:
+
+<Snippet id="modules/dependencies/circular-error" />
+
+## Best Practices
+
+### 1. Use Caret for Most Dependencies
+
+<Snippet id="modules/dependencies/best-practices-version" />
+
+### 2. Use Aliases for Cleaner Namespaces
+
+<Snippet id="modules/dependencies/best-practices-alias" />
+
+### 3. Commit Your Lock File
+
+The `invowkmod.lock.cue` file should be committed to version control for reproducible builds.
+
+### 4. Update Regularly
+
+<Snippet id="modules/dependencies/update-command" />
+
+## Schema Reference
+
+<Snippet id="reference/invowkmod/requirement-structure" />

@@ -1,0 +1,131 @@
+---
+sidebar_position: 2
+---
+
+import Snippet from '@site/src/components/Snippet';
+
+# Arquivos Env
+
+Carregue variáveis de ambiente de arquivos `.env`. Este é um padrão comum para gerenciar configuração, especialmente secrets que não devem ser commitados no controle de versão.
+
+## Uso Básico
+
+<Snippet id="environment/env-files-basic" />
+
+Com um arquivo `.env`:
+
+<Snippet id="environment/dotenv-example" />
+
+Variáveis são carregadas e disponíveis no seu script.
+
+## Formato do Arquivo
+
+Formato `.env` padrão:
+
+<Snippet id="environment/dotenv-format" />
+
+## Arquivos Opcionais
+
+Sufixe com `?` para tornar um arquivo opcional:
+
+<Snippet id="environment/env-files-optional" />
+
+Isso é útil para:
+- Sobrescritas locais que podem não existir
+- Arquivos específicos de ambiente
+- Configurações específicas de desenvolvedor
+
+## Ordem dos Arquivos
+
+Arquivos são carregados em ordem; arquivos posteriores sobrescrevem os anteriores:
+
+<Snippet id="environment/env-files-order" />
+
+Exemplo com `ENV=production`:
+
+<Snippet id="environment/env-files-order-example" />
+
+Resultado:
+- `API_URL=https://api.example.com` (de .env.production)
+- `DEBUG=true` (de .env.local)
+
+## Resolução de Caminho
+
+Caminhos são relativos à localização do invowkfile:
+
+<Snippet id="environment/env-files-path-resolution" />
+
+Para módulos, caminhos são relativos à raiz do módulo.
+
+## Interpolação de Variáveis
+
+Use `${VAR}` para incluir outras variáveis de ambiente:
+
+<Snippet id="environment/env-files-interpolation" />
+
+<Snippet id="environment/env-files-interpolation-result" />
+
+## Níveis de Escopo
+
+Arquivos env podem ser carregados em múltiplos níveis:
+
+### Nível Raiz
+
+<Snippet id="environment/env-files-scope-root" />
+
+### Nível de Comando
+
+<Snippet id="environment/env-files-scope-command" />
+
+### Nível de Implementação
+
+<Snippet id="environment/env-files-scope-implementation" />
+
+## Combinado com Variáveis
+
+Use ambos arquivos e variáveis diretas:
+
+<Snippet id="environment/env-combined" />
+
+Variáveis em `vars` sempre sobrescrevem valores de arquivos no mesmo nível.
+
+## Sobrescrita via CLI
+
+Carregue arquivos adicionais em tempo de execução:
+
+<Snippet id="environment/env-files-cli-override" />
+
+Arquivos da CLI têm a maior prioridade e sobrescrevem todas as fontes definidas no invowkfile.
+
+## Exemplos do Mundo Real
+
+### Desenvolvimento vs Produção
+
+<Snippet id="environment/env-files-dev-prod" />
+
+### Gerenciamento de Secrets
+
+<Snippet id="environment/env-files-secrets" />
+
+`.gitignore`:
+
+<Snippet id="environment/gitignore-env" />
+
+### Multi-Ambiente
+
+<Snippet id="environment/env-files-multi-env-structure" />
+
+<Snippet id="environment/env-files-multi-env" />
+
+## Melhores Práticas
+
+1. **Use `.env` para padrões**: Configuração base que funciona para todos
+2. **Use `.env.local` para sobrescritas**: Configurações específicas de desenvolvedor, não no git
+3. **Use `.env.{environment}` para ambientes**: Produção, staging, etc.
+4. **Marque arquivos sensíveis como opcionais**: Podem não existir em todos os ambientes
+5. **Não commite secrets**: Adicione `.env.secrets`, `.env.local` ao `.gitignore`
+
+## Próximos Passos
+
+- [Env Vars](./env-vars) - Definir variáveis diretamente
+- [Precedence](./precedence) - Entender ordem de sobrescrita

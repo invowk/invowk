@@ -1,0 +1,125 @@
+---
+sidebar_position: 1
+---
+
+import Snippet from '@site/src/components/Snippet';
+
+# Visão Geral de Módulos
+
+:::warning Alpha — O Formato de Módulo Pode Mudar
+O formato e estrutura de módulos ainda estão sendo finalizados. Embora nosso objetivo seja manter compatibilidade retroativa, **mudanças incompatíveis podem ocorrer** antes do release 1.0. Se você está distribuindo módulos externamente, esteja preparado para atualizá-los ao fazer upgrade do Invowk™.
+:::
+
+Módulos são pastas autocontidas que agrupam metadados `invowkmod.cue` com comandos opcionais em `invowkfile.cue` e quaisquer arquivos de script que eles referenciam. Eles são perfeitos para compartilhar comandos, criar toolkits reutilizáveis e distribuir automação entre equipes.
+
+## O que é um Módulo?
+
+Um módulo é um diretório com o sufixo `.invowkmod`:
+
+<Snippet id="modules/structure-basic" />
+
+## Por que Usar Módulos?
+
+- **Portabilidade**: Compartilhe um conjunto completo de comandos como uma única pasta
+- **Autocontido**: Scripts ficam agrupados no módulo
+- **Multiplataforma**: Caminhos com barra funcionam em qualquer lugar
+- **Isolamento de namespace**: Nomenclatura RDNS previne conflitos
+- **Fácil distribuição**: Compacte, compartilhe, descompacte
+
+## Início Rápido
+
+### Criar um Módulo
+
+<Snippet id="modules/quick-create" />
+
+Cria:
+
+<Snippet id="modules/quick-create-output" />
+
+### Usar o Módulo
+
+Módulos são descobertos automaticamente de:
+1. Diretório atual (invowkfile e módulos locais)
+2. Entradas de `includes` configuradas
+3. `~/.invowk/cmds/` (módulos do usuário — apenas `*.invowkmod`, não recursivo)
+
+<Snippet id="modules/quick-use" />
+
+### Compartilhar o Módulo
+
+<Snippet id="modules/quick-share" />
+
+## Estrutura de Módulo
+
+### Arquivos Obrigatórios
+
+- **`invowkmod.cue`**: Metadados do módulo (nome, versão, dependências)
+
+### Conteúdo Opcional
+
+- **`invowkfile.cue`**: Definições de comandos (omita para módulos apenas de biblioteca)
+- **Scripts**: Shell scripts, arquivos Python, etc.
+- **Templates**: Templates de configuração
+- **Dados**: Quaisquer arquivos de suporte
+
+### Exemplo de Estrutura
+
+<Snippet id="modules/structure-example" />
+
+## Nomenclatura de Módulo
+
+Nomes de pasta de módulo seguem estas regras:
+
+| Regra | Válido | Inválido |
+|-------|--------|----------|
+| Terminar com `.invowkmod` | `mytools.invowkmod` | `mytools` |
+| Começar com letra | `mytools.invowkmod` | `123tools.invowkmod` |
+| Alfanumérico + pontos | `com.example.invowkmod` | `my-tools.invowkmod` |
+
+### Nomenclatura RDNS
+
+Recomendada para módulos compartilhados:
+
+<Snippet id="modules/rdns-naming" />
+
+## Caminhos de Script
+
+Referencie scripts relativos à raiz do módulo com **barras normais**:
+
+<Snippet id="modules/script-paths" />
+
+**Importante:**
+- Sempre use barras normais (`/`)
+- Caminhos são relativos à raiz do módulo
+- Caminhos absolutos não são permitidos
+- Não é possível escapar do diretório do módulo (`../` é inválido)
+
+## Comandos de Módulo
+
+| Comando | Descrição |
+|---------|-----------|
+| `invowk module create` | Criar um novo módulo |
+| `invowk module validate` | Validar estrutura do módulo |
+| `invowk module list` | Listar módulos descobertos |
+| `invowk module archive` | Criar arquivo zip |
+| `invowk module import` | Instalar de zip/URL |
+
+## Descoberta
+
+Módulos são descobertos dessas localizações:
+
+1. **invowkfile do diretório atual** (maior prioridade)
+2. **Módulos locais** (`*.invowkmod` no diretório atual)
+3. **Includes configurados** (caminhos de módulos da configuração)
+4. **Diretório de comandos do usuário** (`~/.invowk/cmds/` — apenas `*.invowkmod`, não recursivo)
+
+Comandos aparecem em `invowk cmd` com sua origem:
+
+<Snippet id="modules/discovery-output" />
+
+## Próximos Passos
+
+- [Criando Módulos](./creating-modules) - Criar estrutura e organizar módulos
+- [Validando](./validating) - Garantir integridade do módulo
+- [Distribuindo](./distributing) - Compartilhar módulos com outros
+- [Dependências de Módulos](./dependencies/overview) - Usar outros módulos no seu módulo

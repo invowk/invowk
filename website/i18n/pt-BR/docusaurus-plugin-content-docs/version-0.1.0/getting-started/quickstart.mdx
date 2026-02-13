@@ -1,0 +1,75 @@
+---
+sidebar_position: 2
+---
+
+import Snippet from '@site/src/components/Snippet';
+
+# Início Rápido
+
+Vamos executar seu primeiro comando Invowk™ em menos de 2 minutos. Sério, pegue um café antes se quiser - você terá tempo de sobra.
+
+## Crie Seu Primeiro Invowkfile
+
+Navegue até qualquer diretório de projeto e inicialize um invowkfile:
+
+<Snippet id="quickstart/init" />
+
+Isso cria um `invowkfile.cue` com um comando de exemplo. Vamos dar uma olhada:
+
+<Snippet id="quickstart/hello-invowkfile" />
+
+Não se preocupe em entender tudo ainda - vamos cobrir isso em breve!
+
+## Listar Comandos Disponíveis
+
+Veja quais comandos estão disponíveis:
+
+<Snippet id="cli/list-commands" />
+
+Você verá algo como:
+
+<Snippet id="quickstart/list-output" />
+
+Comandos do diretório atual aparecem sem prefixo. Comandos de módulos incluem um prefixo quando presentes.
+
+## Executar um Comando
+
+Agora vamos executá-lo:
+
+<Snippet id="quickstart/run-hello" />
+
+Saída:
+
+<Snippet id="quickstart/hello-output" />
+
+É isso! Você acabou de executar seu primeiro comando Invowk.
+
+## Vamos Tornar Isso Mais Interessante
+
+Edite seu `invowkfile.cue` para adicionar um comando mais útil:
+
+<Snippet id="quickstart/info-command" />
+
+Agora execute:
+
+<Snippet id="quickstart/run-info" />
+
+Você verá as informações do seu sistema exibidas de forma organizada.
+
+## Experimente o Runtime Virtual
+
+Um dos superpoderes do Invowk é o **runtime virtual** - um interpretador de shell integrado que funciona da mesma forma em todas as plataformas:
+
+<Snippet id="quickstart/virtual-runtime" />
+
+O runtime virtual usa o interpretador [mvdan/sh](https://github.com/mvdan/sh), proporcionando comportamento consistente de shell POSIX em todas as plataformas.
+
+## Próximos Passos
+
+Você acabou de arranhar a superfície! Vá para [Seu Primeiro Invowkfile](./your-first-invowkfile) para aprender como criar comandos mais poderosos com:
+
+- Múltiplas opções de runtime (native, virtual, container)
+- Dependências que são validadas antes da execução
+- Flags e argumentos de comando
+- Variáveis de ambiente
+- E muito mais!

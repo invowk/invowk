@@ -1,0 +1,93 @@
+---
+sidebar_position: 2
+---
+
+import Snippet from '@site/src/components/Snippet';
+
+# Commands and Namespaces
+
+Invowk commands are named directly in `invowkfile.cue`. Namespaces come from **modules**: commands in a module are prefixed by the module ID from `invowkmod.cue`.
+
+## Command Names
+
+Command names can include spaces to create subcommand-like hierarchies:
+
+<Snippet id="commands-namespaces/subcommand-names" />
+
+### Command Naming Rules
+
+| Rule | Valid | Invalid |
+|------|-------|---------|
+| Must start with a letter | `build`, `Test` | `1build` |
+| Letters, numbers, spaces, hyphens, underscores | `test unit`, `build-all` | `build@all` |
+
+Spaces are purely organizational - there’s no special parent-child relationship between commands.
+
+## Module Namespaces
+
+Module commands are namespaced by the `module` field in `invowkmod.cue`:
+
+<Snippet id="commands-namespaces/module-prefix" />
+
+These commands become available as:
+- `invowk cmd com.company.frontend build`
+- `invowk cmd com.company.frontend test unit`
+
+:::tip Transparent Namespaces
+When command names are **unique** across all sources, you can omit the module prefix and use just the command name (e.g., `invowk cmd build`). Invowk's transparent namespace system automatically resolves unambiguous commands. The full module prefix is only required when the same command name exists in multiple modules or sources.
+:::
+
+### Module ID Naming Rules
+
+| Rule | Valid | Invalid |
+|------|-------|---------|
+| Must start with a letter | `myproject`, `Project1` | `1project`, `_project` |
+| Letters and numbers only | `myproject`, `v2` | `my-project`, `my_project` |
+| Dots for nesting | `my.project`, `a.b.c` | `my..project`, `.project`, `project.` |
+
+#### Valid Examples
+
+<Snippet id="commands-namespaces/valid-module-ids" />
+
+#### Invalid Examples
+
+<Snippet id="commands-namespaces/invalid-module-ids" />
+
+For shared modules, use Reverse Domain Name System (RDNS) naming (e.g., `com.company.tools`) to prevent collisions.
+
+## Command Discovery
+
+Invowk discovers commands from multiple sources in priority order:
+
+1. **Current directory invowkfile** (highest priority)
+2. **Local modules** (`*.invowkmod` in current directory)
+3. **Configured includes** (module paths from config file)
+4. **User commands directory** (`~/.invowk/cmds/` — `*.invowkmod` only, non-recursive)
+
+When listing commands, you’ll see their source:
+
+<Snippet id="commands-namespaces/discovery-output" />
+
+## Command Dependencies
+
+Commands can depend on other commands. Use the full command name as listed by `invowk cmd` (module prefix when applicable):
+
+<Snippet id="commands-namespaces/command-dependency" />
+
+## Why Namespaces Matter
+
+1. **Namespace isolation** - Module commands stay distinct across shared toolkits
+2. **Clear origin** - Module prefixes show where commands come from
+3. **Logical organization** - Dot-separated module IDs organize related commands
+4. **Tab completion** - Module IDs provide natural completion boundaries
+
+## Best Practices
+
+- **Local projects**: Keep command names short and focused (no prefixes).
+- **Modules**: Use RDNS module IDs like `com.company.devtools`.
+- **Avoid generic module IDs**: Prefer `com.company.tools` over `tools`.
+
+## Next Steps
+
+- [Implementations](./implementations) - Learn about platform-specific command implementations
+- [Runtime Modes](../runtime-modes/overview) - Understand native, virtual, and container execution
