@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 
 	"invowk-cli/pkg/invowkfile"
@@ -515,44 +516,57 @@ func TestEnvToSlice(t *testing.T) {
 	}
 }
 
-// TestFindEnvSeparator tests the helper function for finding '=' in env strings.
-func TestFindEnvSeparator(t *testing.T) {
+// TestStringsCutEnvSeparator verifies strings.Cut(e, "=") behaves correctly
+// for the environment variable parsing use case (replaces the removed findEnvSeparator).
+func TestStringsCutEnvSeparator(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name  string
-		input string
-		want  int
+		name    string
+		input   string
+		wantKey string
+		wantVal string
+		wantOk  bool
 	}{
 		{
-			name:  "simple key=value",
-			input: "FOO=bar",
-			want:  3,
+			name:    "simple key=value",
+			input:   "FOO=bar",
+			wantKey: "FOO",
+			wantVal: "bar",
+			wantOk:  true,
 		},
 		{
-			name:  "no separator",
-			input: "FOOBAR",
-			want:  -1,
+			name:    "no separator",
+			input:   "FOOBAR",
+			wantKey: "FOOBAR",
+			wantOk:  false,
 		},
 		{
-			name:  "empty string",
-			input: "",
-			want:  -1,
+			name:    "empty string",
+			input:   "",
+			wantKey: "",
+			wantOk:  false,
 		},
 		{
-			name:  "separator at start",
-			input: "=value",
-			want:  0,
+			name:    "separator at start",
+			input:   "=value",
+			wantKey: "",
+			wantVal: "value",
+			wantOk:  true,
 		},
 		{
-			name:  "multiple separators",
-			input: "FOO=bar=baz",
-			want:  3,
+			name:    "multiple separators",
+			input:   "FOO=bar=baz",
+			wantKey: "FOO",
+			wantVal: "bar=baz",
+			wantOk:  true,
 		},
 		{
-			name:  "empty value",
-			input: "FOO=",
-			want:  3,
+			name:    "empty value",
+			input:   "FOO=",
+			wantKey: "FOO",
+			wantVal: "",
+			wantOk:  true,
 		},
 	}
 
@@ -560,9 +574,15 @@ func TestFindEnvSeparator(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			got := findEnvSeparator(tt.input)
-			if got != tt.want {
-				t.Errorf("findEnvSeparator(%q) = %d, want %d", tt.input, got, tt.want)
+			key, val, ok := strings.Cut(tt.input, "=")
+			if key != tt.wantKey {
+				t.Errorf("strings.Cut(%q, \"=\") key = %q, want %q", tt.input, key, tt.wantKey)
+			}
+			if val != tt.wantVal {
+				t.Errorf("strings.Cut(%q, \"=\") val = %q, want %q", tt.input, val, tt.wantVal)
+			}
+			if ok != tt.wantOk {
+				t.Errorf("strings.Cut(%q, \"=\") ok = %v, want %v", tt.input, ok, tt.wantOk)
 			}
 		})
 	}
