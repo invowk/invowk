@@ -52,6 +52,6 @@ jobs:
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v8
         with:
-          version: v2.8.0
+          version: v2.9.0
           # Run full-codebase lint (not just new issues) so CI matches local `make lint`
           only-new-issues: false
