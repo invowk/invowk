@@ -2,7 +2,7 @@
   "hooks": {
     "PreToolUse": [
       {
-        "matcher": "Edit|Write",
+        "matcher": "Edit|Write|Update",
         "hooks": [
           {
             "type": "command",
@@ -14,7 +14,7 @@
     ],
     "PostToolUse": [
       {
-        "matcher": "Edit|Write",
+        "matcher": "Edit|Write|Update",
         "hooks": [
           {
             "type": "command",
@@ -50,11 +50,6 @@
             "type": "command",
             "command": "has_website=false; for f in $CLAUDE_FILE_PATHS; do case \"$f\" in */website/*) has_website=true; break;; esac; done; if $has_website; then cd website 2>/dev/null && npm run build --silent 2>&1 | tail -5; fi; true",
             "timeout": 120000
-          },
-          {
-            "type": "command",
-            "command": "touch /tmp/claude-work-$PPID; rm -f /tmp/claude-learn-$PPID; true",
-            "timeout": 2000
           }
         ]
       },
@@ -109,7 +104,7 @@
           },
           {
             "type": "command",
-            "command": "[ -f /tmp/claude-work-$PPID ] && [ ! -f /tmp/claude-learn-$PPID ] && echo 'You made code changes this session. Unless you were just answering questions, planning, or doing something without code changes, run /learn to check for stale CLAUDE.md, rules, or skills before finishing.' || true",
+            "command": "echo 'If you made any changes this session (code, config, docs, workflows, rules, skills, hooks, etc.), run /learn before finishing to check for stale CLAUDE.md, rules, or skills.'",
             "timeout": 2000
           }
         ]
