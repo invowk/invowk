@@ -58,7 +58,9 @@ func GenerateCUE(inv *Invowkfile) string {
 	return sb.String()
 }
 
-// generateDependsOn generates CUE for a DependsOn block
+// generateDependsOn generates CUE for a DependsOn block at root level.
+// Delegates to generateDependsOnContent for the inner fields, following the same
+// pattern as generateCommandDependsOn and generateImplDependsOn.
 func generateDependsOn(sb *strings.Builder, deps *DependsOn, indent string) {
 	if deps == nil {
 		return
@@ -70,129 +72,7 @@ func generateDependsOn(sb *strings.Builder, deps *DependsOn, indent string) {
 
 	baseIndent := strings.TrimSuffix(indent, "\t")
 	sb.WriteString(baseIndent + "depends_on: {\n")
-
-	if len(deps.Tools) > 0 {
-		sb.WriteString(indent + "tools: [\n")
-		for _, tool := range deps.Tools {
-			sb.WriteString(indent + "\t{alternatives: [")
-			for i, alt := range tool.Alternatives {
-				if i > 0 {
-					sb.WriteString(", ")
-				}
-				fmt.Fprintf(sb, "%q", alt)
-			}
-			sb.WriteString("]},\n")
-		}
-		sb.WriteString(indent + "]\n")
-	}
-
-	if len(deps.Commands) > 0 {
-		sb.WriteString(indent + "cmds: [\n")
-		for _, dep := range deps.Commands {
-			sb.WriteString(indent + "\t{alternatives: [")
-			for i, alt := range dep.Alternatives {
-				if i > 0 {
-					sb.WriteString(", ")
-				}
-				fmt.Fprintf(sb, "%q", alt)
-			}
-			sb.WriteString("]},\n")
-		}
-		sb.WriteString(indent + "]\n")
-	}
-
-	if len(deps.Filepaths) > 0 {
-		sb.WriteString(indent + "filepaths: [\n")
-		for _, fp := range deps.Filepaths {
-			sb.WriteString(indent + "\t{alternatives: [")
-			for i, alt := range fp.Alternatives {
-				if i > 0 {
-					sb.WriteString(", ")
-				}
-				fmt.Fprintf(sb, "%q", alt)
-			}
-			sb.WriteString("]")
-			if fp.Readable {
-				sb.WriteString(", readable: true")
-			}
-			if fp.Writable {
-				sb.WriteString(", writable: true")
-			}
-			if fp.Executable {
-				sb.WriteString(", executable: true")
-			}
-			sb.WriteString("},\n")
-		}
-		sb.WriteString(indent + "]\n")
-	}
-
-	if len(deps.Capabilities) > 0 {
-		sb.WriteString(indent + "capabilities: [\n")
-		for _, cap := range deps.Capabilities {
-			sb.WriteString(indent + "\t{alternatives: [")
-			for i, alt := range cap.Alternatives {
-				if i > 0 {
-					sb.WriteString(", ")
-				}
-				fmt.Fprintf(sb, "%q", alt)
-			}
-			sb.WriteString("]},\n")
-		}
-		sb.WriteString(indent + "]\n")
-	}
-
-	if len(deps.CustomChecks) > 0 {
-		sb.WriteString(indent + "custom_checks: [\n")
-		for _, check := range deps.CustomChecks {
-			if check.IsAlternatives() {
-				sb.WriteString(indent + "\t{alternatives: [\n")
-				for _, alt := range check.Alternatives {
-					sb.WriteString(indent + "\t\t{")
-					fmt.Fprintf(sb, "name: %q, check_script: %q", alt.Name, alt.CheckScript)
-					if alt.ExpectedCode != nil {
-						fmt.Fprintf(sb, ", expected_code: %d", *alt.ExpectedCode)
-					}
-					if alt.ExpectedOutput != "" {
-						fmt.Fprintf(sb, ", expected_output: %q", alt.ExpectedOutput)
-					}
-					sb.WriteString("},\n")
-				}
-				sb.WriteString(indent + "\t]},\n")
-			} else {
-				sb.WriteString(indent + "\t{")
-				fmt.Fprintf(sb, "name: %q, check_script: %q", check.Name, check.CheckScript)
-				if check.ExpectedCode != nil {
-					fmt.Fprintf(sb, ", expected_code: %d", *check.ExpectedCode)
-				}
-				if check.ExpectedOutput != "" {
-					fmt.Fprintf(sb, ", expected_output: %q", check.ExpectedOutput)
-				}
-				sb.WriteString("},\n")
-			}
-		}
-		sb.WriteString(indent + "]\n")
-	}
-
-	if len(deps.EnvVars) > 0 {
-		sb.WriteString(indent + "env_vars: [\n")
-		for _, envVar := range deps.EnvVars {
-			sb.WriteString(indent + "\t{alternatives: [")
-			for i, alt := range envVar.Alternatives {
-				if i > 0 {
-					sb.WriteString(", ")
-				}
-				sb.WriteString("{")
-				fmt.Fprintf(sb, "name: %q", alt.Name)
-				if alt.Validation != "" {
-					fmt.Fprintf(sb, ", validation: %q", alt.Validation)
-				}
-				sb.WriteString("}")
-			}
-			sb.WriteString("]},\n")
-		}
-		sb.WriteString(indent + "]\n")
-	}
-
+	generateDependsOnContent(sb, deps, indent)
 	sb.WriteString(baseIndent + "}\n")
 }
 
