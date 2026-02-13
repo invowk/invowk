@@ -158,24 +158,24 @@
 
 ---
 
-## Phase 5: User Story 3 - External Consumer Using `pkg/invkmod` (Priority: P2)
+## Phase 5: User Story 3 - External Consumer Using `pkg/invowkmod` (Priority: P2)
 
-**Goal**: Fix architectural layering violation by ensuring `pkg/invkmod` has no imports from `internal/`
+**Goal**: Fix architectural layering violation by ensuring `pkg/invowkmod` has no imports from `internal/`
 
-**Independent Test**: Run `go list -f '{{.Imports}}' ./pkg/invkmod/...` and verify no `internal/` imports
+**Independent Test**: Run `go list -f '{{.Imports}}' ./pkg/invowkmod/...` and verify no `internal/` imports
 
 ### Implementation for User Story 3
 
-- [X] T068 [US3] Update import in `pkg/invkmod/operations.go` from `internal/platform` to `invowk-cli/pkg/platform`
-- [X] T069 [US3] Update import in `pkg/invkfile/validation.go` from `internal/platform` to `invowk-cli/pkg/platform`
+- [X] T068 [US3] Update import in `pkg/invowkmod/operations.go` from `internal/platform` to `invowk-cli/pkg/platform`
+- [X] T069 [US3] Update import in `pkg/invowkfile/validation.go` from `internal/platform` to `invowk-cli/pkg/platform`
 - [X] T070 [US3] Run `make test` to verify imports resolve correctly
-- [X] T071 [US3] Verify no internal imports: `go list -f '{{.Imports}}' ./pkg/invkmod/... | grep internal && exit 1 || echo "No internal imports found"`
+- [X] T071 [US3] Verify no internal imports: `go list -f '{{.Imports}}' ./pkg/invowkmod/... | grep internal && exit 1 || echo "No internal imports found"`
 - [X] T072 [US3] Delete `internal/platform/windows.go`
 - [X] T073 [US3] Delete `internal/platform/windows_test.go` (file did not exist in internal/)
 - [X] T074 [US3] Delete empty `internal/platform/` directory
 - [X] T075 [US3] Run `make test && make lint` for full verification
 
-**Checkpoint**: User Story 3 complete - pkg/invkmod has no internal imports
+**Checkpoint**: User Story 3 complete - pkg/invowkmod has no internal imports
 
 ---
 
@@ -236,7 +236,7 @@
 - [X] T099 Run dependency tidy: `make tidy`
 - [X] T100 Verify success criteria SC-001: No file exceeds 800 lines (cmd_validate.go at 920 is documented as expected)
 - [X] T101 Verify success criteria SC-002: All runtimes implement CapturingRuntime
-- [X] T102 Verify success criteria SC-003: pkg/invkmod has zero internal imports
+- [X] T102 Verify success criteria SC-003: pkg/invowkmod has zero internal imports
 - [X] T103 Verify success criteria SC-004: native.go duplication reduced by ~30% (403 lines, down from 578)
 
 **Phase 7 Complete**: All verification tasks passed. Implementation meets all success criteria.
@@ -289,7 +289,7 @@ Task: "Create cmd/invowk/cmd_render.go with SPDX header"
 Task: "Analyze current Execute() method in internal/runtime/container.go"
 
 # Developer C: User Story 3 (layering fix)
-Task: "Update import in pkg/invkmod/operations.go"
+Task: "Update import in pkg/invowkmod/operations.go"
 
 # Developer D: User Story 4 (deduplication)
 Task: "Create internal/runtime/native_helpers.go with SPDX header"

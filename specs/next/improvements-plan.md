@@ -393,7 +393,7 @@ type ExecutionContext struct {
 
     // Configuration
     WorkDir       string
-    SelectedImpl  *invkfile.Implementation
+    SelectedImpl  *invowkfile.Implementation
 
     // TUI integration
     TUIServerURL   string
@@ -432,9 +432,9 @@ type ExecutionContext struct {
     Context context.Context
 
     // Core execution
-    Command      *invkfile.Command
-    Invkfile     *invkfile.Invkfile
-    SelectedImpl *invkfile.Implementation
+    Command      *invowkfile.Command
+    Invowkfile     *invowkfile.Invowkfile
+    SelectedImpl *invowkfile.Implementation
 
     // Sub-contexts
     IO  IOContext
@@ -504,7 +504,7 @@ type ExecutionContext struct {
 2. **Provisioning**:
    - Test binary mounting works
    - Test module directory mounting
-   - Test invkfile availability in container
+   - Test invowkfile availability in container
 
 3. **SSH callback**:
    - Test host access from container
@@ -591,8 +591,8 @@ type DotenvLoader interface {
    // 1. ExtraEnv from ExecutionContext
    // 2. RuntimeEnvVars from command definition
    // 3. RuntimeEnvFiles (.env files from command)
-   // 4. Command-level env from invkfile
-   // 5. Invkfile-level env
+   // 4. Command-level env from invowkfile
+   // 5. Invowkfile-level env
    // 6. Module-level env (if in module context)
    // 7. User config env
    // 8. System environment (if inherit mode allows)
@@ -663,7 +663,7 @@ internal/provision/
    //
    // This package provides the Provisioner interface and implementations for
    // preparing container images with the necessary resources (invowk binary,
-   // modules, invkfiles) for command execution.
+   // modules, invowkfiles) for command execution.
    package provision
    ```
 
@@ -684,7 +684,7 @@ internal/provision/
        Containerfile  string
        BinaryPath     string
        Modules        []ModuleMount
-       Invkfiles      []InvkfileMount
+       Invowkfiles      []InvowkfileMount
        ForceRebuild   bool  // Addresses TODO in container_provision.go
    }
    ```
@@ -715,33 +715,33 @@ internal/provision/
 
 ---
 
-### 3.3 Create Validator Interface for Invkfile Validation
+### 3.3 Create Validator Interface for Invowkfile Validation
 
 **Priority**: Low
 **Effort**: Medium
 **Impact**: Medium (enables custom validation)
 
-**Problem**: 5 validation files in `pkg/invkfile/` have similar patterns but no shared interface, making it hard to add custom validators.
+**Problem**: 5 validation files in `pkg/invowkfile/` have similar patterns but no shared interface, making it hard to add custom validators.
 
 **Current Files**:
 - `validation_container.go` - Container-specific validation
 - `validation_filesystem.go` - File path validation
 - `validation_primitives.go` - Basic type validation
-- `invkfile_validation_deps.go` - Dependency validation
-- `invkfile_validation_struct.go` - Structure validation
+- `invowkfile_validation_deps.go` - Dependency validation
+- `invowkfile_validation_struct.go` - Structure validation
 
 **Proposed Design**:
 ```go
-// Validator validates an Invkfile and returns any errors.
+// Validator validates an Invowkfile and returns any errors.
 type Validator interface {
-    // Validate checks the invkfile and returns validation errors.
+    // Validate checks the invowkfile and returns validation errors.
     // The context provides access to filesystem and environment.
-    Validate(ctx *ValidationContext, inv *Invkfile) []ValidationError
+    Validate(ctx *ValidationContext, inv *Invowkfile) []ValidationError
 }
 
 // ValidationContext provides context for validation.
 type ValidationContext struct {
-    // WorkDir is the directory containing the invkfile
+    // WorkDir is the directory containing the invowkfile
     WorkDir string
     // FileSystem allows validators to check file existence
     FileSystem FileSystem
@@ -769,8 +769,8 @@ type CompositeValidator struct {
 2. **Refactor existing validators** to implement interface:
    - `ContainerValidator` from `validation_container.go`
    - `FilesystemValidator` from `validation_filesystem.go`
-   - `DependencyValidator` from `invkfile_validation_deps.go`
-   - `StructureValidator` from `invkfile_validation_struct.go`
+   - `DependencyValidator` from `invowkfile_validation_deps.go`
+   - `StructureValidator` from `invowkfile_validation_struct.go`
 
 3. **Create `CompositeValidator`**:
    ```go
@@ -784,9 +784,9 @@ type CompositeValidator struct {
    }
    ```
 
-4. **Update `Validate()` method** on `Invkfile`:
+4. **Update `Validate()` method** on `Invowkfile`:
    ```go
-   func (inv *Invkfile) Validate(opts ...ValidateOption) []ValidationError {
+   func (inv *Invowkfile) Validate(opts ...ValidateOption) []ValidationError {
        ctx := &ValidationContext{...}
        validators := DefaultValidators()
        // Apply options to customize validators

@@ -90,8 +90,8 @@ func TestBuildRuntimeEnv(t *testing.T) {
 - [ ] `ExtraEnv` overrides all other sources
 - [ ] `RuntimeEnvVars` from command definition
 - [ ] `RuntimeEnvFiles` (.env file loading)
-- [ ] Command-level env from invkfile
-- [ ] Invkfile-level env
+- [ ] Command-level env from invowkfile
+- [ ] Invowkfile-level env
 - [ ] INVOWK_* variables are filtered correctly
 - [ ] Precedence order is correct (higher overrides lower)
 
@@ -129,20 +129,20 @@ func TestRuntimeExecute(t *testing.T) {
 func TestNativeRuntime_ScriptResolution(t *testing.T) {
     tests := []struct {
         name       string
-        impl       *invkfile.Implementation
+        impl       *invowkfile.Implementation
         wantScript string
         wantErr    bool
     }{
         {
             name: "inline script",
-            impl: &invkfile.Implementation{
+            impl: &invowkfile.Implementation{
                 Script: "echo hello",
             },
             wantScript: "echo hello",
         },
         {
             name: "file reference",
-            impl: &invkfile.Implementation{
+            impl: &invowkfile.Implementation{
                 File: "scripts/build.sh",
             },
             wantScript: "#!/bin/bash\necho building...",

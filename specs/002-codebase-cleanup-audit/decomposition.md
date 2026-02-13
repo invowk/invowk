@@ -99,7 +99,7 @@ Command discovery, registration with Cobra, and listing.
 
 package cmd
 
-// This file handles command discovery from invkfiles and modules,
+// This file handles command discovery from invowkfiles and modules,
 // registration with Cobra, and command listing.
 ```
 
@@ -117,7 +117,7 @@ package cmd
 | `formatSourceDisplayName()` | 823-837 | 15 | Formats source ID for display |
 
 ### Dependencies
-- Imports: `discovery`, `invkfile`, `config`
+- Imports: `discovery`, `invowkfile`, `config`
 - Uses: `cmdCmd` (global), `listFlag` (global), `fromSource` (global)
 
 ---
@@ -153,7 +153,7 @@ package cmd
 | `stopSSHServer()` | 1445-1464 | 20 | SSH server cleanup |
 
 ### Dependencies
-- Imports: `runtime`, `sshserver`, `tuiserver`, `tui`, `config`, `invkfile`
+- Imports: `runtime`, `sshserver`, `tuiserver`, `tui`, `config`, `invowkfile`
 - Uses: `sshServerInstance`, `sshServerMu`, `runtimeOverride` (globals)
 - Calls: `validateDependencies()` (from cmd_validate.go)
 - Calls: `validateFlagValues()`, `validateArguments()` (from cmd_validate_input.go)
@@ -230,7 +230,7 @@ package cmd
 | `checkEnvVarDependencies()` | 2287-2357 | 71 | Environment variable check |
 
 ### Dependencies
-- Imports: `runtime`, `invkfile`
+- Imports: `runtime`, `invowkfile`
 - Returns: `*DependencyError` (from cmd.go)
 
 ---
@@ -292,7 +292,7 @@ package cmd
 | `RenderAmbiguousCommandError()` | 2879-2927 | 49 | **Exported** ambiguity error |
 
 ### Dependencies
-- Imports: `lipgloss`, `invkfile`
+- Imports: `lipgloss`, `invowkfile`
 - Uses: Error types from cmd.go
 
 ---

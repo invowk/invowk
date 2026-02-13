@@ -1,4 +1,4 @@
-# Issue: Create Validator Interface for Invkfile Validation
+# Issue: Create Validator Interface for Invowkfile Validation
 
 **Category**: Architecture
 **Priority**: Low
@@ -7,16 +7,16 @@
 
 ## Summary
 
-Create a `Validator` interface for invkfile validation to enable custom validators and improve code organization. Currently, 5 validation files have similar patterns but no shared interface.
+Create a `Validator` interface for invowkfile validation to enable custom validators and improve code organization. Currently, 5 validation files have similar patterns but no shared interface.
 
 ## Problem
 
-**Current validation files** in `pkg/invkfile/`:
+**Current validation files** in `pkg/invowkfile/`:
 - `validation_container.go` - Container-specific validation
 - `validation_filesystem.go` - File path validation
 - `validation_primitives.go` - Basic type validation
-- `invkfile_validation_deps.go` - Dependency validation
-- `invkfile_validation_struct.go` - Structure validation
+- `invowkfile_validation_deps.go` - Dependency validation
+- `invowkfile_validation_struct.go` - Structure validation
 
 **Issues**:
 1. No shared interface - validators are ad-hoc functions
@@ -31,29 +31,29 @@ Create a `Validator` interface with `CompositeValidator` for chaining:
 ### Interface Definitions
 
 ```go
-// pkg/invkfile/validation.go
+// pkg/invowkfile/validation.go
 
 // SPDX-License-Identifier: MPL-2.0
 
-package invkfile
+package invowkfile
 
 import (
     "io/fs"
 )
 
-// Validator validates an Invkfile and returns validation errors.
+// Validator validates an Invowkfile and returns validation errors.
 type Validator interface {
     // Name returns the validator name for error reporting.
     Name() string
 
-    // Validate checks the invkfile and returns validation errors.
+    // Validate checks the invowkfile and returns validation errors.
     // Validators should return all errors found, not stop at first error.
-    Validate(ctx *ValidationContext, inv *Invkfile) []ValidationError
+    Validate(ctx *ValidationContext, inv *Invowkfile) []ValidationError
 }
 
 // ValidationContext provides context for validation.
 type ValidationContext struct {
-    // WorkDir is the directory containing the invkfile
+    // WorkDir is the directory containing the invowkfile
     WorkDir string
 
     // FS allows validators to check file existence (defaults to os filesystem)
@@ -101,7 +101,7 @@ func (e ValidationError) Error() string {
 ### Composite Validator
 
 ```go
-// pkg/invkfile/validation_composite.go
+// pkg/invowkfile/validation_composite.go
 
 // CompositeValidator runs multiple validators in sequence.
 type CompositeValidator struct {
@@ -119,7 +119,7 @@ func (c *CompositeValidator) Name() string {
 }
 
 // Validate runs all validators and collects errors.
-func (c *CompositeValidator) Validate(ctx *ValidationContext, inv *Invkfile) []ValidationError {
+func (c *CompositeValidator) Validate(ctx *ValidationContext, inv *Invowkfile) []ValidationError {
     var errors []ValidationError
     for _, v := range c.validators {
         errors = append(errors, v.Validate(ctx, inv)...)
@@ -136,7 +136,7 @@ func (c *CompositeValidator) Add(v Validator) {
 ### Default Validators
 
 ```go
-// pkg/invkfile/validation_defaults.go
+// pkg/invowkfile/validation_defaults.go
 
 // DefaultValidators returns the standard set of validators.
 func DefaultValidators() []Validator {
@@ -158,16 +158,16 @@ func NewDefaultValidator() *CompositeValidator {
 ### Refactored Validators
 
 ```go
-// pkg/invkfile/validation_structure.go
+// pkg/invowkfile/validation_structure.go
 
-// StructureValidator validates the overall invkfile structure.
+// StructureValidator validates the overall invowkfile structure.
 type StructureValidator struct{}
 
 func (v *StructureValidator) Name() string {
     return "structure"
 }
 
-func (v *StructureValidator) Validate(ctx *ValidationContext, inv *Invkfile) []ValidationError {
+func (v *StructureValidator) Validate(ctx *ValidationContext, inv *Invowkfile) []ValidationError {
     var errors []ValidationError
 
     // Validate command names
@@ -197,7 +197,7 @@ func (v *StructureValidator) Validate(ctx *ValidationContext, inv *Invkfile) []V
 ```
 
 ```go
-// pkg/invkfile/validation_container.go
+// pkg/invowkfile/validation_container.go
 
 // ContainerValidator validates container-specific configuration.
 type ContainerValidator struct{}
@@ -206,7 +206,7 @@ func (v *ContainerValidator) Name() string {
     return "container"
 }
 
-func (v *ContainerValidator) Validate(ctx *ValidationContext, inv *Invkfile) []ValidationError {
+func (v *ContainerValidator) Validate(ctx *ValidationContext, inv *Invowkfile) []ValidationError {
     var errors []ValidationError
 
     for cmdName, cmd := range inv.Cmds {
@@ -243,10 +243,10 @@ func (v *ContainerValidator) Validate(ctx *ValidationContext, inv *Invkfile) []V
 }
 ```
 
-### Updated Invkfile.Validate()
+### Updated Invowkfile.Validate()
 
 ```go
-// pkg/invkfile/invkfile.go
+// pkg/invowkfile/invowkfile.go
 
 // ValidateOption configures validation behavior.
 type ValidateOption func(*validateOptions)
@@ -270,8 +270,8 @@ func WithValidationContext(ctx *ValidationContext) ValidateOption {
     }
 }
 
-// Validate checks the invkfile for errors.
-func (inv *Invkfile) Validate(opts ...ValidateOption) []ValidationError {
+// Validate checks the invowkfile for errors.
+func (inv *Invowkfile) Validate(opts ...ValidateOption) []ValidationError {
     options := &validateOptions{
         validators: DefaultValidators(),
         ctx: &ValidationContext{
@@ -306,20 +306,20 @@ func HasErrors(errs []ValidationError) bool {
 
 | File | Description |
 |------|-------------|
-| `pkg/invkfile/validation.go` | Interface definitions |
-| `pkg/invkfile/validation_composite.go` | CompositeValidator |
-| `pkg/invkfile/validation_defaults.go` | Default validators list |
+| `pkg/invowkfile/validation.go` | Interface definitions |
+| `pkg/invowkfile/validation_composite.go` | CompositeValidator |
+| `pkg/invowkfile/validation_defaults.go` | Default validators list |
 
 ### Files to Refactor
 
 | File | Changes |
 |------|---------|
-| `pkg/invkfile/validation_container.go` | Implement `Validator` interface |
-| `pkg/invkfile/validation_filesystem.go` | Implement `Validator` interface |
-| `pkg/invkfile/validation_primitives.go` | Implement `Validator` interface |
-| `pkg/invkfile/invkfile_validation_deps.go` | Implement `Validator` interface |
-| `pkg/invkfile/invkfile_validation_struct.go` | Implement `Validator` interface |
-| `pkg/invkfile/invkfile.go` | Update `Validate()` method |
+| `pkg/invowkfile/validation_container.go` | Implement `Validator` interface |
+| `pkg/invowkfile/validation_filesystem.go` | Implement `Validator` interface |
+| `pkg/invowkfile/validation_primitives.go` | Implement `Validator` interface |
+| `pkg/invowkfile/invowkfile_validation_deps.go` | Implement `Validator` interface |
+| `pkg/invowkfile/invowkfile_validation_struct.go` | Implement `Validator` interface |
+| `pkg/invowkfile/invowkfile.go` | Update `Validate()` method |
 
 ## Implementation Steps
 
@@ -329,9 +329,9 @@ func HasErrors(errs []ValidationError) bool {
 4. [ ] Refactor `validation_container.go` to implement interface
 5. [ ] Refactor `validation_filesystem.go` to implement interface
 6. [ ] Refactor `validation_primitives.go` to implement interface
-7. [ ] Refactor `invkfile_validation_deps.go` to implement interface
-8. [ ] Refactor `invkfile_validation_struct.go` to implement interface
-9. [ ] Update `Invkfile.Validate()` to use composite
+7. [ ] Refactor `invowkfile_validation_deps.go` to implement interface
+8. [ ] Refactor `invowkfile_validation_struct.go` to implement interface
+9. [ ] Update `Invowkfile.Validate()` to use composite
 10. [ ] Add functional options for customization
 11. [ ] Add tests for each validator
 12. [ ] Add tests for composite behavior
@@ -352,10 +352,10 @@ func HasErrors(errs []ValidationError) bool {
 
 ```bash
 # Run validation tests
-go test -v ./pkg/invkfile/... -run Validation
+go test -v ./pkg/invowkfile/... -run Validation
 
 # Verify CLI validation still works
-invowk validate invkfile.cue
+invowk validate invowkfile.cue
 ```
 
 ## Example Custom Validator
@@ -366,7 +366,7 @@ type NoSudoValidator struct{}
 
 func (v *NoSudoValidator) Name() string { return "no-sudo" }
 
-func (v *NoSudoValidator) Validate(ctx *ValidationContext, inv *Invkfile) []ValidationError {
+func (v *NoSudoValidator) Validate(ctx *ValidationContext, inv *Invowkfile) []ValidationError {
     var errors []ValidationError
     for name, cmd := range inv.Cmds {
         for i, impl := range cmd.Impls {

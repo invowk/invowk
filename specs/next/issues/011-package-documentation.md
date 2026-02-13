@@ -18,7 +18,7 @@ Several internal packages lack `doc.go` files with package-level documentation. 
 
 **Existing good examples**:
 - `internal/tui/doc.go` - Documents TUI components
-- `pkg/invkfile/doc.go` - Documents invkfile parsing
+- `pkg/invowkfile/doc.go` - Documents invowkfile parsing
 
 ## Solution
 
@@ -131,10 +131,10 @@ package runtime
 ```go
 // SPDX-License-Identifier: MPL-2.0
 
-// Package discovery handles invkfile and invkmod discovery and command aggregation.
+// Package discovery handles invowkfile and invowkmod discovery and command aggregation.
 //
 // This package intentionally combines two related concerns:
-//   - File discovery: locating invkfile.cue and invkmod directories
+//   - File discovery: locating invowkfile.cue and invowkmod directories
 //   - Command aggregation: building the unified command tree from discovered files
 //
 // These concerns are tightly coupled because command aggregation depends directly
@@ -144,8 +144,8 @@ package runtime
 // # Discovery Process
 //
 // The discovery process:
-//  1. Searches for invkfile.cue in the current directory and parent directories
-//  2. Searches for *.invkmod directories in configured search paths
+//  1. Searches for invowkfile.cue in the current directory and parent directories
+//  2. Searches for *.invowkmod directories in configured search paths
 //  3. Resolves module dependencies
 //  4. Builds the aggregated command tree
 //
@@ -160,13 +160,13 @@ package runtime
 //
 // # Module Resolution
 //
-// Modules are identified by their directory name (*.invkmod). Dependencies
+// Modules are identified by their directory name (*.invowkmod). Dependencies
 // between modules are resolved using semantic versioning when available.
 //
 // # Command Aggregation
 //
 // Commands from multiple sources are aggregated with the following precedence:
-//  1. Local invkfile.cue (highest)
+//  1. Local invowkfile.cue (highest)
 //  2. First-level module dependencies
 //  3. Default commands (lowest)
 //
@@ -209,6 +209,6 @@ make lint
 ## Notes
 
 - This is a good first issue for new contributors
-- Follow existing patterns from `internal/tui/doc.go` and `pkg/invkfile/doc.go`
+- Follow existing patterns from `internal/tui/doc.go` and `pkg/invowkfile/doc.go`
 - Include code examples where helpful
 - Document any non-obvious design decisions

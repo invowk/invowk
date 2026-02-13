@@ -521,6 +521,13 @@ func executeInteractive(ctx *runtime.ExecutionContext, registry *runtime.Registr
 	}
 	defer func() { _ = tuiServer.Stop() }() // Best-effort cleanup.
 
+	// Rewrite the TUI server URL for container runtimes. The TUI server
+	// listens on the host's localhost, but a container's network namespace
+	// isolates it from the host — "localhost" inside the container refers to
+	// the container itself, not the host. We replace localhost with the
+	// engine-specific host-reachable address (e.g., "host.docker.internal"
+	// for Docker, or the host gateway IP for Podman) so the containerized
+	// command can call back to the TUI server over the bridge network.
 	var tuiServerURL string
 	if containerRT, ok := interactiveRT.(*runtime.ContainerRuntime); ok {
 		hostAddr := containerRT.GetHostAddressForContainer()

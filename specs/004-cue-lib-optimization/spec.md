@@ -28,7 +28,7 @@ As a developer extending Invowk's CUE schemas, I want schema validation to be ro
 **Acceptance Scenarios**:
 
 1. **Given** a CUE schema with a field `default_shell`, **When** the corresponding Go struct tag is changed to `defaultShell` (incorrect), **Then** the test suite detects and reports the mismatch before code is merged.
-2. **Given** a CUE schema field is renamed from `commands` to `cmds`, **When** invkfile files using the old field name are parsed, **Then** validation fails with a clear error message mentioning the field name change.
+2. **Given** a CUE schema field is renamed from `commands` to `cmds`, **When** invowkfile files using the old field name are parsed, **Then** validation fails with a clear error message mentioning the field name change.
 3. **Given** a new field is added to the CUE schema, **When** the Go struct is not updated with the corresponding field, **Then** tests fail with an explicit message about the missing field.
 
 ---
@@ -108,7 +108,7 @@ As a contributor, I want clear rules about how to use CUE in this codebase so th
 
 ### Key Entities
 
-- **CUE Schema**: Defines the structure and constraints for configuration files (invkfile.cue, invkmod.cue, config.cue).
+- **CUE Schema**: Defines the structure and constraints for configuration files (invowkfile.cue, invowkmod.cue, config.cue).
 - **Go Struct**: Target type for CUE decoding; must have JSON tags matching CUE field names.
 - **Validation Rule**: A constraint that must be satisfied; lives in CUE schema or Go code (not both).
 - **Rules File**: Documentation at `.claude/rules/cue.md` defining CUE usage patterns.

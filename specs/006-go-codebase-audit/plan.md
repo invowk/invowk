@@ -77,9 +77,9 @@ internal/                      # Private packages
 └── ...
 
 pkg/                           # Public packages
-├── invkfile/                  # Invkfile parsing (31 files, 12,671 lines)
+├── invowkfile/                  # Invowkfile parsing (31 files, 12,671 lines)
 │   └── parse.go               # Uses cueutil
-└── invkmod/                   # Module operations
+└── invowkmod/                   # Module operations
     └── operations.go → split  # Split by operation type
 ```
 
@@ -109,15 +109,15 @@ pkg/                           # Public packages
 | cmd/invowk/cmd_validate.go | 920 | → cmd_validate_runtime.go, cmd_validate_deps.go, cmd_validate_schema.go |
 | internal/runtime/container.go | 917 | → container_build.go, container_exec.go, container_provision.go |
 | internal/tui/interactive.go | 806 | → interactive_model.go, interactive_update.go, interactive_view.go |
-| pkg/invkmod/operations.go | 827 | → operations_validate.go, operations_create.go, operations_package.go |
+| pkg/invowkmod/operations.go | 827 | → operations_validate.go, operations_create.go, operations_package.go |
 
 ### Test Files Requiring Split (>800 lines)
 
 | File | Lines | Split Strategy |
 |------|-------|---------------|
 | internal/runtime/container_integration_test.go | 847 | → container_build_integration_test.go, container_exec_integration_test.go |
-| pkg/invkmod/operations_packaging_test.go | 817 | → operations_zip_test.go, operations_unzip_test.go |
-| pkg/invkfile/invkfile_flags_enhanced_test.go | 814 | → invkfile_flags_validation_test.go, invkfile_flags_parsing_test.go |
+| pkg/invowkmod/operations_packaging_test.go | 817 | → operations_zip_test.go, operations_unzip_test.go |
+| pkg/invowkfile/invowkfile_flags_enhanced_test.go | 814 | → invowkfile_flags_validation_test.go, invowkfile_flags_parsing_test.go |
 
 ### Duplication Patterns to Extract
 
@@ -151,7 +151,7 @@ Both engines have ~80% identical code:
 
 #### 3. CUE 3-Step Parsing
 
-Three implementations in `pkg/invkfile/parse.go`, `pkg/invkmod/invkmod.go`, `internal/config/config.go`:
+Three implementations in `pkg/invowkfile/parse.go`, `pkg/invowkmod/invowkmod.go`, `internal/config/config.go`:
 - Compile embedded schema
 - Compile user data and unify
 - Validate and decode to Go struct
@@ -160,7 +160,7 @@ Three implementations in `pkg/invkfile/parse.go`, `pkg/invkmod/invkmod.go`, `int
 ```go
 type ParseOptions struct {
     MaxFileSize  int64
-    SchemaPath   string  // e.g., "#Invkfile"
+    SchemaPath   string  // e.g., "#Invowkfile"
     Filename     string
 }
 
@@ -171,7 +171,7 @@ func ParseAndDecode[T any](schema, data []byte, opts ParseOptions) (*T, error)
 
 | Field | Current | Required by FR-008 |
 |-------|---------|-------------------|
-| `#Invkfile.default_shell` | `strings.MaxRunes(1024)` | ✅ Already present |
+| `#Invowkfile.default_shell` | `strings.MaxRunes(1024)` | ✅ Already present |
 | `#Command.description` | Optional, no validation | Add `=~"^\\s*\\S.*$"` (non-empty with content) |
 | `#RuntimeConfigContainer.image` | No constraint | Add `strings.MaxRunes(512)` |
 | `#RuntimeConfigNative.interpreter` | No length limit | Add `strings.MaxRunes(1024)` |
@@ -195,7 +195,7 @@ Suggestion: <how to fix>
 1. `internal/config/config.go` - Config loading errors (FR-011 says these are silently ignored)
 2. `internal/runtime/native.go` - Shell not found errors (FR-013 example)
 3. `internal/container/engine.go` - Container build failures (FR-013 example)
-4. `pkg/invkfile/parse.go` - CUE validation errors (already have paths, need suggestions)
+4. `pkg/invowkfile/parse.go` - CUE validation errors (already have paths, need suggestions)
 
 ---
 

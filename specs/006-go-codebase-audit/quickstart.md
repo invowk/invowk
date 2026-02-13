@@ -40,7 +40,7 @@ Before starting implementation:
 1. Create `ParseAndDecode[T]` generic function
 2. Create `FormatError` helper
 3. Create functional options (`WithMaxFileSize`, `WithConcrete`, `WithFilename`)
-4. Add tests for all three target types (Invkfile, Invkmod, Config)
+4. Add tests for all three target types (Invowkfile, Invowkmod, Config)
 
 **Verification**: `go test -v ./internal/cueutil/...`
 
@@ -109,22 +109,22 @@ Before starting implementation:
 
 **Goal**: All CUE parsing uses the shared `cueutil` package.
 
-#### Step 4.1: Migrate `pkg/invkfile/parse.go`
+#### Step 4.1: Migrate `pkg/invowkfile/parse.go`
 
 1. Import `internal/cueutil`
-2. Replace 3-step parsing with `cueutil.ParseAndDecode[Invkfile]`
-3. Keep invkfile-specific error handling
+2. Replace 3-step parsing with `cueutil.ParseAndDecode[Invowkfile]`
+3. Keep invowkfile-specific error handling
 4. Verify schema sync tests pass
 
-**Verification**: `go test -v ./pkg/invkfile/...`
+**Verification**: `go test -v ./pkg/invowkfile/...`
 
-#### Step 4.2: Migrate `pkg/invkmod/invkmod.go`
+#### Step 4.2: Migrate `pkg/invowkmod/invowkmod.go`
 
 1. Import `internal/cueutil`
-2. Replace 3-step parsing with `cueutil.ParseAndDecode[Invkmod]`
+2. Replace 3-step parsing with `cueutil.ParseAndDecode[Invowkmod]`
 3. Verify schema sync tests pass
 
-**Verification**: `go test -v ./pkg/invkmod/...`
+**Verification**: `go test -v ./pkg/invowkmod/...`
 
 #### Step 4.3: Migrate `internal/config/config.go`
 
@@ -190,7 +190,7 @@ Target files:
 
 **Verification**: `go test -v ./internal/tui/...`
 
-#### Step 5.5: Split `pkg/invkmod/operations.go` (827 lines)
+#### Step 5.5: Split `pkg/invowkmod/operations.go` (827 lines)
 
 Target files:
 - `operations.go` - Shared types and helpers (keep ~200 lines)
@@ -198,7 +198,7 @@ Target files:
 - `operations_create.go` - Create operations
 - `operations_package.go` - Package/unpackage operations
 
-**Verification**: `go test -v ./pkg/invkmod/...`
+**Verification**: `go test -v ./pkg/invowkmod/...`
 
 ---
 
@@ -212,17 +212,17 @@ Target files:
 - `container_build_integration_test.go` - Build tests
 - `container_exec_integration_test.go` - Execution tests
 
-#### Step 6.2: Split `pkg/invkmod/operations_packaging_test.go` (817 lines)
+#### Step 6.2: Split `pkg/invowkmod/operations_packaging_test.go` (817 lines)
 
 Target files:
 - `operations_zip_test.go` - Zip/package tests
 - `operations_unzip_test.go` - Unzip/extract tests
 
-#### Step 6.3: Split `pkg/invkfile/invkfile_flags_enhanced_test.go` (814 lines)
+#### Step 6.3: Split `pkg/invowkfile/invowkfile_flags_enhanced_test.go` (814 lines)
 
 Target files:
-- `invkfile_flags_validation_test.go` - Flag validation tests
-- `invkfile_flags_parsing_test.go` - Flag parsing tests
+- `invowkfile_flags_validation_test.go` - Flag validation tests
+- `invowkfile_flags_parsing_test.go` - Flag parsing tests
 
 **Verification**: `make test` (all tests pass)
 
@@ -232,7 +232,7 @@ Target files:
 
 **Goal**: Add missing validation constraints per FR-008/FR-009.
 
-#### Step 7.1: Update `pkg/invkfile/invkfile_schema.cue`
+#### Step 7.1: Update `pkg/invowkfile/invowkfile_schema.cue`
 
 Add constraints:
 ```cue
@@ -259,7 +259,7 @@ default_value?: string & strings.MaxRunes(4096)
 
 1. Add boundary tests for new constraints
 2. Verify error messages include CUE paths
-3. Run `go test -v ./pkg/invkfile/...` including sync tests
+3. Run `go test -v ./pkg/invowkfile/...` including sync tests
 
 **Verification**: `make lint && make test`
 
@@ -331,7 +331,7 @@ After each phase, verify:
 2. **Unit Tests**: `make test`
 3. **CLI Tests**: `make test-cli` (if CLI affected)
 4. **License Headers**: `make license-check` (for new files)
-5. **Module Validation**: `go run . module validate modules/*.invkmod --deep`
+5. **Module Validation**: `go run . module validate modules/*.invowkmod --deep`
 
 ---
 

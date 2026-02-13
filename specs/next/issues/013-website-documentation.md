@@ -46,7 +46,7 @@ troubleshooting issues or contributing to the project.
 ## Execution Flow
 
 ```
-invkfile.cue → CUE Parser → pkg/invkfile → Runtime Selection → Execution
+invowkfile.cue → CUE Parser → pkg/invowkfile → Runtime Selection → Execution
                                                   │
                                   ┌───────────────┼───────────────┐
                                   │               │               │
@@ -58,9 +58,9 @@ invkfile.cue → CUE Parser → pkg/invkfile → Runtime Selection → Execution
 
 ### CUE Parser
 Invowk uses CUE for configuration files. The parser:
-1. Reads `invkfile.cue` and validates against the schema
+1. Reads `invowkfile.cue` and validates against the schema
 2. Unifies with default values
-3. Produces a typed `Invkfile` structure
+3. Produces a typed `Invowkfile` structure
 
 ### Runtime Selection
 When you run a command, invowk selects the appropriate runtime:
@@ -94,7 +94,7 @@ When executing commands, environment variables follow a 10-level precedence:
 2. Runtime env vars from command
 3. Runtime env files (`.env`)
 4. Command-level env
-5. Invkfile-level env
+5. Invowkfile-level env
 6. Module-level env
 7. User config env
 8. System environment (if inherited)
@@ -151,7 +151,7 @@ Common issues and their solutions.
 **Problem**: invowk can't find the script file.
 
 **Solutions**:
-1. Use absolute paths or paths relative to invkfile location
+1. Use absolute paths or paths relative to invowkfile location
 2. Check file permissions
 3. On Windows, ensure forward slashes in paths
 
@@ -161,7 +161,7 @@ Common issues and their solutions.
 
 **Solutions**:
 1. Check module exists in search paths
-2. Verify module name matches directory (e.g., `com.example.tools.invkmod`)
+2. Verify module name matches directory (e.g., `com.example.tools.invowkmod`)
 3. Run `invowk module list` to see discovered modules
 
 ## Environment Issues
@@ -181,7 +181,7 @@ Common issues and their solutions.
 
 **Solutions**:
 1. Ensure file is named `.env` (with leading dot)
-2. Check file path is relative to invkfile location
+2. Check file path is relative to invowkfile location
 3. Verify file format: `KEY=value` (no spaces around `=`)
 
 ## Debug Mode
@@ -309,8 +309,8 @@ internal/       - Private packages
   runtime/      - Execution runtimes
   tui/          - Terminal UI components
 pkg/            - Public packages
-  invkfile/     - Invkfile parsing and types
-  invkmod/      - Module parsing and types
+  invowkfile/     - Invowkfile parsing and types
+  invowkmod/      - Module parsing and types
 website/        - Documentation site
 ```
 
@@ -350,7 +350,7 @@ CLI tests use [testscript](https://pkg.go.dev/github.com/rogpeppe/go-internal/te
 exec invowk cmd list
 stdout 'hello'
 
--- invkfile.cue --
+-- invowkfile.cue --
 cmds: {
     hello: {
         desc: "Test command"

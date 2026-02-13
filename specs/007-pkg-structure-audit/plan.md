@@ -7,7 +7,7 @@
 
 ## Summary
 
-Audit and restructure the Go codebase for better package organization, file size compliance, and agentic coding optimization. Key deliverables: split 6 files exceeding 600 lines (including separate analysis for invkfile_validation.go per research.md—determine whether to merge with validation.go or split standalone), eliminate 4 identified code duplication patterns, add doc.go files to 5 packages, and consolidate shared utilities (styles, clock interface).
+Audit and restructure the Go codebase for better package organization, file size compliance, and agentic coding optimization. Key deliverables: split 6 files exceeding 600 lines (including separate analysis for invowkfile_validation.go per research.md—determine whether to merge with validation.go or split standalone), eliminate 4 identified code duplication patterns, add doc.go files to 5 packages, and consolidate shared utilities (styles, clock interface).
 
 ## Technical Context
 
@@ -65,10 +65,10 @@ internal/
 ├── tui/                 # ADD: doc.go
 └── tuiserver/           # ADD: doc.go
 pkg/
-├── invkfile/            # ADD: doc.go, split validation.go into validation_*.go files
-│                        # NOTE: invkfile_validation.go handled separately in Phase 4B
+├── invowkfile/            # ADD: doc.go, split validation.go into validation_*.go files
+│                        # NOTE: invowkfile_validation.go handled separately in Phase 4B
 │                        # (analyze whether to merge with validation.go or split standalone)
-├── invkmod/             # Module types (has doc.go), split resolver.go
+├── invowkmod/             # Module types (has doc.go), split resolver.go
 └── platform/            # Platform detection (has doc.go)
 tests/cli/               # CLI integration tests
 ```

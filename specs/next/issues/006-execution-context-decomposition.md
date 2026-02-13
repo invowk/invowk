@@ -34,8 +34,8 @@ type ExecutionContext struct {
 
     // Configuration (3 fields)
     WorkDir      string
-    SelectedImpl *invkfile.Implementation
-    Command      *invkfile.Command
+    SelectedImpl *invowkfile.Implementation
+    Command      *invowkfile.Command
 
     // TUI integration (2 fields)
     TUIServerURL   string
@@ -95,14 +95,14 @@ type ExecutionContext struct {
     // Context provides cancellation and deadline support.
     Context context.Context
 
-    // Command is the command definition from the invkfile.
-    Command *invkfile.Command
+    // Command is the command definition from the invowkfile.
+    Command *invowkfile.Command
 
-    // Invkfile is the parsed invkfile containing the command.
-    Invkfile *invkfile.Invkfile
+    // Invowkfile is the parsed invowkfile containing the command.
+    Invowkfile *invowkfile.Invowkfile
 
     // SelectedImpl is the specific implementation to execute.
-    SelectedImpl *invkfile.Implementation
+    SelectedImpl *invowkfile.Implementation
 
     // IO holds I/O stream configuration.
     IO IOContext
@@ -232,7 +232,7 @@ ctx := &ExecutionContext{
     EnvInheritMode:    EnvInheritAll,
     SelectedRuntime:   RuntimeNative,
     Command:           cmd,
-    Invkfile:          inv,
+    Invowkfile:          inv,
 }
 ```
 
@@ -247,7 +247,7 @@ ctx := &ExecutionContext{
     },
     SelectedRuntime: RuntimeNative,
     Command:         cmd,
-    Invkfile:        inv,
+    Invowkfile:        inv,
 }
 ```
 

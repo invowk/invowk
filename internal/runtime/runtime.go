@@ -387,12 +387,12 @@ func shouldFilterEnvVar(name string) bool {
 		return true
 	}
 
-	// Filter legacy ARGC variable
+	// Filter positional ARGC variable (short-form convention alongside INVOWK_ARG_*)
 	if name == "ARGC" {
 		return true
 	}
 
-	// Filter legacy ARGn variables (ARG1, ARG2, etc.)
+	// Filter positional ARGn variables (ARG1, ARG2, etc. — short-form convention alongside INVOWK_ARG_*)
 	if len(name) > 3 && name[:3] == "ARG" {
 		// Check if the rest is all digits
 		for i := 3; i < len(name); i++ {

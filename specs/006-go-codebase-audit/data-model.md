@@ -134,7 +134,7 @@ Configuration for CUE parsing operations.
 | Field | Type | Constraints | Description |
 |-------|------|-------------|-------------|
 | MaxFileSize | int64 | > 0, default 5MB | Maximum allowed file size |
-| SchemaPath | string | CUE path format | Path to schema definition (e.g., "#Invkfile") |
+| SchemaPath | string | CUE path format | Path to schema definition (e.g., "#Invowkfile") |
 | Filename | string | - | Filename for error messages |
 | Concrete | bool | default true | Require all values to be concrete |
 
@@ -228,8 +228,8 @@ Helper for building errors with context.
 │                                                                  │
 │   ┌────────────┐    ┌──────────────┐    ┌────────────────┐     │
 │   │ Schema     │───▶│ ParseAndDecode│───▶│ Typed Result   │     │
-│   │ (embedded) │    │ [T any]       │    │ (*Invkfile,    │     │
-│   └────────────┘    └───────┬───────┘    │  *Invkmod,     │     │
+│   │ (embedded) │    │ [T any]       │    │ (*Invowkfile,    │     │
+│   └────────────┘    └───────┬───────┘    │  *Invowkmod,     │     │
 │                             │            │  *Config)      │     │
 │   ┌────────────┐            │            └────────────────┘     │
 │   │ User Data  │────────────┘                                   │

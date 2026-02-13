@@ -6,8 +6,8 @@
 ## Overview
 
 This feature extends `invowk cmd` to discover commands from multiple sources in a single directory:
-- The root `invkfile.cue` (if present)
-- All sibling `*.invkmod` module directories (excluding their dependencies)
+- The root `invowkfile.cue` (if present)
+- All sibling `*.invowkmod` module directories (excluding their dependencies)
 
 Commands are displayed with simple names when unique, or with source annotations when names conflict.
 
@@ -32,13 +32,13 @@ Create a test directory with multiple sources:
 mkdir -p /tmp/multi-source-test
 cd /tmp/multi-source-test
 
-# Create root invkfile
-cat > invkfile.cue << 'EOF'
+# Create root invowkfile
+cat > invowkfile.cue << 'EOF'
 cmds: [
     {
         name: "hello"
-        description: "Hello from root invkfile"
-        implementations: [{script: "echo 'Hello from invkfile!'", runtimes: [{name: "virtual"}]}]
+        description: "Hello from root invowkfile"
+        implementations: [{script: "echo 'Hello from invowkfile!'", runtimes: [{name: "virtual"}]}]
     },
     {
         name: "deploy"
@@ -49,14 +49,14 @@ cmds: [
 EOF
 
 # Create first module
-mkdir -p foo.invkmod
-cat > foo.invkmod/invkmod.cue << 'EOF'
+mkdir -p foo.invowkmod
+cat > foo.invowkmod/invowkmod.cue << 'EOF'
 module: "foo"
 version: "1.0.0"
 description: "Foo module"
 EOF
 
-cat > foo.invkmod/invkfile.cue << 'EOF'
+cat > foo.invowkmod/invowkfile.cue << 'EOF'
 cmds: [
     {
         name: "build"
@@ -72,14 +72,14 @@ cmds: [
 EOF
 
 # Create second module
-mkdir -p bar.invkmod
-cat > bar.invkmod/invkmod.cue << 'EOF'
+mkdir -p bar.invowkmod
+cat > bar.invowkmod/invowkmod.cue << 'EOF'
 module: "bar"
 version: "1.0.0"
 description: "Bar module"
 EOF
 
-cat > bar.invkmod/invkfile.cue << 'EOF'
+cat > bar.invowkmod/invowkfile.cue << 'EOF'
 cmds: [
     {
         name: "test"
@@ -102,25 +102,25 @@ invowk cmd
 # Available Commands
 #   (* = default runtime)
 #
-# From invkfile:
-#   hello          - Hello from root invkfile [virtual*]
-#   deploy         - Deploy from root (@invkfile) [virtual*]
+# From invowkfile:
+#   hello          - Hello from root invowkfile [virtual*]
+#   deploy         - Deploy from root (@invowkfile) [virtual*]
 #
-# From bar.invkmod:
+# From bar.invowkmod:
 #   test           - Test from bar module [virtual*]
 #
-# From foo.invkmod:
+# From foo.invowkmod:
 #   build          - Build from foo module [virtual*]
 #   deploy         - Deploy from foo module (@foo) [virtual*]
 ```
 
-Note: `(@invkfile)` and `(@foo)` annotations appear because `deploy` exists in multiple sources.
+Note: `(@invowkfile)` and `(@foo)` annotations appear because `deploy` exists in multiple sources.
 
 ### Running Unambiguous Commands
 
 ```bash
 # Commands with unique names work as before
-invowk cmd hello     # Runs hello from invkfile
+invowk cmd hello     # Runs hello from invowkfile
 invowk cmd build     # Runs build from foo module
 invowk cmd test      # Runs test from bar module
 ```
@@ -131,17 +131,17 @@ invowk cmd test      # Runs test from bar module
 # Ambiguous command without disambiguation - shows error
 invowk cmd deploy
 # Error: 'deploy' is ambiguous. Found in:
-#   - @invkfile: Deploy from root
+#   - @invowkfile: Deploy from root
 #   - @foo: Deploy from foo module
 # Use 'invowk cmd @<source> deploy' or 'invowk cmd --from <source> deploy'
 
 # Using @ prefix syntax
-invowk cmd @invkfile deploy    # Runs deploy from invkfile
+invowk cmd @invowkfile deploy    # Runs deploy from invowkfile
 invowk cmd @foo deploy         # Runs deploy from foo module
-invowk cmd @foo.invkmod deploy # Also works with full name
+invowk cmd @foo.invowkmod deploy # Also works with full name
 
 # Using --from flag (must be before command name)
-invowk cmd --from invkfile deploy
+invowk cmd --from invowkfile deploy
 invowk cmd --from foo deploy
 ```
 
@@ -166,11 +166,11 @@ invowk cmd --verbose
 
 | Scenario | Behavior |
 |----------|----------|
-| Single invkfile, no modules | Unchanged from current behavior |
+| Single invowkfile, no modules | Unchanged from current behavior |
 | Multiple sources, unique names | Simple names work, listing grouped by source |
 | Multiple sources, conflicting names | Listing shows source annotations, execution requires disambiguation |
 | `@source` with non-existent source | Error with suggestion of valid sources |
-| `invkfile.invkmod` module | Rejected with warning (reserved name) |
+| `invowkfile.invowkmod` module | Rejected with warning (reserved name) |
 
 ## Running Tests
 
@@ -192,7 +192,7 @@ go test ./tests/cli/... -run TestMultiSource
 invowk cmd --verbose
 
 # Validate module structure
-invowk module validate foo.invkmod --deep
+invowk module validate foo.invowkmod --deep
 
 # Check for naming conflicts
 invowk cmd 2>&1 | grep -i ambiguous

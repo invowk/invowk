@@ -49,15 +49,15 @@ The rules file should document:
 Add early size check to all parse functions:
 
 **Files to modify**:
-- `pkg/invkfile/parse.go`
-- `pkg/invkmod/invkmod.go`
+- `pkg/invowkfile/parse.go`
+- `pkg/invowkmod/invowkmod.go`
 - `internal/config/config.go`
 
 **Pattern**:
 ```go
 const DefaultMaxCUEFileSize = 5 * 1024 * 1024
 
-func ParseBytes(data []byte, path string) (*Invkfile, error) {
+func ParseBytes(data []byte, path string) (*Invowkfile, error) {
     if len(data) > DefaultMaxCUEFileSize {
         return nil, fmt.Errorf("%s: file size exceeds maximum (%d bytes)", path, DefaultMaxCUEFileSize)
     }
@@ -70,8 +70,8 @@ func ParseBytes(data []byte, path string) (*Invkfile, error) {
 Create sync tests for each schema:
 
 **Files to create**:
-- `pkg/invkfile/sync_test.go`
-- `pkg/invkmod/sync_test.go`
+- `pkg/invowkfile/sync_test.go`
+- `pkg/invowkmod/sync_test.go`
 - `internal/config/sync_test.go`
 
 **Test structure**:
@@ -87,12 +87,12 @@ func TestFieldSync(t *testing.T) {
 
 ### Step 4: Audit and Remove Redundant Validation
 
-Review `pkg/invkfile/invkfile_validation.go` for checks already in CUE:
+Review `pkg/invowkfile/invowkfile_validation.go` for checks already in CUE:
 
 | Check | CUE Location | Go Action |
 |-------|--------------|-----------|
-| Interpreter non-empty | `invkfile_schema.cue` line ~150 | Remove from Go |
-| Tool name format | `invkfile_schema.cue` line ~95 | Keep in CUE |
+| Interpreter non-empty | `invowkfile_schema.cue` line ~150 | Remove from Go |
+| Tool name format | `invowkfile_schema.cue` line ~95 | Keep in CUE |
 | ReDoS safety | N/A | Keep in Go (CUE can't do this) |
 
 ### Step 5: Improve Error Formatting
@@ -127,7 +127,7 @@ func formatCUEError(err error) error {
 make test
 
 # Run specific sync test
-go test -v -run TestFieldSync ./pkg/invkfile/...
+go test -v -run TestFieldSync ./pkg/invowkfile/...
 ```
 
 ### Verify Error Messages
@@ -137,7 +137,7 @@ go test -v -run TestFieldSync ./pkg/invkfile/...
 echo 'cmds: [{name: ""}]' > /tmp/test.cue
 
 # Run validation
-go run . cmd --invkfile=/tmp/test.cue
+go run . cmd --invowkfile=/tmp/test.cue
 
 # Should see: cmds[0].name: value is too short
 ```
@@ -149,7 +149,7 @@ go run . cmd --invkfile=/tmp/test.cue
 dd if=/dev/zero of=/tmp/large.cue bs=1M count=6
 
 # Run validation
-go run . cmd --invkfile=/tmp/large.cue
+go run . cmd --invowkfile=/tmp/large.cue
 
 # Should see: file size exceeds maximum
 ```

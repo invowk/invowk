@@ -40,11 +40,11 @@
 
 ### Command Builder Infrastructure (for US1, US2)
 
-- [X] T008 Implement NewTestCommand() builder in internal/testutil/invkfiletest/command.go per contracts/testutil_command.go
-- [X] T009 Implement CommandOption functions (WithScript, WithRuntime, etc.) in internal/testutil/invkfiletest/command.go
-- [X] T010 Implement FlagOption functions (FlagRequired, FlagDefault, etc.) in internal/testutil/invkfiletest/command.go
-- [X] T011 Implement ArgOption functions (ArgRequired, ArgVariadic, etc.) in internal/testutil/invkfiletest/command.go
-- [X] T012 [P] Write tests for command builder in internal/testutil/invkfiletest/command_test.go
+- [X] T008 Implement NewTestCommand() builder in internal/testutil/invowkfiletest/command.go per contracts/testutil_command.go
+- [X] T009 Implement CommandOption functions (WithScript, WithRuntime, etc.) in internal/testutil/invowkfiletest/command.go
+- [X] T010 Implement FlagOption functions (FlagRequired, FlagDefault, etc.) in internal/testutil/invowkfiletest/command.go
+- [X] T011 Implement ArgOption functions (ArgRequired, ArgVariadic, etc.) in internal/testutil/invowkfiletest/command.go
+- [X] T012 [P] Write tests for command builder in internal/testutil/invowkfiletest/command_test.go
 
 ### Home Directory Helper (for US2)
 
@@ -61,17 +61,17 @@
 
 **Independent Test**: Run `wc -l` on each resulting file; all should be <800 lines. `make test` passes.
 
-### Split pkg/invkfile/invkfile_test.go (6,597 lines → 8 files)
+### Split pkg/invowkfile/invowkfile_test.go (6,597 lines → 8 files)
 
-- [X] T015 [US1] Create pkg/invkfile/invkfile_parsing_test.go with script parsing tests (~800 lines)
-- [X] T016 [P] [US1] Create pkg/invkfile/invkfile_deps_test.go with dependency tests (~700 lines)
-- [X] T017 [P] [US1] Create pkg/invkfile/invkfile_flags_test.go with flag validation tests (~600 lines)
-- [X] T018 [P] [US1] Create pkg/invkfile/invkfile_args_test.go with positional argument tests (~500 lines)
-- [X] T019 [P] [US1] Create pkg/invkfile/invkfile_platforms_test.go with platform filtering and capabilities tests (~800 lines)
-- [X] T020 [P] [US1] Create pkg/invkfile/invkfile_env_test.go with environment variable tests (~800 lines)
-- [X] T021 [P] [US1] Create pkg/invkfile/invkfile_workdir_test.go with working directory tests (~400 lines)
-- [X] T022 [P] [US1] Create pkg/invkfile/invkfile_schema_test.go with schema validation tests (~500 lines)
-- [X] T023 [US1] Delete original pkg/invkfile/invkfile_test.go after split verification
+- [X] T015 [US1] Create pkg/invowkfile/invowkfile_parsing_test.go with script parsing tests (~800 lines)
+- [X] T016 [P] [US1] Create pkg/invowkfile/invowkfile_deps_test.go with dependency tests (~700 lines)
+- [X] T017 [P] [US1] Create pkg/invowkfile/invowkfile_flags_test.go with flag validation tests (~600 lines)
+- [X] T018 [P] [US1] Create pkg/invowkfile/invowkfile_args_test.go with positional argument tests (~500 lines)
+- [X] T019 [P] [US1] Create pkg/invowkfile/invowkfile_platforms_test.go with platform filtering and capabilities tests (~800 lines)
+- [X] T020 [P] [US1] Create pkg/invowkfile/invowkfile_env_test.go with environment variable tests (~800 lines)
+- [X] T021 [P] [US1] Create pkg/invowkfile/invowkfile_workdir_test.go with working directory tests (~400 lines)
+- [X] T022 [P] [US1] Create pkg/invowkfile/invowkfile_schema_test.go with schema validation tests (~500 lines)
+- [X] T023 [US1] Delete original pkg/invowkfile/invowkfile_test.go after split verification
 
 ### Split cmd/invowk/cmd_test.go (2,567 lines → 5 files)
 
@@ -98,7 +98,7 @@
 
 ### Audit for Low-Value Tests (FR-014, FR-015)
 
-- [X] T038 [US1] Audit split test files in pkg/invkfile/ for pure struct field assignment tests; convert to behavior tests or remove
+- [X] T038 [US1] Audit split test files in pkg/invowkfile/ for pure struct field assignment tests; convert to behavior tests or remove
 - [X] T039 [P] [US1] Audit split test files in cmd/invowk/ for pure struct field assignment tests; convert to behavior tests or remove
 - [X] T040 [P] [US1] Audit split test files in internal/discovery/ for pure struct field assignment tests; convert to behavior tests or remove
 - [X] T041 [P] [US1] Audit split test files in internal/runtime/ for pure struct field assignment tests; convert to behavior tests or remove
@@ -115,7 +115,7 @@
 
 ### Migrate testCommand() / testCmd() usages
 
-- [X] T042 [US2] Replace testCommand() usages in pkg/invkfile/ with testutil.NewTestCommand() [SKIPPED: import cycle - pkg/invkfile tests use same-package testing]
+- [X] T042 [US2] Replace testCommand() usages in pkg/invowkfile/ with testutil.NewTestCommand() [SKIPPED: import cycle - pkg/invowkfile tests use same-package testing]
 - [X] T043 [US2] Replace testCmd() usages in cmd/invowk/ with testutil.NewTestCommand()
 - [X] T044 [US2] Replace any testCommand variants in internal/runtime/ with testutil.NewTestCommand() [NO CHANGES: runtime uses different helpers]
 - [X] T045 [US2] Remove duplicated testCommand()/testCmd() function definitions from all test files
@@ -218,16 +218,16 @@
 **Phase 8 Notes**:
 
 T079 - **VERIFIED** - Only 2 files marginally exceed 800 lines (down from 6 originally):
-- `pkg/invkfile/invkfile_flags_enhanced_test.go` (814 lines, 1.75% over) - no natural split point; tests coherent "enhanced flags" feature set
+- `pkg/invowkfile/invowkfile_flags_enhanced_test.go` (814 lines, 1.75% over) - no natural split point; tests coherent "enhanced flags" feature set
 - `internal/runtime/container_integration_test.go` (847 lines, 5.9% over) - integration tests require longer workflows; acceptable for integration test files
-- **All other test files now under 800 lines** - major improvement from 6,597-line original invkfile_test.go
+- **All other test files now under 800 lines** - major improvement from 6,597-line original invowkfile_test.go
 
 T080 - **VERIFIED** - 4 helper functions remain (intentional, not duplication):
-- `pkg/invkfile/invkfile_deps_test.go`: `testCommand()`, `testCommandWithDeps()` - cannot use invkfiletest due to same-package testing pattern (Go limitation)
+- `pkg/invowkfile/invowkfile_deps_test.go`: `testCommand()`, `testCommandWithDeps()` - cannot use invowkfiletest due to same-package testing pattern (Go limitation)
 - `internal/runtime/runtime_env_test.go`: `testCommandWithScript()`, `testCommandWithInterpreter()` - interpreter-specific pattern for testing runtime behavior
 
 These are acceptable design decisions:
-1. Same-package testing helpers in pkg/invkfile cannot import internal/testutil/invkfiletest without import cycles
+1. Same-package testing helpers in pkg/invowkfile cannot import internal/testutil/invowkfiletest without import cycles
 2. Runtime interpreter helpers have different signatures than the generic NewTestCommand() builder
 3. The goal was to eliminate *duplicated* helpers, not all local test helpers
 
@@ -335,4 +335,4 @@ With multiple developers after Foundational:
 | Parallelizable Tasks | 45 |
 
 **MVP Scope**: Phases 1-3 (41 tasks) delivers file organization improvement
-**Suggested First Milestone**: Complete through T023 (invkfile split) for quick value
+**Suggested First Milestone**: Complete through T023 (invowkfile split) for quick value

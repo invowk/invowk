@@ -11,7 +11,7 @@ This guide shows how to use the new consolidated test helpers after the audit is
 ### Before (duplicated helpers)
 
 ```go
-// In pkg/invkfile/invkfile_test.go
+// In pkg/invowkfile/invowkfile_test.go
 func testCommand(name, script string) Command {
     return Command{
         Name: name,
@@ -26,11 +26,11 @@ cmd := testCommand("hello", "echo hello")
 
 ```go
 // In cmd/invowk/cmd_test.go (slightly different!)
-func testCmd(name, script string) *invkfile.Command {
-    return &invkfile.Command{
+func testCmd(name, script string) *invowkfile.Command {
+    return &invowkfile.Command{
         Name: name,
-        Implementations: []invkfile.Implementation{
-            {Script: script, Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeNative}}},
+        Implementations: []invowkfile.Implementation{
+            {Script: script, Runtimes: []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeNative}}},
         },
     }
 }
@@ -41,32 +41,32 @@ cmd := testCmd("hello", "echo hello")
 ### After (consolidated helper)
 
 ```go
-import "invowk-cli/internal/testutil/invkfiletest"
+import "invowk-cli/internal/testutil/invowkfiletest"
 
 // Simple case - same behavior as before
-cmd := invkfiletest.NewTestCommand("hello", invkfiletest.WithScript("echo hello"))
+cmd := invowkfiletest.NewTestCommand("hello", invowkfiletest.WithScript("echo hello"))
 
 // With additional configuration
-cmd := invkfiletest.NewTestCommand("greet",
-    invkfiletest.WithScript("echo Hello, $NAME"),
-    invkfiletest.WithRuntime(invkfile.RuntimeVirtual),
-    invkfiletest.WithEnv("NAME", "World"),
+cmd := invowkfiletest.NewTestCommand("greet",
+    invowkfiletest.WithScript("echo Hello, $NAME"),
+    invowkfiletest.WithRuntime(invowkfile.RuntimeVirtual),
+    invowkfiletest.WithEnv("NAME", "World"),
 )
 
 // With flags
-cmd := invkfiletest.NewTestCommand("deploy",
-    invkfiletest.WithScript("deploy --env=$ENV"),
-    invkfiletest.WithFlag("env",
-        invkfiletest.FlagRequired(),
-        invkfiletest.FlagShorthand("e"),
+cmd := invowkfiletest.NewTestCommand("deploy",
+    invowkfiletest.WithScript("deploy --env=$ENV"),
+    invowkfiletest.WithFlag("env",
+        invowkfiletest.FlagRequired(),
+        invowkfiletest.FlagShorthand("e"),
     ),
 )
 
 // With positional arguments
-cmd := invkfiletest.NewTestCommand("copy",
-    invkfiletest.WithScript("cp $1 $2"),
-    invkfiletest.WithArg("source", invkfiletest.ArgRequired()),
-    invkfiletest.WithArg("dest", invkfiletest.ArgRequired()),
+cmd := invowkfiletest.NewTestCommand("copy",
+    invowkfiletest.WithScript("cp $1 $2"),
+    invowkfiletest.WithArg("source", invowkfiletest.ArgRequired()),
+    invowkfiletest.WithArg("dest", invowkfiletest.ArgRequired()),
 )
 ```
 

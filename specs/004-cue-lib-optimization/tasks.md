@@ -25,9 +25,9 @@
 
 **Purpose**: Create shared helper code and establish constants
 
-- [X] T001 Add `DefaultMaxCUEFileSize` constant (5MB) in pkg/invkfile/parse.go
-- [X] T002 [P] Create `extractCUEFields()` helper function in pkg/invkfile/sync_test.go
-- [X] T003 [P] Create `extractGoJSONTags()` helper function in pkg/invkfile/sync_test.go
+- [X] T001 Add `DefaultMaxCUEFileSize` constant (5MB) in pkg/invowkfile/parse.go
+- [X] T002 [P] Create `extractCUEFields()` helper function in pkg/invowkfile/sync_test.go
+- [X] T003 [P] Create `extractGoJSONTags()` helper function in pkg/invowkfile/sync_test.go
 
 **Checkpoint**: Shared helpers ready for all user stories
 
@@ -39,9 +39,9 @@
 
 **⚠️ CRITICAL**: All user stories depend on consistent error formatting
 
-- [X] T004 Create `formatCUEError()` helper in pkg/invkfile/parse.go with path extraction
-- [X] T005 Add file size check to `ParseBytes()` in pkg/invkfile/parse.go
-- [X] T006 Add file size check to `ParseInvkmodBytes()` in pkg/invkmod/invkmod.go
+- [X] T004 Create `formatCUEError()` helper in pkg/invowkfile/parse.go with path extraction
+- [X] T005 Add file size check to `ParseBytes()` in pkg/invowkfile/parse.go
+- [X] T006 Add file size check to `ParseInvowkmodBytes()` in pkg/invowkmod/invowkmod.go
 
 **Checkpoint**: Foundation ready - size guards and error formatting in place
 
@@ -55,13 +55,13 @@
 
 ### Implementation for User Story 1
 
-- [X] T007 [US1] Add sync test for `Invkfile` struct in pkg/invkfile/sync_test.go
-- [X] T008 [US1] Add sync test for `Command` struct in pkg/invkfile/sync_test.go
-- [X] T009 [US1] Add sync test for `Implementation` struct in pkg/invkfile/sync_test.go
-- [X] T010 [US1] Add sync test for `RuntimeConfig` struct in pkg/invkfile/sync_test.go
-- [X] T011 [US1] Add sync test for `DependsOn` struct in pkg/invkfile/sync_test.go
-- [X] T012 [US1] Add sync test for `Flag` and `Argument` structs in pkg/invkfile/sync_test.go
-- [X] T013 [P] [US1] Create sync_test.go for `Invkmod` struct in pkg/invkmod/sync_test.go
+- [X] T007 [US1] Add sync test for `Invowkfile` struct in pkg/invowkfile/sync_test.go
+- [X] T008 [US1] Add sync test for `Command` struct in pkg/invowkfile/sync_test.go
+- [X] T009 [US1] Add sync test for `Implementation` struct in pkg/invowkfile/sync_test.go
+- [X] T010 [US1] Add sync test for `RuntimeConfig` struct in pkg/invowkfile/sync_test.go
+- [X] T011 [US1] Add sync test for `DependsOn` struct in pkg/invowkfile/sync_test.go
+- [X] T012 [US1] Add sync test for `Flag` and `Argument` structs in pkg/invowkfile/sync_test.go
+- [X] T013 [P] [US1] Create sync_test.go for `Invowkmod` struct in pkg/invowkmod/sync_test.go
 - [X] T014 [P] [US1] Create sync_test.go for `Config` struct in internal/config/sync_test.go
 - [X] T015 [US1] Add CUE schema validation to `loadCUEIntoViper()` in internal/config/config.go (unify parsed config with #Config schema, call Validate(), use formatCUEError for errors)
 
@@ -77,9 +77,9 @@
 
 ### Implementation for User Story 2
 
-- [X] T016 [US2] Audit `validateInterpreter()` in pkg/invkfile/invkfile_validation.go for CUE redundancy; remove if redundant, add justification comment if Go-only validation is necessary
-- [X] T017 [US2] Audit `validateToolDependency()` in pkg/invkfile/invkfile_validation.go for CUE redundancy; remove if redundant, add justification comment if Go-only validation is necessary
-- [X] T018 [US2] Audit `validateEnvVar()` in pkg/invkfile/invkfile_validation.go for CUE redundancy; remove if redundant, add justification comment if Go-only validation is necessary
+- [X] T016 [US2] Audit `validateInterpreter()` in pkg/invowkfile/invowkfile_validation.go for CUE redundancy; remove if redundant, add justification comment if Go-only validation is necessary
+- [X] T017 [US2] Audit `validateToolDependency()` in pkg/invowkfile/invowkfile_validation.go for CUE redundancy; remove if redundant, add justification comment if Go-only validation is necessary
+- [X] T018 [US2] Audit `validateEnvVar()` in pkg/invowkfile/invowkfile_validation.go for CUE redundancy; remove if redundant, add justification comment if Go-only validation is necessary
 - [X] T019 [US2] Add justification comments for Go-only validations (ReDoS, filesystem, cross-field)
 
 **Checkpoint**: Zero redundant validation; Go-only checks have justification comments
@@ -94,8 +94,8 @@
 
 ### Implementation for User Story 3
 
-- [X] T020 [US3] Audit pkg/invkfile/parse.go for manual CUE value extraction
-- [X] T021 [US3] Audit pkg/invkmod/invkmod.go for manual CUE value extraction
+- [X] T020 [US3] Audit pkg/invowkfile/parse.go for manual CUE value extraction
+- [X] T021 [US3] Audit pkg/invowkmod/invowkmod.go for manual CUE value extraction
 - [X] T022 [US3] Audit internal/config/config.go for manual CUE value extraction
 - [X] T023 [US3] Add justification comments for any necessary manual extraction
 
@@ -169,7 +169,7 @@
 - T002 and T003 can run in parallel (different helper functions)
 
 **Phase 3 (US1)**:
-- T013 and T014 can run in parallel (different packages: invkmod, config)
+- T013 and T014 can run in parallel (different packages: invowkmod, config)
 
 **User Stories 2 & 3**:
 - Can run in parallel with each other (different concerns: validation vs extraction)
@@ -180,12 +180,12 @@
 
 ```bash
 # After T001-T006 complete, launch sync tests in parallel:
-Task: "Add sync test for Invkfile struct"      # T007
+Task: "Add sync test for Invowkfile struct"      # T007
 Task: "Add sync test for Command struct"       # T008
-# (sequential within invkfile package)
+# (sequential within invowkfile package)
 
-# In parallel with invkfile sync tests:
-Task: "Create sync_test.go for Invkmod"        # T013 [P]
+# In parallel with invowkfile sync tests:
+Task: "Create sync_test.go for Invowkmod"        # T013 [P]
 Task: "Create sync_test.go for Config"         # T014 [P]
 ```
 

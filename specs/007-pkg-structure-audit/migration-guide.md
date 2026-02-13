@@ -98,27 +98,27 @@ git add internal/tuiserver/doc.go
 git commit -S -m "docs(tuiserver): add doc.go with package documentation"
 ```
 
-### Step 1.5: Add doc.go to pkg/invkfile
+### Step 1.5: Add doc.go to pkg/invowkfile
 
 ```bash
-cat > pkg/invkfile/doc.go << 'EOF'
+cat > pkg/invowkfile/doc.go << 'EOF'
 // SPDX-License-Identifier: MPL-2.0
 
-// Package invkfile provides types and parsing for invkfile.cue command definitions.
+// Package invowkfile provides types and parsing for invowkfile.cue command definitions.
 //
-// An invkfile defines commands with implementations for different runtimes (native,
+// An invowkfile defines commands with implementations for different runtimes (native,
 // virtual, container) and platforms. This package handles CUE schema validation,
 // parsing to Go structs, and command/implementation selection.
 //
 // This package uses internal/cueutil for CUE parsing implementation details.
 // External consumers should use the exported Parse() and ParseBytes() functions;
 // the CUE parsing internals are not part of the public API.
-package invkfile
+package invowkfile
 EOF
 
 make lint && make test
-git add pkg/invkfile/doc.go
-git commit -S -m "docs(invkfile): add doc.go with package documentation"
+git add pkg/invowkfile/doc.go
+git commit -S -m "docs(invowkfile): add doc.go with package documentation"
 ```
 
 **Phase 1 Verification**:
@@ -255,7 +255,7 @@ git commit -S -m "refactor(runtime): extract prepareContainerExecution helper
 
 ## Phase 4: File Splits (Largest First)
 
-### Step 4.1: Split pkg/invkfile/validation.go (753 lines)
+### Step 4.1: Split pkg/invowkfile/validation.go (753 lines)
 
 Analyze the file to identify logical sections, then split:
 
@@ -270,7 +270,7 @@ Analyze the file to identify logical sections, then split:
 - `validation_runtime.go` (~200 lines) - Runtime-specific validation
 - `validation_deps.go` (~200 lines) - Dependency validation
 
-### Step 4.2: Split pkg/invkmod/resolver.go (726 lines)
+### Step 4.2: Split pkg/invowkmod/resolver.go (726 lines)
 
 Analyze and split by resolution phase:
 
@@ -301,7 +301,7 @@ Split by execution phase:
 - `cmd_execute.go` (~350 lines) - Command execution entry point
 - `cmd_execute_helpers.go` (~300 lines) - Helper functions
 
-### Step 4.5: Split pkg/invkfile/invkfile_validation.go (631 lines)
+### Step 4.5: Split pkg/invowkfile/invowkfile_validation.go (631 lines)
 
 Evaluate whether to:
 - Merge with validation.go then split
@@ -331,7 +331,7 @@ make license-check
 make tidy
 
 # Module validation
-go run . module validate modules/*.invkmod --deep
+go run . module validate modules/*.invowkmod --deep
 
 # Verify no files exceed limits
 find . -name "*.go" -not -name "*_test.go" -exec wc -l {} \; | sort -rn | head -20
@@ -410,7 +410,7 @@ Since each phase is atomic, rollback affects only that phase.
 | 1 | 1.2 | doc.go for issue | ⬜ |
 | 1 | 1.3 | doc.go for tui | ⬜ |
 | 1 | 1.4 | doc.go for tuiserver | ⬜ |
-| 1 | 1.5 | doc.go for invkfile | ⬜ |
+| 1 | 1.5 | doc.go for invowkfile | ⬜ |
 | 2 | 2.1 | Create styles.go | ⬜ |
 | 2 | 2.2 | Update root.go | ⬜ |
 | 2 | 2.3 | Update module.go | ⬜ |
@@ -421,6 +421,6 @@ Since each phase is atomic, rollback affects only that phase.
 | 4 | 4.2 | Split resolver.go | ⬜ |
 | 4 | 4.3 | Split discovery.go | ⬜ |
 | 4 | 4.4 | Split cmd_execute.go | ⬜ |
-| 4 | 4.5 | Split invkfile_validation.go | ⬜ |
+| 4 | 4.5 | Split invowkfile_validation.go | ⬜ |
 | 4 | 4.6 | Split server.go | ⬜ |
 | 5 | - | Final verification | ⬜ |

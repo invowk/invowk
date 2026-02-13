@@ -20,7 +20,7 @@ Files exceeding 800 lines will be split into focused files under 600 lines, orga
 - Large monolithic files are difficult for both humans and AI coding agents to reason about effectively
 - The 800-line threshold is specified in FR-001
 - The 600-line target provides headroom for future additions
-- Split strategy follows existing patterns in the codebase (e.g., `invkfile_deps_*.go` splits)
+- Split strategy follows existing patterns in the codebase (e.g., `invowkfile_deps_*.go` splits)
 
 ### Alternatives Considered
 
@@ -38,15 +38,15 @@ Files exceeding 800 lines will be split into focused files under 600 lines, orga
 | cmd/invowk/cmd_validate.go | 920 | runtime validation, dep validation, schema validation |
 | internal/runtime/container.go | 917 | build, exec, provisioning |
 | internal/tui/interactive.go | 806 | model definition, update logic, view rendering |
-| pkg/invkmod/operations.go | 827 | validate, create, package operations |
+| pkg/invowkmod/operations.go | 827 | validate, create, package operations |
 
 **Test Files Over 800 Lines (3 files)**:
 
 | File | Lines | Split Strategy |
 |------|-------|---------------|
 | internal/runtime/container_integration_test.go | 847 | By tested functionality |
-| pkg/invkmod/operations_packaging_test.go | 817 | Zip vs unzip operations |
-| pkg/invkfile/invkfile_flags_enhanced_test.go | 814 | Validation vs parsing tests |
+| pkg/invowkmod/operations_packaging_test.go | 817 | Zip vs unzip operations |
+| pkg/invowkfile/invowkfile_flags_enhanced_test.go | 814 | Validation vs parsing tests |
 
 ---
 
@@ -164,7 +164,7 @@ Create `internal/cueutil/parse.go` with a generic `ParseAndDecode[T]` function.
 // ParseOptions configures CUE parsing behavior.
 type ParseOptions struct {
     MaxFileSize  int64   // Default: 5MB
-    SchemaPath   string  // e.g., "#Invkfile", "#Invkmod", "#Config"
+    SchemaPath   string  // e.g., "#Invowkfile", "#Invowkmod", "#Config"
     Filename     string  // For error messages
     Concrete     bool    // Whether to require concrete values (default: true)
 }
@@ -269,7 +269,7 @@ func (e *ActionableError) Format(verbose bool) string {
 | config.go:Load() | "load configuration" | config file path | "Check file exists and has valid CUE syntax" |
 | native.go:findShell() | "find shell" | list of attempted shells | "Install bash or specify --shell flag" |
 | container.go:Build() | "build container" | image/containerfile path | "Check Dockerfile syntax or verify path exists" |
-| parse.go:ParseBytes() | "parse invkfile" | invkfile path + CUE path | Specific CUE constraint violated |
+| parse.go:ParseBytes() | "parse invowkfile" | invowkfile path + CUE path | Specific CUE constraint violated |
 
 ---
 

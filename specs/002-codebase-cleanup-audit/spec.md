@@ -10,7 +10,7 @@
 ### Session 2026-01-29
 
 - Q: How should `ContainerRuntime.ExecuteCapture()` capture output given containers execute via `docker exec`/`podman exec`? → A: Route container engine's stdout/stderr streams to buffers (mirror native/virtual pattern)
-- Q: Should `IsWindowsReservedName()` be moved to a new `pkg/platform/` or duplicated in `pkg/invkmod/`? → A: Create `pkg/platform/` as new public package
+- Q: Should `IsWindowsReservedName()` be moved to a new `pkg/platform/` or duplicated in `pkg/invowkmod/`? → A: Create `pkg/platform/` as new public package
 - Q: What logical responsibility groupings should guide `cmd/invowk/cmd.go` decomposition? → A: Discovery, Execution, Validation, Output/Errors (4 files + main cmd.go)
 
 ## User Scenarios & Testing *(mandatory)*
@@ -45,18 +45,18 @@ Developers rely on the `CapturingRuntime` interface to capture command output fo
 
 ---
 
-### User Story 3 - External Consumer Using `pkg/invkmod` (Priority: P2)
+### User Story 3 - External Consumer Using `pkg/invowkmod` (Priority: P2)
 
-External developers importing `pkg/invkmod` as a library expect it to be a self-contained public API. Currently, `pkg/invkmod/operations.go` imports `internal/platform`, violating Go's layering conventions.
+External developers importing `pkg/invowkmod` as a library expect it to be a self-contained public API. Currently, `pkg/invowkmod/operations.go` imports `internal/platform`, violating Go's layering conventions.
 
 **Why this priority**: Architectural layering violations make the public API unstable and create hidden dependencies for external consumers.
 
-**Independent Test**: Can be verified by checking that `pkg/invkmod` has no imports from `internal/` packages after refactoring.
+**Independent Test**: Can be verified by checking that `pkg/invowkmod` has no imports from `internal/` packages after refactoring.
 
 **Acceptance Scenarios**:
 
-1. **Given** an external project imports `pkg/invkmod`, **When** it builds, **Then** it should not transitively depend on any `internal/` packages.
-2. **Given** the codebase is analyzed with `go mod graph`, **When** checking `pkg/invkmod` imports, **Then** no `internal/*` imports should exist.
+1. **Given** an external project imports `pkg/invowkmod`, **When** it builds, **Then** it should not transitively depend on any `internal/` packages.
+2. **Given** the codebase is analyzed with `go mod graph`, **When** checking `pkg/invowkmod` imports, **Then** no `internal/*` imports should exist.
 
 ---
 
@@ -91,7 +91,7 @@ The codebase contains duplicated patterns, particularly in `internal/runtime/nat
 **File Decomposition (Agent Optimization)**
 
 - **FR-001**: `cmd/invowk/cmd.go` MUST be split into files where no single file exceeds 800 lines, using these responsibility groupings:
-  - `cmd_discovery.go` - Command discovery and invkfile parsing
+  - `cmd_discovery.go` - Command discovery and invowkfile parsing
   - `cmd_execute.go` - Execution orchestration and runtime coordination
   - `cmd_validate.go` - Dependency validation (tools, files, capabilities)
   - `cmd_validate_input.go` - User input validation (flags, arguments)
@@ -107,7 +107,7 @@ The codebase contains duplicated patterns, particularly in `internal/runtime/nat
 
 **Architectural Fixes**
 
-- **FR-006**: `pkg/invkmod` MUST NOT import any packages from `internal/`.
+- **FR-006**: `pkg/invowkmod` MUST NOT import any packages from `internal/`.
 - **FR-007**: The `IsWindowsReservedName()` function MUST be moved to a new `pkg/platform/` public package (establishing a home for cross-platform utilities).
 
 **Code Duplication**
@@ -123,7 +123,7 @@ The codebase contains duplicated patterns, particularly in `internal/runtime/nat
 **Constraints**
 
 - **FR-012**: All changes MUST NOT alter any user-facing CLI behavior, flags, or output formats.
-- **FR-013**: All changes MUST maintain backward compatibility with existing `invkfile.cue` and `invkmod.cue` files.
+- **FR-013**: All changes MUST maintain backward compatibility with existing `invowkfile.cue` and `invowkmod.cue` files.
 
 ### Key Entities
 
@@ -138,7 +138,7 @@ The codebase contains duplicated patterns, particularly in `internal/runtime/nat
 
 - **SC-001**: No Go source file in the codebase exceeds 800 lines (currently `cmd.go` is 2,927 lines).
 - **SC-002**: All three runtime types (`native`, `virtual`, `container`) implement the `CapturingRuntime` interface.
-- **SC-003**: `pkg/invkmod` has zero imports from `internal/` packages.
+- **SC-003**: `pkg/invowkmod` has zero imports from `internal/` packages.
 - **SC-004**: Code duplication in `native.go` execution functions is reduced by at least 50% (from ~4 copies to shared helpers).
 - **SC-005**: 100% of existing tests pass after refactoring (`make test`, `make test-cli`).
 - **SC-006**: `make lint` passes with no new warnings.

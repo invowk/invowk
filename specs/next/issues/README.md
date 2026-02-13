@@ -40,7 +40,7 @@ See [`../improvements-plan.md`](../improvements-plan.md) for the master plan wit
 ### Architecture (Long-term maintainability)
 - **008** - EnvBuilder interface extraction
 - ~~**009** - Provisioning package extraction~~ **COMPLETED** (spec-008)
-- **010** - Validator interface for invkfile
+- **010** - Validator interface for invowkfile
 
 ### Documentation (Developer experience)
 - **011** - Package-level documentation

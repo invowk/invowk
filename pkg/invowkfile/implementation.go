@@ -151,6 +151,11 @@ func (s *Implementation) GetCommandDependencies() []string {
 }
 
 // IsScriptFile returns true if the Implementation field appears to be a file path
+// rather than inline script content. It uses the following heuristics:
+//   - Path prefix: starts with "./", "../", or "/" (Unix-style absolute/relative paths)
+//   - Drive letter: second character is ':' (Windows-style paths like "C:\script.ps1")
+//   - Known extension: ends with a recognized script file extension
+//     (.sh, .bash, .ps1, .bat, .cmd, .py, .rb, .pl, .zsh, .fish)
 func (s *Implementation) IsScriptFile() bool {
 	script := strings.TrimSpace(s.Script)
 	if script == "" {

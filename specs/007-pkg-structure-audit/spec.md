@@ -74,7 +74,7 @@ A developer writing tests should find test utilities easily and understand the t
 ### Edge Cases
 
 - **Tightly-coupled multi-concern packages**: When a package has genuinely multiple tightly-coupled concerns (e.g., `discovery` does file discovery + command aggregation), keep them together but document the dual responsibility explicitly in `doc.go` with clear internal file separation. Forcing artificial splits on tightly-coupled concerns creates indirection that harms navigation.
-- **Cross-domain bridging code**: Use interface decoupling. The lower-level domain (`invkmod`) defines interfaces for what it needs from command sources. The higher-level domain (`invkfile`) implements these interfaces. This avoids circular dependencies and supports future 1:N relationships (e.g., one Module referencing multiple Invkfiles).
+- **Cross-domain bridging code**: Use interface decoupling. The lower-level domain (`invowkmod`) defines interfaces for what it needs from command sources. The higher-level domain (`invowkfile`) implements these interfaces. This avoids circular dependencies and supports future 1:N relationships (e.g., one Module referencing multiple Invowkfiles).
 - **Domain logic in utility packages**: Migrate domain-specific logic to the appropriate domain package; keep utility packages (`testutil`, `cueutil`) generic and reusable. Domain-specific helpers belong in the domain they serve, not in shared utilities.
 
 ## Requirements *(mandatory)*

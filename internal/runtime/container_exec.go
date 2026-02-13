@@ -306,7 +306,13 @@ func isTransientExitCode(code int) bool {
 	return code == 125 || code == 126
 }
 
-// Execute runs a command in a container
+// Execute runs a command in a container through a three-stage pipeline:
+//  1. Preparation — resolves the container image, builds the shell command,
+//     sets up volumes/ports/env, and registers a cleanup callback.
+//  2. Retry — delegates to [ContainerRuntime.runWithRetry], which re-attempts
+//     the container run on transient engine errors (exit codes 125/126).
+//  3. Result mapping — translates the container engine result into a
+//     runtime [Result] with the exit code and any error from the run.
 func (r *ContainerRuntime) Execute(ctx *ExecutionContext) *Result {
 	prep, errResult := r.prepareContainerExecution(ctx)
 	if errResult != nil {
