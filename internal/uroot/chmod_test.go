@@ -7,6 +7,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	goruntime "runtime"
 	"strings"
 	"testing"
 )
@@ -44,6 +45,10 @@ func TestChmodCommand_SupportedFlags(t *testing.T) {
 func TestChmodCommand_Run_OctalMode(t *testing.T) {
 	t.Parallel()
 
+	if goruntime.GOOS == "windows" {
+		t.Skip("skipping: Windows does not support Unix permission bits")
+	}
+
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "test.txt")
 
@@ -80,6 +85,10 @@ func TestChmodCommand_Run_OctalMode(t *testing.T) {
 
 func TestChmodCommand_Run_SymbolicMode(t *testing.T) {
 	t.Parallel()
+
+	if goruntime.GOOS == "windows" {
+		t.Skip("skipping: Windows does not support Unix permission bits")
+	}
 
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "test.txt")
@@ -141,6 +150,10 @@ func TestChmodCommand_Run_NonexistentFile(t *testing.T) {
 func TestChmodCommand_Run_Recursive(t *testing.T) {
 	t.Parallel()
 
+	if goruntime.GOOS == "windows" {
+		t.Skip("skipping: Windows does not support Unix permission bits")
+	}
+
 	tmpDir := t.TempDir()
 	subDir := filepath.Join(tmpDir, "subdir")
 	if err := os.Mkdir(subDir, 0o755); err != nil {
@@ -181,6 +194,10 @@ func TestChmodCommand_Run_Recursive(t *testing.T) {
 
 func TestChmodCommand_Run_RelativePath(t *testing.T) {
 	t.Parallel()
+
+	if goruntime.GOOS == "windows" {
+		t.Skip("skipping: Windows does not support Unix permission bits")
+	}
 
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "relative.txt")

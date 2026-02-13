@@ -5,7 +5,7 @@ package uroot
 import (
 	"context"
 	"fmt"
-	"path/filepath"
+	"path"
 )
 
 // dirnameCommand implements the dirname utility.
@@ -44,7 +44,7 @@ func (c *dirnameCommand) Run(ctx context.Context, args []string) error {
 	}
 
 	for _, p := range posArgs {
-		fmt.Fprintln(hc.Stdout, filepath.Dir(p))
+		fmt.Fprintln(hc.Stdout, path.Dir(p))
 	}
 
 	return nil

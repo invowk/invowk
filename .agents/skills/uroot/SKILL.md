@@ -200,6 +200,59 @@ New upstream wrappers that embed `baseWrapper` automatically inherit `NativePrep
 
 ---
 
+## Cross-Platform Path Handling
+
+**CRITICAL: Virtual shell utilities must produce POSIX-consistent output on all platforms.**
+
+Since u-root utilities run inside the virtual shell (mvdan/sh), which presents a POSIX-like environment, users write POSIX shell scripts expecting forward-slash paths. Implementations must output forward slashes regardless of the host OS.
+
+### Text-Manipulation Utilities (dirname, basename)
+
+Use `path` (NOT `path/filepath`) for pure text operations that don't touch the filesystem:
+
+```go
+import "path"
+
+// CORRECT: path.Dir always uses forward slashes
+fmt.Fprintln(hc.Stdout, path.Dir(p))    // dirname
+fmt.Fprintln(hc.Stdout, path.Base(p))   // basename
+
+// WRONG: filepath.Dir returns backslashes on Windows
+fmt.Fprintln(hc.Stdout, filepath.Dir(p))  // "foo\bar" on Windows!
+```
+
+**Why `path` is correct here:** `dirname` and `basename` are defined by POSIX as text manipulation — they parse path strings without filesystem I/O. The `path` package implements exactly this: slash-separated path processing.
+
+### Filesystem-Resolving Utilities (realpath)
+
+Use `path/filepath` for OS interaction, then convert output to slashes:
+
+```go
+import "path/filepath"
+
+// Use filepath for actual filesystem resolution
+resolved, err := filepath.EvalSymlinks(path)
+resolved, err = filepath.Abs(resolved)
+
+// Convert to forward slashes before outputting
+fmt.Fprintln(hc.Stdout, filepath.ToSlash(resolved))
+```
+
+### Test Normalization
+
+When testing filesystem-resolving utilities, resolve expected paths first to handle OS-level indirection:
+
+```go
+// macOS: /var → /private/var
+// Windows: RUNNER~1 → runneradmin (8.3 short names)
+tmpDir, err := filepath.EvalSymlinks(t.TempDir())
+
+// Match the implementation's ToSlash output
+want := filepath.ToSlash(filepath.Join(tmpDir, "file.txt"))
+```
+
+---
+
 ## Unsupported Flag Handling
 
 When a u-root utility receives flags it doesn't support (e.g., GNU-specific extensions like `--color`):

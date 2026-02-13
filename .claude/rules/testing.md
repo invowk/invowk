@@ -415,6 +415,7 @@ implementations: [
 - `[!container-available] skip` — Container tests (Linux-only by design)
 - `[!net] skip` — Tests requiring network connectivity
 - `[in-sandbox] skip` — Tests incompatible with Flatpak/Snap sandboxes
+- `[GOOS:windows] skip` — Genuine Windows platform limitations (e.g., Unix permission bits, hardcoded `/tmp` in upstream code)
 
 **NOT allowed** (fix the implementation instead):
 - `[windows] skip 'command only has linux/macos implementations'`
@@ -477,5 +478,7 @@ defer func() { testutil.MustRemoveAll(t, path) }()
 | Testscript container tests fail with "mkdir /no-home" | Set `HOME` to `env.WorkDir` in Setup |
 | Circular/trivial tests (constant == literal, zero-value == zero) | Test behavioral contracts: sentinel errors with `errors.Is`, default configs that affect user behavior, state machine transitions |
 | Pattern guardrail tests fail after adding comments | `TestNoGlobalConfigAccess` scans all non-test `.go` files for prohibited call signatures using raw `strings.Contains`. Comments mentioning deprecated APIs (e.g., the old global config accessor) must use indirect phrasing. See go-patterns.md "Guardrail-safe references" |
+| Testscript `[windows]` skip doesn't work | `commonCondition` returns `(false, nil)` for unknown conditions, so `[!windows]` is always true. Use `[GOOS:windows]` — it's a built-in testscript condition checked BEFORE the custom callback |
+| SHA hash mismatches in txtar on Windows | Git `core.autocrlf=true` converts `\n` → `\r\n` in txtar fixtures, changing checksums. The `.gitattributes` file forces `*.txtar text eol=lf` project-wide |
 | Issue templates contain stale guidance | `TestIssueTemplates_NoStaleGuidance` (`internal/issue/issue_test.go`) scans all embedded `.md` templates for stale tokens like `"invowk fix"` and `"apk add --no-cache"`. When updating issue templates, avoid Alpine-specific commands and deprecated CLI subcommands |
 | Duplicate `Test*` declarations after file split | When splitting test files to stay under 800 lines, delete moved functions from the source file and clean up orphaned imports. Run `go build` before `make test` to catch duplicates early. See go-patterns.md "File Splitting Protocol" |

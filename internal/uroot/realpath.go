@@ -63,7 +63,8 @@ func (c *realpathCommand) Run(ctx context.Context, args []string) error {
 			return wrapError(c.name, err)
 		}
 
-		fmt.Fprintln(hc.Stdout, resolved)
+		// Convert to forward slashes for POSIX-consistent output in the virtual shell
+		fmt.Fprintln(hc.Stdout, filepath.ToSlash(resolved))
 	}
 
 	return nil

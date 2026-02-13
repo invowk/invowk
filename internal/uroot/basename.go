@@ -5,7 +5,7 @@ package uroot
 import (
 	"context"
 	"fmt"
-	"path/filepath"
+	"path"
 	"strings"
 )
 
@@ -44,7 +44,7 @@ func (c *basenameCommand) Run(ctx context.Context, args []string) error {
 		return wrapError(c.name, fmt.Errorf("missing operand"))
 	}
 
-	base := filepath.Base(posArgs[0])
+	base := path.Base(posArgs[0])
 
 	// Strip suffix if provided and the result would be non-empty
 	if len(posArgs) > 1 {

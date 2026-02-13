@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"os"
+	goruntime "runtime"
 	"strings"
 	"testing"
 )
@@ -119,6 +120,10 @@ func TestMktempCommand_Run_TempDir(t *testing.T) {
 
 func TestMktempCommand_Run_Default(t *testing.T) {
 	t.Parallel()
+
+	if goruntime.GOOS == "windows" {
+		t.Skip("skipping: upstream u-root mktemp hardcodes /tmp which does not exist on Windows")
+	}
 
 	var stdout, stderr bytes.Buffer
 	ctx := WithHandlerContext(context.Background(), &HandlerContext{

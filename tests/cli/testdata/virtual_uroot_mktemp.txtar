@@ -1,5 +1,7 @@
 # Test: U-root mktemp utility
 # Tests temporary file and directory creation in virtual runtime
+# Upstream u-root mktemp hardcodes /tmp which does not exist on Windows.
+[GOOS:windows] skip 'upstream u-root mktemp hardcodes /tmp'
 
 cd $WORK
 
