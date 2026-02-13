@@ -15,7 +15,7 @@
       "label": "Core Concepts",
       "collapsed": false,
       "items": [
-        "core-concepts/invkfile-format",
+        "core-concepts/invowkfile-format",
         "core-concepts/commands-and-namespaces",
         "core-concepts/implementations"
       ]

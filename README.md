@@ -19,8 +19,8 @@ A dynamically extensible, CLI-based command runner similar to [just](https://git
 
 - **Multiple Command Sources**: Discover commands from:
   1. Current directory (`invowkfile.cue` + sibling `*.invowkmod` modules, highest priority)
-  2. User commands directory (`~/.invowk/cmds/`)
-  3. Configured includes
+  2. Configured includes (module paths from config)
+  3. `~/.invowk/cmds/` (modules only, non-recursive)
 
 - **Transparent Namespace**: Commands from different sources use simple names when unique. When command names conflict across sources, use `@<source>` prefix or `--ivk-from` flag to disambiguate
 
@@ -1835,9 +1835,9 @@ Import Module
 ### Using Modules
 
 Modules are automatically discovered and loaded from all configured sources:
-1. Current directory (highest priority)
-2. User commands directory (`~/.invowk/cmds/`)
-3. Configured includes in your config file
+1. Current directory (invowkfile and sibling modules, highest priority)
+2. Configured includes (module paths from config)
+3. `~/.invowk/cmds/` (modules only, non-recursive)
 
 When invowk discovers a module, it:
 - Validates the module structure and naming

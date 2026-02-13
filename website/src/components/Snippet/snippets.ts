@@ -7157,9 +7157,9 @@ invowk help config set`,
 We searched for an invowkfile but couldn't find one in the expected locations.
 
 ## Search locations (in order of precedence):
-1. Current directory
-2. ~/.invowk/cmds/
-3. Paths configured in your config file
+1. Current directory (invowkfile and sibling modules)
+2. Configured includes (module paths from config)
+3. ~/.invowk/cmds/ (modules only)
 
 ## Things you can try:
 • Create an invowkfile in your current directory:
@@ -7327,7 +7327,7 @@ platforms: [
     language: 'cue',
     code: `runtimes: [{
     name:              "container"
-    image:             "alpine:latest"
+    image:             "debian:stable-slim"
     env_inherit_mode:  "allow"
     env_inherit_allow: ["TERM", "LANG"]
     env_inherit_deny:  ["AWS_SECRET_ACCESS_KEY"]

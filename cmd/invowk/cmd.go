@@ -98,8 +98,8 @@ func newCmdCommand(app *App, rootFlags *rootFlagValues) *cobra.Command {
 Commands are discovered from:
   1. Current directory's invowkfile.cue (highest priority)
   2. Sibling *.invowkmod module directories
-  3. ~/.invowk/cmds/
-  4. Configured search paths
+  3. Configured includes (module paths from config)
+  4. ~/.invowk/cmds/ (modules only, non-recursive)
 
 Commands use their simple names when unique across sources. When a command
 name exists in multiple sources, disambiguation is required.

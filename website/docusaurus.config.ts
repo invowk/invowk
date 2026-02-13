@@ -165,7 +165,7 @@ const config: Config = {
             },
             {
               label: 'Core Concepts',
-              to: '/docs/core-concepts/invkfile-format',
+              to: '/docs/core-concepts/invowkfile-format',
             },
             {
               label: 'CLI Reference',

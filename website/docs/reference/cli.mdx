@@ -65,9 +65,10 @@ The `ivk-`, `invowk-`, and `i-` prefixes are reserved for system flags and canno
 **Command Discovery:**
 
 Commands are discovered from (in priority order):
-1. Current directory (invowkfile and modules)
-2. `~/.invowk/cmds/` (invowkfiles and modules)
-3. Configured `includes` entries (invowkfiles and modules)
+1. Current directory invowkfile.cue (highest priority)
+2. Sibling `*.invowkmod` module directories
+3. Configured `includes` entries (modules only)
+4. `~/.invowk/cmds/` (modules only, non-recursive)
 
 **Command Disambiguation:**
 
@@ -548,13 +549,13 @@ When no invowkfile is discovered in any search location:
 
 **This message appears when:**
 - No `invowkfile.cue` exists in the current directory
-- No invowkfiles exist in `~/.invowk/cmds/`
-- No invowkfiles exist in configured `includes`
+- No modules exist in configured `includes`
+- No modules exist in `~/.invowk/cmds/`
 
 **Solutions:**
 - Run `invowk init` to create an invowkfile in the current directory
 - Navigate to a directory containing an invowkfile
-- Add invowkfile or module paths to your config's `includes`
+- Add module paths to your config's `includes`
 
 ### Failed to Parse Invowkfile
 

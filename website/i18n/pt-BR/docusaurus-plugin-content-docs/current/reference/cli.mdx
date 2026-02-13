@@ -64,9 +64,10 @@ Os prefixos `ivk-`, `invowk-` e `i-` são reservados para flags do sistema e nã
 **Descoberta de Comandos:**
 
 Comandos são descobertos de (em ordem de prioridade):
-1. Diretório atual (invowkfile e módulos)
-2. `~/.invowk/cmds/` (invowkfiles e módulos)
-3. Entradas configuradas em `includes` (invowkfiles e módulos)
+1. `invowkfile.cue` do diretório atual (prioridade mais alta)
+2. Diretórios `*.invowkmod` irmãos
+3. Entradas configuradas em `includes` (somente módulos)
+4. `~/.invowk/cmds/` (somente módulos, não-recursivo)
 
 ---
 
@@ -524,13 +525,13 @@ Quando nenhum invowkfile é descoberto em nenhum local de busca:
 
 **Esta mensagem aparece quando:**
 - Nenhum `invowkfile.cue` existe no diretório atual
-- Nenhum invowkfile existe em `~/.invowk/cmds/`
-- Nenhum invowkfile existe nos `includes` configurados
+- Nenhum módulo existe nos `includes` configurados
+- Nenhum módulo existe em `~/.invowk/cmds/`
 
 **Soluções:**
 - Execute `invowk init` para criar um invowkfile no diretório atual
 - Navegue para um diretório que contenha um invowkfile
-- Adicione caminhos de invowkfile ou módulo em `includes` na sua configuração
+- Adicione caminhos de módulo em `includes` na sua configuração
 
 ### Falha ao Fazer Parse do Invowkfile
 
