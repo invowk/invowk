@@ -129,7 +129,19 @@ jobs:
           cache: true
 
       - name: Install gotestsum
-        run: go install gotest.tools/gotestsum@latest
+        run: |
+          go install gotest.tools/gotestsum@v1.13.0
+          gotestsum --version
+
+      # Engine isolation: mask the non-tested engine so AutoDetectEngine() picks
+      # the correct one. Ubuntu runners have both Docker and Podman installed.
+      - name: Mask Docker for Podman tests
+        if: matrix.engine == 'podman' && startsWith(matrix.runner, 'ubuntu')
+        run: sudo mv /usr/bin/docker /usr/bin/docker.disabled || true
+
+      - name: Mask Podman for Docker tests
+        if: matrix.engine == 'docker' && startsWith(matrix.runner, 'ubuntu')
+        run: sudo mv /usr/bin/podman /usr/bin/podman.disabled || true
 
       # Podman setup for Ubuntu
       - name: Setup Podman (Ubuntu)
@@ -139,8 +151,8 @@ jobs:
           systemctl --user start podman.socket || true
 
       # Docker verification
-      - name: Verify Docker
-        if: matrix.engine == 'docker'
+      - name: Verify Docker (Ubuntu)
+        if: matrix.engine == 'docker' && startsWith(matrix.runner, 'ubuntu')
         run: |
           docker --version
           docker info
@@ -175,10 +187,26 @@ jobs:
             --junitfile test-results.xml \
             --rerun-fails \
             --rerun-fails-max-failures 3 \
+            --rerun-fails-report rerun-report.txt \
             --packages ./... \
             -- -race -short
 
-      # Upload test results for debugging
+      # Run CLI integration tests on Windows/macOS
+      # CLI tests use testscript with inline CUE and virtual runtime for cross-platform support.
+      - name: Run CLI integration tests
+        if: matrix.test-mode == 'short'
+        shell: bash
+        run: |
+          gotestsum \
+            --format testdox \
+            --junitfile cli-test-results.xml \
+            --rerun-fails \
+            --rerun-fails-max-failures 3 \
+            --rerun-fails-report cli-rerun-report.txt \
+            --packages ./tests/cli/... \
+            -- -race -timeout 5m
+
+      # Upload test results for debugging and flake tracking
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v6
@@ -186,8 +214,35 @@ jobs:
           name: release-test-results-${{ matrix.os }}-${{ matrix.engine || 'unit' }}
           path: |
             test-results.xml
+            cli-test-results.xml
             rerun-report.txt
+            cli-rerun-report.txt
+          if-no-files-found: ignore
           retention-days: 30
+
+      # Render JUnit results as PR annotations (inline failed test annotations)
+      - name: Test Report
+        if: always()
+        uses: mikepenz/action-junit-report@v5
+        with:
+          report_paths: '*.xml'
+          check_name: Release Tests (${{ matrix.os }}${{ matrix.engine && format(' / {0}', matrix.engine) || '' }})
+          fail_on_failure: true
+          include_passed: false
+
+      # Surface rerun reports as GitHub Actions warnings for flake visibility
+      - name: Flag flaky tests
+        if: always()
+        shell: bash
+        run: |
+          for report in rerun-report.txt cli-rerun-report.txt; do
+            if [ -s "$report" ]; then
+              echo "::warning::Flaky tests detected (rerun report: $report):"
+              while IFS= read -r line; do
+                echo "::warning::  $line"
+              done < "$report"
+            fi
+          done
 
   # Release with GoReleaser after all tests pass
   release:

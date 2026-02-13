@@ -116,8 +116,10 @@ endif
 test:
 	@echo "Running tests..."
 ifdef GOTESTSUM
+	@echo "  (using gotestsum)"
 	gotestsum --format testdox --rerun-fails --rerun-fails-max-failures 5 --packages ./... -- -v
 else
+	@echo "  (gotestsum not found, using go test)"
 	$(GOTEST) -v ./...
 endif
 
@@ -126,8 +128,10 @@ endif
 test-short:
 	@echo "Running tests (short mode)..."
 ifdef GOTESTSUM
+	@echo "  (using gotestsum)"
 	gotestsum --format testdox --rerun-fails --rerun-fails-max-failures 3 --packages ./... -- -v -short
 else
+	@echo "  (gotestsum not found, using go test)"
 	$(GOTEST) -v -short ./...
 endif
 
@@ -136,8 +140,10 @@ endif
 test-integration:
 	@echo "Running integration tests..."
 ifdef GOTESTSUM
+	@echo "  (using gotestsum)"
 	gotestsum --format testdox --rerun-fails --rerun-fails-max-failures 3 --packages ./... -- -v -run Integration
 else
+	@echo "  (gotestsum not found, using go test)"
 	$(GOTEST) -v -run Integration ./...
 endif
 
@@ -146,8 +152,10 @@ endif
 test-cli:
 	@echo "Running CLI integration tests..."
 ifdef GOTESTSUM
+	@echo "  (using gotestsum)"
 	gotestsum --format testdox --rerun-fails --rerun-fails-max-failures 3 --packages ./tests/cli/... -- -v -race -timeout 5m
 else
+	@echo "  (gotestsum not found, using go test)"
 	$(GOTEST) -v -race -timeout 5m ./tests/cli/...
 endif
 

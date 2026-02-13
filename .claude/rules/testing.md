@@ -186,11 +186,11 @@ func containerSetup(env *testscript.Env) error {
 }
 ```
 
-**Layer 3: CI Explicit Timeout (Safety Net)**
+**Layer 3: CI Test Runner with Retry and Timeout (Safety Net)**
 ```yaml
-# CI uses gotestsum which wraps go test with --rerun-fails for transient failures
-run: gotestsum --format testdox --junitfile test-results.xml --rerun-fails
-       --rerun-fails-max-failures 5 --packages ./... -- -race -timeout 15m
+run: |
+  gotestsum --format testdox --junitfile test-results.xml --rerun-fails \
+    --rerun-fails-max-failures 5 --packages ./... -- -race -timeout 15m
 ```
 
 **Why three layers:**

@@ -14,7 +14,7 @@ Invowk uses a **5-layer defense system** for container test reliability. Each la
 
 ### Layer 1: Sysctl Prevention (`CONTAINERS_CONF_OVERRIDE`)
 
-**Location:** `internal/runtime/container_exec.go`, `internal/container/podman_engine.go`
+**Location:** `internal/container/podman.go`, `internal/container/podman_sysctl_linux.go`, `internal/container/engine_base.go`
 
 The root cause of the most common Podman failure — the `ping_group_range` race condition where crun and the kernel disagree on unprivileged ping permissions — is eliminated *before* any container operation. A `containers.conf` override pins the sysctl to a known-good value.
 
@@ -146,6 +146,10 @@ The gap is not in the retry strategy — it's in **CI-level resilience and obser
 
 ## Improvement Opportunities
 
+> **Note:** Items 1-3 below (gotestsum integration, flake tracking, JUnit annotations) were
+> implemented alongside this document in PR #45. See `.github/workflows/ci.yml` and
+> `.github/workflows/release.yml` for the current configuration.
+
 ### 1. CI-Level Retry via `gotestsum`
 
 Replace raw `go test` in CI with `gotestsum --rerun-fails`:
@@ -177,7 +181,7 @@ If flake tracking reveals persistently-flaky tests:
 
 ## Sources
 
-- [Kubernetes: Deprecating flakeAttempts](https://github.com/kubernetes/kubernetes/issues/105435) — Discussion on removing retry from the test framework.
+- [Kubernetes: Stop using ginkgo.flakeAttempts](https://github.com/kubernetes/kubernetes/issues/68091) — Discussion on removing retry from the test framework.
 - [Google Testing Blog: Flaky Tests at Google](https://testing.googleblog.com/2016/05/flaky-tests-at-google-and-how-we.html) — Internal analysis of flaky test costs and mitigation strategies.
 - [Podman CI: ginkgo flake-attempts](https://github.com/containers/podman/blob/main/.cirrus.yml) — Podman's CI configuration with retry at the job level.
 - [gotestsum: GitHub repository](https://github.com/gotestyourself/gotestsum) — De facto Go test runner with `--rerun-fails` support.

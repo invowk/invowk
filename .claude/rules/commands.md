@@ -28,7 +28,7 @@
 - **Node.js 20+** - For website development (optional).
 - **Docker or Podman** - For container runtime tests (optional).
 - **UPX** - For compressed builds (optional).
-- **gotestsum** - Enhanced test runner with `--rerun-fails` support (optional locally, used in CI). Install: `go install gotest.tools/gotestsum@latest`.
+- **gotestsum** - Enhanced test runner with `--rerun-fails` support (optional locally, used in CI). Install: `go install gotest.tools/gotestsum@v1.13.0`.
 
 ## Internal Commands (Hidden)
 
@@ -144,7 +144,7 @@ CI uses `gotestsum` to wrap `go test` with transient failure retry and JUnit XML
 
 ```bash
 # Install gotestsum
-go install gotest.tools/gotestsum@latest
+go install gotest.tools/gotestsum@v1.13.0
 
 # Run tests with gotestsum directly (rerun up to 5 transient failures)
 gotestsum --format testdox --rerun-fails --rerun-fails-max-failures 5 --packages ./... -- -v
@@ -273,6 +273,7 @@ cosign verify-blob \
 | `release.yml` | Tag push (v*) or manual dispatch | Validate, test, then build and publish release |
 | `version-docs.yml` | Release published or manual dispatch | Snapshot docs for the released version |
 | `test-website.yml` | PR to main (website changes) | Build website for PR validation |
+| `validate-diagrams.yml` | PR/push to main (diagram changes) | Validate D2 syntax and check SVG renders exist |
 | `deploy-website.yml` | Push to main (website changes) or manual | Build and deploy GitHub Pages site |
 
 ### Versioning

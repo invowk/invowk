@@ -24,12 +24,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Install D2
         run: |
-          curl -fsSL https://d2lang.com/install.sh | sh -s --
+          curl -fsSL https://d2lang.com/install.sh | sh -s -- --method=standalone --version v0.7.1
           echo "$HOME/.local/bin" >> $GITHUB_PATH
+          d2 --version
 
       - name: Validate D2 syntax
         run: |
