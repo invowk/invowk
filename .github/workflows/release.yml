@@ -18,6 +18,7 @@ on:
 
 permissions:
   contents: write
+  checks: write
   id-token: write  # Required for Cosign keyless signing
 
 concurrency:
@@ -127,6 +128,9 @@ jobs:
           go-version-file: go.mod
           cache: true
 
+      - name: Install gotestsum
+        run: go install gotest.tools/gotestsum@latest
+
       # Podman setup for Ubuntu
       - name: Setup Podman (Ubuntu)
         if: matrix.engine == 'podman' && startsWith(matrix.runner, 'ubuntu')
@@ -146,16 +150,44 @@ jobs:
         if: matrix.engine != '' && startsWith(matrix.runner, 'ubuntu')
         run: ${{ matrix.engine }} pull debian:stable-slim
 
-      # Run tests
+      # Run tests with gotestsum (rerun transient failures, produce JUnit XML)
       - name: Run tests (full)
         if: matrix.test-mode == 'full'
         shell: bash
-        run: go test -v -race -timeout 15m ./...
+        env:
+          INVOWK_TEST_CONTAINER_PARALLEL: "2"
+        run: |
+          gotestsum \
+            --format testdox \
+            --junitfile test-results.xml \
+            --rerun-fails \
+            --rerun-fails-max-failures 5 \
+            --rerun-fails-report rerun-report.txt \
+            --packages ./... \
+            -- -race -timeout 15m
 
       - name: Run tests (short)
         if: matrix.test-mode == 'short'
         shell: bash
-        run: go test -v -race -short ./...
+        run: |
+          gotestsum \
+            --format testdox \
+            --junitfile test-results.xml \
+            --rerun-fails \
+            --rerun-fails-max-failures 3 \
+            --packages ./... \
+            -- -race -short
+
+      # Upload test results for debugging
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: release-test-results-${{ matrix.os }}-${{ matrix.engine || 'unit' }}
+          path: |
+            test-results.xml
+            rerun-report.txt
+          retention-days: 30
 
   # Release with GoReleaser after all tests pass
   release:

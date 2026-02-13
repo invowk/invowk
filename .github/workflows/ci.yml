@@ -35,6 +35,7 @@ on:
 
 permissions:
   contents: read
+  checks: write
 
 jobs:
   test:
@@ -90,6 +91,9 @@ jobs:
           go-version-file: go.mod
           cache: true
 
+      - name: Install gotestsum
+        run: go install gotest.tools/gotestsum@latest
+
       # Engine isolation: mask the non-tested engine so AutoDetectEngine() picks
       # the correct one. Ubuntu runners have both Docker and Podman installed.
       - name: Mask Docker for Podman tests
@@ -123,21 +127,36 @@ jobs:
         run: ${{ matrix.engine }} pull debian:stable-slim
 
       # Run full tests (includes integration tests with containers)
-      # Explicit 15m timeout allows enough time for container operations (image pulls, startup)
-      # while providing a clear upper bound for CI job duration.
+      # gotestsum wraps go test with --rerun-fails for transient infrastructure failures.
+      # Explicit 15m timeout allows enough time for container operations (image pulls, startup).
       - name: Run tests (full)
         if: matrix.test-mode == 'full'
         shell: bash
         env:
           INVOWK_TEST_CONTAINER_PARALLEL: "2"
-        run: go test -v -race -timeout 15m -coverprofile=coverage.out ./...
+        run: |
+          gotestsum \
+            --format testdox \
+            --junitfile test-results.xml \
+            --rerun-fails \
+            --rerun-fails-max-failures 5 \
+            --rerun-fails-report rerun-report.txt \
+            --packages ./... \
+            -- -race -timeout 15m -coverprofile=coverage.out
 
       # Run short tests (unit tests only, no container dependencies)
       # Uses bash shell to avoid PowerShell parsing issues on Windows
       - name: Run tests (short)
         if: matrix.test-mode == 'short'
         shell: bash
-        run: go test -v -race -short -coverprofile=coverage.out ./...
+        run: |
+          gotestsum \
+            --format testdox \
+            --junitfile test-results.xml \
+            --rerun-fails \
+            --rerun-fails-max-failures 3 \
+            --packages ./... \
+            -- -race -short -coverprofile=coverage.out
 
       # Run CLI integration tests on Windows/macOS
       # CLI tests use testscript with inline CUE and virtual runtime for cross-platform support.
@@ -145,10 +164,40 @@ jobs:
       - name: Run CLI integration tests
         if: matrix.test-mode == 'short'
         shell: bash
-        run: go test -v -race -timeout 5m ./tests/cli/...
+        run: |
+          gotestsum \
+            --format testdox \
+            --junitfile cli-test-results.xml \
+            --rerun-fails \
+            --rerun-fails-max-failures 3 \
+            --packages ./tests/cli/... \
+            -- -race -timeout 5m
+
+      # Upload test results (JUnit XML + rerun reports) for debugging and flake tracking
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: test-results-${{ matrix.os }}-${{ matrix.engine || 'unit' }}
+          path: |
+            test-results.xml
+            cli-test-results.xml
+            rerun-report.txt
+          retention-days: 30
+
+      # Render JUnit results as PR annotations (inline failed test annotations)
+      - name: Test Report
+        if: always()
+        uses: mikepenz/action-junit-report@v5
+        with:
+          report_paths: '*.xml'
+          check_name: Tests (${{ matrix.os }}${{ matrix.engine && format(' / {0}', matrix.engine) || '' }})
+          fail_on_failure: false
+          include_passed: false
 
       # Upload coverage
       - name: Upload coverage
+        if: always()
         uses: actions/upload-artifact@v6
         with:
           name: coverage-${{ matrix.os }}-${{ matrix.engine || 'unit' }}

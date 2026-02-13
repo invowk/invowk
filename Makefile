@@ -57,6 +57,9 @@ else
     AMD64_ENV :=
 endif
 
+# Detect gotestsum for enhanced test output and rerun-fails support
+GOTESTSUM := $(shell command -v gotestsum 2>/dev/null)
+
 # Default target
 .DEFAULT_GOAL := build
 
@@ -108,29 +111,45 @@ endif
 	@echo "Built: $(BUILD_DIR)/$(BINARY_NAME)"
 	@ls -lh $(BUILD_DIR)/$(BINARY_NAME) | awk '{print "Size:", $$5}'
 
-# Run tests
+# Run tests (uses gotestsum with rerun-fails when available, falls back to go test)
 .PHONY: test
 test:
 	@echo "Running tests..."
+ifdef GOTESTSUM
+	gotestsum --format testdox --rerun-fails --rerun-fails-max-failures 5 --packages ./... -- -v
+else
 	$(GOTEST) -v ./...
+endif
 
 # Run tests (short mode, skip integration tests)
 .PHONY: test-short
 test-short:
 	@echo "Running tests (short mode)..."
+ifdef GOTESTSUM
+	gotestsum --format testdox --rerun-fails --rerun-fails-max-failures 3 --packages ./... -- -v -short
+else
 	$(GOTEST) -v -short ./...
+endif
 
 # Run integration tests only
 .PHONY: test-integration
 test-integration:
 	@echo "Running integration tests..."
+ifdef GOTESTSUM
+	gotestsum --format testdox --rerun-fails --rerun-fails-max-failures 3 --packages ./... -- -v -run Integration
+else
 	$(GOTEST) -v -run Integration ./...
+endif
 
 # Run CLI integration tests (testscript-based)
 .PHONY: test-cli
 test-cli:
 	@echo "Running CLI integration tests..."
+ifdef GOTESTSUM
+	gotestsum --format testdox --rerun-fails --rerun-fails-max-failures 3 --packages ./tests/cli/... -- -v -race -timeout 5m
+else
 	$(GOTEST) -v -race -timeout 5m ./tests/cli/...
+endif
 
 # Generate PGO profile from benchmarks (includes container tests)
 # This produces a CPU profile that Go 1.20+ uses for Profile-Guided Optimization.
