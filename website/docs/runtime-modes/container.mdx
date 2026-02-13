@@ -19,7 +19,7 @@ The container runtime **only supports Debian-based Linux container images** (e.g
 - **macOS**: Works with Docker Desktop (uses Linux VMs internally)
 - **Windows**: Requires Docker Desktop with WSL2 backend in Linux containers mode
 
-Scripts are executed using `/bin/sh` inside the container, which requires a glibc-based Linux environment.
+Scripts are executed using `/bin/sh` inside the container, which requires a standard POSIX-compatible shell environment.
 
 :::
 
@@ -51,25 +51,16 @@ You must specify either an `image` or a `containerfile` - they're mutually exclu
 ```cue
 runtimes: [{
     name: "container"
-    image: "golang:1.21"
+    image: "golang:1.26"
 }]
 ```
 
 Common images:
 - `debian:bookworm-slim` - Minimal Debian
 - `ubuntu:22.04` - Full Ubuntu
-- `golang:1.21` - Go development
+- `golang:1.26` - Go development
 - `node:20` - Node.js development
 - `python:3.11-slim` - Python development
-
-:::warning glibc Requirement
-The invowk binary is dynamically linked against **glibc**. Container images using musl libc (like Alpine Linux) are **not compatible**. Use glibc-based images such as:
-- Debian/Ubuntu-based images (default for most official images)
-- Images with `-slim` suffix (e.g., `python:3.11-slim`, `node:20-slim`)
-- Official language images without `-alpine` suffix
-
-**Not supported:** `alpine`, `busybox`, images with `-alpine` suffix
-:::
 
 ### Custom Containerfile
 
@@ -88,7 +79,7 @@ Mount additional directories into the container:
 ```cue
 runtimes: [{
     name: "container"
-    image: "golang:1.21"
+    image: "golang:1.26"
     volumes: [
         "./data:/data",           // Relative path
         "/tmp:/tmp:ro",           // Absolute path, read-only
@@ -215,7 +206,7 @@ Container dependencies are validated **inside the container**:
         script: "make build"
         runtimes: [{
             name: "container"
-            image: "golang:1.21"
+            image: "golang:1.26"
         }]
     }]
 }
@@ -368,7 +359,7 @@ The first run pulls the image. Subsequent runs are faster:
 
 ```bash
 # Pre-pull images
-docker pull golang:1.21
+docker pull golang:1.26
 docker pull node:20
 ```
 

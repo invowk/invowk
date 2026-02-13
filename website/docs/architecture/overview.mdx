@@ -30,11 +30,11 @@ For newcomers to the codebase:
 
 ## Diagram Technology
 
-All diagrams use [Mermaid](https://mermaid.js.org/) syntax. Mermaid is a JavaScript-based diagramming tool that renders diagrams from text definitions, making them easy to version control and maintain.
+All diagrams use [D2](https://d2lang.com/) syntax. D2 is a modern diagramming language that compiles text definitions into SVG, making them easy to version control and maintain.
 
 ### Editing Diagrams
 
-The [Mermaid Live Editor](https://mermaid.live/) is useful for testing changes before committing.
+The [D2 Playground](https://play.d2lang.com/) is useful for testing changes before committing. Locally, run `make render-diagrams` to regenerate SVG renders from D2 sources.
 
 ## C4 Model Background
 
@@ -55,5 +55,5 @@ When making significant architectural changes:
 
 1. **Check if diagrams need updates** - New components, changed relationships, removed features
 2. **Update the relevant diagram(s)** - Keep changes focused
-3. **Verify rendering** - Test in Mermaid Live Editor or the website preview
+3. **Verify rendering** - Run `make render-diagrams` or test in the [D2 Playground](https://play.d2lang.com/)
 4. **Update tables and text** - Diagrams alone may not capture all context

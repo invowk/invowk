@@ -893,7 +893,7 @@ virtual_shell: {
             script: "go build -o /workspace/bin/app ./..."
             runtimes: [{
                 name: "container"
-                image: "golang:1.21"
+                image: "golang:1.26"
             }]
             platforms: [{name: "linux"}]
         }
@@ -905,7 +905,7 @@ virtual_shell: {
     language: 'cue',
     code: `runtimes: [{
     name: "container"
-    image: "golang:1.21"
+    image: "golang:1.26"
     volumes: [
         "./src:/workspace/src",
         "./data:/data:ro"
@@ -1756,7 +1756,7 @@ invowk cmd build --ivk-env-var NODE_ENV=dev --ivk-env-var DEBUG=true --ivk-env-v
     }
     implementations: [{
         script: "go build -o /workspace/bin/app ./..."
-        runtimes: [{name: "container", image: "golang:1.21"}]
+        runtimes: [{name: "container", image: "golang:1.26"}]
         platforms: [{name: "linux"}]
     }]
 }`,
@@ -5250,7 +5250,7 @@ platforms: [
         // Reproducible container build
         {
             script: "go build -o /workspace/bin/app ./..."
-            runtimes: [{name: "container", image: "golang:1.21"}]
+            runtimes: [{name: "container", image: "golang:1.26"}]
             platforms: [{name: "linux"}]
         }
     ]
@@ -5417,7 +5417,7 @@ cmds: [
         name: "build container"
         implementations: [{
             script: "go build -o /workspace/bin/app ./..."
-            runtimes: [{name: "container", image: "golang:1.21"}]
+            runtimes: [{name: "container", image: "golang:1.26"}]
             platforms: [{name: "linux"}]
         }]
     }
@@ -5433,7 +5433,7 @@ cmds: [
         runtimes: [
             {name: "native"},  // Default
             {name: "virtual"}, // Alternative
-            {name: "container", image: "golang:1.21"}  // Reproducible
+            {name: "container", image: "golang:1.26"}  // Reproducible
         ]
         platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
     }]
@@ -5471,7 +5471,7 @@ From current directory:
 
   'runtime-modes/containerfile-example': {
     language: 'dockerfile',
-    code: `FROM golang:1.21
+    code: `FROM golang:1.26
 
 RUN apt-get update && apt-get install -y \\
     make \\
@@ -5562,7 +5562,7 @@ WORKDIR /workspace`,
             """
         runtimes: [{
             name: "container"
-            image: "golang:1.21"
+            image: "golang:1.26"
             volumes: [
                 "\${HOME}/go/pkg/mod:/go/pkg/mod:ro"  // Cache Go dependencies
             ]
@@ -5652,7 +5652,7 @@ cmds: [...]`,
     implementations: [
         {
             script: "go build ./..."
-            runtimes: [{name: "container", image: "golang:1.21"}]
+            runtimes: [{name: "container", image: "golang:1.26"}]
             platforms: [{name: "linux"}]
             depends_on: {
                 // Validated INSIDE the container

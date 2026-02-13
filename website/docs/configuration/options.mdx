@@ -49,8 +49,8 @@ Additional modules to include in command discovery. Each entry is an `#IncludeEn
 **Discovery Order:**
 1. Current directory invowkfile (always searched first, highest priority)
 2. Local modules (`*.invowkmod` in current directory)
-3. `~/.invowk/cmds` (always included)
-4. Each entry in `includes` in order
+3. Each entry in `includes` in order
+4. `~/.invowk/cmds` (always included)
 
 Commands from earlier entries override commands with the same name from later entries.
 
@@ -86,15 +86,17 @@ Configures the virtual shell runtime behavior.
 **Type:** `bool`
 **Default:** `true`
 
-Enables [u-root](https://github.com/u-root/u-root) utilities in the virtual shell. When enabled, 15 additional POSIX-compliant commands become available:
+Enables [u-root](https://github.com/u-root/u-root) utilities in the virtual shell. When enabled, 28 additional POSIX-compliant commands become available:
 
-**File Operations:** `cat`, `cp`, `ls`, `mkdir`, `mv`, `rm`, `touch`
+**File Operations (13):** `base64`, `cat`, `cp`, `find`, `gzip`, `ln`, `ls`, `mkdir`, `mktemp`, `mv`, `rm`, `tar`, `touch`
 
-**Text Processing:** `head`, `tail`, `wc`, `grep`, `sort`, `uniq`, `cut`, `tr`
+**Text Processing (11):** `basename`, `cut`, `dirname`, `grep`, `head`, `realpath`, `sort`, `tail`, `tr`, `uniq`, `wc`
+
+**Other Utilities (4):** `seq`, `shasum`, `sleep`, `tee`
 
 <Snippet id="config/virtual-shell" />
 
-This makes the virtual shell self-contained, allowing scripts to execute common file and text operations without requiring external binaries on the host system.
+This makes the virtual shell self-contained, allowing scripts to execute common file, text, and utility operations without requiring external binaries on the host system.
 
 :::tip
 u-root utilities are enabled by default. Set to `false` only if you need to force scripts to use system binaries or reduce binary size.
@@ -182,6 +184,13 @@ Additional modules to provision into containers. Uses the same `#IncludeEntry` f
 **Default:** `true`
 
 When `true`, the root-level `includes` entries are automatically inherited by auto-provisioning. Set to `false` to provision only the modules explicitly listed in `container.auto_provision.includes`.
+
+#### container.auto_provision.strict
+
+**Type:** `bool`
+**Default:** `false`
+
+When `true`, auto-provisioning failures are treated as hard errors instead of warnings. By default, if provisioning fails, Invowk warns and runs the base image. With `strict: true`, the command fails immediately on provisioning failure.
 
 #### container.auto_provision.cache_dir
 
