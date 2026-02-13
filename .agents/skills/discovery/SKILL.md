@@ -53,13 +53,13 @@ discoverInDir(dir)  // Looks for invowkfile.cue OR invowkfile
 
 ```go
 // Non-recursive - only immediate subdirectories
-discoverModulesInDir(dir)
+discoverModulesInDirWithDiagnostics(dir) → ([]*DiscoveredFile, []Diagnostic)
 ```
 
 **Module Validation:**
 - Uses `invowkmod.IsModule()` to verify directory structure
 - Skips reserved module name `"invowkfile"` (reserved for canonical namespace)
-- **Graceful degradation**: Invalid modules are silently skipped
+- **Graceful degradation**: Invalid modules emit diagnostics (warnings) and are skipped
 
 ---
 
@@ -208,22 +208,77 @@ type ArgsSubcommandConflictError struct {
 
 ---
 
-## Usage Patterns
+## Discovery Diagnostics
 
-### Simple Command Execution
+The discovery system returns structured diagnostics alongside results rather than writing to stderr. This follows the "return diagnostics, don't render them" pattern — domain packages produce structured data; the CLI layer decides how to render it.
+
+### Diagnostic Type
 
 ```go
-disc := discovery.New(cfg)
-commands, err := disc.DiscoverCommands()  // Flat list, sorted
+type Diagnostic struct {
+    Severity Severity  // "warning" or "error"
+    Code     string    // Machine-readable code (e.g., "module_load_skipped")
+    Message  string    // Human-readable description
+    Path     string    // Associated file path (optional)
+    Cause    error     // Underlying error (optional)
+}
 ```
+
+### Diagnostic-Returning APIs
+
+Internal methods return `(results, []Diagnostic, error)` tuples:
+
+```go
+// Internal: returns files + diagnostics
+discoverAllWithDiagnostics() → ([]*DiscoveredFile, []Diagnostic, error)
+loadAllWithDiagnostics()     → ([]*DiscoveredFile, []Diagnostic, error)
+
+// Public wrappers drop diagnostics for backward compatibility
+DiscoverAll() → ([]*DiscoveredFile, error)
+LoadAll()     → ([]*DiscoveredFile, error)
+```
+
+### Result Types with Diagnostics
+
+Public aggregation APIs return result types that bundle diagnostics:
+
+```go
+type CommandSetResult struct {
+    Set         *DiscoveredCommandSet
+    Diagnostics []Diagnostic
+}
+
+type LookupResult struct {
+    Command     *CommandInfo
+    Diagnostics []Diagnostic
+}
+```
+
+### Diagnostic Codes
+
+| Code | Severity | Meaning |
+|------|----------|---------|
+| `module_scan_path_invalid` | warning | Failed to resolve module scan directory |
+| `module_scan_failed` | warning | Failed to list directory during module scan |
+| `reserved_module_name_skipped` | warning | Module uses reserved name `"invowkfile"` |
+| `module_load_skipped` | warning | Invalid module skipped during discovery |
+| `include_not_module` | warning | Config include path is not a valid module |
+| `include_reserved_module_skipped` | warning | Config include uses reserved module name |
+| `include_module_load_failed` | warning | Failed to load configured include module |
+| `container_runtime_init_failed` | warning | Container engine unavailable during registry init |
+
+---
+
+## Usage Patterns
 
 ### CLI Listing with Grouping
 
 ```go
-cmdSet, err := disc.DiscoverCommandSet()
+disc := discovery.New(cfg)
+result, err := disc.DiscoverCommandSet(ctx)  // Returns CommandSetResult with diagnostics
 
-for _, sourceID := range cmdSet.SourceOrder {
-    for _, cmd := range cmdSet.BySource[sourceID] {
+for _, sourceID := range result.Set.SourceOrder {
+    for _, cmd := range result.Set.BySource[sourceID] {
         if cmd.IsAmbiguous {
             // Show with disambiguation prefix
         } else {
@@ -236,14 +291,14 @@ for _, sourceID := range cmdSet.SourceOrder {
 ### Validation Before Execution
 
 ```go
-commands, err := disc.DiscoverAndValidateCommands()  // Includes tree validation
+result, err := disc.DiscoverAndValidateCommandSet(ctx)  // Includes tree validation + diagnostics
 ```
 
 ### Get Specific Command
 
 ```go
-cmdInfo, err := disc.GetCommand("foo build")
-// Returns Command, Invowkfile, Module metadata
+lookup, err := disc.GetCommand(ctx, "foo build")
+// Returns LookupResult with Command, Invowkfile, Module metadata, and Diagnostics
 ```
 
 ---
@@ -266,10 +321,11 @@ cmdInfo, err := disc.GetCommand("foo build")
 
 | File | Purpose |
 |------|---------|
-| `discovery.go` | Main discovery logic and public API |
-| `command_set.go` | Command aggregation and collision detection |
-| `validation.go` | Command tree validation |
-| `source.go` | Source types and tracking |
+| `discovery.go` | Core API: LoadAll, LoadFirst, CheckModuleCollisions, GetEffectiveModuleID, loadAllWithDiagnostics |
+| `discovery_files.go` | File/module discovery: DiscoverAll, discoverInDir, discoverModulesInDirWithDiagnostics, loadIncludesWithDiagnostics, Source enum, DiscoveredFile |
+| `discovery_commands.go` | Command aggregation: DiscoverCommandSet, DiscoverAndValidateCommandSet, GetCommand, DiscoveredCommandSet |
+| `diagnostic.go` | Diagnostic type, Severity constants, CommandSetResult, LookupResult |
+| `validation.go` | Command tree validation (leaf-only args rule) |
 | `doc.go` | Package documentation |
 
 ---
