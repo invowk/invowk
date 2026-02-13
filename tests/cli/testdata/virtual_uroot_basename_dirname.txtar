@@ -1,0 +1,48 @@
+# Test: U-root basename and dirname utilities
+# Tests path manipulation with basename and dirname in virtual runtime
+
+cd $WORK
+
+# Test 1: basename and dirname extract path components
+exec invowk cmd 'uroot paths'
+stdout '=== basename ==='
+stdout 'baz\.txt'
+stdout '=== basename suffix ==='
+stdout 'baz'
+stdout '=== dirname ==='
+stdout '/foo/bar'
+stdout '=== dirname nested ==='
+stdout '/a/b'
+stdout '=== uroot paths test complete ==='
+! stderr .
+
+-- invowkfile.cue --
+cmds: [
+	{
+		name:        "uroot paths"
+		description: "Test basename and dirname path operations"
+		implementations: [{
+			script: """
+				# Test basename extracts filename
+				echo '=== basename ==='
+				basename /foo/bar/baz.txt
+
+				# Test basename with suffix stripping
+				echo '=== basename suffix ==='
+				basename /foo/bar/baz.txt .txt
+
+				# Test dirname extracts directory
+				echo '=== dirname ==='
+				dirname /foo/bar/baz.txt
+
+				# Test dirname with nested path
+				echo '=== dirname nested ==='
+				dirname /a/b/c.log
+
+				echo '=== uroot paths test complete ==='
+				"""
+			runtimes: [{name: "virtual"}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+	},
+]

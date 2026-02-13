@@ -1,0 +1,44 @@
+# Test: U-root gzip utility
+# Tests gzip compression and decompression in virtual runtime
+
+cd $WORK
+
+# Test 1: gzip compresses and decompresses files
+exec invowk cmd 'uroot gzip'
+stdout '=== gzip compress ==='
+stdout 'file\.txt\.gz'
+stdout '=== gzip decompress ==='
+stdout 'test data for gzip'
+stdout '=== uroot gzip test complete ==='
+! stderr .
+
+-- invowkfile.cue --
+cmds: [
+	{
+		name:        "uroot gzip"
+		description: "Test gzip compression and decompression"
+		implementations: [{
+			script: """
+				mkdir -p $WORK/gzip-test
+
+				# Create a file with content
+				echo 'test data for gzip' > $WORK/gzip-test/file.txt
+
+				# Compress the file (replaces file.txt with file.txt.gz)
+				gzip $WORK/gzip-test/file.txt
+				echo '=== gzip compress ==='
+				ls $WORK/gzip-test
+
+				# Decompress the file (replaces file.txt.gz with file.txt)
+				gzip -d $WORK/gzip-test/file.txt.gz
+				echo '=== gzip decompress ==='
+				cat $WORK/gzip-test/file.txt
+
+				rm -rf $WORK/gzip-test
+				echo '=== uroot gzip test complete ==='
+				"""
+			runtimes: [{name: "virtual"}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+	},
+]

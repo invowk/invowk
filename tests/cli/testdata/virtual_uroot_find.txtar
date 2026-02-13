@@ -1,0 +1,44 @@
+# Test: U-root find utility
+# Tests file finding by name pattern in virtual runtime
+
+cd $WORK
+
+# Test 1: find locates files matching a name pattern
+exec invowk cmd 'uroot find'
+stdout '=== find by name ==='
+stdout 'a\.txt'
+stdout 'c\.txt'
+! stdout 'b\.log'
+stdout '=== find by type ==='
+stdout 'sub'
+stdout '=== uroot find test complete ==='
+! stderr .
+
+-- invowkfile.cue --
+cmds: [
+	{
+		name:        "uroot find"
+		description: "Test find file operations"
+		implementations: [{
+			script: """
+				mkdir -p $WORK/find-test/sub
+				touch $WORK/find-test/a.txt
+				touch $WORK/find-test/b.log
+				touch $WORK/find-test/sub/c.txt
+
+				# Test finding files by name pattern
+				echo '=== find by name ==='
+				find $WORK/find-test -name '*.txt'
+
+				# Test finding directories by type
+				echo '=== find by type ==='
+				find $WORK/find-test -type d
+
+				rm -rf $WORK/find-test
+				echo '=== uroot find test complete ==='
+				"""
+			runtimes: [{name: "virtual"}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+	},
+]

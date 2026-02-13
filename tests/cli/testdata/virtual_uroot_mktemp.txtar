@@ -1,0 +1,44 @@
+# Test: U-root mktemp utility
+# Tests temporary file and directory creation in virtual runtime
+
+cd $WORK
+
+# Test 1: mktemp creates temp file and temp directory
+exec invowk cmd 'uroot mktemp'
+stdout '=== mktemp file ==='
+stdout 'tmp'
+stdout '=== mktemp dir ==='
+stdout 'tmp'
+stdout '=== uroot mktemp test complete ==='
+! stderr .
+
+-- invowkfile.cue --
+cmds: [
+	{
+		name:        "uroot mktemp"
+		description: "Test mktemp temporary file and directory creation"
+		implementations: [{
+			script: """
+				# Test creating a temp file
+				echo '=== mktemp file ==='
+				TMPFILE=$(mktemp)
+				echo "$TMPFILE"
+				touch "$TMPFILE"
+				ls "$TMPFILE"
+				rm -f "$TMPFILE"
+
+				# Test creating a temp directory with -d
+				echo '=== mktemp dir ==='
+				TMPDIR=$(mktemp -d)
+				echo "$TMPDIR"
+				touch "$TMPDIR/testfile"
+				ls "$TMPDIR/testfile"
+				rm -rf "$TMPDIR"
+
+				echo '=== uroot mktemp test complete ==='
+				"""
+			runtimes: [{name: "virtual"}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+	},
+]

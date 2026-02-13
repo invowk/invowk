@@ -1,0 +1,45 @@
+# Test: U-root ln utility
+# Tests symbolic link creation and force overwrite in virtual runtime
+
+cd $WORK
+
+# Test 1: ln creates symbolic links and supports force overwrite
+exec invowk cmd 'uroot ln'
+stdout '=== ln symlink ==='
+stdout 'target content'
+stdout '=== ln force overwrite ==='
+stdout 'new target'
+stdout '=== uroot ln test complete ==='
+! stderr .
+
+-- invowkfile.cue --
+cmds: [
+	{
+		name:        "uroot ln"
+		description: "Test ln symbolic link operations"
+		implementations: [{
+			script: """
+				mkdir -p $WORK/ln-test
+
+				# Create a target file
+				echo 'target content' > $WORK/ln-test/original.txt
+
+				# Test symbolic link creation
+				ln -s $WORK/ln-test/original.txt $WORK/ln-test/link.txt
+				echo '=== ln symlink ==='
+				cat $WORK/ln-test/link.txt
+
+				# Test force overwrite of existing link
+				echo 'new target' > $WORK/ln-test/other.txt
+				ln -s -f $WORK/ln-test/other.txt $WORK/ln-test/link.txt
+				echo '=== ln force overwrite ==='
+				cat $WORK/ln-test/link.txt
+
+				rm -rf $WORK/ln-test
+				echo '=== uroot ln test complete ==='
+				"""
+			runtimes: [{name: "virtual"}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+	},
+]

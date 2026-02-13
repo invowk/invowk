@@ -1,0 +1,52 @@
+# Test: U-root tee utility
+# Tests tee output duplication to stdout and files in virtual runtime
+
+cd $WORK
+
+# Test 1: tee writes to stdout and file, supports append mode
+exec invowk cmd 'uroot tee'
+stdout '=== tee write ==='
+stdout 'hello from tee'
+stdout '=== tee file content ==='
+stdout 'hello from tee'
+stdout '=== tee append ==='
+stdout 'second line'
+stdout '=== tee file after append ==='
+stdout 'hello from tee'
+stdout 'second line'
+stdout '=== uroot tee test complete ==='
+! stderr .
+
+-- invowkfile.cue --
+cmds: [
+	{
+		name:        "uroot tee"
+		description: "Test tee output duplication"
+		implementations: [{
+			script: """
+				mkdir -p $WORK/tee-test
+
+				# Test basic tee: writes to stdout and file
+				echo '=== tee write ==='
+				echo 'hello from tee' | tee $WORK/tee-test/output.txt
+
+				# Verify file content
+				echo '=== tee file content ==='
+				cat $WORK/tee-test/output.txt
+
+				# Test append mode
+				echo '=== tee append ==='
+				echo 'second line' | tee -a $WORK/tee-test/output.txt
+
+				# Verify file has both lines
+				echo '=== tee file after append ==='
+				cat $WORK/tee-test/output.txt
+
+				rm -rf $WORK/tee-test
+				echo '=== uroot tee test complete ==='
+				"""
+			runtimes: [{name: "virtual"}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+	},
+]

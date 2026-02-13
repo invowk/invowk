@@ -87,12 +87,21 @@ writer.Write(content)
 ### Applies To
 
 All u-root utility implementations that handle file content:
-- `cp` - File copying
-- `mv` - File moving (when cross-filesystem)
+- `base64` - Base64 encoding/decoding (streaming)
 - `cat` - File concatenation
+- `chmod` - File mode changes
+- `cp` - File copying
+- `find` - Directory tree searching
+- `gzip` - Compression/decompression (streaming)
 - `head` / `tail` - File viewing
 - `grep` - Pattern matching (line-by-line streaming)
+- `ln` - Link creation (hard/symbolic)
+- `mv` - File moving (when cross-filesystem)
+- `realpath` - Path resolution (symlinks + absolute)
+- `shasum` - SHA checksum computation (streaming)
 - `sort` - Sorting (may require temp files for large inputs)
+- `tar` - Archive creation/extraction (streaming)
+- `tee` - Output duplication (streaming to stdout + files)
 - `wc` - Word/line counting (streaming counters)
 
 ### Exception: Sorting Large Files

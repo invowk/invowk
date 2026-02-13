@@ -1,0 +1,41 @@
+# Test: U-root shasum utility
+# Tests SHA checksum computation in virtual runtime
+
+cd $WORK
+
+# Test 1: shasum computes SHA256 of known content
+# The fixture hello.txt contains "hello\n", SHA256 = 5891b5b5...
+exec invowk cmd 'uroot shasum'
+stdout '=== shasum sha256 ==='
+stdout '5891b5b522d5df086d0ff0b110fbd9d21bb4fc7163af34d08286a2e846f6be03'
+stdout '=== uroot shasum test complete ==='
+! stderr .
+
+-- invowkfile.cue --
+cmds: [
+	{
+		name:        "uroot shasum"
+		description: "Test SHA checksum computation"
+		implementations: [{
+			script: """
+				mkdir -p $WORK/shasum-test
+
+				# Use the fixture file with known content (hello + newline)
+				cp $WORK/hello.txt $WORK/shasum-test/hello.txt
+
+				# Test SHA256 hash (hello.txt contains "hello" followed by a newline)
+				# Expected: 5891b5b522d5df086d0ff0b110fbd9d21bb4fc7163af34d08286a2e846f6be03
+				echo '=== shasum sha256 ==='
+				shasum -a 256 $WORK/shasum-test/hello.txt
+
+				rm -rf $WORK/shasum-test
+				echo '=== uroot shasum test complete ==='
+				"""
+			runtimes: [{name: "virtual"}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+	},
+]
+
+-- hello.txt --
+hello
