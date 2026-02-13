@@ -77,15 +77,15 @@ Skills provide domain-specific procedural guidance. They are invoked when workin
 - [`.claude/skills/pr/`](.claude/skills/pr/) - GitHub PR workflow: tests, lints, license check, branch creation, conventional commits, and PR description.
 - [`.claude/skills/changelog/`](.claude/skills/changelog/) - User-invokable (`/changelog`). Generate release notes from conventional commits since last tag.
 - [`.claude/skills/dep-audit/`](.claude/skills/dep-audit/) - User-invokable (`/dep-audit`). Audit Go dependencies for vulnerabilities and available updates.
-- [`.claude/skills/speckit.specify/`](.claude/skills/speckit.specify/) - User-invokable (`/speckit.specify`). Create or update feature specification from natural language description.
-- [`.claude/skills/speckit.clarify/`](.claude/skills/speckit.clarify/) - User-invokable (`/speckit.clarify`). Identify underspecified areas in feature spec via targeted clarification questions.
-- [`.claude/skills/speckit.plan/`](.claude/skills/speckit.plan/) - User-invokable (`/speckit.plan`). Generate implementation plan from feature specification.
-- [`.claude/skills/speckit.tasks/`](.claude/skills/speckit.tasks/) - User-invokable (`/speckit.tasks`). Generate dependency-ordered tasks.md from design artifacts.
-- [`.claude/skills/speckit.taskstoissues/`](.claude/skills/speckit.taskstoissues/) - User-invokable (`/speckit.taskstoissues`). Convert tasks.md into GitHub issues with dependency ordering.
-- [`.claude/skills/speckit.implement/`](.claude/skills/speckit.implement/) - User-invokable (`/speckit.implement`). Execute implementation plan by processing tasks from tasks.md.
-- [`.claude/skills/speckit.analyze/`](.claude/skills/speckit.analyze/) - User-invokable (`/speckit.analyze`). Cross-artifact consistency and quality analysis across spec, plan, and tasks.
-- [`.claude/skills/speckit.checklist/`](.claude/skills/speckit.checklist/) - User-invokable (`/speckit.checklist`). Generate custom checklist for current feature based on requirements.
-- [`.claude/skills/speckit.constitution/`](.claude/skills/speckit.constitution/) - User-invokable (`/speckit.constitution`). Create or update project constitution from principle inputs.
+- [`.claude/skills/speckit.specify/`](.claude/skills/speckit.specify/) - **User-only** (`/speckit.specify`). Create or update feature specification from natural language description. **Never auto-invoke.**
+- [`.claude/skills/speckit.clarify/`](.claude/skills/speckit.clarify/) - **User-only** (`/speckit.clarify`). Identify underspecified areas in feature spec via targeted clarification questions. **Never auto-invoke.**
+- [`.claude/skills/speckit.plan/`](.claude/skills/speckit.plan/) - **User-only** (`/speckit.plan`). Generate implementation plan from feature specification. **Never auto-invoke.**
+- [`.claude/skills/speckit.tasks/`](.claude/skills/speckit.tasks/) - **User-only** (`/speckit.tasks`). Generate dependency-ordered tasks.md from design artifacts. **Never auto-invoke.**
+- [`.claude/skills/speckit.taskstoissues/`](.claude/skills/speckit.taskstoissues/) - **User-only** (`/speckit.taskstoissues`). Convert tasks.md into GitHub issues with dependency ordering. **Never auto-invoke.**
+- [`.claude/skills/speckit.implement/`](.claude/skills/speckit.implement/) - **User-only** (`/speckit.implement`). Execute implementation plan by processing tasks from tasks.md. **Never auto-invoke.**
+- [`.claude/skills/speckit.analyze/`](.claude/skills/speckit.analyze/) - **User-only** (`/speckit.analyze`). Cross-artifact consistency and quality analysis across spec, plan, and tasks. **Never auto-invoke.**
+- [`.claude/skills/speckit.checklist/`](.claude/skills/speckit.checklist/) - **User-only** (`/speckit.checklist`). Generate custom checklist for current feature based on requirements. **Never auto-invoke.**
+- [`.claude/skills/speckit.constitution/`](.claude/skills/speckit.constitution/) - **User-only** (`/speckit.constitution`). Create or update project constitution from principle inputs. **Never auto-invoke.**
 
 ### Code Area → Rules/Skills Mapping
 
