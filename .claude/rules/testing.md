@@ -196,6 +196,27 @@ run: go test -v -race -timeout 15m -coverprofile=coverage.out ./...
 2. **Cleanup via `env.Defer()`** prevents orphaned containers from accumulating
 3. **15-minute CI timeout** catches catastrophic failures faster than Go's default 10m
 
+**Layer 4: Test-Level Concurrency Limiting**
+
+All container integration tests must acquire a slot from the process-wide container semaphore before running container operations. This prevents Podman resource exhaustion on constrained CI runners.
+
+```go
+sem := testutil.ContainerSemaphore()
+sem <- struct{}{}
+defer func() { <-sem }()
+```
+
+Place this **after** `t.Parallel()` and any `testing.Short()` skip, but **before** any container operations. The semaphore is a `sync.OnceValue` singleton — each test binary gets its own instance. Default capacity is `min(GOMAXPROCS, 2)`, overridable via `INVOWK_TEST_CONTAINER_PARALLEL` env var (set to `"2"` in CI).
+
+**When to use the semaphore:**
+- Integration tests that run real container operations (Execute, ExecuteCapture, Build)
+- CLI testscript tests that invoke container commands
+
+**When NOT to use the semaphore:**
+- Unit tests with mocked container engines
+- Validation-only tests that don't start containers (e.g., `Validate()`, type assertions)
+- Error-path tests that fail before container operations (e.g., missing SSH server)
+
 **When to adjust timeouts:**
 - If tests consistently need more than 3 minutes (e.g., large image pulls), increase `containerTestTimeout`
 - The 15m CI timeout should always exceed the sum of all sequential container test deadlines

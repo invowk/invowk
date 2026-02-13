@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"invowk-cli/internal/testutil"
 	"invowk-cli/pkg/invowkfile"
 )
 
@@ -20,6 +21,10 @@ func TestContainerRuntime_ProvisioningLayer_InvowkfileAccess(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test in short mode")
 	}
+
+	sem := testutil.ContainerSemaphore()
+	sem <- struct{}{}
+	defer func() { <-sem }()
 
 	tmpDir, inv := setupTestInvowkfile(t)
 
@@ -73,6 +78,10 @@ func TestContainerRuntime_ProvisioningLayer_ScriptFileExecution(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test in short mode")
 	}
+
+	sem := testutil.ContainerSemaphore()
+	sem <- struct{}{}
+	defer func() { <-sem }()
 
 	tmpDir, inv := setupTestInvowkfile(t)
 
@@ -128,6 +137,10 @@ func TestContainerRuntime_ProvisioningLayer_NestedDirectories(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test in short mode")
 	}
+
+	sem := testutil.ContainerSemaphore()
+	sem <- struct{}{}
+	defer func() { <-sem }()
 
 	tmpDir, inv := setupTestInvowkfile(t)
 
@@ -186,6 +199,10 @@ func TestContainerRuntime_ProvisioningLayer_WorkspaceIsCwd(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test in short mode")
 	}
+
+	sem := testutil.ContainerSemaphore()
+	sem <- struct{}{}
+	defer func() { <-sem }()
 
 	_, inv := setupTestInvowkfile(t)
 

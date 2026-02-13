@@ -96,6 +96,36 @@ All container tests now run in parallel:
 4. **Non-container tests** (`tests/cli/`): `TestCLI` runs all other tests in parallel.
 5. **Smoke test retry**: The container availability check includes retry logic with exponential backoff.
 
+### Layer 4: Test-Level Concurrency Limiting
+
+A process-wide semaphore (`internal/testutil/container_semaphore.go`) limits concurrent container
+operations across all integration tests within a single test binary. This prevents Podman resource
+exhaustion on constrained CI runners (4 vCPU) where too many concurrent container operations cause
+indefinite hangs rather than retryable errors.
+
+**Design:**
+- **Singleton per process** via `sync.OnceValue` — each test binary (`tests/cli/`, `internal/runtime/`)
+  gets its own independent semaphore.
+- **Env var override**: `INVOWK_TEST_CONTAINER_PARALLEL` (integer) for explicit CI tuning.
+- **Default**: `min(GOMAXPROCS(0), 2)` — caps at 2 to prevent resource exhaustion.
+- **CI pinned to 2** via env var in `.github/workflows/ci.yml`, ensuring deterministic behavior
+  regardless of runner CPU count.
+
+**Usage pattern (all container integration tests):**
+```go
+sem := testutil.ContainerSemaphore()
+sem <- struct{}{}
+defer func() { <-sem }()
+```
+
+**Why this layer is needed:** Layers 0–1 handle transient errors (ping_group_range race, exit codes
+125/126), but on constrained CI runners, too many concurrent Podman operations cause containers to
+**hang indefinitely** rather than fail with retryable errors. The semaphore prevents this by capping
+the number of concurrent container operations to a safe level.
+
+**Key files:**
+- `internal/testutil/container_semaphore.go` — `ContainerSemaphore()`, `containerParallelism()`
+
 ### Test Execution
 
 ```bash

@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"invowk-cli/internal/testutil"
 	"invowk-cli/pkg/invowkfile"
 )
 
@@ -149,6 +150,10 @@ func TestContainerRuntime_BuildFromContainerfile(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test in short mode")
 	}
+
+	sem := testutil.ContainerSemaphore()
+	sem <- struct{}{}
+	defer func() { <-sem }()
 
 	tmpDir, inv := setupTestInvowkfile(t)
 

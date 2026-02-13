@@ -38,34 +38,58 @@ func TestContainerRuntime_Integration(t *testing.T) {
 
 	t.Run("BasicExecution", func(t *testing.T) {
 		t.Parallel()
+		sem := testutil.ContainerSemaphore()
+		sem <- struct{}{}
+		defer func() { <-sem }()
 		testContainerBasicExecution(t)
 	})
 	t.Run("EnvironmentVariables", func(t *testing.T) {
 		t.Parallel()
+		sem := testutil.ContainerSemaphore()
+		sem <- struct{}{}
+		defer func() { <-sem }()
 		testContainerEnvironmentVariables(t)
 	})
 	t.Run("MultiLineScript", func(t *testing.T) {
 		t.Parallel()
+		sem := testutil.ContainerSemaphore()
+		sem <- struct{}{}
+		defer func() { <-sem }()
 		testContainerMultiLineScript(t)
 	})
 	t.Run("WorkingDirectory", func(t *testing.T) {
 		t.Parallel()
+		sem := testutil.ContainerSemaphore()
+		sem <- struct{}{}
+		defer func() { <-sem }()
 		testContainerWorkingDirectory(t)
 	})
 	t.Run("VolumeMounts", func(t *testing.T) {
 		t.Parallel()
+		sem := testutil.ContainerSemaphore()
+		sem <- struct{}{}
+		defer func() { <-sem }()
 		testContainerVolumeMounts(t)
 	})
 	t.Run("ExitCode", func(t *testing.T) {
 		t.Parallel()
+		sem := testutil.ContainerSemaphore()
+		sem <- struct{}{}
+		defer func() { <-sem }()
 		testContainerExitCode(t)
 	})
 	t.Run("PositionalArgs", func(t *testing.T) {
 		t.Parallel()
+		sem := testutil.ContainerSemaphore()
+		sem <- struct{}{}
+		defer func() { <-sem }()
 		testContainerPositionalArgs(t)
 	})
 	t.Run("EnableHostSSH_EnvVarsProvided", func(t *testing.T) {
 		t.Parallel()
+		sem := testutil.ContainerSemaphore()
+		sem <- struct{}{}
+		defer func() { <-sem }()
 		testContainerEnableHostSSHEnvVars(t)
 	})
 }

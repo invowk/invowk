@@ -4,6 +4,7 @@
 // appropriately, reducing boilerplate and ensuring consistent error handling.
 //
 // Common helpers include environment variable management (MustSetenv, MustUnsetenv),
-// directory operations (MustChdir, MustMkdirAll), and resource cleanup (MustClose,
-// MustStop, DeferClose, DeferStop).
+// directory operations (MustChdir, MustMkdirAll), resource cleanup (MustClose,
+// MustStop, DeferClose, DeferStop), and container test concurrency limiting
+// (ContainerSemaphore).
 package testutil

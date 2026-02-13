@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"invowk-cli/internal/container"
+	"invowk-cli/internal/testutil"
 	"invowk-cli/pkg/invowkfile"
 )
 
@@ -30,18 +31,30 @@ func TestContainerRuntime_ExecuteCapture(t *testing.T) {
 
 	t.Run("BasicCapture", func(t *testing.T) {
 		t.Parallel()
+		sem := testutil.ContainerSemaphore()
+		sem <- struct{}{}
+		defer func() { <-sem }()
 		testContainerExecuteCaptureBasic(t)
 	})
 	t.Run("CaptureWithExitCode", func(t *testing.T) {
 		t.Parallel()
+		sem := testutil.ContainerSemaphore()
+		sem <- struct{}{}
+		defer func() { <-sem }()
 		testContainerExecuteCaptureExitCode(t)
 	})
 	t.Run("CaptureStderr", func(t *testing.T) {
 		t.Parallel()
+		sem := testutil.ContainerSemaphore()
+		sem <- struct{}{}
+		defer func() { <-sem }()
 		testContainerExecuteCaptureStderr(t)
 	})
 	t.Run("CaptureWithEnvVars", func(t *testing.T) {
 		t.Parallel()
+		sem := testutil.ContainerSemaphore()
+		sem <- struct{}{}
+		defer func() { <-sem }()
 		testContainerExecuteCaptureEnvVars(t)
 	})
 }
@@ -184,7 +197,8 @@ func testContainerExecuteCaptureEnvVars(t *testing.T) {
 	}
 }
 
-// TestContainerRuntime_CapturingRuntimeInterface verifies that ContainerRuntime implements CapturingRuntime
+// TestContainerRuntime_CapturingRuntimeInterface verifies that ContainerRuntime implements CapturingRuntime.
+// No container semaphore needed — this is a pure type assertion, no container operations.
 func TestContainerRuntime_CapturingRuntimeInterface(t *testing.T) {
 	t.Parallel()
 	// This is a compile-time check that also serves as documentation
