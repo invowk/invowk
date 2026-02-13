@@ -4,14 +4,28 @@ package runtime
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
+	"time"
 
 	"invowk-cli/internal/container"
 	"invowk-cli/internal/sshserver"
 	"invowk-cli/pkg/invkfile"
 )
+
+// containerRunMu serializes container Run calls when the memfd-based sysctl
+// override isn't active. This covers: podman-remote (env var doesn't reach
+// the service), non-Linux platforms (Podman runs in a VM), and memfd_create
+// failures. The mutex prevents intra-process ping_group_range races;
+// runWithRetry still handles cross-process races and other transient errors.
+//
+// When the memfd override IS active (local Podman on Linux), this mutex is
+// never acquired — the override eliminates the race at source.
+// Docker never acquires this mutex (it doesn't implement SysctlOverrideChecker).
+var containerRunMu sync.Mutex
 
 // containerExecPrep holds all prepared data needed to run a container command.
 // This struct is returned by prepareContainerExecution and used by both
@@ -170,6 +184,68 @@ func (r *ContainerRuntime) prepareContainerExecution(ctx *ExecutionContext) (_ *
 	}, nil
 }
 
+// runWithRetry wraps engine.Run with retry logic for transient container engine
+// errors (rootless Podman ping_group_range race, exit code 125, overlay mount
+// races). This mirrors the ensureImage() retry pattern for build operations.
+// The caller's context deadline naturally bounds total retry time.
+//
+// engine.Run() absorbs exec.ExitError into result.ExitCode and returns nil for
+// the error return. This means transient OCI failures (e.g., crun ping_group_range
+// race returning exit code 126) appear as result.ExitCode != 0 with err == nil.
+// The retry logic checks both the error return AND the result exit code.
+func (r *ContainerRuntime) runWithRetry(ctx context.Context, runOpts container.RunOptions) (*container.RunResult, error) {
+	// The ping_group_range race only affects rootless Podman. Serialize runs when
+	// the engine implements SysctlOverrideChecker but the override isn't active
+	// (podman-remote, non-Linux, memfd failure). Engines that don't implement the
+	// checker (Docker) don't suffer from this race and skip serialization entirely.
+	if checker, ok := r.engine.(container.SysctlOverrideChecker); ok && !checker.SysctlOverrideActive() {
+		containerRunMu.Lock()
+		defer containerRunMu.Unlock()
+	}
+
+	var lastErr error
+	var lastResult *container.RunResult
+	for attempt := range maxRunRetries {
+		if attempt > 0 {
+			if err := ctx.Err(); err != nil {
+				return nil, fmt.Errorf("context cancelled during run retry: %w", err)
+			}
+			time.Sleep(baseRunBackoff * time.Duration(1<<(attempt-1)))
+		}
+
+		result, err := r.engine.Run(ctx, runOpts)
+		if err != nil {
+			if !container.IsTransientError(err) {
+				return nil, err
+			}
+			lastErr = err
+			continue
+		}
+
+		// engine.Run() returns exit-code failures in result rather than err.
+		// Check for transient engine exit codes (125 = generic engine error,
+		// 126 = OCI runtime failure e.g., crun ping_group_range race).
+		if result.ExitCode == 0 || !isTransientExitCode(result.ExitCode) {
+			return result, nil
+		}
+		lastResult = result
+	}
+	if lastErr != nil {
+		return nil, lastErr
+	}
+	return lastResult, nil
+}
+
+// isTransientExitCode reports whether a container exit code indicates a transient
+// engine error that may succeed on retry. These codes come from the container
+// engine (Docker/Podman), not from the user's command inside the container.
+//
+//   - 125: Generic container engine error (Docker/Podman convention for internal failures)
+//   - 126: OCI runtime error (e.g., crun ping_group_range race on rootless Podman)
+func isTransientExitCode(code int) bool {
+	return code == 125 || code == 126
+}
+
 // Execute runs a command in a container
 func (r *ContainerRuntime) Execute(ctx *ExecutionContext) *Result {
 	prep, errResult := r.prepareContainerExecution(ctx)
@@ -194,7 +270,7 @@ func (r *ContainerRuntime) Execute(ctx *ExecutionContext) *Result {
 		ExtraHosts:  prep.extraHosts,
 	}
 
-	result, err := r.engine.Run(ctx.Context, runOpts)
+	result, err := r.runWithRetry(ctx.Context, runOpts)
 	if err != nil {
 		return &Result{ExitCode: 1, Error: fmt.Errorf("failed to run container: %w", err)}
 	}
@@ -234,7 +310,7 @@ func (r *ContainerRuntime) ExecuteCapture(ctx *ExecutionContext) *Result {
 		ExtraHosts:  prep.extraHosts,
 	}
 
-	result, err := r.engine.Run(ctx.Context, runOpts)
+	result, err := r.runWithRetry(ctx.Context, runOpts)
 	if err != nil {
 		return &Result{
 			ExitCode:  1,

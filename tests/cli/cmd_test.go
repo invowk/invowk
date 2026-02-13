@@ -6,7 +6,8 @@
 // output capture, replacing the flaky VHS-based tests.
 //
 // Container tests are separated into TestContainerCLI (cmd_container_test.go)
-// and run sequentially to avoid rootless Podman race conditions. See
+// and run in parallel. Transient rootless Podman errors are handled by
+// run-level retry in the container runtime. See
 // .claude/docs/podman-parallel-tests.md for details.
 package cli
 

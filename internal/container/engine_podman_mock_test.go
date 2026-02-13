@@ -23,14 +23,14 @@ func newTestPodmanEngine(t *testing.T, recorder *MockCommandRecorder) *PodmanEng
 
 // TestPodmanEngine_Build_Arguments verifies Podman Build() constructs correct arguments.
 func TestPodmanEngine_Build_Arguments(t *testing.T) {
-	recorder, cleanup := withMockExecCommand(t)
-	defer cleanup()
-
-	engine := newTestPodmanEngine(t, recorder)
-	ctx := context.Background()
+	t.Parallel()
 
 	t.Run("basic build", func(t *testing.T) {
-		recorder.Reset()
+		t.Parallel()
+		recorder := NewMockCommandRecorder()
+		engine := newTestPodmanEngine(t, recorder)
+		ctx := context.Background()
+
 		opts := BuildOptions{
 			ContextDir: "/tmp/build",
 			Tag:        "myimage:latest",
@@ -49,7 +49,11 @@ func TestPodmanEngine_Build_Arguments(t *testing.T) {
 	})
 
 	t.Run("with no-cache", func(t *testing.T) {
-		recorder.Reset()
+		t.Parallel()
+		recorder := NewMockCommandRecorder()
+		engine := newTestPodmanEngine(t, recorder)
+		ctx := context.Background()
+
 		opts := BuildOptions{
 			ContextDir: "/tmp/build",
 			Tag:        "test:v1",
@@ -67,14 +71,14 @@ func TestPodmanEngine_Build_Arguments(t *testing.T) {
 
 // TestPodmanEngine_Run_Arguments verifies Podman Run() constructs correct arguments.
 func TestPodmanEngine_Run_Arguments(t *testing.T) {
-	recorder, cleanup := withMockExecCommand(t)
-	defer cleanup()
-
-	engine := newTestPodmanEngine(t, recorder)
-	ctx := context.Background()
+	t.Parallel()
 
 	t.Run("basic run", func(t *testing.T) {
-		recorder.Reset()
+		t.Parallel()
+		recorder := NewMockCommandRecorder()
+		engine := newTestPodmanEngine(t, recorder)
+		ctx := context.Background()
+
 		opts := RunOptions{
 			Image:   "debian:stable-slim",
 			Command: []string{"echo", "hello"},
@@ -92,7 +96,11 @@ func TestPodmanEngine_Run_Arguments(t *testing.T) {
 	})
 
 	t.Run("with all options", func(t *testing.T) {
-		recorder.Reset()
+		t.Parallel()
+		recorder := NewMockCommandRecorder()
+		engine := newTestPodmanEngine(t, recorder)
+		ctx := context.Background()
+
 		opts := RunOptions{
 			Image:       "debian:stable-slim",
 			Command:     []string{"bash", "-c", "echo test"},
@@ -129,14 +137,13 @@ func TestPodmanEngine_Run_Arguments(t *testing.T) {
 
 // TestPodmanEngine_ImageExists_Arguments verifies Podman uses 'image exists' not 'image inspect'.
 func TestPodmanEngine_ImageExists_Arguments(t *testing.T) {
-	recorder, cleanup := withMockExecCommand(t)
-	defer cleanup()
-
-	engine := newTestPodmanEngine(t, recorder)
-	ctx := context.Background()
+	t.Parallel()
 
 	t.Run("podman uses image exists command", func(t *testing.T) {
-		recorder.Reset()
+		t.Parallel()
+		recorder := NewMockCommandRecorder()
+		engine := newTestPodmanEngine(t, recorder)
+		ctx := context.Background()
 
 		exists, err := engine.ImageExists(ctx, "myimage:latest")
 		if err != nil {
@@ -157,11 +164,16 @@ func TestPodmanEngine_ImageExists_Arguments(t *testing.T) {
 
 // TestPodmanEngine_ErrorPaths verifies Podman error handling.
 func TestPodmanEngine_ErrorPaths(t *testing.T) {
+	t.Parallel()
+
 	ctx := context.Background()
 
 	t.Run("build failure", func(t *testing.T) {
-		recorder, cleanup := withMockExecCommandOutput(t, "", "Error: build failed", 1)
-		defer cleanup()
+		t.Parallel()
+
+		recorder := NewMockCommandRecorder()
+		recorder.Stderr = "Error: build failed"
+		recorder.ExitCode = 1
 		engine := newTestPodmanEngine(t, recorder)
 
 		opts := BuildOptions{
@@ -180,8 +192,11 @@ func TestPodmanEngine_ErrorPaths(t *testing.T) {
 	})
 
 	t.Run("image not found", func(t *testing.T) {
-		recorder, cleanup := withMockExecCommandOutput(t, "", "Error: No such image", 1)
-		defer cleanup()
+		t.Parallel()
+
+		recorder := NewMockCommandRecorder()
+		recorder.Stderr = "Error: No such image"
+		recorder.ExitCode = 1
 		engine := newTestPodmanEngine(t, recorder)
 
 		exists, err := engine.ImageExists(ctx, "nonexistent:latest")
@@ -194,8 +209,11 @@ func TestPodmanEngine_ErrorPaths(t *testing.T) {
 	})
 
 	t.Run("run with exit code", func(t *testing.T) {
-		recorder, cleanup := withMockExecCommandOutput(t, "", "command failed", 42)
-		defer cleanup()
+		t.Parallel()
+
+		recorder := NewMockCommandRecorder()
+		recorder.Stderr = "command failed"
+		recorder.ExitCode = 42
 		engine := newTestPodmanEngine(t, recorder)
 
 		opts := RunOptions{
@@ -214,8 +232,11 @@ func TestPodmanEngine_ErrorPaths(t *testing.T) {
 	})
 
 	t.Run("remove failure", func(t *testing.T) {
-		recorder, cleanup := withMockExecCommandOutput(t, "", "Error: No such container", 1)
-		defer cleanup()
+		t.Parallel()
+
+		recorder := NewMockCommandRecorder()
+		recorder.Stderr = "Error: No such container"
+		recorder.ExitCode = 1
 		engine := newTestPodmanEngine(t, recorder)
 
 		err := engine.Remove(ctx, "nonexistent-container", false)
@@ -228,8 +249,11 @@ func TestPodmanEngine_ErrorPaths(t *testing.T) {
 	})
 
 	t.Run("remove image failure", func(t *testing.T) {
-		recorder, cleanup := withMockExecCommandOutput(t, "", "Error: image is being used", 1)
-		defer cleanup()
+		t.Parallel()
+
+		recorder := NewMockCommandRecorder()
+		recorder.Stderr = "Error: image is being used"
+		recorder.ExitCode = 1
 		engine := newTestPodmanEngine(t, recorder)
 
 		err := engine.RemoveImage(ctx, "image-in-use:latest", false)
@@ -242,8 +266,11 @@ func TestPodmanEngine_ErrorPaths(t *testing.T) {
 	})
 
 	t.Run("version failure", func(t *testing.T) {
-		recorder, cleanup := withMockExecCommandOutput(t, "", "Cannot connect to Podman socket", 1)
-		defer cleanup()
+		t.Parallel()
+
+		recorder := NewMockCommandRecorder()
+		recorder.Stderr = "Cannot connect to Podman socket"
+		recorder.ExitCode = 1
 		engine := newTestPodmanEngine(t, recorder)
 
 		_, err := engine.Version(ctx)
@@ -256,8 +283,11 @@ func TestPodmanEngine_ErrorPaths(t *testing.T) {
 	})
 
 	t.Run("exec failure", func(t *testing.T) {
-		recorder, cleanup := withMockExecCommandOutput(t, "", "Error: container is not running", 1)
-		defer cleanup()
+		t.Parallel()
+
+		recorder := NewMockCommandRecorder()
+		recorder.Stderr = "Error: container is not running"
+		recorder.ExitCode = 1
 		engine := newTestPodmanEngine(t, recorder)
 
 		result, err := engine.Exec(ctx, "stopped-container", []string{"ls"}, RunOptions{})
@@ -273,9 +303,10 @@ func TestPodmanEngine_ErrorPaths(t *testing.T) {
 
 // TestPodmanEngine_Version_Arguments verifies Podman Version() uses different format.
 func TestPodmanEngine_Version_Arguments(t *testing.T) {
-	recorder, cleanup := withMockExecCommandOutput(t, "5.0.0", "", 0)
-	defer cleanup()
+	t.Parallel()
 
+	recorder := NewMockCommandRecorder()
+	recorder.Stdout = "5.0.0"
 	engine := newTestPodmanEngine(t, recorder)
 	ctx := context.Background()
 
@@ -296,14 +327,13 @@ func TestPodmanEngine_Version_Arguments(t *testing.T) {
 
 // TestPodmanEngine_Remove_Arguments verifies Podman Remove() constructs correct arguments.
 func TestPodmanEngine_Remove_Arguments(t *testing.T) {
-	recorder, cleanup := withMockExecCommand(t)
-	defer cleanup()
-
-	engine := newTestPodmanEngine(t, recorder)
-	ctx := context.Background()
+	t.Parallel()
 
 	t.Run("basic remove", func(t *testing.T) {
-		recorder.Reset()
+		t.Parallel()
+		recorder := NewMockCommandRecorder()
+		engine := newTestPodmanEngine(t, recorder)
+		ctx := context.Background()
 
 		err := engine.Remove(ctx, "container123", false)
 		if err != nil {
@@ -318,7 +348,10 @@ func TestPodmanEngine_Remove_Arguments(t *testing.T) {
 	})
 
 	t.Run("force remove", func(t *testing.T) {
-		recorder.Reset()
+		t.Parallel()
+		recorder := NewMockCommandRecorder()
+		engine := newTestPodmanEngine(t, recorder)
+		ctx := context.Background()
 
 		err := engine.Remove(ctx, "container456", true)
 		if err != nil {
@@ -332,14 +365,13 @@ func TestPodmanEngine_Remove_Arguments(t *testing.T) {
 
 // TestPodmanEngine_RemoveImage_Arguments verifies Podman RemoveImage() constructs correct arguments.
 func TestPodmanEngine_RemoveImage_Arguments(t *testing.T) {
-	recorder, cleanup := withMockExecCommand(t)
-	defer cleanup()
-
-	engine := newTestPodmanEngine(t, recorder)
-	ctx := context.Background()
+	t.Parallel()
 
 	t.Run("basic remove image", func(t *testing.T) {
-		recorder.Reset()
+		t.Parallel()
+		recorder := NewMockCommandRecorder()
+		engine := newTestPodmanEngine(t, recorder)
+		ctx := context.Background()
 
 		err := engine.RemoveImage(ctx, "myimage:latest", false)
 		if err != nil {
@@ -354,7 +386,10 @@ func TestPodmanEngine_RemoveImage_Arguments(t *testing.T) {
 	})
 
 	t.Run("force remove image", func(t *testing.T) {
-		recorder.Reset()
+		t.Parallel()
+		recorder := NewMockCommandRecorder()
+		engine := newTestPodmanEngine(t, recorder)
+		ctx := context.Background()
 
 		err := engine.RemoveImage(ctx, "myimage:v2", true)
 		if err != nil {
@@ -368,9 +403,9 @@ func TestPodmanEngine_RemoveImage_Arguments(t *testing.T) {
 
 // TestPodmanEngine_Exec_Arguments verifies Exec() constructs correct arguments.
 func TestPodmanEngine_Exec_Arguments(t *testing.T) {
-	recorder, cleanup := withMockExecCommand(t)
-	defer cleanup()
+	t.Parallel()
 
+	recorder := NewMockCommandRecorder()
 	engine := newTestPodmanEngine(t, recorder)
 	ctx := context.Background()
 
@@ -439,9 +474,12 @@ func TestPodmanEngine_Exec_Arguments(t *testing.T) {
 	})
 
 	t.Run("exit code capture", func(t *testing.T) {
+		t.Parallel()
+
 		// Use a fresh recorder with non-zero exit code
-		recorderWithExit, cleanupExit := withMockExecCommandOutput(t, "", "command failed", 42)
-		defer cleanupExit()
+		recorderWithExit := NewMockCommandRecorder()
+		recorderWithExit.Stderr = "command failed"
+		recorderWithExit.ExitCode = 42
 		engineWithExit := newTestPodmanEngine(t, recorderWithExit)
 
 		result, err := engineWithExit.Exec(ctx, "failing-container", []string{"false"}, RunOptions{})
@@ -457,11 +495,15 @@ func TestPodmanEngine_Exec_Arguments(t *testing.T) {
 
 // TestPodmanEngine_InspectImage_Arguments verifies InspectImage() constructs correct arguments.
 func TestPodmanEngine_InspectImage_Arguments(t *testing.T) {
+	t.Parallel()
+
 	ctx := context.Background()
 
 	t.Run("basic inspect", func(t *testing.T) {
-		recorder, cleanup := withMockExecCommandOutput(t, `{"Id": "sha256:abc123"}`, "", 0)
-		defer cleanup()
+		t.Parallel()
+
+		recorder := NewMockCommandRecorder()
+		recorder.Stdout = `{"Id": "sha256:abc123"}`
 		engine := newTestPodmanEngine(t, recorder)
 
 		output, err := engine.InspectImage(ctx, "debian:stable-slim")
@@ -480,8 +522,9 @@ func TestPodmanEngine_InspectImage_Arguments(t *testing.T) {
 	})
 
 	t.Run("with registry", func(t *testing.T) {
-		recorder, cleanup := withMockExecCommand(t)
-		defer cleanup()
+		t.Parallel()
+
+		recorder := NewMockCommandRecorder()
 		engine := newTestPodmanEngine(t, recorder)
 
 		_, err := engine.InspectImage(ctx, "ghcr.io/invowk/invowk:v1.0.0")
@@ -493,8 +536,11 @@ func TestPodmanEngine_InspectImage_Arguments(t *testing.T) {
 	})
 
 	t.Run("image not found error", func(t *testing.T) {
-		recorder, cleanup := withMockExecCommandOutput(t, "", "Error: No such image", 1)
-		defer cleanup()
+		t.Parallel()
+
+		recorder := NewMockCommandRecorder()
+		recorder.Stderr = "Error: No such image"
+		recorder.ExitCode = 1
 		engine := newTestPodmanEngine(t, recorder)
 
 		_, err := engine.InspectImage(ctx, "nonexistent:latest")
@@ -519,6 +565,8 @@ func newTestPodmanEngineWithSELinux(t *testing.T, recorder *MockCommandRecorder,
 
 // TestPodmanEngine_SELinuxVolumeLabeling verifies SELinux label handling for volumes.
 func TestPodmanEngine_SELinuxVolumeLabeling(t *testing.T) {
+	t.Parallel()
+
 	ctx := context.Background()
 
 	tests := []struct {
@@ -593,6 +641,8 @@ func TestPodmanEngine_SELinuxVolumeLabeling(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			recorder := NewMockCommandRecorder()
 			engine := newTestPodmanEngineWithSELinux(t, recorder, tt.selinuxEnabled)
 
@@ -613,6 +663,8 @@ func TestPodmanEngine_SELinuxVolumeLabeling(t *testing.T) {
 
 // TestAddSELinuxLabelWithCheck_EdgeCases tests edge cases in SELinux label handling.
 func TestAddSELinuxLabelWithCheck_EdgeCases(t *testing.T) {
+	t.Parallel()
+
 	selinuxEnabled := func() bool { return true }
 	selinuxDisabled := func() bool { return false }
 
@@ -670,6 +722,8 @@ func TestAddSELinuxLabelWithCheck_EdgeCases(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			got := addSELinuxLabelWithCheck(tt.volume, tt.selinuxCheck)
 			if got != tt.expected {
 				t.Errorf("addSELinuxLabelWithCheck(%q) = %q, want %q", tt.volume, got, tt.expected)
@@ -680,7 +734,11 @@ func TestAddSELinuxLabelWithCheck_EdgeCases(t *testing.T) {
 
 // TestMakeSELinuxLabelAdder verifies the factory function creates correct formatters.
 func TestMakeSELinuxLabelAdder(t *testing.T) {
+	t.Parallel()
+
 	t.Run("returns function that adds labels when SELinux enabled", func(t *testing.T) {
+		t.Parallel()
+
 		formatter := makeSELinuxLabelAdder(func() bool { return true })
 		result := formatter("/host:/container")
 		if result != "/host:/container:z" {
@@ -689,6 +747,8 @@ func TestMakeSELinuxLabelAdder(t *testing.T) {
 	})
 
 	t.Run("returns function that preserves volume when SELinux disabled", func(t *testing.T) {
+		t.Parallel()
+
 		formatter := makeSELinuxLabelAdder(func() bool { return false })
 		result := formatter("/host:/container")
 		if result != "/host:/container" {

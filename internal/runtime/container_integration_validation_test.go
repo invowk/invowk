@@ -15,6 +15,7 @@ import (
 
 // TestContainerRuntime_Validate tests the Validate method
 func TestContainerRuntime_Validate(t *testing.T) {
+	t.Parallel()
 	if testing.Short() {
 		t.Skip("skipping integration test in short mode")
 	}
@@ -75,6 +76,7 @@ func TestContainerRuntime_Validate(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			rt := createContainerRuntime(t)
 			execCtx := NewExecutionContext(tt.cmd, inv)
 
@@ -97,6 +99,7 @@ func TestContainerRuntime_Validate(t *testing.T) {
 
 // TestContainerRuntime_EnableHostSSH_NoServer tests that enable_host_ssh fails gracefully when no SSH server is configured
 func TestContainerRuntime_EnableHostSSH_NoServer(t *testing.T) {
+	t.Parallel()
 	if testing.Short() {
 		t.Skip("skipping integration test in short mode")
 	}
@@ -142,6 +145,7 @@ func TestContainerRuntime_EnableHostSSH_NoServer(t *testing.T) {
 
 // TestContainerRuntime_BuildFromContainerfile tests building an image from a Containerfile
 func TestContainerRuntime_BuildFromContainerfile(t *testing.T) {
+	t.Parallel()
 	if testing.Short() {
 		t.Skip("skipping integration test in short mode")
 	}

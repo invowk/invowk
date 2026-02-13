@@ -150,6 +150,66 @@ if err != nil {
 
 ---
 
+## Sysctl Override (ping_group_range Prevention)
+
+Rootless Podman's `default_sysctls` configuration causes `crun` to write `net.ipv4.ping_group_range=0 0` in each new network namespace. When multiple containers start concurrently, these writes race and produce `EINVAL` (exit code 126).
+
+### Prevention Layer
+
+On **Linux with local Podman**, `NewPodmanEngine()` calls `sysctlOverrideOpts(binaryPath)` which:
+1. Checks if the binary is `podman-remote` (via name + symlink resolution) — skips if remote
+2. Creates an anonymous in-memory file via `memfd_create` containing `[containers]\ndefault_sysctls = []\n`
+3. Returns `WithCmdExtraFile(memfd)` + `WithCmdEnvOverride("CONTAINERS_CONF_OVERRIDE", "/dev/fd/3")` + `WithSysctlOverrideActive(true)`
+4. Every Podman subprocess inherits the memfd as fd 3 and reads the override config
+4. Multiple concurrent children safely share the same memfd (each `os.Open("/dev/fd/3")` gets an independent offset)
+
+On **non-Linux** platforms, `sysctlOverrideOpts()` (`podman_sysctl_other.go`) returns nil — Podman runs inside a VM where host-side env vars don't reach crun. Instead, `runWithRetry()` acquires `containerRunMu` to serialize runs within the process.
+
+On **podman-remote** (Fedora Silverblue/toolbox), `sysctlOverrideOpts()` returns nil — the env var only affects the remote client, not the Podman service that calls crun. Detected via `isRemotePodman()` which checks binary name + follows symlinks.
+
+### SysctlOverrideChecker Interface
+
+The `SysctlOverrideChecker` interface (`engine_base.go`) lets the runtime layer query whether the memfd override is active:
+
+```go
+type SysctlOverrideChecker interface {
+    SysctlOverrideActive() bool
+}
+```
+
+**Implemented by:** `PodmanEngine`, `SandboxAwareEngine` (forwards to wrapped engine)
+
+**Used in:** `runWithRetry()` — acquires `containerRunMu` only when the checker returns false (or isn't implemented, e.g., Docker)
+
+### CmdCustomizer Interface
+
+The `CmdCustomizer` interface (`engine_base.go`) propagates overrides through engines that create `exec.Cmd` outside `CreateCommand()`:
+
+```go
+type CmdCustomizer interface {
+    CustomizeCmd(cmd *exec.Cmd)
+}
+```
+
+**Implemented by:** `BaseCLIEngine`, `SandboxAwareEngine`
+
+**Used in:**
+- `SandboxAwareEngine.Build/Run/Remove/ImageExists/RemoveImage` — sandbox commands bypass `CreateCommand`
+- `ContainerRuntime.PrepareCommand()` — interactive mode creates its own `exec.Cmd` for PTY attachment
+
+### Key Files
+
+| File | Purpose |
+|------|---------|
+| `podman_sysctl_linux.go` | `createSysctlOverrideMemfd()`, `isRemotePodman()`, `sysctlOverrideOpts()` (Linux memfd) |
+| `podman_sysctl_other.go` | No-op `sysctlOverrideOpts()` (macOS/Windows stub) |
+| `engine_base.go` | `CmdCustomizer`, `SysctlOverrideChecker`, `WithCmdEnvOverride()`, `WithCmdExtraFile()`, `WithSysctlOverrideActive()` |
+| `podman.go` | `SysctlOverrideActive()` method on `PodmanEngine` |
+| `container_exec.go` | `containerRunMu` (engine-aware run mutex in `runWithRetry()`) |
+| `container_prepare.go` | `CmdCustomizer` type assertion in `PrepareCommand()` |
+
+---
+
 ## Path Handling (Host vs Container)
 
 **CRITICAL:** Container paths always use forward slashes (`/`), regardless of host platform.
@@ -224,50 +284,61 @@ Both return wrapped `SandboxAwareEngine`.
 
 ## Exit Code Handling
 
-Container engines distinguish between process exit codes and errors:
+Container engines absorb `exec.ExitError` into `result.ExitCode` and return `(result, nil)`. This means **the error return is always nil** for process exit failures — callers must check `result.ExitCode`:
 
 ```go
 result := &RunResult{}
 if err != nil {
     if exitErr, ok := errors.AsType[*exec.ExitError](err); ok {
-        result.ExitCode = exitErr.ExitCode()  // Process exited non-zero
+        result.ExitCode = exitErr.ExitCode()  // Absorbed into result, err return is nil
     } else {
         result.ExitCode = 1
         result.Error = err  // Actual error (network, etc.)
     }
 }
+return result, nil  // Always nil error for exit code failures
 ```
+
+**Important for retry logic:** Since `engine.Run()` returns `(result, nil)` for transient exit codes (125, 126), retry code must check both the error return AND `result.ExitCode`. See `runWithRetry()` in `container_exec.go`.
 
 ---
 
 ## Testing Patterns
 
-### Unit Tests with Mocked Commands
+### Unit Tests with Per-Test Mock Recorders
+
+All container unit tests use per-test `MockCommandRecorder` instances for parallel safety:
 
 ```go
 func TestDockerBuild(t *testing.T) {
-    var capturedArgs []string
-    mockExec := func(name string, args ...string) *exec.Cmd {
-        capturedArgs = args
-        return exec.Command("echo", "ok")
-    }
+    t.Parallel()
 
-    eng, _ := NewDockerEngine(WithExecCommand(mockExec))
-    eng.Build(ctx, opts)
+    t.Run("with no-cache", func(t *testing.T) {
+        t.Parallel()
+        recorder := NewMockCommandRecorder()
+        eng := newTestDockerEngine(t, recorder)  // Injects via WithExecCommand()
 
-    // Verify expected arguments
-    assert.Contains(t, capturedArgs, "--no-cache")
+        eng.Build(ctx, opts)
+
+        // Verify expected arguments
+        if !slices.Contains(recorder.LastArgs, "--no-cache") {
+            t.Error("expected --no-cache flag")
+        }
+    })
 }
 ```
+
+**Never use package-level global mutation** (`execCommand = mockFn`) for mock injection. The `execCommand` var is test-scoped in `engine_mock_test.go` and only used by 3 mock infrastructure self-tests.
 
 ### Integration Tests
 
 ```go
 func TestDockerBuild_Integration(t *testing.T) {
+    t.Parallel()
     if testing.Short() {
         t.Skip("skipping integration test in short mode")
     }
-    // Test with real container engine
+    // Test with real container engine — transient errors handled by runWithRetry()
 }
 ```
 
@@ -312,6 +383,10 @@ The `IsTransientError()` function (`transient.go`) is a shared classifier for tr
 
 Container image builds (`engine.Build()`) are retried up to 3 times with exponential backoff (2s, 4s) on transient errors. Non-transient errors fail immediately. The caller's context deadline naturally bounds total retry time.
 
+### Run Retry in runWithRetry()
+
+Container runs (`engine.Run()`) are retried up to 5 times with exponential backoff (1s, 2s, 4s, 8s) on transient errors. This is critical because `engine.Run()` absorbs `exec.ExitError` into `result.ExitCode` and always returns `(result, nil)` — so the retry logic must check **both** the error return AND `result.ExitCode` via `isTransientExitCode()` (exit codes 125 and 126). Run retries are more aggressive than build retries (5 vs 3 attempts) because Podman `ping_group_range` races are more frequent under heavy parallelism and runs are fast.
+
 ---
 
 ## File Organization
@@ -319,12 +394,21 @@ Container image builds (`engine.Build()`) are retried up to 3 times with exponen
 | File | Purpose |
 |------|---------|
 | `engine.go` | Interface, factories, engine types |
-| `engine_base.go` | Shared CLI implementation |
+| `engine_base.go` | Shared CLI implementation, `CmdCustomizer` interface |
 | `docker.go` | Docker concrete implementation |
 | `podman.go` | Podman + SELinux/rootless logic |
+| `podman_sysctl_linux.go` | memfd-based sysctl override (Linux only) |
+| `podman_sysctl_other.go` | No-op sysctl override stub (non-Linux) |
 | `sandbox_engine.go` | Flatpak/Snap wrapper decorator |
 | `transient.go` | Shared transient error classifier |
 | `doc.go` | Package documentation |
+
+**Runtime files** (in `internal/runtime/`):
+
+| File | Purpose |
+|------|---------|
+| `container_exec.go` | Container execution, `runWithRetry()`, `isTransientExitCode()` |
+| `container_provision.go` | Image building, `ensureImage()` retry, retry constants |
 
 ---
 
@@ -338,3 +422,5 @@ Container image builds (`engine.Build()`) are retried up to 3 times with exponen
 | Missing SELinux labels | Permission denied in Podman | Use Podman's auto-labeling or explicit `:z` |
 | Container tests hanging | CI timeout | Use per-test deadline + cleanup in `env.Defer()` |
 | Flaky container builds in CI | Exit code 125, DNS failures | `IsTransientError()` + build retry in `ensureImage()` handles this; CI pre-pulls `debian:stable-slim` |
+| Flaky container runs under parallelism | Exit code 125/126, ping_group_range | `runWithRetry()` in `container_exec.go` retries runs with exponential backoff; checks both `err` and `result.ExitCode` |
+| Mock tests share recorder across parallel subtests | Race condition on recorder state | Use per-subtest `NewMockCommandRecorder()` + engine instances; never share a recorder with `Reset()` across parallel subtests |

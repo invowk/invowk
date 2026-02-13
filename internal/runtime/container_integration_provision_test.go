@@ -16,6 +16,7 @@ import (
 // TestContainerRuntime_ProvisioningLayer_InvkfileAccess tests that the invkfile directory
 // is correctly provisioned at /workspace in the container.
 func TestContainerRuntime_ProvisioningLayer_InvkfileAccess(t *testing.T) {
+	t.Parallel()
 	if testing.Short() {
 		t.Skip("skipping integration test in short mode")
 	}
@@ -68,6 +69,7 @@ func TestContainerRuntime_ProvisioningLayer_InvkfileAccess(t *testing.T) {
 // TestContainerRuntime_ProvisioningLayer_ScriptFileExecution tests that script files
 // in the invkfile directory are accessible and executable in the container.
 func TestContainerRuntime_ProvisioningLayer_ScriptFileExecution(t *testing.T) {
+	t.Parallel()
 	if testing.Short() {
 		t.Skip("skipping integration test in short mode")
 	}
@@ -122,6 +124,7 @@ echo "Script executed from /workspace"
 // TestContainerRuntime_ProvisioningLayer_NestedDirectories tests that nested directories
 // in the invkfile directory are correctly provisioned to /workspace.
 func TestContainerRuntime_ProvisioningLayer_NestedDirectories(t *testing.T) {
+	t.Parallel()
 	if testing.Short() {
 		t.Skip("skipping integration test in short mode")
 	}
@@ -179,6 +182,7 @@ func TestContainerRuntime_ProvisioningLayer_NestedDirectories(t *testing.T) {
 // TestContainerRuntime_ProvisioningLayer_WorkspaceIsCwd tests that /workspace is the
 // default current working directory in the container.
 func TestContainerRuntime_ProvisioningLayer_WorkspaceIsCwd(t *testing.T) {
+	t.Parallel()
 	if testing.Short() {
 		t.Skip("skipping integration test in short mode")
 	}

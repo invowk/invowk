@@ -11,7 +11,9 @@ import (
 
 // TestBaseCLIEngine_RunCommandStatus verifies RunCommandStatus returns only error status.
 func TestBaseCLIEngine_RunCommandStatus(t *testing.T) {
+	t.Parallel()
 	t.Run("success", func(t *testing.T) {
+		t.Parallel()
 		recorder := NewMockCommandRecorder()
 		engine := NewBaseCLIEngine("/usr/bin/docker", WithExecCommand(recorder.ContextCommandFunc(t)))
 
@@ -27,6 +29,7 @@ func TestBaseCLIEngine_RunCommandStatus(t *testing.T) {
 	})
 
 	t.Run("error wraps command failure", func(t *testing.T) {
+		t.Parallel()
 		recorder := NewMockCommandRecorder()
 		recorder.ExitCode = 1
 		engine := NewBaseCLIEngine("/usr/bin/docker", WithExecCommand(recorder.ContextCommandFunc(t)))
@@ -47,7 +50,9 @@ func TestBaseCLIEngine_RunCommandStatus(t *testing.T) {
 
 // TestBaseCLIEngine_RunCommandWithOutput verifies stdout capture via buffer.
 func TestBaseCLIEngine_RunCommandWithOutput(t *testing.T) {
+	t.Parallel()
 	t.Run("success captures stdout", func(t *testing.T) {
+		t.Parallel()
 		recorder := NewMockCommandRecorder()
 		recorder.Stdout = "27.0.1"
 		engine := NewBaseCLIEngine("/usr/bin/docker", WithExecCommand(recorder.ContextCommandFunc(t)))
@@ -66,6 +71,7 @@ func TestBaseCLIEngine_RunCommandWithOutput(t *testing.T) {
 	})
 
 	t.Run("error wraps command failure", func(t *testing.T) {
+		t.Parallel()
 		recorder := NewMockCommandRecorder()
 		recorder.ExitCode = 1
 		engine := NewBaseCLIEngine("/usr/bin/docker", WithExecCommand(recorder.ContextCommandFunc(t)))
@@ -87,6 +93,7 @@ func TestBaseCLIEngine_RunCommandWithOutput(t *testing.T) {
 
 // TestBaseCLIEngine_WithRunArgsTransformer verifies the run args transformer option.
 func TestBaseCLIEngine_WithRunArgsTransformer(t *testing.T) {
+	t.Parallel()
 	transformer := func(args []string) []string {
 		// Simulate Podman's --userns=keep-id injection
 		transformed := make([]string, 0, len(args)+1)
@@ -121,6 +128,7 @@ func TestBaseCLIEngine_WithRunArgsTransformer(t *testing.T) {
 
 // TestDockerEngine_Name verifies Docker engine reports correct name.
 func TestDockerEngine_Name(t *testing.T) {
+	t.Parallel()
 	engine := &DockerEngine{
 		BaseCLIEngine: NewBaseCLIEngine(""),
 	}
@@ -132,6 +140,7 @@ func TestDockerEngine_Name(t *testing.T) {
 
 // TestPodmanEngine_Name verifies Podman engine reports correct name.
 func TestPodmanEngine_Name(t *testing.T) {
+	t.Parallel()
 	engine := &PodmanEngine{
 		BaseCLIEngine: NewBaseCLIEngine(""),
 	}

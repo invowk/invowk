@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"os/exec"
 )
 
 // Container engine type constants.
@@ -16,15 +15,9 @@ const (
 	EngineTypeDocker EngineType = "docker"
 )
 
-var (
-	// ErrNoEngineAvailable is returned when no container engine (Docker or Podman) is available.
-	// Callers can check for this error using errors.Is(err, ErrNoEngineAvailable).
-	ErrNoEngineAvailable = errors.New("no container engine available")
-
-	// execCommand is a package-level variable for exec.CommandContext.
-	// It can be replaced in tests to mock command execution.
-	execCommand = exec.CommandContext
-)
+// ErrNoEngineAvailable is returned when no container engine (Docker or Podman) is available.
+// Callers can check for this error using errors.Is(err, ErrNoEngineAvailable).
+var ErrNoEngineAvailable = errors.New("no container engine available")
 
 type (
 	// EngineType identifies the container engine type

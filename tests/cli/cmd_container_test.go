@@ -87,17 +87,18 @@ func cleanupTestContainers(prefix string) {
 	}
 }
 
-// TestContainerCLI runs container-related testscript tests sequentially.
+// TestContainerCLI runs container-related testscript tests in parallel.
 //
-// Container tests are separated from TestCLI because rootless Podman has a known
-// race condition when multiple containers start simultaneously, causing sporadic
-// failures with "ping_group_range" OCI runtime errors.
-//
-// By running container tests in a separate function without calling t.Parallel(),
-// we ensure sequential execution while allowing non-container tests to run in parallel.
+// Container tests are separated from TestCLI for organizational purposes.
+// Transient rootless Podman errors (ping_group_range race, exit code 125,
+// overlay mount races) are handled by run-level retry in the container
+// runtime (runWithRetry in internal/runtime/container_exec.go), enabling
+// safe parallel execution.
 //
 // See .claude/docs/podman-parallel-tests.md for details on the underlying issue.
 func TestContainerCLI(t *testing.T) {
+	t.Parallel()
+
 	if testing.Short() {
 		t.Skip("skipping container tests in short mode")
 	}
@@ -124,13 +125,13 @@ func TestContainerCLI(t *testing.T) {
 		t.Skip("no container tests found")
 	}
 
-	// Run each container test sequentially to avoid Podman race conditions.
-	// We use testscript.Params.Files instead of Dir to run one file at a time,
-	// preventing testscript's internal t.Parallel() from running them concurrently.
+	// Run each container test in parallel. Transient rootless Podman errors
+	// (ping_group_range race, exit code 125) are absorbed by run-level retry
+	// in the container runtime, making parallel execution safe.
 	for _, testFile := range containerTests {
 		testName := strings.TrimSuffix(filepath.Base(testFile), ".txtar")
 		t.Run(testName, func(t *testing.T) {
-			// NOTE: Do NOT call t.Parallel() here - sequential execution is intentional
+			t.Parallel()
 
 			// Set a per-test deadline to prevent indefinite hangs.
 			// Container operations (image pulls, startup, network issues) can hang forever

@@ -10,6 +10,7 @@ import (
 
 // TestFindPodmanBinary_PreferenceOrder verifies that "podman" is preferred over "podman-remote".
 func TestFindPodmanBinary_PreferenceOrder(t *testing.T) {
+	t.Parallel()
 	// Verify the binary names list has the expected order
 	if len(podmanBinaryNames) != 2 {
 		t.Fatalf("expected 2 binary names, got %d", len(podmanBinaryNames))
@@ -25,6 +26,7 @@ func TestFindPodmanBinary_PreferenceOrder(t *testing.T) {
 // TestFindPodmanBinary_Integration tests actual binary discovery.
 // This is an integration test that depends on system state.
 func TestFindPodmanBinary_Integration(t *testing.T) {
+	t.Parallel()
 	if testing.Short() {
 		t.Skip("skipping integration test in short mode")
 	}
@@ -56,6 +58,7 @@ func TestFindPodmanBinary_Integration(t *testing.T) {
 
 // TestFindPodmanBinary_ReturnsPath verifies the function returns a valid path when podman exists.
 func TestFindPodmanBinary_ReturnsPath(t *testing.T) {
+	t.Parallel()
 	if testing.Short() {
 		t.Skip("skipping integration test in short mode")
 	}
@@ -73,6 +76,7 @@ func TestFindPodmanBinary_ReturnsPath(t *testing.T) {
 
 // TestMakeUsernsKeepIDAdder tests the --userns=keep-id transformer.
 func TestMakeUsernsKeepIDAdder(t *testing.T) {
+	t.Parallel()
 	transformer := makeUsernsKeepIDAdder()
 
 	tests := []struct {
@@ -149,6 +153,7 @@ func TestMakeUsernsKeepIDAdder(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			got := transformer(tt.args)
 			if !slices.Equal(got, tt.want) {
 				t.Errorf("makeUsernsKeepIDAdder() = %v, want %v", got, tt.want)
@@ -161,6 +166,7 @@ func TestMakeUsernsKeepIDAdder(t *testing.T) {
 // The function checks for /sys/fs/selinux existence rather than enforce status
 // because :z labels are needed even when SELinux is disabled but present.
 func TestIsSELinuxPresent(t *testing.T) {
+	t.Parallel()
 	// This is an integration test that checks the actual system state
 	result := isSELinuxPresent()
 
@@ -177,6 +183,7 @@ func TestIsSELinuxPresent(t *testing.T) {
 
 // TestNewPodmanEngine_AppliesUsernsTransformer verifies the constructor wires up the transformer.
 func TestNewPodmanEngine_AppliesUsernsTransformer(t *testing.T) {
+	t.Parallel()
 	// Create engine with SELinux disabled to isolate the userns behavior
 	engine := NewPodmanEngineWithSELinuxCheck(func() bool { return false })
 

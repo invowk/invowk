@@ -100,6 +100,7 @@ func (e *SandboxAwareEngine) Build(ctx context.Context, opts BuildOptions) error
 	fullArgs := e.buildSpawnArgs(e.wrapped.BinaryPath(), buildArgs)
 
 	cmd := exec.CommandContext(ctx, fullArgs[0], fullArgs[1:]...)
+	e.CustomizeCmd(cmd)
 	cmd.Stdout = opts.Stdout
 	cmd.Stderr = opts.Stderr
 
@@ -122,6 +123,7 @@ func (e *SandboxAwareEngine) Run(ctx context.Context, opts RunOptions) (*RunResu
 	fullArgs := e.buildSpawnArgs(e.wrapped.BinaryPath(), baseArgs)
 
 	cmd := exec.CommandContext(ctx, fullArgs[0], fullArgs[1:]...)
+	e.CustomizeCmd(cmd)
 	cmd.Stdin = opts.Stdin
 	cmd.Stdout = opts.Stdout
 	cmd.Stderr = opts.Stderr
@@ -156,6 +158,7 @@ func (e *SandboxAwareEngine) Remove(ctx context.Context, containerID string, for
 	fullArgs := e.buildSpawnArgs(e.wrapped.BinaryPath(), removeArgs)
 
 	cmd := exec.CommandContext(ctx, fullArgs[0], fullArgs[1:]...)
+	e.CustomizeCmd(cmd)
 	return cmd.Run()
 }
 
@@ -177,6 +180,7 @@ func (e *SandboxAwareEngine) ImageExists(ctx context.Context, image string) (boo
 
 	fullArgs := e.buildSpawnArgs(e.wrapped.BinaryPath(), checkArgs)
 	cmd := exec.CommandContext(ctx, fullArgs[0], fullArgs[1:]...)
+	e.CustomizeCmd(cmd)
 	err := cmd.Run()
 	return err == nil, nil
 }
@@ -196,7 +200,28 @@ func (e *SandboxAwareEngine) RemoveImage(ctx context.Context, image string, forc
 	fullArgs := e.buildSpawnArgs(e.wrapped.BinaryPath(), removeArgs)
 
 	cmd := exec.CommandContext(ctx, fullArgs[0], fullArgs[1:]...)
+	e.CustomizeCmd(cmd)
 	return cmd.Run()
+}
+
+// CustomizeCmd applies the wrapped engine's overrides (env vars, extra files)
+// to a command created outside the wrapped engine's CreateCommand method.
+func (e *SandboxAwareEngine) CustomizeCmd(cmd *exec.Cmd) {
+	base, ok := e.getBaseCLIEngine()
+	if !ok {
+		return
+	}
+	base.CustomizeCmd(cmd)
+}
+
+// SysctlOverrideActive forwards to the wrapped engine's SysctlOverrideChecker
+// if it implements the interface. Returns false if the wrapped engine doesn't
+// implement SysctlOverrideChecker (e.g., DockerEngine).
+func (e *SandboxAwareEngine) SysctlOverrideActive() bool {
+	if checker, ok := e.wrapped.(SysctlOverrideChecker); ok {
+		return checker.SysctlOverrideActive()
+	}
+	return false
 }
 
 // buildSpawnArgs constructs the full argument list for spawning a command on the host.

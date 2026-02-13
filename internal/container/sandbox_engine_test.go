@@ -5,7 +5,9 @@ package container
 import (
 	"context"
 	"io"
+	"os/exec"
 	"slices"
+	"strings"
 	"testing"
 
 	"invowk-cli/pkg/platform"
@@ -367,6 +369,65 @@ func TestSandboxAwareEngine_ComplexRunOptions(t *testing.T) {
 	if !foundVolume {
 		t.Error("volume mount not found in wrapped args")
 	}
+}
+
+func TestSandboxAwareEngine_CustomizeCmd_Propagates(t *testing.T) {
+	t.Parallel()
+
+	// Create an engine with env overrides
+	engine := NewBaseCLIEngine("/usr/bin/podman",
+		WithCmdEnvOverride("TEST_OVERRIDE", "yes"),
+	)
+	podman := &PodmanEngine{BaseCLIEngine: engine}
+
+	// Wrap in SandboxAwareEngine
+	wrapper := newSandboxAwareEngineForTesting(podman, platform.SandboxFlatpak)
+
+	cmd := exec.CommandContext(context.Background(), "true")
+	wrapper.CustomizeCmd(cmd)
+
+	if !slices.ContainsFunc(cmd.Env, func(s string) bool {
+		return strings.HasPrefix(s, "TEST_OVERRIDE=yes")
+	}) {
+		t.Error("SandboxAwareEngine.CustomizeCmd should propagate env overrides from wrapped engine")
+	}
+}
+
+func TestSandboxAwareEngine_SysctlOverrideActive_Forwards(t *testing.T) {
+	t.Parallel()
+
+	t.Run("podman with active override", func(t *testing.T) {
+		t.Parallel()
+		podman := &PodmanEngine{
+			BaseCLIEngine: NewBaseCLIEngine("/usr/bin/podman",
+				WithSysctlOverrideActive(true),
+			),
+		}
+		wrapper := newSandboxAwareEngineForTesting(podman, platform.SandboxFlatpak)
+		if !wrapper.SysctlOverrideActive() {
+			t.Error("SandboxAwareEngine should forward SysctlOverrideActive=true from PodmanEngine")
+		}
+	})
+
+	t.Run("podman without override", func(t *testing.T) {
+		t.Parallel()
+		podman := &PodmanEngine{
+			BaseCLIEngine: NewBaseCLIEngine("/usr/bin/podman-remote"),
+		}
+		wrapper := newSandboxAwareEngineForTesting(podman, platform.SandboxFlatpak)
+		if wrapper.SysctlOverrideActive() {
+			t.Error("SandboxAwareEngine should forward SysctlOverrideActive=false from PodmanEngine")
+		}
+	})
+
+	t.Run("mock engine without checker", func(t *testing.T) {
+		t.Parallel()
+		mock := &mockEngine{}
+		wrapper := newSandboxAwareEngineForTesting(mock, platform.SandboxFlatpak)
+		if wrapper.SysctlOverrideActive() {
+			t.Error("SandboxAwareEngine should return false for engines without SysctlOverrideChecker")
+		}
+	})
 }
 
 func TestSandboxAwareEngine_GetBaseCLIEngine(t *testing.T) {

@@ -21,6 +21,8 @@ import (
 // TestContainerRuntime_Integration tests the container runtime with real containers.
 // These tests require Docker or Podman to be available.
 func TestContainerRuntime_Integration(t *testing.T) {
+	t.Parallel()
+
 	if testing.Short() {
 		t.Skip("skipping integration test in short mode")
 	}
@@ -34,18 +36,43 @@ func TestContainerRuntime_Integration(t *testing.T) {
 		t.Skip("skipping container integration tests: container engine not available")
 	}
 
-	t.Run("BasicExecution", testContainerBasicExecution)
-	t.Run("EnvironmentVariables", testContainerEnvironmentVariables)
-	t.Run("MultiLineScript", testContainerMultiLineScript)
-	t.Run("WorkingDirectory", testContainerWorkingDirectory)
-	t.Run("VolumeMounts", testContainerVolumeMounts)
-	t.Run("ExitCode", testContainerExitCode)
-	t.Run("PositionalArgs", testContainerPositionalArgs)
-	t.Run("EnableHostSSH_EnvVarsProvided", testContainerEnableHostSSHEnvVars)
+	t.Run("BasicExecution", func(t *testing.T) {
+		t.Parallel()
+		testContainerBasicExecution(t)
+	})
+	t.Run("EnvironmentVariables", func(t *testing.T) {
+		t.Parallel()
+		testContainerEnvironmentVariables(t)
+	})
+	t.Run("MultiLineScript", func(t *testing.T) {
+		t.Parallel()
+		testContainerMultiLineScript(t)
+	})
+	t.Run("WorkingDirectory", func(t *testing.T) {
+		t.Parallel()
+		testContainerWorkingDirectory(t)
+	})
+	t.Run("VolumeMounts", func(t *testing.T) {
+		t.Parallel()
+		testContainerVolumeMounts(t)
+	})
+	t.Run("ExitCode", func(t *testing.T) {
+		t.Parallel()
+		testContainerExitCode(t)
+	})
+	t.Run("PositionalArgs", func(t *testing.T) {
+		t.Parallel()
+		testContainerPositionalArgs(t)
+	})
+	t.Run("EnableHostSSH_EnvVarsProvided", func(t *testing.T) {
+		t.Parallel()
+		testContainerEnableHostSSHEnvVars(t)
+	})
 }
 
 // testContainerBasicExecution tests basic command execution in a container
 func testContainerBasicExecution(t *testing.T) {
+	t.Helper()
 	_, inv := setupTestInvkfile(t)
 
 	cmd := &invkfile.Command{
@@ -83,6 +110,7 @@ func testContainerBasicExecution(t *testing.T) {
 
 // testContainerEnvironmentVariables tests environment variable handling in containers
 func testContainerEnvironmentVariables(t *testing.T) {
+	t.Helper()
 	_, inv := setupTestInvkfile(t)
 
 	currentPlatform := invkfile.GetCurrentHostOS()
@@ -132,6 +160,7 @@ func testContainerEnvironmentVariables(t *testing.T) {
 
 // testContainerMultiLineScript tests multi-line script execution in containers
 func testContainerMultiLineScript(t *testing.T) {
+	t.Helper()
 	_, inv := setupTestInvkfile(t)
 
 	script := `echo "Line 1"
@@ -180,6 +209,7 @@ echo "Variable: $VAR"`
 
 // testContainerWorkingDirectory tests working directory handling in containers
 func testContainerWorkingDirectory(t *testing.T) {
+	t.Helper()
 	tmpDir, inv := setupTestInvkfile(t)
 
 	// Create a subdirectory in the temp directory
@@ -225,6 +255,7 @@ func testContainerWorkingDirectory(t *testing.T) {
 
 // testContainerVolumeMounts tests volume mounting in containers
 func testContainerVolumeMounts(t *testing.T) {
+	t.Helper()
 	tmpDir, inv := setupTestInvkfile(t)
 
 	// Create a file to mount
@@ -286,6 +317,7 @@ func testContainerVolumeMounts(t *testing.T) {
 
 // testContainerExitCode tests that non-zero exit codes are properly propagated
 func testContainerExitCode(t *testing.T) {
+	t.Helper()
 	_, inv := setupTestInvkfile(t)
 
 	cmd := &invkfile.Command{
@@ -318,6 +350,7 @@ func testContainerExitCode(t *testing.T) {
 
 // testContainerPositionalArgs tests that positional arguments are accessible via $1, $2, $@ in containers
 func testContainerPositionalArgs(t *testing.T) {
+	t.Helper()
 	_, inv := setupTestInvkfile(t)
 
 	cmd := &invkfile.Command{
@@ -365,6 +398,7 @@ func testContainerPositionalArgs(t *testing.T) {
 
 // testContainerEnableHostSSHEnvVars tests that SSH environment variables are provided when enable_host_ssh is true
 func testContainerEnableHostSSHEnvVars(t *testing.T) {
+	t.Helper()
 	_, inv := setupTestInvkfile(t)
 
 	cmd := &invkfile.Command{

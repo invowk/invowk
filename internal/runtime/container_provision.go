@@ -26,6 +26,17 @@ const (
 	// baseBuildBackoff is the initial backoff duration between build retries.
 	// Builds are heavier than runs, so we use a longer base than the smoke test.
 	baseBuildBackoff = 2 * time.Second
+
+	// maxRunRetries is the number of attempts for container run operations.
+	// Retries handle transient engine errors (rootless Podman ping_group_range
+	// race, exit code 125/126, overlay mount races) that occur when multiple
+	// containers start concurrently. Set to 5 (vs 3 for builds) because
+	// run races are more frequent under heavy parallelism and runs are fast.
+	maxRunRetries = 5
+
+	// baseRunBackoff is the initial backoff duration between run retries.
+	// Uses exponential backoff: 1s, 2s, 4s, 8s (total max ~15s).
+	baseRunBackoff = 1 * time.Second
 )
 
 // ensureProvisionedImage ensures the container image exists and is provisioned
