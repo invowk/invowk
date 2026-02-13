@@ -44,8 +44,8 @@ The virtual runtime uses the embedded mvdan/sh interpreter:
 **Precedence order (highest to lowest):**
 1. Current directory `invowkfile.cue`
 2. Current directory `*.invowkmod`
-3. User directory `~/.invowk/cmds/`
-4. Configured includes
+3. Configured includes (module paths from `config.Includes`)
+4. User directory `~/.invowk/cmds/` (modules only, non-recursive)
 
 ### 3. Resolution Phase
 
