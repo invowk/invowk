@@ -41,7 +41,7 @@ function resolveSnippet(id: string, versionName: string | undefined): SnippetTyp
  * ```mdx
  * import Snippet from '@site/src/components/Snippet';
  *
- * <Snippet id="invkfile-basic-structure" />
+ * <Snippet id="getting-started/invowkfile-basic-structure" />
  * <Snippet id="cli-list-commands" title="List all commands" />
  * ```
  */

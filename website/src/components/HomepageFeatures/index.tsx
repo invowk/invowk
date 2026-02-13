@@ -28,7 +28,7 @@ const FeatureList: FeatureItem[] = [
     icon: '⚙️',
     description: (
       <Translate id="homepage.features.cuePowered.description">
-        Define commands in invkfile.cue using CUE, a powerful configuration language with built-in validation. Say goodbye to YAML indentation nightmares.
+        Define commands in invowkfile.cue using CUE, a powerful configuration language with built-in validation. Say goodbye to YAML indentation nightmares.
       </Translate>
     ),
   },

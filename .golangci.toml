@@ -333,7 +333,7 @@ excludes = [
     "G204",  # Subprocess with variable - command runner by design
     "G301",  # Dir perms > 0750 - directories need 0755 for traversability
     "G302",  # File created with excessive perms - config files need world-readable
-    "G304",  # File inclusion via variable - must read user config/invkfiles
+    "G304",  # File inclusion via variable - must read user config/invowkfiles
     "G306",  # WriteFile perms > 0600 - config/module files need 0644 for readability
 ]
 

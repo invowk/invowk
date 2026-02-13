@@ -49,7 +49,7 @@ function HomepageHeader() {
           <pre className={styles.terminalCode}>
             <code>
 {`$ invowk init
-Created invkfile.cue
+Created invowkfile.cue
 
 $ invowk cmd
 Available Commands
