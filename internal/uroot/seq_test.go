@@ -262,6 +262,77 @@ func TestSeqCommand_Run_ZeroIncrement(t *testing.T) {
 	}
 }
 
+func TestSeqCommand_Run_InvalidNumber(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		args []string
+	}{
+		{name: "non-numeric last", args: []string{"seq", "abc"}},
+		{name: "non-numeric first", args: []string{"seq", "xyz", "10"}},
+		{name: "non-numeric increment", args: []string{"seq", "1", "xyz", "10"}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			var stdout, stderr bytes.Buffer
+			ctx := WithHandlerContext(context.Background(), &HandlerContext{
+				Stdin:     strings.NewReader(""),
+				Stdout:    &stdout,
+				Stderr:    &stderr,
+				Dir:       t.TempDir(),
+				LookupEnv: os.LookupEnv,
+			})
+
+			cmd := newSeqCommand()
+			err := cmd.Run(ctx, tt.args)
+
+			if err == nil {
+				t.Fatal("Run() should return error for invalid number argument")
+			}
+
+			if !strings.HasPrefix(err.Error(), "[uroot] seq:") {
+				t.Errorf("error should have [uroot] seq: prefix, got: %v", err)
+			}
+
+			if !strings.Contains(err.Error(), "invalid floating point argument") {
+				t.Errorf("error should mention 'invalid floating point argument', got: %v", err)
+			}
+		})
+	}
+}
+
+func TestSeqCommand_Run_ContextCancellation(t *testing.T) {
+	t.Parallel()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // Cancel immediately
+
+	var stdout, stderr bytes.Buffer
+	ctx = WithHandlerContext(ctx, &HandlerContext{
+		Stdin:     strings.NewReader(""),
+		Stdout:    &stdout,
+		Stderr:    &stderr,
+		Dir:       t.TempDir(),
+		LookupEnv: os.LookupEnv,
+	})
+
+	cmd := newSeqCommand()
+	// Large range — should exit early due to cancelled context
+	err := cmd.Run(ctx, []string{"seq", "1", "1000000"})
+
+	if err == nil {
+		t.Fatal("Run() should return error for cancelled context")
+	}
+
+	if !strings.HasPrefix(err.Error(), "[uroot] seq:") {
+		t.Errorf("error should have [uroot] seq: prefix, got: %v", err)
+	}
+}
+
 func TestSeqCommand_Run_EmptyRange(t *testing.T) {
 	t.Parallel()
 

@@ -1,0 +1,54 @@
+# Test: U-root error handling
+# Tests that u-root utility errors propagate correctly through the virtual runtime
+
+cd $WORK
+
+# Test 1: seq with missing operand should fail
+! exec invowk cmd 'uroot seq error'
+stderr '\[uroot\] seq:'
+
+# Test 2: ln with missing file operand should fail
+! exec invowk cmd 'uroot ln error'
+stderr '\[uroot\] ln:'
+
+# Test 3: seq with invalid number should fail
+! exec invowk cmd 'uroot seq invalid'
+stderr '\[uroot\] seq:'
+stderr 'invalid floating point argument'
+
+-- invowkfile.cue --
+cmds: [
+	{
+		name:        "uroot seq error"
+		description: "Test seq error with missing operand"
+		implementations: [{
+			script: """
+				seq
+				"""
+			runtimes: [{name: "virtual"}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+	},
+	{
+		name:        "uroot ln error"
+		description: "Test ln error with missing file operand"
+		implementations: [{
+			script: """
+				ln -s only_one_arg
+				"""
+			runtimes: [{name: "virtual"}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+	},
+	{
+		name:        "uroot seq invalid"
+		description: "Test seq error with invalid argument"
+		implementations: [{
+			script: """
+				seq abc
+				"""
+			runtimes: [{name: "virtual"}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+	},
+]

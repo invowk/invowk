@@ -104,6 +104,34 @@ All u-root utility implementations that handle file content:
 - `tee` - Output duplication (streaming to stdout + files)
 - `wc` - Word/line counting (streaming counters)
 
+### Output Generation (Not Just File I/O)
+
+Streaming applies to **generated output** too, not only file content. Commands like `seq` that produce potentially unbounded output must stream directly to stdout rather than accumulating results in memory:
+
+```go
+// CORRECT: Stream output directly
+count := 0
+for n := first; n <= last; n += increment {
+    select {
+    case <-ctx.Done():
+        return wrapError(c.name, ctx.Err())
+    default:
+    }
+    if count > 0 { fmt.Fprint(hc.Stdout, *separator) }
+    fmt.Fprint(hc.Stdout, formatted)
+    count++
+}
+
+// WRONG: Accumulate then join (OOMs on large ranges)
+var parts []string
+for n := first; n <= last; n += increment {
+    parts = append(parts, formatted)  // Unbounded growth
+}
+fmt.Fprint(hc.Stdout, strings.Join(parts, sep))  // Doubles memory
+```
+
+**Context cancellation**: Generation loops must check `ctx.Done()` periodically. Without this, Ctrl+C has no effect until the loop completes naturally, which may be never for large ranges.
+
 ### Exception: Sorting Large Files
 
 `sort` may need to use temporary files for inputs that exceed available memory. This is acceptable as it's the standard approach used by GNU sort (`-T` tempdir). The key constraint remains: never hold unbounded data in heap memory.
@@ -112,7 +140,7 @@ All u-root utility implementations that handle file content:
 
 ## Symlink Handling
 
-**Default behavior: Follow symlinks (copy target content, not the link).**
+**Default behavior for `cp`: Follow symlinks (copy target content, not the link).**
 
 This matches standard POSIX `cp` behavior and prevents symlink-based path traversal attacks.
 
@@ -120,9 +148,18 @@ This matches standard POSIX `cp` behavior and prevents symlink-based path traver
 - `cp -r dir/ dest/` where `dir/` contains symlinks → copies target contents, not links
 - Symlink preservation requires explicit `-P` flag (when supported)
 
+### Symlink Creation (`ln -s`)
+
+**Preserve relative target strings for symbolic links.** `os.Symlink(target, linkName)` stores `target` as a literal string. For `-s`, pass the user-provided target as-is:
+
+- `ln -s ../lib/foo link` → symlink contains `"../lib/foo"` (relative, portable)
+- `ln -s /usr/lib/foo link` → symlink contains `"/usr/lib/foo"` (absolute)
+
+Only resolve the **link name** to absolute (the OS needs the creation path). For **hard links** (no `-s`), resolve the target too because `os.Link` needs the real filesystem path.
+
 ### Security Rationale
 
-Following symlinks by default prevents:
+Following symlinks by default (for `cp`) prevents:
 - Symlink attacks where a malicious link points outside the intended directory
 - Accidental exposure of sensitive files via symlink indirection
 - Unexpected behavior when copying between filesystems

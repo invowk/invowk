@@ -123,6 +123,30 @@ func TestBase64Command_Run_EncodeFile(t *testing.T) {
 	}
 }
 
+func TestBase64Command_Run_DecodeInvalid(t *testing.T) {
+	t.Parallel()
+
+	var stdout, stderr bytes.Buffer
+	ctx := WithHandlerContext(context.Background(), &HandlerContext{
+		Stdin:     strings.NewReader("!!!invalid-base64!!!"),
+		Stdout:    &stdout,
+		Stderr:    &stderr,
+		Dir:       t.TempDir(),
+		LookupEnv: os.LookupEnv,
+	})
+
+	cmd := newBase64Command()
+	err := cmd.Run(ctx, []string{"base64", "-d"})
+
+	if err == nil {
+		t.Fatal("Run() should return error for corrupted base64 input")
+	}
+
+	if !strings.HasPrefix(err.Error(), "[uroot] base64:") {
+		t.Errorf("error should have [uroot] base64: prefix, got: %v", err)
+	}
+}
+
 func TestBase64Command_Run_DecodeFile(t *testing.T) {
 	t.Parallel()
 

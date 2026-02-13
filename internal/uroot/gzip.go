@@ -35,8 +35,10 @@ func newGzipCommand() *gzipCommand {
 
 // Run executes the gzip command.
 // Note: gzip's upstream RunContext expects args[0] to be the program name
-// (used for gunzip/gzcat symlink detection), so we pass args as-is rather
-// than stripping the command name like other wrappers.
+// (used for gunzip/gzcat symlink detection), so we pass the full args slice
+// rather than stripping the command name like other wrappers. The embedded
+// baseWrapper provides the NativePreprocessor marker, so Registry.Run()
+// skips centralized flag preprocessing.
 func (c *gzipCommand) Run(ctx context.Context, args []string) error {
 	cmd := gzip.New()
 	configureCommand(ctx, cmd)

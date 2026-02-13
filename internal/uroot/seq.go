@@ -100,9 +100,20 @@ func (c *seqCommand) Run(ctx context.Context, args []string) error {
 		}
 	}
 
-	// Generate the sequence
-	var parts []string
+	// Stream the sequence directly to stdout. This avoids unbounded memory
+	// allocation for large ranges (e.g., "seq 1 1000000000" would OOM if
+	// accumulated into a slice). The epsilon tolerance (1e-9) in the loop
+	// bound compensates for floating point accumulation drift — without it,
+	// sequences like "seq 0 0.1 1" miss the terminal value because repeated
+	// 0.1 addition drifts past 1.0.
+	count := 0
 	for n := first; (increment > 0 && n <= last+1e-9) || (increment < 0 && n >= last-1e-9); n += increment {
+		select {
+		case <-ctx.Done():
+			return wrapError(c.name, ctx.Err())
+		default:
+		}
+
 		// Round to avoid floating point drift artifacts
 		rounded := math.Round(n*1e9) / 1e9
 
@@ -112,11 +123,14 @@ func (c *seqCommand) Run(ctx context.Context, args []string) error {
 		} else {
 			formatted = seqFormat(rounded)
 		}
-		parts = append(parts, formatted)
-	}
 
-	if len(parts) > 0 {
-		fmt.Fprint(hc.Stdout, strings.Join(parts, *separator))
+		if count > 0 {
+			fmt.Fprint(hc.Stdout, *separator)
+		}
+		fmt.Fprint(hc.Stdout, formatted)
+		count++
+	}
+	if count > 0 {
 		fmt.Fprintln(hc.Stdout)
 	}
 

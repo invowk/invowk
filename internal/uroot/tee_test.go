@@ -219,6 +219,69 @@ func TestTeeCommand_Run_RelativePath(t *testing.T) {
 	}
 }
 
+func TestTeeCommand_Run_InvalidFilePath(t *testing.T) {
+	t.Parallel()
+
+	input := "stdin content\n"
+
+	var stdout, stderr bytes.Buffer
+	ctx := WithHandlerContext(context.Background(), &HandlerContext{
+		Stdin:     strings.NewReader(input),
+		Stdout:    &stdout,
+		Stderr:    &stderr,
+		Dir:       t.TempDir(),
+		LookupEnv: os.LookupEnv,
+	})
+
+	cmd := newTeeCommand()
+	// Write to a path in a nonexistent directory
+	err := cmd.Run(ctx, []string{"tee", "/nonexistent/dir/file.txt"})
+
+	if err == nil {
+		t.Fatal("Run() should return error for invalid file path")
+	}
+
+	if !strings.HasPrefix(err.Error(), "[uroot] tee:") {
+		t.Errorf("error should have [uroot] tee: prefix, got: %v", err)
+	}
+}
+
+func TestTeeCommand_Run_PartialOpenFailure(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	goodFile := filepath.Join(tmpDir, "good.txt")
+	badFile := filepath.Join(tmpDir, "nonexistent", "bad.txt") // Parent dir doesn't exist
+	input := "partial test\n"
+
+	var stdout, stderr bytes.Buffer
+	ctx := WithHandlerContext(context.Background(), &HandlerContext{
+		Stdin:     strings.NewReader(input),
+		Stdout:    &stdout,
+		Stderr:    &stderr,
+		Dir:       tmpDir,
+		LookupEnv: os.LookupEnv,
+	})
+
+	cmd := newTeeCommand()
+	// Second file will fail to open, triggering cleanup of the first
+	err := cmd.Run(ctx, []string{"tee", goodFile, badFile})
+
+	if err == nil {
+		t.Fatal("Run() should return error when a file cannot be opened")
+	}
+
+	if !strings.HasPrefix(err.Error(), "[uroot] tee:") {
+		t.Errorf("error should have [uroot] tee: prefix, got: %v", err)
+	}
+
+	// The good file should not exist (or be empty) since the open-failure
+	// cleanup path closes already-opened files
+	if content, readErr := os.ReadFile(goodFile); readErr == nil && len(content) > 0 {
+		t.Errorf("good file should be empty after cleanup, got content: %q", string(content))
+	}
+}
+
 func TestTeeCommand_Run_StdinOnly(t *testing.T) {
 	t.Parallel()
 

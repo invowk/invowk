@@ -4,6 +4,7 @@ package uroot
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -60,21 +61,27 @@ func (c *lnCommand) Run(ctx context.Context, args []string) error {
 	target := posArgs[0]
 	linkName := posArgs[1]
 
-	// Resolve relative paths using the working directory
-	if !filepath.IsAbs(target) {
-		target = filepath.Join(hc.Dir, target)
-	}
+	// Resolve linkName so the OS knows where to create the link.
 	if !filepath.IsAbs(linkName) {
 		linkName = filepath.Join(hc.Dir, linkName)
 	}
 
+	// For hard links, resolve the target to an absolute path. For symlinks,
+	// preserve the user-provided target as-is because os.Symlink stores the
+	// literal string — relative symlinks remain portable across directory
+	// relocations and container mount points.
+	if !*symbolic && !filepath.IsAbs(target) {
+		target = filepath.Join(hc.Dir, target)
+	}
+
 	// Remove existing link destination if -f is specified
 	if *force {
-		// Only remove if the path exists (ignore "not exist" errors)
 		if _, err := os.Lstat(linkName); err == nil {
-			if err := os.Remove(linkName); err != nil {
-				return wrapError(c.name, fmt.Errorf("cannot remove %q: %w", linkName, err))
+			if removeErr := os.Remove(linkName); removeErr != nil {
+				return wrapError(c.name, fmt.Errorf("cannot remove %q: %w", linkName, removeErr))
 			}
+		} else if !errors.Is(err, os.ErrNotExist) {
+			return wrapError(c.name, fmt.Errorf("cannot stat %q: %w", linkName, err))
 		}
 	}
 

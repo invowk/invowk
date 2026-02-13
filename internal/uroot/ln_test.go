@@ -156,7 +156,7 @@ func TestLnCommand_Run_ForceOverwrite(t *testing.T) {
 	}
 }
 
-func TestLnCommand_Run_RelativePaths(t *testing.T) {
+func TestLnCommand_Run_RelativeSymlink(t *testing.T) {
 	t.Parallel()
 
 	tmpDir := t.TempDir()
@@ -176,15 +176,71 @@ func TestLnCommand_Run_RelativePaths(t *testing.T) {
 	})
 
 	cmd := newLnCommand()
-	// Use relative paths; should resolve against hc.Dir
+	// Relative symlink target should be stored as-is (not resolved to absolute)
 	err := cmd.Run(ctx, []string{"ln", "-s", "target.txt", "rellink.txt"})
 	if err != nil {
 		t.Fatalf("Run() returned error: %v", err)
 	}
 
 	linkPath := filepath.Join(tmpDir, "rellink.txt")
-	if _, err := os.Lstat(linkPath); err != nil {
-		t.Fatalf("link was not created: %v", err)
+	resolved, err := os.Readlink(linkPath)
+	if err != nil {
+		t.Fatalf("Readlink failed: %v", err)
+	}
+
+	// The symlink must store the relative target string, not an absolute path
+	if resolved != "target.txt" {
+		t.Errorf("symlink target = %q, want %q (relative target should be preserved)", resolved, "target.txt")
+	}
+
+	// Verify the symlink actually resolves to the correct file
+	content, err := os.ReadFile(linkPath)
+	if err != nil {
+		t.Fatalf("failed to read through symlink: %v", err)
+	}
+	if string(content) != "content" {
+		t.Errorf("content through symlink = %q, want %q", string(content), "content")
+	}
+}
+
+func TestLnCommand_Run_RelativeHardLink(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	target := filepath.Join(tmpDir, "target.txt")
+
+	if err := os.WriteFile(target, []byte("content"), 0o644); err != nil {
+		t.Fatalf("failed to create target file: %v", err)
+	}
+
+	var stdout, stderr bytes.Buffer
+	ctx := WithHandlerContext(context.Background(), &HandlerContext{
+		Stdin:     strings.NewReader(""),
+		Stdout:    &stdout,
+		Stderr:    &stderr,
+		Dir:       tmpDir,
+		LookupEnv: os.LookupEnv,
+	})
+
+	cmd := newLnCommand()
+	// Relative hard link target should be resolved to absolute (hard links need real paths)
+	err := cmd.Run(ctx, []string{"ln", "target.txt", "hardrellink.txt"})
+	if err != nil {
+		t.Fatalf("Run() returned error: %v", err)
+	}
+
+	linkPath := filepath.Join(tmpDir, "hardrellink.txt")
+	targetInfo, err := os.Stat(target)
+	if err != nil {
+		t.Fatalf("failed to stat target: %v", err)
+	}
+	linkInfo, err := os.Stat(linkPath)
+	if err != nil {
+		t.Fatalf("failed to stat link: %v", err)
+	}
+
+	if !os.SameFile(targetInfo, linkInfo) {
+		t.Error("hard link and target should reference the same file")
 	}
 }
 
