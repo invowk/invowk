@@ -136,27 +136,25 @@ func (r *ContainerRuntime) ensureImage(ctx *ExecutionContext, cfg invowkfileCont
 	}
 
 	// Retry build on transient engine errors (exit code 125, network failures,
-	// storage driver races). The caller's context deadline naturally bounds
-	// total retry time.
-	var lastErr error
-	for attempt := range maxBuildRetries {
-		if attempt > 0 {
-			if ctx.Verbose {
-				_, _ = fmt.Fprintf(ctx.IO.Stdout, "Retrying container build (attempt %d/%d) after transient error: %v\n", attempt+1, maxBuildRetries, lastErr)
+	// storage driver races). RetryWithBackoff checks ctx.Err() between retries,
+	// preventing wasted build attempts after context cancellation.
+	var prevBuildErr error
+	retryErr := container.RetryWithBackoff(ctx.Context, maxBuildRetries, baseBuildBackoff,
+		func(attempt int) (bool, error) {
+			if attempt > 0 && ctx.Verbose {
+				_, _ = fmt.Fprintf(ctx.IO.Stdout, "Retrying container build (attempt %d/%d) after transient error: %v\n", attempt+1, maxBuildRetries, prevBuildErr)
 			}
-			time.Sleep(baseBuildBackoff * time.Duration(1<<(attempt-1)))
-		}
-
-		lastErr = r.engine.Build(ctx.Context, buildOpts)
-		if lastErr == nil {
-			return imageTag, nil
-		}
-		if !container.IsTransientError(lastErr) {
-			return "", lastErr
-		}
+			buildErr := r.engine.Build(ctx.Context, buildOpts)
+			if buildErr != nil {
+				prevBuildErr = buildErr
+				return container.IsTransientError(buildErr), buildErr
+			}
+			return false, nil
+		})
+	if retryErr != nil {
+		return "", retryErr
 	}
-
-	return "", lastErr
+	return imageTag, nil
 }
 
 // generateImageTag generates a unique image tag for an invowkfile
