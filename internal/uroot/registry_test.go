@@ -12,14 +12,26 @@ import (
 	"testing"
 )
 
-// mockCommand is a test implementation of Command.
-type mockCommand struct {
-	name   string
-	flags  []FlagInfo
-	runFn  func(ctx context.Context, args []string) error
-	called bool
-	args   []string
-}
+type (
+	// mockCommand is a test implementation of Command (custom implementation).
+	mockCommand struct {
+		name   string
+		flags  []FlagInfo
+		runFn  func(ctx context.Context, args []string) error
+		called bool
+		args   []string
+	}
+
+	// nativePreprocessorMock simulates an upstream wrapper that handles POSIX
+	// flag preprocessing internally. It embeds baseWrapper to inherit the
+	// NativePreprocessor marker interface.
+	nativePreprocessorMock struct {
+		baseWrapper
+		runFn  func(ctx context.Context, args []string) error
+		called bool
+		args   []string
+	}
+)
 
 func (m *mockCommand) Name() string { return m.name }
 
@@ -36,6 +48,15 @@ func (m *mockCommand) Run(ctx context.Context, args []string) error {
 
 func newMockCommand(name string) *mockCommand {
 	return &mockCommand{name: name}
+}
+
+func (m *nativePreprocessorMock) Run(ctx context.Context, args []string) error {
+	m.called = true
+	m.args = args
+	if m.runFn != nil {
+		return m.runFn(ctx, args)
+	}
+	return nil
 }
 
 func TestNewRegistry(t *testing.T) {
@@ -540,6 +561,177 @@ func TestRegistry_Run_NoSilentFallback(t *testing.T) {
 				t.Errorf("error should contain %q prefix: %v", tt.wantErrPart, err)
 			}
 		})
+	}
+}
+
+// =============================================================================
+// POSIX Combined Short Flag Preprocessing Tests
+// =============================================================================
+// These tests verify that Registry.Run() correctly preprocesses POSIX-style
+// combined short flags (e.g., "-sf" → "-s", "-f") for custom implementations,
+// while skipping upstream wrappers that handle this internally.
+
+// TestRegistry_Run_CombinedFlagsSplit verifies that combined boolean flags
+// are split into individual flags for custom implementations.
+func TestRegistry_Run_CombinedFlagsSplit(t *testing.T) {
+	t.Parallel()
+
+	r := NewRegistry()
+	cmd := newMockCommand("testcmd")
+	r.Register(cmd)
+
+	ctx := context.Background()
+	err := r.Run(ctx, "testcmd", []string{"testcmd", "-abc", "file.txt"})
+	if err != nil {
+		t.Fatalf("Run returned unexpected error: %v", err)
+	}
+
+	if !cmd.called {
+		t.Fatal("command was not called")
+	}
+
+	// "-abc" should be split into "-a", "-b", "-c"
+	// Expected: ["testcmd", "-a", "-b", "-c", "file.txt"]
+	want := []string{"testcmd", "-a", "-b", "-c", "file.txt"}
+	if len(cmd.args) != len(want) {
+		t.Fatalf("args length = %d, want %d\ngot:  %v\nwant: %v", len(cmd.args), len(want), cmd.args, want)
+	}
+	for i, arg := range cmd.args {
+		if arg != want[i] {
+			t.Errorf("args[%d] = %q, want %q", i, arg, want[i])
+		}
+	}
+}
+
+// TestRegistry_Run_SingleFlagsUnchanged verifies that single flags pass
+// through unchanged (no mangling).
+func TestRegistry_Run_SingleFlagsUnchanged(t *testing.T) {
+	t.Parallel()
+
+	r := NewRegistry()
+	cmd := newMockCommand("testcmd")
+	r.Register(cmd)
+
+	ctx := context.Background()
+	err := r.Run(ctx, "testcmd", []string{"testcmd", "-s", "-f", "target", "link"})
+	if err != nil {
+		t.Fatalf("Run returned unexpected error: %v", err)
+	}
+
+	want := []string{"testcmd", "-s", "-f", "target", "link"}
+	if len(cmd.args) != len(want) {
+		t.Fatalf("args length = %d, want %d\ngot:  %v\nwant: %v", len(cmd.args), len(want), cmd.args, want)
+	}
+	for i, arg := range cmd.args {
+		if arg != want[i] {
+			t.Errorf("args[%d] = %q, want %q", i, arg, want[i])
+		}
+	}
+}
+
+// TestRegistry_Run_MixedFlagsAndPositionalArgs verifies that combined flags
+// mixed with positional arguments are handled correctly.
+func TestRegistry_Run_MixedFlagsAndPositionalArgs(t *testing.T) {
+	t.Parallel()
+
+	r := NewRegistry()
+	cmd := newMockCommand("grep")
+	r.Register(cmd)
+
+	ctx := context.Background()
+	err := r.Run(ctx, "grep", []string{"grep", "-in", "pattern", "file.txt"})
+	if err != nil {
+		t.Fatalf("Run returned unexpected error: %v", err)
+	}
+
+	// "-in" should be split to "-i", "-n"
+	want := []string{"grep", "-i", "-n", "pattern", "file.txt"}
+	if len(cmd.args) != len(want) {
+		t.Fatalf("args length = %d, want %d\ngot:  %v\nwant: %v", len(cmd.args), len(want), cmd.args, want)
+	}
+	for i, arg := range cmd.args {
+		if arg != want[i] {
+			t.Errorf("args[%d] = %q, want %q", i, arg, want[i])
+		}
+	}
+}
+
+// TestRegistry_Run_NativePreprocessorSkipped verifies that commands
+// implementing NativePreprocessor receive original unsplit args.
+func TestRegistry_Run_NativePreprocessorSkipped(t *testing.T) {
+	t.Parallel()
+
+	r := NewRegistry()
+	cmd := &nativePreprocessorMock{
+		baseWrapper: baseWrapper{name: "nativecmd"},
+	}
+	r.Register(cmd)
+
+	ctx := context.Background()
+	err := r.Run(ctx, "nativecmd", []string{"nativecmd", "-abc", "file.txt"})
+	if err != nil {
+		t.Fatalf("Run returned unexpected error: %v", err)
+	}
+
+	if !cmd.called {
+		t.Fatal("command was not called")
+	}
+
+	// NativePreprocessor commands should receive original args — no splitting.
+	want := []string{"nativecmd", "-abc", "file.txt"}
+	if len(cmd.args) != len(want) {
+		t.Fatalf("args length = %d, want %d\ngot:  %v\nwant: %v", len(cmd.args), len(want), cmd.args, want)
+	}
+	for i, arg := range cmd.args {
+		if arg != want[i] {
+			t.Errorf("args[%d] = %q, want %q", i, arg, want[i])
+		}
+	}
+}
+
+// TestRegistry_Run_CommandNameOnlyArgs verifies that args with only the
+// command name (no flags) are handled without error or mutation.
+func TestRegistry_Run_CommandNameOnlyArgs(t *testing.T) {
+	t.Parallel()
+
+	r := NewRegistry()
+	cmd := newMockCommand("testcmd")
+	r.Register(cmd)
+
+	ctx := context.Background()
+	err := r.Run(ctx, "testcmd", []string{"testcmd"})
+	if err != nil {
+		t.Fatalf("Run returned unexpected error: %v", err)
+	}
+
+	// Only command name — preprocessing is skipped (len(args) <= 1)
+	want := []string{"testcmd"}
+	if len(cmd.args) != len(want) {
+		t.Fatalf("args length = %d, want %d", len(cmd.args), len(want))
+	}
+	if cmd.args[0] != "testcmd" {
+		t.Errorf("args[0] = %q, want %q", cmd.args[0], "testcmd")
+	}
+}
+
+// TestRegistry_Run_NativePreprocessorInterface verifies the marker interface
+// type assertion works correctly for both custom and upstream-style commands.
+func TestRegistry_Run_NativePreprocessorInterface(t *testing.T) {
+	t.Parallel()
+
+	custom := newMockCommand("custom")
+	native := &nativePreprocessorMock{
+		baseWrapper: baseWrapper{name: "native"},
+	}
+
+	// Custom commands should NOT implement NativePreprocessor
+	if _, ok := Command(custom).(NativePreprocessor); ok {
+		t.Error("mockCommand should not implement NativePreprocessor")
+	}
+
+	// Native wrappers should implement NativePreprocessor via baseWrapper
+	if _, ok := Command(native).(NativePreprocessor); !ok {
+		t.Error("nativePreprocessorMock should implement NativePreprocessor via baseWrapper")
 	}
 }
 

@@ -9,23 +9,36 @@
 //
 // # Supported Commands
 //
-// The following 15 utilities are provided:
+// The following 28 utilities are provided:
 //
-// From u-root pkg/core (7 wrappers):
+// From u-root pkg/core (12 wrappers):
+//   - base64: Encode/decode base64
 //   - cat: Concatenate and display files
 //   - cp: Copy files and directories
+//   - find: Search for files in a directory hierarchy
+//   - gzip: Compress or expand files
 //   - ls: List directory contents
 //   - mkdir: Create directories
 //   - mv: Move/rename files and directories
 //   - rm: Remove files and directories
+//   - shasum: Compute SHA message digests
+//   - tar: Archive files
 //   - touch: Create files or update timestamps
 //
-// Custom implementations (8 commands):
+// Custom implementations (16 commands):
+//   - basename: Strip directory and suffix from filenames
 //   - cut: Select portions of lines
+//   - dirname: Strip last component from filenames
 //   - grep: Search for patterns in files
 //   - head: Output first N lines
+//   - ln: Create hard or symbolic links
+//   - mktemp: Create temporary files or directories
+//   - realpath: Resolve absolute path names
+//   - seq: Generate number sequences
+//   - sleep: Delay for a specified time
 //   - sort: Sort lines of text
 //   - tail: Output last N lines
+//   - tee: Duplicate standard input to files
 //   - tr: Translate characters
 //   - uniq: Report or omit repeated lines
 //   - wc: Count lines, words, and bytes
@@ -52,6 +65,18 @@
 // All file operations use streaming I/O (io.Copy or equivalent) to ensure
 // constant memory usage regardless of file size. This prevents OOM conditions
 // when processing large files.
+//
+// # POSIX Combined Short Flags
+//
+// Custom implementations support POSIX-style combined short flags (e.g., "-sf"
+// is equivalent to "-s -f"). Registry.Run() preprocesses arguments using
+// unixflag.ArgsToGoArgs before dispatching to custom commands, splitting
+// combined flags into individual Go-style flags that flag.NewFlagSet can parse.
+//
+// Upstream u-root wrappers (those embedding baseWrapper) handle this
+// preprocessing internally in their RunContext method and implement the
+// NativePreprocessor marker interface. Registry.Run() skips preprocessing
+// for these commands to avoid double-splitting that would corrupt long flags.
 //
 // # Unsupported Flags
 //

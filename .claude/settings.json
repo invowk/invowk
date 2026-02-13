@@ -2,7 +2,7 @@
   "hooks": {
     "PreToolUse": [
       {
-        "matcher": "Edit|Write",
+        "matcher": "Edit|Write|Update",
         "hooks": [
           {
             "type": "command",
@@ -14,7 +14,7 @@
     ],
     "PostToolUse": [
       {
-        "matcher": "Edit|Write",
+        "matcher": "Edit|Write|Update",
         "hooks": [
           {
             "type": "command",
@@ -101,6 +101,11 @@
           {
             "type": "command",
             "command": "cozempic checkpoint 2>/dev/null || true"
+          },
+          {
+            "type": "command",
+            "command": "echo 'If you made any changes this session (code, config, docs, workflows, rules, skills, hooks, etc.), run /learn before finishing to check for stale CLAUDE.md, rules, or skills.'",
+            "timeout": 2000
           }
         ]
       }

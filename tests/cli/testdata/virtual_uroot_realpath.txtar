@@ -1,0 +1,41 @@
+# Test: U-root realpath utility
+# Tests absolute path resolution and symlink resolution in virtual runtime
+
+cd $WORK
+
+# Test 1: realpath resolves relative paths and symlinks
+exec invowk cmd 'uroot realpath'
+stdout '=== realpath relative ==='
+stdout 'realpath-test/subdir/file\.txt'
+stdout '=== realpath symlink ==='
+stdout 'realpath-test/subdir/file\.txt'
+stdout '=== uroot realpath test complete ==='
+! stderr .
+
+-- invowkfile.cue --
+cmds: [
+	{
+		name:        "uroot realpath"
+		description: "Test realpath path resolution"
+		implementations: [{
+			script: """
+				mkdir -p $WORK/realpath-test/subdir
+				echo 'test' > $WORK/realpath-test/subdir/file.txt
+
+				# Test resolving a relative path to absolute
+				echo '=== realpath relative ==='
+				realpath $WORK/realpath-test/subdir/file.txt
+
+				# Test resolving a symlink to the real path
+				ln -s $WORK/realpath-test/subdir/file.txt $WORK/realpath-test/link.txt
+				echo '=== realpath symlink ==='
+				realpath $WORK/realpath-test/link.txt
+
+				rm -rf $WORK/realpath-test
+				echo '=== uroot realpath test complete ==='
+				"""
+			runtimes: [{name: "virtual"}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+	},
+]

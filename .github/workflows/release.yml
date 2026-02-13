@@ -228,6 +228,8 @@ jobs:
           report_paths: '*.xml'
           check_name: Release Tests (${{ matrix.os }}${{ matrix.engine && format(' / {0}', matrix.engine) || '' }})
           fail_on_failure: true
+          check_retries: true
+          flaky_summary: true
           include_passed: false
 
       # Surface rerun reports as GitHub Actions warnings for flake visibility

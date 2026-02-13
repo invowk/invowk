@@ -1,0 +1,31 @@
+# Test: U-root sleep utility
+# Tests sleep command completes without error in virtual runtime
+
+cd $WORK
+
+# Test 1: sleep with zero duration completes immediately
+exec invowk cmd 'uroot sleep'
+stdout '=== sleep zero ==='
+stdout 'sleep completed'
+stdout '=== uroot sleep test complete ==='
+! stderr .
+
+-- invowkfile.cue --
+cmds: [
+	{
+		name:        "uroot sleep"
+		description: "Test sleep command execution"
+		implementations: [{
+			script: """
+				# Test sleep with zero duration (instant return)
+				echo '=== sleep zero ==='
+				sleep 0
+				echo 'sleep completed'
+
+				echo '=== uroot sleep test complete ==='
+				"""
+			runtimes: [{name: "virtual"}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+	},
+]

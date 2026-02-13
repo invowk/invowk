@@ -376,19 +376,19 @@ func (r *VirtualRuntime) tryUrootBuiltin(ctx context.Context, args []string) (bo
 
 	cmdName := args[0]
 
-	// Look up the command in the u-root registry
+	// Check if the command exists in the u-root registry.
 	// [US3-T046] Unregistered commands: Lookup returns (nil, false), we return (false, nil)
-	// This signals the caller to fall back to system binaries via next() handler
-	cmd, found := uroot.DefaultRegistry.Lookup(cmdName)
-	if !found {
+	// This signals the caller to fall back to system binaries via next() handler.
+	if _, found := uroot.DefaultRegistry.Lookup(cmdName); !found {
 		return false, nil
 	}
 
-	// Execute the u-root command
+	// Execute via Registry.Run for centralized POSIX flag preprocessing.
 	// [US3-T047] If the command fails, we return (true, err) - the error is propagated
-	// directly to the caller, NO fallback to system binary occurs
-	// The command receives the full args slice (including args[0] = command name)
-	err := cmd.Run(ctx, args)
+	// directly to the caller, NO fallback to system binary occurs.
+	// Registry.Run splits combined short flags (e.g., "-sf" → "-s", "-f") for custom
+	// implementations before dispatching to cmd.Run().
+	err := uroot.DefaultRegistry.Run(ctx, cmdName, args)
 	return true, err
 }
 

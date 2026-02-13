@@ -1,0 +1,41 @@
+# Test: U-root base64 utility
+# Tests base64 encoding and decoding in virtual runtime
+
+cd $WORK
+
+# Test 1: base64 encode and decode
+exec invowk cmd 'uroot base64'
+stdout '=== base64 encode ==='
+stdout 'SGVsbG8gV29ybGQK'
+stdout '=== base64 decode ==='
+stdout 'Hello World'
+stdout '=== uroot base64 test complete ==='
+! stderr .
+
+-- invowkfile.cue --
+cmds: [
+	{
+		name:        "uroot base64"
+		description: "Test base64 encoding and decoding"
+		implementations: [{
+			script: """
+				mkdir -p $WORK/base64-test
+
+				# Test encoding: write known content to file and encode
+				echo 'Hello World' > $WORK/base64-test/input.txt
+				echo '=== base64 encode ==='
+				base64 $WORK/base64-test/input.txt
+
+				# Test decoding: write base64 to file and decode
+				echo 'SGVsbG8gV29ybGQK' > $WORK/base64-test/encoded.txt
+				echo '=== base64 decode ==='
+				base64 -d $WORK/base64-test/encoded.txt
+
+				rm -rf $WORK/base64-test
+				echo '=== uroot base64 test complete ==='
+				"""
+			runtimes: [{name: "virtual"}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+	},
+]

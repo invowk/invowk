@@ -241,7 +241,7 @@ For container runtime, filepath checks are validated **inside the container**:
     name: "build"
     implementations: [{
         script: "go build ./..."
-        runtimes: [{name: "container", image: "golang:1.21"}]
+        runtimes: [{name: "container", image: "golang:1.26"}]
         depends_on: {
             filepaths: [
                 // These are checked INSIDE the container

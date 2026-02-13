@@ -1,0 +1,3 @@
+# Testscript archives contain fixtures with known checksums and exact byte sequences.
+# Force LF line endings to prevent CRLF conversion on Windows.
+*.txtar text eol=lf

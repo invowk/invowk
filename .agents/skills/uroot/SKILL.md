@@ -87,13 +87,47 @@ writer.Write(content)
 ### Applies To
 
 All u-root utility implementations that handle file content:
-- `cp` - File copying
-- `mv` - File moving (when cross-filesystem)
+- `base64` - Base64 encoding/decoding (streaming)
 - `cat` - File concatenation
+- `cp` - File copying
+- `find` - Directory tree searching
+- `gzip` - Compression/decompression (streaming)
 - `head` / `tail` - File viewing
 - `grep` - Pattern matching (line-by-line streaming)
+- `mv` - File moving (when cross-filesystem)
+- `shasum` - SHA checksum computation (streaming)
 - `sort` - Sorting (may require temp files for large inputs)
+- `tar` - Archive creation/extraction (streaming)
+- `tee` - Output duplication (streaming to stdout + files)
 - `wc` - Word/line counting (streaming counters)
+
+### Output Generation (Not Just File I/O)
+
+Streaming applies to **generated output** too, not only file content. Commands like `seq` that produce potentially unbounded output must stream directly to stdout rather than accumulating results in memory:
+
+```go
+// CORRECT: Stream output directly
+count := 0
+for n := first; n <= last; n += increment {
+    select {
+    case <-ctx.Done():
+        return wrapError(c.name, ctx.Err())
+    default:
+    }
+    if count > 0 { fmt.Fprint(hc.Stdout, *separator) }
+    fmt.Fprint(hc.Stdout, formatted)
+    count++
+}
+
+// WRONG: Accumulate then join (OOMs on large ranges)
+var parts []string
+for n := first; n <= last; n += increment {
+    parts = append(parts, formatted)  // Unbounded growth
+}
+fmt.Fprint(hc.Stdout, strings.Join(parts, sep))  // Doubles memory
+```
+
+**Context cancellation**: Generation loops must check `ctx.Done()` periodically. Without this, Ctrl+C has no effect until the loop completes naturally, which may be never for large ranges.
 
 ### Exception: Sorting Large Files
 
@@ -103,7 +137,7 @@ All u-root utility implementations that handle file content:
 
 ## Symlink Handling
 
-**Default behavior: Follow symlinks (copy target content, not the link).**
+**Default behavior for `cp`: Follow symlinks (copy target content, not the link).**
 
 This matches standard POSIX `cp` behavior and prevents symlink-based path traversal attacks.
 
@@ -111,12 +145,108 @@ This matches standard POSIX `cp` behavior and prevents symlink-based path traver
 - `cp -r dir/ dest/` where `dir/` contains symlinks → copies target contents, not links
 - Symlink preservation requires explicit `-P` flag (when supported)
 
+### Symlink Creation (`ln -s`)
+
+**Preserve relative target strings for symbolic links.** `os.Symlink(target, linkName)` stores `target` as a literal string. For `-s`, pass the user-provided target as-is:
+
+- `ln -s ../lib/foo link` → symlink contains `"../lib/foo"` (relative, portable)
+- `ln -s /usr/lib/foo link` → symlink contains `"/usr/lib/foo"` (absolute)
+
+Only resolve the **link name** to absolute (the OS needs the creation path). For **hard links** (no `-s`), resolve the target too because `os.Link` needs the real filesystem path.
+
 ### Security Rationale
 
-Following symlinks by default prevents:
+Following symlinks by default (for `cp`) prevents:
 - Symlink attacks where a malicious link points outside the intended directory
 - Accidental exposure of sensitive files via symlink indirection
 - Unexpected behavior when copying between filesystems
+
+---
+
+## POSIX Combined Short Flags
+
+Custom implementations support POSIX-style combined short flags (e.g., `ln -sf` instead of `ln -s -f`). This is handled centrally in `Registry.Run()` — individual commands don't need any changes.
+
+### How It Works
+
+1. `Registry.Run()` checks if the command implements `NativePreprocessor` (a private marker interface).
+2. If it does NOT (custom implementation), args are preprocessed via `unixflag.ArgsToGoArgs()` which splits combined flags: `["-sf", "target"]` → `["-s", "-f", "target"]`.
+3. If it DOES (upstream wrapper via `baseWrapper`), args pass through unchanged — upstream wrappers handle this internally in their `RunContext` method.
+
+### Adding New Custom Commands
+
+No action needed — new custom commands automatically get combined flag support as long as they:
+- Are registered in `DefaultRegistry` via `RegisterDefault()`
+- Do NOT embed `baseWrapper` (which would mark them as upstream wrappers)
+
+### Adding New Upstream Wrappers
+
+New upstream wrappers that embed `baseWrapper` automatically inherit `NativePreprocessor` and skip centralized preprocessing. No extra code needed.
+
+### Edge Cases
+
+- **Value-taking flags in combined groups**: `ArgsToGoArgs` has no flag-value awareness. `-df:` splits to `-d -f -:`. Users must write `-d : -f` for value flags. This matches upstream behavior.
+- **`--` end-of-flags**: `ArgsToGoArgs` converts `--` to `-`. Since custom implementations use `ContinueOnError` and silently ignore unknown flags, this is benign.
+
+### Key Files
+
+- `internal/uroot/command.go` — `NativePreprocessor` marker interface
+- `internal/uroot/wrapper.go` — `baseWrapper.nativePreprocessor()` implementation
+- `internal/uroot/registry.go` — `Run()` preprocessing logic
+- `internal/runtime/virtual.go` — `tryUrootBuiltin()` routes through `Registry.Run()`
+
+---
+
+## Cross-Platform Path Handling
+
+**CRITICAL: Virtual shell utilities must produce POSIX-consistent output on all platforms.**
+
+Since u-root utilities run inside the virtual shell (mvdan/sh), which presents a POSIX-like environment, users write POSIX shell scripts expecting forward-slash paths. Implementations must output forward slashes regardless of the host OS.
+
+### Text-Manipulation Utilities (dirname, basename)
+
+Use `path` (NOT `path/filepath`) for pure text operations that don't touch the filesystem:
+
+```go
+import "path"
+
+// CORRECT: path.Dir always uses forward slashes
+fmt.Fprintln(hc.Stdout, path.Dir(p))    // dirname
+fmt.Fprintln(hc.Stdout, path.Base(p))   // basename
+
+// WRONG: filepath.Dir returns backslashes on Windows
+fmt.Fprintln(hc.Stdout, filepath.Dir(p))  // "foo\bar" on Windows!
+```
+
+**Why `path` is correct here:** `dirname` and `basename` are defined by POSIX as text manipulation — they parse path strings without filesystem I/O. The `path` package implements exactly this: slash-separated path processing.
+
+### Filesystem-Resolving Utilities (realpath)
+
+Use `path/filepath` for OS interaction, then convert output to slashes:
+
+```go
+import "path/filepath"
+
+// Use filepath for actual filesystem resolution
+resolved, err := filepath.EvalSymlinks(path)
+resolved, err = filepath.Abs(resolved)
+
+// Convert to forward slashes before outputting
+fmt.Fprintln(hc.Stdout, filepath.ToSlash(resolved))
+```
+
+### Test Normalization
+
+When testing filesystem-resolving utilities, resolve expected paths first to handle OS-level indirection:
+
+```go
+// macOS: /var → /private/var
+// Windows: RUNNER~1 → runneradmin (8.3 short names)
+tmpDir, err := filepath.EvalSymlinks(t.TempDir())
+
+// Match the implementation's ToSlash output
+want := filepath.ToSlash(filepath.Join(tmpDir, "file.txt"))
+```
 
 ---
 
@@ -187,3 +317,5 @@ func (h *CpHandler) Run(ctx context.Context, args []string) error {
 - **Buffering file contents** - Always use `io.Copy()` or similar streaming patterns. Never use `os.ReadFile()` or `io.ReadAll()` for arbitrary user files.
 - **Missing error prefix** - All u-root errors must include the `[uroot]` prefix for source identification.
 - **Naked defer Close()** - Never use `defer f.Close()`. For read-only files, use `defer func() { _ = f.Close() }()` with comment. For write operations, use named returns to capture close errors.
+- **Combined flags silent failure** - Go's `flag.NewFlagSet` does NOT support POSIX-style combined short flags (`-sf`). With `flag.ContinueOnError` + `io.Discard`, combined flags silently fail (both flags stay `false`). This is handled centrally by `Registry.Run()` — do NOT add `unixflag.ArgsToGoArgs()` calls to individual commands.
+- **Double-splitting upstream wrappers** - Never remove the `baseWrapper` embedding from upstream wrappers. It provides the `NativePreprocessor` marker that prevents `Registry.Run()` from double-splitting already-preprocessed args, which would corrupt long flags (`--recursive` → `-r -e -c -u ...`).

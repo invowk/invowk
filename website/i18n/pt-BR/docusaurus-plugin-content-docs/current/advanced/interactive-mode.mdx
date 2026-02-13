@@ -106,7 +106,7 @@ Isso significa que após sair do modo interativo:
 
 - **Comando único**: Não é possível executar múltiplos comandos em paralelo no modo interativo
 - **PTY necessário**: O terminal deve suportar operações PTY
-- **Apenas containers glibc**: Imagens de container devem ser baseadas em glibc (não Alpine/musl)
+- **Apenas containers Debian**: Imagens Alpine e Windows não são suportadas
 
 ## Suporte ao Runtime Container
 
@@ -143,8 +143,8 @@ Dentro dos scripts do seu container, você pode usar todos os componentes TUI:
 }
 ```
 
-:::warning glibc Necessário
-Imagens de container devem usar glibc (não musl). Imagens baseadas em Alpine não são suportadas. Use Debian, Ubuntu, ou imagens sem o sufixo `-alpine`.
+:::warning Apenas Containers Linux
+Imagens baseadas em Alpine não são suportadas devido a incompatibilidades do shell BusyBox. Use Debian, Ubuntu, ou imagens sem o sufixo `-alpine`.
 :::
 
 ## Boas Práticas

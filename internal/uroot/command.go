@@ -23,6 +23,15 @@ type (
 		SupportedFlags() []FlagInfo
 	}
 
+	// NativePreprocessor is a marker interface for commands that handle
+	// POSIX-style flag preprocessing internally (e.g., upstream u-root
+	// wrappers that call unixflag.ArgsToGoArgs in their RunContext method).
+	// Commands implementing this interface skip centralized preprocessing
+	// in Registry.Run() to avoid double-splitting of combined flags.
+	NativePreprocessor interface {
+		nativePreprocessor()
+	}
+
 	// FlagInfo describes a supported flag for a u-root command.
 	FlagInfo struct {
 		// Name is the flag name without dashes (e.g., "r" for -r, "recursive" for --recursive).

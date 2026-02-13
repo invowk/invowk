@@ -19,7 +19,7 @@ O runtime container **suporta apenas imagens de container Linux baseadas em Debi
 - **macOS**: Funciona com Docker Desktop (usa VMs Linux internamente)
 - **Windows**: Requer Docker Desktop com backend WSL2 em modo de containers Linux
 
-Scripts são executados usando `/bin/sh` dentro do container, o que requer um ambiente Linux baseado em glibc.
+Scripts são executados usando `/bin/sh` dentro do container, o que requer um ambiente com shell POSIX compatível.
 
 :::
 
@@ -51,25 +51,17 @@ Você deve especificar ou uma `image` ou um `containerfile` - eles são mutuamen
 ```cue
 runtimes: [{
     name: "container"
-    image: "golang:1.21"
+    image: "golang:1.26"
 }]
 ```
 
 Imagens comuns:
 - `debian:bookworm-slim` - Debian mínimo
 - `ubuntu:22.04` - Ubuntu completo
-- `golang:1.21` - Desenvolvimento Go
+- `golang:1.26` - Desenvolvimento Go
 - `node:20` - Desenvolvimento Node.js
 - `python:3.11-slim` - Desenvolvimento Python
 
-:::warning Requisito de glibc
-O binário do invowk é linkado dinamicamente contra **glibc**. Imagens de container usando musl libc (como Alpine Linux) **não são compatíveis**. Use imagens baseadas em glibc como:
-- Imagens baseadas em Debian/Ubuntu (padrão para a maioria das imagens oficiais)
-- Imagens com sufixo `-slim` (ex: `python:3.11-slim`, `node:20-slim`)
-- Imagens oficiais de linguagens sem sufixo `-alpine`
-
-**Não suportado:** `alpine`, `busybox`, imagens com sufixo `-alpine`
-:::
 
 ### Containerfile Personalizado
 
@@ -88,7 +80,7 @@ Monte diretórios adicionais no container:
 ```cue
 runtimes: [{
     name: "container"
-    image: "golang:1.21"
+    image: "golang:1.26"
     volumes: [
         "./data:/data",           // Caminho relativo
         "/tmp:/tmp:ro",           // Caminho absoluto, somente leitura
@@ -215,7 +207,7 @@ Dependências de container são validadas **dentro do container**:
         script: "make build"
         runtimes: [{
             name: "container"
-            image: "golang:1.21"
+            image: "golang:1.26"
         }]
     }]
 }
@@ -368,7 +360,7 @@ A primeira execução baixa a imagem. Execuções subsequentes são mais rápida
 
 ```bash
 # Pré-baixar imagens
-docker pull golang:1.21
+docker pull golang:1.26
 docker pull node:20
 ```
 

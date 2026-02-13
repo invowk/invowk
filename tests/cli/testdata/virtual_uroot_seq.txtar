@@ -1,0 +1,48 @@
+# Test: U-root seq utility
+# Tests numeric sequence generation in virtual runtime
+
+cd $WORK
+
+# Test 1: seq generates sequences with various arguments
+exec invowk cmd 'uroot seq'
+stdout '=== seq basic ==='
+stdout '1'
+stdout '2'
+stdout '3'
+stdout '4'
+stdout '5'
+stdout '=== seq range ==='
+stdout '3'
+stdout '4'
+stdout '5'
+stdout '=== seq separator ==='
+stdout '1, 2, 3'
+stdout '=== uroot seq test complete ==='
+! stderr .
+
+-- invowkfile.cue --
+cmds: [
+	{
+		name:        "uroot seq"
+		description: "Test seq number sequence generation"
+		implementations: [{
+			script: """
+				# Test basic sequence (1 to N)
+				echo '=== seq basic ==='
+				seq 5
+
+				# Test sequence with start and end
+				echo '=== seq range ==='
+				seq 3 5
+
+				# Test sequence with custom separator
+				echo '=== seq separator ==='
+				seq -s ', ' 3
+
+				echo '=== uroot seq test complete ==='
+				"""
+			runtimes: [{name: "virtual"}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+	},
+]
