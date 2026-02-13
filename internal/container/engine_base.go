@@ -44,19 +44,18 @@ type (
 		volumeFormatter      VolumeFormatFunc
 		runArgsTransformer   RunArgsTransformer
 		cmdEnvOverrides      map[string]string // Per-command env var overrides (e.g., CONTAINERS_CONF_OVERRIDE)
-		cmdExtraFiles        []*os.File        // Extra fds inherited by child processes (e.g., memfd)
-		sysctlOverrideActive bool              // Whether the memfd sysctl override is in effect
+		sysctlOverridePath   string            // Temp file path for sysctl override (removed on Close)
+		sysctlOverrideActive bool              // Whether the temp file sysctl override is in effect
 	}
 
 	// CmdCustomizer is implemented by engines that inject per-command overrides
-	// (environment variables and/or extra file descriptors). Used by the runtime
-	// package to propagate overrides to commands created outside the engine
-	// (e.g., interactive mode PTY commands).
+	// (environment variables). Used by the runtime package to propagate overrides
+	// to commands created outside the engine (e.g., interactive mode PTY commands).
 	CmdCustomizer interface {
 		CustomizeCmd(cmd *exec.Cmd)
 	}
 
-	// SysctlOverrideChecker is implemented by engines that may use the memfd-based
+	// SysctlOverrideChecker is implemented by engines that may use a temp-file-based
 	// CONTAINERS_CONF_OVERRIDE to prevent the rootless Podman ping_group_range race.
 	// The runtime package uses this to decide whether run-level serialization (mutex)
 	// is needed: if the override is active, the race is eliminated at source and no
@@ -121,16 +120,15 @@ func WithCmdEnvOverride(key, value string) BaseCLIEngineOption {
 	}
 }
 
-// WithCmdExtraFile adds a file descriptor that will be inherited by every child
-// process created by this engine. The file becomes fd 3+N in the child (where N
-// is its index in the extra files list). Used with memfd to pass in-memory config.
-func WithCmdExtraFile(f *os.File) BaseCLIEngineOption {
+// WithSysctlOverridePath records the temp file path for the sysctl override.
+// The path is cleaned up when Close() is called on the engine.
+func WithSysctlOverridePath(path string) BaseCLIEngineOption {
 	return func(e *BaseCLIEngine) {
-		e.cmdExtraFiles = append(e.cmdExtraFiles, f)
+		e.sysctlOverridePath = path
 	}
 }
 
-// WithSysctlOverrideActive marks the engine as having an active memfd-based
+// WithSysctlOverrideActive marks the engine as having an active temp-file-based
 // sysctl override. When true, the runtime layer skips run-level serialization
 // because the override eliminates the ping_group_range race at source.
 func WithSysctlOverrideActive(active bool) BaseCLIEngineOption {
@@ -352,14 +350,27 @@ func (e *BaseCLIEngine) CreateCommand(ctx context.Context, args ...string) *exec
 	return cmd
 }
 
-// CustomizeCmd applies engine-level overrides (env vars, extra files) to a command.
+// CustomizeCmd applies engine-level overrides (env vars) to a command.
 // This is the public interface for external callers (runtime package, sandbox wrapper)
 // that create exec.Cmd instances outside of CreateCommand.
 func (e *BaseCLIEngine) CustomizeCmd(cmd *exec.Cmd) {
 	e.customizeCmd(cmd)
 }
 
-// customizeCmd applies env overrides and extra files to a command.
+// Close removes temporary resources associated with this engine (e.g., the
+// sysctl override temp file). It is safe to call multiple times.
+func (e *BaseCLIEngine) Close() error {
+	if e.sysctlOverridePath != "" {
+		err := os.Remove(e.sysctlOverridePath)
+		e.sysctlOverridePath = ""
+		if err != nil && !os.IsNotExist(err) {
+			return fmt.Errorf("remove sysctl override file: %w", err)
+		}
+	}
+	return nil
+}
+
+// customizeCmd applies env overrides to a command.
 func (e *BaseCLIEngine) customizeCmd(cmd *exec.Cmd) {
 	if len(e.cmdEnvOverrides) > 0 {
 		// Start with the parent process environment, then overlay overrides.
@@ -369,9 +380,6 @@ func (e *BaseCLIEngine) customizeCmd(cmd *exec.Cmd) {
 		for k, v := range e.cmdEnvOverrides {
 			cmd.Env = append(cmd.Env, k+"="+v)
 		}
-	}
-	if len(e.cmdExtraFiles) > 0 {
-		cmd.ExtraFiles = e.cmdExtraFiles
 	}
 }
 

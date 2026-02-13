@@ -51,8 +51,8 @@ func NewPodmanEngine(opts ...BaseCLIEngineOption) *PodmanEngine {
 	}
 	// Disable default_sysctls to prevent the ping_group_range race in rootless
 	// Podman. On Linux with local Podman, uses CONTAINERS_CONF_OVERRIDE delivered
-	// via memfd. Skipped for podman-remote (env var doesn't reach the service) and
-	// non-Linux platforms (Podman runs in a VM).
+	// via a temp file. Skipped for podman-remote (env var doesn't reach the service)
+	// and non-Linux platforms (Podman runs in a VM).
 	allOpts = append(allOpts, sysctlOverrideOpts(path)...)
 	allOpts = append(allOpts, opts...)
 
@@ -192,12 +192,18 @@ func (e *PodmanEngine) InspectImage(ctx context.Context, image string) (string, 
 	return e.RunCommandWithOutput(ctx, "image", "inspect", image)
 }
 
-// SysctlOverrideActive reports whether the memfd-based CONTAINERS_CONF_OVERRIDE
+// Close releases resources associated with this engine (e.g., the sysctl
+// override temp file created on Linux). Safe to call multiple times.
+func (e *PodmanEngine) Close() error {
+	return e.BaseCLIEngine.Close()
+}
+
+// SysctlOverrideActive reports whether the temp-file-based CONTAINERS_CONF_OVERRIDE
 // is in effect for this engine. When true, the ping_group_range race is eliminated
 // at source and run-level serialization is unnecessary.
 //
 // Returns false when: podman-remote is in use (env var doesn't reach the service),
-// memfd_create failed, or on non-Linux platforms (Podman runs in a VM).
+// temp file creation failed, or on non-Linux platforms (Podman runs in a VM).
 func (e *PodmanEngine) SysctlOverrideActive() bool {
 	return e.sysctlOverrideActive
 }

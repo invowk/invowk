@@ -90,6 +90,16 @@ jobs:
           go-version-file: go.mod
           cache: true
 
+      # Engine isolation: mask the non-tested engine so AutoDetectEngine() picks
+      # the correct one. Ubuntu runners have both Docker and Podman installed.
+      - name: Mask Docker for Podman tests
+        if: matrix.engine == 'podman' && startsWith(matrix.runner, 'ubuntu')
+        run: sudo mv /usr/bin/docker /usr/bin/docker.disabled || true
+
+      - name: Mask Podman for Docker tests
+        if: matrix.engine == 'docker' && startsWith(matrix.runner, 'ubuntu')
+        run: sudo mv /usr/bin/podman /usr/bin/podman.disabled || true
+
       # Podman setup for Ubuntu
       - name: Setup Podman (Ubuntu)
         if: matrix.engine == 'podman' && startsWith(matrix.runner, 'ubuntu')

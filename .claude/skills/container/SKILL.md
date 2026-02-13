@@ -158,18 +158,26 @@ Rootless Podman's `default_sysctls` configuration causes `crun` to write `net.ip
 
 On **Linux with local Podman**, `NewPodmanEngine()` calls `sysctlOverrideOpts(binaryPath)` which:
 1. Checks if the binary is `podman-remote` (via name + symlink resolution) — skips if remote
-2. Creates an anonymous in-memory file via `memfd_create` containing `[containers]\ndefault_sysctls = []\n`
-3. Returns `WithCmdExtraFile(memfd)` + `WithCmdEnvOverride("CONTAINERS_CONF_OVERRIDE", "/dev/fd/3")` + `WithSysctlOverrideActive(true)`
-4. Every Podman subprocess inherits the memfd as fd 3 and reads the override config
-4. Multiple concurrent children safely share the same memfd (each `os.Open("/dev/fd/3")` gets an independent offset)
+2. Creates a temp file via `createSysctlOverrideTempFile()` containing `[containers]\ndefault_sysctls = []\n`
+3. Returns `WithCmdEnvOverride("CONTAINERS_CONF_OVERRIDE", tempPath)` + `WithSysctlOverridePath(tempPath)` + `WithSysctlOverrideActive(true)`
+4. Every Podman subprocess opens the path independently and reads the override config
+5. The temp file is cleaned up by `BaseCLIEngine.Close()` when the engine is released
 
-On **non-Linux** platforms, `sysctlOverrideOpts()` (`podman_sysctl_other.go`) returns nil — Podman runs inside a VM where host-side env vars don't reach crun. Instead, `runWithRetry()` acquires `containerRunMu` to serialize runs within the process.
+On **non-Linux** platforms, `sysctlOverrideOpts()` (`podman_sysctl_other.go`) returns nil — Podman runs inside a VM where host-side env vars don't reach crun. Instead, `runWithRetry()` falls back to `containerRunMu` (in-process mutex) since flock can't reach the VM.
 
-On **podman-remote** (Fedora Silverblue/toolbox), `sysctlOverrideOpts()` returns nil — the env var only affects the remote client, not the Podman service that calls crun. Detected via `isRemotePodman()` which checks binary name + follows symlinks.
+On **podman-remote** (Fedora Silverblue/toolbox), `sysctlOverrideOpts()` returns nil — the env var only affects the remote client, not the Podman service that calls crun. Detected via `isRemotePodman()` which checks binary name + follows symlinks. On Linux, `runWithRetry()` uses **flock** (`acquireRunLock()`) for cross-process serialization instead.
+
+### Cross-Process Serialization (flock)
+
+When the sysctl override is not active, `runWithRetry()` serializes container runs to prevent the ping_group_range race. On Linux, `acquireRunLock()` (`run_lock_linux.go`) acquires a blocking `flock(2)` on `$XDG_RUNTIME_DIR/invowk-podman.lock` (fallback: `os.TempDir()`). This provides **cross-process** serialization — all invowk processes on the same machine share the flock. On non-Linux, `acquireRunLock()` returns an error, causing fallback to `sync.Mutex` for intra-process protection only.
+
+### Stderr Buffering
+
+`runWithRetry()` buffers stderr per-attempt so that transient error messages from crun (written directly to the inherited stderr fd before Go can decide to retry) never leak to the user's terminal. On success or non-transient failure, the buffer is flushed to the caller's original writer. On transient failure, the buffer is discarded and retried. Interactive mode (`PrepareCommand`) is unaffected — it uses a PTY and bypasses `runWithRetry()`.
 
 ### SysctlOverrideChecker Interface
 
-The `SysctlOverrideChecker` interface (`engine_base.go`) lets the runtime layer query whether the memfd override is active:
+The `SysctlOverrideChecker` interface (`engine_base.go`) lets the runtime layer query whether the temp file override is active:
 
 ```go
 type SysctlOverrideChecker interface {
@@ -179,7 +187,7 @@ type SysctlOverrideChecker interface {
 
 **Implemented by:** `PodmanEngine`, `SandboxAwareEngine` (forwards to wrapped engine)
 
-**Used in:** `runWithRetry()` — acquires `containerRunMu` only when the checker returns false (or isn't implemented, e.g., Docker)
+**Used in:** `runWithRetry()` — when the checker returns false, acquires flock (Linux) or mutex (non-Linux); when not implemented (Docker), skips serialization entirely
 
 ### CmdCustomizer Interface
 
@@ -201,11 +209,11 @@ type CmdCustomizer interface {
 
 | File | Purpose |
 |------|---------|
-| `podman_sysctl_linux.go` | `createSysctlOverrideMemfd()`, `isRemotePodman()`, `sysctlOverrideOpts()` (Linux memfd) |
+| `podman_sysctl_linux.go` | `createSysctlOverrideTempFile()`, `isRemotePodman()`, `sysctlOverrideOpts()` (Linux temp file) |
 | `podman_sysctl_other.go` | No-op `sysctlOverrideOpts()` (macOS/Windows stub) |
-| `engine_base.go` | `CmdCustomizer`, `SysctlOverrideChecker`, `WithCmdEnvOverride()`, `WithCmdExtraFile()`, `WithSysctlOverrideActive()` |
-| `podman.go` | `SysctlOverrideActive()` method on `PodmanEngine` |
-| `container_exec.go` | `containerRunMu` (engine-aware run mutex in `runWithRetry()`) |
+| `engine_base.go` | `CmdCustomizer`, `SysctlOverrideChecker`, `WithCmdEnvOverride()`, `WithSysctlOverridePath()`, `WithSysctlOverrideActive()`, `Close()` |
+| `podman.go` | `SysctlOverrideActive()`, `Close()` methods on `PodmanEngine` |
+| `container_exec.go` | `containerRunMu` (fallback mutex), `runWithRetry()` (flock + stderr buffering), `flushStderr()` |
 | `container_prepare.go` | `CmdCustomizer` type assertion in `PrepareCommand()` |
 
 ---
@@ -397,7 +405,7 @@ Container runs (`engine.Run()`) are retried up to 5 times with exponential backo
 | `engine_base.go` | Shared CLI implementation, `CmdCustomizer` interface |
 | `docker.go` | Docker concrete implementation |
 | `podman.go` | Podman + SELinux/rootless logic |
-| `podman_sysctl_linux.go` | memfd-based sysctl override (Linux only) |
+| `podman_sysctl_linux.go` | Temp file-based sysctl override (Linux only) |
 | `podman_sysctl_other.go` | No-op sysctl override stub (non-Linux) |
 | `sandbox_engine.go` | Flatpak/Snap wrapper decorator |
 | `transient.go` | Shared transient error classifier |
@@ -407,8 +415,10 @@ Container runs (`engine.Run()`) are retried up to 5 times with exponential backo
 
 | File | Purpose |
 |------|---------|
-| `container_exec.go` | Container execution, `runWithRetry()`, `isTransientExitCode()` |
+| `container_exec.go` | Container execution, `runWithRetry()`, `isTransientExitCode()`, `flushStderr()` |
 | `container_provision.go` | Image building, `ensureImage()` retry, retry constants |
+| `run_lock_linux.go` | flock-based cross-process lock (`acquireRunLock()`, `runLock`) |
+| `run_lock_other.go` | No-op stub, forces fallback to `sync.Mutex` |
 
 ---
 

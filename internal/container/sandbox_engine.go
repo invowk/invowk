@@ -214,6 +214,18 @@ func (e *SandboxAwareEngine) CustomizeCmd(cmd *exec.Cmd) {
 	base.CustomizeCmd(cmd)
 }
 
+// Close forwards to the wrapped engine's Close method if it implements a closer
+// interface. Returns nil if the wrapped engine has no Close method (e.g., DockerEngine).
+func (e *SandboxAwareEngine) Close() error {
+	type closer interface {
+		Close() error
+	}
+	if c, ok := e.wrapped.(closer); ok {
+		return c.Close()
+	}
+	return nil
+}
+
 // SysctlOverrideActive forwards to the wrapped engine's SysctlOverrideChecker
 // if it implements the interface. Returns false if the wrapped engine doesn't
 // implement SysctlOverrideChecker (e.g., DockerEngine).

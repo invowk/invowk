@@ -95,6 +95,12 @@ func NewContainerRuntimeWithEngine(engine container.Engine, opts ...ContainerRun
 	return r
 }
 
+// Close releases resources held by the container engine (e.g., the sysctl
+// override temp file on Linux). Should be called when the runtime is no longer needed.
+func (r *ContainerRuntime) Close() error {
+	return container.CloseEngine(r.engine)
+}
+
 // SetProvisionConfig updates the provisioner configuration.
 // This is useful for setting the invkfile path before execution.
 func (r *ContainerRuntime) SetProvisionConfig(cfg *provision.Config) {

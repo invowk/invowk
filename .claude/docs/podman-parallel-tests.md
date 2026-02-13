@@ -17,43 +17,68 @@ The infrastructure uses a layered defense to handle transient Podman errors whil
 
 ### Layer 0: Sysctl Override (Prevention)
 
-On **Linux with local Podman**, `NewPodmanEngine()` creates an in-memory `containers.conf` override
-(via `memfd_create`) that sets `default_sysctls = []`. The memfd is passed to every Podman subprocess
-via `ExtraFiles[0]` (fd 3) and referenced as `CONTAINERS_CONF_OVERRIDE=/dev/fd/3`. This prevents crun
-from writing `net.ipv4.ping_group_range` in new namespaces — eliminating the race condition at its source.
+On **Linux with local Podman**, `NewPodmanEngine()` creates a temporary file containing a
+`containers.conf` override that sets `default_sysctls = []`. The file is written to `os.TempDir()`
+and referenced via `CONTAINERS_CONF_OVERRIDE=<path>` in every Podman subprocess's environment.
+This prevents crun from writing `net.ipv4.ping_group_range` in new namespaces — eliminating the
+race condition at its source.
 
-When the memfd override **cannot** work, `runWithRetry()` acquires a process-level mutex to serialize
-container starts within a single Invowk process. This covers:
-- **podman-remote** (Fedora Silverblue/toolbox): the env var only affects the client, not the Podman
-  service that calls crun. Detected via binary name + symlink resolution at engine creation time.
-- **macOS/Windows**: Podman runs inside a Linux VM (`podman machine`/WSL2) — the host-side env var
-  doesn't reach the VM's crun.
-- **Docker**: not affected by the race at all — Docker never implements `SysctlOverrideChecker`,
-  so the mutex is never acquired.
+The temp file is cleaned up when the engine is closed via `BaseCLIEngine.Close()`, which is called
+through the `CloseEngine()` helper when the container runtime is released.
+
+When the temp file override **cannot** work, `runWithRetry()` serializes container runs to prevent
+the ping_group_range race. The serialization strategy depends on the platform:
+
+- **Linux (podman-remote)**: `acquireRunLock()` uses `flock(2)` on a well-known file
+  (`$XDG_RUNTIME_DIR/invowk-podman.lock`, fallback: `os.TempDir()`). This provides **cross-process**
+  serialization — all invowk processes on the same machine share the flock, so concurrent testscript
+  tests and parallel terminal invocations don't race. Detected via binary name + symlink resolution
+  at engine creation time.
+- **macOS/Windows**: flock is unavailable (Podman runs in a VM, host-side locks don't reach it).
+  `acquireRunLock()` returns an error, and the code falls back to `sync.Mutex` for intra-process
+  protection only. The VM boundary provides some natural isolation.
+- **Docker**: not affected by the race — Docker never implements `SysctlOverrideChecker`, so
+  neither flock nor mutex is acquired.
 
 The `SysctlOverrideChecker` interface allows the runtime layer to query whether the override is active
 on a specific engine instance. Build operations (`ensureImage`) are NOT serialized.
 
 | Platform | Prevention | Recovery |
 |----------|------------|----------|
-| Linux (local Podman 4.8+) | memfd `CONTAINERS_CONF_OVERRIDE` | `runWithRetry()` (transient errors) |
-| Linux (podman-remote) | Run mutex (intra-process) | `runWithRetry()` (transient errors) |
-| Linux (older Podman) | Run mutex (intra-process) | `runWithRetry()` (transient errors) |
-| macOS/Windows | Run mutex (intra-process) | `runWithRetry()` (cross-process/VM) |
+| Linux (local Podman 4.8+) | Temp file `CONTAINERS_CONF_OVERRIDE` | `runWithRetry()` (transient errors) |
+| Linux (podman-remote) | **flock** (cross-process) | `runWithRetry()` (transient errors) |
+| Linux (older Podman) | **flock** (cross-process) | `runWithRetry()` (transient errors) |
+| macOS/Windows | `sync.Mutex` (intra-process) | `runWithRetry()` (transient errors) |
 | Docker (any platform) | N/A (no issue) | N/A |
-| memfd unavailable | Run mutex (fallback) | `runWithRetry()` (transient errors) |
+| Temp file unavailable | **flock** / `sync.Mutex` fallback | `runWithRetry()` (transient errors) |
+
+### Stderr Buffering
+
+`runWithRetry()` buffers stderr per-attempt. Transient errors from the container engine (written by
+crun/runc directly to the inherited stderr fd) are discarded on retry. Only the final attempt's stderr
+is flushed to the caller's original writer. This prevents `ping_group_range` error messages from
+leaking to the user's terminal even when retries succeed.
+
+**Tradeoff**: For the non-interactive `Execute()` path, stderr from the user's command is delayed until
+the command finishes (no streaming). This is acceptable because container commands in invowk are
+short-lived scripts. Interactive mode (`PrepareCommand()`) returns a `PreparedCommand` attached to a
+PTY and does not use `runWithRetry()`. `ExecuteCapture()` already fully buffers output.
 
 **Key files:**
-- `internal/container/podman_sysctl_linux.go` — `createSysctlOverrideMemfd()`, `isRemotePodman()`, `sysctlOverrideOpts()`
+- `internal/container/podman_sysctl_linux.go` — `createSysctlOverrideTempFile()`, `isRemotePodman()`, `sysctlOverrideOpts()`
 - `internal/container/podman_sysctl_other.go` — no-op stub for non-Linux
-- `internal/container/engine_base.go` — `CmdCustomizer`, `SysctlOverrideChecker`, `WithCmdEnvOverride()`, `WithCmdExtraFile()`, `WithSysctlOverrideActive()`
-- `internal/container/podman.go` — `SysctlOverrideActive()` method on `PodmanEngine`
-- `internal/container/sandbox_engine.go` — `SysctlOverrideActive()` forwarding
-- `internal/runtime/container_exec.go` — `containerRunMu` (engine-aware run mutex)
+- `internal/container/engine_base.go` — `CmdCustomizer`, `SysctlOverrideChecker`, `WithCmdEnvOverride()`, `WithSysctlOverridePath()`, `WithSysctlOverrideActive()`, `Close()`
+- `internal/container/engine.go` — `CloseEngine()` helper
+- `internal/container/podman.go` — `Close()`, `SysctlOverrideActive()` methods on `PodmanEngine`
+- `internal/container/sandbox_engine.go` — `Close()`, `SysctlOverrideActive()` forwarding
+- `internal/runtime/container.go` — `ContainerRuntime.Close()` (forwards to `CloseEngine()`)
+- `internal/runtime/container_exec.go` — `containerRunMu` (fallback mutex), `runWithRetry()` (flock + stderr buffering)
+- `internal/runtime/run_lock_linux.go` — `acquireRunLock()`, `runLock` (flock-based cross-process lock)
+- `internal/runtime/run_lock_other.go` — no-op stub, forces fallback to `sync.Mutex`
 
 ### Layer 1: Production Run-Level Retry
 
-`runWithRetry()` in `internal/runtime/container_exec.go` wraps `engine.Run()` with retry logic that mirrors the existing `ensureImage()` build retry pattern. Transient errors (classified by `container.IsTransientError()`) are retried up to 3 times with exponential backoff (500ms, 1s, 2s). This benefits both production users and test execution.
+`runWithRetry()` in `internal/runtime/container_exec.go` wraps `engine.Run()` with retry logic that mirrors the existing `ensureImage()` build retry pattern. Transient errors (classified by `container.IsTransientError()`) are retried up to 5 times with exponential backoff (1s, 2s, 4s, 8s). This benefits both production users and test execution.
 
 ### Layer 2: Vestigial Global State Removal
 

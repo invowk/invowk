@@ -178,6 +178,18 @@ func NewEngine(preferredType EngineType) (Engine, error) {
 	return NewSandboxAwareEngine(engine), nil
 }
 
+// CloseEngine releases resources held by a container engine. It is a no-op for
+// engines that don't hold resources (e.g., DockerEngine). Safe to call with nil.
+func CloseEngine(engine Engine) error {
+	type closer interface {
+		Close() error
+	}
+	if c, ok := engine.(closer); ok {
+		return c.Close()
+	}
+	return nil
+}
+
 // AutoDetectEngine tries to find an available container engine.
 // The returned engine is automatically wrapped with sandbox awareness
 // when running inside Flatpak or Snap sandboxes.

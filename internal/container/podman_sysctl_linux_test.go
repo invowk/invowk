@@ -5,65 +5,63 @@
 package container
 
 import (
-	"fmt"
-	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
-func TestCreateSysctlOverrideMemfd_Content(t *testing.T) {
+func TestCreateSysctlOverrideTempFile_Content(t *testing.T) {
 	t.Parallel()
 
-	memfd, err := createSysctlOverrideMemfd()
+	tempPath, err := createSysctlOverrideTempFile()
 	if err != nil {
-		t.Fatalf("createSysctlOverrideMemfd() error: %v", err)
+		t.Fatalf("createSysctlOverrideTempFile() error: %v", err)
 	}
-	defer memfd.Close()
+	defer os.Remove(tempPath)
 
-	content, err := io.ReadAll(memfd)
+	content, err := os.ReadFile(tempPath)
 	if err != nil {
-		t.Fatalf("reading memfd: %v", err)
+		t.Fatalf("reading temp file: %v", err)
 	}
 
 	expected := "[containers]\ndefault_sysctls = []\n"
 	if string(content) != expected {
-		t.Errorf("memfd content = %q, want %q", string(content), expected)
+		t.Errorf("temp file content = %q, want %q", string(content), expected)
 	}
 }
 
-// TestCreateSysctlOverrideMemfd_ReadableFromNewFD verifies that opening the
-// memfd via /proc/self/fd/<N> gives an independent read offset. This simulates
-// what Podman does when it opens CONTAINERS_CONF_OVERRIDE=/dev/fd/3 — os.Open()
-// creates a new file description with offset 0, so each child reads from the start.
-func TestCreateSysctlOverrideMemfd_ReadableFromNewFD(t *testing.T) {
+func TestCreateSysctlOverrideTempFile_UniquePerCall(t *testing.T) {
 	t.Parallel()
 
-	memfd, err := createSysctlOverrideMemfd()
+	path1, err := createSysctlOverrideTempFile()
 	if err != nil {
-		t.Fatalf("createSysctlOverrideMemfd() error: %v", err)
+		t.Fatalf("first call error: %v", err)
 	}
-	defer memfd.Close()
+	defer os.Remove(path1)
 
-	// Read all content to advance the offset
-	_, _ = io.ReadAll(memfd)
-
-	// Open via /proc/self/fd/N — this is how Podman reads it in the child process
-	procPath := fmt.Sprintf("/proc/self/fd/%d", memfd.Fd())
-	f2, err := os.Open(procPath)
+	path2, err := createSysctlOverrideTempFile()
 	if err != nil {
-		t.Fatalf("opening %s: %v", procPath, err)
+		t.Fatalf("second call error: %v", err)
 	}
-	defer f2.Close()
+	defer os.Remove(path2)
 
-	content, err := io.ReadAll(f2)
+	if path1 == path2 {
+		t.Errorf("expected unique paths, got %q both times", path1)
+	}
+}
+
+func TestCreateSysctlOverrideTempFile_HasTomlExtension(t *testing.T) {
+	t.Parallel()
+
+	tempPath, err := createSysctlOverrideTempFile()
 	if err != nil {
-		t.Fatalf("reading from new fd: %v", err)
+		t.Fatalf("createSysctlOverrideTempFile() error: %v", err)
 	}
+	defer os.Remove(tempPath)
 
-	expected := "[containers]\ndefault_sysctls = []\n"
-	if string(content) != expected {
-		t.Errorf("content from new fd = %q, want %q", string(content), expected)
+	if !strings.HasSuffix(tempPath, ".toml") {
+		t.Errorf("expected .toml suffix, got %q", tempPath)
 	}
 }
 
@@ -73,29 +71,34 @@ func TestSysctlOverrideOpts_LocalPodman(t *testing.T) {
 	// A local podman binary should get the full override
 	opts := sysctlOverrideOpts("/usr/bin/podman")
 
-	// On Linux with memfd support, should return exactly 3 options
-	// (WithCmdExtraFile + WithCmdEnvOverride + WithSysctlOverrideActive)
+	// On Linux, should return exactly 3 options
+	// (WithCmdEnvOverride + WithSysctlOverridePath + WithSysctlOverrideActive)
 	if len(opts) != 3 {
 		t.Fatalf("sysctlOverrideOpts(\"/usr/bin/podman\") returned %d options, want 3", len(opts))
 	}
 
 	// Apply options to a test engine and verify
 	engine := NewBaseCLIEngine("/usr/bin/podman", opts...)
+	defer engine.Close()
 
-	if len(engine.cmdExtraFiles) != 1 {
-		t.Errorf("expected 1 extra file, got %d", len(engine.cmdExtraFiles))
+	if engine.sysctlOverridePath == "" {
+		t.Error("expected sysctlOverridePath to be set")
 	}
-	if engine.cmdEnvOverrides["CONTAINERS_CONF_OVERRIDE"] != "/dev/fd/3" {
-		t.Errorf("expected CONTAINERS_CONF_OVERRIDE=/dev/fd/3, got %q",
-			engine.cmdEnvOverrides["CONTAINERS_CONF_OVERRIDE"])
+	if engine.cmdEnvOverrides["CONTAINERS_CONF_OVERRIDE"] != engine.sysctlOverridePath {
+		t.Errorf("expected CONTAINERS_CONF_OVERRIDE=%q, got %q",
+			engine.sysctlOverridePath, engine.cmdEnvOverrides["CONTAINERS_CONF_OVERRIDE"])
 	}
 	if !engine.sysctlOverrideActive {
 		t.Error("expected sysctlOverrideActive to be true for local podman")
 	}
 
-	// Clean up the memfd
-	if len(engine.cmdExtraFiles) > 0 {
-		engine.cmdExtraFiles[0].Close()
+	// Verify the temp file is readable with correct content
+	content, err := os.ReadFile(engine.sysctlOverridePath)
+	if err != nil {
+		t.Fatalf("reading override file: %v", err)
+	}
+	if string(content) != "[containers]\ndefault_sysctls = []\n" {
+		t.Errorf("override file content = %q", string(content))
 	}
 }
 
@@ -107,6 +110,38 @@ func TestSysctlOverrideOpts_RemotePodman(t *testing.T) {
 
 	if len(opts) != 0 {
 		t.Errorf("sysctlOverrideOpts(\"/usr/bin/podman-remote\") returned %d options, want 0", len(opts))
+	}
+}
+
+func TestBaseCLIEngine_Close_RemovesTempFile(t *testing.T) {
+	t.Parallel()
+
+	opts := sysctlOverrideOpts("/usr/bin/podman")
+	if len(opts) == 0 {
+		t.Skip("sysctl override not available")
+	}
+
+	engine := NewBaseCLIEngine("/usr/bin/podman", opts...)
+	tempPath := engine.sysctlOverridePath
+
+	// Verify the file exists
+	if _, err := os.Stat(tempPath); err != nil {
+		t.Fatalf("temp file should exist before Close: %v", err)
+	}
+
+	// Close should remove it
+	if err := engine.Close(); err != nil {
+		t.Fatalf("Close() error: %v", err)
+	}
+
+	// Verify the file is gone
+	if _, err := os.Stat(tempPath); !os.IsNotExist(err) {
+		t.Errorf("temp file should be removed after Close, stat error: %v", err)
+	}
+
+	// Second Close should be a no-op (idempotent)
+	if err := engine.Close(); err != nil {
+		t.Errorf("second Close() should be no-op, got error: %v", err)
 	}
 }
 

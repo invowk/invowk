@@ -5,7 +5,6 @@ package container
 import (
 	"context"
 	"errors"
-	"os"
 	"os/exec"
 	"slices"
 	"strings"
@@ -295,20 +294,20 @@ func TestBaseCLIEngine_RunCommand_ErrorHandling(t *testing.T) {
 	}
 }
 
-// --- CmdCustomizer / WithCmdEnvOverride / WithCmdExtraFile tests ---
+// --- CmdCustomizer / WithCmdEnvOverride tests ---
 
 func TestWithCmdEnvOverride_Single(t *testing.T) {
 	t.Parallel()
 
 	engine := NewBaseCLIEngine("/usr/bin/podman",
-		WithCmdEnvOverride("CONTAINERS_CONF_OVERRIDE", "/dev/fd/3"),
+		WithCmdEnvOverride("CONTAINERS_CONF_OVERRIDE", "/tmp/test.toml"),
 	)
 
 	cmd := exec.CommandContext(context.Background(), "true")
 	engine.CustomizeCmd(cmd)
 
-	if !slices.Contains(cmd.Env, "CONTAINERS_CONF_OVERRIDE=/dev/fd/3") {
-		t.Error("expected CONTAINERS_CONF_OVERRIDE=/dev/fd/3 in cmd.Env")
+	if !slices.Contains(cmd.Env, "CONTAINERS_CONF_OVERRIDE=/tmp/test.toml") {
+		t.Error("expected CONTAINERS_CONF_OVERRIDE=/tmp/test.toml in cmd.Env")
 	}
 }
 
@@ -331,35 +330,10 @@ func TestWithCmdEnvOverride_Multiple(t *testing.T) {
 	}
 }
 
-func TestWithCmdExtraFile(t *testing.T) {
-	t.Parallel()
-
-	// Create a temp file to use as an extra file
-	f, err := os.CreateTemp(t.TempDir(), "test-extra-*")
-	if err != nil {
-		t.Fatalf("failed to create temp file: %v", err)
-	}
-	defer f.Close()
-
-	engine := NewBaseCLIEngine("/usr/bin/podman",
-		WithCmdExtraFile(f),
-	)
-
-	cmd := exec.CommandContext(context.Background(), "true")
-	engine.CustomizeCmd(cmd)
-
-	if len(cmd.ExtraFiles) != 1 {
-		t.Fatalf("expected 1 extra file, got %d", len(cmd.ExtraFiles))
-	}
-	if cmd.ExtraFiles[0] != f {
-		t.Error("extra file does not match the provided file")
-	}
-}
-
 func TestCustomizeCmd_Empty(t *testing.T) {
 	t.Parallel()
 
-	// Engine with no overrides or extra files
+	// Engine with no overrides
 	engine := NewBaseCLIEngine("/usr/bin/docker")
 
 	cmd := exec.CommandContext(context.Background(), "true")
@@ -368,10 +342,6 @@ func TestCustomizeCmd_Empty(t *testing.T) {
 	// cmd.Env should remain nil (inherit parent env)
 	if cmd.Env != nil {
 		t.Errorf("expected nil Env for engine without overrides, got %d entries", len(cmd.Env))
-	}
-	// cmd.ExtraFiles should remain nil
-	if cmd.ExtraFiles != nil {
-		t.Errorf("expected nil ExtraFiles for engine without extra files, got %d entries", len(cmd.ExtraFiles))
 	}
 }
 
