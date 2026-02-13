@@ -188,7 +188,9 @@ func containerSetup(env *testscript.Env) error {
 
 **Layer 3: CI Explicit Timeout (Safety Net)**
 ```yaml
-run: go test -v -race -timeout 15m -coverprofile=coverage.out ./...
+# CI uses gotestsum which wraps go test with --rerun-fails for transient failures
+run: gotestsum --format testdox --junitfile test-results.xml --rerun-fails
+       --rerun-fails-max-failures 5 --packages ./... -- -race -timeout 15m
 ```
 
 **Why three layers:**
