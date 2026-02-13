@@ -171,6 +171,9 @@ Replace raw `go test` in CI with `gotestsum --rerun-fails`:
 - Failed tests appear inline on the PR "Files changed" tab.
 - Passes are hidden (noise reduction).
 - Gives immediate visibility without clicking into CI logs.
+- `check_retries: true` ensures retried-and-passed tests (from gotestsum's `--rerun-fails`)
+  are not counted as failures — only tests that fail on all attempts are reported.
+- `flaky_summary: true` adds a flaky test table to the check run summary for visibility.
 
 ### 4. Quarantine (Future)
 
