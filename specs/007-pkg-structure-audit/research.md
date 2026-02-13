@@ -16,11 +16,11 @@ This document consolidates the research findings from the codebase analysis phas
 
 | File | Lines | Priority | Concern Split Strategy |
 |------|-------|----------|------------------------|
-| `pkg/invkfile/validation.go` | 753 | High | Split by validation category |
-| `pkg/invkmod/resolver.go` | 726 | High | Split by resolution phase |
+| `pkg/invowkfile/validation.go` | 753 | High | Split by validation category |
+| `pkg/invowkmod/resolver.go` | 726 | High | Split by resolution phase |
 | `internal/discovery/discovery.go` | 715 | High | Split by discovery type |
 | `cmd/invowk/cmd_execute.go` | 643 | Medium | Split by execution phase |
-| `pkg/invkfile/invkfile_validation.go` | 631 | Medium | Merge with validation.go, then split |
+| `pkg/invowkfile/invowkfile_validation.go` | 631 | Medium | Merge with validation.go, then split |
 | `internal/sshserver/server.go` | 627 | Medium | Split by lifecycle phase |
 
 ### Files Approaching Threshold (500-600 lines, no action required)
@@ -28,7 +28,7 @@ This document consolidates the research findings from the codebase analysis phas
 - `cmd/invowk/cmd_discovery.go` (596 lines)
 - `internal/tui/filter.go` (566 lines)
 - `internal/tui/choose.go` (564 lines)
-- `pkg/invkfile/generate.go` (539 lines)
+- `pkg/invowkfile/generate.go` (539 lines)
 - `internal/issue/issue.go` (528 lines)
 - `internal/tui/embeddable.go` (517 lines)
 
@@ -153,10 +153,10 @@ Both engines embed `*BaseCLIEngine` which provides all shared logic. Per-engine 
 
 | File | Internal Import | Classification |
 |------|-----------------|----------------|
-| `pkg/invkfile/parse.go` | `internal/cueutil` | Production code |
-| `pkg/invkmod/invkmod.go` | `internal/cueutil` | Production code |
-| `pkg/invkmod/operations_packaging_test.go` | `internal/testutil` | Test code |
-| `pkg/invkmod/resolver_test.go` | `internal/testutil` | Test code |
+| `pkg/invowkfile/parse.go` | `internal/cueutil` | Production code |
+| `pkg/invowkmod/invowkmod.go` | `internal/cueutil` | Production code |
+| `pkg/invowkmod/operations_packaging_test.go` | `internal/testutil` | Test code |
+| `pkg/invowkmod/resolver_test.go` | `internal/testutil` | Test code |
 
 ### Go Visibility Rules
 
@@ -167,7 +167,7 @@ Both engines embed `*BaseCLIEngine` which provides all shared logic. Per-engine 
 **Accept current pattern with documentation**. Add explicit note to affected packages' doc.go:
 
 ```go
-// Package invkfile provides types and parsing for invkfile.cue command definitions.
+// Package invowkfile provides types and parsing for invowkfile.cue command definitions.
 //
 // This package uses internal/cueutil for CUE parsing implementation details.
 // External consumers should use the exported Parse() and ParseBytes() functions;
@@ -193,7 +193,7 @@ Both engines embed `*BaseCLIEngine` which provides all shared logic. Per-engine 
 ### Packages WITH Documentation
 
 **Has doc.go**:
-- `pkg/invkmod/doc.go` ✅
+- `pkg/invowkmod/doc.go` ✅
 - `pkg/platform/doc.go` ✅
 - `internal/uroot/doc.go` ✅
 
@@ -206,7 +206,7 @@ Both engines embed `*BaseCLIEngine` which provides all shared logic. Per-engine 
 - `internal/runtime` (runtime.go) ✅
 - `internal/sshserver` (server.go) ✅
 - `internal/testutil` (testutil.go) ✅
-- `internal/testutil/invkfiletest` (command.go) ✅
+- `internal/testutil/invowkfiletest` (command.go) ✅
 
 ### Packages MISSING Documentation
 
@@ -216,7 +216,7 @@ Both engines embed `*BaseCLIEngine` which provides all shared logic. Per-engine 
 | `internal/issue` | ActionableError type for user-friendly errors |
 | `internal/tui` | Terminal UI components (Bubble Tea models) |
 | `internal/tuiserver` | HTTP server for child process TUI requests |
-| `pkg/invkfile` | Invkfile parsing, types, and validation |
+| `pkg/invowkfile` | Invowkfile parsing, types, and validation |
 
 ### Decision
 
@@ -272,20 +272,20 @@ package tui
 package tuiserver
 ```
 
-**pkg/invkfile/doc.go**:
+**pkg/invowkfile/doc.go**:
 ```go
 // SPDX-License-Identifier: MPL-2.0
 
-// Package invkfile provides types and parsing for invkfile.cue command definitions.
+// Package invowkfile provides types and parsing for invowkfile.cue command definitions.
 //
-// An invkfile defines commands with implementations for different runtimes (native,
+// An invowkfile defines commands with implementations for different runtimes (native,
 // virtual, container) and platforms. This package handles CUE schema validation,
 // parsing to Go structs, and command/implementation selection.
 //
 // This package uses internal/cueutil for CUE parsing implementation details.
 // External consumers should use the exported Parse() and ParseBytes() functions;
 // the CUE parsing internals are not part of the public API.
-package invkfile
+package invowkfile
 ```
 
 ---

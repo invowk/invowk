@@ -82,6 +82,13 @@ func (r *ContainerRuntime) prepareContainerExecution(ctx *ExecutionContext) (_ *
 	containerCfg := containerConfigFromRuntime(rtConfig)
 	invowkDir := filepath.Dir(ctx.Invowkfile.FilePath)
 
+	// Validate explicit image policy before provisioning rewrites image tags.
+	if containerCfg.Image != "" {
+		if err := validateSupportedContainerImage(containerCfg.Image); err != nil {
+			return nil, &Result{ExitCode: 1, Error: err}
+		}
+	}
+
 	// Resolve the script content (from file or inline)
 	script, err := ctx.SelectedImpl.ResolveScript(ctx.Invowkfile.FilePath)
 	if err != nil {
@@ -94,14 +101,6 @@ func (r *ContainerRuntime) prepareContainerExecution(ctx *ExecutionContext) (_ *
 		return nil, &Result{ExitCode: 1, Error: fmt.Errorf("failed to prepare container image: %w", err)}
 	}
 	provisionCleanup = pCleanup
-
-	// Check for unsupported Windows container images
-	if isWindowsContainerImage(image) {
-		return nil, &Result{
-			ExitCode: 1,
-			Error:    fmt.Errorf("windows container images are not supported; the container runtime requires Linux-based images (e.g., debian:stable-slim); see https://invowk.io/docs/runtime-modes/container for details"),
-		}
-	}
 
 	// Build environment
 	env, err := r.envBuilder.Build(ctx, invowkfile.EnvInheritNone)
@@ -307,7 +306,13 @@ func isTransientExitCode(code int) bool {
 	return code == 125 || code == 126
 }
 
-// Execute runs a command in a container
+// Execute runs a command in a container through a three-stage pipeline:
+//  1. Preparation — resolves the container image, builds the shell command,
+//     sets up volumes/ports/env, and registers a cleanup callback.
+//  2. Retry — delegates to [ContainerRuntime.runWithRetry], which re-attempts
+//     the container run on transient engine errors (exit codes 125/126).
+//  3. Result mapping — translates the container engine result into a
+//     runtime [Result] with the exit code and any error from the run.
 func (r *ContainerRuntime) Execute(ctx *ExecutionContext) *Result {
 	prep, errResult := r.prepareContainerExecution(ctx)
 	if errResult != nil {

@@ -34,14 +34,14 @@ Per CLAUDE.md agentic policy:
 - [x] T002 [P] [US2] Create doc.go in internal/issue/ with issue package documentation
 - [x] T003 [P] [US2] Create doc.go in internal/tui/ with tui package documentation
 - [x] T004 [P] [US2] Create doc.go in internal/tuiserver/ with tuiserver package documentation
-- [x] T005 [P] [US2] Create doc.go in pkg/invkfile/ with invkfile package documentation
+- [x] T005 [P] [US2] Create doc.go in pkg/invowkfile/ with invowkfile package documentation
 
 **Content Reference** (from research.md):
 - serverbase: Server state machine and lifecycle infrastructure
 - issue: Actionable error handling with user-friendly messages
 - tui: Terminal UI components (Bubble Tea, huh, lipgloss)
 - tuiserver: HTTP server for child process TUI requests
-- invkfile: Invkfile types/parsing with internal/cueutil note
+- invowkfile: Invowkfile types/parsing with internal/cueutil note
 
 **Checkpoint**: All packages have doc.go or inline package comment. Verify: `grep -l "^// Package" internal/*/*.go pkg/*/*.go | wc -l`
 
@@ -90,62 +90,62 @@ Per CLAUDE.md agentic policy:
 
 ---
 
-## Phase 4A: File Split - pkg/invkfile/validation.go (753 lines)
+## Phase 4A: File Split - pkg/invowkfile/validation.go (753 lines)
 
 **Purpose**: Split largest file into focused validation files.
 
 **Subagent Strategy**: Single subagent - requires analyzing entire file to determine split points.
 
-**Independent Test**: `make lint && go test -v ./pkg/invkfile/...`
+**Independent Test**: `make lint && go test -v ./pkg/invowkfile/...`
 
 ### Analysis Step (main agent)
 
-- [x] T014 [US1] Analyze pkg/invkfile/validation.go: Split into validation_primitives.go (constants, regex), validation_container.go (container validation), validation_filesystem.go (path/file validation). Original validation.go DELETED.
+- [x] T014 [US1] Analyze pkg/invowkfile/validation.go: Split into validation_primitives.go (constants, regex), validation_container.go (container validation), validation_filesystem.go (path/file validation). Original validation.go DELETED.
 
 ### Execution Steps
 
-- [x] T015 [P] [US1] Create pkg/invkfile/validation_primitives.go: Constants and regex validation (263 lines)
-- [x] T016 [P] [US1] Create pkg/invkfile/validation_container.go: Container image/volume/port validation (290 lines)
-- [x] T017 [US1] Create pkg/invkfile/validation_filesystem.go: Path and filename validation (218 lines). Original validation.go DELETED (code fully distributed).
+- [x] T015 [P] [US1] Create pkg/invowkfile/validation_primitives.go: Constants and regex validation (263 lines)
+- [x] T016 [P] [US1] Create pkg/invowkfile/validation_container.go: Container image/volume/port validation (290 lines)
+- [x] T017 [US1] Create pkg/invowkfile/validation_filesystem.go: Path and filename validation (218 lines). Original validation.go DELETED (code fully distributed).
 
-**Checkpoint**: All files under 600 lines. `wc -l pkg/invkfile/validation*.go`
+**Checkpoint**: All files under 600 lines. `wc -l pkg/invowkfile/validation*.go`
 
 ---
 
-## Phase 4B: File Split - pkg/invkfile/invkfile_validation.go (631 lines)
+## Phase 4B: File Split - pkg/invowkfile/invowkfile_validation.go (631 lines)
 
 **Purpose**: Address second validation file - merge or split as appropriate.
 
 **Subagent Strategy**: Single subagent - requires understanding relationship to validation.go.
 
-**Independent Test**: `make lint && go test -v ./pkg/invkfile/...`
+**Independent Test**: `make lint && go test -v ./pkg/invowkfile/...`
 
-- [x] T018 [US1] Analyze pkg/invkfile/invkfile_validation.go: Split into invkfile_validation_struct.go (struct validation methods) and invkfile_validation_deps.go (dependency validation). Original DELETED.
-- [x] T019 [US1] Execute: Created invkfile_validation_struct.go (466 lines) and invkfile_validation_deps.go (173 lines). Original invkfile_validation.go DELETED.
+- [x] T018 [US1] Analyze pkg/invowkfile/invowkfile_validation.go: Split into invowkfile_validation_struct.go (struct validation methods) and invowkfile_validation_deps.go (dependency validation). Original DELETED.
+- [x] T019 [US1] Execute: Created invowkfile_validation_struct.go (466 lines) and invowkfile_validation_deps.go (173 lines). Original invowkfile_validation.go DELETED.
 
 **Checkpoint**: All validation-related files under 600 lines.
 
 ---
 
-## Phase 4C: File Split - pkg/invkmod/resolver.go (726 lines)
+## Phase 4C: File Split - pkg/invowkmod/resolver.go (726 lines)
 
 **Purpose**: Split resolver into phase-focused files.
 
 **Subagent Strategy**: Single subagent for analysis, parallel subagents for file creation.
 
-**Independent Test**: `make lint && go test -v ./pkg/invkmod/...`
+**Independent Test**: `make lint && go test -v ./pkg/invowkmod/...`
 
 ### Analysis Step
 
-- [x] T020 [US1] Analyze pkg/invkmod/resolver.go: Split into resolver_deps.go (dependency resolution) and resolver_cache.go (cache management).
+- [x] T020 [US1] Analyze pkg/invowkmod/resolver.go: Split into resolver_deps.go (dependency resolution) and resolver_cache.go (cache management).
 
 ### Execution Steps
 
-- [x] T021 [P] [US1] Create pkg/invkmod/resolver_deps.go: Dependency resolution logic (248 lines)
-- [x] T022 [P] [US1] Create pkg/invkmod/resolver_cache.go: Cache management logic (162 lines)
-- [x] T023 [US1] Refactor pkg/invkmod/resolver.go: Resolution orchestration (337 lines).
+- [x] T021 [P] [US1] Create pkg/invowkmod/resolver_deps.go: Dependency resolution logic (248 lines)
+- [x] T022 [P] [US1] Create pkg/invowkmod/resolver_cache.go: Cache management logic (162 lines)
+- [x] T023 [US1] Refactor pkg/invowkmod/resolver.go: Resolution orchestration (337 lines).
 
-**Checkpoint**: All resolver files under 600 lines. `wc -l pkg/invkmod/resolver*.go`
+**Checkpoint**: All resolver files under 600 lines. `wc -l pkg/invowkmod/resolver*.go`
 
 ---
 
@@ -228,7 +228,7 @@ Per CLAUDE.md agentic policy:
 - [x] T037 [P] Run CLI integration tests: `make test-cli` → **All pass**
 - [x] T038 [P] Run license check: `make license-check` → **All files have SPDX headers**
 - [x] T039 [P] Run tidy: `make tidy` → **Complete**
-- [x] T040 [P] Run module validation: `go run . module validate modules/*.invkmod --deep` → **Valid**
+- [x] T040 [P] Run module validation: `go run . module validate modules/*.invowkmod --deep` → **Valid**
 
 > **Note**: These are intentionally separate tasks to enable parallel execution via subagents. A combined `make all` would run sequentially.
 
@@ -303,7 +303,7 @@ Subagent 1: "Create doc.go in internal/core/serverbase/"
 Subagent 2: "Create doc.go in internal/issue/"
 Subagent 3: "Create doc.go in internal/tui/"
 Subagent 4: "Create doc.go in internal/tuiserver/"
-Subagent 5: "Create doc.go in pkg/invkfile/"
+Subagent 5: "Create doc.go in pkg/invowkfile/"
 ```
 
 ### Phase 2: Style updates in parallel (after T006)
@@ -321,9 +321,9 @@ Subagent 5: "Update cmd_render.go to use shared styles"
 
 ```bash
 # Launch 6 subagents for Phase 4A-4F concurrently:
-Subagent 4A: "Split pkg/invkfile/validation.go"
-Subagent 4B: "Split pkg/invkfile/invkfile_validation.go"
-Subagent 4C: "Split pkg/invkmod/resolver.go"
+Subagent 4A: "Split pkg/invowkfile/validation.go"
+Subagent 4B: "Split pkg/invowkfile/invowkfile_validation.go"
+Subagent 4C: "Split pkg/invowkmod/resolver.go"
 Subagent 4D: "Split internal/discovery/discovery.go"
 Subagent 4E: "Split cmd/invowk/cmd_execute.go"
 Subagent 4F: "Split internal/sshserver/server.go"

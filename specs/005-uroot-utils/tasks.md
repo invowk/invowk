@@ -47,9 +47,9 @@
 
 ## Phase 3: User Story 1 - Execute File Operations Without External Dependencies (Priority: P1) 🎯 MVP
 
-**Goal**: Enable invkfiles with file operations (`cp`, `mv`, `cat`, `ls`, `mkdir`, `rm`, `touch`) to execute on systems without those binaries installed when u-root is enabled.
+**Goal**: Enable invowkfiles with file operations (`cp`, `mv`, `cat`, `ls`, `mkdir`, `rm`, `touch`) to execute on systems without those binaries installed when u-root is enabled.
 
-**Independent Test**: Configure `enable_uroot_utils: true`, write an invkfile using `cp`, `mv`, `cat`, and execute it on a minimal system without coreutils binaries.
+**Independent Test**: Configure `enable_uroot_utils: true`, write an invowkfile using `cp`, `mv`, `cat`, and execute it on a minimal system without coreutils binaries.
 
 ### Tests for User Story 1
 
@@ -88,7 +88,7 @@
 
 **Goal**: Enable consistent behavior for text processing operations (`head`, `tail`, `wc`, `grep`, `sort`, `uniq`, `cut`, `tr`) across Linux, macOS, and Windows.
 
-**Independent Test**: Run the same invkfile with `cat file | grep pattern | wc -l` on Linux, macOS, and Windows with u-root enabled; verify identical results.
+**Independent Test**: Run the same invowkfile with `cat file | grep pattern | wc -l` on Linux, macOS, and Windows with u-root enabled; verify identical results.
 
 ### Tests for User Story 2
 
@@ -156,7 +156,7 @@
 - [X] T054 Run `make license-check` and ensure all new .go files have SPDX headers
 - [X] T055 Verify streaming I/O compliance: audit all file operations for `io.ReadAll` or `os.ReadFile` misuse
 - [X] T056 Verify error prefix format: audit all error returns for `[uroot]` prefix compliance
-- [X] T057 Run quickstart.md validation: execute the test invkfile from quickstart.md
+- [X] T057 Run quickstart.md validation: execute the test invowkfile from quickstart.md
 
 ---
 

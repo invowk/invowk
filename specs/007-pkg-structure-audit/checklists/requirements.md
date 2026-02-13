@@ -38,11 +38,11 @@ All checklist items pass. The specification is ready for `/speckit.clarify` or `
 Based on comprehensive codebase analysis, the following issues were identified:
 
 **Files Exceeding 600 Lines (6 violations):**
-1. `pkg/invkfile/validation.go` - 753 lines
-2. `pkg/invkmod/resolver.go` - 726 lines
+1. `pkg/invowkfile/validation.go` - 753 lines
+2. `pkg/invowkmod/resolver.go` - 726 lines
 3. `internal/discovery/discovery.go` - 715 lines
 4. `cmd/invowk/cmd_execute.go` - 643 lines
-5. `pkg/invkfile/invkfile_validation.go` - 631 lines
+5. `pkg/invowkfile/invowkfile_validation.go` - 631 lines
 6. `internal/sshserver/server.go` - 627 lines
 
 **Code Duplication Patterns (4 identified):**

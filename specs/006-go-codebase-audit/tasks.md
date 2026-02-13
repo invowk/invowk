@@ -54,8 +54,8 @@ Enables US4 (Reduced Duplication) for CUE 3-step parsing extraction.
 - [X] T013 Create `internal/cueutil/parse.go` with ParseAndDecode[T] generic function per `contracts/cueutil.go`
 - [X] T014 Create `internal/cueutil/options.go` with functional options (WithMaxFileSize, WithConcrete, WithFilename) per `contracts/cueutil.go`
 - [X] T015 Create `internal/cueutil/error.go` with FormatError helper and ValidationError type per `contracts/cueutil.go`
-- [X] T016 Create `internal/cueutil/parse_test.go` with tests for Invkfile type parsing
-- [X] T017 [P] Add tests for Invkmod type parsing to `internal/cueutil/parse_test.go`
+- [X] T016 Create `internal/cueutil/parse_test.go` with tests for Invowkfile type parsing
+- [X] T017 [P] Add tests for Invowkmod type parsing to `internal/cueutil/parse_test.go`
 - [X] T018 [P] Add tests for Config type parsing to `internal/cueutil/parse_test.go`
 - [X] T019 Add file size limit enforcement tests to `internal/cueutil/parse_test.go`
 - [X] T020 Add error formatting tests to `internal/cueutil/error_test.go`
@@ -125,10 +125,10 @@ Enables US3 (Actionable Error Messages).
 
 ### Migrate CUE Parsing (US4)
 
-- [X] T050 [US4] Migrate `pkg/invkfile/parse.go` to use cueutil.ParseAndDecode[Invkfile]
-- [X] T051 [US4] Run invkfile sync tests: `go test -v ./pkg/invkfile/...`
-- [X] T052 [US4] Migrate `pkg/invkmod/invkmod.go` to use cueutil.ParseAndDecode[Invkmod]
-- [X] T053 [US4] Run invkmod sync tests: `go test -v ./pkg/invkmod/...`
+- [X] T050 [US4] Migrate `pkg/invowkfile/parse.go` to use cueutil.ParseAndDecode[Invowkfile]
+- [X] T051 [US4] Run invowkfile sync tests: `go test -v ./pkg/invowkfile/...`
+- [X] T052 [US4] Migrate `pkg/invowkmod/invowkmod.go` to use cueutil.ParseAndDecode[Invowkmod]
+- [X] T053 [US4] Run invowkmod sync tests: `go test -v ./pkg/invowkmod/...`
 - [X] T054 [US4] Migrate `internal/config/config.go` to use cueutil.FormatError and CheckFileSize (full ParseAndDecode not applicable due to Viper integration)
 - [X] T055 [US4] Run config sync tests: `go test -v ./internal/config/...`
 
@@ -184,19 +184,19 @@ Enables US3 (Actionable Error Messages).
 - [X] T074 [US1] Update `internal/tui/interactive.go` to keep Run function and Init (~200 lines)
 - [X] T075 [US1] Run TUI tests: `go test -v ./internal/tui/...`
 
-### Split `pkg/invkmod/operations.go` (827 lines → ~4 files)
+### Split `pkg/invowkmod/operations.go` (827 lines → ~4 files)
 
-- [X] T076 [US1] Create `pkg/invkmod/operations_validate.go` with validation operations from operations.go
-- [X] T077 [US1] Create `pkg/invkmod/operations_create.go` with create operations from operations.go
-- [X] T078 [US1] Create `pkg/invkmod/operations_packaging.go` with package/unpackage operations from operations.go
-- [X] T079 [US1] Update `pkg/invkmod/operations.go` to keep shared types and helpers (~200 lines)
-- [X] T080 [US1] Run invkmod tests: `go test -v ./pkg/invkmod/...`
+- [X] T076 [US1] Create `pkg/invowkmod/operations_validate.go` with validation operations from operations.go
+- [X] T077 [US1] Create `pkg/invowkmod/operations_create.go` with create operations from operations.go
+- [X] T078 [US1] Create `pkg/invowkmod/operations_packaging.go` with package/unpackage operations from operations.go
+- [X] T079 [US1] Update `pkg/invowkmod/operations.go` to keep shared types and helpers (~200 lines)
+- [X] T080 [US1] Run invowkmod tests: `go test -v ./pkg/invowkmod/...`
 
 ### Split Test Files (>800 lines)
 
 - [X] T081 [P] [US1] Split `internal/runtime/container_integration_test.go` into container_integration_capture_test.go and container_integration_validation_test.go
-- [X] T082 [P] [US1] Split `pkg/invkmod/operations_packaging_test.go` into operations_create_test.go and operations_vendor_test.go
-- [X] T083 [P] [US1] Split `pkg/invkfile/invkfile_flags_enhanced_test.go` into invkfile_flags_type_test.go and invkfile_flags_required_test.go
+- [X] T082 [P] [US1] Split `pkg/invowkmod/operations_packaging_test.go` into operations_create_test.go and operations_vendor_test.go
+- [X] T083 [P] [US1] Split `pkg/invowkfile/invowkfile_flags_enhanced_test.go` into invowkfile_flags_type_test.go and invowkfile_flags_required_test.go
 
 ### Import Cycle Verification
 
@@ -215,21 +215,21 @@ Enables US3 (Actionable Error Messages).
 
 ### Schema Constraint Updates
 
-- [X] T084 [US2] Add `=~"^\\s*\\S.*$"` (non-empty-with-content) to #Command.description in `pkg/invkfile/invkfile_schema.cue`
+- [X] T084 [US2] Add `=~"^\\s*\\S.*$"` (non-empty-with-content) to #Command.description in `pkg/invowkfile/invowkfile_schema.cue`
 - [X] T084a [P] [US2] N/A - #Flag.description already had the constraint (pre-existing)
 - [X] T084b [P] [US2] N/A - #Argument.description already had the constraint (pre-existing)
-- [X] T085 [US2] Add `strings.MaxRunes(512)` to #RuntimeConfigContainer.image in `pkg/invkfile/invkfile_schema.cue`
-- [X] T086 [P] [US2] Add `strings.MaxRunes(1024)` to #RuntimeConfigNative.interpreter in `pkg/invkfile/invkfile_schema.cue`
-- [X] T087 [P] [US2] Add `strings.MaxRunes(1024)` to #RuntimeConfigContainer.interpreter in `pkg/invkfile/invkfile_schema.cue`
-- [X] T088 [P] [US2] Add `strings.MaxRunes(4096)` to #Flag.default_value in `pkg/invkfile/invkfile_schema.cue`
-- [X] T089 [P] [US2] Add `strings.MaxRunes(4096)` to #Argument.default_value in `pkg/invkfile/invkfile_schema.cue`
+- [X] T085 [US2] Add `strings.MaxRunes(512)` to #RuntimeConfigContainer.image in `pkg/invowkfile/invowkfile_schema.cue`
+- [X] T086 [P] [US2] Add `strings.MaxRunes(1024)` to #RuntimeConfigNative.interpreter in `pkg/invowkfile/invowkfile_schema.cue`
+- [X] T087 [P] [US2] Add `strings.MaxRunes(1024)` to #RuntimeConfigContainer.interpreter in `pkg/invowkfile/invowkfile_schema.cue`
+- [X] T088 [P] [US2] Add `strings.MaxRunes(4096)` to #Flag.default_value in `pkg/invowkfile/invowkfile_schema.cue`
+- [X] T089 [P] [US2] Add `strings.MaxRunes(4096)` to #Argument.default_value in `pkg/invowkfile/invowkfile_schema.cue`
 
 ### Schema Sync Tests
 
-- [X] T090 [US2] Add boundary tests for image length constraint (512 chars) to `pkg/invkfile/sync_test.go`
-- [X] T091 [P] [US2] Add boundary tests for interpreter length constraint (1024 chars) to `pkg/invkfile/sync_test.go`
-- [X] T092 [P] [US2] Add boundary tests for default_value length constraint (4096 chars) to `pkg/invkfile/sync_test.go`
-- [X] T093 [US2] Add non-empty-with-content validation tests for Command.description, Flag.description, Argument.description to `pkg/invkfile/sync_test.go`
+- [X] T090 [US2] Add boundary tests for image length constraint (512 chars) to `pkg/invowkfile/sync_test.go`
+- [X] T091 [P] [US2] Add boundary tests for interpreter length constraint (1024 chars) to `pkg/invowkfile/sync_test.go`
+- [X] T092 [P] [US2] Add boundary tests for default_value length constraint (4096 chars) to `pkg/invowkfile/sync_test.go`
+- [X] T093 [US2] Add non-empty-with-content validation tests for Command.description, Flag.description, Argument.description to `pkg/invowkfile/sync_test.go`
 - [X] T094 [US2] Verify error messages include CUE paths in constraint violation tests
 
 **Verification**: `make lint && make test`
@@ -291,7 +291,7 @@ Enables US3 (Actionable Error Messages).
 - [X] T114 Run full test suite: `make test`
 - [X] T115 Run CLI tests: `make test-cli`
 - [X] T116 Run license check: `make license-check`
-- [X] T117 Validate sample modules: `go run . module validate modules/*.invkmod --deep`
+- [X] T117 Validate sample modules: `go run . module validate modules/*.invowkmod --deep`
 
 ### Success Criteria Verification
 

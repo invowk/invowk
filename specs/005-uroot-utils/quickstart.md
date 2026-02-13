@@ -68,7 +68,7 @@ virtual_shell: {
 | `echo` | Print text |
 | `pwd` | Print working directory |
 
-## Example Invkfile
+## Example Invowkfile
 
 ```cue
 cmds: [
@@ -126,7 +126,7 @@ All file operations use streaming I/O. This means:
 
 ## Testing Your Setup
 
-Create a test invkfile:
+Create a test invowkfile:
 
 ```cue
 cmds: [

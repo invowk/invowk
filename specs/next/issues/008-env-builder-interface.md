@@ -64,8 +64,8 @@ type DotenvLoader interface {
 //  1. ExtraEnv from ExecutionContext
 //  2. RuntimeEnvVars from command definition
 //  3. RuntimeEnvFiles (.env files from command)
-//  4. Command-level env from invkfile
-//  5. Invkfile-level env
+//  4. Command-level env from invowkfile
+//  5. Invowkfile-level env
 //  6. Module-level env (if in module context)
 //  7. User config env
 //  8. System environment (if inherit mode allows)
@@ -114,9 +114,9 @@ func (b *DefaultEnvBuilder) Build(ctx context.Context, execCtx *ExecutionContext
         }
     }
 
-    // Level 6: Invkfile-level env
-    if execCtx.Invkfile != nil && execCtx.Invkfile.Env != nil {
-        for k, v := range execCtx.Invkfile.Env {
+    // Level 6: Invowkfile-level env
+    if execCtx.Invowkfile != nil && execCtx.Invowkfile.Env != nil {
+        for k, v := range execCtx.Invowkfile.Env {
             env[k] = v
         }
     }

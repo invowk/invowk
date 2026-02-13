@@ -254,16 +254,9 @@ func (s *commandService) ensureSSHIfNeeded(ctx context.Context, req ExecuteReque
 	}
 
 	// Host SSH lifecycle is service-scoped, not package-global state.
-	srv, err := s.ssh.ensure(ctx)
-	if err != nil {
+	if err := s.ssh.ensure(ctx); err != nil {
 		return fmt.Errorf("failed to start SSH server for host access: %w", err)
 	}
-	if req.Verbose {
-		fmt.Fprintf(s.stdout, "%s SSH server started on %s for host access\n", SuccessStyle.Render("→"), srv.Address())
-	}
-	// Defer cleanup in the caller (Execute) is handled by the SSH controller's
-	// stop method being called when the service is done. Since ensureSSHIfNeeded
-	// is called from Execute, the defer in Execute's scope handles this.
 	return nil
 }
 
@@ -370,11 +363,23 @@ func (s *commandService) projectEnvVars(req ExecuteRequest, defs resolvedDefinit
 // interactive mode (alternate screen + TUI server) or standard execution. It handles
 // result rendering for errors and non-zero exit codes.
 func (s *commandService) dispatchExecution(req ExecuteRequest, execCtx *runtime.ExecutionContext, cmdInfo *discovery.CommandInfo, cfg *config.Config, diags []discovery.Diagnostic) (ExecuteResult, []discovery.Diagnostic, error) {
-	registry, registryCleanup := createRuntimeRegistry(cfg, s.ssh.current())
-	defer registryCleanup()
+	registryResult := createRuntimeRegistry(cfg, s.ssh.current())
+	if req.Verbose || execCtx.SelectedRuntime == invowkfile.RuntimeContainer {
+		diags = append(diags, registryResult.Diagnostics...)
+	}
+	defer registryResult.Cleanup()
+
+	if registryResult.ContainerInitErr != nil && execCtx.SelectedRuntime == invowkfile.RuntimeContainer {
+		issueID, styledMsg := classifyExecutionError(registryResult.ContainerInitErr, req.Verbose)
+		return ExecuteResult{}, diags, &ServiceError{
+			Err:           registryResult.ContainerInitErr,
+			IssueID:       issueID,
+			StyledMessage: styledMsg,
+		}
+	}
 
 	// Dependency validation needs the registry to check runtime-aware dependencies.
-	if err := s.validateAndRenderDeps(cfg, cmdInfo, execCtx, registry); err != nil {
+	if err := s.validateAndRenderDeps(cfg, cmdInfo, execCtx, registryResult.Registry); err != nil {
 		return ExecuteResult{}, diags, err
 	}
 
@@ -392,37 +397,41 @@ func (s *commandService) dispatchExecution(req ExecuteRequest, execCtx *runtime.
 	if req.Interactive {
 		// Interactive mode is opportunistic and falls back to standard execution
 		// when the selected runtime does not implement interactive support.
-		rt, err := registry.GetForContext(execCtx)
+		rt, err := registryResult.Registry.GetForContext(execCtx)
 		if err != nil {
-			return ExecuteResult{}, diags, fmt.Errorf("failed to get runtime: %w", err)
+			err = fmt.Errorf("failed to get runtime: %w", err)
+			issueID, styledMsg := classifyExecutionError(err, req.Verbose)
+			return ExecuteResult{}, diags, &ServiceError{
+				Err:           err,
+				IssueID:       issueID,
+				StyledMessage: styledMsg,
+			}
 		}
 
 		interactiveRT := runtime.GetInteractiveRuntime(rt)
 		if interactiveRT != nil {
-			result = executeInteractive(execCtx, registry, req.Name, interactiveRT)
+			result = executeInteractive(execCtx, registryResult.Registry, req.Name, interactiveRT)
 		} else {
 			if req.Verbose {
 				fmt.Fprintf(s.stdout, "%s Runtime '%s' does not support interactive mode, using standard execution\n",
 					WarningStyle.Render("!"), rt.Name())
 			}
-			result = registry.Execute(execCtx)
+			result = registryResult.Registry.Execute(execCtx)
 		}
 	} else {
-		result = registry.Execute(execCtx)
+		result = registryResult.Registry.Execute(execCtx)
 	}
 
 	if result.Error != nil {
+		issueID, styledMsg := classifyExecutionError(result.Error, req.Verbose)
 		return ExecuteResult{}, diags, &ServiceError{
 			Err:           result.Error,
-			IssueID:       issue.ScriptExecutionFailedId,
-			StyledMessage: fmt.Sprintf("\n%s %v\n", ErrorStyle.Render("Error:"), result.Error),
+			IssueID:       issueID,
+			StyledMessage: styledMsg,
 		}
 	}
 
 	if result.ExitCode != 0 {
-		if req.Verbose {
-			fmt.Fprintf(s.stdout, "%s Command exited with code %d\n", WarningStyle.Render("!"), result.ExitCode)
-		}
 		return ExecuteResult{ExitCode: result.ExitCode}, diags, nil
 	}
 
@@ -451,23 +460,24 @@ func (s *commandService) loadConfig(ctx context.Context, configPath string) (*co
 
 // ensure lazily starts the SSH server if not already running. It blocks until
 // the server is ready to accept connections. The server is reused across
-// multiple calls within the same command execution.
-func (s *sshServerController) ensure(ctx context.Context) (*sshserver.Server, error) {
+// multiple calls within the same command execution. The started server is
+// stored internally and accessed via current().
+func (s *sshServerController) ensure(ctx context.Context) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	if s.instance != nil && s.instance.IsRunning() {
-		return s.instance, nil
+		return nil
 	}
 
 	// Start blocks until SSH server is ready to accept connections.
 	srv := sshserver.New(sshserver.DefaultConfig())
 	if err := srv.Start(ctx); err != nil {
-		return nil, fmt.Errorf("failed to start SSH server: %w", err)
+		return fmt.Errorf("failed to start SSH server: %w", err)
 	}
 
 	s.instance = srv
-	return srv, nil
+	return nil
 }
 
 // stop shuts down the SSH server if running. This is a best-effort operation
@@ -511,6 +521,13 @@ func executeInteractive(ctx *runtime.ExecutionContext, registry *runtime.Registr
 	}
 	defer func() { _ = tuiServer.Stop() }() // Best-effort cleanup.
 
+	// Rewrite the TUI server URL for container runtimes. The TUI server
+	// listens on the host's localhost, but a container's network namespace
+	// isolates it from the host — "localhost" inside the container refers to
+	// the container itself, not the host. We replace localhost with the
+	// engine-specific host-reachable address (e.g., "host.docker.internal"
+	// for Docker, or the host gateway IP for Podman) so the containerized
+	// command can call back to the TUI server over the bridge network.
 	var tuiServerURL string
 	if containerRT, ok := interactiveRT.(*runtime.ContainerRuntime); ok {
 		hostAddr := containerRT.GetHostAddressForContainer()

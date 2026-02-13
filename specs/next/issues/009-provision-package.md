@@ -53,7 +53,7 @@ internal/provision/
 //
 // This package provides the Provisioner interface and implementations for
 // preparing container images with the necessary resources (invowk binary,
-// modules, invkfiles) for command execution.
+// modules, invowkfiles) for command execution.
 package provision
 
 import (
@@ -84,8 +84,8 @@ type ProvisionOptions struct {
     // Modules are module directories to mount
     Modules []ModuleMount
 
-    // Invkfiles are invkfile paths to mount
-    Invkfiles []InvkfileMount
+    // Invowkfiles are invowkfile paths to mount
+    Invowkfiles []InvowkfileMount
 
     // ForceRebuild bypasses cache and forces a fresh build
     ForceRebuild bool
@@ -106,9 +106,9 @@ type ModuleMount struct {
     ModuleID string
 }
 
-// InvkfileMount specifies an invkfile to mount.
-type InvkfileMount struct {
-    // SourcePath is the host path to the invkfile
+// InvowkfileMount specifies an invowkfile to mount.
+type InvowkfileMount struct {
+    // SourcePath is the host path to the invowkfile
     SourcePath string
 
     // TargetPath is the container path (relative to /workspace)
@@ -197,7 +197,7 @@ func (p *LayerProvisioner) calculateHash(opts *ProvisionOptions) (string, error)
     // - Base image
     // - Binary content
     // - Module contents
-    // - Invkfile contents
+    // - Invowkfile contents
     // ...
 }
 
@@ -206,7 +206,7 @@ func (p *LayerProvisioner) generateContainerfile(opts *ProvisionOptions) (string
     // - Starts FROM base image
     // - COPYs invowk binary
     // - COPYs modules
-    // - COPYs invkfiles
+    // - COPYs invowkfiles
     // - Sets up workspace structure
     // ...
 }

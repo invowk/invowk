@@ -18,7 +18,7 @@
 Based on plan.md structure:
 - CLI commands: `cmd/invowk/`
 - Discovery logic: `internal/discovery/`
-- Module operations: `pkg/invkmod/`
+- Module operations: `pkg/invowkmod/`
 - CLI tests: `tests/cli/testdata/`
 
 ---
@@ -27,7 +27,7 @@ Based on plan.md structure:
 
 **Purpose**: Foundation types and reserved name validation
 
-- [ ] T001 Add reserved name check for `invkfile.invkmod` in pkg/invkmod/operations.go Validate() function
+- [ ] T001 Add reserved name check for `invowkfile.invowkmod` in pkg/invowkmod/operations.go Validate() function
 - [ ] T002 [P] Add reserved name skip with warning in internal/discovery/discovery.go discoverModulesInDir() function
 - [ ] T003 [P] Extend CommandInfo struct with SimpleName, SourceID, ModuleID, IsAmbiguous fields in internal/discovery/discovery.go
 
@@ -44,7 +44,7 @@ Based on plan.md structure:
 - [ ] T006 Implement DiscoveredCommandSet.Add(cmd *CommandInfo) method in internal/discovery/discovery.go
 - [ ] T007 Implement DiscoveredCommandSet.Analyze() method for conflict detection in internal/discovery/discovery.go
 - [ ] T008 Create SourceFilter type with ParseSourceFilter() function in cmd/invowk/cmd.go
-- [ ] T009 Add normalizeSourceName() helper to handle foo/foo.invkmod/invkfile/invkfile.cue variants in cmd/invowk/cmd.go
+- [ ] T009 Add normalizeSourceName() helper to handle foo/foo.invowkmod/invowkfile/invowkfile.cue variants in cmd/invowk/cmd.go
 
 **Checkpoint**: Foundation ready - user story implementation can now begin
 
@@ -52,9 +52,9 @@ Based on plan.md structure:
 
 ## Phase 3: User Story 1 - Discover Commands from Multiple Sources (Priority: P1) 🎯 MVP
 
-**Goal**: `invowk cmd` lists all commands from root invkfile AND sibling modules (excluding dependencies)
+**Goal**: `invowk cmd` lists all commands from root invowkfile AND sibling modules (excluding dependencies)
 
-**Independent Test**: Create directory with invkfile.cue + two modules, run `invowk cmd`, verify all commands appear grouped by source
+**Independent Test**: Create directory with invowkfile.cue + two modules, run `invowk cmd`, verify all commands appear grouped by source
 
 ### Tests for User Story 1
 
@@ -66,11 +66,11 @@ Based on plan.md structure:
 - [ ] T012 [US1] Modify DiscoverCommands() to use DiscoveredCommandSet for aggregation in internal/discovery/discovery.go
 - [ ] T013 [US1] Populate SimpleName and SourceID fields during command discovery in internal/discovery/discovery.go
 - [ ] T014 [US1] Ensure module commands use short names (not full module ID prefix) in internal/discovery/discovery.go
-- [ ] T015 [US1] Exclude transitive dependencies (only first-level .invkmod dirs) in internal/discovery/discovery.go
+- [ ] T015 [US1] Exclude transitive dependencies (only first-level .invowkmod dirs) in internal/discovery/discovery.go
 - [ ] T016 [US1] Update listCommands() to group by SourceID with section headers in cmd/invowk/cmd.go
 - [ ] T017 [US1] Implement verbose mode output for discovery sources (FR-013) in cmd/invowk/cmd.go
 
-**Checkpoint**: Multi-source discovery works - commands from invkfile + modules all appear in listing
+**Checkpoint**: Multi-source discovery works - commands from invowkfile + modules all appear in listing
 
 ---
 
@@ -88,7 +88,7 @@ Based on plan.md structure:
 ### Implementation for User Story 2
 
 - [ ] T020 [US2] Modify registerDiscoveredCommands() to use SimpleName for Cobra registration in cmd/invowk/cmd.go
-- [ ] T021 [US2] Ensure backward compatibility when only invkfile.cue exists (FR-011) in cmd/invowk/cmd.go
+- [ ] T021 [US2] Ensure backward compatibility when only invowkfile.cue exists (FR-011) in cmd/invowk/cmd.go
 - [ ] T022 [US2] Remove ambiguity annotation from listing when command is unique (FR-005) in cmd/invowk/cmd.go
 
 **Checkpoint**: Unambiguous commands work exactly like before - simple names, no extra syntax
@@ -113,10 +113,10 @@ Based on plan.md structure:
 - [x] T027 [US3] Add --from persistent flag to cmdCmd in cmd/invowk/cmd.go
 - [x] T028 [US3] Implement @source prefix detection in args before Cobra matching in cmd/invowk/cmd.go
 - [x] T029 [US3] Add source validation (check source exists) with helpful error messages in cmd/invowk/cmd.go
-- [x] T030 [US3] Show source annotation (@foo, @invkfile) in listing for ambiguous commands only (FR-006) in cmd/invowk/cmd.go
+- [x] T030 [US3] Show source annotation (@foo, @invowkfile) in listing for ambiguous commands only (FR-006) in cmd/invowk/cmd.go
 - [x] T031 [US3] Implement ambiguous command rejection with disambiguation suggestions (FR-008) in cmd/invowk/cmd.go
 - [x] T032 [US3] Allow explicit source for non-ambiguous commands without warning (FR-009c) in cmd/invowk/cmd.go
-- [x] T033 [US3] Accept both short names (foo) and full names (foo.invkmod) for source (FR-009b) in cmd/invowk/cmd.go
+- [x] T033 [US3] Accept both short names (foo) and full names (foo.invowkmod) for source (FR-009b) in cmd/invowk/cmd.go
 
 **Checkpoint**: Ambiguous commands are detected, displayed with annotations, and can be disambiguated
 

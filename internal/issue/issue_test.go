@@ -11,7 +11,6 @@ func TestId_Constants(t *testing.T) {
 	// Verify all IDs are unique and sequential
 	ids := []Id{
 		FileNotFoundId,
-		TuiServerStartFailedId,
 		InvowkfileNotFoundId,
 		InvowkfileParseErrorId,
 		CommandNotFoundId,
@@ -25,6 +24,7 @@ func TestId_Constants(t *testing.T) {
 		PermissionDeniedId,
 		DependenciesNotSatisfiedId,
 		HostNotSupportedId,
+		InvalidArgumentId,
 	}
 
 	seen := make(map[Id]bool)
@@ -153,7 +153,7 @@ func TestGet(t *testing.T) {
 		wantNil  bool
 		contains string
 	}{
-		{FileNotFoundId, false, "TUI Server"},
+		{FileNotFoundId, false, "File not found"},
 		{InvowkfileNotFoundId, false, "No invowkfile found"},
 		{InvowkfileParseErrorId, false, "Failed to parse"},
 		{CommandNotFoundId, false, "Command not found"},
@@ -340,6 +340,36 @@ func TestIssuesMapCompleteness(t *testing.T) {
 		issue := Get(id)
 		if issue == nil {
 			t.Errorf("Issue with ID %d is not in the issues map", id)
+		}
+	}
+}
+
+func TestIssueTemplates_NoStaleGuidance(t *testing.T) {
+	tokens := []string{
+		"invowk fix",
+		"apk add --no-cache",
+	}
+
+	entries, err := templateFS.ReadDir("templates")
+	if err != nil {
+		t.Fatalf("failed to read embedded issue templates: %v", err)
+	}
+
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+
+		data, readErr := templateFS.ReadFile("templates/" + entry.Name())
+		if readErr != nil {
+			t.Fatalf("failed to read embedded template %s: %v", entry.Name(), readErr)
+		}
+
+		content := strings.ToLower(string(data))
+		for _, token := range tokens {
+			if strings.Contains(content, token) {
+				t.Errorf("template %s contains stale guidance token %q", entry.Name(), token)
+			}
 		}
 	}
 }

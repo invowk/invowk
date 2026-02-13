@@ -5,10 +5,10 @@
 
 ## Summary
 
-Extend `invowk cmd` to discover and list commands from multiple sources: the root `invkfile.cue` AND all first-level `*.invkmod` directories in the current directory (excluding module dependencies). Introduce a canonical namespace system that remains transparent when command names are unique but enables disambiguation via `@<source>` prefix or `--from <source>` flag when conflicts occur.
+Extend `invowk cmd` to discover and list commands from multiple sources: the root `invowkfile.cue` AND all first-level `*.invowkmod` directories in the current directory (excluding module dependencies). Introduce a canonical namespace system that remains transparent when command names are unique but enables disambiguation via `@<source>` prefix or `--from <source>` flag when conflicts occur.
 
 **Key Changes:**
-1. Modify discovery to aggregate commands from invkfile + sibling modules
+1. Modify discovery to aggregate commands from invowkfile + sibling modules
 2. Add `CommandSource` tracking to identify command origin
 3. Detect and report ambiguous command names
 4. Add `@source` and `--from` disambiguation syntax to CLI parsing
@@ -19,17 +19,17 @@ Extend `invowk cmd` to discover and list commands from multiple sources: the roo
 **Language/Version**: Go 1.26+
 **Primary Dependencies**:
 - `github.com/spf13/cobra` - CLI framework
-- `cuelang.org/go` - CUE parsing for invkfile/invkmod
+- `cuelang.org/go` - CUE parsing for invowkfile/invowkmod
 - `github.com/charmbracelet/lipgloss` - Styled terminal output
-**Storage**: Filesystem (invkfile.cue, *.invkmod directories)
+**Storage**: Filesystem (invowkfile.cue, *.invowkmod directories)
 **Testing**:
 - `go test` with table-driven unit tests
 - `testscript` (.txtar) for CLI integration tests
 **Target Platform**: Linux, macOS, Windows (cross-platform CLI)
 **Project Type**: Single CLI binary
-**Performance Goals**: List commands from invkfile + 10 modules in <2 seconds (SC-001)
-**Constraints**: Backward compatible with existing single-invkfile workflows
-**Scale/Scope**: Typical workspace: 0-1 invkfile + 0-10 modules
+**Performance Goals**: List commands from invowkfile + 10 modules in <2 seconds (SC-001)
+**Constraints**: Backward compatible with existing single-invowkfile workflows
+**Scale/Scope**: Typical workspace: 0-1 invowkfile + 0-10 modules
 
 ## Constitution Check
 
@@ -77,12 +77,12 @@ internal/discovery/
 ├── validation.go        # MODIFY: Add ambiguity detection
 └── types.go             # NEW: CommandSource, DiscoveredCommandSet types
 
-pkg/invkfile/
-├── invkfile.go          # Reference: Invkfile, Command types
+pkg/invowkfile/
+├── invowkfile.go          # Reference: Invowkfile, Command types
 └── parse.go             # Reference: parsing logic
 
-pkg/invkmod/
-├── invkmod.go           # Reference: Module, Invkmod types
+pkg/invowkmod/
+├── invowkmod.go           # Reference: Module, Invowkmod types
 └── operations.go        # Reference: Validate(), reserved name check addition
 
 tests/cli/testdata/

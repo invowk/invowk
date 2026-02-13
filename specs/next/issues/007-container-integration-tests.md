@@ -31,15 +31,15 @@ Create testscript-based integration tests in `tests/cli/testdata/` that exercise
 
 [!exec:docker] [!exec:podman] skip 'no container runtime available'
 
-# Create invkfile with container command
-exec cat invkfile.cue
-cmp stdout golden/invkfile.cue
+# Create invowkfile with container command
+exec cat invowkfile.cue
+cmp stdout golden/invowkfile.cue
 
 # Run container command
 exec invowk cmd run hello
 stdout 'Hello from container'
 
--- invkfile.cue --
+-- invowkfile.cue --
 cmds: {
     hello: {
         desc: "Hello from container"
@@ -52,7 +52,7 @@ cmds: {
     }
 }
 
--- golden/invkfile.cue --
+-- golden/invowkfile.cue --
 cmds: {
     hello: {
         desc: "Hello from container"
@@ -76,7 +76,7 @@ cmds: {
 exec invowk cmd run greet -- World
 stdout 'Hello, World!'
 
--- invkfile.cue --
+-- invowkfile.cue --
 cmds: {
     greet: {
         desc: "Greet someone"
@@ -106,7 +106,7 @@ exec invowk cmd run show-env
 stdout 'FOO=bar'
 stdout 'CUSTOM=value'
 
--- invkfile.cue --
+-- invowkfile.cue --
 cmds: {
     "show-env": {
         desc: "Show environment"
@@ -139,9 +139,9 @@ stdout 'invowk binary found'
 
 # Verify module files are accessible
 exec invowk cmd run check-files
-stdout 'invkfile.cue found'
+stdout 'invowkfile.cue found'
 
--- invkfile.cue --
+-- invowkfile.cue --
 cmds: {
     "check-binary": {
         desc: "Check invowk binary"
@@ -166,10 +166,10 @@ cmds: {
                 image: "debian:stable-slim"
             }
             script: """
-                if [ -f /workspace/invkfile.cue ]; then
-                    echo "invkfile.cue found"
+                if [ -f /workspace/invowkfile.cue ]; then
+                    echo "invowkfile.cue found"
                 else
-                    echo "invkfile.cue NOT found"
+                    echo "invowkfile.cue NOT found"
                     exit 1
                 fi
                 """
@@ -188,7 +188,7 @@ cmds: {
 exec invowk cmd run custom-image
 stdout 'Custom tool version'
 
--- invkfile.cue --
+-- invowkfile.cue --
 cmds: {
     "custom-image": {
         desc: "Run with custom image"
@@ -219,7 +219,7 @@ exec touch host-file.txt
 exec invowk cmd run callback-test
 stdout 'Callback successful'
 
--- invkfile.cue --
+-- invowkfile.cue --
 cmds: {
     "callback-test": {
         desc: "Test SSH callback"
@@ -252,7 +252,7 @@ cmds: {
 ! exec invowk cmd run fail
 stderr 'exit code: 42'
 
--- invkfile.cue --
+-- invowkfile.cue --
 cmds: {
     fail: {
         desc: "Command that fails"

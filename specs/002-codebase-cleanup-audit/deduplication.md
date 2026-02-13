@@ -28,7 +28,7 @@ Execute() ───────────────────────�
 **Lines**: 55-57, 81-85, 122-124
 
 ```go
-script, err := ctx.SelectedImpl.ResolveScript(ctx.Invkfile.FilePath)
+script, err := ctx.SelectedImpl.ResolveScript(ctx.Invowkfile.FilePath)
 if err != nil {
     return &Result{ExitCode: 1, Error: err}
 }
@@ -52,7 +52,7 @@ defer os.Chdir(origDir)
 **Lines**: 172-176, 281-285, 345-349, 518-522, 568-572
 
 ```go
-env := buildRuntimeEnv(ctx, invkfile.EnvInheritAll)
+env := buildRuntimeEnv(ctx, invowkfile.EnvInheritAll)
 cmd.Env = env
 ```
 
@@ -203,7 +203,7 @@ func configureCommand(cmd *exec.Cmd, ctx *ExecutionContext, output executeOutput
     cmd.Stdin = ctx.Stdin
     cmd.Stdout = output.stdout
     cmd.Stderr = output.stderr
-    cmd.Env = buildRuntimeEnv(ctx, invkfile.EnvInheritAll)
+    cmd.Env = buildRuntimeEnv(ctx, invowkfile.EnvInheritAll)
 }
 ```
 
@@ -233,8 +233,8 @@ func buildResult(exitCode int, err error, captured *capturedOutput) *Result {
 ```go
 func (r *NativeRuntime) executeWithShell(ctx *ExecutionContext, script string) *Result
 func (r *NativeRuntime) executeCaptureWithShell(ctx *ExecutionContext, script string) *Result
-func (r *NativeRuntime) executeWithInterpreter(ctx *ExecutionContext, script string, interpInfo invkfile.InterpreterInfo) *Result
-func (r *NativeRuntime) executeCaptureWithInterpreter(ctx *ExecutionContext, script string, interpInfo invkfile.InterpreterInfo) *Result
+func (r *NativeRuntime) executeWithInterpreter(ctx *ExecutionContext, script string, interpInfo invowkfile.InterpreterInfo) *Result
+func (r *NativeRuntime) executeCaptureWithInterpreter(ctx *ExecutionContext, script string, interpInfo invowkfile.InterpreterInfo) *Result
 ```
 
 ### After (unified with options)
@@ -244,14 +244,14 @@ func (r *NativeRuntime) executeCaptureWithInterpreter(ctx *ExecutionContext, scr
 func (r *NativeRuntime) executeWithShellCommon(ctx *ExecutionContext, script string, output executeOutput) *Result
 
 // executeWithInterpreterCommon handles both Execute and ExecuteCapture for interpreter execution.
-func (r *NativeRuntime) executeWithInterpreterCommon(ctx *ExecutionContext, script string, interpInfo invkfile.InterpreterInfo, output executeOutput) *Result
+func (r *NativeRuntime) executeWithInterpreterCommon(ctx *ExecutionContext, script string, interpInfo invowkfile.InterpreterInfo, output executeOutput) *Result
 ```
 
 ### Simplified Execute/ExecuteCapture
 
 ```go
 func (r *NativeRuntime) Execute(ctx *ExecutionContext) *Result {
-    script, err := ctx.SelectedImpl.ResolveScript(ctx.Invkfile.FilePath)
+    script, err := ctx.SelectedImpl.ResolveScript(ctx.Invowkfile.FilePath)
     if err != nil {
         return &Result{ExitCode: 1, Error: err}
     }
@@ -272,7 +272,7 @@ func (r *NativeRuntime) Execute(ctx *ExecutionContext) *Result {
 }
 
 func (r *NativeRuntime) ExecuteCapture(ctx *ExecutionContext) *Result {
-    script, err := ctx.SelectedImpl.ResolveScript(ctx.Invkfile.FilePath)
+    script, err := ctx.SelectedImpl.ResolveScript(ctx.Invowkfile.FilePath)
     if err != nil {
         return &Result{ExitCode: 1, Error: err}
     }

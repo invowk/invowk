@@ -41,10 +41,17 @@ func (m *Resolver) validateModuleRef(req ModuleRef) error {
 }
 
 // resolveAll resolves all requirements including transitive dependencies.
+//
+// It uses a dual-map pattern for traversal control:
+//   - visited: marks modules that have been fully resolved, preventing reprocessing.
+//   - inProgress: marks modules currently on the resolution call stack, detecting
+//     cycles within the current dependency path. An entry is added when resolution
+//     begins and removed (via defer) when it completes, so only ancestors in the
+//     current chain are flagged.
 func (m *Resolver) resolveAll(ctx context.Context, requirements []ModuleRef) ([]*ResolvedModule, error) {
 	var resolved []*ResolvedModule
 	visited := make(map[string]bool)
-	inProgress := make(map[string]bool) // For cycle detection
+	inProgress := make(map[string]bool) // cycle detection within current resolution path
 
 	var resolve func(req ModuleRef) error
 	resolve = func(req ModuleRef) error {
@@ -183,8 +190,8 @@ func (m *Resolver) loadTransitiveDeps(cachePath string) ([]ModuleRef, string, er
 		}
 	}
 
-	// Parse invowkmod to extract module name and requires
-	// This is a simplified implementation - in practice, we'd use the invowkfile package
+	// Parse invowkmod to extract module name and requires.
+	// Uses lightweight string extraction rather than full CUE evaluation.
 	data, err := os.ReadFile(invowkmodPath)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -193,8 +200,7 @@ func (m *Resolver) loadTransitiveDeps(cachePath string) ([]ModuleRef, string, er
 		return nil, "", fmt.Errorf("reading invowkmod %s: %w", invowkmodPath, err)
 	}
 
-	// Extract module and requires from invowkmod content
-	// This is a basic parser - full implementation uses CUE
+	// Extract module and requires from invowkmod content using lightweight string parsing.
 	moduleName := extractModuleFromInvowkmod(string(data))
 	reqs := extractRequiresFromInvowkmod(string(data))
 
@@ -225,8 +231,9 @@ func extractModuleName(key string) string {
 	return key
 }
 
-// extractModuleFromInvowkmod extracts the module field from invowkmod content.
-// This is a simplified implementation - full parsing uses CUE.
+// extractModuleFromInvowkmod extracts the module field from invowkmod content
+// using lightweight string matching. This avoids a full CUE evaluation dependency
+// and is sufficient for the "module:" top-level field.
 func extractModuleFromInvowkmod(content string) string {
 	for line := range strings.SplitSeq(content, "\n") {
 		line = strings.TrimSpace(line)
@@ -240,9 +247,11 @@ func extractModuleFromInvowkmod(content string) string {
 }
 
 // extractRequiresFromInvowkmod extracts requires from invowkmod content.
-// This is a simplified implementation - full parsing uses CUE.
+// Transitive dependency resolution from nested invowkmod.cue files is intentionally
+// deferred: the resolver currently processes only first-level dependencies declared
+// in the root invowkmod.cue. Deeper transitive chains are not yet extracted, so
+// modules that themselves declare requires will not have those sub-dependencies
+// automatically pulled in.
 func extractRequiresFromInvowkmod(_ string) []ModuleRef {
-	// Simplified: return empty for now
-	// Full implementation would parse CUE and extract requires field
 	return nil
 }

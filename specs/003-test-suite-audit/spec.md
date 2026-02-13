@@ -19,7 +19,7 @@
 
 A developer (human or AI agent) needs to modify a feature and update its corresponding tests. They navigate to the test file and can quickly understand its scope, find relevant test cases, and make targeted changes without being overwhelmed by unrelated test code.
 
-**Why this priority**: Large monolithic test files (>800 lines) are the biggest barrier to maintainability. When `invkfile_test.go` is 6,597 lines covering parsing, dependencies, capabilities, flags, args, environment, workdir, and schema validation, finding and updating the right tests becomes time-consuming and error-prone.
+**Why this priority**: Large monolithic test files (>800 lines) are the biggest barrier to maintainability. When `invowkfile_test.go` is 6,597 lines covering parsing, dependencies, capabilities, flags, args, environment, workdir, and schema validation, finding and updating the right tests becomes time-consuming and error-prone.
 
 **Independent Test**: Can be fully tested by measuring time-to-first-edit for a developer tasked with updating tests for a specific feature. Success is measurable file sizes and clear file naming conventions.
 
@@ -109,7 +109,7 @@ Developers modify container runtime code (Docker/Podman integration). Unit tests
 
 - **FR-001**: Test files exceeding 800 lines MUST be refactored into smaller focused files
 - **FR-002**: Each test file MUST cover a single logical concern (e.g., parsing, dependencies, flags)
-- **FR-003**: Test file names MUST clearly indicate their scope (e.g., `invkfile_parsing_test.go`, `invkfile_deps_test.go`)
+- **FR-003**: Test file names MUST clearly indicate their scope (e.g., `invowkfile_parsing_test.go`, `invowkfile_deps_test.go`)
 
 #### Test Utility Consolidation
 
@@ -169,10 +169,10 @@ Developers modify container runtime code (Docker/Podman integration). Unit tests
 
 | File                                        | Lines | Recommended Split                                                               |
 | ------------------------------------------- | ----- | ------------------------------------------------------------------------------- |
-| `pkg/invkfile/invkfile_test.go`             | 6,597 | Split into: parsing, dependencies, flags, args, platforms (incl. capabilities), environment, workdir, schema |
+| `pkg/invowkfile/invowkfile_test.go`             | 6,597 | Split into: parsing, dependencies, flags, args, platforms (incl. capabilities), environment, workdir, schema |
 | `cmd/invowk/cmd_test.go`                    | 2,567 | Split into: dependencies, rendering, flags/args, source filtering               |
 | `internal/discovery/discovery_test.go`      | 1,842 | Split into: basic discovery, modules, collisions/precedence                     |
-| `pkg/invkmod/operations_test.go`            | 1,683 | Consider split if scope grows                                                   |
+| `pkg/invowkmod/operations_test.go`            | 1,683 | Consider split if scope grows                                                   |
 | `internal/runtime/runtime_test.go`          | 1,605 | Split into: native, virtual, container, common                                  |
 | `internal/runtime/container_integration_test.go` | 847 | At threshold; monitor but acceptable                                            |
 
@@ -180,7 +180,7 @@ Developers modify container runtime code (Docker/Podman integration). Unit tests
 
 | Helper                            | Locations                                                  | Target                      |
 | --------------------------------- | ---------------------------------------------------------- | --------------------------- |
-| `testCommand()` / `testCmd()`     | `invkfile_test.go`, `cmd_test.go`, `runtime_test.go`       | `testutil.NewTestCommand()` |
+| `testCommand()` / `testCmd()`     | `invowkfile_test.go`, `cmd_test.go`, `runtime_test.go`       | `testutil.NewTestCommand()` |
 | `setHomeDirEnv()`                 | `config_test.go`, `discovery_test.go`, `cmd_test.go`       | `testutil.SetHomeDir()`     |
 
 ### TUI Components Lacking Tests

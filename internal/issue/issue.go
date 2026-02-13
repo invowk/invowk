@@ -3,6 +3,8 @@
 package issue
 
 import (
+	"embed"
+	"fmt"
 	"maps"
 	"slices"
 	"strings"
@@ -13,7 +15,6 @@ import (
 // Issue IDs for different error scenarios.
 const (
 	FileNotFoundId Id = iota + 1
-	TuiServerStartFailedId
 	InvowkfileNotFoundId
 	InvowkfileParseErrorId
 	CommandNotFoundId
@@ -31,411 +32,84 @@ const (
 )
 
 var (
+	//go:embed templates
+	templateFS embed.FS
+
 	render = glamour.Render
 
 	fileNotFoundIssue = &Issue{
-		id: FileNotFoundId,
-		mdMsg: `
-# Dang, we have run into an issue!
-We have failed to start our super powered TUI Server due to weird conditions.
-
-## Things you can try to fix and retry
-- Run this command
-~~~
-$ invowk fix
-~~~
-    and try again what you doing before.`,
+		id:    FileNotFoundId,
+		mdMsg: loadTemplate("file_not_found"),
 	}
 
 	invowkfileNotFoundIssue = &Issue{
-		id: InvowkfileNotFoundId,
-		mdMsg: `
-# No invowkfile found!
-
-We searched for an invowkfile but couldn't find one in the expected locations.
-
-## Search locations (in order of precedence):
-1. Current directory (invowkfile and sibling modules)
-2. Configured includes (module paths from config)
-3. ~/.invowk/cmds/ (modules only)
-
-## Things you can try:
-- Create an invowkfile in your current directory:
-~~~
-$ invowk init
-~~~
-
-- Or specify a different directory:
-~~~
-$ cd /path/to/your/project
-$ invowk cmd
-~~~
-
-## Example invowkfile structure:
-~~~cue
-version: "1.0"
-description: "My project commands"
-
-cmds: [
-  {
-    name: "build"
-    description: "Build the project"
-    script: "go build -o myapp ./..."
-  },
-  {
-    name: "test"
-    description: "Run tests"
-    script: "go test ./..."
-  },
-]
-~~~`,
+		id:    InvowkfileNotFoundId,
+		mdMsg: loadTemplate("invowkfile_not_found"),
 	}
 
 	invowkfileParseErrorIssue = &Issue{
-		id: InvowkfileParseErrorId,
-		mdMsg: `
-# Failed to parse invowkfile!
-
-Your invowkfile contains syntax errors or invalid configuration.
-
-## Common issues:
-- Invalid CUE syntax (missing quotes, braces, etc.)
-- Unknown field names
-- Invalid values for known fields
-- Missing required fields (name, script for commands)
-
-## Things you can try:
-- Check the error message above for the specific line/column
-- Validate your CUE syntax using the cue command-line tool
-- Run with verbose mode for more details:
-~~~
-$ invowk --ivk-verbose cmd
-~~~
-
-## Example of valid command definition:
-~~~cue
-cmds: [
-  {
-    name: "build"
-    description: "Build the project"
-    implementations: [
-      {
-        script: """
-          echo "Building..."
-          go build ./...
-          """
-          runtimes: [{name: "native"}]  // or "virtual", "container"
-      }
-    ]
-  }
-]
-~~~`,
+		id:    InvowkfileParseErrorId,
+		mdMsg: loadTemplate("invowkfile_parse_error"),
 	}
 
 	commandNotFoundIssue = &Issue{
-		id: CommandNotFoundId,
-		mdMsg: `
-# Command not found!
-
-The command you specified was not found in any of the available invowkfiles.
-
-## Things you can try:
-- List all available commands:
-~~~
-$ invowk cmd
-~~~
-
-- Check for typos in the command name
-- Verify the invowkfile contains your command definition
-- Use tab completion:
-~~~
-$ invowk cmd <TAB>
-~~~`,
+		id:    CommandNotFoundId,
+		mdMsg: loadTemplate("command_not_found"),
 	}
 
 	runtimeNotAvailableIssue = &Issue{
-		id: RuntimeNotAvailableId,
-		mdMsg: `
-# Runtime not available!
-
-The specified runtime mode is not available on your system.
-
-## Available runtimes:
-- **native**: Uses your system's default shell (bash, sh, powershell, etc.)
-- **virtual**: Uses the built-in mvdan/sh interpreter
-- **container**: Runs commands inside a Docker/Podman container
-
-## Things you can try:
-- Change the runtime in your invowkfile:
-~~~cue
-default_runtime: "native"
-~~~
-
-- Or specify runtime per-command:
-~~~cue
-cmds: [
-  {
-    name: "build"
-    implementations: [
-      {
-        script: "echo 'hello'"
-          runtimes: [{name: "virtual"}]
-      }
-    ]
-  }
-]
-~~~`,
+		id:    RuntimeNotAvailableId,
+		mdMsg: loadTemplate("runtime_not_available"),
 	}
 
 	containerEngineNotFoundIssue = &Issue{
-		id: ContainerEngineNotFoundId,
-		mdMsg: `
-# Container engine not found!
-
-You tried to use the 'container' runtime but no container engine is available.
-
-## Supported container engines:
-- **Podman** (recommended for rootless containers)
-- **Docker**
-
-## Things you can try:
-- Install Podman:
-  - Linux: ` + "`sudo apt install podman`" + ` or ` + "`sudo dnf install podman`" + `
-  - macOS: ` + "`brew install podman`" + `
-  - Windows: Download from https://podman.io
-
-- Install Docker:
-  - https://docs.docker.com/get-docker/
-
-- Switch to a different runtime:
-~~~cue
-default_runtime: "native"  // or "virtual"
-~~~
-
-- Configure your preferred engine in ~/.config/invowk/config.cue:
-~~~cue
-container_engine: "podman"  // or "docker"
-~~~`,
+		id:    ContainerEngineNotFoundId,
+		mdMsg: loadTemplate("container_engine_not_found"),
 	}
 
 	dockerfileNotFoundIssue = &Issue{
-		id: DockerfileNotFoundId,
-		mdMsg: `
-# Dockerfile not found!
-
-The 'container' runtime requires a Dockerfile to build the execution environment.
-
-## Things you can try:
-- Create a Dockerfile in the same directory as your invowkfile:
-~~~dockerfile
-FROM debian:stable-slim
-RUN apk add --no-cache bash coreutils
-WORKDIR /workspace
-~~~
-
-- Or specify a Dockerfile path in your invowkfile:
-~~~cue
-container: {
-  dockerfile: "path/to/Dockerfile"
-}
-~~~
-
-- Or use a pre-built image:
-~~~cue
-container: {
-  image: "ubuntu:22.04"
-}
-~~~`,
+		id:    DockerfileNotFoundId,
+		mdMsg: loadTemplate("dockerfile_not_found"),
 	}
 
 	scriptExecutionFailedIssue = &Issue{
-		id: ScriptExecutionFailedId,
-		mdMsg: `
-# Script execution failed!
-
-The command's script failed to execute properly.
-
-## Common causes:
-- Command not found in PATH
-- Permission denied
-- Syntax error in script
-- Missing dependencies
-
-## Things you can try:
-- Run with verbose mode for more details:
-~~~
-$ invowk --ivk-verbose cmd <command>
-~~~
-
-- Test the script manually in your shell
-- Check file permissions and PATH settings
-- For container runtime, check the container has required tools`,
+		id:    ScriptExecutionFailedId,
+		mdMsg: loadTemplate("script_execution_failed"),
 	}
 
 	configLoadFailedIssue = &Issue{
-		id: ConfigLoadFailedId,
-		mdMsg: `
-# Failed to load configuration!
-
-Could not load the invowk configuration file.
-
-## Configuration file locations:
-- Linux: ~/.config/invowk/config.cue
-- macOS: ~/Library/Application Support/invowk/config.cue
-- Windows: %APPDATA%\invowk\config.cue
-
-## Things you can try:
-- Create a default configuration:
-~~~
-$ invowk config init
-~~~
-
-- Check the configuration syntax
-- Remove the config file to use defaults:
-~~~
-$ rm ~/.config/invowk/config.cue
-~~~
-
-## Example configuration:
-~~~cue
-container_engine: "podman"
-default_runtime: "native"
-includes: [
-    {path: "/home/user/global-commands/invowkfile.cue"}
-]
-
-ui: {
-  color_scheme: "auto"
-  verbose: false
-}
-~~~`,
+		id:    ConfigLoadFailedId,
+		mdMsg: loadTemplate("config_load_failed"),
 	}
 
 	invalidRuntimeModeIssue = &Issue{
-		id: InvalidRuntimeModeId,
-		mdMsg: `
-# Invalid runtime mode!
-
-The specified runtime mode is not recognized.
-
-## Valid runtime modes:
-- **native**: Execute using system shell
-- **virtual**: Execute using built-in sh interpreter
-- **container**: Execute inside a container
-
-## Example:
-~~~cue
-default_runtime: "native"
-
-cmds: [
-  {
-    name: "build"
-    implementations: [
-      {
-        script: "make build"
-          runtimes: [{name: "container"}]  // Override for this command
-      }
-    ]
-  }
-]
-~~~`,
+		id:    InvalidRuntimeModeId,
+		mdMsg: loadTemplate("invalid_runtime_mode"),
 	}
 
 	shellNotFoundIssue = &Issue{
-		id: ShellNotFoundId,
-		mdMsg: `
-# Shell not found!
-
-Could not find a suitable shell for the 'native' runtime.
-
-## Shells we look for:
-- Linux/macOS: $SHELL, bash, sh
-- Windows: pwsh, powershell, cmd
-
-## Things you can try:
-- Install bash or another POSIX shell
-- Set the SHELL environment variable
-- Use the 'virtual' runtime instead (built-in shell):
-~~~cue
-default_runtime: "virtual"
-~~~`,
+		id:    ShellNotFoundId,
+		mdMsg: loadTemplate("shell_not_found"),
 	}
 
 	permissionDeniedIssue = &Issue{
-		id: PermissionDeniedId,
-		mdMsg: `
-# Permission denied!
-
-You don't have permission to perform this operation.
-
-## Common causes:
-- Trying to write to a protected directory
-- Script file is not executable
-- Container engine requires elevated permissions
-
-## Things you can try:
-- Check file/directory permissions
-- For containers, ensure you're in the docker/podman group:
-~~~
-$ sudo usermod -aG docker $USER
-~~~
-
-- Use rootless containers with Podman
-- Run invowk from a directory you own`,
+		id:    PermissionDeniedId,
+		mdMsg: loadTemplate("permission_denied"),
 	}
 
 	dependenciesNotSatisfiedIssue = &Issue{
-		id: DependenciesNotSatisfiedId,
-		mdMsg: `
-# Dependencies not satisfied!
-
-The command cannot run because some dependencies are not available.
-
-## Things you can try:
-- Install the missing tools listed above
-- Check that the tools are in your PATH
-- Ensure referenced commands exist and are discoverable (invowkfiles, modules, or configured includes)
-- List discovered commands to see what invowk can find:
-~~~
-$ invowk cmd
-~~~
-- Update your invowkfile to remove unnecessary dependencies`,
+		id:    DependenciesNotSatisfiedId,
+		mdMsg: loadTemplate("dependencies_not_satisfied"),
 	}
 
 	hostNotSupportedIssue = &Issue{
-		id: HostNotSupportedId,
-		mdMsg: `
-# Host not supported!
-
-This command cannot run on your current operating system.
-
-## Things you can try:
-- Check the command's 'works_on.hosts' setting in your invowkfile
-- Run this command on a supported operating system
-- Use a container runtime to run the command on a different OS`,
+		id:    HostNotSupportedId,
+		mdMsg: loadTemplate("host_not_supported"),
 	}
 
 	invalidArgumentIssue = &Issue{
-		id: InvalidArgumentId,
-		mdMsg: `
-# Invalid arguments!
-
-The arguments provided to this command are invalid.
-
-## Common causes:
-- Missing required arguments
-- Too many arguments provided
-- Invalid argument value (wrong type or format)
-
-## Things you can try:
-- Check the command's expected arguments:
-~~~
-$ invowk cmd <command> --help
-~~~
-
-- Ensure required arguments are provided in the correct order
-- Verify argument values match the expected type (string, int, float)
-- Check validation patterns if the argument has format requirements`,
+		id:    InvalidArgumentId,
+		mdMsg: loadTemplate("invalid_argument"),
 	}
 
 	issues = map[Id]*Issue{
@@ -476,7 +150,7 @@ type (
 	Issue struct {
 		id       Id          // ID used to lookup the issue
 		mdMsg    MarkdownMsg // Markdown text that will be rendered
-		docLinks []HttpLink  // must never be empty, because we need to have docs about all issue types
+		docLinks []HttpLink  // optional links to invowk documentation
 		extLinks []HttpLink  // external links that might be useful for the user
 	}
 )
@@ -525,4 +199,16 @@ func Values() []*Issue {
 // Get returns the issue with the given ID, or nil if not found.
 func Get(id Id) *Issue {
 	return issues[id]
+}
+
+// loadTemplate reads a markdown template from the embedded templates directory.
+// It panics if the template is not found, which is intentional: templates are
+// loaded at package init time, so any missing template is caught immediately
+// by tests that import this package.
+func loadTemplate(name string) MarkdownMsg {
+	data, err := templateFS.ReadFile("templates/" + name + ".md")
+	if err != nil {
+		panic(fmt.Sprintf("issue template %q not found: %v", name, err))
+	}
+	return MarkdownMsg(data)
 }

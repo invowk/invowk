@@ -112,7 +112,13 @@ func (v *Version) Compare(other *Version) int {
 		return 1
 	}
 
-	// Prerelease versions have lower precedence
+	// Prerelease versions have lower precedence than the associated normal version.
+	// NOTE: Prerelease identifiers are compared using simplified lexicographic ordering,
+	// not full semver 2.0 precedence rules (which require numeric-only identifiers to be
+	// compared as integers, and define specific precedence for mixed alphanumeric vs.
+	// numeric-only identifiers). This is sufficient for common prerelease labels
+	// (e.g., "alpha.1", "beta.2", "rc.1") but may produce incorrect ordering for
+	// identifiers like "alpha.9" vs. "alpha.10" (lexicographic: "9" > "10").
 	if v.Prerelease == "" && other.Prerelease != "" {
 		return 1
 	}

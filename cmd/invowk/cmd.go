@@ -10,7 +10,6 @@ import (
 
 	"invowk-cli/internal/config"
 	"invowk-cli/internal/discovery"
-	"invowk-cli/internal/issue"
 	"invowk-cli/pkg/invowkfile"
 
 	"github.com/spf13/cobra"
@@ -269,13 +268,7 @@ func executeRequest(cmd *cobra.Command, app *App, req ExecuteRequest) error {
 	if err != nil {
 		var svcErr *ServiceError
 		if errors.As(err, &svcErr) {
-			if svcErr.StyledMessage != "" {
-				fmt.Fprint(app.stderr, svcErr.StyledMessage)
-			}
-			if svcErr.IssueID != 0 {
-				rendered, _ := issue.Get(svcErr.IssueID).Render("dark")
-				fmt.Fprint(app.stderr, rendered)
-			}
+			renderServiceError(app.stderr, svcErr)
 		}
 		return err
 	}

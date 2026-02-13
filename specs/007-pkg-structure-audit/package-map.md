@@ -23,13 +23,13 @@ invowk-cli/
 │   ├── runtime/         # Execution runtimes
 │   ├── sshserver/       # SSH callback server
 │   ├── testutil/        # Test utilities
-│   │   └── invkfiletest/ # Invkfile-specific test helpers
+│   │   └── invowkfiletest/ # Invowkfile-specific test helpers
 │   ├── tui/             # Terminal UI components
 │   ├── tuiserver/       # TUI HTTP server
 │   └── uroot/           # u-root utilities integration
 └── pkg/                 # Public API packages
-    ├── invkfile/        # Invkfile types and parsing
-    ├── invkmod/         # Module types and operations
+    ├── invowkfile/        # Invowkfile types and parsing
+    ├── invowkmod/         # Module types and operations
     └── platform/        # Cross-platform utilities
 ```
 
@@ -126,10 +126,10 @@ invowk-cli/
 
 ### internal/discovery
 
-**Purpose**: Find and load invkfiles and modules from various locations.
+**Purpose**: Find and load invowkfiles and modules from various locations.
 
 **Responsibilities**:
-- Search for invkfile.cue in current directory and search paths
+- Search for invowkfile.cue in current directory and search paths
 - Discover modules in module directories
 - Build unified command tree from discovered files
 - Handle command precedence and shadowing
@@ -209,9 +209,9 @@ invowk-cli/
 - Implement `FakeClock` for deterministic tests
 - Provide resource cleanup helpers
 
-**Subpackage - internal/testutil/invkfiletest**:
+**Subpackage - internal/testutil/invowkfiletest**:
 - `NewTestCommand()` builder for test commands
-- Avoids import cycles (separate from invkfile package)
+- Avoids import cycles (separate from invowkfile package)
 
 ---
 
@@ -256,13 +256,13 @@ invowk-cli/
 
 ---
 
-### pkg/invkfile
+### pkg/invowkfile
 
-**Purpose**: Types and parsing for invkfile.cue command definitions.
+**Purpose**: Types and parsing for invowkfile.cue command definitions.
 
 **Responsibilities**:
-- Define `Invkfile`, `Command`, `Implementation` types
-- Parse invkfile.cue files with CUE validation
+- Define `Invowkfile`, `Command`, `Implementation` types
+- Parse invowkfile.cue files with CUE validation
 - Select implementations based on runtime/platform
 - Validate command structure (leaf-only args, etc.)
 
@@ -270,24 +270,24 @@ invowk-cli/
 | File | Responsibility |
 |------|----------------|
 | `doc.go` | **NEW**: Package documentation |
-| `invkfile.go` | Core types |
+| `invowkfile.go` | Core types |
 | `parse.go` | Parsing entry points |
 | `validation.go` | Refactored: Core validation logic (~400 lines) |
 | `validation_runtime.go` | **NEW**: Runtime-specific validation |
 | `validation_deps.go` | **NEW**: Dependency validation |
-| `invkfile_validation.go` | May merge with validation.go or become validation_invkfile.go |
+| `invowkfile_validation.go` | May merge with validation.go or become validation_invowkfile.go |
 
 **Note**: Uses internal/cueutil for parsing implementation.
 
 ---
 
-### pkg/invkmod
+### pkg/invowkmod
 
 **Purpose**: Module types, parsing, and operations.
 
 **Responsibilities**:
-- Define `Invkmod`, `ModuleRequirement` types
-- Parse invkmod.cue files
+- Define `Invowkmod`, `ModuleRequirement` types
+- Parse invowkmod.cue files
 - Resolve module dependencies
 - Handle module validation, packaging, vendoring
 
@@ -295,7 +295,7 @@ invowk-cli/
 | File | Responsibility |
 |------|----------------|
 | `doc.go` | Package documentation (exists) |
-| `invkmod.go` | Core types |
+| `invowkmod.go` | Core types |
 | `resolver.go` | Refactored: Resolution orchestration (~400 lines) |
 | `resolver_deps.go` | **NEW**: Dependency resolution logic |
 | `resolver_cache.go` | **NEW**: Cache management |
@@ -328,7 +328,7 @@ invowk-cli/
         │               │               │
         │               │               ├─────────┐
         ▼               ▼               ▼         ▼
-   internal/tuiserver  pkg/invkfile  internal/container
+   internal/tuiserver  pkg/invowkfile  internal/container
         │                   │               │
         │                   ▼               │
         ▼           internal/cueutil        │
@@ -394,13 +394,13 @@ type Clock interface {
 }
 ```
 
-### Command Source Interface (pkg/invkmod - future)
+### Command Source Interface (pkg/invowkmod - future)
 
-Per `.claude/rules/package-design.md`, if `invkmod` needs command information from `invkfile`:
+Per `.claude/rules/package-design.md`, if `invowkmod` needs command information from `invowkfile`:
 
 ```go
 // CommandSource provides command definitions to a module.
-// Implemented by invkfile.Invkfile.
+// Implemented by invowkfile.Invowkfile.
 type CommandSource interface {
     Commands() []CommandInfo
 }
@@ -417,8 +417,8 @@ type CommandInfo struct {
 
 | Package | Current Max | Target Max |
 |---------|-------------|------------|
-| pkg/invkfile | 753 lines | <600 lines |
-| pkg/invkmod | 726 lines | <600 lines |
+| pkg/invowkfile | 753 lines | <600 lines |
+| pkg/invowkmod | 726 lines | <600 lines |
 | internal/discovery | 715 lines | <600 lines |
 | cmd/invowk | 643 lines | <600 lines |
 | internal/sshserver | 627 lines | <600 lines |

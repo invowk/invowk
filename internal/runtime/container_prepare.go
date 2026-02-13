@@ -37,6 +37,13 @@ func (r *ContainerRuntime) PrepareCommand(ctx *ExecutionContext) (*PreparedComma
 	containerCfg := containerConfigFromRuntime(rtConfig)
 	invowkDir := filepath.Dir(ctx.Invowkfile.FilePath)
 
+	// Validate explicit image policy before provisioning rewrites image tags.
+	if containerCfg.Image != "" {
+		if err := validateSupportedContainerImage(containerCfg.Image); err != nil {
+			return nil, err
+		}
+	}
+
 	// Resolve the script content (from file or inline)
 	script, err := ctx.SelectedImpl.ResolveScript(ctx.Invowkfile.FilePath)
 	if err != nil {
@@ -47,14 +54,6 @@ func (r *ContainerRuntime) PrepareCommand(ctx *ExecutionContext) (*PreparedComma
 	image, provisionCleanup, err := r.ensureProvisionedImage(ctx, containerCfg, invowkDir)
 	if err != nil {
 		return nil, fmt.Errorf("failed to prepare container image: %w", err)
-	}
-
-	// Check for unsupported Windows container images
-	if isWindowsContainerImage(image) {
-		if provisionCleanup != nil {
-			provisionCleanup()
-		}
-		return nil, fmt.Errorf("windows container images are not supported; the container runtime requires Linux-based images (e.g., debian:stable-slim); see https://invowk.io/docs/runtime-modes/container for details")
 	}
 
 	// Build environment

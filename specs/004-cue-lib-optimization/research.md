@@ -49,7 +49,7 @@ This is simpler, more maintainable, and aligns with how production CUE users wor
 - The existing `RuntimeConfig.Name` field acts as the discriminator
 - Adding explicit `_type` fields would be redundant
 
-**Current Pattern in Invkfile**:
+**Current Pattern in Invowkfile**:
 ```cue
 #RuntimeConfig: close({
     name: #RuntimeType  // Discriminator: "native" | "virtual" | "container"
@@ -83,13 +83,13 @@ type RuntimeConfig struct {
 
 **Current Pattern (Correct)**:
 ```go
-// pkg/invkfile/parse.go
+// pkg/invowkfile/parse.go
 unified := schema.Unify(userValue)
 if err := unified.Validate(cue.Concrete(true)); err != nil {
     return nil, formatCUEError(err)
 }
-var invkfile Invkfile
-if err := unified.Decode(&invkfile); err != nil {
+var invowkfile Invowkfile
+if err := unified.Decode(&invowkfile); err != nil {
     return nil, formatCUEError(err)
 }
 ```
@@ -134,16 +134,16 @@ if err := unified.Decode(&invkfile); err != nil {
 **Implementation Pattern**:
 
 ```go
-func TestInvkfileFieldSync(t *testing.T) {
+func TestInvowkfileFieldSync(t *testing.T) {
     ctx := cuecontext.New()
-    schema := ctx.CompileString(invkfileSchema)
-    invkfileDef := schema.LookupPath(cue.ParsePath("#Invkfile"))
+    schema := ctx.CompileString(invowkfileSchema)
+    invowkfileDef := schema.LookupPath(cue.ParsePath("#Invowkfile"))
 
     // Get CUE field names
-    cueFields := extractCUEFields(invkfileDef)
+    cueFields := extractCUEFields(invowkfileDef)
 
     // Get Go struct JSON tags
-    goFields := extractGoJSONTags(reflect.TypeOf(Invkfile{}))
+    goFields := extractGoJSONTags(reflect.TypeOf(Invowkfile{}))
 
     // Compare
     for _, field := range cueFields {
@@ -154,7 +154,7 @@ func TestInvkfileFieldSync(t *testing.T) {
 }
 ```
 
-**Recommendation**: Implement sync tests for all three schemas (invkfile, invkmod, config).
+**Recommendation**: Implement sync tests for all three schemas (invowkfile, invowkmod, config).
 
 ---
 
@@ -201,7 +201,7 @@ Based on research findings, the implementation plan should:
 ```go
 const DefaultMaxCUEFileSize = 5 * 1024 * 1024 // 5MB
 
-func ParseBytes(data []byte, path string) (*Invkfile, error) {
+func ParseBytes(data []byte, path string) (*Invowkfile, error) {
     if len(data) > maxCUEFileSize {
         return nil, fmt.Errorf("file size %d exceeds maximum %d bytes", len(data), maxCUEFileSize)
     }

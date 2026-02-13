@@ -136,27 +136,25 @@ func (r *ContainerRuntime) ensureImage(ctx *ExecutionContext, cfg invowkfileCont
 	}
 
 	// Retry build on transient engine errors (exit code 125, network failures,
-	// storage driver races). The caller's context deadline naturally bounds
-	// total retry time.
-	var lastErr error
-	for attempt := range maxBuildRetries {
-		if attempt > 0 {
-			if ctx.Verbose {
-				_, _ = fmt.Fprintf(ctx.IO.Stdout, "Retrying container build (attempt %d/%d) after transient error: %v\n", attempt+1, maxBuildRetries, lastErr)
+	// storage driver races). RetryWithBackoff checks ctx.Err() between retries,
+	// preventing wasted build attempts after context cancellation.
+	var prevBuildErr error
+	retryErr := container.RetryWithBackoff(ctx.Context, maxBuildRetries, baseBuildBackoff,
+		func(attempt int) (bool, error) {
+			if attempt > 0 && ctx.Verbose {
+				_, _ = fmt.Fprintf(ctx.IO.Stdout, "Retrying container build (attempt %d/%d) after transient error: %v\n", attempt+1, maxBuildRetries, prevBuildErr)
 			}
-			time.Sleep(baseBuildBackoff * time.Duration(1<<(attempt-1)))
-		}
-
-		lastErr = r.engine.Build(ctx.Context, buildOpts)
-		if lastErr == nil {
-			return imageTag, nil
-		}
-		if !container.IsTransientError(lastErr) {
-			return "", lastErr
-		}
+			buildErr := r.engine.Build(ctx.Context, buildOpts)
+			if buildErr != nil {
+				prevBuildErr = buildErr
+				return container.IsTransientError(buildErr), buildErr
+			}
+			return false, nil
+		})
+	if retryErr != nil {
+		return "", retryErr
 	}
-
-	return "", lastErr
+	return imageTag, nil
 }
 
 // generateImageTag generates a unique image tag for an invowkfile
@@ -224,6 +222,46 @@ func isWindowsContainerImage(image string) bool {
 		}
 	}
 	return false
+}
+
+// isAlpineContainerImage detects Alpine-based image references by repository name.
+// Alpine images are intentionally unsupported because musl-based environments have
+// subtle behavioral differences that reduce runtime reliability.
+//
+// Detection is segment-aware: only the last path segment of the image name is
+// checked, so images like "go-alpine-builder:v1" or "myorg/alpine-tools" are
+// NOT matched. Matches: alpine, alpine:3.20, docker.io/library/alpine:latest.
+func isAlpineContainerImage(image string) bool {
+	imageLower := strings.ToLower(strings.TrimSpace(image))
+	if imageLower == "" {
+		return false
+	}
+
+	// Strip tag/digest suffix for name-only matching.
+	name := imageLower
+	if idx := strings.LastIndex(name, ":"); idx != -1 {
+		name = name[:idx]
+	}
+	if idx := strings.LastIndex(name, "@"); idx != -1 {
+		name = name[:idx]
+	}
+
+	// Check bare name or last path segment.
+	// Matches: alpine, alpine:3.20, docker.io/library/alpine:latest
+	// Does NOT match: go-alpine-builder, myorg/alpine-tools
+	return name == "alpine" || strings.HasSuffix(name, "/alpine")
+}
+
+// validateSupportedContainerImage enforces the container runtime image policy.
+func validateSupportedContainerImage(image string) error {
+	if isWindowsContainerImage(image) {
+		return fmt.Errorf("windows container images are not supported; the container runtime requires Linux-based images (e.g., debian:stable-slim); see https://invowk.io/docs/runtime-modes/container for details")
+	}
+	if isAlpineContainerImage(image) {
+		return fmt.Errorf("alpine-based container images are not supported; use a Debian-based image (e.g., debian:stable-slim) for reliable execution; see https://invowk.io/docs/runtime-modes/container for details")
+	}
+
+	return nil
 }
 
 // containerConfigFromRuntime extracts container config from RuntimeConfig

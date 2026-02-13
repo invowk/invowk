@@ -19,14 +19,14 @@
 
 | File | Lines | Test Count | Split Strategy |
 |------|-------|------------|----------------|
-| `pkg/invkfile/invkfile_test.go` | 6,597 | 149 | 8 files by concern |
+| `pkg/invowkfile/invowkfile_test.go` | 6,597 | 149 | 8 files by concern |
 | `cmd/invowk/cmd_test.go` | 2,567 | 87 | 5 files by concern |
 | `internal/discovery/discovery_test.go` | 1,842 | 39 | 3 files by concern |
-| `pkg/invkmod/operations_test.go` | 1,683 | N/A | Monitor (near threshold) |
+| `pkg/invowkmod/operations_test.go` | 1,683 | N/A | Monitor (near threshold) |
 | `internal/runtime/runtime_test.go` | 1,605 | 33 | 3 files by concern |
 | `internal/runtime/container_integration_test.go` | 847 | N/A | At threshold; acceptable |
 
-**Concern Categories Identified in invkfile_test.go**:
+**Concern Categories Identified in invowkfile_test.go**:
 1. Parsing: Script parsing, resolution, caching (~800 lines)
 2. Dependencies: Dependency parsing, generation, validation (~700 lines)
 3. Flags: Flag validation, mapping, boolean handling (~600 lines)
@@ -53,7 +53,7 @@
 
 | Helper | Locations | Usages |
 |--------|-----------|--------|
-| `testCommand()` | `pkg/invkfile/invkfile_test.go:15` | ~50 usages |
+| `testCommand()` | `pkg/invowkfile/invowkfile_test.go:15` | ~50 usages |
 | `testCmd()` | `cmd/invowk/cmd_test.go:34` | ~30 usages |
 | `setHomeDirEnv()` | `cmd/invowk/cmd_test.go:23`, `internal/config/config_test.go:16`, `internal/discovery/discovery_test.go:19` | ~30 usages total |
 
@@ -61,7 +61,7 @@
 
 ```go
 // testutil.NewTestCommand - replaces testCommand() and testCmd()
-func NewTestCommand(name string, opts ...CommandOption) *invkfile.Command
+func NewTestCommand(name string, opts ...CommandOption) *invowkfile.Command
 
 // testutil.SetHomeDir - replaces setHomeDirEnv()
 func SetHomeDir(t testing.TB, dir string) func()
@@ -231,16 +231,16 @@ func TestDockerBuild(t *testing.T) {
 
 **Naming Convention**:
 ```
-pkg/invkfile/
-├── invkfile_test.go           # DELETE (replaced by split files)
-├── invkfile_parsing_test.go   # Script parsing
-├── invkfile_deps_test.go      # Dependencies
-├── invkfile_flags_test.go     # Flags
-├── invkfile_args_test.go      # Arguments
-├── invkfile_platforms_test.go # Platforms
-├── invkfile_env_test.go       # Environment
-├── invkfile_workdir_test.go   # Workdir
-└── invkfile_schema_test.go    # Schema
+pkg/invowkfile/
+├── invowkfile_test.go           # DELETE (replaced by split files)
+├── invowkfile_parsing_test.go   # Script parsing
+├── invowkfile_deps_test.go      # Dependencies
+├── invowkfile_flags_test.go     # Flags
+├── invowkfile_args_test.go      # Arguments
+├── invowkfile_platforms_test.go # Platforms
+├── invowkfile_env_test.go       # Environment
+├── invowkfile_workdir_test.go   # Workdir
+└── invowkfile_schema_test.go    # Schema
 ```
 
 ---

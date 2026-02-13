@@ -271,15 +271,12 @@ func (e *SandboxAwareEngine) wrapArgs(args []string) []string {
 	return e.buildSpawnArgs(e.wrapped.BinaryPath(), args)
 }
 
-// getBaseCLIEngine attempts to extract the BaseCLIEngine from the wrapped engine.
-// This is needed to access argument building methods.
+// getBaseCLIEngine attempts to extract the BaseCLIEngine from the wrapped engine
+// via the BaseCLIProvider interface. This avoids a concrete type switch, making
+// it safe to add new engine types without updating this method.
 func (e *SandboxAwareEngine) getBaseCLIEngine() (*BaseCLIEngine, bool) {
-	switch engine := e.wrapped.(type) {
-	case *PodmanEngine:
-		return engine.BaseCLIEngine, true
-	case *DockerEngine:
-		return engine.BaseCLIEngine, true
-	default:
-		return nil, false
+	if p, ok := e.wrapped.(BaseCLIProvider); ok {
+		return p.BaseCLI(), true
 	}
+	return nil, false
 }

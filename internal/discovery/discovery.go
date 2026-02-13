@@ -57,46 +57,8 @@ func New(cfg *config.Config) *Discovery {
 // reattached to parsed Invowkfiles so downstream scope/dependency checks can identify
 // the owning module.
 func (d *Discovery) LoadAll() ([]*DiscoveredFile, error) {
-	files, err := d.DiscoverAll()
+	files, _, err := d.loadAllWithDiagnostics()
 	if err != nil {
-		return nil, err
-	}
-
-	for _, file := range files {
-		var inv *invowkfile.Invowkfile
-		var parseErr error
-
-		if file.Module != nil {
-			// Library-only modules provide scripts and files for other modules to
-			// reference via `requires`, but don't contribute their own command
-			// definitions to the CLI command tree.
-			if file.Module.IsLibraryOnly || file.Path == "" {
-				continue
-			}
-
-			// Parse module invowkfile.cue and reattach module metadata so downstream
-			// logic (scope/dependency checks) can treat it as module-backed input.
-			inv, parseErr = invowkfile.Parse(file.Path)
-			if parseErr == nil {
-				inv.Metadata = file.Module.Metadata
-				inv.ModulePath = file.Module.Path
-			}
-		} else {
-			inv, parseErr = invowkfile.Parse(file.Path)
-		}
-
-		if parseErr != nil {
-			file.Error = parseErr
-		} else {
-			file.Invowkfile = inv
-		}
-	}
-
-	// Detect module ID collisions after all files are parsed. This catches
-	// two modules that declare the same module identifier and neither has
-	// an alias to disambiguate. Callers receive a ModuleCollisionError with
-	// actionable remediation (add an alias in the includes config).
-	if err := d.CheckModuleCollisions(files); err != nil {
 		return nil, err
 	}
 
@@ -226,4 +188,53 @@ func (d *Discovery) getAliasForModulePath(modulePath string) string {
 	}
 
 	return ""
+}
+
+// loadAllWithDiagnostics parses discovered files and returns non-fatal
+// discovery diagnostics (e.g., skipped includes/modules) alongside files.
+func (d *Discovery) loadAllWithDiagnostics() ([]*DiscoveredFile, []Diagnostic, error) {
+	files, diagnostics, err := d.discoverAllWithDiagnostics()
+	if err != nil {
+		return nil, diagnostics, err
+	}
+
+	for _, file := range files {
+		var inv *invowkfile.Invowkfile
+		var parseErr error
+
+		if file.Module != nil {
+			// Library-only modules provide scripts and files for other modules to
+			// reference via `requires`, but don't contribute their own command
+			// definitions to the CLI command tree.
+			if file.Module.IsLibraryOnly || file.Path == "" {
+				continue
+			}
+
+			// Parse module invowkfile.cue and reattach module metadata so downstream
+			// logic (scope/dependency checks) can treat it as module-backed input.
+			inv, parseErr = invowkfile.Parse(file.Path)
+			if parseErr == nil {
+				inv.Metadata = file.Module.Metadata
+				inv.ModulePath = file.Module.Path
+			}
+		} else {
+			inv, parseErr = invowkfile.Parse(file.Path)
+		}
+
+		if parseErr != nil {
+			file.Error = parseErr
+		} else {
+			file.Invowkfile = inv
+		}
+	}
+
+	// Detect module ID collisions after all files are parsed. This catches
+	// two modules that declare the same module identifier and neither has
+	// an alias to disambiguate. Callers receive a ModuleCollisionError with
+	// actionable remediation (add an alias in the includes config).
+	if err := d.CheckModuleCollisions(files); err != nil {
+		return nil, diagnostics, err
+	}
+
+	return files, diagnostics, nil
 }

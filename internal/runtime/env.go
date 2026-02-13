@@ -5,6 +5,7 @@ package runtime
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"invowk-cli/pkg/invowkfile"
 )
@@ -76,12 +77,10 @@ func buildHostEnv(cfg envInheritConfig) map[string]string {
 	}
 
 	for _, entry := range FilterInvowkEnvVars(os.Environ()) {
-		idx := findEnvSeparator(entry)
-		if idx == -1 {
+		name, value, ok := strings.Cut(entry, "=")
+		if !ok {
 			continue
 		}
-		name := entry[:idx]
-		value := entry[idx+1:]
 
 		if cfg.mode == invowkfile.EnvInheritAllow {
 			if _, ok := allowSet[name]; !ok {

@@ -5,7 +5,7 @@ package contracts
 // This file defines the contract for the consolidated test command builder.
 // Replaces duplicated testCommand() / testCmd() functions.
 
-// RuntimeType mirrors invkfile.RuntimeType for this contract.
+// RuntimeType mirrors invowkfile.RuntimeType for this contract.
 type RuntimeType string
 
 const (
@@ -19,7 +19,7 @@ const (
 type CommandOption func(*TestCommand)
 
 // TestCommand is a simplified representation for contract documentation.
-// Actual implementation uses *invkfile.Command.
+// Actual implementation uses *invowkfile.Command.
 type TestCommand struct {
 	Name            string
 	Description     string

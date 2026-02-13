@@ -13,6 +13,7 @@ import (
 
 	"invowk-cli/internal/issue"
 	"invowk-cli/pkg/cueutil"
+	"invowk-cli/pkg/platform"
 
 	"cuelang.org/go/cue"
 	"cuelang.org/go/cue/cuecontext"
@@ -26,8 +27,6 @@ const (
 	ConfigFileName = "config"
 	// ConfigFileExt is the config file extension.
 	ConfigFileExt = "cue"
-
-	osWindows = "windows"
 )
 
 //go:embed config_schema.cue
@@ -47,7 +46,7 @@ func ConfigDir() (string, error) {
 	var configDir string
 
 	switch runtime.GOOS {
-	case osWindows:
+	case platform.Windows:
 		configDir = os.Getenv("APPDATA")
 		if configDir == "" {
 			configDir = filepath.Join(os.Getenv("USERPROFILE"), "AppData", "Roaming")
@@ -72,19 +71,14 @@ func ConfigDir() (string, error) {
 	return filepath.Join(configDir, AppName), nil
 }
 
-// CommandsDir returns the directory for user-defined invowkfiles
+// CommandsDir returns the directory for user-defined invowkfiles.
+// The path is ~/.invowk/cmds on all platforms.
 func CommandsDir() (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "", fmt.Errorf("failed to get home directory: %w", err)
 	}
-
-	switch runtime.GOOS {
-	case osWindows:
-		return filepath.Join(home, ".invowk", "cmds"), nil
-	default:
-		return filepath.Join(home, ".invowk", "cmds"), nil
-	}
+	return filepath.Join(home, ".invowk", "cmds"), nil
 }
 
 // loadWithOptions performs option-driven config loading without mutating

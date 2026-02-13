@@ -15,9 +15,9 @@ type CommandInfo struct {
     Name        string              // Fully qualified name
     Description string              // Command description
     Source      Source              // SourceCurrentDir, SourceModule
-    FilePath    string              // Path to invkfile
-    Command     *invkfile.Command   // Command definition
-    Invkfile    *invkfile.Invkfile  // Parent invkfile
+    FilePath    string              // Path to invowkfile
+    Command     *invowkfile.Command   // Command definition
+    Invowkfile    *invowkfile.Invowkfile  // Parent invowkfile
 }
 ```
 
@@ -27,15 +27,15 @@ type CommandInfo struct {
     // ... existing fields ...
 
     SimpleName  string  // Command name without module prefix (e.g., "deploy")
-    SourceID    string  // "invkfile" or module short name (e.g., "foo")
-    ModuleID    string  // Full module ID if from module (e.g., "io.invowk.sample"), empty for invkfile
+    SourceID    string  // "invowkfile" or module short name (e.g., "foo")
+    ModuleID    string  // Full module ID if from module (e.g., "io.invowk.sample"), empty for invowkfile
     IsAmbiguous bool    // True if SimpleName conflicts with another command
 }
 ```
 
 **Validation Rules**:
 - `SimpleName`: Must be non-empty, derived from command's base name
-- `SourceID`: Must be "invkfile" or valid module short name (no `.invkmod` suffix)
+- `SourceID`: Must be "invowkfile" or valid module short name (no `.invowkmod` suffix)
 - `ModuleID`: Valid module ID format or empty string
 - `IsAmbiguous`: Set during conflict detection phase
 
@@ -58,11 +58,11 @@ type DiscoveredCommandSet struct {
     AmbiguousNames map[string]bool
 
     // Commands indexed by source for grouped listing
-    // Key: SourceID (e.g., "invkfile", "foo")
+    // Key: SourceID (e.g., "invowkfile", "foo")
     BySource map[string][]*CommandInfo
 
     // Ordered list of sources for consistent display
-    // ["invkfile", "alpha", "beta", ...] - invkfile first, then modules alphabetically
+    // ["invowkfile", "alpha", "beta", ...] - invowkfile first, then modules alphabetically
     SourceOrder []string
 }
 ```
@@ -70,7 +70,7 @@ type DiscoveredCommandSet struct {
 **Validation Rules**:
 - `BySimpleName`: Built during aggregation, all keys lowercase
 - `AmbiguousNames`: Populated when `len(BySimpleName[name]) > 1`
-- `SourceOrder`: "invkfile" always first if present, modules sorted alphabetically
+- `SourceOrder`: "invowkfile" always first if present, modules sorted alphabetically
 
 **State Transitions**:
 1. **Empty** → Created with `NewDiscoveredCommandSet()`
@@ -85,8 +85,8 @@ type DiscoveredCommandSet struct {
 ```go
 // SourceFilter represents a user-specified source constraint
 type SourceFilter struct {
-    SourceID string  // Normalized source name (e.g., "foo" not "foo.invkmod")
-    Raw      string  // Original input (e.g., "@foo.invkmod" or "--from foo")
+    SourceID string  // Normalized source name (e.g., "foo" not "foo.invowkmod")
+    Raw      string  // Original input (e.g., "@foo.invowkmod" or "--from foo")
 }
 
 // ParseSourceFilter extracts source from @prefix or --from flag
@@ -94,9 +94,9 @@ func ParseSourceFilter(args []string, fromFlag string) (*SourceFilter, []string,
 ```
 
 **Validation Rules**:
-- `SourceID`: Must match existing source (invkfile or module)
-- Accepts: "foo", "foo.invkmod", "invkfile", "invkfile.cue"
-- Normalizes to: "foo" or "invkfile"
+- `SourceID`: Must match existing source (invowkfile or module)
+- Accepts: "foo", "foo.invowkmod", "invowkfile", "invowkfile.cue"
+- Normalizes to: "foo" or "invowkfile"
 
 ## Relationships
 
@@ -114,13 +114,13 @@ func ParseSourceFilter(args []string, fromFlag string) (*SourceFilter, []string,
          │ references
          ▼
 ┌─────────────────────┐      ┌─────────────────────┐
-│  invkfile.Command   │◄─────│  invkfile.Invkfile  │
+│  invowkfile.Command   │◄─────│  invowkfile.Invowkfile  │
 └─────────────────────┘      └─────────────────────┘
                                       │
                                       │ may have
                                       ▼
                              ┌─────────────────────┐
-                             │  invkmod.Invkmod    │
+                             │  invowkmod.Invowkmod    │
                              │  (Metadata)         │
                              └─────────────────────┘
 ```
@@ -130,14 +130,14 @@ func ParseSourceFilter(args []string, fromFlag string) (*SourceFilter, []string,
 ### By Simple Name
 ```go
 BySimpleName["deploy"] = []*CommandInfo{
-    {SourceID: "invkfile", SimpleName: "deploy", ...},
+    {SourceID: "invowkfile", SimpleName: "deploy", ...},
     {SourceID: "foo", SimpleName: "deploy", ...},
 }
 ```
 
 ### By Source (for grouped listing)
 ```go
-BySource["invkfile"] = []*CommandInfo{
+BySource["invowkfile"] = []*CommandInfo{
     {SimpleName: "hello", ...},
     {SimpleName: "deploy", ...},
 }
@@ -151,24 +151,24 @@ BySource["foo"] = []*CommandInfo{
 
 **Internal representation** (FR-004):
 ```
-<module-id | "invkfile">:<invkfile-path>:<cmd-name>
+<module-id | "invowkfile">:<invowkfile-path>:<cmd-name>
 ```
 
 Examples:
-- `invkfile:/path/to/invkfile.cue:deploy`
-- `io.invowk.sample:/path/to/foo.invkmod/invkfile.cue:deploy`
+- `invowkfile:/path/to/invowkfile.cue:deploy`
+- `io.invowk.sample:/path/to/foo.invowkmod/invowkfile.cue:deploy`
 
 **User-facing disambiguation**:
-- `@foo deploy` or `@foo.invkmod deploy`
-- `@invkfile deploy` or `@invkfile.cue deploy`
-- `--from foo deploy` or `--from invkfile deploy`
+- `@foo deploy` or `@foo.invowkmod deploy`
+- `@invowkfile deploy` or `@invowkfile.cue deploy`
+- `--from foo deploy` or `--from invowkfile deploy`
 
 ## Reserved Names
 
 | Name | Reserved For | Validation |
 |------|--------------|------------|
-| `invkfile` | Root invkfile source | FR-015: Reject `invkfile.invkmod` |
-| `invkfile.cue` | Root invkfile source | Alias for `invkfile` |
+| `invowkfile` | Root invowkfile source | FR-015: Reject `invowkfile.invowkmod` |
+| `invowkfile.cue` | Root invowkfile source | Alias for `invowkfile` |
 
 ## Migration Notes
 

@@ -13,7 +13,7 @@ This document defines the validation architecture and data flow for CUE-based co
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                     User Input Layer                            │
-│                   (invkfile.cue files)                          │
+│                   (invowkfile.cue files)                          │
 └─────────────────────────────┬───────────────────────────────────┘
                               │
                               ▼
@@ -73,17 +73,17 @@ This document defines the validation architecture and data flow for CUE-based co
 
 ## Schema Files
 
-### invkfile_schema.cue
+### invowkfile_schema.cue
 
-**Location**: `pkg/invkfile/invkfile_schema.cue`
+**Location**: `pkg/invowkfile/invowkfile_schema.cue`
 
-**Root Definition**: `#Invkfile`
+**Root Definition**: `#Invowkfile`
 
 **Key Types**:
 
 | CUE Type | Description | Go Type |
 |----------|-------------|---------|
-| `#Invkfile` | Root invkfile structure | `Invkfile` |
+| `#Invowkfile` | Root invowkfile structure | `Invowkfile` |
 | `#Command` | Command definition | `Command` |
 | `#Implementation` | Script implementation | `Implementation` |
 | `#RuntimeConfig` | Runtime configuration | `RuntimeConfig` |
@@ -104,17 +104,17 @@ This document defines the validation architecture and data flow for CUE-based co
 | Mutual exclusion | `containerfile XOR image` | Exactly one option |
 | Non-empty list | `[_, ...]` | At least one element |
 
-### invkmod_schema.cue
+### invowkmod_schema.cue
 
-**Location**: `pkg/invkmod/invkmod_schema.cue`
+**Location**: `pkg/invowkmod/invowkmod_schema.cue`
 
-**Root Definition**: `#Invkmod`
+**Root Definition**: `#Invowkmod`
 
 **Key Types**:
 
 | CUE Type | Description | Go Type |
 |----------|-------------|---------|
-| `#Invkmod` | Module metadata | `Invkmod` |
+| `#Invowkmod` | Module metadata | `Invowkmod` |
 | `#ModuleRequirement` | Dependency declaration | `ModuleRequirement` |
 
 ### config_schema.cue
@@ -269,18 +269,18 @@ func (r *RuntimeConfig) Validate() error {
 Tests verify Go struct JSON tags match CUE schema field names:
 
 ```go
-// pkg/invkfile/sync_test.go
-func TestInvkfileSchemaSync(t *testing.T) {
+// pkg/invowkfile/sync_test.go
+func TestInvowkfileSchemaSync(t *testing.T) {
     // Load CUE schema
     ctx := cuecontext.New()
-    schema := ctx.CompileString(invkfileSchema)
+    schema := ctx.CompileString(invowkfileSchema)
 
-    // Extract all field names from CUE #Invkfile definition
-    invkfileDef := schema.LookupPath(cue.ParsePath("#Invkfile"))
-    cueFields := extractCUEFields(t, invkfileDef)
+    // Extract all field names from CUE #Invowkfile definition
+    invowkfileDef := schema.LookupPath(cue.ParsePath("#Invowkfile"))
+    cueFields := extractCUEFields(t, invowkfileDef)
 
-    // Extract JSON tags from Go Invkfile struct
-    goFields := extractGoJSONTags(t, reflect.TypeOf(Invkfile{}))
+    // Extract JSON tags from Go Invowkfile struct
+    goFields := extractGoJSONTags(t, reflect.TypeOf(Invowkfile{}))
 
     // Verify every CUE field has matching Go tag
     for field := range cueFields {
@@ -313,7 +313,7 @@ Early guard against large files:
 ```go
 const DefaultMaxCUEFileSize = 5 * 1024 * 1024 // 5 MB
 
-func ParseBytes(data []byte, path string, opts ...ParseOption) (*Invkfile, error) {
+func ParseBytes(data []byte, path string, opts ...ParseOption) (*Invowkfile, error) {
     cfg := parseConfig{maxSize: DefaultMaxCUEFileSize}
     for _, opt := range opts {
         opt(&cfg)

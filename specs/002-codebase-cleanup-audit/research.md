@@ -13,7 +13,7 @@ This document captures the detailed codebase analysis that informed the implemen
 |------|-------|--------|
 | `cmd/invowk/cmd.go` | 2,927 | **CRITICAL** - requires decomposition |
 | `cmd/invowk/module.go` | 1,118 | Out of scope (module CLI, not cmd handler) |
-| `pkg/invkmod/operations.go` | 827 | Minor - focused responsibility |
+| `pkg/invowkmod/operations.go` | 827 | Minor - focused responsibility |
 | `internal/tui/interactive.go` | 806 | Minor - TUI handler |
 
 ### Files Approaching Target (500-800 lines)
@@ -21,8 +21,8 @@ This document captures the detailed codebase analysis that informed the implemen
 | File | Lines | Status |
 |------|-------|--------|
 | `internal/runtime/container.go` | 745 | OK - focused responsibility |
-| `pkg/invkfile/validation.go` | 728 | OK - schema validation |
-| `pkg/invkmod/resolver.go` | 726 | OK - dependency resolution |
+| `pkg/invowkfile/validation.go` | 728 | OK - schema validation |
+| `pkg/invowkmod/resolver.go` | 726 | OK - dependency resolution |
 | `internal/discovery/discovery.go` | 715 | OK - command discovery |
 | `internal/sshserver/server.go` | 695 | OK - well-structured server |
 | `internal/runtime/native.go` | 578 | **Code duplication** - requires deduplication |
@@ -110,7 +110,7 @@ import (
     "invowk-cli/internal/sshserver"
     "invowk-cli/internal/tui"
     "invowk-cli/internal/tuiserver"
-    "invowk-cli/pkg/invkfile"
+    "invowk-cli/pkg/invowkfile"
 )
 ```
 
@@ -137,7 +137,7 @@ import (
 #### Pattern 1: Script Resolution (3 occurrences)
 ```go
 // Lines 55-57, 81-85, 122-124
-script, err := ctx.SelectedImpl.ResolveScript(ctx.Invkfile.FilePath)
+script, err := ctx.SelectedImpl.ResolveScript(ctx.Invowkfile.FilePath)
 if err != nil {
     return &Result{ExitCode: 1, Error: err}
 }
@@ -159,7 +159,7 @@ defer os.Chdir(origDir)
 #### Pattern 3: Environment Building (6 occurrences)
 ```go
 // Lines 172-176, 281-285, 345-349, 518-522, 568-572
-env := buildRuntimeEnv(ctx, invkfile.EnvInheritAll)
+env := buildRuntimeEnv(ctx, invowkfile.EnvInheritAll)
 cmd.Env = env
 ```
 
@@ -180,7 +180,7 @@ if err != nil {
 
 ```go
 func (r *NativeRuntime) PrepareCommand(ctx *ExecutionContext) (*PreparedCommand, error) {
-    script, err := ctx.SelectedImpl.ResolveScript(ctx.Invkfile.FilePath)
+    script, err := ctx.SelectedImpl.ResolveScript(ctx.Invowkfile.FilePath)
     if err != nil {
         return nil, err
     }
@@ -225,7 +225,7 @@ type CapturingRuntime interface {
 ```go
 // virtual.go:150-216
 func (r *VirtualRuntime) ExecuteCapture(ctx *ExecutionContext) *Result {
-    script, err := ctx.SelectedImpl.ResolveScript(ctx.Invkfile.FilePath)
+    script, err := ctx.SelectedImpl.ResolveScript(ctx.Invowkfile.FilePath)
     if err != nil {
         return &Result{ExitCode: 1, Error: err}
     }
@@ -263,8 +263,8 @@ func (r *VirtualRuntime) ExecuteCapture(ctx *ExecutionContext) *Result {
 ### Violation: Public Package Imports Internal
 
 **Affected Files**:
-1. `pkg/invkmod/operations.go:14`
-2. `pkg/invkfile/validation.go:23`
+1. `pkg/invowkmod/operations.go:14`
+2. `pkg/invowkfile/validation.go:23`
 
 Both import: `"invowk-cli/internal/platform"`
 
@@ -294,16 +294,16 @@ func IsWindowsReservedName(name string) bool {
 
 ### Usage Sites
 
-1. `pkg/invkfile/validation.go:571` - Command name validation
-2. `pkg/invkmod/operations.go:243` - Directory name validation
+1. `pkg/invowkfile/validation.go:571` - Command name validation
+2. `pkg/invowkmod/operations.go:243` - Directory name validation
 
 ### Consumers of internal/platform
 
 Checking for other internal consumers:
 ```
 internal/platform/ is ONLY consumed by:
-- pkg/invkmod/operations.go
-- pkg/invkfile/validation.go
+- pkg/invowkmod/operations.go
+- pkg/invowkfile/validation.go
 ```
 
 No internal-only consumers exist, so the entire package can be moved to `pkg/platform/`.
@@ -404,8 +404,8 @@ func (r *ContainerRuntime) ExecuteCapture(ctx *ExecutionContext) *Result {
 | `cmd/invowk/cmd.go` | Remove moved functions (2,927 → ~600) |
 | `internal/runtime/native.go` | Extract shared code (578 → ~350) |
 | `internal/runtime/container.go` | Add `ExecuteCapture()` (~30 lines added) |
-| `pkg/invkmod/operations.go` | Update import |
-| `pkg/invkfile/validation.go` | Update import |
+| `pkg/invowkmod/operations.go` | Update import |
+| `pkg/invowkfile/validation.go` | Update import |
 
 ### Files to Delete
 

@@ -11,7 +11,6 @@ import (
 
 	"invowk-cli/internal/config"
 	"invowk-cli/internal/discovery"
-	"invowk-cli/internal/issue"
 	"invowk-cli/internal/runtime"
 	"invowk-cli/internal/sshserver"
 	"invowk-cli/internal/tui"
@@ -20,6 +19,13 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/spf13/cobra"
 )
+
+type runtimeRegistryResult struct {
+	Registry         *runtime.Registry
+	Cleanup          func()
+	Diagnostics      []discovery.Diagnostic
+	ContainerInitErr error
+}
 
 // parseEnvVarFlags parses an array of KEY=VALUE strings into a map.
 func parseEnvVarFlags(envVarFlags []string) map[string]string {
@@ -138,13 +144,7 @@ func runDisambiguatedCommand(cmd *cobra.Command, app *App, rootFlags *rootFlagVa
 	if err != nil {
 		var svcErr *ServiceError
 		if errors.As(err, &svcErr) {
-			if svcErr.StyledMessage != "" {
-				fmt.Fprint(app.stderr, svcErr.StyledMessage)
-			}
-			if svcErr.IssueID != 0 {
-				rendered, _ := issue.Get(svcErr.IssueID).Render("dark")
-				fmt.Fprint(app.stderr, rendered)
-			}
+			renderServiceError(app.stderr, svcErr)
 		}
 		return err
 	}
@@ -212,24 +212,39 @@ func checkAmbiguousCommand(ctx context.Context, app *App, rootFlags *rootFlagVal
 // (Docker or Podman). When an SSH server is active for host access, it is forwarded
 // to the container runtime so containers can reach back into the host.
 //
-// The returned cleanup function releases container engine resources (e.g., sysctl
-// override temp files). It must be deferred by the caller.
-func createRuntimeRegistry(cfg *config.Config, sshServer *sshserver.Server) (registry *runtime.Registry, cleanup func()) {
-	registry = runtime.NewRegistry()
+// The returned result includes the runtime registry, cleanup function, and
+// non-fatal diagnostics produced during runtime initialization.
+func createRuntimeRegistry(cfg *config.Config, sshServer *sshserver.Server) runtimeRegistryResult {
+	if cfg == nil {
+		cfg = config.DefaultConfig()
+	}
+
+	result := runtimeRegistryResult{
+		Registry: runtime.NewRegistry(),
+	}
+
 	// Native and virtual runtimes are always available in-process.
-	registry.Register(runtime.RuntimeTypeNative, runtime.NewNativeRuntime())
-	registry.Register(runtime.RuntimeTypeVirtual, runtime.NewVirtualRuntime(cfg.VirtualShell.EnableUrootUtils))
+	result.Registry.Register(runtime.RuntimeTypeNative, runtime.NewNativeRuntime())
+	result.Registry.Register(runtime.RuntimeTypeVirtual, runtime.NewVirtualRuntime(cfg.VirtualShell.EnableUrootUtils))
 
 	// Container runtime registration is conditional on engine availability.
 	containerRT, err := runtime.NewContainerRuntime(cfg)
-	if err == nil {
+	if err != nil {
+		result.ContainerInitErr = err
+		result.Diagnostics = append(result.Diagnostics, discovery.Diagnostic{
+			Severity: discovery.SeverityWarning,
+			Code:     "container_runtime_init_failed",
+			Message:  fmt.Sprintf("container runtime unavailable: %v", err),
+			Cause:    err,
+		})
+	} else {
 		if sshServer != nil && sshServer.IsRunning() {
 			containerRT.SetSSHServer(sshServer)
 		}
-		registry.Register(runtime.RuntimeTypeContainer, containerRT)
+		result.Registry.Register(runtime.RuntimeTypeContainer, containerRT)
 	}
 
-	cleanup = func() {
+	result.Cleanup = func() {
 		if containerRT != nil {
 			if err := containerRT.Close(); err != nil {
 				slog.Debug("container runtime cleanup failed", "error", err)
@@ -237,7 +252,7 @@ func createRuntimeRegistry(cfg *config.Config, sshServer *sshserver.Server) (reg
 		}
 	}
 
-	return registry, cleanup
+	return result
 }
 
 // bridgeTUIRequests bridges TUI component requests from the HTTP-based TUI server

@@ -21,7 +21,7 @@ This is an internal refactoring effort to improve codebase maintainability witho
 **Target Platform**: Linux, macOS, Windows (cross-platform CLI)
 **Project Type**: Single CLI binary
 **Performance Goals**: <100ms startup for `invowk --help`
-**Constraints**: No user-facing behavior changes, backward compatibility with existing invkfiles/invkmods
+**Constraints**: No user-facing behavior changes, backward compatibility with existing invowkfiles/invowkmods
 **Scale/Scope**: ~47,500 lines of Go code across 80 production files
 
 ## Constitution Check
@@ -59,7 +59,7 @@ specs/002-codebase-cleanup-audit/
 ```text
 cmd/invowk/
 ├── cmd.go               # 2,927 → ~350 lines (main command registration + shared types)
-├── cmd_discovery.go     # NEW: Command discovery and invkfile parsing (~625 lines)
+├── cmd_discovery.go     # NEW: Command discovery and invowkfile parsing (~625 lines)
 ├── cmd_execute.go       # NEW: Execution orchestration and runtime coordination (~555 lines)
 ├── cmd_validate.go      # NEW: Dependency validation (tools, files, capabilities) (~770 lines)
 ├── cmd_validate_input.go # NEW: User input validation (flags, arguments) (~160 lines)
@@ -75,10 +75,10 @@ internal/runtime/
 pkg/platform/            # NEW public package
 └── windows.go           # Moved from internal/platform/windows.go
 
-pkg/invkmod/
+pkg/invowkmod/
 └── operations.go        # Update import from internal/platform → pkg/platform
 
-pkg/invkfile/
+pkg/invowkfile/
 └── validation.go        # Update import from internal/platform → pkg/platform
 ```
 
@@ -196,12 +196,12 @@ pkg/platform/
 ```
 
 **Import Updates Required**:
-1. `pkg/invkmod/operations.go:14` - Change `internal/platform` → `pkg/platform`
-2. `pkg/invkfile/validation.go:23` - Change `internal/platform` → `pkg/platform`
+1. `pkg/invowkmod/operations.go:14` - Change `internal/platform` → `pkg/platform`
+2. `pkg/invowkfile/validation.go:23` - Change `internal/platform` → `pkg/platform`
 
 **Migration Strategy**:
 1. Create `pkg/platform/` with copied content
-2. Update imports in `pkg/invkmod/` and `pkg/invkfile/`
+2. Update imports in `pkg/invowkmod/` and `pkg/invowkfile/`
 3. Update any internal imports to use `pkg/platform/`
 4. Delete `internal/platform/` (after verifying no internal-only consumers)
 

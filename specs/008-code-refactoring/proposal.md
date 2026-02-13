@@ -7,7 +7,7 @@ The current architecture has four coupled design problems that increase hidden b
 1. CLI execution state is spread across mutable package globals in `cmd/invowk/root.go`, `cmd/invowk/cmd.go`, and `cmd/invowk/cmd_execute*.go`.
 2. Discovery emits terminal output from `internal/discovery/discovery_commands.go` (`fmt.Fprintf(os.Stderr, ...)`) instead of returning diagnostics.
 3. Production execution paths read mutable global config state via `internal/config/global.go` (`Get`, overrides, cache).
-4. Module command storage uses `any` in `pkg/invkmod/invkmod.go`, requiring cast-based recovery in `pkg/invkfile/parse.go`.
+4. Module command storage uses `any` in `pkg/invowkmod/invowkmod.go`, requiring cast-based recovery in `pkg/invowkfile/parse.go`.
 
 This proposal defines a single final architecture that removes these patterns without compatibility shims.
 
@@ -18,7 +18,7 @@ This proposal defines a single final architecture that removes these patterns wi
 - Make Cobra handlers thin adapters that build requests and delegate.
 - Make discovery side-effect-free for terminal output and return structured diagnostics.
 - Replace implicit global config reads with an injected provider contract.
-- Replace `Module.Commands any` with a typed interface declared in `pkg/invkmod`.
+- Replace `Module.Commands any` with a typed interface declared in `pkg/invowkmod`.
 - Keep user-visible CLI outcomes behaviorally equivalent after the rewrite.
 
 ## Non-Goals
@@ -49,8 +49,8 @@ This refactor is intentionally non-backward-compatible for internal architecture
   - `internal/config/global.go`: process-wide cache/override state (`globalConfig`, `configFilePathOverride`, `Reset`, `SetConfigFilePathOverride`).
   - `internal/config/config.go`: `Load`/`Save` mutate global cache.
 - **Untyped module command storage**
-  - `pkg/invkmod/invkmod.go`: `Module.Commands any`.
-  - `pkg/invkfile/parse.go`: `GetModuleCommands` performs runtime cast from `any` to `*Invkfile`.
+  - `pkg/invowkmod/invowkmod.go`: `Module.Commands any`.
+  - `pkg/invowkfile/parse.go`: `GetModuleCommands` performs runtime cast from `any` to `*Invowkfile`.
 
 Impact:
 
@@ -293,7 +293,7 @@ Replaced-by mapping:
 Final target signatures/types:
 
 ```go
-package invkmod
+package invowkmod
 
 type ModuleCommands interface {
     GetModule() string
@@ -301,7 +301,7 @@ type ModuleCommands interface {
 }
 
 type Module struct {
-    Metadata      *Invkmod
+    Metadata      *Invowkmod
     Commands      ModuleCommands
     Path          string
     IsLibraryOnly bool
@@ -309,17 +309,17 @@ type Module struct {
 ```
 
 ```go
-package invkfile
+package invowkfile
 
-var _ invkmod.ModuleCommands = (*Invkfile)(nil)
+var _ invowkmod.ModuleCommands = (*Invowkfile)(nil)
 
 func ParseModule(modulePath string) (*Module, error)
 ```
 
 Ownership and call direction:
 
-- `pkg/invkmod` owns the interface contract.
-- `pkg/invkfile` implements the contract and assigns it to `Module.Commands`.
+- `pkg/invowkmod` owns the interface contract.
+- `pkg/invowkfile` implements the contract and assigns it to `Module.Commands`.
 
 Error/diagnostic contract:
 
@@ -334,13 +334,13 @@ Caller responsibilities:
 Replaced-by mapping:
 
 - `Module.Commands any` -> `Module.Commands ModuleCommands`.
-- `GetModuleCommands(m *Module) *Invkfile` cast helper -> direct interface usage via `m.Commands`.
-- Runtime cast from `any` in `pkg/invkfile/parse.go` -> compile-time assertion in `pkg/invkfile`.
+- `GetModuleCommands(m *Module) *Invowkfile` cast helper -> direct interface usage via `m.Commands`.
+- Runtime cast from `any` in `pkg/invowkfile/parse.go` -> compile-time assertion in `pkg/invowkfile`.
 
 ## Execution Plan (Atomic, No Compatibility Layer)
 
 1. Introduce final interfaces/types.
-   - Add `App` dependency contracts, discovery diagnostic result types, config provider contract, and `invkmod.ModuleCommands`.
+   - Add `App` dependency contracts, discovery diagnostic result types, config provider contract, and `invowkmod.ModuleCommands`.
 2. Rewire composition root and CLI command execution.
    - Build `App` once in `root.go`; convert Cobra handlers to request builders; remove init-time orchestration side effects.
 3. Refactor discovery return contracts and caller handling.
@@ -348,7 +348,7 @@ Replaced-by mapping:
 4. Replace config global path with injected provider.
    - Replace production-path `config.Get()`/override usage with provider calls using explicit `LoadOptions`.
 5. Apply typed module-command contract migration.
-   - Change `Module.Commands` type, add compile-time assertion in `pkg/invkfile`, remove cast helper usage.
+   - Change `Module.Commands` type, add compile-time assertion in `pkg/invowkfile`, remove cast helper usage.
 6. Remove obsolete code paths immediately.
    - Delete legacy globals/singletons and old signatures in same migration branch.
 7. Update tests to target final architecture only.
@@ -369,10 +369,10 @@ Verification scenarios are required for each architecture objective:
 3. **Config is consumed through injection only in execution paths**
    - No production execution/list/validation/completion path calls `config.Get()`.
    - Tests use fake provider to assert config comes only from injected dependency.
-4. **`invkmod` command storage is fully typed**
-   - `pkg/invkmod/invkmod.go` no longer contains `Commands any`.
-   - Compile-time assertion exists: `var _ invkmod.ModuleCommands = (*invkfile.Invkfile)(nil)`.
-   - No cast-based module command helper remains in `pkg/invkfile/parse.go`.
+4. **`invowkmod` command storage is fully typed**
+   - `pkg/invowkmod/invowkmod.go` no longer contains `Commands any`.
+   - Compile-time assertion exists: `var _ invowkmod.ModuleCommands = (*invowkfile.Invowkfile)(nil)`.
+   - No cast-based module command helper remains in `pkg/invowkfile/parse.go`.
 5. **Behavioral equivalence of CLI outcomes**
    - Integration coverage for `invowk cmd --list`, ambiguity handling, disambiguated source execution (`@source`, `--from`), runtime selection, and exit-code propagation.
    - Pre/post refactor outcomes match for exit code and key user-visible output semantics.
@@ -397,7 +397,7 @@ Verification scenarios are required for each architecture objective:
 - Command runtime behavior no longer depends on mutable package globals.
 - Discovery returns diagnostics and performs no terminal writes.
 - Production execution paths consume config only through injected provider contract.
-- `pkg/invkmod.Module.Commands` is typed and free of runtime cast-based access patterns.
+- `pkg/invowkmod.Module.Commands` is typed and free of runtime cast-based access patterns.
 - Verification criteria are measurable and directly mapped to items 1-4.
 
 ## File-Level Change Map
@@ -413,5 +413,5 @@ Verification scenarios are required for each architecture objective:
 | `internal/discovery/discovery_files.go` | Preserve discovery traversal, but report recoverable issues via diagnostics. |
 | `internal/config/global.go` | Remove production reliance on global cache/override state. |
 | `internal/config/config.go` | Expose provider-backed load contract using explicit options. |
-| `pkg/invkmod/invkmod.go` | Change `Module.Commands` from `any` to `ModuleCommands` interface. |
-| `pkg/invkfile/parse.go` | Assign typed command contract in `ParseModule`; remove cast-based helper path. |
+| `pkg/invowkmod/invowkmod.go` | Change `Module.Commands` from `any` to `ModuleCommands` interface. |
+| `pkg/invowkfile/parse.go` | Assign typed command contract in `ParseModule`; remove cast-based helper path. |

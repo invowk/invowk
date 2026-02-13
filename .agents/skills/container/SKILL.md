@@ -31,6 +31,18 @@ Use this skill when working on:
 
 **In tests, docs, and examples:** Always use `debian:stable-slim` as the reference image.
 
+### Image Validation (Early Rejection)
+
+`validateSupportedContainerImage()` (`container_provision.go`) enforces the image policy **before** provisioning to fail fast:
+
+```go
+validateSupportedContainerImage(image) error
+  ├── isWindowsContainerImage(image) — pattern matching (mcr.microsoft.com/windows/*, etc.)
+  └── isAlpineContainerImage(image)  — segment-aware matching (last path segment only)
+```
+
+**Segment-aware Alpine detection:** `isAlpineContainerImage()` strips tag/digest suffixes, then checks if the bare name equals `"alpine"` or has `/alpine` as the last path segment. This avoids false positives on images like `"go-alpine-builder:v1"` or `"myorg/alpine-tools"`. Matches: `alpine`, `alpine:3.20`, `docker.io/library/alpine:latest`.
+
 ---
 
 ## Engine Interface
@@ -416,10 +428,12 @@ Container runs (`engine.Run()`) are retried up to 5 times with exponential backo
 | File | Purpose |
 |------|---------|
 | `container_exec.go` | Container execution, `runWithRetry()`, `isTransientExitCode()`, `flushStderr()` |
-| `container_provision.go` | Image building, `ensureImage()` retry, retry constants |
+| `container_provision.go` | Image building, `ensureImage()` retry, retry constants, **image validation** (`validateSupportedContainerImage`, `isAlpineContainerImage`, `isWindowsContainerImage`) |
+| `container_prepare.go` | `CmdCustomizer` type assertion in `PrepareCommand()` |
 | `run_lock_linux.go` | flock-based cross-process lock (`acquireRunLock()`, `runLock`) |
 | `run_lock_other.go` | No-op stub, forces fallback to `sync.Mutex` |
 | `container_exec_test.go` | Unit tests for `runWithRetry()`: serialization decision, stderr buffering, exit codes, context cancellation |
+| `container_test.go` | Unit tests for `isAlpineContainerImage()`, `isWindowsContainerImage()`, `validateSupportedContainerImage()` |
 
 ---
 

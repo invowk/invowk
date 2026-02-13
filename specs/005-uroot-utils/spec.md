@@ -13,7 +13,7 @@ A developer working in a minimal environment (embedded Linux, container with lim
 
 **Why this priority**: This is the core value proposition of u-root integration. The virtual shell runtime already provides cross-platform bash-like script execution via mvdan/sh, but external commands still require host binaries. The u-root utilities would make the virtual runtime truly self-contained.
 
-**Independent Test**: Can be fully tested by configuring `enable_uroot_utils: true` in config, writing an invkfile that uses file operations (`cp`, `mv`, `cat`), and executing it on a minimal system without those binaries installed. Delivers value by enabling invowk to work in environments where coreutils are unavailable.
+**Independent Test**: Can be fully tested by configuring `enable_uroot_utils: true` in config, writing an invowkfile that uses file operations (`cp`, `mv`, `cat`), and executing it on a minimal system without those binaries installed. Delivers value by enabling invowk to work in environments where coreutils are unavailable.
 
 **Acceptance Scenarios**:
 
@@ -27,15 +27,15 @@ A developer working in a minimal environment (embedded Linux, container with lim
 
 ### User Story 2 - Predictable Cross-Platform Behavior (Priority: P2)
 
-A team maintaining invkfiles that must work across Linux, macOS, and Windows wants consistent behavior for basic file operations regardless of the underlying operating system's utility implementations (GNU coreutils vs BSD vs Windows).
+A team maintaining invowkfiles that must work across Linux, macOS, and Windows wants consistent behavior for basic file operations regardless of the underlying operating system's utility implementations (GNU coreutils vs BSD vs Windows).
 
 **Why this priority**: Cross-platform consistency is a secondary benefit that builds on the core u-root functionality. It matters for teams with heterogeneous development environments.
 
-**Independent Test**: Can be tested by running the same invkfile with file operations on Linux, macOS, and Windows (with virtual runtime + u-root enabled) and verifying identical output and behavior for supported operations.
+**Independent Test**: Can be tested by running the same invowkfile with file operations on Linux, macOS, and Windows (with virtual runtime + u-root enabled) and verifying identical output and behavior for supported operations.
 
 **Acceptance Scenarios**:
 
-1. **Given** an invkfile with `cat file | grep pattern | wc -l`, **When** executed on Linux, macOS, and Windows with u-root enabled, **Then** the results are identical across all platforms.
+1. **Given** an invowkfile with `cat file | grep pattern | wc -l`, **When** executed on Linux, macOS, and Windows with u-root enabled, **Then** the results are identical across all platforms.
 
 2. **Given** a script using `cp -r source/ dest/`, **When** executed with u-root enabled, **Then** the recursive copy behavior is consistent across platforms (no BSD vs GNU flag differences).
 
@@ -118,13 +118,13 @@ Unsupported flags (e.g., GNU extensions like `--color`) are silently ignored.
 
 ### Measurable Outcomes
 
-- **SC-001**: Users can execute invkfiles containing basic file operations (`cp`, `mv`, `cat`, `ls`, `mkdir`, `rm`) in the virtual runtime on systems without those binaries installed when u-root is enabled.
+- **SC-001**: Users can execute invowkfiles containing basic file operations (`cp`, `mv`, `cat`, `ls`, `mkdir`, `rm`) in the virtual runtime on systems without those binaries installed when u-root is enabled.
 
 - **SC-002**: 100% of the 15 u-root utilities (`cat`, `cp`, `cut`, `grep`, `head`, `ls`, `mkdir`, `mv`, `rm`, `sort`, `tail`, `touch`, `tr`, `uniq`, `wc`) pass their respective test suites when enabled.
 
 - **SC-003**: Virtual runtime with u-root enabled produces identical output for supported commands across Linux, macOS, and Windows for common use cases.
 
-- **SC-004**: Existing invkfiles that work with `enable_uroot_utils: false` continue to work identically (no regression for users who don't enable the feature).
+- **SC-004**: Existing invowkfiles that work with `enable_uroot_utils: false` continue to work identically (no regression for users who don't enable the feature).
 
 - **SC-005**: Documentation clearly lists which commands are implemented via u-root and which flags are supported for each.
 

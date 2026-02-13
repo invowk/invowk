@@ -10,6 +10,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -277,6 +278,16 @@ func GetInteractiveRuntime(rt Runtime) InteractiveRuntime {
 	return nil
 }
 
+// GetCapturingRuntime returns the runtime as a CapturingRuntime if it supports
+// output capture, otherwise returns nil. Unlike GetInteractiveRuntime, this is
+// a pure type assertion with no additional capability check.
+func GetCapturingRuntime(rt Runtime) CapturingRuntime {
+	if cr, ok := rt.(CapturingRuntime); ok {
+		return cr
+	}
+	return nil
+}
+
 // NewRegistry creates a new runtime registry
 func NewRegistry() *Registry {
 	return &Registry{
@@ -293,7 +304,7 @@ func (r *Registry) Register(typ RuntimeType, rt Runtime) {
 func (r *Registry) Get(typ RuntimeType) (Runtime, error) {
 	rt, ok := r.runtimes[typ]
 	if !ok {
-		return nil, fmt.Errorf("runtime '%s' not registered", typ)
+		return nil, fmt.Errorf("runtime '%s' not registered: %w", typ, ErrRuntimeNotAvailable)
 	}
 	return rt, nil
 }
@@ -351,13 +362,12 @@ func EnvToSlice(env map[string]string) []string {
 func FilterInvowkEnvVars(environ []string) []string {
 	result := make([]string, 0, len(environ))
 	for _, e := range environ {
-		idx := findEnvSeparator(e)
-		if idx == -1 {
-			// Malformed env var, keep it
+		name, _, ok := strings.Cut(e, "=")
+		if !ok {
+			// Malformed env var (no '='), keep it
 			result = append(result, e)
 			continue
 		}
-		name := e[:idx]
 		if shouldFilterEnvVar(name) {
 			continue
 		}
@@ -366,33 +376,23 @@ func FilterInvowkEnvVars(environ []string) []string {
 	return result
 }
 
-// findEnvSeparator returns the index of the '=' separator in an environment variable string
-func findEnvSeparator(e string) int {
-	for i := 0; i < len(e); i++ {
-		if e[i] == '=' {
-			return i
-		}
-	}
-	return -1
-}
-
 // shouldFilterEnvVar returns true if the environment variable name should be filtered
 // to prevent leakage between nested invowk command invocations.
 func shouldFilterEnvVar(name string) bool {
 	// Filter INVOWK_ARG_* and INVOWK_FLAG_* variables
-	if len(name) >= 11 && name[:11] == "INVOWK_ARG_" {
+	if strings.HasPrefix(name, "INVOWK_ARG_") {
 		return true
 	}
-	if len(name) >= 12 && name[:12] == "INVOWK_FLAG_" {
+	if strings.HasPrefix(name, "INVOWK_FLAG_") {
 		return true
 	}
 
-	// Filter legacy ARGC variable
+	// Filter positional ARGC variable (short-form convention alongside INVOWK_ARG_*)
 	if name == "ARGC" {
 		return true
 	}
 
-	// Filter legacy ARGn variables (ARG1, ARG2, etc.)
+	// Filter positional ARGn variables (ARG1, ARG2, etc. — short-form convention alongside INVOWK_ARG_*)
 	if len(name) > 3 && name[:3] == "ARG" {
 		// Check if the rest is all digits
 		for i := 3; i < len(name); i++ {

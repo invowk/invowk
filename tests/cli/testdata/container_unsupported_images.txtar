@@ -1,0 +1,41 @@
+# Test: Unsupported container image policies
+# Verifies deterministic fail-fast errors for unsupported image families.
+
+# Skip if no functional container runtime is available
+[!container-available] skip 'no functional container runtime available'
+# Skip if running inside Flatpak/Snap sandbox (filesystem permissions may prevent volume mounts)
+[in-sandbox] skip 'container tests may require --filesystem permissions in sandbox - run tests on host or grant permissions'
+
+cd $WORK
+
+# Windows images are not supported by the container runtime.
+! exec invowk cmd windows-image
+stderr 'windows container images are not supported'
+
+# Alpine images are intentionally unsupported for reliability reasons.
+! exec invowk cmd alpine-image
+stderr 'alpine-based container images are not supported'
+
+-- invowkfile.cue --
+cmds: [
+	{
+		name: "windows-image"
+		implementations: [
+			{
+				script: "echo unreachable"
+				runtimes: [{name: "container", image: "mcr.microsoft.com/windows/servercore:ltsc2022"}]
+				platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+			}
+		]
+	},
+	{
+		name: "alpine-image"
+		implementations: [
+			{
+				script: "echo unreachable"
+				runtimes: [{name: "container", image: "alpine:latest"}]
+				platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+			}
+		]
+	}
+]

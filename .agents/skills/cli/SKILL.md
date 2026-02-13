@@ -127,35 +127,53 @@ func runTuiInput(cmd *cobra.Command, args []string) error {
 
 ## Discovery → Runtime → Execution Flow
 
-The complete execution path (`cmd_execute.go`):
+The execution is decomposed into a pipeline of focused methods on `commandService` (`cmd_execute.go`):
 
 ```
-runCommandWithFlags()
+commandService.Execute(ctx, req)
     │
-    ├── discovery.GetCommand(cmdName)
+    ├── discoverCommand()       ← Loads config, discovers target command
+    │   └── discovery.GetCommand(ctx, name)
     │
-    ├── Validate runtime selection
-    │   └── Check allowed runtimes for platform
+    ├── resolveDefinitions()    ← Resolves flag/arg defs with fallbacks
     │
-    ├── Validate dependencies
-    │   ├── Tools (runtime-aware)
-    │   ├── Filepaths (runtime-aware)
-    │   ├── Capabilities (host-only)
-    │   ├── CustomChecks (runtime-aware)
-    │   ├── EnvVars (host-only)
-    │   └── Commands (existence check)
+    ├── validateInputs()        ← Validates flags, args, platform compatibility
     │
-    ├── Create ExecutionContext
-    │   ├── Selected runtime
-    │   ├── Implementation script
-    │   ├── Positional arguments
-    │   ├── Environment config
-    │   ├── Working directory
-    │   └── Force rebuild flag
+    ├── resolveRuntime()        ← 3-tier: CLI flag > config default > per-command
     │
-    ├── Create runtime.Registry
+    ├── ensureSSHIfNeeded()     ← Conditional SSH server start for container host access
     │
-    └── Execute via selected runtime
+    ├── buildExecContext()      ← Constructs ExecutionContext with env var projection
+    │
+    └── dispatchExecution()     ← Creates registry, validates deps, dispatches:
+        ├── Container init fail-fast (via runtimeRegistryResult.ContainerInitErr)
+        ├── Dependency validation
+        ├── Interactive mode (alternate screen + TUI server) OR standard execution
+        └── Error classification via classifyExecutionError()
+```
+
+### Error Classification Pipeline
+
+`classifyExecutionError()` (`cmd_execute_error_classifier.go`) maps runtime errors to issue catalog IDs using type-safe `errors.Is()` chains:
+
+```go
+switch {
+case errors.Is(err, container.ErrNoEngineAvailable):  → ContainerEngineNotFoundId
+case errors.Is(err, runtime.ErrRuntimeNotAvailable):  → RuntimeNotAvailableId
+case errors.Is(err, os.ErrPermission):                → PermissionDeniedId
+default (ActionableError "find shell"):               → ShellNotFoundId
+fallback:                                             → ScriptExecutionFailedId
+}
+```
+
+### ServiceError & renderServiceError()
+
+`ServiceError` (`service_error.go`) carries optional rendering info for the CLI layer. The extracted `renderServiceError()` DRYs the identical rendering pattern used in both `executeRequest()` and `runDisambiguatedCommand()`:
+
+```go
+renderServiceError(stderr, svcErr)
+  → prints styled message (if present)
+  → renders issue catalog help section (if IssueID set)
 ```
 
 ---
@@ -303,17 +321,19 @@ module deps             # Inspect dependency tree
 ```go
 disc := discovery.New(cfg)
 
-// Discover and validate all commands (with ambiguity detection)
-commandSet, err := disc.DiscoverAndValidateCommandSet()
+// Discover and validate all commands (with ambiguity detection + diagnostics)
+result, err := disc.DiscoverAndValidateCommandSet(ctx)
+// result.Set is the DiscoveredCommandSet, result.Diagnostics are non-fatal warnings
 
 // Get specific command info (for execution)
-cmdInfo, err := disc.GetCommand(cmdName)
+lookup, err := disc.GetCommand(ctx, cmdName)
+// lookup.Command is the CommandInfo, lookup.Diagnostics are accumulated warnings
 
-// List all discovered commands (for completion)
-commands, err := disc.DiscoverCommands()
+// Discover command set without tree validation (for listing)
+result, err := disc.DiscoverCommandSet(ctx)
 
 // List all discovered files (for module operations)
-files, err := disc.DiscoverAll()
+files, err := disc.DiscoverAll()  // or disc.LoadAll() to also parse
 ```
 
 ---
@@ -337,10 +357,13 @@ files, err := disc.DiscoverAll()
 | File | Purpose |
 |------|---------|
 | `root.go` | Root command, global flags, config loading |
-| `cmd.go` | `invowk cmd` parent, disambiguation |
-| `cmd_discovery.go` | Dynamic command registration |
-| `cmd_execute.go` | Command execution, validation |
-| `cmd_render.go` | Styled error rendering |
+| `cmd.go` | `invowk cmd` parent, executeRequest(), disambiguation entry point |
+| `cmd_discovery.go` | Dynamic command registration (registerDiscoveredCommands, buildLeafCommand) |
+| `cmd_execute.go` | commandService: decomposed pipeline (discoverCommand → resolveDefinitions → validateInputs → resolveRuntime → ensureSSHIfNeeded → buildExecContext → dispatchExecution) |
+| `cmd_execute_helpers.go` | runtimeRegistryResult, createRuntimeRegistry(), runDisambiguatedCommand(), checkAmbiguousCommand() |
+| `cmd_execute_error_classifier.go` | classifyExecutionError() — maps runtime errors to issue catalog IDs |
+| `service_error.go` | ServiceError type and renderServiceError() |
+| `cmd_render.go` | Styled error rendering (argument validation, deps, runtime, host support) |
 | `module.go` | Module commands |
 | `tui_*.go` | TUI component wrappers |
 | `styles.go` | Unified styling system |

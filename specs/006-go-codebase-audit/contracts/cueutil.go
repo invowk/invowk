@@ -7,8 +7,8 @@
 // This is a CONTRACT FILE for planning purposes. It defines the API that will be
 // implemented in pkg/cueutil/.
 //
-// The package consolidates the 3-step CUE parsing pattern used across invkfile,
-// invkmod, and config packages.
+// The package consolidates the 3-step CUE parsing pattern used across invowkfile,
+// invowkmod, and config packages.
 package cueutil
 
 import (
@@ -55,7 +55,7 @@ type ParseResult[T any] struct {
 // Parameters:
 //   - schema: The embedded CUE schema bytes (from //go:embed)
 //   - data: The user-provided CUE file bytes
-//   - schemaPath: The path to the root definition (e.g., "#Invkfile", "#Config")
+//   - schemaPath: The path to the root definition (e.g., "#Invowkfile", "#Config")
 //   - opts: Optional configuration
 //
 // Returns:
@@ -64,14 +64,14 @@ type ParseResult[T any] struct {
 //
 // Example usage:
 //
-//	//go:embed invkfile_schema.cue
+//	//go:embed invowkfile_schema.cue
 //	var schemaBytes []byte
 //
-//	result, err := cueutil.ParseAndDecode[Invkfile](
+//	result, err := cueutil.ParseAndDecode[Invowkfile](
 //	    schemaBytes,
 //	    userFileBytes,
-//	    "#Invkfile",
-//	    cueutil.WithFilename("invkfile.cue"),
+//	    "#Invowkfile",
+//	    cueutil.WithFilename("invowkfile.cue"),
 //	)
 //	if err != nil {
 //	    return nil, err  // Error includes CUE path for debugging
@@ -91,7 +91,7 @@ func CheckFileSize(data []byte, maxSize int64, filename string) error
 // Error format: <file-path>: <json-path>: <message>
 //
 // Examples:
-//   - invkfile.cue: cmds[0].implementations[2].script: value exceeds maximum length
+//   - invowkfile.cue: cmds[0].implementations[2].script: value exceeds maximum length
 //   - config.cue: container.auto_provision.enabled: expected bool, got string
 //
 // This function is exposed for packages that need custom error formatting

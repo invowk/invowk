@@ -61,7 +61,7 @@ type (
 func DefaultConfig() *Config {
 	binaryPath, _ := os.Executable()
 
-	// Discover module paths from user commands dir and config
+	// Discover module paths from user commands dir
 	var modulesPaths []string
 	if userDir, err := config.CommandsDir(); err == nil {
 		if info, err := os.Stat(userDir); err == nil && info.IsDir() {

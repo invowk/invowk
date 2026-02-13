@@ -35,7 +35,7 @@ A contributor wants to make changes to the Invowk codebase. After the audit impr
 
 ### User Story 2 - Enhanced CUE Schema Validation (Priority: P2)
 
-A user writes an `invkfile.cue` with configuration errors. After the audit improvements, they receive earlier and clearer validation errors because additional constraints have been moved from Go validation to CUE schemas, providing immediate feedback during parsing rather than delayed runtime errors.
+A user writes an `invowkfile.cue` with configuration errors. After the audit improvements, they receive earlier and clearer validation errors because additional constraints have been moved from Go validation to CUE schemas, providing immediate feedback during parsing rather than delayed runtime errors.
 
 **Why this priority**: Moving validation to CUE schemas provides defense-in-depth and catches errors earlier in the user workflow. This improves user experience without requiring runtime execution.
 
@@ -43,8 +43,8 @@ A user writes an `invkfile.cue` with configuration errors. After the audit impro
 
 **Acceptance Scenarios**:
 
-1. **Given** a user provides an excessively long `image` field (over 512 characters), **When** they parse the invkfile, **Then** CUE validation fails with a clear length error before any Go code runs.
-2. **Given** a user provides an empty description field, **When** they parse the invkfile, **Then** CUE validation rejects it with the same pattern applied to flag/arg descriptions.
+1. **Given** a user provides an excessively long `image` field (over 512 characters), **When** they parse the invowkfile, **Then** CUE validation fails with a clear length error before any Go code runs.
+2. **Given** a user provides an empty description field, **When** they parse the invowkfile, **Then** CUE validation rejects it with the same pattern applied to flag/arg descriptions.
 3. **Given** CUE schemas have new constraints, **When** schema sync tests run, **Then** all constraints are verified to match corresponding Go struct expectations.
 
 ---
@@ -77,7 +77,7 @@ A maintainer needs to fix a bug in the server state machine logic. After the aud
 
 1. **Given** SSH server and TUI server share identical state machine patterns, **When** improvements are applied, **Then** a shared base server type or mixin exists that both servers use.
 2. **Given** Docker and Podman engines have 95% identical code, **When** improvements are applied, **Then** a base CLI engine implementation exists with engine-specific overrides only for differences (version format, SELinux labels).
-3. **Given** the CUE parsing 3-step flow is repeated across invkfile, invkmod, and config packages, **When** improvements are applied, **Then** a shared CUE parser utility exists.
+3. **Given** the CUE parsing 3-step flow is repeated across invowkfile, invowkmod, and config packages, **When** improvements are applied, **Then** a shared CUE parser utility exists.
 
 ---
 

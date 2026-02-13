@@ -13,7 +13,7 @@
 - Multi-location discovery (current dir, user dir, config paths)
 - Module discovery via `discoverModulesInDir()`
 - `DiscoveredFile` struct with `Source` enum and `Module` pointer
-- Command flattening via `Invkfile.FlattenCommands()`
+- Command flattening via `Invowkfile.FlattenCommands()`
 
 The architecture is well-suited for extension. Key insight: modules are already discovered but their commands are namespaced with full module ID (e.g., `io.invowk.sample hello`). The feature requires:
 1. Changing module command naming to use short names by default
@@ -35,8 +35,8 @@ type CommandInfo struct {
     Description string
     Source      Source              // Already tracks SourceCurrentDir, SourceModule, etc.
     FilePath    string
-    Command     *invkfile.Command
-    Invkfile    *invkfile.Invkfile
+    Command     *invowkfile.Command
+    Invowkfile    *invowkfile.Invowkfile
 }
 ```
 
@@ -44,7 +44,7 @@ The `Source` enum distinguishes location types but not specific modules. Add:
 ```go
 type CommandInfo struct {
     // ... existing fields ...
-    SourceID    string  // NEW: "invkfile" or module short name (e.g., "foo")
+    SourceID    string  // NEW: "invowkfile" or module short name (e.g., "foo")
     ModuleID    string  // NEW: Full module ID if from module (e.g., "io.invowk.sample")
 }
 ```
@@ -88,7 +88,7 @@ type DiscoveredCommandSet struct {
 
 Parse logic:
 1. Check if first arg starts with `@`
-2. Extract source name (strip `@` and optional `.invkmod`/`.cue` suffix)
+2. Extract source name (strip `@` and optional `.invowkmod`/`.cue` suffix)
 3. Validate source exists
 4. Filter commands to that source before execution
 
@@ -121,7 +121,7 @@ The flag is parsed before subcommand matching, making it available in pre-run ho
 **Decision**: Extend `listCommands()` in `cmd/invowk/cmd.go`
 
 **Rationale**: Current listing already groups by `Source` enum. Extend to:
-1. Group by `SourceID` (specific module or "invkfile")
+1. Group by `SourceID` (specific module or "invowkfile")
 2. Render section headers with source name
 3. Show ambiguity annotation when conflicts exist
 
@@ -129,16 +129,16 @@ The flag is parsed before subcommand matching, making it available in pre-run ho
 Available Commands
   (* = default runtime)
 
-From invkfile:
+From invowkfile:
   hello          - Greet the world [native*] (linux, macos, windows)
-  deploy         - Deploy application (@invkfile) [container] (linux)
+  deploy         - Deploy application (@invowkfile) [container] (linux)
 
-From foo.invkmod:
+From foo.invowkmod:
   build          - Build project [native*, virtual]
   deploy         - Deploy to staging (@foo) [native*]
 ```
 
-Note: `(@invkfile)` and `(@foo)` only shown when `deploy` is ambiguous.
+Note: `(@invowkfile)` and `(@foo)` only shown when `deploy` is ambiguous.
 
 **Alternatives Considered**:
 - Flat list with prefixes: Rejected (less scannable)
@@ -146,16 +146,16 @@ Note: `(@invkfile)` and `(@foo)` only shown when `deploy` is ambiguous.
 
 ### RQ-7: How should reserved name validation work?
 
-**Decision**: Add check in `discoverModulesInDir()` and `invkmod.Validate()`
+**Decision**: Add check in `discoverModulesInDir()` and `invowkmod.Validate()`
 
-**Rationale**: Per FR-015, `invkfile.invkmod` is reserved. Check at two points:
+**Rationale**: Per FR-015, `invowkfile.invowkmod` is reserved. Check at two points:
 1. During discovery: Skip with warning
 2. During `invowk module validate`: Report as validation error
 
 ```go
 // In discoverModulesInDir()
-if strings.TrimSuffix(filepath.Base(path), ".invkmod") == "invkfile" {
-    log.Warn("Skipping reserved module name: invkfile.invkmod")
+if strings.TrimSuffix(filepath.Base(path), ".invowkmod") == "invowkfile" {
+    log.Warn("Skipping reserved module name: invowkfile.invowkmod")
     continue
 }
 ```
@@ -209,8 +209,8 @@ func TestAmbiguityDetection(t *testing.T) {
 ```txtar
 # Test: Multi-source discovery
 exec invowk cmd
-stdout 'From invkfile:'
-stdout 'From foo.invkmod:'
+stdout 'From invowkfile:'
+stdout 'From foo.invowkmod:'
 
 # Test: Disambiguation
 exec invowk cmd @foo deploy
@@ -224,7 +224,7 @@ exec invowk cmd @foo deploy
 | `internal/discovery/discovery.go` | Discovery orchestration | Add SourceID/ModuleID to CommandInfo, conflict detection |
 | `internal/discovery/validation.go` | Command tree validation | Add ambiguity validation |
 | `cmd/invowk/cmd.go` | CLI command handling | `@source` parsing, `--from` flag, grouped listing |
-| `pkg/invkmod/operations.go` | Module validation | Reserved name check |
+| `pkg/invowkmod/operations.go` | Module validation | Reserved name check |
 | `tests/cli/testdata/*.txtar` | CLI tests | New test files |
 
 ## Open Questions

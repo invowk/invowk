@@ -51,6 +51,11 @@ type (
 		// Commands contains all discovered commands
 		Commands []*CommandInfo
 
+		// ByName indexes commands by their full name for O(1) lookup.
+		// Only the first command added with a given name is stored (respects
+		// discovery precedence order). Used by GetCommand for fast resolution.
+		ByName map[string]*CommandInfo
+
 		// BySimpleName indexes commands by their simple name for conflict detection.
 		// Key: simple command name (e.g., "deploy")
 		// Value: all commands with that name from different sources
@@ -73,6 +78,7 @@ type (
 func NewDiscoveredCommandSet() *DiscoveredCommandSet {
 	return &DiscoveredCommandSet{
 		Commands:       make([]*CommandInfo, 0),
+		ByName:         make(map[string]*CommandInfo),
 		BySimpleName:   make(map[string][]*CommandInfo),
 		AmbiguousNames: make(map[string]bool),
 		BySource:       make(map[string][]*CommandInfo),
@@ -84,6 +90,11 @@ func NewDiscoveredCommandSet() *DiscoveredCommandSet {
 // The command's SimpleName and SourceID must be set before calling Add.
 func (s *DiscoveredCommandSet) Add(cmd *CommandInfo) {
 	s.Commands = append(s.Commands, cmd)
+
+	// Index by full name (first-wins preserves discovery precedence)
+	if _, exists := s.ByName[cmd.Name]; !exists {
+		s.ByName[cmd.Name] = cmd
+	}
 
 	// Index by simple name
 	s.BySimpleName[cmd.SimpleName] = append(s.BySimpleName[cmd.SimpleName], cmd)
@@ -145,13 +156,14 @@ func (d *Discovery) DiscoverCommandSet(ctx context.Context) (CommandSetResult, e
 	default:
 	}
 
-	files, err := d.LoadAll()
+	files, discoveryDiags, err := d.loadAllWithDiagnostics()
 	if err != nil {
 		return CommandSetResult{}, err
 	}
 
 	commandSet := NewDiscoveredCommandSet()
-	diagnostics := make([]Diagnostic, 0)
+	diagnostics := make([]Diagnostic, 0, len(discoveryDiags))
+	diagnostics = append(diagnostics, discoveryDiags...)
 	// Track seen commands for precedence within non-module sources
 	seenNonModule := make(map[string]bool)
 
@@ -253,10 +265,8 @@ func (d *Discovery) GetCommand(ctx context.Context, name string) (LookupResult, 
 		return LookupResult{}, err
 	}
 
-	for _, cmd := range result.Set.Commands {
-		if cmd.Name == name {
-			return LookupResult{Command: cmd, Diagnostics: result.Diagnostics}, nil
-		}
+	if cmd, ok := result.Set.ByName[name]; ok {
+		return LookupResult{Command: cmd, Diagnostics: result.Diagnostics}, nil
 	}
 
 	// Command-not-found is represented as a diagnostic so CLI callers can choose

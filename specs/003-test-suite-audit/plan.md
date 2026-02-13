@@ -65,16 +65,16 @@ internal/testutil/
 └── home.go              # NEW - SetHomeDir helper (consolidated)
                          # (already uses MustSetenv, just platform logic)
 
-pkg/invkfile/
-├── invkfile_test.go     # REFACTOR → split into:
-├── invkfile_parsing_test.go    # Script parsing, resolution, caching
-├── invkfile_deps_test.go       # Dependency parsing and generation
-├── invkfile_flags_test.go      # Flag validation, mapping
-├── invkfile_args_test.go       # Positional arguments
-├── invkfile_platforms_test.go  # Platform filtering, capabilities
-├── invkfile_env_test.go        # Environment variables, isolation
-├── invkfile_workdir_test.go    # Working directory handling
-└── invkfile_schema_test.go     # Schema validation edge cases
+pkg/invowkfile/
+├── invowkfile_test.go     # REFACTOR → split into:
+├── invowkfile_parsing_test.go    # Script parsing, resolution, caching
+├── invowkfile_deps_test.go       # Dependency parsing and generation
+├── invowkfile_flags_test.go      # Flag validation, mapping
+├── invowkfile_args_test.go       # Positional arguments
+├── invowkfile_platforms_test.go  # Platform filtering, capabilities
+├── invowkfile_env_test.go        # Environment variables, isolation
+├── invowkfile_workdir_test.go    # Working directory handling
+└── invowkfile_schema_test.go     # Schema validation edge cases
 
 cmd/invowk/
 ├── cmd_test.go          # REFACTOR → split into:

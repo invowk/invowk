@@ -5,6 +5,8 @@ package invowkfile
 import (
 	"path/filepath"
 	goruntime "runtime"
+
+	"invowk-cli/pkg/platform"
 )
 
 const (
@@ -13,8 +15,6 @@ const (
 
 	// InvowkmodName is the base name for invowkmod metadata files
 	InvowkmodName = "invowkmod"
-
-	osWindows = "windows"
 )
 
 type (
@@ -64,7 +64,7 @@ func GetCurrentHostOS() Platform {
 		return PlatformLinux
 	case "darwin":
 		return PlatformMac // Returns "macos"
-	case osWindows:
+	case platform.Windows:
 		return PlatformWindows
 	default:
 		// Default to linux for unknown OS

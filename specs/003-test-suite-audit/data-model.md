@@ -106,12 +106,12 @@ func (c *FakeClock) Set(t time.Time)
 
 ```go
 // CommandOption configures a test command.
-type CommandOption func(*invkfile.Command)
+type CommandOption func(*invowkfile.Command)
 ```
 
 **Relationships**:
 - Used by `NewTestCommand()` for flexible command construction
-- Each option modifies a specific field of `invkfile.Command`
+- Each option modifies a specific field of `invowkfile.Command`
 
 **Pre-defined Options**:
 
@@ -136,10 +136,10 @@ type CommandOption func(*invkfile.Command)
 
 ```go
 // FlagOption configures a test command flag.
-type FlagOption func(*invkfile.Flag)
+type FlagOption func(*invowkfile.Flag)
 
 // ArgOption configures a test command argument.
-type ArgOption func(*invkfile.Arg)
+type ArgOption func(*invowkfile.Arg)
 ```
 
 **Pre-defined Flag Options**:
@@ -169,7 +169,7 @@ This is a conceptual entity representing file organization, not a Go type.
 
 | Original File | Split Files | Line Budget |
 |---------------|-------------|-------------|
-| `invkfile_test.go` | 8 files | ~800 each |
+| `invowkfile_test.go` | 8 files | ~800 each |
 | `cmd_test.go` | 5 files | ~500 each |
 | `discovery_test.go` | 3 files | ~600 each |
 | `runtime_test.go` | 3 files | ~500 each |
@@ -178,7 +178,7 @@ This is a conceptual entity representing file organization, not a Go type.
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    invkfile_test.go                         │
+│                    invowkfile_test.go                         │
 ├─────────────────────────────────────────────────────────────┤
 │ parsing_test.go     │ Script parsing, resolution, cache     │
 │ deps_test.go        │ Dependency generation & validation    │
@@ -228,7 +228,7 @@ This is a conceptual entity representing file organization, not a Go type.
                              │ produces
                              ▼
       ┌────────────────────────────────────────────────────┐
-      │              *invkfile.Command                      │
+      │              *invowkfile.Command                      │
       └────────────────────────────────────────────────────┘
 ```
 
@@ -240,7 +240,7 @@ This is a conceptual entity representing file organization, not a Go type.
 
 When migrating from duplicated helpers:
 
-1. **`testCommand()` in `pkg/invkfile/invkfile_test.go`**:
+1. **`testCommand()` in `pkg/invowkfile/invowkfile_test.go`**:
    ```go
    // Before
    cmd := testCommand("hello", "echo hello")

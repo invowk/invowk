@@ -57,14 +57,14 @@ specs/004-cue-lib-optimization/
 
 ```text
 pkg/
-├── invkfile/
-│   ├── invkfile_schema.cue      # Source of truth (unchanged)
+├── invowkfile/
+│   ├── invowkfile_schema.cue      # Source of truth (unchanged)
 │   ├── parse.go                 # Modified: file size check, error formatting
 │   ├── sync_test.go             # NEW: Schema-struct sync verification
-│   └── invkfile_validation.go   # Modified: audit redundant checks
-├── invkmod/
-│   ├── invkmod_schema.cue       # Source of truth (unchanged)
-│   ├── invkmod.go               # Modified: file size check, error formatting
+│   └── invowkfile_validation.go   # Modified: audit redundant checks
+├── invowkmod/
+│   ├── invowkmod_schema.cue       # Source of truth (unchanged)
+│   ├── invowkmod.go               # Modified: file size check, error formatting
 │   └── sync_test.go             # NEW: Schema-struct sync verification
 
 internal/
@@ -110,16 +110,16 @@ See [research.md](./research.md) for full findings. Key decisions:
 The sync test extracts field names from both CUE schemas and Go structs, then compares:
 
 ```go
-func TestInvkfileFieldSync(t *testing.T) {
+func TestInvowkfileFieldSync(t *testing.T) {
     ctx := cuecontext.New()
-    schema := ctx.CompileString(invkfileSchema)
-    invkfileDef := schema.LookupPath(cue.ParsePath("#Invkfile"))
+    schema := ctx.CompileString(invowkfileSchema)
+    invowkfileDef := schema.LookupPath(cue.ParsePath("#Invowkfile"))
 
     // Get CUE field names
-    cueFields := extractCUEFields(invkfileDef)
+    cueFields := extractCUEFields(invowkfileDef)
 
     // Get Go struct JSON tags
-    goFields := extractGoJSONTags(reflect.TypeOf(Invkfile{}))
+    goFields := extractGoJSONTags(reflect.TypeOf(Invowkfile{}))
 
     // Compare (with exclusion list for runtime-only fields)
     for _, field := range cueFields {
@@ -142,9 +142,9 @@ func TestInvkfileFieldSync(t *testing.T) {
 ```go
 const DefaultMaxCUEFileSize = 5 * 1024 * 1024 // 5MB
 
-func ParseBytes(data []byte, path string) (*Invkfile, error) {
+func ParseBytes(data []byte, path string) (*Invowkfile, error) {
     if len(data) > DefaultMaxCUEFileSize {
-        return nil, fmt.Errorf("invkfile at %s exceeds maximum size (%d bytes, limit %d)",
+        return nil, fmt.Errorf("invowkfile at %s exceeds maximum size (%d bytes, limit %d)",
             path, len(data), DefaultMaxCUEFileSize)
     }
     // ... existing parsing ...
@@ -206,10 +206,10 @@ Phases are designed to fit within a single context window each (~4k tokens of ch
 
 | Task | Description | Files |
 |------|-------------|-------|
-| 2.1 | Add `DefaultMaxCUEFileSize` constant and size check to `pkg/invkfile/parse.go` | parse.go |
-| 2.2 | Add size check to `pkg/invkmod/invkmod.go:ParseInvkmodBytes` | invkmod.go |
-| 2.3 | Add `formatCUEError` helper with path extraction | parse.go, invkmod.go |
-| 2.4 | Update error messages to use formatter | parse.go, invkmod.go |
+| 2.1 | Add `DefaultMaxCUEFileSize` constant and size check to `pkg/invowkfile/parse.go` | parse.go |
+| 2.2 | Add size check to `pkg/invowkmod/invowkmod.go:ParseInvowkmodBytes` | invowkmod.go |
+| 2.3 | Add `formatCUEError` helper with path extraction | parse.go, invowkmod.go |
+| 2.4 | Update error messages to use formatter | parse.go, invowkmod.go |
 
 **Exit Criteria**: `make test` passes, errors include JSON paths
 
@@ -219,10 +219,10 @@ Phases are designed to fit within a single context window each (~4k tokens of ch
 
 | Task | Description | Files |
 |------|-------------|-------|
-| 3.1 | Create `extractCUEFields` and `extractGoJSONTags` helpers | pkg/invkfile/sync_test.go |
-| 3.2 | Add sync test for `Invkfile` struct | pkg/invkfile/sync_test.go |
-| 3.3 | Add sync test for `Command`, `Implementation`, etc. | pkg/invkfile/sync_test.go |
-| 3.4 | Add sync test for `Invkmod` struct | pkg/invkmod/sync_test.go |
+| 3.1 | Create `extractCUEFields` and `extractGoJSONTags` helpers | pkg/invowkfile/sync_test.go |
+| 3.2 | Add sync test for `Invowkfile` struct | pkg/invowkfile/sync_test.go |
+| 3.3 | Add sync test for `Command`, `Implementation`, etc. | pkg/invowkfile/sync_test.go |
+| 3.4 | Add sync test for `Invowkmod` struct | pkg/invowkmod/sync_test.go |
 | 3.5 | Add sync test for `Config` struct | internal/config/sync_test.go |
 | 3.6 | Add config schema validation to `loadCUEIntoViper` | internal/config/config.go |
 
@@ -236,7 +236,7 @@ Phases are designed to fit within a single context window each (~4k tokens of ch
 |------|-------------|-------|
 | 4.1 | Expand `.claude/rules/cue.md` with comprehensive patterns | cue.md |
 | 4.2 | Document CUE library upgrade process | cue.md |
-| 4.3 | Audit Go validation for redundancy | invkfile_validation.go |
+| 4.3 | Audit Go validation for redundancy | invowkfile_validation.go |
 | 4.4 | Add justification comments for Go-only validation | Various |
 | 4.5 | Final review against spec acceptance criteria | N/A |
 
