@@ -1,0 +1,161 @@
+# Test: POSIX-style combined short flags for u-root utilities
+# Verifies that combined flags (e.g., -sf, -in) are correctly split
+# into individual flags by Registry.Run() preprocessing.
+
+cd $WORK
+
+# Test 1: ln -sf (symbolic + force combined)
+exec invowk cmd 'uroot ln combined'
+stdout '=== ln combined flags ==='
+stdout 'combined target'
+stdout '=== uroot ln combined test complete ==='
+! stderr .
+
+# Test 2: grep -in (case-insensitive + line numbers combined)
+exec invowk cmd 'uroot grep combined'
+stdout '=== grep combined flags ==='
+stdout '1:HELLO'
+stdout '3:hello'
+stdout '=== uroot grep combined test complete ==='
+! stderr .
+
+# Test 3: wc -lw (lines + words combined)
+exec invowk cmd 'uroot wc combined'
+stdout '=== wc combined flags ==='
+stdout '3'
+stdout '=== uroot wc combined test complete ==='
+! stderr .
+
+# Test 4: sort -rn (reverse + numeric combined)
+exec invowk cmd 'uroot sort combined'
+stdout '=== sort combined flags ==='
+stdout '100'
+stdout '20'
+stdout '3'
+stdout '1'
+stdout '=== uroot sort combined test complete ==='
+! stderr .
+
+# Test 5: uniq -ci (count + case-insensitive combined)
+exec invowk cmd 'uroot uniq combined'
+stdout '=== uniq combined flags ==='
+stdout '2 apple'
+stdout '1 Banana'
+stdout '=== uroot uniq combined test complete ==='
+! stderr .
+
+-- invowkfile.cue --
+cmds: [
+	{
+		name:        "uroot ln combined"
+		description: "Test ln with combined -sf flags"
+		implementations: [{
+			script: """
+				mkdir -p $WORK/ln-combined
+
+				# Create initial target
+				echo 'initial target' > $WORK/ln-combined/orig.txt
+
+				# Create symlink
+				ln -s $WORK/ln-combined/orig.txt $WORK/ln-combined/link.txt
+
+				# Now force-overwrite with combined -sf
+				echo 'combined target' > $WORK/ln-combined/new.txt
+				ln -sf $WORK/ln-combined/new.txt $WORK/ln-combined/link.txt
+
+				echo '=== ln combined flags ==='
+				cat $WORK/ln-combined/link.txt
+
+				rm -rf $WORK/ln-combined
+				echo '=== uroot ln combined test complete ==='
+				"""
+			runtimes: [{name: "virtual"}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+	},
+	{
+		name:        "uroot grep combined"
+		description: "Test grep with combined -in flags"
+		implementations: [{
+			script: """
+				mkdir -p $WORK/grep-combined
+
+				echo 'HELLO world' > $WORK/grep-combined/test.txt
+				echo 'foo bar' >> $WORK/grep-combined/test.txt
+				echo 'hello again' >> $WORK/grep-combined/test.txt
+
+				echo '=== grep combined flags ==='
+				grep -in hello $WORK/grep-combined/test.txt
+
+				rm -rf $WORK/grep-combined
+				echo '=== uroot grep combined test complete ==='
+				"""
+			runtimes: [{name: "virtual"}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+	},
+	{
+		name:        "uroot wc combined"
+		description: "Test wc with combined -lw flags"
+		implementations: [{
+			script: """
+				mkdir -p $WORK/wc-combined
+
+				echo 'one two' > $WORK/wc-combined/test.txt
+				echo 'three four five' >> $WORK/wc-combined/test.txt
+				echo 'six' >> $WORK/wc-combined/test.txt
+
+				echo '=== wc combined flags ==='
+				wc -lw $WORK/wc-combined/test.txt
+
+				rm -rf $WORK/wc-combined
+				echo '=== uroot wc combined test complete ==='
+				"""
+			runtimes: [{name: "virtual"}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+	},
+	{
+		name:        "uroot sort combined"
+		description: "Test sort with combined -rn flags"
+		implementations: [{
+			script: """
+				mkdir -p $WORK/sort-combined
+
+				echo '3' > $WORK/sort-combined/nums.txt
+				echo '100' >> $WORK/sort-combined/nums.txt
+				echo '1' >> $WORK/sort-combined/nums.txt
+				echo '20' >> $WORK/sort-combined/nums.txt
+
+				echo '=== sort combined flags ==='
+				sort -rn $WORK/sort-combined/nums.txt
+
+				rm -rf $WORK/sort-combined
+				echo '=== uroot sort combined test complete ==='
+				"""
+			runtimes: [{name: "virtual"}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+	},
+	{
+		name:        "uroot uniq combined"
+		description: "Test uniq with combined -ci flags"
+		implementations: [{
+			script: """
+				mkdir -p $WORK/uniq-combined
+
+				echo 'apple' > $WORK/uniq-combined/test.txt
+				echo 'Apple' >> $WORK/uniq-combined/test.txt
+				echo 'Banana' >> $WORK/uniq-combined/test.txt
+
+				echo '=== uniq combined flags ==='
+				uniq -ci $WORK/uniq-combined/test.txt
+
+				rm -rf $WORK/uniq-combined
+				echo '=== uroot uniq combined test complete ==='
+				"""
+			runtimes: [{name: "virtual"}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+	},
+]

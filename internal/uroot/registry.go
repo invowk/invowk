@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"sort"
 	"sync"
+
+	"github.com/u-root/u-root/pkg/uroot/unixflag"
 )
 
 // DefaultRegistry is the global registry used by the virtual runtime.
@@ -69,11 +71,27 @@ func (r *Registry) Names() []string {
 // Run executes a command by name with the given context and arguments.
 // Returns an error if the command is not found.
 // The args slice should include the command name as args[0].
+//
+// For custom implementations (those not implementing NativePreprocessor),
+// Run preprocesses args[1:] with unixflag.ArgsToGoArgs to split POSIX-style
+// combined short flags (e.g., "-sf" → "-s", "-f"). Upstream wrappers handle
+// this internally in their RunContext method and are skipped to avoid
+// double-splitting that would corrupt long flags (e.g., --recursive → -r -e -c ...).
 func (r *Registry) Run(ctx context.Context, name string, args []string) error {
 	cmd, ok := r.Lookup(name)
 	if !ok {
 		return fmt.Errorf("[uroot] %s: command not found", name)
 	}
+
+	// Preprocess combined short flags for custom implementations only.
+	// Upstream wrappers (NativePreprocessor) handle this internally via
+	// unixflag.ArgsToGoArgs in their RunContext — double-preprocessing
+	// would corrupt long flags (e.g., --recursive → -r -e -c -u ...).
+	if _, isNative := cmd.(NativePreprocessor); !isNative && len(args) > 1 {
+		preprocessed := unixflag.ArgsToGoArgs(args[1:])
+		args = append([]string{args[0]}, preprocessed...)
+	}
+
 	return cmd.Run(ctx, args)
 }
 

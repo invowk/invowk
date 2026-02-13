@@ -25,6 +25,12 @@ func (w *baseWrapper) SupportedFlags() []FlagInfo {
 	return w.flags
 }
 
+// nativePreprocessor marks baseWrapper (and all upstream wrappers that embed it)
+// as commands handling POSIX flag preprocessing internally via unixflag.ArgsToGoArgs
+// in their RunContext method. Registry.Run() skips centralized preprocessing for
+// these commands to avoid double-splitting (e.g., --recursive → -r -e -c -u ...).
+func (w *baseWrapper) nativePreprocessor() {}
+
 // configureCommand configures a u-root core.Command with the handler context.
 // This is the common setup for all pkg/core wrapper commands.
 func configureCommand(ctx context.Context, cmd core.Command) {

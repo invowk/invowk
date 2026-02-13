@@ -67,6 +67,18 @@
 // constant memory usage regardless of file size. This prevents OOM conditions
 // when processing large files.
 //
+// # POSIX Combined Short Flags
+//
+// Custom implementations support POSIX-style combined short flags (e.g., "-sf"
+// is equivalent to "-s -f"). Registry.Run() preprocesses arguments using
+// unixflag.ArgsToGoArgs before dispatching to custom commands, splitting
+// combined flags into individual Go-style flags that flag.NewFlagSet can parse.
+//
+// Upstream u-root wrappers (those embedding baseWrapper) handle this
+// preprocessing internally in their RunContext method and implement the
+// NativePreprocessor marker interface. Registry.Run() skips preprocessing
+// for these commands to avoid double-splitting that would corrupt long flags.
+//
 // # Unsupported Flags
 //
 // GNU-specific flags not supported by u-root implementations are silently
