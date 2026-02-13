@@ -28,7 +28,7 @@ developer: Developer {
     fill: "#08427B"
     font-color: "#ffffff"
   }
-  tooltip: Uses invowk to run commands defined in invkfiles
+  tooltip: Uses invowk to run commands defined in invowkfiles
 }
 
 team_member: Team Member {
@@ -39,7 +39,7 @@ team_member: Team Member {
     fill: "#08427B"
     font-color: "#ffffff"
   }
-  tooltip: Runs shared commands from invkmod modules
+  tooltip: Runs shared commands from invowkmod modules
 }
 
 # ==============================================================================
@@ -102,7 +102,7 @@ filesystem: Filesystem {
     fill: "#999999"
     font-color: "#ffffff"
   }
-  tooltip: invkfile.cue, *.invkmod directories, scripts
+  tooltip: invowkfile.cue, *.invowkmod directories, scripts
 }
 
 # ==============================================================================
@@ -130,6 +130,6 @@ invowk -> git: "Fetches remote modules\n[Git protocol]" {
 invowk -> host_shell: "Executes native commands\n[exec/spawn]" {
   style.stroke: "#707070"
 }
-invowk -> filesystem: "Reads configs, invkfiles, modules\n[File I/O]" {
+invowk -> filesystem: "Reads configs, invowkfiles, modules\n[File I/O]" {
   style.stroke: "#707070"
 }

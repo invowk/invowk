@@ -9,8 +9,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"invowk-cli/pkg/invkfile"
-	"invowk-cli/pkg/invkmod"
+	"invowk-cli/pkg/invowkfile"
+	"invowk-cli/pkg/invowkmod"
 
 	"github.com/spf13/cobra"
 )
@@ -57,7 +57,7 @@ func newModuleRemoveCommand() *cobra.Command {
 	return &cobra.Command{
 		Use:   "remove <identifier>",
 		Short: "Remove a module dependency",
-		Long: `Remove a module dependency from both the lock file and invkmod.cue.
+		Long: `Remove a module dependency from both the lock file and invowkmod.cue.
 
 The identifier can be:
   - A git URL:   https://github.com/user/module.git
@@ -80,10 +80,10 @@ Examples:
 func newModuleSyncCommand() *cobra.Command {
 	return &cobra.Command{
 		Use:   "sync",
-		Short: "Sync dependencies from invkmod.cue",
-		Long: `Sync all dependencies declared in invkmod.cue.
+		Short: "Sync dependencies from invowkmod.cue",
+		Long: `Sync all dependencies declared in invowkmod.cue.
 
-This reads the 'requires' field from invkmod.cue, resolves all version
+This reads the 'requires' field from invowkmod.cue, resolves all version
 constraints, downloads the modules, and updates the lock file.
 
 Examples:
@@ -139,13 +139,13 @@ func runModuleAdd(args []string, addAlias, addPath string) error {
 	fmt.Println(moduleTitleStyle.Render("Add Module Dependency"))
 
 	// Create module resolver
-	resolver, err := invkmod.NewResolver("", "")
+	resolver, err := invowkmod.NewResolver("", "")
 	if err != nil {
 		return fmt.Errorf("failed to create module resolver: %w", err)
 	}
 
 	// Create requirement
-	req := invkmod.ModuleRef{
+	req := invowkmod.ModuleRef{
 		GitURL:  gitURL,
 		Version: version,
 		Alias:   addAlias,
@@ -169,18 +169,18 @@ func runModuleAdd(args []string, addAlias, addPath string) error {
 	fmt.Printf("%s Namespace: %s\n", moduleInfoIcon, CmdStyle.Render(resolved.Namespace))
 	fmt.Printf("%s Cache:     %s\n", moduleInfoIcon, moduleDetailStyle.Render(resolved.CachePath))
 
-	// Auto-edit invkmod.cue to add the requires entry
-	invkmodPath := filepath.Join(".", "invkmod.cue")
-	if editErr := invkmod.AddRequirement(invkmodPath, req); editErr != nil {
+	// Auto-edit invowkmod.cue to add the requires entry
+	invowkmodPath := filepath.Join(".", "invowkmod.cue")
+	if editErr := invowkmod.AddRequirement(invowkmodPath, req); editErr != nil {
 		if os.IsNotExist(editErr) {
 			fmt.Println()
-			fmt.Printf("%s invkmod.cue not found — lock file was updated but you need to create invkmod.cue\n", moduleInfoIcon)
+			fmt.Printf("%s invowkmod.cue not found — lock file was updated but you need to create invowkmod.cue\n", moduleInfoIcon)
 		} else {
 			fmt.Println()
-			fmt.Printf("%s Could not auto-edit invkmod.cue: %v\n", moduleInfoIcon, editErr)
+			fmt.Printf("%s Could not auto-edit invowkmod.cue: %v\n", moduleInfoIcon, editErr)
 		}
 	} else {
-		fmt.Printf("%s Updated invkmod.cue with new requires entry\n", moduleSuccessIcon)
+		fmt.Printf("%s Updated invowkmod.cue with new requires entry\n", moduleSuccessIcon)
 	}
 
 	return nil
@@ -192,7 +192,7 @@ func runModuleRemove(cmd *cobra.Command, args []string) error {
 	fmt.Println(moduleTitleStyle.Render("Remove Module Dependency"))
 
 	// Create module resolver
-	resolver, err := invkmod.NewResolver("", "")
+	resolver, err := invowkmod.NewResolver("", "")
 	if err != nil {
 		return fmt.Errorf("failed to create module resolver: %w", err)
 	}
@@ -204,7 +204,7 @@ func runModuleRemove(cmd *cobra.Command, args []string) error {
 	results, err := resolver.Remove(ctx, identifier)
 	if err != nil {
 		// Format ambiguous matches nicely
-		var ambigErr *invkmod.AmbiguousIdentifierError
+		var ambigErr *invowkmod.AmbiguousIdentifierError
 		if errors.As(err, &ambigErr) {
 			fmt.Printf("%s %v\n", moduleErrorIcon, err)
 			return err
@@ -213,11 +213,11 @@ func runModuleRemove(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	// Auto-edit invkmod.cue to remove the requires entries
-	invkmodPath := filepath.Join(".", "invkmod.cue")
+	// Auto-edit invowkmod.cue to remove the requires entries
+	invowkmodPath := filepath.Join(".", "invowkmod.cue")
 	for i := range results {
-		if editErr := invkmod.RemoveRequirement(invkmodPath, results[i].RemovedEntry.GitURL, results[i].RemovedEntry.Path); editErr != nil {
-			fmt.Printf("%s Could not auto-edit invkmod.cue: %v\n", moduleInfoIcon, editErr)
+		if editErr := invowkmod.RemoveRequirement(invowkmodPath, results[i].RemovedEntry.GitURL, results[i].RemovedEntry.Path); editErr != nil {
+			fmt.Printf("%s Could not auto-edit invowkmod.cue: %v\n", moduleInfoIcon, editErr)
 		}
 	}
 
@@ -226,7 +226,7 @@ func runModuleRemove(cmd *cobra.Command, args []string) error {
 	}
 
 	fmt.Println()
-	fmt.Printf("%s Lock file and invkmod.cue updated\n", moduleSuccessIcon)
+	fmt.Printf("%s Lock file and invowkmod.cue updated\n", moduleSuccessIcon)
 
 	return nil
 }
@@ -234,24 +234,24 @@ func runModuleRemove(cmd *cobra.Command, args []string) error {
 func runModuleSync(cmd *cobra.Command, args []string) error {
 	fmt.Println(moduleTitleStyle.Render("Sync Module Dependencies"))
 
-	// Parse invkmod.cue to get requirements
-	invkmodulePath := filepath.Join(".", "invkmod.cue")
-	meta, err := invkfile.ParseInvkmod(invkmodulePath)
+	// Parse invowkmod.cue to get requirements
+	invowkmodulePath := filepath.Join(".", "invowkmod.cue")
+	meta, err := invowkfile.ParseInvowkmod(invowkmodulePath)
 	if err != nil {
-		return fmt.Errorf("failed to parse invkmod.cue: %w", err)
+		return fmt.Errorf("failed to parse invowkmod.cue: %w", err)
 	}
 
-	// Extract requirements from invkmod
+	// Extract requirements from invowkmod
 	requirements := extractModuleRequirementsFromMetadata(meta)
 	if len(requirements) == 0 {
-		fmt.Printf("%s No requires field found in invkmod.cue\n", moduleInfoIcon)
+		fmt.Printf("%s No requires field found in invowkmod.cue\n", moduleInfoIcon)
 		return nil
 	}
 
-	fmt.Printf("%s Found %d requirement(s) in invkmod.cue\n", moduleInfoIcon, len(requirements))
+	fmt.Printf("%s Found %d requirement(s) in invowkmod.cue\n", moduleInfoIcon, len(requirements))
 
 	// Create module resolver
-	resolver, err := invkmod.NewResolver("", "")
+	resolver, err := invowkmod.NewResolver("", "")
 	if err != nil {
 		return fmt.Errorf("failed to create module resolver: %w", err)
 	}
@@ -272,7 +272,7 @@ func runModuleSync(cmd *cobra.Command, args []string) error {
 	}
 
 	fmt.Println()
-	fmt.Printf("%s Lock file updated: %s\n", moduleSuccessIcon, invkmod.LockFileName)
+	fmt.Printf("%s Lock file updated: %s\n", moduleSuccessIcon, invowkmod.LockFileName)
 
 	return nil
 }
@@ -281,7 +281,7 @@ func runModuleUpdate(cmd *cobra.Command, args []string) error {
 	fmt.Println(moduleTitleStyle.Render("Update Module Dependencies"))
 
 	// Create module resolver
-	resolver, err := invkmod.NewResolver("", "")
+	resolver, err := invowkmod.NewResolver("", "")
 	if err != nil {
 		return fmt.Errorf("failed to create module resolver: %w", err)
 	}
@@ -299,7 +299,7 @@ func runModuleUpdate(cmd *cobra.Command, args []string) error {
 	updated, err := resolver.Update(ctx, identifier)
 	if err != nil {
 		// Format ambiguous matches nicely
-		var ambigErr *invkmod.AmbiguousIdentifierError
+		var ambigErr *invowkmod.AmbiguousIdentifierError
 		if errors.As(err, &ambigErr) {
 			fmt.Printf("%s %v\n", moduleErrorIcon, err)
 			return err
@@ -321,7 +321,7 @@ func runModuleUpdate(cmd *cobra.Command, args []string) error {
 	}
 
 	fmt.Println()
-	fmt.Printf("%s Lock file updated: %s\n", moduleSuccessIcon, invkmod.LockFileName)
+	fmt.Printf("%s Lock file updated: %s\n", moduleSuccessIcon, invowkmod.LockFileName)
 
 	return nil
 }
@@ -330,7 +330,7 @@ func runModuleDeps(cmd *cobra.Command, args []string) error {
 	fmt.Println(moduleTitleStyle.Render("Module Dependencies"))
 
 	// Create module resolver
-	resolver, err := invkmod.NewResolver("", "")
+	resolver, err := invowkmod.NewResolver("", "")
 	if err != nil {
 		return fmt.Errorf("failed to create module resolver: %w", err)
 	}
@@ -366,16 +366,16 @@ func runModuleDeps(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-// extractModuleRequirementsFromMetadata extracts module requirements from Invkmod.
-func extractModuleRequirementsFromMetadata(meta *invkfile.Invkmod) []invkmod.ModuleRef {
-	var reqs []invkmod.ModuleRef
+// extractModuleRequirementsFromMetadata extracts module requirements from Invowkmod.
+func extractModuleRequirementsFromMetadata(meta *invowkfile.Invowkmod) []invowkmod.ModuleRef {
+	var reqs []invowkmod.ModuleRef
 
 	if meta == nil || meta.Requires == nil {
 		return reqs
 	}
 
 	for _, r := range meta.Requires {
-		reqs = append(reqs, invkmod.ModuleRef(r))
+		reqs = append(reqs, invowkmod.ModuleRef(r))
 	}
 
 	return reqs

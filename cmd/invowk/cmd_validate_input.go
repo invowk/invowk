@@ -7,7 +7,7 @@ import (
 	"os"
 	"strings"
 
-	"invowk-cli/pkg/invkfile"
+	"invowk-cli/pkg/invowkfile"
 )
 
 // captureUserEnv captures the current environment as a map.
@@ -44,7 +44,7 @@ func ArgNameToEnvVar(name string) string {
 
 // validateFlagValues validates flag values at runtime.
 // It checks that required flags are provided and validates values against type and regex patterns.
-func validateFlagValues(cmdName string, flagValues map[string]string, flagDefs []invkfile.Flag) error {
+func validateFlagValues(cmdName string, flagValues map[string]string, flagDefs []invowkfile.Flag) error {
 	if flagDefs == nil {
 		return nil
 	}
@@ -79,7 +79,7 @@ func validateFlagValues(cmdName string, flagValues map[string]string, flagDefs [
 
 // validateArguments validates provided arguments against their definitions.
 // It returns an *ArgumentValidationError if validation fails.
-func validateArguments(cmdName string, providedArgs []string, argDefs []invkfile.Argument) error {
+func validateArguments(cmdName string, providedArgs []string, argDefs []invowkfile.Argument) error {
 	if len(argDefs) == 0 {
 		return nil // No argument definitions, allow any args (backward compatible)
 	}

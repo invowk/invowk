@@ -10,11 +10,11 @@ import Snippet from '@site/src/components/Snippet';
 O formato e estrutura de módulos ainda estão sendo finalizados. Embora nosso objetivo seja manter compatibilidade retroativa, **mudanças incompatíveis podem ocorrer** antes do release 1.0. Se você está distribuindo módulos externamente, esteja preparado para atualizá-los ao fazer upgrade do Invowk™.
 :::
 
-Módulos são pastas autocontidas que agrupam metadados `invkmod.cue` com comandos opcionais em `invkfile.cue` e quaisquer arquivos de script que eles referenciam. Eles são perfeitos para compartilhar comandos, criar toolkits reutilizáveis e distribuir automação entre equipes.
+Módulos são pastas autocontidas que agrupam metadados `invowkmod.cue` com comandos opcionais em `invowkfile.cue` e quaisquer arquivos de script que eles referenciam. Eles são perfeitos para compartilhar comandos, criar toolkits reutilizáveis e distribuir automação entre equipes.
 
 ## O que é um Módulo?
 
-Um módulo é um diretório com o sufixo `.invkmod`:
+Um módulo é um diretório com o sufixo `.invowkmod`:
 
 <Snippet id="modules/structure-basic" />
 
@@ -39,9 +39,9 @@ Cria:
 ### Usar o Módulo
 
 Módulos são descobertos automaticamente de:
-1. Diretório atual (invkfile e módulos locais)
+1. Diretório atual (invowkfile e módulos locais)
 2. Entradas de `includes` configuradas
-3. `~/.invowk/cmds/` (módulos do usuário — apenas `*.invkmod`, não recursivo)
+3. `~/.invowk/cmds/` (módulos do usuário — apenas `*.invowkmod`, não recursivo)
 
 <Snippet id="modules/quick-use" />
 
@@ -53,11 +53,11 @@ Módulos são descobertos automaticamente de:
 
 ### Arquivos Obrigatórios
 
-- **`invkmod.cue`**: Metadados do módulo (nome, versão, dependências)
+- **`invowkmod.cue`**: Metadados do módulo (nome, versão, dependências)
 
 ### Conteúdo Opcional
 
-- **`invkfile.cue`**: Definições de comandos (omita para módulos apenas de biblioteca)
+- **`invowkfile.cue`**: Definições de comandos (omita para módulos apenas de biblioteca)
 - **Scripts**: Shell scripts, arquivos Python, etc.
 - **Templates**: Templates de configuração
 - **Dados**: Quaisquer arquivos de suporte
@@ -72,9 +72,9 @@ Nomes de pasta de módulo seguem estas regras:
 
 | Regra | Válido | Inválido |
 |-------|--------|----------|
-| Terminar com `.invkmod` | `mytools.invkmod` | `mytools` |
-| Começar com letra | `mytools.invkmod` | `123tools.invkmod` |
-| Alfanumérico + pontos | `com.example.invkmod` | `my-tools.invkmod` |
+| Terminar com `.invowkmod` | `mytools.invowkmod` | `mytools` |
+| Começar com letra | `mytools.invowkmod` | `123tools.invowkmod` |
+| Alfanumérico + pontos | `com.example.invowkmod` | `my-tools.invowkmod` |
 
 ### Nomenclatura RDNS
 
@@ -108,10 +108,10 @@ Referencie scripts relativos à raiz do módulo com **barras normais**:
 
 Módulos são descobertos dessas localizações:
 
-1. **invkfile do diretório atual** (maior prioridade)
-2. **Módulos locais** (`*.invkmod` no diretório atual)
+1. **invowkfile do diretório atual** (maior prioridade)
+2. **Módulos locais** (`*.invowkmod` no diretório atual)
 3. **Includes configurados** (caminhos de módulos da configuração)
-4. **Diretório de comandos do usuário** (`~/.invowk/cmds/` — apenas `*.invkmod`, não recursivo)
+4. **Diretório de comandos do usuário** (`~/.invowk/cmds/` — apenas `*.invowkmod`, não recursivo)
 
 Comandos aparecem em `invowk cmd` com sua origem:
 

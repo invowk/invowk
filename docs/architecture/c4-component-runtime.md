@@ -15,7 +15,7 @@ This diagram zooms into the **Runtime** container from the [C2 Container Diagram
 | **Runtime** | `Name()`, `Execute()`, `Available()`, `Validate()` | Core execution contract. All runtimes implement this. `Execute` returns a `*Result` with both exit code and error -- non-zero exit code without error is a normal process exit; error indicates infrastructure failure. |
 | **CapturingRuntime** | `ExecuteCapture()` | Optional output capture capability. Returns a `*Result` with `Output` and `ErrOutput` fields populated. Does not embed `Runtime`. |
 | **InteractiveRuntime** | `SupportsInteractive()`, `PrepareInteractive()` | PTY attachment capability. Embeds `Runtime`. Returns a `PreparedCommand` with an `exec.Cmd` ready for PTY attachment and a cleanup function. |
-| **EnvBuilder** | `Build()` | Environment variable construction following a 10-level precedence hierarchy (host env at level 1 through `--invk-env-var` CLI flags at level 10). |
+| **EnvBuilder** | `Build()` | Environment variable construction following a 10-level precedence hierarchy (host env at level 1 through `--ivk-env-var` CLI flags at level 10). |
 
 ## Implementations
 
@@ -35,7 +35,7 @@ This diagram zooms into the **Runtime** container from the [C2 Container Diagram
 | **RuntimeType** | String type identifying runtime variants: `"native"`, `"virtual"`, `"container"`. |
 | **ExecutionContext** | Primary data structure for command execution. Composed of `IOContext`, `EnvContext`, and `TUIContext` sub-types plus command metadata, selected runtime/implementation, and execution ID. |
 | **IOContext** | Groups I/O streams: `Stdout` (`io.Writer`), `Stderr` (`io.Writer`), `Stdin` (`io.Reader`). Factory functions `DefaultIO()` and `CaptureIO()` provide common configurations. |
-| **EnvContext** | Groups environment configuration: `ExtraEnv` (INVOWK_FLAG_*, INVOWK_ARG_*), `RuntimeEnvVars` (--invk-env-var), `RuntimeEnvFiles` (--invk-env-file), and inheritance overrides (mode, allow, deny). |
+| **EnvContext** | Groups environment configuration: `ExtraEnv` (INVOWK_FLAG_*, INVOWK_ARG_*), `RuntimeEnvVars` (--ivk-env-var), `RuntimeEnvFiles` (--ivk-env-file), and inheritance overrides (mode, allow, deny). |
 | **TUIContext** | Groups TUI server connection details: `ServerURL` and `ServerToken`. Used to pass `INVOWK_TUI_ADDR` and `INVOWK_TUI_TOKEN` into command environments. |
 | **Result** | Execution result: `ExitCode`, `Error`, `Output` (captured stdout), `ErrOutput` (captured stderr). `Success()` returns true when both exit code is 0 and error is nil. |
 | **PreparedCommand** | Returned by `PrepareInteractive()`: contains an `exec.Cmd` ready for PTY attachment and an optional `Cleanup` function. |
@@ -50,7 +50,7 @@ This diagram zooms into the **Runtime** container from the [C2 Container Diagram
 | `config.Config` | ContainerRuntime | Application configuration (container engine preference, etc.) |
 | `mvdan.cc/sh/v3` | VirtualRuntime | Embedded POSIX shell interpreter (syntax, interp, expand) |
 | `internal/uroot` | VirtualRuntime | Built-in utilities for the virtual shell (cp, mv, cat, etc.) |
-| `pkg/invkfile` | ExecutionContext | Command and Invkfile types, RuntimeMode, EnvInheritMode |
+| `pkg/invowkfile` | ExecutionContext | Command and Invowkfile types, RuntimeMode, EnvInheritMode |
 
 ## Key Relationships
 
@@ -68,7 +68,7 @@ All three concrete runtimes (Native, Virtual, Container) implement all three int
 
 The `Registry` decouples runtime selection from execution:
 
-1. CLI layer resolves the `RuntimeType` from command defaults or `--invk-runtime` flag.
+1. CLI layer resolves the `RuntimeType` from command defaults or `--ivk-runtime` flag.
 2. `Registry.GetForContext()` looks up the matching `Runtime` from its internal map.
 3. `Registry.Execute()` chains: get runtime -> check availability -> validate -> execute.
 
@@ -91,17 +91,17 @@ The `EnvBuilder` interface abstracts environment construction. `DefaultEnvBuilde
 | Level | Source | Example |
 |-------|--------|---------|
 | 1 | Host environment (filtered by inherit mode) | `PATH`, `HOME` |
-| 2 | Root-level `env.files` | `invkfile.cue` top-level dotenv |
+| 2 | Root-level `env.files` | `invowkfile.cue` top-level dotenv |
 | 3 | Command-level `env.files` | Per-command dotenv files |
 | 4 | Implementation-level `env.files` | Platform-specific dotenv |
-| 5 | Root-level `env.vars` | `invkfile.cue` top-level vars |
+| 5 | Root-level `env.vars` | `invowkfile.cue` top-level vars |
 | 6 | Command-level `env.vars` | Per-command inline vars |
 | 7 | Implementation-level `env.vars` | Platform-specific vars |
 | 8 | ExtraEnv | `INVOWK_FLAG_*`, `INVOWK_ARG_*`, `ARGC`, `ARGn` |
-| 9 | `--invk-env-file` flag | CLI-specified dotenv files |
-| 10 | `--invk-env-var` flag | CLI-specified key=value pairs (highest priority) |
+| 9 | `--ivk-env-file` flag | CLI-specified dotenv files |
+| 10 | `--ivk-env-var` flag | CLI-specified key=value pairs (highest priority) |
 
-Host environment filtering itself has a 3-level precedence chain: default mode -> invkfile runtime config overrides -> CLI flag overrides. Three modes are supported: `none` (empty), `allow` (allowlist), and `all` (everything minus denylist).
+Host environment filtering itself has a 3-level precedence chain: default mode -> invowkfile runtime config overrides -> CLI flag overrides. Three modes are supported: `none` (empty), `allow` (allowlist), and `all` (everything minus denylist).
 
 ## Design Rationale
 

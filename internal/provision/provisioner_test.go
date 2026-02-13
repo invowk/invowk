@@ -455,11 +455,11 @@ func TestLayerProvisioner_CalculateCacheKey_DifferentInputs(t *testing.T) {
 
 	t.Run("with modules", func(t *testing.T) {
 		modulesDir := filepath.Join(tmpDir, "modules")
-		modPath := filepath.Join(modulesDir, "test.invkmod")
+		modPath := filepath.Join(modulesDir, "test.invowkmod")
 		if err := os.MkdirAll(modPath, 0o755); err != nil {
 			t.Fatalf("failed to create module dir: %v", err)
 		}
-		if err := os.WriteFile(filepath.Join(modPath, "invkmod.cue"), []byte("module content"), 0o644); err != nil {
+		if err := os.WriteFile(filepath.Join(modPath, "invowkmod.cue"), []byte("module content"), 0o644); err != nil {
 			t.Fatalf("failed to write module file: %v", err)
 		}
 
@@ -529,11 +529,11 @@ func TestLayerProvisioner_PrepareBuildContext(t *testing.T) {
 
 	// Create a module directory
 	modulesDir := filepath.Join(tmpDir, "modules")
-	modPath := filepath.Join(modulesDir, "example.invkmod")
+	modPath := filepath.Join(modulesDir, "example.invowkmod")
 	if err := os.MkdirAll(modPath, 0o755); err != nil {
 		t.Fatalf("failed to create module dir: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(modPath, "invkmod.cue"), []byte("test module"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(modPath, "invowkmod.cue"), []byte("test module"), 0o644); err != nil {
 		t.Fatalf("failed to write module file: %v", err)
 	}
 
@@ -674,11 +674,11 @@ func TestConfigOptions_WithModulesPaths(t *testing.T) {
 	}
 }
 
-func TestConfigOptions_WithInvkfilePath(t *testing.T) {
+func TestConfigOptions_WithInvowkfilePath(t *testing.T) {
 	cfg := DefaultConfig()
-	cfg.Apply(WithInvkfilePath("/path/to/invkfile.cue"))
+	cfg.Apply(WithInvowkfilePath("/path/to/invowkfile.cue"))
 
-	if cfg.InvkfilePath != "/path/to/invkfile.cue" {
-		t.Errorf("expected InvkfilePath '/path/to/invkfile.cue', got %q", cfg.InvkfilePath)
+	if cfg.InvowkfilePath != "/path/to/invowkfile.cue" {
+		t.Errorf("expected InvowkfilePath '/path/to/invowkfile.cue', got %q", cfg.InvowkfilePath)
 	}
 }

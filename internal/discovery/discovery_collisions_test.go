@@ -10,8 +10,8 @@ import (
 
 	"invowk-cli/internal/config"
 	"invowk-cli/internal/testutil"
-	"invowk-cli/pkg/invkfile"
-	"invowk-cli/pkg/invkmod"
+	"invowk-cli/pkg/invowkfile"
+	"invowk-cli/pkg/invowkmod"
 )
 
 func TestDiscoveredCommandSet_Add(t *testing.T) {
@@ -21,7 +21,7 @@ func TestDiscoveredCommandSet_Add(t *testing.T) {
 	cmd1 := &CommandInfo{
 		Name:       "hello",
 		SimpleName: "hello",
-		SourceID:   "invkfile",
+		SourceID:   "invowkfile",
 	}
 	cmd2 := &CommandInfo{
 		Name:       "build",
@@ -52,8 +52,8 @@ func TestDiscoveredCommandSet_Add(t *testing.T) {
 	}
 
 	// Check BySource index
-	if len(set.BySource["invkfile"]) != 1 {
-		t.Errorf("len(BySource[invkfile]) = %d, want 1", len(set.BySource["invkfile"]))
+	if len(set.BySource["invowkfile"]) != 1 {
+		t.Errorf("len(BySource[invowkfile]) = %d, want 1", len(set.BySource["invowkfile"]))
 	}
 	if len(set.BySource["foo"]) != 2 {
 		t.Errorf("len(BySource[foo]) = %d, want 2", len(set.BySource["foo"]))
@@ -69,7 +69,7 @@ func TestDiscoveredCommandSet_Analyze_NoConflicts(t *testing.T) {
 	// Test T007: Analyze method with no conflicts
 	set := NewDiscoveredCommandSet()
 
-	set.Add(&CommandInfo{SimpleName: "hello", SourceID: "invkfile"})
+	set.Add(&CommandInfo{SimpleName: "hello", SourceID: "invowkfile"})
 	set.Add(&CommandInfo{SimpleName: "build", SourceID: "foo"})
 	set.Add(&CommandInfo{SimpleName: "test", SourceID: "bar"})
 
@@ -87,9 +87,9 @@ func TestDiscoveredCommandSet_Analyze_NoConflicts(t *testing.T) {
 		}
 	}
 
-	// SourceOrder should be sorted: invkfile first, then alphabetically
-	if set.SourceOrder[0] != "invkfile" {
-		t.Errorf("SourceOrder[0] = %s, want invkfile", set.SourceOrder[0])
+	// SourceOrder should be sorted: invowkfile first, then alphabetically
+	if set.SourceOrder[0] != "invowkfile" {
+		t.Errorf("SourceOrder[0] = %s, want invowkfile", set.SourceOrder[0])
 	}
 	if set.SourceOrder[1] != "bar" {
 		t.Errorf("SourceOrder[1] = %s, want bar", set.SourceOrder[1])
@@ -103,9 +103,9 @@ func TestDiscoveredCommandSet_Analyze_WithConflicts(t *testing.T) {
 	// Test T007: Analyze method with conflicts
 	set := NewDiscoveredCommandSet()
 
-	// "deploy" exists in both invkfile and foo
-	set.Add(&CommandInfo{SimpleName: "hello", SourceID: "invkfile"})
-	set.Add(&CommandInfo{SimpleName: "deploy", SourceID: "invkfile"})
+	// "deploy" exists in both invowkfile and foo
+	set.Add(&CommandInfo{SimpleName: "hello", SourceID: "invowkfile"})
+	set.Add(&CommandInfo{SimpleName: "deploy", SourceID: "invowkfile"})
 	set.Add(&CommandInfo{SimpleName: "deploy", SourceID: "foo"})
 	set.Add(&CommandInfo{SimpleName: "build", SourceID: "foo"})
 
@@ -156,21 +156,21 @@ func TestDiscoveredCommandSet_Analyze_SameNameSameSource(t *testing.T) {
 
 func TestDiscoveredCommandSet_MultiSourceAggregation(t *testing.T) {
 	// Test T011: Multi-source aggregation for User Story 1
-	// Simulates commands from invkfile + two modules
+	// Simulates commands from invowkfile + two modules
 
 	set := NewDiscoveredCommandSet()
 
-	// Commands from invkfile
+	// Commands from invowkfile
 	set.Add(&CommandInfo{
 		Name:       "hello",
 		SimpleName: "hello",
-		SourceID:   "invkfile",
+		SourceID:   "invowkfile",
 		Source:     SourceCurrentDir,
 	})
 	set.Add(&CommandInfo{
 		Name:       "deploy",
 		SimpleName: "deploy",
-		SourceID:   "invkfile",
+		SourceID:   "invowkfile",
 		Source:     SourceCurrentDir,
 	})
 
@@ -207,8 +207,8 @@ func TestDiscoveredCommandSet_MultiSourceAggregation(t *testing.T) {
 	}
 
 	// Test source grouping
-	if len(set.BySource["invkfile"]) != 2 {
-		t.Errorf("len(BySource[invkfile]) = %d, want 2", len(set.BySource["invkfile"]))
+	if len(set.BySource["invowkfile"]) != 2 {
+		t.Errorf("len(BySource[invowkfile]) = %d, want 2", len(set.BySource["invowkfile"]))
 	}
 	if len(set.BySource["foo"]) != 2 {
 		t.Errorf("len(BySource[foo]) = %d, want 2", len(set.BySource["foo"]))
@@ -217,9 +217,9 @@ func TestDiscoveredCommandSet_MultiSourceAggregation(t *testing.T) {
 		t.Errorf("len(BySource[bar]) = %d, want 1", len(set.BySource["bar"]))
 	}
 
-	// Test source order (invkfile first, then alphabetically)
-	if set.SourceOrder[0] != "invkfile" {
-		t.Errorf("SourceOrder[0] = %s, want invkfile", set.SourceOrder[0])
+	// Test source order (invowkfile first, then alphabetically)
+	if set.SourceOrder[0] != "invowkfile" {
+		t.Errorf("SourceOrder[0] = %s, want invowkfile", set.SourceOrder[0])
 	}
 	if set.SourceOrder[1] != "bar" {
 		t.Errorf("SourceOrder[1] = %s, want bar", set.SourceOrder[1])
@@ -228,7 +228,7 @@ func TestDiscoveredCommandSet_MultiSourceAggregation(t *testing.T) {
 		t.Errorf("SourceOrder[2] = %s, want foo", set.SourceOrder[2])
 	}
 
-	// Test ambiguity detection - "deploy" is in both invkfile and foo
+	// Test ambiguity detection - "deploy" is in both invowkfile and foo
 	if !set.AmbiguousNames["deploy"] {
 		t.Error("'deploy' should be marked as ambiguous")
 	}
@@ -264,23 +264,23 @@ func TestDiscoveredCommandSet_HierarchicalAmbiguity(t *testing.T) {
 
 	set := NewDiscoveredCommandSet()
 
-	// Commands from invkfile - parent "deploy" and subcommand "deploy staging"
+	// Commands from invowkfile - parent "deploy" and subcommand "deploy staging"
 	set.Add(&CommandInfo{
 		Name:       "deploy",
 		SimpleName: "deploy",
-		SourceID:   "invkfile",
+		SourceID:   "invowkfile",
 		Source:     SourceCurrentDir,
 	})
 	set.Add(&CommandInfo{
 		Name:       "deploy staging",
 		SimpleName: "deploy staging",
-		SourceID:   "invkfile",
+		SourceID:   "invowkfile",
 		Source:     SourceCurrentDir,
 	})
 	set.Add(&CommandInfo{
 		Name:       "deploy local",
 		SimpleName: "deploy local",
-		SourceID:   "invkfile",
+		SourceID:   "invowkfile",
 		Source:     SourceCurrentDir,
 	})
 
@@ -311,19 +311,19 @@ func TestDiscoveredCommandSet_HierarchicalAmbiguity(t *testing.T) {
 
 	set.Analyze()
 
-	// Test that "deploy" is ambiguous (invkfile vs foo)
+	// Test that "deploy" is ambiguous (invowkfile vs foo)
 	if !set.AmbiguousNames["deploy"] {
-		t.Error("'deploy' should be marked as ambiguous (exists in invkfile and foo)")
+		t.Error("'deploy' should be marked as ambiguous (exists in invowkfile and foo)")
 	}
 
-	// Test that "deploy staging" is ambiguous (invkfile vs bar)
+	// Test that "deploy staging" is ambiguous (invowkfile vs bar)
 	if !set.AmbiguousNames["deploy staging"] {
-		t.Error("'deploy staging' should be marked as ambiguous (exists in invkfile and bar)")
+		t.Error("'deploy staging' should be marked as ambiguous (exists in invowkfile and bar)")
 	}
 
-	// Test that "deploy local" is NOT ambiguous (only in invkfile)
+	// Test that "deploy local" is NOT ambiguous (only in invowkfile)
 	if set.AmbiguousNames["deploy local"] {
-		t.Error("'deploy local' should NOT be marked as ambiguous (only in invkfile)")
+		t.Error("'deploy local' should NOT be marked as ambiguous (only in invowkfile)")
 	}
 
 	// Test that "deploy production" is NOT ambiguous (only in bar)
@@ -397,12 +397,12 @@ func TestCheckModuleCollisions(t *testing.T) {
 	t.Run("NoCollision", func(t *testing.T) {
 		files := []*DiscoveredFile{
 			{
-				Path:     "/path/to/module1",
-				Invkfile: &invkfile.Invkfile{Metadata: &invkfile.Invkmod{Module: "io.example.module1"}},
+				Path:       "/path/to/module1",
+				Invowkfile: &invowkfile.Invowkfile{Metadata: &invowkfile.Invowkmod{Module: "io.example.module1"}},
 			},
 			{
-				Path:     "/path/to/module2",
-				Invkfile: &invkfile.Invkfile{Metadata: &invkfile.Invkmod{Module: "io.example.module2"}},
+				Path:       "/path/to/module2",
+				Invowkfile: &invowkfile.Invowkfile{Metadata: &invowkfile.Invowkmod{Module: "io.example.module2"}},
 			},
 		}
 
@@ -415,12 +415,12 @@ func TestCheckModuleCollisions(t *testing.T) {
 	t.Run("WithCollision", func(t *testing.T) {
 		files := []*DiscoveredFile{
 			{
-				Path:     "/path/to/module1",
-				Invkfile: &invkfile.Invkfile{Metadata: &invkfile.Invkmod{Module: "io.example.same"}},
+				Path:       "/path/to/module1",
+				Invowkfile: &invowkfile.Invowkfile{Metadata: &invowkfile.Invowkmod{Module: "io.example.same"}},
 			},
 			{
-				Path:     "/path/to/module2",
-				Invkfile: &invkfile.Invkfile{Metadata: &invkfile.Invkmod{Module: "io.example.same"}},
+				Path:       "/path/to/module2",
+				Invowkfile: &invowkfile.Invowkfile{Metadata: &invowkfile.Invowkmod{Module: "io.example.same"}},
 			},
 		}
 
@@ -441,20 +441,20 @@ func TestCheckModuleCollisions(t *testing.T) {
 	t.Run("CollisionResolvedByAlias", func(t *testing.T) {
 		cfg := config.DefaultConfig()
 		cfg.Includes = []config.IncludeEntry{
-			{Path: "/path/to/module1.invkmod", Alias: "io.example.alias1"},
+			{Path: "/path/to/module1.invowkmod", Alias: "io.example.alias1"},
 		}
 		dAlias := New(cfg)
 
 		files := []*DiscoveredFile{
 			{
-				Path:     "/path/to/module1.invkmod/invkfile.cue",
-				Invkfile: &invkfile.Invkfile{Metadata: &invkfile.Invkmod{Module: "io.example.same"}},
-				Module:   &invkmod.Module{Path: "/path/to/module1.invkmod"},
+				Path:       "/path/to/module1.invowkmod/invowkfile.cue",
+				Invowkfile: &invowkfile.Invowkfile{Metadata: &invowkfile.Invowkmod{Module: "io.example.same"}},
+				Module:     &invowkmod.Module{Path: "/path/to/module1.invowkmod"},
 			},
 			{
-				Path:     "/path/to/module2.invkmod/invkfile.cue",
-				Invkfile: &invkfile.Invkfile{Metadata: &invkfile.Invkmod{Module: "io.example.same"}},
-				Module:   &invkmod.Module{Path: "/path/to/module2.invkmod"},
+				Path:       "/path/to/module2.invowkmod/invowkfile.cue",
+				Invowkfile: &invowkfile.Invowkfile{Metadata: &invowkfile.Invowkmod{Module: "io.example.same"}},
+				Module:     &invowkmod.Module{Path: "/path/to/module2.invowkmod"},
 			},
 		}
 
@@ -467,8 +467,8 @@ func TestCheckModuleCollisions(t *testing.T) {
 	t.Run("SkipsFilesWithErrors", func(t *testing.T) {
 		files := []*DiscoveredFile{
 			{
-				Path:     "/path/to/module1",
-				Invkfile: &invkfile.Invkfile{Metadata: &invkfile.Invkmod{Module: "io.example.same"}},
+				Path:       "/path/to/module1",
+				Invowkfile: &invowkfile.Invowkfile{Metadata: &invowkfile.Invowkmod{Module: "io.example.same"}},
 			},
 			{
 				Path:  "/path/to/module2",
@@ -485,12 +485,12 @@ func TestCheckModuleCollisions(t *testing.T) {
 	t.Run("SkipsFilesWithoutModuleID", func(t *testing.T) {
 		files := []*DiscoveredFile{
 			{
-				Path:     "/path/to/module1",
-				Invkfile: &invkfile.Invkfile{Metadata: &invkfile.Invkmod{Module: "io.example.module1"}},
+				Path:       "/path/to/module1",
+				Invowkfile: &invowkfile.Invowkfile{Metadata: &invowkfile.Invowkmod{Module: "io.example.module1"}},
 			},
 			{
-				Path:     "/path/to/module2",
-				Invkfile: &invkfile.Invkfile{Metadata: &invkfile.Invkmod{Module: ""}}, // Empty module ID
+				Path:       "/path/to/module2",
+				Invowkfile: &invowkfile.Invowkfile{Metadata: &invowkfile.Invowkmod{Module: ""}}, // Empty module ID
 			},
 		}
 
@@ -507,8 +507,8 @@ func TestGetEffectiveModuleID(t *testing.T) {
 		d := New(cfg)
 
 		file := &DiscoveredFile{
-			Path:     "/path/to/module",
-			Invkfile: &invkfile.Invkfile{Metadata: &invkfile.Invkmod{Module: "io.example.original"}},
+			Path:       "/path/to/module",
+			Invowkfile: &invowkfile.Invowkfile{Metadata: &invowkfile.Invowkmod{Module: "io.example.original"}},
 		}
 
 		moduleID := d.GetEffectiveModuleID(file)
@@ -520,14 +520,14 @@ func TestGetEffectiveModuleID(t *testing.T) {
 	t.Run("WithAlias", func(t *testing.T) {
 		cfg := config.DefaultConfig()
 		cfg.Includes = []config.IncludeEntry{
-			{Path: "/path/to/module.invkmod", Alias: "io.example.aliased"},
+			{Path: "/path/to/module.invowkmod", Alias: "io.example.aliased"},
 		}
 		d := New(cfg)
 
 		file := &DiscoveredFile{
-			Path:     "/path/to/module.invkmod/invkfile.cue",
-			Invkfile: &invkfile.Invkfile{Metadata: &invkfile.Invkmod{Module: "io.example.original"}},
-			Module:   &invkmod.Module{Path: "/path/to/module.invkmod"},
+			Path:       "/path/to/module.invowkmod/invowkfile.cue",
+			Invowkfile: &invowkfile.Invowkfile{Metadata: &invowkfile.Invowkmod{Module: "io.example.original"}},
+			Module:     &invowkmod.Module{Path: "/path/to/module.invowkmod"},
 		}
 
 		moduleID := d.GetEffectiveModuleID(file)
@@ -536,13 +536,13 @@ func TestGetEffectiveModuleID(t *testing.T) {
 		}
 	})
 
-	t.Run("WithNilInvkfile", func(t *testing.T) {
+	t.Run("WithNilInvowkfile", func(t *testing.T) {
 		cfg := config.DefaultConfig()
 		d := New(cfg)
 
 		file := &DiscoveredFile{
-			Path:     "/path/to/module",
-			Invkfile: nil,
+			Path:       "/path/to/module",
+			Invowkfile: nil,
 		}
 
 		moduleID := d.GetEffectiveModuleID(file)
@@ -552,20 +552,20 @@ func TestGetEffectiveModuleID(t *testing.T) {
 	})
 }
 
-func TestDiscoverAll_CurrentDirInvkfileTakesPrecedenceOverModule(t *testing.T) {
+func TestDiscoverAll_CurrentDirInvowkfileTakesPrecedenceOverModule(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	// Create a regular invkfile in current directory
-	// Standalone invkfiles cannot have module/version - those fields only go in invkmod.cue
+	// Create a regular invowkfile in current directory
+	// Standalone invowkfiles cannot have module/version - those fields only go in invowkmod.cue
 	currentContent := `
 cmds: [{name: "cmd", implementations: [{script: "echo current", runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}]}]}]
 `
-	if err := os.WriteFile(filepath.Join(tmpDir, "invkfile.cue"), []byte(currentContent), 0o644); err != nil {
-		t.Fatalf("failed to write current invkfile: %v", err)
+	if err := os.WriteFile(filepath.Join(tmpDir, "invowkfile.cue"), []byte(currentContent), 0o644); err != nil {
+		t.Fatalf("failed to write current invowkfile: %v", err)
 	}
 
 	// Create a module in the same directory using new two-file format
-	moduleDir := filepath.Join(tmpDir, "apack.invkmod")
+	moduleDir := filepath.Join(tmpDir, "apack.invowkmod")
 	createValidCollisionTestModule(t, moduleDir, "apack", "cmd")
 
 	// Change to temp directory
@@ -606,7 +606,7 @@ cmds: [{name: "cmd", implementations: [{script: "echo current", runtimes: [{name
 	}
 
 	if !foundCurrentDir {
-		t.Error("DiscoverAll() did not find invkfile in current directory")
+		t.Error("DiscoverAll() did not find invowkfile in current directory")
 	}
 	if !foundModule {
 		t.Error("DiscoverAll() did not find module")
@@ -616,50 +616,50 @@ cmds: [{name: "cmd", implementations: [{script: "echo current", runtimes: [{name
 func TestDiscoverAll_SkipsReservedModuleName(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	// Create invkfile.cue in tmpDir
-	invkfileContent := `cmds: [{
+	// Create invowkfile.cue in tmpDir
+	invowkfileContent := `cmds: [{
 		name: "root-cmd"
 		description: "Root command"
 		implementations: [{script: "echo root", runtimes: [{name: "virtual"}], platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]}]
 	}]`
-	if err := os.WriteFile(filepath.Join(tmpDir, "invkfile.cue"), []byte(invkfileContent), 0o644); err != nil {
-		t.Fatalf("failed to create invkfile: %v", err)
+	if err := os.WriteFile(filepath.Join(tmpDir, "invowkfile.cue"), []byte(invowkfileContent), 0o644); err != nil {
+		t.Fatalf("failed to create invowkfile: %v", err)
 	}
 
 	// Create a valid module
-	validModDir := filepath.Join(tmpDir, "valid.invkmod")
+	validModDir := filepath.Join(tmpDir, "valid.invowkmod")
 	if err := os.MkdirAll(validModDir, 0o755); err != nil {
 		t.Fatalf("failed to create valid module dir: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(validModDir, "invkmod.cue"), []byte(`module: "valid"
+	if err := os.WriteFile(filepath.Join(validModDir, "invowkmod.cue"), []byte(`module: "valid"
 version: "1.0.0"
 `), 0o644); err != nil {
-		t.Fatalf("failed to create invkmod.cue: %v", err)
+		t.Fatalf("failed to create invowkmod.cue: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(validModDir, "invkfile.cue"), []byte(`cmds: [{
+	if err := os.WriteFile(filepath.Join(validModDir, "invowkfile.cue"), []byte(`cmds: [{
 		name: "valid-cmd"
 		description: "Valid command"
 		implementations: [{script: "echo valid", runtimes: [{name: "virtual"}], platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]}]
 	}]`), 0o644); err != nil {
-		t.Fatalf("failed to create invkfile.cue: %v", err)
+		t.Fatalf("failed to create invowkfile.cue: %v", err)
 	}
 
-	// Create a module with reserved name "invkfile" (FR-015)
-	reservedModDir := filepath.Join(tmpDir, "invkfile.invkmod")
+	// Create a module with reserved name "invowkfile" (FR-015)
+	reservedModDir := filepath.Join(tmpDir, "invowkfile.invowkmod")
 	if err := os.MkdirAll(reservedModDir, 0o755); err != nil {
 		t.Fatalf("failed to create reserved module dir: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(reservedModDir, "invkmod.cue"), []byte(`module: "invkfile"
+	if err := os.WriteFile(filepath.Join(reservedModDir, "invowkmod.cue"), []byte(`module: "invowkfile"
 version: "1.0.0"
 `), 0o644); err != nil {
-		t.Fatalf("failed to create invkmod.cue: %v", err)
+		t.Fatalf("failed to create invowkmod.cue: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(reservedModDir, "invkfile.cue"), []byte(`cmds: [{
+	if err := os.WriteFile(filepath.Join(reservedModDir, "invowkfile.cue"), []byte(`cmds: [{
 		name: "reserved-cmd"
 		description: "Reserved command"
 		implementations: [{script: "echo reserved", runtimes: [{name: "virtual"}], platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]}]
 	}]`), 0o644); err != nil {
-		t.Fatalf("failed to create invkfile.cue: %v", err)
+		t.Fatalf("failed to create invowkfile.cue: %v", err)
 	}
 
 	// Change to temp directory
@@ -682,7 +682,7 @@ version: "1.0.0"
 		t.Fatalf("DiscoverAll() error: %v", err)
 	}
 
-	// Should find invkfile.cue and valid module, but NOT the reserved module
+	// Should find invowkfile.cue and valid module, but NOT the reserved module
 	foundCurrentDir := false
 	foundValidModule := false
 	foundReservedModule := false
@@ -694,20 +694,20 @@ version: "1.0.0"
 			if f.Module.Name() == "valid" {
 				foundValidModule = true
 			}
-			if f.Module.Name() == "invkfile" {
+			if f.Module.Name() == "invowkfile" {
 				foundReservedModule = true
 			}
 		}
 	}
 
 	if !foundCurrentDir {
-		t.Error("DiscoverAll() did not find invkfile in current directory")
+		t.Error("DiscoverAll() did not find invowkfile in current directory")
 	}
 	if !foundValidModule {
 		t.Error("DiscoverAll() did not find valid module")
 	}
 	if foundReservedModule {
-		t.Error("DiscoverAll() should skip module with reserved name 'invkfile' (FR-015)")
+		t.Error("DiscoverAll() should skip module with reserved name 'invowkfile' (FR-015)")
 	}
 }
 
@@ -721,22 +721,22 @@ func containsString(s, substr string) bool {
 	return false
 }
 
-// createValidCollisionTestModule creates a module with the new two-file format (invkmod.cue + invkfile.cue)
+// createValidCollisionTestModule creates a module with the new two-file format (invowkmod.cue + invowkfile.cue)
 func createValidCollisionTestModule(t *testing.T, moduleDir, moduleID, cmdName string) {
 	t.Helper()
 	if err := os.MkdirAll(moduleDir, 0o755); err != nil {
 		t.Fatalf("failed to create module dir: %v", err)
 	}
-	// Create invkmod.cue with metadata
-	invkmodContent := `module: "` + moduleID + `"
+	// Create invowkmod.cue with metadata
+	invowkmodContent := `module: "` + moduleID + `"
 version: "1.0.0"
 `
-	if err := os.WriteFile(filepath.Join(moduleDir, "invkmod.cue"), []byte(invkmodContent), 0o644); err != nil {
-		t.Fatalf("failed to write invkmod.cue: %v", err)
+	if err := os.WriteFile(filepath.Join(moduleDir, "invowkmod.cue"), []byte(invowkmodContent), 0o644); err != nil {
+		t.Fatalf("failed to write invowkmod.cue: %v", err)
 	}
-	// Create invkfile.cue with commands
-	invkfileContent := `cmds: [{name: "` + cmdName + `", implementations: [{script: "echo test", runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}]}]}]`
-	if err := os.WriteFile(filepath.Join(moduleDir, "invkfile.cue"), []byte(invkfileContent), 0o644); err != nil {
-		t.Fatalf("failed to write invkfile.cue: %v", err)
+	// Create invowkfile.cue with commands
+	invowkfileContent := `cmds: [{name: "` + cmdName + `", implementations: [{script: "echo test", runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}]}]}]`
+	if err := os.WriteFile(filepath.Join(moduleDir, "invowkfile.cue"), []byte(invowkfileContent), 0o644); err != nil {
+		t.Fatalf("failed to write invowkfile.cue: %v", err)
 	}
 }

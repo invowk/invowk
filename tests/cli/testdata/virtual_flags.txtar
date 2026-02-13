@@ -43,7 +43,7 @@ stdout '=== Flag Validation Demo ==='
 stdout 'regex patterns'
 ! stderr .
 
--- invkfile.cue --
+-- invowkfile.cue --
 cmds: [
 	{
 		name:        "flags simple"

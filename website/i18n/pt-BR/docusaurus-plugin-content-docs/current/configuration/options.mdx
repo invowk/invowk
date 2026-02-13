@@ -34,12 +34,12 @@ Se a engine preferida não estiver disponível, o Invowk faz fallback para a out
 **Tipo:** `[...#IncludeEntry]`
 **Padrão:** `[]`
 
-Módulos adicionais para incluir na descoberta de comandos. Cada entrada é um `#IncludeEntry` com `path` obrigatório (deve terminar com `.invkmod`) e `alias` opcional.
+Módulos adicionais para incluir na descoberta de comandos. Cada entrada é um `#IncludeEntry` com `path` obrigatório (deve terminar com `.invowkmod`) e `alias` opcional.
 
 <Snippet id="config/includes" />
 
 **Requisitos de caminho:**
-- Deve terminar com `.invkmod`
+- Deve terminar com `.invowkmod`
 - Caminhos duplicados são rejeitados
 
 **Regras de alias:**
@@ -47,8 +47,8 @@ Módulos adicionais para incluir na descoberta de comandos. Cada entrada é um `
 - Deve ser único entre todas as entradas includes
 
 **Ordem de Descoberta:**
-1. invkfile do diretório atual (sempre buscado primeiro, maior prioridade)
-2. Módulos locais (`*.invkmod` no diretório atual)
+1. invowkfile do diretório atual (sempre buscado primeiro, maior prioridade)
+2. Módulos locais (`*.invowkmod` no diretório atual)
 3. `~/.invowk/cmds` (sempre incluído)
 4. Cada entrada em `includes` em ordem
 
@@ -124,7 +124,7 @@ Habilita saída verbose por padrão. Quando habilitado, Invowk imprime informaç
 
 <Snippet id="config/ui-verbose" />
 
-Isso é equivalente a sempre passar `--invk-verbose` na linha de comando.
+Isso é equivalente a sempre passar `--ivk-verbose` na linha de comando.
 
 #### ui.interactive
 
@@ -135,7 +135,7 @@ Habilita o modo interativo por padrão. Quando habilitado, os comandos são exec
 
 <Snippet id="config/ui-interactive" />
 
-Isso é equivalente a sempre passar `--invk-interactive` na linha de comando.
+Isso é equivalente a sempre passar `--ivk-interactive` na linha de comando.
 
 ### container
 
@@ -166,7 +166,7 @@ Sobrescreve o caminho do binário do invowk para provisionar.
 **Tipo:** `[...#IncludeEntry]`
 **Padrão:** `[]`
 
-Módulos adicionais para provisionar dentro dos containers. Usa o mesmo formato `#IncludeEntry` do `includes` raiz (cada entrada tem um `path` terminando com `.invkmod` e um `alias` opcional).
+Módulos adicionais para provisionar dentro dos containers. Usa o mesmo formato `#IncludeEntry` do `includes` raiz (cada entrada tem um `path` terminando com `.invowkmod` e um `alias` opcional).
 
 #### container.auto_provision.inherit_includes
 

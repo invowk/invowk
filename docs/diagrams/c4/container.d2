@@ -103,7 +103,7 @@ invowk_cli: Invowk CLI {
       }
       tooltip: |md
         **Go**
-        Locates invkfiles and modules with precedence ordering
+        Locates invowkfiles and modules with precedence ordering
       |
     }
 
@@ -259,7 +259,7 @@ config_file: Config File {
   |
 }
 
-invkfiles: Invkfiles {
+invowkfiles: Invowkfiles {
   shape: cylinder
   style: {
     fill: "#438DD5"
@@ -267,7 +267,7 @@ invkfiles: Invkfiles {
   }
   tooltip: |md
     **CUE**
-    invkfile.cue command definitions
+    invowkfile.cue command definitions
   |
 }
 
@@ -279,7 +279,7 @@ modules: Modules {
   }
   tooltip: |md
     **Directories**
-    *.invkmod directories with invkmod.cue + invkfile.cue
+    *.invowkmod directories with invowkmod.cue + invowkfile.cue
   |
 }
 
@@ -322,7 +322,7 @@ invowk_cli.entry_core.config -> invowk_cli.entry_core.cue_parser: Parses {
 }
 
 # Data store access
-invowk_cli.entry_core.discovery -> invkfiles: Reads {
+invowk_cli.entry_core.discovery -> invowkfiles: Reads {
   style.stroke: "#707070"
 }
 invowk_cli.entry_core.discovery -> modules: Reads {

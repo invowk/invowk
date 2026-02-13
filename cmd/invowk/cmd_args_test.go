@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	"invowk-cli/internal/discovery"
-	"invowk-cli/pkg/invkfile"
+	"invowk-cli/pkg/invowkfile"
 )
 
 // ---------------------------------------------------------------------------
@@ -78,19 +78,19 @@ func TestBuildCommandUsageString(t *testing.T) {
 	tests := []struct {
 		name     string
 		cmdPart  string
-		args     []invkfile.Argument
+		args     []invowkfile.Argument
 		expected string
 	}{
 		{
 			name:     "no arguments",
 			cmdPart:  "deploy",
-			args:     []invkfile.Argument{},
+			args:     []invowkfile.Argument{},
 			expected: "deploy",
 		},
 		{
 			name:    "single required argument",
 			cmdPart: "deploy",
-			args: []invkfile.Argument{
+			args: []invowkfile.Argument{
 				{Name: "env", Required: true},
 			},
 			expected: "deploy <env>",
@@ -98,7 +98,7 @@ func TestBuildCommandUsageString(t *testing.T) {
 		{
 			name:    "single optional argument",
 			cmdPart: "deploy",
-			args: []invkfile.Argument{
+			args: []invowkfile.Argument{
 				{Name: "env", Required: false},
 			},
 			expected: "deploy [env]",
@@ -106,7 +106,7 @@ func TestBuildCommandUsageString(t *testing.T) {
 		{
 			name:    "required and optional arguments",
 			cmdPart: "deploy",
-			args: []invkfile.Argument{
+			args: []invowkfile.Argument{
 				{Name: "env", Required: true},
 				{Name: "replicas", Required: false},
 			},
@@ -115,7 +115,7 @@ func TestBuildCommandUsageString(t *testing.T) {
 		{
 			name:    "required variadic argument",
 			cmdPart: "deploy",
-			args: []invkfile.Argument{
+			args: []invowkfile.Argument{
 				{Name: "services", Required: true, Variadic: true},
 			},
 			expected: "deploy <services>...",
@@ -123,7 +123,7 @@ func TestBuildCommandUsageString(t *testing.T) {
 		{
 			name:    "optional variadic argument",
 			cmdPart: "deploy",
-			args: []invkfile.Argument{
+			args: []invowkfile.Argument{
 				{Name: "services", Required: false, Variadic: true},
 			},
 			expected: "deploy [services]...",
@@ -131,7 +131,7 @@ func TestBuildCommandUsageString(t *testing.T) {
 		{
 			name:    "multiple args with variadic",
 			cmdPart: "deploy",
-			args: []invkfile.Argument{
+			args: []invowkfile.Argument{
 				{Name: "env", Required: true},
 				{Name: "replicas", Required: false},
 				{Name: "services", Required: false, Variadic: true},
@@ -153,49 +153,49 @@ func TestBuildCommandUsageString(t *testing.T) {
 func TestBuildArgsDocumentation(t *testing.T) {
 	tests := []struct {
 		name          string
-		args          []invkfile.Argument
+		args          []invowkfile.Argument
 		shouldHave    []string
 		shouldNotHave []string
 	}{
 		{
 			name: "required argument",
-			args: []invkfile.Argument{
+			args: []invowkfile.Argument{
 				{Name: "env", Description: "Target environment", Required: true},
 			},
 			shouldHave: []string{"env", "(required)", "Target environment"},
 		},
 		{
 			name: "optional with default",
-			args: []invkfile.Argument{
+			args: []invowkfile.Argument{
 				{Name: "replicas", Description: "Number of replicas", DefaultValue: "1"},
 			},
 			shouldHave: []string{"replicas", `(default: "1")`, "Number of replicas"},
 		},
 		{
 			name: "optional without default",
-			args: []invkfile.Argument{
+			args: []invowkfile.Argument{
 				{Name: "tag", Description: "Image tag"},
 			},
 			shouldHave: []string{"tag", "(optional)", "Image tag"},
 		},
 		{
 			name: "typed argument",
-			args: []invkfile.Argument{
-				{Name: "count", Description: "Count value", Type: invkfile.ArgumentTypeInt},
+			args: []invowkfile.Argument{
+				{Name: "count", Description: "Count value", Type: invowkfile.ArgumentTypeInt},
 			},
 			shouldHave: []string{"count", "[int]", "Count value"},
 		},
 		{
 			name: "variadic argument",
-			args: []invkfile.Argument{
+			args: []invowkfile.Argument{
 				{Name: "services", Description: "Services to deploy", Variadic: true},
 			},
 			shouldHave: []string{"services", "(variadic)", "Services to deploy"},
 		},
 		{
 			name: "string type not shown",
-			args: []invkfile.Argument{
-				{Name: "name", Description: "Name", Type: invkfile.ArgumentTypeString},
+			args: []invowkfile.Argument{
+				{Name: "name", Description: "Name", Type: invowkfile.ArgumentTypeString},
 			},
 			shouldHave:    []string{"name", "Name"},
 			shouldNotHave: []string{"[string]"},
@@ -282,14 +282,14 @@ func TestValidateArguments_NoDefinitions(t *testing.T) {
 		t.Errorf("Expected nil error when no args and no definitions, got: %v", err)
 	}
 
-	err = validateArguments("test-cmd", []string{"anything"}, []invkfile.Argument{})
+	err = validateArguments("test-cmd", []string{"anything"}, []invowkfile.Argument{})
 	if err != nil {
 		t.Errorf("Expected nil error when empty arg definitions, got: %v", err)
 	}
 }
 
 func TestValidateArguments_MissingRequired(t *testing.T) {
-	argDefs := []invkfile.Argument{
+	argDefs := []invowkfile.Argument{
 		{Name: "env", Description: "Target environment", Required: true},
 		{Name: "region", Description: "AWS region", Required: true},
 	}
@@ -320,7 +320,7 @@ func TestValidateArguments_MissingRequired(t *testing.T) {
 }
 
 func TestValidateArguments_TooManyArgs(t *testing.T) {
-	argDefs := []invkfile.Argument{
+	argDefs := []invowkfile.Argument{
 		{Name: "env", Description: "Target environment", Required: true},
 	}
 
@@ -344,7 +344,7 @@ func TestValidateArguments_TooManyArgs(t *testing.T) {
 }
 
 func TestValidateArguments_VariadicAllowsExtra(t *testing.T) {
-	argDefs := []invkfile.Argument{
+	argDefs := []invowkfile.Argument{
 		{Name: "env", Description: "Target environment", Required: true},
 		{Name: "services", Description: "Services to deploy", Variadic: true},
 	}
@@ -363,8 +363,8 @@ func TestValidateArguments_VariadicAllowsExtra(t *testing.T) {
 }
 
 func TestValidateArguments_InvalidValue(t *testing.T) {
-	argDefs := []invkfile.Argument{
-		{Name: "replicas", Description: "Number of replicas", Type: invkfile.ArgumentTypeInt, Required: true},
+	argDefs := []invowkfile.Argument{
+		{Name: "replicas", Description: "Number of replicas", Type: invowkfile.ArgumentTypeInt, Required: true},
 	}
 
 	// Invalid integer value
@@ -392,37 +392,37 @@ func TestValidateArguments_InvalidValue(t *testing.T) {
 func TestValidateArguments_ValidTypes(t *testing.T) {
 	tests := []struct {
 		name    string
-		argDefs []invkfile.Argument
+		argDefs []invowkfile.Argument
 		args    []string
 		wantErr bool
 	}{
 		{
 			name: "valid integer",
-			argDefs: []invkfile.Argument{
-				{Name: "count", Type: invkfile.ArgumentTypeInt, Required: true},
+			argDefs: []invowkfile.Argument{
+				{Name: "count", Type: invowkfile.ArgumentTypeInt, Required: true},
 			},
 			args:    []string{"42"},
 			wantErr: false,
 		},
 		{
 			name: "valid float",
-			argDefs: []invkfile.Argument{
-				{Name: "scale", Type: invkfile.ArgumentTypeFloat, Required: true},
+			argDefs: []invowkfile.Argument{
+				{Name: "scale", Type: invowkfile.ArgumentTypeFloat, Required: true},
 			},
 			args:    []string{"3.14"},
 			wantErr: false,
 		},
 		{
 			name: "string allows anything",
-			argDefs: []invkfile.Argument{
-				{Name: "message", Type: invkfile.ArgumentTypeString, Required: true},
+			argDefs: []invowkfile.Argument{
+				{Name: "message", Type: invowkfile.ArgumentTypeString, Required: true},
 			},
 			args:    []string{"Hello, World!"},
 			wantErr: false,
 		},
 		{
 			name: "default type is string",
-			argDefs: []invkfile.Argument{
+			argDefs: []invowkfile.Argument{
 				{Name: "input", Required: true}, // No type specified
 			},
 			args:    []string{"any value works"},
@@ -441,7 +441,7 @@ func TestValidateArguments_ValidTypes(t *testing.T) {
 }
 
 func TestValidateArguments_OptionalWithDefault(t *testing.T) {
-	argDefs := []invkfile.Argument{
+	argDefs := []invowkfile.Argument{
 		{Name: "env", Description: "Target environment", Required: true},
 		{Name: "replicas", Description: "Number of replicas", DefaultValue: "3"},
 	}
@@ -463,7 +463,7 @@ func TestRenderArgumentValidationError_MissingRequired(t *testing.T) {
 	err := &ArgumentValidationError{
 		Type:        ArgErrMissingRequired,
 		CommandName: "deploy",
-		ArgDefs: []invkfile.Argument{
+		ArgDefs: []invowkfile.Argument{
 			{Name: "env", Description: "Target environment", Required: true},
 			{Name: "replicas", Description: "Number of replicas", DefaultValue: "1"},
 		},
@@ -494,7 +494,7 @@ func TestRenderArgumentValidationError_TooMany(t *testing.T) {
 	err := &ArgumentValidationError{
 		Type:        ArgErrTooMany,
 		CommandName: "deploy",
-		ArgDefs: []invkfile.Argument{
+		ArgDefs: []invowkfile.Argument{
 			{Name: "env", Description: "Target environment"},
 		},
 		ProvidedArgs: []string{"prod", "extra1", "extra2"},
@@ -545,12 +545,12 @@ func TestRenderArgumentValidationError_InvalidValue(t *testing.T) {
 func TestRenderArgsSubcommandConflictError(t *testing.T) {
 	err := &discovery.ArgsSubcommandConflictError{
 		CommandName: "deploy",
-		Args: []invkfile.Argument{
+		Args: []invowkfile.Argument{
 			{Name: "env", Description: "Target environment"},
 			{Name: "replicas", Description: "Number of replicas"},
 		},
 		Subcommands: []string{"deploy status", "deploy logs"},
-		FilePath:    "/test/invkfile.cue",
+		FilePath:    "/test/invowkfile.cue",
 	}
 
 	output := RenderArgsSubcommandConflictError(err)
@@ -566,7 +566,7 @@ func TestRenderArgsSubcommandConflictError(t *testing.T) {
 	}
 
 	// Check file path is shown
-	if !strings.Contains(output, "/test/invkfile.cue") {
+	if !strings.Contains(output, "/test/invowkfile.cue") {
 		t.Error("Should contain file path")
 	}
 

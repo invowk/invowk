@@ -9,8 +9,8 @@ import (
 	"strings"
 	"testing"
 
-	"invowk-cli/internal/testutil/invkfiletest"
-	"invowk-cli/pkg/invkfile"
+	"invowk-cli/internal/testutil/invowkfiletest"
+	"invowk-cli/pkg/invowkfile"
 )
 
 // ============================================================================
@@ -18,20 +18,20 @@ import (
 // ============================================================================
 
 func TestCheckFilepathDependencies_NoFilepaths(t *testing.T) {
-	cmd := invkfiletest.NewTestCommand("test", invkfiletest.WithScript("echo hello"))
+	cmd := invowkfiletest.NewTestCommand("test", invowkfiletest.WithScript("echo hello"))
 
-	err := checkFilepathDependencies(cmd, "/tmp/invkfile.cue")
+	err := checkFilepathDependencies(cmd, "/tmp/invowkfile.cue")
 	if err != nil {
 		t.Errorf("checkFilepathDependencies() should return nil for command with no dependencies, got: %v", err)
 	}
 }
 
 func TestCheckFilepathDependencies_EmptyDependsOn(t *testing.T) {
-	cmd := invkfiletest.NewTestCommand("test",
-		invkfiletest.WithScript("echo hello"),
-		invkfiletest.WithDependsOn(&invkfile.DependsOn{}))
+	cmd := invowkfiletest.NewTestCommand("test",
+		invowkfiletest.WithScript("echo hello"),
+		invowkfiletest.WithDependsOn(&invowkfile.DependsOn{}))
 
-	err := checkFilepathDependencies(cmd, "/tmp/invkfile.cue")
+	err := checkFilepathDependencies(cmd, "/tmp/invowkfile.cue")
 	if err != nil {
 		t.Errorf("checkFilepathDependencies() should return nil for empty depends_on, got: %v", err)
 	}
@@ -45,14 +45,14 @@ func TestCheckFilepathDependencies_FileExists(t *testing.T) {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
 
-	cmd := invkfiletest.NewTestCommand("test",
-		invkfiletest.WithScript("echo hello"),
-		invkfiletest.WithDependsOn(&invkfile.DependsOn{
-			Filepaths: []invkfile.FilepathDependency{{Alternatives: []string{"test.txt"}}},
+	cmd := invowkfiletest.NewTestCommand("test",
+		invowkfiletest.WithScript("echo hello"),
+		invowkfiletest.WithDependsOn(&invowkfile.DependsOn{
+			Filepaths: []invowkfile.FilepathDependency{{Alternatives: []string{"test.txt"}}},
 		}))
 
-	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
-	err := checkFilepathDependencies(cmd, invkfilePath)
+	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
+	err := checkFilepathDependencies(cmd, invowkfilePath)
 	if err != nil {
 		t.Errorf("checkFilepathDependencies() should return nil for existing file, got: %v", err)
 	}
@@ -61,14 +61,14 @@ func TestCheckFilepathDependencies_FileExists(t *testing.T) {
 func TestCheckFilepathDependencies_FileNotExists(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	cmd := invkfiletest.NewTestCommand("test",
-		invkfiletest.WithScript("echo hello"),
-		invkfiletest.WithDependsOn(&invkfile.DependsOn{
-			Filepaths: []invkfile.FilepathDependency{{Alternatives: []string{"nonexistent.txt"}}},
+	cmd := invowkfiletest.NewTestCommand("test",
+		invowkfiletest.WithScript("echo hello"),
+		invowkfiletest.WithDependsOn(&invowkfile.DependsOn{
+			Filepaths: []invowkfile.FilepathDependency{{Alternatives: []string{"nonexistent.txt"}}},
 		}))
 
-	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
-	err := checkFilepathDependencies(cmd, invkfilePath)
+	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
+	err := checkFilepathDependencies(cmd, invowkfilePath)
 	if err == nil {
 		t.Error("checkFilepathDependencies() should return error for non-existent file")
 	}
@@ -95,14 +95,14 @@ func TestCheckFilepathDependencies_AbsolutePath(t *testing.T) {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
 
-	cmd := invkfiletest.NewTestCommand("test",
-		invkfiletest.WithScript("echo hello"),
-		invkfiletest.WithDependsOn(&invkfile.DependsOn{
-			Filepaths: []invkfile.FilepathDependency{{Alternatives: []string{testFile}}}, // Absolute path
+	cmd := invowkfiletest.NewTestCommand("test",
+		invowkfiletest.WithScript("echo hello"),
+		invowkfiletest.WithDependsOn(&invowkfile.DependsOn{
+			Filepaths: []invowkfile.FilepathDependency{{Alternatives: []string{testFile}}}, // Absolute path
 		}))
 
-	// Invkfile in different directory
-	err := checkFilepathDependencies(cmd, "/some/other/invkfile.cue")
+	// Invowkfile in different directory
+	err := checkFilepathDependencies(cmd, "/some/other/invowkfile.cue")
 	if err != nil {
 		t.Errorf("checkFilepathDependencies() should handle absolute paths, got: %v", err)
 	}
@@ -115,16 +115,16 @@ func TestCheckFilepathDependencies_ReadableFile(t *testing.T) {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
 
-	cmd := invkfiletest.NewTestCommand("test",
-		invkfiletest.WithScript("echo hello"),
-		invkfiletest.WithDependsOn(&invkfile.DependsOn{
-			Filepaths: []invkfile.FilepathDependency{
+	cmd := invowkfiletest.NewTestCommand("test",
+		invowkfiletest.WithScript("echo hello"),
+		invowkfiletest.WithDependsOn(&invowkfile.DependsOn{
+			Filepaths: []invowkfile.FilepathDependency{
 				{Alternatives: []string{"readable.txt"}, Readable: true},
 			},
 		}))
 
-	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
-	err := checkFilepathDependencies(cmd, invkfilePath)
+	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
+	err := checkFilepathDependencies(cmd, invowkfilePath)
 	if err != nil {
 		t.Errorf("checkFilepathDependencies() should return nil for readable file, got: %v", err)
 	}
@@ -133,16 +133,16 @@ func TestCheckFilepathDependencies_ReadableFile(t *testing.T) {
 func TestCheckFilepathDependencies_WritableDirectory(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	cmd := invkfiletest.NewTestCommand("test",
-		invkfiletest.WithScript("echo hello"),
-		invkfiletest.WithDependsOn(&invkfile.DependsOn{
-			Filepaths: []invkfile.FilepathDependency{
+	cmd := invowkfiletest.NewTestCommand("test",
+		invowkfiletest.WithScript("echo hello"),
+		invowkfiletest.WithDependsOn(&invowkfile.DependsOn{
+			Filepaths: []invowkfile.FilepathDependency{
 				{Alternatives: []string{"."}, Writable: true},
 			},
 		}))
 
-	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
-	err := checkFilepathDependencies(cmd, invkfilePath)
+	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
+	err := checkFilepathDependencies(cmd, invowkfilePath)
 	if err != nil {
 		t.Errorf("checkFilepathDependencies() should return nil for writable directory, got: %v", err)
 	}
@@ -155,18 +155,18 @@ func TestCheckFilepathDependencies_MultipleFilepathDependencies(t *testing.T) {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
 
-	cmd := invkfiletest.NewTestCommand("test",
-		invkfiletest.WithScript("echo hello"),
-		invkfiletest.WithDependsOn(&invkfile.DependsOn{
-			Filepaths: []invkfile.FilepathDependency{
+	cmd := invowkfiletest.NewTestCommand("test",
+		invowkfiletest.WithScript("echo hello"),
+		invowkfiletest.WithDependsOn(&invowkfile.DependsOn{
+			Filepaths: []invowkfile.FilepathDependency{
 				{Alternatives: []string{"exists.txt"}},
 				{Alternatives: []string{"nonexistent1.txt"}},
 				{Alternatives: []string{"nonexistent2.txt"}},
 			},
 		}))
 
-	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
-	err := checkFilepathDependencies(cmd, invkfilePath)
+	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
+	err := checkFilepathDependencies(cmd, invowkfilePath)
 	if err == nil {
 		t.Error("checkFilepathDependencies() should return error when any filepath dependency is not satisfied")
 	}
@@ -189,16 +189,16 @@ func TestCheckFilepathDependencies_AlternativesFirstExists(t *testing.T) {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
 
-	cmd := invkfiletest.NewTestCommand("test",
-		invkfiletest.WithScript("echo hello"),
-		invkfiletest.WithDependsOn(&invkfile.DependsOn{
-			Filepaths: []invkfile.FilepathDependency{
+	cmd := invowkfiletest.NewTestCommand("test",
+		invowkfiletest.WithScript("echo hello"),
+		invowkfiletest.WithDependsOn(&invowkfile.DependsOn{
+			Filepaths: []invowkfile.FilepathDependency{
 				{Alternatives: []string{"first.txt", "second.txt", "third.txt"}},
 			},
 		}))
 
-	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
-	err := checkFilepathDependencies(cmd, invkfilePath)
+	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
+	err := checkFilepathDependencies(cmd, invowkfilePath)
 	if err != nil {
 		t.Errorf("checkFilepathDependencies() should return nil when first alternative exists, got: %v", err)
 	}
@@ -211,16 +211,16 @@ func TestCheckFilepathDependencies_AlternativesSecondExists(t *testing.T) {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
 
-	cmd := invkfiletest.NewTestCommand("test",
-		invkfiletest.WithScript("echo hello"),
-		invkfiletest.WithDependsOn(&invkfile.DependsOn{
-			Filepaths: []invkfile.FilepathDependency{
+	cmd := invowkfiletest.NewTestCommand("test",
+		invowkfiletest.WithScript("echo hello"),
+		invowkfiletest.WithDependsOn(&invowkfile.DependsOn{
+			Filepaths: []invowkfile.FilepathDependency{
 				{Alternatives: []string{"first.txt", "second.txt", "third.txt"}},
 			},
 		}))
 
-	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
-	err := checkFilepathDependencies(cmd, invkfilePath)
+	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
+	err := checkFilepathDependencies(cmd, invowkfilePath)
 	if err != nil {
 		t.Errorf("checkFilepathDependencies() should return nil when second alternative exists, got: %v", err)
 	}
@@ -233,16 +233,16 @@ func TestCheckFilepathDependencies_AlternativesLastExists(t *testing.T) {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
 
-	cmd := invkfiletest.NewTestCommand("test",
-		invkfiletest.WithScript("echo hello"),
-		invkfiletest.WithDependsOn(&invkfile.DependsOn{
-			Filepaths: []invkfile.FilepathDependency{
+	cmd := invowkfiletest.NewTestCommand("test",
+		invowkfiletest.WithScript("echo hello"),
+		invowkfiletest.WithDependsOn(&invowkfile.DependsOn{
+			Filepaths: []invowkfile.FilepathDependency{
 				{Alternatives: []string{"first.txt", "second.txt", "third.txt"}},
 			},
 		}))
 
-	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
-	err := checkFilepathDependencies(cmd, invkfilePath)
+	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
+	err := checkFilepathDependencies(cmd, invowkfilePath)
 	if err != nil {
 		t.Errorf("checkFilepathDependencies() should return nil when last alternative exists, got: %v", err)
 	}
@@ -251,16 +251,16 @@ func TestCheckFilepathDependencies_AlternativesLastExists(t *testing.T) {
 func TestCheckFilepathDependencies_AlternativesNoneExists(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	cmd := invkfiletest.NewTestCommand("test",
-		invkfiletest.WithScript("echo hello"),
-		invkfiletest.WithDependsOn(&invkfile.DependsOn{
-			Filepaths: []invkfile.FilepathDependency{
+	cmd := invowkfiletest.NewTestCommand("test",
+		invowkfiletest.WithScript("echo hello"),
+		invowkfiletest.WithDependsOn(&invowkfile.DependsOn{
+			Filepaths: []invowkfile.FilepathDependency{
 				{Alternatives: []string{"first.txt", "second.txt", "third.txt"}},
 			},
 		}))
 
-	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
-	err := checkFilepathDependencies(cmd, invkfilePath)
+	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
+	err := checkFilepathDependencies(cmd, invowkfilePath)
 	if err == nil {
 		t.Error("checkFilepathDependencies() should return error when no alternatives exist")
 	}
@@ -288,16 +288,16 @@ func TestCheckFilepathDependencies_AlternativesWithPermissions(t *testing.T) {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
 
-	cmd := invkfiletest.NewTestCommand("test",
-		invkfiletest.WithScript("echo hello"),
-		invkfiletest.WithDependsOn(&invkfile.DependsOn{
-			Filepaths: []invkfile.FilepathDependency{
+	cmd := invowkfiletest.NewTestCommand("test",
+		invowkfiletest.WithScript("echo hello"),
+		invowkfiletest.WithDependsOn(&invowkfile.DependsOn{
+			Filepaths: []invowkfile.FilepathDependency{
 				{Alternatives: []string{"nonexistent.txt", "readable.txt"}, Readable: true},
 			},
 		}))
 
-	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
-	err := checkFilepathDependencies(cmd, invkfilePath)
+	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
+	err := checkFilepathDependencies(cmd, invowkfilePath)
 	if err != nil {
 		t.Errorf("checkFilepathDependencies() should return nil when alternative with proper permissions exists, got: %v", err)
 	}
@@ -313,16 +313,16 @@ func TestCheckFilepathDependencies_MultipleAlternativesExist(t *testing.T) {
 		}
 	}
 
-	cmd := invkfiletest.NewTestCommand("test",
-		invkfiletest.WithScript("echo hello"),
-		invkfiletest.WithDependsOn(&invkfile.DependsOn{
-			Filepaths: []invkfile.FilepathDependency{
+	cmd := invowkfiletest.NewTestCommand("test",
+		invowkfiletest.WithScript("echo hello"),
+		invowkfiletest.WithDependsOn(&invowkfile.DependsOn{
+			Filepaths: []invowkfile.FilepathDependency{
 				{Alternatives: []string{"first.txt", "second.txt", "third.txt"}},
 			},
 		}))
 
-	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
-	err := checkFilepathDependencies(cmd, invkfilePath)
+	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
+	err := checkFilepathDependencies(cmd, invowkfilePath)
 	if err != nil {
 		t.Errorf("checkFilepathDependencies() should return nil when all alternatives exist, got: %v", err)
 	}
@@ -338,10 +338,10 @@ func TestCheckFilepathDependencies_MultipleDependenciesWithAlternatives(t *testi
 		t.Fatalf("Failed to create readme.md: %v", err)
 	}
 
-	cmd := invkfiletest.NewTestCommand("test",
-		invkfiletest.WithScript("echo hello"),
-		invkfiletest.WithDependsOn(&invkfile.DependsOn{
-			Filepaths: []invkfile.FilepathDependency{
+	cmd := invowkfiletest.NewTestCommand("test",
+		invowkfiletest.WithScript("echo hello"),
+		invowkfiletest.WithDependsOn(&invowkfile.DependsOn{
+			Filepaths: []invowkfile.FilepathDependency{
 				// First doesn't exist, second does
 				{Alternatives: []string{"go.mod", "go.sum"}},
 				// First two don't exist, third does
@@ -351,8 +351,8 @@ func TestCheckFilepathDependencies_MultipleDependenciesWithAlternatives(t *testi
 			},
 		}))
 
-	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
-	err := checkFilepathDependencies(cmd, invkfilePath)
+	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
+	err := checkFilepathDependencies(cmd, invowkfilePath)
 	if err != nil {
 		t.Errorf("checkFilepathDependencies() should return nil when each dependency has an alternative satisfied, got: %v", err)
 	}

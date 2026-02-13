@@ -14,7 +14,7 @@ import (
 	"invowk-cli/internal/config"
 	"invowk-cli/internal/container"
 	"invowk-cli/internal/provision"
-	"invowk-cli/pkg/invkfile"
+	"invowk-cli/pkg/invowkfile"
 )
 
 const (
@@ -42,7 +42,7 @@ const (
 // ensureProvisionedImage ensures the container image exists and is provisioned
 // with invowk resources (binary, modules, etc.). This enables nested invowk commands
 // inside containers.
-func (r *ContainerRuntime) ensureProvisionedImage(ctx *ExecutionContext, cfg invkfileContainerConfig, invowkDir string) (imageName string, cleanup func(), err error) {
+func (r *ContainerRuntime) ensureProvisionedImage(ctx *ExecutionContext, cfg invowkfileContainerConfig, invowkDir string) (imageName string, cleanup func(), err error) {
 	// First, ensure the base image exists
 	baseImage, err := r.ensureImage(ctx, cfg, invowkDir)
 	if err != nil {
@@ -54,9 +54,9 @@ func (r *ContainerRuntime) ensureProvisionedImage(ctx *ExecutionContext, cfg inv
 		return baseImage, nil, nil
 	}
 
-	// Update provisioner config with current invkfile path and ForceRebuild
+	// Update provisioner config with current invowkfile path and ForceRebuild
 	provCfg := r.provisioner.Config()
-	provCfg.InvkfilePath = ctx.Invkfile.FilePath
+	provCfg.InvowkfilePath = ctx.Invowkfile.FilePath
 	provCfg.ForceRebuild = ctx.ForceRebuild
 
 	// Provision the image with invowk resources
@@ -81,7 +81,7 @@ func (r *ContainerRuntime) ensureProvisionedImage(ctx *ExecutionContext, cfg inv
 }
 
 // ensureImage ensures the container image exists, building if necessary
-func (r *ContainerRuntime) ensureImage(ctx *ExecutionContext, cfg invkfileContainerConfig, invowkDir string) (string, error) {
+func (r *ContainerRuntime) ensureImage(ctx *ExecutionContext, cfg invowkfileContainerConfig, invowkDir string) (string, error) {
 	// If an image is specified, use it directly
 	if cfg.Image != "" {
 		return cfg.Image, nil
@@ -104,8 +104,8 @@ func (r *ContainerRuntime) ensureImage(ctx *ExecutionContext, cfg invkfileContai
 		return "", fmt.Errorf("containerfile not found at %s", containerfilePath)
 	}
 
-	// Generate a unique image tag based on invkfile path
-	imageTag, err := r.generateImageTag(ctx.Invkfile.FilePath)
+	// Generate a unique image tag based on invowkfile path
+	imageTag, err := r.generateImageTag(ctx.Invowkfile.FilePath)
 	if err != nil {
 		return "", err
 	}
@@ -159,11 +159,11 @@ func (r *ContainerRuntime) ensureImage(ctx *ExecutionContext, cfg invkfileContai
 	return "", lastErr
 }
 
-// generateImageTag generates a unique image tag for an invkfile
-func (r *ContainerRuntime) generateImageTag(invkfilePath string) (string, error) {
-	absPath, err := filepath.Abs(invkfilePath)
+// generateImageTag generates a unique image tag for an invowkfile
+func (r *ContainerRuntime) generateImageTag(invowkfilePath string) (string, error) {
+	absPath, err := filepath.Abs(invowkfilePath)
 	if err != nil {
-		return "", fmt.Errorf("failed to resolve invkfile path: %w", err)
+		return "", fmt.Errorf("failed to resolve invowkfile path: %w", err)
 	}
 	hash := sha256.Sum256([]byte(absPath))
 	shortHash := hex.EncodeToString(hash[:])[:12]
@@ -227,11 +227,11 @@ func isWindowsContainerImage(image string) bool {
 }
 
 // containerConfigFromRuntime extracts container config from RuntimeConfig
-func containerConfigFromRuntime(rt *invkfile.RuntimeConfig) invkfileContainerConfig {
+func containerConfigFromRuntime(rt *invowkfile.RuntimeConfig) invowkfileContainerConfig {
 	if rt == nil {
-		return invkfileContainerConfig{}
+		return invowkfileContainerConfig{}
 	}
-	return invkfileContainerConfig{
+	return invowkfileContainerConfig{
 		Containerfile: rt.Containerfile,
 		Image:         rt.Image,
 		Volumes:       append([]string{}, rt.Volumes...),
@@ -243,7 +243,7 @@ func containerConfigFromRuntime(rt *invkfile.RuntimeConfig) invkfileContainerCon
 // For inline scripts, it creates a temp file in the workspace directory (mounted in container).
 // Returns: (command []string, tempFilePath string, error)
 // The caller is responsible for cleaning up tempFilePath if non-empty.
-func (r *ContainerRuntime) buildInterpreterCommand(ctx *ExecutionContext, script string, interp invkfile.ShebangInfo, invowkDir string) (command []string, tempFile string, err error) {
+func (r *ContainerRuntime) buildInterpreterCommand(ctx *ExecutionContext, script string, interp invowkfile.ShebangInfo, invowkDir string) (command []string, tempFile string, err error) {
 	var cmd []string
 	cmd = append(cmd, interp.Interpreter)
 	cmd = append(cmd, interp.Args...)
@@ -252,7 +252,7 @@ func (r *ContainerRuntime) buildInterpreterCommand(ctx *ExecutionContext, script
 
 	if ctx.SelectedImpl.IsScriptFile() {
 		// File script: use the relative path within /workspace
-		scriptPath := ctx.SelectedImpl.GetScriptFilePath(ctx.Invkfile.FilePath)
+		scriptPath := ctx.SelectedImpl.GetScriptFilePath(ctx.Invowkfile.FilePath)
 		// Convert host path to container path (relative to /workspace)
 		relPath, err := filepath.Rel(invowkDir, scriptPath)
 		if err != nil {
@@ -265,7 +265,7 @@ func (r *ContainerRuntime) buildInterpreterCommand(ctx *ExecutionContext, script
 	} else {
 		// Inline script: create temp file in workspace directory
 		// This ensures the script is accessible from within the container
-		ext := invkfile.GetExtensionForInterpreter(interp.Interpreter)
+		ext := invowkfile.GetExtensionForInterpreter(interp.Interpreter)
 		tempF, createErr := os.CreateTemp(invowkDir, "invowk-script-*"+ext)
 		if createErr != nil {
 			return nil, "", fmt.Errorf("failed to create temp script in workspace: %w", createErr)
@@ -300,11 +300,11 @@ func (r *ContainerRuntime) buildInterpreterCommand(ctx *ExecutionContext, script
 
 // getContainerWorkDir determines the working directory for container execution.
 // Uses the hierarchical override model (CLI > Implementation > Command > Root > Default).
-// The invkfile directory is mounted at /workspace, so relative paths are mapped there.
+// The invowkfile directory is mounted at /workspace, so relative paths are mapped there.
 func (r *ContainerRuntime) getContainerWorkDir(ctx *ExecutionContext, invowkDir string) string {
 	// Get the effective workdir using the standard resolution logic
 	// Note: ctx.WorkDir is the CLI override passed through ExecutionContext
-	effectiveWorkDir := ctx.Invkfile.GetEffectiveWorkDir(ctx.Command, ctx.SelectedImpl, ctx.WorkDir)
+	effectiveWorkDir := ctx.Invowkfile.GetEffectiveWorkDir(ctx.Command, ctx.SelectedImpl, ctx.WorkDir)
 
 	// If no workdir was specified at any level, default to /workspace
 	if effectiveWorkDir == invowkDir {
@@ -313,13 +313,13 @@ func (r *ContainerRuntime) getContainerWorkDir(ctx *ExecutionContext, invowkDir 
 
 	// If it's an absolute path, use it directly in the container
 	if filepath.IsAbs(effectiveWorkDir) {
-		// Check if the path is inside the invkfile directory (mounted at /workspace)
+		// Check if the path is inside the invowkfile directory (mounted at /workspace)
 		relPath, err := filepath.Rel(invowkDir, effectiveWorkDir)
 		if err == nil && !strings.HasPrefix(relPath, "..") {
-			// Path is within invkfile dir - map to /workspace
+			// Path is within invowkfile dir - map to /workspace
 			return "/workspace/" + filepath.ToSlash(relPath)
 		}
-		// Path is outside invkfile dir - use as-is (must exist in container or be a mounted path)
+		// Path is outside invowkfile dir - use as-is (must exist in container or be a mounted path)
 		return effectiveWorkDir
 	}
 

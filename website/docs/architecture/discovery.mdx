@@ -22,15 +22,15 @@ When the same command name exists in multiple locations:
 
 | Priority | Source | Example Path |
 |----------|--------|--------------|
-| 1 (highest) | Current directory invkfile | `./invkfile.cue` |
-| 2 | Local modules | `./mytools.invkmod/` |
-| 3 | Configured includes | `/opt/invowk-modules/tools.invkmod` |
-| 4 (lowest) | User commands directory | `~/.invowk/cmds/mytools.invkmod/` |
+| 1 (highest) | Current directory invowkfile | `./invowkfile.cue` |
+| 2 | Local modules | `./mytools.invowkmod/` |
+| 3 | Configured includes | `/opt/invowk-modules/tools.invowkmod` |
+| 4 (lowest) | User commands directory | `~/.invowk/cmds/mytools.invowkmod/` |
 
 **Key principles**:
 - Closer to the working directory = higher priority.
 - Configured includes take precedence over the user commands directory because they represent explicit, intentional configuration.
-- The user commands directory (`~/.invowk/cmds/`) only discovers `*.invkmod` directories as immediate children (non-recursive). Loose invkfiles are not discovered from this location.
+- The user commands directory (`~/.invowk/cmds/`) only discovers `*.invowkmod` directories as immediate children (non-recursive). Loose invowkfiles are not discovered from this location.
 
 ## Module Discovery Details
 
@@ -39,7 +39,7 @@ When the same command name exists in multiple locations:
 ### Required Module Fields
 
 ```cue
-// invkmod.cue
+// invowkmod.cue
 module: "com.example.mymodule"  // RDNS naming convention
 version: "1.0.0"                // Semantic version
 
@@ -63,7 +63,7 @@ requires: [
 |------|------------|---------------|
 | Module A | A's commands, B's commands | C's commands (transitive) |
 | Module B | B's commands, C's commands | - |
-| Root invkfile | Own commands, direct deps | Transitive deps |
+| Root invowkfile | Own commands, direct deps | Transitive deps |
 
 **Why this restriction?**
 - Prevents implicit coupling to transitive dependencies
@@ -72,12 +72,12 @@ requires: [
 
 ## Includes Configuration
 
-Additional invkfiles and modules are configured in `~/.config/invowk/config.cue`:
+Additional invowkfiles and modules are configured in `~/.config/invowk/config.cue`:
 
 ```cue
 includes: [
-    {path: "/opt/company-invowk-modules/tools.invkmod"},
-    {path: "/home/shared/invowk/invkfile.cue"},
+    {path: "/opt/company-invowk-modules/tools.invowkmod"},
+    {path: "/home/shared/invowk/invowkfile.cue"},
 ]
 ```
 
@@ -103,10 +103,10 @@ includes: [
 
 ```bash
 # List all discovered commands with sources
-invowk cmd --invk-verbose
+invowk cmd --ivk-verbose
 
 # Validate module structure
-invowk module validate ./mymodule.invkmod
+invowk module validate ./mymodule.invowkmod
 ```
 
 ## Related Diagrams

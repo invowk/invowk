@@ -6,7 +6,7 @@ import (
 	"errors"
 	"testing"
 
-	"invowk-cli/pkg/invkfile"
+	"invowk-cli/pkg/invowkfile"
 )
 
 // TestEnvBuilder_InterfaceContract verifies that DefaultEnvBuilder and MockEnvBuilder
@@ -26,7 +26,7 @@ func TestMockEnvBuilder_ReturnsConfiguredEnv(t *testing.T) {
 		},
 	}
 
-	env, err := mock.Build(nil, invkfile.EnvInheritAll)
+	env, err := mock.Build(nil, invowkfile.EnvInheritAll)
 	if err != nil {
 		t.Fatalf("MockEnvBuilder.Build() unexpected error: %v", err)
 	}
@@ -45,10 +45,10 @@ func TestMockEnvBuilder_ReturnsCopy(t *testing.T) {
 	original := map[string]string{"KEY": "value"}
 	mock := &MockEnvBuilder{Env: original}
 
-	env1, _ := mock.Build(nil, invkfile.EnvInheritAll)
+	env1, _ := mock.Build(nil, invowkfile.EnvInheritAll)
 	env1["KEY"] = "mutated"
 
-	env2, _ := mock.Build(nil, invkfile.EnvInheritAll)
+	env2, _ := mock.Build(nil, invowkfile.EnvInheritAll)
 	if got := env2["KEY"]; got != "value" {
 		t.Errorf("MockEnvBuilder.Build() should return a copy; got mutated value %q", got)
 	}
@@ -63,7 +63,7 @@ func TestMockEnvBuilder_ReturnsError(t *testing.T) {
 		Env: map[string]string{"KEY": "value"}, // Should be ignored when Err is set
 	}
 
-	env, err := mock.Build(nil, invkfile.EnvInheritAll)
+	env, err := mock.Build(nil, invowkfile.EnvInheritAll)
 	if !errors.Is(err, expectedErr) {
 		t.Errorf("MockEnvBuilder.Build() error = %v, want %v", err, expectedErr)
 	}
@@ -77,7 +77,7 @@ func TestMockEnvBuilder_ReturnsError(t *testing.T) {
 func TestMockEnvBuilder_NilEnvReturnsEmptyMap(t *testing.T) {
 	mock := &MockEnvBuilder{Env: nil}
 
-	env, err := mock.Build(nil, invkfile.EnvInheritAll)
+	env, err := mock.Build(nil, invowkfile.EnvInheritAll)
 	if err != nil {
 		t.Fatalf("MockEnvBuilder.Build() unexpected error: %v", err)
 	}

@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MPL-2.0
 
-// Package discovery handles invkfile and invkmod discovery and command aggregation.
+// Package discovery handles invowkfile and invowkmod discovery and command aggregation.
 //
 // This package intentionally combines two related concerns:
-//   - File discovery: locating invkfile.cue and invkmod directories
+//   - File discovery: locating invowkfile.cue and invowkmod directories
 //   - Command aggregation: building the unified command tree from discovered files
 //
 // These concerns are tightly coupled because command aggregation depends directly
@@ -16,12 +16,12 @@
 //   - discovery_commands.go: Command aggregation (DiscoverCommands, CommandInfo, etc.)
 //
 // Discovery follows a precedence order:
-//  1. Current directory invkfile.cue (highest)
-//  2. Modules in current directory (*.invkmod)
+//  1. Current directory invowkfile.cue (highest)
+//  2. Modules in current directory (*.invowkmod)
 //  3. Configured includes (module paths from config)
 //  4. User commands directory (~/.invowk/cmds — modules only, non-recursive)
 //
-// For command aggregation, local invkfile commands take highest precedence. Commands from
+// For command aggregation, local invowkfile commands take highest precedence. Commands from
 // sibling modules are included with conflict detection when names collide across sources.
 // The DiscoveredCommandSet type provides indexed access for efficient conflict detection
 // and grouped listing.

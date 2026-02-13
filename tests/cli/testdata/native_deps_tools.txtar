@@ -23,7 +23,7 @@ stdout 'sh is available'
 stdout 'Either cat or type is available'
 ! stderr .
 
--- invkfile.cue --
+-- invowkfile.cue --
 cmds: [
 	{
 		name:        "deps tool single"

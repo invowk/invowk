@@ -6,7 +6,7 @@ import Snippet from '@site/src/components/Snippet';
 
 # Commands and Namespaces
 
-Invowk commands are named directly in `invkfile.cue`. Namespaces come from **modules**: commands in a module are prefixed by the module ID from `invkmod.cue`.
+Invowk commands are named directly in `invowkfile.cue`. Namespaces come from **modules**: commands in a module are prefixed by the module ID from `invowkmod.cue`.
 
 ## Command Names
 
@@ -25,7 +25,7 @@ Spaces are purely organizational - there’s no special parent-child relationshi
 
 ## Module Namespaces
 
-Module commands are namespaced by the `module` field in `invkmod.cue`:
+Module commands are namespaced by the `module` field in `invowkmod.cue`:
 
 <Snippet id="commands-namespaces/module-prefix" />
 
@@ -59,10 +59,10 @@ For shared modules, use Reverse Domain Name System (RDNS) naming (e.g., `com.com
 
 Invowk discovers commands from multiple sources in priority order:
 
-1. **Current directory invkfile** (highest priority)
-2. **Local modules** (`*.invkmod` in current directory)
+1. **Current directory invowkfile** (highest priority)
+2. **Local modules** (`*.invowkmod` in current directory)
 3. **Configured includes** (module paths from config file)
-4. **User commands directory** (`~/.invowk/cmds/` — `*.invkmod` only, non-recursive)
+4. **User commands directory** (`~/.invowk/cmds/` — `*.invowkmod` only, non-recursive)
 
 When listing commands, you’ll see their source:
 

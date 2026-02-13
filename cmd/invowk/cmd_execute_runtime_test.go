@@ -8,7 +8,7 @@ import (
 
 	"invowk-cli/internal/config"
 	"invowk-cli/internal/discovery"
-	"invowk-cli/pkg/invkfile"
+	"invowk-cli/pkg/invowkfile"
 )
 
 // newTestCommandService creates a commandService with no-op writers for testing.
@@ -25,15 +25,15 @@ func newTestCommandService() *commandService {
 func buildDualRuntimeCommand() *discovery.CommandInfo {
 	return &discovery.CommandInfo{
 		Name: "test-cmd",
-		Command: &invkfile.Command{
+		Command: &invowkfile.Command{
 			Name: "test-cmd",
-			Implementations: []invkfile.Implementation{
+			Implementations: []invowkfile.Implementation{
 				{
 					Script:    "echo hello",
-					Platforms: invkfile.AllPlatformConfigs(),
-					Runtimes: []invkfile.RuntimeConfig{
-						{Name: invkfile.RuntimeNative},
-						{Name: invkfile.RuntimeVirtual},
+					Platforms: invowkfile.AllPlatformConfigs(),
+					Runtimes: []invowkfile.RuntimeConfig{
+						{Name: invowkfile.RuntimeNative},
+						{Name: invowkfile.RuntimeVirtual},
 					},
 				},
 			},
@@ -45,14 +45,14 @@ func buildDualRuntimeCommand() *discovery.CommandInfo {
 func buildNativeOnlyCommand() *discovery.CommandInfo {
 	return &discovery.CommandInfo{
 		Name: "native-only",
-		Command: &invkfile.Command{
+		Command: &invowkfile.Command{
 			Name: "native-only",
-			Implementations: []invkfile.Implementation{
+			Implementations: []invowkfile.Implementation{
 				{
 					Script:    "echo native",
-					Platforms: invkfile.AllPlatformConfigs(),
-					Runtimes: []invkfile.RuntimeConfig{
-						{Name: invkfile.RuntimeNative},
+					Platforms: invowkfile.AllPlatformConfigs(),
+					Runtimes: []invowkfile.RuntimeConfig{
+						{Name: invowkfile.RuntimeNative},
 					},
 				},
 			},
@@ -74,7 +74,7 @@ func TestResolveRuntime(t *testing.T) {
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
-		if resolved.mode != invkfile.RuntimeVirtual {
+		if resolved.mode != invowkfile.RuntimeVirtual {
 			t.Errorf("expected runtime 'virtual', got %q", resolved.mode)
 		}
 	})
@@ -91,7 +91,7 @@ func TestResolveRuntime(t *testing.T) {
 			t.Fatalf("unexpected error: %v", err)
 		}
 		// Should fall through to per-command default (native).
-		if resolved.mode != invkfile.RuntimeNative {
+		if resolved.mode != invowkfile.RuntimeNative {
 			t.Errorf("expected runtime 'native' (per-command default), got %q", resolved.mode)
 		}
 	})
@@ -111,7 +111,7 @@ func TestResolveRuntime(t *testing.T) {
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
-		if resolved.mode != invkfile.RuntimeNative {
+		if resolved.mode != invowkfile.RuntimeNative {
 			t.Errorf("expected runtime 'native' (CLI override), got %q", resolved.mode)
 		}
 	})
@@ -128,7 +128,7 @@ func TestResolveRuntime(t *testing.T) {
 			t.Fatalf("unexpected error: %v", err)
 		}
 		// Per-command default is the first runtime listed: native.
-		if resolved.mode != invkfile.RuntimeNative {
+		if resolved.mode != invowkfile.RuntimeNative {
 			t.Errorf("expected runtime 'native' (per-command default), got %q", resolved.mode)
 		}
 	})
@@ -143,7 +143,7 @@ func TestResolveRuntime(t *testing.T) {
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
-		if resolved.mode != invkfile.RuntimeNative {
+		if resolved.mode != invowkfile.RuntimeNative {
 			t.Errorf("expected runtime 'native' (per-command default), got %q", resolved.mode)
 		}
 	})

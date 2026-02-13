@@ -52,12 +52,12 @@ If the preferred engine is not available, Invowk falls back to the other engine 
 **Required:** No
 **Default:** `[]`
 
-Additional modules to include in command discovery. Each entry specifies a path to an `*.invkmod` directory with an optional `alias` for collision disambiguation.
+Additional modules to include in command discovery. Each entry specifies a path to an `*.invowkmod` directory with an optional `alias` for collision disambiguation.
 
 <Snippet id="reference/config/includes-example" />
 
 **Path requirements:**
-- Paths must be absolute and end with `.invkmod`
+- Paths must be absolute and end with `.invowkmod`
 - Non-existent paths are silently ignored
 - Duplicate paths are rejected
 
@@ -67,8 +67,8 @@ Additional modules to include in command discovery. Each entry specifies a path 
 - Aliases override the module's declared identifier for collision resolution
 
 **Discovery priority (highest to lowest):**
-1. Current directory invkfile
-2. Local modules (`*.invkmod` in current directory)
+1. Current directory invowkfile
+2. Local modules (`*.invowkmod` in current directory)
 3. `~/.invowk/cmds`
 4. Configured `includes` (in order)
 
@@ -174,7 +174,7 @@ Enables verbose output by default for all commands.
 
 <Snippet id="reference/config/verbose-example" />
 
-Equivalent to always passing `--invk-verbose` on the command line.
+Equivalent to always passing `--ivk-verbose` on the command line.
 
 ### interactive
 
@@ -236,7 +236,7 @@ Overrides the path to the invowk binary to provision.
 **Required:** No
 **Default:** `[]`
 
-Additional modules to provision into containers. Uses the same `#IncludeEntry` format as root `includes` (each entry has a `path` ending with `.invkmod` and an optional `alias`).
+Additional modules to provision into containers. Uses the same `#IncludeEntry` format as root `includes` (each entry has a `path` ending with `.invowkmod` and an optional `alias`).
 
 ### inherit_includes
 

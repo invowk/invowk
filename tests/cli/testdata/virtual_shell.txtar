@@ -13,7 +13,7 @@ exec invowk cmd 'multi runtime'
 stdout 'This can run in native \(default\) or virtual runtime'
 ! stderr .
 
--- invkfile.cue --
+-- invowkfile.cue --
 cmds: [
 	{
 		name:        "virtual hello"

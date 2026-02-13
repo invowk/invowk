@@ -18,22 +18,22 @@ func TestNormalizeSourceName(t *testing.T) {
 	}{
 		// Module names
 		{"foo", "foo"},
-		{"foo.invkmod", "foo"},
+		{"foo.invowkmod", "foo"},
 		{"@foo", "foo"},
-		{"@foo.invkmod", "foo"},
+		{"@foo.invowkmod", "foo"},
 		{"bar", "bar"},
-		{"bar.invkmod", "bar"},
+		{"bar.invowkmod", "bar"},
 
-		// Invkfile variants
-		{"invkfile", "invkfile"},
-		{"invkfile.cue", "invkfile"},
-		{"@invkfile", "invkfile"},
-		{"@invkfile.cue", "invkfile"},
+		// Invowkfile variants
+		{"invowkfile", "invowkfile"},
+		{"invowkfile.cue", "invowkfile"},
+		{"@invowkfile", "invowkfile"},
+		{"@invowkfile.cue", "invowkfile"},
 
 		// RDNS module names
 		{"com.example.mytools", "com.example.mytools"},
-		{"com.example.mytools.invkmod", "com.example.mytools"},
-		{"@com.example.mytools.invkmod", "com.example.mytools"},
+		{"com.example.mytools.invowkmod", "com.example.mytools"},
+		{"@com.example.mytools.invowkmod", "com.example.mytools"},
 	}
 
 	for _, tt := range tests {
@@ -47,7 +47,7 @@ func TestNormalizeSourceName(t *testing.T) {
 }
 
 func TestParseSourceFilter_FromFlag(t *testing.T) {
-	// Test T008: ParseSourceFilter with --invk-from flag
+	// Test T008: ParseSourceFilter with --ivk-from flag
 	args := []string{"deploy", "arg1"}
 
 	filter, remaining, err := ParseSourceFilter(args, "foo")
@@ -56,7 +56,7 @@ func TestParseSourceFilter_FromFlag(t *testing.T) {
 	}
 
 	if filter == nil {
-		t.Fatal("filter should not be nil when --invk-from is specified")
+		t.Fatal("filter should not be nil when --ivk-from is specified")
 	}
 	if filter.SourceID != "foo" {
 		t.Errorf("SourceID = %q, want %q", filter.SourceID, "foo")
@@ -116,7 +116,7 @@ func TestParseSourceFilter_NoFilter(t *testing.T) {
 }
 
 func TestParseSourceFilter_FromFlagTakesPrecedence(t *testing.T) {
-	// Test T008: --invk-from flag takes precedence over @prefix
+	// Test T008: --ivk-from flag takes precedence over @prefix
 	args := []string{"@bar", "deploy"}
 
 	filter, remaining, err := ParseSourceFilter(args, "foo")
@@ -127,12 +127,12 @@ func TestParseSourceFilter_FromFlagTakesPrecedence(t *testing.T) {
 	if filter == nil {
 		t.Fatal("filter should not be nil")
 	}
-	// --invk-from foo should take precedence over @bar
+	// --ivk-from foo should take precedence over @bar
 	if filter.SourceID != "foo" {
-		t.Errorf("SourceID = %q, want %q (--invk-from takes precedence)", filter.SourceID, "foo")
+		t.Errorf("SourceID = %q, want %q (--ivk-from takes precedence)", filter.SourceID, "foo")
 	}
 
-	// @bar should NOT be consumed since --invk-from was used
+	// @bar should NOT be consumed since --ivk-from was used
 	if len(remaining) != 2 || remaining[0] != "@bar" {
 		t.Errorf("remaining args = %v, want [@bar deploy]", remaining)
 	}

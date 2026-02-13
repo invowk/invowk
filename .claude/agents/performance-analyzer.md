@@ -55,8 +55,8 @@ Performance-sensitive operations:
 ### 2. Discovery Filesystem Traversal (`internal/discovery/discovery.go`)
 
 Command and module discovery walks the filesystem:
-- Module directory enumeration (`*.invkmod`)
-- Invkfile parsing at each discovery point
+- Module directory enumeration (`*.invowkmod`)
+- Invowkfile parsing at each discovery point
 - Collision detection across multiple sources
 
 **What to watch for**:

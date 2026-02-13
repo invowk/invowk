@@ -13,7 +13,7 @@ stdout 'The isolation mechanism works identically in virtual runtime'
 stdout 'INVOWK_ARG_\* and INVOWK_FLAG_\* variables are filtered'
 ! stderr .
 
--- invkfile.cue --
+-- invowkfile.cue --
 cmds: [
 	{
 		name:        "isolation virtual"

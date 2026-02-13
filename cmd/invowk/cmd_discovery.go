@@ -10,7 +10,7 @@ import (
 
 	"invowk-cli/internal/discovery"
 	"invowk-cli/internal/issue"
-	"invowk-cli/pkg/invkfile"
+	"invowk-cli/pkg/invowkfile"
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/spf13/cobra"
@@ -21,7 +21,7 @@ import (
 // (e.g., `invowk cmd build`), while ambiguous commands — those whose SimpleName appears
 // in multiple sources — are intentionally excluded from transparent registration. This
 // ensures ambiguous commands fail with a helpful disambiguation message rather than
-// silently picking one source. Ambiguous commands must be executed via @source or --invk-from.
+// silently picking one source. Ambiguous commands must be executed via @source or --ivk-from.
 func registerDiscoveredCommands(ctx context.Context, app *App, rootFlags *rootFlagValues, cmdFlags *cmdFlagValues, cmdCmd *cobra.Command) {
 	lookupCtx := contextWithConfigPath(ctx, rootFlags.configPath)
 	result, err := app.Discovery.DiscoverAndValidateCommandSet(lookupCtx)
@@ -77,7 +77,7 @@ func registerDiscoveredCommands(ctx context.Context, app *App, rootFlags *rootFl
 					Use:   part,
 					Short: fmt.Sprintf("Commands under '%s'", prefix),
 					RunE: func(cmd *cobra.Command, args []string) error {
-						fromFlag, _ := cmd.Flags().GetString("invk-from")
+						fromFlag, _ := cmd.Flags().GetString("ivk-from")
 						if fromFlag != "" {
 							// Preserve full path for longest-match disambiguation.
 							fullArgs := append(strings.Fields(parentPrefix), args...)
@@ -112,9 +112,9 @@ func registerDiscoveredCommands(ctx context.Context, app *App, rootFlags *rootFl
 
 // buildLeafCommand creates a Cobra command for an executable leaf node in the command
 // tree. It captures immutable discovery values (name, source, flags, args) in closures
-// so each command instance is self-contained. Flag definitions from the invkfile are
+// so each command instance is self-contained. Flag definitions from the invowkfile are
 // projected into Cobra flags with matching types, and at execution time flag values are
-// extracted and projected into INVOWK_FLAG_* env vars. When --invk-from doesn't match the
+// extracted and projected into INVOWK_FLAG_* env vars. When --ivk-from doesn't match the
 // registered source, the command re-routes through runDisambiguatedCommand.
 func buildLeafCommand(app *App, rootFlags *rootFlagValues, cmdFlags *cmdFlagValues, cmdInfo *discovery.CommandInfo, cmdPart string) *cobra.Command {
 	// Capture immutable values for closures created per discovered command.
@@ -131,7 +131,7 @@ func buildLeafCommand(app *App, rootFlags *rootFlagValues, cmdFlags *cmdFlagValu
 		Short: cmdInfo.Description,
 		Long:  fmt.Sprintf("Run the '%s' command from %s", cmdInfo.Name, cmdInfo.FilePath),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			fromFlag, _ := cmd.Flags().GetString("invk-from")
+			fromFlag, _ := cmd.Flags().GetString("ivk-from")
 			if fromFlag != "" {
 				filter := &SourceFilter{SourceID: normalizeSourceName(fromFlag), Raw: fromFlag}
 				// If Cobra routed to the wrong source-specific leaf, delegate to
@@ -148,25 +148,25 @@ func buildLeafCommand(app *App, rootFlags *rootFlagValues, cmdFlags *cmdFlagValu
 				var val string
 				var err error
 				switch flag.GetType() {
-				case invkfile.FlagTypeBool:
+				case invowkfile.FlagTypeBool:
 					var boolVal bool
 					boolVal, err = cmd.Flags().GetBool(flag.Name)
 					if err == nil {
 						val = fmt.Sprintf("%t", boolVal)
 					}
-				case invkfile.FlagTypeInt:
+				case invowkfile.FlagTypeInt:
 					var intVal int
 					intVal, err = cmd.Flags().GetInt(flag.Name)
 					if err == nil {
 						val = fmt.Sprintf("%d", intVal)
 					}
-				case invkfile.FlagTypeFloat:
+				case invowkfile.FlagTypeFloat:
 					var floatVal float64
 					floatVal, err = cmd.Flags().GetFloat64(flag.Name)
 					if err == nil {
 						val = fmt.Sprintf("%g", floatVal)
 					}
-				case invkfile.FlagTypeString:
+				case invowkfile.FlagTypeString:
 					val, err = cmd.Flags().GetString(flag.Name)
 				}
 				if err == nil {
@@ -174,13 +174,13 @@ func buildLeafCommand(app *App, rootFlags *rootFlagValues, cmdFlags *cmdFlagValu
 				}
 			}
 
-			envFiles, _ := cmd.Flags().GetStringArray("invk-env-file")
-			envVarFlags, _ := cmd.Flags().GetStringArray("invk-env-var")
+			envFiles, _ := cmd.Flags().GetStringArray("ivk-env-file")
+			envVarFlags, _ := cmd.Flags().GetStringArray("ivk-env-var")
 			envVars := parseEnvVarFlags(envVarFlags)
-			workdirOverride, _ := cmd.Flags().GetString("invk-workdir")
-			envInheritMode, _ := cmd.Flags().GetString("invk-env-inherit-mode")
-			envInheritAllow, _ := cmd.Flags().GetStringArray("invk-env-inherit-allow")
-			envInheritDeny, _ := cmd.Flags().GetStringArray("invk-env-inherit-deny")
+			workdirOverride, _ := cmd.Flags().GetString("ivk-workdir")
+			envInheritMode, _ := cmd.Flags().GetString("ivk-env-inherit-mode")
+			envInheritAllow, _ := cmd.Flags().GetStringArray("ivk-env-inherit-allow")
+			envInheritDeny, _ := cmd.Flags().GetStringArray("ivk-env-inherit-deny")
 
 			verbose, interactive := resolveUIFlags(cmd.Context(), app, cmd, rootFlags)
 			req := ExecuteRequest{
@@ -217,28 +217,28 @@ func buildLeafCommand(app *App, rootFlags *rootFlagValues, cmdFlags *cmdFlagValu
 	}
 
 	// Reserved runtime flags are injected for every discovered leaf.
-	newCmd.Flags().StringArrayP("invk-env-file", "e", nil, "load environment variables from file(s) (can be specified multiple times)")
-	newCmd.Flags().StringArrayP("invk-env-var", "E", nil, "set environment variable (KEY=VALUE, can be specified multiple times)")
-	newCmd.Flags().String("invk-env-inherit-mode", "", "inherit host environment variables: none, allow, all (overrides runtime config)")
-	newCmd.Flags().StringArray("invk-env-inherit-allow", nil, "allowlist for host environment inheritance (repeatable)")
-	newCmd.Flags().StringArray("invk-env-inherit-deny", nil, "denylist for host environment inheritance (repeatable)")
-	newCmd.Flags().StringP("invk-workdir", "w", "", "override the working directory for this command")
+	newCmd.Flags().StringArrayP("ivk-env-file", "e", nil, "load environment variables from file(s) (can be specified multiple times)")
+	newCmd.Flags().StringArrayP("ivk-env-var", "E", nil, "set environment variable (KEY=VALUE, can be specified multiple times)")
+	newCmd.Flags().String("ivk-env-inherit-mode", "", "inherit host environment variables: none, allow, all (overrides runtime config)")
+	newCmd.Flags().StringArray("ivk-env-inherit-allow", nil, "allowlist for host environment inheritance (repeatable)")
+	newCmd.Flags().StringArray("ivk-env-inherit-deny", nil, "denylist for host environment inheritance (repeatable)")
+	newCmd.Flags().StringP("ivk-workdir", "w", "", "override the working directory for this command")
 
 	if len(cmdArgs) > 0 {
 		newCmd.Long += "\n\nArguments:\n" + buildArgsDocumentation(cmdArgs)
 	}
 
 	for _, flag := range cmdRuntimeFlags {
-		// Project invkfile flag definitions into Cobra flags with matching types.
+		// Project invowkfile flag definitions into Cobra flags with matching types.
 		switch flag.GetType() {
-		case invkfile.FlagTypeBool:
+		case invowkfile.FlagTypeBool:
 			defaultVal := flag.DefaultValue == "true"
 			if flag.Short != "" {
 				newCmd.Flags().BoolP(flag.Name, flag.Short, defaultVal, flag.Description)
 			} else {
 				newCmd.Flags().Bool(flag.Name, defaultVal, flag.Description)
 			}
-		case invkfile.FlagTypeInt:
+		case invowkfile.FlagTypeInt:
 			defaultVal := 0
 			if flag.DefaultValue != "" {
 				_, _ = fmt.Sscanf(flag.DefaultValue, "%d", &defaultVal)
@@ -248,7 +248,7 @@ func buildLeafCommand(app *App, rootFlags *rootFlagValues, cmdFlags *cmdFlagValu
 			} else {
 				newCmd.Flags().Int(flag.Name, defaultVal, flag.Description)
 			}
-		case invkfile.FlagTypeFloat:
+		case invowkfile.FlagTypeFloat:
 			defaultVal := 0.0
 			if flag.DefaultValue != "" {
 				_, _ = fmt.Sscanf(flag.DefaultValue, "%f", &defaultVal)
@@ -258,7 +258,7 @@ func buildLeafCommand(app *App, rootFlags *rootFlagValues, cmdFlags *cmdFlagValu
 			} else {
 				newCmd.Flags().Float64(flag.Name, defaultVal, flag.Description)
 			}
-		case invkfile.FlagTypeString:
+		case invowkfile.FlagTypeString:
 			if flag.Short != "" {
 				newCmd.Flags().StringP(flag.Name, flag.Short, flag.DefaultValue, flag.Description)
 			} else {
@@ -275,7 +275,7 @@ func buildLeafCommand(app *App, rootFlags *rootFlagValues, cmdFlags *cmdFlagValu
 }
 
 // buildCommandUsageString builds the Cobra Use string including argument placeholders.
-func buildCommandUsageString(cmdPart string, args []invkfile.Argument) string {
+func buildCommandUsageString(cmdPart string, args []invowkfile.Argument) string {
 	if len(args) == 0 {
 		return cmdPart
 	}
@@ -300,7 +300,7 @@ func buildCommandUsageString(cmdPart string, args []invkfile.Argument) string {
 }
 
 // buildArgsDocumentation builds the documentation string for arguments.
-func buildArgsDocumentation(args []invkfile.Argument) string {
+func buildArgsDocumentation(args []invowkfile.Argument) string {
 	lines := make([]string, 0, len(args))
 	for _, arg := range args {
 		status := "(optional)"
@@ -312,7 +312,7 @@ func buildArgsDocumentation(args []invkfile.Argument) string {
 		}
 
 		typeInfo := ""
-		if arg.Type != "" && arg.Type != invkfile.ArgumentTypeString {
+		if arg.Type != "" && arg.Type != invowkfile.ArgumentTypeString {
 			typeInfo = fmt.Sprintf(" [%s]", arg.Type)
 		}
 
@@ -328,7 +328,7 @@ func buildArgsDocumentation(args []invkfile.Argument) string {
 }
 
 // buildCobraArgsValidator creates a Cobra Args validator function for argument definitions.
-func buildCobraArgsValidator(argDefs []invkfile.Argument) cobra.PositionalArgs {
+func buildCobraArgsValidator(argDefs []invowkfile.Argument) cobra.PositionalArgs {
 	if len(argDefs) == 0 {
 		return cobra.ArbitraryArgs
 	}
@@ -402,7 +402,7 @@ func listCommands(cmd *cobra.Command, app *App, rootFlags *rootFlagValues) error
 	lookupCtx := contextWithConfigPath(cmd.Context(), rootFlags.configPath)
 	result, err := app.Discovery.DiscoverCommandSet(lookupCtx)
 	if err != nil {
-		rendered, _ := issue.Get(issue.InvkfileNotFoundId).Render("dark")
+		rendered, _ := issue.Get(issue.InvowkfileNotFoundId).Render("dark")
 		fmt.Fprint(app.stderr, rendered)
 		return err
 	}
@@ -410,7 +410,7 @@ func listCommands(cmd *cobra.Command, app *App, rootFlags *rootFlagValues) error
 
 	commandSet := result.Set
 	if commandSet == nil || len(commandSet.Commands) == 0 {
-		rendered, _ := issue.Get(issue.InvkfileNotFoundId).Render("dark")
+		rendered, _ := issue.Get(issue.InvowkfileNotFoundId).Render("dark")
 		fmt.Fprint(app.stderr, rendered)
 		return fmt.Errorf("no commands found")
 	}
@@ -428,18 +428,18 @@ func listCommands(cmd *cobra.Command, app *App, rootFlags *rootFlagValues) error
 	if verbose {
 		fmt.Println(TitleStyle.Render("Discovery Sources"))
 		fmt.Println()
-		invkfileCount := 0
+		invowkfileCount := 0
 		moduleCount := 0
 		for _, sourceID := range commandSet.SourceOrder {
-			if sourceID == discovery.SourceIDInvkfile {
-				invkfileCount++
+			if sourceID == discovery.SourceIDInvowkfile {
+				invowkfileCount++
 			} else {
 				moduleCount++
 			}
 			fmt.Printf("  %s %s\n", VerboseHighlightStyle.Render("•"), VerboseStyle.Render(sourceID))
 		}
 		fmt.Println()
-		fmt.Printf("  %s\n", VerboseStyle.Render(fmt.Sprintf("Sources: %d invkfile(s), %d module(s)", invkfileCount, moduleCount)))
+		fmt.Printf("  %s\n", VerboseStyle.Render(fmt.Sprintf("Sources: %d invowkfile(s), %d module(s)", invowkfileCount, moduleCount)))
 		fmt.Printf("  %s\n", VerboseStyle.Render(fmt.Sprintf("Commands: %d total (%d ambiguous)", len(commandSet.Commands), len(commandSet.AmbiguousNames))))
 		fmt.Println()
 	}
@@ -465,7 +465,7 @@ func listCommands(cmd *cobra.Command, app *App, rootFlags *rootFlagValues) error
 			if discovered.IsAmbiguous {
 				line += fmt.Sprintf(" %s", ambiguousStyle.Render("(@"+sourceID+")"))
 			}
-			currentPlatform := invkfile.GetCurrentHostOS()
+			currentPlatform := invowkfile.GetCurrentHostOS()
 			runtimesStr := discovered.Command.GetRuntimesStringForPlatform(currentPlatform)
 			if runtimesStr != "" {
 				line += " [" + defaultRuntimeStyle.Render(runtimesStr) + "]"
@@ -484,12 +484,12 @@ func listCommands(cmd *cobra.Command, app *App, rootFlags *rootFlagValues) error
 
 // formatSourceDisplayName converts a SourceID to a user-friendly display name.
 func formatSourceDisplayName(sourceID string) string {
-	if sourceID == discovery.SourceIDInvkfile {
-		return discovery.SourceIDInvkfile
+	if sourceID == discovery.SourceIDInvowkfile {
+		return discovery.SourceIDInvowkfile
 	}
 	if strings.Contains(sourceID, " ") {
 		return sourceID
 	}
 
-	return sourceID + ".invkmod"
+	return sourceID + ".invowkmod"
 }

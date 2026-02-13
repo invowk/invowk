@@ -30,9 +30,9 @@ type (
 		// These are discovered from config search paths and user commands dir.
 		ModulesPaths []string
 
-		// InvkfilePath is the path to the current invkfile being executed.
+		// InvowkfilePath is the path to the current invowkfile being executed.
 		// This is used to determine what needs to be provisioned.
-		InvkfilePath string
+		InvowkfilePath string
 
 		// BinaryMountPath is where to place the binary in the container.
 		// Default: /invowk/bin
@@ -117,10 +117,10 @@ func WithModulesPaths(paths []string) Option {
 	}
 }
 
-// WithInvkfilePath returns an Option that sets InvkfilePath on the config.
-func WithInvkfilePath(path string) Option {
+// WithInvowkfilePath returns an Option that sets InvowkfilePath on the config.
+func WithInvowkfilePath(path string) Option {
 	return func(c *Config) {
-		c.InvkfilePath = path
+		c.InvowkfilePath = path
 	}
 }
 

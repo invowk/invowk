@@ -42,7 +42,7 @@ func (e *ValidationError) Unwrap() error {
 // Error format: <file-path>: <json-path>: <message>
 //
 // Examples:
-//   - invkfile.cue: cmds[0].implementations[2].script: value exceeds maximum length
+//   - invowkfile.cue: cmds[0].implementations[2].script: value exceeds maximum length
 //   - config.cue: container.auto_provision.enabled: expected bool, got string
 //
 // This function is exposed for packages that need custom error formatting

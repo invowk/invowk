@@ -11,7 +11,7 @@ paths:
 
 **Test files MUST NOT exceed 800 lines.** Large monolithic test files are difficult to navigate and maintain. When a test file approaches this limit, split it by logical concern.
 
-**Naming convention for split files:** `<package>_<concern>_test.go` (e.g., `invkfile_parsing_test.go`, `invkfile_deps_test.go`). Each file should cover a single logical area.
+**Naming convention for split files:** `<package>_<concern>_test.go` (e.g., `invowkfile_parsing_test.go`, `invowkfile_deps_test.go`). Each file should cover a single logical area.
 
 **Splitting protocol:** When moving test functions to a new file, follow the File Splitting Protocol from `go-patterns.md`. The most common mistake is copying tests to the new file but forgetting to delete the originals — Go test files in the same package share a namespace, so duplicate `Test*` function names cause compiler errors. After moving:
 1. Delete the moved test functions from the source file.
@@ -196,6 +196,27 @@ run: go test -v -race -timeout 15m -coverprofile=coverage.out ./...
 2. **Cleanup via `env.Defer()`** prevents orphaned containers from accumulating
 3. **15-minute CI timeout** catches catastrophic failures faster than Go's default 10m
 
+**Layer 4: Test-Level Concurrency Limiting**
+
+All container integration tests must acquire a slot from the process-wide container semaphore before running container operations. This prevents Podman resource exhaustion on constrained CI runners.
+
+```go
+sem := testutil.ContainerSemaphore()
+sem <- struct{}{}
+defer func() { <-sem }()
+```
+
+Place this **after** `t.Parallel()` and any `testing.Short()` skip, but **before** any container operations. The semaphore is a `sync.OnceValue` singleton — each test binary gets its own instance. Default capacity is `min(GOMAXPROCS, 2)`, overridable via `INVOWK_TEST_CONTAINER_PARALLEL` env var (set to `"2"` in CI).
+
+**When to use the semaphore:**
+- Integration tests that run real container operations (Execute, ExecuteCapture, Build)
+- CLI testscript tests that invoke container commands
+
+**When NOT to use the semaphore:**
+- Unit tests with mocked container engines
+- Validation-only tests that don't start containers (e.g., `Validate()`, type assertions)
+- Error-path tests that fail before container operations (e.g., missing SSH server)
+
 **When to adjust timeouts:**
 - If tests consistently need more than 3 minutes (e.g., large image pulls), increase `containerTestTimeout`
 - The 15m CI timeout should always exceed the sum of all sequential container test deadlines
@@ -321,7 +342,7 @@ This ensures that features work correctly through both the virtual shell (mvdan/
 | **container** | `container_*.txtar` | Linux-only by design; container runtime is not a native shell |
 | **CUE validation** | `virtual_edge_cases.txtar`, `virtual_args_subcommand_conflict.txtar` | Tests schema parsing and validation, not runtime behavior |
 | **discovery/ambiguity** | `virtual_ambiguity.txtar`, `virtual_disambiguation.txtar`, `virtual_multi_source.txtar` | Tests command resolution logic, not shell execution |
-| **dogfooding** | `dogfooding_invkfile.txtar` | Already exercises native runtime through the project's own invkfile.cue |
+| **dogfooding** | `dogfooding_invowkfile.txtar` | Already exercises native runtime through the project's own invowkfile.cue |
 
 ### Testscript (.txtar) Test Strategy
 
@@ -333,7 +354,7 @@ cd $WORK
 exec invowk cmd hello
 stdout 'Hello!'
 
--- invkfile.cue --
+-- invowkfile.cue --
 cmds: [{
     name: "hello"
     description: "Test command"
@@ -345,10 +366,10 @@ cmds: [{
 }]
 ````
 
-**Why inline CUE over referencing project invkfile.cue:**
+**Why inline CUE over referencing project invowkfile.cue:**
 - Self-contained: test is readable without cross-referencing
 - Cross-platform: can declare all platforms using virtual runtime
-- Isolated: changes to project invkfile.cue don't break feature tests
+- Isolated: changes to project invowkfile.cue don't break feature tests
 - Portable: runs on all CI platforms without platform skips
 
 **Exception: Dogfooding tests** in `tests/cli/testdata/dogfooding_*.txtar` MAY reference `$PROJECT_ROOT` to validate the actual project configuration.

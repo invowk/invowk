@@ -12,6 +12,8 @@ import (
 	"time"
 
 	"github.com/rogpeppe/go-internal/testscript"
+
+	"invowk-cli/internal/testutil"
 )
 
 const (
@@ -132,6 +134,14 @@ func TestContainerCLI(t *testing.T) {
 		testName := strings.TrimSuffix(filepath.Base(testFile), ".txtar")
 		t.Run(testName, func(t *testing.T) {
 			t.Parallel()
+
+			// Acquire a slot from the process-wide container semaphore to limit
+			// concurrent container operations. This prevents Podman resource
+			// exhaustion on constrained CI runners where too many concurrent
+			// operations cause indefinite hangs.
+			sem := testutil.ContainerSemaphore()
+			sem <- struct{}{}
+			defer func() { <-sem }()
 
 			// Set a per-test deadline to prevent indefinite hangs.
 			// Container operations (image pulls, startup, network issues) can hang forever

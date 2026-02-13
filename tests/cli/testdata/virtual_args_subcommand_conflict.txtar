@@ -1,7 +1,7 @@
 # Test: Args and subcommand conflict detection
 # Tests that invowk fails with a clear error when a command has both args and subcommands
 
-# Change to work directory where the conflicting invkfile will be created
+# Change to work directory where the conflicting invowkfile will be created
 cd $WORK
 
 # Running invowk cmd should fail because of the conflict
@@ -11,7 +11,7 @@ stderr 'deploy'
 stderr 'args'
 stderr 'subcommands'
 
--- invkfile.cue --
+-- invowkfile.cue --
 cmds: [
 	{
 		name: "deploy"

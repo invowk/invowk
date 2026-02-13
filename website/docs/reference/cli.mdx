@@ -15,9 +15,9 @@ These flags are available for all commands:
 | Flag | Short | Description |
 |------|-------|-------------|
 | `--help` | `-h` | Show help for the command |
-| `--invk-config` | `-c` | Config file path (default: `$HOME/.config/invowk/config.cue`) |
-| `--invk-interactive` | `-i` | Run commands in alternate screen buffer (interactive mode) |
-| `--invk-verbose` | `-v` | Enable verbose output |
+| `--ivk-config` | `-c` | Config file path (default: `$HOME/.config/invowk/config.cue`) |
+| `--ivk-interactive` | `-i` | Run commands in alternate screen buffer (interactive mode) |
+| `--ivk-verbose` | `-v` | Enable verbose output |
 | `--version` | | Show version information |
 
 ## Commands
@@ -32,7 +32,7 @@ The root command. Running `invowk` without arguments shows the help message.
 
 ### invowk cmd
 
-Execute commands defined in invkfiles.
+Execute commands defined in invowkfiles.
 
 <Snippet id="reference/cli/cmd-syntax" />
 
@@ -40,22 +40,22 @@ Execute commands defined in invkfiles.
 
 | Flag | Short | Description |
 |------|-------|-------------|
-| `--invk-runtime` | `-r` | Override the runtime (must be allowed by the command) |
-| `--invk-from` | | Source to run command from (e.g., 'invkfile' or module name) |
+| `--ivk-runtime` | `-r` | Override the runtime (must be allowed by the command) |
+| `--ivk-from` | | Source to run command from (e.g., 'invowkfile' or module name) |
 
 Built-in per-command flags:
 
 | Flag | Short | Description |
 |------|-------|-------------|
-| `--invk-env-file` | `-e` | Load environment variables from file (repeatable) |
-| `--invk-env-var` | `-E` | Set environment variable (KEY=VALUE, repeatable) |
-| `--invk-env-inherit-mode` |  | Inherit host environment variables: `none`, `allow`, `all` |
-| `--invk-env-inherit-allow` |  | Allowlist host env vars to inherit (repeatable) |
-| `--invk-env-inherit-deny` |  | Denylist host env vars to inherit (repeatable) |
-| `--invk-workdir` | `-w` | Override working directory for this command |
+| `--ivk-env-file` | `-e` | Load environment variables from file (repeatable) |
+| `--ivk-env-var` | `-E` | Set environment variable (KEY=VALUE, repeatable) |
+| `--ivk-env-inherit-mode` |  | Inherit host environment variables: `none`, `allow`, `all` |
+| `--ivk-env-inherit-allow` |  | Allowlist host env vars to inherit (repeatable) |
+| `--ivk-env-inherit-deny` |  | Denylist host env vars to inherit (repeatable) |
+| `--ivk-workdir` | `-w` | Override working directory for this command |
 
 :::note
-The `invk-`, `invowk-`, and `i-` prefixes are reserved for system flags and cannot be used for user-defined flags.
+The `ivk-`, `invowk-`, and `i-` prefixes are reserved for system flags and cannot be used for user-defined flags.
 :::
 
 **Examples:**
@@ -65,38 +65,39 @@ The `invk-`, `invowk-`, and `i-` prefixes are reserved for system flags and cann
 **Command Discovery:**
 
 Commands are discovered from (in priority order):
-1. Current directory (invkfile and modules)
-2. `~/.invowk/cmds/` (invkfiles and modules)
-3. Configured `includes` entries (invkfiles and modules)
+1. Current directory invowkfile.cue (highest priority)
+2. Sibling `*.invowkmod` module directories
+3. Configured `includes` entries (modules only)
+4. `~/.invowk/cmds/` (modules only, non-recursive)
 
 **Command Disambiguation:**
 
-When a command name exists in multiple sources (e.g., both `invkfile.cue` and a module), you must disambiguate:
+When a command name exists in multiple sources (e.g., both `invowkfile.cue` and a module), you must disambiguate:
 
 Using `@source` prefix:
 ```bash
-invowk cmd @invkfile deploy      # Run deploy from invkfile
-invowk cmd @tools deploy         # Run deploy from tools.invkmod
-invowk cmd @tools.invkmod deploy # Full module name also works
+invowk cmd @invowkfile deploy      # Run deploy from invowkfile
+invowk cmd @tools deploy         # Run deploy from tools.invowkmod
+invowk cmd @tools.invowkmod deploy # Full module name also works
 ```
 
-Using `--invk-from` flag:
+Using `--ivk-from` flag:
 ```bash
-invowk cmd --invk-from invkfile deploy
-invowk cmd --invk-from tools deploy
+invowk cmd --ivk-from invowkfile deploy
+invowk cmd --ivk-from tools deploy
 ```
 
 If you run an ambiguous command without disambiguation, invowk shows an error listing available sources.
 
 :::tip
-You can use `@source` or `--invk-from` even for unique command names to be explicit about where a command comes from.
+You can use `@source` or `--ivk-from` even for unique command names to be explicit about where a command comes from.
 :::
 
 ---
 
 ### invowk init
 
-Create a new invkfile in the current directory.
+Create a new invowkfile in the current directory.
 
 <Snippet id="reference/cli/init-syntax" />
 
@@ -106,13 +107,13 @@ Optionally pass a custom filename to write.
 
 | Flag | Short | Description |
 |------|-------|-------------|
-| `--force` | `-f` | Overwrite existing invkfile |
+| `--force` | `-f` | Overwrite existing invowkfile |
 | `--template` | `-t` | Template to use: `default`, `minimal`, `full` |
 
 **Templates:**
 
 - `default` - A balanced template with a few example commands
-- `minimal` - Bare minimum invkfile structure
+- `minimal` - Bare minimum invowkfile structure
 - `full` - Comprehensive template showing all features
 
 **Examples:**
@@ -185,8 +186,8 @@ Create a new invowk module.
 |------|-------|-------------|
 | `--path` | `-p` | Parent directory for the module (default: current directory) |
 | `--scripts` |  | Create a `scripts/` subdirectory |
-| `--module-id` | `-g` | Module identifier for `invkmod.cue` (default: module name) |
-| `--description` | `-d` | Description for `invkmod.cue` |
+| `--module-id` | `-g` | Module identifier for `invowkmod.cue` (default: module name) |
+| `--description` | `-d` | Description for `invowkmod.cue` |
 
 **Examples:**
 
@@ -202,7 +203,7 @@ Validate an invowk module.
 
 | Flag | Short | Description |
 |------|-------|-------------|
-| `--deep` |  | Also validate invkfile syntax |
+| `--deep` |  | Also validate invowkfile syntax |
 
 **Examples:**
 
@@ -241,7 +242,7 @@ Import a module from a ZIP file or URL.
 
 #### invowk module add
 
-Resolve a module dependency and print the `requires` entry for `invkmod.cue`.
+Resolve a module dependency and print the `requires` entry for `invowkmod.cue`.
 
 <Snippet id="reference/cli/module-add-syntax" />
 
@@ -260,7 +261,7 @@ Remove a module dependency from the lock file.
 
 #### invowk module sync
 
-Sync dependencies from `invkmod.cue`.
+Sync dependencies from `invowkmod.cue`.
 
 <Snippet id="reference/cli/module-sync-syntax" />
 
@@ -278,7 +279,7 @@ List resolved module dependencies.
 
 #### invowk module vendor
 
-Vendor dependencies into `invk_modules/`.
+Vendor dependencies into `invowk_modules/`.
 
 <Snippet id="reference/cli/module-vendor-syntax" />
 
@@ -302,7 +303,7 @@ Interactive terminal UI components for shell scripts.
 <Snippet id="reference/cli/tui-syntax" />
 
 :::tip
-TUI components work great in invkfile scripts! They provide interactive prompts, spinners, file pickers, and more.
+TUI components work great in invowkfile scripts! They provide interactive prompts, spinners, file pickers, and more.
 :::
 
 **Subcommands:**
@@ -540,25 +541,25 @@ Invowk exits with:
 
 Invowk provides specific error messages to help diagnose issues:
 
-### No Invkfile Found
+### No Invowkfile Found
 
-When no invkfile is discovered in any search location:
+When no invowkfile is discovered in any search location:
 
-<Snippet id="reference/cli/error-no-invkfile" />
+<Snippet id="reference/cli/error-no-invowkfile" />
 
 **This message appears when:**
-- No `invkfile.cue` exists in the current directory
-- No invkfiles exist in `~/.invowk/cmds/`
-- No invkfiles exist in configured `includes`
+- No `invowkfile.cue` exists in the current directory
+- No modules exist in configured `includes`
+- No modules exist in `~/.invowk/cmds/`
 
 **Solutions:**
-- Run `invowk init` to create an invkfile in the current directory
-- Navigate to a directory containing an invkfile
-- Add invkfile or module paths to your config's `includes`
+- Run `invowk init` to create an invowkfile in the current directory
+- Navigate to a directory containing an invowkfile
+- Add module paths to your config's `includes`
 
-### Failed to Parse Invkfile
+### Failed to Parse Invowkfile
 
-When an invkfile is found but contains syntax errors or invalid configuration:
+When an invowkfile is found but contains syntax errors or invalid configuration:
 
 <Snippet id="reference/cli/error-parse-failed" />
 
@@ -570,9 +571,9 @@ When an invkfile is found but contains syntax errors or invalid configuration:
 
 **Solutions:**
 - Check the specific error message shown above the help text
-- Validate your CUE syntax: `cue vet invkfile.cue`
-- Run with verbose mode: `invowk --invk-verbose cmd`
-- Compare against the [invkfile schema reference](./invkfile-schema)
+- Validate your CUE syntax: `cue vet invowkfile.cue`
+- Run with verbose mode: `invowk --ivk-verbose cmd`
+- Compare against the [invowkfile schema reference](./invowkfile-schema)
 
 :::tip
 The error message always shows the specific parsing error first (e.g., which field failed validation), followed by general troubleshooting guidance.

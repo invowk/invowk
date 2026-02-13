@@ -72,7 +72,7 @@ func ConfigDir() (string, error) {
 	return filepath.Join(configDir, AppName), nil
 }
 
-// CommandsDir returns the directory for user-defined invkfiles
+// CommandsDir returns the directory for user-defined invowkfiles
 func CommandsDir() (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -115,7 +115,7 @@ func loadWithOptions(ctx context.Context, opts LoadOptions) (*Config, string, er
 
 	resolvedPath := ""
 
-	// If a custom config file path is set via --invk-config flag, use it exclusively.
+	// If a custom config file path is set via --ivk-config flag, use it exclusively.
 	if opts.ConfigFilePath != "" {
 		if !fileExists(opts.ConfigFilePath) {
 			return nil, "", issue.NewErrorContext().
@@ -276,7 +276,7 @@ func loadCUEIntoViper(v *viper.Viper, path string) error {
 // validateIncludes checks include entries for constraints that CUE cannot express:
 //   - all paths must be unique (normalized via filepath.Clean)
 //   - all non-empty aliases must be globally unique across entries
-//   - when two or more entries share the same filesystem short name (e.g., "foo.invkmod"),
+//   - when two or more entries share the same filesystem short name (e.g., "foo.invowkmod"),
 //     ALL entries with that short name must have a non-empty alias for disambiguation
 //
 // The fieldName parameter is used in error messages to identify which includes

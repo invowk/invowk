@@ -9,7 +9,7 @@
 # Skip on Windows - SSH callback only works on Linux/macOS
 [windows] skip 'SSH callback not supported on Windows'
 
-# Change to work directory where local invkfile.cue is located
+# Change to work directory where local invowkfile.cue is located
 cd $WORK
 
 # Test 1: container ssh - verify SSH env vars ARE set when enable_host_ssh: true
@@ -28,7 +28,7 @@ stdout 'INVOWK_SSH_PORT is set: yes'
 stdout 'INVOWK_SSH_USER is set: yes'
 stdout 'INVOWK_SSH_TOKEN is set: yes'
 
--- invkfile.cue --
+-- invowkfile.cue --
 cmds: [
 	{
 		name: "ssh-demo"

@@ -17,7 +17,7 @@ import (
 	"invowk-cli/internal/sshserver"
 	"invowk-cli/internal/tui"
 	"invowk-cli/internal/tuiserver"
-	"invowk-cli/pkg/invkfile"
+	"invowk-cli/pkg/invowkfile"
 
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -41,18 +41,18 @@ type (
 	}
 
 	// resolvedDefinitions holds the resolved flag/arg definitions and parsed flag values
-	// after applying fallbacks from the command's invkfile definitions.
+	// after applying fallbacks from the command's invowkfile definitions.
 	resolvedDefinitions struct {
-		flagDefs   []invkfile.Flag
-		argDefs    []invkfile.Argument
+		flagDefs   []invowkfile.Flag
+		argDefs    []invowkfile.Argument
 		flagValues map[string]string
 	}
 
 	// resolvedRuntime holds the runtime selection result after validating platform
-	// compatibility and applying any --invk-runtime override.
+	// compatibility and applying any --ivk-runtime override.
 	resolvedRuntime struct {
-		mode invkfile.RuntimeMode
-		impl *invkfile.Implementation
+		mode invowkfile.RuntimeMode
+		impl *invowkfile.Implementation
 	}
 )
 
@@ -126,7 +126,7 @@ func (s *commandService) discoverCommand(ctx context.Context, req ExecuteRequest
 }
 
 // resolveDefinitions resolves flag/arg definitions and flag values by applying
-// fallbacks from the command's invkfile definitions when the request does not
+// fallbacks from the command's invowkfile definitions when the request does not
 // supply them. This supports both the Cobra-parsed path (defs provided) and the
 // direct-call path (only command name + args).
 func (s *commandService) resolveDefinitions(req ExecuteRequest, cmdInfo *discovery.CommandInfo) resolvedDefinitions {
@@ -177,7 +177,7 @@ func (s *commandService) validateInputs(req ExecuteRequest, cmdInfo *discovery.C
 		return err
 	}
 
-	currentPlatform := invkfile.GetCurrentHostOS()
+	currentPlatform := invowkfile.GetCurrentHostOS()
 	if !cmdInfo.Command.CanRunOnCurrentHost() {
 		supportedPlatforms := cmdInfo.Command.GetPlatformsString()
 		return &ServiceError{
@@ -192,17 +192,17 @@ func (s *commandService) validateInputs(req ExecuteRequest, cmdInfo *discovery.C
 
 // resolveRuntime determines the selected runtime and implementation for the current
 // platform using 3-tier precedence:
-//  1. CLI flag (--invk-runtime) — hard override, errors if incompatible.
+//  1. CLI flag (--ivk-runtime) — hard override, errors if incompatible.
 //  2. Config default runtime (cfg.DefaultRuntime) — soft, silently falls back if incompatible.
 //  3. Per-command default — first runtime of the first matching implementation.
 //
 // It returns ServiceError with rendering info for invalid runtime overrides (Tier 1 only).
 func (s *commandService) resolveRuntime(req ExecuteRequest, cmdInfo *discovery.CommandInfo, cfg *config.Config) (resolvedRuntime, error) {
-	currentPlatform := invkfile.GetCurrentHostOS()
+	currentPlatform := invowkfile.GetCurrentHostOS()
 
 	// Tier 1: CLI flag override (hard — errors if incompatible).
 	if req.Runtime != "" {
-		overrideRuntime := invkfile.RuntimeMode(req.Runtime)
+		overrideRuntime := invowkfile.RuntimeMode(req.Runtime)
 		if !cmdInfo.Command.IsRuntimeAllowedForPlatform(currentPlatform, overrideRuntime) {
 			allowedRuntimes := cmdInfo.Command.GetAllowedRuntimesForPlatform(currentPlatform)
 			allowedStr := make([]string, len(allowedRuntimes))
@@ -225,7 +225,7 @@ func (s *commandService) resolveRuntime(req ExecuteRequest, cmdInfo *discovery.C
 
 	// Tier 2: Config default runtime (soft — silently falls back if incompatible).
 	if cfg != nil && cfg.DefaultRuntime != "" {
-		configRuntime := invkfile.RuntimeMode(cfg.DefaultRuntime)
+		configRuntime := invowkfile.RuntimeMode(cfg.DefaultRuntime)
 		if cmdInfo.Command.IsRuntimeAllowedForPlatform(currentPlatform, configRuntime) {
 			impl := cmdInfo.Command.GetImplForPlatformRuntime(currentPlatform, configRuntime)
 			if impl != nil {
@@ -272,7 +272,7 @@ func (s *commandService) ensureSSHIfNeeded(ctx context.Context, req ExecuteReque
 // flags and arguments into environment variables following the INVOWK_FLAG_*,
 // INVOWK_ARG_*, ARGn, and ARGC conventions.
 func (s *commandService) buildExecContext(req ExecuteRequest, cmdInfo *discovery.CommandInfo, defs resolvedDefinitions, resolved resolvedRuntime) (*runtime.ExecutionContext, error) {
-	execCtx := runtime.NewExecutionContext(cmdInfo.Command, cmdInfo.Invkfile)
+	execCtx := runtime.NewExecutionContext(cmdInfo.Command, cmdInfo.Invowkfile)
 	// Request fields are projected into runtime execution context.
 	execCtx.Verbose = req.Verbose
 	execCtx.SelectedRuntime = resolved.mode
@@ -294,11 +294,11 @@ func (s *commandService) buildExecContext(req ExecuteRequest, cmdInfo *discovery
 }
 
 // applyEnvInheritOverrides validates and applies env inheritance overrides from the
-// request (--invk-env-inherit-mode, --invk-env-inherit-allow, --invk-env-inherit-deny) onto the
+// request (--ivk-env-inherit-mode, --ivk-env-inherit-allow, --ivk-env-inherit-deny) onto the
 // execution context.
 func (s *commandService) applyEnvInheritOverrides(req ExecuteRequest, execCtx *runtime.ExecutionContext) error {
 	if req.EnvInheritMode != "" {
-		mode, err := invkfile.ParseEnvInheritMode(req.EnvInheritMode)
+		mode, err := invowkfile.ParseEnvInheritMode(req.EnvInheritMode)
 		if err != nil {
 			return err
 		}
@@ -306,7 +306,7 @@ func (s *commandService) applyEnvInheritOverrides(req ExecuteRequest, execCtx *r
 	}
 
 	for _, name := range req.EnvInheritAllow {
-		if err := invkfile.ValidateEnvVarName(name); err != nil {
+		if err := invowkfile.ValidateEnvVarName(name); err != nil {
 			return fmt.Errorf("env-inherit-allow: %w", err)
 		}
 	}
@@ -315,7 +315,7 @@ func (s *commandService) applyEnvInheritOverrides(req ExecuteRequest, execCtx *r
 	}
 
 	for _, name := range req.EnvInheritDeny {
-		if err := invkfile.ValidateEnvVarName(name); err != nil {
+		if err := invowkfile.ValidateEnvVarName(name); err != nil {
 			return fmt.Errorf("env-inherit-deny: %w", err)
 		}
 	}

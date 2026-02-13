@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"invowk-cli/internal/testutil"
-	"invowk-cli/pkg/invkfile"
+	"invowk-cli/pkg/invowkfile"
 )
 
 // TestBuildRuntimeEnv_PairwisePrecedence verifies that each adjacent precedence level
@@ -21,8 +21,8 @@ import (
 //  6. Command-level env.vars
 //  7. Implementation-level env.vars
 //  8. ExtraEnv (INVOWK_FLAG_*, INVOWK_ARG_*, ARGn, ARGC)
-//  9. RuntimeEnvFiles (--invk-env-file flag)
-//  10. RuntimeEnvVars (--invk-env-var flag) - HIGHEST priority
+//  9. RuntimeEnvFiles (--ivk-env-file flag)
+//  10. RuntimeEnvVars (--ivk-env-var flag) - HIGHEST priority
 func TestBuildRuntimeEnv_PairwisePrecedence(t *testing.T) {
 	tmpDir := t.TempDir()
 
@@ -32,7 +32,7 @@ func TestBuildRuntimeEnv_PairwisePrecedence(t *testing.T) {
 	createEnvFile(t, tmpDir, "impl.env", "KEY=level4_impl_file")
 	createEnvFile(t, tmpDir, "runtime.env", "KEY=level9_runtime_file")
 
-	currentPlatform := invkfile.GetCurrentHostOS()
+	currentPlatform := invowkfile.GetCurrentHostOS()
 
 	tests := []struct {
 		name     string
@@ -43,11 +43,11 @@ func TestBuildRuntimeEnv_PairwisePrecedence(t *testing.T) {
 			name: "level 2 root files override level 1 host env",
 			setupCtx: func(tmpDir string) (*ExecutionContext, func()) {
 				restore := testutil.MustSetenv(t, "KEY", "level1_host")
-				inv := &invkfile.Invkfile{
-					FilePath: filepath.Join(tmpDir, "invkfile.cue"),
-					Env:      &invkfile.EnvConfig{Files: []string{"root.env"}},
+				inv := &invowkfile.Invowkfile{
+					FilePath: filepath.Join(tmpDir, "invowkfile.cue"),
+					Env:      &invowkfile.EnvConfig{Files: []string{"root.env"}},
 				}
-				cmd := testCommandWithScript("test", "echo test", invkfile.RuntimeNative)
+				cmd := testCommandWithScript("test", "echo test", invowkfile.RuntimeNative)
 				ctx := NewExecutionContext(cmd, inv)
 				return ctx, restore
 			},
@@ -56,18 +56,18 @@ func TestBuildRuntimeEnv_PairwisePrecedence(t *testing.T) {
 		{
 			name: "level 3 cmd files override level 2 root files",
 			setupCtx: func(tmpDir string) (*ExecutionContext, func()) {
-				inv := &invkfile.Invkfile{
-					FilePath: filepath.Join(tmpDir, "invkfile.cue"),
-					Env:      &invkfile.EnvConfig{Files: []string{"root.env"}},
+				inv := &invowkfile.Invowkfile{
+					FilePath: filepath.Join(tmpDir, "invowkfile.cue"),
+					Env:      &invowkfile.EnvConfig{Files: []string{"root.env"}},
 				}
-				cmd := &invkfile.Command{
+				cmd := &invowkfile.Command{
 					Name: "test",
-					Implementations: []invkfile.Implementation{{
+					Implementations: []invowkfile.Implementation{{
 						Script:    "echo test",
-						Runtimes:  []invkfile.RuntimeConfig{{Name: invkfile.RuntimeNative}},
-						Platforms: []invkfile.PlatformConfig{{Name: currentPlatform}},
+						Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeNative}},
+						Platforms: []invowkfile.PlatformConfig{{Name: currentPlatform}},
 					}},
-					Env: &invkfile.EnvConfig{Files: []string{"cmd.env"}},
+					Env: &invowkfile.EnvConfig{Files: []string{"cmd.env"}},
 				}
 				ctx := NewExecutionContext(cmd, inv)
 				return ctx, func() {}
@@ -77,18 +77,18 @@ func TestBuildRuntimeEnv_PairwisePrecedence(t *testing.T) {
 		{
 			name: "level 4 impl files override level 3 cmd files",
 			setupCtx: func(tmpDir string) (*ExecutionContext, func()) {
-				inv := &invkfile.Invkfile{
-					FilePath: filepath.Join(tmpDir, "invkfile.cue"),
+				inv := &invowkfile.Invowkfile{
+					FilePath: filepath.Join(tmpDir, "invowkfile.cue"),
 				}
-				cmd := &invkfile.Command{
+				cmd := &invowkfile.Command{
 					Name: "test",
-					Implementations: []invkfile.Implementation{{
+					Implementations: []invowkfile.Implementation{{
 						Script:    "echo test",
-						Runtimes:  []invkfile.RuntimeConfig{{Name: invkfile.RuntimeNative}},
-						Platforms: []invkfile.PlatformConfig{{Name: currentPlatform}},
-						Env:       &invkfile.EnvConfig{Files: []string{"impl.env"}},
+						Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeNative}},
+						Platforms: []invowkfile.PlatformConfig{{Name: currentPlatform}},
+						Env:       &invowkfile.EnvConfig{Files: []string{"impl.env"}},
 					}},
-					Env: &invkfile.EnvConfig{Files: []string{"cmd.env"}},
+					Env: &invowkfile.EnvConfig{Files: []string{"cmd.env"}},
 				}
 				ctx := NewExecutionContext(cmd, inv)
 				return ctx, func() {}
@@ -98,14 +98,14 @@ func TestBuildRuntimeEnv_PairwisePrecedence(t *testing.T) {
 		{
 			name: "level 5 root vars override level 2 root files",
 			setupCtx: func(tmpDir string) (*ExecutionContext, func()) {
-				inv := &invkfile.Invkfile{
-					FilePath: filepath.Join(tmpDir, "invkfile.cue"),
-					Env: &invkfile.EnvConfig{
+				inv := &invowkfile.Invowkfile{
+					FilePath: filepath.Join(tmpDir, "invowkfile.cue"),
+					Env: &invowkfile.EnvConfig{
 						Files: []string{"root.env"},
 						Vars:  map[string]string{"KEY": "level5_root_var"},
 					},
 				}
-				cmd := testCommandWithScript("test", "echo test", invkfile.RuntimeNative)
+				cmd := testCommandWithScript("test", "echo test", invowkfile.RuntimeNative)
 				ctx := NewExecutionContext(cmd, inv)
 				return ctx, func() {}
 			},
@@ -114,20 +114,20 @@ func TestBuildRuntimeEnv_PairwisePrecedence(t *testing.T) {
 		{
 			name: "level 6 cmd vars override level 5 root vars",
 			setupCtx: func(tmpDir string) (*ExecutionContext, func()) {
-				inv := &invkfile.Invkfile{
-					FilePath: filepath.Join(tmpDir, "invkfile.cue"),
-					Env: &invkfile.EnvConfig{
+				inv := &invowkfile.Invowkfile{
+					FilePath: filepath.Join(tmpDir, "invowkfile.cue"),
+					Env: &invowkfile.EnvConfig{
 						Vars: map[string]string{"KEY": "level5_root_var"},
 					},
 				}
-				cmd := &invkfile.Command{
+				cmd := &invowkfile.Command{
 					Name: "test",
-					Implementations: []invkfile.Implementation{{
+					Implementations: []invowkfile.Implementation{{
 						Script:    "echo test",
-						Runtimes:  []invkfile.RuntimeConfig{{Name: invkfile.RuntimeNative}},
-						Platforms: []invkfile.PlatformConfig{{Name: currentPlatform}},
+						Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeNative}},
+						Platforms: []invowkfile.PlatformConfig{{Name: currentPlatform}},
 					}},
-					Env: &invkfile.EnvConfig{Vars: map[string]string{"KEY": "level6_cmd_var"}},
+					Env: &invowkfile.EnvConfig{Vars: map[string]string{"KEY": "level6_cmd_var"}},
 				}
 				ctx := NewExecutionContext(cmd, inv)
 				return ctx, func() {}
@@ -137,18 +137,18 @@ func TestBuildRuntimeEnv_PairwisePrecedence(t *testing.T) {
 		{
 			name: "level 7 impl vars override level 6 cmd vars",
 			setupCtx: func(tmpDir string) (*ExecutionContext, func()) {
-				inv := &invkfile.Invkfile{
-					FilePath: filepath.Join(tmpDir, "invkfile.cue"),
+				inv := &invowkfile.Invowkfile{
+					FilePath: filepath.Join(tmpDir, "invowkfile.cue"),
 				}
-				cmd := &invkfile.Command{
+				cmd := &invowkfile.Command{
 					Name: "test",
-					Implementations: []invkfile.Implementation{{
+					Implementations: []invowkfile.Implementation{{
 						Script:    "echo test",
-						Runtimes:  []invkfile.RuntimeConfig{{Name: invkfile.RuntimeNative}},
-						Platforms: []invkfile.PlatformConfig{{Name: currentPlatform}},
-						Env:       &invkfile.EnvConfig{Vars: map[string]string{"KEY": "level7_impl_var"}},
+						Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeNative}},
+						Platforms: []invowkfile.PlatformConfig{{Name: currentPlatform}},
+						Env:       &invowkfile.EnvConfig{Vars: map[string]string{"KEY": "level7_impl_var"}},
 					}},
-					Env: &invkfile.EnvConfig{Vars: map[string]string{"KEY": "level6_cmd_var"}},
+					Env: &invowkfile.EnvConfig{Vars: map[string]string{"KEY": "level6_cmd_var"}},
 				}
 				ctx := NewExecutionContext(cmd, inv)
 				return ctx, func() {}
@@ -158,16 +158,16 @@ func TestBuildRuntimeEnv_PairwisePrecedence(t *testing.T) {
 		{
 			name: "level 8 extra env overrides level 7 impl vars",
 			setupCtx: func(tmpDir string) (*ExecutionContext, func()) {
-				inv := &invkfile.Invkfile{
-					FilePath: filepath.Join(tmpDir, "invkfile.cue"),
+				inv := &invowkfile.Invowkfile{
+					FilePath: filepath.Join(tmpDir, "invowkfile.cue"),
 				}
-				cmd := &invkfile.Command{
+				cmd := &invowkfile.Command{
 					Name: "test",
-					Implementations: []invkfile.Implementation{{
+					Implementations: []invowkfile.Implementation{{
 						Script:    "echo test",
-						Runtimes:  []invkfile.RuntimeConfig{{Name: invkfile.RuntimeNative}},
-						Platforms: []invkfile.PlatformConfig{{Name: currentPlatform}},
-						Env:       &invkfile.EnvConfig{Vars: map[string]string{"KEY": "level7_impl_var"}},
+						Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeNative}},
+						Platforms: []invowkfile.PlatformConfig{{Name: currentPlatform}},
+						Env:       &invowkfile.EnvConfig{Vars: map[string]string{"KEY": "level7_impl_var"}},
 					}},
 				}
 				ctx := NewExecutionContext(cmd, inv)
@@ -179,10 +179,10 @@ func TestBuildRuntimeEnv_PairwisePrecedence(t *testing.T) {
 		{
 			name: "level 9 runtime files override level 8 extra env",
 			setupCtx: func(tmpDir string) (*ExecutionContext, func()) {
-				inv := &invkfile.Invkfile{
-					FilePath: filepath.Join(tmpDir, "invkfile.cue"),
+				inv := &invowkfile.Invowkfile{
+					FilePath: filepath.Join(tmpDir, "invowkfile.cue"),
 				}
-				cmd := testCommandWithScript("test", "echo test", invkfile.RuntimeNative)
+				cmd := testCommandWithScript("test", "echo test", invowkfile.RuntimeNative)
 				ctx := NewExecutionContext(cmd, inv)
 				ctx.Env.ExtraEnv["KEY"] = "level8_extra"
 				ctx.Env.RuntimeEnvFiles = []string{filepath.Join(tmpDir, "runtime.env")}
@@ -193,10 +193,10 @@ func TestBuildRuntimeEnv_PairwisePrecedence(t *testing.T) {
 		{
 			name: "level 10 runtime vars override level 9 runtime files",
 			setupCtx: func(tmpDir string) (*ExecutionContext, func()) {
-				inv := &invkfile.Invkfile{
-					FilePath: filepath.Join(tmpDir, "invkfile.cue"),
+				inv := &invowkfile.Invowkfile{
+					FilePath: filepath.Join(tmpDir, "invowkfile.cue"),
 				}
-				cmd := testCommandWithScript("test", "echo test", invkfile.RuntimeNative)
+				cmd := testCommandWithScript("test", "echo test", invowkfile.RuntimeNative)
 				ctx := NewExecutionContext(cmd, inv)
 				ctx.Env.RuntimeEnvFiles = []string{filepath.Join(tmpDir, "runtime.env")}
 				ctx.Env.RuntimeEnvVars = map[string]string{"KEY": "level10_runtime_var"}
@@ -211,7 +211,7 @@ func TestBuildRuntimeEnv_PairwisePrecedence(t *testing.T) {
 			ctx, cleanup := tt.setupCtx(tmpDir)
 			defer cleanup()
 
-			env, err := NewDefaultEnvBuilder().Build(ctx, invkfile.EnvInheritAll)
+			env, err := NewDefaultEnvBuilder().Build(ctx, invowkfile.EnvInheritAll)
 			if err != nil {
 				t.Fatalf("Build() error: %v", err)
 			}
@@ -228,64 +228,64 @@ func TestBuildRuntimeEnv_PairwisePrecedence(t *testing.T) {
 // nil EnvConfig pointers gracefully via the GetFiles()/GetVars() nil-safe accessors.
 func TestBuildRuntimeEnv_NilEnvConfigs(t *testing.T) {
 	tmpDir := t.TempDir()
-	currentPlatform := invkfile.GetCurrentHostOS()
+	currentPlatform := invowkfile.GetCurrentHostOS()
 
 	tests := []struct {
 		name    string
-		inv     *invkfile.Invkfile
-		cmd     *invkfile.Command
+		inv     *invowkfile.Invowkfile
+		cmd     *invowkfile.Command
 		wantErr bool
 	}{
 		{
 			name: "nil root env config",
-			inv: &invkfile.Invkfile{
-				FilePath: filepath.Join(tmpDir, "invkfile.cue"),
+			inv: &invowkfile.Invowkfile{
+				FilePath: filepath.Join(tmpDir, "invowkfile.cue"),
 				Env:      nil,
 			},
-			cmd: testCommandWithScript("test", "echo test", invkfile.RuntimeNative),
+			cmd: testCommandWithScript("test", "echo test", invowkfile.RuntimeNative),
 		},
 		{
 			name: "nil command env config",
-			inv: &invkfile.Invkfile{
-				FilePath: filepath.Join(tmpDir, "invkfile.cue"),
+			inv: &invowkfile.Invowkfile{
+				FilePath: filepath.Join(tmpDir, "invowkfile.cue"),
 			},
-			cmd: &invkfile.Command{
+			cmd: &invowkfile.Command{
 				Name: "test",
-				Implementations: []invkfile.Implementation{{
+				Implementations: []invowkfile.Implementation{{
 					Script:    "echo test",
-					Runtimes:  []invkfile.RuntimeConfig{{Name: invkfile.RuntimeNative}},
-					Platforms: []invkfile.PlatformConfig{{Name: currentPlatform}},
+					Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeNative}},
+					Platforms: []invowkfile.PlatformConfig{{Name: currentPlatform}},
 				}},
 				Env: nil,
 			},
 		},
 		{
 			name: "nil implementation env config",
-			inv: &invkfile.Invkfile{
-				FilePath: filepath.Join(tmpDir, "invkfile.cue"),
+			inv: &invowkfile.Invowkfile{
+				FilePath: filepath.Join(tmpDir, "invowkfile.cue"),
 			},
-			cmd: &invkfile.Command{
+			cmd: &invowkfile.Command{
 				Name: "test",
-				Implementations: []invkfile.Implementation{{
+				Implementations: []invowkfile.Implementation{{
 					Script:    "echo test",
-					Runtimes:  []invkfile.RuntimeConfig{{Name: invkfile.RuntimeNative}},
-					Platforms: []invkfile.PlatformConfig{{Name: currentPlatform}},
+					Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeNative}},
+					Platforms: []invowkfile.PlatformConfig{{Name: currentPlatform}},
 					Env:       nil,
 				}},
 			},
 		},
 		{
 			name: "all env configs nil",
-			inv: &invkfile.Invkfile{
-				FilePath: filepath.Join(tmpDir, "invkfile.cue"),
+			inv: &invowkfile.Invowkfile{
+				FilePath: filepath.Join(tmpDir, "invowkfile.cue"),
 				Env:      nil,
 			},
-			cmd: &invkfile.Command{
+			cmd: &invowkfile.Command{
 				Name: "test",
-				Implementations: []invkfile.Implementation{{
+				Implementations: []invowkfile.Implementation{{
 					Script:    "echo test",
-					Runtimes:  []invkfile.RuntimeConfig{{Name: invkfile.RuntimeNative}},
-					Platforms: []invkfile.PlatformConfig{{Name: currentPlatform}},
+					Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeNative}},
+					Platforms: []invowkfile.PlatformConfig{{Name: currentPlatform}},
 					Env:       nil,
 				}},
 				Env: nil,
@@ -293,19 +293,19 @@ func TestBuildRuntimeEnv_NilEnvConfigs(t *testing.T) {
 		},
 		{
 			name: "empty vars and files",
-			inv: &invkfile.Invkfile{
-				FilePath: filepath.Join(tmpDir, "invkfile.cue"),
-				Env:      &invkfile.EnvConfig{Vars: map[string]string{}, Files: []string{}},
+			inv: &invowkfile.Invowkfile{
+				FilePath: filepath.Join(tmpDir, "invowkfile.cue"),
+				Env:      &invowkfile.EnvConfig{Vars: map[string]string{}, Files: []string{}},
 			},
-			cmd: &invkfile.Command{
+			cmd: &invowkfile.Command{
 				Name: "test",
-				Implementations: []invkfile.Implementation{{
+				Implementations: []invowkfile.Implementation{{
 					Script:    "echo test",
-					Runtimes:  []invkfile.RuntimeConfig{{Name: invkfile.RuntimeNative}},
-					Platforms: []invkfile.PlatformConfig{{Name: currentPlatform}},
-					Env:       &invkfile.EnvConfig{Vars: map[string]string{}, Files: []string{}},
+					Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeNative}},
+					Platforms: []invowkfile.PlatformConfig{{Name: currentPlatform}},
+					Env:       &invowkfile.EnvConfig{Vars: map[string]string{}, Files: []string{}},
 				}},
-				Env: &invkfile.EnvConfig{Vars: map[string]string{}, Files: []string{}},
+				Env: &invowkfile.EnvConfig{Vars: map[string]string{}, Files: []string{}},
 			},
 		},
 	}
@@ -314,7 +314,7 @@ func TestBuildRuntimeEnv_NilEnvConfigs(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx := NewExecutionContext(tt.cmd, tt.inv)
 
-			env, err := NewDefaultEnvBuilder().Build(ctx, invkfile.EnvInheritNone)
+			env, err := NewDefaultEnvBuilder().Build(ctx, invowkfile.EnvInheritNone)
 			if tt.wantErr {
 				if err == nil {
 					t.Error("Build() expected error, got nil")
@@ -341,7 +341,7 @@ func TestBuildHostEnv_FiltersInvowkVars(t *testing.T) {
 	defer restoreFlag()
 	defer restoreKeep()
 
-	cfg := envInheritConfig{mode: invkfile.EnvInheritAll}
+	cfg := envInheritConfig{mode: invowkfile.EnvInheritAll}
 	env := buildHostEnv(cfg)
 
 	if _, ok := env["INVOWK_ARG_TEST"]; ok {

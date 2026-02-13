@@ -11,30 +11,30 @@ import (
 	"testing"
 
 	"invowk-cli/internal/testutil"
-	"invowk-cli/pkg/invkfile"
+	"invowk-cli/pkg/invowkfile"
 )
 
 // testCommandWithScript creates a Command with a single script for testing.
 // This helper is shared across test files in the runtime package.
-func testCommandWithScript(name, script string, runtime invkfile.RuntimeMode) *invkfile.Command {
-	return &invkfile.Command{
+func testCommandWithScript(name, script string, runtime invowkfile.RuntimeMode) *invowkfile.Command {
+	return &invowkfile.Command{
 		Name: name,
-		Implementations: []invkfile.Implementation{
-			{Script: script, Runtimes: []invkfile.RuntimeConfig{{Name: runtime}}, Platforms: []invkfile.PlatformConfig{{Name: invkfile.PlatformLinux}, {Name: invkfile.PlatformMac}, {Name: invkfile.PlatformWindows}}},
+		Implementations: []invowkfile.Implementation{
+			{Script: script, Runtimes: []invowkfile.RuntimeConfig{{Name: runtime}}, Platforms: []invowkfile.PlatformConfig{{Name: invowkfile.PlatformLinux}, {Name: invowkfile.PlatformMac}, {Name: invowkfile.PlatformWindows}}},
 		},
 	}
 }
 
 // testCommandWithInterpreter creates a Command with a script and explicit interpreter.
 // This helper is shared across test files in the runtime package.
-func testCommandWithInterpreter(name, script, interpreter string, runtime invkfile.RuntimeMode) *invkfile.Command {
-	return &invkfile.Command{
+func testCommandWithInterpreter(name, script, interpreter string, runtime invowkfile.RuntimeMode) *invowkfile.Command {
+	return &invowkfile.Command{
 		Name: name,
-		Implementations: []invkfile.Implementation{
+		Implementations: []invowkfile.Implementation{
 			{
 				Script:    script,
-				Runtimes:  []invkfile.RuntimeConfig{{Name: runtime, Interpreter: interpreter}},
-				Platforms: []invkfile.PlatformConfig{{Name: invkfile.PlatformLinux}, {Name: invkfile.PlatformMac}, {Name: invkfile.PlatformWindows}},
+				Runtimes:  []invowkfile.RuntimeConfig{{Name: runtime, Interpreter: interpreter}},
+				Platforms: []invowkfile.PlatformConfig{{Name: invowkfile.PlatformLinux}, {Name: invowkfile.PlatformMac}, {Name: invowkfile.PlatformWindows}},
 			},
 		},
 	}
@@ -47,13 +47,13 @@ func TestRuntime_ScriptNotFound(t *testing.T) {
 	}
 	defer func() { testutil.MustRemoveAll(t, tmpDir) }()
 
-	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 
-	inv := &invkfile.Invkfile{
-		FilePath: invkfilePath,
+	inv := &invowkfile.Invowkfile{
+		FilePath: invowkfilePath,
 	}
 
-	cmd := testCommandWithScript("missing", "./nonexistent.sh", invkfile.RuntimeNative)
+	cmd := testCommandWithScript("missing", "./nonexistent.sh", invowkfile.RuntimeNative)
 
 	t.Run("native runtime", func(t *testing.T) {
 		rt := NewNativeRuntime()
@@ -68,7 +68,7 @@ func TestRuntime_ScriptNotFound(t *testing.T) {
 	})
 
 	t.Run("virtual runtime", func(t *testing.T) {
-		cmdVirtual := testCommandWithScript("missing", "./nonexistent.sh", invkfile.RuntimeVirtual)
+		cmdVirtual := testCommandWithScript("missing", "./nonexistent.sh", invowkfile.RuntimeVirtual)
 		rt := NewVirtualRuntime(false)
 		ctx := NewExecutionContext(cmdVirtual, inv)
 		ctx.Context = context.Background()
@@ -89,25 +89,25 @@ func TestRuntime_EnvironmentVariables(t *testing.T) {
 	}
 	defer func() { testutil.MustRemoveAll(t, tmpDir) }()
 
-	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 
-	inv := &invkfile.Invkfile{
-		FilePath: invkfilePath,
+	inv := &invowkfile.Invowkfile{
+		FilePath: invowkfilePath,
 	}
 
-	currentPlatform := invkfile.GetCurrentHostOS()
-	cmd := &invkfile.Command{
+	currentPlatform := invowkfile.GetCurrentHostOS()
+	cmd := &invowkfile.Command{
 		Name: "env-test",
-		Implementations: []invkfile.Implementation{
+		Implementations: []invowkfile.Implementation{
 			{
 				Script: `echo "Impl: $IMPL_VAR, Command: $CMD_VAR"`,
 
-				Runtimes:  []invkfile.RuntimeConfig{{Name: invkfile.RuntimeVirtual}},
-				Platforms: []invkfile.PlatformConfig{{Name: currentPlatform}},
-				Env:       &invkfile.EnvConfig{Vars: map[string]string{"IMPL_VAR": "impl_value"}},
+				Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeVirtual}},
+				Platforms: []invowkfile.PlatformConfig{{Name: currentPlatform}},
+				Env:       &invowkfile.EnvConfig{Vars: map[string]string{"IMPL_VAR": "impl_value"}},
 			},
 		},
-		Env: &invkfile.EnvConfig{
+		Env: &invowkfile.EnvConfig{
 			Vars: map[string]string{
 				"CMD_VAR": "command_value",
 			},

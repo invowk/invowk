@@ -13,8 +13,8 @@ import (
 	"invowk-cli/internal/config"
 	"invowk-cli/internal/runtime"
 	"invowk-cli/internal/testutil"
-	"invowk-cli/internal/testutil/invkfiletest"
-	"invowk-cli/pkg/invkfile"
+	"invowk-cli/internal/testutil/invowkfiletest"
+	"invowk-cli/pkg/invowkfile"
 )
 
 // ---------------------------------------------------------------------------
@@ -22,7 +22,7 @@ import (
 // ---------------------------------------------------------------------------
 
 func TestCheckToolDependencies_NoTools(t *testing.T) {
-	cmd := invkfiletest.NewTestCommand("test", invkfiletest.WithScript("echo hello"))
+	cmd := invowkfiletest.NewTestCommand("test", invowkfiletest.WithScript("echo hello"))
 
 	err := checkToolDependencies(cmd)
 	if err != nil {
@@ -31,9 +31,9 @@ func TestCheckToolDependencies_NoTools(t *testing.T) {
 }
 
 func TestCheckToolDependencies_EmptyDependsOn(t *testing.T) {
-	cmd := invkfiletest.NewTestCommand("test",
-		invkfiletest.WithScript("echo hello"),
-		invkfiletest.WithDependsOn(&invkfile.DependsOn{}))
+	cmd := invowkfiletest.NewTestCommand("test",
+		invowkfiletest.WithScript("echo hello"),
+		invowkfiletest.WithDependsOn(&invowkfile.DependsOn{}))
 
 	err := checkToolDependencies(cmd)
 	if err != nil {
@@ -55,10 +55,10 @@ func TestCheckToolDependencies_ToolExists(t *testing.T) {
 		t.Skip("No common tools found in PATH")
 	}
 
-	cmd := invkfiletest.NewTestCommand("test",
-		invkfiletest.WithScript("echo hello"),
-		invkfiletest.WithDependsOn(&invkfile.DependsOn{
-			Tools: []invkfile.ToolDependency{{Alternatives: []string{existingTool}}},
+	cmd := invowkfiletest.NewTestCommand("test",
+		invowkfiletest.WithScript("echo hello"),
+		invowkfiletest.WithDependsOn(&invowkfile.DependsOn{
+			Tools: []invowkfile.ToolDependency{{Alternatives: []string{existingTool}}},
 		}))
 
 	err := checkToolDependencies(cmd)
@@ -68,10 +68,10 @@ func TestCheckToolDependencies_ToolExists(t *testing.T) {
 }
 
 func TestCheckToolDependencies_ToolNotExists(t *testing.T) {
-	cmd := invkfiletest.NewTestCommand("test",
-		invkfiletest.WithScript("echo hello"),
-		invkfiletest.WithDependsOn(&invkfile.DependsOn{
-			Tools: []invkfile.ToolDependency{{Alternatives: []string{"nonexistent-tool-xyz-12345"}}},
+	cmd := invowkfiletest.NewTestCommand("test",
+		invowkfiletest.WithScript("echo hello"),
+		invowkfiletest.WithDependsOn(&invowkfile.DependsOn{
+			Tools: []invowkfile.ToolDependency{{Alternatives: []string{"nonexistent-tool-xyz-12345"}}},
 		}))
 
 	err := checkToolDependencies(cmd)
@@ -94,10 +94,10 @@ func TestCheckToolDependencies_ToolNotExists(t *testing.T) {
 }
 
 func TestCheckToolDependencies_MultipleToolsNotExist(t *testing.T) {
-	cmd := invkfiletest.NewTestCommand("test",
-		invkfiletest.WithScript("echo hello"),
-		invkfiletest.WithDependsOn(&invkfile.DependsOn{
-			Tools: []invkfile.ToolDependency{
+	cmd := invowkfiletest.NewTestCommand("test",
+		invowkfiletest.WithScript("echo hello"),
+		invowkfiletest.WithDependsOn(&invowkfile.DependsOn{
+			Tools: []invowkfile.ToolDependency{
 				{Alternatives: []string{"nonexistent-tool-1"}},
 				{Alternatives: []string{"nonexistent-tool-2"}},
 				{Alternatives: []string{"nonexistent-tool-3"}},
@@ -133,10 +133,10 @@ func TestCheckToolDependencies_MixedToolsExistAndNotExist(t *testing.T) {
 		t.Skip("No common tools found in PATH")
 	}
 
-	cmd := invkfiletest.NewTestCommand("test",
-		invkfiletest.WithScript("echo hello"),
-		invkfiletest.WithDependsOn(&invkfile.DependsOn{
-			Tools: []invkfile.ToolDependency{
+	cmd := invowkfiletest.NewTestCommand("test",
+		invowkfiletest.WithScript("echo hello"),
+		invowkfiletest.WithDependsOn(&invowkfile.DependsOn{
+			Tools: []invowkfile.ToolDependency{
 				{Alternatives: []string{existingTool}},
 				{Alternatives: []string{"nonexistent-tool-xyz"}},
 			},
@@ -178,8 +178,8 @@ func TestCheckCommandDependenciesExist_SatisfiedByLocalUnqualifiedName(t *testin
 	homeCleanup := testutil.SetHomeDir(t, tmpDir)
 	t.Cleanup(homeCleanup)
 
-	// invkfile.cue now only contains commands - module metadata is in invkmod.cue
-	invkfileContent := `cmds: [
+	// invowkfile.cue now only contains commands - module metadata is in invowkmod.cue
+	invowkfileContent := `cmds: [
 	{
 		name: "build"
 		implementations: [{
@@ -198,13 +198,13 @@ func TestCheckCommandDependenciesExist_SatisfiedByLocalUnqualifiedName(t *testin
 	},
 ]
 `
-	if err := os.WriteFile(filepath.Join(tmpDir, "invkfile.cue"), []byte(invkfileContent), 0o644); err != nil {
-		t.Fatalf("failed to write invkfile: %v", err)
+	if err := os.WriteFile(filepath.Join(tmpDir, "invowkfile.cue"), []byte(invowkfileContent), 0o644); err != nil {
+		t.Fatalf("failed to write invowkfile: %v", err)
 	}
 
-	// Standalone invkfile has no module identifier, so pass empty string
-	deps := &invkfile.DependsOn{Commands: []invkfile.CommandDependency{{Alternatives: []string{"build"}}}}
-	ctx := &runtime.ExecutionContext{Command: &invkfile.Command{Name: "deploy"}}
+	// Standalone invowkfile has no module identifier, so pass empty string
+	deps := &invowkfile.DependsOn{Commands: []invowkfile.CommandDependency{{Alternatives: []string{"build"}}}}
+	ctx := &runtime.ExecutionContext{Command: &invowkfile.Command{Name: "deploy"}}
 
 	if err := checkCommandDependenciesExist(config.DefaultConfig(), deps, "", ctx); err != nil {
 		t.Fatalf("expected nil, got %v", err)
@@ -223,8 +223,8 @@ func TestCheckCommandDependenciesExist_SatisfiedByModuleFromUserDir(t *testing.T
 	homeCleanup := testutil.SetHomeDir(t, tmpDir)
 	t.Cleanup(homeCleanup)
 
-	// Root invkfile with a command that depends on a user-dir module command
-	invkfileContent := `cmds: [{
+	// Root invowkfile with a command that depends on a user-dir module command
+	invowkfileContent := `cmds: [{
 	name: "deploy"
 	implementations: [{
 		script: "echo deploy"
@@ -233,22 +233,22 @@ func TestCheckCommandDependenciesExist_SatisfiedByModuleFromUserDir(t *testing.T
 	}]
 }]
 `
-	if err := os.WriteFile(filepath.Join(tmpDir, "invkfile.cue"), []byte(invkfileContent), 0o644); err != nil {
-		t.Fatalf("failed to write invkfile: %v", err)
+	if err := os.WriteFile(filepath.Join(tmpDir, "invowkfile.cue"), []byte(invowkfileContent), 0o644); err != nil {
+		t.Fatalf("failed to write invowkfile: %v", err)
 	}
 
 	// Create a module in ~/.invowk/cmds/ (user-dir discovers modules only)
-	userModuleDir := filepath.Join(tmpDir, ".invowk", "cmds", "shared.invkmod")
+	userModuleDir := filepath.Join(tmpDir, ".invowk", "cmds", "shared.invowkmod")
 	if err := os.MkdirAll(userModuleDir, 0o755); err != nil {
 		t.Fatalf("failed to create user module dir: %v", err)
 	}
-	invkmodContent := `module: "shared"
+	invowkmodContent := `module: "shared"
 version: "1.0.0"
 `
-	if err := os.WriteFile(filepath.Join(userModuleDir, "invkmod.cue"), []byte(invkmodContent), 0o644); err != nil {
-		t.Fatalf("failed to write invkmod.cue: %v", err)
+	if err := os.WriteFile(filepath.Join(userModuleDir, "invowkmod.cue"), []byte(invowkmodContent), 0o644); err != nil {
+		t.Fatalf("failed to write invowkmod.cue: %v", err)
 	}
-	userInvkfileContent := `cmds: [{
+	userInvowkfileContent := `cmds: [{
 	name: "generate-types"
 	implementations: [{
 		script: "echo generate"
@@ -257,13 +257,13 @@ version: "1.0.0"
 	}]
 }]
 `
-	if err := os.WriteFile(filepath.Join(userModuleDir, "invkfile.cue"), []byte(userInvkfileContent), 0o644); err != nil {
-		t.Fatalf("failed to write user module invkfile: %v", err)
+	if err := os.WriteFile(filepath.Join(userModuleDir, "invowkfile.cue"), []byte(userInvowkfileContent), 0o644); err != nil {
+		t.Fatalf("failed to write user module invowkfile: %v", err)
 	}
 
 	// Module command is prefixed: "shared generate-types"
-	deps := &invkfile.DependsOn{Commands: []invkfile.CommandDependency{{Alternatives: []string{"shared generate-types"}}}}
-	ctx := &runtime.ExecutionContext{Command: &invkfile.Command{Name: "deploy"}}
+	deps := &invowkfile.DependsOn{Commands: []invowkfile.CommandDependency{{Alternatives: []string{"shared generate-types"}}}}
+	ctx := &runtime.ExecutionContext{Command: &invowkfile.Command{Name: "deploy"}}
 
 	if err := checkCommandDependenciesExist(config.DefaultConfig(), deps, "", ctx); err != nil {
 		t.Fatalf("expected nil, got %v", err)
@@ -282,8 +282,8 @@ func TestCheckCommandDependenciesExist_MissingCommand(t *testing.T) {
 	homeCleanup := testutil.SetHomeDir(t, tmpDir)
 	t.Cleanup(homeCleanup)
 
-	// invkfile.cue now only contains commands - module metadata is in invkmod.cue
-	invkfileContent := `cmds: [{
+	// invowkfile.cue now only contains commands - module metadata is in invowkmod.cue
+	invowkfileContent := `cmds: [{
 	name: "deploy"
 	implementations: [{
 		script: "echo deploy"
@@ -292,12 +292,12 @@ func TestCheckCommandDependenciesExist_MissingCommand(t *testing.T) {
 	}]
 }]
 `
-	if err := os.WriteFile(filepath.Join(tmpDir, "invkfile.cue"), []byte(invkfileContent), 0o644); err != nil {
-		t.Fatalf("failed to write invkfile: %v", err)
+	if err := os.WriteFile(filepath.Join(tmpDir, "invowkfile.cue"), []byte(invowkfileContent), 0o644); err != nil {
+		t.Fatalf("failed to write invowkfile: %v", err)
 	}
 
-	deps := &invkfile.DependsOn{Commands: []invkfile.CommandDependency{{Alternatives: []string{"build"}}}}
-	ctx := &runtime.ExecutionContext{Command: &invkfile.Command{Name: "deploy"}}
+	deps := &invowkfile.DependsOn{Commands: []invowkfile.CommandDependency{{Alternatives: []string{"build"}}}}
+	ctx := &runtime.ExecutionContext{Command: &invowkfile.Command{Name: "deploy"}}
 
 	err := checkCommandDependenciesExist(config.DefaultConfig(), deps, "", ctx)
 	if err == nil {
@@ -322,10 +322,10 @@ func TestCheckCommandDependenciesExist_MissingCommand(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestCheckCustomChecks_Success(t *testing.T) {
-	cmd := invkfiletest.NewTestCommand("test",
-		invkfiletest.WithScript("echo hello"),
-		invkfiletest.WithDependsOn(&invkfile.DependsOn{
-			CustomChecks: []invkfile.CustomCheckDependency{
+	cmd := invowkfiletest.NewTestCommand("test",
+		invowkfiletest.WithScript("echo hello"),
+		invowkfiletest.WithDependsOn(&invowkfile.DependsOn{
+			CustomChecks: []invowkfile.CustomCheckDependency{
 				{
 					Name:         "test-check",
 					CheckScript:  "echo 'test output'",
@@ -341,10 +341,10 @@ func TestCheckCustomChecks_Success(t *testing.T) {
 }
 
 func TestCheckCustomChecks_WrongExitCode(t *testing.T) {
-	cmd := invkfiletest.NewTestCommand("test",
-		invkfiletest.WithScript("echo hello"),
-		invkfiletest.WithDependsOn(&invkfile.DependsOn{
-			CustomChecks: []invkfile.CustomCheckDependency{
+	cmd := invowkfiletest.NewTestCommand("test",
+		invowkfiletest.WithScript("echo hello"),
+		invowkfiletest.WithDependsOn(&invowkfile.DependsOn{
+			CustomChecks: []invowkfile.CustomCheckDependency{
 				{
 					Name:         "test-check",
 					CheckScript:  "exit 1",
@@ -369,10 +369,10 @@ func TestCheckCustomChecks_WrongExitCode(t *testing.T) {
 }
 
 func TestCheckCustomChecks_ExpectedNonZeroCode(t *testing.T) {
-	cmd := invkfiletest.NewTestCommand("test",
-		invkfiletest.WithScript("echo hello"),
-		invkfiletest.WithDependsOn(&invkfile.DependsOn{
-			CustomChecks: []invkfile.CustomCheckDependency{
+	cmd := invowkfiletest.NewTestCommand("test",
+		invowkfiletest.WithScript("echo hello"),
+		invowkfiletest.WithDependsOn(&invowkfile.DependsOn{
+			CustomChecks: []invowkfile.CustomCheckDependency{
 				{
 					Name:         "test-check",
 					CheckScript:  "exit 42",
@@ -388,10 +388,10 @@ func TestCheckCustomChecks_ExpectedNonZeroCode(t *testing.T) {
 }
 
 func TestCheckCustomChecks_OutputMatch(t *testing.T) {
-	cmd := invkfiletest.NewTestCommand("test",
-		invkfiletest.WithScript("echo hello"),
-		invkfiletest.WithDependsOn(&invkfile.DependsOn{
-			CustomChecks: []invkfile.CustomCheckDependency{
+	cmd := invowkfiletest.NewTestCommand("test",
+		invowkfiletest.WithScript("echo hello"),
+		invowkfiletest.WithDependsOn(&invowkfile.DependsOn{
+			CustomChecks: []invowkfile.CustomCheckDependency{
 				{
 					Name:           "test-check",
 					CheckScript:    "echo 'version 1.2.3'",
@@ -407,10 +407,10 @@ func TestCheckCustomChecks_OutputMatch(t *testing.T) {
 }
 
 func TestCheckCustomChecks_OutputNoMatch(t *testing.T) {
-	cmd := invkfiletest.NewTestCommand("test",
-		invkfiletest.WithScript("echo hello"),
-		invkfiletest.WithDependsOn(&invkfile.DependsOn{
-			CustomChecks: []invkfile.CustomCheckDependency{
+	cmd := invowkfiletest.NewTestCommand("test",
+		invowkfiletest.WithScript("echo hello"),
+		invowkfiletest.WithDependsOn(&invowkfile.DependsOn{
+			CustomChecks: []invowkfile.CustomCheckDependency{
 				{
 					Name:           "test-check",
 					CheckScript:    "echo 'hello world'",
@@ -435,10 +435,10 @@ func TestCheckCustomChecks_OutputNoMatch(t *testing.T) {
 }
 
 func TestCheckCustomChecks_BothCodeAndOutput(t *testing.T) {
-	cmd := invkfiletest.NewTestCommand("test",
-		invkfiletest.WithScript("echo hello"),
-		invkfiletest.WithDependsOn(&invkfile.DependsOn{
-			CustomChecks: []invkfile.CustomCheckDependency{
+	cmd := invowkfiletest.NewTestCommand("test",
+		invowkfiletest.WithScript("echo hello"),
+		invowkfiletest.WithDependsOn(&invowkfile.DependsOn{
+			CustomChecks: []invowkfile.CustomCheckDependency{
 				{
 					Name:           "test-check",
 					CheckScript:    "echo 'go version go1.21.0'",
@@ -455,10 +455,10 @@ func TestCheckCustomChecks_BothCodeAndOutput(t *testing.T) {
 }
 
 func TestCheckCustomChecks_InvalidRegex(t *testing.T) {
-	cmd := invkfiletest.NewTestCommand("test",
-		invkfiletest.WithScript("echo hello"),
-		invkfiletest.WithDependsOn(&invkfile.DependsOn{
-			CustomChecks: []invkfile.CustomCheckDependency{
+	cmd := invowkfiletest.NewTestCommand("test",
+		invowkfiletest.WithScript("echo hello"),
+		invowkfiletest.WithDependsOn(&invowkfile.DependsOn{
+			CustomChecks: []invowkfile.CustomCheckDependency{
 				{
 					Name:           "test-check",
 					CheckScript:    "echo 'test'",

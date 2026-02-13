@@ -11,7 +11,7 @@ import (
 	"slices"
 	"testing"
 
-	"invowk-cli/pkg/invkfile"
+	"invowk-cli/pkg/invowkfile"
 )
 
 // mockRuntime is a test runtime that records calls and returns configured results.
@@ -46,10 +46,10 @@ func TestNewExecutionContext(t *testing.T) {
 	t.Parallel()
 
 	tmpDir := t.TempDir()
-	inv := &invkfile.Invkfile{
-		FilePath: filepath.Join(tmpDir, "invkfile.cue"),
+	inv := &invowkfile.Invowkfile{
+		FilePath: filepath.Join(tmpDir, "invowkfile.cue"),
 	}
-	cmd := testCommandWithScript("test", "echo hello", invkfile.RuntimeNative)
+	cmd := testCommandWithScript("test", "echo hello", invowkfile.RuntimeNative)
 
 	ctx := NewExecutionContext(cmd, inv)
 
@@ -57,8 +57,8 @@ func TestNewExecutionContext(t *testing.T) {
 	if ctx.Command != cmd {
 		t.Error("NewExecutionContext() Command not set")
 	}
-	if ctx.Invkfile != inv {
-		t.Error("NewExecutionContext() Invkfile not set")
+	if ctx.Invowkfile != inv {
+		t.Error("NewExecutionContext() Invowkfile not set")
 	}
 	if ctx.Context == nil {
 		t.Error("NewExecutionContext() Context should be background context")
@@ -75,8 +75,8 @@ func TestNewExecutionContext(t *testing.T) {
 	if ctx.Env.ExtraEnv == nil {
 		t.Error("NewExecutionContext() Env.ExtraEnv should be initialized")
 	}
-	if ctx.SelectedRuntime != invkfile.RuntimeNative {
-		t.Errorf("NewExecutionContext() SelectedRuntime = %q, want %q", ctx.SelectedRuntime, invkfile.RuntimeNative)
+	if ctx.SelectedRuntime != invowkfile.RuntimeNative {
+		t.Errorf("NewExecutionContext() SelectedRuntime = %q, want %q", ctx.SelectedRuntime, invowkfile.RuntimeNative)
 	}
 	if ctx.SelectedImpl == nil {
 		t.Error("NewExecutionContext() SelectedImpl should be set")
@@ -91,15 +91,15 @@ func TestNewExecutionContext_VirtualRuntime(t *testing.T) {
 	t.Parallel()
 
 	tmpDir := t.TempDir()
-	inv := &invkfile.Invkfile{
-		FilePath: filepath.Join(tmpDir, "invkfile.cue"),
+	inv := &invowkfile.Invowkfile{
+		FilePath: filepath.Join(tmpDir, "invowkfile.cue"),
 	}
-	cmd := testCommandWithScript("test", "echo hello", invkfile.RuntimeVirtual)
+	cmd := testCommandWithScript("test", "echo hello", invowkfile.RuntimeVirtual)
 
 	ctx := NewExecutionContext(cmd, inv)
 
-	if ctx.SelectedRuntime != invkfile.RuntimeVirtual {
-		t.Errorf("NewExecutionContext() SelectedRuntime = %q, want %q", ctx.SelectedRuntime, invkfile.RuntimeVirtual)
+	if ctx.SelectedRuntime != invowkfile.RuntimeVirtual {
+		t.Errorf("NewExecutionContext() SelectedRuntime = %q, want %q", ctx.SelectedRuntime, invowkfile.RuntimeVirtual)
 	}
 }
 
@@ -250,8 +250,8 @@ func TestRegistry_GetForContext(t *testing.T) {
 	t.Parallel()
 
 	tmpDir := t.TempDir()
-	inv := &invkfile.Invkfile{
-		FilePath: filepath.Join(tmpDir, "invkfile.cue"),
+	inv := &invowkfile.Invowkfile{
+		FilePath: filepath.Join(tmpDir, "invowkfile.cue"),
 	}
 
 	reg := NewRegistry()
@@ -262,23 +262,23 @@ func TestRegistry_GetForContext(t *testing.T) {
 
 	tests := []struct {
 		name     string
-		runtime  invkfile.RuntimeMode
+		runtime  invowkfile.RuntimeMode
 		wantName string
 		wantErr  bool
 	}{
 		{
 			name:     "native runtime",
-			runtime:  invkfile.RuntimeNative,
+			runtime:  invowkfile.RuntimeNative,
 			wantName: "native",
 		},
 		{
 			name:     "virtual runtime",
-			runtime:  invkfile.RuntimeVirtual,
+			runtime:  invowkfile.RuntimeVirtual,
 			wantName: "virtual",
 		},
 		{
 			name:    "unregistered runtime",
-			runtime: invkfile.RuntimeContainer,
+			runtime: invowkfile.RuntimeContainer,
 			wantErr: true,
 		},
 	}
@@ -354,14 +354,14 @@ func TestRegistry_Execute(t *testing.T) {
 	t.Parallel()
 
 	tmpDir := t.TempDir()
-	inv := &invkfile.Invkfile{
-		FilePath: filepath.Join(tmpDir, "invkfile.cue"),
+	inv := &invowkfile.Invowkfile{
+		FilePath: filepath.Join(tmpDir, "invowkfile.cue"),
 	}
 
 	tests := []struct {
 		name         string
 		setupReg     func(*Registry)
-		runtime      invkfile.RuntimeMode
+		runtime      invowkfile.RuntimeMode
 		wantExitCode int
 		wantErr      bool
 	}{
@@ -374,7 +374,7 @@ func TestRegistry_Execute(t *testing.T) {
 					executeResult: &Result{ExitCode: 0},
 				})
 			},
-			runtime:      invkfile.RuntimeNative,
+			runtime:      invowkfile.RuntimeNative,
 			wantExitCode: 0,
 		},
 		{
@@ -382,7 +382,7 @@ func TestRegistry_Execute(t *testing.T) {
 			setupReg: func(_ *Registry) {
 				// Don't register anything
 			},
-			runtime:      invkfile.RuntimeNative,
+			runtime:      invowkfile.RuntimeNative,
 			wantExitCode: 1,
 			wantErr:      true,
 		},
@@ -394,7 +394,7 @@ func TestRegistry_Execute(t *testing.T) {
 					available: false,
 				})
 			},
-			runtime:      invkfile.RuntimeNative,
+			runtime:      invowkfile.RuntimeNative,
 			wantExitCode: 1,
 			wantErr:      true,
 		},
@@ -407,7 +407,7 @@ func TestRegistry_Execute(t *testing.T) {
 					validateErr: errors.New("validation failed"),
 				})
 			},
-			runtime:      invkfile.RuntimeNative,
+			runtime:      invowkfile.RuntimeNative,
 			wantExitCode: 1,
 			wantErr:      true,
 		},
@@ -420,7 +420,7 @@ func TestRegistry_Execute(t *testing.T) {
 					executeResult: &Result{ExitCode: 42},
 				})
 			},
-			runtime:      invkfile.RuntimeNative,
+			runtime:      invowkfile.RuntimeNative,
 			wantExitCode: 42,
 		},
 	}
@@ -589,10 +589,10 @@ func TestExecutionContext_CustomOverrides(t *testing.T) {
 	t.Parallel()
 
 	tmpDir := t.TempDir()
-	inv := &invkfile.Invkfile{
-		FilePath: filepath.Join(tmpDir, "invkfile.cue"),
+	inv := &invowkfile.Invowkfile{
+		FilePath: filepath.Join(tmpDir, "invowkfile.cue"),
 	}
-	cmd := testCommandWithScript("test", "echo test", invkfile.RuntimeNative)
+	cmd := testCommandWithScript("test", "echo test", invowkfile.RuntimeNative)
 
 	ctx := NewExecutionContext(cmd, inv)
 
@@ -648,8 +648,8 @@ func TestRegistry_Execute_UnavailableRuntimeWraps(t *testing.T) {
 	t.Parallel()
 
 	tmpDir := t.TempDir()
-	inv := &invkfile.Invkfile{
-		FilePath: filepath.Join(tmpDir, "invkfile.cue"),
+	inv := &invowkfile.Invowkfile{
+		FilePath: filepath.Join(tmpDir, "invowkfile.cue"),
 	}
 
 	reg := NewRegistry()
@@ -658,7 +658,7 @@ func TestRegistry_Execute_UnavailableRuntimeWraps(t *testing.T) {
 		available: false,
 	})
 
-	cmd := testCommandWithScript("test", "echo test", invkfile.RuntimeNative)
+	cmd := testCommandWithScript("test", "echo test", invowkfile.RuntimeNative)
 	ctx := NewExecutionContext(cmd, inv)
 	ctx.IO.Stdout = &bytes.Buffer{}
 	ctx.IO.Stderr = &bytes.Buffer{}

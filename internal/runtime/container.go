@@ -40,8 +40,8 @@ type (
 	// ContainerRuntimeOption configures a ContainerRuntime.
 	ContainerRuntimeOption func(*ContainerRuntime)
 
-	// invkfileContainerConfig is a local type for container config extracted from RuntimeConfig
-	invkfileContainerConfig struct {
+	// invowkfileContainerConfig is a local type for container config extracted from RuntimeConfig
+	invowkfileContainerConfig struct {
 		Containerfile string
 		Image         string
 		Volumes       []string
@@ -102,7 +102,7 @@ func (r *ContainerRuntime) Close() error {
 }
 
 // SetProvisionConfig updates the provisioner configuration.
-// This is useful for setting the invkfile path before execution.
+// This is useful for setting the invowkfile path before execution.
 func (r *ContainerRuntime) SetProvisionConfig(cfg *provision.Config) {
 	if cfg != nil {
 		r.provisioner = provision.NewLayerProvisioner(r.engine, cfg)
@@ -142,7 +142,7 @@ func (r *ContainerRuntime) Validate(ctx *ExecutionContext) error {
 	// Check for containerfile or image
 	if rtConfig.Containerfile == "" && rtConfig.Image == "" {
 		// Check for default Containerfile/Dockerfile
-		invowkDir := filepath.Dir(ctx.Invkfile.FilePath)
+		invowkDir := filepath.Dir(ctx.Invowkfile.FilePath)
 		containerfilePath := filepath.Join(invowkDir, "Containerfile")
 		dockerfilePath := filepath.Join(invowkDir, "Dockerfile")
 		if _, err := os.Stat(containerfilePath); err != nil {

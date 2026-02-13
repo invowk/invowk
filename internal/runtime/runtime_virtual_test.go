@@ -13,7 +13,7 @@ import (
 	"testing"
 
 	"invowk-cli/internal/testutil"
-	"invowk-cli/pkg/invkfile"
+	"invowk-cli/pkg/invowkfile"
 )
 
 func TestVirtualRuntime_InlineScript(t *testing.T) {
@@ -23,13 +23,13 @@ func TestVirtualRuntime_InlineScript(t *testing.T) {
 	}
 	defer func() { testutil.MustRemoveAll(t, tmpDir) }()
 
-	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 
-	inv := &invkfile.Invkfile{
-		FilePath: invkfilePath,
+	inv := &invowkfile.Invowkfile{
+		FilePath: invowkfilePath,
 	}
 
-	cmd := testCommandWithScript("test", "echo 'Hello from virtual'", invkfile.RuntimeVirtual)
+	cmd := testCommandWithScript("test", "echo 'Hello from virtual'", invowkfile.RuntimeVirtual)
 
 	rt := NewVirtualRuntime(false)
 	ctx := NewExecutionContext(cmd, inv)
@@ -57,17 +57,17 @@ func TestVirtualRuntime_MultiLineScript(t *testing.T) {
 	}
 	defer func() { testutil.MustRemoveAll(t, tmpDir) }()
 
-	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 
-	inv := &invkfile.Invkfile{
-		FilePath: invkfilePath,
+	inv := &invowkfile.Invowkfile{
+		FilePath: invowkfilePath,
 	}
 
 	script := `VAR="test value"
 echo "Variable is: $VAR"
 echo "Done"`
 
-	cmd := testCommandWithScript("multiline", script, invkfile.RuntimeVirtual)
+	cmd := testCommandWithScript("multiline", script, invowkfile.RuntimeVirtual)
 
 	rt := NewVirtualRuntime(false)
 	ctx := NewExecutionContext(cmd, inv)
@@ -103,13 +103,13 @@ func TestVirtualRuntime_ScriptFile(t *testing.T) {
 		t.Fatalf("Failed to write script: %v", err)
 	}
 
-	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 
-	inv := &invkfile.Invkfile{
-		FilePath: invkfilePath,
+	inv := &invowkfile.Invowkfile{
+		FilePath: invowkfilePath,
 	}
 
-	cmd := testCommandWithScript("from-file", "./test.sh", invkfile.RuntimeVirtual)
+	cmd := testCommandWithScript("from-file", "./test.sh", invowkfile.RuntimeVirtual)
 
 	rt := NewVirtualRuntime(false)
 	ctx := NewExecutionContext(cmd, inv)
@@ -137,14 +137,14 @@ func TestVirtualRuntime_Validate_ScriptSyntaxError(t *testing.T) {
 	}
 	defer func() { testutil.MustRemoveAll(t, tmpDir) }()
 
-	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 
-	inv := &invkfile.Invkfile{
-		FilePath: invkfilePath,
+	inv := &invowkfile.Invowkfile{
+		FilePath: invowkfilePath,
 	}
 
 	// Invalid shell syntax
-	cmd := testCommandWithScript("invalid", "if then fi", invkfile.RuntimeVirtual)
+	cmd := testCommandWithScript("invalid", "if then fi", invowkfile.RuntimeVirtual)
 
 	rt := NewVirtualRuntime(false)
 	ctx := NewExecutionContext(cmd, inv)
@@ -162,15 +162,15 @@ func TestVirtualRuntime_PositionalArgs(t *testing.T) {
 	}
 	defer func() { testutil.MustRemoveAll(t, tmpDir) }()
 
-	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
-	inv := &invkfile.Invkfile{
-		FilePath: invkfilePath,
+	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
+	inv := &invowkfile.Invowkfile{
+		FilePath: invowkfilePath,
 	}
 
 	// Script that echoes positional parameters
 	script := `echo "arg1=$1 arg2=$2 all=$@"`
 
-	cmd := testCommandWithScript("positional", script, invkfile.RuntimeVirtual)
+	cmd := testCommandWithScript("positional", script, invowkfile.RuntimeVirtual)
 
 	rt := NewVirtualRuntime(false)
 	ctx := NewExecutionContext(cmd, inv)
@@ -205,15 +205,15 @@ func TestVirtualRuntime_PositionalArgs_ArgCount(t *testing.T) {
 	}
 	defer func() { testutil.MustRemoveAll(t, tmpDir) }()
 
-	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
-	inv := &invkfile.Invkfile{
-		FilePath: invkfilePath,
+	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
+	inv := &invowkfile.Invowkfile{
+		FilePath: invowkfilePath,
 	}
 
 	// Script that echoes the number of positional parameters
 	script := `echo "count=$#"`
 
-	cmd := testCommandWithScript("arg-count", script, invkfile.RuntimeVirtual)
+	cmd := testCommandWithScript("arg-count", script, invowkfile.RuntimeVirtual)
 
 	rt := NewVirtualRuntime(false)
 	ctx := NewExecutionContext(cmd, inv)
@@ -242,15 +242,15 @@ func TestVirtualRuntime_PositionalArgs_Empty(t *testing.T) {
 	}
 	defer func() { testutil.MustRemoveAll(t, tmpDir) }()
 
-	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
-	inv := &invkfile.Invkfile{
-		FilePath: invkfilePath,
+	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
+	inv := &invowkfile.Invowkfile{
+		FilePath: invowkfilePath,
 	}
 
 	// Script that echoes the number of positional parameters
 	script := `echo "argc=$#"`
 
-	cmd := testCommandWithScript("no-args", script, invkfile.RuntimeVirtual)
+	cmd := testCommandWithScript("no-args", script, invowkfile.RuntimeVirtual)
 
 	rt := NewVirtualRuntime(false)
 	ctx := NewExecutionContext(cmd, inv)
@@ -279,9 +279,9 @@ func TestVirtualRuntime_EnvIsolation(t *testing.T) {
 	}
 	defer func() { testutil.MustRemoveAll(t, tmpDir) }()
 
-	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
-	inv := &invkfile.Invkfile{
-		FilePath: invkfilePath,
+	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
+	inv := &invowkfile.Invowkfile{
+		FilePath: invowkfilePath,
 	}
 
 	// Set environment variables that should be filtered
@@ -300,7 +300,7 @@ echo "INVOWK_FLAG_PARENT=${INVOWK_FLAG_PARENT:-unset}"
 echo "ARGC=${ARGC:-unset}"
 echo "ARG1=${ARG1:-unset}"`
 
-	cmd := testCommandWithScript("env-isolation", script, invkfile.RuntimeVirtual)
+	cmd := testCommandWithScript("env-isolation", script, invowkfile.RuntimeVirtual)
 
 	rt := NewVirtualRuntime(false)
 	ctx := NewExecutionContext(cmd, inv)
@@ -338,15 +338,15 @@ func TestVirtualRuntime_RejectsInterpreter(t *testing.T) {
 	}
 	defer func() { testutil.MustRemoveAll(t, tmpDir) }()
 
-	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
-	inv := &invkfile.Invkfile{
-		FilePath: invkfilePath,
+	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
+	inv := &invowkfile.Invowkfile{
+		FilePath: invowkfilePath,
 	}
 
 	// Try to use interpreter with virtual runtime (should be rejected)
 	script := `echo "Hello"`
 
-	cmd := testCommandWithInterpreter("virtual-with-interp", script, "python3", invkfile.RuntimeVirtual)
+	cmd := testCommandWithInterpreter("virtual-with-interp", script, "python3", invowkfile.RuntimeVirtual)
 
 	rt := NewVirtualRuntime(false)
 	ctx := NewExecutionContext(cmd, inv)
@@ -382,15 +382,15 @@ func TestVirtualRuntime_ContextCancellation(t *testing.T) {
 	}
 	defer func() { testutil.MustRemoveAll(t, tmpDir) }()
 
-	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
-	inv := &invkfile.Invkfile{
-		FilePath: invkfilePath,
+	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
+	inv := &invowkfile.Invowkfile{
+		FilePath: invowkfilePath,
 	}
 
 	// Script that runs forever
 	script := `while true; do sleep 1; done`
 
-	cmd := testCommandWithScript("long-running", script, invkfile.RuntimeVirtual)
+	cmd := testCommandWithScript("long-running", script, invowkfile.RuntimeVirtual)
 
 	rt := NewVirtualRuntime(false)
 
@@ -424,9 +424,9 @@ func TestVirtualRuntime_ExitCode(t *testing.T) {
 	}
 	defer func() { testutil.MustRemoveAll(t, tmpDir) }()
 
-	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
-	inv := &invkfile.Invkfile{
-		FilePath: invkfilePath,
+	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
+	inv := &invowkfile.Invowkfile{
+		FilePath: invowkfilePath,
 	}
 
 	tests := []struct {
@@ -443,7 +443,7 @@ func TestVirtualRuntime_ExitCode(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cmd := testCommandWithScript("exit-test", tt.script, invkfile.RuntimeVirtual)
+			cmd := testCommandWithScript("exit-test", tt.script, invowkfile.RuntimeVirtual)
 			rt := NewVirtualRuntime(false)
 			ctx := NewExecutionContext(cmd, inv)
 			ctx.Context = context.Background()
@@ -489,14 +489,14 @@ func TestVirtualRuntime_SupportsInteractive(t *testing.T) {
 // TestVirtualRuntime_Validate_EmptyScript tests validation for an empty script.
 func TestVirtualRuntime_Validate_EmptyScript(t *testing.T) {
 	tmpDir := t.TempDir()
-	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 
-	inv := &invkfile.Invkfile{
-		FilePath: invkfilePath,
+	inv := &invowkfile.Invowkfile{
+		FilePath: invowkfilePath,
 	}
 
 	// Create a command with an empty script
-	cmd := testCommandWithScript("empty-script", "", invkfile.RuntimeVirtual)
+	cmd := testCommandWithScript("empty-script", "", invowkfile.RuntimeVirtual)
 
 	rt := NewVirtualRuntime(false)
 	ctx := NewExecutionContext(cmd, inv)
@@ -513,13 +513,13 @@ func TestVirtualRuntime_Validate_EmptyScript(t *testing.T) {
 // TestVirtualRuntime_Validate_NilImpl tests validation for nil implementation.
 func TestVirtualRuntime_Validate_NilImpl(t *testing.T) {
 	tmpDir := t.TempDir()
-	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 
-	inv := &invkfile.Invkfile{
-		FilePath: invkfilePath,
+	inv := &invowkfile.Invowkfile{
+		FilePath: invowkfilePath,
 	}
 
-	cmd := &invkfile.Command{
+	cmd := &invowkfile.Command{
 		Name: "nil-impl",
 	}
 
@@ -539,19 +539,19 @@ func TestVirtualRuntime_Validate_NilImpl(t *testing.T) {
 // TestVirtualRuntime_getWorkDir tests working directory resolution.
 func TestVirtualRuntime_getWorkDir(t *testing.T) {
 	tmpDir := t.TempDir()
-	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 
 	tests := []struct {
 		name          string
 		ctxWorkDir    string // WorkDir set on ExecutionContext
 		cmdWorkDir    string // WorkDir set on Command
 		implWorkDir   string // WorkDir set on Implementation
-		rootWorkDir   string // WorkDir set on Invkfile
+		rootWorkDir   string // WorkDir set on Invowkfile
 		wantContains  string // Substring expected in result
 		skipOnWindows bool
 	}{
 		{
-			name:         "defaults to invkfile directory",
+			name:         "defaults to invowkfile directory",
 			wantContains: tmpDir,
 		},
 		{
@@ -591,22 +591,22 @@ func TestVirtualRuntime_getWorkDir(t *testing.T) {
 			if tt.skipOnWindows && goruntime.GOOS == "windows" {
 				t.Skip("skipping: Unix-style absolute paths are not meaningful on Windows")
 			}
-			inv := &invkfile.Invkfile{
-				FilePath: invkfilePath,
+			inv := &invowkfile.Invowkfile{
+				FilePath: invowkfilePath,
 				WorkDir:  tt.rootWorkDir,
 			}
 
-			impl := invkfile.Implementation{
+			impl := invowkfile.Implementation{
 				Script:    "echo test",
-				Runtimes:  []invkfile.RuntimeConfig{{Name: invkfile.RuntimeVirtual}},
-				Platforms: []invkfile.PlatformConfig{{Name: invkfile.PlatformLinux}, {Name: invkfile.PlatformMac}, {Name: invkfile.PlatformWindows}},
+				Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeVirtual}},
+				Platforms: []invowkfile.PlatformConfig{{Name: invowkfile.PlatformLinux}, {Name: invowkfile.PlatformMac}, {Name: invowkfile.PlatformWindows}},
 				WorkDir:   tt.implWorkDir,
 			}
 
-			cmd := &invkfile.Command{
+			cmd := &invowkfile.Command{
 				Name:            "test-workdir",
 				WorkDir:         tt.cmdWorkDir,
-				Implementations: []invkfile.Implementation{impl},
+				Implementations: []invowkfile.Implementation{impl},
 			}
 
 			rt := NewVirtualRuntime(false)
@@ -657,7 +657,7 @@ func TestVirtualRuntime_NewVirtualRuntime(t *testing.T) {
 // as shell options by interp.Params(). This exercises the "--" prefix guard in virtual.go.
 func TestVirtualRuntime_PositionalArgs_DashPrefix(t *testing.T) {
 	tmpDir := t.TempDir()
-	inv := &invkfile.Invkfile{FilePath: filepath.Join(tmpDir, "invkfile.cue")}
+	inv := &invowkfile.Invowkfile{FilePath: filepath.Join(tmpDir, "invowkfile.cue")}
 
 	tests := []struct {
 		name   string
@@ -672,7 +672,7 @@ func TestVirtualRuntime_PositionalArgs_DashPrefix(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cmd := testCommandWithScript("dash-args", tt.script, invkfile.RuntimeVirtual)
+			cmd := testCommandWithScript("dash-args", tt.script, invowkfile.RuntimeVirtual)
 			rt := NewVirtualRuntime(false)
 			ctx := NewExecutionContext(cmd, inv)
 			ctx.Context = context.Background()
@@ -697,14 +697,14 @@ func TestVirtualRuntime_PositionalArgs_DashPrefix(t *testing.T) {
 // stdout and stderr into separate Result fields.
 func TestVirtualRuntime_ExecuteCapture(t *testing.T) {
 	tmpDir := t.TempDir()
-	inv := &invkfile.Invkfile{
-		FilePath: filepath.Join(tmpDir, "invkfile.cue"),
+	inv := &invowkfile.Invowkfile{
+		FilePath: filepath.Join(tmpDir, "invowkfile.cue"),
 	}
 
 	script := `echo "captured stdout"
 echo "captured stderr" >&2`
 
-	cmd := testCommandWithScript("capture-test", script, invkfile.RuntimeVirtual)
+	cmd := testCommandWithScript("capture-test", script, invowkfile.RuntimeVirtual)
 	rt := NewVirtualRuntime(false)
 	ctx := NewExecutionContext(cmd, inv)
 	ctx.Context = context.Background()
@@ -728,11 +728,11 @@ echo "captured stderr" >&2`
 // propagates errors from the EnvBuilder during execution.
 func TestVirtualRuntime_MockEnvBuilder_Error(t *testing.T) {
 	tmpDir := t.TempDir()
-	inv := &invkfile.Invkfile{
-		FilePath: filepath.Join(tmpDir, "invkfile.cue"),
+	inv := &invowkfile.Invowkfile{
+		FilePath: filepath.Join(tmpDir, "invowkfile.cue"),
 	}
 
-	cmd := testCommandWithScript("env-error", "echo test", invkfile.RuntimeVirtual)
+	cmd := testCommandWithScript("env-error", "echo test", invowkfile.RuntimeVirtual)
 
 	mockErr := fmt.Errorf("mock virtual env build failure")
 	rt := NewVirtualRuntime(false, WithVirtualEnvBuilder(&MockEnvBuilder{Err: mockErr}))
@@ -758,8 +758,8 @@ func TestVirtualRuntime_MockEnvBuilder_Error(t *testing.T) {
 // is propagated correctly through the interp.ExitStatus error type.
 func TestVirtualRuntime_SetE_StopsOnError(t *testing.T) {
 	tmpDir := t.TempDir()
-	inv := &invkfile.Invkfile{
-		FilePath: filepath.Join(tmpDir, "invkfile.cue"),
+	inv := &invowkfile.Invowkfile{
+		FilePath: filepath.Join(tmpDir, "invowkfile.cue"),
 	}
 
 	// "set -e" should abort the script at "false" and not reach "echo after"
@@ -768,7 +768,7 @@ echo "before"
 false
 echo "after"`
 
-	cmd := testCommandWithScript("set-e", script, invkfile.RuntimeVirtual)
+	cmd := testCommandWithScript("set-e", script, invowkfile.RuntimeVirtual)
 	rt := NewVirtualRuntime(false)
 	ctx := NewExecutionContext(cmd, inv)
 	ctx.Context = context.Background()

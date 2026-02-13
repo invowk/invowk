@@ -12,7 +12,7 @@ import (
 	"testing"
 
 	"invowk-cli/internal/testutil"
-	"invowk-cli/pkg/invkfile"
+	"invowk-cli/pkg/invowkfile"
 )
 
 func TestNativeRuntime_InterpreterShebangDetection(t *testing.T) {
@@ -31,16 +31,16 @@ func TestNativeRuntime_InterpreterShebangDetection(t *testing.T) {
 	}
 	defer func() { testutil.MustRemoveAll(t, tmpDir) }()
 
-	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
-	inv := &invkfile.Invkfile{
-		FilePath: invkfilePath,
+	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
+	inv := &invowkfile.Invowkfile{
+		FilePath: invowkfilePath,
 	}
 
 	// Script with Python shebang (should auto-detect)
 	script := `#!/usr/bin/env python3
 print("Hello from Python")`
 
-	cmd := testCommandWithScript("python-shebang", script, invkfile.RuntimeNative)
+	cmd := testCommandWithScript("python-shebang", script, invowkfile.RuntimeNative)
 
 	rt := NewNativeRuntime()
 	ctx := NewExecutionContext(cmd, inv)
@@ -76,16 +76,16 @@ func TestNativeRuntime_ExplicitInterpreter(t *testing.T) {
 	}
 	defer func() { testutil.MustRemoveAll(t, tmpDir) }()
 
-	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
-	inv := &invkfile.Invkfile{
-		FilePath: invkfilePath,
+	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
+	inv := &invowkfile.Invowkfile{
+		FilePath: invowkfilePath,
 	}
 
 	// Script without shebang but with explicit interpreter
 	script := `import sys
 print(f"Python version: {sys.version_info.major}.{sys.version_info.minor}")`
 
-	cmd := testCommandWithInterpreter("python-explicit", script, "python3", invkfile.RuntimeNative)
+	cmd := testCommandWithInterpreter("python-explicit", script, "python3", invowkfile.RuntimeNative)
 
 	rt := NewNativeRuntime()
 	ctx := NewExecutionContext(cmd, inv)
@@ -121,9 +121,9 @@ func TestNativeRuntime_InterpreterWithArgs(t *testing.T) {
 	}
 	defer func() { testutil.MustRemoveAll(t, tmpDir) }()
 
-	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
-	inv := &invkfile.Invkfile{
-		FilePath: invkfilePath,
+	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
+	inv := &invowkfile.Invowkfile{
+		FilePath: invowkfilePath,
 	}
 
 	// Script with shebang including -u flag for unbuffered output
@@ -131,7 +131,7 @@ func TestNativeRuntime_InterpreterWithArgs(t *testing.T) {
 import sys
 print(f"arg1={sys.argv[1] if len(sys.argv) > 1 else 'none'}")`
 
-	cmd := testCommandWithScript("python-args", script, invkfile.RuntimeNative)
+	cmd := testCommandWithScript("python-args", script, invowkfile.RuntimeNative)
 
 	rt := NewNativeRuntime()
 	ctx := NewExecutionContext(cmd, inv)
@@ -177,12 +177,12 @@ print("Hello from Python file")
 		t.Fatalf("Failed to write script: %v", err)
 	}
 
-	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
-	inv := &invkfile.Invkfile{
-		FilePath: invkfilePath,
+	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
+	inv := &invowkfile.Invowkfile{
+		FilePath: invowkfilePath,
 	}
 
-	cmd := testCommandWithScript("python-file", "./test.py", invkfile.RuntimeNative)
+	cmd := testCommandWithScript("python-file", "./test.py", invowkfile.RuntimeNative)
 
 	rt := NewNativeRuntime()
 	ctx := NewExecutionContext(cmd, inv)
@@ -213,15 +213,15 @@ func TestNativeRuntime_InterpreterNotFound(t *testing.T) {
 	}
 	defer func() { testutil.MustRemoveAll(t, tmpDir) }()
 
-	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
-	inv := &invkfile.Invkfile{
-		FilePath: invkfilePath,
+	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
+	inv := &invowkfile.Invowkfile{
+		FilePath: invowkfilePath,
 	}
 
 	// Script with a non-existent interpreter
 	script := `print("Hello")`
 
-	cmd := testCommandWithInterpreter("nonexistent-interp", script, "nonexistent-interpreter-xyz", invkfile.RuntimeNative)
+	cmd := testCommandWithInterpreter("nonexistent-interp", script, "nonexistent-interpreter-xyz", invowkfile.RuntimeNative)
 
 	rt := NewNativeRuntime()
 	ctx := NewExecutionContext(cmd, inv)
@@ -258,9 +258,9 @@ func TestNativeRuntime_InterpreterCapture(t *testing.T) {
 	}
 	defer func() { testutil.MustRemoveAll(t, tmpDir) }()
 
-	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
-	inv := &invkfile.Invkfile{
-		FilePath: invkfilePath,
+	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
+	inv := &invowkfile.Invowkfile{
+		FilePath: invowkfilePath,
 	}
 
 	// Script with Python shebang
@@ -269,7 +269,7 @@ import sys
 print("stdout output")
 print("stderr output", file=sys.stderr)`
 
-	cmd := testCommandWithScript("python-capture", script, invkfile.RuntimeNative)
+	cmd := testCommandWithScript("python-capture", script, invowkfile.RuntimeNative)
 
 	rt := NewNativeRuntime()
 	ctx := NewExecutionContext(cmd, inv)
@@ -298,15 +298,15 @@ func TestNativeRuntime_PrepareCommand(t *testing.T) {
 	}
 	defer func() { testutil.MustRemoveAll(t, tmpDir) }()
 
-	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
-	inv := &invkfile.Invkfile{
-		FilePath: invkfilePath,
+	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
+	inv := &invowkfile.Invowkfile{
+		FilePath: invowkfilePath,
 	}
 
 	// Simple echo command
 	script := `echo "PrepareCommand test"`
 
-	cmd := testCommandWithScript("prepare-test", script, invkfile.RuntimeNative)
+	cmd := testCommandWithScript("prepare-test", script, invowkfile.RuntimeNative)
 
 	rt := NewNativeRuntime()
 	ctx := NewExecutionContext(cmd, inv)
@@ -370,15 +370,15 @@ func TestNativeRuntime_PrepareCommandWithInterpreter(t *testing.T) {
 	}
 	defer func() { testutil.MustRemoveAll(t, tmpDir) }()
 
-	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
-	inv := &invkfile.Invkfile{
-		FilePath: invkfilePath,
+	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
+	inv := &invowkfile.Invowkfile{
+		FilePath: invowkfilePath,
 	}
 
 	// Python script with explicit interpreter
 	script := `print("PrepareCommand Python test")`
 
-	cmd := testCommandWithInterpreter("prepare-python", script, "python3", invkfile.RuntimeNative)
+	cmd := testCommandWithInterpreter("prepare-python", script, "python3", invowkfile.RuntimeNative)
 
 	rt := NewNativeRuntime()
 	ctx := NewExecutionContext(cmd, inv)

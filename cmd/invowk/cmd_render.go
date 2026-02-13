@@ -245,7 +245,7 @@ func RenderDependencyError(err *DependencyError) string {
 	}
 
 	sb.WriteString("\n")
-	sb.WriteString(hintStyle.Render("Fix the missing dependencies and try again, or update your invkfile to remove unnecessary ones."))
+	sb.WriteString(hintStyle.Render("Fix the missing dependencies and try again, or update your invowkfile to remove unnecessary ones."))
 	sb.WriteString("\n")
 
 	return sb.String()
@@ -285,7 +285,7 @@ func RenderHostNotSupportedError(cmdName, currentOS, supportedHosts string) stri
 	sb.WriteString(labelStyle.Render("Supported hosts: "))
 	sb.WriteString(valueStyle.Render(supportedHosts))
 	sb.WriteString("\n\n")
-	sb.WriteString(hintStyle.Render("Run this command on a supported operating system, or update the 'works_on.hosts' setting in your invkfile."))
+	sb.WriteString(hintStyle.Render("Run this command on a supported operating system, or update the 'works_on.hosts' setting in your invowkfile."))
 	sb.WriteString("\n")
 
 	return sb.String()
@@ -325,7 +325,7 @@ func RenderRuntimeNotAllowedError(cmdName, selectedRuntime, allowedRuntimes stri
 	sb.WriteString(labelStyle.Render("Allowed runtimes: "))
 	sb.WriteString(valueStyle.Render(allowedRuntimes))
 	sb.WriteString("\n\n")
-	sb.WriteString(hintStyle.Render("Use one of the allowed runtimes with --invk-runtime flag, or update the 'runtimes' setting in your invkfile."))
+	sb.WriteString(hintStyle.Render("Use one of the allowed runtimes with --ivk-runtime flag, or update the 'runtimes' setting in your invowkfile."))
 	sb.WriteString("\n")
 
 	return sb.String()
@@ -370,7 +370,7 @@ func RenderSourceNotFoundError(err *SourceNotFoundError) string {
 		sb.WriteString(valueStyle.Render("(none)"))
 	}
 	sb.WriteString("\n\n")
-	sb.WriteString(hintStyle.Render("Use @<source> or --invk-from <source> with a valid source name."))
+	sb.WriteString(hintStyle.Render("Use @<source> or --ivk-from <source> with a valid source name."))
 	sb.WriteString("\n")
 
 	return sb.String()
@@ -406,7 +406,7 @@ func RenderAmbiguousCommandError(err *AmbiguousCommandError) string {
 	sb.WriteString(fmt.Sprintf("The command %s exists in multiple sources:\n\n", commandStyle.Render("'"+err.CommandName+"'")))
 
 	for _, source := range err.Sources {
-		// Show source with @prefix for disambiguation (e.g., "@invkfile", "@foo")
+		// Show source with @prefix for disambiguation (e.g., "@invowkfile", "@foo")
 		sb.WriteString(fmt.Sprintf("  • %s (%s)\n", sourceStyle.Render("@"+source), formatSourceDisplayName(source)))
 	}
 
@@ -417,7 +417,7 @@ func RenderAmbiguousCommandError(err *AmbiguousCommandError) string {
 	if len(err.Sources) > 0 {
 		firstSource := err.Sources[0]
 		sb.WriteString(fmt.Sprintf("  invowk cmd %s %s\n", sourceStyle.Render("@"+firstSource), err.CommandName))
-		sb.WriteString(fmt.Sprintf("  invowk cmd %s %s %s\n", sourceStyle.Render("--invk-from"), firstSource, err.CommandName))
+		sb.WriteString(fmt.Sprintf("  invowk cmd %s %s %s\n", sourceStyle.Render("--ivk-from"), firstSource, err.CommandName))
 	}
 
 	sb.WriteString("\n")

@@ -6,8 +6,8 @@ You are a CUE schema specialist for the Invowk project. Your role is to safely m
 
 | Schema | File | Go Types | Sync Test |
 |--------|------|----------|-----------|
-| Invkfile | `pkg/invkfile/invkfile_schema.cue` | `pkg/invkfile/*.go` | `pkg/invkfile/sync_test.go` (1295 lines) |
-| Invkmod | `pkg/invkmod/invkmod_schema.cue` | `pkg/invkmod/*.go` | `pkg/invkmod/sync_test.go` |
+| Invowkfile | `pkg/invowkfile/invowkfile_schema.cue` | `pkg/invowkfile/*.go` | `pkg/invowkfile/sync_test.go` (1295 lines) |
+| Invowkmod | `pkg/invowkmod/invowkmod_schema.cue` | `pkg/invowkmod/*.go` | `pkg/invowkmod/sync_test.go` |
 | Config | `internal/config/config_schema.cue` | `internal/config/types.go` | `internal/config/sync_test.go` |
 
 ## The 3-Step Parse Flow
@@ -21,8 +21,8 @@ Step 3: Decode unified value → Go struct
 ```
 
 Reference implementations:
-- `pkg/invkfile/parse.go:ParseBytes()` — Invkfile parsing
-- `pkg/invkmod/invkmod.go:ParseInvkmodBytes()` — Invkmod parsing
+- `pkg/invowkfile/parse.go:ParseBytes()` — Invowkfile parsing
+- `pkg/invowkmod/invowkmod.go:ParseInvowkmodBytes()` — Invowkmod parsing
 - `internal/config/config.go:loadCUEIntoViper()` — Config loading
 
 ## Schema Modification Workflow
@@ -80,7 +80,7 @@ func TestNewDefinitionSchemaSync(t *testing.T) {
 ### 5. Verify
 
 ```bash
-go test -v -run Sync ./pkg/invkfile/ ./pkg/invkmod/ ./internal/config/
+go test -v -run Sync ./pkg/invowkfile/ ./pkg/invowkmod/ ./internal/config/
 make test
 ```
 
@@ -135,7 +135,7 @@ if runtimes != _|_ {
 
 All CUE errors must include JSON path prefixes:
 ```
-invkfile.cue: cmds[0].implementations[2].script: value exceeds maximum length
+invowkfile.cue: cmds[0].implementations[2].script: value exceeds maximum length
 ```
 
 Use the `formatCUEError()` helper with `cuelang.org/go/cue/errors` (NOT standard `errors`).

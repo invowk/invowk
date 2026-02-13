@@ -12,7 +12,7 @@ stdout 'test.txt'
 stdout '=== uroot basic test complete ==='
 ! stderr .
 
--- invkfile.cue --
+-- invowkfile.cue --
 cmds: [
 	{
 		name:        "uroot basic"

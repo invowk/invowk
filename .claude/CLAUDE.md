@@ -1,10 +1,10 @@
 # Overview
 
 Invowk is a dynamically extensible command runner (similar to `just`, `task`, and `mise`) written in Go 1.26+. It supports multiple execution runtimes: native shell, virtual shell (mvdan/sh), and containerized execution (Docker/Podman). From the user perspective, Invowk offers two key extensibility primitives:
-- User-defined commands (called `cmds`), which are defined in `invkfile.cue` files using CUE format. `cmds` are made available under the reserved `invowk cmd` built-in command/namespace.
-- User-defined modules, which are filesystem directories named as `<module-id>.invkmod` (preferably using the RDNS convention) that contain:
-  - an `invkmod.cue` file
-  - an `invkfile.cue` file
+- User-defined commands (called `cmds`), which are defined in `invowkfile.cue` files using CUE format. `cmds` are made available under the reserved `invowk cmd` built-in command/namespace.
+- User-defined modules, which are filesystem directories named as `<module-id>.invowkmod` (preferably using the RDNS convention) that contain:
+  - an `invowkmod.cue` file
+  - an `invowkfile.cue` file
 
   Modules can require other modules as dependencies, which is how Invowk effectively provides modularity and `cmd` re-use for users. Additionally, modules also serve as a means to bundle scripts and ad-hoc files required for `cmd` execution.
 
@@ -64,7 +64,7 @@ Skills provide domain-specific procedural guidance. They are invoked when workin
 - [`.claude/skills/d2-diagrams/`](.claude/skills/d2-diagrams/) - Agent-optimized D2 diagram generation with TALA layout, validation pipeline, deterministic output. **DEFAULT for new diagrams.**
 - [`.claude/skills/discovery/`](.claude/skills/discovery/) - Module/command discovery, precedence order, collision detection, source tracking.
 - [`.claude/skills/docs/`](.claude/skills/docs/) - Documentation workflow and Docusaurus website development.
-- [`.claude/skills/invowk-schema/`](.claude/skills/invowk-schema/) - Invkfile/invkmod schema guidelines, cross-platform runtime patterns.
+- [`.claude/skills/invowk-schema/`](.claude/skills/invowk-schema/) - Invowkfile/invowkmod schema guidelines, cross-platform runtime patterns.
 - [`.claude/skills/native-mirror/`](.claude/skills/native-mirror/) - User-invokable (`/native-mirror`). Generate native_*.txtar mirrors from virtual tests with platform-split CUE.
 - [`.claude/skills/schema-sync-check/`](.claude/skills/schema-sync-check/) - User-invokable (`/schema-sync-check`). Validate CUE schema ↔ Go struct JSON tag alignment.
 - [`.claude/skills/server/`](.claude/skills/server/) - Server state machine pattern for SSH and TUI servers.
@@ -77,6 +77,15 @@ Skills provide domain-specific procedural guidance. They are invoked when workin
 - [`.claude/skills/pr/`](.claude/skills/pr/) - GitHub PR workflow: tests, lints, license check, branch creation, conventional commits, and PR description.
 - [`.claude/skills/changelog/`](.claude/skills/changelog/) - User-invokable (`/changelog`). Generate release notes from conventional commits since last tag.
 - [`.claude/skills/dep-audit/`](.claude/skills/dep-audit/) - User-invokable (`/dep-audit`). Audit Go dependencies for vulnerabilities and available updates.
+- [`.claude/skills/speckit.specify/`](.claude/skills/speckit.specify/) - **User-only** (`/speckit.specify`). Create or update feature specification from natural language description. **Never auto-invoke.**
+- [`.claude/skills/speckit.clarify/`](.claude/skills/speckit.clarify/) - **User-only** (`/speckit.clarify`). Identify underspecified areas in feature spec via targeted clarification questions. **Never auto-invoke.**
+- [`.claude/skills/speckit.plan/`](.claude/skills/speckit.plan/) - **User-only** (`/speckit.plan`). Generate implementation plan from feature specification. **Never auto-invoke.**
+- [`.claude/skills/speckit.tasks/`](.claude/skills/speckit.tasks/) - **User-only** (`/speckit.tasks`). Generate dependency-ordered tasks.md from design artifacts. **Never auto-invoke.**
+- [`.claude/skills/speckit.taskstoissues/`](.claude/skills/speckit.taskstoissues/) - **User-only** (`/speckit.taskstoissues`). Convert tasks.md into GitHub issues with dependency ordering. **Never auto-invoke.**
+- [`.claude/skills/speckit.implement/`](.claude/skills/speckit.implement/) - **User-only** (`/speckit.implement`). Execute implementation plan by processing tasks from tasks.md. **Never auto-invoke.**
+- [`.claude/skills/speckit.analyze/`](.claude/skills/speckit.analyze/) - **User-only** (`/speckit.analyze`). Cross-artifact consistency and quality analysis across spec, plan, and tasks. **Never auto-invoke.**
+- [`.claude/skills/speckit.checklist/`](.claude/skills/speckit.checklist/) - **User-only** (`/speckit.checklist`). Generate custom checklist for current feature based on requirements. **Never auto-invoke.**
+- [`.claude/skills/speckit.constitution/`](.claude/skills/speckit.constitution/) - **User-only** (`/speckit.constitution`). Create or update project constitution from principle inputs. **Never auto-invoke.**
 
 ### Code Area → Rules/Skills Mapping
 
@@ -95,8 +104,8 @@ When working in a specific code area, apply these rules and skills:
 | `internal/tui/` | go-patterns, testing, licensing | testing, tui-testing, tmux-testing |
 | `internal/issue/` | go-patterns, testing, licensing | — |
 | `internal/provision/` | go-patterns, testing, windows, licensing | container |
-| `pkg/invkfile/` | go-patterns, testing, cue-patterns, licensing, package-design | cue, invowk-schema |
-| `pkg/invkmod/` | go-patterns, testing, cue-patterns, licensing, package-design | cue, invowk-schema |
+| `pkg/invowkfile/` | go-patterns, testing, cue-patterns, licensing, package-design | cue, invowk-schema |
+| `pkg/invowkmod/` | go-patterns, testing, cue-patterns, licensing, package-design | cue, invowk-schema |
 | `website/` | general-rules | docs |
 | `docs/architecture/` | general-rules | docs, d2-diagrams |
 | `internal/uroot/` | go-patterns, testing, licensing | uroot |
@@ -108,7 +117,7 @@ When working in a specific code area, apply these rules and skills:
 ## Architecture Overview
 
 ```
-invkfile.cue -> CUE Parser -> pkg/invkfile -> Runtime Selection -> Execution
+invowkfile.cue -> CUE Parser -> pkg/invowkfile -> Runtime Selection -> Execution
                                                   |
                                   +---------------+---------------+
                                   |               |               |
@@ -117,8 +126,8 @@ invkfile.cue -> CUE Parser -> pkg/invkfile -> Runtime Selection -> Execution
 ```
 
 - **CUE Schemas**:
-  - `pkg/invkfile/invkfile_schema.cue` defines `invkfile` structure
-  - `pkg/invkmod/invkmod_schema.cue` defines `invkmod` structure
+  - `pkg/invowkfile/invowkfile_schema.cue` defines `invowkfile` structure
+  - `pkg/invowkmod/invowkmod_schema.cue` defines `invowkmod` structure
   - `internal/config/config_schema.cue` defines config structure
 - **Runtime Interface**: All runtimes implement the same interface in `internal/runtime/`.
 - **TUI Components**: Built with Charm libraries (bubbletea, huh, lipgloss).
@@ -139,7 +148,7 @@ invkfile.cue -> CUE Parser -> pkg/invkfile -> Runtime Selection -> Execution
   - `uroot/` - u-root utility implementations for virtual shell built-ins.
   - `benchmark/` - Benchmarks for PGO profile generation.
   - `provision/` - Container provisioning (ephemeral layer attachment).
-- `pkg/` - Public packages (cueutil, invkmod, invkfile, platform).
+- `pkg/` - Public packages (cueutil, invowkmod, invowkfile, platform).
 - `modules/` - Sample invowk modules for validation and reference.
 
 ## Container Runtime Limitations
@@ -154,7 +163,7 @@ invkfile.cue -> CUE Parser -> pkg/invkfile -> Runtime Selection -> Execution
 - We prioritize reliability over image size.
 
 **Why no Windows container support:**
-- They're rarely used and would introduce too much extra complexity to Invowk's auto-provisioning logic (which attaches an ephemeral image layer containing the `invowk` binary and the needed `invkfiles` and `invkmods` to the user-specified image/containerfile when the container runtime is used)
+- They're rarely used and would introduce too much extra complexity to Invowk's auto-provisioning logic (which attaches an ephemeral image layer containing the `invowk` binary and the needed `invowkfiles` and `invowkmods` to the user-specified image/containerfile when the container runtime is used)
 
 **When writing tests, documentation, or examples:**
 - Always use `debian:stable-slim` as the reference container image.

@@ -10,7 +10,8 @@ import (
 	"strings"
 	"testing"
 
-	"invowk-cli/pkg/invkfile"
+	"invowk-cli/internal/testutil"
+	"invowk-cli/pkg/invowkfile"
 )
 
 // TestContainerRuntime_Validate tests the Validate method
@@ -20,26 +21,26 @@ func TestContainerRuntime_Validate(t *testing.T) {
 		t.Skip("skipping integration test in short mode")
 	}
 
-	_, inv := setupTestInvkfile(t)
+	_, inv := setupTestInvowkfile(t)
 
 	tests := []struct {
 		name        string
-		cmd         *invkfile.Command
+		cmd         *invowkfile.Command
 		expectError bool
 		errorMatch  string
 	}{
 		{
 			name: "valid container config with image",
-			cmd: &invkfile.Command{
+			cmd: &invowkfile.Command{
 				Name: "test",
-				Implementations: []invkfile.Implementation{
+				Implementations: []invowkfile.Implementation{
 					{
 						Script: "echo test",
 
-						Runtimes: []invkfile.RuntimeConfig{
-							{Name: invkfile.RuntimeContainer, Image: "debian:stable-slim"},
+						Runtimes: []invowkfile.RuntimeConfig{
+							{Name: invowkfile.RuntimeContainer, Image: "debian:stable-slim"},
 						},
-						Platforms: []invkfile.PlatformConfig{{Name: invkfile.PlatformLinux}},
+						Platforms: []invowkfile.PlatformConfig{{Name: invowkfile.PlatformLinux}},
 					},
 				},
 			},
@@ -47,25 +48,25 @@ func TestContainerRuntime_Validate(t *testing.T) {
 		},
 		{
 			name: "missing implementation",
-			cmd: &invkfile.Command{
+			cmd: &invowkfile.Command{
 				Name:            "test",
-				Implementations: []invkfile.Implementation{},
+				Implementations: []invowkfile.Implementation{},
 			},
 			expectError: true,
 			errorMatch:  "no implementation selected",
 		},
 		{
 			name: "empty script",
-			cmd: &invkfile.Command{
+			cmd: &invowkfile.Command{
 				Name: "test",
-				Implementations: []invkfile.Implementation{
+				Implementations: []invowkfile.Implementation{
 					{
 						Script: "",
 
-						Runtimes: []invkfile.RuntimeConfig{
-							{Name: invkfile.RuntimeContainer, Image: "debian:stable-slim"},
+						Runtimes: []invowkfile.RuntimeConfig{
+							{Name: invowkfile.RuntimeContainer, Image: "debian:stable-slim"},
 						},
-						Platforms: []invkfile.PlatformConfig{{Name: invkfile.PlatformLinux}},
+						Platforms: []invowkfile.PlatformConfig{{Name: invowkfile.PlatformLinux}},
 					},
 				},
 			},
@@ -104,18 +105,18 @@ func TestContainerRuntime_EnableHostSSH_NoServer(t *testing.T) {
 		t.Skip("skipping integration test in short mode")
 	}
 
-	_, inv := setupTestInvkfile(t)
+	_, inv := setupTestInvowkfile(t)
 
-	cmd := &invkfile.Command{
+	cmd := &invowkfile.Command{
 		Name: "test-ssh-no-server",
-		Implementations: []invkfile.Implementation{
+		Implementations: []invowkfile.Implementation{
 			{
 				Script: "echo test",
 
-				Runtimes: []invkfile.RuntimeConfig{
-					{Name: invkfile.RuntimeContainer, Image: "debian:stable-slim", EnableHostSSH: true},
+				Runtimes: []invowkfile.RuntimeConfig{
+					{Name: invowkfile.RuntimeContainer, Image: "debian:stable-slim", EnableHostSSH: true},
 				},
-				Platforms: []invkfile.PlatformConfig{{Name: invkfile.PlatformLinux}},
+				Platforms: []invowkfile.PlatformConfig{{Name: invowkfile.PlatformLinux}},
 			},
 		},
 	}
@@ -150,7 +151,11 @@ func TestContainerRuntime_BuildFromContainerfile(t *testing.T) {
 		t.Skip("skipping integration test in short mode")
 	}
 
-	tmpDir, inv := setupTestInvkfile(t)
+	sem := testutil.ContainerSemaphore()
+	sem <- struct{}{}
+	defer func() { <-sem }()
+
+	tmpDir, inv := setupTestInvowkfile(t)
 
 	// Create a simple Containerfile
 	containerfileContent := `FROM debian:stable-slim
@@ -161,16 +166,16 @@ RUN echo "Built from Containerfile" > /built.txt
 		t.Fatalf("Failed to write Containerfile: %v", err)
 	}
 
-	cmd := &invkfile.Command{
+	cmd := &invowkfile.Command{
 		Name: "test-build",
-		Implementations: []invkfile.Implementation{
+		Implementations: []invowkfile.Implementation{
 			{
 				Script: "cat /built.txt",
 
-				Runtimes: []invkfile.RuntimeConfig{
-					{Name: invkfile.RuntimeContainer, Containerfile: "Containerfile"},
+				Runtimes: []invowkfile.RuntimeConfig{
+					{Name: invowkfile.RuntimeContainer, Containerfile: "Containerfile"},
 				},
-				Platforms: []invkfile.PlatformConfig{{Name: invkfile.PlatformLinux}},
+				Platforms: []invowkfile.PlatformConfig{{Name: invowkfile.PlatformLinux}},
 			},
 		},
 	}

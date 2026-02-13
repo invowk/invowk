@@ -16,8 +16,8 @@ Este diagrama mostra o Invowk no nível mais alto - os limites do sistema, usuá
 
 | Ator | Descrição |
 |------|-----------|
-| **Desenvolvedor** | Usuário principal que cria arquivos `invkfile.cue` e executa comandos. Define implementações de comandos em diferentes runtimes. |
-| **Membro da Equipe** | Consome módulos compartilhados (diretórios `.invkmod`) e executa comandos definidos por outros. Beneficia-se de comandos portáteis e reproduzíveis. |
+| **Desenvolvedor** | Usuário principal que cria arquivos `invowkfile.cue` e executa comandos. Define implementações de comandos em diferentes runtimes. |
+| **Membro da Equipe** | Consome módulos compartilhados (diretórios `.invowkmod`) e executa comandos definidos por outros. Beneficia-se de comandos portáteis e reproduzíveis. |
 
 ## Sistemas Externos
 
@@ -27,7 +27,7 @@ Este diagrama mostra o Invowk no nível mais alto - os limites do sistema, usuá
 | **Podman Engine** | Runtime de container alternativo sem root. Preferido para ambientes com foco em segurança. | Podman CLI |
 | **Repositórios Git** | Fonte para dependências de módulos remotos. Permite compartilhamento e versionamento de módulos de comandos. | Protocolo Git (HTTPS/SSH) |
 | **Shell do Host** | Execução nativa de comandos. Usa `bash`/`sh` no Unix, `PowerShell` no Windows. | Process exec/spawn |
-| **Sistema de Arquivos** | Armazenamento para configuração, invkfiles, módulos e scripts. | I/O de Arquivos |
+| **Sistema de Arquivos** | Armazenamento para configuração, invowkfiles, módulos e scripts. | I/O de Arquivos |
 
 ## Limites Principais
 

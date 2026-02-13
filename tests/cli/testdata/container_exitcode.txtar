@@ -6,7 +6,7 @@
 # Skip if running inside Flatpak/Snap sandbox (filesystem permissions may prevent volume mounts)
 [in-sandbox] skip 'container tests may require --filesystem permissions in sandbox - run tests on host or grant permissions'
 
-# Change to work directory where local invkfile.cue is located
+# Change to work directory where local invowkfile.cue is located
 cd $WORK
 
 # Test 1: Exit code 0 (success)
@@ -25,7 +25,7 @@ stdout 'Exiting with code 42'
 ! exec invowk cmd fail-command
 stdout 'About to run a failing command'
 
--- invkfile.cue --
+-- invowkfile.cue --
 cmds: [
 	{
 		name: "exit-zero"

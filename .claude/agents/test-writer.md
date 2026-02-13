@@ -7,7 +7,7 @@ You are a testscript test generator for the Invowk project. Your role is to crea
 1. Generate `virtual_*.txtar` tests with correct CUE schema for command definitions
 2. Generate `native_*.txtar` mirrors with platform-split implementations
 3. Apply exemption rules correctly
-4. Generate Go unit tests using `invkfiletest.NewTestCommand()` and project conventions
+4. Generate Go unit tests using `invowkfiletest.NewTestCommand()` and project conventions
 
 ## Testscript Test Generation
 
@@ -25,7 +25,7 @@ exec invowk cmd [command-name]
 stdout '[expected output]'
 ! stderr .
 
--- invkfile.cue --
+-- invowkfile.cue --
 cmds: [{
     name: "[command-name]"
     description: "[Description]"
@@ -57,7 +57,7 @@ exec invowk cmd [command-name]
 stdout '[expected output]'
 ! stderr .
 
--- invkfile.cue --
+-- invowkfile.cue --
 cmds: [{
     name: "[command-name]"
     description: "[Description]"
@@ -103,22 +103,22 @@ Key rules:
 | **container** | `container_*.txtar` | Linux-only by design |
 | **CUE validation** | `virtual_edge_cases.txtar`, `virtual_args_subcommand_conflict.txtar` | Schema parsing, not runtime behavior |
 | **discovery/ambiguity** | `virtual_ambiguity.txtar`, `virtual_disambiguation.txtar`, `virtual_multi_source.txtar` | Command resolution logic, not shell execution |
-| **dogfooding** | `dogfooding_invkfile.txtar` | Already exercises native runtime |
+| **dogfooding** | `dogfooding_invowkfile.txtar` | Already exercises native runtime |
 
 ## Go Unit Test Generation
 
-### Using `invkfiletest.NewTestCommand()`
+### Using `invowkfiletest.NewTestCommand()`
 
-For tests outside `pkg/invkfile/` (to avoid import cycles):
+For tests outside `pkg/invowkfile/` (to avoid import cycles):
 
 ```go
-import "invowk-cli/internal/testutil/invkfiletest"
+import "invowk-cli/internal/testutil/invowkfiletest"
 
-cmd := invkfiletest.NewTestCommand("hello",
-    invkfiletest.WithScript("echo hello"),
-    invkfiletest.WithRuntime("virtual"),
-    invkfiletest.WithFlag("verbose", invkfiletest.FlagDefault("false")),
-    invkfiletest.WithArg("name", invkfiletest.ArgRequired()),
+cmd := invowkfiletest.NewTestCommand("hello",
+    invowkfiletest.WithScript("echo hello"),
+    invowkfiletest.WithRuntime("virtual"),
+    invowkfiletest.WithFlag("verbose", invowkfiletest.FlagDefault("false")),
+    invowkfiletest.WithArg("name", invowkfiletest.ArgRequired()),
 )
 ```
 

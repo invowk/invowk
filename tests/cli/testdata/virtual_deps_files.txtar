@@ -20,7 +20,7 @@ stdout 'Current directory is writable'
 stdout 'README\.md is readable'
 ! stderr .
 
--- invkfile.cue --
+-- invowkfile.cue --
 cmds: [
 	{
 		name:        "deps file single"

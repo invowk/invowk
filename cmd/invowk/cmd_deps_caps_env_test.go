@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"invowk-cli/internal/runtime"
-	"invowk-cli/pkg/invkfile"
+	"invowk-cli/pkg/invowkfile"
 )
 
 // ---------------------------------------------------------------------------
@@ -16,12 +16,12 @@ import (
 // ---------------------------------------------------------------------------
 
 func TestCheckCapabilityDependencies_NoCapabilities(t *testing.T) {
-	deps := &invkfile.DependsOn{
-		Capabilities: []invkfile.CapabilityDependency{},
+	deps := &invowkfile.DependsOn{
+		Capabilities: []invowkfile.CapabilityDependency{},
 	}
 
 	ctx := &runtime.ExecutionContext{
-		Command: &invkfile.Command{Name: "test"},
+		Command: &invowkfile.Command{Name: "test"},
 	}
 
 	err := checkCapabilityDependencies(deps, ctx)
@@ -32,7 +32,7 @@ func TestCheckCapabilityDependencies_NoCapabilities(t *testing.T) {
 
 func TestCheckCapabilityDependencies_NilDeps(t *testing.T) {
 	ctx := &runtime.ExecutionContext{
-		Command: &invkfile.Command{Name: "test"},
+		Command: &invowkfile.Command{Name: "test"},
 	}
 
 	err := checkCapabilityDependencies(nil, ctx)
@@ -44,16 +44,16 @@ func TestCheckCapabilityDependencies_NilDeps(t *testing.T) {
 func TestCheckCapabilityDependencies_DuplicateSkipped(t *testing.T) {
 	// This test verifies that duplicate capabilities are silently skipped
 	// The actual success/failure depends on network connectivity
-	deps := &invkfile.DependsOn{
-		Capabilities: []invkfile.CapabilityDependency{
-			{Alternatives: []invkfile.CapabilityName{invkfile.CapabilityLocalAreaNetwork}},
-			{Alternatives: []invkfile.CapabilityName{invkfile.CapabilityLocalAreaNetwork}}, // duplicate
-			{Alternatives: []invkfile.CapabilityName{invkfile.CapabilityLocalAreaNetwork}}, // another duplicate
+	deps := &invowkfile.DependsOn{
+		Capabilities: []invowkfile.CapabilityDependency{
+			{Alternatives: []invowkfile.CapabilityName{invowkfile.CapabilityLocalAreaNetwork}},
+			{Alternatives: []invowkfile.CapabilityName{invowkfile.CapabilityLocalAreaNetwork}}, // duplicate
+			{Alternatives: []invowkfile.CapabilityName{invowkfile.CapabilityLocalAreaNetwork}}, // another duplicate
 		},
 	}
 
 	ctx := &runtime.ExecutionContext{
-		Command: &invkfile.Command{Name: "test"},
+		Command: &invowkfile.Command{Name: "test"},
 	}
 
 	err := checkCapabilityDependencies(deps, ctx)
@@ -153,10 +153,10 @@ func TestRenderDependencyError_AllDependencyTypes(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestCheckEnvVarDependencies_ExistingEnvVar(t *testing.T) {
-	deps := &invkfile.DependsOn{
-		EnvVars: []invkfile.EnvVarDependency{
+	deps := &invowkfile.DependsOn{
+		EnvVars: []invowkfile.EnvVarDependency{
 			{
-				Alternatives: []invkfile.EnvVarCheck{
+				Alternatives: []invowkfile.EnvVarCheck{
 					{Name: "TEST_ENV_VAR"},
 				},
 			},
@@ -168,7 +168,7 @@ func TestCheckEnvVarDependencies_ExistingEnvVar(t *testing.T) {
 	}
 
 	ctx := &runtime.ExecutionContext{
-		Command: &invkfile.Command{Name: "test-cmd"},
+		Command: &invowkfile.Command{Name: "test-cmd"},
 	}
 
 	err := checkEnvVarDependencies(deps, userEnv, ctx)
@@ -178,10 +178,10 @@ func TestCheckEnvVarDependencies_ExistingEnvVar(t *testing.T) {
 }
 
 func TestCheckEnvVarDependencies_MissingEnvVar(t *testing.T) {
-	deps := &invkfile.DependsOn{
-		EnvVars: []invkfile.EnvVarDependency{
+	deps := &invowkfile.DependsOn{
+		EnvVars: []invowkfile.EnvVarDependency{
 			{
-				Alternatives: []invkfile.EnvVarCheck{
+				Alternatives: []invowkfile.EnvVarCheck{
 					{Name: "NONEXISTENT_ENV_VAR"},
 				},
 			},
@@ -191,7 +191,7 @@ func TestCheckEnvVarDependencies_MissingEnvVar(t *testing.T) {
 	userEnv := map[string]string{} // Empty environment
 
 	ctx := &runtime.ExecutionContext{
-		Command: &invkfile.Command{Name: "test-cmd"},
+		Command: &invowkfile.Command{Name: "test-cmd"},
 	}
 
 	err := checkEnvVarDependencies(deps, userEnv, ctx)
@@ -214,10 +214,10 @@ func TestCheckEnvVarDependencies_MissingEnvVar(t *testing.T) {
 }
 
 func TestCheckEnvVarDependencies_ValidationRegexPass(t *testing.T) {
-	deps := &invkfile.DependsOn{
-		EnvVars: []invkfile.EnvVarDependency{
+	deps := &invowkfile.DependsOn{
+		EnvVars: []invowkfile.EnvVarDependency{
 			{
-				Alternatives: []invkfile.EnvVarCheck{
+				Alternatives: []invowkfile.EnvVarCheck{
 					{Name: "GO_VERSION", Validation: `^[0-9]+\.[0-9]+\.[0-9]+$`},
 				},
 			},
@@ -229,7 +229,7 @@ func TestCheckEnvVarDependencies_ValidationRegexPass(t *testing.T) {
 	}
 
 	ctx := &runtime.ExecutionContext{
-		Command: &invkfile.Command{Name: "test-cmd"},
+		Command: &invowkfile.Command{Name: "test-cmd"},
 	}
 
 	err := checkEnvVarDependencies(deps, userEnv, ctx)
@@ -239,10 +239,10 @@ func TestCheckEnvVarDependencies_ValidationRegexPass(t *testing.T) {
 }
 
 func TestCheckEnvVarDependencies_ValidationRegexFail(t *testing.T) {
-	deps := &invkfile.DependsOn{
-		EnvVars: []invkfile.EnvVarDependency{
+	deps := &invowkfile.DependsOn{
+		EnvVars: []invowkfile.EnvVarDependency{
 			{
-				Alternatives: []invkfile.EnvVarCheck{
+				Alternatives: []invowkfile.EnvVarCheck{
 					{Name: "GO_VERSION", Validation: `^[0-9]+\.[0-9]+\.[0-9]+$`},
 				},
 			},
@@ -254,7 +254,7 @@ func TestCheckEnvVarDependencies_ValidationRegexFail(t *testing.T) {
 	}
 
 	ctx := &runtime.ExecutionContext{
-		Command: &invkfile.Command{Name: "test-cmd"},
+		Command: &invowkfile.Command{Name: "test-cmd"},
 	}
 
 	err := checkEnvVarDependencies(deps, userEnv, ctx)
@@ -277,10 +277,10 @@ func TestCheckEnvVarDependencies_ValidationRegexFail(t *testing.T) {
 }
 
 func TestCheckEnvVarDependencies_AlternativesORSemantics(t *testing.T) {
-	deps := &invkfile.DependsOn{
-		EnvVars: []invkfile.EnvVarDependency{
+	deps := &invowkfile.DependsOn{
+		EnvVars: []invowkfile.EnvVarDependency{
 			{
-				Alternatives: []invkfile.EnvVarCheck{
+				Alternatives: []invowkfile.EnvVarCheck{
 					{Name: "AWS_ACCESS_KEY_ID"},
 					{Name: "AWS_PROFILE"},
 				},
@@ -289,7 +289,7 @@ func TestCheckEnvVarDependencies_AlternativesORSemantics(t *testing.T) {
 	}
 
 	ctx := &runtime.ExecutionContext{
-		Command: &invkfile.Command{Name: "test-cmd"},
+		Command: &invowkfile.Command{Name: "test-cmd"},
 	}
 
 	// Test 1: First alternative exists
@@ -331,10 +331,10 @@ func TestCheckEnvVarDependencies_AlternativesORSemantics(t *testing.T) {
 }
 
 func TestCheckEnvVarDependencies_EmptyName(t *testing.T) {
-	deps := &invkfile.DependsOn{
-		EnvVars: []invkfile.EnvVarDependency{
+	deps := &invowkfile.DependsOn{
+		EnvVars: []invowkfile.EnvVarDependency{
 			{
-				Alternatives: []invkfile.EnvVarCheck{
+				Alternatives: []invowkfile.EnvVarCheck{
 					{Name: "   "}, // Whitespace-only name
 				},
 			},
@@ -344,7 +344,7 @@ func TestCheckEnvVarDependencies_EmptyName(t *testing.T) {
 	userEnv := map[string]string{}
 
 	ctx := &runtime.ExecutionContext{
-		Command: &invkfile.Command{Name: "test-cmd"},
+		Command: &invowkfile.Command{Name: "test-cmd"},
 	}
 
 	err := checkEnvVarDependencies(deps, userEnv, ctx)
@@ -364,7 +364,7 @@ func TestCheckEnvVarDependencies_EmptyName(t *testing.T) {
 
 func TestCheckEnvVarDependencies_NilDeps(t *testing.T) {
 	ctx := &runtime.ExecutionContext{
-		Command: &invkfile.Command{Name: "test-cmd"},
+		Command: &invowkfile.Command{Name: "test-cmd"},
 	}
 
 	err := checkEnvVarDependencies(nil, map[string]string{}, ctx)
@@ -374,12 +374,12 @@ func TestCheckEnvVarDependencies_NilDeps(t *testing.T) {
 }
 
 func TestCheckEnvVarDependencies_EmptyEnvVars(t *testing.T) {
-	deps := &invkfile.DependsOn{
-		EnvVars: []invkfile.EnvVarDependency{}, // Empty list
+	deps := &invowkfile.DependsOn{
+		EnvVars: []invowkfile.EnvVarDependency{}, // Empty list
 	}
 
 	ctx := &runtime.ExecutionContext{
-		Command: &invkfile.Command{Name: "test-cmd"},
+		Command: &invowkfile.Command{Name: "test-cmd"},
 	}
 
 	err := checkEnvVarDependencies(deps, map[string]string{}, ctx)

@@ -13,7 +13,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"invowk-cli/pkg/invkfile"
+	"invowk-cli/pkg/invowkfile"
 )
 
 // Runtime type constants for different execution environments.
@@ -51,15 +51,15 @@ type (
 	EnvContext struct {
 		// ExtraEnv contains additional environment variables (INVOWK_FLAG_*, INVOWK_ARG_*, etc.)
 		ExtraEnv map[string]string
-		// RuntimeEnvVars contains env vars specified via --invk-env-var flag.
+		// RuntimeEnvVars contains env vars specified via --ivk-env-var flag.
 		// These are set last and override all other environment variables (highest priority).
 		RuntimeEnvVars map[string]string
-		// RuntimeEnvFiles contains dotenv file paths specified via --invk-env-file flag.
+		// RuntimeEnvFiles contains dotenv file paths specified via --ivk-env-file flag.
 		// These are loaded after all other env sources but before RuntimeEnvVars.
 		// Paths are relative to the current working directory where invowk was invoked.
 		RuntimeEnvFiles []string
 		// InheritModeOverride overrides the runtime config env inherit mode when set.
-		InheritModeOverride invkfile.EnvInheritMode
+		InheritModeOverride invowkfile.EnvInheritMode
 		// InheritAllowOverride overrides the runtime config allowlist when set.
 		InheritAllowOverride []string
 		// InheritDenyOverride overrides the runtime config denylist when set.
@@ -87,18 +87,18 @@ type (
 	// SelectedRuntime and SelectedImpl are resolved together: SelectedImpl is the
 	// implementation matching SelectedRuntime + current platform. Both are populated
 	// by NewExecutionContext using the command's defaults and can be overridden by
-	// CLI flag processing (e.g., --invk-runtime flag).
+	// CLI flag processing (e.g., --ivk-runtime flag).
 	ExecutionContext struct {
 		// Command is the command to execute
-		Command *invkfile.Command
-		// Invkfile is the parent invkfile
-		Invkfile *invkfile.Invkfile
+		Command *invowkfile.Command
+		// Invowkfile is the parent invowkfile
+		Invowkfile *invowkfile.Invowkfile
 		// Context is the Go context for cancellation
 		Context context.Context
 		// SelectedRuntime is the runtime to use for execution (may differ from default)
-		SelectedRuntime invkfile.RuntimeMode
+		SelectedRuntime invowkfile.RuntimeMode
 		// SelectedImpl is the implementation to execute (based on platform and runtime)
-		SelectedImpl *invkfile.Implementation
+		SelectedImpl *invowkfile.Implementation
 		// PositionalArgs contains command-line arguments to pass as shell positional parameters ($1, $2, etc.)
 		PositionalArgs []string
 		// WorkDir overrides the working directory
@@ -239,14 +239,14 @@ func (t TUIContext) IsConfigured() bool {
 }
 
 // NewExecutionContext creates a new execution context with defaults
-func NewExecutionContext(cmd *invkfile.Command, inv *invkfile.Invkfile) *ExecutionContext {
-	currentPlatform := invkfile.GetCurrentHostOS()
+func NewExecutionContext(cmd *invowkfile.Command, inv *invowkfile.Invowkfile) *ExecutionContext {
+	currentPlatform := invowkfile.GetCurrentHostOS()
 	defaultRuntime := cmd.GetDefaultRuntimeForPlatform(currentPlatform)
 	defaultImpl := cmd.GetImplForPlatformRuntime(currentPlatform, defaultRuntime)
 
 	return &ExecutionContext{
 		Command:         cmd,
-		Invkfile:        inv,
+		Invowkfile:      inv,
 		Context:         context.Background(),
 		SelectedRuntime: defaultRuntime,
 		SelectedImpl:    defaultImpl,

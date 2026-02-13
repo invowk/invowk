@@ -12,7 +12,7 @@ import "strings"
 	container_engine?: "podman" | "docker"
 
 	// includes specifies modules to include in command discovery.
-	// Each entry points to a *.invkmod directory.
+	// Each entry points to a *.invowkmod directory.
 	// Modules may have an optional alias for collision disambiguation.
 	includes?: [...#IncludeEntry]
 
@@ -31,10 +31,10 @@ import "strings"
 })
 
 // IncludeEntry specifies a module to include in command discovery.
-// The path must end with ".invkmod".
+// The path must end with ".invowkmod".
 #IncludeEntry: close({
-	// path is the absolute filesystem path to a *.invkmod directory.
-	path: string & !="" & strings.MaxRunes(4096) & =~"\\.invkmod$"
+	// path is the absolute filesystem path to a *.invowkmod directory.
+	path: string & !="" & strings.MaxRunes(4096) & =~"\\.invowkmod$"
 
 	// alias optionally overrides the module identifier for collision disambiguation.
 	// Must be unique across all includes entries.

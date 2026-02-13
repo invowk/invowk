@@ -15,7 +15,7 @@ import (
 	"invowk-cli/internal/config"
 	"invowk-cli/internal/container"
 	"invowk-cli/internal/provision"
-	"invowk-cli/pkg/invkfile"
+	"invowk-cli/pkg/invowkfile"
 )
 
 // MockEngine implements container.Engine for testing.
@@ -213,25 +213,25 @@ func TestContainerRuntime_Available_NilEngine(t *testing.T) {
 // TestContainerRuntime_Validate_Unit tests the validation logic (unit tests without containers).
 func TestContainerRuntime_Validate_Unit(t *testing.T) {
 	tmpDir := t.TempDir()
-	inv := &invkfile.Invkfile{
-		FilePath: filepath.Join(tmpDir, "invkfile.cue"),
+	inv := &invowkfile.Invowkfile{
+		FilePath: filepath.Join(tmpDir, "invowkfile.cue"),
 	}
 
 	tests := []struct {
 		name    string
-		cmd     *invkfile.Command
+		cmd     *invowkfile.Command
 		wantErr bool
 		errMsg  string
 	}{
 		{
 			name: "valid with image",
-			cmd: &invkfile.Command{
+			cmd: &invowkfile.Command{
 				Name: "valid",
-				Implementations: []invkfile.Implementation{
+				Implementations: []invowkfile.Implementation{
 					{
 						Script:    "echo hello",
-						Runtimes:  []invkfile.RuntimeConfig{{Name: invkfile.RuntimeContainer, Image: "debian:stable-slim"}},
-						Platforms: invkfile.AllPlatformConfigs(),
+						Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeContainer, Image: "debian:stable-slim"}},
+						Platforms: invowkfile.AllPlatformConfigs(),
 					},
 				},
 			},
@@ -239,12 +239,12 @@ func TestContainerRuntime_Validate_Unit(t *testing.T) {
 		},
 		{
 			name: "nil implementation",
-			cmd: &invkfile.Command{
+			cmd: &invowkfile.Command{
 				Name: "nil-impl",
-				Implementations: []invkfile.Implementation{
+				Implementations: []invowkfile.Implementation{
 					{
 						Script:   "echo hello",
-						Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeNative}}, // Wrong runtime
+						Runtimes: []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeNative}}, // Wrong runtime
 					},
 				},
 			},
@@ -253,13 +253,13 @@ func TestContainerRuntime_Validate_Unit(t *testing.T) {
 		},
 		{
 			name: "empty script",
-			cmd: &invkfile.Command{
+			cmd: &invowkfile.Command{
 				Name: "empty-script",
-				Implementations: []invkfile.Implementation{
+				Implementations: []invowkfile.Implementation{
 					{
 						Script:    "",
-						Runtimes:  []invkfile.RuntimeConfig{{Name: invkfile.RuntimeContainer, Image: "debian:stable-slim"}},
-						Platforms: invkfile.AllPlatformConfigs(),
+						Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeContainer, Image: "debian:stable-slim"}},
+						Platforms: invowkfile.AllPlatformConfigs(),
 					},
 				},
 			},
@@ -268,13 +268,13 @@ func TestContainerRuntime_Validate_Unit(t *testing.T) {
 		},
 		{
 			name: "missing image and containerfile",
-			cmd: &invkfile.Command{
+			cmd: &invowkfile.Command{
 				Name: "no-image",
-				Implementations: []invkfile.Implementation{
+				Implementations: []invowkfile.Implementation{
 					{
 						Script:    "echo hello",
-						Runtimes:  []invkfile.RuntimeConfig{{Name: invkfile.RuntimeContainer}}, // No image
-						Platforms: invkfile.AllPlatformConfigs(),
+						Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeContainer}}, // No image
+						Platforms: invowkfile.AllPlatformConfigs(),
 					},
 				},
 			},
@@ -314,8 +314,8 @@ func TestContainerRuntime_Validate_Unit(t *testing.T) {
 // TestContainerRuntime_Validate_WithContainerfile tests validation with Containerfile present.
 func TestContainerRuntime_Validate_WithContainerfile(t *testing.T) {
 	tmpDir := t.TempDir()
-	inv := &invkfile.Invkfile{
-		FilePath: filepath.Join(tmpDir, "invkfile.cue"),
+	inv := &invowkfile.Invowkfile{
+		FilePath: filepath.Join(tmpDir, "invowkfile.cue"),
 	}
 
 	// Create a Containerfile in the temp directory
@@ -324,13 +324,13 @@ func TestContainerRuntime_Validate_WithContainerfile(t *testing.T) {
 		t.Fatalf("failed to create Containerfile: %v", err)
 	}
 
-	cmd := &invkfile.Command{
+	cmd := &invowkfile.Command{
 		Name: "with-containerfile",
-		Implementations: []invkfile.Implementation{
+		Implementations: []invowkfile.Implementation{
 			{
 				Script:    "echo hello",
-				Runtimes:  []invkfile.RuntimeConfig{{Name: invkfile.RuntimeContainer}}, // No image, but Containerfile exists
-				Platforms: invkfile.AllPlatformConfigs(),
+				Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeContainer}}, // No image, but Containerfile exists
+				Platforms: invowkfile.AllPlatformConfigs(),
 			},
 		},
 	}
@@ -348,8 +348,8 @@ func TestContainerRuntime_Validate_WithContainerfile(t *testing.T) {
 // TestContainerRuntime_Validate_WithDockerfile tests validation with Dockerfile present.
 func TestContainerRuntime_Validate_WithDockerfile(t *testing.T) {
 	tmpDir := t.TempDir()
-	inv := &invkfile.Invkfile{
-		FilePath: filepath.Join(tmpDir, "invkfile.cue"),
+	inv := &invowkfile.Invowkfile{
+		FilePath: filepath.Join(tmpDir, "invowkfile.cue"),
 	}
 
 	// Create a Dockerfile in the temp directory
@@ -358,13 +358,13 @@ func TestContainerRuntime_Validate_WithDockerfile(t *testing.T) {
 		t.Fatalf("failed to create Dockerfile: %v", err)
 	}
 
-	cmd := &invkfile.Command{
+	cmd := &invowkfile.Command{
 		Name: "with-dockerfile",
-		Implementations: []invkfile.Implementation{
+		Implementations: []invowkfile.Implementation{
 			{
 				Script:    "echo hello",
-				Runtimes:  []invkfile.RuntimeConfig{{Name: invkfile.RuntimeContainer}}, // No image, but Dockerfile exists
-				Platforms: invkfile.AllPlatformConfigs(),
+				Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeContainer}}, // No image, but Dockerfile exists
+				Platforms: invowkfile.AllPlatformConfigs(),
 			},
 		},
 	}
@@ -419,7 +419,7 @@ func TestIsWindowsContainerImage(t *testing.T) {
 func TestGetContainerWorkDir(t *testing.T) {
 	tmpDir := t.TempDir()
 	invowkDir := tmpDir
-	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 
 	// Create subdirectory
 	subDir := filepath.Join(tmpDir, "subdir")
@@ -444,8 +444,8 @@ func TestGetContainerWorkDir(t *testing.T) {
 			want:       "/workspace/subdir",
 		},
 		{
-			name:       "absolute path inside invkfile dir maps to /workspace",
-			cmdWorkDir: subDir, // absolute path inside invkfile dir
+			name:       "absolute path inside invowkfile dir maps to /workspace",
+			cmdWorkDir: subDir, // absolute path inside invowkfile dir
 			want:       "/workspace/subdir",
 		},
 		{
@@ -458,19 +458,19 @@ func TestGetContainerWorkDir(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cmd := &invkfile.Command{
+			cmd := &invowkfile.Command{
 				Name:    "workdir-test",
 				WorkDir: tt.cmdWorkDir,
-				Implementations: []invkfile.Implementation{
+				Implementations: []invowkfile.Implementation{
 					{
 						Script:    "pwd",
-						Runtimes:  []invkfile.RuntimeConfig{{Name: invkfile.RuntimeContainer, Image: "debian:stable-slim"}},
-						Platforms: []invkfile.PlatformConfig{{Name: invkfile.PlatformLinux}},
+						Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeContainer, Image: "debian:stable-slim"}},
+						Platforms: []invowkfile.PlatformConfig{{Name: invowkfile.PlatformLinux}},
 					},
 				},
 			}
-			inv := &invkfile.Invkfile{
-				FilePath: invkfilePath,
+			inv := &invowkfile.Invowkfile{
+				FilePath: invowkfilePath,
 			}
 
 			engine := NewMockEngine()
@@ -498,8 +498,8 @@ func TestContainerConfigFromRuntime(t *testing.T) {
 	})
 
 	t.Run("with all fields", func(t *testing.T) {
-		rtConfig := &invkfile.RuntimeConfig{
-			Name:          invkfile.RuntimeContainer,
+		rtConfig := &invowkfile.RuntimeConfig{
+			Name:          invowkfile.RuntimeContainer,
 			Image:         "debian:stable-slim",
 			Containerfile: "Containerfile.test",
 			Volumes:       []string{"/data:/data:ro"},
@@ -597,9 +597,9 @@ func TestContainerRuntime_generateImageTag(t *testing.T) {
 	rt := NewContainerRuntimeWithEngine(engine)
 
 	tmpDir := t.TempDir()
-	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 
-	tag, err := rt.generateImageTag(invkfilePath)
+	tag, err := rt.generateImageTag(invowkfilePath)
 	if err != nil {
 		t.Fatalf("generateImageTag() error: %v", err)
 	}
@@ -616,13 +616,13 @@ func TestContainerRuntime_generateImageTag(t *testing.T) {
 	}
 
 	// Same path should generate same tag
-	tag2, _ := rt.generateImageTag(invkfilePath)
+	tag2, _ := rt.generateImageTag(invowkfilePath)
 	if tag != tag2 {
 		t.Errorf("generateImageTag() should be deterministic: %q != %q", tag, tag2)
 	}
 
 	// Different path should generate different tag
-	otherPath := filepath.Join(tmpDir, "other", "invkfile.cue")
+	otherPath := filepath.Join(tmpDir, "other", "invowkfile.cue")
 	tag3, _ := rt.generateImageTag(otherPath)
 	if tag == tag3 {
 		t.Errorf("generateImageTag() different paths should generate different tags")
@@ -663,17 +663,17 @@ func TestEnsureProvisionedImage_StrictMode(t *testing.T) {
 	t.Parallel()
 
 	tmpDir := t.TempDir()
-	inv := &invkfile.Invkfile{
-		FilePath: filepath.Join(tmpDir, "invkfile.cue"),
+	inv := &invowkfile.Invowkfile{
+		FilePath: filepath.Join(tmpDir, "invowkfile.cue"),
 	}
 
-	cmd := &invkfile.Command{
+	cmd := &invowkfile.Command{
 		Name: "strict-test",
-		Implementations: []invkfile.Implementation{
+		Implementations: []invowkfile.Implementation{
 			{
 				Script:    "echo hello",
-				Runtimes:  []invkfile.RuntimeConfig{{Name: invkfile.RuntimeContainer, Image: "debian:stable-slim"}},
-				Platforms: invkfile.AllPlatformConfigs(),
+				Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeContainer, Image: "debian:stable-slim"}},
+				Platforms: invowkfile.AllPlatformConfigs(),
 			},
 		},
 	}
@@ -698,7 +698,7 @@ func TestEnsureProvisionedImage_StrictMode(t *testing.T) {
 	execCtx.IO.Stderr = &stderr
 	execCtx.IO.Stdout = &bytes.Buffer{}
 
-	cfg := invkfileContainerConfig{Image: "debian:stable-slim"}
+	cfg := invowkfileContainerConfig{Image: "debian:stable-slim"}
 	_, _, err := rt.ensureProvisionedImage(execCtx, cfg, tmpDir)
 
 	if err == nil {
@@ -715,17 +715,17 @@ func TestEnsureProvisionedImage_NonStrictMode(t *testing.T) {
 	t.Parallel()
 
 	tmpDir := t.TempDir()
-	inv := &invkfile.Invkfile{
-		FilePath: filepath.Join(tmpDir, "invkfile.cue"),
+	inv := &invowkfile.Invowkfile{
+		FilePath: filepath.Join(tmpDir, "invowkfile.cue"),
 	}
 
-	cmd := &invkfile.Command{
+	cmd := &invowkfile.Command{
 		Name: "non-strict-test",
-		Implementations: []invkfile.Implementation{
+		Implementations: []invowkfile.Implementation{
 			{
 				Script:    "echo hello",
-				Runtimes:  []invkfile.RuntimeConfig{{Name: invkfile.RuntimeContainer, Image: "debian:stable-slim"}},
-				Platforms: invkfile.AllPlatformConfigs(),
+				Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeContainer, Image: "debian:stable-slim"}},
+				Platforms: invowkfile.AllPlatformConfigs(),
 			},
 		},
 	}
@@ -749,7 +749,7 @@ func TestEnsureProvisionedImage_NonStrictMode(t *testing.T) {
 	execCtx.IO.Stderr = &stderr
 	execCtx.IO.Stdout = &bytes.Buffer{}
 
-	cfg := invkfileContainerConfig{Image: "debian:stable-slim"}
+	cfg := invowkfileContainerConfig{Image: "debian:stable-slim"}
 	imageName, _, err := rt.ensureProvisionedImage(execCtx, cfg, tmpDir)
 	if err != nil {
 		t.Fatalf("ensureProvisionedImage() with strict=false should not return error, got: %v", err)

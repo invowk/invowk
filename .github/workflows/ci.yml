@@ -128,6 +128,8 @@ jobs:
       - name: Run tests (full)
         if: matrix.test-mode == 'full'
         shell: bash
+        env:
+          INVOWK_TEST_CONTAINER_PARALLEL: "2"
         run: go test -v -race -timeout 15m -coverprofile=coverage.out ./...
 
       # Run short tests (unit tests only, no container dependencies)

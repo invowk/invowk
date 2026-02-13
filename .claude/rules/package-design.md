@@ -8,7 +8,7 @@ paths:
 
 ## Cross-Domain Dependencies
 
-When two packages have a semantic relationship (e.g., `invkmod` and `invkfile`), use **interface decoupling** to avoid circular dependencies and support future extensibility.
+When two packages have a semantic relationship (e.g., `invowkmod` and `invowkfile`), use **interface decoupling** to avoid circular dependencies and support future extensibility.
 
 ### Pattern: Lower-Level Defines Interfaces
 
@@ -16,17 +16,17 @@ The lower-level domain defines interfaces or minimal data types for what it need
 
 ```
 pkg/
-├── invkmod/           # Lower-level: defines minimal types/contracts
-│   └── invkmod.go     # Core types and module metadata
-└── invkfile/          # Higher-level: defines commands
-    └── invkfile.go    # Command definitions
+├── invowkmod/           # Lower-level: defines minimal types/contracts
+│   └── invowkmod.go     # Core types and module metadata
+└── invowkfile/          # Higher-level: defines commands
+    └── invowkfile.go    # Command definitions
 ```
 
 ### Example
 
 ```go
-// pkg/invkmod/invkmod.go
-package invkmod
+// pkg/invowkmod/invowkmod.go
+package invowkmod
 
 type ModuleCommands interface {
     GetModule() string
@@ -34,18 +34,18 @@ type ModuleCommands interface {
 }
 
 // Module represents a loaded invowk module, ready for use.
-// Commands holds typed command definitions without importing pkg/invkfile.
+// Commands holds typed command definitions without importing pkg/invowkfile.
 type Module struct {
 	Commands ModuleCommands
 }
 ```
 
-If you need a compile-time contract, introduce a small interface in `invkmod` and implement it in `invkfile`.
+If you need a compile-time contract, introduce a small interface in `invowkmod` and implement it in `invowkfile`.
 
 ### Why This Pattern
 
-1. **No circular dependencies**: `invkfile → invkmod` only; `invkmod` never imports `invkfile`.
-2. **Future extensibility**: Supports 1:N relationships (one Module, many Invkfiles) without restructuring.
+1. **No circular dependencies**: `invowkfile → invowkmod` only; `invowkmod` never imports `invowkfile`.
+2. **Future extensibility**: Supports 1:N relationships (one Module, many Invowkfiles) without restructuring.
 3. **Testability**: Interfaces enable mocks when you need isolated testing.
 4. **Clear contracts**: Interfaces document exactly what the lower-level domain needs.
 
@@ -58,7 +58,7 @@ Use interface decoupling when:
 
 ### Anti-Pattern: Bridge Package
 
-Avoid creating third "bridge" packages (e.g., `invkbridge`) that import both domains just to hold aggregations. This adds navigation complexity without providing meaningful abstraction.
+Avoid creating third "bridge" packages (e.g., `ivkbridge`) that import both domains just to hold aggregations. This adds navigation complexity without providing meaningful abstraction.
 
 **Exception**: A bridge package is acceptable when it genuinely adds orchestration logic beyond simple aggregation.
 
@@ -103,10 +103,10 @@ When a package has multiple tightly-coupled concerns that would create artificia
 ```go
 // internal/discovery/doc.go
 
-// Package discovery handles invkfile and invkmod discovery and command aggregation.
+// Package discovery handles invowkfile and invowkmod discovery and command aggregation.
 //
 // This package intentionally combines two related concerns:
-//   - File discovery: locating invkfile.cue and invkmod directories
+//   - File discovery: locating invowkfile.cue and invowkmod directories
 //   - Command aggregation: building the unified command tree from discovered files
 //
 // These concerns are tightly coupled because command aggregation depends directly
@@ -133,7 +133,7 @@ Utility packages (`testutil`, `cueutil`, etc.) must remain **domain-agnostic**. 
 
 ### Signs of Domain Creep
 
-- Helper function references domain types (e.g., `invkfile.Command`, `invkmod.Invkmod`).
+- Helper function references domain types (e.g., `invowkfile.Command`, `invowkmod.Invowkmod`).
 - Helper is only used by one domain package.
 - Helper name includes domain terminology (e.g., `buildTestCommand` in generic `testutil`).
 
@@ -143,8 +143,8 @@ Migrate to the domain package. If multiple domain packages need similar helpers,
 
 ### Exception: Domain-Specific Test Subpackages
 
-Creating `testutil/invkfiletest/` is acceptable when:
+Creating `testutil/invowkfiletest/` is acceptable when:
 - The helpers are genuinely reusable across multiple test files.
 - Import cycles would otherwise occur (test package can't import the package it tests).
 
-This is already established in the `testing` skill (`.claude/skills/testing/`) for `invkfiletest`.
+This is already established in the `testing` skill (`.claude/skills/testing/`) for `invowkfiletest`.

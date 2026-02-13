@@ -8,12 +8,12 @@ import (
 	"path/filepath"
 
 	"invowk-cli/internal/config"
-	"invowk-cli/pkg/invkfile"
+	"invowk-cli/pkg/invowkfile"
 )
 
-// ErrNoInvkfileFound is returned when no invkfile.cue is found in any search path.
-// Callers can check for this error using errors.Is(err, ErrNoInvkfileFound).
-var ErrNoInvkfileFound = errors.New("no invkfile found")
+// ErrNoInvowkfileFound is returned when no invowkfile.cue is found in any search path.
+// Callers can check for this error using errors.Is(err, ErrNoInvowkfileFound).
+var ErrNoInvowkfileFound = errors.New("no invowkfile found")
 
 type (
 	// ModuleCollisionError is returned when two modules have the same module identifier.
@@ -51,10 +51,10 @@ func New(cfg *config.Config) *Discovery {
 	return &Discovery{cfg: cfg}
 }
 
-// LoadAll parses all discovered files into Invkfile structs. Library-only modules
-// (those without an invkfile.cue) are skipped because they provide scripts and files
+// LoadAll parses all discovered files into Invowkfile structs. Library-only modules
+// (those without an invowkfile.cue) are skipped because they provide scripts and files
 // for other modules via `requires` but contribute no commands. Module metadata is
-// reattached to parsed Invkfiles so downstream scope/dependency checks can identify
+// reattached to parsed Invowkfiles so downstream scope/dependency checks can identify
 // the owning module.
 func (d *Discovery) LoadAll() ([]*DiscoveredFile, error) {
 	files, err := d.DiscoverAll()
@@ -63,7 +63,7 @@ func (d *Discovery) LoadAll() ([]*DiscoveredFile, error) {
 	}
 
 	for _, file := range files {
-		var inv *invkfile.Invkfile
+		var inv *invowkfile.Invowkfile
 		var parseErr error
 
 		if file.Module != nil {
@@ -74,21 +74,21 @@ func (d *Discovery) LoadAll() ([]*DiscoveredFile, error) {
 				continue
 			}
 
-			// Parse module invkfile.cue and reattach module metadata so downstream
+			// Parse module invowkfile.cue and reattach module metadata so downstream
 			// logic (scope/dependency checks) can treat it as module-backed input.
-			inv, parseErr = invkfile.Parse(file.Path)
+			inv, parseErr = invowkfile.Parse(file.Path)
 			if parseErr == nil {
 				inv.Metadata = file.Module.Metadata
 				inv.ModulePath = file.Module.Path
 			}
 		} else {
-			inv, parseErr = invkfile.Parse(file.Path)
+			inv, parseErr = invowkfile.Parse(file.Path)
 		}
 
 		if parseErr != nil {
 			file.Error = parseErr
 		} else {
-			file.Invkfile = inv
+			file.Invowkfile = inv
 		}
 	}
 
@@ -103,7 +103,7 @@ func (d *Discovery) LoadAll() ([]*DiscoveredFile, error) {
 	return files, nil
 }
 
-// LoadFirst loads the first valid invkfile found (respecting precedence).
+// LoadFirst loads the first valid invowkfile found (respecting precedence).
 // This method is currently used only in tests to verify single-file
 // precedence behavior; production code uses LoadAll or the command set methods.
 func (d *Discovery) LoadFirst() (*DiscoveredFile, error) {
@@ -113,28 +113,28 @@ func (d *Discovery) LoadFirst() (*DiscoveredFile, error) {
 	}
 
 	if len(files) == 0 {
-		return nil, ErrNoInvkfileFound
+		return nil, ErrNoInvowkfileFound
 	}
 
 	file := files[0]
-	var inv *invkfile.Invkfile
+	var inv *invowkfile.Invowkfile
 	var parseErr error
 
 	if file.Module != nil {
 		// Library-only modules can be discovered first; they are valid, but have
-		// no command-bearing invkfile to load.
+		// no command-bearing invowkfile to load.
 		if file.Module.IsLibraryOnly || file.Path == "" {
-			file.Invkfile = nil
+			file.Invowkfile = nil
 			return file, nil
 		}
 
-		inv, parseErr = invkfile.Parse(file.Path)
+		inv, parseErr = invowkfile.Parse(file.Path)
 		if parseErr == nil {
 			inv.Metadata = file.Module.Metadata
 			inv.ModulePath = file.Module.Path
 		}
 	} else {
-		inv, parseErr = invkfile.Parse(file.Path)
+		inv, parseErr = invowkfile.Parse(file.Path)
 	}
 
 	if parseErr != nil {
@@ -142,7 +142,7 @@ func (d *Discovery) LoadFirst() (*DiscoveredFile, error) {
 		return file, parseErr
 	}
 
-	file.Invkfile = inv
+	file.Invowkfile = inv
 	return file, nil
 }
 
@@ -154,7 +154,7 @@ func (d *Discovery) CheckModuleCollisions(files []*DiscoveredFile) error {
 	moduleSources := make(map[string]string)
 
 	for _, file := range files {
-		if file.Error != nil || file.Invkfile == nil {
+		if file.Error != nil || file.Invowkfile == nil {
 			continue
 		}
 
@@ -163,7 +163,7 @@ func (d *Discovery) CheckModuleCollisions(files []*DiscoveredFile) error {
 			continue
 		}
 
-		// Use the module directory path (not the invkfile inside it) so
+		// Use the module directory path (not the invowkfile inside it) so
 		// the error message shows the path users need for their includes config.
 		sourcePath := file.Path
 		if file.Module != nil {
@@ -189,15 +189,15 @@ func (d *Discovery) CheckModuleCollisions(files []*DiscoveredFile) error {
 // directory matches an include entry with an alias, the alias overrides the
 // module's declared ID.
 func (d *Discovery) GetEffectiveModuleID(file *DiscoveredFile) string {
-	if file.Invkfile == nil {
+	if file.Invowkfile == nil {
 		return ""
 	}
 
-	moduleID := file.Invkfile.GetModule()
+	moduleID := file.Invowkfile.GetModule()
 
 	// Module-backed files can have aliases configured in includes.
 	// Match against Module.Path (the module directory), not file.Path
-	// (the invkfile inside the module), because includes reference
+	// (the invowkfile inside the module), because includes reference
 	// module directories.
 	if file.Module != nil {
 		if alias := d.getAliasForModulePath(file.Module.Path); alias != "" {

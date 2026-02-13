@@ -18,7 +18,7 @@ Saída para um módulo válido:
 
 ## Validação Profunda
 
-Adicione `--deep` para também fazer parse e validar o invkfile (quando presente):
+Adicione `--deep` para também fazer parse e validar o invowkfile (quando presente):
 
 <Snippet id="modules/validate-deep" />
 
@@ -31,9 +31,9 @@ Saída:
 ### Checagens de Estrutura
 
 - Diretório do módulo existe
-- `invkmod.cue` obrigatório na raiz
-- `invkfile.cue` é opcional (módulos apenas de biblioteca são permitidos)
-- Sem módulos aninhados (exceto dentro de `invk_modules/`)
+- `invowkmod.cue` obrigatório na raiz
+- `invowkfile.cue` é opcional (módulos apenas de biblioteca são permitidos)
+- Sem módulos aninhados (exceto dentro de `invowk_modules/`)
 
 ### Checagens de Segurança
 
@@ -45,22 +45,22 @@ Saída:
 
 ### Checagens de Nomenclatura
 
-- Nome da pasta termina com `.invkmod`
+- Nome da pasta termina com `.invowkmod`
 - Prefixo do nome segue as regras (começa com letra, alfanumérico + pontos)
-- ID do módulo em `invkmod.cue` corresponde ao prefixo do nome da pasta
+- ID do módulo em `invowkmod.cue` corresponde ao prefixo do nome da pasta
 - Sem caracteres inválidos (hífens, underscores)
 
 ### Checagens Profundas (com `--deep`)
 
-- Invkfile faz parse sem erros (se presente)
+- Invowkfile faz parse sem erros (se presente)
 - Sintaxe CUE é válida
 - Restrições do schema são atendidas
 
 ## Erros de Validação
 
-### Invkmod Ausente
+### Invowkmod Ausente
 
-<Snippet id="modules/error-missing-invkfile" />
+<Snippet id="modules/error-missing-invowkfile" />
 
 ### Nome Inválido
 
@@ -70,7 +70,7 @@ Saída:
 
 <Snippet id="modules/error-nested" />
 
-### Invkfile Inválido (deep)
+### Invowkfile Inválido (deep)
 
 <Snippet id="modules/error-parse" />
 
@@ -103,7 +103,7 @@ Adicione validação de módulos no seu pipeline de CI:
 ## Melhores Práticas
 
 1. **Valide antes de commitar**: Detecte problemas cedo
-2. **Use `--deep`**: Captura erros de invkfile
+2. **Use `--deep`**: Captura erros de invowkfile
 3. **Valide no CI**: Impede módulos quebrados de sair
 4. **Corrija problemas imediatamente**: Não deixe dívida de validação acumular
 

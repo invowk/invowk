@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 
 	"invowk-cli/internal/config"
-	"invowk-cli/pkg/invkfile"
-	"invowk-cli/pkg/invkmod"
+	"invowk-cli/pkg/invowkfile"
+	"invowk-cli/pkg/invowkmod"
 
 	"github.com/spf13/cobra"
 )
@@ -26,15 +26,15 @@ func newModuleArchiveCommand() *cobra.Command {
 The archive will contain the module directory with all its contents.
 
 Examples:
-  invowk module archive ./mytools.invkmod
-  invowk module archive ./mytools.invkmod --output ./dist/mytools.zip`,
+  invowk module archive ./mytools.invowkmod
+  invowk module archive ./mytools.invowkmod --output ./dist/mytools.zip`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runModuleArchive(args, output)
 		},
 	}
 
-	cmd.Flags().StringVarP(&output, "output", "o", "", "output path for the ZIP file (default: <module-name>.invkmod.zip)")
+	cmd.Flags().StringVarP(&output, "output", "o", "", "output path for the ZIP file (default: <module-name>.invowkmod.zip)")
 
 	return cmd
 }
@@ -54,7 +54,7 @@ func newModuleImportCommand() *cobra.Command {
 By default, modules are imported to ~/.invowk/cmds.
 
 Examples:
-  invowk module import ./mytools.invkmod.zip
+  invowk module import ./mytools.invowkmod.zip
   invowk module import https://example.com/modules/mytools.zip
   invowk module import ./module.zip --path ./local-modules
   invowk module import ./module.zip --overwrite`,
@@ -80,14 +80,14 @@ func newModuleVendorCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "vendor [module-path]",
 		Short: "Vendor module dependencies (preview)",
-		Long: `Vendor module dependencies into the invk_modules/ directory.
+		Long: `Vendor module dependencies into the invowk_modules/ directory.
 
 NOTE: This command is a preview feature and is not yet fully implemented.
 Dependency fetching is currently stubbed — running it will show what would
 be vendored but will not actually download modules.
 
-This command reads the 'requires' field from the invkmod.cue and fetches
-all dependencies into the invk_modules/ subdirectory, enabling offline
+This command reads the 'requires' field from the invowkmod.cue and fetches
+all dependencies into the invowk_modules/ subdirectory, enabling offline
 and self-contained distribution.
 
 If no module-path is specified, vendors dependencies for the current directory's
@@ -95,7 +95,7 @@ module.
 
 Examples:
   invowk module vendor
-  invowk module vendor ./mymodule.invkmod
+  invowk module vendor ./mymodule.invowkmod
   invowk module vendor --update
   invowk module vendor --prune`,
 		Args: cobra.MaximumNArgs(1),
@@ -116,7 +116,7 @@ func runModuleArchive(args []string, output string) error {
 	fmt.Println(moduleTitleStyle.Render("Archive Module"))
 
 	// Archive the module
-	zipPath, err := invkmod.Archive(modulePath, output)
+	zipPath, err := invowkmod.Archive(modulePath, output)
 	if err != nil {
 		return fmt.Errorf("failed to archive module: %w", err)
 	}
@@ -151,19 +151,19 @@ func runModuleImport(args []string, importPath string, importOverwrite bool) err
 	}
 
 	// Import the module
-	opts := invkmod.UnpackOptions{
+	opts := invowkmod.UnpackOptions{
 		Source:    source,
 		DestDir:   destDir,
 		Overwrite: importOverwrite,
 	}
 
-	modulePath, err := invkmod.Unpack(opts)
+	modulePath, err := invowkmod.Unpack(opts)
 	if err != nil {
 		return fmt.Errorf("failed to import module: %w", err)
 	}
 
 	// Load the module to get its name
-	b, err := invkmod.Load(modulePath)
+	b, err := invowkmod.Load(modulePath)
 	if err != nil {
 		return fmt.Errorf("failed to load imported module: %w", err)
 	}
@@ -195,31 +195,31 @@ func runModuleVendor(args []string, vendorPrune bool) error {
 		return fmt.Errorf("failed to resolve path: %w", err)
 	}
 
-	// Find invkfile
-	invkfilePath := filepath.Join(absPath, "invkfile.cue")
-	if _, statErr := os.Stat(invkfilePath); os.IsNotExist(statErr) {
+	// Find invowkfile
+	invowkfilePath := filepath.Join(absPath, "invowkfile.cue")
+	if _, statErr := os.Stat(invowkfilePath); os.IsNotExist(statErr) {
 		// Maybe it's a module directory
-		if !invkmod.IsModule(absPath) {
-			return fmt.Errorf("no invkfile.cue found in %s", absPath)
+		if !invowkmod.IsModule(absPath) {
+			return fmt.Errorf("no invowkfile.cue found in %s", absPath)
 		}
 	}
 
-	// Parse invkmod.cue to get requirements
-	invkmodulePath := filepath.Join(absPath, "invkmod.cue")
-	meta, err := invkfile.ParseInvkmod(invkmodulePath)
+	// Parse invowkmod.cue to get requirements
+	invowkmodulePath := filepath.Join(absPath, "invowkmod.cue")
+	meta, err := invowkfile.ParseInvowkmod(invowkmodulePath)
 	if err != nil {
-		return fmt.Errorf("failed to parse invkmod.cue: %w", err)
+		return fmt.Errorf("failed to parse invowkmod.cue: %w", err)
 	}
 
 	if len(meta.Requires) == 0 {
-		fmt.Printf("%s No dependencies declared in invkmod.cue\n", moduleWarningIcon)
+		fmt.Printf("%s No dependencies declared in invowkmod.cue\n", moduleWarningIcon)
 		return nil
 	}
 
-	fmt.Printf("%s Found %d requirement(s) in invkmod.cue\n", moduleInfoIcon, len(meta.Requires))
+	fmt.Printf("%s Found %d requirement(s) in invowkmod.cue\n", moduleInfoIcon, len(meta.Requires))
 
 	// Determine vendor directory
-	vendorDir := invkmod.GetVendoredModulesDir(absPath)
+	vendorDir := invowkmod.GetVendoredModulesDir(absPath)
 
 	// Handle prune mode
 	if vendorPrune {
@@ -247,7 +247,7 @@ func runModuleVendor(args []string, vendorPrune bool) error {
 }
 
 // pruneVendoredModules removes vendored modules that are not in the requirements
-func pruneVendoredModules(vendorDir string, meta *invkfile.Invkmod) error {
+func pruneVendoredModules(vendorDir string, meta *invowkfile.Invowkmod) error {
 	fmt.Println()
 	fmt.Printf("%s Pruning unused vendored modules...\n", moduleInfoIcon)
 
@@ -258,7 +258,7 @@ func pruneVendoredModules(vendorDir string, meta *invkfile.Invkmod) error {
 	}
 
 	// List vendored modules
-	vendoredModules, err := invkmod.ListVendoredModules(filepath.Dir(vendorDir))
+	vendoredModules, err := invowkmod.ListVendoredModules(filepath.Dir(vendorDir))
 	if err != nil {
 		return fmt.Errorf("failed to list vendored modules: %w", err)
 	}

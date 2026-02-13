@@ -10,7 +10,7 @@ import Snippet from '@site/src/components/Snippet';
 Module dependencies are still being refined. While we aim for backwards compatibility, **breaking changes may occur** before the 1.0 release. Lock files keep builds reproducible, but resolution behavior may evolve.
 :::
 
-Module dependencies let a module pull in commands from other modules hosted in Git repositories. Dependencies are declared in `invkmod.cue` under `requires` and resolved into `invkmod.lock.cue`.
+Module dependencies let a module pull in commands from other modules hosted in Git repositories. Dependencies are declared in `invowkmod.cue` under `requires` and resolved into `invowkmod.lock.cue`.
 
 ## What are Module Dependencies?
 
@@ -25,13 +25,13 @@ Module dependencies are external modules that your module depends on. They are:
 
 ### 1. (Optional) Resolve a Dependency
 
-`invowk module add` resolves a dependency and prints the `requires` entry you can copy into `invkmod.cue`:
+`invowk module add` resolves a dependency and prints the `requires` entry you can copy into `invowkmod.cue`:
 
 <Snippet id="modules/dependencies/quick-add" />
 
-### 2. Declare in `invkmod.cue`
+### 2. Declare in `invowkmod.cue`
 
-<Snippet id="modules/dependencies/quick-invkmod" />
+<Snippet id="modules/dependencies/quick-invowkmod" />
 
 ### 3. Sync Dependencies
 
@@ -49,10 +49,10 @@ When a dependency module is installed in a discovery path, run its commands with
 
 ## How It Works
 
-1. **Declaration**: Dependencies are listed in `invkmod.cue` under `requires`
+1. **Declaration**: Dependencies are listed in `invowkmod.cue` under `requires`
 2. **Resolution**: `invowk module sync` resolves version constraints to concrete versions
 3. **Download**: Modules are cloned from Git and cached locally
-4. **Lock file**: Resolved versions are written to `invkmod.lock.cue`
+4. **Lock file**: Resolved versions are written to `invowkmod.lock.cue`
 5. **Discovery**: Commands are available via the module namespace when the dependency is installed
 
 :::note Direct Dependencies Only

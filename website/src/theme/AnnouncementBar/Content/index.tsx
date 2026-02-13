@@ -13,7 +13,7 @@ export default function AnnouncementBarContent(props: Props): ReactNode {
   const content = translate({
     id: 'theme.announcementBar.content',
     message:
-      '⚠️ <strong>Alpha Software</strong> — Invowk is under active development. The invkfile format and features may change between releases. <a target="_blank" rel="noopener noreferrer" href="https://github.com/invowk/invowk">Star us on GitHub</a> to follow progress!',
+      '⚠️ <strong>Alpha Software</strong> — Invowk is under active development. The invowkfile format and features may change between releases. <a target="_blank" rel="noopener noreferrer" href="https://github.com/invowk/invowk">Star us on GitHub</a> to follow progress!',
     description: 'The content of the announcement bar',
   });
 

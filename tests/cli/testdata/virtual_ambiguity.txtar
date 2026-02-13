@@ -6,42 +6,42 @@
 cd $WORK
 
 # Test 1: List commands - ambiguous commands should show source annotation
-# The "deploy" command exists in both invkfile and foo.invkmod
+# The "deploy" command exists in both invowkfile and foo.invowkmod
 exec invowk cmd
-stdout 'From invkfile:'
+stdout 'From invowkfile:'
 stdout 'hello'
-stdout 'deploy.*@invkfile'
-stdout 'From foo.invkmod:'
+stdout 'deploy.*@invowkfile'
+stdout 'From foo.invowkmod:'
 stdout 'build'
 stdout 'deploy.*@foo'
 ! stderr .
 
 # Test 2: Unambiguous commands should NOT show source annotation
-# "hello" only exists in invkfile, "build" only exists in foo
+# "hello" only exists in invowkfile, "build" only exists in foo
 exec invowk cmd
 ! stdout 'hello.*@'
 ! stdout 'build.*@'
 
--- invkfile.cue --
+-- invowkfile.cue --
 cmds: [
 	{
 		name: "hello"
-		description: "Hello from root invkfile"
+		description: "Hello from root invowkfile"
 		implementations: [{script: "echo 'Hello from root!'", runtimes: [{name: "virtual"}], platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]}]
 	},
 	{
 		name: "deploy"
-		description: "Deploy from root invkfile"
-		implementations: [{script: "echo 'Deploying from invkfile!'", runtimes: [{name: "virtual"}], platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]}]
+		description: "Deploy from root invowkfile"
+		implementations: [{script: "echo 'Deploying from invowkfile!'", runtimes: [{name: "virtual"}], platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]}]
 	},
 ]
 
--- foo.invkmod/invkmod.cue --
+-- foo.invowkmod/invowkmod.cue --
 module: "foo"
 version: "1.0.0"
 description: "Foo module"
 
--- foo.invkmod/invkfile.cue --
+-- foo.invowkmod/invowkfile.cue --
 cmds: [
 	{
 		name: "build"

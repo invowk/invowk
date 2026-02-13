@@ -10,7 +10,7 @@ import (
 	"invowk-cli/internal/config"
 	"invowk-cli/internal/discovery"
 	"invowk-cli/internal/runtime"
-	"invowk-cli/pkg/invkfile"
+	"invowk-cli/pkg/invowkfile"
 )
 
 // validateDependencies validates merged dependencies for a command.
@@ -21,11 +21,11 @@ import (
 // - container: validated against the container's default shell from within the container
 //
 // Note: `depends_on.cmds` is an existence check only. Invowk validates that referenced
-// commands are discoverable (in this invkfile, modules, or configured search paths),
+// commands are discoverable (in this invowkfile, modules, or configured search paths),
 // but it does not execute them automatically.
 func validateDependencies(cfg *config.Config, cmdInfo *discovery.CommandInfo, registry *runtime.Registry, parentCtx *runtime.ExecutionContext) error {
 	// Merge root-level, command-level, and implementation-level dependencies
-	mergedDeps := invkfile.MergeDependsOnAll(cmdInfo.Invkfile.DependsOn, cmdInfo.Command.DependsOn, parentCtx.SelectedImpl.DependsOn)
+	mergedDeps := invowkfile.MergeDependsOnAll(cmdInfo.Invowkfile.DependsOn, cmdInfo.Command.DependsOn, parentCtx.SelectedImpl.DependsOn)
 
 	if mergedDeps == nil {
 		return nil
@@ -47,7 +47,7 @@ func validateDependencies(cfg *config.Config, cmdInfo *discovery.CommandInfo, re
 	}
 
 	// Then check filepath dependencies (runtime-aware)
-	if err := checkFilepathDependenciesWithRuntime(mergedDeps, cmdInfo.Invkfile.FilePath, selectedRuntime, registry, parentCtx); err != nil {
+	if err := checkFilepathDependenciesWithRuntime(mergedDeps, cmdInfo.Invowkfile.FilePath, selectedRuntime, registry, parentCtx); err != nil {
 		return err
 	}
 
@@ -62,10 +62,10 @@ func validateDependencies(cfg *config.Config, cmdInfo *discovery.CommandInfo, re
 	}
 
 	// Then check command dependencies (existence-only; these are not executed automatically)
-	// Get module ID from metadata (nil for non-module invkfiles)
+	// Get module ID from metadata (nil for non-module invowkfiles)
 	currentModule := ""
-	if cmdInfo.Invkfile.Metadata != nil {
-		currentModule = cmdInfo.Invkfile.Metadata.Module
+	if cmdInfo.Invowkfile.Metadata != nil {
+		currentModule = cmdInfo.Invowkfile.Metadata.Module
 	}
 	if err := checkCommandDependenciesExist(cfg, mergedDeps, currentModule, parentCtx); err != nil {
 		return err
@@ -74,7 +74,7 @@ func validateDependencies(cfg *config.Config, cmdInfo *discovery.CommandInfo, re
 	return nil
 }
 
-func checkCommandDependenciesExist(cfg *config.Config, deps *invkfile.DependsOn, currentModule string, ctx *runtime.ExecutionContext) error {
+func checkCommandDependenciesExist(cfg *config.Config, deps *invowkfile.DependsOn, currentModule string, ctx *runtime.ExecutionContext) error {
 	if deps == nil || len(deps.Commands) == 0 {
 		return nil
 	}
@@ -121,7 +121,7 @@ func checkCommandDependenciesExist(cfg *config.Config, deps *invkfile.DependsOn,
 				break
 			}
 
-			// Also allow referencing commands from the current invkfile without a module prefix.
+			// Also allow referencing commands from the current invowkfile without a module prefix.
 			qualified := currentModule + " " + alt
 			if _, ok := available[qualified]; ok {
 				found = true

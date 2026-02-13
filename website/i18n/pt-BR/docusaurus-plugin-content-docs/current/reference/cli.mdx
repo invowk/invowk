@@ -15,9 +15,9 @@ Estas flags estão disponíveis para todos os comandos:
 | Flag | Curta | Descrição |
 |------|-------|-----------|
 | `--help` | `-h` | Mostrar ajuda para o comando |
-| `--invk-config` | `-c` | Caminho do arquivo de configuração (padrão: `$HOME/.config/invowk/config.cue`) |
-| `--invk-interactive` | `-i` | Executar comandos em buffer de tela alternativo (modo interativo) |
-| `--invk-verbose` | `-v` | Habilitar saída verbose |
+| `--ivk-config` | `-c` | Caminho do arquivo de configuração (padrão: `$HOME/.config/invowk/config.cue`) |
+| `--ivk-interactive` | `-i` | Executar comandos em buffer de tela alternativo (modo interativo) |
+| `--ivk-verbose` | `-v` | Habilitar saída verbose |
 | `--version` | | Mostrar informação de versão |
 
 ## Comandos
@@ -32,7 +32,7 @@ O comando raiz. Executar `invowk` sem argumentos mostra a mensagem de ajuda.
 
 ### invowk cmd
 
-Executar comandos definidos em invkfiles.
+Executar comandos definidos em invowkfiles.
 
 <Snippet id="reference/cli/cmd-syntax" />
 
@@ -40,21 +40,21 @@ Executar comandos definidos em invkfiles.
 
 | Flag | Curta | Descrição |
 |------|-------|-----------|
-| `--invk-runtime` | `-r` | Sobrescrever o runtime (deve ser permitido pelo comando) |
+| `--ivk-runtime` | `-r` | Sobrescrever o runtime (deve ser permitido pelo comando) |
 
 Flags embutidas por comando:
 
 | Flag | Curta | Descrição |
 |------|-------|-----------|
-| `--invk-env-file` | `-e` | Carregar variáveis de ambiente de arquivo (repetível) |
-| `--invk-env-var` | `-E` | Definir variável de ambiente (KEY=VALUE, repetível) |
-| `--invk-env-inherit-mode` |  | Herdar variáveis do host: `none`, `allow`, `all` |
-| `--invk-env-inherit-allow` |  | Allowlist de variáveis do host (repetível) |
-| `--invk-env-inherit-deny` |  | Denylist de variáveis do host (repetível) |
-| `--invk-workdir` | `-w` | Sobrescrever diretório de trabalho do comando |
+| `--ivk-env-file` | `-e` | Carregar variáveis de ambiente de arquivo (repetível) |
+| `--ivk-env-var` | `-E` | Definir variável de ambiente (KEY=VALUE, repetível) |
+| `--ivk-env-inherit-mode` |  | Herdar variáveis do host: `none`, `allow`, `all` |
+| `--ivk-env-inherit-allow` |  | Allowlist de variáveis do host (repetível) |
+| `--ivk-env-inherit-deny` |  | Denylist de variáveis do host (repetível) |
+| `--ivk-workdir` | `-w` | Sobrescrever diretório de trabalho do comando |
 
 :::note
-Os prefixos `invk-`, `invowk-` e `i-` são reservados para flags do sistema e não podem ser usados para flags definidas pelo usuário.
+Os prefixos `ivk-`, `invowk-` e `i-` são reservados para flags do sistema e não podem ser usados para flags definidas pelo usuário.
 :::
 
 **Exemplos:**
@@ -64,15 +64,16 @@ Os prefixos `invk-`, `invowk-` e `i-` são reservados para flags do sistema e n�
 **Descoberta de Comandos:**
 
 Comandos são descobertos de (em ordem de prioridade):
-1. Diretório atual (invkfile e módulos)
-2. `~/.invowk/cmds/` (invkfiles e módulos)
-3. Entradas configuradas em `includes` (invkfiles e módulos)
+1. `invowkfile.cue` do diretório atual (prioridade mais alta)
+2. Diretórios `*.invowkmod` irmãos
+3. Entradas configuradas em `includes` (somente módulos)
+4. `~/.invowk/cmds/` (somente módulos, não-recursivo)
 
 ---
 
 ### invowk init
 
-Criar um novo invkfile no diretório atual.
+Criar um novo invowkfile no diretório atual.
 
 <Snippet id="reference/cli/init-syntax" />
 
@@ -82,13 +83,13 @@ Opcionalmente, passe um nome de arquivo customizado para gravar.
 
 | Flag | Curta | Descrição |
 |------|-------|-----------|
-| `--force` | `-f` | Sobrescrever invkfile existente |
+| `--force` | `-f` | Sobrescrever invowkfile existente |
 | `--template` | `-t` | Template a usar: `default`, `minimal`, `full` |
 
 **Templates:**
 
 - `default` - Um template equilibrado com alguns comandos de exemplo
-- `minimal` - Estrutura mínima de invkfile
+- `minimal` - Estrutura mínima de invowkfile
 - `full` - Template abrangente mostrando todas as funcionalidades
 
 **Exemplos:**
@@ -161,8 +162,8 @@ Criar um novo módulo do invowk.
 |------|-------|-----------|
 | `--path` | `-p` | Diretório pai do módulo (padrão: diretório atual) |
 | `--scripts` |  | Criar um subdiretório `scripts/` |
-| `--module-id` | `-g` | Identificador do módulo em `invkmod.cue` (padrão: nome do módulo) |
-| `--description` | `-d` | Descrição para `invkmod.cue` |
+| `--module-id` | `-g` | Identificador do módulo em `invowkmod.cue` (padrão: nome do módulo) |
+| `--description` | `-d` | Descrição para `invowkmod.cue` |
 
 **Exemplos:**
 
@@ -178,7 +179,7 @@ Validar um módulo do invowk.
 
 | Flag | Curta | Descrição |
 |------|-------|-----------|
-| `--deep` |  | Também valida a sintaxe do invkfile |
+| `--deep` |  | Também valida a sintaxe do invowkfile |
 
 **Exemplos:**
 
@@ -217,7 +218,7 @@ Importar um módulo de um arquivo ZIP ou URL.
 
 #### invowk module add
 
-Resolver uma dependência de módulo e imprimir a entrada `requires` para `invkmod.cue`.
+Resolver uma dependência de módulo e imprimir a entrada `requires` para `invowkmod.cue`.
 
 <Snippet id="reference/cli/module-add-syntax" />
 
@@ -236,7 +237,7 @@ Remover uma dependência de módulo do lock file.
 
 #### invowk module sync
 
-Sincronizar dependências de `invkmod.cue`.
+Sincronizar dependências de `invowkmod.cue`.
 
 <Snippet id="reference/cli/module-sync-syntax" />
 
@@ -254,7 +255,7 @@ Listar dependências de módulo resolvidas.
 
 #### invowk module vendor
 
-Fazer vendor de dependências em `invk_modules/`.
+Fazer vendor de dependências em `invowk_modules/`.
 
 <Snippet id="reference/cli/module-vendor-syntax" />
 
@@ -278,7 +279,7 @@ Componentes de interface de terminal interativos para shell scripts.
 <Snippet id="reference/cli/tui-syntax" />
 
 :::tip
-Componentes TUI funcionam muito bem em scripts de invkfile! Eles oferecem prompts interativos, spinners, file pickers e mais.
+Componentes TUI funcionam muito bem em scripts de invowkfile! Eles oferecem prompts interativos, spinners, file pickers e mais.
 :::
 
 **Subcomandos:**
@@ -516,25 +517,25 @@ Invowk termina com:
 
 O Invowk fornece mensagens específicas para ajudar no diagnóstico:
 
-### Nenhum Invkfile Encontrado
+### Nenhum Invowkfile Encontrado
 
-Quando nenhum invkfile é descoberto em nenhum local de busca:
+Quando nenhum invowkfile é descoberto em nenhum local de busca:
 
-<Snippet id="reference/cli/error-no-invkfile" />
+<Snippet id="reference/cli/error-no-invowkfile" />
 
 **Esta mensagem aparece quando:**
-- Nenhum `invkfile.cue` existe no diretório atual
-- Nenhum invkfile existe em `~/.invowk/cmds/`
-- Nenhum invkfile existe nos `includes` configurados
+- Nenhum `invowkfile.cue` existe no diretório atual
+- Nenhum módulo existe nos `includes` configurados
+- Nenhum módulo existe em `~/.invowk/cmds/`
 
 **Soluções:**
-- Execute `invowk init` para criar um invkfile no diretório atual
-- Navegue para um diretório que contenha um invkfile
-- Adicione caminhos de invkfile ou módulo em `includes` na sua configuração
+- Execute `invowk init` para criar um invowkfile no diretório atual
+- Navegue para um diretório que contenha um invowkfile
+- Adicione caminhos de módulo em `includes` na sua configuração
 
-### Falha ao Fazer Parse do Invkfile
+### Falha ao Fazer Parse do Invowkfile
 
-Quando um invkfile é encontrado mas contém erros de sintaxe ou configuração inválida:
+Quando um invowkfile é encontrado mas contém erros de sintaxe ou configuração inválida:
 
 <Snippet id="reference/cli/error-parse-failed" />
 
@@ -546,9 +547,9 @@ Quando um invkfile é encontrado mas contém erros de sintaxe ou configuração 
 
 **Soluções:**
 - Verifique a mensagem de erro específica exibida acima do texto de ajuda
-- Valide sua sintaxe CUE: `cue vet invkfile.cue`
-- Rode com modo verbose: `invowk --invk-verbose cmd`
-- Compare com a [referência de schema do invkfile](./invkfile-schema)
+- Valide sua sintaxe CUE: `cue vet invowkfile.cue`
+- Rode com modo verbose: `invowk --ivk-verbose cmd`
+- Compare com a [referência de schema do invowkfile](./invowkfile-schema)
 
 :::tip
 A mensagem de erro sempre mostra primeiro o erro de parse específico (por exemplo, qual campo falhou na validação), seguido por orientações gerais de troubleshooting.

@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 
 	"invowk-cli/internal/container"
-	"invowk-cli/pkg/invkfile"
+	"invowk-cli/pkg/invowkfile"
 )
 
 // SupportsInteractive returns true if the container runtime can run interactively.
@@ -35,10 +35,10 @@ func (r *ContainerRuntime) PrepareCommand(ctx *ExecutionContext) (*PreparedComma
 		return nil, fmt.Errorf("runtime config not found for container runtime")
 	}
 	containerCfg := containerConfigFromRuntime(rtConfig)
-	invowkDir := filepath.Dir(ctx.Invkfile.FilePath)
+	invowkDir := filepath.Dir(ctx.Invowkfile.FilePath)
 
 	// Resolve the script content (from file or inline)
-	script, err := ctx.SelectedImpl.ResolveScript(ctx.Invkfile.FilePath)
+	script, err := ctx.SelectedImpl.ResolveScript(ctx.Invowkfile.FilePath)
 	if err != nil {
 		return nil, err
 	}
@@ -58,7 +58,7 @@ func (r *ContainerRuntime) PrepareCommand(ctx *ExecutionContext) (*PreparedComma
 	}
 
 	// Build environment
-	env, err := r.envBuilder.Build(ctx, invkfile.EnvInheritNone)
+	env, err := r.envBuilder.Build(ctx, invowkfile.EnvInheritNone)
 	if err != nil {
 		if provisionCleanup != nil {
 			provisionCleanup()
@@ -89,7 +89,7 @@ func (r *ContainerRuntime) PrepareCommand(ctx *ExecutionContext) (*PreparedComma
 
 	// Prepare volumes
 	volumes := containerCfg.Volumes
-	// Always mount the invkfile directory
+	// Always mount the invowkfile directory
 	volumes = append(volumes, fmt.Sprintf("%s:/workspace", invowkDir))
 
 	// Resolve interpreter (defaults to "auto" which parses shebang)
@@ -192,9 +192,9 @@ func (r *ContainerRuntime) GetHostAddressForContainer() string {
 	return hostDockerInternal
 }
 
-// CleanupImage removes the built image for an invkfile
+// CleanupImage removes the built image for an invowkfile
 func (r *ContainerRuntime) CleanupImage(ctx *ExecutionContext) error {
-	imageTag, err := r.generateImageTag(ctx.Invkfile.FilePath)
+	imageTag, err := r.generateImageTag(ctx.Invowkfile.FilePath)
 	if err != nil {
 		return err
 	}

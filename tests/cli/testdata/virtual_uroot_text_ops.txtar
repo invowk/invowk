@@ -24,7 +24,7 @@ stdout 'cherry'
 stdout '=== uroot text ops test complete ==='
 ! stderr .
 
--- invkfile.cue --
+-- invowkfile.cue --
 cmds: [
 	{
 		name:        "uroot text ops"

@@ -43,7 +43,7 @@
           },
           {
             "type": "command",
-            "command": "has_schema=false; for f in $CLAUDE_FILE_PATHS; do case \"$f\" in *_schema.cue|*/pkg/invkfile/*|*/pkg/invkmod/*|*/internal/config/types.go) has_schema=true; break;; esac; done; if $has_schema; then echo 'CUE schema or Go struct changed. Run sync tests: go test -v -run Sync ./pkg/invkfile/ ./pkg/invkmod/ ./internal/config/'; fi; true",
+            "command": "has_schema=false; for f in $CLAUDE_FILE_PATHS; do case \"$f\" in *_schema.cue|*/pkg/invowkfile/*|*/pkg/invowkmod/*|*/internal/config/types.go) has_schema=true; break;; esac; done; if $has_schema; then echo 'CUE schema or Go struct changed. Run sync tests: go test -v -run Sync ./pkg/invowkfile/ ./pkg/invowkmod/ ./internal/config/'; fi; true",
             "timeout": 5000
           },
           {

@@ -22,7 +22,7 @@ import (
 
     // 3. Internal packages
     "invowk-cli/internal/config"
-    "invowk-cli/pkg/invkfile"
+    "invowk-cli/pkg/invowkfile"
 )
 ```
 
@@ -235,7 +235,7 @@ package config
 ### Existing doc.go Examples
 
 - `internal/tui/doc.go` (9 lines): Brief, single paragraph
-- `pkg/invkfile/doc.go` (12 lines): Detailed with internal references
+- `pkg/invowkfile/doc.go` (12 lines): Detailed with internal references
 - `internal/discovery/doc.go`: Multi-concern package with file organization
 
 ## Struct Tags
@@ -414,7 +414,7 @@ func privateFunction() {}
 - Keep files focused on a single responsibility.
 - Separate test helpers into dedicated functions.
 - Use `_test.go` suffix for test files only.
-- Schema files use `.cue` extension (e.g., `config_schema.cue`, `invkfile_schema.cue`).
+- Schema files use `.cue` extension (e.g., `config_schema.cue`, `invowkfile_schema.cue`).
 
 ### File Splitting Protocol
 

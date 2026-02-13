@@ -11,7 +11,7 @@ import (
 	"strings"
 
 	"invowk-cli/internal/runtime"
-	"invowk-cli/pkg/invkfile"
+	"invowk-cli/pkg/invowkfile"
 )
 
 // checkFilepathDependenciesWithRuntime verifies all required files/directories exist
@@ -19,20 +19,20 @@ import (
 // - native: check against host filesystem
 // - virtual: check against host filesystem (virtual shell still uses host fs)
 // - container: check within the container filesystem
-func checkFilepathDependenciesWithRuntime(deps *invkfile.DependsOn, invkfilePath string, runtimeMode invkfile.RuntimeMode, registry *runtime.Registry, ctx *runtime.ExecutionContext) error {
+func checkFilepathDependenciesWithRuntime(deps *invowkfile.DependsOn, invowkfilePath string, runtimeMode invowkfile.RuntimeMode, registry *runtime.Registry, ctx *runtime.ExecutionContext) error {
 	if deps == nil || len(deps.Filepaths) == 0 {
 		return nil
 	}
 
 	var filepathErrors []string
-	invowkDir := filepath.Dir(invkfilePath)
+	invowkDir := filepath.Dir(invowkfilePath)
 
 	for _, fp := range deps.Filepaths {
 		var err error
 		switch runtimeMode {
-		case invkfile.RuntimeContainer:
+		case invowkfile.RuntimeContainer:
 			err = validateFilepathInContainer(fp, invowkDir, registry, ctx)
-		case invkfile.RuntimeNative, invkfile.RuntimeVirtual:
+		case invowkfile.RuntimeNative, invowkfile.RuntimeVirtual:
 			// Native and virtual use host filesystem
 			err = validateFilepathAlternatives(fp, invowkDir)
 		}
@@ -52,7 +52,7 @@ func checkFilepathDependenciesWithRuntime(deps *invkfile.DependsOn, invkfilePath
 }
 
 // validateFilepathInContainer validates a filepath dependency within a container
-func validateFilepathInContainer(fp invkfile.FilepathDependency, invowkDir string, registry *runtime.Registry, ctx *runtime.ExecutionContext) error {
+func validateFilepathInContainer(fp invowkfile.FilepathDependency, invowkDir string, registry *runtime.Registry, ctx *runtime.ExecutionContext) error {
 	rt, err := registry.Get(runtime.RuntimeTypeContainer)
 	if err != nil {
 		return fmt.Errorf("  • container runtime not available")
@@ -87,9 +87,9 @@ func validateFilepathInContainer(fp invkfile.FilepathDependency, invowkDir strin
 		var stdout, stderr bytes.Buffer
 		validationCtx := &runtime.ExecutionContext{
 			Command:         ctx.Command,
-			Invkfile:        ctx.Invkfile,
-			SelectedImpl:    &invkfile.Implementation{Script: checkScript, Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeContainer}}},
-			SelectedRuntime: invkfile.RuntimeContainer,
+			Invowkfile:      ctx.Invowkfile,
+			SelectedImpl:    &invowkfile.Implementation{Script: checkScript, Runtimes: []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeContainer}}},
+			SelectedRuntime: invowkfile.RuntimeContainer,
 			Context:         ctx.Context,
 			IO:              runtime.IOContext{Stdout: &stdout, Stderr: &stderr},
 			Env:             runtime.DefaultEnv(),
@@ -111,13 +111,13 @@ func validateFilepathInContainer(fp invkfile.FilepathDependency, invowkDir strin
 }
 
 // checkFilepathDependencies verifies all required files/directories exist with proper permissions (legacy - uses native)
-func checkFilepathDependencies(cmd *invkfile.Command, invkfilePath string) error {
+func checkFilepathDependencies(cmd *invowkfile.Command, invowkfilePath string) error {
 	if cmd.DependsOn == nil || len(cmd.DependsOn.Filepaths) == 0 {
 		return nil
 	}
 
 	var filepathErrors []string
-	invowkDir := filepath.Dir(invkfilePath)
+	invowkDir := filepath.Dir(invowkfilePath)
 
 	for _, fp := range cmd.DependsOn.Filepaths {
 		if err := validateFilepathAlternatives(fp, invowkDir); err != nil {
@@ -137,7 +137,7 @@ func checkFilepathDependencies(cmd *invkfile.Command, invkfilePath string) error
 
 // validateFilepathAlternatives checks if any of the alternative paths exists and has the required permissions
 // Returns nil (success) if any alternative satisfies all requirements
-func validateFilepathAlternatives(fp invkfile.FilepathDependency, invowkDir string) error {
+func validateFilepathAlternatives(fp invowkfile.FilepathDependency, invowkDir string) error {
 	if len(fp.Alternatives) == 0 {
 		return fmt.Errorf("  • (no paths specified) - at least one path must be provided in alternatives")
 	}
@@ -145,7 +145,7 @@ func validateFilepathAlternatives(fp invkfile.FilepathDependency, invowkDir stri
 	var allErrors []string
 
 	for _, altPath := range fp.Alternatives {
-		// Resolve path relative to invkfile if not absolute
+		// Resolve path relative to invowkfile if not absolute
 		resolvedPath := altPath
 		if !filepath.IsAbs(altPath) {
 			resolvedPath = filepath.Join(invowkDir, altPath)
@@ -167,7 +167,7 @@ func validateFilepathAlternatives(fp invkfile.FilepathDependency, invowkDir stri
 }
 
 // validateSingleFilepath checks if a single filepath exists and has the required permissions
-func validateSingleFilepath(displayPath, resolvedPath string, fp invkfile.FilepathDependency) error {
+func validateSingleFilepath(displayPath, resolvedPath string, fp invowkfile.FilepathDependency) error {
 	// Check if path exists
 	info, err := os.Stat(resolvedPath)
 	if os.IsNotExist(err) {

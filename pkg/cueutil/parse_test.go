@@ -129,13 +129,13 @@ enabled: true
 	})
 }
 
-// T017: Tests for Invkmod type parsing (simulated)
-func TestParseInvkmodType(t *testing.T) {
+// T017: Tests for Invowkmod type parsing (simulated)
+func TestParseInvowkmodType(t *testing.T) {
 	t.Parallel()
 
-	// Simulated invkmod schema for testing
-	invkmodSchema := `
-#Invkmod: {
+	// Simulated invowkmod schema for testing
+	invowkmodSchema := `
+#Invowkmod: {
 	module:       string
 	version?:     string
 	description?: string
@@ -150,14 +150,14 @@ func TestParseInvkmodType(t *testing.T) {
 		Module string `json:"module"`
 		Alias  string `json:"alias,omitempty"`
 	}
-	type Invkmod struct {
+	type Invowkmod struct {
 		Module      string        `json:"module"`
 		Version     string        `json:"version,omitempty"`
 		Description string        `json:"description,omitempty"`
 		Requires    []Requirement `json:"requires,omitempty"`
 	}
 
-	t.Run("valid invkmod parses successfully", func(t *testing.T) {
+	t.Run("valid invowkmod parses successfully", func(t *testing.T) {
 		t.Parallel()
 
 		data := []byte(`
@@ -169,7 +169,7 @@ requires: [
 	{module: "io.example.dep2", alias: "d2"},
 ]
 `)
-		result, err := ParseAndDecode[Invkmod]([]byte(invkmodSchema), data, "#Invkmod")
+		result, err := ParseAndDecode[Invowkmod]([]byte(invowkmodSchema), data, "#Invowkmod")
 		if err != nil {
 			t.Fatalf("ParseAndDecode failed: %v", err)
 		}
@@ -182,13 +182,13 @@ requires: [
 		}
 	})
 
-	t.Run("minimal invkmod parses successfully", func(t *testing.T) {
+	t.Run("minimal invowkmod parses successfully", func(t *testing.T) {
 		t.Parallel()
 
 		data := []byte(`
 module: "io.example.minimal"
 `)
-		result, err := ParseAndDecode[Invkmod]([]byte(invkmodSchema), data, "#Invkmod")
+		result, err := ParseAndDecode[Invowkmod]([]byte(invowkmodSchema), data, "#Invowkmod")
 		if err != nil {
 			t.Fatalf("ParseAndDecode failed: %v", err)
 		}

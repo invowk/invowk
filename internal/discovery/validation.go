@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"invowk-cli/pkg/invkfile"
+	"invowk-cli/pkg/invowkfile"
 )
 
 // ArgsSubcommandConflictError is returned when a command defines both
@@ -18,10 +18,10 @@ type ArgsSubcommandConflictError struct {
 	// CommandName is the name of the conflicting command
 	CommandName string
 	// Args are the positional arguments defined on the command
-	Args []invkfile.Argument
+	Args []invowkfile.Argument
 	// Subcommands are the child command names
 	Subcommands []string
-	// FilePath is the path to the invkfile containing this command
+	// FilePath is the path to the invowkfile containing this command
 	FilePath string
 }
 

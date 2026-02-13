@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"invowk-cli/pkg/invkfile"
+	"invowk-cli/pkg/invowkfile"
 )
 
 const (
@@ -20,21 +20,21 @@ func TestValidateCommandTree_NoConflict(t *testing.T) {
 	commands := []*CommandInfo{
 		{
 			Name: "deploy",
-			Command: &invkfile.Command{
-				Args: []invkfile.Argument{
+			Command: &invowkfile.Command{
+				Args: []invowkfile.Argument{
 					{Name: "env", Description: "Environment to deploy to", Required: true},
 				},
 			},
-			FilePath: "/test/invkfile.cue",
+			FilePath: "/test/invowkfile.cue",
 		},
 		{
 			Name: "build",
-			Command: &invkfile.Command{
-				Args: []invkfile.Argument{
+			Command: &invowkfile.Command{
+				Args: []invowkfile.Argument{
 					{Name: "target", Description: "Build target"},
 				},
 			},
-			FilePath: "/test/invkfile.cue",
+			FilePath: "/test/invowkfile.cue",
 		},
 	}
 
@@ -49,26 +49,26 @@ func TestValidateCommandTree_NoConflict_NestedLeaves(t *testing.T) {
 	commands := []*CommandInfo{
 		{
 			Name:     "deploy",
-			Command:  &invkfile.Command{},
-			FilePath: "/test/invkfile.cue",
+			Command:  &invowkfile.Command{},
+			FilePath: "/test/invowkfile.cue",
 		},
 		{
 			Name: "deploy staging",
-			Command: &invkfile.Command{
-				Args: []invkfile.Argument{
+			Command: &invowkfile.Command{
+				Args: []invowkfile.Argument{
 					{Name: "version", Description: "Version to deploy"},
 				},
 			},
-			FilePath: "/test/invkfile.cue",
+			FilePath: "/test/invowkfile.cue",
 		},
 		{
 			Name: "deploy production",
-			Command: &invkfile.Command{
-				Args: []invkfile.Argument{
+			Command: &invowkfile.Command{
+				Args: []invowkfile.Argument{
 					{Name: "version", Description: "Version to deploy"},
 				},
 			},
-			FilePath: "/test/invkfile.cue",
+			FilePath: "/test/invowkfile.cue",
 		},
 	}
 
@@ -83,17 +83,17 @@ func TestValidateCommandTree_Conflict(t *testing.T) {
 	commands := []*CommandInfo{
 		{
 			Name: "deploy",
-			Command: &invkfile.Command{
-				Args: []invkfile.Argument{
+			Command: &invowkfile.Command{
+				Args: []invowkfile.Argument{
 					{Name: "env", Description: "Environment", Required: true},
 				},
 			},
-			FilePath: "/test/invkfile.cue",
+			FilePath: "/test/invowkfile.cue",
 		},
 		{
 			Name:     "deploy staging",
-			Command:  &invkfile.Command{},
-			FilePath: "/test/invkfile.cue",
+			Command:  &invowkfile.Command{},
+			FilePath: "/test/invowkfile.cue",
 		},
 	}
 
@@ -126,22 +126,22 @@ func TestValidateCommandTree_Conflict_MultipleChildren(t *testing.T) {
 	commands := []*CommandInfo{
 		{
 			Name: "deploy",
-			Command: &invkfile.Command{
-				Args: []invkfile.Argument{
+			Command: &invowkfile.Command{
+				Args: []invowkfile.Argument{
 					{Name: "env", Description: "Environment"},
 				},
 			},
-			FilePath: "/test/invkfile.cue",
+			FilePath: "/test/invowkfile.cue",
 		},
 		{
 			Name:     "deploy staging",
-			Command:  &invkfile.Command{},
-			FilePath: "/test/invkfile.cue",
+			Command:  &invowkfile.Command{},
+			FilePath: "/test/invowkfile.cue",
 		},
 		{
 			Name:     "deploy production",
-			Command:  &invkfile.Command{},
-			FilePath: "/test/invkfile.cue",
+			Command:  &invowkfile.Command{},
+			FilePath: "/test/invowkfile.cue",
 		},
 	}
 
@@ -165,27 +165,27 @@ func TestValidateCommandTree_DeepNesting(t *testing.T) {
 	commands := []*CommandInfo{
 		{
 			Name: "db",
-			Command: &invkfile.Command{
-				Args: []invkfile.Argument{
+			Command: &invowkfile.Command{
+				Args: []invowkfile.Argument{
 					{Name: "connection", Description: "DB connection string"},
 				},
 			},
-			FilePath: "/test/invkfile.cue",
+			FilePath: "/test/invowkfile.cue",
 		},
 		{
 			Name:     "db migrate",
-			Command:  &invkfile.Command{},
-			FilePath: "/test/invkfile.cue",
+			Command:  &invowkfile.Command{},
+			FilePath: "/test/invowkfile.cue",
 		},
 		{
 			Name:     "db migrate up",
-			Command:  &invkfile.Command{},
-			FilePath: "/test/invkfile.cue",
+			Command:  &invowkfile.Command{},
+			FilePath: "/test/invowkfile.cue",
 		},
 		{
 			Name:     "db migrate down",
-			Command:  &invkfile.Command{},
-			FilePath: "/test/invkfile.cue",
+			Command:  &invowkfile.Command{},
+			FilePath: "/test/invowkfile.cue",
 		},
 	}
 
@@ -223,8 +223,8 @@ func TestValidateCommandTree_NilCommands(t *testing.T) {
 		nil,
 		{
 			Name:     "test",
-			Command:  &invkfile.Command{},
-			FilePath: "/test/invkfile.cue",
+			Command:  &invowkfile.Command{},
+			FilePath: "/test/invowkfile.cue",
 		},
 		{
 			Name:    "test2",
@@ -241,12 +241,12 @@ func TestValidateCommandTree_NilCommands(t *testing.T) {
 func TestArgsSubcommandConflictError_Error(t *testing.T) {
 	err := &ArgsSubcommandConflictError{
 		CommandName: "deploy",
-		Args: []invkfile.Argument{
+		Args: []invowkfile.Argument{
 			{Name: "env"},
 			{Name: "version"},
 		},
 		Subcommands: []string{"deploy staging", "deploy production"},
-		FilePath:    "/test/invkfile.cue",
+		FilePath:    "/test/invowkfile.cue",
 	}
 
 	errStr := err.Error()
@@ -256,7 +256,7 @@ func TestArgsSubcommandConflictError_Error(t *testing.T) {
 		t.Errorf("Error message missing header, got: %s", errStr)
 	}
 
-	if !strings.Contains(errStr, "in /test/invkfile.cue") {
+	if !strings.Contains(errStr, "in /test/invowkfile.cue") {
 		t.Errorf("Error message missing file path, got: %s", errStr)
 	}
 
@@ -272,7 +272,7 @@ func TestArgsSubcommandConflictError_Error(t *testing.T) {
 func TestArgsSubcommandConflictError_Error_NoFilePath(t *testing.T) {
 	err := &ArgsSubcommandConflictError{
 		CommandName: "deploy",
-		Args: []invkfile.Argument{
+		Args: []invowkfile.Argument{
 			{Name: "env"},
 		},
 		Subcommands: []string{"deploy staging"},
@@ -290,7 +290,7 @@ func TestArgsSubcommandConflictError_Error_NoFilePath(t *testing.T) {
 func TestArgsSubcommandConflictError_Error_SingleArg(t *testing.T) {
 	err := &ArgsSubcommandConflictError{
 		CommandName: "deploy",
-		Args: []invkfile.Argument{
+		Args: []invowkfile.Argument{
 			{Name: "env"},
 		},
 		Subcommands: []string{"deploy staging"},

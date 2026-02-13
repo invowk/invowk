@@ -35,7 +35,7 @@ go test -v -run "TestCLI/container_" ./tests/cli/... -count=1
 #### Permission Denied (most common)
 
 ```
-grep: /workspace/invkfile.cue: Permission denied
+grep: /workspace/invowkfile.cue: Permission denied
 cat: /workspace/custom.txt: Permission denied
 sh: 0: cannot open /workspace/scripts/helper.sh: Permission denied
 ```

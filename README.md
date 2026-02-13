@@ -9,7 +9,7 @@ A dynamically extensible, CLI-based command runner similar to [just](https://git
   - **virtual**: Execute commands using the built-in [mvdan/sh](https://github.com/mvdan/sh) interpreter with [u-root](https://github.com/u-root/u-root) utilities (cat, cp, ls, grep, head, tail, etc.)
   - **container**: Execute commands inside a disposable Docker/Podman container
 
-- **CUE Configuration**: Define commands in `invkfile.cue` files using [CUE](https://cuelang.org/) - a powerful configuration language with validation
+- **CUE Configuration**: Define commands in `invowkfile.cue` files using [CUE](https://cuelang.org/) - a powerful configuration language with validation
 
 - **Cross-Platform**: Works on Linux, Windows, and macOS
 
@@ -18,11 +18,11 @@ A dynamically extensible, CLI-based command runner similar to [just](https://git
 - **Command Dependencies**: Commands can require other commands to be discoverable
 
 - **Multiple Command Sources**: Discover commands from:
-  1. Current directory (`invkfile.cue` + sibling `*.invkmod` modules, highest priority)
-  2. User commands directory (`~/.invowk/cmds/`)
-  3. Configured includes
+  1. Current directory (`invowkfile.cue` + sibling `*.invowkmod` modules, highest priority)
+  2. Configured includes (module paths from config)
+  3. `~/.invowk/cmds/` (modules only, non-recursive)
 
-- **Transparent Namespace**: Commands from different sources use simple names when unique. When command names conflict across sources, use `@<source>` prefix or `--invk-from` flag to disambiguate
+- **Transparent Namespace**: Commands from different sources use simple names when unique. When command names conflict across sources, use `@<source>` prefix or `--ivk-from` flag to disambiguate
 
 - **Shell Completion**: Full tab completion support for bash, zsh, fish, and PowerShell
 
@@ -62,7 +62,7 @@ make install  # Installs to $GOPATH/bin
 
 ## Quick Start
 
-1. **Create an invkfile** in your project directory:
+1. **Create an invowkfile** in your project directory:
 
 ```bash
 invowk init
@@ -74,23 +74,23 @@ invowk init
 invowk cmd
 ```
 
-The list shows all commands grouped by source (invkfile or module) with allowed runtimes (default marked with `*`). Commands use their **simple names** - no module prefix is required when names are unique:
+The list shows all commands grouped by source (invowkfile or module) with allowed runtimes (default marked with `*`). Commands use their **simple names** - no module prefix is required when names are unique:
 
 ```
 Available Commands
   (* = default runtime)
 
-From invkfile:
+From invowkfile:
   build - Build the project [native*, container] (linux, macos, windows)
   test unit - Run unit tests [native*, virtual] (linux, macos, windows)
-  deploy - Deploy the application (@invkfile) [native*] (linux, macos)
+  deploy - Deploy the application (@invowkfile) [native*] (linux, macos)
 
-From tools.invkmod:
+From tools.invowkmod:
   lint - Run linter [native*] (linux, macos, windows)
   deploy - Deploy to staging (@tools) [native*] (linux, macos)
 ```
 
-When a command name exists in multiple sources (like `deploy` above), the listing shows a source annotation (`@invkfile`, `@tools`) to indicate disambiguation is required.
+When a command name exists in multiple sources (like `deploy` above), the listing shows a source annotation (`@invowkfile`, `@tools`) to indicate disambiguation is required.
 
 3. **Run a command**:
 
@@ -102,12 +102,12 @@ invowk cmd build
 
 ```bash
 # Use a non-default runtime (must be allowed by the command)
-invowk cmd build --invk-runtime container
+invowk cmd build --ivk-runtime container
 ```
 
-## Invkfile Format
+## Invowkfile Format
 
-Invkfiles are written in [CUE](https://cuelang.org/) format. CUE provides powerful validation, templating, and a clean syntax. Invkfiles contain **commands only**; module metadata lives in `invkmod.cue` when you build a module. Here's an example:
+Invowkfiles are written in [CUE](https://cuelang.org/) format. CUE provides powerful validation, templating, and a clean syntax. Invowkfiles contain **commands only**; module metadata lives in `invowkmod.cue` when you build a module. Here's an example:
 
 ```cue
 // Define commands
@@ -196,14 +196,14 @@ cmds: [
 
 ### Root-Level Settings
 
-Invkfiles support several root-level settings that apply to all commands:
+Invowkfiles support several root-level settings that apply to all commands:
 
 ```cue
 // Override the default shell for native runtime (optional)
 default_shell: "/bin/bash"
 
 // Set a default working directory for all commands (optional)
-// Can be absolute or relative to the invkfile location
+// Can be absolute or relative to the invowkfile location
 workdir: "./src"
 
 // Global environment configuration (optional)
@@ -230,7 +230,7 @@ cmds: [...]
 | `default_shell` | Override the default shell for native runtime (e.g., `/bin/bash`, `pwsh`) |
 | `workdir` | Default working directory for all commands (overridable per command/implementation) |
 | `env` | Global environment config with `files` (dotenv loading) and `vars` (key-value pairs) |
-| `depends_on` | Global dependencies validated for every command in this invkfile |
+| `depends_on` | Global dependencies validated for every command in this invowkfile |
 
 ### Env Files
 
@@ -269,15 +269,15 @@ cmds: [
 ]
 ```
 
-You can also override the working directory at runtime with the `--invk-workdir` / `-w` flag:
+You can also override the working directory at runtime with the `--ivk-workdir` / `-w` flag:
 
 ```bash
-invowk cmd test --invk-workdir=./packages/frontend
+invowk cmd test --ivk-workdir=./packages/frontend
 ```
 
-## Module Metadata (invkmod.cue)
+## Module Metadata (invowkmod.cue)
 
-Modules (directories ending in `.invkmod`) use a separate metadata file named `invkmod.cue`. It defines the module identifier, optional description, and dependencies.
+Modules (directories ending in `.invowkmod`) use a separate metadata file named `invowkmod.cue`. It defines the module identifier, optional description, and dependencies.
 
 ```cue
 module: "mymodule"
@@ -306,27 +306,27 @@ module: "my.nested.module"   // Nested module using dot notation (RDNS style)
 
 When you run `invowk cmd` in a directory, invowk discovers commands from **multiple sources**:
 
-1. **Root invkfile**: `invkfile.cue` in the current directory
-2. **Sibling modules**: All `*.invkmod` directories at the same level (not their dependencies)
+1. **Root invowkfile**: `invowkfile.cue` in the current directory
+2. **Sibling modules**: All `*.invowkmod` directories at the same level (not their dependencies)
 
 Commands from all sources are aggregated and displayed with their **simple names**. The transparent namespace system means you don't need module prefixes unless there's a naming conflict.
 
 ```bash
 # Directory structure:
 # .
-# ├── invkfile.cue          (contains: build, deploy)
-# ├── tools.invkmod/        (contains: lint, deploy)
-# └── testing.invkmod/      (contains: test)
+# ├── invowkfile.cue          (contains: build, deploy)
+# ├── tools.invowkmod/        (contains: lint, deploy)
+# └── testing.invowkmod/      (contains: test)
 
 # Run commands with simple names (when unique)
-invowk cmd build      # Runs build from invkfile
-invowk cmd lint       # Runs lint from tools.invkmod
-invowk cmd test       # Runs test from testing.invkmod
+invowk cmd build      # Runs build from invowkfile
+invowk cmd lint       # Runs lint from tools.invowkmod
+invowk cmd test       # Runs test from testing.invowkmod
 
 # Ambiguous commands require disambiguation (deploy exists in both sources)
-invowk cmd @invkfile deploy      # Using @source prefix
+invowk cmd @invowkfile deploy      # Using @source prefix
 invowk cmd @tools deploy         # Using @source prefix
-invowk cmd --invk-from invkfile deploy  # Using --invk-from flag
+invowk cmd --ivk-from invowkfile deploy  # Using --ivk-from flag
 ```
 
 ### Command Disambiguation
@@ -335,23 +335,23 @@ When a command name exists in multiple sources, invowk requires explicit disambi
 
 **Using `@source` prefix** (appears before the command name):
 ```bash
-invowk cmd @invkfile deploy           # Run deploy from invkfile
-invowk cmd @tools deploy              # Run deploy from tools.invkmod
-invowk cmd @tools.invkmod deploy      # Full name also works
+invowk cmd @invowkfile deploy           # Run deploy from invowkfile
+invowk cmd @tools deploy              # Run deploy from tools.invowkmod
+invowk cmd @tools.invowkmod deploy      # Full name also works
 ```
 
-**Using `--invk-from` flag** (must appear after `invowk cmd`):
+**Using `--ivk-from` flag** (must appear after `invowk cmd`):
 ```bash
-invowk cmd --invk-from invkfile deploy
-invowk cmd --invk-from tools deploy
+invowk cmd --ivk-from invowkfile deploy
+invowk cmd --ivk-from tools deploy
 ```
 
 If you try to run an ambiguous command without disambiguation, invowk shows an error with available sources:
 ```
 Error: 'deploy' is ambiguous. Found in:
-  - @invkfile: Deploy the application
+  - @invowkfile: Deploy the application
   - @tools: Deploy to staging
-Use 'invowk cmd @<source> deploy' or 'invowk cmd --invk-from <source> deploy'
+Use 'invowk cmd @<source> deploy' or 'invowk cmd --ivk-from <source> deploy'
 ```
 
 ### Explicit Source for Non-Ambiguous Commands
@@ -372,7 +372,7 @@ invowk cmd @tools lint    # Works even though lint is not ambiguous
 
 Command dependencies refer to other invowk commands by name. Invowk validates that the referenced commands are discoverable (it does not execute them automatically).
 
-- Same invkfile: use unqualified names like `build` or `test unit`
+- Same invowkfile: use unqualified names like `build` or `test unit`
 - Module commands: use the module prefix (or alias) like `tools deploy`
 
 ```cue
@@ -543,7 +543,7 @@ Command 'deploy' has unmet dependencies:
 Missing or Invalid Environment Variables:
   • AWS_ACCESS_KEY_ID - not set in environment
 
-Install the missing tools and try again, or update your invkfile to remove unnecessary dependencies.
+Install the missing tools and try again, or update your invowkfile to remove unnecessary dependencies.
 ```
 
 ### Capability Dependencies
@@ -673,7 +673,7 @@ cmds: [
 | `short` | No | Single-letter alias (e.g., `v` for `-v` shorthand) |
 | `validation` | No | Regex pattern to validate flag values |
 
-> **Reserved prefixes:** The `invk-`, `invowk-`, and `i-` prefixes are reserved for system flags. Additionally, `help` and `version` are reserved built-in flag names.
+> **Reserved prefixes:** The `ivk-`, `invowk-`, and `i-` prefixes are reserved for system flags. Additionally, `help` and `version` are reserved built-in flag names.
 
 ### Typed Flags
 
@@ -1237,7 +1237,7 @@ A command cannot have both positional arguments and subcommands. If a command de
 ```
 ✖ Invalid command structure
 
-Command 'deploy' has both args and subcommands in invkfile.cue
+Command 'deploy' has both args and subcommands in invowkfile.cue
   defined args: env
   subcommands: deploy status, deploy logs
 
@@ -1411,7 +1411,7 @@ Reference external script files using paths:
 
 ```cue
 cmds: [
-	// Relative to invkfile location
+	// Relative to invowkfile location
 	{
 		name: "deploy"
 		implementations: [
@@ -1601,43 +1601,43 @@ Modules are self-contained folders that bundle module metadata with command defi
 
 ### What is a Module?
 
-A module is a directory with the `.invkmod` suffix that contains:
-- Required `invkmod.cue` at the root (module metadata and dependencies)
-- Optional `invkfile.cue` at the root (command definitions)
+A module is a directory with the `.invowkmod` suffix that contains:
+- Required `invowkmod.cue` at the root (module metadata and dependencies)
+- Optional `invowkfile.cue` at the root (command definitions)
 - Optional script files referenced by command implementations
 - No nested modules (modules cannot contain other modules)
 
-`invkfile.cue` is optional for library-only modules that exist to declare dependencies.
+`invowkfile.cue` is optional for library-only modules that exist to declare dependencies.
 
 ### Module Naming
 
 Module folder names follow these rules:
-- Must end with `.invkmod`
-- The prefix (before `.invkmod`) must:
+- Must end with `.invowkmod`
+- The prefix (before `.invowkmod`) must:
   - Start with a letter (a-z, A-Z)
   - Contain only alphanumeric characters
   - Support dot-separated segments for namespacing
 - Compatible with RDNS (Reverse Domain Name System) naming conventions
 
 **Valid module names:**
-- `mycommands.invkmod`
-- `com.example.mytools.invkmod`
-- `org.company.project.invkmod`
-- `Utils.invkmod`
+- `mycommands.invowkmod`
+- `com.example.mytools.invowkmod`
+- `org.company.project.invowkmod`
+- `Utils.invowkmod`
 
 **Invalid module names:**
-- `.hidden.invkmod` (starts with dot)
-- `my-commands.invkmod` (contains hyphen)
-- `my_commands.invkmod` (contains underscore)
-- `123commands.invkmod` (starts with number)
-- `com..example.invkmod` (empty segment)
+- `.hidden.invowkmod` (starts with dot)
+- `my-commands.invowkmod` (contains hyphen)
+- `my_commands.invowkmod` (contains underscore)
+- `123commands.invowkmod` (starts with number)
+- `com..example.invowkmod` (empty segment)
 
 ### Module Structure
 
 ```
-com.example.mytools.invkmod/
-├── invkmod.cue          # Required: module metadata + dependencies
-├── invkfile.cue         # Optional: command definitions
+com.example.mytools.invowkmod/
+├── invowkmod.cue          # Required: module metadata + dependencies
+├── invowkfile.cue         # Optional: command definitions
 ├── scripts/               # Optional: script files
 │   ├── build.sh
 │   ├── deploy.sh
@@ -1649,10 +1649,10 @@ com.example.mytools.invkmod/
 
 ### Script Paths in Modules
 
-When referencing script files in a module's invkfile, use paths relative to the module root with **forward slashes** for cross-platform compatibility:
+When referencing script files in a module's invowkfile, use paths relative to the module root with **forward slashes** for cross-platform compatibility:
 
 ```cue
-// invkfile.cue
+// invowkfile.cue
 cmds: [
     {
         name: "build"
@@ -1693,16 +1693,16 @@ Use the `module validate` command to check a module's structure:
 
 ```bash
 # Basic validation
-invowk module validate ./com.example.mytools.invkmod
+invowk module validate ./com.example.mytools.invowkmod
 
-# Deep validation (also parses the invkfile)
-invowk module validate ./com.example.mytools.invkmod --deep
+# Deep validation (also parses the invowkfile)
+invowk module validate ./com.example.mytools.invowkmod --deep
 ```
 
 Example output for a valid module:
 ```
 Module Validation
-• Path: /home/user/com.example.mytools.invkmod
+• Path: /home/user/com.example.mytools.invowkmod
 • Name: com.example.mytools
 
 ✓ Module is valid
@@ -1710,18 +1710,18 @@ Module Validation
 ✓ Structure check passed
 ✓ Naming convention check passed
 ✓ Required files present
-✓ Invkfile parses successfully
+✓ Invowkfile parses successfully
 ```
 
 Example output for an invalid module:
 ```
 Module Validation
-• Path: /home/user/invalid.invkmod
+• Path: /home/user/invalid.invowkmod
 
 ✗ Module validation failed with 2 issue(s)
 
-  1. [structure] missing required invkmod.cue
-  2. [structure] nested.invkmod: nested modules are not allowed
+  1. [structure] missing required invowkmod.cue
+  2. [structure] nested.invowkmod: nested modules are not allowed
 ```
 
 ### Creating Modules
@@ -1745,7 +1745,7 @@ invowk module create mytools --scripts
 invowk module create mytools --module-id "com.example.mytools" --description "A collection of useful commands"
 ```
 
-The created module will contain `invkmod.cue` metadata and a template `invkfile.cue` with a sample "hello" command.
+The created module will contain `invowkmod.cue` metadata and a template `invowkfile.cue` with a sample "hello" command.
 
 ### Listing Modules
 
@@ -1763,13 +1763,13 @@ Discovered Modules
 
 • current directory:
    ✓ mytools
-      /home/user/project/mytools.invkmod
+      /home/user/project/mytools.invowkmod
 
 • user commands (~/.invowk/cmds):
    ✓ com.example.utilities
-      /home/user/.invowk/cmds/com.example.utilities.invkmod
+      /home/user/.invowk/cmds/com.example.utilities.invowkmod
    ✓ org.company.tools
-      /home/user/.invowk/cmds/org.company.tools.invkmod
+      /home/user/.invowk/cmds/org.company.tools.invowkmod
 ```
 
 ### Archiving Modules
@@ -1777,11 +1777,11 @@ Discovered Modules
 Use the `module archive` command to create a ZIP archive for distribution:
 
 ```bash
-# Archive a module (creates <module-name>.invkmod.zip in current directory)
-invowk module archive ./mytools.invkmod
+# Archive a module (creates <module-name>.invowkmod.zip in current directory)
+invowk module archive ./mytools.invowkmod
 
 # Archive with custom output path
-invowk module archive ./mytools.invkmod --output ./dist/mytools.zip
+invowk module archive ./mytools.invowkmod --output ./dist/mytools.zip
 ```
 
 Example output:
@@ -1800,7 +1800,7 @@ Use the `module import` command to install a module from a ZIP file or URL:
 
 ```bash
 # Import from a local ZIP file (installs to ~/.invowk/cmds/)
-invowk module import ./mytools.invkmod.zip
+invowk module import ./mytools.invowkmod.zip
 
 # Import from a URL
 invowk module import https://example.com/modules/mytools.zip
@@ -1819,7 +1819,7 @@ Import Module
 ✓ Module imported successfully
 
 • Name: mytools
-• Path: /home/user/.invowk/cmds/mytools.invkmod
+• Path: /home/user/.invowk/cmds/mytools.invowkmod
 
 • The module commands are now available via invowk
 ```
@@ -1835,13 +1835,13 @@ Import Module
 ### Using Modules
 
 Modules are automatically discovered and loaded from all configured sources:
-1. Current directory (highest priority)
-2. User commands directory (`~/.invowk/cmds/`)
-3. Configured includes in your config file
+1. Current directory (invowkfile and sibling modules, highest priority)
+2. Configured includes (module paths from config)
+3. `~/.invowk/cmds/` (modules only, non-recursive)
 
 When invowk discovers a module, it:
 - Validates the module structure and naming
-- Loads `invkfile.cue` from within the module (if present)
+- Loads `invowkfile.cue` from within the module (if present)
 - Resolves script paths relative to the module root
 - Makes all commands available with their module prefix
 
@@ -1853,10 +1853,10 @@ Modules can declare dependencies on other modules hosted in remote Git repositor
 
 ### Declaring Dependencies
 
-Add a `requires` field to `invkmod.cue` to declare module dependencies:
+Add a `requires` field to `invowkmod.cue` to declare module dependencies:
 
 ```cue
-// invkmod.cue
+// invowkmod.cue
 module: "myproject"
 version: "1.0.0"
 
@@ -1879,7 +1879,7 @@ requires: [
 ]
 ```
 
-The repository must contain a module (either a `.invkmod` directory or an `invkmod.cue` file at the root).
+The repository must contain a module (either a `.invowkmod` directory or an `invowkmod.cue` file at the root).
 
 Commands in a module can only call commands from direct dependencies or globally installed modules (transitive dependencies are not available).
 
@@ -1908,7 +1908,7 @@ invowk module add https://github.com/user/monorepo.git ^1.0.0 --path packages/to
 # List all resolved dependencies
 invowk module deps
 
-# Sync dependencies from invkmod.cue (resolve and download)
+# Sync dependencies from invowkmod.cue (resolve and download)
 invowk module sync
 
 # Update all dependencies to latest matching versions
@@ -1923,10 +1923,10 @@ invowk module remove https://github.com/user/module.git
 
 ### Lock File
 
-Module resolution creates an `invkmod.lock.cue` file that records the exact versions resolved. This ensures reproducible builds across environments:
+Module resolution creates an `invowkmod.lock.cue` file that records the exact versions resolved. This ensures reproducible builds across environments:
 
 ```cue
-// invkmod.lock.cue - Auto-generated lock file
+// invowkmod.lock.cue - Auto-generated lock file
 // DO NOT EDIT MANUALLY
 
 version: "1.0"
@@ -1982,26 +1982,26 @@ Each module version is cached in a separate directory, allowing multiple version
 
 ### Vendoring
 
-Modules can include their dependencies in an `invk_modules/` subfolder for self-contained distribution:
+Modules can include their dependencies in an `invowk_modules/` subfolder for self-contained distribution:
 
 ```
-mymodule.invkmod/
-├── invkmod.cue
-├── invkfile.cue
+mymodule.invowkmod/
+├── invowkmod.cue
+├── invowkfile.cue
 ├── scripts/
-└── invk_modules/              # Vendored dependencies
-    ├── io.example.utils.invkmod/
-    │   ├── invkmod.cue
-    │   └── invkfile.cue
-    └── com.other.tools.invkmod/
-        ├── invkmod.cue
-        └── invkfile.cue
+└── invowk_modules/              # Vendored dependencies
+    ├── io.example.utils.invowkmod/
+    │   ├── invowkmod.cue
+    │   └── invowkfile.cue
+    └── com.other.tools.invowkmod/
+        ├── invowkmod.cue
+        └── invowkfile.cue
 ```
 
 Vendored modules are resolved first, before checking the global cache. Use the vendor commands:
 
 ```bash
-# Fetch dependencies into invk_modules/
+# Fetch dependencies into invowk_modules/
 invowk module vendor
 
 # Update vendored modules
@@ -2019,9 +2019,9 @@ When two modules have the same name, invowk reports a collision error with guida
 
 ```
 module name collision: 'io.example.tools' defined in both
-  '/path/to/module1.invkmod' and '/path/to/module2.invkmod'
+  '/path/to/module1.invowkmod' and '/path/to/module2.invowkmod'
   Use an alias to disambiguate:
-    - For requires: add 'alias' field to the requirement in invkmod.cue
+    - For requires: add 'alias' field to the requirement in invowkmod.cue
     - For config includes: add 'alias' field to the include entry in config.cue
 ```
 
@@ -2200,8 +2200,8 @@ default_runtime: "native"
 
 // Include additional modules in command discovery
 includes: [
-    {path: "/home/user/my-tools.invkmod"},
-    {path: "/path/to/module.invkmod", alias: "myalias"},
+    {path: "/home/user/my-tools.invowkmod"},
+    {path: "/path/to/module.invowkmod", alias: "myalias"},
 ]
 
 // Virtual shell options
@@ -2214,7 +2214,7 @@ container: {
   auto_provision: {
     enabled: true                         // Enable/disable auto-provisioning of invowk into containers (default: true)
     binary_path: "/usr/local/bin/invowk"  // Override path to invowk binary to provision (optional)
-    includes: [{path: "/extra/modules.invkmod"}] // Modules to provision into containers (optional)
+    includes: [{path: "/extra/modules.invowkmod"}] // Modules to provision into containers (optional)
     inherit_includes: true                // Inherit root-level includes for provisioning (default: true)
     cache_dir: "~/.cache/invowk/provision" // Cache directory for provisioned image metadata (optional)
   }
@@ -2284,46 +2284,46 @@ invowk cmd test unit
 
 ### Override Runtime
 ```bash
-invowk cmd build --invk-runtime virtual
+invowk cmd build --ivk-runtime virtual
 ```
 
 ### Force Container Image Rebuild
 ```bash
-invowk cmd build --invk-force-rebuild
+invowk cmd build --ivk-force-rebuild
 ```
 
 ### Verbose Mode
 ```bash
-invowk --invk-verbose cmd build
+invowk --ivk-verbose cmd build
 ```
 
 ### Interactive Mode (Alternate Screen Buffer)
 ```bash
-invowk --invk-interactive cmd build
+invowk --ivk-interactive cmd build
 # or
 invowk -i cmd build
 ```
 
 ### Override Config File
 ```bash
-invowk --invk-config /path/to/custom/config.cue cmd build
+invowk --ivk-config /path/to/custom/config.cue cmd build
 ```
 
 ### Environment Overrides
 ```bash
 # Load additional env file at runtime
-invowk cmd deploy --invk-env-file .env.production
+invowk cmd deploy --ivk-env-file .env.production
 
 # Set an environment variable
-invowk cmd deploy --invk-env-var API_KEY=secret123
+invowk cmd deploy --ivk-env-var API_KEY=secret123
 
 # Control host environment inheritance
-invowk cmd build --invk-env-inherit-mode allow --invk-env-inherit-allow TERM --invk-env-inherit-allow LANG
+invowk cmd build --ivk-env-inherit-mode allow --ivk-env-inherit-allow TERM --ivk-env-inherit-allow LANG
 ```
 
 ### Override Working Directory
 ```bash
-invowk cmd test --invk-workdir ./packages/api
+invowk cmd test --ivk-workdir ./packages/api
 ```
 
 ## Interactive TUI Components
@@ -2534,9 +2534,9 @@ invowk tui style --border rounded --align center --width 40 "Centered Title"
 invowk tui style --bold --foreground "#00FF00" --background "#000" "Matrix"
 ```
 
-### Using TUI in Invkfiles
+### Using TUI in Invowkfiles
 
-The TUI components can be used within invkfile scripts to create interactive commands:
+The TUI components can be used within invowkfile scripts to create interactive commands:
 
 ```cue
 cmds: [
@@ -2585,7 +2585,7 @@ invowk/
 │   ├── config/                 # Configuration management with CUE schema
 │   ├── container/              # Container engine abstraction (Docker, Podman, sandbox)
 │   ├── core/serverbase/        # Shared server state machine base
-│   ├── discovery/              # Invkfile and module discovery
+│   ├── discovery/              # Invowkfile and module discovery
 │   ├── issue/                  # Error types and ActionableError
 │   ├── provision/              # Container provisioning (ephemeral layer attachment)
 │   ├── runtime/                # Runtime implementations (native, virtual, container)
@@ -2596,8 +2596,8 @@ invowk/
 │   └── uroot/                  # u-root utilities for virtual shell built-ins
 ├── pkg/
 │   ├── cueutil/                # Shared CUE parsing utilities
-│   ├── invkmod/                # Module validation and structure
-│   ├── invkfile/               # Invkfile parsing and validation
+│   ├── invowkmod/                # Module validation and structure
+│   ├── invowkfile/               # Invowkfile parsing and validation
 │   └── platform/               # Cross-platform utilities
 ```
 

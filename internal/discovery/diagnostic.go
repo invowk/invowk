@@ -18,7 +18,7 @@ type (
 	Diagnostic struct {
 		// Severity is the diagnostic level (warning or error).
 		Severity Severity
-		// Code is a machine-readable identifier (e.g., "invkfile_parse_skipped").
+		// Code is a machine-readable identifier (e.g., "invowkfile_parse_skipped").
 		Code string
 		// Message is the human-readable description.
 		Message string

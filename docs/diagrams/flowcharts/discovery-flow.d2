@@ -2,7 +2,7 @@
 #
 # Shows how Invowk discovers commands from multiple sources
 # with priority ordering: current directory > local modules >
-# user directory > configured includes.
+# configured includes > user directory.
 #
 # Source: docs/architecture/flowchart-discovery.md
 
@@ -34,14 +34,14 @@ priority1: Priority 1: Current Directory {
     fill: transparent
   }
 
-  PWD: Check ./invkfile.cue
+  PWD: Check ./invowkfile.cue
 
   HasPWD: Found? {
     shape: diamond
     style.fill: "#FFF3E0"
   }
 
-  ParsePWD: Parse invkfile.cue\nPriority: HIGHEST {
+  ParsePWD: Parse invowkfile.cue\nPriority: HIGHEST {
     style.fill: "#C8E6C9"
   }
 
@@ -65,7 +65,7 @@ priority2: Priority 2: Local Modules {
     fill: transparent
   }
 
-  Modules: Scan for ./*.invkmod
+  Modules: Scan for ./*.invowkmod
 
   HasMods: Found modules? {
     shape: diamond
@@ -122,65 +122,65 @@ dep_resolution: Dependency Resolution {
 priority2.ParseMods -> dep_resolution.ResolveDeps
 
 # ==============================================================================
-# Priority 3: User Directory
+# Priority 3: Configured Includes
 # ==============================================================================
 
-priority3: Priority 3: User Directory {
+priority3: Priority 3: Configured Includes {
   style: {
     stroke: "#1168BD"
     stroke-dash: 3
     fill: transparent
   }
 
-  UserDir: Check ~/.invowk/cmds/\n(invkfiles AND modules)
-
-  HasUser: Found? {
-    shape: diamond
-    style.fill: "#FFF3E0"
-  }
-
-  ParseUser: Parse user invkfiles\nand *.invkmod modules {
-    style.fill: "#BBDEFB"
-  }
-
-  Skip3: Continue
-
-  UserDir -> HasUser
-  HasUser -> ParseUser: Yes
-  HasUser -> Skip3: No
-}
-
-dep_resolution.DepsResolved -> priority3.UserDir
-priority2.Skip2 -> priority3.UserDir
-
-# ==============================================================================
-# Priority 4: Configured Includes
-# ==============================================================================
-
-priority4: Priority 4: Configured Includes {
-  style: {
-    stroke: "#1168BD"
-    stroke-dash: 3
-    fill: transparent
-  }
-
-  SearchPaths: Check configured\nincludes\n(invkfiles AND modules)
+  SearchPaths: Check configured\nincludes\n(module paths from config)
 
   HasPaths: Found? {
     shape: diamond
     style.fill: "#FFF3E0"
   }
 
-  ParsePaths: Parse invkfiles and\n*.invkmod modules\nPriority: LOWEST {
-    style.fill: "#FFE4B5"
+  ParsePaths: Parse *.invowkmod modules\nfrom include paths {
+    style.fill: "#BBDEFB"
   }
+
+  Skip3: Continue
 
   SearchPaths -> HasPaths
   HasPaths -> ParsePaths: Yes
+  HasPaths -> Skip3: No
 }
 
-priority3.ParseUser -> priority4.SearchPaths
-priority3.Skip3 -> priority4.SearchPaths
+dep_resolution.DepsResolved -> priority3.SearchPaths
+priority2.Skip2 -> priority3.SearchPaths
+
+# ==============================================================================
+# Priority 4: User Directory
+# ==============================================================================
+
+priority4: Priority 4: User Directory {
+  style: {
+    stroke: "#1168BD"
+    stroke-dash: 3
+    fill: transparent
+  }
+
+  UserDir: Check ~/.invowk/cmds/\n(modules only, non-recursive)
+
+  HasUser: Found? {
+    shape: diamond
+    style.fill: "#FFF3E0"
+  }
+
+  ParseUser: Parse *.invowkmod modules\nPriority: LOWEST {
+    style.fill: "#FFE4B5"
+  }
+
+  UserDir -> HasUser
+  HasUser -> ParseUser: Yes
+}
+
+priority3.ParsePaths -> priority4.UserDir
+priority3.Skip3 -> priority4.UserDir
 
 # ==============================================================================
 # End Point
@@ -191,5 +191,5 @@ Done: Build unified\ncommand tree {
   style.fill: "#E8F5E9"
 }
 
-priority4.ParsePaths -> Done
-priority4.HasPaths -> Done: No
+priority4.ParseUser -> Done
+priority4.HasUser -> Done: No

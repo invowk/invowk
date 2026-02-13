@@ -16,8 +16,8 @@ O Invowk™ fornece gerenciamento poderoso de variáveis de ambiente para seus c
 
 Variáveis vêm de múltiplas fontes, em ordem de precedência (mais alta primeiro):
 
-1. **Vars da CLI** - `--invk-env-var KEY=value`
-2. **Arquivos env da CLI** - `--invk-env-file .env.custom`
+1. **Vars da CLI** - `--ivk-env-var KEY=value`
+2. **Arquivos env da CLI** - `--ivk-env-file .env.custom`
 3. **Vars do Invowk** - `INVOWK_FLAG_*` / `INVOWK_ARG_*`
 4. **Vars de implementação** - `env.vars` no nível de implementação
 5. **Vars de comando** - `env.vars` no nível de comando
@@ -33,7 +33,7 @@ Fontes anteriores sobrescrevem as posteriores.
 
 ### Nível Raiz
 
-Aplica-se a todos os comandos no invkfile:
+Aplica-se a todos os comandos no invowkfile:
 
 <Snippet id="environment/scope-root" />
 
@@ -83,7 +83,7 @@ Sobrescreva em tempo de execução:
 
 Por padrão, os runtimes native e virtual herdam o ambiente do host, enquanto o runtime container começa sem variáveis do host. Você pode controlar isso por runtime ou por execução.
 
-<Snippet id="reference/invkfile/env-inherit-example" />
+<Snippet id="reference/invowkfile/env-inherit-example" />
 
 <Snippet id="environment/env-inherit-cli" />
 
