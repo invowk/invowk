@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 
 	"invowk-cli/internal/config"
@@ -230,7 +231,9 @@ func createRuntimeRegistry(cfg *config.Config, sshServer *sshserver.Server) (reg
 
 	cleanup = func() {
 		if containerRT != nil {
-			_ = containerRT.Close() // Best-effort: temp file removal
+			if err := containerRT.Close(); err != nil {
+				slog.Debug("container runtime cleanup failed", "error", err)
+			}
 		}
 	}
 

@@ -5,6 +5,7 @@
 package runtime
 
 import (
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -14,9 +15,15 @@ import (
 )
 
 // lockFileName is the well-known lock file name shared by all invowk processes.
-// The zero-byte sentinel file is harmless if orphaned — the kernel releases the
+// The zero-byte lock file is harmless if orphaned — the kernel releases the
 // flock automatically when the fd is closed (including on process crash).
 const lockFileName = "invowk-podman.lock"
+
+// errFlockUnavailable is defined for cross-platform compatibility with
+// run_lock_other.go. On Linux, acquireRunLock() never returns this error —
+// it is only used by container_exec.go to distinguish expected (non-Linux)
+// from unexpected (Linux) lock acquisition failures.
+var errFlockUnavailable = errors.New("flock not available on this platform")
 
 // runLock holds a blocking exclusive flock on a well-known file path, providing
 // cross-process serialization of container run calls. This prevents the rootless

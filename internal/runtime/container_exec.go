@@ -5,6 +5,7 @@ package runtime
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -18,8 +19,10 @@ import (
 	"invowk-cli/pkg/invkfile"
 )
 
-// containerRunMu is a fallback for non-Linux platforms where flock-based
-// cross-process serialization is unavailable (macOS/Windows Podman runs in a VM).
+// containerRunMu is a fallback mutex used when flock-based cross-process
+// serialization is unavailable. This includes non-Linux platforms
+// (macOS/Windows Podman runs in a VM) and Linux when the lock file cannot
+// be acquired (broken XDG_RUNTIME_DIR, /tmp permissions, fd exhaustion).
 // On Linux, acquireRunLock() provides flock-based serialization instead.
 //
 // When the sysctl override IS active (local Podman on Linux), neither the flock
@@ -211,7 +214,11 @@ func (r *ContainerRuntime) runWithRetry(ctx context.Context, runOpts container.R
 	if checker, ok := r.engine.(container.SysctlOverrideChecker); ok && !checker.SysctlOverrideActive() {
 		lock, lockErr := acquireRunLock()
 		if lockErr != nil {
-			slog.Debug("flock unavailable, falling back to in-process mutex", "error", lockErr)
+			if errors.Is(lockErr, errFlockUnavailable) {
+				slog.Debug("flock unavailable, falling back to in-process mutex", "error", lockErr)
+			} else {
+				slog.Warn("flock acquisition failed, falling back to in-process mutex", "error", lockErr)
+			}
 			containerRunMu.Lock()
 			defer containerRunMu.Unlock()
 		} else {
@@ -226,6 +233,7 @@ func (r *ContainerRuntime) runWithRetry(ctx context.Context, runOpts container.R
 
 	var lastErr error
 	var lastResult *container.RunResult
+	var lastStderrBuf *bytes.Buffer
 	for attempt := range maxRunRetries {
 		if attempt > 0 {
 			if err := ctx.Err(); err != nil {
@@ -246,6 +254,7 @@ func (r *ContainerRuntime) runWithRetry(ctx context.Context, runOpts container.R
 			slog.Debug("transient container error, retrying",
 				"attempt", attempt+1, "maxRetries", maxRunRetries, "error", err)
 			lastErr = err
+			lastStderrBuf = &stderrBuf
 			continue
 		}
 
@@ -260,6 +269,13 @@ func (r *ContainerRuntime) runWithRetry(ctx context.Context, runOpts container.R
 		slog.Debug("transient container exit code, retrying",
 			"attempt", attempt+1, "maxRetries", maxRunRetries, "exitCode", result.ExitCode)
 		lastResult = result
+		lastStderrBuf = &stderrBuf
+	}
+
+	// Flush stderr from the final attempt so the user gets diagnostic output
+	// even after all retries are exhausted.
+	if lastStderrBuf != nil {
+		flushStderr(originalStderr, lastStderrBuf)
 	}
 
 	if lastErr != nil {
@@ -271,7 +287,7 @@ func (r *ContainerRuntime) runWithRetry(ctx context.Context, runOpts container.R
 // flushStderr writes buffered stderr content to the original writer.
 // If originalStderr is nil (e.g., caller didn't provide stderr), the buffer
 // is silently discarded. Write failures are non-fatal (stderr may be a closed
-// pipe or full terminal buffer) and logged at debug level.
+// pipe or remote connection) and logged at debug level.
 func flushStderr(dst io.Writer, src *bytes.Buffer) {
 	if dst == nil || src.Len() == 0 {
 		return

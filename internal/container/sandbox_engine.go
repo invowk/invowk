@@ -207,20 +207,15 @@ func (e *SandboxAwareEngine) RemoveImage(ctx context.Context, image string, forc
 // CustomizeCmd applies the wrapped engine's overrides (env vars, extra files)
 // to a command created outside the wrapped engine's CreateCommand method.
 func (e *SandboxAwareEngine) CustomizeCmd(cmd *exec.Cmd) {
-	base, ok := e.getBaseCLIEngine()
-	if !ok {
-		return
+	if c, ok := e.wrapped.(CmdCustomizer); ok {
+		c.CustomizeCmd(cmd)
 	}
-	base.CustomizeCmd(cmd)
 }
 
-// Close forwards to the wrapped engine's Close method if it implements a closer
-// interface. Returns nil if the wrapped engine has no Close method (e.g., DockerEngine).
+// Close forwards to the wrapped engine's Close method if it implements
+// EngineCloser. Returns nil if the wrapped engine has no Close method.
 func (e *SandboxAwareEngine) Close() error {
-	type closer interface {
-		Close() error
-	}
-	if c, ok := e.wrapped.(closer); ok {
+	if c, ok := e.wrapped.(EngineCloser); ok {
 		return c.Close()
 	}
 	return nil

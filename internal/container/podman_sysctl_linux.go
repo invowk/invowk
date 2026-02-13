@@ -17,7 +17,7 @@ import (
 // to os.TempDir() and referenced via its filesystem path in
 // CONTAINERS_CONF_OVERRIDE. Each Podman subprocess opens the path
 // independently, avoiding the fd-inheritance issues that break memfd-based
-// approaches (Podman's internal process tree reuses low fd numbers).
+// approaches (Podman's conmon/crun child processes do not inherit parent fds).
 //
 // The caller is responsible for removing the file when the engine is closed.
 func createSysctlOverrideTempFile() (string, error) {
@@ -53,6 +53,7 @@ func isRemotePodman(binaryPath string) bool {
 	// Follow symlinks to detect podman -> podman-remote
 	resolved, err := filepath.EvalSymlinks(binaryPath)
 	if err != nil {
+		slog.Debug("failed to resolve symlinks for podman binary", "path", binaryPath, "error", err)
 		return false
 	}
 	return strings.Contains(filepath.Base(resolved), "remote")
@@ -61,7 +62,8 @@ func isRemotePodman(binaryPath string) bool {
 // sysctlOverrideOpts returns BaseCLIEngine options that disable default_sysctls
 // via a temporary CONTAINERS_CONF_OVERRIDE file. Returns nil when the override is
 // not applicable (podman-remote, temp file failure) — the retry mechanism in
-// runWithRetry and the run mutex handle transient errors as a fallback.
+// runWithRetry and the run-level serialization (flock or mutex fallback) handle
+// transient errors as a fallback.
 func sysctlOverrideOpts(binaryPath string) []BaseCLIEngineOption {
 	if isRemotePodman(binaryPath) {
 		slog.Debug("podman-remote detected, sysctl override not applicable",
@@ -71,7 +73,7 @@ func sysctlOverrideOpts(binaryPath string) []BaseCLIEngineOption {
 
 	tempPath, err := createSysctlOverrideTempFile()
 	if err != nil {
-		slog.Debug("sysctl temp file unavailable, relying on run-level retry", "error", err)
+		slog.Warn("sysctl temp file unavailable, relying on run-level retry", "error", err)
 		return nil
 	}
 	return []BaseCLIEngineOption{

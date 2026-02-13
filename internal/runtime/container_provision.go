@@ -66,8 +66,14 @@ func (r *ContainerRuntime) ensureProvisionedImage(ctx *ExecutionContext, cfg inv
 
 	result, err := r.provisioner.Provision(ctx.Context, baseImage)
 	if err != nil {
-		// If provisioning fails, warn but continue with base image
-		_, _ = fmt.Fprintf(ctx.IO.Stderr, "Warning: failed to provision container, using base image: %v\n", err) // Warning output; error non-critical
+		if r.provisioner.Config().Strict {
+			return "", nil, fmt.Errorf("container provisioning failed (strict mode enabled): %w", err)
+		}
+		_, _ = fmt.Fprintf(ctx.IO.Stderr,
+			"WARNING: Container provisioning failed: %v\n"+
+				"  The container will run WITHOUT invowk resources (binary, modules).\n"+
+				"  Nested invowk commands inside the container will not work.\n"+
+				"  To fail on provisioning errors, set: container.auto_provision.strict = true\n", err)
 		return baseImage, nil, nil
 	}
 
@@ -175,6 +181,7 @@ func buildProvisionConfig(cfg *config.Config) *provision.Config {
 	// Apply config overrides
 	autoProv := cfg.Container.AutoProvision
 	provisionCfg.Enabled = autoProv.Enabled
+	provisionCfg.Strict = autoProv.Strict
 
 	if autoProv.BinaryPath != "" {
 		provisionCfg.InvowkBinaryPath = autoProv.BinaryPath

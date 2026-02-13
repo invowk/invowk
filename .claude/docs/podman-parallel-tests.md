@@ -45,9 +45,8 @@ on a specific engine instance. Build operations (`ensureImage`) are NOT serializ
 
 | Platform | Prevention | Recovery |
 |----------|------------|----------|
-| Linux (local Podman 4.8+) | Temp file `CONTAINERS_CONF_OVERRIDE` | `runWithRetry()` (transient errors) |
+| Linux (local Podman) | Temp file `CONTAINERS_CONF_OVERRIDE` | `runWithRetry()` (transient errors) |
 | Linux (podman-remote) | **flock** (cross-process) | `runWithRetry()` (transient errors) |
-| Linux (older Podman) | **flock** (cross-process) | `runWithRetry()` (transient errors) |
 | macOS/Windows | `sync.Mutex` (intra-process) | `runWithRetry()` (transient errors) |
 | Docker (any platform) | N/A (no issue) | N/A |
 | Temp file unavailable | **flock** / `sync.Mutex` fallback | `runWithRetry()` (transient errors) |
@@ -57,12 +56,15 @@ on a specific engine instance. Build operations (`ensureImage`) are NOT serializ
 `runWithRetry()` buffers stderr per-attempt. Transient errors from the container engine (written by
 crun/runc directly to the inherited stderr fd) are discarded on retry. Only the final attempt's stderr
 is flushed to the caller's original writer. This prevents `ping_group_range` error messages from
-leaking to the user's terminal even when retries succeed.
+leaking to the user's terminal even when retries succeed. When all retries are exhausted, stderr
+from the final attempt is flushed so the user receives diagnostic output.
 
 **Tradeoff**: For the non-interactive `Execute()` path, stderr from the user's command is delayed until
 the command finishes (no streaming). This is acceptable because container commands in invowk are
 short-lived scripts. Interactive mode (`PrepareCommand()`) returns a `PreparedCommand` attached to a
-PTY and does not use `runWithRetry()`. `ExecuteCapture()` already fully buffers output.
+PTY and does not use `runWithRetry()`. `ExecuteCapture()` uses `runWithRetry()` with its own stderr
+buffer — the retry stderr buffer captures engine-level errors while the capture buffer collects
+the user command's output.
 
 **Key files:**
 - `internal/container/podman_sysctl_linux.go` — `createSysctlOverrideTempFile()`, `isRemotePodman()`, `sysctlOverrideOpts()`

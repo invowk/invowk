@@ -173,7 +173,7 @@ When the sysctl override is not active, `runWithRetry()` serializes container ru
 
 ### Stderr Buffering
 
-`runWithRetry()` buffers stderr per-attempt so that transient error messages from crun (written directly to the inherited stderr fd before Go can decide to retry) never leak to the user's terminal. On success or non-transient failure, the buffer is flushed to the caller's original writer. On transient failure, the buffer is discarded and retried. Interactive mode (`PrepareCommand`) is unaffected — it uses a PTY and bypasses `runWithRetry()`.
+`runWithRetry()` buffers stderr per-attempt so that transient error messages from crun (written directly to the inherited stderr fd before Go can decide to retry) never leak to the user's terminal. On success, non-transient failure, or retry exhaustion, the final attempt's buffer is flushed to the caller's original writer. On transient failure with retries remaining, the buffer is discarded and retried. Interactive mode (`PrepareCommand`) is unaffected — it uses a PTY and bypasses `runWithRetry()`.
 
 ### SysctlOverrideChecker Interface
 
@@ -211,7 +211,7 @@ type CmdCustomizer interface {
 |------|---------|
 | `podman_sysctl_linux.go` | `createSysctlOverrideTempFile()`, `isRemotePodman()`, `sysctlOverrideOpts()` (Linux temp file) |
 | `podman_sysctl_other.go` | No-op `sysctlOverrideOpts()` (macOS/Windows stub) |
-| `engine_base.go` | `CmdCustomizer`, `SysctlOverrideChecker`, `WithCmdEnvOverride()`, `WithSysctlOverridePath()`, `WithSysctlOverrideActive()`, `Close()` |
+| `engine_base.go` | `CmdCustomizer`, `SysctlOverrideChecker`, `EngineCloser`, `WithCmdEnvOverride()`, `WithSysctlOverridePath()`, `WithSysctlOverrideActive()`, `Close()` |
 | `podman.go` | `SysctlOverrideActive()`, `Close()` methods on `PodmanEngine` |
 | `container_exec.go` | `containerRunMu` (fallback mutex), `runWithRetry()` (flock + stderr buffering), `flushStderr()` |
 | `container_prepare.go` | `CmdCustomizer` type assertion in `PrepareCommand()` |
@@ -419,6 +419,7 @@ Container runs (`engine.Run()`) are retried up to 5 times with exponential backo
 | `container_provision.go` | Image building, `ensureImage()` retry, retry constants |
 | `run_lock_linux.go` | flock-based cross-process lock (`acquireRunLock()`, `runLock`) |
 | `run_lock_other.go` | No-op stub, forces fallback to `sync.Mutex` |
+| `container_exec_test.go` | Unit tests for `runWithRetry()`: serialization decision, stderr buffering, exit codes, context cancellation |
 
 ---
 

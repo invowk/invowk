@@ -179,12 +179,9 @@ func NewEngine(preferredType EngineType) (Engine, error) {
 }
 
 // CloseEngine releases resources held by a container engine. It is a no-op for
-// engines that don't hold resources (e.g., DockerEngine). Safe to call with nil.
+// engines that don't implement EngineCloser. Safe to call with nil.
 func CloseEngine(engine Engine) error {
-	type closer interface {
-		Close() error
-	}
-	if c, ok := engine.(closer); ok {
+	if c, ok := engine.(EngineCloser); ok {
 		return c.Close()
 	}
 	return nil

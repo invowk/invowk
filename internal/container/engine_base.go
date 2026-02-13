@@ -57,15 +57,22 @@ type (
 
 	// SysctlOverrideChecker is implemented by engines that may use a temp-file-based
 	// CONTAINERS_CONF_OVERRIDE to prevent the rootless Podman ping_group_range race.
-	// The runtime package uses this to decide whether run-level serialization (mutex)
-	// is needed: if the override is active, the race is eliminated at source and no
-	// mutex is needed; otherwise, runs must be serialized to prevent intra-process races.
+	// The runtime package uses this to decide whether run-level serialization (flock
+	// or mutex fallback) is needed: if the override is active, the race is eliminated
+	// at source and no serialization is needed; otherwise, runs must be serialized.
 	//
 	// Only PodmanEngine implements this interface. DockerEngine does not (Docker is
 	// not susceptible to the ping_group_range race). SandboxAwareEngine forwards
 	// to the wrapped engine.
 	SysctlOverrideChecker interface {
 		SysctlOverrideActive() bool
+	}
+
+	// EngineCloser is implemented by engines that hold resources requiring cleanup
+	// (e.g., sysctl override temp files). Engines that don't hold resources
+	// (e.g., DockerEngine) don't implement this interface.
+	EngineCloser interface {
+		Close() error
 	}
 
 	// VolumeMount represents a volume mount specification.
