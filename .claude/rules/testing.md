@@ -339,7 +339,7 @@ This ensures that features work correctly through both the virtual shell (mvdan/
 
 | Test Category | Files | Reason |
 |---------------|-------|--------|
-| **u-root** | `virtual_uroot_basic.txtar`, `virtual_uroot_file_ops.txtar`, `virtual_uroot_text_ops.txtar` | u-root commands are virtual shell built-ins; native shell has its own implementations |
+| **u-root** | `virtual_uroot_*.txtar` (all u-root tests) | u-root commands are virtual shell built-ins; native shell has its own implementations |
 | **virtual shell** | `virtual_shell.txtar` | Tests virtual-shell-specific features (u-root integration, cross-platform POSIX semantics) |
 | **container** | `container_*.txtar` | Linux-only by design; container runtime is not a native shell |
 | **CUE validation** | `virtual_edge_cases.txtar`, `virtual_args_subcommand_conflict.txtar` | Tests schema parsing and validation, not runtime behavior |

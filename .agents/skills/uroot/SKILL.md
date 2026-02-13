@@ -129,6 +129,40 @@ Following symlinks by default prevents:
 
 ---
 
+## POSIX Combined Short Flags
+
+Custom implementations support POSIX-style combined short flags (e.g., `ln -sf` instead of `ln -s -f`). This is handled centrally in `Registry.Run()` — individual commands don't need any changes.
+
+### How It Works
+
+1. `Registry.Run()` checks if the command implements `NativePreprocessor` (a private marker interface).
+2. If it does NOT (custom implementation), args are preprocessed via `unixflag.ArgsToGoArgs()` which splits combined flags: `["-sf", "target"]` → `["-s", "-f", "target"]`.
+3. If it DOES (upstream wrapper via `baseWrapper`), args pass through unchanged — upstream wrappers handle this internally in their `RunContext` method.
+
+### Adding New Custom Commands
+
+No action needed — new custom commands automatically get combined flag support as long as they:
+- Are registered in `DefaultRegistry` via `RegisterDefault()`
+- Do NOT embed `baseWrapper` (which would mark them as upstream wrappers)
+
+### Adding New Upstream Wrappers
+
+New upstream wrappers that embed `baseWrapper` automatically inherit `NativePreprocessor` and skip centralized preprocessing. No extra code needed.
+
+### Edge Cases
+
+- **Value-taking flags in combined groups**: `ArgsToGoArgs` has no flag-value awareness. `-df:` splits to `-d -f -:`. Users must write `-d : -f` for value flags. This matches upstream behavior.
+- **`--` end-of-flags**: `ArgsToGoArgs` converts `--` to `-`. Since custom implementations use `ContinueOnError` and silently ignore unknown flags, this is benign.
+
+### Key Files
+
+- `internal/uroot/command.go` — `NativePreprocessor` marker interface
+- `internal/uroot/wrapper.go` — `baseWrapper.nativePreprocessor()` implementation
+- `internal/uroot/registry.go` — `Run()` preprocessing logic
+- `internal/runtime/virtual.go` — `tryUrootBuiltin()` routes through `Registry.Run()`
+
+---
+
 ## Unsupported Flag Handling
 
 When a u-root utility receives flags it doesn't support (e.g., GNU-specific extensions like `--color`):
@@ -196,3 +230,5 @@ func (h *CpHandler) Run(ctx context.Context, args []string) error {
 - **Buffering file contents** - Always use `io.Copy()` or similar streaming patterns. Never use `os.ReadFile()` or `io.ReadAll()` for arbitrary user files.
 - **Missing error prefix** - All u-root errors must include the `[uroot]` prefix for source identification.
 - **Naked defer Close()** - Never use `defer f.Close()`. For read-only files, use `defer func() { _ = f.Close() }()` with comment. For write operations, use named returns to capture close errors.
+- **Combined flags silent failure** - Go's `flag.NewFlagSet` does NOT support POSIX-style combined short flags (`-sf`). With `flag.ContinueOnError` + `io.Discard`, combined flags silently fail (both flags stay `false`). This is handled centrally by `Registry.Run()` — do NOT add `unixflag.ArgsToGoArgs()` calls to individual commands.
+- **Double-splitting upstream wrappers** - Never remove the `baseWrapper` embedding from upstream wrappers. It provides the `NativePreprocessor` marker that prevents `Registry.Run()` from double-splitting already-preprocessed args, which would corrupt long flags (`--recursive` → `-r -e -c -u ...`).
