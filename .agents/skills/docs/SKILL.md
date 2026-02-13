@@ -161,6 +161,7 @@ website/static/diagrams/v{VERSION}/        # Per-version SVG copies
 ## Common Pitfalls
 
 - **Missing i18n** - Website changes require updates to both `docs/` and `i18n/pt-BR/`.
+- **Stale snippets and i18n content** - When fixing factual errors in `website/docs/` (e.g., wrong version numbers, incorrect claims), also sweep `website/src/components/Snippet/snippets.ts` for matching stale values in code examples and `website/i18n/pt-BR/.../current/` for the same stale content in translations. Snippet code blocks and i18n mirrors are easy to miss because the Documentation Sync Map covers code→doc direction, not doc-content→snippet/i18n direction.
 - **Outdated documentation** - Check the Documentation Sync Map when modifying schemas or CLI.
 - **Versioning chicken-and-egg** - `docusaurus.config.ts` `lastVersion` must reference a version that already exists in `versions.json`. If `lastVersion` is set to a version before `docs:version` creates it, Docusaurus validation fails on initialization. Fix: temporarily set `lastVersion` to an existing version, run `version-docs.sh`, which will restore `lastVersion` to the new version in step 4.
 - **Doc-then-version ordering** - Always fix documentation issues in `website/docs/` BEFORE running `version-docs.sh`, since the script snapshots the current docs into `versioned_docs/`. Versioning first means the snapshot preserves bugs.
