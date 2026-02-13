@@ -9,31 +9,30 @@
 //
 // # Supported Commands
 //
-// The following 29 utilities are provided:
+// The following 28 utilities are provided:
 //
-// From u-root pkg/core (14 wrappers):
+// From u-root pkg/core (12 wrappers):
 //   - base64: Encode/decode base64
 //   - cat: Concatenate and display files
-//   - chmod: Change file mode bits
 //   - cp: Copy files and directories
 //   - find: Search for files in a directory hierarchy
 //   - gzip: Compress or expand files
 //   - ls: List directory contents
 //   - mkdir: Create directories
-//   - mktemp: Create temporary files or directories
 //   - mv: Move/rename files and directories
 //   - rm: Remove files and directories
 //   - shasum: Compute SHA message digests
 //   - tar: Archive files
 //   - touch: Create files or update timestamps
 //
-// Custom implementations (15 commands):
+// Custom implementations (16 commands):
 //   - basename: Strip directory and suffix from filenames
 //   - cut: Select portions of lines
 //   - dirname: Strip last component from filenames
 //   - grep: Search for patterns in files
 //   - head: Output first N lines
 //   - ln: Create hard or symbolic links
+//   - mktemp: Create temporary files or directories
 //   - realpath: Resolve absolute path names
 //   - seq: Generate number sequences
 //   - sleep: Delay for a specified time

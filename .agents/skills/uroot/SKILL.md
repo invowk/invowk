@@ -89,7 +89,7 @@ writer.Write(content)
 All u-root utility implementations that handle file content:
 - `base64` - Base64 encoding/decoding (streaming)
 - `cat` - File concatenation
-- `chmod` - File mode changes
+- `mktemp` - Temporary file/directory creation
 - `cp` - File copying
 - `find` - Directory tree searching
 - `gzip` - Compression/decompression (streaming)
