@@ -6,10 +6,12 @@ import (
 	"os"
 	"runtime"
 	"testing"
+
+	"invowk-cli/pkg/platform"
 )
 
 func TestSetHomeDir_Linux(t *testing.T) {
-	if runtime.GOOS == osWindows {
+	if runtime.GOOS == platform.Windows {
 		t.Skip("skipping Linux-specific test on Windows")
 	}
 
@@ -32,7 +34,7 @@ func TestSetHomeDir_Linux(t *testing.T) {
 }
 
 func TestSetHomeDir_Windows(t *testing.T) {
-	if runtime.GOOS != osWindows {
+	if runtime.GOOS != platform.Windows {
 		t.Skip("skipping Windows-specific test on non-Windows")
 	}
 
@@ -57,7 +59,7 @@ func TestSetHomeDir_Windows(t *testing.T) {
 func TestSetHomeDir_WithTCleanup(t *testing.T) {
 	tmpDir := t.TempDir()
 	var envVar string
-	if runtime.GOOS == osWindows {
+	if runtime.GOOS == platform.Windows {
 		envVar = "USERPROFILE"
 	} else {
 		envVar = "HOME"
@@ -83,7 +85,7 @@ func TestSetHomeDir_WithTCleanup(t *testing.T) {
 func TestSetHomeDir_EmptyDir(t *testing.T) {
 	// Setting to empty string should work (though unusual)
 	var envVar string
-	if runtime.GOOS == osWindows {
+	if runtime.GOOS == platform.Windows {
 		envVar = "USERPROFILE"
 	} else {
 		envVar = "HOME"

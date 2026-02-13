@@ -4,6 +4,8 @@
 //
 // This package contains utilities for handling platform-specific concerns:
 //
+//   - OS name constants ([Windows], [Darwin], [Linux]) for runtime.GOOS comparisons
+//
 //   - Windows reserved filenames that cannot be used as command names
 //     or module directory names (see [IsWindowsReservedName])
 //
