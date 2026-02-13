@@ -10,7 +10,7 @@ import (
 
 	"invowk-cli/internal/config"
 	"invowk-cli/internal/discovery"
-	"invowk-cli/pkg/invkfile"
+	"invowk-cli/pkg/invowkfile"
 )
 
 type (
@@ -48,30 +48,30 @@ type (
 		Name string
 		// Args are positional arguments to pass to the command script ($1, $2, etc.).
 		Args []string
-		// Runtime is the --invk-runtime override (e.g., "container", "virtual").
+		// Runtime is the --ivk-runtime override (e.g., "container", "virtual").
 		Runtime string
 		// Interactive enables alternate screen buffer with TUI server.
 		Interactive bool
 		// Verbose enables verbose diagnostic output.
 		Verbose bool
-		// FromSource is the --invk-from flag value for source disambiguation.
+		// FromSource is the --ivk-from flag value for source disambiguation.
 		FromSource string
 		// ForceRebuild forces container image rebuilds, bypassing cache.
 		ForceRebuild bool
 		// Workdir overrides the working directory for the command.
 		Workdir string
-		// EnvFiles are dotenv file paths from --invk-env-file flags.
+		// EnvFiles are dotenv file paths from --ivk-env-file flags.
 		EnvFiles []string
-		// EnvVars are KEY=VALUE pairs from --invk-env-var flags (highest env priority).
+		// EnvVars are KEY=VALUE pairs from --ivk-env-var flags (highest env priority).
 		EnvVars map[string]string
-		// ConfigPath is the explicit --invk-config flag value.
+		// ConfigPath is the explicit --ivk-config flag value.
 		ConfigPath string
 		// FlagValues are parsed flag values from Cobra state (key: flag name).
 		FlagValues map[string]string
-		// FlagDefs are the command's flag definitions from the invkfile.
-		FlagDefs []invkfile.Flag
-		// ArgDefs are the command's argument definitions from the invkfile.
-		ArgDefs []invkfile.Argument
+		// FlagDefs are the command's flag definitions from the invowkfile.
+		FlagDefs []invowkfile.Flag
+		// ArgDefs are the command's argument definitions from the invowkfile.
+		ArgDefs []invowkfile.Argument
 		// EnvInheritMode overrides the runtime config env inherit mode.
 		EnvInheritMode string
 		// EnvInheritAllow overrides the runtime config env allowlist.
@@ -154,7 +154,7 @@ func NewApp(deps Dependencies) (*App, error) {
 	}, nil
 }
 
-// contextWithConfigPath attaches the explicit --invk-config value to the request context.
+// contextWithConfigPath attaches the explicit --ivk-config value to the request context.
 // Discovery and execution services use this value to load configuration from the same
 // source as the originating Cobra command.
 func contextWithConfigPath(ctx context.Context, configPath string) context.Context {

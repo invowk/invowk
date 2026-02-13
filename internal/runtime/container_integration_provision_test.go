@@ -10,20 +10,20 @@ import (
 	"strings"
 	"testing"
 
-	"invowk-cli/pkg/invkfile"
+	"invowk-cli/pkg/invowkfile"
 )
 
-// TestContainerRuntime_ProvisioningLayer_InvkfileAccess tests that the invkfile directory
+// TestContainerRuntime_ProvisioningLayer_InvowkfileAccess tests that the invowkfile directory
 // is correctly provisioned at /workspace in the container.
-func TestContainerRuntime_ProvisioningLayer_InvkfileAccess(t *testing.T) {
+func TestContainerRuntime_ProvisioningLayer_InvowkfileAccess(t *testing.T) {
 	t.Parallel()
 	if testing.Short() {
 		t.Skip("skipping integration test in short mode")
 	}
 
-	tmpDir, inv := setupTestInvkfile(t)
+	tmpDir, inv := setupTestInvowkfile(t)
 
-	// Create a test file in the invkfile directory
+	// Create a test file in the invowkfile directory
 	testFileName := "test-provision-file.txt"
 	testContent := "provisioned content verification"
 	testFilePath := filepath.Join(tmpDir, testFileName)
@@ -31,17 +31,17 @@ func TestContainerRuntime_ProvisioningLayer_InvkfileAccess(t *testing.T) {
 		t.Fatalf("Failed to write test file: %v", err)
 	}
 
-	cmd := &invkfile.Command{
+	cmd := &invowkfile.Command{
 		Name: "test-provision",
-		Implementations: []invkfile.Implementation{
+		Implementations: []invowkfile.Implementation{
 			{
 				// The script reads a file from /workspace to verify provisioning
 				Script: "cat /workspace/" + testFileName,
 
-				Runtimes: []invkfile.RuntimeConfig{
-					{Name: invkfile.RuntimeContainer, Image: "debian:stable-slim"},
+				Runtimes: []invowkfile.RuntimeConfig{
+					{Name: invowkfile.RuntimeContainer, Image: "debian:stable-slim"},
 				},
-				Platforms: []invkfile.PlatformConfig{{Name: invkfile.PlatformLinux}},
+				Platforms: []invowkfile.PlatformConfig{{Name: invowkfile.PlatformLinux}},
 			},
 		},
 	}
@@ -67,16 +67,16 @@ func TestContainerRuntime_ProvisioningLayer_InvkfileAccess(t *testing.T) {
 }
 
 // TestContainerRuntime_ProvisioningLayer_ScriptFileExecution tests that script files
-// in the invkfile directory are accessible and executable in the container.
+// in the invowkfile directory are accessible and executable in the container.
 func TestContainerRuntime_ProvisioningLayer_ScriptFileExecution(t *testing.T) {
 	t.Parallel()
 	if testing.Short() {
 		t.Skip("skipping integration test in short mode")
 	}
 
-	tmpDir, inv := setupTestInvkfile(t)
+	tmpDir, inv := setupTestInvowkfile(t)
 
-	// Create an executable script file in the invkfile directory
+	// Create an executable script file in the invowkfile directory
 	scriptFileName := "test-script.sh"
 	scriptContent := `#!/bin/sh
 echo "Script executed from /workspace"
@@ -86,17 +86,17 @@ echo "Script executed from /workspace"
 		t.Fatalf("Failed to write script file: %v", err)
 	}
 
-	cmd := &invkfile.Command{
+	cmd := &invowkfile.Command{
 		Name: "test-script-provision",
-		Implementations: []invkfile.Implementation{
+		Implementations: []invowkfile.Implementation{
 			{
 				// Execute the script file that was provisioned to /workspace
 				Script: "./" + scriptFileName,
 
-				Runtimes: []invkfile.RuntimeConfig{
-					{Name: invkfile.RuntimeContainer, Image: "debian:stable-slim"},
+				Runtimes: []invowkfile.RuntimeConfig{
+					{Name: invowkfile.RuntimeContainer, Image: "debian:stable-slim"},
 				},
-				Platforms: []invkfile.PlatformConfig{{Name: invkfile.PlatformLinux}},
+				Platforms: []invowkfile.PlatformConfig{{Name: invowkfile.PlatformLinux}},
 			},
 		},
 	}
@@ -122,14 +122,14 @@ echo "Script executed from /workspace"
 }
 
 // TestContainerRuntime_ProvisioningLayer_NestedDirectories tests that nested directories
-// in the invkfile directory are correctly provisioned to /workspace.
+// in the invowkfile directory are correctly provisioned to /workspace.
 func TestContainerRuntime_ProvisioningLayer_NestedDirectories(t *testing.T) {
 	t.Parallel()
 	if testing.Short() {
 		t.Skip("skipping integration test in short mode")
 	}
 
-	tmpDir, inv := setupTestInvkfile(t)
+	tmpDir, inv := setupTestInvowkfile(t)
 
 	// Create a nested directory structure
 	nestedDir := filepath.Join(tmpDir, "scripts", "helpers")
@@ -145,16 +145,16 @@ func TestContainerRuntime_ProvisioningLayer_NestedDirectories(t *testing.T) {
 		t.Fatalf("Failed to write nested file: %v", err)
 	}
 
-	cmd := &invkfile.Command{
+	cmd := &invowkfile.Command{
 		Name: "test-nested-provision",
-		Implementations: []invkfile.Implementation{
+		Implementations: []invowkfile.Implementation{
 			{
 				Script: "cat /workspace/scripts/helpers/" + nestedFileName,
 
-				Runtimes: []invkfile.RuntimeConfig{
-					{Name: invkfile.RuntimeContainer, Image: "debian:stable-slim"},
+				Runtimes: []invowkfile.RuntimeConfig{
+					{Name: invowkfile.RuntimeContainer, Image: "debian:stable-slim"},
 				},
-				Platforms: []invkfile.PlatformConfig{{Name: invkfile.PlatformLinux}},
+				Platforms: []invowkfile.PlatformConfig{{Name: invowkfile.PlatformLinux}},
 			},
 		},
 	}
@@ -187,18 +187,18 @@ func TestContainerRuntime_ProvisioningLayer_WorkspaceIsCwd(t *testing.T) {
 		t.Skip("skipping integration test in short mode")
 	}
 
-	_, inv := setupTestInvkfile(t)
+	_, inv := setupTestInvowkfile(t)
 
-	cmd := &invkfile.Command{
+	cmd := &invowkfile.Command{
 		Name: "test-workspace-cwd",
-		Implementations: []invkfile.Implementation{
+		Implementations: []invowkfile.Implementation{
 			{
 				Script: "pwd",
 
-				Runtimes: []invkfile.RuntimeConfig{
-					{Name: invkfile.RuntimeContainer, Image: "debian:stable-slim"},
+				Runtimes: []invowkfile.RuntimeConfig{
+					{Name: invowkfile.RuntimeContainer, Image: "debian:stable-slim"},
 				},
-				Platforms: []invkfile.PlatformConfig{{Name: invkfile.PlatformLinux}},
+				Platforms: []invowkfile.PlatformConfig{{Name: invowkfile.PlatformLinux}},
 			},
 		},
 	}

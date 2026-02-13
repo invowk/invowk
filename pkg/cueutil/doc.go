@@ -2,8 +2,8 @@
 
 // Package cueutil provides shared CUE parsing utilities.
 //
-// The package consolidates the 3-step CUE parsing pattern used across invkfile,
-// invkmod, and config packages:
+// The package consolidates the 3-step CUE parsing pattern used across invowkfile,
+// invowkmod, and config packages:
 //
 //  1. Compile the embedded schema
 //  2. Compile user data and unify with schema
@@ -11,14 +11,14 @@
 //
 // # Usage
 //
-//	//go:embed invkfile_schema.cue
+//	//go:embed invowkfile_schema.cue
 //	var schemaBytes []byte
 //
-//	result, err := cueutil.ParseAndDecode[Invkfile](
+//	result, err := cueutil.ParseAndDecode[Invowkfile](
 //	    schemaBytes,
 //	    userFileBytes,
-//	    "#Invkfile",
-//	    cueutil.WithFilename("invkfile.cue"),
+//	    "#Invowkfile",
+//	    cueutil.WithFilename("invowkfile.cue"),
 //	)
 //	if err != nil {
 //	    return nil, err  // Error includes CUE path for debugging

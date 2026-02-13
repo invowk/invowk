@@ -1,6 +1,6 @@
 ---
 name: discovery
-description: Module/command discovery, precedence order, collision detection, source tracking. Use when working on internal/discovery/ files or modifying how invkfiles and modules are found and aggregated.
+description: Module/command discovery, precedence order, collision detection, source tracking. Use when working on internal/discovery/ files or modifying how invowkfiles and modules are found and aggregated.
 disable-model-invocation: false
 ---
 
@@ -22,15 +22,15 @@ The discovery system implements a **strict 4-level precedence hierarchy**:
 
 | Priority | Source | Description |
 |----------|--------|-------------|
-| 1 (Highest) | Current Directory | `invkfile.cue` in the working directory |
-| 2 | Local Modules | Sibling `*.invkmod` directories in current directory |
+| 1 (Highest) | Current Directory | `invowkfile.cue` in the working directory |
+| 2 | Local Modules | Sibling `*.invowkmod` directories in current directory |
 | 3 | Config Includes | Module paths from `config.Includes` |
 | 4 (Lowest) | User Commands | `~/.invowk/cmds/` — modules only, non-recursive |
 
 **Key Behavior:**
-- Non-module sources (current dir invkfile): First source **shadows** later ones
+- Non-module sources (current dir invowkfile): First source **shadows** later ones
 - Module commands: **All included** with ambiguity flagging for transparent namespace
-- User commands dir only discovers `*.invkmod` immediate children (no loose invkfiles, no recursion)
+- User commands dir only discovers `*.invowkmod` immediate children (no loose invowkfiles, no recursion)
 
 ---
 
@@ -38,16 +38,16 @@ The discovery system implements a **strict 4-level precedence hierarchy**:
 
 Discovery has two parallel tracks:
 
-### Track A: Invkfile Discovery
+### Track A: Invowkfile Discovery
 
 ```go
 // Single-level check (current directory only)
-discoverInDir(dir)  // Looks for invkfile.cue OR invkfile
+discoverInDir(dir)  // Looks for invowkfile.cue OR invowkfile
 ```
 
-**File Priority:** `.cue` extension preferred over non-suffixed `invkfile`
+**File Priority:** `.cue` extension preferred over non-suffixed `invowkfile`
 
-**Note:** Invkfile discovery is limited to the current directory. The user commands directory (`~/.invowk/cmds/`) only discovers modules, not loose invkfiles.
+**Note:** Invowkfile discovery is limited to the current directory. The user commands directory (`~/.invowk/cmds/`) only discovers modules, not loose invowkfiles.
 
 ### Track B: Module Discovery
 
@@ -57,8 +57,8 @@ discoverModulesInDir(dir)
 ```
 
 **Module Validation:**
-- Uses `invkmod.IsModule()` to verify directory structure
-- Skips reserved module name `"invkfile"` (reserved for canonical namespace)
+- Uses `invowkmod.IsModule()` to verify directory structure
+- Skips reserved module name `"invowkfile"` (reserved for canonical namespace)
 - **Graceful degradation**: Invalid modules are silently skipped
 
 ---
@@ -70,7 +70,7 @@ discoverModulesInDir(dir)
 ```go
 const (
     SourceCurrentDir   Source = iota  // "current directory"
-    SourceModule                      // "module" (from .invkmod)
+    SourceModule                      // "module" (from .invowkmod)
 )
 ```
 
@@ -82,9 +82,9 @@ Captures discovery metadata for each found file:
 type DiscoveredFile struct {
     Path     string           // Absolute path
     Source   Source           // Which source type
-    Invkfile *invkfile.Invkfile  // Parsed content (lazy-loaded)
+    Invowkfile *invowkfile.Invowkfile  // Parsed content (lazy-loaded)
     Error    error            // Parse errors if applicable
-    Module   *invkmod.Module  // Non-nil if from .invkmod
+    Module   *invowkmod.Module  // Non-nil if from .invowkmod
 }
 ```
 
@@ -97,12 +97,12 @@ type CommandInfo struct {
     Name        string  // Full name with prefix (e.g., "foo build")
     SimpleName  string  // Unprefixed name (e.g., "build")
     Source      Source
-    SourceID    string  // "invkfile" or module short name
+    SourceID    string  // "invowkfile" or module short name
     ModuleID    string  // Full module ID (e.g., "io.invowk.sample")
     IsAmbiguous bool    // True if SimpleName conflicts across sources
-    FilePath    string  // Absolute path to invkfile
-    Command     *invkfile.Command
-    Invkfile    *invkfile.Invkfile
+    FilePath    string  // Absolute path to invowkfile
+    Command     *invowkfile.Command
+    Invowkfile    *invowkfile.Invowkfile
 }
 ```
 
@@ -116,7 +116,7 @@ The aggregation system uses a **two-phase process with transparent namespace**:
 
 ```go
 // Get all commands with proper namespacing
-commands := invkfile.FlattenCommands()
+commands := invowkfile.FlattenCommands()
 
 // Modules have commands prefixed:
 // Module "foo" with command "build" → "foo build"
@@ -132,13 +132,13 @@ The `DiscoveredCommandSet` provides:
 | `BySimpleName` | Index: simple name → all commands with that name |
 | `AmbiguousNames` | Set of names that exist in >1 source |
 | `BySource` | Groups commands by source ID |
-| `SourceOrder` | Pre-sorted: "invkfile" first, then modules alphabetically |
+| `SourceOrder` | Pre-sorted: "invowkfile" first, then modules alphabetically |
 
 ### Precedence vs. Collision Handling
 
 | Source Type | Behavior |
 |-------------|----------|
-| Non-module (current dir invkfile) | First source **WINS** (shadows later) |
+| Non-module (current dir invowkfile) | First source **WINS** (shadows later) |
 | Module (local, config includes, user-dir) | **ALL included** with ambiguity flagging |
 
 **IsAmbiguous Flag:** Set to `true` when a simple name conflicts across sources. This enables:
@@ -154,7 +154,7 @@ The `DiscoveredCommandSet` provides:
 ```go
 type Module struct {
     Path    string          // Filesystem location
-    Invkmod *invkmod.Invkmod  // Parsed metadata from invkmod.cue
+    Invowkmod *invowkmod.Invowkmod  // Parsed metadata from invowkmod.cue
 }
 
 // Module commands are automatically namespaced
@@ -184,7 +184,7 @@ Commands can only call:
 
 1. Commands from the **same module**
 2. Commands from **globally installed modules** (`~/.invowk/modules/`)
-3. Commands from **first-level requirements** (direct dependencies in `invkmod.cue:requires`)
+3. Commands from **first-level requirements** (direct dependencies in `invowkmod.cue:requires`)
 
 **CRITICAL:** Transitive dependencies are **NOT accessible**. Commands cannot call dependencies of dependencies. This enforces explicit, auditable dependency chains.
 
@@ -243,7 +243,7 @@ commands, err := disc.DiscoverAndValidateCommands()  // Includes tree validation
 
 ```go
 cmdInfo, err := disc.GetCommand("foo build")
-// Returns Command, Invkfile, Module metadata
+// Returns Command, Invowkfile, Module metadata
 ```
 
 ---
@@ -279,7 +279,7 @@ cmdInfo, err := disc.GetCommand("foo build")
 | Pitfall | Symptom | Fix |
 |---------|---------|-----|
 | Expecting transitive deps | Command can't call dep-of-dep | Add explicit first-level requirement |
-| Forgetting disambiguation | "ambiguous command" error | Use `@source` prefix or `--invk-from` flag |
+| Forgetting disambiguation | "ambiguous command" error | Use `@source` prefix or `--ivk-from` flag |
 | Args + subcommands together | ArgsSubcommandConflictError | Make args-only or subcommands-only |
 | Testing non-module shadowing | Later source visible | Only first non-module source wins |
-| Module with reserved name "invkfile" | Module silently skipped | Use different module name |
+| Module with reserved name "invowkfile" | Module silently skipped | Use different module name |

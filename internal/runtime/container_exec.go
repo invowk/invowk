@@ -16,7 +16,7 @@ import (
 
 	"invowk-cli/internal/container"
 	"invowk-cli/internal/sshserver"
-	"invowk-cli/pkg/invkfile"
+	"invowk-cli/pkg/invowkfile"
 )
 
 // containerRunMu is a fallback mutex used when flock-based cross-process
@@ -80,10 +80,10 @@ func (r *ContainerRuntime) prepareContainerExecution(ctx *ExecutionContext) (_ *
 		return nil, &Result{ExitCode: 1, Error: fmt.Errorf("runtime config not found for container runtime")}
 	}
 	containerCfg := containerConfigFromRuntime(rtConfig)
-	invowkDir := filepath.Dir(ctx.Invkfile.FilePath)
+	invowkDir := filepath.Dir(ctx.Invowkfile.FilePath)
 
 	// Resolve the script content (from file or inline)
-	script, err := ctx.SelectedImpl.ResolveScript(ctx.Invkfile.FilePath)
+	script, err := ctx.SelectedImpl.ResolveScript(ctx.Invowkfile.FilePath)
 	if err != nil {
 		return nil, &Result{ExitCode: 1, Error: err}
 	}
@@ -104,7 +104,7 @@ func (r *ContainerRuntime) prepareContainerExecution(ctx *ExecutionContext) (_ *
 	}
 
 	// Build environment
-	env, err := r.envBuilder.Build(ctx, invkfile.EnvInheritNone)
+	env, err := r.envBuilder.Build(ctx, invowkfile.EnvInheritNone)
 	if err != nil {
 		return nil, &Result{ExitCode: 1, Error: fmt.Errorf("failed to build environment: %w", err)}
 	}
@@ -122,7 +122,7 @@ func (r *ContainerRuntime) prepareContainerExecution(ctx *ExecutionContext) (_ *
 
 	// Prepare volumes
 	volumes := containerCfg.Volumes
-	// Always mount the invkfile directory
+	// Always mount the invowkfile directory
 	volumes = append(volumes, fmt.Sprintf("%s:/workspace", invowkDir))
 
 	// Resolve interpreter (defaults to "auto" which parses shebang)

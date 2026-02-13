@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"invowk-cli/internal/runtime"
-	"invowk-cli/pkg/invkfile"
+	"invowk-cli/pkg/invowkfile"
 )
 
 // checkToolDependenciesWithRuntime verifies all required tools are available
@@ -18,7 +18,7 @@ import (
 // - virtual: check against built-in utilities
 // - container: check within the container environment
 // Each ToolDependency has alternatives with OR semantics (any alternative found satisfies the dependency)
-func checkToolDependenciesWithRuntime(deps *invkfile.DependsOn, runtimeMode invkfile.RuntimeMode, registry *runtime.Registry, ctx *runtime.ExecutionContext) error {
+func checkToolDependenciesWithRuntime(deps *invowkfile.DependsOn, runtimeMode invowkfile.RuntimeMode, registry *runtime.Registry, ctx *runtime.ExecutionContext) error {
 	if deps == nil || len(deps.Tools) == 0 {
 		return nil
 	}
@@ -32,11 +32,11 @@ func checkToolDependenciesWithRuntime(deps *invkfile.DependsOn, runtimeMode invk
 		for _, alt := range tool.Alternatives {
 			var err error
 			switch runtimeMode {
-			case invkfile.RuntimeContainer:
+			case invowkfile.RuntimeContainer:
 				err = validateToolInContainer(alt, registry, ctx)
-			case invkfile.RuntimeVirtual:
+			case invowkfile.RuntimeVirtual:
 				err = validateToolInVirtual(alt, registry, ctx)
-			case invkfile.RuntimeNative:
+			case invowkfile.RuntimeNative:
 				err = validateToolNative(alt)
 			}
 			if err == nil {
@@ -90,9 +90,9 @@ func validateToolInVirtual(toolName string, registry *runtime.Registry, ctx *run
 	var stdout, stderr bytes.Buffer
 	validationCtx := &runtime.ExecutionContext{
 		Command:         ctx.Command,
-		Invkfile:        ctx.Invkfile,
-		SelectedImpl:    &invkfile.Implementation{Script: checkScript, Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeVirtual}}},
-		SelectedRuntime: invkfile.RuntimeVirtual,
+		Invowkfile:      ctx.Invowkfile,
+		SelectedImpl:    &invowkfile.Implementation{Script: checkScript, Runtimes: []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeVirtual}}},
+		SelectedRuntime: invowkfile.RuntimeVirtual,
 		Context:         ctx.Context,
 		IO:              runtime.IOContext{Stdout: &stdout, Stderr: &stderr},
 		Env:             runtime.DefaultEnv(),
@@ -121,9 +121,9 @@ func validateToolInContainer(toolName string, registry *runtime.Registry, ctx *r
 	var stdout, stderr bytes.Buffer
 	validationCtx := &runtime.ExecutionContext{
 		Command:         ctx.Command,
-		Invkfile:        ctx.Invkfile,
-		SelectedImpl:    &invkfile.Implementation{Script: checkScript, Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeContainer}}},
-		SelectedRuntime: invkfile.RuntimeContainer,
+		Invowkfile:      ctx.Invowkfile,
+		SelectedImpl:    &invowkfile.Implementation{Script: checkScript, Runtimes: []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeContainer}}},
+		SelectedRuntime: invowkfile.RuntimeContainer,
 		Context:         ctx.Context,
 		IO:              runtime.IOContext{Stdout: &stdout, Stderr: &stderr},
 		Env:             runtime.DefaultEnv(),
@@ -139,7 +139,7 @@ func validateToolInContainer(toolName string, registry *runtime.Registry, ctx *r
 
 // checkToolDependencies verifies all required tools are available (legacy - uses native only).
 // Each ToolDependency contains a list of alternatives; if any alternative is found, the dependency is satisfied.
-func checkToolDependencies(cmd *invkfile.Command) error {
+func checkToolDependencies(cmd *invowkfile.Command) error {
 	if cmd.DependsOn == nil || len(cmd.DependsOn.Tools) == 0 {
 		return nil
 	}

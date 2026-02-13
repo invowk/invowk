@@ -6,7 +6,7 @@ import Snippet from '@site/src/components/Snippet';
 
 # Module Dependency CLI Commands
 
-Invowk provides a set of `invowk module` commands for managing module dependencies declared in `invkmod.cue`.
+Invowk provides a set of `invowk module` commands for managing module dependencies declared in `invowkmod.cue`.
 
 ## Command Overview
 
@@ -15,13 +15,13 @@ Invowk provides a set of `invowk module` commands for managing module dependenci
 | `invowk module add` | Resolve a dependency and print a `requires` entry |
 | `invowk module remove` | Remove a dependency from the lock file |
 | `invowk module deps` | List resolved dependencies |
-| `invowk module sync` | Resolve dependencies from `invkmod.cue` |
+| `invowk module sync` | Resolve dependencies from `invowkmod.cue` |
 | `invowk module update` | Update dependencies to latest matching versions |
-| `invowk module vendor` | Vendor dependencies into `invk_modules/` (partial) |
+| `invowk module vendor` | Vendor dependencies into `invowk_modules/` (partial) |
 
 ## invowk module add
 
-Resolve a dependency and print the `requires` entry to add to `invkmod.cue`.
+Resolve a dependency and print the `requires` entry to add to `invowkmod.cue`.
 
 ### Usage
 
@@ -50,7 +50,7 @@ Resolve a dependency and print the `requires` entry to add to `invkmod.cue`.
 <Snippet id="modules/dependencies/cli/add-output" />
 
 :::note
-`invowk module add` does not edit `invkmod.cue` for you. Copy the printed `requires` entry into your module metadata, then run `invowk module sync`.
+`invowk module add` does not edit `invowkmod.cue` for you. Copy the printed `requires` entry into your module metadata, then run `invowk module sync`.
 :::
 
 ## invowk module remove
@@ -76,7 +76,7 @@ Remove a dependency from the lock file.
 <Snippet id="modules/dependencies/cli/remove-output" />
 
 :::note
-This command only removes the dependency from the lock file. You must manually remove the `requires` entry from `invkmod.cue`. Cached files are not deleted.
+This command only removes the dependency from the lock file. You must manually remove the `requires` entry from `invowkmod.cue`. Cached files are not deleted.
 :::
 
 ## invowk module deps
@@ -97,7 +97,7 @@ List all resolved dependencies from the lock file.
 
 ## invowk module sync
 
-Sync all dependencies declared in `invkmod.cue`. This reads the `requires` field, resolves version constraints, downloads modules, and updates the lock file.
+Sync all dependencies declared in `invowkmod.cue`. This reads the `requires` field, resolves version constraints, downloads modules, and updates the lock file.
 
 ### Usage
 
@@ -139,7 +139,7 @@ Update dependencies to their latest versions matching the declared constraints.
 
 ## invowk module vendor
 
-Vendor dependencies into the `invk_modules/` directory for offline use and distribution.
+Vendor dependencies into the `invowk_modules/` directory for offline use and distribution.
 
 ### Usage
 
@@ -187,6 +187,6 @@ Vendoring is currently a preview. The command reports what would be vendored and
 | 0 | Success |
 | 1 | General error |
 | 1 | Module not found (for remove) |
-| 1 | No invkmod.cue found (for sync) |
+| 1 | No invowkmod.cue found (for sync) |
 | 1 | Version resolution failed |
 | 1 | Git clone/fetch failed |

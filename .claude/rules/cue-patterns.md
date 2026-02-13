@@ -1,8 +1,8 @@
 ---
 paths:
   - "**/*.cue"
-  - "pkg/invkfile/**"
-  - "pkg/invkmod/**"
+  - "pkg/invowkfile/**"
+  - "pkg/invowkmod/**"
   - "internal/config/**"
   - "pkg/cueutil/**"
 ---

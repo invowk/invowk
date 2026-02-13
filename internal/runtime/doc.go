@@ -16,5 +16,5 @@
 //
 // Environment variable building follows a 10-level precedence hierarchy managed by EnvBuilder.
 // See env_builder.go for the full precedence order, from host environment (lowest) to
-// --invk-env-var CLI flags (highest).
+// --ivk-env-var CLI flags (highest).
 package runtime

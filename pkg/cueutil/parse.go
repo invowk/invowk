@@ -28,7 +28,7 @@ type ParseResult[T any] struct {
 // Parameters:
 //   - schema: The embedded CUE schema bytes (from //go:embed)
 //   - data: The user-provided CUE file bytes
-//   - schemaPath: The path to the root definition (e.g., "#Invkfile", "#Config")
+//   - schemaPath: The path to the root definition (e.g., "#Invowkfile", "#Config")
 //   - opts: Optional configuration
 //
 // Returns:

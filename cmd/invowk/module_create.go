@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"invowk-cli/pkg/invkmod"
+	"invowk-cli/pkg/invowkmod"
 
 	"github.com/spf13/cobra"
 )
@@ -43,8 +43,8 @@ Examples:
 
 	cmd.Flags().StringVarP(&createPath, "path", "p", "", "parent directory for the module (default: current directory)")
 	cmd.Flags().BoolVar(&createScripts, "scripts", false, "create a scripts/ subdirectory")
-	cmd.Flags().StringVarP(&createModule, "module-id", "g", "", "module identifier for invkmod.cue (default: module name)")
-	cmd.Flags().StringVarP(&createDescription, "description", "d", "", "description for invkmod.cue")
+	cmd.Flags().StringVarP(&createModule, "module-id", "g", "", "module identifier for invowkmod.cue (default: module name)")
+	cmd.Flags().StringVarP(&createDescription, "description", "d", "", "description for invowkmod.cue")
 
 	return cmd
 }
@@ -53,14 +53,14 @@ func runModuleCreate(args []string, createPath string, createScripts bool, creat
 	moduleName := args[0]
 
 	// Validate module name first
-	if err := invkmod.ValidateName(moduleName); err != nil {
+	if err := invowkmod.ValidateName(moduleName); err != nil {
 		return err
 	}
 
 	fmt.Println(moduleTitleStyle.Render("Create Module"))
 
 	// Create the module
-	opts := invkmod.CreateOptions{
+	opts := invowkmod.CreateOptions{
 		Name:             moduleName,
 		ParentDir:        createPath,
 		Module:           createModule,
@@ -68,7 +68,7 @@ func runModuleCreate(args []string, createPath string, createScripts bool, creat
 		CreateScriptsDir: createScripts,
 	}
 
-	modulePath, err := invkmod.Create(opts)
+	modulePath, err := invowkmod.Create(opts)
 	if err != nil {
 		return fmt.Errorf("failed to create module: %w", err)
 	}
@@ -84,7 +84,7 @@ func runModuleCreate(args []string, createPath string, createScripts bool, creat
 
 	fmt.Println()
 	fmt.Printf("%s Next steps:\n", moduleInfoIcon)
-	fmt.Printf("   1. Edit %s to add your commands\n", modulePathStyle.Render(filepath.Join(modulePath, "invkfile.cue")))
+	fmt.Printf("   1. Edit %s to add your commands\n", modulePathStyle.Render(filepath.Join(modulePath, "invowkfile.cue")))
 	if createScripts {
 		fmt.Printf("   2. Add script files to %s\n", modulePathStyle.Render(filepath.Join(modulePath, "scripts")))
 	}

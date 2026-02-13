@@ -16,10 +16,10 @@ When the same command name exists in multiple locations:
 
 | Priority | Source | Example Path |
 |----------|--------|--------------|
-| 1 (highest) | Current directory invkfile | `./invkfile.cue` |
-| 2 | Local modules | `./mytools.invkmod/` |
+| 1 (highest) | Current directory invowkfile | `./invowkfile.cue` |
+| 2 | Local modules | `./mytools.invowkmod/` |
 | 3 | Configured includes | Module paths from `config.Includes` |
-| 4 (lowest) | User commands directory | `~/.invowk/cmds/*.invkmod` (modules only, non-recursive) |
+| 4 (lowest) | User commands directory | `~/.invowk/cmds/*.invowkmod` (modules only, non-recursive) |
 
 **Key principle**: Explicit configuration takes precedence over implicit discovery. The user commands directory acts as a catch-all module shelf for globally available modules.
 
@@ -30,7 +30,7 @@ When the same command name exists in multiple locations:
 ### Required Module Fields
 
 ```cue
-// invkmod.cue
+// invowkmod.cue
 module: "com.example.mymodule"  // RDNS naming convention
 version: "1.0.0"                // Semantic version
 
@@ -54,7 +54,7 @@ requires: [
 |------|------------|---------------|
 | Module A | A's commands, B's commands | C's commands (transitive) |
 | Module B | B's commands, C's commands | - |
-| Root invkfile | Own commands, direct deps | Transitive deps |
+| Root invowkfile | Own commands, direct deps | Transitive deps |
 
 **Why this restriction?**
 - Prevents implicit coupling to transitive dependencies
@@ -63,12 +63,12 @@ requires: [
 
 ## Includes Configuration
 
-Additional invkfiles and modules are configured in `~/.config/invowk/config.cue`:
+Additional invowkfiles and modules are configured in `~/.config/invowk/config.cue`:
 
 ```cue
 includes: [
-    {path: "/opt/company-invowk-modules/tools.invkmod"},
-    {path: "/home/shared/invowk/invkfile.cue"},
+    {path: "/opt/company-invowk-modules/tools.invowkmod"},
+    {path: "/home/shared/invowk/invowkfile.cue"},
 ]
 ```
 
@@ -90,13 +90,13 @@ includes: [
 
 ```bash
 # List all discovered commands with sources
-invowk cmd --invk-verbose
+invowk cmd --ivk-verbose
 
 # Show discovery order and conflicts
 invowk internal discovery --debug
 
 # Validate module structure
-invowk module validate ./mymodule.invkmod
+invowk module validate ./mymodule.invowkmod
 ```
 
 ## Related Diagrams

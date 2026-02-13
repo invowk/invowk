@@ -13,7 +13,7 @@ Validate that CUE schema definitions and Go struct JSON tags are in sync.
 
 Invoke this skill (`/schema-sync-check`) after:
 - Editing any CUE schema file (`*_schema.cue`)
-- Adding or modifying JSON tags on Go structs in `pkg/invkfile/`, `pkg/invkmod/`, or `internal/config/`
+- Adding or modifying JSON tags on Go structs in `pkg/invowkfile/`, `pkg/invowkmod/`, or `internal/config/`
 - Renaming CUE fields or Go struct fields
 - Adding new CUE definitions with corresponding Go types
 
@@ -23,8 +23,8 @@ Invoke this skill (`/schema-sync-check`) after:
 
 | Schema | Go Package | Sync Test |
 |--------|-----------|-----------|
-| `pkg/invkfile/invkfile_schema.cue` | `pkg/invkfile/` | `pkg/invkfile/sync_test.go` |
-| `pkg/invkmod/invkmod_schema.cue` | `pkg/invkmod/` | `pkg/invkmod/sync_test.go` |
+| `pkg/invowkfile/invowkfile_schema.cue` | `pkg/invowkfile/` | `pkg/invowkfile/sync_test.go` |
+| `pkg/invowkmod/invowkmod_schema.cue` | `pkg/invowkmod/` | `pkg/invowkmod/sync_test.go` |
 | `internal/config/config_schema.cue` | `internal/config/types.go` | `internal/config/sync_test.go` |
 
 ### Sync Test Pattern
@@ -39,7 +39,7 @@ Each sync test verifies:
 ### Step 1: Run Sync Tests
 
 ```bash
-go test -v -run Sync ./pkg/invkfile/ ./pkg/invkmod/ ./internal/config/
+go test -v -run Sync ./pkg/invowkfile/ ./pkg/invowkmod/ ./internal/config/
 ```
 
 ### Step 2: Interpret Results
@@ -72,7 +72,7 @@ For each mismatch, determine the correct action:
 After fixes, run the sync tests again to confirm:
 
 ```bash
-go test -v -run Sync ./pkg/invkfile/ ./pkg/invkmod/ ./internal/config/
+go test -v -run Sync ./pkg/invowkfile/ ./pkg/invowkmod/ ./internal/config/
 ```
 
 ### Step 5: Run Full Test Suite

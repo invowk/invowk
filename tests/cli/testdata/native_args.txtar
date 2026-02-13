@@ -62,7 +62,7 @@ stderr 'env'
 stderr 'Invalid argument value'
 stderr 'version'
 
--- invkfile.cue --
+-- invowkfile.cue --
 cmds: [
 	{
 		name:        "args simple"

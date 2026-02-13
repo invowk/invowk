@@ -15,7 +15,7 @@ import (
 	"invowk-cli/internal/container"
 	"invowk-cli/internal/sshserver"
 	"invowk-cli/internal/testutil"
-	"invowk-cli/pkg/invkfile"
+	"invowk-cli/pkg/invowkfile"
 )
 
 // TestContainerRuntime_Integration tests the container runtime with real containers.
@@ -73,18 +73,18 @@ func TestContainerRuntime_Integration(t *testing.T) {
 // testContainerBasicExecution tests basic command execution in a container
 func testContainerBasicExecution(t *testing.T) {
 	t.Helper()
-	_, inv := setupTestInvkfile(t)
+	_, inv := setupTestInvowkfile(t)
 
-	cmd := &invkfile.Command{
+	cmd := &invowkfile.Command{
 		Name: "test-basic",
-		Implementations: []invkfile.Implementation{
+		Implementations: []invowkfile.Implementation{
 			{
 				Script: "echo 'Hello from container'",
 
-				Runtimes: []invkfile.RuntimeConfig{
-					{Name: invkfile.RuntimeContainer, Image: "debian:stable-slim"},
+				Runtimes: []invowkfile.RuntimeConfig{
+					{Name: invowkfile.RuntimeContainer, Image: "debian:stable-slim"},
 				},
-				Platforms: []invkfile.PlatformConfig{{Name: invkfile.PlatformLinux}},
+				Platforms: []invowkfile.PlatformConfig{{Name: invowkfile.PlatformLinux}},
 			},
 		},
 	}
@@ -111,25 +111,25 @@ func testContainerBasicExecution(t *testing.T) {
 // testContainerEnvironmentVariables tests environment variable handling in containers
 func testContainerEnvironmentVariables(t *testing.T) {
 	t.Helper()
-	_, inv := setupTestInvkfile(t)
+	_, inv := setupTestInvowkfile(t)
 
-	currentPlatform := invkfile.GetCurrentHostOS()
-	cmd := &invkfile.Command{
+	currentPlatform := invowkfile.GetCurrentHostOS()
+	cmd := &invowkfile.Command{
 		Name: "test-env",
-		Implementations: []invkfile.Implementation{
+		Implementations: []invowkfile.Implementation{
 			{
 				Script: `echo "VAR1=$MY_VAR1 VAR2=$MY_VAR2"`,
 
-				Runtimes: []invkfile.RuntimeConfig{
-					{Name: invkfile.RuntimeContainer, Image: "debian:stable-slim"},
+				Runtimes: []invowkfile.RuntimeConfig{
+					{Name: invowkfile.RuntimeContainer, Image: "debian:stable-slim"},
 				},
-				Platforms: []invkfile.PlatformConfig{
+				Platforms: []invowkfile.PlatformConfig{
 					{Name: currentPlatform},
 				},
-				Env: &invkfile.EnvConfig{Vars: map[string]string{"MY_VAR1": "impl_value"}},
+				Env: &invowkfile.EnvConfig{Vars: map[string]string{"MY_VAR1": "impl_value"}},
 			},
 		},
-		Env: &invkfile.EnvConfig{
+		Env: &invowkfile.EnvConfig{
 			Vars: map[string]string{
 				"MY_VAR2": "command_value",
 			},
@@ -161,23 +161,23 @@ func testContainerEnvironmentVariables(t *testing.T) {
 // testContainerMultiLineScript tests multi-line script execution in containers
 func testContainerMultiLineScript(t *testing.T) {
 	t.Helper()
-	_, inv := setupTestInvkfile(t)
+	_, inv := setupTestInvowkfile(t)
 
 	script := `echo "Line 1"
 echo "Line 2"
 VAR="hello"
 echo "Variable: $VAR"`
 
-	cmd := &invkfile.Command{
+	cmd := &invowkfile.Command{
 		Name: "test-multiline",
-		Implementations: []invkfile.Implementation{
+		Implementations: []invowkfile.Implementation{
 			{
 				Script: script,
 
-				Runtimes: []invkfile.RuntimeConfig{
-					{Name: invkfile.RuntimeContainer, Image: "debian:stable-slim"},
+				Runtimes: []invowkfile.RuntimeConfig{
+					{Name: invowkfile.RuntimeContainer, Image: "debian:stable-slim"},
 				},
-				Platforms: []invkfile.PlatformConfig{{Name: invkfile.PlatformLinux}},
+				Platforms: []invowkfile.PlatformConfig{{Name: invowkfile.PlatformLinux}},
 			},
 		},
 	}
@@ -210,7 +210,7 @@ echo "Variable: $VAR"`
 // testContainerWorkingDirectory tests working directory handling in containers
 func testContainerWorkingDirectory(t *testing.T) {
 	t.Helper()
-	tmpDir, inv := setupTestInvkfile(t)
+	tmpDir, inv := setupTestInvowkfile(t)
 
 	// Create a subdirectory in the temp directory
 	subDir := filepath.Join(tmpDir, "subdir")
@@ -218,17 +218,17 @@ func testContainerWorkingDirectory(t *testing.T) {
 		t.Fatalf("Failed to create subdir: %v", err)
 	}
 
-	cmd := &invkfile.Command{
+	cmd := &invowkfile.Command{
 		Name:    "test-workdir",
 		WorkDir: "subdir",
-		Implementations: []invkfile.Implementation{
+		Implementations: []invowkfile.Implementation{
 			{
 				Script: "pwd",
 
-				Runtimes: []invkfile.RuntimeConfig{
-					{Name: invkfile.RuntimeContainer, Image: "debian:stable-slim"},
+				Runtimes: []invowkfile.RuntimeConfig{
+					{Name: invowkfile.RuntimeContainer, Image: "debian:stable-slim"},
 				},
-				Platforms: []invkfile.PlatformConfig{{Name: invkfile.PlatformLinux}},
+				Platforms: []invowkfile.PlatformConfig{{Name: invowkfile.PlatformLinux}},
 			},
 		},
 	}
@@ -256,7 +256,7 @@ func testContainerWorkingDirectory(t *testing.T) {
 // testContainerVolumeMounts tests volume mounting in containers
 func testContainerVolumeMounts(t *testing.T) {
 	t.Helper()
-	tmpDir, inv := setupTestInvkfile(t)
+	tmpDir, inv := setupTestInvowkfile(t)
 
 	// Create a file to mount
 	testFile := filepath.Join(tmpDir, "test-data.txt")
@@ -275,20 +275,20 @@ func testContainerVolumeMounts(t *testing.T) {
 		t.Fatalf("Failed to write data file: %v", err)
 	}
 
-	cmd := &invkfile.Command{
+	cmd := &invowkfile.Command{
 		Name: "test-volumes",
-		Implementations: []invkfile.Implementation{
+		Implementations: []invowkfile.Implementation{
 			{
 				Script: `cat /workspace/test-data.txt && echo "" && cat /data/data.txt`,
 
-				Runtimes: []invkfile.RuntimeConfig{
+				Runtimes: []invowkfile.RuntimeConfig{
 					{
-						Name:    invkfile.RuntimeContainer,
+						Name:    invowkfile.RuntimeContainer,
 						Image:   "debian:stable-slim",
 						Volumes: []string{dataDir + ":/data:ro"},
 					},
 				},
-				Platforms: []invkfile.PlatformConfig{{Name: invkfile.PlatformLinux}},
+				Platforms: []invowkfile.PlatformConfig{{Name: invowkfile.PlatformLinux}},
 			},
 		},
 	}
@@ -318,18 +318,18 @@ func testContainerVolumeMounts(t *testing.T) {
 // testContainerExitCode tests that non-zero exit codes are properly propagated
 func testContainerExitCode(t *testing.T) {
 	t.Helper()
-	_, inv := setupTestInvkfile(t)
+	_, inv := setupTestInvowkfile(t)
 
-	cmd := &invkfile.Command{
+	cmd := &invowkfile.Command{
 		Name: "test-exit-code",
-		Implementations: []invkfile.Implementation{
+		Implementations: []invowkfile.Implementation{
 			{
 				Script: "exit 42",
 
-				Runtimes: []invkfile.RuntimeConfig{
-					{Name: invkfile.RuntimeContainer, Image: "debian:stable-slim"},
+				Runtimes: []invowkfile.RuntimeConfig{
+					{Name: invowkfile.RuntimeContainer, Image: "debian:stable-slim"},
 				},
-				Platforms: []invkfile.PlatformConfig{{Name: invkfile.PlatformLinux}},
+				Platforms: []invowkfile.PlatformConfig{{Name: invowkfile.PlatformLinux}},
 			},
 		},
 	}
@@ -351,18 +351,18 @@ func testContainerExitCode(t *testing.T) {
 // testContainerPositionalArgs tests that positional arguments are accessible via $1, $2, $@ in containers
 func testContainerPositionalArgs(t *testing.T) {
 	t.Helper()
-	_, inv := setupTestInvkfile(t)
+	_, inv := setupTestInvowkfile(t)
 
-	cmd := &invkfile.Command{
+	cmd := &invowkfile.Command{
 		Name: "test-positional-args",
-		Implementations: []invkfile.Implementation{
+		Implementations: []invowkfile.Implementation{
 			{
 				Script: `echo "ARG1=$1 ARG2=$2 ALL=$@ COUNT=$#"`,
 
-				Runtimes: []invkfile.RuntimeConfig{
-					{Name: invkfile.RuntimeContainer, Image: "debian:stable-slim"},
+				Runtimes: []invowkfile.RuntimeConfig{
+					{Name: invowkfile.RuntimeContainer, Image: "debian:stable-slim"},
 				},
-				Platforms: []invkfile.PlatformConfig{{Name: invkfile.PlatformLinux}},
+				Platforms: []invowkfile.PlatformConfig{{Name: invowkfile.PlatformLinux}},
 			},
 		},
 	}
@@ -399,18 +399,18 @@ func testContainerPositionalArgs(t *testing.T) {
 // testContainerEnableHostSSHEnvVars tests that SSH environment variables are provided when enable_host_ssh is true
 func testContainerEnableHostSSHEnvVars(t *testing.T) {
 	t.Helper()
-	_, inv := setupTestInvkfile(t)
+	_, inv := setupTestInvowkfile(t)
 
-	cmd := &invkfile.Command{
+	cmd := &invowkfile.Command{
 		Name: "test-ssh-env",
-		Implementations: []invkfile.Implementation{
+		Implementations: []invowkfile.Implementation{
 			{
 				Script: `echo "SSH_HOST=$INVOWK_SSH_HOST SSH_PORT=$INVOWK_SSH_PORT SSH_USER=$INVOWK_SSH_USER SSH_ENABLED=$INVOWK_SSH_ENABLED"`,
 
-				Runtimes: []invkfile.RuntimeConfig{
-					{Name: invkfile.RuntimeContainer, Image: "debian:stable-slim", EnableHostSSH: true},
+				Runtimes: []invowkfile.RuntimeConfig{
+					{Name: invowkfile.RuntimeContainer, Image: "debian:stable-slim", EnableHostSSH: true},
 				},
-				Platforms: []invkfile.PlatformConfig{{Name: invkfile.PlatformLinux}},
+				Platforms: []invowkfile.PlatformConfig{{Name: invowkfile.PlatformLinux}},
 			},
 		},
 	}
@@ -448,10 +448,10 @@ func testContainerEnableHostSSHEnvVars(t *testing.T) {
 
 // Helper functions
 
-// setupTestInvkfile creates a temporary directory and invkfile for testing.
+// setupTestInvowkfile creates a temporary directory and invowkfile for testing.
 // It uses a non-hidden directory under $HOME/invowk-test/ because Docker installed via snap
 // cannot access hidden directories (those starting with '.') due to snap's home interface limitations.
-func setupTestInvkfile(t *testing.T) (string, *invkfile.Invkfile) {
+func setupTestInvowkfile(t *testing.T) (string, *invowkfile.Invowkfile) {
 	t.Helper()
 
 	// Create base directory for tests in user's home (not hidden - no leading dot)
@@ -476,10 +476,10 @@ func setupTestInvkfile(t *testing.T) (string, *invkfile.Invkfile) {
 		testutil.MustRemoveAll(t, tmpDir)
 	})
 
-	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 
-	inv := &invkfile.Invkfile{
-		FilePath: invkfilePath,
+	inv := &invowkfile.Invowkfile{
+		FilePath: invowkfilePath,
 	}
 
 	return tmpDir, inv

@@ -34,14 +34,14 @@ priority1: Priority 1: Current Directory {
     fill: transparent
   }
 
-  PWD: Check ./invkfile.cue
+  PWD: Check ./invowkfile.cue
 
   HasPWD: Found? {
     shape: diamond
     style.fill: "#FFF3E0"
   }
 
-  ParsePWD: Parse invkfile.cue\nPriority: HIGHEST {
+  ParsePWD: Parse invowkfile.cue\nPriority: HIGHEST {
     style.fill: "#C8E6C9"
   }
 
@@ -65,7 +65,7 @@ priority2: Priority 2: Local Modules {
     fill: transparent
   }
 
-  Modules: Scan for ./*.invkmod
+  Modules: Scan for ./*.invowkmod
 
   HasMods: Found modules? {
     shape: diamond
@@ -132,14 +132,14 @@ priority3: Priority 3: User Directory {
     fill: transparent
   }
 
-  UserDir: Check ~/.invowk/cmds/\n(invkfiles AND modules)
+  UserDir: Check ~/.invowk/cmds/\n(invowkfiles AND modules)
 
   HasUser: Found? {
     shape: diamond
     style.fill: "#FFF3E0"
   }
 
-  ParseUser: Parse user invkfiles\nand *.invkmod modules {
+  ParseUser: Parse user invowkfiles\nand *.invowkmod modules {
     style.fill: "#BBDEFB"
   }
 
@@ -164,14 +164,14 @@ priority4: Priority 4: Configured Includes {
     fill: transparent
   }
 
-  SearchPaths: Check configured\nincludes\n(invkfiles AND modules)
+  SearchPaths: Check configured\nincludes\n(invowkfiles AND modules)
 
   HasPaths: Found? {
     shape: diamond
     style.fill: "#FFF3E0"
   }
 
-  ParsePaths: Parse invkfiles and\n*.invkmod modules\nPriority: LOWEST {
+  ParsePaths: Parse invowkfiles and\n*.invowkmod modules\nPriority: LOWEST {
     style.fill: "#FFE4B5"
   }
 

@@ -23,10 +23,10 @@ The CLI is organized under `root.go` with these main command groups:
 
 | Command | Description |
 |---------|-------------|
-| `invowk cmd` | Dynamic command execution (discovered from invkfiles/modules) |
+| `invowk cmd` | Dynamic command execution (discovered from invowkfiles/modules) |
 | `invowk module` | Module management (validate, create, alias, deps) |
 | `invowk config` | Configuration management |
-| `invowk init` | Initialize new invkfiles |
+| `invowk init` | Initialize new invowkfiles |
 | `invowk tui` | Interactive terminal UI components (gum-like) |
 | `invowk internal` | **Hidden** internal commands |
 | `invowk completion` | Shell completion |
@@ -75,7 +75,7 @@ invowk cmd build
 
 # Multiple sources define "deploy" → requires disambiguation
 invowk cmd @foo deploy      # Using @source prefix
-invowk cmd --invk-from foo deploy  # Using --invk-from flag
+invowk cmd --ivk-from foo deploy  # Using --ivk-from flag
 ```
 
 ### Hierarchical Tree Building
@@ -167,23 +167,23 @@ Two methods for specifying command source:
 ### @source Prefix (First Argument)
 
 ```bash
-invowk cmd @foo deploy      # Run deploy from foo.invkmod
-invowk cmd @invkfile build  # Run build from invkfile.cue
+invowk cmd @foo deploy      # Run deploy from foo.invowkmod
+invowk cmd @invowkfile build  # Run build from invowkfile.cue
 ```
 
-### --invk-from Flag
+### --ivk-from Flag
 
 ```bash
-invowk cmd --invk-from foo deploy
+invowk cmd --ivk-from foo deploy
 ```
 
 ### Source Name Normalization
 
 `normalizeSourceName()` handles various formats:
 - `"foo"` → `"foo"`
-- `"foo.invkmod"` → `"foo"`
-- `"invkfile"` → `"invkfile"`
-- `"invkfile.cue"` → `"invkfile"`
+- `"foo.invowkmod"` → `"foo"`
+- `"invowkfile"` → `"invowkfile"`
+- `"invowkfile.cue"` → `"invowkfile"`
 
 ---
 
@@ -239,17 +239,17 @@ Unified color palette (`styles.go`):
 ### Root Command (Persistent)
 
 ```go
---invk-verbose, -v     // Enable verbose output
---invk-config          // Custom config file path
---invk-interactive, -i // Run in alternate screen buffer
+--ivk-verbose, -v     // Enable verbose output
+--ivk-config          // Custom config file path
+--ivk-interactive, -i // Run in alternate screen buffer
 ```
 
 ### Cmd Command
 
 ```go
---invk-runtime, -r     // Override runtime (must be allowed)
---invk-from            // Specify source for disambiguation
---invk-force-rebuild   // Force container image rebuild
+--ivk-runtime, -r     // Override runtime (must be allowed)
+--ivk-from            // Specify source for disambiguation
+--ivk-force-rebuild   // Force container image rebuild
 ```
 
 ---
@@ -262,7 +262,7 @@ Flow from `root.go`:
 Execute()
     ↓
 cobra.OnInitialize(initRootConfig)
-    ├── Apply --invk-config flag override
+    ├── Apply --ivk-config flag override
     ├── Load config via config.Load()
     ├── Surface errors as warnings (non-fatal)
     ├── Apply verbose/interactive from config if not set via flags
@@ -323,7 +323,7 @@ files, err := disc.DiscoverAll()
 | Principle | Implementation |
 |-----------|----------------|
 | Transparent namespace | Users don't specify source for unambiguous commands |
-| Explicit disambiguation | Require @source or --invk-from for ambiguous commands |
+| Explicit disambiguation | Require @source or --ivk-from for ambiguous commands |
 | Platform-aware execution | Different runtimes, validation per platform |
 | Dual-layer TUI | Support standalone and server-delegated rendering |
 | Styled consistency | Unified color palette across all output |

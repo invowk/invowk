@@ -6,7 +6,7 @@
 # Skip if running inside Flatpak/Snap sandbox (filesystem permissions may prevent volume mounts)
 [in-sandbox] skip 'container tests may require --filesystem permissions in sandbox - run tests on host or grant permissions'
 
-# Change to work directory where local invkfile.cue is located
+# Change to work directory where local invowkfile.cue is located
 cd $WORK
 
 # Test 1: Single argument
@@ -24,7 +24,7 @@ stdout 'Second: bar'
 exec invowk cmd echo-arg
 stdout 'Argument: <none>'
 
--- invkfile.cue --
+-- invowkfile.cue --
 cmds: [
 	{
 		name: "echo-arg"

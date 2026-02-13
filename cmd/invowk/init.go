@@ -7,7 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"invowk-cli/pkg/invkfile"
+	"invowk-cli/pkg/invowkfile"
 
 	"github.com/spf13/cobra"
 )
@@ -21,24 +21,24 @@ func newInitCommand() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "init",
-		Short: "Create a new invkfile in the current directory",
-		Long: `Create a new invkfile in the current directory with example commands.
+		Short: "Create a new invowkfile in the current directory",
+		Long: `Create a new invowkfile in the current directory with example commands.
 
-This command generates a starter invkfile with sample commands to help
+This command generates a starter invowkfile with sample commands to help
 you get started quickly.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runInit(cmd, args, force, template)
 		},
 	}
 
-	cmd.Flags().BoolVarP(&force, "force", "f", false, "overwrite existing invkfile")
+	cmd.Flags().BoolVarP(&force, "force", "f", false, "overwrite existing invowkfile")
 	cmd.Flags().StringVarP(&template, "template", "t", "default", "template to use (default, minimal, full)")
 
 	return cmd
 }
 
 func runInit(_ *cobra.Command, args []string, force bool, template string) error {
-	filename := "invkfile.cue"
+	filename := "invowkfile.cue"
 	if len(args) > 0 {
 		filename = args[0]
 	}
@@ -49,7 +49,7 @@ func runInit(_ *cobra.Command, args []string, force bool, template string) error
 	}
 
 	// Generate content based on template
-	content := generateInvkfile(template)
+	content := generateInvowkfile(template)
 
 	// Write file
 	if err := os.WriteFile(filename, []byte(content), 0o644); err != nil {
@@ -60,28 +60,28 @@ func runInit(_ *cobra.Command, args []string, force bool, template string) error
 	fmt.Printf("%s Created %s\n", SuccessStyle.Render("✓"), absPath)
 	fmt.Println()
 	fmt.Println(SubtitleStyle.Render("Next steps:"))
-	fmt.Println("  1. Edit the invkfile to add your commands")
+	fmt.Println("  1. Edit the invowkfile to add your commands")
 	fmt.Println("  2. Run 'invowk cmd' to see available commands")
 	fmt.Println("  3. Run 'invowk cmd <command>' to execute a command")
 
 	return nil
 }
 
-func generateInvkfile(template string) string {
-	var inv *invkfile.Invkfile
+func generateInvowkfile(template string) string {
+	var inv *invowkfile.Invowkfile
 
 	switch template {
 	case "minimal":
-		// invkfile.cue contains only commands - module metadata goes in invkmod.cue
-		inv = &invkfile.Invkfile{
-			Commands: []invkfile.Command{
+		// invowkfile.cue contains only commands - module metadata goes in invowkmod.cue
+		inv = &invowkfile.Invowkfile{
+			Commands: []invowkfile.Command{
 				{
 					Name:        "hello",
 					Description: "Print a greeting",
-					Implementations: []invkfile.Implementation{
+					Implementations: []invowkfile.Implementation{
 						{
 							Script:   "echo 'Hello from invowk!'",
-							Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeNative}},
+							Runtimes: []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeNative}},
 						},
 					},
 				},
@@ -89,28 +89,28 @@ func generateInvkfile(template string) string {
 		}
 
 	case "full":
-		// invkfile.cue contains only commands - module metadata goes in invkmod.cue
-		inv = &invkfile.Invkfile{
-			Commands: []invkfile.Command{
+		// invowkfile.cue contains only commands - module metadata goes in invowkmod.cue
+		inv = &invowkfile.Invowkfile{
+			Commands: []invowkfile.Command{
 				{
 					Name:        "build",
 					Description: "Build the project",
-					Implementations: []invkfile.Implementation{
+					Implementations: []invowkfile.Implementation{
 						{
 							Script: "echo \"Building $PROJECT_NAME...\"\ngo build -o bin/app ./...",
 
-							Runtimes: []invkfile.RuntimeConfig{
-								{Name: invkfile.RuntimeNative},
-								{Name: invkfile.RuntimeContainer, Image: "golang:1.21"},
+							Runtimes: []invowkfile.RuntimeConfig{
+								{Name: invowkfile.RuntimeNative},
+								{Name: invowkfile.RuntimeContainer, Image: "golang:1.21"},
 							},
-							Platforms: []invkfile.PlatformConfig{
-								{Name: invkfile.PlatformLinux},
-								{Name: invkfile.PlatformMac},
-								{Name: invkfile.PlatformWindows},
+							Platforms: []invowkfile.PlatformConfig{
+								{Name: invowkfile.PlatformLinux},
+								{Name: invowkfile.PlatformMac},
+								{Name: invowkfile.PlatformWindows},
 							},
 						},
 					},
-					Env: &invkfile.EnvConfig{
+					Env: &invowkfile.EnvConfig{
 						Vars: map[string]string{
 							"PROJECT_NAME": "myproject",
 							"CGO_ENABLED":  "0",
@@ -120,77 +120,77 @@ func generateInvkfile(template string) string {
 				{
 					Name:        "test unit",
 					Description: "Run unit tests",
-					Implementations: []invkfile.Implementation{
+					Implementations: []invowkfile.Implementation{
 						{
 							Script:   "go test -v ./...",
-							Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeNative}, {Name: invkfile.RuntimeVirtual}},
+							Runtimes: []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeNative}, {Name: invowkfile.RuntimeVirtual}},
 						},
 					},
 				},
 				{
 					Name:        "test integration",
 					Description: "Run integration tests",
-					Implementations: []invkfile.Implementation{
+					Implementations: []invowkfile.Implementation{
 						{
 							Script:   "go test -v -tags=integration ./...",
-							Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeNative}},
+							Runtimes: []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeNative}},
 						},
 					},
 				},
 				{
 					Name:        "clean",
 					Description: "Clean build artifacts",
-					Implementations: []invkfile.Implementation{
+					Implementations: []invowkfile.Implementation{
 						{
 							Script: "rm -rf bin/ dist/",
 
-							Runtimes:  []invkfile.RuntimeConfig{{Name: invkfile.RuntimeNative}},
-							Platforms: []invkfile.PlatformConfig{{Name: invkfile.PlatformLinux}, {Name: invkfile.PlatformMac}},
+							Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeNative}},
+							Platforms: []invowkfile.PlatformConfig{{Name: invowkfile.PlatformLinux}, {Name: invowkfile.PlatformMac}},
 						},
 						{
 							Script: "if exist bin rmdir /s /q bin && if exist dist rmdir /s /q dist",
 
-							Runtimes:  []invkfile.RuntimeConfig{{Name: invkfile.RuntimeNative}},
-							Platforms: []invkfile.PlatformConfig{{Name: invkfile.PlatformWindows}},
+							Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeNative}},
+							Platforms: []invowkfile.PlatformConfig{{Name: invowkfile.PlatformWindows}},
 						},
 					},
 				},
 				{
 					Name:        "docker-build",
 					Description: "Build using container runtime",
-					Implementations: []invkfile.Implementation{
+					Implementations: []invowkfile.Implementation{
 						{
 							Script:   "go build -o /workspace/bin/app ./...",
-							Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeContainer, Image: "golang:1.21"}},
+							Runtimes: []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeContainer, Image: "golang:1.21"}},
 						},
 					},
 				},
 				{
 					Name:        "container hello-invowk",
 					Description: "Print a greeting from a container",
-					Implementations: []invkfile.Implementation{
+					Implementations: []invowkfile.Implementation{
 						{
 							Script:   "echo \"Hello, Invowk!\"",
-							Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeContainer, Image: "debian:stable-slim"}},
+							Runtimes: []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeContainer, Image: "debian:stable-slim"}},
 						},
 					},
 				},
 				{
 					Name:        "release",
 					Description: "Create a release",
-					Implementations: []invkfile.Implementation{
+					Implementations: []invowkfile.Implementation{
 						{
 							Script: "echo 'Creating release...'",
 
-							Runtimes:  []invkfile.RuntimeConfig{{Name: invkfile.RuntimeNative}},
-							Platforms: []invkfile.PlatformConfig{{Name: invkfile.PlatformLinux}, {Name: invkfile.PlatformMac}},
+							Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeNative}},
+							Platforms: []invowkfile.PlatformConfig{{Name: invowkfile.PlatformLinux}, {Name: invowkfile.PlatformMac}},
 						},
 					},
-					DependsOn: &invkfile.DependsOn{
-						Tools: []invkfile.ToolDependency{
+					DependsOn: &invowkfile.DependsOn{
+						Tools: []invowkfile.ToolDependency{
 							{Alternatives: []string{"git"}},
 						},
-						Commands: []invkfile.CommandDependency{
+						Commands: []invowkfile.CommandDependency{
 							{Alternatives: []string{"clean"}},
 							{Alternatives: []string{"build"}},
 							{Alternatives: []string{"test unit"}},
@@ -201,36 +201,36 @@ func generateInvkfile(template string) string {
 		}
 
 	default: // "default"
-		// invkfile.cue contains only commands - module metadata goes in invkmod.cue
-		inv = &invkfile.Invkfile{
-			Commands: []invkfile.Command{
+		// invowkfile.cue contains only commands - module metadata goes in invowkmod.cue
+		inv = &invowkfile.Invowkfile{
+			Commands: []invowkfile.Command{
 				{
 					Name:        "build",
 					Description: "Build the project",
-					Implementations: []invkfile.Implementation{
+					Implementations: []invowkfile.Implementation{
 						{
 							Script:   "echo 'Building...'\n# Add your build commands here",
-							Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeNative}},
+							Runtimes: []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeNative}},
 						},
 					},
 				},
 				{
 					Name:        "test",
 					Description: "Run tests",
-					Implementations: []invkfile.Implementation{
+					Implementations: []invowkfile.Implementation{
 						{
 							Script:   "echo 'Testing...'\n# Add your test commands here",
-							Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeNative}},
+							Runtimes: []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeNative}},
 						},
 					},
 				},
 				{
 					Name:        "clean",
 					Description: "Clean build artifacts",
-					Implementations: []invkfile.Implementation{
+					Implementations: []invowkfile.Implementation{
 						{
 							Script:   "echo 'Cleaning...'\n# Add your clean commands here",
-							Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeNative}},
+							Runtimes: []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeNative}},
 						},
 					},
 				},
@@ -238,5 +238,5 @@ func generateInvkfile(template string) string {
 		}
 	}
 
-	return invkfile.GenerateCUE(inv)
+	return invowkfile.GenerateCUE(inv)
 }

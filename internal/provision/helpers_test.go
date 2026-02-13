@@ -142,12 +142,12 @@ func TestDiscoverModules(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	// Create some module directories
-	module1 := filepath.Join(tmpDir, "mymodule.invkmod")
+	module1 := filepath.Join(tmpDir, "mymodule.invowkmod")
 	if err := os.MkdirAll(module1, 0o755); err != nil {
 		t.Fatalf("Failed to create module1: %v", err)
 	}
 
-	module2 := filepath.Join(tmpDir, "subdir", "another.invkmod")
+	module2 := filepath.Join(tmpDir, "subdir", "another.invowkmod")
 	if err := os.MkdirAll(module2, 0o755); err != nil {
 		t.Fatalf("Failed to create module2: %v", err)
 	}
@@ -169,19 +169,19 @@ func TestDiscoverModules(t *testing.T) {
 	foundModule1 := false
 	foundModule2 := false
 	for _, m := range modules {
-		if strings.HasSuffix(m, "mymodule.invkmod") {
+		if strings.HasSuffix(m, "mymodule.invowkmod") {
 			foundModule1 = true
 		}
-		if strings.HasSuffix(m, "another.invkmod") {
+		if strings.HasSuffix(m, "another.invowkmod") {
 			foundModule2 = true
 		}
 	}
 
 	if !foundModule1 {
-		t.Error("Expected to find mymodule.invkmod")
+		t.Error("Expected to find mymodule.invowkmod")
 	}
 	if !foundModule2 {
-		t.Error("Expected to find another.invkmod")
+		t.Error("Expected to find another.invowkmod")
 	}
 }
 
@@ -400,7 +400,7 @@ func TestDiscoverModules_EmptyPaths(t *testing.T) {
 func TestDiscoverModules_Deduplication(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	modPath := filepath.Join(tmpDir, "test.invkmod")
+	modPath := filepath.Join(tmpDir, "test.invowkmod")
 	if err := os.MkdirAll(modPath, 0o755); err != nil {
 		t.Fatalf("failed to create module dir: %v", err)
 	}
@@ -417,12 +417,12 @@ func TestDiscoverModules_MultiplePaths(t *testing.T) {
 	dir1 := t.TempDir()
 	dir2 := t.TempDir()
 
-	mod1 := filepath.Join(dir1, "mod1.invkmod")
+	mod1 := filepath.Join(dir1, "mod1.invowkmod")
 	if err := os.MkdirAll(mod1, 0o755); err != nil {
 		t.Fatalf("failed to create mod1: %v", err)
 	}
 
-	mod2 := filepath.Join(dir2, "mod2.invkmod")
+	mod2 := filepath.Join(dir2, "mod2.invowkmod")
 	if err := os.MkdirAll(mod2, 0o755); err != nil {
 		t.Fatalf("failed to create mod2: %v", err)
 	}
@@ -436,18 +436,18 @@ func TestDiscoverModules_MultiplePaths(t *testing.T) {
 	// Verify both are found
 	found1, found2 := false, false
 	for _, m := range modules {
-		if strings.HasSuffix(m, "mod1.invkmod") {
+		if strings.HasSuffix(m, "mod1.invowkmod") {
 			found1 = true
 		}
-		if strings.HasSuffix(m, "mod2.invkmod") {
+		if strings.HasSuffix(m, "mod2.invowkmod") {
 			found2 = true
 		}
 	}
 
 	if !found1 {
-		t.Error("expected to find mod1.invkmod")
+		t.Error("expected to find mod1.invowkmod")
 	}
 	if !found2 {
-		t.Error("expected to find mod2.invkmod")
+		t.Error("expected to find mod2.invowkmod")
 	}
 }

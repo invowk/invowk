@@ -52,12 +52,12 @@ Se a engine preferida não estiver disponível, o Invowk faz fallback para a out
 **Obrigatório:** Não
 **Padrão:** `[]`
 
-Módulos adicionais para incluir na descoberta de comandos. Cada entrada especifica um caminho para um diretório `*.invkmod` com um `alias` opcional para desambiguação de colisões.
+Módulos adicionais para incluir na descoberta de comandos. Cada entrada especifica um caminho para um diretório `*.invowkmod` com um `alias` opcional para desambiguação de colisões.
 
 <Snippet id="reference/config/includes-example" />
 
 **Requisitos de caminho:**
-- Caminhos devem ser absolutos e terminar com `.invkmod`
+- Caminhos devem ser absolutos e terminar com `.invowkmod`
 - Caminhos inexistentes são ignorados silenciosamente
 - Caminhos duplicados são rejeitados
 
@@ -66,8 +66,8 @@ Módulos adicionais para incluir na descoberta de comandos. Cada entrada especif
 - Cada alias deve ser único entre todas as entradas includes
 
 **Prioridade de descoberta (maior para menor):**
-1. invkfile do diretório atual
-2. Módulos locais (`*.invkmod` no diretório atual)
+1. invowkfile do diretório atual
+2. Módulos locais (`*.invowkmod` no diretório atual)
 3. `~/.invowk/cmds`
 4. `includes` configurados (em ordem)
 
@@ -173,7 +173,7 @@ Habilita saída verbose por padrão para todos os comandos.
 
 <Snippet id="reference/config/verbose-example" />
 
-Equivalente a sempre passar `--invk-verbose` na linha de comando.
+Equivalente a sempre passar `--ivk-verbose` na linha de comando.
 
 ### interactive
 
@@ -235,7 +235,7 @@ Sobrescreve o caminho do binário do invowk para provisionar.
 **Obrigatório:** Não
 **Padrão:** `[]`
 
-Módulos adicionais para provisionar em containers. Usa o mesmo formato `#IncludeEntry` do `includes` raiz (cada entrada tem um `path` terminando com `.invkmod` e um `alias` opcional).
+Módulos adicionais para provisionar em containers. Usa o mesmo formato `#IncludeEntry` do `includes` raiz (cada entrada tem um `path` terminando com `.invowkmod` e um `alias` opcional).
 
 ### inherit_includes
 

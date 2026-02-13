@@ -30,22 +30,22 @@ Use this skill when:
 func testCommand(name, script string) Command { ... }
 
 // CORRECT: Centralized in testutil
-import "invowk-cli/internal/testutil/invkfiletest"
-cmd := invkfiletest.NewTestCommand("hello", invkfiletest.WithScript("echo hello"))
+import "invowk-cli/internal/testutil/invowkfiletest"
+cmd := invowkfiletest.NewTestCommand("hello", invowkfiletest.WithScript("echo hello"))
 ```
 
 When you need a test helper that might be useful elsewhere, add it to `testutil` with clear documentation.
 
 **Acceptable exceptions (local helpers are OK when):**
 
-1. **Same-package testing**: Test files in `pkg/invkfile/` cannot import `internal/testutil/invkfiletest` because it would create an import cycle (invkfiletest imports invkfile). Local helpers like `testCommand()` are acceptable in this case.
+1. **Same-package testing**: Test files in `pkg/invowkfile/` cannot import `internal/testutil/invowkfiletest` because it would create an import cycle (invowkfiletest imports invowkfile). Local helpers like `testCommand()` are acceptable in this case.
 
 2. **Specialized signatures**: Helpers with package-specific signatures that don't generalize well (e.g., `testCommandWithInterpreter()` in runtime tests for interpreter-specific testing).
 
 3. **Single-use helpers**: Helpers used only within one test file that aren't worth extracting.
 
 **Current intentional local helpers:**
-- `pkg/invkfile/invkfile_deps_test.go`: `testCommand()`, `testCommandWithDeps()` (import cycle)
+- `pkg/invowkfile/invowkfile_deps_test.go`: `testCommand()`, `testCommandWithDeps()` (import cycle)
 - `internal/runtime/runtime_env_test.go`: `testCommandWithScript()`, `testCommandWithInterpreter()` (specialized signatures)
 
 ## Avoiding Flaky Tests
@@ -205,16 +205,16 @@ Setup: func(env *testscript.Env) error {
 
 **Two types of tests require different working directories:**
 
-1. **Tests with embedded `invkfile.cue`** - Use `cd $WORK`:
+1. **Tests with embedded `invowkfile.cue`** - Use `cd $WORK`:
    ```txtar
    # Set working directory to where embedded files are
    cd $WORK
    exec invowk cmd my-embedded-command
    ```
 
-2. **Tests against project's `invkfile.cue`** - Use `cd $PROJECT_ROOT`:
+2. **Tests against project's `invowkfile.cue`** - Use `cd $PROJECT_ROOT`:
    ```txtar
-   # Run against project's invkfile.cue
+   # Run against project's invowkfile.cue
    cd $PROJECT_ROOT
    exec invowk cmd some-project-command
    ```
@@ -247,7 +247,7 @@ Each `.txtar` test file should:
 1. Have a descriptive comment at the top explaining what it tests.
 2. Include skip conditions for optional features (e.g., `[!container-available] skip`).
 3. Use `cd $WORK` to set working directory if it uses embedded files.
-4. Include the embedded `invkfile.cue` and any other required files.
+4. Include the embedded `invowkfile.cue` and any other required files.
 
 Example structure:
 ```txtar
@@ -264,7 +264,7 @@ cd $WORK
 exec invowk cmd my-command
 stdout 'expected output'
 
--- invkfile.cue --
+-- invowkfile.cue --
 cmds: [...]
 
 -- other-file.txt --
@@ -522,7 +522,7 @@ When writing native test mirrors for Windows, use these translations:
 | `virtual_disambiguation.txtar` | virtual | Disambiguation prompt (exempt) | Inline CUE, all platforms |
 | `virtual_edge_cases.txtar` | virtual | Edge case handling (exempt) | Inline CUE, all platforms |
 | `virtual_args_subcommand_conflict.txtar` | virtual | Args+subcommand conflict (exempt) | Inline CUE, all platforms |
-| `dogfooding_invkfile.txtar` | native | Project invkfile smoke test (exempt) | `$PROJECT_ROOT` (dogfooding) |
+| `dogfooding_invowkfile.txtar` | native | Project invowkfile smoke test (exempt) | `$PROJECT_ROOT` (dogfooding) |
 | `container_*.txtar` | container | Container runtime tests (exempt) | Inline CUE, Linux only |
 
 ### When to Add CLI Tests
@@ -546,7 +546,7 @@ Add CLI tests when:
 - `container_*.txtar` — Linux-only container runtime
 - `virtual_ambiguity.txtar`, `virtual_disambiguation.txtar`, `virtual_multi_source.txtar` — command resolution logic
 - `virtual_edge_cases.txtar`, `virtual_args_subcommand_conflict.txtar` — CUE schema validation
-- `dogfooding_invkfile.txtar` — already exercises native runtime
+- `dogfooding_invowkfile.txtar` — already exercises native runtime
 
 ## VHS Demo Recordings
 
@@ -584,9 +584,9 @@ The `internal/testutil` package provides reusable test helpers. All helpers acce
 | `RealClock` | Production clock using actual time |
 | `FakeClock` | Test clock with `Advance(d)` and `Set(t)` |
 
-### invkfiletest Package
+### invowkfiletest Package
 
-**`internal/testutil/invkfiletest`** (separate package to avoid import cycles):
+**`internal/testutil/invowkfiletest`** (separate package to avoid import cycles):
 
 | Function | Description |
 |----------|-------------|
@@ -698,7 +698,7 @@ The test passed on slower runners (ubuntu-24.04) but failed on faster ones where
 | Testing struct fields | Testing Go's ability to store values | Test behavior, not struct storage |
 | Missing TUI tests | State bugs not caught | Test model state transitions |
 | Flaky tests across environments | Passes locally, fails in CI | Suspect race conditions; run with `-race` |
-| Setting `env.Cd` in testscript Setup | Tests find wrong `invkfile.cue` | Remove `env.Cd`, let tests use `cd $WORK` |
+| Setting `env.Cd` in testscript Setup | Tests find wrong `invowkfile.cue` | Remove `env.Cd`, let tests use `cd $WORK` |
 | CLI-only container check | Windows tests run but fail | Add smoke test that runs actual container |
 | Missing `set -e` in scripts | Failed commands don't cause script failure | Add `set -e` at script start |
 | Unused env vars in testscript Setup | Confusion, false assumptions | Only set vars used by production code |

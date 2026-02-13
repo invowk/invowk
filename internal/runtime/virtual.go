@@ -13,7 +13,7 @@ import (
 	"strings"
 
 	"invowk-cli/internal/uroot"
-	"invowk-cli/pkg/invkfile"
+	"invowk-cli/pkg/invowkfile"
 
 	"mvdan.cc/sh/v3/expand"
 	"mvdan.cc/sh/v3/interp"
@@ -83,7 +83,7 @@ func (r *VirtualRuntime) Validate(ctx *ExecutionContext) error {
 	}
 
 	// Resolve the script content
-	script, err := ctx.SelectedImpl.ResolveScript(ctx.Invkfile.FilePath)
+	script, err := ctx.SelectedImpl.ResolveScript(ctx.Invowkfile.FilePath)
 	if err != nil {
 		return err
 	}
@@ -108,7 +108,7 @@ func (r *VirtualRuntime) Execute(ctx *ExecutionContext) *Result {
 	}
 
 	// Resolve the script content
-	script, err := ctx.SelectedImpl.ResolveScript(ctx.Invkfile.FilePath)
+	script, err := ctx.SelectedImpl.ResolveScript(ctx.Invowkfile.FilePath)
 	if err != nil {
 		return &Result{ExitCode: 1, Error: err}
 	}
@@ -124,7 +124,7 @@ func (r *VirtualRuntime) Execute(ctx *ExecutionContext) *Result {
 	workDir := r.getWorkDir(ctx)
 
 	// Build environment
-	env, err := r.envBuilder.Build(ctx, invkfile.EnvInheritAll)
+	env, err := r.envBuilder.Build(ctx, invowkfile.EnvInheritAll)
 	if err != nil {
 		return &Result{ExitCode: 1, Error: fmt.Errorf("failed to build environment: %w", err)}
 	}
@@ -170,7 +170,7 @@ func (r *VirtualRuntime) Execute(ctx *ExecutionContext) *Result {
 // ExecuteCapture runs a command and captures its output
 func (r *VirtualRuntime) ExecuteCapture(ctx *ExecutionContext) *Result {
 	// Resolve the script content
-	script, err := ctx.SelectedImpl.ResolveScript(ctx.Invkfile.FilePath)
+	script, err := ctx.SelectedImpl.ResolveScript(ctx.Invowkfile.FilePath)
 	if err != nil {
 		return &Result{ExitCode: 1, Error: err}
 	}
@@ -182,7 +182,7 @@ func (r *VirtualRuntime) ExecuteCapture(ctx *ExecutionContext) *Result {
 	}
 
 	workDir := r.getWorkDir(ctx)
-	env, err := r.envBuilder.Build(ctx, invkfile.EnvInheritAll)
+	env, err := r.envBuilder.Build(ctx, invowkfile.EnvInheritAll)
 	if err != nil {
 		return &Result{ExitCode: 1, Error: fmt.Errorf("failed to build environment: %w", err)}
 	}
@@ -261,7 +261,7 @@ func (r *VirtualRuntime) PrepareCommand(ctx *ExecutionContext) (*PreparedCommand
 	}
 
 	// Resolve the script content
-	script, err := ctx.SelectedImpl.ResolveScript(ctx.Invkfile.FilePath)
+	script, err := ctx.SelectedImpl.ResolveScript(ctx.Invowkfile.FilePath)
 	if err != nil {
 		return nil, err
 	}
@@ -300,7 +300,7 @@ func (r *VirtualRuntime) PrepareCommand(ctx *ExecutionContext) (*PreparedCommand
 	workDir := r.getWorkDir(ctx)
 
 	// Build environment
-	env, err := r.envBuilder.Build(ctx, invkfile.EnvInheritAll)
+	env, err := r.envBuilder.Build(ctx, invowkfile.EnvInheritAll)
 	if err != nil {
 		_ = os.Remove(tmpFile.Name()) // Best-effort cleanup on error path
 		return nil, fmt.Errorf("failed to build environment: %w", err)
@@ -395,5 +395,5 @@ func (r *VirtualRuntime) tryUrootBuiltin(ctx context.Context, args []string) (bo
 // getWorkDir determines the working directory using the hierarchical override model.
 // Precedence (highest to lowest): CLI override > Implementation > Command > Root > Default
 func (r *VirtualRuntime) getWorkDir(ctx *ExecutionContext) string {
-	return ctx.Invkfile.GetEffectiveWorkDir(ctx.Command, ctx.SelectedImpl, ctx.WorkDir)
+	return ctx.Invowkfile.GetEffectiveWorkDir(ctx.Command, ctx.SelectedImpl, ctx.WorkDir)
 }

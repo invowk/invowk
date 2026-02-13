@@ -46,9 +46,9 @@ All commits should include a detailed description of what changed. Use a short C
 Example:
 
 ```
-refactor(invkfile): rename commands to cmds
+refactor(invowkfile): rename commands to cmds
 
-- Rename invkfile root field `commands` -> `cmds`
+- Rename invowkfile root field `commands` -> `cmds`
 - Update dependency key `depends_on.commands` -> `depends_on.cmds`
 - Adjust docs/examples/tests to match the new schema
 ```

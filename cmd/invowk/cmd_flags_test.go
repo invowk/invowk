@@ -97,7 +97,7 @@ func TestFlagNameToEnvVar(t *testing.T) {
 func TestRunCommandWithFlags_FlagsInjectedAsEnvVars(t *testing.T) {
 	// This test verifies that flag values are correctly converted to environment variables
 	// We'll test the FlagNameToEnvVar conversion more extensively since
-	// the actual runCommandWithFlags requires a full invkfile setup
+	// the actual runCommandWithFlags requires a full invowkfile setup
 
 	// Test that the conversion is consistent
 	flagName := "my-custom-flag"

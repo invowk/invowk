@@ -1,6 +1,6 @@
 ---
 name: cue
-description: CUE schema patterns for *.cue files, 3-step parsing flow, validation matrix, error formatting. Use when editing invkfile_schema.cue, invkmod_schema.cue, config_schema.cue, or working with cueutil parsing.
+description: CUE schema patterns for *.cue files, 3-step parsing flow, validation matrix, error formatting. Use when editing invowkfile_schema.cue, invowkmod_schema.cue, config_schema.cue, or working with cueutil parsing.
 disable-model-invocation: false
 ---
 
@@ -8,7 +8,7 @@ disable-model-invocation: false
 
 Use this skill when:
 - Working with CUE schema files (`*.cue`)
-- Modifying parse functions in `pkg/invkfile/`, `pkg/invkmod/`, or `internal/config/`
+- Modifying parse functions in `pkg/invowkfile/`, `pkg/invowkmod/`, or `internal/config/`
 - Adding new CUE definitions or corresponding Go struct fields
 - Debugging CUE validation errors
 
@@ -16,8 +16,8 @@ Use this skill when:
 
 ## Schema Locations
 
-- `pkg/invkfile/invkfile_schema.cue` defines invkfile structure.
-- `pkg/invkmod/invkmod_schema.cue` defines invkmod structure.
+- `pkg/invowkfile/invowkfile_schema.cue` defines invowkfile structure.
+- `pkg/invowkmod/invowkmod_schema.cue` defines invowkmod structure.
 - `internal/config/config_schema.cue` defines config.
 
 ## Schema Compilation Pattern (3-Step Flow)
@@ -53,14 +53,14 @@ if err := unified.Decode(&result); err != nil {
 
 **Key Points**:
 - Schema is embedded via `//go:embed` for single-binary distribution
-- Use `LookupPath()` to get the root definition (e.g., `#Invkfile`, `#Config`)
+- Use `LookupPath()` to get the root definition (e.g., `#Invowkfile`, `#Config`)
 - Use `Validate(cue.Concrete(true))` to ensure all values are concrete
 - Use `cue.Concrete(false)` for config files where some fields may be optional
 - Always use `Decode()` for type-safe extraction (see Decode Usage Rules below)
 
 **Reference Implementations**:
-- `pkg/invkfile/parse.go:ParseBytes()` - Invkfile parsing
-- `pkg/invkmod/invkmod.go:ParseInvkmodBytes()` - Invkmod parsing
+- `pkg/invowkfile/parse.go:ParseBytes()` - Invowkfile parsing
+- `pkg/invowkmod/invowkmod.go:ParseInvowkmodBytes()` - Invowkmod parsing
 - `internal/config/config.go:loadCUEIntoViper()` - Config loading
 
 ## Validation Responsibility Matrix
@@ -118,8 +118,8 @@ func validateEnvFilePath(path string) error { ... }
 ### Correct Pattern
 
 ```go
-var invkfile Invkfile
-if err := unified.Decode(&invkfile); err != nil {
+var invowkfile Invowkfile
+if err := unified.Decode(&invowkfile); err != nil {
     return nil, formatCUEError(err, path)
 }
 ```
@@ -172,7 +172,7 @@ All CUE errors MUST include JSON path prefixes for clear error messages:
 
 Examples:
 ```
-invkfile.cue: cmds[0].implementations[2].script: value exceeds maximum length
+invowkfile.cue: cmds[0].implementations[2].script: value exceeds maximum length
 config.cue: container.auto_provision.enabled: expected bool, got string
 ```
 
@@ -254,8 +254,8 @@ When upgrading the CUE library version:
 Sync tests verify Go struct JSON tags match CUE schema field names at CI time. They catch misalignments before they cause silent parsing failures.
 
 **Test Files**:
-- `pkg/invkfile/sync_test.go` - Invkfile, Command, Implementation, etc.
-- `pkg/invkmod/sync_test.go` - Invkmod, ModuleRequirement
+- `pkg/invowkfile/sync_test.go` - Invowkfile, Command, Implementation, etc.
+- `pkg/invowkmod/sync_test.go` - Invowkmod, ModuleRequirement
 - `internal/config/sync_test.go` - Config, VirtualShellConfig, UIConfig, etc.
 
 **Pattern**:

@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 
 	"invowk-cli/internal/discovery"
-	"invowk-cli/pkg/invkfile"
-	"invowk-cli/pkg/invkmod"
+	"invowk-cli/pkg/invowkfile"
+	"invowk-cli/pkg/invowkmod"
 
 	"github.com/spf13/cobra"
 )
@@ -25,20 +25,20 @@ func newModuleValidateCommand() *cobra.Command {
 
 Checks performed:
   - Folder name follows module naming conventions
-  - Contains required invkmod.cue at the root
+  - Contains required invowkmod.cue at the root
   - No nested modules inside
-  - (with --deep) Invkfile parses successfully (if present)
+  - (with --deep) Invowkfile parses successfully (if present)
 
 Examples:
-  invowk module validate ./mycommands.invkmod
-  invowk module validate ./com.example.tools.invkmod --deep`,
+  invowk module validate ./mycommands.invowkmod
+  invowk module validate ./com.example.tools.invowkmod --deep`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runModuleValidate(args, deep)
 		},
 	}
 
-	cmd.Flags().BoolVar(&deep, "deep", false, "perform deep validation including invkfile parsing")
+	cmd.Flags().BoolVar(&deep, "deep", false, "perform deep validation including invowkfile parsing")
 
 	return cmd
 }
@@ -56,7 +56,7 @@ func runModuleValidate(args []string, deep bool) error {
 	fmt.Printf("%s Path: %s\n", moduleInfoIcon, modulePathStyle.Render(absPath))
 
 	// Perform validation
-	result, err := invkmod.Validate(modulePath)
+	result, err := invowkmod.Validate(modulePath)
 	if err != nil {
 		return fmt.Errorf("validation error: %w", err)
 	}
@@ -66,24 +66,24 @@ func runModuleValidate(args []string, deep bool) error {
 		fmt.Printf("%s Name: %s\n", moduleInfoIcon, CmdStyle.Render(result.ModuleName))
 	}
 
-	// Deep validation: parse invkfile
-	if deep && result.InvkfilePath != "" {
-		inv, invkfileError := invkfile.Parse(result.InvkfilePath)
-		if invkfileError != nil {
-			result.AddIssue("invkfile", invkfileError.Error(), "invkfile.cue")
+	// Deep validation: parse invowkfile
+	if deep && result.InvowkfilePath != "" {
+		inv, invowkfileError := invowkfile.Parse(result.InvowkfilePath)
+		if invowkfileError != nil {
+			result.AddIssue("invowkfile", invowkfileError.Error(), "invowkfile.cue")
 		} else if inv != nil {
 			// Validate command tree structure (leaf-only args constraint)
 			var commands []*discovery.CommandInfo
 			for name, cmd := range inv.FlattenCommands() {
 				commands = append(commands, &discovery.CommandInfo{
-					Name:     name,
-					FilePath: result.InvkfilePath,
-					Command:  cmd,
-					Invkfile: inv,
+					Name:       name,
+					FilePath:   result.InvowkfilePath,
+					Command:    cmd,
+					Invowkfile: inv,
 				})
 			}
 			if treeErr := discovery.ValidateCommandTree(commands); treeErr != nil {
-				result.AddIssue("command_tree", treeErr.Error(), result.InvkfilePath)
+				result.AddIssue("command_tree", treeErr.Error(), result.InvowkfilePath)
 			}
 		}
 	}
@@ -101,9 +101,9 @@ func runModuleValidate(args []string, deep bool) error {
 		fmt.Printf("%s Required files present\n", moduleSuccessIcon)
 
 		if deep {
-			fmt.Printf("%s Invkfile parses successfully\n", moduleSuccessIcon)
+			fmt.Printf("%s Invowkfile parses successfully\n", moduleSuccessIcon)
 		} else {
-			fmt.Printf("%s Use --deep to also validate invkfile syntax\n", moduleWarningIcon)
+			fmt.Printf("%s Use --deep to also validate invowkfile syntax\n", moduleWarningIcon)
 		}
 
 		return nil

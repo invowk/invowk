@@ -5,7 +5,7 @@ import type {SidebarsConfig} from '@docusaurus/plugin-content-docs';
  *
  * The documentation follows a gentle discovery/progression pattern:
  * - Start with installation and quickstart
- * - Move to core concepts (invkfile format, commands, namespaces)
+ * - Move to core concepts (invowkfile format, commands, namespaces)
  * - Then dive into features (runtime modes, dependencies, etc.)
  * - Finally, reference materials (CLI, schema)
  */
@@ -18,7 +18,7 @@ const sidebars: SidebarsConfig = {
       items: [
         'getting-started/installation',
         'getting-started/quickstart',
-        'getting-started/your-first-invkfile',
+        'getting-started/your-first-invowkfile',
       ],
     },
     {
@@ -26,7 +26,7 @@ const sidebars: SidebarsConfig = {
       label: 'Core Concepts',
       collapsed: false,
       items: [
-        'core-concepts/invkfile-format',
+        'core-concepts/invowkfile-format',
         'core-concepts/commands-and-namespaces',
         'core-concepts/implementations',
       ],
@@ -129,8 +129,8 @@ const sidebars: SidebarsConfig = {
       label: 'Reference',
       items: [
         'reference/cli',
-        'reference/invkfile-schema',
-        'reference/invkmod-schema',
+        'reference/invowkfile-schema',
+        'reference/invowkmod-schema',
         'reference/config-schema',
       ],
     },

@@ -1,15 +1,15 @@
 # Test: Container environment variable handling
-# Tests env vars from invkfile and CLI override via --invk-env-var
+# Tests env vars from invowkfile and CLI override via --ivk-env-var
 
 # Skip if no functional container runtime is available
 [!container-available] skip 'no functional container runtime available'
 # Skip if running inside Flatpak/Snap sandbox (filesystem permissions may prevent volume mounts)
 [in-sandbox] skip 'container tests may require --filesystem permissions in sandbox - run tests on host or grant permissions'
 
-# Change to work directory where local invkfile.cue is located
+# Change to work directory where local invowkfile.cue is located
 cd $WORK
 
-# Test 1: verify env vars from invkfile are set
+# Test 1: verify env vars from invowkfile are set
 exec invowk cmd show-env-demo
 stdout '=== Container Environment ==='
 stdout 'APP_NAME: demo-app'
@@ -17,18 +17,18 @@ stdout 'APP_ENV: development'
 stdout 'DEBUG: true'
 
 # Test 2: env-var CLI flag override
-exec invowk cmd show-env --invk-env-var MY_VAR=from-cli
+exec invowk cmd show-env --ivk-env-var MY_VAR=from-cli
 stdout 'MY_VAR: from-cli'
 
-# Test 3: env-var overrides invkfile env.vars
-exec invowk cmd show-env-with-default --invk-env-var DEFAULT_VAR=overridden
+# Test 3: env-var overrides invowkfile env.vars
+exec invowk cmd show-env-with-default --ivk-env-var DEFAULT_VAR=overridden
 stdout 'DEFAULT_VAR: overridden'
 
-# Test 4: invkfile env.vars without override
+# Test 4: invowkfile env.vars without override
 exec invowk cmd show-env-with-default
-stdout 'DEFAULT_VAR: from-invkfile'
+stdout 'DEFAULT_VAR: from-invowkfile'
 
--- invkfile.cue --
+-- invowkfile.cue --
 cmds: [
 	{
 		name: "show-env-demo"
@@ -66,7 +66,7 @@ cmds: [
 	},
 	{
 		name: "show-env-with-default"
-		description: "Show environment variable with default from invkfile"
+		description: "Show environment variable with default from invowkfile"
 		implementations: [
 			{
 				script: "echo \"DEFAULT_VAR: ${DEFAULT_VAR:-<not set>}\""
@@ -76,7 +76,7 @@ cmds: [
 		]
 		env: {
 			vars: {
-				DEFAULT_VAR: "from-invkfile"
+				DEFAULT_VAR: "from-invowkfile"
 			}
 		}
 	}

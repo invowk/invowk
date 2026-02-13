@@ -30,7 +30,7 @@ type rootFlagValues struct {
 	verbose bool
 	// interactive enables alternate screen buffer (interactive mode) for execution.
 	interactive bool
-	// configPath overrides the default config file location (--invk-config flag).
+	// configPath overrides the default config file location (--ivk-config flag).
 	configPath string
 }
 
@@ -47,23 +47,23 @@ invowk is a powerful command runner similar to 'just' that supports
 multiple execution runtimes: native shell, virtual shell (mvdan/sh),
 and containerized execution (Docker/Podman).
 
-Commands are defined in 'invkfile' files using CUE format and can
+Commands are defined in 'invowkfile' files using CUE format and can
 be organized hierarchically with support for dependencies.
 
 ` + SubtitleStyle.Render("Quick Start:") + `
-  1. Create an invkfile in your project directory
+  1. Create an invowkfile in your project directory
   2. Define commands using CUE syntax
   3. Run commands with: invowk cmd <command-name>
 
 ` + SubtitleStyle.Render("Examples:") + `
   invowk cmd                List all available commands
-  invowk init               Create a new invkfile
+  invowk init               Create a new invowkfile
   invowk config show        Show current configuration`,
 	}
 
-	rootCmd.PersistentFlags().BoolVarP(&rootFlags.verbose, "invk-verbose", "v", false, "enable verbose output")
-	rootCmd.PersistentFlags().StringVarP(&rootFlags.configPath, "invk-config", "c", "", "config file (default is $HOME/.config/invowk/config.cue)")
-	rootCmd.PersistentFlags().BoolVarP(&rootFlags.interactive, "invk-interactive", "i", false, "run commands in alternate screen buffer (interactive mode)")
+	rootCmd.PersistentFlags().BoolVarP(&rootFlags.verbose, "ivk-verbose", "v", false, "enable verbose output")
+	rootCmd.PersistentFlags().StringVarP(&rootFlags.configPath, "ivk-config", "c", "", "config file (default is $HOME/.config/invowk/config.cue)")
+	rootCmd.PersistentFlags().BoolVarP(&rootFlags.interactive, "ivk-interactive", "i", false, "run commands in alternate screen buffer (interactive mode)")
 
 	rootCmd.AddCommand(newCmdCommand(app, rootFlags))
 	rootCmd.AddCommand(newInitCommand())

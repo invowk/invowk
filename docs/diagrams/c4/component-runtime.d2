@@ -145,7 +145,7 @@ runtime_pkg: internal/runtime {
       **Struct**
       Implements the standard 10-level precedence:
       host env -> env.files -> env.vars -> extra env
-      -> --invk-env-file -> --invk-env-var (highest priority).
+      -> --ivk-env-file -> --ivk-env-var (highest priority).
     |
   }
 
@@ -178,7 +178,7 @@ runtime_pkg: internal/runtime {
     tooltip: |md
       **Struct**
       All information needed to execute a command.
-      Composed of Command, Invkfile, IOContext,
+      Composed of Command, Invowkfile, IOContext,
       EnvContext, TUIContext, and runtime selection.
     |
   }
@@ -388,26 +388,26 @@ runtime_pkg: internal/runtime {
 # External Dependencies (outside the runtime package boundary)
 # ==============================================================================
 
-invkfile_cmd: invkfile.Command {
+invowkfile_cmd: invowkfile.Command {
   style: {
     fill: "#438DD5"
     font-color: "#ffffff"
   }
   tooltip: |md
-    **pkg/invkfile**
-    Command definition parsed from invkfile.cue.
+    **pkg/invowkfile**
+    Command definition parsed from invowkfile.cue.
     Input to ExecutionContext.
   |
 }
 
-invkfile_inv: invkfile.Invkfile {
+invowkfile_inv: invowkfile.Invowkfile {
   style: {
     fill: "#438DD5"
     font-color: "#ffffff"
   }
   tooltip: |md
-    **pkg/invkfile**
-    Root invkfile structure with env config
+    **pkg/invowkfile**
+    Root invowkfile structure with env config
     and script base path for env file resolution.
   |
 }
@@ -488,11 +488,11 @@ uroot_builtins: u-root Builtins {
 # Relationships: internal -> external
 # ==============================================================================
 
-# ExecutionContext references invkfile types
-runtime_pkg.exec_ctx -> invkfile_cmd: "references\nCommand" {
+# ExecutionContext references invowkfile types
+runtime_pkg.exec_ctx -> invowkfile_cmd: "references\nCommand" {
   style.stroke: "#707070"
 }
-runtime_pkg.exec_ctx -> invkfile_inv: "references\nInvkfile" {
+runtime_pkg.exec_ctx -> invowkfile_inv: "references\nInvowkfile" {
   style.stroke: "#707070"
 }
 

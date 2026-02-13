@@ -6,11 +6,11 @@ import Snippet from '@site/src/components/Snippet';
 
 # Declaring Dependencies
 
-Module dependencies are declared in the `requires` field of `invkmod.cue`. This page covers the syntax and options available.
+Module dependencies are declared in the `requires` field of `invowkmod.cue`. This page covers the syntax and options available.
 
 ## Basic Syntax
 
-<Snippet id="modules/dependencies/basic-invkmod" />
+<Snippet id="modules/dependencies/basic-invowkmod" />
 
 ## Requirement Fields
 
@@ -23,7 +23,7 @@ Module dependencies are declared in the `requires` field of `invkmod.cue`. This 
 
 ### git_url
 
-The Git repository URL. Supports both HTTPS and SSH formats. The repository must contain a module (either a `.invkmod` directory or an `invkmod.cue` at the root).
+The Git repository URL. Supports both HTTPS and SSH formats. The repository must contain a module (either a `.invowkmod` directory or an `invowkmod.cue` at the root).
 
 <Snippet id="modules/dependencies/git-url-examples" />
 
@@ -116,7 +116,7 @@ Invowk detects and reports circular dependencies:
 
 ### 3. Commit Your Lock File
 
-The `invkmod.lock.cue` file should be committed to version control for reproducible builds.
+The `invowkmod.lock.cue` file should be committed to version control for reproducible builds.
 
 ### 4. Update Regularly
 
@@ -124,4 +124,4 @@ The `invkmod.lock.cue` file should be committed to version control for reproduci
 
 ## Schema Reference
 
-<Snippet id="reference/invkmod/requirement-structure" />
+<Snippet id="reference/invowkmod/requirement-structure" />

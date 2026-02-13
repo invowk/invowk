@@ -34,12 +34,12 @@ If the preferred engine is not available, Invowk falls back to the other engine 
 **Type:** `[...#IncludeEntry]`
 **Default:** `[]`
 
-Additional modules to include in command discovery. Each entry is an `#IncludeEntry` with a required `path` (must end with `.invkmod`) and optional `alias`.
+Additional modules to include in command discovery. Each entry is an `#IncludeEntry` with a required `path` (must end with `.invowkmod`) and optional `alias`.
 
 <Snippet id="config/includes" />
 
 **Path requirements:**
-- Must end with `.invkmod`
+- Must end with `.invowkmod`
 - Duplicate paths are rejected
 
 **Alias rules:**
@@ -47,8 +47,8 @@ Additional modules to include in command discovery. Each entry is an `#IncludeEn
 - Must be unique across all includes entries
 
 **Discovery Order:**
-1. Current directory invkfile (always searched first, highest priority)
-2. Local modules (`*.invkmod` in current directory)
+1. Current directory invowkfile (always searched first, highest priority)
+2. Local modules (`*.invowkmod` in current directory)
 3. `~/.invowk/cmds` (always included)
 4. Each entry in `includes` in order
 
@@ -132,7 +132,7 @@ Enables verbose output by default. When enabled, Invowk prints additional inform
 
 <Snippet id="config/ui-verbose" />
 
-This is equivalent to always passing `--invk-verbose` on the command line.
+This is equivalent to always passing `--ivk-verbose` on the command line.
 
 #### ui.interactive
 
@@ -143,7 +143,7 @@ Enables interactive mode by default. When enabled, commands run in an alternate 
 
 <Snippet id="config/ui-interactive" />
 
-This is equivalent to always passing `--invk-interactive` on the command line.
+This is equivalent to always passing `--ivk-interactive` on the command line.
 
 ### container
 
@@ -174,7 +174,7 @@ Overrides the path to the invowk binary to provision into containers.
 **Type:** `[...#IncludeEntry]`
 **Default:** `[]`
 
-Additional modules to provision into containers. Uses the same `#IncludeEntry` format as root `includes` (each entry has a `path` ending with `.invkmod` and an optional `alias`).
+Additional modules to provision into containers. Uses the same `#IncludeEntry` format as root `includes` (each entry has a `path` ending with `.invowkmod` and an optional `alias`).
 
 #### container.auto_provision.inherit_includes
 

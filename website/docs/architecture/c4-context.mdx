@@ -16,8 +16,8 @@ This diagram shows Invowk from the highest level - the system boundaries, users,
 
 | Actor | Description |
 |-------|-------------|
-| **Developer** | Primary user who creates `invkfile.cue` files and runs commands. Defines command implementations across different runtimes. |
-| **Team Member** | Consumes shared modules (`.invkmod` directories) and runs commands defined by others. Benefits from portable, reproducible commands. |
+| **Developer** | Primary user who creates `invowkfile.cue` files and runs commands. Defines command implementations across different runtimes. |
+| **Team Member** | Consumes shared modules (`.invowkmod` directories) and runs commands defined by others. Benefits from portable, reproducible commands. |
 
 ## External Systems
 
@@ -27,7 +27,7 @@ This diagram shows Invowk from the highest level - the system boundaries, users,
 | **Podman Engine** | Alternative rootless container runtime. Preferred for security-conscious environments. | Podman CLI |
 | **Git Repositories** | Source for remote module dependencies. Enables sharing and versioning of command modules. | Git protocol (HTTPS/SSH) |
 | **Host Shell** | Native command execution. Uses `bash`/`sh` on Unix, `PowerShell` on Windows. | Process exec/spawn |
-| **Filesystem** | Storage for configuration, invkfiles, modules, and scripts. | File I/O |
+| **Filesystem** | Storage for configuration, invowkfiles, modules, and scripts. | File I/O |
 
 ## Key Boundaries
 

@@ -11,7 +11,7 @@ import (
 	"testing"
 
 	"invowk-cli/internal/testutil"
-	"invowk-cli/pkg/invkfile"
+	"invowk-cli/pkg/invowkfile"
 )
 
 func TestNativeRuntime_InlineScript(t *testing.T) {
@@ -19,16 +19,16 @@ func TestNativeRuntime_InlineScript(t *testing.T) {
 		t.Skip("skipping integration test in short mode")
 	}
 
-	// Create a temporary invkfile
+	// Create a temporary invowkfile
 	tmpDir := t.TempDir()
 
-	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 
-	inv := &invkfile.Invkfile{
-		FilePath: invkfilePath,
+	inv := &invowkfile.Invowkfile{
+		FilePath: invowkfilePath,
 	}
 
-	cmd := testCommandWithScript("test", "echo 'Hello from inline'", invkfile.RuntimeNative)
+	cmd := testCommandWithScript("test", "echo 'Hello from inline'", invowkfile.RuntimeNative)
 
 	rt := NewNativeRuntime()
 	ctx := NewExecutionContext(cmd, inv)
@@ -55,10 +55,10 @@ func TestNativeRuntime_MultiLineScript(t *testing.T) {
 
 	tmpDir := t.TempDir()
 
-	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 
-	inv := &invkfile.Invkfile{
-		FilePath: invkfilePath,
+	inv := &invowkfile.Invowkfile{
+		FilePath: invowkfilePath,
 	}
 
 	// Multi-line script
@@ -66,7 +66,7 @@ func TestNativeRuntime_MultiLineScript(t *testing.T) {
 echo "Line 2"
 echo "Line 3"`
 
-	cmd := testCommandWithScript("multiline", script, invkfile.RuntimeNative)
+	cmd := testCommandWithScript("multiline", script, invowkfile.RuntimeNative)
 
 	rt := NewNativeRuntime()
 	ctx := NewExecutionContext(cmd, inv)
@@ -102,13 +102,13 @@ echo "Hello from script file"
 		t.Fatalf("Failed to write script: %v", err)
 	}
 
-	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 
-	inv := &invkfile.Invkfile{
-		FilePath: invkfilePath,
+	inv := &invowkfile.Invowkfile{
+		FilePath: invowkfilePath,
 	}
 
-	cmd := testCommandWithScript("from-file", "./test.sh", invkfile.RuntimeNative)
+	cmd := testCommandWithScript("from-file", "./test.sh", invowkfile.RuntimeNative)
 
 	rt := NewNativeRuntime()
 	ctx := NewExecutionContext(cmd, inv)
@@ -135,15 +135,15 @@ func TestNativeRuntime_PositionalArgs(t *testing.T) {
 
 	tmpDir := t.TempDir()
 
-	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
-	inv := &invkfile.Invkfile{
-		FilePath: invkfilePath,
+	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
+	inv := &invowkfile.Invowkfile{
+		FilePath: invowkfilePath,
 	}
 
 	// Script that echoes positional parameters
 	script := `echo "arg1=$1 arg2=$2 all=$@"`
 
-	cmd := testCommandWithScript("positional", script, invkfile.RuntimeNative)
+	cmd := testCommandWithScript("positional", script, invowkfile.RuntimeNative)
 
 	rt := NewNativeRuntime()
 	ctx := NewExecutionContext(cmd, inv)
@@ -177,15 +177,15 @@ func TestNativeRuntime_PositionalArgs_Empty(t *testing.T) {
 
 	tmpDir := t.TempDir()
 
-	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
-	inv := &invkfile.Invkfile{
-		FilePath: invkfilePath,
+	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
+	inv := &invowkfile.Invowkfile{
+		FilePath: invowkfilePath,
 	}
 
 	// Script that echoes the number of positional parameters
 	script := `echo "argc=$#"`
 
-	cmd := testCommandWithScript("no-args", script, invkfile.RuntimeNative)
+	cmd := testCommandWithScript("no-args", script, invowkfile.RuntimeNative)
 
 	rt := NewNativeRuntime()
 	ctx := NewExecutionContext(cmd, inv)
@@ -213,15 +213,15 @@ func TestNativeRuntime_PositionalArgs_SpecialChars(t *testing.T) {
 
 	tmpDir := t.TempDir()
 
-	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
-	inv := &invkfile.Invkfile{
-		FilePath: invkfilePath,
+	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
+	inv := &invowkfile.Invowkfile{
+		FilePath: invowkfilePath,
 	}
 
 	// Script that echoes the first positional parameter
 	script := `echo "arg1=$1"`
 
-	cmd := testCommandWithScript("special-chars", script, invkfile.RuntimeNative)
+	cmd := testCommandWithScript("special-chars", script, invowkfile.RuntimeNative)
 
 	rt := NewNativeRuntime()
 	ctx := NewExecutionContext(cmd, inv)
@@ -332,9 +332,9 @@ func TestNativeRuntime_EnvIsolation(t *testing.T) {
 
 	tmpDir := t.TempDir()
 
-	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
-	inv := &invkfile.Invkfile{
-		FilePath: invkfilePath,
+	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
+	inv := &invowkfile.Invowkfile{
+		FilePath: invowkfilePath,
 	}
 
 	// Set environment variables that should be filtered
@@ -353,7 +353,7 @@ echo "INVOWK_FLAG_PARENT=${INVOWK_FLAG_PARENT:-unset}"
 echo "ARGC=${ARGC:-unset}"
 echo "ARG1=${ARG1:-unset}"`
 
-	cmd := testCommandWithScript("env-isolation", script, invkfile.RuntimeNative)
+	cmd := testCommandWithScript("env-isolation", script, invowkfile.RuntimeNative)
 
 	rt := NewNativeRuntime()
 	ctx := NewExecutionContext(cmd, inv)
@@ -390,21 +390,21 @@ func TestNativeRuntime_InvalidWorkingDirectory(t *testing.T) {
 
 	tmpDir := t.TempDir()
 
-	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
-	inv := &invkfile.Invkfile{
-		FilePath: invkfilePath,
+	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
+	inv := &invowkfile.Invowkfile{
+		FilePath: invowkfilePath,
 	}
 
 	script := `echo "Should not run"`
 
 	// Create command with invalid working directory
-	cmd := &invkfile.Command{
+	cmd := &invowkfile.Command{
 		Name: "invalid-workdir",
-		Implementations: []invkfile.Implementation{
+		Implementations: []invowkfile.Implementation{
 			{
 				Script:    script,
-				Runtimes:  []invkfile.RuntimeConfig{{Name: invkfile.RuntimeNative}},
-				Platforms: []invkfile.PlatformConfig{{Name: invkfile.PlatformLinux}, {Name: invkfile.PlatformMac}},
+				Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeNative}},
+				Platforms: []invowkfile.PlatformConfig{{Name: invowkfile.PlatformLinux}, {Name: invowkfile.PlatformMac}},
 				WorkDir:   "/nonexistent/directory/that/does/not/exist",
 			},
 		},
@@ -438,9 +438,9 @@ func TestNativeRuntime_ExitCode(t *testing.T) {
 
 	tmpDir := t.TempDir()
 
-	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
-	inv := &invkfile.Invkfile{
-		FilePath: invkfilePath,
+	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
+	inv := &invowkfile.Invowkfile{
+		FilePath: invowkfilePath,
 	}
 
 	tests := []struct {
@@ -457,7 +457,7 @@ func TestNativeRuntime_ExitCode(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cmd := testCommandWithScript("exit-test", tt.script, invkfile.RuntimeNative)
+			cmd := testCommandWithScript("exit-test", tt.script, invowkfile.RuntimeNative)
 			rt := NewNativeRuntime()
 			ctx := NewExecutionContext(cmd, inv)
 			ctx.IO.Stdout = &bytes.Buffer{}
@@ -556,24 +556,24 @@ func TestNativeRuntime_Validate_Unit(t *testing.T) {
 	t.Parallel()
 
 	tmpDir := t.TempDir()
-	inv := &invkfile.Invkfile{
-		FilePath: filepath.Join(tmpDir, "invkfile.cue"),
+	inv := &invowkfile.Invowkfile{
+		FilePath: filepath.Join(tmpDir, "invowkfile.cue"),
 	}
 
 	tests := []struct {
 		name    string
-		cmd     *invkfile.Command
+		cmd     *invowkfile.Command
 		wantErr bool
 		errMsg  string
 	}{
 		{
 			name:    "valid script",
-			cmd:     testCommandWithScript("valid", "echo hello", invkfile.RuntimeNative),
+			cmd:     testCommandWithScript("valid", "echo hello", invowkfile.RuntimeNative),
 			wantErr: false,
 		},
 		{
 			name: "nil implementation",
-			cmd: &invkfile.Command{
+			cmd: &invowkfile.Command{
 				Name: "nil-impl",
 			},
 			wantErr: true,
@@ -581,13 +581,13 @@ func TestNativeRuntime_Validate_Unit(t *testing.T) {
 		},
 		{
 			name: "empty script",
-			cmd: &invkfile.Command{
+			cmd: &invowkfile.Command{
 				Name: "empty",
-				Implementations: []invkfile.Implementation{
+				Implementations: []invowkfile.Implementation{
 					{
 						Script:    "",
-						Runtimes:  []invkfile.RuntimeConfig{{Name: invkfile.RuntimeNative}},
-						Platforms: []invkfile.PlatformConfig{{Name: invkfile.PlatformLinux}, {Name: invkfile.PlatformMac}, {Name: invkfile.PlatformWindows}},
+						Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeNative}},
+						Platforms: []invowkfile.PlatformConfig{{Name: invowkfile.PlatformLinux}, {Name: invowkfile.PlatformMac}, {Name: invowkfile.PlatformWindows}},
 					},
 				},
 			},
@@ -638,7 +638,7 @@ func TestNativeRuntime_getWorkDir(t *testing.T) {
 		skipOnWindows bool
 	}{
 		{
-			name:       "no workdir uses invkfile directory",
+			name:       "no workdir uses invowkfile directory",
 			cmdWorkDir: "",
 			ctxWorkDir: "",
 			want:       tmpDir,
@@ -659,18 +659,18 @@ func TestNativeRuntime_getWorkDir(t *testing.T) {
 			if tt.skipOnWindows && goruntime.GOOS == "windows" {
 				t.Skip("skipping: Unix-style absolute paths are not meaningful on Windows")
 			}
-			inv := &invkfile.Invkfile{
-				FilePath: filepath.Join(tmpDir, "invkfile.cue"),
+			inv := &invowkfile.Invowkfile{
+				FilePath: filepath.Join(tmpDir, "invowkfile.cue"),
 				WorkDir:  "",
 			}
-			cmd := &invkfile.Command{
+			cmd := &invowkfile.Command{
 				Name:    "workdir-test",
 				WorkDir: tt.cmdWorkDir,
-				Implementations: []invkfile.Implementation{
+				Implementations: []invowkfile.Implementation{
 					{
 						Script:    "echo test",
-						Runtimes:  []invkfile.RuntimeConfig{{Name: invkfile.RuntimeNative}},
-						Platforms: []invkfile.PlatformConfig{{Name: invkfile.PlatformLinux}, {Name: invkfile.PlatformMac}},
+						Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeNative}},
+						Platforms: []invowkfile.PlatformConfig{{Name: invowkfile.PlatformLinux}, {Name: invowkfile.PlatformMac}},
 					},
 				},
 			}

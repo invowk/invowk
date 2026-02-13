@@ -22,15 +22,15 @@ Quando o mesmo nome de comando existe em múltiplos locais:
 
 | Prioridade | Fonte | Caminho de Exemplo |
 |------------|-------|-------------------|
-| 1 (maior) | invkfile do diretório atual | `./invkfile.cue` |
-| 2 | Módulos locais | `./mytools.invkmod/` |
-| 3 | Includes configurados | `/opt/invowk-modules/tools.invkmod` |
-| 4 (menor) | Diretório de comandos do usuário | `~/.invowk/cmds/mytools.invkmod/` |
+| 1 (maior) | invowkfile do diretório atual | `./invowkfile.cue` |
+| 2 | Módulos locais | `./mytools.invowkmod/` |
+| 3 | Includes configurados | `/opt/invowk-modules/tools.invowkmod` |
+| 4 (menor) | Diretório de comandos do usuário | `~/.invowk/cmds/mytools.invowkmod/` |
 
 **Princípios chave**:
 - Mais perto do diretório de trabalho = maior prioridade.
 - Includes configurados têm precedência sobre o diretório de comandos do usuário porque representam configuração explícita e intencional.
-- O diretório de comandos do usuário (`~/.invowk/cmds/`) descobre apenas diretórios `*.invkmod` como filhos imediatos (não recursivo). Invkfiles avulsos não são descobertos a partir desse local.
+- O diretório de comandos do usuário (`~/.invowk/cmds/`) descobre apenas diretórios `*.invowkmod` como filhos imediatos (não recursivo). Invowkfiles avulsos não são descobertos a partir desse local.
 
 ## Detalhes da Descoberta de Módulos
 
@@ -39,7 +39,7 @@ Quando o mesmo nome de comando existe em múltiplos locais:
 ### Campos Obrigatórios do Módulo
 
 ```cue
-// invkmod.cue
+// invowkmod.cue
 module: "com.example.mymodule"  // Convenção de nomenclatura RDNS
 version: "1.0.0"                // Versão semântica
 
@@ -63,7 +63,7 @@ requires: [
 |----|--------------|------------------|
 | Módulo A | comandos de A, comandos de B | comandos de C (transitivo) |
 | Módulo B | comandos de B, comandos de C | - |
-| invkfile Raiz | Próprios comandos, deps diretas | Deps transitivas |
+| invowkfile Raiz | Próprios comandos, deps diretas | Deps transitivas |
 
 **Por que esta restrição?**
 - Previne acoplamento implícito a dependências transitivas
@@ -72,12 +72,12 @@ requires: [
 
 ## Configuração de Includes
 
-Invkfiles e módulos adicionais são configurados em `~/.config/invowk/config.cue`:
+Invowkfiles e módulos adicionais são configurados em `~/.config/invowk/config.cue`:
 
 ```cue
 includes: [
-    {path: "/opt/company-invowk-modules/tools.invkmod"},
-    {path: "/home/shared/invowk/invkfile.cue"},
+    {path: "/opt/company-invowk-modules/tools.invowkmod"},
+    {path: "/home/shared/invowk/invowkfile.cue"},
 ]
 ```
 
@@ -103,10 +103,10 @@ includes: [
 
 ```bash
 # Listar todos os comandos descobertos com fontes
-invowk cmd --invk-verbose
+invowk cmd --ivk-verbose
 
 # Validar estrutura do módulo
-invowk module validate ./mymodule.invkmod
+invowk module validate ./mymodule.invowkmod
 ```
 
 ## Diagramas Relacionados

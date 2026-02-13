@@ -1,12 +1,12 @@
 # Test: Command disambiguation (User Story 3)
-# Tests @source prefix and --invk-from flag for disambiguating ambiguous commands
+# Tests @source prefix and --ivk-from flag for disambiguating ambiguous commands
 
 # Change to work directory where the test files will be created
 cd $WORK
 
-# Test 1: @source prefix disambiguation - run deploy from invkfile
-exec invowk cmd @invkfile deploy
-stdout 'Deploying from invkfile!'
+# Test 1: @source prefix disambiguation - run deploy from invowkfile
+exec invowk cmd @invowkfile deploy
+stdout 'Deploying from invowkfile!'
 ! stderr .
 
 # Test 2: @source prefix disambiguation - run deploy from foo module
@@ -14,33 +14,33 @@ exec invowk cmd @foo deploy
 stdout 'Deploying from foo!'
 ! stderr .
 
-# Test 3: --invk-from flag disambiguation - run deploy from invkfile
-exec invowk cmd --invk-from invkfile deploy
-stdout 'Deploying from invkfile!'
+# Test 3: --ivk-from flag disambiguation - run deploy from invowkfile
+exec invowk cmd --ivk-from invowkfile deploy
+stdout 'Deploying from invowkfile!'
 ! stderr .
 
-# Test 4: --invk-from flag disambiguation - run deploy from foo module
-exec invowk cmd --invk-from foo deploy
+# Test 4: --ivk-from flag disambiguation - run deploy from foo module
+exec invowk cmd --ivk-from foo deploy
 stdout 'Deploying from foo!'
 ! stderr .
 
-# Test 5: Accept full module name with .invkmod suffix
-exec invowk cmd @foo.invkmod deploy
+# Test 5: Accept full module name with .invowkmod suffix
+exec invowk cmd @foo.invowkmod deploy
 stdout 'Deploying from foo!'
 ! stderr .
 
-# Test 6: Accept invkfile.cue as source name
-exec invowk cmd @invkfile.cue deploy
-stdout 'Deploying from invkfile!'
+# Test 6: Accept invowkfile.cue as source name
+exec invowk cmd @invowkfile.cue deploy
+stdout 'Deploying from invowkfile!'
 ! stderr .
 
-# Test 7: --invk-from with full module name
-exec invowk cmd --invk-from foo.invkmod deploy
+# Test 7: --ivk-from with full module name
+exec invowk cmd --ivk-from foo.invowkmod deploy
 stdout 'Deploying from foo!'
 ! stderr .
 
 # Test 8: Explicit source on non-ambiguous command should work without warning
-exec invowk cmd @invkfile hello
+exec invowk cmd @invowkfile hello
 stdout 'Hello from root!'
 ! stderr .
 
@@ -53,23 +53,23 @@ stdout 'Building from foo!'
 ! exec invowk cmd @nonexistent deploy
 stderr 'Source.*nonexistent.*not found'
 
-# Test 11: Invalid source with --invk-from should show helpful error
-! exec invowk cmd --invk-from badmodule deploy
+# Test 11: Invalid source with --ivk-from should show helpful error
+! exec invowk cmd --ivk-from badmodule deploy
 stderr 'Source.*badmodule.*not found'
 
 # Test 12: Attempting ambiguous command without disambiguation should fail with suggestions
 ! exec invowk cmd deploy
 stderr 'ambiguous'
-stderr '@invkfile'
+stderr '@invowkfile'
 stderr '@foo'
 
 # =============================================================================
 # User Story 4: Subcommand Ambiguity Handling (T034)
 # =============================================================================
 
-# Test 13: Subcommand disambiguation with @source prefix - run "deploy staging" from invkfile
-exec invowk cmd @invkfile deploy staging
-stdout 'Deploying to staging from invkfile!'
+# Test 13: Subcommand disambiguation with @source prefix - run "deploy staging" from invowkfile
+exec invowk cmd @invowkfile deploy staging
+stdout 'Deploying to staging from invowkfile!'
 ! stderr .
 
 # Test 14: Subcommand disambiguation with @source prefix - run "deploy staging" from bar module
@@ -77,20 +77,20 @@ exec invowk cmd @bar deploy staging
 stdout 'Deploying to staging from bar!'
 ! stderr .
 
-# Test 15: Subcommand disambiguation with --invk-from flag
-exec invowk cmd --invk-from invkfile deploy staging
-stdout 'Deploying to staging from invkfile!'
+# Test 15: Subcommand disambiguation with --ivk-from flag
+exec invowk cmd --ivk-from invowkfile deploy staging
+stdout 'Deploying to staging from invowkfile!'
 ! stderr .
 
-# Test 16: Subcommand disambiguation with --invk-from flag for module
-exec invowk cmd --invk-from bar deploy staging
+# Test 16: Subcommand disambiguation with --ivk-from flag for module
+exec invowk cmd --ivk-from bar deploy staging
 stdout 'Deploying to staging from bar!'
 ! stderr .
 
 # Test 17: Attempting ambiguous subcommand without disambiguation should fail
 ! exec invowk cmd deploy staging
 stderr 'ambiguous'
-stderr '@invkfile'
+stderr '@invowkfile'
 stderr '@bar'
 
 # Test 18: Non-ambiguous subcommand (only in one source) should work without disambiguation
@@ -105,42 +105,42 @@ stdout 'Deploying to production from bar!'
 ! stderr .
 
 # Test 20: Different subcommand paths are tracked separately for ambiguity
-# "deploy local" exists only in invkfile, should work without disambiguation
+# "deploy local" exists only in invowkfile, should work without disambiguation
 exec invowk cmd deploy local
-stdout 'Deploying to local from invkfile!'
+stdout 'Deploying to local from invowkfile!'
 ! stderr .
 
--- invkfile.cue --
+-- invowkfile.cue --
 cmds: [
 	{
 		name: "hello"
-		description: "Hello from root invkfile"
+		description: "Hello from root invowkfile"
 		implementations: [{script: "echo 'Hello from root!'", runtimes: [{name: "virtual"}], platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]}]
 	},
 	{
 		name: "deploy"
-		description: "Deploy from root invkfile"
-		implementations: [{script: "echo 'Deploying from invkfile!'", runtimes: [{name: "virtual"}], platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]}]
+		description: "Deploy from root invowkfile"
+		implementations: [{script: "echo 'Deploying from invowkfile!'", runtimes: [{name: "virtual"}], platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]}]
 	},
 	// Subcommands for User Story 4 testing
 	{
 		name: "deploy staging"
-		description: "Deploy to staging from invkfile"
-		implementations: [{script: "echo 'Deploying to staging from invkfile!'", runtimes: [{name: "virtual"}], platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]}]
+		description: "Deploy to staging from invowkfile"
+		implementations: [{script: "echo 'Deploying to staging from invowkfile!'", runtimes: [{name: "virtual"}], platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]}]
 	},
 	{
 		name: "deploy local"
-		description: "Deploy to local from invkfile (unique)"
-		implementations: [{script: "echo 'Deploying to local from invkfile!'", runtimes: [{name: "virtual"}], platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]}]
+		description: "Deploy to local from invowkfile (unique)"
+		implementations: [{script: "echo 'Deploying to local from invowkfile!'", runtimes: [{name: "virtual"}], platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]}]
 	},
 ]
 
--- foo.invkmod/invkmod.cue --
+-- foo.invowkmod/invowkmod.cue --
 module: "foo"
 version: "1.0.0"
 description: "Foo module"
 
--- foo.invkmod/invkfile.cue --
+-- foo.invowkmod/invowkfile.cue --
 cmds: [
 	{
 		name: "build"
@@ -154,14 +154,14 @@ cmds: [
 	},
 ]
 
--- bar.invkmod/invkmod.cue --
+-- bar.invowkmod/invowkmod.cue --
 module: "bar"
 version: "1.0.0"
 description: "Bar module for subcommand testing"
 
--- bar.invkmod/invkfile.cue --
+-- bar.invowkmod/invowkfile.cue --
 cmds: [
-	// Subcommand "deploy staging" that conflicts with invkfile's "deploy staging"
+	// Subcommand "deploy staging" that conflicts with invowkfile's "deploy staging"
 	{
 		name: "deploy staging"
 		description: "Deploy to staging from bar module"

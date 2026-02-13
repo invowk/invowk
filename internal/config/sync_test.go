@@ -260,7 +260,7 @@ func TestIncludeEntrySchemaSync(t *testing.T) {
 }
 
 // TestIncludesEntryConstraints verifies #IncludeEntry path rejects empty strings,
-// enforces the 4096 rune limit, and only accepts paths ending with .invkmod.
+// enforces the 4096 rune limit, and only accepts paths ending with .invowkmod.
 func TestIncludesEntryConstraints(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -273,48 +273,48 @@ func TestIncludesEntryConstraints(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name:    "path not ending with invkmod rejected",
+			name:    "path not ending with invowkmod rejected",
 			cueData: `includes: [{path: "/some/random/path"}]`,
 			wantErr: true,
 		},
 		{
-			name:    "invkfile.cue path rejected",
-			cueData: `includes: [{path: "/home/user/invkfile.cue"}]`,
+			name:    "invowkfile.cue path rejected",
+			cueData: `includes: [{path: "/home/user/invowkfile.cue"}]`,
 			wantErr: true,
 		},
 		{
-			name:    "invkfile path rejected",
-			cueData: `includes: [{path: "/home/user/invkfile"}]`,
+			name:    "invowkfile path rejected",
+			cueData: `includes: [{path: "/home/user/invowkfile"}]`,
 			wantErr: true,
 		},
 		{
-			name:    "invkmod path accepted",
-			cueData: `includes: [{path: "/home/user/mymod.invkmod"}]`,
+			name:    "invowkmod path accepted",
+			cueData: `includes: [{path: "/home/user/mymod.invowkmod"}]`,
 			wantErr: false,
 		},
 		{
 			name:    "path over 4096 chars rejected",
-			cueData: `includes: [{path: "/` + strings.Repeat("a", 4090) + `.invkmod"}]`,
+			cueData: `includes: [{path: "/` + strings.Repeat("a", 4090) + `.invowkmod"}]`,
 			wantErr: true,
 		},
 		{
-			name:    "alias on invkmod accepted",
-			cueData: `includes: [{path: "/home/user/mymod.invkmod", alias: "my-alias"}]`,
+			name:    "alias on invowkmod accepted",
+			cueData: `includes: [{path: "/home/user/mymod.invowkmod", alias: "my-alias"}]`,
 			wantErr: false,
 		},
 		{
 			name:    "empty alias rejected",
-			cueData: `includes: [{path: "/home/user/mymod.invkmod", alias: ""}]`,
+			cueData: `includes: [{path: "/home/user/mymod.invowkmod", alias: ""}]`,
 			wantErr: true,
 		},
 		{
 			name:    "alias over 256 chars rejected",
-			cueData: `includes: [{path: "/home/user/mymod.invkmod", alias: "` + strings.Repeat("a", 257) + `"}]`,
+			cueData: `includes: [{path: "/home/user/mymod.invowkmod", alias: "` + strings.Repeat("a", 257) + `"}]`,
 			wantErr: true,
 		},
 		{
 			name:    "alias at 256 chars accepted",
-			cueData: `includes: [{path: "/home/user/mymod.invkmod", alias: "` + strings.Repeat("a", 256) + `"}]`,
+			cueData: `includes: [{path: "/home/user/mymod.invowkmod", alias: "` + strings.Repeat("a", 256) + `"}]`,
 			wantErr: false,
 		},
 	}
@@ -379,13 +379,13 @@ func TestAutoProvisionIncludesConstraints(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name:    "invkmod path accepted",
-			cueData: `container: auto_provision: { includes: [{path: "/home/user/mymod.invkmod"}] }`,
+			name:    "invowkmod path accepted",
+			cueData: `container: auto_provision: { includes: [{path: "/home/user/mymod.invowkmod"}] }`,
 			wantErr: false,
 		},
 		{
-			name:    "invkfile path rejected",
-			cueData: `container: auto_provision: { includes: [{path: "/home/user/invkfile.cue"}] }`,
+			name:    "invowkfile path rejected",
+			cueData: `container: auto_provision: { includes: [{path: "/home/user/invowkfile.cue"}] }`,
 			wantErr: true,
 		},
 		{
@@ -395,7 +395,7 @@ func TestAutoProvisionIncludesConstraints(t *testing.T) {
 		},
 		{
 			name:    "alias accepted",
-			cueData: `container: auto_provision: { includes: [{path: "/home/user/mymod.invkmod", alias: "my-alias"}] }`,
+			cueData: `container: auto_provision: { includes: [{path: "/home/user/mymod.invowkmod", alias: "my-alias"}] }`,
 			wantErr: false,
 		},
 		{
@@ -472,78 +472,78 @@ func TestValidateIncludes(t *testing.T) {
 		{
 			name: "module with alias valid",
 			includes: []IncludeEntry{
-				{Path: "/path/to/mymod.invkmod", Alias: "my-alias"},
+				{Path: "/path/to/mymod.invowkmod", Alias: "my-alias"},
 			},
 			wantErr: false,
 		},
 		{
 			name: "module without alias valid",
 			includes: []IncludeEntry{
-				{Path: "/path/to/mymod.invkmod"},
+				{Path: "/path/to/mymod.invowkmod"},
 			},
 			wantErr: false,
 		},
 		{
 			name: "duplicate alias rejected",
 			includes: []IncludeEntry{
-				{Path: "/path/to/mod1.invkmod", Alias: "same-alias"},
-				{Path: "/path/to/mod2.invkmod", Alias: "same-alias"},
+				{Path: "/path/to/mod1.invowkmod", Alias: "same-alias"},
+				{Path: "/path/to/mod2.invowkmod", Alias: "same-alias"},
 			},
 			wantErr: true,
 		},
 		{
 			name: "different aliases accepted",
 			includes: []IncludeEntry{
-				{Path: "/path/to/mod1.invkmod", Alias: "alias-one"},
-				{Path: "/path/to/mod2.invkmod", Alias: "alias-two"},
+				{Path: "/path/to/mod1.invowkmod", Alias: "alias-one"},
+				{Path: "/path/to/mod2.invowkmod", Alias: "alias-two"},
 			},
 			wantErr: false,
 		},
 		{
 			name: "two modules different short names no aliases accepted",
 			includes: []IncludeEntry{
-				{Path: "/path/to/foo.invkmod"},
-				{Path: "/path/to/bar.invkmod"},
+				{Path: "/path/to/foo.invowkmod"},
+				{Path: "/path/to/bar.invowkmod"},
 			},
 			wantErr: false,
 		},
 		{
 			name: "two modules same short name no aliases rejected",
 			includes: []IncludeEntry{
-				{Path: "/path/a/foo.invkmod"},
-				{Path: "/path/b/foo.invkmod"},
+				{Path: "/path/a/foo.invowkmod"},
+				{Path: "/path/b/foo.invowkmod"},
 			},
 			wantErr: true,
 		},
 		{
 			name: "two modules same short name unique aliases accepted",
 			includes: []IncludeEntry{
-				{Path: "/path/a/foo.invkmod", Alias: "foo-a"},
-				{Path: "/path/b/foo.invkmod", Alias: "foo-b"},
+				{Path: "/path/a/foo.invowkmod", Alias: "foo-a"},
+				{Path: "/path/b/foo.invowkmod", Alias: "foo-b"},
 			},
 			wantErr: false,
 		},
 		{
 			name: "two modules same short name only one has alias rejected",
 			includes: []IncludeEntry{
-				{Path: "/path/a/foo.invkmod", Alias: "foo-a"},
-				{Path: "/path/b/foo.invkmod"},
+				{Path: "/path/a/foo.invowkmod", Alias: "foo-a"},
+				{Path: "/path/b/foo.invowkmod"},
 			},
 			wantErr: true,
 		},
 		{
 			name: "duplicate path rejected",
 			includes: []IncludeEntry{
-				{Path: "/path/to/mymod.invkmod"},
-				{Path: "/path/to/mymod.invkmod"},
+				{Path: "/path/to/mymod.invowkmod"},
+				{Path: "/path/to/mymod.invowkmod"},
 			},
 			wantErr: true,
 		},
 		{
 			name: "duplicate path with trailing slash rejected",
 			includes: []IncludeEntry{
-				{Path: "/path/to/mymod.invkmod"},
-				{Path: "/path/to/mymod.invkmod/"},
+				{Path: "/path/to/mymod.invowkmod"},
+				{Path: "/path/to/mymod.invowkmod/"},
 			},
 			wantErr: true,
 		},
@@ -578,23 +578,23 @@ func TestValidateAutoProvisionIncludes(t *testing.T) {
 		{
 			name: "module accepted",
 			includes: []IncludeEntry{
-				{Path: "/path/to/mymod.invkmod"},
+				{Path: "/path/to/mymod.invowkmod"},
 			},
 			wantErr: false,
 		},
 		{
 			name: "same short name collision rejected",
 			includes: []IncludeEntry{
-				{Path: "/a/foo.invkmod"},
-				{Path: "/b/foo.invkmod"},
+				{Path: "/a/foo.invowkmod"},
+				{Path: "/b/foo.invowkmod"},
 			},
 			wantErr: true,
 		},
 		{
 			name: "same short name with aliases accepted",
 			includes: []IncludeEntry{
-				{Path: "/a/foo.invkmod", Alias: "foo-a"},
-				{Path: "/b/foo.invkmod", Alias: "foo-b"},
+				{Path: "/a/foo.invowkmod", Alias: "foo-a"},
+				{Path: "/b/foo.invowkmod", Alias: "foo-b"},
 			},
 			wantErr: false,
 		},

@@ -48,22 +48,22 @@ func newModuleCommand(app *App) *cobra.Command {
 		Use:     "module",
 		Aliases: []string{"mod"},
 		Short:   "Manage invowk modules",
-		Long: `Manage invowk modules - self-contained folders containing invkfiles and scripts.
+		Long: `Manage invowk modules - self-contained folders containing invowkfiles and scripts.
 
-A module is a folder with the ` + CmdStyle.Render(".invkmod") + ` suffix that contains:
-  - ` + CmdStyle.Render("invkmod.cue") + ` (required): Module metadata (name, version, dependencies)
-  - ` + CmdStyle.Render("invkfile.cue") + ` (optional): Command definitions
+A module is a folder with the ` + CmdStyle.Render(".invowkmod") + ` suffix that contains:
+  - ` + CmdStyle.Render("invowkmod.cue") + ` (required): Module metadata (name, version, dependencies)
+  - ` + CmdStyle.Render("invowkfile.cue") + ` (optional): Command definitions
   - Optional script files referenced by command implementations
 
 Module names follow these rules:
   - Must start with a letter
   - Can contain alphanumeric characters with dot-separated segments
-  - Compatible with RDNS naming (e.g., ` + CmdStyle.Render("com.example.mycommands.invkmod") + `)
-  - The folder prefix must match the 'module' field in invkmod.cue
+  - Compatible with RDNS naming (e.g., ` + CmdStyle.Render("com.example.mycommands.invowkmod") + `)
+  - The folder prefix must match the 'module' field in invowkmod.cue
 
 Examples:
-  invowk module validate ./mycommands.invkmod
-  invowk module validate ./com.example.tools.invkmod --deep`,
+  invowk module validate ./mycommands.invowkmod
+  invowk module validate ./com.example.tools.invowkmod --deep`,
 	}
 
 	// Core module commands

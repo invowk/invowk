@@ -118,7 +118,7 @@ const config: Config = {
     },
     announcementBar: {
       id: 'alpha_warning',
-      content: '⚠️ <strong>Alpha Software</strong> — Invowk is under active development. The invkfile format and features may change between releases. <a target="_blank" rel="noopener noreferrer" href="https://github.com/invowk/invowk">Star us on GitHub</a> to follow progress!',
+      content: '⚠️ <strong>Alpha Software</strong> — Invowk is under active development. The invowkfile format and features may change between releases. <a target="_blank" rel="noopener noreferrer" href="https://github.com/invowk/invowk">Star us on GitHub</a> to follow progress!',
       backgroundColor: '#f59e0b',
       textColor: '#000000',
       isCloseable: false,

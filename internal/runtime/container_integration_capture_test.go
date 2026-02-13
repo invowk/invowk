@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"invowk-cli/internal/container"
-	"invowk-cli/pkg/invkfile"
+	"invowk-cli/pkg/invowkfile"
 )
 
 // TestContainerRuntime_ExecuteCapture tests the ExecuteCapture method that captures stdout/stderr
@@ -49,17 +49,17 @@ func TestContainerRuntime_ExecuteCapture(t *testing.T) {
 // testContainerExecuteCaptureBasic tests basic output capture
 func testContainerExecuteCaptureBasic(t *testing.T) {
 	t.Helper()
-	_, inv := setupTestInvkfile(t)
+	_, inv := setupTestInvowkfile(t)
 
-	cmd := &invkfile.Command{
+	cmd := &invowkfile.Command{
 		Name: "test-capture-basic",
-		Implementations: []invkfile.Implementation{
+		Implementations: []invowkfile.Implementation{
 			{
 				Script: "echo 'Hello from captured container'",
-				Runtimes: []invkfile.RuntimeConfig{
-					{Name: invkfile.RuntimeContainer, Image: "debian:stable-slim"},
+				Runtimes: []invowkfile.RuntimeConfig{
+					{Name: invowkfile.RuntimeContainer, Image: "debian:stable-slim"},
 				},
-				Platforms: []invkfile.PlatformConfig{{Name: invkfile.PlatformLinux}},
+				Platforms: []invowkfile.PlatformConfig{{Name: invowkfile.PlatformLinux}},
 			},
 		},
 	}
@@ -82,17 +82,17 @@ func testContainerExecuteCaptureBasic(t *testing.T) {
 // testContainerExecuteCaptureExitCode tests that exit codes are properly captured
 func testContainerExecuteCaptureExitCode(t *testing.T) {
 	t.Helper()
-	_, inv := setupTestInvkfile(t)
+	_, inv := setupTestInvowkfile(t)
 
-	cmd := &invkfile.Command{
+	cmd := &invowkfile.Command{
 		Name: "test-capture-exit",
-		Implementations: []invkfile.Implementation{
+		Implementations: []invowkfile.Implementation{
 			{
 				Script: "echo 'before exit'; exit 42",
-				Runtimes: []invkfile.RuntimeConfig{
-					{Name: invkfile.RuntimeContainer, Image: "debian:stable-slim"},
+				Runtimes: []invowkfile.RuntimeConfig{
+					{Name: invowkfile.RuntimeContainer, Image: "debian:stable-slim"},
 				},
-				Platforms: []invkfile.PlatformConfig{{Name: invkfile.PlatformLinux}},
+				Platforms: []invowkfile.PlatformConfig{{Name: invowkfile.PlatformLinux}},
 			},
 		},
 	}
@@ -115,17 +115,17 @@ func testContainerExecuteCaptureExitCode(t *testing.T) {
 // testContainerExecuteCaptureStderr tests that stderr is captured separately
 func testContainerExecuteCaptureStderr(t *testing.T) {
 	t.Helper()
-	_, inv := setupTestInvkfile(t)
+	_, inv := setupTestInvowkfile(t)
 
-	cmd := &invkfile.Command{
+	cmd := &invowkfile.Command{
 		Name: "test-capture-stderr",
-		Implementations: []invkfile.Implementation{
+		Implementations: []invowkfile.Implementation{
 			{
 				Script: "echo 'stdout message'; echo 'stderr message' >&2",
-				Runtimes: []invkfile.RuntimeConfig{
-					{Name: invkfile.RuntimeContainer, Image: "debian:stable-slim"},
+				Runtimes: []invowkfile.RuntimeConfig{
+					{Name: invowkfile.RuntimeContainer, Image: "debian:stable-slim"},
 				},
-				Platforms: []invkfile.PlatformConfig{{Name: invkfile.PlatformLinux}},
+				Platforms: []invowkfile.PlatformConfig{{Name: invowkfile.PlatformLinux}},
 			},
 		},
 	}
@@ -151,21 +151,21 @@ func testContainerExecuteCaptureStderr(t *testing.T) {
 // testContainerExecuteCaptureEnvVars tests that environment variables work with capture
 func testContainerExecuteCaptureEnvVars(t *testing.T) {
 	t.Helper()
-	_, inv := setupTestInvkfile(t)
+	_, inv := setupTestInvowkfile(t)
 
-	currentPlatform := invkfile.GetCurrentHostOS()
-	cmd := &invkfile.Command{
+	currentPlatform := invowkfile.GetCurrentHostOS()
+	cmd := &invowkfile.Command{
 		Name: "test-capture-env",
-		Implementations: []invkfile.Implementation{
+		Implementations: []invowkfile.Implementation{
 			{
 				Script: `echo "VAR=$MY_VAR"`,
-				Runtimes: []invkfile.RuntimeConfig{
-					{Name: invkfile.RuntimeContainer, Image: "debian:stable-slim"},
+				Runtimes: []invowkfile.RuntimeConfig{
+					{Name: invowkfile.RuntimeContainer, Image: "debian:stable-slim"},
 				},
-				Platforms: []invkfile.PlatformConfig{
+				Platforms: []invowkfile.PlatformConfig{
 					{Name: currentPlatform},
 				},
-				Env: &invkfile.EnvConfig{Vars: map[string]string{"MY_VAR": "captured_value"}},
+				Env: &invowkfile.EnvConfig{Vars: map[string]string{"MY_VAR": "captured_value"}},
 			},
 		},
 	}

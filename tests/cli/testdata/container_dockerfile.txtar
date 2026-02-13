@@ -6,7 +6,7 @@
 # Skip if running inside Flatpak/Snap sandbox (filesystem permissions may prevent volume mounts)
 [in-sandbox] skip 'container tests may require --filesystem permissions in sandbox - run tests on host or grant permissions'
 
-# Change to work directory where local invkfile.cue is located
+# Change to work directory where local invowkfile.cue is located
 cd $WORK
 
 # Test 1: Build from Containerfile and run command
@@ -19,7 +19,7 @@ stdout '"world"'
 exec invowk cmd check-custom-env
 stdout 'CUSTOM_FROM_DOCKERFILE: yes'
 
--- invkfile.cue --
+-- invowkfile.cue --
 cmds: [
 	{
 		name: "json-parse"

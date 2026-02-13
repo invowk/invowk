@@ -35,7 +35,7 @@ APP_ENV=development
 ENABLE_DEBUG=true
 LOG_LEVEL=info
 
--- invkfile.cue --
+-- invowkfile.cue --
 cmds: [
 	{
 		name:        "env files basic"
@@ -58,7 +58,7 @@ cmds: [
 				echo ""
 				echo "The env.files field loads dotenv files before"
 				echo "command execution. Paths are relative to the"
-				echo "invkfile location."
+				echo "invowkfile location."
 				echo "=========================================="
 				"""
 			runtimes:  [{name: "virtual"}]

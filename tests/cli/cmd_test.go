@@ -103,9 +103,9 @@ func commonSetup(env *testscript.Env) error {
 	binDir := filepath.Dir(binaryPath)
 	env.Setenv("PATH", binDir+string(os.PathListSeparator)+env.Getenv("PATH"))
 
-	// Set PROJECT_ROOT for tests that need to run against the project's invkfile.
-	// Tests with embedded invkfile.cue use 'cd $WORK', while tests that rely on
-	// the project's invkfile.cue should use 'cd $PROJECT_ROOT'.
+	// Set PROJECT_ROOT for tests that need to run against the project's invowkfile.
+	// Tests with embedded invowkfile.cue use 'cd $WORK', while tests that rely on
+	// the project's invowkfile.cue should use 'cd $PROJECT_ROOT'.
 	env.Setenv("PROJECT_ROOT", projectRoot)
 
 	// Set HOME to $WORK directory for container build tests.
@@ -126,7 +126,7 @@ func commonSetup(env *testscript.Env) error {
 	// IMPORTANT: Do NOT set env.Cd here. Each test file controls its own working
 	// directory. Tests that need the project root should use 'cd $PROJECT_ROOT'.
 	// Setting env.Cd = projectRoot globally caused container tests with embedded
-	// invkfile.cue files to fail because invowk discovered commands from the
+	// invowkfile.cue files to fail because invowk discovered commands from the
 	// project root instead of the test's $WORK directory.
 
 	return nil

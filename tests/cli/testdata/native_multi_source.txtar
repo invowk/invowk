@@ -1,6 +1,6 @@
 # Test: Multi-source command discovery using native runtime (User Story 1 + User Story 2)
 # Mirrors virtual_multi_source.txtar but with platform-split native implementations
-# Tests that invowk cmd discovers commands from both invkfile.cue AND sibling modules
+# Tests that invowk cmd discovers commands from both invowkfile.cue AND sibling modules
 # Tests that unambiguous commands execute with simple names (transparent namespace)
 
 # Change to work directory where the test files will be created
@@ -9,15 +9,15 @@ cd $WORK
 # Test 1: List commands - should show commands grouped by source
 # Commands are displayed with their SimpleName (no module prefix)
 exec invowk cmd
-stdout 'From invkfile:'
+stdout 'From invowkfile:'
 stdout 'hello'
-stdout 'From foo.invkmod:'
+stdout 'From foo.invowkmod:'
 stdout 'build'
-stdout 'From bar.invkmod:'
+stdout 'From bar.invowkmod:'
 stdout 'test'
 ! stderr .
 
-# Test 2: Run unambiguous command from invkfile using simple name
+# Test 2: Run unambiguous command from invowkfile using simple name
 exec invowk cmd hello
 stdout 'Hello from root!'
 ! stderr .
@@ -34,11 +34,11 @@ exec invowk cmd test
 stdout 'Testing from bar!'
 ! stderr .
 
--- invkfile.cue --
+-- invowkfile.cue --
 cmds: [
 	{
 		name:        "hello"
-		description: "Hello from root invkfile"
+		description: "Hello from root invowkfile"
 		implementations: [
 			{
 				script:    "echo 'Hello from root!'"
@@ -54,12 +54,12 @@ cmds: [
 	},
 ]
 
--- foo.invkmod/invkmod.cue --
+-- foo.invowkmod/invowkmod.cue --
 module: "foo"
 version: "1.0.0"
 description: "Foo module"
 
--- foo.invkmod/invkfile.cue --
+-- foo.invowkmod/invowkfile.cue --
 cmds: [
 	{
 		name:        "build"
@@ -79,12 +79,12 @@ cmds: [
 	},
 ]
 
--- bar.invkmod/invkmod.cue --
+-- bar.invowkmod/invowkmod.cue --
 module: "bar"
 version: "1.0.0"
 description: "Bar module"
 
--- bar.invkmod/invkfile.cue --
+-- bar.invowkmod/invowkfile.cue --
 cmds: [
 	{
 		name:        "test"

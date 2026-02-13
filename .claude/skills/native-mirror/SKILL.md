@@ -31,7 +31,7 @@ Before generating a mirror, verify the virtual test is NOT exempt:
 - `virtual_ambiguity.txtar` — Command resolution logic
 - `virtual_disambiguation.txtar` — Command resolution logic
 - `virtual_multi_source.txtar` — Command resolution logic
-- `dogfooding_invkfile.txtar` — Already exercises native runtime
+- `dogfooding_invowkfile.txtar` — Already exercises native runtime
 
 If the test is exempt, report it and stop.
 
@@ -40,7 +40,7 @@ If the test is exempt, report it and stop.
 Read the source `virtual_*.txtar` file and extract:
 1. The test description comments
 2. All `exec` commands and `stdout`/`stderr` assertions
-3. The embedded `invkfile.cue` and any other files
+3. The embedded `invowkfile.cue` and any other files
 4. Environment variable usage
 
 ### Step 3: Transform the CUE
@@ -119,7 +119,7 @@ exec invowk cmd hello
 stdout 'Hello from invowk!'
 ! stderr .
 
--- invkfile.cue --
+-- invowkfile.cue --
 cmds: [{
     name: "hello"
     description: "Say hello"
@@ -140,7 +140,7 @@ exec invowk cmd hello
 stdout 'Hello from invowk!'
 ! stderr .
 
--- invkfile.cue --
+-- invowkfile.cue --
 cmds: [{
     name: "hello"
     description: "Say hello"

@@ -16,7 +16,7 @@ stdout 'LOG_LEVEL: debug'
 stdout 'RUNTIME: native'
 ! stderr .
 
--- invkfile.cue --
+-- invowkfile.cue --
 env: {
 	vars: {
 		APP_ENV:   "development"

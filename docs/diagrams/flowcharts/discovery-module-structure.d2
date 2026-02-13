@@ -1,7 +1,7 @@
 # Module Structure Flowchart
 #
 # Shows the directory structure and required files
-# for an Invowk module (.invkmod directory).
+# for an Invowk module (.invowkmod directory).
 #
 # Source: docs/architecture/flowchart-discovery.md
 
@@ -24,15 +24,15 @@ module_structure: Module Structure {
     fill: transparent
   }
 
-  ModDir: "*.invkmod/" {
+  ModDir: "*.invowkmod/" {
     style.fill: "#BBDEFB"
   }
 
-  InvkmodCue: invkmod.cue\n(metadata) {
+  InvowkmodCue: invowkmod.cue\n(metadata) {
     style.fill: "#C8E6C9"
   }
 
-  InvkfileCue: invkfile.cue\n(commands) {
+  InvowkfileCue: invowkfile.cue\n(commands) {
     style.fill: "#C8E6C9"
   }
 
@@ -44,8 +44,8 @@ module_structure: Module Structure {
     style.fill: "#E8E8E8"
   }
 
-  ModDir -> InvkmodCue
-  ModDir -> InvkfileCue
+  ModDir -> InvowkmodCue
+  ModDir -> InvowkfileCue
   ModDir -> Scripts
   ModDir -> Files
 }
@@ -54,7 +54,7 @@ module_structure: Module Structure {
 # Module Metadata
 # ==============================================================================
 
-module_metadata: Module Metadata (invkmod.cue) {
+module_metadata: Module Metadata (invowkmod.cue) {
   style: {
     stroke: "#1168BD"
     stroke-dash: 3
@@ -72,4 +72,4 @@ module_metadata: Module Metadata (invkmod.cue) {
   }
 }
 
-module_structure.InvkmodCue -> module_metadata.Meta
+module_structure.InvowkmodCue -> module_metadata.Meta

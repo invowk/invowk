@@ -29,9 +29,9 @@ Use this skill when working on:
 
 | Change | Update |
 | --- | --- |
-| `pkg/invkfile/invkfile_schema.cue` | `website/docs/reference/invkfile-schema.mdx` + affected docs/snippets |
-| `pkg/invkmod/invkmod_schema.cue` | `website/docs/modules/` pages |
-| `pkg/invkmod/operations*.go` | `website/docs/modules/` pages (validation, create, packaging, vendoring) |
+| `pkg/invowkfile/invowkfile_schema.cue` | `website/docs/reference/invowkfile-schema.mdx` + affected docs/snippets |
+| `pkg/invowkmod/invowkmod_schema.cue` | `website/docs/modules/` pages |
+| `pkg/invowkmod/operations*.go` | `website/docs/modules/` pages (validation, create, packaging, vendoring) |
 | `internal/config/config_schema.cue` | `website/docs/reference/config-schema.mdx`, `website/docs/configuration/options.mdx` |
 | `internal/runtime/container*.go` | `website/docs/runtime-modes/container.mdx` |
 | `cmd/invowk/*.go` | `website/docs/reference/cli.mdx` + relevant feature docs |
@@ -63,8 +63,8 @@ When changes affect architectural behavior, evaluate and update these diagrams:
 
 ```
 website/docs/
-|-- getting-started/     # Installation, quickstart, first invkfile
-|-- core-concepts/       # Invkfile format, commands, implementations
+|-- getting-started/     # Installation, quickstart, first invowkfile
+|-- core-concepts/       # Invowkfile format, commands, implementations
 |-- runtime-modes/       # Native, virtual, container execution
 |-- dependencies/        # Tools, filepaths, capabilities, custom checks
 |-- flags-and-arguments/ # CLI flags and positional arguments
@@ -73,7 +73,7 @@ website/docs/
 |-- modules/             # Module creation, validation, distribution
 |-- tui/                 # TUI components reference
 |-- configuration/       # Config file and options
-`-- reference/           # CLI, invkfile schema, config schema
+`-- reference/           # CLI, invowkfile schema, config schema
 ```
 
 ---

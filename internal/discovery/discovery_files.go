@@ -8,8 +8,8 @@ import (
 	"strings"
 
 	"invowk-cli/internal/config"
-	"invowk-cli/pkg/invkfile"
-	"invowk-cli/pkg/invkmod"
+	"invowk-cli/pkg/invowkfile"
+	"invowk-cli/pkg/invowkmod"
 )
 
 const (
@@ -20,21 +20,21 @@ const (
 )
 
 type (
-	// Source represents where an invkfile was found
+	// Source represents where an invowkfile was found
 	Source int
 
-	// DiscoveredFile represents a found invkfile with its source
+	// DiscoveredFile represents a found invowkfile with its source
 	DiscoveredFile struct {
-		// Path is the absolute path to the invkfile
+		// Path is the absolute path to the invowkfile
 		Path string
 		// Source indicates where the file was found
 		Source Source
-		// Invkfile is the parsed content (may be nil if not yet parsed)
-		Invkfile *invkfile.Invkfile
+		// Invowkfile is the parsed content (may be nil if not yet parsed)
+		Invowkfile *invowkfile.Invowkfile
 		// Error contains any error that occurred during parsing
 		Error error
 		// Module is set if this file was discovered from a module
-		Module *invkmod.Module
+		Module *invowkmod.Module
 	}
 )
 
@@ -50,9 +50,9 @@ func (s Source) String() string {
 	}
 }
 
-// DiscoverAll finds all invkfiles from all sources in 4-level precedence order:
-//  1. Current directory (highest precedence — the local invkfile.cue)
-//  2. Modules in the current directory (*.invkmod directories)
+// DiscoverAll finds all invowkfiles from all sources in 4-level precedence order:
+//  1. Current directory (highest precedence — the local invowkfile.cue)
+//  2. Modules in the current directory (*.invowkmod directories)
 //  3. Configured includes from config (module paths)
 //  4. User commands directory (~/.invowk/cmds — modules only, non-recursive)
 //
@@ -84,21 +84,21 @@ func (d *Discovery) DiscoverAll() ([]*DiscoveredFile, error) {
 	return files, nil
 }
 
-// discoverInDir looks for an invkfile in a specific directory
+// discoverInDir looks for an invowkfile in a specific directory
 func (d *Discovery) discoverInDir(dir string, source Source) *DiscoveredFile {
 	absDir, err := filepath.Abs(dir)
 	if err != nil {
 		return nil
 	}
 
-	// Check for invkfile.cue first (preferred)
-	path := filepath.Join(absDir, invkfile.InvkfileName+".cue")
+	// Check for invowkfile.cue first (preferred)
+	path := filepath.Join(absDir, invowkfile.InvowkfileName+".cue")
 	if _, err := os.Stat(path); err == nil {
 		return &DiscoveredFile{Path: path, Source: source}
 	}
 
-	// Check for invkfile (no extension)
-	path = filepath.Join(absDir, invkfile.InvkfileName)
+	// Check for invowkfile (no extension)
+	path = filepath.Join(absDir, invowkfile.InvowkfileName)
 	if _, err := os.Stat(path); err == nil {
 		return &DiscoveredFile{Path: path, Source: source}
 	}
@@ -134,28 +134,28 @@ func (d *Discovery) discoverModulesInDir(dir string) []*DiscoveredFile {
 
 		// Check if it's a module
 		entryPath := filepath.Join(absDir, entry.Name())
-		if !invkmod.IsModule(entryPath) {
+		if !invowkmod.IsModule(entryPath) {
 			continue
 		}
 
-		// Skip reserved module name "invkfile" (FR-015)
-		// The name "invkfile" is reserved for the canonical namespace system
-		// where @invkfile refers to the root invkfile.cue source
-		moduleName := strings.TrimSuffix(entry.Name(), invkmod.ModuleSuffix)
-		if moduleName == SourceIDInvkfile {
+		// Skip reserved module name "invowkfile" (FR-015)
+		// The name "invowkfile" is reserved for the canonical namespace system
+		// where @invowkfile refers to the root invowkfile.cue source
+		moduleName := strings.TrimSuffix(entry.Name(), invowkmod.ModuleSuffix)
+		if moduleName == SourceIDInvowkfile {
 			// Note: Warning will be displayed in verbose mode (FR-013)
 			continue
 		}
 
 		// Load the module
-		m, err := invkmod.Load(entryPath)
+		m, err := invowkmod.Load(entryPath)
 		if err != nil {
 			// Invalid module, skip it
 			continue
 		}
 
 		files = append(files, &DiscoveredFile{
-			Path:   m.InvkfilePath(),
+			Path:   m.InvowkfilePath(),
 			Source: SourceModule,
 			Module: m,
 		})
@@ -165,7 +165,7 @@ func (d *Discovery) discoverModulesInDir(dir string) []*DiscoveredFile {
 }
 
 // loadIncludes processes configured module include entries from config.
-// All entries are module directory paths (*.invkmod) and are loaded as SourceModule.
+// All entries are module directory paths (*.invowkmod) and are loaded as SourceModule.
 //
 // Entries that do not exist on disk or fail validation are silently skipped
 // (they may reference optional or environment-specific paths).
@@ -173,19 +173,19 @@ func (d *Discovery) loadIncludes() []*DiscoveredFile {
 	var files []*DiscoveredFile
 
 	for _, entry := range d.cfg.Includes {
-		if !invkmod.IsModule(entry.Path) {
+		if !invowkmod.IsModule(entry.Path) {
 			continue
 		}
-		moduleName := strings.TrimSuffix(filepath.Base(entry.Path), invkmod.ModuleSuffix)
-		if moduleName == SourceIDInvkfile {
+		moduleName := strings.TrimSuffix(filepath.Base(entry.Path), invowkmod.ModuleSuffix)
+		if moduleName == SourceIDInvowkfile {
 			continue // Skip reserved module name (FR-015)
 		}
-		m, err := invkmod.Load(entry.Path)
+		m, err := invowkmod.Load(entry.Path)
 		if err != nil {
 			continue // Skip invalid modules
 		}
 		files = append(files, &DiscoveredFile{
-			Path:   m.InvkfilePath(),
+			Path:   m.InvowkfilePath(),
 			Source: SourceModule,
 			Module: m,
 		})
@@ -195,8 +195,8 @@ func (d *Discovery) loadIncludes() []*DiscoveredFile {
 }
 
 // getModuleShortName extracts the short name from a module path.
-// e.g., "/path/to/foo.invkmod" -> "foo"
+// e.g., "/path/to/foo.invowkmod" -> "foo"
 func getModuleShortName(modulePath string) string {
 	base := filepath.Base(modulePath)
-	return strings.TrimSuffix(base, invkmod.ModuleSuffix)
+	return strings.TrimSuffix(base, invowkmod.ModuleSuffix)
 }

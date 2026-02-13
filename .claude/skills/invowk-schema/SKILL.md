@@ -1,24 +1,24 @@
 ---
 name: invowk-schema
-description: Schema guidelines for invkfile.cue and modules/*.invkmod, cross-platform runtime patterns, command implementations, capability checks, environment variables.
+description: Schema guidelines for invowkfile.cue and modules/*.invowkmod, cross-platform runtime patterns, command implementations, capability checks, environment variables.
 disable-model-invocation: false
 ---
 
 # Invowk Schema Guidelines
 
 Use this skill when:
-- Editing the `invkfile.cue` root example file
+- Editing the `invowkfile.cue` root example file
 - Working with sample modules in `modules/`
 - Adding or modifying command/implementation structures
 - Handling cross-platform runtime selection (native vs virtual runtimes on different platforms)
 
 ---
 
-## Invkfile Examples
+## Invowkfile Examples
 
-### Built-in Examples (`invkfile.cue` at project root)
+### Built-in Examples (`invowkfile.cue` at project root)
 
-- Always update the example file when invkfile definitions or features are added, modified, or removed.
+- Always update the example file when invowkfile definitions or features are added, modified, or removed.
 - All commands should be idempotent and not cause any side effects on the host.
 - No commands should be related to building invowk itself or manipulating any of its source code.
 - Examples should range from simple (e.g., native "hello-world") to complex (e.g., container "hello-world" with `enable_host_ssh`).
@@ -30,7 +30,7 @@ Use this skill when:
   - Capabilities checks (with and without alternatives).
   - Tools checks (with and without alternatives).
   - Custom checks (with and without alternatives).
-- Module metadata does not belong in invkfile examples; it lives in `invkmod.cue` for modules.
+- Module metadata does not belong in invowkfile examples; it lives in `invowkmod.cue` for modules.
 
 ### Command Structure Validation
 
@@ -159,31 +159,31 @@ implementations: [
 - **Native-only** (`runtimes: [{name: "native"}]`): For test files that specifically validate native shell behavior on each platform. Used in `native_*.txtar` mirror tests.
 - **Native+virtual** (`runtimes: [{name: "native"}, {name: "virtual"}]`): For production commands that prefer native shell but fall back to virtual shell. Requires the standard platform-split pattern (see above) to avoid PowerShell parsing bash syntax on Windows.
 
-## Invkmod Modules
+## Invowkmod Modules
 
 ### Samples (`modules/` directory)
 
 The `modules/` directory contains sample modules that serve as reference implementations and validation tests.
 
-- A module is a `.invkmod` directory containing `invkmod.cue` (metadata) and `invkfile.cue` (commands).
-- The invkmod schema lives in `pkg/invkmod/invkmod_schema.cue` and the invkfile schema in `pkg/invkfile/invkfile_schema.cue`.
-- Always update sample modules when the invkmod schema, validation rules, or module behavior changes.
+- A module is a `.invowkmod` directory containing `invowkmod.cue` (metadata) and `invowkfile.cue` (commands).
+- The invowkmod schema lives in `pkg/invowkmod/invowkmod_schema.cue` and the invowkfile schema in `pkg/invowkfile/invowkfile_schema.cue`.
+- Always update sample modules when the invowkmod schema, validation rules, or module behavior changes.
 - Modules should demonstrate module-specific features (script file references, cross-platform paths, requirements).
-- After module-related changes, run validation: `go run . module validate modules/<module-name>.invkmod --deep`.
+- After module-related changes, run validation: `go run . module validate modules/<module-name>.invowkmod --deep`.
 
 ### Current Sample Modules
 
-- `io.invowk.sample.invkmod` - Minimal cross-platform module with a simple greeting command.
+- `io.invowk.sample.invowkmod` - Minimal cross-platform module with a simple greeting command.
 
 ### Module Validation Checklist
 
 When modifying module-related code, verify:
-1. All modules in `modules/` pass validation: `go run . module validate modules/*.invkmod --deep`.
+1. All modules in `modules/` pass validation: `go run . module validate modules/*.invowkmod --deep`.
 2. Module naming conventions and module ID matching are enforced.
-3. `invkmod.cue` is required and parsed; `invkfile.cue` contains only commands.
+3. `invowkmod.cue` is required and parsed; `invowkfile.cue` contains only commands.
 4. Script path resolution works correctly (forward slashes, relative paths).
 5. Nested module detection works correctly.
-6. The `pkg/invkmod/` tests pass: `go test -v ./pkg/invkmod/...`.
+6. The `pkg/invowkmod/` tests pass: `go test -v ./pkg/invowkmod/...`.
 
 ## Common Pitfalls
 

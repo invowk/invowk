@@ -12,11 +12,11 @@ import (
 	"strings"
 
 	"invowk-cli/internal/runtime"
-	"invowk-cli/pkg/invkfile"
+	"invowk-cli/pkg/invowkfile"
 )
 
 // validateCustomCheckOutput validates custom check script output against expected values
-func validateCustomCheckOutput(check invkfile.CustomCheck, outputStr string, execErr error) error {
+func validateCustomCheckOutput(check invowkfile.CustomCheck, outputStr string, execErr error) error {
 	// Determine expected exit code (default: 0)
 	expectedCode := 0
 	if check.ExpectedCode != nil {
@@ -59,7 +59,7 @@ func validateCustomCheckOutput(check invkfile.CustomCheck, outputStr string, exe
 // - container: executed within the container environment
 // Each CustomCheckDependency can be either a direct check or a list of alternatives.
 // For alternatives, OR semantics are used (early return on first passing check).
-func checkCustomCheckDependencies(deps *invkfile.DependsOn, runtimeMode invkfile.RuntimeMode, registry *runtime.Registry, ctx *runtime.ExecutionContext) error {
+func checkCustomCheckDependencies(deps *invowkfile.DependsOn, runtimeMode invowkfile.RuntimeMode, registry *runtime.Registry, ctx *runtime.ExecutionContext) error {
 	if deps == nil || len(deps.CustomChecks) == 0 {
 		return nil
 	}
@@ -74,11 +74,11 @@ func checkCustomCheckDependencies(deps *invkfile.DependsOn, runtimeMode invkfile
 		for _, check := range checks {
 			var err error
 			switch runtimeMode {
-			case invkfile.RuntimeContainer:
+			case invowkfile.RuntimeContainer:
 				err = validateCustomCheckInContainer(check, registry, ctx)
-			case invkfile.RuntimeVirtual:
+			case invowkfile.RuntimeVirtual:
 				err = validateCustomCheckInVirtual(check, registry, ctx)
-			case invkfile.RuntimeNative:
+			case invowkfile.RuntimeNative:
 				err = validateCustomCheckNative(check)
 			}
 			if err == nil {
@@ -113,7 +113,7 @@ func checkCustomCheckDependencies(deps *invkfile.DependsOn, runtimeMode invkfile
 }
 
 // validateCustomCheckNative runs a custom check script using the native shell
-func validateCustomCheckNative(check invkfile.CustomCheck) error {
+func validateCustomCheckNative(check invowkfile.CustomCheck) error {
 	cmd := exec.CommandContext(context.Background(), "sh", "-c", check.CheckScript)
 	output, err := cmd.CombinedOutput()
 	outputStr := strings.TrimSpace(string(output))
@@ -122,7 +122,7 @@ func validateCustomCheckNative(check invkfile.CustomCheck) error {
 }
 
 // validateCustomCheckInVirtual runs a custom check script using the virtual runtime
-func validateCustomCheckInVirtual(check invkfile.CustomCheck, registry *runtime.Registry, ctx *runtime.ExecutionContext) error {
+func validateCustomCheckInVirtual(check invowkfile.CustomCheck, registry *runtime.Registry, ctx *runtime.ExecutionContext) error {
 	rt, err := registry.Get(runtime.RuntimeTypeVirtual)
 	if err != nil {
 		// Fall back to native validation if virtual runtime not available
@@ -133,9 +133,9 @@ func validateCustomCheckInVirtual(check invkfile.CustomCheck, registry *runtime.
 	var stdout, stderr bytes.Buffer
 	validationCtx := &runtime.ExecutionContext{
 		Command:         ctx.Command,
-		Invkfile:        ctx.Invkfile,
-		SelectedImpl:    &invkfile.Implementation{Script: check.CheckScript, Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeVirtual}}},
-		SelectedRuntime: invkfile.RuntimeVirtual,
+		Invowkfile:      ctx.Invowkfile,
+		SelectedImpl:    &invowkfile.Implementation{Script: check.CheckScript, Runtimes: []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeVirtual}}},
+		SelectedRuntime: invowkfile.RuntimeVirtual,
 		Context:         ctx.Context,
 		IO:              runtime.IOContext{Stdout: &stdout, Stderr: &stderr},
 		Env:             runtime.DefaultEnv(),
@@ -148,7 +148,7 @@ func validateCustomCheckInVirtual(check invkfile.CustomCheck, registry *runtime.
 }
 
 // validateCustomCheckInContainer runs a custom check script within a container
-func validateCustomCheckInContainer(check invkfile.CustomCheck, registry *runtime.Registry, ctx *runtime.ExecutionContext) error {
+func validateCustomCheckInContainer(check invowkfile.CustomCheck, registry *runtime.Registry, ctx *runtime.ExecutionContext) error {
 	rt, err := registry.Get(runtime.RuntimeTypeContainer)
 	if err != nil {
 		return fmt.Errorf("  • %s - container runtime not available", check.Name)
@@ -158,9 +158,9 @@ func validateCustomCheckInContainer(check invkfile.CustomCheck, registry *runtim
 	var stdout, stderr bytes.Buffer
 	validationCtx := &runtime.ExecutionContext{
 		Command:         ctx.Command,
-		Invkfile:        ctx.Invkfile,
-		SelectedImpl:    &invkfile.Implementation{Script: check.CheckScript, Runtimes: []invkfile.RuntimeConfig{{Name: invkfile.RuntimeContainer}}},
-		SelectedRuntime: invkfile.RuntimeContainer,
+		Invowkfile:      ctx.Invowkfile,
+		SelectedImpl:    &invowkfile.Implementation{Script: check.CheckScript, Runtimes: []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeContainer}}},
+		SelectedRuntime: invowkfile.RuntimeContainer,
 		Context:         ctx.Context,
 		IO:              runtime.IOContext{Stdout: &stdout, Stderr: &stderr},
 		Env:             runtime.DefaultEnv(),
@@ -175,7 +175,7 @@ func validateCustomCheckInContainer(check invkfile.CustomCheck, registry *runtim
 // checkCustomChecks verifies all custom check scripts pass (legacy - uses native).
 // Each CustomCheckDependency can be either a direct check or a list of alternatives.
 // For alternatives, OR semantics are used (early return on first passing check).
-func checkCustomChecks(cmd *invkfile.Command) error {
+func checkCustomChecks(cmd *invowkfile.Command) error {
 	if cmd.DependsOn == nil || len(cmd.DependsOn.CustomChecks) == 0 {
 		return nil
 	}
@@ -223,7 +223,7 @@ func checkCustomChecks(cmd *invkfile.Command) error {
 // Capabilities are always checked against the host system, regardless of the runtime mode.
 // For container runtimes, these checks represent the host's capabilities, not the container's.
 // Each CapabilityDependency contains a list of alternatives; if any alternative is satisfied, the dependency is met.
-func checkCapabilityDependencies(deps *invkfile.DependsOn, ctx *runtime.ExecutionContext) error {
+func checkCapabilityDependencies(deps *invowkfile.DependsOn, ctx *runtime.ExecutionContext) error {
 	if deps == nil || len(deps.Capabilities) == 0 {
 		return nil
 	}
@@ -252,7 +252,7 @@ func checkCapabilityDependencies(deps *invkfile.DependsOn, ctx *runtime.Executio
 		var lastErr error
 		found := false
 		for _, alt := range cap.Alternatives {
-			if err := invkfile.CheckCapability(alt); err == nil {
+			if err := invowkfile.CheckCapability(alt); err == nil {
 				found = true
 				break // Early return on first match
 			} else {
@@ -288,7 +288,7 @@ func checkCapabilityDependencies(deps *invkfile.DependsOn, ctx *runtime.Executio
 // at the START of execution before invowk sets any command-level env vars.
 // This ensures the check validates the user's actual environment, not variables set by invowk.
 // Each EnvVarDependency contains alternatives with OR semantics (early return on first match).
-func checkEnvVarDependencies(deps *invkfile.DependsOn, userEnv map[string]string, ctx *runtime.ExecutionContext) error {
+func checkEnvVarDependencies(deps *invowkfile.DependsOn, userEnv map[string]string, ctx *runtime.ExecutionContext) error {
 	if deps == nil || len(deps.EnvVars) == 0 {
 		return nil
 	}

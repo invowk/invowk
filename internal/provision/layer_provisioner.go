@@ -159,12 +159,12 @@ func (p *LayerProvisioner) calculateCacheKey(ctx context.Context, baseImage stri
 		h.Write([]byte("module:" + moduleName + ":" + moduleHash))
 	}
 
-	// Include invkfile directory hash if set
-	if p.config.InvkfilePath != "" {
-		invkfileDir := filepath.Dir(p.config.InvkfilePath)
-		dirHash, err := CalculateDirHash(invkfileDir)
+	// Include invowkfile directory hash if set
+	if p.config.InvowkfilePath != "" {
+		invowkfileDir := filepath.Dir(p.config.InvowkfilePath)
+		dirHash, err := CalculateDirHash(invowkfileDir)
 		if err == nil {
-			h.Write([]byte("invkfile:" + dirHash))
+			h.Write([]byte("invowkfile:" + dirHash))
 		}
 	}
 

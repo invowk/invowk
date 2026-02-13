@@ -15,7 +15,7 @@ exec invowk cmd 'deps check output'
 stdout 'Custom output check passed!'
 ! stderr .
 
--- invkfile.cue --
+-- invowkfile.cue --
 cmds: [
 	{
 		name:        "deps check exitcode"

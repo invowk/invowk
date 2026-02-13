@@ -62,7 +62,7 @@ func CalculateDirHash(dirPath string) (string, error) {
 	return hex.EncodeToString(h.Sum(nil)), nil
 }
 
-// DiscoverModules finds all .invkmod directories in the given paths.
+// DiscoverModules finds all .invowkmod directories in the given paths.
 func DiscoverModules(paths []string) []string {
 	var modules []string
 	seen := make(map[string]bool)
@@ -72,7 +72,7 @@ func DiscoverModules(paths []string) []string {
 			if err != nil {
 				return nil //nolint:nilerr // Intentionally skip errors to continue walking
 			}
-			if info.IsDir() && strings.HasSuffix(info.Name(), ".invkmod") {
+			if info.IsDir() && strings.HasSuffix(info.Name(), ".invowkmod") {
 				absPath, _ := filepath.Abs(path)
 				if !seen[absPath] {
 					seen[absPath] = true

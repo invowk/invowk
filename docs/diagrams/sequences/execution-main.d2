@@ -34,9 +34,9 @@ Config -> CLI: Configuration loaded
 
 # 2. Discovery Phase
 CLI -> Disc: DiscoverCommands(searchPaths)
-Disc -> CUE: Parse invkfile.cue files
-CUE -> Disc: Invkfile structs
-Disc -> CUE: Parse *.invkmod directories
+Disc -> CUE: Parse invowkfile.cue files
+CUE -> Disc: Invowkfile structs
+Disc -> CUE: Parse *.invowkmod directories
 CUE -> Disc: Module structs
 Disc -> CLI: "CommandInfo[] (unified tree)"
 

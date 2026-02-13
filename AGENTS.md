@@ -26,8 +26,8 @@ The [.claude/rules/](.claude/rules/) directory contains project-specific rules:
 - [linting.md](.claude/rules/linting.md) - golangci-lint configuration
 - [error-handling.md](.claude/rules/error-handling.md) - Defer close pattern with named returns
 - [servers.md](.claude/rules/servers.md) - Server lifecycle state machine
-- [invkfile.md](.claude/rules/invkfile.md) - Invkfile example conventions
-- [invkmod.md](.claude/rules/invkmod.md) - Module sample conventions
+- [invowkfile.md](.claude/rules/invowkfile.md) - Invowkfile example conventions
+- [invowkmod.md](.claude/rules/invowkmod.md) - Module sample conventions
 - [bash-scripting.md](.claude/rules/bash-scripting.md) - Strict mode and arithmetic gotchas
 - [mvdan-sh.md](.claude/rules/mvdan-sh.md) - Virtual shell positional arguments
 - [toctou-race-conditions.md](.claude/rules/toctou-race-conditions.md) - Context cancellation race patterns

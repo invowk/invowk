@@ -327,7 +327,7 @@
     "description": "The title of the tag list page"
   },
   "theme.announcementBar.content": {
-    "message": "⚠️ <strong>Software Alpha</strong> — Invowk está em desenvolvimento ativo. O formato do invkfile e as funcionalidades podem mudar entre versões. <a target=\"_blank\" rel=\"noopener noreferrer\" href=\"https://github.com/invowk/invowk\">Dê uma estrela no GitHub</a> para acompanhar o progresso!",
+    "message": "⚠️ <strong>Software Alpha</strong> — Invowk está em desenvolvimento ativo. O formato do invowkfile e as funcionalidades podem mudar entre versões. <a target=\"_blank\" rel=\"noopener noreferrer\" href=\"https://github.com/invowk/invowk\">Dê uma estrela no GitHub</a> para acompanhar o progresso!",
     "description": "The announcement bar content"
   },
   "homepage.hero.alpha.badge": {
@@ -364,7 +364,7 @@
     "description": "Title for the CUE-Powered Configuration feature"
   },
   "homepage.features.cuePowered.description": {
-    "message": "Defina comandos em invkfile.cue usando CUE, uma poderosa linguagem de configuração com validação integrada. Diga adeus aos pesadelos de indentação YAML."
+    "message": "Defina comandos em invowkfile.cue usando CUE, uma poderosa linguagem de configuração com validação integrada. Diga adeus aos pesadelos de indentação YAML."
   },
   "homepage.features.smartDependencies.title": {
     "message": "Dependências Inteligentes",

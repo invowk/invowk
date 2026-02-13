@@ -45,7 +45,7 @@ func parseEnvVarFlags(envVarFlags []string) map[string]string {
 
 // runDisambiguatedCommand executes a command from a specific source.
 // It validates that the source exists and that the command is available in that source.
-// This is used when @source prefix or --invk-from flag is provided.
+// This is used when @source prefix or --ivk-from flag is provided.
 //
 // For subcommands (e.g., "deploy staging"), this function attempts to match the longest
 // possible command name by progressively joining args. For example, with args ["deploy", "staging"],
@@ -158,7 +158,7 @@ func runDisambiguatedCommand(cmd *cobra.Command, app *App, rootFlags *rootFlagVa
 // checkAmbiguousCommand checks if a command name (including nested subcommands) is
 // ambiguous across sources. It mirrors Cobra's longest-match resolution for nested
 // command names and returns an AmbiguousCommandError when the resolved name exists
-// in multiple sources, requiring explicit disambiguation via @source or --invk-from.
+// in multiple sources, requiring explicit disambiguation via @source or --ivk-from.
 func checkAmbiguousCommand(ctx context.Context, app *App, rootFlags *rootFlagValues, args []string) error {
 	if len(args) == 0 {
 		return nil

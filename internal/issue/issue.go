@@ -14,8 +14,8 @@ import (
 const (
 	FileNotFoundId Id = iota + 1
 	TuiServerStartFailedId
-	InvkfileNotFoundId
-	InvkfileParseErrorId
+	InvowkfileNotFoundId
+	InvowkfileParseErrorId
 	CommandNotFoundId
 	RuntimeNotAvailableId
 	ContainerEngineNotFoundId
@@ -47,12 +47,12 @@ $ invowk fix
     and try again what you doing before.`,
 	}
 
-	invkfileNotFoundIssue = &Issue{
-		id: InvkfileNotFoundId,
+	invowkfileNotFoundIssue = &Issue{
+		id: InvowkfileNotFoundId,
 		mdMsg: `
-# No invkfile found!
+# No invowkfile found!
 
-We searched for an invkfile but couldn't find one in the expected locations.
+We searched for an invowkfile but couldn't find one in the expected locations.
 
 ## Search locations (in order of precedence):
 1. Current directory
@@ -60,7 +60,7 @@ We searched for an invkfile but couldn't find one in the expected locations.
 3. Paths configured in your config file
 
 ## Things you can try:
-- Create an invkfile in your current directory:
+- Create an invowkfile in your current directory:
 ~~~
 $ invowk init
 ~~~
@@ -71,7 +71,7 @@ $ cd /path/to/your/project
 $ invowk cmd
 ~~~
 
-## Example invkfile structure:
+## Example invowkfile structure:
 ~~~cue
 version: "1.0"
 description: "My project commands"
@@ -91,12 +91,12 @@ cmds: [
 ~~~`,
 	}
 
-	invkfileParseErrorIssue = &Issue{
-		id: InvkfileParseErrorId,
+	invowkfileParseErrorIssue = &Issue{
+		id: InvowkfileParseErrorId,
 		mdMsg: `
-# Failed to parse invkfile!
+# Failed to parse invowkfile!
 
-Your invkfile contains syntax errors or invalid configuration.
+Your invowkfile contains syntax errors or invalid configuration.
 
 ## Common issues:
 - Invalid CUE syntax (missing quotes, braces, etc.)
@@ -109,7 +109,7 @@ Your invkfile contains syntax errors or invalid configuration.
 - Validate your CUE syntax using the cue command-line tool
 - Run with verbose mode for more details:
 ~~~
-$ invowk --invk-verbose cmd
+$ invowk --ivk-verbose cmd
 ~~~
 
 ## Example of valid command definition:
@@ -137,7 +137,7 @@ cmds: [
 		mdMsg: `
 # Command not found!
 
-The command you specified was not found in any of the available invkfiles.
+The command you specified was not found in any of the available invowkfiles.
 
 ## Things you can try:
 - List all available commands:
@@ -146,7 +146,7 @@ $ invowk cmd
 ~~~
 
 - Check for typos in the command name
-- Verify the invkfile contains your command definition
+- Verify the invowkfile contains your command definition
 - Use tab completion:
 ~~~
 $ invowk cmd <TAB>
@@ -166,7 +166,7 @@ The specified runtime mode is not available on your system.
 - **container**: Runs commands inside a Docker/Podman container
 
 ## Things you can try:
-- Change the runtime in your invkfile:
+- Change the runtime in your invowkfile:
 ~~~cue
 default_runtime: "native"
 ~~~
@@ -226,14 +226,14 @@ container_engine: "podman"  // or "docker"
 The 'container' runtime requires a Dockerfile to build the execution environment.
 
 ## Things you can try:
-- Create a Dockerfile in the same directory as your invkfile:
+- Create a Dockerfile in the same directory as your invowkfile:
 ~~~dockerfile
 FROM debian:stable-slim
 RUN apk add --no-cache bash coreutils
 WORKDIR /workspace
 ~~~
 
-- Or specify a Dockerfile path in your invkfile:
+- Or specify a Dockerfile path in your invowkfile:
 ~~~cue
 container: {
   dockerfile: "path/to/Dockerfile"
@@ -264,7 +264,7 @@ The command's script failed to execute properly.
 ## Things you can try:
 - Run with verbose mode for more details:
 ~~~
-$ invowk --invk-verbose cmd <command>
+$ invowk --ivk-verbose cmd <command>
 ~~~
 
 - Test the script manually in your shell
@@ -301,7 +301,7 @@ $ rm ~/.config/invowk/config.cue
 container_engine: "podman"
 default_runtime: "native"
 includes: [
-    {path: "/home/user/global-commands/invkfile.cue"}
+    {path: "/home/user/global-commands/invowkfile.cue"}
 ]
 
 ui: {
@@ -394,12 +394,12 @@ The command cannot run because some dependencies are not available.
 ## Things you can try:
 - Install the missing tools listed above
 - Check that the tools are in your PATH
-- Ensure referenced commands exist and are discoverable (invkfiles, modules, or configured includes)
+- Ensure referenced commands exist and are discoverable (invowkfiles, modules, or configured includes)
 - List discovered commands to see what invowk can find:
 ~~~
 $ invowk cmd
 ~~~
-- Update your invkfile to remove unnecessary dependencies`,
+- Update your invowkfile to remove unnecessary dependencies`,
 	}
 
 	hostNotSupportedIssue = &Issue{
@@ -410,7 +410,7 @@ $ invowk cmd
 This command cannot run on your current operating system.
 
 ## Things you can try:
-- Check the command's 'works_on.hosts' setting in your invkfile
+- Check the command's 'works_on.hosts' setting in your invowkfile
 - Run this command on a supported operating system
 - Use a container runtime to run the command on a different OS`,
 	}
@@ -440,8 +440,8 @@ $ invowk cmd <command> --help
 
 	issues = map[Id]*Issue{
 		fileNotFoundIssue.Id():             fileNotFoundIssue,
-		invkfileNotFoundIssue.Id():         invkfileNotFoundIssue,
-		invkfileParseErrorIssue.Id():       invkfileParseErrorIssue,
+		invowkfileNotFoundIssue.Id():       invowkfileNotFoundIssue,
+		invowkfileParseErrorIssue.Id():     invowkfileParseErrorIssue,
 		commandNotFoundIssue.Id():          commandNotFoundIssue,
 		runtimeNotAvailableIssue.Id():      runtimeNotAvailableIssue,
 		containerEngineNotFoundIssue.Id():  containerEngineNotFoundIssue,

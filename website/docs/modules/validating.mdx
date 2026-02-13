@@ -18,7 +18,7 @@ Output for a valid module:
 
 ## Deep Validation
 
-Add `--deep` to also parse and validate the invkfile (when present):
+Add `--deep` to also parse and validate the invowkfile (when present):
 
 <Snippet id="modules/validate-deep" />
 
@@ -31,9 +31,9 @@ Output:
 ### Structure Checks
 
 - Module directory exists
-- Required `invkmod.cue` at root
-- `invkfile.cue` is optional (library-only modules are allowed)
-- No nested modules (except inside `invk_modules/`)
+- Required `invowkmod.cue` at root
+- `invowkfile.cue` is optional (library-only modules are allowed)
+- No nested modules (except inside `invowk_modules/`)
 
 ### Security Checks
 
@@ -45,22 +45,22 @@ Output:
 
 ### Naming Checks
 
-- Folder name ends with `.invkmod`
+- Folder name ends with `.invowkmod`
 - Name prefix follows rules (starts with letter, alphanumeric + dots)
-- Module ID in `invkmod.cue` matches the folder name prefix
+- Module ID in `invowkmod.cue` matches the folder name prefix
 - No invalid characters (hyphens, underscores)
 
 ### Deep Checks (with `--deep`)
 
-- Invkfile parses without errors (if present)
+- Invowkfile parses without errors (if present)
 - CUE syntax is valid
 - Schema constraints are met
 
 ## Validation Errors
 
-### Missing Invkmod
+### Missing Invowkmod
 
-<Snippet id="modules/error-missing-invkfile" />
+<Snippet id="modules/error-missing-invowkfile" />
 
 ### Invalid Name
 
@@ -70,7 +70,7 @@ Output:
 
 <Snippet id="modules/error-nested" />
 
-### Invalid Invkfile (deep)
+### Invalid Invowkfile (deep)
 
 <Snippet id="modules/error-parse" />
 
@@ -103,7 +103,7 @@ Add module validation to your CI pipeline:
 ## Best Practices
 
 1. **Validate before committing**: Catch issues early
-2. **Use `--deep`**: Catches invkfile errors
+2. **Use `--deep`**: Catches invowkfile errors
 3. **Validate in CI**: Prevent broken modules from shipping
 4. **Fix issues immediately**: Don't let validation debt accumulate
 

@@ -1,0 +1,87 @@
+---
+sidebar_position: 3
+---
+
+import Snippet from '@site/src/components/Snippet';
+
+# Referência de Schema do Invowkmod
+
+:::warning Alpha — Schema Pode Mudar
+O schema do invowkmod ainda está evoluindo. Campos, tipos e regras de validação **podem mudar entre releases** enquanto estabilizamos o formato. Sempre verifique o [changelog](https://github.com/invowk/invowk/releases) ao fazer upgrade.
+:::
+
+Referência completa para `invowkmod.cue`, o arquivo de metadados do módulo. Metadados são validados como struct fechado, então campos desconhecidos geram erro de validação.
+
+## Estrutura Raiz
+
+Todo módulo deve incluir um arquivo `invowkmod.cue` com esta estrutura:
+
+<Snippet id="reference/invowkmod/root-structure" />
+
+### module
+
+**Tipo:** `string` (padrão: `^[a-zA-Z][a-zA-Z0-9]*(\.[a-zA-Z][a-zA-Z0-9]*)*$`)
+**Obrigatório:** Sim
+
+O identificador do módulo. Deve corresponder ao prefixo do nome da pasta (antes de `.invowkmod`).
+
+<Snippet id="reference/invowkmod/module-examples" />
+
+### version
+
+**Tipo:** `string` (padrão: `^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9a-zA-Z-]+(\.[0-9a-zA-Z-]+)*)?$`)
+**Obrigatório:** Sim
+
+Versão do módulo em formato semver (ex: `"1.0.0"`, `"2.1.0-beta.1"`).
+
+### description
+
+**Tipo:** `string`
+**Obrigatório:** Não
+
+Um resumo curto do propósito do módulo.
+
+### requires
+
+**Tipo:** `[...#ModuleRequirement]`
+**Obrigatório:** Não
+
+Lista de dependências de módulos em repositórios Git.
+
+<Snippet id="reference/invowkmod/requires-example" />
+
+---
+
+## ModuleRequirement
+
+Define uma entrada de dependência:
+
+<Snippet id="reference/invowkmod/requirement-structure" />
+
+### git_url
+
+**Tipo:** `string`
+**Obrigatório:** Sim
+
+URL do repositório Git (HTTPS ou SSH). O repositório deve conter um módulo.
+
+### version
+
+**Tipo:** `string`
+**Obrigatório:** Sim
+
+Restrição de versão semântica usada para resolver uma tag Git.
+
+### alias
+
+**Tipo:** `string`
+**Obrigatório:** Não
+
+Sobrescreve o namespace padrão para esta dependência (deve seguir regras de nomenclatura de módulos).
+
+### path
+
+**Tipo:** `string`
+**Obrigatório:** Não
+
+Subdiretório dentro do repositório que contém o módulo. Deve ser relativo e não pode conter sequências de travessia de caminho.

@@ -16,13 +16,13 @@ type (
 	// Use the ErrorContext builder for convenient construction:
 	//
 	//	err := issue.NewErrorContext().
-	//		WithOperation("load invkfile").
-	//		WithResource("./invkfile.cue").
+	//		WithOperation("load invowkfile").
+	//		WithResource("./invowkfile.cue").
 	//		WithSuggestion("Run 'invowk init' to create one").
 	//		Wrap(originalErr).
 	//		Build()
 	ActionableError struct {
-		// Operation describes what was being attempted (e.g., "load invkfile", "execute command").
+		// Operation describes what was being attempted (e.g., "load invowkfile", "execute command").
 		Operation string
 
 		// Resource identifies the file, path, or entity involved (optional).
@@ -168,7 +168,7 @@ func (e *ActionableError) HasSuggestions() bool {
 // --- ErrorContext Methods ---
 
 // WithOperation sets the operation being performed.
-// The operation should be a verb phrase like "load invkfile" or "execute command".
+// The operation should be a verb phrase like "load invowkfile" or "execute command".
 func (c *ErrorContext) WithOperation(op string) *ErrorContext {
 	c.operation = op
 	return c

@@ -46,7 +46,7 @@ Every `.go` file must start with:
 When reviewing changes to CUE schemas (`*_schema.cue`) or Go structs with JSON tags:
 - Every CUE field must have a matching JSON tag in the Go struct
 - Sync tests must exist in `*_sync_test.go`
-- Run `go test -v -run Sync ./pkg/invkfile/ ./pkg/invkmod/ ./internal/config/` to verify
+- Run `go test -v -run Sync ./pkg/invowkfile/ ./pkg/invowkmod/ ./internal/config/` to verify
 
 ### 6. Guardrail Test Compliance (`TestNoGlobalConfigAccess`)
 

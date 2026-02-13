@@ -6,7 +6,7 @@ import Snippet from '@site/src/components/Snippet';
 
 # Comandos e Namespaces
 
-Os comandos do Invowk são nomeados diretamente em `invkfile.cue`. Namespaces vêm dos **módulos**: comandos em um módulo são prefixados pelo ID do módulo definido em `invkmod.cue`.
+Os comandos do Invowk são nomeados diretamente em `invowkfile.cue`. Namespaces vêm dos **módulos**: comandos em um módulo são prefixados pelo ID do módulo definido em `invowkmod.cue`.
 
 ## Nomes de Comandos
 
@@ -25,7 +25,7 @@ Espaços são apenas organizacionais - não há relação especial pai-filho ent
 
 ## Namespaces de Módulos
 
-Comandos de módulos são namespaced pelo campo `module` em `invkmod.cue`:
+Comandos de módulos são namespaced pelo campo `module` em `invowkmod.cue`:
 
 <Snippet id="commands-namespaces/module-prefix" />
 
@@ -55,10 +55,10 @@ Para módulos compartilhados, use nomenclatura RDNS (Reverse Domain Name System)
 
 O Invowk descobre comandos de múltiplas fontes em ordem de prioridade:
 
-1. **invkfile do diretório atual** (maior prioridade)
-2. **Módulos locais** (`*.invkmod` no diretório atual)
+1. **invowkfile do diretório atual** (maior prioridade)
+2. **Módulos locais** (`*.invowkmod` no diretório atual)
 3. **Includes configurados** (caminhos de módulos do arquivo de configuração)
-4. **Diretório de comandos do usuário** (`~/.invowk/cmds/` — apenas `*.invkmod`, não recursivo)
+4. **Diretório de comandos do usuário** (`~/.invowk/cmds/` — apenas `*.invowkmod`, não recursivo)
 
 Ao listar comandos, você verá sua origem:
 

@@ -35,7 +35,7 @@ O runtime virtual usa o interpretador mvdan/sh embutido:
 
 **Decisões-chave tomadas:**
 - Preferência de engine de container (docker vs podman)
-- Search paths para invkfiles/módulos
+- Search paths para invowkfiles/módulos
 - Runtime padrão se não especificado
 
 ### 2. Fase de Descoberta
@@ -43,13 +43,13 @@ O runtime virtual usa o interpretador mvdan/sh embutido:
 | Etapa | Componente | Ação |
 |-------|------------|------|
 | 5 | Discovery | Iniciar descoberta de comandos |
-| 6-7 | CUE Parser | Fazer parsing de todos os arquivos `invkfile.cue` |
-| 8-9 | CUE Parser | Fazer parsing de todos os diretórios `*.invkmod` |
+| 6-7 | CUE Parser | Fazer parsing de todos os arquivos `invowkfile.cue` |
+| 8-9 | CUE Parser | Fazer parsing de todos os diretórios `*.invowkmod` |
 | 10 | Discovery | Construir árvore unificada de comandos |
 
 **Ordem de precedência (maior para menor):**
-1. `invkfile.cue` do diretório atual
-2. `*.invkmod` do diretório atual
+1. `invowkfile.cue` do diretório atual
+2. `*.invowkmod` do diretório atual
 3. Includes configurados
 4. Diretório de comandos do usuário `~/.invowk/cmds/` (apenas módulos, não recursivo)
 
@@ -95,7 +95,7 @@ O runtime virtual usa o interpretador mvdan/sh embutido:
 
 **Gargalos a observar:**
 - Muitos módulos nos search paths → descoberta mais lenta
-- Invkfiles grandes → parsing mais lento
+- Invowkfiles grandes → parsing mais lento
 - Pulls de imagem de container → pode levar minutos
 
 ## Diagramas Relacionados

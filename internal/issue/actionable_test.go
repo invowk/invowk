@@ -18,17 +18,17 @@ func TestActionableError_Error(t *testing.T) {
 		{
 			name: "operation only",
 			err: &ActionableError{
-				Operation: "load invkfile",
+				Operation: "load invowkfile",
 			},
-			expected: "failed to load invkfile",
+			expected: "failed to load invowkfile",
 		},
 		{
 			name: "operation with resource",
 			err: &ActionableError{
-				Operation: "load invkfile",
-				Resource:  "./invkfile.cue",
+				Operation: "load invowkfile",
+				Resource:  "./invowkfile.cue",
 			},
-			expected: "failed to load invkfile: ./invkfile.cue",
+			expected: "failed to load invowkfile: ./invowkfile.cue",
 		},
 		{
 			name: "operation with cause",
@@ -41,11 +41,11 @@ func TestActionableError_Error(t *testing.T) {
 		{
 			name: "full context",
 			err: &ActionableError{
-				Operation: "load invkfile",
-				Resource:  "./invkfile.cue",
+				Operation: "load invowkfile",
+				Resource:  "./invowkfile.cue",
 				Cause:     errors.New("file not found"),
 			},
-			expected: "failed to load invkfile: ./invkfile.cue: file not found",
+			expected: "failed to load invowkfile: ./invowkfile.cue: file not found",
 		},
 	}
 
@@ -108,14 +108,14 @@ func TestActionableError_Format(t *testing.T) {
 		{
 			name: "error with suggestions",
 			err: &ActionableError{
-				Operation:   "load invkfile",
-				Resource:    "./invkfile.cue",
+				Operation:   "load invowkfile",
+				Resource:    "./invowkfile.cue",
 				Suggestions: []string{"Run 'invowk init'", "Check file permissions"},
 			},
 			verbose: false,
 			contains: []string{
-				"failed to load invkfile",
-				"./invkfile.cue",
+				"failed to load invowkfile",
+				"./invowkfile.cue",
 				"• Run 'invowk init'",
 				"• Check file permissions",
 			},

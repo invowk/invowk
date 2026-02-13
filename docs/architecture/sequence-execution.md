@@ -29,7 +29,7 @@ The virtual runtime uses the embedded mvdan/sh interpreter:
 
 **Key decisions made:**
 - Container engine preference (docker vs podman)
-- Includes for invkfiles/modules
+- Includes for invowkfiles/modules
 - Default runtime if not specified
 
 ### 2. Discovery Phase
@@ -37,13 +37,13 @@ The virtual runtime uses the embedded mvdan/sh interpreter:
 | Step | Component | Action |
 |------|-----------|--------|
 | 5 | Discovery | Start command discovery |
-| 6-7 | CUE Parser | Parse all `invkfile.cue` files |
-| 8-9 | CUE Parser | Parse all `*.invkmod` directories |
+| 6-7 | CUE Parser | Parse all `invowkfile.cue` files |
+| 8-9 | CUE Parser | Parse all `*.invowkmod` directories |
 | 10 | Discovery | Build unified command tree |
 
 **Precedence order (highest to lowest):**
-1. Current directory `invkfile.cue`
-2. Current directory `*.invkmod`
+1. Current directory `invowkfile.cue`
+2. Current directory `*.invowkmod`
 3. User directory `~/.invowk/cmds/`
 4. Configured includes
 
@@ -89,7 +89,7 @@ The virtual runtime uses the embedded mvdan/sh interpreter:
 
 **Bottlenecks to watch:**
 - Many modules in configured includes → slower discovery
-- Large invkfiles → slower parsing
+- Large invowkfiles → slower parsing
 - Container image pulls → can be minutes
 
 ## Related Diagrams

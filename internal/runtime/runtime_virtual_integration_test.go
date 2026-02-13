@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"invowk-cli/pkg/invkfile"
+	"invowk-cli/pkg/invowkfile"
 )
 
 // TestVirtualRuntime_Integration groups integration tests for the virtual (mvdan/sh) runtime.
@@ -31,11 +31,11 @@ func TestVirtualRuntime_Integration(t *testing.T) {
 // testVirtualCommandSubstitution tests that command substitution works correctly.
 func testVirtualCommandSubstitution(t *testing.T) {
 	tmpDir := t.TempDir()
-	inv := &invkfile.Invkfile{
-		FilePath: filepath.Join(tmpDir, "invkfile.cue"),
+	inv := &invowkfile.Invowkfile{
+		FilePath: filepath.Join(tmpDir, "invowkfile.cue"),
 	}
 
-	cmd := testCommandWithScript("subst", `RESULT=$(echo "nested output"); echo "Got: $RESULT"`, invkfile.RuntimeVirtual)
+	cmd := testCommandWithScript("subst", `RESULT=$(echo "nested output"); echo "Got: $RESULT"`, invowkfile.RuntimeVirtual)
 
 	rt := NewVirtualRuntime(false)
 	ctx := NewExecutionContext(cmd, inv)
@@ -59,11 +59,11 @@ func testVirtualCommandSubstitution(t *testing.T) {
 // testVirtualPipelines tests that shell pipelines work correctly.
 func testVirtualPipelines(t *testing.T) {
 	tmpDir := t.TempDir()
-	inv := &invkfile.Invkfile{
-		FilePath: filepath.Join(tmpDir, "invkfile.cue"),
+	inv := &invowkfile.Invowkfile{
+		FilePath: filepath.Join(tmpDir, "invowkfile.cue"),
 	}
 
-	cmd := testCommandWithScript("pipeline", `echo -e "line1\nline2\nline3" | grep line2`, invkfile.RuntimeVirtual)
+	cmd := testCommandWithScript("pipeline", `echo -e "line1\nline2\nline3" | grep line2`, invowkfile.RuntimeVirtual)
 
 	rt := NewVirtualRuntime(false)
 	ctx := NewExecutionContext(cmd, inv)
@@ -87,8 +87,8 @@ func testVirtualPipelines(t *testing.T) {
 // testVirtualHeredocInput tests heredoc syntax works correctly.
 func testVirtualHeredocInput(t *testing.T) {
 	tmpDir := t.TempDir()
-	inv := &invkfile.Invkfile{
-		FilePath: filepath.Join(tmpDir, "invkfile.cue"),
+	inv := &invowkfile.Invowkfile{
+		FilePath: filepath.Join(tmpDir, "invowkfile.cue"),
 	}
 
 	script := `cat <<EOF
@@ -96,7 +96,7 @@ heredoc content
 with multiple lines
 EOF`
 
-	cmd := testCommandWithScript("heredoc", script, invkfile.RuntimeVirtual)
+	cmd := testCommandWithScript("heredoc", script, invowkfile.RuntimeVirtual)
 
 	rt := NewVirtualRuntime(false)
 	ctx := NewExecutionContext(cmd, inv)
@@ -123,8 +123,8 @@ EOF`
 // testVirtualEnvironmentExpansion tests various environment variable expansion forms.
 func testVirtualEnvironmentExpansion(t *testing.T) {
 	tmpDir := t.TempDir()
-	inv := &invkfile.Invkfile{
-		FilePath: filepath.Join(tmpDir, "invkfile.cue"),
+	inv := &invowkfile.Invowkfile{
+		FilePath: filepath.Join(tmpDir, "invowkfile.cue"),
 	}
 
 	script := `MYVAR="hello"
@@ -133,7 +133,7 @@ echo "Braces: ${MYVAR}"
 echo "Default: ${UNSET:-default_value}"
 echo "Length: ${#MYVAR}"`
 
-	cmd := testCommandWithScript("env-expansion", script, invkfile.RuntimeVirtual)
+	cmd := testCommandWithScript("env-expansion", script, invowkfile.RuntimeVirtual)
 
 	rt := NewVirtualRuntime(false)
 	ctx := NewExecutionContext(cmd, inv)
@@ -166,14 +166,14 @@ echo "Length: ${#MYVAR}"`
 // testVirtualArithmeticExpansion tests arithmetic expansion in shell scripts.
 func testVirtualArithmeticExpansion(t *testing.T) {
 	tmpDir := t.TempDir()
-	inv := &invkfile.Invkfile{
-		FilePath: filepath.Join(tmpDir, "invkfile.cue"),
+	inv := &invowkfile.Invowkfile{
+		FilePath: filepath.Join(tmpDir, "invowkfile.cue"),
 	}
 
 	script := `echo "Sum: $((2 + 3))"
 echo "Product: $((4 * 5))"`
 
-	cmd := testCommandWithScript("arithmetic", script, invkfile.RuntimeVirtual)
+	cmd := testCommandWithScript("arithmetic", script, invowkfile.RuntimeVirtual)
 
 	rt := NewVirtualRuntime(false)
 	ctx := NewExecutionContext(cmd, inv)
@@ -200,14 +200,14 @@ echo "Product: $((4 * 5))"`
 // testVirtualConditionalExecution tests conditional operators (&&, ||).
 func testVirtualConditionalExecution(t *testing.T) {
 	tmpDir := t.TempDir()
-	inv := &invkfile.Invkfile{
-		FilePath: filepath.Join(tmpDir, "invkfile.cue"),
+	inv := &invowkfile.Invowkfile{
+		FilePath: filepath.Join(tmpDir, "invowkfile.cue"),
 	}
 
 	script := `true && echo "AND_SUCCESS"
 false || echo "OR_FALLBACK"`
 
-	cmd := testCommandWithScript("conditional", script, invkfile.RuntimeVirtual)
+	cmd := testCommandWithScript("conditional", script, invowkfile.RuntimeVirtual)
 
 	rt := NewVirtualRuntime(false)
 	ctx := NewExecutionContext(cmd, inv)
@@ -251,11 +251,11 @@ func TestVirtualRuntime_ScriptFileFromSubdir(t *testing.T) {
 		t.Fatalf("Failed to write script file: %v", err)
 	}
 
-	inv := &invkfile.Invkfile{
-		FilePath: filepath.Join(tmpDir, "invkfile.cue"),
+	inv := &invowkfile.Invowkfile{
+		FilePath: filepath.Join(tmpDir, "invowkfile.cue"),
 	}
 
-	cmd := testCommandWithScript("subdir-script", "./scripts/helper.sh", invkfile.RuntimeVirtual)
+	cmd := testCommandWithScript("subdir-script", "./scripts/helper.sh", invowkfile.RuntimeVirtual)
 
 	rt := NewVirtualRuntime(false)
 	ctx := NewExecutionContext(cmd, inv)

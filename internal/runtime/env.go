@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"os"
 
-	"invowk-cli/pkg/invkfile"
+	"invowk-cli/pkg/invowkfile"
 )
 
 // envInheritConfig is the resolved environment inheritance configuration after
@@ -14,16 +14,16 @@ import (
 // → CLI flag overrides. Each level can independently override mode, allow list,
 // and deny list.
 type envInheritConfig struct {
-	mode  invkfile.EnvInheritMode
+	mode  invowkfile.EnvInheritMode
 	allow []string
 	deny  []string
 }
 
 // resolveEnvInheritConfig applies the 3-level precedence chain to produce a final
 // inheritance config. Level 1: the caller-supplied defaultMode (runtime-specific default).
-// Level 2: the implementation's runtime config block (invkfile per-runtime overrides).
-// Level 3: CLI flag overrides from the execution context (--invk-env-inherit-mode, etc.).
-func resolveEnvInheritConfig(ctx *ExecutionContext, defaultMode invkfile.EnvInheritMode) envInheritConfig {
+// Level 2: the implementation's runtime config block (invowkfile per-runtime overrides).
+// Level 3: CLI flag overrides from the execution context (--ivk-env-inherit-mode, etc.).
+func resolveEnvInheritConfig(ctx *ExecutionContext, defaultMode invowkfile.EnvInheritMode) envInheritConfig {
 	cfg := envInheritConfig{
 		mode: defaultMode,
 	}
@@ -59,12 +59,12 @@ func resolveEnvInheritConfig(ctx *ExecutionContext, defaultMode invkfile.EnvInhe
 // are excluded via FilterInvowkEnvVars to prevent leaking internal state into commands.
 func buildHostEnv(cfg envInheritConfig) map[string]string {
 	env := make(map[string]string)
-	if cfg.mode == invkfile.EnvInheritNone {
+	if cfg.mode == invowkfile.EnvInheritNone {
 		return env
 	}
 
 	allowSet := make(map[string]struct{})
-	if cfg.mode == invkfile.EnvInheritAllow {
+	if cfg.mode == invowkfile.EnvInheritAllow {
 		for _, name := range cfg.allow {
 			allowSet[name] = struct{}{}
 		}
@@ -83,7 +83,7 @@ func buildHostEnv(cfg envInheritConfig) map[string]string {
 		name := entry[:idx]
 		value := entry[idx+1:]
 
-		if cfg.mode == invkfile.EnvInheritAllow {
+		if cfg.mode == invowkfile.EnvInheritAllow {
 			if _, ok := allowSet[name]; !ok {
 				continue
 			}

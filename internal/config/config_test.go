@@ -190,8 +190,8 @@ func TestLoadAndSave(t *testing.T) {
 	cfg := &Config{
 		ContainerEngine: ContainerEngineDocker,
 		Includes: []IncludeEntry{
-			{Path: "/path/two.invkmod", Alias: "two-alias"},
-			{Path: "/path/three.invkmod"},
+			{Path: "/path/two.invowkmod", Alias: "two-alias"},
+			{Path: "/path/three.invowkmod"},
 		},
 		DefaultRuntime: "container",
 		VirtualShell: VirtualShellConfig{
@@ -206,7 +206,7 @@ func TestLoadAndSave(t *testing.T) {
 			AutoProvision: AutoProvisionConfig{
 				Enabled:         false,
 				BinaryPath:      "/custom/bin/invowk",
-				Includes:        []IncludeEntry{{Path: "/modules/one.invkmod"}},
+				Includes:        []IncludeEntry{{Path: "/modules/one.invowkmod"}},
 				InheritIncludes: false,
 				CacheDir:        "/tmp/invowk-cache",
 			},
@@ -264,8 +264,8 @@ func TestLoadAndSave(t *testing.T) {
 		t.Errorf("AutoProvision.BinaryPath = %q, want /custom/bin/invowk", loaded.Container.AutoProvision.BinaryPath)
 	}
 
-	if len(loaded.Container.AutoProvision.Includes) != 1 || loaded.Container.AutoProvision.Includes[0].Path != "/modules/one.invkmod" {
-		t.Errorf("AutoProvision.Includes = %v, want [{Path:/modules/one.invkmod}]", loaded.Container.AutoProvision.Includes)
+	if len(loaded.Container.AutoProvision.Includes) != 1 || loaded.Container.AutoProvision.Includes[0].Path != "/modules/one.invowkmod" {
+		t.Errorf("AutoProvision.Includes = %v, want [{Path:/modules/one.invowkmod}]", loaded.Container.AutoProvision.Includes)
 	}
 
 	if loaded.Container.AutoProvision.InheritIncludes != false {

@@ -10,7 +10,7 @@ import Snippet from '@site/src/components/Snippet';
 Dependências de módulos ainda estão sendo refinadas. Embora nosso objetivo seja manter compatibilidade retroativa, **mudanças incompatíveis podem ocorrer** antes do release 1.0. Arquivos de lock mantêm builds reprodutíveis, mas o comportamento de resolução pode evoluir.
 :::
 
-Dependências de módulos permitem que um módulo use comandos de outros módulos hospedados em repositórios Git. Dependências são declaradas em `invkmod.cue` em `requires` e resolvidas em `invkmod.lock.cue`.
+Dependências de módulos permitem que um módulo use comandos de outros módulos hospedados em repositórios Git. Dependências são declaradas em `invowkmod.cue` em `requires` e resolvidas em `invowkmod.lock.cue`.
 
 ## O que são Dependências de Módulos?
 
@@ -25,13 +25,13 @@ Dependências de módulos são módulos externos dos quais seu módulo depende. 
 
 ### 1. (Opcional) Resolver uma Dependência
 
-`invowk module add` resolve uma dependência e imprime a entrada de `requires` que você pode copiar para `invkmod.cue`:
+`invowk module add` resolve uma dependência e imprime a entrada de `requires` que você pode copiar para `invowkmod.cue`:
 
 <Snippet id="modules/dependencies/quick-add" />
 
-### 2. Declarar em `invkmod.cue`
+### 2. Declarar em `invowkmod.cue`
 
-<Snippet id="modules/dependencies/quick-invkmod" />
+<Snippet id="modules/dependencies/quick-invowkmod" />
 
 ### 3. Sincronizar Dependências
 
@@ -49,10 +49,10 @@ Quando um módulo de dependência está instalado em um caminho de descoberta, e
 
 ## Como Funciona
 
-1. **Declaração**: Dependências são listadas em `invkmod.cue` em `requires`
+1. **Declaração**: Dependências são listadas em `invowkmod.cue` em `requires`
 2. **Resolução**: `invowk module sync` resolve restrições de versão para versões concretas
 3. **Download**: Módulos são clonados do Git e cacheados localmente
-4. **Lock file**: Versões resolvidas são gravadas em `invkmod.lock.cue`
+4. **Lock file**: Versões resolvidas são gravadas em `invowkmod.lock.cue`
 5. **Descoberta**: Comandos ficam disponíveis via namespace quando a dependência é instalada
 
 :::note Somente Dependências Diretas

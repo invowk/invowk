@@ -5,16 +5,16 @@
 cd $WORK
 
 # =============================================================================
-# Test: Reserved module name (invkfile.invkmod)
+# Test: Reserved module name (invowkfile.invowkmod)
 # =============================================================================
 
-# Test 1: Reserved module name 'invkfile.invkmod' should be skipped silently
+# Test 1: Reserved module name 'invowkfile.invowkmod' should be skipped silently
 cd $WORK/reserved_name_test
 exec invowk cmd
-stdout 'From invkfile:'
+stdout 'From invowkfile:'
 stdout 'hello'
 # The reserved module should be skipped - its commands shouldn't appear
-! stdout 'From invkfile.invkmod:'
+! stdout 'From invowkfile.invowkmod:'
 ! stdout 'reserved-cmd'
 
 # =============================================================================
@@ -28,8 +28,8 @@ cd $WORK/typo_test
 stderr 'not found'
 stderr 'Available sources'
 
-# Test 3: Typo in --invk-from flag shows helpful error
-! exec invowk cmd --invk-from invkfil deploy
+# Test 3: Typo in --ivk-from flag shows helpful error
+! exec invowk cmd --ivk-from ivkfil deploy
 stderr 'not found'
 stderr 'Available sources'
 
@@ -45,7 +45,7 @@ stderr 'not found in source'
 # Test files
 # =============================================================================
 
--- reserved_name_test/invkfile.cue --
+-- reserved_name_test/invowkfile.cue --
 cmds: [
 	{
 		name: "hello"
@@ -54,12 +54,12 @@ cmds: [
 	},
 ]
 
--- reserved_name_test/invkfile.invkmod/invkmod.cue --
-module: "invkfile"
+-- reserved_name_test/invowkfile.invowkmod/invowkmod.cue --
+module: "invowkfile"
 version: "1.0.0"
 description: "This module uses reserved name"
 
--- reserved_name_test/invkfile.invkmod/invkfile.cue --
+-- reserved_name_test/invowkfile.invowkmod/invowkfile.cue --
 cmds: [
 	{
 		name: "reserved-cmd"
@@ -68,12 +68,12 @@ cmds: [
 	},
 ]
 
--- typo_test/invkfile.cue --
+-- typo_test/invowkfile.cue --
 cmds: [
 	{
 		name: "deploy"
 		description: "Deploy from root"
-		implementations: [{script: "echo 'Deploying from invkfile!'", runtimes: [{name: "virtual"}], platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]}]
+		implementations: [{script: "echo 'Deploying from invowkfile!'", runtimes: [{name: "virtual"}], platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]}]
 	},
 	{
 		name: "hello"
@@ -82,12 +82,12 @@ cmds: [
 	},
 ]
 
--- typo_test/foo.invkmod/invkmod.cue --
+-- typo_test/foo.invowkmod/invowkmod.cue --
 module: "foo"
 version: "1.0.0"
 description: "Foo module"
 
--- typo_test/foo.invkmod/invkfile.cue --
+-- typo_test/foo.invowkmod/invowkfile.cue --
 cmds: [
 	{
 		name: "deploy"

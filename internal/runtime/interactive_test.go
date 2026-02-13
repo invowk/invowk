@@ -10,7 +10,7 @@ import (
 
 	"invowk-cli/internal/config"
 	"invowk-cli/internal/testutil"
-	"invowk-cli/pkg/invkfile"
+	"invowk-cli/pkg/invowkfile"
 )
 
 // TestInteractiveRuntimeInterface verifies that all runtimes implement InteractiveRuntime.
@@ -75,11 +75,11 @@ func TestGetInteractiveRuntime(t *testing.T) {
 
 // TestNativeRuntimePrepareInteractive tests the NativeRuntime.PrepareInteractive method.
 func TestNativeRuntimePrepareInteractive(t *testing.T) {
-	// Create a temporary invkfile (module metadata now in invkmod.cue, not invkfile.cue)
+	// Create a temporary invowkfile (module metadata now in invowkmod.cue, not invowkfile.cue)
 	tmpDir := t.TempDir()
-	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 
-	err := os.WriteFile(invkfilePath, []byte(`
+	err := os.WriteFile(invowkfilePath, []byte(`
 cmds: [{
 	name: "hello"
 	implementations: [{
@@ -90,13 +90,13 @@ cmds: [{
 }]
 `), 0o644)
 	if err != nil {
-		t.Fatalf("Failed to create test invkfile: %v", err)
+		t.Fatalf("Failed to create test invowkfile: %v", err)
 	}
 
-	// Parse the invkfile
-	inv, err := invkfile.Parse(invkfilePath)
+	// Parse the invowkfile
+	inv, err := invowkfile.Parse(invowkfilePath)
 	if err != nil {
-		t.Fatalf("Failed to parse invkfile: %v", err)
+		t.Fatalf("Failed to parse invowkfile: %v", err)
 	}
 
 	// Create execution context
@@ -123,11 +123,11 @@ cmds: [{
 
 // TestVirtualRuntimePrepareInteractive tests the VirtualRuntime.PrepareInteractive method.
 func TestVirtualRuntimePrepareInteractive(t *testing.T) {
-	// Create a temporary invkfile (module metadata now in invkmod.cue, not invkfile.cue)
+	// Create a temporary invowkfile (module metadata now in invowkmod.cue, not invowkfile.cue)
 	tmpDir := t.TempDir()
-	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 
-	err := os.WriteFile(invkfilePath, []byte(`
+	err := os.WriteFile(invowkfilePath, []byte(`
 cmds: [{
 	name: "hello"
 	implementations: [{
@@ -138,19 +138,19 @@ cmds: [{
 }]
 `), 0o644)
 	if err != nil {
-		t.Fatalf("Failed to create test invkfile: %v", err)
+		t.Fatalf("Failed to create test invowkfile: %v", err)
 	}
 
-	// Parse the invkfile
-	inv, err := invkfile.Parse(invkfilePath)
+	// Parse the invowkfile
+	inv, err := invowkfile.Parse(invowkfilePath)
 	if err != nil {
-		t.Fatalf("Failed to parse invkfile: %v", err)
+		t.Fatalf("Failed to parse invowkfile: %v", err)
 	}
 
 	// Create execution context
 	ctx := NewExecutionContext(&inv.Commands[0], inv)
 	ctx.Context = context.Background()
-	ctx.SelectedRuntime = invkfile.RuntimeVirtual
+	ctx.SelectedRuntime = invowkfile.RuntimeVirtual
 	ctx.SelectedImpl = &inv.Commands[0].Implementations[0]
 
 	// Create virtual runtime and prepare for interactive execution

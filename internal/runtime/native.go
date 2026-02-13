@@ -12,7 +12,7 @@ import (
 	"strings"
 
 	"invowk-cli/internal/issue"
-	"invowk-cli/pkg/invkfile"
+	"invowk-cli/pkg/invowkfile"
 )
 
 const osWindows = "windows"
@@ -75,7 +75,7 @@ func (r *NativeRuntime) Validate(ctx *ExecutionContext) error {
 
 // Execute runs a command using the system shell or specified interpreter
 func (r *NativeRuntime) Execute(ctx *ExecutionContext) *Result {
-	script, err := ctx.SelectedImpl.ResolveScript(ctx.Invkfile.FilePath)
+	script, err := ctx.SelectedImpl.ResolveScript(ctx.Invowkfile.FilePath)
 	if err != nil {
 		return &Result{ExitCode: 1, Error: err}
 	}
@@ -98,7 +98,7 @@ func (r *NativeRuntime) Execute(ctx *ExecutionContext) *Result {
 
 // ExecuteCapture runs a command and captures its output
 func (r *NativeRuntime) ExecuteCapture(ctx *ExecutionContext) *Result {
-	script, err := ctx.SelectedImpl.ResolveScript(ctx.Invkfile.FilePath)
+	script, err := ctx.SelectedImpl.ResolveScript(ctx.Invowkfile.FilePath)
 	if err != nil {
 		return &Result{ExitCode: 1, Error: err}
 	}
@@ -134,7 +134,7 @@ func (r *NativeRuntime) PrepareInteractive(ctx *ExecutionContext) (*PreparedComm
 // This is useful for interactive mode where the command needs to be run on a PTY.
 // The caller must call the returned cleanup function after execution.
 func (r *NativeRuntime) PrepareCommand(ctx *ExecutionContext) (*PreparedCommand, error) {
-	script, err := ctx.SelectedImpl.ResolveScript(ctx.Invkfile.FilePath)
+	script, err := ctx.SelectedImpl.ResolveScript(ctx.Invowkfile.FilePath)
 	if err != nil {
 		return nil, err
 	}
@@ -176,7 +176,7 @@ func (r *NativeRuntime) executeShellCommon(ctx *ExecutionContext, script string,
 	}
 
 	// Build environment
-	env, err := r.envBuilder.Build(ctx, invkfile.EnvInheritAll)
+	env, err := r.envBuilder.Build(ctx, invowkfile.EnvInheritAll)
 	if err != nil {
 		return &Result{ExitCode: 1, Error: fmt.Errorf("failed to build environment: %w", err)}
 	}
@@ -194,7 +194,7 @@ func (r *NativeRuntime) executeShellCommon(ctx *ExecutionContext, script string,
 
 // executeInterpreterCommon is the unified interpreter execution function that handles
 // both streaming and capturing modes based on the output configuration.
-func (r *NativeRuntime) executeInterpreterCommon(ctx *ExecutionContext, script string, interp invkfile.ShebangInfo, output *executeOutput, captured *capturedOutput, stdin io.Reader) *Result {
+func (r *NativeRuntime) executeInterpreterCommon(ctx *ExecutionContext, script string, interp invowkfile.ShebangInfo, output *executeOutput, captured *capturedOutput, stdin io.Reader) *Result {
 	interpreterPath, err := exec.LookPath(interp.Interpreter)
 	if err != nil {
 		return &Result{ExitCode: 1, Error: fmt.Errorf("interpreter '%s' not found in PATH: %w", interp.Interpreter, err)}
@@ -206,7 +206,7 @@ func (r *NativeRuntime) executeInterpreterCommon(ctx *ExecutionContext, script s
 	// Handle file vs inline script
 	var tempFile string
 	if ctx.SelectedImpl.IsScriptFile() {
-		scriptPath := ctx.SelectedImpl.GetScriptFilePath(ctx.Invkfile.FilePath)
+		scriptPath := ctx.SelectedImpl.GetScriptFilePath(ctx.Invowkfile.FilePath)
 		cmdArgs = append(cmdArgs, scriptPath)
 	} else {
 		tempFile, err = r.createTempScript(script, interp.Interpreter)
@@ -231,7 +231,7 @@ func (r *NativeRuntime) executeInterpreterCommon(ctx *ExecutionContext, script s
 	}
 
 	// Build environment
-	env, err := r.envBuilder.Build(ctx, invkfile.EnvInheritAll)
+	env, err := r.envBuilder.Build(ctx, invowkfile.EnvInheritAll)
 	if err != nil {
 		return &Result{ExitCode: 1, Error: fmt.Errorf("failed to build environment: %w", err)}
 	}
@@ -249,7 +249,7 @@ func (r *NativeRuntime) executeInterpreterCommon(ctx *ExecutionContext, script s
 
 // createTempScript creates a temporary file with the script content
 func (r *NativeRuntime) createTempScript(content, interpreter string) (string, error) {
-	ext := invkfile.GetExtensionForInterpreter(interpreter)
+	ext := invowkfile.GetExtensionForInterpreter(interpreter)
 
 	tmpFile, err := os.CreateTemp("", "invowk-script-*"+ext)
 	if err != nil {
@@ -325,7 +325,7 @@ func (r *NativeRuntime) shellNotFoundError(attempted []string) error {
 		ctx.WithSuggestion("Or install bash: apt install bash (Debian/Ubuntu) or dnf install bash (Fedora)")
 	}
 
-	ctx.WithSuggestion("Alternatively, use the virtual runtime: invowk cmd <command> --invk-runtime virtual")
+	ctx.WithSuggestion("Alternatively, use the virtual runtime: invowk cmd <command> --ivk-runtime virtual")
 
 	return ctx.Wrap(fmt.Errorf("no shell found in PATH")).BuildError()
 }
@@ -352,7 +352,7 @@ func (r *NativeRuntime) getShellArgs(shell string) []string {
 // getWorkDir determines the working directory using the hierarchical override model.
 // Precedence (highest to lowest): CLI override > Implementation > Command > Root > Default
 func (r *NativeRuntime) getWorkDir(ctx *ExecutionContext) string {
-	return ctx.Invkfile.GetEffectiveWorkDir(ctx.Command, ctx.SelectedImpl, ctx.WorkDir)
+	return ctx.Invowkfile.GetEffectiveWorkDir(ctx.Command, ctx.SelectedImpl, ctx.WorkDir)
 }
 
 // appendPositionalArgs appends positional arguments after the script for shell access.
@@ -399,7 +399,7 @@ func (r *NativeRuntime) prepareShellCommand(ctx *ExecutionContext, script string
 		cmd.Dir = workDir
 	}
 
-	env, err := r.envBuilder.Build(ctx, invkfile.EnvInheritAll)
+	env, err := r.envBuilder.Build(ctx, invowkfile.EnvInheritAll)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build environment: %w", err)
 	}
@@ -409,7 +409,7 @@ func (r *NativeRuntime) prepareShellCommand(ctx *ExecutionContext, script string
 }
 
 // prepareInterpreterCommand builds an interpreter command without executing it.
-func (r *NativeRuntime) prepareInterpreterCommand(ctx *ExecutionContext, script string, interp invkfile.ShebangInfo) (*PreparedCommand, error) {
+func (r *NativeRuntime) prepareInterpreterCommand(ctx *ExecutionContext, script string, interp invowkfile.ShebangInfo) (*PreparedCommand, error) {
 	interpreterPath, err := exec.LookPath(interp.Interpreter)
 	if err != nil {
 		return nil, fmt.Errorf("interpreter '%s' not found in PATH: %w", interp.Interpreter, err)
@@ -421,7 +421,7 @@ func (r *NativeRuntime) prepareInterpreterCommand(ctx *ExecutionContext, script 
 	var tempFile string
 	var cleanup func()
 	if ctx.SelectedImpl.IsScriptFile() {
-		scriptPath := ctx.SelectedImpl.GetScriptFilePath(ctx.Invkfile.FilePath)
+		scriptPath := ctx.SelectedImpl.GetScriptFilePath(ctx.Invowkfile.FilePath)
 		cmdArgs = append(cmdArgs, scriptPath)
 	} else {
 		tempFile, err = r.createTempScript(script, interp.Interpreter)
@@ -441,7 +441,7 @@ func (r *NativeRuntime) prepareInterpreterCommand(ctx *ExecutionContext, script 
 		cmd.Dir = workDir
 	}
 
-	env, err := r.envBuilder.Build(ctx, invkfile.EnvInheritAll)
+	env, err := r.envBuilder.Build(ctx, invowkfile.EnvInheritAll)
 	if err != nil {
 		if cleanup != nil {
 			cleanup()

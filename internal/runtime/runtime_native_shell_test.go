@@ -14,7 +14,7 @@ import (
 
 	"invowk-cli/internal/issue"
 	"invowk-cli/internal/testutil"
-	"invowk-cli/pkg/invkfile"
+	"invowk-cli/pkg/invowkfile"
 )
 
 // TestNativeRuntime_getShell tests shell detection.
@@ -247,14 +247,14 @@ func TestNativeRuntime_ExecuteCapture_Shell(t *testing.T) {
 	}
 
 	tmpDir := t.TempDir()
-	inv := &invkfile.Invkfile{
-		FilePath: filepath.Join(tmpDir, "invkfile.cue"),
+	inv := &invowkfile.Invowkfile{
+		FilePath: filepath.Join(tmpDir, "invowkfile.cue"),
 	}
 
 	script := `echo "captured stdout"
 echo "captured stderr" >&2`
 
-	cmd := testCommandWithScript("capture-test", script, invkfile.RuntimeNative)
+	cmd := testCommandWithScript("capture-test", script, invowkfile.RuntimeNative)
 
 	rt := NewNativeRuntime()
 	ctx := NewExecutionContext(cmd, inv)
@@ -282,11 +282,11 @@ func TestNativeRuntime_MockEnvBuilder_Error(t *testing.T) {
 	}
 
 	tmpDir := t.TempDir()
-	inv := &invkfile.Invkfile{
-		FilePath: filepath.Join(tmpDir, "invkfile.cue"),
+	inv := &invowkfile.Invowkfile{
+		FilePath: filepath.Join(tmpDir, "invowkfile.cue"),
 	}
 
-	cmd := testCommandWithScript("env-error", "echo test", invkfile.RuntimeNative)
+	cmd := testCommandWithScript("env-error", "echo test", invowkfile.RuntimeNative)
 
 	mockErr := fmt.Errorf("mock env build failure")
 	rt := NewNativeRuntime(WithEnvBuilder(&MockEnvBuilder{Err: mockErr}))
@@ -314,11 +314,11 @@ func TestNativeRuntime_MockEnvBuilder_CaptureError(t *testing.T) {
 	}
 
 	tmpDir := t.TempDir()
-	inv := &invkfile.Invkfile{
-		FilePath: filepath.Join(tmpDir, "invkfile.cue"),
+	inv := &invowkfile.Invowkfile{
+		FilePath: filepath.Join(tmpDir, "invowkfile.cue"),
 	}
 
-	cmd := testCommandWithScript("env-error-capture", "echo test", invkfile.RuntimeNative)
+	cmd := testCommandWithScript("env-error-capture", "echo test", invowkfile.RuntimeNative)
 
 	mockErr := fmt.Errorf("capture env build failure")
 	rt := NewNativeRuntime(WithEnvBuilder(&MockEnvBuilder{Err: mockErr}))

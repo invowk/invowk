@@ -41,9 +41,9 @@ export const snippets = {
   // GETTING STARTED
   // =============================================================================
 
-  'getting-started/invkfile-basic-structure': {
+  'getting-started/invowkfile-basic-structure': {
     language: 'cue',
-    code: `// invkfile.cue (commands only)
+    code: `// invowkfile.cue (commands only)
 cmds: [                  // Required: list of commands
     // ... your commands here
 ]`,
@@ -213,12 +213,12 @@ invowk cmd test coverage`,
 invowk cmd test unit
 
 # Explicitly use virtual runtime
-invowk cmd test unit --invk-runtime virtual`,
+invowk cmd test unit --ivk-runtime virtual`,
   },
 
   'cli/cue-validate': {
     language: 'bash',
-    code: `cue vet invkfile.cue path/to/invkfile_schema.cue -d '#Invkfile'`,
+    code: `cue vet invowkfile.cue path/to/invowkfile_schema.cue -d '#Invowkfile'`,
   },
 
   // =============================================================================
@@ -335,7 +335,7 @@ script: """
 
   'core-concepts/script-external': {
     language: 'cue',
-    code: `// Relative to invkfile location
+    code: `// Relative to invowkfile location
 script: "./scripts/build.sh"
 
 // Just the filename (recognized extensions)
@@ -670,7 +670,7 @@ cmds: [
 
   'runtime-modes/virtual-run': {
     language: 'bash',
-    code: `invowk cmd build --invk-runtime virtual`,
+    code: `invowk cmd build --ivk-runtime virtual`,
   },
 
   'runtime-modes/virtual-cross-platform': {
@@ -1021,7 +1021,7 @@ implementations: [{
 }`,
   },
 
-  'dependencies/commands-cross-invkfile': {
+  'dependencies/commands-cross-invowkfile': {
     language: 'cue',
     code: `depends_on: {
     cmds: [{alternatives: ["shared generate-types"]}]
@@ -1117,7 +1117,7 @@ implementations: [{
     files: [".env"]
     vars: {
         // These override values from .env
-        OVERRIDE_VALUE: "from-invkfile"
+        OVERRIDE_VALUE: "from-invowkfile"
     }
 }`,
   },
@@ -1213,16 +1213,16 @@ implementations: [
   'environment/cli-overrides': {
     language: 'bash',
     code: `# Set a single variable
-invowk cmd build --invk-env-var NODE_ENV=development
+invowk cmd build --ivk-env-var NODE_ENV=development
 
 # Set multiple variables
-invowk cmd build --invk-env-var NODE_ENV=dev --invk-env-var DEBUG=true
+invowk cmd build --ivk-env-var NODE_ENV=dev --ivk-env-var DEBUG=true
 
 # Load from a file
-invowk cmd build --invk-env-file .env.local
+invowk cmd build --ivk-env-file .env.local
 
 # Combine
-invowk cmd build --invk-env-file .env.local --invk-env-var OVERRIDE=value`,
+invowk cmd build --ivk-env-file .env.local --ivk-env-var OVERRIDE=value`,
   },
 
   'environment/container-env': {
@@ -1322,7 +1322,7 @@ DEBUG=true`,
   'environment/env-files-path-resolution': {
     language: 'text',
     code: `project/
-├── invkfile.cue
+├── invowkfile.cue
 ├── .env                  # files: [".env"]
 ├── config/
 │   └── .env.prod         # files: ["config/.env.prod"]
@@ -1388,10 +1388,10 @@ cmds: [...]`,
   'environment/env-files-cli-override': {
     language: 'bash',
     code: `# Load extra file
-invowk cmd build --invk-env-file .env.custom
+invowk cmd build --ivk-env-file .env.custom
 
 # Multiple files
-invowk cmd build --invk-env-file .env.custom --invk-env-file .env.secrets`,
+invowk cmd build --ivk-env-file .env.custom --ivk-env-file .env.secrets`,
   },
 
   'environment/env-files-dev-prod': {
@@ -1443,7 +1443,7 @@ invowk cmd build --invk-env-file .env.custom --invk-env-file .env.secrets`,
   'environment/env-files-multi-env-structure': {
     language: 'text',
     code: `project/
-├── invkfile.cue
+├── invowkfile.cue
 ├── .env                  # Shared defaults
 ├── .env.development      # Dev settings
 ├── .env.staging          # Staging settings
@@ -1640,7 +1640,7 @@ implementations: [
     files: [".env"]  // Loaded first
     vars: {
         // These override .env values
-        OVERRIDE: "from-invkfile"
+        OVERRIDE: "from-invowkfile"
     }
 }`,
   },
@@ -1648,10 +1648,10 @@ implementations: [
   'environment/env-vars-cli-override': {
     language: 'bash',
     code: `# Single variable
-invowk cmd build --invk-env-var NODE_ENV=development
+invowk cmd build --ivk-env-var NODE_ENV=development
 
 # Multiple variables
-invowk cmd build --invk-env-var NODE_ENV=dev --invk-env-var DEBUG=true --invk-env-var PORT=8080`,
+invowk cmd build --ivk-env-var NODE_ENV=dev --ivk-env-var DEBUG=true --ivk-env-var PORT=8080`,
   },
 
   'environment/env-vars-build-config': {
@@ -1766,8 +1766,8 @@ invowk cmd build --invk-env-var NODE_ENV=dev --invk-env-var DEBUG=true --invk-en
   'environment/precedence-hierarchy': {
     language: 'text',
     code: `CLI (highest priority)
-├── --invk-env-var KEY=value
-└── --invk-env-file .env.local
+├── --ivk-env-var KEY=value
+└── --ivk-env-file .env.local
     │
 Invowk Vars
 ├── INVOWK_FLAG_*
@@ -1788,7 +1788,7 @@ Root Level
 System Environment (lowest priority)`,
   },
 
-  'environment/precedence-invkfile': {
+  'environment/precedence-invowkfile': {
     language: 'cue',
     code: `// Root level
 env: {
@@ -1849,7 +1849,7 @@ CACHE_DIR=./cache                      # From .env.build file`,
 
   'environment/precedence-cli-override': {
     language: 'bash',
-    code: `invowk cmd build --invk-env-var API_URL=http://cli.example.com`,
+    code: `invowk cmd build --ivk-env-var API_URL=http://cli.example.com`,
   },
 
   'environment/precedence-vars-over-files': {
@@ -1956,7 +1956,7 @@ implementations: [{
   'environment/precedence-cli-temp': {
     language: 'bash',
     code: `# Quick test with different config
-invowk cmd build --invk-env-var DEBUG=true --invk-env-var LOG_LEVEL=debug`,
+invowk cmd build --ivk-env-var DEBUG=true --ivk-env-var LOG_LEVEL=debug`,
   },
 
   'environment/precedence-debug': {
@@ -3058,7 +3058,7 @@ cmds: [
 
   'advanced/workdir-cli': {
     language: 'bash',
-    code: `invowk cmd build --invk-workdir ./frontend`,
+    code: `invowk cmd build --ivk-workdir ./frontend`,
   },
 
   'advanced/workdir-relative': {
@@ -3488,10 +3488,10 @@ This command is only available on the platforms listed above.`,
 
   'modules/validate': {
     language: 'bash',
-    code: `invowk module validate ./mymod.invkmod --deep`,
+    code: `invowk module validate ./mymod.invowkmod --deep`,
   },
 
-  'modules/module-invkfile': {
+  'modules/module-invowkfile': {
     language: 'cue',
     code: `cmds: [
     {
@@ -3511,9 +3511,9 @@ This command is only available on the platforms listed above.`,
   // Overview page snippets
   'modules/structure-basic': {
     language: 'text',
-    code: `mytools.invkmod/
-├── invkmod.cue          # Required: module metadata
-├── invkfile.cue          # Optional: command definitions
+    code: `mytools.invowkmod/
+├── invowkmod.cue          # Required: module metadata
+├── invowkfile.cue          # Optional: command definitions
 ├── scripts/              # Optional: script files
 │   ├── build.sh
 │   └── deploy.sh
@@ -3528,9 +3528,9 @@ This command is only available on the platforms listed above.`,
 
   'modules/quick-create-output': {
     language: 'text',
-    code: `mytools.invkmod/
-├── invkmod.cue
-└── invkfile.cue`,
+    code: `mytools.invowkmod/
+├── invowkmod.cue
+└── invowkfile.cue`,
   },
 
 'modules/quick-use': {
@@ -3545,18 +3545,18 @@ invowk cmd mytools hello`,
   'modules/quick-share': {
     language: 'bash',
     code: `# Create a zip archive
-invowk module archive mytools.invkmod
+invowk module archive mytools.invowkmod
 
 # Share the zip file
 # Recipients import with:
-invowk module import mytools.invkmod.zip`,
+invowk module import mytools.invowkmod.zip`,
   },
 
   'modules/structure-example': {
     language: 'text',
-    code: `com.example.devtools.invkmod/
-├── invkmod.cue
-├── invkfile.cue
+    code: `com.example.devtools.invowkmod/
+├── invowkmod.cue
+├── invowkfile.cue
 ├── scripts/
 │   ├── build.sh
 │   ├── deploy.sh
@@ -3570,14 +3570,14 @@ invowk module import mytools.invkmod.zip`,
 
   'modules/rdns-naming': {
     language: 'text',
-    code: `com.company.projectname.invkmod
-io.github.username.toolkit.invkmod
-org.opensource.utilities.invkmod`,
+    code: `com.company.projectname.invowkmod
+io.github.username.toolkit.invowkmod
+org.opensource.utilities.invowkmod`,
   },
 
   'modules/script-paths': {
     language: 'cue',
-    code: `// Inside mytools.invkmod/invkfile.cue
+    code: `// Inside mytools.invowkmod/invowkfile.cue
 cmds: [
     {
         name: "build"
@@ -3630,13 +3630,13 @@ invowk module create mytools --scripts`,
 
   'modules/create-with-scripts': {
     language: 'text',
-    code: `mytools.invkmod/
-├── invkmod.cue
-├── invkfile.cue
+    code: `mytools.invowkmod/
+├── invowkmod.cue
+├── invowkfile.cue
 └── scripts/`,
   },
 
-  'modules/template-invkmod': {
+  'modules/template-invowkmod': {
     language: 'cue',
     code: `module: "mytools"
 version: "1.0.0"
@@ -3645,13 +3645,13 @@ description: "Commands for mytools"
 // Uncomment to add dependencies:
 // requires: [
 //     {
-//         git_url: "https://github.com/example/utils.invkmod.git"
+//         git_url: "https://github.com/example/utils.invowkmod.git"
 //         version: "^1.0.0"
 //     },
 // ]`,
   },
 
-  'modules/template-invkfile': {
+  'modules/template-invowkfile': {
     language: 'cue',
     code: `cmds: [
     {
@@ -3672,9 +3672,9 @@ description: "Commands for mytools"
 
   'modules/manual-create': {
     language: 'bash',
-    code: `mkdir mytools.invkmod
-touch mytools.invkmod/invkmod.cue
-touch mytools.invkmod/invkfile.cue`,
+    code: `mkdir mytools.invowkmod
+touch mytools.invowkmod/invowkmod.cue
+touch mytools.invowkmod/invowkfile.cue`,
   },
 
   'modules/inline-vs-external': {
@@ -3704,9 +3704,9 @@ touch mytools.invkmod/invkfile.cue`,
 
   'modules/script-organization': {
     language: 'text',
-    code: `mytools.invkmod/
-├── invkmod.cue
-├── invkfile.cue
+    code: `mytools.invowkmod/
+├── invowkmod.cue
+├── invowkfile.cue
 └── scripts/
     ├── build.sh           # Main scripts
     ├── deploy.sh
@@ -3731,9 +3731,9 @@ script: "../outside.sh"`,
 
   'modules/env-files-structure': {
     language: 'text',
-    code: `mytools.invkmod/
-├── invkmod.cue
-├── invkfile.cue
+    code: `mytools.invowkmod/
+├── invowkmod.cue
+├── invowkfile.cue
 ├── .env                   # Default config
 ├── .env.example           # Template for users
 └── scripts/`,
@@ -3748,9 +3748,9 @@ script: "../outside.sh"`,
 
   'modules/docs-structure': {
     language: 'text',
-    code: `mytools.invkmod/
-├── invkmod.cue
-├── invkfile.cue
+    code: `mytools.invowkmod/
+├── invowkmod.cue
+├── invowkfile.cue
 ├── README.md              # Usage instructions
 ├── CHANGELOG.md           # Version history
 └── scripts/`,
@@ -3758,9 +3758,9 @@ script: "../outside.sh"`,
 
   'modules/buildtools-structure': {
     language: 'text',
-    code: `com.company.buildtools.invkmod/
-├── invkmod.cue
-├── invkfile.cue
+    code: `com.company.buildtools.invowkmod/
+├── invowkmod.cue
+├── invowkfile.cue
 ├── scripts/
 │   ├── build-go.sh
 │   ├── build-node.sh
@@ -3772,7 +3772,7 @@ script: "../outside.sh"`,
 └── README.md`,
   },
 
-  'modules/buildtools-invkfile': {
+  'modules/buildtools-invowkfile': {
     language: 'cue',
     code: `cmds: [
     {
@@ -3807,9 +3807,9 @@ script: "../outside.sh"`,
 
   'modules/devops-structure': {
     language: 'text',
-    code: `org.devops.k8s.invkmod/
-├── invkmod.cue
-├── invkfile.cue
+    code: `org.devops.k8s.invowkmod/
+├── invowkmod.cue
+├── invowkfile.cue
 ├── scripts/
 │   ├── deploy.sh
 │   ├── rollback.sh
@@ -3822,19 +3822,19 @@ script: "../outside.sh"`,
 
   'modules/validate-before-share': {
     language: 'bash',
-    code: `invowk module validate mytools.invkmod --deep`,
+    code: `invowk module validate mytools.invowkmod --deep`,
   },
 
   // Validating page snippets
   'modules/validate-basic': {
     language: 'bash',
-    code: `invowk module validate ./mytools.invkmod`,
+    code: `invowk module validate ./mytools.invowkmod`,
   },
 
   'modules/validate-basic-output': {
     language: 'text',
     code: `Module Validation
-• Path: /home/user/mytools.invkmod
+• Path: /home/user/mytools.invowkmod
 • Name: mytools
 
 ✓ Module is valid
@@ -3846,13 +3846,13 @@ script: "../outside.sh"`,
 
   'modules/validate-deep': {
     language: 'bash',
-    code: `invowk module validate ./mytools.invkmod --deep`,
+    code: `invowk module validate ./mytools.invowkmod --deep`,
   },
 
   'modules/validate-deep-output': {
     language: 'text',
     code: `Module Validation
-• Path: /home/user/mytools.invkmod
+• Path: /home/user/mytools.invowkmod
 • Name: mytools
 
 ✓ Module is valid
@@ -3860,23 +3860,23 @@ script: "../outside.sh"`,
 ✓ Structure check passed
 ✓ Naming convention check passed
 ✓ Required files present
-✓ Invkfile parses successfully`,
+✓ Invowkfile parses successfully`,
   },
 
-  'modules/error-missing-invkfile': {
+  'modules/error-missing-invowkfile': {
     language: 'text',
     code: `Module Validation
-• Path: /home/user/bad.invkmod
+• Path: /home/user/bad.invowkmod
 
 ✗ Module validation failed with 1 issue(s)
 
-  1. [structure] missing required invkmod.cue`,
+  1. [structure] missing required invowkmod.cue`,
   },
 
   'modules/error-invalid-name': {
     language: 'text',
     code: `Module Validation
-• Path: /home/user/my-tools.invkmod
+• Path: /home/user/my-tools.invowkmod
 
 ✗ Module validation failed with 1 issue(s)
 
@@ -3886,27 +3886,27 @@ script: "../outside.sh"`,
   'modules/error-nested': {
     language: 'text',
     code: `Module Validation
-• Path: /home/user/parent.invkmod
+• Path: /home/user/parent.invowkmod
 
 ✗ Module validation failed with 1 issue(s)
 
-  1. [structure] nested.invkmod: nested modules are not allowed (except in invk_modules/)`,
+  1. [structure] nested.invowkmod: nested modules are not allowed (except in invowk_modules/)`,
   },
 
   'modules/error-parse': {
     language: 'text',
     code: `Module Validation
-• Path: /home/user/broken.invkmod
+• Path: /home/user/broken.invowkmod
 
 ✗ Module validation failed with 1 issue(s)
 
-  1. [invkfile] parse error at line 15: expected '}', found EOF`,
+  1. [invowkfile] parse error at line 15: expected '}', found EOF`,
   },
 
   'modules/validate-batch': {
     language: 'bash',
     code: `# Validate all modules in a directory
-for mod in ./modules/*.invkmod; do
+for mod in ./modules/*.invowkmod; do
     invowk module validate "$mod" --deep
 done`,
   },
@@ -3916,7 +3916,7 @@ done`,
     code: `# GitHub Actions example
 - name: Validate modules
   run: |
-    for mod in modules/*.invkmod; do
+    for mod in modules/*.invowkmod; do
       invowk module validate "$mod" --deep
     done`,
   },
@@ -3951,11 +3951,11 @@ script: "scripts/script.sh"`,
   // Distributing page snippets
   'modules/archive-basic': {
     language: 'bash',
-    code: `# Default output: <module-name>.invkmod.zip
-invowk module archive ./mytools.invkmod
+    code: `# Default output: <module-name>.invowkmod.zip
+invowk module archive ./mytools.invowkmod
 
 # Custom output path
-invowk module archive ./mytools.invkmod --output ./dist/mytools.zip`,
+invowk module archive ./mytools.invowkmod --output ./dist/mytools.zip`,
   },
 
   'modules/archive-output': {
@@ -3971,13 +3971,13 @@ invowk module archive ./mytools.invkmod --output ./dist/mytools.zip`,
   'modules/import-local': {
     language: 'bash',
     code: `# Install to ~/.invowk/cmds/
-invowk module import ./mytools.invkmod.zip
+invowk module import ./mytools.invowkmod.zip
 
 # Install to custom directory
-invowk module import ./mytools.invkmod.zip --path ./local-modules
+invowk module import ./mytools.invowkmod.zip --path ./local-modules
 
 # Overwrite existing
-invowk module import ./mytools.invkmod.zip --overwrite`,
+invowk module import ./mytools.invowkmod.zip --overwrite`,
   },
 
   'modules/import-url': {
@@ -3986,7 +3986,7 @@ invowk module import ./mytools.invkmod.zip --overwrite`,
 invowk module import https://example.com/modules/mytools.zip
 
 # From GitHub release
-invowk module import https://github.com/user/repo/releases/download/v1.0/mytools.invkmod.zip`,
+invowk module import https://github.com/user/repo/releases/download/v1.0/mytools.invowkmod.zip`,
   },
 
   'modules/import-output': {
@@ -3996,7 +3996,7 @@ invowk module import https://github.com/user/repo/releases/download/v1.0/mytools
 ✓ Module imported successfully
 
 • Name: mytools
-• Path: /home/user/.invowk/cmds/mytools.invkmod
+• Path: /home/user/.invowk/cmds/mytools.invowkmod
 
 • The module commands are now available via invowk`,
   },
@@ -4014,13 +4014,13 @@ invowk module import https://github.com/user/repo/releases/download/v1.0/mytools
 
 • current directory:
    ✓ local.project
-      /home/user/project/local.project.invkmod
+      /home/user/project/local.project.invowkmod
 
 • user modules (~/.invowk/cmds):
    ✓ com.company.devtools
-      /home/user/.invowk/cmds/com.company.devtools.invkmod
+      /home/user/.invowk/cmds/com.company.devtools.invowkmod
    ✓ io.github.user.utilities
-      /home/user/.invowk/cmds/io.github.user.utilities.invkmod`,
+      /home/user/.invowk/cmds/io.github.user.utilities.invowkmod`,
   },
 
   'modules/git-structure': {
@@ -4028,19 +4028,19 @@ invowk module import https://github.com/user/repo/releases/download/v1.0/mytools
     code: `my-project/
 ├── src/
 ├── modules/
-│   ├── devtools.invkmod/
-│   │   ├── invkmod.cue
-│   │   └── invkfile.cue
-│   └── testing.invkmod/
-│       ├── invkmod.cue
-│       └── invkfile.cue
-└── invkfile.cue`,
+│   ├── devtools.invowkmod/
+│   │   ├── invowkmod.cue
+│   │   └── invowkfile.cue
+│   └── testing.invowkmod/
+│       ├── invowkmod.cue
+│       └── invowkfile.cue
+└── invowkfile.cue`,
   },
 
   'modules/github-release': {
     language: 'bash',
     code: `# Recipients install with:
-invowk module import https://github.com/org/repo/releases/download/v1.0.0/mytools.invkmod.zip`,
+invowk module import https://github.com/org/repo/releases/download/v1.0.0/mytools.invowkmod.zip`,
   },
 
   'modules/future-install': {
@@ -4051,20 +4051,20 @@ invowk module import https://github.com/org/repo/releases/download/v1.0.0/mytool
   'modules/install-user': {
     language: 'bash',
     code: `invowk module import mytools.zip
-# Installed to: ~/.invowk/cmds/mytools.invkmod/`,
+# Installed to: ~/.invowk/cmds/mytools.invowkmod/`,
   },
 
   'modules/install-project': {
     language: 'bash',
     code: `invowk module import mytools.zip --path ./modules
-# Installed to: ./modules/mytools.invkmod/`,
+# Installed to: ./modules/mytools.invowkmod/`,
   },
 
   'modules/includes-config': {
     language: 'cue',
     code: `// ~/.config/invowk/config.cue
 includes: [
-    {path: "/shared/company-modules/tools.invkmod"},
+    {path: "/shared/company-modules/tools.invowkmod"},
 ]`,
   },
 
@@ -4073,7 +4073,7 @@ includes: [
     code: `invowk module import mytools.zip --path /shared/company-modules`,
   },
 
-  'modules/version-invkfile': {
+  'modules/version-invowkfile': {
     language: 'cue',
     code: `module: "com.company.tools"
 version: "1.2.0"`,
@@ -4081,13 +4081,13 @@ version: "1.2.0"`,
 
   'modules/archive-versioned': {
     language: 'bash',
-    code: `invowk module archive ./mytools.invkmod --output ./dist/mytools-1.2.0.zip`,
+    code: `invowk module archive ./mytools.invowkmod --output ./dist/mytools-1.2.0.zip`,
   },
 
   'modules/upgrade-process': {
     language: 'bash',
     code: `# Remove old version
-rm -rf ~/.invowk/cmds/mytools.invkmod
+rm -rf ~/.invowk/cmds/mytools.invowkmod
 
 # Install new version
 invowk module import mytools-1.2.0.zip
@@ -4099,7 +4099,7 @@ invowk module import mytools-1.2.0.zip --overwrite`,
   'modules/team-shared-location': {
     language: 'bash',
     code: `# Admin publishes
-invowk module archive ./devtools.invkmod --output /shared/modules/devtools.zip
+invowk module archive ./devtools.invowkmod --output /shared/modules/devtools.zip
 
 # Team members import
 invowk module import /shared/modules/devtools.zip`,
@@ -4118,10 +4118,10 @@ invowk module create com.company.mytools --scripts
 # ... add commands and scripts ...
 
 # 2. Validate
-invowk module validate ./com.company.mytools.invkmod --deep
+invowk module validate ./com.company.mytools.invowkmod --deep
 
 # 3. Create versioned archive
-invowk module archive ./com.company.mytools.invkmod \\
+invowk module archive ./com.company.mytools.invowkmod \\
     --output ./releases/mytools-1.0.0.zip
 
 # 4. Distribute (e.g., upload to GitHub release)
@@ -4136,10 +4136,10 @@ invowk module import https://github.com/company/mytools/releases/download/v1.0.0
 
   'modules/dependencies/quick-add': {
     language: 'bash',
-    code: `invowk module add https://github.com/example/common.invkmod.git ^1.0.0`,
+    code: `invowk module add https://github.com/example/common.invowkmod.git ^1.0.0`,
   },
 
-  'modules/dependencies/quick-invkmod': {
+  'modules/dependencies/quick-invowkmod': {
     language: 'cue',
     code: `module: "com.example.mytools"
 version: "1.0.0"
@@ -4147,7 +4147,7 @@ description: "My tools"
 
 requires: [
     {
-        git_url: "https://github.com/example/common.invkmod.git"
+        git_url: "https://github.com/example/common.invowkmod.git"
         version: "^1.0.0"
         alias: "common"
     },
@@ -4179,13 +4179,13 @@ invowk cmd common build`,
 ├── sources/
 │   └── github.com/
 │       └── example/
-│           └── common.invkmod/
+│           └── common.invowkmod/
 └── github.com/
     └── example/
-        └── common.invkmod/
+        └── common.invowkmod/
             └── 1.2.3/
-                ├── invkmod.cue
-                └── invkfile.cue`,
+                ├── invowkmod.cue
+                └── invowkfile.cue`,
   },
 
   'modules/dependencies/cache-env': {
@@ -4193,14 +4193,14 @@ invowk cmd common build`,
     code: `export INVOWK_MODULES_PATH=/custom/cache/path`,
   },
 
-  'modules/dependencies/basic-invkmod': {
+  'modules/dependencies/basic-invowkmod': {
     language: 'cue',
     code: `module: "com.example.mytools"
 version: "1.0.0"
 
 requires: [
     {
-        git_url: "https://github.com/example/common.invkmod.git"
+        git_url: "https://github.com/example/common.invowkmod.git"
         version: "^1.0.0"
     },
 ]`,
@@ -4210,16 +4210,16 @@ requires: [
     language: 'cue',
     code: `requires: [
     // HTTPS (works with public repos or GITHUB_TOKEN)
-    {git_url: "https://github.com/user/tools.invkmod.git", version: "^1.0.0"},
+    {git_url: "https://github.com/user/tools.invowkmod.git", version: "^1.0.0"},
 
     // SSH (requires SSH key in ~/.ssh/)
-    {git_url: "git@github.com:user/tools.invkmod.git", version: "^1.0.0"},
+    {git_url: "git@github.com:user/tools.invowkmod.git", version: "^1.0.0"},
 
     // GitLab
-    {git_url: "https://gitlab.com/user/tools.invkmod.git", version: "^1.0.0"},
+    {git_url: "https://gitlab.com/user/tools.invowkmod.git", version: "^1.0.0"},
 
     // Self-hosted
-    {git_url: "https://git.example.com/user/tools.invkmod.git", version: "^1.0.0"},
+    {git_url: "https://git.example.com/user/tools.invowkmod.git", version: "^1.0.0"},
 ]`,
   },
 
@@ -4227,7 +4227,7 @@ requires: [
     language: 'cue',
     code: `requires: [
     // Invowk tries both v1.0.0 and 1.0.0
-    {git_url: "https://github.com/user/tools.invkmod.git", version: "^1.0.0"},
+    {git_url: "https://github.com/user/tools.invowkmod.git", version: "^1.0.0"},
 ]`,
   },
 
@@ -4235,11 +4235,11 @@ requires: [
     language: 'cue',
     code: `requires: [
     // Default namespace: common@1.2.3
-    {git_url: "https://github.com/user/common.invkmod.git", version: "^1.0.0"},
+    {git_url: "https://github.com/user/common.invowkmod.git", version: "^1.0.0"},
 
     // Custom namespace: tools
     {
-        git_url: "https://github.com/user/common.invkmod.git"
+        git_url: "https://github.com/user/common.invowkmod.git"
         version: "^1.0.0"
         alias: "tools"
     },
@@ -4256,12 +4256,12 @@ invowk cmd tools build`,
     language: 'cue',
     code: `requires: [
     {
-        git_url: "https://github.com/user/monorepo.invkmod.git"
+        git_url: "https://github.com/user/monorepo.invowkmod.git"
         version: "^1.0.0"
         path: "modules/cli-tools"
     },
     {
-        git_url: "https://github.com/user/monorepo.invkmod.git"
+        git_url: "https://github.com/user/monorepo.invowkmod.git"
         version: "^1.0.0"
         path: "modules/deploy-utils"
         alias: "deploy"
@@ -4273,17 +4273,17 @@ invowk cmd tools build`,
     language: 'cue',
     code: `requires: [
     {
-        git_url: "https://github.com/company/build-tools.invkmod.git"
+        git_url: "https://github.com/company/build-tools.invowkmod.git"
         version: "^2.0.0"
         alias: "build"
     },
     {
-        git_url: "https://github.com/company/deploy-tools.invkmod.git"
+        git_url: "https://github.com/company/deploy-tools.invowkmod.git"
         version: "~1.5.0"
         alias: "deploy"
     },
     {
-        git_url: "https://github.com/company/test-utils.invkmod.git"
+        git_url: "https://github.com/company/test-utils.invowkmod.git"
         version: ">=1.0.0 <2.0.0"
     },
 ]`,
@@ -4312,7 +4312,7 @@ export GIT_TOKEN=your-token`,
 
   'modules/dependencies/circular-error': {
     language: 'text',
-    code: `Error: circular dependency detected: https://github.com/user/module-a.invkmod.git`,
+    code: `Error: circular dependency detected: https://github.com/user/module-a.invowkmod.git`,
   },
 
   'modules/dependencies/best-practices-version': {
@@ -4327,7 +4327,7 @@ export GIT_TOKEN=your-token`,
   'modules/dependencies/best-practices-alias': {
     language: 'cue',
     code: `{
-    git_url: "https://github.com/company/company-internal-build-tools.invkmod.git"
+    git_url: "https://github.com/company/company-internal-build-tools.invowkmod.git"
     version: "^2.0.0"
     alias: "build"
 }`,
@@ -4344,8 +4344,8 @@ export GIT_TOKEN=your-token`,
 generated: "2025-01-10T12:34:56Z"
 
 modules: {
-    "https://github.com/example/common.invkmod.git": {
-        git_url:          "https://github.com/example/common.invkmod.git"
+    "https://github.com/example/common.invowkmod.git": {
+        git_url:          "https://github.com/example/common.invowkmod.git"
         version:          "^1.0.0"
         resolved_version: "1.2.3"
         git_commit:       "abc123def4567890"
@@ -4358,8 +4358,8 @@ modules: {
   'modules/dependencies/lockfile-key': {
     language: 'cue',
     code: `modules: {
-    "https://github.com/example/monorepo.invkmod.git#modules/cli": {
-        git_url: "https://github.com/example/monorepo.invkmod.git"
+    "https://github.com/example/monorepo.invowkmod.git#modules/cli": {
+        git_url: "https://github.com/example/monorepo.invowkmod.git"
         path:    "modules/cli"
     }
 }`,
@@ -4371,7 +4371,7 @@ modules: {
 invowk module sync
 
 # Commit the lock file
-git add invkmod.lock.cue
+git add invowkmod.lock.cue
 git commit -m "Lock module dependencies"`,
   },
 
@@ -4383,35 +4383,35 @@ git commit -m "Lock module dependencies"`,
   'modules/dependencies/cli/add-examples': {
     language: 'bash',
     code: `# Add a dependency with caret version
-invowk module add https://github.com/user/mod.invkmod.git ^1.0.0
+invowk module add https://github.com/user/mod.invowkmod.git ^1.0.0
 
 # Add with SSH URL
-invowk module add git@github.com:user/mod.invkmod.git ~2.0.0
+invowk module add git@github.com:user/mod.invowkmod.git ~2.0.0
 
 # Add with custom alias
-invowk module add https://github.com/user/common.invkmod.git ^1.0.0 --alias tools
+invowk module add https://github.com/user/common.invowkmod.git ^1.0.0 --alias tools
 
 # Add from monorepo subdirectory
-invowk module add https://github.com/user/monorepo.invkmod.git ^1.0.0 --path modules/cli`,
+invowk module add https://github.com/user/monorepo.invowkmod.git ^1.0.0 --path modules/cli`,
   },
 
   'modules/dependencies/cli/add-output': {
     language: 'text',
     code: `Add Module Dependency
 
-• Resolving https://github.com/user/mod.invkmod.git@^1.0.0...
+• Resolving https://github.com/user/mod.invowkmod.git@^1.0.0...
 ✓ Module added successfully
 
-• Git URL:   https://github.com/user/mod.invkmod.git
+• Git URL:   https://github.com/user/mod.invowkmod.git
 • Version:   ^1.0.0 → 1.2.3
 • Namespace: mod@1.2.3
-• Cache:     /home/user/.invowk/modules/github.com/user/mod.invkmod/1.2.3
+• Cache:     /home/user/.invowk/modules/github.com/user/mod.invowkmod/1.2.3
 
-• To use this module, add to your invkmod.cue:
+• To use this module, add to your invowkmod.cue:
 
 requires: [
     {
-        git_url: "https://github.com/user/mod.invkmod.git"
+        git_url: "https://github.com/user/mod.invowkmod.git"
         version: "^1.0.0"
     },
 ]`,
@@ -4424,17 +4424,17 @@ requires: [
 
   'modules/dependencies/cli/remove-example': {
     language: 'bash',
-    code: `invowk module remove https://github.com/user/mod.invkmod.git`,
+    code: `invowk module remove https://github.com/user/mod.invowkmod.git`,
   },
 
   'modules/dependencies/cli/remove-output': {
     language: 'text',
     code: `Remove Module Dependency
 
-• Removing https://github.com/user/mod.invkmod.git...
+• Removing https://github.com/user/mod.invowkmod.git...
 ✓ Module removed from lock file
 
-• Don't forget to remove the requires entry from your invkmod.cue`,
+• Don't forget to remove the requires entry from your invowkmod.cue`,
   },
 
   'modules/dependencies/cli/deps-usage': {
@@ -4449,16 +4449,16 @@ requires: [
 • Found 2 module dependency(ies)
 
 ✓ build-tools@2.3.1
-   Git URL:  https://github.com/company/build-tools.invkmod.git
+   Git URL:  https://github.com/company/build-tools.invowkmod.git
    Version:  ^2.0.0 → 2.3.1
    Commit:   abc123def456
-   Cache:    /home/user/.invowk/modules/github.com/company/build-tools.invkmod/2.3.1
+   Cache:    /home/user/.invowk/modules/github.com/company/build-tools.invowkmod/2.3.1
 
 ✓ deploy-utils@1.5.2
-   Git URL:  https://github.com/company/deploy-tools.invkmod.git
+   Git URL:  https://github.com/company/deploy-tools.invowkmod.git
    Version:  ~1.5.0 → 1.5.2
    Commit:   789xyz012abc
-   Cache:    /home/user/.invowk/modules/github.com/company/deploy-tools.invkmod/1.5.2`,
+   Cache:    /home/user/.invowk/modules/github.com/company/deploy-tools.invowkmod/1.5.2`,
   },
 
   'modules/dependencies/cli/deps-empty': {
@@ -4479,19 +4479,19 @@ requires: [
     language: 'text',
     code: `Sync Module Dependencies
 
-• Found 2 requirement(s) in invkmod.cue
+• Found 2 requirement(s) in invowkmod.cue
 
 ✓ build-tools@2.3.1 → 2.3.1
 ✓ deploy-utils@1.5.2 → 1.5.2
 
-✓ Lock file updated: invkmod.lock.cue`,
+✓ Lock file updated: invowkmod.lock.cue`,
   },
 
   'modules/dependencies/cli/sync-empty': {
     language: 'text',
     code: `Sync Module Dependencies
 
-• No requires field found in invkmod.cue`,
+• No requires field found in invowkmod.cue`,
   },
 
   'modules/dependencies/cli/update-usage': {
@@ -4505,7 +4505,7 @@ requires: [
 invowk module update
 
 # Update a specific module
-invowk module update https://github.com/user/mod.invkmod.git`,
+invowk module update https://github.com/user/mod.invowkmod.git`,
   },
 
   'modules/dependencies/cli/update-output': {
@@ -4517,7 +4517,7 @@ invowk module update https://github.com/user/mod.invkmod.git`,
 ✓ build-tools@2.3.1 → 2.4.0
 ✓ deploy-utils@1.5.2 → 1.5.3
 
-✓ Lock file updated: invkmod.lock.cue`,
+✓ Lock file updated: invowkmod.lock.cue`,
   },
 
   'modules/dependencies/cli/update-empty': {
@@ -4537,30 +4537,30 @@ invowk module update https://github.com/user/mod.invkmod.git`,
     language: 'text',
     code: `Vendor Module Dependencies
 
-• Found 2 requirement(s) in invkmod.cue
-• Vendor directory: /home/user/project/invk_modules
+• Found 2 requirement(s) in invowkmod.cue
+• Vendor directory: /home/user/project/invowk_modules
 
 ! Vendoring is not yet fully implemented
 
 • The following dependencies would be vendored:
-   • https://github.com/example/common.invkmod.git@^1.0.0
-   • https://github.com/example/deploy.invkmod.git@~1.5.0`,
+   • https://github.com/example/common.invowkmod.git@^1.0.0
+   • https://github.com/example/deploy.invowkmod.git@~1.5.0`,
   },
 
   'modules/dependencies/cli/workflow-init': {
     language: 'bash',
     code: `# 1. Resolve dependencies
-invowk module add https://github.com/company/build-tools.invkmod.git ^2.0.0 --alias build
-invowk module add https://github.com/company/deploy-tools.invkmod.git ~1.5.0 --alias deploy
+invowk module add https://github.com/company/build-tools.invowkmod.git ^2.0.0 --alias build
+invowk module add https://github.com/company/deploy-tools.invowkmod.git ~1.5.0 --alias deploy
 
-# 2. Add requires to invkmod.cue manually or verify
-cat invkmod.cue
+# 2. Add requires to invowkmod.cue manually or verify
+cat invowkmod.cue
 
 # 3. Sync to generate lock file
 invowk module sync
 
 # 4. Commit the lock file
-git add invkmod.lock.cue
+git add invowkmod.lock.cue
 git commit -m "Add module dependencies"`,
   },
 
@@ -4578,10 +4578,10 @@ invowk module sync`,
 invowk module update
 
 # Review changes
-git diff invkmod.lock.cue
+git diff invowkmod.lock.cue
 
 # Commit if tests pass
-git add invkmod.lock.cue
+git add invowkmod.lock.cue
 git commit -m "Update module dependencies"`,
   },
 
@@ -4641,8 +4641,8 @@ fi`,
     code: `// ~/.config/invowk/config.cue
 container_engine: "podman"
 includes: [
-    {path: "~/.invowk/modules/tools.invkmod"},
-    {path: "/usr/local/share/invowk/shared.invkmod"},
+    {path: "~/.invowk/modules/tools.invowkmod"},
+    {path: "/usr/local/share/invowk/shared.invowkmod"},
 ]
 default_runtime: "virtual"`,
   },
@@ -4655,8 +4655,8 @@ default_runtime: "virtual"`,
   'config/includes': {
     language: 'cue',
     code: `includes: [
-    {path: "~/.invowk/modules/tools.invkmod"},
-    {path: "~/my-company/shared.invkmod", alias: "company"},
+    {path: "~/.invowk/modules/tools.invowkmod"},
+    {path: "~/my-company/shared.invowkmod", alias: "company"},
 ]`,
   },
 
@@ -4717,8 +4717,8 @@ container_engine: "podman"
 
 // Additional modules to include in discovery
 includes: [
-    {path: "~/.invowk/modules/tools.invkmod"},
-    {path: "~/projects/shared.invkmod", alias: "shared"},
+    {path: "~/.invowk/modules/tools.invowkmod"},
+    {path: "~/projects/shared.invowkmod", alias: "shared"},
 ]
 
 // Default runtime for commands that don't specify one
@@ -4756,7 +4756,7 @@ container: {
 }
 
 #IncludeEntry: {
-    path:   string  // Must end with .invkmod
+    path:   string  // Must end with .invowkmod
     alias?: string  // Optional, for collision disambiguation
 }
 
@@ -4832,7 +4832,7 @@ container: {
         enabled: true
         binary_path: "/usr/local/bin/invowk"
         includes: [
-            {path: "/opt/company/modules/tools.invkmod"},
+            {path: "/opt/company/modules/tools.invowkmod"},
         ]
         inherit_includes: true
         cache_dir: "/tmp/invowk/provision"
@@ -4850,8 +4850,8 @@ container_engine: "podman"
 
 // Additional modules to include in discovery
 includes: [
-    {path: "~/.invowk/modules/tools.invkmod"},       // Personal modules
-    {path: "~/work/shared.invkmod", alias: "team"},   // Team shared module
+    {path: "~/.invowk/modules/tools.invowkmod"},       // Personal modules
+    {path: "~/work/shared.invowkmod", alias: "team"},   // Team shared module
 ]
 
 // Default to virtual shell for portability
@@ -4891,13 +4891,13 @@ container: {
   'config/cli-override-examples': {
     language: 'bash',
     code: `# Enable verbose output for a run
-invowk --invk-verbose cmd build
+invowk --ivk-verbose cmd build
 
 # Run command in interactive mode (alternate screen buffer)
-invowk --invk-interactive cmd build
+invowk --ivk-interactive cmd build
 
 # Override runtime for a command
-invowk cmd build --invk-runtime container`,
+invowk cmd build --ivk-runtime container`,
   },
 
   // =============================================================================
@@ -4981,7 +4981,7 @@ invowk completion powershell >> $PROFILE`,
 invowk init`,
   },
 
-  'quickstart/hello-invkfile': {
+  'quickstart/hello-invowkfile': {
     language: 'cue',
     code: `cmds: [
     {
@@ -5087,10 +5087,10 @@ From current directory:
 
   'commands-namespaces/module-prefix': {
     language: 'cue',
-    code: `// invkmod.cue
+    code: `// invowkmod.cue
 module: "com.company.frontend"
 
-// invkfile.cue
+// invowkfile.cue
 cmds: [
     {name: "build"},
     {name: "test unit"},
@@ -5140,7 +5140,7 @@ From user modules (~/.invowk/cmds):
         implementations: [...]
         depends_on: {
             cmds: [
-                // Reference by command name in the same invkfile
+                // Reference by command name in the same invowkfile
                 {alternatives: ["build"]}
             ]
         }
@@ -5446,10 +5446,10 @@ cmds: [
 invowk cmd build
 
 # Override to virtual
-invowk cmd build --invk-runtime virtual
+invowk cmd build --ivk-runtime virtual
 
 # Override to container
-invowk cmd build --invk-runtime container`,
+invowk cmd build --ivk-runtime container`,
   },
 
   'runtime-modes/list-output': {
@@ -5465,7 +5465,7 @@ From current directory:
     language: 'cue',
     code: `runtimes: [{
     name: "container"
-    containerfile: "./Containerfile"  // Relative to invkfile
+    containerfile: "./Containerfile"  // Relative to invowkfile
 }]`,
   },
 
@@ -5875,7 +5875,7 @@ invowk tui spin --title "Installing..." -- npm install
 echo "Success!" | invowk tui style --foreground "#00FF00" --bold`,
   },
 
-  'tui/overview-invkfile-example': {
+  'tui/overview-invowkfile-example': {
     language: 'cue',
     code: `{
     name: "setup"
@@ -6821,7 +6821,7 @@ invowk cmd build
 invowk cmd test unit
 
 # Run with a specific runtime
-invowk cmd build --invk-runtime container
+invowk cmd build --ivk-runtime container
 
 # Run with arguments
 invowk cmd greet -- "World"
@@ -6832,13 +6832,13 @@ invowk cmd deploy --env production`,
 
   'cli/init-examples': {
     language: 'bash',
-    code: `# Create a default invkfile
+    code: `# Create a default invowkfile
 invowk init
 
-# Create a minimal invkfile
+# Create a minimal invowkfile
 invowk init --template minimal
 
-# Overwrite existing invkfile
+# Overwrite existing invowkfile
 invowk init --force`,
   },
 
@@ -6860,10 +6860,10 @@ invowk config set ui.color_scheme dark`,
 invowk module create com.example.mytools
 
 # Basic validation
-invowk module validate ./mymod.invkmod
+invowk module validate ./mymod.invowkmod
 
 # Deep validation
-invowk module validate ./mymod.invkmod --deep`,
+invowk module validate ./mymod.invowkmod --deep`,
   },
 
   'cli/completion-all': {
@@ -6909,7 +6909,7 @@ invowk cmd build
 invowk cmd test unit
 
 # Run with a specific runtime
-invowk cmd build --invk-runtime container
+invowk cmd build --ivk-runtime container
 
 # Run with arguments
 invowk cmd greet -- "World"
@@ -6925,13 +6925,13 @@ invowk cmd deploy --env production`,
 
   'reference/cli/init-examples': {
     language: 'bash',
-    code: `# Create a default invkfile
+    code: `# Create a default invowkfile
 invowk init
 
-# Create a minimal invkfile
+# Create a minimal invowkfile
 invowk init --template minimal
 
-# Overwrite existing invkfile
+# Overwrite existing invowkfile
 invowk init --force`,
   },
 
@@ -7007,10 +7007,10 @@ invowk module create mytools --scripts`,
   'reference/cli/module-validate-examples': {
     language: 'bash',
     code: `# Basic validation
-invowk module validate ./mymod.invkmod
+invowk module validate ./mymod.invowkmod
 
 # Deep validation
-invowk module validate ./mymod.invkmod --deep`,
+invowk module validate ./mymod.invowkmod --deep`,
   },
 
   'reference/cli/module-list-syntax': {
@@ -7150,11 +7150,11 @@ invowk help cmd
 invowk help config set`,
   },
 
-  'reference/cli/error-no-invkfile': {
+  'reference/cli/error-no-invowkfile': {
     language: 'text',
-    code: `# No invkfile found!
+    code: `# No invowkfile found!
 
-We searched for an invkfile but couldn't find one in the expected locations.
+We searched for an invowkfile but couldn't find one in the expected locations.
 
 ## Search locations (in order of precedence):
 1. Current directory
@@ -7162,7 +7162,7 @@ We searched for an invkfile but couldn't find one in the expected locations.
 3. Paths configured in your config file
 
 ## Things you can try:
-• Create an invkfile in your current directory:
+• Create an invowkfile in your current directory:
   $ invowk init
 
 • Or specify a different directory:
@@ -7171,12 +7171,12 @@ We searched for an invkfile but couldn't find one in the expected locations.
 
   'reference/cli/error-parse-failed': {
     language: 'text',
-    code: `✗ Failed to parse /path/to/invkfile.cue: invkfile validation failed:
-  #Invkfile.cmds.0.implementations.0.runtimes.0.name: 3 errors in empty disjunction
+    code: `✗ Failed to parse /path/to/invowkfile.cue: invowkfile validation failed:
+  #Invowkfile.cmds.0.implementations.0.runtimes.0.name: 3 errors in empty disjunction
 
-# Failed to parse invkfile!
+# Failed to parse invowkfile!
 
-Your invkfile contains syntax errors or invalid configuration.
+Your invowkfile contains syntax errors or invalid configuration.
 
 ## Common issues:
 - Invalid CUE syntax (missing quotes, braces, etc.)
@@ -7188,16 +7188,16 @@ Your invkfile contains syntax errors or invalid configuration.
 - Check the error message above for the specific line/column
 - Validate your CUE syntax using the cue command-line tool
 - Run with verbose mode for more details:
-  $ invowk --invk-verbose cmd`,
+  $ invowk --ivk-verbose cmd`,
   },
 
   // =============================================================================
   // REFERENCE - INVKFILE SCHEMA
   // =============================================================================
 
-  'reference/invkfile/root-structure': {
+  'reference/invowkfile/root-structure': {
     language: 'cue',
-    code: `#Invkfile: {
+    code: `#Invowkfile: {
     default_shell?: string    // Optional - override default shell
     workdir?:       string    // Optional - default working directory
     env?:           #EnvConfig      // Optional - global environment
@@ -7206,19 +7206,19 @@ Your invkfile contains syntax errors or invalid configuration.
 }`,
   },
 
-  'reference/invkfile/default-shell-example': {
+  'reference/invowkfile/default-shell-example': {
     language: 'cue',
     code: `default_shell: "/bin/bash"
 default_shell: "pwsh"`,
   },
 
-  'reference/invkfile/workdir-example': {
+  'reference/invowkfile/workdir-example': {
     language: 'cue',
     code: `workdir: "./src"
 workdir: "/opt/app"`,
   },
 
-  'reference/invkfile/command-structure': {
+  'reference/invowkfile/command-structure': {
     language: 'cue',
     code: `#Command: {
     name:            string               // Required
@@ -7232,19 +7232,19 @@ workdir: "/opt/app"`,
 }`,
   },
 
-  'reference/invkfile/command-name-examples': {
+  'reference/invowkfile/command-name-examples': {
     language: 'cue',
     code: `name: "build"
 name: "test unit"     // Spaces allowed for subcommand-like behavior
 name: "deploy-prod"`,
   },
 
-  'reference/invkfile/command-description-example': {
+  'reference/invowkfile/command-description-example': {
     language: 'cue',
     code: `description: "Build the application for production"`,
   },
 
-  'reference/invkfile/implementation-structure': {
+  'reference/invowkfile/implementation-structure': {
     language: 'cue',
     code: `#Implementation: {
     script:      string       // Required - inline script or file path
@@ -7256,7 +7256,7 @@ name: "deploy-prod"`,
 }`,
   },
 
-  'reference/invkfile/script-examples': {
+  'reference/invowkfile/script-examples': {
     language: 'cue',
     code: `// Inline script
 script: "echo 'Hello, World!'"
@@ -7273,7 +7273,7 @@ script: "./scripts/build.sh"
 script: "deploy.py"`,
   },
 
-  'reference/invkfile/runtimes-examples': {
+  'reference/invowkfile/runtimes-examples': {
     language: 'cue',
     code: `// Native only
 runtimes: [{name: "native"}]
@@ -7292,7 +7292,7 @@ runtimes: [{
 }]`,
   },
 
-  'reference/invkfile/platforms-example': {
+  'reference/invowkfile/platforms-example': {
     language: 'cue',
     code: `// Linux and macOS only
 platforms: [
@@ -7301,7 +7301,7 @@ platforms: [
 ]`,
   },
 
-  'reference/invkfile/runtime-config-structure': {
+  'reference/invowkfile/runtime-config-structure': {
     language: 'cue',
     code: `#RuntimeConfig: {
     name: "native" | "virtual" | "container"
@@ -7323,7 +7323,7 @@ platforms: [
 }`,
   },
 
-  'reference/invkfile/env-inherit-example': {
+  'reference/invowkfile/env-inherit-example': {
     language: 'cue',
     code: `runtimes: [{
     name:              "container"
@@ -7334,7 +7334,7 @@ platforms: [
 }]`,
   },
 
-  'reference/invkfile/interpreter-examples': {
+  'reference/invowkfile/interpreter-examples': {
     language: 'cue',
     code: `// Auto-detect from shebang
 interpreter: "auto"
@@ -7352,13 +7352,13 @@ interpreter: "/usr/bin/env perl -w"`,
   'environment/env-inherit-cli': {
     language: 'bash',
     code: `invowk cmd examples hello \\
-  --invk-env-inherit-mode allow \\
-  --invk-env-inherit-allow TERM \\
-  --invk-env-inherit-allow LANG \\
-  --invk-env-inherit-deny AWS_SECRET_ACCESS_KEY`,
+  --ivk-env-inherit-mode allow \\
+  --ivk-env-inherit-allow TERM \\
+  --ivk-env-inherit-allow LANG \\
+  --ivk-env-inherit-deny AWS_SECRET_ACCESS_KEY`,
   },
 
-  'reference/invkfile/enable-host-ssh-example': {
+  'reference/invowkfile/enable-host-ssh-example': {
     language: 'cue',
     code: `runtimes: [{
     name: "container"
@@ -7367,7 +7367,7 @@ interpreter: "/usr/bin/env perl -w"`,
 }]`,
   },
 
-  'reference/invkfile/containerfile-image-examples': {
+  'reference/invowkfile/containerfile-image-examples': {
     language: 'cue',
     code: `// Use a pre-built image
 image: "debian:bookworm-slim"
@@ -7378,7 +7378,7 @@ containerfile: "./Containerfile"
 containerfile: "./docker/Dockerfile.build"`,
   },
 
-  'reference/invkfile/volumes-example': {
+  'reference/invowkfile/volumes-example': {
     language: 'cue',
     code: `volumes: [
     "./src:/app/src",
@@ -7387,7 +7387,7 @@ containerfile: "./docker/Dockerfile.build"`,
 ]`,
   },
 
-  'reference/invkfile/ports-example': {
+  'reference/invowkfile/ports-example': {
     language: 'cue',
     code: `ports: [
     "8080:80",
@@ -7395,14 +7395,14 @@ containerfile: "./docker/Dockerfile.build"`,
 ]`,
   },
 
-  'reference/invkfile/platform-config-structure': {
+  'reference/invowkfile/platform-config-structure': {
     language: 'cue',
     code: `#PlatformConfig: {
     name: "linux" | "macos" | "windows"
 }`,
   },
 
-  'reference/invkfile/env-config-structure': {
+  'reference/invowkfile/env-config-structure': {
     language: 'cue',
     code: `#EnvConfig: {
     files?: [...string]         // Dotenv files to load
@@ -7410,7 +7410,7 @@ containerfile: "./docker/Dockerfile.build"`,
 }`,
   },
 
-  'reference/invkfile/env-files-example': {
+  'reference/invowkfile/env-files-example': {
     language: 'cue',
     code: `env: {
     files: [
@@ -7421,7 +7421,7 @@ containerfile: "./docker/Dockerfile.build"`,
 }`,
   },
 
-  'reference/invkfile/env-vars-example': {
+  'reference/invowkfile/env-vars-example': {
     language: 'cue',
     code: `env: {
     vars: {
@@ -7431,7 +7431,7 @@ containerfile: "./docker/Dockerfile.build"`,
 }`,
   },
 
-  'reference/invkfile/depends-on-structure': {
+  'reference/invowkfile/depends-on-structure': {
     language: 'cue',
     code: `#DependsOn: {
     tools?:         [...#ToolDependency]
@@ -7443,14 +7443,14 @@ containerfile: "./docker/Dockerfile.build"`,
 }`,
   },
 
-  'reference/invkfile/tool-dependency-structure': {
+  'reference/invowkfile/tool-dependency-structure': {
     language: 'cue',
     code: `#ToolDependency: {
     alternatives: [...string]  // At least one - tool names
 }`,
   },
 
-  'reference/invkfile/tool-dependency-example': {
+  'reference/invowkfile/tool-dependency-example': {
     language: 'cue',
     code: `depends_on: {
     tools: [
@@ -7460,14 +7460,14 @@ containerfile: "./docker/Dockerfile.build"`,
 }`,
   },
 
-  'reference/invkfile/command-dependency-structure': {
+  'reference/invowkfile/command-dependency-structure': {
     language: 'cue',
     code: `#CommandDependency: {
     alternatives: [...string]  // Command names
 }`,
   },
 
-  'reference/invkfile/filepath-dependency-structure': {
+  'reference/invowkfile/filepath-dependency-structure': {
     language: 'cue',
     code: `#FilepathDependency: {
     alternatives: [...string]  // File/directory paths
@@ -7477,14 +7477,14 @@ containerfile: "./docker/Dockerfile.build"`,
 }`,
   },
 
-  'reference/invkfile/capability-dependency-structure': {
+  'reference/invowkfile/capability-dependency-structure': {
     language: 'cue',
     code: `#CapabilityDependency: {
     alternatives: [...("local-area-network" | "internet" | "containers" | "tty")]
 }`,
   },
 
-  'reference/invkfile/env-var-dependency-structure': {
+  'reference/invowkfile/env-var-dependency-structure': {
     language: 'cue',
     code: `#EnvVarDependency: {
     alternatives: [...#EnvVarCheck]
@@ -7496,7 +7496,7 @@ containerfile: "./docker/Dockerfile.build"`,
 }`,
   },
 
-  'reference/invkfile/custom-check-dependency-structure': {
+  'reference/invowkfile/custom-check-dependency-structure': {
     language: 'cue',
     code: `#CustomCheckDependency: #CustomCheck | #CustomCheckAlternatives
 
@@ -7512,7 +7512,7 @@ containerfile: "./docker/Dockerfile.build"`,
 }`,
   },
 
-  'reference/invkfile/flag-structure': {
+  'reference/invowkfile/flag-structure': {
     language: 'cue',
     code: `#Flag: {
     name:          string    // POSIX-compliant name
@@ -7525,7 +7525,7 @@ containerfile: "./docker/Dockerfile.build"`,
 }`,
   },
 
-  'reference/invkfile/flag-example': {
+  'reference/invowkfile/flag-example': {
     language: 'cue',
     code: `flags: [
     {
@@ -7543,7 +7543,7 @@ containerfile: "./docker/Dockerfile.build"`,
 ]`,
   },
 
-  'reference/invkfile/argument-structure': {
+  'reference/invowkfile/argument-structure': {
     language: 'cue',
     code: `#Argument: {
     name:          string    // POSIX-compliant name
@@ -7556,7 +7556,7 @@ containerfile: "./docker/Dockerfile.build"`,
 }`,
   },
 
-  'reference/invkfile/argument-example': {
+  'reference/invowkfile/argument-example': {
     language: 'cue',
     code: `args: [
     {
@@ -7572,7 +7572,7 @@ containerfile: "./docker/Dockerfile.build"`,
 ]`,
   },
 
-  'reference/invkfile/complete-example': {
+  'reference/invowkfile/complete-example': {
     language: 'cue',
     code: `env: {
     files: [".env"]
@@ -7628,9 +7628,9 @@ cmds: [
   // REFERENCE - INVKMOD SCHEMA
   // =============================================================================
 
-  'reference/invkmod/root-structure': {
+  'reference/invowkmod/root-structure': {
     language: 'cue',
-    code: `#Invkmod: {
+    code: `#Invowkmod: {
     module:       string               // Required - module identifier
     version:      string               // Required - semver version (e.g., "1.0.0")
     description?: string               // Optional - module description
@@ -7638,25 +7638,25 @@ cmds: [
 }`,
   },
 
-  'reference/invkmod/module-examples': {
+  'reference/invowkmod/module-examples': {
     language: 'cue',
     code: `module: "mytools"
 module: "com.company.devtools"
 module: "io.github.username.cli"`,
   },
 
-  'reference/invkmod/requires-example': {
+  'reference/invowkmod/requires-example': {
     language: 'cue',
     code: `requires: [
     {
-        git_url: "https://github.com/example/common.invkmod.git"
+        git_url: "https://github.com/example/common.invowkmod.git"
         version: "^1.0.0"
         alias: "common"
     },
 ]`,
   },
 
-  'reference/invkmod/requirement-structure': {
+  'reference/invowkmod/requirement-structure': {
     language: 'cue',
     code: `#ModuleRequirement: {
     git_url: string
@@ -7684,7 +7684,7 @@ module: "io.github.username.cli"`,
 
 // Include entry for modules
 #IncludeEntry: {
-    path:   string  // Must end with .invkmod
+    path:   string  // Must end with .invowkmod
     alias?: string  // Optional, for collision disambiguation
 }
 
@@ -7735,9 +7735,9 @@ module: "io.github.username.cli"`,
   'reference/config/includes-example': {
     language: 'cue',
     code: `includes: [
-    {path: "~/.invowk/modules/tools.invkmod"},
-    {path: "~/projects/shared.invkmod", alias: "shared"},
-    {path: "/opt/company/tools.invkmod"},
+    {path: "~/.invowk/modules/tools.invowkmod"},
+    {path: "~/projects/shared.invowkmod", alias: "shared"},
+    {path: "/opt/company/tools.invowkmod"},
 ]`,
   },
 
@@ -7819,7 +7819,7 @@ module: "io.github.username.cli"`,
         enabled: true
         binary_path: "/usr/local/bin/invowk"
         includes: [
-            {path: "/opt/company/modules/tools.invkmod"},
+            {path: "/opt/company/modules/tools.invowkmod"},
         ]
         inherit_includes: true
         cache_dir: "/tmp/invowk/provision"
@@ -7862,17 +7862,17 @@ container_engine: "podman"
 // Includes
 // --------
 // Additional modules to include in discovery.
-// Each entry specifies a path to an *.invkmod directory.
+// Each entry specifies a path to an *.invowkmod directory.
 // Modules may have an optional alias for collision disambiguation.
 includes: [
     // Personal modules
-    {path: "~/.invowk/modules/tools.invkmod"},
+    {path: "~/.invowk/modules/tools.invowkmod"},
 
     // Team shared module (with alias)
-    {path: "~/work/shared.invkmod", alias: "team"},
+    {path: "~/work/shared.invowkmod", alias: "team"},
 
     // Organization-wide module
-    {path: "/opt/company/tools.invkmod"},
+    {path: "/opt/company/tools.invowkmod"},
 ]
 
 // Default Runtime
@@ -7899,7 +7899,7 @@ ui: {
     color_scheme: "auto"
     
     // Enable verbose output by default
-    // Same as always passing --invk-verbose
+    // Same as always passing --ivk-verbose
     verbose: false
 
     // Enable interactive mode by default
@@ -7997,7 +7997,7 @@ git diff HEAD~5 | invowk tui pager --title "Recent Changes"`,
   'interactive/basic-usage': {
     language: 'bash',
     code: `# Run a command in interactive mode
-invowk cmd build --invk-interactive`,
+invowk cmd build --ivk-interactive`,
   },
 
   'interactive/config-enable': {
@@ -8011,16 +8011,16 @@ ui: {
   'interactive/use-cases': {
     language: 'bash',
     code: `# Commands with password prompts
-invowk cmd deploy --invk-interactive
+invowk cmd deploy --ivk-interactive
 
 # Commands with sudo
-invowk cmd system-update --invk-interactive
+invowk cmd system-update --ivk-interactive
 
 # SSH sessions
-invowk cmd remote-shell --invk-interactive
+invowk cmd remote-shell --ivk-interactive
 
 # Any command with interactive input
-invowk cmd database-cli --invk-interactive`,
+invowk cmd database-cli --ivk-interactive`,
   },
 
   'interactive/embedded-tui': {
@@ -8030,7 +8030,7 @@ invowk cmd database-cli --invk-interactive`,
     description: "Setup with embedded TUI prompts"
     implementations: [{
         script: """
-            # When run with --invk-interactive, TUI components appear as overlays
+            # When run with --ivk-interactive, TUI components appear as overlays
             NAME=$(invowk tui input --title "Project name:")
             TYPE=$(invowk tui choose --title "Type:" api cli library)
             

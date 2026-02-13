@@ -10,9 +10,9 @@ const (
 	// ContainerEngineDocker uses Docker as the container runtime.
 	ContainerEngineDocker ContainerEngine = "docker"
 
-	// moduleSuffix is the filesystem suffix for invkmod directories.
-	// Defined locally to avoid coupling config to pkg/invkmod.
-	moduleSuffix = ".invkmod"
+	// moduleSuffix is the filesystem suffix for invowkmod directories.
+	// Defined locally to avoid coupling config to pkg/invowkmod.
+	moduleSuffix = ".invowkmod"
 )
 
 type (
@@ -20,9 +20,9 @@ type (
 	ContainerEngine string
 
 	// IncludeEntry specifies a module to include in command discovery.
-	// Each entry must point to a *.invkmod directory via an absolute filesystem path.
+	// Each entry must point to a *.invowkmod directory via an absolute filesystem path.
 	IncludeEntry struct {
-		// Path is the absolute filesystem path to a *.invkmod directory.
+		// Path is the absolute filesystem path to a *.invowkmod directory.
 		Path string `json:"path" mapstructure:"path"`
 		// Alias optionally overrides the module identifier for collision disambiguation.
 		Alias string `json:"alias,omitempty" mapstructure:"alias"`
@@ -86,7 +86,7 @@ type (
 	}
 )
 
-// IsModule reports whether this entry points to a module directory (.invkmod).
+// IsModule reports whether this entry points to a module directory (.invowkmod).
 func (e IncludeEntry) IsModule() bool {
 	return strings.HasSuffix(e.Path, moduleSuffix)
 }

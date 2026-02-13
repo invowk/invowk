@@ -7,12 +7,12 @@ import (
 	"fmt"
 	"sort"
 
-	"invowk-cli/pkg/invkfile"
+	"invowk-cli/pkg/invowkfile"
 )
 
-// SourceIDInvkfile is the reserved source ID for the root invkfile.
-// Used for multi-source discovery to identify commands from invkfile.cue.
-const SourceIDInvkfile string = "invkfile"
+// SourceIDInvowkfile is the reserved source ID for the root invowkfile.
+// Used for multi-source discovery to identify commands from invowkfile.cue.
+const SourceIDInvowkfile string = "invowkfile"
 
 type (
 	// CommandInfo contains information about a discovered command
@@ -23,21 +23,21 @@ type (
 		Description string
 		// Source is where the command was found
 		Source Source
-		// FilePath is the path to the invkfile containing this command
+		// FilePath is the path to the invowkfile containing this command
 		FilePath string
 		// Command is a reference to the actual command
-		Command *invkfile.Command
-		// Invkfile is a reference to the parent invkfile
-		Invkfile *invkfile.Invkfile
+		Command *invowkfile.Command
+		// Invowkfile is a reference to the parent invowkfile
+		Invowkfile *invowkfile.Invowkfile
 
 		// SimpleName is the command name without module prefix (e.g., "deploy")
 		// Used for the transparent namespace feature
 		SimpleName string
-		// SourceID identifies the source: "invkfile" for root invkfile,
+		// SourceID identifies the source: "invowkfile" for root invowkfile,
 		// or the module short name (e.g., "foo") for modules
 		SourceID string
 		// ModuleID is the full module identifier if from a module
-		// (e.g., "io.invowk.sample"), empty for root invkfile
+		// (e.g., "io.invowk.sample"), empty for root invowkfile
 		ModuleID string
 		// IsAmbiguous is true if SimpleName conflicts with another command
 		// from a different source
@@ -60,11 +60,11 @@ type (
 		AmbiguousNames map[string]bool
 
 		// BySource indexes commands by source for grouped listing.
-		// Key: SourceID (e.g., "invkfile", "foo")
+		// Key: SourceID (e.g., "invowkfile", "foo")
 		BySource map[string][]*CommandInfo
 
 		// SourceOrder is an ordered list of sources for consistent display.
-		// "invkfile" always comes first if present, then modules alphabetically.
+		// "invowkfile" always comes first if present, then modules alphabetically.
 		SourceOrder []string
 	}
 )
@@ -99,7 +99,7 @@ func (s *DiscoveredCommandSet) Add(cmd *CommandInfo) {
 // Analyze detects conflicts and marks ambiguous commands.
 // Must be called after all commands have been added and before presenting results
 // to users. It marks SimpleName entries with commands from >1 source as IsAmbiguous,
-// and sorts SourceOrder ("invkfile" first, then modules alphabetically) for
+// and sorts SourceOrder ("invowkfile" first, then modules alphabetically) for
 // consistent display ordering.
 func (s *DiscoveredCommandSet) Analyze() {
 	// Detect ambiguous names (commands with same SimpleName from different sources)
@@ -123,12 +123,12 @@ func (s *DiscoveredCommandSet) Analyze() {
 		}
 	}
 
-	// Sort SourceOrder: "invkfile" first, then modules alphabetically
+	// Sort SourceOrder: "invowkfile" first, then modules alphabetically
 	sort.Slice(s.SourceOrder, func(i, j int) bool {
-		if s.SourceOrder[i] == SourceIDInvkfile {
+		if s.SourceOrder[i] == SourceIDInvowkfile {
 			return true
 		}
-		if s.SourceOrder[j] == SourceIDInvkfile {
+		if s.SourceOrder[j] == SourceIDInvowkfile {
 			return false
 		}
 		return s.SourceOrder[i] < s.SourceOrder[j]
@@ -167,14 +167,14 @@ func (d *Discovery) DiscoverCommandSet(ctx context.Context) (CommandSetResult, e
 			// return structured diagnostics to the caller instead of writing output.
 			diagnostics = append(diagnostics, Diagnostic{
 				Severity: SeverityWarning,
-				Code:     "invkfile_parse_skipped",
-				Message:  fmt.Sprintf("skipping invkfile at %s: %v", file.Path, file.Error),
+				Code:     "invowkfile_parse_skipped",
+				Message:  fmt.Sprintf("skipping invowkfile at %s: %v", file.Path, file.Error),
 				Path:     file.Path,
 				Cause:    file.Error,
 			})
 			continue
 		}
-		if file.Invkfile == nil {
+		if file.Invowkfile == nil {
 			continue
 		}
 
@@ -187,11 +187,11 @@ func (d *Discovery) DiscoverCommandSet(ctx context.Context) (CommandSetResult, e
 			sourceID = getModuleShortName(file.Module.Path)
 			moduleID = file.Module.Name()
 		default:
-			// Non-module source: root invkfile in current directory
-			sourceID = SourceIDInvkfile
+			// Non-module source: root invowkfile in current directory
+			sourceID = SourceIDInvowkfile
 		}
 
-		flatCmds := file.Invkfile.FlattenCommands()
+		flatCmds := file.Invowkfile.FlattenCommands()
 		for fullName, cmd := range flatCmds {
 			// Extract simple name for conflict detection and display.
 			// For modules, FlattenCommands() returns prefixed names like "foo build",
@@ -212,7 +212,7 @@ func (d *Discovery) DiscoverCommandSet(ctx context.Context) (CommandSetResult, e
 				Source:      file.Source,
 				FilePath:    file.Path,
 				Command:     cmd,
-				Invkfile:    file.Invkfile,
+				Invowkfile:  file.Invowkfile,
 				SimpleName:  simpleName, // Simple name for conflict detection
 				SourceID:    sourceID,
 				ModuleID:    moduleID,

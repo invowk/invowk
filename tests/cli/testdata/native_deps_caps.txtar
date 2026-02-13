@@ -18,7 +18,7 @@ stdout 'Network connectivity confirmed!'
 stdout 'Either LAN or Internet is available'
 ! stderr .
 
--- invkfile.cue --
+-- invowkfile.cue --
 cmds: [
 	{
 		name:        "deps cap single"

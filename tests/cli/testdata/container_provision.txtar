@@ -1,17 +1,17 @@
 # Test: Container provisioning verification
-# Tests that invkfile.cue and custom files are provisioned to /workspace/
+# Tests that invowkfile.cue and custom files are provisioned to /workspace/
 
 # Skip if no functional container runtime is available
 [!container-available] skip 'no functional container runtime available'
 # Skip if running inside Flatpak/Snap sandbox (filesystem permissions may prevent volume mounts)
 [in-sandbox] skip 'container tests may require --filesystem permissions in sandbox - run tests on host or grant permissions'
 
-# Change to work directory where local invkfile.cue is located
+# Change to work directory where local invowkfile.cue is located
 cd $WORK
 
-# Test 1: invkfile.cue is accessible at /workspace/
-exec invowk cmd check-invkfile
-stdout 'invkfile.cue exists: yes'
+# Test 1: invowkfile.cue is accessible at /workspace/
+exec invowk cmd check-invowkfile
+stdout 'invowkfile.cue exists: yes'
 stdout 'Contains cmds: yes'
 
 # Test 2: Custom files referenced in script are provisioned
@@ -24,21 +24,21 @@ exec invowk cmd check-subdir-file
 stdout 'scripts/helper.sh exists: yes'
 stdout 'Helper script executed'
 
--- invkfile.cue --
+-- invowkfile.cue --
 cmds: [
 	{
-		name: "check-invkfile"
-		description: "Verify invkfile.cue is provisioned"
+		name: "check-invowkfile"
+		description: "Verify invowkfile.cue is provisioned"
 		implementations: [
 			{
 				script: """
-					if [ -f /workspace/invkfile.cue ]; then
-						echo "invkfile.cue exists: yes"
+					if [ -f /workspace/invowkfile.cue ]; then
+						echo "invowkfile.cue exists: yes"
 					else
-						echo "invkfile.cue exists: no"
+						echo "invowkfile.cue exists: no"
 						exit 1
 					fi
-					if grep -q "cmds:" /workspace/invkfile.cue; then
+					if grep -q "cmds:" /workspace/invowkfile.cue; then
 						echo "Contains cmds: yes"
 					else
 						echo "Contains cmds: no"

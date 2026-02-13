@@ -13,14 +13,14 @@ import (
 	"invowk-cli/internal/config"
 	"invowk-cli/internal/discovery"
 	"invowk-cli/internal/runtime"
-	"invowk-cli/pkg/invkfile"
-	"invowk-cli/pkg/invkmod"
+	"invowk-cli/pkg/invowkfile"
+	"invowk-cli/pkg/invowkmod"
 )
 
 const (
-	// sampleInvkfile is a representative invkfile.cue for benchmarking CUE parsing.
+	// sampleInvowkfile is a representative invowkfile.cue for benchmarking CUE parsing.
 	// It includes multiple commands with various features to exercise the parser.
-	sampleInvkfile = `
+	sampleInvowkfile = `
 cmds: [
 	{
 		name: "build"
@@ -110,15 +110,15 @@ depends_on: {
 }
 `
 
-	// sampleInvkmod is a representative invkmod.cue for benchmarking module parsing.
-	sampleInvkmod = `
+	// sampleInvowkmod is a representative invowkmod.cue for benchmarking module parsing.
+	sampleInvowkmod = `
 module: "io.invowk.benchmark"
 version: "1.0.0"
 description: "Benchmark test module for PGO profiling"
 `
 
-	// complexInvkfile is a more complex invkfile for stress-testing the parser.
-	complexInvkfile = `
+	// complexInvowkfile is a more complex invowkfile for stress-testing the parser.
+	complexInvowkfile = `
 cmds: [
 	{
 		name: "cmd1"
@@ -177,39 +177,39 @@ cmds: [
 // BenchmarkCUEParsing benchmarks CUE schema compilation and validation.
 // This exercises the hot path in pkg/cueutil/parse.go.
 func BenchmarkCUEParsing(b *testing.B) {
-	data := []byte(sampleInvkfile)
+	data := []byte(sampleInvowkfile)
 
 	b.ResetTimer()
 	for b.Loop() {
-		_, err := invkfile.ParseBytes(data, "benchmark.cue")
+		_, err := invowkfile.ParseBytes(data, "benchmark.cue")
 		if err != nil {
 			b.Fatalf("ParseBytes failed: %v", err)
 		}
 	}
 }
 
-// BenchmarkCUEParsingComplex benchmarks parsing a larger invkfile.
+// BenchmarkCUEParsingComplex benchmarks parsing a larger invowkfile.
 func BenchmarkCUEParsingComplex(b *testing.B) {
-	data := []byte(complexInvkfile)
+	data := []byte(complexInvowkfile)
 
 	b.ResetTimer()
 	for b.Loop() {
-		_, err := invkfile.ParseBytes(data, "complex.cue")
+		_, err := invowkfile.ParseBytes(data, "complex.cue")
 		if err != nil {
 			b.Fatalf("ParseBytes failed: %v", err)
 		}
 	}
 }
 
-// BenchmarkInvkmodParsing benchmarks module metadata parsing.
-func BenchmarkInvkmodParsing(b *testing.B) {
-	data := []byte(sampleInvkmod)
+// BenchmarkInvowkmodParsing benchmarks module metadata parsing.
+func BenchmarkInvowkmodParsing(b *testing.B) {
+	data := []byte(sampleInvowkmod)
 
 	b.ResetTimer()
 	for b.Loop() {
-		_, err := invkmod.ParseInvkmodBytes(data, "invkmod.cue")
+		_, err := invowkmod.ParseInvowkmodBytes(data, "invowkmod.cue")
 		if err != nil {
-			b.Fatalf("ParseInvkmodBytes failed: %v", err)
+			b.Fatalf("ParseInvowkmodBytes failed: %v", err)
 		}
 	}
 }
@@ -220,22 +220,22 @@ func BenchmarkDiscovery(b *testing.B) {
 	// Create a temp directory structure for discovery
 	tmpDir := b.TempDir()
 
-	// Create invkfile.cue
-	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
-	if err := os.WriteFile(invkfilePath, []byte(sampleInvkfile), 0o644); err != nil {
-		b.Fatalf("Failed to write invkfile: %v", err)
+	// Create invowkfile.cue
+	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
+	if err := os.WriteFile(invowkfilePath, []byte(sampleInvowkfile), 0o644); err != nil {
+		b.Fatalf("Failed to write invowkfile: %v", err)
 	}
 
 	// Create a sample module
-	modDir := filepath.Join(tmpDir, "sample.invkmod")
+	modDir := filepath.Join(tmpDir, "sample.invowkmod")
 	if err := os.MkdirAll(modDir, 0o755); err != nil {
 		b.Fatalf("Failed to create module dir: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(modDir, "invkmod.cue"), []byte(sampleInvkmod), 0o644); err != nil {
-		b.Fatalf("Failed to write invkmod.cue: %v", err)
+	if err := os.WriteFile(filepath.Join(modDir, "invowkmod.cue"), []byte(sampleInvowkmod), 0o644); err != nil {
+		b.Fatalf("Failed to write invowkmod.cue: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(modDir, "invkfile.cue"), []byte(sampleInvkfile), 0o644); err != nil {
-		b.Fatalf("Failed to write module invkfile.cue: %v", err)
+	if err := os.WriteFile(filepath.Join(modDir, "invowkfile.cue"), []byte(sampleInvowkfile), 0o644); err != nil {
+		b.Fatalf("Failed to write module invowkfile.cue: %v", err)
 	}
 
 	// Change to temp dir for discovery
@@ -266,20 +266,20 @@ func BenchmarkDiscovery(b *testing.B) {
 // This exercises the hot path in internal/runtime/native.go.
 func BenchmarkRuntimeNative(b *testing.B) {
 	tmpDir := b.TempDir()
-	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 
-	// Create a minimal invkfile for the test
-	inv := &invkfile.Invkfile{
-		FilePath: invkfilePath,
-		Commands: []invkfile.Command{
+	// Create a minimal invowkfile for the test
+	inv := &invowkfile.Invowkfile{
+		FilePath: invowkfilePath,
+		Commands: []invowkfile.Command{
 			{
 				Name:        "test",
 				Description: "Test command",
-				Implementations: []invkfile.Implementation{
+				Implementations: []invowkfile.Implementation{
 					{
 						Script: "echo hello",
-						Runtimes: []invkfile.RuntimeConfig{
-							{Name: invkfile.RuntimeNative},
+						Runtimes: []invowkfile.RuntimeConfig{
+							{Name: invowkfile.RuntimeNative},
 						},
 					},
 				},
@@ -311,19 +311,19 @@ func BenchmarkRuntimeNative(b *testing.B) {
 // This exercises the hot path in internal/runtime/virtual.go.
 func BenchmarkRuntimeVirtual(b *testing.B) {
 	tmpDir := b.TempDir()
-	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 
-	inv := &invkfile.Invkfile{
-		FilePath: invkfilePath,
-		Commands: []invkfile.Command{
+	inv := &invowkfile.Invowkfile{
+		FilePath: invowkfilePath,
+		Commands: []invowkfile.Command{
 			{
 				Name:        "test",
 				Description: "Test command",
-				Implementations: []invkfile.Implementation{
+				Implementations: []invowkfile.Implementation{
 					{
 						Script: "echo hello",
-						Runtimes: []invkfile.RuntimeConfig{
-							{Name: invkfile.RuntimeVirtual},
+						Runtimes: []invowkfile.RuntimeConfig{
+							{Name: invowkfile.RuntimeVirtual},
 						},
 					},
 				},
@@ -334,7 +334,7 @@ func BenchmarkRuntimeVirtual(b *testing.B) {
 	cmd := inv.GetCommand("test")
 	ctx := runtime.NewExecutionContext(cmd, inv)
 	ctx.Context = context.Background()
-	ctx.SelectedRuntime = invkfile.RuntimeVirtual
+	ctx.SelectedRuntime = invowkfile.RuntimeVirtual
 	ctx.IO = runtime.IOContext{
 		Stdout: io.Discard,
 		Stderr: io.Discard,
@@ -355,7 +355,7 @@ func BenchmarkRuntimeVirtual(b *testing.B) {
 // BenchmarkRuntimeVirtualComplex benchmarks virtual shell with more complex scripts.
 func BenchmarkRuntimeVirtualComplex(b *testing.B) {
 	tmpDir := b.TempDir()
-	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 
 	// A more complex script that exercises more of the virtual shell
 	script := `
@@ -370,17 +370,17 @@ if [ "$VAR1" = "hello" ]; then
 fi
 `
 
-	inv := &invkfile.Invkfile{
-		FilePath: invkfilePath,
-		Commands: []invkfile.Command{
+	inv := &invowkfile.Invowkfile{
+		FilePath: invowkfilePath,
+		Commands: []invowkfile.Command{
 			{
 				Name:        "complex",
 				Description: "Complex command",
-				Implementations: []invkfile.Implementation{
+				Implementations: []invowkfile.Implementation{
 					{
 						Script: script,
-						Runtimes: []invkfile.RuntimeConfig{
-							{Name: invkfile.RuntimeVirtual},
+						Runtimes: []invowkfile.RuntimeConfig{
+							{Name: invowkfile.RuntimeVirtual},
 						},
 					},
 				},
@@ -391,7 +391,7 @@ fi
 	cmd := inv.GetCommand("complex")
 	ctx := runtime.NewExecutionContext(cmd, inv)
 	ctx.Context = context.Background()
-	ctx.SelectedRuntime = invkfile.RuntimeVirtual
+	ctx.SelectedRuntime = invowkfile.RuntimeVirtual
 	ctx.IO = runtime.IOContext{
 		Stdout: io.Discard,
 		Stderr: io.Discard,
@@ -423,20 +423,20 @@ func BenchmarkRuntimeContainer(b *testing.B) {
 	}
 
 	tmpDir := b.TempDir()
-	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 
-	inv := &invkfile.Invkfile{
-		FilePath: invkfilePath,
-		Commands: []invkfile.Command{
+	inv := &invowkfile.Invowkfile{
+		FilePath: invowkfilePath,
+		Commands: []invowkfile.Command{
 			{
 				Name:        "container-test",
 				Description: "Container test command",
-				Implementations: []invkfile.Implementation{
+				Implementations: []invowkfile.Implementation{
 					{
 						Script: "echo hello from container",
-						Runtimes: []invkfile.RuntimeConfig{
+						Runtimes: []invowkfile.RuntimeConfig{
 							{
-								Name:  invkfile.RuntimeContainer,
+								Name:  invowkfile.RuntimeContainer,
 								Image: "debian:stable-slim",
 							},
 						},
@@ -449,7 +449,7 @@ func BenchmarkRuntimeContainer(b *testing.B) {
 	cmd := inv.GetCommand("container-test")
 	ctx := runtime.NewExecutionContext(cmd, inv)
 	ctx.Context = context.Background()
-	ctx.SelectedRuntime = invkfile.RuntimeContainer
+	ctx.SelectedRuntime = invowkfile.RuntimeContainer
 	ctx.IO = runtime.IOContext{
 		Stdout: io.Discard,
 		Stderr: io.Discard,
@@ -475,8 +475,8 @@ func BenchmarkRuntimeContainer(b *testing.B) {
 func BenchmarkFullPipeline(b *testing.B) {
 	tmpDir := b.TempDir()
 
-	// Create invkfile.cue
-	invkfileContent := `
+	// Create invowkfile.cue
+	invowkfileContent := `
 cmds: [
 	{
 		name: "hello"
@@ -490,9 +490,9 @@ cmds: [
 	},
 ]
 `
-	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
-	if err := os.WriteFile(invkfilePath, []byte(invkfileContent), 0o644); err != nil {
-		b.Fatalf("Failed to write invkfile: %v", err)
+	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
+	if err := os.WriteFile(invowkfilePath, []byte(invowkfileContent), 0o644); err != nil {
+		b.Fatalf("Failed to write invowkfile: %v", err)
 	}
 
 	// Change to temp dir
@@ -519,11 +519,11 @@ cmds: [
 			b.Fatalf("LoadAll failed: %v", err)
 		}
 
-		if len(files) == 0 || files[0].Invkfile == nil {
-			b.Fatal("No invkfile found")
+		if len(files) == 0 || files[0].Invowkfile == nil {
+			b.Fatal("No invowkfile found")
 		}
 
-		inv := files[0].Invkfile
+		inv := files[0].Invowkfile
 		cmd := inv.GetCommand("hello")
 		if cmd == nil {
 			b.Fatal("Command 'hello' not found")
@@ -532,7 +532,7 @@ cmds: [
 		// Execution phase
 		ctx := runtime.NewExecutionContext(cmd, inv)
 		ctx.Context = context.Background()
-		ctx.SelectedRuntime = invkfile.RuntimeVirtual
+		ctx.SelectedRuntime = invowkfile.RuntimeVirtual
 		ctx.IO = runtime.IOContext{
 			Stdout: io.Discard,
 			Stderr: io.Discard,
@@ -548,9 +548,9 @@ cmds: [
 
 // BenchmarkCommandLookup benchmarks command lookup by name.
 func BenchmarkCommandLookup(b *testing.B) {
-	// Parse the complex invkfile once
-	data := []byte(complexInvkfile)
-	inv, err := invkfile.ParseBytes(data, "complex.cue")
+	// Parse the complex invowkfile once
+	data := []byte(complexInvowkfile)
+	inv, err := invowkfile.ParseBytes(data, "complex.cue")
 	if err != nil {
 		b.Fatalf("ParseBytes failed: %v", err)
 	}
@@ -571,33 +571,33 @@ func BenchmarkCommandLookup(b *testing.B) {
 // BenchmarkEnvBuilding benchmarks environment variable building.
 func BenchmarkEnvBuilding(b *testing.B) {
 	tmpDir := b.TempDir()
-	invkfilePath := filepath.Join(tmpDir, "invkfile.cue")
+	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 
-	inv := &invkfile.Invkfile{
-		FilePath: invkfilePath,
-		Env: &invkfile.EnvConfig{
+	inv := &invowkfile.Invowkfile{
+		FilePath: invowkfilePath,
+		Env: &invowkfile.EnvConfig{
 			Vars: map[string]string{
 				"ROOT_VAR1": "value1",
 				"ROOT_VAR2": "value2",
 			},
 		},
-		Commands: []invkfile.Command{
+		Commands: []invowkfile.Command{
 			{
 				Name:        "test",
 				Description: "Test command",
-				Env: &invkfile.EnvConfig{
+				Env: &invowkfile.EnvConfig{
 					Vars: map[string]string{
 						"CMD_VAR1": "cmd_value1",
 						"CMD_VAR2": "cmd_value2",
 					},
 				},
-				Implementations: []invkfile.Implementation{
+				Implementations: []invowkfile.Implementation{
 					{
 						Script: "echo test",
-						Runtimes: []invkfile.RuntimeConfig{
-							{Name: invkfile.RuntimeNative},
+						Runtimes: []invowkfile.RuntimeConfig{
+							{Name: invowkfile.RuntimeNative},
 						},
-						Env: &invkfile.EnvConfig{
+						Env: &invowkfile.EnvConfig{
 							Vars: map[string]string{
 								"IMPL_VAR1": "impl_value1",
 							},
@@ -616,7 +616,7 @@ func BenchmarkEnvBuilding(b *testing.B) {
 
 	b.ResetTimer()
 	for b.Loop() {
-		_, err := envBuilder.Build(ctx, invkfile.EnvInheritAll)
+		_, err := envBuilder.Build(ctx, invowkfile.EnvInheritAll)
 		if err != nil {
 			b.Fatalf("Build failed: %v", err)
 		}
@@ -626,29 +626,29 @@ func BenchmarkEnvBuilding(b *testing.B) {
 // BenchmarkModuleValidation benchmarks module validation.
 func BenchmarkModuleValidation(b *testing.B) {
 	// Create a complete module structure
-	// Note: The module name in invkmod.cue must match the folder name (minus .invkmod suffix)
+	// Note: The module name in invowkmod.cue must match the folder name (minus .invowkmod suffix)
 	tmpDir := b.TempDir()
-	modDir := filepath.Join(tmpDir, "benchmark.invkmod")
+	modDir := filepath.Join(tmpDir, "benchmark.invowkmod")
 	if err := os.MkdirAll(modDir, 0o755); err != nil {
 		b.Fatalf("Failed to create module dir: %v", err)
 	}
 
-	// Create invkmod.cue with module name matching folder
-	invkmodContent := `
+	// Create invowkmod.cue with module name matching folder
+	invowkmodContent := `
 module: "benchmark"
 version: "1.0.0"
 description: "Benchmark test module for PGO profiling"
 `
-	if err := os.WriteFile(filepath.Join(modDir, "invkmod.cue"), []byte(invkmodContent), 0o644); err != nil {
-		b.Fatalf("Failed to write invkmod.cue: %v", err)
+	if err := os.WriteFile(filepath.Join(modDir, "invowkmod.cue"), []byte(invowkmodContent), 0o644); err != nil {
+		b.Fatalf("Failed to write invowkmod.cue: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(modDir, "invkfile.cue"), []byte(sampleInvkfile), 0o644); err != nil {
-		b.Fatalf("Failed to write invkfile.cue: %v", err)
+	if err := os.WriteFile(filepath.Join(modDir, "invowkfile.cue"), []byte(sampleInvowkfile), 0o644); err != nil {
+		b.Fatalf("Failed to write invowkfile.cue: %v", err)
 	}
 
 	b.ResetTimer()
 	for b.Loop() {
-		result, err := invkmod.Validate(modDir)
+		result, err := invowkmod.Validate(modDir)
 		if err != nil {
 			b.Fatalf("Module validation error: %v", err)
 		}
