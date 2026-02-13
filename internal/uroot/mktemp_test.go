@@ -281,3 +281,128 @@ func TestMktempCommand_Run_TMPDIR(t *testing.T) {
 		t.Errorf("with TMPDIR set, file should be under %q, got %q", customTmpDir, output)
 	}
 }
+
+func TestMktempCommand_Run_QuietSuppressesError_EmptyStdout(t *testing.T) {
+	t.Parallel()
+
+	var stdout, stderr bytes.Buffer
+	ctx := WithHandlerContext(context.Background(), &HandlerContext{
+		Stdin:     strings.NewReader(""),
+		Stdout:    &stdout,
+		Stderr:    &stderr,
+		Dir:       t.TempDir(),
+		LookupEnv: os.LookupEnv,
+	})
+
+	cmd := newMktempCommand()
+	// Use a nonexistent parent directory to trigger an error
+	err := cmd.Run(ctx, []string{"mktemp", "-q", "-p", "/nonexistent/path/for/mktemp"})
+	if err != nil {
+		t.Errorf("Run() with -q should suppress errors, got: %v", err)
+	}
+
+	// POSIX mktemp -q: stdout must be empty on failure so callers can detect it
+	if stdout.String() != "" {
+		t.Errorf("stdout should be empty on suppressed error, got %q", stdout.String())
+	}
+}
+
+func TestMktempCommand_Run_AllXTemplate(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+
+	var stdout, stderr bytes.Buffer
+	ctx := WithHandlerContext(context.Background(), &HandlerContext{
+		Stdin:     strings.NewReader(""),
+		Stdout:    &stdout,
+		Stderr:    &stderr,
+		Dir:       tmpDir,
+		LookupEnv: os.LookupEnv,
+	})
+
+	cmd := newMktempCommand()
+	// All-X template should fall back to "tmp." prefix
+	err := cmd.Run(ctx, []string{"mktemp", "-p", tmpDir, "XXXXXX"})
+	if err != nil {
+		t.Fatalf("Run() returned error: %v", err)
+	}
+
+	output := strings.TrimSpace(stdout.String())
+	base := filepath.Base(output)
+	if !strings.HasPrefix(base, "tmp.") {
+		t.Errorf("all-X template should fall back to 'tmp.' prefix, got %q", base)
+	}
+}
+
+func TestMktempCommand_Run_FlagPOverridesTMPDIR(t *testing.T) {
+	t.Parallel()
+
+	flagDir := t.TempDir()
+	tmpdirDir := t.TempDir()
+
+	var stdout, stderr bytes.Buffer
+	ctx := WithHandlerContext(context.Background(), &HandlerContext{
+		Stdin:  strings.NewReader(""),
+		Stdout: &stdout,
+		Stderr: &stderr,
+		Dir:    t.TempDir(),
+		LookupEnv: func(key string) (string, bool) {
+			if key == "TMPDIR" {
+				return tmpdirDir, true
+			}
+			return os.LookupEnv(key)
+		},
+	})
+
+	cmd := newMktempCommand()
+	// -p flag should take precedence over TMPDIR
+	err := cmd.Run(ctx, []string{"mktemp", "-p", flagDir})
+	if err != nil {
+		t.Fatalf("Run() returned error: %v", err)
+	}
+
+	output := strings.TrimSpace(stdout.String())
+	if !strings.HasPrefix(output, flagDir) {
+		t.Errorf("-p flag should override TMPDIR: want prefix %q, got %q", flagDir, output)
+	}
+	if strings.HasPrefix(output, tmpdirDir) {
+		t.Errorf("TMPDIR should NOT be used when -p is set, got %q", output)
+	}
+}
+
+func TestMktempCommand_Run_DirWithTemplate(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+
+	var stdout, stderr bytes.Buffer
+	ctx := WithHandlerContext(context.Background(), &HandlerContext{
+		Stdin:     strings.NewReader(""),
+		Stdout:    &stdout,
+		Stderr:    &stderr,
+		Dir:       tmpDir,
+		LookupEnv: os.LookupEnv,
+	})
+
+	cmd := newMktempCommand()
+	err := cmd.Run(ctx, []string{"mktemp", "-d", "-p", tmpDir, "dirprefix.XXXXXX"})
+	if err != nil {
+		t.Fatalf("Run() returned error: %v", err)
+	}
+
+	output := strings.TrimSpace(stdout.String())
+	base := filepath.Base(output)
+	if !strings.HasPrefix(base, "dirprefix.") {
+		t.Errorf("created directory should have prefix 'dirprefix.', got %q", base)
+	}
+
+	// Verify it's actually a directory
+	info, err := os.Stat(output)
+	if err != nil {
+		t.Fatalf("created temp directory does not exist at %q: %v", output, err)
+	}
+	if !info.IsDir() {
+		t.Errorf("mktemp -d should create a directory, not a file")
+	}
+}

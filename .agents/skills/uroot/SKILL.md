@@ -89,15 +89,12 @@ writer.Write(content)
 All u-root utility implementations that handle file content:
 - `base64` - Base64 encoding/decoding (streaming)
 - `cat` - File concatenation
-- `mktemp` - Temporary file/directory creation
 - `cp` - File copying
 - `find` - Directory tree searching
 - `gzip` - Compression/decompression (streaming)
 - `head` / `tail` - File viewing
 - `grep` - Pattern matching (line-by-line streaming)
-- `ln` - Link creation (hard/symbolic)
 - `mv` - File moving (when cross-filesystem)
-- `realpath` - Path resolution (symlinks + absolute)
 - `shasum` - SHA checksum computation (streaming)
 - `sort` - Sorting (may require temp files for large inputs)
 - `tar` - Archive creation/extraction (streaming)

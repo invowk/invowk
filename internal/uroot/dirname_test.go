@@ -90,7 +90,7 @@ func TestDirnameCommand_Run_TrailingSlash(t *testing.T) {
 	})
 
 	cmd := newDirnameCommand()
-	// filepath.Dir normalizes trailing slashes
+	// path.Dir normalizes trailing slashes
 	err := cmd.Run(ctx, []string{"dirname", "/foo/bar/"})
 	if err != nil {
 		t.Fatalf("Run() returned error: %v", err)
@@ -202,5 +202,32 @@ func TestDirnameCommand_Run_PlainFilename(t *testing.T) {
 	got := strings.TrimSpace(stdout.String())
 	if got != "." {
 		t.Errorf("got %q, want %q", got, ".")
+	}
+}
+
+func TestDirnameCommand_Run_BackslashIsNotSeparator(t *testing.T) {
+	t.Parallel()
+
+	var stdout, stderr bytes.Buffer
+	ctx := WithHandlerContext(context.Background(), &HandlerContext{
+		Stdin:     strings.NewReader(""),
+		Stdout:    &stdout,
+		Stderr:    &stderr,
+		Dir:       t.TempDir(),
+		LookupEnv: os.LookupEnv,
+	})
+
+	cmd := newDirnameCommand()
+	// In the POSIX virtual shell, backslash is NOT a path separator.
+	// path.Dir treats '\' as a regular character, so the entire input has no
+	// directory component and dirname returns ".".
+	err := cmd.Run(ctx, []string{"dirname", `C:\Users\foo`})
+	if err != nil {
+		t.Fatalf("Run() returned error: %v", err)
+	}
+
+	got := strings.TrimSpace(stdout.String())
+	if got != "." {
+		t.Errorf("got %q, want %q (backslash should not be treated as separator)", got, ".")
 	}
 }

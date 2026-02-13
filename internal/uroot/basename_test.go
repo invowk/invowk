@@ -199,3 +199,29 @@ func TestBasenameCommand_Run_SimpleFilename(t *testing.T) {
 		t.Errorf("got %q, want %q", got, "myfile.txt")
 	}
 }
+
+func TestBasenameCommand_Run_BackslashIsNotSeparator(t *testing.T) {
+	t.Parallel()
+
+	var stdout, stderr bytes.Buffer
+	ctx := WithHandlerContext(context.Background(), &HandlerContext{
+		Stdin:     strings.NewReader(""),
+		Stdout:    &stdout,
+		Stderr:    &stderr,
+		Dir:       t.TempDir(),
+		LookupEnv: os.LookupEnv,
+	})
+
+	cmd := newBasenameCommand()
+	// In the POSIX virtual shell, backslash is NOT a path separator.
+	// path.Base treats '\' as a regular character, so the entire string is the base.
+	err := cmd.Run(ctx, []string{"basename", `C:\Users\foo`})
+	if err != nil {
+		t.Fatalf("Run() returned error: %v", err)
+	}
+
+	got := strings.TrimSpace(stdout.String())
+	if got != `C:\Users\foo` {
+		t.Errorf("got %q, want %q (backslash should not be treated as separator)", got, `C:\Users\foo`)
+	}
+}

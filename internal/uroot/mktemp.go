@@ -12,9 +12,10 @@ import (
 	"strings"
 )
 
-// mktempCommand creates temporary files or directories.
-// This is a custom implementation that uses os.TempDir() for cross-platform
-// correctness, replacing the upstream u-root wrapper which hardcodes "/tmp".
+// mktempCommand implements the mktemp utility for creating temporary files
+// or directories. This is a custom implementation that uses os.TempDir() for
+// cross-platform correctness, replacing the upstream u-root wrapper which
+// hardcodes "/tmp".
 type mktempCommand struct {
 	name  string
 	flags []FlagInfo
@@ -46,11 +47,12 @@ func (c *mktempCommand) SupportedFlags() []FlagInfo {
 	return c.flags
 }
 
-// Run creates a temporary file or directory and prints its path to stdout.
-// Supports -d (directory), -p DIR (parent directory), and -q (quiet errors).
-// The default parent directory is os.TempDir(), which returns the platform-correct
-// temp location (/tmp on Unix, %TEMP% on Windows). An optional template argument
-// specifies the filename prefix (trailing X characters are stripped).
+// Run executes the mktemp command, creating a temporary file or directory
+// and printing its path to stdout. Supports -d (directory), -p DIR (parent
+// directory), and -q (quiet errors). The default parent directory is
+// os.TempDir(), which returns the platform-correct temp location (/tmp on
+// Unix, %TEMP% on Windows). An optional template argument specifies the
+// filename prefix (trailing X characters are stripped).
 func (c *mktempCommand) Run(ctx context.Context, args []string) error {
 	hc := GetHandlerContext(ctx)
 
@@ -77,8 +79,9 @@ func (c *mktempCommand) Run(ctx context.Context, args []string) error {
 		dir = filepath.Join(hc.Dir, dir)
 	}
 
-	// Extract prefix from template argument. Trailing X characters are
-	// stripped to match the POSIX mktemp convention (e.g., "tmp.XXXXXX" → "tmp.").
+	// Extract prefix from template argument. Trailing X characters are stripped
+	// because Go's os.CreateTemp appends its own random suffix. This follows the
+	// POSIX convention where X's mark the random portion (e.g., "tmp.XXXXXX" → prefix "tmp.").
 	prefix := "tmp."
 	if fs.NArg() > 0 {
 		tmpl := fs.Arg(0)
@@ -97,12 +100,14 @@ func (c *mktempCommand) Run(ctx context.Context, args []string) error {
 		f, err = os.CreateTemp(dir, prefix)
 		if err == nil {
 			path = f.Name()
-			_ = f.Close() // Read-only handle; close error is benign
+			_ = f.Close() // Nothing written; we only need the path, so close error is benign
 		}
 	}
 
 	if err != nil {
 		if *quiet {
+			// POSIX mktemp -q: suppress diagnostics AND return success on failure.
+			// The caller detects failure by checking for empty stdout output.
 			return nil
 		}
 		return wrapError(c.name, err)
