@@ -75,6 +75,13 @@ type (
 		Close() error
 	}
 
+	// BaseCLIProvider is implemented by engines that embed BaseCLIEngine.
+	// Enables SandboxAwareEngine to access arg-building methods without
+	// a concrete type switch, making it safe to add new engine types.
+	BaseCLIProvider interface {
+		BaseCLI() *BaseCLIEngine
+	}
+
 	// VolumeMount represents a volume mount specification.
 	VolumeMount struct {
 		HostPath      string
@@ -166,6 +173,14 @@ func NewBaseCLIEngine(binaryPath string, opts ...BaseCLIEngineOption) *BaseCLIEn
 // BinaryPath returns the path to the container engine binary.
 func (e *BaseCLIEngine) BinaryPath() string {
 	return e.binaryPath
+}
+
+// BaseCLI returns the BaseCLIEngine itself.
+// This satisfies the BaseCLIProvider interface and is promoted by embedding
+// engines (DockerEngine, PodmanEngine), enabling SandboxAwareEngine to access
+// arg-building methods without a concrete type switch.
+func (e *BaseCLIEngine) BaseCLI() *BaseCLIEngine {
+	return e
 }
 
 // --- Argument Builders ---
