@@ -224,6 +224,46 @@ func isWindowsContainerImage(image string) bool {
 	return false
 }
 
+// isAlpineContainerImage detects Alpine-based image references by repository name.
+// Alpine images are intentionally unsupported because musl-based environments have
+// subtle behavioral differences that reduce runtime reliability.
+//
+// Detection is segment-aware: only the last path segment of the image name is
+// checked, so images like "go-alpine-builder:v1" or "myorg/alpine-tools" are
+// NOT matched. Matches: alpine, alpine:3.20, docker.io/library/alpine:latest.
+func isAlpineContainerImage(image string) bool {
+	imageLower := strings.ToLower(strings.TrimSpace(image))
+	if imageLower == "" {
+		return false
+	}
+
+	// Strip tag/digest suffix for name-only matching.
+	name := imageLower
+	if idx := strings.LastIndex(name, ":"); idx != -1 {
+		name = name[:idx]
+	}
+	if idx := strings.LastIndex(name, "@"); idx != -1 {
+		name = name[:idx]
+	}
+
+	// Check bare name or last path segment.
+	// Matches: alpine, alpine:3.20, docker.io/library/alpine:latest
+	// Does NOT match: go-alpine-builder, myorg/alpine-tools
+	return name == "alpine" || strings.HasSuffix(name, "/alpine")
+}
+
+// validateSupportedContainerImage enforces the container runtime image policy.
+func validateSupportedContainerImage(image string) error {
+	if isWindowsContainerImage(image) {
+		return fmt.Errorf("windows container images are not supported; the container runtime requires Linux-based images (e.g., debian:stable-slim); see https://invowk.io/docs/runtime-modes/container for details")
+	}
+	if isAlpineContainerImage(image) {
+		return fmt.Errorf("alpine-based container images are not supported; use a Debian-based image (e.g., debian:stable-slim) for reliable execution; see https://invowk.io/docs/runtime-modes/container for details")
+	}
+
+	return nil
+}
+
 // containerConfigFromRuntime extracts container config from RuntimeConfig
 func containerConfigFromRuntime(rt *invowkfile.RuntimeConfig) invowkfileContainerConfig {
 	if rt == nil {

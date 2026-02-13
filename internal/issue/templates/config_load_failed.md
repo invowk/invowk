@@ -25,7 +25,7 @@ $ rm ~/.config/invowk/config.cue
 container_engine: "podman"
 default_runtime: "native"
 includes: [
-    {path: "/home/user/global-commands/invowkfile.cue"}
+    {path: "/home/user/global-commands/com.example.tools.invowkmod"}
 ]
 
 ui: {

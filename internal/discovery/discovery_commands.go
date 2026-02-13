@@ -156,13 +156,14 @@ func (d *Discovery) DiscoverCommandSet(ctx context.Context) (CommandSetResult, e
 	default:
 	}
 
-	files, err := d.LoadAll()
+	files, discoveryDiags, err := d.loadAllWithDiagnostics()
 	if err != nil {
 		return CommandSetResult{}, err
 	}
 
 	commandSet := NewDiscoveredCommandSet()
-	diagnostics := make([]Diagnostic, 0)
+	diagnostics := make([]Diagnostic, 0, len(discoveryDiags))
+	diagnostics = append(diagnostics, discoveryDiags...)
 	// Track seen commands for precedence within non-module sources
 	seenNonModule := make(map[string]bool)
 

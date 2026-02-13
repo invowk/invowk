@@ -7,7 +7,7 @@ The 'container' runtime requires a Dockerfile to build the execution environment
 - Create a Dockerfile in the same directory as your invowkfile:
 ~~~dockerfile
 FROM debian:stable-slim
-RUN apk add --no-cache bash coreutils
+RUN apt-get update && apt-get install -y --no-install-recommends bash coreutils && rm -rf /var/lib/apt/lists/*
 WORKDIR /workspace
 ~~~
 

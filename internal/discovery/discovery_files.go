@@ -3,6 +3,7 @@
 package discovery
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -59,7 +60,15 @@ func (s Source) String() string {
 // Earlier sources take precedence for disambiguation when the same SimpleName
 // appears in multiple sources.
 func (d *Discovery) DiscoverAll() ([]*DiscoveredFile, error) {
+	files, _, err := d.discoverAllWithDiagnostics()
+	return files, err
+}
+
+// discoverAllWithDiagnostics discovers files plus non-fatal warnings about
+// skipped modules/includes so callers can surface observability without failing.
+func (d *Discovery) discoverAllWithDiagnostics() ([]*DiscoveredFile, []Diagnostic, error) {
 	var files []*DiscoveredFile
+	diagnostics := make([]Diagnostic, 0)
 
 	// 1. Current directory (highest precedence)
 	if cwdFile := d.discoverInDir(".", SourceCurrentDir); cwdFile != nil {
@@ -67,21 +76,24 @@ func (d *Discovery) DiscoverAll() ([]*DiscoveredFile, error) {
 	}
 
 	// 2. Modules in current directory
-	moduleFiles := d.discoverModulesInDir(".")
+	moduleFiles, moduleDiags := d.discoverModulesInDirWithDiagnostics(".")
 	files = append(files, moduleFiles...)
+	diagnostics = append(diagnostics, moduleDiags...)
 
 	// 3. Configured includes (explicit module paths from config)
-	includeFiles := d.loadIncludes()
+	includeFiles, includeDiags := d.loadIncludesWithDiagnostics()
 	files = append(files, includeFiles...)
+	diagnostics = append(diagnostics, includeDiags...)
 
 	// 4. User commands directory (~/.invowk/cmds — modules only, non-recursive)
 	userDir, err := config.CommandsDir()
 	if err == nil {
-		userModuleFiles := d.discoverModulesInDir(userDir)
+		userModuleFiles, userModuleDiags := d.discoverModulesInDirWithDiagnostics(userDir)
 		files = append(files, userModuleFiles...)
+		diagnostics = append(diagnostics, userModuleDiags...)
 	}
 
-	return files, nil
+	return files, diagnostics, nil
 }
 
 // discoverInDir looks for an invowkfile in a specific directory
@@ -106,25 +118,40 @@ func (d *Discovery) discoverInDir(dir string, source Source) *DiscoveredFile {
 	return nil
 }
 
-// discoverModulesInDir finds all valid modules in a directory.
-// It only looks at immediate subdirectories (modules are not nested).
-func (d *Discovery) discoverModulesInDir(dir string) []*DiscoveredFile {
+// discoverModulesInDirWithDiagnostics finds all valid modules in a directory and
+// reports non-fatal warnings for skipped entries.
+func (d *Discovery) discoverModulesInDirWithDiagnostics(dir string) ([]*DiscoveredFile, []Diagnostic) {
 	var files []*DiscoveredFile
+	diagnostics := make([]Diagnostic, 0)
 
 	absDir, err := filepath.Abs(dir)
 	if err != nil {
-		return files
+		diagnostics = append(diagnostics, Diagnostic{
+			Severity: SeverityWarning,
+			Code:     "module_scan_path_invalid",
+			Message:  fmt.Sprintf("failed to resolve module scan path %q: %v", dir, err),
+			Path:     dir,
+			Cause:    err,
+		})
+		return files, diagnostics
 	}
 
 	// Check if directory exists
 	if _, statErr := os.Stat(absDir); os.IsNotExist(statErr) {
-		return files
+		return files, diagnostics
 	}
 
 	// Read directory entries
 	entries, err := os.ReadDir(absDir)
 	if err != nil {
-		return files
+		diagnostics = append(diagnostics, Diagnostic{
+			Severity: SeverityWarning,
+			Code:     "module_scan_failed",
+			Message:  fmt.Sprintf("failed to list directory %s while scanning modules: %v", absDir, err),
+			Path:     absDir,
+			Cause:    err,
+		})
+		return files, diagnostics
 	}
 
 	for _, entry := range entries {
@@ -143,14 +170,25 @@ func (d *Discovery) discoverModulesInDir(dir string) []*DiscoveredFile {
 		// where @invowkfile refers to the root invowkfile.cue source
 		moduleName := strings.TrimSuffix(entry.Name(), invowkmod.ModuleSuffix)
 		if moduleName == SourceIDInvowkfile {
-			// Note: Warning will be displayed in verbose mode (FR-013)
+			diagnostics = append(diagnostics, Diagnostic{
+				Severity: SeverityWarning,
+				Code:     "reserved_module_name_skipped",
+				Message:  fmt.Sprintf("skipping reserved module name '%s'", moduleName),
+				Path:     entryPath,
+			})
 			continue
 		}
 
 		// Load the module
 		m, err := invowkmod.Load(entryPath)
 		if err != nil {
-			// Invalid module, skip it
+			diagnostics = append(diagnostics, Diagnostic{
+				Severity: SeverityWarning,
+				Code:     "module_load_skipped",
+				Message:  fmt.Sprintf("skipping invalid module at %s: %v", entryPath, err),
+				Path:     entryPath,
+				Cause:    err,
+			})
 			continue
 		}
 
@@ -161,27 +199,48 @@ func (d *Discovery) discoverModulesInDir(dir string) []*DiscoveredFile {
 		})
 	}
 
-	return files
+	return files, diagnostics
 }
 
-// loadIncludes processes configured module include entries from config.
-// All entries are module directory paths (*.invowkmod) and are loaded as SourceModule.
-//
-// Entries that do not exist on disk or fail validation are silently skipped
-// (they may reference optional or environment-specific paths).
-func (d *Discovery) loadIncludes() []*DiscoveredFile {
+// loadIncludesWithDiagnostics processes configured module include entries and
+// emits warnings for skipped entries while keeping permissive discovery behavior.
+func (d *Discovery) loadIncludesWithDiagnostics() ([]*DiscoveredFile, []Diagnostic) {
 	var files []*DiscoveredFile
+	diagnostics := make([]Diagnostic, 0)
+
+	if d.cfg == nil {
+		return files, diagnostics
+	}
 
 	for _, entry := range d.cfg.Includes {
 		if !invowkmod.IsModule(entry.Path) {
+			diagnostics = append(diagnostics, Diagnostic{
+				Severity: SeverityWarning,
+				Code:     "include_not_module",
+				Message:  fmt.Sprintf("configured include is not a valid module directory, skipping: %s", entry.Path),
+				Path:     entry.Path,
+			})
 			continue
 		}
 		moduleName := strings.TrimSuffix(filepath.Base(entry.Path), invowkmod.ModuleSuffix)
 		if moduleName == SourceIDInvowkfile {
+			diagnostics = append(diagnostics, Diagnostic{
+				Severity: SeverityWarning,
+				Code:     "include_reserved_module_skipped",
+				Message:  fmt.Sprintf("configured include uses reserved module name '%s', skipping", moduleName),
+				Path:     entry.Path,
+			})
 			continue // Skip reserved module name (FR-015)
 		}
 		m, err := invowkmod.Load(entry.Path)
 		if err != nil {
+			diagnostics = append(diagnostics, Diagnostic{
+				Severity: SeverityWarning,
+				Code:     "include_module_load_failed",
+				Message:  fmt.Sprintf("failed to load included module at %s: %v", entry.Path, err),
+				Path:     entry.Path,
+				Cause:    err,
+			})
 			continue // Skip invalid modules
 		}
 		files = append(files, &DiscoveredFile{
@@ -191,7 +250,7 @@ func (d *Discovery) loadIncludes() []*DiscoveredFile {
 		})
 	}
 
-	return files
+	return files, diagnostics
 }
 
 // getModuleShortName extracts the short name from a module path.

@@ -15,7 +15,6 @@ import (
 // Issue IDs for different error scenarios.
 const (
 	FileNotFoundId Id = iota + 1
-	TuiServerStartFailedId
 	InvowkfileNotFoundId
 	InvowkfileParseErrorId
 	CommandNotFoundId
@@ -151,7 +150,7 @@ type (
 	Issue struct {
 		id       Id          // ID used to lookup the issue
 		mdMsg    MarkdownMsg // Markdown text that will be rendered
-		docLinks []HttpLink  // must never be empty, because we need to have docs about all issue types
+		docLinks []HttpLink  // optional links to invowk documentation
 		extLinks []HttpLink  // external links that might be useful for the user
 	}
 )

@@ -304,7 +304,7 @@ func (r *Registry) Register(typ RuntimeType, rt Runtime) {
 func (r *Registry) Get(typ RuntimeType) (Runtime, error) {
 	rt, ok := r.runtimes[typ]
 	if !ok {
-		return nil, fmt.Errorf("runtime '%s' not registered", typ)
+		return nil, fmt.Errorf("runtime '%s' not registered: %w", typ, ErrRuntimeNotAvailable)
 	}
 	return rt, nil
 }

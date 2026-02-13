@@ -415,6 +415,87 @@ func TestIsWindowsContainerImage(t *testing.T) {
 	}
 }
 
+func TestIsAlpineContainerImage(t *testing.T) {
+	tests := []struct {
+		image string
+		want  bool
+	}{
+		// Positive matches: bare name, tagged, and registry-qualified.
+		{"alpine", true},
+		{"alpine:3.20", true},
+		{"docker.io/library/alpine:latest", true},
+		{"ghcr.io/example/alpine:edge", true},
+		{"alpine@sha256:abcdef1234567890", true},
+
+		// Negative: images whose names contain "alpine" as a substring but are
+		// NOT the official Alpine image (segment-aware matching).
+		{"go-alpine-builder:v1", false},
+		{"myorg/alpine-tools:latest", false},
+		{"registry.example.com/team/go-alpine:v2", false},
+
+		// Negative: unrelated images.
+		{"debian:stable-slim", false},
+		{"ubuntu:22.04", false},
+		{"mcr.microsoft.com/windows/servercore:ltsc2022", false},
+		{"", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.image, func(t *testing.T) {
+			got := isAlpineContainerImage(tt.image)
+			if got != tt.want {
+				t.Errorf("isAlpineContainerImage(%q) = %v, want %v", tt.image, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestValidateSupportedContainerImage(t *testing.T) {
+	tests := []struct {
+		name     string
+		image    string
+		wantErr  bool
+		contains string
+	}{
+		{
+			name:     "windows image rejected",
+			image:    "mcr.microsoft.com/windows/servercore:ltsc2022",
+			wantErr:  true,
+			contains: "windows container images are not supported",
+		},
+		{
+			name:     "alpine image rejected",
+			image:    "alpine:latest",
+			wantErr:  true,
+			contains: "alpine-based container images are not supported",
+		},
+		{
+			name:    "debian image allowed",
+			image:   "debian:stable-slim",
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateSupportedContainerImage(tt.image)
+			if tt.wantErr {
+				if err == nil {
+					t.Fatalf("validateSupportedContainerImage(%q) expected error, got nil", tt.image)
+				}
+				if tt.contains != "" && !strings.Contains(err.Error(), tt.contains) {
+					t.Fatalf("validateSupportedContainerImage(%q) error = %q, want to contain %q", tt.image, err.Error(), tt.contains)
+				}
+				return
+			}
+
+			if err != nil {
+				t.Fatalf("validateSupportedContainerImage(%q) unexpected error: %v", tt.image, err)
+			}
+		})
+	}
+}
+
 // TestGetContainerWorkDir tests the working directory resolution for containers.
 func TestGetContainerWorkDir(t *testing.T) {
 	tmpDir := t.TempDir()
