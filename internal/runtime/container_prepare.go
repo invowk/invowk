@@ -162,6 +162,11 @@ func (r *ContainerRuntime) PrepareCommand(ctx *ExecutionContext) (*PreparedComma
 	// Create the exec.Cmd
 	cmd := exec.CommandContext(ctx.Context, r.engine.BinaryPath(), args...)
 
+	// Apply engine-level command customization (e.g., CONTAINERS_CONF_OVERRIDE for Podman).
+	if customizer, ok := r.engine.(container.CmdCustomizer); ok {
+		customizer.CustomizeCmd(cmd)
+	}
+
 	// Prepare cleanup function
 	cleanup := func() {
 		if tempScriptPath != "" {

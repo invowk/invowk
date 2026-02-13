@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 
 	"invowk-cli/internal/config"
@@ -210,8 +211,11 @@ func checkAmbiguousCommand(ctx context.Context, app *App, rootFlags *rootFlagVal
 // The container runtime is conditionally registered based on engine availability
 // (Docker or Podman). When an SSH server is active for host access, it is forwarded
 // to the container runtime so containers can reach back into the host.
-func createRuntimeRegistry(cfg *config.Config, sshServer *sshserver.Server) *runtime.Registry {
-	registry := runtime.NewRegistry()
+//
+// The returned cleanup function releases container engine resources (e.g., sysctl
+// override temp files). It must be deferred by the caller.
+func createRuntimeRegistry(cfg *config.Config, sshServer *sshserver.Server) (registry *runtime.Registry, cleanup func()) {
+	registry = runtime.NewRegistry()
 	// Native and virtual runtimes are always available in-process.
 	registry.Register(runtime.RuntimeTypeNative, runtime.NewNativeRuntime())
 	registry.Register(runtime.RuntimeTypeVirtual, runtime.NewVirtualRuntime(cfg.VirtualShell.EnableUrootUtils))
@@ -225,7 +229,15 @@ func createRuntimeRegistry(cfg *config.Config, sshServer *sshserver.Server) *run
 		registry.Register(runtime.RuntimeTypeContainer, containerRT)
 	}
 
-	return registry
+	cleanup = func() {
+		if containerRT != nil {
+			if err := containerRT.Close(); err != nil {
+				slog.Debug("container runtime cleanup failed", "error", err)
+			}
+		}
+	}
+
+	return registry, cleanup
 }
 
 // bridgeTUIRequests bridges TUI component requests from the HTTP-based TUI server

@@ -15,6 +15,10 @@ type (
 		// Enabled controls whether auto-provisioning is active
 		Enabled bool
 
+		// Strict makes provisioning failure a hard error instead of falling
+		// back to the unprovisioned base image.
+		Strict bool
+
 		// ForceRebuild bypasses cached images and forces a rebuild
 		ForceRebuild bool
 

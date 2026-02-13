@@ -12,6 +12,7 @@ import (
 
 // T028: BaseCLIEngine BuildArgs tests
 func TestBaseCLIEngine_BuildArgs(t *testing.T) {
+	t.Parallel()
 	engine := NewBaseCLIEngine("/usr/bin/docker")
 
 	tests := []struct {
@@ -76,6 +77,7 @@ func TestBaseCLIEngine_BuildArgs(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			if tt.skipOnWindows && runtime.GOOS == "windows" {
 				t.Skip("skipping: Unix-style absolute paths are not meaningful on Windows")
 			}
@@ -98,6 +100,7 @@ func TestBaseCLIEngine_BuildArgs(t *testing.T) {
 
 // T029: BaseCLIEngine RunArgs tests
 func TestBaseCLIEngine_RunArgs(t *testing.T) {
+	t.Parallel()
 	engine := NewBaseCLIEngine("/usr/bin/docker")
 
 	tests := []struct {
@@ -182,6 +185,7 @@ func TestBaseCLIEngine_RunArgs(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			args := engine.RunArgs(tt.opts)
 
 			for _, exp := range tt.contains {
@@ -201,6 +205,7 @@ func TestBaseCLIEngine_RunArgs(t *testing.T) {
 
 // T030: BaseCLIEngine ExecArgs tests
 func TestBaseCLIEngine_ExecArgs(t *testing.T) {
+	t.Parallel()
 	engine := NewBaseCLIEngine("/usr/bin/docker")
 
 	tests := []struct {
@@ -249,6 +254,7 @@ func TestBaseCLIEngine_ExecArgs(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			args := engine.ExecArgs(tt.containerID, tt.command, tt.opts)
 
 			for _, exp := range tt.contains {
@@ -261,6 +267,7 @@ func TestBaseCLIEngine_ExecArgs(t *testing.T) {
 }
 
 func TestBaseCLIEngine_RemoveArgs(t *testing.T) {
+	t.Parallel()
 	engine := NewBaseCLIEngine("/usr/bin/docker")
 
 	tests := []struct {
@@ -285,6 +292,7 @@ func TestBaseCLIEngine_RemoveArgs(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			args := engine.RemoveArgs(tt.containerID, tt.force)
 			if len(args) != len(tt.expected) {
 				t.Errorf("got %d args, want %d\ngot: %v\nwant: %v", len(args), len(tt.expected), args, tt.expected)
@@ -300,6 +308,7 @@ func TestBaseCLIEngine_RemoveArgs(t *testing.T) {
 }
 
 func TestBaseCLIEngine_RemoveImageArgs(t *testing.T) {
+	t.Parallel()
 	engine := NewBaseCLIEngine("/usr/bin/docker")
 
 	tests := []struct {
@@ -324,6 +333,7 @@ func TestBaseCLIEngine_RemoveImageArgs(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			args := engine.RemoveImageArgs(tt.image, tt.force)
 			if len(args) != len(tt.expected) {
 				t.Errorf("got %d args, want %d\ngot: %v\nwant: %v", len(args), len(tt.expected), args, tt.expected)
@@ -340,6 +350,7 @@ func TestBaseCLIEngine_RemoveImageArgs(t *testing.T) {
 
 // Test that CreateCommand returns a proper exec.Cmd
 func TestBaseCLIEngine_CreateCommand(t *testing.T) {
+	t.Parallel()
 	engine := NewBaseCLIEngine("/usr/bin/docker")
 
 	cmd := engine.CreateCommand(context.Background(), "version", "--format", "{{.Server.Version}}")
@@ -356,6 +367,7 @@ func TestBaseCLIEngine_CreateCommand(t *testing.T) {
 
 // Test that build args include build args properly
 func TestBaseCLIEngine_BuildArgsWithBuildArgs(t *testing.T) {
+	t.Parallel()
 	engine := NewBaseCLIEngine("/usr/bin/docker")
 
 	args := engine.BuildArgs(BuildOptions{
@@ -391,6 +403,7 @@ func TestBaseCLIEngine_BuildArgsWithBuildArgs(t *testing.T) {
 
 // Test run args with env vars
 func TestBaseCLIEngine_RunArgsWithEnv(t *testing.T) {
+	t.Parallel()
 	engine := NewBaseCLIEngine("/usr/bin/docker")
 
 	args := engine.RunArgs(RunOptions{

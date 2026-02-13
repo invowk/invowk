@@ -13,6 +13,8 @@ import (
 
 // TestContainerRuntime_ExecuteCapture tests the ExecuteCapture method that captures stdout/stderr
 func TestContainerRuntime_ExecuteCapture(t *testing.T) {
+	t.Parallel()
+
 	if testing.Short() {
 		t.Skip("skipping integration test in short mode")
 	}
@@ -26,14 +28,27 @@ func TestContainerRuntime_ExecuteCapture(t *testing.T) {
 		t.Skip("skipping container integration tests: container engine not available")
 	}
 
-	t.Run("BasicCapture", testContainerExecuteCaptureBasic)
-	t.Run("CaptureWithExitCode", testContainerExecuteCaptureExitCode)
-	t.Run("CaptureStderr", testContainerExecuteCaptureStderr)
-	t.Run("CaptureWithEnvVars", testContainerExecuteCaptureEnvVars)
+	t.Run("BasicCapture", func(t *testing.T) {
+		t.Parallel()
+		testContainerExecuteCaptureBasic(t)
+	})
+	t.Run("CaptureWithExitCode", func(t *testing.T) {
+		t.Parallel()
+		testContainerExecuteCaptureExitCode(t)
+	})
+	t.Run("CaptureStderr", func(t *testing.T) {
+		t.Parallel()
+		testContainerExecuteCaptureStderr(t)
+	})
+	t.Run("CaptureWithEnvVars", func(t *testing.T) {
+		t.Parallel()
+		testContainerExecuteCaptureEnvVars(t)
+	})
 }
 
 // testContainerExecuteCaptureBasic tests basic output capture
 func testContainerExecuteCaptureBasic(t *testing.T) {
+	t.Helper()
 	_, inv := setupTestInvkfile(t)
 
 	cmd := &invkfile.Command{
@@ -66,6 +81,7 @@ func testContainerExecuteCaptureBasic(t *testing.T) {
 
 // testContainerExecuteCaptureExitCode tests that exit codes are properly captured
 func testContainerExecuteCaptureExitCode(t *testing.T) {
+	t.Helper()
 	_, inv := setupTestInvkfile(t)
 
 	cmd := &invkfile.Command{
@@ -98,6 +114,7 @@ func testContainerExecuteCaptureExitCode(t *testing.T) {
 
 // testContainerExecuteCaptureStderr tests that stderr is captured separately
 func testContainerExecuteCaptureStderr(t *testing.T) {
+	t.Helper()
 	_, inv := setupTestInvkfile(t)
 
 	cmd := &invkfile.Command{
@@ -133,6 +150,7 @@ func testContainerExecuteCaptureStderr(t *testing.T) {
 
 // testContainerExecuteCaptureEnvVars tests that environment variables work with capture
 func testContainerExecuteCaptureEnvVars(t *testing.T) {
+	t.Helper()
 	_, inv := setupTestInvkfile(t)
 
 	currentPlatform := invkfile.GetCurrentHostOS()
@@ -168,6 +186,7 @@ func testContainerExecuteCaptureEnvVars(t *testing.T) {
 
 // TestContainerRuntime_CapturingRuntimeInterface verifies that ContainerRuntime implements CapturingRuntime
 func TestContainerRuntime_CapturingRuntimeInterface(t *testing.T) {
+	t.Parallel()
 	// This is a compile-time check that also serves as documentation
 	var _ CapturingRuntime = (*ContainerRuntime)(nil)
 

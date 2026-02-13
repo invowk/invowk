@@ -13,6 +13,12 @@ import (
 	"testing"
 )
 
+// execCommand is a test-scoped replacement for exec.CommandContext.
+// It is only used by the 3 self-tests below (TestMockCommandRecorder_Basic/Output/ExitCode)
+// that validate the mock infrastructure itself via withMockExecCommand/withMockExecCommandOutput.
+// All other tests use instance-level injection via WithExecCommand and NewMockCommandRecorder.
+var execCommand = exec.CommandContext
+
 type (
 	// MockCommandRecorder captures arguments passed to exec.Command for verification.
 	// It uses the TestHelperProcess pattern to simulate command execution.
@@ -214,13 +220,10 @@ func TestHelperProcess(t *testing.T) {
 	os.Exit(exitCode)
 }
 
-// withMockExecCommand sets up exec command mocking for a test and returns a cleanup function.
-// Usage:
-//
-//	recorder, cleanup := withMockExecCommand(t)
-//	defer cleanup()
-//	// ... test code ...
-//	recorder.AssertArgsContain(t, "build")
+// withMockExecCommand sets up exec command mocking by swapping the package-level execCommand variable.
+// This exists solely for the 3 self-tests (TestMockCommandRecorder_Basic/Output/ExitCode) that validate
+// the mock infrastructure itself. All other tests should use NewMockCommandRecorder() with instance-level
+// injection via WithExecCommand — that approach is parallel-safe and doesn't require global mutation.
 func withMockExecCommand(t *testing.T) (recorder *MockCommandRecorder, cleanup func()) {
 	t.Helper()
 
@@ -236,6 +239,8 @@ func withMockExecCommand(t *testing.T) (recorder *MockCommandRecorder, cleanup f
 }
 
 // withMockExecCommandOutput sets up exec command mocking with configured output.
+// Like withMockExecCommand, this exists solely for the 3 self-tests that validate
+// the mock infrastructure. All other tests should use NewMockCommandRecorder() directly.
 func withMockExecCommandOutput(t *testing.T, stdout, stderr string, exitCode int) (recorder *MockCommandRecorder, cleanup func()) {
 	t.Helper()
 

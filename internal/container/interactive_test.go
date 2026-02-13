@@ -9,6 +9,7 @@ import (
 
 // TestDockerEngineBinaryPath tests the DockerEngine.BinaryPath method.
 func TestDockerEngineBinaryPath(t *testing.T) {
+	t.Parallel()
 	engine := NewDockerEngine()
 	if !engine.Available() {
 		t.Skip("Docker not available")
@@ -25,6 +26,7 @@ func TestDockerEngineBinaryPath(t *testing.T) {
 
 // TestPodmanEngineBinaryPath tests the PodmanEngine.BinaryPath method.
 func TestPodmanEngineBinaryPath(t *testing.T) {
+	t.Parallel()
 	engine := NewPodmanEngine()
 	if !engine.Available() {
 		t.Skip("Podman not available")
@@ -41,6 +43,7 @@ func TestPodmanEngineBinaryPath(t *testing.T) {
 
 // TestDockerEngineBuildRunArgs tests the DockerEngine.BuildRunArgs method.
 func TestDockerEngineBuildRunArgs(t *testing.T) {
+	t.Parallel()
 	engine := NewDockerEngine()
 
 	opts := RunOptions{
@@ -90,6 +93,7 @@ func TestDockerEngineBuildRunArgs(t *testing.T) {
 
 // TestPodmanEngineBuildRunArgs tests the PodmanEngine.BuildRunArgs method.
 func TestPodmanEngineBuildRunArgs(t *testing.T) {
+	t.Parallel()
 	engine := NewPodmanEngine()
 
 	opts := RunOptions{
@@ -144,6 +148,7 @@ func TestPodmanEngineBuildRunArgs(t *testing.T) {
 
 // TestBuildRunArgsOptionalFlags tests that optional flags are correctly omitted.
 func TestBuildRunArgsOptionalFlags(t *testing.T) {
+	t.Parallel()
 	engine := NewDockerEngine()
 
 	// Minimal options

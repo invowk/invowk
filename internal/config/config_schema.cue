@@ -54,6 +54,11 @@ import "strings"
 	// enabled enables/disables auto-provisioning (default: true)
 	enabled?: bool
 
+	// strict makes provisioning failure a hard error instead of falling back
+	// to the unprovisioned base image. When false (default), provisioning
+	// failure logs a warning and continues with the base image.
+	strict?: bool
+
 	// binary_path overrides the path to the invowk binary to provision.
 	// If not set, the currently running invowk binary is used.
 	binary_path?: string & !="" & strings.MaxRunes(4096)

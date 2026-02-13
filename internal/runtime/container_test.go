@@ -3,12 +3,16 @@
 package runtime
 
 import (
+	"bytes"
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 
+	"invowk-cli/internal/config"
 	"invowk-cli/internal/container"
 	"invowk-cli/internal/provision"
 	"invowk-cli/pkg/invkfile"
@@ -622,5 +626,147 @@ func TestContainerRuntime_generateImageTag(t *testing.T) {
 	tag3, _ := rt.generateImageTag(otherPath)
 	if tag == tag3 {
 		t.Errorf("generateImageTag() different paths should generate different tags")
+	}
+}
+
+// TestBuildProvisionConfig_StrictPropagation tests that the Strict field
+// from config.AutoProvisionConfig is propagated to provision.Config.
+func TestBuildProvisionConfig_StrictPropagation(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name   string
+		strict bool
+	}{
+		{"strict enabled", true},
+		{"strict disabled", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			cfg := config.DefaultConfig()
+			cfg.Container.AutoProvision.Strict = tt.strict
+
+			provCfg := buildProvisionConfig(cfg)
+
+			if provCfg.Strict != tt.strict {
+				t.Errorf("buildProvisionConfig().Strict = %v, want %v", provCfg.Strict, tt.strict)
+			}
+		})
+	}
+}
+
+// TestEnsureProvisionedImage_StrictMode tests that strict provisioning mode
+// returns a hard error when provisioning fails.
+func TestEnsureProvisionedImage_StrictMode(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	inv := &invkfile.Invkfile{
+		FilePath: filepath.Join(tmpDir, "invkfile.cue"),
+	}
+
+	cmd := &invkfile.Command{
+		Name: "strict-test",
+		Implementations: []invkfile.Implementation{
+			{
+				Script:    "echo hello",
+				Runtimes:  []invkfile.RuntimeConfig{{Name: invkfile.RuntimeContainer, Image: "debian:stable-slim"}},
+				Platforms: invkfile.AllPlatformConfigs(),
+			},
+		},
+	}
+
+	engine := NewMockEngine().WithImageExists(false).WithBuildError(fmt.Errorf("disk full"))
+
+	// Configure provisioner with strict=true and a non-existent binary path
+	// to force Provision() to fail during resource hash computation.
+	provCfg := &provision.Config{
+		Enabled:          true,
+		Strict:           true,
+		InvowkBinaryPath: filepath.Join(tmpDir, "nonexistent-invowk"),
+		BinaryMountPath:  "/invowk/bin",
+		ModulesMountPath: "/invowk/modules",
+	}
+	rt := NewContainerRuntimeWithEngine(engine)
+	rt.SetProvisionConfig(provCfg)
+
+	execCtx := NewExecutionContext(cmd, inv)
+	execCtx.Context = context.Background()
+	var stderr bytes.Buffer
+	execCtx.IO.Stderr = &stderr
+	execCtx.IO.Stdout = &bytes.Buffer{}
+
+	cfg := invkfileContainerConfig{Image: "debian:stable-slim"}
+	_, _, err := rt.ensureProvisionedImage(execCtx, cfg, tmpDir)
+
+	if err == nil {
+		t.Fatal("ensureProvisionedImage() with strict=true should return error on provisioning failure")
+	}
+	if !strings.Contains(err.Error(), "strict mode enabled") {
+		t.Errorf("error should mention strict mode, got: %v", err)
+	}
+}
+
+// TestEnsureProvisionedImage_NonStrictMode tests that non-strict provisioning mode
+// falls back to the base image with a warning when provisioning fails.
+func TestEnsureProvisionedImage_NonStrictMode(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	inv := &invkfile.Invkfile{
+		FilePath: filepath.Join(tmpDir, "invkfile.cue"),
+	}
+
+	cmd := &invkfile.Command{
+		Name: "non-strict-test",
+		Implementations: []invkfile.Implementation{
+			{
+				Script:    "echo hello",
+				Runtimes:  []invkfile.RuntimeConfig{{Name: invkfile.RuntimeContainer, Image: "debian:stable-slim"}},
+				Platforms: invkfile.AllPlatformConfigs(),
+			},
+		},
+	}
+
+	engine := NewMockEngine().WithImageExists(false).WithBuildError(fmt.Errorf("disk full"))
+
+	// Configure provisioner with strict=false and a non-existent binary path
+	provCfg := &provision.Config{
+		Enabled:          true,
+		Strict:           false,
+		InvowkBinaryPath: filepath.Join(tmpDir, "nonexistent-invowk"),
+		BinaryMountPath:  "/invowk/bin",
+		ModulesMountPath: "/invowk/modules",
+	}
+	rt := NewContainerRuntimeWithEngine(engine)
+	rt.SetProvisionConfig(provCfg)
+
+	execCtx := NewExecutionContext(cmd, inv)
+	execCtx.Context = context.Background()
+	var stderr bytes.Buffer
+	execCtx.IO.Stderr = &stderr
+	execCtx.IO.Stdout = &bytes.Buffer{}
+
+	cfg := invkfileContainerConfig{Image: "debian:stable-slim"}
+	imageName, _, err := rt.ensureProvisionedImage(execCtx, cfg, tmpDir)
+	if err != nil {
+		t.Fatalf("ensureProvisionedImage() with strict=false should not return error, got: %v", err)
+	}
+	if imageName != "debian:stable-slim" {
+		t.Errorf("imageName = %q, want %q (should fall back to base image)", imageName, "debian:stable-slim")
+	}
+
+	// Verify the warning message contains actionable information
+	stderrOutput := stderr.String()
+	if !strings.Contains(stderrOutput, "WARNING") {
+		t.Error("stderr should contain WARNING")
+	}
+	if !strings.Contains(stderrOutput, "strict") {
+		t.Error("stderr should mention strict mode as the remedy")
+	}
+	if !strings.Contains(stderrOutput, "Nested invowk commands") {
+		t.Error("stderr should explain consequences (nested invowk commands won't work)")
 	}
 }

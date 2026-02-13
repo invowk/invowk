@@ -26,6 +26,17 @@ const (
 	// baseBuildBackoff is the initial backoff duration between build retries.
 	// Builds are heavier than runs, so we use a longer base than the smoke test.
 	baseBuildBackoff = 2 * time.Second
+
+	// maxRunRetries is the number of attempts for container run operations.
+	// Retries handle transient engine errors (rootless Podman ping_group_range
+	// race, exit code 125/126, overlay mount races) that occur when multiple
+	// containers start concurrently. Set to 5 (vs 3 for builds) because
+	// run races are more frequent under heavy parallelism and runs are fast.
+	maxRunRetries = 5
+
+	// baseRunBackoff is the initial backoff duration between run retries.
+	// Uses exponential backoff: 1s, 2s, 4s, 8s (total max ~15s).
+	baseRunBackoff = 1 * time.Second
 )
 
 // ensureProvisionedImage ensures the container image exists and is provisioned
@@ -55,8 +66,14 @@ func (r *ContainerRuntime) ensureProvisionedImage(ctx *ExecutionContext, cfg inv
 
 	result, err := r.provisioner.Provision(ctx.Context, baseImage)
 	if err != nil {
-		// If provisioning fails, warn but continue with base image
-		_, _ = fmt.Fprintf(ctx.IO.Stderr, "Warning: failed to provision container, using base image: %v\n", err) // Warning output; error non-critical
+		if r.provisioner.Config().Strict {
+			return "", nil, fmt.Errorf("container provisioning failed (strict mode enabled): %w", err)
+		}
+		_, _ = fmt.Fprintf(ctx.IO.Stderr,
+			"WARNING: Container provisioning failed: %v\n"+
+				"  The container will run WITHOUT invowk resources (binary, modules).\n"+
+				"  Nested invowk commands inside the container will not work.\n"+
+				"  To fail on provisioning errors, set: container.auto_provision.strict = true\n", err)
 		return baseImage, nil, nil
 	}
 
@@ -164,6 +181,7 @@ func buildProvisionConfig(cfg *config.Config) *provision.Config {
 	// Apply config overrides
 	autoProv := cfg.Container.AutoProvision
 	provisionCfg.Enabled = autoProv.Enabled
+	provisionCfg.Strict = autoProv.Strict
 
 	if autoProv.BinaryPath != "" {
 		provisionCfg.InvowkBinaryPath = autoProv.BinaryPath

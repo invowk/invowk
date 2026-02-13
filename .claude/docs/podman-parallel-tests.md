@@ -13,23 +13,106 @@ This is a **known Podman/crun issue**, not a bug in invowk code.
 
 ## Solution (Implemented)
 
-The test infrastructure now handles this automatically:
+The infrastructure uses a layered defense to handle transient Podman errors while enabling full parallel execution:
 
-1. **Sequential container tests**: `TestContainerCLI` in `tests/cli/cmd_container_test.go` runs all `container_*.txtar` tests sequentially (no `t.Parallel()`)
-2. **Parallel non-container tests**: `TestCLI` in `tests/cli/cmd_test.go` runs all other tests in parallel for speed
-3. **Smoke test retry**: The container availability check includes retry logic with exponential backoff to handle transient OCI errors
+### Layer 0: Sysctl Override (Prevention)
+
+On **Linux with local Podman**, `NewPodmanEngine()` creates a temporary file containing a
+`containers.conf` override that sets `default_sysctls = []`. The file is written to `os.TempDir()`
+and referenced via `CONTAINERS_CONF_OVERRIDE=<path>` in every Podman subprocess's environment.
+This prevents crun from writing `net.ipv4.ping_group_range` in new namespaces — eliminating the
+race condition at its source.
+
+The temp file is cleaned up when the engine is closed via `BaseCLIEngine.Close()`, which is called
+through the `CloseEngine()` helper when the container runtime is released.
+
+When the temp file override **cannot** work, `runWithRetry()` serializes container runs to prevent
+the ping_group_range race. The serialization strategy depends on the platform:
+
+- **Linux (podman-remote)**: `acquireRunLock()` uses `flock(2)` on a well-known file
+  (`$XDG_RUNTIME_DIR/invowk-podman.lock`, fallback: `os.TempDir()`). This provides **cross-process**
+  serialization — all invowk processes on the same machine share the flock, so concurrent testscript
+  tests and parallel terminal invocations don't race. Detected via binary name + symlink resolution
+  at engine creation time.
+- **macOS/Windows**: flock is unavailable (Podman runs in a VM, host-side locks don't reach it).
+  `acquireRunLock()` returns an error, and the code falls back to `sync.Mutex` for intra-process
+  protection only. The VM boundary provides some natural isolation.
+- **Docker**: not affected by the race — Docker never implements `SysctlOverrideChecker`, so
+  neither flock nor mutex is acquired.
+
+The `SysctlOverrideChecker` interface allows the runtime layer to query whether the override is active
+on a specific engine instance. Build operations (`ensureImage`) are NOT serialized.
+
+| Platform | Prevention | Recovery |
+|----------|------------|----------|
+| Linux (local Podman) | Temp file `CONTAINERS_CONF_OVERRIDE` | `runWithRetry()` (transient errors) |
+| Linux (podman-remote) | **flock** (cross-process) | `runWithRetry()` (transient errors) |
+| macOS/Windows | `sync.Mutex` (intra-process) | `runWithRetry()` (transient errors) |
+| Docker (any platform) | N/A (no issue) | N/A |
+| Temp file unavailable | **flock** / `sync.Mutex` fallback | `runWithRetry()` (transient errors) |
+
+### Stderr Buffering
+
+`runWithRetry()` buffers stderr per-attempt. Transient errors from the container engine (written by
+crun/runc directly to the inherited stderr fd) are discarded on retry. Only the final attempt's stderr
+is flushed to the caller's original writer. This prevents `ping_group_range` error messages from
+leaking to the user's terminal even when retries succeed. When all retries are exhausted, stderr
+from the final attempt is flushed so the user receives diagnostic output.
+
+**Tradeoff**: For the non-interactive `Execute()` path, stderr from the user's command is delayed until
+the command finishes (no streaming). This is acceptable because container commands in invowk are
+short-lived scripts. Interactive mode (`PrepareCommand()`) returns a `PreparedCommand` attached to a
+PTY and does not use `runWithRetry()`. `ExecuteCapture()` uses `runWithRetry()` with its own stderr
+buffer — the retry stderr buffer captures engine-level errors while the capture buffer collects
+the user command's output.
+
+**Key files:**
+- `internal/container/podman_sysctl_linux.go` — `createSysctlOverrideTempFile()`, `isRemotePodman()`, `sysctlOverrideOpts()`
+- `internal/container/podman_sysctl_other.go` — no-op stub for non-Linux
+- `internal/container/engine_base.go` — `CmdCustomizer`, `SysctlOverrideChecker`, `WithCmdEnvOverride()`, `WithSysctlOverridePath()`, `WithSysctlOverrideActive()`, `Close()`
+- `internal/container/engine.go` — `CloseEngine()` helper
+- `internal/container/podman.go` — `Close()`, `SysctlOverrideActive()` methods on `PodmanEngine`
+- `internal/container/sandbox_engine.go` — `Close()`, `SysctlOverrideActive()` forwarding
+- `internal/runtime/container.go` — `ContainerRuntime.Close()` (forwards to `CloseEngine()`)
+- `internal/runtime/container_exec.go` — `containerRunMu` (fallback mutex), `runWithRetry()` (flock + stderr buffering)
+- `internal/runtime/run_lock_linux.go` — `acquireRunLock()`, `runLock` (flock-based cross-process lock)
+- `internal/runtime/run_lock_other.go` — no-op stub, forces fallback to `sync.Mutex`
+
+### Layer 1: Production Run-Level Retry
+
+`runWithRetry()` in `internal/runtime/container_exec.go` wraps `engine.Run()` with retry logic that mirrors the existing `ensureImage()` build retry pattern. Transient errors (classified by `container.IsTransientError()`) are retried up to 5 times with exponential backoff (1s, 2s, 4s, 8s). This benefits both production users and test execution.
+
+### Layer 2: Vestigial Global State Removal
+
+The package-level `execCommand` variable in `internal/container/engine.go` was moved to test-only scope in `engine_mock_test.go`. This removed the forced sequential execution of container unit tests, enabling safe `t.Parallel()` across all mock tests.
+
+### Layer 3: Parallel Test Execution
+
+All container tests now run in parallel:
+
+1. **Unit tests** (`internal/container/`): All mock tests use `t.Parallel()` with instance-injected `NewMockCommandRecorder()`.
+2. **Integration tests** (`internal/runtime/`): All container integration tests use `t.Parallel()` with independent resources (`t.TempDir()`, unique runtime instances).
+3. **CLI tests** (`tests/cli/`): `TestContainerCLI` runs `container_*.txtar` tests in parallel with per-test deadlines and cleanup handlers.
+4. **Non-container tests** (`tests/cli/`): `TestCLI` runs all other tests in parallel.
+5. **Smoke test retry**: The container availability check includes retry logic with exponential backoff.
 
 ### Test Execution
 
 ```bash
-# Run all tests - container tests sequential, others parallel
+# Run all tests - all container tests run in parallel
 make test
 
-# Run only container tests (sequential)
+# Run only container CLI tests (parallel)
 go test -v -run "TestContainerCLI" ./tests/cli/...
 
-# Run only non-container tests (parallel)
+# Run only non-container CLI tests (parallel)
 go test -v -run "TestCLI$" ./tests/cli/...
+
+# Run container unit tests (parallel)
+go test -v -race ./internal/container/...
+
+# Run container integration tests (parallel, requires container engine)
+go test -v -race ./internal/runtime/...
 
 # Skip container tests (short mode)
 go test -v -short ./tests/cli/...
@@ -51,39 +134,19 @@ When multiple rootless Podman containers start simultaneously, they may race to 
 
 ## Manual Workarounds (Legacy)
 
-The following workarounds are **no longer needed** since the fix is implemented, but are documented for reference:
+The following workarounds are **no longer needed** since the layered retry + parallel solution is implemented. They are documented for reference only:
 
-### 1. Run Container Tests Sequentially
+### 1. Sequential Execution (superseded by run-level retry)
 
-Tests pass reliably when run one at a time:
+Previously, container tests were forced sequential to avoid the race. Now `runWithRetry()` absorbs transient errors automatically.
 
-```bash
-# Run a single container test
-go test -v -run "TestContainerCLI/container_provision" ./tests/cli/...
+### 2. Manual Retry
 
-# Run all container tests sequentially (bash loop)
-for test in container_basic container_provision container_args container_env; do
-    go test -v -run "TestContainerCLI/$test" ./tests/cli/...
-done
-```
+Previously required re-running tests manually. Now automatic via `runWithRetry()`.
 
-### 2. Retry Failed Tests
+### 3. Reduced Parallelism
 
-The issue is transient - re-running often succeeds:
-
-```bash
-# Run with retries using go-test-retry or similar
-go test -v -count=1 -run "TestContainerCLI" ./tests/cli/... || \
-go test -v -count=1 -run "TestContainerCLI" ./tests/cli/...
-```
-
-### 3. Reduce Parallelism
-
-Limit the number of parallel tests:
-
-```bash
-go test -v -parallel 1 -run "TestContainerCLI" ./tests/cli/...
-```
+Previously used `-parallel 1` to limit concurrency. No longer needed.
 
 ## Verification
 
@@ -102,5 +165,5 @@ To verify whether a failure is this known issue vs. an actual bug:
 
 - **Docker** (uses different namespace handling)
 - **Rootful Podman** (doesn't use user namespaces)
-- **Sequential test execution** (no race condition)
+- **Unit tests with mocks** (no real container operations)
 - **Individual test runs** (always pass)

@@ -247,9 +247,10 @@ exclude-functions = [
     "(*compress/gzip.Writer).Close",
     "(*archive/zip.ReadCloser).Close",
 
-    # Server shutdown - errors during stop are not recoverable
+    # Server shutdown / engine cleanup - errors during stop are not recoverable
     "(*invowk-cli/internal/sshserver.Server).Stop",
     "(*invowk-cli/internal/tuiserver.Server).Stop",
+    "(*invowk-cli/internal/runtime.ContainerRuntime).Close",
 
     # Temp file cleanup - best-effort, failures are logged but not critical
     "os.Remove",

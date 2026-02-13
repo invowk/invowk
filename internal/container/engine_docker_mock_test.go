@@ -23,14 +23,14 @@ func newTestDockerEngine(t *testing.T, recorder *MockCommandRecorder) *DockerEng
 
 // TestDockerEngine_Build_Arguments verifies Build() constructs correct arguments.
 func TestDockerEngine_Build_Arguments(t *testing.T) {
-	recorder, cleanup := withMockExecCommand(t)
-	defer cleanup()
-
-	engine := newTestDockerEngine(t, recorder)
-	ctx := context.Background()
+	t.Parallel()
 
 	t.Run("basic build", func(t *testing.T) {
-		recorder.Reset()
+		t.Parallel()
+		recorder := NewMockCommandRecorder()
+		engine := newTestDockerEngine(t, recorder)
+		ctx := context.Background()
+
 		opts := BuildOptions{
 			ContextDir: "/tmp/build",
 			Tag:        "myimage:latest",
@@ -50,7 +50,11 @@ func TestDockerEngine_Build_Arguments(t *testing.T) {
 	})
 
 	t.Run("with dockerfile", func(t *testing.T) {
-		recorder.Reset()
+		t.Parallel()
+		recorder := NewMockCommandRecorder()
+		engine := newTestDockerEngine(t, recorder)
+		ctx := context.Background()
+
 		opts := BuildOptions{
 			ContextDir: "/tmp/build",
 			Dockerfile: "Dockerfile.custom",
@@ -69,7 +73,11 @@ func TestDockerEngine_Build_Arguments(t *testing.T) {
 	})
 
 	t.Run("with no-cache", func(t *testing.T) {
-		recorder.Reset()
+		t.Parallel()
+		recorder := NewMockCommandRecorder()
+		engine := newTestDockerEngine(t, recorder)
+		ctx := context.Background()
+
 		opts := BuildOptions{
 			ContextDir: "/tmp/build",
 			Tag:        "test:v1",
@@ -85,7 +93,11 @@ func TestDockerEngine_Build_Arguments(t *testing.T) {
 	})
 
 	t.Run("with build args", func(t *testing.T) {
-		recorder.Reset()
+		t.Parallel()
+		recorder := NewMockCommandRecorder()
+		engine := newTestDockerEngine(t, recorder)
+		ctx := context.Background()
+
 		opts := BuildOptions{
 			ContextDir: "/tmp/build",
 			Tag:        "test:v1",
@@ -114,14 +126,14 @@ func TestDockerEngine_Build_Arguments(t *testing.T) {
 
 // TestDockerEngine_Run_Arguments verifies Run() constructs correct arguments.
 func TestDockerEngine_Run_Arguments(t *testing.T) {
-	recorder, cleanup := withMockExecCommand(t)
-	defer cleanup()
-
-	engine := newTestDockerEngine(t, recorder)
-	ctx := context.Background()
+	t.Parallel()
 
 	t.Run("basic run", func(t *testing.T) {
-		recorder.Reset()
+		t.Parallel()
+		recorder := NewMockCommandRecorder()
+		engine := newTestDockerEngine(t, recorder)
+		ctx := context.Background()
+
 		opts := RunOptions{
 			Image:   "debian:stable-slim",
 			Command: []string{"echo", "hello"},
@@ -141,7 +153,11 @@ func TestDockerEngine_Run_Arguments(t *testing.T) {
 	})
 
 	t.Run("with remove flag", func(t *testing.T) {
-		recorder.Reset()
+		t.Parallel()
+		recorder := NewMockCommandRecorder()
+		engine := newTestDockerEngine(t, recorder)
+		ctx := context.Background()
+
 		opts := RunOptions{
 			Image:   "debian:stable-slim",
 			Command: []string{"true"},
@@ -157,7 +173,11 @@ func TestDockerEngine_Run_Arguments(t *testing.T) {
 	})
 
 	t.Run("with container name", func(t *testing.T) {
-		recorder.Reset()
+		t.Parallel()
+		recorder := NewMockCommandRecorder()
+		engine := newTestDockerEngine(t, recorder)
+		ctx := context.Background()
+
 		opts := RunOptions{
 			Image:   "debian:stable-slim",
 			Command: []string{"true"},
@@ -174,7 +194,11 @@ func TestDockerEngine_Run_Arguments(t *testing.T) {
 	})
 
 	t.Run("with workdir", func(t *testing.T) {
-		recorder.Reset()
+		t.Parallel()
+		recorder := NewMockCommandRecorder()
+		engine := newTestDockerEngine(t, recorder)
+		ctx := context.Background()
+
 		opts := RunOptions{
 			Image:   "debian:stable-slim",
 			Command: []string{"pwd"},
@@ -191,7 +215,11 @@ func TestDockerEngine_Run_Arguments(t *testing.T) {
 	})
 
 	t.Run("with interactive and tty", func(t *testing.T) {
-		recorder.Reset()
+		t.Parallel()
+		recorder := NewMockCommandRecorder()
+		engine := newTestDockerEngine(t, recorder)
+		ctx := context.Background()
+
 		opts := RunOptions{
 			Image:       "debian:stable-slim",
 			Command:     []string{"bash"},
@@ -209,7 +237,11 @@ func TestDockerEngine_Run_Arguments(t *testing.T) {
 	})
 
 	t.Run("with environment variables", func(t *testing.T) {
-		recorder.Reset()
+		t.Parallel()
+		recorder := NewMockCommandRecorder()
+		engine := newTestDockerEngine(t, recorder)
+		ctx := context.Background()
+
 		opts := RunOptions{
 			Image:   "debian:stable-slim",
 			Command: []string{"env"},
@@ -235,7 +267,11 @@ func TestDockerEngine_Run_Arguments(t *testing.T) {
 	})
 
 	t.Run("with volumes", func(t *testing.T) {
-		recorder.Reset()
+		t.Parallel()
+		recorder := NewMockCommandRecorder()
+		engine := newTestDockerEngine(t, recorder)
+		ctx := context.Background()
+
 		opts := RunOptions{
 			Image:   "debian:stable-slim",
 			Command: []string{"ls"},
@@ -253,7 +289,11 @@ func TestDockerEngine_Run_Arguments(t *testing.T) {
 	})
 
 	t.Run("with ports", func(t *testing.T) {
-		recorder.Reset()
+		t.Parallel()
+		recorder := NewMockCommandRecorder()
+		engine := newTestDockerEngine(t, recorder)
+		ctx := context.Background()
+
 		opts := RunOptions{
 			Image:   "debian:stable-slim",
 			Command: []string{"true"},
@@ -271,7 +311,11 @@ func TestDockerEngine_Run_Arguments(t *testing.T) {
 	})
 
 	t.Run("with extra hosts", func(t *testing.T) {
-		recorder.Reset()
+		t.Parallel()
+		recorder := NewMockCommandRecorder()
+		engine := newTestDockerEngine(t, recorder)
+		ctx := context.Background()
+
 		opts := RunOptions{
 			Image:      "debian:stable-slim",
 			Command:    []string{"true"},
@@ -288,7 +332,11 @@ func TestDockerEngine_Run_Arguments(t *testing.T) {
 	})
 
 	t.Run("full options", func(t *testing.T) {
-		recorder.Reset()
+		t.Parallel()
+		recorder := NewMockCommandRecorder()
+		engine := newTestDockerEngine(t, recorder)
+		ctx := context.Background()
+
 		opts := RunOptions{
 			Image:       "debian:stable-slim",
 			Command:     []string{"./script.sh", "arg1", "arg2"},
@@ -320,14 +368,13 @@ func TestDockerEngine_Run_Arguments(t *testing.T) {
 
 // TestDockerEngine_ImageExists_Arguments verifies ImageExists() constructs correct arguments.
 func TestDockerEngine_ImageExists_Arguments(t *testing.T) {
-	recorder, cleanup := withMockExecCommand(t)
-	defer cleanup()
-
-	engine := newTestDockerEngine(t, recorder)
-	ctx := context.Background()
+	t.Parallel()
 
 	t.Run("image exists check", func(t *testing.T) {
-		recorder.Reset()
+		t.Parallel()
+		recorder := NewMockCommandRecorder()
+		engine := newTestDockerEngine(t, recorder)
+		ctx := context.Background()
 
 		exists, err := engine.ImageExists(ctx, "myimage:latest")
 		if err != nil {
@@ -345,7 +392,10 @@ func TestDockerEngine_ImageExists_Arguments(t *testing.T) {
 	})
 
 	t.Run("image with registry", func(t *testing.T) {
-		recorder.Reset()
+		t.Parallel()
+		recorder := NewMockCommandRecorder()
+		engine := newTestDockerEngine(t, recorder)
+		ctx := context.Background()
 
 		_, err := engine.ImageExists(ctx, "ghcr.io/invowk/invowk:v1.0.0")
 		if err != nil {
@@ -358,11 +408,16 @@ func TestDockerEngine_ImageExists_Arguments(t *testing.T) {
 
 // TestDockerEngine_ErrorPaths verifies error handling (T072).
 func TestDockerEngine_ErrorPaths(t *testing.T) {
+	t.Parallel()
+
 	ctx := context.Background()
 
 	t.Run("build failure", func(t *testing.T) {
-		recorder, cleanup := withMockExecCommandOutput(t, "", "Error: build failed", 1)
-		defer cleanup()
+		t.Parallel()
+
+		recorder := NewMockCommandRecorder()
+		recorder.Stderr = "Error: build failed"
+		recorder.ExitCode = 1
 		engine := newTestDockerEngine(t, recorder)
 
 		opts := BuildOptions{
@@ -381,8 +436,11 @@ func TestDockerEngine_ErrorPaths(t *testing.T) {
 	})
 
 	t.Run("image not found", func(t *testing.T) {
-		recorder, cleanup := withMockExecCommandOutput(t, "", "Error: No such image", 1)
-		defer cleanup()
+		t.Parallel()
+
+		recorder := NewMockCommandRecorder()
+		recorder.Stderr = "Error: No such image"
+		recorder.ExitCode = 1
 		engine := newTestDockerEngine(t, recorder)
 
 		exists, err := engine.ImageExists(ctx, "nonexistent:latest")
@@ -396,8 +454,11 @@ func TestDockerEngine_ErrorPaths(t *testing.T) {
 	})
 
 	t.Run("run with exit code", func(t *testing.T) {
-		recorder, cleanup := withMockExecCommandOutput(t, "", "command failed", 42)
-		defer cleanup()
+		t.Parallel()
+
+		recorder := NewMockCommandRecorder()
+		recorder.Stderr = "command failed"
+		recorder.ExitCode = 42
 		engine := newTestDockerEngine(t, recorder)
 
 		opts := RunOptions{
@@ -416,8 +477,11 @@ func TestDockerEngine_ErrorPaths(t *testing.T) {
 	})
 
 	t.Run("remove failure", func(t *testing.T) {
-		recorder, cleanup := withMockExecCommandOutput(t, "", "Error: No such container", 1)
-		defer cleanup()
+		t.Parallel()
+
+		recorder := NewMockCommandRecorder()
+		recorder.Stderr = "Error: No such container"
+		recorder.ExitCode = 1
 		engine := newTestDockerEngine(t, recorder)
 
 		err := engine.Remove(ctx, "nonexistent-container", false)
@@ -430,8 +494,11 @@ func TestDockerEngine_ErrorPaths(t *testing.T) {
 	})
 
 	t.Run("remove image failure", func(t *testing.T) {
-		recorder, cleanup := withMockExecCommandOutput(t, "", "Error: image is being used", 1)
-		defer cleanup()
+		t.Parallel()
+
+		recorder := NewMockCommandRecorder()
+		recorder.Stderr = "Error: image is being used"
+		recorder.ExitCode = 1
 		engine := newTestDockerEngine(t, recorder)
 
 		err := engine.RemoveImage(ctx, "image-in-use:latest", false)
@@ -444,8 +511,11 @@ func TestDockerEngine_ErrorPaths(t *testing.T) {
 	})
 
 	t.Run("version failure", func(t *testing.T) {
-		recorder, cleanup := withMockExecCommandOutput(t, "", "Cannot connect to Docker daemon", 1)
-		defer cleanup()
+		t.Parallel()
+
+		recorder := NewMockCommandRecorder()
+		recorder.Stderr = "Cannot connect to Docker daemon"
+		recorder.ExitCode = 1
 		engine := newTestDockerEngine(t, recorder)
 
 		_, err := engine.Version(ctx)
@@ -458,8 +528,11 @@ func TestDockerEngine_ErrorPaths(t *testing.T) {
 	})
 
 	t.Run("exec failure", func(t *testing.T) {
-		recorder, cleanup := withMockExecCommandOutput(t, "", "Error: container is not running", 1)
-		defer cleanup()
+		t.Parallel()
+
+		recorder := NewMockCommandRecorder()
+		recorder.Stderr = "Error: container is not running"
+		recorder.ExitCode = 1
 		engine := newTestDockerEngine(t, recorder)
 
 		result, err := engine.Exec(ctx, "stopped-container", []string{"ls"}, RunOptions{})
@@ -475,14 +548,13 @@ func TestDockerEngine_ErrorPaths(t *testing.T) {
 
 // TestDockerEngine_Remove_Arguments verifies Remove() constructs correct arguments.
 func TestDockerEngine_Remove_Arguments(t *testing.T) {
-	recorder, cleanup := withMockExecCommand(t)
-	defer cleanup()
-
-	engine := newTestDockerEngine(t, recorder)
-	ctx := context.Background()
+	t.Parallel()
 
 	t.Run("basic remove", func(t *testing.T) {
-		recorder.Reset()
+		t.Parallel()
+		recorder := NewMockCommandRecorder()
+		engine := newTestDockerEngine(t, recorder)
+		ctx := context.Background()
 
 		err := engine.Remove(ctx, "container123", false)
 		if err != nil {
@@ -496,7 +568,10 @@ func TestDockerEngine_Remove_Arguments(t *testing.T) {
 	})
 
 	t.Run("force remove", func(t *testing.T) {
-		recorder.Reset()
+		t.Parallel()
+		recorder := NewMockCommandRecorder()
+		engine := newTestDockerEngine(t, recorder)
+		ctx := context.Background()
 
 		err := engine.Remove(ctx, "container123", true)
 		if err != nil {
@@ -510,14 +585,13 @@ func TestDockerEngine_Remove_Arguments(t *testing.T) {
 
 // TestDockerEngine_RemoveImage_Arguments verifies RemoveImage() constructs correct arguments.
 func TestDockerEngine_RemoveImage_Arguments(t *testing.T) {
-	recorder, cleanup := withMockExecCommand(t)
-	defer cleanup()
-
-	engine := newTestDockerEngine(t, recorder)
-	ctx := context.Background()
+	t.Parallel()
 
 	t.Run("basic remove image", func(t *testing.T) {
-		recorder.Reset()
+		t.Parallel()
+		recorder := NewMockCommandRecorder()
+		engine := newTestDockerEngine(t, recorder)
+		ctx := context.Background()
 
 		err := engine.RemoveImage(ctx, "myimage:latest", false)
 		if err != nil {
@@ -531,7 +605,10 @@ func TestDockerEngine_RemoveImage_Arguments(t *testing.T) {
 	})
 
 	t.Run("force remove image", func(t *testing.T) {
-		recorder.Reset()
+		t.Parallel()
+		recorder := NewMockCommandRecorder()
+		engine := newTestDockerEngine(t, recorder)
+		ctx := context.Background()
 
 		err := engine.RemoveImage(ctx, "myimage:latest", true)
 		if err != nil {
@@ -544,9 +621,10 @@ func TestDockerEngine_RemoveImage_Arguments(t *testing.T) {
 
 // TestDockerEngine_Version_Arguments verifies Version() constructs correct arguments.
 func TestDockerEngine_Version_Arguments(t *testing.T) {
-	recorder, cleanup := withMockExecCommandOutput(t, "24.0.7", "", 0)
-	defer cleanup()
+	t.Parallel()
 
+	recorder := NewMockCommandRecorder()
+	recorder.Stdout = "24.0.7"
 	engine := newTestDockerEngine(t, recorder)
 	ctx := context.Background()
 
@@ -566,9 +644,9 @@ func TestDockerEngine_Version_Arguments(t *testing.T) {
 
 // TestDockerEngine_Exec_Arguments verifies Exec() constructs correct arguments.
 func TestDockerEngine_Exec_Arguments(t *testing.T) {
-	recorder, cleanup := withMockExecCommand(t)
-	defer cleanup()
+	t.Parallel()
 
+	recorder := NewMockCommandRecorder()
 	engine := newTestDockerEngine(t, recorder)
 	ctx := context.Background()
 
@@ -637,9 +715,12 @@ func TestDockerEngine_Exec_Arguments(t *testing.T) {
 	})
 
 	t.Run("exit code capture", func(t *testing.T) {
+		t.Parallel()
+
 		// Use a fresh recorder with non-zero exit code
-		recorderWithExit, cleanupExit := withMockExecCommandOutput(t, "", "command failed", 42)
-		defer cleanupExit()
+		recorderWithExit := NewMockCommandRecorder()
+		recorderWithExit.Stderr = "command failed"
+		recorderWithExit.ExitCode = 42
 		engineWithExit := newTestDockerEngine(t, recorderWithExit)
 
 		result, err := engineWithExit.Exec(ctx, "failing-container", []string{"false"}, RunOptions{})
@@ -655,11 +736,15 @@ func TestDockerEngine_Exec_Arguments(t *testing.T) {
 
 // TestDockerEngine_InspectImage_Arguments verifies InspectImage() constructs correct arguments.
 func TestDockerEngine_InspectImage_Arguments(t *testing.T) {
+	t.Parallel()
+
 	ctx := context.Background()
 
 	t.Run("basic inspect", func(t *testing.T) {
-		recorder, cleanup := withMockExecCommandOutput(t, `{"Id": "sha256:abc123"}`, "", 0)
-		defer cleanup()
+		t.Parallel()
+
+		recorder := NewMockCommandRecorder()
+		recorder.Stdout = `{"Id": "sha256:abc123"}`
 		engine := newTestDockerEngine(t, recorder)
 
 		output, err := engine.InspectImage(ctx, "debian:stable-slim")
@@ -678,8 +763,9 @@ func TestDockerEngine_InspectImage_Arguments(t *testing.T) {
 	})
 
 	t.Run("with registry", func(t *testing.T) {
-		recorder, cleanup := withMockExecCommand(t)
-		defer cleanup()
+		t.Parallel()
+
+		recorder := NewMockCommandRecorder()
 		engine := newTestDockerEngine(t, recorder)
 
 		_, err := engine.InspectImage(ctx, "ghcr.io/invowk/invowk:v1.0.0")
@@ -691,8 +777,11 @@ func TestDockerEngine_InspectImage_Arguments(t *testing.T) {
 	})
 
 	t.Run("image not found error", func(t *testing.T) {
-		recorder, cleanup := withMockExecCommandOutput(t, "", "Error: No such image", 1)
-		defer cleanup()
+		t.Parallel()
+
+		recorder := NewMockCommandRecorder()
+		recorder.Stderr = "Error: No such image"
+		recorder.ExitCode = 1
 		engine := newTestDockerEngine(t, recorder)
 
 		_, err := engine.InspectImage(ctx, "nonexistent:latest")

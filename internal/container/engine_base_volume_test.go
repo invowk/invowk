@@ -10,6 +10,7 @@ import (
 )
 
 func TestResolveDockerfilePath(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name           string
 		contextPath    string
@@ -67,6 +68,7 @@ func TestResolveDockerfilePath(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			if tt.skipOnWindows && runtime.GOOS == "windows" {
 				t.Skip("skipping: Unix-style absolute paths are not meaningful on Windows")
 			}
@@ -83,6 +85,7 @@ func TestResolveDockerfilePath(t *testing.T) {
 }
 
 func TestFormatVolumeMount(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name     string
 		mount    VolumeMount
@@ -137,6 +140,7 @@ func TestFormatVolumeMount(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			got := FormatVolumeMount(tt.mount)
 			if got != tt.expected {
 				t.Errorf("FormatVolumeMount() = %q, want %q", got, tt.expected)
@@ -146,6 +150,7 @@ func TestFormatVolumeMount(t *testing.T) {
 }
 
 func TestParseVolumeMount(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name     string
 		volume   string
@@ -198,6 +203,7 @@ func TestParseVolumeMount(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			got := ParseVolumeMount(tt.volume)
 			if got.HostPath != tt.expected.HostPath {
 				t.Errorf("HostPath = %q, want %q", got.HostPath, tt.expected.HostPath)
@@ -216,6 +222,7 @@ func TestParseVolumeMount(t *testing.T) {
 }
 
 func TestFormatPortMapping(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name     string
 		mapping  PortMapping
@@ -259,6 +266,7 @@ func TestFormatPortMapping(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			got := FormatPortMapping(tt.mapping)
 			if got != tt.expected {
 				t.Errorf("FormatPortMapping() = %q, want %q", got, tt.expected)
@@ -269,6 +277,7 @@ func TestFormatPortMapping(t *testing.T) {
 
 // TestResolveDockerfilePath_EdgeCases tests edge cases in Dockerfile path resolution.
 func TestResolveDockerfilePath_EdgeCases(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name           string
 		contextPath    string
@@ -330,6 +339,7 @@ func TestResolveDockerfilePath_EdgeCases(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			if tt.skipOnWindows && runtime.GOOS == "windows" {
 				t.Skip("skipping: Unix-style paths are not meaningful on Windows")
 			}
@@ -347,6 +357,7 @@ func TestResolveDockerfilePath_EdgeCases(t *testing.T) {
 
 // TestParseVolumeMount_EdgeCases tests edge cases in volume mount parsing.
 func TestParseVolumeMount_EdgeCases(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name     string
 		volume   string
@@ -421,6 +432,7 @@ func TestParseVolumeMount_EdgeCases(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			got := ParseVolumeMount(tt.volume)
 			if got.HostPath != tt.expected.HostPath {
 				t.Errorf("HostPath = %q, want %q", got.HostPath, tt.expected.HostPath)
@@ -440,6 +452,7 @@ func TestParseVolumeMount_EdgeCases(t *testing.T) {
 
 // Integration test with real path (skipped if not on Unix)
 func TestResolveDockerfilePath_RealPaths(t *testing.T) {
+	t.Parallel()
 	if os.PathSeparator != '/' {
 		t.Skip("skipping Unix-specific path test on non-Unix platform")
 	}

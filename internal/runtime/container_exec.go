@@ -4,14 +4,31 @@ package runtime
 
 import (
 	"bytes"
+	"context"
+	"errors"
 	"fmt"
+	"io"
+	"log/slog"
 	"os"
 	"path/filepath"
+	"sync"
+	"time"
 
 	"invowk-cli/internal/container"
 	"invowk-cli/internal/sshserver"
 	"invowk-cli/pkg/invkfile"
 )
+
+// containerRunMu is a fallback mutex used when flock-based cross-process
+// serialization is unavailable. This includes non-Linux platforms
+// (macOS/Windows Podman runs in a VM) and Linux when the lock file cannot
+// be acquired (broken XDG_RUNTIME_DIR, /tmp permissions, fd exhaustion).
+// On Linux, acquireRunLock() provides flock-based serialization instead.
+//
+// When the sysctl override IS active (local Podman on Linux), neither the flock
+// nor this mutex is acquired — the override eliminates the race at source.
+// Docker never acquires either lock (it doesn't implement SysctlOverrideChecker).
+var containerRunMu sync.Mutex
 
 // containerExecPrep holds all prepared data needed to run a container command.
 // This struct is returned by prepareContainerExecution and used by both
@@ -170,6 +187,126 @@ func (r *ContainerRuntime) prepareContainerExecution(ctx *ExecutionContext) (_ *
 	}, nil
 }
 
+// runWithRetry wraps engine.Run with retry logic for transient container engine
+// errors (rootless Podman ping_group_range race, exit code 125, overlay mount
+// races). This mirrors the ensureImage() retry pattern for build operations.
+// The caller's context deadline naturally bounds total retry time.
+//
+// engine.Run() absorbs exec.ExitError into result.ExitCode and returns nil for
+// the error return. This means transient OCI failures (e.g., crun ping_group_range
+// race returning exit code 126) appear as result.ExitCode != 0 with err == nil.
+// The retry logic checks both the error return AND the result exit code.
+//
+// Stderr is buffered per-attempt so that transient error messages from the
+// container engine (e.g., crun writing to the inherited stderr fd before the Go
+// process can decide to retry) never leak to the user's terminal. On success or
+// non-transient failure the buffer is flushed to the caller's original stderr.
+func (r *ContainerRuntime) runWithRetry(ctx context.Context, runOpts container.RunOptions) (*container.RunResult, error) {
+	// The ping_group_range race only affects rootless Podman. Serialize runs when
+	// the engine implements SysctlOverrideChecker but the override isn't active
+	// (podman-remote, non-Linux, temp file failure). Engines that don't implement the
+	// checker (Docker) don't suffer from this race and skip serialization entirely.
+	//
+	// On Linux, acquireRunLock() provides cross-process serialization via flock so
+	// that concurrent invowk processes (testscript, parallel terminal invocations)
+	// don't race. On non-Linux, flock is unavailable and we fall back to sync.Mutex
+	// for intra-process protection only.
+	if checker, ok := r.engine.(container.SysctlOverrideChecker); ok && !checker.SysctlOverrideActive() {
+		lock, lockErr := acquireRunLock()
+		if lockErr != nil {
+			if errors.Is(lockErr, errFlockUnavailable) {
+				slog.Debug("flock unavailable, falling back to in-process mutex", "error", lockErr)
+			} else {
+				slog.Warn("flock acquisition failed, falling back to in-process mutex", "error", lockErr)
+			}
+			containerRunMu.Lock()
+			defer containerRunMu.Unlock()
+		} else {
+			defer lock.Release()
+		}
+	}
+
+	// Buffer stderr per-attempt so transient error messages from the container
+	// engine (written directly to the inherited fd by crun/runc) don't leak to
+	// the user's terminal when the retry succeeds.
+	originalStderr := runOpts.Stderr
+
+	var lastErr error
+	var lastResult *container.RunResult
+	var lastStderrBuf *bytes.Buffer
+	for attempt := range maxRunRetries {
+		if attempt > 0 {
+			if err := ctx.Err(); err != nil {
+				return nil, fmt.Errorf("context cancelled during run retry: %w", err)
+			}
+			time.Sleep(baseRunBackoff * time.Duration(1<<(attempt-1)))
+		}
+
+		var stderrBuf bytes.Buffer
+		runOpts.Stderr = &stderrBuf
+
+		result, err := r.engine.Run(ctx, runOpts)
+		if err != nil {
+			if !container.IsTransientError(err) {
+				flushStderr(originalStderr, &stderrBuf)
+				return nil, err
+			}
+			slog.Debug("transient container error, retrying",
+				"attempt", attempt+1, "maxRetries", maxRunRetries, "error", err)
+			lastErr = err
+			lastStderrBuf = &stderrBuf
+			continue
+		}
+
+		// engine.Run() returns exit-code failures in result rather than err.
+		// Check for transient engine exit codes (125 = generic engine error,
+		// 126 = OCI runtime failure e.g., crun ping_group_range race).
+		if result.ExitCode == 0 || !isTransientExitCode(result.ExitCode) {
+			flushStderr(originalStderr, &stderrBuf)
+			return result, nil
+		}
+
+		slog.Debug("transient container exit code, retrying",
+			"attempt", attempt+1, "maxRetries", maxRunRetries, "exitCode", result.ExitCode)
+		lastResult = result
+		lastStderrBuf = &stderrBuf
+	}
+
+	// Flush stderr from the final attempt so the user gets diagnostic output
+	// even after all retries are exhausted.
+	if lastStderrBuf != nil {
+		flushStderr(originalStderr, lastStderrBuf)
+	}
+
+	if lastErr != nil {
+		return nil, lastErr
+	}
+	return lastResult, nil
+}
+
+// flushStderr writes buffered stderr content to the original writer.
+// If originalStderr is nil (e.g., caller didn't provide stderr), the buffer
+// is silently discarded. Write failures are non-fatal (stderr may be a closed
+// pipe or remote connection) and logged at debug level.
+func flushStderr(dst io.Writer, src *bytes.Buffer) {
+	if dst == nil || src.Len() == 0 {
+		return
+	}
+	if _, err := io.Copy(dst, src); err != nil {
+		slog.Debug("failed to flush stderr buffer", "error", err)
+	}
+}
+
+// isTransientExitCode reports whether a container exit code indicates a transient
+// engine error that may succeed on retry. These codes come from the container
+// engine (Docker/Podman), not from the user's command inside the container.
+//
+//   - 125: Generic container engine error (Docker/Podman convention for internal failures)
+//   - 126: OCI runtime error (e.g., crun ping_group_range race on rootless Podman)
+func isTransientExitCode(code int) bool {
+	return code == 125 || code == 126
+}
+
 // Execute runs a command in a container
 func (r *ContainerRuntime) Execute(ctx *ExecutionContext) *Result {
 	prep, errResult := r.prepareContainerExecution(ctx)
@@ -194,7 +331,7 @@ func (r *ContainerRuntime) Execute(ctx *ExecutionContext) *Result {
 		ExtraHosts:  prep.extraHosts,
 	}
 
-	result, err := r.engine.Run(ctx.Context, runOpts)
+	result, err := r.runWithRetry(ctx.Context, runOpts)
 	if err != nil {
 		return &Result{ExitCode: 1, Error: fmt.Errorf("failed to run container: %w", err)}
 	}
@@ -234,7 +371,7 @@ func (r *ContainerRuntime) ExecuteCapture(ctx *ExecutionContext) *Result {
 		ExtraHosts:  prep.extraHosts,
 	}
 
-	result, err := r.engine.Run(ctx.Context, runOpts)
+	result, err := r.runWithRetry(ctx.Context, runOpts)
 	if err != nil {
 		return &Result{
 			ExitCode:  1,

@@ -101,32 +101,40 @@ func TestChooseModel_Navigation(t *testing.T) {
 
 Container runtime code (Docker/Podman) should have both unit tests and integration tests:
 
-1. **Unit tests**: Mock `exec.Command` to verify argument construction without running containers
+1. **Unit tests**: Use per-test `MockCommandRecorder` instances injected via `WithExecCommand()` — never use package-level global mutation
 2. **Integration tests**: Gate with `testing.Short()` and require actual container engine
+3. **All container tests run in parallel** with `t.Parallel()` — transient Podman errors are handled by production `runWithRetry()` retry logic
 
 ```go
-// Unit test with mocked exec
+// Unit test with per-test mock recorder (parallel-safe)
 func TestDockerBuild_Arguments(t *testing.T) {
-    execCmd = mockExecCommand  // Inject mock
-    defer func() { execCmd = exec.Command }()
+    t.Parallel()
 
-    engine := &DockerEngine{}
-    engine.Build(ctx, opts)
+    t.Run("basic build", func(t *testing.T) {
+        t.Parallel()
+        recorder := NewMockCommandRecorder()
+        engine := newTestDockerEngine(t, recorder) // Injects mock via WithExecCommand()
 
-    // Verify expected arguments were passed
-    if !contains(capturedArgs, "--no-cache") {
-        t.Error("expected --no-cache flag")
-    }
+        engine.Build(ctx, opts)
+
+        // Verify expected arguments were passed
+        if !contains(recorder.LastArgs, "--no-cache") {
+            t.Error("expected --no-cache flag")
+        }
+    })
 }
 
 // Integration test with real container engine
 func TestDockerBuild_Integration(t *testing.T) {
+    t.Parallel()
     if testing.Short() {
         t.Skip("skipping integration test in short mode")
     }
     // ... test with real Docker ...
 }
 ```
+
+**Important**: Never share a `MockCommandRecorder` across parallel subtests with `Reset()`. Each parallel subtest must create its own recorder and engine instance.
 
 ### Container Runtime Test Conditions
 

@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -38,10 +39,40 @@ type (
 	// BaseCLIEngine provides common implementation for CLI-based container engines.
 	// Docker and Podman engines embed this struct.
 	BaseCLIEngine struct {
-		binaryPath         string
-		execCommand        ExecCommandFunc
-		volumeFormatter    VolumeFormatFunc
-		runArgsTransformer RunArgsTransformer
+		binaryPath           string
+		execCommand          ExecCommandFunc
+		volumeFormatter      VolumeFormatFunc
+		runArgsTransformer   RunArgsTransformer
+		cmdEnvOverrides      map[string]string // Per-command env var overrides (e.g., CONTAINERS_CONF_OVERRIDE)
+		sysctlOverridePath   string            // Temp file path for sysctl override (removed on Close)
+		sysctlOverrideActive bool              // Whether the temp file sysctl override is in effect
+	}
+
+	// CmdCustomizer is implemented by engines that inject per-command overrides
+	// (environment variables). Used by the runtime package to propagate overrides
+	// to commands created outside the engine (e.g., interactive mode PTY commands).
+	CmdCustomizer interface {
+		CustomizeCmd(cmd *exec.Cmd)
+	}
+
+	// SysctlOverrideChecker is implemented by engines that may use a temp-file-based
+	// CONTAINERS_CONF_OVERRIDE to prevent the rootless Podman ping_group_range race.
+	// The runtime package uses this to decide whether run-level serialization (flock
+	// or mutex fallback) is needed: if the override is active, the race is eliminated
+	// at source and no serialization is needed; otherwise, runs must be serialized.
+	//
+	// Only PodmanEngine implements this interface. DockerEngine does not (Docker is
+	// not susceptible to the ping_group_range race). SandboxAwareEngine forwards
+	// to the wrapped engine.
+	SysctlOverrideChecker interface {
+		SysctlOverrideActive() bool
+	}
+
+	// EngineCloser is implemented by engines that hold resources requiring cleanup
+	// (e.g., sysctl override temp files). Engines that don't hold resources
+	// (e.g., DockerEngine) don't implement this interface.
+	EngineCloser interface {
+		Close() error
 	}
 
 	// VolumeMount represents a volume mount specification.
@@ -82,6 +113,34 @@ func WithVolumeFormatter(fn VolumeFormatFunc) BaseCLIEngineOption {
 func WithRunArgsTransformer(fn RunArgsTransformer) BaseCLIEngineOption {
 	return func(e *BaseCLIEngine) {
 		e.runArgsTransformer = fn
+	}
+}
+
+// WithCmdEnvOverride adds an environment variable override applied to every
+// exec.Cmd created by this engine. Used by Podman to inject CONTAINERS_CONF_OVERRIDE.
+func WithCmdEnvOverride(key, value string) BaseCLIEngineOption {
+	return func(e *BaseCLIEngine) {
+		if e.cmdEnvOverrides == nil {
+			e.cmdEnvOverrides = make(map[string]string)
+		}
+		e.cmdEnvOverrides[key] = value
+	}
+}
+
+// WithSysctlOverridePath records the temp file path for the sysctl override.
+// The path is cleaned up when Close() is called on the engine.
+func WithSysctlOverridePath(path string) BaseCLIEngineOption {
+	return func(e *BaseCLIEngine) {
+		e.sysctlOverridePath = path
+	}
+}
+
+// WithSysctlOverrideActive marks the engine as having an active temp-file-based
+// sysctl override. When true, the runtime layer skips run-level serialization
+// because the override eliminates the ping_group_range race at source.
+func WithSysctlOverrideActive(active bool) BaseCLIEngineOption {
+	return func(e *BaseCLIEngine) {
+		e.sysctlOverrideActive = active
 	}
 }
 
@@ -249,7 +308,7 @@ func (e *BaseCLIEngine) RemoveImageArgs(image string, force bool) []string {
 // RunCommand executes a command and returns its output.
 // This is the low-level execution method used by concrete engines.
 func (e *BaseCLIEngine) RunCommand(ctx context.Context, args ...string) ([]byte, error) {
-	cmd := e.execCommand(ctx, e.binaryPath, args...)
+	cmd := e.CreateCommand(ctx, args...)
 	out, err := cmd.Output()
 	if err != nil {
 		return nil, fmt.Errorf("command %s %v failed: %w", e.binaryPath, args, err)
@@ -259,7 +318,7 @@ func (e *BaseCLIEngine) RunCommand(ctx context.Context, args ...string) ([]byte,
 
 // RunCommandCombined executes a command and returns combined stdout/stderr.
 func (e *BaseCLIEngine) RunCommandCombined(ctx context.Context, args ...string) ([]byte, error) {
-	cmd := e.execCommand(ctx, e.binaryPath, args...)
+	cmd := e.CreateCommand(ctx, args...)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return out, fmt.Errorf("command %s %v failed: %w", e.binaryPath, args, err)
@@ -269,7 +328,7 @@ func (e *BaseCLIEngine) RunCommandCombined(ctx context.Context, args ...string) 
 
 // RunCommandStatus executes a command and returns only the error status.
 func (e *BaseCLIEngine) RunCommandStatus(ctx context.Context, args ...string) error {
-	cmd := e.execCommand(ctx, e.binaryPath, args...)
+	cmd := e.CreateCommand(ctx, args...)
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("command %s %v failed: %w", e.binaryPath, args, err)
 	}
@@ -278,7 +337,7 @@ func (e *BaseCLIEngine) RunCommandStatus(ctx context.Context, args ...string) er
 
 // RunCommandWithOutput executes a command with stdout captured to a buffer.
 func (e *BaseCLIEngine) RunCommandWithOutput(ctx context.Context, args ...string) (string, error) {
-	cmd := e.execCommand(ctx, e.binaryPath, args...)
+	cmd := e.CreateCommand(ctx, args...)
 	var out bytes.Buffer
 	cmd.Stdout = &out
 
@@ -291,8 +350,44 @@ func (e *BaseCLIEngine) RunCommandWithOutput(ctx context.Context, args ...string
 
 // CreateCommand creates an exec.Cmd for the given arguments.
 // This is useful when the caller needs to customize stdin/stdout/stderr.
+// Engine-level overrides (env vars, extra files) are applied automatically.
 func (e *BaseCLIEngine) CreateCommand(ctx context.Context, args ...string) *exec.Cmd {
-	return e.execCommand(ctx, e.binaryPath, args...)
+	cmd := e.execCommand(ctx, e.binaryPath, args...)
+	e.customizeCmd(cmd)
+	return cmd
+}
+
+// CustomizeCmd applies engine-level overrides (env vars) to a command.
+// This is the public interface for external callers (runtime package, sandbox wrapper)
+// that create exec.Cmd instances outside of CreateCommand.
+func (e *BaseCLIEngine) CustomizeCmd(cmd *exec.Cmd) {
+	e.customizeCmd(cmd)
+}
+
+// Close removes temporary resources associated with this engine (e.g., the
+// sysctl override temp file). It is safe to call multiple times.
+func (e *BaseCLIEngine) Close() error {
+	if e.sysctlOverridePath != "" {
+		err := os.Remove(e.sysctlOverridePath)
+		e.sysctlOverridePath = ""
+		if err != nil && !os.IsNotExist(err) {
+			return fmt.Errorf("remove sysctl override file: %w", err)
+		}
+	}
+	return nil
+}
+
+// customizeCmd applies env overrides to a command.
+func (e *BaseCLIEngine) customizeCmd(cmd *exec.Cmd) {
+	if len(e.cmdEnvOverrides) > 0 {
+		// Start with the parent process environment, then overlay overrides.
+		// exec.Cmd.Env being nil means "inherit everything", but once set to
+		// a non-nil slice, only the listed vars are passed to the child.
+		cmd.Env = os.Environ()
+		for k, v := range e.cmdEnvOverrides {
+			cmd.Env = append(cmd.Env, k+"="+v)
+		}
+	}
 }
 
 // --- Dockerfile Resolution ---

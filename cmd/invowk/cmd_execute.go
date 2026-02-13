@@ -370,7 +370,8 @@ func (s *commandService) projectEnvVars(req ExecuteRequest, defs resolvedDefinit
 // interactive mode (alternate screen + TUI server) or standard execution. It handles
 // result rendering for errors and non-zero exit codes.
 func (s *commandService) dispatchExecution(req ExecuteRequest, execCtx *runtime.ExecutionContext, cmdInfo *discovery.CommandInfo, cfg *config.Config, diags []discovery.Diagnostic) (ExecuteResult, []discovery.Diagnostic, error) {
-	registry := createRuntimeRegistry(cfg, s.ssh.current())
+	registry, registryCleanup := createRuntimeRegistry(cfg, s.ssh.current())
+	defer registryCleanup()
 
 	// Dependency validation needs the registry to check runtime-aware dependencies.
 	if err := s.validateAndRenderDeps(cfg, cmdInfo, execCtx, registry); err != nil {

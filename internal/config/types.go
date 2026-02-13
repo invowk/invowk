@@ -54,6 +54,10 @@ type (
 	AutoProvisionConfig struct {
 		// Enabled enables/disables auto-provisioning (default: true)
 		Enabled bool `json:"enabled" mapstructure:"enabled"`
+		// Strict makes provisioning failure a hard error instead of falling back
+		// to the unprovisioned base image. When false (default), provisioning
+		// failure logs a warning and continues with the base image.
+		Strict bool `json:"strict" mapstructure:"strict"`
 		// BinaryPath overrides the path to the invowk binary to provision
 		BinaryPath string `json:"binary_path" mapstructure:"binary_path"`
 		// Includes specifies modules to provision into containers.
@@ -104,6 +108,7 @@ func DefaultConfig() *Config {
 		Container: ContainerConfig{
 			AutoProvision: AutoProvisionConfig{
 				Enabled:         true,
+				Strict:          false,
 				BinaryPath:      "", // Will use os.Executable() if empty
 				Includes:        []IncludeEntry{},
 				InheritIncludes: true,

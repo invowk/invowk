@@ -45,13 +45,16 @@ func NewPodmanEngine(opts ...BaseCLIEngineOption) *PodmanEngine {
 	// Use the default SELinux check unless overridden by options
 	selinuxLabelAdder := makeSELinuxLabelAdder(isSELinuxPresent)
 	usernsKeepIDAdder := makeUsernsKeepIDAdder()
-	allOpts := append(
-		[]BaseCLIEngineOption{
-			WithVolumeFormatter(selinuxLabelAdder),
-			WithRunArgsTransformer(usernsKeepIDAdder),
-		},
-		opts...,
-	)
+	allOpts := []BaseCLIEngineOption{
+		WithVolumeFormatter(selinuxLabelAdder),
+		WithRunArgsTransformer(usernsKeepIDAdder),
+	}
+	// Disable default_sysctls to prevent the ping_group_range race in rootless
+	// Podman. On Linux with local Podman, uses CONTAINERS_CONF_OVERRIDE delivered
+	// via a temp file. Skipped for podman-remote (env var doesn't reach the service)
+	// and non-Linux platforms (Podman runs in a VM).
+	allOpts = append(allOpts, sysctlOverrideOpts(path)...)
+	allOpts = append(allOpts, opts...)
 
 	return &PodmanEngine{
 		BaseCLIEngine: NewBaseCLIEngine(path, allOpts...),
@@ -67,13 +70,12 @@ func NewPodmanEngineWithSELinuxCheck(selinuxCheck SELinuxCheckFunc, opts ...Base
 	// Use the provided SELinux check function
 	selinuxLabelAdder := makeSELinuxLabelAdder(selinuxCheck)
 	usernsKeepIDAdder := makeUsernsKeepIDAdder()
-	allOpts := append(
-		[]BaseCLIEngineOption{
-			WithVolumeFormatter(selinuxLabelAdder),
-			WithRunArgsTransformer(usernsKeepIDAdder),
-		},
-		opts...,
-	)
+	allOpts := []BaseCLIEngineOption{
+		WithVolumeFormatter(selinuxLabelAdder),
+		WithRunArgsTransformer(usernsKeepIDAdder),
+	}
+	allOpts = append(allOpts, sysctlOverrideOpts(path)...)
+	allOpts = append(allOpts, opts...)
 
 	return &PodmanEngine{
 		BaseCLIEngine: NewBaseCLIEngine(path, allOpts...),
@@ -188,6 +190,22 @@ func (e *PodmanEngine) Exec(ctx context.Context, containerID string, command []s
 // InspectImage returns information about an image.
 func (e *PodmanEngine) InspectImage(ctx context.Context, image string) (string, error) {
 	return e.RunCommandWithOutput(ctx, "image", "inspect", image)
+}
+
+// Close releases resources associated with this engine (e.g., the sysctl
+// override temp file created on Linux). Safe to call multiple times.
+func (e *PodmanEngine) Close() error {
+	return e.BaseCLIEngine.Close()
+}
+
+// SysctlOverrideActive reports whether the temp-file-based CONTAINERS_CONF_OVERRIDE
+// is in effect for this engine. When true, the ping_group_range race is eliminated
+// at source and run-level serialization is unnecessary.
+//
+// Returns false when: podman-remote is in use (env var doesn't reach the service),
+// temp file creation failed, or on non-Linux platforms (Podman runs in a VM).
+func (e *PodmanEngine) SysctlOverrideActive() bool {
+	return e.sysctlOverrideActive
 }
 
 // isSELinuxPresent checks if SELinux labeling should be applied.
