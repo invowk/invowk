@@ -109,6 +109,40 @@ func TestShasumCommand_Run_SHA1File(t *testing.T) {
 	}
 }
 
+func TestShasumCommand_Run_DefaultAlgorithm(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	testFile := filepath.Join(tmpDir, "test.txt")
+	content := "hello world\n"
+
+	if err := os.WriteFile(testFile, []byte(content), 0o644); err != nil {
+		t.Fatalf("failed to create test file: %v", err)
+	}
+
+	var stdout, stderr bytes.Buffer
+	ctx := WithHandlerContext(context.Background(), &HandlerContext{
+		Stdin:     strings.NewReader(""),
+		Stdout:    &stdout,
+		Stderr:    &stderr,
+		Dir:       tmpDir,
+		LookupEnv: os.LookupEnv,
+	})
+
+	cmd := newShasumCommand()
+	err := cmd.Run(ctx, []string{"shasum", testFile})
+	if err != nil {
+		t.Fatalf("Run() returned error: %v", err)
+	}
+
+	output := stdout.String()
+	// Without -a flag, shasum defaults to SHA-1 per POSIX convention
+	wantHash := "22596363b3de40b06f981fb85d82312e8c0ed511"
+	if !strings.Contains(output, wantHash) {
+		t.Errorf("output should contain SHA-1 hash %q, got: %q", wantHash, output)
+	}
+}
+
 func TestShasumCommand_Run_Stdin(t *testing.T) {
 	t.Parallel()
 

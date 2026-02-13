@@ -279,6 +279,33 @@ func TestLnCommand_Run_WithoutForce_ExistingFails(t *testing.T) {
 	}
 }
 
+func TestLnCommand_Run_HardLinkNonexistentTarget(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	linkName := filepath.Join(tmpDir, "hardlink.txt")
+
+	var stdout, stderr bytes.Buffer
+	ctx := WithHandlerContext(context.Background(), &HandlerContext{
+		Stdin:     strings.NewReader(""),
+		Stdout:    &stdout,
+		Stderr:    &stderr,
+		Dir:       tmpDir,
+		LookupEnv: os.LookupEnv,
+	})
+
+	cmd := newLnCommand()
+	err := cmd.Run(ctx, []string{"ln", filepath.Join(tmpDir, "nonexistent.txt"), linkName})
+
+	if err == nil {
+		t.Fatal("Run() should return error for nonexistent hard link target")
+	}
+
+	if !strings.HasPrefix(err.Error(), "[uroot] ln:") {
+		t.Errorf("error should have [uroot] ln: prefix, got: %v", err)
+	}
+}
+
 func TestLnCommand_Run_MissingOperand(t *testing.T) {
 	t.Parallel()
 
