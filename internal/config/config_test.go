@@ -124,28 +124,12 @@ func TestCommandsDir(t *testing.T) {
 	}
 }
 
-func TestReset(t *testing.T) {
-	// Set the override
-	SetConfigDirOverride("/some/override")
-
-	// Reset should clear it
-	Reset()
-
-	if configDirOverride != "" {
-		t.Error("expected configDirOverride to be empty after Reset()")
-	}
-}
-
 func TestEnsureConfigDir(t *testing.T) {
 	// Use a temp directory for testing
 	tmpDir := t.TempDir()
 	configDir := filepath.Join(tmpDir, AppName)
 
-	// Use direct override instead of env vars (more reliable across platforms)
-	SetConfigDirOverride(configDir)
-	defer Reset()
-
-	err := EnsureConfigDir()
+	err := EnsureConfigDir(configDir)
 	if err != nil {
 		t.Fatalf("EnsureConfigDir() returned error: %v", err)
 	}
@@ -177,11 +161,8 @@ func TestLoadAndSave(t *testing.T) {
 	tmpDir := t.TempDir()
 	configDir := filepath.Join(tmpDir, AppName)
 
-	SetConfigDirOverride(configDir)
-	defer Reset()
-
 	// Ensure config directory exists
-	err := EnsureConfigDir()
+	err := EnsureConfigDir(configDir)
 	if err != nil {
 		t.Fatalf("EnsureConfigDir() returned error: %v", err)
 	}
@@ -214,7 +195,7 @@ func TestLoadAndSave(t *testing.T) {
 	}
 
 	// Save the config
-	err = Save(cfg)
+	err = Save(cfg, configDir)
 	if err != nil {
 		t.Fatalf("Save() returned error: %v", err)
 	}
@@ -309,11 +290,7 @@ func TestCreateDefaultConfig(t *testing.T) {
 	tmpDir := t.TempDir()
 	configDir := filepath.Join(tmpDir, AppName)
 
-	// Use direct override instead of env vars (more reliable across platforms)
-	SetConfigDirOverride(configDir)
-	defer Reset()
-
-	err := CreateDefaultConfig()
+	err := CreateDefaultConfig(configDir)
 	if err != nil {
 		t.Fatalf("CreateDefaultConfig() returned error: %v", err)
 	}
@@ -335,7 +312,7 @@ func TestCreateDefaultConfig(t *testing.T) {
 	}
 
 	// Calling again should not error (file already exists)
-	err = CreateDefaultConfig()
+	err = CreateDefaultConfig(configDir)
 	if err != nil {
 		t.Fatalf("CreateDefaultConfig() returned error on second call: %v", err)
 	}

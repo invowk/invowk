@@ -151,7 +151,7 @@ func initConfig() error {
 		return err
 	}
 
-	if err = config.CreateDefaultConfig(); err != nil {
+	if err = config.CreateDefaultConfig(""); err != nil {
 		return fmt.Errorf("failed to create config: %w", err)
 	}
 
@@ -220,7 +220,7 @@ func setConfigValue(ctx context.Context, app *App, key, value string) error {
 		return fmt.Errorf("unknown configuration key: %s\nValid keys: container_engine, default_runtime, ui.verbose, ui.interactive, ui.color_scheme, virtual_shell.enable_uroot_utils", key)
 	}
 
-	if err := config.Save(cfg); err != nil {
+	if err := config.Save(cfg, ""); err != nil {
 		return fmt.Errorf("failed to save config: %w", err)
 	}
 
