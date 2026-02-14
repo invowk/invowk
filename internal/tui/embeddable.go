@@ -45,20 +45,19 @@ const (
 
 // Modal ANSI variables: modal overlays render on a styled background, but child
 // components (huh, bubbles, external tools) may emit bare ANSI resets (\x1b[0m) that
-// clear the background color, causing visual "holes." These pre-computed variables
-// enable efficient replacement of bare resets with reset+background-restore sequences
-// to maintain modal visual continuity.
+// clear the background color, causing visual "holes." These variables enable efficient
+// replacement of bare resets with reset+background-restore sequences to maintain modal
+// visual continuity. All values are computed at declaration time from constants.
 var (
 	// modalBgANSI is the ANSI escape sequence to set the modal background color.
-	// It's computed once from ModalBackgroundColor for efficiency.
-	modalBgANSI string
+	modalBgANSI = hexToANSIBackground(ModalBackgroundColor)
 
 	// ansiReset is the standard ANSI reset sequence.
 	ansiReset = "\x1b[0m"
 
 	// ansiResetWithBg is the ANSI reset followed by modal background restore.
 	// This is what we replace bare resets with.
-	ansiResetWithBg string
+	ansiResetWithBg = ansiReset + modalBgANSI
 )
 
 // All type declarations in a single block, placed after var.
@@ -121,13 +120,6 @@ type (
 		Height int
 	}
 )
-
-// init is the first function in the file (required by decorder).
-func init() {
-	// Parse the modal background color and pre-compute the ANSI sequences
-	modalBgANSI = hexToANSIBackground(ModalBackgroundColor)
-	ansiResetWithBg = ansiReset + modalBgANSI
-}
 
 // CalculateModalSize calculates appropriate modal content dimensions based on component type
 // and available screen space. The returned dimensions are for the INNER content area,
