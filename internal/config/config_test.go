@@ -17,6 +17,7 @@ import (
 )
 
 func TestDefaultConfig(t *testing.T) {
+	t.Parallel()
 	cfg := DefaultConfig()
 
 	if cfg.ContainerEngine != ContainerEnginePodman {
@@ -112,6 +113,7 @@ func TestConfigDir(t *testing.T) {
 }
 
 func TestCommandsDir(t *testing.T) {
+	t.Parallel()
 	dir, err := CommandsDir()
 	if err != nil {
 		t.Fatalf("CommandsDir() returned error: %v", err)
@@ -125,6 +127,7 @@ func TestCommandsDir(t *testing.T) {
 }
 
 func TestEnsureConfigDir(t *testing.T) {
+	t.Parallel()
 	// Use a temp directory for testing
 	tmpDir := t.TempDir()
 	configDir := filepath.Join(tmpDir, AppName)
@@ -157,6 +160,7 @@ func TestEnsureCommandsDir(t *testing.T) {
 }
 
 func TestLoadAndSave(t *testing.T) {
+	t.Parallel()
 	// Use a temp directory for testing
 	tmpDir := t.TempDir()
 	configDir := filepath.Join(tmpDir, AppName)
@@ -286,6 +290,7 @@ func TestLoad_ReturnsDefaultsWhenNoConfigFile(t *testing.T) {
 }
 
 func TestCreateDefaultConfig(t *testing.T) {
+	t.Parallel()
 	// Use a temp directory for testing
 	tmpDir := t.TempDir()
 	configDir := filepath.Join(tmpDir, AppName)
@@ -498,6 +503,7 @@ default_runtime: "virtual"
 }
 
 func TestLoad_CustomPath_NotFound_ReturnsError(t *testing.T) {
+	t.Parallel()
 	// Set a non-existent path
 	nonExistentPath := "/this/path/does/not/exist/config.cue"
 
@@ -600,6 +606,7 @@ default_runtime: "virtual"
 }
 
 func TestLoad_CustomPath_InvalidCUE_ReturnsError(t *testing.T) {
+	t.Parallel()
 	// Create a temp directory with an invalid config file
 	tmpDir := t.TempDir()
 	customConfigPath := filepath.Join(tmpDir, "invalid-config.cue")
@@ -630,6 +637,7 @@ func TestLoad_CustomPath_InvalidCUE_ReturnsError(t *testing.T) {
 // refactoring (spec-008) removed all global config state; this test ensures
 // the pattern doesn't resurface. See specs/008-code-refactoring/proposal.md.
 func TestNoGlobalConfigAccess(t *testing.T) {
+	t.Parallel()
 	// Derive project root from this test file's location (internal/config/).
 	_, thisFile, _, ok := runtime.Caller(0)
 	if !ok {
