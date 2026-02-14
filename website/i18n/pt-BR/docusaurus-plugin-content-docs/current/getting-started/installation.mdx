@@ -42,6 +42,26 @@ Isso baixa a versão mais recente do GitHub, verifica o checksum SHA256 e instal
 | `INVOWK_VERSION` | última estável | Instalar uma versão específica (ex: `v1.0.0`) |
 
   </TabItem>
+  <TabItem value="powershell" label="PowerShell (Windows)">
+
+A forma mais rápida de instalar no **Windows**:
+
+<Snippet id="installation/powershell-script" />
+
+Isso baixa a versão mais recente do GitHub, verifica o checksum SHA256 e instala em `%LOCALAPPDATA%\Programs\invowk`. O PATH do usuário é atualizado automaticamente.
+
+**Personalizar a instalação:**
+
+<Snippet id="installation/powershell-script-custom" />
+
+| Variável | Padrão | Descrição |
+|----------|--------|-----------|
+| `INSTALL_DIR` | `%LOCALAPPDATA%\Programs\invowk` | Onde instalar o binário |
+| `INVOWK_VERSION` | última estável | Instalar uma versão específica (ex: `v1.0.0`) |
+| `INVOWK_NO_MODIFY_PATH` | não definido | Defina como `1` para não modificar o PATH automaticamente |
+| `GITHUB_TOKEN` | não definido | Opcional; evita limitação de taxa da API |
+
+  </TabItem>
   <TabItem value="homebrew" label="Homebrew">
 
 Se você usa [Homebrew](https://brew.sh/) no **macOS** ou **Linux**:
@@ -98,6 +118,7 @@ Você deverá ver as informações de versão. Se receber um erro "command not f
 | Método | Linux | macOS | Windows |
 |--------|-------|-------|---------|
 | Script shell | amd64, arm64 | amd64 (Intel), arm64 (Apple Silicon) | — |
+| Script PowerShell | — | — | amd64 |
 | Homebrew | amd64, arm64 | amd64, arm64 | — |
 | Go install | todos | todos | todos |
 | Código-fonte | todos | todos | todos |
@@ -113,6 +134,14 @@ Atualize usando o mesmo método que você usou para instalar:
   Para atualizar para uma versão específica, defina `INVOWK_VERSION`:
 
 <Snippet id="installation/shell-script-custom" />
+
+- **Script PowerShell**: Execute novamente o comando de instalação — ele baixa a versão mais recente e substitui o binário existente:
+
+<Snippet id="installation/powershell-script" />
+
+  Para atualizar para uma versão específica, defina `INVOWK_VERSION`:
+
+<Snippet id="installation/powershell-script-custom" />
 
 - **Homebrew**: `brew upgrade invowk`
 

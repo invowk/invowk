@@ -4918,6 +4918,23 @@ INSTALL_DIR=/usr/local/bin curl -fsSL https://raw.githubusercontent.com/invowk/i
 INVOWK_VERSION=v1.0.0 curl -fsSL https://raw.githubusercontent.com/invowk/invowk/main/scripts/install.sh | sh`,
   },
 
+  'installation/powershell-script': {
+    language: 'powershell',
+    code: `irm https://raw.githubusercontent.com/invowk/invowk/main/scripts/install.ps1 | iex`,
+  },
+
+  'installation/powershell-script-custom': {
+    language: 'powershell',
+    code: `# Install to a custom directory
+$env:INSTALL_DIR='C:\\tools\\invowk'; irm https://raw.githubusercontent.com/invowk/invowk/main/scripts/install.ps1 | iex
+
+# Install a specific version
+$env:INVOWK_VERSION='v1.0.0'; irm https://raw.githubusercontent.com/invowk/invowk/main/scripts/install.ps1 | iex
+
+# Skip automatic PATH modification
+$env:INVOWK_NO_MODIFY_PATH='1'; irm https://raw.githubusercontent.com/invowk/invowk/main/scripts/install.ps1 | iex`,
+  },
+
   'installation/homebrew': {
     language: 'bash',
     code: `brew install invowk/tap/invowk`,

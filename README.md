@@ -46,6 +46,19 @@ This downloads the latest release, verifies its SHA256 checksum, and installs to
 INSTALL_DIR=/usr/local/bin INVOWK_VERSION=v1.0.0 curl -fsSL https://raw.githubusercontent.com/invowk/invowk/main/scripts/install.sh | sh
 ```
 
+### PowerShell (Windows)
+
+```powershell
+irm https://raw.githubusercontent.com/invowk/invowk/main/scripts/install.ps1 | iex
+```
+
+This downloads the latest release, verifies its SHA256 checksum, installs to `%LOCALAPPDATA%\Programs\invowk`, and adds it to your User PATH. Customize with environment variables:
+
+```powershell
+# Install a specific version to a custom directory
+$env:INSTALL_DIR='C:\tools\invowk'; $env:INVOWK_VERSION='v1.0.0'; irm https://raw.githubusercontent.com/invowk/invowk/main/scripts/install.ps1 | iex
+```
+
 ### Homebrew (macOS/Linux)
 
 ```bash
@@ -87,6 +100,12 @@ Upgrade using the same method you used to install:
   ```
   Pin to a specific version with `INVOWK_VERSION=v1.2.0`.
 
+- **PowerShell script**: Re-run the install command (it overwrites the existing binary):
+  ```powershell
+  irm https://raw.githubusercontent.com/invowk/invowk/main/scripts/install.ps1 | iex
+  ```
+  Pin to a specific version with `$env:INVOWK_VERSION='v1.2.0'`.
+
 - **Homebrew**: `brew upgrade invowk`
 
 - **Go install**: `go install github.com/invowk/invowk@latest`
@@ -98,6 +117,7 @@ Upgrade using the same method you used to install:
 | Method | Linux | macOS | Windows |
 |--------|-------|-------|---------|
 | Shell script | amd64, arm64 | amd64 (Intel), arm64 (Apple Silicon) | — |
+| PowerShell script | — | — | amd64 |
 | Homebrew | amd64, arm64 | amd64, arm64 | — |
 | Go install | all | all | all |
 | From source | all | all | all |

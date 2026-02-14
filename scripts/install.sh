@@ -80,7 +80,8 @@ detect_os() {
         darwin) echo "darwin" ;;
         mingw*|msys*|cygwin*|windows*)
             die "Windows is not supported by this installer.
-Please use one of these alternatives:
+Please use the PowerShell installer or one of these alternatives:
+  irm https://raw.githubusercontent.com/${GITHUB_REPO}/main/scripts/install.ps1 | iex
   go install github.com/${GITHUB_REPO}@latest
   Download from https://github.com/${GITHUB_REPO}/releases"
             ;;

@@ -42,6 +42,26 @@ This downloads the latest release from GitHub, verifies its SHA256 checksum, and
 | `INVOWK_VERSION` | latest stable | Install a specific version (e.g., `v1.0.0`) |
 
   </TabItem>
+  <TabItem value="powershell" label="PowerShell (Windows)">
+
+The quickest way to install on **Windows**:
+
+<Snippet id="installation/powershell-script" />
+
+This downloads the latest release from GitHub, verifies its SHA256 checksum, and installs to `%LOCALAPPDATA%\Programs\invowk`. Your User PATH is updated automatically.
+
+**Customize the installation:**
+
+<Snippet id="installation/powershell-script-custom" />
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `INSTALL_DIR` | `%LOCALAPPDATA%\Programs\invowk` | Where to install the binary |
+| `INVOWK_VERSION` | latest stable | Install a specific version (e.g., `v1.0.0`) |
+| `INVOWK_NO_MODIFY_PATH` | unset | Set to `1` to skip automatic PATH modification |
+| `GITHUB_TOKEN` | unset | Optional; avoids API rate limiting |
+
+  </TabItem>
   <TabItem value="homebrew" label="Homebrew">
 
 If you use [Homebrew](https://brew.sh/) on **macOS** or **Linux**:
@@ -98,6 +118,7 @@ You should see the version information. If you get a "command not found" error, 
 | Method | Linux | macOS | Windows |
 |--------|-------|-------|---------|
 | Shell script | amd64, arm64 | amd64 (Intel), arm64 (Apple Silicon) | — |
+| PowerShell script | — | — | amd64 |
 | Homebrew | amd64, arm64 | amd64, arm64 | — |
 | Go install | all | all | all |
 | From source | all | all | all |
@@ -113,6 +134,14 @@ Upgrade using the same method you used to install:
   To upgrade to a specific version, set `INVOWK_VERSION`:
 
 <Snippet id="installation/shell-script-custom" />
+
+- **PowerShell script**: Re-run the install command — it downloads the latest release and overwrites the existing binary:
+
+<Snippet id="installation/powershell-script" />
+
+  To upgrade to a specific version, set `INVOWK_VERSION`:
+
+<Snippet id="installation/powershell-script-custom" />
 
 - **Homebrew**: `brew upgrade invowk`
 

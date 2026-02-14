@@ -110,7 +110,7 @@ A Go developer wants to install invowk using `go install`, the standard Go toolc
 - **Interrupted download**: Function wrapping ensures no partial state; temp files are cleaned up on exit.
 - **Missing checksums.txt**: Install script and upgrade command refuse to proceed without integrity verification.
 - **Homebrew tap unavailable**: Standard Homebrew error handling applies.
-- **Windows install script**: Script detects Windows (via `uname` or missing `uname`) and exits with a message to use `go install` or manual binary download.
+- **Windows install script**: The POSIX `install.sh` script detects Windows and exits with a message to use the PowerShell installer (`scripts/install.ps1`), `go install`, or manual binary download. The PowerShell installer (`install.ps1`) provides native Windows support (amd64 only).
 - **Windows upgrade with manual binary**: On Windows, if install method detection returns Unknown (manual download), the upgrade command MUST NOT attempt direct binary replacement (Windows cannot rename a running executable). Instead, it should suggest downloading the new version manually from GitHub Releases or using `go install`.
 
 ## Requirements *(mandatory)*
@@ -176,4 +176,4 @@ A Go developer wants to install invowk using `go install`, the standard Go toolc
 - The install script will use POSIX sh (not bash) for maximum portability.
 - The upgrade command will be implemented directly using Go stdlib + GitHub Releases API (no third-party upgrade library). `creativeprojects/go-selfupdate` serves as a design reference only.
 - The module path migration (`invowk-cli` -> `github.com/invowk/invowk`) is in-scope for this feature branch. It is a prerequisite for `go install` support and will be implemented as an early phase of this work, touching all Go import paths across the codebase.
-- Windows users will use `go install` or manual binary download (no shell script or Homebrew support).
+- Windows users can use the PowerShell installer (`scripts/install.ps1`), `go install`, or manual binary download (no Homebrew support on Windows).
