@@ -6,7 +6,7 @@
 
 **Feature Branch**: `009-install-and-upgrade`
 **Created**: 2026-02-13
-**Status**: Draft
+**Status**: Implemented (US3 removed; US1, US2, US4 complete)
 **Input**: User description: "Design and implement 3 officially supported installation methods (go install, homebrew, install.sh script) and an invowk upgrade command to update to the latest stable release."
 
 ## Clarifications
@@ -58,6 +58,10 @@ A macOS or Linux user with Homebrew wants to install invowk using the familiar `
 ---
 
 ### User Story 3 — Self-Upgrade via CLI (Priority: P3)
+
+> **Status: Removed/Deferred.** This user story was removed from the implementation scope.
+> The `internal/selfupdate/` package and `cmd/invowk/upgrade.go` were deleted.
+> The content below is retained as design history.
 
 A user who already has invowk installed (via any method) wants to check for and install updates directly from the command line, without needing to remember which installation method they used.
 

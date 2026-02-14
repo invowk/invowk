@@ -92,10 +92,31 @@ Help text for the command.
 
 ### implementations
 
-**Type:** `[...#Implementation]`  
+**Type:** `[...#Implementation]`
 **Required:** Yes (at least one)
 
 The executable implementations. See [Implementation](#implementation).
+
+### env
+
+**Type:** `#EnvConfig`
+**Required:** No
+
+Environment configuration for this command. Command-level env is applied before implementation-level env. See [EnvConfig](#envconfig).
+
+### workdir
+
+**Type:** `string`
+**Required:** No
+
+Working directory for command execution. Overrides root-level workdir but can be overridden by implementation-level workdir. Can be absolute or relative to the invowkfile location.
+
+### depends_on
+
+**Type:** `#DependsOn`
+**Required:** No
+
+Dependencies that must be satisfied before running this command. See [DependsOn](#dependson).
 
 ### flags
 
@@ -109,7 +130,8 @@ The following flags are reserved by invowk and cannot be used in user-defined co
 - `env-file` (short `e`), `env-var` (short `E`)
 - `env-inherit-mode`, `env-inherit-allow`, `env-inherit-deny`
 - `workdir` (short `w`), `help` (short `h`), `runtime` (short `r`)
-- `from`, `force-rebuild`, `list` (short `l`)
+- `from` (short `f`), `force-rebuild`, `version`
+- The `ivk-`, `invowk-`, and `i-` prefixes are also reserved for system flags
 :::
 
 ### args
@@ -155,6 +177,27 @@ The runtimes that can execute this implementation. The first runtime is the defa
 Specify which operating systems this implementation supports.
 
 <Snippet id="reference/invowkfile/platforms-example" />
+
+### env
+
+**Type:** `#EnvConfig`
+**Required:** No
+
+Environment configuration for this implementation. Merged with command-level env: implementation files are loaded after command-level files, and implementation vars override command-level vars. See [EnvConfig](#envconfig).
+
+### workdir
+
+**Type:** `string`
+**Required:** No
+
+Working directory for this implementation. Overrides both root-level and command-level workdir settings. Can be absolute or relative to the invowkfile location.
+
+### depends_on
+
+**Type:** `#DependsOn`
+**Required:** No
+
+Dependencies that must be satisfied before running this implementation. Combined with command-level depends_on. Dependencies are validated according to the runtime (native checks the host shell, virtual checks the built-in sh interpreter, container checks the container's shell). See [DependsOn](#dependson).
 
 ---
 

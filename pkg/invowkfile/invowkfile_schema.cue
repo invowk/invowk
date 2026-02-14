@@ -93,7 +93,7 @@ import "strings"
 
 	// image specifies a pre-built container image to use (optional)
 	// Mutually exclusive with 'containerfile'
-	// Example: "debian:stable-slim", "ubuntu:22.04", "golang:1.21"
+	// Example: "debian:stable-slim", "ubuntu:22.04", "golang:1.26"
 	image?: string & !="" & strings.MaxRunes(512)
 
 	// volumes specifies volume mounts in "host:container" format (optional)

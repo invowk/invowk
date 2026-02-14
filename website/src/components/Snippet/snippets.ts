@@ -230,7 +230,7 @@ invowk cmd test unit --ivk-runtime virtual`,
     code: `Available Commands
   (* = default runtime)
 
-From current directory:
+From invowkfile:
   build - Build the project [native*]
   test unit - Run unit tests [native*, virtual]
   test coverage - Run tests with coverage [native*]
@@ -918,7 +918,7 @@ virtual_shell: {
     code: `// env belongs on the implementation, not on the runtime
 implementations: [{
     script: "node index.js"
-    runtimes: [{name: "container", image: "node:18"}]
+    runtimes: [{name: "container", image: "node:20"}]
     platforms: [{name: "linux"}]
     env: {
         vars: {
@@ -944,7 +944,7 @@ implementations: [{
     language: 'cue',
     code: `runtimes: [{
     name: "container"
-    image: "debian:bookworm-slim"
+    image: "debian:stable-slim"
     enable_host_ssh: true
 }]`,
   },
@@ -1236,7 +1236,7 @@ invowk cmd build --ivk-env-file .env.local --ivk-env-var OVERRIDE=value`,
     }
     implementations: [{
         script: "echo $BUILD_ENV"  // Available inside container
-        runtimes: [{name: "container", image: "debian:bookworm-slim"}]
+        runtimes: [{name: "container", image: "debian:stable-slim"}]
         platforms: [{name: "linux"}]
     }]
 }`,
@@ -3142,7 +3142,7 @@ cmds: [
             pwd  # /workspace
             ls   # Shows your project files
             """
-        runtimes: [{name: "container", image: "debian:bookworm-slim"}]
+        runtimes: [{name: "container", image: "debian:stable-slim"}]
         platforms: [{name: "linux"}]
     }]
 }`,
@@ -3400,7 +3400,7 @@ cmds: [
     code: `Available Commands
   (* = default runtime)
 
-From current directory:
+From invowkfile:
   build - Build the project [native*] (linux, macos, windows)
   clean - Clean artifacts [native*] (linux, macos)
   deploy - Deploy to cloud [native*] (linux)`,
@@ -3602,7 +3602,7 @@ cmds: [
     language: 'text',
     code: `Available Commands
 
-From current directory:
+From invowkfile:
   mytools build - Build the project [native*]
 
 From user modules (~/.invowk/cmds):
@@ -5005,20 +5005,51 @@ invowk completion powershell >> $PROFILE`,
 invowk init`,
   },
 
-  'quickstart/hello-invowkfile': {
+  'quickstart/default-invowkfile': {
     language: 'cue',
-    code: `cmds: [
+    code: `// Invowkfile - Command definitions for invowk
+// See https://github.com/invowk/invowk for documentation
+
+cmds: [
     {
-        name: "hello"
-        description: "Say hello!"
+        name: "build"
+        description: "Build the project"
         implementations: [
             {
-                script: "echo 'Hello from Invowk!'"
+                script: """
+                    echo 'Building...'
+                    # Add your build commands here
+                    """
                 runtimes: [{name: "native"}]
-                platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
             }
         ]
-    }
+    },
+    {
+        name: "test"
+        description: "Run tests"
+        implementations: [
+            {
+                script: """
+                    echo 'Testing...'
+                    # Add your test commands here
+                    """
+                runtimes: [{name: "native"}]
+            }
+        ]
+    },
+    {
+        name: "clean"
+        description: "Clean build artifacts"
+        implementations: [
+            {
+                script: """
+                    echo 'Cleaning...'
+                    # Add your clean commands here
+                    """
+                runtimes: [{name: "native"}]
+            }
+        ]
+    },
 ]`,
   },
 
@@ -5027,31 +5058,61 @@ invowk init`,
     code: `Available Commands
   (* = default runtime)
 
-From current directory:
-  hello - Say hello! [native*] (linux, macos, windows)`,
+From invowkfile:
+  build - Build the project [native*]
+  test  - Run tests [native*]
+  clean - Clean build artifacts [native*]`,
   },
 
-  'quickstart/run-hello': {
+  'quickstart/run-build': {
     language: 'bash',
-    code: `invowk cmd hello`,
+    code: `invowk cmd build`,
   },
 
-  'quickstart/hello-output': {
+  'quickstart/build-output': {
     language: 'text',
-    code: `Hello from Invowk!`,
+    code: `Building...`,
   },
 
   'quickstart/info-command': {
     language: 'cue',
     code: `cmds: [
     {
-        name: "hello"
-        description: "Say hello!"
+        name: "build"
+        description: "Build the project"
         implementations: [
             {
-                script: "echo 'Hello from Invowk!'"
+                script: """
+                    echo 'Building...'
+                    # Add your build commands here
+                    """
                 runtimes: [{name: "native"}]
-                platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+            }
+        ]
+    },
+    {
+        name: "test"
+        description: "Run tests"
+        implementations: [
+            {
+                script: """
+                    echo 'Testing...'
+                    # Add your test commands here
+                    """
+                runtimes: [{name: "native"}]
+            }
+        ]
+    },
+    {
+        name: "clean"
+        description: "Clean build artifacts"
+        implementations: [
+            {
+                script: """
+                    echo 'Cleaning...'
+                    # Add your clean commands here
+                    """
+                runtimes: [{name: "native"}]
             }
         ]
     },
@@ -5145,7 +5206,7 @@ module: "123project"   // Must start with letter`,
     code: `Available Commands
   (* = default runtime)
 
-From current directory:
+From invowkfile:
   build - Build the project [native*] (linux, macos, windows)
 
 From user modules (~/.invowk/cmds):
@@ -5225,7 +5286,7 @@ From user modules (~/.invowk/cmds):
     code: `runtimes: [
     {name: "native"},      // System shell
     {name: "virtual"},     // Built-in POSIX shell
-    {name: "container", image: "debian:bookworm-slim"}  // Container
+    {name: "container", image: "debian:stable-slim"}  // Container
 ]`,
   },
 
@@ -5368,7 +5429,7 @@ platforms: [
     code: `Available Commands
   (* = default runtime)
 
-From current directory:
+From invowkfile:
   build - Build the project [native*, virtual] (linux, macos)
   clean - Clean artifacts [native*] (linux, macos, windows)
   docker-build - Container build [container*] (linux, macos, windows)`,
@@ -5481,7 +5542,7 @@ invowk cmd build --ivk-runtime container`,
     code: `Available Commands
   (* = default runtime)
 
-From current directory:
+From invowkfile:
   build - Build the project [native*, virtual, container] (linux, macos)`,
   },
 
@@ -5552,7 +5613,7 @@ WORKDIR /workspace`,
             """
         runtimes: [{
             name: "container"
-            image: "debian:bookworm-slim"
+            image: "debian:stable-slim"
             enable_host_ssh: true  // Enable SSH server
         }]
         platforms: [{name: "linux"}]
@@ -7311,7 +7372,7 @@ runtimes: [
 // Container with options
 runtimes: [{
     name: "container"
-    image: "golang:1.22"
+    image: "golang:1.26"
     volumes: ["./:/app"]
 }]`,
   },
@@ -7386,7 +7447,7 @@ interpreter: "/usr/bin/env perl -w"`,
     language: 'cue',
     code: `runtimes: [{
     name: "container"
-    image: "debian:bookworm-slim"
+    image: "debian:stable-slim"
     enable_host_ssh: true
 }]`,
   },
@@ -7394,8 +7455,8 @@ interpreter: "/usr/bin/env perl -w"`,
   'reference/invowkfile/containerfile-image-examples': {
     language: 'cue',
     code: `// Use a pre-built image
-image: "debian:bookworm-slim"
-image: "golang:1.22"
+image: "debian:stable-slim"
+image: "golang:1.26"
 
 // Build from a Containerfile
 containerfile: "./Containerfile"

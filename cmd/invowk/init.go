@@ -101,7 +101,7 @@ func generateInvowkfile(template string) string {
 
 							Runtimes: []invowkfile.RuntimeConfig{
 								{Name: invowkfile.RuntimeNative},
-								{Name: invowkfile.RuntimeContainer, Image: "golang:1.21"},
+								{Name: invowkfile.RuntimeContainer, Image: "golang:1.26"},
 							},
 							Platforms: []invowkfile.PlatformConfig{
 								{Name: invowkfile.PlatformLinux},
@@ -161,7 +161,7 @@ func generateInvowkfile(template string) string {
 					Implementations: []invowkfile.Implementation{
 						{
 							Script:   "go build -o /workspace/bin/app ./...",
-							Runtimes: []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeContainer, Image: "golang:1.21"}},
+							Runtimes: []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeContainer, Image: "golang:1.26"}},
 						},
 					},
 				},

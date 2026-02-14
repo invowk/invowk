@@ -102,6 +102,21 @@ Upgrade using the same method you used to install:
 | Go install | all | all | all |
 | From source | all | all | all |
 
+### Verifying Signatures
+
+Release artifacts are signed with [Cosign](https://github.com/sigstore/cosign) (keyless, via GitHub Actions OIDC). To verify the checksums file:
+
+```bash
+cosign verify-blob \
+  --certificate checksums.txt.pem \
+  --signature checksums.txt.sig \
+  --certificate-identity-regexp='https://github\.com/invowk/invowk/.*' \
+  --certificate-oidc-issuer='https://token.actions.githubusercontent.com' \
+  checksums.txt
+```
+
+Then verify individual archives against `checksums.txt` using `sha256sum -c checksums.txt`.
+
 ## Quick Start
 
 1. **Create an invowkfile** in your project directory:

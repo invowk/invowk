@@ -76,7 +76,7 @@ When a parent test calls `t.Parallel()`, **ALL** subtests inside `t.Run()` must 
 
 Do not add `t.Parallel()` to tests that use any of these:
 - `os.Chdir`, `os.Setenv`, or `t.Setenv` (process-wide side effects)
-- Global state mutators: `config.Reset()`, `config.SetConfigDirOverride()`, `testutil.MustSetenv()`, `testutil.MustChdir()`
+- Global state mutators: `testutil.MustSetenv()`, `testutil.MustChdir()`
 - `SetHomeDir` or similar process-wide overrides
 
 ### Critical Footgun: TempDir Lifetime with Parallel Subtests
