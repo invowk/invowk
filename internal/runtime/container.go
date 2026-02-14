@@ -31,9 +31,13 @@ var (
 type (
 	// ContainerRuntime executes commands inside a container.
 	//
-	// Process-wide serialization relies on a single ContainerRuntime per process,
-	// created in createRuntimeRegistry(). The runMu mutex provides intra-process
-	// fallback locking when flock-based cross-process serialization is unavailable.
+	// WARNING: Only ONE ContainerRuntime instance should exist per process.
+	// Process-wide serialization relies on this single-instance invariant,
+	// enforced by createRuntimeRegistry() creating exactly one instance.
+	// The runMu mutex provides intra-process fallback locking when flock-based
+	// cross-process serialization is unavailable (non-Linux platforms).
+	// Multiple instances would defeat this protection, reintroducing the
+	// ping_group_range race on platforms without flock.
 	ContainerRuntime struct {
 		engine      container.Engine
 		sshServer   *sshserver.Server

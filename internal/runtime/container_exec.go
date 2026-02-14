@@ -393,10 +393,13 @@ func (r *ContainerRuntime) setupSSHConnection(ctx *ExecutionContext, env map[str
 
 	// Generate connection info with a unique token for this command execution.
 	// ExecutionID should be set by the caller via Registry.NewExecutionID();
-	// the fallback is a simple timestamp for edge cases (tests, direct callers).
+	// the fallback is a simple timestamp for edge cases (tests, direct callers)
+	// and does not guarantee uniqueness across sub-nanosecond invocations.
 	executionID := ctx.ExecutionID
 	if executionID == "" {
 		executionID = fmt.Sprintf("%d", time.Now().UnixNano())
+		slog.Debug("ExecutionID not set by caller, using timestamp-only fallback",
+			"commandName", ctx.Command.Name, "executionID", executionID)
 	}
 	commandID := fmt.Sprintf("%s-%s", ctx.Command.Name, executionID)
 	sshConnInfo, err := r.sshServer.GetConnectionInfo(commandID)

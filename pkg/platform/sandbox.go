@@ -20,7 +20,7 @@ const (
 // detectOnce caches the sandbox detection result for the lifetime of the process.
 // The detection is performed once on first access using real OS lookups.
 var detectOnce = sync.OnceValue(func() SandboxType {
-	return detectSandboxFrom(os.Getenv, statFlatpakInfo)
+	return detectSandboxFrom(os.Getenv, statFile)
 })
 
 // SandboxType identifies the type of application sandbox, if any.
@@ -69,6 +69,8 @@ func SpawnCommandFor(st SandboxType) string {
 		return "flatpak-spawn"
 	case SandboxSnap:
 		return "snap"
+	case SandboxNone:
+		return ""
 	default:
 		return ""
 	}
@@ -83,6 +85,8 @@ func SpawnArgsFor(st SandboxType) []string {
 		return []string{"--host"}
 	case SandboxSnap:
 		return []string{"run", "--shell"}
+	case SandboxNone:
+		return nil
 	default:
 		return nil
 	}
@@ -107,10 +111,10 @@ func detectSandboxFrom(lookupEnv func(string) string, statFile func(string) erro
 	return SandboxNone
 }
 
-// statFlatpakInfo checks for the existence of a file at the given path.
-// This wraps os.Stat to match the func(string) error signature expected by
-// detectSandboxFrom.
-func statFlatpakInfo(path string) error {
+// statFile checks for the existence of a file at the given path.
+// This is the production adapter for the statFile parameter of detectSandboxFrom,
+// wrapping os.Stat to match the func(string) error signature.
+func statFile(path string) error {
 	_, err := os.Stat(path)
 	return err
 }

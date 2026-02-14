@@ -68,6 +68,11 @@ func ConfigDir() (string, error) {
 
 // CommandsDir returns the directory for user-defined invowkfiles.
 // The path is ~/.invowk/cmds on all platforms.
+//
+// TODO: Accept an explicit homeDir parameter (or use functional options)
+// to eliminate the os.UserHomeDir() call, matching the configDirWithOverride
+// pattern used by EnsureConfigDir/Save/CreateDefaultConfig. This prevents
+// tests that call CommandsDir/EnsureCommandsDir from using t.Parallel().
 func CommandsDir() (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {

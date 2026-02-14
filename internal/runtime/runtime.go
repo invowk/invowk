@@ -50,7 +50,7 @@ type (
 		RuntimeEnvVars map[string]string
 		// RuntimeEnvFiles contains dotenv file paths specified via --ivk-env-file flag.
 		// These are loaded after all other env sources but before RuntimeEnvVars.
-		// Paths are relative to the current working directory where invowk was invoked.
+		// Relative paths are resolved against Cwd (or os.Getwd() when Cwd is empty).
 		RuntimeEnvFiles []string
 		// InheritModeOverride overrides the runtime config env inherit mode when set.
 		InheritModeOverride invowkfile.EnvInheritMode

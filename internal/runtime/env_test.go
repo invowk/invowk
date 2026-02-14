@@ -570,7 +570,7 @@ func TestBuildRuntimeEnv_RuntimeFlags(t *testing.T) {
 	}
 	cmd := testCommandWithScript("flags-test", "echo test", invowkfile.RuntimeNative)
 	ctx := NewExecutionContext(cmd, inv)
-	// Use absolute path instead of MustChdir for CWD-relative resolution
+	// Pass absolute path to avoid CWD dependency.
 	ctx.Env.RuntimeEnvFiles = []string{filepath.Join(tmpDir, "flag.env")}
 	ctx.Env.RuntimeEnvVars = map[string]string{"FLAG_VAR": "from_flag_var", "SHARED": "flag_var_wins"}
 

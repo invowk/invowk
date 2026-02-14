@@ -248,9 +248,9 @@ exclude-functions = [
     "(*archive/zip.ReadCloser).Close",
 
     # Server shutdown / engine cleanup - errors during stop are not recoverable
-    "(*invowk-cli/internal/sshserver.Server).Stop",
-    "(*invowk-cli/internal/tuiserver.Server).Stop",
-    "(*invowk-cli/internal/runtime.ContainerRuntime).Close",
+    "(*github.com/invowk/invowk/internal/sshserver.Server).Stop",
+    "(*github.com/invowk/invowk/internal/tuiserver.Server).Stop",
+    "(*github.com/invowk/invowk/internal/runtime.ContainerRuntime).Close",
 
     # Temp file cleanup - best-effort, failures are logged but not critical
     "os.Remove",
@@ -293,7 +293,7 @@ exclude-functions = [
     "(net/http.ResponseWriter).Write",
 
     # UI rendering - errors during rendering are not actionable
-    "(*invowk-cli/internal/issue.Issue).Render",
+    "(*github.com/invowk/invowk/internal/issue.Issue).Render",
 
     # Stdin stat - checking if stdin is a terminal, error just means no
     "(*os.File).Stat",
@@ -320,7 +320,7 @@ exclude-functions = [
     "path/filepath.Walk",
 
     # Image exists check - error handled by false return
-    "(*invowk-cli/internal/container.Engine).ImageExists",
+    "(*github.com/invowk/invowk/internal/container.Engine).ImageExists",
 ]
 
 # -----------------------------------------------------------------------------
@@ -402,7 +402,7 @@ ignore-sigs = [
 ]
 
 ignore-package-globs = [
-    "invowk-cli/*",              # Internal module packages - wrapped at public API boundaries
+    "github.com/invowk/invowk/*", # Internal module packages - wrapped at public API boundaries
     "github.com/charmbracelet/*", # TUI library - errors self-descriptive
     "github.com/go-git/*",        # Git library - errors already descriptive
     "github.com/creack/pty",      # PTY library - used in context
@@ -559,7 +559,7 @@ enable = [
 # gofumpt: Stricter gofmt
 # -----------------------------------------------------------------------------
 [formatters.settings.gofumpt]
-module-path = "invowk-cli"  # Module path for import grouping (3 groups: std, external, internal)
+module-path = "github.com/invowk/invowk"  # Module path for import grouping (3 groups: std, external, internal)
 
 [formatters.exclusions]
 generated = "lax"

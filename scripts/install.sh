@@ -49,8 +49,8 @@ setup_colors() {
     fi
 }
 
-log()  { printf '%b\n' "${CYAN}$*${RESET}"; }
-ok()   { printf '%b\n' "${GREEN}$*${RESET}"; }
+log()  { printf '%b\n' "${CYAN}$*${RESET}" >&2; }
+ok()   { printf '%b\n' "${GREEN}$*${RESET}" >&2; }
 warn() { printf '%b\n' "${YELLOW}WARNING: $*${RESET}" >&2; }
 err()  { printf '%b\n' "${RED}ERROR: $*${RESET}" >&2; }
 die()  { err "$@"; exit 1; }
@@ -231,6 +231,15 @@ If behind a firewall, you can specify a version directly:
         # minimize runtime dependencies — this script must work on minimal systems.
         _version=$(printf '%s' "${_response}" | grep '"tag_name"' | head -1 | sed 's/.*"tag_name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/')
         if [ -z "${_version}" ]; then
+            # Check for API error message (e.g., rate limiting returns HTTP 200 with error body).
+            _api_message=$(printf '%s' "${_response}" | grep '"message"' | head -1 | sed 's/.*"message"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/')
+            if [ -n "${_api_message}" ]; then
+                die "GitHub API error: ${_api_message}
+
+This often happens due to API rate limiting for unauthenticated requests.
+Try again in a few minutes, or specify a version directly:
+  INVOWK_VERSION=v1.0.0 sh -c '\$(curl -fsSL https://raw.githubusercontent.com/${GITHUB_REPO}/main/scripts/install.sh)'"
+            fi
             die "Could not determine latest version from GitHub API response."
         fi
         # Validate the extracted version looks like a semver tag.
@@ -311,6 +320,9 @@ install() {
 The release asset may not exist for your platform (${_os}/${_arch}).
 Check available assets at: https://github.com/${GITHUB_REPO}/releases/tag/${_version}"
 
+    # Note: checksums.txt is not signature-verified by this script because cosign
+    # is not a standard system tool. For supply-chain verification, see:
+    # https://github.com/invowk/invowk#verifying-signatures
     log "Downloading checksums..."
     download_to_file "${_checksums_url}" "${_checksums_path}" || die "Failed to download checksums.txt.
 
@@ -331,6 +343,10 @@ Report at: https://github.com/${GITHUB_REPO}/issues"
 
     # Extract the binary from the archive using a two-phase strategy:
     # 1. Try extracting the binary by exact name (flat archive layout).
+    #    Stderr is suppressed because some tar implementations print a "not found
+    #    in archive" message when the member doesn't exist at the top level, which
+    #    is expected for nested layouts. If tar fails for other reasons (corrupt
+    #    archive, disk full), the second attempt will also fail and die() is called.
     # 2. Fall back to extracting the entire archive (nested directory layout),
     #    then locate the binary below.
     log "Extracting binary..."
@@ -403,7 +419,7 @@ main() {
 
     # Verify installation.
     if command -v "${BINARY_NAME}" >/dev/null 2>&1; then
-        _installed_version=$("${BINARY_NAME}" --version 2>/dev/null || echo "unknown")
+        _installed_version=$("${BINARY_NAME}" --version 2>&1 || true)
         ok ""
         ok "Verify: ${BOLD}${BINARY_NAME} --version${RESET} -> ${_installed_version}"
     else

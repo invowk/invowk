@@ -5,6 +5,7 @@ package discovery
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 
@@ -76,18 +77,28 @@ func WithCommandsDir(dir string) Option {
 
 // New creates a new Discovery instance. Without options, baseDir defaults to
 // os.Getwd() and commandsDir defaults to config.CommandsDir(), preserving
-// backward compatibility for all existing callers.
+// backward compatibility for all existing callers. If os.Getwd() fails
+// (e.g., deleted working directory), baseDir is empty and current-dir
+// discovery is effectively skipped.
 func New(cfg *config.Config, opts ...Option) *Discovery {
 	d := &Discovery{cfg: cfg}
 	for _, opt := range opts {
 		opt(d)
 	}
 	if d.baseDir == "" {
-		d.baseDir, _ = os.Getwd()
+		var err error
+		d.baseDir, err = os.Getwd()
+		if err != nil {
+			slog.Warn("failed to determine working directory for discovery, current-dir lookup will be skipped",
+				"error", err)
+		}
 	}
 	if d.commandsDir == "" {
 		if dir, err := config.CommandsDir(); err == nil {
 			d.commandsDir = dir
+		} else {
+			slog.Debug("user commands directory unavailable, skipping user-dir discovery",
+				"error", err)
 		}
 	}
 	return d

@@ -142,6 +142,36 @@ func TestEnsureConfigDir(t *testing.T) {
 	}
 }
 
+func TestConfigDirWithOverride(t *testing.T) {
+	t.Parallel()
+
+	t.Run("explicit path returned as-is", func(t *testing.T) {
+		t.Parallel()
+		dir, err := configDirWithOverride("/explicit/path")
+		if err != nil {
+			t.Fatalf("configDirWithOverride() error: %v", err)
+		}
+		if dir != "/explicit/path" {
+			t.Errorf("configDirWithOverride() = %q, want %q", dir, "/explicit/path")
+		}
+	})
+
+	t.Run("empty falls through to ConfigDir", func(t *testing.T) {
+		t.Parallel()
+		dir, err := configDirWithOverride("")
+		if err != nil {
+			t.Fatalf("configDirWithOverride() error: %v", err)
+		}
+		expected, err := ConfigDir()
+		if err != nil {
+			t.Fatalf("ConfigDir() error: %v", err)
+		}
+		if dir != expected {
+			t.Errorf("configDirWithOverride(\"\") = %q, want ConfigDir() = %q", dir, expected)
+		}
+	})
+}
+
 func TestEnsureCommandsDir(t *testing.T) {
 	// Use a temp directory for testing
 	tmpDir := t.TempDir()
