@@ -11,9 +11,9 @@ import (
 	"runtime"
 	"strings"
 
-	"invowk-cli/internal/issue"
-	"invowk-cli/pkg/cueutil"
-	"invowk-cli/pkg/platform"
+	"github.com/invowk/invowk/internal/issue"
+	"github.com/invowk/invowk/pkg/cueutil"
+	"github.com/invowk/invowk/pkg/platform"
 
 	"cuelang.org/go/cue"
 	"cuelang.org/go/cue/cuecontext"

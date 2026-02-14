@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"invowk-cli/internal/container"
+	"github.com/invowk/invowk/internal/container"
 )
 
 // mockEngine implements container.Engine for testing provisioner logic

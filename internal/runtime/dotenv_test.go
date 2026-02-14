@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"invowk-cli/internal/testutil"
+	"github.com/invowk/invowk/internal/testutil"
 )
 
 func TestParseEnvFile_BasicKeyValue(t *testing.T) {

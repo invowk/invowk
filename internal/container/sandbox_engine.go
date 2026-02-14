@@ -7,7 +7,7 @@ import (
 	"errors"
 	"os/exec"
 
-	"invowk-cli/pkg/platform"
+	"github.com/invowk/invowk/pkg/platform"
 )
 
 // SandboxAwareEngine wraps a container Engine to handle execution from within

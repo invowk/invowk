@@ -293,7 +293,7 @@ When testing code that needs both the `runtime` package and `runtime.GOOS`, use 
 import (
     goruntime "runtime"  // For GOOS checks
 
-    "invowk-cli/internal/runtime"  // For Runtime types
+    "github.com/invowk/invowk/internal/runtime"  // For Runtime types
 )
 ```
 

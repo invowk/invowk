@@ -6,7 +6,7 @@ import (
 	"errors"
 	"testing"
 
-	"invowk-cli/pkg/invowkfile"
+	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
 // TestEnvBuilder_InterfaceContract verifies that DefaultEnvBuilder and MockEnvBuilder

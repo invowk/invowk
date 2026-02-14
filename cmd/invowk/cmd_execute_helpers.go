@@ -9,12 +9,12 @@ import (
 	"log/slog"
 	"strings"
 
-	"invowk-cli/internal/config"
-	"invowk-cli/internal/discovery"
-	"invowk-cli/internal/runtime"
-	"invowk-cli/internal/sshserver"
-	"invowk-cli/internal/tui"
-	"invowk-cli/internal/tuiserver"
+	"github.com/invowk/invowk/internal/config"
+	"github.com/invowk/invowk/internal/discovery"
+	"github.com/invowk/invowk/internal/runtime"
+	"github.com/invowk/invowk/internal/sshserver"
+	"github.com/invowk/invowk/internal/tui"
+	"github.com/invowk/invowk/internal/tuiserver"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/spf13/cobra"

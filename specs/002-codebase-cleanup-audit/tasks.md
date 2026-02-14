@@ -166,8 +166,8 @@
 
 ### Implementation for User Story 3
 
-- [X] T068 [US3] Update import in `pkg/invowkmod/operations.go` from `internal/platform` to `invowk-cli/pkg/platform`
-- [X] T069 [US3] Update import in `pkg/invowkfile/validation.go` from `internal/platform` to `invowk-cli/pkg/platform`
+- [X] T068 [US3] Update import in `pkg/invowkmod/operations.go` from `internal/platform` to `github.com/invowk/invowk/pkg/platform`
+- [X] T069 [US3] Update import in `pkg/invowkfile/validation.go` from `internal/platform` to `github.com/invowk/invowk/pkg/platform`
 - [X] T070 [US3] Run `make test` to verify imports resolve correctly
 - [X] T071 [US3] Verify no internal imports: `go list -f '{{.Imports}}' ./pkg/invowkmod/... | grep internal && exit 1 || echo "No internal imports found"`
 - [X] T072 [US3] Delete `internal/platform/windows.go`

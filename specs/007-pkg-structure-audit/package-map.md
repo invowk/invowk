@@ -10,7 +10,7 @@ This document defines package responsibilities and boundaries for the restructur
 ## Package Hierarchy
 
 ```
-invowk-cli/
+github.com/invowk/invowk/
 ├── cmd/invowk/          # CLI entry point and commands
 ├── internal/            # Private implementation packages
 │   ├── config/          # Configuration management

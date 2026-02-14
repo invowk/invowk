@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"invowk-cli/pkg/invowkfile"
+	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
 // TestVirtualRuntime_Integration groups integration tests for the virtual (mvdan/sh) runtime.

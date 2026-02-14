@@ -10,7 +10,7 @@ import (
 	"slices"
 	"testing"
 
-	"invowk-cli/internal/testutil"
+	"github.com/invowk/invowk/internal/testutil"
 )
 
 func TestModuleRefKey(t *testing.T) {

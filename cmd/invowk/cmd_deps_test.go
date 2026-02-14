@@ -10,11 +10,11 @@ import (
 	"strings"
 	"testing"
 
-	"invowk-cli/internal/config"
-	"invowk-cli/internal/runtime"
-	"invowk-cli/internal/testutil"
-	"invowk-cli/internal/testutil/invowkfiletest"
-	"invowk-cli/pkg/invowkfile"
+	"github.com/invowk/invowk/internal/config"
+	"github.com/invowk/invowk/internal/runtime"
+	"github.com/invowk/invowk/internal/testutil"
+	"github.com/invowk/invowk/internal/testutil/invowkfiletest"
+	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
 // ---------------------------------------------------------------------------

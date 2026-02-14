@@ -2,6 +2,8 @@
 sidebar_position: 1
 ---
 
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
 import Snippet from '@site/src/components/Snippet';
 
 # Installation
@@ -14,31 +16,74 @@ Welcome to Invowk! Let's get you set up and running commands in no time.
 
 ## Requirements
 
-Before installing Invowk, make sure you have:
-
-- **Go 1.26+** (only if building from source)
-- **Linux, macOS, or Windows** - Invowk works on all three!
+- **Linux, macOS, or Windows** — Invowk works on all three!
 
 For container runtime features, you'll also need:
 - **Docker** or **Podman** installed and running
 
 ## Installation Methods
 
-### From Source (Recommended for now)
+<Tabs>
+  <TabItem value="script" label="Shell Script" default>
 
-If you have Go installed, building from source is straightforward:
+The quickest way to install on **Linux** or **macOS**:
+
+<Snippet id="installation/shell-script" />
+
+This downloads the latest release from GitHub, verifies its SHA256 checksum, and installs to `~/.local/bin`.
+
+**Customize the installation:**
+
+<Snippet id="installation/shell-script-custom" />
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `INSTALL_DIR` | `~/.local/bin` | Where to install the binary |
+| `INVOWK_VERSION` | latest stable | Install a specific version (e.g., `v1.0.0`) |
+
+  </TabItem>
+  <TabItem value="homebrew" label="Homebrew">
+
+If you use [Homebrew](https://brew.sh/) on **macOS** or **Linux**:
+
+<Snippet id="installation/homebrew" />
+
+To upgrade later:
+
+```bash
+brew upgrade invowk
+```
+
+  </TabItem>
+  <TabItem value="go" label="Go Install">
+
+If you have **Go 1.26+** installed:
+
+<Snippet id="installation/go-install" />
+
+The binary is installed to `$GOBIN` (or `$GOPATH/bin`).
+
+  </TabItem>
+  <TabItem value="source" label="From Source">
+
+Clone and build from source:
 
 <Snippet id="installation/build-from-source" />
 
-Then move the binary to your PATH:
+Then install to your `$GOPATH/bin`:
+
+```bash
+make install
+```
+
+Or move the binary manually:
 
 <Snippet id="installation/move-to-path" />
 
-### Using Make (with more options)
+> **Note:** On x86-64 systems, the default build targets the x86-64-v3 microarchitecture (Haswell+ CPUs from 2013+) for optimal performance. For maximum compatibility with older CPUs, use `make build GOAMD64=v1`.
 
-The project includes a Makefile with several build options:
-
-<Snippet id="installation/make-options" />
+  </TabItem>
+</Tabs>
 
 ### Verify Installation
 
@@ -47,6 +92,35 @@ Once installed, verify everything works:
 <Snippet id="installation/verify" />
 
 You should see the version information. If you get a "command not found" error, make sure the binary is in your PATH.
+
+### Platform Support
+
+| Method | Linux | macOS | Windows |
+|--------|-------|-------|---------|
+| Shell script | amd64, arm64 | amd64 (Intel), arm64 (Apple Silicon) | — |
+| Homebrew | amd64, arm64 | amd64, arm64 | — |
+| Go install | all | all | all |
+| From source | all | all | all |
+
+## Upgrading
+
+Invowk includes a built-in upgrade command:
+
+```bash
+# Check for available updates
+invowk upgrade --check
+
+# Upgrade to the latest stable version
+invowk upgrade
+
+# Upgrade to a specific version
+invowk upgrade v1.2.0
+
+# Skip confirmation prompt
+invowk upgrade --yes
+```
+
+If you installed via **Homebrew**, use `brew upgrade invowk` instead. If you installed via **`go install`**, use `go install github.com/invowk/invowk@latest`.
 
 ## Shell Completion
 

@@ -338,7 +338,7 @@ find . -name "*.go" -not -name "*_test.go" -exec wc -l {} \; | sort -rn | head -
 find . -name "*_test.go" -exec wc -l {} \; | sort -rn | head -10
 
 # Verify no circular dependencies
-go mod graph | grep invowk-cli
+go mod graph | grep github.com/invowk/invowk
 
 # Verify all packages have documentation
 for dir in cmd/invowk internal/* internal/*/* pkg/*; do

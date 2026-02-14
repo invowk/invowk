@@ -2,6 +2,8 @@
 sidebar_position: 1
 ---
 
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
 import Snippet from '@site/src/components/Snippet';
 
 # Instalação
@@ -14,31 +16,74 @@ Bem-vindo ao Invowk! Vamos configurar tudo para você executar comandos rapidame
 
 ## Requisitos
 
-Antes de instalar o Invowk, certifique-se de ter:
-
-- **Go 1.26+** (apenas se compilar a partir do código-fonte)
-- **Linux, macOS ou Windows** - O Invowk funciona em todos os três!
+- **Linux, macOS ou Windows** — O Invowk funciona em todos os três!
 
 Para recursos de runtime em container, você também precisará de:
 - **Docker** ou **Podman** instalado e em execução
 
 ## Métodos de Instalação
 
-### A Partir do Código-Fonte (Recomendado por enquanto)
+<Tabs>
+  <TabItem value="script" label="Script Shell" default>
 
-Se você tem o Go instalado, compilar a partir do código-fonte é simples:
+A forma mais rápida de instalar no **Linux** ou **macOS**:
+
+<Snippet id="installation/shell-script" />
+
+Isso baixa a versão mais recente do GitHub, verifica o checksum SHA256 e instala em `~/.local/bin`.
+
+**Personalizar a instalação:**
+
+<Snippet id="installation/shell-script-custom" />
+
+| Variável | Padrão | Descrição |
+|----------|--------|-----------|
+| `INSTALL_DIR` | `~/.local/bin` | Onde instalar o binário |
+| `INVOWK_VERSION` | última estável | Instalar uma versão específica (ex: `v1.0.0`) |
+
+  </TabItem>
+  <TabItem value="homebrew" label="Homebrew">
+
+Se você usa [Homebrew](https://brew.sh/) no **macOS** ou **Linux**:
+
+<Snippet id="installation/homebrew" />
+
+Para atualizar depois:
+
+```bash
+brew upgrade invowk
+```
+
+  </TabItem>
+  <TabItem value="go" label="Go Install">
+
+Se você tem **Go 1.26+** instalado:
+
+<Snippet id="installation/go-install" />
+
+O binário é instalado em `$GOBIN` (ou `$GOPATH/bin`).
+
+  </TabItem>
+  <TabItem value="source" label="Código-Fonte">
+
+Clone e compile a partir do código-fonte:
 
 <Snippet id="installation/build-from-source" />
 
-Depois mova o binário para o seu PATH:
+Depois instale em `$GOPATH/bin`:
+
+```bash
+make install
+```
+
+Ou mova o binário manualmente:
 
 <Snippet id="installation/move-to-path" />
 
-### Usando Make (com mais opções)
+> **Nota:** Em sistemas x86-64, a compilação padrão utiliza a microarquitetura x86-64-v3 (CPUs Haswell+ de 2013+) para desempenho otimizado. Para máxima compatibilidade com CPUs mais antigos, use `make build GOAMD64=v1`.
 
-O projeto inclui um Makefile com várias opções de compilação:
-
-<Snippet id="installation/make-options" />
+  </TabItem>
+</Tabs>
 
 ### Verificar Instalação
 
@@ -47,6 +92,35 @@ Uma vez instalado, verifique se tudo funciona:
 <Snippet id="installation/verify" />
 
 Você deverá ver as informações de versão. Se receber um erro "command not found", certifique-se de que o binário está no seu PATH.
+
+### Suporte por Plataforma
+
+| Método | Linux | macOS | Windows |
+|--------|-------|-------|---------|
+| Script shell | amd64, arm64 | amd64 (Intel), arm64 (Apple Silicon) | — |
+| Homebrew | amd64, arm64 | amd64, arm64 | — |
+| Go install | todos | todos | todos |
+| Código-fonte | todos | todos | todos |
+
+## Atualização
+
+O Invowk inclui um comando de atualização integrado:
+
+```bash
+# Verificar atualizações disponíveis
+invowk upgrade --check
+
+# Atualizar para a versão estável mais recente
+invowk upgrade
+
+# Atualizar para uma versão específica
+invowk upgrade v1.2.0
+
+# Pular prompt de confirmação
+invowk upgrade --yes
+```
+
+Se você instalou via **Homebrew**, use `brew upgrade invowk`. Se você instalou via **`go install`**, use `go install github.com/invowk/invowk@latest`.
 
 ## Autocompletar do Shell
 

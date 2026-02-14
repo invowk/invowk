@@ -14,7 +14,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"invowk-cli/pkg/invowkfile"
+	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
 // Runtime type constants for different execution environments.

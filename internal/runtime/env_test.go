@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"invowk-cli/internal/testutil"
-	"invowk-cli/pkg/invowkfile"
+	"github.com/invowk/invowk/internal/testutil"
+	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
 // createEnvFile creates an env file with the given content and returns its path.

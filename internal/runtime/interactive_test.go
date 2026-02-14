@@ -8,9 +8,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"invowk-cli/internal/config"
-	"invowk-cli/internal/testutil"
-	"invowk-cli/pkg/invowkfile"
+	"github.com/invowk/invowk/internal/config"
+	"github.com/invowk/invowk/internal/testutil"
+	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
 // TestInteractiveRuntimeInterface verifies that all runtimes implement InteractiveRuntime.

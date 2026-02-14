@@ -11,8 +11,8 @@ import (
 	"strings"
 	"testing"
 
-	"invowk-cli/internal/config"
-	"invowk-cli/internal/testutil"
+	"github.com/invowk/invowk/internal/config"
+	"github.com/invowk/invowk/internal/testutil"
 )
 
 func TestNew(t *testing.T) {

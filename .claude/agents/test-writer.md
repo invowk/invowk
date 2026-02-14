@@ -112,7 +112,7 @@ Key rules:
 For tests outside `pkg/invowkfile/` (to avoid import cycles):
 
 ```go
-import "invowk-cli/internal/testutil/invowkfiletest"
+import "github.com/invowk/invowk/internal/testutil/invowkfiletest"
 
 cmd := invowkfiletest.NewTestCommand("hello",
     invowkfiletest.WithScript("echo hello"),

@@ -21,8 +21,8 @@ import (
     "cuelang.org/go/cue"
 
     // 3. Internal packages
-    "invowk-cli/internal/config"
-    "invowk-cli/pkg/invowkfile"
+    "github.com/invowk/invowk/internal/config"
+    "github.com/invowk/invowk/pkg/invowkfile"
 )
 ```
 

@@ -12,8 +12,8 @@ import (
 	"strings"
 	"testing"
 
-	"invowk-cli/internal/testutil"
-	"invowk-cli/pkg/invowkfile"
+	"github.com/invowk/invowk/internal/testutil"
+	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
 func TestVirtualRuntime_InlineScript(t *testing.T) {

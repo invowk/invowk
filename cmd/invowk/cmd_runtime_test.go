@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"invowk-cli/pkg/invowkfile"
+	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
 // ---------------------------------------------------------------------------

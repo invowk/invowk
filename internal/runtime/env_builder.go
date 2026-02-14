@@ -5,7 +5,7 @@ package runtime
 import (
 	"maps"
 
-	"invowk-cli/pkg/invowkfile"
+	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
 type (

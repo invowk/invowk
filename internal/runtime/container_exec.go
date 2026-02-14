@@ -14,9 +14,9 @@ import (
 	"sync"
 	"time"
 
-	"invowk-cli/internal/container"
-	"invowk-cli/internal/sshserver"
-	"invowk-cli/pkg/invowkfile"
+	"github.com/invowk/invowk/internal/container"
+	"github.com/invowk/invowk/internal/sshserver"
+	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
 // containerRunMu is a fallback mutex used when flock-based cross-process

@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"invowk-cli/internal/core/serverbase"
-	"invowk-cli/internal/testutil"
+	"github.com/invowk/invowk/internal/core/serverbase"
+	"github.com/invowk/invowk/internal/testutil"
 )
 
 func TestGenerateToken(t *testing.T) {

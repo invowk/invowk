@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"invowk-cli/internal/config"
-	"invowk-cli/internal/testutil"
+	"github.com/invowk/invowk/internal/config"
+	"github.com/invowk/invowk/internal/testutil"
 )
 
 func TestSourceModule_String(t *testing.T) {

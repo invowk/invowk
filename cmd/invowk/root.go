@@ -7,8 +7,9 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"runtime/debug"
 
-	"invowk-cli/internal/issue"
+	"github.com/invowk/invowk/internal/issue"
 
 	"github.com/charmbracelet/fang"
 	"github.com/spf13/cobra"
@@ -72,6 +73,7 @@ be organized hierarchically with support for dependencies.
 	rootCmd.AddCommand(newTUICommand())
 	rootCmd.AddCommand(newModuleCommand(app))
 	rootCmd.AddCommand(newInternalCommand())
+	rootCmd.AddCommand(newUpgradeCommand())
 
 	return rootCmd
 }
@@ -102,11 +104,19 @@ func Execute() {
 }
 
 // getVersionString returns a formatted version string for display.
+// Precedence: ldflags version > debug.ReadBuildInfo() module version > "dev (built from source)".
+// This ensures go-install binaries show their module version (e.g., "v1.0.0")
+// instead of the default "dev" when ldflags are not set.
 func getVersionString() string {
-	if Version == "dev" {
-		return "dev (built from source)"
+	if Version != "dev" {
+		return fmt.Sprintf("%s (commit: %s, built: %s)", Version, Commit, BuildDate)
 	}
-	return fmt.Sprintf("%s (commit: %s, built: %s)", Version, Commit, BuildDate)
+
+	if info, ok := debug.ReadBuildInfo(); ok && info.Main.Version != "" && info.Main.Version != "(devel)" {
+		return info.Main.Version
+	}
+
+	return "dev (built from source)"
 }
 
 // formatErrorForDisplay formats an error for user display.

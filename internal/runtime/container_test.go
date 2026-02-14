@@ -12,10 +12,10 @@ import (
 	"sync"
 	"testing"
 
-	"invowk-cli/internal/config"
-	"invowk-cli/internal/container"
-	"invowk-cli/internal/provision"
-	"invowk-cli/pkg/invowkfile"
+	"github.com/invowk/invowk/internal/config"
+	"github.com/invowk/invowk/internal/container"
+	"github.com/invowk/invowk/internal/provision"
+	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
 // MockEngine implements container.Engine for testing.

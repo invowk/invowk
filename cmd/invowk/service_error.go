@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"io"
 
-	"invowk-cli/internal/issue"
+	"github.com/invowk/invowk/internal/issue"
 )
 
 // ServiceError is an error that carries optional rendering information for

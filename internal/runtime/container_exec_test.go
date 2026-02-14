@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"invowk-cli/internal/container"
+	"github.com/invowk/invowk/internal/container"
 )
 
 type (

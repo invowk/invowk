@@ -1,24 +1,22 @@
 <!--
 SYNC IMPACT REPORT
 ==================
-Version change: 1.1.0 → 1.2.0 (MINOR: New principle added)
+Version change: 1.2.0 → 1.2.1 (PATCH: Fix stale naming references)
 
 Modified principles: None
 
-Added sections:
-- VII. Pre-Existing Issue Resolution (NON-NEGOTIABLE) - new principle
+Added sections: None
 
 Removed sections: None
 
 Modified sections:
-- Quality Gates: Added "Pre-Existing Issue Check" row
-- Development Workflow > During Implementation: Added pre-existing issue handling step
-- Governance > Conflict Resolution: Added reference to new principle
+- Principle II: modules/*.invkmod → modules/*.invowkmod
+- Principle VI: invkfile.cue → invowkfile.cue, invkmod.cue → invowkmod.cue
+- Principle VI (Documentation locations): invkfile.cue → invowkfile.cue
+- Quality Gates: modules/*.invkmod → modules/*.invowkmod
+- Version footer: 1.2.0 → 1.2.1, Last Amended → 2026-02-13
 
-Templates requiring updates:
-- .specify/templates/plan-template.md ✅ (Constitution Check section is generic, will pick up new principle)
-- .specify/templates/spec-template.md ✅ (No constitution-specific content requiring updates)
-- .specify/templates/tasks-template.md ✅ (Task organization unaffected; new principle applies at spec revision level)
+Templates requiring updates: None (templates don't reference these filenames)
 
 Follow-up TODOs: None
 -->
@@ -46,7 +44,7 @@ Every behavior change MUST have corresponding test coverage:
 - **Unit Tests**: Table-driven tests for pure logic. Use `t.TempDir()` for temporary files. Reset global state via cleanup functions.
 - **CLI Integration Tests**: Use `testscript` (`.txtar` format) in `tests/cli/testdata/` for CLI behavior verification. Tests run in isolated environments (`HOME=/no-home`). Use `--` separator for command flags.
 - **Race Detection**: Run tests with `-race` flag. For race condition fixes, execute 10+ times with `-count=1` to bypass cache.
-- **Module Validation**: After module-related changes, run `go run . module validate modules/*.invkmod --deep`.
+- **Module Validation**: After module-related changes, run `go run . module validate modules/*.invowkmod --deep`.
 
 **Mandatory commands before merge**:
 ```bash
@@ -99,7 +97,7 @@ Complexity MUST be justified and documented:
 Any change that affects user-facing behavior MUST have corresponding documentation updates:
 
 - **CLI Changes**: New, modified, or removed commands/subcommands MUST be reflected in `README.md` and website docs (`website/docs/`).
-- **CUE Schema Changes**: Updates to `invkfile.cue` or `invkmod.cue` schemas MUST be documented with examples showing the new syntax.
+- **CUE Schema Changes**: Updates to `invowkfile.cue` or `invowkmod.cue` schemas MUST be documented with examples showing the new syntax.
 - **Configuration Changes**: New config options or behavioral defaults MUST be documented in the configuration section.
 - **Behavior Changes**: Side-effects, error message changes, exit code changes, or runtime behavior modifications MUST be documented.
 - **Flag/Argument Changes**: New flags, renamed flags, or removed flags MUST be updated in command help text AND documentation.
@@ -107,7 +105,7 @@ Any change that affects user-facing behavior MUST have corresponding documentati
 **Documentation locations to check**:
 - `README.md` - Primary user documentation
 - `website/docs/` - Website documentation (if applicable)
-- `invkfile.cue` / sample modules - Example files that users copy
+- `invowkfile.cue` / sample modules - Example files that users copy
 - CLI `--help` text - Embedded documentation
 
 **Enforcement**:
@@ -171,7 +169,7 @@ Every PR MUST pass the following gates before merge:
 | CLI Tests | `make test-cli` | If CLI output/behavior changed |
 | License Headers | `make license-check` | New `.go` files |
 | Dependencies | `make tidy` | If dependencies changed |
-| Module Validation | `go run . module validate modules/*.invkmod --deep` | If module logic changed |
+| Module Validation | `go run . module validate modules/*.invowkmod --deep` | If module logic changed |
 | Website Build | `cd website && npm run build` | If website content changed |
 | **Documentation Sync** | **Manual review** | **If ANY user-facing behavior changed** |
 | **Pre-Existing Issue Check** | **Manual review** | **If implementation revealed blocking issues** |
@@ -220,4 +218,4 @@ This constitution is the authoritative guide for technical decisions in Invowk:
 
 5. **Conflict Resolution**: When principles appear to conflict, Simplicity (Principle V) is the tiebreaker—choose the simpler approach unless security, correctness, or pre-existing issue resolution (Principle VII) requires otherwise.
 
-**Version**: 1.2.0 | **Ratified**: 2026-01-21 | **Last Amended**: 2026-01-21
+**Version**: 1.2.1 | **Ratified**: 2026-01-21 | **Last Amended**: 2026-02-13

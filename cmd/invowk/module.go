@@ -6,8 +6,8 @@ import (
 	"context"
 	"fmt"
 
-	"invowk-cli/internal/config"
-	"invowk-cli/internal/discovery"
+	"github.com/invowk/invowk/internal/config"
+	"github.com/invowk/invowk/internal/discovery"
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/spf13/cobra"

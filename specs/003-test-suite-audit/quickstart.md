@@ -41,7 +41,7 @@ cmd := testCmd("hello", "echo hello")
 ### After (consolidated helper)
 
 ```go
-import "invowk-cli/internal/testutil/invowkfiletest"
+import "github.com/invowk/invowk/internal/testutil/invowkfiletest"
 
 // Simple case - same behavior as before
 cmd := invowkfiletest.NewTestCommand("hello", invowkfiletest.WithScript("echo hello"))
@@ -95,7 +95,7 @@ defer cleanup()
 ### After (consolidated)
 
 ```go
-import "invowk-cli/internal/testutil"
+import "github.com/invowk/invowk/internal/testutil"
 
 // Option 1: With defer
 cleanup := testutil.SetHomeDir(t, tmpDir)
@@ -132,7 +132,7 @@ func TestExpiredToken(t *testing.T) {
 ### After (deterministic)
 
 ```go
-import "invowk-cli/internal/testutil"
+import "github.com/invowk/invowk/internal/testutil"
 
 func TestExpiredToken(t *testing.T) {
     cfg := DefaultConfig()
@@ -184,7 +184,7 @@ func (s *Server) isTokenExpired(token *Token) bool {
 ```go
 import (
     tea "github.com/charmbracelet/bubbletea"
-    "invowk-cli/internal/tui"
+    "github.com/invowk/invowk/internal/tui"
 )
 
 func TestChooseModel_Navigation(t *testing.T) {
@@ -252,7 +252,7 @@ func TestConfirmModel_Toggle(t *testing.T) {
 ```go
 import (
     "os/exec"
-    "invowk-cli/internal/container"
+    "github.com/invowk/invowk/internal/container"
 )
 
 func TestDockerBuild_Arguments(t *testing.T) {

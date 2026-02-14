@@ -10,8 +10,8 @@ import (
 	"strings"
 	"testing"
 
-	"invowk-cli/internal/testutil"
-	"invowk-cli/pkg/invowkfile"
+	"github.com/invowk/invowk/internal/testutil"
+	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
 // TestContainerRuntime_ProvisioningLayer_InvowkfileAccess tests that the invowkfile directory

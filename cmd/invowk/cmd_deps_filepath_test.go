@@ -9,8 +9,8 @@ import (
 	"strings"
 	"testing"
 
-	"invowk-cli/internal/testutil/invowkfiletest"
-	"invowk-cli/pkg/invowkfile"
+	"github.com/invowk/invowk/internal/testutil/invowkfiletest"
+	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
 // ============================================================================

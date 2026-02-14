@@ -129,7 +129,7 @@ for _, tt := range tests {
 Windows has reserved filenames that cannot be used. The `pkg/platform/windows.go` package provides detection:
 
 ```go
-import "invowk-cli/pkg/platform"
+import "github.com/invowk/invowk/pkg/platform"
 
 if platform.IsReservedWindowsName(filename) {
     return fmt.Errorf("cannot use reserved Windows filename: %s", filename)

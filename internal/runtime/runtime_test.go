@@ -12,7 +12,7 @@ import (
 	"strings"
 	"testing"
 
-	"invowk-cli/pkg/invowkfile"
+	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
 // mockRuntime is a test runtime that records calls and returns configured results.

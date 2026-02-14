@@ -10,8 +10,8 @@ import (
 	"slices"
 	"strings"
 
-	"invowk-cli/internal/runtime"
-	"invowk-cli/pkg/invowkfile"
+	"github.com/invowk/invowk/internal/runtime"
+	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
 // checkFilepathDependenciesWithRuntime verifies all required files/directories exist

@@ -8,8 +8,8 @@ import (
 	"os/exec"
 	"strings"
 
-	"invowk-cli/internal/runtime"
-	"invowk-cli/pkg/invowkfile"
+	"github.com/invowk/invowk/internal/runtime"
+	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
 // checkToolDependenciesWithRuntime verifies all required tools are available

@@ -160,7 +160,7 @@ Both engines embed `*BaseCLIEngine` which provides all shared logic. Per-engine 
 
 ### Go Visibility Rules
 
-**This is valid Go.** The `internal/` visibility rule applies to **external modules**, not within the same module. Since `pkg/` and `internal/` are both in `invowk-cli` module, they can cross-reference.
+**This is valid Go.** The `internal/` visibility rule applies to **external modules**, not within the same module. Since `pkg/` and `internal/` are both in `github.com/invowk/invowk` module, they can cross-reference.
 
 ### Decision
 

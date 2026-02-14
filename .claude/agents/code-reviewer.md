@@ -68,7 +68,7 @@ For functions that open resources needing cleanup:
 Three groups separated by blank lines:
 1. Standard library
 2. External dependencies
-3. Internal packages (`invowk-cli/...`)
+3. Internal packages (`github.com/invowk/invowk/...`)
 
 ### 9. Documentation
 

@@ -7,7 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"invowk-cli/pkg/invowkfile"
+	"github.com/invowk/invowk/pkg/invowkfile"
 
 	"github.com/spf13/cobra"
 )

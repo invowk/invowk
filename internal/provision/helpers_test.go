@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"invowk-cli/internal/testutil"
+	"github.com/invowk/invowk/internal/testutil"
 )
 
 func TestDefaultConfig(t *testing.T) {

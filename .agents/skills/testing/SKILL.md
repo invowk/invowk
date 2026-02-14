@@ -30,7 +30,7 @@ Use this skill when:
 func testCommand(name, script string) Command { ... }
 
 // CORRECT: Centralized in testutil
-import "invowk-cli/internal/testutil/invowkfiletest"
+import "github.com/invowk/invowk/internal/testutil/invowkfiletest"
 cmd := invowkfiletest.NewTestCommand("hello", invowkfiletest.WithScript("echo hello"))
 ```
 

@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"invowk-cli/pkg/invowkfile"
+	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
 // ArgsSubcommandConflictError is returned when a command defines both

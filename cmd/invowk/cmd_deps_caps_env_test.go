@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"invowk-cli/internal/runtime"
-	"invowk-cli/pkg/invowkfile"
+	"github.com/invowk/invowk/internal/runtime"
+	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
 // ---------------------------------------------------------------------------

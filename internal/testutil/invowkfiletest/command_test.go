@@ -5,7 +5,7 @@ package invowkfiletest
 import (
 	"testing"
 
-	"invowk-cli/pkg/invowkfile"
+	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
 func TestNewTestCommand_Defaults(t *testing.T) {

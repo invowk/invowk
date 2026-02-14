@@ -7,7 +7,7 @@ import (
 	"os"
 	"strings"
 
-	"invowk-cli/pkg/invowkfile"
+	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
 // envInheritConfig is the resolved environment inheritance configuration after

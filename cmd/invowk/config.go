@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"os"
 
-	"invowk-cli/internal/config"
-	"invowk-cli/internal/issue"
+	"github.com/invowk/invowk/internal/config"
+	"github.com/invowk/invowk/internal/issue"
 
 	"github.com/spf13/cobra"
 )

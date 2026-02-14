@@ -7,9 +7,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"invowk-cli/internal/discovery"
-	"invowk-cli/pkg/invowkfile"
-	"invowk-cli/pkg/invowkmod"
+	"github.com/invowk/invowk/internal/discovery"
+	"github.com/invowk/invowk/pkg/invowkfile"
+	"github.com/invowk/invowk/pkg/invowkmod"
 
 	"github.com/spf13/cobra"
 )

@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"net"
 
-	"invowk-cli/internal/core/serverbase"
+	"github.com/invowk/invowk/internal/core/serverbase"
 
 	"github.com/charmbracelet/ssh"
 	"github.com/charmbracelet/wish"

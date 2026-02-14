@@ -12,8 +12,8 @@ import (
 	"os/exec"
 	"strings"
 
-	"invowk-cli/internal/uroot"
-	"invowk-cli/pkg/invowkfile"
+	"github.com/invowk/invowk/internal/uroot"
+	"github.com/invowk/invowk/pkg/invowkfile"
 
 	"mvdan.cc/sh/v3/expand"
 	"mvdan.cc/sh/v3/interp"

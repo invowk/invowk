@@ -4904,11 +4904,35 @@ invowk cmd build --ivk-runtime container`,
   // INSTALLATION
   // =============================================================================
 
+  'installation/shell-script': {
+    language: 'bash',
+    code: `curl -fsSL https://raw.githubusercontent.com/invowk/invowk/main/scripts/install.sh | sh`,
+  },
+
+  'installation/shell-script-custom': {
+    language: 'bash',
+    code: `# Install to a custom directory
+INSTALL_DIR=/usr/local/bin curl -fsSL https://raw.githubusercontent.com/invowk/invowk/main/scripts/install.sh | sh
+
+# Install a specific version
+INVOWK_VERSION=v1.0.0 curl -fsSL https://raw.githubusercontent.com/invowk/invowk/main/scripts/install.sh | sh`,
+  },
+
+  'installation/homebrew': {
+    language: 'bash',
+    code: `brew install invowk/tap/invowk`,
+  },
+
+  'installation/go-install': {
+    language: 'bash',
+    code: `go install github.com/invowk/invowk@latest`,
+  },
+
   'installation/build-from-source': {
     language: 'bash',
     code: `git clone https://github.com/invowk/invowk
 cd invowk
-go build -o invowk .`,
+make build`,
   },
 
   'installation/move-to-path': {

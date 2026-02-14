@@ -7,10 +7,10 @@ import (
 	"os"
 	"path/filepath"
 
-	"invowk-cli/internal/config"
-	"invowk-cli/internal/container"
-	"invowk-cli/internal/provision"
-	"invowk-cli/internal/sshserver"
+	"github.com/invowk/invowk/internal/config"
+	"github.com/invowk/invowk/internal/container"
+	"github.com/invowk/invowk/internal/provision"
+	"github.com/invowk/invowk/internal/sshserver"
 )
 
 // Container host addresses for SSH tunneling

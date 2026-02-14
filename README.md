@@ -34,31 +34,72 @@ A dynamically extensible, CLI-based command runner similar to [just](https://git
 
 ## Installation
 
+### Shell Script (Linux/macOS)
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/invowk/invowk/main/scripts/install.sh | sh
+```
+
+This downloads the latest release, verifies its SHA256 checksum, and installs to `~/.local/bin`. Customize with environment variables:
+
+```bash
+INSTALL_DIR=/usr/local/bin INVOWK_VERSION=v1.0.0 curl -fsSL https://raw.githubusercontent.com/invowk/invowk/main/scripts/install.sh | sh
+```
+
+### Homebrew (macOS/Linux)
+
+```bash
+brew install invowk/tap/invowk
+```
+
+### Go Install
+
+```bash
+go install github.com/invowk/invowk@latest
+```
+
+Requires Go 1.26+. The binary is installed to `$GOBIN` (or `$GOPATH/bin`).
+
 ### From Source
 
 ```bash
-git clone https://github.com/yourusername/invowk
+git clone https://github.com/invowk/invowk
 cd invowk
 make build
+make install  # Installs to $GOPATH/bin
 ```
 
 > **Note:** On x86-64 systems, the default build targets the x86-64-v3 microarchitecture (Haswell+ CPUs from 2013+) for optimal performance. For maximum compatibility with older CPUs, use `make build GOAMD64=v1`.
 
-> **Performance:** Invowk uses Profile-Guided Optimization (PGO) for improved runtime performance. The pre-generated profile (`default.pgo`) is automatically detected by Go 1.20+ during builds. To regenerate the profile after significant changes: `make pgo-profile`.
-
-### Installing the Binary
-
-Move the built binary to a location in your PATH:
+### Verify Installation
 
 ```bash
-sudo mv bin/invowk /usr/local/bin/
+invowk --version
 ```
 
-Or use the install target:
+### Upgrading
 
 ```bash
-make install  # Installs to $GOPATH/bin
+# Check for updates
+invowk upgrade --check
+
+# Upgrade to latest
+invowk upgrade
+
+# Upgrade to a specific version
+invowk upgrade v1.2.0
 ```
+
+If installed via Homebrew, use `brew upgrade invowk` instead. If installed via `go install`, use `go install github.com/invowk/invowk@latest`.
+
+### Platform Support
+
+| Method | Linux | macOS | Windows |
+|--------|-------|-------|---------|
+| Shell script | amd64, arm64 | amd64 (Intel), arm64 (Apple Silicon) | — |
+| Homebrew | amd64, arm64 | amd64, arm64 | — |
+| Go install | all | all | all |
+| From source | all | all | all |
 
 ## Quick Start
 

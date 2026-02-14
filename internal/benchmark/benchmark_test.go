@@ -10,11 +10,11 @@ import (
 	"path/filepath"
 	"testing"
 
-	"invowk-cli/internal/config"
-	"invowk-cli/internal/discovery"
-	"invowk-cli/internal/runtime"
-	"invowk-cli/pkg/invowkfile"
-	"invowk-cli/pkg/invowkmod"
+	"github.com/invowk/invowk/internal/config"
+	"github.com/invowk/invowk/internal/discovery"
+	"github.com/invowk/invowk/internal/runtime"
+	"github.com/invowk/invowk/pkg/invowkfile"
+	"github.com/invowk/invowk/pkg/invowkmod"
 )
 
 const (

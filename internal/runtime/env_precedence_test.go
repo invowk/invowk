@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"invowk-cli/internal/testutil"
-	"invowk-cli/pkg/invowkfile"
+	"github.com/invowk/invowk/internal/testutil"
+	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
 // TestBuildRuntimeEnv_PairwisePrecedence verifies that each adjacent precedence level

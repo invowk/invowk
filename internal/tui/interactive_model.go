@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"invowk-cli/internal/tuiserver"
+	"github.com/invowk/invowk/internal/tuiserver"
 
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"

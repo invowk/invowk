@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"invowk-cli/internal/config"
-	"invowk-cli/pkg/invowkfile"
+	"github.com/invowk/invowk/internal/config"
+	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
 // ErrNoInvowkfileFound is returned when no invowkfile.cue is found in any search path.
