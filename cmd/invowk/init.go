@@ -56,7 +56,10 @@ func runInit(_ *cobra.Command, args []string, force bool, template string) error
 		return fmt.Errorf("failed to write file: %w", err)
 	}
 
-	absPath, _ := filepath.Abs(filename)
+	absPath, err := filepath.Abs(filename)
+	if err != nil {
+		absPath = filename
+	}
 	fmt.Printf("%s Created %s\n", SuccessStyle.Render("✓"), absPath)
 	fmt.Println()
 	fmt.Println(SubtitleStyle.Render("Next steps:"))
@@ -104,7 +107,11 @@ func generateInvowkfile(template string) string {
 		}
 
 	case "full":
-		// Full template: hello command with all runtimes + subcommand and dependency examples
+		// Full template: subcommand, flag, env, and depends_on examples.
+		// The parent "hello" is virtual-only (no args) because parent commands
+		// with subcommands cannot have args — the CLI parser would interpret
+		// positional arguments as subcommand names. Multi-runtime platform-split
+		// is already demonstrated by the "default" template.
 		inv = &invowkfile.Invowkfile{
 			Commands: []invowkfile.Command{
 				{
@@ -112,28 +119,10 @@ func generateInvowkfile(template string) string {
 					Description: "Print a greeting",
 					Implementations: []invowkfile.Implementation{
 						{
-							Script:    `echo "Hello, $INVOWK_ARG_NAME!"`,
-							Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeNative}},
-							Platforms: unixPlatforms,
-						},
-						{
-							Script:    `Write-Output "Hello, $($env:INVOWK_ARG_NAME)!"`,
-							Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeNative}},
-							Platforms: []invowkfile.PlatformConfig{{Name: invowkfile.PlatformWindows}},
-						},
-						{
-							Script:    `echo "Hello, $INVOWK_ARG_NAME!"`,
+							Script:    `echo "Hello, World!"`,
 							Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeVirtual}},
 							Platforms: invowkfile.AllPlatformConfigs(),
 						},
-						{
-							Script:    `echo "Hello from container, $INVOWK_ARG_NAME!"`,
-							Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeContainer, Image: "debian:stable-slim"}},
-							Platforms: linuxOnly,
-						},
-					},
-					Args: []invowkfile.Argument{
-						{Name: "name", Description: "Who to greet", DefaultValue: "World"},
 					},
 				},
 				{
@@ -182,38 +171,45 @@ func generateInvowkfile(template string) string {
 		// Default template: hello command with all 3 runtimes showing platform-split pattern
 		inv = &invowkfile.Invowkfile{
 			Commands: []invowkfile.Command{
-				{
-					Name:        "hello",
-					Description: "Print a greeting",
-					Implementations: []invowkfile.Implementation{
-						{
-							Script:    `echo "Hello, $INVOWK_ARG_NAME!"`,
-							Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeNative}},
-							Platforms: unixPlatforms,
-						},
-						{
-							Script:    `Write-Output "Hello, $($env:INVOWK_ARG_NAME)!"`,
-							Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeNative}},
-							Platforms: []invowkfile.PlatformConfig{{Name: invowkfile.PlatformWindows}},
-						},
-						{
-							Script:    `echo "Hello, $INVOWK_ARG_NAME!"`,
-							Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeVirtual}},
-							Platforms: invowkfile.AllPlatformConfigs(),
-						},
-						{
-							Script:    `echo "Hello from container, $INVOWK_ARG_NAME!"`,
-							Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeContainer, Image: "debian:stable-slim"}},
-							Platforms: linuxOnly,
-						},
-					},
-					Args: []invowkfile.Argument{
-						{Name: "name", Description: "Who to greet", DefaultValue: "World"},
-					},
-				},
+				helloCommand(unixPlatforms, linuxOnly),
 			},
 		}
 	}
 
 	return invowkfile.GenerateCUE(inv)
+}
+
+// helloCommand returns the "hello" command definition used by the "default"
+// init template. It demonstrates the platform-split pattern with native
+// (Unix + Windows), virtual, and container implementations.
+func helloCommand(unixPlatforms, linuxOnly []invowkfile.PlatformConfig) invowkfile.Command {
+	return invowkfile.Command{
+		Name:        "hello",
+		Description: "Print a greeting",
+		Implementations: []invowkfile.Implementation{
+			{
+				Script:    `echo "Hello, $INVOWK_ARG_NAME!"`,
+				Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeNative}},
+				Platforms: unixPlatforms,
+			},
+			{
+				Script:    `Write-Output "Hello, $($env:INVOWK_ARG_NAME)!"`,
+				Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeNative}},
+				Platforms: []invowkfile.PlatformConfig{{Name: invowkfile.PlatformWindows}},
+			},
+			{
+				Script:    `echo "Hello, $INVOWK_ARG_NAME!"`,
+				Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeVirtual}},
+				Platforms: invowkfile.AllPlatformConfigs(),
+			},
+			{
+				Script:    `echo "Hello from container, $INVOWK_ARG_NAME!"`,
+				Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeContainer, Image: "debian:stable-slim"}},
+				Platforms: linuxOnly,
+			},
+		},
+		Args: []invowkfile.Argument{
+			{Name: "name", Description: "Who to greet", DefaultValue: "World"},
+		},
+	}
 }

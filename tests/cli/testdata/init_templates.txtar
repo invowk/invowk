@@ -1,0 +1,46 @@
+# Test: invowk init template selection and --force behavior
+# Tests minimal/full templates, error on existing file, and --force overwrite
+
+cd $WORK
+
+# Test 1: Minimal template creates a valid invowkfile
+exec invowk init -t minimal
+stdout 'Created'
+exists invowkfile.cue
+
+# Test 2: Minimal template produces a runnable command
+exec invowk cmd hello
+stdout 'Hello, World!'
+
+# Test 3: Without --force, init errors on existing file
+! exec invowk init
+stderr 'already exists'
+stderr 'Use --force to overwrite'
+
+# Test 4: With --force and different template, overwrites existing file
+exec invowk init --force -t default
+stdout 'Created'
+exists invowkfile.cue
+
+# Test 5: Custom output filename via positional argument
+exec invowk init my_commands.cue
+stdout 'Created'
+stdout 'my_commands.cue'
+exists my_commands.cue
+
+# Test 6: Full template generates a valid invowkfile with subcommands
+exec invowk init --force -t full
+stdout 'Created'
+exists invowkfile.cue
+
+# Test 7: Full template parent command runs
+exec invowk cmd hello
+stdout 'Hello, World!'
+
+# Test 8: Full template subcommand with flags and args
+exec invowk cmd hello formal --title Mr. Alice
+stdout 'Mr. Alice, welcome!'
+
+# Test 9: Full template dependency command runs
+exec invowk cmd hello all
+stdout 'All greetings complete!'
