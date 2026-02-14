@@ -10,19 +10,19 @@
 
 ## Summary
 
-Implement three official installation methods (shell script, Homebrew, `go install`) and a self-upgrade CLI command for invowk. The prerequisite module path migration from `invowk-cli` to `github.com/invowk/invowk` enables `go install` support and gives the project a canonical import path. The upgrade command queries GitHub Releases for the latest stable version, verifies integrity via SHA256 checksums, and performs atomic binary replacement — detecting package-manager installations (Homebrew, `go install`) to suggest the appropriate upgrade path instead.
+Implement three official installation methods (shell script, Homebrew, `go install`) and a PowerShell installer for Windows. The prerequisite module path migration from `invowk-cli` to `github.com/invowk/invowk` enables `go install` support and gives the project a canonical import path. **Note:** The self-upgrade CLI command (US3/Phase 3) was deferred and removed from this branch; the shipped scope covers US1, US2, US4, and the PowerShell installer.
 
 ## Technical Context
 
 **Language/Version**: Go 1.26+
-**Primary Dependencies**: `net/http` (GitHub Releases API), `crypto/sha256`, `runtime/debug` (build info), `archive/tar` + `compress/gzip` (asset extraction), `github.com/spf13/cobra` (CLI), `golang.org/x/mod/semver` (version comparison — decided in research.md R5)
+**Primary Dependencies**: `net/http` (GitHub Releases API), `crypto/sha256`, `runtime/debug` (build info), `archive/tar` + `compress/gzip` (asset extraction), `github.com/spf13/cobra` (CLI), `golang.org/x/mod/semver` (version comparison — decided in research.md R5). **Note:** Most of these dependencies (`net/http`, `crypto/sha256`, `archive/tar`, `compress/gzip`, `golang.org/x/mod/semver`) applied to the original scope including the self-upgrade command (US3, deferred). The shipped scope only uses `runtime/debug` (for `go install` version display) and `github.com/spf13/cobra` (CLI framework, pre-existing)
 **Storage**: Filesystem (binary replacement, temp files for atomic install)
 **Testing**: `go test` (unit), `testscript` (CLI integration), manual install script testing on Linux/macOS
-**Target Platform**: Linux/macOS (amd64, arm64) for full support; Windows (amd64) for `go install` only
+**Target Platform**: Linux/macOS (amd64, arm64) for full support; Windows (amd64) via PowerShell installer (`scripts/install.ps1`) and `go install`
 **Project Type**: Single Go CLI project
 **Performance Goals**: Install < 30s, upgrade < 60s (network-dependent), version check < 5s
 **Constraints**: POSIX sh for install script (no bash), stdlib-only HTTP for upgrade (no third-party GitHub client), atomic binary replacement, SHA256 verification mandatory
-**Scale/Scope**: ~111 Go files for import migration, ~5 new Go files for upgrade command, 1 new shell script, GoReleaser config changes, README rewrite
+**Scale/Scope**: ~111 Go files for import migration, 2 new scripts (`scripts/install.sh`, `scripts/install.ps1`), GoReleaser config changes, README rewrite. US3 (self-upgrade command, ~5 new Go files) was deferred
 
 ## Constitution Check
 
@@ -85,8 +85,10 @@ cmd/invowk/upgrade.go               # Cobra command: invowk upgrade [version] [-
 cmd/invowk/upgrade_test.go          # Command-level tests
 cmd/invowk/root.go                  # Register upgrade command
 
-# Install script (Phase 4)
-scripts/install.sh                  # POSIX sh install script
+# Install scripts (Phase 4)
+scripts/install.sh                  # POSIX sh install script (Linux/macOS)
+scripts/install.ps1                 # PowerShell install script (Windows amd64)
+scripts/test_install.sh             # Install script test harness
 
 # Homebrew tap (Phase 5) — separate repository
 # invowk/homebrew-tap (GitHub)
@@ -134,7 +136,10 @@ No constitution violations require justification. The `internal/selfupdate/` pac
 - If ldflags `Version == "dev"` and build info has version, use build info version
 - If both are empty, show `"dev (built from source)"`
 
-### Phase 3: Self-Upgrade Command
+### Phase 3: Self-Upgrade Command [DEFERRED]
+
+> **Deferred.** This phase was removed from the shipped scope. The `internal/selfupdate/` package
+> and `cmd/invowk/upgrade.go` were deleted. Content below is retained as design history.
 
 **Scope**: Implement `invowk upgrade [version] [--check] [--yes]`.
 

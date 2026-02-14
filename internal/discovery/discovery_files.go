@@ -70,14 +70,19 @@ func (d *Discovery) discoverAllWithDiagnostics() ([]*DiscoveredFile, []Diagnosti
 	diagnostics := make([]Diagnostic, 0)
 
 	// 1. Current directory (highest precedence)
-	if cwdFile := d.discoverInDir(d.baseDir, SourceCurrentDir); cwdFile != nil {
-		files = append(files, cwdFile)
-	}
+	// Skip current-dir discovery when baseDir is empty (e.g., os.Getwd() failed
+	// because the working directory was deleted). This prevents filepath.Abs("")
+	// from silently resolving to the process working directory, which may not exist.
+	if d.baseDir != "" {
+		if cwdFile := d.discoverInDir(d.baseDir, SourceCurrentDir); cwdFile != nil {
+			files = append(files, cwdFile)
+		}
 
-	// 2. Modules in current directory
-	moduleFiles, moduleDiags := d.discoverModulesInDirWithDiagnostics(d.baseDir)
-	files = append(files, moduleFiles...)
-	diagnostics = append(diagnostics, moduleDiags...)
+		// 2. Modules in current directory
+		moduleFiles, moduleDiags := d.discoverModulesInDirWithDiagnostics(d.baseDir)
+		files = append(files, moduleFiles...)
+		diagnostics = append(diagnostics, moduleDiags...)
+	}
 
 	// 3. Configured includes (explicit module paths from config)
 	includeFiles, includeDiags := d.loadIncludesWithDiagnostics()

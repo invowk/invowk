@@ -50,10 +50,10 @@ setup_colors() {
     fi
 }
 
-log()  { printf '%b\n' "${CYAN}$*${RESET}" >&2; }
-ok()   { printf '%b\n' "${GREEN}$*${RESET}" >&2; }
-warn() { printf '%b\n' "${YELLOW}WARNING: $*${RESET}" >&2; }
-err()  { printf '%b\n' "${RED}ERROR: $*${RESET}" >&2; }
+log()  { printf '%b%s%b\n' "${CYAN}" "$*" "${RESET}" >&2; }
+ok()   { printf '%b%s%b\n' "${GREEN}" "$*" "${RESET}" >&2; }
+warn() { printf '%b%s%b\n' "${YELLOW}WARNING: " "$*" "${RESET}" >&2; }
+err()  { printf '%b%s%b\n' "${RED}ERROR: " "$*" "${RESET}" >&2; }
 die()  { err "$@"; exit 1; }
 
 # ---------------------------------------------------------------------------
@@ -135,14 +135,14 @@ download() {
     case "${DOWNLOAD_CMD}" in
         curl)
             if [ -n "${GITHUB_TOKEN:-}" ]; then
-                curl -fsSL -H "Authorization: token ${GITHUB_TOKEN}" "${_url}"
+                curl -fsSL -H "Authorization: Bearer ${GITHUB_TOKEN}" "${_url}"
             else
                 curl -fsSL "${_url}"
             fi
             ;;
         wget)
             if [ -n "${GITHUB_TOKEN:-}" ]; then
-                wget -qO- --header="Authorization: token ${GITHUB_TOKEN}" "${_url}"
+                wget -qO- --header="Authorization: Bearer ${GITHUB_TOKEN}" "${_url}"
             else
                 wget -qO- "${_url}"
             fi
@@ -158,14 +158,14 @@ download_to_file() {
     case "${DOWNLOAD_CMD}" in
         curl)
             if [ -n "${GITHUB_TOKEN:-}" ]; then
-                curl -fsSL -H "Authorization: token ${GITHUB_TOKEN}" -o "${_dest}" "${_url}"
+                curl -fsSL -H "Authorization: Bearer ${GITHUB_TOKEN}" -o "${_dest}" "${_url}"
             else
                 curl -fsSL -o "${_dest}" "${_url}"
             fi
             ;;
         wget)
             if [ -n "${GITHUB_TOKEN:-}" ]; then
-                wget -qO "${_dest}" --header="Authorization: token ${GITHUB_TOKEN}" "${_url}"
+                wget -qO "${_dest}" --header="Authorization: Bearer ${GITHUB_TOKEN}" "${_url}"
             else
                 wget -qO "${_dest}" "${_url}"
             fi
@@ -319,7 +319,7 @@ detect_shell_config() {
                 echo "${HOME}/.bash_profile"
             fi
             ;;
-        fish) echo "${HOME}/.config/fish/config.fish" ;;
+        fish) echo "${XDG_CONFIG_HOME:-${HOME}/.config}/fish/config.fish" ;;
         *)    echo "${HOME}/.profile" ;;
     esac
 }
@@ -360,8 +360,9 @@ Check available assets at: https://github.com/${GITHUB_REPO}/releases/tag/${_ver
 Cannot verify download integrity. Please try again."
 
     # Extract expected checksum for our asset from checksums.txt.
-    # -F: fixed-string match (asset names contain dots, which are regex wildcards).
-    _expected_hash=$(grep -F "${_asset}" "${_checksums_path}" | cut -d' ' -f1)
+    # Uses awk for exact field match — grep -F does substring matching which can
+    # match multiple lines (e.g., both the .tar.gz and .tar.gz.sig entries).
+    _expected_hash=$(awk -v asset="${_asset}" '$2 == asset { print $1; exit }' "${_checksums_path}")
     if [ -z "${_expected_hash}" ]; then
         die "Asset ${_asset} not found in checksums.txt.
 This may indicate a GoReleaser configuration issue.
@@ -388,11 +389,17 @@ Report at: https://github.com/${GITHUB_REPO}/issues"
 First attempt error: ${_tar_stderr}}"
 
     if [ ! -f "${TMPDIR_INSTALL}/${BINARY_NAME}" ]; then
-        die "Binary '${BINARY_NAME}' not found in archive ${_asset}."
+        # Full extraction may have placed the binary in a subdirectory
+        # (e.g., invowk_1.0.0_linux_amd64/invowk). Search recursively.
+        _found=$(find "${TMPDIR_INSTALL}" -name "${BINARY_NAME}" -type f | head -1)
+        if [ -z "${_found}" ]; then
+            die "Binary '${BINARY_NAME}' not found in archive ${_asset}."
+        fi
+        mv "${_found}" "${TMPDIR_INSTALL}/${BINARY_NAME}" || die "Failed to relocate binary from nested archive path: ${_found}"
     fi
 
     # Ensure the binary is executable.
-    chmod +x "${TMPDIR_INSTALL}/${BINARY_NAME}"
+    chmod +x "${TMPDIR_INSTALL}/${BINARY_NAME}" || die "Failed to set executable permission on ${BINARY_NAME}"
 
     # Create install directory if it doesn't exist.
     mkdir -p "${_install_dir}" || die "Failed to create install directory: ${_install_dir}

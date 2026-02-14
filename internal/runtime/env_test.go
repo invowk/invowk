@@ -129,7 +129,7 @@ func TestValidateWorkDir(t *testing.T) {
 			if tt.wantErr {
 				if err == nil {
 					t.Errorf("validateWorkDir(%q) expected error, got nil", tt.dir)
-				} else if tt.errSubstr != "" && !containsString(err.Error(), tt.errSubstr) {
+				} else if tt.errSubstr != "" && !strings.Contains(err.Error(), tt.errSubstr) {
 					t.Errorf("validateWorkDir(%q) error = %q, want error containing %q", tt.dir, err.Error(), tt.errSubstr)
 				}
 			} else {

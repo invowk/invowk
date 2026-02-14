@@ -5,6 +5,7 @@ package runtime
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -317,7 +318,7 @@ func TestParseEnvFile_Errors(t *testing.T) {
 			if err == nil {
 				t.Fatal("expected error, got nil")
 			}
-			if !containsString(err.Error(), tt.errMsg) {
+			if !strings.Contains(err.Error(), tt.errMsg) {
 				t.Errorf("expected error containing %q, got %q", tt.errMsg, err.Error())
 			}
 		})
@@ -509,18 +510,4 @@ func TestParseEnvFile_MergesIntoExisting(t *testing.T) {
 	if env["OVERRIDE"] != "new" {
 		t.Errorf("expected OVERRIDE=new, got OVERRIDE=%s", env["OVERRIDE"])
 	}
-}
-
-// containsString is a helper to check if a string contains a substring
-func containsString(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr || s != "" && containsSubstring(s, substr))
-}
-
-func containsSubstring(s, substr string) bool {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
-		}
-	}
-	return false
 }

@@ -299,7 +299,7 @@ func TestContainerRuntime_Validate_Unit(t *testing.T) {
 			if tt.wantErr {
 				if err == nil {
 					t.Error("Validate() expected error, got nil")
-				} else if tt.errMsg != "" && !containsString(err.Error(), tt.errMsg) {
+				} else if tt.errMsg != "" && !strings.Contains(err.Error(), tt.errMsg) {
 					t.Errorf("Validate() error = %q, want error containing %q", err.Error(), tt.errMsg)
 				}
 			} else {

@@ -8,6 +8,7 @@
 **Created**: 2026-02-13
 **Status**: Implemented (US3 removed; US1, US2, US4 complete)
 **Input**: User description: "Design and implement 3 officially supported installation methods (go install, homebrew, install.sh script) and an invowk upgrade command to update to the latest stable release."
+**Shipped scope**: US1 (install.sh), US2 (Homebrew), US4 (go install), PowerShell installer (install.ps1). US3 (self-upgrade CLI) was deferred and removed from this branch.
 
 ## Clarifications
 
@@ -133,15 +134,15 @@ A Go developer wants to install invowk using `go install`, the standard Go toolc
 - **FR-011**: The Homebrew formula MUST be automatically updated when a new stable GitHub Release is published (via GoReleaser integration).
 - **FR-012**: The Homebrew formula MUST support macOS (Intel + Apple Silicon) and Linux (x86-64 + ARM64).
 
-**Self-Upgrade Command:**
-- **FR-013**: System MUST provide an `invowk upgrade [version]` command that updates the binary to the latest stable release (when no version is specified) or to an explicitly specified stable version.
-- **FR-014**: The upgrade command MUST only consider stable releases (pre-releases are excluded from upgrade targets).
-- **FR-015**: The upgrade command MUST NOT downgrade when the current version is a pre-release with semver higher than the latest stable.
-- **FR-016**: The upgrade command MUST detect if invowk was installed via a package manager (Homebrew, go install) and suggest the appropriate upgrade method instead of performing a direct binary replacement. Detection uses a hybrid approach: (1) path-based heuristics as primary — Homebrew cellar prefixes (`/opt/homebrew/`, `/home/linuxbrew/`, `/usr/local/Cellar/`), `$GOPATH/bin` for go install, `debug.ReadBuildInfo` module path for go-install confirmation; (2) optional build-time `-ldflags` hint as override for edge cases.
-- **FR-017**: The upgrade command MUST verify downloaded binary integrity via SHA256 checksum (from `checksums.txt` fetched over HTTPS from GitHub Releases) before replacing the current binary. Cosign signature verification is not required — it remains available for manual verification by security-conscious users.
-- **FR-018**: The upgrade command MUST preserve the current binary if the upgrade fails at any point (atomic replacement).
-- **FR-019**: The upgrade command MUST provide a `--check` flag that reports the latest available version without installing.
-- **FR-020**: The upgrade command MUST display a summary (current version -> new version) and confirm before proceeding (unless `--yes` flag is passed).
+**Self-Upgrade Command [DEFERRED]:**
+- **FR-013** [DEFERRED]: System MUST provide an `invowk upgrade [version]` command that updates the binary to the latest stable release (when no version is specified) or to an explicitly specified stable version.
+- **FR-014** [DEFERRED]: The upgrade command MUST only consider stable releases (pre-releases are excluded from upgrade targets).
+- **FR-015** [DEFERRED]: The upgrade command MUST NOT downgrade when the current version is a pre-release with semver higher than the latest stable.
+- **FR-016** [DEFERRED]: The upgrade command MUST detect if invowk was installed via a package manager (Homebrew, go install) and suggest the appropriate upgrade method instead of performing a direct binary replacement. Detection uses a hybrid approach: (1) path-based heuristics as primary — Homebrew cellar prefixes (`/opt/homebrew/`, `/home/linuxbrew/`, `/usr/local/Cellar/`), `$GOPATH/bin` for go install, `debug.ReadBuildInfo` module path for go-install confirmation; (2) optional build-time `-ldflags` hint as override for edge cases.
+- **FR-017** [DEFERRED]: The upgrade command MUST verify downloaded binary integrity via SHA256 checksum (from `checksums.txt` fetched over HTTPS from GitHub Releases) before replacing the current binary. Cosign signature verification is not required — it remains available for manual verification by security-conscious users.
+- **FR-018** [DEFERRED]: The upgrade command MUST preserve the current binary if the upgrade fails at any point (atomic replacement).
+- **FR-019** [DEFERRED]: The upgrade command MUST provide a `--check` flag that reports the latest available version without installing.
+- **FR-020** [DEFERRED]: The upgrade command MUST display a summary (current version -> new version) and confirm before proceeding (unless `--yes` flag is passed).
 
 **Go Install (Prerequisite: Module Path Migration):**
 - **FR-021**: The Go module path MUST be changed from `invowk-cli` to `github.com/invowk/invowk` to enable `go install` support.
@@ -163,11 +164,11 @@ A Go developer wants to install invowk using `go install`, the standard Go toolc
 
 - **SC-001**: Users can install invowk on macOS or Linux in under 30 seconds using a single terminal command (shell script or Homebrew).
 - **SC-002**: All installation methods produce a working binary that reports the correct version via `invowk --version`.
-- **SC-003**: Users can upgrade to the latest stable release with a single `invowk upgrade` command in under 60 seconds.
-- **SC-004**: The upgrade command never corrupts or loses the existing binary, even on failure (100% atomic replacement).
+- **SC-003** [DEFERRED]: Users can upgrade to the latest stable release with a single `invowk upgrade` command in under 60 seconds.
+- **SC-004** [DEFERRED]: The upgrade command never corrupts or loses the existing binary, even on failure (100% atomic replacement).
 - **SC-005**: 100% of stable releases automatically update the Homebrew formula without manual intervention.
 - **SC-006**: The install script correctly detects and installs for all 4 supported Unix platform/architecture combinations (linux/amd64, linux/arm64, darwin/amd64, darwin/arm64).
-- **SC-007**: The upgrade command correctly prevents downgrade from pre-release to older stable 100% of the time.
+- **SC-007** [DEFERRED]: The upgrade command correctly prevents downgrade from pre-release to older stable 100% of the time.
 
 ## Assumptions
 

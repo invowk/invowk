@@ -5069,12 +5069,12 @@ From invowkfile:
   hello - Print a greeting [native*, virtual, container] (linux, macos, windows)`,
   },
 
-  'quickstart/run-build': {
+  'quickstart/run-hello': {
     language: 'bash',
     code: `invowk cmd hello`,
   },
 
-  'quickstart/build-output': {
+  'quickstart/hello-output': {
     language: 'text',
     code: `Hello, World!`,
   },

@@ -35,6 +35,7 @@ type (
 	Discovery struct {
 		cfg            *config.Config
 		baseDir        string // replaces hardcoded "." — resolved once at construction
+		baseDirSet     bool   // distinguishes "not set" from "explicitly set to empty"
 		commandsDir    string // replaces config.CommandsDir() call
 		commandsDirSet bool   // distinguishes "not set" from "explicitly set to empty"
 	}
@@ -64,6 +65,7 @@ func (e *ModuleCollisionError) Unwrap() error { return nil }
 func WithBaseDir(dir string) Option {
 	return func(d *Discovery) {
 		d.baseDir = dir
+		d.baseDirSet = true
 	}
 }
 
@@ -87,7 +89,7 @@ func New(cfg *config.Config, opts ...Option) *Discovery {
 	for _, opt := range opts {
 		opt(d)
 	}
-	if d.baseDir == "" {
+	if !d.baseDirSet && d.baseDir == "" {
 		var err error
 		d.baseDir, err = os.Getwd()
 		if err != nil {
@@ -99,7 +101,7 @@ func New(cfg *config.Config, opts ...Option) *Discovery {
 		if dir, err := config.CommandsDir(); err == nil {
 			d.commandsDir = dir
 		} else {
-			slog.Debug("user commands directory unavailable, skipping user-dir discovery",
+			slog.Warn("user commands directory unavailable, skipping user-dir discovery",
 				"error", err)
 		}
 	}

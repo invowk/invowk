@@ -20,7 +20,8 @@ func newInitCommand() *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "init",
+		Use:   "init [filename]",
+		Args:  cobra.MaximumNArgs(1),
 		Short: "Create a new invowkfile in the current directory",
 		Long: `Create a new invowkfile in the current directory with example commands.
 
@@ -37,7 +38,7 @@ you get started quickly.`,
 	return cmd
 }
 
-func runInit(_ *cobra.Command, args []string, force bool, template string) error {
+func runInit(cmd *cobra.Command, args []string, force bool, template string) error {
 	filename := "invowkfile.cue"
 	if len(args) > 0 {
 		filename = args[0]
@@ -46,6 +47,12 @@ func runInit(_ *cobra.Command, args []string, force bool, template string) error
 	// Check if file exists
 	if _, err := os.Stat(filename); err == nil && !force {
 		return fmt.Errorf("file '%s' already exists. Use --force to overwrite", filename)
+	}
+
+	// Validate template name before generating content
+	validTemplates := map[string]bool{"default": true, "minimal": true, "full": true}
+	if !validTemplates[template] {
+		return fmt.Errorf("unknown template %q; valid options are: default, minimal, full", template)
 	}
 
 	// Generate content based on template
@@ -60,29 +67,19 @@ func runInit(_ *cobra.Command, args []string, force bool, template string) error
 	if err != nil {
 		absPath = filename
 	}
-	fmt.Printf("%s Created %s\n", SuccessStyle.Render("✓"), absPath)
-	fmt.Println()
-	fmt.Println(SubtitleStyle.Render("Next steps:"))
-	fmt.Println("  1. Run 'invowk cmd hello' to try it out")
-	fmt.Println("  2. Run 'invowk cmd hello YourName' to pass an argument")
-	fmt.Println("  3. Edit the invowkfile to customize your commands")
+	w := cmd.OutOrStdout()
+	fmt.Fprintf(w, "%s Created %s\n", SuccessStyle.Render("✓"), absPath)
+	fmt.Fprintln(w)
+	fmt.Fprintln(w, SubtitleStyle.Render("Next steps:"))
+	fmt.Fprintln(w, "  1. Run 'invowk cmd hello' to try it out")
+	fmt.Fprintln(w, "  2. Run 'invowk cmd hello YourName' to pass an argument")
+	fmt.Fprintln(w, "  3. Edit the invowkfile to customize your commands")
 
 	return nil
 }
 
 func generateInvowkfile(template string) string {
 	var inv *invowkfile.Invowkfile
-
-	// Helper for Linux+macOS platforms (used by native Unix implementations)
-	unixPlatforms := []invowkfile.PlatformConfig{
-		{Name: invowkfile.PlatformLinux},
-		{Name: invowkfile.PlatformMac},
-	}
-
-	// Helper for Linux-only (container runtime only supports Linux containers)
-	linuxOnly := []invowkfile.PlatformConfig{
-		{Name: invowkfile.PlatformLinux},
-	}
 
 	switch template {
 	case "minimal":
@@ -169,6 +166,13 @@ func generateInvowkfile(template string) string {
 
 	default: // "default"
 		// Default template: hello command with all 3 runtimes showing platform-split pattern
+		unixPlatforms := []invowkfile.PlatformConfig{
+			{Name: invowkfile.PlatformLinux},
+			{Name: invowkfile.PlatformMac},
+		}
+		linuxOnly := []invowkfile.PlatformConfig{
+			{Name: invowkfile.PlatformLinux},
+		}
 		inv = &invowkfile.Invowkfile{
 			Commands: []invowkfile.Command{
 				helloCommand(unixPlatforms, linuxOnly),

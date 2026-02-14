@@ -36,11 +36,17 @@ type runLock struct {
 	file *os.File
 }
 
-// acquireRunLock opens (or creates) the lock file and acquires a blocking
-// exclusive flock. The call blocks until the lock is available.
+// acquireRunLock opens (or creates) the lock file at the default platform path
+// and acquires a blocking exclusive flock. The call blocks until the lock is
+// available.
 func acquireRunLock() (*runLock, error) {
-	lockPath := lockFilePath()
+	return acquireRunLockAt(lockFilePath())
+}
 
+// acquireRunLockAt opens (or creates) the lock file at the given path and
+// acquires a blocking exclusive flock. The call blocks until the lock is
+// available. This variant enables tests to use isolated lock files.
+func acquireRunLockAt(lockPath string) (*runLock, error) {
 	f, err := os.OpenFile(lockPath, os.O_CREATE|os.O_RDWR, 0o600)
 	if err != nil {
 		return nil, fmt.Errorf("open lock file %s: %w", lockPath, err)
@@ -62,7 +68,7 @@ func (l *runLock) Release() {
 	}
 	// LOCK_UN before Close for explicitness; Close also releases the flock.
 	if err := unix.Flock(int(l.file.Fd()), unix.LOCK_UN); err != nil {
-		slog.Debug("flock unlock failed", "error", err)
+		slog.Warn("flock unlock failed", "error", err)
 	}
 	if err := l.file.Close(); err != nil {
 		slog.Warn("lock file close failed", "error", err)

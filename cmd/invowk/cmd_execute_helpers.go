@@ -215,6 +215,13 @@ func checkAmbiguousCommand(ctx context.Context, app *App, rootFlags *rootFlagVal
 // (Docker or Podman). When an SSH server is active for host access, it is forwarded
 // to the container runtime so containers can reach back into the host.
 //
+// INVARIANT: This function creates exactly one ContainerRuntime instance per call.
+// The ContainerRuntime.runMu mutex provides intra-process serialization as a fallback
+// when flock-based cross-process locking is unavailable (non-Linux platforms).
+// Creating multiple ContainerRuntime instances would give each its own mutex,
+// defeating the serialization and reintroducing the ping_group_range race.
+// See TestCreateRuntimeRegistry_SingleContainerInstance for the enforcement test.
+//
 // The returned result includes the runtime registry, cleanup function, and
 // non-fatal diagnostics produced during runtime initialization.
 func createRuntimeRegistry(cfg *config.Config, sshServer *sshserver.Server) runtimeRegistryResult {
@@ -250,7 +257,7 @@ func createRuntimeRegistry(cfg *config.Config, sshServer *sshserver.Server) runt
 	result.Cleanup = func() {
 		if containerRT != nil {
 			if err := containerRT.Close(); err != nil {
-				slog.Debug("container runtime cleanup failed", "error", err)
+				slog.Warn("container runtime cleanup failed", "error", err)
 			}
 		}
 	}

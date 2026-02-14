@@ -255,7 +255,6 @@ func NewExecutionContext(cmd *invowkfile.Command, inv *invowkfile.Invowkfile) *E
 		IO:              DefaultIO(),
 		Env:             DefaultEnv(),
 		// TUI: zero value is fine (not configured by default)
-		// ExecutionID: set by caller via Registry.NewExecutionID()
 	}
 }
 

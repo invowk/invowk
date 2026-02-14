@@ -70,6 +70,10 @@ func TestBuiltinCommandTxtarCoverage(t *testing.T) {
 	}
 	// cmd/invowk/coverage_test.go → cmd/invowk/ → cmd/ → project root
 	projectRoot := filepath.Dir(filepath.Dir(filepath.Dir(thisFile)))
+	// Sanity check: verify we computed the correct project root by looking for go.mod.
+	if _, err := os.Stat(filepath.Join(projectRoot, "go.mod")); err != nil {
+		t.Fatalf("project root detection failed: go.mod not found at %s", projectRoot)
+	}
 	testdataDir := filepath.Join(projectRoot, "tests", "cli", "testdata")
 
 	// Scan all txtar files for `exec invowk ...` lines.
@@ -140,6 +144,10 @@ func walkCobraTree(cmd *cobra.Command, prefix string, commands map[string]bool, 
 		}
 
 		// Include leaf commands that have a handler (RunE or Run).
+		// Intentionally excludes runnable routing nodes — commands that have both
+		// RunE/Run AND visible children (e.g., bare `invowk config`). These routing
+		// nodes delegate to subcommands; their RunE is a help/usage fallback, not a
+		// feature that needs independent txtar coverage.
 		if visibleChildren == 0 && (child.RunE != nil || child.Run != nil) {
 			commands[childPath] = true
 		}
@@ -190,6 +198,9 @@ func scanTxtarCoverage(t *testing.T, testdataDir string, knownCommands map[strin
 				covered[cmdPath] = true
 			}
 		}
+		if err := scanner.Err(); err != nil {
+			t.Errorf("error scanning %s: %v", entry.Name(), err)
+		}
 
 		_ = f.Close() // Read-only file; close error non-critical.
 	}
@@ -212,6 +223,124 @@ func matchLongestCommand(tokens []string, knownCommands map[string]bool, aliasMa
 		}
 	}
 	return best
+}
+
+// TestResolveAliases verifies alias resolution with synthetic data.
+func TestResolveAliases(t *testing.T) {
+	t.Parallel()
+
+	aliasMap := map[string]string{
+		"mod": "module",
+		"cfg": "config",
+	}
+
+	tests := []struct {
+		name   string
+		tokens []string
+		want   []string
+	}{
+		{
+			name:   "single alias",
+			tokens: []string{"mod", "validate"},
+			want:   []string{"module", "validate"},
+		},
+		{
+			name:   "no alias match",
+			tokens: []string{"config", "show"},
+			want:   []string{"config", "show"},
+		},
+		{
+			name:   "empty tokens",
+			tokens: []string{},
+			want:   []string{},
+		},
+		{
+			name:   "alias only",
+			tokens: []string{"cfg"},
+			want:   []string{"config"},
+		},
+		{
+			name:   "multiple tokens no alias",
+			tokens: []string{"tui", "input"},
+			want:   []string{"tui", "input"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got := resolveAliases(tt.tokens, aliasMap)
+			if len(got) != len(tt.want) {
+				t.Fatalf("resolveAliases(%v) = %v, want %v", tt.tokens, got, tt.want)
+			}
+			for i := range got {
+				if got[i] != tt.want[i] {
+					t.Errorf("resolveAliases(%v)[%d] = %q, want %q", tt.tokens, i, got[i], tt.want[i])
+				}
+			}
+		})
+	}
+}
+
+// TestMatchLongestCommand verifies longest-prefix command matching with synthetic data.
+func TestMatchLongestCommand(t *testing.T) {
+	t.Parallel()
+
+	knownCommands := map[string]bool{
+		"config show":     true,
+		"module validate": true,
+		"init":            true,
+	}
+	aliasMap := map[string]string{
+		"mod": "module",
+	}
+
+	tests := []struct {
+		name   string
+		tokens []string
+		want   string
+	}{
+		{
+			name:   "exact match",
+			tokens: []string{"init"},
+			want:   "init",
+		},
+		{
+			name:   "prefix match two tokens",
+			tokens: []string{"config", "show"},
+			want:   "config show",
+		},
+		{
+			name:   "alias then match",
+			tokens: []string{"mod", "validate"},
+			want:   "module validate",
+		},
+		{
+			name:   "no match",
+			tokens: []string{"nonexistent"},
+			want:   "",
+		},
+		{
+			name:   "empty tokens",
+			tokens: []string{},
+			want:   "",
+		},
+		{
+			name:   "extra args after match",
+			tokens: []string{"init", "myfile.cue"},
+			want:   "init",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got := matchLongestCommand(tt.tokens, knownCommands, aliasMap)
+			if got != tt.want {
+				t.Errorf("matchLongestCommand(%v) = %q, want %q", tt.tokens, got, tt.want)
+			}
+		})
+	}
 }
 
 // resolveAliases replaces alias tokens with their canonical equivalents.

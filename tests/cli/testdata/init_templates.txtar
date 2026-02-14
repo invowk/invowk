@@ -28,19 +28,29 @@ stdout 'Created'
 stdout 'my_commands.cue'
 exists my_commands.cue
 
-# Test 6: Full template generates a valid invowkfile with subcommands
+# Test 6: Invalid template name returns an error
+! exec invowk init --force -t nonexistent
+stderr '[Uu]nknown template'
+
+# Test 7: Full template generates a valid invowkfile with subcommands
 exec invowk init --force -t full
 stdout 'Created'
 exists invowkfile.cue
 
-# Test 7: Full template parent command runs
+# Test 8: Full template parent command runs
 exec invowk cmd hello
 stdout 'Hello, World!'
 
-# Test 8: Full template subcommand with flags and args
+# Test 9: Full template subcommand with flags and args
 exec invowk cmd hello formal --title Mr. Alice
 stdout 'Mr. Alice, welcome!'
 
-# Test 9: Full template dependency command runs
+# Test 10: Full template dependency command runs
 exec invowk cmd hello all
 stdout 'All greetings complete!'
+
+# Test 11: --force overwrites existing file with custom filename
+exec invowk init --force my_commands.cue -t minimal
+stdout 'Created'
+stdout 'my_commands.cue'
+exists my_commands.cue

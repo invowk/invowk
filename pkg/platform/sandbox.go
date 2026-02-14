@@ -19,6 +19,10 @@ const (
 
 // detectOnce caches the sandbox detection result for the lifetime of the process.
 // The detection is performed once on first access using real OS lookups.
+//
+// INVARIANT: detectSandboxFrom MUST NOT panic. sync.OnceValue re-raises panics
+// on every subsequent call, which would make the entire application unusable.
+// Sandbox type is immutable during process lifetime, making process-wide caching safe.
 var detectOnce = sync.OnceValue(func() SandboxType {
 	return detectSandboxFrom(os.Getenv, statFile)
 })
@@ -65,12 +69,12 @@ func GetSpawnArgs() []string {
 // making it directly testable without process-wide side effects.
 func SpawnCommandFor(st SandboxType) string {
 	switch st {
+	case SandboxNone:
+		return ""
 	case SandboxFlatpak:
 		return "flatpak-spawn"
 	case SandboxSnap:
 		return "snap"
-	case SandboxNone:
-		return ""
 	default:
 		return ""
 	}
@@ -81,12 +85,12 @@ func SpawnCommandFor(st SandboxType) string {
 // making it directly testable without process-wide side effects.
 func SpawnArgsFor(st SandboxType) []string {
 	switch st {
+	case SandboxNone:
+		return nil
 	case SandboxFlatpak:
 		return []string{"--host"}
 	case SandboxSnap:
 		return []string{"run", "--shell"}
-	case SandboxNone:
-		return nil
 	default:
 		return nil
 	}

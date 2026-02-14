@@ -24,6 +24,9 @@ function Install-Invowk {
     [CmdletBinding()]
     param()
 
+    # Catch non-terminating errors from cmdlets like Expand-Archive, New-Item, Move-Item.
+    $ErrorActionPreference = 'Stop'
+
     # -------------------------------------------------------------------------
     # Constants
     # -------------------------------------------------------------------------
@@ -359,6 +362,9 @@ Report at: https://github.com/$GitHubRepo/issues
 "@
             }
             $expectedHash = ($checksumLine -split '\s+')[0]
+            if (-not $expectedHash) {
+                Stop-WithError "Failed to extract checksum hash for '$asset' from checksums file"
+            }
 
             # Verify the archive checksum.
             Write-Log 'Verifying checksum...'
@@ -368,7 +374,17 @@ Report at: https://github.com/$GitHubRepo/issues
             # Extract the archive.
             Write-Log 'Extracting binary...'
             $extractDir = Join-Path $tempDir 'extracted'
-            Expand-Archive -Path $archivePath -DestinationPath $extractDir -Force
+            try {
+                Expand-Archive -Path $archivePath -DestinationPath $extractDir -Force
+            }
+            catch {
+                Stop-WithError @"
+Failed to extract $asset.
+
+The archive may be corrupted or the disk may be full.
+Try downloading again, or report at: https://github.com/$GitHubRepo/issues
+"@
+            }
 
             $binaryPath = Join-Path $extractDir "${BinaryName}.exe"
             if (-not (Test-Path $binaryPath)) {
@@ -479,10 +495,15 @@ Add it manually by running:
     $arch = Get-Architecture
 
     # Resolve installation directory.
+    # $env:LOCALAPPDATA may be empty on Windows Server Core or certain CI environments.
+    $localAppData = $env:LOCALAPPDATA
+    if (-not $localAppData) {
+        $localAppData = Join-Path $env:USERPROFILE 'AppData\Local'
+    }
     $installDir = if ($env:INSTALL_DIR) {
         $env:INSTALL_DIR
     } else {
-        Join-Path $env:LOCALAPPDATA 'Programs\invowk'
+        Join-Path $localAppData 'Programs\invowk'
     }
 
     # Resolve target version.

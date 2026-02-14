@@ -4,6 +4,7 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -210,9 +211,14 @@ func (s *appDiscoveryService) loadConfig(ctx context.Context) (*config.Config, [
 }
 
 // loadConfigWithFallback loads configuration via the provider. On failure it
-// returns defaults with a diagnostic so callers stay operational. When the user
-// explicitly specified a config path, the diagnostic is an error (not a warning)
-// so downstream callers can decide whether to abort.
+// returns defaults with a diagnostic so callers stay operational.
+//
+// Diagnostic severity depends on the failure mode:
+//   - Explicit --ivk-config path: always SeverityError (user-specified file must work).
+//   - Default path with existing but malformed file: SeverityError (syntax errors
+//     in a file the user created should not be silently downgraded to a warning).
+//   - Default path with missing config dir or similar infrastructure error:
+//     SeverityWarning (common on fresh installs, defaults are appropriate).
 func loadConfigWithFallback(ctx context.Context, provider ConfigProvider, configPath string) (*config.Config, []discovery.Diagnostic) {
 	cfg, err := provider.Load(ctx, config.LoadOptions{ConfigFilePath: configPath})
 	if err == nil {
@@ -232,11 +238,20 @@ func loadConfigWithFallback(ctx context.Context, provider ConfigProvider, config
 		}}
 	}
 
+	// Default config path: differentiate "file exists but is broken" (syntax error,
+	// schema violation) from "cannot determine config dir" (missing HOME, etc.).
+	// The config loader only returns errors for existing files; missing files silently
+	// return defaults. So if we got an error here, a config file likely exists but
+	// is malformed — use SeverityError to surface it clearly.
+	severity := discovery.SeverityError
+	if errors.Is(err, os.ErrNotExist) {
+		severity = discovery.SeverityWarning
+	}
+
 	return config.DefaultConfig(), []discovery.Diagnostic{{
-		Severity: discovery.SeverityWarning,
+		Severity: severity,
 		Code:     "config_load_failed",
 		Message:  fmt.Sprintf("failed to load config, using defaults: %v", err),
-		Path:     configPath,
 		Cause:    err,
 	}}
 }

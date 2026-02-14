@@ -150,6 +150,7 @@ invowkfile.cue -> CUE Parser -> pkg/invowkfile -> Runtime Selection -> Execution
   - `benchmark/` - Benchmarks for PGO profile generation.
   - `provision/` - Container provisioning (ephemeral layer attachment).
 - `pkg/` - Public packages (cueutil, invowkmod, invowkfile, platform).
+- `tests/cli/` - CLI integration tests using testscript (`.txtar` files in `testdata/`).
 - `modules/` - Sample invowk modules for validation and reference.
 - `scripts/` - Build and install scripts (`install.sh` for Linux/macOS, `install.ps1` for Windows).
 - `specs/` - Feature specifications, research, and implementation plans.

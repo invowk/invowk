@@ -12,7 +12,8 @@ type (
 		// ConfigDirPath overrides the config directory lookup when set.
 		ConfigDirPath string
 		// BaseDir overrides the directory for CWD-relative config file lookup.
-		// When empty, the bare relative path "config.cue" is used (current behavior).
+		// When empty, the relative path "config.cue" resolves against the
+		// process's current working directory (os.Getwd).
 		BaseDir string
 	}
 

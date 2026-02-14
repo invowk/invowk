@@ -41,7 +41,11 @@ func configDirFrom(goos string, getenv func(string) string, userHomeDir func() (
 	case platform.Windows:
 		configDir = getenv("APPDATA")
 		if configDir == "" {
-			configDir = filepath.Join(getenv("USERPROFILE"), "AppData", "Roaming")
+			userProfile := getenv("USERPROFILE")
+			if userProfile == "" {
+				return "", fmt.Errorf("neither APPDATA nor USERPROFILE environment variable is set")
+			}
+			configDir = filepath.Join(userProfile, "AppData", "Roaming")
 		}
 	case "darwin":
 		home, err := userHomeDir()
@@ -123,14 +127,7 @@ func loadWithOptions(ctx context.Context, opts LoadOptions) (*Config, string, er
 				BuildError()
 		}
 		if err := loadCUEIntoViper(v, opts.ConfigFilePath); err != nil {
-			return nil, "", issue.NewErrorContext().
-				WithOperation("load configuration").
-				WithResource(opts.ConfigFilePath).
-				WithSuggestion("Check that the file contains valid CUE syntax").
-				WithSuggestion("Verify the configuration values match the expected schema").
-				WithSuggestion("See 'invowk config --help' for configuration options").
-				Wrap(err).
-				BuildError()
+			return nil, "", cueLoadError(opts.ConfigFilePath, err)
 		}
 		resolvedPath = opts.ConfigFilePath
 	} else {
@@ -144,14 +141,7 @@ func loadWithOptions(ctx context.Context, opts LoadOptions) (*Config, string, er
 		cuePath := filepath.Join(cfgDir, ConfigFileName+"."+ConfigFileExt)
 		if fileExists(cuePath) {
 			if err := loadCUEIntoViper(v, cuePath); err != nil {
-				return nil, "", issue.NewErrorContext().
-					WithOperation("load configuration").
-					WithResource(cuePath).
-					WithSuggestion("Check that the file contains valid CUE syntax").
-					WithSuggestion("Verify the configuration values match the expected schema").
-					WithSuggestion("See 'invowk config --help' for configuration options").
-					Wrap(err).
-					BuildError()
+				return nil, "", cueLoadError(cuePath, err)
 			}
 			resolvedPath = cuePath
 		} else {
@@ -162,14 +152,7 @@ func loadWithOptions(ctx context.Context, opts LoadOptions) (*Config, string, er
 			}
 			if fileExists(localCuePath) {
 				if err := loadCUEIntoViper(v, localCuePath); err != nil {
-					return nil, "", issue.NewErrorContext().
-						WithOperation("load configuration").
-						WithResource(localCuePath).
-						WithSuggestion("Check that the file contains valid CUE syntax").
-						WithSuggestion("Verify the configuration values match the expected schema").
-						WithSuggestion("See 'invowk config --help' for configuration options").
-						Wrap(err).
-						BuildError()
+					return nil, "", cueLoadError(localCuePath, err)
 				}
 				resolvedPath = localCuePath
 			}
@@ -214,6 +197,30 @@ func configDirWithOverride(configDirPath string) (string, error) {
 	}
 
 	return ConfigDir()
+}
+
+// commandsDirWithOverride resolves the commands directory, honoring
+// explicit provider options before platform defaults.
+func commandsDirWithOverride(commandsDirPath string) (string, error) {
+	if commandsDirPath != "" {
+		return commandsDirPath, nil
+	}
+
+	return CommandsDir()
+}
+
+// cueLoadError wraps a CUE loading/parsing error with actionable suggestions.
+// This is the common error path for all config file locations (explicit path,
+// config dir, current dir).
+func cueLoadError(path string, err error) error {
+	return issue.NewErrorContext().
+		WithOperation("load configuration").
+		WithResource(path).
+		WithSuggestion("Check that the file contains valid CUE syntax").
+		WithSuggestion("Verify the configuration values match the expected schema").
+		WithSuggestion("See 'invowk config --help' for configuration options").
+		Wrap(err).
+		BuildError()
 }
 
 // loadCUEIntoViper parses a CUE file, validates it against the #Config schema,
@@ -341,15 +348,6 @@ func EnsureConfigDir(configDirPath string) error {
 		return err
 	}
 	return os.MkdirAll(cfgDir, 0o755)
-}
-
-// commandsDirWithOverride resolves the commands directory, honoring
-// explicit overrides before the platform default.
-func commandsDirWithOverride(commandsDirPath string) (string, error) {
-	if commandsDirPath != "" {
-		return commandsDirPath, nil
-	}
-	return CommandsDir()
 }
 
 // EnsureCommandsDir creates the commands directory if it doesn't exist.

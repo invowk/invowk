@@ -47,6 +47,90 @@ func TestNew_WithOptions(t *testing.T) {
 	}
 }
 
+// TestNew_Defaults verifies that New() without options populates baseDir
+// from os.Getwd() and commandsDir from config.CommandsDir(). This ensures
+// backward compatibility for callers that don't use functional options.
+func TestNew_Defaults(t *testing.T) {
+	t.Parallel()
+
+	cfg := config.DefaultConfig()
+	d := New(cfg)
+
+	// baseDir should equal the current working directory (os.Getwd).
+	cwd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("os.Getwd() error: %v", err)
+	}
+	if d.baseDir != cwd {
+		t.Errorf("New() baseDir = %q, want os.Getwd() = %q", d.baseDir, cwd)
+	}
+
+	// commandsDir should equal config.CommandsDir() when available.
+	expectedCmdsDir, err := config.CommandsDir()
+	if err != nil {
+		t.Fatalf("config.CommandsDir() error: %v", err)
+	}
+	if d.commandsDir != expectedCmdsDir {
+		t.Errorf("New() commandsDir = %q, want config.CommandsDir() = %q", d.commandsDir, expectedCmdsDir)
+	}
+
+	// The "set" flags should be false since we didn't use options.
+	if d.baseDirSet {
+		t.Error("New() baseDirSet should be false when no WithBaseDir option is used")
+	}
+	if d.commandsDirSet {
+		t.Error("New() commandsDirSet should be false when no WithCommandsDir option is used")
+	}
+}
+
+// TestNew_WithBaseDir verifies that WithBaseDir sets the directory and the
+// "set" flag, preventing the Getwd fallback from overwriting the value.
+func TestNew_WithBaseDir(t *testing.T) {
+	t.Parallel()
+
+	customDir := t.TempDir()
+	d := New(config.DefaultConfig(), WithBaseDir(customDir))
+
+	if d.baseDir != customDir {
+		t.Errorf("WithBaseDir() baseDir = %q, want %q", d.baseDir, customDir)
+	}
+	if !d.baseDirSet {
+		t.Error("WithBaseDir() should set baseDirSet = true")
+	}
+}
+
+// TestNew_WithCommandsDir verifies that WithCommandsDir sets the directory
+// and the "set" flag, preventing the config.CommandsDir() fallback.
+func TestNew_WithCommandsDir(t *testing.T) {
+	t.Parallel()
+
+	customDir := t.TempDir()
+	d := New(config.DefaultConfig(), WithCommandsDir(customDir))
+
+	if d.commandsDir != customDir {
+		t.Errorf("WithCommandsDir() commandsDir = %q, want %q", d.commandsDir, customDir)
+	}
+	if !d.commandsDirSet {
+		t.Error("WithCommandsDir() should set commandsDirSet = true")
+	}
+}
+
+// TestNew_WithCommandsDir_Empty verifies that passing an empty string to
+// WithCommandsDir disables user-dir discovery (the "set" flag is true,
+// so the fallback to config.CommandsDir() is skipped).
+func TestNew_WithCommandsDir_Empty(t *testing.T) {
+	t.Parallel()
+
+	d := New(config.DefaultConfig(), WithCommandsDir(""))
+
+	if d.commandsDir != "" {
+		t.Errorf("WithCommandsDir(\"\") commandsDir = %q, want empty", d.commandsDir)
+	}
+	if !d.commandsDirSet {
+		t.Error("WithCommandsDir(\"\") should set commandsDirSet = true to skip fallback")
+	}
+}
+
 func TestNewDiscoveredCommandSet(t *testing.T) {
 	t.Parallel()
 

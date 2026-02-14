@@ -175,6 +175,18 @@ func TestConfigDir(t *testing.T) {
 			t.Errorf("configDirFrom() = %s, want %s", dir, expected)
 		}
 	})
+
+	t.Run("windows without APPDATA or USERPROFILE", func(t *testing.T) {
+		t.Parallel()
+		noEnv := func(string) string { return "" }
+		_, err := configDirFrom("windows", noEnv, fakeHome)
+		if err == nil {
+			t.Fatal("configDirFrom() should return error when both APPDATA and USERPROFILE are empty")
+		}
+		if !strings.Contains(err.Error(), "APPDATA") || !strings.Contains(err.Error(), "USERPROFILE") {
+			t.Errorf("error should mention both env vars, got: %v", err)
+		}
+	})
 }
 
 func TestCommandsDir(t *testing.T) {
@@ -234,6 +246,79 @@ func TestConfigDirWithOverride(t *testing.T) {
 		}
 		if dir != expected {
 			t.Errorf("configDirWithOverride(\"\") = %q, want ConfigDir() = %q", dir, expected)
+		}
+	})
+}
+
+func TestCommandsDirWithOverride(t *testing.T) {
+	t.Parallel()
+
+	t.Run("explicit path returned as-is", func(t *testing.T) {
+		t.Parallel()
+		want := filepath.Join(t.TempDir(), "explicit-cmds")
+		dir, err := commandsDirWithOverride(want)
+		if err != nil {
+			t.Fatalf("commandsDirWithOverride() error: %v", err)
+		}
+		if dir != want {
+			t.Errorf("commandsDirWithOverride() = %q, want %q", dir, want)
+		}
+	})
+
+	t.Run("empty falls through to CommandsDir", func(t *testing.T) {
+		t.Parallel()
+		dir, err := commandsDirWithOverride("")
+		if err != nil {
+			t.Fatalf("commandsDirWithOverride() error: %v", err)
+		}
+		expected, err := CommandsDir()
+		if err != nil {
+			t.Fatalf("CommandsDir() error: %v", err)
+		}
+		if dir != expected {
+			t.Errorf("commandsDirWithOverride(\"\") = %q, want CommandsDir() = %q", dir, expected)
+		}
+	})
+}
+
+// TestConfigDirFrom_UnknownGOOS verifies that an unrecognized GOOS value
+// falls through to the default (Linux) case: $XDG_CONFIG_HOME if set,
+// otherwise ~/.config.
+func TestConfigDirFrom_UnknownGOOS(t *testing.T) {
+	t.Parallel()
+
+	fakeHomeDir := filepath.Join("fake", "home")
+	fakeHome := func() (string, error) { return fakeHomeDir, nil }
+
+	t.Run("unknown GOOS with XDG_CONFIG_HOME", func(t *testing.T) {
+		t.Parallel()
+		xdgPath := filepath.Join("custom", "xdg")
+		getenv := func(key string) string {
+			if key == "XDG_CONFIG_HOME" {
+				return xdgPath
+			}
+			return ""
+		}
+		dir, err := configDirFrom("freebsd", getenv, fakeHome)
+		if err != nil {
+			t.Fatalf("configDirFrom() error: %v", err)
+		}
+		expected := filepath.Join(xdgPath, AppName)
+		if dir != expected {
+			t.Errorf("configDirFrom(freebsd) = %s, want %s", dir, expected)
+		}
+	})
+
+	t.Run("unknown GOOS without XDG falls back to ~/.config", func(t *testing.T) {
+		t.Parallel()
+		noEnv := func(string) string { return "" }
+		dir, err := configDirFrom("freebsd", noEnv, fakeHome)
+		if err != nil {
+			t.Fatalf("configDirFrom() error: %v", err)
+		}
+		expected := filepath.Join(fakeHomeDir, ".config", AppName)
+		if dir != expected {
+			t.Errorf("configDirFrom(freebsd) = %s, want %s", dir, expected)
 		}
 	})
 }
