@@ -104,23 +104,24 @@ You should see the version information. If you get a "command not found" error, 
 
 ## Upgrading
 
-Invowk includes a built-in upgrade command:
+Upgrade using the same method you used to install:
 
-```bash
-# Check for available updates
-invowk upgrade --check
+- **Shell script**: Re-run the install command — it downloads the latest release and overwrites the existing binary:
 
-# Upgrade to the latest stable version
-invowk upgrade
+<Snippet id="installation/shell-script" />
 
-# Upgrade to a specific version
-invowk upgrade v1.2.0
+  To upgrade to a specific version, set `INVOWK_VERSION`:
 
-# Skip confirmation prompt
-invowk upgrade --yes
-```
+<Snippet id="installation/shell-script-custom" />
 
-If you installed via **Homebrew**, use `brew upgrade invowk` instead. If you installed via **`go install`**, use `go install github.com/invowk/invowk@latest`.
+- **Homebrew**: `brew upgrade invowk`
+
+- **Go install**: `go install github.com/invowk/invowk@latest`
+
+- **From source**: Pull the latest changes and rebuild:
+  ```bash
+  git pull && make build && make install
+  ```
 
 ## Shell Completion
 

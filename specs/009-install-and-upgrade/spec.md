@@ -1,3 +1,7 @@
+> **Status Update (2026-02-13):** User Story 3 (Self-Upgrade via CLI) has been removed
+> from this branch. The `internal/selfupdate/` package and `cmd/invowk/upgrade.go` were
+> deleted. This document is retained as design history. See the branch commit log for details.
+
 # Feature Specification: Installation Methods & Self-Upgrade
 
 **Feature Branch**: `009-install-and-upgrade`

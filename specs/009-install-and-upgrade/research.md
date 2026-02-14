@@ -1,3 +1,8 @@
+> **Status Update (2026-02-13):** User Story 3 (Self-Upgrade via CLI) has been removed
+> from this branch. Research items R3 (atomic binary replacement), R4 (install method detection),
+> and R5 (semver comparison) are archived — they informed the design but the feature was not shipped.
+> This document is retained as design history. See the branch commit log for details.
+
 # Research: Installation Methods & Self-Upgrade
 
 **Phase 0 Output** | **Date**: 2026-02-13

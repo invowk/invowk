@@ -73,7 +73,6 @@ be organized hierarchically with support for dependencies.
 	rootCmd.AddCommand(newTUICommand())
 	rootCmd.AddCommand(newModuleCommand(app))
 	rootCmd.AddCommand(newInternalCommand())
-	rootCmd.AddCommand(newUpgradeCommand())
 
 	return rootCmd
 }

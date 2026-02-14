@@ -79,18 +79,19 @@ invowk --version
 
 ### Upgrading
 
-```bash
-# Check for updates
-invowk upgrade --check
+Upgrade using the same method you used to install:
 
-# Upgrade to latest
-invowk upgrade
+- **Shell script**: Re-run the install command (it overwrites the existing binary):
+  ```bash
+  curl -fsSL https://raw.githubusercontent.com/invowk/invowk/main/scripts/install.sh | sh
+  ```
+  Pin to a specific version with `INVOWK_VERSION=v1.2.0`.
 
-# Upgrade to a specific version
-invowk upgrade v1.2.0
-```
+- **Homebrew**: `brew upgrade invowk`
 
-If installed via Homebrew, use `brew upgrade invowk` instead. If installed via `go install`, use `go install github.com/invowk/invowk@latest`.
+- **Go install**: `go install github.com/invowk/invowk@latest`
+
+- **From source**: `git pull && make build && make install`
 
 ### Platform Support
 

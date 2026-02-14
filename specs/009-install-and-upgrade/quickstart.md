@@ -1,3 +1,7 @@
+> **Status Update (2026-02-13):** User Story 3 (Self-Upgrade via CLI) has been removed
+> from this branch. The Phase 3 (Self-Upgrade) quickstart section is no longer applicable.
+> This document is retained as design history. See the branch commit log for details.
+
 # Developer Quickstart: Installation Methods & Self-Upgrade
 
 **Phase 1 Output** | **Date**: 2026-02-13

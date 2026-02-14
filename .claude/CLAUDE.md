@@ -182,9 +182,3 @@ invowkfile.cue -> CUE Parser -> pkg/invowkfile -> Runtime Selection -> Execution
 
 See `go.mod` for exact versions. Schema sync tests verify Go struct tags match CUE schema fields at CI time.
 
-## Active Technologies
-- Go 1.26+ + `net/http` (GitHub Releases API), `crypto/sha256`, `runtime/debug` (build info), `archive/tar` + `compress/gzip` (asset extraction), `github.com/spf13/cobra` (CLI), `golang.org/x/mod/semver` (version comparison) (009-install-and-upgrade)
-- Filesystem (binary replacement, temp files for atomic install) (009-install-and-upgrade)
-
-## Recent Changes
-- 009-install-and-upgrade: Added Go 1.26+ + `net/http` (GitHub Releases API), `crypto/sha256`, `runtime/debug` (build info), `archive/tar` + `compress/gzip` (asset extraction), `github.com/spf13/cobra` (CLI), `golang.org/x/mod/semver` (version comparison)

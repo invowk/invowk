@@ -1,4 +1,8 @@
-# CLI Contract: `invowk upgrade`
+> **Status Update (2026-02-13):** This contract describes the `invowk upgrade` command which
+> has been removed from this branch. The `internal/selfupdate/` package and `cmd/invowk/upgrade.go`
+> were deleted. This document is retained as design history. See the branch commit log for details.
+
+# CLI Contract: `invowk upgrade` — REMOVED
 
 **Phase 1 Output** | **Date**: 2026-02-13
 

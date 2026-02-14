@@ -104,23 +104,24 @@ Você deverá ver as informações de versão. Se receber um erro "command not f
 
 ## Atualização
 
-O Invowk inclui um comando de atualização integrado:
+Atualize usando o mesmo método que você usou para instalar:
 
-```bash
-# Verificar atualizações disponíveis
-invowk upgrade --check
+- **Script shell**: Execute novamente o comando de instalação — ele baixa a versão mais recente e substitui o binário existente:
 
-# Atualizar para a versão estável mais recente
-invowk upgrade
+<Snippet id="installation/shell-script" />
 
-# Atualizar para uma versão específica
-invowk upgrade v1.2.0
+  Para atualizar para uma versão específica, defina `INVOWK_VERSION`:
 
-# Pular prompt de confirmação
-invowk upgrade --yes
-```
+<Snippet id="installation/shell-script-custom" />
 
-Se você instalou via **Homebrew**, use `brew upgrade invowk`. Se você instalou via **`go install`**, use `go install github.com/invowk/invowk@latest`.
+- **Homebrew**: `brew upgrade invowk`
+
+- **Go install**: `go install github.com/invowk/invowk@latest`
+
+- **Código-fonte**: Atualize as últimas alterações e recompile:
+  ```bash
+  git pull && make build && make install
+  ```
 
 ## Autocompletar do Shell
 

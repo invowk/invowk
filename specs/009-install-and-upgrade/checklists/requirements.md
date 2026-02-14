@@ -1,3 +1,7 @@
+> **Status Update (2026-02-13):** User Story 3 (Self-Upgrade via CLI) has been removed
+> from this branch. Requirements related to US3 are no longer applicable.
+> This document is retained as design history. See the branch commit log for details.
+
 # Specification Quality Checklist: Installation Methods & Self-Upgrade
 
 **Purpose**: Validate specification completeness and quality before proceeding to planning
