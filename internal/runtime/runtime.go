@@ -24,16 +24,9 @@ const (
 	RuntimeTypeContainer RuntimeType = "container"
 )
 
-var (
-	// ErrRuntimeNotAvailable is returned when the requested runtime is not available on the current system.
-	// Callers can check for this error using errors.Is(err, ErrRuntimeNotAvailable).
-	ErrRuntimeNotAvailable = errors.New("runtime not available")
-
-	// executionIDCounter ensures unique execution IDs even when multiple IDs are
-	// generated within the same nanosecond (possible on fast CPUs or systems with
-	// low-precision clocks like Windows).
-	executionIDCounter atomic.Uint64
-)
+// ErrRuntimeNotAvailable is returned when the requested runtime is not available on the current system.
+// Callers can check for this error using errors.Is(err, ErrRuntimeNotAvailable).
+var ErrRuntimeNotAvailable = errors.New("runtime not available")
 
 type (
 	// IOContext holds I/O streams for command execution.
@@ -189,9 +182,12 @@ type (
 	//nolint:revive // RuntimeType is more descriptive than Type for external callers
 	RuntimeType string
 
-	// Registry holds all available runtimes
+	// Registry holds all available runtimes and generates unique execution IDs.
+	// A single Registry instance is created per process via createRuntimeRegistry(),
+	// so the idCounter provides process-wide uniqueness for execution IDs.
 	Registry struct {
-		runtimes map[RuntimeType]Runtime
+		runtimes  map[RuntimeType]Runtime
+		idCounter atomic.Uint64
 	}
 )
 
@@ -239,7 +235,9 @@ func (t TUIContext) IsConfigured() bool {
 	return t.ServerURL != ""
 }
 
-// NewExecutionContext creates a new execution context with defaults
+// NewExecutionContext creates a new execution context with defaults.
+// ExecutionID is left empty; the caller should set it via Registry.NewExecutionID()
+// after the registry is created (see dispatchExecution in cmd_execute.go).
 func NewExecutionContext(cmd *invowkfile.Command, inv *invowkfile.Invowkfile) *ExecutionContext {
 	currentPlatform := invowkfile.GetCurrentHostOS()
 	defaultRuntime := cmd.GetDefaultRuntimeForPlatform(currentPlatform)
@@ -251,15 +249,19 @@ func NewExecutionContext(cmd *invowkfile.Command, inv *invowkfile.Invowkfile) *E
 		Context:         context.Background(),
 		SelectedRuntime: defaultRuntime,
 		SelectedImpl:    defaultImpl,
-		ExecutionID:     newExecutionID(),
 		IO:              DefaultIO(),
 		Env:             DefaultEnv(),
 		// TUI: zero value is fine (not configured by default)
+		// ExecutionID: set by caller via Registry.NewExecutionID()
 	}
 }
 
-func newExecutionID() string {
-	return fmt.Sprintf("%d-%d", time.Now().UnixNano(), executionIDCounter.Add(1))
+// NewExecutionID generates a unique execution ID using a combination of the current
+// nanosecond timestamp and a monotonic counter. The counter ensures uniqueness even
+// when multiple IDs are generated within the same nanosecond (possible on fast CPUs
+// or systems with low-precision clocks like Windows).
+func (r *Registry) NewExecutionID() string {
+	return fmt.Sprintf("%d-%d", time.Now().UnixNano(), r.idCounter.Add(1))
 }
 
 // Success returns true if the command executed successfully

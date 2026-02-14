@@ -391,10 +391,12 @@ func (r *ContainerRuntime) setupSSHConnection(ctx *ExecutionContext, env map[str
 		return nil, fmt.Errorf("enable_host_ssh is enabled but SSH server is not running")
 	}
 
-	// Generate connection info with a unique token for this command execution
+	// Generate connection info with a unique token for this command execution.
+	// ExecutionID should be set by the caller via Registry.NewExecutionID();
+	// the fallback is a simple timestamp for edge cases (tests, direct callers).
 	executionID := ctx.ExecutionID
 	if executionID == "" {
-		executionID = newExecutionID()
+		executionID = fmt.Sprintf("%d", time.Now().UnixNano())
 	}
 	commandID := fmt.Sprintf("%s-%s", ctx.Command.Name, executionID)
 	sshConnInfo, err := r.sshServer.GetConnectionInfo(commandID)

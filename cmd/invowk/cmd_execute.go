@@ -369,6 +369,11 @@ func (s *commandService) dispatchExecution(req ExecuteRequest, execCtx *runtime.
 	}
 	defer registryResult.Cleanup()
 
+	// Assign a unique execution ID now that the registry is available.
+	// NewExecutionContext leaves ExecutionID empty; it is set here because
+	// the registry (which owns the monotonic counter) is created at this point.
+	execCtx.ExecutionID = registryResult.Registry.NewExecutionID()
+
 	if registryResult.ContainerInitErr != nil && execCtx.SelectedRuntime == invowkfile.RuntimeContainer {
 		issueID, styledMsg := classifyExecutionError(registryResult.ContainerInitErr, req.Verbose)
 		return ExecuteResult{}, diags, &ServiceError{
