@@ -131,35 +131,38 @@ invowk init
 invowk cmd
 ```
 
-The list shows all commands grouped by source (invowkfile or module) with allowed runtimes (default marked with `*`). Commands use their **simple names** - no module prefix is required when names are unique:
+The list shows all commands grouped by source with allowed runtimes (default marked with `*`) and supported platforms:
 
 ```
 Available Commands
   (* = default runtime)
 
 From invowkfile:
-  build - Build the project [native*, container] (linux, macos, windows)
-  test unit - Run unit tests [native*, virtual] (linux, macos, windows)
-  deploy - Deploy the application (@invowkfile) [native*] (linux, macos)
-
-From tools.invowkmod:
-  lint - Run linter [native*] (linux, macos, windows)
-  deploy - Deploy to staging (@tools) [native*] (linux, macos)
+  hello - Print a greeting [native*, virtual, container] (linux, macos, windows)
 ```
-
-When a command name exists in multiple sources (like `deploy` above), the listing shows a source annotation (`@invowkfile`, `@tools`) to indicate disambiguation is required.
 
 3. **Run a command**:
 
 ```bash
-invowk cmd build
+invowk cmd hello
+# Output: Hello, World!
 ```
 
-4. **Run a command with a specific runtime**:
+4. **Pass an argument**:
 
 ```bash
-# Use a non-default runtime (must be allowed by the command)
-invowk cmd build --ivk-runtime container
+invowk cmd hello Alice
+# Output: Hello, Alice!
+```
+
+5. **Use a different runtime**:
+
+```bash
+# Use the virtual runtime (built-in cross-platform shell)
+invowk cmd hello --ivk-runtime virtual
+
+# Use the container runtime (requires Docker/Podman, Linux only)
+invowk cmd hello --ivk-runtime container
 ```
 
 ## Invowkfile Format

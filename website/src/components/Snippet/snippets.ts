@@ -5012,42 +5012,32 @@ invowk init`,
 
 cmds: [
     {
-        name: "build"
-        description: "Build the project"
+        name: "hello"
+        description: "Print a greeting"
         implementations: [
             {
-                script: """
-                    echo 'Building...'
-                    # Add your build commands here
-                    """
+                script: "echo \\"Hello, $INVOWK_ARG_NAME!\\""
                 runtimes: [{name: "native"}]
-            }
+                platforms: [{name: "linux"}, {name: "macos"}]
+            },
+            {
+                script: "Write-Output \\"Hello, $($env:INVOWK_ARG_NAME)!\\""
+                runtimes: [{name: "native"}]
+                platforms: [{name: "windows"}]
+            },
+            {
+                script: "echo \\"Hello, $INVOWK_ARG_NAME!\\""
+                runtimes: [{name: "virtual"}]
+                platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+            },
+            {
+                script: "echo \\"Hello from container, $INVOWK_ARG_NAME!\\""
+                runtimes: [{name: "container", image: "debian:stable-slim"}]
+                platforms: [{name: "linux"}]
+            },
         ]
-    },
-    {
-        name: "test"
-        description: "Run tests"
-        implementations: [
-            {
-                script: """
-                    echo 'Testing...'
-                    # Add your test commands here
-                    """
-                runtimes: [{name: "native"}]
-            }
-        ]
-    },
-    {
-        name: "clean"
-        description: "Clean build artifacts"
-        implementations: [
-            {
-                script: """
-                    echo 'Cleaning...'
-                    # Add your clean commands here
-                    """
-                runtimes: [{name: "native"}]
-            }
+        args: [
+            {name: "name", description: "Who to greet", default_value: "World"},
         ]
     },
 ]`,
@@ -5059,99 +5049,41 @@ cmds: [
   (* = default runtime)
 
 From invowkfile:
-  build - Build the project [native*]
-  test  - Run tests [native*]
-  clean - Clean build artifacts [native*]`,
+  hello - Print a greeting [native*, virtual, container] (linux, macos, windows)`,
   },
 
   'quickstart/run-build': {
     language: 'bash',
-    code: `invowk cmd build`,
+    code: `invowk cmd hello`,
   },
 
   'quickstart/build-output': {
     language: 'text',
-    code: `Building...`,
+    code: `Hello, World!`,
   },
 
   'quickstart/info-command': {
-    language: 'cue',
-    code: `cmds: [
-    {
-        name: "build"
-        description: "Build the project"
-        implementations: [
-            {
-                script: """
-                    echo 'Building...'
-                    # Add your build commands here
-                    """
-                runtimes: [{name: "native"}]
-            }
-        ]
-    },
-    {
-        name: "test"
-        description: "Run tests"
-        implementations: [
-            {
-                script: """
-                    echo 'Testing...'
-                    # Add your test commands here
-                    """
-                runtimes: [{name: "native"}]
-            }
-        ]
-    },
-    {
-        name: "clean"
-        description: "Clean build artifacts"
-        implementations: [
-            {
-                script: """
-                    echo 'Cleaning...'
-                    # Add your clean commands here
-                    """
-                runtimes: [{name: "native"}]
-            }
-        ]
-    },
-    {
-        name: "info"
-        description: "Show system information"
-        implementations: [
-            {
-                script: """
-                    echo "=== System Info ==="
-                    echo "User: $USER"
-                    echo "Directory: $(pwd)"
-                    echo "Date: $(date)"
-                    """
-                runtimes: [{name: "native"}]
-                platforms: [{name: "linux"}, {name: "macos"}]
-            }
-        ]
-    }
-]`,
+    language: 'bash',
+    code: `# Pass an argument to the hello command
+invowk cmd hello Alice
+
+# Use a different runtime
+invowk cmd hello --ivk-runtime virtual`,
   },
 
   'quickstart/run-info': {
-    language: 'bash',
-    code: `invowk cmd info`,
+    language: 'text',
+    code: `Hello, Alice!`,
   },
 
   'quickstart/virtual-runtime': {
     language: 'cue',
-    code: `{
-    name: "cross-platform"
-    description: "Works the same everywhere!"
-    implementations: [
-        {
-            script: "echo 'This runs identically on Linux, Mac, and Windows!'"
-            runtimes: [{name: "virtual"}]
-            platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
-        }
-    ]
+    code: `// The virtual runtime uses the built-in mvdan/sh interpreter
+// It works identically on Linux, macOS, and Windows
+{
+    script: "echo \\"Hello, $INVOWK_ARG_NAME!\\""
+    runtimes: [{name: "virtual"}]
+    platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 }`,
   },
 
