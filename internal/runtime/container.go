@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 
 	"github.com/invowk/invowk/internal/config"
 	"github.com/invowk/invowk/internal/container"
@@ -28,13 +29,21 @@ var (
 )
 
 type (
-	// ContainerRuntime executes commands inside a container
+	// ContainerRuntime executes commands inside a container.
+	//
+	// Process-wide serialization relies on a single ContainerRuntime per process,
+	// created in createRuntimeRegistry(). The runMu mutex provides intra-process
+	// fallback locking when flock-based cross-process serialization is unavailable.
 	ContainerRuntime struct {
 		engine      container.Engine
 		sshServer   *sshserver.Server
 		provisioner *provision.LayerProvisioner
 		cfg         *config.Config
 		envBuilder  EnvBuilder
+		// runMu is a fallback mutex used when flock-based cross-process
+		// serialization is unavailable (non-Linux platforms, lock file errors).
+		// See runWithRetry() in container_exec.go for usage details.
+		runMu sync.Mutex
 	}
 
 	// ContainerRuntimeOption configures a ContainerRuntime.

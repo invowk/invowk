@@ -11,24 +11,12 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
-	"sync"
 	"time"
 
 	"github.com/invowk/invowk/internal/container"
 	"github.com/invowk/invowk/internal/sshserver"
 	"github.com/invowk/invowk/pkg/invowkfile"
 )
-
-// containerRunMu is a fallback mutex used when flock-based cross-process
-// serialization is unavailable. This includes non-Linux platforms
-// (macOS/Windows Podman runs in a VM) and Linux when the lock file cannot
-// be acquired (broken XDG_RUNTIME_DIR, /tmp permissions, fd exhaustion).
-// On Linux, acquireRunLock() provides flock-based serialization instead.
-//
-// When the sysctl override IS active (local Podman on Linux), neither the flock
-// nor this mutex is acquired — the override eliminates the race at source.
-// Docker never acquires either lock (it doesn't implement SysctlOverrideChecker).
-var containerRunMu sync.Mutex
 
 // containerExecPrep holds all prepared data needed to run a container command.
 // This struct is returned by prepareContainerExecution and used by both
@@ -218,8 +206,8 @@ func (r *ContainerRuntime) runWithRetry(ctx context.Context, runOpts container.R
 			} else {
 				slog.Warn("flock acquisition failed, falling back to in-process mutex", "error", lockErr)
 			}
-			containerRunMu.Lock()
-			defer containerRunMu.Unlock()
+			r.runMu.Lock()
+			defer r.runMu.Unlock()
 		} else {
 			defer lock.Release()
 		}
