@@ -17,10 +17,11 @@ const (
 	SandboxSnap SandboxType = "snap"
 )
 
-var (
-	detectedSandbox SandboxType
-	sandboxOnce     sync.Once
-)
+// detectOnce caches the sandbox detection result for the lifetime of the process.
+// The detection is performed once on first access using real OS lookups.
+var detectOnce = sync.OnceValue(func() SandboxType {
+	return detectSandboxFrom(os.Getenv, statFlatpakInfo)
+})
 
 // SandboxType identifies the type of application sandbox, if any.
 type SandboxType string
@@ -32,10 +33,7 @@ type SandboxType string
 //   - Flatpak: Checks for existence of /.flatpak-info
 //   - Snap: Checks for SNAP_NAME environment variable
 func DetectSandbox() SandboxType {
-	sandboxOnce.Do(func() {
-		detectedSandbox = detectSandboxInternal()
-	})
-	return detectedSandbox
+	return detectOnce()
 }
 
 // IsInSandbox returns true if the current process is running inside a sandbox.
@@ -49,15 +47,7 @@ func IsInSandbox() bool {
 // For Flatpak, returns "flatpak-spawn".
 // For Snap, returns "snap".
 func GetSpawnCommand() string {
-	switch DetectSandbox() {
-	case SandboxNone:
-		return ""
-	case SandboxFlatpak:
-		return "flatpak-spawn"
-	case SandboxSnap:
-		return "snap"
-	}
-	return ""
+	return SpawnCommandFor(DetectSandbox())
 }
 
 // GetSpawnArgs returns the arguments needed to execute a command on the host.
@@ -67,38 +57,60 @@ func GetSpawnCommand() string {
 // For Snap, returns ["run", "--shell"].
 // For no sandbox, returns nil.
 func GetSpawnArgs() []string {
-	switch DetectSandbox() {
-	case SandboxNone:
-		return nil
+	return SpawnArgsFor(DetectSandbox())
+}
+
+// SpawnCommandFor returns the spawn command for a given sandbox type.
+// This is a pure function that does not depend on cached detection state,
+// making it directly testable without process-wide side effects.
+func SpawnCommandFor(st SandboxType) string {
+	switch st {
+	case SandboxFlatpak:
+		return "flatpak-spawn"
+	case SandboxSnap:
+		return "snap"
+	default:
+		return ""
+	}
+}
+
+// SpawnArgsFor returns the spawn arguments for a given sandbox type.
+// This is a pure function that does not depend on cached detection state,
+// making it directly testable without process-wide side effects.
+func SpawnArgsFor(st SandboxType) []string {
+	switch st {
 	case SandboxFlatpak:
 		return []string{"--host"}
 	case SandboxSnap:
 		return []string{"run", "--shell"}
+	default:
+		return nil
 	}
-	return nil
 }
 
-// detectSandboxInternal performs the actual sandbox detection.
-// This is separated from DetectSandbox to allow testing with custom checks.
-func detectSandboxInternal() SandboxType {
-	// Check for Flatpak sandbox
+// detectSandboxFrom performs sandbox detection using the provided lookup functions.
+// Accepting lookupEnv and statFile as parameters allows tests to inject custom
+// behavior without mutating process-wide state.
+func detectSandboxFrom(lookupEnv func(string) string, statFile func(string) error) SandboxType {
+	// Check for Flatpak sandbox first (takes precedence).
 	// The /.flatpak-info file is always present inside Flatpak sandboxes.
-	if _, err := os.Stat("/.flatpak-info"); err == nil {
+	if err := statFile("/.flatpak-info"); err == nil {
 		return SandboxFlatpak
 	}
 
-	// Check for Snap sandbox
+	// Check for Snap sandbox.
 	// The SNAP_NAME environment variable is set for all snaps.
-	if os.Getenv("SNAP_NAME") != "" {
+	if lookupEnv("SNAP_NAME") != "" {
 		return SandboxSnap
 	}
 
 	return SandboxNone
 }
 
-// resetSandboxDetection resets the sandbox detection cache.
-// This is only intended for testing purposes.
-func resetSandboxDetection() {
-	sandboxOnce = sync.Once{}
-	detectedSandbox = SandboxNone
+// statFlatpakInfo checks for the existence of a file at the given path.
+// This wraps os.Stat to match the func(string) error signature expected by
+// detectSandboxFrom.
+func statFlatpakInfo(path string) error {
+	_, err := os.Stat(path)
+	return err
 }
