@@ -18,6 +18,8 @@ import (
 // ============================================================================
 
 func TestCheckFilepathDependencies_NoFilepaths(t *testing.T) {
+	t.Parallel()
+
 	cmd := invowkfiletest.NewTestCommand("test", invowkfiletest.WithScript("echo hello"))
 
 	err := checkFilepathDependencies(cmd, "/tmp/invowkfile.cue")
@@ -27,6 +29,8 @@ func TestCheckFilepathDependencies_NoFilepaths(t *testing.T) {
 }
 
 func TestCheckFilepathDependencies_EmptyDependsOn(t *testing.T) {
+	t.Parallel()
+
 	cmd := invowkfiletest.NewTestCommand("test",
 		invowkfiletest.WithScript("echo hello"),
 		invowkfiletest.WithDependsOn(&invowkfile.DependsOn{}))
@@ -38,6 +42,8 @@ func TestCheckFilepathDependencies_EmptyDependsOn(t *testing.T) {
 }
 
 func TestCheckFilepathDependencies_FileExists(t *testing.T) {
+	t.Parallel()
+
 	// Create a temp file
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "test.txt")
@@ -59,6 +65,8 @@ func TestCheckFilepathDependencies_FileExists(t *testing.T) {
 }
 
 func TestCheckFilepathDependencies_FileNotExists(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 
 	cmd := invowkfiletest.NewTestCommand("test",
@@ -88,6 +96,8 @@ func TestCheckFilepathDependencies_FileNotExists(t *testing.T) {
 }
 
 func TestCheckFilepathDependencies_AbsolutePath(t *testing.T) {
+	t.Parallel()
+
 	// Create a temp file
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "absolute-test.txt")
@@ -109,6 +119,8 @@ func TestCheckFilepathDependencies_AbsolutePath(t *testing.T) {
 }
 
 func TestCheckFilepathDependencies_ReadableFile(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "readable.txt")
 	if err := os.WriteFile(testFile, []byte("test"), 0o644); err != nil {
@@ -131,6 +143,8 @@ func TestCheckFilepathDependencies_ReadableFile(t *testing.T) {
 }
 
 func TestCheckFilepathDependencies_WritableDirectory(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 
 	cmd := invowkfiletest.NewTestCommand("test",
@@ -149,6 +163,8 @@ func TestCheckFilepathDependencies_WritableDirectory(t *testing.T) {
 }
 
 func TestCheckFilepathDependencies_MultipleFilepathDependencies(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "exists.txt")
 	if err := os.WriteFile(testFile, []byte("test"), 0o644); err != nil {
@@ -183,6 +199,8 @@ func TestCheckFilepathDependencies_MultipleFilepathDependencies(t *testing.T) {
 }
 
 func TestCheckFilepathDependencies_AlternativesFirstExists(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "first.txt")
 	if err := os.WriteFile(testFile, []byte("test"), 0o644); err != nil {
@@ -205,6 +223,8 @@ func TestCheckFilepathDependencies_AlternativesFirstExists(t *testing.T) {
 }
 
 func TestCheckFilepathDependencies_AlternativesSecondExists(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "second.txt")
 	if err := os.WriteFile(testFile, []byte("test"), 0o644); err != nil {
@@ -227,6 +247,8 @@ func TestCheckFilepathDependencies_AlternativesSecondExists(t *testing.T) {
 }
 
 func TestCheckFilepathDependencies_AlternativesLastExists(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "third.txt")
 	if err := os.WriteFile(testFile, []byte("test"), 0o644); err != nil {
@@ -249,6 +271,8 @@ func TestCheckFilepathDependencies_AlternativesLastExists(t *testing.T) {
 }
 
 func TestCheckFilepathDependencies_AlternativesNoneExists(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 
 	cmd := invowkfiletest.NewTestCommand("test",
@@ -281,6 +305,8 @@ func TestCheckFilepathDependencies_AlternativesNoneExists(t *testing.T) {
 }
 
 func TestCheckFilepathDependencies_AlternativesWithPermissions(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	// Create a readable file
 	readableFile := filepath.Join(tmpDir, "readable.txt")
@@ -304,6 +330,8 @@ func TestCheckFilepathDependencies_AlternativesWithPermissions(t *testing.T) {
 }
 
 func TestCheckFilepathDependencies_MultipleAlternativesExist(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	// Create multiple files that could satisfy the requirement
 	for _, name := range []string{"first.txt", "second.txt", "third.txt"} {
@@ -329,6 +357,8 @@ func TestCheckFilepathDependencies_MultipleAlternativesExist(t *testing.T) {
 }
 
 func TestCheckFilepathDependencies_MultipleDependenciesWithAlternatives(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	// Create files that satisfy different alternative dependencies
 	if err := os.WriteFile(filepath.Join(tmpDir, "go.sum"), []byte("test"), 0o644); err != nil {
@@ -363,6 +393,8 @@ func TestCheckFilepathDependencies_MultipleDependenciesWithAlternatives(t *testi
 // ============================================================================
 
 func TestDependencyError_Error(t *testing.T) {
+	t.Parallel()
+
 	err := &DependencyError{
 		CommandName:  "my-command",
 		MissingTools: []string{"tool1", "tool2"},
@@ -375,6 +407,8 @@ func TestDependencyError_Error(t *testing.T) {
 }
 
 func TestRenderDependencyError_MissingTools(t *testing.T) {
+	t.Parallel()
+
 	err := &DependencyError{
 		CommandName: "build",
 		MissingTools: []string{
@@ -404,6 +438,8 @@ func TestRenderDependencyError_MissingTools(t *testing.T) {
 }
 
 func TestRenderDependencyError_MissingCommands(t *testing.T) {
+	t.Parallel()
+
 	err := &DependencyError{
 		CommandName: "release",
 		MissingCommands: []string{
@@ -424,6 +460,8 @@ func TestRenderDependencyError_MissingCommands(t *testing.T) {
 }
 
 func TestRenderDependencyError_BothToolsAndCommands(t *testing.T) {
+	t.Parallel()
+
 	err := &DependencyError{
 		CommandName: "deploy",
 		MissingTools: []string{
@@ -446,6 +484,8 @@ func TestRenderDependencyError_BothToolsAndCommands(t *testing.T) {
 }
 
 func TestRenderHostNotSupportedError(t *testing.T) {
+	t.Parallel()
+
 	output := RenderHostNotSupportedError("clean", "windows", "linux, mac")
 
 	if !strings.Contains(output, "Host not supported") {

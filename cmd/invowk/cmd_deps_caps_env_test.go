@@ -16,6 +16,8 @@ import (
 // ---------------------------------------------------------------------------
 
 func TestCheckCapabilityDependencies_NoCapabilities(t *testing.T) {
+	t.Parallel()
+
 	deps := &invowkfile.DependsOn{
 		Capabilities: []invowkfile.CapabilityDependency{},
 	}
@@ -31,6 +33,8 @@ func TestCheckCapabilityDependencies_NoCapabilities(t *testing.T) {
 }
 
 func TestCheckCapabilityDependencies_NilDeps(t *testing.T) {
+	t.Parallel()
+
 	ctx := &runtime.ExecutionContext{
 		Command: &invowkfile.Command{Name: "test"},
 	}
@@ -42,6 +46,8 @@ func TestCheckCapabilityDependencies_NilDeps(t *testing.T) {
 }
 
 func TestCheckCapabilityDependencies_DuplicateSkipped(t *testing.T) {
+	t.Parallel()
+
 	// This test verifies that duplicate capabilities are silently skipped
 	// The actual success/failure depends on network connectivity
 	deps := &invowkfile.DependsOn{
@@ -72,6 +78,8 @@ func TestCheckCapabilityDependencies_DuplicateSkipped(t *testing.T) {
 }
 
 func TestDependencyError_WithCapabilities(t *testing.T) {
+	t.Parallel()
+
 	err := &DependencyError{
 		CommandName: "test",
 		MissingCapabilities: []string{
@@ -86,6 +94,8 @@ func TestDependencyError_WithCapabilities(t *testing.T) {
 }
 
 func TestRenderDependencyError_MissingCapabilities(t *testing.T) {
+	t.Parallel()
+
 	err := &DependencyError{
 		CommandName: "deploy",
 		MissingCapabilities: []string{
@@ -113,6 +123,8 @@ func TestRenderDependencyError_MissingCapabilities(t *testing.T) {
 }
 
 func TestRenderDependencyError_AllDependencyTypes(t *testing.T) {
+	t.Parallel()
+
 	err := &DependencyError{
 		CommandName: "complex-deploy",
 		MissingTools: []string{
@@ -153,6 +165,8 @@ func TestRenderDependencyError_AllDependencyTypes(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestCheckEnvVarDependencies_ExistingEnvVar(t *testing.T) {
+	t.Parallel()
+
 	deps := &invowkfile.DependsOn{
 		EnvVars: []invowkfile.EnvVarDependency{
 			{
@@ -178,6 +192,8 @@ func TestCheckEnvVarDependencies_ExistingEnvVar(t *testing.T) {
 }
 
 func TestCheckEnvVarDependencies_MissingEnvVar(t *testing.T) {
+	t.Parallel()
+
 	deps := &invowkfile.DependsOn{
 		EnvVars: []invowkfile.EnvVarDependency{
 			{
@@ -214,6 +230,8 @@ func TestCheckEnvVarDependencies_MissingEnvVar(t *testing.T) {
 }
 
 func TestCheckEnvVarDependencies_ValidationRegexPass(t *testing.T) {
+	t.Parallel()
+
 	deps := &invowkfile.DependsOn{
 		EnvVars: []invowkfile.EnvVarDependency{
 			{
@@ -239,6 +257,8 @@ func TestCheckEnvVarDependencies_ValidationRegexPass(t *testing.T) {
 }
 
 func TestCheckEnvVarDependencies_ValidationRegexFail(t *testing.T) {
+	t.Parallel()
+
 	deps := &invowkfile.DependsOn{
 		EnvVars: []invowkfile.EnvVarDependency{
 			{
@@ -277,6 +297,8 @@ func TestCheckEnvVarDependencies_ValidationRegexFail(t *testing.T) {
 }
 
 func TestCheckEnvVarDependencies_AlternativesORSemantics(t *testing.T) {
+	t.Parallel()
+
 	deps := &invowkfile.DependsOn{
 		EnvVars: []invowkfile.EnvVarDependency{
 			{
@@ -331,6 +353,8 @@ func TestCheckEnvVarDependencies_AlternativesORSemantics(t *testing.T) {
 }
 
 func TestCheckEnvVarDependencies_EmptyName(t *testing.T) {
+	t.Parallel()
+
 	deps := &invowkfile.DependsOn{
 		EnvVars: []invowkfile.EnvVarDependency{
 			{
@@ -363,6 +387,8 @@ func TestCheckEnvVarDependencies_EmptyName(t *testing.T) {
 }
 
 func TestCheckEnvVarDependencies_NilDeps(t *testing.T) {
+	t.Parallel()
+
 	ctx := &runtime.ExecutionContext{
 		Command: &invowkfile.Command{Name: "test-cmd"},
 	}
@@ -374,6 +400,8 @@ func TestCheckEnvVarDependencies_NilDeps(t *testing.T) {
 }
 
 func TestCheckEnvVarDependencies_EmptyEnvVars(t *testing.T) {
+	t.Parallel()
+
 	deps := &invowkfile.DependsOn{
 		EnvVars: []invowkfile.EnvVarDependency{}, // Empty list
 	}
@@ -389,6 +417,8 @@ func TestCheckEnvVarDependencies_EmptyEnvVars(t *testing.T) {
 }
 
 func TestDependencyError_WithEnvVars(t *testing.T) {
+	t.Parallel()
+
 	err := &DependencyError{
 		CommandName: "test",
 		MissingEnvVars: []string{
@@ -403,6 +433,8 @@ func TestDependencyError_WithEnvVars(t *testing.T) {
 }
 
 func TestRenderDependencyError_MissingEnvVars(t *testing.T) {
+	t.Parallel()
+
 	err := &DependencyError{
 		CommandName: "deploy",
 		MissingEnvVars: []string{
@@ -430,6 +462,8 @@ func TestRenderDependencyError_MissingEnvVars(t *testing.T) {
 }
 
 func TestRenderDependencyError_AllDependencyTypesIncludingEnvVars(t *testing.T) {
+	t.Parallel()
+
 	err := &DependencyError{
 		CommandName: "complex-deploy",
 		MissingTools: []string{
