@@ -8,6 +8,8 @@ import (
 )
 
 func TestId_Constants(t *testing.T) {
+	t.Parallel()
+
 	// Verify all IDs are unique and sequential
 	ids := []Id{
 		FileNotFoundId,
@@ -42,6 +44,8 @@ func TestId_Constants(t *testing.T) {
 }
 
 func TestIssue_Id(t *testing.T) {
+	t.Parallel()
+
 	issue := Get(FileNotFoundId)
 	if issue == nil {
 		t.Fatal("Get(FileNotFoundId) returned nil")
@@ -53,6 +57,8 @@ func TestIssue_Id(t *testing.T) {
 }
 
 func TestIssue_MarkdownMsg(t *testing.T) {
+	t.Parallel()
+
 	issue := Get(InvowkfileNotFoundId)
 	if issue == nil {
 		t.Fatal("Get(InvowkfileNotFoundId) returned nil")
@@ -70,6 +76,8 @@ func TestIssue_MarkdownMsg(t *testing.T) {
 }
 
 func TestIssue_DocLinks(t *testing.T) {
+	t.Parallel()
+
 	issue := Get(FileNotFoundId)
 	if issue == nil {
 		t.Fatal("Get(FileNotFoundId) returned nil")
@@ -94,6 +102,8 @@ func TestIssue_DocLinks(t *testing.T) {
 }
 
 func TestIssue_ExtLinks(t *testing.T) {
+	t.Parallel()
+
 	issue := Get(FileNotFoundId)
 	if issue == nil {
 		t.Fatal("Get(FileNotFoundId) returned nil")
@@ -145,6 +155,8 @@ func TestIssue_Render(t *testing.T) {
 }
 
 func TestGet(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		id       Id
 		wantNil  bool
@@ -169,6 +181,8 @@ func TestGet(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.contains, func(t *testing.T) {
+			t.Parallel()
+
 			issue := Get(tt.id)
 
 			if tt.wantNil {
@@ -190,6 +204,8 @@ func TestGet(t *testing.T) {
 }
 
 func TestValues(t *testing.T) {
+	t.Parallel()
+
 	issues := Values()
 
 	if len(issues) == 0 {
@@ -262,6 +278,8 @@ func TestIssue_Render_NoLinks(t *testing.T) {
 }
 
 func TestMarkdownMsg_Type(t *testing.T) {
+	t.Parallel()
+
 	msg := MarkdownMsg("# Hello\n\nWorld")
 
 	if string(msg) != "# Hello\n\nWorld" {
@@ -270,6 +288,8 @@ func TestMarkdownMsg_Type(t *testing.T) {
 }
 
 func TestHttpLink_Type(t *testing.T) {
+	t.Parallel()
+
 	link := HttpLink("https://example.com")
 
 	if string(link) != "https://example.com" {
@@ -278,6 +298,8 @@ func TestHttpLink_Type(t *testing.T) {
 }
 
 func TestAllIssuesHaveContent(t *testing.T) {
+	t.Parallel()
+
 	issues := Values()
 
 	for _, issue := range issues {
@@ -309,6 +331,8 @@ func TestAllIssuesAreRenderable(t *testing.T) {
 
 // TestIssuesMapCompleteness verifies all issue IDs are in the map
 func TestIssuesMapCompleteness(t *testing.T) {
+	t.Parallel()
+
 	expectedIds := []Id{
 		FileNotFoundId,
 		InvowkfileNotFoundId,
@@ -336,6 +360,8 @@ func TestIssuesMapCompleteness(t *testing.T) {
 }
 
 func TestIssueTemplates_NoStaleGuidance(t *testing.T) {
+	t.Parallel()
+
 	tokens := []string{
 		"invowk fix",
 		"apk add --no-cache",

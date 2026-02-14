@@ -10,6 +10,8 @@ import (
 
 // T035: ActionableError formatting tests
 func TestActionableError_Error(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name     string
 		err      *ActionableError
@@ -51,6 +53,8 @@ func TestActionableError_Error(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			got := tt.err.Error()
 			if got != tt.expected {
 				t.Errorf("Error() = %q, want %q", got, tt.expected)
@@ -60,6 +64,8 @@ func TestActionableError_Error(t *testing.T) {
 }
 
 func TestActionableError_Unwrap(t *testing.T) {
+	t.Parallel()
+
 	cause := errors.New("underlying error")
 	err := &ActionableError{
 		Operation: "test",
@@ -78,6 +84,8 @@ func TestActionableError_Unwrap(t *testing.T) {
 }
 
 func TestActionableError_ErrorsIs(t *testing.T) {
+	t.Parallel()
+
 	cause := errors.New("specific error")
 	wrapped := &ActionableError{
 		Operation: "test",
@@ -90,6 +98,8 @@ func TestActionableError_ErrorsIs(t *testing.T) {
 }
 
 func TestActionableError_Format(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name     string
 		err      *ActionableError
@@ -163,6 +173,8 @@ func TestActionableError_Format(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			got := tt.err.Format(tt.verbose)
 
 			for _, s := range tt.contains {
@@ -181,6 +193,8 @@ func TestActionableError_Format(t *testing.T) {
 }
 
 func TestActionableError_HasSuggestions(t *testing.T) {
+	t.Parallel()
+
 	withSuggestions := &ActionableError{
 		Operation:   "test",
 		Suggestions: []string{"Try this"},
@@ -198,6 +212,8 @@ func TestActionableError_HasSuggestions(t *testing.T) {
 }
 
 func TestErrorContext_Build(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name       string
 		setup      func() *ErrorContext
@@ -270,6 +286,8 @@ func TestErrorContext_Build(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			ctx := tt.setup()
 			err := ctx.Build()
 
@@ -292,6 +310,8 @@ func TestErrorContext_Build(t *testing.T) {
 }
 
 func TestErrorContext_BuildError(t *testing.T) {
+	t.Parallel()
+
 	// Test that BuildError returns error interface
 	ctx := NewErrorContext().WithOperation("test")
 	err := ctx.BuildError()
@@ -314,6 +334,8 @@ func TestErrorContext_BuildError(t *testing.T) {
 }
 
 func TestNewActionableError(t *testing.T) {
+	t.Parallel()
+
 	err := NewActionableError("test operation")
 
 	if err.Operation != "test operation" {
@@ -328,6 +350,8 @@ func TestNewActionableError(t *testing.T) {
 }
 
 func TestWrapWithOperation(t *testing.T) {
+	t.Parallel()
+
 	cause := errors.New("original error")
 	err := WrapWithOperation(cause, "process file")
 
@@ -351,6 +375,8 @@ func TestWrapWithOperation(t *testing.T) {
 }
 
 func TestWrapWithContext(t *testing.T) {
+	t.Parallel()
+
 	cause := errors.New("original error")
 	err := WrapWithContext(cause, "load file", "/path/to/file")
 
@@ -379,11 +405,15 @@ func TestWrapWithContext(t *testing.T) {
 
 // Test error interface compliance
 func TestActionableError_ErrorInterface(t *testing.T) {
+	t.Parallel()
+
 	var _ error = (*ActionableError)(nil)
 }
 
 // Test that ErrorContext can be reused with different causes
 func TestErrorContext_Reuse(t *testing.T) {
+	t.Parallel()
+
 	ctx := NewErrorContext().
 		WithOperation("process file").
 		WithResource("/data/input.txt").
