@@ -256,14 +256,6 @@ func NewExecutionContext(cmd *invowkfile.Command, inv *invowkfile.Invowkfile) *E
 	}
 }
 
-// NewExecutionID generates a unique execution ID using a combination of the current
-// nanosecond timestamp and a monotonic counter. The counter ensures uniqueness even
-// when multiple IDs are generated within the same nanosecond (possible on fast CPUs
-// or systems with low-precision clocks like Windows).
-func (r *Registry) NewExecutionID() string {
-	return fmt.Sprintf("%d-%d", time.Now().UnixNano(), r.idCounter.Add(1))
-}
-
 // Success returns true if the command executed successfully
 func (r *Result) Success() bool {
 	return r.ExitCode == 0 && r.Error == nil
@@ -295,6 +287,14 @@ func NewRegistry() *Registry {
 	return &Registry{
 		runtimes: make(map[RuntimeType]Runtime),
 	}
+}
+
+// NewExecutionID generates a unique execution ID using a combination of the current
+// nanosecond timestamp and a monotonic counter. The counter ensures uniqueness even
+// when multiple IDs are generated within the same nanosecond (possible on fast CPUs
+// or systems with low-precision clocks like Windows).
+func (r *Registry) NewExecutionID() string {
+	return fmt.Sprintf("%d-%d", time.Now().UnixNano(), r.idCounter.Add(1))
 }
 
 // Register adds a runtime to the registry

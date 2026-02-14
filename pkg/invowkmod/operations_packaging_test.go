@@ -42,8 +42,6 @@ version: "1.0.0"
 
 func TestArchive(t *testing.T) {
 	t.Run("archive valid module", func(t *testing.T) {
-		t.Parallel()
-
 		tmpDir := t.TempDir()
 
 		// Create a module first
@@ -114,8 +112,6 @@ func TestArchive(t *testing.T) {
 	})
 
 	t.Run("archive invalid module fails", func(t *testing.T) {
-		t.Parallel()
-
 		tmpDir := t.TempDir()
 
 		// Create an invalid module (no invowkfile)
