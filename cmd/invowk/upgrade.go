@@ -56,6 +56,7 @@ using the appropriate package manager instead.`,
 			cmd.SilenceErrors = true
 			cmd.SilenceUsage = true
 
+			// Safe to discard: flags are statically registered on this command.
 			checkFlag, _ := cmd.Flags().GetBool("check")
 			yesFlag, _ := cmd.Flags().GetBool("yes")
 
@@ -122,7 +123,7 @@ func runUpgrade(ctx context.Context, p upgradeParams) error {
 		return nil
 	}
 
-	// Not upgrade available: already up-to-date or running a pre-release ahead
+	// No upgrade available: already up-to-date or running a pre-release ahead
 	// of the latest stable version.
 	if !check.UpgradeAvailable {
 		fmt.Fprintf(p.stdout, "Current version: %s\n", check.CurrentVersion)
@@ -166,8 +167,8 @@ func runUpgrade(ctx context.Context, p upgradeParams) error {
 		return fmt.Errorf("applying upgrade: %w", err)
 	}
 
-	fmt.Fprintln(p.stdout, "Verifying checksum... OK")
-	fmt.Fprintln(p.stdout, "Replacing binary...  OK")
+	fmt.Fprintln(p.stdout, "Checksum verified.")
+	fmt.Fprintln(p.stdout, "Binary replaced.")
 	fmt.Fprintln(p.stdout, SuccessStyle.Render(fmt.Sprintf("Successfully upgraded to %s", check.LatestVersion)))
 
 	return nil
@@ -181,6 +182,8 @@ func classifyUpgradeExitCode(err error) int {
 	case errors.Is(err, os.ErrPermission):
 		return 1
 	case errors.Is(err, selfupdate.ErrReleaseNotFound):
+		return 1
+	case errors.Is(err, selfupdate.ErrInvalidVersion):
 		return 1
 	default:
 		return 2
@@ -204,6 +207,10 @@ func formatUpgradeError(err error) string {
 
 	if errors.Is(err, os.ErrPermission) {
 		return "insufficient permissions to replace the binary\n\nTry running with elevated privileges:\n  sudo invowk upgrade"
+	}
+
+	if errors.Is(err, selfupdate.ErrInvalidVersion) {
+		return fmt.Sprintf("%s\n\nUse semver format (e.g., v1.2.3).", err.Error())
 	}
 
 	return fmt.Sprintf("%s\n\nCheck your network connection and try again.\nIf behind a firewall, set GITHUB_TOKEN for authenticated access.", err.Error())

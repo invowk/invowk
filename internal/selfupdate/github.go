@@ -9,6 +9,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -22,6 +24,10 @@ const (
 
 	// maxPages is the upper bound on pagination to avoid runaway requests.
 	maxPages = 3
+
+	// maxJSONResponseBytes is the upper bound on JSON API response size (10 MB).
+	// Prevents unbounded memory consumption from malicious or malformed responses.
+	maxJSONResponseBytes = 10 << 20
 )
 
 // ErrReleaseNotFound is returned when a requested release tag does not exist.
@@ -101,9 +107,9 @@ func WithHTTPClient(c *http.Client) ClientOption {
 }
 
 // WithBaseURL overrides the GitHub API base URL, primarily for test servers.
-func WithBaseURL(url string) ClientOption {
+func WithBaseURL(base string) ClientOption {
 	return func(g *GitHubClient) {
-		g.baseURL = strings.TrimRight(url, "/")
+		g.baseURL = strings.TrimRight(base, "/")
 	}
 }
 
@@ -150,13 +156,13 @@ func NewGitHubClient(opts ...ClientOption) *GitHubClient {
 // ListReleases fetches stable (non-draft, non-prerelease) releases, sorted by
 // semantic version in descending order. Pagination is followed up to maxPages.
 func (c *GitHubClient) ListReleases(ctx context.Context) ([]Release, error) {
-	url := fmt.Sprintf("%s/repos/%s/%s/releases?per_page=%d",
+	pageURL := fmt.Sprintf("%s/repos/%s/%s/releases?per_page=%d",
 		c.baseURL, c.owner, c.repo, defaultPerPage)
 
 	var all []Release
 
-	for page := 0; page < maxPages && url != ""; page++ {
-		resp, reqErr := c.doRequest(ctx, http.MethodGet, url)
+	for page := 0; page < maxPages && pageURL != ""; page++ {
+		resp, reqErr := c.doRequest(ctx, http.MethodGet, pageURL)
 		if reqErr != nil {
 			return nil, fmt.Errorf("listing releases: %w", reqErr)
 		}
@@ -171,7 +177,7 @@ func (c *GitHubClient) ListReleases(ctx context.Context) ([]Release, error) {
 			return nil, fmt.Errorf("listing releases: unexpected status %d", resp.StatusCode)
 		}
 
-		releases, parseErr := parseReleases(resp.Body)
+		releases, parseErr := parseReleases(io.LimitReader(resp.Body, maxJSONResponseBytes))
 		resp.Body.Close()
 		if parseErr != nil {
 			return nil, fmt.Errorf("listing releases: %w", parseErr)
@@ -184,12 +190,11 @@ func (c *GitHubClient) ListReleases(ctx context.Context) ([]Release, error) {
 			}
 		}
 
-		url = parseLinkHeader(resp.Header.Get("Link"))
+		pageURL = parseLinkHeader(resp.Header.Get("Link"))
 	}
 
 	// Sort by semantic version descending. Releases without valid semver tags
 	// are sorted to the end.
-	semver.Sort(extractTags(all))
 	sortReleasesBySemverDesc(all)
 
 	return all, nil
@@ -198,10 +203,10 @@ func (c *GitHubClient) ListReleases(ctx context.Context) ([]Release, error) {
 // GetReleaseByTag fetches a single release by its Git tag (e.g., "v1.0.0").
 // Returns ErrReleaseNotFound if the tag does not correspond to a release.
 func (c *GitHubClient) GetReleaseByTag(ctx context.Context, tag string) (*Release, error) {
-	url := fmt.Sprintf("%s/repos/%s/%s/releases/tags/%s",
+	tagURL := fmt.Sprintf("%s/repos/%s/%s/releases/tags/%s",
 		c.baseURL, c.owner, c.repo, tag)
 
-	resp, err := c.doRequest(ctx, http.MethodGet, url)
+	resp, err := c.doRequest(ctx, http.MethodGet, tagURL)
 	if err != nil {
 		return nil, fmt.Errorf("getting release %s: %w", tag, err)
 	}
@@ -220,7 +225,7 @@ func (c *GitHubClient) GetReleaseByTag(ctx context.Context, tag string) (*Releas
 	}
 
 	var gr githubRelease
-	if err := json.NewDecoder(resp.Body).Decode(&gr); err != nil {
+	if err := json.NewDecoder(io.LimitReader(resp.Body, maxJSONResponseBytes)).Decode(&gr); err != nil {
 		return nil, fmt.Errorf("getting release %s: decoding response: %w", tag, err)
 	}
 
@@ -230,23 +235,23 @@ func (c *GitHubClient) GetReleaseByTag(ctx context.Context, tag string) (*Releas
 
 // DownloadAsset downloads the file at the given URL and returns the response body
 // as a streaming reader. The caller is responsible for closing the returned ReadCloser.
-func (c *GitHubClient) DownloadAsset(ctx context.Context, url string) (io.ReadCloser, error) {
-	resp, err := c.doRequest(ctx, http.MethodGet, url)
+func (c *GitHubClient) DownloadAsset(ctx context.Context, assetURL string) (io.ReadCloser, error) {
+	resp, err := c.doRequest(ctx, http.MethodGet, assetURL)
 	if err != nil {
-		return nil, fmt.Errorf("downloading asset: %w", err)
+		return nil, fmt.Errorf("downloading asset %s: %w", redactURL(assetURL), err)
 	}
 
 	if resp.StatusCode != http.StatusOK {
 		resp.Body.Close()
-		return nil, fmt.Errorf("downloading asset: unexpected status %d", resp.StatusCode)
+		return nil, fmt.Errorf("downloading asset %s: unexpected status %d", redactURL(assetURL), resp.StatusCode)
 	}
 
 	return resp.Body, nil
 }
 
 // doRequest creates and executes an HTTP request with common GitHub API headers.
-func (c *GitHubClient) doRequest(ctx context.Context, method, url string) (*http.Response, error) {
-	req, err := http.NewRequestWithContext(ctx, method, url, http.NoBody)
+func (c *GitHubClient) doRequest(ctx context.Context, method, reqURL string) (*http.Response, error) {
+	req, err := http.NewRequestWithContext(ctx, method, reqURL, http.NoBody)
 	if err != nil {
 		return nil, fmt.Errorf("creating request: %w", err)
 	}
@@ -255,7 +260,9 @@ func (c *GitHubClient) doRequest(ctx context.Context, method, url string) (*http
 	req.Header.Set("X-GitHub-Api-Version", "2022-11-28")
 	req.Header.Set("User-Agent", c.userAgent)
 
-	if c.token != "" {
+	// Only attach the auth token when the request targets a known GitHub host.
+	// This prevents token leakage if a download URL redirects to a third-party CDN.
+	if c.token != "" && isGitHubHost(req.URL, c.baseURL) {
 		req.Header.Set("Authorization", "Bearer "+c.token)
 	}
 
@@ -267,9 +274,9 @@ func (c *GitHubClient) doRequest(ctx context.Context, method, url string) (*http
 	return resp, nil
 }
 
-// checkRateLimit inspects rate limit headers and returns a RateLimitError when
-// the remaining quota is zero. For 403 responses, it distinguishes rate-limit
-// exhaustion from other authorization failures.
+// checkRateLimit inspects the X-RateLimit-* response headers and returns a
+// RateLimitError when the remaining quota is zero. It does not inspect the
+// HTTP status code — only the header values are examined.
 func checkRateLimit(resp *http.Response) error {
 	remaining := resp.Header.Get("X-RateLimit-Remaining")
 	if remaining == "" {
@@ -362,33 +369,42 @@ func toRelease(gr githubRelease) Release {
 	}
 }
 
-// extractTags returns the tag names from a slice of releases, used for semver sorting.
-func extractTags(releases []Release) []string {
-	tags := make([]string, len(releases))
-	for i, r := range releases {
-		tags[i] = r.TagName
-	}
-	return tags
+// sortReleasesBySemverDesc sorts releases by semantic version in descending order.
+// Releases with invalid semver tags are placed at the end. Uses a stable sort
+// so releases with identical tags preserve their original ordering.
+func sortReleasesBySemverDesc(releases []Release) {
+	slices.SortStableFunc(releases, func(a, b Release) int {
+		return semver.Compare(b.TagName, a.TagName)
+	})
 }
 
-// sortReleasesBySemverDesc sorts releases by semantic version in descending order.
-// Releases with invalid semver tags are placed at the end.
-func sortReleasesBySemverDesc(releases []Release) {
-	// Build a tag-to-index map for O(1) lookup during sorting.
-	tagIndex := make(map[string]int, len(releases))
-	for i, r := range releases {
-		tagIndex[r.TagName] = i
+// isGitHubHost reports whether reqURL targets a known GitHub host, so the auth
+// token can be safely attached. It matches the configured API base URL host and,
+// when the base is api.github.com, also trusts github.com for asset downloads.
+func isGitHubHost(reqURL *url.URL, baseURL string) bool {
+	base, err := url.Parse(baseURL)
+	if err != nil {
+		return false
 	}
-
-	// Extract and sort tags, then rebuild the slice in descending order.
-	tags := extractTags(releases)
-	semver.Sort(tags)
-
-	// Reverse to get descending order.
-	sorted := make([]Release, len(releases))
-	for i, tag := range tags {
-		sorted[len(tags)-1-i] = releases[tagIndex[tag]]
+	// Match the configured API host (covers both production and test servers).
+	if strings.EqualFold(reqURL.Host, base.Host) {
+		return true
 	}
+	// When the API base is api.github.com, also trust github.com for asset downloads.
+	if strings.EqualFold(base.Host, "api.github.com") && strings.EqualFold(reqURL.Host, "github.com") {
+		return true
+	}
+	return false
+}
 
-	copy(releases, sorted)
+// redactURL strips query parameters and fragments from a URL for safe inclusion
+// in error messages, preventing accidental exposure of tokens or sensitive data.
+func redactURL(rawURL string) string {
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return "<invalid-url>"
+	}
+	u.RawQuery = ""
+	u.Fragment = ""
+	return u.String()
 }

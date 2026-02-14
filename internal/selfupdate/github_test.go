@@ -10,6 +10,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strconv"
 	"strings"
 	"testing"
@@ -546,4 +547,115 @@ func TestListReleases_SemverSort(t *testing.T) {
 			t.Errorf("release[%d]: got tag %q, want %q", i, got[i].TagName, want)
 		}
 	}
+}
+
+func TestSortReleasesBySemverDesc_DuplicateTags(t *testing.T) {
+	t.Parallel()
+
+	// Two releases with the same tag — the old map-based sort would lose one.
+	// SortStableFunc preserves both and maintains original relative order.
+	releases := []Release{
+		{TagName: "v1.0.0", Name: "First"},
+		{TagName: "v2.0.0", Name: "Latest"},
+		{TagName: "v1.0.0", Name: "Second"},
+	}
+
+	sortReleasesBySemverDesc(releases)
+
+	if len(releases) != 3 {
+		t.Fatalf("expected 3 releases after sort, got %d", len(releases))
+	}
+
+	// v2.0.0 first, then both v1.0.0 entries preserved in original relative order.
+	if releases[0].TagName != "v2.0.0" {
+		t.Errorf("release[0]: got tag %q, want %q", releases[0].TagName, "v2.0.0")
+	}
+	if releases[1].TagName != "v1.0.0" || releases[1].Name != "First" {
+		t.Errorf("release[1]: got tag=%q name=%q, want tag=%q name=%q",
+			releases[1].TagName, releases[1].Name, "v1.0.0", "First")
+	}
+	if releases[2].TagName != "v1.0.0" || releases[2].Name != "Second" {
+		t.Errorf("release[2]: got tag=%q name=%q, want tag=%q name=%q",
+			releases[2].TagName, releases[2].Name, "v1.0.0", "Second")
+	}
+}
+
+func TestIsGitHubHost(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		reqURL  string
+		baseURL string
+		want    bool
+	}{
+		{
+			name:    "API host matches base URL",
+			reqURL:  "https://api.github.com/repos/invowk/invowk/releases",
+			baseURL: "https://api.github.com",
+			want:    true,
+		},
+		{
+			name:    "github.com trusted when base is api.github.com",
+			reqURL:  "https://github.com/invowk/invowk/releases/download/v1.0.0/archive.tar.gz",
+			baseURL: "https://api.github.com",
+			want:    true,
+		},
+		{
+			name:    "third-party CDN rejected",
+			reqURL:  "https://cdn.example.com/releases/archive.tar.gz",
+			baseURL: "https://api.github.com",
+			want:    false,
+		},
+		{
+			name:    "test server matches own base URL",
+			reqURL:  "http://127.0.0.1:8080/repos/invowk/invowk/releases",
+			baseURL: "http://127.0.0.1:8080",
+			want:    true,
+		},
+		{
+			name:    "test server rejects different host",
+			reqURL:  "http://evil.example.com/steal-token",
+			baseURL: "http://127.0.0.1:8080",
+			want:    false,
+		},
+		{
+			name:    "github.com NOT trusted when base is custom GHE",
+			reqURL:  "https://github.com/something",
+			baseURL: "https://github.mycompany.com/api/v3",
+			want:    false,
+		},
+		{
+			name:    "case-insensitive host matching",
+			reqURL:  "https://API.GITHUB.COM/repos",
+			baseURL: "https://api.github.com",
+			want:    true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			u, err := parseTestURL(tt.reqURL)
+			if err != nil {
+				t.Fatalf("parsing test URL %q: %v", tt.reqURL, err)
+			}
+
+			got := isGitHubHost(u, tt.baseURL)
+			if got != tt.want {
+				t.Errorf("isGitHubHost(%q, %q) = %v, want %v", tt.reqURL, tt.baseURL, got, tt.want)
+			}
+		})
+	}
+}
+
+// parseTestURL is a test helper that parses a URL string. We use a helper
+// instead of url.Parse directly so test cases remain declarative strings.
+func parseTestURL(rawURL string) (*url.URL, error) {
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return nil, fmt.Errorf("parsing URL %q: %w", rawURL, err)
+	}
+	return u, nil
 }

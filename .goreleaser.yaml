@@ -119,7 +119,7 @@ release:
 
 # Homebrew cask — auto-pushes cask to invowk/homebrew-tap on stable releases.
 # Requires HOMEBREW_TAP_TOKEN secret (fine-grained PAT with contents:write on the tap repo).
-# Migrated from brews → homebrew_casks (GoReleaser v2.10+); Casks are the proper
+# Migrated from brews → homebrew_casks (GoReleaser v2.10+); Casks are the conventional
 # Homebrew mechanism for distributing pre-compiled binaries.
 homebrew_casks:
   - name: invowk
@@ -136,6 +136,7 @@ homebrew_casks:
     binaries:
       - invowk
     # Remove macOS quarantine attribute — invowk binaries are not signed/notarized.
+    # xattr -dr is idempotent (exits 0 when attribute absent).
     hooks:
       post:
         install: |

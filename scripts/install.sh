@@ -162,12 +162,23 @@ detect_sha256_tool() {
 }
 
 # Compute SHA256 hash of a file and print the hex digest.
+# Captures the full output first to avoid pipe masking the hash tool's exit code
+# (POSIX sh does not support pipefail).
 sha256_file() {
     _file="$1"
     case "${SHA256_CMD}" in
-        sha256sum) sha256sum "${_file}" | cut -d' ' -f1 ;;
-        shasum)    shasum -a 256 "${_file}" | cut -d' ' -f1 ;;
+        sha256sum)
+            _output=$(sha256sum "${_file}") || die "sha256sum failed for ${_file}"
+            ;;
+        shasum)
+            _output=$(shasum -a 256 "${_file}") || die "shasum failed for ${_file}"
+            ;;
     esac
+    _hash=$(printf '%s' "${_output}" | cut -d' ' -f1)
+    if [ -z "${_hash}" ]; then
+        die "Failed to extract hash from ${SHA256_CMD} output for ${_file}"
+    fi
+    printf '%s' "${_hash}"
 }
 
 # Verify a file's SHA256 hash against an expected value.
@@ -216,11 +227,21 @@ Check your network connection and try again.
 If behind a firewall, you can specify a version directly:
   INVOWK_VERSION=v1.0.0 sh -c '\$(curl -fsSL https://raw.githubusercontent.com/${GITHUB_REPO}/main/scripts/install.sh)'"
 
-        # Extract tag_name from JSON response (minimal parsing, no jq dependency).
+        # Extract tag_name from JSON response using grep+sed instead of jq to
+        # minimize runtime dependencies — this script must work on minimal systems.
         _version=$(printf '%s' "${_response}" | grep '"tag_name"' | head -1 | sed 's/.*"tag_name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/')
         if [ -z "${_version}" ]; then
             die "Could not determine latest version from GitHub API response."
         fi
+        # Validate the extracted version looks like a semver tag.
+        case "${_version}" in
+            v[0-9]*)
+                ;; # Valid version format
+            *)
+                die "Unexpected version format from GitHub API: ${_version}
+This may indicate an API change. Report at: https://github.com/${GITHUB_REPO}/issues"
+                ;;
+        esac
         log "Latest stable version: ${BOLD}${_version}${RESET}"
         echo "${_version}"
     fi
@@ -308,7 +329,10 @@ Report at: https://github.com/${GITHUB_REPO}/issues"
     verify_checksum "${_archive_path}" "${_expected_hash}"
     ok "Checksum verified."
 
-    # Extract the binary from the archive.
+    # Extract the binary from the archive using a two-phase strategy:
+    # 1. Try extracting the binary by exact name (flat archive layout).
+    # 2. Fall back to extracting the entire archive (nested directory layout),
+    #    then locate the binary below.
     log "Extracting binary..."
     tar -xzf "${_archive_path}" -C "${TMPDIR_INSTALL}" "${BINARY_NAME}" 2>/dev/null ||
         tar -xzf "${_archive_path}" -C "${TMPDIR_INSTALL}" || die "Failed to extract ${_asset}."
@@ -324,8 +348,9 @@ Report at: https://github.com/${GITHUB_REPO}/issues"
     mkdir -p "${_install_dir}" || die "Failed to create install directory: ${_install_dir}
 Try running with a different INSTALL_DIR or check permissions."
 
-    # Atomic install via mv (same filesystem is not guaranteed, but mv handles
-    # cross-filesystem moves by falling back to copy+delete).
+    # Install via mv. When source and destination are on the same filesystem,
+    # mv is atomic (rename syscall). For cross-filesystem moves, mv falls back
+    # to copy+delete, which is NOT atomic but is the best available option.
     mv "${TMPDIR_INSTALL}/${BINARY_NAME}" "${_install_dir}/${BINARY_NAME}" || die "Failed to install binary to ${_install_dir}/${BINARY_NAME}
 
 If permission denied, try:

@@ -9,10 +9,10 @@ import (
 	"os"
 	"runtime/debug"
 
-	"github.com/invowk/invowk/internal/issue"
-
 	"github.com/charmbracelet/fang"
 	"github.com/spf13/cobra"
+
+	"github.com/invowk/invowk/internal/issue"
 )
 
 var (

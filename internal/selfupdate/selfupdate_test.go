@@ -23,7 +23,8 @@ import (
 )
 
 // createTestArchive builds a tar.gz archive containing a fake invowk binary
-// wrapped in a GoReleaser-style directory (e.g., invowk_1.0.0_linux_amd64/invowk).
+// nested inside a directory (e.g., invowk_1.0.0_linux_amd64/invowk), matching
+// a nested archive layout.
 func createTestArchive(t *testing.T, binaryContent []byte) []byte {
 	t.Helper()
 
@@ -737,5 +738,307 @@ func TestNewUpdater_DefaultClient(t *testing.T) {
 	}
 	if updater.currentVersion != "v1.0.0" {
 		t.Errorf("expected currentVersion %q, got %q", "v1.0.0", updater.currentVersion)
+	}
+}
+
+func TestUpdater_Check_InvalidVersion(t *testing.T) {
+	// Not parallel: overrides package-level test seams.
+
+	savedHint := installMethodHint
+	savedReadBuildInfo := readBuildInfo
+	t.Cleanup(func() {
+		installMethodHint = savedHint
+		readBuildInfo = savedReadBuildInfo
+	})
+	installMethodHint = ""
+	readBuildInfo = func() (*debug.BuildInfo, bool) { return nil, false }
+
+	overrideExecSeams(t, "/usr/local/bin/invowk")
+
+	releases := []githubRelease{
+		{TagName: "v1.0.0", Name: "v1.0.0", Draft: false, Prerelease: false},
+	}
+	srv := newTestServer(t, releases, nil)
+
+	client := NewGitHubClient(WithBaseURL(srv.URL))
+	updater := NewUpdater("v1.0.0", WithGitHubClient(client))
+
+	// Pass an invalid version string — should return ErrInvalidVersion.
+	_, err := updater.Check(context.Background(), "banana")
+	if err == nil {
+		t.Fatal("expected error for invalid version, got nil")
+	}
+	if !errors.Is(err, ErrInvalidVersion) {
+		t.Errorf("expected ErrInvalidVersion, got: %v", err)
+	}
+}
+
+func TestUpdater_Apply_NilRelease(t *testing.T) {
+	t.Parallel()
+
+	updater := NewUpdater("v1.0.0")
+
+	err := updater.Apply(context.Background(), nil)
+	if err == nil {
+		t.Fatal("expected error for nil release, got nil")
+	}
+	if !strings.Contains(err.Error(), "release must not be nil") {
+		t.Errorf("expected 'release must not be nil' error, got: %v", err)
+	}
+}
+
+func TestUpdater_Check_NoStableReleases(t *testing.T) {
+	// Not parallel: overrides package-level test seams.
+
+	savedHint := installMethodHint
+	savedReadBuildInfo := readBuildInfo
+	t.Cleanup(func() {
+		installMethodHint = savedHint
+		readBuildInfo = savedReadBuildInfo
+	})
+	installMethodHint = ""
+	readBuildInfo = func() (*debug.BuildInfo, bool) { return nil, false }
+
+	overrideExecSeams(t, "/usr/local/bin/invowk")
+
+	// Server returns only drafts and prereleases — no stable releases.
+	releases := []githubRelease{
+		{TagName: "v2.0.0-alpha.1", Name: "Alpha", Draft: false, Prerelease: true},
+		{TagName: "v2.0.0", Name: "Draft", Draft: true, Prerelease: false},
+	}
+	srv := newTestServer(t, releases, nil)
+
+	client := NewGitHubClient(WithBaseURL(srv.URL))
+	updater := NewUpdater("v1.0.0", WithGitHubClient(client))
+
+	_, err := updater.Check(context.Background(), "")
+	if err == nil {
+		t.Fatal("expected error for no stable releases, got nil")
+	}
+	if !strings.Contains(err.Error(), "no stable releases found") {
+		t.Errorf("expected 'no stable releases found' error, got: %v", err)
+	}
+}
+
+func TestUpdater_Apply_MissingPlatformAsset(t *testing.T) {
+	// Not parallel: overrides package-level test seams.
+
+	savedHint := installMethodHint
+	savedReadBuildInfo := readBuildInfo
+	t.Cleanup(func() {
+		installMethodHint = savedHint
+		readBuildInfo = savedReadBuildInfo
+	})
+	installMethodHint = ""
+	readBuildInfo = func() (*debug.BuildInfo, bool) { return nil, false }
+
+	tmpDir := t.TempDir()
+	fakeBinary := filepath.Join(tmpDir, "invowk")
+	if err := os.WriteFile(fakeBinary, []byte("binary"), 0o755); err != nil {
+		t.Fatalf("writing fake binary: %v", err)
+	}
+	overrideExecSeams(t, fakeBinary)
+
+	// Release has assets for a different platform — no match for current OS/arch.
+	release := &Release{
+		TagName: "v1.0.0",
+		Name:    "v1.0.0",
+		Assets: []Asset{
+			{
+				Name:               "invowk_1.0.0_freebsd_riscv64.tar.gz",
+				BrowserDownloadURL: "http://example.com/download/invowk_1.0.0_freebsd_riscv64.tar.gz",
+			},
+			{
+				Name:               "checksums.txt",
+				BrowserDownloadURL: "http://example.com/download/checksums.txt",
+			},
+		},
+	}
+
+	client := NewGitHubClient()
+	updater := NewUpdater("v0.9.0", WithGitHubClient(client))
+
+	err := updater.Apply(context.Background(), release)
+	if err == nil {
+		t.Fatal("expected error for missing platform asset, got nil")
+	}
+	if !errors.Is(err, ErrAssetNotFound) {
+		t.Errorf("expected ErrAssetNotFound, got: %v", err)
+	}
+}
+
+// createFlatTestArchive builds a tar.gz archive with the invowk binary at the
+// root level (no enclosing directory), matching a flat archive layout.
+func createFlatTestArchive(t *testing.T, binaryContent []byte) []byte {
+	t.Helper()
+
+	var buf bytes.Buffer
+	gw := gzip.NewWriter(&buf)
+	tw := tar.NewWriter(gw)
+
+	hdr := &tar.Header{
+		Name:     "invowk",
+		Mode:     0o755,
+		Size:     int64(len(binaryContent)),
+		Typeflag: tar.TypeReg,
+	}
+
+	if err := tw.WriteHeader(hdr); err != nil {
+		t.Fatalf("writing tar header: %v", err)
+	}
+	if _, err := tw.Write(binaryContent); err != nil {
+		t.Fatalf("writing tar body: %v", err)
+	}
+	if err := tw.Close(); err != nil {
+		t.Fatalf("closing tar writer: %v", err)
+	}
+	if err := gw.Close(); err != nil {
+		t.Fatalf("closing gzip writer: %v", err)
+	}
+
+	return buf.Bytes()
+}
+
+func TestExtractBinaryFromArchive_FlatArchive(t *testing.T) {
+	t.Parallel()
+
+	binaryContent := []byte("#!/bin/sh\necho flat-binary")
+	archiveData := createFlatTestArchive(t, binaryContent)
+
+	tmpDir := t.TempDir()
+	archivePath := filepath.Join(tmpDir, "test.tar.gz")
+	if err := os.WriteFile(archivePath, archiveData, 0o644); err != nil {
+		t.Fatalf("writing archive: %v", err)
+	}
+
+	extractedPath, err := extractBinaryFromArchive(archivePath, tmpDir)
+	if err != nil {
+		t.Fatalf("extracting binary: %v", err)
+	}
+	defer func() { _ = os.Remove(extractedPath) }()
+
+	got, err := os.ReadFile(extractedPath)
+	if err != nil {
+		t.Fatalf("reading extracted binary: %v", err)
+	}
+	if !bytes.Equal(got, binaryContent) {
+		t.Errorf("content mismatch:\ngot:  %q\nwant: %q", got, binaryContent)
+	}
+}
+
+func TestExtractBinaryFromArchive_NoBinaryFound(t *testing.T) {
+	t.Parallel()
+
+	// Create an archive with a different filename — no "invowk" entry.
+	var buf bytes.Buffer
+	gw := gzip.NewWriter(&buf)
+	tw := tar.NewWriter(gw)
+
+	hdr := &tar.Header{
+		Name:     "not-invowk",
+		Mode:     0o755,
+		Size:     5,
+		Typeflag: tar.TypeReg,
+	}
+	if err := tw.WriteHeader(hdr); err != nil {
+		t.Fatalf("writing tar header: %v", err)
+	}
+	if _, err := tw.Write([]byte("hello")); err != nil {
+		t.Fatalf("writing tar body: %v", err)
+	}
+	if err := tw.Close(); err != nil {
+		t.Fatalf("closing tar writer: %v", err)
+	}
+	if err := gw.Close(); err != nil {
+		t.Fatalf("closing gzip writer: %v", err)
+	}
+
+	tmpDir := t.TempDir()
+	archivePath := filepath.Join(tmpDir, "test.tar.gz")
+	if err := os.WriteFile(archivePath, buf.Bytes(), 0o644); err != nil {
+		t.Fatalf("writing archive: %v", err)
+	}
+
+	_, err := extractBinaryFromArchive(archivePath, tmpDir)
+	if err == nil {
+		t.Fatal("expected error when binary not found in archive, got nil")
+	}
+	if !strings.Contains(err.Error(), "not found in archive") {
+		t.Errorf("expected 'not found in archive' error, got: %v", err)
+	}
+}
+
+func TestExtractBinaryFromArchive_NestedArchive(t *testing.T) {
+	t.Parallel()
+
+	binaryContent := []byte("#!/bin/sh\necho nested-binary")
+	archiveData := createTestArchive(t, binaryContent)
+
+	tmpDir := t.TempDir()
+	archivePath := filepath.Join(tmpDir, "test.tar.gz")
+	if err := os.WriteFile(archivePath, archiveData, 0o644); err != nil {
+		t.Fatalf("writing archive: %v", err)
+	}
+
+	extractedPath, err := extractBinaryFromArchive(archivePath, tmpDir)
+	if err != nil {
+		t.Fatalf("extracting binary: %v", err)
+	}
+	defer func() { _ = os.Remove(extractedPath) }()
+
+	got, err := os.ReadFile(extractedPath)
+	if err != nil {
+		t.Fatalf("reading extracted binary: %v", err)
+	}
+	if !bytes.Equal(got, binaryContent) {
+		t.Errorf("content mismatch:\ngot:  %q\nwant: %q", got, binaryContent)
+	}
+}
+
+func TestResolveExecPath_OsExecutableError(t *testing.T) {
+	// Not parallel: overrides package-level test seams.
+
+	origExec := osExecutable
+	origSymlinks := evalSymlinks
+	t.Cleanup(func() {
+		osExecutable = origExec
+		evalSymlinks = origSymlinks
+	})
+
+	osExecutable = func() (string, error) {
+		return "", fmt.Errorf("injected os.Executable error")
+	}
+	evalSymlinks = func(p string) (string, error) { return p, nil }
+
+	_, err := resolveExecPath()
+	if err == nil {
+		t.Fatal("expected error from os.Executable failure, got nil")
+	}
+	if !strings.Contains(err.Error(), "determining executable path") {
+		t.Errorf("expected 'determining executable path' context, got: %v", err)
+	}
+}
+
+func TestResolveExecPath_EvalSymlinksError(t *testing.T) {
+	// Not parallel: overrides package-level test seams.
+
+	origExec := osExecutable
+	origSymlinks := evalSymlinks
+	t.Cleanup(func() {
+		osExecutable = origExec
+		evalSymlinks = origSymlinks
+	})
+
+	osExecutable = func() (string, error) { return "/usr/local/bin/invowk", nil }
+	evalSymlinks = func(_ string) (string, error) {
+		return "", fmt.Errorf("injected EvalSymlinks error")
+	}
+
+	_, err := resolveExecPath()
+	if err == nil {
+		t.Fatal("expected error from EvalSymlinks failure, got nil")
+	}
+	if !strings.Contains(err.Error(), "resolving symlinks") {
+		t.Errorf("expected 'resolving symlinks' context, got: %v", err)
 	}
 }

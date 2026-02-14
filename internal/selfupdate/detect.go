@@ -13,7 +13,9 @@ const (
 	// homebrewMacARM is the Homebrew prefix on macOS ARM (Apple Silicon).
 	homebrewMacARM = "/opt/homebrew/"
 
-	// homebrewMacIntel is the Homebrew Cellar path on macOS Intel.
+	// homebrewMacIntel is the Homebrew Cellar path on macOS Intel. It uses the
+	// deeper Cellar subpath (unlike homebrewMacARM's prefix) because /usr/local/
+	// alone is too broad — non-Homebrew software also installs there.
 	homebrewMacIntel = "/usr/local/Cellar/"
 
 	// homebrewLinux is the Linuxbrew prefix.

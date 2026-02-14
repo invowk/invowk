@@ -107,7 +107,7 @@ func FindChecksum(entries []ChecksumEntry, filename string) (string, error) {
 // VerifyFile computes the SHA256 hash of the file at path and compares it with
 // expectedHash. Returns nil if the hashes match (case-insensitive comparison),
 // or a *ChecksumError wrapping ErrChecksumMismatch if they differ.
-func VerifyFile(path, expectedHash string) (err error) {
+func VerifyFile(path, expectedHash string) error {
 	got, err := ComputeFileHash(path)
 	if err != nil {
 		return err

@@ -23,6 +23,9 @@ import (
 const maxBinaryBytes = 500 << 20
 
 var (
+	// ErrInvalidVersion indicates the provided version string is not valid semver.
+	ErrInvalidVersion = errors.New("invalid semantic version")
+
 	//nolint:gochecknoglobals // Test seam for os.Executable().
 	osExecutable = os.Executable
 
@@ -38,7 +41,7 @@ type (
 	UpgradeCheck struct {
 		CurrentVersion   string        // Currently running version
 		LatestVersion    string        // Latest stable release version
-		TargetRelease    *Release      // Full release info (nil if up-to-date or managed)
+		TargetRelease    *Release      // Full release info (nil if up-to-date, managed, or pre-release ahead)
 		InstallMethod    InstallMethod // How invowk was installed
 		UpgradeAvailable bool          // True if upgrade available and applicable
 		Message          string        // Human-readable status message
@@ -107,16 +110,19 @@ func (u *Updater) Check(ctx context.Context, targetVersion string) (*UpgradeChec
 	// Resolve the target release from the GitHub API.
 	var release *Release
 	if targetVersion != "" {
-		tag := normalizeVersion(targetVersion)
-		r, err := u.client.GetReleaseByTag(ctx, tag)
-		if err != nil {
-			return nil, fmt.Errorf("fetching release %s: %w", tag, err)
+		tag, tagErr := normalizeVersion(targetVersion)
+		if tagErr != nil {
+			return nil, tagErr
+		}
+		r, fetchErr := u.client.GetReleaseByTag(ctx, tag)
+		if fetchErr != nil {
+			return nil, fmt.Errorf("fetching release %s: %w", tag, fetchErr)
 		}
 		release = r
 	} else {
-		releases, err := u.client.ListReleases(ctx)
-		if err != nil {
-			return nil, fmt.Errorf("listing releases: %w", err)
+		releases, listErr := u.client.ListReleases(ctx)
+		if listErr != nil {
+			return nil, fmt.Errorf("listing releases: %w", listErr)
 		}
 		if len(releases) == 0 {
 			return nil, fmt.Errorf("no stable releases found")
@@ -126,8 +132,14 @@ func (u *Updater) Check(ctx context.Context, targetVersion string) (*UpgradeChec
 		release = &releases[0]
 	}
 
-	currentNorm := normalizeVersion(u.currentVersion)
-	targetNorm := normalizeVersion(release.TagName)
+	currentNorm, err := normalizeVersion(u.currentVersion)
+	if err != nil {
+		return nil, fmt.Errorf("current version: %w", err)
+	}
+	targetNorm, err := normalizeVersion(release.TagName)
+	if err != nil {
+		return nil, fmt.Errorf("release version: %w", err)
+	}
 
 	// Pre-release ahead: the running binary is a pre-release that is at or
 	// beyond the target stable version. This happens during development and
@@ -166,6 +178,10 @@ func (u *Updater) Check(ctx context.Context, targetVersion string) (*UpgradeChec
 // requires the temp file to reside on the same filesystem as the target — all
 // temporary files are created in the same directory as the running binary.
 func (u *Updater) Apply(ctx context.Context, release *Release) error {
+	if release == nil {
+		return errors.New("release must not be nil")
+	}
+
 	execPath, err := resolveExecPath()
 	if err != nil {
 		return fmt.Errorf("resolving executable path: %w", err)
@@ -310,13 +326,19 @@ func managedInstallMessage(method InstallMethod, execPath string) string {
 	return ""
 }
 
-// normalizeVersion ensures the version string has a "v" prefix as required
-// by the semver package.
-func normalizeVersion(v string) string {
-	if !strings.HasPrefix(v, "v") {
-		return "v" + v
+// normalizeVersion ensures the version string has a "v" prefix as required by
+// the semver package, and validates that the result is a well-formed semantic
+// version. Returns ErrInvalidVersion if the input cannot be normalized to
+// valid semver.
+func normalizeVersion(v string) (string, error) {
+	norm := v
+	if !strings.HasPrefix(norm, "v") {
+		norm = "v" + norm
 	}
-	return v
+	if !semver.IsValid(norm) {
+		return "", fmt.Errorf("%w: %q", ErrInvalidVersion, v)
+	}
+	return norm, nil
 }
 
 // downloadToTempFile downloads the asset at url into a temporary file in dir
@@ -349,9 +371,10 @@ func downloadToTempFile(ctx context.Context, client *GitHubClient, url, dir stri
 }
 
 // extractBinaryFromArchive opens the tar.gz archive at archivePath and extracts
-// the invowk binary into a temp file in targetDir. GoReleaser wraps archives in
-// a directory (e.g., invowk_1.0.0_linux_amd64/invowk), so the function matches
-// by the base filename rather than the full entry path.
+// the invowk binary into a temp file in targetDir. It matches by the base
+// filename rather than the full entry path, so both flat archives (invowk at
+// the root) and nested layouts (e.g., invowk_1.0.0_linux_amd64/invowk) are
+// handled transparently.
 func extractBinaryFromArchive(archivePath, targetDir string) (_ string, err error) {
 	f, err := os.Open(archivePath)
 	if err != nil {
@@ -388,7 +411,7 @@ func extractBinaryFromArchive(archivePath, targetDir string) (_ string, err erro
 			return "", fmt.Errorf("reading tar entry: %w", nextErr)
 		}
 
-		// GoReleaser nests the binary in a directory; match by base name.
+		// Match by base name to handle both flat and nested archive layouts.
 		if filepath.Base(hdr.Name) != binaryName {
 			continue
 		}
