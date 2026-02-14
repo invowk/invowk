@@ -21,10 +21,6 @@ type mktempCommand struct {
 	flags []FlagInfo
 }
 
-func init() {
-	RegisterDefault(newMktempCommand())
-}
-
 // newMktempCommand creates a new mktemp command.
 func newMktempCommand() *mktempCommand {
 	return &mktempCommand{

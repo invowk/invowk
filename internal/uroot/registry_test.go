@@ -281,12 +281,18 @@ func TestRegistry_ConcurrentAccess(t *testing.T) {
 	}
 }
 
-func TestDefaultRegistry(t *testing.T) {
+func TestBuildDefaultRegistry(t *testing.T) {
 	t.Parallel()
 
-	// DefaultRegistry should be initialized
-	if DefaultRegistry == nil {
-		t.Fatal("DefaultRegistry is nil")
+	r := BuildDefaultRegistry()
+	if r == nil {
+		t.Fatal("BuildDefaultRegistry returned nil")
+	}
+
+	// Verify all 28 commands are registered
+	names := r.Names()
+	if len(names) != 28 {
+		t.Errorf("BuildDefaultRegistry registered %d commands, want 28", len(names))
 	}
 }
 

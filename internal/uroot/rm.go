@@ -13,10 +13,6 @@ type rmCommand struct {
 	baseWrapper
 }
 
-func init() {
-	RegisterDefault(newRmCommand())
-}
-
 // newRmCommand creates a new rm command wrapper.
 func newRmCommand() *rmCommand {
 	return &rmCommand{

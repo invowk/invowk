@@ -19,10 +19,6 @@ type lnCommand struct {
 	flags []FlagInfo
 }
 
-func init() {
-	RegisterDefault(newLnCommand())
-}
-
 // newLnCommand creates a new ln command.
 func newLnCommand() *lnCommand {
 	return &lnCommand{
