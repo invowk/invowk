@@ -65,7 +65,7 @@ func (l *runLock) Release() {
 		slog.Debug("flock unlock failed", "error", err)
 	}
 	if err := l.file.Close(); err != nil {
-		slog.Debug("lock file close failed", "error", err)
+		slog.Warn("lock file close failed", "error", err)
 	}
 	l.file = nil
 }

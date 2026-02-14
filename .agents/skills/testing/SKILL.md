@@ -524,6 +524,23 @@ When writing native test mirrors for Windows, use these translations:
 | `virtual_args_subcommand_conflict.txtar` | virtual | Args+subcommand conflict (exempt) | Inline CUE, all platforms |
 | `dogfooding_invowkfile.txtar` | native | Project invowkfile smoke test (exempt) | `$PROJECT_ROOT` (dogfooding) |
 | `container_*.txtar` | container | Container runtime tests (exempt) | Inline CUE, Linux only |
+| `config_show.txtar` | — | Config show subcommand (built-in) | No invowkfile, XDG override |
+| `config_init.txtar` | — | Config init subcommand (built-in) | No invowkfile, XDG override |
+| `config_path.txtar` | — | Config path subcommand (built-in) | No invowkfile, XDG override |
+| `config_set.txtar` | — | Config set subcommand (built-in) | No invowkfile, XDG override |
+| `config_dump.txtar` | — | Config dump subcommand (built-in) | No invowkfile, XDG override |
+| `module_validate.txtar` | — | Module validate subcommand (built-in) | Embedded invowkmod fixtures |
+| `module_create.txtar` | — | Module create subcommand (built-in) | Directory structure creation |
+| `module_list.txtar` | — | Module list subcommand (built-in) | XDG override, module fixtures |
+| `module_archive.txtar` | — | Module archive subcommand (built-in) | Embedded invowkmod fixtures |
+| `module_import.txtar` | — | Module import subcommand (built-in) | Archive + import flow |
+| `module_deps.txtar` | — | Module deps subcommand (built-in) | Embedded invowkmod fixtures |
+| `module_add_remove.txtar` | — | Module add/remove subcommands (built-in) | Error paths (no git) |
+| `module_sync_update.txtar` | — | Module sync/update subcommands (built-in) | Embedded invowkmod fixtures |
+| `module_vendor.txtar` | — | Module vendor subcommand (built-in) | Embedded invowkmod fixtures |
+| `completion.txtar` | — | Shell completion generation (built-in) | bash/zsh/fish/powershell output |
+| `tui_format.txtar` | — | TUI format subcommand (built-in) | Stdin pipe, markdown/code/emoji |
+| `tui_style.txtar` | — | TUI style subcommand (built-in) | Stdin pipe, flag-based styling |
 
 ### When to Add CLI Tests
 

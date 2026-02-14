@@ -14,7 +14,6 @@ import (
 	"github.com/muesli/reflow/truncate"
 )
 
-// All const declarations in a single block, placed before var/type/func (decorder: const → var → type → func).
 // Using untyped const pattern for ComponentType values.
 const (
 	// modalBorderWidth is the horizontal space taken by the border (1 char each side).
@@ -60,7 +59,6 @@ var (
 	ansiResetWithBg = ansiReset + modalBgANSI
 )
 
-// All type declarations in a single block, placed after var.
 type (
 	// EmbeddableComponent is a TUI component that can be embedded in a parent Bubbletea model.
 	// Unlike standalone components that run their own tea.Program, embeddable components

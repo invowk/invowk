@@ -58,8 +58,7 @@ func NewDefaultEnvBuilder() *DefaultEnvBuilder {
 // overridden by runtime config or CLI flags.
 func (b *DefaultEnvBuilder) Build(ctx *ExecutionContext, defaultMode invowkfile.EnvInheritMode) (map[string]string, error) {
 	cfg := resolveEnvInheritConfig(ctx, defaultMode)
-	cfg.environ = b.Environ // pass through (nil is fine — buildHostEnv defaults to os.Environ)
-	env := buildHostEnv(cfg)
+	env := buildHostEnv(cfg, b.Environ)
 
 	// Determine the base path for resolving env files
 	basePath := ctx.Invowkfile.GetScriptBasePath()

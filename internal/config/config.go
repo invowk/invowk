@@ -32,30 +32,27 @@ const (
 //go:embed config_schema.cue
 var configSchema string
 
-// ConfigDir returns the invowk configuration directory using platform-specific
-// conventions: Windows uses %APPDATA%, macOS uses ~/Library/Application Support,
-// and Linux/others use $XDG_CONFIG_HOME (defaulting to ~/.config).
-//
-//nolint:revive // ConfigDir is more descriptive than Dir for external callers
-func ConfigDir() (string, error) {
+// configDirFrom computes the config directory from injectable dependencies,
+// enabling tests to avoid mutating process-global environment variables.
+func configDirFrom(goos string, getenv func(string) string, userHomeDir func() (string, error)) (string, error) {
 	var configDir string
 
-	switch runtime.GOOS {
+	switch goos {
 	case platform.Windows:
-		configDir = os.Getenv("APPDATA")
+		configDir = getenv("APPDATA")
 		if configDir == "" {
-			configDir = filepath.Join(os.Getenv("USERPROFILE"), "AppData", "Roaming")
+			configDir = filepath.Join(getenv("USERPROFILE"), "AppData", "Roaming")
 		}
 	case "darwin":
-		home, err := os.UserHomeDir()
+		home, err := userHomeDir()
 		if err != nil {
 			return "", fmt.Errorf("failed to get home directory: %w", err)
 		}
 		configDir = filepath.Join(home, "Library", "Application Support")
 	default: // Linux and others
-		configDir = os.Getenv("XDG_CONFIG_HOME")
+		configDir = getenv("XDG_CONFIG_HOME")
 		if configDir == "" {
-			home, err := os.UserHomeDir()
+			home, err := userHomeDir()
 			if err != nil {
 				return "", fmt.Errorf("failed to get home directory: %w", err)
 			}
@@ -66,13 +63,17 @@ func ConfigDir() (string, error) {
 	return filepath.Join(configDir, AppName), nil
 }
 
+// ConfigDir returns the invowk configuration directory using platform-specific
+// conventions: Windows uses %APPDATA%, macOS uses ~/Library/Application Support,
+// and Linux/others use $XDG_CONFIG_HOME (defaulting to ~/.config).
+//
+//nolint:revive // ConfigDir is more descriptive than Dir for external callers
+func ConfigDir() (string, error) {
+	return configDirFrom(runtime.GOOS, os.Getenv, os.UserHomeDir)
+}
+
 // CommandsDir returns the directory for user-defined invowkfiles.
 // The path is ~/.invowk/cmds on all platforms.
-//
-// TODO: Accept an explicit homeDir parameter (or use functional options)
-// to eliminate the os.UserHomeDir() call, matching the configDirWithOverride
-// pattern used by EnsureConfigDir/Save/CreateDefaultConfig. This prevents
-// tests that call CommandsDir/EnsureCommandsDir from using t.Parallel().
 func CommandsDir() (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -81,8 +82,8 @@ func CommandsDir() (string, error) {
 	return filepath.Join(home, ".invowk", "cmds"), nil
 }
 
-// loadWithOptions performs option-driven config loading without mutating
-// package-level cache state. Callers that want caching can wrap this function.
+// loadWithOptions performs option-driven config loading from the filesystem.
+// Each call reads and parses configuration from disk with no caching.
 func loadWithOptions(ctx context.Context, opts LoadOptions) (*Config, string, error) {
 	select {
 	case <-ctx.Done():
@@ -342,9 +343,19 @@ func EnsureConfigDir(configDirPath string) error {
 	return os.MkdirAll(cfgDir, 0o755)
 }
 
-// EnsureCommandsDir creates the commands directory if it doesn't exist
-func EnsureCommandsDir() error {
-	cmdsDir, err := CommandsDir()
+// commandsDirWithOverride resolves the commands directory, honoring
+// explicit overrides before the platform default.
+func commandsDirWithOverride(commandsDirPath string) (string, error) {
+	if commandsDirPath != "" {
+		return commandsDirPath, nil
+	}
+	return CommandsDir()
+}
+
+// EnsureCommandsDir creates the commands directory if it doesn't exist.
+// When commandsDirPath is empty, the platform-default directory from CommandsDir() is used.
+func EnsureCommandsDir(commandsDirPath string) error {
+	cmdsDir, err := commandsDirWithOverride(commandsDirPath)
 	if err != nil {
 		return err
 	}

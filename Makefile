@@ -233,6 +233,25 @@ lint:
 	@echo "Running golangci-lint..."
 	golangci-lint run ./...
 
+# Lint shell scripts with shellcheck (optional tool, like gotestsum)
+SHELLCHECK := $(shell command -v shellcheck 2>/dev/null)
+
+.PHONY: lint-scripts
+lint-scripts:
+	@echo "Linting shell scripts..."
+ifdef SHELLCHECK
+	@echo "  (using shellcheck)"
+	shellcheck scripts/install.sh scripts/release.sh scripts/version-docs.sh scripts/render-diagrams.sh
+else
+	@echo "  (shellcheck not found, skipping shell script linting)"
+endif
+
+# Run install script unit tests
+.PHONY: test-scripts
+test-scripts:
+	@echo "Running shell script tests..."
+	sh scripts/test_install.sh
+
 # Install pre-commit hooks
 .PHONY: install-hooks
 install-hooks:
@@ -363,6 +382,8 @@ help:
 	@echo "  tidy             Tidy go.mod dependencies"
 	@echo "  license-check    Verify SPDX headers in all Go files"
 	@echo "  lint             Run golangci-lint on all packages"
+	@echo "  lint-scripts     Lint shell scripts (requires shellcheck)"
+	@echo "  test-scripts     Run shell script unit tests"
 	@echo "  install-hooks    Install pre-commit hooks (requires pre-commit)"
 	@echo "  size             Compare binary sizes (debug vs stripped vs UPX)"
 	@echo "  help             Show this help message"

@@ -33,9 +33,10 @@ type (
 	// calls, enabling tests to inject explicit directories instead of relying on
 	// process-global os.Chdir (which prevents t.Parallel()).
 	Discovery struct {
-		cfg         *config.Config
-		baseDir     string // replaces hardcoded "." — resolved once at construction
-		commandsDir string // replaces config.CommandsDir() call
+		cfg            *config.Config
+		baseDir        string // replaces hardcoded "." — resolved once at construction
+		commandsDir    string // replaces config.CommandsDir() call
+		commandsDirSet bool   // distinguishes "not set" from "explicitly set to empty"
 	}
 
 	// Option configures a Discovery instance via the functional options pattern.
@@ -72,6 +73,7 @@ func WithBaseDir(dir string) Option {
 func WithCommandsDir(dir string) Option {
 	return func(d *Discovery) {
 		d.commandsDir = dir
+		d.commandsDirSet = true
 	}
 }
 
@@ -93,7 +95,7 @@ func New(cfg *config.Config, opts ...Option) *Discovery {
 				"error", err)
 		}
 	}
-	if d.commandsDir == "" {
+	if !d.commandsDirSet && d.commandsDir == "" {
 		if dir, err := config.CommandsDir(); err == nil {
 			d.commandsDir = dir
 		} else {

@@ -13,7 +13,6 @@ import (
 	"testing"
 
 	"github.com/invowk/invowk/internal/issue"
-	"github.com/invowk/invowk/internal/testutil"
 )
 
 func TestDefaultConfig(t *testing.T) {
@@ -70,46 +69,112 @@ func TestDefaultConfig(t *testing.T) {
 }
 
 func TestConfigDir(t *testing.T) {
-	// Reset environment for consistent testing
-	originalXDGConfigHome := os.Getenv("XDG_CONFIG_HOME")
-	defer func() {
-		if originalXDGConfigHome != "" {
-			_ = os.Setenv("XDG_CONFIG_HOME", originalXDGConfigHome) // Test cleanup; error non-critical
-		} else {
-			_ = os.Unsetenv("XDG_CONFIG_HOME") // Test cleanup; error non-critical
+	t.Parallel()
+
+	fakeHomeDir := filepath.Join("fake", "home")
+	fakeHome := func() (string, error) { return fakeHomeDir, nil }
+	failHome := func() (string, error) { return "", errors.New("no home") }
+
+	t.Run("linux with XDG_CONFIG_HOME set", func(t *testing.T) {
+		t.Parallel()
+		xdgPath := filepath.Join("custom", "xdg")
+		getenv := func(key string) string {
+			if key == "XDG_CONFIG_HOME" {
+				return xdgPath
+			}
+			return ""
 		}
-	}()
-
-	// Test with XDG_CONFIG_HOME set (on Linux)
-	if runtime.GOOS == "linux" {
-		testXDGPath := "/tmp/test-xdg-config"
-		restoreXDG := testutil.MustSetenv(t, "XDG_CONFIG_HOME", testXDGPath)
-
-		dir, err := ConfigDir()
+		dir, err := configDirFrom("linux", getenv, fakeHome)
 		if err != nil {
-			t.Fatalf("ConfigDir() returned error: %v", err)
+			t.Fatalf("configDirFrom() error: %v", err)
 		}
-
-		expected := filepath.Join(testXDGPath, AppName)
+		expected := filepath.Join(xdgPath, AppName)
 		if dir != expected {
-			t.Errorf("ConfigDir() = %s, want %s", dir, expected)
+			t.Errorf("configDirFrom() = %s, want %s", dir, expected)
 		}
+	})
 
-		// Test with XDG_CONFIG_HOME unset
-		restoreXDG()
-		testutil.MustUnsetenv(t, "XDG_CONFIG_HOME")
-		dir, err = ConfigDir()
+	t.Run("linux without XDG_CONFIG_HOME", func(t *testing.T) {
+		t.Parallel()
+		noEnv := func(string) string { return "" }
+		dir, err := configDirFrom("linux", noEnv, fakeHome)
 		if err != nil {
-			t.Fatalf("ConfigDir() returned error: %v", err)
+			t.Fatalf("configDirFrom() error: %v", err)
 		}
-
-		// Should use ~/.config/invowk
-		home, _ := os.UserHomeDir()
-		expected = filepath.Join(home, ".config", AppName)
+		expected := filepath.Join(fakeHomeDir, ".config", AppName)
 		if dir != expected {
-			t.Errorf("ConfigDir() = %s, want %s", dir, expected)
+			t.Errorf("configDirFrom() = %s, want %s", dir, expected)
 		}
-	}
+	})
+
+	t.Run("linux home dir error", func(t *testing.T) {
+		t.Parallel()
+		noEnv := func(string) string { return "" }
+		_, err := configDirFrom("linux", noEnv, failHome)
+		if err == nil {
+			t.Fatal("expected error when home dir fails")
+		}
+	})
+
+	t.Run("darwin", func(t *testing.T) {
+		t.Parallel()
+		noEnv := func(string) string { return "" }
+		dir, err := configDirFrom("darwin", noEnv, fakeHome)
+		if err != nil {
+			t.Fatalf("configDirFrom() error: %v", err)
+		}
+		expected := filepath.Join(fakeHomeDir, "Library", "Application Support", AppName)
+		if dir != expected {
+			t.Errorf("configDirFrom() = %s, want %s", dir, expected)
+		}
+	})
+
+	t.Run("darwin home dir error", func(t *testing.T) {
+		t.Parallel()
+		noEnv := func(string) string { return "" }
+		_, err := configDirFrom("darwin", noEnv, failHome)
+		if err == nil {
+			t.Fatal("expected error when home dir fails")
+		}
+	})
+
+	t.Run("windows with APPDATA", func(t *testing.T) {
+		t.Parallel()
+		appDataPath := filepath.Join("C", "Users", "test", "AppData", "Roaming")
+		getenv := func(key string) string {
+			if key == "APPDATA" {
+				return appDataPath
+			}
+			return ""
+		}
+		dir, err := configDirFrom("windows", getenv, fakeHome)
+		if err != nil {
+			t.Fatalf("configDirFrom() error: %v", err)
+		}
+		expected := filepath.Join(appDataPath, AppName)
+		if dir != expected {
+			t.Errorf("configDirFrom() = %s, want %s", dir, expected)
+		}
+	})
+
+	t.Run("windows without APPDATA", func(t *testing.T) {
+		t.Parallel()
+		userProfile := filepath.Join("C", "Users", "test")
+		getenv := func(key string) string {
+			if key == "USERPROFILE" {
+				return userProfile
+			}
+			return ""
+		}
+		dir, err := configDirFrom("windows", getenv, fakeHome)
+		if err != nil {
+			t.Fatalf("configDirFrom() error: %v", err)
+		}
+		expected := filepath.Join(userProfile, "AppData", "Roaming", AppName)
+		if dir != expected {
+			t.Errorf("configDirFrom() = %s, want %s", dir, expected)
+		}
+	})
 }
 
 func TestCommandsDir(t *testing.T) {
@@ -147,12 +212,13 @@ func TestConfigDirWithOverride(t *testing.T) {
 
 	t.Run("explicit path returned as-is", func(t *testing.T) {
 		t.Parallel()
-		dir, err := configDirWithOverride("/explicit/path")
+		want := filepath.Join(t.TempDir(), "explicit-config")
+		dir, err := configDirWithOverride(want)
 		if err != nil {
 			t.Fatalf("configDirWithOverride() error: %v", err)
 		}
-		if dir != "/explicit/path" {
-			t.Errorf("configDirWithOverride() = %q, want %q", dir, "/explicit/path")
+		if dir != want {
+			t.Errorf("configDirWithOverride() = %q, want %q", dir, want)
 		}
 	})
 
@@ -173,19 +239,17 @@ func TestConfigDirWithOverride(t *testing.T) {
 }
 
 func TestEnsureCommandsDir(t *testing.T) {
-	// Use a temp directory for testing
+	t.Parallel()
 	tmpDir := t.TempDir()
-	cleanup := testutil.SetHomeDir(t, tmpDir)
-	defer cleanup()
+	cmdsDir := filepath.Join(tmpDir, "cmds")
 
-	err := EnsureCommandsDir()
+	err := EnsureCommandsDir(cmdsDir)
 	if err != nil {
 		t.Fatalf("EnsureCommandsDir() returned error: %v", err)
 	}
 
-	expectedDir := filepath.Join(tmpDir, ".invowk", "cmds")
-	if _, err := os.Stat(expectedDir); os.IsNotExist(err) {
-		t.Errorf("EnsureCommandsDir() did not create directory %s", expectedDir)
+	if _, err := os.Stat(cmdsDir); os.IsNotExist(err) {
+		t.Errorf("EnsureCommandsDir() did not create directory %s", cmdsDir)
 	}
 }
 
@@ -658,10 +722,9 @@ func TestLoad_CustomPath_InvalidCUE_ReturnsError(t *testing.T) {
 	}
 }
 
-// TestNoGlobalConfigAccess guards against re-introduction of config.Get() or
-// equivalent global config accessors in production code paths. The stateless
-// refactoring (spec-008) removed all global config state; this test ensures
-// the pattern doesn't resurface. See specs/008-code-refactoring/proposal.md.
+// TestNoGlobalConfigAccess guards against re-introduction of global config
+// accessors in production code paths. The config package has no global mutable
+// state; this test ensures the pattern is not reintroduced.
 func TestNoGlobalConfigAccess(t *testing.T) {
 	t.Parallel()
 	// Derive project root from this test file's location (internal/config/).

@@ -28,6 +28,7 @@ type runtimeRegistryResult struct {
 }
 
 // parseEnvVarFlags parses an array of KEY=VALUE strings into a map.
+// Malformed entries (missing '=') are logged as warnings and skipped.
 func parseEnvVarFlags(envVarFlags []string) map[string]string {
 	if len(envVarFlags) == 0 {
 		return nil
@@ -35,10 +36,11 @@ func parseEnvVarFlags(envVarFlags []string) map[string]string {
 
 	result := make(map[string]string, len(envVarFlags))
 	for _, kv := range envVarFlags {
-		// Only KEY=VALUE forms are accepted; malformed items are ignored.
 		idx := strings.Index(kv, "=")
 		if idx > 0 {
 			result[kv[:idx]] = kv[idx+1:]
+		} else {
+			slog.Warn("ignoring malformed --ivk-env-var value (expected KEY=VALUE format)", "value", kv)
 		}
 	}
 
@@ -166,44 +168,45 @@ func checkAmbiguousCommand(ctx context.Context, app *App, rootFlags *rootFlagVal
 
 	lookupCtx := contextWithConfigPath(ctx, rootFlags.configPath)
 	commandSetResult, discoverErr := app.Discovery.DiscoverCommandSet(lookupCtx)
-	if discoverErr == nil {
-		app.Diagnostics.Render(ctx, commandSetResult.Diagnostics, app.stderr)
+	if discoverErr != nil {
+		slog.Debug("skipping ambiguity check due to discovery error", "error", discoverErr)
+		return nil
+	}
 
-		commandSet := commandSetResult.Set
-		cmdName := ""
-		// Mirror Cobra longest-match behavior for nested command names.
-		for i := len(args); i > 0; i-- {
-			candidateName := strings.Join(args[:i], " ")
-			if _, exists := commandSet.BySimpleName[candidateName]; exists {
-				cmdName = candidateName
+	app.Diagnostics.Render(ctx, commandSetResult.Diagnostics, app.stderr)
+
+	commandSet := commandSetResult.Set
+	cmdName := ""
+	// Mirror Cobra longest-match behavior for nested command names.
+	for i := len(args); i > 0; i-- {
+		candidateName := strings.Join(args[:i], " ")
+		if _, exists := commandSet.BySimpleName[candidateName]; exists {
+			cmdName = candidateName
+			break
+		}
+	}
+
+	if cmdName == "" {
+		// Unknown command path: let normal Cobra command resolution handle errors.
+		cmdName = args[0]
+	}
+
+	if !commandSet.AmbiguousNames[cmdName] {
+		return nil
+	}
+
+	sources := make([]string, 0)
+	for _, sourceID := range commandSet.SourceOrder {
+		cmdsInSource := commandSet.BySource[sourceID]
+		for _, discovered := range cmdsInSource {
+			if discovered.SimpleName == cmdName {
+				sources = append(sources, sourceID)
 				break
 			}
 		}
-
-		if cmdName == "" {
-			// Unknown command path: let normal Cobra command resolution handle errors.
-			cmdName = args[0]
-		}
-
-		if !commandSet.AmbiguousNames[cmdName] {
-			return nil
-		}
-
-		sources := make([]string, 0)
-		for _, sourceID := range commandSet.SourceOrder {
-			cmdsInSource := commandSet.BySource[sourceID]
-			for _, discovered := range cmdsInSource {
-				if discovered.SimpleName == cmdName {
-					sources = append(sources, sourceID)
-					break
-				}
-			}
-		}
-
-		return &AmbiguousCommandError{CommandName: cmdName, Sources: sources}
 	}
 
-	return nil
+	return &AmbiguousCommandError{CommandName: cmdName, Sources: sources}
 }
 
 // createRuntimeRegistry creates and populates the runtime registry.

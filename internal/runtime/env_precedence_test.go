@@ -352,15 +352,15 @@ func TestBuildHostEnv_FiltersInvowkVars(t *testing.T) {
 
 	cfg := envInheritConfig{
 		mode: invowkfile.EnvInheritAll,
-		environ: func() []string {
-			return []string{
-				"INVOWK_ARG_TEST=should_be_filtered",
-				"INVOWK_FLAG_TEST=should_be_filtered",
-				"KEEP_THIS_VAR=visible",
-			}
-		},
 	}
-	env := buildHostEnv(cfg)
+	environ := func() []string {
+		return []string{
+			"INVOWK_ARG_TEST=should_be_filtered",
+			"INVOWK_FLAG_TEST=should_be_filtered",
+			"KEEP_THIS_VAR=visible",
+		}
+	}
+	env := buildHostEnv(cfg, environ)
 
 	if _, ok := env["INVOWK_ARG_TEST"]; ok {
 		t.Error("buildHostEnv() should filter INVOWK_ARG_* variables")

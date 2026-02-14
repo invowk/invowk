@@ -172,7 +172,7 @@ func validateCustomCheckInContainer(check invowkfile.CustomCheck, registry *runt
 	return validateCustomCheckOutput(check, outputStr, result.Error)
 }
 
-// checkCustomChecks verifies all custom check scripts pass (legacy - uses native).
+// checkCustomChecks verifies all custom check scripts pass (native-only fallback).
 // Each CustomCheckDependency can be either a direct check or a list of alternatives.
 // For alternatives, OR semantics are used (early return on first passing check).
 func checkCustomChecks(cmd *invowkfile.Command) error {

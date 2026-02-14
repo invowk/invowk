@@ -39,6 +39,7 @@ function Install-Invowk {
     # -------------------------------------------------------------------------
 
     # PowerShell 5.1 defaults to TLS 1.0, but GitHub requires TLS 1.2+.
+    # On PowerShell 7+ (Core), TLS 1.2+ is the default; this line is a harmless no-op.
     [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
     # Suppress the progress bar — it slows Invoke-WebRequest 10-100x in PS 5.1.
@@ -48,6 +49,9 @@ function Install-Invowk {
     # Color Support
     # -------------------------------------------------------------------------
 
+    # Detect ANSI color support. SupportsVirtualTerminal is reliable on modern PS hosts,
+    # but Windows Terminal (detected via WT_SESSION) supports ANSI codes even when the
+    # host object does not report the capability.
     $script:UseColors = $false
     if ($Host.UI.SupportsVirtualTerminal -or $env:WT_SESSION) {
         $script:UseColors = $true
@@ -343,6 +347,10 @@ Cannot verify download integrity. Please try again.
 
             # Extract expected checksum for our asset from checksums.txt.
             $checksumLine = Get-Content $checksumsPath | Where-Object { $_ -match [regex]::Escape($asset) }
+            if ($checksumLine -is [array]) {
+                # Multiple matches found — narrow to exact asset name match.
+                $checksumLine = $checksumLine | Where-Object { ($_ -split '\s+')[1] -eq $asset }
+            }
             if (-not $checksumLine) {
                 Stop-WithError @"
 Asset $asset not found in checksums.txt.

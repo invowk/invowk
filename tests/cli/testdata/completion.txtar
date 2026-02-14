@@ -1,0 +1,28 @@
+# Test: invowk completion generates shell completion scripts
+# Tests all four shell types produce expected output and error handling
+
+cd $WORK
+
+# Test 1: Bash completion produces bash completion functions
+exec invowk completion bash
+stdout 'bash completion for invowk'
+
+# Test 2: Zsh completion produces compdef directive
+exec invowk completion zsh
+stdout 'compdef'
+
+# Test 3: Fish completion produces fish completion commands
+exec invowk completion fish
+stdout 'complete -c invowk'
+
+# Test 4: PowerShell completion produces Register-ArgumentCompleter
+exec invowk completion powershell
+stdout 'Register-ArgumentCompleter'
+
+# Test 5: No args returns error about accepting 1 arg
+! exec invowk completion
+stderr 'Accepts 1 arg'
+
+# Test 6: Invalid shell type returns error
+! exec invowk completion invalid
+stderr 'Invalid argument'

@@ -1,0 +1,30 @@
+# Test: invowk module vendor
+# Vendor reads invowkmod.cue requires field and shows dependency status
+
+cd $WORK
+
+# Test 1: Vendor a module with no requires field - shows "No dependencies declared"
+exec invowk module vendor ./vendormod.invowkmod
+stdout 'Vendor Module Dependencies'
+stdout 'No dependencies declared'
+
+# Test 2: Vendor without a module path and no invowkmod.cue in current dir (should fail)
+! exec invowk module vendor
+stderr 'invowkfile.cue found'
+
+-- vendormod.invowkmod/invowkmod.cue --
+module:  "vendormod"
+version: "0.1.0"
+
+-- vendormod.invowkmod/invowkfile.cue --
+cmds: [
+	{
+		name:        "noop"
+		description: "A no-op command"
+		implementations: [{
+			script:    "echo noop"
+			runtimes:  [{name: "virtual"}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+	},
+]

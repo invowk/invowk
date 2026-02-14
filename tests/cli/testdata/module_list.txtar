@@ -1,0 +1,21 @@
+# Test: invowk module list
+# Lists discovered modules from current dir, user cmds dir, and configured includes
+
+cd $WORK
+env XDG_CONFIG_HOME=$WORK/.config
+
+# Test 1: No modules present - shows "No modules found"
+exec invowk module list
+stdout 'Discovered Modules'
+stdout 'No modules found'
+
+# Test 2: Create a module and list again - shows found count
+exec invowk module create testmod
+exec invowk module list
+stdout 'Discovered Modules'
+stdout 'Found 1 module'
+
+# Test 3: Create a second module and verify count increases
+exec invowk module create secondmod
+exec invowk module list
+stdout 'Found 2 module'

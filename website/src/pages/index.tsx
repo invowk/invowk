@@ -39,8 +39,7 @@ function HomepageHeader() {
             <Translate id="homepage.hero.button.getStarted">Get Started</Translate>
           </Link>
           <Link
-            className="button button--outline button--lg"
-            style={{marginLeft: '1rem', color: 'white', borderColor: 'white'}}
+            className="button button--warning button--lg"
             to="/docs/getting-started/quickstart">
             <Translate id="homepage.hero.button.quickstart">Quickstart</Translate>
           </Link>

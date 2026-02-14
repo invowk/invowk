@@ -253,7 +253,6 @@ func (s *commandService) ensureSSHIfNeeded(ctx context.Context, req ExecuteReque
 		return nil
 	}
 
-	// Host SSH lifecycle is service-scoped, not package-global state.
 	if err := s.ssh.ensure(ctx); err != nil {
 		return fmt.Errorf("failed to start SSH server for host access: %w", err)
 	}

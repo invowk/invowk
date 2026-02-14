@@ -5,6 +5,7 @@ package container
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"os/exec"
 
 	"github.com/invowk/invowk/pkg/platform"
@@ -92,7 +93,7 @@ func (e *SandboxAwareEngine) Build(ctx context.Context, opts BuildOptions) error
 	// We need to access BaseCLIEngine's BuildArgs method
 	baseEngine, ok := e.getBaseCLIEngine()
 	if !ok {
-		// Fallback to wrapped engine if we can't get base args
+		slog.Warn("sandbox engine: wrapped engine does not implement BaseCLIProvider, falling back to default build behavior")
 		return e.wrapped.Build(ctx, opts)
 	}
 

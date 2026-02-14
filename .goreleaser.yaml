@@ -40,7 +40,7 @@ builds:
     hooks:
       post:
         # UPX compression for smaller binaries
-        # Skip on macOS (UPX on Linux cannot compress Mach-O binaries)
+        # Skip on macOS (UPX-compressed Mach-O binaries trigger Gatekeeper issues and break notarization)
         # Skip on Windows (UPX can cause antivirus false positives)
         - cmd: bash -c '{{ if eq .Os "windows" }}echo "Skipping UPX for Windows"{{ else if eq .Os "darwin" }}echo "Skipping UPX for macOS"{{ else }}upx --best --lzma "{{ .Path }}"{{ end }}'
           output: true

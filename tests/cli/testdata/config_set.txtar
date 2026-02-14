@@ -1,0 +1,66 @@
+# Test: invowk config set modifies configuration values
+# Tests valid keys, invalid keys, value validation, and persistence
+
+cd $WORK
+env XDG_CONFIG_HOME=$WORK/.config
+
+# Test 1: Initialize config first
+exec invowk config init
+stdout 'Created default configuration'
+
+# Test 2: Set container_engine to docker
+exec invowk config set container_engine docker
+stdout 'Set container_engine = docker'
+! stderr .
+
+# Test 3: Verify persistence via config show
+exec invowk config show
+stdout 'docker'
+
+# Test 4: Set default_runtime to virtual
+exec invowk config set default_runtime virtual
+stdout 'Set default_runtime = virtual'
+! stderr .
+
+# Test 5: Set ui.verbose to true
+exec invowk config set ui.verbose true
+stdout 'Set ui.verbose = true'
+! stderr .
+
+# Test 6: Set ui.color_scheme to dark
+exec invowk config set ui.color_scheme dark
+stdout 'Set ui.color_scheme = dark'
+! stderr .
+
+# Test 7: Set virtual_shell.enable_uroot_utils to false
+exec invowk config set virtual_shell.enable_uroot_utils false
+stdout 'Set virtual_shell.enable_uroot_utils = false'
+! stderr .
+
+# Test 8: Invalid key returns error
+! exec invowk config set nonexistent_key value
+stderr 'Unknown configuration key'
+
+# Test 9: Invalid container_engine value
+! exec invowk config set container_engine invalid
+stderr 'Invalid container_engine'
+
+# Test 10: Invalid default_runtime value
+! exec invowk config set default_runtime invalid
+stderr 'Invalid default_runtime'
+
+# Test 11: config set requires exactly 2 args (0 given)
+! exec invowk config set
+stderr 'Accepts 2 arg'
+
+# Test 12: config set requires exactly 2 args (1 given)
+! exec invowk config set container_engine
+stderr 'Accepts 2 arg'
+
+# Test 13: Verify all persisted values via config dump
+exec invowk config dump
+stdout 'container_engine: "docker"'
+stdout 'default_runtime: "virtual"'
+stdout 'verbose: true'
+stdout 'color_scheme: "dark"'
+stdout 'enable_uroot_utils: false'

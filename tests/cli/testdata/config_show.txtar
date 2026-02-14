@@ -1,0 +1,38 @@
+# Test: invowk config show displays current configuration
+# Tests default config output when no config file exists, and after config init
+
+cd $WORK
+env XDG_CONFIG_HOME=$WORK/.config
+
+# Test 1: Show defaults when no config file exists
+exec invowk config show
+stdout 'Config file'
+stdout 'using defaults'
+stdout 'container_engine'
+stdout 'default_runtime'
+stdout 'includes'
+stdout 'virtual_shell'
+stdout 'enable_uroot_utils'
+stdout 'ui'
+stdout 'color_scheme'
+stdout 'interactive'
+stdout 'verbose'
+! stderr .
+
+# Test 2: After init, show reflects config file path instead of "(using defaults)"
+exec invowk config init
+exec invowk config show
+stdout 'Config file'
+stdout 'config.cue'
+! stdout 'using defaults'
+stdout 'container_engine'
+stdout 'podman'
+stdout 'default_runtime'
+stdout 'native'
+! stderr .
+
+# Test 3: After setting a value, show reflects the new value
+exec invowk config set container_engine docker
+exec invowk config show
+stdout 'docker'
+! stderr .

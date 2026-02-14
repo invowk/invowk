@@ -110,7 +110,7 @@ func validateFilepathInContainer(fp invowkfile.FilepathDependency, invowkDir str
 	return fmt.Errorf("  • none of the alternatives satisfied the requirements in container:\n      - %s", strings.Join(allErrors, "\n      - "))
 }
 
-// checkFilepathDependencies verifies all required files/directories exist with proper permissions (legacy - uses native)
+// checkFilepathDependencies verifies all required files/directories exist with proper permissions (native-only fallback).
 func checkFilepathDependencies(cmd *invowkfile.Command, invowkfilePath string) error {
 	if cmd.DependsOn == nil || len(cmd.DependsOn.Filepaths) == 0 {
 		return nil

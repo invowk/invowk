@@ -279,8 +279,7 @@ func TestBuildHostEnv(t *testing.T) {
 		{
 			name: "inherit none returns empty",
 			cfg: envInheritConfig{
-				mode:    invowkfile.EnvInheritNone,
-				environ: fakeEnviron,
+				mode: invowkfile.EnvInheritNone,
 			},
 			wantVars: map[string]string{},
 			dontWant: []string{"TEST_HOST_PATH", "TEST_HOST_HOME"},
@@ -288,8 +287,7 @@ func TestBuildHostEnv(t *testing.T) {
 		{
 			name: "inherit all includes host vars",
 			cfg: envInheritConfig{
-				mode:    invowkfile.EnvInheritAll,
-				environ: fakeEnviron,
+				mode: invowkfile.EnvInheritAll,
 			},
 			wantVars: map[string]string{
 				"TEST_HOST_PATH": "/usr/bin",
@@ -299,9 +297,8 @@ func TestBuildHostEnv(t *testing.T) {
 		{
 			name: "inherit allow only includes whitelisted",
 			cfg: envInheritConfig{
-				mode:    invowkfile.EnvInheritAllow,
-				allow:   []string{"TEST_HOST_PATH"},
-				environ: fakeEnviron,
+				mode:  invowkfile.EnvInheritAllow,
+				allow: []string{"TEST_HOST_PATH"},
 			},
 			wantVars: map[string]string{
 				"TEST_HOST_PATH": "/usr/bin",
@@ -311,9 +308,8 @@ func TestBuildHostEnv(t *testing.T) {
 		{
 			name: "inherit all with denylist excludes denied",
 			cfg: envInheritConfig{
-				mode:    invowkfile.EnvInheritAll,
-				deny:    []string{"TEST_SECRET"},
-				environ: fakeEnviron,
+				mode: invowkfile.EnvInheritAll,
+				deny: []string{"TEST_SECRET"},
 			},
 			wantVars: map[string]string{
 				"TEST_HOST_PATH": "/usr/bin",
@@ -324,10 +320,9 @@ func TestBuildHostEnv(t *testing.T) {
 		{
 			name: "denylist takes precedence over allowlist",
 			cfg: envInheritConfig{
-				mode:    invowkfile.EnvInheritAllow,
-				allow:   []string{"TEST_HOST_PATH", "TEST_SECRET"},
-				deny:    []string{"TEST_SECRET"},
-				environ: fakeEnviron,
+				mode:  invowkfile.EnvInheritAllow,
+				allow: []string{"TEST_HOST_PATH", "TEST_SECRET"},
+				deny:  []string{"TEST_SECRET"},
 			},
 			wantVars: map[string]string{
 				"TEST_HOST_PATH": "/usr/bin",
@@ -340,7 +335,7 @@ func TestBuildHostEnv(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			env := buildHostEnv(tt.cfg)
+			env := buildHostEnv(tt.cfg, fakeEnviron)
 
 			for k, v := range tt.wantVars {
 				if got := env[k]; got != v {

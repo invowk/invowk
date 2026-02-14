@@ -22,10 +22,7 @@ func TestDiscoverCommandSet_DiagnosticsForInvalidIncludePath(t *testing.T) {
 		{Path: invalidInclude},
 	}
 
-	d := New(cfg,
-		WithBaseDir(tmpDir),
-		WithCommandsDir(filepath.Join(tmpDir, ".invowk", "cmds")),
-	)
+	d := newTestDiscovery(t, cfg, tmpDir)
 	result, err := d.DiscoverCommandSet(context.Background())
 	if err != nil {
 		t.Fatalf("DiscoverCommandSet() returned error: %v", err)
@@ -51,10 +48,7 @@ func TestDiscoverCommandSet_DiagnosticsForReservedIncludeModuleName(t *testing.T
 		{Path: reservedModulePath},
 	}
 
-	d := New(cfg,
-		WithBaseDir(tmpDir),
-		WithCommandsDir(filepath.Join(tmpDir, ".invowk", "cmds")),
-	)
+	d := newTestDiscovery(t, cfg, tmpDir)
 	result, err := d.DiscoverCommandSet(context.Background())
 	if err != nil {
 		t.Fatalf("DiscoverCommandSet() returned error: %v", err)
@@ -88,10 +82,7 @@ func TestDiscoverCommandSet_DiagnosticsForInvalidIncludedModule(t *testing.T) {
 		{Path: modulePath},
 	}
 
-	d := New(cfg,
-		WithBaseDir(tmpDir),
-		WithCommandsDir(filepath.Join(tmpDir, ".invowk", "cmds")),
-	)
+	d := newTestDiscovery(t, cfg, tmpDir)
 	result, err := d.DiscoverCommandSet(context.Background())
 	if err != nil {
 		t.Fatalf("DiscoverCommandSet() returned error: %v", err)

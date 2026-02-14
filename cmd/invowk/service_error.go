@@ -5,6 +5,7 @@ package cmd
 import (
 	"fmt"
 	"io"
+	"log/slog"
 
 	"github.com/invowk/invowk/internal/issue"
 )
@@ -43,7 +44,10 @@ func renderServiceError(stderr io.Writer, svcErr *ServiceError) {
 	}
 
 	if catalogEntry := issue.Get(svcErr.IssueID); catalogEntry != nil {
-		rendered, _ := catalogEntry.Render("dark")
+		rendered, renderErr := catalogEntry.Render("dark")
+		if renderErr != nil {
+			slog.Debug("failed to render issue catalog entry", "issueID", svcErr.IssueID, "error", renderErr)
+		}
 		fmt.Fprint(stderr, rendered)
 	}
 }

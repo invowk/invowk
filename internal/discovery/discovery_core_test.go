@@ -79,10 +79,7 @@ func TestDiscoverAll_EmptyDirectory(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	cfg := config.DefaultConfig()
-	d := New(cfg,
-		WithBaseDir(tmpDir),
-		WithCommandsDir(filepath.Join(tmpDir, ".invowk", "cmds")),
-	)
+	d := newTestDiscovery(t, cfg, tmpDir)
 
 	files, err := d.DiscoverAll()
 	if err != nil {
@@ -120,10 +117,7 @@ cmds: [
 	}
 
 	cfg := config.DefaultConfig()
-	d := New(cfg,
-		WithBaseDir(tmpDir),
-		WithCommandsDir(filepath.Join(tmpDir, ".invowk", "cmds")),
-	)
+	d := newTestDiscovery(t, cfg, tmpDir)
 
 	files, err := d.DiscoverAll()
 	if err != nil {
@@ -172,10 +166,7 @@ cmds: [
 	}
 
 	cfg := config.DefaultConfig()
-	d := New(cfg,
-		WithBaseDir(tmpDir),
-		WithCommandsDir(filepath.Join(tmpDir, ".invowk", "cmds")),
-	)
+	d := newTestDiscovery(t, cfg, tmpDir)
 
 	files, err := d.DiscoverAll()
 	if err != nil {
@@ -204,10 +195,7 @@ cmds: [{name: "test", implementations: [{script: "echo test", runtimes: [{name: 
 	}
 
 	cfg := config.DefaultConfig()
-	d := New(cfg,
-		WithBaseDir(tmpDir),
-		WithCommandsDir(filepath.Join(tmpDir, ".invowk", "cmds")),
-	)
+	d := newTestDiscovery(t, cfg, tmpDir)
 
 	files, err := d.DiscoverAll()
 	if err != nil {
@@ -251,7 +239,7 @@ cmds: [{name: "user-cmd", implementations: [{script: "echo user", runtimes: [{na
 	testutil.MustMkdirAll(t, workDir, 0o755)
 
 	cfg := config.DefaultConfig()
-	d := New(cfg,
+	d := newTestDiscovery(t, cfg, tmpDir,
 		WithBaseDir(workDir),
 		WithCommandsDir(userCmdsDir),
 	)
@@ -275,14 +263,14 @@ func TestDiscoverAll_UserDirNonRecursive(t *testing.T) {
 	// Create a module in a subdirectory of ~/.invowk/cmds/ (nested)
 	userCmdsDir := filepath.Join(tmpDir, ".invowk", "cmds")
 	nestedModuleDir := filepath.Join(userCmdsDir, "subdir", "nested.invowkmod")
-	createValidDiscoveryModule(t, nestedModuleDir, "nested", "nested-cmd")
+	createTestModule(t, nestedModuleDir, "nested", "nested-cmd")
 
 	// Create an empty working directory
 	workDir := filepath.Join(tmpDir, "work")
 	testutil.MustMkdirAll(t, workDir, 0o755)
 
 	cfg := config.DefaultConfig()
-	d := New(cfg,
+	d := newTestDiscovery(t, cfg, tmpDir,
 		WithBaseDir(workDir),
 		WithCommandsDir(userCmdsDir),
 	)
@@ -337,9 +325,8 @@ cmds: [{name: "custom-cmd", implementations: [{script: "echo custom", runtimes: 
 	cfg.Includes = []config.IncludeEntry{
 		{Path: modulePath},
 	}
-	d := New(cfg,
+	d := newTestDiscovery(t, cfg, tmpDir,
 		WithBaseDir(emptyDir),
-		WithCommandsDir(filepath.Join(tmpDir, ".invowk", "cmds")),
 	)
 
 	files, err := d.DiscoverAll()
@@ -366,10 +353,7 @@ func TestLoadFirst_NoFiles(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	cfg := config.DefaultConfig()
-	d := New(cfg,
-		WithBaseDir(tmpDir),
-		WithCommandsDir(filepath.Join(tmpDir, ".invowk", "cmds")),
-	)
+	d := newTestDiscovery(t, cfg, tmpDir)
 
 	_, err := d.LoadFirst()
 	if err == nil {
@@ -405,10 +389,7 @@ cmds: [{name: "test", implementations: [{script: "echo test", runtimes: [{name: 
 	}
 
 	cfg := config.DefaultConfig()
-	d := New(cfg,
-		WithBaseDir(tmpDir),
-		WithCommandsDir(filepath.Join(tmpDir, ".invowk", "cmds")),
-	)
+	d := newTestDiscovery(t, cfg, tmpDir)
 
 	file, err := d.LoadFirst()
 	if err != nil {
@@ -439,13 +420,10 @@ cmds: [{name: "current", implementations: [{script: "echo current", runtimes: [{
 
 	// Create a local module (provides second file)
 	moduleDir := filepath.Join(tmpDir, "extra.invowkmod")
-	createValidDiscoveryModule(t, moduleDir, "extra", "extra-cmd")
+	createTestModule(t, moduleDir, "extra", "extra-cmd")
 
 	cfg := config.DefaultConfig()
-	d := New(cfg,
-		WithBaseDir(tmpDir),
-		WithCommandsDir(filepath.Join(tmpDir, ".invowk", "cmds")),
-	)
+	d := newTestDiscovery(t, cfg, tmpDir)
 
 	files, err := d.LoadAll()
 	if err != nil {
@@ -481,10 +459,7 @@ cmds: [
 	}
 
 	cfg := config.DefaultConfig()
-	d := New(cfg,
-		WithBaseDir(tmpDir),
-		WithCommandsDir(filepath.Join(tmpDir, ".invowk", "cmds")),
-	)
+	d := newTestDiscovery(t, cfg, tmpDir)
 
 	result, err := d.DiscoverCommandSet(context.Background())
 	if err != nil {
@@ -521,10 +496,7 @@ cmds: [
 	}
 
 	cfg := config.DefaultConfig()
-	d := New(cfg,
-		WithBaseDir(tmpDir),
-		WithCommandsDir(filepath.Join(tmpDir, ".invowk", "cmds")),
-	)
+	d := newTestDiscovery(t, cfg, tmpDir)
 
 	t.Run("ExistingCommand", func(t *testing.T) {
 		t.Parallel()
@@ -577,10 +549,7 @@ cmds: [
 	}
 
 	cfg := config.DefaultConfig()
-	d := New(cfg,
-		WithBaseDir(tmpDir),
-		WithCommandsDir(filepath.Join(tmpDir, ".invowk", "cmds")),
-	)
+	d := newTestDiscovery(t, cfg, tmpDir)
 
 	result, err := d.DiscoverCommandSet(context.Background())
 	if err != nil {
@@ -640,13 +609,10 @@ cmds: [{name: "build", description: "Current build", implementations: [{script: 
 
 	// Create a local module with a "build" command (different source)
 	moduleDir := filepath.Join(tmpDir, "tools.invowkmod")
-	createValidDiscoveryModule(t, moduleDir, "tools", "build")
+	createTestModule(t, moduleDir, "tools", "build")
 
 	cfg := config.DefaultConfig()
-	d := New(cfg,
-		WithBaseDir(tmpDir),
-		WithCommandsDir(filepath.Join(tmpDir, ".invowk", "cmds")),
-	)
+	d := newTestDiscovery(t, cfg, tmpDir)
 
 	result, err := d.DiscoverCommandSet(context.Background())
 	if err != nil {
@@ -694,8 +660,7 @@ func TestDiscoverAll_PermissionDenied(t *testing.T) {
 	})
 
 	cfg := config.DefaultConfig()
-	d := New(cfg,
-		WithBaseDir(tmpDir),
+	d := newTestDiscovery(t, cfg, tmpDir,
 		WithCommandsDir(unreadableDir),
 	)
 
@@ -741,9 +706,8 @@ cmds: [{name: "symlinked", implementations: [{script: "echo symlinked", runtimes
 	}
 
 	cfg := config.DefaultConfig()
-	d := New(cfg,
+	d := newTestDiscovery(t, cfg, tmpDir,
 		WithBaseDir(workDir),
-		WithCommandsDir(filepath.Join(tmpDir, ".invowk", "cmds")),
 	)
 
 	files, err := d.DiscoverAll()

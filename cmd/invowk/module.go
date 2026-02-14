@@ -100,7 +100,7 @@ Examples:
 func runModuleList(ctx context.Context, app *App) error {
 	fmt.Println(moduleTitleStyle.Render("Discovered Modules"))
 
-	// Load config via provider instead of legacy global
+	// Load config via provider
 	cfg, err := app.Config.Load(ctx, config.LoadOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to load config: %w", err)

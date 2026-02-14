@@ -1,0 +1,20 @@
+# Test: invowk tui style applies terminal styling to text
+# Tests text styling via args, stdin, and multiple flags
+
+cd $WORK
+
+# Test 1: Style with bold flag (via args)
+exec invowk tui style --bold 'Bold text'
+stdout 'Bold text'
+
+# Test 2: Style via stdin with italic flag
+stdin style_input.txt
+exec invowk tui style --italic
+stdout 'Styled content'
+
+# Test 3: Multiple style flags combined
+exec invowk tui style --bold --underline 'Multi styled'
+stdout 'Multi styled'
+
+-- style_input.txt --
+Styled content

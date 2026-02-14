@@ -1,0 +1,21 @@
+# Test: invowk config path shows configuration paths
+# Tests that config path outputs directory, file, and commands paths
+
+cd $WORK
+env XDG_CONFIG_HOME=$WORK/.config
+
+# Test 1: Path output contains expected fields
+exec invowk config path
+stdout 'Config directory:'
+stdout 'Config file:'
+stdout 'Commands directory:'
+! stderr .
+
+# Test 2: Paths reference the XDG-based config location
+exec invowk config path
+stdout '.config/invowk'
+stdout 'config.cue'
+
+# Test 3: Commands directory references the home-based location
+exec invowk config path
+stdout '.invowk/cmds'

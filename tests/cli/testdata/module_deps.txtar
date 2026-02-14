@@ -1,0 +1,10 @@
+# Test: invowk module deps
+# Lists module dependencies from the lock file
+
+cd $WORK
+
+# Test 1: No lock file present - shows "No module dependencies found"
+exec invowk module deps
+stdout 'Module Dependencies'
+stdout 'No module dependencies found'
+stdout 'invowk module add'

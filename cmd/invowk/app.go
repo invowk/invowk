@@ -107,9 +107,8 @@ type (
 		Render(ctx context.Context, diags []discovery.Diagnostic, stderr io.Writer)
 	}
 
-	// ConfigProvider loads configuration using explicit options rather than global state.
-	// This abstraction replaces the previous global config accessor and enables
-	// testing with custom config sources.
+	// ConfigProvider loads configuration using explicit options.
+	// This abstraction enables testing with custom config sources or mock implementations.
 	ConfigProvider interface {
 		Load(ctx context.Context, opts config.LoadOptions) (*config.Config, error)
 	}
@@ -211,11 +210,26 @@ func (s *appDiscoveryService) loadConfig(ctx context.Context) (*config.Config, [
 }
 
 // loadConfigWithFallback loads configuration via the provider. On failure it
-// returns defaults and a warning diagnostic so callers stay operational.
+// returns defaults with a diagnostic so callers stay operational. When the user
+// explicitly specified a config path, the diagnostic is an error (not a warning)
+// so downstream callers can decide whether to abort.
 func loadConfigWithFallback(ctx context.Context, provider ConfigProvider, configPath string) (*config.Config, []discovery.Diagnostic) {
 	cfg, err := provider.Load(ctx, config.LoadOptions{ConfigFilePath: configPath})
 	if err == nil {
 		return cfg, nil
+	}
+
+	// When the user explicitly specified a config path, do not silently fall back
+	// to defaults — surface the error as a diagnostic so downstream callers can
+	// decide whether to abort.
+	if configPath != "" {
+		return config.DefaultConfig(), []discovery.Diagnostic{{
+			Severity: discovery.SeverityError,
+			Code:     "config_load_failed",
+			Message:  fmt.Sprintf("failed to load config from %s: %v", configPath, err),
+			Path:     configPath,
+			Cause:    err,
+		}}
 	}
 
 	return config.DefaultConfig(), []discovery.Diagnostic{{

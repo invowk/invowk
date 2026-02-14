@@ -9,6 +9,7 @@
 # Environment variables:
 #   INVOWK_VERSION  - Specific version to install (e.g., v1.0.0). Default: latest stable.
 #   INSTALL_DIR     - Installation directory. Default: ~/.local/bin.
+#   GITHUB_TOKEN    - GitHub API token for higher rate limits (optional).
 #
 # Requirements:
 #   - curl or wget
@@ -132,8 +133,21 @@ detect_download_tool() {
 download() {
     _url="$1"
     case "${DOWNLOAD_CMD}" in
-        curl) curl -fsSL "${_url}" ;;
-        wget) wget -qO- "${_url}" ;;
+        curl)
+            if [ -n "${GITHUB_TOKEN:-}" ]; then
+                curl -fsSL -H "Authorization: token ${GITHUB_TOKEN}" "${_url}"
+            else
+                curl -fsSL "${_url}"
+            fi
+            ;;
+        wget)
+            if [ -n "${GITHUB_TOKEN:-}" ]; then
+                wget -qO- --header="Authorization: token ${GITHUB_TOKEN}" "${_url}"
+            else
+                wget -qO- "${_url}"
+            fi
+            ;;
+        *) die "Internal error: unsupported download command: ${DOWNLOAD_CMD}" ;;
     esac
 }
 
@@ -142,8 +156,21 @@ download_to_file() {
     _url="$1"
     _dest="$2"
     case "${DOWNLOAD_CMD}" in
-        curl) curl -fsSL -o "${_dest}" "${_url}" ;;
-        wget) wget -qO "${_dest}" "${_url}" ;;
+        curl)
+            if [ -n "${GITHUB_TOKEN:-}" ]; then
+                curl -fsSL -H "Authorization: token ${GITHUB_TOKEN}" -o "${_dest}" "${_url}"
+            else
+                curl -fsSL -o "${_dest}" "${_url}"
+            fi
+            ;;
+        wget)
+            if [ -n "${GITHUB_TOKEN:-}" ]; then
+                wget -qO "${_dest}" --header="Authorization: token ${GITHUB_TOKEN}" "${_url}"
+            else
+                wget -qO "${_dest}" "${_url}"
+            fi
+            ;;
+        *) die "Internal error: unsupported download command: ${DOWNLOAD_CMD}" ;;
     esac
 }
 
@@ -324,13 +351,17 @@ Check available assets at: https://github.com/${GITHUB_REPO}/releases/tag/${_ver
     # Note: checksums.txt is not signature-verified by this script because cosign
     # is not a standard system tool. For supply-chain verification, see:
     # https://github.com/invowk/invowk#verifying-signatures
+    #
+    # The checksum file is downloaded to a mktemp directory (mode 0700), which
+    # mitigates TOCTOU race conditions between download and verification.
     log "Downloading checksums..."
     download_to_file "${_checksums_url}" "${_checksums_path}" || die "Failed to download checksums.txt.
 
 Cannot verify download integrity. Please try again."
 
     # Extract expected checksum for our asset from checksums.txt.
-    _expected_hash=$(grep "${_asset}" "${_checksums_path}" | cut -d' ' -f1)
+    # -F: fixed-string match (asset names contain dots, which are regex wildcards).
+    _expected_hash=$(grep -F "${_asset}" "${_checksums_path}" | cut -d' ' -f1)
     if [ -z "${_expected_hash}" ]; then
         die "Asset ${_asset} not found in checksums.txt.
 This may indicate a GoReleaser configuration issue.
@@ -344,15 +375,17 @@ Report at: https://github.com/${GITHUB_REPO}/issues"
 
     # Extract the binary from the archive using a two-phase strategy:
     # 1. Try extracting the binary by exact name (flat archive layout).
-    #    Stderr is suppressed because some tar implementations print a "not found
-    #    in archive" message when the member doesn't exist at the top level, which
-    #    is expected for nested layouts. If tar fails for other reasons (corrupt
-    #    archive, disk full), the second attempt will also fail and die() is called.
+    #    Stderr is captured (not suppressed) because some tar implementations
+    #    print a "not found in archive" message when the member doesn't exist at
+    #    the top level, which is expected for nested layouts.
     # 2. Fall back to extracting the entire archive (nested directory layout),
     #    then locate the binary below.
+    # If both attempts fail, the captured stderr from the first attempt is
+    # included in the error message for debugging.
     log "Extracting binary..."
-    tar -xzf "${_archive_path}" -C "${TMPDIR_INSTALL}" "${BINARY_NAME}" 2>/dev/null ||
-        tar -xzf "${_archive_path}" -C "${TMPDIR_INSTALL}" || die "Failed to extract ${_asset}."
+    _tar_stderr=$(tar -xzf "${_archive_path}" -C "${TMPDIR_INSTALL}" "${BINARY_NAME}" 2>&1) ||
+        tar -xzf "${_archive_path}" -C "${TMPDIR_INSTALL}" || die "Failed to extract ${_asset}.${_tar_stderr:+
+First attempt error: ${_tar_stderr}}"
 
     if [ ! -f "${TMPDIR_INSTALL}/${BINARY_NAME}" ]; then
         die "Binary '${BINARY_NAME}' not found in archive ${_asset}."
@@ -382,8 +415,9 @@ If permission denied, try:
 # ---------------------------------------------------------------------------
 
 # main() wrapping prevents partial execution when the script is piped from
-# curl/wget (FR-009). The shell must receive the entire function definition
-# before it can call main.
+# curl/wget. The shell must receive the entire function definition before it
+# can call main, so a truncated download produces a parse error rather than
+# executing partial code.
 main() {
     setup_colors
 
@@ -429,5 +463,8 @@ main() {
     fi
 }
 
-trap cleanup EXIT
-main "$@"
+# Allow sourcing for testing without executing main.
+if [ "${INVOWK_INSTALL_TESTING:-}" != "1" ]; then
+    trap cleanup EXIT
+    main "$@"
+fi

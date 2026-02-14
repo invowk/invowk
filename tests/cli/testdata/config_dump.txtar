@@ -1,0 +1,32 @@
+# Test: invowk config dump outputs raw CUE configuration
+# Tests that dump produces valid CUE output with default and modified values
+
+cd $WORK
+env XDG_CONFIG_HOME=$WORK/.config
+
+# Test 1: Dump defaults (no config file) shows default CUE values
+exec invowk config dump
+stdout 'container_engine: "podman"'
+stdout 'default_runtime: "native"'
+stdout 'virtual_shell:'
+stdout 'enable_uroot_utils: true'
+stdout 'ui:'
+stdout 'color_scheme: "auto"'
+stdout 'verbose: false'
+stdout 'interactive: false'
+! stderr .
+
+# Test 2: After init + set, dump reflects the modified values
+exec invowk config init
+exec invowk config set container_engine docker
+exec invowk config set default_runtime virtual
+
+exec invowk config dump
+stdout 'container_engine: "docker"'
+stdout 'default_runtime: "virtual"'
+stdout 'enable_uroot_utils: true'
+! stderr .
+
+# Test 3: Dump includes the CUE file header comment
+exec invowk config dump
+stdout 'Invowk Configuration File'

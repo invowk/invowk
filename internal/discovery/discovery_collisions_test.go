@@ -600,13 +600,10 @@ cmds: [{name: "cmd", implementations: [{script: "echo current", runtimes: [{name
 
 	// Create a module in the same directory using new two-file format
 	moduleDir := filepath.Join(tmpDir, "apack.invowkmod")
-	createValidCollisionTestModule(t, moduleDir, "apack", "cmd")
+	createTestModule(t, moduleDir, "apack", "cmd")
 
 	cfg := config.DefaultConfig()
-	d := New(cfg,
-		WithBaseDir(tmpDir),
-		WithCommandsDir(filepath.Join(tmpDir, ".invowk", "cmds")),
-	)
+	d := newTestDiscovery(t, cfg, tmpDir)
 
 	files, err := d.DiscoverAll()
 	if err != nil {
@@ -700,8 +697,7 @@ version: "1.0.0"
 	}
 
 	cfg := config.DefaultConfig()
-	d := New(cfg,
-		WithBaseDir(tmpDir),
+	d := newTestDiscovery(t, cfg, tmpDir,
 		WithCommandsDir(filepath.Join(homeDir, ".invowk", "cmds")),
 	)
 
@@ -747,24 +743,4 @@ func containsString(s, substr string) bool {
 		}
 	}
 	return false
-}
-
-// createValidCollisionTestModule creates a module with the new two-file format (invowkmod.cue + invowkfile.cue)
-func createValidCollisionTestModule(t *testing.T, moduleDir, moduleID, cmdName string) {
-	t.Helper()
-	if err := os.MkdirAll(moduleDir, 0o755); err != nil {
-		t.Fatalf("failed to create module dir: %v", err)
-	}
-	// Create invowkmod.cue with metadata
-	invowkmodContent := `module: "` + moduleID + `"
-version: "1.0.0"
-`
-	if err := os.WriteFile(filepath.Join(moduleDir, "invowkmod.cue"), []byte(invowkmodContent), 0o644); err != nil {
-		t.Fatalf("failed to write invowkmod.cue: %v", err)
-	}
-	// Create invowkfile.cue with commands
-	invowkfileContent := `cmds: [{name: "` + cmdName + `", implementations: [{script: "echo test", runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}]}]}]`
-	if err := os.WriteFile(filepath.Join(moduleDir, "invowkfile.cue"), []byte(invowkfileContent), 0o644); err != nil {
-		t.Fatalf("failed to write invowkfile.cue: %v", err)
-	}
 }

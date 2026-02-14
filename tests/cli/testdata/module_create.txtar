@@ -1,0 +1,34 @@
+# Test: invowk module create
+# Creates a new module directory with invowkmod.cue and invowkfile.cue
+
+cd $WORK
+
+# Test 1: Create a simple module
+exec invowk module create mytools
+stdout 'Module created successfully'
+stdout 'Name:'
+stdout 'mytools'
+exists mytools.invowkmod/invowkmod.cue
+exists mytools.invowkmod/invowkfile.cue
+
+# Test 2: Validate the created module
+exec invowk module validate ./mytools.invowkmod
+stdout 'Module is valid'
+
+# Test 3: Create a module with RDNS name and --scripts flag
+exec invowk module create com.example.utils --scripts
+stdout 'Module created successfully'
+stdout 'Scripts directory created'
+exists com.example.utils.invowkmod/invowkmod.cue
+exists com.example.utils.invowkmod/invowkfile.cue
+exists com.example.utils.invowkmod/scripts
+
+# Test 4: Invalid module name (starts with a dot)
+! exec invowk module create .badname
+stderr 'cannot start with a dot'
+
+# Test 5: Create with custom path and description
+mkdir custom-dir
+exec invowk module create mypackage --path ./custom-dir --description 'A test module'
+stdout 'Module created successfully'
+exists custom-dir/mypackage.invowkmod/invowkmod.cue

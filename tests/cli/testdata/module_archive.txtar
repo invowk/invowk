@@ -1,0 +1,38 @@
+# Test: invowk module archive
+# Archives a module into a ZIP file
+
+cd $WORK
+
+# Test 1: Archive a valid module (default output path)
+exec invowk module archive ./archmod.invowkmod
+stdout 'Module archived successfully'
+stdout 'Output:'
+stdout 'Size:'
+
+# Test 2: Archive with custom output path
+mkdir dist
+exec invowk module archive ./archmod.invowkmod --output ./dist/custom.zip
+stdout 'Module archived successfully'
+stdout 'Output:'
+exists dist/custom.zip
+
+# Test 3: Archive a non-existent module (should fail)
+! exec invowk module archive ./nonexistent.invowkmod
+stderr 'archive module'
+
+-- archmod.invowkmod/invowkmod.cue --
+module:  "archmod"
+version: "0.1.0"
+
+-- archmod.invowkmod/invowkfile.cue --
+cmds: [
+	{
+		name:        "noop"
+		description: "A no-op command"
+		implementations: [{
+			script:    "echo noop"
+			runtimes:  [{name: "virtual"}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+	},
+]

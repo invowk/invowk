@@ -1,0 +1,48 @@
+# Test: invowk module validate
+# Validates module structure: valid module passes, invalid module fails
+
+cd $WORK
+
+# Test 1: Validate a well-formed module
+exec invowk module validate ./mymod.invowkmod
+stdout 'Module is valid'
+stdout 'Structure check passed'
+stdout 'Naming convention check passed'
+stdout 'Required files present'
+
+# Test 2: Validate with --deep flag (invowkfile parsing)
+exec invowk module validate ./deepmod.invowkmod --deep
+stdout 'Module is valid'
+stdout 'Invowkfile parses successfully'
+
+# Test 3: Validate a module missing invowkmod.cue (should fail with exit 1)
+! exec invowk module validate ./badmod.invowkmod
+stdout 'Module validation failed'
+
+# Test 4: Validate a non-existent path (reports issue via stdout, exits 1)
+! exec invowk module validate ./nonexistent.invowkmod
+stdout 'Module validation failed'
+stdout 'path does not exist'
+
+-- mymod.invowkmod/invowkmod.cue --
+module:  "mymod"
+version: "0.1.0"
+
+-- deepmod.invowkmod/invowkmod.cue --
+module:  "deepmod"
+version: "0.1.0"
+
+-- deepmod.invowkmod/invowkfile.cue --
+cmds: [
+	{
+		name:        "hello"
+		description: "A simple command"
+		implementations: [{
+			script:    "echo hello"
+			runtimes:  [{name: "virtual"}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+	},
+]
+
+-- badmod.invowkmod/.gitkeep --

@@ -26,13 +26,10 @@ func TestDiscoverAll_FindsModulesInCurrentDir(t *testing.T) {
 
 	// Create a valid module in the temp directory (using new two-file format)
 	moduleDir := filepath.Join(tmpDir, "mycommands.invowkmod")
-	createValidDiscoveryModule(t, moduleDir, "mycommands", "packed-cmd")
+	createTestModule(t, moduleDir, "mycommands", "packed-cmd")
 
 	cfg := config.DefaultConfig()
-	d := New(cfg,
-		WithBaseDir(tmpDir),
-		WithCommandsDir(filepath.Join(tmpDir, ".invowk", "cmds")),
-	)
+	d := newTestDiscovery(t, cfg, tmpDir)
 
 	files, err := d.DiscoverAll()
 	if err != nil {
@@ -62,7 +59,7 @@ func TestDiscoverAll_FindsModulesInUserDir(t *testing.T) {
 	// Create user commands directory with a module (using new two-file format)
 	userCmdsDir := filepath.Join(tmpDir, ".invowk", "cmds")
 	moduleDir := filepath.Join(userCmdsDir, "userpack.invowkmod")
-	createValidDiscoveryModule(t, moduleDir, "userpack", "user-packed-cmd")
+	createTestModule(t, moduleDir, "userpack", "user-packed-cmd")
 
 	// Create an empty working directory
 	workDir := filepath.Join(tmpDir, "work")
@@ -71,7 +68,7 @@ func TestDiscoverAll_FindsModulesInUserDir(t *testing.T) {
 	}
 
 	cfg := config.DefaultConfig()
-	d := New(cfg,
+	d := newTestDiscovery(t, cfg, tmpDir,
 		WithBaseDir(workDir),
 		WithCommandsDir(userCmdsDir),
 	)
@@ -104,7 +101,7 @@ func TestDiscoverAll_FindsModulesInConfigPath(t *testing.T) {
 	// Create a config search path with a module (using new two-file format)
 	searchPath := filepath.Join(tmpDir, "custom-commands")
 	moduleDir := filepath.Join(searchPath, "configpack.invowkmod")
-	createValidDiscoveryModule(t, moduleDir, "configpack", "config-packed-cmd")
+	createTestModule(t, moduleDir, "configpack", "config-packed-cmd")
 
 	// Create an empty working directory
 	workDir := filepath.Join(tmpDir, "work")
@@ -116,9 +113,8 @@ func TestDiscoverAll_FindsModulesInConfigPath(t *testing.T) {
 	cfg.Includes = []config.IncludeEntry{
 		{Path: moduleDir},
 	}
-	d := New(cfg,
+	d := newTestDiscovery(t, cfg, tmpDir,
 		WithBaseDir(workDir),
-		WithCommandsDir(filepath.Join(tmpDir, ".invowk", "cmds")),
 	)
 
 	files, err := d.DiscoverAll()
@@ -186,10 +182,7 @@ version: "1.0.0"
 	}
 
 	cfg := config.DefaultConfig()
-	d := New(cfg,
-		WithBaseDir(tmpDir),
-		WithCommandsDir(filepath.Join(tmpDir, ".invowk", "cmds")),
-	)
+	d := newTestDiscovery(t, cfg, tmpDir)
 
 	result, err := d.DiscoverCommandSet(context.Background())
 	if err != nil {
@@ -230,13 +223,10 @@ func TestDiscoverAll_SkipsInvalidModules(t *testing.T) {
 
 	// Create a valid module using new two-file format
 	validModuleDir := filepath.Join(tmpDir, "valid.invowkmod")
-	createValidDiscoveryModule(t, validModuleDir, "valid", "cmd")
+	createTestModule(t, validModuleDir, "valid", "cmd")
 
 	cfg := config.DefaultConfig()
-	d := New(cfg,
-		WithBaseDir(tmpDir),
-		WithCommandsDir(filepath.Join(tmpDir, ".invowk", "cmds")),
-	)
+	d := newTestDiscovery(t, cfg, tmpDir)
 
 	files, err := d.DiscoverAll()
 	if err != nil {
@@ -284,10 +274,7 @@ description: "A test module"
 	}
 
 	cfg := config.DefaultConfig()
-	d := New(cfg,
-		WithBaseDir(tmpDir),
-		WithCommandsDir(filepath.Join(tmpDir, ".invowk", "cmds")),
-	)
+	d := newTestDiscovery(t, cfg, tmpDir)
 
 	files, err := d.LoadAll()
 	if err != nil {
@@ -333,13 +320,10 @@ func TestLoadFirst_LoadsModule(t *testing.T) {
 
 	// Create a valid module (but no regular invowkfile in root)
 	moduleDir := filepath.Join(tmpDir, "firstpack.invowkmod")
-	createValidDiscoveryModule(t, moduleDir, "firstpack", "first")
+	createTestModule(t, moduleDir, "firstpack", "first")
 
 	cfg := config.DefaultConfig()
-	d := New(cfg,
-		WithBaseDir(tmpDir),
-		WithCommandsDir(filepath.Join(tmpDir, ".invowk", "cmds")),
-	)
+	d := newTestDiscovery(t, cfg, tmpDir)
 
 	file, err := d.LoadFirst()
 	if err != nil {
@@ -370,12 +354,12 @@ func TestDiscoverAll_ConfigIncludesPrecedeUserDir(t *testing.T) {
 
 	// Create a config-include module
 	configModuleDir := filepath.Join(tmpDir, "custom-path", "configmod.invowkmod")
-	createValidDiscoveryModule(t, configModuleDir, "configmod", "config-cmd")
+	createTestModule(t, configModuleDir, "configmod", "config-cmd")
 
 	// Create a user-dir module
 	userCmdsDir := filepath.Join(tmpDir, ".invowk", "cmds")
 	userModuleDir := filepath.Join(userCmdsDir, "usermod.invowkmod")
-	createValidDiscoveryModule(t, userModuleDir, "usermod", "user-cmd")
+	createTestModule(t, userModuleDir, "usermod", "user-cmd")
 
 	// Create an empty working directory
 	workDir := filepath.Join(tmpDir, "work")
@@ -387,7 +371,7 @@ func TestDiscoverAll_ConfigIncludesPrecedeUserDir(t *testing.T) {
 	cfg.Includes = []config.IncludeEntry{
 		{Path: configModuleDir},
 	}
-	d := New(cfg,
+	d := newTestDiscovery(t, cfg, tmpDir,
 		WithBaseDir(workDir),
 		WithCommandsDir(userCmdsDir),
 	)
@@ -420,25 +404,5 @@ func TestDiscoverAll_ConfigIncludesPrecedeUserDir(t *testing.T) {
 	}
 	if configIdx >= userIdx {
 		t.Errorf("config-include module (index %d) should appear before user-dir module (index %d)", configIdx, userIdx)
-	}
-}
-
-// createValidDiscoveryModule creates a module with the new two-file format (invowkmod.cue + invowkfile.cue)
-func createValidDiscoveryModule(t *testing.T, moduleDir, moduleID, cmdName string) {
-	t.Helper()
-	if err := os.MkdirAll(moduleDir, 0o755); err != nil {
-		t.Fatalf("failed to create module dir: %v", err)
-	}
-	// Create invowkmod.cue with metadata
-	invowkmodContent := `module: "` + moduleID + `"
-version: "1.0.0"
-`
-	if err := os.WriteFile(filepath.Join(moduleDir, "invowkmod.cue"), []byte(invowkmodContent), 0o644); err != nil {
-		t.Fatalf("failed to write invowkmod.cue: %v", err)
-	}
-	// Create invowkfile.cue with commands
-	invowkfileContent := `cmds: [{name: "` + cmdName + `", implementations: [{script: "echo test", runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}]}]}]`
-	if err := os.WriteFile(filepath.Join(moduleDir, "invowkfile.cue"), []byte(invowkfileContent), 0o644); err != nil {
-		t.Fatalf("failed to write invowkfile.cue: %v", err)
 	}
 }

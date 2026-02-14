@@ -137,7 +137,7 @@ func validateToolInContainer(toolName string, registry *runtime.Registry, ctx *r
 	return nil
 }
 
-// checkToolDependencies verifies all required tools are available (legacy - uses native only).
+// checkToolDependencies verifies all required tools are available (native-only fallback).
 // Each ToolDependency contains a list of alternatives; if any alternative is found, the dependency is satisfied.
 func checkToolDependencies(cmd *invowkfile.Command) error {
 	if cmd.DependsOn == nil || len(cmd.DependsOn.Tools) == 0 {

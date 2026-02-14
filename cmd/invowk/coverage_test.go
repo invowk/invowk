@@ -1,0 +1,239 @@
+// SPDX-License-Identifier: MPL-2.0
+
+package cmd
+
+import (
+	"bufio"
+	"os"
+	"path/filepath"
+	"regexp"
+	"runtime"
+	"sort"
+	"strings"
+	"testing"
+
+	"github.com/spf13/cobra"
+)
+
+// TestBuiltinCommandTxtarCoverage verifies that every non-hidden, runnable,
+// leaf built-in command has at least one testscript (.txtar) file exercising it
+// in tests/cli/testdata/. This guards the constitution's 100% CLI integration
+// test coverage mandate.
+//
+// The test builds the static Cobra command tree (no dynamic command registration),
+// collects all leaf commands (non-hidden, with RunE/Run, no visible children),
+// then scans txtar files for `exec invowk <path>` patterns to determine coverage.
+//
+// Exemptions are documented inline for commands that require interactive TTY
+// input and are tested via tmux/VHS instead. The test enforces two-way
+// exemption verification: stale exemptions (command no longer exists) and
+// unnecessary exemptions (command is actually covered) both cause failures.
+func TestBuiltinCommandTxtarCoverage(t *testing.T) {
+	t.Parallel()
+
+	// Exemptions: commands that require interactive TTY input and are tested
+	// via tmux/VHS instead of testscript. Each entry requires a documented reason.
+	exemptions := map[string]string{
+		"tui input":   "interactive TTY required; tested via tmux/VHS",
+		"tui write":   "interactive TTY required; tested via tmux/VHS",
+		"tui choose":  "interactive TTY required; tested via tmux/VHS",
+		"tui confirm": "interactive TTY required; tested via tmux/VHS",
+		"tui filter":  "interactive TTY required; tested via tmux/VHS",
+		"tui file":    "interactive TTY required; tested via tmux/VHS",
+		"tui table":   "interactive TTY required; tested via tmux/VHS",
+		"tui spin":    "interactive TTY required; tested via tmux/VHS",
+		"tui pager":   "interactive TTY required; tested via tmux/VHS",
+	}
+
+	// Build the static Cobra command tree (no dynamic command registration).
+	app, err := NewApp(Dependencies{})
+	if err != nil {
+		t.Fatalf("NewApp() failed: %v", err)
+	}
+	rootCmd := NewRootCommand(app)
+
+	// Collect all leaf, non-hidden, runnable commands and their aliases.
+	commands, aliasMap := collectLeafCommands(rootCmd)
+
+	// Two-way exemption verification: detect stale exemptions.
+	for exemptCmd, reason := range exemptions {
+		if !commands[exemptCmd] {
+			t.Errorf("stale exemption: %q does not exist in Cobra tree (reason was: %s)", exemptCmd, reason)
+		}
+	}
+
+	// Locate the testdata directory relative to this test file.
+	// This follows the same runtime.Caller pattern as TestNoGlobalConfigAccess.
+	_, thisFile, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatal("unable to determine test file path via runtime.Caller")
+	}
+	// cmd/invowk/coverage_test.go → cmd/invowk/ → cmd/ → project root
+	projectRoot := filepath.Dir(filepath.Dir(filepath.Dir(thisFile)))
+	testdataDir := filepath.Join(projectRoot, "tests", "cli", "testdata")
+
+	// Scan all txtar files for `exec invowk ...` lines.
+	covered := scanTxtarCoverage(t, testdataDir, commands, aliasMap)
+
+	// Two-way exemption verification: detect unnecessary exemptions.
+	for exemptCmd, reason := range exemptions {
+		if covered[exemptCmd] {
+			t.Errorf("unnecessary exemption: %q is covered by txtar tests — remove from exemptions (reason was: %s)", exemptCmd, reason)
+		}
+	}
+
+	// Report uncovered commands (sorted for deterministic output).
+	var uncovered []string
+	for cmdPath := range commands {
+		if exemptions[cmdPath] != "" {
+			continue
+		}
+		if !covered[cmdPath] {
+			uncovered = append(uncovered, cmdPath)
+		}
+	}
+
+	sort.Strings(uncovered)
+	for _, cmdPath := range uncovered {
+		t.Errorf("uncovered command: %q has no txtar test in %s", cmdPath, testdataDir)
+	}
+}
+
+// collectLeafCommands walks the Cobra tree and returns:
+//   - commands: set of leaf (no visible children), non-hidden, runnable command paths
+//   - aliasMap: mapping from alias paths to canonical paths (e.g., "mod" -> "module")
+func collectLeafCommands(root *cobra.Command) (commands map[string]bool, aliasMap map[string]string) {
+	commands = make(map[string]bool)
+	aliasMap = make(map[string]string)
+	walkCobraTree(root, "", commands, aliasMap)
+	return
+}
+
+// walkCobraTree recursively visits all commands in the Cobra tree, collecting
+// leaf commands and alias mappings.
+func walkCobraTree(cmd *cobra.Command, prefix string, commands map[string]bool, aliasMap map[string]string) {
+	for _, child := range cmd.Commands() {
+		if child.Hidden {
+			continue
+		}
+
+		childPath := child.Name()
+		if prefix != "" {
+			childPath = prefix + " " + child.Name()
+		}
+
+		// Record aliases at this level (e.g., "mod" -> "module").
+		for _, alias := range child.Aliases {
+			aliasPath := alias
+			if prefix != "" {
+				aliasPath = prefix + " " + alias
+			}
+			aliasMap[aliasPath] = childPath
+		}
+
+		// Count visible (non-hidden) children to distinguish leaf vs routing nodes.
+		visibleChildren := 0
+		for _, grandchild := range child.Commands() {
+			if !grandchild.Hidden {
+				visibleChildren++
+			}
+		}
+
+		// Include leaf commands that have a handler (RunE or Run).
+		if visibleChildren == 0 && (child.RunE != nil || child.Run != nil) {
+			commands[childPath] = true
+		}
+
+		// Recurse into children.
+		walkCobraTree(child, childPath, commands, aliasMap)
+	}
+}
+
+// scanTxtarCoverage reads all .txtar files in testdataDir and extracts
+// invowk command paths from `exec invowk ...` and `! exec invowk ...` lines.
+// Returns a set of covered canonical command paths.
+func scanTxtarCoverage(t *testing.T, testdataDir string, knownCommands map[string]bool, aliasMap map[string]string) map[string]bool {
+	t.Helper()
+	covered := make(map[string]bool)
+
+	// Match both `exec invowk ...` and `! exec invowk ...`
+	execRe := regexp.MustCompile(`^!?\s*exec\s+invowk\s+(.+)`)
+
+	entries, err := os.ReadDir(testdataDir)
+	if err != nil {
+		t.Fatalf("failed to read testdata directory %s: %v", testdataDir, err)
+	}
+
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".txtar") {
+			continue
+		}
+
+		filePath := filepath.Join(testdataDir, entry.Name())
+		f, err := os.Open(filePath)
+		if err != nil {
+			t.Errorf("failed to open %s: %v", entry.Name(), err)
+			continue
+		}
+
+		scanner := bufio.NewScanner(f)
+		for scanner.Scan() {
+			line := strings.TrimSpace(scanner.Text())
+			m := execRe.FindStringSubmatch(line)
+			if m == nil {
+				continue
+			}
+
+			tokens := strings.Fields(m[1])
+			cmdPath := matchLongestCommand(tokens, knownCommands, aliasMap)
+			if cmdPath != "" {
+				covered[cmdPath] = true
+			}
+		}
+
+		_ = f.Close() // Read-only file; close error non-critical.
+	}
+
+	return covered
+}
+
+// matchLongestCommand resolves aliases in the token list and returns the
+// longest matching command path from knownCommands. Returns empty string
+// if no match is found.
+func matchLongestCommand(tokens []string, knownCommands map[string]bool, aliasMap map[string]string) string {
+	resolved := resolveAliases(tokens, aliasMap)
+
+	// Try progressively longer prefixes; the longest match wins.
+	var best string
+	for i := 1; i <= len(resolved); i++ {
+		candidate := strings.Join(resolved[:i], " ")
+		if knownCommands[candidate] {
+			best = candidate
+		}
+	}
+	return best
+}
+
+// resolveAliases replaces alias tokens with their canonical equivalents.
+// For example, ["mod", "validate"] becomes ["module", "validate"] when
+// "mod" is an alias for "module".
+func resolveAliases(tokens []string, aliasMap map[string]string) []string {
+	resolved := make([]string, len(tokens))
+	copy(resolved, tokens)
+
+	for i := 0; i < len(resolved); i++ {
+		path := strings.Join(resolved[:i+1], " ")
+		if canonical, ok := aliasMap[path]; ok {
+			canonicalParts := strings.Fields(canonical)
+			tail := resolved[i+1:]
+			resolved = make([]string, 0, len(canonicalParts)+len(tail))
+			resolved = append(resolved, canonicalParts...)
+			resolved = append(resolved, tail...)
+			// Advance index past the canonical replacement so the next
+			// iteration checks the first unresolved token.
+			i = len(canonicalParts) - 1
+		}
+	}
+
+	return resolved
+}

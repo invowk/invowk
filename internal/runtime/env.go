@@ -15,10 +15,9 @@ import (
 // → CLI flag overrides. Each level can independently override mode, allow list,
 // and deny list.
 type envInheritConfig struct {
-	mode    invowkfile.EnvInheritMode
-	allow   []string
-	deny    []string
-	environ func() []string // when nil, defaults to os.Environ
+	mode  invowkfile.EnvInheritMode
+	allow []string
+	deny  []string
 }
 
 // resolveEnvInheritConfig applies the 3-level precedence chain to produce a final
@@ -56,10 +55,12 @@ func resolveEnvInheritConfig(ctx *ExecutionContext, defaultMode invowkfile.EnvIn
 }
 
 // buildHostEnv filters the host environment according to the resolved inheritance config.
-// Mode "none" returns an empty map. Mode "allow" returns only allowlisted vars.
-// Mode "all" returns everything except denylisted vars. In all modes, INVOWK_* vars
-// are excluded via FilterInvowkEnvVars to prevent leaking internal state into commands.
-func buildHostEnv(cfg envInheritConfig) map[string]string {
+// The environ parameter provides the host environment as "KEY=VALUE" strings; when nil,
+// it defaults to os.Environ. Mode "none" returns an empty map. Mode "allow" returns only
+// allowlisted vars. Mode "all" returns everything except denylisted vars. In all modes,
+// INVOWK_* vars are excluded via FilterInvowkEnvVars to prevent leaking internal state
+// into commands.
+func buildHostEnv(cfg envInheritConfig, environ func() []string) map[string]string {
 	env := make(map[string]string)
 	if cfg.mode == invowkfile.EnvInheritNone {
 		return env
@@ -77,12 +78,11 @@ func buildHostEnv(cfg envInheritConfig) map[string]string {
 		denySet[name] = struct{}{}
 	}
 
-	environFn := cfg.environ
-	if environFn == nil {
-		environFn = os.Environ
+	if environ == nil {
+		environ = os.Environ
 	}
 
-	for _, entry := range FilterInvowkEnvVars(environFn()) {
+	for _, entry := range FilterInvowkEnvVars(environ()) {
 		name, value, ok := strings.Cut(entry, "=")
 		if !ok {
 			continue

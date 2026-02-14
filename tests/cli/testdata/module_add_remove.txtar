@@ -1,0 +1,24 @@
+# Test: invowk module add and invowk module remove error paths
+# These commands require git access and lock files, so we test argument validation
+
+cd $WORK
+
+# Test 1: module add with wrong number of args (needs exactly 2)
+! exec invowk module add
+stderr 'Accepts 2 arg'
+
+# Test 2: module add with only 1 arg (needs exactly 2)
+! exec invowk module add https://github.com/user/mod.git
+stderr 'Accepts 2 arg'
+
+# Test 3: module remove with no args (needs exactly 1)
+! exec invowk module remove
+stderr 'Accepts 1 arg'
+
+# Test 4: module remove with too many args
+! exec invowk module remove foo bar
+stderr 'Accepts 1 arg'
+
+# Test 5: module remove with identifier that does not match anything in empty lock
+! exec invowk module remove nonexistent
+stdout 'Removing nonexistent'
