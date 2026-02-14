@@ -1,24 +1,32 @@
 <!--
 SYNC IMPACT REPORT
 ==================
-Version change: 1.2.0 → 1.2.1 (PATCH: Fix stale naming references)
+Version change: 1.2.1 → 1.3.0 (MINOR: New principle added)
 
 Modified principles: None
 
-Added sections: None
+Added sections:
+- Principle VIII: Minimal Mutability (new constitutional principle)
 
 Removed sections: None
 
 Modified sections:
-- Principle II: modules/*.invkmod → modules/*.invowkmod
-- Principle VI: invkfile.cue → invowkfile.cue, invkmod.cue → invowkmod.cue
-- Principle VI (Documentation locations): invkfile.cue → invowkfile.cue
-- Quality Gates: modules/*.invkmod → modules/*.invowkmod
-- Version footer: 1.2.0 → 1.2.1, Last Amended → 2026-02-13
+- Quality Gates: Added "Mutability Review" manual review gate
+- Development Workflow > During Implementation: Added step 8 referencing Principle VIII
+- Development Workflow > Before Committing: Added step 7 referencing Principle VIII
+- Governance > Conflict Resolution: Added Principle VIII as exception alongside VII
+- Version footer: 1.2.1 → 1.3.0, Last Amended → 2026-02-13
 
-Templates requiring updates: None (templates don't reference these filenames)
+Templates requiring updates:
+- plan-template.md: ✅ No update needed (Constitution Check is dynamically filled)
+- spec-template.md: ✅ No update needed (does not reference specific principles)
+- tasks-template.md: ✅ No update needed (does not reference specific principles)
+- checklist-template.md: ✅ No update needed (generic template)
 
-Follow-up TODOs: None
+Follow-up TODOs:
+- Consider strengthening `.claude/rules/go-patterns.md` "State and Dependency
+  Patterns" section to use MUST/FORBIDDEN language matching this principle
+  (currently uses advisory "Do not introduce" phrasing).
 -->
 
 # Invowk Constitution
@@ -158,6 +166,22 @@ When any development phase (planning, implementation, testing, review, etc.) rev
 
 **Rationale**: Working around pre-existing issues creates compounding technical debt. Each workaround makes the codebase harder to understand and maintain. Addressing issues at discovery time—when context is fresh and the impact is understood—is more efficient than deferring fixes. This principle ensures that new development improves overall codebase health rather than degrading it.
 
+### VIII. Minimal Mutability
+
+Mutable state in the Go codebase MUST be avoided with rigorous discipline. Abstractions MUST be conceived, evaluated, and continuously improved to carry only the minimal degree of mutability needed for practical operation.
+
+- **Package-Level Mutable State Is Forbidden**: No package-level `var` declarations that are modified after initialization. Package-level variables MUST be effectively immutable: constants, build metadata, sentinel errors (`var ErrFoo = errors.New(...)`), embedded assets (`//go:embed`), and compile-time registrations. The sole exception is test-scoped mutable state in `_test.go` files, which is isolated by the test runner.
+- **Struct-Level Mutability Minimization**: Fields that can be set once at construction time MUST NOT be mutable afterward. Prefer constructor injection (functional options, dependency structs) over post-construction mutation. When a struct carries mutable state, document which fields are mutable, who owns the mutation, and what synchronization protects them.
+- **Prefer Immutable Data Flow**: Use request-scoped structs (`ExecuteRequest`, `LoadOptions`), return values, and functional options over mutating shared state. When mutation is unavoidable (e.g., atomic state transitions in the server pattern, retry counters), it MUST be explicitly documented with synchronization guarantees.
+- **Continuous Evaluation**: During code review and refactoring, existing abstractions MUST be assessed for unnecessary mutability. If a mutable field can be replaced with a constructor parameter, a derived value, or a request-scoped input, it SHOULD be refactored.
+
+**What is NOT restricted by this principle**:
+- Method receivers that mutate their own struct fields (normal OOP; governed by synchronization rules above)
+- Local variables within function bodies (stack-scoped, no shared-state concern)
+- Test helpers that set up and tear down mutable fixtures via `t.Cleanup()`
+
+**Rationale**: Mutable state is the primary source of concurrency bugs, ordering dependencies, and action-at-a-distance defects. Package-level mutable state is especially dangerous because it creates hidden coupling between packages, makes tests order-dependent, and prevents safe concurrent test execution. Minimizing mutability makes code easier to reason about, test in isolation, and refactor safely.
+
 ## Quality Gates
 
 Every PR MUST pass the following gates before merge:
@@ -173,6 +197,7 @@ Every PR MUST pass the following gates before merge:
 | Website Build | `cd website && npm run build` | If website content changed |
 | **Documentation Sync** | **Manual review** | **If ANY user-facing behavior changed** |
 | **Pre-Existing Issue Check** | **Manual review** | **If implementation revealed blocking issues** |
+| **Mutability Review** | **Manual review** | **If new types, package-level vars, or shared state introduced** |
 
 ## Development Workflow
 
@@ -191,6 +216,7 @@ Every PR MUST pass the following gates before merge:
 5. Avoid introducing OWASP Top 10 vulnerabilities
 6. **Update documentation alongside code changes** (Principle VI)
 7. **HALT and report if pre-existing issues block or degrade the requirement** (Principle VII)
+8. **Minimize mutability: no package-level mutable state; prefer constructor injection and request-scoped data** (Principle VIII)
 
 ### Before Committing
 
@@ -200,6 +226,7 @@ Every PR MUST pass the following gates before merge:
 4. Ensure no unexplained complexity was added
 5. **Verify all user-facing documentation is updated** (Principle VI)
 6. **Verify no pre-existing issues were worked around instead of fixed** (Principle VII)
+7. **Verify no unnecessary mutable state was introduced** (Principle VIII)
 
 ## Governance
 
@@ -216,6 +243,6 @@ This constitution is the authoritative guide for technical decisions in Invowk:
 
 4. **Reference**: The `.claude/rules/` directory contains detailed implementation guidance that operationalizes these principles. Rules files are authoritative for their specific domains.
 
-5. **Conflict Resolution**: When principles appear to conflict, Simplicity (Principle V) is the tiebreaker—choose the simpler approach unless security, correctness, or pre-existing issue resolution (Principle VII) requires otherwise.
+5. **Conflict Resolution**: When principles appear to conflict, Simplicity (Principle V) is the tiebreaker—choose the simpler approach unless security, correctness, state safety (Principle VIII), or pre-existing issue resolution (Principle VII) requires otherwise.
 
-**Version**: 1.2.1 | **Ratified**: 2026-01-21 | **Last Amended**: 2026-02-13
+**Version**: 1.3.0 | **Ratified**: 2026-01-21 | **Last Amended**: 2026-02-13
