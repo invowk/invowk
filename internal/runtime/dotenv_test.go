@@ -6,11 +6,11 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-
-	"github.com/invowk/invowk/internal/testutil"
 )
 
 func TestParseEnvFile_BasicKeyValue(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name     string
 		content  string
@@ -40,6 +40,8 @@ func TestParseEnvFile_BasicKeyValue(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			env := make(map[string]string)
 			err := ParseEnvFile(env, []byte(tt.content), "test.env")
 			if err != nil {
@@ -56,6 +58,8 @@ func TestParseEnvFile_BasicKeyValue(t *testing.T) {
 }
 
 func TestParseEnvFile_Comments(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name     string
 		content  string
@@ -80,6 +84,8 @@ func TestParseEnvFile_Comments(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			env := make(map[string]string)
 			err := ParseEnvFile(env, []byte(tt.content), "test.env")
 			if err != nil {
@@ -96,6 +102,8 @@ func TestParseEnvFile_Comments(t *testing.T) {
 }
 
 func TestParseEnvFile_QuotedValues(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name     string
 		content  string
@@ -150,6 +158,8 @@ func TestParseEnvFile_QuotedValues(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			env := make(map[string]string)
 			err := ParseEnvFile(env, []byte(tt.content), "test.env")
 			if err != nil {
@@ -166,6 +176,8 @@ func TestParseEnvFile_QuotedValues(t *testing.T) {
 }
 
 func TestParseEnvFile_ExportPrefix(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name     string
 		content  string
@@ -185,6 +197,8 @@ func TestParseEnvFile_ExportPrefix(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			env := make(map[string]string)
 			err := ParseEnvFile(env, []byte(tt.content), "test.env")
 			if err != nil {
@@ -201,6 +215,8 @@ func TestParseEnvFile_ExportPrefix(t *testing.T) {
 }
 
 func TestParseEnvFile_Whitespace(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name     string
 		content  string
@@ -235,6 +251,8 @@ func TestParseEnvFile_Whitespace(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			env := make(map[string]string)
 			err := ParseEnvFile(env, []byte(tt.content), "test.env")
 			if err != nil {
@@ -251,6 +269,8 @@ func TestParseEnvFile_Whitespace(t *testing.T) {
 }
 
 func TestParseEnvFile_Errors(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name    string
 		content string
@@ -290,6 +310,8 @@ func TestParseEnvFile_Errors(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			env := make(map[string]string)
 			err := ParseEnvFile(env, []byte(tt.content), "test.env")
 			if err == nil {
@@ -303,6 +325,8 @@ func TestParseEnvFile_Errors(t *testing.T) {
 }
 
 func TestParseEnvFile_Precedence(t *testing.T) {
+	t.Parallel()
+
 	// Later values override earlier values
 	env := make(map[string]string)
 	content := "FOO=first\nFOO=second"
@@ -318,6 +342,8 @@ func TestParseEnvFile_Precedence(t *testing.T) {
 }
 
 func TestLoadEnvFile_RelativePath(t *testing.T) {
+	t.Parallel()
+
 	// Create a temp directory with a .env file
 	tmpDir := t.TempDir()
 	envFile := filepath.Join(tmpDir, "test.env")
@@ -340,6 +366,8 @@ func TestLoadEnvFile_RelativePath(t *testing.T) {
 }
 
 func TestLoadEnvFile_AbsolutePath(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	envFile := filepath.Join(tmpDir, "absolute.env")
 	if err := os.WriteFile(envFile, []byte("ABSOLUTE=true"), 0o644); err != nil {
@@ -358,6 +386,8 @@ func TestLoadEnvFile_AbsolutePath(t *testing.T) {
 }
 
 func TestLoadEnvFile_OptionalMissing(t *testing.T) {
+	t.Parallel()
+
 	env := make(map[string]string)
 	// Optional file (suffixed with ?) should not error when missing
 	err := LoadEnvFile(env, "nonexistent.env?", "/nonexistent/path")
@@ -367,6 +397,8 @@ func TestLoadEnvFile_OptionalMissing(t *testing.T) {
 }
 
 func TestLoadEnvFile_RequiredMissing(t *testing.T) {
+	t.Parallel()
+
 	env := make(map[string]string)
 	// Required file should error when missing
 	err := LoadEnvFile(env, "nonexistent.env", "/nonexistent/path")
@@ -376,6 +408,8 @@ func TestLoadEnvFile_RequiredMissing(t *testing.T) {
 }
 
 func TestLoadEnvFile_OptionalExists(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	envFile := filepath.Join(tmpDir, "optional.env")
 	if err := os.WriteFile(envFile, []byte("OPTIONAL=yes"), 0o644); err != nil {
@@ -395,6 +429,8 @@ func TestLoadEnvFile_OptionalExists(t *testing.T) {
 }
 
 func TestLoadEnvFile_ForwardSlashPath(t *testing.T) {
+	t.Parallel()
+
 	// Test that forward slashes work on all platforms
 	tmpDir := t.TempDir()
 	subDir := filepath.Join(tmpDir, "config")
@@ -419,10 +455,9 @@ func TestLoadEnvFile_ForwardSlashPath(t *testing.T) {
 }
 
 func TestLoadEnvFileFromCwd(t *testing.T) {
-	// Create temp directory and change to it
+	t.Parallel()
+
 	tmpDir := t.TempDir()
-	restoreWd := testutil.MustChdir(t, tmpDir)
-	defer restoreWd()
 
 	// Create .env file in temp directory
 	if writeErr := os.WriteFile(filepath.Join(tmpDir, ".env"), []byte("CWD_VAR=hello"), 0o644); writeErr != nil {
@@ -430,7 +465,8 @@ func TestLoadEnvFileFromCwd(t *testing.T) {
 	}
 
 	env := make(map[string]string)
-	if err := LoadEnvFileFromCwd(env, ".env"); err != nil {
+	// Pass cwd explicitly instead of using MustChdir
+	if err := LoadEnvFileFromCwd(env, ".env", tmpDir); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
@@ -440,15 +476,19 @@ func TestLoadEnvFileFromCwd(t *testing.T) {
 }
 
 func TestLoadEnvFileFromCwd_OptionalMissing(t *testing.T) {
+	t.Parallel()
+
 	env := make(map[string]string)
-	// Optional file should not error when missing
-	err := LoadEnvFileFromCwd(env, "nonexistent.env?")
+	// Optional file should not error when missing — pass a known directory as cwd
+	err := LoadEnvFileFromCwd(env, "nonexistent.env?", t.TempDir())
 	if err != nil {
 		t.Errorf("expected no error for optional missing file, got: %v", err)
 	}
 }
 
 func TestParseEnvFile_MergesIntoExisting(t *testing.T) {
+	t.Parallel()
+
 	env := map[string]string{
 		"EXISTING": "value",
 		"OVERRIDE": "old",

@@ -90,42 +90,28 @@ func TestRunLock_Release_NilReceiver(t *testing.T) {
 	lock.Release()
 }
 
-func TestAcquireRunLock_FallbackToTempDir(t *testing.T) {
-	// Cannot use t.Parallel() — t.Setenv modifies process-wide state.
-	t.Setenv("XDG_RUNTIME_DIR", "")
+func TestLockFilePath_FallbackToTempDir(t *testing.T) {
+	t.Parallel()
 
-	path := lockFilePath()
+	path := lockFilePathWith(func(string) string { return "" })
 	expected := filepath.Join(os.TempDir(), lockFileName)
 	if path != expected {
-		t.Errorf("lockFilePath() = %q, want %q", path, expected)
+		t.Errorf("lockFilePathWith() = %q, want %q", path, expected)
 	}
-
-	lock, err := acquireRunLock()
-	if err != nil {
-		t.Fatalf("acquireRunLock() with empty XDG_RUNTIME_DIR: %v", err)
-	}
-	lock.Release()
 }
 
-func TestAcquireRunLock_UsesXDGRuntimeDir(t *testing.T) {
-	// Cannot use t.Parallel() — t.Setenv modifies process-wide state.
-	customDir := t.TempDir()
-	t.Setenv("XDG_RUNTIME_DIR", customDir)
+func TestLockFilePath_UsesXDGRuntimeDir(t *testing.T) {
+	t.Parallel()
 
-	path := lockFilePath()
+	customDir := t.TempDir()
+	path := lockFilePathWith(func(key string) string {
+		if key == "XDG_RUNTIME_DIR" {
+			return customDir
+		}
+		return ""
+	})
 	expected := filepath.Join(customDir, lockFileName)
 	if path != expected {
-		t.Errorf("lockFilePath() = %q, want %q", path, expected)
-	}
-
-	lock, err := acquireRunLock()
-	if err != nil {
-		t.Fatalf("acquireRunLock() with custom XDG_RUNTIME_DIR: %v", err)
-	}
-	defer lock.Release()
-
-	// Verify the lock file was created in the custom directory.
-	if _, statErr := os.Stat(expected); statErr != nil {
-		t.Errorf("lock file not found at %s: %v", expected, statErr)
+		t.Errorf("lockFilePathWith() = %q, want %q", path, expected)
 	}
 }

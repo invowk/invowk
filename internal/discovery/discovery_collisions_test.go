@@ -9,12 +9,13 @@ import (
 	"testing"
 
 	"github.com/invowk/invowk/internal/config"
-	"github.com/invowk/invowk/internal/testutil"
 	"github.com/invowk/invowk/pkg/invowkfile"
 	"github.com/invowk/invowk/pkg/invowkmod"
 )
 
 func TestDiscoveredCommandSet_Add(t *testing.T) {
+	t.Parallel()
+
 	// Test T006: Add method
 	set := NewDiscoveredCommandSet()
 
@@ -66,6 +67,8 @@ func TestDiscoveredCommandSet_Add(t *testing.T) {
 }
 
 func TestDiscoveredCommandSet_Analyze_NoConflicts(t *testing.T) {
+	t.Parallel()
+
 	// Test T007: Analyze method with no conflicts
 	set := NewDiscoveredCommandSet()
 
@@ -100,6 +103,8 @@ func TestDiscoveredCommandSet_Analyze_NoConflicts(t *testing.T) {
 }
 
 func TestDiscoveredCommandSet_Analyze_WithConflicts(t *testing.T) {
+	t.Parallel()
+
 	// Test T007: Analyze method with conflicts
 	set := NewDiscoveredCommandSet()
 
@@ -139,6 +144,8 @@ func TestDiscoveredCommandSet_Analyze_WithConflicts(t *testing.T) {
 }
 
 func TestDiscoveredCommandSet_Analyze_SameNameSameSource(t *testing.T) {
+	t.Parallel()
+
 	// Test: Multiple commands with same name from same source are NOT ambiguous
 	// (This could happen with command overloading or errors)
 	set := NewDiscoveredCommandSet()
@@ -155,6 +162,8 @@ func TestDiscoveredCommandSet_Analyze_SameNameSameSource(t *testing.T) {
 }
 
 func TestDiscoveredCommandSet_MultiSourceAggregation(t *testing.T) {
+	t.Parallel()
+
 	// Test T011: Multi-source aggregation for User Story 1
 	// Simulates commands from invowkfile + two modules
 
@@ -258,6 +267,8 @@ func TestDiscoveredCommandSet_MultiSourceAggregation(t *testing.T) {
 }
 
 func TestDiscoveredCommandSet_HierarchicalAmbiguity(t *testing.T) {
+	t.Parallel()
+
 	// Test T035: Hierarchical command ambiguity detection (User Story 4)
 	// Tests that subcommands like "deploy staging" are tracked separately from "deploy"
 	// and ambiguity is detected at the correct hierarchical level
@@ -365,6 +376,8 @@ func TestDiscoveredCommandSet_HierarchicalAmbiguity(t *testing.T) {
 }
 
 func TestModuleCollisionError(t *testing.T) {
+	t.Parallel()
+
 	err := &ModuleCollisionError{
 		ModuleID:     "io.example.tools",
 		FirstSource:  "/path/to/first",
@@ -391,10 +404,14 @@ func TestModuleCollisionError(t *testing.T) {
 }
 
 func TestCheckModuleCollisions(t *testing.T) {
+	t.Parallel()
+
 	cfg := config.DefaultConfig()
 	d := New(cfg)
 
 	t.Run("NoCollision", func(t *testing.T) {
+		t.Parallel()
+
 		files := []*DiscoveredFile{
 			{
 				Path:       "/path/to/module1",
@@ -413,6 +430,8 @@ func TestCheckModuleCollisions(t *testing.T) {
 	})
 
 	t.Run("WithCollision", func(t *testing.T) {
+		t.Parallel()
+
 		files := []*DiscoveredFile{
 			{
 				Path:       "/path/to/module1",
@@ -439,6 +458,8 @@ func TestCheckModuleCollisions(t *testing.T) {
 	})
 
 	t.Run("CollisionResolvedByAlias", func(t *testing.T) {
+		t.Parallel()
+
 		cfg := config.DefaultConfig()
 		cfg.Includes = []config.IncludeEntry{
 			{Path: "/path/to/module1.invowkmod", Alias: "io.example.alias1"},
@@ -465,6 +486,8 @@ func TestCheckModuleCollisions(t *testing.T) {
 	})
 
 	t.Run("SkipsFilesWithErrors", func(t *testing.T) {
+		t.Parallel()
+
 		files := []*DiscoveredFile{
 			{
 				Path:       "/path/to/module1",
@@ -483,6 +506,8 @@ func TestCheckModuleCollisions(t *testing.T) {
 	})
 
 	t.Run("SkipsFilesWithoutModuleID", func(t *testing.T) {
+		t.Parallel()
+
 		files := []*DiscoveredFile{
 			{
 				Path:       "/path/to/module1",
@@ -502,7 +527,11 @@ func TestCheckModuleCollisions(t *testing.T) {
 }
 
 func TestGetEffectiveModuleID(t *testing.T) {
+	t.Parallel()
+
 	t.Run("WithoutAlias", func(t *testing.T) {
+		t.Parallel()
+
 		cfg := config.DefaultConfig()
 		d := New(cfg)
 
@@ -518,6 +547,8 @@ func TestGetEffectiveModuleID(t *testing.T) {
 	})
 
 	t.Run("WithAlias", func(t *testing.T) {
+		t.Parallel()
+
 		cfg := config.DefaultConfig()
 		cfg.Includes = []config.IncludeEntry{
 			{Path: "/path/to/module.invowkmod", Alias: "io.example.aliased"},
@@ -537,6 +568,8 @@ func TestGetEffectiveModuleID(t *testing.T) {
 	})
 
 	t.Run("WithNilInvowkfile", func(t *testing.T) {
+		t.Parallel()
+
 		cfg := config.DefaultConfig()
 		d := New(cfg)
 
@@ -553,10 +586,11 @@ func TestGetEffectiveModuleID(t *testing.T) {
 }
 
 func TestDiscoverAll_CurrentDirInvowkfileTakesPrecedenceOverModule(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 
 	// Create a regular invowkfile in current directory
-	// Standalone invowkfiles cannot have module/version - those fields only go in invowkmod.cue
 	currentContent := `
 cmds: [{name: "cmd", implementations: [{script: "echo current", runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}]}]}]
 `
@@ -568,16 +602,11 @@ cmds: [{name: "cmd", implementations: [{script: "echo current", runtimes: [{name
 	moduleDir := filepath.Join(tmpDir, "apack.invowkmod")
 	createValidCollisionTestModule(t, moduleDir, "apack", "cmd")
 
-	// Change to temp directory
-	restoreWd := testutil.MustChdir(t, tmpDir)
-	defer restoreWd()
-
-	// Override HOME
-	cleanupHome := testutil.SetHomeDir(t, tmpDir)
-	defer cleanupHome()
-
 	cfg := config.DefaultConfig()
-	d := New(cfg)
+	d := New(cfg,
+		WithBaseDir(tmpDir),
+		WithCommandsDir(filepath.Join(tmpDir, ".invowk", "cmds")),
+	)
 
 	files, err := d.DiscoverAll()
 	if err != nil {
@@ -614,6 +643,8 @@ cmds: [{name: "cmd", implementations: [{script: "echo current", runtimes: [{name
 }
 
 func TestDiscoverAll_SkipsReservedModuleName(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 
 	// Create invowkfile.cue in tmpDir
@@ -662,20 +693,17 @@ version: "1.0.0"
 		t.Fatalf("failed to create invowkfile.cue: %v", err)
 	}
 
-	// Change to temp directory
-	restoreWd := testutil.MustChdir(t, tmpDir)
-	defer restoreWd()
-
-	// Set HOME to isolated directory
+	// Set HOME to isolated directory to avoid user-dir interference
 	homeDir := filepath.Join(tmpDir, "home")
 	if err := os.MkdirAll(homeDir, 0o755); err != nil {
 		t.Fatalf("failed to create home dir: %v", err)
 	}
-	restoreHome := testutil.SetHomeDir(t, homeDir)
-	defer restoreHome()
 
 	cfg := config.DefaultConfig()
-	d := New(cfg)
+	d := New(cfg,
+		WithBaseDir(tmpDir),
+		WithCommandsDir(filepath.Join(homeDir, ".invowk", "cmds")),
+	)
 
 	files, err := d.DiscoverAll()
 	if err != nil {

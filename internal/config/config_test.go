@@ -263,16 +263,14 @@ func TestLoadAndSave(t *testing.T) {
 }
 
 func TestLoad_ReturnsDefaultsWhenNoConfigFile(t *testing.T) {
+	t.Parallel()
 	// Use a temp directory with no config file
 	tmpDir := t.TempDir()
 	configDir := filepath.Join(tmpDir, AppName)
 
-	// Change to temp dir to avoid loading config from current directory
-	restoreWd := testutil.MustChdir(t, tmpDir)
-	defer restoreWd()
-
 	cfg, _, err := loadWithOptions(context.Background(), LoadOptions{
 		ConfigDirPath: configDir,
+		BaseDir:       tmpDir,
 	})
 	if err != nil {
 		t.Fatalf("loadWithOptions() returned error: %v", err)
@@ -324,6 +322,7 @@ func TestCreateDefaultConfig(t *testing.T) {
 }
 
 func TestLoad_EmptyFile(t *testing.T) {
+	t.Parallel()
 	// An empty config.cue should not error — it should produce defaults.
 	tmpDir := t.TempDir()
 	configDir := filepath.Join(tmpDir, AppName)
@@ -336,11 +335,9 @@ func TestLoad_EmptyFile(t *testing.T) {
 		t.Fatalf("failed to write empty config: %v", err)
 	}
 
-	restoreWd := testutil.MustChdir(t, tmpDir)
-	defer restoreWd()
-
 	cfg, _, err := loadWithOptions(context.Background(), LoadOptions{
 		ConfigDirPath: configDir,
+		BaseDir:       tmpDir,
 	})
 	if err != nil {
 		t.Fatalf("loadWithOptions() returned error for empty config: %v", err)
@@ -360,6 +357,7 @@ func TestLoad_EmptyFile(t *testing.T) {
 }
 
 func TestLoad_UnknownFields_Ignored(t *testing.T) {
+	t.Parallel()
 	// A config.cue with valid fields plus unknown fields should load gracefully.
 	// This tests forward-compatibility: adding new config fields shouldn't
 	// break older versions that don't recognize them.
@@ -377,14 +375,12 @@ some_future_field: "value"
 		t.Fatalf("failed to write config: %v", err)
 	}
 
-	restoreWd := testutil.MustChdir(t, tmpDir)
-	defer restoreWd()
-
 	// The CUE schema may reject unknown fields or may ignore them.
 	// Either behavior is acceptable; the key invariant is that the
 	// function does not panic or return a nil config without an error.
 	cfg, _, err := loadWithOptions(context.Background(), LoadOptions{
 		ConfigDirPath: configDir,
+		BaseDir:       tmpDir,
 	})
 	if err != nil {
 		// CUE schema rejects unknown fields — this is acceptable behavior.
@@ -402,6 +398,7 @@ some_future_field: "value"
 }
 
 func TestLoad_MalformedCUE_PartiallyValid(t *testing.T) {
+	t.Parallel()
 	// Completely broken CUE syntax must return an error.
 	tmpDir := t.TempDir()
 	configDir := filepath.Join(tmpDir, AppName)
@@ -414,11 +411,9 @@ func TestLoad_MalformedCUE_PartiallyValid(t *testing.T) {
 		t.Fatalf("failed to write malformed config: %v", err)
 	}
 
-	restoreWd := testutil.MustChdir(t, tmpDir)
-	defer restoreWd()
-
 	_, _, err := loadWithOptions(context.Background(), LoadOptions{
 		ConfigDirPath: configDir,
+		BaseDir:       tmpDir,
 	})
 	if err == nil {
 		t.Fatal("expected loadWithOptions() to return error for malformed CUE syntax")
@@ -430,6 +425,7 @@ func TestLoad_MalformedCUE_PartiallyValid(t *testing.T) {
 }
 
 func TestLoad_ActionableErrorFormat(t *testing.T) {
+	t.Parallel()
 	// Create a temp directory with an invalid config file
 	tmpDir := t.TempDir()
 	configDir := filepath.Join(tmpDir, AppName)
@@ -444,13 +440,10 @@ func TestLoad_ActionableErrorFormat(t *testing.T) {
 		t.Fatalf("failed to write invalid config: %v", err)
 	}
 
-	// Change to temp dir to avoid loading config from current directory
-	restoreWd := testutil.MustChdir(t, tmpDir)
-	defer restoreWd()
-
 	// loadWithOptions should fail with actionable error
 	_, _, err := loadWithOptions(context.Background(), LoadOptions{
 		ConfigDirPath: configDir,
+		BaseDir:       tmpDir,
 	})
 	if err == nil {
 		t.Fatal("expected loadWithOptions() to return error for invalid config")
@@ -464,6 +457,7 @@ func TestLoad_ActionableErrorFormat(t *testing.T) {
 }
 
 func TestLoad_CustomPath_Valid(t *testing.T) {
+	t.Parallel()
 	// Create a temp directory with a valid config file
 	tmpDir := t.TempDir()
 	customConfigPath := filepath.Join(tmpDir, "custom-config.cue")
@@ -476,13 +470,10 @@ default_runtime: "virtual"
 		t.Fatalf("failed to write custom config: %v", err)
 	}
 
-	// Change to temp dir to avoid loading config from current directory
-	restoreWd := testutil.MustChdir(t, tmpDir)
-	defer restoreWd()
-
 	// Load using custom path via LoadOptions
 	cfg, resolvedPath, err := loadWithOptions(context.Background(), LoadOptions{
 		ConfigFilePath: customConfigPath,
+		BaseDir:        tmpDir,
 	})
 	if err != nil {
 		t.Fatalf("loadWithOptions() returned error: %v", err)
@@ -532,6 +523,7 @@ func TestLoad_CustomPath_NotFound_ReturnsError(t *testing.T) {
 }
 
 func TestNewProvider_Load(t *testing.T) {
+	t.Parallel()
 	tmpDir := t.TempDir()
 	configDir := filepath.Join(tmpDir, AppName)
 	if err := os.MkdirAll(configDir, 0o755); err != nil {
@@ -546,14 +538,13 @@ default_runtime: "virtual"
 		t.Fatalf("failed to write config: %v", err)
 	}
 
-	restoreWd := testutil.MustChdir(t, tmpDir)
-	defer restoreWd()
-
 	provider := NewProvider()
 
 	t.Run("loads config from directory", func(t *testing.T) {
+		t.Parallel()
 		cfg, err := provider.Load(context.Background(), LoadOptions{
 			ConfigDirPath: configDir,
+			BaseDir:       tmpDir,
 		})
 		if err != nil {
 			t.Fatalf("Provider.Load() returned error: %v", err)
@@ -568,8 +559,10 @@ default_runtime: "virtual"
 	})
 
 	t.Run("loads config from explicit file path", func(t *testing.T) {
+		t.Parallel()
 		cfg, err := provider.Load(context.Background(), LoadOptions{
 			ConfigFilePath: cfgPath,
+			BaseDir:        tmpDir,
 		})
 		if err != nil {
 			t.Fatalf("Provider.Load() returned error: %v", err)
@@ -581,9 +574,11 @@ default_runtime: "virtual"
 	})
 
 	t.Run("returns defaults when no config exists", func(t *testing.T) {
+		t.Parallel()
 		emptyDir := t.TempDir()
 		cfg, err := provider.Load(context.Background(), LoadOptions{
 			ConfigDirPath: emptyDir,
+			BaseDir:       emptyDir,
 		})
 		if err != nil {
 			t.Fatalf("Provider.Load() returned error: %v", err)
@@ -596,6 +591,7 @@ default_runtime: "virtual"
 	})
 
 	t.Run("returns error for non-existent explicit path", func(t *testing.T) {
+		t.Parallel()
 		_, err := provider.Load(context.Background(), LoadOptions{
 			ConfigFilePath: "/this/path/does/not/exist.cue",
 		})

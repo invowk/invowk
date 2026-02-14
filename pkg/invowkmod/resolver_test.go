@@ -9,8 +9,6 @@ import (
 	"path/filepath"
 	"slices"
 	"testing"
-
-	"github.com/invowk/invowk/internal/testutil"
 )
 
 func TestModuleRefKey(t *testing.T) {
@@ -95,36 +93,38 @@ func TestModuleRefString(t *testing.T) {
 }
 
 func TestGetDefaultCacheDir(t *testing.T) {
-	// Save original env
-	originalEnv := os.Getenv(ModuleCachePathEnv)
-	defer func() { _ = os.Setenv(ModuleCachePathEnv, originalEnv) }() // Test cleanup; error non-critical
+	t.Parallel()
 
 	t.Run("with env var", func(t *testing.T) {
-		customPath := "/custom/path/to/modules"
-		restoreEnv := testutil.MustSetenv(t, ModuleCachePathEnv, customPath)
-		defer restoreEnv()
+		t.Parallel()
 
-		result, err := GetDefaultCacheDir()
+		customPath := "/custom/path/to/modules"
+		result, err := GetDefaultCacheDirWith(func(key string) string {
+			if key == ModuleCachePathEnv {
+				return customPath
+			}
+			return ""
+		})
 		if err != nil {
-			t.Fatalf("GetDefaultCacheDir() error = %v", err)
+			t.Fatalf("GetDefaultCacheDirWith() error = %v", err)
 		}
 		if result != customPath {
-			t.Errorf("GetDefaultCacheDir() = %q, want %q", result, customPath)
+			t.Errorf("GetDefaultCacheDirWith() = %q, want %q", result, customPath)
 		}
 	})
 
 	t.Run("without env var", func(t *testing.T) {
-		testutil.MustUnsetenv(t, ModuleCachePathEnv)
+		t.Parallel()
 
-		result, err := GetDefaultCacheDir()
+		result, err := GetDefaultCacheDirWith(func(string) string { return "" })
 		if err != nil {
-			t.Fatalf("GetDefaultCacheDir() error = %v", err)
+			t.Fatalf("GetDefaultCacheDirWith() error = %v", err)
 		}
 
 		homeDir, _ := os.UserHomeDir()
 		expected := filepath.Join(homeDir, ".invowk", DefaultModulesDir)
 		if result != expected {
-			t.Errorf("GetDefaultCacheDir() = %q, want %q", result, expected)
+			t.Errorf("GetDefaultCacheDirWith() = %q, want %q", result, expected)
 		}
 	})
 }

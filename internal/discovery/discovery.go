@@ -5,6 +5,7 @@ package discovery
 import (
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 
 	"github.com/invowk/invowk/internal/config"
@@ -26,9 +27,18 @@ type (
 	// Discovery is the stateless entry point for file discovery, command set building,
 	// and single-command lookup. Each method creates fresh state from the config rather
 	// than caching results, which is appropriate for a short-lived CLI process.
+	//
+	// The baseDir and commandsDir fields replace hardcoded "." and config.CommandsDir()
+	// calls, enabling tests to inject explicit directories instead of relying on
+	// process-global os.Chdir (which prevents t.Parallel()).
 	Discovery struct {
-		cfg *config.Config
+		cfg         *config.Config
+		baseDir     string // replaces hardcoded "." — resolved once at construction
+		commandsDir string // replaces config.CommandsDir() call
 	}
+
+	// Option configures a Discovery instance via the functional options pattern.
+	Option func(*Discovery)
 )
 
 // Error implements the error interface.
@@ -46,9 +56,41 @@ func (e *ModuleCollisionError) Error() string {
 // Unwrap returns nil; ModuleCollisionError has no underlying cause.
 func (e *ModuleCollisionError) Unwrap() error { return nil }
 
-// New creates a new Discovery instance
-func New(cfg *config.Config) *Discovery {
-	return &Discovery{cfg: cfg}
+// WithBaseDir sets the base directory for discovery, replacing the default of
+// os.Getwd(). This enables parallel tests to inject isolated temp directories
+// instead of relying on the process-global working directory.
+func WithBaseDir(dir string) Option {
+	return func(d *Discovery) {
+		d.baseDir = dir
+	}
+}
+
+// WithCommandsDir sets the user commands directory, replacing the default of
+// config.CommandsDir() (~/.invowk/cmds). Pass an empty string to skip user-dir
+// discovery entirely.
+func WithCommandsDir(dir string) Option {
+	return func(d *Discovery) {
+		d.commandsDir = dir
+	}
+}
+
+// New creates a new Discovery instance. Without options, baseDir defaults to
+// os.Getwd() and commandsDir defaults to config.CommandsDir(), preserving
+// backward compatibility for all existing callers.
+func New(cfg *config.Config, opts ...Option) *Discovery {
+	d := &Discovery{cfg: cfg}
+	for _, opt := range opts {
+		opt(d)
+	}
+	if d.baseDir == "" {
+		d.baseDir, _ = os.Getwd()
+	}
+	if d.commandsDir == "" {
+		if dir, err := config.CommandsDir(); err == nil {
+			d.commandsDir = dir
+		}
+	}
+	return d
 }
 
 // LoadAll parses all discovered files into Invowkfile structs. Library-only modules

@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/invowk/invowk/internal/config"
 	"github.com/invowk/invowk/pkg/invowkfile"
 	"github.com/invowk/invowk/pkg/invowkmod"
 )
@@ -71,12 +70,12 @@ func (d *Discovery) discoverAllWithDiagnostics() ([]*DiscoveredFile, []Diagnosti
 	diagnostics := make([]Diagnostic, 0)
 
 	// 1. Current directory (highest precedence)
-	if cwdFile := d.discoverInDir(".", SourceCurrentDir); cwdFile != nil {
+	if cwdFile := d.discoverInDir(d.baseDir, SourceCurrentDir); cwdFile != nil {
 		files = append(files, cwdFile)
 	}
 
 	// 2. Modules in current directory
-	moduleFiles, moduleDiags := d.discoverModulesInDirWithDiagnostics(".")
+	moduleFiles, moduleDiags := d.discoverModulesInDirWithDiagnostics(d.baseDir)
 	files = append(files, moduleFiles...)
 	diagnostics = append(diagnostics, moduleDiags...)
 
@@ -86,9 +85,8 @@ func (d *Discovery) discoverAllWithDiagnostics() ([]*DiscoveredFile, []Diagnosti
 	diagnostics = append(diagnostics, includeDiags...)
 
 	// 4. User commands directory (~/.invowk/cmds — modules only, non-recursive)
-	userDir, err := config.CommandsDir()
-	if err == nil {
-		userModuleFiles, userModuleDiags := d.discoverModulesInDirWithDiagnostics(userDir)
+	if d.commandsDir != "" {
+		userModuleFiles, userModuleDiags := d.discoverModulesInDirWithDiagnostics(d.commandsDir)
 		files = append(files, userModuleFiles...)
 		diagnostics = append(diagnostics, userModuleDiags...)
 	}

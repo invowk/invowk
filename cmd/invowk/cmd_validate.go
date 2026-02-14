@@ -67,19 +67,19 @@ func validateDependencies(cfg *config.Config, cmdInfo *discovery.CommandInfo, re
 	if cmdInfo.Invowkfile.Metadata != nil {
 		currentModule = cmdInfo.Invowkfile.Metadata.Module
 	}
-	if err := checkCommandDependenciesExist(cfg, mergedDeps, currentModule, parentCtx); err != nil {
+	if err := checkCommandDependenciesExist(cfg, mergedDeps, currentModule, parentCtx, nil); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func checkCommandDependenciesExist(cfg *config.Config, deps *invowkfile.DependsOn, currentModule string, ctx *runtime.ExecutionContext) error {
+func checkCommandDependenciesExist(cfg *config.Config, deps *invowkfile.DependsOn, currentModule string, ctx *runtime.ExecutionContext, discoveryOpts []discovery.Option) error {
 	if deps == nil || len(deps.Commands) == 0 {
 		return nil
 	}
 
-	disc := discovery.New(cfg)
+	disc := discovery.New(cfg, discoveryOpts...)
 
 	discoverCtx := context.Background()
 	if ctx != nil && ctx.Context != nil {

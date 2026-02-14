@@ -149,8 +149,11 @@ func loadWithOptions(ctx context.Context, opts LoadOptions) (*Config, string, er
 			}
 			resolvedPath = cuePath
 		} else {
-			// Also check current directory
+			// Also check current directory (or BaseDir override)
 			localCuePath := ConfigFileName + "." + ConfigFileExt
+			if opts.BaseDir != "" {
+				localCuePath = filepath.Join(opts.BaseDir, localCuePath)
+			}
 			if fileExists(localCuePath) {
 				if err := loadCUEIntoViper(v, localCuePath); err != nil {
 					return nil, "", issue.NewErrorContext().

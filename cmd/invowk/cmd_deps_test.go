@@ -11,8 +11,8 @@ import (
 	"testing"
 
 	"github.com/invowk/invowk/internal/config"
+	"github.com/invowk/invowk/internal/discovery"
 	"github.com/invowk/invowk/internal/runtime"
-	"github.com/invowk/invowk/internal/testutil"
 	"github.com/invowk/invowk/internal/testutil/invowkfiletest"
 	"github.com/invowk/invowk/pkg/invowkfile"
 )
@@ -22,6 +22,8 @@ import (
 // ---------------------------------------------------------------------------
 
 func TestCheckToolDependencies_NoTools(t *testing.T) {
+	t.Parallel()
+
 	cmd := invowkfiletest.NewTestCommand("test", invowkfiletest.WithScript("echo hello"))
 
 	err := checkToolDependencies(cmd)
@@ -31,6 +33,8 @@ func TestCheckToolDependencies_NoTools(t *testing.T) {
 }
 
 func TestCheckToolDependencies_EmptyDependsOn(t *testing.T) {
+	t.Parallel()
+
 	cmd := invowkfiletest.NewTestCommand("test",
 		invowkfiletest.WithScript("echo hello"),
 		invowkfiletest.WithDependsOn(&invowkfile.DependsOn{}))
@@ -42,6 +46,8 @@ func TestCheckToolDependencies_EmptyDependsOn(t *testing.T) {
 }
 
 func TestCheckToolDependencies_ToolExists(t *testing.T) {
+	t.Parallel()
+
 	// Use a tool that should exist on any system
 	var existingTool string
 	for _, tool := range []string{"sh", "bash", "echo", "cat"} {
@@ -68,6 +74,8 @@ func TestCheckToolDependencies_ToolExists(t *testing.T) {
 }
 
 func TestCheckToolDependencies_ToolNotExists(t *testing.T) {
+	t.Parallel()
+
 	cmd := invowkfiletest.NewTestCommand("test",
 		invowkfiletest.WithScript("echo hello"),
 		invowkfiletest.WithDependsOn(&invowkfile.DependsOn{
@@ -94,6 +102,8 @@ func TestCheckToolDependencies_ToolNotExists(t *testing.T) {
 }
 
 func TestCheckToolDependencies_MultipleToolsNotExist(t *testing.T) {
+	t.Parallel()
+
 	cmd := invowkfiletest.NewTestCommand("test",
 		invowkfiletest.WithScript("echo hello"),
 		invowkfiletest.WithDependsOn(&invowkfile.DependsOn{
@@ -120,6 +130,8 @@ func TestCheckToolDependencies_MultipleToolsNotExist(t *testing.T) {
 }
 
 func TestCheckToolDependencies_MixedToolsExistAndNotExist(t *testing.T) {
+	t.Parallel()
+
 	// Find an existing tool
 	var existingTool string
 	for _, tool := range []string{"sh", "bash", "echo", "cat"} {
@@ -167,16 +179,9 @@ func TestCheckToolDependencies_MixedToolsExistAndNotExist(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestCheckCommandDependenciesExist_SatisfiedByLocalUnqualifiedName(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
-
-	originalWd, _ := os.Getwd()
-	if err := os.Chdir(tmpDir); err != nil {
-		t.Fatalf("failed to chdir to temp dir: %v", err)
-	}
-	t.Cleanup(func() { _ = os.Chdir(originalWd) })
-
-	homeCleanup := testutil.SetHomeDir(t, tmpDir)
-	t.Cleanup(homeCleanup)
 
 	// invowkfile.cue now only contains commands - module metadata is in invowkmod.cue
 	invowkfileContent := `cmds: [
@@ -205,23 +210,20 @@ func TestCheckCommandDependenciesExist_SatisfiedByLocalUnqualifiedName(t *testin
 	// Standalone invowkfile has no module identifier, so pass empty string
 	deps := &invowkfile.DependsOn{Commands: []invowkfile.CommandDependency{{Alternatives: []string{"build"}}}}
 	ctx := &runtime.ExecutionContext{Command: &invowkfile.Command{Name: "deploy"}}
+	discoveryOpts := []discovery.Option{
+		discovery.WithBaseDir(tmpDir),
+		discovery.WithCommandsDir(filepath.Join(tmpDir, ".invowk", "cmds")),
+	}
 
-	if err := checkCommandDependenciesExist(config.DefaultConfig(), deps, "", ctx); err != nil {
+	if err := checkCommandDependenciesExist(config.DefaultConfig(), deps, "", ctx, discoveryOpts); err != nil {
 		t.Fatalf("expected nil, got %v", err)
 	}
 }
 
 func TestCheckCommandDependenciesExist_SatisfiedByModuleFromUserDir(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
-
-	originalWd, _ := os.Getwd()
-	if err := os.Chdir(tmpDir); err != nil {
-		t.Fatalf("failed to chdir to temp dir: %v", err)
-	}
-	t.Cleanup(func() { _ = os.Chdir(originalWd) })
-
-	homeCleanup := testutil.SetHomeDir(t, tmpDir)
-	t.Cleanup(homeCleanup)
 
 	// Root invowkfile with a command that depends on a user-dir module command
 	invowkfileContent := `cmds: [{
@@ -237,8 +239,9 @@ func TestCheckCommandDependenciesExist_SatisfiedByModuleFromUserDir(t *testing.T
 		t.Fatalf("failed to write invowkfile: %v", err)
 	}
 
-	// Create a module in ~/.invowk/cmds/ (user-dir discovers modules only)
-	userModuleDir := filepath.Join(tmpDir, ".invowk", "cmds", "shared.invowkmod")
+	// Create a module in the user commands directory
+	userCmdsDir := filepath.Join(tmpDir, ".invowk", "cmds")
+	userModuleDir := filepath.Join(userCmdsDir, "shared.invowkmod")
 	if err := os.MkdirAll(userModuleDir, 0o755); err != nil {
 		t.Fatalf("failed to create user module dir: %v", err)
 	}
@@ -264,23 +267,20 @@ version: "1.0.0"
 	// Module command is prefixed: "shared generate-types"
 	deps := &invowkfile.DependsOn{Commands: []invowkfile.CommandDependency{{Alternatives: []string{"shared generate-types"}}}}
 	ctx := &runtime.ExecutionContext{Command: &invowkfile.Command{Name: "deploy"}}
+	discoveryOpts := []discovery.Option{
+		discovery.WithBaseDir(tmpDir),
+		discovery.WithCommandsDir(userCmdsDir),
+	}
 
-	if err := checkCommandDependenciesExist(config.DefaultConfig(), deps, "", ctx); err != nil {
+	if err := checkCommandDependenciesExist(config.DefaultConfig(), deps, "", ctx, discoveryOpts); err != nil {
 		t.Fatalf("expected nil, got %v", err)
 	}
 }
 
 func TestCheckCommandDependenciesExist_MissingCommand(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
-
-	originalWd, _ := os.Getwd()
-	if err := os.Chdir(tmpDir); err != nil {
-		t.Fatalf("failed to chdir to temp dir: %v", err)
-	}
-	t.Cleanup(func() { _ = os.Chdir(originalWd) })
-
-	homeCleanup := testutil.SetHomeDir(t, tmpDir)
-	t.Cleanup(homeCleanup)
 
 	// invowkfile.cue now only contains commands - module metadata is in invowkmod.cue
 	invowkfileContent := `cmds: [{
@@ -298,8 +298,12 @@ func TestCheckCommandDependenciesExist_MissingCommand(t *testing.T) {
 
 	deps := &invowkfile.DependsOn{Commands: []invowkfile.CommandDependency{{Alternatives: []string{"build"}}}}
 	ctx := &runtime.ExecutionContext{Command: &invowkfile.Command{Name: "deploy"}}
+	discoveryOpts := []discovery.Option{
+		discovery.WithBaseDir(tmpDir),
+		discovery.WithCommandsDir(filepath.Join(tmpDir, ".invowk", "cmds")),
+	}
 
-	err := checkCommandDependenciesExist(config.DefaultConfig(), deps, "", ctx)
+	err := checkCommandDependenciesExist(config.DefaultConfig(), deps, "", ctx, discoveryOpts)
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
@@ -322,6 +326,8 @@ func TestCheckCommandDependenciesExist_MissingCommand(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestCheckCustomChecks_Success(t *testing.T) {
+	t.Parallel()
+
 	cmd := invowkfiletest.NewTestCommand("test",
 		invowkfiletest.WithScript("echo hello"),
 		invowkfiletest.WithDependsOn(&invowkfile.DependsOn{
@@ -341,6 +347,8 @@ func TestCheckCustomChecks_Success(t *testing.T) {
 }
 
 func TestCheckCustomChecks_WrongExitCode(t *testing.T) {
+	t.Parallel()
+
 	cmd := invowkfiletest.NewTestCommand("test",
 		invowkfiletest.WithScript("echo hello"),
 		invowkfiletest.WithDependsOn(&invowkfile.DependsOn{
@@ -369,6 +377,8 @@ func TestCheckCustomChecks_WrongExitCode(t *testing.T) {
 }
 
 func TestCheckCustomChecks_ExpectedNonZeroCode(t *testing.T) {
+	t.Parallel()
+
 	cmd := invowkfiletest.NewTestCommand("test",
 		invowkfiletest.WithScript("echo hello"),
 		invowkfiletest.WithDependsOn(&invowkfile.DependsOn{
@@ -388,6 +398,8 @@ func TestCheckCustomChecks_ExpectedNonZeroCode(t *testing.T) {
 }
 
 func TestCheckCustomChecks_OutputMatch(t *testing.T) {
+	t.Parallel()
+
 	cmd := invowkfiletest.NewTestCommand("test",
 		invowkfiletest.WithScript("echo hello"),
 		invowkfiletest.WithDependsOn(&invowkfile.DependsOn{
@@ -407,6 +419,8 @@ func TestCheckCustomChecks_OutputMatch(t *testing.T) {
 }
 
 func TestCheckCustomChecks_OutputNoMatch(t *testing.T) {
+	t.Parallel()
+
 	cmd := invowkfiletest.NewTestCommand("test",
 		invowkfiletest.WithScript("echo hello"),
 		invowkfiletest.WithDependsOn(&invowkfile.DependsOn{
@@ -435,6 +449,8 @@ func TestCheckCustomChecks_OutputNoMatch(t *testing.T) {
 }
 
 func TestCheckCustomChecks_BothCodeAndOutput(t *testing.T) {
+	t.Parallel()
+
 	cmd := invowkfiletest.NewTestCommand("test",
 		invowkfiletest.WithScript("echo hello"),
 		invowkfiletest.WithDependsOn(&invowkfile.DependsOn{
@@ -455,6 +471,8 @@ func TestCheckCustomChecks_BothCodeAndOutput(t *testing.T) {
 }
 
 func TestCheckCustomChecks_InvalidRegex(t *testing.T) {
+	t.Parallel()
+
 	cmd := invowkfiletest.NewTestCommand("test",
 		invowkfiletest.WithScript("echo hello"),
 		invowkfiletest.WithDependsOn(&invowkfile.DependsOn{

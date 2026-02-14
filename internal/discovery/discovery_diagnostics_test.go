@@ -9,17 +9,12 @@ import (
 	"testing"
 
 	"github.com/invowk/invowk/internal/config"
-	"github.com/invowk/invowk/internal/testutil"
 )
 
 func TestDiscoverCommandSet_DiagnosticsForInvalidIncludePath(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
-
-	restoreWd := testutil.MustChdir(t, tmpDir)
-	defer restoreWd()
-
-	cleanupHome := testutil.SetHomeDir(t, tmpDir)
-	defer cleanupHome()
 
 	invalidInclude := filepath.Join(tmpDir, "not-a-module")
 	cfg := config.DefaultConfig()
@@ -27,7 +22,10 @@ func TestDiscoverCommandSet_DiagnosticsForInvalidIncludePath(t *testing.T) {
 		{Path: invalidInclude},
 	}
 
-	d := New(cfg)
+	d := New(cfg,
+		WithBaseDir(tmpDir),
+		WithCommandsDir(filepath.Join(tmpDir, ".invowk", "cmds")),
+	)
 	result, err := d.DiscoverCommandSet(context.Background())
 	if err != nil {
 		t.Fatalf("DiscoverCommandSet() returned error: %v", err)
@@ -39,13 +37,9 @@ func TestDiscoverCommandSet_DiagnosticsForInvalidIncludePath(t *testing.T) {
 }
 
 func TestDiscoverCommandSet_DiagnosticsForReservedIncludeModuleName(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
-
-	restoreWd := testutil.MustChdir(t, tmpDir)
-	defer restoreWd()
-
-	cleanupHome := testutil.SetHomeDir(t, tmpDir)
-	defer cleanupHome()
 
 	reservedModulePath := filepath.Join(tmpDir, "invowkfile.invowkmod")
 	if err := os.MkdirAll(reservedModulePath, 0o755); err != nil {
@@ -57,7 +51,10 @@ func TestDiscoverCommandSet_DiagnosticsForReservedIncludeModuleName(t *testing.T
 		{Path: reservedModulePath},
 	}
 
-	d := New(cfg)
+	d := New(cfg,
+		WithBaseDir(tmpDir),
+		WithCommandsDir(filepath.Join(tmpDir, ".invowk", "cmds")),
+	)
 	result, err := d.DiscoverCommandSet(context.Background())
 	if err != nil {
 		t.Fatalf("DiscoverCommandSet() returned error: %v", err)
@@ -69,13 +66,9 @@ func TestDiscoverCommandSet_DiagnosticsForReservedIncludeModuleName(t *testing.T
 }
 
 func TestDiscoverCommandSet_DiagnosticsForInvalidIncludedModule(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
-
-	restoreWd := testutil.MustChdir(t, tmpDir)
-	defer restoreWd()
-
-	cleanupHome := testutil.SetHomeDir(t, tmpDir)
-	defer cleanupHome()
 
 	modulePath := filepath.Join(tmpDir, "broken.invowkmod")
 	if err := os.MkdirAll(modulePath, 0o755); err != nil {
@@ -95,7 +88,10 @@ func TestDiscoverCommandSet_DiagnosticsForInvalidIncludedModule(t *testing.T) {
 		{Path: modulePath},
 	}
 
-	d := New(cfg)
+	d := New(cfg,
+		WithBaseDir(tmpDir),
+		WithCommandsDir(filepath.Join(tmpDir, ".invowk", "cmds")),
+	)
 	result, err := d.DiscoverCommandSet(context.Background())
 	if err != nil {
 		t.Fatalf("DiscoverCommandSet() returned error: %v", err)

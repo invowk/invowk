@@ -32,7 +32,11 @@ type (
 	}
 
 	// DefaultEnvBuilder implements the standard 10-level precedence for environment building.
-	DefaultEnvBuilder struct{}
+	DefaultEnvBuilder struct {
+		// Environ returns the host environment as "KEY=VALUE" strings.
+		// When nil, os.Environ() is used.
+		Environ func() []string
+	}
 
 	// MockEnvBuilder is a test helper that returns a fixed environment map.
 	// It can be used to test runtimes in isolation without real env building.
@@ -54,6 +58,7 @@ func NewDefaultEnvBuilder() *DefaultEnvBuilder {
 // overridden by runtime config or CLI flags.
 func (b *DefaultEnvBuilder) Build(ctx *ExecutionContext, defaultMode invowkfile.EnvInheritMode) (map[string]string, error) {
 	cfg := resolveEnvInheritConfig(ctx, defaultMode)
+	cfg.environ = b.Environ // pass through (nil is fine — buildHostEnv defaults to os.Environ)
 	env := buildHostEnv(cfg)
 
 	// Determine the base path for resolving env files
@@ -94,7 +99,7 @@ func (b *DefaultEnvBuilder) Build(ctx *ExecutionContext, defaultMode invowkfile.
 
 	// 9. Runtime --ivk-env-file flag files
 	for _, path := range ctx.Env.RuntimeEnvFiles {
-		if err := LoadEnvFileFromCwd(env, path); err != nil {
+		if err := LoadEnvFileFromCwd(env, path, ctx.Env.Cwd); err != nil {
 			return nil, err
 		}
 	}

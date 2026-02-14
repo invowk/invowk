@@ -58,6 +58,9 @@ type (
 		InheritAllowOverride []string
 		// InheritDenyOverride overrides the runtime config denylist when set.
 		InheritDenyOverride []string
+		// Cwd overrides the working directory for --ivk-env-file path resolution.
+		// When empty, os.Getwd() is used.
+		Cwd string
 	}
 
 	// TUIContext holds TUI server connection details for interactive mode.

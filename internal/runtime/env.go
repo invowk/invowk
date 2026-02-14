@@ -15,9 +15,10 @@ import (
 // → CLI flag overrides. Each level can independently override mode, allow list,
 // and deny list.
 type envInheritConfig struct {
-	mode  invowkfile.EnvInheritMode
-	allow []string
-	deny  []string
+	mode    invowkfile.EnvInheritMode
+	allow   []string
+	deny    []string
+	environ func() []string // when nil, defaults to os.Environ
 }
 
 // resolveEnvInheritConfig applies the 3-level precedence chain to produce a final
@@ -76,7 +77,12 @@ func buildHostEnv(cfg envInheritConfig) map[string]string {
 		denySet[name] = struct{}{}
 	}
 
-	for _, entry := range FilterInvowkEnvVars(os.Environ()) {
+	environFn := cfg.environ
+	if environFn == nil {
+		environFn = os.Environ
+	}
+
+	for _, entry := range FilterInvowkEnvVars(environFn()) {
 		name, value, ok := strings.Cut(entry, "=")
 		if !ok {
 			continue
