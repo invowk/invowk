@@ -69,6 +69,8 @@ func (m *mockEngine) RemoveImage(_ context.Context, _ string, _ bool) error {
 // --- Provision Tests ---
 
 func TestLayerProvisioner_Provision_Disabled(t *testing.T) {
+	t.Parallel()
+
 	engine := newMockEngine()
 	cfg := &Config{
 		Enabled:          false,
@@ -102,6 +104,8 @@ func TestLayerProvisioner_Provision_Disabled(t *testing.T) {
 }
 
 func TestLayerProvisioner_Provision_CacheHit(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 
 	// Create a fake binary so hash calculation succeeds
@@ -147,6 +151,8 @@ func TestLayerProvisioner_Provision_CacheHit(t *testing.T) {
 }
 
 func TestLayerProvisioner_Provision_ForceRebuild(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 
 	// Create a fake binary
@@ -199,6 +205,8 @@ func TestLayerProvisioner_Provision_ForceRebuild(t *testing.T) {
 }
 
 func TestLayerProvisioner_Provision_CacheMiss(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 
 	// Create a fake binary
@@ -241,6 +249,8 @@ func TestLayerProvisioner_Provision_CacheMiss(t *testing.T) {
 // --- GetProvisionedImageTag Tests ---
 
 func TestLayerProvisioner_GetProvisionedImageTag(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 
 	binaryPath := filepath.Join(tmpDir, "invowk")
@@ -290,6 +300,8 @@ func TestLayerProvisioner_GetProvisionedImageTag(t *testing.T) {
 // --- IsImageProvisioned Tests ---
 
 func TestLayerProvisioner_IsImageProvisioned(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 
 	binaryPath := filepath.Join(tmpDir, "invowk")
@@ -298,6 +310,8 @@ func TestLayerProvisioner_IsImageProvisioned(t *testing.T) {
 	}
 
 	t.Run("image exists", func(t *testing.T) {
+		t.Parallel()
+
 		engine := newMockEngine()
 		engine.imageExistsResult = true
 
@@ -321,6 +335,8 @@ func TestLayerProvisioner_IsImageProvisioned(t *testing.T) {
 	})
 
 	t.Run("image does not exist", func(t *testing.T) {
+		t.Parallel()
+
 		engine := newMockEngine()
 		engine.imageExistsResult = false
 
@@ -347,6 +363,8 @@ func TestLayerProvisioner_IsImageProvisioned(t *testing.T) {
 // --- calculateCacheKey Tests ---
 
 func TestLayerProvisioner_CalculateCacheKey_Determinism(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 
 	binaryPath := filepath.Join(tmpDir, "invowk")
@@ -383,6 +401,8 @@ func TestLayerProvisioner_CalculateCacheKey_Determinism(t *testing.T) {
 }
 
 func TestLayerProvisioner_CalculateCacheKey_DifferentInputs(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 
 	binary1 := filepath.Join(tmpDir, "invowk1")
@@ -398,6 +418,8 @@ func TestLayerProvisioner_CalculateCacheKey_DifferentInputs(t *testing.T) {
 	engine := newMockEngine()
 
 	t.Run("different base image", func(t *testing.T) {
+		t.Parallel()
+
 		cfg := &Config{
 			Enabled:          true,
 			InvowkBinaryPath: binary1,
@@ -422,6 +444,8 @@ func TestLayerProvisioner_CalculateCacheKey_DifferentInputs(t *testing.T) {
 	})
 
 	t.Run("different binary", func(t *testing.T) {
+		t.Parallel()
+
 		cfg1 := &Config{
 			Enabled:          true,
 			InvowkBinaryPath: binary1,
@@ -454,6 +478,8 @@ func TestLayerProvisioner_CalculateCacheKey_DifferentInputs(t *testing.T) {
 	})
 
 	t.Run("with modules", func(t *testing.T) {
+		t.Parallel()
+
 		modulesDir := filepath.Join(tmpDir, "modules")
 		modPath := filepath.Join(modulesDir, "test.invowkmod")
 		if err := os.MkdirAll(modPath, 0o755); err != nil {
@@ -497,6 +523,8 @@ func TestLayerProvisioner_CalculateCacheKey_DifferentInputs(t *testing.T) {
 }
 
 func TestLayerProvisioner_CalculateCacheKey_NoBinary(t *testing.T) {
+	t.Parallel()
+
 	engine := newMockEngine()
 	cfg := &Config{
 		Enabled:          true,
@@ -520,6 +548,8 @@ func TestLayerProvisioner_CalculateCacheKey_NoBinary(t *testing.T) {
 // --- prepareBuildContext Tests ---
 
 func TestLayerProvisioner_PrepareBuildContext(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 
 	binaryPath := filepath.Join(tmpDir, "invowk")
@@ -583,6 +613,8 @@ func TestLayerProvisioner_PrepareBuildContext(t *testing.T) {
 }
 
 func TestLayerProvisioner_PrepareBuildContext_NoBinary(t *testing.T) {
+	t.Parallel()
+
 	cfg := &Config{
 		Enabled:          true,
 		InvowkBinaryPath: "", // No binary
@@ -623,6 +655,8 @@ func TestLayerProvisioner_PrepareBuildContext_NoBinary(t *testing.T) {
 }
 
 func TestLayerProvisioner_PrepareBuildContext_Cleanup(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 
 	binaryPath := filepath.Join(tmpDir, "invowk")
@@ -661,6 +695,8 @@ func TestLayerProvisioner_PrepareBuildContext_Cleanup(t *testing.T) {
 // --- Config Options Coverage ---
 
 func TestConfigOptions_WithModulesPaths(t *testing.T) {
+	t.Parallel()
+
 	cfg := DefaultConfig()
 	paths := []string{"/path/to/modules1", "/path/to/modules2"}
 	cfg.Apply(WithModulesPaths(paths))
@@ -675,6 +711,8 @@ func TestConfigOptions_WithModulesPaths(t *testing.T) {
 }
 
 func TestConfigOptions_WithInvowkfilePath(t *testing.T) {
+	t.Parallel()
+
 	cfg := DefaultConfig()
 	cfg.Apply(WithInvowkfilePath("/path/to/invowkfile.cue"))
 
