@@ -15,6 +15,8 @@ import (
 )
 
 func TestGenerateToken(t *testing.T) {
+	t.Parallel()
+
 	srv := New(DefaultConfig())
 
 	token, err := srv.GenerateToken("test-command")
@@ -34,6 +36,8 @@ func TestGenerateToken(t *testing.T) {
 }
 
 func TestValidateToken(t *testing.T) {
+	t.Parallel()
+
 	srv := New(DefaultConfig())
 
 	token, err := srv.GenerateToken("test-command")
@@ -58,6 +62,8 @@ func TestValidateToken(t *testing.T) {
 }
 
 func TestRevokeToken(t *testing.T) {
+	t.Parallel()
+
 	srv := New(DefaultConfig())
 
 	token, err := srv.GenerateToken("test-command")
@@ -82,6 +88,8 @@ func TestRevokeToken(t *testing.T) {
 }
 
 func TestRevokeTokensForCommand(t *testing.T) {
+	t.Parallel()
+
 	srv := New(DefaultConfig())
 
 	// Generate multiple tokens for same command
@@ -118,6 +126,8 @@ func TestRevokeTokensForCommand(t *testing.T) {
 }
 
 func TestServerStartStop(t *testing.T) {
+	t.Parallel()
+
 	cfg := DefaultConfig()
 	cfg.Port = 0 // Auto-select port
 
@@ -169,6 +179,8 @@ func TestServerStartStop(t *testing.T) {
 }
 
 func TestServerDoubleStart(t *testing.T) {
+	t.Parallel()
+
 	cfg := DefaultConfig()
 	cfg.Port = 0
 
@@ -188,6 +200,8 @@ func TestServerDoubleStart(t *testing.T) {
 }
 
 func TestServerDoubleStop(t *testing.T) {
+	t.Parallel()
+
 	cfg := DefaultConfig()
 	cfg.Port = 0
 
@@ -210,6 +224,8 @@ func TestServerDoubleStop(t *testing.T) {
 }
 
 func TestGetConnectionInfo(t *testing.T) {
+	t.Parallel()
+
 	cfg := DefaultConfig()
 	cfg.Port = 0
 
@@ -248,6 +264,8 @@ func TestGetConnectionInfo(t *testing.T) {
 }
 
 func TestExpiredToken(t *testing.T) {
+	t.Parallel()
+
 	cfg := DefaultConfig()
 	cfg.TokenTTL = 1 * time.Hour // Use a reasonable TTL; we control time via FakeClock
 
@@ -277,6 +295,8 @@ func TestExpiredToken(t *testing.T) {
 }
 
 func TestServerState(t *testing.T) {
+	t.Parallel()
+
 	cfg := DefaultConfig()
 	cfg.Port = 0
 
@@ -306,6 +326,8 @@ func TestServerState(t *testing.T) {
 }
 
 func TestServerStartWithCancelledContext(t *testing.T) {
+	t.Parallel()
+
 	cfg := DefaultConfig()
 	cfg.Port = 0
 
@@ -328,6 +350,8 @@ func TestServerStartWithCancelledContext(t *testing.T) {
 }
 
 func TestStopWithoutStart(t *testing.T) {
+	t.Parallel()
+
 	srv := New(DefaultConfig())
 
 	// Stop without Start should be safe
@@ -342,6 +366,8 @@ func TestStopWithoutStart(t *testing.T) {
 }
 
 func TestServerStateString(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		state    serverbase.State
 		expected string
@@ -363,6 +389,8 @@ func TestServerStateString(t *testing.T) {
 }
 
 func TestIsClosedConnError(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name string
 		err  error
@@ -377,6 +405,8 @@ func TestIsClosedConnError(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			if got := isClosedConnError(tt.err); got != tt.want {
 				t.Errorf("isClosedConnError() = %v, want %v", got, tt.want)
 			}
@@ -385,6 +415,8 @@ func TestIsClosedConnError(t *testing.T) {
 }
 
 func TestServerStartWithUsedPort(t *testing.T) {
+	t.Parallel()
+
 	cfg1 := DefaultConfig()
 	cfg1.Port = 0
 	srv1 := New(cfg1)
@@ -412,6 +444,8 @@ func TestServerStartWithUsedPort(t *testing.T) {
 }
 
 func TestServerAccessorsAfterStart(t *testing.T) {
+	t.Parallel()
+
 	cfg := DefaultConfig()
 	cfg.Port = 0
 	srv := New(cfg)
@@ -434,6 +468,8 @@ func TestServerAccessorsAfterStart(t *testing.T) {
 }
 
 func TestServerWaitAfterStop(t *testing.T) {
+	t.Parallel()
+
 	cfg := DefaultConfig()
 	cfg.Port = 0
 	srv := New(cfg)
@@ -453,6 +489,8 @@ func TestServerWaitAfterStop(t *testing.T) {
 }
 
 func TestServerWaitAfterFail(t *testing.T) {
+	t.Parallel()
+
 	cfg := DefaultConfig()
 	cfg.Port = 0
 	srv := New(cfg)
@@ -473,6 +511,8 @@ func TestServerWaitAfterFail(t *testing.T) {
 }
 
 func TestDefaultConfig(t *testing.T) {
+	t.Parallel()
+
 	cfg := DefaultConfig()
 
 	if cfg.Host != "127.0.0.1" {
