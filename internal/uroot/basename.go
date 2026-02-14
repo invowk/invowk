@@ -16,10 +16,6 @@ type basenameCommand struct {
 	flags []FlagInfo
 }
 
-func init() {
-	RegisterDefault(newBasenameCommand())
-}
-
 // newBasenameCommand creates a new basename command.
 func newBasenameCommand() *basenameCommand {
 	return &basenameCommand{

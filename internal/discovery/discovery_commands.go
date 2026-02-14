@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"sort"
 
-	"invowk-cli/pkg/invowkfile"
+	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
 // SourceIDInvowkfile is the reserved source ID for the root invowkfile.

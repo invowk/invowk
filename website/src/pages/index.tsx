@@ -53,13 +53,13 @@ Created invowkfile.cue
 
 $ invowk cmd
 Available Commands
-  myproject build - Build the project [native*]
-  myproject test unit - Run unit tests [native*, virtual]
-  myproject deploy - Deploy to production [container*]
+  hello - Print a greeting [native*, virtual, container]
 
-$ invowk cmd myproject build
-Building project...
-Done!`}
+$ invowk cmd hello
+Hello, World!
+
+$ invowk cmd hello Alice
+Hello, Alice!`}
             </code>
           </pre>
         </div>

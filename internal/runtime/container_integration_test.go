@@ -12,10 +12,10 @@ import (
 	"testing"
 	"time"
 
-	"invowk-cli/internal/container"
-	"invowk-cli/internal/sshserver"
-	"invowk-cli/internal/testutil"
-	"invowk-cli/pkg/invowkfile"
+	"github.com/invowk/invowk/internal/container"
+	"github.com/invowk/invowk/internal/sshserver"
+	"github.com/invowk/invowk/internal/testutil"
+	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
 // TestContainerRuntime_Integration tests the container runtime with real containers.

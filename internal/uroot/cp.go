@@ -13,10 +13,6 @@ type cpCommand struct {
 	baseWrapper
 }
 
-func init() {
-	RegisterDefault(newCpCommand())
-}
-
 // newCpCommand creates a new cp command wrapper.
 func newCpCommand() *cpCommand {
 	return &cpCommand{

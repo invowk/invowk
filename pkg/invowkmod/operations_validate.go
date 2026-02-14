@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"invowk-cli/pkg/platform"
+	"github.com/invowk/invowk/pkg/platform"
 )
 
 // Validate performs comprehensive validation of a module at the given path.

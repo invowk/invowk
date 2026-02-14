@@ -9,6 +9,8 @@ import (
 )
 
 func TestRealClock_Now(t *testing.T) {
+	t.Parallel()
+
 	clock := RealClock{}
 	before := time.Now()
 	result := clock.Now()
@@ -20,6 +22,8 @@ func TestRealClock_Now(t *testing.T) {
 }
 
 func TestRealClock_Since(t *testing.T) {
+	t.Parallel()
+
 	clock := RealClock{}
 	past := time.Now().Add(-1 * time.Second)
 	elapsed := clock.Since(past)
@@ -30,6 +34,8 @@ func TestRealClock_Since(t *testing.T) {
 }
 
 func TestRealClock_After(t *testing.T) {
+	t.Parallel()
+
 	clock := RealClock{}
 	ch := clock.After(1 * time.Millisecond)
 
@@ -42,6 +48,8 @@ func TestRealClock_After(t *testing.T) {
 }
 
 func TestFakeClock_Now(t *testing.T) {
+	t.Parallel()
+
 	initial := time.Date(2023, 6, 15, 12, 0, 0, 0, time.UTC)
 	clock := NewFakeClock(initial)
 
@@ -51,6 +59,8 @@ func TestFakeClock_Now(t *testing.T) {
 }
 
 func TestFakeClock_Now_DefaultTime(t *testing.T) {
+	t.Parallel()
+
 	clock := NewFakeClock(time.Time{})
 	expected := time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)
 
@@ -60,6 +70,8 @@ func TestFakeClock_Now_DefaultTime(t *testing.T) {
 }
 
 func TestFakeClock_Advance(t *testing.T) {
+	t.Parallel()
+
 	initial := time.Date(2023, 6, 15, 12, 0, 0, 0, time.UTC)
 	clock := NewFakeClock(initial)
 
@@ -72,6 +84,8 @@ func TestFakeClock_Advance(t *testing.T) {
 }
 
 func TestFakeClock_Set(t *testing.T) {
+	t.Parallel()
+
 	clock := NewFakeClock(time.Time{})
 	newTime := time.Date(2025, 12, 25, 0, 0, 0, 0, time.UTC)
 
@@ -83,6 +97,8 @@ func TestFakeClock_Set(t *testing.T) {
 }
 
 func TestFakeClock_Since(t *testing.T) {
+	t.Parallel()
+
 	initial := time.Date(2023, 6, 15, 12, 0, 0, 0, time.UTC)
 	clock := NewFakeClock(initial)
 
@@ -103,6 +119,8 @@ func TestFakeClock_Since(t *testing.T) {
 }
 
 func TestFakeClock_After_ImmediateForZeroOrNegative(t *testing.T) {
+	t.Parallel()
+
 	clock := NewFakeClock(time.Time{})
 
 	// Zero duration should fire immediately
@@ -125,6 +143,8 @@ func TestFakeClock_After_ImmediateForZeroOrNegative(t *testing.T) {
 }
 
 func TestFakeClock_After_FiresOnAdvance(t *testing.T) {
+	t.Parallel()
+
 	clock := NewFakeClock(time.Time{})
 
 	ch := clock.After(10 * time.Minute)
@@ -150,6 +170,8 @@ func TestFakeClock_After_FiresOnAdvance(t *testing.T) {
 }
 
 func TestFakeClock_After_FiresOnSet(t *testing.T) {
+	t.Parallel()
+
 	initial := time.Date(2023, 1, 1, 0, 0, 0, 0, time.UTC)
 	clock := NewFakeClock(initial)
 
@@ -167,6 +189,8 @@ func TestFakeClock_After_FiresOnSet(t *testing.T) {
 }
 
 func TestFakeClock_After_MultipleWaiters(t *testing.T) {
+	t.Parallel()
+
 	clock := NewFakeClock(time.Time{})
 
 	ch1 := clock.After(5 * time.Minute)
@@ -226,6 +250,8 @@ func TestFakeClock_After_MultipleWaiters(t *testing.T) {
 }
 
 func TestFakeClock_Concurrent(t *testing.T) {
+	t.Parallel()
+
 	clock := NewFakeClock(time.Time{})
 	var wg sync.WaitGroup
 
@@ -250,6 +276,8 @@ func TestFakeClock_Concurrent(t *testing.T) {
 }
 
 func TestClock_Interface(t *testing.T) {
+	t.Parallel()
+
 	// Ensure both types implement Clock interface
 	var _ Clock = RealClock{}
 	var _ Clock = &FakeClock{}

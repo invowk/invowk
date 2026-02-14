@@ -11,10 +11,6 @@ import (
 	"github.com/u-root/u-root/pkg/uroot/unixflag"
 )
 
-// DefaultRegistry is the global registry used by the virtual runtime.
-// Commands are registered during package initialization.
-var DefaultRegistry = NewRegistry()
-
 // Registry manages the mapping of command names to their u-root implementations.
 // It is safe for concurrent use.
 type Registry struct {
@@ -95,8 +91,43 @@ func (r *Registry) Run(ctx context.Context, name string, args []string) error {
 	return cmd.Run(ctx, args)
 }
 
-// RegisterDefault registers a command in the DefaultRegistry.
-// This is typically called from init() functions in utility implementation files.
-func RegisterDefault(cmd Command) {
-	DefaultRegistry.Register(cmd)
+// BuildDefaultRegistry creates a new Registry pre-populated with all 28
+// built-in u-root command implementations. Each call returns a fresh,
+// independent instance suitable for injection into VirtualRuntime.
+func BuildDefaultRegistry() *Registry {
+	r := NewRegistry()
+
+	// Upstream wrappers (12)
+	r.Register(newBase64Command())
+	r.Register(newCatCommand())
+	r.Register(newCpCommand())
+	r.Register(newFindCommand())
+	r.Register(newGzipCommand())
+	r.Register(newLsCommand())
+	r.Register(newMkdirCommand())
+	r.Register(newMvCommand())
+	r.Register(newRmCommand())
+	r.Register(newShasumCommand())
+	r.Register(newTarCommand())
+	r.Register(newTouchCommand())
+
+	// Custom implementations (16)
+	r.Register(newBasenameCommand())
+	r.Register(newCutCommand())
+	r.Register(newDirnameCommand())
+	r.Register(newGrepCommand())
+	r.Register(newHeadCommand())
+	r.Register(newLnCommand())
+	r.Register(newMktempCommand())
+	r.Register(newRealpathCommand())
+	r.Register(newSeqCommand())
+	r.Register(newSleepCommand())
+	r.Register(newSortCommand())
+	r.Register(newTailCommand())
+	r.Register(newTeeCommand())
+	r.Register(newTrCommand())
+	r.Register(newUniqCommand())
+	r.Register(newWcCommand())
+
+	return r
 }

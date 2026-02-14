@@ -1,4 +1,4 @@
-# Makefile for invowk-cli
+# Makefile for invowk
 #
 # Build targets:
 #   make build       - Build stripped binary (default)
@@ -37,9 +37,9 @@ GOAMD64 ?= v3
 
 # Linker flags for stripping and version info
 LDFLAGS := -s -w
-LDFLAGS += -X 'invowk-cli/cmd/invowk.Version=$(VERSION)'
-LDFLAGS += -X 'invowk-cli/cmd/invowk.Commit=$(COMMIT)'
-LDFLAGS += -X 'invowk-cli/cmd/invowk.BuildDate=$(BUILD_DATE)'
+LDFLAGS += -X 'github.com/invowk/invowk/cmd/invowk.Version=$(VERSION)'
+LDFLAGS += -X 'github.com/invowk/invowk/cmd/invowk.Commit=$(COMMIT)'
+LDFLAGS += -X 'github.com/invowk/invowk/cmd/invowk.BuildDate=$(BUILD_DATE)'
 
 # Build flags
 BUILD_FLAGS := -trimpath -ldflags="$(LDFLAGS)"
@@ -335,7 +335,7 @@ endif
 # Help
 .PHONY: help
 help:
-	@echo "invowk-cli Makefile"
+	@echo "invowk Makefile"
 	@echo ""
 	@echo "Usage:"
 	@echo "  make [target]"

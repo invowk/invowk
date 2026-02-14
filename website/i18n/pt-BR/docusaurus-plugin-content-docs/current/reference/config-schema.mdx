@@ -68,8 +68,8 @@ Módulos adicionais para incluir na descoberta de comandos. Cada entrada especif
 **Prioridade de descoberta (maior para menor):**
 1. invowkfile do diretório atual
 2. Módulos locais (`*.invowkmod` no diretório atual)
-3. `~/.invowk/cmds`
-4. `includes` configurados (em ordem)
+3. `includes` configurados (em ordem) — includes explícitos superam o diretório do usuário
+4. `~/.invowk/cmds` (apenas módulos, não-recursivo)
 
 ### default_runtime
 
@@ -135,9 +135,9 @@ Habilita utilitários u-root no ambiente virtual shell. Quando habilitado, forne
 
 <Snippet id="reference/config/enable-uroot-utils-example" />
 
-**Utilitários disponíveis quando habilitado (15 no total):**
-- Operações de arquivo (7): `cat`, `cp`, `ls`, `mkdir`, `mv`, `rm`, `touch`
-- Processamento de texto (8): `head`, `tail`, `wc`, `grep`, `sort`, `uniq`, `cut`, `tr`
+**Utilitários disponíveis quando habilitado (28 no total):**
+- Wrappers upstream (12): `base64`, `cat`, `cp`, `find`, `gzip`, `ls`, `mkdir`, `mv`, `rm`, `shasum`, `tar`, `touch`
+- Implementações customizadas (16): `basename`, `cut`, `dirname`, `grep`, `head`, `ln`, `mktemp`, `realpath`, `seq`, `sleep`, `sort`, `tail`, `tee`, `tr`, `uniq`, `wc`
 
 ---
 
@@ -215,11 +215,19 @@ Configuração de auto-provisionamento para imagens container.
 
 ### enabled
 
-**Tipo:** `bool`  
-**Obrigatório:** Não  
+**Tipo:** `bool`
+**Obrigatório:** Não
 **Padrão:** `true`
 
 Habilita o provisionamento automático do binário do invowk e módulos em containers.
+
+### strict
+
+**Tipo:** `bool`
+**Obrigatório:** Não
+**Padrão:** `false`
+
+Faz com que falhas de provisionamento sejam erros fatais em vez de fazer fallback para a imagem base sem provisionamento. Quando `false` (o padrão), falhas de provisionamento geram um aviso e continuam com a imagem base.
 
 ### binary_path
 

@@ -17,10 +17,6 @@ type uniqCommand struct {
 	flags []FlagInfo
 }
 
-func init() {
-	RegisterDefault(newUniqCommand())
-}
-
 // newUniqCommand creates a new uniq command.
 func newUniqCommand() *uniqCommand {
 	return &uniqCommand{

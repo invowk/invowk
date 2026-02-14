@@ -8,9 +8,9 @@ import (
 	"fmt"
 	"strings"
 
-	"invowk-cli/internal/config"
-	"invowk-cli/internal/discovery"
-	"invowk-cli/pkg/invowkfile"
+	"github.com/invowk/invowk/internal/config"
+	"github.com/invowk/invowk/internal/discovery"
+	"github.com/invowk/invowk/pkg/invowkfile"
 
 	"github.com/spf13/cobra"
 )

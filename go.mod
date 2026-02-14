@@ -1,4 +1,4 @@
-module invowk-cli
+module github.com/invowk/invowk
 
 go 1.26
 

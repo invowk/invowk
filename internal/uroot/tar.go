@@ -13,10 +13,6 @@ type tarCommand struct {
 	baseWrapper
 }
 
-func init() {
-	RegisterDefault(newTarCommand())
-}
-
 // newTarCommand creates a new tar command wrapper.
 func newTarCommand() *tarCommand {
 	return &tarCommand{

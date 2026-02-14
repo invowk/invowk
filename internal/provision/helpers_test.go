@@ -8,10 +8,12 @@ import (
 	"strings"
 	"testing"
 
-	"invowk-cli/internal/testutil"
+	"github.com/invowk/invowk/internal/testutil"
 )
 
 func TestDefaultConfig(t *testing.T) {
+	t.Parallel()
+
 	cfg := DefaultConfig()
 
 	if !cfg.Enabled {
@@ -36,6 +38,8 @@ func TestDefaultConfig(t *testing.T) {
 }
 
 func TestConfigOptions(t *testing.T) {
+	t.Parallel()
+
 	cfg := DefaultConfig()
 	cfg.Apply(
 		WithForceRebuild(true),
@@ -62,6 +66,8 @@ func TestConfigOptions(t *testing.T) {
 }
 
 func TestCalculateFileHash(t *testing.T) {
+	t.Parallel()
+
 	// Create a temp file with known content
 	tmpFile, err := os.CreateTemp("", "test-hash-*.txt")
 	if err != nil {
@@ -97,6 +103,8 @@ func TestCalculateFileHash(t *testing.T) {
 }
 
 func TestCalculateDirHash(t *testing.T) {
+	t.Parallel()
+
 	// Create a temp directory with files
 	tmpDir := t.TempDir()
 
@@ -138,6 +146,8 @@ func TestCalculateDirHash(t *testing.T) {
 }
 
 func TestDiscoverModules(t *testing.T) {
+	t.Parallel()
+
 	// Create a temp directory structure with modules
 	tmpDir := t.TempDir()
 
@@ -186,6 +196,8 @@ func TestDiscoverModules(t *testing.T) {
 }
 
 func TestCopyFile(t *testing.T) {
+	t.Parallel()
+
 	// Create source file
 	srcDir := t.TempDir()
 	srcFile := filepath.Join(srcDir, "source.txt")
@@ -214,6 +226,8 @@ func TestCopyFile(t *testing.T) {
 }
 
 func TestCopyDir(t *testing.T) {
+	t.Parallel()
+
 	// Create source directory with files
 	srcDir := t.TempDir()
 
@@ -262,6 +276,8 @@ func TestCopyDir(t *testing.T) {
 // --- Error Path Tests ---
 
 func TestCalculateFileHash_NonExistentFile(t *testing.T) {
+	t.Parallel()
+
 	_, err := CalculateFileHash("/nonexistent/path/file.txt")
 	if err == nil {
 		t.Fatal("expected error for non-existent file")
@@ -269,6 +285,8 @@ func TestCalculateFileHash_NonExistentFile(t *testing.T) {
 }
 
 func TestCalculateFileHash_DifferentContent(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 
 	file1 := filepath.Join(tmpDir, "file1.txt")
@@ -297,6 +315,8 @@ func TestCalculateFileHash_DifferentContent(t *testing.T) {
 }
 
 func TestCalculateDirHash_EmptyDir(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 
 	hash, err := CalculateDirHash(tmpDir)
@@ -310,6 +330,8 @@ func TestCalculateDirHash_EmptyDir(t *testing.T) {
 }
 
 func TestCalculateDirHash_NonExistentDir(t *testing.T) {
+	t.Parallel()
+
 	// filepath.Walk silently skips the non-existent root (callback returns nil
 	// on error), so CalculateDirHash returns the hash of an empty entry list.
 	hash, err := CalculateDirHash("/nonexistent/directory/path")
@@ -334,6 +356,8 @@ func TestCalculateDirHash_NonExistentDir(t *testing.T) {
 }
 
 func TestCopyFile_SourceNotFound(t *testing.T) {
+	t.Parallel()
+
 	dstDir := t.TempDir()
 	err := CopyFile("/nonexistent/file.txt", filepath.Join(dstDir, "dest.txt"))
 	if err == nil {
@@ -346,6 +370,8 @@ func TestCopyFile_SourceNotFound(t *testing.T) {
 }
 
 func TestCopyFile_PreservesPermissions(t *testing.T) {
+	t.Parallel()
+
 	srcDir := t.TempDir()
 	srcFile := filepath.Join(srcDir, "executable.sh")
 	if err := os.WriteFile(srcFile, []byte("#!/bin/sh\necho hello"), 0o755); err != nil {
@@ -375,6 +401,8 @@ func TestCopyFile_PreservesPermissions(t *testing.T) {
 }
 
 func TestCopyDir_SourceNotFound(t *testing.T) {
+	t.Parallel()
+
 	err := CopyDir("/nonexistent/directory", filepath.Join(t.TempDir(), "dest"))
 	if err == nil {
 		t.Fatal("expected error when source directory does not exist")
@@ -386,6 +414,8 @@ func TestCopyDir_SourceNotFound(t *testing.T) {
 }
 
 func TestDiscoverModules_EmptyPaths(t *testing.T) {
+	t.Parallel()
+
 	modules := DiscoverModules(nil)
 	if len(modules) != 0 {
 		t.Errorf("expected 0 modules for nil paths, got %d", len(modules))
@@ -398,6 +428,8 @@ func TestDiscoverModules_EmptyPaths(t *testing.T) {
 }
 
 func TestDiscoverModules_Deduplication(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 
 	modPath := filepath.Join(tmpDir, "test.invowkmod")
@@ -414,6 +446,8 @@ func TestDiscoverModules_Deduplication(t *testing.T) {
 }
 
 func TestDiscoverModules_MultiplePaths(t *testing.T) {
+	t.Parallel()
+
 	dir1 := t.TempDir()
 	dir2 := t.TempDir()
 

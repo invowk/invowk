@@ -19,10 +19,6 @@ type seqCommand struct {
 	flags []FlagInfo
 }
 
-func init() {
-	RegisterDefault(newSeqCommand())
-}
-
 // newSeqCommand creates a new seq command.
 func newSeqCommand() *seqCommand {
 	return &seqCommand{

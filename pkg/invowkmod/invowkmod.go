@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"invowk-cli/pkg/cueutil"
+	"github.com/invowk/invowk/pkg/cueutil"
 )
 
 const (

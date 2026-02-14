@@ -10,7 +10,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"invowk-cli/internal/container"
+	"github.com/invowk/invowk/internal/container"
 )
 
 // Compile-time interface check

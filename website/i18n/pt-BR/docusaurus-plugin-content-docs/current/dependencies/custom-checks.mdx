@@ -82,7 +82,7 @@ custom_checks: [
         name: "go-version"
         check_script: "go version"
         expected_code: 0  // Deve ter sucesso
-        expected_output: "go1\\.2[1-9]"  // Deve ser Go 1.21+
+        expected_output: "go1\\.2[6-9]"  // Deve ser Go 1.26+
     }
 ]
 ```
@@ -96,12 +96,12 @@ custom_checks: [
     {
         alternatives: [
             {
-                name: "go-1.21"
-                check_script: "go version | grep -q 'go1.21'"
+                name: "go-1.26"
+                check_script: "go version | grep -q 'go1.26'"
             },
             {
-                name: "go-1.22"
-                check_script: "go version | grep -q 'go1.22'"
+                name: "go-1.27"
+                check_script: "go version | grep -q 'go1.27'"
             }
         ]
     }
@@ -121,12 +121,12 @@ A dependência é satisfeita se **qualquer** alternativa passar.
         tools: [{alternatives: ["go"]}]
         custom_checks: [
             {
-                name: "go-1.21-or-higher"
+                name: "go-1.26-or-higher"
                 check_script: """
                     version=$(go version | grep -oE 'go[0-9]+\\.[0-9]+' | head -1)
                     major=$(echo $version | cut -d. -f1 | tr -d 'go')
                     minor=$(echo $version | cut -d. -f2)
-                    [ "$major" -ge 1 ] && [ "$minor" -ge 21 ]
+                    [ "$major" -ge 1 ] && [ "$minor" -ge 26 ]
                     """
             }
         ]
@@ -315,14 +315,14 @@ Para runtime container, verificações personalizadas rodam **dentro do containe
 
 ```cue
 // Bom - simples e claro
-check_script: "go version | grep -q 'go1.21'"
+check_script: "go version | grep -q 'go1.26'"
 
 // Evite - complexo e frágil
 check_script: """
     set -e
     version=$(go version 2>&1)
     if [ $? -ne 0 ]; then exit 1; fi
-    echo "$version" | grep -qE 'go1\\.(2[1-9]|[3-9][0-9])'
+    echo "$version" | grep -qE 'go1\\.(2[6-9]|[3-9][0-9])'
     """
 ```
 

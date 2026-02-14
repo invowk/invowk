@@ -16,10 +16,6 @@ type headCommand struct {
 	flags []FlagInfo
 }
 
-func init() {
-	RegisterDefault(newHeadCommand())
-}
-
 // newHeadCommand creates a new head command.
 func newHeadCommand() *headCommand {
 	return &headCommand{

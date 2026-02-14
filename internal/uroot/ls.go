@@ -13,10 +13,6 @@ type lsCommand struct {
 	baseWrapper
 }
 
-func init() {
-	RegisterDefault(newLsCommand())
-}
-
 // newLsCommand creates a new ls command wrapper.
 func newLsCommand() *lsCommand {
 	return &lsCommand{

@@ -105,7 +105,12 @@ As implementations executáveis. Veja [Implementation](#implementation).
 Flags de linha de comando para este comando. Veja [Flag](#flag).
 
 :::warning Flags Reservadas
-`env-file` (curta `e`) e `env-var` (curta `E`) são flags de sistema reservadas e não podem ser usadas.
+As seguintes flags são reservadas pelo invowk e não podem ser usadas em comandos definidos pelo usuário:
+- `env-file` (curta `e`), `env-var` (curta `E`)
+- `env-inherit-mode`, `env-inherit-allow`, `env-inherit-deny`
+- `workdir` (curta `w`), `help` (curta `h`), `runtime` (curta `r`)
+- `from` (curta `f`), `force-rebuild`, `version`
+- Os prefixos `ivk-`, `invowk-` e `i-` também são reservados para flags do sistema
 :::
 
 ### args

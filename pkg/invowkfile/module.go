@@ -3,7 +3,7 @@
 package invowkfile
 
 import (
-	"invowk-cli/pkg/invowkmod"
+	"github.com/invowk/invowk/pkg/invowkmod"
 )
 
 type (

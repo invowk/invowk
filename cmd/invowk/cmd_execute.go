@@ -10,14 +10,14 @@ import (
 	"strings"
 	"sync"
 
-	"invowk-cli/internal/config"
-	"invowk-cli/internal/discovery"
-	"invowk-cli/internal/issue"
-	"invowk-cli/internal/runtime"
-	"invowk-cli/internal/sshserver"
-	"invowk-cli/internal/tui"
-	"invowk-cli/internal/tuiserver"
-	"invowk-cli/pkg/invowkfile"
+	"github.com/invowk/invowk/internal/config"
+	"github.com/invowk/invowk/internal/discovery"
+	"github.com/invowk/invowk/internal/issue"
+	"github.com/invowk/invowk/internal/runtime"
+	"github.com/invowk/invowk/internal/sshserver"
+	"github.com/invowk/invowk/internal/tui"
+	"github.com/invowk/invowk/internal/tuiserver"
+	"github.com/invowk/invowk/pkg/invowkfile"
 
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -368,6 +368,11 @@ func (s *commandService) dispatchExecution(req ExecuteRequest, execCtx *runtime.
 		diags = append(diags, registryResult.Diagnostics...)
 	}
 	defer registryResult.Cleanup()
+
+	// Assign a unique execution ID now that the registry is available.
+	// NewExecutionContext leaves ExecutionID empty; it is set here because
+	// the registry (which owns the monotonic counter) is created at this point.
+	execCtx.ExecutionID = registryResult.Registry.NewExecutionID()
 
 	if registryResult.ContainerInitErr != nil && execCtx.SelectedRuntime == invowkfile.RuntimeContainer {
 		issueID, styledMsg := classifyExecutionError(registryResult.ContainerInitErr, req.Verbose)

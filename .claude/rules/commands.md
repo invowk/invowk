@@ -234,7 +234,7 @@ make release VERSION=v1.0.0 YES=1
 ### Release Artifacts
 
 Each release includes:
-- **Binaries**: UPX-compressed executables for Linux/macOS/Windows (amd64, arm64).
+- **Binaries**: UPX-compressed for Linux; stripped (uncompressed) for macOS and Windows (amd64, arm64).
 - **Archives**: `.tar.gz` for Linux/macOS, `.zip` for Windows.
 - **Checksums**: SHA256 checksums in `checksums.txt`.
 - **Signatures**: Cosign signatures for verification.

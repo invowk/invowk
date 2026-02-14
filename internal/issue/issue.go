@@ -35,8 +35,6 @@ var (
 	//go:embed templates
 	templateFS embed.FS
 
-	render = glamour.Render
-
 	fileNotFoundIssue = &Issue{
 		id:    FileNotFoundId,
 		mdMsg: loadTemplate("file_not_found"),
@@ -176,7 +174,14 @@ func (i *Issue) ExtLinks() []HttpLink {
 }
 
 // Render renders the issue message with documentation links using the specified style.
+// It uses glamour.Render for markdown rendering.
 func (i *Issue) Render(stylePath string) (string, error) {
+	return i.RenderWith(glamour.Render, stylePath)
+}
+
+// RenderWith renders the issue message using the provided render function.
+// This allows tests to inject a mock renderer without mutating package-level state.
+func (i *Issue) RenderWith(renderFn func(string, string) (string, error), stylePath string) (string, error) {
 	var extraMd strings.Builder
 	if len(i.docLinks) > 0 || len(i.extLinks) > 0 {
 		extraMd.WriteString("\n\n")
@@ -188,7 +193,7 @@ func (i *Issue) Render(stylePath string) (string, error) {
 			extraMd.WriteString("- [" + string(link) + "]")
 		}
 	}
-	return render(string(i.mdMsg)+extraMd.String(), stylePath)
+	return renderFn(string(i.mdMsg)+extraMd.String(), stylePath)
 }
 
 // Values returns all registered issues.

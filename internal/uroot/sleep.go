@@ -17,10 +17,6 @@ type sleepCommand struct {
 	flags []FlagInfo
 }
 
-func init() {
-	RegisterDefault(newSleepCommand())
-}
-
 // newSleepCommand creates a new sleep command.
 func newSleepCommand() *sleepCommand {
 	return &sleepCommand{

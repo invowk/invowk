@@ -6,7 +6,7 @@ import (
 	"runtime"
 	"testing"
 
-	"invowk-cli/pkg/platform"
+	"github.com/invowk/invowk/pkg/platform"
 )
 
 // SetHomeDir sets the appropriate HOME environment variable based on platform

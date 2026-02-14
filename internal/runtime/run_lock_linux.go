@@ -73,7 +73,13 @@ func (l *runLock) Release() {
 // lockFilePath returns the path for the cross-process lock file.
 // Prefers $XDG_RUNTIME_DIR (per-user tmpfs), falls back to os.TempDir().
 func lockFilePath() string {
-	dir := os.Getenv("XDG_RUNTIME_DIR")
+	return lockFilePathWith(os.Getenv)
+}
+
+// lockFilePathWith returns the lock file path using the provided getenv function.
+// This enables testing without mutating process-global environment state.
+func lockFilePathWith(getenv func(string) string) string {
+	dir := getenv("XDG_RUNTIME_DIR")
 	if dir == "" {
 		dir = os.TempDir()
 	}

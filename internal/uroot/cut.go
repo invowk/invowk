@@ -26,10 +26,6 @@ type (
 	}
 )
 
-func init() {
-	RegisterDefault(newCutCommand())
-}
-
 // newCutCommand creates a new cut command.
 func newCutCommand() *cutCommand {
 	return &cutCommand{

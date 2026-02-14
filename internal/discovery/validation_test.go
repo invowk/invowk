@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"invowk-cli/pkg/invowkfile"
+	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
 const (
@@ -16,6 +16,8 @@ const (
 )
 
 func TestValidateCommandTree_NoConflict(t *testing.T) {
+	t.Parallel()
+
 	// Leaf commands with args are valid
 	commands := []*CommandInfo{
 		{
@@ -45,6 +47,8 @@ func TestValidateCommandTree_NoConflict(t *testing.T) {
 }
 
 func TestValidateCommandTree_NoConflict_NestedLeaves(t *testing.T) {
+	t.Parallel()
+
 	// Parent without args, leaf children with args is valid
 	commands := []*CommandInfo{
 		{
@@ -79,6 +83,8 @@ func TestValidateCommandTree_NoConflict_NestedLeaves(t *testing.T) {
 }
 
 func TestValidateCommandTree_Conflict(t *testing.T) {
+	t.Parallel()
+
 	// Parent with args that also has children is a conflict
 	commands := []*CommandInfo{
 		{
@@ -122,6 +128,8 @@ func TestValidateCommandTree_Conflict(t *testing.T) {
 }
 
 func TestValidateCommandTree_Conflict_MultipleChildren(t *testing.T) {
+	t.Parallel()
+
 	// Parent with args that has multiple children
 	commands := []*CommandInfo{
 		{
@@ -161,6 +169,8 @@ func TestValidateCommandTree_Conflict_MultipleChildren(t *testing.T) {
 }
 
 func TestValidateCommandTree_DeepNesting(t *testing.T) {
+	t.Parallel()
+
 	// Deep nesting: grandparent with args has grandchildren via child
 	commands := []*CommandInfo{
 		{
@@ -205,6 +215,8 @@ func TestValidateCommandTree_DeepNesting(t *testing.T) {
 }
 
 func TestValidateCommandTree_EmptyCommands(t *testing.T) {
+	t.Parallel()
+
 	// Empty input returns nil
 	err := ValidateCommandTree(nil)
 	if err != nil {
@@ -218,6 +230,8 @@ func TestValidateCommandTree_EmptyCommands(t *testing.T) {
 }
 
 func TestValidateCommandTree_NilCommands(t *testing.T) {
+	t.Parallel()
+
 	// Handles nil entries gracefully
 	commands := []*CommandInfo{
 		nil,
@@ -239,6 +253,8 @@ func TestValidateCommandTree_NilCommands(t *testing.T) {
 }
 
 func TestArgsSubcommandConflictError_Error(t *testing.T) {
+	t.Parallel()
+
 	err := &ArgsSubcommandConflictError{
 		CommandName: "deploy",
 		Args: []invowkfile.Argument{
@@ -270,6 +286,8 @@ func TestArgsSubcommandConflictError_Error(t *testing.T) {
 }
 
 func TestArgsSubcommandConflictError_Error_NoFilePath(t *testing.T) {
+	t.Parallel()
+
 	err := &ArgsSubcommandConflictError{
 		CommandName: "deploy",
 		Args: []invowkfile.Argument{
@@ -288,6 +306,8 @@ func TestArgsSubcommandConflictError_Error_NoFilePath(t *testing.T) {
 }
 
 func TestArgsSubcommandConflictError_Error_SingleArg(t *testing.T) {
+	t.Parallel()
+
 	err := &ArgsSubcommandConflictError{
 		CommandName: "deploy",
 		Args: []invowkfile.Argument{

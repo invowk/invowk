@@ -69,8 +69,8 @@ Additional modules to include in command discovery. Each entry specifies a path 
 **Discovery priority (highest to lowest):**
 1. Current directory invowkfile
 2. Local modules (`*.invowkmod` in current directory)
-3. `~/.invowk/cmds`
-4. Configured `includes` (in order)
+3. Configured `includes` (in order) — explicit includes outrank the user directory
+4. `~/.invowk/cmds` (modules only, non-recursive)
 
 ### default_runtime
 
@@ -136,9 +136,9 @@ Enables u-root utilities in the virtual shell environment. When enabled, provide
 
 <Snippet id="reference/config/enable-uroot-utils-example" />
 
-**Available utilities when enabled (15 total):**
-- File operations (7): `cat`, `cp`, `ls`, `mkdir`, `mv`, `rm`, `touch`
-- Text processing (8): `head`, `tail`, `wc`, `grep`, `sort`, `uniq`, `cut`, `tr`
+**Available utilities when enabled (28 total):**
+- Upstream wrappers (12): `base64`, `cat`, `cp`, `find`, `gzip`, `ls`, `mkdir`, `mv`, `rm`, `shasum`, `tar`, `touch`
+- Custom implementations (16): `basename`, `cut`, `dirname`, `grep`, `head`, `ln`, `mktemp`, `realpath`, `seq`, `sleep`, `sort`, `tail`, `tee`, `tr`, `uniq`, `wc`
 
 ---
 
@@ -216,11 +216,19 @@ Auto-provisioning configuration for container images.
 
 ### enabled
 
-**Type:** `bool`  
-**Required:** No  
+**Type:** `bool`
+**Required:** No
 **Default:** `true`
 
 Enables auto-provisioning of the invowk binary and modules into containers.
+
+### strict
+
+**Type:** `bool`
+**Required:** No
+**Default:** `false`
+
+Makes provisioning failure a hard error instead of falling back to the unprovisioned base image. When `false` (the default), provisioning failure logs a warning and continues with the base image.
 
 ### binary_path
 

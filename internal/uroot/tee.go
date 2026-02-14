@@ -17,10 +17,6 @@ type teeCommand struct {
 	flags []FlagInfo
 }
 
-func init() {
-	RegisterDefault(newTeeCommand())
-}
-
 // newTeeCommand creates a new tee command.
 func newTeeCommand() *teeCommand {
 	return &teeCommand{

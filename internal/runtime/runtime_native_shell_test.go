@@ -12,9 +12,9 @@ import (
 	"strings"
 	"testing"
 
-	"invowk-cli/internal/issue"
-	"invowk-cli/internal/testutil"
-	"invowk-cli/pkg/invowkfile"
+	"github.com/invowk/invowk/internal/issue"
+	"github.com/invowk/invowk/internal/testutil"
+	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
 // TestNativeRuntime_getShell tests shell detection.

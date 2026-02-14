@@ -7,11 +7,12 @@ import (
 	"errors"
 	"fmt"
 	"os"
-
-	"invowk-cli/internal/issue"
+	"runtime/debug"
 
 	"github.com/charmbracelet/fang"
 	"github.com/spf13/cobra"
+
+	"github.com/invowk/invowk/internal/issue"
 )
 
 var (
@@ -91,7 +92,7 @@ func Execute() {
 	if err := fang.Execute(
 		context.Background(),
 		rootCmd,
-		fang.WithVersion(getVersionString()),
+		fang.WithVersion(getVersionString(Version, Commit, BuildDate)),
 		fang.WithNotifySignal(os.Interrupt),
 	); err != nil {
 		if exitErr, ok := errors.AsType[*ExitError](err); ok {
@@ -102,11 +103,19 @@ func Execute() {
 }
 
 // getVersionString returns a formatted version string for display.
-func getVersionString() string {
-	if Version == "dev" {
-		return "dev (built from source)"
+// Precedence: ldflags version > debug.ReadBuildInfo() module version > "dev (built from source)".
+// This ensures go-install binaries show their module version (e.g., "v1.0.0")
+// instead of the default "dev" when ldflags are not set.
+func getVersionString(version, commit, buildDate string) string {
+	if version != "dev" {
+		return fmt.Sprintf("%s (commit: %s, built: %s)", version, commit, buildDate)
 	}
-	return fmt.Sprintf("%s (commit: %s, built: %s)", Version, Commit, BuildDate)
+
+	if info, ok := debug.ReadBuildInfo(); ok && info.Main.Version != "" && info.Main.Version != "(devel)" {
+		return info.Main.Version
+	}
+
+	return "dev (built from source)"
 }
 
 // formatErrorForDisplay formats an error for user display.

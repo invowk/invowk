@@ -3,213 +3,146 @@
 package platform
 
 import (
-	"os"
-	"path/filepath"
+	"errors"
+	"slices"
 	"testing"
 )
 
-func TestDetectSandbox_NoSandbox(t *testing.T) {
-	// Reset detection cache
-	resetSandboxDetection()
+func TestDetectSandboxFrom_NoSandbox(t *testing.T) {
+	t.Parallel()
 
-	// Save original env and restore after test
-	origSnapName := os.Getenv("SNAP_NAME")
-	t.Cleanup(func() {
-		os.Setenv("SNAP_NAME", origSnapName)
-		resetSandboxDetection()
-	})
+	result := detectSandboxFrom(
+		func(string) string { return "" },
+		func(string) error { return errors.New("not found") },
+	)
 
-	// Clear SNAP_NAME to ensure no Snap detection
-	os.Unsetenv("SNAP_NAME")
-
-	// detectSandboxInternal checks /.flatpak-info which we can't control
-	// but in most test environments it won't exist, so test the logic
-	result := detectSandboxInternal()
-
-	// If /.flatpak-info exists (running in actual Flatpak), we'll detect it
-	if _, err := os.Stat("/.flatpak-info"); err == nil {
-		if result != SandboxFlatpak {
-			t.Errorf("expected SandboxFlatpak when /.flatpak-info exists, got %q", result)
-		}
-	} else if result != SandboxNone {
-		t.Errorf("expected SandboxNone when no sandbox indicators, got %q", result)
+	if result != SandboxNone {
+		t.Errorf("expected SandboxNone, got %q", result)
 	}
 }
 
-func TestDetectSandbox_Snap(t *testing.T) {
-	// Reset detection cache
-	resetSandboxDetection()
+func TestDetectSandboxFrom_Flatpak(t *testing.T) {
+	t.Parallel()
 
-	// Save original env and restore after test
-	origSnapName := os.Getenv("SNAP_NAME")
-	t.Cleanup(func() {
-		os.Setenv("SNAP_NAME", origSnapName)
-		resetSandboxDetection()
-	})
+	result := detectSandboxFrom(
+		func(string) string { return "" },
+		func(string) error { return nil }, // /.flatpak-info exists
+	)
 
-	// Set SNAP_NAME to simulate Snap environment
-	os.Setenv("SNAP_NAME", "test-snap")
+	if result != SandboxFlatpak {
+		t.Errorf("expected SandboxFlatpak, got %q", result)
+	}
+}
 
-	result := detectSandboxInternal()
+func TestDetectSandboxFrom_Snap(t *testing.T) {
+	t.Parallel()
 
-	// If /.flatpak-info exists, Flatpak takes precedence
-	if _, err := os.Stat("/.flatpak-info"); err == nil {
-		if result != SandboxFlatpak {
-			t.Errorf("expected SandboxFlatpak (takes precedence), got %q", result)
-		}
-	} else if result != SandboxSnap {
+	result := detectSandboxFrom(
+		func(key string) string {
+			if key == "SNAP_NAME" {
+				return "test-snap"
+			}
+			return ""
+		},
+		func(string) error { return errors.New("not found") },
+	)
+
+	if result != SandboxSnap {
 		t.Errorf("expected SandboxSnap, got %q", result)
 	}
 }
 
+func TestDetectSandboxFrom_FlatpakTakesPrecedence(t *testing.T) {
+	t.Parallel()
+
+	// Both Flatpak file exists and SNAP_NAME is set — Flatpak wins.
+	result := detectSandboxFrom(
+		func(key string) string {
+			if key == "SNAP_NAME" {
+				return "test-snap"
+			}
+			return ""
+		},
+		func(string) error { return nil }, // /.flatpak-info exists
+	)
+
+	if result != SandboxFlatpak {
+		t.Errorf("expected SandboxFlatpak (takes precedence over Snap), got %q", result)
+	}
+}
+
 func TestIsInSandbox(t *testing.T) {
-	// Reset detection cache
-	resetSandboxDetection()
+	t.Parallel()
 
-	// Save original env and restore after test
-	origSnapName := os.Getenv("SNAP_NAME")
-	t.Cleanup(func() {
-		os.Setenv("SNAP_NAME", origSnapName)
-		resetSandboxDetection()
-	})
-
-	// Clear environment
-	os.Unsetenv("SNAP_NAME")
-
-	// Test depends on actual environment
+	// Verify consistency: IsInSandbox() should agree with DetectSandbox() != SandboxNone.
 	inSandbox := IsInSandbox()
-
-	// Verify consistency with DetectSandbox
 	if inSandbox != (DetectSandbox() != SandboxNone) {
 		t.Error("IsInSandbox inconsistent with DetectSandbox")
 	}
 }
 
-func TestGetSpawnCommand(t *testing.T) {
+func TestSpawnCommandFor(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
-		name     string
-		sandbox  SandboxType
-		expected string
+		name    string
+		sandbox SandboxType
+		want    string
 	}{
-		{
-			name:     "no sandbox",
-			sandbox:  SandboxNone,
-			expected: "",
-		},
-		{
-			name:     "flatpak",
-			sandbox:  SandboxFlatpak,
-			expected: "flatpak-spawn",
-		},
-		{
-			name:     "snap",
-			sandbox:  SandboxSnap,
-			expected: "snap",
-		},
+		{name: "no sandbox", sandbox: SandboxNone, want: ""},
+		{name: "flatpak", sandbox: SandboxFlatpak, want: "flatpak-spawn"},
+		{name: "snap", sandbox: SandboxSnap, want: "snap"},
+		{name: "unknown", sandbox: SandboxType("unknown"), want: ""},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Reset and set detected sandbox directly for testing
-			resetSandboxDetection()
-			sandboxOnce.Do(func() {
-				detectedSandbox = tt.sandbox
-			})
-			t.Cleanup(resetSandboxDetection)
+			t.Parallel()
 
-			result := GetSpawnCommand()
-			if result != tt.expected {
-				t.Errorf("GetSpawnCommand() = %q, want %q", result, tt.expected)
+			got := SpawnCommandFor(tt.sandbox)
+			if got != tt.want {
+				t.Errorf("SpawnCommandFor(%q) = %q, want %q", tt.sandbox, got, tt.want)
 			}
 		})
 	}
 }
 
-func TestGetSpawnArgs(t *testing.T) {
+func TestSpawnArgsFor(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
-		name     string
-		sandbox  SandboxType
-		expected []string
+		name    string
+		sandbox SandboxType
+		want    []string
 	}{
-		{
-			name:     "no sandbox",
-			sandbox:  SandboxNone,
-			expected: nil,
-		},
-		{
-			name:     "flatpak",
-			sandbox:  SandboxFlatpak,
-			expected: []string{"--host"},
-		},
-		{
-			name:     "snap",
-			sandbox:  SandboxSnap,
-			expected: []string{"run", "--shell"},
-		},
+		{name: "no sandbox", sandbox: SandboxNone, want: nil},
+		{name: "flatpak", sandbox: SandboxFlatpak, want: []string{"--host"}},
+		{name: "snap", sandbox: SandboxSnap, want: []string{"run", "--shell"}},
+		{name: "unknown", sandbox: SandboxType("unknown"), want: nil},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Reset and set detected sandbox directly for testing
-			resetSandboxDetection()
-			sandboxOnce.Do(func() {
-				detectedSandbox = tt.sandbox
-			})
-			t.Cleanup(resetSandboxDetection)
+			t.Parallel()
 
-			result := GetSpawnArgs()
-
-			if tt.expected == nil {
-				if result != nil {
-					t.Errorf("GetSpawnArgs() = %v, want nil", result)
+			got := SpawnArgsFor(tt.sandbox)
+			if tt.want == nil {
+				if got != nil {
+					t.Errorf("SpawnArgsFor(%q) = %v, want nil", tt.sandbox, got)
 				}
 				return
 			}
-
-			if len(result) != len(tt.expected) {
-				t.Errorf("GetSpawnArgs() = %v, want %v", result, tt.expected)
-				return
-			}
-
-			for i, v := range result {
-				if v != tt.expected[i] {
-					t.Errorf("GetSpawnArgs()[%d] = %q, want %q", i, v, tt.expected[i])
-				}
+			if !slices.Equal(got, tt.want) {
+				t.Errorf("SpawnArgsFor(%q) = %v, want %v", tt.sandbox, got, tt.want)
 			}
 		})
-	}
-}
-
-func TestDetectSandboxCaching(t *testing.T) {
-	// Reset detection cache
-	resetSandboxDetection()
-
-	// Save original env and restore after test
-	origSnapName := os.Getenv("SNAP_NAME")
-	t.Cleanup(func() {
-		os.Setenv("SNAP_NAME", origSnapName)
-		resetSandboxDetection()
-	})
-
-	// Clear environment for first detection
-	os.Unsetenv("SNAP_NAME")
-
-	// First detection
-	first := DetectSandbox()
-
-	// Change environment
-	os.Setenv("SNAP_NAME", "test-snap")
-
-	// Second detection should return cached result
-	second := DetectSandbox()
-
-	if first != second {
-		t.Errorf("DetectSandbox should return cached result: first=%q, second=%q", first, second)
 	}
 }
 
 func TestSandboxTypeConstants(t *testing.T) {
-	// Verify type constants are distinct
+	t.Parallel()
+
+	// Verify type constants are distinct.
 	types := []SandboxType{SandboxNone, SandboxFlatpak, SandboxSnap}
 	seen := make(map[SandboxType]bool)
 
@@ -220,30 +153,8 @@ func TestSandboxTypeConstants(t *testing.T) {
 		seen[st] = true
 	}
 
-	// Verify SandboxNone is empty string for boolean-like checks
+	// Verify SandboxNone is empty string for boolean-like checks.
 	if SandboxNone != "" {
 		t.Errorf("SandboxNone should be empty string, got %q", SandboxNone)
 	}
-}
-
-func TestDetectSandbox_FlatpakFile(t *testing.T) {
-	// This test can only verify behavior if we can create /.flatpak-info
-	// which requires root. Instead, we test the detection logic separately.
-
-	// Create a temp directory to simulate root
-	tmpDir := t.TempDir()
-	flatpakInfoPath := filepath.Join(tmpDir, ".flatpak-info")
-
-	// Create the file
-	if err := os.WriteFile(flatpakInfoPath, []byte("[Application]\nname=test\n"), 0o644); err != nil {
-		t.Fatalf("failed to create test flatpak-info: %v", err)
-	}
-
-	// Verify file exists
-	if _, err := os.Stat(flatpakInfoPath); err != nil {
-		t.Fatalf("flatpak-info file should exist: %v", err)
-	}
-
-	// We can't actually test DetectSandbox with this because it checks /.flatpak-info
-	// but this confirms our file creation logic works for documentation purposes.
 }

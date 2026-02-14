@@ -8,6 +8,8 @@ import (
 )
 
 func TestValidationError_Error(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name     string
 		err      ValidationError
@@ -47,6 +49,8 @@ func TestValidationError_Error(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			result := tt.err.Error()
 			if result != tt.expected {
 				t.Errorf("Error() = %q, want %q", result, tt.expected)
@@ -56,6 +60,8 @@ func TestValidationError_Error(t *testing.T) {
 }
 
 func TestValidationError_IsError(t *testing.T) {
+	t.Parallel()
+
 	errorErr := ValidationError{Severity: SeverityError}
 	warningErr := ValidationError{Severity: SeverityWarning}
 
@@ -74,6 +80,8 @@ func TestValidationError_IsError(t *testing.T) {
 }
 
 func TestValidationErrors_Error(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name     string
 		errs     ValidationErrors
@@ -111,6 +119,8 @@ func TestValidationErrors_Error(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			result := tt.errs.Error()
 			for _, want := range tt.contains {
 				if !strings.Contains(result, want) {
@@ -122,6 +132,8 @@ func TestValidationErrors_Error(t *testing.T) {
 }
 
 func TestValidationErrors_HasErrors(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name     string
 		errs     ValidationErrors
@@ -158,6 +170,8 @@ func TestValidationErrors_HasErrors(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			if got := tt.errs.HasErrors(); got != tt.expected {
 				t.Errorf("HasErrors() = %v, want %v", got, tt.expected)
 			}
@@ -166,6 +180,8 @@ func TestValidationErrors_HasErrors(t *testing.T) {
 }
 
 func TestValidationErrors_ErrorCount(t *testing.T) {
+	t.Parallel()
+
 	errs := ValidationErrors{
 		{Severity: SeverityError},
 		{Severity: SeverityWarning},
@@ -183,6 +199,8 @@ func TestValidationErrors_ErrorCount(t *testing.T) {
 }
 
 func TestValidationErrors_Filter(t *testing.T) {
+	t.Parallel()
+
 	errs := ValidationErrors{
 		{Message: "error1", Severity: SeverityError},
 		{Message: "warning1", Severity: SeverityWarning},
@@ -211,6 +229,8 @@ func TestValidationErrors_Filter(t *testing.T) {
 }
 
 func TestValidationSeverity_String(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		severity ValidationSeverity
 		expected string
@@ -222,6 +242,8 @@ func TestValidationSeverity_String(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.expected, func(t *testing.T) {
+			t.Parallel()
+
 			if got := tt.severity.String(); got != tt.expected {
 				t.Errorf("String() = %q, want %q", got, tt.expected)
 			}
@@ -230,6 +252,8 @@ func TestValidationSeverity_String(t *testing.T) {
 }
 
 func TestFieldPath(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name     string
 		build    func() *FieldPath
@@ -324,6 +348,8 @@ func TestFieldPath(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			result := tt.build().String()
 			if result != tt.expected {
 				t.Errorf("String() = %q, want %q", result, tt.expected)
@@ -333,6 +359,8 @@ func TestFieldPath(t *testing.T) {
 }
 
 func TestFieldPath_Copy(t *testing.T) {
+	t.Parallel()
+
 	original := NewFieldPath().Command("build").Implementation(0)
 	copied := original.Copy()
 

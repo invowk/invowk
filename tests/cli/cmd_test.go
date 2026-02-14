@@ -23,8 +23,8 @@ import (
 	"testing"
 	"time"
 
-	"invowk-cli/internal/container"
-	"invowk-cli/pkg/platform"
+	"github.com/invowk/invowk/internal/container"
+	"github.com/invowk/invowk/pkg/platform"
 
 	"github.com/rogpeppe/go-internal/testscript"
 )

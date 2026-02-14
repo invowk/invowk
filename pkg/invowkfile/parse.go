@@ -8,8 +8,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"invowk-cli/pkg/cueutil"
-	"invowk-cli/pkg/invowkmod"
+	"github.com/invowk/invowk/pkg/cueutil"
+	"github.com/invowk/invowk/pkg/invowkmod"
 )
 
 var (

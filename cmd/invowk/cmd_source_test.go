@@ -11,6 +11,8 @@ import (
 // ---------------------------------------------------------------------------
 
 func TestNormalizeSourceName(t *testing.T) {
+	t.Parallel()
+
 	// Test T009: normalizeSourceName helper
 	tests := []struct {
 		input    string
@@ -38,6 +40,8 @@ func TestNormalizeSourceName(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.input, func(t *testing.T) {
+			t.Parallel()
+
 			result := normalizeSourceName(tt.input)
 			if result != tt.expected {
 				t.Errorf("normalizeSourceName(%q) = %q, want %q", tt.input, result, tt.expected)
@@ -47,6 +51,8 @@ func TestNormalizeSourceName(t *testing.T) {
 }
 
 func TestParseSourceFilter_FromFlag(t *testing.T) {
+	t.Parallel()
+
 	// Test T008: ParseSourceFilter with --ivk-from flag
 	args := []string{"deploy", "arg1"}
 
@@ -72,6 +78,8 @@ func TestParseSourceFilter_FromFlag(t *testing.T) {
 }
 
 func TestParseSourceFilter_AtPrefix(t *testing.T) {
+	t.Parallel()
+
 	// Test T008: ParseSourceFilter with @source prefix
 	args := []string{"@foo", "deploy", "arg1"}
 
@@ -97,6 +105,8 @@ func TestParseSourceFilter_AtPrefix(t *testing.T) {
 }
 
 func TestParseSourceFilter_NoFilter(t *testing.T) {
+	t.Parallel()
+
 	// Test T008: ParseSourceFilter with no filter
 	args := []string{"deploy", "arg1"}
 
@@ -116,6 +126,8 @@ func TestParseSourceFilter_NoFilter(t *testing.T) {
 }
 
 func TestParseSourceFilter_FromFlagTakesPrecedence(t *testing.T) {
+	t.Parallel()
+
 	// Test T008: --ivk-from flag takes precedence over @prefix
 	args := []string{"@bar", "deploy"}
 
@@ -139,6 +151,8 @@ func TestParseSourceFilter_FromFlagTakesPrecedence(t *testing.T) {
 }
 
 func TestParseSourceFilter_EmptyArgs(t *testing.T) {
+	t.Parallel()
+
 	// Test T008: ParseSourceFilter with empty args
 	filter, remaining, err := ParseSourceFilter([]string{}, "")
 	if err != nil {

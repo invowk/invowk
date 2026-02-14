@@ -19,10 +19,6 @@ type sortCommand struct {
 	flags []FlagInfo
 }
 
-func init() {
-	RegisterDefault(newSortCommand())
-}
-
 // newSortCommand creates a new sort command.
 func newSortCommand() *sortCommand {
 	return &sortCommand{

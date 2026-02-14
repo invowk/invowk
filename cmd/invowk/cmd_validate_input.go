@@ -7,7 +7,7 @@ import (
 	"os"
 	"strings"
 
-	"invowk-cli/pkg/invowkfile"
+	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
 // captureUserEnv captures the current environment as a map.

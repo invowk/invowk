@@ -3,7 +3,7 @@
 package main
 
 import (
-	cmd "invowk-cli/cmd/invowk"
+	cmd "github.com/invowk/invowk/cmd/invowk"
 )
 
 func main() {

@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"os"
 
-	"invowk-cli/internal/container"
-	"invowk-cli/internal/issue"
-	"invowk-cli/internal/runtime"
+	"github.com/invowk/invowk/internal/container"
+	"github.com/invowk/invowk/internal/issue"
+	"github.com/invowk/invowk/internal/runtime"
 )
 
 // classifyExecutionError maps execution/runtime failures to issue catalog IDs and

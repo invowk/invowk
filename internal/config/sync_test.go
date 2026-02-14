@@ -170,6 +170,8 @@ func lookupDefinition(t *testing.T, schema cue.Value, defPath string) cue.Value 
 // TestConfigSchemaSync verifies Config Go struct matches #Config CUE definition.
 // T014: Create sync_test.go for Config struct
 func TestConfigSchemaSync(t *testing.T) {
+	t.Parallel()
+
 	schema, _ := getCUESchema(t)
 	cueFields := extractCUEFields(t, lookupDefinition(t, schema, "#Config"))
 	goFields := extractGoJSONTags(t, reflect.TypeFor[Config]())
@@ -179,6 +181,8 @@ func TestConfigSchemaSync(t *testing.T) {
 
 // TestVirtualShellConfigSchemaSync verifies VirtualShellConfig Go struct matches #VirtualShellConfig CUE definition.
 func TestVirtualShellConfigSchemaSync(t *testing.T) {
+	t.Parallel()
+
 	schema, _ := getCUESchema(t)
 	cueFields := extractCUEFields(t, lookupDefinition(t, schema, "#VirtualShellConfig"))
 	goFields := extractGoJSONTags(t, reflect.TypeFor[VirtualShellConfig]())
@@ -188,6 +192,8 @@ func TestVirtualShellConfigSchemaSync(t *testing.T) {
 
 // TestUIConfigSchemaSync verifies UIConfig Go struct matches #UIConfig CUE definition.
 func TestUIConfigSchemaSync(t *testing.T) {
+	t.Parallel()
+
 	schema, _ := getCUESchema(t)
 	cueFields := extractCUEFields(t, lookupDefinition(t, schema, "#UIConfig"))
 	goFields := extractGoJSONTags(t, reflect.TypeFor[UIConfig]())
@@ -197,6 +203,8 @@ func TestUIConfigSchemaSync(t *testing.T) {
 
 // TestContainerConfigSchemaSync verifies ContainerConfig Go struct matches #ContainerConfig CUE definition.
 func TestContainerConfigSchemaSync(t *testing.T) {
+	t.Parallel()
+
 	schema, _ := getCUESchema(t)
 	cueFields := extractCUEFields(t, lookupDefinition(t, schema, "#ContainerConfig"))
 	goFields := extractGoJSONTags(t, reflect.TypeFor[ContainerConfig]())
@@ -206,6 +214,8 @@ func TestContainerConfigSchemaSync(t *testing.T) {
 
 // TestAutoProvisionConfigSchemaSync verifies AutoProvisionConfig Go struct matches #AutoProvisionConfig CUE definition.
 func TestAutoProvisionConfigSchemaSync(t *testing.T) {
+	t.Parallel()
+
 	schema, _ := getCUESchema(t)
 	cueFields := extractCUEFields(t, lookupDefinition(t, schema, "#AutoProvisionConfig"))
 	goFields := extractGoJSONTags(t, reflect.TypeFor[AutoProvisionConfig]())
@@ -252,6 +262,8 @@ func validateCUE(t *testing.T, cueData string) error {
 
 // TestIncludeEntrySchemaSync verifies IncludeEntry Go struct matches #IncludeEntry CUE definition.
 func TestIncludeEntrySchemaSync(t *testing.T) {
+	t.Parallel()
+
 	schema, _ := getCUESchema(t)
 	cueFields := extractCUEFields(t, lookupDefinition(t, schema, "#IncludeEntry"))
 	goFields := extractGoJSONTags(t, reflect.TypeFor[IncludeEntry]())
@@ -262,6 +274,8 @@ func TestIncludeEntrySchemaSync(t *testing.T) {
 // TestIncludesEntryConstraints verifies #IncludeEntry path rejects empty strings,
 // enforces the 4096 rune limit, and only accepts paths ending with .invowkmod.
 func TestIncludesEntryConstraints(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name    string
 		cueData string
@@ -321,6 +335,8 @@ func TestIncludesEntryConstraints(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			err := validateCUE(t, tt.cueData)
 			if tt.wantErr && err == nil {
 				t.Error("expected validation error, got nil")
@@ -335,6 +351,8 @@ func TestIncludesEntryConstraints(t *testing.T) {
 // TestBinaryPathConstraints verifies container.auto_provision.binary_path rejects empty
 // strings and enforces the 4096 rune limit.
 func TestBinaryPathConstraints(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name    string
 		cueData string
@@ -359,6 +377,8 @@ func TestBinaryPathConstraints(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			err := validateCUE(t, tt.cueData)
 			if tt.wantErr && err == nil {
 				t.Error("expected validation error, got nil")
@@ -373,6 +393,8 @@ func TestBinaryPathConstraints(t *testing.T) {
 // TestAutoProvisionIncludesConstraints verifies container.auto_provision.includes
 // uses the same #IncludeEntry schema (modules-only paths).
 func TestAutoProvisionIncludesConstraints(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name    string
 		cueData string
@@ -407,6 +429,8 @@ func TestAutoProvisionIncludesConstraints(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			err := validateCUE(t, tt.cueData)
 			if tt.wantErr && err == nil {
 				t.Error("expected validation error, got nil")
@@ -421,6 +445,8 @@ func TestAutoProvisionIncludesConstraints(t *testing.T) {
 // TestCacheDirConstraints verifies container.auto_provision.cache_dir rejects empty
 // strings and enforces the 4096 rune limit.
 func TestCacheDirConstraints(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name    string
 		cueData string
@@ -445,6 +471,8 @@ func TestCacheDirConstraints(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			err := validateCUE(t, tt.cueData)
 			if tt.wantErr && err == nil {
 				t.Error("expected validation error, got nil")
@@ -459,6 +487,8 @@ func TestCacheDirConstraints(t *testing.T) {
 // TestValidateIncludes verifies the Go-level validation for includes constraints
 // that CUE cannot express (path uniqueness, alias uniqueness, short-name collision).
 func TestValidateIncludes(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name     string
 		includes []IncludeEntry
@@ -551,6 +581,8 @@ func TestValidateIncludes(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			err := validateIncludes("includes", tt.includes)
 			if tt.wantErr && err == nil {
 				t.Error("expected validation error, got nil")
@@ -565,6 +597,8 @@ func TestValidateIncludes(t *testing.T) {
 // TestValidateAutoProvisionIncludes verifies that the same validation rules
 // apply to container.auto_provision.includes entries.
 func TestValidateAutoProvisionIncludes(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name     string
 		includes []IncludeEntry
@@ -602,6 +636,8 @@ func TestValidateAutoProvisionIncludes(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			err := validateIncludes("container.auto_provision.includes", tt.includes)
 			if tt.wantErr && err == nil {
 				t.Error("expected validation error, got nil")

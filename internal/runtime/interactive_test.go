@@ -8,14 +8,18 @@ import (
 	"path/filepath"
 	"testing"
 
-	"invowk-cli/internal/config"
-	"invowk-cli/internal/testutil"
-	"invowk-cli/pkg/invowkfile"
+	"github.com/invowk/invowk/internal/config"
+	"github.com/invowk/invowk/internal/testutil"
+	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
 // TestInteractiveRuntimeInterface verifies that all runtimes implement InteractiveRuntime.
 func TestInteractiveRuntimeInterface(t *testing.T) {
+	t.Parallel()
+
 	t.Run("NativeRuntime implements InteractiveRuntime", func(t *testing.T) {
+		t.Parallel()
+
 		var rt Runtime = NewNativeRuntime()
 		ir, ok := rt.(InteractiveRuntime)
 		if !ok {
@@ -27,6 +31,8 @@ func TestInteractiveRuntimeInterface(t *testing.T) {
 	})
 
 	t.Run("VirtualRuntime implements InteractiveRuntime", func(t *testing.T) {
+		t.Parallel()
+
 		var rt Runtime = NewVirtualRuntime(false)
 		ir, ok := rt.(InteractiveRuntime)
 		if !ok {
@@ -38,6 +44,8 @@ func TestInteractiveRuntimeInterface(t *testing.T) {
 	})
 
 	t.Run("ContainerRuntime implements InteractiveRuntime", func(t *testing.T) {
+		t.Parallel()
+
 		cfg := &config.Config{ContainerEngine: "docker"}
 		crt, err := NewContainerRuntime(cfg)
 		if err != nil {
@@ -56,7 +64,11 @@ func TestInteractiveRuntimeInterface(t *testing.T) {
 
 // TestGetInteractiveRuntime tests the helper function for getting InteractiveRuntime.
 func TestGetInteractiveRuntime(t *testing.T) {
+	t.Parallel()
+
 	t.Run("returns InteractiveRuntime for NativeRuntime", func(t *testing.T) {
+		t.Parallel()
+
 		rt := NewNativeRuntime()
 		ir := GetInteractiveRuntime(rt)
 		if ir == nil {
@@ -65,6 +77,8 @@ func TestGetInteractiveRuntime(t *testing.T) {
 	})
 
 	t.Run("returns InteractiveRuntime for VirtualRuntime", func(t *testing.T) {
+		t.Parallel()
+
 		rt := NewVirtualRuntime(false)
 		ir := GetInteractiveRuntime(rt)
 		if ir == nil {
@@ -75,6 +89,8 @@ func TestGetInteractiveRuntime(t *testing.T) {
 
 // TestNativeRuntimePrepareInteractive tests the NativeRuntime.PrepareInteractive method.
 func TestNativeRuntimePrepareInteractive(t *testing.T) {
+	t.Parallel()
+
 	// Create a temporary invowkfile (module metadata now in invowkmod.cue, not invowkfile.cue)
 	tmpDir := t.TempDir()
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
@@ -123,6 +139,8 @@ cmds: [{
 
 // TestVirtualRuntimePrepareInteractive tests the VirtualRuntime.PrepareInteractive method.
 func TestVirtualRuntimePrepareInteractive(t *testing.T) {
+	t.Parallel()
+
 	// Create a temporary invowkfile (module metadata now in invowkmod.cue, not invowkfile.cue)
 	tmpDir := t.TempDir()
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
@@ -181,6 +199,8 @@ cmds: [{
 
 // TestContainerRuntimeGetHostAddressForContainer tests the host address resolution.
 func TestContainerRuntimeGetHostAddressForContainer(t *testing.T) {
+	t.Parallel()
+
 	cfg := &config.Config{ContainerEngine: "docker"}
 	rt, err := NewContainerRuntime(cfg)
 	if err != nil {
@@ -195,6 +215,8 @@ func TestContainerRuntimeGetHostAddressForContainer(t *testing.T) {
 
 // TestPreparedCommandCleanup verifies that cleanup functions work correctly.
 func TestPreparedCommandCleanup(t *testing.T) {
+	t.Parallel()
+
 	// Create a temp file to simulate cleanup
 	tmpFile, err := os.CreateTemp("", "test-cleanup-*.txt")
 	if err != nil {

@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"invowk-cli/internal/discovery"
-	"invowk-cli/pkg/invowkfile"
+	"github.com/invowk/invowk/internal/discovery"
+	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
 // ---------------------------------------------------------------------------
@@ -17,6 +17,8 @@ import (
 // ---------------------------------------------------------------------------
 
 func TestArgNameToEnvVar(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name     string
 		input    string
@@ -66,6 +68,8 @@ func TestArgNameToEnvVar(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			result := ArgNameToEnvVar(tt.input)
 			if result != tt.expected {
 				t.Errorf("ArgNameToEnvVar(%q) = %q, want %q", tt.input, result, tt.expected)
@@ -75,6 +79,8 @@ func TestArgNameToEnvVar(t *testing.T) {
 }
 
 func TestBuildCommandUsageString(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name     string
 		cmdPart  string
@@ -142,6 +148,8 @@ func TestBuildCommandUsageString(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			result := buildCommandUsageString(tt.cmdPart, tt.args)
 			if result != tt.expected {
 				t.Errorf("buildCommandUsageString(%q, ...) = %q, want %q", tt.cmdPart, result, tt.expected)
@@ -151,6 +159,8 @@ func TestBuildCommandUsageString(t *testing.T) {
 }
 
 func TestBuildArgsDocumentation(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name          string
 		args          []invowkfile.Argument
@@ -204,6 +214,8 @@ func TestBuildArgsDocumentation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			result := buildArgsDocumentation(tt.args)
 
 			for _, s := range tt.shouldHave {
@@ -222,6 +234,8 @@ func TestBuildArgsDocumentation(t *testing.T) {
 }
 
 func TestArgumentValidationError_Error(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name     string
 		err      *ArgumentValidationError
@@ -262,6 +276,8 @@ func TestArgumentValidationError_Error(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			result := tt.err.Error()
 			if result != tt.expected {
 				t.Errorf("Error() = %q, want %q", result, tt.expected)
@@ -271,6 +287,8 @@ func TestArgumentValidationError_Error(t *testing.T) {
 }
 
 func TestValidateArguments_NoDefinitions(t *testing.T) {
+	t.Parallel()
+
 	// When no arg definitions exist, any arguments should be allowed (backward compatible)
 	err := validateArguments("test-cmd", []string{"foo", "bar", "baz"}, nil)
 	if err != nil {
@@ -289,6 +307,8 @@ func TestValidateArguments_NoDefinitions(t *testing.T) {
 }
 
 func TestValidateArguments_MissingRequired(t *testing.T) {
+	t.Parallel()
+
 	argDefs := []invowkfile.Argument{
 		{Name: "env", Description: "Target environment", Required: true},
 		{Name: "region", Description: "AWS region", Required: true},
@@ -320,6 +340,8 @@ func TestValidateArguments_MissingRequired(t *testing.T) {
 }
 
 func TestValidateArguments_TooManyArgs(t *testing.T) {
+	t.Parallel()
+
 	argDefs := []invowkfile.Argument{
 		{Name: "env", Description: "Target environment", Required: true},
 	}
@@ -344,6 +366,8 @@ func TestValidateArguments_TooManyArgs(t *testing.T) {
 }
 
 func TestValidateArguments_VariadicAllowsExtra(t *testing.T) {
+	t.Parallel()
+
 	argDefs := []invowkfile.Argument{
 		{Name: "env", Description: "Target environment", Required: true},
 		{Name: "services", Description: "Services to deploy", Variadic: true},
@@ -363,6 +387,8 @@ func TestValidateArguments_VariadicAllowsExtra(t *testing.T) {
 }
 
 func TestValidateArguments_InvalidValue(t *testing.T) {
+	t.Parallel()
+
 	argDefs := []invowkfile.Argument{
 		{Name: "replicas", Description: "Number of replicas", Type: invowkfile.ArgumentTypeInt, Required: true},
 	}
@@ -390,6 +416,8 @@ func TestValidateArguments_InvalidValue(t *testing.T) {
 }
 
 func TestValidateArguments_ValidTypes(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name    string
 		argDefs []invowkfile.Argument
@@ -432,6 +460,8 @@ func TestValidateArguments_ValidTypes(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			err := validateArguments("test-cmd", tt.args, tt.argDefs)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("validateArguments() error = %v, wantErr %v", err, tt.wantErr)
@@ -441,6 +471,8 @@ func TestValidateArguments_ValidTypes(t *testing.T) {
 }
 
 func TestValidateArguments_OptionalWithDefault(t *testing.T) {
+	t.Parallel()
+
 	argDefs := []invowkfile.Argument{
 		{Name: "env", Description: "Target environment", Required: true},
 		{Name: "replicas", Description: "Number of replicas", DefaultValue: "3"},
@@ -460,6 +492,8 @@ func TestValidateArguments_OptionalWithDefault(t *testing.T) {
 }
 
 func TestRenderArgumentValidationError_MissingRequired(t *testing.T) {
+	t.Parallel()
+
 	err := &ArgumentValidationError{
 		Type:        ArgErrMissingRequired,
 		CommandName: "deploy",
@@ -491,6 +525,8 @@ func TestRenderArgumentValidationError_MissingRequired(t *testing.T) {
 }
 
 func TestRenderArgumentValidationError_TooMany(t *testing.T) {
+	t.Parallel()
+
 	err := &ArgumentValidationError{
 		Type:        ArgErrTooMany,
 		CommandName: "deploy",
@@ -515,6 +551,8 @@ func TestRenderArgumentValidationError_TooMany(t *testing.T) {
 }
 
 func TestRenderArgumentValidationError_InvalidValue(t *testing.T) {
+	t.Parallel()
+
 	err := &ArgumentValidationError{
 		Type:         ArgErrInvalidValue,
 		CommandName:  "deploy",
@@ -543,6 +581,8 @@ func TestRenderArgumentValidationError_InvalidValue(t *testing.T) {
 }
 
 func TestRenderArgsSubcommandConflictError(t *testing.T) {
+	t.Parallel()
+
 	err := &discovery.ArgsSubcommandConflictError{
 		CommandName: "deploy",
 		Args: []invowkfile.Argument{

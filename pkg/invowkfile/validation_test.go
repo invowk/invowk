@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"invowk-cli/pkg/platform"
+	"github.com/invowk/invowk/pkg/platform"
 )
 
 func TestValidateRegexPattern(t *testing.T) {

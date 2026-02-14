@@ -11,8 +11,8 @@ import (
 	"regexp"
 	"strings"
 
-	"invowk-cli/internal/runtime"
-	"invowk-cli/pkg/invowkfile"
+	"github.com/invowk/invowk/internal/runtime"
+	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
 // validateCustomCheckOutput validates custom check script output against expected values

@@ -9,6 +9,8 @@ import (
 )
 
 func TestLayerProvisionerGenerateDockerfile(t *testing.T) {
+	t.Parallel()
+
 	cfg := &Config{
 		Enabled:          true,
 		InvowkBinaryPath: "/usr/bin/invowk",
@@ -45,6 +47,8 @@ func TestLayerProvisionerGenerateDockerfile(t *testing.T) {
 }
 
 func TestLayerProvisionerBuildEnvVars(t *testing.T) {
+	t.Parallel()
+
 	cfg := &Config{
 		Enabled:          true,
 		InvowkBinaryPath: "/usr/bin/invowk",
@@ -68,6 +72,8 @@ func TestLayerProvisionerBuildEnvVars(t *testing.T) {
 }
 
 func TestLayerProvisionerConfigAccessor(t *testing.T) {
+	t.Parallel()
+
 	cfg := &Config{
 		Enabled:      true,
 		ForceRebuild: true,
@@ -87,6 +93,8 @@ func TestLayerProvisionerConfigAccessor(t *testing.T) {
 }
 
 func TestNewLayerProvisionerWithNilConfig(t *testing.T) {
+	t.Parallel()
+
 	// NewLayerProvisioner should use DefaultConfig when passed nil
 	provisioner := NewLayerProvisioner(nil, nil)
 
@@ -104,6 +112,8 @@ func TestNewLayerProvisionerWithNilConfig(t *testing.T) {
 }
 
 func TestBuildProvisionedTagWithoutSuffix(t *testing.T) {
+	t.Parallel()
+
 	cfg := &Config{
 		Enabled:   true,
 		TagSuffix: "", // No suffix
@@ -119,6 +129,8 @@ func TestBuildProvisionedTagWithoutSuffix(t *testing.T) {
 }
 
 func TestBuildProvisionedTagWithSuffix(t *testing.T) {
+	t.Parallel()
+
 	cfg := &Config{
 		Enabled:   true,
 		TagSuffix: "test1234",
@@ -134,6 +146,8 @@ func TestBuildProvisionedTagWithSuffix(t *testing.T) {
 }
 
 func TestUniqueSuffixesProduceUniqueTags(t *testing.T) {
+	t.Parallel()
+
 	hash := "abc123def456"
 
 	cfg1 := &Config{TagSuffix: "suffix1"}
@@ -159,6 +173,8 @@ func TestUniqueSuffixesProduceUniqueTags(t *testing.T) {
 }
 
 func TestWithTagSuffixOption(t *testing.T) {
+	t.Parallel()
+
 	cfg := DefaultConfig()
 
 	// Apply the WithTagSuffix option
@@ -183,6 +199,8 @@ func TestDefaultConfigReadsTagSuffixFromEnv(t *testing.T) {
 }
 
 func TestLayerProvisionerGenerateDockerfile_NoBinary(t *testing.T) {
+	t.Parallel()
+
 	cfg := &Config{
 		Enabled:          true,
 		InvowkBinaryPath: "", // No binary path
@@ -227,6 +245,8 @@ func TestLayerProvisionerGenerateDockerfile_NoBinary(t *testing.T) {
 }
 
 func TestLayerProvisionerBuildEnvVars_NoBinary(t *testing.T) {
+	t.Parallel()
+
 	cfg := &Config{
 		Enabled:          true,
 		InvowkBinaryPath: "", // No binary path

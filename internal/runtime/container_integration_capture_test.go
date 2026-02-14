@@ -7,9 +7,9 @@ import (
 	"strings"
 	"testing"
 
-	"invowk-cli/internal/container"
-	"invowk-cli/internal/testutil"
-	"invowk-cli/pkg/invowkfile"
+	"github.com/invowk/invowk/internal/container"
+	"github.com/invowk/invowk/internal/testutil"
+	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
 // TestContainerRuntime_ExecuteCapture tests the ExecuteCapture method that captures stdout/stderr

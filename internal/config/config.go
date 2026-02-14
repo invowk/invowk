@@ -11,9 +11,9 @@ import (
 	"runtime"
 	"strings"
 
-	"invowk-cli/internal/issue"
-	"invowk-cli/pkg/cueutil"
-	"invowk-cli/pkg/platform"
+	"github.com/invowk/invowk/internal/issue"
+	"github.com/invowk/invowk/pkg/cueutil"
+	"github.com/invowk/invowk/pkg/platform"
 
 	"cuelang.org/go/cue"
 	"cuelang.org/go/cue/cuecontext"
@@ -38,11 +38,6 @@ var configSchema string
 //
 //nolint:revive // ConfigDir is more descriptive than Dir for external callers
 func ConfigDir() (string, error) {
-	// Allow tests to override the config directory
-	if configDirOverride != "" {
-		return configDirOverride, nil
-	}
-
 	var configDir string
 
 	switch runtime.GOOS {
@@ -73,6 +68,11 @@ func ConfigDir() (string, error) {
 
 // CommandsDir returns the directory for user-defined invowkfiles.
 // The path is ~/.invowk/cmds on all platforms.
+//
+// TODO: Accept an explicit homeDir parameter (or use functional options)
+// to eliminate the os.UserHomeDir() call, matching the configDirWithOverride
+// pattern used by EnsureConfigDir/Save/CreateDefaultConfig. This prevents
+// tests that call CommandsDir/EnsureCommandsDir from using t.Parallel().
 func CommandsDir() (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -154,8 +154,11 @@ func loadWithOptions(ctx context.Context, opts LoadOptions) (*Config, string, er
 			}
 			resolvedPath = cuePath
 		} else {
-			// Also check current directory
+			// Also check current directory (or BaseDir override)
 			localCuePath := ConfigFileName + "." + ConfigFileExt
+			if opts.BaseDir != "" {
+				localCuePath = filepath.Join(opts.BaseDir, localCuePath)
+			}
 			if fileExists(localCuePath) {
 				if err := loadCUEIntoViper(v, localCuePath); err != nil {
 					return nil, "", issue.NewErrorContext().
@@ -329,9 +332,10 @@ func fileExists(path string) bool {
 	return err == nil && !info.IsDir()
 }
 
-// EnsureConfigDir creates the config directory if it doesn't exist
-func EnsureConfigDir() error {
-	cfgDir, err := ConfigDir()
+// EnsureConfigDir creates the config directory if it doesn't exist.
+// When configDirPath is empty, the platform-default directory from ConfigDir() is used.
+func EnsureConfigDir(configDirPath string) error {
+	cfgDir, err := configDirWithOverride(configDirPath)
 	if err != nil {
 		return err
 	}
@@ -347,9 +351,10 @@ func EnsureCommandsDir() error {
 	return os.MkdirAll(cmdsDir, 0o755)
 }
 
-// CreateDefaultConfig creates a default config file if it doesn't exist
-func CreateDefaultConfig() error {
-	cfgDir, err := ConfigDir()
+// CreateDefaultConfig creates a default config file if it doesn't exist.
+// When configDirPath is empty, the platform-default directory from ConfigDir() is used.
+func CreateDefaultConfig(configDirPath string) error {
+	cfgDir, err := configDirWithOverride(configDirPath)
 	if err != nil {
 		return err
 	}
@@ -375,9 +380,10 @@ func CreateDefaultConfig() error {
 	return nil
 }
 
-// Save writes the current configuration to file
-func Save(cfg *Config) error {
-	cfgDir, err := ConfigDir()
+// Save writes the current configuration to file.
+// When configDirPath is empty, the platform-default directory from ConfigDir() is used.
+func Save(cfg *Config, configDirPath string) error {
+	cfgDir, err := configDirWithOverride(configDirPath)
 	if err != nil {
 		return err
 	}

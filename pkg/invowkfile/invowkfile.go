@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	goruntime "runtime"
 
-	"invowk-cli/pkg/platform"
+	"github.com/invowk/invowk/pkg/platform"
 )
 
 const (

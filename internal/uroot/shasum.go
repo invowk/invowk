@@ -13,10 +13,6 @@ type shasumCommand struct {
 	baseWrapper
 }
 
-func init() {
-	RegisterDefault(newShasumCommand())
-}
-
 // newShasumCommand creates a new shasum command wrapper.
 func newShasumCommand() *shasumCommand {
 	return &shasumCommand{

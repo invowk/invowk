@@ -11,9 +11,9 @@ import (
 	"runtime"
 	"strings"
 
-	"invowk-cli/internal/issue"
-	"invowk-cli/pkg/invowkfile"
-	"invowk-cli/pkg/platform"
+	"github.com/invowk/invowk/internal/issue"
+	"github.com/invowk/invowk/pkg/invowkfile"
+	"github.com/invowk/invowk/pkg/platform"
 )
 
 type (

@@ -176,7 +176,7 @@ Custom implementations support POSIX-style combined short flags (e.g., `ln -sf` 
 ### Adding New Custom Commands
 
 No action needed — new custom commands automatically get combined flag support as long as they:
-- Are registered in `DefaultRegistry` via `RegisterDefault()`
+- Are registered in `BuildDefaultRegistry()` (add `r.Register(newFooCommand())` in the factory function in `registry.go`)
 - Do NOT embed `baseWrapper` (which would mark them as upstream wrappers)
 
 ### Adding New Upstream Wrappers

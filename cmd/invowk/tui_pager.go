@@ -9,8 +9,8 @@ import (
 	"os"
 	"strings"
 
-	"invowk-cli/internal/tui"
-	"invowk-cli/internal/tuiserver"
+	"github.com/invowk/invowk/internal/tui"
+	"github.com/invowk/invowk/internal/tuiserver"
 
 	"github.com/spf13/cobra"
 )

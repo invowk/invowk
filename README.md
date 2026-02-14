@@ -34,31 +34,88 @@ A dynamically extensible, CLI-based command runner similar to [just](https://git
 
 ## Installation
 
+### Shell Script (Linux/macOS)
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/invowk/invowk/main/scripts/install.sh | sh
+```
+
+This downloads the latest release, verifies its SHA256 checksum, and installs to `~/.local/bin`. Customize with environment variables:
+
+```bash
+INSTALL_DIR=/usr/local/bin INVOWK_VERSION=v1.0.0 curl -fsSL https://raw.githubusercontent.com/invowk/invowk/main/scripts/install.sh | sh
+```
+
+### Homebrew (macOS/Linux)
+
+```bash
+brew install invowk/tap/invowk
+```
+
+### Go Install
+
+```bash
+go install github.com/invowk/invowk@latest
+```
+
+Requires Go 1.26+. The binary is installed to `$GOBIN` (or `$GOPATH/bin`).
+
 ### From Source
 
 ```bash
-git clone https://github.com/yourusername/invowk
+git clone https://github.com/invowk/invowk
 cd invowk
 make build
+make install  # Installs to $GOPATH/bin
 ```
 
 > **Note:** On x86-64 systems, the default build targets the x86-64-v3 microarchitecture (Haswell+ CPUs from 2013+) for optimal performance. For maximum compatibility with older CPUs, use `make build GOAMD64=v1`.
 
-> **Performance:** Invowk uses Profile-Guided Optimization (PGO) for improved runtime performance. The pre-generated profile (`default.pgo`) is automatically detected by Go 1.20+ during builds. To regenerate the profile after significant changes: `make pgo-profile`.
-
-### Installing the Binary
-
-Move the built binary to a location in your PATH:
+### Verify Installation
 
 ```bash
-sudo mv bin/invowk /usr/local/bin/
+invowk --version
 ```
 
-Or use the install target:
+### Upgrading
+
+Upgrade using the same method you used to install:
+
+- **Shell script**: Re-run the install command (it overwrites the existing binary):
+  ```bash
+  curl -fsSL https://raw.githubusercontent.com/invowk/invowk/main/scripts/install.sh | sh
+  ```
+  Pin to a specific version with `INVOWK_VERSION=v1.2.0`.
+
+- **Homebrew**: `brew upgrade invowk`
+
+- **Go install**: `go install github.com/invowk/invowk@latest`
+
+- **From source**: `git pull && make build && make install`
+
+### Platform Support
+
+| Method | Linux | macOS | Windows |
+|--------|-------|-------|---------|
+| Shell script | amd64, arm64 | amd64 (Intel), arm64 (Apple Silicon) | — |
+| Homebrew | amd64, arm64 | amd64, arm64 | — |
+| Go install | all | all | all |
+| From source | all | all | all |
+
+### Verifying Signatures
+
+Release artifacts are signed with [Cosign](https://github.com/sigstore/cosign) (keyless, via GitHub Actions OIDC). To verify the checksums file:
 
 ```bash
-make install  # Installs to $GOPATH/bin
+cosign verify-blob \
+  --certificate checksums.txt.pem \
+  --signature checksums.txt.sig \
+  --certificate-identity-regexp='https://github\.com/invowk/invowk/.*' \
+  --certificate-oidc-issuer='https://token.actions.githubusercontent.com' \
+  checksums.txt
 ```
+
+Then verify individual archives against `checksums.txt` using `sha256sum -c checksums.txt`.
 
 ## Quick Start
 
@@ -74,35 +131,38 @@ invowk init
 invowk cmd
 ```
 
-The list shows all commands grouped by source (invowkfile or module) with allowed runtimes (default marked with `*`). Commands use their **simple names** - no module prefix is required when names are unique:
+The list shows all commands grouped by source with allowed runtimes (default marked with `*`) and supported platforms:
 
 ```
 Available Commands
   (* = default runtime)
 
 From invowkfile:
-  build - Build the project [native*, container] (linux, macos, windows)
-  test unit - Run unit tests [native*, virtual] (linux, macos, windows)
-  deploy - Deploy the application (@invowkfile) [native*] (linux, macos)
-
-From tools.invowkmod:
-  lint - Run linter [native*] (linux, macos, windows)
-  deploy - Deploy to staging (@tools) [native*] (linux, macos)
+  hello - Print a greeting [native*, virtual, container] (linux, macos, windows)
 ```
-
-When a command name exists in multiple sources (like `deploy` above), the listing shows a source annotation (`@invowkfile`, `@tools`) to indicate disambiguation is required.
 
 3. **Run a command**:
 
 ```bash
-invowk cmd build
+invowk cmd hello
+# Output: Hello, World!
 ```
 
-4. **Run a command with a specific runtime**:
+4. **Pass an argument**:
 
 ```bash
-# Use a non-default runtime (must be allowed by the command)
-invowk cmd build --ivk-runtime container
+invowk cmd hello Alice
+# Output: Hello, Alice!
+```
+
+5. **Use a different runtime**:
+
+```bash
+# Use the virtual runtime (built-in cross-platform shell)
+invowk cmd hello --ivk-runtime virtual
+
+# Use the container runtime (requires Docker/Podman, Linux only)
+invowk cmd hello --ivk-runtime container
 ```
 
 ## Invowkfile Format

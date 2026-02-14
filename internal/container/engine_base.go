@@ -11,7 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"invowk-cli/internal/issue"
+	"github.com/invowk/invowk/internal/issue"
 )
 
 type (

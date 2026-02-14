@@ -13,10 +13,6 @@ type touchCommand struct {
 	baseWrapper
 }
 
-func init() {
-	RegisterDefault(newTouchCommand())
-}
-
 // newTouchCommand creates a new touch command wrapper.
 func newTouchCommand() *touchCommand {
 	return &touchCommand{

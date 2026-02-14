@@ -3,7 +3,7 @@
 package invowkfiletest
 
 import (
-	"invowk-cli/pkg/invowkfile"
+	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
 type (
