@@ -151,6 +151,8 @@ invowkfile.cue -> CUE Parser -> pkg/invowkfile -> Runtime Selection -> Execution
   - `provision/` - Container provisioning (ephemeral layer attachment).
 - `pkg/` - Public packages (cueutil, invowkmod, invowkfile, platform).
 - `modules/` - Sample invowk modules for validation and reference.
+- `scripts/` - Build and install scripts (e.g., `install.sh` for release distribution).
+- `specs/` - Feature specifications, research, and implementation plans.
 
 ## Container Runtime Limitations
 
