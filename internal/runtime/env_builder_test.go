@@ -12,6 +12,8 @@ import (
 // TestEnvBuilder_InterfaceContract verifies that DefaultEnvBuilder and MockEnvBuilder
 // both satisfy the EnvBuilder interface.
 func TestEnvBuilder_InterfaceContract(t *testing.T) {
+	t.Parallel()
+
 	var _ EnvBuilder = &DefaultEnvBuilder{}
 	var _ EnvBuilder = &MockEnvBuilder{}
 }
@@ -19,6 +21,8 @@ func TestEnvBuilder_InterfaceContract(t *testing.T) {
 // TestMockEnvBuilder_ReturnsConfiguredEnv verifies that MockEnvBuilder returns
 // the configured environment map.
 func TestMockEnvBuilder_ReturnsConfiguredEnv(t *testing.T) {
+	t.Parallel()
+
 	mock := &MockEnvBuilder{
 		Env: map[string]string{
 			"TEST_VAR": "test_value",
@@ -42,6 +46,8 @@ func TestMockEnvBuilder_ReturnsConfiguredEnv(t *testing.T) {
 // TestMockEnvBuilder_ReturnsCopy verifies that MockEnvBuilder returns a copy
 // of the environment, not the original map (preventing mutation).
 func TestMockEnvBuilder_ReturnsCopy(t *testing.T) {
+	t.Parallel()
+
 	original := map[string]string{"KEY": "value"}
 	mock := &MockEnvBuilder{Env: original}
 
@@ -57,6 +63,8 @@ func TestMockEnvBuilder_ReturnsCopy(t *testing.T) {
 // TestMockEnvBuilder_ReturnsError verifies that MockEnvBuilder returns
 // the configured error.
 func TestMockEnvBuilder_ReturnsError(t *testing.T) {
+	t.Parallel()
+
 	expectedErr := errors.New("mock error")
 	mock := &MockEnvBuilder{
 		Err: expectedErr,
@@ -75,6 +83,8 @@ func TestMockEnvBuilder_ReturnsError(t *testing.T) {
 // TestMockEnvBuilder_NilEnvReturnsEmptyMap verifies that MockEnvBuilder returns
 // an empty map when Env is nil (not nil).
 func TestMockEnvBuilder_NilEnvReturnsEmptyMap(t *testing.T) {
+	t.Parallel()
+
 	mock := &MockEnvBuilder{Env: nil}
 
 	env, err := mock.Build(nil, invowkfile.EnvInheritAll)
@@ -91,6 +101,8 @@ func TestMockEnvBuilder_NilEnvReturnsEmptyMap(t *testing.T) {
 
 // TestNewDefaultEnvBuilder verifies that NewDefaultEnvBuilder creates a valid builder.
 func TestNewDefaultEnvBuilder(t *testing.T) {
+	t.Parallel()
+
 	builder := NewDefaultEnvBuilder()
 	if builder == nil {
 		t.Error("NewDefaultEnvBuilder() returned nil")
