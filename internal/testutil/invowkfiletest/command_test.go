@@ -9,6 +9,8 @@ import (
 )
 
 func TestNewTestCommand_Defaults(t *testing.T) {
+	t.Parallel()
+
 	cmd := NewTestCommand("hello")
 
 	if cmd.Name != "hello" {
@@ -38,6 +40,8 @@ func TestNewTestCommand_Defaults(t *testing.T) {
 }
 
 func TestNewTestCommand_WithScript(t *testing.T) {
+	t.Parallel()
+
 	cmd := NewTestCommand("greet", WithScript("echo hello"))
 
 	if cmd.Implementations[0].Script != "echo hello" {
@@ -46,6 +50,8 @@ func TestNewTestCommand_WithScript(t *testing.T) {
 }
 
 func TestNewTestCommand_WithDescription(t *testing.T) {
+	t.Parallel()
+
 	cmd := NewTestCommand("greet", WithDescription("Says hello"))
 
 	if cmd.Description != "Says hello" {
@@ -54,6 +60,8 @@ func TestNewTestCommand_WithDescription(t *testing.T) {
 }
 
 func TestNewTestCommand_WithRuntime(t *testing.T) {
+	t.Parallel()
+
 	cmd := NewTestCommand("test", WithRuntime(invowkfile.RuntimeVirtual))
 
 	if len(cmd.Implementations[0].Runtimes) != 1 {
@@ -66,6 +74,8 @@ func TestNewTestCommand_WithRuntime(t *testing.T) {
 }
 
 func TestNewTestCommand_WithRuntimes(t *testing.T) {
+	t.Parallel()
+
 	cmd := NewTestCommand("test",
 		WithRuntimes(invowkfile.RuntimeNative, invowkfile.RuntimeVirtual))
 
@@ -83,6 +93,8 @@ func TestNewTestCommand_WithRuntimes(t *testing.T) {
 }
 
 func TestNewTestCommand_WithRuntimeConfig(t *testing.T) {
+	t.Parallel()
+
 	rc := invowkfile.RuntimeConfig{
 		Name:          invowkfile.RuntimeContainer,
 		Image:         "debian:stable-slim",
@@ -107,6 +119,8 @@ func TestNewTestCommand_WithRuntimeConfig(t *testing.T) {
 }
 
 func TestNewTestCommand_WithPlatform(t *testing.T) {
+	t.Parallel()
+
 	cmd := NewTestCommand("test", WithPlatform(invowkfile.PlatformLinux))
 
 	if len(cmd.Implementations[0].Platforms) != 1 {
@@ -119,6 +133,8 @@ func TestNewTestCommand_WithPlatform(t *testing.T) {
 }
 
 func TestNewTestCommand_WithPlatforms(t *testing.T) {
+	t.Parallel()
+
 	cmd := NewTestCommand("test",
 		WithPlatforms(invowkfile.PlatformLinux, invowkfile.PlatformMac))
 
@@ -136,6 +152,8 @@ func TestNewTestCommand_WithPlatforms(t *testing.T) {
 }
 
 func TestNewTestCommand_WithEnv(t *testing.T) {
+	t.Parallel()
+
 	cmd := NewTestCommand("test",
 		WithEnv("FOO", "bar"),
 		WithEnv("BAZ", "qux"))
@@ -154,6 +172,8 @@ func TestNewTestCommand_WithEnv(t *testing.T) {
 }
 
 func TestNewTestCommand_WithWorkDir(t *testing.T) {
+	t.Parallel()
+
 	cmd := NewTestCommand("test", WithWorkDir("/tmp/work"))
 
 	if cmd.WorkDir != "/tmp/work" {
@@ -162,6 +182,8 @@ func TestNewTestCommand_WithWorkDir(t *testing.T) {
 }
 
 func TestNewTestCommand_WithFlag(t *testing.T) {
+	t.Parallel()
+
 	cmd := NewTestCommand("deploy",
 		WithFlag("env",
 			FlagRequired(),
@@ -201,6 +223,8 @@ func TestNewTestCommand_WithFlag(t *testing.T) {
 }
 
 func TestNewTestCommand_WithMultipleFlags(t *testing.T) {
+	t.Parallel()
+
 	cmd := NewTestCommand("cmd",
 		WithFlag("verbose", FlagType(invowkfile.FlagTypeBool)),
 		WithFlag("count", FlagType(invowkfile.FlagTypeInt), FlagDefault("5")))
@@ -218,6 +242,8 @@ func TestNewTestCommand_WithMultipleFlags(t *testing.T) {
 }
 
 func TestNewTestCommand_WithArg(t *testing.T) {
+	t.Parallel()
+
 	cmd := NewTestCommand("copy",
 		WithArg("source",
 			ArgRequired(),
@@ -261,6 +287,8 @@ func TestNewTestCommand_WithArg(t *testing.T) {
 }
 
 func TestNewTestCommand_WithVariadicArg(t *testing.T) {
+	t.Parallel()
+
 	cmd := NewTestCommand("echo",
 		WithArg("messages", ArgVariadic()))
 
@@ -274,6 +302,8 @@ func TestNewTestCommand_WithVariadicArg(t *testing.T) {
 }
 
 func TestNewTestCommand_WithImplementation(t *testing.T) {
+	t.Parallel()
+
 	impl := invowkfile.Implementation{
 		Script: "echo linux",
 		Runtimes: []invowkfile.RuntimeConfig{
@@ -296,6 +326,8 @@ func TestNewTestCommand_WithImplementation(t *testing.T) {
 }
 
 func TestNewTestCommand_WithImplementations(t *testing.T) {
+	t.Parallel()
+
 	impls := []invowkfile.Implementation{
 		{
 			Script:   "echo linux",
@@ -322,6 +354,8 @@ func TestNewTestCommand_WithImplementations(t *testing.T) {
 }
 
 func TestNewTestCommand_WithDependsOn(t *testing.T) {
+	t.Parallel()
+
 	deps := &invowkfile.DependsOn{
 		Tools: []invowkfile.ToolDependency{
 			{Alternatives: []string{"git"}},
@@ -350,6 +384,8 @@ func TestNewTestCommand_WithDependsOn(t *testing.T) {
 }
 
 func TestNewTestCommand_CombinedOptions(t *testing.T) {
+	t.Parallel()
+
 	cmd := NewTestCommand("deploy",
 		WithDescription("Deploy the app"),
 		WithScript("./deploy.sh $ENV"),
