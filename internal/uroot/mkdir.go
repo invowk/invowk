@@ -13,10 +13,6 @@ type mkdirCommand struct {
 	baseWrapper
 }
 
-func init() {
-	RegisterDefault(newMkdirCommand())
-}
-
 // newMkdirCommand creates a new mkdir command wrapper.
 func newMkdirCommand() *mkdirCommand {
 	return &mkdirCommand{

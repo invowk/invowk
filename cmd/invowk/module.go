@@ -6,8 +6,8 @@ import (
 	"context"
 	"fmt"
 
-	"invowk-cli/internal/config"
-	"invowk-cli/internal/discovery"
+	"github.com/invowk/invowk/internal/config"
+	"github.com/invowk/invowk/internal/discovery"
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/spf13/cobra"
@@ -100,7 +100,7 @@ Examples:
 func runModuleList(ctx context.Context, app *App) error {
 	fmt.Println(moduleTitleStyle.Render("Discovered Modules"))
 
-	// Load config via provider instead of legacy global
+	// Load config via provider
 	cfg, err := app.Config.Load(ctx, config.LoadOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to load config: %w", err)

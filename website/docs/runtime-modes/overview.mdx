@@ -70,23 +70,38 @@ The command list shows available runtimes with an asterisk marking the default:
 
 ## Runtime Selection Flow
 
+The runtime is resolved using a 3-tier precedence model:
+
+1. **CLI flag** (`--ivk-runtime`) — Hard override. Errors if the specified runtime is not compatible with the command on the current platform.
+2. **Config default runtime** (`default_runtime` in config) — Soft override. If the config-level default runtime is compatible with the command, use it. Otherwise, silently fall through to Tier 3.
+3. **Per-command default** — First runtime of the first matching implementation for the current platform.
+
 ```
                     ┌──────────────────┐
                     │  invowk cmd run  │
                     └────────┬─────────┘
                              │
-                    ┌────────▼──────────┐
-                    │ --ivk-runtime   │
-                    │ flag?            │
-                    └────────┬──────────┘
+                  ┌──────────▼───────────┐
+                  │ Tier 1: --ivk-runtime│
+                  │ flag provided?       │
+                  └──────────┬───────────┘
                              │
               ┌──────────────┴──────────────┐
               │ Yes                         │ No
               ▼                             ▼
-    ┌─────────────────────┐    ┌─────────────────────┐
-    │ Use specified       │    │ Use first runtime   │
-    │ runtime             │    │ (default)           │
-    └─────────────────────┘    └─────────────────────┘
+    ┌─────────────────────┐      ┌──────────────────────┐
+    │ Use specified        │      │ Tier 2: config       │
+    │ runtime (hard error  │      │ default_runtime set? │
+    │ if incompatible)     │      └──────────┬───────────┘
+    └─────────────────────┘                  │
+                                ┌────────────┴────────────┐
+                                │ Yes & compatible        │ No / incompatible
+                                ▼                         ▼
+                     ┌─────────────────────┐   ┌─────────────────────┐
+                     │ Use config default  │   │ Tier 3: per-command │
+                     │ runtime             │   │ default (first      │
+                     └─────────────────────┘   │ matching runtime)   │
+                                               └─────────────────────┘
 ```
 
 ## Dependency Validation
@@ -101,7 +116,7 @@ Dependencies are validated according to the runtime:
 
 This means a `tools` dependency like `go` is checked:
 - **native**: Is `go` in the host's PATH?
-- **virtual**: Is `go` available in the virtual shell's built-ins?
+- **virtual**: Is `go` available in the virtual shell environment (built-ins and system PATH)?
 - **container**: Is `go` installed in the container image?
 
 ## Next Steps

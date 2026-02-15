@@ -30,7 +30,7 @@ Use this skill when:
 func testCommand(name, script string) Command { ... }
 
 // CORRECT: Centralized in testutil
-import "invowk-cli/internal/testutil/invowkfiletest"
+import "github.com/invowk/invowk/internal/testutil/invowkfiletest"
 cmd := invowkfiletest.NewTestCommand("hello", invowkfiletest.WithScript("echo hello"))
 ```
 
@@ -290,6 +290,10 @@ testscript runs tests in an isolated environment:
 - `USER` and other env vars are not passed through
 - Use `env VAR=value` to explicitly set required variables
 
+**Windows config isolation:** On Windows, `config.ConfigDir()` uses `%APPDATA%` and `config.CommandsDir()` uses `%USERPROFILE%`. The `commonSetup()` function in `tests/cli/cmd_test.go` sets both to test-scoped paths (`APPDATA=$WORK/appdata`, `USERPROFILE=$WORK`) so each test gets its own config directory. Without this, all Windows tests share the real system config dir, causing cross-test contamination.
+
+**CI environment leakage:** Ubuntu CI runners pre-set `XDG_CONFIG_HOME=/home/runner/.config`. Shell script tests (e.g., in `scripts/test_install.sh`) that rely on XDG fallback behavior (`${XDG_CONFIG_HOME:-${HOME}/.config}`) must explicitly `unset XDG_CONFIG_HOME` before testing the fallback path.
+
 Example for tests that need environment variables:
 
 ```txtar
@@ -524,6 +528,23 @@ When writing native test mirrors for Windows, use these translations:
 | `virtual_args_subcommand_conflict.txtar` | virtual | Args+subcommand conflict (exempt) | Inline CUE, all platforms |
 | `dogfooding_invowkfile.txtar` | native | Project invowkfile smoke test (exempt) | `$PROJECT_ROOT` (dogfooding) |
 | `container_*.txtar` | container | Container runtime tests (exempt) | Inline CUE, Linux only |
+| `config_show.txtar` | — | Config show subcommand (built-in) | No invowkfile, XDG override |
+| `config_init.txtar` | — | Config init subcommand (built-in) | No invowkfile, XDG override |
+| `config_path.txtar` | — | Config path subcommand (built-in) | No invowkfile, XDG override |
+| `config_set.txtar` | — | Config set subcommand (built-in) | No invowkfile, XDG override |
+| `config_dump.txtar` | — | Config dump subcommand (built-in) | No invowkfile, XDG override |
+| `module_validate.txtar` | — | Module validate subcommand (built-in) | Embedded invowkmod fixtures |
+| `module_create.txtar` | — | Module create subcommand (built-in) | Directory structure creation |
+| `module_list.txtar` | — | Module list subcommand (built-in) | XDG override, module fixtures |
+| `module_archive.txtar` | — | Module archive subcommand (built-in) | Embedded invowkmod fixtures |
+| `module_import.txtar` | — | Module import subcommand (built-in) | Archive + import flow |
+| `module_deps.txtar` | — | Module deps subcommand (built-in) | Embedded invowkmod fixtures |
+| `module_add_remove.txtar` | — | Module add/remove subcommands (built-in) | Error paths (no git) |
+| `module_sync_update.txtar` | — | Module sync/update subcommands (built-in) | Embedded invowkmod fixtures |
+| `module_vendor.txtar` | — | Module vendor subcommand (built-in) | Embedded invowkmod fixtures |
+| `completion.txtar` | — | Shell completion generation (built-in) | bash/zsh/fish/powershell output |
+| `tui_format.txtar` | — | TUI format subcommand (built-in) | Stdin pipe, markdown/code/emoji |
+| `tui_style.txtar` | — | TUI style subcommand (built-in) | Stdin pipe, flag-based styling |
 
 ### When to Add CLI Tests
 

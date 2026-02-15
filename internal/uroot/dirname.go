@@ -15,10 +15,6 @@ type dirnameCommand struct {
 	flags []FlagInfo
 }
 
-func init() {
-	RegisterDefault(newDirnameCommand())
-}
-
 // newDirnameCommand creates a new dirname command.
 func newDirnameCommand() *dirnameCommand {
 	return &dirnameCommand{

@@ -7,7 +7,7 @@ import (
 	"os"
 	"strings"
 
-	"invowk-cli/pkg/invowkfile"
+	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
 // envInheritConfig is the resolved environment inheritance configuration after
@@ -55,10 +55,12 @@ func resolveEnvInheritConfig(ctx *ExecutionContext, defaultMode invowkfile.EnvIn
 }
 
 // buildHostEnv filters the host environment according to the resolved inheritance config.
-// Mode "none" returns an empty map. Mode "allow" returns only allowlisted vars.
-// Mode "all" returns everything except denylisted vars. In all modes, INVOWK_* vars
-// are excluded via FilterInvowkEnvVars to prevent leaking internal state into commands.
-func buildHostEnv(cfg envInheritConfig) map[string]string {
+// The environ parameter provides the host environment as "KEY=VALUE" strings; when nil,
+// it defaults to os.Environ. Mode "none" returns an empty map. Mode "allow" returns only
+// allowlisted vars. Mode "all" returns everything except denylisted vars. In all modes,
+// INVOWK_* vars are excluded via FilterInvowkEnvVars to prevent leaking internal state
+// into commands.
+func buildHostEnv(cfg envInheritConfig, environ func() []string) map[string]string {
 	env := make(map[string]string)
 	if cfg.mode == invowkfile.EnvInheritNone {
 		return env
@@ -76,7 +78,11 @@ func buildHostEnv(cfg envInheritConfig) map[string]string {
 		denySet[name] = struct{}{}
 	}
 
-	for _, entry := range FilterInvowkEnvVars(os.Environ()) {
+	if environ == nil {
+		environ = os.Environ
+	}
+
+	for _, entry := range FilterInvowkEnvVars(environ()) {
 		name, value, ok := strings.Cut(entry, "=")
 		if !ok {
 			continue

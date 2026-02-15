@@ -5,10 +5,12 @@ package discovery
 import (
 	"errors"
 	"fmt"
+	"log/slog"
+	"os"
 	"path/filepath"
 
-	"invowk-cli/internal/config"
-	"invowk-cli/pkg/invowkfile"
+	"github.com/invowk/invowk/internal/config"
+	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
 // ErrNoInvowkfileFound is returned when no invowkfile.cue is found in any search path.
@@ -26,9 +28,26 @@ type (
 	// Discovery is the stateless entry point for file discovery, command set building,
 	// and single-command lookup. Each method creates fresh state from the config rather
 	// than caching results, which is appropriate for a short-lived CLI process.
+	//
+	// The baseDir and commandsDir fields replace hardcoded "." and config.CommandsDir()
+	// calls, enabling tests to inject explicit directories instead of relying on
+	// process-global os.Chdir (which prevents t.Parallel()).
+	//
+	// The companion *Set booleans distinguish "caller did not provide a value"
+	// (fall back to OS defaults) from "caller explicitly passed empty string"
+	// (skip that discovery source). Init-time errors (initDiagnostics) are
+	// surfaced through the standard diagnostics pipeline in discoverAllWithDiagnostics.
 	Discovery struct {
-		cfg *config.Config
+		cfg             *config.Config
+		baseDir         string       // replaces hardcoded "." — resolved once at construction
+		baseDirSet      bool         // distinguishes "not set" from "explicitly set to empty"
+		commandsDir     string       // replaces config.CommandsDir() call
+		commandsDirSet  bool         // distinguishes "not set" from "explicitly set to empty"
+		initDiagnostics []Diagnostic // errors from New() constructor surfaced as diagnostics
 	}
+
+	// Option configures a Discovery instance via the functional options pattern.
+	Option func(*Discovery)
 )
 
 // Error implements the error interface.
@@ -46,9 +65,65 @@ func (e *ModuleCollisionError) Error() string {
 // Unwrap returns nil; ModuleCollisionError has no underlying cause.
 func (e *ModuleCollisionError) Unwrap() error { return nil }
 
-// New creates a new Discovery instance
-func New(cfg *config.Config) *Discovery {
-	return &Discovery{cfg: cfg}
+// WithBaseDir sets the base directory for discovery, replacing the default of
+// os.Getwd(). This enables parallel tests to inject isolated temp directories
+// instead of relying on the process-global working directory.
+func WithBaseDir(dir string) Option {
+	return func(d *Discovery) {
+		d.baseDir = dir
+		d.baseDirSet = true
+	}
+}
+
+// WithCommandsDir sets the user commands directory, replacing the default of
+// config.CommandsDir() (~/.invowk/cmds). Pass an empty string to skip user-dir
+// discovery entirely.
+func WithCommandsDir(dir string) Option {
+	return func(d *Discovery) {
+		d.commandsDir = dir
+		d.commandsDirSet = true
+	}
+}
+
+// New creates a new Discovery instance. Without options, baseDir defaults to
+// os.Getwd() and commandsDir defaults to config.CommandsDir(), preserving
+// backward compatibility for all existing callers. If os.Getwd() fails
+// (e.g., deleted working directory), baseDir is empty and current-dir
+// discovery is effectively skipped.
+func New(cfg *config.Config, opts ...Option) *Discovery {
+	d := &Discovery{cfg: cfg}
+	for _, opt := range opts {
+		opt(d)
+	}
+	if !d.baseDirSet && d.baseDir == "" {
+		var err error
+		d.baseDir, err = os.Getwd()
+		if err != nil {
+			slog.Debug("failed to determine working directory for discovery, current-dir lookup will be skipped",
+				"error", err)
+			d.initDiagnostics = append(d.initDiagnostics, Diagnostic{
+				Severity: SeverityWarning,
+				Code:     "working_dir_unavailable",
+				Message:  fmt.Sprintf("current directory unavailable, skipping local discovery: %v", err),
+				Cause:    err,
+			})
+		}
+	}
+	if !d.commandsDirSet && d.commandsDir == "" {
+		if dir, err := config.CommandsDir(); err == nil {
+			d.commandsDir = dir
+		} else {
+			slog.Debug("user commands directory unavailable, skipping user-dir discovery",
+				"error", err)
+			d.initDiagnostics = append(d.initDiagnostics, Diagnostic{
+				Severity: SeverityWarning,
+				Code:     "commands_dir_unavailable",
+				Message:  fmt.Sprintf("user commands directory unavailable, skipping user-dir discovery: %v", err),
+				Cause:    err,
+			})
+		}
+	}
+	return d
 }
 
 // LoadAll parses all discovered files into Invowkfile structs. Library-only modules

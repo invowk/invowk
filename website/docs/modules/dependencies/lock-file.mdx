@@ -45,7 +45,7 @@ The key in the `modules` map is derived from the Git URL and optional path:
 ## Usage Notes
 
 - Commit `invowkmod.lock.cue` to version control for reproducible builds.
-- `invowk module add` does **not** write the lock file; use `invowk module sync`.
+- `invowk module add` writes the lock file automatically (no need to run `invowk module sync` afterward).
 
 ## Common Workflows
 

@@ -1,0 +1,13 @@
+# Test: invowk module sync and invowk module update error paths
+# Sync requires invowkmod.cue; update requires a lock file with entries
+
+cd $WORK
+
+# Test 1: module sync without invowkmod.cue fails
+! exec invowk module sync
+stderr 'parse invowkmod.cue'
+
+# Test 2: module update with no lock file and no modules reports nothing to update
+exec invowk module update
+stdout 'Update Module Dependencies'
+stdout 'No modules to update'

@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"invowk-cli/internal/testutil"
+	"github.com/invowk/invowk/internal/testutil"
 )
 
 // ============================================================================
@@ -128,7 +128,11 @@ func TestArchive(t *testing.T) {
 }
 
 func TestUnpack(t *testing.T) {
+	t.Parallel()
+
 	t.Run("unpack valid module from ZIP", func(t *testing.T) {
+		t.Parallel()
+
 		tmpDir := t.TempDir()
 
 		// Create and archive a module
@@ -175,6 +179,8 @@ func TestUnpack(t *testing.T) {
 	})
 
 	t.Run("unpack fails for existing module without overwrite", func(t *testing.T) {
+		t.Parallel()
+
 		tmpDir := t.TempDir()
 
 		// Create and archive a module
@@ -207,6 +213,8 @@ func TestUnpack(t *testing.T) {
 	})
 
 	t.Run("unpack with overwrite replaces existing module", func(t *testing.T) {
+		t.Parallel()
+
 		tmpDir := t.TempDir()
 
 		// Create and archive a module
@@ -247,6 +255,8 @@ func TestUnpack(t *testing.T) {
 	})
 
 	t.Run("unpack fails for empty source", func(t *testing.T) {
+		t.Parallel()
+
 		_, err := Unpack(UnpackOptions{
 			Source: "",
 		})
@@ -256,6 +266,8 @@ func TestUnpack(t *testing.T) {
 	})
 
 	t.Run("unpack fails for invalid ZIP", func(t *testing.T) {
+		t.Parallel()
+
 		tmpDir := t.TempDir()
 
 		// Create an invalid ZIP file
@@ -274,6 +286,8 @@ func TestUnpack(t *testing.T) {
 	})
 
 	t.Run("unpack fails for ZIP without module", func(t *testing.T) {
+		t.Parallel()
+
 		tmpDir := t.TempDir()
 
 		// Create a ZIP file without a module

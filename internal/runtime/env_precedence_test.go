@@ -6,8 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"invowk-cli/internal/testutil"
-	"invowk-cli/pkg/invowkfile"
+	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
 // TestBuildRuntimeEnv_PairwisePrecedence verifies that each adjacent precedence level
@@ -24,6 +23,8 @@ import (
 //  9. RuntimeEnvFiles (--ivk-env-file flag)
 //  10. RuntimeEnvVars (--ivk-env-var flag) - HIGHEST priority
 func TestBuildRuntimeEnv_PairwisePrecedence(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 
 	// Create env files for levels 2, 3, 4, and 9
@@ -34,28 +35,34 @@ func TestBuildRuntimeEnv_PairwisePrecedence(t *testing.T) {
 
 	currentPlatform := invowkfile.GetCurrentHostOS()
 
+	// Shared fake environ for tests that need host env (level 1)
+	hostEnviron := func() []string {
+		return []string{"KEY=level1_host"}
+	}
+
 	tests := []struct {
 		name     string
-		setupCtx func(tmpDir string) (*ExecutionContext, func())
+		builder  *DefaultEnvBuilder
+		setupCtx func(tmpDir string) *ExecutionContext
 		wantVal  string
 	}{
 		{
-			name: "level 2 root files override level 1 host env",
-			setupCtx: func(tmpDir string) (*ExecutionContext, func()) {
-				restore := testutil.MustSetenv(t, "KEY", "level1_host")
+			name:    "level 2 root files override level 1 host env",
+			builder: &DefaultEnvBuilder{Environ: hostEnviron},
+			setupCtx: func(tmpDir string) *ExecutionContext {
 				inv := &invowkfile.Invowkfile{
 					FilePath: filepath.Join(tmpDir, "invowkfile.cue"),
 					Env:      &invowkfile.EnvConfig{Files: []string{"root.env"}},
 				}
 				cmd := testCommandWithScript("test", "echo test", invowkfile.RuntimeNative)
-				ctx := NewExecutionContext(cmd, inv)
-				return ctx, restore
+				return NewExecutionContext(cmd, inv)
 			},
 			wantVal: "level2_root_file",
 		},
 		{
-			name: "level 3 cmd files override level 2 root files",
-			setupCtx: func(tmpDir string) (*ExecutionContext, func()) {
+			name:    "level 3 cmd files override level 2 root files",
+			builder: NewDefaultEnvBuilder(),
+			setupCtx: func(tmpDir string) *ExecutionContext {
 				inv := &invowkfile.Invowkfile{
 					FilePath: filepath.Join(tmpDir, "invowkfile.cue"),
 					Env:      &invowkfile.EnvConfig{Files: []string{"root.env"}},
@@ -69,14 +76,14 @@ func TestBuildRuntimeEnv_PairwisePrecedence(t *testing.T) {
 					}},
 					Env: &invowkfile.EnvConfig{Files: []string{"cmd.env"}},
 				}
-				ctx := NewExecutionContext(cmd, inv)
-				return ctx, func() {}
+				return NewExecutionContext(cmd, inv)
 			},
 			wantVal: "level3_cmd_file",
 		},
 		{
-			name: "level 4 impl files override level 3 cmd files",
-			setupCtx: func(tmpDir string) (*ExecutionContext, func()) {
+			name:    "level 4 impl files override level 3 cmd files",
+			builder: NewDefaultEnvBuilder(),
+			setupCtx: func(tmpDir string) *ExecutionContext {
 				inv := &invowkfile.Invowkfile{
 					FilePath: filepath.Join(tmpDir, "invowkfile.cue"),
 				}
@@ -90,14 +97,14 @@ func TestBuildRuntimeEnv_PairwisePrecedence(t *testing.T) {
 					}},
 					Env: &invowkfile.EnvConfig{Files: []string{"cmd.env"}},
 				}
-				ctx := NewExecutionContext(cmd, inv)
-				return ctx, func() {}
+				return NewExecutionContext(cmd, inv)
 			},
 			wantVal: "level4_impl_file",
 		},
 		{
-			name: "level 5 root vars override level 2 root files",
-			setupCtx: func(tmpDir string) (*ExecutionContext, func()) {
+			name:    "level 5 root vars override level 2 root files",
+			builder: NewDefaultEnvBuilder(),
+			setupCtx: func(tmpDir string) *ExecutionContext {
 				inv := &invowkfile.Invowkfile{
 					FilePath: filepath.Join(tmpDir, "invowkfile.cue"),
 					Env: &invowkfile.EnvConfig{
@@ -106,14 +113,14 @@ func TestBuildRuntimeEnv_PairwisePrecedence(t *testing.T) {
 					},
 				}
 				cmd := testCommandWithScript("test", "echo test", invowkfile.RuntimeNative)
-				ctx := NewExecutionContext(cmd, inv)
-				return ctx, func() {}
+				return NewExecutionContext(cmd, inv)
 			},
 			wantVal: "level5_root_var",
 		},
 		{
-			name: "level 6 cmd vars override level 5 root vars",
-			setupCtx: func(tmpDir string) (*ExecutionContext, func()) {
+			name:    "level 6 cmd vars override level 5 root vars",
+			builder: NewDefaultEnvBuilder(),
+			setupCtx: func(tmpDir string) *ExecutionContext {
 				inv := &invowkfile.Invowkfile{
 					FilePath: filepath.Join(tmpDir, "invowkfile.cue"),
 					Env: &invowkfile.EnvConfig{
@@ -129,14 +136,14 @@ func TestBuildRuntimeEnv_PairwisePrecedence(t *testing.T) {
 					}},
 					Env: &invowkfile.EnvConfig{Vars: map[string]string{"KEY": "level6_cmd_var"}},
 				}
-				ctx := NewExecutionContext(cmd, inv)
-				return ctx, func() {}
+				return NewExecutionContext(cmd, inv)
 			},
 			wantVal: "level6_cmd_var",
 		},
 		{
-			name: "level 7 impl vars override level 6 cmd vars",
-			setupCtx: func(tmpDir string) (*ExecutionContext, func()) {
+			name:    "level 7 impl vars override level 6 cmd vars",
+			builder: NewDefaultEnvBuilder(),
+			setupCtx: func(tmpDir string) *ExecutionContext {
 				inv := &invowkfile.Invowkfile{
 					FilePath: filepath.Join(tmpDir, "invowkfile.cue"),
 				}
@@ -150,14 +157,14 @@ func TestBuildRuntimeEnv_PairwisePrecedence(t *testing.T) {
 					}},
 					Env: &invowkfile.EnvConfig{Vars: map[string]string{"KEY": "level6_cmd_var"}},
 				}
-				ctx := NewExecutionContext(cmd, inv)
-				return ctx, func() {}
+				return NewExecutionContext(cmd, inv)
 			},
 			wantVal: "level7_impl_var",
 		},
 		{
-			name: "level 8 extra env overrides level 7 impl vars",
-			setupCtx: func(tmpDir string) (*ExecutionContext, func()) {
+			name:    "level 8 extra env overrides level 7 impl vars",
+			builder: NewDefaultEnvBuilder(),
+			setupCtx: func(tmpDir string) *ExecutionContext {
 				inv := &invowkfile.Invowkfile{
 					FilePath: filepath.Join(tmpDir, "invowkfile.cue"),
 				}
@@ -172,13 +179,14 @@ func TestBuildRuntimeEnv_PairwisePrecedence(t *testing.T) {
 				}
 				ctx := NewExecutionContext(cmd, inv)
 				ctx.Env.ExtraEnv["KEY"] = "level8_extra"
-				return ctx, func() {}
+				return ctx
 			},
 			wantVal: "level8_extra",
 		},
 		{
-			name: "level 9 runtime files override level 8 extra env",
-			setupCtx: func(tmpDir string) (*ExecutionContext, func()) {
+			name:    "level 9 runtime files override level 8 extra env",
+			builder: NewDefaultEnvBuilder(),
+			setupCtx: func(tmpDir string) *ExecutionContext {
 				inv := &invowkfile.Invowkfile{
 					FilePath: filepath.Join(tmpDir, "invowkfile.cue"),
 				}
@@ -186,13 +194,14 @@ func TestBuildRuntimeEnv_PairwisePrecedence(t *testing.T) {
 				ctx := NewExecutionContext(cmd, inv)
 				ctx.Env.ExtraEnv["KEY"] = "level8_extra"
 				ctx.Env.RuntimeEnvFiles = []string{filepath.Join(tmpDir, "runtime.env")}
-				return ctx, func() {}
+				return ctx
 			},
 			wantVal: "level9_runtime_file",
 		},
 		{
-			name: "level 10 runtime vars override level 9 runtime files",
-			setupCtx: func(tmpDir string) (*ExecutionContext, func()) {
+			name:    "level 10 runtime vars override level 9 runtime files",
+			builder: NewDefaultEnvBuilder(),
+			setupCtx: func(tmpDir string) *ExecutionContext {
 				inv := &invowkfile.Invowkfile{
 					FilePath: filepath.Join(tmpDir, "invowkfile.cue"),
 				}
@@ -200,7 +209,7 @@ func TestBuildRuntimeEnv_PairwisePrecedence(t *testing.T) {
 				ctx := NewExecutionContext(cmd, inv)
 				ctx.Env.RuntimeEnvFiles = []string{filepath.Join(tmpDir, "runtime.env")}
 				ctx.Env.RuntimeEnvVars = map[string]string{"KEY": "level10_runtime_var"}
-				return ctx, func() {}
+				return ctx
 			},
 			wantVal: "level10_runtime_var",
 		},
@@ -208,10 +217,11 @@ func TestBuildRuntimeEnv_PairwisePrecedence(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ctx, cleanup := tt.setupCtx(tmpDir)
-			defer cleanup()
+			t.Parallel()
 
-			env, err := NewDefaultEnvBuilder().Build(ctx, invowkfile.EnvInheritAll)
+			ctx := tt.setupCtx(tmpDir)
+
+			env, err := tt.builder.Build(ctx, invowkfile.EnvInheritAll)
 			if err != nil {
 				t.Fatalf("Build() error: %v", err)
 			}
@@ -227,6 +237,8 @@ func TestBuildRuntimeEnv_PairwisePrecedence(t *testing.T) {
 // level do not cause panics or incorrect behavior. The env builder must handle
 // nil EnvConfig pointers gracefully via the GetFiles()/GetVars() nil-safe accessors.
 func TestBuildRuntimeEnv_NilEnvConfigs(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	currentPlatform := invowkfile.GetCurrentHostOS()
 
@@ -312,6 +324,8 @@ func TestBuildRuntimeEnv_NilEnvConfigs(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			ctx := NewExecutionContext(tt.cmd, tt.inv)
 
 			env, err := NewDefaultEnvBuilder().Build(ctx, invowkfile.EnvInheritNone)
@@ -334,15 +348,19 @@ func TestBuildRuntimeEnv_NilEnvConfigs(t *testing.T) {
 // TestBuildHostEnv_FiltersInvowkVars verifies that buildHostEnv excludes INVOWK_*
 // variables even when inherit mode is "all".
 func TestBuildHostEnv_FiltersInvowkVars(t *testing.T) {
-	restoreArg := testutil.MustSetenv(t, "INVOWK_ARG_TEST", "should_be_filtered")
-	restoreFlag := testutil.MustSetenv(t, "INVOWK_FLAG_TEST", "should_be_filtered")
-	restoreKeep := testutil.MustSetenv(t, "KEEP_THIS_VAR", "visible")
-	defer restoreArg()
-	defer restoreFlag()
-	defer restoreKeep()
+	t.Parallel()
 
-	cfg := envInheritConfig{mode: invowkfile.EnvInheritAll}
-	env := buildHostEnv(cfg)
+	cfg := envInheritConfig{
+		mode: invowkfile.EnvInheritAll,
+	}
+	environ := func() []string {
+		return []string{
+			"INVOWK_ARG_TEST=should_be_filtered",
+			"INVOWK_FLAG_TEST=should_be_filtered",
+			"KEEP_THIS_VAR=visible",
+		}
+	}
+	env := buildHostEnv(cfg, environ)
 
 	if _, ok := env["INVOWK_ARG_TEST"]; ok {
 		t.Error("buildHostEnv() should filter INVOWK_ARG_* variables")

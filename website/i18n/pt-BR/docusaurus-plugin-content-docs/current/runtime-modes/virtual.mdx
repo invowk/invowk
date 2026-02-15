@@ -47,16 +47,69 @@ O shell virtual inclui utilitários POSIX core:
 
 ### Utilitários Estendidos (u-root)
 
-Quando habilitado na configuração, utilitários adicionais estão disponíveis:
+Quando habilitado na configuração (padrão: `true`), 28 utilitários adicionais compatíveis com POSIX da biblioteca [u-root](https://github.com/u-root/u-root) ficam disponíveis. Isso inclui 12 wrappers upstream do u-root e 16 implementações customizadas.
 
 <Snippet id="runtime-modes/virtual-uroot-config" />
 
-Isso adiciona utilitários como:
-- `cat`, `head`, `tail`
-- `grep`, `sed`, `awk`
-- `ls`, `cp`, `mv`, `rm`
-- `mkdir`, `rmdir`
-- E muitos outros
+#### Operações de Arquivo (13 utilitários)
+
+| Utilitário | Descrição | Flags Comuns |
+|------------|-----------|--------------|
+| `base64` | Codificar/decodificar base64 | `-d` (decodificar) |
+| `cat` | Concatenar e exibir arquivos | `-u` (ignorado, compatibilidade) |
+| `cp` | Copiar arquivos e diretórios | `-r` (recursivo), `-f` (forçar) |
+| `find` | Buscar arquivos em uma hierarquia de diretórios | `-name` (padrão), `-type` (f, d, l) |
+| `gzip` | Comprimir ou expandir arquivos | `-d` (descomprimir), `-c` (stdout), `-f` (forçar) |
+| `ln` | Criar links físicos ou simbólicos | `-s` (simbólico), `-f` (forçar) |
+| `ls` | Listar conteúdo de diretórios | `-l` (longo), `-a` (todos), `-R` (recursivo) |
+| `mkdir` | Criar diretórios | `-p` (criar pais) |
+| `mktemp` | Criar arquivos ou diretórios temporários | `-d` (diretório), `-p` (diretório prefixo) |
+| `mv` | Mover ou renomear arquivos | `-f` (forçar), `-n` (não sobrescrever) |
+| `rm` | Remover arquivos e diretórios | `-r` (recursivo), `-f` (forçar) |
+| `tar` | Arquivar arquivos | `-c` (criar), `-x` (extrair), `-f` (arquivo) |
+| `touch` | Criar ou atualizar timestamps de arquivos | `-c` (não criar) |
+
+#### Processamento de Texto (11 utilitários)
+
+| Utilitário | Descrição | Flags Comuns |
+|------------|-----------|--------------|
+| `basename` | Remover diretório e sufixo de nomes de arquivo | *(nenhum)* |
+| `cut` | Selecionar porções de linhas | `-d` (delimitador), `-f` (campos) |
+| `dirname` | Remover último componente de nomes de arquivo | *(nenhum)* |
+| `grep` | Buscar padrões | `-i` (ignorar maiúsculas), `-v` (inverter), `-n` (números de linha) |
+| `head` | Exibir primeiras N linhas | `-n <num>` (padrão 10) |
+| `realpath` | Resolver nomes de caminho absolutos | *(nenhum)* |
+| `sort` | Ordenar linhas | `-r` (reverso), `-n` (numérico), `-u` (único) |
+| `tail` | Exibir últimas N linhas | `-n <num>` (padrão 10) |
+| `tr` | Traduzir caracteres | `SET1 SET2` (mapeamento de caracteres) |
+| `uniq` | Filtrar linhas duplicadas adjacentes | `-c` (contar), `-d` (somente duplicatas) |
+| `wc` | Contar linhas, palavras, bytes | `-l` (linhas), `-w` (palavras), `-c` (bytes) |
+
+#### Outros Utilitários (4 utilitários)
+
+| Utilitário | Descrição | Flags Comuns |
+|------------|-----------|--------------|
+| `seq` | Gerar sequências numéricas | `-s` (separador), `-w` (largura igual) |
+| `shasum` | Calcular message digests SHA | `-a` (algoritmo: 1, 256, 512) |
+| `sleep` | Pausar por um tempo especificado | *(nenhum -- recebe argumento de duração)* |
+| `tee` | Duplicar entrada padrão para arquivos | `-a` (append) |
+
+:::note
+Estes utilitários implementam comportamento POSIX. Flags específicas do GNU (como `--color`, `--time-style`) são silenciosamente ignoradas para compatibilidade.
+:::
+
+#### Identificação de Erros
+
+Erros dos utilitários u-root são prefixados com `[uroot]` para fácil identificação:
+
+```
+[uroot] cp: /source/file: no such file or directory
+[uroot] rm: /protected: permission denied
+```
+
+#### Sem Fallback Silencioso
+
+Se um comando u-root falha, ele retorna um erro imediatamente. O sistema **não** faz fallback para binários do host, garantindo que bugs sejam detectados em vez de mascarados.
 
 ## Recursos do Shell POSIX
 

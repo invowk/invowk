@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"invowk-cli/internal/discovery"
+	"github.com/invowk/invowk/internal/discovery"
 
 	"github.com/charmbracelet/lipgloss"
 )

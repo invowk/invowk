@@ -7,7 +7,7 @@ import (
 	"runtime"
 	"testing"
 
-	"invowk-cli/pkg/platform"
+	"github.com/invowk/invowk/pkg/platform"
 )
 
 func TestSetHomeDir_Linux(t *testing.T) {

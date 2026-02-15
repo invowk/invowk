@@ -52,7 +52,7 @@ const config: Config = {
       },
       'pt-BR': {
         htmlLang: 'pt-BR',
-        label: 'Portugues (Brasil)',
+        label: 'Português (Brasil)',
       },
     },
   },
@@ -76,13 +76,13 @@ const config: Config = {
               path: 'next',
             },
             '0.1.0-alpha.3': {
-              banner: 'unreleased',
+              banner: 'unmaintained',
             },
             '0.1.0-alpha.2': {
-              banner: 'unreleased',
+              banner: 'unmaintained',
             },
             '0.1.0-alpha.1': {
-              banner: 'unreleased',
+              banner: 'unmaintained',
             },
           },
         },
@@ -114,7 +114,7 @@ const config: Config = {
   ],
 
   themeConfig: {
-    image: 'img/invowk-social-card.png',
+    image: 'img/docusaurus-social-card.jpg',
     colorMode: {
       defaultMode: 'dark',
       respectPrefersColorScheme: true,

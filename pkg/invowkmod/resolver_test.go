@@ -8,9 +8,8 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
-
-	"invowk-cli/internal/testutil"
 )
 
 func TestModuleRefKey(t *testing.T) {
@@ -86,7 +85,7 @@ func TestModuleRefString(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			result := tt.req.String()
 			for _, c := range tt.contains {
-				if !containsString(result, c) {
+				if !strings.Contains(result, c) {
 					t.Errorf("String() = %q, should contain %q", result, c)
 				}
 			}
@@ -95,36 +94,38 @@ func TestModuleRefString(t *testing.T) {
 }
 
 func TestGetDefaultCacheDir(t *testing.T) {
-	// Save original env
-	originalEnv := os.Getenv(ModuleCachePathEnv)
-	defer func() { _ = os.Setenv(ModuleCachePathEnv, originalEnv) }() // Test cleanup; error non-critical
+	t.Parallel()
 
 	t.Run("with env var", func(t *testing.T) {
-		customPath := "/custom/path/to/modules"
-		restoreEnv := testutil.MustSetenv(t, ModuleCachePathEnv, customPath)
-		defer restoreEnv()
+		t.Parallel()
 
-		result, err := GetDefaultCacheDir()
+		customPath := "/custom/path/to/modules"
+		result, err := GetDefaultCacheDirWith(func(key string) string {
+			if key == ModuleCachePathEnv {
+				return customPath
+			}
+			return ""
+		})
 		if err != nil {
-			t.Fatalf("GetDefaultCacheDir() error = %v", err)
+			t.Fatalf("GetDefaultCacheDirWith() error = %v", err)
 		}
 		if result != customPath {
-			t.Errorf("GetDefaultCacheDir() = %q, want %q", result, customPath)
+			t.Errorf("GetDefaultCacheDirWith() = %q, want %q", result, customPath)
 		}
 	})
 
 	t.Run("without env var", func(t *testing.T) {
-		testutil.MustUnsetenv(t, ModuleCachePathEnv)
+		t.Parallel()
 
-		result, err := GetDefaultCacheDir()
+		result, err := GetDefaultCacheDirWith(func(string) string { return "" })
 		if err != nil {
-			t.Fatalf("GetDefaultCacheDir() error = %v", err)
+			t.Fatalf("GetDefaultCacheDirWith() error = %v", err)
 		}
 
 		homeDir, _ := os.UserHomeDir()
 		expected := filepath.Join(homeDir, ".invowk", DefaultModulesDir)
 		if result != expected {
-			t.Errorf("GetDefaultCacheDir() = %q, want %q", result, expected)
+			t.Errorf("GetDefaultCacheDirWith() = %q, want %q", result, expected)
 		}
 	})
 }
@@ -689,18 +690,4 @@ func TestAddWritesLockFile(t *testing.T) {
 			t.Errorf("Namespace = %q, want %q", tools.Namespace, "mytools")
 		}
 	})
-}
-
-// Helper function
-func containsString(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr || s != "" && containsSubstring(s, substr))
-}
-
-func containsSubstring(s, substr string) bool {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
-		}
-	}
-	return false
 }

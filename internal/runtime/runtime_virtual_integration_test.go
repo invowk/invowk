@@ -10,12 +10,14 @@ import (
 	"strings"
 	"testing"
 
-	"invowk-cli/pkg/invowkfile"
+	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
 // TestVirtualRuntime_Integration groups integration tests for the virtual (mvdan/sh) runtime.
 // These tests execute actual shell code through the embedded interpreter.
 func TestVirtualRuntime_Integration(t *testing.T) {
+	t.Parallel()
+
 	if testing.Short() {
 		t.Skip("skipping integration test in short mode")
 	}
@@ -30,6 +32,8 @@ func TestVirtualRuntime_Integration(t *testing.T) {
 
 // testVirtualCommandSubstitution tests that command substitution works correctly.
 func testVirtualCommandSubstitution(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	inv := &invowkfile.Invowkfile{
 		FilePath: filepath.Join(tmpDir, "invowkfile.cue"),
@@ -58,6 +62,8 @@ func testVirtualCommandSubstitution(t *testing.T) {
 
 // testVirtualPipelines tests that shell pipelines work correctly.
 func testVirtualPipelines(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	inv := &invowkfile.Invowkfile{
 		FilePath: filepath.Join(tmpDir, "invowkfile.cue"),
@@ -86,6 +92,8 @@ func testVirtualPipelines(t *testing.T) {
 
 // testVirtualHeredocInput tests heredoc syntax works correctly.
 func testVirtualHeredocInput(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	inv := &invowkfile.Invowkfile{
 		FilePath: filepath.Join(tmpDir, "invowkfile.cue"),
@@ -122,6 +130,8 @@ EOF`
 
 // testVirtualEnvironmentExpansion tests various environment variable expansion forms.
 func testVirtualEnvironmentExpansion(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	inv := &invowkfile.Invowkfile{
 		FilePath: filepath.Join(tmpDir, "invowkfile.cue"),
@@ -165,6 +175,8 @@ echo "Length: ${#MYVAR}"`
 
 // testVirtualArithmeticExpansion tests arithmetic expansion in shell scripts.
 func testVirtualArithmeticExpansion(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	inv := &invowkfile.Invowkfile{
 		FilePath: filepath.Join(tmpDir, "invowkfile.cue"),
@@ -199,6 +211,8 @@ echo "Product: $((4 * 5))"`
 
 // testVirtualConditionalExecution tests conditional operators (&&, ||).
 func testVirtualConditionalExecution(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	inv := &invowkfile.Invowkfile{
 		FilePath: filepath.Join(tmpDir, "invowkfile.cue"),
@@ -233,6 +247,8 @@ false || echo "OR_FALLBACK"`
 
 // TestVirtualRuntime_ScriptFileFromSubdir tests executing a script file from a subdirectory.
 func TestVirtualRuntime_ScriptFileFromSubdir(t *testing.T) {
+	t.Parallel()
+
 	if testing.Short() {
 		t.Skip("skipping integration test in short mode")
 	}

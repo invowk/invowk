@@ -9,6 +9,7 @@ on:
       - 'internal/**'
       - 'pkg/**'
       - 'tests/**'
+      - 'scripts/**'
       - '*.go'
       - 'go.mod'
       - 'go.sum'
@@ -24,6 +25,7 @@ on:
       - 'internal/**'
       - 'pkg/**'
       - 'tests/**'
+      - 'scripts/**'
       - '*.go'
       - 'go.mod'
       - 'go.sum'
@@ -176,6 +178,25 @@ jobs:
             --rerun-fails-report cli-rerun-report.txt \
             --packages ./tests/cli/... \
             -- -race -timeout 5m
+
+      # Run install script unit tests (pure function tests, no network calls).
+      # Only on Linux — the POSIX install script is not applicable on Windows/macOS CI.
+      - name: Run install script tests
+        if: startsWith(matrix.runner, 'ubuntu')
+        shell: bash
+        run: sh scripts/test_install.sh
+
+      # Run PowerShell install script tests (PS 7.x/Core).
+      - name: Run PowerShell install script tests (pwsh)
+        if: matrix.os == 'windows'
+        shell: pwsh
+        run: ./scripts/test_install.ps1
+
+      # Run PowerShell install script tests (Windows PowerShell 5.1).
+      - name: Run PowerShell install script tests (powershell)
+        if: matrix.os == 'windows'
+        shell: powershell
+        run: ./scripts/test_install.ps1
 
       # Upload test results (JUnit XML + rerun reports) for debugging and flake tracking
       - name: Upload test results

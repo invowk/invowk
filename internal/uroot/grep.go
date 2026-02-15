@@ -17,10 +17,6 @@ type grepCommand struct {
 	flags []FlagInfo
 }
 
-func init() {
-	RegisterDefault(newGrepCommand())
-}
-
 // newGrepCommand creates a new grep command.
 func newGrepCommand() *grepCommand {
 	return &grepCommand{

@@ -13,10 +13,6 @@ type mvCommand struct {
 	baseWrapper
 }
 
-func init() {
-	RegisterDefault(newMvCommand())
-}
-
 // newMvCommand creates a new mv command wrapper.
 func newMvCommand() *mvCommand {
 	return &mvCommand{

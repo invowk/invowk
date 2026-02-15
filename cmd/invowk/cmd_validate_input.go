@@ -7,7 +7,7 @@ import (
 	"os"
 	"strings"
 
-	"invowk-cli/pkg/invowkfile"
+	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
 // captureUserEnv captures the current environment as a map.
@@ -56,7 +56,7 @@ func validateFlagValues(cmdName string, flagValues map[string]string, flagDefs [
 
 		// Check required flags
 		// Note: Cobra handles required flag checking via MarkFlagRequired,
-		// but we double-check here for runtime validation (legacy calls)
+		// but we double-check here for runtime validation (defense-in-depth for direct service calls)
 		if flag.Required && (!hasValue || value == "") {
 			validationErrs = append(validationErrs, fmt.Sprintf("required flag '--%s' was not provided", flag.Name))
 			continue

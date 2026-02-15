@@ -32,6 +32,11 @@ Before generating a mirror, verify the virtual test is NOT exempt:
 - `virtual_disambiguation.txtar` — Command resolution logic
 - `virtual_multi_source.txtar` — Command resolution logic
 - `dogfooding_invowkfile.txtar` — Already exercises native runtime
+- `config_*.txtar` — Built-in CLI commands (Cobra handlers, not user-defined runtimes)
+- `module_*.txtar` — Built-in CLI commands (Cobra handlers, not user-defined runtimes)
+- `completion.txtar` — Built-in CLI command (shell completion generation)
+- `tui_format.txtar`, `tui_style.txtar` — Built-in CLI commands (non-interactive TUI utilities)
+- `init_*.txtar` — Built-in CLI command (project initialization)
 
 If the test is exempt, report it and stop.
 

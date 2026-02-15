@@ -9,17 +9,20 @@ import (
 	"log/slog"
 	"strings"
 
-	"invowk-cli/internal/config"
-	"invowk-cli/internal/discovery"
-	"invowk-cli/internal/runtime"
-	"invowk-cli/internal/sshserver"
-	"invowk-cli/internal/tui"
-	"invowk-cli/internal/tuiserver"
+	"github.com/invowk/invowk/internal/config"
+	"github.com/invowk/invowk/internal/discovery"
+	"github.com/invowk/invowk/internal/runtime"
+	"github.com/invowk/invowk/internal/sshserver"
+	"github.com/invowk/invowk/internal/tui"
+	"github.com/invowk/invowk/internal/tuiserver"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/spf13/cobra"
 )
 
+// runtimeRegistryResult bundles the runtime registry with its cleanup function,
+// non-fatal initialization diagnostics, and any container runtime init error
+// for fail-fast dispatch.
 type runtimeRegistryResult struct {
 	Registry         *runtime.Registry
 	Cleanup          func()
@@ -28,6 +31,7 @@ type runtimeRegistryResult struct {
 }
 
 // parseEnvVarFlags parses an array of KEY=VALUE strings into a map.
+// Malformed entries (missing '=') are logged as warnings and skipped.
 func parseEnvVarFlags(envVarFlags []string) map[string]string {
 	if len(envVarFlags) == 0 {
 		return nil
@@ -35,10 +39,11 @@ func parseEnvVarFlags(envVarFlags []string) map[string]string {
 
 	result := make(map[string]string, len(envVarFlags))
 	for _, kv := range envVarFlags {
-		// Only KEY=VALUE forms are accepted; malformed items are ignored.
 		idx := strings.Index(kv, "=")
 		if idx > 0 {
 			result[kv[:idx]] = kv[idx+1:]
+		} else {
+			slog.Warn("ignoring malformed --ivk-env-var value (expected KEY=VALUE format)", "value", kv)
 		}
 	}
 
@@ -166,44 +171,45 @@ func checkAmbiguousCommand(ctx context.Context, app *App, rootFlags *rootFlagVal
 
 	lookupCtx := contextWithConfigPath(ctx, rootFlags.configPath)
 	commandSetResult, discoverErr := app.Discovery.DiscoverCommandSet(lookupCtx)
-	if discoverErr == nil {
-		app.Diagnostics.Render(ctx, commandSetResult.Diagnostics, app.stderr)
+	if discoverErr != nil {
+		slog.Debug("skipping ambiguity check due to discovery error", "error", discoverErr)
+		return nil
+	}
 
-		commandSet := commandSetResult.Set
-		cmdName := ""
-		// Mirror Cobra longest-match behavior for nested command names.
-		for i := len(args); i > 0; i-- {
-			candidateName := strings.Join(args[:i], " ")
-			if _, exists := commandSet.BySimpleName[candidateName]; exists {
-				cmdName = candidateName
+	app.Diagnostics.Render(ctx, commandSetResult.Diagnostics, app.stderr)
+
+	commandSet := commandSetResult.Set
+	cmdName := ""
+	// Mirror Cobra longest-match behavior for nested command names.
+	for i := len(args); i > 0; i-- {
+		candidateName := strings.Join(args[:i], " ")
+		if _, exists := commandSet.BySimpleName[candidateName]; exists {
+			cmdName = candidateName
+			break
+		}
+	}
+
+	if cmdName == "" {
+		// Unknown command path: let normal Cobra command resolution handle errors.
+		cmdName = args[0]
+	}
+
+	if !commandSet.AmbiguousNames[cmdName] {
+		return nil
+	}
+
+	sources := make([]string, 0)
+	for _, sourceID := range commandSet.SourceOrder {
+		cmdsInSource := commandSet.BySource[sourceID]
+		for _, discovered := range cmdsInSource {
+			if discovered.SimpleName == cmdName {
+				sources = append(sources, sourceID)
 				break
 			}
 		}
-
-		if cmdName == "" {
-			// Unknown command path: let normal Cobra command resolution handle errors.
-			cmdName = args[0]
-		}
-
-		if !commandSet.AmbiguousNames[cmdName] {
-			return nil
-		}
-
-		sources := make([]string, 0)
-		for _, sourceID := range commandSet.SourceOrder {
-			cmdsInSource := commandSet.BySource[sourceID]
-			for _, discovered := range cmdsInSource {
-				if discovered.SimpleName == cmdName {
-					sources = append(sources, sourceID)
-					break
-				}
-			}
-		}
-
-		return &AmbiguousCommandError{CommandName: cmdName, Sources: sources}
 	}
 
-	return nil
+	return &AmbiguousCommandError{CommandName: cmdName, Sources: sources}
 }
 
 // createRuntimeRegistry creates and populates the runtime registry.
@@ -211,6 +217,13 @@ func checkAmbiguousCommand(ctx context.Context, app *App, rootFlags *rootFlagVal
 // The container runtime is conditionally registered based on engine availability
 // (Docker or Podman). When an SSH server is active for host access, it is forwarded
 // to the container runtime so containers can reach back into the host.
+//
+// INVARIANT: This function creates exactly one ContainerRuntime instance per call.
+// The ContainerRuntime.runMu mutex provides intra-process serialization as a fallback
+// when flock-based cross-process locking is unavailable (non-Linux platforms).
+// Creating multiple ContainerRuntime instances would give each its own mutex,
+// defeating the serialization and reintroducing the ping_group_range race.
+// See TestCreateRuntimeRegistry_SingleContainerInstance for the enforcement test.
 //
 // The returned result includes the runtime registry, cleanup function, and
 // non-fatal diagnostics produced during runtime initialization.
@@ -221,6 +234,7 @@ func createRuntimeRegistry(cfg *config.Config, sshServer *sshserver.Server) runt
 
 	result := runtimeRegistryResult{
 		Registry: runtime.NewRegistry(),
+		Cleanup:  func() {}, // safe no-op default; unconditionally overwritten below with nil-guarded container cleanup
 	}
 
 	// Native and virtual runtimes are always available in-process.
@@ -247,7 +261,7 @@ func createRuntimeRegistry(cfg *config.Config, sshServer *sshserver.Server) runt
 	result.Cleanup = func() {
 		if containerRT != nil {
 			if err := containerRT.Close(); err != nil {
-				slog.Debug("container runtime cleanup failed", "error", err)
+				slog.Warn("container runtime cleanup failed", "error", err)
 			}
 		}
 	}

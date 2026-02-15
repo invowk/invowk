@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"invowk-cli/pkg/invowkmod"
+	"github.com/invowk/invowk/pkg/invowkmod"
 
 	"github.com/spf13/cobra"
 )

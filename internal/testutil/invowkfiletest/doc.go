@@ -7,7 +7,7 @@
 //
 // # Usage
 //
-//	import "invowk-cli/internal/testutil/invowkfiletest"
+//	import "github.com/invowk/invowk/internal/testutil/invowkfiletest"
 //
 //	cmd := invowkfiletest.NewTestCommand("hello", invowkfiletest.WithScript("echo hello"))
 package invowkfiletest

@@ -94,8 +94,8 @@ import (
     "context"
     "io"
 
-    "invowk-cli/internal/config"
-    "invowk-cli/internal/discovery"
+    "github.com/invowk/invowk/internal/config"
+    "github.com/invowk/invowk/internal/discovery"
 
     "github.com/spf13/cobra"
 )

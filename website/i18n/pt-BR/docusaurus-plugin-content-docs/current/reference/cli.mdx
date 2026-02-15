@@ -18,7 +18,7 @@ Estas flags estão disponíveis para todos os comandos:
 | `--ivk-config` | `-c` | Caminho do arquivo de configuração (padrão: `$HOME/.config/invowk/config.cue`) |
 | `--ivk-interactive` | `-i` | Executar comandos em buffer de tela alternativo (modo interativo) |
 | `--ivk-verbose` | `-v` | Habilitar saída verbose |
-| `--version` | | Mostrar informação de versão |
+| `--version` | | Mostrar informação de versão (apenas no comando raiz, não herdado por subcomandos) |
 
 ## Comandos
 
@@ -41,6 +41,8 @@ Executar comandos definidos em invowkfiles.
 | Flag | Curta | Descrição |
 |------|-------|-----------|
 | `--ivk-runtime` | `-r` | Sobrescrever o runtime (deve ser permitido pelo comando) |
+| `--ivk-from` | `-f` | Origem para executar comando (ex.: 'invowkfile' ou nome do módulo) |
+| `--ivk-force-rebuild` | | Forçar reconstrução de imagens de container (somente runtime container) |
 
 Flags embutidas por comando:
 
@@ -68,6 +70,29 @@ Comandos são descobertos de (em ordem de prioridade):
 2. Diretórios `*.invowkmod` irmãos
 3. Entradas configuradas em `includes` (somente módulos)
 4. `~/.invowk/cmds/` (somente módulos, não-recursivo)
+
+**Desambiguação de Comandos:**
+
+Quando um nome de comando existe em múltiplas origens (ex.: tanto em `invowkfile.cue` quanto em um módulo), você deve desambiguar:
+
+Usando o prefixo `@source`:
+```bash
+invowk cmd @invowkfile deploy      # Executar deploy do invowkfile
+invowk cmd @tools deploy         # Executar deploy de tools.invowkmod
+invowk cmd @tools.invowkmod deploy # Nome completo do módulo também funciona
+```
+
+Usando a flag `--ivk-from`:
+```bash
+invowk cmd --ivk-from invowkfile deploy
+invowk cmd --ivk-from tools deploy
+```
+
+Se você executar um comando ambíguo sem desambiguação, o invowk mostra um erro listando as origens disponíveis.
+
+:::tip
+Você pode usar `@source` ou `--ivk-from` mesmo para nomes de comando únicos para ser explícito sobre de onde um comando vem.
+:::
 
 ---
 
@@ -145,6 +170,10 @@ Definir um valor de configuração.
 ### invowk module
 
 Gerenciar módulos do invowk (pastas de comandos autocontidas).
+
+:::tip Alias
+`mod` é um alias para `module`. Por exemplo, `invowk mod list` funciona da mesma forma que `invowk module list`.
+:::
 
 <Snippet id="reference/cli/module-syntax" />
 
@@ -348,7 +377,7 @@ Prompt de confirmação sim/não.
 | Flag | Descrição |
 |------|-----------|
 | `--title` | Título exibido acima do prompt |
-| `--default` | Valor padrão (true/false) |
+| `--default` | Usar sim como padrão quando presente |
 | `--affirmative` | Texto para opção "sim" |
 | `--negative` | Texto para opção "não" |
 
@@ -477,7 +506,7 @@ Aplicar estilos ao texto.
 | `--width` | Largura fixa |
 | `--height` | Altura fixa |
 | `--align` | Alinhamento de texto |
-| `--border` | Estilo da borda |
+| `--border` | Estilo da borda: `none`, `normal`, `rounded`, `double`, `thick`, `hidden` |
 
 ---
 

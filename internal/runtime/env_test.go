@@ -8,8 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"invowk-cli/internal/testutil"
-	"invowk-cli/pkg/invowkfile"
+	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
 // createEnvFile creates an env file with the given content and returns its path.
@@ -23,6 +22,8 @@ func createEnvFile(t *testing.T, dir, name, content string) string {
 }
 
 func TestDefaultEnvBuilder_InheritAllFiltersInvowkVars(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	inv := &invowkfile.Invowkfile{
 		FilePath: filepath.Join(tmpDir, "invowkfile.cue"),
@@ -30,12 +31,11 @@ func TestDefaultEnvBuilder_InheritAllFiltersInvowkVars(t *testing.T) {
 	cmd := testCommandWithScript("env", "echo test", invowkfile.RuntimeNative)
 	ctx := NewExecutionContext(cmd, inv)
 
-	restoreParent := testutil.MustSetenv(t, "INVOWK_ARG_PARENT", "parent_value")
-	restoreHost := testutil.MustSetenv(t, "CUSTOM_HOST_ENV", "host_value")
-	defer restoreParent()
-	defer restoreHost()
-
-	builder := NewDefaultEnvBuilder()
+	builder := &DefaultEnvBuilder{
+		Environ: func() []string {
+			return []string{"INVOWK_ARG_PARENT=parent_value", "CUSTOM_HOST_ENV=host_value"}
+		},
+	}
 	env, err := builder.Build(ctx, invowkfile.EnvInheritAll)
 	if err != nil {
 		t.Fatalf("DefaultEnvBuilder.Build() error: %v", err)
@@ -50,6 +50,8 @@ func TestDefaultEnvBuilder_InheritAllFiltersInvowkVars(t *testing.T) {
 }
 
 func TestDefaultEnvBuilder_InheritAllowAndDeny(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	inv := &invowkfile.Invowkfile{
 		FilePath: filepath.Join(tmpDir, "invowkfile.cue"),
@@ -60,12 +62,11 @@ func TestDefaultEnvBuilder_InheritAllowAndDeny(t *testing.T) {
 	ctx.Env.InheritAllowOverride = []string{"ALLOW_ME", "DENY_ME"}
 	ctx.Env.InheritDenyOverride = []string{"DENY_ME"}
 
-	restoreAllow := testutil.MustSetenv(t, "ALLOW_ME", "allowed")
-	restoreDeny := testutil.MustSetenv(t, "DENY_ME", "denied")
-	defer restoreAllow()
-	defer restoreDeny()
-
-	builder := NewDefaultEnvBuilder()
+	builder := &DefaultEnvBuilder{
+		Environ: func() []string {
+			return []string{"ALLOW_ME=allowed", "DENY_ME=denied"}
+		},
+	}
 	env, err := builder.Build(ctx, invowkfile.EnvInheritAll)
 	if err != nil {
 		t.Fatalf("DefaultEnvBuilder.Build() error: %v", err)
@@ -80,6 +81,8 @@ func TestDefaultEnvBuilder_InheritAllowAndDeny(t *testing.T) {
 }
 
 func TestValidateWorkDir(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 
 	// Create a test file (not a directory)
@@ -120,11 +123,13 @@ func TestValidateWorkDir(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			err := validateWorkDir(tt.dir)
 			if tt.wantErr {
 				if err == nil {
 					t.Errorf("validateWorkDir(%q) expected error, got nil", tt.dir)
-				} else if tt.errSubstr != "" && !containsString(err.Error(), tt.errSubstr) {
+				} else if tt.errSubstr != "" && !strings.Contains(err.Error(), tt.errSubstr) {
 					t.Errorf("validateWorkDir(%q) error = %q, want error containing %q", tt.dir, err.Error(), tt.errSubstr)
 				}
 			} else {
@@ -138,6 +143,8 @@ func TestValidateWorkDir(t *testing.T) {
 
 // TestResolveEnvInheritConfig tests the inheritance mode resolution logic.
 func TestResolveEnvInheritConfig(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	inv := &invowkfile.Invowkfile{
 		FilePath: filepath.Join(tmpDir, "invowkfile.cue"),
@@ -230,6 +237,8 @@ func TestResolveEnvInheritConfig(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			cmd := testCommandWithScript("test", "echo test", invowkfile.RuntimeNative)
 			ctx := NewExecutionContext(cmd, inv)
 			tt.setupCtx(ctx)
@@ -251,13 +260,15 @@ func TestResolveEnvInheritConfig(t *testing.T) {
 
 // TestBuildHostEnv tests the host environment filtering logic.
 func TestBuildHostEnv(t *testing.T) {
-	// Set up known host environment variables for testing
-	restorePath := testutil.MustSetenv(t, "TEST_HOST_PATH", "/usr/bin")
-	restoreHome := testutil.MustSetenv(t, "TEST_HOST_HOME", "/home/user")
-	restoreSecret := testutil.MustSetenv(t, "TEST_SECRET", "confidential")
-	defer restorePath()
-	defer restoreHome()
-	defer restoreSecret()
+	t.Parallel()
+
+	fakeEnviron := func() []string {
+		return []string{
+			"TEST_HOST_PATH=/usr/bin",
+			"TEST_HOST_HOME=/home/user",
+			"TEST_SECRET=confidential",
+		}
+	}
 
 	tests := []struct {
 		name     string
@@ -322,7 +333,9 @@ func TestBuildHostEnv(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			env := buildHostEnv(tt.cfg)
+			t.Parallel()
+
+			env := buildHostEnv(tt.cfg, fakeEnviron)
 
 			for k, v := range tt.wantVars {
 				if got := env[k]; got != v {
@@ -341,6 +354,8 @@ func TestBuildHostEnv(t *testing.T) {
 
 // TestBuildRuntimeEnv_Precedence tests the 10-level environment precedence hierarchy.
 func TestBuildRuntimeEnv_Precedence(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 
 	// Create env files for different levels
@@ -348,12 +363,6 @@ func TestBuildRuntimeEnv_Precedence(t *testing.T) {
 	createEnvFile(t, tmpDir, "cmd.env", "SHARED=cmd_file\nCMD_FILE_ONLY=cmd_file")
 	createEnvFile(t, tmpDir, "impl.env", "SHARED=impl_file\nIMPL_FILE_ONLY=impl_file")
 	createEnvFile(t, tmpDir, "runtime.env", "SHARED=runtime_file\nRUNTIME_FILE_ONLY=runtime_file")
-
-	// Set up host environment (level 1)
-	restoreShared := testutil.MustSetenv(t, "SHARED", "host_env")
-	restoreHost := testutil.MustSetenv(t, "HOST_ONLY", "host_value")
-	defer restoreShared()
-	defer restoreHost()
 
 	currentPlatform := invowkfile.GetCurrentHostOS()
 	cmd := &invowkfile.Command{
@@ -388,9 +397,14 @@ func TestBuildRuntimeEnv_Precedence(t *testing.T) {
 	ctx.Env.RuntimeEnvFiles = []string{filepath.Join(tmpDir, "runtime.env")}
 	ctx.Env.RuntimeEnvVars = map[string]string{"SHARED": "runtime_var", "RUNTIME_VAR_ONLY": "runtime_var"}
 
-	env, err := NewDefaultEnvBuilder().Build(ctx, invowkfile.EnvInheritAll)
+	builder := &DefaultEnvBuilder{
+		Environ: func() []string {
+			return []string{"SHARED=host_env", "HOST_ONLY=host_value"}
+		},
+	}
+	env, err := builder.Build(ctx, invowkfile.EnvInheritAll)
 	if err != nil {
-		t.Fatalf("NewDefaultEnvBuilder().Build() error: %v", err)
+		t.Fatalf("DefaultEnvBuilder.Build() error: %v", err)
 	}
 
 	// Test: RuntimeEnvVars (level 10) should win for SHARED
@@ -421,6 +435,8 @@ func TestBuildRuntimeEnv_Precedence(t *testing.T) {
 
 // TestBuildRuntimeEnv_EnvFiles tests env file loading at all levels.
 func TestBuildRuntimeEnv_EnvFiles(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 
 	// Create env files
@@ -474,6 +490,8 @@ func TestBuildRuntimeEnv_EnvFiles(t *testing.T) {
 
 // TestBuildRuntimeEnv_EnvVars tests env.vars merging at all levels.
 func TestBuildRuntimeEnv_EnvVars(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 
 	currentPlatform := invowkfile.GetCurrentHostOS()
@@ -535,21 +553,20 @@ func TestBuildRuntimeEnv_EnvVars(t *testing.T) {
 
 // TestBuildRuntimeEnv_RuntimeFlags tests --ivk-env-file and --ivk-env-var flag handling.
 func TestBuildRuntimeEnv_RuntimeFlags(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 
 	// Create runtime env file (loaded via --ivk-env-file flag)
 	createEnvFile(t, tmpDir, "flag.env", "FLAG_FILE_VAR=from_flag_file\nSHARED=flag_file")
-
-	// Change to tmpDir so relative path works
-	restoreWd := testutil.MustChdir(t, tmpDir)
-	defer restoreWd()
 
 	inv := &invowkfile.Invowkfile{
 		FilePath: filepath.Join(tmpDir, "invowkfile.cue"),
 	}
 	cmd := testCommandWithScript("flags-test", "echo test", invowkfile.RuntimeNative)
 	ctx := NewExecutionContext(cmd, inv)
-	ctx.Env.RuntimeEnvFiles = []string{"flag.env"}
+	// Pass absolute path to avoid CWD dependency.
+	ctx.Env.RuntimeEnvFiles = []string{filepath.Join(tmpDir, "flag.env")}
 	ctx.Env.RuntimeEnvVars = map[string]string{"FLAG_VAR": "from_flag_var", "SHARED": "flag_var_wins"}
 
 	env, err := NewDefaultEnvBuilder().Build(ctx, invowkfile.EnvInheritNone)
@@ -572,14 +589,17 @@ func TestBuildRuntimeEnv_RuntimeFlags(t *testing.T) {
 
 // TestBuildRuntimeEnv_InheritModes tests EnvInheritAll/Allow/None modes.
 func TestBuildRuntimeEnv_InheritModes(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 
-	restoreHost := testutil.MustSetenv(t, "HOST_INHERITED", "host_value")
-	restoreAllowed := testutil.MustSetenv(t, "ALLOWED_VAR", "allowed_value")
-	restoreDenied := testutil.MustSetenv(t, "DENIED_VAR", "denied_value")
-	defer restoreHost()
-	defer restoreAllowed()
-	defer restoreDenied()
+	fakeEnviron := func() []string {
+		return []string{
+			"HOST_INHERITED=host_value",
+			"ALLOWED_VAR=allowed_value",
+			"DENIED_VAR=denied_value",
+		}
+	}
 
 	tests := []struct {
 		name     string
@@ -626,6 +646,8 @@ func TestBuildRuntimeEnv_InheritModes(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			inv := &invowkfile.Invowkfile{
 				FilePath: filepath.Join(tmpDir, "invowkfile.cue"),
 			}
@@ -635,9 +657,10 @@ func TestBuildRuntimeEnv_InheritModes(t *testing.T) {
 			ctx.Env.InheritAllowOverride = tt.allow
 			ctx.Env.InheritDenyOverride = tt.deny
 
-			env, err := NewDefaultEnvBuilder().Build(ctx, invowkfile.EnvInheritAll)
+			builder := &DefaultEnvBuilder{Environ: fakeEnviron}
+			env, err := builder.Build(ctx, invowkfile.EnvInheritAll)
 			if err != nil {
-				t.Fatalf("NewDefaultEnvBuilder().Build() error: %v", err)
+				t.Fatalf("DefaultEnvBuilder.Build() error: %v", err)
 			}
 
 			for k, v := range tt.wantVars {
@@ -657,6 +680,8 @@ func TestBuildRuntimeEnv_InheritModes(t *testing.T) {
 
 // TestBuildRuntimeEnv_ExtraEnv tests ExtraEnv injection (flags, args, etc.).
 func TestBuildRuntimeEnv_ExtraEnv(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	inv := &invowkfile.Invowkfile{
 		FilePath: filepath.Join(tmpDir, "invowkfile.cue"),
@@ -694,6 +719,8 @@ func TestBuildRuntimeEnv_ExtraEnv(t *testing.T) {
 
 // TestBuildRuntimeEnv_EnvFileNotFound tests error handling for missing env files.
 func TestBuildRuntimeEnv_EnvFileNotFound(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	inv := &invowkfile.Invowkfile{
 		FilePath: filepath.Join(tmpDir, "invowkfile.cue"),
@@ -715,6 +742,8 @@ func TestBuildRuntimeEnv_EnvFileNotFound(t *testing.T) {
 
 // TestBuildRuntimeEnv_OptionalEnvFile tests optional env file handling.
 func TestBuildRuntimeEnv_OptionalEnvFile(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	inv := &invowkfile.Invowkfile{
 		FilePath: filepath.Join(tmpDir, "invowkfile.cue"),

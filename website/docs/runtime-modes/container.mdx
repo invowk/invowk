@@ -11,7 +11,7 @@ import Snippet from '@site/src/components/Snippet';
 The container runtime **only supports Debian-based Linux container images** (e.g., `debian:stable-slim`).
 
 **NOT supported:**
-- **Alpine-based images** (`alpine:*`, `*-alpine`) — BusyBox's `ash` shell has incompatibilities
+- **Alpine-based images** — musl-based environments have subtle behavioral differences that reduce runtime reliability. Only images with exact name `alpine` or ending with `/alpine` (after stripping tags/digests) are rejected. Images like `go-alpine-builder` or `myorg/alpine-tools` are NOT rejected.
 - **Windows container images** (`mcr.microsoft.com/windows/*`) — No POSIX shell available
 
 **Platform requirements:**
@@ -30,7 +30,7 @@ The **container** runtime executes commands inside a Docker or Podman container.
 When you run a command with the container runtime, Invowk™:
 
 1. Pulls or builds the container image (if needed)
-2. Mounts the current directory into the container
+2. Mounts the invowkfile's directory into the container
 3. Executes the script inside the container
 4. Streams output back to your terminal
 
@@ -56,7 +56,7 @@ runtimes: [{
 ```
 
 Common images:
-- `debian:bookworm-slim` - Minimal Debian
+- `debian:stable-slim` - Minimal Debian
 - `ubuntu:22.04` - Full Ubuntu
 - `golang:1.26` - Go development
 - `node:20` - Node.js development
@@ -106,6 +106,7 @@ Like native runtime, containers support custom interpreters:
 {
     name: "analyze"
     implementations: [{
+        platforms: [{name: "linux"}]
         script: """
             #!/usr/bin/env python3
             import sys
@@ -137,13 +138,14 @@ Environment variables are passed into the container:
         }
     }
     implementations: [{
+        platforms: [{name: "linux"}]
         script: """
             echo "Deploying to $DEPLOY_ENV"
             echo "API: $API_URL"
             """
         runtimes: [{
             name: "container"
-            image: "debian:bookworm-slim"
+            image: "debian:stable-slim"
         }]
     }]
 }
@@ -161,6 +163,7 @@ When `enable_host_ssh: true`, these variables are available:
 
 | Variable | Description |
 |----------|-------------|
+| `INVOWK_SSH_ENABLED` | Set to `true` when SSH is active |
 | `INVOWK_SSH_HOST` | Host address (e.g., `host.docker.internal`) |
 | `INVOWK_SSH_PORT` | SSH server port |
 | `INVOWK_SSH_USER` | Username (`invowk`) |
@@ -178,7 +181,7 @@ When `enable_host_ssh: true`, these variables are available:
 Your container needs `sshpass` or similar for password-based SSH:
 
 ```dockerfile
-FROM debian:bookworm-slim
+FROM debian:stable-slim
 RUN apt-get update && apt-get install -y --no-install-recommends \
     openssh-client sshpass \
     && rm -rf /var/lib/apt/lists/*
@@ -203,6 +206,7 @@ Container dependencies are validated **inside the container**:
         ]
     }
     implementations: [{
+        platforms: [{name: "linux"}]
         script: "make build"
         runtimes: [{
             name: "container"
@@ -227,19 +231,20 @@ If not configured, Invowk tries:
 
 ## Working Directory
 
-By default, the current directory is mounted to `/workspace` and used as the working directory:
+By default, the invowkfile's directory is mounted to `/workspace` and used as the working directory:
 
 ```cue
 {
     name: "build"
     implementations: [{
+        platforms: [{name: "linux"}]
         script: """
             pwd  # Outputs: /workspace
             ls   # Shows your project files
             """
         runtimes: [{
             name: "container"
-            image: "debian:bookworm-slim"
+            image: "debian:stable-slim"
         }]
     }]
 }
@@ -252,6 +257,7 @@ Override with `workdir`:
     name: "build frontend"
     workdir: "./frontend"  // Mounted and used as workdir
     implementations: [{
+        platforms: [{name: "linux"}]
         script: "npm run build"
         runtimes: [{
             name: "container"
@@ -299,6 +305,7 @@ This means your scripts can use `invowk tui` commands inside containers:
 {
     name: "deploy container"
     implementations: [{
+        platforms: [{name: "linux"}]
         script: """
             # This TUI confirm appears as an overlay on your terminal
             if invowk tui confirm "Deploy to production?"; then
@@ -308,7 +315,7 @@ This means your scripts can use `invowk tui` commands inside containers:
             """
         runtimes: [{
             name: "container"
-            image: "debian:bookworm-slim"
+            image: "debian:stable-slim"
         }]
     }]
 }

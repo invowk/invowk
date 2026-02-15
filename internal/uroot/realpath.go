@@ -15,10 +15,6 @@ type realpathCommand struct {
 	flags []FlagInfo
 }
 
-func init() {
-	RegisterDefault(newRealpathCommand())
-}
-
 // newRealpathCommand creates a new realpath command.
 func newRealpathCommand() *realpathCommand {
 	return &realpathCommand{

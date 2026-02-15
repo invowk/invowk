@@ -76,7 +76,7 @@ When a parent test calls `t.Parallel()`, **ALL** subtests inside `t.Run()` must 
 
 Do not add `t.Parallel()` to tests that use any of these:
 - `os.Chdir`, `os.Setenv`, or `t.Setenv` (process-wide side effects)
-- Global state mutators: `config.Reset()`, `config.SetConfigDirOverride()`, `testutil.MustSetenv()`, `testutil.MustChdir()`
+- Global state mutators: `testutil.MustSetenv()`, `testutil.MustChdir()`
 - `SetHomeDir` or similar process-wide overrides
 
 ### Critical Footgun: TempDir Lifetime with Parallel Subtests
@@ -293,7 +293,7 @@ When testing code that needs both the `runtime` package and `runtime.GOOS`, use 
 import (
     goruntime "runtime"  // For GOOS checks
 
-    "invowk-cli/internal/runtime"  // For Runtime types
+    "github.com/invowk/invowk/internal/runtime"  // For Runtime types
 )
 ```
 
@@ -345,6 +345,7 @@ This ensures that features work correctly through both the virtual shell (mvdan/
 | **CUE validation** | `virtual_edge_cases.txtar`, `virtual_args_subcommand_conflict.txtar` | Tests schema parsing and validation, not runtime behavior |
 | **discovery/ambiguity** | `virtual_ambiguity.txtar`, `virtual_disambiguation.txtar`, `virtual_multi_source.txtar` | Tests command resolution logic, not shell execution |
 | **dogfooding** | `dogfooding_invowkfile.txtar` | Already exercises native runtime through the project's own invowkfile.cue |
+| **built-in commands** | `config_*.txtar`, `module_*.txtar`, `completion.txtar`, `tui_format.txtar`, `tui_style.txtar`, `init_*.txtar` | Built-in Cobra commands exercise CLI handlers directly, not user-defined command runtimes |
 
 ### Testscript (.txtar) Test Strategy
 
@@ -476,9 +477,13 @@ defer func() { testutil.MustRemoveAll(t, path) }()
 | Import conflicts with `runtime` package | Use `goruntime` alias |
 | Forgetting test cleanup | Use `t.TempDir()` and `defer` patterns |
 | Testscript container tests fail with "mkdir /no-home" | Set `HOME` to `env.WorkDir` in Setup |
+| Windows testscript tests share config dirs | `commonSetup()` must set `APPDATA=WorkDir/appdata` and `USERPROFILE=WorkDir` on Windows. Without this, all tests share the real `%APPDATA%\invowk`, causing cross-test contamination (e.g., one test's `config init` affects another) |
+| CI pre-sets `XDG_CONFIG_HOME` breaking shell tests | Ubuntu CI runners set `XDG_CONFIG_HOME=/home/runner/.config`. Tests that rely on XDG fallback (e.g., `${XDG_CONFIG_HOME:-${HOME}/.config}`) must `unset XDG_CONFIG_HOME` before testing the fallback path |
 | Circular/trivial tests (constant == literal, zero-value == zero) | Test behavioral contracts: sentinel errors with `errors.Is`, default configs that affect user behavior, state machine transitions |
 | Pattern guardrail tests fail after adding comments | `TestNoGlobalConfigAccess` scans all non-test `.go` files for prohibited call signatures using raw `strings.Contains`. Comments mentioning deprecated APIs (e.g., the old global config accessor) must use indirect phrasing. See go-patterns.md "Guardrail-safe references" |
 | Testscript `[windows]` skip doesn't work | `commonCondition` returns `(false, nil)` for unknown conditions, so `[!windows]` is always true. Use `[GOOS:windows]` — it's a built-in testscript condition checked BEFORE the custom callback |
 | SHA hash mismatches in txtar on Windows | Git `core.autocrlf=true` converts `\n` → `\r\n` in txtar fixtures, changing checksums. The `.gitattributes` file forces `*.txtar text eol=lf` project-wide |
 | Issue templates contain stale guidance | `TestIssueTemplates_NoStaleGuidance` (`internal/issue/issue_test.go`) scans all embedded `.md` templates for stale tokens like `"invowk fix"` and `"apk add --no-cache"`. When updating issue templates, avoid Alpine-specific commands and deprecated CLI subcommands |
 | Duplicate `Test*` declarations after file split | When splitting test files to stay under 800 lines, delete moved functions from the source file and clean up orphaned imports. Run `go build` before `make test` to catch duplicates early. See go-patterns.md "File Splitting Protocol" |
+| New built-in command missing txtar test | `TestBuiltinCommandTxtarCoverage` (`cmd/invowk/coverage_test.go`) fails when a non-hidden, runnable, leaf built-in command has no txtar test. Add a `.txtar` file in `tests/cli/testdata/` with `exec invowk <command>` |
+| Removing shared test helper breaks other test files | In Go, all `_test.go` files in the same package share a namespace. Removing a helper (e.g., `containsString` from `dotenv_test.go`) that is also called by `container_test.go` or `env_test.go` causes compile errors. Always grep the ENTIRE package for the function name before deleting it |

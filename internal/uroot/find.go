@@ -13,10 +13,6 @@ type findCommand struct {
 	baseWrapper
 }
 
-func init() {
-	RegisterDefault(newFindCommand())
-}
-
 // newFindCommand creates a new find command wrapper.
 func newFindCommand() *findCommand {
 	return &findCommand{

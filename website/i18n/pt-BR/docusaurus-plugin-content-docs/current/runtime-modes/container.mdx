@@ -56,7 +56,7 @@ runtimes: [{
 ```
 
 Imagens comuns:
-- `debian:bookworm-slim` - Debian mínimo
+- `debian:stable-slim` - Debian mínimo
 - `ubuntu:22.04` - Ubuntu completo
 - `golang:1.26` - Desenvolvimento Go
 - `node:20` - Desenvolvimento Node.js
@@ -144,7 +144,7 @@ Variáveis de ambiente são passadas para o container:
             """
         runtimes: [{
             name: "container"
-            image: "debian:bookworm-slim"
+            image: "debian:stable-slim"
         }]
     }]
 }
@@ -179,7 +179,7 @@ Quando `enable_host_ssh: true`, estas variáveis estão disponíveis:
 Seu container precisa de `sshpass` ou similar para SSH baseado em senha:
 
 ```dockerfile
-FROM debian:bookworm-slim
+FROM debian:stable-slim
 RUN apt-get update && apt-get install -y --no-install-recommends \
     openssh-client sshpass \
     && rm -rf /var/lib/apt/lists/*
@@ -240,7 +240,7 @@ Por padrão, o diretório atual é montado em `/workspace` e usado como diretór
             """
         runtimes: [{
             name: "container"
-            image: "debian:bookworm-slim"
+            image: "debian:stable-slim"
         }]
     }]
 }
@@ -309,7 +309,7 @@ Isso significa que seus scripts podem usar comandos `invowk tui` dentro de conta
             """
         runtimes: [{
             name: "container"
-            image: "debian:bookworm-slim"
+            image: "debian:stable-slim"
         }]
     }]
 }

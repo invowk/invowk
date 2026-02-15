@@ -1,0 +1,36 @@
+# Test: invowk init creates a valid invowkfile with example commands
+# Tests the default and minimal init templates end-to-end
+
+# The default init template generates bash syntax (echo with ${name:-World}),
+# which requires a POSIX-compatible shell. Skip on Windows where the native
+# runtime selects PowerShell.
+[GOOS:windows] skip 'default init template uses bash syntax'
+
+cd $WORK
+
+# Test 1: Default init creates invowkfile.cue with success message
+exec invowk init
+stdout 'Created'
+stdout 'invowkfile.cue'
+stdout 'Next steps'
+stdout 'invowk cmd hello'
+exists invowkfile.cue
+
+# Test 2: Execute the default template's hello command (native runtime on Linux)
+exec invowk cmd hello
+stdout 'Hello, World!'
+
+# Test 3: Execute with a custom argument
+exec invowk cmd hello TestUser
+stdout 'Hello, TestUser!'
+
+# Test 4: Minimal template also works end-to-end
+rm invowkfile.cue
+exec invowk init -t minimal
+exists invowkfile.cue
+
+exec invowk cmd hello
+stdout 'Hello, World!'
+
+exec invowk cmd hello MinimalUser
+stdout 'Hello, MinimalUser!'

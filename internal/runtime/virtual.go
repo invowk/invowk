@@ -12,8 +12,8 @@ import (
 	"os/exec"
 	"strings"
 
-	"invowk-cli/internal/uroot"
-	"invowk-cli/pkg/invowkfile"
+	"github.com/invowk/invowk/internal/uroot"
+	"github.com/invowk/invowk/pkg/invowkfile"
 
 	"mvdan.cc/sh/v3/expand"
 	"mvdan.cc/sh/v3/interp"
@@ -27,6 +27,9 @@ type (
 		EnableUrootUtils bool
 		// envBuilder builds environment variables for execution
 		envBuilder EnvBuilder
+		// urootRegistry holds the u-root command registry for built-in utilities.
+		// Nil when EnableUrootUtils is false.
+		urootRegistry *uroot.Registry
 	}
 
 	// VirtualRuntimeOption configures a VirtualRuntime.
@@ -41,6 +44,14 @@ func WithVirtualEnvBuilder(b EnvBuilder) VirtualRuntimeOption {
 	}
 }
 
+// WithUrootRegistry sets the u-root command registry for the virtual runtime.
+// If not set and enableUroot is true, BuildDefaultRegistry() is used.
+func WithUrootRegistry(reg *uroot.Registry) VirtualRuntimeOption {
+	return func(r *VirtualRuntime) {
+		r.urootRegistry = reg
+	}
+}
+
 // NewVirtualRuntime creates a new virtual runtime with optional configuration.
 func NewVirtualRuntime(enableUroot bool, opts ...VirtualRuntimeOption) *VirtualRuntime {
 	r := &VirtualRuntime{
@@ -49,6 +60,10 @@ func NewVirtualRuntime(enableUroot bool, opts ...VirtualRuntimeOption) *VirtualR
 	}
 	for _, opt := range opts {
 		opt(r)
+	}
+	// Default to BuildDefaultRegistry when uroot is enabled and no registry was injected.
+	if r.EnableUrootUtils && r.urootRegistry == nil {
+		r.urootRegistry = uroot.BuildDefaultRegistry()
 	}
 	return r
 }
@@ -379,7 +394,7 @@ func (r *VirtualRuntime) tryUrootBuiltin(ctx context.Context, args []string) (bo
 	// Check if the command exists in the u-root registry.
 	// [US3-T046] Unregistered commands: Lookup returns (nil, false), we return (false, nil)
 	// This signals the caller to fall back to system binaries via next() handler.
-	if _, found := uroot.DefaultRegistry.Lookup(cmdName); !found {
+	if _, found := r.urootRegistry.Lookup(cmdName); !found {
 		return false, nil
 	}
 
@@ -388,7 +403,7 @@ func (r *VirtualRuntime) tryUrootBuiltin(ctx context.Context, args []string) (bo
 	// directly to the caller, NO fallback to system binary occurs.
 	// Registry.Run splits combined short flags (e.g., "-sf" → "-s", "-f") for custom
 	// implementations before dispatching to cmd.Run().
-	err := uroot.DefaultRegistry.Run(ctx, cmdName, args)
+	err := r.urootRegistry.Run(ctx, cmdName, args)
 	return true, err
 }
 

@@ -21,9 +21,9 @@ builds:
       - -trimpath
     ldflags:
       - -s -w
-      - -X 'invowk-cli/cmd/invowk.Version={{.Version}}'
-      - -X 'invowk-cli/cmd/invowk.Commit={{.ShortCommit}}'
-      - -X 'invowk-cli/cmd/invowk.BuildDate={{.Date}}'
+      - -X 'github.com/invowk/invowk/cmd/invowk.Version={{.Version}}'
+      - -X 'github.com/invowk/invowk/cmd/invowk.Commit={{.ShortCommit}}'
+      - -X 'github.com/invowk/invowk/cmd/invowk.BuildDate={{.Date}}'
     goos:
       - linux
       - darwin
@@ -40,7 +40,7 @@ builds:
     hooks:
       post:
         # UPX compression for smaller binaries
-        # Skip on macOS (UPX on Linux cannot compress Mach-O binaries)
+        # Skip on macOS (UPX-compressed Mach-O binaries trigger Gatekeeper issues and break notarization)
         # Skip on Windows (UPX can cause antivirus false positives)
         - cmd: bash -c '{{ if eq .Os "windows" }}echo "Skipping UPX for Windows"{{ else if eq .Os "darwin" }}echo "Skipping UPX for macOS"{{ else }}upx --best --lzma "{{ .Path }}"{{ end }}'
           output: true
@@ -117,20 +117,33 @@ release:
       checksums.txt
     ```
 
-# Homebrew tap (disabled for now - uncomment to enable)
-# brews:
-#   - name: invowk
-#     repository:
-#       owner: invowk
-#       name: homebrew-tap
-#       token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
-#     homepage: https://invowk.dev
-#     description: A dynamically extensible command runner
-#     license: MPL-2.0
-#     install: |
-#       bin.install "invowk"
-#     test: |
-#       system "#{bin}/invowk", "--version"
+# Homebrew cask — auto-pushes cask to invowk/homebrew-tap on stable releases.
+# Requires HOMEBREW_TAP_TOKEN secret (fine-grained PAT with contents:write on the tap repo).
+# Migrated from brews → homebrew_casks (GoReleaser v2.10+); Casks are the conventional
+# Homebrew mechanism for distributing pre-compiled binaries.
+homebrew_casks:
+  - name: invowk
+    repository:
+      owner: invowk
+      name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
+    # skip_upload: auto skips cask push for snapshot builds and pre-releases.
+    # Only stable releases (non-draft, non-prerelease) update the tap.
+    skip_upload: auto
+    homepage: https://invowk.dev
+    description: A dynamically extensible command runner
+    license: MPL-2.0
+    binaries:
+      - invowk
+    # Remove macOS quarantine attribute — invowk binaries are not signed/notarized.
+    # xattr -dr is idempotent (exits 0 when attribute absent).
+    hooks:
+      post:
+        install: |
+          if OS.mac?
+            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/invowk"]
+          end
+    commit_msg_template: "Brew cask update for {{ .ProjectName }} version {{ .Tag }}"
 
 # Winget (disabled for now - uncomment to enable)
 # winget:

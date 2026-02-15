@@ -5,17 +5,17 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"os"
 
-	"invowk-cli/internal/config"
-	"invowk-cli/internal/issue"
+	"github.com/invowk/invowk/internal/config"
+	"github.com/invowk/invowk/internal/issue"
 
 	"github.com/spf13/cobra"
 )
 
 // newConfigCommand creates the `invowk config` command tree.
-// Subcommands that read configuration use the App's ConfigProvider
-// instead of the legacy global config.Load().
+// Subcommands that read configuration use the App's ConfigProvider.
 func newConfigCommand(app *App) *cobra.Command {
 	cfgCmd := &cobra.Command{
 		Use:   "config",
@@ -99,7 +99,7 @@ func showConfig(ctx context.Context, app *App) error {
 	fmt.Println()
 
 	// Derive config file path from the standard config directory since the provider
-	// does not cache resolved paths like the legacy config.ConfigFilePath() did.
+	// does not cache resolved paths; each call derives from the standard config directory.
 	cfgDir, dirErr := config.ConfigDir()
 	if dirErr == nil {
 		cfgPath := cfgDir + "/config.cue"
@@ -151,7 +151,7 @@ func initConfig() error {
 		return err
 	}
 
-	if err = config.CreateDefaultConfig(); err != nil {
+	if err = config.CreateDefaultConfig(""); err != nil {
 		return fmt.Errorf("failed to create config: %w", err)
 	}
 
@@ -160,9 +160,13 @@ func initConfig() error {
 	// Also create commands directory
 	cmdsDir, err := config.CommandsDir()
 	if err == nil {
-		if err := config.EnsureCommandsDir(); err == nil {
+		if mkdirErr := config.EnsureCommandsDir(""); mkdirErr != nil {
+			slog.Warn("failed to create commands directory", "path", cmdsDir, "error", mkdirErr)
+		} else {
 			fmt.Printf("%s Created commands directory at %s\n", SuccessStyle.Render("✓"), cmdsDir)
 		}
+	} else {
+		slog.Warn("failed to determine commands directory", "error", err)
 	}
 
 	return nil
@@ -220,7 +224,7 @@ func setConfigValue(ctx context.Context, app *App, key, value string) error {
 		return fmt.Errorf("unknown configuration key: %s\nValid keys: container_engine, default_runtime, ui.verbose, ui.interactive, ui.color_scheme, virtual_shell.enable_uroot_utils", key)
 	}
 
-	if err := config.Save(cfg); err != nil {
+	if err := config.Save(cfg, ""); err != nil {
 		return fmt.Errorf("failed to save config: %w", err)
 	}
 

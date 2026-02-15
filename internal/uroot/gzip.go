@@ -13,10 +13,6 @@ type gzipCommand struct {
 	baseWrapper
 }
 
-func init() {
-	RegisterDefault(newGzipCommand())
-}
-
 // newGzipCommand creates a new gzip command wrapper.
 func newGzipCommand() *gzipCommand {
 	return &gzipCommand{

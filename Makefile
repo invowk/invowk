@@ -1,4 +1,4 @@
-# Makefile for invowk-cli
+# Makefile for invowk
 #
 # Build targets:
 #   make build       - Build stripped binary (default)
@@ -37,9 +37,9 @@ GOAMD64 ?= v3
 
 # Linker flags for stripping and version info
 LDFLAGS := -s -w
-LDFLAGS += -X 'invowk-cli/cmd/invowk.Version=$(VERSION)'
-LDFLAGS += -X 'invowk-cli/cmd/invowk.Commit=$(COMMIT)'
-LDFLAGS += -X 'invowk-cli/cmd/invowk.BuildDate=$(BUILD_DATE)'
+LDFLAGS += -X 'github.com/invowk/invowk/cmd/invowk.Version=$(VERSION)'
+LDFLAGS += -X 'github.com/invowk/invowk/cmd/invowk.Commit=$(COMMIT)'
+LDFLAGS += -X 'github.com/invowk/invowk/cmd/invowk.BuildDate=$(BUILD_DATE)'
 
 # Build flags
 BUILD_FLAGS := -trimpath -ldflags="$(LDFLAGS)"
@@ -233,6 +233,27 @@ lint:
 	@echo "Running golangci-lint..."
 	golangci-lint run ./...
 
+# Lint shell scripts with shellcheck (optional tool, like gotestsum)
+SHELLCHECK := $(shell command -v shellcheck 2>/dev/null)
+
+.PHONY: lint-scripts
+lint-scripts:
+	@echo "Linting shell scripts..."
+ifdef SHELLCHECK
+	@echo "  (using shellcheck)"
+	shellcheck scripts/install.sh scripts/release.sh scripts/version-docs.sh scripts/render-diagrams.sh
+else
+	@echo "  (shellcheck not found, skipping shell script linting)"
+endif
+
+# Run install script unit tests (POSIX only; PowerShell tests run on Windows CI)
+.PHONY: test-scripts
+test-scripts:
+	@echo "Running shell script tests..."
+	sh scripts/test_install.sh
+	@echo ""
+	@echo "Note: PowerShell tests (scripts/test_install.ps1) run on Windows CI only."
+
 # Install pre-commit hooks
 .PHONY: install-hooks
 install-hooks:
@@ -335,7 +356,7 @@ endif
 # Help
 .PHONY: help
 help:
-	@echo "invowk-cli Makefile"
+	@echo "invowk Makefile"
 	@echo ""
 	@echo "Usage:"
 	@echo "  make [target]"
@@ -363,6 +384,8 @@ help:
 	@echo "  tidy             Tidy go.mod dependencies"
 	@echo "  license-check    Verify SPDX headers in all Go files"
 	@echo "  lint             Run golangci-lint on all packages"
+	@echo "  lint-scripts     Lint shell scripts (requires shellcheck)"
+	@echo "  test-scripts     Run install script tests (POSIX; PS1 on Windows CI)"
 	@echo "  install-hooks    Install pre-commit hooks (requires pre-commit)"
 	@echo "  size             Compare binary sizes (debug vs stripped vs UPX)"
 	@echo "  help             Show this help message"

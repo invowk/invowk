@@ -13,10 +13,6 @@ type catCommand struct {
 	baseWrapper
 }
 
-func init() {
-	RegisterDefault(newCatCommand())
-}
-
 // newCatCommand creates a new cat command wrapper.
 func newCatCommand() *catCommand {
 	return &catCommand{

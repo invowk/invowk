@@ -1,0 +1,126 @@
+---
+sidebar_position: 4
+---
+
+import Diagram from '@site/src/components/Diagram';
+
+# C4 Componente: Runtime (C3)
+
+Este diagrama amplia o container **Runtime** do [Diagrama de Container C2](./c4-container) para mostrar seus componentes internos -- as interfaces, implementações concretas e tipos de suporte que compõem a camada de execução de comandos do Invowk.
+
+:::note
+O pacote runtime (`internal/runtime/`) é responsável por executar comandos definidos pelo usuário. Ele fornece três backends de execução intercambiáveis por trás de uma hierarquia de interfaces comum, um registry para despacho de runtime, e um contexto de execução estruturado que desacopla I/O, ambiente e preocupações de TUI.
+:::
+
+## Diagrama
+
+<Diagram id="architecture/c4-component-runtime" />
+
+## Interfaces
+
+| Interface | Métodos | Papel |
+|-----------|---------|-------|
+| **Runtime** | `Name()`, `Execute()`, `Available()`, `Validate()` | Contrato principal de execução. Todos os runtimes implementam este. `Execute` retorna um `*Result` com exit code e erro -- exit code diferente de zero sem erro é uma saída normal de processo; erro indica falha de infraestrutura. |
+| **CapturingRuntime** | `ExecuteCapture()` | Capacidade opcional de captura de saída. Retorna um `*Result` com campos `Output` e `ErrOutput` preenchidos. Não embarca `Runtime`. |
+| **InteractiveRuntime** | `SupportsInteractive()`, `PrepareInteractive()` | Capacidade de attachment de PTY. Embarca `Runtime`. Retorna um `PreparedCommand` com um `exec.Cmd` pronto para attachment de PTY e uma função de cleanup. |
+| **EnvBuilder** | `Build()` | Construção de variáveis de ambiente seguindo uma hierarquia de precedência de 10 níveis (env do host no nível 1 até flags CLI `--ivk-env-var` no nível 10). |
+
+## Implementações
+
+| Componente | Tecnologia | Responsabilidade |
+|------------|------------|------------------|
+| **NativeRuntime** | Go | Executa comandos via shell do host (`bash`/`sh` no Unix, `PowerShell` no Windows). Opção mais rápida. Shell override configurável. Implementa Runtime, CapturingRuntime e InteractiveRuntime. |
+| **VirtualRuntime** | Go/mvdan-sh | Interpretador de shell POSIX embarcado com utilitários built-in u-root opcionais. Sem dependência de shell do host. Cria um subprocesso de si mesmo para modo interativo baseado em PTY. Implementa Runtime, CapturingRuntime e InteractiveRuntime. |
+| **ContainerRuntime** | Go | Executa comandos dentro de containers Docker/Podman. Depende de `container.Engine`, `provision.LayerProvisioner`, `sshserver.Server` e `config.Config`. Somente containers Linux. Implementa Runtime, CapturingRuntime e InteractiveRuntime. |
+| **DefaultEnvBuilder** | Go | Implementação padrão de precedência de 10 níveis: env do host (filtrado) -> env files root/command/impl -> env vars root/command/impl -> ExtraEnv -> env files do runtime -> env vars do runtime. |
+| **MockEnvBuilder** | Go | Helper de teste que retorna um mapa de ambiente fixo. Permite testar runtimes isoladamente sem acesso real ao sistema de arquivos ou carregamento de env. |
+
+## Tipos de Suporte
+
+| Tipo | Papel |
+|------|-------|
+| **Registry** | Despachante de runtime baseado em mapa. Armazena mapeamentos `RuntimeType -> Runtime`. Fornece `Get()`, `GetForContext()`, `Available()` e `Execute()` (que encadeia validar-e-executar). |
+| **RuntimeType** | Tipo string identificando variantes de runtime: `"native"`, `"virtual"`, `"container"`. |
+| **ExecutionContext** | Estrutura de dados principal para execução de comandos. Composta de subtipos `IOContext`, `EnvContext` e `TUIContext` mais metadados do comando, runtime/implementação selecionados e ID de execução. |
+| **IOContext** | Agrupa streams de I/O: `Stdout`, `Stderr`, `Stdin`. Funções factory `DefaultIO()` e `CaptureIO()` fornecem configurações comuns. |
+| **EnvContext** | Agrupa configuração de variáveis de ambiente: `ExtraEnv` (INVOWK_FLAG_\*, INVOWK_ARG_\*), `RuntimeEnvVars` (--ivk-env-var), `RuntimeEnvFiles` (--ivk-env-file) e overrides de herança. |
+| **TUIContext** | Agrupa detalhes de conexão do servidor TUI: `ServerURL` e `ServerToken`. |
+| **Result** | Resultado de execução: `ExitCode`, `Error`, `Output` (stdout capturado), `ErrOutput` (stderr capturado). |
+| **PreparedCommand** | Retornado por `PrepareInteractive()`: contém um `exec.Cmd` pronto para attachment de PTY e uma função `Cleanup` opcional. |
+
+## Dependências Externas
+
+| Dependência | Usado Por | Propósito |
+|-------------|-----------|-----------|
+| `container.Engine` | ContainerRuntime | Abstração unificada de engine de container Docker/Podman |
+| `provision.LayerProvisioner` | ContainerRuntime | Cria camadas de imagem efêmeras com binário invowk e módulos |
+| `sshserver.Server` | ContainerRuntime | Servidor SSH baseado em token para callbacks container-para-host |
+| `config.Config` | ContainerRuntime | Configuração da aplicação (preferência de engine de container, etc.) |
+| `mvdan.cc/sh/v3` | VirtualRuntime | Interpretador de shell POSIX embarcado |
+| `internal/uroot` | VirtualRuntime | Utilitários built-in para o shell virtual (cp, mv, cat, etc.) |
+| `pkg/invowkfile` | ExecutionContext | Tipos de Command e Invowkfile, RuntimeMode, EnvInheritMode |
+
+## Relacionamentos Principais
+
+### Segregação de Interface
+
+O pacote runtime usa segregação de interface para permitir que chamadores dependam apenas das capacidades que precisam:
+
+- **Runtime** é o contrato base -- qualquer chamador que apenas precisa executar um comando aceita `Runtime`.
+- **CapturingRuntime** é uma interface standalone para captura de saída. Chamadores que precisam de saída capturada podem fazer type-assert para ela.
+- **InteractiveRuntime** embarca `Runtime` e adiciona suporte a PTY. A função helper `GetInteractiveRuntime()` combina type assertion com verificação de capacidade `SupportsInteractive()`.
+
+Todos os três runtimes concretos (Native, Virtual, Container) implementam todas as três interfaces.
+
+### Despacho via Registry
+
+O `Registry` desacopla seleção de runtime da execução:
+
+1. A camada CLI resolve o `RuntimeType` dos defaults do comando ou flag `--ivk-runtime`.
+2. `Registry.GetForContext()` busca o `Runtime` correspondente.
+3. `Registry.Execute()` encadeia: obter runtime -> verificar disponibilidade -> validar -> executar.
+
+### Composição do ExecutionContext
+
+`ExecutionContext` usa composição de três subtipos focados:
+
+- **IOContext** -- Streams de I/O, facilmente trocados entre modos real e captura.
+- **EnvContext** -- Configuração de variáveis de ambiente, incluindo overrides de herança de flags CLI.
+- **TUIContext** -- Detalhes de conexão do servidor TUI, valor zero significa "não configurado".
+
+### Precedência de 10 Níveis do EnvBuilder
+
+| Nível | Origem |
+|-------|--------|
+| 1 | Ambiente do host (filtrado por modo de herança) |
+| 2-4 | `env.files` no nível root/command/implementation |
+| 5-7 | `env.vars` no nível root/command/implementation |
+| 8 | ExtraEnv (`INVOWK_FLAG_*`, `INVOWK_ARG_*`, `ARGC`, `ARGn`) |
+| 9 | Flag `--ivk-env-file` |
+| 10 | Flag `--ivk-env-var` (prioridade mais alta) |
+
+## Decisões de Design
+
+### Por que Segregação de Interface?
+
+Chamadores dependem apenas das capacidades que realmente usam. Um resolvedor de dependências que apenas verifica disponibilidade chama `Runtime.Available()`. O sistema de captura de saída faz assert de `CapturingRuntime` apenas quando captura é necessária. O sistema TUI verifica `InteractiveRuntime` apenas para comandos interativos.
+
+### Por que Composição para ExecutionContext?
+
+Uma struct plana com mais de 15 campos seria mais difícil de testar e mais difícil de ler. Ao agrupar em `IOContext`, `EnvContext` e `TUIContext`, cada subtipo pode ser construído e testado independentemente.
+
+### Por que uma Interface EnvBuilder?
+
+`MockEnvBuilder` permite que testes foquem na lógica de execução do runtime fornecendo um mapa de ambiente fixo, eliminando testes frágeis por estado do sistema de arquivos.
+
+### Por que um Registry?
+
+O padrão Registry permite que a aplicação configure todos os runtimes uma vez na inicialização, e o pipeline de execução simplesmente pede um runtime por tipo. Adicionar um novo runtime significa registrá-lo -- sem mudanças no pipeline de execução.
+
+## Diagramas Relacionados
+
+- [Diagrama de Contexto C4 (C1)](./c4-context) - Fronteiras do sistema e atores externos
+- [Diagrama de Container C4 (C2)](./c4-container) - Componentes internos principais
+- [C4 Componente: Container (C3)](./c4-component-container) - Internos do engine de container
+- [Sequência de Execução de Comandos](./execution-flow) - Fluxo temporal da execução de comandos
+- [Fluxograma de Seleção de Runtime](./runtime-selection) - Como runtimes são escolhidos

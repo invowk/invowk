@@ -1,0 +1,44 @@
+# Test: invowk module import
+# Archives a module, then imports it to a custom path
+
+cd $WORK
+
+# Step 1: Archive the module to create a ZIP source
+exec invowk module archive ./importmod.invowkmod --output ./importmod.zip
+stdout 'Module archived successfully'
+exists importmod.zip
+
+# Test 1: Import the archive to a custom path
+mkdir imported
+exec invowk module import ./importmod.zip --path ./imported
+stdout 'Module imported successfully'
+stdout 'Name:'
+stdout 'Path:'
+
+# Test 2: Import fails when source does not exist
+! exec invowk module import ./nonexistent.zip
+stderr 'import module'
+
+# Test 3: Use the 'mod' alias for import
+exec invowk mod archive ./importmod.invowkmod --output ./importmod2.zip
+stdout 'Module archived successfully'
+mkdir imported2
+exec invowk mod import ./importmod2.zip --path ./imported2
+stdout 'Module imported successfully'
+
+-- importmod.invowkmod/invowkmod.cue --
+module:  "importmod"
+version: "0.1.0"
+
+-- importmod.invowkmod/invowkfile.cue --
+cmds: [
+	{
+		name:        "noop"
+		description: "A no-op command"
+		implementations: [{
+			script:    "echo noop"
+			runtimes:  [{name: "virtual"}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+	},
+]

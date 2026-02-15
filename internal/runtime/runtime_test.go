@@ -12,7 +12,7 @@ import (
 	"strings"
 	"testing"
 
-	"invowk-cli/pkg/invowkfile"
+	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
 // mockRuntime is a test runtime that records calls and returns configured results.
@@ -82,8 +82,8 @@ func TestNewExecutionContext(t *testing.T) {
 	if ctx.SelectedImpl == nil {
 		t.Error("NewExecutionContext() SelectedImpl should be set")
 	}
-	if ctx.ExecutionID == "" {
-		t.Error("NewExecutionContext() ExecutionID should be generated")
+	if ctx.ExecutionID != "" {
+		t.Error("NewExecutionContext() ExecutionID should be empty (set by caller via Registry.NewExecutionID)")
 	}
 }
 
@@ -588,19 +588,20 @@ func TestStringsCutEnvSeparator(t *testing.T) {
 	}
 }
 
-// TestNewExecutionID tests that execution IDs are generated.
-func TestNewExecutionID(t *testing.T) {
+// TestRegistryNewExecutionID tests that Registry.NewExecutionID generates unique IDs.
+func TestRegistryNewExecutionID(t *testing.T) {
 	t.Parallel()
 
-	id1 := newExecutionID()
-	id2 := newExecutionID()
+	reg := NewRegistry()
+	id1 := reg.NewExecutionID()
+	id2 := reg.NewExecutionID()
 
 	if id1 == "" {
-		t.Error("newExecutionID() returned empty string")
+		t.Error("Registry.NewExecutionID() returned empty string")
 	}
-	// IDs should be unique (assuming tests don't run at exact same nanosecond)
+	// IDs should be unique due to the monotonic counter.
 	if id1 == id2 {
-		t.Error("newExecutionID() should generate unique IDs")
+		t.Error("Registry.NewExecutionID() should generate unique IDs")
 	}
 }
 

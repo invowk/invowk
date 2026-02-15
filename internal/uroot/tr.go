@@ -18,10 +18,6 @@ type trCommand struct {
 	flags []FlagInfo
 }
 
-func init() {
-	RegisterDefault(newTrCommand())
-}
-
 // newTrCommand creates a new tr command.
 func newTrCommand() *trCommand {
 	return &trCommand{

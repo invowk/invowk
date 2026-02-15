@@ -34,6 +34,7 @@ Use this skill when working on:
 | `pkg/invowkmod/operations*.go` | `website/docs/modules/` pages (validation, create, packaging, vendoring) |
 | `internal/config/config_schema.cue` | `website/docs/reference/config-schema.mdx`, `website/docs/configuration/options.mdx` |
 | `internal/runtime/container*.go` | `website/docs/runtime-modes/container.mdx` |
+| `cmd/invowk/init.go` | `website/docs/getting-started/quickstart.mdx`, `website/i18n/pt-BR/.../quickstart.mdx`, `website/src/components/Snippet/snippets.ts` (quickstart/* IDs), `website/src/pages/index.tsx` (terminal demo), `README.md` (Quick Start) |
 | `cmd/invowk/*.go` | `website/docs/reference/cli.mdx` + relevant feature docs |
 | `cmd/invowk/module*.go` | `website/docs/modules/` pages + `website/docs/reference/cli.mdx` |
 | `cmd/invowk/cmd_validate*.go` | `website/docs/dependencies/` pages |

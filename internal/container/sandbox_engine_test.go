@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"invowk-cli/pkg/platform"
+	"github.com/invowk/invowk/pkg/platform"
 )
 
 var _ io.Writer = (*recordingWriter)(nil)

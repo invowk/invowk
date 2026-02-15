@@ -4,6 +4,8 @@ package invowkfile
 
 import (
 	"fmt"
+	"maps"
+	"slices"
 	"strings"
 )
 
@@ -37,8 +39,8 @@ func GenerateCUE(inv *Invowkfile) string {
 		}
 		if len(inv.Env.Vars) > 0 {
 			sb.WriteString("\tvars: {\n")
-			for k, v := range inv.Env.Vars {
-				fmt.Fprintf(&sb, "\t\t%s: %q\n", k, v)
+			for _, k := range slices.Sorted(maps.Keys(inv.Env.Vars)) {
+				fmt.Fprintf(&sb, "\t\t%s: %q\n", k, inv.Env.Vars[k])
 			}
 			sb.WriteString("\t}\n")
 		}
@@ -106,8 +108,8 @@ func generateCommand(sb *strings.Builder, cmd *Command) {
 		}
 		if len(cmd.Env.Vars) > 0 {
 			sb.WriteString("\t\t\tvars: {\n")
-			for k, v := range cmd.Env.Vars {
-				fmt.Fprintf(sb, "\t\t\t\t%s: %q\n", k, v)
+			for _, k := range slices.Sorted(maps.Keys(cmd.Env.Vars)) {
+				fmt.Fprintf(sb, "\t\t\t\t%s: %q\n", k, cmd.Env.Vars[k])
 			}
 			sb.WriteString("\t\t\t}\n")
 		}
@@ -245,8 +247,8 @@ func generateImplementation(sb *strings.Builder, impl *Implementation) {
 		}
 		if len(impl.Env.Vars) > 0 {
 			sb.WriteString("\t\t\t\t\tvars: {\n")
-			for k, v := range impl.Env.Vars {
-				fmt.Fprintf(sb, "\t\t\t\t\t\t%s: %q\n", k, v)
+			for _, k := range slices.Sorted(maps.Keys(impl.Env.Vars)) {
+				fmt.Fprintf(sb, "\t\t\t\t\t\t%s: %q\n", k, impl.Env.Vars[k])
 			}
 			sb.WriteString("\t\t\t\t\t}\n")
 		}

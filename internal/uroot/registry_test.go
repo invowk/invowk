@@ -281,12 +281,45 @@ func TestRegistry_ConcurrentAccess(t *testing.T) {
 	}
 }
 
-func TestDefaultRegistry(t *testing.T) {
+func TestBuildDefaultRegistry(t *testing.T) {
 	t.Parallel()
 
-	// DefaultRegistry should be initialized
-	if DefaultRegistry == nil {
-		t.Fatal("DefaultRegistry is nil")
+	r := BuildDefaultRegistry()
+	if r == nil {
+		t.Fatal("BuildDefaultRegistry returned nil")
+	}
+
+	// Verify all 28 commands are registered
+	names := r.Names()
+	if len(names) != 28 {
+		t.Errorf("BuildDefaultRegistry registered %d commands, want 28", len(names))
+	}
+}
+
+// TestBuildDefaultRegistry_ReturnsFreshInstances verifies that each call to
+// BuildDefaultRegistry returns an independent registry. Mutating one must not
+// affect the other.
+func TestBuildDefaultRegistry_ReturnsFreshInstances(t *testing.T) {
+	t.Parallel()
+
+	r1 := BuildDefaultRegistry()
+	r2 := BuildDefaultRegistry()
+
+	// Both should have the same set of commands.
+	names1 := r1.Names()
+	names2 := r2.Names()
+	if len(names1) != len(names2) {
+		t.Fatalf("registries have different command counts: %d vs %d", len(names1), len(names2))
+	}
+
+	// Mutate r1 by registering an extra command — r2 must be unaffected.
+	r1.Register(newMockCommand("__test_extra__"))
+
+	if _, ok := r1.Lookup("__test_extra__"); !ok {
+		t.Fatal("r1 should contain the extra command after mutation")
+	}
+	if _, ok := r2.Lookup("__test_extra__"); ok {
+		t.Fatal("r2 should NOT contain the extra command — registries must be independent")
 	}
 }
 

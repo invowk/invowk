@@ -11,9 +11,9 @@ import (
 	"runtime"
 	"strings"
 
-	"invowk-cli/internal/issue"
-	"invowk-cli/pkg/cueutil"
-	"invowk-cli/pkg/platform"
+	"github.com/invowk/invowk/internal/issue"
+	"github.com/invowk/invowk/pkg/cueutil"
+	"github.com/invowk/invowk/pkg/platform"
 
 	"cuelang.org/go/cue"
 	"cuelang.org/go/cue/cuecontext"
@@ -32,35 +32,31 @@ const (
 //go:embed config_schema.cue
 var configSchema string
 
-// ConfigDir returns the invowk configuration directory using platform-specific
-// conventions: Windows uses %APPDATA%, macOS uses ~/Library/Application Support,
-// and Linux/others use $XDG_CONFIG_HOME (defaulting to ~/.config).
-//
-//nolint:revive // ConfigDir is more descriptive than Dir for external callers
-func ConfigDir() (string, error) {
-	// Allow tests to override the config directory
-	if configDirOverride != "" {
-		return configDirOverride, nil
-	}
-
+// configDirFrom computes the config directory from injectable dependencies,
+// enabling tests to avoid mutating process-global environment variables.
+func configDirFrom(goos string, getenv func(string) string, userHomeDir func() (string, error)) (string, error) {
 	var configDir string
 
-	switch runtime.GOOS {
+	switch goos {
 	case platform.Windows:
-		configDir = os.Getenv("APPDATA")
+		configDir = getenv("APPDATA")
 		if configDir == "" {
-			configDir = filepath.Join(os.Getenv("USERPROFILE"), "AppData", "Roaming")
+			userProfile := getenv("USERPROFILE")
+			if userProfile == "" {
+				return "", fmt.Errorf("neither APPDATA nor USERPROFILE environment variable is set")
+			}
+			configDir = filepath.Join(userProfile, "AppData", "Roaming")
 		}
 	case "darwin":
-		home, err := os.UserHomeDir()
+		home, err := userHomeDir()
 		if err != nil {
 			return "", fmt.Errorf("failed to get home directory: %w", err)
 		}
 		configDir = filepath.Join(home, "Library", "Application Support")
 	default: // Linux and others
-		configDir = os.Getenv("XDG_CONFIG_HOME")
+		configDir = getenv("XDG_CONFIG_HOME")
 		if configDir == "" {
-			home, err := os.UserHomeDir()
+			home, err := userHomeDir()
 			if err != nil {
 				return "", fmt.Errorf("failed to get home directory: %w", err)
 			}
@@ -69,6 +65,15 @@ func ConfigDir() (string, error) {
 	}
 
 	return filepath.Join(configDir, AppName), nil
+}
+
+// ConfigDir returns the invowk configuration directory using platform-specific
+// conventions: Windows uses %APPDATA%, macOS uses ~/Library/Application Support,
+// and Linux/others use $XDG_CONFIG_HOME (defaulting to ~/.config).
+//
+//nolint:revive // ConfigDir is more descriptive than Dir for external callers
+func ConfigDir() (string, error) {
+	return configDirFrom(runtime.GOOS, os.Getenv, os.UserHomeDir)
 }
 
 // CommandsDir returns the directory for user-defined invowkfiles.
@@ -81,8 +86,8 @@ func CommandsDir() (string, error) {
 	return filepath.Join(home, ".invowk", "cmds"), nil
 }
 
-// loadWithOptions performs option-driven config loading without mutating
-// package-level cache state. Callers that want caching can wrap this function.
+// loadWithOptions performs option-driven config loading from the filesystem.
+// Each call reads and parses configuration from disk with no caching.
 func loadWithOptions(ctx context.Context, opts LoadOptions) (*Config, string, error) {
 	select {
 	case <-ctx.Done():
@@ -122,14 +127,7 @@ func loadWithOptions(ctx context.Context, opts LoadOptions) (*Config, string, er
 				BuildError()
 		}
 		if err := loadCUEIntoViper(v, opts.ConfigFilePath); err != nil {
-			return nil, "", issue.NewErrorContext().
-				WithOperation("load configuration").
-				WithResource(opts.ConfigFilePath).
-				WithSuggestion("Check that the file contains valid CUE syntax").
-				WithSuggestion("Verify the configuration values match the expected schema").
-				WithSuggestion("See 'invowk config --help' for configuration options").
-				Wrap(err).
-				BuildError()
+			return nil, "", cueLoadError(opts.ConfigFilePath, err)
 		}
 		resolvedPath = opts.ConfigFilePath
 	} else {
@@ -143,29 +141,18 @@ func loadWithOptions(ctx context.Context, opts LoadOptions) (*Config, string, er
 		cuePath := filepath.Join(cfgDir, ConfigFileName+"."+ConfigFileExt)
 		if fileExists(cuePath) {
 			if err := loadCUEIntoViper(v, cuePath); err != nil {
-				return nil, "", issue.NewErrorContext().
-					WithOperation("load configuration").
-					WithResource(cuePath).
-					WithSuggestion("Check that the file contains valid CUE syntax").
-					WithSuggestion("Verify the configuration values match the expected schema").
-					WithSuggestion("See 'invowk config --help' for configuration options").
-					Wrap(err).
-					BuildError()
+				return nil, "", cueLoadError(cuePath, err)
 			}
 			resolvedPath = cuePath
 		} else {
-			// Also check current directory
+			// Also check current directory (or BaseDir override)
 			localCuePath := ConfigFileName + "." + ConfigFileExt
+			if opts.BaseDir != "" {
+				localCuePath = filepath.Join(opts.BaseDir, localCuePath)
+			}
 			if fileExists(localCuePath) {
 				if err := loadCUEIntoViper(v, localCuePath); err != nil {
-					return nil, "", issue.NewErrorContext().
-						WithOperation("load configuration").
-						WithResource(localCuePath).
-						WithSuggestion("Check that the file contains valid CUE syntax").
-						WithSuggestion("Verify the configuration values match the expected schema").
-						WithSuggestion("See 'invowk config --help' for configuration options").
-						Wrap(err).
-						BuildError()
+					return nil, "", cueLoadError(localCuePath, err)
 				}
 				resolvedPath = localCuePath
 			}
@@ -210,6 +197,30 @@ func configDirWithOverride(configDirPath string) (string, error) {
 	}
 
 	return ConfigDir()
+}
+
+// commandsDirWithOverride resolves the commands directory, honoring
+// explicit provider options before platform defaults.
+func commandsDirWithOverride(commandsDirPath string) (string, error) {
+	if commandsDirPath != "" {
+		return commandsDirPath, nil
+	}
+
+	return CommandsDir()
+}
+
+// cueLoadError wraps a CUE loading/parsing error with actionable suggestions.
+// This is the common error path for all config file locations (explicit path,
+// config dir, current dir).
+func cueLoadError(path string, err error) error {
+	return issue.NewErrorContext().
+		WithOperation("load configuration").
+		WithResource(path).
+		WithSuggestion("Check that the file contains valid CUE syntax").
+		WithSuggestion("Verify the configuration values match the expected schema").
+		WithSuggestion("See 'invowk config --help' for configuration options").
+		Wrap(err).
+		BuildError()
 }
 
 // loadCUEIntoViper parses a CUE file, validates it against the #Config schema,
@@ -329,27 +340,30 @@ func fileExists(path string) bool {
 	return err == nil && !info.IsDir()
 }
 
-// EnsureConfigDir creates the config directory if it doesn't exist
-func EnsureConfigDir() error {
-	cfgDir, err := ConfigDir()
+// EnsureConfigDir creates the config directory if it doesn't exist.
+// When configDirPath is empty, the platform-default directory from ConfigDir() is used.
+func EnsureConfigDir(configDirPath string) error {
+	cfgDir, err := configDirWithOverride(configDirPath)
 	if err != nil {
 		return err
 	}
 	return os.MkdirAll(cfgDir, 0o755)
 }
 
-// EnsureCommandsDir creates the commands directory if it doesn't exist
-func EnsureCommandsDir() error {
-	cmdsDir, err := CommandsDir()
+// EnsureCommandsDir creates the commands directory if it doesn't exist.
+// When commandsDirPath is empty, the platform-default directory from CommandsDir() is used.
+func EnsureCommandsDir(commandsDirPath string) error {
+	cmdsDir, err := commandsDirWithOverride(commandsDirPath)
 	if err != nil {
 		return err
 	}
 	return os.MkdirAll(cmdsDir, 0o755)
 }
 
-// CreateDefaultConfig creates a default config file if it doesn't exist
-func CreateDefaultConfig() error {
-	cfgDir, err := ConfigDir()
+// CreateDefaultConfig creates a default config file if it doesn't exist.
+// When configDirPath is empty, the platform-default directory from ConfigDir() is used.
+func CreateDefaultConfig(configDirPath string) error {
+	cfgDir, err := configDirWithOverride(configDirPath)
 	if err != nil {
 		return err
 	}
@@ -375,9 +389,10 @@ func CreateDefaultConfig() error {
 	return nil
 }
 
-// Save writes the current configuration to file
-func Save(cfg *Config) error {
-	cfgDir, err := ConfigDir()
+// Save writes the current configuration to file.
+// When configDirPath is empty, the platform-default directory from ConfigDir() is used.
+func Save(cfg *Config, configDirPath string) error {
+	cfgDir, err := configDirWithOverride(configDirPath)
 	if err != nil {
 		return err
 	}

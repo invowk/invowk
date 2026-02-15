@@ -2,6 +2,8 @@
 sidebar_position: 1
 ---
 
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
 import Snippet from '@site/src/components/Snippet';
 
 # Installation
@@ -14,31 +16,95 @@ Welcome to Invowk! Let's get you set up and running commands in no time.
 
 ## Requirements
 
-Before installing Invowk, make sure you have:
-
-- **Go 1.26+** (only if building from source)
-- **Linux, macOS, or Windows** - Invowk works on all three!
+- **Linux, macOS, or Windows** — Invowk works on all three!
 
 For container runtime features, you'll also need:
 - **Docker** or **Podman** installed and running
 
 ## Installation Methods
 
-### From Source (Recommended for now)
+<Tabs>
+  <TabItem value="script" label="Shell Script" default>
 
-If you have Go installed, building from source is straightforward:
+The quickest way to install on **Linux** or **macOS**:
+
+<Snippet id="installation/shell-script" />
+
+This downloads the latest release from GitHub, verifies its SHA256 checksum, and installs to `~/.local/bin`.
+
+**Customize the installation:**
+
+<Snippet id="installation/shell-script-custom" />
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `INSTALL_DIR` | `~/.local/bin` | Where to install the binary |
+| `INVOWK_VERSION` | latest stable | Install a specific version (e.g., `v1.0.0`) |
+| `GITHUB_TOKEN` | unset | Optional; avoids API rate limiting |
+
+  </TabItem>
+  <TabItem value="powershell" label="PowerShell (Windows)">
+
+The quickest way to install on **Windows**:
+
+<Snippet id="installation/powershell-script" />
+
+This downloads the latest release from GitHub, verifies its SHA256 checksum, and installs to `%LOCALAPPDATA%\Programs\invowk`. Your User PATH is updated automatically.
+
+**Customize the installation:**
+
+<Snippet id="installation/powershell-script-custom" />
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `INSTALL_DIR` | `%LOCALAPPDATA%\Programs\invowk` | Where to install the binary |
+| `INVOWK_VERSION` | latest stable | Install a specific version (e.g., `v1.0.0`) |
+| `INVOWK_NO_MODIFY_PATH` | unset | Set to `1` to skip automatic PATH modification |
+| `GITHUB_TOKEN` | unset | Optional; avoids API rate limiting |
+
+  </TabItem>
+  <TabItem value="homebrew" label="Homebrew">
+
+If you use [Homebrew](https://brew.sh/) on **macOS** or **Linux**:
+
+<Snippet id="installation/homebrew" />
+
+To upgrade later:
+
+```bash
+brew upgrade invowk
+```
+
+  </TabItem>
+  <TabItem value="go" label="Go Install">
+
+If you have **Go 1.26+** installed:
+
+<Snippet id="installation/go-install" />
+
+The binary is installed to `$GOBIN` (or `$GOPATH/bin`).
+
+  </TabItem>
+  <TabItem value="source" label="From Source">
+
+Clone and build from source:
 
 <Snippet id="installation/build-from-source" />
 
-Then move the binary to your PATH:
+Then install to your `$GOPATH/bin`:
+
+```bash
+make install
+```
+
+Or move the binary manually:
 
 <Snippet id="installation/move-to-path" />
 
-### Using Make (with more options)
+> **Note:** On x86-64 systems, the default build targets the x86-64-v3 microarchitecture (Haswell+ CPUs from 2013+) for optimal performance. For maximum compatibility with older CPUs, use `make build GOAMD64=v1`.
 
-The project includes a Makefile with several build options:
-
-<Snippet id="installation/make-options" />
+  </TabItem>
+</Tabs>
 
 ### Verify Installation
 
@@ -47,6 +113,45 @@ Once installed, verify everything works:
 <Snippet id="installation/verify" />
 
 You should see the version information. If you get a "command not found" error, make sure the binary is in your PATH.
+
+### Platform Support
+
+| Method | Linux | macOS | Windows |
+|--------|-------|-------|---------|
+| Shell script | amd64, arm64 | amd64 (Intel), arm64 (Apple Silicon) | — |
+| PowerShell script | — | — | amd64 |
+| Homebrew | amd64, arm64 | amd64, arm64 | — |
+| Go install | all | all | all |
+| From source | all | all | all |
+
+## Upgrading
+
+Upgrade using the same method you used to install:
+
+- **Shell script**: Re-run the install command — it downloads the latest release and overwrites the existing binary:
+
+<Snippet id="installation/shell-script" />
+
+  To upgrade to a specific version, set `INVOWK_VERSION`:
+
+<Snippet id="installation/shell-script-custom" />
+
+- **PowerShell script**: Re-run the install command — it downloads the latest release and overwrites the existing binary:
+
+<Snippet id="installation/powershell-script" />
+
+  To upgrade to a specific version, set `INVOWK_VERSION`:
+
+<Snippet id="installation/powershell-script-custom" />
+
+- **Homebrew**: `brew upgrade invowk`
+
+- **Go install**: `go install github.com/invowk/invowk@latest`
+
+- **From source**: Pull the latest changes and rebuild:
+  ```bash
+  git pull && make build && make install
+  ```
 
 ## Shell Completion
 

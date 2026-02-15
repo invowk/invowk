@@ -104,6 +104,7 @@ Key rules:
 | **CUE validation** | `virtual_edge_cases.txtar`, `virtual_args_subcommand_conflict.txtar` | Schema parsing, not runtime behavior |
 | **discovery/ambiguity** | `virtual_ambiguity.txtar`, `virtual_disambiguation.txtar`, `virtual_multi_source.txtar` | Command resolution logic, not shell execution |
 | **dogfooding** | `dogfooding_invowkfile.txtar` | Already exercises native runtime |
+| **built-in commands** | `config_*.txtar`, `module_*.txtar`, `completion.txtar`, `tui_format.txtar`, `tui_style.txtar`, `init_*.txtar` | Built-in Cobra handlers, not user-defined runtimes |
 
 ## Go Unit Test Generation
 
@@ -112,7 +113,7 @@ Key rules:
 For tests outside `pkg/invowkfile/` (to avoid import cycles):
 
 ```go
-import "invowk-cli/internal/testutil/invowkfiletest"
+import "github.com/invowk/invowk/internal/testutil/invowkfiletest"
 
 cmd := invowkfiletest.NewTestCommand("hello",
     invowkfiletest.WithScript("echo hello"),
@@ -130,6 +131,10 @@ cmd := invowkfiletest.NewTestCommand("hello",
 - Test files must not exceed 800 lines
 - Use `testing.Short()` to skip integration tests
 - Import alias: `goruntime "runtime"` when needing both `runtime.GOOS` and `internal/runtime`
+
+## Guardrail: Built-in Command txtar Coverage
+
+**`TestBuiltinCommandTxtarCoverage`** (`cmd/invowk/coverage_test.go`) enforces that every non-hidden, runnable, leaf built-in command has at least one `.txtar` test. When adding new built-in Cobra commands (not user-defined `cmd` commands), you MUST also add a txtar test or the guardrail will fail. Built-in command tests (`config_*.txtar`, `module_*.txtar`, `completion.txtar`, `tui_format.txtar`, `tui_style.txtar`) do NOT need native mirrors since they exercise Cobra handlers directly, not runtime-specific shell implementations.
 
 ## Workflow
 

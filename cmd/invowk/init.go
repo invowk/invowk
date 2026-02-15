@@ -7,7 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"invowk-cli/pkg/invowkfile"
+	"github.com/invowk/invowk/pkg/invowkfile"
 
 	"github.com/spf13/cobra"
 )
@@ -20,7 +20,8 @@ func newInitCommand() *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "init",
+		Use:   "init [filename]",
+		Args:  cobra.MaximumNArgs(1),
 		Short: "Create a new invowkfile in the current directory",
 		Long: `Create a new invowkfile in the current directory with example commands.
 
@@ -37,7 +38,7 @@ you get started quickly.`,
 	return cmd
 }
 
-func runInit(_ *cobra.Command, args []string, force bool, template string) error {
+func runInit(cmd *cobra.Command, args []string, force bool, template string) error {
 	filename := "invowkfile.cue"
 	if len(args) > 0 {
 		filename = args[0]
@@ -48,6 +49,12 @@ func runInit(_ *cobra.Command, args []string, force bool, template string) error
 		return fmt.Errorf("file '%s' already exists. Use --force to overwrite", filename)
 	}
 
+	// Validate template name before generating content
+	validTemplates := map[string]bool{"default": true, "minimal": true, "full": true}
+	if !validTemplates[template] {
+		return fmt.Errorf("unknown template %q; valid options are: default, minimal, full", template)
+	}
+
 	// Generate content based on template
 	content := generateInvowkfile(template)
 
@@ -56,13 +63,17 @@ func runInit(_ *cobra.Command, args []string, force bool, template string) error
 		return fmt.Errorf("failed to write file: %w", err)
 	}
 
-	absPath, _ := filepath.Abs(filename)
-	fmt.Printf("%s Created %s\n", SuccessStyle.Render("✓"), absPath)
-	fmt.Println()
-	fmt.Println(SubtitleStyle.Render("Next steps:"))
-	fmt.Println("  1. Edit the invowkfile to add your commands")
-	fmt.Println("  2. Run 'invowk cmd' to see available commands")
-	fmt.Println("  3. Run 'invowk cmd <command>' to execute a command")
+	absPath, err := filepath.Abs(filename)
+	if err != nil {
+		absPath = filename
+	}
+	w := cmd.OutOrStdout()
+	fmt.Fprintf(w, "%s Created %s\n", SuccessStyle.Render("✓"), absPath)
+	fmt.Fprintln(w)
+	fmt.Fprintln(w, SubtitleStyle.Render("Next steps:"))
+	fmt.Fprintln(w, "  1. Run 'invowk cmd hello' to try it out")
+	fmt.Fprintln(w, "  2. Run 'invowk cmd hello YourName' to pass an argument")
+	fmt.Fprintln(w, "  3. Edit the invowkfile to customize your commands")
 
 	return nil
 }
@@ -72,7 +83,7 @@ func generateInvowkfile(template string) string {
 
 	switch template {
 	case "minimal":
-		// invowkfile.cue contains only commands - module metadata goes in invowkmod.cue
+		// Simplest cross-platform template: virtual runtime works identically everywhere
 		inv = &invowkfile.Invowkfile{
 			Commands: []invowkfile.Command{
 				{
@@ -80,120 +91,73 @@ func generateInvowkfile(template string) string {
 					Description: "Print a greeting",
 					Implementations: []invowkfile.Implementation{
 						{
-							Script:   "echo 'Hello from invowk!'",
-							Runtimes: []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeNative}},
+							Script:    `echo "Hello, $INVOWK_ARG_NAME!"`,
+							Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeVirtual}},
+							Platforms: invowkfile.AllPlatformConfigs(),
 						},
+					},
+					Args: []invowkfile.Argument{
+						{Name: "name", Description: "Who to greet", DefaultValue: "World"},
 					},
 				},
 			},
 		}
 
 	case "full":
-		// invowkfile.cue contains only commands - module metadata goes in invowkmod.cue
+		// Full template: subcommand, flag, env, and depends_on examples.
+		// The parent "hello" is virtual-only (no args) because parent commands
+		// with subcommands cannot have args — the CLI parser would interpret
+		// positional arguments as subcommand names. Multi-runtime platform-split
+		// is already demonstrated by the "default" template.
 		inv = &invowkfile.Invowkfile{
 			Commands: []invowkfile.Command{
 				{
-					Name:        "build",
-					Description: "Build the project",
+					Name:        "hello",
+					Description: "Print a greeting",
 					Implementations: []invowkfile.Implementation{
 						{
-							Script: "echo \"Building $PROJECT_NAME...\"\ngo build -o bin/app ./...",
-
-							Runtimes: []invowkfile.RuntimeConfig{
-								{Name: invowkfile.RuntimeNative},
-								{Name: invowkfile.RuntimeContainer, Image: "golang:1.21"},
-							},
-							Platforms: []invowkfile.PlatformConfig{
-								{Name: invowkfile.PlatformLinux},
-								{Name: invowkfile.PlatformMac},
-								{Name: invowkfile.PlatformWindows},
-							},
+							Script:    `echo "Hello, World!"`,
+							Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeVirtual}},
+							Platforms: invowkfile.AllPlatformConfigs(),
 						},
+					},
+				},
+				{
+					Name:        "hello formal",
+					Description: "Print a formal greeting with a title",
+					Implementations: []invowkfile.Implementation{
+						{
+							Script:    `echo "$INVOWK_FLAG_TITLE $INVOWK_ARG_NAME, welcome!"`,
+							Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeVirtual}},
+							Platforms: invowkfile.AllPlatformConfigs(),
+						},
+					},
+					Flags: []invowkfile.Flag{
+						{Name: "title", Description: "Honorific or greeting style", DefaultValue: "Dear"},
+					},
+					Args: []invowkfile.Argument{
+						{Name: "name", Description: "Who to greet", Required: true},
 					},
 					Env: &invowkfile.EnvConfig{
 						Vars: map[string]string{
-							"PROJECT_NAME": "myproject",
-							"CGO_ENABLED":  "0",
+							"GREETING_STYLE": "formal",
 						},
 					},
 				},
 				{
-					Name:        "test unit",
-					Description: "Run unit tests",
+					Name:        "hello all",
+					Description: "Run all greeting commands",
 					Implementations: []invowkfile.Implementation{
 						{
-							Script:   "go test -v ./...",
-							Runtimes: []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeNative}, {Name: invowkfile.RuntimeVirtual}},
-						},
-					},
-				},
-				{
-					Name:        "test integration",
-					Description: "Run integration tests",
-					Implementations: []invowkfile.Implementation{
-						{
-							Script:   "go test -v -tags=integration ./...",
-							Runtimes: []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeNative}},
-						},
-					},
-				},
-				{
-					Name:        "clean",
-					Description: "Clean build artifacts",
-					Implementations: []invowkfile.Implementation{
-						{
-							Script: "rm -rf bin/ dist/",
-
-							Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeNative}},
-							Platforms: []invowkfile.PlatformConfig{{Name: invowkfile.PlatformLinux}, {Name: invowkfile.PlatformMac}},
-						},
-						{
-							Script: "if exist bin rmdir /s /q bin && if exist dist rmdir /s /q dist",
-
-							Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeNative}},
-							Platforms: []invowkfile.PlatformConfig{{Name: invowkfile.PlatformWindows}},
-						},
-					},
-				},
-				{
-					Name:        "docker-build",
-					Description: "Build using container runtime",
-					Implementations: []invowkfile.Implementation{
-						{
-							Script:   "go build -o /workspace/bin/app ./...",
-							Runtimes: []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeContainer, Image: "golang:1.21"}},
-						},
-					},
-				},
-				{
-					Name:        "container hello-invowk",
-					Description: "Print a greeting from a container",
-					Implementations: []invowkfile.Implementation{
-						{
-							Script:   "echo \"Hello, Invowk!\"",
-							Runtimes: []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeContainer, Image: "debian:stable-slim"}},
-						},
-					},
-				},
-				{
-					Name:        "release",
-					Description: "Create a release",
-					Implementations: []invowkfile.Implementation{
-						{
-							Script: "echo 'Creating release...'",
-
-							Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeNative}},
-							Platforms: []invowkfile.PlatformConfig{{Name: invowkfile.PlatformLinux}, {Name: invowkfile.PlatformMac}},
+							Script:    `echo "All greetings complete!"`,
+							Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeVirtual}},
+							Platforms: invowkfile.AllPlatformConfigs(),
 						},
 					},
 					DependsOn: &invowkfile.DependsOn{
-						Tools: []invowkfile.ToolDependency{
-							{Alternatives: []string{"git"}},
-						},
 						Commands: []invowkfile.CommandDependency{
-							{Alternatives: []string{"clean"}},
-							{Alternatives: []string{"build"}},
-							{Alternatives: []string{"test unit"}},
+							{Alternatives: []string{"hello"}},
+							{Alternatives: []string{"hello formal"}},
 						},
 					},
 				},
@@ -201,42 +165,56 @@ func generateInvowkfile(template string) string {
 		}
 
 	default: // "default"
-		// invowkfile.cue contains only commands - module metadata goes in invowkmod.cue
+		// Default template: hello command with all 3 runtimes showing platform-split pattern
+		unixPlatforms := []invowkfile.PlatformConfig{
+			{Name: invowkfile.PlatformLinux},
+			{Name: invowkfile.PlatformMac},
+		}
+		linuxOnly := []invowkfile.PlatformConfig{
+			{Name: invowkfile.PlatformLinux},
+		}
 		inv = &invowkfile.Invowkfile{
 			Commands: []invowkfile.Command{
-				{
-					Name:        "build",
-					Description: "Build the project",
-					Implementations: []invowkfile.Implementation{
-						{
-							Script:   "echo 'Building...'\n# Add your build commands here",
-							Runtimes: []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeNative}},
-						},
-					},
-				},
-				{
-					Name:        "test",
-					Description: "Run tests",
-					Implementations: []invowkfile.Implementation{
-						{
-							Script:   "echo 'Testing...'\n# Add your test commands here",
-							Runtimes: []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeNative}},
-						},
-					},
-				},
-				{
-					Name:        "clean",
-					Description: "Clean build artifacts",
-					Implementations: []invowkfile.Implementation{
-						{
-							Script:   "echo 'Cleaning...'\n# Add your clean commands here",
-							Runtimes: []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeNative}},
-						},
-					},
-				},
+				helloCommand(unixPlatforms, linuxOnly),
 			},
 		}
 	}
 
 	return invowkfile.GenerateCUE(inv)
+}
+
+// helloCommand returns the "hello" command definition used by the "default"
+// init template. It demonstrates the platform-split pattern: native has
+// separate Unix (parameterized) and Windows (hardcoded) implementations,
+// virtual covers all platforms, and container targets Linux only (parameterized).
+func helloCommand(unixPlatforms, linuxOnly []invowkfile.PlatformConfig) invowkfile.Command {
+	return invowkfile.Command{
+		Name:        "hello",
+		Description: "Print a greeting",
+		Implementations: []invowkfile.Implementation{
+			{
+				Script:    `echo "Hello, $INVOWK_ARG_NAME!"`,
+				Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeNative}},
+				Platforms: unixPlatforms,
+			},
+			{
+				Script:    `Write-Output "Hello, $($env:INVOWK_ARG_NAME)!"`,
+				Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeNative}},
+				Platforms: []invowkfile.PlatformConfig{{Name: invowkfile.PlatformWindows}},
+			},
+			{
+				Script:    `echo "Hello, $INVOWK_ARG_NAME!"`,
+				Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeVirtual}},
+				Platforms: invowkfile.AllPlatformConfigs(),
+			},
+			{
+				Script:    `echo "Hello from container, $INVOWK_ARG_NAME!"`,
+				Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeContainer, Image: "debian:stable-slim"}},
+				Platforms: linuxOnly,
+			},
+		},
+		Args: []invowkfile.Argument{
+			{Name: "name", Description: "Who to greet", DefaultValue: "World"},
+		},
+	}
 }

@@ -230,7 +230,7 @@ invowk cmd test unit --ivk-runtime virtual`,
     code: `Available Commands
   (* = default runtime)
 
-From current directory:
+From invowkfile:
   build - Build the project [native*]
   test unit - Run unit tests [native*, virtual]
   test coverage - Run tests with coverage [native*]
@@ -593,10 +593,10 @@ cmds: [
     code: `{
     name: "greet"
     flags: [
-        {name: "loud", type: "bool", default_value: "false"}
+        {name: "loud", description: "Use uppercase greeting", type: "bool", default_value: "false"}
     ]
     args: [
-        {name: "name", default_value: "World"}
+        {name: "name", description: "Name to greet", default_value: "World"}
     ]
     implementations: [{
         script: """
@@ -803,7 +803,7 @@ virtual_shell: {
     language: 'cue',
     code: `{
     name: "greet"
-    args: [{name: "name", default_value: "World"}]
+    args: [{name: "name", description: "Name to greet", default_value: "World"}]
     implementations: [{
         script: """
             # Using environment variable
@@ -918,7 +918,7 @@ virtual_shell: {
     code: `// env belongs on the implementation, not on the runtime
 implementations: [{
     script: "node index.js"
-    runtimes: [{name: "container", image: "node:18"}]
+    runtimes: [{name: "container", image: "node:20"}]
     platforms: [{name: "linux"}]
     env: {
         vars: {
@@ -944,7 +944,7 @@ implementations: [{
     language: 'cue',
     code: `runtimes: [{
     name: "container"
-    image: "debian:bookworm-slim"
+    image: "debian:stable-slim"
     enable_host_ssh: true
 }]`,
   },
@@ -1236,7 +1236,7 @@ invowk cmd build --ivk-env-file .env.local --ivk-env-var OVERRIDE=value`,
     }
     implementations: [{
         script: "echo $BUILD_ENV"  // Available inside container
-        runtimes: [{name: "container", image: "debian:bookworm-slim"}]
+        runtimes: [{name: "container", image: "debian:stable-slim"}]
         platforms: [{name: "linux"}]
     }]
 }`,
@@ -2037,14 +2037,14 @@ invowk cmd build --ivk-env-var DEBUG=true --ivk-env-var LOG_LEVEL=debug`,
     
     // Flags - named options
     flags: [
-        {name: "dry-run", type: "bool", default_value: "false"},
-        {name: "replicas", type: "int", default_value: "1"},
+        {name: "dry-run", description: "Preview without applying changes", type: "bool", default_value: "false"},
+        {name: "replicas", description: "Number of replicas", type: "int", default_value: "1"},
     ]
-    
+
     // Arguments - positional values
     args: [
-        {name: "environment", required: true},
-        {name: "services", variadic: true},
+        {name: "environment", description: "Target environment", required: true},
+        {name: "services", description: "Services to deploy", variadic: true},
     ]
     
     implementations: [{
@@ -2068,9 +2068,9 @@ invowk cmd build --ivk-env-var DEBUG=true --ivk-env-var LOG_LEVEL=debug`,
   'flags-args/overview-flags-example': {
     language: 'cue',
     code: `flags: [
-    {name: "verbose", type: "bool", short: "v"},
-    {name: "output", type: "string", short: "o", default_value: "./dist"},
-    {name: "count", type: "int", default_value: "1"},
+    {name: "verbose", description: "Enable verbose output", type: "bool", short: "v"},
+    {name: "output", description: "Output directory", type: "string", short: "o", default_value: "./dist"},
+    {name: "count", description: "Number of iterations", type: "int", default_value: "1"},
 ]`,
   },
 
@@ -2086,9 +2086,9 @@ invowk cmd build -v -o=./build`,
   'flags-args/overview-args-example': {
     language: 'cue',
     code: `args: [
-    {name: "source", required: true},
-    {name: "destination", default_value: "./output"},
-    {name: "files", variadic: true},
+    {name: "source", description: "Source directory", required: true},
+    {name: "destination", description: "Destination path", default_value: "./output"},
+    {name: "files", description: "Files to copy", variadic: true},
 ]`,
   },
 
@@ -2102,8 +2102,8 @@ invowk cmd build -v -o=./build`,
     code: `{
     name: "greet"
     args: [
-        {name: "first-name"},
-        {name: "last-name"},
+        {name: "first-name", description: "First name"},
+        {name: "last-name", description: "Last name"},
     ]
     implementations: [{
         script: """
@@ -2531,15 +2531,15 @@ invowk cmd parse input.txt yaml`,
     language: 'cue',
     code: `// Good
 args: [
-    {name: "input", required: true},      // Required first
-    {name: "output", required: true},     // Required second
-    {name: "format", default_value: "json"}, // Optional last
+    {name: "input", description: "Input file", required: true},      // Required first
+    {name: "output", description: "Output file", required: true},     // Required second
+    {name: "format", description: "Output format", default_value: "json"}, // Optional last
 ]
 
 // Bad - will cause validation error
 args: [
-    {name: "format", default_value: "json"}, // Optional can't come first
-    {name: "input", required: true},
+    {name: "format", description: "Output format", default_value: "json"}, // Optional can't come first
+    {name: "input", description: "Input file", required: true},
 ]`,
   },
 
@@ -2611,8 +2611,8 @@ invowk cmd deploy production
     code: `{
     name: "greet"
     args: [
-        {name: "first-name", required: true},
-        {name: "last-name", default_value: "User"},
+        {name: "first-name", description: "First name", required: true},
+        {name: "last-name", description: "Last name", default_value: "User"},
     ]
     implementations: [{
         script: """
@@ -2629,8 +2629,8 @@ invowk cmd deploy production
     code: `{
     name: "copy"
     args: [
-        {name: "source", required: true},
-        {name: "dest", required: true},
+        {name: "source", description: "Source path", required: true},
+        {name: "dest", description: "Destination path", required: true},
     ]
     implementations: [{
         script: """
@@ -2781,7 +2781,6 @@ invowk cmd deploy prod --dry-run 3`,
     name: "analyze"
     implementations: [
         {
-            interpreter: "python3"
             script: """
                 import json
                 import sys
@@ -2789,7 +2788,7 @@ invowk cmd deploy prod --dry-run 3`,
                 data = json.load(open('data.json'))
                 print(f"Found {len(data)} records")
                 """
-            runtimes: [{name: "native"}]
+            runtimes: [{name: "native", interpreter: "python3"}]
             platforms: [{name: "linux"}, {name: "macos"}]
         }
     ]
@@ -2802,13 +2801,12 @@ invowk cmd deploy prod --dry-run 3`,
     name: "process"
     implementations: [
         {
-            interpreter: "node"
             script: """
                 const fs = require('fs');
                 const data = JSON.parse(fs.readFileSync('data.json'));
                 console.log(\`Processing \${data.length} items\`);
                 """
-            runtimes: [{name: "native"}]
+            runtimes: [{name: "native", interpreter: "node"}]
             platforms: [{name: "linux"}, {name: "macos"}]
         }
     ]
@@ -2966,7 +2964,7 @@ interpreter: "node --max-old-space-size=4096"`,
     language: 'cue',
     code: `{
     name: "greet"
-    args: [{name: "name", default_value: "World"}]
+    args: [{name: "name", description: "Name to greet", default_value: "World"}]
     implementations: [{
         script: """
             #!/usr/bin/env python3
@@ -3142,7 +3140,7 @@ cmds: [
             pwd  # /workspace
             ls   # Shows your project files
             """
-        runtimes: [{name: "container", image: "debian:bookworm-slim"}]
+        runtimes: [{name: "container", image: "debian:stable-slim"}]
         platforms: [{name: "linux"}]
     }]
 }`,
@@ -3400,7 +3398,7 @@ cmds: [
     code: `Available Commands
   (* = default runtime)
 
-From current directory:
+From invowkfile:
   build - Build the project [native*] (linux, macos, windows)
   clean - Clean artifacts [native*] (linux, macos)
   deploy - Deploy to cloud [native*] (linux)`,
@@ -3602,7 +3600,7 @@ cmds: [
     language: 'text',
     code: `Available Commands
 
-From current directory:
+From invowkfile:
   mytools build - Build the project [native*]
 
 From user modules (~/.invowk/cmds):
@@ -3662,7 +3660,7 @@ description: "Commands for mytools"
                 script: """
                     echo "Hello from mytools!"
                     """
-                runtimes: [{name: "native"}]
+                runtimes: [{name: "virtual"}]
                 platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
             }
         ]
@@ -4399,27 +4397,19 @@ invowk module add https://github.com/user/monorepo.invowkmod.git ^1.0.0 --path m
     language: 'text',
     code: `Add Module Dependency
 
-• Resolving https://github.com/user/mod.invowkmod.git@^1.0.0...
-✓ Module added successfully
+ℹ Resolving https://github.com/user/mod.invowkmod.git@^1.0.0...
+✓ Module resolved and lock file updated
 
-• Git URL:   https://github.com/user/mod.invowkmod.git
-• Version:   ^1.0.0 → 1.2.3
-• Namespace: mod@1.2.3
-• Cache:     /home/user/.invowk/modules/github.com/user/mod.invowkmod/1.2.3
-
-• To use this module, add to your invowkmod.cue:
-
-requires: [
-    {
-        git_url: "https://github.com/user/mod.invowkmod.git"
-        version: "^1.0.0"
-    },
-]`,
+ℹ Git URL:   https://github.com/user/mod.invowkmod.git
+ℹ Version:   ^1.0.0 → 1.2.3
+ℹ Namespace: mod@1.2.3
+ℹ Cache:     /home/user/.invowk/modules/github.com/user/mod.invowkmod/1.2.3
+✓ Updated invowkmod.cue with new requires entry`,
   },
 
   'modules/dependencies/cli/remove-usage': {
     language: 'bash',
-    code: `invowk module remove <git-url>`,
+    code: `invowk module remove <identifier>`,
   },
 
   'modules/dependencies/cli/remove-example': {
@@ -4431,10 +4421,10 @@ requires: [
     language: 'text',
     code: `Remove Module Dependency
 
-• Removing https://github.com/user/mod.invowkmod.git...
-✓ Module removed from lock file
+ℹ Removing https://github.com/user/mod.invowkmod.git...
+✓ Removed mod@1.2.3
 
-• Don't forget to remove the requires entry from your invowkmod.cue`,
+✓ Lock file and invowkmod.cue updated`,
   },
 
   'modules/dependencies/cli/deps-usage': {
@@ -4496,7 +4486,7 @@ requires: [
 
   'modules/dependencies/cli/update-usage': {
     language: 'bash',
-    code: `invowk module update [git-url]`,
+    code: `invowk module update [identifier]`,
   },
 
   'modules/dependencies/cli/update-examples': {
@@ -4776,6 +4766,7 @@ container: {
 
 #AutoProvisionConfig: {
     enabled?: bool
+    strict?: bool
     binary_path?: string
     includes?: [...#IncludeEntry]
     inherit_includes?: bool
@@ -4904,11 +4895,52 @@ invowk cmd build --ivk-runtime container`,
   // INSTALLATION
   // =============================================================================
 
+  'installation/shell-script': {
+    language: 'bash',
+    code: `curl -fsSL https://raw.githubusercontent.com/invowk/invowk/main/scripts/install.sh | sh`,
+  },
+
+  'installation/shell-script-custom': {
+    language: 'bash',
+    code: `# Install to a custom directory
+INSTALL_DIR=/usr/local/bin curl -fsSL https://raw.githubusercontent.com/invowk/invowk/main/scripts/install.sh | sh
+
+# Install a specific version
+INVOWK_VERSION=v1.0.0 curl -fsSL https://raw.githubusercontent.com/invowk/invowk/main/scripts/install.sh | sh`,
+  },
+
+  'installation/powershell-script': {
+    language: 'powershell',
+    code: `irm https://raw.githubusercontent.com/invowk/invowk/main/scripts/install.ps1 | iex`,
+  },
+
+  'installation/powershell-script-custom': {
+    language: 'powershell',
+    code: `# Install to a custom directory
+$env:INSTALL_DIR='C:\\tools\\invowk'; irm https://raw.githubusercontent.com/invowk/invowk/main/scripts/install.ps1 | iex
+
+# Install a specific version
+$env:INVOWK_VERSION='v1.0.0'; irm https://raw.githubusercontent.com/invowk/invowk/main/scripts/install.ps1 | iex
+
+# Skip automatic PATH modification
+$env:INVOWK_NO_MODIFY_PATH='1'; irm https://raw.githubusercontent.com/invowk/invowk/main/scripts/install.ps1 | iex`,
+  },
+
+  'installation/homebrew': {
+    language: 'bash',
+    code: `brew install invowk/tap/invowk`,
+  },
+
+  'installation/go-install': {
+    language: 'bash',
+    code: `go install github.com/invowk/invowk@latest`,
+  },
+
   'installation/build-from-source': {
     language: 'bash',
     code: `git clone https://github.com/invowk/invowk
 cd invowk
-go build -o invowk .`,
+make build`,
   },
 
   'installation/move-to-path': {
@@ -4981,20 +5013,41 @@ invowk completion powershell >> $PROFILE`,
 invowk init`,
   },
 
-  'quickstart/hello-invowkfile': {
+  'quickstart/default-invowkfile': {
     language: 'cue',
-    code: `cmds: [
+    code: `// Invowkfile - Command definitions for invowk
+// See https://github.com/invowk/invowk for documentation
+
+cmds: [
     {
         name: "hello"
-        description: "Say hello!"
+        description: "Print a greeting"
         implementations: [
             {
-                script: "echo 'Hello from Invowk!'"
+                script: "echo \\"Hello, $INVOWK_ARG_NAME!\\""
                 runtimes: [{name: "native"}]
+                platforms: [{name: "linux"}, {name: "macos"}]
+            },
+            {
+                script: "Write-Output \\"Hello, $($env:INVOWK_ARG_NAME)!\\""
+                runtimes: [{name: "native"}]
+                platforms: [{name: "windows"}]
+            },
+            {
+                script: "echo \\"Hello, $INVOWK_ARG_NAME!\\""
+                runtimes: [{name: "virtual"}]
                 platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
-            }
+            },
+            {
+                script: "echo \\"Hello from container, $INVOWK_ARG_NAME!\\""
+                runtimes: [{name: "container", image: "debian:stable-slim"}]
+                platforms: [{name: "linux"}]
+            },
         ]
-    }
+        args: [
+            {name: "name", description: "Who to greet", default_value: "World"},
+        ]
+    },
 ]`,
   },
 
@@ -5003,8 +5056,8 @@ invowk init`,
     code: `Available Commands
   (* = default runtime)
 
-From current directory:
-  hello - Say hello! [native*] (linux, macos, windows)`,
+From invowkfile:
+  hello - Print a greeting [native*, virtual, container] (linux, macos, windows)`,
   },
 
   'quickstart/run-hello': {
@@ -5014,59 +5067,31 @@ From current directory:
 
   'quickstart/hello-output': {
     language: 'text',
-    code: `Hello from Invowk!`,
+    code: `Hello, World!`,
   },
 
   'quickstart/info-command': {
-    language: 'cue',
-    code: `cmds: [
-    {
-        name: "hello"
-        description: "Say hello!"
-        implementations: [
-            {
-                script: "echo 'Hello from Invowk!'"
-                runtimes: [{name: "native"}]
-                platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
-            }
-        ]
-    },
-    {
-        name: "info"
-        description: "Show system information"
-        implementations: [
-            {
-                script: """
-                    echo "=== System Info ==="
-                    echo "User: $USER"
-                    echo "Directory: $(pwd)"
-                    echo "Date: $(date)"
-                    """
-                runtimes: [{name: "native"}]
-                platforms: [{name: "linux"}, {name: "macos"}]
-            }
-        ]
-    }
-]`,
+    language: 'bash',
+    code: `# Pass an argument to the hello command
+invowk cmd hello Alice
+
+# Use a different runtime
+invowk cmd hello --ivk-runtime virtual`,
   },
 
   'quickstart/run-info': {
-    language: 'bash',
-    code: `invowk cmd info`,
+    language: 'text',
+    code: `Hello, Alice!`,
   },
 
   'quickstart/virtual-runtime': {
     language: 'cue',
-    code: `{
-    name: "cross-platform"
-    description: "Works the same everywhere!"
-    implementations: [
-        {
-            script: "echo 'This runs identically on Linux, Mac, and Windows!'"
-            runtimes: [{name: "virtual"}]
-            platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
-        }
-    ]
+    code: `// The virtual runtime uses the built-in mvdan/sh interpreter
+// It works identically on Linux, macOS, and Windows
+{
+    script: "echo \\"Hello, $INVOWK_ARG_NAME!\\""
+    runtimes: [{name: "virtual"}]
+    platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 }`,
   },
 
@@ -5089,6 +5114,7 @@ From current directory:
     language: 'cue',
     code: `// invowkmod.cue
 module: "com.company.frontend"
+version: "1.0.0"
 
 // invowkfile.cue
 cmds: [
@@ -5121,7 +5147,7 @@ module: "123project"   // Must start with letter`,
     code: `Available Commands
   (* = default runtime)
 
-From current directory:
+From invowkfile:
   build - Build the project [native*] (linux, macos, windows)
 
 From user modules (~/.invowk/cmds):
@@ -5201,7 +5227,7 @@ From user modules (~/.invowk/cmds):
     code: `runtimes: [
     {name: "native"},      // System shell
     {name: "virtual"},     // Built-in POSIX shell
-    {name: "container", image: "debian:bookworm-slim"}  // Container
+    {name: "container", image: "debian:stable-slim"}  // Container
 ]`,
   },
 
@@ -5344,7 +5370,7 @@ platforms: [
     code: `Available Commands
   (* = default runtime)
 
-From current directory:
+From invowkfile:
   build - Build the project [native*, virtual] (linux, macos)
   clean - Clean artifacts [native*] (linux, macos, windows)
   docker-build - Container build [container*] (linux, macos, windows)`,
@@ -5457,7 +5483,7 @@ invowk cmd build --ivk-runtime container`,
     code: `Available Commands
   (* = default runtime)
 
-From current directory:
+From invowkfile:
   build - Build the project [native*, virtual, container] (linux, macos)`,
   },
 
@@ -5528,7 +5554,7 @@ WORKDIR /workspace`,
             """
         runtimes: [{
             name: "container"
-            image: "debian:bookworm-slim"
+            image: "debian:stable-slim"
             enable_host_ssh: true  // Enable SSH server
         }]
         platforms: [{name: "linux"}]
@@ -6920,7 +6946,7 @@ invowk cmd deploy --env production`,
 
   'reference/cli/init-syntax': {
     language: 'bash',
-    code: `invowk init [flags] [path]`,
+    code: `invowk init [flags] [filename]`,
   },
 
   'reference/cli/init-examples': {
@@ -7035,7 +7061,7 @@ invowk module validate ./mymod.invowkmod --deep`,
 
   'reference/cli/module-remove-syntax': {
     language: 'bash',
-    code: `invowk module remove <git-url>`,
+    code: `invowk module remove <identifier>`,
   },
 
   'reference/cli/module-sync-syntax': {
@@ -7045,7 +7071,7 @@ invowk module validate ./mymod.invowkmod --deep`,
 
   'reference/cli/module-update-syntax': {
     language: 'bash',
-    code: `invowk module update [git-url]`,
+    code: `invowk module update [identifier]`,
   },
 
   'reference/cli/module-deps-syntax': {
@@ -7287,7 +7313,7 @@ runtimes: [
 // Container with options
 runtimes: [{
     name: "container"
-    image: "golang:1.22"
+    image: "golang:1.26"
     volumes: ["./:/app"]
 }]`,
   },
@@ -7362,7 +7388,7 @@ interpreter: "/usr/bin/env perl -w"`,
     language: 'cue',
     code: `runtimes: [{
     name: "container"
-    image: "debian:bookworm-slim"
+    image: "debian:stable-slim"
     enable_host_ssh: true
 }]`,
   },
@@ -7370,8 +7396,8 @@ interpreter: "/usr/bin/env perl -w"`,
   'reference/invowkfile/containerfile-image-examples': {
     language: 'cue',
     code: `// Use a pre-built image
-image: "debian:bookworm-slim"
-image: "golang:1.22"
+image: "debian:stable-slim"
+image: "golang:1.26"
 
 // Build from a Containerfile
 containerfile: "./Containerfile"
@@ -7708,6 +7734,7 @@ module: "io.github.username.cli"`,
 // Auto-provisioning configuration
 #AutoProvisionConfig: {
     enabled?:          bool
+    strict?:           bool
     binary_path?:      string
     includes?:         [...#IncludeEntry]
     inherit_includes?: bool
@@ -7805,6 +7832,7 @@ module: "io.github.username.cli"`,
     language: 'cue',
     code: `#AutoProvisionConfig: {
     enabled?:          bool
+    strict?:           bool
     binary_path?:      string
     includes?:         [...#IncludeEntry]
     inherit_includes?: bool

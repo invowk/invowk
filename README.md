@@ -34,31 +34,108 @@ A dynamically extensible, CLI-based command runner similar to [just](https://git
 
 ## Installation
 
+### Shell Script (Linux/macOS)
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/invowk/invowk/main/scripts/install.sh | sh
+```
+
+This downloads the latest release, verifies its SHA256 checksum, and installs to `~/.local/bin`. Customize with environment variables:
+
+```bash
+INSTALL_DIR=/usr/local/bin INVOWK_VERSION=v1.0.0 curl -fsSL https://raw.githubusercontent.com/invowk/invowk/main/scripts/install.sh | sh
+```
+
+### PowerShell (Windows)
+
+```powershell
+irm https://raw.githubusercontent.com/invowk/invowk/main/scripts/install.ps1 | iex
+```
+
+This downloads the latest release, verifies its SHA256 checksum, installs to `%LOCALAPPDATA%\Programs\invowk`, and adds it to your User PATH. Customize with environment variables:
+
+```powershell
+# Install a specific version to a custom directory
+$env:INSTALL_DIR='C:\tools\invowk'; $env:INVOWK_VERSION='v1.0.0'; irm https://raw.githubusercontent.com/invowk/invowk/main/scripts/install.ps1 | iex
+```
+
+### Homebrew (macOS/Linux)
+
+```bash
+brew install invowk/tap/invowk
+```
+
+### Go Install
+
+```bash
+go install github.com/invowk/invowk@latest
+```
+
+Requires Go 1.26+. The binary is installed to `$GOBIN` (or `$GOPATH/bin`).
+
 ### From Source
 
 ```bash
-git clone https://github.com/yourusername/invowk
+git clone https://github.com/invowk/invowk
 cd invowk
 make build
+make install  # Installs to $GOPATH/bin
 ```
 
 > **Note:** On x86-64 systems, the default build targets the x86-64-v3 microarchitecture (Haswell+ CPUs from 2013+) for optimal performance. For maximum compatibility with older CPUs, use `make build GOAMD64=v1`.
 
-> **Performance:** Invowk uses Profile-Guided Optimization (PGO) for improved runtime performance. The pre-generated profile (`default.pgo`) is automatically detected by Go 1.20+ during builds. To regenerate the profile after significant changes: `make pgo-profile`.
-
-### Installing the Binary
-
-Move the built binary to a location in your PATH:
+### Verify Installation
 
 ```bash
-sudo mv bin/invowk /usr/local/bin/
+invowk --version
 ```
 
-Or use the install target:
+### Upgrading
+
+Upgrade using the same method you used to install:
+
+- **Shell script**: Re-run the install command (it overwrites the existing binary):
+  ```bash
+  curl -fsSL https://raw.githubusercontent.com/invowk/invowk/main/scripts/install.sh | sh
+  ```
+  Pin to a specific version with `INVOWK_VERSION=v1.2.0`.
+
+- **PowerShell script**: Re-run the install command (it overwrites the existing binary):
+  ```powershell
+  irm https://raw.githubusercontent.com/invowk/invowk/main/scripts/install.ps1 | iex
+  ```
+  Pin to a specific version with `$env:INVOWK_VERSION='v1.2.0'`.
+
+- **Homebrew**: `brew upgrade invowk`
+
+- **Go install**: `go install github.com/invowk/invowk@latest`
+
+- **From source**: `git pull && make build && make install`
+
+### Platform Support
+
+| Method | Linux | macOS | Windows |
+|--------|-------|-------|---------|
+| Shell script | amd64, arm64 | amd64 (Intel), arm64 (Apple Silicon) | — |
+| PowerShell script | — | — | amd64 |
+| Homebrew | amd64, arm64 | amd64, arm64 | — |
+| Go install | all | all | all |
+| From source | all | all | all |
+
+### Verifying Signatures
+
+Release artifacts are signed with [Cosign](https://github.com/sigstore/cosign) (keyless, via GitHub Actions OIDC). To verify the checksums file:
 
 ```bash
-make install  # Installs to $GOPATH/bin
+cosign verify-blob \
+  --certificate checksums.txt.pem \
+  --signature checksums.txt.sig \
+  --certificate-identity-regexp='https://github\.com/invowk/invowk/.*' \
+  --certificate-oidc-issuer='https://token.actions.githubusercontent.com' \
+  checksums.txt
 ```
+
+Then verify individual archives against `checksums.txt` using `sha256sum -c checksums.txt`.
 
 ## Quick Start
 
@@ -74,35 +151,38 @@ invowk init
 invowk cmd
 ```
 
-The list shows all commands grouped by source (invowkfile or module) with allowed runtimes (default marked with `*`). Commands use their **simple names** - no module prefix is required when names are unique:
+The list shows all commands grouped by source with allowed runtimes (default marked with `*`) and supported platforms:
 
 ```
 Available Commands
   (* = default runtime)
 
 From invowkfile:
-  build - Build the project [native*, container] (linux, macos, windows)
-  test unit - Run unit tests [native*, virtual] (linux, macos, windows)
-  deploy - Deploy the application (@invowkfile) [native*] (linux, macos)
-
-From tools.invowkmod:
-  lint - Run linter [native*] (linux, macos, windows)
-  deploy - Deploy to staging (@tools) [native*] (linux, macos)
+  hello - Print a greeting [native*, virtual, container] (linux, macos, windows)
 ```
-
-When a command name exists in multiple sources (like `deploy` above), the listing shows a source annotation (`@invowkfile`, `@tools`) to indicate disambiguation is required.
 
 3. **Run a command**:
 
 ```bash
-invowk cmd build
+invowk cmd hello
+# Output: Hello, World!
 ```
 
-4. **Run a command with a specific runtime**:
+4. **Pass an argument**:
 
 ```bash
-# Use a non-default runtime (must be allowed by the command)
-invowk cmd build --ivk-runtime container
+invowk cmd hello Alice
+# Output: Hello, Alice!
+```
+
+5. **Use a different runtime**:
+
+```bash
+# Use the virtual runtime (built-in cross-platform shell)
+invowk cmd hello --ivk-runtime virtual
+
+# Use the container runtime (requires Docker/Podman, Linux only)
+invowk cmd hello --ivk-runtime container
 ```
 
 ## Invowkfile Format
@@ -1356,7 +1436,7 @@ When you run `invowk cmd`, the supported platforms are displayed for each comman
 Available Commands
   (* = default runtime)
 
-From current directory:
+From invowkfile:
   build - Build the project [native*] (linux, macos, windows)
   clean - Clean build artifacts [native*] (linux, macos)
   system info - Display system information [native*] (linux, macos, windows)
@@ -1863,16 +1943,16 @@ version: "1.0.0"
 // Declare module dependencies
 requires: [
 	{
-		git_url: "https://github.com/user/common-tools.git"
+		git_url: "https://github.com/user/common-tools.invowkmod.git"
 		version: "^1.0.0"  // Compatible with 1.x.x
 	},
 	{
-		git_url: "https://github.com/user/deploy-utils.git"
+		git_url: "https://github.com/user/deploy-utils.invowkmod.git"
 		version: "~2.1.0"  // Approximately 2.1.x
 		alias:   "deploy"  // Custom namespace (for collision disambiguation)
 	},
 	{
-		git_url: "https://github.com/user/monorepo.git"
+		git_url: "https://github.com/user/monorepo.invowkmod.git"
 		version: ">=1.0.0"
 		path:    "packages/cli-tools"  // Subdirectory within repo
 	},
@@ -1897,13 +1977,13 @@ Commands in a module can only call commands from direct dependencies or globally
 
 ```bash
 # Add a new module dependency
-invowk module add https://github.com/user/module.git ^1.0.0
+invowk module add https://github.com/user/module.invowkmod.git ^1.0.0
 
 # Add with custom alias (for collision disambiguation)
-invowk module add https://github.com/user/module.git ^1.0.0 --alias myalias
+invowk module add https://github.com/user/module.invowkmod.git ^1.0.0 --alias myalias
 
 # Add from monorepo subdirectory
-invowk module add https://github.com/user/monorepo.git ^1.0.0 --path packages/tools
+invowk module add https://github.com/user/monorepo.invowkmod.git ^1.0.0 --path packages/tools
 
 # List all resolved dependencies
 invowk module deps
@@ -1915,10 +1995,10 @@ invowk module sync
 invowk module update
 
 # Update a specific dependency
-invowk module update https://github.com/user/module.git
+invowk module update https://github.com/user/module.invowkmod.git
 
 # Remove a dependency
-invowk module remove https://github.com/user/module.git
+invowk module remove https://github.com/user/module.invowkmod.git
 ```
 
 ### Lock File
@@ -1934,7 +2014,7 @@ generated: "2025-01-12T10:30:00Z"
 
 modules: {
 	"github.com/user/common-tools": {
-		git_url:          "https://github.com/user/common-tools.git"
+		git_url:          "https://github.com/user/common-tools.invowkmod.git"
 		version:          "^1.0.0"
 		resolved_version: "1.2.3"
 		git_commit:       "abc123def456..."
@@ -2077,7 +2157,7 @@ cmds: [
 > The container runtime **requires Linux-based container images** (e.g., `debian:stable-slim`).
 >
 > **NOT supported:**
-> - **Alpine-based images** (`alpine:*`) - BusyBox's `ash` shell has incompatibilities with standard scripts
+> - **Alpine-based images** (`alpine:*`) - musl-based environments have subtle behavioral differences that reduce runtime reliability
 > - **Windows container images** (`mcr.microsoft.com/windows/*`) - No POSIX shell available
 >
 > **Platform compatibility:**

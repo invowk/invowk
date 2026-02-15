@@ -11,24 +11,12 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
-	"sync"
 	"time"
 
-	"invowk-cli/internal/container"
-	"invowk-cli/internal/sshserver"
-	"invowk-cli/pkg/invowkfile"
+	"github.com/invowk/invowk/internal/container"
+	"github.com/invowk/invowk/internal/sshserver"
+	"github.com/invowk/invowk/pkg/invowkfile"
 )
-
-// containerRunMu is a fallback mutex used when flock-based cross-process
-// serialization is unavailable. This includes non-Linux platforms
-// (macOS/Windows Podman runs in a VM) and Linux when the lock file cannot
-// be acquired (broken XDG_RUNTIME_DIR, /tmp permissions, fd exhaustion).
-// On Linux, acquireRunLock() provides flock-based serialization instead.
-//
-// When the sysctl override IS active (local Podman on Linux), neither the flock
-// nor this mutex is acquired — the override eliminates the race at source.
-// Docker never acquires either lock (it doesn't implement SysctlOverrideChecker).
-var containerRunMu sync.Mutex
 
 // containerExecPrep holds all prepared data needed to run a container command.
 // This struct is returned by prepareContainerExecution and used by both
@@ -218,8 +206,8 @@ func (r *ContainerRuntime) runWithRetry(ctx context.Context, runOpts container.R
 			} else {
 				slog.Warn("flock acquisition failed, falling back to in-process mutex", "error", lockErr)
 			}
-			containerRunMu.Lock()
-			defer containerRunMu.Unlock()
+			r.runMu.Lock()
+			defer r.runMu.Unlock()
 		} else {
 			defer lock.Release()
 		}
@@ -403,10 +391,15 @@ func (r *ContainerRuntime) setupSSHConnection(ctx *ExecutionContext, env map[str
 		return nil, fmt.Errorf("enable_host_ssh is enabled but SSH server is not running")
 	}
 
-	// Generate connection info with a unique token for this command execution
+	// Generate connection info with a unique token for this command execution.
+	// ExecutionID should be set by the caller via Registry.NewExecutionID();
+	// the fallback combines a timestamp with an atomic counter to guarantee
+	// uniqueness even across sub-nanosecond invocations.
 	executionID := ctx.ExecutionID
 	if executionID == "" {
-		executionID = newExecutionID()
+		executionID = fmt.Sprintf("%d-%d", time.Now().UnixNano(), r.fallbackIDCounter.Add(1))
+		slog.Warn("ExecutionID not set by caller, using fallback — callers should use Registry.NewExecutionID()",
+			"commandName", ctx.Command.Name, "executionID", executionID)
 	}
 	commandID := fmt.Sprintf("%s-%s", ctx.Command.Name, executionID)
 	sshConnInfo, err := r.sshServer.GetConnectionInfo(commandID)

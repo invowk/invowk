@@ -8,8 +8,8 @@ import (
 	"os/exec"
 	"path/filepath"
 
-	"invowk-cli/internal/container"
-	"invowk-cli/pkg/invowkfile"
+	"github.com/invowk/invowk/internal/container"
+	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
 // SupportsInteractive returns true if the container runtime can run interactively.

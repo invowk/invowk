@@ -1,0 +1,26 @@
+# Test: invowk config init creates default configuration
+# Tests config file and commands directory creation, and idempotent re-init
+
+cd $WORK
+env XDG_CONFIG_HOME=$WORK/.config
+
+# Test 1: Init creates config and commands dir
+exec invowk config init
+stdout 'Created default configuration'
+stdout 'Created commands directory'
+! stderr .
+
+# Test 2: Config file was actually created on disk
+exec invowk config path
+stdout 'Config directory'
+stdout 'Config file'
+stdout 'Commands directory'
+
+# Test 3: Re-running init is idempotent (does not error)
+exec invowk config init
+! stderr .
+
+# Test 4: Show now reflects the config file path
+exec invowk config show
+stdout 'config.cue'
+! stdout 'using defaults'

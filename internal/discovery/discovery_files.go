@@ -4,13 +4,13 @@ package discovery
 
 import (
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
 
-	"invowk-cli/internal/config"
-	"invowk-cli/pkg/invowkfile"
-	"invowk-cli/pkg/invowkmod"
+	"github.com/invowk/invowk/pkg/invowkfile"
+	"github.com/invowk/invowk/pkg/invowkmod"
 )
 
 const (
@@ -68,17 +68,25 @@ func (d *Discovery) DiscoverAll() ([]*DiscoveredFile, error) {
 // skipped modules/includes so callers can surface observability without failing.
 func (d *Discovery) discoverAllWithDiagnostics() ([]*DiscoveredFile, []Diagnostic, error) {
 	var files []*DiscoveredFile
-	diagnostics := make([]Diagnostic, 0)
+	// Seed with any init-time diagnostics (e.g., os.Getwd or CommandsDir failures)
+	// so they surface through the standard diagnostic rendering pipeline.
+	diagnostics := make([]Diagnostic, 0, len(d.initDiagnostics))
+	diagnostics = append(diagnostics, d.initDiagnostics...)
 
 	// 1. Current directory (highest precedence)
-	if cwdFile := d.discoverInDir(".", SourceCurrentDir); cwdFile != nil {
-		files = append(files, cwdFile)
-	}
+	// Skip current-dir discovery when baseDir is empty (e.g., os.Getwd() failed
+	// because the working directory was deleted). This prevents filepath.Abs("")
+	// from silently resolving to the process working directory, which may not exist.
+	if d.baseDir != "" {
+		if cwdFile := d.discoverInDir(d.baseDir, SourceCurrentDir); cwdFile != nil {
+			files = append(files, cwdFile)
+		}
 
-	// 2. Modules in current directory
-	moduleFiles, moduleDiags := d.discoverModulesInDirWithDiagnostics(".")
-	files = append(files, moduleFiles...)
-	diagnostics = append(diagnostics, moduleDiags...)
+		// 2. Modules in current directory
+		moduleFiles, moduleDiags := d.discoverModulesInDirWithDiagnostics(d.baseDir)
+		files = append(files, moduleFiles...)
+		diagnostics = append(diagnostics, moduleDiags...)
+	}
 
 	// 3. Configured includes (explicit module paths from config)
 	includeFiles, includeDiags := d.loadIncludesWithDiagnostics()
@@ -86,9 +94,8 @@ func (d *Discovery) discoverAllWithDiagnostics() ([]*DiscoveredFile, []Diagnosti
 	diagnostics = append(diagnostics, includeDiags...)
 
 	// 4. User commands directory (~/.invowk/cmds — modules only, non-recursive)
-	userDir, err := config.CommandsDir()
-	if err == nil {
-		userModuleFiles, userModuleDiags := d.discoverModulesInDirWithDiagnostics(userDir)
+	if d.commandsDir != "" {
+		userModuleFiles, userModuleDiags := d.discoverModulesInDirWithDiagnostics(d.commandsDir)
 		files = append(files, userModuleFiles...)
 		diagnostics = append(diagnostics, userModuleDiags...)
 	}
@@ -96,10 +103,11 @@ func (d *Discovery) discoverAllWithDiagnostics() ([]*DiscoveredFile, []Diagnosti
 	return files, diagnostics, nil
 }
 
-// discoverInDir looks for an invowkfile in a specific directory
+// discoverInDir looks for an invowkfile in a specific directory.
 func (d *Discovery) discoverInDir(dir string, source Source) *DiscoveredFile {
 	absDir, err := filepath.Abs(dir)
 	if err != nil {
+		slog.Warn("failed to resolve absolute path for discovery directory", "dir", dir, "error", err)
 		return nil
 	}
 

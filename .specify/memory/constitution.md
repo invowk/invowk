@@ -1,26 +1,51 @@
 <!--
 SYNC IMPACT REPORT
 ==================
-Version change: 1.1.0 → 1.2.0 (MINOR: New principle added)
+Version change: 1.3.0 → 1.4.0 (MINOR: Principle II materially expanded)
 
-Modified principles: None
+Modified principles:
+- Principle II: Comprehensive Testing Discipline — added two NON-NEGOTIABLE
+  mandates: "Built-in Command txtar Coverage" and "Test Integrity"
 
-Added sections:
-- VII. Pre-Existing Issue Resolution (NON-NEGOTIABLE) - new principle
+Added sections: None (amendments within existing principle)
 
 Removed sections: None
 
 Modified sections:
-- Quality Gates: Added "Pre-Existing Issue Check" row
-- Development Workflow > During Implementation: Added pre-existing issue handling step
-- Governance > Conflict Resolution: Added reference to new principle
+- Principle II: Added "Built-in Command Coverage (NON-NEGOTIABLE)" bullet
+  requiring 100% testscript coverage for all invowk built-in commands.
+  Added "Test Integrity (NON-NEGOTIABLE)" bullet prohibiting artificial
+  test workarounds, with FORBIDDEN/REQUIRED enforcement rules. Expanded
+  Rationale paragraph to cover workaround prohibition.
+- Quality Gates: Added "Built-in Command txtar Coverage" and "Test
+  Integrity" manual review gates.
+- Development Workflow > During Implementation: Added step 9 referencing
+  the new Principle II mandates.
+- Development Workflow > Before Committing: Added step 8 referencing the
+  new Principle II mandates.
+- Governance > Conflict Resolution: Added test integrity (Principle II)
+  as exception alongside VII and VIII.
+- Version footer: 1.3.0 → 1.4.0, Last Amended → 2026-02-14
 
 Templates requiring updates:
-- .specify/templates/plan-template.md ✅ (Constitution Check section is generic, will pick up new principle)
-- .specify/templates/spec-template.md ✅ (No constitution-specific content requiring updates)
-- .specify/templates/tasks-template.md ✅ (Task organization unaffected; new principle applies at spec revision level)
+- plan-template.md: ✅ No update needed (Constitution Check is dynamically
+  filled)
+- spec-template.md: ✅ No update needed (does not reference specific
+  principles)
+- tasks-template.md: ✅ No update needed (does not reference specific
+  principles)
+- checklist-template.md: ✅ No update needed (generic template)
+- agent-file-template.md: ✅ No update needed (generic template)
 
-Follow-up TODOs: None
+Follow-up TODOs:
+- Consider strengthening `.claude/rules/go-patterns.md` "State and
+  Dependency Patterns" section to use MUST/FORBIDDEN language matching
+  Principle VIII (currently uses advisory "Do not introduce" phrasing).
+  [Carried forward from v1.3.0]
+- Consider adding a guardrail test (similar to TestNoGlobalConfigAccess)
+  that scans `tests/cli/testdata/` to verify every built-in command has at
+  least one txtar test file. This would automate the Built-in Command
+  Coverage gate.
 -->
 
 # Invowk Constitution
@@ -45,8 +70,16 @@ Every behavior change MUST have corresponding test coverage:
 
 - **Unit Tests**: Table-driven tests for pure logic. Use `t.TempDir()` for temporary files. Reset global state via cleanup functions.
 - **CLI Integration Tests**: Use `testscript` (`.txtar` format) in `tests/cli/testdata/` for CLI behavior verification. Tests run in isolated environments (`HOME=/no-home`). Use `--` separator for command flags.
+- **Built-in Command Coverage (NON-NEGOTIABLE)**: All invowk built-in commands (e.g., `cmd`, `module`, `init`, `config`, `validate`) MUST have 100% testscript (`.txtar`) test coverage. Every subcommand, flag combination, argument variation, error path, and user-facing behavior MUST be exercised by at least one txtar test in `tests/cli/testdata/`. Coverage gaps in built-in commands are treated as bugs, not technical debt.
 - **Race Detection**: Run tests with `-race` flag. For race condition fixes, execute 10+ times with `-count=1` to bypass cache.
-- **Module Validation**: After module-related changes, run `go run . module validate modules/*.invkmod --deep`.
+- **Module Validation**: After module-related changes, run `go run . module validate modules/*.invowkmod --deep`.
+- **Test Integrity (NON-NEGOTIABLE)**: Agents and contributors MUST NOT artificially work around broken tests instead of fixing production code. This applies **unconditionally**—including when test failures are caused by pre-existing bugs entirely unrelated to the current task. Specifically:
+  - **FORBIDDEN**: Modifying test assertions to match incorrect production behavior.
+  - **FORBIDDEN**: Skipping, disabling, or marking tests as expected-failure to avoid fixing production code.
+  - **FORBIDDEN**: Adding special-case logic in test setup or fixtures to mask production bugs.
+  - **FORBIDDEN**: Narrowing test scope (e.g., removing test cases, loosening regexes) to make a failing test pass without fixing the underlying cause.
+  - **REQUIRED**: When a test fails due to a production bug—whether newly introduced or pre-existing—the production code MUST be fixed. If the fix is complex or out-of-scope, escalate per Principle VII (Pre-Existing Issue Resolution), but do NOT suppress the test.
+  - **REQUIRED**: Tests are the source of truth for expected behavior. If a test's assertions are genuinely wrong (the test itself is buggy), document the test bug clearly and fix the test—but only after verifying that the production behavior is actually correct.
 
 **Mandatory commands before merge**:
 ```bash
@@ -55,7 +88,7 @@ make test      # All unit tests
 make test-cli  # CLI integration tests (if CLI changed)
 ```
 
-**Rationale**: Tests are the primary documentation of expected behavior and the safety net for refactoring. CLI tests ensure user-facing behavior remains stable.
+**Rationale**: Tests are the primary documentation of expected behavior and the safety net for refactoring. CLI tests ensure user-facing behavior remains stable. Built-in commands are the core user interface of Invowk and MUST have exhaustive integration test coverage—untested commands are effectively undocumented behavior that can silently break. Artificial workarounds around broken tests propagate bugs, erode test suite reliability, and compound technical debt. When tests fail, the correct response is always to fix the root cause in production code, never to suppress the signal.
 
 ### III. Consistent User Experience
 
@@ -99,7 +132,7 @@ Complexity MUST be justified and documented:
 Any change that affects user-facing behavior MUST have corresponding documentation updates:
 
 - **CLI Changes**: New, modified, or removed commands/subcommands MUST be reflected in `README.md` and website docs (`website/docs/`).
-- **CUE Schema Changes**: Updates to `invkfile.cue` or `invkmod.cue` schemas MUST be documented with examples showing the new syntax.
+- **CUE Schema Changes**: Updates to `invowkfile.cue` or `invowkmod.cue` schemas MUST be documented with examples showing the new syntax.
 - **Configuration Changes**: New config options or behavioral defaults MUST be documented in the configuration section.
 - **Behavior Changes**: Side-effects, error message changes, exit code changes, or runtime behavior modifications MUST be documented.
 - **Flag/Argument Changes**: New flags, renamed flags, or removed flags MUST be updated in command help text AND documentation.
@@ -107,7 +140,7 @@ Any change that affects user-facing behavior MUST have corresponding documentati
 **Documentation locations to check**:
 - `README.md` - Primary user documentation
 - `website/docs/` - Website documentation (if applicable)
-- `invkfile.cue` / sample modules - Example files that users copy
+- `invowkfile.cue` / sample modules - Example files that users copy
 - CLI `--help` text - Embedded documentation
 
 **Enforcement**:
@@ -160,6 +193,22 @@ When any development phase (planning, implementation, testing, review, etc.) rev
 
 **Rationale**: Working around pre-existing issues creates compounding technical debt. Each workaround makes the codebase harder to understand and maintain. Addressing issues at discovery time—when context is fresh and the impact is understood—is more efficient than deferring fixes. This principle ensures that new development improves overall codebase health rather than degrading it.
 
+### VIII. Minimal Mutability
+
+Mutable state in the Go codebase MUST be avoided with rigorous discipline. Abstractions MUST be conceived, evaluated, and continuously improved to carry only the minimal degree of mutability needed for practical operation.
+
+- **Package-Level Mutable State Is Forbidden**: No package-level `var` declarations that are modified after initialization. Package-level variables MUST be effectively immutable: constants, build metadata, sentinel errors (`var ErrFoo = errors.New(...)`), embedded assets (`//go:embed`), and compile-time registrations. The sole exception is test-scoped mutable state in `_test.go` files, which is isolated by the test runner.
+- **Struct-Level Mutability Minimization**: Fields that can be set once at construction time MUST NOT be mutable afterward. Prefer constructor injection (functional options, dependency structs) over post-construction mutation. When a struct carries mutable state, document which fields are mutable, who owns the mutation, and what synchronization protects them.
+- **Prefer Immutable Data Flow**: Use request-scoped structs (`ExecuteRequest`, `LoadOptions`), return values, and functional options over mutating shared state. When mutation is unavoidable (e.g., atomic state transitions in the server pattern, retry counters), it MUST be explicitly documented with synchronization guarantees.
+- **Continuous Evaluation**: During code review and refactoring, existing abstractions MUST be assessed for unnecessary mutability. If a mutable field can be replaced with a constructor parameter, a derived value, or a request-scoped input, it SHOULD be refactored.
+
+**What is NOT restricted by this principle**:
+- Method receivers that mutate their own struct fields (normal OOP; governed by synchronization rules above)
+- Local variables within function bodies (stack-scoped, no shared-state concern)
+- Test helpers that set up and tear down mutable fixtures via `t.Cleanup()`
+
+**Rationale**: Mutable state is the primary source of concurrency bugs, ordering dependencies, and action-at-a-distance defects. Package-level mutable state is especially dangerous because it creates hidden coupling between packages, makes tests order-dependent, and prevents safe concurrent test execution. Minimizing mutability makes code easier to reason about, test in isolation, and refactor safely.
+
 ## Quality Gates
 
 Every PR MUST pass the following gates before merge:
@@ -171,10 +220,13 @@ Every PR MUST pass the following gates before merge:
 | CLI Tests | `make test-cli` | If CLI output/behavior changed |
 | License Headers | `make license-check` | New `.go` files |
 | Dependencies | `make tidy` | If dependencies changed |
-| Module Validation | `go run . module validate modules/*.invkmod --deep` | If module logic changed |
+| Module Validation | `go run . module validate modules/*.invowkmod --deep` | If module logic changed |
 | Website Build | `cd website && npm run build` | If website content changed |
 | **Documentation Sync** | **Manual review** | **If ANY user-facing behavior changed** |
 | **Pre-Existing Issue Check** | **Manual review** | **If implementation revealed blocking issues** |
+| **Mutability Review** | **Manual review** | **If new types, package-level vars, or shared state introduced** |
+| **Built-in Command txtar Coverage** | **Manual review** | **If built-in commands added, modified, or refactored** |
+| **Test Integrity** | **Manual review** | **If ANY test was modified, skipped, or removed alongside a code change** |
 
 ## Development Workflow
 
@@ -193,6 +245,8 @@ Every PR MUST pass the following gates before merge:
 5. Avoid introducing OWASP Top 10 vulnerabilities
 6. **Update documentation alongside code changes** (Principle VI)
 7. **HALT and report if pre-existing issues block or degrade the requirement** (Principle VII)
+8. **Minimize mutability: no package-level mutable state; prefer constructor injection and request-scoped data** (Principle VIII)
+9. **Fix failing tests by fixing production code, never by working around or suppressing the test; ensure built-in commands have txtar coverage** (Principle II)
 
 ### Before Committing
 
@@ -202,6 +256,8 @@ Every PR MUST pass the following gates before merge:
 4. Ensure no unexplained complexity was added
 5. **Verify all user-facing documentation is updated** (Principle VI)
 6. **Verify no pre-existing issues were worked around instead of fixed** (Principle VII)
+7. **Verify no unnecessary mutable state was introduced** (Principle VIII)
+8. **Verify no tests were modified to mask production bugs; verify built-in command txtar coverage is complete** (Principle II)
 
 ## Governance
 
@@ -218,6 +274,6 @@ This constitution is the authoritative guide for technical decisions in Invowk:
 
 4. **Reference**: The `.claude/rules/` directory contains detailed implementation guidance that operationalizes these principles. Rules files are authoritative for their specific domains.
 
-5. **Conflict Resolution**: When principles appear to conflict, Simplicity (Principle V) is the tiebreaker—choose the simpler approach unless security, correctness, or pre-existing issue resolution (Principle VII) requires otherwise.
+5. **Conflict Resolution**: When principles appear to conflict, Simplicity (Principle V) is the tiebreaker—choose the simpler approach unless security, correctness, test integrity (Principle II), state safety (Principle VIII), or pre-existing issue resolution (Principle VII) requires otherwise.
 
-**Version**: 1.2.0 | **Ratified**: 2026-01-21 | **Last Amended**: 2026-01-21
+**Version**: 1.4.0 | **Ratified**: 2026-01-21 | **Last Amended**: 2026-02-14

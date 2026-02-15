@@ -23,8 +23,8 @@ import (
 	"testing"
 	"time"
 
-	"invowk-cli/internal/container"
-	"invowk-cli/pkg/platform"
+	"github.com/invowk/invowk/internal/container"
+	"github.com/invowk/invowk/pkg/platform"
 
 	"github.com/rogpeppe/go-internal/testscript"
 )
@@ -114,6 +114,15 @@ func commonSetup(env *testscript.Env) error {
 	// causes "mkdir /no-home: permission denied" errors during docker build.
 	// Using WorkDir ensures HOME exists and is writable for the test duration.
 	env.Setenv("HOME", env.WorkDir)
+
+	// Windows-specific: set APPDATA and USERPROFILE so config.ConfigDir() and
+	// config.CommandsDir() resolve to test-scoped paths instead of the real
+	// system directories. Without this, all Windows tests share the same
+	// %APPDATA%\invowk config directory, causing cross-test contamination.
+	if runtime.GOOS == platform.Windows {
+		env.Setenv("APPDATA", filepath.Join(env.WorkDir, "appdata"))
+		env.Setenv("USERPROFILE", env.WorkDir)
+	}
 
 	// Set a unique tag suffix for container image provisioning.
 	// This prevents race conditions when parallel tests compete to build

@@ -1,0 +1,22 @@
+# Test: invowk tui format renders formatted text
+# Tests emoji conversion, markdown rendering, and error handling
+
+cd $WORK
+
+# Test 1: Format with emoji type converts known shortcodes (via args)
+exec invowk tui format --type emoji 'Launch :rocket: now'
+stdout 'Launch'
+
+# Test 2: Format with markdown type renders heading (via stdin)
+stdin markdown_input.txt
+exec invowk tui format --type markdown
+stdout 'Title'
+
+# Test 3: Unknown format type returns error
+! exec invowk tui format --type invalid 'text'
+stderr 'Unknown format type'
+
+-- markdown_input.txt --
+# Title
+
+Some **bold** text.

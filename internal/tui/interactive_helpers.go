@@ -6,7 +6,7 @@ import (
 	"os"
 	"regexp"
 
-	"invowk-cli/internal/tuiserver"
+	"github.com/invowk/invowk/internal/tuiserver"
 
 	"github.com/charmbracelet/x/xpty"
 )

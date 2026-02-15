@@ -13,7 +13,7 @@ import (
 
 	"github.com/rogpeppe/go-internal/testscript"
 
-	"invowk-cli/internal/testutil"
+	"github.com/invowk/invowk/internal/testutil"
 )
 
 const (

@@ -14,7 +14,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"invowk-cli/pkg/invowkfile"
+	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
 // Runtime type constants for different execution environments.
@@ -24,16 +24,9 @@ const (
 	RuntimeTypeContainer RuntimeType = "container"
 )
 
-var (
-	// ErrRuntimeNotAvailable is returned when the requested runtime is not available on the current system.
-	// Callers can check for this error using errors.Is(err, ErrRuntimeNotAvailable).
-	ErrRuntimeNotAvailable = errors.New("runtime not available")
-
-	// executionIDCounter ensures unique execution IDs even when multiple IDs are
-	// generated within the same nanosecond (possible on fast CPUs or systems with
-	// low-precision clocks like Windows).
-	executionIDCounter atomic.Uint64
-)
+// ErrRuntimeNotAvailable is returned when the requested runtime is not available on the current system.
+// Callers can check for this error using errors.Is(err, ErrRuntimeNotAvailable).
+var ErrRuntimeNotAvailable = errors.New("runtime not available")
 
 type (
 	// IOContext holds I/O streams for command execution.
@@ -57,7 +50,7 @@ type (
 		RuntimeEnvVars map[string]string
 		// RuntimeEnvFiles contains dotenv file paths specified via --ivk-env-file flag.
 		// These are loaded after all other env sources but before RuntimeEnvVars.
-		// Paths are relative to the current working directory where invowk was invoked.
+		// Relative paths are resolved against Cwd (or os.Getwd() when Cwd is empty).
 		RuntimeEnvFiles []string
 		// InheritModeOverride overrides the runtime config env inherit mode when set.
 		InheritModeOverride invowkfile.EnvInheritMode
@@ -65,6 +58,9 @@ type (
 		InheritAllowOverride []string
 		// InheritDenyOverride overrides the runtime config denylist when set.
 		InheritDenyOverride []string
+		// Cwd overrides the working directory for --ivk-env-file path resolution.
+		// When empty, os.Getwd() is used.
+		Cwd string
 	}
 
 	// TUIContext holds TUI server connection details for interactive mode.
@@ -189,9 +185,14 @@ type (
 	//nolint:revive // RuntimeType is more descriptive than Type for external callers
 	RuntimeType string
 
-	// Registry holds all available runtimes
+	// Registry holds all available runtimes and generates unique execution IDs.
+	// A single Registry instance is created per command execution via
+	// createRuntimeRegistry(), so the idCounter provides execution-scoped
+	// uniqueness for execution IDs. Registration should happen before any
+	// concurrent calls to Get, Execute, or Available.
 	Registry struct {
-		runtimes map[RuntimeType]Runtime
+		runtimes  map[RuntimeType]Runtime
+		idCounter atomic.Uint64
 	}
 )
 
@@ -239,7 +240,11 @@ func (t TUIContext) IsConfigured() bool {
 	return t.ServerURL != ""
 }
 
-// NewExecutionContext creates a new execution context with defaults
+// NewExecutionContext creates a new execution context with defaults.
+// ExecutionID is left empty; the caller should set it via Registry.NewExecutionID()
+// after the registry is created (see dispatchExecution in cmd_execute.go).
+// If the caller fails to set it, ContainerRuntime.prepareHostSSH generates a
+// fallback ID and logs a warning (see container_exec.go).
 func NewExecutionContext(cmd *invowkfile.Command, inv *invowkfile.Invowkfile) *ExecutionContext {
 	currentPlatform := invowkfile.GetCurrentHostOS()
 	defaultRuntime := cmd.GetDefaultRuntimeForPlatform(currentPlatform)
@@ -251,15 +256,10 @@ func NewExecutionContext(cmd *invowkfile.Command, inv *invowkfile.Invowkfile) *E
 		Context:         context.Background(),
 		SelectedRuntime: defaultRuntime,
 		SelectedImpl:    defaultImpl,
-		ExecutionID:     newExecutionID(),
 		IO:              DefaultIO(),
 		Env:             DefaultEnv(),
 		// TUI: zero value is fine (not configured by default)
 	}
-}
-
-func newExecutionID() string {
-	return fmt.Sprintf("%d-%d", time.Now().UnixNano(), executionIDCounter.Add(1))
 }
 
 // Success returns true if the command executed successfully
@@ -295,7 +295,15 @@ func NewRegistry() *Registry {
 	}
 }
 
-// Register adds a runtime to the registry
+// NewExecutionID generates a unique execution ID using a combination of the current
+// nanosecond timestamp and a monotonic counter. The counter ensures uniqueness even
+// when multiple IDs are generated within the same nanosecond (possible on fast CPUs
+// or systems with low-precision clocks like Windows).
+func (r *Registry) NewExecutionID() string {
+	return fmt.Sprintf("%d-%d", time.Now().UnixNano(), r.idCounter.Add(1))
+}
+
+// Register adds or replaces a runtime in the registry.
 func (r *Registry) Register(typ RuntimeType, rt Runtime) {
 	r.runtimes[typ] = rt
 }

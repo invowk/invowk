@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"invowk-cli/pkg/platform"
+	"github.com/invowk/invowk/pkg/platform"
 )
 
 // ValidateFilename checks if a filename is valid across platforms.

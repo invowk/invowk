@@ -12,11 +12,11 @@ import (
 	"strings"
 	"testing"
 
-	"invowk-cli/internal/issue"
-	"invowk-cli/internal/testutil"
+	"github.com/invowk/invowk/internal/issue"
 )
 
 func TestDefaultConfig(t *testing.T) {
+	t.Parallel()
 	cfg := DefaultConfig()
 
 	if cfg.ContainerEngine != ContainerEnginePodman {
@@ -69,49 +69,128 @@ func TestDefaultConfig(t *testing.T) {
 }
 
 func TestConfigDir(t *testing.T) {
-	// Reset environment for consistent testing
-	originalXDGConfigHome := os.Getenv("XDG_CONFIG_HOME")
-	defer func() {
-		if originalXDGConfigHome != "" {
-			_ = os.Setenv("XDG_CONFIG_HOME", originalXDGConfigHome) // Test cleanup; error non-critical
-		} else {
-			_ = os.Unsetenv("XDG_CONFIG_HOME") // Test cleanup; error non-critical
+	t.Parallel()
+
+	fakeHomeDir := filepath.Join("fake", "home")
+	fakeHome := func() (string, error) { return fakeHomeDir, nil }
+	failHome := func() (string, error) { return "", errors.New("no home") }
+
+	t.Run("linux with XDG_CONFIG_HOME set", func(t *testing.T) {
+		t.Parallel()
+		xdgPath := filepath.Join("custom", "xdg")
+		getenv := func(key string) string {
+			if key == "XDG_CONFIG_HOME" {
+				return xdgPath
+			}
+			return ""
 		}
-	}()
-
-	// Test with XDG_CONFIG_HOME set (on Linux)
-	if runtime.GOOS == "linux" {
-		testXDGPath := "/tmp/test-xdg-config"
-		restoreXDG := testutil.MustSetenv(t, "XDG_CONFIG_HOME", testXDGPath)
-
-		dir, err := ConfigDir()
+		dir, err := configDirFrom("linux", getenv, fakeHome)
 		if err != nil {
-			t.Fatalf("ConfigDir() returned error: %v", err)
+			t.Fatalf("configDirFrom() error: %v", err)
 		}
-
-		expected := filepath.Join(testXDGPath, AppName)
+		expected := filepath.Join(xdgPath, AppName)
 		if dir != expected {
-			t.Errorf("ConfigDir() = %s, want %s", dir, expected)
+			t.Errorf("configDirFrom() = %s, want %s", dir, expected)
 		}
+	})
 
-		// Test with XDG_CONFIG_HOME unset
-		restoreXDG()
-		testutil.MustUnsetenv(t, "XDG_CONFIG_HOME")
-		dir, err = ConfigDir()
+	t.Run("linux without XDG_CONFIG_HOME", func(t *testing.T) {
+		t.Parallel()
+		noEnv := func(string) string { return "" }
+		dir, err := configDirFrom("linux", noEnv, fakeHome)
 		if err != nil {
-			t.Fatalf("ConfigDir() returned error: %v", err)
+			t.Fatalf("configDirFrom() error: %v", err)
 		}
-
-		// Should use ~/.config/invowk
-		home, _ := os.UserHomeDir()
-		expected = filepath.Join(home, ".config", AppName)
+		expected := filepath.Join(fakeHomeDir, ".config", AppName)
 		if dir != expected {
-			t.Errorf("ConfigDir() = %s, want %s", dir, expected)
+			t.Errorf("configDirFrom() = %s, want %s", dir, expected)
 		}
-	}
+	})
+
+	t.Run("linux home dir error", func(t *testing.T) {
+		t.Parallel()
+		noEnv := func(string) string { return "" }
+		_, err := configDirFrom("linux", noEnv, failHome)
+		if err == nil {
+			t.Fatal("expected error when home dir fails")
+		}
+	})
+
+	t.Run("darwin", func(t *testing.T) {
+		t.Parallel()
+		noEnv := func(string) string { return "" }
+		dir, err := configDirFrom("darwin", noEnv, fakeHome)
+		if err != nil {
+			t.Fatalf("configDirFrom() error: %v", err)
+		}
+		expected := filepath.Join(fakeHomeDir, "Library", "Application Support", AppName)
+		if dir != expected {
+			t.Errorf("configDirFrom() = %s, want %s", dir, expected)
+		}
+	})
+
+	t.Run("darwin home dir error", func(t *testing.T) {
+		t.Parallel()
+		noEnv := func(string) string { return "" }
+		_, err := configDirFrom("darwin", noEnv, failHome)
+		if err == nil {
+			t.Fatal("expected error when home dir fails")
+		}
+	})
+
+	t.Run("windows with APPDATA", func(t *testing.T) {
+		t.Parallel()
+		appDataPath := filepath.Join("C", "Users", "test", "AppData", "Roaming")
+		getenv := func(key string) string {
+			if key == "APPDATA" {
+				return appDataPath
+			}
+			return ""
+		}
+		dir, err := configDirFrom("windows", getenv, fakeHome)
+		if err != nil {
+			t.Fatalf("configDirFrom() error: %v", err)
+		}
+		expected := filepath.Join(appDataPath, AppName)
+		if dir != expected {
+			t.Errorf("configDirFrom() = %s, want %s", dir, expected)
+		}
+	})
+
+	t.Run("windows without APPDATA", func(t *testing.T) {
+		t.Parallel()
+		userProfile := filepath.Join("C", "Users", "test")
+		getenv := func(key string) string {
+			if key == "USERPROFILE" {
+				return userProfile
+			}
+			return ""
+		}
+		dir, err := configDirFrom("windows", getenv, fakeHome)
+		if err != nil {
+			t.Fatalf("configDirFrom() error: %v", err)
+		}
+		expected := filepath.Join(userProfile, "AppData", "Roaming", AppName)
+		if dir != expected {
+			t.Errorf("configDirFrom() = %s, want %s", dir, expected)
+		}
+	})
+
+	t.Run("windows without APPDATA or USERPROFILE", func(t *testing.T) {
+		t.Parallel()
+		noEnv := func(string) string { return "" }
+		_, err := configDirFrom("windows", noEnv, fakeHome)
+		if err == nil {
+			t.Fatal("configDirFrom() should return error when both APPDATA and USERPROFILE are empty")
+		}
+		if !strings.Contains(err.Error(), "APPDATA") || !strings.Contains(err.Error(), "USERPROFILE") {
+			t.Errorf("error should mention both env vars, got: %v", err)
+		}
+	})
 }
 
 func TestCommandsDir(t *testing.T) {
+	t.Parallel()
 	dir, err := CommandsDir()
 	if err != nil {
 		t.Fatalf("CommandsDir() returned error: %v", err)
@@ -124,28 +203,13 @@ func TestCommandsDir(t *testing.T) {
 	}
 }
 
-func TestReset(t *testing.T) {
-	// Set the override
-	SetConfigDirOverride("/some/override")
-
-	// Reset should clear it
-	Reset()
-
-	if configDirOverride != "" {
-		t.Error("expected configDirOverride to be empty after Reset()")
-	}
-}
-
 func TestEnsureConfigDir(t *testing.T) {
+	t.Parallel()
 	// Use a temp directory for testing
 	tmpDir := t.TempDir()
 	configDir := filepath.Join(tmpDir, AppName)
 
-	// Use direct override instead of env vars (more reliable across platforms)
-	SetConfigDirOverride(configDir)
-	defer Reset()
-
-	err := EnsureConfigDir()
+	err := EnsureConfigDir(configDir)
 	if err != nil {
 		t.Fatalf("EnsureConfigDir() returned error: %v", err)
 	}
@@ -155,33 +219,133 @@ func TestEnsureConfigDir(t *testing.T) {
 	}
 }
 
-func TestEnsureCommandsDir(t *testing.T) {
-	// Use a temp directory for testing
-	tmpDir := t.TempDir()
-	cleanup := testutil.SetHomeDir(t, tmpDir)
-	defer cleanup()
+func TestConfigDirWithOverride(t *testing.T) {
+	t.Parallel()
 
-	err := EnsureCommandsDir()
+	t.Run("explicit path returned as-is", func(t *testing.T) {
+		t.Parallel()
+		want := filepath.Join(t.TempDir(), "explicit-config")
+		dir, err := configDirWithOverride(want)
+		if err != nil {
+			t.Fatalf("configDirWithOverride() error: %v", err)
+		}
+		if dir != want {
+			t.Errorf("configDirWithOverride() = %q, want %q", dir, want)
+		}
+	})
+
+	t.Run("empty falls through to ConfigDir", func(t *testing.T) {
+		t.Parallel()
+		dir, err := configDirWithOverride("")
+		if err != nil {
+			t.Fatalf("configDirWithOverride() error: %v", err)
+		}
+		expected, err := ConfigDir()
+		if err != nil {
+			t.Fatalf("ConfigDir() error: %v", err)
+		}
+		if dir != expected {
+			t.Errorf("configDirWithOverride(\"\") = %q, want ConfigDir() = %q", dir, expected)
+		}
+	})
+}
+
+func TestCommandsDirWithOverride(t *testing.T) {
+	t.Parallel()
+
+	t.Run("explicit path returned as-is", func(t *testing.T) {
+		t.Parallel()
+		want := filepath.Join(t.TempDir(), "explicit-cmds")
+		dir, err := commandsDirWithOverride(want)
+		if err != nil {
+			t.Fatalf("commandsDirWithOverride() error: %v", err)
+		}
+		if dir != want {
+			t.Errorf("commandsDirWithOverride() = %q, want %q", dir, want)
+		}
+	})
+
+	t.Run("empty falls through to CommandsDir", func(t *testing.T) {
+		t.Parallel()
+		dir, err := commandsDirWithOverride("")
+		if err != nil {
+			t.Fatalf("commandsDirWithOverride() error: %v", err)
+		}
+		expected, err := CommandsDir()
+		if err != nil {
+			t.Fatalf("CommandsDir() error: %v", err)
+		}
+		if dir != expected {
+			t.Errorf("commandsDirWithOverride(\"\") = %q, want CommandsDir() = %q", dir, expected)
+		}
+	})
+}
+
+// TestConfigDirFrom_UnknownGOOS verifies that an unrecognized GOOS value
+// falls through to the default (Linux) case: $XDG_CONFIG_HOME if set,
+// otherwise ~/.config.
+func TestConfigDirFrom_UnknownGOOS(t *testing.T) {
+	t.Parallel()
+
+	fakeHomeDir := filepath.Join("fake", "home")
+	fakeHome := func() (string, error) { return fakeHomeDir, nil }
+
+	t.Run("unknown GOOS with XDG_CONFIG_HOME", func(t *testing.T) {
+		t.Parallel()
+		xdgPath := filepath.Join("custom", "xdg")
+		getenv := func(key string) string {
+			if key == "XDG_CONFIG_HOME" {
+				return xdgPath
+			}
+			return ""
+		}
+		dir, err := configDirFrom("freebsd", getenv, fakeHome)
+		if err != nil {
+			t.Fatalf("configDirFrom() error: %v", err)
+		}
+		expected := filepath.Join(xdgPath, AppName)
+		if dir != expected {
+			t.Errorf("configDirFrom(freebsd) = %s, want %s", dir, expected)
+		}
+	})
+
+	t.Run("unknown GOOS without XDG falls back to ~/.config", func(t *testing.T) {
+		t.Parallel()
+		noEnv := func(string) string { return "" }
+		dir, err := configDirFrom("freebsd", noEnv, fakeHome)
+		if err != nil {
+			t.Fatalf("configDirFrom() error: %v", err)
+		}
+		expected := filepath.Join(fakeHomeDir, ".config", AppName)
+		if dir != expected {
+			t.Errorf("configDirFrom(freebsd) = %s, want %s", dir, expected)
+		}
+	})
+}
+
+func TestEnsureCommandsDir(t *testing.T) {
+	t.Parallel()
+	tmpDir := t.TempDir()
+	cmdsDir := filepath.Join(tmpDir, "cmds")
+
+	err := EnsureCommandsDir(cmdsDir)
 	if err != nil {
 		t.Fatalf("EnsureCommandsDir() returned error: %v", err)
 	}
 
-	expectedDir := filepath.Join(tmpDir, ".invowk", "cmds")
-	if _, err := os.Stat(expectedDir); os.IsNotExist(err) {
-		t.Errorf("EnsureCommandsDir() did not create directory %s", expectedDir)
+	if _, err := os.Stat(cmdsDir); os.IsNotExist(err) {
+		t.Errorf("EnsureCommandsDir() did not create directory %s", cmdsDir)
 	}
 }
 
 func TestLoadAndSave(t *testing.T) {
+	t.Parallel()
 	// Use a temp directory for testing
 	tmpDir := t.TempDir()
 	configDir := filepath.Join(tmpDir, AppName)
 
-	SetConfigDirOverride(configDir)
-	defer Reset()
-
 	// Ensure config directory exists
-	err := EnsureConfigDir()
+	err := EnsureConfigDir(configDir)
 	if err != nil {
 		t.Fatalf("EnsureConfigDir() returned error: %v", err)
 	}
@@ -214,7 +378,7 @@ func TestLoadAndSave(t *testing.T) {
 	}
 
 	// Save the config
-	err = Save(cfg)
+	err = Save(cfg, configDir)
 	if err != nil {
 		t.Fatalf("Save() returned error: %v", err)
 	}
@@ -278,16 +442,14 @@ func TestLoadAndSave(t *testing.T) {
 }
 
 func TestLoad_ReturnsDefaultsWhenNoConfigFile(t *testing.T) {
+	t.Parallel()
 	// Use a temp directory with no config file
 	tmpDir := t.TempDir()
 	configDir := filepath.Join(tmpDir, AppName)
 
-	// Change to temp dir to avoid loading config from current directory
-	restoreWd := testutil.MustChdir(t, tmpDir)
-	defer restoreWd()
-
 	cfg, _, err := loadWithOptions(context.Background(), LoadOptions{
 		ConfigDirPath: configDir,
+		BaseDir:       tmpDir,
 	})
 	if err != nil {
 		t.Fatalf("loadWithOptions() returned error: %v", err)
@@ -305,15 +467,12 @@ func TestLoad_ReturnsDefaultsWhenNoConfigFile(t *testing.T) {
 }
 
 func TestCreateDefaultConfig(t *testing.T) {
+	t.Parallel()
 	// Use a temp directory for testing
 	tmpDir := t.TempDir()
 	configDir := filepath.Join(tmpDir, AppName)
 
-	// Use direct override instead of env vars (more reliable across platforms)
-	SetConfigDirOverride(configDir)
-	defer Reset()
-
-	err := CreateDefaultConfig()
+	err := CreateDefaultConfig(configDir)
 	if err != nil {
 		t.Fatalf("CreateDefaultConfig() returned error: %v", err)
 	}
@@ -335,13 +494,14 @@ func TestCreateDefaultConfig(t *testing.T) {
 	}
 
 	// Calling again should not error (file already exists)
-	err = CreateDefaultConfig()
+	err = CreateDefaultConfig(configDir)
 	if err != nil {
 		t.Fatalf("CreateDefaultConfig() returned error on second call: %v", err)
 	}
 }
 
 func TestLoad_EmptyFile(t *testing.T) {
+	t.Parallel()
 	// An empty config.cue should not error — it should produce defaults.
 	tmpDir := t.TempDir()
 	configDir := filepath.Join(tmpDir, AppName)
@@ -354,11 +514,9 @@ func TestLoad_EmptyFile(t *testing.T) {
 		t.Fatalf("failed to write empty config: %v", err)
 	}
 
-	restoreWd := testutil.MustChdir(t, tmpDir)
-	defer restoreWd()
-
 	cfg, _, err := loadWithOptions(context.Background(), LoadOptions{
 		ConfigDirPath: configDir,
+		BaseDir:       tmpDir,
 	})
 	if err != nil {
 		t.Fatalf("loadWithOptions() returned error for empty config: %v", err)
@@ -378,6 +536,7 @@ func TestLoad_EmptyFile(t *testing.T) {
 }
 
 func TestLoad_UnknownFields_Ignored(t *testing.T) {
+	t.Parallel()
 	// A config.cue with valid fields plus unknown fields should load gracefully.
 	// This tests forward-compatibility: adding new config fields shouldn't
 	// break older versions that don't recognize them.
@@ -395,14 +554,12 @@ some_future_field: "value"
 		t.Fatalf("failed to write config: %v", err)
 	}
 
-	restoreWd := testutil.MustChdir(t, tmpDir)
-	defer restoreWd()
-
 	// The CUE schema may reject unknown fields or may ignore them.
 	// Either behavior is acceptable; the key invariant is that the
 	// function does not panic or return a nil config without an error.
 	cfg, _, err := loadWithOptions(context.Background(), LoadOptions{
 		ConfigDirPath: configDir,
+		BaseDir:       tmpDir,
 	})
 	if err != nil {
 		// CUE schema rejects unknown fields — this is acceptable behavior.
@@ -420,6 +577,7 @@ some_future_field: "value"
 }
 
 func TestLoad_MalformedCUE_PartiallyValid(t *testing.T) {
+	t.Parallel()
 	// Completely broken CUE syntax must return an error.
 	tmpDir := t.TempDir()
 	configDir := filepath.Join(tmpDir, AppName)
@@ -432,11 +590,9 @@ func TestLoad_MalformedCUE_PartiallyValid(t *testing.T) {
 		t.Fatalf("failed to write malformed config: %v", err)
 	}
 
-	restoreWd := testutil.MustChdir(t, tmpDir)
-	defer restoreWd()
-
 	_, _, err := loadWithOptions(context.Background(), LoadOptions{
 		ConfigDirPath: configDir,
+		BaseDir:       tmpDir,
 	})
 	if err == nil {
 		t.Fatal("expected loadWithOptions() to return error for malformed CUE syntax")
@@ -448,6 +604,7 @@ func TestLoad_MalformedCUE_PartiallyValid(t *testing.T) {
 }
 
 func TestLoad_ActionableErrorFormat(t *testing.T) {
+	t.Parallel()
 	// Create a temp directory with an invalid config file
 	tmpDir := t.TempDir()
 	configDir := filepath.Join(tmpDir, AppName)
@@ -462,13 +619,10 @@ func TestLoad_ActionableErrorFormat(t *testing.T) {
 		t.Fatalf("failed to write invalid config: %v", err)
 	}
 
-	// Change to temp dir to avoid loading config from current directory
-	restoreWd := testutil.MustChdir(t, tmpDir)
-	defer restoreWd()
-
 	// loadWithOptions should fail with actionable error
 	_, _, err := loadWithOptions(context.Background(), LoadOptions{
 		ConfigDirPath: configDir,
+		BaseDir:       tmpDir,
 	})
 	if err == nil {
 		t.Fatal("expected loadWithOptions() to return error for invalid config")
@@ -482,6 +636,7 @@ func TestLoad_ActionableErrorFormat(t *testing.T) {
 }
 
 func TestLoad_CustomPath_Valid(t *testing.T) {
+	t.Parallel()
 	// Create a temp directory with a valid config file
 	tmpDir := t.TempDir()
 	customConfigPath := filepath.Join(tmpDir, "custom-config.cue")
@@ -494,13 +649,10 @@ default_runtime: "virtual"
 		t.Fatalf("failed to write custom config: %v", err)
 	}
 
-	// Change to temp dir to avoid loading config from current directory
-	restoreWd := testutil.MustChdir(t, tmpDir)
-	defer restoreWd()
-
 	// Load using custom path via LoadOptions
 	cfg, resolvedPath, err := loadWithOptions(context.Background(), LoadOptions{
 		ConfigFilePath: customConfigPath,
+		BaseDir:        tmpDir,
 	})
 	if err != nil {
 		t.Fatalf("loadWithOptions() returned error: %v", err)
@@ -521,6 +673,7 @@ default_runtime: "virtual"
 }
 
 func TestLoad_CustomPath_NotFound_ReturnsError(t *testing.T) {
+	t.Parallel()
 	// Set a non-existent path
 	nonExistentPath := "/this/path/does/not/exist/config.cue"
 
@@ -549,6 +702,7 @@ func TestLoad_CustomPath_NotFound_ReturnsError(t *testing.T) {
 }
 
 func TestNewProvider_Load(t *testing.T) {
+	t.Parallel()
 	tmpDir := t.TempDir()
 	configDir := filepath.Join(tmpDir, AppName)
 	if err := os.MkdirAll(configDir, 0o755); err != nil {
@@ -563,14 +717,13 @@ default_runtime: "virtual"
 		t.Fatalf("failed to write config: %v", err)
 	}
 
-	restoreWd := testutil.MustChdir(t, tmpDir)
-	defer restoreWd()
-
 	provider := NewProvider()
 
 	t.Run("loads config from directory", func(t *testing.T) {
+		t.Parallel()
 		cfg, err := provider.Load(context.Background(), LoadOptions{
 			ConfigDirPath: configDir,
+			BaseDir:       tmpDir,
 		})
 		if err != nil {
 			t.Fatalf("Provider.Load() returned error: %v", err)
@@ -585,8 +738,10 @@ default_runtime: "virtual"
 	})
 
 	t.Run("loads config from explicit file path", func(t *testing.T) {
+		t.Parallel()
 		cfg, err := provider.Load(context.Background(), LoadOptions{
 			ConfigFilePath: cfgPath,
+			BaseDir:        tmpDir,
 		})
 		if err != nil {
 			t.Fatalf("Provider.Load() returned error: %v", err)
@@ -598,9 +753,11 @@ default_runtime: "virtual"
 	})
 
 	t.Run("returns defaults when no config exists", func(t *testing.T) {
+		t.Parallel()
 		emptyDir := t.TempDir()
 		cfg, err := provider.Load(context.Background(), LoadOptions{
 			ConfigDirPath: emptyDir,
+			BaseDir:       emptyDir,
 		})
 		if err != nil {
 			t.Fatalf("Provider.Load() returned error: %v", err)
@@ -613,6 +770,7 @@ default_runtime: "virtual"
 	})
 
 	t.Run("returns error for non-existent explicit path", func(t *testing.T) {
+		t.Parallel()
 		_, err := provider.Load(context.Background(), LoadOptions{
 			ConfigFilePath: "/this/path/does/not/exist.cue",
 		})
@@ -623,6 +781,7 @@ default_runtime: "virtual"
 }
 
 func TestLoad_CustomPath_InvalidCUE_ReturnsError(t *testing.T) {
+	t.Parallel()
 	// Create a temp directory with an invalid config file
 	tmpDir := t.TempDir()
 	customConfigPath := filepath.Join(tmpDir, "invalid-config.cue")
@@ -648,11 +807,11 @@ func TestLoad_CustomPath_InvalidCUE_ReturnsError(t *testing.T) {
 	}
 }
 
-// TestNoGlobalConfigAccess guards against re-introduction of config.Get() or
-// equivalent global config accessors in production code paths. The stateless
-// refactoring (spec-008) removed all global config state; this test ensures
-// the pattern doesn't resurface. See specs/008-code-refactoring/proposal.md.
+// TestNoGlobalConfigAccess guards against re-introduction of global config
+// accessors in production code paths. The config package has no global mutable
+// state; this test ensures the pattern is not reintroduced.
 func TestNoGlobalConfigAccess(t *testing.T) {
+	t.Parallel()
 	// Derive project root from this test file's location (internal/config/).
 	_, thisFile, _, ok := runtime.Caller(0)
 	if !ok {

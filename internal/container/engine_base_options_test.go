@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"invowk-cli/internal/issue"
+	"github.com/invowk/invowk/internal/issue"
 )
 
 // T031: BaseCLIEngine WithExecCommand option tests

@@ -29,10 +29,6 @@ type (
 	}
 )
 
-func init() {
-	RegisterDefault(newWcCommand())
-}
-
 // newWcCommand creates a new wc command.
 func newWcCommand() *wcCommand {
 	return &wcCommand{

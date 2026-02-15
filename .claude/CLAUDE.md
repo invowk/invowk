@@ -150,7 +150,10 @@ invowkfile.cue -> CUE Parser -> pkg/invowkfile -> Runtime Selection -> Execution
   - `benchmark/` - Benchmarks for PGO profile generation.
   - `provision/` - Container provisioning (ephemeral layer attachment).
 - `pkg/` - Public packages (cueutil, invowkmod, invowkfile, platform).
+- `tests/cli/` - CLI integration tests using testscript (`.txtar` files in `testdata/`).
 - `modules/` - Sample invowk modules for validation and reference.
+- `scripts/` - Build and install scripts (`install.sh` for Linux/macOS, `install.ps1` for Windows).
+- `specs/` - Feature specifications, research, and implementation plans.
 
 ## Container Runtime Limitations
 
@@ -181,3 +184,4 @@ invowkfile.cue -> CUE Parser -> pkg/invowkfile -> Runtime Selection -> Execution
 - `github.com/rogpeppe/go-internal/testscript` - CLI integration tests.
 
 See `go.mod` for exact versions. Schema sync tests verify Go struct tags match CUE schema fields at CI time.
+

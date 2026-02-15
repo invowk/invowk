@@ -48,12 +48,17 @@ When reviewing changes to CUE schemas (`*_schema.cue`) or Go structs with JSON t
 - Sync tests must exist in `*_sync_test.go`
 - Run `go test -v -run Sync ./pkg/invowkfile/ ./pkg/invowkmod/ ./internal/config/` to verify
 
-### 6. Guardrail Test Compliance (`TestNoGlobalConfigAccess`)
+### 6. Guardrail Test Compliance
 
-The test at `internal/config/config_test.go` scans all non-test `.go` files for prohibited patterns using raw `strings.Contains`:
+**`TestNoGlobalConfigAccess`** (`internal/config/config_test.go`): Scans all non-test `.go` files for prohibited patterns using raw `strings.Contains`:
 - Comments must NOT contain literal deprecated API call signatures
 - Use indirect phrasing: "the previous global config accessor" instead of the exact call expression
 - Only `_test.go` files are exempt
+
+**`TestBuiltinCommandTxtarCoverage`** (`cmd/invowk/coverage_test.go`): Walks the Cobra tree and verifies every non-hidden, runnable, leaf command has a `.txtar` test in `tests/cli/testdata/`:
+- When adding a new built-in command, also add a txtar test or the guardrail will fail
+- 9 interactive TTY commands are exempt (tested via tmux/VHS)
+- Two-way exemption verification catches stale and unnecessary exemptions
 
 ### 7. Named Return Cleanup Pattern
 
@@ -68,7 +73,7 @@ For functions that open resources needing cleanup:
 Three groups separated by blank lines:
 1. Standard library
 2. External dependencies
-3. Internal packages (`invowk-cli/...`)
+3. Internal packages (`github.com/invowk/invowk/...`)
 
 ### 9. Documentation
 

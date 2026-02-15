@@ -14,11 +14,11 @@ Navegue até qualquer diretório de projeto e inicialize um invowkfile:
 
 <Snippet id="quickstart/init" />
 
-Isso cria um `invowkfile.cue` com um comando de exemplo. Vamos dar uma olhada:
+Isso cria um `invowkfile.cue` com um comando `hello` que funciona nos três runtimes (native, virtual e container). Vamos dar uma olhada:
 
-<Snippet id="quickstart/hello-invowkfile" />
+<Snippet id="quickstart/default-invowkfile" />
 
-Não se preocupe em entender tudo ainda - vamos cobrir isso em breve!
+O template padrão inclui um único comando `hello` com quatro implementações: native (Unix e Windows), virtual (multiplataforma) e container. Cada implementação declara quais plataformas ela suporta.
 
 ## Listar Comandos Disponíveis
 
@@ -30,11 +30,11 @@ Você verá algo como:
 
 <Snippet id="quickstart/list-output" />
 
-Comandos do diretório atual aparecem sem prefixo. Comandos de módulos incluem um prefixo quando presentes.
+A listagem mostra o nome do comando, descrição, runtimes permitidos (padrão marcado com `*`) e plataformas suportadas.
 
 ## Executar um Comando
 
-Agora vamos executá-lo:
+Agora vamos executar um:
 
 <Snippet id="quickstart/run-hello" />
 
@@ -44,17 +44,17 @@ Saída:
 
 É isso! Você acabou de executar seu primeiro comando Invowk.
 
-## Vamos Tornar Isso Mais Interessante
+## Passar um Argumento
 
-Edite seu `invowkfile.cue` para adicionar um comando mais útil:
+O comando `hello` aceita um argumento opcional `name` (padrão "World"). Tente passar seu nome:
 
 <Snippet id="quickstart/info-command" />
 
-Agora execute:
+Saída:
 
 <Snippet id="quickstart/run-info" />
 
-Você verá as informações do seu sistema exibidas de forma organizada.
+Argumentos são expostos como variáveis de ambiente `INVOWK_ARG_<NOME>`, tornando-os acessíveis de qualquer runtime.
 
 ## Experimente o Runtime Virtual
 
@@ -62,7 +62,7 @@ Um dos superpoderes do Invowk é o **runtime virtual** - um interpretador de she
 
 <Snippet id="quickstart/virtual-runtime" />
 
-O runtime virtual usa o interpretador [mvdan/sh](https://github.com/mvdan/sh), proporcionando comportamento consistente de shell POSIX em todas as plataformas.
+O runtime virtual usa o interpretador [mvdan/sh](https://github.com/mvdan/sh), proporcionando comportamento consistente de shell POSIX em todas as plataformas - sem necessidade de implementações separadas para Unix e Windows.
 
 ## Próximos Passos
 

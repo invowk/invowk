@@ -51,7 +51,7 @@ When enabled in config (default: `true`), 28 additional POSIX-compliant utilitie
 
 <Snippet id="runtime-modes/virtual-uroot-config" />
 
-#### File Operations (13 utilities)
+#### File Operations (14 utilities)
 
 | Utility | Description | Common Flags |
 |---------|-------------|--------------|
@@ -65,11 +65,12 @@ When enabled in config (default: `true`), 28 additional POSIX-compliant utilitie
 | `mkdir` | Create directories | `-p` (create parents) |
 | `mktemp` | Create temporary files or directories | `-d` (directory), `-p` (prefix dir) |
 | `mv` | Move or rename files | `-f` (force), `-n` (no clobber) |
+| `realpath` | Resolve absolute path names | *(none)* |
 | `rm` | Remove files and directories | `-r` (recursive), `-f` (force) |
 | `tar` | Archive files | `-c` (create), `-x` (extract), `-f` (file) |
 | `touch` | Create or update file timestamps | `-c` (no create) |
 
-#### Text Processing (11 utilities)
+#### Text Processing (10 utilities)
 
 | Utility | Description | Common Flags |
 |---------|-------------|--------------|
@@ -78,7 +79,6 @@ When enabled in config (default: `true`), 28 additional POSIX-compliant utilitie
 | `dirname` | Strip last component from filenames | *(none)* |
 | `grep` | Search for patterns | `-i` (ignore case), `-v` (invert), `-n` (line numbers) |
 | `head` | Output first N lines | `-n <num>` (default 10) |
-| `realpath` | Resolve absolute path names | *(none)* |
 | `sort` | Sort lines | `-r` (reverse), `-n` (numeric), `-u` (unique) |
 | `tail` | Output last N lines | `-n <num>` (default 10) |
 | `tr` | Translate characters | `SET1 SET2` (character mapping) |

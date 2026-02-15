@@ -18,7 +18,7 @@ These flags are available for all commands:
 | `--ivk-config` | `-c` | Config file path (default: `$HOME/.config/invowk/config.cue`) |
 | `--ivk-interactive` | `-i` | Run commands in alternate screen buffer (interactive mode) |
 | `--ivk-verbose` | `-v` | Enable verbose output |
-| `--version` | | Show version information |
+| `--version` | | Show version information (root command only, not inherited by subcommands) |
 
 ## Commands
 
@@ -41,7 +41,8 @@ Execute commands defined in invowkfiles.
 | Flag | Short | Description |
 |------|-------|-------------|
 | `--ivk-runtime` | `-r` | Override the runtime (must be allowed by the command) |
-| `--ivk-from` | | Source to run command from (e.g., 'invowkfile' or module name) |
+| `--ivk-from` | `-f` | Source to run command from (e.g., 'invowkfile' or module name) |
+| `--ivk-force-rebuild` | | Force rebuild of container images (container runtime only) |
 
 Built-in per-command flags:
 
@@ -169,6 +170,10 @@ Set a configuration value.
 ### invowk module
 
 Manage invowk modules (self-contained command folders).
+
+:::tip Alias
+`mod` is an alias for `module`. For example, `invowk mod list` works the same as `invowk module list`.
+:::
 
 <Snippet id="reference/cli/module-syntax" />
 
@@ -372,7 +377,7 @@ Prompt for yes/no confirmation.
 | Flag | Description |
 |------|-------------|
 | `--title` | Title displayed above the prompt |
-| `--default` | Default value (true/false) |
+| `--default` | Default to yes when present |
 | `--affirmative` | Text for "yes" option |
 | `--negative` | Text for "no" option |
 
@@ -501,7 +506,7 @@ Apply styles to text.
 | `--width` | Fixed width |
 | `--height` | Fixed height |
 | `--align` | Text alignment |
-| `--border` | Border style |
+| `--border` | Border style: `none`, `normal`, `rounded`, `double`, `thick`, `hidden` |
 
 ---
 

@@ -6,7 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"invowk-cli/internal/config"
+	"github.com/invowk/invowk/internal/config"
 )
 
 type (

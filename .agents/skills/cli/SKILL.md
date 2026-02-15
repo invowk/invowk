@@ -375,6 +375,7 @@ files, err := disc.DiscoverAll()  // or disc.LoadAll() to also parse
 
 | Pitfall | Symptom | Fix |
 |---------|---------|-----|
+| New built-in command without txtar test | `TestBuiltinCommandTxtarCoverage` fails | Add a `.txtar` test in `tests/cli/testdata/` with `exec invowk <command>` |
 | Forgetting `Hidden: true` on internal cmd | Users see internal commands | Add `Hidden: true` to command |
 | Hardcoded exit in RunE | Error message not shown | Return `ExitError` instead |
 | Missing TUI server check | TUI components fail in nested context | Use dual-layer pattern |

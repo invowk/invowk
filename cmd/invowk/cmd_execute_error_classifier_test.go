@@ -8,10 +8,10 @@ import (
 	"strings"
 	"testing"
 
-	"invowk-cli/internal/config"
-	"invowk-cli/internal/container"
-	"invowk-cli/internal/issue"
-	"invowk-cli/internal/runtime"
+	"github.com/invowk/invowk/internal/config"
+	"github.com/invowk/invowk/internal/container"
+	"github.com/invowk/invowk/internal/issue"
+	"github.com/invowk/invowk/internal/runtime"
 )
 
 func TestClassifyExecutionError(t *testing.T) {

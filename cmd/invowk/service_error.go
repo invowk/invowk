@@ -5,20 +5,35 @@ package cmd
 import (
 	"fmt"
 	"io"
+	"log/slog"
 
-	"invowk-cli/internal/issue"
+	"github.com/invowk/invowk/internal/issue"
 )
 
 // ServiceError is an error that carries optional rendering information for
 // the CLI layer. When the CLI layer receives a ServiceError, it renders the
 // styled error message (if present) before formatting the underlying error.
+// Always create via newServiceError to enforce the Err-must-be-non-nil invariant.
 type ServiceError struct {
-	// Err is the underlying error.
+	// Err is the underlying error (must not be nil).
 	Err error
 	// IssueID is the optional issue catalog ID for rendering help text.
 	IssueID issue.Id
 	// StyledMessage is the optional pre-rendered styled error text.
 	StyledMessage string
+}
+
+// newServiceError creates a ServiceError with a nil-Err panic guard.
+// All construction sites must use this instead of struct literals.
+func newServiceError(err error, issueID issue.Id, styledMessage string) *ServiceError {
+	if err == nil {
+		panic("ServiceError: Err must not be nil")
+	}
+	return &ServiceError{
+		Err:           err,
+		IssueID:       issueID,
+		StyledMessage: styledMessage,
+	}
 }
 
 // Error implements the error interface.
@@ -43,7 +58,11 @@ func renderServiceError(stderr io.Writer, svcErr *ServiceError) {
 	}
 
 	if catalogEntry := issue.Get(svcErr.IssueID); catalogEntry != nil {
-		rendered, _ := catalogEntry.Render("dark")
-		fmt.Fprint(stderr, rendered)
+		rendered, renderErr := catalogEntry.Render("dark")
+		if renderErr != nil {
+			slog.Warn("failed to render issue catalog entry", "issueID", svcErr.IssueID, "error", renderErr)
+		} else {
+			fmt.Fprint(stderr, rendered)
+		}
 	}
 }

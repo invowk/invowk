@@ -1,0 +1,24 @@
+# Test: invowk config path shows configuration paths
+# Tests that config path outputs directory, file, and commands paths
+
+cd $WORK
+env XDG_CONFIG_HOME=$WORK/.config
+
+# Test 1: Path output contains expected fields
+exec invowk config path
+stdout 'Config directory:'
+stdout 'Config file:'
+stdout 'Commands directory:'
+! stderr .
+
+# Test 2: Paths reference the platform-specific config location
+exec invowk config path
+[GOOS:linux] stdout '.config/invowk'
+[GOOS:darwin] stdout 'Library/Application Support/invowk'
+[GOOS:windows] stdout 'appdata.invowk'
+stdout 'config.cue'
+
+# Test 3: Commands directory references the home-based location
+exec invowk config path
+stdout '.invowk'
+stdout 'cmds'

@@ -12,10 +12,10 @@ import (
 	"sync"
 	"testing"
 
-	"invowk-cli/internal/config"
-	"invowk-cli/internal/container"
-	"invowk-cli/internal/provision"
-	"invowk-cli/pkg/invowkfile"
+	"github.com/invowk/invowk/internal/config"
+	"github.com/invowk/invowk/internal/container"
+	"github.com/invowk/invowk/internal/provision"
+	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
 // MockEngine implements container.Engine for testing.
@@ -299,7 +299,7 @@ func TestContainerRuntime_Validate_Unit(t *testing.T) {
 			if tt.wantErr {
 				if err == nil {
 					t.Error("Validate() expected error, got nil")
-				} else if tt.errMsg != "" && !containsString(err.Error(), tt.errMsg) {
+				} else if tt.errMsg != "" && !strings.Contains(err.Error(), tt.errMsg) {
 					t.Errorf("Validate() error = %q, want error containing %q", err.Error(), tt.errMsg)
 				}
 			} else {

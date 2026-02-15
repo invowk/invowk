@@ -40,10 +40,11 @@ func LoadEnvFile(env map[string]string, path, basePath string) error {
 	return ParseEnvFile(env, content, path)
 }
 
-// LoadEnvFileFromCwd loads a dotenv file relative to the current working directory.
+// LoadEnvFileFromCwd loads a dotenv file relative to the working directory.
 // This is used for --ivk-env-file flag files specified at runtime.
+// When cwd is empty, os.Getwd() is used as the fallback.
 // Files suffixed with '?' are optional; missing optional files do not cause an error.
-func LoadEnvFileFromCwd(env map[string]string, path string) error {
+func LoadEnvFileFromCwd(env map[string]string, path, cwd string) error {
 	optional := strings.HasSuffix(path, "?")
 	if optional {
 		path = strings.TrimSuffix(path, "?")
@@ -55,9 +56,12 @@ func LoadEnvFileFromCwd(env map[string]string, path string) error {
 	if filepath.IsAbs(path) {
 		fullPath = path
 	} else {
-		cwd, err := os.Getwd()
-		if err != nil {
-			return fmt.Errorf("failed to get current working directory: %w", err)
+		if cwd == "" {
+			var err error
+			cwd, err = os.Getwd()
+			if err != nil {
+				return fmt.Errorf("failed to get current working directory: %w", err)
+			}
 		}
 		fullPath = filepath.Join(cwd, path)
 	}

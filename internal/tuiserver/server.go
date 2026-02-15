@@ -15,7 +15,7 @@ import (
 	"sync"
 	"time"
 
-	"invowk-cli/internal/core/serverbase"
+	"github.com/invowk/invowk/internal/core/serverbase"
 )
 
 type (

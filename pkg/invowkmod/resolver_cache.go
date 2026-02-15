@@ -20,12 +20,16 @@ const (
 // GetDefaultCacheDir returns the default module cache directory.
 // It checks INVOWK_MODULES_PATH environment variable first, then falls back to ~/.invowk/modules.
 func GetDefaultCacheDir() (string, error) {
-	// Check environment variable first
-	if envPath := os.Getenv(ModuleCachePathEnv); envPath != "" {
+	return GetDefaultCacheDirWith(os.Getenv)
+}
+
+// GetDefaultCacheDirWith returns the default module cache directory using the provided
+// getenv function. This enables testing without mutating process-global environment state.
+func GetDefaultCacheDirWith(getenv func(string) string) (string, error) {
+	if envPath := getenv(ModuleCachePathEnv); envPath != "" {
 		return envPath, nil
 	}
 
-	// Fall back to ~/.invowk/modules
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		return "", fmt.Errorf("failed to get home directory: %w", err)

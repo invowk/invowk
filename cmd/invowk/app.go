@@ -4,13 +4,14 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
 
-	"invowk-cli/internal/config"
-	"invowk-cli/internal/discovery"
-	"invowk-cli/pkg/invowkfile"
+	"github.com/invowk/invowk/internal/config"
+	"github.com/invowk/invowk/internal/discovery"
+	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
 type (
@@ -107,9 +108,8 @@ type (
 		Render(ctx context.Context, diags []discovery.Diagnostic, stderr io.Writer)
 	}
 
-	// ConfigProvider loads configuration using explicit options rather than global state.
-	// This abstraction replaces the previous global config accessor and enables
-	// testing with custom config sources.
+	// ConfigProvider loads configuration using explicit options.
+	// This abstraction enables testing with custom config sources or mock implementations.
 	ConfigProvider interface {
 		Load(ctx context.Context, opts config.LoadOptions) (*config.Config, error)
 	}
@@ -211,18 +211,47 @@ func (s *appDiscoveryService) loadConfig(ctx context.Context) (*config.Config, [
 }
 
 // loadConfigWithFallback loads configuration via the provider. On failure it
-// returns defaults and a warning diagnostic so callers stay operational.
+// returns defaults with a diagnostic so callers stay operational.
+//
+// Diagnostic severity depends on the failure mode:
+//   - Explicit --ivk-config path: always SeverityError (user-specified file must work).
+//   - Default path with existing but malformed file: SeverityError (syntax errors
+//     in a file the user created should not be silently downgraded to a warning).
+//   - Default path with missing config dir or similar infrastructure error:
+//     SeverityWarning (common on fresh installs, defaults are appropriate).
 func loadConfigWithFallback(ctx context.Context, provider ConfigProvider, configPath string) (*config.Config, []discovery.Diagnostic) {
 	cfg, err := provider.Load(ctx, config.LoadOptions{ConfigFilePath: configPath})
 	if err == nil {
 		return cfg, nil
 	}
 
+	// When the user explicitly specified a config path, do not silently fall back
+	// to defaults — surface the error as a diagnostic so downstream callers can
+	// decide whether to abort.
+	if configPath != "" {
+		return config.DefaultConfig(), []discovery.Diagnostic{{
+			Severity: discovery.SeverityError,
+			Code:     "config_load_failed",
+			Message:  fmt.Sprintf("failed to load config from %s: %v", configPath, err),
+			Path:     configPath,
+			Cause:    err,
+		}}
+	}
+
+	// Default config path: differentiate "file exists but is broken" (syntax error,
+	// schema violation) from "cannot determine config dir" (missing HOME, etc.).
+	// The config loader only returns errors for existing files; missing files silently
+	// return defaults. So if we got an error here, a config file likely exists but
+	// is malformed — use SeverityError to surface it clearly.
+	severity := discovery.SeverityError
+	if errors.Is(err, os.ErrNotExist) {
+		severity = discovery.SeverityWarning
+	}
+
 	return config.DefaultConfig(), []discovery.Diagnostic{{
-		Severity: discovery.SeverityWarning,
+		Severity: severity,
 		Code:     "config_load_failed",
 		Message:  fmt.Sprintf("failed to load config, using defaults: %v", err),
-		Path:     configPath,
 		Cause:    err,
 	}}
 }

@@ -17,10 +17,6 @@ type tailCommand struct {
 	flags []FlagInfo
 }
 
-func init() {
-	RegisterDefault(newTailCommand())
-}
-
 // newTailCommand creates a new tail command.
 func newTailCommand() *tailCommand {
 	return &tailCommand{
