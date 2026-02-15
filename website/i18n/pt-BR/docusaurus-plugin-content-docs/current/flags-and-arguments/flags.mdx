@@ -132,11 +132,22 @@ Não use esses nomes - são reservados pelo Invowk™:
 
 | Flag | Curto | Descrição |
 |------|-------|-----------|
-| `env-file` | `e` | Carregar ambiente de arquivo |
-| `env-var` | `E` | Definir variável de ambiente |
-| `workdir` | `w` | Sobrescrever diretório de trabalho |
+| `ivk-env-file` | `e` | Carregar ambiente de arquivo |
+| `ivk-env-var` | `E` | Definir variável de ambiente |
+| `ivk-env-inherit-mode` | | Herdar variáveis de ambiente do host: `none`, `allow`, `all` |
+| `ivk-env-inherit-allow` | | Lista de permissão de variáveis de ambiente do host |
+| `ivk-env-inherit-deny` | | Lista de negação de variáveis de ambiente do host |
+| `ivk-workdir` | `w` | Sobrescrever diretório de trabalho |
+| `ivk-runtime` | `r` | Sobrescrever runtime |
+| `ivk-from` | `f` | Sobrescrever imagem de container |
+| `ivk-force-rebuild` | | Forçar reconstrução do container |
+| `ivk-verbose` | `v` | Habilitar saída verbose |
+| `ivk-config` | `c` | Caminho do arquivo de configuração |
+| `ivk-interactive` | `i` | Executar em modo interativo |
 | `help` | `h` | Mostrar ajuda |
-| `runtime` | `r` | Sobrescrever runtime |
+| `version` | | Mostrar informação de versão |
+
+Além disso, os prefixos `ivk-`, `invowk-` e `i-` são reservados para flags do sistema. Não use esses prefixos para nomes de flags.
 
 ## Melhores Práticas
 

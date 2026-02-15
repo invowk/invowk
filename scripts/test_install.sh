@@ -91,13 +91,23 @@ PATH="$_saved_path"
 
 _saved_shell="${SHELL:-}"
 _saved_home="$HOME"
+_saved_xdg="${XDG_CONFIG_HOME:-}"
 
 SHELL="/bin/zsh"
 HOME="/tmp/test_home"
 assert_eq "detect_shell_config zsh" "/tmp/test_home/.zshrc" "$(detect_shell_config)"
 
+# Fish uses XDG_CONFIG_HOME — unset it so the test exercises the fallback path
+# (${HOME}/.config). Ubuntu CI runners pre-set XDG_CONFIG_HOME=/home/runner/.config,
+# which would override the test HOME and produce a wrong expected path.
+unset XDG_CONFIG_HOME
 SHELL="/bin/fish"
 assert_eq "detect_shell_config fish" "/tmp/test_home/.config/fish/config.fish" "$(detect_shell_config)"
+
+# Also test with XDG_CONFIG_HOME explicitly set.
+XDG_CONFIG_HOME="/tmp/custom_xdg"
+export XDG_CONFIG_HOME
+assert_eq "detect_shell_config fish with XDG" "/tmp/custom_xdg/fish/config.fish" "$(detect_shell_config)"
 
 SHELL="/bin/sh"
 assert_eq "detect_shell_config sh" "/tmp/test_home/.profile" "$(detect_shell_config)"
@@ -105,6 +115,12 @@ assert_eq "detect_shell_config sh" "/tmp/test_home/.profile" "$(detect_shell_con
 # Restore.
 SHELL="$_saved_shell"
 HOME="$_saved_home"
+if [ -n "$_saved_xdg" ]; then
+    XDG_CONFIG_HOME="$_saved_xdg"
+    export XDG_CONFIG_HOME
+else
+    unset XDG_CONFIG_HOME
+fi
 
 # ---------------------------------------------------------------------------
 # Tests: sha256_file / verify_checksum

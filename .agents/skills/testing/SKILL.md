@@ -290,6 +290,10 @@ testscript runs tests in an isolated environment:
 - `USER` and other env vars are not passed through
 - Use `env VAR=value` to explicitly set required variables
 
+**Windows config isolation:** On Windows, `config.ConfigDir()` uses `%APPDATA%` and `config.CommandsDir()` uses `%USERPROFILE%`. The `commonSetup()` function in `tests/cli/cmd_test.go` sets both to test-scoped paths (`APPDATA=$WORK/appdata`, `USERPROFILE=$WORK`) so each test gets its own config directory. Without this, all Windows tests share the real system config dir, causing cross-test contamination.
+
+**CI environment leakage:** Ubuntu CI runners pre-set `XDG_CONFIG_HOME=/home/runner/.config`. Shell script tests (e.g., in `scripts/test_install.sh`) that rely on XDG fallback behavior (`${XDG_CONFIG_HOME:-${HOME}/.config}`) must explicitly `unset XDG_CONFIG_HOME` before testing the fallback path.
+
 Example for tests that need environment variables:
 
 ```txtar

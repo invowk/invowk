@@ -477,6 +477,8 @@ defer func() { testutil.MustRemoveAll(t, path) }()
 | Import conflicts with `runtime` package | Use `goruntime` alias |
 | Forgetting test cleanup | Use `t.TempDir()` and `defer` patterns |
 | Testscript container tests fail with "mkdir /no-home" | Set `HOME` to `env.WorkDir` in Setup |
+| Windows testscript tests share config dirs | `commonSetup()` must set `APPDATA=WorkDir/appdata` and `USERPROFILE=WorkDir` on Windows. Without this, all tests share the real `%APPDATA%\invowk`, causing cross-test contamination (e.g., one test's `config init` affects another) |
+| CI pre-sets `XDG_CONFIG_HOME` breaking shell tests | Ubuntu CI runners set `XDG_CONFIG_HOME=/home/runner/.config`. Tests that rely on XDG fallback (e.g., `${XDG_CONFIG_HOME:-${HOME}/.config}`) must `unset XDG_CONFIG_HOME` before testing the fallback path |
 | Circular/trivial tests (constant == literal, zero-value == zero) | Test behavioral contracts: sentinel errors with `errors.Is`, default configs that affect user behavior, state machine transitions |
 | Pattern guardrail tests fail after adding comments | `TestNoGlobalConfigAccess` scans all non-test `.go` files for prohibited call signatures using raw `strings.Contains`. Comments mentioning deprecated APIs (e.g., the old global config accessor) must use indirect phrasing. See go-patterns.md "Guardrail-safe references" |
 | Testscript `[windows]` skip doesn't work | `commonCondition` returns `(false, nil)` for unknown conditions, so `[!windows]` is always true. Use `[GOOS:windows]` — it's a built-in testscript condition checked BEFORE the custom callback |

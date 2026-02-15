@@ -593,10 +593,10 @@ cmds: [
     code: `{
     name: "greet"
     flags: [
-        {name: "loud", type: "bool", default_value: "false"}
+        {name: "loud", description: "Use uppercase greeting", type: "bool", default_value: "false"}
     ]
     args: [
-        {name: "name", default_value: "World"}
+        {name: "name", description: "Name to greet", default_value: "World"}
     ]
     implementations: [{
         script: """
@@ -803,7 +803,7 @@ virtual_shell: {
     language: 'cue',
     code: `{
     name: "greet"
-    args: [{name: "name", default_value: "World"}]
+    args: [{name: "name", description: "Name to greet", default_value: "World"}]
     implementations: [{
         script: """
             # Using environment variable
@@ -2037,14 +2037,14 @@ invowk cmd build --ivk-env-var DEBUG=true --ivk-env-var LOG_LEVEL=debug`,
     
     // Flags - named options
     flags: [
-        {name: "dry-run", type: "bool", default_value: "false"},
-        {name: "replicas", type: "int", default_value: "1"},
+        {name: "dry-run", description: "Preview without applying changes", type: "bool", default_value: "false"},
+        {name: "replicas", description: "Number of replicas", type: "int", default_value: "1"},
     ]
-    
+
     // Arguments - positional values
     args: [
-        {name: "environment", required: true},
-        {name: "services", variadic: true},
+        {name: "environment", description: "Target environment", required: true},
+        {name: "services", description: "Services to deploy", variadic: true},
     ]
     
     implementations: [{
@@ -2068,9 +2068,9 @@ invowk cmd build --ivk-env-var DEBUG=true --ivk-env-var LOG_LEVEL=debug`,
   'flags-args/overview-flags-example': {
     language: 'cue',
     code: `flags: [
-    {name: "verbose", type: "bool", short: "v"},
-    {name: "output", type: "string", short: "o", default_value: "./dist"},
-    {name: "count", type: "int", default_value: "1"},
+    {name: "verbose", description: "Enable verbose output", type: "bool", short: "v"},
+    {name: "output", description: "Output directory", type: "string", short: "o", default_value: "./dist"},
+    {name: "count", description: "Number of iterations", type: "int", default_value: "1"},
 ]`,
   },
 
@@ -2086,9 +2086,9 @@ invowk cmd build -v -o=./build`,
   'flags-args/overview-args-example': {
     language: 'cue',
     code: `args: [
-    {name: "source", required: true},
-    {name: "destination", default_value: "./output"},
-    {name: "files", variadic: true},
+    {name: "source", description: "Source directory", required: true},
+    {name: "destination", description: "Destination path", default_value: "./output"},
+    {name: "files", description: "Files to copy", variadic: true},
 ]`,
   },
 
@@ -2102,8 +2102,8 @@ invowk cmd build -v -o=./build`,
     code: `{
     name: "greet"
     args: [
-        {name: "first-name"},
-        {name: "last-name"},
+        {name: "first-name", description: "First name"},
+        {name: "last-name", description: "Last name"},
     ]
     implementations: [{
         script: """
@@ -2531,15 +2531,15 @@ invowk cmd parse input.txt yaml`,
     language: 'cue',
     code: `// Good
 args: [
-    {name: "input", required: true},      // Required first
-    {name: "output", required: true},     // Required second
-    {name: "format", default_value: "json"}, // Optional last
+    {name: "input", description: "Input file", required: true},      // Required first
+    {name: "output", description: "Output file", required: true},     // Required second
+    {name: "format", description: "Output format", default_value: "json"}, // Optional last
 ]
 
 // Bad - will cause validation error
 args: [
-    {name: "format", default_value: "json"}, // Optional can't come first
-    {name: "input", required: true},
+    {name: "format", description: "Output format", default_value: "json"}, // Optional can't come first
+    {name: "input", description: "Input file", required: true},
 ]`,
   },
 
@@ -2611,8 +2611,8 @@ invowk cmd deploy production
     code: `{
     name: "greet"
     args: [
-        {name: "first-name", required: true},
-        {name: "last-name", default_value: "User"},
+        {name: "first-name", description: "First name", required: true},
+        {name: "last-name", description: "Last name", default_value: "User"},
     ]
     implementations: [{
         script: """
@@ -2629,8 +2629,8 @@ invowk cmd deploy production
     code: `{
     name: "copy"
     args: [
-        {name: "source", required: true},
-        {name: "dest", required: true},
+        {name: "source", description: "Source path", required: true},
+        {name: "dest", description: "Destination path", required: true},
     ]
     implementations: [{
         script: """
@@ -2781,7 +2781,6 @@ invowk cmd deploy prod --dry-run 3`,
     name: "analyze"
     implementations: [
         {
-            interpreter: "python3"
             script: """
                 import json
                 import sys
@@ -2789,7 +2788,7 @@ invowk cmd deploy prod --dry-run 3`,
                 data = json.load(open('data.json'))
                 print(f"Found {len(data)} records")
                 """
-            runtimes: [{name: "native"}]
+            runtimes: [{name: "native", interpreter: "python3"}]
             platforms: [{name: "linux"}, {name: "macos"}]
         }
     ]
@@ -2802,13 +2801,12 @@ invowk cmd deploy prod --dry-run 3`,
     name: "process"
     implementations: [
         {
-            interpreter: "node"
             script: """
                 const fs = require('fs');
                 const data = JSON.parse(fs.readFileSync('data.json'));
                 console.log(\`Processing \${data.length} items\`);
                 """
-            runtimes: [{name: "native"}]
+            runtimes: [{name: "native", interpreter: "node"}]
             platforms: [{name: "linux"}, {name: "macos"}]
         }
     ]
@@ -2966,7 +2964,7 @@ interpreter: "node --max-old-space-size=4096"`,
     language: 'cue',
     code: `{
     name: "greet"
-    args: [{name: "name", default_value: "World"}]
+    args: [{name: "name", description: "Name to greet", default_value: "World"}]
     implementations: [{
         script: """
             #!/usr/bin/env python3
@@ -3662,7 +3660,7 @@ description: "Commands for mytools"
                 script: """
                     echo "Hello from mytools!"
                     """
-                runtimes: [{name: "native"}]
+                runtimes: [{name: "virtual"}]
                 platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
             }
         ]
@@ -4399,27 +4397,19 @@ invowk module add https://github.com/user/monorepo.invowkmod.git ^1.0.0 --path m
     language: 'text',
     code: `Add Module Dependency
 
-• Resolving https://github.com/user/mod.invowkmod.git@^1.0.0...
-✓ Module added successfully
+ℹ Resolving https://github.com/user/mod.invowkmod.git@^1.0.0...
+✓ Module resolved and lock file updated
 
-• Git URL:   https://github.com/user/mod.invowkmod.git
-• Version:   ^1.0.0 → 1.2.3
-• Namespace: mod@1.2.3
-• Cache:     /home/user/.invowk/modules/github.com/user/mod.invowkmod/1.2.3
-
-• To use this module, add to your invowkmod.cue:
-
-requires: [
-    {
-        git_url: "https://github.com/user/mod.invowkmod.git"
-        version: "^1.0.0"
-    },
-]`,
+ℹ Git URL:   https://github.com/user/mod.invowkmod.git
+ℹ Version:   ^1.0.0 → 1.2.3
+ℹ Namespace: mod@1.2.3
+ℹ Cache:     /home/user/.invowk/modules/github.com/user/mod.invowkmod/1.2.3
+✓ Updated invowkmod.cue with new requires entry`,
   },
 
   'modules/dependencies/cli/remove-usage': {
     language: 'bash',
-    code: `invowk module remove <git-url>`,
+    code: `invowk module remove <identifier>`,
   },
 
   'modules/dependencies/cli/remove-example': {
@@ -4431,10 +4421,10 @@ requires: [
     language: 'text',
     code: `Remove Module Dependency
 
-• Removing https://github.com/user/mod.invowkmod.git...
-✓ Module removed from lock file
+ℹ Removing https://github.com/user/mod.invowkmod.git...
+✓ Removed mod@1.2.3
 
-• Don't forget to remove the requires entry from your invowkmod.cue`,
+✓ Lock file and invowkmod.cue updated`,
   },
 
   'modules/dependencies/cli/deps-usage': {
@@ -4496,7 +4486,7 @@ requires: [
 
   'modules/dependencies/cli/update-usage': {
     language: 'bash',
-    code: `invowk module update [git-url]`,
+    code: `invowk module update [identifier]`,
   },
 
   'modules/dependencies/cli/update-examples': {
@@ -4776,6 +4766,7 @@ container: {
 
 #AutoProvisionConfig: {
     enabled?: bool
+    strict?: bool
     binary_path?: string
     includes?: [...#IncludeEntry]
     inherit_includes?: bool
@@ -5123,6 +5114,7 @@ invowk cmd hello --ivk-runtime virtual`,
     language: 'cue',
     code: `// invowkmod.cue
 module: "com.company.frontend"
+version: "1.0.0"
 
 // invowkfile.cue
 cmds: [
@@ -6954,7 +6946,7 @@ invowk cmd deploy --env production`,
 
   'reference/cli/init-syntax': {
     language: 'bash',
-    code: `invowk init [flags] [path]`,
+    code: `invowk init [flags] [filename]`,
   },
 
   'reference/cli/init-examples': {
@@ -7069,7 +7061,7 @@ invowk module validate ./mymod.invowkmod --deep`,
 
   'reference/cli/module-remove-syntax': {
     language: 'bash',
-    code: `invowk module remove <git-url>`,
+    code: `invowk module remove <identifier>`,
   },
 
   'reference/cli/module-sync-syntax': {
@@ -7079,7 +7071,7 @@ invowk module validate ./mymod.invowkmod --deep`,
 
   'reference/cli/module-update-syntax': {
     language: 'bash',
-    code: `invowk module update [git-url]`,
+    code: `invowk module update [identifier]`,
   },
 
   'reference/cli/module-deps-syntax': {
@@ -7742,6 +7734,7 @@ module: "io.github.username.cli"`,
 // Auto-provisioning configuration
 #AutoProvisionConfig: {
     enabled?:          bool
+    strict?:           bool
     binary_path?:      string
     includes?:         [...#IncludeEntry]
     inherit_includes?: bool
@@ -7839,6 +7832,7 @@ module: "io.github.username.cli"`,
     language: 'cue',
     code: `#AutoProvisionConfig: {
     enabled?:          bool
+    strict?:           bool
     binary_path?:      string
     includes?:         [...#IncludeEntry]
     inherit_includes?: bool

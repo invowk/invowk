@@ -12,8 +12,8 @@ Invowk provides a set of `invowk module` commands for managing module dependenci
 
 | Command | Description |
 |---------|-------------|
-| `invowk module add` | Resolve a dependency and print a `requires` entry |
-| `invowk module remove` | Remove a dependency from the lock file |
+| `invowk module add` | Add a module dependency (resolves, caches, updates lock file and `invowkmod.cue`) |
+| `invowk module remove` | Remove a module dependency (updates lock file and `invowkmod.cue`) |
 | `invowk module deps` | List resolved dependencies |
 | `invowk module sync` | Resolve dependencies from `invowkmod.cue` |
 | `invowk module update` | Update dependencies to latest matching versions |
@@ -21,7 +21,7 @@ Invowk provides a set of `invowk module` commands for managing module dependenci
 
 ## invowk module add
 
-Resolve a dependency and print the `requires` entry to add to `invowkmod.cue`.
+Resolve a dependency, cache it, update the lock file, and auto-edit `invowkmod.cue` to add the `requires` entry.
 
 ### Usage
 
@@ -50,12 +50,26 @@ Resolve a dependency and print the `requires` entry to add to `invowkmod.cue`.
 <Snippet id="modules/dependencies/cli/add-output" />
 
 :::note
-`invowk module add` does not edit `invowkmod.cue` for you. Copy the printed `requires` entry into your module metadata, then run `invowk module sync`.
+`invowk module add` performs three actions automatically:
+1. Resolves and caches the module
+2. Updates the lock file
+3. Auto-edits `invowkmod.cue` to add the `requires` entry (if the file exists)
+
+The output looks like:
+```
+ℹ Resolving <url>@<version>...
+✓ Module resolved and lock file updated
+ℹ Git URL:   <url>
+ℹ Version:   <requested> → <resolved>
+ℹ Namespace: <namespace>
+ℹ Cache:     <path>
+✓ Updated invowkmod.cue with new requires entry
+```
 :::
 
 ## invowk module remove
 
-Remove a dependency from the lock file.
+Remove a module dependency from the lock file and `invowkmod.cue`.
 
 ### Usage
 
@@ -65,7 +79,7 @@ Remove a dependency from the lock file.
 
 | Argument | Description |
 |----------|-------------|
-| `git-url` | Git repository URL to remove |
+| `identifier` | Module identifier: git URL, alias, module name, or full key (`modulename@version`) |
 
 ### Examples
 
@@ -76,7 +90,20 @@ Remove a dependency from the lock file.
 <Snippet id="modules/dependencies/cli/remove-output" />
 
 :::note
-This command only removes the dependency from the lock file. You must manually remove the `requires` entry from `invowkmod.cue`. Cached files are not deleted.
+`invowk module remove` performs two actions automatically:
+1. Removes the module from the lock file
+2. Auto-edits `invowkmod.cue` to remove the corresponding `requires` entry
+
+The output looks like:
+```
+Remove Module Dependency
+ℹ Removing <identifier>...
+✓ Removed <namespace>
+
+✓ Lock file and invowkmod.cue updated
+```
+
+Cached files are not deleted.
 :::
 
 ## invowk module deps
@@ -123,7 +150,7 @@ Update dependencies to their latest versions matching the declared constraints.
 
 | Argument | Description |
 |----------|-------------|
-| `git-url` | (Optional) Specific dependency to update |
+| `identifier` | (Optional) Specific dependency to update: git URL, alias, module name, or full key (`modulename@version`) |
 
 ### Examples
 

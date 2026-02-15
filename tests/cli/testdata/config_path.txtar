@@ -11,11 +11,14 @@ stdout 'Config file:'
 stdout 'Commands directory:'
 ! stderr .
 
-# Test 2: Paths reference the XDG-based config location
+# Test 2: Paths reference the platform-specific config location
 exec invowk config path
-stdout '.config/invowk'
+[GOOS:linux] stdout '.config/invowk'
+[GOOS:darwin] stdout 'Library/Application Support/invowk'
+[GOOS:windows] stdout 'appdata.invowk'
 stdout 'config.cue'
 
 # Test 3: Commands directory references the home-based location
 exec invowk config path
-stdout '.invowk/cmds'
+stdout '.invowk'
+stdout 'cmds'

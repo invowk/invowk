@@ -1436,7 +1436,7 @@ When you run `invowk cmd`, the supported platforms are displayed for each comman
 Available Commands
   (* = default runtime)
 
-From current directory:
+From invowkfile:
   build - Build the project [native*] (linux, macos, windows)
   clean - Clean build artifacts [native*] (linux, macos)
   system info - Display system information [native*] (linux, macos, windows)
@@ -1943,16 +1943,16 @@ version: "1.0.0"
 // Declare module dependencies
 requires: [
 	{
-		git_url: "https://github.com/user/common-tools.git"
+		git_url: "https://github.com/user/common-tools.invowkmod.git"
 		version: "^1.0.0"  // Compatible with 1.x.x
 	},
 	{
-		git_url: "https://github.com/user/deploy-utils.git"
+		git_url: "https://github.com/user/deploy-utils.invowkmod.git"
 		version: "~2.1.0"  // Approximately 2.1.x
 		alias:   "deploy"  // Custom namespace (for collision disambiguation)
 	},
 	{
-		git_url: "https://github.com/user/monorepo.git"
+		git_url: "https://github.com/user/monorepo.invowkmod.git"
 		version: ">=1.0.0"
 		path:    "packages/cli-tools"  // Subdirectory within repo
 	},
@@ -1977,13 +1977,13 @@ Commands in a module can only call commands from direct dependencies or globally
 
 ```bash
 # Add a new module dependency
-invowk module add https://github.com/user/module.git ^1.0.0
+invowk module add https://github.com/user/module.invowkmod.git ^1.0.0
 
 # Add with custom alias (for collision disambiguation)
-invowk module add https://github.com/user/module.git ^1.0.0 --alias myalias
+invowk module add https://github.com/user/module.invowkmod.git ^1.0.0 --alias myalias
 
 # Add from monorepo subdirectory
-invowk module add https://github.com/user/monorepo.git ^1.0.0 --path packages/tools
+invowk module add https://github.com/user/monorepo.invowkmod.git ^1.0.0 --path packages/tools
 
 # List all resolved dependencies
 invowk module deps
@@ -1995,10 +1995,10 @@ invowk module sync
 invowk module update
 
 # Update a specific dependency
-invowk module update https://github.com/user/module.git
+invowk module update https://github.com/user/module.invowkmod.git
 
 # Remove a dependency
-invowk module remove https://github.com/user/module.git
+invowk module remove https://github.com/user/module.invowkmod.git
 ```
 
 ### Lock File
@@ -2014,7 +2014,7 @@ generated: "2025-01-12T10:30:00Z"
 
 modules: {
 	"github.com/user/common-tools": {
-		git_url:          "https://github.com/user/common-tools.git"
+		git_url:          "https://github.com/user/common-tools.invowkmod.git"
 		version:          "^1.0.0"
 		resolved_version: "1.2.3"
 		git_commit:       "abc123def456..."
@@ -2157,7 +2157,7 @@ cmds: [
 > The container runtime **requires Linux-based container images** (e.g., `debian:stable-slim`).
 >
 > **NOT supported:**
-> - **Alpine-based images** (`alpine:*`) - BusyBox's `ash` shell has incompatibilities with standard scripts
+> - **Alpine-based images** (`alpine:*`) - musl-based environments have subtle behavioral differences that reduce runtime reliability
 > - **Windows container images** (`mcr.microsoft.com/windows/*`) - No POSIX shell available
 >
 > **Platform compatibility:**

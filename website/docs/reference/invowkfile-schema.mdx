@@ -59,10 +59,14 @@ Global dependencies that apply to all commands. See [DependsOn](#dependson).
 
 ### cmds
 
-**Type:** `[...#Command]`  
+**Type:** `[...#Command]`
 **Required:** Yes (at least one)
 
 List of commands defined in this invowkfile. See [Command](#command).
+
+:::caution Migration Note
+The field name is `cmds`, not `commands`. Using `commands` will cause a CUE validation error because the schema defines `commands?: _|_` (bottom value) to enforce the correct name.
+:::
 
 ---
 
@@ -83,10 +87,10 @@ The command identifier. Must start with a letter.
 
 ### description
 
-**Type:** `string`  
+**Type:** `string`
 **Required:** No
 
-Help text for the command.
+Help text for the command. When provided, it must be non-empty (validated by regex pattern `^\s*\S.*$` -- whitespace-only strings are rejected).
 
 <Snippet id="reference/invowkfile/command-description-example" />
 
@@ -127,11 +131,14 @@ Command-line flags for this command. See [Flag](#flag).
 
 :::warning Reserved Flags
 The following flags are reserved by invowk and cannot be used in user-defined commands:
-- `env-file` (short `e`), `env-var` (short `E`)
-- `env-inherit-mode`, `env-inherit-allow`, `env-inherit-deny`
-- `workdir` (short `w`), `help` (short `h`), `runtime` (short `r`)
-- `from` (short `f`), `force-rebuild`, `version`
-- The `ivk-`, `invowk-`, and `i-` prefixes are also reserved for system flags
+- `ivk-env-file` (`-e`), `ivk-env-var` (`-E`)
+- `ivk-env-inherit-mode`, `ivk-env-inherit-allow`, `ivk-env-inherit-deny`
+- `ivk-workdir` (`-w`), `ivk-runtime` (`-r`), `ivk-from` (`-f`)
+- `ivk-force-rebuild`
+- `ivk-verbose` (`-v`), `ivk-config` (`-c`), `ivk-interactive` (`-i`)
+- `help` (`-h`), `version`
+
+Additionally, any flag starting with the `ivk-`, `invowk-`, or `i-` prefix is reserved for system flags.
 :::
 
 ### args
@@ -337,6 +344,10 @@ Dependency specification:
 
 ### CommandDependency
 
+:::caution Field Name
+The field name for command dependencies is `cmds`, not `commands`. Using `commands` will cause a CUE validation error because the schema defines `commands?: _|_` (bottom value) to enforce the correct field name.
+:::
+
 <Snippet id="reference/invowkfile/command-dependency-structure" />
 
 ### FilepathDependency
@@ -363,6 +374,16 @@ Command-line flag definition:
 
 <Snippet id="reference/invowkfile/flag-structure" />
 
+| Property | Required | Description |
+|----------|----------|-------------|
+| `name` | Yes | Flag name (alphanumeric, hyphens, underscores) |
+| `description` | **Yes** | Help text (must be non-empty) |
+| `type` | No | `string`, `bool`, `int`, `float` (default: `string`) |
+| `default_value` | No | Default if not provided (cannot combine with `required`) |
+| `required` | No | Must be provided (cannot combine with `default_value`) |
+| `short` | No | Single-letter alias (`a`-`z` or `A`-`Z`) |
+| `validation` | No | Regex pattern for value validation |
+
 <Snippet id="reference/invowkfile/flag-example" />
 
 ---
@@ -372,6 +393,16 @@ Command-line flag definition:
 Positional argument definition:
 
 <Snippet id="reference/invowkfile/argument-structure" />
+
+| Property | Required | Description |
+|----------|----------|-------------|
+| `name` | Yes | Argument name (alphanumeric, hyphens, underscores) |
+| `description` | **Yes** | Help text (must be non-empty) |
+| `type` | No | `string`, `int`, `float` (default: `string`; `bool` not supported) |
+| `default_value` | No | Default if not provided (cannot combine with `required`) |
+| `required` | No | Must be provided (cannot combine with `default_value`) |
+| `variadic` | No | Accept multiple values (only allowed on the last argument) |
+| `validation` | No | Regex pattern for value validation |
 
 <Snippet id="reference/invowkfile/argument-example" />
 

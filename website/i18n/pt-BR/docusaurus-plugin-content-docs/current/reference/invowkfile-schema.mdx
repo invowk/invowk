@@ -64,6 +64,10 @@ Dependências globais que se aplicam a todos os comandos. Veja [DependsOn](#depe
 
 Lista de comandos definidos neste invowkfile. Veja [Command](#command).
 
+:::caution Nota de Migração
+O nome do campo é `cmds`, não `commands`. Usar `commands` causará um erro de validação CUE porque o schema define `commands?: _|_` (valor bottom) para impor o nome correto.
+:::
+
 ---
 
 ## Command
@@ -83,10 +87,10 @@ O identificador do comando. Deve começar com uma letra.
 
 ### description
 
-**Tipo:** `string`  
+**Tipo:** `string`
 **Obrigatório:** Não
 
-Texto de ajuda para o comando.
+Texto de ajuda para o comando. Quando fornecido, deve ser não-vazio (validado pelo padrão regex `^\s*\S.*$` -- strings contendo apenas espaços são rejeitadas).
 
 <Snippet id="reference/invowkfile/command-description-example" />
 
@@ -127,11 +131,14 @@ Flags de linha de comando para este comando. Veja [Flag](#flag).
 
 :::warning Flags Reservadas
 As seguintes flags são reservadas pelo invowk e não podem ser usadas em comandos definidos pelo usuário:
-- `env-file` (curta `e`), `env-var` (curta `E`)
-- `env-inherit-mode`, `env-inherit-allow`, `env-inherit-deny`
-- `workdir` (curta `w`), `help` (curta `h`), `runtime` (curta `r`)
-- `from` (curta `f`), `force-rebuild`, `version`
-- Os prefixos `ivk-`, `invowk-` e `i-` também são reservados para flags do sistema
+- `ivk-env-file` (`-e`), `ivk-env-var` (`-E`)
+- `ivk-env-inherit-mode`, `ivk-env-inherit-allow`, `ivk-env-inherit-deny`
+- `ivk-workdir` (`-w`), `ivk-runtime` (`-r`), `ivk-from` (`-f`)
+- `ivk-force-rebuild`
+- `ivk-verbose` (`-v`), `ivk-config` (`-c`), `ivk-interactive` (`-i`)
+- `help` (`-h`), `version`
+
+Além disso, qualquer flag que comece com o prefixo `ivk-`, `invowk-` ou `i-` é reservada para flags do sistema.
 :::
 
 ### args
@@ -336,6 +343,10 @@ Especificação de dependências:
 
 ### CommandDependency
 
+:::caution Nome do Campo
+O nome do campo para dependências de comandos é `cmds`, não `commands`. Usar `commands` causará um erro de validação CUE porque o schema define `commands?: _|_` (valor bottom) para impor o nome correto do campo.
+:::
+
 <Snippet id="reference/invowkfile/command-dependency-structure" />
 
 ### FilepathDependency
@@ -362,6 +373,16 @@ Definição de flag de linha de comando:
 
 <Snippet id="reference/invowkfile/flag-structure" />
 
+| Propriedade | Obrigatório | Descrição |
+|-------------|-------------|-----------|
+| `name` | Sim | Nome da flag (alfanumérico, hífens, underscores) |
+| `description` | **Sim** | Texto de ajuda (deve ser não-vazio) |
+| `type` | Não | `string`, `bool`, `int`, `float` (padrão: `string`) |
+| `default_value` | Não | Padrão se não fornecido (não combina com `required`) |
+| `required` | Não | Deve ser fornecido (não combina com `default_value`) |
+| `short` | Não | Alias de uma letra (`a`-`z` ou `A`-`Z`) |
+| `validation` | Não | Padrão regex para validação de valor |
+
 <Snippet id="reference/invowkfile/flag-example" />
 
 ---
@@ -371,6 +392,16 @@ Definição de flag de linha de comando:
 Definição de argumento posicional:
 
 <Snippet id="reference/invowkfile/argument-structure" />
+
+| Propriedade | Obrigatório | Descrição |
+|-------------|-------------|-----------|
+| `name` | Sim | Nome do argumento (alfanumérico, hífens, underscores) |
+| `description` | **Sim** | Texto de ajuda (deve ser não-vazio) |
+| `type` | Não | `string`, `int`, `float` (padrão: `string`; `bool` não suportado) |
+| `default_value` | Não | Padrão se não fornecido (não combina com `required`) |
+| `required` | Não | Deve ser fornecido (não combina com `default_value`) |
+| `variadic` | Não | Aceitar múltiplos valores (apenas permitido no último argumento) |
+| `validation` | Não | Padrão regex para validação de valor |
 
 <Snippet id="reference/invowkfile/argument-example" />
 

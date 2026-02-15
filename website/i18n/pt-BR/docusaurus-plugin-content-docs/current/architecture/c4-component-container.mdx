@@ -1,0 +1,110 @@
+---
+sidebar_position: 5
+---
+
+import Diagram from '@site/src/components/Diagram';
+
+# C4 Componente: Container (C3)
+
+Este diagrama amplia o container **Container Engine Abstraction** do [Diagrama de Container C2](./c4-container) para mostrar os componentes internos do pacote `internal/container`. Ele revela como o Invowk fornece uma interface unificada sobre os CLIs do Docker e Podman, lida com preocupações específicas do Podman (SELinux, rootless) e se adapta de forma transparente a ambientes sandboxed (Flatpak, Snap).
+
+## Diagrama
+
+<Diagram id="architecture/c4-component-container" />
+
+## Interface
+
+| Componente | Tecnologia | Responsabilidade |
+|------------|------------|------------------|
+| **Engine** | Interface Go | Contrato de 10 métodos para operações de container: `Name`, `Available`, `Version`, `Build`, `Run`, `Remove`, `ImageExists`, `RemoveImage`, `BinaryPath`, `BuildRunArgs`. Todas as funções factory retornam este tipo. |
+
+## Implementações
+
+| Componente | Tecnologia | Responsabilidade |
+|------------|------------|------------------|
+| **BaseCLIEngine** | Struct Go | Base compartilhada para engines baseados em CLI. Fornece construtores de argumentos (`BuildArgs`, `RunArgs`, `ExecArgs`) e execução de comandos (`RunCommand`, `CreateCommand`). Configurado via functional options. |
+| **DockerEngine** | Struct Go | Embarca `*BaseCLIEngine`. Implementa `Engine`. Localiza o binário `docker` via `exec.LookPath`. |
+| **PodmanEngine** | Struct Go | Embarca `*BaseCLIEngine`. Implementa `Engine`. Busca `podman` ou `podman-remote` (fallback para distros imutáveis). Injeta labels de volume SELinux e tratamento de user namespace rootless. |
+| **SandboxAwareEngine** | Struct Go (decorator) | Encapsula qualquer `Engine`. Detecta sandboxes Flatpak/Snap e prefixa comandos com `flatpak-spawn --host` ou `snap run --shell`. Passa direto quando nenhuma sandbox é detectada (overhead zero). |
+
+## Functional Options
+
+| Tipo | Propósito |
+|------|-----------|
+| **BaseCLIEngineOption** | Tipo de opção `func(*BaseCLIEngine)` para customização do construtor. |
+| **ExecCommandFunc** | Ponto de injeção para `exec.CommandContext`. Permite que testes mockem a execução de comandos. |
+| **VolumeFormatFunc** | Transforma strings de volume. Podman usa para adicionar labels SELinux (`:z`) no Linux. |
+| **RunArgsTransformer** | Pós-processa argumentos de run. Podman usa para injetar `--userns=keep-id` para compatibilidade rootless. |
+| **SELinuxCheckFunc** | Determina se labeling SELinux deve ser aplicado. Injetado no formatter de volume do Podman. |
+
+## Tipos de Request/Response
+
+| Tipo | Propósito |
+|------|-----------|
+| **BuildOptions** | Entrada para `Engine.Build()`: diretório de contexto, Dockerfile, tag, build args, controle de cache. |
+| **RunOptions** | Entrada para `Engine.Run()`: imagem, comando, diretório de trabalho, env, volumes, portas, TTY, modo interativo. |
+| **RunResult** | Saída de `Engine.Run()`: ID do container, exit code, erro. |
+| **VolumeMount** | Especificação estruturada de montagem de volume com suporte a labels SELinux. |
+| **PortMapping** | Mapeamento estruturado de portas com suporte a protocolo. |
+
+## Funções Factory
+
+| Função | Comportamento |
+|--------|---------------|
+| **NewEngine** | Cria o engine preferido (Docker ou Podman) com fallback automático. Encapsula com `SandboxAwareEngine`. |
+| **AutoDetectEngine** | Tenta Podman primeiro (padrão amigável a rootless), depois Docker. Encapsula com `SandboxAwareEngine`. |
+
+## Dependências Externas
+
+| Dependência | Pacote | Uso |
+|-------------|--------|-----|
+| **platform.DetectSandbox()** | `pkg/platform` | Retorna tipo de sandbox (None, Flatpak, Snap) usado pelo `SandboxAwareEngine`. |
+| **issue.NewErrorContext()** | `internal/issue` | Cria erros acionáveis com contexto de operação e sugestões para o usuário. |
+| **os/exec** | stdlib | Execução CLI subjacente. `exec.LookPath` encontra binários dos engines; `exec.CommandContext` os executa. |
+
+## Padrões Principais
+
+### Composição via Embedding
+
+`DockerEngine` e `PodmanEngine` ambos embarcam `*BaseCLIEngine`. A base fornece toda a construção de argumentos e execução de comandos, enquanto engines concretos implementam apenas métodos da interface Engine e construção específica do engine. Isso evita duplicação de código sem exigir herança.
+
+### Padrão Decorator
+
+`SandboxAwareEngine` encapsula qualquer `Engine` para lidar com sandboxes Flatpak/Snap. Ele intercepta todos os métodos para opcionalmente prefixar invocações CLI com o mecanismo de host spawn da sandbox. Quando nenhuma sandbox é detectada, `NewSandboxAwareEngine` retorna o engine não-encapsulado diretamente, adicionando overhead zero.
+
+### Functional Options
+
+`BaseCLIEngineOption` segue o [padrão functional options de Dave Cheney](https://dave.cheney.net/2014/10/17/functional-options-for-friendly-apis). O construtor define defaults sensatos (`exec.CommandContext` real, formatters identidade) e as options os sobrescrevem:
+
+- **Testes**: Injetar um `ExecCommandFunc` mock para verificar a construção de argumentos sem executar containers.
+- **Comportamento específico do engine**: O construtor do Podman adiciona `WithVolumeFormatter` (SELinux) e `WithRunArgsTransformer` (rootless userns) antes das options fornecidas pelo usuário.
+
+### Auto-Detecção com Fallback
+
+Tanto `NewEngine` quanto `AutoDetectEngine` seguem uma estratégia de tentar-preferido-depois-fallback. `AutoDetectEngine` usa Podman como padrão primeiro porque é mais comumente disponível em setups rootless (Fedora, distros imutáveis). Ambas as funções factory sempre encapsulam o resultado com `SandboxAwareEngine`.
+
+## Decisões de Design
+
+### Por que embedding ao invés de interfaces tradicionais?
+
+Docker e Podman compartilham formatos de argumentos idênticos para a maioria das operações. Embarcar `*BaseCLIEngine` permite que engines concretos reutilizem a construção de argumentos sem delegação boilerplate. Comportamento específico do engine é injetado via functional options, mantendo a base genérica.
+
+### Por que um decorator para tratamento de sandbox?
+
+Consciência de sandbox é uma preocupação transversal ortogonal ao tipo de engine. Um decorator mantém as implementações Docker/Podman limpas -- elas nunca precisam saber sobre Flatpak ou Snap. O decorator também curto-circuita em ambientes não-sandbox.
+
+### Por que functional options?
+
+Options como `ExecCommandFunc` existem primariamente para injeção em testes. Uma struct de configuração exporia internos na API pública. Functional options mantêm construtores limpos para uso em produção enquanto permitem controle granular para testes.
+
+### Por que Podman primeiro no AutoDetectEngine?
+
+Podman é o engine de container padrão no Fedora e outras distribuições baseadas em Red Hat. Ele roda rootless por padrão, não requer daemon, e funciona em distros imutáveis via `podman-remote`.
+
+## Diagramas Relacionados
+
+- [C4 Contexto (C1)](./c4-context) - Fronteiras do sistema e atores externos
+- [C4 Container (C2)](./c4-container) - Containers internos do sistema Invowk
+- [C4 Componente: Runtime (C3)](./c4-component-runtime) - Internos do pacote runtime
+- [Sequência de Execução de Comandos](./execution-flow) - Fluxo temporal da execução de comandos
+- [Fluxograma de Precedência de Discovery](./discovery) - Como comandos são descobertos

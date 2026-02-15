@@ -13,9 +13,13 @@ The **native** runtime executes commands using your system's default shell. It's
 When you run a command with the native runtime, Invowk™:
 
 1. Detects your system's default shell
-2. Creates a temporary script file
+2. Passes the script directly as a `-c` argument to the shell (no temporary file is created)
 3. Executes it through the shell
 4. Streams output back to your terminal
+
+:::note
+When a non-shell interpreter is specified (e.g., Python, Ruby), a temporary script file is created and passed to the interpreter instead.
+:::
 
 ## Shell Detection
 
