@@ -17,6 +17,99 @@
 # Supported platforms:
 #   - Windows (amd64)
 
+# -------------------------------------------------------------------------
+# Constants (script scope — shared between Install-Invowk and testable functions)
+# -------------------------------------------------------------------------
+
+$script:GitHubRepo = 'invowk/invowk'
+$script:BinaryName = 'invowk'
+
+# -------------------------------------------------------------------------
+# Testable Pure Functions (script scope — accessible when dot-sourced)
+# -------------------------------------------------------------------------
+
+# Construct the asset filename. GoReleaser strips the 'v' prefix in filenames.
+function Get-AssetFilename {
+    param(
+        [string]$Version,
+        [string]$Arch
+    )
+    $versionNoV = $Version -replace '^v', ''
+    return "${script:BinaryName}_${versionNoV}_windows_${Arch}.zip"
+}
+
+# Detect the host CPU architecture and map to Go's naming convention.
+function Get-Architecture {
+    # Handle 32-bit PowerShell running on 64-bit Windows.
+    $arch = if ($env:PROCESSOR_ARCHITEW6432) {
+        $env:PROCESSOR_ARCHITEW6432
+    } else {
+        $env:PROCESSOR_ARCHITECTURE
+    }
+
+    switch ($arch) {
+        'AMD64' { return 'amd64' }
+        'x86' {
+            throw @"
+32-bit Windows is not supported.
+Invowk requires a 64-bit (x86_64/amd64) Windows installation.
+"@
+        }
+        'ARM64' {
+            throw @"
+Windows ARM64 is not currently supported.
+Consider using: go install github.com/${script:GitHubRepo}@latest
+"@
+        }
+        default {
+            throw "Unsupported architecture: $arch"
+        }
+    }
+}
+
+# Verify a file's SHA256 hash against an expected value.
+function Test-Checksum {
+    param(
+        [string]$FilePath,
+        [string]$Expected
+    )
+    $actual = (Get-FileHash -Path $FilePath -Algorithm SHA256).Hash
+    # Get-FileHash returns uppercase; checksums.txt uses lowercase. Compare case-insensitively.
+    if ($actual -ne $Expected.ToUpper()) {
+        throw @"
+Checksum verification failed for $(Split-Path -Leaf $FilePath)
+
+Expected: $Expected
+Got:      $($actual.ToLower())
+
+The download may be corrupted. Please try again.
+If this persists, report at https://github.com/${script:GitHubRepo}/issues
+"@
+    }
+}
+
+# Check whether a directory is present in a semicolon-delimited path string.
+# Normalizes trailing slashes for reliable comparison.
+function Test-InPath {
+    param(
+        [string]$Dir,
+        [string]$PathString
+    )
+    if (-not $PathString) { return $false }
+    $normalizedDir = $Dir.TrimEnd('\', '/')
+    $entries = $PathString -split ';' | Where-Object { $_ -ne '' }
+    foreach ($entry in $entries) {
+        if ($entry.TrimEnd('\', '/') -eq $normalizedDir) {
+            return $true
+        }
+    }
+    return $false
+}
+
+# -------------------------------------------------------------------------
+# Installer Orchestration
+# -------------------------------------------------------------------------
+
 # Wrap in a function to prevent partial execution when piped via irm | iex.
 # PowerShell's parser requires balanced braces, so a truncated download produces
 # a parse error rather than executing partial code.
@@ -28,14 +121,12 @@ function Install-Invowk {
     $ErrorActionPreference = 'Stop'
 
     # -------------------------------------------------------------------------
-    # Constants
+    # Constants (installer-only)
     # -------------------------------------------------------------------------
 
-    $GitHubRepo = 'invowk/invowk'
-    $ReleasesApiUrl = "https://api.github.com/repos/$GitHubRepo/releases/latest"
-    $ReleasesTagUrl = "https://api.github.com/repos/$GitHubRepo/releases/tags"
-    $DownloadBaseUrl = "https://github.com/$GitHubRepo/releases/download"
-    $BinaryName = 'invowk'
+    $ReleasesApiUrl = "https://api.github.com/repos/$script:GitHubRepo/releases/latest"
+    $ReleasesTagUrl = "https://api.github.com/repos/$script:GitHubRepo/releases/tags"
+    $DownloadBaseUrl = "https://github.com/$script:GitHubRepo/releases/download"
 
     # -------------------------------------------------------------------------
     # TLS Configuration
@@ -109,41 +200,9 @@ function Install-Invowk {
         if (-not $onWindows) {
             Write-Log "This installer is for Windows. For Linux/macOS, use:"
             Write-Log ""
-            Write-Log "  ${Bold}curl -fsSL https://raw.githubusercontent.com/$GitHubRepo/main/scripts/install.sh | sh${Reset}"
+            Write-Log "  ${Bold}curl -fsSL https://raw.githubusercontent.com/$script:GitHubRepo/main/scripts/install.sh | sh${Reset}"
             Write-Log ""
             throw 'This installer is for Windows only.'
-        }
-    }
-
-    # -------------------------------------------------------------------------
-    # Architecture Detection
-    # -------------------------------------------------------------------------
-
-    function Get-Architecture {
-        # Handle 32-bit PowerShell running on 64-bit Windows.
-        $arch = if ($env:PROCESSOR_ARCHITEW6432) {
-            $env:PROCESSOR_ARCHITEW6432
-        } else {
-            $env:PROCESSOR_ARCHITECTURE
-        }
-
-        switch ($arch) {
-            'AMD64' { return 'amd64' }
-            'x86' {
-                Stop-WithError @"
-32-bit Windows is not supported.
-Invowk requires a 64-bit (x86_64/amd64) Windows installation.
-"@
-            }
-            'ARM64' {
-                Stop-WithError @"
-Windows ARM64 is not currently supported.
-Consider using: go install github.com/$GitHubRepo@latest
-"@
-            }
-            default {
-                Stop-WithError "Unsupported architecture: $arch"
-            }
         }
     }
 
@@ -198,7 +257,7 @@ Consider using: go install github.com/$GitHubRepo@latest
             catch {
                 Stop-WithError @"
 Version $version not found.
-Check available versions at: https://github.com/$GitHubRepo/releases
+Check available versions at: https://github.com/$script:GitHubRepo/releases
 "@
             }
 
@@ -221,10 +280,10 @@ Check available versions at: https://github.com/$GitHubRepo/releases
 GitHub API rate limit exceeded.
 
 Try again in a few minutes, or specify a version directly:
-  `$env:INVOWK_VERSION='v1.0.0'; irm https://raw.githubusercontent.com/$GitHubRepo/main/scripts/install.ps1 | iex
+  `$env:INVOWK_VERSION='v1.0.0'; irm https://raw.githubusercontent.com/$script:GitHubRepo/main/scripts/install.ps1 | iex
 
 Or set a GitHub token for higher rate limits:
-  `$env:GITHUB_TOKEN='ghp_...'; irm https://raw.githubusercontent.com/$GitHubRepo/main/scripts/install.ps1 | iex
+  `$env:GITHUB_TOKEN='ghp_...'; irm https://raw.githubusercontent.com/$script:GitHubRepo/main/scripts/install.ps1 | iex
 "@
             }
             Stop-WithError @"
@@ -232,7 +291,7 @@ Failed to fetch latest release from GitHub.
 
 Check your network connection and try again.
 If behind a firewall, specify a version directly:
-  `$env:INVOWK_VERSION='v1.0.0'; irm https://raw.githubusercontent.com/$GitHubRepo/main/scripts/install.ps1 | iex
+  `$env:INVOWK_VERSION='v1.0.0'; irm https://raw.githubusercontent.com/$script:GitHubRepo/main/scripts/install.ps1 | iex
 "@
         }
 
@@ -247,7 +306,7 @@ GitHub API error: $($release.message)
 
 This often happens due to API rate limiting for unauthenticated requests.
 Try again in a few minutes, or specify a version directly:
-  `$env:INVOWK_VERSION='v1.0.0'; irm https://raw.githubusercontent.com/$GitHubRepo/main/scripts/install.ps1 | iex
+  `$env:INVOWK_VERSION='v1.0.0'; irm https://raw.githubusercontent.com/$script:GitHubRepo/main/scripts/install.ps1 | iex
 "@
             }
             Stop-WithError 'Could not determine latest version from GitHub API response.'
@@ -257,7 +316,7 @@ Try again in a few minutes, or specify a version directly:
         if ($version -notmatch '^v\d') {
             Stop-WithError @"
 Unexpected version format from GitHub API: $version
-This may indicate an API change. Report at: https://github.com/$GitHubRepo/issues
+This may indicate an API change. Report at: https://github.com/$script:GitHubRepo/issues
 "@
         }
 
@@ -268,37 +327,6 @@ This may indicate an API change. Report at: https://github.com/$GitHubRepo/issue
     # -------------------------------------------------------------------------
     # Installation
     # -------------------------------------------------------------------------
-
-    # Construct the asset filename. GoReleaser strips the 'v' prefix in filenames.
-    function Get-AssetFilename {
-        param(
-            [string]$Version,
-            [string]$Arch
-        )
-        $versionNoV = $Version -replace '^v', ''
-        return "${BinaryName}_${versionNoV}_windows_${Arch}.zip"
-    }
-
-    # Verify a file's SHA256 hash against an expected value.
-    function Test-Checksum {
-        param(
-            [string]$FilePath,
-            [string]$Expected
-        )
-        $actual = (Get-FileHash -Path $FilePath -Algorithm SHA256).Hash
-        # Get-FileHash returns uppercase; checksums.txt uses lowercase. Compare case-insensitively.
-        if ($actual -ne $Expected.ToUpper()) {
-            Stop-WithError @"
-Checksum verification failed for $(Split-Path -Leaf $FilePath)
-
-Expected: $Expected
-Got:      $($actual.ToLower())
-
-The download may be corrupted. Please try again.
-If this persists, report at https://github.com/$GitHubRepo/issues
-"@
-        }
-    }
 
     function Install-Binary {
         param(
@@ -320,7 +348,7 @@ If this persists, report at https://github.com/$GitHubRepo/issues
             $checksumsPath = Join-Path $tempDir 'checksums.txt'
 
             # Download the archive.
-            Write-Log "Downloading ${Bold}${BinaryName} ${Version}${Reset} for windows/${Arch}..."
+            Write-Log "Downloading ${Bold}${script:BinaryName} ${Version}${Reset} for windows/${Arch}..."
             try {
                 Invoke-SafeWebRequest -Uri $downloadUrl -OutFile $archivePath
             }
@@ -329,7 +357,7 @@ If this persists, report at https://github.com/$GitHubRepo/issues
 Failed to download $asset.
 
 The release asset may not exist for your platform (windows/$Arch).
-Check available assets at: https://github.com/$GitHubRepo/releases/tag/$Version
+Check available assets at: https://github.com/$script:GitHubRepo/releases/tag/$Version
 "@
             }
 
@@ -349,16 +377,13 @@ Cannot verify download integrity. Please try again.
             }
 
             # Extract expected checksum for our asset from checksums.txt.
-            $checksumLine = Get-Content $checksumsPath | Where-Object { $_ -match [regex]::Escape($asset) }
-            if ($checksumLine -is [array]) {
-                # Multiple matches found — narrow to exact asset name match.
-                $checksumLine = $checksumLine | Where-Object { ($_ -split '\s+')[1] -eq $asset }
-            }
+            # Use exact field match (not substring) to avoid matching .sig or similar suffixed entries.
+            $checksumLine = Get-Content $checksumsPath | Where-Object { ($_ -split '\s+')[1] -eq $asset }
             if (-not $checksumLine) {
                 Stop-WithError @"
 Asset $asset not found in checksums.txt.
 This may indicate a GoReleaser configuration issue.
-Report at: https://github.com/$GitHubRepo/issues
+Report at: https://github.com/$script:GitHubRepo/issues
 "@
             }
             $expectedHash = ($checksumLine -split '\s+')[0]
@@ -382,13 +407,13 @@ Report at: https://github.com/$GitHubRepo/issues
 Failed to extract $asset.
 
 The archive may be corrupted or the disk may be full.
-Try downloading again, or report at: https://github.com/$GitHubRepo/issues
+Try downloading again, or report at: https://github.com/$script:GitHubRepo/issues
 "@
             }
 
-            $binaryPath = Join-Path $extractDir "${BinaryName}.exe"
+            $binaryPath = Join-Path $extractDir "${script:BinaryName}.exe"
             if (-not (Test-Path $binaryPath)) {
-                Stop-WithError "Binary '${BinaryName}.exe' not found in archive $asset."
+                Stop-WithError "Binary '${script:BinaryName}.exe' not found in archive $asset."
             }
 
             # Create install directory if it doesn't exist.
@@ -405,7 +430,7 @@ Try running with a different INSTALL_DIR or check permissions.
             }
 
             # Remove existing binary if present (Windows cannot overwrite a locked file).
-            $destPath = Join-Path $InstallDir "${BinaryName}.exe"
+            $destPath = Join-Path $InstallDir "${script:BinaryName}.exe"
             if (Test-Path $destPath) {
                 try {
                     Remove-Item $destPath -Force
@@ -427,11 +452,11 @@ The file may be in use. Close any running invowk processes and try again.
 Failed to install binary to $destPath
 
 Try running with a different INSTALL_DIR:
-  `$env:INSTALL_DIR='C:\tools\invowk'; irm https://raw.githubusercontent.com/$GitHubRepo/main/scripts/install.ps1 | iex
+  `$env:INSTALL_DIR='C:\tools\invowk'; irm https://raw.githubusercontent.com/$script:GitHubRepo/main/scripts/install.ps1 | iex
 "@
             }
 
-            Write-Ok "Successfully installed ${Bold}${BinaryName} ${Version}${Reset} to $destPath"
+            Write-Ok "Successfully installed ${Bold}${script:BinaryName} ${Version}${Reset} to $destPath"
         }
         finally {
             # Cleanup temp directory.
@@ -455,12 +480,8 @@ Try running with a different INSTALL_DIR:
         # Check if install directory is already in User PATH.
         $currentPath = [Environment]::GetEnvironmentVariable('Path', 'User')
         if (-not $currentPath) { $currentPath = '' }
-        $normalizedInstallDir = $InstallDir.TrimEnd('\', '/')
-        $alreadyInPath = $currentPath -split ';' |
-            Where-Object { $_ -ne '' } |
-            Where-Object { $_.TrimEnd('\', '/') -eq $normalizedInstallDir }
 
-        if ($alreadyInPath) {
+        if (Test-InPath -Dir $InstallDir -PathString $currentPath) {
             return
         }
 
@@ -487,7 +508,7 @@ Add it manually by running:
     # Main Flow
     # -------------------------------------------------------------------------
 
-    Write-Log "Installing ${Bold}${BinaryName}${Reset}..."
+    Write-Log "Installing ${Bold}${script:BinaryName}${Reset}..."
     Write-Log ''
 
     Test-Prerequisites
@@ -516,19 +537,21 @@ Add it manually by running:
     Update-Path -InstallDir $installDir
 
     # Verify installation.
-    $installedBinary = Join-Path $installDir "${BinaryName}.exe"
+    $installedBinary = Join-Path $installDir "${script:BinaryName}.exe"
     if (Test-Path $installedBinary) {
         try {
             $installedVersion = & $installedBinary --version 2>&1
             Write-Ok ''
-            Write-Ok "Verify: ${Bold}${BinaryName} --version${Reset} -> $installedVersion"
+            Write-Ok "Verify: ${Bold}${script:BinaryName} --version${Reset} -> $installedVersion"
         }
         catch {
             Write-Log ''
-            Write-Log "Run '${Bold}${BinaryName} --version${Reset}' to verify the installation."
+            Write-Log "Run '${Bold}${script:BinaryName} --version${Reset}' to verify the installation."
         }
     }
 }
 
-# Invoke the installer.
-Install-Invowk
+# Allow dot-sourcing for testing without executing the installer.
+if ($env:INVOWK_INSTALL_TESTING -ne '1') {
+    Install-Invowk
+}

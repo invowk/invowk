@@ -246,11 +246,13 @@ else
 	@echo "  (shellcheck not found, skipping shell script linting)"
 endif
 
-# Run install script unit tests
+# Run install script unit tests (POSIX only; PowerShell tests run on Windows CI)
 .PHONY: test-scripts
 test-scripts:
 	@echo "Running shell script tests..."
 	sh scripts/test_install.sh
+	@echo ""
+	@echo "Note: PowerShell tests (scripts/test_install.ps1) run on Windows CI only."
 
 # Install pre-commit hooks
 .PHONY: install-hooks
@@ -383,7 +385,7 @@ help:
 	@echo "  license-check    Verify SPDX headers in all Go files"
 	@echo "  lint             Run golangci-lint on all packages"
 	@echo "  lint-scripts     Lint shell scripts (requires shellcheck)"
-	@echo "  test-scripts     Run shell script unit tests"
+	@echo "  test-scripts     Run install script tests (POSIX; PS1 on Windows CI)"
 	@echo "  install-hooks    Install pre-commit hooks (requires pre-commit)"
 	@echo "  size             Compare binary sizes (debug vs stripped vs UPX)"
 	@echo "  help             Show this help message"
