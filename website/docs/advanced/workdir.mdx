@@ -10,7 +10,7 @@ Control where your commands execute with the `workdir` setting. This is especial
 
 ## Default Behavior
 
-By default, commands run in the current directory (where you invoked `invowk`).
+By default, commands from the root invowkfile run in the directory where the invowkfile is located. For modules, commands run in the module's root directory. Relative `workdir` paths are resolved from these locations.
 
 ## Setting Working Directory
 

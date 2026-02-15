@@ -51,7 +51,7 @@ Quando habilitado na configuração (padrão: `true`), 28 utilitários adicionai
 
 <Snippet id="runtime-modes/virtual-uroot-config" />
 
-#### Operações de Arquivo (13 utilitários)
+#### Operações de Arquivo (14 utilitários)
 
 | Utilitário | Descrição | Flags Comuns |
 |------------|-----------|--------------|
@@ -65,11 +65,12 @@ Quando habilitado na configuração (padrão: `true`), 28 utilitários adicionai
 | `mkdir` | Criar diretórios | `-p` (criar pais) |
 | `mktemp` | Criar arquivos ou diretórios temporários | `-d` (diretório), `-p` (diretório prefixo) |
 | `mv` | Mover ou renomear arquivos | `-f` (forçar), `-n` (não sobrescrever) |
+| `realpath` | Resolver nomes de caminho absolutos | *(nenhum)* |
 | `rm` | Remover arquivos e diretórios | `-r` (recursivo), `-f` (forçar) |
 | `tar` | Arquivar arquivos | `-c` (criar), `-x` (extrair), `-f` (arquivo) |
 | `touch` | Criar ou atualizar timestamps de arquivos | `-c` (não criar) |
 
-#### Processamento de Texto (11 utilitários)
+#### Processamento de Texto (10 utilitários)
 
 | Utilitário | Descrição | Flags Comuns |
 |------------|-----------|--------------|
@@ -78,7 +79,6 @@ Quando habilitado na configuração (padrão: `true`), 28 utilitários adicionai
 | `dirname` | Remover último componente de nomes de arquivo | *(nenhum)* |
 | `grep` | Buscar padrões | `-i` (ignorar maiúsculas), `-v` (inverter), `-n` (números de linha) |
 | `head` | Exibir primeiras N linhas | `-n <num>` (padrão 10) |
-| `realpath` | Resolver nomes de caminho absolutos | *(nenhum)* |
 | `sort` | Ordenar linhas | `-r` (reverso), `-n` (numérico), `-u` (único) |
 | `tail` | Exibir últimas N linhas | `-n <num>` (padrão 10) |
 | `tr` | Traduzir caracteres | `SET1 SET2` (mapeamento de caracteres) |

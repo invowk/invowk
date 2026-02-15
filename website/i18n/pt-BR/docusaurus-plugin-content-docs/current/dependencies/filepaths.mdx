@@ -39,41 +39,19 @@ O Invowk™ verifica as alternativas em ordem e para na primeira correspondênci
 
 Relativo à localização do invowkfile:
 
-```cue
-depends_on: {
-    filepaths: [
-        {alternatives: ["./src/main.go"]},
-        {alternatives: ["../shared/utils.go"]},
-        {alternatives: ["scripts/build.sh"]},
-    ]
-}
-```
+<Snippet id="dependencies/filepaths-relative" />
 
 ### Caminhos Absolutos
 
 Caminhos completos do sistema:
 
-```cue
-depends_on: {
-    filepaths: [
-        {alternatives: ["/etc/myapp/config.yaml"]},
-        {alternatives: ["/usr/local/bin/mytool"]},
-    ]
-}
-```
+<Snippet id="dependencies/filepaths-absolute" />
 
 ### Variáveis de Ambiente em Caminhos
 
 Expanda variáveis de ambiente:
 
-```cue
-depends_on: {
-    filepaths: [
-        {alternatives: ["${HOME}/.config/myapp/config.yaml"]},
-        {alternatives: ["${XDG_CONFIG_HOME}/myapp/config.yaml", "${HOME}/.myapprc"]},
-    ]
-}
-```
+<Snippet id="dependencies/filepaths-envvars" />
 
 ## Verificações de Permissão
 
@@ -81,206 +59,55 @@ Verifique permissões específicas de arquivo:
 
 ### Legível
 
-```cue
-depends_on: {
-    filepaths: [
-        {alternatives: ["secrets.env"], readable: true}
-    ]
-}
-```
+<Snippet id="dependencies/filepaths-readable" />
 
 ### Gravável
 
-```cue
-depends_on: {
-    filepaths: [
-        {alternatives: ["./output", "./dist"], writable: true}
-    ]
-}
-```
+<Snippet id="dependencies/filepaths-writable" />
 
 ### Executável
 
-```cue
-depends_on: {
-    filepaths: [
-        {alternatives: ["./scripts/deploy.sh"], executable: true}
-    ]
-}
-```
+<Snippet id="dependencies/filepaths-executable" />
 
 ### Permissões Combinadas
 
-```cue
-depends_on: {
-    filepaths: [
-        // Script deve ser legível E executável
-        {
-            alternatives: ["./scripts/run.sh"]
-            readable: true
-            executable: true
-        }
-    ]
-}
-```
+<Snippet id="dependencies/filepaths-combined-permissions" />
 
 ## Diretórios vs Arquivos
 
 Verificações de caminho funcionam tanto para arquivos quanto para diretórios:
 
-```cue
-depends_on: {
-    filepaths: [
-        // Verificar um arquivo
-        {alternatives: ["package.json"]},
-        
-        // Verificar um diretório
-        {alternatives: ["node_modules"]},
-        
-        // Verificar se diretório é gravável
-        {alternatives: ["./build"], writable: true},
-    ]
-}
-```
+<Snippet id="dependencies/filepaths-dirs-vs-files" />
 
 ## Exemplos do Mundo Real
 
 ### Projeto Go
 
-```cue
-{
-    name: "build"
-    depends_on: {
-        filepaths: [
-            {alternatives: ["go.mod"]},
-            {alternatives: ["go.sum"]},
-            {alternatives: ["cmd/main.go", "main.go"]},
-        ]
-    }
-    implementations: [{
-        script: "go build ./..."
-        runtimes: [{name: "native"}]
-    }]
-}
-```
+<Snippet id="dependencies/filepaths-go-project" />
 
 ### Projeto Node.js
 
-```cue
-{
-    name: "build"
-    depends_on: {
-        filepaths: [
-            {alternatives: ["package.json"]},
-            // Qualquer arquivo lock serve
-            {alternatives: ["pnpm-lock.yaml", "package-lock.json", "yarn.lock"]},
-            // Dependências devem estar instaladas
-            {alternatives: ["node_modules"]},
-        ]
-    }
-    implementations: [{
-        script: "npm run build"
-        runtimes: [{name: "native"}]
-    }]
-}
-```
+<Snippet id="dependencies/filepaths-nodejs-project" />
 
 ### Docker Build
 
-```cue
-{
-    name: "docker-build"
-    depends_on: {
-        filepaths: [
-            // Precisa de Dockerfile ou Containerfile
-            {alternatives: ["Dockerfile", "Containerfile"]},
-            // E um script de build
-            {alternatives: ["scripts/build.sh"], executable: true},
-        ]
-    }
-    implementations: [{
-        script: "docker build -t myapp ."
-        runtimes: [{name: "native"}]
-    }]
-}
-```
+<Snippet id="dependencies/filepaths-docker-build" />
 
 ### Arquivos de Configuração
 
-```cue
-{
-    name: "deploy"
-    depends_on: {
-        filepaths: [
-            // Verificar config em ordem de preferência
-            {
-                alternatives: [
-                    "./config/production.yaml",
-                    "./config/default.yaml",
-                    "${HOME}/.myapp/config.yaml"
-                ]
-                readable: true
-            },
-            // Diretório de saída gravável
-            {alternatives: ["./deploy-output"], writable: true},
-        ]
-    }
-    implementations: [{
-        script: "./scripts/deploy.sh"
-        runtimes: [{name: "native"}]
-    }]
-}
-```
+<Snippet id="dependencies/filepaths-config-files" />
 
 ## Contexto de Container
 
 Para runtime container, verificações de caminho são validadas **dentro do container**:
 
-```cue
-{
-    name: "build"
-    implementations: [{
-        script: "go build ./..."
-        runtimes: [{name: "container", image: "golang:1.26"}]
-        depends_on: {
-            filepaths: [
-                // Estes são verificados DENTRO do container
-                // /workspace é onde seu projeto está montado
-                {alternatives: ["/workspace/go.mod"]},
-                {alternatives: ["/workspace/go.sum"]},
-            ]
-        }
-    }]
-}
-```
+<Snippet id="dependencies/filepaths-container" />
 
 ## Caminhos Específicos de Plataforma
 
 Use múltiplas implementações para caminhos específicos de plataforma:
 
-```cue
-{
-    name: "read-config"
-    implementations: [
-        {
-            script: "cat $CONFIG_PATH"
-            runtimes: [{name: "native"}]
-            platforms: [{name: "linux"}]
-            depends_on: {
-                filepaths: [{alternatives: ["/etc/myapp/config.yaml"]}]
-            }
-        },
-        {
-            script: "cat $CONFIG_PATH"
-            runtimes: [{name: "native"}]
-            platforms: [{name: "macos"}]
-            depends_on: {
-                filepaths: [{alternatives: ["/usr/local/etc/myapp/config.yaml"]}]
-            }
-        }
-    ]
-}
-```
+<Snippet id="dependencies/filepaths-platform" />
 
 ## Mensagens de Erro
 

@@ -39,41 +39,19 @@ Invowk™ checks alternatives in order and stops at the first match.
 
 Relative to the invowkfile location:
 
-```cue
-depends_on: {
-    filepaths: [
-        {alternatives: ["./src/main.go"]},
-        {alternatives: ["../shared/utils.go"]},
-        {alternatives: ["scripts/build.sh"]},
-    ]
-}
-```
+<Snippet id="dependencies/filepaths-relative" />
 
 ### Absolute Paths
 
 Full system paths:
 
-```cue
-depends_on: {
-    filepaths: [
-        {alternatives: ["/etc/myapp/config.yaml"]},
-        {alternatives: ["/usr/local/bin/mytool"]},
-    ]
-}
-```
+<Snippet id="dependencies/filepaths-absolute" />
 
 ### Environment Variables in Paths
 
 Expand environment variables:
 
-```cue
-depends_on: {
-    filepaths: [
-        {alternatives: ["${HOME}/.config/myapp/config.yaml"]},
-        {alternatives: ["${XDG_CONFIG_HOME}/myapp/config.yaml", "${HOME}/.myapprc"]},
-    ]
-}
-```
+<Snippet id="dependencies/filepaths-envvars" />
 
 ## Permission Checks
 
@@ -81,206 +59,55 @@ Check for specific file permissions:
 
 ### Readable
 
-```cue
-depends_on: {
-    filepaths: [
-        {alternatives: ["secrets.env"], readable: true}
-    ]
-}
-```
+<Snippet id="dependencies/filepaths-readable" />
 
 ### Writable
 
-```cue
-depends_on: {
-    filepaths: [
-        {alternatives: ["./output", "./dist"], writable: true}
-    ]
-}
-```
+<Snippet id="dependencies/filepaths-writable" />
 
 ### Executable
 
-```cue
-depends_on: {
-    filepaths: [
-        {alternatives: ["./scripts/deploy.sh"], executable: true}
-    ]
-}
-```
+<Snippet id="dependencies/filepaths-executable" />
 
 ### Combined Permissions
 
-```cue
-depends_on: {
-    filepaths: [
-        // Script must be readable AND executable
-        {
-            alternatives: ["./scripts/run.sh"]
-            readable: true
-            executable: true
-        }
-    ]
-}
-```
+<Snippet id="dependencies/filepaths-combined-permissions" />
 
 ## Directories vs Files
 
 Filepath checks work for both files and directories:
 
-```cue
-depends_on: {
-    filepaths: [
-        // Check for a file
-        {alternatives: ["package.json"]},
-        
-        // Check for a directory
-        {alternatives: ["node_modules"]},
-        
-        // Check directory is writable
-        {alternatives: ["./build"], writable: true},
-    ]
-}
-```
+<Snippet id="dependencies/filepaths-dirs-vs-files" />
 
 ## Real-World Examples
 
 ### Go Project
 
-```cue
-{
-    name: "build"
-    depends_on: {
-        filepaths: [
-            {alternatives: ["go.mod"]},
-            {alternatives: ["go.sum"]},
-            {alternatives: ["cmd/main.go", "main.go"]},
-        ]
-    }
-    implementations: [{
-        script: "go build ./..."
-        runtimes: [{name: "native"}]
-    }]
-}
-```
+<Snippet id="dependencies/filepaths-go-project" />
 
 ### Node.js Project
 
-```cue
-{
-    name: "build"
-    depends_on: {
-        filepaths: [
-            {alternatives: ["package.json"]},
-            // Any lock file is fine
-            {alternatives: ["pnpm-lock.yaml", "package-lock.json", "yarn.lock"]},
-            // Dependencies must be installed
-            {alternatives: ["node_modules"]},
-        ]
-    }
-    implementations: [{
-        script: "npm run build"
-        runtimes: [{name: "native"}]
-    }]
-}
-```
+<Snippet id="dependencies/filepaths-nodejs-project" />
 
 ### Docker Build
 
-```cue
-{
-    name: "docker-build"
-    depends_on: {
-        filepaths: [
-            // Need either Dockerfile or Containerfile
-            {alternatives: ["Dockerfile", "Containerfile"]},
-            // And a build script
-            {alternatives: ["scripts/build.sh"], executable: true},
-        ]
-    }
-    implementations: [{
-        script: "docker build -t myapp ."
-        runtimes: [{name: "native"}]
-    }]
-}
-```
+<Snippet id="dependencies/filepaths-docker-build" />
 
 ### Configuration Files
 
-```cue
-{
-    name: "deploy"
-    depends_on: {
-        filepaths: [
-            // Check for config in order of preference
-            {
-                alternatives: [
-                    "./config/production.yaml",
-                    "./config/default.yaml",
-                    "${HOME}/.myapp/config.yaml"
-                ]
-                readable: true
-            },
-            // Writable output directory
-            {alternatives: ["./deploy-output"], writable: true},
-        ]
-    }
-    implementations: [{
-        script: "./scripts/deploy.sh"
-        runtimes: [{name: "native"}]
-    }]
-}
-```
+<Snippet id="dependencies/filepaths-config-files" />
 
 ## Container Context
 
 For container runtime, filepath checks are validated **inside the container**:
 
-```cue
-{
-    name: "build"
-    implementations: [{
-        script: "go build ./..."
-        runtimes: [{name: "container", image: "golang:1.26"}]
-        depends_on: {
-            filepaths: [
-                // These are checked INSIDE the container
-                // /workspace is where your project is mounted
-                {alternatives: ["/workspace/go.mod"]},
-                {alternatives: ["/workspace/go.sum"]},
-            ]
-        }
-    }]
-}
-```
+<Snippet id="dependencies/filepaths-container" />
 
 ## Platform-Specific Paths
 
 Use multiple implementations for platform-specific paths:
 
-```cue
-{
-    name: "read-config"
-    implementations: [
-        {
-            script: "cat $CONFIG_PATH"
-            runtimes: [{name: "native"}]
-            platforms: [{name: "linux"}]
-            depends_on: {
-                filepaths: [{alternatives: ["/etc/myapp/config.yaml"]}]
-            }
-        },
-        {
-            script: "cat $CONFIG_PATH"
-            runtimes: [{name: "native"}]
-            platforms: [{name: "macos"}]
-            depends_on: {
-                filepaths: [{alternatives: ["/usr/local/etc/myapp/config.yaml"]}]
-            }
-        }
-    ]
-}
-```
+<Snippet id="dependencies/filepaths-platform" />
 
 ## Error Messages
 

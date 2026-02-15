@@ -3,6 +3,7 @@ sidebar_position: 6
 ---
 
 import Diagram from '@site/src/components/Diagram';
+import Snippet from '@site/src/components/Snippet';
 
 # Fluxograma de Precedência de Descoberta
 
@@ -38,20 +39,7 @@ Quando o mesmo nome de comando existe em múltiplos locais:
 
 ### Campos Obrigatórios do Módulo
 
-```cue
-// invowkmod.cue
-module: "com.example.mymodule"  // Convenção de nomenclatura RDNS
-version: "1.0.0"                // Versão semântica
-
-// Opcional
-description: "My useful module"
-requires: [
-    {
-        git: "https://github.com/org/repo.git"
-        version: "v1.0.0"
-    }
-]
-```
+<Snippet id="architecture/discovery-module-fields" />
 
 ## Resolução de Dependências
 
@@ -72,18 +60,13 @@ requires: [
 
 ## Configuração de Includes
 
-Invowkfiles e módulos adicionais são configurados em `~/.config/invowk/config.cue`:
+Módulos adicionais são configurados em `~/.config/invowk/config.cue`:
 
-```cue
-includes: [
-    {path: "/opt/company-invowk-modules/tools.invowkmod"},
-    {path: "/home/shared/invowk/invowkfile.cue"},
-]
-```
+<Snippet id="architecture/discovery-includes-config" />
 
 ### Ordem de Processamento de Entradas
 
-<Diagram id="architecture/discovery-search-paths" />
+<Diagram id="architecture/discovery-includes" />
 
 ## Cache de Descoberta
 

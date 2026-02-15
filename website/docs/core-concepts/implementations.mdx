@@ -87,28 +87,7 @@ Invowk™ automatically selects the right implementation for the current platfor
 
 ### Combined Platform + Runtime
 
-```cue
-{
-    name: "build"
-    implementations: [
-        // Linux/macOS with multiple runtime options
-        {
-            script: "make build"
-            runtimes: [
-                {name: "native"},
-                {name: "container", image: "ubuntu:22.04"}
-            ]
-            platforms: [{name: "linux"}, {name: "macos"}]
-        },
-        // Windows native only
-        {
-            script: "msbuild /p:Configuration=Release"
-            runtimes: [{name: "native"}]
-            platforms: [{name: "windows"}]
-        }
-    ]
-}
-```
+<Snippet id="implementations/combined-platform-runtime" />
 
 ## Platform-Specific Environment
 

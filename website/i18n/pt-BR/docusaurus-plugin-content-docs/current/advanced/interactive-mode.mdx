@@ -123,28 +123,10 @@ invowk cmd myproject build -i -r container
 
 Dentro dos scripts do seu container, você pode usar todos os componentes TUI:
 
-```cue
-{
-    name: "deploy"
-    implementations: [{
-        script: """
-            # Componentes TUI funcionam dentro de containers!
-            ENV=$(invowk tui choose "Selecione o ambiente" "dev" "staging" "prod")
-            
-            if invowk tui confirm "Deploy em $ENV?"; then
-                ./deploy.sh "$ENV"
-            fi
-            """
-        runtimes: [{
-            name: "container"
-            image: "debian:stable-slim"
-        }]
-    }]
-}
-```
+<Snippet id="interactive/container-tui-example" />
 
 :::warning Apenas Containers Linux
-Imagens baseadas em Alpine não são suportadas devido a incompatibilidades do shell BusyBox. Use Debian, Ubuntu, ou imagens sem o sufixo `-alpine`.
+Imagens baseadas em Alpine não são suportadas — ambientes baseados em musl possuem diferenças comportamentais sutis que reduzem a confiabilidade do runtime. Use imagens baseadas em Debian (ex: `debian:stable-slim`) ou imagens específicas de linguagem (ex: `python:3-slim`).
 :::
 
 ## Boas Práticas
@@ -161,46 +143,13 @@ Imagens baseadas em Alpine não são suportadas devido a incompatibilidades do s
 
 ### Script de Deploy
 
-```cue
-{
-    name: "deploy"
-    description: "Deploy com confirmações"
-    implementations: [{
-        script: """
-            echo "Fazendo deploy em produção..."
-            
-            # Este prompt de sudo funciona porque estamos no modo interativo
-            sudo systemctl restart myapp
-            
-            echo "Deploy concluído!"
-            """
-        runtimes: [{name: "native"}]
-    }]
-}
-```
+<Snippet id="interactive/deploy-example" />
 
 Execute com: `invowk cmd myproject deploy -i`
 
 ### Migração de Banco de Dados
 
-```cue
-{
-    name: "db migrate"
-    description: "Executar migrações do banco de dados"
-    implementations: [{
-        script: """
-            echo "=== Migração de Banco de Dados ==="
-            
-            # Confirmação interativa
-            if invowk tui confirm "Aplicar migrações em produção?"; then
-                # Prompt de senha funciona no modo interativo
-                psql -h prod-db -U admin -W -f migrations.sql
-            fi
-            """
-        runtimes: [{name: "native"}]
-    }]
-}
-```
+<Snippet id="interactive/db-migrate-example" />
 
 ## Próximos Passos
 

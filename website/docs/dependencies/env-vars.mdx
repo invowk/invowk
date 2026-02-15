@@ -29,17 +29,7 @@ Set the required environment variables and try again.
 
 Require one of multiple variables:
 
-```cue
-depends_on: {
-    env_vars: [
-        // Either AWS_ACCESS_KEY_ID OR AWS_PROFILE
-        {alternatives: [
-            {name: "AWS_ACCESS_KEY_ID"},
-            {name: "AWS_PROFILE"}
-        ]}
-    ]
-}
-```
+<Snippet id="dependencies/env-vars-alternatives" />
 
 The dependency is satisfied if **any** alternative exists.
 
@@ -47,17 +37,7 @@ The dependency is satisfied if **any** alternative exists.
 
 Validate the variable's value matches a pattern:
 
-```cue
-depends_on: {
-    env_vars: [
-        // Must be set AND match semver format
-        {alternatives: [{
-            name: "VERSION"
-            validation: "^[0-9]+\\.[0-9]+\\.[0-9]+$"
-        }]}
-    ]
-}
-```
+<Snippet id="dependencies/env-vars-regex" />
 
 If the value doesn't match:
 
@@ -87,209 +67,57 @@ This ensures you're validating against the user's actual environment, not variab
 
 ### AWS Credentials
 
-```cue
-{
-    name: "deploy"
-    description: "Deploy to AWS"
-    depends_on: {
-        env_vars: [
-            // Need either access key or profile
-            {alternatives: [
-                {name: "AWS_ACCESS_KEY_ID"},
-                {name: "AWS_PROFILE"}
-            ]},
-            // Region is required
-            {alternatives: [{name: "AWS_REGION"}]}
-        ]
-        tools: [{alternatives: ["aws"]}]
-    }
-    implementations: [{
-        script: "aws s3 sync ./dist s3://my-bucket"
-        runtimes: [{name: "native"}]
-    }]
-}
-```
+<Snippet id="dependencies/env-vars-aws" />
 
 ### Database Connection
 
-```cue
-{
-    name: "db migrate"
-    description: "Run database migrations"
-    depends_on: {
-        env_vars: [
-            {alternatives: [{
-                name: "DATABASE_URL"
-                // Validate it looks like a connection string
-                validation: "^postgres(ql)?://.*$"
-            }]}
-        ]
-        tools: [{alternatives: ["migrate", "goose"]}]
-    }
-    implementations: [{
-        script: "migrate -path ./migrations -database $DATABASE_URL up"
-        runtimes: [{name: "native"}]
-    }]
-}
-```
+<Snippet id="dependencies/env-vars-database" />
 
 ### API Keys
 
-```cue
-{
-    name: "publish"
-    description: "Publish package to registry"
-    depends_on: {
-        env_vars: [
-            // NPM token for publishing
-            {alternatives: [{name: "NPM_TOKEN"}]},
-        ]
-        tools: [{alternatives: ["npm"]}]
-    }
-    implementations: [{
-        script: """
-            echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc
-            npm publish
-            """
-        runtimes: [{name: "native"}]
-    }]
-}
-```
+<Snippet id="dependencies/env-vars-api-keys" />
 
 ### Environment-Specific Config
 
-```cue
-{
-    name: "deploy"
-    description: "Deploy to target environment"
-    depends_on: {
-        env_vars: [
-            // DEPLOY_ENV must be one of: dev, staging, prod
-            {alternatives: [{
-                name: "DEPLOY_ENV"
-                validation: "^(dev|staging|prod)$"
-            }]}
-        ]
-    }
-    implementations: [{
-        script: """
-            echo "Deploying to $DEPLOY_ENV..."
-            ./scripts/deploy-$DEPLOY_ENV.sh
-            """
-        runtimes: [{name: "native"}]
-    }]
-}
-```
+<Snippet id="dependencies/env-vars-env-config" />
 
 ### Version Validation
 
-```cue
-{
-    name: "release"
-    description: "Create a release"
-    depends_on: {
-        env_vars: [
-            // Version must be semantic
-            {alternatives: [{
-                name: "VERSION"
-                validation: "^v?[0-9]+\\.[0-9]+\\.[0-9]+(-[a-zA-Z0-9]+)?$"
-            }]},
-            // Git tag message
-            {alternatives: [{name: "RELEASE_NOTES"}]}
-        ]
-    }
-    implementations: [{
-        script: """
-            git tag -a "$VERSION" -m "$RELEASE_NOTES"
-            git push origin "$VERSION"
-            """
-        runtimes: [{name: "native"}]
-    }]
-}
-```
+<Snippet id="dependencies/env-vars-version" />
 
 ## Common Validation Patterns
 
 ### Semantic Version
 
-```cue
-validation: "^[0-9]+\\.[0-9]+\\.[0-9]+$"
-// Matches: 1.0.0, 2.1.3
-// Rejects: v1.0.0, 1.0, latest
-```
+<Snippet id="dependencies/env-vars-pattern-semver" />
 
 ### URL
 
-```cue
-validation: "^https?://[^\\s]+$"
-// Matches: http://localhost, https://example.com/path
-// Rejects: ftp://server, not-a-url
-```
+<Snippet id="dependencies/env-vars-pattern-url" />
 
 ### Email-like
 
-```cue
-validation: "^[^@]+@[^@]+\\.[^@]+$"
-// Matches: user@example.com
-// Rejects: invalid, @example.com
-```
+<Snippet id="dependencies/env-vars-pattern-email" />
 
 ### Alphanumeric ID
 
-```cue
-validation: "^[a-zA-Z0-9_-]+$"
-// Matches: my-project_123, ABC
-// Rejects: my project, name@here
-```
+<Snippet id="dependencies/env-vars-pattern-alphanum" />
 
 ### AWS Region
 
-```cue
-validation: "^[a-z]{2}-[a-z]+-[0-9]+$"
-// Matches: us-east-1, eu-west-2
-// Rejects: US-EAST-1, us_east_1
-```
+<Snippet id="dependencies/env-vars-pattern-aws-region" />
 
 ## Multiple Requirements
 
 Combine multiple env var checks (AND logic):
 
-```cue
-depends_on: {
-    env_vars: [
-        // Need API_KEY AND API_SECRET AND API_URL
-        {alternatives: [{name: "API_KEY"}]},
-        {alternatives: [{name: "API_SECRET"}]},
-        {alternatives: [{
-            name: "API_URL"
-            validation: "^https://.*$"
-        }]},
-    ]
-}
-```
+<Snippet id="dependencies/env-vars-multiple" />
 
 ## Important: User Environment Only
 
 Environment variable dependencies check the **user's environment**, not variables set by Invowk:
 
-```cue
-{
-    name: "example"
-    env: {
-        vars: {
-            // This is set by Invowk during execution
-            MY_VAR: "value"
-        }
-    }
-    depends_on: {
-        env_vars: [
-            // This checks the USER's environment, BEFORE Invowk sets MY_VAR
-            // So it will fail if the user hasn't set MY_VAR themselves
-            {alternatives: [{name: "MY_VAR"}]}
-        ]
-    }
-}
-```
+<Snippet id="dependencies/env-vars-user-env" />
 
 This is intentional - you're validating what the user has configured, not what your command will set.
 

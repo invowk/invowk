@@ -18,9 +18,10 @@ A dynamically extensible, CLI-based command runner similar to [just](https://git
 - **Command Dependencies**: Commands can require other commands to be discoverable
 
 - **Multiple Command Sources**: Discover commands from:
-  1. Current directory (`invowkfile.cue` + sibling `*.invowkmod` modules, highest priority)
-  2. Configured includes (module paths from config)
-  3. `~/.invowk/cmds/` (modules only, non-recursive)
+  1. Current directory `invowkfile.cue` (highest priority)
+  2. Sibling `*.invowkmod` modules in current directory
+  3. Configured includes (module paths from config)
+  4. `~/.invowk/cmds/` (modules only, non-recursive)
 
 - **Transparent Namespace**: Commands from different sources use simple names when unique. When command names conflict across sources, use `@<source>` prefix or `--ivk-from` flag to disambiguate
 
@@ -65,6 +66,14 @@ $env:INSTALL_DIR='C:\tools\invowk'; $env:INVOWK_VERSION='v1.0.0'; irm https://ra
 brew install invowk/tap/invowk
 ```
 
+### WinGet (Windows)
+
+```powershell
+winget install Invowk.Invowk
+```
+
+To upgrade: `winget upgrade Invowk.Invowk`
+
 ### Go Install
 
 ```bash
@@ -108,6 +117,8 @@ Upgrade using the same method you used to install:
 
 - **Homebrew**: `brew upgrade invowk`
 
+- **WinGet**: `winget upgrade Invowk.Invowk`
+
 - **Go install**: `go install github.com/invowk/invowk@latest`
 
 - **From source**: `git pull && make build && make install`
@@ -119,6 +130,7 @@ Upgrade using the same method you used to install:
 | Shell script | amd64, arm64 | amd64 (Intel), arm64 (Apple Silicon) | — |
 | PowerShell script | — | — | amd64 |
 | Homebrew | amd64, arm64 | amd64, arm64 | — |
+| WinGet | — | — | amd64 |
 | Go install | all | all | all |
 | From source | all | all | all |
 
@@ -384,10 +396,12 @@ module: "my.nested.module"   // Nested module using dot notation (RDNS style)
 
 ### How Multi-Source Discovery Works
 
-When you run `invowk cmd` in a directory, invowk discovers commands from **multiple sources**:
+When you run `invowk cmd` in a directory, invowk discovers commands from **4 sources** in priority order:
 
-1. **Root invowkfile**: `invowkfile.cue` in the current directory
+1. **Root invowkfile**: `invowkfile.cue` in the current directory (highest priority)
 2. **Sibling modules**: All `*.invowkmod` directories at the same level (not their dependencies)
+3. **Configured includes**: Module paths listed in `includes` in your config file
+4. **User directory**: `~/.invowk/cmds/` (modules only, non-recursive)
 
 Commands from all sources are aggregated and displayed with their **simple names**. The transparent namespace system means you don't need module prefixes unless there's a naming conflict.
 
@@ -420,10 +434,10 @@ invowk cmd @tools deploy              # Run deploy from tools.invowkmod
 invowk cmd @tools.invowkmod deploy      # Full name also works
 ```
 
-**Using `--ivk-from` flag** (must appear after `invowk cmd`):
+**Using `--ivk-from` / `-f` flag** (must appear after `invowk cmd`):
 ```bash
 invowk cmd --ivk-from invowkfile deploy
-invowk cmd --ivk-from tools deploy
+invowk cmd -f tools deploy  # short alias
 ```
 
 If you try to run an ambiguous command without disambiguation, invowk shows an error with available sources:
@@ -675,7 +689,7 @@ depends_on: {
 			name: "go-version"
 			check_script: "go version"
 			expected_code: 0
-			expected_output: "go1\\.2[1-9]"  // Must be Go 1.21+
+			expected_output: "go1\\.2[6-9]"  // Must be Go 1.26+
 		},
 
 		// Alternatives (OR semantics)
@@ -1915,9 +1929,10 @@ Import Module
 ### Using Modules
 
 Modules are automatically discovered and loaded from all configured sources:
-1. Current directory (invowkfile and sibling modules, highest priority)
-2. Configured includes (module paths from config)
-3. `~/.invowk/cmds/` (modules only, non-recursive)
+1. Current directory `invowkfile.cue` (highest priority)
+2. Sibling `*.invowkmod` modules in current directory
+3. Configured includes (module paths from config)
+4. `~/.invowk/cmds/` (modules only, non-recursive)
 
 When invowk discovers a module, it:
 - Validates the module structure and naming
@@ -1925,7 +1940,7 @@ When invowk discovers a module, it:
 - Resolves script paths relative to the module root
 - Makes all commands available with their module prefix
 
-Commands from modules appear in `invowk cmd` with the source indicated as "module":
+Commands from modules appear in `invowk cmd` with the source indicated as "module".
 
 ## Module Dependencies
 
@@ -2269,6 +2284,24 @@ invowk config init
 invowk config show
 ```
 
+### Show Config File Path
+
+```bash
+invowk config path
+```
+
+### Set a Configuration Value
+
+```bash
+invowk config set <key> <value>
+```
+
+### Dump Raw Configuration
+
+```bash
+invowk config dump
+```
+
 ### Configuration Options
 
 ```cue
@@ -2293,6 +2326,7 @@ virtual_shell: {
 container: {
   auto_provision: {
     enabled: true                         // Enable/disable auto-provisioning of invowk into containers (default: true)
+    strict: false                         // Hard error on provisioning failure instead of warning (default: false)
     binary_path: "/usr/local/bin/invowk"  // Override path to invowk binary to provision (optional)
     includes: [{path: "/extra/modules.invowkmod"}] // Modules to provision into containers (optional)
     inherit_includes: true                // Inherit root-level includes for provisioning (default: true)
@@ -2365,6 +2399,8 @@ invowk cmd test unit
 ### Override Runtime
 ```bash
 invowk cmd build --ivk-runtime virtual
+# or
+invowk cmd build -r virtual
 ```
 
 ### Force Container Image Rebuild
@@ -2375,6 +2411,8 @@ invowk cmd build --ivk-force-rebuild
 ### Verbose Mode
 ```bash
 invowk --ivk-verbose cmd build
+# or
+invowk -v cmd build
 ```
 
 ### Interactive Mode (Alternate Screen Buffer)
@@ -2387,23 +2425,30 @@ invowk -i cmd build
 ### Override Config File
 ```bash
 invowk --ivk-config /path/to/custom/config.cue cmd build
+# or
+invowk -c /path/to/custom/config.cue cmd build
 ```
 
 ### Environment Overrides
 ```bash
 # Load additional env file at runtime
 invowk cmd deploy --ivk-env-file .env.production
+invowk cmd deploy -e .env.production  # short alias
 
 # Set an environment variable
 invowk cmd deploy --ivk-env-var API_KEY=secret123
+invowk cmd deploy -E API_KEY=secret123  # short alias
 
-# Control host environment inheritance
+# Control host environment inheritance (allowlist/denylist)
 invowk cmd build --ivk-env-inherit-mode allow --ivk-env-inherit-allow TERM --ivk-env-inherit-allow LANG
+invowk cmd build --ivk-env-inherit-mode deny --ivk-env-inherit-deny AWS_SECRET_ACCESS_KEY
 ```
 
 ### Override Working Directory
 ```bash
 invowk cmd test --ivk-workdir ./packages/api
+# or
+invowk cmd test -w ./packages/api
 ```
 
 ## Interactive TUI Components
@@ -2653,6 +2698,9 @@ invowk/
 │   ├── cmd.go                  # cmd subcommand (command execution)
 │   ├── cmd_discovery.go        # Dynamic command registration and discovery
 │   ├── cmd_execute.go          # Command execution pipeline
+│   ├── cmd_execute_helpers.go  # Execution helpers (runtime registry, disambiguation)
+│   ├── cmd_execute_error_classifier.go  # Error-to-issue-ID mapping
+│   ├── service_error.go        # ServiceError type and rendering
 │   ├── module.go               # module subcommand tree
 │   ├── init.go                 # init command
 │   ├── config.go               # config commands
@@ -2676,9 +2724,15 @@ invowk/
 │   └── uroot/                  # u-root utilities for virtual shell built-ins
 ├── pkg/
 │   ├── cueutil/                # Shared CUE parsing utilities
-│   ├── invowkmod/                # Module validation and structure
-│   ├── invowkfile/               # Invowkfile parsing and validation
+│   ├── invowkmod/              # Module validation and structure
+│   ├── invowkfile/             # Invowkfile parsing and validation
 │   └── platform/               # Cross-platform utilities
+├── tests/cli/                  # CLI integration tests (testscript .txtar files)
+├── modules/                    # Sample invowk modules for validation
+├── scripts/                    # Build, install, and release scripts
+├── specs/                      # Feature specifications and research
+├── docs/                       # Architecture diagrams and design docs
+└── website/                    # Docusaurus documentation site
 ```
 
 ## Dependencies
@@ -2688,6 +2742,7 @@ invowk/
 - [Viper](https://github.com/spf13/viper) - Configuration management
 - [CUE](https://cuelang.org/) - Configuration language
 - [mvdan/sh](https://github.com/mvdan/sh) - Virtual shell interpreter
+- [Fang](https://github.com/charmbracelet/fang) - Signal handling and graceful shutdown
 
 **TUI & Styling:**
 - [Lip Gloss](https://github.com/charmbracelet/lipgloss) - Terminal styling

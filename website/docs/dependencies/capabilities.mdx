@@ -38,13 +38,7 @@ Ensure the required capabilities are available and try again.
 
 Check for working internet access:
 
-```cue
-depends_on: {
-    capabilities: [
-        {alternatives: ["internet"]}
-    ]
-}
-```
+<Snippet id="dependencies/capabilities-internet" />
 
 This checks:
 - DNS resolution is working
@@ -53,55 +47,13 @@ This checks:
 
 ### Use Cases
 
-```cue
-// Download dependencies
-{
-    name: "deps"
-    depends_on: {
-        capabilities: [{alternatives: ["internet"]}]
-    }
-    implementations: [{
-        script: "go mod download"
-        runtimes: [{name: "native"}]
-    }]
-}
-
-// Deploy to cloud
-{
-    name: "deploy"
-    depends_on: {
-        capabilities: [{alternatives: ["internet"]}]
-    }
-    implementations: [{
-        script: "kubectl apply -f k8s/"
-        runtimes: [{name: "native"}]
-    }]
-}
-
-// Fetch remote data
-{
-    name: "sync"
-    depends_on: {
-        capabilities: [{alternatives: ["internet"]}]
-    }
-    implementations: [{
-        script: "curl -o data.json https://api.example.com/data"
-        runtimes: [{name: "native"}]
-    }]
-}
-```
+<Snippet id="dependencies/capabilities-internet-usecases" />
 
 ## Local Area Network
 
 Check for LAN connectivity:
 
-```cue
-depends_on: {
-    capabilities: [
-        {alternatives: ["local-area-network"]}
-    ]
-}
-```
+<Snippet id="dependencies/capabilities-lan" />
 
 This checks:
 - Network interface is up
@@ -110,31 +62,7 @@ This checks:
 
 ### Use Cases
 
-```cue
-// Connect to local database
-{
-    name: "db connect"
-    depends_on: {
-        capabilities: [{alternatives: ["local-area-network"]}]
-    }
-    implementations: [{
-        script: "psql -h db.local -U admin"
-        runtimes: [{name: "native"}]
-    }]
-}
-
-// Access local services
-{
-    name: "check services"
-    depends_on: {
-        capabilities: [{alternatives: ["local-area-network"]}]
-    }
-    implementations: [{
-        script: "curl http://service.local:8080/health"
-        runtimes: [{name: "native"}]
-    }]
-}
-```
+<Snippet id="dependencies/capabilities-lan-usecases" />
 
 ## Container Engine
 
@@ -168,14 +96,7 @@ Use this for interactive prompts, TUI components, or scripts that require keyboa
 
 Require either capability:
 
-```cue
-depends_on: {
-    capabilities: [
-        // Either internet OR LAN is fine
-        {alternatives: ["internet", "local-area-network"]}
-    ]
-}
-```
+<Snippet id="dependencies/capabilities-alternatives" />
 
 This is useful when a command can work with either:
 - Remote cloud services (internet)
@@ -185,123 +106,27 @@ This is useful when a command can work with either:
 
 ### Package Installation
 
-```cue
-{
-    name: "install"
-    description: "Install project dependencies"
-    depends_on: {
-        capabilities: [{alternatives: ["internet"]}]
-        tools: [{alternatives: ["npm", "pnpm", "yarn"]}]
-    }
-    implementations: [{
-        script: "npm install"
-        runtimes: [{name: "native"}]
-    }]
-}
-```
+<Snippet id="dependencies/capabilities-package-install" />
 
 ### CI Pipeline
 
-```cue
-{
-    name: "ci"
-    description: "Run CI pipeline with remote checks"
-    depends_on: {
-        capabilities: [
-            {alternatives: ["internet"]}  // For dependency download
-        ]
-        tools: [
-            {alternatives: ["go"]},
-            {alternatives: ["git"]},
-        ]
-    }
-    implementations: [{
-        script: """
-            go mod download
-            go build ./...
-            go test ./...
-            """
-        runtimes: [{name: "native"}]
-    }]
-}
-```
+<Snippet id="dependencies/capabilities-ci-pipeline" />
 
 ### Hybrid Environment
 
-```cue
-{
-    name: "backup"
-    description: "Backup to available storage"
-    depends_on: {
-        // Can backup to cloud (internet) or NAS (LAN)
-        capabilities: [{alternatives: ["internet", "local-area-network"]}]
-    }
-    implementations: [{
-        script: """
-            if ping -c 1 nas.local > /dev/null 2>&1; then
-                rsync -av ./data nas.local:/backup/
-            else
-                aws s3 sync ./data s3://my-backup-bucket/
-            fi
-            """
-        runtimes: [{name: "native"}]
-    }]
-}
-```
+<Snippet id="dependencies/capabilities-hybrid" />
 
 ## Offline-First Pattern
 
 Design commands that work offline when possible:
 
-```cue
-cmds: [
-    // Online version - downloads latest
-    {
-        name: "update deps"
-        depends_on: {
-            capabilities: [{alternatives: ["internet"]}]
-        }
-        implementations: [{
-            script: "go mod download"
-            runtimes: [{name: "native"}]
-        }]
-    },
-    
-    // Offline version - uses cache
-    {
-        name: "build"
-        // No internet requirement - uses cached dependencies
-        depends_on: {
-            filepaths: [{alternatives: ["go.mod"]}]
-        }
-        implementations: [{
-            script: "go build -mod=readonly ./..."
-            runtimes: [{name: "native"}]
-        }]
-    }
-]
-```
+<Snippet id="dependencies/capabilities-offline-first" />
 
 ## Container Context
 
 For container runtime, capability checks are performed on the **host**, not inside the container:
 
-```cue
-{
-    name: "deploy"
-    depends_on: {
-        // Internet check happens on HOST
-        capabilities: [{alternatives: ["internet"]}]
-    }
-    implementations: [{
-        script: """
-            apt-get update && apt-get install -y kubectl
-            kubectl apply -f k8s/
-            """
-        runtimes: [{name: "container", image: "debian:stable-slim"}]
-    }]
-}
-```
+<Snippet id="dependencies/capabilities-container-context" />
 
 This makes sense because:
 - Container networking inherits from host

@@ -100,22 +100,7 @@ Dependencies are validated according to the runtime:
 
 This is powerful for container commands:
 
-```cue
-{
-    name: "build"
-    implementations: [
-        {
-            script: "go build ./..."
-            runtimes: [{name: "container", image: "golang:1.26"}]
-            depends_on: {
-                // Checked INSIDE the container, not on host
-                tools: [{alternatives: ["go"]}]
-                filepaths: [{alternatives: ["/workspace/go.mod"]}]
-            }
-        }
-    ]
-}
-```
+<Snippet id="dependencies/overview-runtime-aware" />
 
 ## Error Messages
 

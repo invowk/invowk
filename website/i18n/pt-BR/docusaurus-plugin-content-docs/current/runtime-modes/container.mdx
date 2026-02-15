@@ -11,7 +11,7 @@ import Snippet from '@site/src/components/Snippet';
 O runtime container **suporta apenas imagens de container Linux baseadas em Debian** (ex: `debian:stable-slim`).
 
 **NÃO suportado:**
-- **Imagens baseadas em Alpine** (`alpine:*`, `*-alpine`) — O shell `ash` do BusyBox tem incompatibilidades
+- **Imagens baseadas em Alpine** — Ambientes baseados em musl possuem diferenças comportamentais sutis que reduzem a confiabilidade do runtime. Apenas imagens com nome exato `alpine` ou terminando com `/alpine` (após remover tags/digests) são rejeitadas. Imagens como `go-alpine-builder` ou `myorg/alpine-tools` NÃO são rejeitadas.
 - **Imagens de container Windows** (`mcr.microsoft.com/windows/*`) — Não há shell POSIX disponível
 
 **Requisitos de plataforma:**
@@ -48,19 +48,13 @@ Você deve especificar ou uma `image` ou um `containerfile` - eles são mutuamen
 
 ### Imagens Pré-construídas
 
-```cue
-runtimes: [{
-    name: "container"
-    image: "golang:1.26"
-}]
-```
+<Snippet id="runtime-modes/container-prebuilt-image" />
 
 Imagens comuns:
-- `debian:stable-slim` - Debian mínimo
-- `ubuntu:22.04` - Ubuntu completo
+- `debian:stable-slim` - Debian mínimo (imagem base recomendada)
 - `golang:1.26` - Desenvolvimento Go
 - `node:20` - Desenvolvimento Node.js
-- `python:3.11-slim` - Desenvolvimento Python
+- `python:3-slim` - Desenvolvimento Python
 
 
 ### Containerfile Personalizado
@@ -77,17 +71,7 @@ Exemplo de `Containerfile`:
 
 Monte diretórios adicionais no container:
 
-```cue
-runtimes: [{
-    name: "container"
-    image: "golang:1.26"
-    volumes: [
-        "./data:/data",           // Caminho relativo
-        "/tmp:/tmp:ro",           // Caminho absoluto, somente leitura
-        "${HOME}/.cache:/cache"   // Variável de ambiente
-    ]
-}]
-```
+<Snippet id="runtime-modes/container-volumes-full" />
 
 O diretório de trabalho atual é automaticamente montado em `/workspace`.
 
@@ -103,22 +87,7 @@ Como o runtime native, containers suportam interpretadores personalizados:
 
 ### Auto-Detecção pelo Shebang
 
-```cue
-{
-    name: "analyze"
-    implementations: [{
-        script: """
-            #!/usr/bin/env python3
-            import sys
-            print(f"Python {sys.version} in container!")
-            """
-        runtimes: [{
-            name: "container"
-            image: "python:3.11"
-        }]
-    }]
-}
-```
+<Snippet id="runtime-modes/container-shebang" />
 
 ### Interpretador Explícito
 
@@ -128,27 +97,7 @@ Como o runtime native, containers suportam interpretadores personalizados:
 
 Variáveis de ambiente são passadas para o container:
 
-```cue
-{
-    name: "deploy"
-    env: {
-        vars: {
-            DEPLOY_ENV: "production"
-            API_URL: "https://api.example.com"
-        }
-    }
-    implementations: [{
-        script: """
-            echo "Deploying to $DEPLOY_ENV"
-            echo "API: $API_URL"
-            """
-        runtimes: [{
-            name: "container"
-            image: "debian:stable-slim"
-        }]
-    }]
-}
-```
+<Snippet id="runtime-modes/container-env-vars" />
 
 ## Acesso SSH ao Host
 
@@ -162,6 +111,7 @@ Quando `enable_host_ssh: true`, estas variáveis estão disponíveis:
 
 | Variável | Descrição |
 |----------|-----------|
+| `INVOWK_SSH_ENABLED` | Definido como `true` quando o SSH está ativo |
 | `INVOWK_SSH_HOST` | Endereço do host (ex: `host.docker.internal`) |
 | `INVOWK_SSH_PORT` | Porta do servidor SSH |
 | `INVOWK_SSH_USER` | Nome de usuário (`invowk`) |
@@ -189,38 +139,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 Dependências de container são validadas **dentro do container**:
 
-```cue
-{
-    name: "build"
-    depends_on: {
-        tools: [
-            // Verificadas dentro do container, não no host
-            {alternatives: ["go"]},
-            {alternatives: ["make"]}
-        ]
-        filepaths: [
-            // Caminhos relativos ao /workspace do container
-            {alternatives: ["go.mod"]}
-        ]
-    }
-    implementations: [{
-        script: "make build"
-        runtimes: [{
-            name: "container"
-            image: "golang:1.26"
-        }]
-    }]
-}
-```
+<Snippet id="runtime-modes/container-dependencies" />
 
 ## Engine de Container
 
 O Invowk suporta tanto Docker quanto Podman. Configure sua preferência:
 
-```cue
-// ~/.config/invowk/config.cue
-container_engine: "podman"  // ou "docker"
-```
+<Snippet id="runtime-modes/container-engine-config" />
 
 Se não configurado, o Invowk tenta:
 1. `podman` (se disponível)
@@ -230,37 +155,11 @@ Se não configurado, o Invowk tenta:
 
 Por padrão, o diretório atual é montado em `/workspace` e usado como diretório de trabalho:
 
-```cue
-{
-    name: "build"
-    implementations: [{
-        script: """
-            pwd  # Saída: /workspace
-            ls   # Mostra os arquivos do seu projeto
-            """
-        runtimes: [{
-            name: "container"
-            image: "debian:stable-slim"
-        }]
-    }]
-}
-```
+<Snippet id="runtime-modes/container-workdir-default" />
 
 Sobrescreva com `workdir`:
 
-```cue
-{
-    name: "build frontend"
-    workdir: "./frontend"  // Montado e usado como workdir
-    implementations: [{
-        script: "npm run build"
-        runtimes: [{
-            name: "container"
-            image: "node:20"
-        }]
-    }]
-}
-```
+<Snippet id="runtime-modes/container-workdir-override" />
 
 ## Exemplo Completo
 
@@ -296,24 +195,7 @@ Quando você executa com `-i`, o Invowk:
 
 Isso significa que seus scripts podem usar comandos `invowk tui` dentro de containers:
 
-```cue
-{
-    name: "deploy container"
-    implementations: [{
-        script: """
-            # Este TUI confirm aparece como um overlay no seu terminal
-            if invowk tui confirm "Deploy em produção?"; then
-                echo "Fazendo deploy..."
-                ./deploy.sh
-            fi
-            """
-        runtimes: [{
-            name: "container"
-            image: "debian:stable-slim"
-        }]
-    }]
-}
-```
+<Snippet id="runtime-modes/container-interactive-tui" />
 
 :::tip
 A imagem provisionada é cacheada como `invowk-provisioned:<hash>`, então execuções subsequentes são rápidas.

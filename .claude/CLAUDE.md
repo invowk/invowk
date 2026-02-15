@@ -171,6 +171,7 @@ invowkfile.cue -> CUE Parser -> pkg/invowkfile -> Runtime Selection -> Execution
 
 **When writing tests, documentation, or examples:**
 - Always use `debian:stable-slim` as the reference container image.
+- Never use `ubuntu:*` or other non-`debian:stable-slim` base images. Language-specific images (`golang:1.26`, `python:3-slim`) are allowed when demonstrating language-specific runtimes.
 - Never use Alpine images.
 - Never use Windows container images (e.g., `mcr.microsoft.com/windows/*`).
 

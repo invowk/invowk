@@ -49,8 +49,8 @@ Módulos adicionais para incluir na descoberta de comandos. Cada entrada é um `
 **Ordem de Descoberta:**
 1. invowkfile do diretório atual (sempre buscado primeiro, maior prioridade)
 2. Módulos locais (`*.invowkmod` no diretório atual)
-3. `~/.invowk/cmds` (sempre incluído)
-4. Cada entrada em `includes` em ordem
+3. Cada entrada em `includes` em ordem
+4. `~/.invowk/cmds` (sempre incluído)
 
 Comandos de entradas anteriores sobrescrevem comandos com o mesmo nome de entradas posteriores.
 
@@ -74,8 +74,8 @@ Comandos podem sobrescrever este padrão especificando seu próprio runtime no c
 
 ### virtual_shell
 
-**Tipo:** `#VirtualShellConfig`  
-**Padrão:** `{}`
+**Tipo:** `#VirtualShellConfig`
+**Padrão:** `{enable_uroot_utils: true}`
 
 Configura o comportamento do virtual shell runtime.
 
@@ -86,16 +86,26 @@ Configura o comportamento do virtual shell runtime.
 **Tipo:** `bool`  
 **Padrão:** `true`
 
-Habilita utilitários u-root no virtual shell. Quando habilitado, comandos adicionais como `ls`, `cat`, `grep` e outros ficam disponíveis no ambiente virtual shell.
+Habilita utilitários [u-root](https://github.com/u-root/u-root) no virtual shell. Quando habilitado, 28 comandos adicionais compatíveis com POSIX ficam disponíveis:
+
+**Operações de Arquivo (14):** `base64`, `cat`, `cp`, `find`, `gzip`, `ln`, `ls`, `mkdir`, `mktemp`, `mv`, `realpath`, `rm`, `tar`, `touch`
+
+**Processamento de Texto (10):** `basename`, `cut`, `dirname`, `grep`, `head`, `sort`, `tail`, `tr`, `uniq`, `wc`
+
+**Outros Utilitários (4):** `seq`, `shasum`, `sleep`, `tee`
 
 <Snippet id="config/virtual-shell" />
 
-Isso é útil quando você quer que o virtual shell tenha mais capacidades além dos builtins básicos de shell, enquanto ainda evita execução de shell nativo.
+Isso torna o virtual shell autocontido, permitindo que scripts executem operações comuns de arquivo, texto e utilitários sem exigir binários externos no sistema host.
+
+:::tip
+Os utilitários u-root são habilitados por padrão. Defina como `false` apenas se você precisar forçar scripts a usar binários do sistema ou reduzir o tamanho do binário.
+:::
 
 ### ui
 
-**Tipo:** `#UIConfig`  
-**Padrão:** `{}`
+**Tipo:** `#UIConfig`
+**Padrão:** `{color_scheme: "auto"}`
 
 Configura as preferências de interface do usuário.
 
@@ -174,6 +184,13 @@ Módulos adicionais para provisionar dentro dos containers. Usa o mesmo formato 
 **Padrão:** `true`
 
 Quando `true`, as entradas de `includes` do nível raiz são automaticamente herdadas pelo auto-provisionamento. Defina como `false` para provisionar apenas os módulos listados explicitamente em `container.auto_provision.includes`.
+
+#### container.auto_provision.strict
+
+**Tipo:** `bool`
+**Padrão:** `false`
+
+Quando `true`, falhas de auto-provisionamento são tratadas como erros fatais ao invés de avisos. Por padrão, se o provisionamento falhar, o Invowk exibe um aviso e executa a imagem base. Com `strict: true`, o comando falha imediatamente em caso de falha de provisionamento.
 
 #### container.auto_provision.cache_dir
 

@@ -55,8 +55,8 @@ Dependências são validadas nesta ordem:
 2. **tools** - Binários no PATH
 3. **filepaths** - Arquivos e diretórios
 4. **capabilities** - Capacidades do sistema
-5. **cmds** - Outros comandos Invowk
-6. **custom_checks** - Scripts de validação personalizados
+5. **custom_checks** - Scripts de validação personalizados
+6. **cmds** - Outros comandos Invowk
 
 Variáveis de ambiente são validadas primeiro, antes do Invowk definir qualquer ambiente no nível do comando. Isso garante que você está verificando o ambiente real do usuário.
 
@@ -100,22 +100,7 @@ Dependências são validadas de acordo com o runtime:
 
 Isso é poderoso para comandos container:
 
-```cue
-{
-    name: "build"
-    implementations: [
-        {
-            script: "go build ./..."
-            runtimes: [{name: "container", image: "golang:1.26"}]
-            depends_on: {
-                // Verificado DENTRO do container, não no host
-                tools: [{alternatives: ["go"]}]
-                filepaths: [{alternatives: ["/workspace/go.mod"]}]
-            }
-        }
-    ]
-}
-```
+<Snippet id="dependencies/overview-runtime-aware" />
 
 ## Mensagens de Erro
 

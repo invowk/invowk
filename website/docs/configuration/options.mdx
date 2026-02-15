@@ -74,8 +74,8 @@ Commands can override this default by specifying their own runtime in the `imple
 
 ### virtual_shell
 
-**Type:** `#VirtualShellConfig`  
-**Default:** `{}`
+**Type:** `#VirtualShellConfig`
+**Default:** `{enable_uroot_utils: true}`
 
 Configures the virtual shell runtime behavior.
 
@@ -88,9 +88,9 @@ Configures the virtual shell runtime behavior.
 
 Enables [u-root](https://github.com/u-root/u-root) utilities in the virtual shell. When enabled, 28 additional POSIX-compliant commands become available:
 
-**File Operations (13):** `base64`, `cat`, `cp`, `find`, `gzip`, `ln`, `ls`, `mkdir`, `mktemp`, `mv`, `rm`, `tar`, `touch`
+**File Operations (14):** `base64`, `cat`, `cp`, `find`, `gzip`, `ln`, `ls`, `mkdir`, `mktemp`, `mv`, `realpath`, `rm`, `tar`, `touch`
 
-**Text Processing (11):** `basename`, `cut`, `dirname`, `grep`, `head`, `realpath`, `sort`, `tail`, `tr`, `uniq`, `wc`
+**Text Processing (10):** `basename`, `cut`, `dirname`, `grep`, `head`, `sort`, `tail`, `tr`, `uniq`, `wc`
 
 **Other Utilities (4):** `seq`, `shasum`, `sleep`, `tee`
 
@@ -104,8 +104,8 @@ u-root utilities are enabled by default. Set to `false` only if you need to forc
 
 ### ui
 
-**Type:** `#UIConfig`  
-**Default:** `{}`
+**Type:** `#UIConfig`
+**Default:** `{color_scheme: "auto"}`
 
 Configures the user interface settings.
 

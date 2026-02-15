@@ -31,16 +31,7 @@ Invowk™ checks alternatives in order and stops at the first match. This is use
 
 Each entry in `tools` is an AND requirement:
 
-```cue
-depends_on: {
-    tools: [
-        // Need (podman OR docker) AND kubectl AND helm
-        {alternatives: ["podman", "docker"]},
-        {alternatives: ["kubectl"]},
-        {alternatives: ["helm"]},
-    ]
-}
-```
+<Snippet id="dependencies/tools-multiple-and" />
 
 All three must be satisfied (though alternatives within each are OR).
 
@@ -48,85 +39,19 @@ All three must be satisfied (though alternatives within each are OR).
 
 ### Go Project
 
-```cue
-{
-    name: "build"
-    depends_on: {
-        tools: [
-            {alternatives: ["go"]},
-            {alternatives: ["git"]},  // For version info
-        ]
-    }
-    implementations: [{
-        script: """
-            VERSION=$(git describe --tags --always)
-            go build -ldflags="-X main.version=$VERSION" ./...
-            """
-        runtimes: [{name: "native"}]
-    }]
-}
-```
+<Snippet id="dependencies/tools-go-project" />
 
 ### Node.js Project
 
-```cue
-{
-    name: "build"
-    depends_on: {
-        tools: [
-            // Prefer pnpm, but npm works too
-            {alternatives: ["pnpm", "npm", "yarn"]},
-            {alternatives: ["node"]},
-        ]
-    }
-    implementations: [{
-        script: "pnpm run build || npm run build"
-        runtimes: [{name: "native"}]
-    }]
-}
-```
+<Snippet id="dependencies/tools-nodejs-project" />
 
 ### Kubernetes Deployment
 
-```cue
-{
-    name: "deploy"
-    depends_on: {
-        tools: [
-            {alternatives: ["kubectl"]},
-            {alternatives: ["helm"]},
-            {alternatives: ["podman", "docker"]},
-        ]
-    }
-    implementations: [{
-        script: """
-            helm upgrade --install myapp ./charts/myapp
-            kubectl rollout status deployment/myapp
-            """
-        runtimes: [{name: "native"}]
-    }]
-}
-```
+<Snippet id="dependencies/tools-kubernetes-deploy" />
 
 ### Python Project
 
-```cue
-{
-    name: "run"
-    depends_on: {
-        tools: [
-            // Python 3 with various possible names
-            {alternatives: ["python3", "python"]},
-            // Virtual environment tool
-            {alternatives: ["poetry", "pipenv", "pip"]},
-        ]
-    }
-    implementations: [{
-        script: "poetry run python main.py"
-        runtimes: [{name: "native"}]
-    }]
-}
-```
+<Snippet id="dependencies/tools-python-project" />
 
 ## Runtime-Aware Validation
 
@@ -136,53 +61,19 @@ Tool checks are validated according to the runtime:
 
 Tools are checked on the host system:
 
-```cue
-{
-    name: "build"
-    depends_on: {
-        tools: [{alternatives: ["go"]}]  // Checked on host
-    }
-    implementations: [{
-        script: "go build ./..."
-        runtimes: [{name: "native"}]
-    }]
-}
-```
+<Snippet id="dependencies/tools-runtime-native" />
 
 ### Virtual Runtime
 
 Tools are checked in the virtual shell environment:
 
-```cue
-{
-    name: "build"
-    depends_on: {
-        tools: [{alternatives: ["go"]}]  // Checked in virtual shell
-    }
-    implementations: [{
-        script: "go build ./..."
-        runtimes: [{name: "virtual"}]
-    }]
-}
-```
+<Snippet id="dependencies/tools-runtime-virtual" />
 
 ### Container Runtime
 
 Tools are checked **inside the container**:
 
-```cue
-{
-    name: "build"
-    implementations: [{
-        script: "go build ./..."
-        runtimes: [{name: "container", image: "golang:1.26"}]
-        depends_on: {
-            // This checks for 'go' INSIDE the container
-            tools: [{alternatives: ["go"]}]
-        }
-    }]
-}
-```
+<Snippet id="dependencies/tools-runtime-container" />
 
 This is especially useful because:
 - The host doesn't need Go installed
@@ -193,54 +84,15 @@ This is especially useful because:
 
 ### Check Before External Call
 
-```cue
-{
-    name: "upload"
-    depends_on: {
-        tools: [{alternatives: ["aws", "aws-cli"]}]
-    }
-    implementations: [{
-        script: "aws s3 sync ./dist s3://my-bucket"
-        runtimes: [{name: "native"}]
-    }]
-}
-```
+<Snippet id="dependencies/tools-external-call" />
 
 ### Database Tools
 
-```cue
-{
-    name: "db migrate"
-    depends_on: {
-        tools: [
-            {alternatives: ["psql", "pgcli"]},  // PostgreSQL client
-            {alternatives: ["migrate", "goose", "flyway"]},  // Migration tool
-        ]
-    }
-    implementations: [{
-        script: "migrate -path ./migrations -database $DATABASE_URL up"
-        runtimes: [{name: "native"}]
-    }]
-}
-```
+<Snippet id="dependencies/tools-database" />
 
 ### Cross-Platform
 
-```cue
-{
-    name: "open docs"
-    depends_on: {
-        tools: [
-            // Platform-specific openers
-            {alternatives: ["xdg-open", "open", "start"]},
-        ]
-    }
-    implementations: [{
-        script: "xdg-open http://localhost:3000/docs || open http://localhost:3000/docs"
-        runtimes: [{name: "native"}]
-    }]
-}
-```
+<Snippet id="dependencies/tools-cross-platform" />
 
 ## Best Practices
 

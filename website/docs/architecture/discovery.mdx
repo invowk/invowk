@@ -3,6 +3,7 @@ sidebar_position: 6
 ---
 
 import Diagram from '@site/src/components/Diagram';
+import Snippet from '@site/src/components/Snippet';
 
 # Discovery Precedence Flowchart
 
@@ -38,20 +39,7 @@ When the same command name exists in multiple locations:
 
 ### Required Module Fields
 
-```cue
-// invowkmod.cue
-module: "com.example.mymodule"  // RDNS naming convention
-version: "1.0.0"                // Semantic version
-
-// Optional
-description: "My useful module"
-requires: [
-    {
-        git: "https://github.com/org/repo.git"
-        version: "v1.0.0"
-    }
-]
-```
+<Snippet id="architecture/discovery-module-fields" />
 
 ## Dependency Resolution
 
@@ -72,14 +60,9 @@ requires: [
 
 ## Includes Configuration
 
-Additional invowkfiles and modules are configured in `~/.config/invowk/config.cue`:
+Additional modules are configured in `~/.config/invowk/config.cue`:
 
-```cue
-includes: [
-    {path: "/opt/company-invowk-modules/tools.invowkmod"},
-    {path: "/home/shared/invowk/invowkfile.cue"},
-]
-```
+<Snippet id="architecture/discovery-includes-config" />
 
 ### Entry Processing Order
 

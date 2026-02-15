@@ -30,83 +30,39 @@ Ensure all requirements are met and try again.
 | Property | Required | Description |
 |----------|----------|-------------|
 | `name` | Yes | Identifier for error messages |
-| `check_script` | Yes | Script to execute |
+| `check_script` | Yes | Script to execute (using the selected runtime's shell) |
 | `expected_code` | No | Expected exit code (default: 0) |
 | `expected_output` | No | Regex pattern to match output |
+
+:::info Runtime-Aware Execution
+Custom check scripts are executed using the runtime's shell: the host shell for native runtime, the built-in sh interpreter for virtual runtime, or the container's shell for container runtime. Write your `check_script` accordingly — for example, a native check can rely on host-specific tools, while a container check only sees what's inside the container.
+:::
 
 ## Exit Code Validation
 
 By default, a check passes if the script exits with code 0:
 
-```cue
-custom_checks: [
-    {
-        name: "docker-running"
-        check_script: "docker info > /dev/null 2>&1"
-        // Passes if exit code is 0
-    }
-]
-```
+<Snippet id="dependencies/custom-checks-exit-code-default" />
 
 Expect a different exit code:
 
-```cue
-custom_checks: [
-    {
-        name: "not-production"
-        check_script: "test \"$ENV\" = 'production'"
-        expected_code: 1  // Should fail (not be production)
-    }
-]
-```
+<Snippet id="dependencies/custom-checks-exit-code-custom" />
 
 ## Output Validation
 
 Check that output matches a pattern:
 
-```cue
-custom_checks: [
-    {
-        name: "node-version"
-        check_script: "node --version"
-        expected_output: "^v(18|20|22)\\."  // Major version 18, 20, or 22
-    }
-]
-```
+<Snippet id="dependencies/custom-checks-output-validation" />
 
 Both conditions must pass when used together:
 
-```cue
-custom_checks: [
-    {
-        name: "go-version"
-        check_script: "go version"
-        expected_code: 0  // Must succeed
-        expected_output: "go1\\.2[6-9]"  // Must be Go 1.26+
-    }
-]
-```
+<Snippet id="dependencies/custom-checks-output-and-exit-code" />
 
 ## Alternatives (OR Semantics)
 
 Provide alternative checks:
 
-```cue
-custom_checks: [
-    {
-        alternatives: [
-            {
-                name: "go-1.26"
-                check_script: "go version | grep -q 'go1.26'"
-            },
-            {
-                name: "go-1.27"
-                check_script: "go version | grep -q 'go1.27'"
-            }
-        ]
-    }
-]
-```
+<Snippet id="dependencies/custom-checks-alternatives" />
 
 The dependency is satisfied if **any** alternative passes.
 
@@ -114,236 +70,51 @@ The dependency is satisfied if **any** alternative passes.
 
 ### Tool Version Check
 
-```cue
-{
-    name: "build"
-    depends_on: {
-        tools: [{alternatives: ["go"]}]
-        custom_checks: [
-            {
-                name: "go-1.26-or-higher"
-                check_script: """
-                    version=$(go version | grep -oE 'go[0-9]+\\.[0-9]+' | head -1)
-                    major=$(echo $version | cut -d. -f1 | tr -d 'go')
-                    minor=$(echo $version | cut -d. -f2)
-                    [ "$major" -ge 1 ] && [ "$minor" -ge 26 ]
-                    """
-            }
-        ]
-    }
-    implementations: [...]
-}
-```
+<Snippet id="dependencies/custom-checks-example-tool-version" />
 
 ### Docker Running Check
 
-```cue
-{
-    name: "docker-build"
-    depends_on: {
-        tools: [{alternatives: ["docker"]}]
-        custom_checks: [
-            {
-                name: "docker-daemon"
-                check_script: "docker info > /dev/null 2>&1"
-            }
-        ]
-    }
-    implementations: [{
-        script: "docker build -t myapp ."
-        runtimes: [{name: "native"}]
-    }]
-}
-```
+<Snippet id="dependencies/custom-checks-example-docker-running" />
 
 ### Git Status Check
 
-```cue
-{
-    name: "release"
-    depends_on: {
-        tools: [{alternatives: ["git"]}]
-        custom_checks: [
-            {
-                name: "clean-working-tree"
-                check_script: "test -z \"$(git status --porcelain)\""
-            },
-            {
-                name: "on-main-branch"
-                check_script: "test \"$(git branch --show-current)\" = 'main'"
-            }
-        ]
-    }
-    implementations: [{
-        script: "./scripts/release.sh"
-        runtimes: [{name: "native"}]
-    }]
-}
-```
+<Snippet id="dependencies/custom-checks-example-git-status" />
 
 ### Configuration Validation
 
-```cue
-{
-    name: "deploy"
-    depends_on: {
-        filepaths: [{alternatives: ["config.yaml"]}]
-        custom_checks: [
-            {
-                name: "valid-yaml"
-                check_script: "python3 -c 'import yaml; yaml.safe_load(open(\"config.yaml\"))'"
-            },
-            {
-                name: "has-required-fields"
-                check_script: """
-                    grep -q 'database:' config.yaml && \
-                    grep -q 'server:' config.yaml
-                    """
-            }
-        ]
-    }
-    implementations: [...]
-}
-```
+<Snippet id="dependencies/custom-checks-example-config-validation" />
 
 ### Memory/Resource Check
 
-```cue
-{
-    name: "build heavy"
-    depends_on: {
-        custom_checks: [
-            {
-                name: "enough-memory"
-                check_script: """
-                    # Check for at least 4GB free memory
-                    free_mb=$(free -m | awk '/^Mem:/{print $7}')
-                    [ "$free_mb" -ge 4096 ]
-                    """
-            },
-            {
-                name: "enough-disk"
-                check_script: """
-                    # Check for at least 10GB free disk
-                    free_gb=$(df -BG . | awk 'NR==2{print $4}' | tr -d 'G')
-                    [ "$free_gb" -ge 10 ]
-                    """
-            }
-        ]
-    }
-    implementations: [...]
-}
-```
+<Snippet id="dependencies/custom-checks-example-memory-resource" />
 
 ### Kubernetes Context
 
-```cue
-{
-    name: "deploy"
-    depends_on: {
-        tools: [{alternatives: ["kubectl"]}]
-        custom_checks: [
-            {
-                name: "correct-context"
-                check_script: "kubectl config current-context"
-                expected_output: "^production-cluster$"
-            },
-            {
-                name: "cluster-reachable"
-                check_script: "kubectl cluster-info > /dev/null 2>&1"
-            }
-        ]
-    }
-    implementations: [...]
-}
-```
+<Snippet id="dependencies/custom-checks-example-kubernetes" />
 
 ### Multiple Version Options
 
-```cue
-{
-    name: "build"
-    depends_on: {
-        custom_checks: [
-            {
-                alternatives: [
-                    {
-                        name: "python-3.11"
-                        check_script: "python3 --version"
-                        expected_output: "^Python 3\\.11"
-                    },
-                    {
-                        name: "python-3.12"
-                        check_script: "python3 --version"
-                        expected_output: "^Python 3\\.12"
-                    }
-                ]
-            }
-        ]
-    }
-    implementations: [...]
-}
-```
+<Snippet id="dependencies/custom-checks-example-multiple-versions" />
 
 ## Container Context
 
 For container runtime, custom checks run **inside the container**:
 
-```cue
-{
-    name: "build"
-    implementations: [{
-        script: "npm run build"
-        runtimes: [{name: "container", image: "node:20"}]
-        depends_on: {
-            custom_checks: [
-                {
-                    name: "node-version"
-                    // This runs INSIDE the container
-                    check_script: "node --version"
-                    expected_output: "^v20\\."
-                }
-            ]
-        }
-    }]
-}
-```
+<Snippet id="dependencies/custom-checks-container-context" />
 
 ## Script Tips
 
 ### Keep Scripts Simple
 
-```cue
-// Good - simple and clear
-check_script: "go version | grep -q 'go1.26'"
-
-// Avoid - complex and fragile
-check_script: """
-    set -e
-    version=$(go version 2>&1)
-    if [ $? -ne 0 ]; then exit 1; fi
-    echo "$version" | grep -qE 'go1\\.(2[6-9]|[3-9][0-9])'
-    """
-```
+<Snippet id="dependencies/custom-checks-tip-keep-simple" />
 
 ### Use Proper Exit Codes
 
-```cue
-// Script should exit 0 for success, non-zero for failure
-check_script: """
-    if [ -f "required-file" ]; then
-        exit 0
-    else
-        exit 1
-    fi
-    """
-```
+<Snippet id="dependencies/custom-checks-tip-exit-codes" />
 
 ### Handle Missing Commands
 
-```cue
-check_script: "command -v mytools > /dev/null && mytool --check"
-```
+<Snippet id="dependencies/custom-checks-tip-handle-missing" />
 
 ## Best Practices
 

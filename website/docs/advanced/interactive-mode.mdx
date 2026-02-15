@@ -123,28 +123,10 @@ invowk cmd myproject build -i -r container
 
 Inside your container scripts, you can use all TUI components:
 
-```cue
-{
-    name: "deploy"
-    implementations: [{
-        script: """
-            # TUI components work inside containers!
-            ENV=$(invowk tui choose "Select environment" "dev" "staging" "prod")
-            
-            if invowk tui confirm "Deploy to $ENV?"; then
-                ./deploy.sh "$ENV"
-            fi
-            """
-        runtimes: [{
-            name: "container"
-            image: "debian:stable-slim"
-        }]
-    }]
-}
-```
+<Snippet id="interactive/container-tui-example" />
 
 :::warning Linux Containers Only
-Alpine-based images are not supported due to BusyBox shell incompatibilities. Use Debian, Ubuntu, or images without the `-alpine` suffix.
+Alpine-based images are not supported — musl-based environments have subtle behavioral differences that reduce runtime reliability. Use Debian-based images (e.g., `debian:stable-slim`) or language-specific images (e.g., `python:3-slim`).
 :::
 
 ## Best Practices
@@ -161,46 +143,13 @@ Alpine-based images are not supported due to BusyBox shell incompatibilities. Us
 
 ### Deployment Script
 
-```cue
-{
-    name: "deploy"
-    description: "Deploy with confirmations"
-    implementations: [{
-        script: """
-            echo "Deploying to production..."
-            
-            # This sudo prompt works because we're in interactive mode
-            sudo systemctl restart myapp
-            
-            echo "Deployment complete!"
-            """
-        runtimes: [{name: "native"}]
-    }]
-}
-```
+<Snippet id="interactive/deploy-example" />
 
 Run with: `invowk cmd myproject deploy -i`
 
 ### Database Migration
 
-```cue
-{
-    name: "db migrate"
-    description: "Run database migrations"
-    implementations: [{
-        script: """
-            echo "=== Database Migration ==="
-            
-            # Interactive confirmation
-            if invowk tui confirm "Apply migrations to production?"; then
-                # Password prompt works in interactive mode
-                psql -h prod-db -U admin -W -f migrations.sql
-            fi
-            """
-        runtimes: [{name: "native"}]
-    }]
-}
-```
+<Snippet id="interactive/db-migrate-example" />
 
 ## Next Steps
 

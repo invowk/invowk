@@ -30,8 +30,10 @@ build configuration.
 ### Container Images
 - Production/CI base images: `debian:stable-slim` (rolling tag — intentional exception for
   automatic security patches). Document this exception where the image is referenced.
-- Example/reference images in docs and CUE files: Use stable tags (e.g., `golang:1.26`,
-  `python:3-slim`). Avoid `latest`.
+- **`debian:stable-slim` is the ONLY Debian/base image allowed in ALL documentation examples,
+  CUE snippets, and tests.** No `ubuntu:*`, no `debian:bookworm`, no other base images.
+  Language-specific images (e.g., `golang:1.26`, `python:3-slim`) are allowed when
+  demonstrating language-specific runtimes, but must use stable tags (never `latest`).
 - NEVER use Alpine or Windows container images (see CLAUDE.md Container Runtime Limitations).
 
 ### GoReleaser

@@ -48,19 +48,13 @@ You must specify either an `image` or a `containerfile` - they're mutually exclu
 
 ### Pre-built Images
 
-```cue
-runtimes: [{
-    name: "container"
-    image: "golang:1.26"
-}]
-```
+<Snippet id="runtime-modes/container-prebuilt-image" />
 
 Common images:
-- `debian:stable-slim` - Minimal Debian
-- `ubuntu:22.04` - Full Ubuntu
+- `debian:stable-slim` - Minimal Debian (recommended base image)
 - `golang:1.26` - Go development
 - `node:20` - Node.js development
-- `python:3.11-slim` - Python development
+- `python:3-slim` - Python development
 
 ### Custom Containerfile
 
@@ -76,17 +70,7 @@ Example `Containerfile`:
 
 Mount additional directories into the container:
 
-```cue
-runtimes: [{
-    name: "container"
-    image: "golang:1.26"
-    volumes: [
-        "./data:/data",           // Relative path
-        "/tmp:/tmp:ro",           // Absolute path, read-only
-        "${HOME}/.cache:/cache"   // Environment variable
-    ]
-}]
-```
+<Snippet id="runtime-modes/container-volumes-full" />
 
 The current working directory is automatically mounted to `/workspace`.
 
@@ -102,23 +86,7 @@ Like native runtime, containers support custom interpreters:
 
 ### Auto-Detection from Shebang
 
-```cue
-{
-    name: "analyze"
-    implementations: [{
-        platforms: [{name: "linux"}]
-        script: """
-            #!/usr/bin/env python3
-            import sys
-            print(f"Python {sys.version} in container!")
-            """
-        runtimes: [{
-            name: "container"
-            image: "python:3.11"
-        }]
-    }]
-}
-```
+<Snippet id="runtime-modes/container-shebang" />
 
 ### Explicit Interpreter
 
@@ -128,28 +96,7 @@ Like native runtime, containers support custom interpreters:
 
 Environment variables are passed into the container:
 
-```cue
-{
-    name: "deploy"
-    env: {
-        vars: {
-            DEPLOY_ENV: "production"
-            API_URL: "https://api.example.com"
-        }
-    }
-    implementations: [{
-        platforms: [{name: "linux"}]
-        script: """
-            echo "Deploying to $DEPLOY_ENV"
-            echo "API: $API_URL"
-            """
-        runtimes: [{
-            name: "container"
-            image: "debian:stable-slim"
-        }]
-    }]
-}
-```
+<Snippet id="runtime-modes/container-env-vars" />
 
 ## Host SSH Access
 
@@ -191,39 +138,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 Container dependencies are validated **inside the container**:
 
-```cue
-{
-    name: "build"
-    depends_on: {
-        tools: [
-            // Checked inside the container, not on host
-            {alternatives: ["go"]},
-            {alternatives: ["make"]}
-        ]
-        filepaths: [
-            // Paths relative to container's /workspace
-            {alternatives: ["go.mod"]}
-        ]
-    }
-    implementations: [{
-        platforms: [{name: "linux"}]
-        script: "make build"
-        runtimes: [{
-            name: "container"
-            image: "golang:1.26"
-        }]
-    }]
-}
-```
+<Snippet id="runtime-modes/container-dependencies" />
 
 ## Container Engine
 
 Invowk supports both Docker and Podman. Configure your preference:
 
-```cue
-// ~/.config/invowk/config.cue
-container_engine: "podman"  // or "docker"
-```
+<Snippet id="runtime-modes/container-engine-config" />
 
 If not configured, Invowk tries:
 1. `podman` (if available)
@@ -233,39 +154,11 @@ If not configured, Invowk tries:
 
 By default, the invowkfile's directory is mounted to `/workspace` and used as the working directory:
 
-```cue
-{
-    name: "build"
-    implementations: [{
-        platforms: [{name: "linux"}]
-        script: """
-            pwd  # Outputs: /workspace
-            ls   # Shows your project files
-            """
-        runtimes: [{
-            name: "container"
-            image: "debian:stable-slim"
-        }]
-    }]
-}
-```
+<Snippet id="runtime-modes/container-workdir-default" />
 
 Override with `workdir`:
 
-```cue
-{
-    name: "build frontend"
-    workdir: "./frontend"  // Mounted and used as workdir
-    implementations: [{
-        platforms: [{name: "linux"}]
-        script: "npm run build"
-        runtimes: [{
-            name: "container"
-            image: "node:20"
-        }]
-    }]
-}
-```
+<Snippet id="runtime-modes/container-workdir-override" />
 
 ## Complete Example
 
@@ -301,25 +194,7 @@ When you run with `-i`, Invowk:
 
 This means your scripts can use `invowk tui` commands inside containers:
 
-```cue
-{
-    name: "deploy container"
-    implementations: [{
-        platforms: [{name: "linux"}]
-        script: """
-            # This TUI confirm appears as an overlay on your terminal
-            if invowk tui confirm "Deploy to production?"; then
-                echo "Deploying..."
-                ./deploy.sh
-            fi
-            """
-        runtimes: [{
-            name: "container"
-            image: "debian:stable-slim"
-        }]
-    }]
-}
-```
+<Snippet id="runtime-modes/container-interactive-tui" />
 
 :::tip
 The provisioned image is cached as `invowk-provisioned:<hash>`, so subsequent runs are fast.

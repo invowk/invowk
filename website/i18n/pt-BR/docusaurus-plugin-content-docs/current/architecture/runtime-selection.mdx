@@ -3,6 +3,7 @@ sidebar_position: 5
 ---
 
 import Diagram from '@site/src/components/Diagram';
+import Snippet from '@site/src/components/Snippet';
 
 # Fluxograma de Seleção de Runtime
 
@@ -21,37 +22,16 @@ Este diagrama documenta a árvore de decisão para selecionar qual runtime execu
 | Valor da Plataforma | Corresponde Em |
 |---------------------|----------------|
 | `"linux"` | Sistemas Linux |
-| `"darwin"` | Sistemas macOS |
+| `"macos"` | Sistemas macOS |
 | `"windows"` | Sistemas Windows |
-| (lista vazia) | Todas as plataformas (padrão) |
+
+:::note
+Pelo menos uma plataforma deve ser especificada por implementação. Não há atalho para "todas as plataformas" — liste cada plataforma alvo explicitamente.
+:::
 
 ### Exemplo de Definição de Comando
 
-```cue
-cmds: {
-    build: {
-        default: {
-            runtime: "native"
-            script: "make build"
-        }
-        implementations: [
-            {
-                platforms: ["windows"]
-                runtime: "native"
-                script: "nmake build"
-            },
-            {
-                platforms: ["linux"]
-                runtime: "container"
-                container: {
-                    image: "golang:1.26"
-                }
-                script: "make build"
-            }
-        ]
-    }
-}
-```
+<Snippet id="architecture/runtime-selection-cross-platform" />
 
 ## Comparação de Runtimes
 
