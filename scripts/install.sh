@@ -190,8 +190,10 @@ detect_sha256_tool() {
 }
 
 # Compute SHA256 hash of a file and print the hex digest.
-# Captures the full output first to avoid pipe masking the hash tool's exit code
-# (POSIX sh does not support pipefail).
+# Captures the full output first to avoid pipe masking the hash tool's exit code.
+# POSIX sh does not support set -o pipefail, so in a pipeline like
+# sha256sum "$file" | cut -d' ' -f1, a sha256sum failure would be masked by
+# cut's exit code 0.
 sha256_file() {
     _file="$1"
     case "${SHA256_CMD}" in
@@ -201,6 +203,7 @@ sha256_file() {
         shasum)
             _output=$(shasum -a 256 "${_file}") || die "shasum failed for ${_file}"
             ;;
+        *) die "Internal error: unsupported SHA256 command: ${SHA256_CMD}" ;;
     esac
     _hash=$(printf '%s' "${_output}" | cut -d' ' -f1)
     if [ -z "${_hash}" ]; then
@@ -271,17 +274,31 @@ Try again in a few minutes, or specify a version directly:
             die "Could not determine latest version from GitHub API response."
         fi
         # Validate the extracted version looks like a semver tag.
-        case "${_version}" in
-            v[0-9]*)
-                ;; # Valid version format
-            *)
-                die "Unexpected version format from GitHub API: ${_version}
+        if ! validate_version_format "${_version}"; then
+            die "Unexpected version format from GitHub API: ${_version}
 This may indicate an API change. Report at: https://github.com/${GITHUB_REPO}/issues"
-                ;;
-        esac
+        fi
         log "Latest stable version: ${BOLD}${_version}${RESET}"
         echo "${_version}"
     fi
+}
+
+# ---------------------------------------------------------------------------
+# Version validation
+# ---------------------------------------------------------------------------
+
+# Validate that a version string looks like a semver tag (vN.N.N with optional suffix).
+# Uses shell glob matching, which is approximate — [0-9]* matches a digit followed by
+# any characters. This catches obvious malformations (missing dots, no leading digit)
+# without requiring a full regex engine.
+validate_version_format() {
+    _ver="$1"
+    case "${_ver}" in
+        v[0-9]*.[0-9]*.[0-9]*)
+            return 0 ;; # Approximate semver format
+        *)
+            return 1 ;;
+    esac
 }
 
 # ---------------------------------------------------------------------------
@@ -310,6 +327,7 @@ is_in_path() {
 # Detect the user's shell configuration file for PATH instructions.
 detect_shell_config() {
     _shell_name=$(basename "${SHELL:-/bin/sh}")
+    # Fish follows XDG conventions; bash config depends on login vs interactive shell.
     case "${_shell_name}" in
         zsh)  echo "${HOME}/.zshrc" ;;
         bash)
@@ -442,6 +460,9 @@ main() {
 
     # Resolve target version.
     _version=$(resolve_version)
+    if [ -z "${_version}" ]; then
+        die "Failed to resolve version. Set INVOWK_VERSION explicitly or check network connectivity."
+    fi
 
     # Perform installation.
     install "${_version}" "${_os}" "${_arch}" "${_install_dir}"
@@ -461,9 +482,12 @@ main() {
 
     # Verify installation.
     if command -v "${BINARY_NAME}" >/dev/null 2>&1; then
-        _installed_version=$("${BINARY_NAME}" --version 2>&1 || true)
-        ok ""
-        ok "Verify: ${BOLD}${BINARY_NAME} --version${RESET} -> ${_installed_version}"
+        if _installed_version=$("${BINARY_NAME}" --version 2>&1); then
+            ok ""
+            ok "Verify: ${BOLD}${BINARY_NAME} --version${RESET} -> ${_installed_version}"
+        else
+            warn "Binary installed but '${BINARY_NAME} --version' returned a non-zero exit code."
+        fi
     else
         log ""
         log "Run '${BOLD}${BINARY_NAME} --version${RESET}' to verify the installation."

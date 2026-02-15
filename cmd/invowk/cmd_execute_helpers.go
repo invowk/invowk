@@ -20,6 +20,9 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// runtimeRegistryResult bundles the runtime registry with its cleanup function,
+// non-fatal initialization diagnostics, and any container runtime init error
+// for fail-fast dispatch.
 type runtimeRegistryResult struct {
 	Registry         *runtime.Registry
 	Cleanup          func()
@@ -231,6 +234,7 @@ func createRuntimeRegistry(cfg *config.Config, sshServer *sshserver.Server) runt
 
 	result := runtimeRegistryResult{
 		Registry: runtime.NewRegistry(),
+		Cleanup:  func() {}, // safe no-op default; unconditionally overwritten below with nil-guarded container cleanup
 	}
 
 	// Native and virtual runtimes are always available in-process.

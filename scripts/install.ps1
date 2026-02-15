@@ -312,8 +312,8 @@ Try again in a few minutes, or specify a version directly:
             Stop-WithError 'Could not determine latest version from GitHub API response.'
         }
 
-        # Validate the extracted version looks like a semver tag.
-        if ($version -notmatch '^v\d') {
+        # Validate the extracted version looks like a semver tag (vN.N.N with optional suffix).
+        if ($version -notmatch '^v\d+\.\d+\.\d+') {
             Stop-WithError @"
 Unexpected version format from GitHub API: $version
 This may indicate an API change. Report at: https://github.com/$script:GitHubRepo/issues
@@ -529,6 +529,9 @@ Add it manually by running:
 
     # Resolve target version.
     $version = Resolve-Version
+    if (-not $version) {
+        Stop-WithError 'Failed to resolve version. Set INVOWK_VERSION explicitly or check network connectivity.'
+    }
 
     # Perform installation.
     Install-Binary -Version $version -Arch $arch -InstallDir $installDir

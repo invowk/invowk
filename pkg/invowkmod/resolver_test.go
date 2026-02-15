@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 )
 
@@ -84,7 +85,7 @@ func TestModuleRefString(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			result := tt.req.String()
 			for _, c := range tt.contains {
-				if !containsString(result, c) {
+				if !strings.Contains(result, c) {
 					t.Errorf("String() = %q, should contain %q", result, c)
 				}
 			}
@@ -689,18 +690,4 @@ func TestAddWritesLockFile(t *testing.T) {
 			t.Errorf("Namespace = %q, want %q", tools.Namespace, "mytools")
 		}
 	})
-}
-
-// Helper function
-func containsString(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr || s != "" && containsSubstring(s, substr))
-}
-
-func containsSubstring(s, substr string) bool {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
-		}
-	}
-	return false
 }

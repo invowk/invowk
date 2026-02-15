@@ -107,6 +107,33 @@ SHELL="$_saved_shell"
 HOME="$_saved_home"
 
 # ---------------------------------------------------------------------------
+# Tests: sha256_file / verify_checksum
+# ---------------------------------------------------------------------------
+
+# Initialize SHA256_CMD (normally done in main's detect_sha256_tool).
+detect_sha256_tool
+
+_tmpfile=$(mktemp)
+printf 'hello\n' > "$_tmpfile"
+# SHA256("hello\n") = 5891b5b522d5df086d0ff0b110fbd9d21bb4fc7163af34d08286a2e846f6be03
+_expected_hash="5891b5b522d5df086d0ff0b110fbd9d21bb4fc7163af34d08286a2e846f6be03"
+
+_actual_hash=$(sha256_file "$_tmpfile")
+assert_eq "sha256_file computes correct hash" "$_expected_hash" "$_actual_hash"
+
+assert_exit_code "verify_checksum passes with correct hash" 0 \
+    verify_checksum "$_tmpfile" "$_expected_hash"
+
+# verify_checksum calls die() -> exit 1 on mismatch, which terminates the
+# process. Run in a subshell so exit only kills the subshell, allowing the
+# parent to capture the exit code.
+_checksum_exit=0
+(verify_checksum "$_tmpfile" "0000000000000000000000000000000000000000000000000000000000000000") >/dev/null 2>&1 || _checksum_exit=$?
+assert_eq "verify_checksum fails with incorrect hash (exit code)" "1" "$_checksum_exit"
+
+rm -f "$_tmpfile"
+
+# ---------------------------------------------------------------------------
 # Tests: detect_os (host-dependent — just verify it produces a known value)
 # ---------------------------------------------------------------------------
 
@@ -135,6 +162,31 @@ case "$_arch" in
         printf 'FAIL: detect_arch returned unexpected value: %s\n' "$_arch"
         ;;
 esac
+
+# ---------------------------------------------------------------------------
+# Tests: validate_version_format
+# ---------------------------------------------------------------------------
+
+assert_exit_code "validate_version_format accepts v1.0.0" 0 \
+    validate_version_format "v1.0.0"
+
+assert_exit_code "validate_version_format accepts v0.1.0-alpha.1" 0 \
+    validate_version_format "v0.1.0-alpha.1"
+
+assert_exit_code "validate_version_format accepts v2.3.4-beta.5+build.123" 0 \
+    validate_version_format "v2.3.4-beta.5+build.123"
+
+assert_exit_code "validate_version_format rejects missing v prefix" 1 \
+    validate_version_format "1.0.0"
+
+assert_exit_code "validate_version_format rejects single segment" 1 \
+    validate_version_format "v1"
+
+assert_exit_code "validate_version_format rejects two segments" 1 \
+    validate_version_format "v1.0"
+
+assert_exit_code "validate_version_format rejects empty string" 1 \
+    validate_version_format ""
 
 # ---------------------------------------------------------------------------
 # Summary

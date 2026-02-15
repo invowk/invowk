@@ -184,8 +184,9 @@ func generateInvowkfile(template string) string {
 }
 
 // helloCommand returns the "hello" command definition used by the "default"
-// init template. It demonstrates the platform-split pattern with native
-// (Unix + Windows), virtual, and container implementations.
+// init template. It demonstrates the platform-split pattern: native has
+// separate Unix (parameterized) and Windows (hardcoded) implementations,
+// virtual covers all platforms, and container targets Linux only (parameterized).
 func helloCommand(unixPlatforms, linuxOnly []invowkfile.PlatformConfig) invowkfile.Command {
 	return invowkfile.Command{
 		Name:        "hello",

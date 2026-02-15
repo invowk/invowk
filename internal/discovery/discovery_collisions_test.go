@@ -6,6 +6,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/invowk/invowk/internal/config"
@@ -385,16 +386,16 @@ func TestModuleCollisionError(t *testing.T) {
 	}
 
 	errMsg := err.Error()
-	if !containsString(errMsg, "io.example.tools") {
+	if !strings.Contains(errMsg, "io.example.tools") {
 		t.Error("error message should contain module ID")
 	}
-	if !containsString(errMsg, "/path/to/first") {
+	if !strings.Contains(errMsg, "/path/to/first") {
 		t.Error("error message should contain first source")
 	}
-	if !containsString(errMsg, "/path/to/second") {
+	if !strings.Contains(errMsg, "/path/to/second") {
 		t.Error("error message should contain second source")
 	}
-	if !containsString(errMsg, "alias") {
+	if !strings.Contains(errMsg, "alias") {
 		t.Error("error message should mention alias as a solution")
 	}
 
@@ -733,14 +734,4 @@ version: "1.0.0"
 	if foundReservedModule {
 		t.Error("DiscoverAll() should skip module with reserved name 'invowkfile' (FR-015)")
 	}
-}
-
-// containsString checks if s contains substr
-func containsString(s, substr string) bool {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
-		}
-	}
-	return false
 }

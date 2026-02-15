@@ -4,6 +4,7 @@ package discovery
 
 import (
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -67,7 +68,10 @@ func (d *Discovery) DiscoverAll() ([]*DiscoveredFile, error) {
 // skipped modules/includes so callers can surface observability without failing.
 func (d *Discovery) discoverAllWithDiagnostics() ([]*DiscoveredFile, []Diagnostic, error) {
 	var files []*DiscoveredFile
-	diagnostics := make([]Diagnostic, 0)
+	// Seed with any init-time diagnostics (e.g., os.Getwd or CommandsDir failures)
+	// so they surface through the standard diagnostic rendering pipeline.
+	diagnostics := make([]Diagnostic, 0, len(d.initDiagnostics))
+	diagnostics = append(diagnostics, d.initDiagnostics...)
 
 	// 1. Current directory (highest precedence)
 	// Skip current-dir discovery when baseDir is empty (e.g., os.Getwd() failed
@@ -99,10 +103,11 @@ func (d *Discovery) discoverAllWithDiagnostics() ([]*DiscoveredFile, []Diagnosti
 	return files, diagnostics, nil
 }
 
-// discoverInDir looks for an invowkfile in a specific directory
+// discoverInDir looks for an invowkfile in a specific directory.
 func (d *Discovery) discoverInDir(dir string, source Source) *DiscoveredFile {
 	absDir, err := filepath.Abs(dir)
 	if err != nil {
+		slog.Warn("failed to resolve absolute path for discovery directory", "dir", dir, "error", err)
 		return nil
 	}
 

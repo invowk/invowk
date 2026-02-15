@@ -20,8 +20,10 @@ const (
 // detectOnce caches the sandbox detection result for the lifetime of the process.
 // The detection is performed once on first access using real OS lookups.
 //
-// INVARIANT: detectSandboxFrom MUST NOT panic. sync.OnceValue re-raises panics
-// on every subsequent call, which would make the entire application unusable.
+// INVARIANT: detectSandboxFrom MUST NOT panic. Unlike sync.Once (where Do
+// treats a panic as "returned" and silently no-ops on subsequent calls),
+// sync.OnceValue propagates the panic on every call, creating a persistent
+// crash condition.
 // Sandbox type is immutable during process lifetime, making process-wide caching safe.
 var detectOnce = sync.OnceValue(func() SandboxType {
 	return detectSandboxFrom(os.Getenv, statFile)

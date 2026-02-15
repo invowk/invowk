@@ -186,8 +186,10 @@ type (
 	RuntimeType string
 
 	// Registry holds all available runtimes and generates unique execution IDs.
-	// A single Registry instance is created per process via createRuntimeRegistry(),
-	// so the idCounter provides process-wide uniqueness for execution IDs.
+	// A single Registry instance is created per command execution via
+	// createRuntimeRegistry(), so the idCounter provides execution-scoped
+	// uniqueness for execution IDs. Registration should happen before any
+	// concurrent calls to Get, Execute, or Available.
 	Registry struct {
 		runtimes  map[RuntimeType]Runtime
 		idCounter atomic.Uint64
@@ -241,6 +243,8 @@ func (t TUIContext) IsConfigured() bool {
 // NewExecutionContext creates a new execution context with defaults.
 // ExecutionID is left empty; the caller should set it via Registry.NewExecutionID()
 // after the registry is created (see dispatchExecution in cmd_execute.go).
+// If the caller fails to set it, ContainerRuntime.prepareHostSSH generates a
+// fallback ID and logs a warning (see container_exec.go).
 func NewExecutionContext(cmd *invowkfile.Command, inv *invowkfile.Invowkfile) *ExecutionContext {
 	currentPlatform := invowkfile.GetCurrentHostOS()
 	defaultRuntime := cmd.GetDefaultRuntimeForPlatform(currentPlatform)
@@ -299,7 +303,7 @@ func (r *Registry) NewExecutionID() string {
 	return fmt.Sprintf("%d-%d", time.Now().UnixNano(), r.idCounter.Add(1))
 }
 
-// Register adds a runtime to the registry
+// Register adds or replaces a runtime in the registry.
 func (r *Registry) Register(typ RuntimeType, rt Runtime) {
 	r.runtimes[typ] = rt
 }

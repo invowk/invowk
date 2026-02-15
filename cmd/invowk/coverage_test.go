@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"slices"
 	"sort"
 	"strings"
 	"testing"
@@ -25,9 +26,10 @@ import (
 // then scans txtar files for `exec invowk <path>` patterns to determine coverage.
 //
 // Exemptions are documented inline for commands that require interactive TTY
-// input and are tested via tmux/VHS instead. The test enforces two-way
-// exemption verification: stale exemptions (command no longer exists) and
-// unnecessary exemptions (command is actually covered) both cause failures.
+// input and are tested via tmux/VHS instead (see exemptions map below).
+// The test enforces two-way exemption verification: stale exemptions
+// (command no longer exists) and unnecessary exemptions (command is actually
+// covered) both cause failures.
 func TestBuiltinCommandTxtarCoverage(t *testing.T) {
 	t.Parallel()
 
@@ -178,34 +180,42 @@ func scanTxtarCoverage(t *testing.T, testdataDir string, knownCommands map[strin
 		}
 
 		filePath := filepath.Join(testdataDir, entry.Name())
-		f, err := os.Open(filePath)
-		if err != nil {
-			t.Errorf("failed to open %s: %v", entry.Name(), err)
-			continue
-		}
-
-		scanner := bufio.NewScanner(f)
-		for scanner.Scan() {
-			line := strings.TrimSpace(scanner.Text())
-			m := execRe.FindStringSubmatch(line)
-			if m == nil {
-				continue
-			}
-
-			tokens := strings.Fields(m[1])
-			cmdPath := matchLongestCommand(tokens, knownCommands, aliasMap)
-			if cmdPath != "" {
-				covered[cmdPath] = true
-			}
-		}
-		if err := scanner.Err(); err != nil {
-			t.Errorf("error scanning %s: %v", entry.Name(), err)
-		}
-
-		_ = f.Close() // Read-only file; close error non-critical.
+		scanTxtarFile(t, filePath, entry.Name(), execRe, knownCommands, aliasMap, covered)
 	}
 
 	return covered
+}
+
+// scanTxtarFile opens a single txtar file, scans for exec invowk lines,
+// and records covered commands. Extracted from scanTxtarCoverage to enable
+// proper defer-based file close (defer in a loop leaks resources).
+func scanTxtarFile(t *testing.T, filePath, name string, execRe *regexp.Regexp, knownCommands map[string]bool, aliasMap map[string]string, covered map[string]bool) {
+	t.Helper()
+
+	f, err := os.Open(filePath)
+	if err != nil {
+		t.Errorf("failed to open %s: %v", name, err)
+		return
+	}
+	defer func() { _ = f.Close() }() // Read-only file; close error non-critical.
+
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		m := execRe.FindStringSubmatch(line)
+		if m == nil {
+			continue
+		}
+
+		tokens := strings.Fields(m[1])
+		cmdPath := matchLongestCommand(tokens, knownCommands, aliasMap)
+		if cmdPath != "" {
+			covered[cmdPath] = true
+		}
+	}
+	if err := scanner.Err(); err != nil {
+		t.Errorf("error scanning %s: %v", name, err)
+	}
 }
 
 // matchLongestCommand resolves aliases in the token list and returns the
@@ -270,13 +280,8 @@ func TestResolveAliases(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			got := resolveAliases(tt.tokens, aliasMap)
-			if len(got) != len(tt.want) {
-				t.Fatalf("resolveAliases(%v) = %v, want %v", tt.tokens, got, tt.want)
-			}
-			for i := range got {
-				if got[i] != tt.want[i] {
-					t.Errorf("resolveAliases(%v)[%d] = %q, want %q", tt.tokens, i, got[i], tt.want[i])
-				}
+			if !slices.Equal(got, tt.want) {
+				t.Errorf("resolveAliases(%v) = %v, want %v", tt.tokens, got, tt.want)
 			}
 		})
 	}

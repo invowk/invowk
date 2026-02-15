@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"strings"
 	"sync"
 
@@ -116,10 +117,11 @@ func (s *commandService) discoverCommand(ctx context.Context, req ExecuteRequest
 	diags = append(diags, lookup.Diagnostics...)
 
 	if lookup.Command == nil {
-		return nil, nil, diags, &ServiceError{
-			Err:     fmt.Errorf("command '%s' not found", req.Name),
-			IssueID: issue.CommandNotFoundId,
-		}
+		return nil, nil, diags, newServiceError(
+			fmt.Errorf("command '%s' not found", req.Name),
+			issue.CommandNotFoundId,
+			"",
+		)
 	}
 
 	return cfg, lookup.Command, diags, nil
@@ -168,11 +170,11 @@ func (s *commandService) validateInputs(req ExecuteRequest, cmdInfo *discovery.C
 
 	if err := validateArguments(req.Name, req.Args, defs.argDefs); err != nil {
 		if argErr, ok := errors.AsType[*ArgumentValidationError](err); ok {
-			return &ServiceError{
-				Err:           err,
-				IssueID:       issue.InvalidArgumentId,
-				StyledMessage: RenderArgumentValidationError(argErr),
-			}
+			return newServiceError(
+				err,
+				issue.InvalidArgumentId,
+				RenderArgumentValidationError(argErr),
+			)
 		}
 		return err
 	}
@@ -180,11 +182,11 @@ func (s *commandService) validateInputs(req ExecuteRequest, cmdInfo *discovery.C
 	currentPlatform := invowkfile.GetCurrentHostOS()
 	if !cmdInfo.Command.CanRunOnCurrentHost() {
 		supportedPlatforms := cmdInfo.Command.GetPlatformsString()
-		return &ServiceError{
-			Err:           fmt.Errorf("command '%s' does not support platform '%s' (supported: %s)", req.Name, currentPlatform, supportedPlatforms),
-			IssueID:       issue.HostNotSupportedId,
-			StyledMessage: RenderHostNotSupportedError(req.Name, string(currentPlatform), supportedPlatforms),
-		}
+		return newServiceError(
+			fmt.Errorf("command '%s' does not support platform '%s' (supported: %s)", req.Name, currentPlatform, supportedPlatforms),
+			issue.HostNotSupportedId,
+			RenderHostNotSupportedError(req.Name, string(currentPlatform), supportedPlatforms),
+		)
 	}
 
 	return nil
@@ -209,11 +211,11 @@ func (s *commandService) resolveRuntime(req ExecuteRequest, cmdInfo *discovery.C
 			for i, r := range allowedRuntimes {
 				allowedStr[i] = string(r)
 			}
-			return resolvedRuntime{}, &ServiceError{
-				Err:           fmt.Errorf("runtime '%s' is not allowed for command '%s' on platform '%s' (allowed: %s)", req.Runtime, req.Name, currentPlatform, strings.Join(allowedStr, ", ")),
-				IssueID:       issue.InvalidRuntimeModeId,
-				StyledMessage: RenderRuntimeNotAllowedError(req.Name, req.Runtime, strings.Join(allowedStr, ", ")),
-			}
+			return resolvedRuntime{}, newServiceError(
+				fmt.Errorf("runtime '%s' is not allowed for command '%s' on platform '%s' (allowed: %s)", req.Runtime, req.Name, currentPlatform, strings.Join(allowedStr, ", ")),
+				issue.InvalidRuntimeModeId,
+				RenderRuntimeNotAllowedError(req.Name, req.Runtime, strings.Join(allowedStr, ", ")),
+			)
 		}
 
 		impl := cmdInfo.Command.GetImplForPlatformRuntime(currentPlatform, overrideRuntime)
@@ -375,11 +377,11 @@ func (s *commandService) dispatchExecution(req ExecuteRequest, execCtx *runtime.
 
 	if registryResult.ContainerInitErr != nil && execCtx.SelectedRuntime == invowkfile.RuntimeContainer {
 		issueID, styledMsg := classifyExecutionError(registryResult.ContainerInitErr, req.Verbose)
-		return ExecuteResult{}, diags, &ServiceError{
-			Err:           registryResult.ContainerInitErr,
-			IssueID:       issueID,
-			StyledMessage: styledMsg,
-		}
+		return ExecuteResult{}, diags, newServiceError(
+			registryResult.ContainerInitErr,
+			issueID,
+			styledMsg,
+		)
 	}
 
 	// Dependency validation needs the registry to check runtime-aware dependencies.
@@ -405,11 +407,11 @@ func (s *commandService) dispatchExecution(req ExecuteRequest, execCtx *runtime.
 		if err != nil {
 			err = fmt.Errorf("failed to get runtime: %w", err)
 			issueID, styledMsg := classifyExecutionError(err, req.Verbose)
-			return ExecuteResult{}, diags, &ServiceError{
-				Err:           err,
-				IssueID:       issueID,
-				StyledMessage: styledMsg,
-			}
+			return ExecuteResult{}, diags, newServiceError(
+				err,
+				issueID,
+				styledMsg,
+			)
 		}
 
 		interactiveRT := runtime.GetInteractiveRuntime(rt)
@@ -428,11 +430,11 @@ func (s *commandService) dispatchExecution(req ExecuteRequest, execCtx *runtime.
 
 	if result.Error != nil {
 		issueID, styledMsg := classifyExecutionError(result.Error, req.Verbose)
-		return ExecuteResult{}, diags, &ServiceError{
-			Err:           result.Error,
-			IssueID:       issueID,
-			StyledMessage: styledMsg,
-		}
+		return ExecuteResult{}, diags, newServiceError(
+			result.Error,
+			issueID,
+			styledMsg,
+		)
 	}
 
 	if result.ExitCode != 0 {
@@ -447,11 +449,11 @@ func (s *commandService) dispatchExecution(req ExecuteRequest, execCtx *runtime.
 func (s *commandService) validateAndRenderDeps(cfg *config.Config, cmdInfo *discovery.CommandInfo, execCtx *runtime.ExecutionContext, registry *runtime.Registry) error {
 	if err := validateDependencies(cfg, cmdInfo, registry, execCtx); err != nil {
 		if depErr, ok := errors.AsType[*DependencyError](err); ok {
-			return &ServiceError{
-				Err:           err,
-				IssueID:       issue.DependenciesNotSatisfiedId,
-				StyledMessage: RenderDependencyError(depErr),
-			}
+			return newServiceError(
+				err,
+				issue.DependenciesNotSatisfiedId,
+				RenderDependencyError(depErr),
+			)
 		}
 		return err
 	}
@@ -492,7 +494,9 @@ func (s *sshServerController) stop() {
 
 	if s.instance != nil {
 		// Best-effort shutdown: execution already completed at this point.
-		_ = s.instance.Stop()
+		if err := s.instance.Stop(); err != nil {
+			slog.Debug("SSH server stop failed during cleanup", "error", err)
+		}
 		s.instance = nil
 	}
 }
@@ -523,7 +527,11 @@ func executeInteractive(ctx *runtime.ExecutionContext, registry *runtime.Registr
 	if err = tuiServer.Start(context.Background()); err != nil {
 		return &runtime.Result{ExitCode: 1, Error: fmt.Errorf("failed to start TUI server: %w", err)}
 	}
-	defer func() { _ = tuiServer.Stop() }() // Best-effort cleanup.
+	defer func() {
+		if stopErr := tuiServer.Stop(); stopErr != nil {
+			slog.Debug("TUI server stop failed during cleanup", "error", stopErr)
+		}
+	}()
 
 	// Rewrite the TUI server URL for container runtimes. The TUI server
 	// listens on the host's localhost, but a container's network namespace

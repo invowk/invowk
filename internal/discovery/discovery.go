@@ -32,12 +32,18 @@ type (
 	// The baseDir and commandsDir fields replace hardcoded "." and config.CommandsDir()
 	// calls, enabling tests to inject explicit directories instead of relying on
 	// process-global os.Chdir (which prevents t.Parallel()).
+	//
+	// The companion *Set booleans distinguish "caller did not provide a value"
+	// (fall back to OS defaults) from "caller explicitly passed empty string"
+	// (skip that discovery source). Init-time errors (initDiagnostics) are
+	// surfaced through the standard diagnostics pipeline in discoverAllWithDiagnostics.
 	Discovery struct {
-		cfg            *config.Config
-		baseDir        string // replaces hardcoded "." — resolved once at construction
-		baseDirSet     bool   // distinguishes "not set" from "explicitly set to empty"
-		commandsDir    string // replaces config.CommandsDir() call
-		commandsDirSet bool   // distinguishes "not set" from "explicitly set to empty"
+		cfg             *config.Config
+		baseDir         string       // replaces hardcoded "." — resolved once at construction
+		baseDirSet      bool         // distinguishes "not set" from "explicitly set to empty"
+		commandsDir     string       // replaces config.CommandsDir() call
+		commandsDirSet  bool         // distinguishes "not set" from "explicitly set to empty"
+		initDiagnostics []Diagnostic // errors from New() constructor surfaced as diagnostics
 	}
 
 	// Option configures a Discovery instance via the functional options pattern.
@@ -93,16 +99,28 @@ func New(cfg *config.Config, opts ...Option) *Discovery {
 		var err error
 		d.baseDir, err = os.Getwd()
 		if err != nil {
-			slog.Warn("failed to determine working directory for discovery, current-dir lookup will be skipped",
+			slog.Debug("failed to determine working directory for discovery, current-dir lookup will be skipped",
 				"error", err)
+			d.initDiagnostics = append(d.initDiagnostics, Diagnostic{
+				Severity: SeverityWarning,
+				Code:     "working_dir_unavailable",
+				Message:  fmt.Sprintf("current directory unavailable, skipping local discovery: %v", err),
+				Cause:    err,
+			})
 		}
 	}
 	if !d.commandsDirSet && d.commandsDir == "" {
 		if dir, err := config.CommandsDir(); err == nil {
 			d.commandsDir = dir
 		} else {
-			slog.Warn("user commands directory unavailable, skipping user-dir discovery",
+			slog.Debug("user commands directory unavailable, skipping user-dir discovery",
 				"error", err)
+			d.initDiagnostics = append(d.initDiagnostics, Diagnostic{
+				Severity: SeverityWarning,
+				Code:     "commands_dir_unavailable",
+				Message:  fmt.Sprintf("user commands directory unavailable, skipping user-dir discovery: %v", err),
+				Cause:    err,
+			})
 		}
 	}
 	return d
