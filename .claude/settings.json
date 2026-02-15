@@ -79,6 +79,10 @@
           {
             "type": "command",
             "command": "cozempic guard --daemon 2>/dev/null || true"
+          },
+          {
+            "type": "command",
+            "command": "rm -f \"/tmp/.claude-learn-$(echo \"$PWD\" | sha256sum | cut -c1-16)\" 2>/dev/null; true"
           }
         ]
       }
@@ -104,7 +108,7 @@
           },
           {
             "type": "command",
-            "command": "INPUT=$(cat); if [ \"$(echo \"$INPUT\" | jq -r '.stop_hook_active')\" = \"true\" ]; then exit 0; fi; echo '{\"decision\":\"block\",\"reason\":\"Before finishing, run /learn to check for stale CLAUDE.md, rules, or skills.\"}'",
+            "command": "GUARD=\"/tmp/.claude-learn-$(echo \"$PWD\" | sha256sum | cut -c1-16)\"; if [ -f \"$GUARD\" ]; then rm -f \"$GUARD\"; exit 0; fi; touch \"$GUARD\"; echo '{\"decision\":\"block\",\"reason\":\"Before finishing, run /learn to check for stale CLAUDE.md, rules, or skills.\"}'",
             "timeout": 5000
           }
         ]
@@ -114,7 +118,7 @@
   "model": "opus",
   "outputStyle": "Explanatory",
   "env": {
-    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "0",
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1",
     "CLAUDE_CODE_SUBAGENT_MODEL": "opus",
     "ANTHROPIC_DEFAULT_SONNET_MODEL": "opus"
   }
