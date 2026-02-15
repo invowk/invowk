@@ -104,8 +104,8 @@
           },
           {
             "type": "command",
-            "command": "echo 'If you made any changes this session (code, config, docs, workflows, rules, skills, hooks, etc.), run /learn before finishing to check for stale CLAUDE.md, rules, or skills.'",
-            "timeout": 2000
+            "command": "INPUT=$(cat); if [ \"$(echo \"$INPUT\" | jq -r '.stop_hook_active')\" = \"true\" ]; then exit 0; fi; echo '{\"decision\":\"block\",\"reason\":\"Before finishing, run /learn to check for stale CLAUDE.md, rules, or skills.\"}'",
+            "timeout": 5000
           }
         ]
       }
