@@ -1,9 +1,9 @@
 # yaml-language-server: $schema=https://aka.ms/winget-manifest.defaultLocale.1.10.0.schema.json
-# Reference template for manual first submission to microsoft/winget-pkgs.
+# Reference template for WinGet manifest submissions.
 # GoReleaser auto-generates this for subsequent releases.
 
 PackageIdentifier: Invowk.Invowk
-PackageVersion: 0.1.0  # Replace with actual version
+PackageVersion: 0.2.0
 PackageLocale: en-US
 Publisher: invowk
 PublisherUrl: https://invowk.dev
@@ -17,11 +17,12 @@ ShortDescription: A dynamically extensible command runner
 Description: |-
   Invowk is a dynamically extensible command runner supporting multiple execution
   runtimes: native shell, virtual shell, and containerized execution (Docker/Podman).
+Moniker: invowk
 Tags:
   - cli
   - command-runner
   - devops
   - task-runner
-ReleaseNotesUrl: https://github.com/invowk/invowk/releases/tag/v0.1.0
+ReleaseNotesUrl: https://github.com/invowk/invowk/releases/tag/v0.2.0
 ManifestType: defaultLocale
 ManifestVersion: 1.10.0
