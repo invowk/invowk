@@ -1,0 +1,17 @@
+# yaml-language-server: $schema=https://aka.ms/winget-manifest.installer.1.10.0.schema.json
+# Reference template for manual first submission to microsoft/winget-pkgs.
+# GoReleaser auto-generates this for subsequent releases.
+
+PackageIdentifier: Invowk.Invowk
+PackageVersion: 0.1.0  # Replace with actual version
+InstallerType: zip
+NestedInstallerType: portable
+NestedInstallerFiles:
+  - RelativeFilePath: invowk.exe
+    PortableCommandAlias: invowk
+Installers:
+  - Architecture: x64
+    InstallerUrl: https://github.com/invowk/invowk/releases/download/v0.1.0/invowk_0.1.0_windows_amd64.zip
+    InstallerSha256: "REPLACE_WITH_ACTUAL_SHA256"
+ManifestType: installer
+ManifestVersion: 1.10.0

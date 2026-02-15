@@ -63,6 +63,17 @@ Isso baixa a versão mais recente do GitHub, verifica o checksum SHA256 e instal
 | `GITHUB_TOKEN` | não definido | Opcional; evita limitação de taxa da API |
 
   </TabItem>
+  <TabItem value="winget" label="WinGet (Windows)">
+
+Instale usando [WinGet](https://learn.microsoft.com/en-us/windows/package-manager/) no **Windows 10/11**:
+
+<Snippet id="installation/winget" />
+
+Para atualizar depois:
+
+<Snippet id="installation/winget-upgrade" />
+
+  </TabItem>
   <TabItem value="homebrew" label="Homebrew">
 
 Se você usa [Homebrew](https://brew.sh/) no **macOS** ou **Linux**:
@@ -120,6 +131,7 @@ Você deverá ver as informações de versão. Se receber um erro "command not f
 |--------|-------|-------|---------|
 | Script shell | amd64, arm64 | amd64 (Intel), arm64 (Apple Silicon) | — |
 | Script PowerShell | — | — | amd64 |
+| WinGet | — | — | amd64 |
 | Homebrew | amd64, arm64 | amd64, arm64 | — |
 | Go install | todos | todos | todos |
 | Código-fonte | todos | todos | todos |
@@ -143,6 +155,8 @@ Atualize usando o mesmo método que você usou para instalar:
   Para atualizar para uma versão específica, defina `INVOWK_VERSION`:
 
 <Snippet id="installation/powershell-script-custom" />
+
+- **WinGet**: `winget upgrade Invowk.Invowk`
 
 - **Homebrew**: `brew upgrade invowk`
 

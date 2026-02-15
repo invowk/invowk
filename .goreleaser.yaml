@@ -145,14 +145,41 @@ homebrew_casks:
           end
     commit_msg_template: "Brew cask update for {{ .ProjectName }} version {{ .Tag }}"
 
-# Winget (disabled for now - uncomment to enable)
-# winget:
-#   - name: invowk
-#     publisher: invowk
-#     short_description: A dynamically extensible command runner
-#     license: MPL-2.0
-#     homepage: https://invowk.dev
-#     repository:
-#       owner: invowk
-#       name: winget-pkgs
-#       token: "{{ .Env.WINGET_TOKEN }}"
+# WinGet — auto-generates manifests and opens PRs to microsoft/winget-pkgs on stable releases.
+# Requires WINGET_TOKEN secret (classic PAT with public_repo scope for cross-repo fork PRs).
+# First version must be submitted manually; automation handles subsequent updates.
+winget:
+  - name: invowk
+    publisher: invowk
+    publisher_url: https://invowk.dev
+    publisher_support_url: https://github.com/invowk/invowk/issues
+    package_identifier: Invowk.Invowk
+    license: MPL-2.0
+    license_url: https://github.com/invowk/invowk/blob/HEAD/LICENSE
+    copyright: Copyright invowk contributors
+    homepage: https://invowk.dev
+    short_description: A dynamically extensible command runner
+    description: |-
+      Invowk is a dynamically extensible command runner supporting multiple execution
+      runtimes: native shell, virtual shell, and containerized execution (Docker/Podman).
+    tags:
+      - cli
+      - command-runner
+      - devops
+      - task-runner
+    release_notes_url: "https://github.com/invowk/invowk/releases/tag/{{ .Tag }}"
+    goamd64: v3
+    skip_upload: auto
+    repository:
+      owner: invowk
+      name: winget-pkgs
+      branch: "invowk-{{ .Version }}"
+      token: "{{ .Env.WINGET_TOKEN }}"
+      pull_request:
+        enabled: true
+        draft: false
+        base:
+          owner: microsoft
+          name: winget-pkgs
+          branch: master
+    commit_msg_template: "New version: Invowk.Invowk version {{ .Version }}"

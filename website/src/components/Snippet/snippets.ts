@@ -4926,6 +4926,16 @@ $env:INVOWK_VERSION='v1.0.0'; irm https://raw.githubusercontent.com/invowk/invow
 $env:INVOWK_NO_MODIFY_PATH='1'; irm https://raw.githubusercontent.com/invowk/invowk/main/scripts/install.ps1 | iex`,
   },
 
+  'installation/winget': {
+    language: 'powershell',
+    code: `winget install Invowk.Invowk`,
+  },
+
+  'installation/winget-upgrade': {
+    language: 'powershell',
+    code: `winget upgrade Invowk.Invowk`,
+  },
+
   'installation/homebrew': {
     language: 'bash',
     code: `brew install invowk/tap/invowk`,

@@ -63,6 +63,17 @@ This downloads the latest release from GitHub, verifies its SHA256 checksum, and
 | `GITHUB_TOKEN` | unset | Optional; avoids API rate limiting |
 
   </TabItem>
+  <TabItem value="winget" label="WinGet (Windows)">
+
+Install using [WinGet](https://learn.microsoft.com/en-us/windows/package-manager/) on **Windows 10/11**:
+
+<Snippet id="installation/winget" />
+
+To upgrade later:
+
+<Snippet id="installation/winget-upgrade" />
+
+  </TabItem>
   <TabItem value="homebrew" label="Homebrew">
 
 If you use [Homebrew](https://brew.sh/) on **macOS** or **Linux**:
@@ -120,6 +131,7 @@ You should see the version information. If you get a "command not found" error, 
 |--------|-------|-------|---------|
 | Shell script | amd64, arm64 | amd64 (Intel), arm64 (Apple Silicon) | — |
 | PowerShell script | — | — | amd64 |
+| WinGet | — | — | amd64 |
 | Homebrew | amd64, arm64 | amd64, arm64 | — |
 | Go install | all | all | all |
 | From source | all | all | all |
@@ -143,6 +155,8 @@ Upgrade using the same method you used to install:
   To upgrade to a specific version, set `INVOWK_VERSION`:
 
 <Snippet id="installation/powershell-script-custom" />
+
+- **WinGet**: `winget upgrade Invowk.Invowk`
 
 - **Homebrew**: `brew upgrade invowk`
 

@@ -340,11 +340,12 @@ jobs:
           GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
           GORELEASER_CURRENT_TAG: ${{ steps.tag.outputs.name }}
           HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          WINGET_TOKEN: ${{ secrets.WINGET_TOKEN }}
 
       # Run GoReleaser (dry run)
-      # HOMEBREW_TAP_TOKEN is set to a dummy value because GoReleaser template-expands
-      # .Env.HOMEBREW_TAP_TOKEN even in snapshot mode. The real token is only needed for
-      # the publish step above; --snapshot skips the actual cask push.
+      # HOMEBREW_TAP_TOKEN and WINGET_TOKEN are set to dummy values because GoReleaser
+      # template-expands .Env references even in snapshot mode. The real tokens are only
+      # needed for the publish step above; --snapshot skips the actual push.
       - name: Run GoReleaser (dry run)
         if: github.event_name == 'workflow_dispatch' && github.event.inputs.dry_run == 'true'
         uses: goreleaser/goreleaser-action@v6
@@ -355,3 +356,4 @@ jobs:
           GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
           GORELEASER_CURRENT_TAG: ${{ steps.tag.outputs.name }}
           HOMEBREW_TAP_TOKEN: "dry-run"
+          WINGET_TOKEN: "dry-run"

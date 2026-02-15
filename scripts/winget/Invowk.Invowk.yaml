@@ -1,0 +1,9 @@
+# yaml-language-server: $schema=https://aka.ms/winget-manifest.version.1.10.0.schema.json
+# Reference template for manual first submission to microsoft/winget-pkgs.
+# GoReleaser auto-generates this for subsequent releases.
+
+PackageIdentifier: Invowk.Invowk
+PackageVersion: 0.1.0  # Replace with actual version
+DefaultLocale: en-US
+ManifestType: version
+ManifestVersion: 1.10.0

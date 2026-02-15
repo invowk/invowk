@@ -8,7 +8,7 @@
 **Created**: 2026-02-13
 **Status**: Implemented (US3 removed; US1, US2, US4 complete)
 **Input**: User description: "Design and implement 3 officially supported installation methods (go install, homebrew, install.sh script) and an invowk upgrade command to update to the latest stable release."
-**Shipped scope**: US1 (install.sh), US2 (Homebrew), US4 (go install), PowerShell installer (install.ps1). US3 (self-upgrade CLI) was deferred and removed from this branch.
+**Shipped scope**: US1 (install.sh), US2 (Homebrew), US4 (go install), PowerShell installer (install.ps1), WinGet distribution (GoReleaser pipe). US3 (self-upgrade CLI) was deferred and removed from this branch.
 
 ## Clarifications
 
