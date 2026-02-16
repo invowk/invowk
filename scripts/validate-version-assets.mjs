@@ -4,7 +4,7 @@
 // Validate that all snippet/diagram references in versioned docs resolve
 // correctly to their version-scoped snapshots and static SVG files.
 //
-// For current docs, validates against the live snippets.ts and svgPaths.
+// For current docs, validates against the live snippet data files and svgPaths.
 // For versioned docs, validates against per-version snapshot files and SVG copies.
 //
 // Usage:
@@ -81,17 +81,22 @@ function parseAllSnippetKeys() {
     if (!match) continue;
 
     const startIdx = match.index + match[0].length;
-    const endMarker = '};';
-    const endIdx = content.lastIndexOf(endMarker);
+    // Handle both `};` and `} satisfies Record<string, Snippet>;`
+    const endIdx = Math.max(content.lastIndexOf('};'), content.lastIndexOf('} satisfies'));
 
-    if (startIdx === -1 || endIdx === -1) {
-      console.error(`ERROR: Could not parse ${file}`);
+    if (endIdx === -1) {
+      console.error(`ERROR: Could not find object closing in ${file}`);
       process.exit(1);
     }
 
     const objectLiteral = content.slice(startIdx, endIdx + 1);
-    const snippets = vm.runInNewContext(`(${objectLiteral})`);
-    Object.keys(snippets).forEach((k) => allKeys.add(k));
+    try {
+      const snippets = vm.runInNewContext(`(${objectLiteral})`);
+      Object.keys(snippets).forEach((k) => allKeys.add(k));
+    } catch (err) {
+      console.error(`ERROR: Failed to parse snippets in ${file}:`, err);
+      process.exit(1);
+    }
   }
 
   return allKeys;
@@ -166,7 +171,7 @@ function validateCurrentDocs() {
 
   for (const id of snippetIds) {
     if (!liveSnippetKeys.has(id)) {
-      console.error(`  MISSING: current docs reference snippet "${id}" not in snippets.ts`);
+      console.error(`  MISSING: current docs reference snippet "${id}" not in snippet data files`);
       errors++;
     }
   }

@@ -1451,4 +1451,4 @@ check_script: """
     ]
 }`,
   },
-};
+} satisfies Record<string, Snippet>;

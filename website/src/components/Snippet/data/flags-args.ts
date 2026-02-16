@@ -795,4 +795,4 @@ invowk cmd deploy prod 3 --dry-run
 invowk cmd deploy --dry-run prod 3
 invowk cmd deploy prod --dry-run 3`,
   },
-};
+} satisfies Record<string, Snippet>;

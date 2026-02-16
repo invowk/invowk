@@ -1144,4 +1144,4 @@ invowk tui pager --line-numbers --title "Code Review" src/main.go
 # View diff output
 git diff HEAD~5 | invowk tui pager --title "Recent Changes"`,
   },
-};
+} satisfies Record<string, Snippet>;

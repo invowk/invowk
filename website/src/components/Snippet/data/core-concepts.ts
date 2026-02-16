@@ -1089,4 +1089,4 @@ cmds: [
     },
 ]`,
   },
-};
+} satisfies Record<string, Snippet>;

@@ -47,5 +47,5 @@ build configuration.
 1. Search all workflow files for the tool name to find every reference.
 2. Update the version in all locations simultaneously.
 3. Update the "Current pinned versions" list in this rule.
-4. Update `.claude/rules/commands.md` if the tool appears in Prerequisites or examples.
+4. Update `.agents/rules/commands.md` if the tool appears in Prerequisites or examples.
 5. Run affected CI workflows to verify.

@@ -460,4 +460,4 @@ Your invowkfile contains syntax errors or invalid configuration.
 - Run with verbose mode for more details:
   $ invowk --ivk-verbose cmd`,
   },
-};
+} satisfies Record<string, Snippet>;

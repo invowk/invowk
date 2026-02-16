@@ -13,7 +13,7 @@ Use this skill when:
 - Testing TUI components (Bubble Tea models)
 - Testing container runtimes (Docker/Podman)
 
-**Cross-references**: For universal test patterns (table-driven tests, `testing.Short()`, `skipOnWindows`, `t.TempDir()`, testscript HOME fix, container test timeouts, cross-platform path assertions, test file size limits), see `.claude/rules/testing.md`. This skill covers domain-specific testing guidance that extends those rules.
+**Cross-references**: For universal test patterns (table-driven tests, `testing.Short()`, `skipOnWindows`, `t.TempDir()`, testscript HOME fix, container test timeouts, cross-platform path assertions, test file size limits), see `.agents/rules/testing.md`. This skill covers domain-specific testing guidance that extends those rules.
 
 ---
 
@@ -724,4 +724,4 @@ The test passed on slower runners (ubuntu-24.04) but failed on faster ones where
 | Missing `set -e` in scripts | Failed commands don't cause script failure | Add `set -e` at script start |
 | Unused env vars in testscript Setup | Confusion, false assumptions | Only set vars used by production code |
 
-For cross-platform testing pitfalls (path separators, `skipOnWindows`, `filepath.Join()`), see `.claude/rules/testing.md` and `.claude/rules/windows.md`.
+For cross-platform testing pitfalls (path separators, `skipOnWindows`, `filepath.Join()`), see `.agents/rules/testing.md` and `.agents/rules/windows.md`.

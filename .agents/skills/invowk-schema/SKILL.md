@@ -193,4 +193,4 @@ When modifying module-related code, verify:
 | Missing platform restrictions | Bash scripts fail on Windows | Add platform-specific implementations for native+virtual runtimes |
 | Args with subcommands | Discovery validation error | Commands with positional args cannot have subcommands |
 
-For path handling in implementations, see `.claude/rules/windows.md`.
+For path handling in implementations, see `.agents/rules/windows.md`.

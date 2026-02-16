@@ -134,11 +134,11 @@ function parseAllSnippets() {
     }
 
     const startIdx = match.index + match[0].length;
-    const endMarker = '};';
-    const endIdx = content.lastIndexOf(endMarker);
+    // Handle both `};` and `} satisfies Record<string, Snippet>;`
+    const endIdx = Math.max(content.lastIndexOf('};'), content.lastIndexOf('} satisfies'));
 
     if (endIdx === -1) {
-      console.error(`ERROR: Could not find "};" in ${file}`);
+      console.error(`ERROR: Could not find object closing in ${file}`);
       process.exit(1);
     }
 
@@ -226,7 +226,7 @@ function writeVersionSnippets(version, snippetIds, allSnippets) {
     return;
   }
 
-  // Normal mode: generate the full snapshot from current snippets.ts
+  // Normal mode: generate the full snapshot from current snippet data files
   const missing = [...snippetIds].filter((id) => !allSnippets[id]);
   if (missing.length > 0) {
     console.error(`ERROR: Missing snippets for version ${version}:`);

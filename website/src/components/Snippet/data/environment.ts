@@ -899,4 +899,4 @@ invowk cmd build --ivk-env-var DEBUG=true --ivk-env-var LOG_LEVEL=debug`,
   --ivk-env-inherit-allow LANG 
   --ivk-env-inherit-deny AWS_SECRET_ACCESS_KEY`,
   },
-};
+} satisfies Record<string, Snippet>;

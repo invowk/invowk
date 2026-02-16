@@ -255,7 +255,7 @@ containerPath := filepath.Join("/workspace", relPath)  // Broken on Windows!
 
 `ResolveDockerfilePath()` includes path traversal detection to prevent `../..` escapes.
 
-See `.claude/rules/windows.md` for comprehensive path handling guidance.
+See `.agents/rules/windows.md` for comprehensive path handling guidance.
 
 ---
 

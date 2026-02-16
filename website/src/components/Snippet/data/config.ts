@@ -546,4 +546,4 @@ container_engine: "docker"`,
     language: 'bash',
     code: `invowk config show`,
   },
-};
+} satisfies Record<string, Snippet>;

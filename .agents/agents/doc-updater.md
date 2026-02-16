@@ -55,17 +55,17 @@ website/docs/
 
 Code blocks in docs use the `<Snippet>` component:
 
-1. Define snippets in `website/src/components/Snippet/snippets.ts`
+1. Define snippets in `website/src/components/Snippet/data/*.ts` files
 2. Reference by ID: `<Snippet id="my-snippet" />`
 3. Reuse same IDs across English and pt-BR translations
 4. Escape `${...}` as `\${...}` inside snippets
 
 ### Version-Scoped Snapshots
 
-Versioned docs resolve snippets and diagrams from **immutable per-version snapshots**, not from live `snippets.ts` or `svgPaths`. Updates to current/next data never affect versioned docs.
+Versioned docs resolve snippets and diagrams from **immutable per-version snapshots**, not from live snippet data files or `svgPaths`. Updates to current/next data never affect versioned docs.
 
 - When behavior changes, create new snippet IDs for the upcoming version.
-- **Old snippet entries can be safely removed** from `snippets.ts` — versioned docs resolve from their snapshots.
+- **Old snippet entries can be safely removed** from the data files — versioned docs resolve from their snapshots.
 - Never edit versioned docs to update snippet IDs — they reference their frozen snapshot.
 - For backport fixes: `node scripts/snapshot-version-assets.mjs <version> --update`
 
@@ -85,7 +85,7 @@ When asked to sync docs after a code change:
 1. **Identify affected docs**: Cross-reference the sync maps above
 2. **Read the code change**: Understand what behavior changed
 3. **Update English docs first**: Modify the relevant `.mdx` pages
-4. **Update snippets**: If code examples changed, update `snippets.ts`. Old entries superseded by new IDs can be removed — versioned docs use immutable snapshots.
+4. **Update snippets**: If code examples changed, update the relevant file in `Snippet/data/`. Old entries superseded by new IDs can be removed — versioned docs use immutable snapshots.
 5. **Update i18n**: Mirror changes to pt-BR translations
 6. **Update diagrams**: If architecture changed, edit D2 source files
 7. **Verify**: Run `cd website && npm run build` to validate all locales

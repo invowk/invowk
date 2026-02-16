@@ -120,7 +120,7 @@ cd website && npm run serve
 
 ## Version-Scoped Asset Snapshots
 
-Versioned docs resolve snippets and diagrams from **immutable per-version snapshots** created at release time. Updates to `snippets.ts` or live SVGs never affect versioned docs.
+Versioned docs resolve snippets and diagrams from **immutable per-version snapshots** created at release time. Updates to snippet data files or live SVGs never affect versioned docs.
 
 ### How It Works
 
@@ -135,13 +135,13 @@ Versioned docs resolve snippets and diagrams from **immutable per-version snapsh
 
 Both `<Snippet>` and `<Diagram>` use `useActiveDocContext('default')` to detect the doc version:
 - **Versioned docs**: Resolve from the per-version snapshot first, fall back to live data.
-- **Current/next docs**: Resolve from live `snippets.ts` / `svgPaths` directly.
+- **Current/next docs**: Resolve from live snippet data files / `svgPaths` directly.
 
 ### Migration Process (for schema/API changes that rename snippets)
 
-1. Create the new snippet with the new ID in `snippets.ts`.
+1. Create the new snippet with the new ID in the relevant `Snippet/data/*.ts` file.
 2. Update current + i18n current docs to reference the new ID.
-3. **Remove the old snippet entry** from `snippets.ts` — it's already captured in version snapshots.
+3. **Remove the old snippet entry** from the data file — it's already captured in version snapshots.
 4. Never touch versioned docs — they resolve old IDs from their immutable snapshots.
 
 ### Backport Fixes
@@ -166,7 +166,7 @@ website/static/diagrams/v{VERSION}/        # Per-version SVG copies
 - **Stale snippets and i18n content** - When fixing factual errors in `website/docs/` (e.g., wrong version numbers, incorrect claims), also sweep `website/src/components/Snippet/data/*.ts` for matching stale values in code examples and `website/i18n/pt-BR/.../current/` for the same stale content in translations. When fixing versioned docs (e.g., `versioned_docs/version-0.1.0/`), also sweep the versioned i18n counterpart (`website/i18n/pt-BR/.../version-0.1.0/`). Snippet code blocks and i18n mirrors are easy to miss because the Documentation Sync Map covers code→doc direction, not doc-content→snippet/i18n direction.
 - **Dual-prefix config snippets** — `website/src/components/Snippet/data/config.ts` has two parallel sets of config snippets: `config/*` (used by `configuration/options.mdx`) and `reference/config/*` (used by `reference/config-schema.mdx`). When fixing config examples, BOTH prefixes must be checked and updated. Also check `website/src/pages/index.tsx` terminal demo for CLI output changes.
 - **CUE snippet schema drift** — CUE code snippets in `website/src/components/Snippet/data/*.ts` can drift from the actual schema over time. When writing or reviewing CUE snippets, validate them against the actual schema files (`invowkfile_schema.cue`, `invowkmod_schema.cue`, `config_schema.cue`). Common drift patterns: `cmds` shown as a map instead of a list, `runtimes`/`platforms` shown as string arrays instead of struct lists (`[{name: "..."}]`), `git` instead of `git_url` in module requirements, version constraints with invalid `v` prefix, and `includes` paths missing the required `.invowkmod` suffix.
-- **Container image policy** — ALL container examples in docs must use `debian:stable-slim` as the base image. No `ubuntu:*`, no `debian:bookworm`. Language-specific images (`golang:1.26`, `python:3-slim`) are allowed for language-specific demos only. See `.claude/rules/version-pinning.md` Container Images.
+- **Container image policy** — ALL container examples in docs must use `debian:stable-slim` as the base image. No `ubuntu:*`, no `debian:bookworm`. Language-specific images (`golang:1.26`, `python:3-slim`) are allowed for language-specific demos only. See `.agents/rules/version-pinning.md` Container Images.
 - **Outdated documentation** - Check the Documentation Sync Map when modifying schemas or CLI.
 - **Versioning chicken-and-egg** - `docusaurus.config.ts` `lastVersion` must reference a version that already exists in `versions.json`. If `lastVersion` is set to a version before `docs:version` creates it, Docusaurus validation fails on initialization. Fix: temporarily set `lastVersion` to an existing version, run `version-docs.sh`, which will restore `lastVersion` to the new version in step 4.
 - **Doc-then-version ordering** - Always fix documentation issues in `website/docs/` BEFORE running `version-docs.sh`, since the script snapshots the current docs into `versioned_docs/`. Versioning first means the snapshot preserves bugs.

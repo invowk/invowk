@@ -1154,4 +1154,4 @@ module: "io.github.username.cli"`,
     path?:   string
 }`,
   },
-};
+} satisfies Record<string, Snippet>;

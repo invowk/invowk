@@ -871,4 +871,4 @@ container_engine: "podman"  // or "docker"`,
     }]
 }`,
   },
-};
+} satisfies Record<string, Snippet>;

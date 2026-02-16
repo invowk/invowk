@@ -759,4 +759,4 @@ requires: [
     {path: "/home/shared/invowk/shared.invowkmod"},
 ]`,
   },
-};
+} satisfies Record<string, Snippet>;

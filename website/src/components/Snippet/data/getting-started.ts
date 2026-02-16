@@ -364,4 +364,4 @@ invowk cmd hello --ivk-runtime virtual`,
     platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 }`,
   },
-};
+} satisfies Record<string, Snippet>;
