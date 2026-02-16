@@ -53,6 +53,14 @@ Agents are specialized reviewers and generators that can be spawned as subagents
 - [`.agents/agents/security-reviewer.md`](.agents/agents/security-reviewer.md) - Security reviewer: SSH auth, container injection, gosec exclusions, env var handling.
 - [`.agents/agents/test-writer.md`](.agents/agents/test-writer.md) - Testscript generator: virtual/native txtar pairs, platform-split CUE, exemption rules.
 
+### Commands
+
+**Commands Index (`.agents/commands/`):**
+
+Commands are user-invokable slash commands (e.g., `/review-docs`) that execute multi-step workflows.
+
+- [`.agents/commands/review-docs.md`](.agents/commands/review-docs.md) - Review README and website docs for accuracy against current architecture and behaviors.
+
 ### Skills
 
 **Skills Index (`.agents/skills/`):**
