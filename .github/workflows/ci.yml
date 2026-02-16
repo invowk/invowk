@@ -215,7 +215,7 @@ jobs:
       # Render JUnit results as PR annotations (inline failed test annotations)
       - name: Test Report
         if: always()
-        uses: mikepenz/action-junit-report@v5
+        uses: mikepenz/action-junit-report@v6
         with:
           report_paths: '*.xml'
           check_name: Tests (${{ matrix.os }}${{ matrix.engine && format(' / {0}', matrix.engine) || '' }})

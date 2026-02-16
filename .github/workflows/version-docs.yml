@@ -49,7 +49,7 @@ jobs:
       # Commits made with GITHUB_TOKEN do NOT trigger other workflows.
       - name: Generate App token
         id: app-token
-        uses: actions/create-github-app-token@v1
+        uses: actions/create-github-app-token@v2
         with:
           app-id: ${{ secrets.DOCS_APP_ID }}
           private-key: ${{ secrets.DOCS_APP_PRIVATE_KEY }}
