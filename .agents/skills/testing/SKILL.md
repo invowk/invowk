@@ -541,7 +541,7 @@ When writing native test mirrors for Windows, use these translations:
 | `module_deps.txtar` | — | Module deps subcommand (built-in) | Embedded invowkmod fixtures |
 | `module_add_remove.txtar` | — | Module add/remove subcommands (built-in) | Error paths (no git) |
 | `module_sync_update.txtar` | — | Module sync/update subcommands (built-in) | Embedded invowkmod fixtures |
-| `module_vendor.txtar` | — | Module vendor subcommand (built-in) | Embedded invowkmod fixtures |
+| `module_vendor.txtar` | — | Module vendor subcommand (built-in) | Pre-seeded cache + lock file, prune |
 | `completion.txtar` | — | Shell completion generation (built-in) | bash/zsh/fish/powershell output |
 | `tui_format.txtar` | — | TUI format subcommand (built-in) | Stdin pipe, markdown/code/emoji |
 | `tui_style.txtar` | — | TUI style subcommand (built-in) | Stdin pipe, flag-based styling |

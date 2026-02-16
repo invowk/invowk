@@ -29,6 +29,29 @@ stderr 'invowkmod.cue'
 stderr 'module directory'
 stderr 'invowkmod.cue'
 
+# Test 7: Happy path - vendor from pre-seeded lock file + cache
+# The lock file points to a pre-populated cache directory, so no network access is needed.
+env INVOWK_MODULES_PATH=$WORK/module-cache
+exec invowk module vendor ./depmod.invowkmod
+stdout 'Loading from lock file'
+stdout 'dep@1.0.0'
+stdout 'Vendored 1 module'
+# Verify vendored module files exist with correct structure
+exists depmod.invowkmod/invowk_modules/dep.invowkmod/invowkmod.cue
+exists depmod.invowkmod/invowk_modules/dep.invowkmod/invowkfile.cue
+
+# Test 8: Prune removes stale vendored modules
+# Create a stale module in invowk_modules/ that is not in the lock file
+mkdir depmod.invowkmod/invowk_modules/stale.invowkmod
+cp stale-invowkmod.cue depmod.invowkmod/invowk_modules/stale.invowkmod/invowkmod.cue
+exists depmod.invowkmod/invowk_modules/stale.invowkmod/invowkmod.cue
+# Vendor with --prune should remove the stale module but keep the valid one
+exec invowk module vendor --prune ./depmod.invowkmod
+stdout 'Pruned 1 stale'
+stdout 'stale.invowkmod'
+! exists depmod.invowkmod/invowk_modules/stale.invowkmod
+exists depmod.invowkmod/invowk_modules/dep.invowkmod/invowkmod.cue
+
 -- vendormod.invowkmod/invowkmod.cue --
 module:  "vendormod"
 version: "0.1.0"
@@ -47,3 +70,54 @@ cmds: [
 ]
 
 -- plaindir/.gitkeep --
+
+-- depmod.invowkmod/invowkmod.cue --
+module:  "depmod"
+version: "0.1.0"
+requires: [
+	{
+		git_url: "https://github.com/example/dep.invowkmod.git"
+		version: "^1.0.0"
+	},
+]
+
+-- depmod.invowkmod/invowkfile.cue --
+cmds: []
+
+-- depmod.invowkmod/invowkmod.lock.cue --
+// invowkmod.lock.cue - Auto-generated lock file for module dependencies
+// DO NOT EDIT MANUALLY
+
+version: "1.0"
+generated: "2025-01-01T00:00:00Z"
+
+modules: {
+	"https://github.com/example/dep.invowkmod.git": {
+		git_url:          "https://github.com/example/dep.invowkmod.git"
+		version:          "^1.0.0"
+		resolved_version: "1.0.0"
+		git_commit:       "abc123def456789012345678901234567890abcd"
+		namespace:        "dep@1.0.0"
+	}
+}
+
+-- module-cache/github.com/example/dep.invowkmod/1.0.0/dep.invowkmod/invowkmod.cue --
+module:  "dep"
+version: "1.0.0"
+
+-- module-cache/github.com/example/dep.invowkmod/1.0.0/dep.invowkmod/invowkfile.cue --
+cmds: [
+	{
+		name:        "greet"
+		description: "A greeting command"
+		implementations: [{
+			script:    "echo hello from dep"
+			runtimes:  [{name: "virtual"}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+	},
+]
+
+-- stale-invowkmod.cue --
+module:  "stale"
+version: "0.0.1"

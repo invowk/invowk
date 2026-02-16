@@ -397,8 +397,10 @@ func TestVendorModules_CopiesFromCache(t *testing.T) {
 		t.Fatalf("VendorModules() vendored %d modules, want 2", len(result.Vendored))
 	}
 
-	// Verify modules exist in invowk_modules/
+	// Verify modules exist in invowk_modules/ with correct fields
+	entryByNamespace := make(map[string]VendoredEntry)
 	for _, entry := range result.Vendored {
+		entryByNamespace[entry.Namespace] = entry
 		if _, err := os.Stat(entry.VendorPath); err != nil {
 			t.Errorf("vendored module not found at %s: %v", entry.VendorPath, err)
 		}
@@ -407,6 +409,25 @@ func TestVendorModules_CopiesFromCache(t *testing.T) {
 		if _, err := os.Stat(invowkmodPath); err != nil {
 			t.Errorf("invowkmod.cue not found in vendored module: %v", err)
 		}
+	}
+
+	// Verify Namespace fields match what was passed in ResolvedModule
+	for _, ns := range []string{"dep1@1.0.0", "dep2@2.0.0"} {
+		if _, ok := entryByNamespace[ns]; !ok {
+			t.Errorf("expected vendored entry with Namespace %q, not found", ns)
+		}
+	}
+
+	// Verify SourcePath points to the actual .invowkmod directory inside the cache
+	dep1Entry := entryByNamespace["dep1@1.0.0"]
+	expectedDep1Source := filepath.Join(cache1, "dep1.invowkmod")
+	if dep1Entry.SourcePath != expectedDep1Source {
+		t.Errorf("dep1 SourcePath = %q, want %q", dep1Entry.SourcePath, expectedDep1Source)
+	}
+	dep2Entry := entryByNamespace["dep2@2.0.0"]
+	expectedDep2Source := filepath.Join(cache2, "dep2.invowkmod")
+	if dep2Entry.SourcePath != expectedDep2Source {
+		t.Errorf("dep2 SourcePath = %q, want %q", dep2Entry.SourcePath, expectedDep2Source)
 	}
 
 	// Verify vendor dir is correct
