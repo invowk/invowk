@@ -31,7 +31,7 @@ Na terminologia C4, "container" refere-se a uma unidade separadamente executáve
 | **Discovery Engine** | Go | Encontra diretórios `invkfile.cue` e `*.invkmod` com ordenação por precedência. Constrói árvore unificada de comandos. |
 | **Configuration Manager** | Go/Viper+CUE | Carrega config de `~/.config/invowk/config.cue`. Valida contra schema CUE. |
 | **CUE Parser** | Go/cuelang | Implementa parsing em 3 etapas: compilar schema → unificar com dados → decodificar para structs Go. Fornece mensagens de erro ricas. |
-| **Module Resolver** | Go | Resolve dependências baseadas em Git. Gerencia cache em `~/.cache/invowk/modules/`. Lida com lock files para reprodutibilidade. |
+| **Module Resolver** | Go | Resolve dependências baseadas em Git. Gerencia cache em `~/.invowk/modules/`. Lida com lock files para reprodutibilidade. |
 
 ### Runtimes
 
@@ -62,7 +62,7 @@ Na terminologia C4, "container" refere-se a uma unidade separadamente executáve
 | **Config File** | CUE | `~/.config/invowk/config.cue` | Preferências do usuário: engine de container, search paths, etc. |
 | **Invkfiles** | CUE | `./invkfile.cue`, search paths | Definições de comandos com implementações |
 | **Modules** | Diretórios | `*.invkmod/` | Comandos empacotados com metadados `invkmod.cue` |
-| **Module Cache** | Sistema de Arquivos | `~/.cache/invowk/modules/` | Módulos remotos buscados via Git em cache |
+| **Module Cache** | Sistema de Arquivos | `~/.invowk/modules/` | Módulos remotos buscados via Git em cache |
 
 ## Interações entre Componentes
 

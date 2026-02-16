@@ -23,7 +23,7 @@ This diagram zooms into Invowk to show its internal containers - the major appli
 | **Discovery Engine** | Go | Finds `invowkfile.cue` and `*.invowkmod` directories with precedence ordering. Builds unified command tree. |
 | **Configuration Manager** | Go/Viper+CUE | Loads config from `~/.config/invowk/config.cue`. Validates against CUE schema. |
 | **CUE Parser** | Go/cuelang | Implements 3-step parsing: compile schema → unify with data → decode to Go structs. Provides rich error messages. |
-| **Module Resolver** | Go | Resolves Git-based dependencies. Manages cache at `~/.cache/invowk/modules/`. Handles lock files for reproducibility. |
+| **Module Resolver** | Go | Resolves Git-based dependencies. Manages cache at `~/.invowk/modules/`. Handles lock files for reproducibility. |
 
 ### Runtimes
 
@@ -54,7 +54,7 @@ This diagram zooms into Invowk to show its internal containers - the major appli
 | **Config File** | CUE | `~/.config/invowk/config.cue` | User preferences: container engine, includes, etc. |
 | **Invowkfiles** | CUE | `./invowkfile.cue`, configured includes | Command definitions with implementations |
 | **Modules** | Directories | `*.invowkmod/` | Packaged commands with `invowkmod.cue` metadata |
-| **Module Cache** | Filesystem | `~/.cache/invowk/modules/` | Cached Git-fetched remote modules |
+| **Module Cache** | Filesystem | `~/.invowk/modules/` | Cached Git-fetched remote modules |
 
 ## Component Interactions
 

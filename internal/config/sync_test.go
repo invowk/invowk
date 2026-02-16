@@ -562,6 +562,20 @@ func TestValidateIncludes(t *testing.T) {
 			wantErr: true,
 		},
 		{
+			name: "relative path rejected",
+			includes: []IncludeEntry{
+				{Path: "relative/path/mymod.invowkmod"},
+			},
+			wantErr: true,
+		},
+		{
+			name: "dot-relative path rejected",
+			includes: []IncludeEntry{
+				{Path: "./local/mymod.invowkmod"},
+			},
+			wantErr: true,
+		},
+		{
 			name: "duplicate path rejected",
 			includes: []IncludeEntry{
 				{Path: "/path/to/mymod.invowkmod"},
