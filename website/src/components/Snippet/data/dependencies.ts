@@ -326,6 +326,7 @@ Install the missing tools and try again.`,
         {
             script: "go build ./..."
             runtimes: [{name: "container", image: "golang:1.26"}]
+            platforms: [{name: "linux"}]
             depends_on: {
                 // Checked INSIDE the container, not on host
                 tools: [{alternatives: ["go"]}]
@@ -368,6 +369,7 @@ Install the missing tools and try again.`,
             go build -ldflags="-X main.version=$VERSION" ./...
             """
         runtimes: [{name: "native"}]
+        platforms: [{name: "linux"}, {name: "macos"}]
     }]
 }`,
   },
@@ -386,6 +388,7 @@ Install the missing tools and try again.`,
     implementations: [{
         script: "pnpm run build || npm run build"
         runtimes: [{name: "native"}]
+        platforms: [{name: "linux"}, {name: "macos"}]
     }]
 }`,
   },
@@ -407,6 +410,7 @@ Install the missing tools and try again.`,
             kubectl rollout status deployment/myapp
             """
         runtimes: [{name: "native"}]
+        platforms: [{name: "linux"}, {name: "macos"}]
     }]
 }`,
   },
@@ -426,6 +430,7 @@ Install the missing tools and try again.`,
     implementations: [{
         script: "poetry run python main.py"
         runtimes: [{name: "native"}]
+        platforms: [{name: "linux"}, {name: "macos"}]
     }]
 }`,
   },
@@ -440,6 +445,7 @@ Install the missing tools and try again.`,
     implementations: [{
         script: "go build ./..."
         runtimes: [{name: "native"}]
+        platforms: [{name: "linux"}, {name: "macos"}]
     }]
 }`,
   },
@@ -454,6 +460,7 @@ Install the missing tools and try again.`,
     implementations: [{
         script: "go build ./..."
         runtimes: [{name: "virtual"}]
+        platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
     }]
 }`,
   },
@@ -465,6 +472,7 @@ Install the missing tools and try again.`,
     implementations: [{
         script: "go build ./..."
         runtimes: [{name: "container", image: "golang:1.26"}]
+        platforms: [{name: "linux"}]
         depends_on: {
             // This checks for 'go' INSIDE the container
             tools: [{alternatives: ["go"]}]
@@ -483,6 +491,7 @@ Install the missing tools and try again.`,
     implementations: [{
         script: "aws s3 sync ./dist s3://my-bucket"
         runtimes: [{name: "native"}]
+        platforms: [{name: "linux"}, {name: "macos"}]
     }]
 }`,
   },
@@ -500,6 +509,7 @@ Install the missing tools and try again.`,
     implementations: [{
         script: "migrate -path ./migrations -database $DATABASE_URL up"
         runtimes: [{name: "native"}]
+        platforms: [{name: "linux"}, {name: "macos"}]
     }]
 }`,
   },
@@ -517,6 +527,7 @@ Install the missing tools and try again.`,
     implementations: [{
         script: "xdg-open http://localhost:3000/docs || open http://localhost:3000/docs"
         runtimes: [{name: "native"}]
+        platforms: [{name: "linux"}, {name: "macos"}]
     }]
 }`,
   },
@@ -545,6 +556,7 @@ Install the missing tools and try again.`,
     implementations: [{
         script: "go mod download"
         runtimes: [{name: "native"}]
+        platforms: [{name: "linux"}, {name: "macos"}]
     }]
 }
 
@@ -557,6 +569,7 @@ Install the missing tools and try again.`,
     implementations: [{
         script: "kubectl apply -f k8s/"
         runtimes: [{name: "native"}]
+        platforms: [{name: "linux"}, {name: "macos"}]
     }]
 }
 
@@ -569,6 +582,7 @@ Install the missing tools and try again.`,
     implementations: [{
         script: "curl -o data.json https://api.example.com/data"
         runtimes: [{name: "native"}]
+        platforms: [{name: "linux"}, {name: "macos"}]
     }]
 }`,
   },
@@ -593,6 +607,7 @@ Install the missing tools and try again.`,
     implementations: [{
         script: "psql -h db.local -U admin"
         runtimes: [{name: "native"}]
+        platforms: [{name: "linux"}, {name: "macos"}]
     }]
 }
 
@@ -605,6 +620,7 @@ Install the missing tools and try again.`,
     implementations: [{
         script: "curl http://service.local:8080/health"
         runtimes: [{name: "native"}]
+        platforms: [{name: "linux"}, {name: "macos"}]
     }]
 }`,
   },
@@ -631,6 +647,7 @@ Install the missing tools and try again.`,
     implementations: [{
         script: "npm install"
         runtimes: [{name: "native"}]
+        platforms: [{name: "linux"}, {name: "macos"}]
     }]
 }`,
   },
@@ -656,6 +673,7 @@ Install the missing tools and try again.`,
             go test ./...
             """
         runtimes: [{name: "native"}]
+        platforms: [{name: "linux"}, {name: "macos"}]
     }]
 }`,
   },
@@ -678,6 +696,7 @@ Install the missing tools and try again.`,
             fi
             """
         runtimes: [{name: "native"}]
+        platforms: [{name: "linux"}, {name: "macos"}]
     }]
 }`,
   },
@@ -694,6 +713,7 @@ Install the missing tools and try again.`,
         implementations: [{
             script: "go mod download"
             runtimes: [{name: "native"}]
+            platforms: [{name: "linux"}, {name: "macos"}]
         }]
     },
 
@@ -707,6 +727,7 @@ Install the missing tools and try again.`,
         implementations: [{
             script: "go build -mod=readonly ./..."
             runtimes: [{name: "native"}]
+            platforms: [{name: "linux"}, {name: "macos"}]
         }]
     }
 ]`,
@@ -726,6 +747,7 @@ Install the missing tools and try again.`,
             kubectl apply -f k8s/
             """
         runtimes: [{name: "container", image: "debian:stable-slim"}]
+        platforms: [{name: "linux"}]
     }]
 }`,
   },
@@ -780,6 +802,7 @@ Install the missing tools and try again.`,
     implementations: [{
         script: "aws s3 sync ./dist s3://my-bucket"
         runtimes: [{name: "native"}]
+        platforms: [{name: "linux"}, {name: "macos"}]
     }]
 }`,
   },
@@ -802,6 +825,7 @@ Install the missing tools and try again.`,
     implementations: [{
         script: "migrate -path ./migrations -database $DATABASE_URL up"
         runtimes: [{name: "native"}]
+        platforms: [{name: "linux"}, {name: "macos"}]
     }]
 }`,
   },
@@ -824,6 +848,7 @@ Install the missing tools and try again.`,
             npm publish
             """
         runtimes: [{name: "native"}]
+        platforms: [{name: "linux"}, {name: "macos"}]
     }]
 }`,
   },
@@ -848,6 +873,7 @@ Install the missing tools and try again.`,
             ./scripts/deploy-$DEPLOY_ENV.sh
             """
         runtimes: [{name: "native"}]
+        platforms: [{name: "linux"}, {name: "macos"}]
     }]
 }`,
   },
@@ -874,6 +900,7 @@ Install the missing tools and try again.`,
             git push origin "$VERSION"
             """
         runtimes: [{name: "native"}]
+        platforms: [{name: "linux"}, {name: "macos"}]
     }]
 }`,
   },
@@ -1053,6 +1080,7 @@ Install the missing tools and try again.`,
     implementations: [{
         script: "docker build -t myapp ."
         runtimes: [{name: "native"}]
+        platforms: [{name: "linux"}, {name: "macos"}]
     }]
 }`,
   },
@@ -1077,6 +1105,7 @@ Install the missing tools and try again.`,
     implementations: [{
         script: "./scripts/release.sh"
         runtimes: [{name: "native"}]
+        platforms: [{name: "linux"}, {name: "macos"}]
     }]
 }`,
   },
@@ -1188,6 +1217,7 @@ Install the missing tools and try again.`,
     implementations: [{
         script: "npm run build"
         runtimes: [{name: "container", image: "node:20"}]
+        platforms: [{name: "linux"}]
         depends_on: {
             custom_checks: [
                 {
@@ -1339,6 +1369,7 @@ check_script: """
     implementations: [{
         script: "go build ./..."
         runtimes: [{name: "native"}]
+        platforms: [{name: "linux"}, {name: "macos"}]
     }]
 }`,
   },
@@ -1359,6 +1390,7 @@ check_script: """
     implementations: [{
         script: "npm run build"
         runtimes: [{name: "native"}]
+        platforms: [{name: "linux"}, {name: "macos"}]
     }]
 }`,
   },
@@ -1378,6 +1410,7 @@ check_script: """
     implementations: [{
         script: "docker build -t myapp ."
         runtimes: [{name: "native"}]
+        platforms: [{name: "linux"}, {name: "macos"}]
     }]
 }`,
   },
@@ -1404,6 +1437,7 @@ check_script: """
     implementations: [{
         script: "./scripts/deploy.sh"
         runtimes: [{name: "native"}]
+        platforms: [{name: "linux"}, {name: "macos"}]
     }]
 }`,
   },
@@ -1415,6 +1449,7 @@ check_script: """
     implementations: [{
         script: "go build ./..."
         runtimes: [{name: "container", image: "golang:1.26"}]
+        platforms: [{name: "linux"}]
         depends_on: {
             filepaths: [
                 // These are checked INSIDE the container

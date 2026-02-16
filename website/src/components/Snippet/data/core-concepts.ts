@@ -304,6 +304,7 @@ From tools.invowkmod:
   'implementations/runtimes-list': {
     language: 'cue',
     code: `runtimes: [
+    platforms: [{name: "linux"}, {name: "macos"}]
     {name: "native"},      // System shell
     {name: "virtual"},     // Built-in POSIX shell
     {name: "container", image: "debian:stable-slim"}  // Container
@@ -499,6 +500,7 @@ cmds: [
         {
             script: "make build"
             runtimes: [
+            platforms: [{name: "linux"}, {name: "macos"}]
                 {name: "native"},
                 {name: "container", image: "debian:stable-slim"}
             ]
@@ -602,6 +604,7 @@ invowk cmd database-cli --ivk-interactive`,
             fi
             """
         runtimes: [{
+        platforms: [{name: "linux"}, {name: "macos"}]
             name: "container"
             image: "debian:stable-slim"
         }]
@@ -624,6 +627,7 @@ invowk cmd database-cli --ivk-interactive`,
             echo "Deployment complete!"
             """
         runtimes: [{name: "native"}]
+        platforms: [{name: "linux"}, {name: "macos"}]
     }]
 }`,
   },
@@ -644,6 +648,7 @@ invowk cmd database-cli --ivk-interactive`,
             fi
             """
         runtimes: [{name: "native"}]
+        platforms: [{name: "linux"}, {name: "macos"}]
     }]
 }`,
   },
@@ -734,15 +739,18 @@ script: "deploy.py"`,
     language: 'cue',
     code: `// Native only
 runtimes: [{name: "native"}]
+platforms: [{name: "linux"}, {name: "macos"}]
 
 // Multiple runtimes
 runtimes: [
+platforms: [{name: "linux"}, {name: "macos"}]
     {name: "native"},
     {name: "virtual"},
 ]
 
 // Container with options
 runtimes: [{
+platforms: [{name: "linux"}, {name: "macos"}]
     name: "container"
     image: "golang:1.26"
     volumes: ["./:/app"]
@@ -801,6 +809,7 @@ platforms: [
   'reference/invowkfile/env-inherit-example': {
     language: 'cue',
     code: `runtimes: [{
+    platforms: [{name: "linux"}, {name: "macos"}]
     name:              "container"
     image:             "debian:stable-slim"
     env_inherit_mode:  "allow"
@@ -827,6 +836,7 @@ interpreter: "/usr/bin/env perl -w"`,
   'reference/invowkfile/enable-host-ssh-example': {
     language: 'cue',
     code: `runtimes: [{
+    platforms: [{name: "linux"}, {name: "macos"}]
     name: "container"
     image: "debian:stable-slim"
     enable_host_ssh: true
