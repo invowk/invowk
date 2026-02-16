@@ -10,14 +10,19 @@ import (
 	"strings"
 )
 
+// isSupportedGitURLPrefix returns true when the URL uses a supported Git scheme.
+func isSupportedGitURLPrefix(url string) bool {
+	return strings.HasPrefix(url, "https://") || strings.HasPrefix(url, "git@") || strings.HasPrefix(url, "ssh://")
+}
+
 // validateModuleRef validates a module requirement.
 func (m *Resolver) validateModuleRef(req ModuleRef) error {
 	if req.GitURL == "" {
 		return fmt.Errorf("git_url is required")
 	}
 
-	if !strings.HasPrefix(req.GitURL, "https://") && !strings.HasPrefix(req.GitURL, "git@") {
-		return fmt.Errorf("git_url must start with https:// or git@")
+	if !isSupportedGitURLPrefix(req.GitURL) {
+		return fmt.Errorf("git_url must start with https://, git@, or ssh://")
 	}
 
 	if req.Version == "" {
@@ -191,7 +196,6 @@ func (m *Resolver) loadTransitiveDeps(cachePath string) ([]ModuleRef, string, er
 	}
 
 	// Parse invowkmod to extract module name and requires.
-	// Uses lightweight string extraction rather than full CUE evaluation.
 	data, err := os.ReadFile(invowkmodPath)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -200,11 +204,14 @@ func (m *Resolver) loadTransitiveDeps(cachePath string) ([]ModuleRef, string, er
 		return nil, "", fmt.Errorf("reading invowkmod %s: %w", invowkmodPath, err)
 	}
 
-	// Extract module and requires from invowkmod content using lightweight string parsing.
-	moduleName := extractModuleFromInvowkmod(string(data))
-	reqs := extractRequiresFromInvowkmod(string(data))
+	meta, err := ParseInvowkmodBytes(data, invowkmodPath)
+	if err != nil {
+		return nil, "", fmt.Errorf("parsing invowkmod %s: %w", invowkmodPath, err)
+	}
 
-	return reqs, moduleName, nil
+	reqs := extractRequiresFromInvowkmod(meta.Requires)
+
+	return reqs, meta.Module, nil
 }
 
 // computeNamespace generates the namespace for a module.
@@ -246,12 +253,11 @@ func extractModuleFromInvowkmod(content string) string {
 	return ""
 }
 
-// extractRequiresFromInvowkmod extracts requires from invowkmod content.
-// Transitive dependency resolution from nested invowkmod.cue files is intentionally
-// deferred: the resolver currently processes only first-level dependencies declared
-// in the root invowkmod.cue. Deeper transitive chains are not yet extracted, so
-// modules that themselves declare requires will not have those sub-dependencies
-// automatically pulled in.
-func extractRequiresFromInvowkmod(_ string) []ModuleRef {
-	return nil
+// extractRequiresFromInvowkmod converts invowkmod requirements into resolver refs.
+func extractRequiresFromInvowkmod(reqs []ModuleRequirement) []ModuleRef {
+	refs := make([]ModuleRef, 0, len(reqs))
+	for _, req := range reqs {
+		refs = append(refs, ModuleRef(req))
+	}
+	return refs
 }

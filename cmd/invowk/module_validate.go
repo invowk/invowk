@@ -4,7 +4,6 @@ package cmd
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 
 	"github.com/invowk/invowk/internal/discovery"
@@ -34,7 +33,7 @@ Examples:
   invowk module validate ./com.example.tools.invowkmod --deep`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runModuleValidate(args, deep)
+			return runModuleValidate(cmd, args, deep)
 		},
 	}
 
@@ -43,7 +42,7 @@ Examples:
 	return cmd
 }
 
-func runModuleValidate(args []string, deep bool) error {
+func runModuleValidate(cmd *cobra.Command, args []string, deep bool) error {
 	modulePath := args[0]
 
 	// Convert to absolute path for display
@@ -124,7 +123,7 @@ func runModuleValidate(args []string, deep bool) error {
 		}
 	}
 
-	// Exit with error code
-	os.Exit(1)
-	return nil
+	cmd.SilenceUsage = true
+	cmd.SilenceErrors = true
+	return &ExitError{Code: 1}
 }

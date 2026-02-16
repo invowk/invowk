@@ -19,3 +19,7 @@ stdout 'Found 1 module'
 exec invowk module create secondmod
 exec invowk module list
 stdout 'Found 2 module'
+
+# Test 4: module list rejects positional arguments
+! exec invowk module list unexpected
+stderr 'Accepts 0 arg'

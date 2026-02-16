@@ -11,3 +11,11 @@ stderr 'parse invowkmod.cue'
 exec invowk module update
 stdout 'Update Module Dependencies'
 stdout 'No modules to update'
+
+# Test 3: module sync rejects positional arguments
+! exec invowk module sync unexpected
+stderr 'Accepts 0 arg'
+
+# Test 4: module update rejects more than one identifier
+! exec invowk module update first second
+stderr 'Accepts at most 1 arg'

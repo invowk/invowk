@@ -79,6 +79,7 @@ Examples:
 
 Examples:
   invowk module list`,
+		Args: cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runModuleList(cmd.Context(), app)
 		},

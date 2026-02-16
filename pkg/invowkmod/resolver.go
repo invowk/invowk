@@ -405,7 +405,7 @@ func (m *Resolver) LoadFromLock(ctx context.Context) ([]*ResolvedModule, error) 
 // isGitURL returns true if s looks like a Git URL.
 // Matches the CUE schema regex at invowkmod_schema.cue (https://, git@, ssh://).
 func isGitURL(s string) bool {
-	return strings.HasPrefix(s, "https://") || strings.HasPrefix(s, "git@") || strings.HasPrefix(s, "ssh://")
+	return isSupportedGitURLPrefix(s)
 }
 
 // resolveIdentifier resolves a user-provided identifier to lock file keys.

@@ -302,16 +302,16 @@ Module management (`module.go`):
 | `module list` | List discovered modules |
 | `module archive` | Package module as archive |
 | `module import` | Import external module |
-| `module alias` | Create module aliases |
+| `module vendor` | Vendor module dependencies |
 
 ### Dependency Management
 
 ```bash
-module add <module>     # Add dependency
-module remove <module>  # Remove dependency
-module sync             # Sync dependencies
-module update           # Update dependencies
-module deps             # Inspect dependency tree
+module add <git-url> <version>  # Add dependency
+module remove <identifier>       # Remove dependency
+module sync                      # Sync dependencies from invowkmod.cue (accepts 0 args)
+module update [identifier]       # Update all deps or one matching dependency
+module deps                      # List dependencies from lock file (accepts 0 args)
 ```
 
 ---

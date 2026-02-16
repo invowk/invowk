@@ -8,3 +8,7 @@ exec invowk module deps
 stdout 'Module Dependencies'
 stdout 'No module dependencies found'
 stdout 'invowk module add'
+
+# Test 2: module deps rejects positional arguments
+! exec invowk module deps unexpected
+stderr 'Accepts 0 arg'

@@ -88,6 +88,7 @@ constraints, downloads the modules, and updates the lock file.
 
 Examples:
   invowk module sync`,
+		Args: cobra.ExactArgs(0),
 		RunE: runModuleSync,
 	}
 }
@@ -113,6 +114,7 @@ Examples:
   invowk module update https://github.com/user/module.git
   invowk module update myalias
   invowk module update modulename`,
+		Args: cobra.MaximumNArgs(1),
 		RunE: runModuleUpdate,
 	}
 }
@@ -128,6 +130,7 @@ Shows all resolved modules with their versions, namespaces, and cache paths.
 
 Examples:
   invowk module deps`,
+		Args: cobra.ExactArgs(0),
 		RunE: runModuleDeps,
 	}
 }
