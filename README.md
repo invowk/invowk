@@ -29,7 +29,7 @@ A dynamically extensible, CLI-based command runner similar to [just](https://git
 
 - **Beautiful CLI**: Styled output using [Cobra](https://github.com/spf13/cobra) with [Lip Gloss](https://github.com/charmbracelet/lipgloss) styling
 
-- **Interactive TUI Components**: Built-in gum-like terminal UI components for creating interactive shell scripts (input, choose, confirm, filter, file picker, table, spinner, pager, format, style)
+- **Interactive TUI Components**: Built-in gum-like terminal UI components for creating interactive shell scripts (input, write, choose, confirm, filter, file picker, table, spinner, pager, format, style)
 
 - **Module Dependencies**: Modules can import dependencies from remote Git repositories (GitHub, GitLab) with semantic versioning support and lock files for reproducibility
 

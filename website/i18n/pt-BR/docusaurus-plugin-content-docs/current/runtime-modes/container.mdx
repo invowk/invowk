@@ -30,7 +30,7 @@ O runtime **container** executa comandos dentro de um container Docker ou Podman
 Quando você executa um comando com o runtime container, o Invowk™:
 
 1. Baixa ou constrói a imagem do container (se necessário)
-2. Monta o diretório atual dentro do container
+2. Monta o diretório do invowkfile dentro do container
 3. Executa o script dentro do container
 4. Transmite a saída de volta para seu terminal
 
@@ -153,7 +153,7 @@ Se não configurado, o Invowk tenta:
 
 ## Diretório de Trabalho
 
-Por padrão, o diretório atual é montado em `/workspace` e usado como diretório de trabalho:
+Por padrão, o diretório do invowkfile é montado em `/workspace` e usado como diretório de trabalho:
 
 <Snippet id="runtime-modes/container-workdir-default" />
 

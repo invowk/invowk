@@ -1773,17 +1773,15 @@ Invowk Vars
 ├── INVOWK_FLAG_*
 └── INVOWK_ARG_*
     │
-Implementation Level
-├── env.vars
-└── env.files
+Vars (by scope, highest to lowest)
+├── Implementation env.vars
+├── Command env.vars
+└── Root env.vars
     │
-Command Level
-├── env.vars
-└── env.files
-    │
-Root Level
-├── env.vars
-└── env.files
+Files (by scope, highest to lowest)
+├── Implementation env.files
+├── Command env.files
+└── Root env.files
     │
 System Environment (lowest priority)`,
   },
@@ -3080,7 +3078,8 @@ workdir: "\${PROJECT_ROOT}/src"`,
 
   'advanced/workdir-precedence': {
     language: 'cue',
-    code: `workdir: "./root"  // Default: ./root
+    code: `// --ivk-workdir (CLI) > implementation > command > root
+workdir: "./root"  // Lowest: ./root
 
 cmds: [
     {
@@ -3089,7 +3088,7 @@ cmds: [
         implementations: [
             {
                 script: "make"
-                workdir: "./implementation"  // Final: ./implementation
+                workdir: "./implementation"  // Override: ./implementation
                 runtimes: [{name: "native"}]
                 platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
             }
@@ -7164,8 +7163,13 @@ invowk config set container_engine podman
 # Set default runtime
 invowk config set default_runtime virtual
 
-# Set nested value
-invowk config set ui.color_scheme dark`,
+# Set UI options
+invowk config set ui.color_scheme dark
+invowk config set ui.verbose true
+invowk config set ui.interactive false
+
+# Set virtual shell options
+invowk config set virtual_shell.enable_uroot_utils true`,
   },
 
   'reference/cli/module-syntax': {
@@ -8323,29 +8327,26 @@ invowk cmd database-cli --ivk-interactive`,
 
   'architecture/runtime-selection-cross-platform': {
     language: 'cue',
-    code: `cmds: {
-    build: {
-        default: {
-            runtime: "native"
+    code: `cmds: [{
+    name: "build"
+    implementations: [
+        {
+            script: "nmake build"
+            runtimes: [{name: "native"}]
+            platforms: [{name: "windows"}]
+        },
+        {
             script: "make build"
-        }
-        implementations: [
-            {
-                platforms: ["windows"]
-                runtime: "native"
-                script: "nmake build"
-            },
-            {
-                platforms: ["linux"]
-                runtime: "container"
-                container: {
-                    image: "golang:1.26"
-                }
-                script: "make build"
-            }
-        ]
-    }
-}`,
+            runtimes: [{name: "container", image: "golang:1.26"}]
+            platforms: [{name: "linux"}]
+        },
+        {
+            script: "make build"
+            runtimes: [{name: "native"}]
+            platforms: [{name: "macos"}]
+        },
+    ]
+}]`,
   },
 
   'architecture/discovery-module-fields': {
@@ -8358,8 +8359,8 @@ version: "1.0.0"                // Semantic version
 description: "My useful module"
 requires: [
     {
-        git: "https://github.com/org/repo.git"
-        version: "v1.0.0"
+        git_url: "https://github.com/org/repo.invowkmod.git"
+        version: "^1.0.0"
     }
 ]`,
   },
@@ -8368,7 +8369,7 @@ requires: [
     language: 'cue',
     code: `includes: [
     {path: "/opt/company-invowk-modules/tools.invowkmod"},
-    {path: "/home/shared/invowk/invowkfile.cue"},
+    {path: "/home/shared/invowk/shared.invowkmod"},
 ]`,
   },
 
