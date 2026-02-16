@@ -4630,7 +4630,7 @@ fi`,
     code: `// ~/.config/invowk/config.cue
 container_engine: "podman"
 includes: [
-    {path: "~/.invowk/modules/tools.invowkmod"},
+    {path: "/home/user/.invowk/modules/tools.invowkmod"},
     {path: "/usr/local/share/invowk/shared.invowkmod"},
 ]
 default_runtime: "virtual"`,
@@ -4644,8 +4644,8 @@ default_runtime: "virtual"`,
   'config/includes': {
     language: 'cue',
     code: `includes: [
-    {path: "~/.invowk/modules/tools.invowkmod"},
-    {path: "~/my-company/shared.invowkmod", alias: "company"},
+    {path: "/home/user/.invowk/modules/tools.invowkmod"},
+    {path: "/opt/company/shared.invowkmod", alias: "company"},
 ]`,
   },
 
@@ -4706,8 +4706,8 @@ container_engine: "podman"
 
 // Additional modules to include in discovery
 includes: [
-    {path: "~/.invowk/modules/tools.invowkmod"},
-    {path: "~/projects/shared.invowkmod", alias: "shared"},
+    {path: "/home/user/.invowk/modules/tools.invowkmod"},
+    {path: "/home/user/projects/shared.invowkmod", alias: "shared"},
 ]
 
 // Default runtime for commands that don't specify one
@@ -4745,7 +4745,7 @@ container: {
 }
 
 #IncludeEntry: {
-    path:   string  // Must end with .invowkmod
+    path:   string  // Must be absolute and end with .invowkmod
     alias?: string  // Optional, for collision disambiguation
 }
 
@@ -4840,8 +4840,8 @@ container_engine: "podman"
 
 // Additional modules to include in discovery
 includes: [
-    {path: "~/.invowk/modules/tools.invowkmod"},       // Personal modules
-    {path: "~/work/shared.invowkmod", alias: "team"},   // Team shared module
+    {path: "/home/user/.invowk/modules/tools.invowkmod"},       // Personal modules
+    {path: "/home/user/work/shared.invowkmod", alias: "team"},   // Team shared module
 ]
 
 // Default to virtual shell for portability
@@ -7874,7 +7874,7 @@ module: "io.github.username.cli"`,
 
 // Include entry for modules
 #IncludeEntry: {
-    path:   string  // Must end with .invowkmod
+    path:   string  // Must be absolute and end with .invowkmod
     alias?: string  // Optional, for collision disambiguation
 }
 
@@ -7926,8 +7926,8 @@ module: "io.github.username.cli"`,
   'reference/config/includes-example': {
     language: 'cue',
     code: `includes: [
-    {path: "~/.invowk/modules/tools.invowkmod"},
-    {path: "~/projects/shared.invowkmod", alias: "shared"},
+    {path: "/home/user/.invowk/modules/tools.invowkmod"},
+    {path: "/home/user/projects/shared.invowkmod", alias: "shared"},
     {path: "/opt/company/tools.invowkmod"},
 ]`,
   },
@@ -8058,10 +8058,10 @@ container_engine: "podman"
 // Modules may have an optional alias for collision disambiguation.
 includes: [
     // Personal modules
-    {path: "~/.invowk/modules/tools.invowkmod"},
+    {path: "/home/user/.invowk/modules/tools.invowkmod"},
 
     // Team shared module (with alias)
-    {path: "~/work/shared.invowkmod", alias: "team"},
+    {path: "/home/user/work/shared.invowkmod", alias: "team"},
 
     // Organization-wide module
     {path: "/opt/company/tools.invowkmod"},

@@ -48,11 +48,14 @@ function HomepageHeader() {
           <pre className={styles.terminalCode}>
             <code>
 {`$ invowk init
-Created invowkfile.cue
+✓ Created invowkfile.cue
 
 $ invowk cmd
 Available Commands
-  hello - Print a greeting [native*, virtual, container]
+  (* = default runtime)
+
+From invowkfile:
+  hello - Print a greeting [native*, virtual, container] (linux, macos, windows)
 
 $ invowk cmd hello
 Hello, World!
