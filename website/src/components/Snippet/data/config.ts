@@ -13,7 +13,7 @@ includes: [
     {path: "/home/user/.invowk/modules/tools.invowkmod"},
     {path: "/usr/local/share/invowk/shared.invowkmod"},
 ]
-default_runtime: "virtual"`,
+default_runtime: "native"`,
   },
 
   'config/container-engine': {
@@ -160,7 +160,7 @@ container: {
 
   'config/default-runtime': {
     language: 'cue',
-    code: `default_runtime: "virtual"`,
+    code: `default_runtime: "native"`,
   },
 
   'config/virtual-shell': {
@@ -229,8 +229,8 @@ includes: [
     {path: "/home/user/work/shared.invowkmod", alias: "team"},   // Team shared module
 ]
 
-// Default to virtual shell for portability
-default_runtime: "virtual"
+// Keep the default runtime set to native shell
+default_runtime: "native"
 
 // Virtual shell settings
 virtual_shell: {
@@ -353,7 +353,7 @@ invowk cmd build --ivk-runtime container`,
 
   'reference/config/default-runtime-example': {
     language: 'cue',
-    code: `default_runtime: "virtual"`,
+    code: `default_runtime: "native"`,
   },
 
   'reference/config/virtual-shell-example': {

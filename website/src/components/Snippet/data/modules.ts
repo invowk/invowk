@@ -1054,13 +1054,13 @@ invowk module update https://github.com/user/mod.invowkmod.git`,
     code: `Vendor Module Dependencies
 
 • Found 2 requirement(s) in invowkmod.cue
+• Loading from lock file
 • Vendor directory: /home/user/project/invowk_modules
 
-! Vendoring is not yet fully implemented
+✓ common@1.2.3
+✓ deploy@1.5.4
 
-• The following dependencies would be vendored:
-   • https://github.com/example/common.invowkmod.git@^1.0.0
-   • https://github.com/example/deploy.invowkmod.git@~1.5.0`,
+✓ Vendored 2 module(s) successfully`,
   },
 
   'modules/dependencies/cli/workflow-init': {

@@ -12,16 +12,16 @@ O Invowk fornece um conjunto de comandos `invowk module` para gerenciar dependê
 
 | Comando | Descrição |
 |---------|-----------|
-| `invowk module add` | Resolve uma dependência e imprime uma entrada de `requires` |
-| `invowk module remove` | Remove uma dependência do lock file |
+| `invowk module add` | Adiciona uma dependência de módulo (resolve, faz cache e atualiza lock file e `invowkmod.cue`) |
+| `invowk module remove` | Remove uma dependência de módulo (atualiza lock file e `invowkmod.cue`) |
 | `invowk module deps` | Lista dependências resolvidas |
 | `invowk module sync` | Resolve dependências de `invowkmod.cue` |
 | `invowk module update` | Atualiza dependências para as versões mais recentes compatíveis |
-| `invowk module vendor` | Faz vendor das dependências em `invowk_modules/` (parcial) |
+| `invowk module vendor` | Faz vendor das dependências em `invowk_modules/` |
 
 ## invowk module add
 
-Resolve uma dependência e imprime a entrada de `requires` para adicionar em `invowkmod.cue`.
+Resolve uma dependência, faz cache, atualiza o lock file e autoedita `invowkmod.cue` para adicionar a entrada em `requires`.
 
 ### Uso
 
@@ -50,12 +50,15 @@ Resolve uma dependência e imprime a entrada de `requires` para adicionar em `in
 <Snippet id="modules/dependencies/cli/add-output" />
 
 :::note
-`invowk module add` não edita `invowkmod.cue` automaticamente. Copie a entrada de `requires` impressa para os metadados do módulo e execute `invowk module sync`.
+`invowk module add` realiza três ações automaticamente:
+1. Resolve e faz cache do módulo
+2. Atualiza o lock file
+3. Autoedita `invowkmod.cue` para adicionar a entrada em `requires` (se o arquivo existir)
 :::
 
 ## invowk module remove
 
-Remove uma dependência do lock file.
+Remove uma dependência de módulo do lock file e de `invowkmod.cue`.
 
 ### Uso
 
@@ -65,7 +68,7 @@ Remove uma dependência do lock file.
 
 | Argumento | Descrição |
 |-----------|-----------|
-| `git-url` | URL do repositório Git a remover |
+| `identifier` | Identificador do módulo: URL Git, alias, nome do módulo ou chave completa (`modulename@version`) |
 
 ### Exemplos
 
@@ -76,7 +79,11 @@ Remove uma dependência do lock file.
 <Snippet id="modules/dependencies/cli/remove-output" />
 
 :::note
-Esse comando remove a dependência apenas do lock file. Você precisa remover manualmente a entrada de `requires` de `invowkmod.cue`. Arquivos de cache não são deletados.
+`invowk module remove` realiza duas ações automaticamente:
+1. Remove o módulo do lock file
+2. Autoedita `invowkmod.cue` para remover a entrada correspondente em `requires`
+
+Arquivos de cache não são deletados.
 :::
 
 ## invowk module deps
@@ -123,7 +130,7 @@ Atualiza dependências para as versões mais recentes compatíveis com as restri
 
 | Argumento | Descrição |
 |-----------|-----------|
-| `git-url` | (Opcional) Dependência específica para atualizar |
+| `identifier` | (Opcional) Dependência específica para atualizar: URL Git, alias, nome do módulo ou chave completa (`modulename@version`) |
 
 ### Exemplos
 
@@ -150,7 +157,7 @@ Faz vendor das dependências no diretório `invowk_modules/` para uso offline e 
 <Snippet id="modules/dependencies/cli/vendor-output" />
 
 :::note
-Vendor ainda é um preview. O comando informa o que seria incluído e cria o diretório, mas ainda não faz download das dependências.
+`invowk module vendor` resolve as dependências e as copia para `invowk_modules/`. Se `invowkmod.lock.cue` existir, o vendor usa por padrão as versões travadas. Use `--update` para forçar nova resolução e `--prune` para remover módulos vendorizados obsoletos.
 :::
 
 ## Workflows Comuns

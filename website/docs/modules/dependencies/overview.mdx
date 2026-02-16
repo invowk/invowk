@@ -25,7 +25,7 @@ Module dependencies are external modules that your module depends on. They are:
 
 ### 1. (Optional) Resolve a Dependency
 
-`invowk module add` resolves a dependency and prints the `requires` entry you can copy into `invowkmod.cue`:
+`invowk module add` resolves a dependency, updates `invowkmod.lock.cue`, and auto-edits `invowkmod.cue` to add the `requires` entry when the file exists:
 
 <Snippet id="modules/dependencies/quick-add" />
 

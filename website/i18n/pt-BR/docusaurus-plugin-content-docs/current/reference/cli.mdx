@@ -301,7 +301,7 @@ Fazer vendor de dependências em `invowk_modules/`.
 | `--prune` | Remover módulos vendorizados não usados |
 
 :::note
-Vendoring atualmente é uma funcionalidade em preview. O comando reporta o que seria vendorizado e cria a estrutura de diretórios, mas ainda não faz download das dependências.
+`invowk module vendor` resolve as dependências e as copia para `invowk_modules/`. Se `invowkmod.lock.cue` existir, o vendor usa por padrão as versões travadas. Use `--update` para forçar nova resolução e `--prune` para remover módulos vendorizados obsoletos.
 :::
 
 ---

@@ -2108,7 +2108,7 @@ invowk module vendor --update
 invowk module vendor --prune
 ```
 
-> **Note:** `invowk module vendor` currently prints the dependencies that would be vendored. Fetching and pruning vendored modules is still being finalized.
+> **Note:** `invowk module vendor` resolves dependencies and copies them into `invowk_modules/`. If `invowkmod.lock.cue` exists, locked versions are used by default; use `--update` to force re-resolution and `--prune` to remove stale vendored modules.
 
 ### Collision Handling
 

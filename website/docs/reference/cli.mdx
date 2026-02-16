@@ -301,7 +301,7 @@ Vendor dependencies into `invowk_modules/`.
 | `--prune` | Remove unused vendored modules |
 
 :::note
-Vendoring is currently a preview feature. The command reports what would be vendored and creates the directory structure, but does not fetch dependencies yet.
+`invowk module vendor` resolves dependencies and copies them into `invowk_modules/`. If `invowkmod.lock.cue` exists, vendoring uses locked versions by default. Use `--update` to force re-resolution and `--prune` to remove stale vendored modules.
 :::
 
 ---

@@ -25,7 +25,7 @@ Dependências de módulos são módulos externos dos quais seu módulo depende. 
 
 ### 1. (Opcional) Resolver uma Dependência
 
-`invowk module add` resolve uma dependência e imprime a entrada de `requires` que você pode copiar para `invowkmod.cue`:
+`invowk module add` resolve uma dependência, atualiza `invowkmod.lock.cue` e autoedita `invowkmod.cue` para adicionar a entrada em `requires` quando o arquivo existir:
 
 <Snippet id="modules/dependencies/quick-add" />
 

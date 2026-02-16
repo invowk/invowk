@@ -17,7 +17,7 @@ Invowk provides a set of `invowk module` commands for managing module dependenci
 | `invowk module deps` | List resolved dependencies |
 | `invowk module sync` | Resolve dependencies from `invowkmod.cue` |
 | `invowk module update` | Update dependencies to latest matching versions |
-| `invowk module vendor` | Vendor dependencies into `invowk_modules/` (partial) |
+| `invowk module vendor` | Vendor dependencies into `invowk_modules/` |
 
 ## invowk module add
 
@@ -177,7 +177,7 @@ Vendor dependencies into the `invowk_modules/` directory for offline use and dis
 <Snippet id="modules/dependencies/cli/vendor-output" />
 
 :::note
-Vendoring is currently a preview. The command reports what would be vendored and creates the directory, but does not fetch dependencies yet.
+`invowk module vendor` resolves dependencies and copies them into `invowk_modules/`. If `invowkmod.lock.cue` exists, vendoring uses locked versions by default. Use `--update` to force re-resolution and `--prune` to remove stale vendored modules.
 :::
 
 ## Common Workflows
