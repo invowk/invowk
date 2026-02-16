@@ -53,7 +53,7 @@ Additional modules to include in command discovery. Each entry is an `#IncludeEn
 3. Each entry in `includes` in order
 4. `~/.invowk/cmds` (always included)
 
-Commands from earlier entries override commands with the same name from later entries.
+When multiple includes define commands with the same name, they become ambiguous. Use `@source` prefix or `--ivk-from` flag to disambiguate.
 
 ### default_runtime
 
@@ -94,8 +94,6 @@ Enables [u-root](https://github.com/u-root/u-root) utilities in the virtual shel
 **Text Processing (10):** `basename`, `cut`, `dirname`, `grep`, `head`, `sort`, `tail`, `tr`, `uniq`, `wc`
 
 **Other Utilities (4):** `seq`, `shasum`, `sleep`, `tee`
-
-<Snippet id="config/virtual-shell" />
 
 This makes the virtual shell self-contained, allowing scripts to execute common file, text, and utility operations without requiring external binaries on the host system.
 

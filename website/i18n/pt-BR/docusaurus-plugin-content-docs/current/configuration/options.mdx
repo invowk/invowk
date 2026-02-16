@@ -53,7 +53,7 @@ Módulos adicionais para incluir na descoberta de comandos. Cada entrada é um `
 3. Cada entrada em `includes` em ordem
 4. `~/.invowk/cmds` (sempre incluído)
 
-Comandos de entradas anteriores sobrescrevem comandos com o mesmo nome de entradas posteriores.
+Quando múltiplos includes definem comandos com o mesmo nome, eles se tornam ambíguos. Use o prefixo `@source` ou a flag `--ivk-from` para desambiguar.
 
 ### default_runtime
 
@@ -94,8 +94,6 @@ Habilita utilitários [u-root](https://github.com/u-root/u-root) no virtual shel
 **Processamento de Texto (10):** `basename`, `cut`, `dirname`, `grep`, `head`, `sort`, `tail`, `tr`, `uniq`, `wc`
 
 **Outros Utilitários (4):** `seq`, `shasum`, `sleep`, `tee`
-
-<Snippet id="config/virtual-shell" />
 
 Isso torna o virtual shell autocontido, permitindo que scripts executem operações comuns de arquivo, texto e utilitários sem exigir binários externos no sistema host.
 
