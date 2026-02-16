@@ -87,7 +87,7 @@ Use ambos arquivos e variáveis diretas:
 
 <Snippet id="environment/env-combined" />
 
-Variáveis em `vars` sempre sobrescrevem valores de arquivos no mesmo nível.
+Variáveis em `vars` sempre sobrescrevem valores de arquivos. Todos os arquivos são carregados primeiro (raiz → comando → implementação), depois todas as vars são aplicadas por cima. Veja [Precedência](./precedence) para a ordem completa.
 
 ## Sobrescrita via CLI
 

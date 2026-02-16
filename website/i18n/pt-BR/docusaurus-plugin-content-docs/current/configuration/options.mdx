@@ -104,7 +104,7 @@ Os utilitários u-root são habilitados por padrão. Defina como `false` apenas 
 ### ui
 
 **Tipo:** `#UIConfig`
-**Padrão:** `{color_scheme: "auto"}`
+**Padrão:** `{color_scheme: "auto", verbose: false, interactive: false}`
 
 Configura as preferências de interface do usuário.
 
@@ -148,8 +148,8 @@ Isso é equivalente a sempre passar `--ivk-interactive` na linha de comando.
 
 ### container
 
-**Tipo:** `#ContainerConfig`  
-**Padrão:** `{}`
+**Tipo:** `#ContainerConfig`
+**Padrão:** `{auto_provision: {enabled: true, strict: false, inherit_includes: true}}`
 
 Configura o comportamento do runtime container.
 

@@ -87,7 +87,7 @@ Use both files and direct variables:
 
 <Snippet id="environment/env-combined" />
 
-Variables in `vars` always override values from files at the same level.
+Variables in `vars` always override values from files. All files are loaded first (root → command → implementation), then all vars are applied on top. See [Precedence](./precedence) for the full order.
 
 ## CLI Override
 

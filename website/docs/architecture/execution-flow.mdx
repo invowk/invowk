@@ -64,7 +64,7 @@ The virtual runtime uses the embedded mvdan/sh interpreter:
 
 **Platform matching:**
 - Check for `platforms: ["linux"]`, `["macos"]`, `["windows"]`
-- Fall back to default implementation if no platform match
+- Error if no implementation matches the current platform
 
 ### 4. Execution Phase
 

@@ -91,7 +91,7 @@ Define o modo de runtime padrão global para comandos que não especificam um ru
 
 **Tipo:** `#VirtualShellConfig`  
 **Obrigatório:** Não  
-**Padrão:** `{}`
+**Padrão:** `{enable_uroot_utils: true}`
 
 Configuração para o virtual shell runtime.
 
@@ -101,7 +101,7 @@ Configuração para o virtual shell runtime.
 
 **Tipo:** `#UIConfig`  
 **Obrigatório:** Não  
-**Padrão:** `{}`
+**Padrão:** `{color_scheme: "auto", verbose: false, interactive: false}`
 
 Configuração de interface do usuário.
 
@@ -111,7 +111,7 @@ Configuração de interface do usuário.
 
 **Tipo:** `#ContainerConfig`  
 **Obrigatório:** Não  
-**Padrão:** `{}`
+**Padrão:** `{auto_provision: {enabled: true, strict: false, inherit_includes: true}}`
 
 Configuração para o runtime container.
 
@@ -195,9 +195,9 @@ Configuração para comportamento do runtime container.
 
 ### auto_provision
 
-**Tipo:** `#AutoProvisionConfig`  
-**Obrigatório:** Não  
-**Padrão:** `{}`
+**Tipo:** `#AutoProvisionConfig`
+**Obrigatório:** Não
+**Padrão:** `{enabled: true, strict: false, inherit_includes: true}`
 
 Controla o provisionamento automático de recursos do invowk dentro de containers.
 

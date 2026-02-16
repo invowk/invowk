@@ -231,9 +231,9 @@ invowk cmd test unit --ivk-runtime virtual`,
   (* = default runtime)
 
 From invowkfile:
-  build - Build the project [native*]
-  test unit - Run unit tests [native*, virtual]
-  test coverage - Run tests with coverage [native*]
+  build - Build the project [native*] (linux, macos, windows)
+  test unit - Run unit tests [native*, virtual] (linux, macos, windows)
+  test coverage - Run tests with coverage [native*] (linux, macos, windows)
   clean - Remove build artifacts [native*] (linux, macos)`,
   },
 
@@ -821,6 +821,8 @@ virtual_shell: {
   'runtime-modes/virtual-no-interpreter': {
     language: 'cue',
     code: `// This will NOT work with virtual runtime!
+// The "interpreter" field is not allowed on #RuntimeConfigVirtual —
+// CUE schema validation will reject this at parse time.
 {
     name: "bad-example"
     implementations: [{
@@ -830,7 +832,7 @@ virtual_shell: {
             """
         runtimes: [{
             name: "virtual"
-            interpreter: "python3"  // ERROR: Not supported
+            interpreter: "python3"  // CUE validation error: field not allowed
         }]
         platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
     }]
@@ -2986,13 +2988,15 @@ interpreter: "node --max-old-space-size=4096"`,
   'advanced/interpreter-virtual-error': {
     language: 'cue',
     code: `// This will NOT work!
+// CUE schema validation error: "interpreter" is not allowed on virtual runtime.
+// #RuntimeConfigVirtual is a closed struct that only accepts base fields.
 {
     name: "bad"
     implementations: [{
         script: "print('hello')"
         runtimes: [{
             name: "virtual"
-            interpreter: "python3"  // ERROR!
+            interpreter: "python3"  // CUE validation error: field not allowed
         }]
         platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
     }]
@@ -3602,8 +3606,8 @@ cmds: [
 From invowkfile:
   mytools build - Build the project [native*]
 
-From user modules (~/.invowk/cmds):
-  com.example.utilities hello - Greeting [native*]`,
+From com.example.utilities.invowkmod:
+  hello - Greeting [native*]`,
   },
 
   // Creating modules page snippets
@@ -4651,9 +4655,11 @@ default_runtime: "virtual"`,
 
   'config/cli-custom-path': {
     language: 'bash',
-    code: `# Use a project-local config
-cp /path/to/config.cue ./config.cue
-invowk config show`,
+    code: `# Use a custom config file with --ivk-config (-c)
+invowk --ivk-config /path/to/config.cue config show
+
+# Or use the short flag
+invowk -c /path/to/config.cue cmd build`,
   },
 
   'config/init': {
@@ -4690,11 +4696,14 @@ invowk config set ui.color_scheme dark`,
 
   'config/edit-linux-macos': {
     language: 'bash',
-    code: `# Linux/macOS
-$EDITOR $(invowk config path)
+    code: `# Linux
+$EDITOR ~/.config/invowk/config.cue
+
+# macOS
+$EDITOR ~/Library/Application\\ Support/invowk/config.cue
 
 # Windows PowerShell
-notepad (invowk config path)`,
+notepad "$env:APPDATA\\invowk\\config.cue"`,
   },
 
   'config/full-example': {
@@ -7493,24 +7502,42 @@ platforms: [
 
   'reference/invowkfile/runtime-config-structure': {
     language: 'cue',
-    code: `#RuntimeConfig: {
-    name: "native" | "virtual" | "container"
-    
-    // Host environment inheritance:
+    code: `// Shared base fields (all runtimes)
+#RuntimeConfigBase: {
+    name:               #RuntimeType
     env_inherit_mode?:  "none" | "allow" | "all"
     env_inherit_allow?: [...string]
     env_inherit_deny?:  [...string]
+}
 
-    // For native and container:
-    interpreter?: string
-    
-    // For container only:
-    enable_host_ssh?: bool
-    containerfile?:   string
-    image?:           string
-    volumes?:         [...string]
-    ports?:           [...string]
-}`,
+// Native runtime: supports interpreter
+#RuntimeConfigNative: close({
+    #RuntimeConfigBase
+    name:         "native"
+    interpreter?: string  // "auto", "python3", "/usr/bin/env perl -w", etc.
+})
+
+// Virtual runtime: no additional fields
+#RuntimeConfigVirtual: close({
+    #RuntimeConfigBase
+    name: "virtual"
+    // NOTE: interpreter is NOT allowed here (CUE validation error)
+})
+
+// Container runtime: image/containerfile + extras
+#RuntimeConfigContainer: close({
+    #RuntimeConfigBase
+    name:              "container"
+    interpreter?:      string
+    enable_host_ssh?:  bool
+    containerfile?:    string  // mutually exclusive with image
+    image?:            string  // mutually exclusive with containerfile
+    volumes?:          [...string]
+    ports?:            [...string]
+})
+
+// Discriminated union of all runtime types
+#RuntimeConfig: #RuntimeConfigNative | #RuntimeConfigVirtual | #RuntimeConfigContainer`,
   },
 
   'reference/invowkfile/env-inherit-example': {

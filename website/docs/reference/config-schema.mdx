@@ -92,7 +92,7 @@ Sets the global default runtime mode for commands that don't specify a preferred
 
 **Type:** `#VirtualShellConfig`  
 **Required:** No  
-**Default:** `{}`
+**Default:** `{enable_uroot_utils: true}`
 
 Configuration for the virtual shell runtime.
 
@@ -102,7 +102,7 @@ Configuration for the virtual shell runtime.
 
 **Type:** `#UIConfig`  
 **Required:** No  
-**Default:** `{}`
+**Default:** `{color_scheme: "auto", verbose: false, interactive: false}`
 
 User interface configuration.
 
@@ -112,7 +112,7 @@ User interface configuration.
 
 **Type:** `#ContainerConfig`  
 **Required:** No  
-**Default:** `{}`
+**Default:** `{auto_provision: {enabled: true, strict: false, inherit_includes: true}}`
 
 Container runtime configuration.
 
@@ -196,9 +196,9 @@ Configuration for container runtime behavior.
 
 ### auto_provision
 
-**Type:** `#AutoProvisionConfig`  
-**Required:** No  
-**Default:** `{}`
+**Type:** `#AutoProvisionConfig`
+**Required:** No
+**Default:** `{enabled: true, strict: false, inherit_includes: true}`
 
 Controls automatic provisioning of invowk resources into containers.
 

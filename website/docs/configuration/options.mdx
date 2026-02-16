@@ -104,7 +104,7 @@ u-root utilities are enabled by default. Set to `false` only if you need to forc
 ### ui
 
 **Type:** `#UIConfig`
-**Default:** `{color_scheme: "auto"}`
+**Default:** `{color_scheme: "auto", verbose: false, interactive: false}`
 
 Configures the user interface settings.
 
@@ -148,8 +148,8 @@ This is equivalent to always passing `--ivk-interactive` on the command line.
 
 ### container
 
-**Type:** `#ContainerConfig`  
-**Default:** `{}`
+**Type:** `#ContainerConfig`
+**Default:** `{auto_provision: {enabled: true, strict: false, inherit_includes: true}}`
 
 Configures container runtime behavior.
 
