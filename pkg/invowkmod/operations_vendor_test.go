@@ -547,6 +547,112 @@ func TestVendorModules_InvalidCachePath(t *testing.T) {
 	}
 }
 
+// ============================================================================
+// Tests for pruneVendorDir (direct unit tests)
+// ============================================================================
+
+func TestPruneVendorDir(t *testing.T) {
+	t.Parallel()
+
+	t.Run("preserves non-invowkmod entries", func(t *testing.T) {
+		t.Parallel()
+
+		tmpDir := t.TempDir()
+		vendorDir := filepath.Join(tmpDir, VendoredModulesDir)
+		if err := os.MkdirAll(vendorDir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+
+		// Create a stale .invowkmod directory (should be pruned).
+		staleDir := filepath.Join(vendorDir, "stale.invowkmod")
+		if err := os.Mkdir(staleDir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+
+		// Create a regular directory (not .invowkmod — should be preserved).
+		toolsDir := filepath.Join(vendorDir, "tools")
+		if err := os.Mkdir(toolsDir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+
+		// Create a regular file (should be preserved).
+		readmePath := filepath.Join(vendorDir, "README.md")
+		if err := os.WriteFile(readmePath, []byte("vendor readme"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+
+		// Prune with empty expected set — only .invowkmod entries are candidates.
+		pruned, err := pruneVendorDir(vendorDir, map[string]bool{})
+		if err != nil {
+			t.Fatalf("pruneVendorDir() error: %v", err)
+		}
+
+		if len(pruned) != 1 || pruned[0] != "stale.invowkmod" {
+			t.Errorf("pruned = %v, want [stale.invowkmod]", pruned)
+		}
+
+		// Verify non-module entries survive.
+		if _, err := os.Stat(toolsDir); err != nil {
+			t.Errorf("tools/ directory should survive pruning: %v", err)
+		}
+		if _, err := os.Stat(readmePath); err != nil {
+			t.Errorf("README.md should survive pruning: %v", err)
+		}
+	})
+
+	t.Run("empty expected prunes all invowkmod entries", func(t *testing.T) {
+		t.Parallel()
+
+		tmpDir := t.TempDir()
+		vendorDir := filepath.Join(tmpDir, VendoredModulesDir)
+		if err := os.MkdirAll(vendorDir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+
+		// Create two .invowkmod directories.
+		for _, name := range []string{"dep1.invowkmod", "dep2.invowkmod"} {
+			if err := os.Mkdir(filepath.Join(vendorDir, name), 0o755); err != nil {
+				t.Fatal(err)
+			}
+		}
+
+		pruned, err := pruneVendorDir(vendorDir, map[string]bool{})
+		if err != nil {
+			t.Fatalf("pruneVendorDir() error: %v", err)
+		}
+
+		if len(pruned) != 2 {
+			t.Errorf("pruned %d entries, want 2", len(pruned))
+		}
+
+		// Verify both are gone.
+		for _, name := range []string{"dep1.invowkmod", "dep2.invowkmod"} {
+			if _, err := os.Stat(filepath.Join(vendorDir, name)); !os.IsNotExist(err) {
+				t.Errorf("%s should have been pruned", name)
+			}
+		}
+	})
+
+	t.Run("empty vendor dir", func(t *testing.T) {
+		t.Parallel()
+
+		tmpDir := t.TempDir()
+		vendorDir := filepath.Join(tmpDir, VendoredModulesDir)
+		if err := os.MkdirAll(vendorDir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+
+		pruned, err := pruneVendorDir(vendorDir, map[string]bool{})
+		if err != nil {
+			t.Fatalf("pruneVendorDir() error: %v", err)
+		}
+
+		if len(pruned) != 0 {
+			t.Errorf("pruned %d entries, want 0", len(pruned))
+		}
+	})
+}
+
 func TestVendorModules_PruneNoVendorDir(t *testing.T) {
 	t.Parallel()
 

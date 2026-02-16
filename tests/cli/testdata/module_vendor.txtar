@@ -10,7 +10,24 @@ stdout 'No dependencies declared'
 
 # Test 2: Vendor without a module path and no invowkmod.cue in current dir (should fail)
 ! exec invowk module vendor
-stderr 'invowkfile.cue found'
+stderr 'invowkmod.cue'
+
+# Test 3: --update flag accepted with no-deps module
+exec invowk module vendor --update ./vendormod.invowkmod
+stdout 'No dependencies declared'
+
+# Test 4: --prune flag accepted with no-deps module
+exec invowk module vendor --prune ./vendormod.invowkmod
+stdout 'No dependencies declared'
+
+# Test 5: Non-existent module path
+! exec invowk module vendor ./does-not-exist.invowkmod
+stderr 'invowkmod.cue'
+
+# Test 6: Plain directory (not a module) — missing invowkmod.cue
+! exec invowk module vendor ./plaindir
+stderr 'module directory'
+stderr 'invowkmod.cue'
 
 -- vendormod.invowkmod/invowkmod.cue --
 module:  "vendormod"
@@ -28,3 +45,5 @@ cmds: [
 		}]
 	},
 ]
+
+-- plaindir/.gitkeep --

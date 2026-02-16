@@ -196,17 +196,14 @@ func runModuleVendor(args []string, vendorUpdate, vendorPrune bool) error {
 		return fmt.Errorf("failed to resolve path: %w", err)
 	}
 
-	// Verify target is a module directory
-	invowkfilePath := filepath.Join(absPath, "invowkfile.cue")
-	if _, statErr := os.Stat(invowkfilePath); os.IsNotExist(statErr) {
-		if !invowkmod.IsModule(absPath) {
-			return fmt.Errorf("no invowkfile.cue found in %s", absPath)
-		}
+	// Verify target contains invowkmod.cue (required for vendor operations).
+	invowkmodPath := filepath.Join(absPath, "invowkmod.cue")
+	if _, statErr := os.Stat(invowkmodPath); os.IsNotExist(statErr) {
+		return fmt.Errorf("not a module directory (no invowkmod.cue found in %s)", absPath)
 	}
 
-	// Parse invowkmod.cue to get requirements
-	invowkmodulePath := filepath.Join(absPath, "invowkmod.cue")
-	meta, err := invowkfile.ParseInvowkmod(invowkmodulePath)
+	// Parse invowkmod.cue to get requirements.
+	meta, err := invowkfile.ParseInvowkmod(invowkmodPath)
 	if err != nil {
 		return fmt.Errorf("failed to parse invowkmod.cue: %w", err)
 	}
