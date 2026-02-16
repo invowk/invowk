@@ -356,7 +356,7 @@ lookup, err := disc.GetCommand(ctx, "foo build")
 |------|---------|
 | `discovery.go` | Core API: LoadAll, LoadFirst, CheckModuleCollisions, GetEffectiveModuleID, loadAllWithDiagnostics |
 | `discovery_files.go` | File/module discovery: DiscoverAll, discoverInDir, discoverModulesInDirWithDiagnostics, discoverVendoredModulesWithDiagnostics, appendModulesWithVendored, loadIncludesWithDiagnostics, Source enum, DiscoveredFile (with ParentModule) |
-| `discovery_vendored_test.go` | Vendored module discovery tests: parent tracking, ordering, nested blocking, all 3 source types, collision annotation |
+| `discovery_vendored_test.go` | Vendored module discovery tests: parent tracking, ordering, nested blocking, all 3 source types, collision annotation, reserved module skip, scan failure diagnostics |
 | `discovery_commands.go` | Command aggregation: DiscoverCommandSet, DiscoverAndValidateCommandSet, GetCommand, DiscoveredCommandSet |
 | `diagnostic.go` | Diagnostic type, Severity constants, CommandSetResult, LookupResult |
 | `validation.go` | Command tree validation (leaf-only args rule) |

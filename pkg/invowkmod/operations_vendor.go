@@ -81,6 +81,9 @@ func VendorModules(opts VendorOptions) (*VendorResult, error) {
 		}
 
 		dirBase := filepath.Base(moduleDir)
+		if expectedDirs[dirBase] {
+			return nil, fmt.Errorf("vendor conflict: multiple modules resolve to the same directory name %q", dirBase)
+		}
 		destPath := filepath.Join(vendorDir, dirBase)
 		expectedDirs[dirBase] = true
 

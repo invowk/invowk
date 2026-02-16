@@ -5,6 +5,7 @@ package discovery
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -339,6 +340,103 @@ func TestDiscoverAll_EmptyVendorDir(t *testing.T) {
 		if strings.HasPrefix(diag.Code, "vendored_") {
 			t.Errorf("unexpected vendor diagnostic: %s", diag.Code)
 		}
+	}
+}
+
+func TestDiscoverAll_VendoredReservedModuleSkipped(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+
+	// Create a parent module
+	parentDir := filepath.Join(tmpDir, "parent.invowkmod")
+	createTestModule(t, parentDir, "parent", "parent-cmd")
+
+	// Create a vendored directory with the reserved "invowkfile" name.
+	// The reserved name check fires before Load(), so no invowkmod.cue is needed inside.
+	vendorDir := filepath.Join(parentDir, invowkmod.VendoredModulesDir)
+	if err := os.MkdirAll(vendorDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	reservedDir := filepath.Join(vendorDir, "invowkfile.invowkmod")
+	if err := os.MkdirAll(reservedDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg := config.DefaultConfig()
+	d := newTestDiscovery(t, cfg, tmpDir)
+
+	files, diagnostics, err := d.discoverAllWithDiagnostics()
+	if err != nil {
+		t.Fatalf("discoverAllWithDiagnostics() error: %v", err)
+	}
+
+	// Verify no DiscoveredFile has module name "invowkfile"
+	for _, f := range files {
+		if f.Module != nil && f.Module.Name() == "invowkfile" {
+			t.Error("should not discover a module with reserved name 'invowkfile'")
+		}
+	}
+
+	// Verify diagnostic was emitted
+	var foundDiag bool
+	for _, diag := range diagnostics {
+		if diag.Code == "vendored_reserved_module_skipped" {
+			foundDiag = true
+			break
+		}
+	}
+	if !foundDiag {
+		t.Error("should emit 'vendored_reserved_module_skipped' diagnostic for reserved module name in vendor dir")
+	}
+}
+
+func TestDiscoverAll_VendoredScanFailed(t *testing.T) {
+	t.Parallel()
+
+	if runtime.GOOS == "windows" {
+		t.Skip("skipping: Windows does not use POSIX file permissions")
+	}
+	if os.Getuid() == 0 {
+		t.Skip("skipping: root can read any directory regardless of permissions")
+	}
+
+	tmpDir := t.TempDir()
+
+	parentDir := filepath.Join(tmpDir, "parent.invowkmod")
+	createTestModule(t, parentDir, "parent", "parent-cmd")
+
+	// Create invowk_modules/ and make it unreadable
+	vendorDir := filepath.Join(parentDir, invowkmod.VendoredModulesDir)
+	if err := os.MkdirAll(vendorDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(vendorDir, 0o000); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		// Restore permissions so t.TempDir() cleanup can remove it
+		_ = os.Chmod(vendorDir, 0o755)
+	})
+
+	cfg := config.DefaultConfig()
+	d := newTestDiscovery(t, cfg, tmpDir)
+
+	// discoverAllWithDiagnostics should NOT return an error (non-fatal)
+	_, diagnostics, err := d.discoverAllWithDiagnostics()
+	if err != nil {
+		t.Fatalf("discoverAllWithDiagnostics() should not return error for unreadable vendor dir: %v", err)
+	}
+
+	var foundDiag bool
+	for _, diag := range diagnostics {
+		if diag.Code == "vendored_scan_failed" {
+			foundDiag = true
+			break
+		}
+	}
+	if !foundDiag {
+		t.Error("should emit 'vendored_scan_failed' diagnostic when vendor directory is unreadable")
 	}
 }
 

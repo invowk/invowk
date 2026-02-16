@@ -52,6 +52,20 @@ stdout 'stale.invowkmod'
 ! exists depmod.invowkmod/invowk_modules/stale.invowkmod
 exists depmod.invowkmod/invowk_modules/dep.invowkmod/invowkmod.cue
 
+# Test 9: --update forces re-resolution (fails in offline test — verifies flag wiring)
+! exec invowk module vendor --update ./depmod.invowkmod
+stdout 'Re-resolving all dependencies'
+
+# Test 10: --update --prune combined flags on no-deps module
+exec invowk module vendor --update --prune ./vendormod.invowkmod
+stdout 'No dependencies declared'
+
+# Test 11: --prune no-op when nothing to prune
+exec invowk module vendor --prune ./depmod.invowkmod
+stdout 'Vendored 1 module'
+! stdout 'Pruned'
+exists depmod.invowkmod/invowk_modules/dep.invowkmod/invowkmod.cue
+
 -- vendormod.invowkmod/invowkmod.cue --
 module:  "vendormod"
 version: "0.1.0"

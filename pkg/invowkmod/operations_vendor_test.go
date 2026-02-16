@@ -674,6 +674,80 @@ func TestPruneVendorDir(t *testing.T) {
 	})
 }
 
+func TestVendorModules_SameBasenameFails(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	modulePath := createValidModuleForPackaging(t, tmpDir, "parent.invowkmod", "parent")
+
+	// Create two cache entries that both contain a module named "dep.invowkmod"
+	// but with different module IDs (simulating two Git repos each shipping dep.invowkmod).
+	cache1 := createCacheModule(t, tmpDir, "dep.invowkmod", "dep-alpha")
+	cache2 := createCacheModule(t, tmpDir, "dep.invowkmod", "dep-beta")
+
+	_, err := VendorModules(VendorOptions{
+		ModulePath: modulePath,
+		Modules: []*ResolvedModule{
+			{CachePath: cache1, Namespace: "dep-alpha@1.0.0"},
+			{CachePath: cache2, Namespace: "dep-beta@2.0.0"},
+		},
+	})
+	if err == nil {
+		t.Fatal("VendorModules() should fail when two modules resolve to the same directory name")
+	}
+	if !strings.Contains(err.Error(), "vendor conflict") {
+		t.Errorf("error should mention 'vendor conflict', got: %v", err)
+	}
+	if !strings.Contains(err.Error(), "dep.invowkmod") {
+		t.Errorf("error should mention the conflicting directory name, got: %v", err)
+	}
+}
+
+func TestVendorModules_PruneNoOp(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	modulePath := createValidModuleForPackaging(t, tmpDir, "parent.invowkmod", "parent")
+	cache1 := createCacheModule(t, tmpDir, "dep1.invowkmod", "dep1")
+	cache2 := createCacheModule(t, tmpDir, "dep2.invowkmod", "dep2")
+
+	modules := []*ResolvedModule{
+		{CachePath: cache1, Namespace: "dep1@1.0.0"},
+		{CachePath: cache2, Namespace: "dep2@2.0.0"},
+	}
+
+	// Vendor both modules initially
+	_, err := VendorModules(VendorOptions{
+		ModulePath: modulePath,
+		Modules:    modules,
+	})
+	if err != nil {
+		t.Fatalf("initial VendorModules() error: %v", err)
+	}
+
+	// Re-vendor the same set with prune — nothing should be pruned
+	result, err := VendorModules(VendorOptions{
+		ModulePath: modulePath,
+		Modules:    modules,
+		Prune:      true,
+	})
+	if err != nil {
+		t.Fatalf("prune VendorModules() error: %v", err)
+	}
+
+	if len(result.Pruned) != 0 {
+		t.Errorf("VendorModules() pruned %d entries, want 0 (nothing stale)", len(result.Pruned))
+	}
+
+	// Verify both modules still exist on disk
+	for _, name := range []string{"dep1.invowkmod", "dep2.invowkmod"} {
+		modPath := filepath.Join(GetVendoredModulesDir(modulePath), name)
+		if _, statErr := os.Stat(modPath); statErr != nil {
+			t.Errorf("%s should still exist after prune no-op: %v", name, statErr)
+		}
+	}
+}
+
 func TestVendorModules_PruneNoVendorDir(t *testing.T) {
 	t.Parallel()
 
