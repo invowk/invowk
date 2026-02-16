@@ -202,9 +202,13 @@ func (d *Discovery) CheckModuleCollisions(files []*DiscoveredFile) error {
 
 		// Use the module directory path (not the invowkfile inside it) so
 		// the error message shows the path users need for their includes config.
+		// Annotate vendored modules with their parent for clearer diagnostics.
 		sourcePath := file.Path
 		if file.Module != nil {
 			sourcePath = file.Module.Path
+		}
+		if file.ParentModule != nil {
+			sourcePath = fmt.Sprintf("%s (vendored in %s)", sourcePath, file.ParentModule.Name())
 		}
 
 		if existingSource, exists := moduleSources[moduleID]; exists {

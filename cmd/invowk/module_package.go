@@ -3,6 +3,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -79,16 +80,16 @@ func newModuleVendorCommand() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "vendor [module-path]",
-		Short: "Vendor module dependencies (preview)",
+		Short: "Vendor module dependencies",
 		Long: `Vendor module dependencies into the invowk_modules/ directory.
 
-NOTE: This command is a preview feature and is not yet fully implemented.
-Dependency fetching is currently stubbed — running it will show what would
-be vendored but will not actually download modules.
+This command reads the 'requires' field from the invowkmod.cue, resolves
+all dependencies, and copies them into the invowk_modules/ subdirectory,
+enabling offline and self-contained distribution.
 
-This command reads the 'requires' field from the invowkmod.cue and fetches
-all dependencies into the invowk_modules/ subdirectory, enabling offline
-and self-contained distribution.
+If a lock file (invowkmod.lock.cue) exists, vendoring uses the locked
+versions for reproducibility. Use --update to force re-resolution of all
+dependencies (updates the lock file and re-copies everything).
 
 If no module-path is specified, vendors dependencies for the current directory's
 module.
@@ -100,7 +101,7 @@ Examples:
   invowk module vendor --prune`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runModuleVendor(args, vendorPrune)
+			return runModuleVendor(args, vendorUpdate, vendorPrune)
 		},
 	}
 
@@ -178,7 +179,7 @@ func runModuleImport(args []string, importPath string, importOverwrite bool) err
 	return nil
 }
 
-func runModuleVendor(args []string, vendorPrune bool) error {
+func runModuleVendor(args []string, vendorUpdate, vendorPrune bool) error {
 	fmt.Println(moduleTitleStyle.Render("Vendor Module Dependencies"))
 
 	// Determine the target directory
@@ -195,10 +196,9 @@ func runModuleVendor(args []string, vendorPrune bool) error {
 		return fmt.Errorf("failed to resolve path: %w", err)
 	}
 
-	// Find invowkfile
+	// Verify target is a module directory
 	invowkfilePath := filepath.Join(absPath, "invowkfile.cue")
 	if _, statErr := os.Stat(invowkfilePath); os.IsNotExist(statErr) {
-		// Maybe it's a module directory
 		if !invowkmod.IsModule(absPath) {
 			return fmt.Errorf("no invowkfile.cue found in %s", absPath)
 		}
@@ -216,68 +216,71 @@ func runModuleVendor(args []string, vendorPrune bool) error {
 		return nil
 	}
 
-	fmt.Printf("%s Found %d requirement(s) in invowkmod.cue\n", moduleInfoIcon, len(meta.Requires))
+	requirements := extractModuleRequirementsFromMetadata(meta)
+	fmt.Printf("%s Found %d requirement(s) in invowkmod.cue\n", moduleInfoIcon, len(requirements))
 
-	// Determine vendor directory
-	vendorDir := invowkmod.GetVendoredModulesDir(absPath)
-
-	// Handle prune mode
-	if vendorPrune {
-		return pruneVendoredModules(vendorDir, meta)
-	}
-
-	// Create vendor directory if it doesn't exist
-	if err := os.MkdirAll(vendorDir, 0o755); err != nil {
-		return fmt.Errorf("failed to create vendor directory: %w", err)
-	}
-
-	fmt.Printf("%s Vendor directory: %s\n", moduleInfoIcon, modulePathStyle.Render(vendorDir))
-	fmt.Println()
-
-	// For now, just show what would be vendored
-	// Full implementation would use module resolver to fetch and copy
-	fmt.Printf("%s Vendoring is not yet fully implemented\n", moduleWarningIcon)
-	fmt.Println()
-	fmt.Printf("%s The following dependencies would be vendored:\n", moduleInfoIcon)
-	for _, req := range meta.Requires {
-		fmt.Printf("   %s %s@%s\n", moduleInfoIcon, req.GitURL, req.Version)
-	}
-
-	return nil
-}
-
-// pruneVendoredModules removes vendored modules that are not in the requirements
-func pruneVendoredModules(vendorDir string, meta *invowkfile.Invowkmod) error {
-	fmt.Println()
-	fmt.Printf("%s Pruning unused vendored modules...\n", moduleInfoIcon)
-
-	// Check if vendor directory exists
-	if _, err := os.Stat(vendorDir); os.IsNotExist(err) {
-		fmt.Printf("%s No vendor directory found, nothing to prune\n", moduleWarningIcon)
-		return nil
-	}
-
-	// List vendored modules
-	vendoredModules, err := invowkmod.ListVendoredModules(filepath.Dir(vendorDir))
+	// Create resolver with working dir set to the target module path so the
+	// lock file (invowkmod.lock.cue) lives next to invowkmod.cue.
+	resolver, err := invowkmod.NewResolver(absPath, "")
 	if err != nil {
-		return fmt.Errorf("failed to list vendored modules: %w", err)
+		return fmt.Errorf("failed to create resolver: %w", err)
 	}
 
-	if len(vendoredModules) == 0 {
-		fmt.Printf("%s No vendored modules found\n", moduleInfoIcon)
-		return nil
+	ctx := context.Background()
+
+	// Resolution strategy:
+	//   --update          → always re-resolve (updates lock file)
+	//   lock file exists  → load from lock (reproducible)
+	//   no lock file      → sync fresh (resolve + create lock)
+	var resolved []*invowkmod.ResolvedModule
+	lockPath := filepath.Join(absPath, invowkmod.LockFileName)
+	_, lockErr := os.Stat(lockPath)
+
+	switch {
+	case vendorUpdate:
+		fmt.Printf("%s Re-resolving all dependencies (--update)\n", moduleInfoIcon)
+		resolved, err = resolver.Sync(ctx, requirements)
+	case lockErr == nil:
+		fmt.Printf("%s Loading from lock file\n", moduleInfoIcon)
+		resolved, err = resolver.LoadFromLock(ctx)
+	default:
+		fmt.Printf("%s Resolving dependencies (no lock file)\n", moduleInfoIcon)
+		resolved, err = resolver.Sync(ctx, requirements)
 	}
 
-	// Build a set of required module names/URLs for comparison
-	// This is a simplified check - full implementation would match by Git URL
-	requiredSet := make(map[string]bool)
-	for _, req := range meta.Requires {
-		requiredSet[req.GitURL] = true
+	if err != nil {
+		return fmt.Errorf("failed to resolve dependencies: %w", err)
 	}
 
-	// For now, just list what would be pruned
-	fmt.Printf("%s Found %d vendored module(s)\n", moduleInfoIcon, len(vendoredModules))
-	fmt.Printf("%s Prune functionality not yet fully implemented\n", moduleWarningIcon)
+	// Copy resolved modules into invowk_modules/
+	result, err := invowkmod.VendorModules(invowkmod.VendorOptions{
+		ModulePath: absPath,
+		Modules:    resolved,
+		Prune:      vendorPrune,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to vendor modules: %w", err)
+	}
+
+	// Print results
+	fmt.Println()
+	fmt.Printf("%s Vendor directory: %s\n", moduleInfoIcon, modulePathStyle.Render(result.VendorDir))
+	fmt.Println()
+
+	for _, entry := range result.Vendored {
+		fmt.Printf("   %s %s\n", moduleSuccessIcon, entry.Namespace)
+	}
+
+	if len(result.Pruned) > 0 {
+		fmt.Println()
+		fmt.Printf("%s Pruned %d stale module(s):\n", moduleInfoIcon, len(result.Pruned))
+		for _, name := range result.Pruned {
+			fmt.Printf("   %s %s\n", moduleWarningIcon, name)
+		}
+	}
+
+	fmt.Println()
+	fmt.Printf("%s Vendored %d module(s) successfully\n", moduleSuccessIcon, len(result.Vendored))
 
 	return nil
 }

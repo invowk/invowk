@@ -354,3 +354,216 @@ func TestValidate_RejectsAllSymlinks(t *testing.T) {
 		t.Error("Validate() should report security issue for ALL symlinks (including internal ones)")
 	}
 }
+
+// ============================================================================
+// Tests for VendorModules
+// ============================================================================
+
+// createCacheModule sets up a synthetic cache directory containing a .invowkmod module,
+// simulating what the Resolver produces after fetching and caching a Git dependency.
+// Returns the cache directory path (to use as ResolvedModule.CachePath).
+func createCacheModule(t *testing.T, parentDir, folderName, moduleID string) string {
+	t.Helper()
+	cacheDir := filepath.Join(parentDir, "cache-"+moduleID)
+	if err := os.MkdirAll(cacheDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	createValidModuleForPackaging(t, cacheDir, folderName, moduleID)
+	return cacheDir
+}
+
+func TestVendorModules_CopiesFromCache(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	modulePath := createValidModuleForPackaging(t, tmpDir, "parent.invowkmod", "parent")
+
+	// Create two synthetic cache entries
+	cache1 := createCacheModule(t, tmpDir, "dep1.invowkmod", "dep1")
+	cache2 := createCacheModule(t, tmpDir, "dep2.invowkmod", "dep2")
+
+	result, err := VendorModules(VendorOptions{
+		ModulePath: modulePath,
+		Modules: []*ResolvedModule{
+			{CachePath: cache1, Namespace: "dep1@1.0.0"},
+			{CachePath: cache2, Namespace: "dep2@2.0.0"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("VendorModules() error: %v", err)
+	}
+
+	if len(result.Vendored) != 2 {
+		t.Fatalf("VendorModules() vendored %d modules, want 2", len(result.Vendored))
+	}
+
+	// Verify modules exist in invowk_modules/
+	for _, entry := range result.Vendored {
+		if _, err := os.Stat(entry.VendorPath); err != nil {
+			t.Errorf("vendored module not found at %s: %v", entry.VendorPath, err)
+		}
+		// Verify invowkmod.cue was copied
+		invowkmodPath := filepath.Join(entry.VendorPath, "invowkmod.cue")
+		if _, err := os.Stat(invowkmodPath); err != nil {
+			t.Errorf("invowkmod.cue not found in vendored module: %v", err)
+		}
+	}
+
+	// Verify vendor dir is correct
+	expectedVendorDir := filepath.Join(modulePath, VendoredModulesDir)
+	if result.VendorDir != expectedVendorDir {
+		t.Errorf("VendorDir = %q, want %q", result.VendorDir, expectedVendorDir)
+	}
+}
+
+func TestVendorModules_OverwritesExisting(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	modulePath := createValidModuleForPackaging(t, tmpDir, "parent.invowkmod", "parent")
+	cache1 := createCacheModule(t, tmpDir, "dep1.invowkmod", "dep1")
+
+	// Vendor once
+	_, err := VendorModules(VendorOptions{
+		ModulePath: modulePath,
+		Modules:    []*ResolvedModule{{CachePath: cache1, Namespace: "dep1@1.0.0"}},
+	})
+	if err != nil {
+		t.Fatalf("first VendorModules() error: %v", err)
+	}
+
+	// Add a marker file to the vendored copy
+	vendorDir := GetVendoredModulesDir(modulePath)
+	markerPath := filepath.Join(vendorDir, "dep1.invowkmod", "stale-marker.txt")
+	if writeErr := os.WriteFile(markerPath, []byte("stale"), 0o644); writeErr != nil {
+		t.Fatal(writeErr)
+	}
+
+	// Vendor again — should overwrite, removing the stale marker
+	_, err = VendorModules(VendorOptions{
+		ModulePath: modulePath,
+		Modules:    []*ResolvedModule{{CachePath: cache1, Namespace: "dep1@1.0.0"}},
+	})
+	if err != nil {
+		t.Fatalf("second VendorModules() error: %v", err)
+	}
+
+	if _, err := os.Stat(markerPath); !os.IsNotExist(err) {
+		t.Error("VendorModules() should have overwritten existing vendored module, but stale marker still exists")
+	}
+}
+
+func TestVendorModules_Prune(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	modulePath := createValidModuleForPackaging(t, tmpDir, "parent.invowkmod", "parent")
+	cache1 := createCacheModule(t, tmpDir, "dep1.invowkmod", "dep1")
+	cache2 := createCacheModule(t, tmpDir, "dep2.invowkmod", "dep2")
+
+	// Vendor both modules initially
+	_, err := VendorModules(VendorOptions{
+		ModulePath: modulePath,
+		Modules: []*ResolvedModule{
+			{CachePath: cache1, Namespace: "dep1@1.0.0"},
+			{CachePath: cache2, Namespace: "dep2@2.0.0"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("initial VendorModules() error: %v", err)
+	}
+
+	// Now vendor only dep1 with prune — dep2 should be removed
+	result, err := VendorModules(VendorOptions{
+		ModulePath: modulePath,
+		Modules:    []*ResolvedModule{{CachePath: cache1, Namespace: "dep1@1.0.0"}},
+		Prune:      true,
+	})
+	if err != nil {
+		t.Fatalf("prune VendorModules() error: %v", err)
+	}
+
+	if len(result.Pruned) != 1 {
+		t.Fatalf("VendorModules() pruned %d, want 1", len(result.Pruned))
+	}
+	if result.Pruned[0] != "dep2.invowkmod" {
+		t.Errorf("pruned %q, want %q", result.Pruned[0], "dep2.invowkmod")
+	}
+
+	// Verify dep2 is gone
+	dep2Path := filepath.Join(GetVendoredModulesDir(modulePath), "dep2.invowkmod")
+	if _, err := os.Stat(dep2Path); !os.IsNotExist(err) {
+		t.Error("dep2.invowkmod should have been pruned")
+	}
+
+	// Verify dep1 still exists
+	dep1Path := filepath.Join(GetVendoredModulesDir(modulePath), "dep1.invowkmod")
+	if _, err := os.Stat(dep1Path); err != nil {
+		t.Errorf("dep1.invowkmod should still exist: %v", err)
+	}
+}
+
+func TestVendorModules_EmptyModulesList(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	modulePath := createValidModuleForPackaging(t, tmpDir, "parent.invowkmod", "parent")
+
+	result, err := VendorModules(VendorOptions{
+		ModulePath: modulePath,
+		Modules:    []*ResolvedModule{},
+	})
+	if err != nil {
+		t.Fatalf("VendorModules() error: %v", err)
+	}
+
+	if len(result.Vendored) != 0 {
+		t.Errorf("VendorModules() vendored %d modules, want 0", len(result.Vendored))
+	}
+
+	// Vendor dir should still be created
+	if _, err := os.Stat(result.VendorDir); err != nil {
+		t.Errorf("vendor directory should exist: %v", err)
+	}
+}
+
+func TestVendorModules_InvalidCachePath(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	modulePath := createValidModuleForPackaging(t, tmpDir, "parent.invowkmod", "parent")
+
+	_, err := VendorModules(VendorOptions{
+		ModulePath: modulePath,
+		Modules: []*ResolvedModule{
+			{CachePath: filepath.Join(tmpDir, "nonexistent-cache"), Namespace: "bad@1.0.0"},
+		},
+	})
+	if err == nil {
+		t.Fatal("VendorModules() should error with nonexistent cache path")
+	}
+	if !strings.Contains(err.Error(), "failed to locate module") {
+		t.Errorf("error should mention module location failure, got: %v", err)
+	}
+}
+
+func TestVendorModules_PruneNoVendorDir(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	modulePath := createValidModuleForPackaging(t, tmpDir, "parent.invowkmod", "parent")
+
+	// Prune with empty modules list on a fresh module (no vendor dir yet)
+	result, err := VendorModules(VendorOptions{
+		ModulePath: modulePath,
+		Modules:    []*ResolvedModule{},
+		Prune:      true,
+	})
+	if err != nil {
+		t.Fatalf("VendorModules() with prune and no vendor dir should not error: %v", err)
+	}
+
+	if len(result.Pruned) != 0 {
+		t.Errorf("VendorModules() pruned %d, want 0", len(result.Pruned))
+	}
+}

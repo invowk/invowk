@@ -36,6 +36,10 @@ type (
 		Error error
 		// Module is set if this file was discovered from a module
 		Module *invowkmod.Module
+		// ParentModule is set when this file was discovered from a vendored
+		// module inside another module's invowk_modules/ directory.
+		// nil for non-vendored files.
+		ParentModule *invowkmod.Module
 	}
 )
 
@@ -82,22 +86,19 @@ func (d *Discovery) discoverAllWithDiagnostics() ([]*DiscoveredFile, []Diagnosti
 			files = append(files, cwdFile)
 		}
 
-		// 2. Modules in current directory
+		// 2. Modules in current directory (+ their vendored dependencies)
 		moduleFiles, moduleDiags := d.discoverModulesInDirWithDiagnostics(d.baseDir)
-		files = append(files, moduleFiles...)
-		diagnostics = append(diagnostics, moduleDiags...)
+		files, diagnostics = d.appendModulesWithVendored(files, diagnostics, moduleFiles, moduleDiags)
 	}
 
-	// 3. Configured includes (explicit module paths from config)
+	// 3. Configured includes (explicit module paths from config) (+ their vendored dependencies)
 	includeFiles, includeDiags := d.loadIncludesWithDiagnostics()
-	files = append(files, includeFiles...)
-	diagnostics = append(diagnostics, includeDiags...)
+	files, diagnostics = d.appendModulesWithVendored(files, diagnostics, includeFiles, includeDiags)
 
-	// 4. User commands directory (~/.invowk/cmds — modules only, non-recursive)
+	// 4. User commands directory (~/.invowk/cmds — modules only, non-recursive) (+ their vendored dependencies)
 	if d.commandsDir != "" {
 		userModuleFiles, userModuleDiags := d.discoverModulesInDirWithDiagnostics(d.commandsDir)
-		files = append(files, userModuleFiles...)
-		diagnostics = append(diagnostics, userModuleDiags...)
+		files, diagnostics = d.appendModulesWithVendored(files, diagnostics, userModuleFiles, userModuleDiags)
 	}
 
 	return files, diagnostics, nil
@@ -256,6 +257,113 @@ func (d *Discovery) loadIncludesWithDiagnostics() ([]*DiscoveredFile, []Diagnost
 			Source: SourceModule,
 			Module: m,
 		})
+	}
+
+	return files, diagnostics
+}
+
+// discoverVendoredModulesWithDiagnostics performs a flat, one-level scan of a
+// module's invowk_modules/ directory to find vendored dependencies. Nested
+// vendoring (invowk_modules inside vendored modules) is not recursed into;
+// a diagnostic warning is emitted if detected.
+func (d *Discovery) discoverVendoredModulesWithDiagnostics(parentModule *invowkmod.Module) ([]*DiscoveredFile, []Diagnostic) {
+	var files []*DiscoveredFile
+	diagnostics := make([]Diagnostic, 0)
+
+	vendorDir := invowkmod.GetVendoredModulesDir(parentModule.Path)
+	if _, err := os.Stat(vendorDir); err != nil {
+		// No vendor directory is common and not a warning
+		return files, diagnostics
+	}
+
+	entries, err := os.ReadDir(vendorDir)
+	if err != nil {
+		diagnostics = append(diagnostics, Diagnostic{
+			Severity: SeverityWarning,
+			Code:     "vendored_scan_failed",
+			Message:  fmt.Sprintf("failed to read vendored modules directory %s: %v", vendorDir, err),
+			Path:     vendorDir,
+			Cause:    err,
+		})
+		return files, diagnostics
+	}
+
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+
+		entryPath := filepath.Join(vendorDir, entry.Name())
+		if !invowkmod.IsModule(entryPath) {
+			continue
+		}
+
+		moduleName := strings.TrimSuffix(entry.Name(), invowkmod.ModuleSuffix)
+		if moduleName == SourceIDInvowkfile {
+			diagnostics = append(diagnostics, Diagnostic{
+				Severity: SeverityWarning,
+				Code:     "vendored_reserved_module_skipped",
+				Message:  fmt.Sprintf("skipping reserved module name '%s' in vendored modules of %s", moduleName, parentModule.Name()),
+				Path:     entryPath,
+			})
+			continue
+		}
+
+		m, err := invowkmod.Load(entryPath)
+		if err != nil {
+			diagnostics = append(diagnostics, Diagnostic{
+				Severity: SeverityWarning,
+				Code:     "vendored_module_load_skipped",
+				Message:  fmt.Sprintf("skipping invalid vendored module at %s: %v", entryPath, err),
+				Path:     entryPath,
+				Cause:    err,
+			})
+			continue
+		}
+
+		// Warn if the vendored module has its own invowk_modules/ (not recursed)
+		nestedVendorDir := invowkmod.GetVendoredModulesDir(entryPath)
+		if info, statErr := os.Stat(nestedVendorDir); statErr == nil && info.IsDir() {
+			diagnostics = append(diagnostics, Diagnostic{
+				Severity: SeverityWarning,
+				Code:     "vendored_nested_ignored",
+				Message:  fmt.Sprintf("vendored module %s has its own invowk_modules/ which is not recursed into", m.Name()),
+				Path:     nestedVendorDir,
+			})
+		}
+
+		files = append(files, &DiscoveredFile{
+			Path:         m.InvowkfilePath(),
+			Source:       SourceModule,
+			Module:       m,
+			ParentModule: parentModule,
+		})
+	}
+
+	return files, diagnostics
+}
+
+// appendModulesWithVendored appends the module files and diagnostics, then for
+// each discovered module, scans its invowk_modules/ directory for vendored
+// dependencies. This DRYs the pattern used at all 3 module discovery sites
+// (local modules, includes, user-dir).
+func (d *Discovery) appendModulesWithVendored(
+	files []*DiscoveredFile,
+	diagnostics []Diagnostic,
+	moduleFiles []*DiscoveredFile,
+	moduleDiags []Diagnostic,
+) ([]*DiscoveredFile, []Diagnostic) {
+	diagnostics = append(diagnostics, moduleDiags...)
+
+	for _, mf := range moduleFiles {
+		files = append(files, mf)
+
+		// Scan vendored modules owned by this module
+		if mf.Module != nil {
+			vendoredFiles, vendoredDiags := d.discoverVendoredModulesWithDiagnostics(mf.Module)
+			files = append(files, vendoredFiles...)
+			diagnostics = append(diagnostics, vendoredDiags...)
+		}
 	}
 
 	return files, diagnostics

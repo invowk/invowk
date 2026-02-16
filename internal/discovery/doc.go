@@ -12,14 +12,19 @@
 //
 // File organization:
 //   - discovery.go: Core types (Discovery, ModuleCollisionError) and loading methods
-//   - discovery_files.go: File discovery (DiscoverAll, discoverInDir, etc.)
+//   - discovery_files.go: File discovery (DiscoverAll, discoverInDir, vendored scanning, etc.)
 //   - discovery_commands.go: Command aggregation (DiscoverCommands, CommandInfo, etc.)
 //
 // Discovery follows a precedence order:
 //  1. Current directory invowkfile.cue (highest)
-//  2. Modules in current directory (*.invowkmod)
-//  3. Configured includes (module paths from config)
-//  4. User commands directory (~/.invowk/cmds — modules only, non-recursive)
+//  2. Modules in current directory (*.invowkmod) and their vendored dependencies
+//  3. Configured includes (module paths from config) and their vendored dependencies
+//  4. User commands directory (~/.invowk/cmds — modules only, non-recursive) and their vendored dependencies
+//
+// Vendored modules live in invowk_modules/ inside a parent module. Only one level
+// of vendoring is scanned (no recursive nesting). Vendored modules are tagged with
+// a ParentModule reference on DiscoveredFile for ownership tracking and collision
+// diagnostics.
 //
 // For command aggregation, local invowkfile commands take highest precedence. Commands from
 // sibling modules are included with conflict detection when names collide across sources.

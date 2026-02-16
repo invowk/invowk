@@ -23,9 +23,9 @@ The discovery system implements a **strict 4-level precedence hierarchy**:
 | Priority | Source | Description |
 |----------|--------|-------------|
 | 1 (Highest) | Current Directory | `invowkfile.cue` in the working directory |
-| 2 | Local Modules | Sibling `*.invowkmod` directories in current directory |
-| 3 | Config Includes | Module paths from `config.Includes` |
-| 4 (Lowest) | User Commands | `~/.invowk/cmds/` — modules only, non-recursive |
+| 2 | Local Modules | Sibling `*.invowkmod` directories in current directory and their vendored dependencies |
+| 3 | Config Includes | Module paths from `config.Includes` and their vendored dependencies |
+| 4 (Lowest) | User Commands | `~/.invowk/cmds/` — modules only, non-recursive, and their vendored dependencies |
 
 **Key Behavior:**
 - Non-module sources (current dir invowkfile): First source **shadows** later ones
@@ -61,6 +61,29 @@ discoverModulesInDirWithDiagnostics(dir) → ([]*DiscoveredFile, []Diagnostic)
 - Skips reserved module name `"invowkfile"` (reserved for canonical namespace)
 - **Graceful degradation**: Invalid modules emit diagnostics (warnings) and are skipped
 
+### Track C: Vendored Module Discovery
+
+After discovering each module (from any of the 3 module sources), the system scans its `invowk_modules/` directory for vendored dependencies:
+
+```go
+// Flat, one-level scan of <parentModule.Path>/invowk_modules/
+discoverVendoredModulesWithDiagnostics(parentModule) → ([]*DiscoveredFile, []Diagnostic)
+```
+
+**Key behaviors:**
+- Sets `ParentModule` on each vendored `DiscoveredFile` for ownership tracking
+- Vendored modules use `SourceModule` (no new Source enum value)
+- **No recursion**: Only immediate `invowk_modules/` children are scanned; nested vendored modules are NOT recursed into (emits `vendored_nested_ignored` diagnostic)
+- **Graceful degradation**: Invalid vendored modules emit `vendored_module_load_skipped` diagnostic and are skipped
+- Vendored modules are always ordered after their parent in the files slice
+
+**DRY helper** used at all 3 module scan sites (local, includes, user-dir):
+
+```go
+// Appends module files + scans vendored for each, consolidating diagnostics
+appendModulesWithVendored(files, diagnostics, moduleFiles, moduleDiags) → (files, diagnostics)
+```
+
 ---
 
 ## Source Tracking Types
@@ -80,11 +103,12 @@ Captures discovery metadata for each found file:
 
 ```go
 type DiscoveredFile struct {
-    Path     string           // Absolute path
-    Source   Source           // Which source type
-    Invowkfile *invowkfile.Invowkfile  // Parsed content (lazy-loaded)
-    Error    error            // Parse errors if applicable
-    Module   *invowkmod.Module  // Non-nil if from .invowkmod
+    Path         string           // Absolute path
+    Source       Source           // Which source type
+    Invowkfile   *invowkfile.Invowkfile  // Parsed content (lazy-loaded)
+    Error        error            // Parse errors if applicable
+    Module       *invowkmod.Module  // Non-nil if from .invowkmod
+    ParentModule *invowkmod.Module  // Non-nil if vendored (tracks ownership)
 }
 ```
 
@@ -176,6 +200,8 @@ err := discovery.CheckModuleCollisions()
 // Returns actionable guidance: add alias in includes config
 ```
 
+**Vendored annotation:** When a collision involves a vendored module, the error message includes `"(vendored in <parent>)"` for clearer diagnostics.
+
 **Module Aliases:** Configured inline via `config.Includes` entries (each `IncludeEntry` can have an optional `Alias` field for module paths).
 
 ### Command Scope Rules
@@ -265,6 +291,10 @@ type LookupResult struct {
 | `include_not_module` | warning | Config include path is not a valid module |
 | `include_reserved_module_skipped` | warning | Config include uses reserved module name |
 | `include_module_load_failed` | warning | Failed to load configured include module |
+| `vendored_scan_failed` | warning | Failed to read vendored modules directory |
+| `vendored_reserved_module_skipped` | warning | Vendored module uses reserved name `"invowkfile"` |
+| `vendored_module_load_skipped` | warning | Invalid vendored module skipped during discovery |
+| `vendored_nested_ignored` | warning | Vendored module has its own `invowk_modules/` (not recursed) |
 | `container_runtime_init_failed` | warning | Container engine unavailable during registry init |
 
 ---
@@ -314,6 +344,9 @@ lookup, err := disc.GetCommand(ctx, "foo build")
 | Lazy parsing (LoadAll vs DiscoverAll) | Parsing deferred until needed; discovery is I/O only |
 | Module aliases in config | Keeps discovery focused on filesystem; config handles naming |
 | Graceful error handling | Invalid modules skipped; one bad module doesn't block others |
+| Vendored modules use `SourceModule` | No new Source enum; vendored modules are modules, distinguished by `ParentModule != nil` |
+| Single-level vendored scanning | No recursive nesting; vendored module's own `invowk_modules/` is ignored with diagnostic |
+| `ParentModule` field for ownership | Minimal, backward-compatible; enables collision annotation and future scope enforcement |
 
 ---
 
@@ -322,7 +355,8 @@ lookup, err := disc.GetCommand(ctx, "foo build")
 | File | Purpose |
 |------|---------|
 | `discovery.go` | Core API: LoadAll, LoadFirst, CheckModuleCollisions, GetEffectiveModuleID, loadAllWithDiagnostics |
-| `discovery_files.go` | File/module discovery: DiscoverAll, discoverInDir, discoverModulesInDirWithDiagnostics, loadIncludesWithDiagnostics, Source enum, DiscoveredFile |
+| `discovery_files.go` | File/module discovery: DiscoverAll, discoverInDir, discoverModulesInDirWithDiagnostics, discoverVendoredModulesWithDiagnostics, appendModulesWithVendored, loadIncludesWithDiagnostics, Source enum, DiscoveredFile (with ParentModule) |
+| `discovery_vendored_test.go` | Vendored module discovery tests: parent tracking, ordering, nested blocking, all 3 source types, collision annotation |
 | `discovery_commands.go` | Command aggregation: DiscoverCommandSet, DiscoverAndValidateCommandSet, GetCommand, DiscoveredCommandSet |
 | `diagnostic.go` | Diagnostic type, Severity constants, CommandSetResult, LookupResult |
 | `validation.go` | Command tree validation (leaf-only args rule) |
@@ -339,3 +373,5 @@ lookup, err := disc.GetCommand(ctx, "foo build")
 | Args + subcommands together | ArgsSubcommandConflictError | Make args-only or subcommands-only |
 | Testing non-module shadowing | Later source visible | Only first non-module source wins |
 | Module with reserved name "invowkfile" | Module silently skipped | Use different module name |
+| Expecting nested vendored modules | Only first level of `invowk_modules/` scanned | Flatten deps into the parent module's vendor dir |
+| Vendored module collision | `ModuleCollisionError` with "(vendored in parent)" | Add alias in includes config for one of the colliding modules |
