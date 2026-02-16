@@ -192,5 +192,6 @@ When modifying module-related code, verify:
 | Stale sample modules | Validation fails after schema changes | Update modules in `modules/` after module-related changes |
 | Missing platform restrictions | Bash scripts fail on Windows | Add platform-specific implementations for native+virtual runtimes |
 | Args with subcommands | Discovery validation error | Commands with positional args cannot have subcommands |
+| Treating Unix `/...` paths as universally absolute in config tests | Windows short CI fails on include path validation | For `includes` fixtures, use `t.TempDir()` + `filepath.Join(...)` and keep relative negatives explicit |
 
 For path handling in implementations, see `.agents/rules/windows.md`.

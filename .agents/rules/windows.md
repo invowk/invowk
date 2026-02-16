@@ -31,6 +31,19 @@ There are two distinct path domains in container-related code:
 | `filepath.FromSlash()` | Converts `/` to native | Converting container path → host path |
 | `path.Join()` | Always uses `/` | Joining container path segments |
 
+### Host Absolute Paths in Config Includes
+
+`includes[*].path` and `container.auto_provision.includes[*].path` are **host paths** validated in Go with `filepath.IsAbs()`.
+
+- On Linux/macOS, `/path/to/module.invowkmod` is absolute.
+- On Windows, `/path/to/module.invowkmod` is **not** absolute; use `C:\path\to\module.invowkmod` (or UNC paths).
+- Keep this OS-native behavior unless there is an explicit product decision to change it.
+
+When writing tests for this validation:
+- Build valid absolute fixtures with `t.TempDir()` + `filepath.Join(...)`.
+- Keep relative-path negative cases (`relative/...`, `./...`) explicit.
+- If a case is intentionally Unix-only, use `skipOnWindows` with a clear reason.
+
 ### Common Patterns
 
 **Converting host path to container path:**

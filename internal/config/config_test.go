@@ -343,6 +343,11 @@ func TestLoadAndSave(t *testing.T) {
 	// Use a temp directory for testing
 	tmpDir := t.TempDir()
 	configDir := filepath.Join(tmpDir, AppName)
+	includePathTwo := filepath.Join(tmpDir, "path", "two.invowkmod")
+	includePathThree := filepath.Join(tmpDir, "path", "three.invowkmod")
+	binaryPath := filepath.Join(tmpDir, "custom", "bin", "invowk")
+	autoProvisionIncludePath := filepath.Join(tmpDir, "modules", "one.invowkmod")
+	cacheDir := filepath.Join(tmpDir, "tmp", "invowk-cache")
 
 	// Ensure config directory exists
 	err := EnsureConfigDir(configDir)
@@ -354,8 +359,8 @@ func TestLoadAndSave(t *testing.T) {
 	cfg := &Config{
 		ContainerEngine: ContainerEngineDocker,
 		Includes: []IncludeEntry{
-			{Path: "/path/two.invowkmod", Alias: "two-alias"},
-			{Path: "/path/three.invowkmod"},
+			{Path: includePathTwo, Alias: "two-alias"},
+			{Path: includePathThree},
 		},
 		DefaultRuntime: "container",
 		VirtualShell: VirtualShellConfig{
@@ -369,10 +374,10 @@ func TestLoadAndSave(t *testing.T) {
 		Container: ContainerConfig{
 			AutoProvision: AutoProvisionConfig{
 				Enabled:         false,
-				BinaryPath:      "/custom/bin/invowk",
-				Includes:        []IncludeEntry{{Path: "/modules/one.invowkmod"}},
+				BinaryPath:      binaryPath,
+				Includes:        []IncludeEntry{{Path: autoProvisionIncludePath}},
 				InheritIncludes: false,
-				CacheDir:        "/tmp/invowk-cache",
+				CacheDir:        cacheDir,
 			},
 		},
 	}
@@ -424,20 +429,20 @@ func TestLoadAndSave(t *testing.T) {
 		t.Error("AutoProvision.Enabled = true, want false")
 	}
 
-	if loaded.Container.AutoProvision.BinaryPath != "/custom/bin/invowk" {
-		t.Errorf("AutoProvision.BinaryPath = %q, want /custom/bin/invowk", loaded.Container.AutoProvision.BinaryPath)
+	if loaded.Container.AutoProvision.BinaryPath != binaryPath {
+		t.Errorf("AutoProvision.BinaryPath = %q, want %q", loaded.Container.AutoProvision.BinaryPath, binaryPath)
 	}
 
-	if len(loaded.Container.AutoProvision.Includes) != 1 || loaded.Container.AutoProvision.Includes[0].Path != "/modules/one.invowkmod" {
-		t.Errorf("AutoProvision.Includes = %v, want [{Path:/modules/one.invowkmod}]", loaded.Container.AutoProvision.Includes)
+	if len(loaded.Container.AutoProvision.Includes) != 1 || loaded.Container.AutoProvision.Includes[0].Path != autoProvisionIncludePath {
+		t.Errorf("AutoProvision.Includes = %v, want [{Path:%s}]", loaded.Container.AutoProvision.Includes, autoProvisionIncludePath)
 	}
 
 	if loaded.Container.AutoProvision.InheritIncludes != false {
 		t.Error("AutoProvision.InheritIncludes = true, want false")
 	}
 
-	if loaded.Container.AutoProvision.CacheDir != "/tmp/invowk-cache" {
-		t.Errorf("AutoProvision.CacheDir = %q, want /tmp/invowk-cache", loaded.Container.AutoProvision.CacheDir)
+	if loaded.Container.AutoProvision.CacheDir != cacheDir {
+		t.Errorf("AutoProvision.CacheDir = %q, want %q", loaded.Container.AutoProvision.CacheDir, cacheDir)
 	}
 }
 

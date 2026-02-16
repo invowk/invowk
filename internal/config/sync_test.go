@@ -4,7 +4,9 @@ package config
 
 import (
 	"fmt"
+	"path/filepath"
 	"reflect"
+	"runtime"
 	"slices"
 	"strings"
 	"testing"
@@ -260,6 +262,14 @@ func validateCUE(t *testing.T, cueData string) error {
 	return nil
 }
 
+// absoluteModulePath creates an OS-native absolute path to a test *.invowkmod entry.
+func absoluteModulePath(t *testing.T, elems ...string) string {
+	t.Helper()
+
+	parts := append([]string{t.TempDir()}, elems...)
+	return filepath.Join(parts...)
+}
+
 // TestIncludeEntrySchemaSync verifies IncludeEntry Go struct matches #IncludeEntry CUE definition.
 func TestIncludeEntrySchemaSync(t *testing.T) {
 	t.Parallel()
@@ -489,6 +499,17 @@ func TestCacheDirConstraints(t *testing.T) {
 func TestValidateIncludes(t *testing.T) {
 	t.Parallel()
 
+	moduleWithAliasPath := absoluteModulePath(t, "path", "to", "mymod.invowkmod")
+	moduleWithoutAliasPath := absoluteModulePath(t, "path", "to", "mymod.invowkmod")
+	mod1Path := absoluteModulePath(t, "path", "to", "mod1.invowkmod")
+	mod2Path := absoluteModulePath(t, "path", "to", "mod2.invowkmod")
+	fooPath := absoluteModulePath(t, "path", "to", "foo.invowkmod")
+	barPath := absoluteModulePath(t, "path", "to", "bar.invowkmod")
+	fooAPath := absoluteModulePath(t, "path", "a", "foo.invowkmod")
+	fooBPath := absoluteModulePath(t, "path", "b", "foo.invowkmod")
+	duplicatePath := absoluteModulePath(t, "path", "to", "mymod.invowkmod")
+	duplicatePathTrailing := duplicatePath + string(filepath.Separator)
+
 	tests := []struct {
 		name     string
 		includes []IncludeEntry
@@ -502,62 +523,62 @@ func TestValidateIncludes(t *testing.T) {
 		{
 			name: "module with alias valid",
 			includes: []IncludeEntry{
-				{Path: "/path/to/mymod.invowkmod", Alias: "my-alias"},
+				{Path: moduleWithAliasPath, Alias: "my-alias"},
 			},
 			wantErr: false,
 		},
 		{
 			name: "module without alias valid",
 			includes: []IncludeEntry{
-				{Path: "/path/to/mymod.invowkmod"},
+				{Path: moduleWithoutAliasPath},
 			},
 			wantErr: false,
 		},
 		{
 			name: "duplicate alias rejected",
 			includes: []IncludeEntry{
-				{Path: "/path/to/mod1.invowkmod", Alias: "same-alias"},
-				{Path: "/path/to/mod2.invowkmod", Alias: "same-alias"},
+				{Path: mod1Path, Alias: "same-alias"},
+				{Path: mod2Path, Alias: "same-alias"},
 			},
 			wantErr: true,
 		},
 		{
 			name: "different aliases accepted",
 			includes: []IncludeEntry{
-				{Path: "/path/to/mod1.invowkmod", Alias: "alias-one"},
-				{Path: "/path/to/mod2.invowkmod", Alias: "alias-two"},
+				{Path: mod1Path, Alias: "alias-one"},
+				{Path: mod2Path, Alias: "alias-two"},
 			},
 			wantErr: false,
 		},
 		{
 			name: "two modules different short names no aliases accepted",
 			includes: []IncludeEntry{
-				{Path: "/path/to/foo.invowkmod"},
-				{Path: "/path/to/bar.invowkmod"},
+				{Path: fooPath},
+				{Path: barPath},
 			},
 			wantErr: false,
 		},
 		{
 			name: "two modules same short name no aliases rejected",
 			includes: []IncludeEntry{
-				{Path: "/path/a/foo.invowkmod"},
-				{Path: "/path/b/foo.invowkmod"},
+				{Path: fooAPath},
+				{Path: fooBPath},
 			},
 			wantErr: true,
 		},
 		{
 			name: "two modules same short name unique aliases accepted",
 			includes: []IncludeEntry{
-				{Path: "/path/a/foo.invowkmod", Alias: "foo-a"},
-				{Path: "/path/b/foo.invowkmod", Alias: "foo-b"},
+				{Path: fooAPath, Alias: "foo-a"},
+				{Path: fooBPath, Alias: "foo-b"},
 			},
 			wantErr: false,
 		},
 		{
 			name: "two modules same short name only one has alias rejected",
 			includes: []IncludeEntry{
-				{Path: "/path/a/foo.invowkmod", Alias: "foo-a"},
-				{Path: "/path/b/foo.invowkmod"},
+				{Path: fooAPath, Alias: "foo-a"},
+				{Path: fooBPath},
 			},
 			wantErr: true,
 		},
@@ -578,16 +599,16 @@ func TestValidateIncludes(t *testing.T) {
 		{
 			name: "duplicate path rejected",
 			includes: []IncludeEntry{
-				{Path: "/path/to/mymod.invowkmod"},
-				{Path: "/path/to/mymod.invowkmod"},
+				{Path: duplicatePath},
+				{Path: duplicatePath},
 			},
 			wantErr: true,
 		},
 		{
 			name: "duplicate path with trailing slash rejected",
 			includes: []IncludeEntry{
-				{Path: "/path/to/mymod.invowkmod"},
-				{Path: "/path/to/mymod.invowkmod/"},
+				{Path: duplicatePath},
+				{Path: duplicatePathTrailing},
 			},
 			wantErr: true,
 		},
@@ -608,10 +629,43 @@ func TestValidateIncludes(t *testing.T) {
 	}
 }
 
+// TestValidateIncludes_OSNativeAbsolutePathSemantics verifies the intended
+// platform-dependent behavior for path absoluteness:
+// - OS-native absolute paths are accepted on all platforms
+// - Unix-style absolute literals are rejected on Windows
+func TestValidateIncludes_OSNativeAbsolutePathSemantics(t *testing.T) {
+	t.Parallel()
+
+	nativeAbsolutePath := absoluteModulePath(t, "native", "mymod.invowkmod")
+	if err := validateIncludes("includes", []IncludeEntry{{Path: nativeAbsolutePath}}); err != nil {
+		t.Fatalf("expected OS-native absolute path to be valid, got: %v", err)
+	}
+
+	unixStyleAbsolute := "/tmp/mymod.invowkmod"
+	err := validateIncludes("includes", []IncludeEntry{{Path: unixStyleAbsolute}})
+	if runtime.GOOS == "windows" {
+		if err == nil {
+			t.Fatalf("expected Unix-style absolute path %q to be rejected on Windows", unixStyleAbsolute)
+		}
+		if !strings.Contains(err.Error(), "must be absolute") {
+			t.Fatalf("expected absolute-path validation error, got: %v", err)
+		}
+		return
+	}
+
+	if err != nil {
+		t.Fatalf("expected Unix-style absolute path %q to be valid on %s, got: %v", unixStyleAbsolute, runtime.GOOS, err)
+	}
+}
+
 // TestValidateAutoProvisionIncludes verifies that the same validation rules
 // apply to container.auto_provision.includes entries.
 func TestValidateAutoProvisionIncludes(t *testing.T) {
 	t.Parallel()
+
+	modulePath := absoluteModulePath(t, "path", "to", "mymod.invowkmod")
+	fooAPath := absoluteModulePath(t, "a", "foo.invowkmod")
+	fooBPath := absoluteModulePath(t, "b", "foo.invowkmod")
 
 	tests := []struct {
 		name     string
@@ -626,23 +680,23 @@ func TestValidateAutoProvisionIncludes(t *testing.T) {
 		{
 			name: "module accepted",
 			includes: []IncludeEntry{
-				{Path: "/path/to/mymod.invowkmod"},
+				{Path: modulePath},
 			},
 			wantErr: false,
 		},
 		{
 			name: "same short name collision rejected",
 			includes: []IncludeEntry{
-				{Path: "/a/foo.invowkmod"},
-				{Path: "/b/foo.invowkmod"},
+				{Path: fooAPath},
+				{Path: fooBPath},
 			},
 			wantErr: true,
 		},
 		{
 			name: "same short name with aliases accepted",
 			includes: []IncludeEntry{
-				{Path: "/a/foo.invowkmod", Alias: "foo-a"},
-				{Path: "/b/foo.invowkmod", Alias: "foo-b"},
+				{Path: fooAPath, Alias: "foo-a"},
+				{Path: fooBPath, Alias: "foo-b"},
 			},
 			wantErr: false,
 		},

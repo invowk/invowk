@@ -285,6 +285,21 @@ expected := filepath.Join("/app", "config", "file.json")
 containerPath := "/workspace/scripts/run.sh"  // OK - container paths are always Unix-style
 ```
 
+### Absolute Fixture Pattern (Host Paths)
+
+When validation logic relies on OS-native absoluteness (`filepath.IsAbs`), avoid hardcoded Unix-style fixtures as "valid absolute" inputs.
+
+```go
+// CORRECT: OS-native absolute fixture
+absPath := filepath.Join(t.TempDir(), "modules", "tools.invowkmod")
+
+// RELATIVE NEGATIVE CASES: keep explicit
+relPath := "modules/tools.invowkmod"
+dotRelPath := "./modules/tools.invowkmod"
+```
+
+Why: `/foo/bar` is absolute on Unix but not on Windows. Using `t.TempDir()` + `filepath.Join` keeps tests valid on all CI platforms.
+
 ### Import Alias for runtime Package
 
 When testing code that needs both the `runtime` package and `runtime.GOOS`, use an import alias:

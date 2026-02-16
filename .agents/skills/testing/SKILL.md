@@ -15,6 +15,11 @@ Use this skill when:
 
 **Cross-references**: For universal test patterns (table-driven tests, `testing.Short()`, `skipOnWindows`, `t.TempDir()`, testscript HOME fix, container test timeouts, cross-platform path assertions, test file size limits), see `.agents/rules/testing.md`. This skill covers domain-specific testing guidance that extends those rules.
 
+For host-path validation tests that depend on `filepath.IsAbs`, treat absoluteness as OS-native:
+- Generate valid absolute fixtures with `t.TempDir()` + `filepath.Join(...)`.
+- Keep explicit negative cases for relative and dot-relative inputs.
+- Do not assume Unix-style `/...` paths are valid on Windows.
+
 ---
 
 # Testing
