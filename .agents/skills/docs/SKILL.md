@@ -93,7 +93,7 @@ website/docs/
 
 - Always use `.mdx` (not `.md`) in `website/docs/` and translations.
 - Treat `website/docs/` as the upcoming version; only touch versioned docs for backport fixes (see `website/WEBSITE_DOCS.md`).
-- Update English first, then mirror the same `.mdx` path in `website/i18n/pt-BR/docusaurus-plugin-content-docs/current/`.
+- Update English first, then mirror the same `.mdx` path in `website/i18n/pt-BR/docusaurus-plugin-content-docs/current/`. When backporting fixes to versioned snapshots, also update the corresponding versioned i18n path (e.g., `.../version-0.1.0/`).
 - Keep translations prose-only and reuse identical snippet IDs.
 - Regenerate translation JSON when UI strings change: `cd website && npx docusaurus write-translations --locale pt-BR`.
 
@@ -162,7 +162,7 @@ website/static/diagrams/v{VERSION}/        # Per-version SVG copies
 ## Common Pitfalls
 
 - **Missing i18n** - Website changes require updates to both `docs/` and `i18n/pt-BR/`.
-- **Stale snippets and i18n content** - When fixing factual errors in `website/docs/` (e.g., wrong version numbers, incorrect claims), also sweep `website/src/components/Snippet/snippets.ts` for matching stale values in code examples and `website/i18n/pt-BR/.../current/` for the same stale content in translations. Snippet code blocks and i18n mirrors are easy to miss because the Documentation Sync Map covers code→doc direction, not doc-content→snippet/i18n direction.
+- **Stale snippets and i18n content** - When fixing factual errors in `website/docs/` (e.g., wrong version numbers, incorrect claims), also sweep `website/src/components/Snippet/snippets.ts` for matching stale values in code examples and `website/i18n/pt-BR/.../current/` for the same stale content in translations. When fixing versioned docs (e.g., `versioned_docs/version-0.1.0/`), also sweep the versioned i18n counterpart (`website/i18n/pt-BR/.../version-0.1.0/`). Snippet code blocks and i18n mirrors are easy to miss because the Documentation Sync Map covers code→doc direction, not doc-content→snippet/i18n direction.
 - **Container image policy** — ALL container examples in docs must use `debian:stable-slim` as the base image. No `ubuntu:*`, no `debian:bookworm`. Language-specific images (`golang:1.26`, `python:3-slim`) are allowed for language-specific demos only. See `.claude/rules/version-pinning.md` Container Images.
 - **Outdated documentation** - Check the Documentation Sync Map when modifying schemas or CLI.
 - **Versioning chicken-and-egg** - `docusaurus.config.ts` `lastVersion` must reference a version that already exists in `versions.json`. If `lastVersion` is set to a version before `docs:version` creates it, Docusaurus validation fails on initialization. Fix: temporarily set `lastVersion` to an existing version, run `version-docs.sh`, which will restore `lastVersion` to the new version in step 4.
