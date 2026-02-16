@@ -68,22 +68,33 @@ function stripLeadingSlash(p) {
 // ---------------------------------------------------------------------------
 
 function parseAllSnippetKeys() {
-  const snippetsPath = path.join(SNIPPETS_DIR, 'snippets.ts');
-  const content = fs.readFileSync(snippetsPath, 'utf8');
+  const dataDir = path.join(SNIPPETS_DIR, 'data');
+  const snippetFiles = fs.readdirSync(dataDir).filter((f) => f.endsWith('.ts'));
+  const allKeys = new Set();
 
-  const startMarker = 'export const snippets = ';
-  const startIdx = content.indexOf(startMarker);
-  const endMarker = '} as const;';
-  const endIdx = content.lastIndexOf(endMarker);
+  for (const file of snippetFiles) {
+    const filePath = path.join(dataDir, file);
+    const content = fs.readFileSync(filePath, 'utf8');
 
-  if (startIdx === -1 || endIdx === -1) {
-    console.error('ERROR: Could not parse snippets.ts');
-    process.exit(1);
+    const startRegex = /export const \w+ = /;
+    const match = content.match(startRegex);
+    if (!match) continue;
+
+    const startIdx = match.index + match[0].length;
+    const endMarker = '};';
+    const endIdx = content.lastIndexOf(endMarker);
+
+    if (startIdx === -1 || endIdx === -1) {
+      console.error(`ERROR: Could not parse ${file}`);
+      process.exit(1);
+    }
+
+    const objectLiteral = content.slice(startIdx, endIdx + 1);
+    const snippets = vm.runInNewContext(`(${objectLiteral})`);
+    Object.keys(snippets).forEach((k) => allKeys.add(k));
   }
 
-  const objectLiteral = content.slice(startIdx + startMarker.length, endIdx + 1);
-  const snippets = vm.runInNewContext(`(${objectLiteral})`);
-  return new Set(Object.keys(snippets));
+  return allKeys;
 }
 
 function parseDiagramPathEntries() {

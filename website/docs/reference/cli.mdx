@@ -247,7 +247,7 @@ Import a module from a ZIP file or URL.
 
 #### invowk module add
 
-Resolve a module dependency and print the `requires` entry for `invowkmod.cue`.
+Resolve a module dependency, update the lock file, and add the requirement to `invowkmod.cue`.
 
 <Snippet id="reference/cli/module-add-syntax" />
 
@@ -258,11 +258,16 @@ Resolve a module dependency and print the `requires` entry for `invowkmod.cue`.
 | `--alias` | Alias for the module namespace |
 | `--path` | Subdirectory path within the repository |
 
+**Examples:**
+
+<Snippet id="reference/cli/module-add-examples" />
+
 #### invowk module remove
 
-Remove a module dependency from the lock file.
+Remove a module dependency from both the lock file and `invowkmod.cue`.
 
 <Snippet id="reference/cli/module-remove-syntax" />
+
 
 #### invowk module sync
 

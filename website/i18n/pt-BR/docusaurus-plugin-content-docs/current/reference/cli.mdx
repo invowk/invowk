@@ -247,7 +247,7 @@ Importar um módulo de um arquivo ZIP ou URL.
 
 #### invowk module add
 
-Resolver uma dependência de módulo e imprimir a entrada `requires` para `invowkmod.cue`.
+Resolver uma dependência de módulo, atualizar o lock file e adicionar o requisito ao `invowkmod.cue`.
 
 <Snippet id="reference/cli/module-add-syntax" />
 
@@ -260,9 +260,10 @@ Resolver uma dependência de módulo e imprimir a entrada `requires` para `invow
 
 #### invowk module remove
 
-Remover uma dependência de módulo do lock file.
+Remover uma dependência de módulo tanto do lock file quanto do `invowkmod.cue`.
 
 <Snippet id="reference/cli/module-remove-syntax" />
+
 
 #### invowk module sync
 

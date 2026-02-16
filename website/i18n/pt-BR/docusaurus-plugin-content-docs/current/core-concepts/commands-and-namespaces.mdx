@@ -25,13 +25,21 @@ Espaços são apenas organizacionais - não há relação especial pai-filho ent
 
 ## Namespaces de Módulos
 
-Comandos de módulos são namespaced pelo campo `module` em `invowkmod.cue`:
+Os comandos de módulos são descobertos de todas as fontes e disponibilizados via seus **nomes simples** (o nome definido no `invowkfile.cue`).
 
 <Snippet id="commands-namespaces/module-prefix" />
 
-Esses comandos se tornam:
-- `invowk cmd com.company.frontend build`
-- `invowk cmd com.company.frontend test unit`
+Se estes forem os únicos comandos com esses nomes, eles se tornam disponíveis como:
+- `invowk cmd build`
+- `invowk cmd test unit`
+
+:::tip Namespaces Transparentes
+Quando os nomes dos comandos são **únicos** em todas as fontes, você pode omitir qualquer prefixo e usar apenas o nome simples do comando. O sistema de namespace transparente do Invowk resolve automaticamente comandos não ambíguos.
+
+Se um nome de comando existir em múltiplas fontes, você deve desambiguar usando o prefixo `@source`:
+- `invowk cmd @invowkfile deploy` (do invowkfile local)
+- `invowk cmd @com.company.frontend deploy` (de um módulo específico)
+:::
 
 ### Regras de Nomenclatura de IDs de Módulo
 

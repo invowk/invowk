@@ -20,7 +20,7 @@ Use this skill when working on:
 
 - Read `website/WEBSITE_DOCS.md` before any website edits.
 - Use MDX + `<Snippet>` for all code/CLI/CUE blocks.
-- Define snippets in `website/src/components/Snippet/snippets.ts` and reuse IDs across locales.
+- Define snippets in `website/src/components/Snippet/data/*.ts` and reuse IDs across locales.
 - Escape `${...}` inside snippets as `\${...}`.
 
 ---
@@ -35,7 +35,7 @@ Use this skill when working on:
 | `internal/config/config_schema.cue` | `website/docs/reference/config-schema.mdx`, `website/docs/configuration/options.mdx` |
 | `internal/config/types.go` (`DefaultConfig()`) | `website/docs/reference/config-schema.mdx` (default values), `website/docs/configuration/options.mdx` (default values), pt-BR mirrors |
 | `internal/runtime/container*.go` | `website/docs/runtime-modes/container.mdx` |
-| `cmd/invowk/init.go` | `website/docs/getting-started/quickstart.mdx`, `website/i18n/pt-BR/.../quickstart.mdx`, `website/src/components/Snippet/snippets.ts` (quickstart/* IDs), `website/src/pages/index.tsx` (terminal demo), `README.md` (Quick Start) |
+| `cmd/invowk/init.go` | `website/docs/getting-started/quickstart.mdx`, `website/i18n/pt-BR/.../quickstart.mdx`, `website/src/components/Snippet/data/getting-started.ts` (quickstart/* IDs), `website/src/pages/index.tsx` (terminal demo), `README.md` (Quick Start) |
 | `cmd/invowk/*.go` | `website/docs/reference/cli.mdx` + relevant feature docs |
 | `cmd/invowk/module*.go` | `website/docs/modules/` pages + `website/docs/reference/cli.mdx` |
 | `cmd/invowk/cmd_validate*.go` | `website/docs/dependencies/` pages |
@@ -163,9 +163,9 @@ website/static/diagrams/v{VERSION}/        # Per-version SVG copies
 ## Common Pitfalls
 
 - **Missing i18n** - Website changes require updates to both `docs/` and `i18n/pt-BR/`.
-- **Stale snippets and i18n content** - When fixing factual errors in `website/docs/` (e.g., wrong version numbers, incorrect claims), also sweep `website/src/components/Snippet/snippets.ts` for matching stale values in code examples and `website/i18n/pt-BR/.../current/` for the same stale content in translations. When fixing versioned docs (e.g., `versioned_docs/version-0.1.0/`), also sweep the versioned i18n counterpart (`website/i18n/pt-BR/.../version-0.1.0/`). Snippet code blocks and i18n mirrors are easy to miss because the Documentation Sync Map covers code→doc direction, not doc-content→snippet/i18n direction.
-- **Dual-prefix config snippets** — `snippets.ts` has two parallel sets of config snippets: `config/*` (used by `configuration/options.mdx`) and `reference/config/*` (used by `reference/config-schema.mdx`). When fixing config examples, BOTH prefixes must be checked and updated. Also check `website/src/pages/index.tsx` terminal demo for CLI output changes.
-- **CUE snippet schema drift** — CUE code snippets in `snippets.ts` can drift from the actual schema over time. When writing or reviewing CUE snippets, validate them against the actual schema files (`invowkfile_schema.cue`, `invowkmod_schema.cue`, `config_schema.cue`). Common drift patterns: `cmds` shown as a map instead of a list, `runtimes`/`platforms` shown as string arrays instead of struct lists (`[{name: "..."}]`), `git` instead of `git_url` in module requirements, version constraints with invalid `v` prefix, and `includes` paths missing the required `.invowkmod` suffix.
+- **Stale snippets and i18n content** - When fixing factual errors in `website/docs/` (e.g., wrong version numbers, incorrect claims), also sweep `website/src/components/Snippet/data/*.ts` for matching stale values in code examples and `website/i18n/pt-BR/.../current/` for the same stale content in translations. When fixing versioned docs (e.g., `versioned_docs/version-0.1.0/`), also sweep the versioned i18n counterpart (`website/i18n/pt-BR/.../version-0.1.0/`). Snippet code blocks and i18n mirrors are easy to miss because the Documentation Sync Map covers code→doc direction, not doc-content→snippet/i18n direction.
+- **Dual-prefix config snippets** — `website/src/components/Snippet/data/config.ts` has two parallel sets of config snippets: `config/*` (used by `configuration/options.mdx`) and `reference/config/*` (used by `reference/config-schema.mdx`). When fixing config examples, BOTH prefixes must be checked and updated. Also check `website/src/pages/index.tsx` terminal demo for CLI output changes.
+- **CUE snippet schema drift** — CUE code snippets in `website/src/components/Snippet/data/*.ts` can drift from the actual schema over time. When writing or reviewing CUE snippets, validate them against the actual schema files (`invowkfile_schema.cue`, `invowkmod_schema.cue`, `config_schema.cue`). Common drift patterns: `cmds` shown as a map instead of a list, `runtimes`/`platforms` shown as string arrays instead of struct lists (`[{name: "..."}]`), `git` instead of `git_url` in module requirements, version constraints with invalid `v` prefix, and `includes` paths missing the required `.invowkmod` suffix.
 - **Container image policy** — ALL container examples in docs must use `debian:stable-slim` as the base image. No `ubuntu:*`, no `debian:bookworm`. Language-specific images (`golang:1.26`, `python:3-slim`) are allowed for language-specific demos only. See `.claude/rules/version-pinning.md` Container Images.
 - **Outdated documentation** - Check the Documentation Sync Map when modifying schemas or CLI.
 - **Versioning chicken-and-egg** - `docusaurus.config.ts` `lastVersion` must reference a version that already exists in `versions.json`. If `lastVersion` is set to a version before `docs:version` creates it, Docusaurus validation fails on initialization. Fix: temporarily set `lastVersion` to an existing version, run `version-docs.sh`, which will restore `lastVersion` to the new version in step 4.

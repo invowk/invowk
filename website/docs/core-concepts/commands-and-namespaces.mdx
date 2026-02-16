@@ -25,17 +25,22 @@ Spaces are purely organizational - there’s no special parent-child relationshi
 
 ## Module Namespaces
 
-Module commands are namespaced by the `module` field in `invowkmod.cue`:
+Module commands are discovered from all sources and made available via their **simple names** (the name defined in the `invowkfile.cue`).
 
 <Snippet id="commands-namespaces/module-prefix" />
 
-These commands become available as:
-- `invowk cmd com.company.frontend build`
-- `invowk cmd com.company.frontend test unit`
+If these are the only commands with those names, they become available as:
+- `invowk cmd build`
+- `invowk cmd test unit`
 
 :::tip Transparent Namespaces
-When command names are **unique** across all sources, you can omit the module prefix and use just the command name (e.g., `invowk cmd build`). Invowk's transparent namespace system automatically resolves unambiguous commands. The full module prefix is only required when the same command name exists in multiple modules or sources.
+When command names are **unique** across all sources, you can omit any prefix and use just the simple command name. Invowk's transparent namespace system automatically resolves unambiguous commands. 
+
+If a command name exists in multiple sources, you must disambiguate using the `@source` prefix:
+- `invowk cmd @invowkfile deploy` (from local invowkfile)
+- `invowk cmd @com.company.frontend deploy` (from specific module)
 :::
+
 
 ### Module ID Naming Rules
 

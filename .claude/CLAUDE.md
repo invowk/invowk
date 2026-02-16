@@ -25,68 +25,68 @@ Invowk is a dynamically extensible command runner (similar to `just`, `task`, an
 
 ### Rules
 
-**CRITICAL:** The files in `.claude/rules/` define the authoritative rules for agents. EVERYTIME there is ANY change to files/rules inside `.claude/rules` (new file, file rename, file removed, etc.), the index/sync map in this file MUST be updated accordingly.
+**CRITICAL:** The files in `.agents/rules/` define the authoritative rules for agents. EVERYTIME there is ANY change to files/rules inside `.agents/rules` (new file, file rename, file removed, etc.), the index/sync map in this file MUST be updated accordingly.
 
-**Rules Index / Sync Map (must match `.claude/rules/`):**
-- [`.claude/rules/checklist.md`](.claude/rules/checklist.md) - Pre-completion verification steps.
-- [`.claude/rules/commands.md`](.claude/rules/commands.md) - Build, test, and release commands.
-- [`.claude/rules/cue-patterns.md`](.claude/rules/cue-patterns.md) - CUE schema patterns, string validation, common pitfalls.
-- [`.claude/rules/general-rules.md`](.claude/rules/general-rules.md) - Instruction priority, code quality, documentation.
-- [`.claude/rules/git.md`](.claude/rules/git.md) - Commit signing, squash merge, message format.
-- [`.claude/rules/go-patterns.md`](.claude/rules/go-patterns.md) - Go style, naming, errors, interfaces, comments.
-- [`.claude/rules/licensing.md`](.claude/rules/licensing.md) - SPDX headers and MPL-2.0 rules.
-- [`.claude/rules/package-design.md`](.claude/rules/package-design.md) - Package boundaries and module design.
-- [`.claude/rules/testing.md`](.claude/rules/testing.md) - Test patterns, cross-platform testing, skipOnWindows.
-- [`.claude/rules/version-pinning.md`](.claude/rules/version-pinning.md) - Version pinning policy for deps, tools, images.
-- [`.claude/rules/windows.md`](.claude/rules/windows.md) - Windows-specific constraints and guidance.
+**Rules Index / Sync Map (must match `.agents/rules/`):**
+- [`.agents/rules/checklist.md`](.agents/rules/checklist.md) - Pre-completion verification steps.
+- [`.agents/rules/commands.md`](.agents/rules/commands.md) - Build, test, and release commands.
+- [`.agents/rules/cue-patterns.md`](.agents/rules/cue-patterns.md) - CUE schema patterns, string validation, common pitfalls.
+- [`.agents/rules/general-rules.md`](.agents/rules/general-rules.md) - Instruction priority, code quality, documentation.
+- [`.agents/rules/git.md`](.agents/rules/git.md) - Commit signing, squash merge, message format.
+- [`.agents/rules/go-patterns.md`](.agents/rules/go-patterns.md) - Go style, naming, errors, interfaces, comments.
+- [`.agents/rules/licensing.md`](.agents/rules/licensing.md) - SPDX headers and MPL-2.0 rules.
+- [`.agents/rules/package-design.md`](.agents/rules/package-design.md) - Package boundaries and module design.
+- [`.agents/rules/testing.md`](.agents/rules/testing.md) - Test patterns, cross-platform testing, skipOnWindows.
+- [`.agents/rules/version-pinning.md`](.agents/rules/version-pinning.md) - Version pinning policy for deps, tools, images.
+- [`.agents/rules/windows.md`](.agents/rules/windows.md) - Windows-specific constraints and guidance.
 
 ### Agents
 
-**Agents Index (`.claude/agents/`):**
+**Agents Index (`.agents/agents/`):**
 
 Agents are specialized reviewers and generators that can be spawned as subagents for focused tasks.
 
-- [`.claude/agents/code-reviewer.md`](.claude/agents/code-reviewer.md) - Go code review: decorder, sentinel errors, wrapcheck, SPDX headers, guardrail compliance.
-- [`.claude/agents/cue-schema-agent.md`](.claude/agents/cue-schema-agent.md) - CUE schema specialist: 3-step parse flow, sync tests, validation matrix.
-- [`.claude/agents/doc-updater.md`](.claude/agents/doc-updater.md) - Documentation sync: code→doc sync map, MDX snippets, i18n mirrors, diagram updates.
-- [`.claude/agents/performance-analyzer.md`](.claude/agents/performance-analyzer.md) - Benchmark-aware reviewer: CUE hot path, discovery traversal, PGO profile maintenance.
-- [`.claude/agents/security-reviewer.md`](.claude/agents/security-reviewer.md) - Security reviewer: SSH auth, container injection, gosec exclusions, env var handling.
-- [`.claude/agents/test-writer.md`](.claude/agents/test-writer.md) - Testscript generator: virtual/native txtar pairs, platform-split CUE, exemption rules.
+- [`.agents/agents/code-reviewer.md`](.agents/agents/code-reviewer.md) - Go code review: decorder, sentinel errors, wrapcheck, SPDX headers, guardrail compliance.
+- [`.agents/agents/cue-schema-agent.md`](.agents/agents/cue-schema-agent.md) - CUE schema specialist: 3-step parse flow, sync tests, validation matrix.
+- [`.agents/agents/doc-updater.md`](.agents/agents/doc-updater.md) - Documentation sync: code→doc sync map, MDX snippets, i18n mirrors, diagram updates.
+- [`.agents/agents/performance-analyzer.md`](.agents/agents/performance-analyzer.md) - Benchmark-aware reviewer: CUE hot path, discovery traversal, PGO profile maintenance.
+- [`.agents/agents/security-reviewer.md`](.agents/agents/security-reviewer.md) - Security reviewer: SSH auth, container injection, gosec exclusions, env var handling.
+- [`.agents/agents/test-writer.md`](.agents/agents/test-writer.md) - Testscript generator: virtual/native txtar pairs, platform-split CUE, exemption rules.
 
 ### Skills
 
-**Skills Index (`.claude/skills/`):**
+**Skills Index (`.agents/skills/`):**
 
 Skills provide domain-specific procedural guidance. They are invoked when working on specific components.
 
-- [`.claude/skills/cli/`](.claude/skills/cli/) - CLI command structure, Cobra patterns, execution flow, hidden internal commands.
-- [`.claude/skills/container/`](.claude/skills/container/) - Container engine abstraction, Docker/Podman patterns, path handling, Linux-only policy.
-- [`.claude/skills/cue/`](.claude/skills/cue/) - CUE schema parsing, 3-step parse flow, validation matrix, schema sync tests.
-- [`.claude/skills/d2-diagrams/`](.claude/skills/d2-diagrams/) - Agent-optimized D2 diagram generation with TALA layout, validation pipeline, deterministic output. **DEFAULT for new diagrams.**
-- [`.claude/skills/discovery/`](.claude/skills/discovery/) - Module/command discovery, precedence order, collision detection, source tracking.
-- [`.claude/skills/docs/`](.claude/skills/docs/) - Documentation workflow and Docusaurus website development.
-- [`.claude/skills/invowk-schema/`](.claude/skills/invowk-schema/) - Invowkfile/invowkmod schema guidelines, cross-platform runtime patterns.
-- [`.claude/skills/native-mirror/`](.claude/skills/native-mirror/) - User-invokable (`/native-mirror`). Generate native_*.txtar mirrors from virtual tests with platform-split CUE.
-- [`.claude/skills/schema-sync-check/`](.claude/skills/schema-sync-check/) - User-invokable (`/schema-sync-check`). Validate CUE schema ↔ Go struct JSON tag alignment.
-- [`.claude/skills/server/`](.claude/skills/server/) - Server state machine pattern for SSH and TUI servers.
-- [`.claude/skills/shell/`](.claude/skills/shell/) - Shell runtime rules for mvdan/sh virtual shell.
-- [`.claude/skills/testing/`](.claude/skills/testing/) - Testing patterns, testscript CLI tests, race conditions, TUI/container testing.
-- [`.claude/skills/tmux-testing/`](.claude/skills/tmux-testing/) - tmux-based TUI testing for fast, CI-friendly text and ANSI verification.
-- [`.claude/skills/tui-testing/`](.claude/skills/tui-testing/) - VHS-based TUI testing workflow for autonomous visual analysis.
-- [`.claude/skills/uroot/`](.claude/skills/uroot/) - u-root utility implementation patterns.
-- [`.claude/skills/learn/`](.claude/skills/learn/) - User-invokable (`/learn`). Post-work learning review to keep CLAUDE.md, hooks, rules, and skills up-to-date.
-- [`.claude/skills/pr/`](.claude/skills/pr/) - GitHub PR workflow: tests, lints, license check, branch creation, conventional commits, and PR description.
-- [`.claude/skills/changelog/`](.claude/skills/changelog/) - User-invokable (`/changelog`). Generate release notes from conventional commits since last tag.
-- [`.claude/skills/dep-audit/`](.claude/skills/dep-audit/) - User-invokable (`/dep-audit`). Audit Go dependencies for vulnerabilities and available updates.
-- [`.claude/skills/speckit.specify/`](.claude/skills/speckit.specify/) - **User-only** (`/speckit.specify`). Create or update feature specification from natural language description. **Never auto-invoke.**
-- [`.claude/skills/speckit.clarify/`](.claude/skills/speckit.clarify/) - **User-only** (`/speckit.clarify`). Identify underspecified areas in feature spec via targeted clarification questions. **Never auto-invoke.**
-- [`.claude/skills/speckit.plan/`](.claude/skills/speckit.plan/) - **User-only** (`/speckit.plan`). Generate implementation plan from feature specification. **Never auto-invoke.**
-- [`.claude/skills/speckit.tasks/`](.claude/skills/speckit.tasks/) - **User-only** (`/speckit.tasks`). Generate dependency-ordered tasks.md from design artifacts. **Never auto-invoke.**
-- [`.claude/skills/speckit.taskstoissues/`](.claude/skills/speckit.taskstoissues/) - **User-only** (`/speckit.taskstoissues`). Convert tasks.md into GitHub issues with dependency ordering. **Never auto-invoke.**
-- [`.claude/skills/speckit.implement/`](.claude/skills/speckit.implement/) - **User-only** (`/speckit.implement`). Execute implementation plan by processing tasks from tasks.md. **Never auto-invoke.**
-- [`.claude/skills/speckit.analyze/`](.claude/skills/speckit.analyze/) - **User-only** (`/speckit.analyze`). Cross-artifact consistency and quality analysis across spec, plan, and tasks. **Never auto-invoke.**
-- [`.claude/skills/speckit.checklist/`](.claude/skills/speckit.checklist/) - **User-only** (`/speckit.checklist`). Generate custom checklist for current feature based on requirements. **Never auto-invoke.**
-- [`.claude/skills/speckit.constitution/`](.claude/skills/speckit.constitution/) - **User-only** (`/speckit.constitution`). Create or update project constitution from principle inputs. **Never auto-invoke.**
+- [`.agents/skills/cli/`](.agents/skills/cli/) - CLI command structure, Cobra patterns, execution flow, hidden internal commands.
+- [`.agents/skills/container/`](.agents/skills/container/) - Container engine abstraction, Docker/Podman patterns, path handling, Linux-only policy.
+- [`.agents/skills/cue/`](.agents/skills/cue/) - CUE schema parsing, 3-step parse flow, validation matrix, schema sync tests.
+- [`.agents/skills/d2-diagrams/`](.agents/skills/d2-diagrams/) - Agent-optimized D2 diagram generation with TALA layout, validation pipeline, deterministic output. **DEFAULT for new diagrams.**
+- [`.agents/skills/discovery/`](.agents/skills/discovery/) - Module/command discovery, precedence order, collision detection, source tracking.
+- [`.agents/skills/docs/`](.agents/skills/docs/) - Documentation workflow and Docusaurus website development.
+- [`.agents/skills/invowk-schema/`](.agents/skills/invowk-schema/) - Invowkfile/invowkmod schema guidelines, cross-platform runtime patterns.
+- [`.agents/skills/native-mirror/`](.agents/skills/native-mirror/) - User-invokable (`/native-mirror`). Generate native_*.txtar mirrors from virtual tests with platform-split CUE.
+- [`.agents/skills/schema-sync-check/`](.agents/skills/schema-sync-check/) - User-invokable (`/schema-sync-check`). Validate CUE schema ↔ Go struct JSON tag alignment.
+- [`.agents/skills/server/`](.agents/skills/server/) - Server state machine pattern for SSH and TUI servers.
+- [`.agents/skills/shell/`](.agents/skills/shell/) - Shell runtime rules for mvdan/sh virtual shell.
+- [`.agents/skills/testing/`](.agents/skills/testing/) - Testing patterns, testscript CLI tests, race conditions, TUI/container testing.
+- [`.agents/skills/tmux-testing/`](.agents/skills/tmux-testing/) - tmux-based TUI testing for fast, CI-friendly text and ANSI verification.
+- [`.agents/skills/tui-testing/`](.agents/skills/tui-testing/) - VHS-based TUI testing workflow for autonomous visual analysis.
+- [`.agents/skills/uroot/`](.agents/skills/uroot/) - u-root utility implementation patterns.
+- [`.agents/skills/learn/`](.agents/skills/learn/) - User-invokable (`/learn`). Post-work learning review to keep CLAUDE.md, hooks, rules, and skills up-to-date.
+- [`.agents/skills/pr/`](.agents/skills/pr/) - GitHub PR workflow: tests, lints, license check, branch creation, conventional commits, and PR description.
+- [`.agents/skills/changelog/`](.agents/skills/changelog/) - User-invokable (`/changelog`). Generate release notes from conventional commits since last tag.
+- [`.agents/skills/dep-audit/`](.agents/skills/dep-audit/) - User-invokable (`/dep-audit`). Audit Go dependencies for vulnerabilities and available updates.
+- [`.agents/skills/speckit.specify/`](.agents/skills/speckit.specify/) - **User-only** (`/speckit.specify`). Create or update feature specification from natural language description. **Never auto-invoke.**
+- [`.agents/skills/speckit.clarify/`](.agents/skills/speckit.clarify/) - **User-only** (`/speckit.clarify`). Identify underspecified areas in feature spec via targeted clarification questions. **Never auto-invoke.**
+- [`.agents/skills/speckit.plan/`](.agents/skills/speckit.plan/) - **User-only** (`/speckit.plan`). Generate implementation plan from feature specification. **Never auto-invoke.**
+- [`.agents/skills/speckit.tasks/`](.agents/skills/speckit.tasks/) - **User-only** (`/speckit.tasks`). Generate dependency-ordered tasks.md from design artifacts. **Never auto-invoke.**
+- [`.agents/skills/speckit.taskstoissues/`](.agents/skills/speckit.taskstoissues/) - **User-only** (`/speckit.taskstoissues`). Convert tasks.md into GitHub issues with dependency ordering. **Never auto-invoke.**
+- [`.agents/skills/speckit.implement/`](.agents/skills/speckit.implement/) - **User-only** (`/speckit.implement`). Execute implementation plan by processing tasks from tasks.md. **Never auto-invoke.**
+- [`.agents/skills/speckit.analyze/`](.agents/skills/speckit.analyze/) - **User-only** (`/speckit.analyze`). Cross-artifact consistency and quality analysis across spec, plan, and tasks. **Never auto-invoke.**
+- [`.agents/skills/speckit.checklist/`](.agents/skills/speckit.checklist/) - **User-only** (`/speckit.checklist`). Generate custom checklist for current feature based on requirements. **Never auto-invoke.**
+- [`.agents/skills/speckit.constitution/`](.agents/skills/speckit.constitution/) - **User-only** (`/speckit.constitution`). Create or update project constitution from principle inputs. **Never auto-invoke.**
 
 ### Code Area → Rules/Skills Mapping
 

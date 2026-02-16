@@ -29,7 +29,7 @@ A dynamically extensible, CLI-based command runner similar to [just](https://git
 
 - **Beautiful CLI**: Styled output using [Cobra](https://github.com/spf13/cobra) with [Lip Gloss](https://github.com/charmbracelet/lipgloss) styling
 
-- **Interactive TUI Components**: Built-in gum-like terminal UI components for creating interactive shell scripts (input, write, choose, confirm, filter, file picker, table, spinner, pager, format, style)
+- **Interactive TUI Components**: Built-in gum-like terminal UI components for creating interactive shell scripts (input, write, choose, confirm, filter, file, table, spin, pager, format, style)
 
 - **Module Dependencies**: Modules can import dependencies from remote Git repositories (GitHub, GitLab) with semantic versioning support and lock files for reproducibility
 
@@ -1989,6 +1989,8 @@ Commands in a module can only call commands from direct dependencies or globally
 | `1.2.3` | Exact version | Pinned version |
 
 ### Module Dependency CLI Commands
+
+The `module` command provides subcommands for managing dependencies. Note that `add` and `remove` automatically update both the `invowkmod.lock.cue` lock file and the `requires` section in your `invowkmod.cue` file.
 
 ```bash
 # Add a new module dependency

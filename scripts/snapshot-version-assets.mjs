@@ -112,32 +112,47 @@ function scanDiagramIds(version) {
 // ---------------------------------------------------------------------------
 
 /**
- * Parse the snippets.ts file and return the full snippets object.
+ * Parse all snippet files in the data directory and return a combined snippets object.
  *
- * Uses vm.runInNewContext to safely evaluate the JS object literal
- * (after stripping the TypeScript `as const` assertion). This avoids
- * needing a TypeScript compiler and handles template literals correctly.
+ * Each file is parsed using vm.runInNewContext to safely evaluate the object literal.
  */
 function parseAllSnippets() {
-  const snippetsPath = path.join(SNIPPETS_DIR, 'snippets.ts');
-  const content = fs.readFileSync(snippetsPath, 'utf8');
+  const dataDir = path.join(SNIPPETS_DIR, 'data');
+  const snippetFiles = fs.readdirSync(dataDir).filter((f) => f.endsWith('.ts'));
+  const allSnippets = {};
 
-  const startMarker = 'export const snippets = ';
-  const startIdx = content.indexOf(startMarker);
-  if (startIdx === -1) {
-    console.error('ERROR: Could not find "export const snippets = " in snippets.ts');
-    process.exit(1);
+  for (const file of snippetFiles) {
+    const filePath = path.join(dataDir, file);
+    const content = fs.readFileSync(filePath, 'utf8');
+
+    // Each file exports a named object: export const name = { ... };
+    const startRegex = /export const \w+ = /;
+    const match = content.match(startRegex);
+    if (!match) {
+      console.warn(`WARNING: Could not find export in ${file} — skipping.`);
+      continue;
+    }
+
+    const startIdx = match.index + match[0].length;
+    const endMarker = '};';
+    const endIdx = content.lastIndexOf(endMarker);
+
+    if (endIdx === -1) {
+      console.error(`ERROR: Could not find "};" in ${file}`);
+      process.exit(1);
+    }
+
+    const objectLiteral = content.slice(startIdx, endIdx + 1);
+    try {
+      const snippets = vm.runInNewContext(`(${objectLiteral})`);
+      Object.assign(allSnippets, snippets);
+    } catch (err) {
+      console.error(`ERROR: Failed to parse snippets in ${file}:`, err);
+      process.exit(1);
+    }
   }
 
-  const endMarker = '} as const;';
-  const endIdx = content.lastIndexOf(endMarker);
-  if (endIdx === -1) {
-    console.error('ERROR: Could not find "} as const;" in snippets.ts');
-    process.exit(1);
-  }
-
-  const objectLiteral = content.slice(startIdx + startMarker.length, endIdx + 1);
-  return vm.runInNewContext(`(${objectLiteral})`);
+  return allSnippets;
 }
 
 /** Parse the Diagram/index.tsx svgPaths map. */
