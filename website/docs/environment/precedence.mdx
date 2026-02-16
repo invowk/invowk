@@ -82,9 +82,9 @@ And these files:
 
 Now `API_URL=http://cli.example.com` because CLI has highest priority.
 
-## Files vs Vars at Same Level
+## Vars Always Override Files
 
-Within the same level, `vars` override `files`:
+All `env.files` are loaded first (root → command → implementation), then all `env.vars` are applied on top (root → command → implementation). This means even root-level `vars` override implementation-level `files`:
 
 <Snippet id="environment/precedence-vars-over-files" />
 

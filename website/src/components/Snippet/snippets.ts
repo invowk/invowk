@@ -281,7 +281,7 @@ env?: #EnvConfig        // Optional: global environment config
 depends_on?: #DependsOn // Optional: global dependencies
 
 // Required: at least one command
-cmds: [...#Command]`,
+cmds: [...#Command] & [_, ...]  // at least one required`,
   },
 
   'core-concepts/command-structure': {
@@ -6325,11 +6325,6 @@ ITEMS=$(invowk tui choose --no-limit "One" "Two" "Three" "Four" "Five")`,
 echo "$SERVICES" | while read -r service; do
     echo "Deploying: $service"
 done`,
-  },
-
-  'tui/choose-preselected': {
-    language: 'bash',
-    code: `invowk tui choose --selected "Two" "One" "Two" "Three"`,
   },
 
   'tui/choose-env-selection': {

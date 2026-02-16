@@ -2441,7 +2441,7 @@ invowk cmd deploy -E API_KEY=secret123  # short alias
 
 # Control host environment inheritance (allowlist/denylist)
 invowk cmd build --ivk-env-inherit-mode allow --ivk-env-inherit-allow TERM --ivk-env-inherit-allow LANG
-invowk cmd build --ivk-env-inherit-mode deny --ivk-env-inherit-deny AWS_SECRET_ACCESS_KEY
+invowk cmd build --ivk-env-inherit-mode all --ivk-env-inherit-deny AWS_SECRET_ACCESS_KEY
 ```
 
 ### Override Working Directory

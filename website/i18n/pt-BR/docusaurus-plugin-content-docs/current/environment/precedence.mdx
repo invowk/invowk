@@ -82,9 +82,9 @@ E estes arquivos:
 
 Agora `API_URL=http://cli.example.com` porque CLI tem a maior prioridade.
 
-## Arquivos vs Vars no Mesmo Nível
+## Vars Sempre Sobrescrevem Arquivos
 
-Dentro do mesmo nível, `vars` sobrescreve `files`:
+Todos os `env.files` são carregados primeiro (raiz → comando → implementação), e depois todos os `env.vars` são aplicados por cima (raiz → comando → implementação). Isso significa que até `vars` do nível raiz sobrescrevem `files` do nível de implementação:
 
 <Snippet id="environment/precedence-vars-over-files" />
 

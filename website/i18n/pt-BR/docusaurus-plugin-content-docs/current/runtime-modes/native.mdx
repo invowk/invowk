@@ -13,9 +13,13 @@ O runtime **native** executa comandos usando o shell padrão do seu sistema. É 
 Quando você executa um comando com o runtime native, o Invowk™:
 
 1. Detecta o shell padrão do seu sistema
-2. Cria um arquivo de script temporário
+2. Passa o script diretamente como argumento `-c` para o shell (nenhum arquivo temporário é criado)
 3. Executa-o através do shell
 4. Transmite a saída de volta para seu terminal
+
+:::note
+Quando um interpretador não-shell é especificado (ex.: Python, Ruby), um arquivo de script temporário é criado e passado para o interpretador.
+:::
 
 ## Detecção de Shell
 
