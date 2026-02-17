@@ -71,8 +71,13 @@ func (e *RuntimeNotAllowedError) Error() string {
 //  1. CLI override (hard fail if incompatible)
 //  2. Config default runtime (soft fallback)
 //  3. Command default runtime
-func ResolveRuntime(command *invowkfile.Command, commandName, runtimeOverride string, cfg *config.Config) (RuntimeSelection, error) {
-	currentPlatform := invowkfile.GetCurrentHostOS()
+//
+// The platform parameter makes this function pure — callers pass the resolved
+// platform rather than relying on the host OS at call time. Production code
+// passes invowkfile.GetCurrentHostOS(); tests pass a fixed platform for
+// deterministic behavior across CI environments.
+func ResolveRuntime(command *invowkfile.Command, commandName, runtimeOverride string, cfg *config.Config, platform invowkfile.Platform) (RuntimeSelection, error) {
+	currentPlatform := platform
 
 	if runtimeOverride != "" {
 		overrideRuntime := invowkfile.RuntimeMode(runtimeOverride)

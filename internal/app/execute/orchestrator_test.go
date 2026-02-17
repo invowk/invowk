@@ -34,7 +34,8 @@ func TestResolveRuntime(t *testing.T) {
 		}
 	}
 
-	// Helper to create a command with ONLY virtual runtime
+	// Helper to create a command with ONLY virtual runtime.
+	// Uses AllPlatformConfigs() so tests work on all CI platforms (Linux, macOS, Windows).
 	mkVirtualOnlyCmd := func() *invowkfile.Command {
 		return &invowkfile.Command{
 			Name: "virtual-cmd",
@@ -43,9 +44,7 @@ func TestResolveRuntime(t *testing.T) {
 					Runtimes: []invowkfile.RuntimeConfig{
 						{Name: invowkfile.RuntimeVirtual},
 					},
-					Platforms: []invowkfile.PlatformConfig{
-						{Name: invowkfile.PlatformLinux},
-					},
+					Platforms: invowkfile.AllPlatformConfigs(),
 				},
 			},
 		}
@@ -96,7 +95,7 @@ func TestResolveRuntime(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			got, err := ResolveRuntime(tt.cmd, "test", tt.override, tt.cfg)
+			got, err := ResolveRuntime(tt.cmd, "test", tt.override, tt.cfg, invowkfile.PlatformLinux)
 			if tt.wantErr {
 				if err == nil {
 					t.Fatal("expected error, got nil")
