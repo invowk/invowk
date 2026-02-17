@@ -2,8 +2,10 @@
 #
 # Shows how Invowk detects container engine availability,
 # checking preferred engine first then falling back.
+# Both directions are symmetric: Docker falls back to Podman
+# and Podman falls back to Docker.
 #
-# Source: docs/architecture/flowchart-runtime-selection.md
+# Source: internal/container/engine.go (NewEngine, AutoDetectEngine)
 
 vars: {
   d2-config: {
@@ -11,9 +13,12 @@ vars: {
   }
 }
 
-direction: right
+direction: down
 
-Start: Check Container
+Start: Check Container {
+  shape: oval
+  style.fill: "#E8F5E9"
+}
 
 Pref: Preferred engine\nin config? {
   shape: diamond
@@ -21,7 +26,6 @@ Pref: Preferred engine\nin config? {
 }
 
 TryDocker: Try Docker
-
 TryPodman: Try Podman
 
 DockerOK: Docker available? {
@@ -30,6 +34,17 @@ DockerOK: Docker available? {
 }
 
 PodmanOK: Podman available? {
+  shape: diamond
+  style.fill: "#FFF3E0"
+}
+
+# Fallback check nodes (when preferred engine unavailable)
+FallbackPodman: Podman available? {
+  shape: diamond
+  style.fill: "#FFF3E0"
+}
+
+FallbackDocker: Docker available? {
   shape: diamond
   style.fill: "#FFF3E0"
 }
@@ -44,7 +59,7 @@ UsePodman: Use Podman {
   style.fill: "#C8E6C9"
 }
 
-Unavailable: Unavailable {
+Unavailable: No Engine Available {
   shape: oval
   style.fill: "#FFCDD2"
 }
@@ -54,10 +69,20 @@ Pref -> TryDocker: docker
 Pref -> TryPodman: podman
 Pref -> TryPodman: not set
 
+# Docker-preferred path
 TryDocker -> DockerOK
 DockerOK -> UseDocker: Yes
-DockerOK -> TryPodman: No
+DockerOK -> FallbackPodman: No
 
+# Docker fallback to Podman
+FallbackPodman -> UsePodman: Yes
+FallbackPodman -> Unavailable: No
+
+# Podman-preferred path (also used for "not set" / auto-detect)
 TryPodman -> PodmanOK
 PodmanOK -> UsePodman: Yes
-PodmanOK -> Unavailable: No
+PodmanOK -> FallbackDocker: No
+
+# Podman fallback to Docker
+FallbackDocker -> UseDocker: Yes
+FallbackDocker -> Unavailable: No

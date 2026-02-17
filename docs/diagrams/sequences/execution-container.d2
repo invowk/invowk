@@ -1,12 +1,13 @@
 # Container Runtime Execution Sequence Diagram
 #
 # Detailed flow for container runtime execution including:
-# - Provisioning phase (engine detection, image building)
-# - Server setup (SSH, TUI)
-# - Execution phase
-# - Cleanup phase
+# - CommandService orchestration (SSH/TUI lifecycle)
+# - Image validation and base image resolution
+# - Ephemeral layer provisioning (separate from base image)
+# - Execution with retry
+# - Cleanup
 #
-# Source: docs/architecture/sequence-execution.md
+# Source: internal/runtime/container_exec.go, container_provision.go
 
 vars: {
   d2-config: {
@@ -17,51 +18,68 @@ vars: {
 shape: sequence_diagram
 
 # Participants
-CLI
-ContainerRT: Container Runtime
-Engine: Engine Abstraction
-Provision: Image Provisioner
+CLI: CLI (CommandService)
 SSH: SSH Server
 TUI: TUI Server
+ContainerRT: Container Runtime
+Engine: Engine Abstraction
+Provision: Layer Provisioner
 Container: Docker/Podman
 
-# Entry
+# 0a. One-time init during registry creation
+CLI -> ContainerRT: SetSSHServer(reference) {
+  style.stroke-dash: 3
+  style.font-color: "#666666"
+}
+
+# 0b. Per-execution orchestration
+CLI -> CLI: Resolve runtime + validate dependencies
+
+# SSH lifecycle is owned by CommandService (only if enable_host_ssh is true)
+CLI -> SSH: Ensure running (if needed)
+SSH -> CLI: Ready
+
+# TUI lifecycle is owned by interactive orchestration (optional)
+CLI -> TUI: Start (interactive only)
+TUI -> CLI: URL + token
+CLI -> ContainerRT: Inject INVOWK_TUI_* env (interactive only)
+
+# 1. Preparation Phase
 CLI -> ContainerRT: Execute(context)
 
-# 1. Provisioning Phase
-ContainerRT -> Engine: Detect available engine
-Engine -> ContainerRT: docker/podman
+# 1a. Image validation (rejects Alpine/Windows before any work)
+ContainerRT -> ContainerRT: validateSupportedContainerImage()
 
-ContainerRT -> Provision: ProvisionImage(baseImage)
-Provision -> Engine: Check if base exists
+# 1b. Base image resolution (ContainerRT owns this, NOT Provisioner)
+ContainerRT -> Engine: Image exists? (or build from Containerfile)
 
-# Pull if missing (conditional)
-Engine -> Container: Pull image (if needed)
-Container -> Engine: Image pulled
+# Pull/build if missing (conditional)
+Engine -> Container: Pull image / docker build (if needed)
+Container -> Engine: Image ready
+Engine -> ContainerRT: Base image tag
 
-Provision -> Provision: Create ephemeral layer
+# 1c. Ephemeral layer provisioning (adds invowk binary + modules)
+ContainerRT -> Provision: Provision(baseImage)
+Provision -> Provision: Create ephemeral layer (Dockerfile)
 Provision -> Engine: Build provisioned image
 Engine -> Container: docker build
 Container -> Engine: Image built
 Provision -> ContainerRT: Provisioned image tag
 
-# 2. Server Setup Phase
-# SSH server (if enabled)
-ContainerRT -> SSH: Start SSH server
-SSH -> ContainerRT: Server address + token
-
-ContainerRT -> TUI: Ensure TUI server running
-TUI -> ContainerRT: TUI server address
+# 2. Runtime setup
+ContainerRT -> ContainerRT: Build env + INVOWK_SSH_* (if enabled)
 
 # 3. Execution Phase
-ContainerRT -> Engine: Run container
-Engine -> Container: docker run
+ContainerRT -> Engine: Run container (with transient retry)
+Engine -> Container: docker/podman run
 Container -> Engine: Exit code, output
 Engine -> ContainerRT: Result
 
 # 4. Cleanup Phase
-# Stop SSH if it was started
-ContainerRT -> SSH: Stop server
+# Runtime cleanup (tokens/temp files/provision resources)
+ContainerRT -> ContainerRT: Cleanup runtime resources
 
 # Return
 ContainerRT -> CLI: Result
+CLI -> TUI: Stop (interactive only)
+CLI -> SSH: Stop (if started)

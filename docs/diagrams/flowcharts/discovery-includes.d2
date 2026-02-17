@@ -24,15 +24,15 @@ paths: includes order matters {
     fill: transparent
   }
 
-  P1: /opt/company-modules {
+  P1: /opt/company-modules/tools.invowkmod {
     style.fill: "#C8E6C9"
   }
 
-  P2: /home/shared {
+  P2: /home/shared/platform.invowkmod {
     style.fill: "#BBDEFB"
   }
 
-  P3: ...more paths {
+  P3: ...more *.invowkmod paths {
     style.fill: "#FFE4B5"
   }
 
@@ -44,7 +44,7 @@ paths: includes order matters {
 # Priority Resolution
 # ==============================================================================
 
-Win: First match wins {
+Win: Earlier include entries\nhave higher precedence {
   style.fill: "#E8F5E9"
 }
 

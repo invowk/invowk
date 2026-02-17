@@ -362,3 +362,4 @@ Before marking work complete, verify:
 | Using TALA-specific config with ELK | Config validation errors | Keep d2-config layout-agnostic |
 | `Participant."Label": { }` for sequence grouping | All arrows route to first participant | Use flat structure with comments or proper `.span:` syntax |
 | `person` shapes stretch with long labels | TALA sizes bounding box by label width, distorting the figure | Set explicit `width` and `height` (e.g., `width: 70`, `height: 100`) on all person shapes |
+| `$` in labels triggers substitution | `substitutions must begin on {` parse error | D2 interprets `$` as variable substitution (`${vars.foo}`). Avoid literal `$` in labels — use `...` or rephrase (e.g., `PATH="/invowk/bin:..."` instead of `$PATH`) |

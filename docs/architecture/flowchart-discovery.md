@@ -8,20 +8,24 @@ This diagram shows how commands are discovered and how conflicts are resolved wh
 
 ## Conflict Resolution
 
-When the same command name exists in multiple locations:
+When names collide, Invowk handles two different cases:
 
 ![Conflict Resolution](../diagrams/rendered/flowcharts/discovery-conflict.svg)
 
 ### Resolution Rules
 
-| Priority | Source | Example Path |
-|----------|--------|--------------|
-| 1 (highest) | Current directory invowkfile | `./invowkfile.cue` |
-| 2 | Local modules | `./mytools.invowkmod/` |
-| 3 | Configured includes | Module paths from `config.Includes` |
-| 4 (lowest) | User commands directory | `~/.invowk/cmds/*.invowkmod` (modules only, non-recursive) |
+| Case | Behavior |
+|------|----------|
+| Same **full command name** discovered in multiple sources | First discovered source wins (precedence order) |
+| Same **simple command name** across different sources | Mark ambiguous; user must disambiguate (`@source` / `--ivk-from`) |
 
-**Key principle**: Explicit configuration takes precedence over implicit discovery. The user commands directory acts as a catch-all module shelf for globally available modules.
+**Discovery precedence order**:
+1. Current directory invowkfile (`./invowkfile.cue`)
+2. Local modules (`./*.invowkmod`)
+3. Configured includes (module paths from `config.Includes`)
+4. User commands directory (`~/.invowk/cmds/*.invowkmod`, modules only, non-recursive)
+
+Vendored modules (`invowk_modules/`) are scanned one level deep for each discovered module source.
 
 ## Module Discovery Details
 
@@ -38,8 +42,8 @@ version: "1.0.0"                // Semantic version
 description: "My useful module"
 requires: [
     {
-        git: "https://github.com/org/repo.git"
-        version: "v1.0.0"
+        git_url: "https://github.com/org/repo.git"
+        version: "^1.0.0"
     }
 ]
 ```
@@ -63,14 +67,16 @@ requires: [
 
 ## Includes Configuration
 
-Additional invowkfiles and modules are configured in `~/.config/invowk/config.cue`:
+Additional modules are configured in `~/.config/invowk/config.cue`:
 
 ```cue
 includes: [
     {path: "/opt/company-invowk-modules/tools.invowkmod"},
-    {path: "/home/shared/invowk/invowkfile.cue"},
+    {path: "/home/shared/invowk/platform.invowkmod"},
 ]
 ```
+
+Discovery reads configured module paths; it does not fetch remote module dependencies from Git during command lookup.
 
 ### Path Resolution Order
 

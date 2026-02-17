@@ -24,19 +24,15 @@ layer_contents: Ephemeral Layer Contents {
     fill: transparent
   }
 
-  Binary: /usr/local/bin/invowk\n(Invowk binary) {
+  Binary: /invowk/bin/invowk\n(Invowk binary) {
     style.fill: "#BBDEFB"
   }
 
-  Invowkfiles: /workspace/invowkfiles/\n(Command definitions) {
+  Modules: /invowk/modules/\n(Provisioned modules) {
     style.fill: "#BBDEFB"
   }
 
-  Modules: /workspace/modules/\n(Required modules) {
-    style.fill: "#BBDEFB"
-  }
-
-  Scripts: /workspace/scripts/\n(Script files) {
+  EnvVars: ENV PATH="/invowk/bin:..."\nENV INVOWK_MODULE_PATH="/invowk/modules" {
     style.fill: "#BBDEFB"
   }
 }
@@ -53,8 +49,12 @@ Layer: Ephemeral Layer {
   style.fill: "#C8E6C9"
 }
 
+RuntimeMount: Runtime bind mount\n(host invowkfile dir -> /workspace)\n(not part of layer) {
+  style.fill: "#FFF3E0"
+}
+
 Base -> Layer
 Layer -> layer_contents.Binary
-Layer -> layer_contents.Invowkfiles
 Layer -> layer_contents.Modules
-Layer -> layer_contents.Scripts
+Layer -> layer_contents.EnvVars
+Layer -> RuntimeMount

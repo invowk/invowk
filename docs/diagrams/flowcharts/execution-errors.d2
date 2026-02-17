@@ -3,7 +3,7 @@
 # Shows the main categories of errors that can occur during
 # command execution and their common fixes.
 #
-# Source: docs/architecture/sequence-execution.md (diagrams.ts)
+# Source: cmd/invowk/cmd_execute_error_classifier.go (classifyExecutionError)
 
 vars: {
   d2-config: {
@@ -47,6 +47,14 @@ errors: Error Categories {
   E6: Execution Error {
     style.fill: "#FFCDD2"
   }
+
+  E7: Permission Denied {
+    style.fill: "#FFCDD2"
+  }
+
+  E8: Shell Not Found {
+    style.fill: "#FFCDD2"
+  }
 }
 
 # ==============================================================================
@@ -77,6 +85,14 @@ Fix6: Check script content {
   style.fill: "#C8E6C9"
 }
 
+Fix7: Check file/directory permissions {
+  style.fill: "#C8E6C9"
+}
+
+Fix8: Install required shell (bash/sh/pwsh) {
+  style.fill: "#C8E6C9"
+}
+
 # ==============================================================================
 # Connections
 # ==============================================================================
@@ -87,3 +103,5 @@ errors.E3 -> Fix3: No matching command
 errors.E4 -> Fix4: e.g., Docker not running
 errors.E5 -> Fix5: Missing required fields
 errors.E6 -> Fix6: Script error
+errors.E7 -> Fix7: os.ErrPermission
+errors.E8 -> Fix8: Shell binary not found

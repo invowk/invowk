@@ -2,7 +2,9 @@
 #
 # Shows how Invowk resolves conflicts when the same command
 # name exists in multiple discovery locations.
-# Key principle: Highest priority wins.
+# Key principle:
+# - Same full-name command: first discovered source wins
+# - Same simple-name command across sources: mark ambiguous and require disambiguation
 #
 # Source: docs/architecture/flowchart-discovery.md
 
@@ -46,14 +48,24 @@ locations: Command 'build' found in multiple locations {
 # Resolution
 # ==============================================================================
 
-Conflict: Same command name\nin multiple locations {
+Conflict: Name collision detected {
   shape: diamond
   style.fill: "#FFF3E0"
 }
 
-Winner: Highest priority wins {
+FirstWins: Same full command name:\nfirst discovered source wins {
   style.fill: "#C8E6C9"
 }
 
-Conflict -> Winner
-Winner -> locations.L1
+Ambiguous: Same simple name across\nmultiple sources:\nmark as ambiguous {
+  style.fill: "#FFE4B5"
+}
+
+Disambiguate: User must disambiguate\nwith @source or --ivk-from {
+  style.fill: "#BBDEFB"
+}
+
+Conflict -> FirstWins: same full name
+Conflict -> Ambiguous: same simple name,\ndifferent source
+FirstWins -> locations.L1
+Ambiguous -> Disambiguate

@@ -15,37 +15,40 @@ This diagram documents the decision tree for selecting which runtime executes a 
 | Platform Value | Matches On |
 |---------------|------------|
 | `"linux"` | Linux systems |
-| `"darwin"` | macOS systems |
+| `"macos"` | macOS systems |
 | `"windows"` | Windows systems |
-| (empty list) | All platforms (default) |
 
 ### Example Command Definition
 
 ```cue
-cmds: {
-    build: {
-        default: {
-            runtime: "native"
-            script: "make build"
-        }
+cmds: [
+    {
+        name: "build"
         implementations: [
             {
-                platforms: ["windows"]
-                runtime: "native"
+                platforms: [{name: "windows"}]
+                runtimes: [{name: "native"}]
                 script: "nmake build"
             },
             {
-                platforms: ["linux"]
-                runtime: "container"
-                container: {
-                    image: "golang:1.26"
-                }
+                platforms: [{name: "linux"}]
+                runtimes: [{name: "container", image: "golang:1.26"}]
                 script: "make build"
-            }
+            },
         ]
-    }
-}
+    },
+]
 ```
+
+## Runtime Resolution Precedence
+
+Runtime mode is resolved in this order:
+
+1. `--ivk-runtime` CLI override (hard fail if incompatible)
+2. `default_runtime` from config (used only when compatible)
+3. Command default runtime for the selected platform implementation
+
+There is no implicit `native -> virtual` fallback when native is unavailable.
 
 ## Runtime Comparison
 
@@ -89,7 +92,7 @@ When the container runtime is selected, Invowk creates an ephemeral image layer:
 
 ## SSH Server for Callbacks
 
-When `enable_host_ssh: true` is set, Invowk starts a temporary SSH server:
+When `enable_host_ssh: true` is set, CommandService ensures a temporary SSH server is running before execution and stops it after execution:
 
 ![SSH Callback Pattern](../diagrams/rendered/flowcharts/runtime-ssh.svg)
 

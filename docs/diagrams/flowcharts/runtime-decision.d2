@@ -1,8 +1,9 @@
 # Runtime Selection Decision Flowchart
 #
-# Shows the complete decision tree for selecting which runtime
-# executes a command, including platform matching, runtime type
-# detection, container provisioning, and SSH server setup.
+# Top-down flow:
+# 1) resolve runtime (override > config default > command default)
+# 2) dispatch to selected runtime path
+# 3) execute or fail with actionable runtime errors
 #
 # Source: docs/architecture/flowchart-runtime-selection.md
 
@@ -14,188 +15,191 @@ vars: {
 
 direction: down
 
-# ==============================================================================
-# Entry Point
-# ==============================================================================
-
-Start: Command Requested {
+Start: Start (Command Request) {
   shape: oval
   style.fill: "#E8F5E9"
 }
 
-# ==============================================================================
-# Platform Selection
-# ==============================================================================
-
-HasImpl: Has platform-specific\nimplementation? {
-  shape: diamond
-  style.fill: "#FFF3E0"
-}
-
-SelectPlatform: Select matching platform\nimplementation
-
-UseDefault: Use default implementation
-
-Start -> HasImpl
-HasImpl -> SelectPlatform: Yes
-HasImpl -> UseDefault: No
-
-# ==============================================================================
-# Runtime Type Decision
-# ==============================================================================
-
-RuntimeType: What runtime\ntype specified? {
-  shape: diamond
-  style.fill: "#FFF3E0"
-}
-
-SelectPlatform -> RuntimeType
-UseDefault -> RuntimeType
-
-# ==============================================================================
-# Native Runtime Path
-# ==============================================================================
-
-CheckNative: Host shell\navailable? {
-  shape: diamond
-  style.fill: "#FFF3E0"
-}
-
-Native: Execute via\nbash/sh/PowerShell {
-  style.fill: "#C8E6C9"
-}
-
-FallbackVirtual: Fallback to\nvirtual? {
-  shape: diamond
-  style.fill: "#FFF3E0"
-}
-
-Error1: Error: No shell found {
-  shape: oval
-  style.fill: "#FFCDD2"
-}
-
-RuntimeType -> CheckNative: native
-CheckNative -> Native: Yes
-CheckNative -> FallbackVirtual: No
-FallbackVirtual -> Error1: No
-
-# ==============================================================================
-# Virtual Runtime Path
-# ==============================================================================
-
-Virtual: Use mvdan/sh\ninterpreter {
-  style.fill: "#C8E6C9"
-}
-
-RuntimeType -> Virtual: virtual
-FallbackVirtual -> Virtual: Yes
-
-# ==============================================================================
-# Container Runtime Path
-# ==============================================================================
-
-CheckContainer: Container engine\navailable? {
-  shape: diamond
-  style.fill: "#FFF3E0"
-}
-
-Error2: Error: No container\nengine available {
-  shape: oval
-  style.fill: "#FFCDD2"
-}
-
-Provision: Provision ephemeral\nimage layer {
+ResolveRuntime: Resolve runtime using precedence {
   style.fill: "#BBDEFB"
 }
 
-RuntimeType -> CheckContainer: container
-CheckContainer -> Provision: Yes
-CheckContainer -> Error2: No
+Start -> ResolveRuntime
 
-# ==============================================================================
-# Runtime Inference
-# ==============================================================================
+# ------------------------------------------------------------------------------
+# Runtime precedence (clear top section)
+# ------------------------------------------------------------------------------
 
-InferRuntime: Infer from\nimplementation {
+HasOverride: --ivk-runtime provided? {
+  shape: diamond
+  style.fill: "#FFF3E0"
+}
+OverrideAllowed: Override allowed for command/platform? {
+  shape: diamond
+  style.fill: "#FFF3E0"
+}
+UseOverride: Use CLI override {
+  style.fill: "#C8E6C9"
+}
+
+HasConfigDefault: config.default_runtime set? {
+  shape: diamond
+  style.fill: "#FFF3E0"
+}
+ConfigAllowed: Config default allowed for command/platform? {
+  shape: diamond
+  style.fill: "#FFF3E0"
+}
+UseConfigDefault: Use compatible config default {
+  style.fill: "#C8E6C9"
+}
+
+UseCommandDefault: Use command default runtime {
+  style.fill: "#C8E6C9"
+}
+
+ErrOverride: Error: invalid runtime override {
+  shape: oval
+  style.fill: "#FFCDD2"
+}
+
+ResolveRuntime -> HasOverride
+HasOverride -> OverrideAllowed: Yes
+HasOverride -> HasConfigDefault: No
+OverrideAllowed -> UseOverride: Yes
+OverrideAllowed -> ErrOverride: No
+HasConfigDefault -> ConfigAllowed: Yes
+HasConfigDefault -> UseCommandDefault: No
+ConfigAllowed -> UseConfigDefault: Yes
+ConfigAllowed -> UseCommandDefault: No
+
+# ------------------------------------------------------------------------------
+# SSH lifecycle (CommandService responsibility, before dispatch)
+# ------------------------------------------------------------------------------
+
+SSHNeeded: enable_host_ssh = true? {
+  shape: diamond
+  style.fill: "#FFF3E0"
+}
+EnsureSSH: CommandService starts SSH server {
+  style.fill: "#BBDEFB"
+}
+
+UseOverride -> SSHNeeded
+UseConfigDefault -> SSHNeeded
+UseCommandDefault -> SSHNeeded
+
+SSHNeeded -> EnsureSSH: Yes
+SSHNeeded -> Dispatch: No
+EnsureSSH -> Dispatch
+
+Dispatch: Dispatch by selected runtime {
   shape: diamond
   style.fill: "#FFF3E0"
 }
 
-RuntimeType -> InferRuntime: not specified
-InferRuntime -> CheckContainer: has container config
-InferRuntime -> CheckNative: has script only
+# ------------------------------------------------------------------------------
+# Native path
+# ------------------------------------------------------------------------------
 
-# ==============================================================================
-# Image Provisioning
-# ==============================================================================
+NativeAvailable: Native shell available? {
+  shape: diamond
+  style.fill: "#FFF3E0"
+}
+NativeRun: Run with native runtime {
+  style.fill: "#C8E6C9"
+}
+ErrNative: Error: native runtime unavailable {
+  shape: oval
+  style.fill: "#FFCDD2"
+}
+
+Dispatch -> NativeAvailable: native
+NativeAvailable -> NativeRun: Yes
+NativeAvailable -> ErrNative: No
+
+# ------------------------------------------------------------------------------
+# Virtual path
+# ------------------------------------------------------------------------------
+
+VirtualRun: Run with virtual runtime (mvdan/sh) {
+  style.fill: "#C8E6C9"
+}
+
+Dispatch -> VirtualRun: virtual
+
+# ------------------------------------------------------------------------------
+# Container path
+# ------------------------------------------------------------------------------
+
+ContainerAvailable: Container runtime available? {
+  shape: diamond
+  style.fill: "#FFF3E0"
+}
+ErrContainer: Error: container runtime unavailable {
+  shape: oval
+  style.fill: "#FFCDD2"
+}
+PrepareContainer: Prepare container execution {
+  style.fill: "#BBDEFB"
+}
+
+Dispatch -> ContainerAvailable: container
+ContainerAvailable -> PrepareContainer: Yes
+ContainerAvailable -> ErrContainer: No
+
+ValidateImage: Supported image? {
+  shape: diamond
+  style.fill: "#FFF3E0"
+}
+ErrUnsupportedImage: Error: unsupported image\n(Alpine/Windows) {
+  shape: oval
+  style.fill: "#FFCDD2"
+}
+
+PrepareContainer -> ValidateImage
+
+ValidateImage -> ErrUnsupportedImage: No
 
 ImageSource: Image source? {
   shape: diamond
   style.fill: "#FFF3E0"
 }
-
-PullCheck: Image exists\nlocally? {
+ImageExists: Image exists locally? {
   shape: diamond
   style.fill: "#FFF3E0"
 }
-
-BuildImage: Build from\nContainerfile
-
-UseImage: Use existing image
-
+BuildImage: Build from Containerfile
 PullImage: Pull image from registry
-
-Provision -> ImageSource
-ImageSource -> PullCheck: image specified
-ImageSource -> BuildImage: containerfile specified
-
-PullCheck -> UseImage: Yes
-PullCheck -> PullImage: No
-PullImage -> UseImage
-BuildImage -> UseImage
-
-# ==============================================================================
-# Ephemeral Layer
-# ==============================================================================
-
-AddLayer: Add ephemeral layer:\ninvowk binary + modules {
+UseImage: Use selected image
+AddLayer: Add ephemeral invowk layer
+InjectSSH: Inject SSH tokens + env vars\n(if SSH server active) {
   style.fill: "#BBDEFB"
 }
-
-UseImage -> AddLayer
-
-# ==============================================================================
-# SSH Server Decision
-# ==============================================================================
-
-SSHNeeded: enable_host_ssh\n= true? {
-  shape: diamond
-  style.fill: "#FFF3E0"
-}
-
-StartSSH: Start SSH server\nfor callbacks {
-  style.fill: "#BBDEFB"
-}
-
-RunContainer: Run container with\nmounted volumes {
+ContainerRun: Run in container {
   style.fill: "#C8E6C9"
 }
 
-AddLayer -> SSHNeeded
-SSHNeeded -> StartSSH: Yes
-SSHNeeded -> RunContainer: No
-StartSSH -> RunContainer
+ValidateImage -> ImageSource: Yes
+ImageSource -> ImageExists: image
+ImageSource -> BuildImage: containerfile
+ImageExists -> UseImage: Yes
+ImageExists -> PullImage: No
+BuildImage -> UseImage
+PullImage -> UseImage
+UseImage -> AddLayer
+AddLayer -> InjectSSH
+InjectSSH -> ContainerRun
 
-# ==============================================================================
-# Execution
-# ==============================================================================
+# ------------------------------------------------------------------------------
+# Terminal success
+# ------------------------------------------------------------------------------
 
 Execute: Execute command {
   shape: oval
   style.fill: "#E8F5E9"
 }
 
-Virtual -> Execute
-Native -> Execute
-RunContainer -> Execute
+NativeRun -> Execute
+VirtualRun -> Execute
+ContainerRun -> Execute

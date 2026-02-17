@@ -29,7 +29,7 @@ The virtual runtime uses the embedded mvdan/sh interpreter:
 
 **Key decisions made:**
 - Container engine preference (docker vs podman)
-- Includes for invowkfiles/modules
+- Includes for modules
 - Default runtime if not specified
 
 ### 2. Discovery Phase
@@ -37,8 +37,8 @@ The virtual runtime uses the embedded mvdan/sh interpreter:
 | Step | Component | Action |
 |------|-----------|--------|
 | 5 | Discovery | Start command discovery |
-| 6-7 | CUE Parser | Parse all `invowkfile.cue` files |
-| 8-9 | CUE Parser | Parse all `*.invowkmod` directories |
+| 6-7 | CUE Parser | Parse discovered root/module `invowkfile.cue` files |
+| 8-9 | Discovery | Scan one-level vendored modules (`invowk_modules/`) |
 | 10 | Discovery | Build unified command tree |
 
 **Precedence order (highest to lowest):**
@@ -46,6 +46,8 @@ The virtual runtime uses the embedded mvdan/sh interpreter:
 2. Current directory `*.invowkmod`
 3. Configured includes (module paths from `config.Includes`)
 4. User directory `~/.invowk/cmds/` (modules only, non-recursive)
+
+Vendored modules are scanned one level deep per discovered module. Nested vendored modules are ignored with diagnostics.
 
 ### 3. Resolution Phase
 
@@ -57,22 +59,28 @@ The virtual runtime uses the embedded mvdan/sh interpreter:
 | 15-16 | Runtime | Validate execution context |
 
 **Platform matching:**
-- Check for `platforms: ["linux"]`, `["darwin"]`, `["windows"]`
-- Fall back to default implementation if no platform match
+- Match implementations using declared platform objects (for example `platforms: [{name: "linux"}]`)
+- If no implementation matches the current host platform, execution fails with a host-not-supported error
+
+**Runtime resolution precedence:**
+1. `--ivk-runtime` CLI override (hard validation)
+2. Config `default_runtime` (used only when compatible)
+3. Command default runtime for the matched implementation
 
 ### 4. Execution Phase
 
 | Step | Component | Action |
 |------|-----------|--------|
 | 17 | Runtime | Begin execution |
-| 18-19 | Executor | Run the actual script/command |
+| 18-19 | Runtime | Run the actual script/command |
 | 20 | Runtime | Return result |
 | 21 | CLI | Output to user |
 
 **Runtime-specific behavior:**
 - **Native**: Spawns host shell process
 - **Virtual**: Interprets via mvdan/sh
-- **Container**: Provisions image, runs container
+- **Container**: Provisions image, runs container with transient retry handling
+- **SSH/TUI lifecycle**: Managed by command orchestration (CommandService), not by the runtime implementation itself
 
 ## Error Handling Points
 

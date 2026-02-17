@@ -1,9 +1,9 @@
 # Main Execution Sequence Diagram
 #
-# Shows the complete flow of command execution from user request
+# Shows the high-level flow of command execution from user request
 # through initialization, discovery, resolution, and execution phases.
 #
-# Source: docs/architecture/sequence-execution.md
+# Source: cmd/invowk/cmd_execute.go (commandService pipeline)
 
 vars: {
   d2-config: {
@@ -21,7 +21,6 @@ Disc: Discovery Engine
 CUE: CUE Parser
 Registry: Runtime Registry
 Runtime: Selected Runtime
-Exec: Executor
 
 # Entry point
 User -> CLI: "invowk cmd <name> [args...]"
@@ -50,8 +49,7 @@ Runtime -> CLI: Validation result
 
 # 4. Execution Phase
 CLI -> Runtime: Execute(context)
-Runtime -> Exec: Run script/command
-Exec -> Runtime: Exit code, output
+Runtime -> Runtime: Run script/command
 Runtime -> CLI: Result
 
 # Return result

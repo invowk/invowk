@@ -72,7 +72,11 @@ priority2: Priority 2: Local Modules {
     style.fill: "#FFF3E0"
   }
 
-  ParseMods: Parse each module\nCheck dependencies {
+  ParseMods: Load + parse each module {
+    style.fill: "#BBDEFB"
+  }
+
+  VendoredLocal: Scan invowk_modules/\n(one level only) {
     style.fill: "#BBDEFB"
   }
 
@@ -81,45 +85,11 @@ priority2: Priority 2: Local Modules {
   Modules -> HasMods
   HasMods -> ParseMods: Yes
   HasMods -> Skip2: No
+  ParseMods -> VendoredLocal
 }
 
 priority1.ParsePWD -> priority2.Modules
 priority1.Skip1 -> priority2.Modules
-
-# ==============================================================================
-# Dependency Resolution
-# ==============================================================================
-
-dep_resolution: Dependency Resolution {
-  style: {
-    stroke: "#1168BD"
-    stroke-dash: 3
-    fill: transparent
-  }
-
-  ResolveDeps: Resolve module dependencies
-
-  DepLoop: More deps? {
-    shape: diamond
-    style.fill: "#FFF3E0"
-  }
-
-  FetchDep: Fetch from Git/\ncache
-
-  ParseDep: Parse dep module
-
-  DepsResolved: All deps resolved {
-    style.fill: "#C8E6C9"
-  }
-
-  ResolveDeps -> DepLoop
-  DepLoop -> FetchDep: Yes
-  FetchDep -> ParseDep
-  ParseDep -> DepLoop
-  DepLoop -> DepsResolved: No
-}
-
-priority2.ParseMods -> dep_resolution.ResolveDeps
 
 # ==============================================================================
 # Priority 3: Configured Includes
@@ -139,7 +109,11 @@ priority3: Priority 3: Configured Includes {
     style.fill: "#FFF3E0"
   }
 
-  ParsePaths: Parse *.invowkmod modules\nfrom include paths {
+  ParsePaths: Load + parse\nincluded modules {
+    style.fill: "#BBDEFB"
+  }
+
+  VendoredIncludes: Scan vendored modules\nfor included modules {
     style.fill: "#BBDEFB"
   }
 
@@ -148,9 +122,10 @@ priority3: Priority 3: Configured Includes {
   SearchPaths -> HasPaths
   HasPaths -> ParsePaths: Yes
   HasPaths -> Skip3: No
+  ParsePaths -> VendoredIncludes
 }
 
-dep_resolution.DepsResolved -> priority3.SearchPaths
+priority2.VendoredLocal -> priority3.SearchPaths
 priority2.Skip2 -> priority3.SearchPaths
 
 # ==============================================================================
@@ -171,25 +146,37 @@ priority4: Priority 4: User Directory {
     style.fill: "#FFF3E0"
   }
 
-  ParseUser: Parse *.invowkmod modules\nPriority: LOWEST {
+  ParseUser: Load + parse user modules {
+    style.fill: "#FFE4B5"
+  }
+
+  VendoredUser: Scan vendored modules\nfor user-dir modules {
     style.fill: "#FFE4B5"
   }
 
   UserDir -> HasUser
   HasUser -> ParseUser: Yes
+  ParseUser -> VendoredUser
 }
 
-priority3.ParsePaths -> priority4.UserDir
+priority3.VendoredIncludes -> priority4.UserDir
 priority3.Skip3 -> priority4.UserDir
 
 # ==============================================================================
 # End Point
 # ==============================================================================
 
+VendoredRule: invowk_modules/ scanned\none level only.\nNested vendored modules\nignored with diagnostics. {
+  shape: page
+  style.fill: "#FFF3E0"
+  style.font-size: 13
+}
+
 Done: Build unified\ncommand tree {
   shape: oval
   style.fill: "#E8F5E9"
 }
 
-priority4.ParseUser -> Done
+priority4.VendoredUser -> VendoredRule
+VendoredRule -> Done
 priority4.HasUser -> Done: No
