@@ -937,15 +937,24 @@ cmds: [
 		implementations: [
 			{
 				script: "go build -o /workspace/bin/app ./..."
-				runtimes: [{name: "container", image: "golang:1.26"}]
+				runtimes: [{
+					name: "container"
+					image: "golang:1.26"
+					// Runtime-level depends_on — validated inside the container
+					depends_on: {
+						tools: [
+							{alternatives: ["go"]},
+						]
+						filepaths: [
+							{alternatives: ["/workspace/go.mod"]},
+						]
+					}
+				}]
 				platforms: [{name: "linux"}]
-				// Implementation-level depends_on - validated within the container
+				// Implementation-level depends_on — always validated on the HOST
 				depends_on: {
 					tools: [
-						{alternatives: ["go"]},
-					]
-					filepaths: [
-						{alternatives: ["/workspace/go.mod"]},
+						{alternatives: ["docker"]},
 					]
 				}
 			}
@@ -954,15 +963,15 @@ cmds: [
 ]
 ```
 
-**Runtime-Aware Validation:**
+**Two-Phase Dependency Validation:**
 
-When either command-level or implementation-level dependencies are used, the validation behavior changes according to the runtime used at execution time:
+Dependencies are validated in two phases depending on where they are declared:
 
-- **native**: Dependencies are validated against the native standard shell from the host system
-- **virtual**: Dependencies are validated against invowk's built-in sh interpreter with core utils  
-- **container**: Dependencies are validated against the container's default shell from within the container itself
+1. **Host dependencies** (root, command, or implementation level `depends_on`): Always validated against the **host system**, regardless of the selected runtime. Use these to ensure host-side prerequisites are met (e.g., `docker` is installed on the host).
 
-This allows you to specify dependencies that need to exist inside the container rather than on the host system.
+2. **Container runtime dependencies** (`depends_on` inside a container runtime block): Validated inside the **container** (verifies the container environment is correctly set up). This is only available for the container runtime — native and virtual runtimes do not support runtime-level `depends_on`.
+
+Only the selected runtime's `depends_on` is checked at execution time.
 
 ## Command Arguments (Positional Arguments)
 

@@ -1,0 +1,29 @@
+# Test: Runtime-level depends_on is rejected for virtual runtime
+# depends_on inside a runtime block is only valid for container runtime.
+# CUE schema validation rejects depends_on on virtual runtime via close().
+
+cd $WORK
+
+# Test 1: virtual runtime with depends_on should be rejected at parse time
+! exec invowk cmd 'runtime deps invalid'
+stderr 'depends_on'
+
+-- invowkfile.cue --
+cmds: [
+	{
+		name:        "runtime deps invalid"
+		description: "Command with depends_on inside virtual runtime block (invalid)"
+		implementations: [{
+			script: "echo 'should not reach here'"
+			runtimes: [{
+				name: "virtual"
+				depends_on: {
+					tools: [
+						{alternatives: ["sh"]},
+					]
+				}
+			}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+	},
+]

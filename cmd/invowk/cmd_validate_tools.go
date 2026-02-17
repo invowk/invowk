@@ -6,44 +6,42 @@ import (
 	"bytes"
 	"fmt"
 	"os/exec"
+	"regexp"
 	"strings"
 
 	"github.com/invowk/invowk/internal/runtime"
 	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
-// checkToolDependenciesWithRuntime verifies all required tools are available
-// The validation method depends on the runtime:
-// - native: check against host system PATH
-// - virtual: check against built-in utilities
-// - container: check within the container environment
-// Each ToolDependency has alternatives with OR semantics (any alternative found satisfies the dependency)
-func checkToolDependenciesWithRuntime(deps *invowkfile.DependsOn, runtimeMode invowkfile.RuntimeMode, registry *runtime.Registry, ctx *runtime.ExecutionContext) error {
+// toolNamePattern validates tool names before shell interpolation.
+// Defense-in-depth: CUE schema constrains tool names at parse time.
+var toolNamePattern = regexp.MustCompile(`^[A-Za-z0-9._+\-/]+$`)
+
+// checkToolDependenciesInContainer verifies all required tools are available inside the container.
+// Called only for container runtime (caller guards non-container early return).
+// Each ToolDependency has alternatives with OR semantics (any alternative found satisfies the dependency).
+func checkToolDependenciesInContainer(deps *invowkfile.DependsOn, registry *runtime.Registry, ctx *runtime.ExecutionContext) error {
 	if deps == nil || len(deps.Tools) == 0 {
 		return nil
+	}
+
+	rt, err := registry.Get(runtime.RuntimeTypeContainer)
+	if err != nil {
+		return fmt.Errorf("container runtime not available for tool validation")
 	}
 
 	var toolErrors []string
 
 	for _, tool := range deps.Tools {
-		// OR semantics: try each alternative until one succeeds
 		var lastErr error
 		found := false
 		for _, alt := range tool.Alternatives {
-			var err error
-			switch runtimeMode {
-			case invowkfile.RuntimeContainer:
-				err = validateToolInContainer(alt, registry, ctx)
-			case invowkfile.RuntimeVirtual:
-				err = validateToolInVirtual(alt, registry, ctx)
-			case invowkfile.RuntimeNative:
-				err = validateToolNative(alt)
-			}
-			if err == nil {
+			if err := validateToolInContainer(alt, rt, ctx); err == nil {
 				found = true
-				break // Early return on first match
+				break
+			} else {
+				lastErr = err
 			}
-			lastErr = err
 		}
 		if !found && lastErr != nil {
 			if len(tool.Alternatives) == 1 {
@@ -74,50 +72,17 @@ func validateToolNative(toolName string) error {
 	return nil
 }
 
-// validateToolInVirtual validates a tool dependency using the virtual runtime.
-// It accepts a tool name string and checks if it exists in the virtual shell environment.
-func validateToolInVirtual(toolName string, registry *runtime.Registry, ctx *runtime.ExecutionContext) error {
-	rt, err := registry.Get(runtime.RuntimeTypeVirtual)
-	if err != nil {
-		// Fall back to native validation if virtual runtime not available
-		return validateToolNative(toolName)
-	}
-
-	// Use 'command -v' to check if tool exists in virtual shell
-	checkScript := fmt.Sprintf("command -v %s", toolName)
-
-	// Create a minimal context for validation
-	var stdout, stderr bytes.Buffer
-	validationCtx := &runtime.ExecutionContext{
-		Command:         ctx.Command,
-		Invowkfile:      ctx.Invowkfile,
-		SelectedImpl:    &invowkfile.Implementation{Script: checkScript, Runtimes: []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeVirtual}}},
-		SelectedRuntime: invowkfile.RuntimeVirtual,
-		Context:         ctx.Context,
-		IO:              runtime.IOContext{Stdout: &stdout, Stderr: &stderr},
-		Env:             runtime.DefaultEnv(),
-	}
-
-	result := rt.Execute(validationCtx)
-
-	if result.ExitCode != 0 {
-		return fmt.Errorf("  • %s - not available in virtual runtime", toolName)
-	}
-	return nil
-}
-
 // validateToolInContainer validates a tool dependency within a container.
 // It accepts a tool name string and checks if it exists in the container environment.
-func validateToolInContainer(toolName string, registry *runtime.Registry, ctx *runtime.ExecutionContext) error {
-	rt, err := registry.Get(runtime.RuntimeTypeContainer)
-	if err != nil {
-		return fmt.Errorf("  • %s - container runtime not available", toolName)
+// The runtime is passed directly (hoisted by caller) to avoid redundant registry lookups.
+func validateToolInContainer(toolName string, rt runtime.Runtime, ctx *runtime.ExecutionContext) error {
+	// Defense-in-depth: validate tool name before shell interpolation
+	if !toolNamePattern.MatchString(toolName) {
+		return fmt.Errorf("  • %s - invalid tool name for shell interpolation", toolName)
 	}
 
-	// Use 'command -v' or 'which' to check if tool exists in container
-	checkScript := fmt.Sprintf("command -v %s || which %s", toolName, toolName)
+	checkScript := fmt.Sprintf("command -v '%s' || which '%s'", shellEscapeSingleQuote(toolName), shellEscapeSingleQuote(toolName))
 
-	// Create a minimal context for validation
 	var stdout, stderr bytes.Buffer
 	validationCtx := &runtime.ExecutionContext{
 		Command:         ctx.Command,
@@ -130,10 +95,51 @@ func validateToolInContainer(toolName string, registry *runtime.Registry, ctx *r
 	}
 
 	result := rt.Execute(validationCtx)
-
+	if result.Error != nil {
+		return fmt.Errorf("  • %s - container validation failed: %w", toolName, result.Error)
+	}
 	if result.ExitCode != 0 {
 		return fmt.Errorf("  • %s - not available in container", toolName)
 	}
+	return nil
+}
+
+// checkHostToolDependencies verifies all required tools are available against the HOST PATH.
+// Always uses native validation regardless of selected runtime.
+func checkHostToolDependencies(deps *invowkfile.DependsOn, ctx *runtime.ExecutionContext) error {
+	if deps == nil || len(deps.Tools) == 0 {
+		return nil
+	}
+
+	var toolErrors []string
+
+	for _, tool := range deps.Tools {
+		var lastErr error
+		found := false
+		for _, alt := range tool.Alternatives {
+			if err := validateToolNative(alt); err == nil {
+				found = true
+				break
+			} else {
+				lastErr = err
+			}
+		}
+		if !found && lastErr != nil {
+			if len(tool.Alternatives) == 1 {
+				toolErrors = append(toolErrors, lastErr.Error())
+			} else {
+				toolErrors = append(toolErrors, fmt.Sprintf("  • none of [%s] found", strings.Join(tool.Alternatives, ", ")))
+			}
+		}
+	}
+
+	if len(toolErrors) > 0 {
+		return &DependencyError{
+			CommandName:  ctx.Command.Name,
+			MissingTools: toolErrors,
+		}
+	}
+
 	return nil
 }
 

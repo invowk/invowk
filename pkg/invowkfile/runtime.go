@@ -94,6 +94,11 @@ type (
 		EnvInheritAllow []string `json:"env_inherit_allow,omitempty"`
 		// EnvInheritDeny lists host env vars to block (applies to any mode)
 		EnvInheritDeny []string `json:"env_inherit_deny,omitempty"`
+		// DependsOn specifies dependencies validated inside the container environment.
+		// Only valid when Name is RuntimeContainer. For native/virtual runtimes, CUE schema
+		// rejects this field; Go structural validation provides defense-in-depth.
+		// Only the selected runtime's DependsOn is validated at execution time.
+		DependsOn *DependsOn `json:"depends_on,omitempty"`
 		// EnableHostSSH enables SSH access from container back to host (container only)
 		// Only valid when Name is "container". Default: false
 		EnableHostSSH bool `json:"enable_host_ssh,omitempty"`
@@ -141,6 +146,18 @@ func AllPlatformConfigs() []PlatformConfig {
 		{Name: PlatformMac},
 		{Name: PlatformWindows},
 	}
+}
+
+// FindRuntimeConfig returns the RuntimeConfig matching the given mode from a slice,
+// or nil if not found. Useful when you have a bare []RuntimeConfig without the
+// enclosing Implementation.
+func FindRuntimeConfig(runtimes []RuntimeConfig, mode RuntimeMode) *RuntimeConfig {
+	for i := range runtimes {
+		if runtimes[i].Name == mode {
+			return &runtimes[i]
+		}
+	}
+	return nil
 }
 
 // IsValid returns true if the EnvInheritMode is a valid value

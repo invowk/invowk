@@ -1,0 +1,29 @@
+# Test: Runtime-level depends_on is rejected for native runtime
+# depends_on inside a runtime block is only valid for container runtime.
+# CUE schema validation rejects depends_on on native runtime via close().
+
+cd $WORK
+
+# Test 1: native runtime with depends_on should be rejected at parse time
+! exec invowk cmd 'runtime deps invalid'
+stderr 'depends_on'
+
+-- invowkfile.cue --
+cmds: [
+	{
+		name:        "runtime deps invalid"
+		description: "Command with depends_on inside native runtime block (invalid)"
+		implementations: [{
+			script: "echo 'should not reach here'"
+			runtimes: [{
+				name: "native"
+				depends_on: {
+					tools: [
+						{alternatives: ["sh"]},
+					]
+				}
+			}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+	},
+]

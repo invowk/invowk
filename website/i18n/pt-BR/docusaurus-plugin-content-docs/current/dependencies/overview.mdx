@@ -90,17 +90,26 @@ Dependências são **combinadas** entre níveis:
 
 ## Validação Consciente do Runtime
 
-Dependências são validadas de acordo com o runtime:
+Dependências declaradas no nível raiz, comando ou implementação são **sempre validadas no sistema host**, independentemente do runtime selecionado. Isso garante que pré-requisitos do host (como um engine de container) sejam verificados antes do início da execução.
 
-| Runtime | Dependências Verificadas Contra |
-|---------|--------------------------------|
-| native | Sistema host |
-| virtual | Shell virtual com built-ins |
-| container | Dentro do container |
-
-Isso é poderoso para comandos container:
+Para validar dependências **dentro do ambiente do container**, use `depends_on` dentro de um bloco de runtime container:
 
 <Snippet id="dependencies/overview-runtime-aware" />
+
+### Dependências do Runtime Container
+
+O bloco `depends_on` dentro da configuração de um runtime **container** valida contra o ambiente do container. Isso está disponível apenas para o runtime container — os runtimes native e virtual não suportam `depends_on` no nível de runtime.
+
+| Escopo | Validado Contra |
+|--------|-----------------|
+| `depends_on` de Raiz / Comando / Implementação | Sempre o sistema **host** |
+| `depends_on` do runtime container | O **ambiente do container** |
+
+Essa separação permite expressar requisitos tanto do host quanto do container:
+
+<Snippet id="dependencies/overview-runtime-level" />
+
+Apenas o `depends_on` do runtime **selecionado** é validado. Se um comando tem múltiplos runtimes listados, as deps dos runtimes não selecionados são ignoradas.
 
 ## Mensagens de Erro
 

@@ -30,7 +30,27 @@ Use this skill when:
   - Capabilities checks (with and without alternatives).
   - Tools checks (with and without alternatives).
   - Custom checks (with and without alternatives).
+  - Runtime-level `depends_on` (container only — validated inside the container environment, not on host).
 - Module metadata does not belong in invowkfile examples; it lives in `invowkmod.cue` for modules.
+
+### Runtime-Level `depends_on` Pattern (Container Only)
+
+`depends_on` can be placed inside a **container** runtime block to validate against the **container's own environment** (not the host). This is distinct from root/command/implementation-level `depends_on`, which always validates against the **host system**. Runtime-level `depends_on` is only available for the container runtime — native and virtual runtimes do not support it (CUE schema rejects it at parse time).
+
+```cue
+runtimes: [{
+    name: "container"
+    image: "debian:stable-slim"
+    // Validated INSIDE the container
+    depends_on: {
+        tools: [{alternatives: ["python3"]}]
+    }
+}]
+// Validated on the HOST
+depends_on: {
+    tools: [{alternatives: ["docker"]}]
+}
+```
 
 ### Command Structure Validation
 

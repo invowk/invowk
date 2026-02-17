@@ -13,65 +13,123 @@ import (
 	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
-// validateDependencies validates merged dependencies for a command.
-// Dependencies are merged from root-level, command-level, and implementation-level, and
-// validated according to the selected runtime:
-// - native: validated against the native standard shell from the host
-// - virtual: validated against invowk's built-in sh interpreter with core utils
-// - container: validated against the container's default shell from within the container
+// validateDependencies validates dependencies for a command in two phases:
 //
-// Note: `depends_on.cmds` is an existence check only. Invowk validates that referenced
-// commands are discoverable (in this invowkfile, modules, or configured search paths),
-// but it does not execute them automatically.
+// Phase 1 (Host Dependencies): Root, command, and implementation-level depends_on are merged
+// and ALWAYS validated against the HOST system, regardless of the selected runtime.
+//
+// Phase 2 (Container Dependencies): If the selected runtime is container, the runtime
+// config's depends_on (if any) is validated inside the container environment.
+// Runtime-level depends_on is only supported for container runtime.
+//
+// Note: depends_on.cmds is a discoverability check only. For host-level deps, Invowk validates
+// that commands are discoverable via the standard discovery pipeline. For container runtime deps,
+// it runs 'invowk internal check-cmd' inside the container. Neither phase executes the
+// referenced commands.
 func validateDependencies(cfg *config.Config, cmdInfo *discovery.CommandInfo, registry *runtime.Registry, parentCtx *runtime.ExecutionContext) error {
-	// Merge root-level, command-level, and implementation-level dependencies
-	mergedDeps := invowkfile.MergeDependsOnAll(cmdInfo.Invowkfile.DependsOn, cmdInfo.Command.DependsOn, parentCtx.SelectedImpl.DependsOn)
+	// Phase 1: Host dependencies (root + cmd + impl, always validated on host)
+	if err := validateHostDependencies(cfg, cmdInfo, parentCtx); err != nil {
+		return err
+	}
 
+	// Phase 2: Runtime dependencies (selected runtime's depends_on, runtime-aware)
+	return validateRuntimeDependencies(cmdInfo, registry, parentCtx)
+}
+
+// validateHostDependencies validates merged root+cmd+impl dependencies against the HOST.
+// All 6 dependency types are always checked on the host, regardless of selected runtime.
+func validateHostDependencies(cfg *config.Config, cmdInfo *discovery.CommandInfo, parentCtx *runtime.ExecutionContext) error {
+	mergedDeps := invowkfile.MergeDependsOnAll(cmdInfo.Invowkfile.DependsOn, cmdInfo.Command.DependsOn, parentCtx.SelectedImpl.DependsOn)
 	if mergedDeps == nil {
 		return nil
 	}
 
-	// Get the selected runtime for context-aware validation
-	selectedRuntime := parentCtx.SelectedRuntime
+	invowkfilePath := cmdInfo.Invowkfile.FilePath
 
-	// FIRST: Check env var dependencies (host-only, validated BEFORE invowk sets any env vars)
-	// We capture the user's environment here to ensure we validate against their actual env,
-	// not any variables that invowk might set from the 'env' construct
+	// Env vars: host-only, validated BEFORE invowk sets any env vars
 	if err := checkEnvVarDependencies(mergedDeps, captureUserEnv(), parentCtx); err != nil {
 		return err
 	}
 
-	// Then check tool dependencies (runtime-aware)
-	if err := checkToolDependenciesWithRuntime(mergedDeps, selectedRuntime, registry, parentCtx); err != nil {
+	// Tools: always host PATH
+	if err := checkHostToolDependencies(mergedDeps, parentCtx); err != nil {
 		return err
 	}
 
-	// Then check filepath dependencies (runtime-aware)
-	if err := checkFilepathDependenciesWithRuntime(mergedDeps, cmdInfo.Invowkfile.FilePath, selectedRuntime, registry, parentCtx); err != nil {
+	// Filepaths: always host filesystem
+	if err := checkHostFilepathDependencies(mergedDeps, invowkfilePath, parentCtx); err != nil {
 		return err
 	}
 
-	// Then check capability dependencies (host-only, not runtime-aware)
+	// Capabilities: host-only
 	if err := checkCapabilityDependencies(mergedDeps, parentCtx); err != nil {
 		return err
 	}
 
-	// Then check custom check dependencies (runtime-aware)
-	if err := checkCustomCheckDependencies(mergedDeps, selectedRuntime, registry, parentCtx); err != nil {
+	// Custom checks: always native shell on host
+	if err := checkHostCustomCheckDependencies(mergedDeps, parentCtx); err != nil {
 		return err
 	}
 
-	// Then check command dependencies (existence-only; these are not executed automatically)
-	// Get module ID from metadata (nil for non-module invowkfiles)
+	// Command discoverability: host-only
 	currentModule := ""
 	if cmdInfo.Invowkfile.Metadata != nil {
 		currentModule = cmdInfo.Invowkfile.Metadata.Module
 	}
-	if err := checkCommandDependenciesExist(cfg, mergedDeps, currentModule, parentCtx, nil); err != nil {
+	return checkCommandDependenciesExist(cfg, mergedDeps, currentModule, parentCtx, nil)
+}
+
+// validateRuntimeDependencies validates the selected runtime config's depends_on against
+// the runtime's own environment. Runtime-level depends_on is only supported for the
+// container runtime — for native/virtual, it's a no-op since CUE schema and structural
+// validation prevent declaring depends_on on those runtime types.
+func validateRuntimeDependencies(cmdInfo *discovery.CommandInfo, registry *runtime.Registry, parentCtx *runtime.ExecutionContext) error {
+	selectedRuntime := parentCtx.SelectedRuntime
+
+	// Runtime-level depends_on is only supported for container runtime
+	if selectedRuntime != invowkfile.RuntimeContainer {
+		return nil
+	}
+
+	// Find the selected runtime config to get its depends_on
+	rc := invowkfile.FindRuntimeConfig(parentCtx.SelectedImpl.Runtimes, selectedRuntime)
+	if rc == nil || rc.DependsOn == nil {
+		return nil
+	}
+
+	rtDeps := rc.DependsOn
+
+	if rtDeps.IsEmpty() {
+		return nil
+	}
+
+	// Env vars: validated inside the container
+	if err := checkEnvVarDependenciesInContainer(rtDeps, registry, parentCtx); err != nil {
 		return err
 	}
 
-	return nil
+	// Tools: validated inside the container
+	if err := checkToolDependenciesInContainer(rtDeps, registry, parentCtx); err != nil {
+		return err
+	}
+
+	// Filepaths: validated inside the container
+	if err := checkFilepathDependenciesInContainer(rtDeps, cmdInfo.Invowkfile.FilePath, registry, parentCtx); err != nil {
+		return err
+	}
+
+	// Capabilities: validated inside the container
+	if err := checkCapabilityDependenciesInContainer(rtDeps, registry, parentCtx); err != nil {
+		return err
+	}
+
+	// Custom checks: validated inside the container
+	if err := checkCustomCheckDependenciesInContainer(rtDeps, registry, parentCtx); err != nil {
+		return err
+	}
+
+	// Command discoverability: validated inside the container
+	return checkCommandDependenciesInContainer(rtDeps, registry, parentCtx)
 }
 
 func checkCommandDependenciesExist(cfg *config.Config, deps *invowkfile.DependsOn, currentModule string, ctx *runtime.ExecutionContext, discoveryOpts []discovery.Option) error {
