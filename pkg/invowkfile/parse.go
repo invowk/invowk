@@ -108,8 +108,8 @@ func ParseModule(modulePath string) (*Module, error) {
 			return nil, parseErr
 		}
 
-		// Set metadata reference and module path
-		inv.Metadata = meta
+		// Attach local metadata snapshot and module path
+		inv.Metadata = NewModuleMetadataFromInvowkmod(meta)
 		inv.ModulePath = modulePath
 
 		result.Commands = inv

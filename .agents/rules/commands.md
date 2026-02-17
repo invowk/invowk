@@ -9,6 +9,7 @@
 | Test all | `make test` |
 | Test short | `make test-short` |
 | Single test | `go test -v -run TestName ./path/...` |
+| Lint | `make lint` |
 | License check | `make license-check` |
 | Tidy deps | `make tidy` |
 | PGO profile | `make pgo-profile` |
@@ -67,46 +68,18 @@ make clean
 make tidy
 ```
 
-### x86-64 Microarchitecture Levels
-
-The project defaults to `GOAMD64=v3` for x86-64 builds, targeting CPUs from 2013+ (Intel Haswell, AMD Excavator). This enables AVX, AVX2, BMI1/2, FMA, and other modern instructions for better performance.
-
-Available levels:
-- `v1` - Baseline x86-64 (maximum compatibility, any 64-bit x86 CPU).
-- `v2` - Nehalem+ (2008+): SSE4.2, POPCNT.
-- `v3` - Haswell+ (2013+): AVX, AVX2, BMI1/2, FMA (default).
-- `v4` - Skylake-X+ (2017+): AVX-512.
+Defaults to `GOAMD64=v3` (Haswell+ CPUs, 2013+). Override with `make build GOAMD64=v1` for maximum compatibility.
 
 ## Profile-Guided Optimization (PGO)
 
-Invowk uses PGO to optimize builds based on representative runtime profiles. Go 1.20+ automatically detects `default.pgo` in the main package directory.
+Go automatically detects `default.pgo` in the main package directory. Profile location: `default.pgo` in the repository root (committed). Benchmark source: `internal/benchmark/benchmark_test.go`.
 
 ```bash
-# Generate full PGO profile (includes container benchmarks)
-# Takes several minutes; produces default.pgo
-make pgo-profile
-
-# Generate short PGO profile (skips container benchmarks)
-# Faster but may result in less comprehensive optimization
-make pgo-profile-short
-
-# Verify PGO is active during builds
-GODEBUG=pgoinstall=1 make build 2>&1 | grep -i pgo
+make pgo-profile        # Full profile (includes container benchmarks)
+make pgo-profile-short  # Short profile (skips container benchmarks)
 ```
 
-**When to regenerate profiles:**
-- After major changes to hot paths (CUE parsing, runtime execution, discovery)
-- When adding new runtimes or significantly changing existing ones
-- Before a major release to ensure optimizations are up-to-date
-
-**Profile location:** `default.pgo` in the repository root (committed).
-
-**Benchmark source:** `internal/benchmark/benchmark_test.go` contains benchmarks covering:
-- CUE parsing and schema validation
-- Module and command discovery
-- Native and virtual shell execution
-- Container runtime (when not in short mode)
-- Full end-to-end pipeline
+**When to regenerate:** After major changes to hot paths (CUE parsing, runtime execution, discovery), when adding/changing runtimes, or before a major release.
 
 ## Test Commands
 
@@ -173,7 +146,7 @@ Releases are automated using [GoReleaser](https://goreleaser.com) and GitHub Act
 
 ### How to Create a Release
 
-There are two paths to create a release:
+There are three paths to create a release:
 
 #### Option 1: Tag Push (recommended for production releases)
 
@@ -251,19 +224,6 @@ goreleaser check
 goreleaser release --snapshot --clean
 ```
 
-### Verifying Signatures
-
-Users can verify release artifacts using Cosign:
-
-```bash
-cosign verify-blob \
-  --certificate checksums.txt.pem \
-  --signature checksums.txt.sig \
-  --certificate-identity-regexp='https://github\.com/invowk/invowk/.*' \
-  --certificate-oidc-issuer='https://token.actions.githubusercontent.com' \
-  checksums.txt
-```
-
 ### CI/CD Workflows
 
 | Workflow | Trigger | Purpose |
@@ -271,10 +231,9 @@ cosign verify-blob \
 | `ci.yml` | Push/PR to main (Go code/build changes) | Run tests, build verification, license check |
 | `lint.yml` | Push/PR to main (Go code/lint config changes) | Advisory golangci-lint run |
 | `release.yml` | Tag push (v*) or manual dispatch | Validate, test, then build and publish release |
-| `version-docs.yml` | Release published or manual dispatch | Snapshot docs for the released version |
 | `test-website.yml` | PR to main (website changes) | Build website for PR validation |
-| `validate-diagrams.yml` | PR/push to main (diagram changes) | Validate D2 syntax and check SVG renders exist |
-| `deploy-website.yml` | Push to main (website changes) or manual | Build and deploy GitHub Pages site |
+
+Other workflows: `version-docs.yml` (doc versioning on release), `validate-diagrams.yml` (D2 syntax checks), `deploy-website.yml` (GitHub Pages deployment).
 
 ### Versioning
 

@@ -74,8 +74,8 @@ func TestResolveRuntime(t *testing.T) {
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
-		if resolved.mode != invowkfile.RuntimeVirtual {
-			t.Errorf("expected runtime 'virtual', got %q", resolved.mode)
+		if resolved.Mode != invowkfile.RuntimeVirtual {
+			t.Errorf("expected runtime 'virtual', got %q", resolved.Mode)
 		}
 	})
 
@@ -91,8 +91,8 @@ func TestResolveRuntime(t *testing.T) {
 			t.Fatalf("unexpected error: %v", err)
 		}
 		// Should fall through to per-command default (native).
-		if resolved.mode != invowkfile.RuntimeNative {
-			t.Errorf("expected runtime 'native' (per-command default), got %q", resolved.mode)
+		if resolved.Mode != invowkfile.RuntimeNative {
+			t.Errorf("expected runtime 'native' (per-command default), got %q", resolved.Mode)
 		}
 	})
 
@@ -111,8 +111,8 @@ func TestResolveRuntime(t *testing.T) {
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
-		if resolved.mode != invowkfile.RuntimeNative {
-			t.Errorf("expected runtime 'native' (CLI override), got %q", resolved.mode)
+		if resolved.Mode != invowkfile.RuntimeNative {
+			t.Errorf("expected runtime 'native' (CLI override), got %q", resolved.Mode)
 		}
 	})
 
@@ -128,8 +128,8 @@ func TestResolveRuntime(t *testing.T) {
 			t.Fatalf("unexpected error: %v", err)
 		}
 		// Per-command default is the first runtime listed: native.
-		if resolved.mode != invowkfile.RuntimeNative {
-			t.Errorf("expected runtime 'native' (per-command default), got %q", resolved.mode)
+		if resolved.Mode != invowkfile.RuntimeNative {
+			t.Errorf("expected runtime 'native' (per-command default), got %q", resolved.Mode)
 		}
 	})
 
@@ -143,8 +143,8 @@ func TestResolveRuntime(t *testing.T) {
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
-		if resolved.mode != invowkfile.RuntimeNative {
-			t.Errorf("expected runtime 'native' (per-command default), got %q", resolved.mode)
+		if resolved.Mode != invowkfile.RuntimeNative {
+			t.Errorf("expected runtime 'native' (per-command default), got %q", resolved.Mode)
 		}
 	})
 }

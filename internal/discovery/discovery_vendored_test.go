@@ -477,13 +477,13 @@ func TestCheckModuleCollisions_AnnotatesVendored(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	dup1Inv.Metadata = dup1Mod.Metadata
+	dup1Inv.Metadata = invowkfile.NewModuleMetadataFromInvowkmod(dup1Mod.Metadata)
 
 	dup2Inv, err := invowkfile.Parse(dup2Mod.InvowkfilePath())
 	if err != nil {
 		t.Fatal(err)
 	}
-	dup2Inv.Metadata = dup2Mod.Metadata
+	dup2Inv.Metadata = invowkfile.NewModuleMetadataFromInvowkmod(dup2Mod.Metadata)
 
 	files := []*DiscoveredFile{
 		{Path: dup1Mod.InvowkfilePath(), Source: SourceModule, Module: dup1Mod, Invowkfile: dup1Inv},

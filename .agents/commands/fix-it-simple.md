@@ -1,0 +1,1 @@
+Carefully analyze all the issues I will point to and propose a robust fix. Your key guidance is: "How can I not only solve this but prevent it from happening ever again?"

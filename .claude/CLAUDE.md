@@ -59,7 +59,10 @@ Agents are specialized reviewers and generators that can be spawned as subagents
 
 Commands are user-invokable slash commands (e.g., `/review-docs`) that execute multi-step workflows.
 
+- [`.agents/commands/fix-it.md`](.agents/commands/fix-it.md) - Analyze issues and propose robust fix plan with prevention strategy.
+- [`.agents/commands/fix-it-simple.md`](.agents/commands/fix-it-simple.md) - Analyze issues and propose concise fix with prevention.
 - [`.agents/commands/review-docs.md`](.agents/commands/review-docs.md) - Review README and website docs for accuracy against current architecture and behaviors.
+- [`.agents/commands/review-rules.md`](.agents/commands/review-rules.md) - Review rules files for contradictions, ambiguities, incoherence, or excessive noise.
 
 ### Skills
 
@@ -103,6 +106,7 @@ When working in a specific code area, apply these rules and skills:
 | Code Area | Rules | Skills |
 |-----------|-------|--------|
 | `cmd/invowk/` | go-patterns, testing, licensing, commands | cli, d2-diagrams |
+| `internal/app/execute/` | go-patterns, testing, licensing, package-design | cli |
 | `internal/container/` | go-patterns, testing, windows, licensing | container |
 | `internal/discovery/` | go-patterns, testing, licensing, package-design | discovery, d2-diagrams |
 | `internal/runtime/` | go-patterns, testing, windows, licensing | shell (for virtual runtime), d2-diagrams |
@@ -145,6 +149,7 @@ invowkfile.cue -> CUE Parser -> pkg/invowkfile -> Runtime Selection -> Execution
 
 - `cmd/invowk/` - CLI commands using Cobra.
 - `internal/` - Private packages:
+  - `app/execute/` - Execution orchestration (runtime resolution, execution context construction).
   - `config/` - Configuration management with CUE schema.
   - `container/` - Docker/Podman container engine abstraction.
   - `core/serverbase/` - Shared server state machine base type (used by sshserver, tuiserver).

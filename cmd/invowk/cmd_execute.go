@@ -8,9 +8,11 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"slices"
 	"strings"
 	"sync"
 
+	appexec "github.com/invowk/invowk/internal/app/execute"
 	"github.com/invowk/invowk/internal/config"
 	"github.com/invowk/invowk/internal/discovery"
 	"github.com/invowk/invowk/internal/issue"
@@ -27,10 +29,11 @@ type (
 	// commandService is the production CommandService implementation that owns
 	// the SSH server lifecycle and delegates to the runtime registry for execution.
 	commandService struct {
-		config ConfigProvider
-		stdout io.Writer
-		stderr io.Writer
-		ssh    *sshServerController
+		config    ConfigProvider
+		discovery DiscoveryService
+		stdout    io.Writer
+		stderr    io.Writer
+		ssh       *sshServerController
 	}
 
 	// sshServerController provides goroutine-safe SSH server lifecycle management
@@ -48,22 +51,16 @@ type (
 		argDefs    []invowkfile.Argument
 		flagValues map[string]string
 	}
-
-	// resolvedRuntime holds the runtime selection result after validating platform
-	// compatibility and applying any --ivk-runtime override.
-	resolvedRuntime struct {
-		mode invowkfile.RuntimeMode
-		impl *invowkfile.Implementation
-	}
 )
 
 // newCommandService creates the default command orchestration service.
-func newCommandService(configProvider ConfigProvider, stdout, stderr io.Writer) CommandService {
+func newCommandService(configProvider ConfigProvider, disc DiscoveryService, stdout, stderr io.Writer) CommandService {
 	return &commandService{
-		config: configProvider,
-		stdout: stdout,
-		stderr: stderr,
-		ssh:    &sshServerController{},
+		config:    configProvider,
+		discovery: disc,
+		stdout:    stdout,
+		stderr:    stderr,
+		ssh:       &sshServerController{},
 	}
 }
 
@@ -106,15 +103,20 @@ func (s *commandService) Execute(ctx context.Context, req ExecuteRequest) (Execu
 // discoverCommand loads configuration and discovers the target command by name.
 // It returns the config, discovered command info, accumulated diagnostics, and
 // any error. It returns a ServiceError with rendering info when the command is not found.
+//
+// Discovery is routed through DiscoveryService so the per-request cache (attached
+// to the context by the RunE handler) is shared across validateCommandTree,
+// checkAmbiguousCommand, and this method — avoiding duplicate filesystem scans.
+// Config is loaded separately because downstream callers need it for runtime
+// registry construction and env builder configuration.
 func (s *commandService) discoverCommand(ctx context.Context, req ExecuteRequest) (*config.Config, *discovery.CommandInfo, []discovery.Diagnostic, error) {
-	cfg, diags := s.loadConfig(ctx, req.ConfigPath)
+	cfg, _ := s.loadConfig(ctx, req.ConfigPath)
 
-	disc := discovery.New(cfg)
-	lookup, err := disc.GetCommand(ctx, req.Name)
+	lookup, err := s.discovery.GetCommand(ctx, req.Name)
+	diags := slices.Clone(lookup.Diagnostics)
 	if err != nil {
 		return nil, nil, diags, err
 	}
-	diags = append(diags, lookup.Diagnostics...)
 
 	if lookup.Command == nil {
 		return nil, nil, diags, newServiceError(
@@ -199,59 +201,31 @@ func (s *commandService) validateInputs(req ExecuteRequest, cmdInfo *discovery.C
 //  3. Per-command default — first runtime of the first matching implementation.
 //
 // It returns ServiceError with rendering info for invalid runtime overrides (Tier 1 only).
-func (s *commandService) resolveRuntime(req ExecuteRequest, cmdInfo *discovery.CommandInfo, cfg *config.Config) (resolvedRuntime, error) {
-	currentPlatform := invowkfile.GetCurrentHostOS()
-
-	// Tier 1: CLI flag override (hard — errors if incompatible).
-	if req.Runtime != "" {
-		overrideRuntime := invowkfile.RuntimeMode(req.Runtime)
-		if !cmdInfo.Command.IsRuntimeAllowedForPlatform(currentPlatform, overrideRuntime) {
-			allowedRuntimes := cmdInfo.Command.GetAllowedRuntimesForPlatform(currentPlatform)
-			allowedStr := make([]string, len(allowedRuntimes))
-			for i, r := range allowedRuntimes {
-				allowedStr[i] = string(r)
+func (s *commandService) resolveRuntime(req ExecuteRequest, cmdInfo *discovery.CommandInfo, cfg *config.Config) (appexec.RuntimeSelection, error) {
+	selection, err := appexec.ResolveRuntime(cmdInfo.Command, req.Name, req.Runtime, cfg, invowkfile.GetCurrentHostOS())
+	if err != nil {
+		if notAllowedErr, ok := errors.AsType[*appexec.RuntimeNotAllowedError](err); ok {
+			allowed := make([]string, len(notAllowedErr.Allowed))
+			for i, r := range notAllowedErr.Allowed {
+				allowed[i] = string(r)
 			}
-			return resolvedRuntime{}, newServiceError(
-				fmt.Errorf("runtime '%s' is not allowed for command '%s' on platform '%s' (allowed: %s)", req.Runtime, req.Name, currentPlatform, strings.Join(allowedStr, ", ")),
+			return appexec.RuntimeSelection{}, newServiceError(
+				err,
 				issue.InvalidRuntimeModeId,
-				RenderRuntimeNotAllowedError(req.Name, req.Runtime, strings.Join(allowedStr, ", ")),
+				RenderRuntimeNotAllowedError(req.Name, req.Runtime, strings.Join(allowed, ", ")),
 			)
 		}
-
-		impl := cmdInfo.Command.GetImplForPlatformRuntime(currentPlatform, overrideRuntime)
-		if impl == nil {
-			return resolvedRuntime{}, fmt.Errorf("no implementation found for command '%s' on platform '%s' with runtime '%s'", req.Name, currentPlatform, overrideRuntime)
-		}
-		return resolvedRuntime{mode: overrideRuntime, impl: impl}, nil
+		return appexec.RuntimeSelection{}, fmt.Errorf("resolve runtime for '%s': %w", req.Name, err)
 	}
 
-	// Tier 2: Config default runtime (soft — silently falls back if incompatible).
-	if cfg != nil && cfg.DefaultRuntime != "" {
-		configRuntime := invowkfile.RuntimeMode(cfg.DefaultRuntime)
-		if cmdInfo.Command.IsRuntimeAllowedForPlatform(currentPlatform, configRuntime) {
-			impl := cmdInfo.Command.GetImplForPlatformRuntime(currentPlatform, configRuntime)
-			if impl != nil {
-				return resolvedRuntime{mode: configRuntime, impl: impl}, nil
-			}
-		}
-		// Config default not compatible with this command — fall through silently.
-	}
-
-	// Tier 3: Per-command default runtime.
-	selectedRuntime := cmdInfo.Command.GetDefaultRuntimeForPlatform(currentPlatform)
-	impl := cmdInfo.Command.GetImplForPlatformRuntime(currentPlatform, selectedRuntime)
-	if impl == nil {
-		return resolvedRuntime{}, fmt.Errorf("no implementation found for command '%s' on platform '%s' with runtime '%s'", req.Name, currentPlatform, selectedRuntime)
-	}
-
-	return resolvedRuntime{mode: selectedRuntime, impl: impl}, nil
+	return selection, nil
 }
 
 // ensureSSHIfNeeded conditionally starts the SSH server when the selected runtime
 // implementation requires host SSH access (used by container runtime for host callbacks).
 // If started, the SSH server is stopped via defer when Execute returns.
-func (s *commandService) ensureSSHIfNeeded(ctx context.Context, req ExecuteRequest, resolved resolvedRuntime) error {
-	if !resolved.impl.GetHostSSHForRuntime(resolved.mode) {
+func (s *commandService) ensureSSHIfNeeded(ctx context.Context, req ExecuteRequest, resolved appexec.RuntimeSelection) error {
+	if !resolved.Impl.GetHostSSHForRuntime(resolved.Mode) {
 		return nil
 	}
 
@@ -265,99 +239,23 @@ func (s *commandService) ensureSSHIfNeeded(ctx context.Context, req ExecuteReque
 // discovered command info, resolved definitions, and selected runtime. It projects
 // flags and arguments into environment variables following the INVOWK_FLAG_*,
 // INVOWK_ARG_*, ARGn, and ARGC conventions.
-func (s *commandService) buildExecContext(req ExecuteRequest, cmdInfo *discovery.CommandInfo, defs resolvedDefinitions, resolved resolvedRuntime) (*runtime.ExecutionContext, error) {
-	execCtx := runtime.NewExecutionContext(cmdInfo.Command, cmdInfo.Invowkfile)
-	// Request fields are projected into runtime execution context.
-	execCtx.Verbose = req.Verbose
-	execCtx.SelectedRuntime = resolved.mode
-	execCtx.SelectedImpl = resolved.impl
-	execCtx.PositionalArgs = req.Args
-	execCtx.WorkDir = req.Workdir
-	execCtx.ForceRebuild = req.ForceRebuild
-
-	execCtx.Env.RuntimeEnvFiles = req.EnvFiles
-	execCtx.Env.RuntimeEnvVars = req.EnvVars
-
-	if err := s.applyEnvInheritOverrides(req, execCtx); err != nil {
-		return nil, err
-	}
-
-	s.projectEnvVars(req, defs, execCtx)
-
-	return execCtx, nil
-}
-
-// applyEnvInheritOverrides validates and applies env inheritance overrides from the
-// request (--ivk-env-inherit-mode, --ivk-env-inherit-allow, --ivk-env-inherit-deny) onto the
-// execution context.
-func (s *commandService) applyEnvInheritOverrides(req ExecuteRequest, execCtx *runtime.ExecutionContext) error {
-	if req.EnvInheritMode != "" {
-		mode, err := invowkfile.ParseEnvInheritMode(req.EnvInheritMode)
-		if err != nil {
-			return err
-		}
-		execCtx.Env.InheritModeOverride = mode
-	}
-
-	for _, name := range req.EnvInheritAllow {
-		if err := invowkfile.ValidateEnvVarName(name); err != nil {
-			return fmt.Errorf("env-inherit-allow: %w", err)
-		}
-	}
-	if req.EnvInheritAllow != nil {
-		execCtx.Env.InheritAllowOverride = req.EnvInheritAllow
-	}
-
-	for _, name := range req.EnvInheritDeny {
-		if err := invowkfile.ValidateEnvVarName(name); err != nil {
-			return fmt.Errorf("env-inherit-deny: %w", err)
-		}
-	}
-	if req.EnvInheritDeny != nil {
-		execCtx.Env.InheritDenyOverride = req.EnvInheritDeny
-	}
-
-	return nil
-}
-
-// projectEnvVars projects positional arguments and flag values into the execution
-// context's extra environment variables. This includes ARG1..ARGn, ARGC,
-// INVOWK_ARG_* (with variadic support), and INVOWK_FLAG_* variables.
-func (s *commandService) projectEnvVars(req ExecuteRequest, defs resolvedDefinitions, execCtx *runtime.ExecutionContext) {
-	for i, arg := range req.Args {
-		execCtx.Env.ExtraEnv[fmt.Sprintf("ARG%d", i+1)] = arg
-	}
-	execCtx.Env.ExtraEnv["ARGC"] = fmt.Sprintf("%d", len(req.Args))
-
-	// Inject INVOWK_ARG_* variables for structured argument access in scripts.
-	if len(defs.argDefs) > 0 {
-		for i, argDef := range defs.argDefs {
-			envName := ArgNameToEnvVar(argDef.Name)
-
-			switch {
-			case argDef.Variadic:
-				var variadicValues []string
-				if i < len(req.Args) {
-					variadicValues = req.Args[i:]
-				}
-
-				execCtx.Env.ExtraEnv[envName+"_COUNT"] = fmt.Sprintf("%d", len(variadicValues))
-				for j, val := range variadicValues {
-					execCtx.Env.ExtraEnv[fmt.Sprintf("%s_%d", envName, j+1)] = val
-				}
-				execCtx.Env.ExtraEnv[envName] = strings.Join(variadicValues, " ")
-			case i < len(req.Args):
-				execCtx.Env.ExtraEnv[envName] = req.Args[i]
-			case argDef.DefaultValue != "":
-				execCtx.Env.ExtraEnv[envName] = argDef.DefaultValue
-			}
-		}
-	}
-
-	for name, value := range defs.flagValues {
-		envName := FlagNameToEnvVar(name)
-		execCtx.Env.ExtraEnv[envName] = value
-	}
+func (s *commandService) buildExecContext(req ExecuteRequest, cmdInfo *discovery.CommandInfo, defs resolvedDefinitions, resolved appexec.RuntimeSelection) (*runtime.ExecutionContext, error) {
+	return appexec.BuildExecutionContext(appexec.BuildExecutionContextOptions{
+		Command:         cmdInfo.Command,
+		Invowkfile:      cmdInfo.Invowkfile,
+		Selection:       resolved,
+		Args:            req.Args,
+		Verbose:         req.Verbose,
+		Workdir:         req.Workdir,
+		ForceRebuild:    req.ForceRebuild,
+		EnvFiles:        req.EnvFiles,
+		EnvVars:         req.EnvVars,
+		FlagValues:      defs.flagValues,
+		ArgDefs:         defs.argDefs,
+		EnvInheritMode:  req.EnvInheritMode,
+		EnvInheritAllow: req.EnvInheritAllow,
+		EnvInheritDeny:  req.EnvInheritDeny,
+	})
 }
 
 // dispatchExecution validates dependencies, then dispatches the command to either

@@ -70,9 +70,9 @@ func TestArgNameToEnvVar(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			result := ArgNameToEnvVar(tt.input)
+			result := invowkfile.ArgNameToEnvVar(tt.input)
 			if result != tt.expected {
-				t.Errorf("ArgNameToEnvVar(%q) = %q, want %q", tt.input, result, tt.expected)
+				t.Errorf("invowkfile.ArgNameToEnvVar(%q) = %q, want %q", tt.input, result, tt.expected)
 			}
 		})
 	}

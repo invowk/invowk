@@ -63,10 +63,9 @@ func (e *EngineNotAvailableError) Error() string {
 
 ### Defer Close Pattern with Named Returns
 
-When functions open resources that need closing (files, connections, readers, writers), use **named return values** to aggregate close errors with the primary operation's error. This ensures close errors are never silently ignored.
+When functions open resources that need closing, use **named return values** to aggregate close errors. This ensures close errors are never silently ignored.
 
 ```go
-// CORRECT: Use named return to capture close error
 func processFile(path string) (err error) {
     f, err := os.Open(path)
     if err != nil {
@@ -77,65 +76,20 @@ func processFile(path string) (err error) {
             err = closeErr
         }
     }()
-
     // ... work with f ...
     return nil
 }
-
-// CORRECT: Multiple resources
-func copyFile(src, dst string) (err error) {
-    srcFile, err := os.Open(src)
-    if err != nil {
-        return err
-    }
-    defer func() {
-        if closeErr := srcFile.Close(); closeErr != nil && err == nil {
-            err = closeErr
-        }
-    }()
-
-    dstFile, err := os.Create(dst)
-    if err != nil {
-        return err
-    }
-    defer func() {
-        if closeErr := dstFile.Close(); closeErr != nil && err == nil {
-            err = closeErr
-        }
-    }()
-
-    _, err = io.Copy(dstFile, srcFile)
-    return err
-}
 ```
 
-**Anti-patterns to avoid:**
+For multiple resources, apply the same `defer` pattern to each. The key is `closeErr != nil && err == nil` — close errors only surface when the primary operation succeeded.
 
-```go
-// WRONG: Error silently ignored
-defer f.Close()
-
-// WRONG: Error explicitly discarded without aggregation
-defer func() { _ = f.Close() }()
-
-// WRONG: Only logging (acceptable in rare cases with justification)
-defer func() {
-    if err := f.Close(); err != nil {
-        log.Printf("close error: %v", err)
-    }
-}()
-```
-
-**When this pattern applies** - Use for any `io.Closer` or similar resource:
-- `*os.File`, `*zip.ReadCloser`, `*zip.Writer`
-- `net.Conn`, `*http.Response.Body`, `*sql.Rows`
-- Custom types implementing `Close() error`
+**Anti-patterns:** `defer f.Close()` (silently ignored), `defer func() { _ = f.Close() }()` (explicitly discarded without aggregation).
 
 **Exceptions:**
 1. **Test code**: Use test helpers (e.g., `testutil.MustClose(t, f)`) instead of named returns.
-2. **Terminal operations in SSH sessions**: Where `sess.Exit()` errors cannot be meaningfully handled, use `_ =` with a comment explaining why.
-3. **Best-effort cleanup after primary error**: When the function already has an error, logging the close error may be appropriate rather than overwriting the primary error.
-4. **Read-only file handles**: For files opened with `os.Open()` (read-only), closing can only fail in exotic edge cases (e.g., interrupted syscall on NFS). Use `defer func() { _ = f.Close() }()` with a comment explaining the file is read-only. The named-return pattern would add unnecessary complexity here.
+2. **Terminal operations in SSH sessions**: Where `sess.Exit()` errors cannot be meaningfully handled, use `_ =` with a comment.
+3. **Best-effort cleanup after primary error**: Logging the close error may be appropriate rather than overwriting the primary error.
+4. **Read-only file handles**: `os.Open()` close failures are exotic edge cases. Use `defer func() { _ = f.Close() }()` with a comment.
 
 ## Documentation
 
@@ -308,72 +262,27 @@ func (e *Engine) Run(ctx context.Context, opts RunOptions) (*RunResult, error) {
 
 ## Functional Options Pattern
 
-Use the functional options pattern for constructors that accept optional configuration. This pattern provides sensible defaults, self-documenting APIs, and backward-compatible evolution.
-
-Reference: [Dave Cheney - Functional options for friendly APIs](https://dave.cheney.net/2014/10/17/functional-options-for-friendly-apis)
-
-### Pattern Structure
+Use functional options for constructors with optional configuration:
 
 ```go
-// 1. Define the Option Type
 type Option func(*Server)
 
-// 2. Create With* Functions
 func WithTimeout(d time.Duration) Option {
-    return func(s *Server) {
-        s.timeout = d
-    }
+    return func(s *Server) { s.timeout = d }
 }
 
-func WithLogger(logger *slog.Logger) Option {
-    return func(s *Server) {
-        s.logger = logger
-    }
-}
-
-// 3. Constructor with Variadic Options
 func NewServer(addr string, opts ...Option) *Server {
-    s := &Server{
-        addr:     addr,
-        timeout:  30 * time.Second,  // sensible default
-        maxConns: 100,               // sensible default
-        logger:   slog.Default(),    // sensible default
-    }
-    for _, opt := range opts {
-        opt(s)
-    }
+    s := &Server{addr: addr, timeout: 30 * time.Second}
+    for _, opt := range opts { opt(s) }
     return s
 }
-```
-
-**Usage:**
-
-```go
-// Default configuration
-server := NewServer("localhost:8080")
-
-// With custom configuration
-server := NewServer("localhost:8080",
-    WithTimeout(60 * time.Second),
-    WithLogger(customLogger),
-)
-
-// Conditional options
-opts := []Option{WithTimeout(60 * time.Second)}
-if enableTLS {
-    opts = append(opts, WithTLS(certPath, keyPath))
-}
-server := NewServer(addr, opts...)
 ```
 
 **When to use:** Constructor has >2-3 optional parameters, you want sensible defaults, or the API may evolve.
 
 **When NOT to use:** All parameters are required, only 1-2 optional parameters, or performance is critical in hot paths.
 
-**Naming conventions:**
-- Option type: `Option` (or `<Type>Option` if multiple exist)
-- Option functions: `With<OptionName>` (e.g., `WithTimeout`, `WithLogger`)
-- Document default values in doc comments
+**Naming conventions:** Option type: `Option` (or `<Type>Option`). Option functions: `With<Name>`. Document defaults in doc comments.
 
 ## Code Organization
 
@@ -454,7 +363,7 @@ setting-name = "value"  # Brief explanation of what this controls
 - **Silent close errors** - Use named returns with defer for resource cleanup.
 - **Missing defaults documentation** - Document default values in functional options.
 - **Wrong declaration order** - Follow const → var → type → func, exported before unexported.
-- **`reflect.DeepEqual` for typed slices** - Use `slices.Equal` (Go 1.21+) for `[]string`, `[]int`, etc. It's type-safe, gives better error messages, and avoids importing `reflect` in tests.
+- **`reflect.DeepEqual` for typed slices** - Use `slices.Equal` for `[]string`, `[]int`, etc. It's type-safe, gives better error messages, and avoids importing `reflect` in tests.
 - **Duplicate package comments** - Use `doc.go` for package docs, remove `// Package` comments from other files.
 - **Prohibited patterns in comments** - Guardrail tests (e.g., `TestNoGlobalConfigAccess`) scan all non-test `.go` files for banned call signatures using raw substring matching. Comments mentioning deprecated APIs must use indirect phrasing to avoid false positives.
 - **Duplicate declarations after file splits** - When moving functions, methods, or variables from one file to another within the same package, always delete the originals from the source file and clean up orphaned imports. This is the most common mistake during file-splitting refactors.

@@ -87,44 +87,10 @@ return "/workspace/" + filepath.ToSlash(relPath)
 
 ## Test Assertions
 
-### Path Assertions
-
-**NEVER hardcode path separators in test assertions:**
-```go
-// WRONG: Hardcoded Unix separator - fails on Windows
-expected := "/app/config/settings.json"
-
-// CORRECT: Use filepath.Join for host path expectations
-expected := filepath.Join("/app", "config", "settings.json")
-```
-
-### Platform-Specific Test Cases
-
-**Skip tests that are semantically meaningless on a platform:**
-```go
-// Test struct with skip field
-tests := []struct {
-    name          string
-    // ... other fields
-    skipOnWindows bool
-}{
-    {
-        name:          "Unix absolute path",
-        path:          "/custom/Dockerfile",
-        skipOnWindows: true, // Unix-style absolutes don't exist on Windows
-    },
-}
-
-// In test loop
-for _, tt := range tests {
-    t.Run(tt.name, func(t *testing.T) {
-        if tt.skipOnWindows && runtime.GOOS == "windows" {
-            t.Skip("skipping: Unix-style absolute paths are not meaningful on Windows")
-        }
-        // ... test logic
-    })
-}
-```
+For path assertions and the `skipOnWindows` pattern, see `testing.md` § "Cross-Platform Testing". Key rules:
+- Never hardcode path separators — use `filepath.Join()` for host paths.
+- Use the `skipOnWindows` table-driven pattern when test cases are semantically meaningless on Windows.
+- When the file also imports `internal/runtime`, use `goruntime "runtime"` alias for `GOOS` checks.
 
 ### When to Skip vs When to Adapt
 
@@ -233,7 +199,7 @@ go test -v -run TestCLI/native_simple ./tests/cli/...
 | Using `filepath.IsAbs()` for container paths | `/app` not detected as absolute on Windows | Use `strings.HasPrefix(path, "/")` |
 | Hardcoded `/` in test expectations | Tests fail on Windows | Use `filepath.Join()` for host paths |
 | Forgetting `filepath.ToSlash()` | Container receives Windows-style paths | Always convert before passing to container |
-| Testing Unix absolute paths on Windows | Test fails or has wrong behavior | Add `skipOnWindows: true` |
+| Testing Unix absolute paths on Windows | Test fails or has wrong behavior | Add `skipOnWindows: true` (see `testing.md`) |
 
 ## Quick Reference
 

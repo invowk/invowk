@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/invowk/invowk/internal/testutil"
+	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
 // ---------------------------------------------------------------------------
@@ -86,9 +87,9 @@ func TestFlagNameToEnvVar(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := FlagNameToEnvVar(tt.input)
+			result := invowkfile.FlagNameToEnvVar(tt.input)
 			if result != tt.expected {
-				t.Errorf("FlagNameToEnvVar(%q) = %q, want %q", tt.input, result, tt.expected)
+				t.Errorf("invowkfile.FlagNameToEnvVar(%q) = %q, want %q", tt.input, result, tt.expected)
 			}
 		})
 	}
@@ -101,10 +102,10 @@ func TestRunCommandWithFlags_FlagsInjectedAsEnvVars(t *testing.T) {
 
 	// Test that the conversion is consistent
 	flagName := "my-custom-flag"
-	envVar := FlagNameToEnvVar(flagName)
+	envVar := invowkfile.FlagNameToEnvVar(flagName)
 
 	if envVar != "INVOWK_FLAG_MY_CUSTOM_FLAG" {
-		t.Errorf("FlagNameToEnvVar(%q) = %q, expected INVOWK_FLAG_MY_CUSTOM_FLAG", flagName, envVar)
+		t.Errorf("invowkfile.FlagNameToEnvVar(%q) = %q, expected INVOWK_FLAG_MY_CUSTOM_FLAG", flagName, envVar)
 	}
 
 	// Verify the pattern: INVOWK_FLAG_ prefix, uppercase, hyphens replaced with underscores
@@ -151,9 +152,9 @@ func TestFlagNameToEnvVar_EdgeCases(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := FlagNameToEnvVar(tt.input)
+			result := invowkfile.FlagNameToEnvVar(tt.input)
 			if result != tt.expected {
-				t.Errorf("FlagNameToEnvVar(%q) = %q, want %q", tt.input, result, tt.expected)
+				t.Errorf("invowkfile.FlagNameToEnvVar(%q) = %q, want %q", tt.input, result, tt.expected)
 			}
 		})
 	}

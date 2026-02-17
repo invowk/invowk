@@ -18,9 +18,8 @@
 
 ## Comments
 
-- Add comments above method/function/interface/struct declarations to explain the semantics of those constructs.
-- Add comments inside of method/function bodies when behavior is non-obvious or business rules are subtle.
-- **Preserve comments during refactors**: When moving or splitting code across files (e.g., extracting helpers, splitting large files), carry semantic comments to their new locations. Adapt comments to reflect the new architecture — do not copy stale references to removed patterns or globals.
+- Follow the Semantic Commenting rules in `go-patterns.md` § "Semantic Commenting (CRITICAL)".
+- **Preserve comments during refactors**: When moving or splitting code across files, carry semantic comments to their new locations. Adapt comments to reflect the new architecture — do not copy stale references to removed patterns or globals.
 
 ## Tests
 

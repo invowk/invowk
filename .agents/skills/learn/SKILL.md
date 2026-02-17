@@ -4,4 +4,4 @@ description: Learning workflow for when agents finish any architecture changes, 
 disable-model-invocation: false
 ---
 
-After you finish your work, carefully review CLAUDE.md, hooks, rules, and skills to double-check they're up-to-date with your latest learnings and don't have stale data or gaps.
+After you finish your work, carefully review CLAUDE.md, hooks, rules, and skills to double-check they're up-to-date with your latest key learnings and don't have stale data or gaps. Weight the pros and cons of any possible inclusions in relation to **agents**; be mindful of the signal-to-noise ratio in rules and skills files. If there are duplications, contradictions, and/or ambiguities, fix them and aim for simplification without losing what really matters.

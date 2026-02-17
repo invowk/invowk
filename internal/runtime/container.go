@@ -34,7 +34,7 @@ type (
 	//
 	// WARNING: Only ONE ContainerRuntime instance should exist per process.
 	// Process-wide serialization relies on this single-instance invariant,
-	// enforced by createRuntimeRegistry() creating exactly one instance.
+	// enforced by BuildRegistry() creating exactly one instance.
 	// See TestCreateRuntimeRegistry_SingleContainerInstance for the enforcement test.
 	//
 	// The runMu mutex provides intra-process fallback locking when flock-based

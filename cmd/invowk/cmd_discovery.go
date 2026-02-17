@@ -77,6 +77,9 @@ func registerDiscoveredCommands(ctx context.Context, app *App, rootFlags *rootFl
 					Use:   part,
 					Short: fmt.Sprintf("Commands under '%s'", prefix),
 					RunE: func(cmd *cobra.Command, args []string) error {
+						ctx := contextWithConfigPath(cmd.Context(), rootFlags.configPath)
+						cmd.SetContext(ctx)
+
 						fromFlag, _ := cmd.Flags().GetString("ivk-from")
 						if fromFlag != "" {
 							// Preserve full path for longest-match disambiguation.
@@ -87,7 +90,7 @@ func registerDiscoveredCommands(ctx context.Context, app *App, rootFlags *rootFl
 
 						if isAmbiguous {
 							cmdArgs := append(strings.Fields(parentPrefix), args...)
-							if err := checkAmbiguousCommand(cmd.Context(), app, rootFlags, cmdArgs); err != nil {
+							if err := checkAmbiguousCommand(ctx, app, rootFlags, cmdArgs); err != nil {
 								if ambigErr, ok := errors.AsType[*AmbiguousCommandError](err); ok {
 									fmt.Fprint(app.stderr, RenderAmbiguousCommandError(ambigErr))
 									cmd.SilenceErrors = true
@@ -131,6 +134,9 @@ func buildLeafCommand(app *App, rootFlags *rootFlagValues, cmdFlags *cmdFlagValu
 		Short: cmdInfo.Description,
 		Long:  fmt.Sprintf("Run the '%s' command from %s", cmdInfo.Name, cmdInfo.FilePath),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := contextWithConfigPath(cmd.Context(), rootFlags.configPath)
+			cmd.SetContext(ctx)
+
 			fromFlag, _ := cmd.Flags().GetString("ivk-from")
 			if fromFlag != "" {
 				filter := &SourceFilter{SourceID: normalizeSourceName(fromFlag), Raw: fromFlag}
@@ -399,8 +405,7 @@ func completeCommands(app *App, rootFlags *rootFlagValues) func(*cobra.Command, 
 // shows its name, description, available runtimes (with default marked by *),
 // and supported platforms. Ambiguous commands are annotated with their source ID.
 func listCommands(cmd *cobra.Command, app *App, rootFlags *rootFlagValues) error {
-	lookupCtx := contextWithConfigPath(cmd.Context(), rootFlags.configPath)
-	result, err := app.Discovery.DiscoverCommandSet(lookupCtx)
+	result, err := app.Discovery.DiscoverCommandSet(cmd.Context())
 	if err != nil {
 		rendered, _ := issue.Get(issue.InvowkfileNotFoundId).Render("dark")
 		fmt.Fprint(app.stderr, rendered)
