@@ -25,6 +25,7 @@ The CLI is organized under `root.go` with these main command groups:
 |---------|-------------|
 | `invowk cmd` | Dynamic command execution (discovered from invowkfiles/modules) |
 | `invowk module` | Module management (validate, create, alias, deps) |
+| `invowk validate` | Unified validation (workspace, invowkfile, or module) |
 | `invowk config` | Configuration management |
 | `invowk init` | Initialize new invowkfiles |
 | `invowk tui` | Interactive terminal UI components (gum-like) |
@@ -371,6 +372,7 @@ files, err := disc.DiscoverAll()  // or disc.LoadAll() to also parse
 | `cmd_execute_error_classifier.go` | classifyExecutionError() — maps runtime errors to issue catalog IDs |
 | `service_error.go` | ServiceError type and renderServiceError() |
 | `cmd_render.go` | Styled error rendering (argument validation, deps, runtime, host support) |
+| `validate.go` | Unified `invowk validate` command (workspace, invowkfile, module auto-detection) |
 | `module.go` | Module commands |
 | `tui_*.go` | TUI component wrappers |
 | `styles.go` | Unified styling system |

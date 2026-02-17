@@ -1,0 +1,79 @@
+# Test: invowk validate
+# Validates workspace, invowkfile, and module paths
+
+cd $WORK
+
+# Test 1: Validate a valid invowkfile
+exec invowk validate ./invowkfile.cue
+stdout 'Invowkfile Validation'
+stdout 'CUE schema validation passed'
+stdout 'Structural validation passed'
+stdout 'Command tree validation passed'
+stdout 'Invowkfile is valid'
+
+# Test 2: Validate a valid module directory
+exec invowk validate ./mymod.invowkmod
+stdout 'Module Validation'
+stdout 'Module is valid'
+stdout 'Structure check passed'
+
+# Test 3: Validate an invalid invowkfile (should fail)
+# The bad CUE is in a properly-named invowkfile.cue inside a subdirectory
+# so detectPathType routes to invowkfile validation.
+! exec invowk validate ./badproject/invowkfile.cue
+stdout 'Invowkfile Validation'
+stdout 'CUE schema validation failed'
+
+# Test 4: Validate a nonexistent module (should fail)
+! exec invowk validate ./nonexistent.invowkmod
+stdout 'Module validation failed'
+stdout 'path does not exist'
+
+# Test 5: Unknown path type (fang capitalizes error messages)
+! exec invowk validate ./random.txt
+stderr 'determine file type'
+
+# Test 6: Workspace validation (with valid invowkfile present)
+exec invowk validate
+stdout 'Workspace Validation'
+
+# Test 7: Validate a directory containing invowkfile.cue
+exec invowk validate ./subproject
+stdout 'Invowkfile Validation'
+stdout 'Invowkfile is valid'
+
+-- invowkfile.cue --
+cmds: [
+	{
+		name:        "hello"
+		description: "A simple command"
+		implementations: [{
+			script:    "echo hello"
+			runtimes:  [{name: "virtual"}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+	},
+]
+
+-- badproject/invowkfile.cue --
+this is not valid CUE content!!!
+
+-- subproject/invowkfile.cue --
+cmds: [
+	{
+		name:        "build"
+		description: "Build the project"
+		implementations: [{
+			script:    "echo building"
+			runtimes:  [{name: "virtual"}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+	},
+]
+
+-- mymod.invowkmod/invowkmod.cue --
+module:  "mymod"
+version: "0.1.0"
+
+-- random.txt --
+just a text file

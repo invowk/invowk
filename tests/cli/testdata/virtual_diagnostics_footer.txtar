@@ -1,0 +1,30 @@
+# Test: diagnostics footer on invowk cmd listing
+# When discovery encounters invalid invowkfiles alongside valid ones,
+# non-verbose mode shows a summary footer instead of inline diagnostics.
+
+cd $WORK
+
+# Test 1: Non-verbose listing shows footer when diagnostics exist
+# The broken sibling module should produce a discovery diagnostic,
+# but the valid commands should still be listed.
+exec invowk cmd
+stdout 'Available Commands'
+stdout 'hello'
+
+# Test 2: Verbose mode shows inline diagnostics (no footer)
+exec invowk cmd -v
+stdout 'Available Commands'
+stdout 'hello'
+
+-- invowkfile.cue --
+cmds: [
+	{
+		name:        "hello"
+		description: "A test command"
+		implementations: [{
+			script:    "echo hello"
+			runtimes:  [{name: "virtual"}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+	},
+]
