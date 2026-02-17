@@ -22,25 +22,52 @@ stdout 'Structure check passed'
 # so detectPathType routes to invowkfile validation.
 ! exec invowk validate ./badproject/invowkfile.cue
 stdout 'Invowkfile Validation'
-stdout 'CUE schema validation failed'
+stderr 'CUE schema validation failed'
 
 # Test 4: Validate a nonexistent module (should fail)
 ! exec invowk validate ./nonexistent.invowkmod
-stdout 'Module validation failed'
-stdout 'path does not exist'
+stderr 'Module validation failed'
+stderr 'path does not exist'
 
-# Test 5: Unknown path type (fang capitalizes error messages)
+# Test 5: Unknown path type
+# The error is rendered by fang's DefaultErrorHandler via stderr.
 ! exec invowk validate ./random.txt
 stderr 'determine file type'
 
-# Test 6: Workspace validation (with valid invowkfile present)
+# Test 6: Workspace validation (clean workspace with valid invowkfile)
+cd $WORK/clean_workspace
 exec invowk validate
 stdout 'Workspace Validation'
+stdout 'Workspace is valid'
+cd $WORK
 
 # Test 7: Validate a directory containing invowkfile.cue
 exec invowk validate ./subproject
 stdout 'Invowkfile Validation'
 stdout 'Invowkfile is valid'
+
+# Test 8: Module with broken invowkfile (deep validation catches it)
+! exec invowk validate ./badmod.invowkmod
+stderr 'Module validation failed'
+stderr 'invowkfile'
+
+# Test 9: Single-file tree validation failure (args + subcommand conflict)
+# A parent command that defines args AND has subcommands is structurally invalid.
+! exec invowk validate ./conflicting/invowkfile.cue
+stdout 'Invowkfile Validation'
+stdout 'CUE schema validation passed'
+stderr 'Command tree validation failed'
+stderr 'has both args and subcommands'
+
+# Test 10: Workspace validation with broken sibling module
+# Discovery should still succeed for valid commands, but diagnostics
+# should be reported for the broken module.
+cd $WORK/workspace_with_broken
+! exec invowk validate
+stdout 'Workspace Validation'
+stdout 'discovered'
+stderr 'diagnostic issue'
+stderr 'Validation failed'
 
 -- invowkfile.cue --
 cmds: [
@@ -74,6 +101,68 @@ cmds: [
 -- mymod.invowkmod/invowkmod.cue --
 module:  "mymod"
 version: "0.1.0"
+
+-- badmod.invowkmod/invowkmod.cue --
+module:  "badmod"
+version: "0.1.0"
+
+-- badmod.invowkmod/invowkfile.cue --
+this is not valid CUE for an invowkfile!!!
+
+-- conflicting/invowkfile.cue --
+cmds: [
+	{
+		name:        "deploy"
+		description: "Deploy the app"
+		args: [{
+			name:        "target"
+			description: "Deployment target"
+		}]
+		implementations: [{
+			script:    "echo deploying"
+			runtimes:  [{name: "virtual"}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+	},
+	{
+		name:        "deploy staging"
+		description: "Deploy to staging"
+		implementations: [{
+			script:    "echo deploying to staging"
+			runtimes:  [{name: "virtual"}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+	},
+]
+
+-- clean_workspace/invowkfile.cue --
+cmds: [
+	{
+		name:        "greet"
+		description: "Say hello"
+		implementations: [{
+			script:    "echo hi"
+			runtimes:  [{name: "virtual"}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+	},
+]
+
+-- workspace_with_broken/invowkfile.cue --
+cmds: [
+	{
+		name:        "test"
+		description: "Run tests"
+		implementations: [{
+			script:    "echo testing"
+			runtimes:  [{name: "virtual"}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+	},
+]
+
+-- workspace_with_broken/broken.invowkmod/invowkmod.cue --
+this is not valid CUE!!!
 
 -- random.txt --
 just a text file

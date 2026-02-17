@@ -286,11 +286,12 @@ func (s *appDiscoveryService) DiscoverAndValidateCommandSet(ctx context.Context)
 		cache.hasValidatedSet = true
 		cache.validatedSet = result
 		cache.validatedSetErr = err
-		// Cross-populate: the validated set's underlying command set can satisfy
-		// DiscoverCommandSet() calls, avoiding a redundant discovery pass.
-		// Tree validation errors are orthogonal to discovery, so commandSetErr
-		// stays nil — if discovery itself failed, we returned early above.
-		if !cache.hasCommandSet {
+		// Cross-populate: the validated set can satisfy DiscoverCommandSet() calls,
+		// avoiding a redundant discovery pass. Only populate when discovery succeeded
+		// (result.Set != nil); tree validation errors are orthogonal to discovery,
+		// so commandSetErr stays nil. When discovery itself fails, result.Set is nil
+		// and we must not cache a zero-value result that would mask the real error.
+		if !cache.hasCommandSet && result.Set != nil {
 			cache.hasCommandSet = true
 			cache.commandSet = result
 			cache.commandSetErr = nil

@@ -126,6 +126,9 @@ func TestDetectPathType(t *testing.T) {
 
 // containsSuffix checks if path ends with the given suffix (using filepath separators).
 func containsSuffix(fullPath, suffix string) bool {
+	if len(suffix) > len(fullPath) {
+		return false
+	}
 	// Normalize both to forward-slash for comparison.
 	return filepath.ToSlash(fullPath[len(fullPath)-len(suffix):]) == filepath.ToSlash(suffix)
 }

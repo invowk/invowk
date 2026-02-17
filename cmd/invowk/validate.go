@@ -42,11 +42,12 @@ With a path argument, auto-detects the target type:
   - directory with invowkfile.cue → invowkfile validation
   - invowkmod.cue file      → module validation (parent directory)
 
+Module validation always includes invowkfile parsing and command tree validation.
+
 Examples:
   invowk validate                              Validate workspace
   invowk validate ./invowkfile.cue             Validate a single invowkfile
-  invowk validate ./mymod.invowkmod            Validate a module
-  invowk validate ./mymod.invowkmod --deep     Validate a module with deep checks`,
+  invowk validate ./mymod.invowkmod            Validate a module`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cmd.SetContext(contextWithConfigPath(cmd.Context(), ""))
@@ -61,16 +62,24 @@ Examples:
 }
 
 // runWorkspaceValidation performs full discovery validation and renders styled results.
+// It reports both discovery diagnostics and tree validation errors in a single pass
+// so users see all issues at once rather than having to fix-and-rerun iteratively.
 func runWorkspaceValidation(cmd *cobra.Command, app *App) error {
+	stdout := cmd.OutOrStdout()
+	stderr := cmd.ErrOrStderr()
+
 	result, err := app.Discovery.DiscoverAndValidateCommandSet(cmd.Context())
 
-	cwd, _ := os.Getwd()
-	fmt.Println(moduleTitleStyle.Render("Workspace Validation"))
-	fmt.Printf("%s Path: %s\n", moduleInfoIcon, modulePathStyle.Render(cwd))
-	fmt.Println()
+	cwd, cwdErr := os.Getwd()
+	if cwdErr != nil {
+		cwd = "(unable to determine working directory)"
+	}
+	fmt.Fprintln(stdout, moduleTitleStyle.Render("Workspace Validation"))
+	fmt.Fprintf(stdout, "%s Path: %s\n", moduleInfoIcon, modulePathStyle.Render(cwd))
+	fmt.Fprintln(stdout)
 
 	if err != nil && result.Set == nil {
-		fmt.Printf("%s Discovery failed: %s\n", moduleErrorIcon, err)
+		fmt.Fprintf(stderr, "%s Discovery failed: %s\n", moduleErrorIcon, err)
 		cmd.SilenceUsage = true
 		cmd.SilenceErrors = true
 		return &ExitError{Code: 1}
@@ -78,50 +87,58 @@ func runWorkspaceValidation(cmd *cobra.Command, app *App) error {
 
 	// Show discovery summary.
 	if result.Set != nil {
-		fmt.Printf("%s %d source(s) discovered, %d command(s) found\n",
+		fmt.Fprintf(stdout, "%s %d source(s) discovered, %d command(s) found\n",
 			moduleSuccessIcon,
 			len(result.Set.SourceOrder),
 			len(result.Set.Commands),
 		)
 	} else {
-		fmt.Printf("%s Configuration loaded\n", moduleSuccessIcon)
+		fmt.Fprintf(stdout, "%s Configuration loaded\n", moduleSuccessIcon)
 	}
 
-	// Show diagnostics.
+	// Collect all issues (diagnostics + tree errors) and render in a single pass.
+	hasIssues := false
+
 	if len(result.Diagnostics) > 0 {
-		fmt.Println()
-		fmt.Printf("%s %d issue(s) found:\n", WarningStyle.Render("!"), len(result.Diagnostics))
-		fmt.Println()
+		fmt.Fprintln(stderr)
+		fmt.Fprintf(stderr, "%s %d diagnostic issue(s) found:\n", WarningStyle.Render("!"), len(result.Diagnostics))
+		fmt.Fprintln(stderr)
 
 		for i, diag := range result.Diagnostics {
 			issueNum := fmt.Sprintf("  %d.", i+1)
 			codeTag := moduleIssueTypeStyle.Render(fmt.Sprintf("[%s]", diag.Code))
 			if diag.Path != "" {
-				fmt.Printf("%s %s %s\n", issueNum, codeTag, modulePathStyle.Render(diag.Path))
-				fmt.Printf("     %s\n", diag.Message)
+				fmt.Fprintf(stderr, "%s %s %s\n", issueNum, codeTag, modulePathStyle.Render(diag.Path))
+				fmt.Fprintf(stderr, "     %s\n", diag.Message)
 			} else {
-				fmt.Printf("%s %s %s\n", issueNum, codeTag, diag.Message)
+				fmt.Fprintf(stderr, "%s %s %s\n", issueNum, codeTag, diag.Message)
 			}
 		}
-
-		fmt.Println()
-		fmt.Printf("%s Validation failed with %d issue(s)\n", moduleErrorIcon, len(result.Diagnostics))
-		cmd.SilenceUsage = true
-		cmd.SilenceErrors = true
-		return &ExitError{Code: 1}
+		hasIssues = true
 	}
 
-	// Check for tree validation errors separately (ArgsSubcommandConflictError etc.).
+	// Tree validation errors (ArgsSubcommandConflictError etc.) are separate from
+	// discovery diagnostics and must be shown alongside them.
 	if err != nil {
-		fmt.Println()
-		fmt.Printf("%s %s\n", moduleErrorIcon, err)
+		fmt.Fprintln(stderr)
+		fmt.Fprintf(stderr, "%s %s\n", moduleErrorIcon, err)
+		hasIssues = true
+	}
+
+	if hasIssues {
+		issueCount := len(result.Diagnostics)
+		if err != nil {
+			issueCount++
+		}
+		fmt.Fprintln(stderr)
+		fmt.Fprintf(stderr, "%s Validation failed with %d issue(s)\n", moduleErrorIcon, issueCount)
 		cmd.SilenceUsage = true
 		cmd.SilenceErrors = true
 		return &ExitError{Code: 1}
 	}
 
-	fmt.Println()
-	fmt.Printf("%s Workspace is valid\n", moduleSuccessIcon)
+	fmt.Fprintln(stdout)
+	fmt.Fprintf(stdout, "%s Workspace is valid\n", moduleSuccessIcon)
 	return nil
 }
 
@@ -141,9 +158,9 @@ func runPathValidation(cmd *cobra.Command, targetPath string) error {
 		return runInvowkfilePathValidation(cmd, resolvedPath)
 	case pathTypeUnknown:
 		return fmt.Errorf("cannot determine file type for %s: expected invowkfile.cue, *.invowkmod directory, or directory containing invowkfile.cue", targetPath)
+	default:
+		return fmt.Errorf("internal error: unhandled path type %d for %s", pt, targetPath)
 	}
-
-	return nil
 }
 
 // detectPathType determines whether a path is an invowkfile, module, or unknown.
@@ -177,27 +194,33 @@ func detectPathType(absPath string) (detected pathType, resolvedPath string) {
 
 // runInvowkfilePathValidation validates a single invowkfile and renders styled output.
 func runInvowkfilePathValidation(cmd *cobra.Command, invowkfilePath string) error {
-	absPath, _ := filepath.Abs(invowkfilePath)
+	stdout := cmd.OutOrStdout()
+	stderr := cmd.ErrOrStderr()
 
-	fmt.Println(moduleTitleStyle.Render("Invowkfile Validation"))
-	fmt.Printf("%s Path: %s\n", moduleInfoIcon, modulePathStyle.Render(absPath))
-	fmt.Println()
+	absPath, err := filepath.Abs(invowkfilePath)
+	if err != nil {
+		return fmt.Errorf("failed to resolve path: %w", err)
+	}
+
+	fmt.Fprintln(stdout, moduleTitleStyle.Render("Invowkfile Validation"))
+	fmt.Fprintf(stdout, "%s Path: %s\n", moduleInfoIcon, modulePathStyle.Render(absPath))
+	fmt.Fprintln(stdout)
 
 	// Parse the invowkfile (CUE schema + structural validation).
 	inv, err := invowkfile.Parse(invowkfilePath)
 	if err != nil {
-		fmt.Printf("%s CUE schema validation failed\n", moduleErrorIcon)
-		fmt.Println()
-		fmt.Printf("  %s\n", err)
+		fmt.Fprintf(stderr, "%s CUE schema validation failed\n", moduleErrorIcon)
+		fmt.Fprintln(stderr)
+		fmt.Fprintf(stderr, "  %s\n", err)
 		cmd.SilenceUsage = true
 		cmd.SilenceErrors = true
 		return &ExitError{Code: 1}
 	}
 
-	fmt.Printf("%s CUE schema validation passed\n", moduleSuccessIcon)
+	fmt.Fprintf(stdout, "%s CUE schema validation passed\n", moduleSuccessIcon)
 
-	// Structural validation (invowkfile.Parse already runs this, but we confirm).
-	fmt.Printf("%s Structural validation passed\n", moduleSuccessIcon)
+	// invowkfile.Parse() includes structural validation as part of CUE parsing.
+	fmt.Fprintf(stdout, "%s Structural validation passed\n", moduleSuccessIcon)
 
 	// Command tree validation (leaf-only args constraint).
 	var commands []*discovery.CommandInfo
@@ -211,32 +234,36 @@ func runInvowkfilePathValidation(cmd *cobra.Command, invowkfilePath string) erro
 	}
 
 	if treeErr := discovery.ValidateCommandTree(commands); treeErr != nil {
-		fmt.Printf("%s Command tree validation failed\n", moduleErrorIcon)
-		fmt.Println()
-		fmt.Printf("  %s\n", treeErr)
+		fmt.Fprintf(stderr, "%s Command tree validation failed\n", moduleErrorIcon)
+		fmt.Fprintln(stderr)
+		fmt.Fprintf(stderr, "  %s\n", treeErr)
 		cmd.SilenceUsage = true
 		cmd.SilenceErrors = true
 		return &ExitError{Code: 1}
 	}
 
-	fmt.Printf("%s Command tree validation passed\n", moduleSuccessIcon)
+	fmt.Fprintf(stdout, "%s Command tree validation passed\n", moduleSuccessIcon)
 
-	cmdCount := len(inv.FlattenCommands())
-	fmt.Println()
-	fmt.Printf("%s Invowkfile is valid (%d command(s))\n", moduleSuccessIcon, cmdCount)
+	cmdCount := len(commands)
+	fmt.Fprintln(stdout)
+	fmt.Fprintf(stdout, "%s Invowkfile is valid (%d command(s))\n", moduleSuccessIcon, cmdCount)
 	return nil
 }
 
 // runModulePathValidation validates a module directory and renders styled output.
-// Delegates to invowkmod.Validate() with deep parsing for invowkfile content.
+// It calls invowkmod.Validate() for structural checks, then performs deep validation
+// by parsing the module's invowkfile (if present) and validating the command tree.
 func runModulePathValidation(cmd *cobra.Command, modulePath string) error {
+	stdout := cmd.OutOrStdout()
+	stderr := cmd.ErrOrStderr()
+
 	absPath, err := filepath.Abs(modulePath)
 	if err != nil {
 		return fmt.Errorf("failed to resolve path: %w", err)
 	}
 
-	fmt.Println(moduleTitleStyle.Render("Module Validation"))
-	fmt.Printf("%s Path: %s\n", moduleInfoIcon, modulePathStyle.Render(absPath))
+	fmt.Fprintln(stdout, moduleTitleStyle.Render("Module Validation"))
+	fmt.Fprintf(stdout, "%s Path: %s\n", moduleInfoIcon, modulePathStyle.Render(absPath))
 
 	result, err := invowkmod.Validate(modulePath)
 	if err != nil {
@@ -244,10 +271,10 @@ func runModulePathValidation(cmd *cobra.Command, modulePath string) error {
 	}
 
 	if result.ModuleName != "" {
-		fmt.Printf("%s Name: %s\n", moduleInfoIcon, CmdStyle.Render(result.ModuleName))
+		fmt.Fprintf(stdout, "%s Name: %s\n", moduleInfoIcon, CmdStyle.Render(result.ModuleName))
 	}
 
-	// Always perform deep validation (parse invowkfile if present).
+	// Deep validation: parse invowkfile and validate command tree if present.
 	if result.InvowkfilePath != "" {
 		inv, invErr := invowkfile.Parse(result.InvowkfilePath)
 		if invErr != nil {
@@ -268,30 +295,30 @@ func runModulePathValidation(cmd *cobra.Command, modulePath string) error {
 		}
 	}
 
-	fmt.Println()
+	fmt.Fprintln(stdout)
 
 	if result.Valid {
-		fmt.Printf("%s Module is valid\n", moduleSuccessIcon)
-		fmt.Println()
-		fmt.Printf("%s Structure check passed\n", moduleSuccessIcon)
-		fmt.Printf("%s Naming convention check passed\n", moduleSuccessIcon)
-		fmt.Printf("%s Required files present\n", moduleSuccessIcon)
+		fmt.Fprintf(stdout, "%s Module is valid\n", moduleSuccessIcon)
+		fmt.Fprintln(stdout)
+		fmt.Fprintf(stdout, "%s Structure check passed\n", moduleSuccessIcon)
+		fmt.Fprintf(stdout, "%s Naming convention check passed\n", moduleSuccessIcon)
+		fmt.Fprintf(stdout, "%s Required files present\n", moduleSuccessIcon)
 		if result.InvowkfilePath != "" {
-			fmt.Printf("%s Invowkfile parses successfully\n", moduleSuccessIcon)
+			fmt.Fprintf(stdout, "%s Invowkfile parses successfully\n", moduleSuccessIcon)
 		}
 		return nil
 	}
 
-	fmt.Printf("%s Module validation failed with %d issue(s)\n", moduleErrorIcon, len(result.Issues))
-	fmt.Println()
+	fmt.Fprintf(stderr, "%s Module validation failed with %d issue(s)\n", moduleErrorIcon, len(result.Issues))
+	fmt.Fprintln(stderr)
 
 	for i, iss := range result.Issues {
 		issueNum := fmt.Sprintf("%d.", i+1)
 		issueType := moduleIssueTypeStyle.Render(fmt.Sprintf("[%s]", iss.Type))
 		if iss.Path != "" {
-			fmt.Printf("%s %s %s %s\n", moduleIssueStyle.Render(issueNum), issueType, modulePathStyle.Render(iss.Path), iss.Message)
+			fmt.Fprintf(stderr, "%s %s %s %s\n", moduleIssueStyle.Render(issueNum), issueType, modulePathStyle.Render(iss.Path), iss.Message)
 		} else {
-			fmt.Printf("%s %s %s\n", moduleIssueStyle.Render(issueNum), issueType, iss.Message)
+			fmt.Fprintf(stderr, "%s %s %s\n", moduleIssueStyle.Render(issueNum), issueType, iss.Message)
 		}
 	}
 
