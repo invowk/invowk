@@ -325,15 +325,47 @@ Install the missing tools and try again.`,
     implementations: [
         {
             script: "go build ./..."
-            runtimes: [{name: "container", image: "golang:1.26"}]
+            runtimes: [{
+                name: "container"
+                image: "golang:1.26"
+                depends_on: {
+                    // Checked INSIDE the container
+                    tools: [{alternatives: ["go"]}]
+                    filepaths: [{alternatives: ["/workspace/go.mod"]}]
+                }
+            }]
             platforms: [{name: "linux"}]
+            // Host-level: always checked on the host
             depends_on: {
-                // Checked INSIDE the container, not on host
-                tools: [{alternatives: ["go"]}]
-                filepaths: [{alternatives: ["/workspace/go.mod"]}]
+                tools: [{alternatives: ["docker", "podman"]}]
             }
         }
     ]
+}`,
+  },
+
+  'dependencies/overview-runtime-level': {
+    language: 'cue',
+    code: `{
+    name: "deploy"
+    implementations: [{
+        script: "./scripts/deploy.sh"
+        runtimes: [{
+            name: "container"
+            image: "debian:stable-slim"
+            depends_on: {
+                // These are validated inside the container
+                tools: [{alternatives: ["kubectl"]}]
+                env_vars: [{alternatives: [{name: "KUBECONFIG"}]}]
+            }
+        }]
+        platforms: [{name: "linux"}]
+        // These are validated on the host (regardless of runtime)
+        depends_on: {
+            tools: [{alternatives: ["docker", "podman"]}]
+            env_vars: [{alternatives: [{name: "DOCKER_HOST"}]}]
+        }
+    }]
 }`,
   },
 

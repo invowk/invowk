@@ -103,6 +103,13 @@ import "strings"
 	// ports specifies port mappings in "host:container" format (optional)
 	// Example: ["8080:80", "3000:3000"]
 	ports?: [...string & !="" & strings.MaxRunes(256)]
+
+	// depends_on specifies dependencies validated inside the container environment (optional).
+	// Unlike root/command/implementation-level depends_on (which always check the host),
+	// this validates against the container's own environment — useful for verifying that
+	// the container image has the required tools, files, and configuration.
+	// Only checked when this container runtime is selected at execution time.
+	depends_on?: #DependsOn
 })
 
 // PlatformConfig represents a platform configuration
@@ -140,12 +147,11 @@ import "strings"
 	// Paths should use forward slashes for cross-platform compatibility.
 	workdir?: string & strings.MaxRunes(4096)
 
-	// depends_on specifies dependencies that must be satisfied before running this implementation (optional)
-	// These dependencies are validated according to the runtime:
-	// - native: validated against the native standard shell from the host
-	// - virtual: validated against invowk's built-in sh interpreter with core utils
-	// - container: validated against the container's default shell from within the container
-	// Implementation-level depends_on is combined with command-level depends_on
+	// depends_on specifies dependencies validated against the HOST system (optional).
+	// Regardless of the selected runtime, these are always checked on the host.
+	// To validate dependencies inside the runtime environment (e.g., inside a container),
+	// use depends_on inside the runtime block instead.
+	// Implementation-level depends_on is combined with root-level and command-level depends_on.
 	depends_on?: #DependsOn
 })
 
@@ -390,7 +396,9 @@ import "strings"
 	// Paths should use forward slashes for cross-platform compatibility.
 	workdir?: string & strings.MaxRunes(4096)
 
-	// depends_on specifies dependencies that must be satisfied before running (optional)
+	// depends_on specifies dependencies validated against the HOST system (optional).
+	// Regardless of the selected runtime, these are always checked on the host.
+	// To validate dependencies inside the runtime environment, use depends_on inside the runtime block.
 	depends_on?: #DependsOn
 
 	// flags specifies command-line flags for this command (optional)
@@ -427,11 +435,13 @@ import "strings"
 	// Command-level and implementation-level env override root-level env.
 	env?: #EnvConfig
 
-	// depends_on specifies global dependencies that apply to all commands (optional)
+	// depends_on specifies global dependencies validated against the HOST system (optional).
+	// Regardless of the selected runtime, these are always checked on the host.
 	// Root-level depends_on is combined with command-level and implementation-level depends_on.
 	// Root-level dependencies are validated first (lowest priority in the merge order).
 	// This is useful for defining shared prerequisites like required tools or capabilities
 	// that apply to all commands in this invowkfile.
+	// To validate dependencies inside the runtime environment, use depends_on inside the runtime block.
 	depends_on?: #DependsOn
 
 	// cmds defines the available commands (required, at least one)

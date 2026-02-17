@@ -11,6 +11,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/invowk/invowk/internal/config"
 	"github.com/invowk/invowk/internal/runtime"
 	"github.com/invowk/invowk/pkg/invowkfile"
 )
@@ -52,14 +53,11 @@ func validateCustomCheckOutput(check invowkfile.CustomCheck, outputStr string, e
 	return nil
 }
 
-// checkCustomCheckDependencies validates all custom check scripts.
-// The validation method depends on the runtime:
-// - native: executed using the host's native shell
-// - virtual: executed using invowk's built-in sh interpreter
-// - container: executed within the container environment
+// checkCustomCheckDependenciesInContainer validates all custom check scripts inside the container.
+// Called only for container runtime (caller guards non-container early return).
 // Each CustomCheckDependency can be either a direct check or a list of alternatives.
 // For alternatives, OR semantics are used (early return on first passing check).
-func checkCustomCheckDependencies(deps *invowkfile.DependsOn, runtimeMode invowkfile.RuntimeMode, registry *runtime.Registry, ctx *runtime.ExecutionContext) error {
+func checkCustomCheckDependenciesInContainer(deps *invowkfile.DependsOn, registry *runtime.Registry, ctx *runtime.ExecutionContext) error {
 	if deps == nil || len(deps.CustomChecks) == 0 {
 		return nil
 	}
@@ -72,27 +70,18 @@ func checkCustomCheckDependencies(deps *invowkfile.DependsOn, runtimeMode invowk
 		passed := false
 
 		for _, check := range checks {
-			var err error
-			switch runtimeMode {
-			case invowkfile.RuntimeContainer:
-				err = validateCustomCheckInContainer(check, registry, ctx)
-			case invowkfile.RuntimeVirtual:
-				err = validateCustomCheckInVirtual(check, registry, ctx)
-			case invowkfile.RuntimeNative:
-				err = validateCustomCheckNative(check)
-			}
-			if err == nil {
+			if err := validateCustomCheckInContainer(check, registry, ctx); err == nil {
 				passed = true
-				break // Early return on first passing check
+				break
+			} else {
+				lastErr = err
 			}
-			lastErr = err
 		}
 
 		if !passed && lastErr != nil {
 			if len(checks) == 1 {
 				checkErrors = append(checkErrors, lastErr.Error())
 			} else {
-				// Collect all check names for the error message
 				names := make([]string, len(checks))
 				for i, c := range checks {
 					names[i] = c.Name
@@ -121,32 +110,6 @@ func validateCustomCheckNative(check invowkfile.CustomCheck) error {
 	return validateCustomCheckOutput(check, outputStr, err)
 }
 
-// validateCustomCheckInVirtual runs a custom check script using the virtual runtime
-func validateCustomCheckInVirtual(check invowkfile.CustomCheck, registry *runtime.Registry, ctx *runtime.ExecutionContext) error {
-	rt, err := registry.Get(runtime.RuntimeTypeVirtual)
-	if err != nil {
-		// Fall back to native validation if virtual runtime not available
-		return validateCustomCheckNative(check)
-	}
-
-	// Create a minimal context for validation
-	var stdout, stderr bytes.Buffer
-	validationCtx := &runtime.ExecutionContext{
-		Command:         ctx.Command,
-		Invowkfile:      ctx.Invowkfile,
-		SelectedImpl:    &invowkfile.Implementation{Script: check.CheckScript, Runtimes: []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeVirtual}}},
-		SelectedRuntime: invowkfile.RuntimeVirtual,
-		Context:         ctx.Context,
-		IO:              runtime.IOContext{Stdout: &stdout, Stderr: &stderr},
-		Env:             runtime.DefaultEnv(),
-	}
-
-	result := rt.Execute(validationCtx)
-	outputStr := strings.TrimSpace(stdout.String() + stderr.String())
-
-	return validateCustomCheckOutput(check, outputStr, result.Error)
-}
-
 // validateCustomCheckInContainer runs a custom check script within a container
 func validateCustomCheckInContainer(check invowkfile.CustomCheck, registry *runtime.Registry, ctx *runtime.ExecutionContext) error {
 	rt, err := registry.Get(runtime.RuntimeTypeContainer)
@@ -170,6 +133,284 @@ func validateCustomCheckInContainer(check invowkfile.CustomCheck, registry *runt
 	outputStr := strings.TrimSpace(stdout.String() + stderr.String())
 
 	return validateCustomCheckOutput(check, outputStr, result.Error)
+}
+
+// checkHostCustomCheckDependencies validates custom checks always using the native shell on the host.
+// Used for host-level deps (root+cmd+impl) which are always validated on the host.
+func checkHostCustomCheckDependencies(deps *invowkfile.DependsOn, ctx *runtime.ExecutionContext) error {
+	if deps == nil || len(deps.CustomChecks) == 0 {
+		return nil
+	}
+
+	var checkErrors []string
+
+	for _, checkDep := range deps.CustomChecks {
+		checks := checkDep.GetChecks()
+		var lastErr error
+		passed := false
+
+		for _, check := range checks {
+			if err := validateCustomCheckNative(check); err == nil {
+				passed = true
+				break
+			} else {
+				lastErr = err
+			}
+		}
+
+		if !passed && lastErr != nil {
+			if len(checks) == 1 {
+				checkErrors = append(checkErrors, lastErr.Error())
+			} else {
+				names := make([]string, len(checks))
+				for i, c := range checks {
+					names[i] = c.Name
+				}
+				checkErrors = append(checkErrors, fmt.Sprintf("  • none of custom checks [%s] passed", strings.Join(names, ", ")))
+			}
+		}
+	}
+
+	if len(checkErrors) > 0 {
+		return &DependencyError{
+			CommandName:        ctx.Command.Name,
+			FailedCustomChecks: checkErrors,
+		}
+	}
+
+	return nil
+}
+
+// checkEnvVarDependenciesInContainer validates env vars inside the container.
+// Called only for container runtime (caller guards non-container early return).
+func checkEnvVarDependenciesInContainer(deps *invowkfile.DependsOn, registry *runtime.Registry, ctx *runtime.ExecutionContext) error {
+	if deps == nil || len(deps.EnvVars) == 0 {
+		return nil
+	}
+
+	rt, err := registry.Get(runtime.RuntimeTypeContainer)
+	if err != nil {
+		return fmt.Errorf("container runtime not available for env var validation")
+	}
+
+	var envVarErrors []string
+
+	for _, envVar := range deps.EnvVars {
+		var lastErr error
+		found := false
+
+		for _, alt := range envVar.Alternatives {
+			name := strings.TrimSpace(alt.Name)
+			if name == "" {
+				lastErr = fmt.Errorf("  • (empty) - environment variable name cannot be empty")
+				continue
+			}
+
+			// Check if env var is set inside container: test -n "${VAR+x}"
+			checkScript := fmt.Sprintf("test -n \"${%s+x}\"", name)
+
+			// If validation pattern specified, also check value
+			if alt.Validation != "" {
+				checkScript = fmt.Sprintf("test -n \"${%s+x}\" && printf '%%s' \"$%s\" | grep -qE '%s'", name, name, alt.Validation)
+			}
+
+			var stdout, stderr bytes.Buffer
+			validationCtx := &runtime.ExecutionContext{
+				Command:         ctx.Command,
+				Invowkfile:      ctx.Invowkfile,
+				SelectedImpl:    &invowkfile.Implementation{Script: checkScript, Runtimes: []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeContainer}}},
+				SelectedRuntime: invowkfile.RuntimeContainer,
+				Context:         ctx.Context,
+				IO:              runtime.IOContext{Stdout: &stdout, Stderr: &stderr},
+				Env:             runtime.DefaultEnv(),
+			}
+
+			result := rt.Execute(validationCtx)
+			if result.ExitCode == 0 {
+				found = true
+				break
+			}
+			if alt.Validation != "" {
+				lastErr = fmt.Errorf("  • %s - not set or value does not match pattern '%s' in container", name, alt.Validation)
+			} else {
+				lastErr = fmt.Errorf("  • %s - not set in container environment", name)
+			}
+		}
+
+		if !found && lastErr != nil {
+			if len(envVar.Alternatives) == 1 {
+				envVarErrors = append(envVarErrors, lastErr.Error())
+			} else {
+				names := make([]string, len(envVar.Alternatives))
+				for i, alt := range envVar.Alternatives {
+					names[i] = strings.TrimSpace(alt.Name)
+				}
+				envVarErrors = append(envVarErrors, fmt.Sprintf("  • none of [%s] found or passed validation in container", strings.Join(names, ", ")))
+			}
+		}
+	}
+
+	if len(envVarErrors) > 0 {
+		return &DependencyError{
+			CommandName:    ctx.Command.Name,
+			MissingEnvVars: envVarErrors,
+		}
+	}
+
+	return nil
+}
+
+// checkCapabilityDependenciesInContainer validates capabilities inside the container.
+// Called only for container runtime (caller guards non-container early return).
+func checkCapabilityDependenciesInContainer(deps *invowkfile.DependsOn, registry *runtime.Registry, ctx *runtime.ExecutionContext) error {
+	if deps == nil || len(deps.Capabilities) == 0 {
+		return nil
+	}
+
+	rt, err := registry.Get(runtime.RuntimeTypeContainer)
+	if err != nil {
+		return fmt.Errorf("container runtime not available for capability validation")
+	}
+
+	var capabilityErrors []string
+
+	for _, cap := range deps.Capabilities {
+		var lastErr error
+		found := false
+
+		for _, alt := range cap.Alternatives {
+			checkScript := capabilityCheckScript(alt)
+			if checkScript == "" {
+				lastErr = fmt.Errorf("%s - unknown capability", string(alt))
+				continue
+			}
+
+			var stdout, stderr bytes.Buffer
+			validationCtx := &runtime.ExecutionContext{
+				Command:         ctx.Command,
+				Invowkfile:      ctx.Invowkfile,
+				SelectedImpl:    &invowkfile.Implementation{Script: checkScript, Runtimes: []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeContainer}}},
+				SelectedRuntime: invowkfile.RuntimeContainer,
+				Context:         ctx.Context,
+				IO:              runtime.IOContext{Stdout: &stdout, Stderr: &stderr},
+				Env:             runtime.DefaultEnv(),
+			}
+
+			result := rt.Execute(validationCtx)
+			if result.ExitCode == 0 {
+				found = true
+				break
+			}
+			lastErr = fmt.Errorf("%s - not available in container", string(alt))
+		}
+
+		if !found && lastErr != nil {
+			if len(cap.Alternatives) == 1 {
+				capabilityErrors = append(capabilityErrors, fmt.Sprintf("  • %s", lastErr.Error()))
+			} else {
+				alts := make([]string, len(cap.Alternatives))
+				for i, alt := range cap.Alternatives {
+					alts[i] = string(alt)
+				}
+				capabilityErrors = append(capabilityErrors, fmt.Sprintf("  • none of capabilities [%s] satisfied in container", strings.Join(alts, ", ")))
+			}
+		}
+	}
+
+	if len(capabilityErrors) > 0 {
+		return &DependencyError{
+			CommandName:         ctx.Command.Name,
+			MissingCapabilities: capabilityErrors,
+		}
+	}
+
+	return nil
+}
+
+// capabilityCheckScript returns a shell script to check a capability inside a container.
+func capabilityCheckScript(capName invowkfile.CapabilityName) string {
+	switch capName {
+	case invowkfile.CapabilityInternet:
+		return "ping -c 1 -W 2 8.8.8.8 2>/dev/null || curl -sf --max-time 2 https://google.com >/dev/null 2>&1"
+	case invowkfile.CapabilityContainers:
+		return "command -v docker >/dev/null 2>&1 || command -v podman >/dev/null 2>&1"
+	case invowkfile.CapabilityLocalAreaNetwork:
+		// Check for any non-loopback network interface being up
+		return "ip route 2>/dev/null | grep -q default || route -n 2>/dev/null | grep -q '^0.0.0.0'"
+	case invowkfile.CapabilityTTY:
+		return "test -t 0"
+	default:
+		return ""
+	}
+}
+
+// checkCommandDependenciesInContainer validates command discoverability inside the container.
+// Called only for container runtime (caller guards non-container early return).
+// Runs `invowk internal check-cmd` inside the container to verify auto-provisioning worked.
+func checkCommandDependenciesInContainer(cfg *config.Config, deps *invowkfile.DependsOn, currentModule string, registry *runtime.Registry, ctx *runtime.ExecutionContext) error {
+	if deps == nil || len(deps.Commands) == 0 {
+		return nil
+	}
+
+	rt, err := registry.Get(runtime.RuntimeTypeContainer)
+	if err != nil {
+		return fmt.Errorf("container runtime not available for command dependency validation")
+	}
+
+	var commandErrors []string
+
+	for _, dep := range deps.Commands {
+		var alternatives []string
+		for _, alt := range dep.Alternatives {
+			alt = strings.TrimSpace(alt)
+			if alt != "" {
+				alternatives = append(alternatives, alt)
+			}
+		}
+		if len(alternatives) == 0 {
+			continue
+		}
+
+		found := false
+		for _, alt := range alternatives {
+			// Run `invowk internal check-cmd <name>` inside the container
+			checkScript := fmt.Sprintf("invowk internal check-cmd %q", alt)
+
+			var stdout, stderr bytes.Buffer
+			validationCtx := &runtime.ExecutionContext{
+				Command:         ctx.Command,
+				Invowkfile:      ctx.Invowkfile,
+				SelectedImpl:    &invowkfile.Implementation{Script: checkScript, Runtimes: []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeContainer}}},
+				SelectedRuntime: invowkfile.RuntimeContainer,
+				Context:         ctx.Context,
+				IO:              runtime.IOContext{Stdout: &stdout, Stderr: &stderr},
+				Env:             runtime.DefaultEnv(),
+			}
+
+			result := rt.Execute(validationCtx)
+			if result.ExitCode == 0 {
+				found = true
+				break
+			}
+		}
+
+		if !found {
+			if len(alternatives) == 1 {
+				commandErrors = append(commandErrors, fmt.Sprintf("  • %s - command not found in container", alternatives[0]))
+			} else {
+				commandErrors = append(commandErrors, fmt.Sprintf("  • none of [%s] found in container", strings.Join(alternatives, ", ")))
+			}
+		}
+	}
+
+	if len(commandErrors) > 0 {
+		return &DependencyError{
+			CommandName:     ctx.Command.Name,
+			MissingCommands: commandErrors,
+		}
+	}
+
+	return nil
 }
 
 // checkCustomChecks verifies all custom check scripts pass (native-only fallback).

@@ -204,7 +204,7 @@ Working directory for this implementation. Overrides both root-level and command
 **Type:** `#DependsOn`
 **Required:** No
 
-Dependencies that must be satisfied before running this implementation. Combined with command-level depends_on. Dependencies are validated according to the runtime (native checks the host shell, virtual checks the built-in sh interpreter, container checks the container's shell). See [DependsOn](#dependson).
+Dependencies that must be satisfied before running this implementation. Combined with root-level and command-level depends_on. **Always validated against the host system**, regardless of the selected runtime. To validate dependencies inside the runtime's environment (e.g., inside a container), use `depends_on` inside the runtime block instead. See [DependsOn](#dependson).
 
 ---
 
@@ -295,12 +295,22 @@ Volume mounts in `host:container[:options]` format.
 
 ### ports
 
-**Type:** `[...string]`  
+**Type:** `[...string]`
 **Available for:** `container`
 
 Port mappings in `host:container` format.
 
 <Snippet id="reference/invowkfile/ports-example" />
+
+### depends_on
+
+**Type:** `#DependsOn`
+**Available for:** `container`
+**Required:** No
+
+Dependencies validated inside the container environment. Unlike root/command/implementation-level `depends_on` (which always check the host), container runtime-level `depends_on` validates against the container's own environment — useful for verifying that the container image has the required tools, files, and configuration.
+
+Only checked when the container runtime is selected at execution time.
 
 ---
 

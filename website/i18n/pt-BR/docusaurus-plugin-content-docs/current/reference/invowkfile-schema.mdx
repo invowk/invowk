@@ -204,7 +204,7 @@ Diretório de trabalho para esta implementation. Sobrescreve as configurações 
 **Tipo:** `#DependsOn`
 **Obrigatório:** Não
 
-Dependências que devem ser satisfeitas antes de executar esta implementation. Combinado com o depends_on no nível de comando. As dependências são validadas de acordo com o runtime (native verifica o shell do host, virtual verifica o interpretador sh embutido, container verifica o shell do container). Veja [DependsOn](#dependson).
+Dependências que devem ser satisfeitas antes de executar esta implementation. Combinado com o depends_on no nível raiz e de comando. **Sempre validado no sistema host**, independentemente do runtime selecionado. Para validar dependências dentro do ambiente do runtime (ex: dentro de um container), use `depends_on` dentro do bloco de runtime. Veja [DependsOn](#dependson).
 
 ---
 
@@ -301,6 +301,16 @@ Montagens de volume no formato `host:container[:options]`.
 Mapeamentos de portas no formato `host:container`.
 
 <Snippet id="reference/invowkfile/ports-example" />
+
+### depends_on
+
+**Tipo:** `#DependsOn`
+**Disponível para:** `container`
+**Obrigatório:** Não
+
+Dependências validadas dentro do ambiente do container. Diferentemente do `depends_on` no nível raiz/comando/implementação (que sempre verificam o host), o `depends_on` no nível de runtime container valida contra o próprio ambiente do container — útil para verificar que a imagem do container possui as ferramentas, arquivos e configuração necessários.
+
+Verificado apenas quando o runtime container é selecionado no momento da execução.
 
 ---
 

@@ -185,40 +185,7 @@ func generateImplementation(sb *strings.Builder, impl *Implementation) {
 	sb.WriteString("\t\t\t\truntimes: [\n")
 	for i := range impl.Runtimes {
 		r := &impl.Runtimes[i]
-		sb.WriteString("\t\t\t\t\t{")
-		fmt.Fprintf(sb, "name: %q", r.Name)
-		if r.Name == RuntimeContainer {
-			if r.EnableHostSSH {
-				sb.WriteString(", enable_host_ssh: true")
-			}
-			if r.Containerfile != "" {
-				fmt.Fprintf(sb, ", containerfile: %q", r.Containerfile)
-			}
-			if r.Image != "" {
-				fmt.Fprintf(sb, ", image: %q", r.Image)
-			}
-			if len(r.Volumes) > 0 {
-				sb.WriteString(", volumes: [")
-				for j, v := range r.Volumes {
-					if j > 0 {
-						sb.WriteString(", ")
-					}
-					fmt.Fprintf(sb, "%q", v)
-				}
-				sb.WriteString("]")
-			}
-			if len(r.Ports) > 0 {
-				sb.WriteString(", ports: [")
-				for j, p := range r.Ports {
-					if j > 0 {
-						sb.WriteString(", ")
-					}
-					fmt.Fprintf(sb, "%q", p)
-				}
-				sb.WriteString("]")
-			}
-		}
-		sb.WriteString("},\n")
+		generateRuntimeConfig(sb, r)
 	}
 	sb.WriteString("\t\t\t\t]\n")
 
@@ -261,6 +228,102 @@ func generateImplementation(sb *strings.Builder, impl *Implementation) {
 	}
 
 	sb.WriteString("\t\t\t},\n")
+}
+
+// generateRuntimeConfig generates CUE for a single runtime config entry.
+// Uses compact single-line format when there are no depends_on, and multi-line
+// format when depends_on is present (since it requires nested block generation).
+func generateRuntimeConfig(sb *strings.Builder, r *RuntimeConfig) {
+	hasDeps := r.Name == RuntimeContainer && r.DependsOn != nil && (len(r.DependsOn.Tools) > 0 || len(r.DependsOn.Commands) > 0 ||
+		len(r.DependsOn.Filepaths) > 0 || len(r.DependsOn.Capabilities) > 0 ||
+		len(r.DependsOn.CustomChecks) > 0 || len(r.DependsOn.EnvVars) > 0)
+
+	if hasDeps {
+		// Multi-line format for runtimes with depends_on
+		sb.WriteString("\t\t\t\t\t{\n")
+		fmt.Fprintf(sb, "\t\t\t\t\t\tname: %q\n", r.Name)
+		generateRuntimeConfigFields(sb, r, "\t\t\t\t\t\t")
+		sb.WriteString("\t\t\t\t\t\tdepends_on: {\n")
+		generateDependsOnContent(sb, r.DependsOn, "\t\t\t\t\t\t\t")
+		sb.WriteString("\t\t\t\t\t\t}\n")
+		sb.WriteString("\t\t\t\t\t},\n")
+	} else {
+		// Compact single-line format (existing behavior)
+		sb.WriteString("\t\t\t\t\t{")
+		fmt.Fprintf(sb, "name: %q", r.Name)
+		generateRuntimeConfigFieldsInline(sb, r)
+		sb.WriteString("},\n")
+	}
+}
+
+// generateRuntimeConfigFields writes runtime-specific fields in multi-line format.
+func generateRuntimeConfigFields(sb *strings.Builder, r *RuntimeConfig, indent string) {
+	if r.Name == RuntimeContainer {
+		if r.EnableHostSSH {
+			sb.WriteString(indent + "enable_host_ssh: true\n")
+		}
+		if r.Containerfile != "" {
+			fmt.Fprintf(sb, "%scontainerfile: %q\n", indent, r.Containerfile)
+		}
+		if r.Image != "" {
+			fmt.Fprintf(sb, "%simage: %q\n", indent, r.Image)
+		}
+		if len(r.Volumes) > 0 {
+			sb.WriteString(indent + "volumes: [")
+			for j, v := range r.Volumes {
+				if j > 0 {
+					sb.WriteString(", ")
+				}
+				fmt.Fprintf(sb, "%q", v)
+			}
+			sb.WriteString("]\n")
+		}
+		if len(r.Ports) > 0 {
+			sb.WriteString(indent + "ports: [")
+			for j, p := range r.Ports {
+				if j > 0 {
+					sb.WriteString(", ")
+				}
+				fmt.Fprintf(sb, "%q", p)
+			}
+			sb.WriteString("]\n")
+		}
+	}
+}
+
+// generateRuntimeConfigFieldsInline writes runtime-specific fields in compact single-line format.
+func generateRuntimeConfigFieldsInline(sb *strings.Builder, r *RuntimeConfig) {
+	if r.Name == RuntimeContainer {
+		if r.EnableHostSSH {
+			sb.WriteString(", enable_host_ssh: true")
+		}
+		if r.Containerfile != "" {
+			fmt.Fprintf(sb, ", containerfile: %q", r.Containerfile)
+		}
+		if r.Image != "" {
+			fmt.Fprintf(sb, ", image: %q", r.Image)
+		}
+		if len(r.Volumes) > 0 {
+			sb.WriteString(", volumes: [")
+			for j, v := range r.Volumes {
+				if j > 0 {
+					sb.WriteString(", ")
+				}
+				fmt.Fprintf(sb, "%q", v)
+			}
+			sb.WriteString("]")
+		}
+		if len(r.Ports) > 0 {
+			sb.WriteString(", ports: [")
+			for j, p := range r.Ports {
+				if j > 0 {
+					sb.WriteString(", ")
+				}
+				fmt.Fprintf(sb, "%q", p)
+			}
+			sb.WriteString("]")
+		}
+	}
 }
 
 // generateImplDependsOn generates CUE for implementation-level depends_on

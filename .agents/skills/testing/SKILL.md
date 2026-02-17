@@ -523,6 +523,8 @@ When writing native test mirrors for Windows, use these translations:
 | `native_deps_caps.txtar` | native | Native mirror of virtual_deps_caps.txtar | Inline CUE, platform-split |
 | `virtual_deps_custom.txtar` | virtual | Custom validation | Inline CUE, all platforms |
 | `native_deps_custom.txtar` | native | Native mirror of virtual_deps_custom.txtar | Inline CUE, platform-split |
+| `virtual_deps_runtime.txtar` | — | Schema rejection: virtual runtime rejects depends_on | Inline CUE, negative test |
+| `native_deps_runtime.txtar` | — | Schema rejection: native runtime rejects depends_on | Inline CUE, negative test |
 | `virtual_uroot_basic.txtar` | virtual | U-root basic utilities (exempt) | Inline CUE, all platforms |
 | `virtual_uroot_file_ops.txtar` | virtual | U-root file operations (exempt) | Inline CUE, all platforms |
 | `virtual_uroot_text_ops.txtar` | virtual | U-root text processing (exempt) | Inline CUE, all platforms |

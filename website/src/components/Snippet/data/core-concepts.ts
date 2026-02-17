@@ -800,6 +800,7 @@ platforms: [
     image?:            string  // mutually exclusive with containerfile
     volumes?:          [...string]
     ports?:            [...string]
+    depends_on?:       #DependsOn  // validated inside the container environment
 })
 
 // Discriminated union of all runtime types

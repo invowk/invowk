@@ -190,6 +190,15 @@ func (v *StructureValidator) validateRuntimeConfig(ctx *ValidationContext, inv *
 
 	// Container-specific fields validation
 	if rt.Name != RuntimeContainer {
+		// depends_on is only valid for container runtime (defense-in-depth; CUE schema is primary enforcement)
+		if rt.DependsOn != nil {
+			errors = append(errors, ValidationError{
+				Validator: v.Name(),
+				Field:     path.String(),
+				Message:   "depends_on is only valid for container runtime",
+				Severity:  SeverityError,
+			})
+		}
 		if rt.EnableHostSSH {
 			errors = append(errors, ValidationError{
 				Validator: v.Name(),
@@ -324,6 +333,12 @@ func (v *StructureValidator) validateRuntimeConfig(ctx *ValidationContext, inv *
 					Severity:  SeverityError,
 				})
 			}
+		}
+
+		// Container runtime-level depends_on (structural validation)
+		errors = append(errors, v.validateDependsOn(ctx, rt.DependsOn, path.Copy())...)
+		if rt.DependsOn != nil && len(rt.DependsOn.CustomChecks) > 0 {
+			errors = append(errors, v.validateCustomChecks(ctx, rt.DependsOn.CustomChecks, path.Copy())...)
 		}
 	}
 

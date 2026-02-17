@@ -90,17 +90,26 @@ Dependencies are **combined** across levels:
 
 ## Runtime-Aware Validation
 
-Dependencies are validated according to the runtime:
+Dependencies declared at root, command, or implementation level are **always validated against the host system**, regardless of the selected runtime. This ensures host-side prerequisites (like a container engine) are checked before execution begins.
 
-| Runtime | Dependencies Checked Against |
-|---------|------------------------------|
-| native | Host system |
-| virtual | Virtual shell with built-ins |
-| container | Inside the container |
-
-This is powerful for container commands:
+To validate dependencies **inside the container environment**, use `depends_on` inside a container runtime block:
 
 <Snippet id="dependencies/overview-runtime-aware" />
+
+### Container Runtime Dependencies
+
+The `depends_on` block inside a **container** runtime config validates against the container's environment. This is only available for the container runtime — native and virtual runtimes do not support runtime-level `depends_on`.
+
+| Scope | Validated Against |
+|-------|-------------------|
+| Root / Command / Implementation `depends_on` | Always the **host** system |
+| Container runtime `depends_on` | The **container's environment** |
+
+This separation lets you express both host and container requirements:
+
+<Snippet id="dependencies/overview-runtime-level" />
+
+Only the **selected** runtime's `depends_on` is validated. If a command has multiple runtimes listed, deps for unselected runtimes are skipped.
 
 ## Error Messages
 

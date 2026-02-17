@@ -14,12 +14,9 @@ import (
 	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
-// checkFilepathDependenciesWithRuntime verifies all required files/directories exist
-// The validation method depends on the runtime:
-// - native: check against host filesystem
-// - virtual: check against host filesystem (virtual shell still uses host fs)
-// - container: check within the container filesystem
-func checkFilepathDependenciesWithRuntime(deps *invowkfile.DependsOn, invowkfilePath string, runtimeMode invowkfile.RuntimeMode, registry *runtime.Registry, ctx *runtime.ExecutionContext) error {
+// checkFilepathDependenciesInContainer verifies all required files/directories exist inside the container.
+// Called only for container runtime (caller guards non-container early return).
+func checkFilepathDependenciesInContainer(deps *invowkfile.DependsOn, invowkfilePath string, registry *runtime.Registry, ctx *runtime.ExecutionContext) error {
 	if deps == nil || len(deps.Filepaths) == 0 {
 		return nil
 	}
@@ -28,15 +25,7 @@ func checkFilepathDependenciesWithRuntime(deps *invowkfile.DependsOn, invowkfile
 	invowkDir := filepath.Dir(invowkfilePath)
 
 	for _, fp := range deps.Filepaths {
-		var err error
-		switch runtimeMode {
-		case invowkfile.RuntimeContainer:
-			err = validateFilepathInContainer(fp, invowkDir, registry, ctx)
-		case invowkfile.RuntimeNative, invowkfile.RuntimeVirtual:
-			// Native and virtual use host filesystem
-			err = validateFilepathAlternatives(fp, invowkDir)
-		}
-		if err != nil {
+		if err := validateFilepathInContainer(fp, invowkDir, registry, ctx); err != nil {
 			filepathErrors = append(filepathErrors, err.Error())
 		}
 	}
@@ -108,6 +97,32 @@ func validateFilepathInContainer(fp invowkfile.FilepathDependency, invowkDir str
 		return fmt.Errorf("  • %s - %s", fp.Alternatives[0], allErrors[0])
 	}
 	return fmt.Errorf("  • none of the alternatives satisfied the requirements in container:\n      - %s", strings.Join(allErrors, "\n      - "))
+}
+
+// checkHostFilepathDependencies verifies all required files/directories exist on the HOST filesystem.
+// Always uses native validation regardless of selected runtime.
+func checkHostFilepathDependencies(deps *invowkfile.DependsOn, invowkfilePath string, ctx *runtime.ExecutionContext) error {
+	if deps == nil || len(deps.Filepaths) == 0 {
+		return nil
+	}
+
+	var filepathErrors []string
+	invowkDir := filepath.Dir(invowkfilePath)
+
+	for _, fp := range deps.Filepaths {
+		if err := validateFilepathAlternatives(fp, invowkDir); err != nil {
+			filepathErrors = append(filepathErrors, err.Error())
+		}
+	}
+
+	if len(filepathErrors) > 0 {
+		return &DependencyError{
+			CommandName:      ctx.Command.Name,
+			MissingFilepaths: filepathErrors,
+		}
+	}
+
+	return nil
 }
 
 // checkFilepathDependencies verifies all required files/directories exist with proper permissions (native-only fallback).
