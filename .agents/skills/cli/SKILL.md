@@ -127,25 +127,26 @@ func runTuiInput(cmd *cobra.Command, args []string) error {
 
 ## Discovery → Runtime → Execution Flow
 
-The execution is decomposed into a pipeline of focused methods on `commandService` (`cmd_execute.go`):
+The execution is decomposed into a pipeline of focused methods on `commandService` (`cmd_execute.go`), with runtime selection and context construction delegated to `internal/app/execute/`:
 
 ```
 commandService.Execute(ctx, req)
     │
-    ├── discoverCommand()       ← Loads config, discovers target command
-    │   └── discovery.GetCommand(ctx, name)
+    ├── discoverCommand()       ← Loads config, routes through DiscoveryService (uses per-request cache)
+    │   └── s.discovery.GetCommand(ctx, name)
     │
     ├── resolveDefinitions()    ← Resolves flag/arg defs with fallbacks
     │
     ├── validateInputs()        ← Validates flags, args, platform compatibility
     │
-    ├── resolveRuntime()        ← 3-tier: CLI flag > config default > per-command
+    ├── resolveRuntime()        ← Delegates to appexec.ResolveRuntime() (3-tier precedence),
+    │                              wraps errors as ServiceError
     │
     ├── ensureSSHIfNeeded()     ← Conditional SSH server start for container host access
     │
-    ├── buildExecContext()      ← Constructs ExecutionContext with env var projection
+    ├── buildExecContext()      ← Delegates to appexec.BuildExecutionContext() for env var projection
     │
-    └── dispatchExecution()     ← Creates registry, validates deps, dispatches:
+    └── dispatchExecution()     ← Calls runtime.BuildRegistry(), validates deps, dispatches:
         ├── Container init fail-fast (via runtimeRegistryResult.ContainerInitErr)
         ├── Dependency validation
         ├── Interactive mode (alternate screen + TUI server) OR standard execution
@@ -359,8 +360,10 @@ files, err := disc.DiscoverAll()  // or disc.LoadAll() to also parse
 | `root.go` | Root command, global flags, config loading |
 | `cmd.go` | `invowk cmd` parent, executeRequest(), disambiguation entry point |
 | `cmd_discovery.go` | Dynamic command registration (registerDiscoveredCommands, buildLeafCommand) |
-| `cmd_execute.go` | commandService: decomposed pipeline (discoverCommand → resolveDefinitions → validateInputs → resolveRuntime → ensureSSHIfNeeded → buildExecContext → dispatchExecution) |
-| `cmd_execute_helpers.go` | runtimeRegistryResult, createRuntimeRegistry(), runDisambiguatedCommand(), checkAmbiguousCommand() |
+| `cmd_execute.go` | commandService: decomposed pipeline (discoverCommand → resolveDefinitions → validateInputs → resolveRuntime → ensureSSHIfNeeded → buildExecContext → dispatchExecution). `resolveRuntime` and `buildExecContext` delegate to `internal/app/execute/` |
+| `cmd_execute_helpers.go` | runtimeRegistryResult, createRuntimeRegistry() (delegates to `runtime.BuildRegistry()`), runDisambiguatedCommand(), checkAmbiguousCommand() |
+| `internal/app/execute/orchestrator.go` | RuntimeSelection, RuntimeNotAllowedError, ResolveRuntime() (3-tier precedence), BuildExecutionContext() (env var projection) |
+| `internal/runtime/registry_factory.go` | BuildRegistry(), BuildRegistryOptions, RegistryBuildResult, InitDiagnostic |
 | `cmd_execute_error_classifier.go` | classifyExecutionError() — maps runtime errors to issue catalog IDs |
 | `service_error.go` | ServiceError type and renderServiceError() |
 | `cmd_render.go` | Styled error rendering (argument validation, deps, runtime, host support) |

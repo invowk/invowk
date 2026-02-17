@@ -103,6 +103,7 @@ When working in a specific code area, apply these rules and skills:
 | Code Area | Rules | Skills |
 |-----------|-------|--------|
 | `cmd/invowk/` | go-patterns, testing, licensing, commands | cli, d2-diagrams |
+| `internal/app/execute/` | go-patterns, testing, licensing, package-design | cli |
 | `internal/container/` | go-patterns, testing, windows, licensing | container |
 | `internal/discovery/` | go-patterns, testing, licensing, package-design | discovery, d2-diagrams |
 | `internal/runtime/` | go-patterns, testing, windows, licensing | shell (for virtual runtime), d2-diagrams |
@@ -145,6 +146,7 @@ invowkfile.cue -> CUE Parser -> pkg/invowkfile -> Runtime Selection -> Execution
 
 - `cmd/invowk/` - CLI commands using Cobra.
 - `internal/` - Private packages:
+  - `app/execute/` - Execution orchestration (runtime resolution, execution context construction).
   - `config/` - Configuration management with CUE schema.
   - `container/` - Docker/Podman container engine abstraction.
   - `core/serverbase/` - Shared server state machine base type (used by sshserver, tuiserver).
