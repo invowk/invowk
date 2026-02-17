@@ -272,18 +272,7 @@ for _, tt := range tests {
 
 ### Path Assertions
 
-**Never hardcode path separators in assertions:**
-
-```go
-// WRONG: Fails on Windows
-expected := "/app/config/file.json"
-
-// CORRECT: Platform-aware path construction
-expected := filepath.Join("/app", "config", "file.json")
-
-// ALSO CORRECT: For container paths (always forward slash)
-containerPath := "/workspace/scripts/run.sh"  // OK - container paths are always Unix-style
-```
+Never hardcode path separators in assertions — use `filepath.Join()` for host paths. Container paths (always forward slash) are fine as literals. For the full path handling guide (host vs container paths, `filepath.ToSlash()`, common patterns), see `windows.md` § "Path Handling".
 
 ### Absolute Fixture Pattern (Host Paths)
 
