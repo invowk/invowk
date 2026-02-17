@@ -67,8 +67,7 @@ func generateDependsOn(sb *strings.Builder, deps *DependsOn, indent string) {
 	if deps == nil {
 		return
 	}
-	if len(deps.Tools) == 0 && len(deps.Commands) == 0 && len(deps.Filepaths) == 0 &&
-		len(deps.Capabilities) == 0 && len(deps.CustomChecks) == 0 && len(deps.EnvVars) == 0 {
+	if deps.IsEmpty() {
 		return
 	}
 
@@ -331,8 +330,7 @@ func generateImplDependsOn(sb *strings.Builder, deps *DependsOn) {
 	if deps == nil {
 		return
 	}
-	if len(deps.Tools) == 0 && len(deps.Commands) == 0 && len(deps.Filepaths) == 0 &&
-		len(deps.Capabilities) == 0 && len(deps.CustomChecks) == 0 && len(deps.EnvVars) == 0 {
+	if deps.IsEmpty() {
 		return
 	}
 
@@ -346,8 +344,7 @@ func generateCommandDependsOn(sb *strings.Builder, deps *DependsOn) {
 	if deps == nil {
 		return
 	}
-	if len(deps.Tools) == 0 && len(deps.Commands) == 0 && len(deps.Filepaths) == 0 &&
-		len(deps.Capabilities) == 0 && len(deps.CustomChecks) == 0 && len(deps.EnvVars) == 0 {
+	if deps.IsEmpty() {
 		return
 	}
 
@@ -415,9 +412,9 @@ func generateDependsOnContent(sb *strings.Builder, deps *DependsOn, indent strin
 
 	if len(deps.Capabilities) > 0 {
 		sb.WriteString(indent + "capabilities: [\n")
-		for _, cap := range deps.Capabilities {
+		for _, capDep := range deps.Capabilities {
 			sb.WriteString(indent + "\t{alternatives: [")
-			for i, alt := range cap.Alternatives {
+			for i, alt := range capDep.Alternatives {
 				if i > 0 {
 					sb.WriteString(", ")
 				}

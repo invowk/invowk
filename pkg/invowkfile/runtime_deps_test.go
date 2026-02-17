@@ -311,6 +311,170 @@ func TestGenerateCUE_RuntimeDependsOn(t *testing.T) {
 	}
 }
 
+// T7: Extended GenerateCUE roundtrip with all 6 dependency types
+func TestGenerateCUE_RuntimeDependsOn_AllDepTypes(t *testing.T) {
+	t.Parallel()
+
+	expectedCode := 0
+	inv := &Invowkfile{
+		Commands: []Command{{
+			Name: "all-deps",
+			Implementations: []Implementation{{
+				Script: "echo test",
+				Runtimes: []RuntimeConfig{{
+					Name:  RuntimeContainer,
+					Image: "debian:stable-slim",
+					DependsOn: &DependsOn{
+						Tools:    []ToolDependency{{Alternatives: []string{"curl"}}},
+						Commands: []CommandDependency{{Alternatives: []string{"build"}}},
+						Filepaths: []FilepathDependency{{
+							Alternatives: []string{"/etc/hosts"},
+							Readable:     true,
+						}},
+						Capabilities: []CapabilityDependency{{
+							Alternatives: []CapabilityName{CapabilityInternet},
+						}},
+						CustomChecks: []CustomCheckDependency{{
+							Name:         "version-check",
+							CheckScript:  "echo 1",
+							ExpectedCode: &expectedCode,
+						}},
+						EnvVars: []EnvVarDependency{{
+							Alternatives: []EnvVarCheck{{Name: "HOME"}},
+						}},
+					},
+				}},
+				Platforms: []PlatformConfig{{Name: PlatformLinux}},
+			}},
+		}},
+	}
+
+	generated := GenerateCUE(inv)
+
+	// Verify all 6 dep types are present in generated CUE
+	for _, want := range []string{"tools:", "cmds:", "filepaths:", "capabilities:", "custom_checks:", "env_vars:"} {
+		if !strings.Contains(generated, want) {
+			t.Errorf("generated CUE missing %q", want)
+		}
+	}
+
+	// Roundtrip: parse the generated CUE
+	parsed, err := ParseBytes([]byte(generated), "roundtrip-all.cue")
+	if err != nil {
+		t.Fatalf("roundtrip ParseBytes failed: %v", err)
+	}
+
+	rc := parsed.Commands[0].Implementations[0].Runtimes[0]
+	if rc.DependsOn == nil {
+		t.Fatal("roundtrip: runtime DependsOn is nil")
+	}
+
+	deps := rc.DependsOn
+	if len(deps.Tools) != 1 || deps.Tools[0].Alternatives[0] != "curl" {
+		t.Errorf("roundtrip: tools = %v, want [{curl}]", deps.Tools)
+	}
+	if len(deps.Commands) != 1 || deps.Commands[0].Alternatives[0] != "build" {
+		t.Errorf("roundtrip: cmds = %v, want [{build}]", deps.Commands)
+	}
+	if len(deps.Filepaths) != 1 || deps.Filepaths[0].Alternatives[0] != "/etc/hosts" {
+		t.Errorf("roundtrip: filepaths = %v, want [{/etc/hosts}]", deps.Filepaths)
+	}
+	if !deps.Filepaths[0].Readable {
+		t.Error("roundtrip: filepaths[0].readable should be true")
+	}
+	if len(deps.Capabilities) != 1 || deps.Capabilities[0].Alternatives[0] != CapabilityInternet {
+		t.Errorf("roundtrip: capabilities = %v, want [{internet}]", deps.Capabilities)
+	}
+	if len(deps.CustomChecks) != 1 || deps.CustomChecks[0].Name != "version-check" {
+		t.Errorf("roundtrip: custom_checks = %v, want [{version-check}]", deps.CustomChecks)
+	}
+	if len(deps.EnvVars) != 1 || deps.EnvVars[0].Alternatives[0].Name != "HOME" {
+		t.Errorf("roundtrip: env_vars = %v, want [{HOME}]", deps.EnvVars)
+	}
+}
+
+// T6: Structural validation defense-in-depth — Go StructureValidator catches
+// depends_on on non-container RuntimeConfig even when CUE parsing is bypassed
+func TestStructureValidator_RuntimeDependsOn_RejectsNonContainer(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		runtime RuntimeMode
+	}{
+		{"native rejects depends_on", RuntimeNative},
+		{"virtual rejects depends_on", RuntimeVirtual},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			inv := &Invowkfile{
+				Commands: []Command{{
+					Name: "test",
+					Implementations: []Implementation{{
+						Script: "echo test",
+						Runtimes: []RuntimeConfig{{
+							Name: tt.runtime,
+							DependsOn: &DependsOn{
+								Tools: []ToolDependency{{Alternatives: []string{"curl"}}},
+							},
+						}},
+						Platforms: AllPlatformConfigs(),
+					}},
+				}},
+			}
+
+			validator := NewStructureValidator()
+			ctx := &ValidationContext{FilePath: "test.cue"}
+			errs := validator.Validate(ctx, inv)
+
+			found := false
+			for _, e := range errs {
+				if strings.Contains(e.Message, "depends_on is only valid for container runtime") {
+					found = true
+					break
+				}
+			}
+			if !found {
+				t.Errorf("StructureValidator should reject depends_on on %s runtime, got errors: %v", tt.runtime, errs)
+			}
+		})
+	}
+}
+
+func TestStructureValidator_RuntimeDependsOn_AllowsContainer(t *testing.T) {
+	t.Parallel()
+
+	inv := &Invowkfile{
+		Commands: []Command{{
+			Name: "test",
+			Implementations: []Implementation{{
+				Script: "echo test",
+				Runtimes: []RuntimeConfig{{
+					Name:  RuntimeContainer,
+					Image: "debian:stable-slim",
+					DependsOn: &DependsOn{
+						Tools: []ToolDependency{{Alternatives: []string{"curl"}}},
+					},
+				}},
+				Platforms: AllPlatformConfigs(),
+			}},
+		}},
+	}
+
+	validator := NewStructureValidator()
+	ctx := &ValidationContext{FilePath: "test.cue"}
+	errs := validator.Validate(ctx, inv)
+
+	for _, e := range errs {
+		if strings.Contains(e.Message, "depends_on is only valid for container runtime") {
+			t.Errorf("StructureValidator should NOT reject depends_on on container runtime, got: %v", e)
+		}
+	}
+}
+
 func TestGenerateCUE_RuntimeNoDeps_CompactFormat(t *testing.T) {
 	t.Parallel()
 

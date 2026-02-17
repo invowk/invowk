@@ -3,9 +3,7 @@
 package cmd
 
 import (
-	"context"
 	"fmt"
-	"os"
 
 	"github.com/spf13/cobra"
 
@@ -27,18 +25,15 @@ func newInternalCheckCmdCommand() *cobra.Command {
 			cmdName := args[0]
 
 			provider := config.NewProvider()
-			cfg, err := provider.Load(context.Background(), config.LoadOptions{})
+			cfg, err := provider.Load(cmd.Context(), config.LoadOptions{})
 			if err != nil {
-				// If config load fails, commands can't be discovered
-				fmt.Fprintf(os.Stderr, "config load failed: %v\n", err)
-				os.Exit(1)
+				return &ExitError{Code: 1, Err: fmt.Errorf("config load failed: %w", err)}
 			}
 
 			disc := discovery.New(cfg)
-			result, err := disc.DiscoverCommandSet(context.Background())
+			result, err := disc.DiscoverCommandSet(cmd.Context())
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "discovery failed: %v\n", err)
-				os.Exit(1)
+				return &ExitError{Code: 1, Err: fmt.Errorf("discovery failed: %w", err)}
 			}
 
 			for _, c := range result.Set.Commands {
@@ -47,8 +42,7 @@ func newInternalCheckCmdCommand() *cobra.Command {
 				}
 			}
 
-			os.Exit(1)
-			return nil // unreachable
+			return &ExitError{Code: 1, Err: fmt.Errorf("command %q not discoverable", cmdName)}
 		},
 	}
 }

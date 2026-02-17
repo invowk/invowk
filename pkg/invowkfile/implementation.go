@@ -85,12 +85,7 @@ func (s *Implementation) HasRuntime(runtime RuntimeMode) bool {
 
 // GetRuntimeConfig returns the RuntimeConfig for the given runtime type, or nil if not found.
 func (s *Implementation) GetRuntimeConfig(runtime RuntimeMode) *RuntimeConfig {
-	for i := range s.Runtimes {
-		if s.Runtimes[i].Name == runtime {
-			return &s.Runtimes[i]
-		}
-	}
-	return nil
+	return FindRuntimeConfig(s.Runtimes, runtime)
 }
 
 // GetDefaultRuntime returns the default runtime type for this implementation (first runtime in the list).
@@ -133,10 +128,7 @@ func (s *Implementation) GetHostSSHForRuntime(runtime RuntimeMode) bool {
 
 // HasDependencies returns true if the implementation has any dependencies.
 func (s *Implementation) HasDependencies() bool {
-	if s.DependsOn == nil {
-		return false
-	}
-	return len(s.DependsOn.Tools) > 0 || len(s.DependsOn.Commands) > 0 || len(s.DependsOn.Filepaths) > 0 || len(s.DependsOn.Capabilities) > 0 || len(s.DependsOn.CustomChecks) > 0 || len(s.DependsOn.EnvVars) > 0
+	return s.DependsOn != nil && !s.DependsOn.IsEmpty()
 }
 
 // GetCommandDependencies returns the list of command dependency names from this implementation.

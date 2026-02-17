@@ -22,9 +22,10 @@ import (
 // config's depends_on (if any) is validated inside the container environment.
 // Runtime-level depends_on is only supported for container runtime.
 //
-// Note: `depends_on.cmds` is an existence check only. Invowk validates that referenced
-// commands are discoverable (in this invowkfile, modules, or configured search paths),
-// but it does not execute them automatically.
+// Note: depends_on.cmds is a discoverability check only. For host-level deps, Invowk validates
+// that commands are discoverable via the standard discovery pipeline. For container runtime deps,
+// it runs 'invowk internal check-cmd' inside the container. Neither phase executes the
+// referenced commands.
 func validateDependencies(cfg *config.Config, cmdInfo *discovery.CommandInfo, registry *runtime.Registry, parentCtx *runtime.ExecutionContext) error {
 	// Phase 1: Host dependencies (root + cmd + impl, always validated on host)
 	if err := validateHostDependencies(cfg, cmdInfo, parentCtx); err != nil {
@@ -32,11 +33,7 @@ func validateDependencies(cfg *config.Config, cmdInfo *discovery.CommandInfo, re
 	}
 
 	// Phase 2: Runtime dependencies (selected runtime's depends_on, runtime-aware)
-	if err := validateRuntimeDependencies(cfg, cmdInfo, registry, parentCtx); err != nil {
-		return err
-	}
-
-	return nil
+	return validateRuntimeDependencies(cmdInfo, registry, parentCtx)
 }
 
 // validateHostDependencies validates merged root+cmd+impl dependencies against the HOST.
@@ -47,7 +44,7 @@ func validateHostDependencies(cfg *config.Config, cmdInfo *discovery.CommandInfo
 		return nil
 	}
 
-	invowkDir := cmdInfo.Invowkfile.FilePath
+	invowkfilePath := cmdInfo.Invowkfile.FilePath
 
 	// Env vars: host-only, validated BEFORE invowk sets any env vars
 	if err := checkEnvVarDependencies(mergedDeps, captureUserEnv(), parentCtx); err != nil {
@@ -60,7 +57,7 @@ func validateHostDependencies(cfg *config.Config, cmdInfo *discovery.CommandInfo
 	}
 
 	// Filepaths: always host filesystem
-	if err := checkHostFilepathDependencies(mergedDeps, invowkDir, parentCtx); err != nil {
+	if err := checkHostFilepathDependencies(mergedDeps, invowkfilePath, parentCtx); err != nil {
 		return err
 	}
 
@@ -79,18 +76,14 @@ func validateHostDependencies(cfg *config.Config, cmdInfo *discovery.CommandInfo
 	if cmdInfo.Invowkfile.Metadata != nil {
 		currentModule = cmdInfo.Invowkfile.Metadata.Module
 	}
-	if err := checkCommandDependenciesExist(cfg, mergedDeps, currentModule, parentCtx, nil); err != nil {
-		return err
-	}
-
-	return nil
+	return checkCommandDependenciesExist(cfg, mergedDeps, currentModule, parentCtx, nil)
 }
 
 // validateRuntimeDependencies validates the selected runtime config's depends_on against
 // the runtime's own environment. Runtime-level depends_on is only supported for the
 // container runtime — for native/virtual, it's a no-op since CUE schema and structural
 // validation prevent declaring depends_on on those runtime types.
-func validateRuntimeDependencies(cfg *config.Config, cmdInfo *discovery.CommandInfo, registry *runtime.Registry, parentCtx *runtime.ExecutionContext) error {
+func validateRuntimeDependencies(cmdInfo *discovery.CommandInfo, registry *runtime.Registry, parentCtx *runtime.ExecutionContext) error {
 	selectedRuntime := parentCtx.SelectedRuntime
 
 	// Runtime-level depends_on is only supported for container runtime
@@ -106,9 +99,7 @@ func validateRuntimeDependencies(cfg *config.Config, cmdInfo *discovery.CommandI
 
 	rtDeps := rc.DependsOn
 
-	// Check if there are any runtime-level deps at all
-	if len(rtDeps.Tools) == 0 && len(rtDeps.Commands) == 0 && len(rtDeps.Filepaths) == 0 &&
-		len(rtDeps.Capabilities) == 0 && len(rtDeps.CustomChecks) == 0 && len(rtDeps.EnvVars) == 0 {
+	if rtDeps.IsEmpty() {
 		return nil
 	}
 
@@ -138,15 +129,7 @@ func validateRuntimeDependencies(cfg *config.Config, cmdInfo *discovery.CommandI
 	}
 
 	// Command discoverability: validated inside the container
-	currentModule := ""
-	if cmdInfo.Invowkfile.Metadata != nil {
-		currentModule = cmdInfo.Invowkfile.Metadata.Module
-	}
-	if err := checkCommandDependenciesInContainer(cfg, rtDeps, currentModule, registry, parentCtx); err != nil {
-		return err
-	}
-
-	return nil
+	return checkCommandDependenciesInContainer(rtDeps, registry, parentCtx)
 }
 
 func checkCommandDependenciesExist(cfg *config.Config, deps *invowkfile.DependsOn, currentModule string, ctx *runtime.ExecutionContext, discoveryOpts []discovery.Option) error {

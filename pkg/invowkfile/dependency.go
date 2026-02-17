@@ -116,6 +116,12 @@ type (
 	}
 )
 
+// IsEmpty returns true if this DependsOn has no dependencies of any type.
+func (d *DependsOn) IsEmpty() bool {
+	return len(d.Tools) == 0 && len(d.Commands) == 0 && len(d.Filepaths) == 0 &&
+		len(d.Capabilities) == 0 && len(d.CustomChecks) == 0 && len(d.EnvVars) == 0
+}
+
 // IsAlternatives returns true if this dependency uses the alternatives format
 func (c *CustomCheckDependency) IsAlternatives() bool {
 	return len(c.Alternatives) > 0
@@ -191,7 +197,7 @@ func MergeDependsOnAll(rootDeps, cmdDeps, implDeps *DependsOn) *DependsOn {
 	}
 
 	// Return nil if no dependencies after merging
-	if len(merged.Tools) == 0 && len(merged.Commands) == 0 && len(merged.Filepaths) == 0 && len(merged.Capabilities) == 0 && len(merged.CustomChecks) == 0 && len(merged.EnvVars) == 0 {
+	if merged.IsEmpty() {
 		return nil
 	}
 

@@ -21,11 +21,16 @@ func checkFilepathDependenciesInContainer(deps *invowkfile.DependsOn, invowkfile
 		return nil
 	}
 
+	rt, err := registry.Get(runtime.RuntimeTypeContainer)
+	if err != nil {
+		return fmt.Errorf("container runtime not available for filepath validation")
+	}
+
 	var filepathErrors []string
 	invowkDir := filepath.Dir(invowkfilePath)
 
 	for _, fp := range deps.Filepaths {
-		if err := validateFilepathInContainer(fp, invowkDir, registry, ctx); err != nil {
+		if err := validateFilepathInContainer(fp, invowkDir, rt, ctx); err != nil {
 			filepathErrors = append(filepathErrors, err.Error())
 		}
 	}
@@ -40,13 +45,9 @@ func checkFilepathDependenciesInContainer(deps *invowkfile.DependsOn, invowkfile
 	return nil
 }
 
-// validateFilepathInContainer validates a filepath dependency within a container
-func validateFilepathInContainer(fp invowkfile.FilepathDependency, invowkDir string, registry *runtime.Registry, ctx *runtime.ExecutionContext) error {
-	rt, err := registry.Get(runtime.RuntimeTypeContainer)
-	if err != nil {
-		return fmt.Errorf("  • container runtime not available")
-	}
-
+// validateFilepathInContainer validates a filepath dependency within a container.
+// The runtime is passed directly (hoisted by caller) to avoid redundant registry lookups.
+func validateFilepathInContainer(fp invowkfile.FilepathDependency, invowkDir string, rt runtime.Runtime, ctx *runtime.ExecutionContext) error {
 	if len(fp.Alternatives) == 0 {
 		return fmt.Errorf("  • (no paths specified) - at least one path must be provided in alternatives")
 	}
@@ -54,25 +55,24 @@ func validateFilepathInContainer(fp invowkfile.FilepathDependency, invowkDir str
 	var allErrors []string
 
 	for _, altPath := range fp.Alternatives {
-		// Build a check script for this path
-		var checks []string
+		// Shell-safe single-quote escaping for paths
+		escapedPath := shellEscapeSingleQuote(altPath)
 
-		// Basic existence check
-		checks = append(checks, fmt.Sprintf("test -e '%s'", altPath))
+		var checks []string
+		checks = append(checks, fmt.Sprintf("test -e '%s'", escapedPath))
 
 		if fp.Readable {
-			checks = append(checks, fmt.Sprintf("test -r '%s'", altPath))
+			checks = append(checks, fmt.Sprintf("test -r '%s'", escapedPath))
 		}
 		if fp.Writable {
-			checks = append(checks, fmt.Sprintf("test -w '%s'", altPath))
+			checks = append(checks, fmt.Sprintf("test -w '%s'", escapedPath))
 		}
 		if fp.Executable {
-			checks = append(checks, fmt.Sprintf("test -x '%s'", altPath))
+			checks = append(checks, fmt.Sprintf("test -x '%s'", escapedPath))
 		}
 
 		checkScript := strings.Join(checks, " && ")
 
-		// Create a minimal context for validation
 		var stdout, stderr bytes.Buffer
 		validationCtx := &runtime.ExecutionContext{
 			Command:         ctx.Command,
@@ -85,14 +85,15 @@ func validateFilepathInContainer(fp invowkfile.FilepathDependency, invowkDir str
 		}
 
 		result := rt.Execute(validationCtx)
+		if result.Error != nil {
+			return fmt.Errorf("  • container validation failed for path %s: %w", altPath, result.Error)
+		}
 		if result.ExitCode == 0 {
-			// This alternative satisfies the dependency
 			return nil
 		}
 		allErrors = append(allErrors, fmt.Sprintf("%s: not found or permission denied in container", altPath))
 	}
 
-	// None of the alternatives satisfied the requirements
 	if len(fp.Alternatives) == 1 {
 		return fmt.Errorf("  • %s - %s", fp.Alternatives[0], allErrors[0])
 	}

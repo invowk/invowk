@@ -11,10 +11,20 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/invowk/invowk/internal/config"
 	"github.com/invowk/invowk/internal/runtime"
 	"github.com/invowk/invowk/pkg/invowkfile"
 )
+
+// envVarNamePattern validates environment variable names before shell interpolation.
+// Defense-in-depth: CUE schema also enforces this at parse time.
+var envVarNamePattern = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
+
+// shellEscapeSingleQuote escapes single quotes for safe use inside shell single-quoted arguments.
+// Each embedded single-quote is replaced with the shell idiom that closes the current quoting,
+// adds a backslash-escaped literal quote, and reopens single-quoting.
+func shellEscapeSingleQuote(s string) string {
+	return strings.ReplaceAll(s, "'", `'\''`)
+}
 
 // validateCustomCheckOutput validates custom check script output against expected values
 func validateCustomCheckOutput(check invowkfile.CustomCheck, outputStr string, execErr error) error {
@@ -110,14 +120,15 @@ func validateCustomCheckNative(check invowkfile.CustomCheck) error {
 	return validateCustomCheckOutput(check, outputStr, err)
 }
 
-// validateCustomCheckInContainer runs a custom check script within a container
+// validateCustomCheckInContainer runs a custom check script within a container.
+// Distinguishes infrastructure failures (container engine down) from script exit codes
+// to prevent false-positive validation when the container never actually ran.
 func validateCustomCheckInContainer(check invowkfile.CustomCheck, registry *runtime.Registry, ctx *runtime.ExecutionContext) error {
 	rt, err := registry.Get(runtime.RuntimeTypeContainer)
 	if err != nil {
 		return fmt.Errorf("  • %s - container runtime not available", check.Name)
 	}
 
-	// Create a minimal context for validation
 	var stdout, stderr bytes.Buffer
 	validationCtx := &runtime.ExecutionContext{
 		Command:         ctx.Command,
@@ -130,13 +141,23 @@ func validateCustomCheckInContainer(check invowkfile.CustomCheck, registry *runt
 	}
 
 	result := rt.Execute(validationCtx)
-	outputStr := strings.TrimSpace(stdout.String() + stderr.String())
 
+	// Infrastructure failures must be surfaced immediately — if the container engine
+	// failed, no check ever ran, so we must not fall through to exit code comparison.
+	if result.Error != nil {
+		var exitErr *exec.ExitError
+		if !errors.As(result.Error, &exitErr) {
+			return fmt.Errorf("  • %s - container validation failed: %w", check.Name, result.Error)
+		}
+	}
+
+	outputStr := strings.TrimSpace(stdout.String() + stderr.String())
 	return validateCustomCheckOutput(check, outputStr, result.Error)
 }
 
 // checkHostCustomCheckDependencies validates custom checks always using the native shell on the host.
-// Used for host-level deps (root+cmd+impl) which are always validated on the host.
+// Host-level custom checks always run in the native shell, regardless of the selected runtime,
+// ensuring host-side prerequisites are validated in a consistent, predictable environment.
 func checkHostCustomCheckDependencies(deps *invowkfile.DependsOn, ctx *runtime.ExecutionContext) error {
 	if deps == nil || len(deps.CustomChecks) == 0 {
 		return nil
@@ -206,12 +227,19 @@ func checkEnvVarDependenciesInContainer(deps *invowkfile.DependsOn, registry *ru
 				continue
 			}
 
+			// Defense-in-depth: validate env var name before shell interpolation
+			if !envVarNamePattern.MatchString(name) {
+				lastErr = fmt.Errorf("  • %s - invalid environment variable name", name)
+				continue
+			}
+
 			// Check if env var is set inside container: test -n "${VAR+x}"
 			checkScript := fmt.Sprintf("test -n \"${%s+x}\"", name)
 
 			// If validation pattern specified, also check value
 			if alt.Validation != "" {
-				checkScript = fmt.Sprintf("test -n \"${%s+x}\" && printf '%%s' \"$%s\" | grep -qE '%s'", name, name, alt.Validation)
+				escapedValidation := shellEscapeSingleQuote(alt.Validation)
+				checkScript = fmt.Sprintf("test -n \"${%s+x}\" && printf '%%s' \"$%s\" | grep -qE '%s'", name, name, escapedValidation)
 			}
 
 			var stdout, stderr bytes.Buffer
@@ -226,6 +254,9 @@ func checkEnvVarDependenciesInContainer(deps *invowkfile.DependsOn, registry *ru
 			}
 
 			result := rt.Execute(validationCtx)
+			if result.Error != nil {
+				return fmt.Errorf("container validation failed for env var %s: %w", name, result.Error)
+			}
 			if result.ExitCode == 0 {
 				found = true
 				break
@@ -274,11 +305,11 @@ func checkCapabilityDependenciesInContainer(deps *invowkfile.DependsOn, registry
 
 	var capabilityErrors []string
 
-	for _, cap := range deps.Capabilities {
+	for _, capDep := range deps.Capabilities {
 		var lastErr error
 		found := false
 
-		for _, alt := range cap.Alternatives {
+		for _, alt := range capDep.Alternatives {
 			checkScript := capabilityCheckScript(alt)
 			if checkScript == "" {
 				lastErr = fmt.Errorf("%s - unknown capability", string(alt))
@@ -297,6 +328,9 @@ func checkCapabilityDependenciesInContainer(deps *invowkfile.DependsOn, registry
 			}
 
 			result := rt.Execute(validationCtx)
+			if result.Error != nil {
+				return fmt.Errorf("container validation failed for capability %s: %w", string(alt), result.Error)
+			}
 			if result.ExitCode == 0 {
 				found = true
 				break
@@ -305,11 +339,11 @@ func checkCapabilityDependenciesInContainer(deps *invowkfile.DependsOn, registry
 		}
 
 		if !found && lastErr != nil {
-			if len(cap.Alternatives) == 1 {
+			if len(capDep.Alternatives) == 1 {
 				capabilityErrors = append(capabilityErrors, fmt.Sprintf("  • %s", lastErr.Error()))
 			} else {
-				alts := make([]string, len(cap.Alternatives))
-				for i, alt := range cap.Alternatives {
+				alts := make([]string, len(capDep.Alternatives))
+				for i, alt := range capDep.Alternatives {
 					alts[i] = string(alt)
 				}
 				capabilityErrors = append(capabilityErrors, fmt.Sprintf("  • none of capabilities [%s] satisfied in container", strings.Join(alts, ", ")))
@@ -327,7 +361,8 @@ func checkCapabilityDependenciesInContainer(deps *invowkfile.DependsOn, registry
 	return nil
 }
 
-// capabilityCheckScript returns a shell script to check a capability inside a container.
+// capabilityCheckScript returns a shell one-liner that checks whether a system capability
+// is available. The returned script is suitable for execution in any POSIX shell environment.
 func capabilityCheckScript(capName invowkfile.CapabilityName) string {
 	switch capName {
 	case invowkfile.CapabilityInternet:
@@ -339,15 +374,14 @@ func capabilityCheckScript(capName invowkfile.CapabilityName) string {
 		return "ip route 2>/dev/null | grep -q default || route -n 2>/dev/null | grep -q '^0.0.0.0'"
 	case invowkfile.CapabilityTTY:
 		return "test -t 0"
-	default:
-		return ""
 	}
+	return ""
 }
 
 // checkCommandDependenciesInContainer validates command discoverability inside the container.
 // Called only for container runtime (caller guards non-container early return).
 // Runs `invowk internal check-cmd` inside the container to verify auto-provisioning worked.
-func checkCommandDependenciesInContainer(cfg *config.Config, deps *invowkfile.DependsOn, currentModule string, registry *runtime.Registry, ctx *runtime.ExecutionContext) error {
+func checkCommandDependenciesInContainer(deps *invowkfile.DependsOn, registry *runtime.Registry, ctx *runtime.ExecutionContext) error {
 	if deps == nil || len(deps.Commands) == 0 {
 		return nil
 	}
@@ -373,8 +407,9 @@ func checkCommandDependenciesInContainer(cfg *config.Config, deps *invowkfile.De
 
 		found := false
 		for _, alt := range alternatives {
-			// Run `invowk internal check-cmd <name>` inside the container
-			checkScript := fmt.Sprintf("invowk internal check-cmd %q", alt)
+			// Shell-safe single-quote escaping for command name
+			escapedAlt := shellEscapeSingleQuote(alt)
+			checkScript := fmt.Sprintf("invowk internal check-cmd '%s'", escapedAlt)
 
 			var stdout, stderr bytes.Buffer
 			validationCtx := &runtime.ExecutionContext{
@@ -388,6 +423,13 @@ func checkCommandDependenciesInContainer(cfg *config.Config, deps *invowkfile.De
 			}
 
 			result := rt.Execute(validationCtx)
+			if result.Error != nil {
+				stderrStr := strings.TrimSpace(stderr.String())
+				if stderrStr != "" {
+					return fmt.Errorf("container validation failed for command %s: %w (%s)", alt, result.Error, stderrStr)
+				}
+				return fmt.Errorf("container validation failed for command %s: %w", alt, result.Error)
+			}
 			if result.ExitCode == 0 {
 				found = true
 				break
@@ -474,11 +516,11 @@ func checkCapabilityDependencies(deps *invowkfile.DependsOn, ctx *runtime.Execut
 	// Track seen capability sets to detect duplicates (they're just skipped, not an error)
 	seen := make(map[string]bool)
 
-	for _, cap := range deps.Capabilities {
+	for _, capDep := range deps.Capabilities {
 		// Create a unique key for this set of alternatives
 		key := strings.Join(func() []string {
-			s := make([]string, len(cap.Alternatives))
-			for i, alt := range cap.Alternatives {
+			s := make([]string, len(capDep.Alternatives))
+			for i, alt := range capDep.Alternatives {
 				s[i] = string(alt)
 			}
 			return s
@@ -492,7 +534,7 @@ func checkCapabilityDependencies(deps *invowkfile.DependsOn, ctx *runtime.Execut
 
 		var lastErr error
 		found := false
-		for _, alt := range cap.Alternatives {
+		for _, alt := range capDep.Alternatives {
 			if err := invowkfile.CheckCapability(alt); err == nil {
 				found = true
 				break // Early return on first match
@@ -502,11 +544,11 @@ func checkCapabilityDependencies(deps *invowkfile.DependsOn, ctx *runtime.Execut
 		}
 
 		if !found && lastErr != nil {
-			if len(cap.Alternatives) == 1 {
+			if len(capDep.Alternatives) == 1 {
 				capabilityErrors = append(capabilityErrors, fmt.Sprintf("  • %s", lastErr.Error()))
 			} else {
-				alts := make([]string, len(cap.Alternatives))
-				for i, alt := range cap.Alternatives {
+				alts := make([]string, len(capDep.Alternatives))
+				for i, alt := range capDep.Alternatives {
 					alts[i] = string(alt)
 				}
 				capabilityErrors = append(capabilityErrors, fmt.Sprintf("  • none of capabilities [%s] satisfied", strings.Join(alts, ", ")))
