@@ -552,6 +552,10 @@ When writing native test mirrors for Windows, use these translations:
 | `completion.txtar` | — | Shell completion generation (built-in) | bash/zsh/fish/powershell output |
 | `tui_format.txtar` | — | TUI format subcommand (built-in) | Stdin pipe, markdown/code/emoji |
 | `tui_style.txtar` | — | TUI style subcommand (built-in) | Stdin pipe, flag-based styling |
+| `init_default.txtar` | — | Default init subcommand (built-in) | Creates invowkfile.cue |
+| `init_templates.txtar` | — | Init with templates (built-in) | Template selection |
+| `validate.txtar` | — | Unified validate command (built-in) | Workspace, invowkfile, module modes |
+| `virtual_diagnostics_footer.txtar` | virtual | Diagnostics footer on cmd listing (exempt) | Broken module + verbose/non-verbose |
 
 ### When to Add CLI Tests
 

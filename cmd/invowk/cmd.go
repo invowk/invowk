@@ -317,15 +317,18 @@ func resolveUIFlags(ctx context.Context, app *App, cmd *cobra.Command, rootFlags
 }
 
 // validateCommandTree discovers all commands and validates the command tree for
-// structural conflicts (e.g., commands with both args and subcommands). It renders
-// non-fatal diagnostics and returns ArgsSubcommandConflictError if found.
+// structural conflicts (e.g., commands with both args and subcommands).
+// On success, diagnostic rendering is deferred to downstream callers (listCommands,
+// executeRequest) that consume the cached discovery result. On error, diagnostics
+// are rendered here because downstream callers will not execute.
 func validateCommandTree(ctx context.Context, app *App, rootFlags *rootFlagValues) error {
 	result, err := app.Discovery.DiscoverAndValidateCommandSet(ctx)
-	// Always render non-fatal diagnostics produced during discovery.
-	app.Diagnostics.Render(ctx, result.Diagnostics, app.stderr)
 	if err == nil {
-		return nil
+		return nil // diagnostics rendered by downstream callers via the shared cache
 	}
+
+	// Error path: downstream callers won't execute, so render diagnostics here.
+	app.Diagnostics.Render(ctx, result.Diagnostics, app.stderr)
 
 	if conflictErr, ok := errors.AsType[*discovery.ArgsSubcommandConflictError](err); ok {
 		fmt.Fprintf(app.stderr, "\n%s\n\n", RenderArgsSubcommandConflictError(conflictErr))

@@ -79,6 +79,74 @@ func TestAppDiscoveryService_RequestScopedCache_ReusesLookupResult(t *testing.T)
 }
 
 // Not parallel: os.Chdir is process-wide.
+//
+// Verifies the cross-population invariant: after DiscoverAndValidateCommandSet
+// populates the cache, a subsequent DiscoverCommandSet call returns the cached
+// result with nil error (even when tree validation failed). This ensures the
+// listing path (DiscoverCommandSet) doesn't see tree validation errors as
+// discovery failures.
+func TestAppDiscoveryService_CrossPopulate_ValidatedSetPopulatesCommandSet(t *testing.T) {
+	tmpDir := t.TempDir()
+	invPath := filepath.Join(tmpDir, "invowkfile.cue")
+	content := invowkfile.GenerateCUE(&invowkfile.Invowkfile{
+		Commands: []invowkfile.Command{
+			{
+				Name: "build",
+				Implementations: []invowkfile.Implementation{
+					{
+						Script:    "echo build",
+						Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeVirtual}},
+						Platforms: invowkfile.AllPlatformConfigs(),
+					},
+				},
+			},
+		},
+	})
+	if err := os.WriteFile(invPath, []byte(content), 0o644); err != nil {
+		t.Fatalf("failed to write test invowkfile: %v", err)
+	}
+
+	oldWD, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("failed to get cwd: %v", err)
+	}
+	if err = os.Chdir(tmpDir); err != nil {
+		t.Fatalf("failed to chdir to test dir: %v", err)
+	}
+	defer func() { _ = os.Chdir(oldWD) }()
+
+	svc := &appDiscoveryService{
+		config: &staticConfigProvider{cfg: config.DefaultConfig()},
+	}
+
+	ctx := contextWithConfigPath(context.Background(), "")
+
+	// First call: DiscoverAndValidateCommandSet populates the cache.
+	validated, validErr := svc.DiscoverAndValidateCommandSet(ctx)
+	if validErr != nil {
+		t.Fatalf("DiscoverAndValidateCommandSet() error: %v", validErr)
+	}
+	if validated.Set == nil {
+		t.Fatal("DiscoverAndValidateCommandSet() returned nil Set")
+	}
+
+	// Second call: DiscoverCommandSet should return the cached result.
+	discovered, discErr := svc.DiscoverCommandSet(ctx)
+	if discErr != nil {
+		t.Fatalf("DiscoverCommandSet() error after cross-population: %v", discErr)
+	}
+	if discovered.Set == nil {
+		t.Fatal("DiscoverCommandSet() returned nil Set after cross-population")
+	}
+
+	// Verify the cross-populated Set has the same commands.
+	if len(discovered.Set.Commands) != len(validated.Set.Commands) {
+		t.Errorf("cross-populated command count = %d, want %d",
+			len(discovered.Set.Commands), len(validated.Set.Commands))
+	}
+}
+
+// Not parallel: os.Chdir is process-wide.
 func TestAppDiscoveryService_WithoutCacheContext_DoesNotMemoizeLookup(t *testing.T) {
 	tmpDir := t.TempDir()
 	invPath := filepath.Join(tmpDir, "invowkfile.cue")

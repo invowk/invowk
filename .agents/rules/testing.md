@@ -347,9 +347,9 @@ This ensures that features work correctly through both the virtual shell (mvdan/
 | **virtual shell** | `virtual_shell.txtar` | Tests virtual-shell-specific features (u-root integration, cross-platform POSIX semantics) |
 | **container** | `container_*.txtar` | Linux-only by design; container runtime is not a native shell |
 | **CUE validation** | `virtual_edge_cases.txtar`, `virtual_args_subcommand_conflict.txtar` | Tests schema parsing and validation, not runtime behavior |
-| **discovery/ambiguity** | `virtual_ambiguity.txtar`, `virtual_disambiguation.txtar`, `virtual_multi_source.txtar` | Tests command resolution logic, not shell execution |
+| **discovery/ambiguity** | `virtual_ambiguity.txtar`, `virtual_disambiguation.txtar`, `virtual_multi_source.txtar`, `virtual_diagnostics_footer.txtar` | Tests command resolution logic and CLI presentation, not shell execution |
 | **dogfooding** | `dogfooding_invowkfile.txtar` | Already exercises native runtime through the project's own invowkfile.cue |
-| **built-in commands** | `config_*.txtar`, `module_*.txtar`, `completion.txtar`, `tui_format.txtar`, `tui_style.txtar`, `init_*.txtar` | Built-in Cobra commands exercise CLI handlers directly, not user-defined command runtimes |
+| **built-in commands** | `config_*.txtar`, `module_*.txtar`, `completion.txtar`, `tui_format.txtar`, `tui_style.txtar`, `init_*.txtar`, `validate.txtar` | Built-in Cobra commands exercise CLI handlers directly, not user-defined command runtimes |
 
 ### Testscript (.txtar) Test Strategy
 
@@ -491,3 +491,5 @@ defer func() { testutil.MustRemoveAll(t, path) }()
 | Duplicate `Test*` declarations after file split | When splitting test files to stay under 800 lines, delete moved functions from the source file and clean up orphaned imports. Run `go build` before `make test` to catch duplicates early. See go-patterns.md "File Splitting Protocol" |
 | New built-in command missing txtar test | `TestBuiltinCommandTxtarCoverage` (`cmd/invowk/coverage_test.go`) fails when a non-hidden, runnable, leaf built-in command has no txtar test. Add a `.txtar` file in `tests/cli/testdata/` with `exec invowk <command>` |
 | Removing shared test helper breaks other test files | In Go, all `_test.go` files in the same package share a namespace. Removing a helper (e.g., `containsString` from `dotenv_test.go`) that is also called by `container_test.go` or `env_test.go` causes compile errors. Always grep the ENTIRE package for the function name before deleting it |
+| Txtar workspace contamination from broken fixtures | ALL file entries in a `.txtar` archive are created under `$WORK`. If one test creates a broken fixture (e.g., `badmod.invowkmod/`) at `$WORK` root, other tests running `exec invowk validate` or `exec invowk cmd` at `$WORK` will pick up the broken files through discovery. Isolate tests that need a clean workspace into subdirectories (e.g., `cd $WORK/clean_workspace`) |
+| Testscript `stdout`/`stderr` assertions use Go regex | Patterns in `stdout 'foo(s) bar'` interpret `(s)` as a capture group, not a literal `(s)`. Use simpler patterns like `stdout 'discovered'` or escape parentheses `\(s\)`. Particularly tricky with pluralization patterns like `"N source(s)"` |

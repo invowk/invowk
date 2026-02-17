@@ -404,6 +404,10 @@ func completeCommands(app *App, rootFlags *rootFlagValues) func(*cobra.Command, 
 // listCommands displays all available commands grouped by source. Each command
 // shows its name, description, available runtimes (with default marked by *),
 // and supported platforms. Ambiguous commands are annotated with their source ID.
+//
+// Diagnostic rendering follows a verbose/non-verbose split:
+//   - Verbose: full inline diagnostics before the listing
+//   - Non-verbose: suppressed inline, with a single summary footer after the listing
 func listCommands(cmd *cobra.Command, app *App, rootFlags *rootFlagValues) error {
 	result, err := app.Discovery.DiscoverCommandSet(cmd.Context())
 	if err != nil {
@@ -411,7 +415,6 @@ func listCommands(cmd *cobra.Command, app *App, rootFlags *rootFlagValues) error
 		fmt.Fprint(app.stderr, rendered)
 		return err
 	}
-	app.Diagnostics.Render(cmd.Context(), result.Diagnostics, app.stderr)
 
 	commandSet := result.Set
 	if commandSet == nil || len(commandSet.Commands) == 0 {
@@ -421,6 +424,12 @@ func listCommands(cmd *cobra.Command, app *App, rootFlags *rootFlagValues) error
 	}
 
 	verbose, _ := resolveUIFlags(cmd.Context(), app, cmd, rootFlags)
+
+	// Verbose mode: render full diagnostics inline before the listing.
+	// Non-verbose mode: defer to a summary footer after the listing.
+	if verbose && len(result.Diagnostics) > 0 {
+		app.Diagnostics.Render(cmd.Context(), result.Diagnostics, app.stderr)
+	}
 
 	sourceStyle := lipgloss.NewStyle().Foreground(ColorMuted).Italic(true)
 	nameStyle := lipgloss.NewStyle().Foreground(ColorHighlight).Bold(true)
@@ -482,6 +491,16 @@ func listCommands(cmd *cobra.Command, app *App, rootFlags *rootFlagValues) error
 			fmt.Println(line)
 		}
 		fmt.Println()
+	}
+
+	// Non-verbose footer: show a single summary line referencing `invowk validate`
+	// so users know how to get full diagnostics without cluttering the listing.
+	if !verbose && len(result.Diagnostics) > 0 {
+		fmt.Fprintf(app.stderr, "%s %d file(s) had issues and were skipped. Run '%s' for details.\n",
+			WarningStyle.Render("!"),
+			len(result.Diagnostics),
+			CmdStyle.Render("invowk validate"),
+		)
 	}
 
 	return nil

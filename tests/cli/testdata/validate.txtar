@@ -1,0 +1,168 @@
+# Test: invowk validate
+# Validates workspace, invowkfile, and module paths
+
+cd $WORK
+
+# Test 1: Validate a valid invowkfile
+exec invowk validate ./invowkfile.cue
+stdout 'Invowkfile Validation'
+stdout 'CUE schema validation passed'
+stdout 'Structural validation passed'
+stdout 'Command tree validation passed'
+stdout 'Invowkfile is valid'
+
+# Test 2: Validate a valid module directory
+exec invowk validate ./mymod.invowkmod
+stdout 'Module Validation'
+stdout 'Module is valid'
+stdout 'Structure check passed'
+
+# Test 3: Validate an invalid invowkfile (should fail)
+# The bad CUE is in a properly-named invowkfile.cue inside a subdirectory
+# so detectPathType routes to invowkfile validation.
+! exec invowk validate ./badproject/invowkfile.cue
+stdout 'Invowkfile Validation'
+stderr 'CUE schema validation failed'
+
+# Test 4: Validate a nonexistent module (should fail)
+! exec invowk validate ./nonexistent.invowkmod
+stderr 'Module validation failed'
+stderr 'path does not exist'
+
+# Test 5: Unknown path type
+# The error is rendered by fang's DefaultErrorHandler via stderr.
+! exec invowk validate ./random.txt
+stderr 'determine file type'
+
+# Test 6: Workspace validation (clean workspace with valid invowkfile)
+cd $WORK/clean_workspace
+exec invowk validate
+stdout 'Workspace Validation'
+stdout 'Workspace is valid'
+cd $WORK
+
+# Test 7: Validate a directory containing invowkfile.cue
+exec invowk validate ./subproject
+stdout 'Invowkfile Validation'
+stdout 'Invowkfile is valid'
+
+# Test 8: Module with broken invowkfile (deep validation catches it)
+! exec invowk validate ./badmod.invowkmod
+stderr 'Module validation failed'
+stderr 'invowkfile'
+
+# Test 9: Single-file tree validation failure (args + subcommand conflict)
+# A parent command that defines args AND has subcommands is structurally invalid.
+! exec invowk validate ./conflicting/invowkfile.cue
+stdout 'Invowkfile Validation'
+stdout 'CUE schema validation passed'
+stderr 'Command tree validation failed'
+stderr 'has both args and subcommands'
+
+# Test 10: Workspace validation with broken sibling module
+# Discovery should still succeed for valid commands, but diagnostics
+# should be reported for the broken module.
+cd $WORK/workspace_with_broken
+! exec invowk validate
+stdout 'Workspace Validation'
+stdout 'discovered'
+stderr 'diagnostic issue'
+stderr 'Validation failed'
+
+-- invowkfile.cue --
+cmds: [
+	{
+		name:        "hello"
+		description: "A simple command"
+		implementations: [{
+			script:    "echo hello"
+			runtimes:  [{name: "virtual"}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+	},
+]
+
+-- badproject/invowkfile.cue --
+this is not valid CUE content!!!
+
+-- subproject/invowkfile.cue --
+cmds: [
+	{
+		name:        "build"
+		description: "Build the project"
+		implementations: [{
+			script:    "echo building"
+			runtimes:  [{name: "virtual"}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+	},
+]
+
+-- mymod.invowkmod/invowkmod.cue --
+module:  "mymod"
+version: "0.1.0"
+
+-- badmod.invowkmod/invowkmod.cue --
+module:  "badmod"
+version: "0.1.0"
+
+-- badmod.invowkmod/invowkfile.cue --
+this is not valid CUE for an invowkfile!!!
+
+-- conflicting/invowkfile.cue --
+cmds: [
+	{
+		name:        "deploy"
+		description: "Deploy the app"
+		args: [{
+			name:        "target"
+			description: "Deployment target"
+		}]
+		implementations: [{
+			script:    "echo deploying"
+			runtimes:  [{name: "virtual"}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+	},
+	{
+		name:        "deploy staging"
+		description: "Deploy to staging"
+		implementations: [{
+			script:    "echo deploying to staging"
+			runtimes:  [{name: "virtual"}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+	},
+]
+
+-- clean_workspace/invowkfile.cue --
+cmds: [
+	{
+		name:        "greet"
+		description: "Say hello"
+		implementations: [{
+			script:    "echo hi"
+			runtimes:  [{name: "virtual"}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+	},
+]
+
+-- workspace_with_broken/invowkfile.cue --
+cmds: [
+	{
+		name:        "test"
+		description: "Run tests"
+		implementations: [{
+			script:    "echo testing"
+			runtimes:  [{name: "virtual"}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+	},
+]
+
+-- workspace_with_broken/broken.invowkmod/invowkmod.cue --
+this is not valid CUE!!!
+
+-- random.txt --
+just a text file

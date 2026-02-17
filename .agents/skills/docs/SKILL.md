@@ -38,6 +38,7 @@ Use this skill when working on:
 | `cmd/invowk/init.go` | `website/docs/getting-started/quickstart.mdx`, `website/i18n/pt-BR/.../quickstart.mdx`, `website/src/components/Snippet/data/getting-started.ts` (quickstart/* IDs), `website/src/pages/index.tsx` (terminal demo), `README.md` (Quick Start) |
 | `cmd/invowk/*.go` | `website/docs/reference/cli.mdx` + relevant feature docs |
 | `cmd/invowk/module*.go` | `website/docs/modules/` pages + `website/docs/reference/cli.mdx` |
+| `cmd/invowk/validate.go` | `website/docs/reference/cli.mdx` (validate command) |
 | `cmd/invowk/cmd_validate*.go` | `website/docs/dependencies/` pages |
 | `cmd/invowk/tui_*.go` | `website/docs/tui/` pages + snippets |
 | New features | Add/update docs under `website/docs/` and snippets as needed |
