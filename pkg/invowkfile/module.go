@@ -7,6 +7,15 @@ import (
 )
 
 type (
+	// ModuleMetadata is a lightweight module metadata snapshot attached to
+	// Invowkfile during module parsing/discovery.
+	ModuleMetadata struct {
+		Module      string
+		Version     string
+		Description string
+		Requires    []ModuleRequirement
+	}
+
 	// ModuleRequirement represents a dependency on another module from a Git repository.
 	// This is the type alias for invowkmod.ModuleRequirement.
 	ModuleRequirement = invowkmod.ModuleRequirement
@@ -31,4 +40,22 @@ func NewCommandScope(moduleID string, globalModuleIDs []string, directRequiremen
 // This is a wrapper for invowkmod.ExtractModuleFromCommand.
 func ExtractModuleFromCommand(cmd string) string {
 	return invowkmod.ExtractModuleFromCommand(cmd)
+}
+
+// NewModuleMetadataFromInvowkmod converts invowkmod metadata to the lightweight
+// invowkfile-local metadata shape.
+func NewModuleMetadataFromInvowkmod(meta *Invowkmod) *ModuleMetadata {
+	if meta == nil {
+		return nil
+	}
+
+	requires := make([]ModuleRequirement, len(meta.Requires))
+	copy(requires, meta.Requires)
+
+	return &ModuleMetadata{
+		Module:      meta.Module,
+		Version:     meta.Version,
+		Description: meta.Description,
+		Requires:    requires,
+	}
 }

@@ -54,3 +54,15 @@ func ValidateEnvVarName(name string) error {
 	}
 	return nil
 }
+
+// FlagNameToEnvVar converts a flag name to an environment variable name.
+// Example: "output-file" -> "INVOWK_FLAG_OUTPUT_FILE"
+func FlagNameToEnvVar(name string) string {
+	return "INVOWK_FLAG_" + strings.ToUpper(strings.ReplaceAll(name, "-", "_"))
+}
+
+// ArgNameToEnvVar converts an argument name to an environment variable name.
+// Example: "output-file" -> "INVOWK_ARG_OUTPUT_FILE"
+func ArgNameToEnvVar(name string) string {
+	return "INVOWK_ARG_" + strings.ToUpper(strings.ReplaceAll(name, "-", "_"))
+}

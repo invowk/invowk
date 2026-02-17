@@ -115,6 +115,13 @@ Examples:
   invowk cmd @foo deploy                  Run 'deploy' from foo.invowkmod
   invowk cmd --ivk-from invowkfile deploy  Same using --ivk-from flag`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// Create a single cache-equipped context for the entire RunE invocation.
+			// All callees (validateCommandTree, checkAmbiguousCommand, listCommands,
+			// runDisambiguatedCommand, executeRequest) share the same discovery cache
+			// to avoid repeated filesystem scans and CUE parsing.
+			ctx := contextWithConfigPath(cmd.Context(), rootFlags.configPath)
+			cmd.SetContext(ctx)
+
 			// Validate structural command constraints in runtime flow so
 			// dynamic registration failures do not break unrelated commands.
 			if err := validateCommandTree(cmd.Context(), app, rootFlags); err != nil {
@@ -262,9 +269,13 @@ func runCommand(cmd *cobra.Command, app *App, rootFlags *rootFlagValues, cmdFlag
 // and renders any diagnostics to stderr. Non-zero exit codes are wrapped in
 // ExitError to signal Cobra to exit without printing usage.
 func executeRequest(cmd *cobra.Command, app *App, req ExecuteRequest) error {
+	// Ensure every execution path carries the explicit config path and request cache.
+	reqCtx := contextWithConfigPath(cmd.Context(), req.ConfigPath)
+	cmd.SetContext(reqCtx)
+
 	// Cobra adapters always render service diagnostics in the CLI layer.
-	result, diags, err := app.Commands.Execute(cmd.Context(), req)
-	app.Diagnostics.Render(cmd.Context(), diags, app.stderr)
+	result, diags, err := app.Commands.Execute(reqCtx, req)
+	app.Diagnostics.Render(reqCtx, diags, app.stderr)
 	if err != nil {
 		var svcErr *ServiceError
 		if errors.As(err, &svcErr) {
@@ -309,8 +320,7 @@ func resolveUIFlags(ctx context.Context, app *App, cmd *cobra.Command, rootFlags
 // structural conflicts (e.g., commands with both args and subcommands). It renders
 // non-fatal diagnostics and returns ArgsSubcommandConflictError if found.
 func validateCommandTree(ctx context.Context, app *App, rootFlags *rootFlagValues) error {
-	lookupCtx := contextWithConfigPath(ctx, rootFlags.configPath)
-	result, err := app.Discovery.DiscoverAndValidateCommandSet(lookupCtx)
+	result, err := app.Discovery.DiscoverAndValidateCommandSet(ctx)
 	// Always render non-fatal diagnostics produced during discovery.
 	app.Diagnostics.Render(ctx, result.Diagnostics, app.stderr)
 	if err == nil {

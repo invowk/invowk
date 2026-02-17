@@ -51,9 +51,10 @@ type (
 		// ModulePath stores the module directory path if this invowkfile is from a module (not in CUE)
 		// Empty string if not loaded from a module
 		ModulePath string `json:"-"`
-		// Metadata references the module metadata from invowkmod.cue (not in CUE)
-		// This is set when parsing a module via ParseModule
-		Metadata *Invowkmod `json:"-"`
+		// Metadata references module identity/metadata attached during discovery.
+		// It intentionally uses a local DTO to avoid coupling Invowkfile's core
+		// command model to pkg/invowkmod internals.
+		Metadata *ModuleMetadata `json:"-"`
 	}
 )
 

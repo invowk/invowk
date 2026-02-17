@@ -240,7 +240,7 @@ func TestGetFullCommandName(t *testing.T) {
 	t.Parallel()
 
 	inv := &Invowkfile{
-		Metadata: &Invowkmod{Module: "my.module"},
+		Metadata: &ModuleMetadata{Module: "my.module"},
 	}
 
 	tests := []struct {
@@ -269,7 +269,7 @@ func TestListCommands_WithModule(t *testing.T) {
 	t.Parallel()
 
 	inv := &Invowkfile{
-		Metadata: &Invowkmod{Module: "mymodule"},
+		Metadata: &ModuleMetadata{Module: "mymodule"},
 		Commands: []Command{
 			{Name: "build"},
 			{Name: "test"},
@@ -295,7 +295,7 @@ func TestFlattenCommands_WithModule(t *testing.T) {
 	t.Parallel()
 
 	inv := &Invowkfile{
-		Metadata: &Invowkmod{Module: "mymodule"},
+		Metadata: &ModuleMetadata{Module: "mymodule"},
 		Commands: []Command{
 			{Name: "build", Description: "Build command"},
 			{Name: "test unit", Description: "Unit tests"},

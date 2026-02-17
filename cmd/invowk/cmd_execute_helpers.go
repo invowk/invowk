@@ -63,14 +63,14 @@ func parseEnvVarFlags(envVarFlags []string) map[string]string {
 // it first tries "deploy staging", then falls back to "deploy" if no match is found.
 // Remaining tokens after the match are passed as positional arguments.
 func runDisambiguatedCommand(cmd *cobra.Command, app *App, rootFlags *rootFlagValues, cmdFlags *cmdFlagValues, filter *SourceFilter, args []string) error {
-	ctx := cmd.Context()
+	ctx := contextWithConfigPath(cmd.Context(), rootFlags.configPath)
+	cmd.SetContext(ctx)
 
 	if len(args) == 0 {
 		return fmt.Errorf("no command specified")
 	}
 
-	lookupCtx := contextWithConfigPath(ctx, rootFlags.configPath)
-	commandSetResult, err := app.Discovery.DiscoverCommandSet(lookupCtx)
+	commandSetResult, err := app.Discovery.DiscoverCommandSet(ctx)
 	if err != nil {
 		return err
 	}
@@ -169,8 +169,7 @@ func checkAmbiguousCommand(ctx context.Context, app *App, rootFlags *rootFlagVal
 		return nil
 	}
 
-	lookupCtx := contextWithConfigPath(ctx, rootFlags.configPath)
-	commandSetResult, discoverErr := app.Discovery.DiscoverCommandSet(lookupCtx)
+	commandSetResult, discoverErr := app.Discovery.DiscoverCommandSet(ctx)
 	if discoverErr != nil {
 		slog.Debug("skipping ambiguity check due to discovery error", "error", discoverErr)
 		return nil
@@ -228,42 +227,24 @@ func checkAmbiguousCommand(ctx context.Context, app *App, rootFlags *rootFlagVal
 // The returned result includes the runtime registry, cleanup function, and
 // non-fatal diagnostics produced during runtime initialization.
 func createRuntimeRegistry(cfg *config.Config, sshServer *sshserver.Server) runtimeRegistryResult {
-	if cfg == nil {
-		cfg = config.DefaultConfig()
-	}
+	built := runtime.BuildRegistry(runtime.BuildRegistryOptions{
+		Config:    cfg,
+		SSHServer: sshServer,
+	})
 
 	result := runtimeRegistryResult{
-		Registry: runtime.NewRegistry(),
-		Cleanup:  func() {}, // safe no-op default; unconditionally overwritten below with nil-guarded container cleanup
+		Registry:         built.Registry,
+		Cleanup:          built.Cleanup,
+		ContainerInitErr: built.ContainerInitErr,
 	}
 
-	// Native and virtual runtimes are always available in-process.
-	result.Registry.Register(runtime.RuntimeTypeNative, runtime.NewNativeRuntime())
-	result.Registry.Register(runtime.RuntimeTypeVirtual, runtime.NewVirtualRuntime(cfg.VirtualShell.EnableUrootUtils))
-
-	// Container runtime registration is conditional on engine availability.
-	containerRT, err := runtime.NewContainerRuntime(cfg)
-	if err != nil {
-		result.ContainerInitErr = err
+	for _, diag := range built.Diagnostics {
 		result.Diagnostics = append(result.Diagnostics, discovery.Diagnostic{
 			Severity: discovery.SeverityWarning,
-			Code:     "container_runtime_init_failed",
-			Message:  fmt.Sprintf("container runtime unavailable: %v", err),
-			Cause:    err,
+			Code:     diag.Code,
+			Message:  diag.Message,
+			Cause:    diag.Cause,
 		})
-	} else {
-		if sshServer != nil && sshServer.IsRunning() {
-			containerRT.SetSSHServer(sshServer)
-		}
-		result.Registry.Register(runtime.RuntimeTypeContainer, containerRT)
-	}
-
-	result.Cleanup = func() {
-		if containerRT != nil {
-			if err := containerRT.Close(); err != nil {
-				slog.Warn("container runtime cleanup failed", "error", err)
-			}
-		}
 	}
 
 	return result

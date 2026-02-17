@@ -28,20 +28,6 @@ func isWindows() bool {
 	return os.PathSeparator == '\\' && os.PathListSeparator == ';'
 }
 
-// FlagNameToEnvVar converts a flag name to an environment variable name.
-// Example: "output-file" -> "INVOWK_FLAG_OUTPUT_FILE"
-func FlagNameToEnvVar(name string) string {
-	envName := strings.ToUpper(strings.ReplaceAll(name, "-", "_"))
-	return "INVOWK_FLAG_" + envName
-}
-
-// ArgNameToEnvVar converts an argument name to an environment variable name.
-// Example: "output-file" -> "INVOWK_ARG_OUTPUT_FILE"
-func ArgNameToEnvVar(name string) string {
-	envName := strings.ToUpper(strings.ReplaceAll(name, "-", "_"))
-	return "INVOWK_ARG_" + envName
-}
-
 // validateFlagValues validates flag values at runtime.
 // It checks that required flags are provided and validates values against type and regex patterns.
 func validateFlagValues(cmdName string, flagValues map[string]string, flagDefs []invowkfile.Flag) error {
