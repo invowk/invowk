@@ -27,6 +27,10 @@ type (
 	}
 
 	// BuildExecutionContextOptions configures execution-context construction.
+	//
+	// Required fields: Command, Invowkfile, and Selection must be populated
+	// (Command and Invowkfile must be non-nil; Selection.Impl must be non-nil).
+	// All other fields are optional and default to their zero values.
 	BuildExecutionContextOptions struct {
 		Command    *invowkfile.Command
 		Invowkfile *invowkfile.Invowkfile
@@ -117,8 +121,18 @@ func ResolveRuntime(command *invowkfile.Command, commandName, runtimeOverride st
 	return RuntimeSelection{Mode: defaultRuntime, Impl: defaultImpl}, nil
 }
 
-// BuildExecutionContext converts service request fields into runtime.ExecutionContext.
+// BuildExecutionContext converts options into a runtime.ExecutionContext.
+// It validates env inheritance overrides (mode, allow, deny) and returns an error
+// for invalid values. Flags and arguments are projected into INVOWK_FLAG_*,
+// INVOWK_ARG_*, ARGn, and ARGC environment variables.
 func BuildExecutionContext(opts BuildExecutionContextOptions) (*runtime.ExecutionContext, error) {
+	if opts.Command == nil {
+		return nil, fmt.Errorf("BuildExecutionContext: Command must not be nil")
+	}
+	if opts.Invowkfile == nil {
+		return nil, fmt.Errorf("BuildExecutionContext: Invowkfile must not be nil")
+	}
+
 	execCtx := runtime.NewExecutionContext(opts.Command, opts.Invowkfile)
 
 	execCtx.Verbose = opts.Verbose

@@ -116,12 +116,15 @@ type (
 		Load(ctx context.Context, opts config.LoadOptions) (*config.Config, error)
 	}
 
-	// appDiscoveryService implements DiscoveryService by creating a fresh
-	// discovery.Discovery instance per call, prepending configuration diagnostics.
+	// appDiscoveryService implements DiscoveryService with per-request memoization.
+	// On cache miss, it creates a discovery.Discovery instance, runs the operation,
+	// and caches the result. Configuration diagnostics are prepended on every path
+	// since the config may vary by context path.
 	appDiscoveryService struct {
 		config ConfigProvider
 	}
 
+	// lookupCacheEntry holds a memoized GetCommand result and its associated error.
 	lookupCacheEntry struct {
 		result discovery.LookupResult
 		err    error

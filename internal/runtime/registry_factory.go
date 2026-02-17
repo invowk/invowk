@@ -28,6 +28,8 @@ type (
 
 	// RegistryBuildResult contains the built registry, cleanup hook, diagnostics,
 	// and any container-runtime initialization error.
+	// Registry and Cleanup are always non-nil after BuildRegistry returns.
+	// Callers should defer Cleanup() after use.
 	RegistryBuildResult struct {
 		Registry         *Registry
 		Cleanup          func()
