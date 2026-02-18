@@ -261,12 +261,30 @@ function writeVersionDiagrams(version, diagramIds, pathMap) {
   fs.mkdirSync(versionsDir, { recursive: true });
   const filePath = path.join(versionsDir, `v${version}.ts`);
 
+  // In update mode, pre-parse existing snapshot to preserve entries for diagrams
+  // that were removed/renamed in newer versions but are still valid for this version.
+  const existingSnapshotPaths = {};
+  if (updateMode && fs.existsSync(filePath)) {
+    const existing = fs.readFileSync(filePath, 'utf8');
+    const entryRegex = /^\s+'([^']+)':\s*'([^']+)'/gm;
+    let m;
+    while ((m = entryRegex.exec(existing)) !== null) {
+      existingSnapshotPaths[m[1]] = m[2];
+    }
+  }
+
   const missing = [];
   const entries = [];
 
   for (const id of [...diagramIds].sort()) {
     const originalPath = pathMap[id];
     if (!originalPath) {
+      // In update mode, if this diagram ID is already in the existing snapshot
+      // (was resolved during the original version cut), preserve it.
+      if (updateMode && existingSnapshotPaths[id]) {
+        entries.push({ id, path: existingSnapshotPaths[id] });
+        continue;
+      }
       missing.push(id);
       continue;
     }

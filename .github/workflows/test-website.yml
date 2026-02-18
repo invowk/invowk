@@ -6,6 +6,9 @@ on:
       - main
     paths:
       - 'website/**'
+      - 'docs/diagrams/**'
+      - 'scripts/snapshot-version-assets.mjs'
+      - 'scripts/validate-version-assets.mjs'
       - '.github/workflows/test-website.yml'
   workflow_dispatch:
 
@@ -31,6 +34,9 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Validate version assets
+        run: node ../scripts/validate-version-assets.mjs
 
       - name: Build website
         run: npm run build
