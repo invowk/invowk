@@ -44,6 +44,10 @@ function HomepageHeader() {
             <Translate id="homepage.hero.button.quickstart">Quickstart</Translate>
           </Link>
         </div>
+        {/* Terminal demo: intentionally simplified from actual `invowk cmd` output.
+            The real listing includes all runtimes and platforms per command (e.g.,
+            "[native*, virtual, container] (linux, macos, windows)"), which overflows
+            on mobile viewports. This truncated version fits ~38 chars max line width. */}
         <div className={styles.terminalDemo}>
           <pre className={styles.terminalCode}>
             <code>
