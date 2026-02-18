@@ -12,7 +12,7 @@ exists mytools.invowkmod/invowkmod.cue
 exists mytools.invowkmod/invowkfile.cue
 
 # Test 2: Validate the created module
-exec invowk module validate ./mytools.invowkmod
+exec invowk validate ./mytools.invowkmod
 stdout 'Module is valid'
 
 # Test 3: Create a module with RDNS name and --scripts flag

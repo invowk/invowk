@@ -101,6 +101,11 @@ cmds: [
 					{name: "native"},
 					{name: "virtual"},
 				]
+				platforms: [
+					{name: "linux"},
+					{name: "macos"},
+					{name: "windows"},
+				]
 			},
 		]
 	},

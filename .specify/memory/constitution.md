@@ -72,7 +72,7 @@ Every behavior change MUST have corresponding test coverage:
 - **CLI Integration Tests**: Use `testscript` (`.txtar` format) in `tests/cli/testdata/` for CLI behavior verification. Tests run in isolated environments (`HOME=/no-home`). Use `--` separator for command flags.
 - **Built-in Command Coverage (NON-NEGOTIABLE)**: All invowk built-in commands (e.g., `cmd`, `module`, `init`, `config`, `validate`) MUST have 100% testscript (`.txtar`) test coverage. Every subcommand, flag combination, argument variation, error path, and user-facing behavior MUST be exercised by at least one txtar test in `tests/cli/testdata/`. Coverage gaps in built-in commands are treated as bugs, not technical debt.
 - **Race Detection**: Run tests with `-race` flag. For race condition fixes, execute 10+ times with `-count=1` to bypass cache.
-- **Module Validation**: After module-related changes, run `go run . module validate modules/*.invowkmod --deep`.
+- **Module Validation**: After module-related changes, run `go run . validate modules/*.invowkmod`.
 - **Test Integrity (NON-NEGOTIABLE)**: Agents and contributors MUST NOT artificially work around broken tests instead of fixing production code. This applies **unconditionally**—including when test failures are caused by pre-existing bugs entirely unrelated to the current task. Specifically:
   - **FORBIDDEN**: Modifying test assertions to match incorrect production behavior.
   - **FORBIDDEN**: Skipping, disabling, or marking tests as expected-failure to avoid fixing production code.
@@ -220,7 +220,7 @@ Every PR MUST pass the following gates before merge:
 | CLI Tests | `make test-cli` | If CLI output/behavior changed |
 | License Headers | `make license-check` | New `.go` files |
 | Dependencies | `make tidy` | If dependencies changed |
-| Module Validation | `go run . module validate modules/*.invowkmod --deep` | If module logic changed |
+| Module Validation | `go run . validate modules/*.invowkmod` | If module logic changed |
 | Website Build | `cd website && npm run build` | If website content changed |
 | **Documentation Sync** | **Manual review** | **If ANY user-facing behavior changed** |
 | **Pre-Existing Issue Check** | **Manual review** | **If implementation revealed blocking issues** |

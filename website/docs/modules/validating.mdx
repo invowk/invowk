@@ -8,23 +8,15 @@ import Snippet from '@site/src/components/Snippet';
 
 Validate your modules to ensure they're correctly structured and ready for distribution.
 
-## Basic Validation
+## Validating a Module
 
 <Snippet id="modules/validate-basic" />
 
-Output for a valid module:
-
-<Snippet id="modules/validate-basic-output" />
-
-## Deep Validation
-
-Add `--deep` to also parse and validate the invowkfile (when present):
-
-<Snippet id="modules/validate-deep" />
-
-Output:
+Output for a valid module with an invowkfile:
 
 <Snippet id="modules/validate-deep-output" />
+
+`invowk validate` always performs full validation, including invowkfile parsing and command tree checks when the module contains an `invowkfile.cue`.
 
 ## What Gets Validated
 
@@ -50,11 +42,14 @@ Output:
 - Module ID in `invowkmod.cue` matches the folder name prefix
 - No invalid characters (hyphens, underscores)
 
-### Deep Checks (with `--deep`)
+### Invowkfile Checks
 
-- Invowkfile parses without errors (if present)
+When the module contains an `invowkfile.cue`, these are always checked:
+
+- Invowkfile parses without errors
 - CUE syntax is valid
 - Schema constraints are met
+- Command tree structure is valid (no args + subcommand conflicts)
 
 ## Validation Errors
 
@@ -70,7 +65,7 @@ Output:
 
 <Snippet id="modules/error-nested" />
 
-### Invalid Invowkfile (deep)
+### Invalid Invowkfile
 
 <Snippet id="modules/error-parse" />
 
@@ -103,9 +98,8 @@ Add module validation to your CI pipeline:
 ## Best Practices
 
 1. **Validate before committing**: Catch issues early
-2. **Use `--deep`**: Catches invowkfile errors
-3. **Validate in CI**: Prevent broken modules from shipping
-4. **Fix issues immediately**: Don't let validation debt accumulate
+2. **Validate in CI**: Prevent broken modules from shipping
+3. **Fix issues immediately**: Don't let validation debt accumulate
 
 ## Next Steps
 

@@ -16,7 +16,7 @@ Before considering work complete:
 4. **Dependencies tidy**: `make tidy`.
 5. **Documentation updated**: Check sync map in `.claude/skills/docs/SKILL.md` for affected docs.
 6. **Website builds**: `cd website && npm run build` (if website changed).
-7. **Sample modules valid**: `go run . module validate modules/*.invowkmod --deep` (if module-related).
+7. **Sample modules valid**: `go run . validate modules/*.invowkmod` (if module-related).
 8. **CLI tests pass**: `make test-cli` (if CLI commands/output changed).
 9. **Native runtime mirrors**: If CLI tests were added/modified, verify native mirrors exist (`native_*.txtar` for each feature test). Exempt: u-root, container, discovery/ambiguity, dogfooding, built-in command tests (config/module/completion/tui/init/validate).
 10. **Architecture diagrams current**: If changes affect component relationships, execution flow, discovery logic, or runtime behavior, verify diagrams in `docs/architecture/` reflect the changes. Run `make render-diagrams` if D2 sources were updated.

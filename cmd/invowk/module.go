@@ -62,12 +62,11 @@ Module names follow these rules:
   - The folder prefix must match the 'module' field in invowkmod.cue
 
 Examples:
-  invowk module validate ./mycommands.invowkmod
-  invowk module validate ./com.example.tools.invowkmod --deep`,
+  invowk module list
+  invowk module create ./mycommands.invowkmod`,
 	}
 
 	// Core module commands
-	modCmd.AddCommand(newModuleValidateCommand())
 	modCmd.AddCommand(newModuleCreateCommand())
 	modCmd.AddCommand(&cobra.Command{
 		Use:   "list",
