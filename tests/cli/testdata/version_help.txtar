@@ -1,0 +1,19 @@
+# Test: invowk --version and invowk --help output
+# These are the first commands new users run — verify they produce sensible output.
+
+# Test 1: --version outputs a version string
+exec invowk --version
+stdout 'invowk version'
+! stderr .
+
+# Test 2: --help outputs usage information
+exec invowk --help
+stdout 'invowk'
+stdout 'command runner'
+! stderr .
+
+# Test 3: invowk cmd --help shows cmd-specific help
+exec invowk cmd --help
+stdout 'invowk cmd'
+stdout 'Execute commands'
+! stderr .

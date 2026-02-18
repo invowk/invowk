@@ -1,0 +1,40 @@
+# Test: --ivk-verbose flag on virtual runtime
+# Verifies that -v / --ivk-verbose enables additional diagnostic output.
+# Uses a broken sibling module to produce discovery diagnostics that are
+# only shown in verbose mode.
+
+cd $WORK
+
+# Test 1: Non-verbose mode suppresses inline diagnostics
+exec invowk cmd
+stdout 'hello'
+stderr 'had issues and were skipped'
+! stderr 'warning'
+
+# Test 2: --ivk-verbose shows inline diagnostics instead of footer
+exec invowk cmd --ivk-verbose
+stdout 'hello'
+! stderr 'had issues and were skipped'
+stderr 'warning'
+
+# Test 3: short form -v also works
+exec invowk cmd -v
+stdout 'hello'
+! stderr 'had issues and were skipped'
+stderr 'warning'
+
+-- invowkfile.cue --
+cmds: [
+	{
+		name:        "hello"
+		description: "A test command"
+		implementations: [{
+			script:    "echo hello"
+			runtimes:  [{name: "virtual"}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+	},
+]
+
+-- broken.invowkmod/invowkmod.cue --
+this is not valid CUE content!!!

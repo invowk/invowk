@@ -36,15 +36,15 @@ func TestBuiltinCommandTxtarCoverage(t *testing.T) {
 	// Exemptions: commands that require interactive TTY input and are tested
 	// via tmux/VHS instead of testscript. Each entry requires a documented reason.
 	exemptions := map[string]string{
-		"tui input":   "interactive TTY required; tested via tmux/VHS",
-		"tui write":   "interactive TTY required; tested via tmux/VHS",
-		"tui choose":  "interactive TTY required; tested via tmux/VHS",
-		"tui confirm": "interactive TTY required; tested via tmux/VHS",
-		"tui filter":  "interactive TTY required; tested via tmux/VHS",
-		"tui file":    "interactive TTY required; tested via tmux/VHS",
-		"tui table":   "interactive TTY required; tested via tmux/VHS",
-		"tui spin":    "interactive TTY required; tested via tmux/VHS",
-		"tui pager":   "interactive TTY required; tested via tmux/VHS",
+		"tui input":   "interactive TTY required; unit-tested in internal/tui/; E2E pending tmux infrastructure",
+		"tui write":   "interactive TTY required; unit-tested in internal/tui/; E2E pending tmux infrastructure",
+		"tui choose":  "interactive TTY required; unit-tested in internal/tui/; E2E pending tmux infrastructure",
+		"tui confirm": "interactive TTY required; unit-tested in internal/tui/; E2E pending tmux infrastructure",
+		"tui filter":  "interactive TTY required; unit-tested in internal/tui/; E2E pending tmux infrastructure",
+		"tui file":    "interactive TTY required; unit-tested in internal/tui/; E2E pending tmux infrastructure",
+		"tui table":   "interactive TTY required; unit-tested in internal/tui/; E2E pending tmux infrastructure",
+		"tui spin":    "interactive TTY required; unit-tested in internal/tui/; E2E pending tmux infrastructure",
+		"tui pager":   "interactive TTY required; unit-tested in internal/tui/; E2E pending tmux infrastructure",
 	}
 
 	// Build the static Cobra command tree (no dynamic command registration).

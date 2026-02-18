@@ -1,0 +1,43 @@
+# Test: --ivk-env-var flag on virtual runtime
+# Verifies CLI env var override works for virtual runtime (not just container).
+
+cd $WORK
+
+# Test 1: --ivk-env-var overrides env.vars from invowkfile
+exec invowk cmd show-env --ivk-env-var MY_VAR=from-cli
+stdout 'MY_VAR=from-cli'
+! stderr .
+
+# Test 2: --ivk-env-var can set a new variable not in invowkfile
+exec invowk cmd show-env --ivk-env-var NEW_VAR=injected
+stdout 'NEW_VAR=injected'
+! stderr .
+
+# Test 3: multiple --ivk-env-var flags
+exec invowk cmd show-env --ivk-env-var A=1 --ivk-env-var B=2
+stdout 'A=1'
+stdout 'B=2'
+! stderr .
+
+-- invowkfile.cue --
+cmds: [
+	{
+		name:        "show-env"
+		description: "Print environment variables"
+		implementations: [{
+			script: """
+				echo "MY_VAR=$MY_VAR"
+				echo "NEW_VAR=$NEW_VAR"
+				echo "A=$A"
+				echo "B=$B"
+				"""
+			runtimes:  [{name: "virtual"}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+		env: {
+			vars: {
+				MY_VAR: "from-invowkfile"
+			}
+		}
+	},
+]

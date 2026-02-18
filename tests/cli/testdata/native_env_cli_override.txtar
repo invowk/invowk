@@ -1,0 +1,55 @@
+# Test: --ivk-env-var flag on native runtime
+# Mirrors virtual_env_cli_override.txtar with platform-split native implementations.
+
+cd $WORK
+
+# Test 1: --ivk-env-var overrides env.vars from invowkfile
+exec invowk cmd show-env --ivk-env-var MY_VAR=from-cli
+stdout 'MY_VAR=from-cli'
+! stderr .
+
+# Test 2: --ivk-env-var can set a new variable not in invowkfile
+exec invowk cmd show-env --ivk-env-var NEW_VAR=injected
+stdout 'NEW_VAR=injected'
+! stderr .
+
+# Test 3: multiple --ivk-env-var flags
+exec invowk cmd show-env --ivk-env-var A=1 --ivk-env-var B=2
+stdout 'A=1'
+stdout 'B=2'
+! stderr .
+
+-- invowkfile.cue --
+cmds: [
+	{
+		name:        "show-env"
+		description: "Print environment variables"
+		implementations: [
+			{
+				script: """
+					echo "MY_VAR=$MY_VAR"
+					echo "NEW_VAR=$NEW_VAR"
+					echo "A=$A"
+					echo "B=$B"
+					"""
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
+			},
+			{
+				script: """
+					Write-Output "MY_VAR=$($env:MY_VAR)"
+					Write-Output "NEW_VAR=$($env:NEW_VAR)"
+					Write-Output "A=$($env:A)"
+					Write-Output "B=$($env:B)"
+					"""
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "windows"}]
+			},
+		]
+		env: {
+			vars: {
+				MY_VAR: "from-invowkfile"
+			}
+		}
+	},
+]

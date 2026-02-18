@@ -1,0 +1,55 @@
+# Test: --ivk-runtime flag for runtime override
+# Verifies the CLI flag overrides the default runtime selection.
+# Note: default config has default_runtime: "native", so without --ivk-runtime,
+# a multi-runtime command selects native (tier 2: config default).
+
+cd $WORK
+
+# Test 1: without override, multi-runtime command uses config default (native)
+exec invowk cmd multi-runtime
+stdout 'RUNTIME=native'
+! stderr .
+
+# Test 2: --ivk-runtime virtual overrides the config default to virtual
+exec invowk cmd multi-runtime --ivk-runtime virtual
+stdout 'RUNTIME=virtual'
+! stderr .
+
+# Test 3: -r short form also works
+exec invowk cmd multi-runtime -r virtual
+stdout 'RUNTIME=virtual'
+! stderr .
+
+# Test 4: override to a runtime not allowed by the command -> error
+! exec invowk cmd virtual-only --ivk-runtime native
+stderr 'not allowed'
+stderr 'virtual'
+
+-- invowkfile.cue --
+cmds: [
+	{
+		name:        "multi-runtime"
+		description: "Command with both virtual and native implementations"
+		implementations: [
+			{
+				script:    "echo 'RUNTIME=virtual'"
+				runtimes:  [{name: "virtual"}]
+				platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+			},
+			{
+				script:    "echo 'RUNTIME=native'"
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
+			},
+		]
+	},
+	{
+		name:        "virtual-only"
+		description: "Command with only virtual runtime"
+		implementations: [{
+			script:    "echo 'virtual only'"
+			runtimes:  [{name: "virtual"}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+	},
+]
