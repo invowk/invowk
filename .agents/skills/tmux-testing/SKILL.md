@@ -476,6 +476,8 @@ echo "PASS: Filter works correctly"
 
 ### Testing `invowk tui confirm`
 
+**Key behavior:** `tui confirm` communicates via **exit code** (0=yes, 1=no), NOT stdout text. It never prints "Yes"/"No"/"true"/"false". Use `&&`/`||` markers to verify the exit code. Wait for TUI-specific help text (e.g., "enter submit"), not the command text pattern (which appears in the typed command).
+
 ```bash
 #!/bin/bash
 source tui_helpers.sh
@@ -483,20 +485,21 @@ source tui_helpers.sh
 tui_session_start "confirm-test"
 trap tui_session_end EXIT
 
-# Test default (No)
-tui_send "./bin/invowk tui confirm 'Proceed with operation?'"
+# Launch confirm with exit code markers (&&/|| instead of ; echo $?)
+# Using ; echo $? can be pushed offscreen by Cobra's styled error rendering.
+tui_send "./bin/invowk tui confirm 'Proceed?' && echo CONFIRMED || echo REJECTED"
 tui_send Enter 300
-tui_wait_for "No" || tui_wait_for "Yes" || exit 1
 
-# Accept default
-tui_send Enter 200
+# Wait for TUI help text (NOT the command text "Proceed?" which appears in typed input)
+tui_wait_for "enter submit" || exit 1
 
-# Check result
-if tui_capture_plain | grep -q "false\|no\|No"; then
-    echo "PASS: Default No confirmed"
-fi
+# Use shortcut key: "y" for Yes, "n" for No
+tui_send "n" 200
 
-echo "Test completed"
+# Wait for result marker
+tui_wait_for "REJECTED" || exit 1
+
+echo "PASS: Default No confirmed via exit code"
 ```
 
 ### Testing Multi-Select Mode

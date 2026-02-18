@@ -75,8 +75,11 @@ func (s *tmuxSession) kill() {
 }
 
 // TestTUI_Confirm tests `invowk tui confirm` via tmux.
-// This is a representative E2E test for interactive TUI commands.
+// The confirm command communicates its result via exit code (0=yes, 1=no),
+// not stdout. We verify the exit code using an echo marker after the command.
 func TestTUI_Confirm(t *testing.T) {
+	t.Parallel()
+
 	if testing.Short() {
 		t.Skip("skipping TUI tmux test in short mode")
 	}
@@ -84,61 +87,69 @@ func TestTUI_Confirm(t *testing.T) {
 		t.Skip("tmux not available")
 	}
 
-	t.Run("accept_default", func(t *testing.T) {
-		s := newTmuxSession(t, "confirm-default")
+	t.Run("reject_with_shortcut", func(t *testing.T) {
+		t.Parallel()
 
-		// Launch invowk tui confirm
-		s.sendKeys(binaryPath+" tui confirm 'Proceed?'", "Enter")
+		s := newTmuxSession(t, "confirm-reject")
 
-		// Wait for TUI to render
-		if !s.waitFor("Proceed", 5*time.Second) {
+		// Launch confirm; rejected (No) returns exit 1. Use && / || to emit
+		// a deterministic marker regardless of Cobra's styled error rendering.
+		s.sendKeys(binaryPath+" tui confirm 'Proceed?' && echo INVOWK_CONFIRMED || echo INVOWK_REJECTED", "Enter")
+
+		// Wait for TUI to fully render (help text only appears after TUI init)
+		if !s.waitFor("enter submit", 5*time.Second) {
 			t.Fatal("TUI did not render within timeout")
 		}
 
-		// Press Enter to accept default (No)
-		time.Sleep(300 * time.Millisecond)
-		s.sendKeys("Enter")
-		time.Sleep(500 * time.Millisecond)
+		// Use "n" shortcut key to select No and submit (exit 1)
+		time.Sleep(200 * time.Millisecond)
+		s.sendKeys("n")
 
-		// Capture output — should show the result
+		// Wait for the rejection marker
+		if !s.waitFor("INVOWK_REJECTED", 5*time.Second) {
+			t.Fatal("command did not exit within timeout")
+		}
+
 		output := s.capturePlain()
-		// The confirm widget exits and prints the result to stdout
-		if !strings.Contains(output, "No") && !strings.Contains(output, "false") {
-			t.Logf("captured output:\n%s", output)
-			// Don't fail hard — confirm might render differently
-			t.Log("Note: could not verify default selection in output")
+		if !strings.Contains(output, "INVOWK_REJECTED") {
+			t.Errorf("expected INVOWK_REJECTED marker, got:\n%s", output)
 		}
 	})
 
-	t.Run("select_yes", func(t *testing.T) {
-		s := newTmuxSession(t, "confirm-yes")
+	t.Run("accept_with_shortcut", func(t *testing.T) {
+		t.Parallel()
 
-		// Launch invowk tui confirm with --affirmative flag
-		s.sendKeys(binaryPath+" tui confirm 'Proceed?' --affirmative 'Yes'", "Enter")
+		s := newTmuxSession(t, "confirm-accept")
 
-		// Wait for TUI to render
-		if !s.waitFor("Proceed", 5*time.Second) {
+		// Launch confirm; accepted (Yes) returns exit 0.
+		s.sendKeys(binaryPath+" tui confirm 'Proceed?' && echo INVOWK_CONFIRMED || echo INVOWK_REJECTED", "Enter")
+
+		// Wait for TUI to fully render
+		if !s.waitFor("enter submit", 5*time.Second) {
 			t.Fatal("TUI did not render within timeout")
 		}
 
-		time.Sleep(300 * time.Millisecond)
-
-		// Navigate to Yes (Tab or arrow) and confirm
-		s.sendKeys("Tab")
+		// Use "y" shortcut key to select Yes and submit (exit 0)
 		time.Sleep(200 * time.Millisecond)
-		s.sendKeys("Enter")
-		time.Sleep(500 * time.Millisecond)
+		s.sendKeys("y")
+
+		// Wait for the confirmation marker
+		if !s.waitFor("INVOWK_CONFIRMED", 5*time.Second) {
+			t.Fatal("command did not exit within timeout")
+		}
 
 		output := s.capturePlain()
-		if !strings.Contains(output, "Yes") && !strings.Contains(output, "true") {
-			t.Logf("captured output:\n%s", output)
-			t.Log("Note: could not verify Yes selection in output")
+		if !strings.Contains(output, "INVOWK_CONFIRMED") {
+			t.Errorf("expected INVOWK_CONFIRMED marker, got:\n%s", output)
 		}
 	})
 }
 
 // TestTUI_Choose tests `invowk tui choose` via tmux.
+// The choose command prints the selected option to stdout.
 func TestTUI_Choose(t *testing.T) {
+	t.Parallel()
+
 	if testing.Short() {
 		t.Skip("skipping TUI tmux test in short mode")
 	}
@@ -147,10 +158,12 @@ func TestTUI_Choose(t *testing.T) {
 	}
 
 	t.Run("navigate_and_select", func(t *testing.T) {
+		t.Parallel()
+
 		s := newTmuxSession(t, "choose-nav")
 
-		// Launch invowk tui choose
-		s.sendKeys(binaryPath+" tui choose 'Apple' 'Banana' 'Cherry'", "Enter")
+		// Launch choose with done marker
+		s.sendKeys(binaryPath+" tui choose 'Apple' 'Banana' 'Cherry'; echo INVOWK_EXIT:$?", "Enter")
 
 		// Wait for TUI to render
 		if !s.waitFor("Apple", 5*time.Second) {
@@ -162,7 +175,7 @@ func TestTUI_Choose(t *testing.T) {
 		s.sendKeys("Down")
 		time.Sleep(200 * time.Millisecond)
 
-		// Verify Banana is visible
+		// Verify Banana is visible in the TUI
 		output := s.capturePlain()
 		if !strings.Contains(output, "Banana") {
 			t.Fatal("Banana not visible in TUI")
@@ -170,18 +183,24 @@ func TestTUI_Choose(t *testing.T) {
 
 		// Select Banana
 		s.sendKeys("Enter")
-		time.Sleep(500 * time.Millisecond)
+
+		// Wait for command to finish — "Banana" should be printed to stdout
+		if !s.waitFor("INVOWK_EXIT:", 5*time.Second) {
+			t.Fatal("command did not exit within timeout")
+		}
 
 		output = s.capturePlain()
 		if !strings.Contains(output, "Banana") {
-			t.Logf("captured output:\n%s", output)
-			t.Log("Note: could not verify Banana selection in output")
+			t.Errorf("expected output to contain 'Banana' (selected option), got:\n%s", output)
 		}
 	})
 }
 
 // TestTUI_Input tests `invowk tui input` via tmux.
+// The input command prints the entered text to stdout.
 func TestTUI_Input(t *testing.T) {
+	t.Parallel()
+
 	if testing.Short() {
 		t.Skip("skipping TUI tmux test in short mode")
 	}
@@ -190,10 +209,12 @@ func TestTUI_Input(t *testing.T) {
 	}
 
 	t.Run("type_and_submit", func(t *testing.T) {
+		t.Parallel()
+
 		s := newTmuxSession(t, "input-type")
 
-		// Launch invowk tui input
-		s.sendKeys(binaryPath+" tui input --header 'Enter name:'", "Enter")
+		// Launch input with done marker
+		s.sendKeys(binaryPath+" tui input --header 'Enter name:'; echo INVOWK_EXIT:$?", "Enter")
 
 		// Wait for TUI to render
 		if !s.waitFor("name", 5*time.Second) {
@@ -208,12 +229,15 @@ func TestTUI_Input(t *testing.T) {
 
 		// Submit
 		s.sendKeys("Enter")
-		time.Sleep(500 * time.Millisecond)
+
+		// Wait for command to finish — "Hello World" should be printed to stdout
+		if !s.waitFor("INVOWK_EXIT:", 5*time.Second) {
+			t.Fatal("command did not exit within timeout")
+		}
 
 		output := s.capturePlain()
 		if !strings.Contains(output, "Hello World") {
-			t.Logf("captured output:\n%s", output)
-			t.Log("Note: could not verify typed input in output")
+			t.Errorf("expected output to contain 'Hello World' (entered text), got:\n%s", output)
 		}
 	})
 }

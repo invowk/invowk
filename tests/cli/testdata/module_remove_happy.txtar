@@ -13,6 +13,8 @@ stdout 'updated'
 # Test 2: Re-removing after entry is gone should fail
 ! exec invowk module remove dep
 stdout 'Removing dep'
+stdout 'Failed to remove'
+stderr '[Nn]o module found'
 
 -- mymod.invowkmod/invowkmod.cue --
 module:  "mymod"

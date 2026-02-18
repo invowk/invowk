@@ -227,6 +227,22 @@ type ExitError struct {
 - Root `Execute()` catches `ExitError` and calls `os.Exit(exitErr.Code)`
 - Prevents cascading error messages while maintaining proper exit codes
 
+### Dual-Channel Error Output
+
+CLI handlers (e.g., `runModuleRemove`, `runModuleSync`) use two output channels simultaneously:
+
+1. **stdout** — Handler prints styled progress with icons via `fmt.Printf` (e.g., `"• Removing dep..."`, `"✗ Failed to remove module: ..."`)
+2. **stderr** — Handler returns the error to Cobra, which renders it with styled `ERROR` formatting
+
+This means a handler error produces output on BOTH channels. When writing txtar tests for error paths, assert both:
+```
+! exec invowk module remove dep
+stdout 'Failed to remove'        # Handler's styled output (stdout)
+stderr '[Nn]o module found'      # Cobra's error rendering (stderr)
+```
+
+Testing only one channel misses bugs in the other (e.g., handler formatting breaks but Cobra rendering works, or vice versa).
+
 ### Styled Error Rendering
 
 `cmd_render.go` provides styled error messages for:

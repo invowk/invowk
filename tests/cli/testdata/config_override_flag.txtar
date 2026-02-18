@@ -3,6 +3,8 @@
 # and that config settings (like default_runtime) take effect.
 # Note: default config has default_runtime: "native".
 
+[GOOS:windows] skip 'native runtime not available on Windows; soft fallback changes expected output'
+
 cd $WORK
 
 # Test 1: without --ivk-config, command uses default config (native runtime)
@@ -25,6 +27,7 @@ stdout 'RUNTIME=virtual'
 exec invowk cmd multi-runtime --ivk-config nonexistent.cue
 stdout 'RUNTIME=native'
 stderr -count=1 '[Ww]arning'
+stderr 'nonexistent.cue'
 
 -- invowkfile.cue --
 cmds: [

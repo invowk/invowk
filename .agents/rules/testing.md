@@ -66,7 +66,7 @@ for _, tt := range tests {
 
 ### Default Rule
 
-All new test functions MUST call `t.Parallel()` unless they mutate global/process-wide state.
+All new test functions MUST call `t.Parallel()` unless they mutate global/process-wide state. **`t.Parallel()` must be the first call in the function** — before any `t.Skip()` guards or other setup. The `tparallel` linter enforces this positioning.
 
 ### Table-Driven Subtests
 
@@ -493,3 +493,4 @@ defer func() { testutil.MustRemoveAll(t, path) }()
 | Removing shared test helper breaks other test files | In Go, all `_test.go` files in the same package share a namespace. Removing a helper (e.g., `containsString` from `dotenv_test.go`) that is also called by `container_test.go` or `env_test.go` causes compile errors. Always grep the ENTIRE package for the function name before deleting it |
 | Txtar workspace contamination from broken fixtures | ALL file entries in a `.txtar` archive are created under `$WORK`. If one test creates a broken fixture (e.g., `badmod.invowkmod/`) at `$WORK` root, other tests running `exec invowk validate` or `exec invowk cmd` at `$WORK` will pick up the broken files through discovery. Isolate tests that need a clean workspace into subdirectories (e.g., `cd $WORK/clean_workspace`) |
 | Testscript `stdout`/`stderr` assertions use Go regex | Patterns in `stdout 'foo(s) bar'` interpret `(s)` as a capture group, not a literal `(s)`. Use simpler patterns like `stdout 'discovered'` or escape parentheses `\(s\)`. Particularly tricky with pluralization patterns like `"N source(s)"` |
+| CLI handler error tests only check one output channel | CLI handlers (e.g., `runModuleRemove`) print styled progress to **stdout** (`fmt.Printf` with icons) AND return errors to Cobra which renders to **stderr**. Test BOTH channels: `stdout 'Failed to remove'` verifies the handler's formatting, `stderr '[Nn]o module found'` verifies Cobra's error rendering. A bug in either path would be missed if only one channel is checked |

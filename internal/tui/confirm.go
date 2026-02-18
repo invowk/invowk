@@ -68,7 +68,7 @@ func (m *confirmModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case keyCtrlC, "esc":
 			m.done = true
 			m.cancelled = true
-			return m, nil
+			return m, tea.Quit
 		}
 	}
 
@@ -78,13 +78,17 @@ func (m *confirmModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.form = f
 	}
 
-	// Check if form is complete
+	// Check if form is complete. The huh form may not include tea.Quit in cmd
+	// for all completion paths (e.g., shortcut keys like "y"/"n"), so we
+	// explicitly return tea.Quit to ensure the bubbletea program exits.
 	switch m.form.State {
 	case huh.StateCompleted:
 		m.done = true
+		return m, tea.Quit
 	case huh.StateAborted:
 		m.done = true
 		m.cancelled = true
+		return m, tea.Quit
 	case huh.StateNormal:
 		// Form still in progress
 	}
