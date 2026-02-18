@@ -75,6 +75,72 @@ read_versions() {
     fi
 }
 
+# Sort versions.json by semver descending (newest first).
+# Docusaurus prepends new versions to the array, so retroactively versioning
+# an older release puts it above newer ones. This function restores semver order
+# after each docs:version run.
+sort_versions_json() {
+    if [ ! -f "$VERSIONS_FILE" ]; then
+        return 0
+    fi
+
+    node -e "
+        const fs = require('fs');
+
+        // Parse 'X.Y.Z' or 'X.Y.Z-label.N' into comparable parts
+        function parseSemver(v) {
+            const [core, ...preParts] = v.split('-');
+            const [major, minor, patch] = core.split('.').map(Number);
+            const pre = preParts.length > 0 ? preParts.join('-') : null;
+            return { major, minor, patch, pre };
+        }
+
+        // Compare pre-release identifiers per semver spec:
+        // numeric identifiers compared as integers, string identifiers lexically.
+        function comparePrerelease(a, b) {
+            const partsA = a.split('.');
+            const partsB = b.split('.');
+            const len = Math.max(partsA.length, partsB.length);
+            for (let i = 0; i < len; i++) {
+                if (i >= partsA.length) return -1; // fewer fields = lower precedence
+                if (i >= partsB.length) return 1;
+                const isNumA = /^\d+$/.test(partsA[i]);
+                const isNumB = /^\d+$/.test(partsB[i]);
+                if (isNumA && isNumB) {
+                    const diff = Number(partsA[i]) - Number(partsB[i]);
+                    if (diff !== 0) return diff;
+                } else if (isNumA !== isNumB) {
+                    return isNumA ? -1 : 1; // numeric < string
+                } else {
+                    if (partsA[i] < partsB[i]) return -1;
+                    if (partsA[i] > partsB[i]) return 1;
+                }
+            }
+            return 0;
+        }
+
+        // Sort descending: higher versions first.
+        function compareSemver(a, b) {
+            const pa = parseSemver(a);
+            const pb = parseSemver(b);
+            if (pa.major !== pb.major) return pb.major - pa.major;
+            if (pa.minor !== pb.minor) return pb.minor - pa.minor;
+            if (pa.patch !== pb.patch) return pb.patch - pa.patch;
+            // Both stable? Equal.
+            if (!pa.pre && !pb.pre) return 0;
+            // Stable > pre-release (stable sorts first in descending).
+            if (!pa.pre) return -1;
+            if (!pb.pre) return 1;
+            // Both pre-release: compare identifiers (descending).
+            return -comparePrerelease(pa.pre, pb.pre);
+        }
+
+        const versions = JSON.parse(fs.readFileSync('$VERSIONS_FILE', 'utf8'));
+        versions.sort(compareSemver);
+        fs.writeFileSync('$VERSIONS_FILE', JSON.stringify(versions, null, 2) + '\n');
+    "
+}
+
 # ---------------------------------------------------------------------------
 # Step 1: Run docusaurus docs:version
 # ---------------------------------------------------------------------------
@@ -157,24 +223,46 @@ update_docusaurus_config() {
 
     info "Updating docusaurus.config.ts..."
 
-    # Read versions.json to determine lastVersion
+    # Read versions.json to determine lastVersion.
+    # Use semver comparison to find the highest stable version rather than
+    # relying on array order (which can be wrong after retroactive versioning).
     read_versions
 
-    # Find the latest stable version (no '-' in name).
-    # versions.json is ordered newest-first, so the first stable hit is the latest.
     local last_version=""
-    for v in "${EXISTING_VERSIONS[@]}"; do
-        if ! is_prerelease "$v"; then
-            last_version="$v"
-            break
-        fi
-    done
+    last_version=$(node -e "
+        const versions = $(cat "$VERSIONS_FILE");
 
-    # If no stable version exists, fall back to the latest pre-release
-    if [ -z "$last_version" ]; then
-        if [ "${#EXISTING_VERSIONS[@]}" -gt 0 ]; then
-            last_version="${EXISTING_VERSIONS[0]}"
-        fi
+        function parseSemver(v) {
+            const [core, ...preParts] = v.split('-');
+            const [major, minor, patch] = core.split('.').map(Number);
+            return { major, minor, patch, pre: preParts.length > 0 };
+        }
+
+        // Find highest stable version by semver comparison
+        let best = null;
+        let bestParsed = null;
+        for (const v of versions) {
+            const p = parseSemver(v);
+            if (p.pre) continue; // skip pre-releases
+            if (!bestParsed
+                || p.major > bestParsed.major
+                || (p.major === bestParsed.major && p.minor > bestParsed.minor)
+                || (p.major === bestParsed.major && p.minor === bestParsed.minor && p.patch > bestParsed.patch)) {
+                best = v;
+                bestParsed = p;
+            }
+        }
+
+        // Fall back to highest pre-release if no stable version exists
+        if (!best && versions.length > 0) {
+            best = versions[0]; // versions.json is sorted descending after sort step
+        }
+
+        if (best) process.stdout.write(best);
+    ")
+
+    if [ -z "$last_version" ] && [ "${#EXISTING_VERSIONS[@]}" -gt 0 ]; then
+        last_version="${EXISTING_VERSIONS[0]}"
     fi
 
     if [ -z "$last_version" ]; then
@@ -285,27 +373,33 @@ main() {
     fi
 
     # Step 1: Create version snapshot
-    info "Step 1/5: Creating docs version snapshot..."
+    info "Step 1/6: Creating docs version snapshot..."
     create_version_snapshot "$version"
     echo ""
 
-    # Step 2: Snapshot version assets (snippets + diagrams)
-    info "Step 2/5: Snapshotting version assets..."
+    # Step 2: Sort versions.json by semver descending
+    info "Step 2/6: Sorting versions.json by semver..."
+    sort_versions_json
+    ok "versions.json sorted."
+    echo ""
+
+    # Step 3: Snapshot version assets (snippets + diagrams)
+    info "Step 3/6: Snapshotting version assets..."
     node "$REPO_ROOT/scripts/snapshot-version-assets.mjs" "$version"
     echo ""
 
-    # Step 3: Copy i18n translations
-    info "Step 3/5: Copying i18n translations..."
+    # Step 4: Copy i18n translations
+    info "Step 4/6: Copying i18n translations..."
     copy_i18n_translations "$version"
     echo ""
 
-    # Step 4: Update docusaurus.config.ts
-    info "Step 4/5: Updating docusaurus.config.ts..."
+    # Step 5: Update docusaurus.config.ts
+    info "Step 5/6: Updating docusaurus.config.ts..."
     update_docusaurus_config "$version"
     echo ""
 
-    # Step 5: Validate version assets
-    info "Step 5/5: Validating version assets..."
+    # Step 6: Validate version assets
+    info "Step 6/6: Validating version assets..."
     node "$REPO_ROOT/scripts/validate-version-assets.mjs"
     echo ""
 
