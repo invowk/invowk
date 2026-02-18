@@ -515,6 +515,35 @@ Aplicar estilos ao texto.
 
 ---
 
+### invowk validate
+
+Validar invowkfiles, módulos ou o workspace inteiro.
+
+<Snippet id="reference/cli/validate-syntax" />
+
+Sem argumentos, valida o workspace atual executando a descoberta completa
+e reportando todos os diagnósticos de cada caminho de busca.
+
+Com um argumento de caminho, detecta automaticamente o tipo do alvo:
+
+| Caminho | Validação |
+|---------|-----------|
+| Diretório `*.invowkmod` | Validação de módulo (estrutura + parsing de invowkfile + árvore de comandos) |
+| Arquivo `invowkfile.cue` | Validação de invowkfile (schema CUE + estrutural + árvore de comandos) |
+| Diretório com `invowkfile.cue` | Validação de invowkfile |
+| Arquivo `invowkmod.cue` | Validação de módulo (diretório pai) |
+
+:::tip
+Diferente de `invowk module validate`, `invowk validate` sempre executa validação profunda
+(incluindo parsing de invowkfile e verificações da árvore de comandos) sem necessitar da flag `--deep`.
+:::
+
+**Exemplos:**
+
+<Snippet id="reference/cli/validate-examples" />
+
+---
+
 ### invowk completion
 
 Gerar scripts de completion para o shell.

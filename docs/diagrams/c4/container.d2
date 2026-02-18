@@ -92,7 +92,7 @@ invowk_cli: Invowk CLI {
       }
       tooltip: |md
         **Go/Cobra**
-        Root, cmd, init, config, module, tui, completion
+        Root, cmd, init, config, module, tui, validate, completion
       |
     }
 
@@ -362,8 +362,12 @@ invowk_cli.runtimes.runtime_container -> invowk_cli.container_infra.container_en
 invowk_cli.runtimes.runtime_container -> invowk_cli.container_infra.provision: Provisions {
   style.stroke: "#707070"
 }
-invowk_cli.runtimes.runtime_container -> invowk_cli.container_infra.ssh_server: Starts {
+invowk_cli.entry_core.cmd -> invowk_cli.container_infra.ssh_server: "Manages lifecycle" {
   style.stroke: "#707070"
+}
+invowk_cli.runtimes.runtime_container -> invowk_cli.container_infra.ssh_server: "Uses reference" {
+  style.stroke: "#707070"
+  style.stroke-dash: 3
 }
 invowk_cli.runtimes.runtime_container -> invowk_cli.container_infra.tui_server: "Requests TUI\n[HTTP]" {
   style.stroke: "#707070"

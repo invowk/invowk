@@ -89,9 +89,12 @@ O runtime virtual usa o interpretador mvdan/sh embutido:
 | Fase | Duração Típica | Otimização |
 |------|----------------|------------|
 | Inicialização | < 10ms | Config em cache após primeiro carregamento |
-| Descoberta | 10-100ms | Depende do número de arquivos/módulos |
+| Descoberta | 10-100ms | Cache por requisição elimina varreduras duplicadas do sistema de arquivos |
 | Resolução | < 1ms | Lookup simples |
 | Execução | Variável | Depende do comando |
+
+**Otimizações principais:**
+- **Cache de descoberta por requisição**: Um `discoveryRequestCache` anexado ao contexto da requisição memoriza resultados de `DiscoverCommandSet`, `DiscoverAndValidateCommandSet` e `GetCommand`. A cross-population garante que uma chamada `DiscoverAndValidateCommandSet` também satisfaz lookups downstream de `DiscoverCommandSet`, eliminando travessias redundantes do sistema de arquivos dentro de uma única invocação CLI.
 
 **Gargalos a observar:**
 - Muitos módulos nos search paths → descoberta mais lenta

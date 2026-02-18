@@ -88,8 +88,11 @@ Módulos adicionais são configurados em `~/.config/invowk/config.cue`:
 # Listar todos os comandos descobertos com fontes
 invowk cmd --ivk-verbose
 
-# Validar estrutura do módulo
-invowk module validate ./mymodule.invowkmod
+# Validar descoberta do workspace (reporta todos os diagnósticos)
+invowk validate
+
+# Validar um módulo específico
+invowk validate ./mymodule.invowkmod
 ```
 
 ## Diagramas Relacionados

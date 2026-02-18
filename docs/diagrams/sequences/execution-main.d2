@@ -1,7 +1,7 @@
 # Main Execution Sequence Diagram
 #
 # Shows the high-level flow of command execution from user request
-# through initialization, discovery, resolution, and execution phases.
+# through the 7-step commandService.Execute pipeline.
 #
 # Source: cmd/invowk/cmd_execute.go (commandService pipeline)
 
@@ -25,29 +25,38 @@ Runtime: Selected Runtime
 # Entry point
 User -> CLI: "invowk cmd <name> [args...]"
 
-# 1. Initialization Phase
+# Step 1: discoverCommand
 CLI -> Config: Load configuration
 Config -> CUE: Parse config.cue
 CUE -> Config: Config struct
 Config -> CLI: Configuration loaded
-
-# 2. Discovery Phase
-CLI -> Disc: DiscoverCommands(searchPaths)
+CLI -> Disc: "discoverCommand(ctx, req)"
 Disc -> CUE: Parse invowkfile.cue files
 CUE -> Disc: Invowkfile structs
 Disc -> CUE: Parse *.invowkmod directories
 CUE -> Disc: Module structs
-Disc -> CLI: "CommandInfo[] (unified tree)"
+Disc -> CLI: "CommandInfo + Diagnostics"
 
-# 3. Resolution Phase
-CLI -> CLI: Match command by name
-CLI -> CLI: Select implementation (platform match)
-CLI -> Registry: GetRuntime(implementation.runtime)
+# Step 2: resolveDefinitions
+CLI -> CLI: "resolveDefinitions(req, cmd)\nMerge flag/arg defaults"
+
+# Step 3: validateInputs
+CLI -> CLI: "validateInputs(req, cmd, defs)\nCheck flags, args, platform"
+
+# Step 4: resolveRuntime
+CLI -> CLI: "resolveRuntime(req, cmd, cfg)\n3-tier: CLI flag > config > command default"
+
+# Step 5: ensureSSHIfNeeded
+CLI -> CLI: "ensureSSHIfNeeded(ctx, req, resolved)\nStart SSH server if container + host access"
+
+# Step 6: buildExecContext
+CLI -> CLI: "buildExecContext(req, cmd, defs, resolved)\nProject env vars (INVOWK_FLAG_*, INVOWK_ARG_*)"
+
+# Step 7: dispatchExecution
+CLI -> Registry: "createRuntimeRegistry(cfg)"
+Registry -> CLI: "Registry + Cleanup"
+CLI -> Registry: "Get(runtimeMode)"
 Registry -> CLI: Runtime instance
-CLI -> Runtime: Validate(context)
-Runtime -> CLI: Validation result
-
-# 4. Execution Phase
 CLI -> Runtime: Execute(context)
 Runtime -> Runtime: Run script/command
 Runtime -> CLI: Result

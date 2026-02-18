@@ -41,7 +41,6 @@ const svgPaths: Record<string, string> = {
   'architecture/discovery-module-structure': '/diagrams/rendered/flowcharts/discovery-module-structure.svg',
   'architecture/discovery-deps': '/diagrams/rendered/flowcharts/discovery-deps.svg',
   'architecture/discovery-includes': '/diagrams/rendered/flowcharts/discovery-includes.svg',
-  'architecture/discovery-search-paths': '/diagrams/rendered/flowcharts/discovery-search-paths.svg',
   'architecture/discovery-cache': '/diagrams/rendered/flowcharts/discovery-cache.svg',
   'architecture/discovery-not-found': '/diagrams/rendered/flowcharts/discovery-not-found.svg',
   'architecture/discovery-wrong-version': '/diagrams/rendered/flowcharts/discovery-wrong-version.svg',

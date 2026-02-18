@@ -1,0 +1,221 @@
+# Per-Request Discovery Cache Flowchart
+#
+# Shows how the discoveryRequestCache in cmd/invowk/app.go memoizes
+# discovery results within a single CLI invocation. The cache is
+# attached to the request context by contextWithConfigPath() and
+# shared across five callers that would otherwise trigger redundant
+# filesystem scans.
+#
+# Key detail: DiscoverAndValidateCommandSet cross-populates the
+# commandSet slot (when result.Set != nil) so downstream
+# DiscoverCommandSet calls reuse the same result.
+#
+# Source: cmd/invowk/app.go (discoveryRequestCache, appDiscoveryService)
+
+vars: {
+  d2-config: {
+    layout-engine: tala
+  }
+}
+
+direction: down
+
+# ==============================================================================
+# Title
+# ==============================================================================
+
+title: Per-Request Discovery Cache {
+  shape: text
+  style: {
+    font-size: 24
+    bold: true
+  }
+}
+
+# ==============================================================================
+# Entry Point: CLI Invocation
+# ==============================================================================
+
+Start: CLI command invocation\n(e.g., invowk cmd build) {
+  shape: oval
+  style.fill: "#E8F5E9"
+}
+
+AttachCache: contextWithConfigPath()\nattaches discoveryRequestCache\nto request context {
+  style.fill: "#BBDEFB"
+}
+
+title -> Start: {style.stroke: transparent}
+Start -> AttachCache
+
+# ==============================================================================
+# Cache Structure
+# ==============================================================================
+
+cache: discoveryRequestCache {
+  style: {
+    stroke: "#1168BD"
+    stroke-dash: 3
+    fill: transparent
+  }
+
+  commandSet: commandSet slot\n(hasCommandSet bool) {
+    shape: cylinder
+    style.fill: "#C8E6C9"
+  }
+
+  validatedSet: validatedSet slot\n(hasValidatedSet bool) {
+    shape: cylinder
+    style.fill: "#C8E6C9"
+  }
+
+  lookups: lookups map\n(keyed by command name) {
+    shape: cylinder
+    style.fill: "#C8E6C9"
+  }
+}
+
+AttachCache -> cache: initializes empty cache
+
+# ==============================================================================
+# Three Cached Operations
+# ==============================================================================
+
+operations: Cached Operations (appDiscoveryService) {
+  style: {
+    stroke: "#1168BD"
+    stroke-dash: 3
+    fill: transparent
+  }
+
+  DiscoverCommandSet: DiscoverCommandSet() {
+    style.fill: "#BBDEFB"
+  }
+
+  DiscoverAndValidateCommandSet: DiscoverAndValidateCommandSet() {
+    style.fill: "#BBDEFB"
+  }
+
+  GetCommand: GetCommand(name) {
+    style.fill: "#BBDEFB"
+  }
+}
+
+# Operation -> Cache slot connections
+
+operations.DiscoverCommandSet -> cache.commandSet: read/write {
+  style.stroke: "#388E3C"
+}
+
+operations.DiscoverAndValidateCommandSet -> cache.validatedSet: read/write {
+  style.stroke: "#388E3C"
+}
+
+operations.GetCommand -> cache.lookups: read/write {
+  style.stroke: "#388E3C"
+}
+
+# Cross-population arrow (dashed)
+operations.DiscoverAndValidateCommandSet -> cache.commandSet: cross-populate\n(when result.Set != nil) {
+  style: {
+    stroke: "#E65100"
+    stroke-dash: 3
+    font-color: "#E65100"
+  }
+}
+
+# ==============================================================================
+# Cache miss -> Filesystem access
+# ==============================================================================
+
+CacheMiss: Cache miss:\ndiscovery.New(cfg).\nDiscoverCommandSet / Validate / GetCommand {
+  shape: diamond
+  style.fill: "#FFF3E0"
+}
+
+Filesystem: Filesystem scan\n+ CUE parsing {
+  shape: page
+  style.fill: "#FFE4B5"
+}
+
+CacheMiss -> Filesystem: discover from disk
+Filesystem -> CacheMiss: result stored in cache
+
+operations.DiscoverCommandSet -> CacheMiss: on miss {
+  style.stroke: "#9E9E9E"
+  style.stroke-dash: 3
+}
+operations.DiscoverAndValidateCommandSet -> CacheMiss: on miss {
+  style.stroke: "#9E9E9E"
+  style.stroke-dash: 3
+}
+operations.GetCommand -> CacheMiss: on miss {
+  style.stroke: "#9E9E9E"
+  style.stroke-dash: 3
+}
+
+# ==============================================================================
+# Five Callers (share the cache through context)
+# ==============================================================================
+
+callers: Callers (share cache via context) {
+  style: {
+    stroke: "#1168BD"
+    stroke-dash: 3
+    fill: transparent
+  }
+
+  validateCommandTree: validateCommandTree() {
+    style.fill: "#BBDEFB"
+  }
+
+  checkAmbiguousCommand: checkAmbiguousCommand() {
+    style.fill: "#BBDEFB"
+  }
+
+  listCommands: listCommands() {
+    style.fill: "#BBDEFB"
+  }
+
+  executeRequest: executeRequest() {
+    style.fill: "#BBDEFB"
+  }
+
+  discoverCommand: commandService.\ndiscoverCommand() {
+    style.fill: "#BBDEFB"
+  }
+}
+
+# Caller -> Operation connections
+
+callers.validateCommandTree -> operations.DiscoverAndValidateCommandSet: {
+  style.stroke: "#1565C0"
+}
+
+callers.checkAmbiguousCommand -> operations.DiscoverCommandSet: {
+  style.stroke: "#1565C0"
+}
+
+callers.listCommands -> operations.DiscoverCommandSet: {
+  style.stroke: "#1565C0"
+}
+
+callers.executeRequest -> operations.DiscoverAndValidateCommandSet: {
+  style.stroke: "#1565C0"
+}
+
+callers.discoverCommand -> operations.GetCommand: {
+  style.stroke: "#1565C0"
+}
+
+# ==============================================================================
+# Typical flow annotation
+# ==============================================================================
+
+Flow: Typical flow:\nvalidateCommandTree() populates validatedSet +\ncross-populates commandSet.\nDownstream listCommands() / checkAmbiguousCommand()\nget cache hits (no second filesystem scan). {
+  shape: page
+  style.fill: "#FFF3E0"
+  style.font-size: 13
+}
+
+cache -> Flow
