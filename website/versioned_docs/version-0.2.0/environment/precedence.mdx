@@ -1,0 +1,136 @@
+---
+sidebar_position: 4
+---
+
+import Snippet from '@site/src/components/Snippet';
+
+# Environment Precedence
+
+When the same variable is defined in multiple places, Invowk™ follows a specific precedence order. Higher precedence sources override lower ones.
+
+## Precedence Order
+
+From highest to lowest priority:
+
+| Priority | Source | Example |
+|----------|--------|---------|
+| 1 | CLI env vars | `--ivk-env-var KEY=value` |
+| 2 | CLI env files | `--ivk-env-file .env.local` |
+| 3 | Invowk vars | `INVOWK_FLAG_*`, `INVOWK_ARG_*` |
+| 4 | Implementation vars | `implementations[].env.vars` |
+| 5 | Command vars | `command.env.vars` |
+| 6 | Root vars | `root.env.vars` |
+| 7 | Implementation files | `implementations[].env.files` |
+| 8 | Command files | `command.env.files` |
+| 9 | Root files | `root.env.files` |
+| 10 | System environment | Host's environment (if `env_inherit_mode` allows) |
+
+## Visual Hierarchy
+
+<Snippet id="environment/precedence-hierarchy" />
+
+## Example Walkthrough
+
+Given this invowkfile:
+
+<Snippet id="environment/precedence-invowkfile" />
+
+And these files:
+
+<Snippet id="environment/precedence-env-files" />
+
+### Resolution Order
+
+1. **Start with system environment** (e.g., `PATH`, `HOME`) if `env_inherit_mode` is not `none`
+
+2. **Load root files** (`.env`):
+   - `API_URL=http://envfile.example.com`
+   - `DATABASE_URL=postgres://localhost/db`
+
+3. **Load command files** (`.env.build`):
+   - `BUILD_MODE=release`
+   - `CACHE_DIR=./cache`
+
+4. **Load implementation files** (`implementations[].env.files`):
+   - (none in this example)
+
+5. **Apply root vars** (override files):
+   - `API_URL=http://root.example.com` ← overrides `.env`
+   - `LOG_LEVEL=info`
+
+6. **Apply command vars** (override files):
+   - `API_URL=http://command.example.com` ← overrides root
+   - `BUILD_MODE=development` ← overrides `.env.build`
+
+7. **Apply implementation vars**:
+   - `BUILD_MODE=production` ← overrides command
+   - `NODE_ENV=production`
+
+8. **Apply Invowk vars** (flags/args):
+   - `INVOWK_FLAG_*`, `INVOWK_ARG_*` (if present)
+
+9. **Apply CLI overrides** (if provided):
+   - `--ivk-env-file` then `--ivk-env-var` (highest priority)
+
+### Final Result
+
+<Snippet id="environment/precedence-result" />
+
+### With CLI Override
+
+<Snippet id="environment/precedence-cli-override" />
+
+Now `API_URL=http://cli.example.com` because CLI has highest priority.
+
+## Vars Always Override Files
+
+All `env.files` are loaded first (root → command → implementation), then all `env.vars` are applied on top (root → command → implementation). This means even root-level `vars` override implementation-level `files`:
+
+<Snippet id="environment/precedence-vars-over-files" />
+
+## Multiple Files at Same Level
+
+Files are loaded in order; later files override earlier:
+
+<Snippet id="environment/precedence-multiple-files" />
+
+## Platform-Specific Variables
+
+For platform-specific environment variables, use separate implementations per platform:
+
+<Snippet id="environment/precedence-platform" />
+
+Each implementation has its own `env` that is applied when that platform is selected.
+
+## Best Practices
+
+### Use Appropriate Levels
+
+<Snippet id="environment/precedence-appropriate-levels" />
+
+### Override Pattern
+
+Base config in files, overrides in vars:
+
+<Snippet id="environment/precedence-override-pattern" />
+
+### Local Development
+
+Use optional local files for developer overrides:
+
+<Snippet id="environment/precedence-local-dev" />
+
+### CLI for Temporary Overrides
+
+<Snippet id="environment/precedence-cli-temp" />
+
+## Debugging Precedence
+
+To see final values, add debug output:
+
+<Snippet id="environment/precedence-debug" />
+
+## Next Steps
+
+- [Env Files](./env-files) - Load from .env files
+- [Env Vars](./env-vars) - Set variables directly

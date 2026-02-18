@@ -1,0 +1,131 @@
+---
+sidebar_position: 1
+---
+
+import Snippet from '@site/src/components/Snippet';
+
+# Modules Overview
+
+:::warning Alpha — Module Format May Change
+The module format and structure are still being finalized. While we aim for backwards compatibility, **breaking changes may occur** before the 1.0 release. If you're distributing modules externally, be prepared to update them when upgrading Invowk™.
+:::
+
+Modules are self-contained folders that bundle `invowkmod.cue` metadata with optional `invowkfile.cue` commands and any script files they reference. They're perfect for sharing commands, creating reusable toolkits, and distributing automation across teams.
+
+## What is a Module?
+
+A module is a directory with the `.invowkmod` suffix:
+
+<Snippet id="modules/structure-basic" />
+
+## Why Use Modules?
+
+- **Portability**: Share a complete command set as a single folder
+- **Self-contained**: Scripts are bundled with the module
+- **Cross-platform**: Forward slash paths work everywhere
+- **Namespace isolation**: RDNS naming prevents conflicts
+- **Easy distribution**: Zip, share, unzip
+
+## Quick Start
+
+### Create a Module
+
+<Snippet id="modules/quick-create" />
+
+Creates:
+
+<Snippet id="modules/quick-create-output" />
+
+### Use the Module
+
+Modules are automatically discovered from:
+1. Current directory (invowkfile and local modules)
+2. Configured `includes` entries
+3. `~/.invowk/cmds/` (user modules — `*.invowkmod` only, non-recursive)
+
+<Snippet id="modules/quick-use" />
+
+### Share the Module
+
+<Snippet id="modules/quick-share" />
+
+## Module Structure
+
+### Required Files
+
+- **`invowkmod.cue`**: Module metadata (name, version, dependencies)
+
+### Optional Contents
+
+- **`invowkfile.cue`**: Command definitions (omit for library-only modules)
+- **Scripts**: Shell scripts, Python files, etc.
+- **Templates**: Configuration templates
+- **Data**: Any supporting files
+
+### Example Structure
+
+<Snippet id="modules/structure-example" />
+
+## Module Naming
+
+Module folder names follow these rules:
+
+| Rule | Valid | Invalid |
+|------|-------|---------|
+| End with `.invowkmod` | `mytools.invowkmod` | `mytools` |
+| Start with letter | `mytools.invowkmod` | `123tools.invowkmod` |
+| Alphanumeric + dots | `com.example.invowkmod` | `my-tools.invowkmod` |
+
+### RDNS Naming
+
+Recommended for shared modules:
+
+<Snippet id="modules/rdns-naming" />
+
+## Script Paths
+
+Reference scripts relative to module root with **forward slashes**:
+
+<Snippet id="modules/script-paths" />
+
+**Important:**
+- Always use forward slashes (`/`)
+- Paths are relative to module root
+- No absolute paths allowed
+- Can't escape module directory (`../` is invalid)
+
+## Module Commands
+
+| Command | Description |
+|---------|-------------|
+| `invowk module create` | Create a new module |
+| `invowk module validate` | Validate module structure |
+| `invowk module list` | List discovered modules |
+| `invowk module archive` | Create zip archive |
+| `invowk module import` | Install from zip/URL |
+| `invowk module vendor` | Vendor module dependencies locally |
+| `invowk module add` | Add a module dependency (resolves, caches, updates lock file and `invowkmod.cue`) |
+| `invowk module remove` | Remove a module dependency (updates lock file and `invowkmod.cue`) |
+| `invowk module sync` | Synchronize dependencies from `invowkmod.cue` to lock file |
+| `invowk module update` | Update module dependencies to latest matching versions |
+| `invowk module deps` | Show dependency tree |
+
+## Discovery
+
+Modules are discovered from these locations:
+
+1. **Current directory invowkfile** (highest priority)
+2. **Local modules** (`*.invowkmod` in current directory)
+3. **Configured includes** (module paths from config)
+4. **User commands directory** (`~/.invowk/cmds/` — `*.invowkmod` only, non-recursive)
+
+Commands appear in `invowk cmd` output with their source:
+
+<Snippet id="modules/discovery-output" />
+
+## Next Steps
+
+- [Creating Modules](./creating-modules) - Scaffold and structure modules
+- [Validating](./validating) - Ensure module integrity
+- [Distributing](./distributing) - Share modules with others
+- [Module Dependencies](./dependencies/overview) - Use other modules in your module

@@ -1,0 +1,109 @@
+---
+sidebar_position: 2
+---
+
+import Snippet from '@site/src/components/Snippet';
+
+# Working Directory
+
+Control where your commands execute with the `workdir` setting. This is especially useful for monorepos and projects with complex directory structures.
+
+## Default Behavior
+
+By default, commands from the root invowkfile run in the directory where the invowkfile is located. For modules, commands run in the module's root directory. Relative `workdir` paths are resolved from these locations.
+
+## Setting Working Directory
+
+### Command Level
+
+<Snippet id="advanced/workdir-command" />
+
+### Implementation Level
+
+<Snippet id="advanced/workdir-implementation" />
+
+### Root Level
+
+<Snippet id="advanced/workdir-root" />
+
+### CLI Override
+
+Override the working directory at runtime:
+
+<Snippet id="advanced/workdir-cli" />
+
+## Path Types
+
+### Relative Paths
+
+Relative to the invowkfile location:
+
+<Snippet id="advanced/workdir-relative" />
+
+### Absolute Paths
+
+Full system paths:
+
+<Snippet id="advanced/workdir-absolute" />
+
+### Environment Variables
+
+Expand variables in paths:
+
+<Snippet id="advanced/workdir-env-vars" />
+
+## Precedence
+
+CLI override (`--ivk-workdir`) overrides implementation, which overrides command, which overrides root:
+
+<Snippet id="advanced/workdir-precedence" />
+
+## Monorepo Pattern
+
+Perfect for monorepos with multiple packages:
+
+<Snippet id="advanced/workdir-monorepo" />
+
+## Container Working Directory
+
+For containers, the current directory is mounted to `/workspace`:
+
+<Snippet id="advanced/workdir-container-default" />
+
+With `workdir`, that subdirectory becomes the container's working directory:
+
+<Snippet id="advanced/workdir-container-subdir" />
+
+## Cross-Platform Paths
+
+Use forward slashes for cross-platform compatibility:
+
+<Snippet id="advanced/workdir-cross-platform" />
+
+Invowk™ automatically converts to native path separators at runtime.
+
+## Real-World Examples
+
+### Frontend/Backend Split
+
+<Snippet id="advanced/workdir-frontend-backend" />
+
+### Test Organization
+
+<Snippet id="advanced/workdir-tests" />
+
+### Build in Subdirectory
+
+<Snippet id="advanced/workdir-build-subdir" />
+
+## Best Practices
+
+1. **Use relative paths**: More portable across machines
+2. **Forward slashes**: Cross-platform compatible
+3. **Root level for defaults**: Override where needed
+4. **Keep paths short**: Easier to understand
+
+## Next Steps
+
+- [Interpreters](./interpreters) - Use non-shell interpreters
+- [Platform-Specific](./platform-specific) - Per-platform implementations
