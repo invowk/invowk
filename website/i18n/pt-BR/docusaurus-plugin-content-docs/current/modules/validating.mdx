@@ -8,23 +8,15 @@ import Snippet from '@site/src/components/Snippet';
 
 Valide seus módulos para garantir que estão estruturados corretamente e prontos para distribuição.
 
-## Validação Básica
+## Validando um Módulo
 
 <Snippet id="modules/validate-basic" />
 
-Saída para um módulo válido:
-
-<Snippet id="modules/validate-basic-output" />
-
-## Validação Profunda
-
-Adicione `--deep` para também fazer parse e validar o invowkfile (quando presente):
-
-<Snippet id="modules/validate-deep" />
-
-Saída:
+Saída para um módulo válido com um invowkfile:
 
 <Snippet id="modules/validate-deep-output" />
+
+`invowk validate` sempre executa validação completa, incluindo parsing de invowkfile e verificações da árvore de comandos quando o módulo contém um `invowkfile.cue`.
 
 ## O que é Validado
 
@@ -50,11 +42,14 @@ Saída:
 - ID do módulo em `invowkmod.cue` corresponde ao prefixo do nome da pasta
 - Sem caracteres inválidos (hífens, underscores)
 
-### Checagens Profundas (com `--deep`)
+### Checagens de Invowkfile
 
-- Invowkfile faz parse sem erros (se presente)
+Quando o módulo contém um `invowkfile.cue`, estas são sempre verificadas:
+
+- Invowkfile faz parse sem erros
 - Sintaxe CUE é válida
 - Restrições do schema são atendidas
+- Estrutura da árvore de comandos é válida (sem conflitos args + subcomandos)
 
 ## Erros de Validação
 
@@ -70,7 +65,7 @@ Saída:
 
 <Snippet id="modules/error-nested" />
 
-### Invowkfile Inválido (deep)
+### Invowkfile Inválido
 
 <Snippet id="modules/error-parse" />
 
@@ -103,9 +98,8 @@ Adicione validação de módulos no seu pipeline de CI:
 ## Melhores Práticas
 
 1. **Valide antes de commitar**: Detecte problemas cedo
-2. **Use `--deep`**: Captura erros de invowkfile
-3. **Valide no CI**: Impede módulos quebrados de sair
-4. **Corrija problemas imediatamente**: Não deixe dívida de validação acumular
+2. **Valide no CI**: Impede módulos quebrados de sair
+3. **Corrija problemas imediatamente**: Não deixe dívida de validação acumular
 
 ## Próximos Passos
 

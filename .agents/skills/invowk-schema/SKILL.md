@@ -86,7 +86,7 @@ cmds: [
 
 This validation runs:
 1. During `invowk cmd` execution (command discovery)
-2. During `invowk module validate --deep`
+2. During `invowk validate <module-path>`
 
 ### Cross-Platform Runtime Selection
 
@@ -189,7 +189,7 @@ The `modules/` directory contains sample modules that serve as reference impleme
 - The invowkmod schema lives in `pkg/invowkmod/invowkmod_schema.cue` and the invowkfile schema in `pkg/invowkfile/invowkfile_schema.cue`.
 - Always update sample modules when the invowkmod schema, validation rules, or module behavior changes.
 - Modules should demonstrate module-specific features (script file references, cross-platform paths, requirements).
-- After module-related changes, run validation: `go run . module validate modules/<module-name>.invowkmod --deep`.
+- After module-related changes, run validation: `go run . validate modules/<module-name>.invowkmod`.
 
 ### Current Sample Modules
 
@@ -198,7 +198,7 @@ The `modules/` directory contains sample modules that serve as reference impleme
 ### Module Validation Checklist
 
 When modifying module-related code, verify:
-1. All modules in `modules/` pass validation: `go run . module validate modules/*.invowkmod --deep`.
+1. All modules in `modules/` pass validation: `go run . validate modules/*.invowkmod`.
 2. Module naming conventions and module ID matching are enforced.
 3. `invowkmod.cue` is required and parsed; `invowkfile.cue` contains only commands.
 4. Script path resolution works correctly (forward slashes, relative paths).

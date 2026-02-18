@@ -12,7 +12,7 @@ export const modulesSnippets = {
 
   'modules/validate': {
     language: 'bash',
-    code: `invowk module validate ./mymod.invowkmod --deep`,
+    code: `invowk validate ./mymod.invowkmod`,
   },
 
   'modules/module-invowkfile': {
@@ -346,13 +346,13 @@ script: "../outside.sh"`,
 
   'modules/validate-before-share': {
     language: 'bash',
-    code: `invowk module validate mytools.invowkmod --deep`,
+    code: `invowk validate mytools.invowkmod`,
   },
 
   // Validating page snippets
   'modules/validate-basic': {
     language: 'bash',
-    code: `invowk module validate ./mytools.invowkmod`,
+    code: `invowk validate ./mytools.invowkmod`,
   },
 
   'modules/validate-basic-output': {
@@ -370,7 +370,7 @@ script: "../outside.sh"`,
 
   'modules/validate-deep': {
     language: 'bash',
-    code: `invowk module validate ./mytools.invowkmod --deep`,
+    code: `invowk validate ./mytools.invowkmod`,
   },
 
   'modules/validate-deep-output': {
@@ -431,7 +431,7 @@ script: "../outside.sh"`,
     language: 'bash',
     code: `# Validate all modules in a directory
 for mod in ./modules/*.invowkmod; do
-    invowk module validate "$mod" --deep
+    invowk validate "$mod"
 done`,
   },
 
@@ -441,7 +441,7 @@ done`,
 - name: Validate modules
   run: |
     for mod in modules/*.invowkmod; do
-      invowk module validate "$mod" --deep
+      invowk validate "$mod"
     done`,
   },
 
@@ -642,7 +642,7 @@ invowk module create com.company.mytools --scripts
 # ... add commands and scripts ...
 
 # 2. Validate
-invowk module validate ./com.company.mytools.invowkmod --deep
+invowk validate ./com.company.mytools.invowkmod
 
 # 3. Create versioned archive
 invowk module archive ./com.company.mytools.invowkmod 

@@ -88,7 +88,7 @@ func runModuleCreate(args []string, createPath string, createScripts bool, creat
 	if createScripts {
 		fmt.Printf("   2. Add script files to %s\n", modulePathStyle.Render(filepath.Join(modulePath, "scripts")))
 	}
-	fmt.Printf("   3. Run %s to validate\n", CmdStyle.Render("invowk module validate "+modulePath))
+	fmt.Printf("   3. Run %s to validate\n", CmdStyle.Render("invowk validate "+modulePath))
 
 	return nil
 }

@@ -198,22 +198,6 @@ Create a new invowk module.
 
 <Snippet id="reference/cli/module-create-examples" />
 
-#### invowk module validate
-
-Validate an invowk module.
-
-<Snippet id="reference/cli/module-validate-syntax" />
-
-**Flags:**
-
-| Flag | Short | Description |
-|------|-------|-------------|
-| `--deep` |  | Also validate invowkfile syntax |
-
-**Examples:**
-
-<Snippet id="reference/cli/module-validate-examples" />
-
 #### invowk module list
 
 List all discovered modules.
@@ -534,8 +518,8 @@ With a path argument, auto-detects the target type:
 | `invowkmod.cue` file | Module validation (parent directory) |
 
 :::tip
-Unlike `invowk module validate`, `invowk validate` always performs deep validation
-(including invowkfile parsing and command tree checks) without requiring a `--deep` flag.
+`invowk validate` always performs deep validation on modules, including invowkfile parsing
+and command tree checks.
 :::
 
 **Examples:**

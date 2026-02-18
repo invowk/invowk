@@ -1809,14 +1809,10 @@ The unified `validate` command auto-detects the target type and always performs 
 
 ### Validating Modules
 
-Use the `module validate` command to check a module's structure:
+Use `invowk validate` to check a module's structure (always performs full validation including invowkfile parsing):
 
 ```bash
-# Basic validation
-invowk module validate ./com.example.mytools.invowkmod
-
-# Deep validation (also parses the invowkfile)
-invowk module validate ./com.example.mytools.invowkmod --deep
+invowk validate ./com.example.mytools.invowkmod
 ```
 
 Example output for a valid module:

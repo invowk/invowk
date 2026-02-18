@@ -545,7 +545,6 @@ When writing native test mirrors for Windows, use these translations:
 | `config_path.txtar` | — | Config path subcommand (built-in) | No invowkfile, XDG override |
 | `config_set.txtar` | — | Config set subcommand (built-in) | No invowkfile, XDG override |
 | `config_dump.txtar` | — | Config dump subcommand (built-in) | No invowkfile, XDG override |
-| `module_validate.txtar` | — | Module validate subcommand (built-in) | Embedded invowkmod fixtures |
 | `module_create.txtar` | — | Module create subcommand (built-in) | Directory structure creation |
 | `module_list.txtar` | — | Module list subcommand (built-in) | XDG override, module fixtures |
 | `module_archive.txtar` | — | Module archive subcommand (built-in) | Embedded invowkmod fixtures |

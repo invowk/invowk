@@ -319,7 +319,6 @@ Module management (`module.go`):
 
 | Command | Purpose |
 |---------|---------|
-| `module validate` | Validate module structure & dependencies |
 | `module create` | Create new module |
 | `module list` | List discovered modules |
 | `module archive` | Package module as archive |

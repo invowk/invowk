@@ -251,8 +251,8 @@ func TestResolveAliases(t *testing.T) {
 	}{
 		{
 			name:   "single alias",
-			tokens: []string{"mod", "validate"},
-			want:   []string{"module", "validate"},
+			tokens: []string{"mod", "list"},
+			want:   []string{"module", "list"},
 		},
 		{
 			name:   "no alias match",
@@ -292,9 +292,9 @@ func TestMatchLongestCommand(t *testing.T) {
 	t.Parallel()
 
 	knownCommands := map[string]bool{
-		"config show":     true,
-		"module validate": true,
-		"init":            true,
+		"config show": true,
+		"module list": true,
+		"init":        true,
 	}
 	aliasMap := map[string]string{
 		"mod": "module",
@@ -317,8 +317,8 @@ func TestMatchLongestCommand(t *testing.T) {
 		},
 		{
 			name:   "alias then match",
-			tokens: []string{"mod", "validate"},
-			want:   "module validate",
+			tokens: []string{"mod", "list"},
+			want:   "module list",
 		},
 		{
 			name:   "no match",

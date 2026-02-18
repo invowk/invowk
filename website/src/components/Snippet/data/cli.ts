@@ -112,18 +112,6 @@ invowk config set default_runtime virtual
 invowk config set ui.color_scheme dark`,
   },
 
-  'cli/module-examples': {
-    language: 'bash',
-    code: `# Create a module with RDNS naming
-invowk module create com.example.mytools
-
-# Basic validation
-invowk module validate ./mymod.invowkmod
-
-# Deep validation
-invowk module validate ./mymod.invowkmod --deep`,
-  },
-
   'cli/completion-all': {
     language: 'bash',
     code: `# Bash
@@ -260,20 +248,6 @@ invowk module create mytools --module-id com.example.tools --description "Shared
 
 # Create with scripts directory
 invowk module create mytools --scripts`,
-  },
-
-  'reference/cli/module-validate-syntax': {
-    language: 'bash',
-    code: `invowk module validate <path> [flags]`,
-  },
-
-  'reference/cli/module-validate-examples': {
-    language: 'bash',
-    code: `# Basic validation
-invowk module validate ./mymod.invowkmod
-
-# Deep validation
-invowk module validate ./mymod.invowkmod --deep`,
   },
 
   'reference/cli/module-list-syntax': {
