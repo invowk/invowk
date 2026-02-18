@@ -167,7 +167,7 @@ invowkfile.cue -> CUE Parser -> pkg/invowkfile -> Runtime Selection -> Execution
 - `pkg/` - Public packages (cueutil, invowkmod, invowkfile, platform).
 - `tests/cli/` - CLI integration tests using testscript (`.txtar` files in `testdata/`).
 - `modules/` - Sample invowk modules for validation and reference.
-- `scripts/` - Build and install scripts (`install.sh` for Linux/macOS, `install.ps1` for Windows).
+- `scripts/` - Build, install, and release scripts (`install.sh` for Linux/macOS, `install.ps1` for Windows, `enhance-winget-manifest.sh` for WinGet CI automation).
 - `specs/` - Feature specifications, research, and implementation plans.
 - `tasks/` - Pending analysis documents and planning notes (e.g., `tasks/next/` for items awaiting decision).
 

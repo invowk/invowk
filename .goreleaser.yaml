@@ -168,6 +168,7 @@ winget:
       - devops
       - task-runner
     release_notes_url: "https://github.com/invowk/invowk/releases/tag/{{ .Tag }}"
+    installation_notes: "Restart your terminal session for the 'invowk' command to become available on PATH."
     goamd64: v3
     skip_upload: auto
     repository:

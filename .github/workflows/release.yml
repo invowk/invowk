@@ -212,6 +212,12 @@ jobs:
         shell: bash
         run: sh scripts/test_install.sh
 
+      # Run WinGet manifest enhancement tests (Python + bash, no network calls).
+      - name: Run WinGet enhancement tests
+        if: startsWith(matrix.runner, 'ubuntu')
+        shell: bash
+        run: sh scripts/test_enhance_winget_manifest.sh
+
       # Run PowerShell install script tests (PS 7.x/Core).
       - name: Run PowerShell install script tests (pwsh)
         if: matrix.os == 'windows'
@@ -341,6 +347,19 @@ jobs:
           GORELEASER_CURRENT_TAG: ${{ steps.tag.outputs.name }}
           HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
           WINGET_TOKEN: ${{ secrets.WINGET_TOKEN }}
+
+      # Enhance WinGet manifest with fields GoReleaser doesn't support natively.
+      # GoReleaser generates the manifest and creates the WinGet PR; this step adds
+      # Commands, MinimumOSVersion, and Platform to the installer manifest.
+      # Only runs after a real (non-dry-run) release that creates a WinGet PR.
+      - name: Enhance WinGet manifest
+        if: "!(github.event_name == 'workflow_dispatch' && github.event.inputs.dry_run == 'true')"
+        env:
+          GH_TOKEN: ${{ secrets.WINGET_TOKEN }}
+          TAG_NAME: ${{ steps.tag.outputs.name }}
+        run: |
+          VERSION="${TAG_NAME#v}"
+          bash scripts/enhance-winget-manifest.sh "$VERSION"
 
       # Run GoReleaser (dry run)
       # HOMEBREW_TAP_TOKEN and WINGET_TOKEN are set to dummy values because GoReleaser
