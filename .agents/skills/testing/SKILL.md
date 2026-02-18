@@ -500,6 +500,8 @@ When writing native test mirrors for Windows, use these translations:
 
 ### Current Test Files
 
+> **Note**: This table is a reference. For the definitive list, run `ls tests/cli/testdata/*.txtar`. The `TestBuiltinCommandTxtarCoverage` guardrail test ensures every built-in command has txtar coverage.
+
 | File | Runtime | Description | Strategy |
 |------|---------|-------------|----------|
 | `virtual_simple.txtar` | virtual | Basic hello + env hierarchy | Inline CUE, all platforms |
@@ -528,9 +530,12 @@ When writing native test mirrors for Windows, use these translations:
 | `virtual_uroot_basic.txtar` | virtual | U-root basic utilities (exempt) | Inline CUE, all platforms |
 | `virtual_uroot_file_ops.txtar` | virtual | U-root file operations (exempt) | Inline CUE, all platforms |
 | `virtual_uroot_text_ops.txtar` | virtual | U-root text processing (exempt) | Inline CUE, all platforms |
-| `virtual_multi_source.txtar` | virtual | Multi-source discovery (exempt) | Inline CUE, all platforms |
-| `virtual_ambiguity.txtar` | virtual | Ambiguous command detection (exempt) | Inline CUE, all platforms |
-| `virtual_disambiguation.txtar` | virtual | Disambiguation prompt (exempt) | Inline CUE, all platforms |
+| `virtual_multi_source.txtar` | virtual | Multi-source discovery | Inline CUE, all platforms |
+| `native_multi_source.txtar` | native | Native mirror of virtual_multi_source.txtar | Inline CUE, platform-split |
+| `virtual_ambiguity.txtar` | virtual | Ambiguous command detection | Inline CUE, all platforms |
+| `native_ambiguity.txtar` | native | Native mirror of virtual_ambiguity.txtar | Inline CUE, platform-split |
+| `virtual_disambiguation.txtar` | virtual | Disambiguation prompt | Inline CUE, all platforms |
+| `native_disambiguation.txtar` | native | Native mirror of virtual_disambiguation.txtar | Inline CUE, platform-split |
 | `virtual_edge_cases.txtar` | virtual | Edge case handling (exempt) | Inline CUE, all platforms |
 | `virtual_args_subcommand_conflict.txtar` | virtual | Args+subcommand conflict (exempt) | Inline CUE, all platforms |
 | `dogfooding_invowkfile.txtar` | native | Project invowkfile smoke test (exempt) | `$PROJECT_ROOT` (dogfooding) |
@@ -555,7 +560,31 @@ When writing native test mirrors for Windows, use these translations:
 | `init_default.txtar` | — | Default init subcommand (built-in) | Creates invowkfile.cue |
 | `init_templates.txtar` | — | Init with templates (built-in) | Template selection |
 | `validate.txtar` | — | Unified validate command (built-in) | Workspace, invowkfile, module modes |
+| `virtual_env_cli_override.txtar` | virtual | CLI-level env override | Inline CUE, all platforms |
+| `native_env_cli_override.txtar` | native | Native mirror of virtual_env_cli_override.txtar | Inline CUE, platform-split |
+| `virtual_runtime_override.txtar` | virtual | Runtime mode override | Inline CUE, all platforms |
+| `native_runtime_override.txtar` | native | Native mirror of virtual_runtime_override.txtar | Inline CUE, platform-split |
+| `virtual_verbose.txtar` | virtual | Verbose output mode | Inline CUE, all platforms |
+| `native_verbose.txtar` | native | Native mirror of virtual_verbose.txtar | Inline CUE, platform-split |
+| `virtual_multi_source_full.txtar` | virtual | Full multi-source discovery precedence (exempt) | Inline CUE, all platforms |
+| `virtual_vendored_execution.txtar` | virtual | Vendored module execution (exempt) | Inline CUE, all platforms |
 | `virtual_diagnostics_footer.txtar` | virtual | Diagnostics footer on cmd listing (exempt) | Broken module + verbose/non-verbose |
+| `virtual_uroot_base64.txtar` | virtual | U-root base64 utility (exempt) | Inline CUE, all platforms |
+| `virtual_uroot_basename_dirname.txtar` | virtual | U-root basename/dirname utilities (exempt) | Inline CUE, all platforms |
+| `virtual_uroot_combined_flags.txtar` | virtual | U-root POSIX combined flags (exempt) | Inline CUE, all platforms |
+| `virtual_uroot_error_handling.txtar` | virtual | U-root error handling (exempt) | Inline CUE, all platforms |
+| `virtual_uroot_find.txtar` | virtual | U-root find utility (exempt) | Inline CUE, all platforms |
+| `virtual_uroot_gzip.txtar` | virtual | U-root gzip utility (exempt) | Inline CUE, all platforms |
+| `virtual_uroot_ln.txtar` | virtual | U-root ln utility (exempt) | Inline CUE, all platforms |
+| `virtual_uroot_mktemp.txtar` | virtual | U-root mktemp utility (exempt) | Inline CUE, all platforms |
+| `virtual_uroot_realpath.txtar` | virtual | U-root realpath utility (exempt) | Inline CUE, all platforms |
+| `virtual_uroot_seq.txtar` | virtual | U-root seq utility (exempt) | Inline CUE, all platforms |
+| `virtual_uroot_shasum.txtar` | virtual | U-root shasum utility (exempt) | Inline CUE, all platforms |
+| `virtual_uroot_sleep.txtar` | virtual | U-root sleep utility (exempt) | Inline CUE, all platforms |
+| `virtual_uroot_tee.txtar` | virtual | U-root tee utility (exempt) | Inline CUE, all platforms |
+| `config_override_flag.txtar` | — | Config `--ivk-config` override flag (built-in) | No invowkfile, flag override |
+| `module_remove_happy.txtar` | — | Module remove happy path (built-in) | Embedded invowkmod fixtures |
+| `version_help.txtar` | — | Version/help output (built-in) | No invowkfile |
 
 ### When to Add CLI Tests
 
@@ -576,8 +605,9 @@ Add CLI tests when:
 - `virtual_uroot_*.txtar` — u-root commands are virtual shell built-ins
 - `virtual_shell.txtar` — tests virtual shell-specific behavior
 - `container_*.txtar` — Linux-only container runtime
-- `virtual_ambiguity.txtar`, `virtual_disambiguation.txtar`, `virtual_multi_source.txtar` — command resolution logic
 - `virtual_edge_cases.txtar`, `virtual_args_subcommand_conflict.txtar` — CUE schema validation
+- `virtual_vendored_execution.txtar`, `virtual_multi_source_full.txtar` — discovery/module resolution
+- `virtual_diagnostics_footer.txtar` — diagnostics footer output
 - `dogfooding_invowkfile.txtar` — already exercises native runtime
 
 ## VHS Demo Recordings

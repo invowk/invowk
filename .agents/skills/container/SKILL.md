@@ -225,8 +225,8 @@ type CmdCustomizer interface {
 | `podman_sysctl_other.go` | No-op `sysctlOverrideOpts()` (macOS/Windows stub) |
 | `engine_base.go` | `CmdCustomizer`, `SysctlOverrideChecker`, `EngineCloser`, `WithCmdEnvOverride()`, `WithSysctlOverridePath()`, `WithSysctlOverrideActive()`, `Close()` |
 | `podman.go` | `SysctlOverrideActive()`, `Close()` methods on `PodmanEngine` |
-| `container_exec.go` | `containerRunMu` (fallback mutex), `runWithRetry()` (flock + stderr buffering), `flushStderr()` |
-| `container_prepare.go` | `CmdCustomizer` type assertion in `PrepareCommand()` |
+| `internal/runtime/container_exec.go` | `containerRunMu` (fallback mutex), `runWithRetry()` (flock + stderr buffering), `flushStderr()` |
+| `internal/runtime/container_prepare.go` | `CmdCustomizer` type assertion in `PrepareCommand()` |
 
 ---
 

@@ -28,9 +28,9 @@ Before generating a mirror, verify the virtual test is NOT exempt:
 - `container_*.txtar` — Linux-only container runtime
 - `virtual_edge_cases.txtar` — CUE schema validation, not runtime behavior
 - `virtual_args_subcommand_conflict.txtar` — CUE schema validation
-- `virtual_ambiguity.txtar` — Command resolution logic
-- `virtual_disambiguation.txtar` — Command resolution logic
-- `virtual_multi_source.txtar` — Command resolution logic
+- `virtual_vendored_execution.txtar` — Discovery/module resolution
+- `virtual_multi_source_full.txtar` — Discovery precedence across all sources
+- `virtual_diagnostics_footer.txtar` — Diagnostics footer output
 - `dogfooding_invowkfile.txtar` — Already exercises native runtime
 - `config_*.txtar` — Built-in CLI commands (Cobra handlers, not user-defined runtimes)
 - `module_*.txtar` — Built-in CLI commands (Cobra handlers, not user-defined runtimes)

@@ -169,6 +169,7 @@ invowkfile.cue -> CUE Parser -> pkg/invowkfile -> Runtime Selection -> Execution
 - `modules/` - Sample invowk modules for validation and reference.
 - `scripts/` - Build and install scripts (`install.sh` for Linux/macOS, `install.ps1` for Windows).
 - `specs/` - Feature specifications, research, and implementation plans.
+- `tasks/` - Pending analysis documents and planning notes (e.g., `tasks/next/` for items awaiting decision).
 
 ## Container Runtime Limitations
 

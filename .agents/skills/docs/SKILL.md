@@ -54,6 +54,7 @@ When changes affect architectural behavior, evaluate and update these diagrams:
 | `internal/discovery/` changes | flowchart-discovery.md, sequence-execution.md |
 | `internal/runtime/` changes | flowchart-runtime-selection.md, sequence-execution.md |
 | `cmd/invowk/` command changes | sequence-execution.md |
+| `cmd/invowk/app.go` (discovery cache) | flowcharts/discovery-cache.d2 |
 | New package or component | c4-container.md |
 | External integration changes | c4-context.md |
 | Server (SSH/TUI) changes | sequence-execution.md (container/virtual variants) |

@@ -76,12 +76,10 @@ filepath.Join("/workspace", "scripts", "run.sh")  // Backslashes on Windows
 
 ### Existing Correct Patterns
 
-The codebase already has correct patterns in `internal/runtime/container_provision.go`:
+The codebase already has correct patterns in `internal/runtime/container_provision.go` (search for `filepath.ToSlash`):
 ```go
-// Line 206: Convert to container path
+// In containerScriptPath(), containerWorkDir(), and related functions:
 containerPath := "/workspace/" + filepath.ToSlash(relPath)
-
-// Line 263: Same pattern
 return "/workspace/" + filepath.ToSlash(relPath)
 ```
 
