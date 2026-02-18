@@ -3,7 +3,7 @@
 # and that config settings (like default_runtime) take effect.
 # Note: default config has default_runtime: "native".
 
-[GOOS:windows] skip 'native runtime not available on Windows; soft fallback changes expected output'
+[windows] skip 'native runtime not available on Windows; soft fallback changes expected output'
 
 cd $WORK
 
