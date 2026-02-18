@@ -52,10 +52,9 @@ function HomepageHeader() {
 
 $ invowk cmd
 Available Commands
-  (* = default runtime)
 
 From invowkfile:
-  hello - Print a greeting [native*, virtual, container] (linux, macos, windows)
+  hello [native*] (linux, macos)
 
 $ invowk cmd hello
 Hello, World!
