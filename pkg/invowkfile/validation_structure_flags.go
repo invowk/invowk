@@ -236,7 +236,7 @@ func (v *StructureValidator) validateFlag(ctx *ValidationContext, cmd *Command, 
 
 	// Validate default_value is compatible with type
 	if flag.DefaultValue != "" {
-		if err := validateValueType(flag.DefaultValue, string(flag.GetType())); err != nil {
+		if err := validateValueType(flag.DefaultValue, flag.GetType()); err != nil {
 			errors = append(errors, ValidationError{
 				Validator: v.Name(),
 				Field:     path.String(),

@@ -194,7 +194,7 @@ func checkEnvVarDependenciesInContainer(deps *invowkfile.DependsOn, registry *ru
 
 			// Defense-in-depth: validate env var name before shell interpolation
 			if err := invowkfile.ValidateEnvVarName(name); err != nil {
-				return fmt.Errorf("  • %s - invalid environment variable name", name)
+				return fmt.Errorf("  • %s - %w", name, err)
 			}
 
 			// Check if env var is set inside container: test -n "${VAR+x}"

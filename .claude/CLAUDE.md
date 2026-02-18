@@ -63,6 +63,8 @@ Commands are user-invokable slash commands (e.g., `/review-docs`) that execute m
 - [`.agents/commands/fix-it-simple.md`](.agents/commands/fix-it-simple.md) - Analyze issues and propose concise fix with prevention.
 - [`.agents/commands/review-docs.md`](.agents/commands/review-docs.md) - Review README and website docs for accuracy against current architecture and behaviors.
 - [`.agents/commands/review-rules.md`](.agents/commands/review-rules.md) - Review rules files for contradictions, ambiguities, incoherence, or excessive noise.
+- [`.agents/commands/review-tests.md`](.agents/commands/review-tests.md) - Review test suite for semantic comprehensiveness, signal-to-noise, and E2E coverage.
+- [`.agents/commands/review-type-system.md`](.agents/commands/review-type-system.md) - Review Go type system for type safety improvements and abstraction opportunities.
 
 ### Skills
 

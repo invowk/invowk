@@ -15,7 +15,6 @@ import (
 	"github.com/invowk/invowk/internal/sshserver"
 	"github.com/invowk/invowk/internal/tui"
 	"github.com/invowk/invowk/internal/tuiserver"
-	"github.com/invowk/invowk/pkg/invowkfile"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/spf13/cobra"
@@ -132,7 +131,7 @@ func runDisambiguatedCommand(cmd *cobra.Command, app *App, rootFlags *rootFlagVa
 		return fmt.Errorf("command '%s' not found in source '%s'", displayCmdName, filter.SourceID)
 	}
 
-	parsedRuntime, err := invowkfile.ParseRuntimeMode(cmdFlags.runtimeOverride)
+	parsedRuntime, err := cmdFlags.parsedRuntimeMode()
 	if err != nil {
 		return err
 	}
@@ -247,7 +246,7 @@ func createRuntimeRegistry(cfg *config.Config, sshServer *sshserver.Server) runt
 	for _, diag := range built.Diagnostics {
 		result.Diagnostics = append(result.Diagnostics, discovery.Diagnostic{
 			Severity: discovery.SeverityWarning,
-			Code:     discovery.DiagnosticCode(string(diag.Code)),
+			Code:     discovery.DiagnosticCode(diag.Code),
 			Message:  diag.Message,
 			Cause:    diag.Cause,
 		})

@@ -151,7 +151,7 @@ func (v *StructureValidator) validateArg(ctx *ValidationContext, cmd *Command, a
 
 	// Validate default_value is compatible with type
 	if arg.DefaultValue != "" {
-		if err := validateValueType(arg.DefaultValue, string(arg.GetType())); err != nil {
+		if err := validateValueType(arg.DefaultValue, FlagType(arg.GetType())); err != nil {
 			errors = append(errors, ValidationError{
 				Validator: v.Name(),
 				Field:     path.String(),

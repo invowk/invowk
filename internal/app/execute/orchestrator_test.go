@@ -85,6 +85,18 @@ func TestResolveRuntime(t *testing.T) {
 			wantMode: invowkfile.RuntimeVirtual, // Falls back to command default (virtual)
 		},
 		{
+			name:     "CLI override invalid mode (defense-in-depth)",
+			cmd:      mkCmd(),
+			override: invowkfile.RuntimeMode("bogus"),
+			wantErr:  true,
+		},
+		{
+			name:    "Config default invalid mode (defense-in-depth)",
+			cmd:     mkCmd(),
+			cfg:     &config.Config{DefaultRuntime: config.RuntimeMode("magical")},
+			wantErr: true,
+		},
+		{
 			name:     "Command default (first listed)",
 			cmd:      mkCmd(),
 			wantMode: invowkfile.RuntimeNative, // First in list

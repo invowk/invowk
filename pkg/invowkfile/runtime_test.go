@@ -2,7 +2,10 @@
 
 package invowkfile
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestRuntimeMode_IsValid(t *testing.T) {
 	t.Parallel()
@@ -55,6 +58,72 @@ func TestParseRuntimeMode(t *testing.T) {
 			}
 			if got != tt.want {
 				t.Errorf("ParseRuntimeMode(%q) = %v, want %v", tt.input, got, tt.want)
+			}
+			if tt.wantErr && err != nil {
+				if !strings.Contains(err.Error(), "native, virtual, container") {
+					t.Errorf("error message should list valid modes, got: %v", err)
+				}
+			}
+		})
+	}
+}
+
+func TestEnvInheritMode_IsValid(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		mode EnvInheritMode
+		want bool
+	}{
+		{EnvInheritNone, true},
+		{EnvInheritAllow, true},
+		{EnvInheritAll, true},
+		{"", false},
+		{"invalid", false},
+		{"NONE", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(string(tt.mode), func(t *testing.T) {
+			t.Parallel()
+			if got := tt.mode.IsValid(); got != tt.want {
+				t.Errorf("EnvInheritMode(%q).IsValid() = %v, want %v", tt.mode, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestParseEnvInheritMode(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		input   string
+		want    EnvInheritMode
+		wantErr bool
+	}{
+		{"", "", false},
+		{"none", EnvInheritNone, false},
+		{"allow", EnvInheritAllow, false},
+		{"all", EnvInheritAll, false},
+		{"invalid", "", true},
+		{"NONE", "", true},
+		{"None", "", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			t.Parallel()
+			got, err := ParseEnvInheritMode(tt.input)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("ParseEnvInheritMode(%q) error = %v, wantErr %v", tt.input, err, tt.wantErr)
+			}
+			if got != tt.want {
+				t.Errorf("ParseEnvInheritMode(%q) = %v, want %v", tt.input, got, tt.want)
+			}
+			if tt.wantErr && err != nil {
+				if !strings.Contains(err.Error(), "none, allow, all") {
+					t.Errorf("error message should list valid modes, got: %v", err)
+				}
 			}
 		})
 	}

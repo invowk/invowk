@@ -50,7 +50,7 @@ func (f *Flag) GetType() FlagType {
 // ValidateFlagValue validates a flag value at runtime against type and validation regex.
 // Returns nil if the value is valid, or an error describing the issue.
 func (f *Flag) ValidateFlagValue(value string) error {
-	if err := validateValueType(value, string(f.GetType())); err != nil {
+	if err := validateValueType(value, f.GetType()); err != nil {
 		return fmt.Errorf("flag '%s' value '%s' is invalid: %s", f.Name, value, err.Error())
 	}
 	if err := validateValueWithRegex("flag '"+f.Name+"'", value, f.Validation); err != nil {

@@ -48,7 +48,7 @@ Review checklist:
 - Attack surface: any CUE string interpolated into a shell script without escaping
 - Defense layers:
   1. CUE schema constrains field formats at parse time (regex patterns, enum values)
-  2. Go regex pre-validation before interpolation (e.g., `toolNamePattern`, `envVarNamePattern`)
+  2. Go validation before interpolation (e.g., `toolNamePattern`, `invowkfile.ValidateEnvVarName()`)
   3. `shellEscapeSingleQuote()` helper escapes `'` as `'\''` for safe single-quote interpolation
 - The `shellEscapeSingleQuote()` function in `cmd_validate_checks.go` is the canonical helper — all container validators must use it for string interpolation
 

@@ -188,7 +188,7 @@ func buildLeafCommand(app *App, rootFlags *rootFlagValues, cmdFlags *cmdFlagValu
 			envInheritAllow, _ := cmd.Flags().GetStringArray("ivk-env-inherit-allow")
 			envInheritDeny, _ := cmd.Flags().GetStringArray("ivk-env-inherit-deny")
 
-			parsedRuntime, err := invowkfile.ParseRuntimeMode(cmdFlags.runtimeOverride)
+			parsedRuntime, err := cmdFlags.parsedRuntimeMode()
 			if err != nil {
 				return err
 			}
