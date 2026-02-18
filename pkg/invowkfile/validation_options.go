@@ -14,7 +14,7 @@ type (
 		validators           []Validator
 		additionalValidators []Validator
 		fs                   fs.FS
-		platform             string
+		platform             PlatformType
 		strictMode           bool
 		workDir              string
 	}
@@ -72,9 +72,8 @@ func WithFS(filesystem fs.FS) ValidateOption {
 }
 
 // WithPlatform sets the target platform for validation.
-// Use this to validate an invowkfile for a specific platform.
-// Valid values are "linux", "macos", "windows", or empty for current platform.
-func WithPlatform(platform string) ValidateOption {
+// Use PlatformLinux, PlatformMac, PlatformWindows, or zero value for current platform.
+func WithPlatform(platform PlatformType) ValidateOption {
 	return func(o *validateOptions) {
 		o.platform = platform
 	}

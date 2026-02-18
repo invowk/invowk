@@ -131,3 +131,16 @@ func ParseEnvInheritMode(value string) (EnvInheritMode, error) {
 	}
 	return mode, nil
 }
+
+// ParseRuntimeMode parses a string into a RuntimeMode.
+// Returns zero value ("") for empty input, which serves as the "no override" sentinel.
+func ParseRuntimeMode(value string) (RuntimeMode, error) {
+	if value == "" {
+		return "", nil
+	}
+	mode := RuntimeMode(value)
+	if !mode.IsValid() {
+		return "", fmt.Errorf("invalid runtime mode %q (expected: native, virtual, container)", value)
+	}
+	return mode, nil
+}

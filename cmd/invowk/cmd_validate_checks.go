@@ -15,10 +15,6 @@ import (
 	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
-// envVarNamePattern validates environment variable names before shell interpolation.
-// Defense-in-depth: CUE schema also enforces this at parse time.
-var envVarNamePattern = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
-
 // shellEscapeSingleQuote escapes single quotes for safe use inside shell single-quoted arguments.
 // Each embedded single-quote is replaced with the shell idiom that closes the current quoting,
 // adds a backslash-escaped literal quote, and reopens single-quoting.
@@ -197,7 +193,7 @@ func checkEnvVarDependenciesInContainer(deps *invowkfile.DependsOn, registry *ru
 			}
 
 			// Defense-in-depth: validate env var name before shell interpolation
-			if !envVarNamePattern.MatchString(name) {
+			if err := invowkfile.ValidateEnvVarName(name); err != nil {
 				return fmt.Errorf("  • %s - invalid environment variable name", name)
 			}
 

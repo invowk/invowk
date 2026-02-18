@@ -22,6 +22,21 @@ const (
 
 	// VendoredModulesDir is the directory name for vendored module dependencies.
 	VendoredModulesDir = "invowk_modules"
+
+	// IssueTypeStructure categorizes structural validation issues (missing files, wrong layout).
+	IssueTypeStructure ValidationIssueType = "structure"
+	// IssueTypeNaming categorizes naming convention violations.
+	IssueTypeNaming ValidationIssueType = "naming"
+	// IssueTypeInvowkmod categorizes invowkmod.cue parsing or content issues.
+	IssueTypeInvowkmod ValidationIssueType = "invowkmod"
+	// IssueTypeSecurity categorizes security concerns (symlinks, path escapes).
+	IssueTypeSecurity ValidationIssueType = "security"
+	// IssueTypeCompatibility categorizes cross-platform compatibility issues.
+	IssueTypeCompatibility ValidationIssueType = "compatibility"
+	// IssueTypeInvowkfile categorizes invowkfile.cue parsing or content issues.
+	IssueTypeInvowkfile ValidationIssueType = "invowkfile"
+	// IssueTypeCommandTree categorizes command tree validation issues.
+	IssueTypeCommandTree ValidationIssueType = "command_tree"
 )
 
 var (
@@ -44,6 +59,9 @@ type (
 		ListCommands() []string
 	}
 
+	// ValidationIssueType categorizes module validation issues.
+	ValidationIssueType string
+
 	// ValidationIssue represents a single domain-level validation problem in a module.
 	// Use ValidationIssue for problems that are collected and reported as a batch via
 	// ValidationResult. Use error returns for I/O or infrastructure failures that
@@ -53,8 +71,8 @@ type (
 	//
 	//nolint:errname // Intentionally named Issue, not Error - semantic domain type
 	ValidationIssue struct {
-		// Type categorizes the issue (e.g., "structure", "naming", "invowkfile")
-		Type string `json:"-"`
+		// Type categorizes the issue (structure, naming, invowkmod, security, compatibility).
+		Type ValidationIssueType `json:"-"`
 		// Message describes the specific problem
 		Message string `json:"-"`
 		// Path is the relative path within the module where the issue was found (optional)
@@ -165,7 +183,7 @@ func (v ValidationIssue) Error() string {
 }
 
 // AddIssue adds a validation issue to the result.
-func (r *ValidationResult) AddIssue(issueType, message, path string) {
+func (r *ValidationResult) AddIssue(issueType ValidationIssueType, message, path string) {
 	r.Issues = append(r.Issues, ValidationIssue{
 		Type:    issueType,
 		Message: message,

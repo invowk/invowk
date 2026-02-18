@@ -10,6 +10,11 @@ import (
 	"github.com/invowk/invowk/internal/sshserver"
 )
 
+const (
+	// CodeContainerRuntimeInitFailed indicates the container runtime could not be initialized.
+	CodeContainerRuntimeInitFailed InitDiagnosticCode = "container_runtime_init_failed"
+)
+
 type (
 	// BuildRegistryOptions configures runtime registry construction.
 	BuildRegistryOptions struct {
@@ -19,9 +24,14 @@ type (
 		SSHServer *sshserver.Server
 	}
 
+	// InitDiagnosticCode categorizes non-fatal runtime initialization diagnostics.
+	// Values are string-typed so the CLI layer can cast to discovery.DiagnosticCode
+	// at the package boundary (runtime cannot import discovery).
+	InitDiagnosticCode string
+
 	// InitDiagnostic reports non-fatal runtime initialization details.
 	InitDiagnostic struct {
-		Code    string
+		Code    InitDiagnosticCode
 		Message string
 		Cause   error
 	}
@@ -59,7 +69,7 @@ func BuildRegistry(opts BuildRegistryOptions) RegistryBuildResult {
 	if err != nil {
 		result.ContainerInitErr = err
 		result.Diagnostics = append(result.Diagnostics, InitDiagnostic{
-			Code:    "container_runtime_init_failed",
+			Code:    CodeContainerRuntimeInitFailed,
 			Message: fmt.Sprintf("container runtime unavailable: %v", err),
 			Cause:   err,
 		})

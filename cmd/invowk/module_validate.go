@@ -69,7 +69,7 @@ func runModuleValidate(cmd *cobra.Command, args []string, deep bool) error {
 	if deep && result.InvowkfilePath != "" {
 		inv, invowkfileError := invowkfile.Parse(result.InvowkfilePath)
 		if invowkfileError != nil {
-			result.AddIssue("invowkfile", invowkfileError.Error(), "invowkfile.cue")
+			result.AddIssue(invowkmod.IssueTypeInvowkfile, invowkfileError.Error(), "invowkfile.cue")
 		} else if inv != nil {
 			// Validate command tree structure (leaf-only args constraint)
 			var commands []*discovery.CommandInfo
@@ -82,7 +82,7 @@ func runModuleValidate(cmd *cobra.Command, args []string, deep bool) error {
 				})
 			}
 			if treeErr := discovery.ValidateCommandTree(commands); treeErr != nil {
-				result.AddIssue("command_tree", treeErr.Error(), result.InvowkfilePath)
+				result.AddIssue(invowkmod.IssueTypeCommandTree, treeErr.Error(), result.InvowkfilePath)
 			}
 		}
 	}

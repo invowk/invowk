@@ -184,15 +184,24 @@ func buildLeafCommand(app *App, rootFlags *rootFlagValues, cmdFlags *cmdFlagValu
 			envVarFlags, _ := cmd.Flags().GetStringArray("ivk-env-var")
 			envVars := parseEnvVarFlags(envVarFlags)
 			workdirOverride, _ := cmd.Flags().GetString("ivk-workdir")
-			envInheritMode, _ := cmd.Flags().GetString("ivk-env-inherit-mode")
+			envInheritModeStr, _ := cmd.Flags().GetString("ivk-env-inherit-mode")
 			envInheritAllow, _ := cmd.Flags().GetStringArray("ivk-env-inherit-allow")
 			envInheritDeny, _ := cmd.Flags().GetStringArray("ivk-env-inherit-deny")
+
+			parsedRuntime, err := invowkfile.ParseRuntimeMode(cmdFlags.runtimeOverride)
+			if err != nil {
+				return err
+			}
+			parsedEnvInheritMode, err := invowkfile.ParseEnvInheritMode(envInheritModeStr)
+			if err != nil {
+				return err
+			}
 
 			verbose, interactive := resolveUIFlags(cmd.Context(), app, cmd, rootFlags)
 			req := ExecuteRequest{
 				Name:            cmdName,
 				Args:            args,
-				Runtime:         cmdFlags.runtimeOverride,
+				Runtime:         parsedRuntime,
 				Interactive:     interactive,
 				Verbose:         verbose,
 				FromSource:      cmdFlags.fromSource,
@@ -204,12 +213,12 @@ func buildLeafCommand(app *App, rootFlags *rootFlagValues, cmdFlags *cmdFlagValu
 				FlagValues:      flagValues,
 				FlagDefs:        cmdRuntimeFlags,
 				ArgDefs:         cmdArgs,
-				EnvInheritMode:  envInheritMode,
+				EnvInheritMode:  parsedEnvInheritMode,
 				EnvInheritAllow: envInheritAllow,
 				EnvInheritDeny:  envInheritDeny,
 			}
 
-			err := executeRequest(cmd, app, req)
+			err = executeRequest(cmd, app, req)
 			if err != nil {
 				if _, ok := errors.AsType[*ExitError](err); ok { //nolint:errcheck // type match only; error is handled via ok
 					cmd.SilenceErrors = true

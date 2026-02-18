@@ -212,7 +212,7 @@ func (s *commandService) resolveRuntime(req ExecuteRequest, cmdInfo *discovery.C
 			return appexec.RuntimeSelection{}, newServiceError(
 				err,
 				issue.InvalidRuntimeModeId,
-				RenderRuntimeNotAllowedError(req.Name, req.Runtime, strings.Join(allowed, ", ")),
+				RenderRuntimeNotAllowedError(req.Name, string(req.Runtime), strings.Join(allowed, ", ")),
 			)
 		}
 		return appexec.RuntimeSelection{}, fmt.Errorf("resolve runtime for '%s': %w", req.Name, err)

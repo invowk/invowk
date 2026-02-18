@@ -278,7 +278,7 @@ func runModulePathValidation(cmd *cobra.Command, modulePath string) error {
 	if result.InvowkfilePath != "" {
 		inv, invErr := invowkfile.Parse(result.InvowkfilePath)
 		if invErr != nil {
-			result.AddIssue("invowkfile", invErr.Error(), "invowkfile.cue")
+			result.AddIssue(invowkmod.IssueTypeInvowkfile, invErr.Error(), "invowkfile.cue")
 		} else if inv != nil {
 			var commands []*discovery.CommandInfo
 			for name, cmdDef := range inv.FlattenCommands() {
@@ -290,7 +290,7 @@ func runModulePathValidation(cmd *cobra.Command, modulePath string) error {
 				})
 			}
 			if treeErr := discovery.ValidateCommandTree(commands); treeErr != nil {
-				result.AddIssue("command_tree", treeErr.Error(), result.InvowkfilePath)
+				result.AddIssue(invowkmod.IssueTypeCommandTree, treeErr.Error(), result.InvowkfilePath)
 			}
 		}
 	}

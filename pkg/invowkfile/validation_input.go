@@ -10,13 +10,14 @@ import (
 
 // validateValueType validates that a value is compatible with the specified type name.
 // Shared by both flag and argument validation to avoid duplicating type-check logic.
+// Uses typed constants (FlagTypeBool, etc.) for case matching rather than raw string literals.
 func validateValueType(value, typeName string) error {
 	switch typeName {
-	case "bool":
+	case string(FlagTypeBool):
 		if value != "true" && value != "false" {
 			return fmt.Errorf("must be 'true' or 'false'")
 		}
-	case "int":
+	case string(FlagTypeInt):
 		for i, c := range value {
 			if i == 0 && c == '-' {
 				continue // Allow negative sign at start
@@ -28,7 +29,7 @@ func validateValueType(value, typeName string) error {
 		if value == "" || value == "-" {
 			return fmt.Errorf("must be a valid integer")
 		}
-	case "float":
+	case string(FlagTypeFloat):
 		if value == "" {
 			return fmt.Errorf("must be a valid floating-point number")
 		}
@@ -36,7 +37,7 @@ func validateValueType(value, typeName string) error {
 		if err != nil {
 			return fmt.Errorf("must be a valid floating-point number")
 		}
-	case "string":
+	case string(FlagTypeString):
 		// Any string is valid
 	default:
 		// Default to string (any value is valid)

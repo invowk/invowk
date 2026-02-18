@@ -1,0 +1,1 @@
+Review our whole test suite (unit, integration etc.) to evaluate its quality on semantic comprehensiveness, signal-to-noise ratio, and expected 100% coverage of e2e testing. Provide detailed but easy to read findings together with a plan to address shortcomings if you find any.
