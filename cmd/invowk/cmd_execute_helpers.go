@@ -131,12 +131,17 @@ func runDisambiguatedCommand(cmd *cobra.Command, app *App, rootFlags *rootFlagVa
 		return fmt.Errorf("command '%s' not found in source '%s'", displayCmdName, filter.SourceID)
 	}
 
+	parsedRuntime, err := cmdFlags.parsedRuntimeMode()
+	if err != nil {
+		return err
+	}
+
 	verbose, interactive := resolveUIFlags(ctx, app, cmd, rootFlags)
 	// Delegate final execution to CommandService with explicit per-request flags.
 	req := ExecuteRequest{
 		Name:         targetCmd.Name,
 		Args:         cmdArgs,
-		Runtime:      cmdFlags.runtimeOverride,
+		Runtime:      parsedRuntime,
 		Interactive:  interactive,
 		Verbose:      verbose,
 		FromSource:   cmdFlags.fromSource,

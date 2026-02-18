@@ -20,7 +20,7 @@ func TestValidate(t *testing.T) {
 		setup          func(t *testing.T) string // returns path to module
 		expectValid    bool
 		expectIssues   int
-		checkIssueType string // optional: check that at least one issue has this type
+		checkIssueType ValidationIssueType // optional: check that at least one issue has this type
 	}{
 		{
 			name: "valid module with invowkmod.cue and invowkfile.cue",
@@ -81,7 +81,7 @@ version: "1.0.0"
 			},
 			expectValid:    false,
 			expectIssues:   1,
-			checkIssueType: "structure",
+			checkIssueType: IssueTypeStructure,
 		},
 		{
 			name: "module field mismatches folder name",
@@ -107,7 +107,7 @@ version: "1.0.0"
 			},
 			expectValid:    false,
 			expectIssues:   1,
-			checkIssueType: "naming",
+			checkIssueType: IssueTypeNaming,
 		},
 		{
 			name: "invowkmod.cue is a directory",
@@ -126,7 +126,7 @@ version: "1.0.0"
 			},
 			expectValid:    false,
 			expectIssues:   1,
-			checkIssueType: "structure",
+			checkIssueType: IssueTypeStructure,
 		},
 		{
 			name: "nested module not allowed",
@@ -143,7 +143,7 @@ version: "1.0.0"
 			},
 			expectValid:    false,
 			expectIssues:   1,
-			checkIssueType: "structure",
+			checkIssueType: IssueTypeStructure,
 		},
 		{
 			name: "invalid folder name",
@@ -168,7 +168,7 @@ version: "1.0.0"
 			},
 			expectValid:    false,
 			expectIssues:   1,
-			checkIssueType: "naming",
+			checkIssueType: IssueTypeNaming,
 		},
 		{
 			name: "path does not exist",
@@ -178,7 +178,7 @@ version: "1.0.0"
 			},
 			expectValid:    false,
 			expectIssues:   1,
-			checkIssueType: "structure",
+			checkIssueType: IssueTypeStructure,
 		},
 		{
 			name: "path is a file not directory",
@@ -193,7 +193,7 @@ version: "1.0.0"
 			},
 			expectValid:    false,
 			expectIssues:   1,
-			checkIssueType: "structure",
+			checkIssueType: IssueTypeStructure,
 		},
 		{
 			name: "multiple issues - missing invowkmod.cue and nested module",
@@ -244,7 +244,7 @@ version: "1.0.0"
 			},
 			expectValid:    false,
 			expectIssues:   1,
-			checkIssueType: "naming",
+			checkIssueType: IssueTypeNaming,
 		},
 	}
 
@@ -297,7 +297,7 @@ func TestValidationIssue_Error(t *testing.T) {
 		{
 			name: "issue with path",
 			issue: ValidationIssue{
-				Type:    "structure",
+				Type:    IssueTypeStructure,
 				Message: "nested modules are not allowed",
 				Path:    "nested.invowkmod",
 			},
@@ -306,7 +306,7 @@ func TestValidationIssue_Error(t *testing.T) {
 		{
 			name: "issue without path",
 			issue: ValidationIssue{
-				Type:    "naming",
+				Type:    IssueTypeNaming,
 				Message: "module name is invalid",
 				Path:    "",
 			},

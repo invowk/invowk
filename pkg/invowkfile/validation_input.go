@@ -8,15 +8,17 @@ import (
 	"strconv"
 )
 
-// validateValueType validates that a value is compatible with the specified type name.
+// validateValueType validates that a value is compatible with the specified type.
 // Shared by both flag and argument validation to avoid duplicating type-check logic.
-func validateValueType(value, typeName string) error {
+// Argument callers cast via FlagType(arg.GetType()) since ArgumentType values are
+// a subset of FlagType values (both are string-based named types).
+func validateValueType(value string, typeName FlagType) error {
 	switch typeName {
-	case "bool":
+	case FlagTypeBool:
 		if value != "true" && value != "false" {
 			return fmt.Errorf("must be 'true' or 'false'")
 		}
-	case "int":
+	case FlagTypeInt:
 		for i, c := range value {
 			if i == 0 && c == '-' {
 				continue // Allow negative sign at start
@@ -28,7 +30,7 @@ func validateValueType(value, typeName string) error {
 		if value == "" || value == "-" {
 			return fmt.Errorf("must be a valid integer")
 		}
-	case "float":
+	case FlagTypeFloat:
 		if value == "" {
 			return fmt.Errorf("must be a valid floating-point number")
 		}
@@ -36,7 +38,7 @@ func validateValueType(value, typeName string) error {
 		if err != nil {
 			return fmt.Errorf("must be a valid floating-point number")
 		}
-	case "string":
+	case FlagTypeString:
 		// Any string is valid
 	default:
 		// Default to string (any value is valid)

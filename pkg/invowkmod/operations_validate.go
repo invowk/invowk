@@ -31,7 +31,7 @@ func Validate(modulePath string) (*ValidationResult, error) {
 	info, err := os.Stat(absPath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			result.AddIssue("structure", "path does not exist", "")
+			result.AddIssue(IssueTypeStructure, "path does not exist", "")
 			return result, nil
 		}
 		return nil, fmt.Errorf("failed to stat path: %w", err)
@@ -39,7 +39,7 @@ func Validate(modulePath string) (*ValidationResult, error) {
 
 	// Check if it's a directory
 	if !info.IsDir() {
-		result.AddIssue("structure", "path is not a directory", "")
+		result.AddIssue(IssueTypeStructure, "path is not a directory", "")
 		return result, nil
 	}
 
@@ -47,7 +47,7 @@ func Validate(modulePath string) (*ValidationResult, error) {
 	base := filepath.Base(absPath)
 	moduleName, err := ParseModuleName(base)
 	if err != nil {
-		result.AddIssue("naming", err.Error(), "")
+		result.AddIssue(IssueTypeNaming, err.Error(), "")
 	} else {
 		result.ModuleName = moduleName
 
@@ -55,7 +55,7 @@ func Validate(modulePath string) (*ValidationResult, error) {
 		// This name is reserved for the canonical namespace system where @invowkfile
 		// refers to the root invowkfile.cue source
 		if moduleName == "invowkfile" {
-			result.AddIssue("naming", "module name 'invowkfile' is reserved for the root invowkfile source", "")
+			result.AddIssue(IssueTypeNaming, "module name 'invowkfile' is reserved for the root invowkfile source", "")
 		}
 	}
 
@@ -64,11 +64,11 @@ func Validate(modulePath string) (*ValidationResult, error) {
 	invowkmodInfo, err := os.Stat(invowkmodPath)
 	switch {
 	case err != nil && os.IsNotExist(err):
-		result.AddIssue("structure", "missing required invowkmod.cue", "")
+		result.AddIssue(IssueTypeStructure, "missing required invowkmod.cue", "")
 	case err != nil:
-		result.AddIssue("structure", fmt.Sprintf("cannot access invowkmod.cue: %v", err), "")
+		result.AddIssue(IssueTypeStructure, fmt.Sprintf("cannot access invowkmod.cue: %v", err), "")
 	case invowkmodInfo.IsDir():
-		result.AddIssue("structure", "invowkmod.cue must be a file, not a directory", "")
+		result.AddIssue(IssueTypeStructure, "invowkmod.cue must be a file, not a directory", "")
 	default:
 		result.InvowkmodPath = invowkmodPath
 
@@ -76,9 +76,9 @@ func Validate(modulePath string) (*ValidationResult, error) {
 		if result.ModuleName != "" {
 			meta, parseErr := ParseInvowkmod(invowkmodPath)
 			if parseErr != nil {
-				result.AddIssue("invowkmod", fmt.Sprintf("failed to parse invowkmod.cue: %v", parseErr), "invowkmod.cue")
+				result.AddIssue(IssueTypeInvowkmod, fmt.Sprintf("failed to parse invowkmod.cue: %v", parseErr), "invowkmod.cue")
 			} else if meta.Module != result.ModuleName {
-				result.AddIssue("naming", fmt.Sprintf(
+				result.AddIssue(IssueTypeNaming, fmt.Sprintf(
 					"module field '%s' in invowkmod.cue must match folder name '%s'",
 					meta.Module, result.ModuleName), "invowkmod.cue")
 			}
@@ -93,9 +93,9 @@ func Validate(modulePath string) (*ValidationResult, error) {
 		// Library-only module - no commands
 		result.IsLibraryOnly = true
 	case err != nil:
-		result.AddIssue("structure", fmt.Sprintf("cannot access invowkfile.cue: %v", err), "")
+		result.AddIssue(IssueTypeStructure, fmt.Sprintf("cannot access invowkfile.cue: %v", err), "")
 	case invowkfileInfo.IsDir():
-		result.AddIssue("structure", "invowkfile.cue must be a file, not a directory", "")
+		result.AddIssue(IssueTypeStructure, "invowkfile.cue must be a file, not a directory", "")
 	default:
 		result.InvowkfilePath = invowkfilePath
 	}
@@ -122,7 +122,7 @@ func Validate(modulePath string) (*ValidationResult, error) {
 			// Check if symlink points outside the module
 			linkTarget, readErr := os.Readlink(path)
 			if readErr != nil {
-				result.AddIssue("security", "cannot read symlink target", relPath)
+				result.AddIssue(IssueTypeSecurity, "cannot read symlink target", relPath)
 			} else {
 				// Resolve the symlink target relative to its location
 				var resolvedTarget string
@@ -135,10 +135,10 @@ func Validate(modulePath string) (*ValidationResult, error) {
 				resolvedTarget = filepath.Clean(resolvedTarget)
 				relToRoot, relErr := filepath.Rel(absPath, resolvedTarget)
 				if relErr != nil || strings.HasPrefix(relToRoot, "..") {
-					result.AddIssue("security", fmt.Sprintf("symlink points outside module directory (target: %s)", linkTarget), relPath)
+					result.AddIssue(IssueTypeSecurity, fmt.Sprintf("symlink points outside module directory (target: %s)", linkTarget), relPath)
 				} else {
 					// Even internal symlinks are a potential security concern during archive extraction
-					result.AddIssue("security", "symlinks are not allowed in modules (security risk during extraction)", relPath)
+					result.AddIssue(IssueTypeSecurity, "symlinks are not allowed in modules (security risk during extraction)", relPath)
 				}
 			}
 		}
@@ -146,13 +146,13 @@ func Validate(modulePath string) (*ValidationResult, error) {
 		// Check if any other subdirectory is a module
 		if d.IsDir() && strings.HasSuffix(d.Name(), ModuleSuffix) {
 			relPath, _ := filepath.Rel(absPath, path)
-			result.AddIssue("structure", "nested modules are not allowed (except in invowk_modules/)", relPath)
+			result.AddIssue(IssueTypeStructure, "nested modules are not allowed (except in invowk_modules/)", relPath)
 		}
 
 		// Check for Windows reserved filenames (cross-platform compatibility)
 		if platform.IsWindowsReservedName(d.Name()) {
 			relPath, _ := filepath.Rel(absPath, path)
-			result.AddIssue("compatibility", fmt.Sprintf("filename '%s' is reserved on Windows", d.Name()), relPath)
+			result.AddIssue(IssueTypeCompatibility, fmt.Sprintf("filename '%s' is reserved on Windows", d.Name()), relPath)
 		}
 
 		return nil

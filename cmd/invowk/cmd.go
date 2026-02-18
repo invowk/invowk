@@ -85,6 +85,12 @@ type (
 	}
 )
 
+// parsedRuntimeMode parses the --ivk-runtime flag into a typed RuntimeMode.
+// Returns zero value ("") for empty input, which serves as the "no override" sentinel.
+func (f *cmdFlagValues) parsedRuntimeMode() (invowkfile.RuntimeMode, error) {
+	return invowkfile.ParseRuntimeMode(f.runtimeOverride)
+}
+
 // newCmdCommand creates the `invowk cmd` command tree.
 func newCmdCommand(app *App, rootFlags *rootFlagValues) *cobra.Command {
 	cmdFlags := &cmdFlagValues{}
@@ -241,12 +247,17 @@ func runCommand(cmd *cobra.Command, app *App, rootFlags *rootFlagValues, cmdFlag
 		return fmt.Errorf("no command specified")
 	}
 
+	parsedRuntime, err := cmdFlags.parsedRuntimeMode()
+	if err != nil {
+		return err
+	}
+
 	// Resolve UI flags with CLI-over-config precedence before building the request.
 	verbose, interactive := resolveUIFlags(cmd.Context(), app, cmd, rootFlags)
 	req := ExecuteRequest{
 		Name:         args[0],
 		Args:         args[1:],
-		Runtime:      cmdFlags.runtimeOverride,
+		Runtime:      parsedRuntime,
 		Interactive:  interactive,
 		Verbose:      verbose,
 		FromSource:   cmdFlags.fromSource,
@@ -254,7 +265,7 @@ func runCommand(cmd *cobra.Command, app *App, rootFlags *rootFlagValues, cmdFlag
 		ConfigPath:   rootFlags.configPath,
 	}
 
-	err := executeRequest(cmd, app, req)
+	err = executeRequest(cmd, app, req)
 	if err != nil {
 		if _, ok := errors.AsType[*ExitError](err); ok { //nolint:errcheck // type match only; error is handled via ok
 			cmd.SilenceErrors = true

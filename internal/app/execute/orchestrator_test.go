@@ -53,7 +53,7 @@ func TestResolveRuntime(t *testing.T) {
 	tests := []struct {
 		name                  string
 		cmd                   *invowkfile.Command
-		override              string
+		override              invowkfile.RuntimeMode
 		cfg                   *config.Config
 		wantMode              invowkfile.RuntimeMode
 		wantErr               bool
@@ -62,27 +62,39 @@ func TestResolveRuntime(t *testing.T) {
 		{
 			name:     "CLI override success",
 			cmd:      mkCmd(),
-			override: "virtual",
+			override: invowkfile.RuntimeVirtual,
 			wantMode: invowkfile.RuntimeVirtual,
 		},
 		{
 			name:                  "CLI override not allowed",
 			cmd:                   mkVirtualOnlyCmd(),
-			override:              "native",
+			override:              invowkfile.RuntimeNative,
 			wantErr:               true,
 			wantRuntimeNotAllowed: true,
 		},
 		{
 			name:     "Config default success",
 			cmd:      mkCmd(),
-			cfg:      &config.Config{DefaultRuntime: "virtual"},
+			cfg:      &config.Config{DefaultRuntime: config.RuntimeVirtual},
 			wantMode: invowkfile.RuntimeVirtual,
 		},
 		{
 			name:     "Config default ignored if not allowed",
 			cmd:      mkVirtualOnlyCmd(),
-			cfg:      &config.Config{DefaultRuntime: "native"},
+			cfg:      &config.Config{DefaultRuntime: config.RuntimeNative},
 			wantMode: invowkfile.RuntimeVirtual, // Falls back to command default (virtual)
+		},
+		{
+			name:     "CLI override invalid mode (defense-in-depth)",
+			cmd:      mkCmd(),
+			override: invowkfile.RuntimeMode("bogus"),
+			wantErr:  true,
+		},
+		{
+			name:    "Config default invalid mode (defense-in-depth)",
+			cmd:     mkCmd(),
+			cfg:     &config.Config{DefaultRuntime: config.RuntimeMode("magical")},
+			wantErr: true,
 		},
 		{
 			name:     "Command default (first listed)",
@@ -236,17 +248,17 @@ func TestBuildExecutionContext_InheritanceValidation(t *testing.T) {
 				Command:        cmd,
 				Invowkfile:     inv,
 				Selection:      sel,
-				EnvInheritMode: "none",
+				EnvInheritMode: invowkfile.EnvInheritNone,
 			},
 			wantErr: false,
 		},
 		{
-			name: "Invalid inherit mode",
+			name: "Invalid inherit mode (defense-in-depth)",
 			opts: BuildExecutionContextOptions{
 				Command:        cmd,
 				Invowkfile:     inv,
 				Selection:      sel,
-				EnvInheritMode: "invalid-mode",
+				EnvInheritMode: invowkfile.EnvInheritMode("invalid-mode"),
 			},
 			wantErr: true,
 		},
@@ -289,7 +301,7 @@ func TestRuntimeNotAllowedError_Format(t *testing.T) {
 
 	err := &RuntimeNotAllowedError{
 		CommandName: "deploy",
-		Runtime:     "container",
+		Runtime:     invowkfile.RuntimeContainer,
 		Platform:    invowkfile.PlatformLinux,
 		Allowed:     []invowkfile.RuntimeMode{invowkfile.RuntimeNative, invowkfile.RuntimeVirtual},
 	}

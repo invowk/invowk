@@ -27,6 +27,16 @@ stdout 'RUNTIME=virtual'
 stderr 'not allowed'
 stderr 'virtual'
 
+# Test 5: --ivk-runtime with invalid mode string produces clear error
+! exec invowk cmd multi-runtime --ivk-runtime bogus
+stderr '(?i)invalid runtime mode'
+stderr 'native, virtual, container'
+
+# Test 6: --ivk-env-inherit-mode with invalid value produces clear error
+! exec invowk cmd multi-runtime --ivk-env-inherit-mode bogus
+stderr '(?i)invalid env_inherit_mode'
+stderr 'none, allow, all'
+
 -- invowkfile.cue --
 cmds: [
 	{

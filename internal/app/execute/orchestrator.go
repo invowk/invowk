@@ -21,7 +21,7 @@ type (
 	// RuntimeNotAllowedError indicates a runtime override incompatible with the command.
 	RuntimeNotAllowedError struct {
 		CommandName string
-		Runtime     string
+		Runtime     invowkfile.RuntimeMode
 		Platform    invowkfile.Platform
 		Allowed     []invowkfile.RuntimeMode
 	}
@@ -47,7 +47,7 @@ type (
 		FlagValues map[string]string
 		ArgDefs    []invowkfile.Argument
 
-		EnvInheritMode  string
+		EnvInheritMode  invowkfile.EnvInheritMode
 		EnvInheritAllow []string
 		EnvInheritDeny  []string
 	}
@@ -76,49 +76,60 @@ func (e *RuntimeNotAllowedError) Error() string {
 // platform rather than relying on the host OS at call time. Production code
 // passes invowkfile.GetCurrentHostOS(); tests pass a fixed platform for
 // deterministic behavior across CI environments.
-func ResolveRuntime(command *invowkfile.Command, commandName, runtimeOverride string, cfg *config.Config, platform invowkfile.Platform) (RuntimeSelection, error) {
-	currentPlatform := platform
-
+func ResolveRuntime(command *invowkfile.Command, commandName string, runtimeOverride invowkfile.RuntimeMode, cfg *config.Config, platform invowkfile.Platform) (RuntimeSelection, error) {
 	if runtimeOverride != "" {
-		overrideRuntime := invowkfile.RuntimeMode(runtimeOverride)
-		if !command.IsRuntimeAllowedForPlatform(currentPlatform, overrideRuntime) {
+		// Defense-in-depth: the CLI boundary should have already validated the mode
+		// via ParseRuntimeMode, but verify here to catch programmatic misuse.
+		if !runtimeOverride.IsValid() {
+			return RuntimeSelection{}, fmt.Errorf("invalid runtime override %q (expected: native, virtual, container)", runtimeOverride)
+		}
+
+		if !command.IsRuntimeAllowedForPlatform(platform, runtimeOverride) {
 			return RuntimeSelection{}, &RuntimeNotAllowedError{
 				CommandName: commandName,
 				Runtime:     runtimeOverride,
-				Platform:    currentPlatform,
-				Allowed:     command.GetAllowedRuntimesForPlatform(currentPlatform),
+				Platform:    platform,
+				Allowed:     command.GetAllowedRuntimesForPlatform(platform),
 			}
 		}
 
-		impl := command.GetImplForPlatformRuntime(currentPlatform, overrideRuntime)
+		impl := command.GetImplForPlatformRuntime(platform, runtimeOverride)
 		if impl == nil {
 			return RuntimeSelection{}, fmt.Errorf(
 				"no implementation found for command '%s' on platform '%s' with runtime '%s'",
 				commandName,
-				currentPlatform,
-				overrideRuntime,
+				platform,
+				runtimeOverride,
 			)
 		}
-		return RuntimeSelection{Mode: overrideRuntime, Impl: impl}, nil
+		return RuntimeSelection{Mode: runtimeOverride, Impl: impl}, nil
 	}
 
 	if cfg != nil && cfg.DefaultRuntime != "" {
 		configRuntime := invowkfile.RuntimeMode(cfg.DefaultRuntime)
-		if command.IsRuntimeAllowedForPlatform(currentPlatform, configRuntime) {
-			impl := command.GetImplForPlatformRuntime(currentPlatform, configRuntime)
+		// Defense-in-depth: CUE schema validates config at load time, but verify
+		// here to prevent silent fallthrough to command default on invalid config.
+		if !configRuntime.IsValid() {
+			return RuntimeSelection{}, fmt.Errorf(
+				"invalid default_runtime %q in config (expected: native, virtual, container)",
+				cfg.DefaultRuntime,
+			)
+		}
+		if command.IsRuntimeAllowedForPlatform(platform, configRuntime) {
+			impl := command.GetImplForPlatformRuntime(platform, configRuntime)
 			if impl != nil {
 				return RuntimeSelection{Mode: configRuntime, Impl: impl}, nil
 			}
 		}
 	}
 
-	defaultRuntime := command.GetDefaultRuntimeForPlatform(currentPlatform)
-	defaultImpl := command.GetImplForPlatformRuntime(currentPlatform, defaultRuntime)
+	defaultRuntime := command.GetDefaultRuntimeForPlatform(platform)
+	defaultImpl := command.GetImplForPlatformRuntime(platform, defaultRuntime)
 	if defaultImpl == nil {
 		return RuntimeSelection{}, fmt.Errorf(
 			"no implementation found for command '%s' on platform '%s' with runtime '%s'",
 			commandName,
-			currentPlatform,
+			platform,
 			defaultRuntime,
 		)
 	}
@@ -159,11 +170,12 @@ func BuildExecutionContext(opts BuildExecutionContextOptions) (*runtime.Executio
 
 func applyEnvInheritOverrides(opts BuildExecutionContextOptions, execCtx *runtime.ExecutionContext) error {
 	if opts.EnvInheritMode != "" {
-		mode, err := invowkfile.ParseEnvInheritMode(opts.EnvInheritMode)
-		if err != nil {
-			return err
+		// Defense-in-depth: the CLI boundary should have already validated the mode
+		// via ParseEnvInheritMode, but verify here to catch programmatic misuse.
+		if !opts.EnvInheritMode.IsValid() {
+			return fmt.Errorf("invalid env_inherit_mode %q (expected: none, allow, all)", opts.EnvInheritMode)
 		}
-		execCtx.Env.InheritModeOverride = mode
+		execCtx.Env.InheritModeOverride = opts.EnvInheritMode
 	}
 
 	for _, name := range opts.EnvInheritAllow {

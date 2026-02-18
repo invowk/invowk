@@ -160,6 +160,17 @@ func FindRuntimeConfig(runtimes []RuntimeConfig, mode RuntimeMode) *RuntimeConfi
 	return nil
 }
 
+// IsValid returns true if the RuntimeMode is one of the defined runtime modes.
+// Note: the zero value ("") is NOT valid — it serves as a sentinel for "no override".
+func (m RuntimeMode) IsValid() bool {
+	switch m {
+	case RuntimeNative, RuntimeVirtual, RuntimeContainer:
+		return true
+	default:
+		return false
+	}
+}
+
 // IsValid returns true if the EnvInheritMode is a valid value
 func (m EnvInheritMode) IsValid() bool {
 	switch m {

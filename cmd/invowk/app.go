@@ -51,8 +51,9 @@ type (
 		Name string
 		// Args are positional arguments to pass to the command script ($1, $2, etc.).
 		Args []string
-		// Runtime is the --ivk-runtime override (e.g., "container", "virtual").
-		Runtime string
+		// Runtime is the --ivk-runtime override (e.g., RuntimeContainer, RuntimeVirtual).
+		// Zero value ("") means no override.
+		Runtime invowkfile.RuntimeMode
 		// Interactive enables alternate screen buffer with TUI server.
 		Interactive bool
 		// Verbose enables verbose diagnostic output.
@@ -76,7 +77,8 @@ type (
 		// ArgDefs are the command's argument definitions from the invowkfile.
 		ArgDefs []invowkfile.Argument
 		// EnvInheritMode overrides the runtime config env inherit mode.
-		EnvInheritMode string
+		// Zero value ("") means no override.
+		EnvInheritMode invowkfile.EnvInheritMode
 		// EnvInheritAllow overrides the runtime config env allowlist.
 		EnvInheritAllow []string
 		// EnvInheritDeny overrides the runtime config env denylist.

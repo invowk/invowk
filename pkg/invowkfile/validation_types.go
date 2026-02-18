@@ -46,9 +46,9 @@ type (
 		// FS is the filesystem to use for file existence checks.
 		// Defaults to os.DirFS(WorkDir) if nil.
 		FS fs.FS
-		// Platform is the target platform for validation (e.g., "linux", "macos", "windows").
-		// Empty string means current platform.
-		Platform string
+		// Platform is the target platform for validation.
+		// Zero value ("") means current platform.
+		Platform PlatformType
 		// StrictMode treats warnings as errors when true.
 		StrictMode bool
 		// FilePath is the path to the invowkfile being validated.

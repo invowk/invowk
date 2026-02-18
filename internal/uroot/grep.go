@@ -11,11 +11,22 @@ import (
 	"regexp"
 )
 
-// grepCommand implements the grep utility.
-type grepCommand struct {
-	name  string
-	flags []FlagInfo
-}
+type (
+	// grepCommand implements the grep utility.
+	grepCommand struct {
+		name  string
+		flags []FlagInfo
+	}
+
+	// grepOptions configures grepReader behavior.
+	grepOptions struct {
+		invertMatch      bool
+		showLineNumbers  bool
+		countOnly        bool
+		filesWithMatches bool
+		showFilename     bool
+	}
+)
 
 // newGrepCommand creates a new grep command.
 func newGrepCommand() *grepCommand {
@@ -95,7 +106,13 @@ func (c *grepCommand) Run(ctx context.Context, args []string) error {
 
 			count, found, processErr := c.grepReader(
 				hc.Stdout, r, re, displayName,
-				*invertMatch, *showLineNumbers, *countOnly, *filesWithMatches, showFilename,
+				grepOptions{
+					invertMatch:      *invertMatch,
+					showLineNumbers:  *showLineNumbers,
+					countOnly:        *countOnly,
+					filesWithMatches: *filesWithMatches,
+					showFilename:     showFilename,
+				},
 			)
 			if processErr != nil {
 				return processErr
@@ -133,7 +150,7 @@ func (c *grepCommand) Run(ctx context.Context, args []string) error {
 
 // grepReader searches for matches in a reader using streaming I/O.
 // Returns the match count, whether any matches were found, and any error.
-func (c *grepCommand) grepReader(out io.Writer, in io.Reader, re *regexp.Regexp, filename string, invertMatch, showLineNumbers, countOnly, filesWithMatches, showFilename bool) (matchCount int, found bool, err error) {
+func (c *grepCommand) grepReader(out io.Writer, in io.Reader, re *regexp.Regexp, filename string, opts grepOptions) (matchCount int, found bool, err error) {
 	scanner := bufio.NewScanner(in)
 	lineNum := 0
 
@@ -142,7 +159,7 @@ func (c *grepCommand) grepReader(out io.Writer, in io.Reader, re *regexp.Regexp,
 		line := scanner.Text()
 		matches := re.MatchString(line)
 
-		if invertMatch {
+		if opts.invertMatch {
 			matches = !matches
 		}
 
@@ -150,16 +167,16 @@ func (c *grepCommand) grepReader(out io.Writer, in io.Reader, re *regexp.Regexp,
 			matchCount++
 
 			// Skip output if only counting or listing files
-			if countOnly || filesWithMatches {
+			if opts.countOnly || opts.filesWithMatches {
 				continue
 			}
 
 			// Build output line
 			var prefix string
-			if showFilename && filename != "" {
+			if opts.showFilename && filename != "" {
 				prefix = filename + ":"
 			}
-			if showLineNumbers {
+			if opts.showLineNumbers {
 				prefix += fmt.Sprintf("%d:", lineNum)
 			}
 

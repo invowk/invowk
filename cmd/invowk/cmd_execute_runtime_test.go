@@ -68,7 +68,7 @@ func TestResolveRuntime(t *testing.T) {
 
 		svc := newTestCommandService()
 		cmdInfo := buildDualRuntimeCommand()
-		cfg := &config.Config{DefaultRuntime: "virtual"}
+		cfg := &config.Config{DefaultRuntime: config.RuntimeVirtual}
 
 		resolved, err := svc.resolveRuntime(ExecuteRequest{Name: "test-cmd"}, cmdInfo, cfg)
 		if err != nil {
@@ -84,7 +84,7 @@ func TestResolveRuntime(t *testing.T) {
 
 		svc := newTestCommandService()
 		cmdInfo := buildNativeOnlyCommand()
-		cfg := &config.Config{DefaultRuntime: "virtual"}
+		cfg := &config.Config{DefaultRuntime: config.RuntimeVirtual}
 
 		resolved, err := svc.resolveRuntime(ExecuteRequest{Name: "native-only"}, cmdInfo, cfg)
 		if err != nil {
@@ -101,10 +101,10 @@ func TestResolveRuntime(t *testing.T) {
 
 		svc := newTestCommandService()
 		cmdInfo := buildDualRuntimeCommand()
-		cfg := &config.Config{DefaultRuntime: "virtual"}
+		cfg := &config.Config{DefaultRuntime: config.RuntimeVirtual}
 
 		resolved, err := svc.resolveRuntime(
-			ExecuteRequest{Name: "test-cmd", Runtime: "native"},
+			ExecuteRequest{Name: "test-cmd", Runtime: invowkfile.RuntimeNative},
 			cmdInfo,
 			cfg,
 		)

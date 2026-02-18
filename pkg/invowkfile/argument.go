@@ -50,7 +50,7 @@ func (a *Argument) GetType() ArgumentType {
 // ValidateArgumentValue validates an argument value at runtime against type and validation regex.
 // Returns nil if the value is valid, or an error describing the issue.
 func (a *Argument) ValidateArgumentValue(value string) error {
-	if err := validateValueType(value, string(a.GetType())); err != nil {
+	if err := validateValueType(value, FlagType(a.GetType())); err != nil {
 		return fmt.Errorf("argument '%s' value '%s' is invalid: %s", a.Name, value, err.Error())
 	}
 	if err := validateValueWithRegex("argument '"+a.Name+"'", value, a.Validation); err != nil {
