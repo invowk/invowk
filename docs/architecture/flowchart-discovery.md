@@ -98,11 +98,11 @@ Discovery reads configured module paths; it does not fetch remote module depende
 # List all discovered commands with sources
 invowk cmd --ivk-verbose
 
-# Show discovery order and conflicts
-invowk internal discovery --debug
+# Validate workspace discovery (reports all diagnostics)
+invowk validate
 
-# Validate module structure
-invowk module validate ./mymodule.invowkmod
+# Validate a specific module
+invowk validate ./mymodule.invowkmod
 ```
 
 ## Related Diagrams

@@ -388,6 +388,26 @@ invowk module add https://github.com/user/monorepo.git ^1.0.0 --path packages/cl
     code: `invowk tui style [text...] [flags]`,
   },
 
+  'reference/cli/validate-syntax': {
+    language: 'bash',
+    code: `invowk validate [path]`,
+  },
+
+  'reference/cli/validate-examples': {
+    language: 'bash',
+    code: `# Validate the entire workspace (discovery + diagnostics)
+invowk validate
+
+# Validate a single invowkfile
+invowk validate ./invowkfile.cue
+
+# Validate a module (always includes deep validation)
+invowk validate ./mymod.invowkmod
+
+# Validate a directory containing an invowkfile
+invowk validate ./my-project/`,
+  },
+
   'reference/cli/completion-syntax': {
     language: 'bash',
     code: `invowk completion [shell]`,

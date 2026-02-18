@@ -1790,6 +1790,23 @@ cmds: [
 - Absolute paths are not allowed in modules
 - Paths cannot escape the module directory (e.g., `../outside.sh` is invalid)
 
+### Validation
+
+Use `invowk validate` to validate invowkfiles, modules, or the entire workspace:
+
+```bash
+# Validate the entire workspace (discovery + diagnostics)
+invowk validate
+
+# Validate a single invowkfile
+invowk validate ./invowkfile.cue
+
+# Validate a module (always includes deep validation)
+invowk validate ./mymod.invowkmod
+```
+
+The unified `validate` command auto-detects the target type and always performs deep validation (CUE schema, structural checks, and command tree validation).
+
 ### Validating Modules
 
 Use the `module validate` command to check a module's structure:

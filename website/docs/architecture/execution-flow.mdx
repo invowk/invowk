@@ -89,9 +89,12 @@ The virtual runtime uses the embedded mvdan/sh interpreter:
 | Phase | Typical Duration | Optimization |
 |-------|------------------|--------------|
 | Initialization | < 10ms | Config cached after first load |
-| Discovery | 10-100ms | Depends on number of files/modules |
+| Discovery | 10-100ms | Per-request cache eliminates duplicate filesystem scans |
 | Resolution | < 1ms | Simple lookup |
 | Execution | Variable | Depends on command |
+
+**Key optimizations:**
+- **Per-request discovery cache**: A `discoveryRequestCache` attached to the request context memoizes `DiscoverCommandSet`, `DiscoverAndValidateCommandSet`, and `GetCommand` results. Cross-population ensures that a `DiscoverAndValidateCommandSet` call also satisfies downstream `DiscoverCommandSet` lookups, eliminating redundant filesystem traversals within a single CLI invocation.
 
 **Bottlenecks to watch:**
 - Many modules in configured includes → slower discovery

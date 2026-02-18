@@ -25,6 +25,12 @@ Pref: Preferred engine\nin config? {
   style.fill: "#FFF3E0"
 }
 
+Note: "Config defaults to podman\nif not explicitly set" {
+  shape: page
+  style.fill: "#F3E5F5"
+  style.font-size: 12
+}
+
 TryDocker: Try Docker
 TryPodman: Try Podman
 
@@ -67,7 +73,7 @@ Unavailable: No Engine Available {
 Start -> Pref
 Pref -> TryDocker: docker
 Pref -> TryPodman: podman
-Pref -> TryPodman: not set
+Pref -> Note: {style.stroke-dash: 3}
 
 # Docker-preferred path
 TryDocker -> DockerOK
