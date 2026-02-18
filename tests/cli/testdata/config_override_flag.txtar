@@ -1,0 +1,53 @@
+# Test: --ivk-config flag for custom config path
+# Verifies that --ivk-config loads configuration from a custom file path,
+# and that config settings (like default_runtime) take effect.
+# Note: default config has default_runtime: "native".
+
+[windows] skip 'native runtime not available on Windows; soft fallback changes expected output'
+
+cd $WORK
+
+# Test 1: without --ivk-config, command uses default config (native runtime)
+exec invowk cmd multi-runtime
+stdout 'RUNTIME=native'
+! stderr .
+
+# Test 2: with --ivk-config pointing to a config that sets default_runtime: "virtual",
+# the command should use the virtual runtime
+exec invowk cmd multi-runtime --ivk-config custom-config/config.cue
+stdout 'RUNTIME=virtual'
+! stderr .
+
+# Test 3: --ivk-config with short form -c
+exec invowk cmd multi-runtime -c custom-config/config.cue
+stdout 'RUNTIME=virtual'
+! stderr .
+
+# Test 4: --ivk-config with non-existent file produces a warning but still runs
+exec invowk cmd multi-runtime --ivk-config nonexistent.cue
+stdout 'RUNTIME=native'
+stderr -count=1 '[Ww]arning'
+stderr 'nonexistent.cue'
+
+-- invowkfile.cue --
+cmds: [
+	{
+		name:        "multi-runtime"
+		description: "Command with both virtual and native implementations"
+		implementations: [
+			{
+				script:    "echo 'RUNTIME=virtual'"
+				runtimes:  [{name: "virtual"}]
+				platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+			},
+			{
+				script:    "echo 'RUNTIME=native'"
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
+			},
+		]
+	},
+]
+
+-- custom-config/config.cue --
+default_runtime: "virtual"

@@ -103,7 +103,7 @@ func showConfig(ctx context.Context, app *App) error {
 	cfgDir, dirErr := config.ConfigDir()
 	if dirErr == nil {
 		cfgPath := cfgDir + "/config.cue"
-		if fileExistsCheck(cfgPath) {
+		if info, err := os.Stat(cfgPath); err == nil && !info.IsDir() {
 			fmt.Printf("%s: %s\n", keyStyle.Render("Config file"), cfgPath)
 		} else {
 			fmt.Printf("%s: %s\n", keyStyle.Render("Config file"), SubtitleStyle.Render("(using defaults)"))
@@ -115,7 +115,7 @@ func showConfig(ctx context.Context, app *App) error {
 
 	// Show values
 	fmt.Printf("%s: %s\n", keyStyle.Render("container_engine"), valueStyle.Render(string(cfg.ContainerEngine)))
-	fmt.Printf("%s: %s\n", keyStyle.Render("default_runtime"), valueStyle.Render(cfg.DefaultRuntime))
+	fmt.Printf("%s: %s\n", keyStyle.Render("default_runtime"), valueStyle.Render(string(cfg.DefaultRuntime)))
 
 	fmt.Println()
 	fmt.Printf("%s:\n", keyStyle.Render("includes"))
@@ -137,7 +137,7 @@ func showConfig(ctx context.Context, app *App) error {
 
 	fmt.Println()
 	fmt.Printf("%s:\n", keyStyle.Render("ui"))
-	fmt.Printf("  color_scheme: %s\n", valueStyle.Render(cfg.UI.ColorScheme))
+	fmt.Printf("  color_scheme: %s\n", valueStyle.Render(string(cfg.UI.ColorScheme)))
 	fmt.Printf("  interactive: %s\n", valueStyle.Render(fmt.Sprintf("%v", cfg.UI.Interactive)))
 	fmt.Printf("  verbose: %s\n", valueStyle.Render(fmt.Sprintf("%v", cfg.UI.Verbose)))
 
@@ -206,7 +206,7 @@ func setConfigValue(ctx context.Context, app *App, key, value string) error {
 		if value != "native" && value != "virtual" && value != "container" {
 			return fmt.Errorf("invalid default_runtime: must be 'native', 'virtual', or 'container'")
 		}
-		cfg.DefaultRuntime = value
+		cfg.DefaultRuntime = config.RuntimeMode(value)
 
 	case "ui.verbose":
 		cfg.UI.Verbose = value == "true" || value == "1"
@@ -215,7 +215,7 @@ func setConfigValue(ctx context.Context, app *App, key, value string) error {
 		cfg.UI.Interactive = value == "true" || value == "1"
 
 	case "ui.color_scheme":
-		cfg.UI.ColorScheme = value
+		cfg.UI.ColorScheme = config.ColorScheme(value)
 
 	case "virtual_shell.enable_uroot_utils":
 		cfg.VirtualShell.EnableUrootUtils = value == "true" || value == "1"
@@ -230,13 +230,4 @@ func setConfigValue(ctx context.Context, app *App, key, value string) error {
 
 	fmt.Printf("%s Set %s = %s\n", SuccessStyle.Render("✓"), key, value)
 	return nil
-}
-
-// fileExistsCheck checks if a file exists and is not a directory.
-func fileExistsCheck(path string) bool {
-	info, err := os.Stat(path)
-	if os.IsNotExist(err) {
-		return false
-	}
-	return err == nil && !info.IsDir()
 }

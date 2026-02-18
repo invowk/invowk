@@ -2,7 +2,10 @@
 
 package invowkfile
 
-import "regexp"
+import (
+	"regexp"
+	"strings"
+)
 
 var (
 	// flagNameRegex validates POSIX-compliant flag names.
@@ -107,7 +110,7 @@ func (v *StructureValidator) validateFlag(ctx *ValidationContext, cmd *Command, 
 	}
 
 	// Validate description is not empty (after trimming whitespace)
-	if trimSpace(flag.Description) == "" {
+	if strings.TrimSpace(flag.Description) == "" {
 		errors = append(errors, ValidationError{
 			Validator: v.Name(),
 			Field:     path.String(),
@@ -233,7 +236,7 @@ func (v *StructureValidator) validateFlag(ctx *ValidationContext, cmd *Command, 
 
 	// Validate default_value is compatible with type
 	if flag.DefaultValue != "" {
-		if err := validateFlagValueType(flag.DefaultValue, flag.GetType()); err != nil {
+		if err := validateValueType(flag.DefaultValue, string(flag.GetType())); err != nil {
 			errors = append(errors, ValidationError{
 				Validator: v.Name(),
 				Field:     path.String(),

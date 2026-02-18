@@ -1,0 +1,67 @@
+# Test: vendored module command execution
+# Verifies that commands from vendored modules (invowk_modules/) are
+# discoverable and executable end-to-end.
+
+cd $WORK
+
+# Test 1: List commands — should show commands from both the invowkfile and vendored module
+exec invowk cmd
+stdout 'hello'
+stdout 'greet'
+
+# Test 2: Execute a command from the local invowkfile
+exec invowk cmd hello
+stdout 'Hello from main'
+! stderr .
+
+# Test 3: Execute a command from the vendored module
+exec invowk cmd greet
+stdout 'Hello from vendored dep'
+! stderr .
+
+-- invowkfile.cue --
+cmds: [
+	{
+		name:        "hello"
+		description: "Local command"
+		implementations: [{
+			script:    "echo 'Hello from main'"
+			runtimes:  [{name: "virtual"}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+	},
+]
+
+-- mymod.invowkmod/invowkmod.cue --
+module:  "mymod"
+version: "0.1.0"
+
+-- mymod.invowkmod/invowkfile.cue --
+cmds: [
+	{
+		name:        "parent-cmd"
+		description: "Command from parent module"
+		implementations: [{
+			script:    "echo 'parent module command'"
+			runtimes:  [{name: "virtual"}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+	},
+]
+
+-- mymod.invowkmod/invowk_modules/dep.invowkmod/invowkmod.cue --
+module:  "dep"
+version: "1.0.0"
+
+-- mymod.invowkmod/invowk_modules/dep.invowkmod/invowkfile.cue --
+cmds: [
+	{
+		name:        "greet"
+		description: "Vendored command"
+		implementations: [{
+			script:    "echo 'Hello from vendored dep'"
+			runtimes:  [{name: "virtual"}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+	},
+]

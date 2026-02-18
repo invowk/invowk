@@ -13,9 +13,15 @@ import (
 	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
-// ErrNoInvowkfileFound is returned when no invowkfile.cue is found in any search path.
-// Callers can check for this error using errors.Is(err, ErrNoInvowkfileFound).
-var ErrNoInvowkfileFound = errors.New("no invowkfile found")
+var (
+	// ErrNoInvowkfileFound is returned when no invowkfile.cue is found in any search path.
+	// Callers can check for this error using errors.Is(err, ErrNoInvowkfileFound).
+	ErrNoInvowkfileFound = errors.New("no invowkfile found")
+
+	// ErrModuleCollision is the sentinel wrapped by ModuleCollisionError.
+	// Callers can check for this error using errors.Is(err, ErrModuleCollision).
+	ErrModuleCollision = errors.New("module collision")
+)
 
 type (
 	// ModuleCollisionError is returned when two modules have the same module identifier.
@@ -62,8 +68,8 @@ func (e *ModuleCollisionError) Error() string {
 		e.SecondSource)
 }
 
-// Unwrap returns nil; ModuleCollisionError has no underlying cause.
-func (e *ModuleCollisionError) Unwrap() error { return nil }
+// Unwrap returns ErrModuleCollision so callers can use errors.Is for programmatic detection.
+func (e *ModuleCollisionError) Unwrap() error { return ErrModuleCollision }
 
 // WithBaseDir sets the base directory for discovery, replacing the default of
 // os.Getwd(). This enables parallel tests to inject isolated temp directories
@@ -103,7 +109,7 @@ func New(cfg *config.Config, opts ...Option) *Discovery {
 				"error", err)
 			d.initDiagnostics = append(d.initDiagnostics, Diagnostic{
 				Severity: SeverityWarning,
-				Code:     "working_dir_unavailable",
+				Code:     CodeWorkingDirUnavailable,
 				Message:  fmt.Sprintf("current directory unavailable, skipping local discovery: %v", err),
 				Cause:    err,
 			})
@@ -117,7 +123,7 @@ func New(cfg *config.Config, opts ...Option) *Discovery {
 				"error", err)
 			d.initDiagnostics = append(d.initDiagnostics, Diagnostic{
 				Severity: SeverityWarning,
-				Code:     "commands_dir_unavailable",
+				Code:     CodeCommandsDirUnavailable,
 				Message:  fmt.Sprintf("user commands directory unavailable, skipping user-dir discovery: %v", err),
 				Cause:    err,
 			})

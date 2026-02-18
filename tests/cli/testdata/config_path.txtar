@@ -13,9 +13,9 @@ stdout 'Commands directory:'
 
 # Test 2: Paths reference the platform-specific config location
 exec invowk config path
-[GOOS:linux] stdout '.config/invowk'
-[GOOS:darwin] stdout 'Library/Application Support/invowk'
-[GOOS:windows] stdout 'appdata.invowk'
+[linux] stdout '.config/invowk'
+[darwin] stdout 'Library/Application Support/invowk'
+[windows] stdout 'appdata.invowk'
 stdout 'config.cue'
 
 # Test 3: Commands directory references the home-based location

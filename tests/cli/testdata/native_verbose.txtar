@@ -1,0 +1,45 @@
+# Test: --ivk-verbose flag on native runtime
+# Mirrors virtual_verbose.txtar with platform-split native implementations.
+
+cd $WORK
+
+# Test 1: Non-verbose mode suppresses inline diagnostics
+exec invowk cmd
+stdout 'hello'
+stderr 'had issues and were skipped'
+! stderr 'warning'
+
+# Test 2: --ivk-verbose shows inline diagnostics instead of footer
+exec invowk cmd --ivk-verbose
+stdout 'hello'
+! stderr 'had issues and were skipped'
+stderr 'warning'
+
+# Test 3: short form -v also works
+exec invowk cmd -v
+stdout 'hello'
+! stderr 'had issues and were skipped'
+stderr 'warning'
+
+-- invowkfile.cue --
+cmds: [
+	{
+		name:        "hello"
+		description: "A test command"
+		implementations: [
+			{
+				script:    "echo hello"
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
+			},
+			{
+				script:    "Write-Output hello"
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "windows"}]
+			},
+		]
+	},
+]
+
+-- broken.invowkmod/invowkmod.cue --
+this is not valid CUE content!!!

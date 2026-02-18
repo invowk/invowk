@@ -2,11 +2,7 @@
 
 package invowkfile
 
-import (
-	"fmt"
-	"regexp"
-	"strconv"
-)
+import "fmt"
 
 const (
 	// ArgumentTypeString is the default argument type for string values
@@ -54,55 +50,11 @@ func (a *Argument) GetType() ArgumentType {
 // ValidateArgumentValue validates an argument value at runtime against type and validation regex.
 // Returns nil if the value is valid, or an error describing the issue.
 func (a *Argument) ValidateArgumentValue(value string) error {
-	// Validate type
-	if err := validateArgumentValueType(value, a.GetType()); err != nil {
+	if err := validateValueType(value, string(a.GetType())); err != nil {
 		return fmt.Errorf("argument '%s' value '%s' is invalid: %s", a.Name, value, err.Error())
 	}
-
-	// Validate against regex pattern
-	if a.Validation != "" {
-		validationRegex, err := regexp.Compile(a.Validation)
-		if err != nil {
-			// This shouldn't happen as the regex is validated at parse time
-			return fmt.Errorf("argument '%s' has invalid validation pattern: %s", a.Name, err.Error())
-		}
-		if !validationRegex.MatchString(value) {
-			return fmt.Errorf("argument '%s' value '%s' does not match required pattern '%s'", a.Name, value, a.Validation)
-		}
-	}
-
-	return nil
-}
-
-// validateArgumentValueType validates that a value is compatible with the specified argument type
-func validateArgumentValueType(value string, argType ArgumentType) error {
-	switch argType {
-	case ArgumentTypeInt:
-		// Check if value is a valid integer
-		for i, c := range value {
-			if i == 0 && c == '-' {
-				continue // Allow negative sign at start
-			}
-			if c < '0' || c > '9' {
-				return fmt.Errorf("must be a valid integer")
-			}
-		}
-		if value == "" || value == "-" {
-			return fmt.Errorf("must be a valid integer")
-		}
-	case ArgumentTypeFloat:
-		// Check if value is a valid floating-point number
-		if value == "" {
-			return fmt.Errorf("must be a valid floating-point number")
-		}
-		_, err := strconv.ParseFloat(value, 64)
-		if err != nil {
-			return fmt.Errorf("must be a valid floating-point number")
-		}
-	case ArgumentTypeString:
-		// Any string is valid
-	default:
-		// Default to string (any value is valid)
+	if err := validateValueWithRegex("argument '"+a.Name+"'", value, a.Validation); err != nil {
+		return err
 	}
 	return nil
 }

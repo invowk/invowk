@@ -3,10 +3,10 @@
 package cmd
 
 import (
-	"bytes"
 	"fmt"
 	"os"
 	"path/filepath"
+	goruntime "runtime"
 	"slices"
 	"strings"
 
@@ -73,16 +73,7 @@ func validateFilepathInContainer(fp invowkfile.FilepathDependency, invowkDir str
 
 		checkScript := strings.Join(checks, " && ")
 
-		var stdout, stderr bytes.Buffer
-		validationCtx := &runtime.ExecutionContext{
-			Command:         ctx.Command,
-			Invowkfile:      ctx.Invowkfile,
-			SelectedImpl:    &invowkfile.Implementation{Script: checkScript, Runtimes: []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeContainer}}},
-			SelectedRuntime: invowkfile.RuntimeContainer,
-			Context:         ctx.Context,
-			IO:              runtime.IOContext{Stdout: &stdout, Stderr: &stderr},
-			Env:             runtime.DefaultEnv(),
-		}
+		validationCtx, _, _ := newContainerValidationContext(ctx, checkScript)
 
 		result := rt.Execute(validationCtx)
 		if result.Error != nil {
@@ -267,7 +258,7 @@ func isWritable(path string, info os.FileInfo) bool {
 // isExecutable checks if a path is executable (cross-platform)
 func isExecutable(path string, info os.FileInfo) bool {
 	// On Windows, check file extension
-	if isWindows() {
+	if goruntime.GOOS == "windows" {
 		ext := strings.ToLower(filepath.Ext(path))
 		execExts := []string{".exe", ".cmd", ".bat", ".com", ".ps1"}
 		if slices.Contains(execExts, ext) {

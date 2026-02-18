@@ -65,4 +65,34 @@ var (
 	// VerboseHighlightStyle is for emphasized items within verbose output.
 	VerboseHighlightStyle = lipgloss.NewStyle().
 				Foreground(ColorHighlight)
+
+	// Render-specific styles for styled error/info cards (used by cmd_render.go).
+	// These consolidate the per-function style definitions that previously used
+	// raw ANSI color codes corresponding to the palette above.
+
+	// renderHeaderStyle is for error card headers (bold red).
+	renderHeaderStyle = lipgloss.NewStyle().
+				Bold(true).
+				Foreground(ColorError).
+				MarginBottom(1)
+
+	// renderCommandStyle is for command names in error cards (bold blue).
+	renderCommandStyle = lipgloss.NewStyle().
+				Bold(true).
+				Foreground(ColorHighlight)
+
+	// renderLabelStyle is for section labels in error cards (bold amber).
+	renderLabelStyle = lipgloss.NewStyle().
+				Bold(true).
+				Foreground(ColorWarning)
+
+	// renderValueStyle is for detail values in error cards (gray).
+	renderValueStyle = lipgloss.NewStyle().
+				Foreground(ColorVerbose)
+
+	// renderHintStyle is for hint text at the bottom of error cards (muted italic).
+	renderHintStyle = lipgloss.NewStyle().
+			Foreground(ColorMuted).
+			Italic(true).
+			MarginTop(1)
 )

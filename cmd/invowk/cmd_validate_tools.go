@@ -3,7 +3,6 @@
 package cmd
 
 import (
-	"bytes"
 	"fmt"
 	"os/exec"
 	"regexp"
@@ -33,16 +32,9 @@ func checkToolDependenciesInContainer(deps *invowkfile.DependsOn, registry *runt
 	var toolErrors []string
 
 	for _, tool := range deps.Tools {
-		var lastErr error
-		found := false
-		for _, alt := range tool.Alternatives {
-			if err := validateToolInContainer(alt, rt, ctx); err == nil {
-				found = true
-				break
-			} else {
-				lastErr = err
-			}
-		}
+		found, lastErr := evaluateAlternatives(tool.Alternatives, func(alt string) error {
+			return validateToolInContainer(alt, rt, ctx)
+		})
 		if !found && lastErr != nil {
 			if len(tool.Alternatives) == 1 {
 				toolErrors = append(toolErrors, lastErr.Error())
@@ -83,22 +75,14 @@ func validateToolInContainer(toolName string, rt runtime.Runtime, ctx *runtime.E
 
 	checkScript := fmt.Sprintf("command -v '%s' || which '%s'", shellEscapeSingleQuote(toolName), shellEscapeSingleQuote(toolName))
 
-	var stdout, stderr bytes.Buffer
-	validationCtx := &runtime.ExecutionContext{
-		Command:         ctx.Command,
-		Invowkfile:      ctx.Invowkfile,
-		SelectedImpl:    &invowkfile.Implementation{Script: checkScript, Runtimes: []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeContainer}}},
-		SelectedRuntime: invowkfile.RuntimeContainer,
-		Context:         ctx.Context,
-		IO:              runtime.IOContext{Stdout: &stdout, Stderr: &stderr},
-		Env:             runtime.DefaultEnv(),
-	}
+	validationCtx, _, stderr := newContainerValidationContext(ctx, checkScript)
 
 	result := rt.Execute(validationCtx)
 	if result.Error != nil {
 		return fmt.Errorf("  • %s - container validation failed: %w", toolName, result.Error)
 	}
 	if result.ExitCode != 0 {
+		_ = stderr // consumed by newContainerValidationContext but not needed here
 		return fmt.Errorf("  • %s - not available in container", toolName)
 	}
 	return nil
@@ -114,16 +98,7 @@ func checkHostToolDependencies(deps *invowkfile.DependsOn, ctx *runtime.Executio
 	var toolErrors []string
 
 	for _, tool := range deps.Tools {
-		var lastErr error
-		found := false
-		for _, alt := range tool.Alternatives {
-			if err := validateToolNative(alt); err == nil {
-				found = true
-				break
-			} else {
-				lastErr = err
-			}
-		}
+		found, lastErr := evaluateAlternatives(tool.Alternatives, validateToolNative)
 		if !found && lastErr != nil {
 			if len(tool.Alternatives) == 1 {
 				toolErrors = append(toolErrors, lastErr.Error())
@@ -153,16 +128,7 @@ func checkToolDependencies(cmd *invowkfile.Command) error {
 	var toolErrors []string
 
 	for _, tool := range cmd.DependsOn.Tools {
-		var lastErr error
-		found := false
-		for _, alt := range tool.Alternatives {
-			if err := validateToolNative(alt); err == nil {
-				found = true
-				break // Early return on first match
-			} else {
-				lastErr = err
-			}
-		}
+		found, lastErr := evaluateAlternatives(tool.Alternatives, validateToolNative)
 		if !found && lastErr != nil {
 			if len(tool.Alternatives) == 1 {
 				toolErrors = append(toolErrors, lastErr.Error())

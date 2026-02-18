@@ -15,6 +15,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -154,8 +155,10 @@ func commonCondition(cond string) (bool, error) {
 		// Use [in-sandbox] to skip tests that require host filesystem permissions
 		return platform.IsInSandbox(), nil
 	default:
-		// Return false with no error for unknown conditions - let testscript handle them
-		return false, nil
+		// Fail loudly on unknown conditions to catch typos and invalid syntax.
+		// Built-in conditions ([windows], [linux], [darwin], [short], [net], [exec:...])
+		// are handled by the testscript engine before reaching this callback.
+		return false, fmt.Errorf("unknown testscript condition: %q", cond)
 	}
 }
 

@@ -179,7 +179,7 @@ func (d *Discovery) DiscoverCommandSet(ctx context.Context) (CommandSetResult, e
 			// return structured diagnostics to the caller instead of writing output.
 			diagnostics = append(diagnostics, Diagnostic{
 				Severity: SeverityWarning,
-				Code:     "invowkfile_parse_skipped",
+				Code:     CodeInvowkfileParseSkipped,
 				Message:  fmt.Sprintf("skipping invowkfile at %s: %v", file.Path, file.Error),
 				Path:     file.Path,
 				Cause:    file.Error,
@@ -273,7 +273,7 @@ func (d *Discovery) GetCommand(ctx context.Context, name string) (LookupResult, 
 	// the rendering policy (execute/list/completion) consistently.
 	result.Diagnostics = append(result.Diagnostics, Diagnostic{
 		Severity: SeverityError,
-		Code:     "command_not_found",
+		Code:     CodeCommandNotFound,
 		Message:  fmt.Sprintf("command '%s' not found", name),
 	})
 

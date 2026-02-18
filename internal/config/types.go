@@ -10,6 +10,21 @@ const (
 	// ContainerEngineDocker uses Docker as the container runtime.
 	ContainerEngineDocker ContainerEngine = "docker"
 
+	// RuntimeNative runs commands in the host system shell.
+	// Defined locally to avoid coupling config to pkg/invowkfile.
+	RuntimeNative RuntimeMode = "native"
+	// RuntimeVirtual runs commands in the embedded mvdan/sh interpreter.
+	RuntimeVirtual RuntimeMode = "virtual"
+	// RuntimeContainer runs commands inside a container (Docker/Podman).
+	RuntimeContainer RuntimeMode = "container"
+
+	// ColorSchemeAuto detects the terminal color scheme automatically.
+	ColorSchemeAuto ColorScheme = "auto"
+	// ColorSchemeDark forces dark color scheme.
+	ColorSchemeDark ColorScheme = "dark"
+	// ColorSchemeLight forces light color scheme.
+	ColorSchemeLight ColorScheme = "light"
+
 	// moduleSuffix is the filesystem suffix for invowkmod directories.
 	// Defined locally to avoid coupling config to pkg/invowkmod.
 	moduleSuffix = ".invowkmod"
@@ -18,6 +33,14 @@ const (
 type (
 	// ContainerEngine specifies which container runtime to use.
 	ContainerEngine string
+
+	// RuntimeMode specifies the execution runtime for commands.
+	// Defined locally to avoid coupling config to pkg/invowkfile;
+	// the orchestrator casts to invowkfile.RuntimeMode at the boundary.
+	RuntimeMode string
+
+	// ColorScheme specifies the terminal color scheme preference.
+	ColorScheme string
 
 	// IncludeEntry specifies a module to include in command discovery.
 	// Each entry must point to a *.invowkmod directory via an absolute filesystem path.
@@ -35,7 +58,7 @@ type (
 		// Includes specifies modules to include in command discovery.
 		Includes []IncludeEntry `json:"includes" mapstructure:"includes"`
 		// DefaultRuntime sets the global default runtime mode
-		DefaultRuntime string `json:"default_runtime" mapstructure:"default_runtime"`
+		DefaultRuntime RuntimeMode `json:"default_runtime" mapstructure:"default_runtime"`
 		// VirtualShell configures the virtual shell behavior
 		VirtualShell VirtualShellConfig `json:"virtual_shell" mapstructure:"virtual_shell"`
 		// UI configures the user interface
@@ -77,8 +100,8 @@ type (
 
 	// UIConfig configures the user interface.
 	UIConfig struct {
-		// ColorScheme sets the color scheme ("auto", "dark", "light")
-		ColorScheme string `json:"color_scheme" mapstructure:"color_scheme"`
+		// ColorScheme sets the color scheme
+		ColorScheme ColorScheme `json:"color_scheme" mapstructure:"color_scheme"`
 		// Verbose enables verbose output
 		Verbose bool `json:"verbose" mapstructure:"verbose"`
 		// Interactive enables alternate screen buffer mode for command execution
@@ -96,12 +119,12 @@ func DefaultConfig() *Config {
 	return &Config{
 		ContainerEngine: ContainerEnginePodman,
 		Includes:        []IncludeEntry{},
-		DefaultRuntime:  "native",
+		DefaultRuntime:  RuntimeNative,
 		VirtualShell: VirtualShellConfig{
 			EnableUrootUtils: true,
 		},
 		UI: UIConfig{
-			ColorScheme: "auto",
+			ColorScheme: ColorSchemeAuto,
 			Verbose:     false,
 			Interactive: false,
 		},

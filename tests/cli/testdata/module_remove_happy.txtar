@@ -1,0 +1,47 @@
+# Test: invowk module remove happy path
+# Verifies that module remove correctly removes entries from the lock file.
+# Uses pre-seeded lock files to avoid network access.
+
+cd $WORK/mymod.invowkmod
+
+# Test 1: Remove a module by namespace identifier
+exec invowk module remove dep
+stdout 'Removing dep'
+stdout 'Lock file'
+stdout 'updated'
+
+# Test 2: Re-removing after entry is gone should fail
+! exec invowk module remove dep
+stdout 'Removing dep'
+stdout 'Failed to remove'
+stderr '[Nn]o module found'
+
+-- mymod.invowkmod/invowkmod.cue --
+module:  "mymod"
+version: "0.1.0"
+requires: [
+	{
+		git_url: "https://github.com/example/dep.invowkmod.git"
+		version: "^1.0.0"
+	},
+]
+
+-- mymod.invowkmod/invowkfile.cue --
+cmds: []
+
+-- mymod.invowkmod/invowkmod.lock.cue --
+// invowkmod.lock.cue - Auto-generated lock file for module dependencies
+// DO NOT EDIT MANUALLY
+
+version: "1.0"
+generated: "2025-01-01T00:00:00Z"
+
+modules: {
+	"https://github.com/example/dep.invowkmod.git": {
+		git_url:          "https://github.com/example/dep.invowkmod.git"
+		version:          "^1.0.0"
+		resolved_version: "1.0.0"
+		git_commit:       "abc123def456789012345678901234567890abcd"
+		namespace:        "dep@1.0.0"
+	}
+}

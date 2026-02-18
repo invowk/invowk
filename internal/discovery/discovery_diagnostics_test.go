@@ -93,7 +93,7 @@ func TestDiscoverCommandSet_DiagnosticsForInvalidIncludedModule(t *testing.T) {
 	}
 }
 
-func containsDiagnostic(diags []Diagnostic, code, path string) bool {
+func containsDiagnostic(diags []Diagnostic, code DiagnosticCode, path string) bool {
 	for _, diag := range diags {
 		if diag.Code == code && diag.Path == path {
 			return true
