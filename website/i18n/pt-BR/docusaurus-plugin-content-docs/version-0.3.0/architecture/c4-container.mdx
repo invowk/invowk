@@ -1,0 +1,119 @@
+---
+sidebar_position: 3
+---
+
+import Diagram from '@site/src/components/Diagram';
+
+# Diagrama C4 de Container (C2)
+
+Este diagrama faz zoom no Invowk para mostrar seus containers internos - as principais aplicações, componentes e armazenamentos de dados que compõem o sistema.
+
+:::note
+Na terminologia C4, "container" refere-se a uma unidade separadamente executável/implantável (não containers Docker). Como o Invowk é um único binário CLI, mostramos os principais componentes internos como containers lógicos.
+:::
+
+## Diagrama
+
+<Diagram id="architecture/c4-container" />
+
+## Componentes Internos
+
+### Pontos de Entrada
+
+| Componente | Tecnologia | Responsabilidade |
+|------------|------------|------------------|
+| **CLI Commands** | Go/Cobra | Pontos de entrada para todas as interações do usuário: subcomandos `cmd`, `init`, `config`, `module`, `tui`, `completion` |
+
+### Motor Principal
+
+| Componente | Tecnologia | Responsabilidade |
+|------------|------------|------------------|
+| **Discovery Engine** | Go | Encontra diretórios `invowkfile.cue` e `*.invowkmod` com ordenação por precedência. Constrói árvore unificada de comandos. |
+| **Configuration Manager** | Go/Viper+CUE | Carrega config de `~/.config/invowk/config.cue`. Valida contra schema CUE. |
+| **CUE Parser** | Go/cuelang | Implementa parsing em 3 etapas: compilar schema → unificar com dados → decodificar para structs Go. Fornece mensagens de erro ricas. |
+| **Module Resolver** | Go | Resolve dependências baseadas em Git. Gerencia cache em `~/.invowk/modules/`. Lida com lock files para reprodutibilidade. |
+
+### Runtimes
+
+| Componente | Tecnologia | Responsabilidade |
+|------------|------------|------------------|
+| **Native Runtime** | Go | Executa comandos via shell do host (`bash`/`sh` no Unix, `PowerShell` no Windows). Opção mais rápida. |
+| **Virtual Runtime** | Go/mvdan-sh | Interpretador POSIX shell embutido. Inclui builtins u-root para portabilidade. Sem dependência de shell externo. |
+| **Container Runtime** | Go | Executa comandos dentro de containers Docker/Podman. Fornece isolamento e reprodutibilidade. |
+
+### Infraestrutura de Container
+
+| Componente | Tecnologia | Responsabilidade |
+|------------|------------|------------------|
+| **Container Engine Abstraction** | Go | Interface unificada para Docker e Podman. Auto-detecta engine disponível com fallback. |
+| **Image Provisioner** | Go | Cria camadas efêmeras de imagem contendo binário invowk e módulos necessários. Permite execução seamless em container. |
+
+### Servidores
+
+| Componente | Tecnologia | Responsabilidade |
+|------------|------------|------------------|
+| **SSH Server** | Go/Wish | Servidor SSH baseado em token para callbacks container-para-host. Habilita funcionalidade `enable_host_ssh`. |
+| **TUI Server** | Go/Bubble Tea | Servidor HTTP tratando requisições de componentes TUI de processos filhos. Habilita prompts interativos em qualquer runtime. |
+
+## Armazenamentos de Dados
+
+| Armazenamento | Formato | Localização | Propósito |
+|---------------|---------|-------------|-----------|
+| **Config File** | CUE | `~/.config/invowk/config.cue` | Preferências do usuário: engine de container, search paths, etc. |
+| **Invowkfiles** | CUE | `./invowkfile.cue`, search paths | Definições de comandos com implementações |
+| **Modules** | Diretórios | `*.invowkmod/` | Comandos empacotados com metadados `invowkmod.cue` |
+| **Module Cache** | Sistema de Arquivos | `~/.invowk/modules/` | Módulos remotos buscados via Git em cache |
+
+## Interações entre Componentes
+
+### Fluxo de Execução de Comandos
+
+1. Usuário invoca `invowk cmd <nome>`
+2. **CLI Commands** recebe requisição
+3. **Discovery Engine** encontra todos os comandos disponíveis
+4. **CUE Parser** faz parsing de `invowkfile.cue` e arquivos de módulos
+5. Comando é correspondido, runtime é selecionado
+6. **Runtime** apropriado executa o comando
+7. Para containers: **Image Provisioner** prepara o ambiente
+
+### Carregamento de Configuração
+
+1. **Configuration Manager** verifica arquivo de config
+2. **CUE Parser** valida contra schema
+3. Valores de config influenciam seleção de runtime e comportamento
+
+### Resolução de Módulos
+
+1. **Discovery Engine** encontra requisitos de módulos
+2. **Module Resolver** verifica cache, busca do Git se necessário
+3. Dependências são resolvidas transitivamente
+4. Comandos de módulos requeridos se tornam disponíveis
+
+## Fundamentos de Design
+
+### Por Que Três Runtimes?
+
+| Runtime | Caso de Uso | Trade-off |
+|---------|-------------|-----------|
+| Native | Velocidade, recursos completos do shell | Dependente de plataforma |
+| Virtual | Portabilidade, sem dependência de shell | Recursos de shell limitados |
+| Container | Isolamento, reprodutibilidade | Overhead, apenas Linux |
+
+### Por Que Servidores Separados?
+
+- **SSH Server**: Permite que comandos dentro de containers chamem de volta o host (ex: para gerenciamento de secrets)
+- **TUI Server**: Permite que qualquer subprocesso (native, virtual, container) solicite componentes de UI interativa
+
+### Por Que CUE para Configuração?
+
+- Validação de schema integrada
+- Verificação de tipos antes do runtime
+- Configurações combináveis
+- Mensagens de erro melhores que YAML/JSON
+
+## Diagramas Relacionados
+
+- [Diagrama C4 de Contexto (C1)](./c4-context) - Limites do sistema e atores externos
+- [Sequência de Execução de Comando](./execution-flow) - Fluxo temporal da execução de comandos
+- [Fluxograma de Seleção de Runtime](./runtime-selection) - Como runtimes são escolhidos
+- [Fluxograma de Precedência de Descoberta](./discovery) - Como comandos são descobertos

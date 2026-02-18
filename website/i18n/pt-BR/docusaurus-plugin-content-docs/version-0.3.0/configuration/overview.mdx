@@ -1,0 +1,71 @@
+---
+sidebar_position: 1
+---
+
+import Snippet from '@site/src/components/Snippet';
+
+# Visão Geral de Configuração
+
+Invowk™ usa um arquivo de configuração baseado em CUE para customizar seu comportamento. É aqui que você define suas preferências para container engines, caminhos de busca, padrões de runtime e mais.
+
+## Localização do Arquivo de Configuração
+
+O arquivo de configuração fica no diretório de configuração específico do seu SO:
+
+| Plataforma | Localização |
+|------------|-------------|
+| Linux      | `~/.config/invowk/config.cue` |
+| macOS      | `~/Library/Application Support/invowk/config.cue` |
+| Windows    | `%APPDATA%\invowk\config.cue` |
+
+Atualmente, o Invowk lê a configuração do caminho específico do SO acima. Se não existir um arquivo ali, ele também procura por um `config.cue` no diretório atual. Se nenhum estiver presente, usa os padrões.
+
+## Criando um Arquivo de Configuração
+
+A forma mais fácil de criar um arquivo de configuração é usar o comando `config init`:
+
+<Snippet id="config/init" />
+
+Isso cria um arquivo de configuração padrão com valores sensatos. Se um arquivo de configuração já existir, ele não será sobrescrito (segurança em primeiro lugar!).
+
+## Visualizando Sua Configuração
+
+Existem várias formas de inspecionar sua configuração atual:
+
+### Mostrar Configuração Legível
+
+<Snippet id="config/show" />
+
+Isso exibe sua configuração em um formato amigável e legível.
+
+### Mostrar CUE Raw
+
+<Snippet id="config/dump" />
+
+Isso exibe a configuração CUE raw, útil para debug ou copiar para outra máquina.
+
+### Encontrar o Arquivo de Configuração
+
+<Snippet id="config/path" />
+
+Isso imprime seus caminhos de configuração (diretório de configuração, arquivo de configuração e diretório de comandos). Prático quando você quer encontrar e editar sua configuração diretamente.
+
+## Definindo Valores de Configuração
+
+Você pode modificar valores de configuração pela linha de comando:
+
+<Snippet id="config/set-examples" />
+
+Ou simplesmente abra o arquivo de configuração no seu editor favorito:
+
+<Snippet id="config/edit-linux-macos" />
+
+## Exemplo de Configuração
+
+Aqui está como um arquivo de configuração típico se parece:
+
+<Snippet id="config/full-example" />
+
+## Próximos Passos
+
+Vá para [Opções de Configuração](./options) para uma referência completa de todas as configurações disponíveis.

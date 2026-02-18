@@ -1,0 +1,60 @@
+---
+sidebar_position: 2
+---
+
+import Diagram from '@site/src/components/Diagram';
+
+# Diagrama C4 de Contexto do Sistema (C1)
+
+Este diagrama mostra o Invowk no nível mais alto - os limites do sistema, usuários e sistemas externos com os quais ele interage.
+
+## Diagrama
+
+<Diagram id="architecture/c4-context" />
+
+## Atores Principais
+
+| Ator | Descrição |
+|------|-----------|
+| **Desenvolvedor** | Usuário principal que cria arquivos `invowkfile.cue` e executa comandos. Define implementações de comandos em diferentes runtimes. |
+| **Membro da Equipe** | Consome módulos compartilhados (diretórios `.invowkmod`) e executa comandos definidos por outros. Beneficia-se de comandos portáteis e reproduzíveis. |
+
+## Sistemas Externos
+
+| Sistema | Propósito | Protocolo |
+|---------|-----------|-----------|
+| **Docker Engine** | Runtime de container para execução isolada de comandos. Fornece ambientes reproduzíveis. | Docker CLI/API |
+| **Podman Engine** | Runtime de container alternativo sem root. Preferido para ambientes com foco em segurança. | Podman CLI |
+| **Repositórios Git** | Fonte para dependências de módulos remotos. Permite compartilhamento e versionamento de módulos de comandos. | Protocolo Git (HTTPS/SSH) |
+| **Shell do Host** | Execução nativa de comandos. Usa `bash`/`sh` no Unix, `PowerShell` no Windows. | Process exec/spawn |
+| **Sistema de Arquivos** | Armazenamento para configuração, invowkfiles, módulos e scripts. | I/O de Arquivos |
+
+## Limites Principais
+
+### O Que o Invowk Possui
+- Descoberta e resolução de comandos
+- Seleção e execução de runtime
+- Gerenciamento de dependências de módulos
+- Parsing e validação de configuração
+
+### O Que o Invowk Delega
+- Execução real de comandos (para shells ou containers)
+- Gerenciamento de imagens de container (para Docker/Podman)
+- Operações de controle de versão (para Git)
+- Operações de sistema de arquivos (para SO)
+
+## Decisões de Design Visíveis Neste Nível
+
+1. **Suporte a Múltiplos Runtimes**: O Invowk não impõe um único ambiente de execução. Usuários escolhem shell nativo para velocidade, shell virtual para portabilidade, ou containers para isolamento.
+
+2. **Abstração de Engine de Container**: Tanto Docker quanto Podman são suportados com fallback automático, reduzindo vendor lock-in.
+
+3. **Distribuição de Módulos Baseada em Git**: Módulos remotos usam Git para versionamento e distribuição, aproveitando infraestrutura existente ao invés de criar um registro personalizado.
+
+4. **Configuração Centrada no Sistema de Arquivos**: Toda configuração usa arquivos locais (formato CUE), permitindo controle de versão e compartilhamento entre equipes.
+
+## Diagramas Relacionados
+
+- [Diagrama C4 de Container (C2)](./c4-container) - Zoom na estrutura interna do Invowk
+- [Sequência de Execução de Comando](./execution-flow) - Fluxo temporal da execução de comandos
+- [Fluxograma de Seleção de Runtime](./runtime-selection) - Como runtimes são escolhidos
