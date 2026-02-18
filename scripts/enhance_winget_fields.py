@@ -8,14 +8,27 @@
 # Usage: python3 scripts/enhance_winget_fields.py <manifest.yaml>
 #
 # This script is idempotent — running it on an already-enhanced manifest
-# produces no changes.
+# produces no changes. When only some fields are missing, new fields are
+# inserted after PackageVersion regardless of existing field positions.
 
 import sys
 
 
 def enhance(filepath):
-    with open(filepath) as f:
-        lines = f.readlines()
+    try:
+        with open(filepath) as f:
+            lines = f.readlines()
+    except (OSError, IOError) as e:
+        print(f"ERROR: Cannot read manifest file: {filepath}", file=sys.stderr)
+        print(f"  {e}", file=sys.stderr)
+        sys.exit(1)
+
+    if not any(l.startswith("ManifestType: installer") for l in lines):
+        print(
+            f"ERROR: File does not appear to be a WinGet installer manifest: {filepath}",
+            file=sys.stderr,
+        )
+        sys.exit(1)
 
     result = []
     has_min_os = any(l.startswith("MinimumOSVersion:") for l in lines)
@@ -40,8 +53,27 @@ def enhance(filepath):
             continue
         result.append(line)
 
-    with open(filepath, "w") as f:
-        f.writelines(result)
+    # Verify all required fields are present in the output.
+    output_text = "".join(result)
+    for field in ("MinimumOSVersion:", "Platform:", "Commands:"):
+        if field not in output_text:
+            print(
+                f"ERROR: Failed to inject '{field}' — anchor line not found in manifest.",
+                file=sys.stderr,
+            )
+            print(
+                "  This likely means GoReleaser's manifest format has changed.",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+
+    try:
+        with open(filepath, "w") as f:
+            f.writelines(result)
+    except (OSError, IOError) as e:
+        print(f"ERROR: Cannot write manifest file: {filepath}", file=sys.stderr)
+        print(f"  {e}", file=sys.stderr)
+        sys.exit(1)
 
 
 if __name__ == "__main__":

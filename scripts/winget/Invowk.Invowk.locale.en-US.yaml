@@ -1,6 +1,7 @@
 # yaml-language-server: $schema=https://aka.ms/winget-manifest.defaultLocale.1.10.0.schema.json
-# Reference template for WinGet manifest submissions.
-# GoReleaser auto-generates this for subsequent releases.
+# Reference template showing the desired WinGet locale manifest format (v0.2.0).
+# GoReleaser auto-generates locale manifests for subsequent releases with all
+# fields populated from .goreleaser.yaml configuration.
 
 PackageIdentifier: Invowk.Invowk
 PackageVersion: 0.2.0

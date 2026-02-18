@@ -1,8 +1,9 @@
 #!/bin/sh
 # SPDX-License-Identifier: MPL-2.0
 #
-# Unit tests for enhance-winget-manifest.sh and enhance_winget_fields.py.
-# Usage: sh scripts/test_enhance_winget_manifest.sh
+# Tests for enhance-winget-manifest.sh and enhance_winget_fields.py.
+# Exercises field injection, idempotency, partial enhancement, and pre-release
+# skip behavior. No network calls required.
 
 set -eu
 
@@ -206,6 +207,59 @@ python3 "$SCRIPT_DIR/enhance_winget_fields.py" "$_partial_input"
 assert_file_eq "partial manifest: only missing fields added" "$_partial_expected" "$_partial_input"
 
 # ---------------------------------------------------------------------------
+# Tests: enhance_winget_fields.py — reverse partial (Commands present, others missing)
+# ---------------------------------------------------------------------------
+
+_rev_partial_input="$TMPDIR_BASE/rev_partial_input.yaml"
+_rev_partial_expected="$TMPDIR_BASE/rev_partial_expected.yaml"
+
+cat > "$_rev_partial_input" << 'EOF'
+PackageIdentifier: Invowk.Invowk
+PackageVersion: 1.0.0
+InstallerType: zip
+Commands:
+  - invowk
+Installers:
+  - Architecture: x64
+    InstallerUrl: https://example.com/test.zip
+    InstallerSha256: 0000000000000000000000000000000000000000000000000000000000000000
+ManifestType: installer
+ManifestVersion: 1.12.0
+EOF
+
+cat > "$_rev_partial_expected" << 'EOF'
+PackageIdentifier: Invowk.Invowk
+PackageVersion: 1.0.0
+MinimumOSVersion: 10.0.17763.0
+Platform:
+  - Windows.Desktop
+InstallerType: zip
+Commands:
+  - invowk
+Installers:
+  - Architecture: x64
+    InstallerUrl: https://example.com/test.zip
+    InstallerSha256: 0000000000000000000000000000000000000000000000000000000000000000
+ManifestType: installer
+ManifestVersion: 1.12.0
+EOF
+
+python3 "$SCRIPT_DIR/enhance_winget_fields.py" "$_rev_partial_input"
+assert_file_eq "reverse partial: Commands present, MinOS+Platform injected" "$_rev_partial_expected" "$_rev_partial_input"
+
+# ---------------------------------------------------------------------------
+# Tests: enhance_winget_fields.py — fully enhanced manifest (all fields present)
+# ---------------------------------------------------------------------------
+
+# Use the reference template (stripping the yaml-language-server comment lines).
+_full_input="$TMPDIR_BASE/full_input.yaml"
+grep -v '^# ' "$SCRIPT_DIR/winget/Invowk.Invowk.installer.yaml" | grep -v '^$' > "$_full_input"
+_full_before=$(cat "$_full_input")
+python3 "$SCRIPT_DIR/enhance_winget_fields.py" "$_full_input"
+_full_after=$(cat "$_full_input")
+assert_eq "fully enhanced manifest: no changes made" "$_full_before" "$_full_after"
+
+# ---------------------------------------------------------------------------
 # Tests: enhance_winget_fields.py — usage error
 # ---------------------------------------------------------------------------
 
@@ -213,12 +267,65 @@ assert_exit_code "missing argument exits with error" 1 \
     python3 "$SCRIPT_DIR/enhance_winget_fields.py"
 
 # ---------------------------------------------------------------------------
+# Tests: enhance_winget_fields.py — nonexistent file
+# ---------------------------------------------------------------------------
+
+assert_exit_code "nonexistent file exits with error" 1 \
+    python3 "$SCRIPT_DIR/enhance_winget_fields.py" "$TMPDIR_BASE/nonexistent.yaml"
+
+# ---------------------------------------------------------------------------
+# Tests: enhance_winget_fields.py — empty file
+# ---------------------------------------------------------------------------
+
+_empty_input="$TMPDIR_BASE/empty_input.yaml"
+: > "$_empty_input"
+assert_exit_code "empty file exits with error" 1 \
+    python3 "$SCRIPT_DIR/enhance_winget_fields.py" "$_empty_input"
+
+# ---------------------------------------------------------------------------
+# Tests: enhance_winget_fields.py — missing PackageVersion anchor
+# ---------------------------------------------------------------------------
+
+_no_pkgver="$TMPDIR_BASE/no_pkgver.yaml"
+cat > "$_no_pkgver" << 'EOF'
+PackageIdentifier: Invowk.Invowk
+InstallerType: zip
+Installers:
+  - Architecture: x64
+    InstallerUrl: https://example.com/test.zip
+    InstallerSha256: 0000000000000000000000000000000000000000000000000000000000000000
+ManifestType: installer
+ManifestVersion: 1.12.0
+EOF
+
+assert_exit_code "missing PackageVersion anchor exits with error" 1 \
+    python3 "$SCRIPT_DIR/enhance_winget_fields.py" "$_no_pkgver"
+
+# ---------------------------------------------------------------------------
+# Tests: enhance_winget_fields.py — missing Installers anchor
+# ---------------------------------------------------------------------------
+
+_no_installers="$TMPDIR_BASE/no_installers.yaml"
+cat > "$_no_installers" << 'EOF'
+PackageIdentifier: Invowk.Invowk
+PackageVersion: 1.0.0
+InstallerType: zip
+ManifestType: installer
+ManifestVersion: 1.12.0
+EOF
+
+assert_exit_code "missing Installers anchor exits with error" 1 \
+    python3 "$SCRIPT_DIR/enhance_winget_fields.py" "$_no_installers"
+
+# ---------------------------------------------------------------------------
 # Tests: enhance-winget-manifest.sh — pre-release skip
 # ---------------------------------------------------------------------------
 
 # The bash script should exit 0 for pre-release versions without calling gh.
 _prerelease_output="$TMPDIR_BASE/prerelease_output.txt"
-bash "$SCRIPT_DIR/enhance-winget-manifest.sh" "1.0.0-alpha.1" > "$_prerelease_output" 2>&1 || true
+_prerelease_code=0
+bash "$SCRIPT_DIR/enhance-winget-manifest.sh" "1.0.0-alpha.1" > "$_prerelease_output" 2>&1 || _prerelease_code=$?
+assert_eq "pre-release alpha exits with code 0" "0" "$_prerelease_code"
 _prerelease_msg=$(cat "$_prerelease_output")
 case "$_prerelease_msg" in
     *"Skipping"*"pre-release"*)
@@ -230,7 +337,7 @@ case "$_prerelease_msg" in
         ;;
 esac
 
-assert_exit_code "pre-release version exits successfully" 0 \
+assert_exit_code "pre-release beta exits successfully" 0 \
     bash "$SCRIPT_DIR/enhance-winget-manifest.sh" "1.0.0-beta.2"
 
 assert_exit_code "pre-release rc exits successfully" 0 \

@@ -1,6 +1,8 @@
 # yaml-language-server: $schema=https://aka.ms/winget-manifest.installer.1.10.0.schema.json
-# Reference template for WinGet manifest submissions.
-# GoReleaser auto-generates this for subsequent releases.
+# Reference template showing the desired WinGet manifest format (v0.2.0).
+# GoReleaser auto-generates installer manifests for subsequent releases, but
+# omits Commands, MinimumOSVersion, and Platform; those are injected by
+# scripts/enhance-winget-manifest.sh as a post-release CI step.
 
 PackageIdentifier: Invowk.Invowk
 PackageVersion: 0.2.0
