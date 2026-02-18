@@ -231,7 +231,7 @@ goreleaser release --snapshot --clean
 | `ci.yml` | Push/PR to main (Go code/build changes) | Run tests, build verification, license check |
 | `lint.yml` | Push/PR to main (Go code/lint config changes) | Advisory golangci-lint run |
 | `release.yml` | Tag push (v*) or manual dispatch | Validate, test, then build and publish release |
-| `test-website.yml` | PR to main (website changes) | Build website for PR validation |
+| `test-website.yml` | PR to main (website/diagram/script changes) | Validate version assets + build website |
 
 Other workflows: `version-docs.yml` (doc versioning on release), `validate-diagrams.yml` (D2 syntax checks), `deploy-website.yml` (GitHub Pages deployment).
 
