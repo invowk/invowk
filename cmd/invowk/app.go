@@ -352,7 +352,7 @@ func loadConfigWithFallback(ctx context.Context, provider ConfigProvider, config
 	if configPath != "" {
 		return config.DefaultConfig(), []discovery.Diagnostic{{
 			Severity: discovery.SeverityError,
-			Code:     "config_load_failed",
+			Code:     discovery.CodeConfigLoadFailed,
 			Message:  fmt.Sprintf("failed to load config from %s: %v", configPath, err),
 			Path:     configPath,
 			Cause:    err,
@@ -371,7 +371,7 @@ func loadConfigWithFallback(ctx context.Context, provider ConfigProvider, config
 
 	return config.DefaultConfig(), []discovery.Diagnostic{{
 		Severity: severity,
-		Code:     "config_load_failed",
+		Code:     discovery.CodeConfigLoadFailed,
 		Message:  fmt.Sprintf("failed to load config, using defaults: %v", err),
 		Cause:    err,
 	}}

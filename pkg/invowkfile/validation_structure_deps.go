@@ -2,6 +2,8 @@
 
 package invowkfile
 
+import "strings"
+
 // validateDependsOn validates all dependency types in a DependsOn struct.
 func (v *StructureValidator) validateDependsOn(ctx *ValidationContext, deps *DependsOn, basePath *FieldPath) []ValidationError {
 	if deps == nil {
@@ -53,7 +55,7 @@ func (v *StructureValidator) validateDependsOn(ctx *ValidationContext, deps *Dep
 	// Validate env var dependencies
 	for i, dep := range deps.EnvVars {
 		for j, alt := range dep.Alternatives {
-			name := trimSpace(alt.Name)
+			name := strings.TrimSpace(alt.Name)
 			if err := ValidateEnvVarName(name); err != nil {
 				errors = append(errors, ValidationError{
 					Validator: v.Name(),

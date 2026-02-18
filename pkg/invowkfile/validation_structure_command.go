@@ -4,6 +4,7 @@ package invowkfile
 
 import (
 	"path/filepath"
+	"strings"
 )
 
 // validateCommand validates a single command and collects all errors.
@@ -290,7 +291,7 @@ func (v *StructureValidator) validateRuntimeConfig(ctx *ValidationContext, inv *
 					Severity:  SeverityError,
 				})
 			}
-			if containsNullByte(rt.Containerfile) {
+			if strings.ContainsRune(rt.Containerfile, '\x00') {
 				errors = append(errors, ValidationError{
 					Validator: v.Name(),
 					Field:     path.String(),

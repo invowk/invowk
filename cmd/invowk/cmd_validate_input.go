@@ -23,11 +23,6 @@ func captureUserEnv() map[string]string {
 	return env
 }
 
-// isWindows detects Windows by path separator heuristics without importing runtime.
-func isWindows() bool {
-	return os.PathSeparator == '\\' && os.PathListSeparator == ';'
-}
-
 // validateFlagValues validates flag values at runtime.
 // It checks that required flags are provided and validates values against type and regex patterns.
 func validateFlagValues(cmdName string, flagValues map[string]string, flagDefs []invowkfile.Flag) error {

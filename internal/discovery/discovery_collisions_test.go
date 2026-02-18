@@ -399,8 +399,11 @@ func TestModuleCollisionError(t *testing.T) {
 		t.Error("error message should mention alias as a solution")
 	}
 
-	if err.Unwrap() != nil {
-		t.Error("Unwrap() should return nil")
+	if err.Unwrap() != ErrModuleCollision {
+		t.Errorf("Unwrap() should return ErrModuleCollision, got %v", err.Unwrap())
+	}
+	if !errors.Is(err, ErrModuleCollision) {
+		t.Error("errors.Is(err, ErrModuleCollision) should be true")
 	}
 }
 

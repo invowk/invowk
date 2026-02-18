@@ -2,7 +2,10 @@
 
 package invowkfile
 
-import "regexp"
+import (
+	"regexp"
+	"strings"
+)
 
 // argNameRegex validates POSIX-compliant argument names.
 var argNameRegex = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9_-]*$`)
@@ -76,7 +79,7 @@ func (v *StructureValidator) validateArg(ctx *ValidationContext, cmd *Command, a
 	}
 
 	// Validate description is not empty (after trimming whitespace)
-	if trimSpace(arg.Description) == "" {
+	if strings.TrimSpace(arg.Description) == "" {
 		errors = append(errors, ValidationError{
 			Validator: v.Name(),
 			Field:     path.String(),
@@ -148,7 +151,7 @@ func (v *StructureValidator) validateArg(ctx *ValidationContext, cmd *Command, a
 
 	// Validate default_value is compatible with type
 	if arg.DefaultValue != "" {
-		if err := validateArgumentValueType(arg.DefaultValue, arg.GetType()); err != nil {
+		if err := validateValueType(arg.DefaultValue, string(arg.GetType())); err != nil {
 			errors = append(errors, ValidationError{
 				Validator: v.Name(),
 				Field:     path.String(),

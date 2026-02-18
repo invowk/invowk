@@ -337,7 +337,7 @@ func TestDiscoverAll_EmptyVendorDir(t *testing.T) {
 
 	// No vendor-related diagnostics
 	for _, diag := range diagnostics {
-		if strings.HasPrefix(diag.Code, "vendored_") {
+		if strings.HasPrefix(string(diag.Code), "vendored_") {
 			t.Errorf("unexpected vendor diagnostic: %s", diag.Code)
 		}
 	}
