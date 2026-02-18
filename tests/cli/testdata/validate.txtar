@@ -68,6 +68,21 @@ stdout 'Workspace Validation'
 stdout 'discovered'
 stderr 'diagnostic issue'
 stderr 'Validation failed'
+cd $WORK
+
+# Test 11: Module with valid invowkfile (deep validation always runs)
+exec invowk validate ./deepmod.invowkmod
+stdout 'Module Validation'
+stdout 'Module is valid'
+stdout 'Structure check passed'
+stdout 'Naming convention check passed'
+stdout 'Required files present'
+stdout 'Invowkfile parses successfully'
+
+# Test 12: Module missing invowkmod.cue (structural failure)
+! exec invowk validate ./nomodcue.invowkmod
+stderr 'Module validation failed'
+stderr 'missing required invowkmod.cue'
 
 -- invowkfile.cue --
 cmds: [
@@ -163,17 +178,6 @@ cmds: [
 
 -- workspace_with_broken/broken.invowkmod/invowkmod.cue --
 this is not valid CUE!!!
-
-# Test 11: Module with valid invowkfile (deep validation always runs)
-exec invowk validate ./deepmod.invowkmod
-stdout 'Module Validation'
-stdout 'Module is valid'
-stdout 'Structure check passed'
-stdout 'Invowkfile parses successfully'
-
-# Test 12: Module missing invowkmod.cue (structural failure)
-! exec invowk validate ./nomodcue.invowkmod
-stderr 'Module validation failed'
 
 -- deepmod.invowkmod/invowkmod.cue --
 module:  "deepmod"

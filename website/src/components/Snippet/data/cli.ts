@@ -112,15 +112,6 @@ invowk config set default_runtime virtual
 invowk config set ui.color_scheme dark`,
   },
 
-  'cli/module-examples': {
-    language: 'bash',
-    code: `# Create a module with RDNS naming
-invowk module create com.example.mytools
-
-# Validate a module
-invowk validate ./mymod.invowkmod`,
-  },
-
   'cli/completion-all': {
     language: 'bash',
     code: `# Bash
