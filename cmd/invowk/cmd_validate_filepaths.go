@@ -233,17 +233,20 @@ func isReadable(path string, info os.FileInfo) bool {
 	return true
 }
 
-// isWritable checks if a path is writable (cross-platform)
+// isWritable checks if a path is writable (cross-platform).
+// For directories, creates a temp file to verify write access.
+// For files, opens in write mode.
 func isWritable(path string, info os.FileInfo) bool {
-	// For directories, try to create a temp file
 	if info.IsDir() {
-		testFile := filepath.Join(path, ".invowk_write_test")
-		f, err := os.Create(testFile)
+		// os.CreateTemp generates a unique name, avoiding collisions with
+		// user files and reducing persistence risk vs. a fixed filename.
+		f, err := os.CreateTemp(path, ".invowk-wcheck-*")
 		if err != nil {
 			return false
 		}
-		_ = f.Close()           // Test file; error non-critical
-		_ = os.Remove(testFile) // Cleanup test file; error non-critical
+		tmpName := f.Name()
+		_ = f.Close()          // Probe file; close error non-critical
+		_ = os.Remove(tmpName) // Cleanup probe file; error non-critical
 		return true
 	}
 	// For files, try to open for writing
@@ -255,24 +258,52 @@ func isWritable(path string, info os.FileInfo) bool {
 	return true
 }
 
-// isExecutable checks if a path is executable (cross-platform)
+// isExecutable checks if a path is executable (cross-platform).
+//
+// On Windows, executability is determined by file extension (PATHEXT convention),
+// with a readability probe as a necessary condition to catch ACL-denied files.
+// For directories, Windows treats them as "executable" (traversable) if they are
+// accessible, consistent with Unix semantics where directory execute = traversal.
+//
+// On Unix-like systems, the standard permission bit check (0o111) is used.
 func isExecutable(path string, info os.FileInfo) bool {
-	// On Windows, check file extension
 	if goruntime.GOOS == "windows" {
-		ext := strings.ToLower(filepath.Ext(path))
-		execExts := []string{".exe", ".cmd", ".bat", ".com", ".ps1"}
-		if slices.Contains(execExts, ext) {
+		// Directories on Windows: executable means traversable (accessible).
+		if info.IsDir() {
+			f, err := os.Open(path)
+			if err != nil {
+				return false
+			}
+			_ = f.Close() // Traversability probe; close error non-critical
 			return true
 		}
-		// Also check PATHEXT environment variable
-		pathext := os.Getenv("PATHEXT")
-		if pathext != "" {
-			pathExtList := strings.Split(strings.ToLower(pathext), ";")
-			if slices.Contains(pathExtList, ext) {
-				return true
+
+		// Files on Windows: check extension (PATHEXT convention) AND readability.
+		ext := strings.ToLower(filepath.Ext(path))
+		execExts := []string{".exe", ".cmd", ".bat", ".com", ".ps1"}
+		hasExecExt := slices.Contains(execExts, ext)
+		if !hasExecExt {
+			pathext := os.Getenv("PATHEXT")
+			if pathext != "" {
+				for pathExt := range strings.SplitSeq(strings.ToLower(pathext), ";") {
+					if pathExt == ext {
+						hasExecExt = true
+						break
+					}
+				}
 			}
 		}
-		return false
+		if !hasExecExt {
+			return false
+		}
+
+		// Readability as a necessary condition: a file denied by ACLs will fail here
+		f, err := os.OpenFile(path, os.O_RDONLY, 0)
+		if err != nil {
+			return false
+		}
+		_ = f.Close() // Executability probe; close error non-critical
+		return true
 	}
 
 	// On Unix-like systems, check execute permission bit

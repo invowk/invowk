@@ -20,6 +20,13 @@ stdout 'Current directory is writable'
 stdout 'README\.md is readable'
 ! stderr .
 
+# Test 4: deps file executable - requires file with execute permission
+# On Unix: chmod makes run.sh executable; on Windows: run.bat has executable extension
+[!windows] chmod 0755 run.sh
+exec invowk cmd 'deps file executable'
+stdout 'Executable check passed'
+! stderr .
+
 -- invowkfile.cue --
 cmds: [
 	{
@@ -69,8 +76,30 @@ cmds: [
 			]
 		}
 	},
+	{
+		name:        "deps file executable"
+		description: "Command requiring file with execute permission"
+		implementations: [{
+			script:   "echo 'Executable check passed!'"
+			runtimes: [{name: "virtual"}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+		depends_on: {
+			filepaths: [
+				{alternatives: ["run.sh", "run.bat"], executable: true},
+			]
+		}
+	},
 ]
 
 -- README.md --
 # Test README
 This file exists so that filepath dependency checks can find it.
+
+-- run.sh --
+#!/bin/sh
+echo "hello"
+
+-- run.bat --
+@echo off
+echo hello
