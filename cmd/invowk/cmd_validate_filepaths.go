@@ -12,6 +12,7 @@ import (
 
 	"github.com/invowk/invowk/internal/runtime"
 	"github.com/invowk/invowk/pkg/invowkfile"
+	"github.com/invowk/invowk/pkg/platform"
 )
 
 // checkFilepathDependenciesInContainer verifies all required files/directories exist inside the container.
@@ -275,7 +276,7 @@ func isWritable(path string, info os.FileInfo) bool {
 // is set. This is a permissive heuristic — it does not verify that the current
 // user specifically has execute permission.
 func isExecutable(path string, info os.FileInfo) bool {
-	if goruntime.GOOS == "windows" {
+	if goruntime.GOOS == platform.Windows {
 		// Directories on Windows: executable means traversable (accessible).
 		if info.IsDir() {
 			f, err := os.Open(path)
