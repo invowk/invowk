@@ -129,6 +129,9 @@ func validateCustomCheckInContainer(check invowkfile.CustomCheck, registry *runt
 			return fmt.Errorf("  • %s - container validation failed: %w", check.Name, result.Error)
 		}
 	}
+	if runtime.IsTransientExitCode(result.ExitCode) {
+		return fmt.Errorf("  • %s - container engine failure (exit code %d)", check.Name, result.ExitCode)
+	}
 
 	outputStr := strings.TrimSpace(stdout.String() + stderr.String())
 	return validateCustomCheckOutput(check, outputStr, result.Error)
@@ -221,6 +224,9 @@ func checkEnvVarDependenciesInContainer(deps *invowkfile.DependsOn, registry *ru
 			if result.Error != nil {
 				return fmt.Errorf("container validation failed for env var %s: %w", name, result.Error)
 			}
+			if runtime.IsTransientExitCode(result.ExitCode) {
+				return fmt.Errorf("  • %s - container engine failure (exit code %d)", name, result.ExitCode)
+			}
 			if result.ExitCode == 0 {
 				return nil
 			}
@@ -279,6 +285,9 @@ func checkCapabilityDependenciesInContainer(deps *invowkfile.DependsOn, registry
 			result := rt.Execute(validationCtx)
 			if result.Error != nil {
 				return fmt.Errorf("container validation failed for capability %s: %w", string(alt), result.Error)
+			}
+			if runtime.IsTransientExitCode(result.ExitCode) {
+				return fmt.Errorf("  • %s - container engine failure (exit code %d)", string(alt), result.ExitCode)
 			}
 			if result.ExitCode == 0 {
 				return nil
@@ -367,6 +376,9 @@ func checkCommandDependenciesInContainer(deps *invowkfile.DependsOn, registry *r
 					return fmt.Errorf("container validation failed for command %s: %w (%s)", alt, result.Error, stderrStr)
 				}
 				return fmt.Errorf("container validation failed for command %s: %w", alt, result.Error)
+			}
+			if runtime.IsTransientExitCode(result.ExitCode) {
+				return fmt.Errorf("  • %s - container engine failure (exit code %d)", alt, result.ExitCode)
 			}
 			if result.ExitCode == 0 {
 				return nil

@@ -114,7 +114,7 @@ func validateRuntimeDependencies(cmdInfo *discovery.CommandInfo, registry *runti
 	}
 
 	// Filepaths: validated inside the container
-	if err := checkFilepathDependenciesInContainer(rtDeps, cmdInfo.Invowkfile.FilePath, registry, parentCtx); err != nil {
+	if err := checkFilepathDependenciesInContainer(rtDeps, registry, parentCtx); err != nil {
 		return err
 	}
 
