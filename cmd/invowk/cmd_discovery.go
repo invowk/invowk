@@ -196,6 +196,11 @@ func buildLeafCommand(app *App, rootFlags *rootFlagValues, cmdFlags *cmdFlagValu
 			envInheritAllow, _ := cmd.Flags().GetStringArray("ivk-env-inherit-allow")
 			envInheritDeny, _ := cmd.Flags().GetStringArray("ivk-env-inherit-deny")
 
+			// Watch mode intercepts before normal execution.
+			if cmdFlags.watch {
+				return runWatchMode(cmd, app, rootFlags, cmdFlags, append([]string{cmdName}, args...))
+			}
+
 			parsedRuntime, err := cmdFlags.parsedRuntimeMode()
 			if err != nil {
 				return err

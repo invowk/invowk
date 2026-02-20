@@ -173,7 +173,7 @@ When `CommandDependency.Execute` is `true`, the dependency command is actually r
 - **Cannot use mutex**: The recursive `Execute()` calls would deadlock with a `sync.Mutex`. The context-value pattern threads the visiting set through the call stack without locking
 - **Two-layer cycle protection**: (1) Static validation via `ValidateExecutionDAG` in `internal/discovery/validation.go` uses Kahn's algorithm from `internal/dag/` to detect cycles at parse time. (2) Runtime re-entrancy guard catches edge cases where dynamic discovery changes the graph
 - **Sequential execution**: Deps run in declaration order within a single `cmds` list; no parallelization
-- **First alternative wins**: When a dep has multiple alternatives, the first discoverable one is executed (OR semantics)
+- **First discoverable alternative wins**: Execute deps use OR semantics — iterate alternatives in order, execute the first one that exists in the discovery results (no fallback after execution failure)
 - **No args/flags**: Execute deps run with no positional args and no flags. Commands with required args/flags are rejected at validation time
 
 ```

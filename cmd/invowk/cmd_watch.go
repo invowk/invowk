@@ -21,6 +21,12 @@ func runWatchMode(cmd *cobra.Command, app *App, rootFlags *rootFlagValues, cmdFl
 		return fmt.Errorf("no command specified")
 	}
 
+	// Check for ambiguous commands before proceeding, consistent with normal execution.
+	ctx := contextWithConfigPath(cmd.Context(), rootFlags.configPath)
+	if ambErr := checkAmbiguousCommand(ctx, app, rootFlags, args); ambErr != nil {
+		return ambErr
+	}
+
 	// Look up the command to get its watch configuration.
 	result, err := app.Discovery.GetCommand(cmd.Context(), args[0])
 	if err != nil {

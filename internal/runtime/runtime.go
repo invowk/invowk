@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/invowk/invowk/pkg/invowkfile"
+	"github.com/invowk/invowk/pkg/platform"
 )
 
 // Runtime type constants for different execution environments.
@@ -398,7 +399,7 @@ func shouldFilterEnvVar(name string) bool {
 	// Filter metadata env vars to prevent leakage between nested invocations.
 	// Each invocation gets fresh metadata from its own execution context.
 	switch name {
-	case "INVOWK_CMD_NAME", "INVOWK_RUNTIME", "INVOWK_SOURCE", "INVOWK_PLATFORM":
+	case platform.EnvVarCmdName, platform.EnvVarRuntime, platform.EnvVarSource, platform.EnvVarPlatform:
 		return true
 	}
 

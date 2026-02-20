@@ -3,6 +3,7 @@
 package cmd
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -18,6 +19,12 @@ func classifyExecutionError(err error, verbose bool) (issueID issue.Id, styledMs
 	issueID = issue.ScriptExecutionFailedId
 
 	switch {
+	case errors.Is(err, context.DeadlineExceeded):
+		issueID = issue.ScriptExecutionFailedId
+		return issueID, fmt.Sprintf("\n%s %s\n", ErrorStyle.Render("Error:"), "command timed out")
+	case errors.Is(err, context.Canceled):
+		issueID = issue.ScriptExecutionFailedId
+		return issueID, fmt.Sprintf("\n%s %s\n", ErrorStyle.Render("Error:"), "command was cancelled")
 	case errors.Is(err, container.ErrNoEngineAvailable):
 		issueID = issue.ContainerEngineNotFoundId
 	case errors.Is(err, runtime.ErrRuntimeNotAvailable):

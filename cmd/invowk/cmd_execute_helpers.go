@@ -131,6 +131,11 @@ func runDisambiguatedCommand(cmd *cobra.Command, app *App, rootFlags *rootFlagVa
 		return fmt.Errorf("command '%s' not found in source '%s'", displayCmdName, filter.SourceID)
 	}
 
+	// Watch mode intercepts before normal execution.
+	if cmdFlags.watch {
+		return runWatchMode(cmd, app, rootFlags, cmdFlags, append([]string{targetCmd.Name}, cmdArgs...))
+	}
+
 	parsedRuntime, err := cmdFlags.parsedRuntimeMode()
 	if err != nil {
 		return err

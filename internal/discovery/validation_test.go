@@ -305,6 +305,352 @@ func TestArgsSubcommandConflictError_Error_NoFilePath(t *testing.T) {
 	}
 }
 
+// =============================================================================
+// ValidateExecutionDAG tests
+// =============================================================================
+
+func TestValidateExecutionDAG_AcyclicGraph(t *testing.T) {
+	t.Parallel()
+
+	// A depends on B (execute:true), B has no deps → valid DAG.
+	commands := []*CommandInfo{
+		{
+			Name: "build",
+			Command: &invowkfile.Command{
+				DependsOn: &invowkfile.DependsOn{
+					Commands: []invowkfile.CommandDependency{
+						{Alternatives: []string{"lint"}, Execute: true},
+					},
+				},
+			},
+		},
+		{
+			Name:    "lint",
+			Command: &invowkfile.Command{},
+		},
+	}
+
+	if err := ValidateExecutionDAG(commands); err != nil {
+		t.Errorf("ValidateExecutionDAG() returned error for valid DAG: %v", err)
+	}
+}
+
+func TestValidateExecutionDAG_SimpleCycle(t *testing.T) {
+	t.Parallel()
+
+	// A depends on B (execute:true), B depends on A (execute:true) → cycle.
+	commands := []*CommandInfo{
+		{
+			Name: "a",
+			Command: &invowkfile.Command{
+				DependsOn: &invowkfile.DependsOn{
+					Commands: []invowkfile.CommandDependency{
+						{Alternatives: []string{"b"}, Execute: true},
+					},
+				},
+			},
+		},
+		{
+			Name: "b",
+			Command: &invowkfile.Command{
+				DependsOn: &invowkfile.DependsOn{
+					Commands: []invowkfile.CommandDependency{
+						{Alternatives: []string{"a"}, Execute: true},
+					},
+				},
+			},
+		},
+	}
+
+	err := ValidateExecutionDAG(commands)
+	if err == nil {
+		t.Fatal("ValidateExecutionDAG() should have returned error for cyclic graph")
+	}
+
+	// Verify the error wraps a CycleError from the dag package.
+	if !strings.Contains(err.Error(), "cycle") {
+		t.Errorf("error should mention cycle, got: %v", err)
+	}
+}
+
+func TestValidateExecutionDAG_TransitiveCycle(t *testing.T) {
+	t.Parallel()
+
+	// A -> B -> C -> A (all execute:true) → transitive cycle.
+	commands := []*CommandInfo{
+		{
+			Name: "a",
+			Command: &invowkfile.Command{
+				DependsOn: &invowkfile.DependsOn{
+					Commands: []invowkfile.CommandDependency{
+						{Alternatives: []string{"b"}, Execute: true},
+					},
+				},
+			},
+		},
+		{
+			Name: "b",
+			Command: &invowkfile.Command{
+				DependsOn: &invowkfile.DependsOn{
+					Commands: []invowkfile.CommandDependency{
+						{Alternatives: []string{"c"}, Execute: true},
+					},
+				},
+			},
+		},
+		{
+			Name: "c",
+			Command: &invowkfile.Command{
+				DependsOn: &invowkfile.DependsOn{
+					Commands: []invowkfile.CommandDependency{
+						{Alternatives: []string{"a"}, Execute: true},
+					},
+				},
+			},
+		},
+	}
+
+	err := ValidateExecutionDAG(commands)
+	if err == nil {
+		t.Fatal("ValidateExecutionDAG() should detect transitive cycle")
+	}
+}
+
+func TestValidateExecutionDAG_NonExecuteDepsIgnored(t *testing.T) {
+	t.Parallel()
+
+	// A depends on B with execute:false → should NOT form a graph edge.
+	// B depends on A with execute:false → also no edge. No cycle.
+	commands := []*CommandInfo{
+		{
+			Name: "a",
+			Command: &invowkfile.Command{
+				DependsOn: &invowkfile.DependsOn{
+					Commands: []invowkfile.CommandDependency{
+						{Alternatives: []string{"b"}, Execute: false},
+					},
+				},
+			},
+		},
+		{
+			Name: "b",
+			Command: &invowkfile.Command{
+				DependsOn: &invowkfile.DependsOn{
+					Commands: []invowkfile.CommandDependency{
+						{Alternatives: []string{"a"}, Execute: false},
+					},
+				},
+			},
+		},
+	}
+
+	if err := ValidateExecutionDAG(commands); err != nil {
+		t.Errorf("ValidateExecutionDAG() should ignore non-execute deps, got: %v", err)
+	}
+}
+
+func TestValidateExecutionDAG_RequiredArgsBlocked(t *testing.T) {
+	t.Parallel()
+
+	// A has execute dep on B, but B has required args → validation error.
+	commands := []*CommandInfo{
+		{
+			Name: "a",
+			Command: &invowkfile.Command{
+				DependsOn: &invowkfile.DependsOn{
+					Commands: []invowkfile.CommandDependency{
+						{Alternatives: []string{"b"}, Execute: true},
+					},
+				},
+			},
+		},
+		{
+			Name: "b",
+			Command: &invowkfile.Command{
+				Args: []invowkfile.Argument{
+					{Name: "target", Required: true},
+				},
+			},
+		},
+	}
+
+	err := ValidateExecutionDAG(commands)
+	if err == nil {
+		t.Fatal("ValidateExecutionDAG() should reject execute dep on command with required args")
+	}
+	if !strings.Contains(err.Error(), "required argument") {
+		t.Errorf("error should mention required argument, got: %v", err)
+	}
+}
+
+func TestValidateExecutionDAG_RequiredFlagsBlocked(t *testing.T) {
+	t.Parallel()
+
+	// A has execute dep on B, but B has required flags → validation error.
+	commands := []*CommandInfo{
+		{
+			Name: "a",
+			Command: &invowkfile.Command{
+				DependsOn: &invowkfile.DependsOn{
+					Commands: []invowkfile.CommandDependency{
+						{Alternatives: []string{"b"}, Execute: true},
+					},
+				},
+			},
+		},
+		{
+			Name: "b",
+			Command: &invowkfile.Command{
+				Flags: []invowkfile.Flag{
+					{Name: "output", Required: true},
+				},
+			},
+		},
+	}
+
+	err := ValidateExecutionDAG(commands)
+	if err == nil {
+		t.Fatal("ValidateExecutionDAG() should reject execute dep on command with required flags")
+	}
+	if !strings.Contains(err.Error(), "required flag") {
+		t.Errorf("error should mention required flag, got: %v", err)
+	}
+}
+
+func TestValidateExecutionDAG_ImplementationLevelDeps(t *testing.T) {
+	t.Parallel()
+
+	// Execute dep defined at implementation level should also be validated.
+	// A's implementation has execute dep on B, B's implementation has execute dep on A → cycle.
+	commands := []*CommandInfo{
+		{
+			Name: "a",
+			Command: &invowkfile.Command{
+				Implementations: []invowkfile.Implementation{
+					{
+						DependsOn: &invowkfile.DependsOn{
+							Commands: []invowkfile.CommandDependency{
+								{Alternatives: []string{"b"}, Execute: true},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			Name: "b",
+			Command: &invowkfile.Command{
+				Implementations: []invowkfile.Implementation{
+					{
+						DependsOn: &invowkfile.DependsOn{
+							Commands: []invowkfile.CommandDependency{
+								{Alternatives: []string{"a"}, Execute: true},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	err := ValidateExecutionDAG(commands)
+	if err == nil {
+		t.Fatal("ValidateExecutionDAG() should detect cycle from implementation-level deps")
+	}
+}
+
+func TestValidateExecutionDAG_RootLevelDeps(t *testing.T) {
+	t.Parallel()
+
+	// Root-level execute dep creates a cycle: root depends on B, B depends on A.
+	// Since root deps apply to all commands, A inherits root's dep on B.
+	inv := &invowkfile.Invowkfile{
+		DependsOn: &invowkfile.DependsOn{
+			Commands: []invowkfile.CommandDependency{
+				{Alternatives: []string{"b"}, Execute: true},
+			},
+		},
+	}
+
+	commands := []*CommandInfo{
+		{
+			Name:       "a",
+			Command:    &invowkfile.Command{},
+			Invowkfile: inv,
+		},
+		{
+			Name: "b",
+			Command: &invowkfile.Command{
+				DependsOn: &invowkfile.DependsOn{
+					Commands: []invowkfile.CommandDependency{
+						{Alternatives: []string{"a"}, Execute: true},
+					},
+				},
+			},
+			Invowkfile: inv,
+		},
+	}
+
+	err := ValidateExecutionDAG(commands)
+	if err == nil {
+		t.Fatal("ValidateExecutionDAG() should detect cycle involving root-level deps")
+	}
+}
+
+func TestValidateExecutionDAG_EmptyAndNil(t *testing.T) {
+	t.Parallel()
+
+	if err := ValidateExecutionDAG(nil); err != nil {
+		t.Errorf("ValidateExecutionDAG(nil) should return nil, got: %v", err)
+	}
+	if err := ValidateExecutionDAG([]*CommandInfo{}); err != nil {
+		t.Errorf("ValidateExecutionDAG([]) should return nil, got: %v", err)
+	}
+
+	// Nil entries should be skipped gracefully.
+	commands := []*CommandInfo{nil, {Name: "ok", Command: &invowkfile.Command{}}}
+	if err := ValidateExecutionDAG(commands); err != nil {
+		t.Errorf("ValidateExecutionDAG() should handle nil entries, got: %v", err)
+	}
+}
+
+func TestValidateExecutionDAG_AllAlternativesChecked(t *testing.T) {
+	t.Parallel()
+
+	// dep has alternatives ["b", "c"]. c depends on a → cycle via second alternative.
+	commands := []*CommandInfo{
+		{
+			Name: "a",
+			Command: &invowkfile.Command{
+				DependsOn: &invowkfile.DependsOn{
+					Commands: []invowkfile.CommandDependency{
+						{Alternatives: []string{"b", "c"}, Execute: true},
+					},
+				},
+			},
+		},
+		{
+			Name:    "b",
+			Command: &invowkfile.Command{},
+		},
+		{
+			Name: "c",
+			Command: &invowkfile.Command{
+				DependsOn: &invowkfile.DependsOn{
+					Commands: []invowkfile.CommandDependency{
+						{Alternatives: []string{"a"}, Execute: true},
+					},
+				},
+			},
+		},
+	}
+
+	err := ValidateExecutionDAG(commands)
+	if err == nil {
+		t.Fatal("ValidateExecutionDAG() should check ALL alternatives for cycles, not just the first")
+	}
+}
+
 func TestArgsSubcommandConflictError_Error_SingleArg(t *testing.T) {
 	t.Parallel()
 

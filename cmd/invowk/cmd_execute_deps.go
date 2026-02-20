@@ -17,7 +17,8 @@ import (
 type dagExecutionStackKey struct{}
 
 // executeDepCommands runs all depends_on.cmds entries that have execute: true,
-// in declaration order, before the main command executes. Each dependency is
+// in merge order (root -> command -> implementation level, preserving declaration
+// order within each level), before the main command executes. Each dependency is
 // executed through the full CommandService.Execute pipeline, so transitive
 // execute deps are handled recursively. If any dependency fails, execution
 // stops and the error is returned.
@@ -33,6 +34,8 @@ func (s *commandService) executeDepCommands(ctx context.Context, req ExecuteRequ
 	}
 
 	// Get or create the re-entrancy guard from context.
+	// dagStackFromContext returns a map (reference type), so mutations here
+	// are visible through the context propagated to recursive Execute() calls.
 	stack := dagStackFromContext(ctx)
 	if stack[req.Name] {
 		return fmt.Errorf("dependency cycle detected at runtime: command '%s' is already executing", req.Name)
@@ -45,12 +48,17 @@ func (s *commandService) executeDepCommands(ctx context.Context, req ExecuteRequ
 
 	execDeps := merged.GetExecutableCommandDeps()
 	for _, dep := range execDeps {
-		// Use the first alternative as the command to execute.
-		// The discoverability check already validated that at least one exists.
 		if len(dep.Alternatives) == 0 {
 			continue
 		}
-		depName := dep.Alternatives[0]
+
+		// Resolve which alternative to execute using OR semantics:
+		// iterate alternatives in order, execute the first discoverable one.
+		// If that execution fails, stop — do NOT fall back to the next alternative.
+		depName, resolveErr := s.resolveExecutableDep(ctx, req, dep.Alternatives)
+		if resolveErr != nil {
+			return resolveErr
+		}
 
 		if req.Verbose {
 			fmt.Fprintf(s.stdout, "%s Running dependency '%s'...\n", VerboseHighlightStyle.Render("→"), depName)
@@ -76,6 +84,24 @@ func (s *commandService) executeDepCommands(ctx context.Context, req ExecuteRequ
 	}
 
 	return nil
+}
+
+// resolveExecutableDep finds the first discoverable command among alternatives.
+// This follows the same OR semantics as tool/env/capability dependency validation:
+// iterate in order, first discoverable one wins. Unlike non-execute deps where
+// discoverability is checked but the command isn't run, here the resolved command
+// will actually be executed.
+func (s *commandService) resolveExecutableDep(ctx context.Context, req ExecuteRequest, alternatives []string) (string, error) {
+	for _, alt := range alternatives {
+		result, err := s.discovery.GetCommand(ctx, alt)
+		if err != nil {
+			continue
+		}
+		if result.Command != nil {
+			return alt, nil
+		}
+	}
+	return "", fmt.Errorf("none of the execute dependency alternatives %v were found", alternatives)
 }
 
 // dagStackFromContext extracts the DAG execution stack from context, or creates

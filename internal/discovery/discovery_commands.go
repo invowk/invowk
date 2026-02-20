@@ -255,6 +255,10 @@ func (d *Discovery) DiscoverAndValidateCommandSet(ctx context.Context) (CommandS
 		return result, err
 	}
 
+	if err := ValidateExecutionDAG(result.Set.Commands); err != nil {
+		return result, err
+	}
+
 	return result, nil
 }
 

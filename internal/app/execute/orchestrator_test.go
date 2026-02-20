@@ -210,6 +210,34 @@ func TestBuildExecutionContext(t *testing.T) {
 				"INVOWK_FLAG_VERBOSE":     "true",
 			},
 		},
+		{
+			name: "Metadata env vars injected",
+			opts: BuildExecutionContextOptions{
+				Command:    cmd,
+				Invowkfile: inv,
+				Selection:  sel,
+				SourceID:   "my-module",
+				Platform:   invowkfile.PlatformLinux,
+			},
+			want: map[string]string{
+				"INVOWK_CMD_NAME": "test",
+				"INVOWK_RUNTIME":  "native",
+				"INVOWK_SOURCE":   "my-module",
+				"INVOWK_PLATFORM": "linux",
+			},
+		},
+		{
+			name: "Metadata env vars omitted when empty",
+			opts: BuildExecutionContextOptions{
+				Command:    cmd,
+				Invowkfile: inv,
+				Selection:  sel,
+			},
+			want: map[string]string{
+				"INVOWK_CMD_NAME": "test",
+				"INVOWK_RUNTIME":  "native",
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -227,6 +255,40 @@ func TestBuildExecutionContext(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestBuildExecutionContext_MetadataOmittedWhenEmpty(t *testing.T) {
+	t.Parallel()
+
+	cmd := &invowkfile.Command{Name: "test"}
+	inv := &invowkfile.Invowkfile{}
+	sel := RuntimeSelection{Mode: invowkfile.RuntimeNative, Impl: &invowkfile.Implementation{}}
+
+	gotCtx, err := BuildExecutionContext(BuildExecutionContextOptions{
+		Command:    cmd,
+		Invowkfile: inv,
+		Selection:  sel,
+		// SourceID and Platform deliberately left empty.
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// INVOWK_CMD_NAME and INVOWK_RUNTIME are always set.
+	if got := gotCtx.Env.ExtraEnv["INVOWK_CMD_NAME"]; got != "test" {
+		t.Errorf("INVOWK_CMD_NAME = %q, want %q", got, "test")
+	}
+	if got := gotCtx.Env.ExtraEnv["INVOWK_RUNTIME"]; got != "native" {
+		t.Errorf("INVOWK_RUNTIME = %q, want %q", got, "native")
+	}
+
+	// INVOWK_SOURCE and INVOWK_PLATFORM should NOT be present when SourceID/Platform are empty.
+	if _, ok := gotCtx.Env.ExtraEnv["INVOWK_SOURCE"]; ok {
+		t.Error("INVOWK_SOURCE should not be set when SourceID is empty")
+	}
+	if _, ok := gotCtx.Env.ExtraEnv["INVOWK_PLATFORM"]; ok {
+		t.Error("INVOWK_PLATFORM should not be set when Platform is empty")
 	}
 }
 

@@ -9,17 +9,7 @@ import (
 	"github.com/invowk/invowk/internal/config"
 	"github.com/invowk/invowk/internal/runtime"
 	"github.com/invowk/invowk/pkg/invowkfile"
-)
-
-const (
-	// EnvVarCmdName is the env var injected with the command name being executed.
-	EnvVarCmdName = "INVOWK_CMD_NAME"
-	// EnvVarRuntime is the env var injected with the selected runtime type.
-	EnvVarRuntime = "INVOWK_RUNTIME"
-	// EnvVarSource is the env var injected with the source identifier (invowkfile path or module ID).
-	EnvVarSource = "INVOWK_SOURCE"
-	// EnvVarPlatform is the env var injected with the resolved platform (linux, macos, windows).
-	EnvVarPlatform = "INVOWK_PLATFORM"
+	platmeta "github.com/invowk/invowk/pkg/platform"
 )
 
 type (
@@ -220,13 +210,13 @@ func applyEnvInheritOverrides(opts BuildExecutionContextOptions, execCtx *runtim
 func projectEnvVars(opts BuildExecutionContextOptions, execCtx *runtime.ExecutionContext) {
 	// Metadata env vars for script self-introspection.
 	// These allow scripts to know which command, runtime, source, and platform they run under.
-	execCtx.Env.ExtraEnv[EnvVarCmdName] = opts.Command.Name
-	execCtx.Env.ExtraEnv[EnvVarRuntime] = string(opts.Selection.Mode)
+	execCtx.Env.ExtraEnv[platmeta.EnvVarCmdName] = opts.Command.Name
+	execCtx.Env.ExtraEnv[platmeta.EnvVarRuntime] = string(opts.Selection.Mode)
 	if opts.SourceID != "" {
-		execCtx.Env.ExtraEnv[EnvVarSource] = opts.SourceID
+		execCtx.Env.ExtraEnv[platmeta.EnvVarSource] = opts.SourceID
 	}
 	if opts.Platform != "" {
-		execCtx.Env.ExtraEnv[EnvVarPlatform] = string(opts.Platform)
+		execCtx.Env.ExtraEnv[platmeta.EnvVarPlatform] = string(opts.Platform)
 	}
 
 	for i, arg := range opts.Args {

@@ -77,8 +77,12 @@ func ValidateExecutionDAG(commands []*CommandInfo) error {
 			continue
 		}
 
-		// Collect execute deps from all levels (command + implementations).
+		// Collect execute deps from all levels (root + command + implementations).
+		// Root-level deps come from the parent Invowkfile and apply to all commands.
 		var execDeps []invowkfile.CommandDependency
+		if cmd.Invowkfile != nil && cmd.Invowkfile.DependsOn != nil {
+			execDeps = append(execDeps, cmd.Invowkfile.DependsOn.GetExecutableCommandDeps()...)
+		}
 		if cmd.Command.DependsOn != nil {
 			execDeps = append(execDeps, cmd.Command.DependsOn.GetExecutableCommandDeps()...)
 		}
@@ -95,8 +99,8 @@ func ValidateExecutionDAG(commands []*CommandInfo) error {
 
 		g.AddNode(cmd.Name)
 		for _, dep := range execDeps {
-			// Use the first alternative as the canonical dependency name for the graph.
-			// At execution time, the first discoverable alternative is used.
+			// Add edges for ALL alternatives — each could form a cycle, so all must
+			// be checked. At execution time, only the first alternative is used.
 			for _, alt := range dep.Alternatives {
 				g.AddEdge(alt, cmd.Name)
 

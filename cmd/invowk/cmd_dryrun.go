@@ -26,13 +26,20 @@ func renderDryRun(w io.Writer, req ExecuteRequest, cmdInfo *discovery.CommandInf
 	fmt.Fprintf(w, "  %s %s\n", VerboseHighlightStyle.Render("Command:"), req.Name)
 	fmt.Fprintf(w, "  %s %s\n", VerboseHighlightStyle.Render("Source:"), cmdInfo.SourceID)
 	fmt.Fprintf(w, "  %s %s\n", VerboseHighlightStyle.Render("Runtime:"), string(resolved.Mode))
-	fmt.Fprintf(w, "  %s %s\n", VerboseHighlightStyle.Render("Platform:"), string(execCtx.Command.GetSupportedPlatforms()[0]))
+	if platforms := execCtx.Command.GetSupportedPlatforms(); len(platforms) > 0 {
+		fmt.Fprintf(w, "  %s %s\n", VerboseHighlightStyle.Render("Platform:"), string(platforms[0]))
+	}
 
 	if execCtx.WorkDir != "" {
 		fmt.Fprintf(w, "  %s %s\n", VerboseHighlightStyle.Render("WorkDir:"), execCtx.WorkDir)
 	}
 
-	if resolved.Impl != nil && resolved.Impl.Timeout != "" {
+	if resolved.Impl == nil {
+		fmt.Fprintln(w)
+		return
+	}
+
+	if resolved.Impl.Timeout != "" {
 		fmt.Fprintf(w, "  %s %s\n", VerboseHighlightStyle.Render("Timeout:"), resolved.Impl.Timeout)
 	}
 
@@ -48,20 +55,38 @@ func renderDryRun(w io.Writer, req ExecuteRequest, cmdInfo *discovery.CommandInf
 		}
 	}
 
-	// Environment variables (INVOWK_* only for brevity).
+	// Environment variables (INVOWK_* and ARG* for brevity).
 	invowkVars := make(map[string]string)
 	for k, v := range execCtx.Env.ExtraEnv {
-		if strings.HasPrefix(k, "INVOWK_") || k == "ARGC" || (len(k) > 3 && k[:3] == "ARG") {
+		if strings.HasPrefix(k, "INVOWK_") || isArgEnvVar(k) {
 			invowkVars[k] = v
 		}
 	}
 	if len(invowkVars) > 0 {
 		fmt.Fprintln(w)
-		fmt.Fprintln(w, VerboseHighlightStyle.Render("  Environment (INVOWK_*):"))
+		fmt.Fprintln(w, VerboseHighlightStyle.Render("  Environment (INVOWK_* / ARG*):"))
 		for _, k := range slices.Sorted(maps.Keys(invowkVars)) {
 			fmt.Fprintf(w, "    %s=%s\n", k, invowkVars[k])
 		}
 	}
 
 	fmt.Fprintln(w)
+}
+
+// isArgEnvVar checks if a key matches the ARG1, ARG2, ..., ARGC pattern
+// used by the positional argument projection system.
+func isArgEnvVar(k string) bool {
+	if k == "ARGC" {
+		return true
+	}
+	if len(k) < 4 || k[:3] != "ARG" {
+		return false
+	}
+	// Remaining chars must all be digits (ARG1, ARG2, ..., ARG99, etc.)
+	for i := 3; i < len(k); i++ {
+		if k[i] < '0' || k[i] > '9' {
+			return false
+		}
+	}
+	return true
 }

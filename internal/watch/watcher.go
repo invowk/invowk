@@ -9,11 +9,13 @@ package watch
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/bmatcuk/doublestar/v4"
@@ -23,7 +25,7 @@ import (
 // defaultDebounce is the delay before firing the onChange callback after the
 // last filesystem event. This allows rapid successive events (e.g., an editor
 // writing then renaming a temp file) to coalesce into a single callback.
-const defaultDebounce = 300 * time.Millisecond
+const defaultDebounce = 500 * time.Millisecond
 
 // defaultIgnores lists path patterns that are always excluded from watching,
 // regardless of user-supplied ignore patterns. These cover VCS metadata,
@@ -57,8 +59,9 @@ type (
 		Debounce time.Duration
 
 		// ClearScreen controls whether the terminal is cleared before each
-		// callback invocation. Requires Stdout to be a terminal; ignored
-		// otherwise.
+		// callback invocation by writing ANSI escape sequences to Stdout.
+		// No terminal detection is performed; callers should ensure Stdout
+		// is a real terminal when enabling this option.
 		ClearScreen bool
 
 		// BaseDir is the root directory to watch. All patterns are resolved
@@ -127,6 +130,21 @@ func New(cfg Config) (*Watcher, error) {
 		stderr = os.Stderr
 	}
 
+	// Validate all patterns eagerly so invalid globs fail at construction
+	// time rather than silently failing to match at runtime.
+	for _, pat := range cfg.Patterns {
+		if _, err := doublestar.Match(pat, ""); err != nil {
+			fsw.Close() //nolint:errcheck // best-effort cleanup
+			return nil, fmt.Errorf("watch: invalid watch pattern %q: %w", pat, err)
+		}
+	}
+	for _, pat := range cfg.Ignore {
+		if _, err := doublestar.Match(pat, ""); err != nil {
+			fsw.Close() //nolint:errcheck // best-effort cleanup
+			return nil, fmt.Errorf("watch: invalid ignore pattern %q: %w", pat, err)
+		}
+	}
+
 	// Merge user ignores with built-in defaults.
 	ignores := make([]string, 0, len(defaultIgnores)+len(cfg.Ignore))
 	ignores = append(ignores, defaultIgnores...)
@@ -163,7 +181,12 @@ func (w *Watcher) Run(ctx context.Context) error {
 	)
 
 	// fire drains the pending set and invokes the OnChange callback.
+	// It may be scheduled by time.AfterFunc after the context is cancelled,
+	// so check ctx.Err() to avoid executing with a dead context.
 	fire := func() {
+		if ctx.Err() != nil {
+			return
+		}
 		mu.Lock()
 		if len(pending) == 0 {
 			mu.Unlock()
@@ -242,6 +265,11 @@ func (w *Watcher) Run(ctx context.Context) error {
 		case err, ok := <-w.fsw.Errors:
 			if !ok {
 				return nil
+			}
+			// Classify the error: ENOSPC (inotify limit) and similar system errors
+			// indicate the watcher is fundamentally broken and should exit.
+			if errors.Is(err, syscall.ENOSPC) {
+				return fmt.Errorf("watch: fatal fsnotify error (inotify limit exceeded): %w", err)
 			}
 			fmt.Fprintf(w.stderr, "watch: fsnotify error: %v\n", err)
 		}
@@ -345,7 +373,7 @@ func DefaultIgnores() []string {
 }
 
 // isIgnoredByDefaults reports whether rel matches any of the default ignore
-// patterns. Exported for testing.
+// patterns. Package-internal helper used by tests.
 func isIgnoredByDefaults(rel string) bool {
 	normalized := filepath.ToSlash(rel)
 	for _, pat := range defaultIgnores {

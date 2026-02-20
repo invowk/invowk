@@ -234,6 +234,12 @@ func TestShouldFilterEnvVar(t *testing.T) {
 		{"INVOWK_FLAG_V", "INVOWK_FLAG_V", true},
 		{"INVOWK_FLAG_ (empty suffix)", "INVOWK_FLAG_", true},
 
+		// Metadata env vars (injected by projectEnvVars, constants from pkg/platform)
+		{"INVOWK_CMD_NAME", "INVOWK_CMD_NAME", true},
+		{"INVOWK_RUNTIME", "INVOWK_RUNTIME", true},
+		{"INVOWK_SOURCE", "INVOWK_SOURCE", true},
+		{"INVOWK_PLATFORM", "INVOWK_PLATFORM", true},
+
 		// ARGC case
 		{"ARGC", "ARGC", true},
 
