@@ -3,7 +3,7 @@
 
 cd $WORK
 
-# Test 1: Root-level tool dep satisfied (sh exists everywhere)
+# Test 1: Root-level tool dep satisfied (sh available in CI environments)
 exec invowk cmd 'hello'
 stdout 'hello from root deps test'
 ! stderr .

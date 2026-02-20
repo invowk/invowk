@@ -423,7 +423,7 @@ func TestCheckEnvVarDependencies_SetButEmptyValue(t *testing.T) {
 		Command: &invowkfile.Command{Name: "test-cmd"},
 	}
 
-	// Sub-test 1: empty string passes existence check (no validation)
+	// Without validation, an empty string is treated as "set" and passes
 	t.Run("empty passes existence", func(t *testing.T) {
 		t.Parallel()
 
@@ -440,7 +440,7 @@ func TestCheckEnvVarDependencies_SetButEmptyValue(t *testing.T) {
 		}
 	})
 
-	// Sub-test 2: empty string fails validation requiring non-empty
+	// With '.+' validation, an empty string fails (matches zero characters)
 	t.Run("empty fails non-empty validation", func(t *testing.T) {
 		t.Parallel()
 

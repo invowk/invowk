@@ -32,7 +32,7 @@ cmds: [
 				runtimes:  [{name: "native"}]
 				platforms: [{name: "windows"}]
 				depends_on: {
-					tools: [{alternatives: ["sh"]}]
+					tools: [{alternatives: ["cmd.exe"]}]
 				}
 			},
 		]

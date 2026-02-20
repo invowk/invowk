@@ -500,6 +500,8 @@ func TestCheckCustomChecks_InvalidRegex(t *testing.T) {
 	}
 }
 
+// TestRenderDependencyError_FailedCustomChecks verifies that RenderDependencyError
+// produces styled output containing the "Failed Custom Checks" section and check names.
 func TestRenderDependencyError_FailedCustomChecks(t *testing.T) {
 	t.Parallel()
 
