@@ -85,12 +85,7 @@ Platform:
   - Windows.Desktop
 InstallerLocale: en-US
 InstallerType: zip
-NestedInstallerType: portable
-NestedInstallerFiles:
-  - RelativeFilePath: invowk.exe
-    PortableCommandAlias: invowk
 ReleaseDate: "2026-02-18"
-UpgradeBehavior: uninstallPrevious
 Commands:
   - invowk
 Installers:
@@ -156,7 +151,6 @@ NestedInstallerType: portable
 NestedInstallerFiles:
   - RelativeFilePath: invowk.exe
     PortableCommandAlias: invowk
-UpgradeBehavior: uninstallPrevious
 Commands:
   - invowk
 Installers:
@@ -199,11 +193,6 @@ Platform:
   - Windows.Desktop
 MinimumOSVersion: 10.0.17763.0
 InstallerType: zip
-NestedInstallerType: portable
-NestedInstallerFiles:
-  - RelativeFilePath: invowk.exe
-    PortableCommandAlias: invowk
-UpgradeBehavior: uninstallPrevious
 Commands:
   - invowk
 Installers:
@@ -245,11 +234,6 @@ MinimumOSVersion: 10.0.17763.0
 Platform:
   - Windows.Desktop
 InstallerType: zip
-NestedInstallerType: portable
-NestedInstallerFiles:
-  - RelativeFilePath: invowk.exe
-    PortableCommandAlias: invowk
-UpgradeBehavior: uninstallPrevious
 Commands:
   - invowk
 Installers:
