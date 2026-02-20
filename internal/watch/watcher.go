@@ -1,0 +1,357 @@
+// SPDX-License-Identifier: MPL-2.0
+
+// Package watch provides file-watching with debounced re-execution.
+//
+// It monitors filesystem paths matching glob patterns and invokes a callback
+// after a configurable debounce period. Events within the debounce window are
+// coalesced so the callback fires once with the full set of changed paths.
+package watch
+
+import (
+	"context"
+	"fmt"
+	"io"
+	"os"
+	"path/filepath"
+	"sync"
+	"time"
+
+	"github.com/bmatcuk/doublestar/v4"
+	"github.com/fsnotify/fsnotify"
+)
+
+// defaultDebounce is the delay before firing the onChange callback after the
+// last filesystem event. This allows rapid successive events (e.g., an editor
+// writing then renaming a temp file) to coalesce into a single callback.
+const defaultDebounce = 300 * time.Millisecond
+
+// defaultIgnores lists path patterns that are always excluded from watching,
+// regardless of user-supplied ignore patterns. These cover VCS metadata,
+// dependency caches, editor swap files, and OS metadata files that generate
+// high-frequency noise.
+var defaultIgnores = []string{
+	"**/.git/**",
+	"**/node_modules/**",
+	"**/__pycache__/**",
+	"**/*.swp",
+	"**/*.swo",
+	"**/*~",
+	"**/.DS_Store",
+}
+
+type (
+	// Config holds the parameters for a Watcher.
+	Config struct {
+		// Patterns are doublestar-compatible glob patterns (e.g., "**/*.go")
+		// that select which files trigger callbacks. An empty slice watches all
+		// non-ignored files.
+		Patterns []string
+
+		// Ignore are additional doublestar-compatible glob patterns for paths
+		// that should never trigger callbacks. These are merged with the
+		// built-in default ignores.
+		Ignore []string
+
+		// Debounce is the quiet period after the last event before the callback
+		// fires. Zero or negative values fall back to defaultDebounce.
+		Debounce time.Duration
+
+		// ClearScreen controls whether the terminal is cleared before each
+		// callback invocation. Requires Stdout to be a terminal; ignored
+		// otherwise.
+		ClearScreen bool
+
+		// BaseDir is the root directory to watch. All patterns are resolved
+		// relative to this path. An empty value defaults to the current working
+		// directory.
+		BaseDir string
+
+		// OnChange is called after the debounce window closes with the
+		// deduplicated list of changed file paths (relative to BaseDir). A nil
+		// callback is a no-op.
+		OnChange func(ctx context.Context, changed []string) error
+
+		// Stdout and Stderr are the output writers for informational and error
+		// messages respectively. nil values default to os.Stdout / os.Stderr.
+		Stdout io.Writer
+		Stderr io.Writer
+	}
+
+	// Watcher monitors filesystem paths and fires a debounced callback when
+	// matching files change.
+	Watcher struct {
+		cfg      Config
+		fsw      *fsnotify.Watcher
+		ignores  []string
+		stdout   io.Writer
+		stderr   io.Writer
+		debounce time.Duration
+		baseDir  string
+	}
+)
+
+// New creates a Watcher from the given Config. It resolves BaseDir to an
+// absolute path, initialises the underlying fsnotify watcher, and registers
+// all directories that could contain files matching the configured patterns.
+func New(cfg Config) (*Watcher, error) {
+	baseDir := cfg.BaseDir
+	if baseDir == "" {
+		wd, err := os.Getwd()
+		if err != nil {
+			return nil, fmt.Errorf("watch: determine working directory: %w", err)
+		}
+		baseDir = wd
+	}
+
+	absBase, err := filepath.Abs(baseDir)
+	if err != nil {
+		return nil, fmt.Errorf("watch: resolve base directory: %w", err)
+	}
+
+	fsw, err := fsnotify.NewWatcher()
+	if err != nil {
+		return nil, fmt.Errorf("watch: create fsnotify watcher: %w", err)
+	}
+
+	debounce := cfg.Debounce
+	if debounce <= 0 {
+		debounce = defaultDebounce
+	}
+
+	stdout := cfg.Stdout
+	if stdout == nil {
+		stdout = os.Stdout
+	}
+	stderr := cfg.Stderr
+	if stderr == nil {
+		stderr = os.Stderr
+	}
+
+	// Merge user ignores with built-in defaults.
+	ignores := make([]string, 0, len(defaultIgnores)+len(cfg.Ignore))
+	ignores = append(ignores, defaultIgnores...)
+	ignores = append(ignores, cfg.Ignore...)
+
+	w := &Watcher{
+		cfg:      cfg,
+		fsw:      fsw,
+		ignores:  ignores,
+		stdout:   stdout,
+		stderr:   stderr,
+		debounce: debounce,
+		baseDir:  absBase,
+	}
+
+	if err := w.addDirectories(); err != nil {
+		if closeErr := fsw.Close(); closeErr != nil {
+			fmt.Fprintf(stderr, "watch: close after init failure: %v\n", closeErr)
+		}
+		return nil, err
+	}
+
+	return w, nil
+}
+
+// Run blocks until ctx is cancelled, processing filesystem events and
+// dispatching debounced callbacks. It returns nil on clean context
+// cancellation and propagates any fatal watcher errors.
+func (w *Watcher) Run(ctx context.Context) error {
+	var (
+		mu      sync.Mutex
+		pending = make(map[string]struct{})
+		timer   *time.Timer
+	)
+
+	// fire drains the pending set and invokes the OnChange callback.
+	fire := func() {
+		mu.Lock()
+		if len(pending) == 0 {
+			mu.Unlock()
+			return
+		}
+		changed := make([]string, 0, len(pending))
+		for p := range pending {
+			changed = append(changed, p)
+		}
+		clear(pending)
+		mu.Unlock()
+
+		if w.cfg.ClearScreen {
+			// ANSI escape: clear screen and move cursor to top-left.
+			fmt.Fprint(w.stdout, "\033[2J\033[H")
+		}
+
+		if w.cfg.OnChange != nil {
+			if err := w.cfg.OnChange(ctx, changed); err != nil {
+				fmt.Fprintf(w.stderr, "watch: callback error: %v\n", err)
+			}
+		}
+	}
+
+	// Ensure the timer channel is drained on exit.
+	defer func() {
+		if timer != nil && !timer.Stop() {
+			select {
+			case <-timer.C:
+			default:
+			}
+		}
+		if closeErr := w.fsw.Close(); closeErr != nil {
+			fmt.Fprintf(w.stderr, "watch: close fsnotify: %v\n", closeErr)
+		}
+	}()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+
+		case evt, ok := <-w.fsw.Events:
+			if !ok {
+				return nil
+			}
+
+			rel, err := filepath.Rel(w.baseDir, evt.Name)
+			if err != nil {
+				rel = evt.Name
+			}
+
+			if w.isIgnored(rel) {
+				continue
+			}
+
+			if !w.matchesPatterns(rel) {
+				continue
+			}
+
+			// Auto-add newly created directories so recursive watches
+			// extend to directories created after startup.
+			if evt.Has(fsnotify.Create) {
+				w.maybeAddDir(evt.Name)
+			}
+
+			mu.Lock()
+			pending[rel] = struct{}{}
+			if timer == nil {
+				timer = time.AfterFunc(w.debounce, fire)
+			} else {
+				timer.Reset(w.debounce)
+			}
+			mu.Unlock()
+
+		case err, ok := <-w.fsw.Errors:
+			if !ok {
+				return nil
+			}
+			fmt.Fprintf(w.stderr, "watch: fsnotify error: %v\n", err)
+		}
+	}
+}
+
+// addDirectories walks BaseDir and adds every directory that could contain
+// files matching the configured patterns. When no patterns are specified, all
+// non-ignored directories are watched.
+func (w *Watcher) addDirectories() error {
+	walkErr := filepath.WalkDir(w.baseDir, func(path string, d os.DirEntry, walkDirErr error) error {
+		if walkDirErr != nil {
+			// Best-effort: skip directories we cannot access rather than aborting
+			// the entire walk. Permission errors on individual dirs are common
+			// (e.g., .git/objects/pack) and should not prevent watching.
+			return nil //nolint:nilerr // intentional skip of inaccessible paths
+		}
+		if !d.IsDir() {
+			return nil
+		}
+
+		rel, relErr := filepath.Rel(w.baseDir, path)
+		if relErr != nil {
+			return nil //nolint:nilerr // skip paths that cannot be made relative
+		}
+
+		// Skip ignored directories entirely to avoid descending into them.
+		if w.isIgnored(rel) || w.isIgnored(rel+"/") {
+			return filepath.SkipDir
+		}
+
+		if addErr := w.fsw.Add(path); addErr != nil {
+			return fmt.Errorf("watch: add directory %q: %w", path, addErr)
+		}
+		return nil
+	})
+	if walkErr != nil {
+		return fmt.Errorf("watch: walk directory tree: %w", walkErr)
+	}
+	return nil
+}
+
+// maybeAddDir adds path to the fsnotify watcher if it is a directory and is
+// not ignored. This enables automatic monitoring of directories created after
+// the initial walk.
+func (w *Watcher) maybeAddDir(path string) {
+	info, err := os.Stat(path)
+	if err != nil || !info.IsDir() {
+		return
+	}
+
+	rel, err := filepath.Rel(w.baseDir, path)
+	if err != nil {
+		return
+	}
+
+	if w.isIgnored(rel) || w.isIgnored(rel+"/") {
+		return
+	}
+
+	if addErr := w.fsw.Add(path); addErr != nil {
+		fmt.Fprintf(w.stderr, "watch: add new directory %q: %v\n", path, addErr)
+	}
+}
+
+// isIgnored returns true if the given path (relative to BaseDir) matches any
+// ignore pattern.
+func (w *Watcher) isIgnored(rel string) bool {
+	// Normalise to forward slashes for consistent glob matching.
+	normalized := filepath.ToSlash(rel)
+	for _, pat := range w.ignores {
+		if matched, matchErr := doublestar.Match(pat, normalized); matchErr == nil && matched {
+			return true
+		}
+	}
+	return false
+}
+
+// matchesPatterns returns true if the given path (relative to BaseDir) matches
+// at least one of the configured watch patterns. When no patterns are
+// configured, all paths match.
+func (w *Watcher) matchesPatterns(rel string) bool {
+	if len(w.cfg.Patterns) == 0 {
+		return true
+	}
+	normalized := filepath.ToSlash(rel)
+	for _, pat := range w.cfg.Patterns {
+		if matched, matchErr := doublestar.Match(pat, normalized); matchErr == nil && matched {
+			return true
+		}
+	}
+	return false
+}
+
+// DefaultIgnores returns a copy of the built-in ignore patterns. This is
+// useful for tests and tooling that need to verify the default behaviour.
+func DefaultIgnores() []string {
+	out := make([]string, len(defaultIgnores))
+	copy(out, defaultIgnores)
+	return out
+}
+
+// isIgnoredByDefaults reports whether rel matches any of the default ignore
+// patterns. Exported for testing.
+func isIgnoredByDefaults(rel string) bool {
+	normalized := filepath.ToSlash(rel)
+	for _, pat := range defaultIgnores {
+		if matched, matchErr := doublestar.Match(pat, normalized); matchErr == nil && matched {
+			return true
+		}
+	}
+	return false
+}

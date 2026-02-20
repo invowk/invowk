@@ -6,6 +6,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
+	"slices"
 	"strings"
 
 	"github.com/invowk/invowk/internal/discovery"
@@ -15,6 +17,12 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/spf13/cobra"
 )
+
+// commandGroup holds commands grouped by category for list rendering.
+type commandGroup struct {
+	category string
+	commands []*discovery.CommandInfo
+}
 
 // registerDiscoveredCommands adds discovered commands as Cobra subcommands under `cmd`.
 // Unambiguous commands are registered under their SimpleName for transparent access
@@ -206,6 +214,7 @@ func buildLeafCommand(app *App, rootFlags *rootFlagValues, cmdFlags *cmdFlagValu
 				Verbose:         verbose,
 				FromSource:      cmdFlags.fromSource,
 				ForceRebuild:    cmdFlags.forceRebuild,
+				DryRun:          cmdFlags.dryRun,
 				Workdir:         workdirOverride,
 				EnvFiles:        envFiles,
 				EnvVars:         envVars,
@@ -447,6 +456,7 @@ func listCommands(cmd *cobra.Command, app *App, rootFlags *rootFlagValues) error
 	platformsStyle := lipgloss.NewStyle().Foreground(ColorWarning)
 	legendStyle := lipgloss.NewStyle().Foreground(ColorVerbose).Italic(true)
 	ambiguousStyle := lipgloss.NewStyle().Foreground(ColorError)
+	categoryStyle := lipgloss.NewStyle().Foreground(ColorHighlight).Italic(true)
 
 	if verbose {
 		fmt.Println(TitleStyle.Render("Discovery Sources"))
@@ -480,24 +490,35 @@ func listCommands(cmd *cobra.Command, app *App, rootFlags *rootFlagValues) error
 		sourceDisplay := formatSourceDisplayName(sourceID)
 		fmt.Println(sourceStyle.Render(fmt.Sprintf("From %s:", sourceDisplay)))
 
-		for _, discovered := range cmds {
-			line := fmt.Sprintf("  %s", nameStyle.Render(discovered.SimpleName))
-			if discovered.Description != "" {
-				line += fmt.Sprintf(" - %s", descStyle.Render(discovered.Description))
+		// Group commands by category within this source.
+		groups := groupByCategory(cmds)
+		for _, group := range groups {
+			if group.category != "" {
+				fmt.Println(categoryStyle.Render(fmt.Sprintf("  [%s]", group.category)))
 			}
-			if discovered.IsAmbiguous {
-				line += fmt.Sprintf(" %s", ambiguousStyle.Render("(@"+sourceID+")"))
+			for _, discovered := range group.commands {
+				indent := "  "
+				if group.category != "" {
+					indent = "    "
+				}
+				line := fmt.Sprintf("%s%s", indent, nameStyle.Render(discovered.SimpleName))
+				if discovered.Description != "" {
+					line += fmt.Sprintf(" - %s", descStyle.Render(discovered.Description))
+				}
+				if discovered.IsAmbiguous {
+					line += fmt.Sprintf(" %s", ambiguousStyle.Render("(@"+sourceID+")"))
+				}
+				currentPlatform := invowkfile.GetCurrentHostOS()
+				runtimesStr := discovered.Command.GetRuntimesStringForPlatform(currentPlatform)
+				if runtimesStr != "" {
+					line += " [" + defaultRuntimeStyle.Render(runtimesStr) + "]"
+				}
+				platformsStr := discovered.Command.GetPlatformsString()
+				if platformsStr != "" {
+					line += fmt.Sprintf(" (%s)", platformsStyle.Render(platformsStr))
+				}
+				fmt.Println(line)
 			}
-			currentPlatform := invowkfile.GetCurrentHostOS()
-			runtimesStr := discovered.Command.GetRuntimesStringForPlatform(currentPlatform)
-			if runtimesStr != "" {
-				line += " [" + defaultRuntimeStyle.Render(runtimesStr) + "]"
-			}
-			platformsStr := discovered.Command.GetPlatformsString()
-			if platformsStr != "" {
-				line += fmt.Sprintf(" (%s)", platformsStyle.Render(platformsStr))
-			}
-			fmt.Println(line)
 		}
 		fmt.Println()
 	}
@@ -513,6 +534,33 @@ func listCommands(cmd *cobra.Command, app *App, rootFlags *rootFlagValues) error
 	}
 
 	return nil
+}
+
+// groupByCategory groups commands by their Category field.
+// Commands without a category come first, followed by categorized groups
+// in alphabetical order.
+func groupByCategory(cmds []*discovery.CommandInfo) []commandGroup {
+	groups := make(map[string][]*discovery.CommandInfo)
+	for _, cmd := range cmds {
+		cat := cmd.Command.Category
+		groups[cat] = append(groups[cat], cmd)
+	}
+
+	var result []commandGroup
+
+	// Uncategorized commands first.
+	if uncategorized, ok := groups[""]; ok {
+		result = append(result, commandGroup{category: "", commands: uncategorized})
+	}
+
+	// Then categorized groups in alphabetical order.
+	for _, cat := range slices.Sorted(maps.Keys(groups)) {
+		if cat != "" {
+			result = append(result, commandGroup{category: cat, commands: groups[cat]})
+		}
+	}
+
+	return result
 }
 
 // formatSourceDisplayName converts a SourceID to a user-friendly display name.

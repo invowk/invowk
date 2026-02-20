@@ -84,11 +84,14 @@ func generateCommand(sb *strings.Builder, cmd *Command) {
 	if cmd.Description != "" {
 		fmt.Fprintf(sb, "\t\tdescription: %q\n", cmd.Description)
 	}
+	if cmd.Category != "" {
+		fmt.Fprintf(sb, "\t\tcategory: %q\n", cmd.Category)
+	}
 
 	// Generate implementations list
 	sb.WriteString("\t\timplementations: [\n")
-	for _, impl := range cmd.Implementations {
-		generateImplementation(sb, &impl)
+	for i := range cmd.Implementations {
+		generateImplementation(sb, &cmd.Implementations[i])
 	}
 	sb.WriteString("\t\t]\n")
 
@@ -134,6 +137,36 @@ func generateCommand(sb *strings.Builder, cmd *Command) {
 			sb.WriteString("},\n")
 		}
 		sb.WriteString("\t\t]\n")
+	}
+
+	// Generate watch config
+	if cmd.Watch != nil && len(cmd.Watch.Patterns) > 0 {
+		sb.WriteString("\t\twatch: {\n")
+		sb.WriteString("\t\t\tpatterns: [")
+		for i, p := range cmd.Watch.Patterns {
+			if i > 0 {
+				sb.WriteString(", ")
+			}
+			fmt.Fprintf(sb, "%q", p)
+		}
+		sb.WriteString("]\n")
+		if cmd.Watch.Debounce != "" {
+			fmt.Fprintf(sb, "\t\t\tdebounce: %q\n", cmd.Watch.Debounce)
+		}
+		if cmd.Watch.ClearScreen {
+			sb.WriteString("\t\t\tclear_screen: true\n")
+		}
+		if len(cmd.Watch.Ignore) > 0 {
+			sb.WriteString("\t\t\tignore: [")
+			for i, ig := range cmd.Watch.Ignore {
+				if i > 0 {
+					sb.WriteString(", ")
+				}
+				fmt.Fprintf(sb, "%q", ig)
+			}
+			sb.WriteString("]\n")
+		}
+		sb.WriteString("\t\t}\n")
 	}
 
 	// Generate args list
@@ -224,6 +257,11 @@ func generateImplementation(sb *strings.Builder, impl *Implementation) {
 	// Implementation-level workdir
 	if impl.WorkDir != "" {
 		fmt.Fprintf(sb, "\t\t\t\tworkdir: %q\n", impl.WorkDir)
+	}
+
+	// Implementation-level timeout
+	if impl.Timeout != "" {
+		fmt.Fprintf(sb, "\t\t\t\ttimeout: %q\n", impl.Timeout)
 	}
 
 	sb.WriteString("\t\t\t},\n")
@@ -380,7 +418,11 @@ func generateDependsOnContent(sb *strings.Builder, deps *DependsOn, indent strin
 				}
 				fmt.Fprintf(sb, "%q", alt)
 			}
-			sb.WriteString("]},\n")
+			sb.WriteString("]")
+			if dep.Execute {
+				sb.WriteString(", execute: true")
+			}
+			sb.WriteString("},\n")
 		}
 		sb.WriteString(indent + "]\n")
 	}

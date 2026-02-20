@@ -146,6 +146,7 @@ func runDisambiguatedCommand(cmd *cobra.Command, app *App, rootFlags *rootFlagVa
 		Verbose:      verbose,
 		FromSource:   cmdFlags.fromSource,
 		ForceRebuild: cmdFlags.forceRebuild,
+		DryRun:       cmdFlags.dryRun,
 		ConfigPath:   rootFlags.configPath,
 	}
 

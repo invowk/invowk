@@ -126,6 +126,8 @@ When working in a specific code area, apply these rules and skills:
 | `internal/uroot/` | go-patterns, testing, licensing | uroot |
 | `internal/core/serverbase/` | go-patterns, testing, licensing | server |
 | `internal/benchmark/` | go-patterns, testing, licensing, commands | — |
+| `internal/dag/` | go-patterns, testing, licensing | — |
+| `internal/watch/` | go-patterns, testing, licensing | — |
 | `pkg/platform/` | go-patterns, testing, windows, licensing | — |
 | `tests/cli/` | testing | testing, cli, invowk-schema |
 
@@ -163,6 +165,8 @@ invowkfile.cue -> CUE Parser -> pkg/invowkfile -> Runtime Selection -> Execution
   - `tuiserver/` - TUI server for interactive sessions.
   - `uroot/` - u-root utility implementations for virtual shell built-ins.
   - `benchmark/` - Benchmarks for PGO profile generation.
+  - `dag/` - Directed acyclic graph operations (topological sort, cycle detection) for `depends_on.cmds` execution ordering.
+  - `watch/` - File-watching with debounced re-execution for `--ivk-watch` mode.
   - `provision/` - Container provisioning (ephemeral layer attachment).
 - `pkg/` - Public packages (cueutil, invowkmod, invowkfile, platform).
 - `tests/cli/` - CLI integration tests using testscript (`.txtar` files in `testdata/`).

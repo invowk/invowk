@@ -83,6 +83,8 @@ type (
 		EnvInheritAllow []string
 		// EnvInheritDeny overrides the runtime config env denylist.
 		EnvInheritDeny []string
+		// DryRun enables dry-run mode: prints what would be executed without executing.
+		DryRun bool
 	}
 
 	// ExecuteResult contains command execution outcomes.

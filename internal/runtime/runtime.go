@@ -395,6 +395,13 @@ func shouldFilterEnvVar(name string) bool {
 		return true
 	}
 
+	// Filter metadata env vars to prevent leakage between nested invocations.
+	// Each invocation gets fresh metadata from its own execution context.
+	switch name {
+	case "INVOWK_CMD_NAME", "INVOWK_RUNTIME", "INVOWK_SOURCE", "INVOWK_PLATFORM":
+		return true
+	}
+
 	// Filter positional ARGC variable (short-form convention alongside INVOWK_ARG_*)
 	if name == "ARGC" {
 		return true
