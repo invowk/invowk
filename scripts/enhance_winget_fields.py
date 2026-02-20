@@ -2,14 +2,18 @@
 # SPDX-License-Identifier: MPL-2.0
 #
 # Inject missing WinGet manifest fields into a GoReleaser-generated installer
-# manifest. Inserts Commands, MinimumOSVersion, and Platform at the correct
-# positions while preserving the existing formatting.
+# manifest. Ensures Commands, MinimumOSVersion, Platform, NestedInstallerType,
+# NestedInstallerFiles, and UpgradeBehavior are present at root level.
 #
 # Usage: python3 scripts/enhance_winget_fields.py <manifest.yaml>
 #
+# GoReleaser v2.13+ places NestedInstallerType, NestedInstallerFiles, and
+# UpgradeBehavior inside each Installers array item rather than at root level.
+# The WinGet validation bot flags this as inconsistent with previously published
+# versions. This script lifts those fields to root level for consistency.
+#
 # This script is idempotent — running it on an already-enhanced manifest
-# produces no changes. When only some fields are missing, new fields are
-# inserted after PackageVersion regardless of existing field positions.
+# produces no changes.
 
 import sys
 
@@ -31,9 +35,14 @@ def enhance(filepath):
         sys.exit(1)
 
     result = []
+    # Root-level presence checks (startswith ensures we match column 0, not
+    # indented per-installer fields).
     has_min_os = any(l.startswith("MinimumOSVersion:") for l in lines)
     has_platform = any(l.startswith("Platform:") for l in lines)
     has_commands = any(l.startswith("Commands:") for l in lines)
+    has_root_nested_type = any(l.startswith("NestedInstallerType:") for l in lines)
+    has_root_nested_files = any(l.startswith("NestedInstallerFiles:") for l in lines)
+    has_root_upgrade = any(l.startswith("UpgradeBehavior:") for l in lines)
 
     for line in lines:
         # Insert MinimumOSVersion and Platform after PackageVersion
@@ -45,17 +54,56 @@ def enhance(filepath):
                 result.append("Platform:\n")
                 result.append("  - Windows.Desktop\n")
             continue
-        # Insert Commands before Installers
-        if line.startswith("Installers:") and not has_commands:
-            result.append("Commands:\n")
-            result.append("  - invowk\n")
+        # Insert NestedInstallerType and NestedInstallerFiles after InstallerType
+        if line.startswith("InstallerType:") and (
+            not has_root_nested_type or not has_root_nested_files
+        ):
+            result.append(line)
+            if not has_root_nested_type:
+                result.append("NestedInstallerType: portable\n")
+                has_root_nested_type = True
+            if not has_root_nested_files:
+                result.append("NestedInstallerFiles:\n")
+                result.append("  - RelativeFilePath: invowk.exe\n")
+                result.append("    PortableCommandAlias: invowk\n")
+            continue
+        # Insert NestedInstallerFiles after existing root NestedInstallerType
+        # (handles case where NestedInstallerType exists at root but
+        # NestedInstallerFiles doesn't)
+        if line.startswith("NestedInstallerType:") and not has_root_nested_files:
+            result.append(line)
+            result.append("NestedInstallerFiles:\n")
+            result.append("  - RelativeFilePath: invowk.exe\n")
+            result.append("    PortableCommandAlias: invowk\n")
+            has_root_nested_files = True
+            continue
+        # Insert UpgradeBehavior before Commands
+        if line.startswith("Commands:") and not has_root_upgrade:
+            result.append("UpgradeBehavior: uninstallPrevious\n")
+            has_root_upgrade = True
+            result.append(line)
+            continue
+        # Insert UpgradeBehavior and Commands before Installers
+        if line.startswith("Installers:"):
+            if not has_root_upgrade:
+                result.append("UpgradeBehavior: uninstallPrevious\n")
+            if not has_commands:
+                result.append("Commands:\n")
+                result.append("  - invowk\n")
             result.append(line)
             continue
         result.append(line)
 
     # Verify all required fields are present in the output.
     output_text = "".join(result)
-    for field in ("MinimumOSVersion:", "Platform:", "Commands:"):
+    for field in (
+        "MinimumOSVersion:",
+        "Platform:",
+        "NestedInstallerType:",
+        "NestedInstallerFiles:",
+        "UpgradeBehavior:",
+        "Commands:",
+    ):
         if field not in output_text:
             print(
                 f"ERROR: Failed to inject '{field}' — anchor line not found in manifest.",
