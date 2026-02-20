@@ -407,13 +407,13 @@ Container image builds (`engine.Build()`) are retried up to 3 times with exponen
 
 Container runs (`engine.Run()`) are retried up to 5 times with exponential backoff (1s, 2s, 4s, 8s) on transient errors. This is critical because `engine.Run()` absorbs `exec.ExitError` into `result.ExitCode` and always returns `(result, nil)` — so the retry logic must check **both** the error return AND `result.ExitCode` via `runtime.IsTransientExitCode()` (exit codes 125 and 126). Run retries are more aggressive than build retries (5 vs 3 attempts) because Podman `ping_group_range` races are more frequent under heavy parallelism and runs are fast.
 
-**Container validation pattern:** All container validation functions in `cmd/invowk/cmd_validate_*.go` must also guard against transient exit codes after `result.Error` check:
+**Container validation pattern:** All container validation functions in `cmd/invowk/cmd_validate_*.go` must guard against transient exit codes after `result.Error` check. Use the `checkTransientExitCode` helper from `cmd_validate_helpers.go`:
 ```go
-if runtime.IsTransientExitCode(result.ExitCode) {
-    return fmt.Errorf("container engine failure (exit code %d)", result.ExitCode)
+if err := checkTransientExitCode(result, label); err != nil {
+    return err
 }
 ```
-Without this guard, transient engine failures (125/126) after retry exhaustion get misreported as domain-specific errors ("not found", "not set", etc.).
+Without this guard, transient engine failures (125/126) after retry exhaustion get misreported as domain-specific errors ("not found", "not set", etc.). The helper centralizes the pattern — never inline `runtime.IsTransientExitCode` directly in validation functions.
 
 ---
 

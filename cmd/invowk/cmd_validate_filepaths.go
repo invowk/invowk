@@ -79,8 +79,8 @@ func validateFilepathInContainer(fp invowkfile.FilepathDependency, rt runtime.Ru
 		if result.Error != nil {
 			return fmt.Errorf("  • container validation failed for path %s: %w", altPath, result.Error)
 		}
-		if runtime.IsTransientExitCode(result.ExitCode) {
-			return fmt.Errorf("  • container engine failure (exit code %d) while checking path %s", result.ExitCode, altPath)
+		if err := checkTransientExitCode(result, altPath); err != nil {
+			return err
 		}
 		if result.ExitCode == 0 {
 			return nil
@@ -93,7 +93,7 @@ func validateFilepathInContainer(fp invowkfile.FilepathDependency, rt runtime.Ru
 	}
 
 	if len(fp.Alternatives) == 1 {
-		return fmt.Errorf("  • %s - %s", fp.Alternatives[0], allErrors[0])
+		return fmt.Errorf("  • %s", allErrors[0])
 	}
 	return fmt.Errorf("  • none of the alternatives satisfied the requirements in container:\n      - %s", strings.Join(allErrors, "\n      - "))
 }
@@ -176,7 +176,7 @@ func validateFilepathAlternatives(fp invowkfile.FilepathDependency, invowkDir st
 
 	// None of the alternatives satisfied the requirements
 	if len(fp.Alternatives) == 1 {
-		return fmt.Errorf("  • %s - %s", fp.Alternatives[0], allErrors[0])
+		return fmt.Errorf("  • %s", allErrors[0])
 	}
 	return fmt.Errorf("  • none of the alternatives satisfied the requirements:\n      - %s", strings.Join(allErrors, "\n      - "))
 }

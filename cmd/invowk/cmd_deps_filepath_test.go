@@ -609,7 +609,20 @@ func TestCheckFilepathDependencies_ExecutableAlternativesFallback(t *testing.T) 
 	} else {
 		// On Unix: both fail (neither has execute bit)
 		if err == nil {
-			t.Error("checkFilepathDependencies() should fail on Unix when no alternative has execute permission")
+			t.Fatal("checkFilepathDependencies() should fail on Unix when no alternative has execute permission")
+		}
+
+		depErr, ok := errors.AsType[*DependencyError](err)
+		if !ok {
+			t.Fatalf("checkFilepathDependencies() should return *DependencyError, got: %T", err)
+		}
+
+		if len(depErr.MissingFilepaths) != 1 {
+			t.Errorf("DependencyError.MissingFilepaths length = %d, want 1", len(depErr.MissingFilepaths))
+		}
+
+		if !strings.Contains(depErr.MissingFilepaths[0], "execute") {
+			t.Errorf("Error message should mention 'execute', got: %s", depErr.MissingFilepaths[0])
 		}
 	}
 }
