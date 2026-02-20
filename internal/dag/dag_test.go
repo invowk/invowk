@@ -90,8 +90,8 @@ func TestTopologicalSort_SimpleCycle(t *testing.T) {
 	if !errors.As(err, &cycleErr) {
 		t.Fatalf("expected *CycleError, got %T: %v", err, err)
 	}
-	if len(cycleErr.Cycle) < 2 {
-		t.Errorf("expected at least 2 nodes in cycle, got %v", cycleErr.Cycle)
+	if len(cycleErr.Nodes) < 2 {
+		t.Errorf("expected at least 2 nodes in cycle, got %v", cycleErr.Nodes)
 	}
 }
 
@@ -125,8 +125,8 @@ func TestTopologicalSort_ComplexCycle(t *testing.T) {
 	if !errors.As(err, &cycleErr) {
 		t.Fatalf("expected *CycleError, got %T: %v", err, err)
 	}
-	if len(cycleErr.Cycle) < 3 {
-		t.Errorf("expected at least 3 nodes in cycle, got %v", cycleErr.Cycle)
+	if len(cycleErr.Nodes) < 3 {
+		t.Errorf("expected at least 3 nodes in cycle, got %v", cycleErr.Nodes)
 	}
 }
 
@@ -170,8 +170,8 @@ func TestTopologicalSort_DuplicateEdges(t *testing.T) {
 
 func TestCycleError_Message(t *testing.T) {
 	t.Parallel()
-	err := &CycleError{Cycle: []string{"A", "B", "C"}}
-	expected := "dependency cycle detected: A -> B -> C"
+	err := &CycleError{Nodes: []string{"A", "B", "C"}}
+	expected := "dependency cycle detected involving nodes: A, B, C"
 	if err.Error() != expected {
 		t.Errorf("expected %q, got %q", expected, err.Error())
 	}

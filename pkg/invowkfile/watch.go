@@ -2,6 +2,11 @@
 
 package invowkfile
 
+import (
+	"fmt"
+	"time"
+)
+
 // WatchConfig defines file-watching behavior for automatic command re-execution.
 type WatchConfig struct {
 	// Patterns lists glob patterns for files to watch (required, at least one).
@@ -16,4 +21,17 @@ type WatchConfig struct {
 	// Ignore lists glob patterns for files/directories to exclude from watching.
 	// Common ignores (.git, node_modules) are applied by default.
 	Ignore []string `json:"ignore,omitempty"`
+}
+
+// ParseDebounce parses the Debounce field into a time.Duration.
+// Returns (0, nil) when Debounce is empty (caller should apply default).
+func (w *WatchConfig) ParseDebounce() (time.Duration, error) {
+	if w.Debounce == "" {
+		return 0, nil
+	}
+	d, err := time.ParseDuration(w.Debounce)
+	if err != nil {
+		return 0, fmt.Errorf("invalid debounce %q: %w", w.Debounce, err)
+	}
+	return d, nil
 }

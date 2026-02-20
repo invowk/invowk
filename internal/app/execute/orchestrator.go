@@ -212,6 +212,10 @@ func projectEnvVars(opts BuildExecutionContextOptions, execCtx *runtime.Executio
 	// These allow scripts to know which command, runtime, source, and platform they run under.
 	execCtx.Env.ExtraEnv[platmeta.EnvVarCmdName] = opts.Command.Name
 	execCtx.Env.ExtraEnv[platmeta.EnvVarRuntime] = string(opts.Selection.Mode)
+	// EnvVarSource and EnvVarPlatform are conditionally injected (only when
+	// non-empty), but unconditionally filtered in shouldFilterEnvVar. The
+	// asymmetry is intentional: filtering prevents leakage even if future
+	// code paths inject these vars unconditionally.
 	if opts.SourceID != "" {
 		execCtx.Env.ExtraEnv[platmeta.EnvVarSource] = opts.SourceID
 	}

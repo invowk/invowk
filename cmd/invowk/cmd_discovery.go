@@ -556,13 +556,12 @@ func groupByCategory(cmds []*discovery.CommandInfo) []commandGroup {
 	// Uncategorized commands first.
 	if uncategorized, ok := groups[""]; ok {
 		result = append(result, commandGroup{category: "", commands: uncategorized})
+		delete(groups, "")
 	}
 
 	// Then categorized groups in alphabetical order.
 	for _, cat := range slices.Sorted(maps.Keys(groups)) {
-		if cat != "" {
-			result = append(result, commandGroup{category: cat, commands: groups[cat]})
-		}
+		result = append(result, commandGroup{category: cat, commands: groups[cat]})
 	}
 
 	return result

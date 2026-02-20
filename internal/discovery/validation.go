@@ -100,7 +100,7 @@ func ValidateExecutionDAG(commands []*CommandInfo) error {
 		g.AddNode(cmd.Name)
 		for _, dep := range execDeps {
 			// Add edges for ALL alternatives — each could form a cycle, so all must
-			// be checked. At execution time, only the first alternative is used.
+			// be checked. At execution time, only the first discoverable alternative is used.
 			for _, alt := range dep.Alternatives {
 				g.AddEdge(alt, cmd.Name)
 

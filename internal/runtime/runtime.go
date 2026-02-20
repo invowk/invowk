@@ -398,6 +398,10 @@ func shouldFilterEnvVar(name string) bool {
 
 	// Filter metadata env vars to prevent leakage between nested invocations.
 	// Each invocation gets fresh metadata from its own execution context.
+	// All four vars are unconditionally filtered here, even though EnvVarSource
+	// and EnvVarPlatform are conditionally injected in projectEnvVars. The
+	// unconditional filtering is by design: it prevents leakage even if future
+	// code paths inject these vars unconditionally.
 	switch name {
 	case platform.EnvVarCmdName, platform.EnvVarRuntime, platform.EnvVarSource, platform.EnvVarPlatform:
 		return true

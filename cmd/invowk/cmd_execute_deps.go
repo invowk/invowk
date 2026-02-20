@@ -41,8 +41,10 @@ func (s *commandService) executeDepCommands(ctx context.Context, req ExecuteRequ
 	}
 
 	// Get or create the re-entrancy guard from context.
-	// dagStackFromContext returns a map (reference type), so mutations here
-	// are visible through the context propagated to recursive Execute() calls.
+	// When a fresh map is created (first call in the chain), it must be attached
+	// to the context via context.WithValue below so recursive Execute() calls
+	// see the same map. When an existing map is returned, mutations here are
+	// visible through the already-propagated context reference.
 	stack := dagStackFromContext(ctx)
 	if stack[req.Name] {
 		return fmt.Errorf("dependency cycle detected at runtime: command '%s' is already executing", req.Name)
@@ -62,7 +64,7 @@ func (s *commandService) executeDepCommands(ctx context.Context, req ExecuteRequ
 		// Resolve which alternative to execute using OR semantics:
 		// iterate alternatives in order, execute the first discoverable one.
 		// If that execution fails, stop — do NOT fall back to the next alternative.
-		depName, resolveErr := s.resolveExecutableDep(ctx, req, dep.Alternatives)
+		depName, resolveErr := s.resolveExecutableDep(ctx, dep.Alternatives)
 		if resolveErr != nil {
 			return resolveErr
 		}
@@ -72,7 +74,9 @@ func (s *commandService) executeDepCommands(ctx context.Context, req ExecuteRequ
 		}
 
 		// Build a minimal ExecuteRequest for the dependency command.
-		// No args, no flags — execute deps run with defaults only.
+		// Static cycle detection (ValidateExecutionDAG via Kahn's algorithm)
+		// prevents statically-known cycles; the runtime stack guard above
+		// catches dynamic cycles from OR-alternative resolution.
 		depReq := ExecuteRequest{
 			Name:         depName,
 			Verbose:      req.Verbose,
@@ -86,7 +90,7 @@ func (s *commandService) executeDepCommands(ctx context.Context, req ExecuteRequ
 			return fmt.Errorf("dependency '%s' failed: %w", depName, err)
 		}
 		if result.ExitCode != 0 {
-			return fmt.Errorf("dependency '%s' exited with code %d", depName, result.ExitCode)
+			return fmt.Errorf("dependency '%s' exited with code %d; run 'invowk cmd %s' independently to diagnose", depName, result.ExitCode, depName)
 		}
 	}
 
@@ -98,21 +102,35 @@ func (s *commandService) executeDepCommands(ctx context.Context, req ExecuteRequ
 // iterate in order, first discoverable one wins. Unlike non-execute deps where
 // discoverability is checked but the command isn't run, here the resolved command
 // will actually be executed.
-func (s *commandService) resolveExecutableDep(ctx context.Context, req ExecuteRequest, alternatives []string) (string, error) {
+//
+// Context cancellation is checked before each discovery attempt so that
+// Ctrl+C or deadline expiry propagates promptly instead of being swallowed.
+func (s *commandService) resolveExecutableDep(ctx context.Context, alternatives []string) (string, error) {
+	var lastErr error
 	for _, alt := range alternatives {
+		// Bail early on context cancellation instead of swallowing it.
+		if ctx.Err() != nil {
+			return "", fmt.Errorf("execute dependency resolution cancelled: %w", ctx.Err())
+		}
 		result, err := s.discovery.GetCommand(ctx, alt)
 		if err != nil {
+			lastErr = err
 			continue
 		}
 		if result.Command != nil {
 			return alt, nil
 		}
 	}
+	if lastErr != nil {
+		return "", fmt.Errorf("none of the execute dependency alternatives %v were found (last error: %w)", alternatives, lastErr)
+	}
 	return "", fmt.Errorf("none of the execute dependency alternatives %v were found", alternatives)
 }
 
-// dagStackFromContext extracts the DAG execution stack from context, or creates
-// a new one if not present.
+// dagStackFromContext extracts the DAG execution stack from context, or returns
+// a new empty map. Callers that create a new map must attach it to the context
+// via context.WithValue(ctx, dagExecutionStackKey{}, stack) before passing the
+// context to recursive Execute() calls.
 func dagStackFromContext(ctx context.Context) map[string]bool {
 	if stack, ok := ctx.Value(dagExecutionStackKey{}).(map[string]bool); ok {
 		return stack

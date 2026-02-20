@@ -13,9 +13,10 @@ import (
 type (
 	// CycleError indicates that the graph contains a cycle, preventing topological ordering.
 	CycleError struct {
-		// Cycle contains the nodes that form the cycle (not necessarily all of them,
-		// but enough to identify the problem).
-		Cycle []string
+		// Nodes contains the nodes involved in the cycle (all nodes with non-zero
+		// in-degree after Kahn's algorithm). This may include nodes that are not
+		// directly on the cycle path but are reachable only through cycle members.
+		Nodes []string
 	}
 
 	// Graph is a directed graph for topological sorting.
@@ -23,6 +24,7 @@ type (
 	// an edge from A to B means A must complete before B starts.
 	Graph struct {
 		// adjacency maps each node to its outgoing neighbors (nodes that depend on it).
+		// An edge from A to B means A must complete before B starts.
 		adjacency map[string][]string
 		// nodes tracks all nodes in insertion order for deterministic output.
 		nodes []string
@@ -32,7 +34,7 @@ type (
 )
 
 func (e *CycleError) Error() string {
-	return fmt.Sprintf("dependency cycle detected: %s", strings.Join(e.Cycle, " -> "))
+	return fmt.Sprintf("dependency cycle detected involving nodes: %s", strings.Join(e.Nodes, ", "))
 }
 
 // New creates an empty Graph.
@@ -88,7 +90,7 @@ func (g *Graph) TopologicalSort() ([]string, error) {
 		}
 	}
 
-	var result []string
+	result := make([]string, 0, len(g.nodes))
 	for len(queue) > 0 {
 		node := queue[0]
 		queue = queue[1:]
@@ -110,7 +112,7 @@ func (g *Graph) TopologicalSort() ([]string, error) {
 				cycleNodes = append(cycleNodes, node)
 			}
 		}
-		return nil, &CycleError{Cycle: cycleNodes}
+		return nil, &CycleError{Nodes: cycleNodes}
 	}
 
 	return result, nil

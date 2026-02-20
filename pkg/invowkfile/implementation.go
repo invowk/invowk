@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 // scriptFileExtensions contains extensions that indicate a script file
@@ -285,4 +286,17 @@ func (s *Implementation) ResolveScriptWithFSAndModule(invowkfilePath, modulePath
 
 	// Inline script - use directly
 	return script, nil
+}
+
+// ParseTimeout parses the Timeout field into a time.Duration.
+// Returns (0, nil) when Timeout is empty (no timeout configured).
+func (s *Implementation) ParseTimeout() (time.Duration, error) {
+	if s.Timeout == "" {
+		return 0, nil
+	}
+	d, err := time.ParseDuration(s.Timeout)
+	if err != nil {
+		return 0, fmt.Errorf("invalid timeout %q: %w", s.Timeout, err)
+	}
+	return d, nil
 }

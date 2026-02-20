@@ -15,6 +15,37 @@ import (
 	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
+// collectExecDepNames returns human-readable labels for execute deps.
+// For single-alternative deps, returns the name directly. For multi-alternative
+// deps, returns "name (alternatives: [a, b])" so dry-run output shows the full
+// picture rather than misleadingly showing only the first alternative.
+func collectExecDepNames(cmdInfo *discovery.CommandInfo, execCtx *runtime.ExecutionContext) []string {
+	var implDeps *invowkfile.DependsOn
+	if execCtx.SelectedImpl != nil {
+		implDeps = execCtx.SelectedImpl.DependsOn
+	}
+	merged := invowkfile.MergeDependsOnAll(
+		cmdInfo.Invowkfile.DependsOn,
+		cmdInfo.Command.DependsOn,
+		implDeps,
+	)
+	if merged == nil {
+		return nil
+	}
+	var names []string
+	for _, dep := range merged.GetExecutableCommandDeps() {
+		switch len(dep.Alternatives) {
+		case 0:
+			continue
+		case 1:
+			names = append(names, dep.Alternatives[0])
+		default:
+			names = append(names, fmt.Sprintf("%s (alternatives: %v)", dep.Alternatives[0], dep.Alternatives))
+		}
+	}
+	return names
+}
+
 // renderDryRun prints the resolved execution context without executing.
 // It shows the command name, source, runtime, platform, working directory,
 // execute deps, script content, and environment variables — everything a user

@@ -123,9 +123,9 @@ func RenderCycleError(err *dag.CycleError) string {
 	sb.WriteString("\n\n")
 	sb.WriteString("Commands with execute dependencies form a cycle, preventing execution.\n\n")
 
-	sb.WriteString(renderLabelStyle.Render("Cycle:"))
+	sb.WriteString(renderLabelStyle.Render("Nodes involved:"))
 	sb.WriteString("\n")
-	sb.WriteString(renderValueStyle.Render(fmt.Sprintf("  %s", strings.Join(err.Cycle, " → "))))
+	sb.WriteString(renderValueStyle.Render(fmt.Sprintf("  %s", strings.Join(err.Nodes, ", "))))
 	sb.WriteString("\n\n")
 	sb.WriteString(renderHintStyle.Render("Remove or restructure 'execute: true' dependencies to break the cycle."))
 	sb.WriteString("\n")

@@ -12,8 +12,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"os"
 	"path/filepath"
+	"slices"
 	"sync"
 	"sync/atomic"
 	"syscall"
@@ -133,17 +135,13 @@ func New(cfg Config) (*Watcher, error) {
 
 	// Validate all patterns eagerly so invalid globs fail at construction
 	// time rather than silently failing to match at runtime.
-	for _, pat := range cfg.Patterns {
-		if _, err := doublestar.Match(pat, ""); err != nil {
-			fsw.Close() //nolint:errcheck // best-effort cleanup
-			return nil, fmt.Errorf("watch: invalid watch pattern %q: %w", pat, err)
-		}
+	if err := validatePatterns(cfg.Patterns, "watch"); err != nil {
+		fsw.Close() //nolint:errcheck // best-effort cleanup
+		return nil, err
 	}
-	for _, pat := range cfg.Ignore {
-		if _, err := doublestar.Match(pat, ""); err != nil {
-			fsw.Close() //nolint:errcheck // best-effort cleanup
-			return nil, fmt.Errorf("watch: invalid ignore pattern %q: %w", pat, err)
-		}
+	if err := validatePatterns(cfg.Ignore, "ignore"); err != nil {
+		fsw.Close() //nolint:errcheck // best-effort cleanup
+		return nil, err
 	}
 
 	// Merge user ignores with built-in defaults.
@@ -202,10 +200,7 @@ func (w *Watcher) Run(ctx context.Context) error {
 			mu.Unlock()
 			return
 		}
-		changed := make([]string, 0, len(pending))
-		for p := range pending {
-			changed = append(changed, p)
-		}
+		changed := slices.Collect(maps.Keys(pending))
 		clear(pending)
 		mu.Unlock()
 
@@ -241,7 +236,7 @@ func (w *Watcher) Run(ctx context.Context) error {
 
 		case evt, ok := <-w.fsw.Events:
 			if !ok {
-				return nil
+				return fmt.Errorf("watch: fsnotify event channel closed unexpectedly")
 			}
 
 			rel, err := filepath.Rel(w.baseDir, evt.Name)
@@ -274,7 +269,7 @@ func (w *Watcher) Run(ctx context.Context) error {
 
 		case err, ok := <-w.fsw.Errors:
 			if !ok {
-				return nil
+				return fmt.Errorf("watch: fsnotify error channel closed unexpectedly")
 			}
 			// Classify the error: ENOSPC (inotify limit) and similar system errors
 			// indicate the watcher is fundamentally broken and should exit.
@@ -295,6 +290,8 @@ func (w *Watcher) addDirectories() error {
 			// Best-effort: skip directories we cannot access rather than aborting
 			// the entire walk. Permission errors on individual dirs are common
 			// (e.g., .git/objects/pack) and should not prevent watching.
+			// Log to stderr so users know which paths are not being watched.
+			fmt.Fprintf(w.stderr, "watch: skipping inaccessible path %q: %v\n", path, walkDirErr)
 			return nil //nolint:nilerr // intentional skip of inaccessible paths
 		}
 		if !d.IsDir() {
@@ -380,6 +377,17 @@ func DefaultIgnores() []string {
 	out := make([]string, len(defaultIgnores))
 	copy(out, defaultIgnores)
 	return out
+}
+
+// validatePatterns checks that every pattern in the slice is a valid doublestar
+// glob. The label (e.g., "watch" or "ignore") is used in error messages.
+func validatePatterns(patterns []string, label string) error {
+	for _, pat := range patterns {
+		if _, err := doublestar.Match(pat, ""); err != nil {
+			return fmt.Errorf("watch: invalid %s pattern %q: %w", label, pat, err)
+		}
+	}
+	return nil
 }
 
 // isIgnoredByDefaults reports whether rel matches any of the default ignore

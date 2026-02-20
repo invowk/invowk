@@ -5,6 +5,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 	"time"
 
 	"github.com/invowk/invowk/internal/watch"
@@ -51,14 +52,15 @@ func runWatchMode(cmd *cobra.Command, app *App, rootFlags *rootFlagValues, cmdFl
 	var debounce time.Duration
 	var clearScreen bool
 
-	if cmdInfo.Command.Watch != nil {
-		patterns = cmdInfo.Command.Watch.Patterns
-		ignore = cmdInfo.Command.Watch.Ignore
-		clearScreen = cmdInfo.Command.Watch.ClearScreen
-		if cmdInfo.Command.Watch.Debounce != "" {
-			d, parseErr := time.ParseDuration(cmdInfo.Command.Watch.Debounce)
+	if watchCfg := cmdInfo.Command.Watch; watchCfg != nil {
+		patterns = watchCfg.Patterns
+		ignore = watchCfg.Ignore
+		clearScreen = watchCfg.ClearScreen
+		if watchCfg.Debounce != "" {
+			// TODO: switch to watchCfg.ParseDebounce() once pkg/invowkfile adds it.
+			d, parseErr := time.ParseDuration(watchCfg.Debounce)
 			if parseErr != nil {
-				return fmt.Errorf("invalid watch debounce %q: %w", cmdInfo.Command.Watch.Debounce, parseErr)
+				return fmt.Errorf("invalid watch debounce %q: %w", watchCfg.Debounce, parseErr)
 			}
 			debounce = d
 		}
@@ -87,9 +89,11 @@ func runWatchMode(cmd *cobra.Command, app *App, rootFlags *rootFlagValues, cmdFl
 	fmt.Fprintf(app.stdout, "\n%s Watching for changes (Ctrl+C to stop)...\n\n", VerboseHighlightStyle.Render("→"))
 
 	// Resolve base directory: use command workdir if set, otherwise current dir.
-	baseDir := ""
-	if cmdInfo.Command.WorkDir != "" {
-		baseDir = cmdInfo.Command.WorkDir
+	// Relative workdir is resolved against the invowkfile directory, matching
+	// how the execution pipeline resolves it (not against os.Getwd()).
+	baseDir := cmdInfo.Command.WorkDir
+	if baseDir != "" && !filepath.IsAbs(baseDir) {
+		baseDir = filepath.Join(filepath.Dir(cmdInfo.FilePath), baseDir)
 	}
 
 	cfg := watch.Config{

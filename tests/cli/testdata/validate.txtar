@@ -96,6 +96,8 @@ stdout 'Invowkfile Validation'
 stdout 'CUE schema validation passed'
 stderr 'Execution DAG validation failed'
 stderr 'cycle'
+stderr 'a'
+stderr 'b'
 
 -- invowkfile.cue --
 cmds: [

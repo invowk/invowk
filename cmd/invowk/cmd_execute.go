@@ -98,32 +98,22 @@ func (s *commandService) Execute(ctx context.Context, req ExecuteRequest) (Execu
 		return ExecuteResult{}, diags, err
 	}
 
+	// Propagate the incoming context so that DAG re-entrancy guard values
+	// and parent cancellation signals survive through recursive Execute calls.
+	// BuildExecutionContext creates a fresh context.Background(); overriding it
+	// here preserves the DAG stack map and Ctrl+C propagation chain.
+	execCtx.Context = ctx
+
 	// Dry-run mode: print what would be executed and exit without executing.
 	// Collect execute deps to include in the dry-run output so users see the
 	// full picture of what would happen (deps run before the main command).
 	if req.DryRun {
-		var implDeps *invowkfile.DependsOn
-		if execCtx.SelectedImpl != nil {
-			implDeps = execCtx.SelectedImpl.DependsOn
-		}
-		merged := invowkfile.MergeDependsOnAll(
-			cmdInfo.Invowkfile.DependsOn,
-			cmdInfo.Command.DependsOn,
-			implDeps,
-		)
-		var execDepNames []string
-		if merged != nil {
-			for _, dep := range merged.GetExecutableCommandDeps() {
-				if len(dep.Alternatives) > 0 {
-					execDepNames = append(execDepNames, dep.Alternatives[0])
-				}
-			}
-		}
+		execDepNames := collectExecDepNames(cmdInfo, execCtx)
 		renderDryRun(s.stdout, req, cmdInfo, execCtx, resolved, execDepNames)
 		return ExecuteResult{ExitCode: 0}, diags, nil
 	}
 
-	return s.dispatchExecution(req, execCtx, cmdInfo, cfg, diags)
+	return s.dispatchExecution(ctx, req, execCtx, cmdInfo, cfg, diags)
 }
 
 // discoverCommand loads configuration and discovers the target command by name.
@@ -289,7 +279,7 @@ func (s *commandService) buildExecContext(req ExecuteRequest, cmdInfo *discovery
 // dispatchExecution validates dependencies, then dispatches the command to either
 // interactive mode (alternate screen + TUI server) or standard execution. It handles
 // result rendering for errors and non-zero exit codes.
-func (s *commandService) dispatchExecution(req ExecuteRequest, execCtx *runtime.ExecutionContext, cmdInfo *discovery.CommandInfo, cfg *config.Config, diags []discovery.Diagnostic) (ExecuteResult, []discovery.Diagnostic, error) {
+func (s *commandService) dispatchExecution(ctx context.Context, req ExecuteRequest, execCtx *runtime.ExecutionContext, cmdInfo *discovery.CommandInfo, cfg *config.Config, diags []discovery.Diagnostic) (ExecuteResult, []discovery.Diagnostic, error) {
 	registryResult := createRuntimeRegistry(cfg, s.ssh.current())
 	if req.Verbose || execCtx.SelectedRuntime == invowkfile.RuntimeContainer {
 		diags = append(diags, registryResult.Diagnostics...)
@@ -310,6 +300,21 @@ func (s *commandService) dispatchExecution(req ExecuteRequest, execCtx *runtime.
 		)
 	}
 
+	// Validate timeout before dependency execution so an invalid timeout
+	// (e.g., "not-a-duration") fails fast without wasting time running deps.
+	var timeoutDuration time.Duration
+	if execCtx.SelectedImpl != nil {
+		var parseErr error
+		timeoutDuration, parseErr = execCtx.SelectedImpl.ParseTimeout()
+		if parseErr != nil {
+			return ExecuteResult{}, diags, newServiceError(
+				parseErr,
+				issue.InvalidArgumentId,
+				"",
+			)
+		}
+	}
+
 	// Dependency validation needs the registry to check runtime-aware dependencies.
 	if err := s.validateAndRenderDeps(cfg, cmdInfo, execCtx, registryResult.Registry); err != nil {
 		return ExecuteResult{}, diags, err
@@ -318,7 +323,7 @@ func (s *commandService) dispatchExecution(req ExecuteRequest, execCtx *runtime.
 	// Execute dependency commands (depends_on.cmds with execute: true) before
 	// the main command. Each dep runs through the full Execute pipeline so
 	// transitive execute deps are handled recursively.
-	if err := s.executeDepCommands(execCtx.Context, req, cmdInfo, execCtx); err != nil {
+	if err := s.executeDepCommands(ctx, req, cmdInfo, execCtx); err != nil {
 		return ExecuteResult{}, diags, err
 	}
 
@@ -329,17 +334,10 @@ func (s *commandService) dispatchExecution(req ExecuteRequest, execCtx *runtime.
 	// Apply execution timeout if specified in the implementation.
 	// The timeout wraps the execution context so both interactive and standard
 	// execution paths respect it. Cancel is deferred to release timer resources.
-	if execCtx.SelectedImpl != nil && execCtx.SelectedImpl.Timeout != "" {
-		duration, parseErr := time.ParseDuration(execCtx.SelectedImpl.Timeout)
-		if parseErr != nil {
-			return ExecuteResult{}, diags, newServiceError(
-				fmt.Errorf("invalid timeout %q: %w", execCtx.SelectedImpl.Timeout, parseErr),
-				issue.InvalidArgumentId,
-				"",
-			)
-		}
+	// Duration was already validated above before dep execution.
+	if timeoutDuration > 0 {
 		var cancel context.CancelFunc
-		execCtx.Context, cancel = context.WithTimeout(execCtx.Context, duration)
+		execCtx.Context, cancel = context.WithTimeout(execCtx.Context, timeoutDuration)
 		defer cancel()
 	}
 

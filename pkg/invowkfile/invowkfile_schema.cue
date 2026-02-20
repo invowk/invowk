@@ -157,7 +157,7 @@ import "strings"
 	// timeout specifies the maximum execution duration (optional)
 	// Must be a valid Go duration string (e.g., "30s", "5m", "1h30m")
 	// When exceeded, the command is cancelled and returns a timeout error.
-	timeout?: string & =~"^[0-9]" & strings.MaxRunes(32)
+	timeout?: string & =~"^[0-9]+(\\.[0-9]+)?(ns|us|µs|ms|s|m|h)+$" & strings.MaxRunes(32)
 })
 
 // ToolDependency represents a tool/binary that must be available in PATH
@@ -390,7 +390,7 @@ import "strings"
 	// debounce specifies the delay before re-executing after a change (optional)
 	// Must be a valid Go duration string (e.g., "500ms", "1s", "2s")
 	// Default: "500ms"
-	debounce?: string & =~"^[0-9]" & strings.MaxRunes(32)
+	debounce?: string & =~"^[0-9]+(\\.[0-9]+)?(ns|us|µs|ms|s|m|h)+$" & strings.MaxRunes(32)
 
 	// clear_screen clears the terminal before each re-execution (optional)
 	// Default: false
@@ -454,8 +454,9 @@ import "strings"
 	args?: [...#Argument]
 
 	// watch defines file-watching configuration for this command (optional)
-	// When defined, the command can be run in watch mode with --ivk-watch
-	// If --ivk-watch is passed without watch config, the current directory is watched
+	// Two-tier behavior: when watch config is defined here, its patterns are required
+	// and control exactly which files are watched. When --ivk-watch is passed without
+	// any watch config, the CLI falls back to watching all files (**/*) in the working directory.
 	watch?: #WatchConfig
 })
 
