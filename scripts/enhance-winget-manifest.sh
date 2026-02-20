@@ -2,13 +2,15 @@
 # SPDX-License-Identifier: MPL-2.0
 #
 # Enhance GoReleaser-generated WinGet installer manifest with fields that
-# GoReleaser doesn't natively support: Commands, MinimumOSVersion, Platform.
+# GoReleaser doesn't natively support (Commands, MinimumOSVersion, Platform),
+# and auto-check PR checklist items that our automation can truthfully assert.
 #
 # Usage: GH_TOKEN=<token> bash scripts/enhance-winget-manifest.sh <version>
 #
 # This script is designed to run as a CI step immediately after GoReleaser
 # creates the WinGet PR. It fetches the installer manifest from the fork,
-# injects the missing fields, and pushes the update back.
+# injects the missing fields, pushes the update back, and updates the PR
+# body to check applicable checklist items.
 
 set -euo pipefail
 
@@ -101,3 +103,51 @@ gh api -X PUT "repos/${REPO}/contents/${FILE_PATH}" \
 }
 
 echo "WinGet installer manifest enhanced successfully."
+
+# ---------------------------------------------------------------------------
+# Step 2: Update PR body checkboxes
+# ---------------------------------------------------------------------------
+# GoReleaser creates the WinGet PR with all checkboxes unchecked (fetched from
+# microsoft/winget-pkgs PR template). We auto-check 4 of 7 that our automation
+# can truthfully assert:
+#   - CLA signed (permanent account-level fact)
+#   - No duplicate open PRs (deterministic branch naming, one PR per version)
+#   - PR only modifies one manifest (GoReleaser structural guarantee)
+#   - Manifest conforms to schema (GoReleaser generates 1.10.0+, we add fields)
+# We also remove the "Resolves #[Issue Number]" placeholder since automated
+# releases don't have linked issues.
+
+UPSTREAM_REPO="microsoft/winget-pkgs"
+echo ""
+echo "Updating WinGet PR checkboxes..."
+
+PR_NUMBER=$(gh api "repos/${UPSTREAM_REPO}/pulls?head=invowk:${BRANCH}&state=open" \
+  --jq '.[0].number // empty' 2>/dev/null) || true
+
+if [ -z "$PR_NUMBER" ]; then
+  echo "Warning: Could not find open WinGet PR for branch ${BRANCH}. Skipping checkbox update."
+else
+  echo "  PR: ${UPSTREAM_REPO}#${PR_NUMBER}"
+
+  PR_BODY=$(gh api "repos/${UPSTREAM_REPO}/pulls/${PR_NUMBER}" \
+    --jq '.body // empty' 2>/dev/null) || true
+
+  if [ -z "$PR_BODY" ]; then
+    echo "Warning: Could not fetch PR body. Skipping checkbox update."
+  else
+    UPDATED_BODY=$(printf '%s\n' "$PR_BODY" | sed \
+      -e '/Contributor License Agreement/s/- \[ \]/- [x]/' \
+      -e '/other open.*pull requests/s/- \[ \]/- [x]/' \
+      -e '/only modifies one/s/- \[ \]/- [x]/' \
+      -e '/conform to the.*schema/s/- \[ \]/- [x]/' \
+      -e '/Resolves #\[Issue Number\]/d')
+
+    if printf '%s\n' "$UPDATED_BODY" | jq -Rs '{body: .}' | \
+       gh api -X PATCH "repos/${UPSTREAM_REPO}/pulls/${PR_NUMBER}" \
+       --input - > /dev/null 2>&1; then
+      echo "  PR checkboxes updated successfully."
+    else
+      echo "Warning: Failed to update PR checkboxes. This is cosmetic — the release is not affected."
+    fi
+  fi
+fi

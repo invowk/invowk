@@ -318,6 +318,72 @@ assert_exit_code "missing Installers anchor exits with error" 1 \
     python3 "$SCRIPT_DIR/enhance_winget_fields.py" "$_no_installers"
 
 # ---------------------------------------------------------------------------
+# Tests: PR body checkbox transformation (sed patterns)
+# ---------------------------------------------------------------------------
+
+# Simulate the PR template GoReleaser fetches from microsoft/winget-pkgs.
+_checkbox_input="$TMPDIR_BASE/pr_body_input.txt"
+_checkbox_expected="$TMPDIR_BASE/pr_body_expected.txt"
+
+cat > "$_checkbox_input" << 'PREOF'
+Checklist for Pull Requests
+- [ ] Have you signed the [Contributor License Agreement](https://cla.opensource.microsoft.com/microsoft/winget-pkgs)?
+- [ ] Is there a linked Issue?  If so, fill in the Issue number below.
+   <!-- Example: Resolves #328283 -->
+  - Resolves #[Issue Number]
+
+Manifests
+- [ ] Have you checked that there aren't other open [pull requests](https://github.com/microsoft/winget-pkgs/pulls) for the same manifest update/change?
+- [ ] This PR only modifies one (1) manifest
+- [ ] Have you [validated](https://github.com/microsoft/winget-pkgs/blob/master/doc/Authoring.md#validation) your manifest locally with `winget validate --manifest <path>`?
+- [ ] Have you tested your manifest locally with `winget install --manifest <path>`?
+- [ ] Does your manifest conform to the [1.10 schema](https://github.com/microsoft/winget-pkgs/tree/master/doc/manifest/schema/1.10.0)?
+
+---
+
+###### Automated with [GoReleaser](https://goreleaser.com)
+PREOF
+
+cat > "$_checkbox_expected" << 'PREOF'
+Checklist for Pull Requests
+- [x] Have you signed the [Contributor License Agreement](https://cla.opensource.microsoft.com/microsoft/winget-pkgs)?
+- [ ] Is there a linked Issue?  If so, fill in the Issue number below.
+   <!-- Example: Resolves #328283 -->
+
+Manifests
+- [x] Have you checked that there aren't other open [pull requests](https://github.com/microsoft/winget-pkgs/pulls) for the same manifest update/change?
+- [x] This PR only modifies one (1) manifest
+- [ ] Have you [validated](https://github.com/microsoft/winget-pkgs/blob/master/doc/Authoring.md#validation) your manifest locally with `winget validate --manifest <path>`?
+- [ ] Have you tested your manifest locally with `winget install --manifest <path>`?
+- [x] Does your manifest conform to the [1.10 schema](https://github.com/microsoft/winget-pkgs/tree/master/doc/manifest/schema/1.10.0)?
+
+---
+
+###### Automated with [GoReleaser](https://goreleaser.com)
+PREOF
+
+_checkbox_actual="$TMPDIR_BASE/pr_body_actual.txt"
+sed \
+  -e '/Contributor License Agreement/s/- \[ \]/- [x]/' \
+  -e '/other open.*pull requests/s/- \[ \]/- [x]/' \
+  -e '/only modifies one/s/- \[ \]/- [x]/' \
+  -e '/conform to the.*schema/s/- \[ \]/- [x]/' \
+  -e '/Resolves #\[Issue Number\]/d' \
+  "$_checkbox_input" > "$_checkbox_actual"
+assert_file_eq "PR body: 4 boxes checked, 3 unchecked, issue placeholder removed" "$_checkbox_expected" "$_checkbox_actual"
+
+# Idempotency: running the same sed on already-checked output should produce no changes.
+_checkbox_idem="$TMPDIR_BASE/pr_body_idem.txt"
+sed \
+  -e '/Contributor License Agreement/s/- \[ \]/- [x]/' \
+  -e '/other open.*pull requests/s/- \[ \]/- [x]/' \
+  -e '/only modifies one/s/- \[ \]/- [x]/' \
+  -e '/conform to the.*schema/s/- \[ \]/- [x]/' \
+  -e '/Resolves #\[Issue Number\]/d' \
+  "$_checkbox_actual" > "$_checkbox_idem"
+assert_file_eq "PR body: idempotent on already-checked body" "$_checkbox_expected" "$_checkbox_idem"
+
+# ---------------------------------------------------------------------------
 # Tests: enhance-winget-manifest.sh — pre-release skip
 # ---------------------------------------------------------------------------
 
