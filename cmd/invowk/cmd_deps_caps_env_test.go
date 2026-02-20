@@ -416,6 +416,59 @@ func TestCheckEnvVarDependencies_EmptyEnvVars(t *testing.T) {
 	}
 }
 
+func TestCheckEnvVarDependencies_SetButEmptyValue(t *testing.T) {
+	t.Parallel()
+
+	ctx := &runtime.ExecutionContext{
+		Command: &invowkfile.Command{Name: "test-cmd"},
+	}
+
+	// Sub-test 1: empty string passes existence check (no validation)
+	t.Run("empty passes existence", func(t *testing.T) {
+		t.Parallel()
+
+		deps := &invowkfile.DependsOn{
+			EnvVars: []invowkfile.EnvVarDependency{
+				{Alternatives: []invowkfile.EnvVarCheck{{Name: "EMPTY_VAR"}}},
+			},
+		}
+		userEnv := map[string]string{"EMPTY_VAR": ""}
+
+		err := checkEnvVarDependencies(deps, userEnv, ctx)
+		if err != nil {
+			t.Errorf("empty string should pass existence check, got: %v", err)
+		}
+	})
+
+	// Sub-test 2: empty string fails validation requiring non-empty
+	t.Run("empty fails non-empty validation", func(t *testing.T) {
+		t.Parallel()
+
+		deps := &invowkfile.DependsOn{
+			EnvVars: []invowkfile.EnvVarDependency{
+				{Alternatives: []invowkfile.EnvVarCheck{{Name: "EMPTY_VAR", Validation: `.+`}}},
+			},
+		}
+		userEnv := map[string]string{"EMPTY_VAR": ""}
+
+		err := checkEnvVarDependencies(deps, userEnv, ctx)
+		if err == nil {
+			t.Error("empty string should fail '.+' validation regex")
+		}
+
+		depErr, ok := errors.AsType[*DependencyError](err)
+		if !ok {
+			t.Fatalf("expected *DependencyError, got: %T", err)
+		}
+		if len(depErr.MissingEnvVars) != 1 {
+			t.Fatalf("Expected 1 env var error, got %d", len(depErr.MissingEnvVars))
+		}
+		if !strings.Contains(depErr.MissingEnvVars[0], "does not match") {
+			t.Errorf("error should mention pattern mismatch, got: %s", depErr.MissingEnvVars[0])
+		}
+	})
+}
+
 func TestDependencyError_WithEnvVars(t *testing.T) {
 	t.Parallel()
 

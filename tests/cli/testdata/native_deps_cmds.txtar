@@ -1,0 +1,90 @@
+# Test: Command dependency resolution using native runtime
+# Mirrors virtual_deps_cmds.txtar but with platform-split native implementations
+
+cd $WORK
+
+# Test 1: Command with satisfied command dependency runs successfully
+exec invowk cmd 'deploy'
+stdout 'deploy successful'
+! stderr .
+
+# Test 2: Command with alternatives where second alternative exists
+exec invowk cmd 'release'
+stdout 'release successful'
+! stderr .
+
+-- invowkfile.cue --
+cmds: [
+	{
+		name: "build"
+		implementations: [
+			{
+				script:    "echo 'build done'"
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
+			},
+			{
+				script:    "Write-Output 'build done'"
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "windows"}]
+			},
+		]
+	},
+	{
+		name: "test"
+		implementations: [
+			{
+				script:    "echo 'test done'"
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
+			},
+			{
+				script:    "Write-Output 'test done'"
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "windows"}]
+			},
+		]
+	},
+	{
+		name:        "deploy"
+		description: "Command that depends on 'build' existing"
+		implementations: [
+			{
+				script:    "echo 'deploy successful'"
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
+			},
+			{
+				script:    "Write-Output 'deploy successful'"
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "windows"}]
+			},
+		]
+		depends_on: {
+			cmds: [
+				{alternatives: ["build"]},
+			]
+		}
+	},
+	{
+		name:        "release"
+		description: "Command that depends on any of 'ci' or 'test'"
+		implementations: [
+			{
+				script:    "echo 'release successful'"
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
+			},
+			{
+				script:    "Write-Output 'release successful'"
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "windows"}]
+			},
+		]
+		depends_on: {
+			cmds: [
+				{alternatives: ["ci", "test"]},
+			]
+		}
+	},
+]

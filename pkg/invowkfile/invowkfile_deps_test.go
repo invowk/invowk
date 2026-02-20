@@ -28,6 +28,46 @@ func testCommandWithDeps(name, script string, deps *DependsOn) Command {
 	}
 }
 
+func TestDependsOn_IsEmpty(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		deps     DependsOn
+		expected bool
+	}{
+		{name: "zero value", deps: DependsOn{}, expected: true},
+		{name: "only tools", deps: DependsOn{Tools: []ToolDependency{{Alternatives: []string{"sh"}}}}, expected: false},
+		{name: "only commands", deps: DependsOn{Commands: []CommandDependency{{Alternatives: []string{"build"}}}}, expected: false},
+		{name: "only filepaths", deps: DependsOn{Filepaths: []FilepathDependency{{Alternatives: []string{"f.txt"}}}}, expected: false},
+		{name: "only capabilities", deps: DependsOn{Capabilities: []CapabilityDependency{{Alternatives: []CapabilityName{CapabilityInternet}}}}, expected: false},
+		{name: "only custom_checks", deps: DependsOn{CustomChecks: []CustomCheckDependency{{Name: "c", CheckScript: "true"}}}, expected: false},
+		{name: "only env_vars", deps: DependsOn{EnvVars: []EnvVarDependency{{Alternatives: []EnvVarCheck{{Name: "HOME"}}}}}, expected: false},
+		{
+			name: "all populated",
+			deps: DependsOn{
+				Tools:        []ToolDependency{{Alternatives: []string{"sh"}}},
+				Commands:     []CommandDependency{{Alternatives: []string{"b"}}},
+				Filepaths:    []FilepathDependency{{Alternatives: []string{"f"}}},
+				Capabilities: []CapabilityDependency{{Alternatives: []CapabilityName{CapabilityInternet}}},
+				CustomChecks: []CustomCheckDependency{{Name: "c", CheckScript: "true"}},
+				EnvVars:      []EnvVarDependency{{Alternatives: []EnvVarCheck{{Name: "X"}}}},
+			},
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			if got := tt.deps.IsEmpty(); got != tt.expected {
+				t.Errorf("IsEmpty() = %v, want %v", got, tt.expected)
+			}
+		})
+	}
+}
+
 func TestCommand_HasDependencies(t *testing.T) {
 	t.Parallel()
 
@@ -62,6 +102,16 @@ func TestCommand_HasDependencies(t *testing.T) {
 				Tools:    []ToolDependency{{Alternatives: []string{"git"}}},
 				Commands: []CommandDependency{{Alternatives: []string{"build"}}},
 			}),
+			expected: true,
+		},
+		{
+			name:     "only env_vars",
+			cmd:      testCommandWithDeps("test", "echo", &DependsOn{EnvVars: []EnvVarDependency{{Alternatives: []EnvVarCheck{{Name: "HOME"}}}}}),
+			expected: true,
+		},
+		{
+			name:     "only custom_checks",
+			cmd:      testCommandWithDeps("test", "echo", &DependsOn{CustomChecks: []CustomCheckDependency{{Name: "c", CheckScript: "true"}}}),
 			expected: true,
 		},
 	}
@@ -141,6 +191,40 @@ func TestCommand_GetCommandDependencies(t *testing.T) {
 				if name != tt.expected[i] {
 					t.Errorf("GetCommandDependencies()[%d] = %q, want %q", i, name, tt.expected[i])
 				}
+			}
+		})
+	}
+}
+
+func TestCommand_HasCommandLevelDependencies_AllTypes(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		deps     *DependsOn
+		expected bool
+	}{
+		{name: "nil", deps: nil, expected: false},
+		{name: "empty", deps: &DependsOn{}, expected: false},
+		{name: "tools", deps: &DependsOn{Tools: []ToolDependency{{Alternatives: []string{"sh"}}}}, expected: true},
+		{name: "commands", deps: &DependsOn{Commands: []CommandDependency{{Alternatives: []string{"b"}}}}, expected: true},
+		{name: "filepaths", deps: &DependsOn{Filepaths: []FilepathDependency{{Alternatives: []string{"f"}}}}, expected: true},
+		{name: "capabilities", deps: &DependsOn{Capabilities: []CapabilityDependency{{Alternatives: []CapabilityName{CapabilityInternet}}}}, expected: true},
+		{name: "custom_checks", deps: &DependsOn{CustomChecks: []CustomCheckDependency{{Name: "c", CheckScript: "true"}}}, expected: true},
+		{name: "env_vars", deps: &DependsOn{EnvVars: []EnvVarDependency{{Alternatives: []EnvVarCheck{{Name: "HOME"}}}}}, expected: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			cmd := Command{
+				Name:            "test",
+				Implementations: []Implementation{{Script: "echo", Runtimes: []RuntimeConfig{{Name: RuntimeNative}}, Platforms: AllPlatformConfigs()}},
+				DependsOn:       tt.deps,
+			}
+			if got := cmd.HasCommandLevelDependencies(); got != tt.expected {
+				t.Errorf("HasCommandLevelDependencies() = %v, want %v", got, tt.expected)
 			}
 		})
 	}
@@ -608,5 +692,142 @@ func TestGenerateCUE_WithFilepaths(t *testing.T) {
 
 	if !strings.Contains(output, "executable: true") {
 		t.Error("GenerateCUE should contain executable flag")
+	}
+}
+
+func TestParseDependsOn_WithEnvVars(t *testing.T) {
+	t.Parallel()
+
+	cueContent := `
+cmds: [
+	{
+		name: "deploy"
+		implementations: [{
+			script: "echo deploy"
+			runtimes: [{name: "native"}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+		depends_on: {
+			env_vars: [
+				{alternatives: [{name: "AWS_ACCESS_KEY_ID"}]},
+				{alternatives: [{name: "GO_VERSION", validation: "^[0-9]+\\.[0-9]+"}]},
+				{alternatives: [{name: "CI_TOKEN"}, {name: "GH_TOKEN"}]},
+			]
+		}
+	}
+]
+`
+
+	tmpDir, err := os.MkdirTemp("", "invowk-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer func() { _ = os.RemoveAll(tmpDir) }() // Cleanup temp dir; error non-critical
+
+	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
+	if writeErr := os.WriteFile(invowkfilePath, []byte(cueContent), 0o644); writeErr != nil {
+		t.Fatalf("Failed to write invowkfile: %v", writeErr)
+	}
+
+	inv, err := Parse(invowkfilePath)
+	if err != nil {
+		t.Fatalf("Parse() error = %v", err)
+	}
+
+	cmd := inv.Commands[0]
+	if cmd.DependsOn == nil {
+		t.Fatal("DependsOn should not be nil")
+	}
+
+	if len(cmd.DependsOn.EnvVars) != 3 {
+		t.Fatalf("Expected 3 env_vars, got %d", len(cmd.DependsOn.EnvVars))
+	}
+
+	// First: single env var, no validation
+	ev0 := cmd.DependsOn.EnvVars[0]
+	if len(ev0.Alternatives) != 1 || ev0.Alternatives[0].Name != "AWS_ACCESS_KEY_ID" {
+		t.Errorf("First env_var = %v, want [{Name: AWS_ACCESS_KEY_ID}]", ev0.Alternatives)
+	}
+	if ev0.Alternatives[0].Validation != "" {
+		t.Errorf("First env_var should have no validation, got %q", ev0.Alternatives[0].Validation)
+	}
+
+	// Second: single env var with validation regex
+	ev1 := cmd.DependsOn.EnvVars[1]
+	if ev1.Alternatives[0].Name != "GO_VERSION" {
+		t.Errorf("Second env_var name = %q, want GO_VERSION", ev1.Alternatives[0].Name)
+	}
+	if ev1.Alternatives[0].Validation == "" {
+		t.Error("Second env_var should have validation pattern")
+	}
+
+	// Third: alternatives (OR semantics)
+	ev2 := cmd.DependsOn.EnvVars[2]
+	if len(ev2.Alternatives) != 2 {
+		t.Fatalf("Third env_var should have 2 alternatives, got %d", len(ev2.Alternatives))
+	}
+	if ev2.Alternatives[0].Name != "CI_TOKEN" || ev2.Alternatives[1].Name != "GH_TOKEN" {
+		t.Errorf("Third env_var alternatives = %v, want [CI_TOKEN, GH_TOKEN]", ev2.Alternatives)
+	}
+}
+
+func TestGenerateCUE_WithEnvVars(t *testing.T) {
+	t.Parallel()
+
+	inv := &Invowkfile{
+		Commands: []Command{
+			{
+				Name:            "deploy",
+				Implementations: []Implementation{{Script: "echo deploy", Runtimes: []RuntimeConfig{{Name: RuntimeNative}}, Platforms: AllPlatformConfigs()}},
+				DependsOn: &DependsOn{
+					EnvVars: []EnvVarDependency{
+						{Alternatives: []EnvVarCheck{{Name: "AWS_ACCESS_KEY_ID"}}},
+						{Alternatives: []EnvVarCheck{{Name: "CI_TOKEN"}, {Name: "GH_TOKEN"}}},
+					},
+				},
+			},
+		},
+	}
+
+	output := GenerateCUE(inv)
+
+	if !strings.Contains(output, "env_vars:") {
+		t.Error("GenerateCUE should contain 'env_vars:'")
+	}
+
+	if !strings.Contains(output, `"AWS_ACCESS_KEY_ID"`) {
+		t.Error("GenerateCUE should contain AWS_ACCESS_KEY_ID")
+	}
+
+	if !strings.Contains(output, `"CI_TOKEN"`) {
+		t.Error("GenerateCUE should contain CI_TOKEN")
+	}
+
+	if !strings.Contains(output, `"GH_TOKEN"`) {
+		t.Error("GenerateCUE should contain GH_TOKEN")
+	}
+
+	// Verify generated CUE round-trips
+	tmpDir, err := os.MkdirTemp("", "invowk-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer func() { _ = os.RemoveAll(tmpDir) }() // Cleanup temp dir; error non-critical
+
+	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
+	if writeErr := os.WriteFile(invowkfilePath, []byte(output), 0o644); writeErr != nil {
+		t.Fatalf("Failed to write invowkfile: %v", writeErr)
+	}
+
+	parsed, err := Parse(invowkfilePath)
+	if err != nil {
+		t.Fatalf("Failed to parse generated CUE: %v", err)
+	}
+
+	if parsed.Commands[0].DependsOn == nil {
+		t.Fatal("Parsed DependsOn should not be nil")
+	}
+	if len(parsed.Commands[0].DependsOn.EnvVars) != 2 {
+		t.Errorf("Expected 2 env_var dependencies after round-trip, got %d", len(parsed.Commands[0].DependsOn.EnvVars))
 	}
 }

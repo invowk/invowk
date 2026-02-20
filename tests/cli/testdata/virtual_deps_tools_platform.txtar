@@ -1,0 +1,26 @@
+# Test: Tool dependencies with cross-platform alternatives
+# Verifies tool deps work with platform-spanning alternatives via OR semantics
+
+cd $WORK
+
+# Test 1: Command with tool dep using cross-platform alternatives
+exec invowk cmd 'deps tool platform'
+stdout 'platform tool dep check passed'
+! stderr .
+
+-- invowkfile.cue --
+cmds: [
+	{
+		name: "deps tool platform"
+		implementations: [{
+			script:    "echo 'platform tool dep check passed'"
+			runtimes:  [{name: "virtual"}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+		depends_on: {
+			tools: [
+				{alternatives: ["sh", "cmd.exe", "powershell.exe"]},
+			]
+		}
+	},
+]

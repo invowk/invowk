@@ -1,0 +1,62 @@
+# Test: Command dependency resolution (depends_on.cmds)
+# Tests that a command can declare dependencies on other discoverable commands
+
+cd $WORK
+
+# Test 1: Command with satisfied command dependency runs successfully
+exec invowk cmd 'deploy'
+stdout 'deploy successful'
+! stderr .
+
+# Test 2: Command with alternatives where second alternative exists
+exec invowk cmd 'release'
+stdout 'release successful'
+! stderr .
+
+-- invowkfile.cue --
+cmds: [
+	{
+		name: "build"
+		implementations: [{
+			script:    "echo 'build done'"
+			runtimes:  [{name: "virtual"}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+	},
+	{
+		name: "test"
+		implementations: [{
+			script:    "echo 'test done'"
+			runtimes:  [{name: "virtual"}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+	},
+	{
+		name:        "deploy"
+		description: "Command that depends on 'build' existing"
+		implementations: [{
+			script:    "echo 'deploy successful'"
+			runtimes:  [{name: "virtual"}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+		depends_on: {
+			cmds: [
+				{alternatives: ["build"]},
+			]
+		}
+	},
+	{
+		name:        "release"
+		description: "Command that depends on any of 'ci' or 'test'"
+		implementations: [{
+			script:    "echo 'release successful'"
+			runtimes:  [{name: "virtual"}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+		depends_on: {
+			cmds: [
+				{alternatives: ["ci", "test"]},
+			]
+		}
+	},
+]

@@ -499,3 +499,33 @@ func TestCheckCustomChecks_InvalidRegex(t *testing.T) {
 		t.Errorf("Error message should mention invalid regex, got: %s", depErr.FailedCustomChecks[0])
 	}
 }
+
+func TestRenderDependencyError_FailedCustomChecks(t *testing.T) {
+	t.Parallel()
+
+	err := &DependencyError{
+		CommandName: "verify",
+		FailedCustomChecks: []string{
+			"  - docker-version: exit code 127 (expected 0)",
+			"  - go-version: output does not match pattern 'go1\\.'",
+		},
+	}
+
+	output := RenderDependencyError(err)
+
+	if !strings.Contains(output, "Dependencies not satisfied") {
+		t.Error("RenderDependencyError should contain header")
+	}
+	if !strings.Contains(output, "'verify'") {
+		t.Error("RenderDependencyError should contain command name")
+	}
+	if !strings.Contains(output, "Failed Custom Checks") {
+		t.Error("RenderDependencyError should contain 'Failed Custom Checks' section")
+	}
+	if !strings.Contains(output, "docker-version") {
+		t.Error("RenderDependencyError should contain first failed check name")
+	}
+	if !strings.Contains(output, "go-version") {
+		t.Error("RenderDependencyError should contain second failed check name")
+	}
+}

@@ -1,0 +1,48 @@
+# Test: Root-level depends_on
+# Tests that root-level dependencies are checked before any command runs
+
+cd $WORK
+
+# Test 1: Root-level tool dep satisfied (sh exists everywhere)
+exec invowk cmd 'hello'
+stdout 'hello from root deps test'
+! stderr .
+
+# Test 2: Root-level missing tool should prevent ANY command from running
+cd $WORK/broken
+! exec invowk cmd 'hello'
+stderr '(?i)dependencies not satisfied'
+stderr 'Missing Tools'
+stderr 'nonexistent-root-tool-xyz'
+
+-- invowkfile.cue --
+depends_on: {
+	tools: [{alternatives: ["sh"]}]
+}
+
+cmds: [
+	{
+		name: "hello"
+		implementations: [{
+			script:    "echo 'hello from root deps test'"
+			runtimes:  [{name: "virtual"}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+	},
+]
+
+-- broken/invowkfile.cue --
+depends_on: {
+	tools: [{alternatives: ["nonexistent-root-tool-xyz"]}]
+}
+
+cmds: [
+	{
+		name: "hello"
+		implementations: [{
+			script:    "echo 'should not run'"
+			runtimes:  [{name: "virtual"}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+	},
+]

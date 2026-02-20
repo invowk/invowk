@@ -1,0 +1,63 @@
+# Test: Tool dependency error path using native runtime
+# Mirrors virtual_deps_tools_error.txtar but with platform-split native implementations
+
+cd $WORK
+
+# Test 1: Missing a single tool should produce error
+! exec invowk cmd 'deps tool missing'
+stderr '(?i)dependencies not satisfied'
+stderr 'Missing Tools'
+stderr 'nonexistent-tool-xyz-99999'
+
+# Test 2: Missing one of multiple required tools should fail (only missing tool in error)
+! exec invowk cmd 'deps tools partial-missing'
+stderr '(?i)dependencies not satisfied'
+stderr 'Missing Tools'
+stderr 'nonexistent-tool-abc-88888'
+
+-- invowkfile.cue --
+cmds: [
+	{
+		name:        "deps tool missing"
+		description: "Command requiring a nonexistent tool"
+		implementations: [
+			{
+				script:    "echo 'should not run'"
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
+			},
+			{
+				script:    "Write-Output 'should not run'"
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "windows"}]
+			},
+		]
+		depends_on: {
+			tools: [
+				{alternatives: ["nonexistent-tool-xyz-99999"]},
+			]
+		}
+	},
+	{
+		name:        "deps tools partial-missing"
+		description: "Command with mix of existing and missing tool deps"
+		implementations: [
+			{
+				script:    "echo 'should not run'"
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
+			},
+			{
+				script:    "Write-Output 'should not run'"
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "windows"}]
+			},
+		]
+		depends_on: {
+			tools: [
+				{alternatives: ["sh"]},
+				{alternatives: ["nonexistent-tool-abc-88888"]},
+			]
+		}
+	},
+]
