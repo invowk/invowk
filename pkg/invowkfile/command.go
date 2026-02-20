@@ -14,6 +14,8 @@ type Command struct {
 	Name string `json:"name"`
 	// Description provides help text for the command
 	Description string `json:"description,omitempty"`
+	// Category groups this command under a heading in 'invowk cmd' output (optional)
+	Category string `json:"category,omitempty"`
 	// Implementations defines the executable implementations with platform/runtime constraints (required, at least one)
 	Implementations []Implementation `json:"implementations"`
 	// Env contains environment configuration for this command (optional)
@@ -35,6 +37,9 @@ type Command struct {
 	// Arguments are passed as environment variables: INVOWK_ARG_<NAME>
 	// For variadic arguments: INVOWK_ARG_<NAME>_COUNT and INVOWK_ARG_<NAME>_1, _2, etc.
 	Args []Argument `json:"args,omitempty"`
+	// Watch defines file-watching configuration for automatic re-execution (optional).
+	// When defined, the command can be activated in watch mode via --ivk-watch.
+	Watch *WatchConfig `json:"watch,omitempty"`
 }
 
 // GetImplForPlatformRuntime finds the implementation that matches the given platform and runtime.
@@ -89,8 +94,8 @@ func (c *Command) CanRunOnCurrentHost() bool {
 func (c *Command) GetSupportedPlatforms() []Platform {
 	platformSet := make(map[Platform]bool)
 
-	for _, s := range c.Implementations {
-		for _, p := range s.Platforms {
+	for i := range c.Implementations {
+		for _, p := range c.Implementations[i].Platforms {
 			platformSet[p.Name] = true
 		}
 	}
@@ -189,8 +194,8 @@ func (c *Command) HasDependencies() bool {
 	if c.HasCommandLevelDependencies() {
 		return true
 	}
-	for _, s := range c.Implementations {
-		if s.HasDependencies() {
+	for i := range c.Implementations {
+		if c.Implementations[i].HasDependencies() {
 			return true
 		}
 	}

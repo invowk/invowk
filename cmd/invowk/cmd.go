@@ -34,6 +34,10 @@ type (
 		fromSource string
 		// forceRebuild forces container image rebuilds, bypassing cache.
 		forceRebuild bool
+		// dryRun enables dry-run mode: prints what would be executed without executing.
+		dryRun bool
+		// watch enables watch mode: re-execute command on file changes.
+		watch bool
 	}
 
 	// DependencyError represents unsatisfied dependencies.
@@ -173,6 +177,8 @@ Examples:
 	cmdCmd.PersistentFlags().StringVarP(&cmdFlags.runtimeOverride, "ivk-runtime", "r", "", "override the runtime (must be allowed by the command)")
 	cmdCmd.PersistentFlags().StringVarP(&cmdFlags.fromSource, "ivk-from", "f", "", "source to run command from (e.g., 'invowkfile' or module name)")
 	cmdCmd.PersistentFlags().BoolVar(&cmdFlags.forceRebuild, "ivk-force-rebuild", false, "force rebuild of container images (container runtime only)")
+	cmdCmd.PersistentFlags().BoolVar(&cmdFlags.dryRun, "ivk-dry-run", false, "print what would be executed without executing")
+	cmdCmd.PersistentFlags().BoolVarP(&cmdFlags.watch, "ivk-watch", "W", false, "watch files for changes and re-execute")
 
 	// Build dynamic command leaves at construction time (instead of package init).
 	registerDiscoveredCommands(context.Background(), app, rootFlags, cmdFlags, cmdCmd)
@@ -247,6 +253,11 @@ func runCommand(cmd *cobra.Command, app *App, rootFlags *rootFlagValues, cmdFlag
 		return fmt.Errorf("no command specified")
 	}
 
+	// Watch mode intercepts before normal execution.
+	if cmdFlags.watch {
+		return runWatchMode(cmd, app, rootFlags, cmdFlags, args)
+	}
+
 	parsedRuntime, err := cmdFlags.parsedRuntimeMode()
 	if err != nil {
 		return err
@@ -263,6 +274,7 @@ func runCommand(cmd *cobra.Command, app *App, rootFlags *rootFlagValues, cmdFlag
 		FromSource:   cmdFlags.fromSource,
 		ForceRebuild: cmdFlags.forceRebuild,
 		ConfigPath:   rootFlags.configPath,
+		DryRun:       cmdFlags.dryRun,
 	}
 
 	err = executeRequest(cmd, app, req)

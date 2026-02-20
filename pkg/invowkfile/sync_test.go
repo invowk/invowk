@@ -416,6 +416,17 @@ func TestCustomCheckSchemaSync(t *testing.T) {
 	assertFieldsSync(t, "CustomCheck", cueFields, goFields)
 }
 
+// TestWatchConfigSchemaSync verifies WatchConfig Go struct matches #WatchConfig CUE definition.
+func TestWatchConfigSchemaSync(t *testing.T) {
+	t.Parallel()
+
+	schema, _ := getCUESchema(t)
+	cueFields := extractCUEFields(t, lookupDefinition(t, schema, "#WatchConfig"))
+	goFields := extractGoJSONTags(t, reflect.TypeFor[WatchConfig]())
+
+	assertFieldsSync(t, "WatchConfig", cueFields, goFields)
+}
+
 // =============================================================================
 // Constraint Boundary Tests - Phase 5 (T090-T094)
 // =============================================================================

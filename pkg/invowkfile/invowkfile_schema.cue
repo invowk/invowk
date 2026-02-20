@@ -153,6 +153,11 @@ import "strings"
 	// use depends_on inside the runtime block instead.
 	// Implementation-level depends_on is combined with root-level and command-level depends_on.
 	depends_on?: #DependsOn
+
+	// timeout specifies the maximum execution duration (optional)
+	// Must be a valid Go duration string (e.g., "30s", "5m", "1h30m")
+	// When exceeded, the command is cancelled and returns a timeout error.
+	timeout?: string & =~"^[0-9]" & strings.MaxRunes(32)
 })
 
 // ToolDependency represents a tool/binary that must be available in PATH
@@ -221,6 +226,12 @@ import "strings"
 	// This allows specifying alternative commands (e.g., ["build-debug", "build-release"]).
 	// Command names must be valid: starts with letter, can include letters, digits, underscores, hyphens, and spaces
 	alternatives: [...string & =~"^[a-zA-Z][a-zA-Z0-9_ -]*$"] & [_, ...]
+
+	// execute specifies whether to run this dependency command before the parent (optional, default: false)
+	// When true, the dependency command is executed (not just checked for discoverability).
+	// Dependency commands with execute: true must not have required args or flags.
+	// Circular execute dependencies are detected and rejected at validation time.
+	execute?: bool
 })
 
 // CapabilityName defines the supported system capability types
@@ -369,6 +380,27 @@ import "strings"
 	validation?: string & !="" & strings.MaxRunes(1000)
 })
 
+// WatchConfig defines file-watching behavior for automatic command re-execution
+#WatchConfig: close({
+	// patterns lists glob patterns for files to watch (required, at least one)
+	// Patterns support ** for recursive matching (e.g., "src/**/*.go", "*.ts")
+	// Paths are relative to the effective working directory of the command
+	patterns: [...string & !="" & strings.MaxRunes(4096)] & [_, ...]
+
+	// debounce specifies the delay before re-executing after a change (optional)
+	// Must be a valid Go duration string (e.g., "500ms", "1s", "2s")
+	// Default: "500ms"
+	debounce?: string & =~"^[0-9]" & strings.MaxRunes(32)
+
+	// clear_screen clears the terminal before each re-execution (optional)
+	// Default: false
+	clear_screen?: bool
+
+	// ignore lists glob patterns for files/directories to exclude from watching (optional)
+	// Common ignores (.git, node_modules) are applied by default
+	ignore?: [...string & !="" & strings.MaxRunes(4096)]
+})
+
 // Command represents a single executable command
 #Command: close({
 	// name is the command identifier (required)
@@ -378,6 +410,11 @@ import "strings"
 	// description provides help text for the command (optional)
 	// When declared, description must be non-empty (cannot be "" or whitespace-only)
 	description?: string & =~"^\\s*\\S.*$" & strings.MaxRunes(10240)
+
+	// category groups this command under a heading in 'invowk cmd' output (optional)
+	// When declared, category must be non-empty (cannot be "" or whitespace-only)
+	// Examples: "build", "test", "deploy", "utilities"
+	category?: string & =~"^\\s*\\S.*$" & strings.MaxRunes(256)
 
 	// implementations defines the executable implementations with platform/runtime constraints (required, at least one)
 	// Each implementation specifies which platforms and runtimes it supports
@@ -415,6 +452,11 @@ import "strings"
 	//   - Only the last argument can be variadic
 	//   - Commands with subcommands cannot have args (validated during command registration)
 	args?: [...#Argument]
+
+	// watch defines file-watching configuration for this command (optional)
+	// When defined, the command can be run in watch mode with --ivk-watch
+	// If --ivk-watch is passed without watch config, the current directory is watched
+	watch?: #WatchConfig
 })
 
 // Invowkfile is the root schema for command definitions (invowkfile.cue)

@@ -11,6 +11,7 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"time"
 
 	appexec "github.com/invowk/invowk/internal/app/execute"
 	"github.com/invowk/invowk/internal/config"
@@ -95,6 +96,12 @@ func (s *commandService) Execute(ctx context.Context, req ExecuteRequest) (Execu
 	execCtx, err := s.buildExecContext(req, cmdInfo, defs, resolved)
 	if err != nil {
 		return ExecuteResult{}, diags, err
+	}
+
+	// Dry-run mode: print what would be executed and exit without executing.
+	if req.DryRun {
+		renderDryRun(s.stdout, req, cmdInfo, execCtx, resolved)
+		return ExecuteResult{ExitCode: 0}, diags, nil
 	}
 
 	return s.dispatchExecution(req, execCtx, cmdInfo, cfg, diags)
@@ -255,6 +262,8 @@ func (s *commandService) buildExecContext(req ExecuteRequest, cmdInfo *discovery
 		EnvInheritMode:  req.EnvInheritMode,
 		EnvInheritAllow: req.EnvInheritAllow,
 		EnvInheritDeny:  req.EnvInheritDeny,
+		SourceID:        cmdInfo.SourceID,
+		Platform:        invowkfile.GetCurrentHostOS(),
 	})
 }
 
@@ -287,8 +296,32 @@ func (s *commandService) dispatchExecution(req ExecuteRequest, execCtx *runtime.
 		return ExecuteResult{}, diags, err
 	}
 
+	// Execute dependency commands (depends_on.cmds with execute: true) before
+	// the main command. Each dep runs through the full Execute pipeline so
+	// transitive execute deps are handled recursively.
+	if err := s.executeDepCommands(execCtx.Context, req, cmdInfo, execCtx); err != nil {
+		return ExecuteResult{}, diags, err
+	}
+
 	if req.Verbose {
 		fmt.Fprintf(s.stdout, "%s Running '%s'...\n", SuccessStyle.Render("→"), req.Name)
+	}
+
+	// Apply execution timeout if specified in the implementation.
+	// The timeout wraps the execution context so both interactive and standard
+	// execution paths respect it. Cancel is deferred to release timer resources.
+	if execCtx.SelectedImpl != nil && execCtx.SelectedImpl.Timeout != "" {
+		duration, parseErr := time.ParseDuration(execCtx.SelectedImpl.Timeout)
+		if parseErr != nil {
+			return ExecuteResult{}, diags, newServiceError(
+				fmt.Errorf("invalid timeout %q: %w", execCtx.SelectedImpl.Timeout, parseErr),
+				issue.InvalidArgumentId,
+				"",
+			)
+		}
+		var cancel context.CancelFunc
+		execCtx.Context, cancel = context.WithTimeout(execCtx.Context, duration)
+		defer cancel()
 	}
 
 	// SSH server stop is deferred here because this is the last step before execution,

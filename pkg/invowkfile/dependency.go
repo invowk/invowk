@@ -49,6 +49,10 @@ type (
 		// If any of the provided commands is discoverable, the dependency is satisfied (early return).
 		// This allows specifying alternative commands (e.g., ["build-debug", "build-release"]).
 		Alternatives []string `json:"alternatives"`
+		// Execute specifies whether to run this dependency command before the parent.
+		// When true, the dependency command is actually executed (not just checked for discoverability).
+		// Default: false (discoverability check only, preserving existing behavior).
+		Execute bool `json:"execute,omitempty"`
 	}
 
 	// CapabilityDependency represents a system capability that must be available
@@ -120,6 +124,27 @@ type (
 func (d *DependsOn) IsEmpty() bool {
 	return len(d.Tools) == 0 && len(d.Commands) == 0 && len(d.Filepaths) == 0 &&
 		len(d.Capabilities) == 0 && len(d.CustomChecks) == 0 && len(d.EnvVars) == 0
+}
+
+// HasExecutableCommandDeps returns true if any command dependency has Execute set to true.
+func (d *DependsOn) HasExecutableCommandDeps() bool {
+	for i := range d.Commands {
+		if d.Commands[i].Execute {
+			return true
+		}
+	}
+	return false
+}
+
+// GetExecutableCommandDeps returns only the command dependencies that have Execute set to true.
+func (d *DependsOn) GetExecutableCommandDeps() []CommandDependency {
+	var result []CommandDependency
+	for i := range d.Commands {
+		if d.Commands[i].Execute {
+			result = append(result, d.Commands[i])
+		}
+	}
+	return result
 }
 
 // IsAlternatives returns true if this dependency uses the alternatives format

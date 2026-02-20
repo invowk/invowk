@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/invowk/invowk/internal/dag"
 	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
@@ -47,6 +48,93 @@ func (e *ArgsSubcommandConflictError) Error() string {
 		sb.WriteString(sub)
 	}
 	return sb.String()
+}
+
+// ValidateExecutionDAG checks for cycles among commands connected by execute: true
+// dependencies. Only deps with Execute=true form graph edges; discoverability-only
+// deps are ignored. Also validates that commands referenced by execute deps do not
+// have required args or flags (since execute deps run without arguments).
+//
+// Returns a dag.CycleError if cycles exist, or a descriptive error for
+// required args/flags violations.
+func ValidateExecutionDAG(commands []*CommandInfo) error {
+	if len(commands) == 0 {
+		return nil
+	}
+
+	// Index commands by name for cross-reference lookups.
+	byName := make(map[string]*CommandInfo, len(commands))
+	for _, cmd := range commands {
+		if cmd != nil && cmd.Command != nil {
+			byName[cmd.Name] = cmd
+		}
+	}
+
+	g := dag.New()
+
+	for _, cmd := range commands {
+		if cmd == nil || cmd.Command == nil {
+			continue
+		}
+
+		// Collect execute deps from all levels (command + implementations).
+		var execDeps []invowkfile.CommandDependency
+		if cmd.Command.DependsOn != nil {
+			execDeps = append(execDeps, cmd.Command.DependsOn.GetExecutableCommandDeps()...)
+		}
+		for i := range cmd.Command.Implementations {
+			impl := &cmd.Command.Implementations[i]
+			if impl.DependsOn != nil {
+				execDeps = append(execDeps, impl.DependsOn.GetExecutableCommandDeps()...)
+			}
+		}
+
+		if len(execDeps) == 0 {
+			continue
+		}
+
+		g.AddNode(cmd.Name)
+		for _, dep := range execDeps {
+			// Use the first alternative as the canonical dependency name for the graph.
+			// At execution time, the first discoverable alternative is used.
+			for _, alt := range dep.Alternatives {
+				g.AddEdge(alt, cmd.Name)
+
+				// Validate that the dependency command has no required args/flags.
+				if target, ok := byName[alt]; ok {
+					if err := validateNoRequiredInputs(target, cmd.Name); err != nil {
+						return err
+					}
+				}
+			}
+		}
+	}
+
+	_, err := g.TopologicalSort()
+	return err
+}
+
+// validateNoRequiredInputs checks that a command has no required args or flags.
+// Commands used as execute dependencies cannot receive arguments, so required
+// inputs would always fail.
+func validateNoRequiredInputs(target *CommandInfo, parentName string) error {
+	for _, arg := range target.Command.Args {
+		if arg.Required {
+			return fmt.Errorf(
+				"command '%s' has execute dependency on '%s', but '%s' has required argument '%s'",
+				parentName, target.Name, target.Name, arg.Name,
+			)
+		}
+	}
+	for _, flag := range target.Command.Flags {
+		if flag.Required {
+			return fmt.Errorf(
+				"command '%s' has execute dependency on '%s', but '%s' has required flag '--%s'",
+				parentName, target.Name, target.Name, flag.Name,
+			)
+		}
+	}
+	return nil
 }
 
 // ValidateCommandTree checks for args/subcommand conflicts across all commands.

@@ -39,6 +39,10 @@ type (
 		// To validate dependencies inside the runtime environment (e.g., inside a container),
 		// use DependsOn inside the RuntimeConfig instead.
 		DependsOn *DependsOn `json:"depends_on,omitempty"`
+		// Timeout specifies the maximum execution duration (optional).
+		// Must be a valid Go duration string (e.g., "30s", "5m", "1h30m").
+		// When exceeded, the command is cancelled and returns a timeout error.
+		Timeout string `json:"timeout,omitempty"`
 
 		// resolvedScript caches the resolved script content (lazy memoization).
 		// Script content is resolved from file path or inline source on first
