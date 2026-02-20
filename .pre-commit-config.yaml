@@ -10,4 +10,5 @@ repos:
     rev: v2.9.0
     hooks:
       - id: golangci-lint
-        args: [--config=.golangci.toml]
+        args: [--config=.golangci.toml, ./...]
+        pass_filenames: false

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	goruntime "runtime"
 	"strings"
 	"testing"
 
@@ -385,6 +386,295 @@ func TestCheckFilepathDependencies_MultipleDependenciesWithAlternatives(t *testi
 	err := checkFilepathDependencies(cmd, invowkfilePath)
 	if err != nil {
 		t.Errorf("checkFilepathDependencies() should return nil when each dependency has an alternative satisfied, got: %v", err)
+	}
+}
+
+func TestCheckFilepathDependencies_ExecutableFile(t *testing.T) {
+	t.Parallel()
+
+	if goruntime.GOOS == "windows" {
+		t.Skip("skipping: Unix permission bit test not applicable on Windows")
+	}
+
+	tmpDir := t.TempDir()
+	testFile := filepath.Join(tmpDir, "run.sh")
+	if err := os.WriteFile(testFile, []byte("#!/bin/sh\necho hello"), 0o755); err != nil {
+		t.Fatalf("Failed to create test file: %v", err)
+	}
+
+	cmd := invowkfiletest.NewTestCommand("test",
+		invowkfiletest.WithScript("echo hello"),
+		invowkfiletest.WithDependsOn(&invowkfile.DependsOn{
+			Filepaths: []invowkfile.FilepathDependency{
+				{Alternatives: []string{"run.sh"}, Executable: true},
+			},
+		}))
+
+	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
+	err := checkFilepathDependencies(cmd, invowkfilePath)
+	if err != nil {
+		t.Errorf("checkFilepathDependencies() should return nil for executable file (0o755), got: %v", err)
+	}
+}
+
+func TestCheckFilepathDependencies_NonExecutableFile(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	testFile := filepath.Join(tmpDir, "data.txt")
+	if err := os.WriteFile(testFile, []byte("data"), 0o644); err != nil {
+		t.Fatalf("Failed to create test file: %v", err)
+	}
+
+	cmd := invowkfiletest.NewTestCommand("test",
+		invowkfiletest.WithScript("echo hello"),
+		invowkfiletest.WithDependsOn(&invowkfile.DependsOn{
+			Filepaths: []invowkfile.FilepathDependency{
+				{Alternatives: []string{"data.txt"}, Executable: true},
+			},
+		}))
+
+	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
+	err := checkFilepathDependencies(cmd, invowkfilePath)
+	if err == nil {
+		t.Error("checkFilepathDependencies() should return error for non-executable file")
+	}
+
+	depErr, ok := errors.AsType[*DependencyError](err)
+	if !ok {
+		t.Fatalf("checkFilepathDependencies() should return *DependencyError, got: %T", err)
+	}
+
+	if len(depErr.MissingFilepaths) != 1 {
+		t.Errorf("DependencyError.MissingFilepaths length = %d, want 1", len(depErr.MissingFilepaths))
+	}
+
+	if !strings.Contains(depErr.MissingFilepaths[0], "execute") {
+		t.Errorf("Error message should mention 'execute', got: %s", depErr.MissingFilepaths[0])
+	}
+}
+
+func TestCheckFilepathDependencies_ExecutableDirectory(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	execDir := filepath.Join(tmpDir, "bin")
+	if err := os.MkdirAll(execDir, 0o755); err != nil {
+		t.Fatalf("Failed to create directory: %v", err)
+	}
+
+	cmd := invowkfiletest.NewTestCommand("test",
+		invowkfiletest.WithScript("echo hello"),
+		invowkfiletest.WithDependsOn(&invowkfile.DependsOn{
+			Filepaths: []invowkfile.FilepathDependency{
+				{Alternatives: []string{"bin"}, Executable: true},
+			},
+		}))
+
+	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
+	err := checkFilepathDependencies(cmd, invowkfilePath)
+	if err != nil {
+		t.Errorf("checkFilepathDependencies() should return nil for executable directory, got: %v", err)
+	}
+}
+
+func TestCheckFilepathDependencies_ExecutableExtensionWindows(t *testing.T) {
+	t.Parallel()
+
+	if goruntime.GOOS != "windows" {
+		t.Skip("skipping: Windows-specific executable extension test")
+	}
+
+	tmpDir := t.TempDir()
+
+	// .exe should pass the executable check on Windows
+	exeFile := filepath.Join(tmpDir, "tool.exe")
+	if err := os.WriteFile(exeFile, []byte("fake exe"), 0o644); err != nil {
+		t.Fatalf("Failed to create .exe file: %v", err)
+	}
+
+	cmd := invowkfiletest.NewTestCommand("test",
+		invowkfiletest.WithScript("echo hello"),
+		invowkfiletest.WithDependsOn(&invowkfile.DependsOn{
+			Filepaths: []invowkfile.FilepathDependency{
+				{Alternatives: []string{"tool.exe"}, Executable: true},
+			},
+		}))
+
+	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
+	err := checkFilepathDependencies(cmd, invowkfilePath)
+	if err != nil {
+		t.Errorf("checkFilepathDependencies() should return nil for .exe file on Windows, got: %v", err)
+	}
+}
+
+func TestCheckFilepathDependencies_NonExecutableDirectory(t *testing.T) {
+	t.Parallel()
+
+	if goruntime.GOOS == "windows" {
+		t.Skip("skipping: Unix permission bit test not applicable on Windows")
+	}
+
+	tmpDir := t.TempDir()
+	noExecDir := filepath.Join(tmpDir, "nox")
+	if err := os.MkdirAll(noExecDir, 0o644); err != nil {
+		t.Fatalf("Failed to create directory: %v", err)
+	}
+
+	cmd := invowkfiletest.NewTestCommand("test",
+		invowkfiletest.WithScript("echo hello"),
+		invowkfiletest.WithDependsOn(&invowkfile.DependsOn{
+			Filepaths: []invowkfile.FilepathDependency{
+				{Alternatives: []string{"nox"}, Executable: true},
+			},
+		}))
+
+	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
+	err := checkFilepathDependencies(cmd, invowkfilePath)
+	if err == nil {
+		t.Error("checkFilepathDependencies() should return error for non-executable directory (0o644)")
+	}
+
+	depErr, ok := errors.AsType[*DependencyError](err)
+	if !ok {
+		t.Fatalf("checkFilepathDependencies() should return *DependencyError, got: %T", err)
+	}
+
+	if len(depErr.MissingFilepaths) != 1 {
+		t.Errorf("DependencyError.MissingFilepaths length = %d, want 1", len(depErr.MissingFilepaths))
+	}
+
+	if !strings.Contains(depErr.MissingFilepaths[0], "execute") {
+		t.Errorf("Error message should mention 'execute', got: %s", depErr.MissingFilepaths[0])
+	}
+}
+
+func TestCheckFilepathDependencies_InaccessibleFile(t *testing.T) {
+	t.Parallel()
+
+	if goruntime.GOOS == "windows" {
+		t.Skip("skipping: Unix chmod 0o000 test not applicable on Windows")
+	}
+
+	tmpDir := t.TempDir()
+	testFile := filepath.Join(tmpDir, "denied.sh")
+	if err := os.WriteFile(testFile, []byte("#!/bin/sh\necho hello"), 0o000); err != nil {
+		t.Fatalf("Failed to create test file: %v", err)
+	}
+
+	cmd := invowkfiletest.NewTestCommand("test",
+		invowkfiletest.WithScript("echo hello"),
+		invowkfiletest.WithDependsOn(&invowkfile.DependsOn{
+			Filepaths: []invowkfile.FilepathDependency{
+				{Alternatives: []string{"denied.sh"}, Executable: true},
+			},
+		}))
+
+	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
+	err := checkFilepathDependencies(cmd, invowkfilePath)
+	if err == nil {
+		t.Error("checkFilepathDependencies() should return error for inaccessible file (0o000)")
+	}
+}
+
+func TestCheckFilepathDependencies_ExecutableAlternativesFallback(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+
+	// Create run.sh without execute bit and run.bat
+	if err := os.WriteFile(filepath.Join(tmpDir, "run.sh"), []byte("#!/bin/sh\necho hello"), 0o644); err != nil {
+		t.Fatalf("Failed to create run.sh: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(tmpDir, "run.bat"), []byte("@echo off\necho hello"), 0o644); err != nil {
+		t.Fatalf("Failed to create run.bat: %v", err)
+	}
+
+	cmd := invowkfiletest.NewTestCommand("test",
+		invowkfiletest.WithScript("echo hello"),
+		invowkfiletest.WithDependsOn(&invowkfile.DependsOn{
+			Filepaths: []invowkfile.FilepathDependency{
+				{Alternatives: []string{"run.sh", "run.bat"}, Executable: true},
+			},
+		}))
+
+	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
+	err := checkFilepathDependencies(cmd, invowkfilePath)
+
+	if goruntime.GOOS == "windows" {
+		// On Windows: run.sh fails (no .sh in PATHEXT), run.bat succeeds (.bat extension)
+		if err != nil {
+			t.Errorf("checkFilepathDependencies() should succeed on Windows via .bat alternative, got: %v", err)
+		}
+	} else {
+		// On Unix: both fail (neither has execute bit)
+		if err == nil {
+			t.Fatal("checkFilepathDependencies() should fail on Unix when no alternative has execute permission")
+		}
+
+		depErr, ok := errors.AsType[*DependencyError](err)
+		if !ok {
+			t.Fatalf("checkFilepathDependencies() should return *DependencyError, got: %T", err)
+		}
+
+		if len(depErr.MissingFilepaths) != 1 {
+			t.Errorf("DependencyError.MissingFilepaths length = %d, want 1", len(depErr.MissingFilepaths))
+		}
+
+		if !strings.Contains(depErr.MissingFilepaths[0], "execute") {
+			t.Errorf("Error message should mention 'execute', got: %s", depErr.MissingFilepaths[0])
+		}
+	}
+}
+
+func TestIsExecutable_PATHEXTFallback(t *testing.T) {
+	// t.Setenv modifies process state, incompatible with t.Parallel()
+	if goruntime.GOOS != "windows" {
+		t.Skip("skipping: PATHEXT is only consulted on Windows")
+	}
+
+	tmpDir := t.TempDir()
+	testFile := filepath.Join(tmpDir, "script.py")
+	if err := os.WriteFile(testFile, []byte("print('hello')"), 0o644); err != nil {
+		t.Fatalf("Failed to create test file: %v", err)
+	}
+
+	// Set PATHEXT to include .PY
+	t.Setenv("PATHEXT", ".EXE;.PY;.RB")
+
+	info, err := os.Stat(testFile)
+	if err != nil {
+		t.Fatalf("Failed to stat test file: %v", err)
+	}
+
+	if !isExecutable(testFile, info) {
+		t.Error("isExecutable() should return true for .py file when PATHEXT includes .PY")
+	}
+}
+
+func TestIsExecutable_PATHEXTEmptyEntries(t *testing.T) {
+	// t.Setenv modifies process state, incompatible with t.Parallel()
+	if goruntime.GOOS != "windows" {
+		t.Skip("skipping: PATHEXT is only consulted on Windows")
+	}
+
+	tmpDir := t.TempDir()
+	// File with no extension should NOT match empty PATHEXT entries
+	testFile := filepath.Join(tmpDir, "noext")
+	if err := os.WriteFile(testFile, []byte("data"), 0o644); err != nil {
+		t.Fatalf("Failed to create test file: %v", err)
+	}
+
+	// PATHEXT with empty entries from trailing/double semicolons
+	t.Setenv("PATHEXT", ".EXE;;.BAT;")
+
+	info, err := os.Stat(testFile)
+	if err != nil {
+		t.Fatalf("Failed to stat test file: %v", err)
+	}
+
+	if isExecutable(testFile, info) {
+		t.Error("isExecutable() should return false for extensionless file even with empty PATHEXT entries")
 	}
 }
 

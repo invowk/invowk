@@ -248,7 +248,7 @@ func (r *ContainerRuntime) runWithRetry(ctx context.Context, runOpts container.R
 		// engine.Run() returns exit-code failures in result rather than err.
 		// Check for transient engine exit codes (125 = generic engine error,
 		// 126 = OCI runtime failure e.g., crun ping_group_range race).
-		if result.ExitCode == 0 || !isTransientExitCode(result.ExitCode) {
+		if result.ExitCode == 0 || !IsTransientExitCode(result.ExitCode) {
 			flushStderr(originalStderr, &stderrBuf)
 			return result, nil
 		}
@@ -284,13 +284,13 @@ func flushStderr(dst io.Writer, src *bytes.Buffer) {
 	}
 }
 
-// isTransientExitCode reports whether a container exit code indicates a transient
+// IsTransientExitCode reports whether a container exit code indicates a transient
 // engine error that may succeed on retry. These codes come from the container
 // engine (Docker/Podman), not from the user's command inside the container.
 //
 //   - 125: Generic container engine error (Docker/Podman convention for internal failures)
 //   - 126: OCI runtime error (e.g., crun ping_group_range race on rootless Podman)
-func isTransientExitCode(code int) bool {
+func IsTransientExitCode(code int) bool {
 	return code == 125 || code == 126
 }
 

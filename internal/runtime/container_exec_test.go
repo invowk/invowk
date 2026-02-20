@@ -402,8 +402,8 @@ func TestIsTransientExitCode(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(fmt.Sprintf("exit_code_%d", tt.code), func(t *testing.T) {
 			t.Parallel()
-			if got := isTransientExitCode(tt.code); got != tt.want {
-				t.Errorf("isTransientExitCode(%d) = %v, want %v", tt.code, got, tt.want)
+			if got := IsTransientExitCode(tt.code); got != tt.want {
+				t.Errorf("IsTransientExitCode(%d) = %v, want %v", tt.code, got, tt.want)
 			}
 		})
 	}

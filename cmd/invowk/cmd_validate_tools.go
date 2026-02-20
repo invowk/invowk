@@ -81,6 +81,9 @@ func validateToolInContainer(toolName string, rt runtime.Runtime, ctx *runtime.E
 	if result.Error != nil {
 		return fmt.Errorf("  • %s - container validation failed: %w", toolName, result.Error)
 	}
+	if err := checkTransientExitCode(result, toolName); err != nil {
+		return err
+	}
 	if result.ExitCode != 0 {
 		_ = stderr // consumed by newContainerValidationContext but not needed here
 		return fmt.Errorf("  • %s - not available in container", toolName)

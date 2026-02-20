@@ -4,6 +4,7 @@ package cmd
 
 import (
 	"bytes"
+	"fmt"
 
 	"github.com/invowk/invowk/internal/runtime"
 	"github.com/invowk/invowk/pkg/invowkfile"
@@ -40,4 +41,15 @@ func newContainerValidationContext(parentCtx *runtime.ExecutionContext, script s
 		Env:             runtime.DefaultEnv(),
 	}
 	return execCtx, stdout, stderr
+}
+
+// checkTransientExitCode returns a formatted error if the container execution result
+// indicates a transient engine failure (exit codes 125/126). Returns nil otherwise.
+// All container validation functions must call this after checking result.Error
+// and before interpreting result.ExitCode for domain-specific failures.
+func checkTransientExitCode(result *runtime.Result, label string) error {
+	if runtime.IsTransientExitCode(result.ExitCode) {
+		return fmt.Errorf("  • %s - container engine failure (exit code %d)", label, result.ExitCode)
+	}
+	return nil
 }

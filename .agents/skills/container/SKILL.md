@@ -405,7 +405,15 @@ Container image builds (`engine.Build()`) are retried up to 3 times with exponen
 
 ### Run Retry in runWithRetry()
 
-Container runs (`engine.Run()`) are retried up to 5 times with exponential backoff (1s, 2s, 4s, 8s) on transient errors. This is critical because `engine.Run()` absorbs `exec.ExitError` into `result.ExitCode` and always returns `(result, nil)` — so the retry logic must check **both** the error return AND `result.ExitCode` via `isTransientExitCode()` (exit codes 125 and 126). Run retries are more aggressive than build retries (5 vs 3 attempts) because Podman `ping_group_range` races are more frequent under heavy parallelism and runs are fast.
+Container runs (`engine.Run()`) are retried up to 5 times with exponential backoff (1s, 2s, 4s, 8s) on transient errors. This is critical because `engine.Run()` absorbs `exec.ExitError` into `result.ExitCode` and always returns `(result, nil)` — so the retry logic must check **both** the error return AND `result.ExitCode` via `runtime.IsTransientExitCode()` (exit codes 125 and 126). Run retries are more aggressive than build retries (5 vs 3 attempts) because Podman `ping_group_range` races are more frequent under heavy parallelism and runs are fast.
+
+**Container validation pattern:** All container validation functions in `cmd/invowk/cmd_validate_*.go` must guard against transient exit codes after `result.Error` check. Use the `checkTransientExitCode` helper from `cmd_validate_helpers.go`:
+```go
+if err := checkTransientExitCode(result, label); err != nil {
+    return err
+}
+```
+Without this guard, transient engine failures (125/126) after retry exhaustion get misreported as domain-specific errors ("not found", "not set", etc.). The helper centralizes the pattern — never inline `runtime.IsTransientExitCode` directly in validation functions.
 
 ---
 
@@ -427,7 +435,7 @@ Container runs (`engine.Run()`) are retried up to 5 times with exponential backo
 
 | File | Purpose |
 |------|---------|
-| `container_exec.go` | Container execution, `runWithRetry()`, `isTransientExitCode()`, `flushStderr()` |
+| `container_exec.go` | Container execution, `runWithRetry()`, `IsTransientExitCode()` (exported), `flushStderr()` |
 | `container_provision.go` | Image building, `ensureImage()` retry, retry constants, **image validation** (`validateSupportedContainerImage`, `isAlpineContainerImage`, `isWindowsContainerImage`) |
 | `container_prepare.go` | `CmdCustomizer` type assertion in `PrepareCommand()` |
 | `run_lock_linux.go` | flock-based cross-process lock (`acquireRunLock()`, `runLock`) |

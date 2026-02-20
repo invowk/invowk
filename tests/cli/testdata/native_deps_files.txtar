@@ -20,6 +20,19 @@ stdout 'Current directory is writable'
 stdout 'README\.md is readable'
 ! stderr .
 
+# Test 4: deps file executable - requires file with execute permission
+# On Unix: chmod makes run.sh executable; on Windows: run.bat has executable extension
+[!windows] chmod 0755 run.sh
+exec invowk cmd 'deps file executable'
+stdout 'Executable check passed'
+! stderr .
+
+# Test 5: deps file not-executable - file exists but lacks execute permission
+# data.txt has no execute bit (Unix) and no executable extension (Windows)
+! exec invowk cmd 'deps file not-executable'
+stderr '(?i)dependencies not satisfied'
+stderr 'execute'
+
 -- invowkfile.cue --
 cmds: [
 	{
@@ -94,8 +107,61 @@ cmds: [
 			]
 		}
 	},
+	{
+		name:        "deps file executable"
+		description: "Command requiring file with execute permission"
+		implementations: [
+			{
+				script:    "echo 'Executable check passed!'"
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
+			},
+			{
+				script:    "Write-Output 'Executable check passed!'"
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "windows"}]
+			},
+		]
+		depends_on: {
+			filepaths: [
+				{alternatives: ["run.sh", "run.bat"], executable: true},
+			]
+		}
+	},
+	{
+		name:        "deps file not-executable"
+		description: "Command requiring executable that is not executable"
+		implementations: [
+			{
+				script:    "echo 'Should not reach here'"
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
+			},
+			{
+				script:    "Write-Output 'Should not reach here'"
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "windows"}]
+			},
+		]
+		depends_on: {
+			filepaths: [
+				{alternatives: ["data.txt"], executable: true},
+			]
+		}
+	},
 ]
 
 -- README.md --
 # Test README
 This file exists so that filepath dependency checks can find it.
+
+-- run.sh --
+#!/bin/sh
+echo "hello"
+
+-- run.bat --
+@echo off
+echo hello
+
+-- data.txt --
+This file exists but should not pass executable checks.

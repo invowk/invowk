@@ -12,11 +12,12 @@ import (
 
 	"github.com/invowk/invowk/internal/runtime"
 	"github.com/invowk/invowk/pkg/invowkfile"
+	"github.com/invowk/invowk/pkg/platform"
 )
 
 // checkFilepathDependenciesInContainer verifies all required files/directories exist inside the container.
 // Called only for container runtime (caller guards non-container early return).
-func checkFilepathDependenciesInContainer(deps *invowkfile.DependsOn, invowkfilePath string, registry *runtime.Registry, ctx *runtime.ExecutionContext) error {
+func checkFilepathDependenciesInContainer(deps *invowkfile.DependsOn, registry *runtime.Registry, ctx *runtime.ExecutionContext) error {
 	if deps == nil || len(deps.Filepaths) == 0 {
 		return nil
 	}
@@ -27,10 +28,9 @@ func checkFilepathDependenciesInContainer(deps *invowkfile.DependsOn, invowkfile
 	}
 
 	var filepathErrors []string
-	invowkDir := filepath.Dir(invowkfilePath)
 
 	for _, fp := range deps.Filepaths {
-		if err := validateFilepathInContainer(fp, invowkDir, rt, ctx); err != nil {
+		if err := validateFilepathInContainer(fp, rt, ctx); err != nil {
 			filepathErrors = append(filepathErrors, err.Error())
 		}
 	}
@@ -47,7 +47,7 @@ func checkFilepathDependenciesInContainer(deps *invowkfile.DependsOn, invowkfile
 
 // validateFilepathInContainer validates a filepath dependency within a container.
 // The runtime is passed directly (hoisted by caller) to avoid redundant registry lookups.
-func validateFilepathInContainer(fp invowkfile.FilepathDependency, invowkDir string, rt runtime.Runtime, ctx *runtime.ExecutionContext) error {
+func validateFilepathInContainer(fp invowkfile.FilepathDependency, rt runtime.Runtime, ctx *runtime.ExecutionContext) error {
 	if len(fp.Alternatives) == 0 {
 		return fmt.Errorf("  • (no paths specified) - at least one path must be provided in alternatives")
 	}
@@ -73,20 +73,27 @@ func validateFilepathInContainer(fp invowkfile.FilepathDependency, invowkDir str
 
 		checkScript := strings.Join(checks, " && ")
 
-		validationCtx, _, _ := newContainerValidationContext(ctx, checkScript)
+		validationCtx, _, stderr := newContainerValidationContext(ctx, checkScript)
 
 		result := rt.Execute(validationCtx)
 		if result.Error != nil {
 			return fmt.Errorf("  • container validation failed for path %s: %w", altPath, result.Error)
 		}
+		if err := checkTransientExitCode(result, altPath); err != nil {
+			return err
+		}
 		if result.ExitCode == 0 {
 			return nil
 		}
-		allErrors = append(allErrors, fmt.Sprintf("%s: not found or permission denied in container", altPath))
+		detail := "not found or permission denied in container"
+		if stderrStr := strings.TrimSpace(stderr.String()); stderrStr != "" {
+			detail = stderrStr
+		}
+		allErrors = append(allErrors, fmt.Sprintf("%s: %s", altPath, detail))
 	}
 
 	if len(fp.Alternatives) == 1 {
-		return fmt.Errorf("  • %s - %s", fp.Alternatives[0], allErrors[0])
+		return fmt.Errorf("  • %s", allErrors[0])
 	}
 	return fmt.Errorf("  • none of the alternatives satisfied the requirements in container:\n      - %s", strings.Join(allErrors, "\n      - "))
 }
@@ -117,7 +124,8 @@ func checkHostFilepathDependencies(deps *invowkfile.DependsOn, invowkfilePath st
 	return nil
 }
 
-// checkFilepathDependencies verifies all required files/directories exist with proper permissions (native-only fallback).
+// checkFilepathDependencies verifies all required files/directories exist with proper permissions
+// using host-native OS calls. Used when no ExecutionContext or runtime registry is available.
 func checkFilepathDependencies(cmd *invowkfile.Command, invowkfilePath string) error {
 	if cmd.DependsOn == nil || len(cmd.DependsOn.Filepaths) == 0 {
 		return nil
@@ -168,7 +176,7 @@ func validateFilepathAlternatives(fp invowkfile.FilepathDependency, invowkDir st
 
 	// None of the alternatives satisfied the requirements
 	if len(fp.Alternatives) == 1 {
-		return fmt.Errorf("  • %s - %s", fp.Alternatives[0], allErrors[0])
+		return fmt.Errorf("  • %s", allErrors[0])
 	}
 	return fmt.Errorf("  • none of the alternatives satisfied the requirements:\n      - %s", strings.Join(allErrors, "\n      - "))
 }
@@ -214,39 +222,40 @@ func validateSingleFilepath(displayPath, resolvedPath string, fp invowkfile.File
 	return nil
 }
 
-// isReadable checks if a path is readable (cross-platform)
+// isReadable checks if a path is readable (cross-platform).
 func isReadable(path string, info os.FileInfo) bool {
-	// Try to open the file/directory for reading
 	if info.IsDir() {
 		f, err := os.Open(path)
 		if err != nil {
 			return false
 		}
-		_ = f.Close() // Readability check; close error non-critical
+		_ = f.Close() // Readability probe; close error non-critical
 		return true
 	}
 	f, err := os.OpenFile(path, os.O_RDONLY, 0)
 	if err != nil {
 		return false
 	}
-	_ = f.Close() // Readability check; close error non-critical
+	_ = f.Close() // Readability probe; close error non-critical
 	return true
 }
 
-// isWritable checks if a path is writable (cross-platform)
+// isWritable checks if a path is writable (cross-platform).
+// For directories, creates a temp file to verify write access.
+// For files, opens in write mode.
 func isWritable(path string, info os.FileInfo) bool {
-	// For directories, try to create a temp file
 	if info.IsDir() {
-		testFile := filepath.Join(path, ".invowk_write_test")
-		f, err := os.Create(testFile)
+		// os.CreateTemp generates a unique name, avoiding collisions with
+		// user files and reducing leftover risk if cleanup fails.
+		f, err := os.CreateTemp(path, ".invowk-wcheck-*")
 		if err != nil {
 			return false
 		}
-		_ = f.Close()           // Test file; error non-critical
-		_ = os.Remove(testFile) // Cleanup test file; error non-critical
+		tmpName := f.Name()
+		defer func() { _ = os.Remove(tmpName) }() // Best-effort cleanup; runs even if Close fails
+		_ = f.Close()                             // Probe file; close error non-critical
 		return true
 	}
-	// For files, try to open for writing
 	f, err := os.OpenFile(path, os.O_WRONLY, 0)
 	if err != nil {
 		return false
@@ -255,24 +264,58 @@ func isWritable(path string, info os.FileInfo) bool {
 	return true
 }
 
-// isExecutable checks if a path is executable (cross-platform)
+// isExecutable checks if a path is executable (cross-platform).
+//
+// On Windows, executability is determined by file extension (PATHEXT convention),
+// with a readability probe as a best-effort accessibility check to catch
+// obviously ACL-denied files. For directories, Windows treats them as
+// "executable" if they are accessible (openable), which is analogous to —
+// but not identical to — Unix directory execute (traverse) permission.
+//
+// On Unix-like systems, checks whether any execute bit (owner, group, or other)
+// is set. This is a permissive heuristic — it does not verify that the current
+// user specifically has execute permission.
 func isExecutable(path string, info os.FileInfo) bool {
-	// On Windows, check file extension
-	if goruntime.GOOS == "windows" {
-		ext := strings.ToLower(filepath.Ext(path))
-		execExts := []string{".exe", ".cmd", ".bat", ".com", ".ps1"}
-		if slices.Contains(execExts, ext) {
+	if goruntime.GOOS == platform.Windows {
+		// Directories on Windows: executable means traversable (accessible).
+		if info.IsDir() {
+			f, err := os.Open(path)
+			if err != nil {
+				return false
+			}
+			_ = f.Close() // Traversability probe; close error non-critical
 			return true
 		}
-		// Also check PATHEXT environment variable
-		pathext := os.Getenv("PATHEXT")
-		if pathext != "" {
-			pathExtList := strings.Split(strings.ToLower(pathext), ";")
-			if slices.Contains(pathExtList, ext) {
-				return true
+
+		// Files on Windows: check extension (PATHEXT convention) AND readability.
+		ext := strings.ToLower(filepath.Ext(path))
+		execExts := []string{".exe", ".cmd", ".bat", ".com", ".ps1"}
+		hasExecExt := slices.Contains(execExts, ext)
+		if !hasExecExt {
+			pathext := os.Getenv("PATHEXT")
+			if pathext != "" {
+				for pathExt := range strings.SplitSeq(strings.ToLower(pathext), ";") {
+					if pathExt == "" {
+						continue
+					}
+					if pathExt == ext {
+						hasExecExt = true
+						break
+					}
+				}
 			}
 		}
-		return false
+		if !hasExecExt {
+			return false
+		}
+
+		// Best-effort accessibility check: a file denied by ACLs will fail here
+		f, err := os.OpenFile(path, os.O_RDONLY, 0)
+		if err != nil {
+			return false
+		}
+		_ = f.Close() // Executability probe; close error non-critical
+		return true
 	}
 
 	// On Unix-like systems, check execute permission bit
