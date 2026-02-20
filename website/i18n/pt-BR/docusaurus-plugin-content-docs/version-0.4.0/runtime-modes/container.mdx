@@ -1,0 +1,265 @@
+---
+sidebar_position: 4
+---
+
+import Snippet from '@site/src/components/Snippet';
+
+# Runtime Container
+
+:::danger Apenas Containers Linux
+
+O runtime container **suporta apenas imagens de container Linux baseadas em Debian** (ex: `debian:stable-slim`).
+
+**NÃO suportado:**
+- **Imagens baseadas em Alpine** — Ambientes baseados em musl possuem diferenças comportamentais sutis que reduzem a confiabilidade do runtime. Apenas imagens com nome exato `alpine` ou terminando com `/alpine` (após remover tags/digests) são rejeitadas. Imagens como `go-alpine-builder` ou `myorg/alpine-tools` NÃO são rejeitadas.
+- **Imagens de container Windows** (`mcr.microsoft.com/windows/*`) — Não há shell POSIX disponível
+
+**Requisitos de plataforma:**
+- **Linux**: Funciona nativamente com Docker ou Podman
+- **macOS**: Funciona com Docker Desktop (usa VMs Linux internamente)
+- **Windows**: Requer Docker Desktop com backend WSL2 em modo de containers Linux
+
+Scripts são executados usando `/bin/sh` dentro do container, o que requer um ambiente com shell POSIX compatível.
+
+:::
+
+O runtime **container** executa comandos dentro de um container Docker ou Podman. Ele fornece isolamento completo e reprodutibilidade - seu comando executa no exato mesmo ambiente toda vez.
+
+## Como Funciona
+
+Quando você executa um comando com o runtime container, o Invowk™:
+
+1. Baixa ou constrói a imagem do container (se necessário)
+2. Monta o diretório do invowkfile dentro do container
+3. Executa o script dentro do container
+4. Transmite a saída de volta para seu terminal
+
+## Uso Básico
+
+<Snippet id="runtime-modes/container-basic" />
+
+```bash
+invowk cmd myproject build
+```
+
+## Fontes de Imagem de Container
+
+Você deve especificar ou uma `image` ou um `containerfile` - eles são mutuamente exclusivos.
+
+### Imagens Pré-construídas
+
+<Snippet id="runtime-modes/container-prebuilt-image" />
+
+Imagens comuns:
+- `debian:stable-slim` - Debian mínimo (imagem base recomendada)
+- `golang:1.26` - Desenvolvimento Go
+- `node:20` - Desenvolvimento Node.js
+- `python:3-slim` - Desenvolvimento Python
+
+
+### Containerfile Personalizado
+
+Construa a partir de um Containerfile/Dockerfile local:
+
+<Snippet id="runtime-modes/container-containerfile" />
+
+Exemplo de `Containerfile`:
+
+<Snippet id="runtime-modes/containerfile-example" />
+
+## Montagem de Volumes
+
+Monte diretórios adicionais no container:
+
+<Snippet id="runtime-modes/container-volumes-full" />
+
+O diretório do invowkfile é automaticamente montado em `/workspace`.
+
+## Mapeamento de Portas
+
+Exponha portas do container para o host:
+
+<Snippet id="runtime-modes/container-ports" />
+
+## Usando Interpretadores
+
+Como o runtime native, containers suportam interpretadores personalizados:
+
+### Auto-Detecção pelo Shebang
+
+<Snippet id="runtime-modes/container-shebang" />
+
+### Interpretador Explícito
+
+<Snippet id="runtime-modes/container-interpreter" />
+
+## Variáveis de Ambiente
+
+Variáveis de ambiente são passadas para o container:
+
+<Snippet id="runtime-modes/container-env-vars" />
+
+## Acesso SSH ao Host
+
+Às vezes seu container precisa executar comandos no sistema host. Habilite acesso SSH de volta ao host:
+
+<Snippet id="runtime-modes/container-ssh-example" />
+
+### Variáveis de Ambiente SSH
+
+Quando `enable_host_ssh: true`, estas variáveis estão disponíveis:
+
+| Variável | Descrição |
+|----------|-----------|
+| `INVOWK_SSH_ENABLED` | Definido como `true` quando o SSH está ativo |
+| `INVOWK_SSH_HOST` | Endereço do host (ex: `host.docker.internal`) |
+| `INVOWK_SSH_PORT` | Porta do servidor SSH |
+| `INVOWK_SSH_USER` | Nome de usuário (`invowk`) |
+| `INVOWK_SSH_TOKEN` | Token de autenticação único |
+
+### Segurança
+
+- Cada execução de comando recebe um token único
+- Tokens são revogados quando o comando termina
+- O servidor SSH apenas aceita autenticação baseada em token
+- O servidor é encerrado após a execução do comando
+
+### Requisitos do Container
+
+Seu container precisa de `sshpass` ou similar para SSH baseado em senha:
+
+```dockerfile
+FROM debian:stable-slim
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    openssh-client sshpass \
+    && rm -rf /var/lib/apt/lists/*
+```
+
+## Dependências
+
+Dependências de container são validadas **dentro do container**:
+
+<Snippet id="runtime-modes/container-dependencies" />
+
+## Engine de Container
+
+O Invowk suporta tanto Docker quanto Podman. Configure sua preferência:
+
+<Snippet id="runtime-modes/container-engine-config" />
+
+Se não configurado, o Invowk tenta:
+1. `podman` (se disponível)
+2. `docker` (fallback)
+
+## Diretório de Trabalho
+
+Por padrão, o diretório do invowkfile é montado em `/workspace` e usado como diretório de trabalho:
+
+<Snippet id="runtime-modes/container-workdir-default" />
+
+Sobrescreva com `workdir`:
+
+<Snippet id="runtime-modes/container-workdir-override" />
+
+## Exemplo Completo
+
+Aqui está um comando container com todos os recursos:
+
+<Snippet id="runtime-modes/container-full-example" />
+
+## Auto-provisionamento
+
+Quando `container.auto_provision.enabled` é `true` (padrão), o Invowk cria uma imagem derivada em cache ao anexar uma pequena camada de provisionamento sobre a sua imagem base (seja a `image` especificada ou a imagem construída pelo Containerfile/Dockerfile). Essa camada inclui o binário do `invowk` e quaisquer módulos, para que comandos `invowk` estejam disponíveis dentro do container.
+
+O auto-provisionamento ocorre em toda execução de container, não apenas no modo interativo. A imagem derivada é cacheada como `invowk-provisioned:<hash>` e reutilizada; se o provisionamento falhar, o Invowk avisa e usa a imagem base.
+
+## Modo Interativo
+
+O runtime container suporta totalmente o modo interativo (`-i`). Execuções interativas usam a mesma camada provisionada descrita acima (quando habilitada) e adicionam a infraestrutura de TUI no host, habilitando:
+
+- Componentes TUI como overlays modais
+- Suporte completo a PTY para prompts de senha e confirmações
+- Integração transparente com o terminal do host
+
+```bash
+# Executar um comando de container interativamente
+invowk cmd myproject build -i -r container
+```
+
+Quando você executa com `-i`, o Invowk:
+
+1. **Usa a camada de imagem provisionada** (se habilitada)
+2. **Inicia um servidor TUI** no host
+3. **Encaminha requisições TUI** do container para o host
+4. **Renderiza overlays** no seu terminal
+
+Isso significa que seus scripts podem usar comandos `invowk tui` dentro de containers:
+
+<Snippet id="runtime-modes/container-interactive-tui" />
+
+:::tip
+A imagem provisionada é cacheada como `invowk-provisioned:<hash>`, então execuções subsequentes são rápidas.
+:::
+
+## Vantagens
+
+- **Reprodutibilidade**: Mesmo ambiente em todos os lugares
+- **Isolamento**: Sem poluição do sistema host
+- **Controle de versão**: Fixe versões exatas de ferramentas
+- **Paridade CI/CD**: Builds locais correspondem aos builds do CI
+- **Builds limpos**: Ambiente novo cada vez
+
+## Limitações
+
+- **Performance**: Overhead de inicialização do container
+- **Espaço em disco**: Imagens consomem armazenamento
+- **Complexidade**: Necessário gerenciar imagens
+- **Acesso ao host**: Limitado sem ponte SSH
+
+## Quando Usar Container
+
+- **Builds reproduzíveis**: Quando consistência importa
+- **Pipelines CI/CD**: Corresponder ambientes local e CI
+- **Projetos legados**: Isolar versões antigas de ferramentas
+- **Onboarding de equipe**: Sem necessidade de instalação local de ferramentas
+- **Builds em ambiente limpo**: Testar sem poluição do host
+
+## Solução de Problemas
+
+### Container Não Inicia
+
+```bash
+# Verificar se engine de container está disponível
+docker --version  # ou: podman --version
+
+# Verificar se imagem existe
+docker images | grep golang
+```
+
+### Primeira Execução Lenta
+
+A primeira execução baixa a imagem. Execuções subsequentes são mais rápidas:
+
+```bash
+# Pré-baixar imagens
+docker pull golang:1.26
+docker pull node:20
+```
+
+### Problemas de Permissão
+
+No Linux, você pode precisar configurar permissões do container:
+
+```bash
+# Para Docker
+sudo usermod -aG docker $USER
+
+# Para Podman (rootless)
+# Geralmente funciona sem configuração
+```
+
+## Próximos Passos
+
+- [Runtime Native](./native) - Para velocidade de desenvolvimento
+- [Runtime Virtual](./virtual) - Para scripts multiplataforma
+- [Dependências](../dependencies/overview) - Declarar requisitos do comando

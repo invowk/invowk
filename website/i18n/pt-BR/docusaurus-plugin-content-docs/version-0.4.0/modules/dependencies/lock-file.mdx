@@ -1,0 +1,52 @@
+---
+sidebar_position: 4
+---
+
+import Snippet from '@site/src/components/Snippet';
+
+# Lock File de Dependências de Módulos
+
+O lock file (`invowkmod.lock.cue`) registra as versões exatas de todas as dependências de módulo resolvidas, garantindo builds reprodutíveis ao longo do tempo e entre máquinas.
+
+Ele é gerado automaticamente por `invowk module sync` e `invowk module update`.
+
+## Exemplo de Lock File
+
+<Snippet id="modules/dependencies/lockfile-example" />
+
+## Campos da Raiz
+
+| Campo | Descrição |
+|-------|-----------|
+| `version` | Versão do formato do lock file |
+| `generated` | Timestamp de criação do lock file |
+| `modules` | Mapa de chaves de módulo para entradas travadas |
+
+## Campos de Entrada de Módulo
+
+Cada entrada em `modules` contém:
+
+| Campo | Descrição |
+|-------|-----------|
+| `git_url` | URL do repositório Git |
+| `version` | Restrição de versão original de `invowkmod.cue` |
+| `resolved_version` | Versão resolvida exata |
+| `git_commit` | SHA do commit da versão resolvida |
+| `alias` | Alias de namespace (se definido) |
+| `path` | Caminho de subdiretório (se definido) |
+| `namespace` | Namespace calculado para comandos |
+
+## Chaves de Módulo
+
+A chave no mapa `modules` é derivada da URL Git e do caminho opcional:
+
+<Snippet id="modules/dependencies/lockfile-key" />
+
+## Notas de Uso
+
+- Commite `invowkmod.lock.cue` no controle de versão para builds reprodutíveis.
+- `invowk module add` **não** grava o lock file; use `invowk module sync`.
+
+## Workflows Comuns
+
+<Snippet id="modules/dependencies/lockfile-workflow" />

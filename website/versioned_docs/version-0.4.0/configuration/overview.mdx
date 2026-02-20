@@ -1,0 +1,71 @@
+---
+sidebar_position: 1
+---
+
+import Snippet from '@site/src/components/Snippet';
+
+# Configuration Overview
+
+Invowk™ uses a CUE-based configuration file to customize its behavior. This is where you set your preferences for container engines, includes, runtime defaults, and more.
+
+## Configuration File Location
+
+The configuration file lives in your OS-specific config directory:
+
+| Platform | Location |
+|----------|----------|
+| Linux    | `~/.config/invowk/config.cue` |
+| macOS    | `~/Library/Application Support/invowk/config.cue` |
+| Windows  | `%APPDATA%\invowk\config.cue` |
+
+Invowk currently reads configuration from the OS-specific path above. If no config exists there, it will also look for a `config.cue` file in the current directory. If neither is present, defaults are used.
+
+## Creating a Configuration File
+
+The easiest way to create a configuration file is to use the `config init` command:
+
+<Snippet id="config/init" />
+
+This creates a default configuration file with sensible defaults. If a config file already exists, it won't be overwritten (safety first!).
+
+## Viewing Your Configuration
+
+There are several ways to inspect your current configuration:
+
+### Show Human-Readable Config
+
+<Snippet id="config/show" />
+
+This displays your configuration in a friendly, readable format.
+
+### Show Raw CUE
+
+<Snippet id="config/dump" />
+
+This outputs the raw CUE configuration, useful for debugging or copying to another machine.
+
+### Find the Config File
+
+<Snippet id="config/path" />
+
+This prints your configuration paths (config directory, config file, and commands directory). Handy when you want to find and edit your config directly.
+
+## Setting Configuration Values
+
+You can modify configuration values from the command line:
+
+<Snippet id="config/set-examples" />
+
+Or just open the config file in your favorite editor:
+
+<Snippet id="config/edit-linux-macos" />
+
+## Example Configuration
+
+Here's what a typical configuration file looks like:
+
+<Snippet id="config/full-example" />
+
+## What's Next?
+
+Head over to [Configuration Options](./options) for a complete reference of all available settings.

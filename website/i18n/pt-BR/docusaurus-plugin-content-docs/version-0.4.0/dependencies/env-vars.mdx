@@ -1,0 +1,134 @@
+---
+sidebar_position: 6
+---
+
+import Snippet from '@site/src/components/Snippet';
+
+# Dependências de Variáveis de Ambiente
+
+Dependências de variáveis de ambiente verificam se variáveis de ambiente requeridas existem antes que seu comando seja executado. Elas são verificadas **primeiro**, antes de quaisquer outras dependências, contra o ambiente real do usuário.
+
+## Uso Básico
+
+<Snippet id="dependencies/env-vars-basic" />
+
+Se a variável não estiver definida:
+
+```
+✗ Dependencies not satisfied
+
+Command 'deploy' has unmet dependencies:
+
+Missing Environment Variables:
+  • AWS_ACCESS_KEY_ID - not set in environment
+
+Set the required environment variables and try again.
+```
+
+## Alternativas (Semântica OU)
+
+Requer uma de múltiplas variáveis:
+
+<Snippet id="dependencies/env-vars-alternatives" />
+
+A dependência é satisfeita se **qualquer** alternativa existir.
+
+## Validação por Regex
+
+Valide que o valor da variável corresponde a um padrão:
+
+<Snippet id="dependencies/env-vars-regex" />
+
+Se o valor não corresponder:
+
+```
+✗ Dependencies not satisfied
+
+Command 'release' has unmet dependencies:
+
+Invalid Environment Variables:
+  • VERSION - value "invalid" does not match pattern "^[0-9]+\.[0-9]+\.[0-9]+$"
+```
+
+## Ordem de Validação
+
+Variáveis de ambiente são verificadas **primeiro**, antes de todas as outras dependências:
+
+1. **env_vars** ← Verificado primeiro!
+2. tools
+3. filepaths
+4. capabilities
+5. custom_checks
+6. cmds
+
+Isso garante que você está validando contra o ambiente real do usuário, não variáveis definidas pela construção `env` do Invowk™.
+
+## Exemplos do Mundo Real
+
+### Credenciais AWS
+
+<Snippet id="dependencies/env-vars-aws" />
+
+### Conexão com Banco de Dados
+
+<Snippet id="dependencies/env-vars-database" />
+
+### Chaves de API
+
+<Snippet id="dependencies/env-vars-api-keys" />
+
+### Configuração Específica de Ambiente
+
+<Snippet id="dependencies/env-vars-env-config" />
+
+### Validação de Versão
+
+<Snippet id="dependencies/env-vars-version" />
+
+## Padrões Comuns de Validação
+
+### Versão Semântica
+
+<Snippet id="dependencies/env-vars-pattern-semver" />
+
+### URL
+
+<Snippet id="dependencies/env-vars-pattern-url" />
+
+### Tipo Email
+
+<Snippet id="dependencies/env-vars-pattern-email" />
+
+### ID Alfanumérico
+
+<Snippet id="dependencies/env-vars-pattern-alphanum" />
+
+### Região AWS
+
+<Snippet id="dependencies/env-vars-pattern-aws-region" />
+
+## Múltiplos Requisitos
+
+Combine múltiplas verificações de variáveis de ambiente (lógica E):
+
+<Snippet id="dependencies/env-vars-multiple" />
+
+## Importante: Apenas Ambiente do Usuário
+
+Dependências de variáveis de ambiente verificam o **ambiente do usuário**, não variáveis definidas pelo Invowk:
+
+<Snippet id="dependencies/env-vars-user-env" />
+
+Isso é intencional - você está validando o que o usuário configurou, não o que seu comando vai definir.
+
+## Melhores Práticas
+
+1. **Use alternativas para métodos de auth**: `{alternatives: [{name: "TOKEN"}, {name: "API_KEY"}]}`
+2. **Adicione validação quando o formato importa**: Especialmente para URLs, versões e IDs
+3. **Documente variáveis requeridas**: Usuários precisam saber o que definir
+4. **Considere gerenciamento de secrets**: Não logue valores sensíveis
+
+## Próximos Passos
+
+- [Custom Checks](./custom-checks) - Escrever scripts de validação personalizados
+- [Overview](./overview) - Retornar à visão geral de dependências
