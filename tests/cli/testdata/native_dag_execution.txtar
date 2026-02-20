@@ -1,0 +1,133 @@
+# Test: DAG execution using native runtime
+# Mirrors virtual_dag_execution.txtar but with platform-split native implementations
+
+cd $WORK
+
+# Test 1: Execute dep runs before parent command
+exec invowk cmd deploy
+stdout 'building'
+stdout 'deploying'
+
+# Test 2: Execute dep failure aborts parent command
+! exec invowk cmd broken-deploy
+stderr '(?i)dependency.*fail-cmd.*exited with code'
+! stdout 'broken-deploy ran'
+
+# Test 3: Multiple execute deps run in order
+exec invowk cmd release
+stdout 'linting'
+stdout 'building'
+stdout 'releasing'
+
+-- invowkfile.cue --
+cmds: [
+	{
+		name: "build"
+		implementations: [
+			{
+				script:    "echo building"
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
+			},
+			{
+				script:    "Write-Output 'building'"
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "windows"}]
+			},
+		]
+	},
+	{
+		name: "lint"
+		implementations: [
+			{
+				script:    "echo linting"
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
+			},
+			{
+				script:    "Write-Output 'linting'"
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "windows"}]
+			},
+		]
+	},
+	{
+		name: "fail-cmd"
+		implementations: [
+			{
+				script:    "exit 1"
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
+			},
+			{
+				script:    "exit 1"
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "windows"}]
+			},
+		]
+	},
+	{
+		name:        "deploy"
+		description: "Command with execute dep"
+		implementations: [
+			{
+				script:    "echo deploying"
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
+			},
+			{
+				script:    "Write-Output 'deploying'"
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "windows"}]
+			},
+		]
+		depends_on: {
+			cmds: [
+				{alternatives: ["build"], execute: true},
+			]
+		}
+	},
+	{
+		name:        "broken-deploy"
+		description: "Command whose dep fails"
+		implementations: [
+			{
+				script:    "echo broken-deploy ran"
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
+			},
+			{
+				script:    "Write-Output 'broken-deploy ran'"
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "windows"}]
+			},
+		]
+		depends_on: {
+			cmds: [
+				{alternatives: ["fail-cmd"], execute: true},
+			]
+		}
+	},
+	{
+		name:        "release"
+		description: "Command with multiple execute deps"
+		implementations: [
+			{
+				script:    "echo releasing"
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
+			},
+			{
+				script:    "Write-Output 'releasing'"
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "windows"}]
+			},
+		]
+		depends_on: {
+			cmds: [
+				{alternatives: ["lint"], execute: true},
+				{alternatives: ["build"], execute: true},
+			]
+		}
+	},
+]

@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/invowk/invowk/internal/config"
+	"github.com/invowk/invowk/internal/dag"
 	"github.com/invowk/invowk/internal/discovery"
 	"github.com/invowk/invowk/pkg/invowkfile"
 
@@ -355,6 +356,9 @@ func validateCommandTree(ctx context.Context, app *App, rootFlags *rootFlagValue
 
 	if conflictErr, ok := errors.AsType[*discovery.ArgsSubcommandConflictError](err); ok {
 		fmt.Fprintf(app.stderr, "\n%s\n\n", RenderArgsSubcommandConflictError(conflictErr))
+	}
+	if cycleErr, ok := errors.AsType[*dag.CycleError](err); ok {
+		fmt.Fprintf(app.stderr, "\n%s\n\n", RenderCycleError(cycleErr))
 	}
 
 	return err

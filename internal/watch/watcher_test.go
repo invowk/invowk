@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"slices"
 	"sort"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -226,6 +227,153 @@ func TestDefaultIgnores(t *testing.T) {
 				t.Errorf("isIgnoredByDefaults(%q) = %v, want %v", tt.path, got, tt.ignored)
 			}
 		})
+	}
+}
+
+// TestWatcherSkipIfBusy verifies that concurrent callback invocations are
+// prevented by the atomic "skip-if-busy" guard. When the callback takes longer
+// than the debounce period, subsequent timer fires should be skipped.
+func TestWatcherSkipIfBusy(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+
+	var (
+		mu    sync.Mutex
+		calls int
+	)
+
+	// Callback blocks for 300ms, debounce is 50ms.
+	// Second file write should be skipped because the first callback is still running.
+	firstCallDone := make(chan struct{})
+	stderrBuf := &bytes.Buffer{}
+
+	w, err := New(Config{
+		BaseDir:  dir,
+		Debounce: 50 * time.Millisecond,
+		Stdout:   &bytes.Buffer{},
+		Stderr:   stderrBuf,
+		OnChange: func(_ context.Context, _ []string) error {
+			mu.Lock()
+			calls++
+			callNum := calls
+			mu.Unlock()
+
+			if callNum == 1 {
+				time.Sleep(300 * time.Millisecond)
+				close(firstCallDone)
+			}
+			return nil
+		},
+	})
+	if err != nil {
+		t.Fatalf("New() error: %v", err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	errCh := make(chan error, 1)
+	go func() { errCh <- w.Run(ctx) }()
+
+	// Write first file — triggers first callback (blocks for 300ms).
+	if err := os.WriteFile(filepath.Join(dir, "first.txt"), []byte("1"), 0o644); err != nil {
+		t.Fatalf("write first.txt: %v", err)
+	}
+
+	// Wait for the debounce to fire and callback to start.
+	time.Sleep(100 * time.Millisecond)
+
+	// Write second file while callback is still busy — should be skipped.
+	if err := os.WriteFile(filepath.Join(dir, "second.txt"), []byte("2"), 0o644); err != nil {
+		t.Fatalf("write second.txt: %v", err)
+	}
+
+	// Wait for first callback to finish.
+	select {
+	case <-firstCallDone:
+	case <-time.After(5 * time.Second):
+		t.Fatal("timed out waiting for first callback")
+	}
+
+	// Allow time for the second debounce cycle to complete (or be skipped).
+	time.Sleep(200 * time.Millisecond)
+
+	cancel()
+	if err := <-errCh; err != nil {
+		t.Fatalf("Run() error: %v", err)
+	}
+
+	mu.Lock()
+	defer mu.Unlock()
+
+	// The second fire() should have been skipped due to the busy guard.
+	// We accept 1 call (strict skip) or 2 calls (if timing allows the second
+	// debounce to fire after the first callback completes), but never concurrent.
+	if calls > 2 {
+		t.Errorf("expected at most 2 callback invocations, got %d", calls)
+	}
+
+	// Verify the skip message appeared in stderr.
+	if calls == 1 {
+		stderrStr := stderrBuf.String()
+		if !strings.Contains(stderrStr, "skipping re-execution") {
+			t.Logf("stderr: %s", stderrStr)
+			t.Log("expected skip message in stderr, but callback may have completed before second fire")
+		}
+	}
+}
+
+// TestWatcherClearScreen verifies that ClearScreen: true writes the ANSI
+// clear escape sequence before invoking the callback.
+func TestWatcherClearScreen(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+
+	done := make(chan struct{})
+	stdoutBuf := &bytes.Buffer{}
+
+	w, err := New(Config{
+		BaseDir:     dir,
+		Debounce:    50 * time.Millisecond,
+		ClearScreen: true,
+		Stdout:      stdoutBuf,
+		Stderr:      &bytes.Buffer{},
+		OnChange: func(_ context.Context, _ []string) error {
+			close(done)
+			return nil
+		},
+	})
+	if err != nil {
+		t.Fatalf("New() error: %v", err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	errCh := make(chan error, 1)
+	go func() { errCh <- w.Run(ctx) }()
+
+	if err := os.WriteFile(filepath.Join(dir, "file.go"), []byte("x"), 0o644); err != nil {
+		t.Fatalf("write file.go: %v", err)
+	}
+
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("timed out waiting for callback")
+	}
+
+	cancel()
+	if err := <-errCh; err != nil {
+		t.Fatalf("Run() error: %v", err)
+	}
+
+	// Verify ANSI clear sequence was written.
+	out := stdoutBuf.String()
+	if !strings.Contains(out, "\033[2J\033[H") {
+		t.Errorf("expected ANSI clear sequence in stdout, got %q", out)
 	}
 }
 

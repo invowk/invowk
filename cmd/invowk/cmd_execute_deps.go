@@ -24,10 +24,17 @@ type dagExecutionStackKey struct{}
 // stops and the error is returned.
 func (s *commandService) executeDepCommands(ctx context.Context, req ExecuteRequest, cmdInfo *discovery.CommandInfo, execCtx *runtime.ExecutionContext) error {
 	// Collect execute deps from merged depends_on (root + cmd + impl).
+	// Guard against nil SelectedImpl: while ResolveRuntime guarantees non-nil
+	// at runtime, this is defensive consistency with the timeout nil check in
+	// dispatchExecution.
+	var implDeps *invowkfile.DependsOn
+	if execCtx.SelectedImpl != nil {
+		implDeps = execCtx.SelectedImpl.DependsOn
+	}
 	merged := invowkfile.MergeDependsOnAll(
 		cmdInfo.Invowkfile.DependsOn,
 		cmdInfo.Command.DependsOn,
-		execCtx.SelectedImpl.DependsOn,
+		implDeps,
 	)
 	if merged == nil || !merged.HasExecutableCommandDeps() {
 		return nil

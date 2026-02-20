@@ -1,0 +1,97 @@
+# Test: DAG execution (depends_on.cmds with execute: true)
+# Verifies that execute deps run before the parent command
+
+cd $WORK
+
+# Test 1: Execute dep runs before parent command
+exec invowk cmd deploy
+stdout 'building'
+stdout 'deploying'
+
+# Test 2: Execute dep failure aborts parent command
+! exec invowk cmd broken-deploy
+stderr '(?i)dependency.*fail-cmd.*exited with code'
+! stdout 'broken-deploy ran'
+
+# Test 3: Multiple execute deps run in order
+exec invowk cmd release
+stdout 'linting'
+stdout 'building'
+stdout 'releasing'
+
+# Test 4: Verbose mode shows dep execution messages
+exec invowk cmd deploy --ivk-verbose
+stdout 'Running dependency'
+stdout 'building'
+stdout 'deploying'
+
+-- invowkfile.cue --
+cmds: [
+	{
+		name: "build"
+		implementations: [{
+			script:    "echo building"
+			runtimes:  [{name: "virtual"}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+	},
+	{
+		name: "lint"
+		implementations: [{
+			script:    "echo linting"
+			runtimes:  [{name: "virtual"}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+	},
+	{
+		name: "fail-cmd"
+		implementations: [{
+			script:    "exit 1"
+			runtimes:  [{name: "virtual"}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+	},
+	{
+		name:        "deploy"
+		description: "Command with execute dep"
+		implementations: [{
+			script:    "echo deploying"
+			runtimes:  [{name: "virtual"}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+		depends_on: {
+			cmds: [
+				{alternatives: ["build"], execute: true},
+			]
+		}
+	},
+	{
+		name:        "broken-deploy"
+		description: "Command whose dep fails"
+		implementations: [{
+			script:    "echo broken-deploy ran"
+			runtimes:  [{name: "virtual"}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+		depends_on: {
+			cmds: [
+				{alternatives: ["fail-cmd"], execute: true},
+			]
+		}
+	},
+	{
+		name:        "release"
+		description: "Command with multiple execute deps"
+		implementations: [{
+			script:    "echo releasing"
+			runtimes:  [{name: "virtual"}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+		depends_on: {
+			cmds: [
+				{alternatives: ["lint"], execute: true},
+				{alternatives: ["build"], execute: true},
+			]
+		}
+	},
+]

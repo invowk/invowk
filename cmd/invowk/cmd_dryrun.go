@@ -12,13 +12,15 @@ import (
 	appexec "github.com/invowk/invowk/internal/app/execute"
 	"github.com/invowk/invowk/internal/discovery"
 	"github.com/invowk/invowk/internal/runtime"
+	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
 // renderDryRun prints the resolved execution context without executing.
 // It shows the command name, source, runtime, platform, working directory,
-// script content, and environment variables — everything a user needs to
-// understand what invowk would do.
-func renderDryRun(w io.Writer, req ExecuteRequest, cmdInfo *discovery.CommandInfo, execCtx *runtime.ExecutionContext, resolved appexec.RuntimeSelection) {
+// execute deps, script content, and environment variables — everything a user
+// needs to understand what invowk would do. execDepNames lists command names
+// that would run before this command via depends_on execute: true.
+func renderDryRun(w io.Writer, req ExecuteRequest, cmdInfo *discovery.CommandInfo, execCtx *runtime.ExecutionContext, resolved appexec.RuntimeSelection, execDepNames []string) {
 	fmt.Fprintln(w, TitleStyle.Render("Dry Run"))
 	fmt.Fprintln(w)
 
@@ -26,9 +28,7 @@ func renderDryRun(w io.Writer, req ExecuteRequest, cmdInfo *discovery.CommandInf
 	fmt.Fprintf(w, "  %s %s\n", VerboseHighlightStyle.Render("Command:"), req.Name)
 	fmt.Fprintf(w, "  %s %s\n", VerboseHighlightStyle.Render("Source:"), cmdInfo.SourceID)
 	fmt.Fprintf(w, "  %s %s\n", VerboseHighlightStyle.Render("Runtime:"), string(resolved.Mode))
-	if platforms := execCtx.Command.GetSupportedPlatforms(); len(platforms) > 0 {
-		fmt.Fprintf(w, "  %s %s\n", VerboseHighlightStyle.Render("Platform:"), string(platforms[0]))
-	}
+	fmt.Fprintf(w, "  %s %s\n", VerboseHighlightStyle.Render("Platform:"), string(invowkfile.GetCurrentHostOS()))
 
 	if execCtx.WorkDir != "" {
 		fmt.Fprintf(w, "  %s %s\n", VerboseHighlightStyle.Render("WorkDir:"), execCtx.WorkDir)
@@ -41,6 +41,10 @@ func renderDryRun(w io.Writer, req ExecuteRequest, cmdInfo *discovery.CommandInf
 
 	if resolved.Impl.Timeout != "" {
 		fmt.Fprintf(w, "  %s %s\n", VerboseHighlightStyle.Render("Timeout:"), resolved.Impl.Timeout)
+	}
+
+	if len(execDepNames) > 0 {
+		fmt.Fprintf(w, "  %s %s\n", VerboseHighlightStyle.Render("Exec deps:"), strings.Join(execDepNames, ", "))
 	}
 
 	// Script content.

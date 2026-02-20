@@ -99,8 +99,27 @@ func (s *commandService) Execute(ctx context.Context, req ExecuteRequest) (Execu
 	}
 
 	// Dry-run mode: print what would be executed and exit without executing.
+	// Collect execute deps to include in the dry-run output so users see the
+	// full picture of what would happen (deps run before the main command).
 	if req.DryRun {
-		renderDryRun(s.stdout, req, cmdInfo, execCtx, resolved)
+		var implDeps *invowkfile.DependsOn
+		if execCtx.SelectedImpl != nil {
+			implDeps = execCtx.SelectedImpl.DependsOn
+		}
+		merged := invowkfile.MergeDependsOnAll(
+			cmdInfo.Invowkfile.DependsOn,
+			cmdInfo.Command.DependsOn,
+			implDeps,
+		)
+		var execDepNames []string
+		if merged != nil {
+			for _, dep := range merged.GetExecutableCommandDeps() {
+				if len(dep.Alternatives) > 0 {
+					execDepNames = append(execDepNames, dep.Alternatives[0])
+				}
+			}
+		}
+		renderDryRun(s.stdout, req, cmdInfo, execCtx, resolved, execDepNames)
 		return ExecuteResult{ExitCode: 0}, diags, nil
 	}
 

@@ -9,6 +9,7 @@ stdout 'Invowkfile Validation'
 stdout 'CUE schema validation passed'
 stdout 'Structural validation passed'
 stdout 'Command tree validation passed'
+stdout 'Execution DAG validation passed'
 stdout 'Invowkfile is valid'
 
 # Test 2: Validate a valid module directory
@@ -88,6 +89,13 @@ stderr 'missing required invowkmod.cue'
 ! exec invowk validate ./bad_deps/invowkfile.cue
 stdout 'Invowkfile Validation'
 stderr 'CUE schema validation failed'
+
+# Test 14: Validate invowkfile with execute dep cycle (should fail)
+! exec invowk validate ./cycle_deps/invowkfile.cue
+stdout 'Invowkfile Validation'
+stdout 'CUE schema validation passed'
+stderr 'Execution DAG validation failed'
+stderr 'cycle'
 
 -- invowkfile.cue --
 cmds: [
@@ -218,6 +226,36 @@ cmds: [
 		depends_on: {
 			capabilities: [
 				{alternatives: ["invalid-capability-name"]},
+			]
+		}
+	},
+]
+
+-- cycle_deps/invowkfile.cue --
+cmds: [
+	{
+		name: "a"
+		implementations: [{
+			script:    "echo a"
+			runtimes:  [{name: "virtual"}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+		depends_on: {
+			cmds: [
+				{alternatives: ["b"], execute: true},
+			]
+		}
+	},
+	{
+		name: "b"
+		implementations: [{
+			script:    "echo b"
+			runtimes:  [{name: "virtual"}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+		depends_on: {
+			cmds: [
+				{alternatives: ["a"], execute: true},
 			]
 		}
 	},

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/invowk/invowk/internal/dag"
 	"github.com/invowk/invowk/internal/discovery"
 
 	"github.com/charmbracelet/lipgloss"
@@ -107,6 +108,26 @@ func RenderArgsSubcommandConflictError(err *discovery.ArgsSubcommandConflictErro
 
 	sb.WriteString("\n")
 	sb.WriteString(renderHintStyle.Render("Remove either the 'args' field or the subcommands to resolve this conflict."))
+	sb.WriteString("\n")
+
+	return sb.String()
+}
+
+// RenderCycleError creates a styled error message when the execution DAG
+// contains a dependency cycle. This prevents infinite recursion in
+// depends_on.cmds entries with execute: true.
+func RenderCycleError(err *dag.CycleError) string {
+	var sb strings.Builder
+
+	sb.WriteString(renderHeaderStyle.Render("✗ Dependency cycle detected!"))
+	sb.WriteString("\n\n")
+	sb.WriteString("Commands with execute dependencies form a cycle, preventing execution.\n\n")
+
+	sb.WriteString(renderLabelStyle.Render("Cycle:"))
+	sb.WriteString("\n")
+	sb.WriteString(renderValueStyle.Render(fmt.Sprintf("  %s", strings.Join(err.Cycle, " → "))))
+	sb.WriteString("\n\n")
+	sb.WriteString(renderHintStyle.Render("Remove or restructure 'execute: true' dependencies to break the cycle."))
 	sb.WriteString("\n")
 
 	return sb.String()

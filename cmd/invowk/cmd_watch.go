@@ -21,6 +21,12 @@ func runWatchMode(cmd *cobra.Command, app *App, rootFlags *rootFlagValues, cmdFl
 		return fmt.Errorf("no command specified")
 	}
 
+	// Dry-run and watch mode are mutually exclusive: watch mode re-executes
+	// on file changes, while dry-run prevents execution entirely.
+	if cmdFlags.dryRun {
+		return fmt.Errorf("--ivk-watch and --ivk-dry-run cannot be used together")
+	}
+
 	// Check for ambiguous commands before proceeding, consistent with normal execution.
 	ctx := contextWithConfigPath(cmd.Context(), rootFlags.configPath)
 	if ambErr := checkAmbiguousCommand(ctx, app, rootFlags, args); ambErr != nil {
@@ -28,7 +34,8 @@ func runWatchMode(cmd *cobra.Command, app *App, rootFlags *rootFlagValues, cmdFl
 	}
 
 	// Look up the command to get its watch configuration.
-	result, err := app.Discovery.GetCommand(cmd.Context(), args[0])
+	// Use the configPath-enhanced context so --ivk-config is respected.
+	result, err := app.Discovery.GetCommand(ctx, args[0])
 	if err != nil {
 		return err
 	}

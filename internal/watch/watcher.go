@@ -15,6 +15,7 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -178,15 +179,24 @@ func (w *Watcher) Run(ctx context.Context) error {
 		mu      sync.Mutex
 		pending = make(map[string]struct{})
 		timer   *time.Timer
+		running atomic.Bool
 	)
 
 	// fire drains the pending set and invokes the OnChange callback.
 	// It may be scheduled by time.AfterFunc after the context is cancelled,
 	// so check ctx.Err() to avoid executing with a dead context.
+	// Uses atomic "skip-if-busy" guard to prevent concurrent callback
+	// invocations when the command takes longer than the debounce period.
 	fire := func() {
 		if ctx.Err() != nil {
 			return
 		}
+		if !running.CompareAndSwap(false, true) {
+			fmt.Fprintf(w.stderr, "watch: skipping re-execution (previous run still in progress)\n")
+			return
+		}
+		defer running.Store(false)
+
 		mu.Lock()
 		if len(pending) == 0 {
 			mu.Unlock()
