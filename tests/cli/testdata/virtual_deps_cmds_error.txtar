@@ -1,0 +1,28 @@
+# Test: Command dependency error path
+# Tests that referencing a nonexistent command dependency produces error
+
+cd $WORK
+
+# Test 1: Missing command dependency should fail
+! exec invowk cmd 'deps cmd missing-ref'
+stderr '(?i)dependencies not satisfied'
+stderr 'Missing Commands'
+stderr 'nonexistent-build-cmd'
+
+-- invowkfile.cue --
+cmds: [
+	{
+		name:        "deps cmd missing-ref"
+		description: "Command referencing a nonexistent command dependency"
+		implementations: [{
+			script:    "echo 'should not run'"
+			runtimes:  [{name: "virtual"}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+		depends_on: {
+			cmds: [
+				{alternatives: ["nonexistent-build-cmd"]},
+			]
+		}
+	},
+]

@@ -1,0 +1,48 @@
+# Test: Environment variable dependency error path
+# Tests that missing env vars and failed validation produce correct error output
+
+cd $WORK
+
+# Test 1: Missing env var should produce error
+! exec invowk cmd 'deps env missing'
+stderr '(?i)dependencies not satisfied'
+stderr 'Missing or Invalid Environment Variables'
+stderr 'INVOWK_TEST_NONEXISTENT_VAR'
+
+# Test 2: env var with validation regex that fails
+env INVOWK_TEST_BAD_VERSION=not-a-version
+! exec invowk cmd 'deps env bad-pattern'
+stderr '(?i)dependencies not satisfied'
+stderr 'does not match'
+
+-- invowkfile.cue --
+cmds: [
+	{
+		name:        "deps env missing"
+		description: "Command requiring a missing environment variable"
+		implementations: [{
+			script:    "echo 'should not run'"
+			runtimes:  [{name: "virtual"}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+		depends_on: {
+			env_vars: [
+				{alternatives: [{name: "INVOWK_TEST_NONEXISTENT_VAR"}]},
+			]
+		}
+	},
+	{
+		name:        "deps env bad-pattern"
+		description: "Command with env var validation regex that will fail"
+		implementations: [{
+			script:    "echo 'should not run'"
+			runtimes:  [{name: "virtual"}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+		depends_on: {
+			env_vars: [
+				{alternatives: [{name: "INVOWK_TEST_BAD_VERSION", validation: "^[0-9]+\\.[0-9]+\\.[0-9]+$"}]},
+			]
+		}
+	},
+]

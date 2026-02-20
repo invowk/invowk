@@ -482,6 +482,27 @@ func TestInvowkfile_HasRootLevelDependencies(t *testing.T) {
 			},
 			expected: true,
 		},
+		{
+			name: "with commands",
+			deps: &DependsOn{
+				Commands: []CommandDependency{{Alternatives: []string{"build"}}},
+			},
+			expected: true,
+		},
+		{
+			name: "with custom_checks",
+			deps: &DependsOn{
+				CustomChecks: []CustomCheckDependency{{Name: "c", CheckScript: "true"}},
+			},
+			expected: true,
+		},
+		{
+			name: "with filepaths",
+			deps: &DependsOn{
+				Filepaths: []FilepathDependency{{Alternatives: []string{"/etc/hosts"}}},
+			},
+			expected: true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -510,14 +531,18 @@ func TestMergeDependsOnAll(t *testing.T) {
 	rootDeps := &DependsOn{
 		Tools:        []ToolDependency{{Alternatives: []string{"sh"}}},
 		Capabilities: []CapabilityDependency{{Alternatives: []CapabilityName{CapabilityLocalAreaNetwork}}},
+		CustomChecks: []CustomCheckDependency{{Name: "root-check", CheckScript: "true"}},
 	}
 	cmdDeps := &DependsOn{
 		Tools:     []ToolDependency{{Alternatives: []string{"bash"}}},
 		Filepaths: []FilepathDependency{{Alternatives: []string{"/etc/hosts"}}},
+		Commands:  []CommandDependency{{Alternatives: []string{"build"}}},
 	}
 	implDeps := &DependsOn{
-		Tools:   []ToolDependency{{Alternatives: []string{"python3"}}},
-		EnvVars: []EnvVarDependency{{Alternatives: []EnvVarCheck{{Name: "HOME"}}}},
+		Tools:        []ToolDependency{{Alternatives: []string{"python3"}}},
+		EnvVars:      []EnvVarDependency{{Alternatives: []EnvVarCheck{{Name: "HOME"}}}},
+		Commands:     []CommandDependency{{Alternatives: []string{"test"}}},
+		CustomChecks: []CustomCheckDependency{{Name: "impl-check", CheckScript: "echo ok"}},
 	}
 
 	merged := MergeDependsOnAll(rootDeps, cmdDeps, implDeps)
@@ -562,6 +587,28 @@ func TestMergeDependsOnAll(t *testing.T) {
 	}
 	if merged.EnvVars[0].Alternatives[0].Name != "HOME" {
 		t.Errorf("EnvVar name = %q, want %q", merged.EnvVars[0].Alternatives[0].Name, "HOME")
+	}
+
+	// Verify commands merged: 1 from cmd + 1 from impl = 2
+	if len(merged.Commands) != 2 {
+		t.Fatalf("Expected 2 commands after merge, got %d", len(merged.Commands))
+	}
+	if merged.Commands[0].Alternatives[0] != "build" {
+		t.Errorf("First command = %q, want %q", merged.Commands[0].Alternatives[0], "build")
+	}
+	if merged.Commands[1].Alternatives[0] != "test" {
+		t.Errorf("Second command = %q, want %q", merged.Commands[1].Alternatives[0], "test")
+	}
+
+	// Verify custom_checks merged: 1 from root + 1 from impl = 2
+	if len(merged.CustomChecks) != 2 {
+		t.Fatalf("Expected 2 custom_checks after merge, got %d", len(merged.CustomChecks))
+	}
+	if merged.CustomChecks[0].Name != "root-check" {
+		t.Errorf("First custom_check = %q, want %q", merged.CustomChecks[0].Name, "root-check")
+	}
+	if merged.CustomChecks[1].Name != "impl-check" {
+		t.Errorf("Second custom_check = %q, want %q", merged.CustomChecks[1].Name, "impl-check")
 	}
 }
 

@@ -1,0 +1,61 @@
+# Test: Implementation-level depends_on using native runtime
+# Mirrors virtual_deps_impl.txtar but with platform-split native implementations
+
+cd $WORK
+
+# Test 1: Implementation-level tool dep satisfied
+exec invowk cmd 'impl deps satisfied'
+stdout 'implementation deps passed'
+! stderr .
+
+# Test 2: Implementation-level tool dep unsatisfied
+! exec invowk cmd 'impl deps missing'
+stderr '(?i)dependencies not satisfied'
+stderr 'Missing Tools'
+stderr 'nonexistent-impl-tool-xyz'
+
+-- invowkfile.cue --
+cmds: [
+	{
+		name: "impl deps satisfied"
+		implementations: [
+			{
+				script:    "echo 'implementation deps passed'"
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
+				depends_on: {
+					tools: [{alternatives: ["sh"]}]
+				}
+			},
+			{
+				script:    "Write-Output 'implementation deps passed'"
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "windows"}]
+				depends_on: {
+					tools: [{alternatives: ["cmd.exe"]}]
+				}
+			},
+		]
+	},
+	{
+		name: "impl deps missing"
+		implementations: [
+			{
+				script:    "echo 'should not run'"
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
+				depends_on: {
+					tools: [{alternatives: ["nonexistent-impl-tool-xyz"]}]
+				}
+			},
+			{
+				script:    "Write-Output 'should not run'"
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "windows"}]
+				depends_on: {
+					tools: [{alternatives: ["nonexistent-impl-tool-xyz"]}]
+				}
+			},
+		]
+	},
+]

@@ -1,0 +1,28 @@
+# Test: Capability dependency failure path
+# TTY capability should always fail in testscript (no terminal attached)
+
+cd $WORK
+
+# Test 1: tty capability fails in non-interactive testscript
+! exec invowk cmd 'deps cap tty'
+stderr '(?i)dependencies not satisfied'
+stderr 'Missing Capabilities'
+stderr 'tty'
+
+-- invowkfile.cue --
+cmds: [
+	{
+		name:        "deps cap tty"
+		description: "Command requiring tty (always fails in testscript)"
+		implementations: [{
+			script:    "echo 'should not run'"
+			runtimes:  [{name: "virtual"}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+		depends_on: {
+			capabilities: [
+				{alternatives: ["tty"]},
+			]
+		}
+	},
+]

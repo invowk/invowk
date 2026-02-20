@@ -1,0 +1,56 @@
+# Test: Custom check dependency error path
+# Tests that failing custom checks produce correct error output
+
+cd $WORK
+
+# Test 1: Custom check with wrong exit code
+! exec invowk cmd 'deps check fail-code'
+stderr '(?i)dependencies not satisfied'
+stderr 'Failed Custom Checks'
+stderr 'exit code'
+
+# Test 2: Custom check with output that does not match pattern
+! exec invowk cmd 'deps check fail-output'
+stderr '(?i)dependencies not satisfied'
+stderr 'Failed Custom Checks'
+stderr 'does not match'
+
+-- invowkfile.cue --
+cmds: [
+	{
+		name:        "deps check fail-code"
+		description: "Command with custom check that fails on exit code"
+		implementations: [{
+			script:    "echo 'should not run'"
+			runtimes:  [{name: "virtual"}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+		depends_on: {
+			custom_checks: [
+				{
+					name:          "always-fail"
+					check_script:  "exit 1"
+					expected_code: 0
+				},
+			]
+		}
+	},
+	{
+		name:        "deps check fail-output"
+		description: "Command with custom check that fails output matching"
+		implementations: [{
+			script:    "echo 'should not run'"
+			runtimes:  [{name: "virtual"}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+		depends_on: {
+			custom_checks: [
+				{
+					name:            "output-mismatch"
+					check_script:    "echo 'hello world'"
+					expected_output: "^version [0-9]"
+				},
+			]
+		}
+	},
+]

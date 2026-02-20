@@ -84,6 +84,11 @@ stdout 'Invowkfile parses successfully'
 stderr 'Module validation failed'
 stderr 'missing required invowkmod.cue'
 
+# Test 13: Validate invowkfile with invalid depends_on schema (bad capability name)
+! exec invowk validate ./bad_deps/invowkfile.cue
+stdout 'Invowkfile Validation'
+stderr 'CUE schema validation failed'
+
 -- invowkfile.cue --
 cmds: [
 	{
@@ -200,3 +205,20 @@ cmds: [
 
 -- random.txt --
 just a text file
+
+-- bad_deps/invowkfile.cue --
+cmds: [
+	{
+		name: "broken-deps"
+		implementations: [{
+			script:    "echo test"
+			runtimes:  [{name: "virtual"}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+		depends_on: {
+			capabilities: [
+				{alternatives: ["invalid-capability-name"]},
+			]
+		}
+	},
+]

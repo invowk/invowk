@@ -28,6 +28,46 @@ func testCommandWithDeps(name, script string, deps *DependsOn) Command {
 	}
 }
 
+func TestDependsOn_IsEmpty(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		deps     DependsOn
+		expected bool
+	}{
+		{name: "zero value", deps: DependsOn{}, expected: true},
+		{name: "only tools", deps: DependsOn{Tools: []ToolDependency{{Alternatives: []string{"sh"}}}}, expected: false},
+		{name: "only commands", deps: DependsOn{Commands: []CommandDependency{{Alternatives: []string{"build"}}}}, expected: false},
+		{name: "only filepaths", deps: DependsOn{Filepaths: []FilepathDependency{{Alternatives: []string{"f.txt"}}}}, expected: false},
+		{name: "only capabilities", deps: DependsOn{Capabilities: []CapabilityDependency{{Alternatives: []CapabilityName{CapabilityInternet}}}}, expected: false},
+		{name: "only custom_checks", deps: DependsOn{CustomChecks: []CustomCheckDependency{{Name: "c", CheckScript: "true"}}}, expected: false},
+		{name: "only env_vars", deps: DependsOn{EnvVars: []EnvVarDependency{{Alternatives: []EnvVarCheck{{Name: "HOME"}}}}}, expected: false},
+		{
+			name: "all populated",
+			deps: DependsOn{
+				Tools:        []ToolDependency{{Alternatives: []string{"sh"}}},
+				Commands:     []CommandDependency{{Alternatives: []string{"b"}}},
+				Filepaths:    []FilepathDependency{{Alternatives: []string{"f"}}},
+				Capabilities: []CapabilityDependency{{Alternatives: []CapabilityName{CapabilityInternet}}},
+				CustomChecks: []CustomCheckDependency{{Name: "c", CheckScript: "true"}},
+				EnvVars:      []EnvVarDependency{{Alternatives: []EnvVarCheck{{Name: "X"}}}},
+			},
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			if got := tt.deps.IsEmpty(); got != tt.expected {
+				t.Errorf("IsEmpty() = %v, want %v", got, tt.expected)
+			}
+		})
+	}
+}
+
 func TestCommand_HasDependencies(t *testing.T) {
 	t.Parallel()
 
@@ -62,6 +102,16 @@ func TestCommand_HasDependencies(t *testing.T) {
 				Tools:    []ToolDependency{{Alternatives: []string{"git"}}},
 				Commands: []CommandDependency{{Alternatives: []string{"build"}}},
 			}),
+			expected: true,
+		},
+		{
+			name:     "only env_vars",
+			cmd:      testCommandWithDeps("test", "echo", &DependsOn{EnvVars: []EnvVarDependency{{Alternatives: []EnvVarCheck{{Name: "HOME"}}}}}),
+			expected: true,
+		},
+		{
+			name:     "only custom_checks",
+			cmd:      testCommandWithDeps("test", "echo", &DependsOn{CustomChecks: []CustomCheckDependency{{Name: "c", CheckScript: "true"}}}),
 			expected: true,
 		},
 	}
@@ -141,6 +191,40 @@ func TestCommand_GetCommandDependencies(t *testing.T) {
 				if name != tt.expected[i] {
 					t.Errorf("GetCommandDependencies()[%d] = %q, want %q", i, name, tt.expected[i])
 				}
+			}
+		})
+	}
+}
+
+func TestCommand_HasCommandLevelDependencies_AllTypes(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		deps     *DependsOn
+		expected bool
+	}{
+		{name: "nil", deps: nil, expected: false},
+		{name: "empty", deps: &DependsOn{}, expected: false},
+		{name: "tools", deps: &DependsOn{Tools: []ToolDependency{{Alternatives: []string{"sh"}}}}, expected: true},
+		{name: "commands", deps: &DependsOn{Commands: []CommandDependency{{Alternatives: []string{"b"}}}}, expected: true},
+		{name: "filepaths", deps: &DependsOn{Filepaths: []FilepathDependency{{Alternatives: []string{"f"}}}}, expected: true},
+		{name: "capabilities", deps: &DependsOn{Capabilities: []CapabilityDependency{{Alternatives: []CapabilityName{CapabilityInternet}}}}, expected: true},
+		{name: "custom_checks", deps: &DependsOn{CustomChecks: []CustomCheckDependency{{Name: "c", CheckScript: "true"}}}, expected: true},
+		{name: "env_vars", deps: &DependsOn{EnvVars: []EnvVarDependency{{Alternatives: []EnvVarCheck{{Name: "HOME"}}}}}, expected: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			cmd := Command{
+				Name:            "test",
+				Implementations: []Implementation{{Script: "echo", Runtimes: []RuntimeConfig{{Name: RuntimeNative}}, Platforms: AllPlatformConfigs()}},
+				DependsOn:       tt.deps,
+			}
+			if got := cmd.HasCommandLevelDependencies(); got != tt.expected {
+				t.Errorf("HasCommandLevelDependencies() = %v, want %v", got, tt.expected)
 			}
 		})
 	}
