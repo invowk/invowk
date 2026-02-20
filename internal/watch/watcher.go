@@ -9,7 +9,6 @@ package watch
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"maps"
@@ -18,7 +17,6 @@ import (
 	"slices"
 	"sync"
 	"sync/atomic"
-	"syscall"
 	"time"
 
 	"github.com/bmatcuk/doublestar/v4"
@@ -84,7 +82,8 @@ type (
 	}
 
 	// Watcher monitors filesystem paths and fires a debounced callback when
-	// matching files change.
+	// matching files change. Run must be called exactly once; calling it a
+	// second time returns an error.
 	Watcher struct {
 		cfg      Config
 		fsw      *fsnotify.Watcher
@@ -93,12 +92,13 @@ type (
 		stderr   io.Writer
 		debounce time.Duration
 		baseDir  string
+		started  atomic.Bool
 	}
 )
 
 // New creates a Watcher from the given Config. It resolves BaseDir to an
 // absolute path, initialises the underlying fsnotify watcher, and registers
-// all directories that could contain files matching the configured patterns.
+// all non-ignored directories under BaseDir for monitoring.
 func New(cfg Config) (*Watcher, error) {
 	baseDir := cfg.BaseDir
 	if baseDir == "" {
@@ -171,8 +171,13 @@ func New(cfg Config) (*Watcher, error) {
 
 // Run blocks until ctx is cancelled, processing filesystem events and
 // dispatching debounced callbacks. It returns nil on clean context
-// cancellation and propagates any fatal watcher errors.
+// cancellation and propagates any fatal watcher errors. Run must be
+// called exactly once; a second call returns an error immediately.
 func (w *Watcher) Run(ctx context.Context) error {
+	if !w.started.CompareAndSwap(false, true) {
+		return fmt.Errorf("watch: Run called more than once")
+	}
+
 	var (
 		mu      sync.Mutex
 		pending = make(map[string]struct{})
@@ -182,7 +187,9 @@ func (w *Watcher) Run(ctx context.Context) error {
 
 	// fire drains the pending set and invokes the OnChange callback.
 	// It may be scheduled by time.AfterFunc after the context is cancelled,
-	// so check ctx.Err() to avoid executing with a dead context.
+	// so check ctx.Err() as a best-effort guard. A narrow TOCTOU window
+	// remains between the check and OnChange invocation; the callback
+	// receives ctx and should check it for cancellation-sensitive work.
 	// Uses atomic "skip-if-busy" guard to prevent concurrent callback
 	// invocations when the command takes longer than the debounce period.
 	fire := func() {
@@ -191,6 +198,14 @@ func (w *Watcher) Run(ctx context.Context) error {
 		}
 		if !running.CompareAndSwap(false, true) {
 			fmt.Fprintf(w.stderr, "watch: skipping re-execution (previous run still in progress)\n")
+			// Schedule a retry so pending events are not permanently lost.
+			// Without this, if no further filesystem events arrive, the
+			// accumulated pending set would be silently discarded.
+			mu.Lock()
+			if timer != nil {
+				timer.Reset(w.debounce)
+			}
+			mu.Unlock()
 			return
 		}
 		defer running.Store(false)
@@ -216,11 +231,15 @@ func (w *Watcher) Run(ctx context.Context) error {
 		}
 	}
 
-	// Ensure the timer channel is drained on exit.
+	// Ensure the timer channel is drained on exit. The timer is accessed
+	// under mu because it is written by the event loop under the same lock.
 	defer func() {
-		if timer != nil && !timer.Stop() {
+		mu.Lock()
+		localTimer := timer
+		mu.Unlock()
+		if localTimer != nil && !localTimer.Stop() {
 			select {
-			case <-timer.C:
+			case <-localTimer.C:
 			default:
 			}
 		}
@@ -271,19 +290,21 @@ func (w *Watcher) Run(ctx context.Context) error {
 			if !ok {
 				return fmt.Errorf("watch: fsnotify error channel closed unexpectedly")
 			}
-			// Classify the error: ENOSPC (inotify limit) and similar system errors
-			// indicate the watcher is fundamentally broken and should exit.
-			if errors.Is(err, syscall.ENOSPC) {
-				return fmt.Errorf("watch: fatal fsnotify error (inotify limit exceeded): %w", err)
+			// Classify the error: resource exhaustion (inotify limit, file
+			// descriptor limits) indicates the watcher is fundamentally broken.
+			// isFatalFsnotifyError is platform-specific (see watcher_fatal_*.go).
+			if isFatalFsnotifyError(err) {
+				return fmt.Errorf("watch: fatal fsnotify error: %w", err)
 			}
 			fmt.Fprintf(w.stderr, "watch: fsnotify error: %v\n", err)
 		}
 	}
 }
 
-// addDirectories walks BaseDir and adds every directory that could contain
-// files matching the configured patterns. When no patterns are specified, all
-// non-ignored directories are watched.
+// addDirectories walks BaseDir and adds every non-ignored directory to the
+// fsnotify watcher. All directories are registered regardless of watch
+// patterns; pattern filtering is applied when events arrive (see
+// matchesPatterns).
 func (w *Watcher) addDirectories() error {
 	walkErr := filepath.WalkDir(w.baseDir, func(path string, d os.DirEntry, walkDirErr error) error {
 		if walkDirErr != nil {

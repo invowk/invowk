@@ -57,10 +57,9 @@ func runWatchMode(cmd *cobra.Command, app *App, rootFlags *rootFlagValues, cmdFl
 		ignore = watchCfg.Ignore
 		clearScreen = watchCfg.ClearScreen
 		if watchCfg.Debounce != "" {
-			// TODO: switch to watchCfg.ParseDebounce() once pkg/invowkfile adds it.
-			d, parseErr := time.ParseDuration(watchCfg.Debounce)
+			d, parseErr := watchCfg.ParseDebounce()
 			if parseErr != nil {
-				return fmt.Errorf("invalid watch debounce %q: %w", watchCfg.Debounce, parseErr)
+				return fmt.Errorf("invalid watch debounce: %w", parseErr)
 			}
 			debounce = d
 		}
@@ -73,7 +72,10 @@ func runWatchMode(cmd *cobra.Command, app *App, rootFlags *rootFlagValues, cmdFl
 
 	// Build a re-execution closure that runs the command through the normal pipeline.
 	// The closure disables watch mode on the child request to prevent recursion.
-	reexecute := func(ctx context.Context, _ []string) error {
+	// The context and changed-files parameters are unused: runCommand derives its
+	// context from cmd.Context(), and we re-execute the full command regardless of
+	// which files changed.
+	reexecute := func(_ []string) error {
 		childFlags := *cmdFlags
 		childFlags.watch = false
 		return runCommand(cmd, app, rootFlags, &childFlags, args)
@@ -81,8 +83,12 @@ func runWatchMode(cmd *cobra.Command, app *App, rootFlags *rootFlagValues, cmdFl
 
 	// Execute the command once immediately before starting the watcher.
 	fmt.Fprintf(app.stdout, "%s Watch mode: initial execution of '%s'\n", VerboseHighlightStyle.Render("→"), args[0])
-	if execErr := reexecute(cmd.Context(), nil); execErr != nil {
-		// Log but don't stop — the user may fix the error and save again.
+	if execErr := reexecute(nil); execErr != nil {
+		// Propagate context cancellation (Ctrl+C) instead of looping.
+		if ctx.Err() != nil {
+			return fmt.Errorf("initial execution cancelled: %w", ctx.Err())
+		}
+		// Log recoverable errors but don't stop — the user may fix and save again.
 		fmt.Fprintf(app.stderr, "%s Initial execution failed: %v\n", WarningStyle.Render("!"), execErr)
 	}
 
@@ -102,10 +108,14 @@ func runWatchMode(cmd *cobra.Command, app *App, rootFlags *rootFlagValues, cmdFl
 		Debounce:    debounce,
 		ClearScreen: clearScreen,
 		BaseDir:     baseDir,
-		OnChange: func(ctx context.Context, changed []string) error {
+		OnChange: func(cbCtx context.Context, changed []string) error {
 			fmt.Fprintf(app.stdout, "%s Detected %d change(s). Re-executing '%s'...\n",
 				VerboseHighlightStyle.Render("→"), len(changed), args[0])
-			if execErr := reexecute(ctx, changed); execErr != nil {
+			if execErr := reexecute(changed); execErr != nil {
+				// Propagate context cancellation (Ctrl+C) instead of looping.
+				if cbCtx.Err() != nil {
+					return fmt.Errorf("execution cancelled: %w", cbCtx.Err())
+				}
 				fmt.Fprintf(app.stderr, "%s Execution failed: %v\n", WarningStyle.Render("!"), execErr)
 			}
 			fmt.Fprintf(app.stdout, "\n%s Watching for changes...\n\n", VerboseHighlightStyle.Render("→"))
@@ -119,5 +129,7 @@ func runWatchMode(cmd *cobra.Command, app *App, rootFlags *rootFlagValues, cmdFl
 	if err != nil {
 		return fmt.Errorf("failed to start watcher: %w", err)
 	}
-	return w.Run(cmd.Context())
+	// Use the config-path-enhanced context so --ivk-config is respected
+	// during re-execution, not the bare cmd.Context().
+	return w.Run(ctx)
 }

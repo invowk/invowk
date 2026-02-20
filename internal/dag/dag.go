@@ -14,8 +14,9 @@ type (
 	// CycleError indicates that the graph contains a cycle, preventing topological ordering.
 	CycleError struct {
 		// Nodes contains the nodes involved in the cycle (all nodes with non-zero
-		// in-degree after Kahn's algorithm). This may include nodes that are not
-		// directly on the cycle path but are reachable only through cycle members.
+		// in-degree after Kahn's algorithm), in graph insertion order. This may
+		// include nodes that are not directly on the cycle path but are reachable
+		// only through cycle members.
 		Nodes []string
 	}
 
@@ -24,7 +25,6 @@ type (
 	// an edge from A to B means A must complete before B starts.
 	Graph struct {
 		// adjacency maps each node to its outgoing neighbors (nodes that depend on it).
-		// An edge from A to B means A must complete before B starts.
 		adjacency map[string][]string
 		// nodes tracks all nodes in insertion order for deterministic output.
 		nodes []string
@@ -64,8 +64,9 @@ func (g *Graph) AddEdge(from, to string) {
 
 // TopologicalSort returns a valid execution order using Kahn's algorithm.
 // Returns CycleError if the graph contains a cycle.
-// The returned order is deterministic: nodes at the same topological level
-// appear in the order they were first added to the graph.
+// The returned order is deterministic for a given graph construction sequence:
+// the initial queue is seeded in node-insertion order, and neighbors are
+// enqueued in edge-addition order as their in-degree reaches zero.
 func (g *Graph) TopologicalSort() ([]string, error) {
 	if len(g.nodes) == 0 {
 		return nil, nil

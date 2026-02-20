@@ -1,0 +1,27 @@
+# Test: Watch mode flag recognition (--ivk-watch)
+# Verifies watch mode flag is recognized and error paths work correctly.
+# Full watch-loop testing is timing-dependent and covered by unit tests;
+# here we test flag parsing and error responses.
+
+cd $WORK
+
+# Test 1: --ivk-watch with non-existent command fails cleanly
+! exec invowk cmd nonexistent --ivk-watch
+stderr '(?i)not found'
+
+# Test 2: --ivk-watch and --ivk-dry-run are mutually exclusive
+! exec invowk cmd hello --ivk-watch --ivk-dry-run
+stderr '(?i)--ivk-watch and --ivk-dry-run cannot be used together'
+
+-- invowkfile.cue --
+cmds: [
+	{
+		name:        "hello"
+		description: "A simple command"
+		implementations: [{
+			script:    "echo hello"
+			runtimes:  [{name: "virtual"}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+	},
+]

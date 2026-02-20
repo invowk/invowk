@@ -3,6 +3,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"strings"
@@ -57,6 +58,24 @@ func TestClassifyExecutionError(t *testing.T) {
 			err:         fmt.Errorf("failed to get runtime: %w", fmt.Errorf("runtime 'container' not registered: %w", runtime.ErrRuntimeNotAvailable)),
 			wantIssueID: issue.RuntimeNotAvailableId,
 			wantInStyle: []string{"not registered"},
+		},
+		{
+			name:        "deadline exceeded maps to script execution with timeout message",
+			err:         context.DeadlineExceeded,
+			wantIssueID: issue.ScriptExecutionFailedId,
+			wantInStyle: []string{"timed out"},
+		},
+		{
+			name:        "context cancelled maps to script execution with cancelled message",
+			err:         context.Canceled,
+			wantIssueID: issue.ScriptExecutionFailedId,
+			wantInStyle: []string{"cancelled"},
+		},
+		{
+			name:        "wrapped deadline exceeded still detected",
+			err:         fmt.Errorf("runtime: %w", context.DeadlineExceeded),
+			wantIssueID: issue.ScriptExecutionFailedId,
+			wantInStyle: []string{"timed out"},
 		},
 		{
 			name:        "unknown error falls back to script execution issue",

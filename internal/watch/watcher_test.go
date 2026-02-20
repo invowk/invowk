@@ -377,6 +377,72 @@ func TestWatcherClearScreen(t *testing.T) {
 	}
 }
 
+// TestWatcherInvalidPattern verifies that New returns an error when given
+// an invalid glob pattern, failing fast at construction time.
+func TestWatcherInvalidPattern(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+
+	_, err := New(Config{
+		BaseDir:  dir,
+		Patterns: []string{"[invalid"},
+		Debounce: 50 * time.Millisecond,
+		Stdout:   &bytes.Buffer{},
+		Stderr:   &bytes.Buffer{},
+	})
+	if err == nil {
+		t.Fatal("New() should return an error for an invalid glob pattern")
+	}
+
+	if !strings.Contains(err.Error(), "invalid watch pattern") {
+		t.Errorf("error message should mention invalid watch pattern, got: %v", err)
+	}
+}
+
+// TestWatcherDoubleRunError verifies that calling Run a second time returns
+// an error immediately rather than starting a second event loop.
+func TestWatcherDoubleRunError(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+
+	w, err := New(Config{
+		BaseDir:  dir,
+		Debounce: 50 * time.Millisecond,
+		Stdout:   &bytes.Buffer{},
+		Stderr:   &bytes.Buffer{},
+	})
+	if err != nil {
+		t.Fatalf("New() error: %v", err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// Start Run in a goroutine.
+	errCh := make(chan error, 1)
+	go func() { errCh <- w.Run(ctx) }()
+
+	// Give the event loop time to start.
+	time.Sleep(50 * time.Millisecond)
+
+	// Second call to Run should return an error immediately.
+	err = w.Run(ctx)
+	if err == nil {
+		t.Fatal("second Run() call should return an error")
+	}
+
+	if !strings.Contains(err.Error(), "Run called more than once") {
+		t.Errorf("error message should mention double-run, got: %v", err)
+	}
+
+	cancel()
+	if firstErr := <-errCh; firstErr != nil {
+		t.Fatalf("first Run() returned error: %v", firstErr)
+	}
+}
+
 // TestWatcherPatternFiltering verifies that only events matching the
 // configured glob patterns trigger the callback.
 func TestWatcherPatternFiltering(t *testing.T) {

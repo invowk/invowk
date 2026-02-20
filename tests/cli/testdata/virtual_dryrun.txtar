@@ -18,11 +18,13 @@ exec invowk cmd slow --ivk-dry-run
 stdout 'Timeout:.*30s'
 stdout 'Script:'
 
-# Test 3: Dry-run shows execute deps
+# Test 3: Dry-run shows execute deps without actually running them
 exec invowk cmd deploy --ivk-dry-run
 stdout 'Exec deps:.*build'
 stdout 'Script:'
 stdout 'echo deploying'
+# Verify the build dep was NOT actually executed (dry-run skips execution)
+! stdout 'building'
 
 # Test 4: Dry-run shows environment variables
 exec invowk cmd hello --ivk-dry-run
