@@ -285,7 +285,7 @@ func (s *commandService) buildExecContext(req ExecuteRequest, cmdInfo *discovery
 //  1. Creates runtime registry.
 //  2. Validates timeout string (fail-fast on invalid values).
 //  3. Wraps context with timeout.
-//  4. Validates dependencies (tools, filepaths, capabilities, env vars).
+//  4. Validates dependencies (tools, cmds, filepaths, capabilities, custom checks, env vars).
 //  5. Dispatches to interactive mode (alternate screen + TUI server) or standard execution.
 //
 // It handles result rendering for errors and non-zero exit codes.

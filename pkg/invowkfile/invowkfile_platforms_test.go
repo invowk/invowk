@@ -71,8 +71,8 @@ cmds: [
 	if len(platforms2) != 1 {
 		t.Errorf("Expected 1 platform for second command, got %d", len(platforms2))
 	}
-	if platforms2[0] != HostLinux {
-		t.Errorf("First platform = %q, want %q", platforms2[0], HostLinux)
+	if platforms2[0] != PlatformLinux {
+		t.Errorf("First platform = %q, want %q", platforms2[0], PlatformLinux)
 	}
 }
 

@@ -3,7 +3,6 @@
 package cmd
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -209,16 +208,7 @@ func checkEnvVarDependenciesInContainer(deps *invowkfile.DependsOn, registry *ru
 				checkScript = fmt.Sprintf("test -n \"${%s+x}\" && printf '%%s' \"$%s\" | grep -qE '%s'", name, name, escapedValidation)
 			}
 
-			var stdout, stderr bytes.Buffer
-			validationCtx := &runtime.ExecutionContext{
-				Command:         ctx.Command,
-				Invowkfile:      ctx.Invowkfile,
-				SelectedImpl:    &invowkfile.Implementation{Script: checkScript, Runtimes: []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeContainer}}},
-				SelectedRuntime: invowkfile.RuntimeContainer,
-				Context:         ctx.Context,
-				IO:              runtime.IOContext{Stdout: &stdout, Stderr: &stderr},
-				Env:             runtime.DefaultEnv(),
-			}
+			validationCtx, _, _ := newContainerValidationContext(ctx, checkScript)
 
 			result := rt.Execute(validationCtx)
 			if result.Error != nil {
@@ -416,7 +406,10 @@ func checkCapabilityDependencies(deps *invowkfile.DependsOn, ctx *runtime.Execut
 
 	var capabilityErrors []string
 
-	// Track seen capability sets to detect duplicates (they're just skipped, not an error)
+	// Track seen capability sets to avoid duplicate network probes.
+	// Capabilities like "internet" and "local-area-network" involve network I/O,
+	// so skipping duplicates is a meaningful performance optimization.
+	// Other dependency types (tools, filepaths, etc.) are cheap to re-check.
 	seen := make(map[string]bool)
 
 	for _, capDep := range deps.Capabilities {

@@ -191,10 +191,8 @@ func (inv *Invowkfile) FlattenCommands() map[string]*Command {
 	return result
 }
 
-// HasRootLevelDependencies returns true if the invowkfile has root-level dependencies
+// HasRootLevelDependencies returns true if the invowkfile has root-level dependencies.
+// Delegates to DependsOn.IsEmpty() to stay in sync if new dependency types are added.
 func (inv *Invowkfile) HasRootLevelDependencies() bool {
-	if inv.DependsOn == nil {
-		return false
-	}
-	return len(inv.DependsOn.Tools) > 0 || len(inv.DependsOn.Commands) > 0 || len(inv.DependsOn.Filepaths) > 0 || len(inv.DependsOn.Capabilities) > 0 || len(inv.DependsOn.CustomChecks) > 0 || len(inv.DependsOn.EnvVars) > 0
+	return inv.DependsOn != nil && !inv.DependsOn.IsEmpty()
 }

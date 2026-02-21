@@ -202,12 +202,10 @@ func (c *Command) HasDependencies() bool {
 	return false
 }
 
-// HasCommandLevelDependencies returns true if the command has command-level dependencies only
+// HasCommandLevelDependencies returns true if the command has command-level dependencies only.
+// Delegates to DependsOn.IsEmpty() to stay in sync if new dependency types are added.
 func (c *Command) HasCommandLevelDependencies() bool {
-	if c.DependsOn == nil {
-		return false
-	}
-	return len(c.DependsOn.Tools) > 0 || len(c.DependsOn.Commands) > 0 || len(c.DependsOn.Filepaths) > 0 || len(c.DependsOn.Capabilities) > 0 || len(c.DependsOn.CustomChecks) > 0 || len(c.DependsOn.EnvVars) > 0
+	return c.DependsOn != nil && !c.DependsOn.IsEmpty()
 }
 
 // GetCommandDependencies returns the list of command dependency names (from command level)

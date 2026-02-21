@@ -130,10 +130,10 @@ func TestCommand_GetPlatformsString(t *testing.T) {
 func TestGetCurrentHostOS(t *testing.T) {
 	// Just verify it returns one of the expected values
 	currentOS := invowkfile.GetCurrentHostOS()
-	validOSes := map[invowkfile.HostOS]bool{
-		invowkfile.HostLinux:   true,
-		invowkfile.HostMac:     true,
-		invowkfile.HostWindows: true,
+	validOSes := map[invowkfile.PlatformType]bool{
+		invowkfile.PlatformLinux:   true,
+		invowkfile.PlatformMac:     true,
+		invowkfile.PlatformWindows: true,
 	}
 
 	if !validOSes[currentOS] {

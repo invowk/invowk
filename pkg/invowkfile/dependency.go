@@ -150,14 +150,7 @@ func MergeDependsOnAll(rootDeps, cmdDeps, implDeps *DependsOn) *DependsOn {
 		return nil
 	}
 
-	merged := &DependsOn{
-		Tools:        make([]ToolDependency, 0),
-		Commands:     make([]CommandDependency, 0),
-		Filepaths:    make([]FilepathDependency, 0),
-		Capabilities: make([]CapabilityDependency, 0),
-		CustomChecks: make([]CustomCheckDependency, 0),
-		EnvVars:      make([]EnvVarDependency, 0),
-	}
+	merged := &DependsOn{}
 
 	// Append in declaration order: root → command → implementation.
 	merged.appendFrom(rootDeps)
