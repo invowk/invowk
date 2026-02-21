@@ -18,20 +18,12 @@ exec invowk cmd slow --ivk-dry-run
 stdout 'Timeout:.*30s'
 stdout 'Script:'
 
-# Test 3: Dry-run shows execute deps without actually running them
-exec invowk cmd deploy --ivk-dry-run
-stdout 'Exec deps:.*build'
-stdout 'Script:'
-stdout 'echo deploying'
-# Verify the build dep was NOT actually executed (dry-run skips execution)
-! stdout 'building'
-
-# Test 4: Dry-run shows environment variables
+# Test 3: Dry-run shows environment variables
 exec invowk cmd hello --ivk-dry-run
 stdout 'INVOWK_CMD_NAME=hello'
 stdout 'INVOWK_RUNTIME=virtual'
 
-# Test 5: --ivk-watch and --ivk-dry-run are mutually exclusive
+# Test 4: --ivk-watch and --ivk-dry-run are mutually exclusive
 ! exec invowk cmd hello --ivk-watch --ivk-dry-run
 stderr '(?i)--ivk-watch and --ivk-dry-run cannot be used together'
 
@@ -55,27 +47,5 @@ cmds: [
 			runtimes:  [{name: "virtual"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]
-	},
-	{
-		name: "build"
-		implementations: [{
-			script:    "echo building"
-			runtimes:  [{name: "virtual"}]
-			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
-		}]
-	},
-	{
-		name:        "deploy"
-		description: "Command with execute dep"
-		implementations: [{
-			script:    "echo deploying"
-			runtimes:  [{name: "virtual"}]
-			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
-		}]
-		depends_on: {
-			cmds: [
-				{alternatives: ["build"], execute: true},
-			]
-		}
 	},
 ]

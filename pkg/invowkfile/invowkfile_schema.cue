@@ -230,12 +230,6 @@ import "strings"
 	// This allows specifying alternative commands (e.g., ["build-debug", "build-release"]).
 	// Command names must be valid: starts with letter, can include letters, digits, underscores, hyphens, and spaces
 	alternatives: [...string & =~"^[a-zA-Z][a-zA-Z0-9_ -]*$"] & [_, ...]
-
-	// execute specifies whether to run this dependency command before the parent (optional, default: false)
-	// When true, the dependency command is executed (not just checked for discoverability).
-	// Dependency commands with execute: true must not have required args or flags.
-	// Circular execute dependencies are detected and rejected at validation time.
-	execute?: bool
 })
 
 // CapabilityName defines the supported system capability types

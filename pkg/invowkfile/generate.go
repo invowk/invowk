@@ -340,11 +340,7 @@ func generateDependsOnContent(sb *strings.Builder, deps *DependsOn, indent strin
 				}
 				fmt.Fprintf(sb, "%q", alt)
 			}
-			sb.WriteString("]")
-			if dep.Execute {
-				sb.WriteString(", execute: true")
-			}
-			sb.WriteString("},\n")
+			sb.WriteString("]},\n")
 		}
 		sb.WriteString(indent + "]\n")
 	}

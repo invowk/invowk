@@ -99,36 +99,6 @@ func TestGenerateCUE_Timeout(t *testing.T) {
 	}
 }
 
-func TestGenerateCUE_ExecuteDep(t *testing.T) {
-	t.Parallel()
-
-	inv := &Invowkfile{
-		Commands: []Command{
-			{
-				Name: "deploy",
-				Implementations: []Implementation{
-					{
-						Script:    "echo deploying",
-						Runtimes:  []RuntimeConfig{{Name: RuntimeVirtual}},
-						Platforms: AllPlatformConfigs(),
-					},
-				},
-				DependsOn: &DependsOn{
-					Commands: []CommandDependency{
-						{Alternatives: []string{"build"}, Execute: true},
-					},
-				},
-			},
-		},
-	}
-
-	got := GenerateCUE(inv)
-
-	if !strings.Contains(got, "execute: true") {
-		t.Errorf("expected execute: true in generated CUE, got:\n%s", got)
-	}
-}
-
 func TestGenerateCUE_WatchConfigMinimal(t *testing.T) {
 	t.Parallel()
 

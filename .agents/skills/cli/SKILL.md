@@ -157,36 +157,10 @@ commandService.Execute(ctx, req)
     └── dispatchExecution()     ← Calls runtime.BuildRegistry(), then executes pipeline:
         ├── Container init fail-fast (via runtimeRegistryResult.ContainerInitErr)
         ├── Timeout validation (parse-only, fail-fast on invalid strings)
-        ├── Timeout wrapping (context.WithTimeout — covers deps + main command)
+        ├── Timeout wrapping (context.WithTimeout)
         ├── Dependency validation (validateAndRenderDeps)
-        ├── DAG dep execution (executeDepCommands) ← runs execute:true deps recursively
         ├── Interactive mode (alternate screen + TUI server) OR standard execution
         └── Error classification via classifyExecutionError()
-```
-
-### DAG Execution (depends_on.cmds with execute: true)
-
-When `CommandDependency.Execute` is `true`, the dependency command is actually run before the parent command. This is handled by `executeDepCommands()` in `cmd_execute_deps.go`.
-
-**Architecture:**
-- **Recursive execution**: Each dep calls `commandService.Execute()`, which processes its own deps transitively
-- **Re-entrancy guard**: A `dagExecutionStackKey` context value (`map[string]bool`) tracks commands currently executing. This prevents infinite recursion from circular deps at runtime
-- **Cannot use mutex**: The recursive `Execute()` calls would deadlock with a `sync.Mutex`. The context-value pattern threads the visiting set through the call stack without locking
-- **Two-layer cycle protection**: (1) Static validation via `ValidateExecutionDAG` in `internal/discovery/validation.go` uses Kahn's algorithm from `internal/dag/` to detect cycles at parse time. (2) Runtime re-entrancy guard catches edge cases where dynamic discovery changes the graph
-- **Sequential execution**: Deps run in declaration order within a single `cmds` list; no parallelization
-- **First discoverable alternative wins**: Execute deps use OR semantics — iterate alternatives in order, execute the first one that exists in the discovery results (no fallback after execution failure)
-- **No args/flags**: Execute deps run with no positional args and no flags. Commands with required args/flags are rejected at validation time
-
-```
-dispatchExecution
-    └── executeDepCommands(ctx, req, cmdInfo, execCtx)
-            ├── Merge depends_on from root + cmd + impl levels
-            ├── Check re-entrancy guard (dagExecutionStackKey in ctx)
-            ├── Add current command to visiting set
-            ├── For each execute:true dep (declaration order):
-            │   ├── Build minimal ExecuteRequest (no args, no flags)
-            │   └── s.Execute(ctx, depReq) ← RECURSIVE: processes transitive deps
-            └── Remove current command from visiting set
 ```
 
 ### Error Classification Pipeline
@@ -414,13 +388,11 @@ files, err := disc.DiscoverAll()  // or disc.LoadAll() to also parse
 | `cmd.go` | `invowk cmd` parent, executeRequest(), disambiguation entry point |
 | `cmd_discovery.go` | Dynamic command registration (registerDiscoveredCommands, buildLeafCommand) |
 | `cmd_execute.go` | commandService: decomposed pipeline (discoverCommand → resolveDefinitions → validateInputs → resolveRuntime → ensureSSHIfNeeded → buildExecContext → [dry-run] → dispatchExecution). `resolveRuntime` and `buildExecContext` delegate to `internal/app/execute/` |
-| `cmd_execute_deps.go` | DAG execution: `executeDepCommands()` runs `execute:true` deps recursively with context-based re-entrancy guard (`dagExecutionStackKey`) |
 | `cmd_execute_helpers.go` | runtimeRegistryResult, createRuntimeRegistry() (delegates to `runtime.BuildRegistry()`), runDisambiguatedCommand(), checkAmbiguousCommand() |
 | `cmd_dryrun.go` | `renderDryRun()` — prints resolved execution context (script, env, runtime, platform, timeout) without executing |
 | `cmd_watch.go` | `runWatchMode()` — discovers command's WatchConfig, executes once, starts `internal/watch/` watcher loop with re-execution callback |
 | `internal/app/execute/orchestrator.go` | RuntimeSelection, RuntimeNotAllowedError, ResolveRuntime() (3-tier precedence), BuildExecutionContext() (env var projection including INVOWK_CMD_NAME, INVOWK_RUNTIME, INVOWK_SOURCE, INVOWK_PLATFORM) |
-| `internal/dag/dag.go` | Graph type with Kahn's topological sort and CycleError for DAG execution ordering |
-| `internal/discovery/validation.go` | ValidateCommandTree() for args/subcommand conflicts, ValidateExecutionDAG() for execute:true cycle detection |
+| `internal/discovery/validation.go` | ValidateCommandTree() for args/subcommand conflicts |
 | `internal/watch/watcher.go` | File watcher with fsnotify + doublestar glob matching, debouncing, default ignores |
 | `internal/runtime/registry_factory.go` | BuildRegistry(), BuildRegistryOptions, RegistryBuildResult, InitDiagnostic |
 | `cmd_execute_error_classifier.go` | classifyExecutionError() — maps runtime errors to issue catalog IDs |
@@ -444,6 +416,4 @@ files, err := disc.DiscoverAll()  // or disc.LoadAll() to also parse
 | Missing TUI server check | TUI components fail in nested context | Use dual-layer pattern |
 | Not using styled output | Inconsistent CLI appearance | Use styles from `styles.go` |
 | Wrong flag priority | Config overrides CLI flag | Check precedence logic |
-| Mutex in DAG execution | Deadlock on recursive Execute() | Use context-value re-entrancy guard (`dagExecutionStackKey`), never mutex |
-| Execute dep with required args | Validation error at runtime | `ValidateExecutionDAG` rejects execute deps targeting commands with required args/flags |
 | New flag missing from one ExecuteRequest site | Flag silently ignored for some paths | Wire in ALL 3 sites: `runCommand`, `buildLeafCommand`, `runDisambiguatedCommand` |

@@ -244,17 +244,6 @@ func runInvowkfilePathValidation(cmd *cobra.Command, invowkfilePath string) erro
 
 	fmt.Fprintf(stdout, "%s Command tree validation passed\n", moduleSuccessIcon)
 
-	if dagErr := discovery.ValidateExecutionDAG(commands); dagErr != nil {
-		fmt.Fprintf(stderr, "%s Execution DAG validation failed\n", moduleErrorIcon)
-		fmt.Fprintln(stderr)
-		fmt.Fprintf(stderr, "  %s\n", dagErr)
-		cmd.SilenceUsage = true
-		cmd.SilenceErrors = true
-		return &ExitError{Code: 1}
-	}
-
-	fmt.Fprintf(stdout, "%s Execution DAG validation passed\n", moduleSuccessIcon)
-
 	cmdCount := len(commands)
 	fmt.Fprintln(stdout)
 	fmt.Fprintf(stdout, "%s Invowkfile is valid (%d command(s))\n", moduleSuccessIcon, cmdCount)
@@ -302,9 +291,6 @@ func runModulePathValidation(cmd *cobra.Command, modulePath string) error {
 			}
 			if treeErr := discovery.ValidateCommandTree(commands); treeErr != nil {
 				result.AddIssue(invowkmod.IssueTypeCommandTree, treeErr.Error(), result.InvowkfilePath)
-			}
-			if dagErr := discovery.ValidateExecutionDAG(commands); dagErr != nil {
-				result.AddIssue(invowkmod.IssueTypeCommandTree, dagErr.Error(), result.InvowkfilePath)
 			}
 		}
 	}

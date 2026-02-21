@@ -70,9 +70,9 @@ func newCommandService(configProvider ConfigProvider, disc DiscoveryService, std
 //  2. Validates inputs: flags, arguments, platform compatibility, and runtime compatibility.
 //  3. Manages SSH server lifecycle when the container runtime needs host access.
 //  4. Builds execution context with env var projection (INVOWK_FLAG_*, INVOWK_ARG_*, ARGn).
-//  5. Propagates incoming context for DAG re-entrancy guard and cancellation signals.
+//  5. Propagates incoming context for timeout and cancellation signals.
 //  6. Dry-run intercept: if --ivk-dry-run, renders the execution plan and exits.
-//  7. Dispatches execution (timeout → dep validation → DAG dep execution → runtime).
+//  7. Dispatches execution (timeout → dep validation → runtime).
 func (s *commandService) Execute(ctx context.Context, req ExecuteRequest) (ExecuteResult, []discovery.Diagnostic, error) {
 	cfg, cmdInfo, diags, err := s.discoverCommand(ctx, req)
 	if err != nil {
@@ -90,13 +90,9 @@ func (s *commandService) Execute(ctx context.Context, req ExecuteRequest) (Execu
 		return ExecuteResult{}, diags, err
 	}
 
-	// Track whether we are the caller that starts the SSH server so only
-	// the outermost Execute() call owns cleanup. Recursive dep calls see
-	// the server already running and skip the defer, preventing premature
-	// shutdown of a server the parent still needs.
-	// NOTE: The TOCTOU window between current() and ensureSSHIfNeeded is
-	// safe because DAG execution is sequential on the same goroutine.
-	// If parallel dep execution is added, this pattern needs a mutex.
+	// Track whether we are the caller that starts the SSH server so that
+	// only this Execute() invocation owns cleanup. If the server is already
+	// running when we enter, we skip the defer to avoid premature shutdown.
 	sshWasRunning := s.ssh.current() != nil
 	if sshErr := s.ensureSSHIfNeeded(ctx, req, resolved); sshErr != nil {
 		return ExecuteResult{}, diags, sshErr
@@ -110,23 +106,15 @@ func (s *commandService) Execute(ctx context.Context, req ExecuteRequest) (Execu
 		return ExecuteResult{}, diags, err
 	}
 
-	// Propagate the incoming context so that DAG re-entrancy guard values
-	// and parent cancellation signals survive through recursive Execute calls.
-	// NewExecutionContext (called transitively by buildExecContext) sets
-	// context.Background(); overriding it here preserves the DAG stack map
-	// and Ctrl+C propagation chain.
+	// Propagate the incoming context so that timeout and parent cancellation
+	// signals survive. NewExecutionContext (called transitively by buildExecContext)
+	// sets context.Background(); overriding it here preserves the Ctrl+C
+	// propagation chain and timeout deadline.
 	execCtx.Context = ctx
 
 	// Dry-run mode: print what would be executed and exit without executing.
-	// Collect execute deps to include in the dry-run output so users see the
-	// full picture of what would happen (deps run before the main command).
-	// Resolution uses the same OR-alternative discovery as executeDepCommands.
 	if req.DryRun {
-		execDepNames, depErr := s.resolveExecDeps(ctx, cmdInfo, execCtx)
-		if depErr != nil {
-			return ExecuteResult{}, diags, depErr
-		}
-		renderDryRun(s.stdout, req, cmdInfo, execCtx, resolved, execDepNames)
+		renderDryRun(s.stdout, req, cmdInfo, execCtx, resolved)
 		return ExecuteResult{ExitCode: 0}, diags, nil
 	}
 
@@ -296,10 +284,9 @@ func (s *commandService) buildExecContext(req ExecuteRequest, cmdInfo *discovery
 // dispatchExecution runs the post-context-build execution pipeline:
 //  1. Creates runtime registry.
 //  2. Validates timeout string (fail-fast on invalid values).
-//  3. Wraps context with timeout (covers deps + main command).
-//  4. Validates non-execute dependencies (tools, filepaths, capabilities, env vars).
-//  5. Executes DAG dependency commands (depends_on.cmds with execute: true).
-//  6. Dispatches to interactive mode (alternate screen + TUI server) or standard execution.
+//  3. Wraps context with timeout.
+//  4. Validates dependencies (tools, filepaths, capabilities, env vars).
+//  5. Dispatches to interactive mode (alternate screen + TUI server) or standard execution.
 //
 // It handles result rendering for errors and non-zero exit codes.
 func (s *commandService) dispatchExecution(ctx context.Context, req ExecuteRequest, execCtx *runtime.ExecutionContext, cmdInfo *discovery.CommandInfo, cfg *config.Config, diags []discovery.Diagnostic) (ExecuteResult, []discovery.Diagnostic, error) {
@@ -323,8 +310,8 @@ func (s *commandService) dispatchExecution(ctx context.Context, req ExecuteReque
 		)
 	}
 
-	// Validate timeout before dependency execution so an invalid timeout
-	// (e.g., "not-a-duration") fails fast without wasting time running deps.
+	// Validate timeout early so an invalid timeout (e.g., "not-a-duration")
+	// fails fast before dependency validation or execution.
 	var timeoutDuration time.Duration
 	if execCtx.SelectedImpl != nil {
 		var parseErr error
@@ -338,10 +325,8 @@ func (s *commandService) dispatchExecution(ctx context.Context, req ExecuteReque
 		}
 	}
 
-	// Apply execution timeout before dep execution so the timeout covers the
-	// full pipeline: dependency commands + main command. Duration was already
-	// validated above (fail-fast on invalid strings). Cancel is deferred to
-	// release timer resources.
+	// Apply execution timeout. Duration was already validated above
+	// (fail-fast on invalid strings). Cancel is deferred to release timer resources.
 	if timeoutDuration > 0 {
 		var cancel context.CancelFunc
 		execCtx.Context, cancel = context.WithTimeout(execCtx.Context, timeoutDuration)
@@ -350,21 +335,6 @@ func (s *commandService) dispatchExecution(ctx context.Context, req ExecuteReque
 
 	// Dependency validation needs the registry to check runtime-aware dependencies.
 	if err := s.validateAndRenderDeps(cfg, cmdInfo, execCtx, registryResult.Registry); err != nil {
-		return ExecuteResult{}, diags, err
-	}
-
-	// Execute dependency commands (depends_on.cmds with execute: true) before
-	// the main command. Each dep runs through the full Execute pipeline so
-	// transitive execute deps are handled recursively.
-	if err := s.executeDepCommands(execCtx.Context, req, cmdInfo, execCtx); err != nil {
-		// When a timeout fires during dependency execution, annotate the error
-		// so users understand the timeout budget is shared between deps and main.
-		if timeoutDuration > 0 && errors.Is(err, context.DeadlineExceeded) {
-			return ExecuteResult{}, diags, fmt.Errorf(
-				"dependency execution timed out (timeout of %s covers dependencies + main command): %w",
-				timeoutDuration, err,
-			)
-		}
 		return ExecuteResult{}, diags, err
 	}
 

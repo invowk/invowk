@@ -48,12 +48,7 @@ type (
 		// Alternatives is a list of command names where any match satisfies the dependency.
 		// If any of the provided commands is discoverable, the dependency is satisfied (early return).
 		// This allows specifying alternative commands (e.g., ["build-debug", "build-release"]).
-		// Must contain at least one entry; empty alternatives are skipped by resolveExecDeps.
 		Alternatives []string `json:"alternatives"`
-		// Execute specifies whether to run this dependency command before the parent.
-		// When true, the dependency command is actually executed (not just checked for discoverability).
-		// Default: false (discoverability check only, preserving existing behavior).
-		Execute bool `json:"execute,omitempty"`
 	}
 
 	// CapabilityDependency represents a system capability that must be available
@@ -127,17 +122,6 @@ func (d *DependsOn) IsEmpty() bool {
 		len(d.Capabilities) == 0 && len(d.CustomChecks) == 0 && len(d.EnvVars) == 0
 }
 
-// GetExecutableCommandDeps returns only the command dependencies that have Execute set to true.
-func (d *DependsOn) GetExecutableCommandDeps() []CommandDependency {
-	var result []CommandDependency
-	for i := range d.Commands {
-		if d.Commands[i].Execute {
-			result = append(result, d.Commands[i])
-		}
-	}
-	return result
-}
-
 // IsAlternatives returns true if this dependency uses the alternatives format
 func (c *CustomCheckDependency) IsAlternatives() bool {
 	return len(c.Alternatives) > 0
@@ -165,9 +149,9 @@ func MergeDependsOn(cmdDeps, implDeps *DependsOn) *DependsOn {
 	return MergeDependsOnAll(nil, cmdDeps, implDeps)
 }
 
-// MergeDependsOnAll merges root-level, command-level, and implementation-level dependencies
-// Dependencies are combined in order: root -> command -> implementation
-// Returns a new DependsOn struct with combined dependencies
+// MergeDependsOnAll merges root-level, command-level, and implementation-level dependencies.
+// Dependencies are combined in order: root -> command -> implementation.
+// Returns a new DependsOn struct with combined dependencies.
 func MergeDependsOnAll(rootDeps, cmdDeps, implDeps *DependsOn) *DependsOn {
 	if rootDeps == nil && cmdDeps == nil && implDeps == nil {
 		return nil
@@ -182,8 +166,7 @@ func MergeDependsOnAll(rootDeps, cmdDeps, implDeps *DependsOn) *DependsOn {
 		EnvVars:      make([]EnvVarDependency, 0),
 	}
 
-	// Append in declaration order: root → command → implementation. Order matters
-	// for execute deps: deduplication in resolveExecDeps keeps the first occurrence.
+	// Append in declaration order: root → command → implementation.
 	merged.appendFrom(rootDeps)
 	merged.appendFrom(cmdDeps)
 	merged.appendFrom(implDeps)

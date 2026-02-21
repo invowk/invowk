@@ -17,10 +17,9 @@ import (
 
 // renderDryRun prints the resolved execution context without executing.
 // It shows the command name, source, runtime, platform, working directory,
-// execute deps, script content, and environment variables — everything a user
-// needs to understand what invowk would do. execDepNames lists command names
-// that would run before this command via depends_on execute: true.
-func renderDryRun(w io.Writer, req ExecuteRequest, cmdInfo *discovery.CommandInfo, execCtx *runtime.ExecutionContext, resolved appexec.RuntimeSelection, execDepNames []string) {
+// script content, and environment variables — everything a user needs to
+// understand what invowk would do.
+func renderDryRun(w io.Writer, req ExecuteRequest, cmdInfo *discovery.CommandInfo, execCtx *runtime.ExecutionContext, resolved appexec.RuntimeSelection) {
 	fmt.Fprintln(w, TitleStyle.Render("Dry Run"))
 	fmt.Fprintln(w)
 
@@ -41,10 +40,6 @@ func renderDryRun(w io.Writer, req ExecuteRequest, cmdInfo *discovery.CommandInf
 
 	if resolved.Impl.Timeout != "" {
 		fmt.Fprintf(w, "  %s %s\n", VerboseHighlightStyle.Render("Timeout:"), resolved.Impl.Timeout)
-	}
-
-	if len(execDepNames) > 0 {
-		fmt.Fprintf(w, "  %s %s\n", VerboseHighlightStyle.Render("Exec deps:"), strings.Join(execDepNames, ", "))
 	}
 
 	// Script content.
