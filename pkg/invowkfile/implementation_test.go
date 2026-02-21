@@ -58,6 +58,18 @@ func TestParseTimeout(t *testing.T) {
 			want:    0,
 			wantErr: true,
 		},
+		{
+			name:    "zero duration returns error",
+			timeout: "0s",
+			want:    0,
+			wantErr: true,
+		},
+		{
+			name:    "negative duration returns error",
+			timeout: "-5m",
+			want:    0,
+			wantErr: true,
+		},
 	}
 
 	for _, tt := range tests {

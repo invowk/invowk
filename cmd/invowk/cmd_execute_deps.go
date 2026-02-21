@@ -18,10 +18,12 @@ type dagExecutionStackKey struct{}
 
 // executeDepCommands runs all depends_on.cmds entries that have execute: true,
 // in merge order (root -> command -> implementation level, preserving declaration
-// order within each level), before the main command executes. Each dependency is
-// executed through the full CommandService.Execute pipeline, so transitive
-// execute deps are handled recursively. If any dependency fails, execution
-// stops and the error is returned.
+// order within each level), before the main command executes. Merge order matters
+// because deduplication keeps the first occurrence: when the same dep appears at
+// root and impl levels, root's declaration wins and impl's duplicate is skipped.
+// Each dependency is executed through the full CommandService.Execute pipeline,
+// so transitive execute deps are handled recursively. If any dependency fails,
+// execution stops and the error is returned.
 func (s *commandService) executeDepCommands(ctx context.Context, req ExecuteRequest, cmdInfo *discovery.CommandInfo, execCtx *runtime.ExecutionContext) error {
 	// Collect execute deps from merged depends_on (root + cmd + impl).
 	// Guard against nil SelectedImpl: while ResolveRuntime guarantees non-nil
@@ -62,6 +64,12 @@ func (s *commandService) executeDepCommands(ctx context.Context, req ExecuteRequ
 	executed := make(map[string]bool)
 	execDeps := merged.GetExecutableCommandDeps()
 	for _, dep := range execDeps {
+		// Check for cancellation between dependency executions so that
+		// Ctrl+C or deadline expiry is honoured promptly between deps.
+		if ctx.Err() != nil {
+			return fmt.Errorf("dependency execution cancelled: %w", ctx.Err())
+		}
+
 		if len(dep.Alternatives) == 0 {
 			continue
 		}
@@ -115,8 +123,9 @@ func (s *commandService) executeDepCommands(ctx context.Context, req ExecuteRequ
 //
 // Context cancellation is checked before each discovery attempt so that
 // Ctrl+C or deadline expiry propagates promptly instead of being swallowed.
+// Non-discovery errors (CUE parse failures, filesystem errors) are propagated
+// immediately rather than being masked as "not found".
 func (s *commandService) resolveExecutableDep(ctx context.Context, alternatives []string) (string, error) {
-	var lastErr error
 	for _, alt := range alternatives {
 		// Bail early on context cancellation instead of swallowing it.
 		if ctx.Err() != nil {
@@ -124,15 +133,15 @@ func (s *commandService) resolveExecutableDep(ctx context.Context, alternatives 
 		}
 		result, err := s.discovery.GetCommand(ctx, alt)
 		if err != nil {
-			lastErr = err
-			continue
+			// Propagate non-discovery errors immediately. These indicate real
+			// problems (CUE parse failures, filesystem errors, context errors)
+			// that should not be masked as "command not found".
+			return "", fmt.Errorf("execute dependency resolution for %q failed: %w", alt, err)
 		}
 		if result.Command != nil {
 			return alt, nil
 		}
-	}
-	if lastErr != nil {
-		return "", fmt.Errorf("none of the execute dependency alternatives %v were found (last error: %w)", alternatives, lastErr)
+		// Command not found (nil Command, nil error) — try next alternative.
 	}
 	return "", fmt.Errorf("none of the execute dependency alternatives %v were found", alternatives)
 }

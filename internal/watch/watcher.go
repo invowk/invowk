@@ -77,6 +77,8 @@ type (
 
 		// Stdout and Stderr are the output writers for informational and error
 		// messages respectively. nil values default to os.Stdout / os.Stderr.
+		// Must be goroutine-safe: writes may occur from timer goroutines
+		// (via fire/OnChange) concurrent with the event loop.
 		Stdout io.Writer
 		Stderr io.Writer
 	}
@@ -183,6 +185,7 @@ func (w *Watcher) Run(ctx context.Context) error {
 		pending = make(map[string]struct{})
 		timer   *time.Timer
 		running atomic.Bool
+		wg      sync.WaitGroup
 	)
 
 	// fire drains the pending set and invokes the OnChange callback.
@@ -192,7 +195,11 @@ func (w *Watcher) Run(ctx context.Context) error {
 	// receives ctx and should check it for cancellation-sensitive work.
 	// Uses atomic "skip-if-busy" guard to prevent concurrent callback
 	// invocations when the command takes longer than the debounce period.
+	// The WaitGroup tracks in-flight invocations so Run's cleanup waits
+	// for any active callback to finish before closing resources.
 	fire := func() {
+		wg.Add(1)
+		defer wg.Done()
 		if ctx.Err() != nil {
 			return
 		}
@@ -231,8 +238,8 @@ func (w *Watcher) Run(ctx context.Context) error {
 		}
 	}
 
-	// Ensure the timer channel is drained on exit. The timer is accessed
-	// under mu because it is written by the event loop under the same lock.
+	// Ensure the timer channel is drained on exit and wait for any in-flight
+	// fire() callback to complete before closing the fsnotify watcher.
 	defer func() {
 		mu.Lock()
 		localTimer := timer
@@ -243,6 +250,9 @@ func (w *Watcher) Run(ctx context.Context) error {
 			default:
 			}
 		}
+		// Wait for any in-flight fire() goroutine to finish before closing
+		// fsnotify. Without this, OnChange could race with resource cleanup.
+		wg.Wait()
 		if closeErr := w.fsw.Close(); closeErr != nil {
 			fmt.Fprintf(w.stderr, "watch: close fsnotify: %v\n", closeErr)
 		}
@@ -321,6 +331,7 @@ func (w *Watcher) addDirectories() error {
 
 		rel, relErr := filepath.Rel(w.baseDir, path)
 		if relErr != nil {
+			fmt.Fprintf(w.stderr, "watch: skipping path %q (cannot make relative): %v\n", path, relErr)
 			return nil //nolint:nilerr // skip paths that cannot be made relative
 		}
 
@@ -345,12 +356,17 @@ func (w *Watcher) addDirectories() error {
 // the initial walk.
 func (w *Watcher) maybeAddDir(path string) {
 	info, err := os.Stat(path)
-	if err != nil || !info.IsDir() {
+	if err != nil {
+		fmt.Fprintf(w.stderr, "watch: cannot stat new path %q: %v\n", path, err)
+		return
+	}
+	if !info.IsDir() {
 		return
 	}
 
 	rel, err := filepath.Rel(w.baseDir, path)
 	if err != nil {
+		fmt.Fprintf(w.stderr, "watch: skipping new path %q (cannot make relative): %v\n", path, err)
 		return
 	}
 

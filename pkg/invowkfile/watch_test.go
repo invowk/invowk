@@ -40,6 +40,18 @@ func TestParseDebounce(t *testing.T) {
 			want:     0,
 			wantErr:  true,
 		},
+		{
+			name:     "zero duration returns error",
+			debounce: "0s",
+			want:     0,
+			wantErr:  true,
+		},
+		{
+			name:     "negative duration returns error",
+			debounce: "-1s",
+			want:     0,
+			wantErr:  true,
+		},
 	}
 
 	for _, tt := range tests {

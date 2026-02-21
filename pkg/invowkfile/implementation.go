@@ -290,6 +290,8 @@ func (s *Implementation) ResolveScriptWithFSAndModule(invowkfilePath, modulePath
 
 // ParseTimeout parses the Timeout field into a time.Duration.
 // Returns (0, nil) when Timeout is empty (no timeout configured).
+// Returns an error for zero or negative durations, which would be
+// silently treated as "no timeout" by context.WithTimeout.
 func (s *Implementation) ParseTimeout() (time.Duration, error) {
 	if s.Timeout == "" {
 		return 0, nil
@@ -297,6 +299,9 @@ func (s *Implementation) ParseTimeout() (time.Duration, error) {
 	d, err := time.ParseDuration(s.Timeout)
 	if err != nil {
 		return 0, fmt.Errorf("invalid timeout %q: %w", s.Timeout, err)
+	}
+	if d <= 0 {
+		return 0, fmt.Errorf("invalid timeout %q: must be a positive duration", s.Timeout)
 	}
 	return d, nil
 }

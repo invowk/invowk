@@ -651,6 +651,40 @@ func TestValidateExecutionDAG_AllAlternativesChecked(t *testing.T) {
 	}
 }
 
+func TestValidateExecutionDAG_OptionalArgsAllowed(t *testing.T) {
+	t.Parallel()
+
+	// Execute dep targets a command with optional args and flags — should be allowed.
+	// Only required args/flags should be rejected.
+	commands := []*CommandInfo{
+		{
+			Name: "parent",
+			Command: &invowkfile.Command{
+				DependsOn: &invowkfile.DependsOn{
+					Commands: []invowkfile.CommandDependency{
+						{Alternatives: []string{"child"}, Execute: true},
+					},
+				},
+			},
+		},
+		{
+			Name: "child",
+			Command: &invowkfile.Command{
+				Args: []invowkfile.Argument{
+					{Name: "target", Description: "optional target"},
+				},
+				Flags: []invowkfile.Flag{
+					{Name: "verbose", Description: "enable verbose output"},
+				},
+			},
+		},
+	}
+
+	if err := ValidateExecutionDAG(commands); err != nil {
+		t.Errorf("ValidateExecutionDAG() should allow optional args/flags, got: %v", err)
+	}
+}
+
 func TestArgsSubcommandConflictError_Error_SingleArg(t *testing.T) {
 	t.Parallel()
 

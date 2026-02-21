@@ -15,7 +15,7 @@ import "strings"
 
 // DurationString constrains a Go-style duration string (e.g., "30s", "5m", "1h30m").
 // Shared by #Implementation.timeout and #WatchConfig.debounce.
-#DurationString: string & =~"^[0-9]+(\\.[0-9]+)?(ns|us|µs|ms|s|m|h)+$" & strings.MaxRunes(32)
+#DurationString: string & =~"^([0-9]+(\\.[0-9]+)?(ns|us|µs|ms|s|m|h))+$" & strings.MaxRunes(32)
 
 // EnvConfig defines environment configuration for a command or implementation
 #EnvConfig: close({

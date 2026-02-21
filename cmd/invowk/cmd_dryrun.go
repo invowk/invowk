@@ -3,6 +3,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"maps"
@@ -15,11 +16,14 @@ import (
 	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
-// collectExecDepNames returns human-readable labels for execute deps.
-// For single-alternative deps, returns the name directly. For multi-alternative
-// deps, returns "name (alternatives: [a, b])" so dry-run output shows the full
-// picture rather than misleadingly showing only the first alternative.
-func collectExecDepNames(cmdInfo *discovery.CommandInfo, execCtx *runtime.ExecutionContext) []string {
+// collectExecDepNames resolves and returns the names of execute deps that
+// would run before this command. It uses the same OR-alternative resolution
+// logic as executeDepCommands (via resolveExecutableDep) so the dry-run
+// output accurately reflects which specific alternative would be chosen.
+// Deduplication keys on the resolved name, matching executeDepCommands.
+// If resolution fails for any dep, the error is returned so dry-run
+// surfaces discovery problems rather than silently omitting deps.
+func (s *commandService) collectExecDepNames(ctx context.Context, cmdInfo *discovery.CommandInfo, execCtx *runtime.ExecutionContext) ([]string, error) {
 	var implDeps *invowkfile.DependsOn
 	if execCtx.SelectedImpl != nil {
 		implDeps = execCtx.SelectedImpl.DependsOn
@@ -30,30 +34,30 @@ func collectExecDepNames(cmdInfo *discovery.CommandInfo, execCtx *runtime.Execut
 		implDeps,
 	)
 	if merged == nil {
-		return nil
+		return nil, nil
 	}
-	// Deduplicate names so the same dep appearing at multiple merge levels
-	// is only shown once, consistent with executeDepCommands dedup.
+	// Deduplicate on the resolved name so the same dep appearing at multiple
+	// merge levels is only shown once, consistent with executeDepCommands.
 	seen := make(map[string]bool)
 	var names []string
 	for _, dep := range merged.GetExecutableCommandDeps() {
-		switch len(dep.Alternatives) {
-		case 0:
+		if len(dep.Alternatives) == 0 {
 			continue
-		case 1:
-			if !seen[dep.Alternatives[0]] {
-				seen[dep.Alternatives[0]] = true
-				names = append(names, dep.Alternatives[0])
-			}
-		default:
-			label := fmt.Sprintf("%s (alternatives: %v)", dep.Alternatives[0], dep.Alternatives)
-			if !seen[dep.Alternatives[0]] {
-				seen[dep.Alternatives[0]] = true
-				names = append(names, label)
-			}
 		}
+
+		// Resolve via discovery, same as executeDepCommands.
+		depName, err := s.resolveExecutableDep(ctx, dep.Alternatives)
+		if err != nil {
+			return nil, err
+		}
+
+		if seen[depName] {
+			continue
+		}
+		seen[depName] = true
+		names = append(names, depName)
 	}
-	return names
+	return names, nil
 }
 
 // renderDryRun prints the resolved execution context without executing.

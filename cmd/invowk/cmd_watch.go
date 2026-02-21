@@ -72,9 +72,8 @@ func runWatchMode(cmd *cobra.Command, app *App, rootFlags *rootFlagValues, cmdFl
 
 	// Build a re-execution closure that runs the command through the normal pipeline.
 	// The closure disables watch mode on the child request to prevent recursion.
-	// The context and changed-files parameters are unused: runCommand derives its
-	// context from cmd.Context(), and we re-execute the full command regardless of
-	// which files changed.
+	// The changed-files parameter is unused because we re-execute the full command
+	// regardless of which specific files changed.
 	reexecute := func(_ []string) error {
 		childFlags := *cmdFlags
 		childFlags.watch = false

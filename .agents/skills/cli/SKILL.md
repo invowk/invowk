@@ -156,9 +156,10 @@ commandService.Execute(ctx, req)
     │
     └── dispatchExecution()     ← Calls runtime.BuildRegistry(), then executes pipeline:
         ├── Container init fail-fast (via runtimeRegistryResult.ContainerInitErr)
+        ├── Timeout validation (parse-only, fail-fast on invalid strings)
+        ├── Timeout wrapping (context.WithTimeout — covers deps + main command)
         ├── Dependency validation (validateAndRenderDeps)
-        ├── DAG dep execution (executeDepCommands) ← NEW: runs execute:true deps recursively
-        ├── Timeout wrapping (context.WithTimeout from Implementation.Timeout)
+        ├── DAG dep execution (executeDepCommands) ← runs execute:true deps recursively
         ├── Interactive mode (alternate screen + TUI server) OR standard execution
         └── Error classification via classifyExecutionError()
 ```

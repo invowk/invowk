@@ -68,7 +68,8 @@ func TestResolveExecutableDep_FirstDiscoverable(t *testing.T) {
 			getCommand: func(_ context.Context, name string) (discovery.LookupResult, error) {
 				switch name {
 				case "preferred":
-					return discovery.LookupResult{}, fmt.Errorf("not found")
+					// Not found: nil Command, nil error — signals "not discoverable".
+					return discovery.LookupResult{}, nil
 				case "fallback":
 					return discovery.LookupResult{Command: &discovery.CommandInfo{Name: "fallback"}}, nil
 				default:
@@ -87,7 +88,30 @@ func TestResolveExecutableDep_FirstDiscoverable(t *testing.T) {
 	}
 }
 
-func TestResolveExecutableDep_AllFail(t *testing.T) {
+func TestResolveExecutableDep_AllNotFound(t *testing.T) {
+	t.Parallel()
+	svc := &commandService{
+		stdout: io.Discard,
+		stderr: io.Discard,
+		ssh:    &sshServerController{},
+		discovery: &lookupDiscoveryServiceFunc{
+			getCommand: func(_ context.Context, _ string) (discovery.LookupResult, error) {
+				// Not found: nil Command, nil error.
+				return discovery.LookupResult{}, nil
+			},
+		},
+	}
+
+	_, err := svc.resolveExecutableDep(context.Background(), []string{"a", "b"})
+	if err == nil {
+		t.Fatal("expected error when all alternatives not found")
+	}
+	if got := err.Error(); !strings.Contains(got, "were found") {
+		t.Errorf("expected 'were found' in message, got: %s", got)
+	}
+}
+
+func TestResolveExecutableDep_DiscoveryErrorPropagated(t *testing.T) {
 	t.Parallel()
 	svc := &commandService{
 		stdout: io.Discard,
@@ -95,18 +119,19 @@ func TestResolveExecutableDep_AllFail(t *testing.T) {
 		ssh:    &sshServerController{},
 		discovery: &lookupDiscoveryServiceFunc{
 			getCommand: func(_ context.Context, name string) (discovery.LookupResult, error) {
-				return discovery.LookupResult{}, fmt.Errorf("discovery failed for %s", name)
+				return discovery.LookupResult{}, fmt.Errorf("CUE parse error for %s", name)
 			},
 		},
 	}
 
+	// Non-discovery errors propagate immediately instead of being masked.
 	_, err := svc.resolveExecutableDep(context.Background(), []string{"a", "b"})
 	if err == nil {
-		t.Fatal("expected error when all alternatives fail")
+		t.Fatal("expected error to propagate from discovery")
 	}
-	// Should include the last error for diagnostics.
-	if got := err.Error(); !strings.Contains(got, "discovery failed for b") {
-		t.Errorf("expected last error in message, got: %s", got)
+	// Should propagate the first error, not try subsequent alternatives.
+	if got := err.Error(); !strings.Contains(got, "CUE parse error for a") {
+		t.Errorf("expected first error propagated, got: %s", got)
 	}
 }
 
@@ -189,5 +214,44 @@ func TestExecuteDepCommands_RuntimeCycleDetected(t *testing.T) {
 	}
 	if got := err.Error(); !strings.Contains(got, "dependency cycle detected at runtime") {
 		t.Errorf("expected cycle error message, got: %s", got)
+	}
+}
+
+func TestExecuteDepCommands_CancelledContextBetweenDeps(t *testing.T) {
+	t.Parallel()
+
+	svc := &commandService{
+		stdout: io.Discard,
+		stderr: io.Discard,
+		ssh:    &sshServerController{},
+	}
+
+	// Two execute deps — but context is already cancelled so the loop
+	// should bail before attempting to resolve either one.
+	cmd := &invowkfile.Command{
+		Name: "test",
+		DependsOn: &invowkfile.DependsOn{
+			Commands: []invowkfile.CommandDependency{
+				{Alternatives: []string{"dep-a"}, Execute: true},
+				{Alternatives: []string{"dep-b"}, Execute: true},
+			},
+		},
+	}
+	inv := &invowkfile.Invowkfile{}
+	cmdInfo := &discovery.CommandInfo{
+		Command:    cmd,
+		Invowkfile: inv,
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // Cancel immediately.
+
+	execCtx := runtime.NewExecutionContext(cmd, inv)
+	err := svc.executeDepCommands(ctx, ExecuteRequest{Name: "test"}, cmdInfo, execCtx)
+	if err == nil {
+		t.Fatal("expected error from cancelled context")
+	}
+	if !errors.Is(err, context.Canceled) {
+		t.Errorf("expected context.Canceled, got: %v", err)
 	}
 }

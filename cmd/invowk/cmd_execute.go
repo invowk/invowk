@@ -93,6 +93,9 @@ func (s *commandService) Execute(ctx context.Context, req ExecuteRequest) (Execu
 	// the outermost Execute() call owns cleanup. Recursive dep calls see
 	// the server already running and skip the defer, preventing premature
 	// shutdown of a server the parent still needs.
+	// NOTE: The TOCTOU window between current() and ensureSSHIfNeeded is
+	// safe because DAG execution is sequential on the same goroutine.
+	// If parallel dep execution is added, this pattern needs a mutex.
 	sshWasRunning := s.ssh.current() != nil
 	if sshErr := s.ensureSSHIfNeeded(ctx, req, resolved); sshErr != nil {
 		return ExecuteResult{}, diags, sshErr
@@ -115,8 +118,12 @@ func (s *commandService) Execute(ctx context.Context, req ExecuteRequest) (Execu
 	// Dry-run mode: print what would be executed and exit without executing.
 	// Collect execute deps to include in the dry-run output so users see the
 	// full picture of what would happen (deps run before the main command).
+	// Resolution uses the same OR-alternative discovery as executeDepCommands.
 	if req.DryRun {
-		execDepNames := collectExecDepNames(cmdInfo, execCtx)
+		execDepNames, depErr := s.collectExecDepNames(ctx, cmdInfo, execCtx)
+		if depErr != nil {
+			return ExecuteResult{}, diags, depErr
+		}
 		renderDryRun(s.stdout, req, cmdInfo, execCtx, resolved, execDepNames)
 		return ExecuteResult{ExitCode: 0}, diags, nil
 	}
@@ -341,7 +348,7 @@ func (s *commandService) dispatchExecution(ctx context.Context, req ExecuteReque
 	// Execute dependency commands (depends_on.cmds with execute: true) before
 	// the main command. Each dep runs through the full Execute pipeline so
 	// transitive execute deps are handled recursively.
-	if err := s.executeDepCommands(ctx, req, cmdInfo, execCtx); err != nil {
+	if err := s.executeDepCommands(execCtx.Context, req, cmdInfo, execCtx); err != nil {
 		return ExecuteResult{}, diags, err
 	}
 
