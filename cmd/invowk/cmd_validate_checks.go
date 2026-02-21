@@ -405,43 +405,6 @@ func checkCommandDependenciesInContainer(deps *invowkfile.DependsOn, registry *r
 	return nil
 }
 
-// checkCustomChecks verifies all custom check scripts pass (native-only fallback).
-// Each CustomCheckDependency can be either a direct check or a list of alternatives.
-// For alternatives, OR semantics are used (early return on first passing check).
-func checkCustomChecks(cmd *invowkfile.Command) error {
-	if cmd.DependsOn == nil || len(cmd.DependsOn.CustomChecks) == 0 {
-		return nil
-	}
-
-	var checkErrors []string
-
-	for _, checkDep := range cmd.DependsOn.CustomChecks {
-		checks := checkDep.GetChecks()
-		found, lastErr := evaluateAlternatives(checks, validateCustomCheckNative)
-
-		if !found && lastErr != nil {
-			if len(checks) == 1 {
-				checkErrors = append(checkErrors, lastErr.Error())
-			} else {
-				names := make([]string, len(checks))
-				for i, c := range checks {
-					names[i] = c.Name
-				}
-				checkErrors = append(checkErrors, fmt.Sprintf("  • none of custom checks [%s] passed", strings.Join(names, ", ")))
-			}
-		}
-	}
-
-	if len(checkErrors) > 0 {
-		return &DependencyError{
-			CommandName:        cmd.Name,
-			FailedCustomChecks: checkErrors,
-		}
-	}
-
-	return nil
-}
-
 // checkCapabilityDependencies verifies all required system capabilities are available.
 // Capabilities are always checked against the host system, regardless of the runtime mode.
 // For container runtimes, these checks represent the host's capabilities, not the container's.

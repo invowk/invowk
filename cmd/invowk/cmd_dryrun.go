@@ -79,7 +79,7 @@ func renderDryRun(w io.Writer, req ExecuteRequest, cmdInfo *discovery.CommandInf
 		}
 	}
 
-	fmt.Fprintln(w, SubtitleStyle.Render("  Note: dependency validation (tools, filepaths, capabilities, env vars) is not performed in dry-run mode."))
+	fmt.Fprintln(w, SubtitleStyle.Render("  Note: dependency validation (tools, cmds, filepaths, capabilities, custom checks, env vars) is not performed in dry-run mode."))
 	fmt.Fprintln(w)
 }
 

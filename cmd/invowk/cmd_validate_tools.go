@@ -120,33 +120,3 @@ func checkHostToolDependencies(deps *invowkfile.DependsOn, ctx *runtime.Executio
 
 	return nil
 }
-
-// checkToolDependencies verifies all required tools are available (native-only fallback).
-// Each ToolDependency contains a list of alternatives; if any alternative is found, the dependency is satisfied.
-func checkToolDependencies(cmd *invowkfile.Command) error {
-	if cmd.DependsOn == nil || len(cmd.DependsOn.Tools) == 0 {
-		return nil
-	}
-
-	var toolErrors []string
-
-	for _, tool := range cmd.DependsOn.Tools {
-		found, lastErr := evaluateAlternatives(tool.Alternatives, validateToolNative)
-		if !found && lastErr != nil {
-			if len(tool.Alternatives) == 1 {
-				toolErrors = append(toolErrors, lastErr.Error())
-			} else {
-				toolErrors = append(toolErrors, fmt.Sprintf("  • none of [%s] found", strings.Join(tool.Alternatives, ", ")))
-			}
-		}
-	}
-
-	if len(toolErrors) > 0 {
-		return &DependencyError{
-			CommandName:  cmd.Name,
-			MissingTools: toolErrors,
-		}
-	}
-
-	return nil
-}

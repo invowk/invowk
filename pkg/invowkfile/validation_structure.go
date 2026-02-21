@@ -41,13 +41,8 @@ func (v *StructureValidator) Validate(ctx *ValidationContext, inv *Invowkfile) [
 	// Validate root-level env configuration
 	errors = append(errors, v.validateEnvConfig(ctx, inv.Env, NewFieldPath().Root())...)
 
-	// Validate root-level depends_on (all dependency types)
+	// Validate root-level depends_on (all dependency types including custom checks)
 	errors = append(errors, v.validateDependsOn(ctx, inv.DependsOn, NewFieldPath().Root())...)
-
-	// Validate root-level custom_checks dependencies (security-specific checks)
-	if inv.DependsOn != nil && len(inv.DependsOn.CustomChecks) > 0 {
-		errors = append(errors, v.validateCustomChecks(ctx, inv.DependsOn.CustomChecks, NewFieldPath().Root())...)
-	}
 
 	// Validate each command
 	for i := range inv.Commands {

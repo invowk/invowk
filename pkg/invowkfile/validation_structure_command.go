@@ -42,13 +42,8 @@ func (v *StructureValidator) validateCommand(ctx *ValidationContext, inv *Invowk
 		})
 	}
 
-	// Validate command-level depends_on (all dependency types)
+	// Validate command-level depends_on (all dependency types including custom checks)
 	errors = append(errors, v.validateDependsOn(ctx, cmd.DependsOn, path.Copy())...)
-
-	// Validate command-level custom_checks dependencies (security-specific checks)
-	if cmd.DependsOn != nil && len(cmd.DependsOn.CustomChecks) > 0 {
-		errors = append(errors, v.validateCustomChecks(ctx, cmd.DependsOn.CustomChecks, path.Copy())...)
-	}
 
 	// Validate command-level env configuration
 	errors = append(errors, v.validateEnvConfig(ctx, cmd.Env, path.Copy())...)
@@ -135,13 +130,8 @@ func (v *StructureValidator) validateImplementation(ctx *ValidationContext, inv 
 		})
 	}
 
-	// Validate implementation-level depends_on (all dependency types)
+	// Validate implementation-level depends_on (all dependency types including custom checks)
 	errors = append(errors, v.validateDependsOn(ctx, impl.DependsOn, path.Copy())...)
-
-	// Validate implementation-level custom_checks dependencies (security-specific checks)
-	if impl.DependsOn != nil && len(impl.DependsOn.CustomChecks) > 0 {
-		errors = append(errors, v.validateCustomChecks(ctx, impl.DependsOn.CustomChecks, path.Copy())...)
-	}
 
 	// Validate implementation-level env configuration
 	errors = append(errors, v.validateEnvConfig(ctx, impl.Env, path.Copy())...)
@@ -336,11 +326,8 @@ func (v *StructureValidator) validateRuntimeConfig(ctx *ValidationContext, inv *
 			}
 		}
 
-		// Container runtime-level depends_on (structural validation)
+		// Container runtime-level depends_on (structural validation including custom checks)
 		errors = append(errors, v.validateDependsOn(ctx, rt.DependsOn, path.Copy())...)
-		if rt.DependsOn != nil && len(rt.DependsOn.CustomChecks) > 0 {
-			errors = append(errors, v.validateCustomChecks(ctx, rt.DependsOn.CustomChecks, path.Copy())...)
-		}
 	}
 
 	return errors

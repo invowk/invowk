@@ -26,9 +26,9 @@ func TestCheckToolDependencies_NoTools(t *testing.T) {
 
 	cmd := invowkfiletest.NewTestCommand("test", invowkfiletest.WithScript("echo hello"))
 
-	err := checkToolDependencies(cmd)
+	err := checkHostToolDependencies(cmd.DependsOn, &runtime.ExecutionContext{Command: cmd})
 	if err != nil {
-		t.Errorf("checkToolDependencies() should return nil for command with no dependencies, got: %v", err)
+		t.Errorf("checkHostToolDependencies() should return nil for command with no dependencies, got: %v", err)
 	}
 }
 
@@ -39,9 +39,9 @@ func TestCheckToolDependencies_EmptyDependsOn(t *testing.T) {
 		invowkfiletest.WithScript("echo hello"),
 		invowkfiletest.WithDependsOn(&invowkfile.DependsOn{}))
 
-	err := checkToolDependencies(cmd)
+	err := checkHostToolDependencies(cmd.DependsOn, &runtime.ExecutionContext{Command: cmd})
 	if err != nil {
-		t.Errorf("checkToolDependencies() should return nil for empty depends_on, got: %v", err)
+		t.Errorf("checkHostToolDependencies() should return nil for empty depends_on, got: %v", err)
 	}
 }
 
@@ -67,9 +67,9 @@ func TestCheckToolDependencies_ToolExists(t *testing.T) {
 			Tools: []invowkfile.ToolDependency{{Alternatives: []string{existingTool}}},
 		}))
 
-	err := checkToolDependencies(cmd)
+	err := checkHostToolDependencies(cmd.DependsOn, &runtime.ExecutionContext{Command: cmd})
 	if err != nil {
-		t.Errorf("checkToolDependencies() should return nil for existing tool '%s', got: %v", existingTool, err)
+		t.Errorf("checkHostToolDependencies() should return nil for existing tool '%s', got: %v", existingTool, err)
 	}
 }
 
@@ -82,14 +82,14 @@ func TestCheckToolDependencies_ToolNotExists(t *testing.T) {
 			Tools: []invowkfile.ToolDependency{{Alternatives: []string{"nonexistent-tool-xyz-12345"}}},
 		}))
 
-	err := checkToolDependencies(cmd)
+	err := checkHostToolDependencies(cmd.DependsOn, &runtime.ExecutionContext{Command: cmd})
 	if err == nil {
-		t.Error("checkToolDependencies() should return error for non-existent tool")
+		t.Error("checkHostToolDependencies() should return error for non-existent tool")
 	}
 
 	depErr, ok := errors.AsType[*DependencyError](err)
 	if !ok {
-		t.Errorf("checkToolDependencies() should return *DependencyError, got: %T", err)
+		t.Errorf("checkHostToolDependencies() should return *DependencyError, got: %T", err)
 	}
 
 	if depErr.CommandName != "test" {
@@ -114,14 +114,14 @@ func TestCheckToolDependencies_MultipleToolsNotExist(t *testing.T) {
 			},
 		}))
 
-	err := checkToolDependencies(cmd)
+	err := checkHostToolDependencies(cmd.DependsOn, &runtime.ExecutionContext{Command: cmd})
 	if err == nil {
-		t.Error("checkToolDependencies() should return error for non-existent tools")
+		t.Error("checkHostToolDependencies() should return error for non-existent tools")
 	}
 
 	depErr, ok := errors.AsType[*DependencyError](err)
 	if !ok {
-		t.Fatalf("checkToolDependencies() should return *DependencyError, got: %T", err)
+		t.Fatalf("checkHostToolDependencies() should return *DependencyError, got: %T", err)
 	}
 
 	if len(depErr.MissingTools) != 3 {
@@ -154,14 +154,14 @@ func TestCheckToolDependencies_MixedToolsExistAndNotExist(t *testing.T) {
 			},
 		}))
 
-	err := checkToolDependencies(cmd)
+	err := checkHostToolDependencies(cmd.DependsOn, &runtime.ExecutionContext{Command: cmd})
 	if err == nil {
-		t.Error("checkToolDependencies() should return error when any tool is missing")
+		t.Error("checkHostToolDependencies() should return error when any tool is missing")
 	}
 
 	depErr, ok := errors.AsType[*DependencyError](err)
 	if !ok {
-		t.Fatalf("checkToolDependencies() should return *DependencyError, got: %T", err)
+		t.Fatalf("checkHostToolDependencies() should return *DependencyError, got: %T", err)
 	}
 
 	// Only the non-existent tool should be in the error
@@ -340,9 +340,9 @@ func TestCheckCustomChecks_Success(t *testing.T) {
 			},
 		}))
 
-	err := checkCustomChecks(cmd)
+	err := checkHostCustomCheckDependencies(cmd.DependsOn, &runtime.ExecutionContext{Command: cmd})
 	if err != nil {
-		t.Errorf("checkCustomChecks() should return nil for successful check script, got: %v", err)
+		t.Errorf("checkHostCustomCheckDependencies() should return nil for successful check script, got: %v", err)
 	}
 }
 
@@ -361,14 +361,14 @@ func TestCheckCustomChecks_WrongExitCode(t *testing.T) {
 			},
 		}))
 
-	err := checkCustomChecks(cmd)
+	err := checkHostCustomCheckDependencies(cmd.DependsOn, &runtime.ExecutionContext{Command: cmd})
 	if err == nil {
-		t.Error("checkCustomChecks() should return error for wrong exit code")
+		t.Error("checkHostCustomCheckDependencies() should return error for wrong exit code")
 	}
 
 	depErr, ok := errors.AsType[*DependencyError](err)
 	if !ok {
-		t.Fatalf("checkCustomChecks() should return *DependencyError, got: %T", err)
+		t.Fatalf("checkHostCustomCheckDependencies() should return *DependencyError, got: %T", err)
 	}
 
 	if !strings.Contains(depErr.FailedCustomChecks[0], "exit code") {
@@ -391,9 +391,9 @@ func TestCheckCustomChecks_ExpectedNonZeroCode(t *testing.T) {
 			},
 		}))
 
-	err := checkCustomChecks(cmd)
+	err := checkHostCustomCheckDependencies(cmd.DependsOn, &runtime.ExecutionContext{Command: cmd})
 	if err != nil {
-		t.Errorf("checkCustomChecks() should return nil when exit code matches expected, got: %v", err)
+		t.Errorf("checkHostCustomCheckDependencies() should return nil when exit code matches expected, got: %v", err)
 	}
 }
 
@@ -412,9 +412,9 @@ func TestCheckCustomChecks_OutputMatch(t *testing.T) {
 			},
 		}))
 
-	err := checkCustomChecks(cmd)
+	err := checkHostCustomCheckDependencies(cmd.DependsOn, &runtime.ExecutionContext{Command: cmd})
 	if err != nil {
-		t.Errorf("checkCustomChecks() should return nil for matching output, got: %v", err)
+		t.Errorf("checkHostCustomCheckDependencies() should return nil for matching output, got: %v", err)
 	}
 }
 
@@ -433,14 +433,14 @@ func TestCheckCustomChecks_OutputNoMatch(t *testing.T) {
 			},
 		}))
 
-	err := checkCustomChecks(cmd)
+	err := checkHostCustomCheckDependencies(cmd.DependsOn, &runtime.ExecutionContext{Command: cmd})
 	if err == nil {
-		t.Error("checkCustomChecks() should return error for non-matching output")
+		t.Error("checkHostCustomCheckDependencies() should return error for non-matching output")
 	}
 
 	depErr, ok := errors.AsType[*DependencyError](err)
 	if !ok {
-		t.Fatalf("checkCustomChecks() should return *DependencyError, got: %T", err)
+		t.Fatalf("checkHostCustomCheckDependencies() should return *DependencyError, got: %T", err)
 	}
 
 	if !strings.Contains(depErr.FailedCustomChecks[0], "does not match pattern") {
@@ -464,9 +464,9 @@ func TestCheckCustomChecks_BothCodeAndOutput(t *testing.T) {
 			},
 		}))
 
-	err := checkCustomChecks(cmd)
+	err := checkHostCustomCheckDependencies(cmd.DependsOn, &runtime.ExecutionContext{Command: cmd})
 	if err != nil {
-		t.Errorf("checkCustomChecks() should return nil when both code and output match, got: %v", err)
+		t.Errorf("checkHostCustomCheckDependencies() should return nil when both code and output match, got: %v", err)
 	}
 }
 
@@ -485,14 +485,14 @@ func TestCheckCustomChecks_InvalidRegex(t *testing.T) {
 			},
 		}))
 
-	err := checkCustomChecks(cmd)
+	err := checkHostCustomCheckDependencies(cmd.DependsOn, &runtime.ExecutionContext{Command: cmd})
 	if err == nil {
-		t.Error("checkCustomChecks() should return error for invalid regex")
+		t.Error("checkHostCustomCheckDependencies() should return error for invalid regex")
 	}
 
 	depErr, ok := errors.AsType[*DependencyError](err)
 	if !ok {
-		t.Fatalf("checkCustomChecks() should return *DependencyError, got: %T", err)
+		t.Fatalf("checkHostCustomCheckDependencies() should return *DependencyError, got: %T", err)
 	}
 
 	if !strings.Contains(depErr.FailedCustomChecks[0], "invalid regex") {

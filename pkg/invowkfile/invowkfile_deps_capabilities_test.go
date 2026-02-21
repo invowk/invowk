@@ -265,10 +265,10 @@ func TestMergeDependsOn_WithCapabilities(t *testing.T) {
 		Capabilities: []CapabilityDependency{{Alternatives: []CapabilityName{CapabilityInternet}}},
 	}
 
-	merged := MergeDependsOn(cmdDeps, scriptDeps)
+	merged := MergeDependsOnAll(nil, cmdDeps, scriptDeps)
 
 	if merged == nil {
-		t.Fatal("MergeDependsOn should return non-nil result")
+		t.Fatal("MergeDependsOnAll should return non-nil result")
 	}
 
 	if len(merged.Capabilities) != 2 {

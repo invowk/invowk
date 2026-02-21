@@ -142,13 +142,6 @@ func (c *CustomCheckDependency) GetChecks() []CustomCheck {
 	}}
 }
 
-// MergeDependsOn merges command-level and implementation-level dependencies.
-// Implementation-level dependencies are added to command-level dependencies.
-// Returns a new DependsOn struct with combined dependencies.
-func MergeDependsOn(cmdDeps, implDeps *DependsOn) *DependsOn {
-	return MergeDependsOnAll(nil, cmdDeps, implDeps)
-}
-
 // MergeDependsOnAll merges root-level, command-level, and implementation-level dependencies.
 // Dependencies are combined in order: root -> command -> implementation.
 // Returns a new DependsOn struct with combined dependencies.

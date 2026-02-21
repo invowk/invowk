@@ -498,20 +498,32 @@ func TestValidateCustomChecks(t *testing.T) {
 		},
 	}
 
+	v := NewStructureValidator()
+	ctx := &ValidationContext{FilePath: "/test/invowkfile.cue"}
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			err := validateCustomChecks(tt.checks, "test", "/test/invowkfile.cue")
+			errs := v.validateCustomChecks(ctx, tt.checks, NewFieldPath().Root())
 			if tt.shouldError {
-				if err == nil {
-					t.Errorf("expected error containing %q, got nil", tt.errorMsg)
-				} else if !strings.Contains(err.Error(), tt.errorMsg) {
-					t.Errorf("expected error containing %q, got %q", tt.errorMsg, err.Error())
+				if len(errs) == 0 {
+					t.Errorf("expected error containing %q, got none", tt.errorMsg)
+				} else {
+					found := false
+					for _, e := range errs {
+						if strings.Contains(e.Message, tt.errorMsg) {
+							found = true
+							break
+						}
+					}
+					if !found {
+						t.Errorf("expected error containing %q, got %v", tt.errorMsg, errs)
+					}
 				}
 			} else {
-				if err != nil {
-					t.Errorf("unexpected error: %v", err)
+				if len(errs) > 0 {
+					t.Errorf("unexpected errors: %v", errs)
 				}
 			}
 		})
