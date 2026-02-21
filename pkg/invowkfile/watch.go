@@ -9,9 +9,11 @@ import (
 
 // WatchConfig defines file-watching behavior for automatic command re-execution.
 type WatchConfig struct {
-	// Patterns lists glob patterns for files to watch (required, at least one).
+	// Patterns lists glob patterns for files to watch.
 	// Supports ** for recursive matching (e.g., "src/**/*.go").
 	// Paths are relative to the effective working directory.
+	// CUE schema enforces at least one pattern; the CLI falls back to ["**/*"]
+	// when no watch config is defined at all.
 	Patterns []string `json:"patterns"`
 	// Debounce specifies the delay before re-executing after a change.
 	// Must be a valid Go duration string. Default: "500ms".

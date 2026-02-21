@@ -32,15 +32,25 @@ func collectExecDepNames(cmdInfo *discovery.CommandInfo, execCtx *runtime.Execut
 	if merged == nil {
 		return nil
 	}
+	// Deduplicate names so the same dep appearing at multiple merge levels
+	// is only shown once, consistent with executeDepCommands dedup.
+	seen := make(map[string]bool)
 	var names []string
 	for _, dep := range merged.GetExecutableCommandDeps() {
 		switch len(dep.Alternatives) {
 		case 0:
 			continue
 		case 1:
-			names = append(names, dep.Alternatives[0])
+			if !seen[dep.Alternatives[0]] {
+				seen[dep.Alternatives[0]] = true
+				names = append(names, dep.Alternatives[0])
+			}
 		default:
-			names = append(names, fmt.Sprintf("%s (alternatives: %v)", dep.Alternatives[0], dep.Alternatives))
+			label := fmt.Sprintf("%s (alternatives: %v)", dep.Alternatives[0], dep.Alternatives)
+			if !seen[dep.Alternatives[0]] {
+				seen[dep.Alternatives[0]] = true
+				names = append(names, label)
+			}
 		}
 	}
 	return names
@@ -90,11 +100,14 @@ func renderDryRun(w io.Writer, req ExecuteRequest, cmdInfo *discovery.CommandInf
 		}
 	}
 
-	// Environment variables (INVOWK_* and ARG* for brevity).
+	// Environment variables, split into metadata (INVOWK_*/ARG*) and user-defined.
 	invowkVars := make(map[string]string)
+	userVars := make(map[string]string)
 	for k, v := range execCtx.Env.ExtraEnv {
 		if strings.HasPrefix(k, "INVOWK_") || isArgEnvVar(k) {
 			invowkVars[k] = v
+		} else {
+			userVars[k] = v
 		}
 	}
 	if len(invowkVars) > 0 {
@@ -102,6 +115,13 @@ func renderDryRun(w io.Writer, req ExecuteRequest, cmdInfo *discovery.CommandInf
 		fmt.Fprintln(w, VerboseHighlightStyle.Render("  Environment (INVOWK_* / ARG*):"))
 		for _, k := range slices.Sorted(maps.Keys(invowkVars)) {
 			fmt.Fprintf(w, "    %s=%s\n", k, invowkVars[k])
+		}
+	}
+	if len(userVars) > 0 {
+		fmt.Fprintln(w)
+		fmt.Fprintln(w, VerboseHighlightStyle.Render("  Environment (user-defined):"))
+		for _, k := range slices.Sorted(maps.Keys(userVars)) {
+			fmt.Fprintf(w, "    %s=%s\n", k, userVars[k])
 		}
 	}
 

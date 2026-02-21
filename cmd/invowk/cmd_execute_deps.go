@@ -55,6 +55,11 @@ func (s *commandService) executeDepCommands(ctx context.Context, req ExecuteRequ
 	// Propagate the stack through context for recursive calls.
 	ctx = context.WithValue(ctx, dagExecutionStackKey{}, stack)
 
+	// Deduplicate so the same dep appearing at multiple merge levels
+	// (root + command + impl) only runs once. Dedup on the resolved command
+	// name after OR-alternative resolution to catch equivalent deps with
+	// differently-ordered alternative lists.
+	executed := make(map[string]bool)
 	execDeps := merged.GetExecutableCommandDeps()
 	for _, dep := range execDeps {
 		if len(dep.Alternatives) == 0 {
@@ -68,6 +73,11 @@ func (s *commandService) executeDepCommands(ctx context.Context, req ExecuteRequ
 		if resolveErr != nil {
 			return resolveErr
 		}
+
+		if executed[depName] {
+			continue
+		}
+		executed[depName] = true
 
 		if req.Verbose {
 			fmt.Fprintf(s.stdout, "%s Running dependency '%s'...\n", VerboseHighlightStyle.Render("→"), depName)

@@ -25,6 +25,19 @@ stdout 'Running dependency'
 stdout 'building'
 stdout 'deploying'
 
+# Test 5: Transitive execute deps (A -> B -> C)
+# pipeline depends on deploy (which depends on build)
+exec invowk cmd pipeline
+stdout 'building'
+stdout 'deploying'
+stdout 'pipeline done'
+
+# Test 6: Alternatives OR-semantics for execute deps
+# uses alternatives: ["nonexistent", "build"] — should resolve to build
+exec invowk cmd alt-deploy
+stdout 'building'
+stdout 'alt deploying'
+
 -- invowkfile.cue --
 cmds: [
 	{
@@ -91,6 +104,34 @@ cmds: [
 			cmds: [
 				{alternatives: ["lint"], execute: true},
 				{alternatives: ["build"], execute: true},
+			]
+		}
+	},
+	{
+		name:        "pipeline"
+		description: "Transitive dep chain: pipeline -> deploy -> build"
+		implementations: [{
+			script:    "echo pipeline done"
+			runtimes:  [{name: "virtual"}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+		depends_on: {
+			cmds: [
+				{alternatives: ["deploy"], execute: true},
+			]
+		}
+	},
+	{
+		name:        "alt-deploy"
+		description: "Execute dep with alternatives OR-semantics"
+		implementations: [{
+			script:    "echo alt deploying"
+			runtimes:  [{name: "virtual"}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+		depends_on: {
+			cmds: [
+				{alternatives: ["nonexistent", "build"], execute: true},
 			]
 		}
 	},

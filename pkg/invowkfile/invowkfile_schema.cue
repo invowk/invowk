@@ -13,6 +13,10 @@ import "strings"
 // PlatformType defines the supported operating system types
 #PlatformType: "linux" | "macos" | "windows"
 
+// DurationString constrains a Go-style duration string (e.g., "30s", "5m", "1h30m").
+// Shared by #Implementation.timeout and #WatchConfig.debounce.
+#DurationString: string & =~"^[0-9]+(\\.[0-9]+)?(ns|us|µs|ms|s|m|h)+$" & strings.MaxRunes(32)
+
 // EnvConfig defines environment configuration for a command or implementation
 #EnvConfig: close({
 	// files lists dotenv files to load (optional)
@@ -157,7 +161,7 @@ import "strings"
 	// timeout specifies the maximum execution duration (optional)
 	// Must be a valid Go duration string (e.g., "30s", "5m", "1h30m")
 	// When exceeded, the command is cancelled and returns a timeout error.
-	timeout?: string & =~"^[0-9]+(\\.[0-9]+)?(ns|us|µs|ms|s|m|h)+$" & strings.MaxRunes(32)
+	timeout?: #DurationString
 })
 
 // ToolDependency represents a tool/binary that must be available in PATH
@@ -390,7 +394,7 @@ import "strings"
 	// debounce specifies the delay before re-executing after a change (optional)
 	// Must be a valid Go duration string (e.g., "500ms", "1s", "2s")
 	// Default: "500ms"
-	debounce?: string & =~"^[0-9]+(\\.[0-9]+)?(ns|us|µs|ms|s|m|h)+$" & strings.MaxRunes(32)
+	debounce?: #DurationString
 
 	// clear_screen clears the terminal before each re-execution (optional)
 	// Default: false

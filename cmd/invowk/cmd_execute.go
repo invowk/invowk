@@ -89,8 +89,16 @@ func (s *commandService) Execute(ctx context.Context, req ExecuteRequest) (Execu
 		return ExecuteResult{}, diags, err
 	}
 
+	// Track whether we are the caller that starts the SSH server so only
+	// the outermost Execute() call owns cleanup. Recursive dep calls see
+	// the server already running and skip the defer, preventing premature
+	// shutdown of a server the parent still needs.
+	sshWasRunning := s.ssh.current() != nil
 	if sshErr := s.ensureSSHIfNeeded(ctx, req, resolved); sshErr != nil {
 		return ExecuteResult{}, diags, sshErr
+	}
+	if !sshWasRunning && s.ssh.current() != nil {
+		defer s.ssh.stop()
 	}
 
 	execCtx, err := s.buildExecContext(req, cmdInfo, defs, resolved)
@@ -239,7 +247,7 @@ func (s *commandService) resolveRuntime(req ExecuteRequest, cmdInfo *discovery.C
 
 // ensureSSHIfNeeded conditionally starts the SSH server when the selected runtime
 // implementation requires host SSH access (used by container runtime for host callbacks).
-// If started, the SSH server is stopped via defer when Execute returns.
+// Cleanup is handled by the caller (Execute) via a "started-by-me" guard.
 func (s *commandService) ensureSSHIfNeeded(ctx context.Context, req ExecuteRequest, resolved appexec.RuntimeSelection) error {
 	if !resolved.Impl.GetHostSSHForRuntime(resolved.Mode) {
 		return nil
@@ -315,6 +323,16 @@ func (s *commandService) dispatchExecution(ctx context.Context, req ExecuteReque
 		}
 	}
 
+	// Apply execution timeout before dep execution so the timeout covers the
+	// full pipeline: dependency commands + main command. Duration was already
+	// validated above (fail-fast on invalid strings). Cancel is deferred to
+	// release timer resources.
+	if timeoutDuration > 0 {
+		var cancel context.CancelFunc
+		execCtx.Context, cancel = context.WithTimeout(execCtx.Context, timeoutDuration)
+		defer cancel()
+	}
+
 	// Dependency validation needs the registry to check runtime-aware dependencies.
 	if err := s.validateAndRenderDeps(cfg, cmdInfo, execCtx, registryResult.Registry); err != nil {
 		return ExecuteResult{}, diags, err
@@ -329,22 +347,6 @@ func (s *commandService) dispatchExecution(ctx context.Context, req ExecuteReque
 
 	if req.Verbose {
 		fmt.Fprintf(s.stdout, "%s Running '%s'...\n", SuccessStyle.Render("→"), req.Name)
-	}
-
-	// Apply execution timeout if specified in the implementation.
-	// The timeout wraps the execution context so both interactive and standard
-	// execution paths respect it. Cancel is deferred to release timer resources.
-	// Duration was already validated above before dep execution.
-	if timeoutDuration > 0 {
-		var cancel context.CancelFunc
-		execCtx.Context, cancel = context.WithTimeout(execCtx.Context, timeoutDuration)
-		defer cancel()
-	}
-
-	// SSH server stop is deferred here because this is the last step before execution,
-	// and the SSH server must remain running during command execution.
-	if s.ssh.current() != nil {
-		defer s.ssh.stop()
 	}
 
 	var result *runtime.Result

@@ -22,7 +22,12 @@ stdout 'Exec deps:.*build'
 # Verify the build dep was NOT actually executed (dry-run skips execution)
 ! stdout 'building'
 
-# Test 4: --ivk-watch and --ivk-dry-run are mutually exclusive
+# Test 4: Dry-run shows environment variables
+exec invowk cmd hello --ivk-dry-run
+stdout 'INVOWK_CMD_NAME=hello'
+stdout 'INVOWK_RUNTIME=native'
+
+# Test 5: --ivk-watch and --ivk-dry-run are mutually exclusive
 ! exec invowk cmd hello --ivk-watch --ivk-dry-run
 stderr '(?i)--ivk-watch and --ivk-dry-run cannot be used together'
 

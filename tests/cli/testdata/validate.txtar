@@ -95,9 +95,7 @@ stderr 'CUE schema validation failed'
 stdout 'Invowkfile Validation'
 stdout 'CUE schema validation passed'
 stderr 'Execution DAG validation failed'
-stderr 'cycle'
-stderr 'a'
-stderr 'b'
+stderr 'dependency cycle detected involving nodes'
 
 -- invowkfile.cue --
 cmds: [
