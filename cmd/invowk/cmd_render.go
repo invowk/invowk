@@ -133,6 +133,43 @@ func RenderCycleError(err *dag.CycleError) string {
 	return sb.String()
 }
 
+// RenderRequiredInputsError creates a styled error message when an execute
+// dependency targets a command with required args or flags. Execute deps
+// run without arguments, so required inputs would always fail.
+func RenderRequiredInputsError(err *discovery.RequiredInputsError) string {
+	var sb strings.Builder
+
+	sb.WriteString(renderHeaderStyle.Render("✗ Invalid execute dependency!"))
+	sb.WriteString("\n\n")
+	sb.WriteString(fmt.Sprintf("Command %s has an execute dependency on %s, but the target\ncommand has required inputs that cannot be satisfied.\n\n",
+		renderCommandStyle.Render("'"+err.ParentName+"'"),
+		renderCommandStyle.Render("'"+err.TargetName+"'")))
+
+	if len(err.RequiredArgs) > 0 {
+		sb.WriteString(renderLabelStyle.Render("Required arguments:"))
+		sb.WriteString("\n")
+		for _, arg := range err.RequiredArgs {
+			sb.WriteString(renderValueStyle.Render(fmt.Sprintf("  • %s\n", arg)))
+		}
+	}
+	if len(err.RequiredFlags) > 0 {
+		if len(err.RequiredArgs) > 0 {
+			sb.WriteString("\n")
+		}
+		sb.WriteString(renderLabelStyle.Render("Required flags:"))
+		sb.WriteString("\n")
+		for _, flag := range err.RequiredFlags {
+			sb.WriteString(renderValueStyle.Render(fmt.Sprintf("  • --%s\n", flag)))
+		}
+	}
+
+	sb.WriteString("\n")
+	sb.WriteString(renderHintStyle.Render("Execute dependencies run without arguments. Remove required inputs from\n'" + err.TargetName + "' or change the dependency to execute: false."))
+	sb.WriteString("\n")
+
+	return sb.String()
+}
+
 // RenderDependencyError creates a styled error message for unsatisfied dependencies
 func RenderDependencyError(err *DependencyError) string {
 	var sb strings.Builder

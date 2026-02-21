@@ -70,8 +70,9 @@ func newCommandService(configProvider ConfigProvider, disc DiscoveryService, std
 //  2. Validates inputs: flags, arguments, platform compatibility, and runtime compatibility.
 //  3. Manages SSH server lifecycle when the container runtime needs host access.
 //  4. Builds execution context with env var projection (INVOWK_FLAG_*, INVOWK_ARG_*, ARGn).
-//  5. Validates command dependencies against the runtime registry.
-//  6. Dispatches to interactive mode (alternate screen + TUI server) or standard execution.
+//  5. Propagates incoming context for DAG re-entrancy guard and cancellation signals.
+//  6. Dry-run intercept: if --ivk-dry-run, renders the execution plan and exits.
+//  7. Dispatches execution (timeout → dep validation → DAG dep execution → runtime).
 func (s *commandService) Execute(ctx context.Context, req ExecuteRequest) (ExecuteResult, []discovery.Diagnostic, error) {
 	cfg, cmdInfo, diags, err := s.discoverCommand(ctx, req)
 	if err != nil {
@@ -111,8 +112,9 @@ func (s *commandService) Execute(ctx context.Context, req ExecuteRequest) (Execu
 
 	// Propagate the incoming context so that DAG re-entrancy guard values
 	// and parent cancellation signals survive through recursive Execute calls.
-	// BuildExecutionContext creates a fresh context.Background(); overriding it
-	// here preserves the DAG stack map and Ctrl+C propagation chain.
+	// NewExecutionContext (called transitively by buildExecContext) sets
+	// context.Background(); overriding it here preserves the DAG stack map
+	// and Ctrl+C propagation chain.
 	execCtx.Context = ctx
 
 	// Dry-run mode: print what would be executed and exit without executing.
@@ -291,9 +293,15 @@ func (s *commandService) buildExecContext(req ExecuteRequest, cmdInfo *discovery
 	})
 }
 
-// dispatchExecution validates dependencies, then dispatches the command to either
-// interactive mode (alternate screen + TUI server) or standard execution. It handles
-// result rendering for errors and non-zero exit codes.
+// dispatchExecution runs the post-context-build execution pipeline:
+//  1. Creates runtime registry.
+//  2. Validates timeout string (fail-fast on invalid values).
+//  3. Wraps context with timeout (covers deps + main command).
+//  4. Validates non-execute dependencies (tools, filepaths, capabilities, env vars).
+//  5. Executes DAG dependency commands (depends_on.cmds with execute: true).
+//  6. Dispatches to interactive mode (alternate screen + TUI server) or standard execution.
+//
+// It handles result rendering for errors and non-zero exit codes.
 func (s *commandService) dispatchExecution(ctx context.Context, req ExecuteRequest, execCtx *runtime.ExecutionContext, cmdInfo *discovery.CommandInfo, cfg *config.Config, diags []discovery.Diagnostic) (ExecuteResult, []discovery.Diagnostic, error) {
 	registryResult := createRuntimeRegistry(cfg, s.ssh.current())
 	if req.Verbose || execCtx.SelectedRuntime == invowkfile.RuntimeContainer {
@@ -349,6 +357,14 @@ func (s *commandService) dispatchExecution(ctx context.Context, req ExecuteReque
 	// the main command. Each dep runs through the full Execute pipeline so
 	// transitive execute deps are handled recursively.
 	if err := s.executeDepCommands(execCtx.Context, req, cmdInfo, execCtx); err != nil {
+		// When a timeout fires during dependency execution, annotate the error
+		// so users understand the timeout budget is shared between deps and main.
+		if timeoutDuration > 0 && errors.Is(err, context.DeadlineExceeded) {
+			return ExecuteResult{}, diags, fmt.Errorf(
+				"dependency execution timed out (timeout of %s covers dependencies + main command): %w",
+				timeoutDuration, err,
+			)
+		}
 		return ExecuteResult{}, diags, err
 	}
 
@@ -394,11 +410,7 @@ func (s *commandService) dispatchExecution(ctx context.Context, req ExecuteReque
 		)
 	}
 
-	if result.ExitCode != 0 {
-		return ExecuteResult{ExitCode: result.ExitCode}, diags, nil
-	}
-
-	return ExecuteResult{ExitCode: 0}, diags, nil
+	return ExecuteResult{ExitCode: result.ExitCode}, diags, nil
 }
 
 // validateAndRenderDeps validates command dependencies and returns ServiceError

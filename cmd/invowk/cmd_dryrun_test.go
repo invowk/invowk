@@ -3,11 +3,14 @@
 package cmd
 
 import (
+	"bytes"
 	"context"
 	"io"
 	"slices"
+	"strings"
 	"testing"
 
+	appexec "github.com/invowk/invowk/internal/app/execute"
 	"github.com/invowk/invowk/internal/discovery"
 	"github.com/invowk/invowk/internal/runtime"
 	"github.com/invowk/invowk/pkg/invowkfile"
@@ -53,6 +56,83 @@ func allDiscoverableMock() *lookupDiscoveryServiceFunc {
 		getCommand: func(_ context.Context, name string) (discovery.LookupResult, error) {
 			return discovery.LookupResult{Command: &discovery.CommandInfo{Name: name}}, nil
 		},
+	}
+}
+
+func TestRenderDryRun_AllSections(t *testing.T) {
+	t.Parallel()
+
+	var buf bytes.Buffer
+	req := ExecuteRequest{Name: "deploy"}
+	cmdInfo := &discovery.CommandInfo{SourceID: "my-module.invowkmod"}
+	cmd := &invowkfile.Command{}
+	inv := &invowkfile.Invowkfile{}
+	execCtx := runtime.NewExecutionContext(cmd, inv)
+	execCtx.WorkDir = "/app"
+	execCtx.Env.ExtraEnv = map[string]string{
+		"INVOWK_CMD_NAME": "deploy",
+		"ARG1":            "production",
+		"DATABASE_URL":    "postgres://localhost/app",
+	}
+	resolved := appexec.RuntimeSelection{
+		Mode: invowkfile.RuntimeVirtual,
+		Impl: &invowkfile.Implementation{
+			Script:  "echo deploying",
+			Timeout: "30s",
+		},
+	}
+
+	renderDryRun(&buf, req, cmdInfo, execCtx, resolved, []string{"build", "lint"})
+	out := buf.String()
+
+	// Verify all conditional sections appear.
+	for _, token := range []string{
+		"Dry Run",
+		"Command:", "deploy",
+		"Source:", "my-module.invowkmod",
+		"Runtime:", "virtual",
+		"WorkDir:", "/app",
+		"Timeout:", "30s",
+		"Exec deps:", "build, lint",
+		"Script:",
+		"echo deploying",
+		"INVOWK_CMD_NAME=deploy",
+		"ARG1=production",
+		"DATABASE_URL=postgres://localhost/app",
+		"dependency validation",
+	} {
+		if !strings.Contains(out, token) {
+			t.Errorf("renderDryRun output missing %q:\n%s", token, out)
+		}
+	}
+}
+
+func TestRenderDryRun_NoImpl(t *testing.T) {
+	t.Parallel()
+
+	var buf bytes.Buffer
+	req := ExecuteRequest{Name: "test"}
+	cmdInfo := &discovery.CommandInfo{SourceID: "invowkfile"}
+	cmd := &invowkfile.Command{}
+	inv := &invowkfile.Invowkfile{}
+	execCtx := runtime.NewExecutionContext(cmd, inv)
+	resolved := appexec.RuntimeSelection{
+		Mode: invowkfile.RuntimeNative,
+		Impl: nil,
+	}
+
+	renderDryRun(&buf, req, cmdInfo, execCtx, resolved, nil)
+	out := buf.String()
+
+	// Should still render metadata but no script/timeout/env sections.
+	if !strings.Contains(out, "Command:") {
+		t.Error("expected Command: header")
+	}
+	if strings.Contains(out, "Timeout:") {
+		t.Error("Timeout should not appear when impl is nil")
+	}
+	if strings.Contains(out, "Script:") {
+		t.Error("Script should not appear when impl is nil")
 	}
 }
 
@@ -124,6 +204,31 @@ func TestCollectExecDepNames(t *testing.T) {
 				},
 			},
 			want: []string{"build"},
+		},
+		{
+			name: "dedup after OR resolution across levels",
+			cmdInfo: &discovery.CommandInfo{
+				Command: &invowkfile.Command{
+					DependsOn: &invowkfile.DependsOn{
+						Commands: []invowkfile.CommandDependency{
+							// Root declares ["missing", "build"] — resolves to "build".
+							{Alternatives: []string{"missing", "build"}, Execute: true},
+						},
+					},
+				},
+				Invowkfile: &invowkfile.Invowkfile{
+					DependsOn: &invowkfile.DependsOn{
+						Commands: []invowkfile.CommandDependency{
+							// Invowkfile declares ["build"] — also resolves to "build".
+							{Alternatives: []string{"build"}, Execute: true},
+						},
+					},
+				},
+			},
+			// "missing" is not discoverable, so first dep resolves to "build".
+			// Second dep also resolves to "build". Dedup keeps only one.
+			discoverable: map[string]bool{"build": true},
+			want:         []string{"build"},
 		},
 		{
 			name: "empty alternatives skipped",

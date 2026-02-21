@@ -85,7 +85,9 @@ type (
 
 	// Watcher monitors filesystem paths and fires a debounced callback when
 	// matching files change. Run must be called exactly once; calling it a
-	// second time returns an error.
+	// second time returns an error. Close releases the underlying fsnotify
+	// resources and should be called if Run will not be called (e.g., the
+	// caller encounters an error between New and Run).
 	Watcher struct {
 		cfg      Config
 		fsw      *fsnotify.Watcher
@@ -95,8 +97,19 @@ type (
 		debounce time.Duration
 		baseDir  string
 		started  atomic.Bool
+		closed   atomic.Bool
 	}
 )
+
+func init() {
+	// Validate default ignore patterns at startup. These are programmer-controlled
+	// constants; a match error here is always a code bug, not a user error.
+	for _, pat := range defaultIgnores {
+		if _, err := doublestar.Match(pat, ""); err != nil {
+			panic(fmt.Sprintf("BUG: invalid default ignore pattern %q: %v", pat, err))
+		}
+	}
+}
 
 // New creates a Watcher from the given Config. It resolves BaseDir to an
 // absolute path, initialises the underlying fsnotify watcher, and registers
@@ -171,6 +184,17 @@ func New(cfg Config) (*Watcher, error) {
 	return w, nil
 }
 
+// Close releases the underlying fsnotify resources without starting the
+// event loop. Use this if Run will not be called (e.g., the caller
+// encounters an error between New and Run). Close is idempotent; calling
+// it after Run has already cleaned up is a no-op.
+func (w *Watcher) Close() error {
+	if !w.closed.CompareAndSwap(false, true) {
+		return nil
+	}
+	return w.fsw.Close()
+}
+
 // Run blocks until ctx is cancelled, processing filesystem events and
 // dispatching debounced callbacks. It returns nil on clean context
 // cancellation and propagates any fatal watcher errors. Run must be
@@ -179,6 +203,9 @@ func (w *Watcher) Run(ctx context.Context) error {
 	if !w.started.CompareAndSwap(false, true) {
 		return fmt.Errorf("watch: Run called more than once")
 	}
+	// Mark as closed so a subsequent Close() is a no-op — Run owns
+	// the fsnotify lifecycle from this point via its defer block.
+	w.closed.Store(true)
 
 	var (
 		mu      sync.Mutex
@@ -188,29 +215,43 @@ func (w *Watcher) Run(ctx context.Context) error {
 		wg      sync.WaitGroup
 	)
 
-	// fire drains the pending set and invokes the OnChange callback.
+	// fireBody drains the pending set and invokes the OnChange callback.
 	// It may be scheduled by time.AfterFunc after the context is cancelled,
 	// so check ctx.Err() as a best-effort guard. A narrow TOCTOU window
-	// remains between the check and OnChange invocation; the callback
-	// receives ctx and should check it for cancellation-sensitive work.
+	// remains between the check and OnChange invocation; this is acceptable
+	// because the callback receives ctx and is expected to check cancellation
+	// itself — attempting to eliminate this window via locking would risk
+	// deadlock with the event loop.
+	//
 	// Uses atomic "skip-if-busy" guard to prevent concurrent callback
 	// invocations when the command takes longer than the debounce period.
-	// The WaitGroup tracks in-flight invocations so Run's cleanup waits
-	// for any active callback to finish before closing resources.
-	fire := func() {
-		wg.Add(1)
-		defer wg.Done()
+	//
+	// IMPORTANT: wg.Add(1) is called at the scheduling site (before
+	// time.AfterFunc / timer.Reset), NOT inside this function. This
+	// eliminates a race where wg.Wait() in cleanup could see count=0
+	// before the timer goroutine increments it. The caller (fireWrapped)
+	// is responsible for defer wg.Done().
+	fireBody := func() {
 		if ctx.Err() != nil {
 			return
 		}
 		if !running.CompareAndSwap(false, true) {
-			fmt.Fprintf(w.stderr, "watch: skipping re-execution (previous run still in progress)\n")
 			// Schedule a retry so pending events are not permanently lost.
 			// Without this, if no further filesystem events arrive, the
 			// accumulated pending set would be silently discarded.
+			// Stderr write is under the mutex to prevent interleaved output
+			// from concurrent timer goroutines on non-goroutine-safe writers.
 			mu.Lock()
+			fmt.Fprintf(w.stderr, "watch: skipping re-execution (previous run still in progress)\n")
 			if timer != nil {
-				timer.Reset(w.debounce)
+				// We're inside a fire() invocation — the timer has expired.
+				// Only pre-increment WaitGroup when Reset returns false
+				// (timer was expired/stopped, new goroutine will be created).
+				// When Reset returns true, the event loop already Reset the
+				// timer and accounted for the WaitGroup increment.
+				if !timer.Reset(w.debounce) {
+					wg.Add(1)
+				}
 			}
 			mu.Unlock()
 			return
@@ -238,18 +279,29 @@ func (w *Watcher) Run(ctx context.Context) error {
 		}
 	}
 
-	// Ensure the timer channel is drained on exit and wait for any in-flight
-	// fire() callback to complete before closing the fsnotify watcher.
+	// fireWrapped wraps fireBody with WaitGroup tracking.
+	fireWrapped := func() {
+		defer wg.Done()
+		fireBody()
+	}
+
+	// Stop the debounce timer and wait for any in-flight fire() callback
+	// to complete before closing the fsnotify watcher.
 	defer func() {
 		mu.Lock()
 		localTimer := timer
-		mu.Unlock()
-		if localTimer != nil && !localTimer.Stop() {
-			select {
-			case <-localTimer.C:
-			default:
+		// Nil out timer to prevent fire's skip-if-busy retry from
+		// re-arming it after we've stopped it.
+		timer = nil
+		if localTimer != nil {
+			if localTimer.Stop() {
+				// Timer was still active; the goroutine was never created.
+				// Compensate for the wg.Add(1) from the scheduling site.
+				wg.Done()
 			}
+			// AfterFunc timers have a nil C channel — no drain needed.
 		}
+		mu.Unlock()
 		// Wait for any in-flight fire() goroutine to finish before closing
 		// fsnotify. Without this, OnChange could race with resource cleanup.
 		wg.Wait()
@@ -290,9 +342,15 @@ func (w *Watcher) Run(ctx context.Context) error {
 			mu.Lock()
 			pending[rel] = struct{}{}
 			if timer == nil {
-				timer = time.AfterFunc(w.debounce, fire)
-			} else {
-				timer.Reset(w.debounce)
+				wg.Add(1)
+				timer = time.AfterFunc(w.debounce, fireWrapped)
+			} else if !timer.Reset(w.debounce) {
+				// Timer had already expired: the old fire goroutine was
+				// started (and will wg.Done() independently). Reset
+				// re-arms the timer; a new goroutine will be created.
+				// If Reset returned true: timer was still pending — the same
+				// fire goroutine (with its existing wg.Add) will run.
+				wg.Add(1)
 			}
 			mu.Unlock()
 
@@ -311,19 +369,24 @@ func (w *Watcher) Run(ctx context.Context) error {
 	}
 }
 
-// addDirectories walks BaseDir and adds every non-ignored directory to the
-// fsnotify watcher. All directories are registered regardless of watch
-// patterns; pattern filtering is applied when events arrive (see
-// matchesPatterns).
+// addDirectories walks BaseDir (including BaseDir itself) and adds every
+// non-ignored directory to the fsnotify watcher. All directories are registered
+// regardless of watch patterns; pattern filtering is applied when events arrive
+// (see matchesPatterns).
 func (w *Watcher) addDirectories() error {
 	walkErr := filepath.WalkDir(w.baseDir, func(path string, d os.DirEntry, walkDirErr error) error {
 		if walkDirErr != nil {
-			// Best-effort: skip directories we cannot access rather than aborting
-			// the entire walk. Permission errors on individual dirs are common
+			// Best-effort: skip paths we cannot access rather than aborting the
+			// entire walk. Permission errors on individual dirs are common
 			// (e.g., .git/objects/pack) and should not prevent watching.
 			// Log to stderr so users know which paths are not being watched.
 			fmt.Fprintf(w.stderr, "watch: skipping inaccessible path %q: %v\n", path, walkDirErr)
-			return nil //nolint:nilerr // intentional skip of inaccessible paths
+			// Return SkipDir for directories to prevent descending into children,
+			// which would produce a cascade of identical permission errors.
+			if d != nil && d.IsDir() {
+				return filepath.SkipDir
+			}
+			return nil //nolint:nilerr // intentional skip of inaccessible files
 		}
 		if !d.IsDir() {
 			return nil
@@ -380,12 +443,18 @@ func (w *Watcher) maybeAddDir(path string) {
 }
 
 // isIgnored returns true if the given path (relative to BaseDir) matches any
-// ignore pattern.
+// ignore pattern. Match errors are logged and the pattern is skipped (treated
+// as non-matching) so that a single bad pattern doesn't disable all ignoring.
 func (w *Watcher) isIgnored(rel string) bool {
 	// Normalise to forward slashes for consistent glob matching.
 	normalized := filepath.ToSlash(rel)
 	for _, pat := range w.ignores {
-		if matched, matchErr := doublestar.Match(pat, normalized); matchErr == nil && matched {
+		matched, matchErr := doublestar.Match(pat, normalized)
+		if matchErr != nil {
+			fmt.Fprintf(w.stderr, "watch: ignore pattern %q match error for %q: %v\n", pat, normalized, matchErr)
+			continue
+		}
+		if matched {
 			return true
 		}
 	}
@@ -394,14 +463,20 @@ func (w *Watcher) isIgnored(rel string) bool {
 
 // matchesPatterns returns true if the given path (relative to BaseDir) matches
 // at least one of the configured watch patterns. When no patterns are
-// configured, all paths match.
+// configured, all paths match. Match errors are logged and the pattern is
+// skipped (treated as non-matching).
 func (w *Watcher) matchesPatterns(rel string) bool {
 	if len(w.cfg.Patterns) == 0 {
 		return true
 	}
 	normalized := filepath.ToSlash(rel)
 	for _, pat := range w.cfg.Patterns {
-		if matched, matchErr := doublestar.Match(pat, normalized); matchErr == nil && matched {
+		matched, matchErr := doublestar.Match(pat, normalized)
+		if matchErr != nil {
+			fmt.Fprintf(w.stderr, "watch: pattern %q match error for %q: %v\n", pat, normalized, matchErr)
+			continue
+		}
+		if matched {
 			return true
 		}
 	}
@@ -411,9 +486,7 @@ func (w *Watcher) matchesPatterns(rel string) bool {
 // DefaultIgnores returns a copy of the built-in ignore patterns. This is
 // useful for tests and tooling that need to verify the default behaviour.
 func DefaultIgnores() []string {
-	out := make([]string, len(defaultIgnores))
-	copy(out, defaultIgnores)
-	return out
+	return slices.Clone(defaultIgnores)
 }
 
 // validatePatterns checks that every pattern in the slice is a valid doublestar

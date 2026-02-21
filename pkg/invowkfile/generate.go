@@ -60,9 +60,8 @@ func GenerateCUE(inv *Invowkfile) string {
 	return sb.String()
 }
 
-// generateDependsOn generates CUE for a DependsOn block at root level.
-// Delegates to generateDependsOnContent for the inner fields, following the same
-// pattern as generateCommandDependsOn and generateImplDependsOn.
+// generateDependsOn generates CUE for a DependsOn block at any nesting level.
+// The indent parameter controls the indentation depth for the block's fields.
 func generateDependsOn(sb *strings.Builder, deps *DependsOn, indent string) {
 	if deps == nil {
 		return
@@ -123,7 +122,7 @@ func generateCommand(sb *strings.Builder, cmd *Command) {
 	}
 
 	// Command-level depends_on
-	generateCommandDependsOn(sb, cmd.DependsOn)
+	generateDependsOn(sb, cmd.DependsOn, "\t\t\t")
 
 	// Generate flags list
 	if len(cmd.Flags) > 0 {
@@ -229,7 +228,7 @@ func generateImplementation(sb *strings.Builder, impl *Implementation) {
 	sb.WriteString("\t\t\t\t]\n")
 
 	// Implementation-level depends_on
-	generateImplDependsOn(sb, impl.DependsOn)
+	generateDependsOn(sb, impl.DependsOn, "\t\t\t\t\t")
 
 	// Implementation-level env
 	if impl.Env != nil && (len(impl.Env.Files) > 0 || len(impl.Env.Vars) > 0) {
@@ -361,34 +360,6 @@ func generateRuntimeConfigFieldsInline(sb *strings.Builder, r *RuntimeConfig) {
 			sb.WriteString("]")
 		}
 	}
-}
-
-// generateImplDependsOn generates CUE for implementation-level depends_on
-func generateImplDependsOn(sb *strings.Builder, deps *DependsOn) {
-	if deps == nil {
-		return
-	}
-	if deps.IsEmpty() {
-		return
-	}
-
-	sb.WriteString("\t\t\t\tdepends_on: {\n")
-	generateDependsOnContent(sb, deps, "\t\t\t\t\t")
-	sb.WriteString("\t\t\t\t}\n")
-}
-
-// generateCommandDependsOn generates CUE for command-level depends_on
-func generateCommandDependsOn(sb *strings.Builder, deps *DependsOn) {
-	if deps == nil {
-		return
-	}
-	if deps.IsEmpty() {
-		return
-	}
-
-	sb.WriteString("\t\tdepends_on: {\n")
-	generateDependsOnContent(sb, deps, "\t\t\t")
-	sb.WriteString("\t\t}\n")
 }
 
 // generateDependsOnContent generates the content of a depends_on block

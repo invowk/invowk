@@ -27,8 +27,9 @@ type WatchConfig struct {
 
 // ParseDebounce parses the Debounce field into a time.Duration.
 // Returns (0, nil) when Debounce is empty (caller should apply default).
-// Returns an error for zero or negative durations, which would cause
-// the watcher to use the default debounce period.
+// Returns an error for zero or negative durations, which are invalid
+// for debounce timing. Callers treat this error as fatal rather than
+// falling back to a default.
 func (w *WatchConfig) ParseDebounce() (time.Duration, error) {
 	if w.Debounce == "" {
 		return 0, nil

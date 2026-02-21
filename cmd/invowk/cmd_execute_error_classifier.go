@@ -25,9 +25,11 @@ func classifyExecutionError(err error, verbose bool) (issueID issue.Id, styledMs
 
 	switch {
 	case errors.Is(err, context.DeadlineExceeded):
-		return issueID, fmt.Sprintf("\n%s %s\n", ErrorStyle.Render("Error:"), "command timed out")
+		// Include the full error chain so that timeout errors during DAG
+		// execution surface which dependency was running when the deadline fired.
+		return issueID, fmt.Sprintf("\n%s command timed out: %s\n", ErrorStyle.Render("Error:"), formatErrorForDisplay(err, verbose))
 	case errors.Is(err, context.Canceled):
-		return issueID, fmt.Sprintf("\n%s %s\n", ErrorStyle.Render("Error:"), "command was cancelled")
+		return issueID, fmt.Sprintf("\n%s command was cancelled: %s\n", ErrorStyle.Render("Error:"), formatErrorForDisplay(err, verbose))
 	case errors.Is(err, container.ErrNoEngineAvailable):
 		issueID = issue.ContainerEngineNotFoundId
 	case errors.Is(err, runtime.ErrRuntimeNotAvailable):

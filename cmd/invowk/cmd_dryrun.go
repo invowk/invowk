@@ -17,47 +17,11 @@ import (
 )
 
 // collectExecDepNames resolves and returns the names of execute deps that
-// would run before this command. It uses the same OR-alternative resolution
-// logic as executeDepCommands (via resolveExecutableDep) so the dry-run
-// output accurately reflects which specific alternative would be chosen.
-// Deduplication keys on the resolved name, matching executeDepCommands.
-// If resolution fails for any dep, the error is returned so dry-run
-// surfaces discovery problems rather than silently omitting deps.
+// would run before this command. Delegates to resolveExecDeps (the shared
+// resolution logic in cmd_execute_deps.go) so dry-run output always matches
+// real execution behaviour.
 func (s *commandService) collectExecDepNames(ctx context.Context, cmdInfo *discovery.CommandInfo, execCtx *runtime.ExecutionContext) ([]string, error) {
-	var implDeps *invowkfile.DependsOn
-	if execCtx.SelectedImpl != nil {
-		implDeps = execCtx.SelectedImpl.DependsOn
-	}
-	merged := invowkfile.MergeDependsOnAll(
-		cmdInfo.Invowkfile.DependsOn,
-		cmdInfo.Command.DependsOn,
-		implDeps,
-	)
-	if merged == nil {
-		return nil, nil
-	}
-	// Deduplicate on the resolved name so the same dep appearing at multiple
-	// merge levels is only shown once, consistent with executeDepCommands.
-	seen := make(map[string]bool)
-	var names []string
-	for _, dep := range merged.GetExecutableCommandDeps() {
-		if len(dep.Alternatives) == 0 {
-			continue
-		}
-
-		// Resolve via discovery, same as executeDepCommands.
-		depName, err := s.resolveExecutableDep(ctx, dep.Alternatives)
-		if err != nil {
-			return nil, err
-		}
-
-		if seen[depName] {
-			continue
-		}
-		seen[depName] = true
-		names = append(names, depName)
-	}
-	return names, nil
+	return s.resolveExecDeps(ctx, cmdInfo, execCtx)
 }
 
 // renderDryRun prints the resolved execution context without executing.
@@ -129,6 +93,7 @@ func renderDryRun(w io.Writer, req ExecuteRequest, cmdInfo *discovery.CommandInf
 		}
 	}
 
+	fmt.Fprintln(w, SubtitleStyle.Render("  Note: dependency validation (tools, filepaths, capabilities, env vars) is not performed in dry-run mode."))
 	fmt.Fprintln(w)
 }
 

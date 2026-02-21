@@ -478,6 +478,16 @@ func TestValidateExecutionDAG_RequiredArgsBlocked(t *testing.T) {
 	if err == nil {
 		t.Fatal("ValidateExecutionDAG() should reject execute dep on command with required args")
 	}
+	var reqErr *RequiredInputsError
+	if !errors.As(err, &reqErr) {
+		t.Fatalf("expected *RequiredInputsError, got %T: %v", err, err)
+	}
+	if reqErr.ParentName != "a" || reqErr.TargetName != "b" {
+		t.Errorf("wrong parent/target: got %s/%s", reqErr.ParentName, reqErr.TargetName)
+	}
+	if len(reqErr.RequiredArgs) != 1 || reqErr.RequiredArgs[0] != "target" {
+		t.Errorf("expected RequiredArgs=[target], got %v", reqErr.RequiredArgs)
+	}
 	if !strings.Contains(err.Error(), "required argument") {
 		t.Errorf("error should mention required argument, got: %v", err)
 	}
@@ -511,6 +521,16 @@ func TestValidateExecutionDAG_RequiredFlagsBlocked(t *testing.T) {
 	err := ValidateExecutionDAG(commands)
 	if err == nil {
 		t.Fatal("ValidateExecutionDAG() should reject execute dep on command with required flags")
+	}
+	var reqErr *RequiredInputsError
+	if !errors.As(err, &reqErr) {
+		t.Fatalf("expected *RequiredInputsError, got %T: %v", err, err)
+	}
+	if reqErr.ParentName != "a" || reqErr.TargetName != "b" {
+		t.Errorf("wrong parent/target: got %s/%s", reqErr.ParentName, reqErr.TargetName)
+	}
+	if len(reqErr.RequiredFlags) != 1 || reqErr.RequiredFlags[0] != "output" {
+		t.Errorf("expected RequiredFlags=[output], got %v", reqErr.RequiredFlags)
 	}
 	if !strings.Contains(err.Error(), "required flag") {
 		t.Errorf("error should mention required flag, got: %v", err)
@@ -648,6 +668,32 @@ func TestValidateExecutionDAG_AllAlternativesChecked(t *testing.T) {
 	err := ValidateExecutionDAG(commands)
 	if err == nil {
 		t.Fatal("ValidateExecutionDAG() should check ALL alternatives for cycles, not just the first")
+	}
+}
+
+func TestValidateExecutionDAG_SelfReference(t *testing.T) {
+	t.Parallel()
+
+	// A command that lists itself as an execute dependency → self-loop cycle.
+	commands := []*CommandInfo{
+		{
+			Name: "self",
+			Command: &invowkfile.Command{
+				DependsOn: &invowkfile.DependsOn{
+					Commands: []invowkfile.CommandDependency{
+						{Alternatives: []string{"self"}, Execute: true},
+					},
+				},
+			},
+		},
+	}
+
+	err := ValidateExecutionDAG(commands)
+	if err == nil {
+		t.Fatal("ValidateExecutionDAG() should detect self-referencing dependency")
+	}
+	if !strings.Contains(err.Error(), "cycle") {
+		t.Errorf("error should mention cycle, got: %v", err)
 	}
 }
 

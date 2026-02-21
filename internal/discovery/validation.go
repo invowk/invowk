@@ -10,21 +10,37 @@ import (
 	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
-// ArgsSubcommandConflictError is returned when a command defines both
-// positional arguments and has subcommands. This is a structural error because
-// positional arguments can only be accepted by leaf commands (commands without
-// subcommands). When a command has subcommands, args passed to it are interpreted
-// as subcommand names, making positional arguments unreachable.
-type ArgsSubcommandConflictError struct {
-	// CommandName is the name of the conflicting command
-	CommandName string
-	// Args are the positional arguments defined on the command
-	Args []invowkfile.Argument
-	// Subcommands are the child command names
-	Subcommands []string
-	// FilePath is the path to the invowkfile containing this command
-	FilePath string
-}
+type (
+	// ArgsSubcommandConflictError is returned when a command defines both
+	// positional arguments and has subcommands. This is a structural error because
+	// positional arguments can only be accepted by leaf commands (commands without
+	// subcommands). When a command has subcommands, args passed to it are interpreted
+	// as subcommand names, making positional arguments unreachable.
+	ArgsSubcommandConflictError struct {
+		// CommandName is the name of the conflicting command
+		CommandName string
+		// Args are the positional arguments defined on the command
+		Args []invowkfile.Argument
+		// Subcommands are the child command names
+		Subcommands []string
+		// FilePath is the path to the invowkfile containing this command
+		FilePath string
+	}
+
+	// RequiredInputsError is returned when an execute dependency references a
+	// command that has required args or flags. Execute deps run without arguments,
+	// so required inputs would always fail at runtime.
+	RequiredInputsError struct {
+		// ParentName is the command that declares the execute dependency.
+		ParentName string
+		// TargetName is the dependency command that has required inputs.
+		TargetName string
+		// RequiredArgs lists the names of required positional arguments.
+		RequiredArgs []string
+		// RequiredFlags lists the names of required flags (without -- prefix).
+		RequiredFlags []string
+	}
+)
 
 // Error implements the error interface.
 func (e *ArgsSubcommandConflictError) Error() string {
@@ -55,7 +71,11 @@ func (e *ArgsSubcommandConflictError) Error() string {
 // deps are ignored. Also validates that commands referenced by execute deps do not
 // have required args or flags (since execute deps run without arguments).
 //
-// Returns a dag.CycleError if cycles exist, or a descriptive error for
+// Dependencies are collected across ALL implementations (not filtered by current
+// platform). This is intentionally conservative: a cycle in any implementation
+// is flagged even if it wouldn't manifest on the current host.
+//
+// Returns a *dag.CycleError if cycles exist, or a *RequiredInputsError for
 // required args/flags violations.
 func ValidateExecutionDAG(commands []*CommandInfo) error {
 	if len(commands) == 0 {
@@ -118,27 +138,50 @@ func ValidateExecutionDAG(commands []*CommandInfo) error {
 	return err
 }
 
+// Error implements the error interface for RequiredInputsError.
+func (e *RequiredInputsError) Error() string {
+	var parts []string
+	for _, a := range e.RequiredArgs {
+		parts = append(parts, "argument '"+a+"'")
+	}
+	for _, f := range e.RequiredFlags {
+		parts = append(parts, "flag '--"+f+"'")
+	}
+	return fmt.Sprintf(
+		"command '%s' has execute dependency on '%s', but '%s' has required %s",
+		e.ParentName, e.TargetName, e.TargetName, strings.Join(parts, ", "),
+	)
+}
+
 // validateNoRequiredInputs checks that a command has no required args or flags.
 // Commands used as execute dependencies cannot receive arguments, so required
-// inputs would always fail.
+// inputs would always fail. Returns a *RequiredInputsError with all violations
+// collected (not just the first one found).
 func validateNoRequiredInputs(target *CommandInfo, parentName string) error {
+	var reqArgs []string
+	var reqFlags []string
+
 	for _, arg := range target.Command.Args {
 		if arg.Required {
-			return fmt.Errorf(
-				"command '%s' has execute dependency on '%s', but '%s' has required argument '%s'",
-				parentName, target.Name, target.Name, arg.Name,
-			)
+			reqArgs = append(reqArgs, arg.Name)
 		}
 	}
 	for _, flag := range target.Command.Flags {
 		if flag.Required {
-			return fmt.Errorf(
-				"command '%s' has execute dependency on '%s', but '%s' has required flag '--%s'",
-				parentName, target.Name, target.Name, flag.Name,
-			)
+			reqFlags = append(reqFlags, flag.Name)
 		}
 	}
-	return nil
+
+	if len(reqArgs) == 0 && len(reqFlags) == 0 {
+		return nil
+	}
+
+	return &RequiredInputsError{
+		ParentName:    parentName,
+		TargetName:    target.Name,
+		RequiredArgs:  reqArgs,
+		RequiredFlags: reqFlags,
+	}
 }
 
 // ValidateCommandTree checks for args/subcommand conflicts across all commands.

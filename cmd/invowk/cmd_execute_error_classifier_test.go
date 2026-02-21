@@ -72,10 +72,10 @@ func TestClassifyExecutionError(t *testing.T) {
 			wantInStyle: []string{"cancelled"},
 		},
 		{
-			name:        "wrapped deadline exceeded still detected",
-			err:         fmt.Errorf("runtime: %w", context.DeadlineExceeded),
+			name:        "wrapped deadline exceeded preserves error chain",
+			err:         fmt.Errorf("dependency 'lint' failed: %w", context.DeadlineExceeded),
 			wantIssueID: issue.ScriptExecutionFailedId,
-			wantInStyle: []string{"timed out"},
+			wantInStyle: []string{"timed out", "lint"},
 		},
 		{
 			name:        "unknown error falls back to script execution issue",

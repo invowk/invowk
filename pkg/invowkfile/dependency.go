@@ -48,6 +48,7 @@ type (
 		// Alternatives is a list of command names where any match satisfies the dependency.
 		// If any of the provided commands is discoverable, the dependency is satisfied (early return).
 		// This allows specifying alternative commands (e.g., ["build-debug", "build-release"]).
+		// Must contain at least one entry; empty alternatives are skipped by resolveExecDeps.
 		Alternatives []string `json:"alternatives"`
 		// Execute specifies whether to run this dependency command before the parent.
 		// When true, the dependency command is actually executed (not just checked for discoverability).
@@ -167,11 +168,11 @@ func (c *CustomCheckDependency) GetChecks() []CustomCheck {
 	}}
 }
 
-// MergeDependsOn merges command-level and implementation-level dependencies
-// Implementation-level dependencies are added to command-level dependencies
-// Returns a new DependsOn struct with combined dependencies
-func MergeDependsOn(cmdDeps, scriptDeps *DependsOn) *DependsOn {
-	return MergeDependsOnAll(nil, cmdDeps, scriptDeps)
+// MergeDependsOn merges command-level and implementation-level dependencies.
+// Implementation-level dependencies are added to command-level dependencies.
+// Returns a new DependsOn struct with combined dependencies.
+func MergeDependsOn(cmdDeps, implDeps *DependsOn) *DependsOn {
+	return MergeDependsOnAll(nil, cmdDeps, implDeps)
 }
 
 // MergeDependsOnAll merges root-level, command-level, and implementation-level dependencies
@@ -191,35 +192,11 @@ func MergeDependsOnAll(rootDeps, cmdDeps, implDeps *DependsOn) *DependsOn {
 		EnvVars:      make([]EnvVarDependency, 0),
 	}
 
-	// Add root-level dependencies first (lowest priority)
-	if rootDeps != nil {
-		merged.Tools = append(merged.Tools, rootDeps.Tools...)
-		merged.Commands = append(merged.Commands, rootDeps.Commands...)
-		merged.Filepaths = append(merged.Filepaths, rootDeps.Filepaths...)
-		merged.Capabilities = append(merged.Capabilities, rootDeps.Capabilities...)
-		merged.CustomChecks = append(merged.CustomChecks, rootDeps.CustomChecks...)
-		merged.EnvVars = append(merged.EnvVars, rootDeps.EnvVars...)
-	}
-
-	// Add command-level dependencies
-	if cmdDeps != nil {
-		merged.Tools = append(merged.Tools, cmdDeps.Tools...)
-		merged.Commands = append(merged.Commands, cmdDeps.Commands...)
-		merged.Filepaths = append(merged.Filepaths, cmdDeps.Filepaths...)
-		merged.Capabilities = append(merged.Capabilities, cmdDeps.Capabilities...)
-		merged.CustomChecks = append(merged.CustomChecks, cmdDeps.CustomChecks...)
-		merged.EnvVars = append(merged.EnvVars, cmdDeps.EnvVars...)
-	}
-
-	// Add implementation-level dependencies
-	if implDeps != nil {
-		merged.Tools = append(merged.Tools, implDeps.Tools...)
-		merged.Commands = append(merged.Commands, implDeps.Commands...)
-		merged.Filepaths = append(merged.Filepaths, implDeps.Filepaths...)
-		merged.Capabilities = append(merged.Capabilities, implDeps.Capabilities...)
-		merged.CustomChecks = append(merged.CustomChecks, implDeps.CustomChecks...)
-		merged.EnvVars = append(merged.EnvVars, implDeps.EnvVars...)
-	}
+	// Append in declaration order: root → command → implementation. Order matters
+	// for execute deps: deduplication in resolveExecDeps keeps the first occurrence.
+	merged.appendFrom(rootDeps)
+	merged.appendFrom(cmdDeps)
+	merged.appendFrom(implDeps)
 
 	// Return nil if no dependencies after merging
 	if merged.IsEmpty() {
@@ -227,4 +204,17 @@ func MergeDependsOnAll(rootDeps, cmdDeps, implDeps *DependsOn) *DependsOn {
 	}
 
 	return merged
+}
+
+// appendFrom appends all dependency slices from src into d. Nil src is a no-op.
+func (d *DependsOn) appendFrom(src *DependsOn) {
+	if src == nil {
+		return
+	}
+	d.Tools = append(d.Tools, src.Tools...)
+	d.Commands = append(d.Commands, src.Commands...)
+	d.Filepaths = append(d.Filepaths, src.Filepaths...)
+	d.Capabilities = append(d.Capabilities, src.Capabilities...)
+	d.CustomChecks = append(d.CustomChecks, src.CustomChecks...)
+	d.EnvVars = append(d.EnvVars, src.EnvVars...)
 }

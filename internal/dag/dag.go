@@ -13,10 +13,10 @@ import (
 type (
 	// CycleError indicates that the graph contains a cycle, preventing topological ordering.
 	CycleError struct {
-		// Nodes contains the nodes involved in the cycle (all nodes with non-zero
-		// in-degree after Kahn's algorithm), in graph insertion order. This may
-		// include nodes that are not directly on the cycle path but are reachable
-		// only through cycle members.
+		// Nodes contains nodes with non-zero in-degree after Kahn's algorithm
+		// completes, reported in graph insertion order. This includes all nodes
+		// on actual cycles plus any nodes whose only incoming edges originate
+		// from cycle members (since those edges are never removed during processing).
 		Nodes []string
 	}
 
@@ -30,6 +30,8 @@ type (
 		nodes []string
 		// nodeSet provides O(1) lookup for node existence.
 		nodeSet map[string]bool
+		// edgeSet provides O(1) deduplication for edges to prevent double-counting.
+		edgeSet map[[2]string]bool
 	}
 )
 
@@ -42,6 +44,7 @@ func New() *Graph {
 	return &Graph{
 		adjacency: make(map[string][]string),
 		nodeSet:   make(map[string]bool),
+		edgeSet:   make(map[[2]string]bool),
 	}
 }
 
@@ -55,10 +58,16 @@ func (g *Graph) AddNode(name string) {
 }
 
 // AddEdge adds a directed edge from -> to, meaning "from" must run before "to".
-// Both nodes are implicitly added if they don't exist.
+// Both nodes are implicitly added if they don't exist. Duplicate edges are
+// deduplicated so in-degree counting remains accurate.
 func (g *Graph) AddEdge(from, to string) {
 	g.AddNode(from)
 	g.AddNode(to)
+	key := [2]string{from, to}
+	if g.edgeSet[key] {
+		return
+	}
+	g.edgeSet[key] = true
 	g.adjacency[from] = append(g.adjacency[from], to)
 }
 

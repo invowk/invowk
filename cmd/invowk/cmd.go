@@ -360,6 +360,9 @@ func validateCommandTree(ctx context.Context, app *App, rootFlags *rootFlagValue
 	if cycleErr, ok := errors.AsType[*dag.CycleError](err); ok {
 		fmt.Fprintf(app.stderr, "\n%s\n\n", RenderCycleError(cycleErr))
 	}
+	if reqErr, ok := errors.AsType[*discovery.RequiredInputsError](err); ok {
+		fmt.Fprintf(app.stderr, "\n%s\n\n", RenderRequiredInputsError(reqErr))
+	}
 
 	return err
 }

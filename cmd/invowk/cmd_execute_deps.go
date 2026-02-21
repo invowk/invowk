@@ -5,6 +5,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"maps"
 
 	"github.com/invowk/invowk/internal/discovery"
 	"github.com/invowk/invowk/internal/runtime"
@@ -16,6 +17,58 @@ import (
 // being executed in the DAG chain, preventing infinite recursion.
 type dagExecutionStackKey struct{}
 
+// resolveExecDeps merges dependencies from all levels (root + command + impl),
+// resolves OR-alternatives via discovery, and returns a deduplicated list of
+// resolved command names in merge order. This is the shared resolution logic
+// used by both dry-run (to display which deps would run) and actual execution
+// (to run them). Keeping this shared ensures dry-run output always matches
+// real execution behaviour.
+func (s *commandService) resolveExecDeps(ctx context.Context, cmdInfo *discovery.CommandInfo, execCtx *runtime.ExecutionContext) ([]string, error) {
+	// Guard against nil SelectedImpl and Invowkfile. While ResolveRuntime
+	// and discovery currently guarantee non-nil at runtime, these are defensive
+	// guards consistent with ValidateExecutionDAG which uses the same pattern.
+	var rootDeps *invowkfile.DependsOn
+	if cmdInfo.Invowkfile != nil {
+		rootDeps = cmdInfo.Invowkfile.DependsOn
+	}
+	var implDeps *invowkfile.DependsOn
+	if execCtx.SelectedImpl != nil {
+		implDeps = execCtx.SelectedImpl.DependsOn
+	}
+	merged := invowkfile.MergeDependsOnAll(
+		rootDeps,
+		cmdInfo.Command.DependsOn,
+		implDeps,
+	)
+	if merged == nil {
+		return nil, nil
+	}
+
+	// Deduplicate on the resolved name so the same dep appearing at multiple
+	// merge levels (root + command + impl) only runs once. Dedup keys on the
+	// resolved command name after OR-alternative resolution to catch equivalent
+	// deps with differently-ordered alternative lists.
+	seen := make(map[string]bool)
+	var names []string
+	for _, dep := range merged.GetExecutableCommandDeps() {
+		if len(dep.Alternatives) == 0 {
+			continue
+		}
+
+		depName, err := s.resolveExecutableDep(ctx, dep.Alternatives)
+		if err != nil {
+			return nil, err
+		}
+
+		if seen[depName] {
+			continue
+		}
+		seen[depName] = true
+		names = append(names, depName)
+	}
+	return names, nil
+}
+
 // executeDepCommands runs all depends_on.cmds entries that have execute: true,
 // in merge order (root -> command -> implementation level, preserving declaration
 // order within each level), before the main command executes. Merge order matters
@@ -25,73 +78,52 @@ type dagExecutionStackKey struct{}
 // so transitive execute deps are handled recursively. If any dependency fails,
 // execution stops and the error is returned.
 func (s *commandService) executeDepCommands(ctx context.Context, req ExecuteRequest, cmdInfo *discovery.CommandInfo, execCtx *runtime.ExecutionContext) error {
-	// Collect execute deps from merged depends_on (root + cmd + impl).
-	// Guard against nil SelectedImpl: while ResolveRuntime guarantees non-nil
-	// at runtime, this is defensive consistency with the timeout nil check in
-	// dispatchExecution.
-	var implDeps *invowkfile.DependsOn
-	if execCtx.SelectedImpl != nil {
-		implDeps = execCtx.SelectedImpl.DependsOn
-	}
-	merged := invowkfile.MergeDependsOnAll(
-		cmdInfo.Invowkfile.DependsOn,
-		cmdInfo.Command.DependsOn,
-		implDeps,
-	)
-	if merged == nil || !merged.HasExecutableCommandDeps() {
-		return nil
-	}
-
-	// Get or create the re-entrancy guard from context.
-	// When a fresh map is created (first call in the chain), it must be attached
-	// to the context via context.WithValue below so recursive Execute() calls
-	// see the same map. When an existing map is returned, mutations here are
-	// visible through the already-propagated context reference.
+	// Check re-entrancy guard early to fail fast on cycles without
+	// unnecessary resolution work.
 	stack := dagStackFromContext(ctx)
 	if stack[req.Name] {
 		return fmt.Errorf("dependency cycle detected at runtime: command '%s' is already executing", req.Name)
 	}
-	stack[req.Name] = true
-	defer delete(stack, req.Name)
 
-	// Propagate the stack through context for recursive calls.
-	ctx = context.WithValue(ctx, dagExecutionStackKey{}, stack)
+	depNames, err := s.resolveExecDeps(ctx, cmdInfo, execCtx)
+	if err != nil {
+		return err
+	}
+	if len(depNames) == 0 {
+		return nil
+	}
 
-	// Deduplicate so the same dep appearing at multiple merge levels
-	// (root + command + impl) only runs once. Dedup on the resolved command
-	// name after OR-alternative resolution to catch equivalent deps with
-	// differently-ordered alternative lists.
-	executed := make(map[string]bool)
-	execDeps := merged.GetExecutableCommandDeps()
-	for _, dep := range execDeps {
+	// Mark current command as executing using copy-on-write to avoid mutating
+	// the parent's stack map. Each recursive Execute() call sees a snapshot of
+	// the stack at entry, and the parent's view is unaffected when the child
+	// returns. This is structurally safe for future parallelism — no shared
+	// mutable state — whereas the previous defer-delete pattern required
+	// sequential execution to be correct.
+	newStack := make(map[string]bool, len(stack)+1)
+	maps.Copy(newStack, stack)
+	newStack[req.Name] = true
+	ctx = context.WithValue(ctx, dagExecutionStackKey{}, newStack)
+
+	for _, depName := range depNames {
 		// Check for cancellation between dependency executions so that
 		// Ctrl+C or deadline expiry is honoured promptly between deps.
 		if ctx.Err() != nil {
 			return fmt.Errorf("dependency execution cancelled: %w", ctx.Err())
 		}
 
-		if len(dep.Alternatives) == 0 {
-			continue
-		}
-
-		// Resolve which alternative to execute using OR semantics:
-		// iterate alternatives in order, execute the first discoverable one.
-		// If that execution fails, stop — do NOT fall back to the next alternative.
-		depName, resolveErr := s.resolveExecutableDep(ctx, dep.Alternatives)
-		if resolveErr != nil {
-			return resolveErr
-		}
-
-		if executed[depName] {
-			continue
-		}
-		executed[depName] = true
-
 		if req.Verbose {
 			fmt.Fprintf(s.stdout, "%s Running dependency '%s'...\n", VerboseHighlightStyle.Render("→"), depName)
 		}
 
 		// Build a minimal ExecuteRequest for the dependency command.
+		// CLI-level overrides (env files, env vars, env inheritance mode, workdir,
+		// interactive mode) are intentionally NOT propagated. Each dependency
+		// command derives its env configuration from its own CUE definitions,
+		// ensuring deps behave consistently regardless of how the parent was invoked.
+		// Only config-path, verbose, force-rebuild, and dry-run are propagated
+		// because they affect the global execution environment rather than
+		// per-command configuration.
+		//
 		// Static cycle detection (ValidateExecutionDAG via Kahn's algorithm)
 		// prevents statically-known cycles; the runtime stack guard above
 		// catches dynamic cycles from OR-alternative resolution.
@@ -103,9 +135,9 @@ func (s *commandService) executeDepCommands(ctx context.Context, req ExecuteRequ
 			DryRun:       req.DryRun,
 		}
 
-		result, _, err := s.Execute(ctx, depReq)
-		if err != nil {
-			return fmt.Errorf("dependency '%s' failed: %w", depName, err)
+		result, _, execErr := s.Execute(ctx, depReq)
+		if execErr != nil {
+			return fmt.Errorf("dependency '%s' failed: %w", depName, execErr)
 		}
 		if result.ExitCode != 0 {
 			return fmt.Errorf("dependency '%s' exited with code %d; run 'invowk cmd %s' independently to diagnose", depName, result.ExitCode, depName)
@@ -147,9 +179,8 @@ func (s *commandService) resolveExecutableDep(ctx context.Context, alternatives 
 }
 
 // dagStackFromContext extracts the DAG execution stack from context, or returns
-// a new empty map. Callers that create a new map must attach it to the context
-// via context.WithValue(ctx, dagExecutionStackKey{}, stack) before passing the
-// context to recursive Execute() calls.
+// a new empty map. The caller in executeDepCommands calls context.WithValue
+// after this when there are deps to execute (copy-on-write per call).
 func dagStackFromContext(ctx context.Context) map[string]bool {
 	if stack, ok := ctx.Value(dagExecutionStackKey{}).(map[string]bool); ok {
 		return stack

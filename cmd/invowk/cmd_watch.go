@@ -4,6 +4,7 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"path/filepath"
 	"time"
@@ -74,21 +75,36 @@ func runWatchMode(cmd *cobra.Command, app *App, rootFlags *rootFlagValues, cmdFl
 	// The closure disables watch mode on the child request to prevent recursion.
 	// The changed-files parameter is unused because we re-execute the full command
 	// regardless of which specific files changed.
-	reexecute := func(_ []string) error {
+	//
+	// The caller must pass the appropriate context: the config-path-enhanced context
+	// for initial execution, or the watcher's callback context for re-execution.
+	// This threads cancellation signals (Ctrl+C) and context values (--ivk-config)
+	// into the execution pipeline, which derives its context from cmd.Context().
+	reexecute := func(execCtx context.Context, _ []string) error {
 		childFlags := *cmdFlags
 		childFlags.watch = false
+		cmd.SetContext(execCtx)
 		return runCommand(cmd, app, rootFlags, &childFlags, args)
 	}
 
 	// Execute the command once immediately before starting the watcher.
 	fmt.Fprintf(app.stdout, "%s Watch mode: initial execution of '%s'\n", VerboseHighlightStyle.Render("→"), args[0])
-	if execErr := reexecute(nil); execErr != nil {
+	if execErr := reexecute(ctx, nil); execErr != nil {
 		// Propagate context cancellation (Ctrl+C) instead of looping.
 		if ctx.Err() != nil {
 			return fmt.Errorf("initial execution cancelled: %w", ctx.Err())
 		}
-		// Log recoverable errors but don't stop — the user may fix and save again.
-		fmt.Fprintf(app.stderr, "%s Initial execution failed: %v\n", WarningStyle.Render("!"), execErr)
+		// Distinguish non-zero exit codes (command ran but reported failure)
+		// from infrastructure errors (config broken, runtime missing, etc.).
+		// ExitError means the command ran to completion — the user may fix their
+		// code and save, so continue watching. Other errors indicate infrastructure
+		// problems that watching cannot fix; abort immediately.
+		var exitErr *ExitError
+		if errors.As(execErr, &exitErr) {
+			fmt.Fprintf(app.stderr, "%s Command exited with code %d\n", WarningStyle.Render("!"), exitErr.Code)
+		} else {
+			return fmt.Errorf("cannot start watch mode: %w", execErr)
+		}
 	}
 
 	fmt.Fprintf(app.stdout, "\n%s Watching for changes (Ctrl+C to stop)...\n\n", VerboseHighlightStyle.Render("→"))
@@ -101,6 +117,13 @@ func runWatchMode(cmd *cobra.Command, app *App, rootFlags *rootFlagValues, cmdFl
 		baseDir = filepath.Join(filepath.Dir(cmdInfo.FilePath), baseDir)
 	}
 
+	// Track consecutive infrastructure (non-ExitError) failures in the OnChange
+	// callback. After maxConsecutiveInfraErrors, the watcher aborts because the
+	// underlying problem (deleted invowkfile, missing runtime, etc.) is unlikely
+	// to be fixed by further file changes. The counter resets on success or ExitError.
+	const maxConsecutiveInfraErrors = 3
+	var consecutiveInfraErrors int
+
 	cfg := watch.Config{
 		Patterns:    patterns,
 		Ignore:      ignore,
@@ -110,12 +133,28 @@ func runWatchMode(cmd *cobra.Command, app *App, rootFlags *rootFlagValues, cmdFl
 		OnChange: func(cbCtx context.Context, changed []string) error {
 			fmt.Fprintf(app.stdout, "%s Detected %d change(s). Re-executing '%s'...\n",
 				VerboseHighlightStyle.Render("→"), len(changed), args[0])
-			if execErr := reexecute(changed); execErr != nil {
+			if execErr := reexecute(cbCtx, changed); execErr != nil {
 				// Propagate context cancellation (Ctrl+C) instead of looping.
 				if cbCtx.Err() != nil {
 					return fmt.Errorf("execution cancelled: %w", cbCtx.Err())
 				}
-				fmt.Fprintf(app.stderr, "%s Execution failed: %v\n", WarningStyle.Render("!"), execErr)
+				// Distinguish non-zero exit codes from infrastructure errors.
+				// ExitError means the command ran — reset the infra counter.
+				// Other errors indicate infrastructure problems; escalate after
+				// repeated consecutive failures.
+				var exitErr *ExitError
+				if errors.As(execErr, &exitErr) {
+					consecutiveInfraErrors = 0
+					fmt.Fprintf(app.stderr, "%s Command exited with code %d\n", WarningStyle.Render("!"), exitErr.Code)
+				} else {
+					consecutiveInfraErrors++
+					fmt.Fprintf(app.stderr, "%s Execution failed: %v\n", WarningStyle.Render("!"), execErr)
+					if consecutiveInfraErrors >= maxConsecutiveInfraErrors {
+						return fmt.Errorf("aborting watch: %d consecutive infrastructure failures (last: %w)", consecutiveInfraErrors, execErr)
+					}
+				}
+			} else {
+				consecutiveInfraErrors = 0
 			}
 			fmt.Fprintf(app.stdout, "\n%s Watching for changes...\n\n", VerboseHighlightStyle.Render("→"))
 			return nil
