@@ -279,14 +279,19 @@ func runCommand(cmd *cobra.Command, app *App, rootFlags *rootFlagValues, cmdFlag
 	}
 
 	err = executeRequest(cmd, app, req)
+	silenceOnExitError(cmd, err)
+	return err
+}
+
+// silenceOnExitError suppresses Cobra's error/usage printing when the error is
+// an ExitError (non-zero exit code). This prevents double-printing of the error.
+func silenceOnExitError(cmd *cobra.Command, err error) {
 	if err != nil {
 		if _, ok := errors.AsType[*ExitError](err); ok { //nolint:errcheck // type match only; error is handled via ok
 			cmd.SilenceErrors = true
 			cmd.SilenceUsage = true
 		}
 	}
-
-	return err
 }
 
 // executeRequest dispatches an ExecuteRequest through the App's CommandService

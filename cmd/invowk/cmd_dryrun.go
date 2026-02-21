@@ -3,7 +3,6 @@
 package cmd
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"maps"
@@ -15,14 +14,6 @@ import (
 	"github.com/invowk/invowk/internal/runtime"
 	"github.com/invowk/invowk/pkg/invowkfile"
 )
-
-// collectExecDepNames resolves and returns the names of execute deps that
-// would run before this command. Delegates to resolveExecDeps (the shared
-// resolution logic in cmd_execute_deps.go) so dry-run output always matches
-// real execution behaviour.
-func (s *commandService) collectExecDepNames(ctx context.Context, cmdInfo *discovery.CommandInfo, execCtx *runtime.ExecutionContext) ([]string, error) {
-	return s.resolveExecDeps(ctx, cmdInfo, execCtx)
-}
 
 // renderDryRun prints the resolved execution context without executing.
 // It shows the command name, source, runtime, platform, working directory,
@@ -103,12 +94,13 @@ func isArgEnvVar(k string) bool {
 	if k == "ARGC" {
 		return true
 	}
-	if len(k) < 4 || k[:3] != "ARG" {
+	rest, ok := strings.CutPrefix(k, "ARG")
+	if !ok || rest == "" {
 		return false
 	}
 	// Remaining chars must all be digits (ARG1, ARG2, ..., ARG99, etc.)
-	for i := 3; i < len(k); i++ {
-		if k[i] < '0' || k[i] > '9' {
+	for _, c := range rest {
+		if c < '0' || c > '9' {
 			return false
 		}
 	}

@@ -35,11 +35,9 @@ func (m *lookupDiscoveryServiceFunc) GetCommand(ctx context.Context, name string
 func TestDagStackFromContext_NilContextValue(t *testing.T) {
 	t.Parallel()
 	stack := dagStackFromContext(context.Background())
-	if stack == nil {
-		t.Fatal("expected non-nil map from fresh context")
-	}
+	// Returns nil when no stack is in context; nil map reads return false safely.
 	if len(stack) != 0 {
-		t.Errorf("expected empty map, got %v", stack)
+		t.Errorf("expected empty/nil map, got %v", stack)
 	}
 }
 

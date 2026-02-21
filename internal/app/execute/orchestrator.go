@@ -186,24 +186,29 @@ func applyEnvInheritOverrides(opts BuildExecutionContextOptions, execCtx *runtim
 		execCtx.Env.InheritModeOverride = opts.EnvInheritMode
 	}
 
-	for _, name := range opts.EnvInheritAllow {
-		if err := invowkfile.ValidateEnvVarName(name); err != nil {
-			return fmt.Errorf("env-inherit-allow: %w", err)
-		}
+	if err := validateEnvVarNames(opts.EnvInheritAllow, "env-inherit-allow"); err != nil {
+		return err
 	}
 	if opts.EnvInheritAllow != nil {
 		execCtx.Env.InheritAllowOverride = opts.EnvInheritAllow
 	}
 
-	for _, name := range opts.EnvInheritDeny {
-		if err := invowkfile.ValidateEnvVarName(name); err != nil {
-			return fmt.Errorf("env-inherit-deny: %w", err)
-		}
+	if err := validateEnvVarNames(opts.EnvInheritDeny, "env-inherit-deny"); err != nil {
+		return err
 	}
 	if opts.EnvInheritDeny != nil {
 		execCtx.Env.InheritDenyOverride = opts.EnvInheritDeny
 	}
 
+	return nil
+}
+
+func validateEnvVarNames(names []string, label string) error {
+	for _, name := range names {
+		if err := invowkfile.ValidateEnvVarName(name); err != nil {
+			return fmt.Errorf("%s: %w", label, err)
+		}
+	}
 	return nil
 }
 

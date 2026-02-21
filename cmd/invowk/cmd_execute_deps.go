@@ -178,12 +178,10 @@ func (s *commandService) resolveExecutableDep(ctx context.Context, alternatives 
 	return "", fmt.Errorf("none of the execute dependency alternatives %v were found", alternatives)
 }
 
-// dagStackFromContext extracts the DAG execution stack from context, or returns
-// a new empty map. The caller in executeDepCommands calls context.WithValue
-// after this when there are deps to execute (copy-on-write per call).
+// dagStackFromContext extracts the DAG execution stack from context, or returns nil.
+// A nil map is safe for reads (returns false); the caller in executeDepCommands
+// creates a new map via copy-on-write when there are deps to execute.
 func dagStackFromContext(ctx context.Context) map[string]bool {
-	if stack, ok := ctx.Value(dagExecutionStackKey{}).(map[string]bool); ok {
-		return stack
-	}
-	return make(map[string]bool)
+	stack, _ := ctx.Value(dagExecutionStackKey{}).(map[string]bool)
+	return stack
 }

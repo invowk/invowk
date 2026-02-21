@@ -293,15 +293,5 @@ func (s *Implementation) ResolveScriptWithFSAndModule(invowkfilePath, modulePath
 // Returns an error for zero or negative durations, which would cause
 // context.WithTimeout to create an immediately-expired context.
 func (s *Implementation) ParseTimeout() (time.Duration, error) {
-	if s.Timeout == "" {
-		return 0, nil
-	}
-	d, err := time.ParseDuration(s.Timeout)
-	if err != nil {
-		return 0, fmt.Errorf("invalid timeout %q: %w", s.Timeout, err)
-	}
-	if d <= 0 {
-		return 0, fmt.Errorf("invalid timeout %q: must be a positive duration", s.Timeout)
-	}
-	return d, nil
+	return parseDuration("timeout", s.Timeout)
 }

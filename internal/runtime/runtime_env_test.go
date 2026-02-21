@@ -5,12 +5,11 @@ package runtime
 import (
 	"bytes"
 	"context"
-	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
-	"github.com/invowk/invowk/internal/testutil"
 	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
@@ -41,12 +40,7 @@ func testCommandWithInterpreter(name, script, interpreter string, runtime invowk
 }
 
 func TestRuntime_ScriptNotFound(t *testing.T) {
-	tmpDir, err := os.MkdirTemp("", "invowk-test-*")
-	if err != nil {
-		t.Fatalf("Failed to create temp dir: %v", err)
-	}
-	defer func() { testutil.MustRemoveAll(t, tmpDir) }()
-
+	tmpDir := t.TempDir()
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 
 	inv := &invowkfile.Invowkfile{
@@ -83,12 +77,7 @@ func TestRuntime_ScriptNotFound(t *testing.T) {
 }
 
 func TestRuntime_EnvironmentVariables(t *testing.T) {
-	tmpDir, err := os.MkdirTemp("", "invowk-test-*")
-	if err != nil {
-		t.Fatalf("Failed to create temp dir: %v", err)
-	}
-	defer func() { testutil.MustRemoveAll(t, tmpDir) }()
-
+	tmpDir := t.TempDir()
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 
 	inv := &invowkfile.Invowkfile{
@@ -202,16 +191,8 @@ func TestFilterInvowkEnvVars(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := FilterInvowkEnvVars(tt.environ)
-			if len(got) != len(tt.want) {
-				t.Errorf("FilterInvowkEnvVars() length = %d, want %d", len(got), len(tt.want))
-				t.Errorf("  got:  %v", got)
-				t.Errorf("  want: %v", tt.want)
-				return
-			}
-			for i := range got {
-				if got[i] != tt.want[i] {
-					t.Errorf("FilterInvowkEnvVars()[%d] = %q, want %q", i, got[i], tt.want[i])
-				}
+			if !slices.Equal(got, tt.want) {
+				t.Errorf("FilterInvowkEnvVars() = %v, want %v", got, tt.want)
 			}
 		})
 	}
@@ -219,55 +200,54 @@ func TestFilterInvowkEnvVars(t *testing.T) {
 
 func TestShouldFilterEnvVar(t *testing.T) {
 	tests := []struct {
-		name   string
 		envVar string
 		want   bool
 	}{
 		// INVOWK_ARG_* cases
-		{"INVOWK_ARG_NAME", "INVOWK_ARG_NAME", true},
-		{"INVOWK_ARG_X", "INVOWK_ARG_X", true},
-		{"INVOWK_ARG_LONG_NAME", "INVOWK_ARG_LONG_NAME", true},
-		{"INVOWK_ARG_ (empty suffix)", "INVOWK_ARG_", true},
+		{"INVOWK_ARG_NAME", true},
+		{"INVOWK_ARG_X", true},
+		{"INVOWK_ARG_LONG_NAME", true},
+		{"INVOWK_ARG_", true},
 
 		// INVOWK_FLAG_* cases
-		{"INVOWK_FLAG_VERBOSE", "INVOWK_FLAG_VERBOSE", true},
-		{"INVOWK_FLAG_V", "INVOWK_FLAG_V", true},
-		{"INVOWK_FLAG_ (empty suffix)", "INVOWK_FLAG_", true},
+		{"INVOWK_FLAG_VERBOSE", true},
+		{"INVOWK_FLAG_V", true},
+		{"INVOWK_FLAG_", true},
 
 		// Metadata env vars (injected by projectEnvVars, constants from pkg/platform)
-		{"INVOWK_CMD_NAME", "INVOWK_CMD_NAME", true},
-		{"INVOWK_RUNTIME", "INVOWK_RUNTIME", true},
-		{"INVOWK_SOURCE", "INVOWK_SOURCE", true},
-		{"INVOWK_PLATFORM", "INVOWK_PLATFORM", true},
+		{"INVOWK_CMD_NAME", true},
+		{"INVOWK_RUNTIME", true},
+		{"INVOWK_SOURCE", true},
+		{"INVOWK_PLATFORM", true},
 
 		// ARGC case
-		{"ARGC", "ARGC", true},
+		{"ARGC", true},
 
 		// ARGn cases
-		{"ARG1", "ARG1", true},
-		{"ARG2", "ARG2", true},
-		{"ARG10", "ARG10", true},
-		{"ARG999", "ARG999", true},
-		{"ARG0", "ARG0", true},
+		{"ARG1", true},
+		{"ARG2", true},
+		{"ARG10", true},
+		{"ARG999", true},
+		{"ARG0", true},
 
 		// Should NOT be filtered
-		{"PATH", "PATH", false},
-		{"HOME", "HOME", false},
-		{"INVOWK", "INVOWK", false},
-		{"INVOWK_", "INVOWK_", false},
-		{"INVOWK_OTHER", "INVOWK_OTHER", false},
-		{"ARG", "ARG", false},
-		{"ARGS", "ARGS", false},
-		{"ARGNAME", "ARGNAME", false},
-		{"ARG_1", "ARG_1", false},
-		{"ARG1NAME", "ARG1NAME", false},
-		{"MY_ARGC", "MY_ARGC", false},
-		{"MY_ARG1", "MY_ARG1", false},
-		{"INVOWK_ARGS", "INVOWK_ARGS", false},
+		{"PATH", false},
+		{"HOME", false},
+		{"INVOWK", false},
+		{"INVOWK_", false},
+		{"INVOWK_OTHER", false},
+		{"ARG", false},
+		{"ARGS", false},
+		{"ARGNAME", false},
+		{"ARG_1", false},
+		{"ARG1NAME", false},
+		{"MY_ARGC", false},
+		{"MY_ARG1", false},
+		{"INVOWK_ARGS", false},
 	}
 
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+		t.Run(tt.envVar, func(t *testing.T) {
 			got := shouldFilterEnvVar(tt.envVar)
 			if got != tt.want {
 				t.Errorf("shouldFilterEnvVar(%q) = %v, want %v", tt.envVar, got, tt.want)

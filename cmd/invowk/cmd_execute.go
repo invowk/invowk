@@ -122,7 +122,7 @@ func (s *commandService) Execute(ctx context.Context, req ExecuteRequest) (Execu
 	// full picture of what would happen (deps run before the main command).
 	// Resolution uses the same OR-alternative discovery as executeDepCommands.
 	if req.DryRun {
-		execDepNames, depErr := s.collectExecDepNames(ctx, cmdInfo, execCtx)
+		execDepNames, depErr := s.resolveExecDeps(ctx, cmdInfo, execCtx)
 		if depErr != nil {
 			return ExecuteResult{}, diags, depErr
 		}

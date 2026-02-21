@@ -81,11 +81,8 @@ func (g *Graph) TopologicalSort() ([]string, error) {
 		return nil, nil
 	}
 
-	// Compute in-degrees.
+	// Compute in-degrees. Map zero value is 0, so only nodes with incoming edges need updating.
 	inDegree := make(map[string]int, len(g.nodes))
-	for _, node := range g.nodes {
-		inDegree[node] = 0
-	}
 	for _, neighbors := range g.adjacency {
 		for _, neighbor := range neighbors {
 			inDegree[neighbor]++
@@ -93,7 +90,7 @@ func (g *Graph) TopologicalSort() ([]string, error) {
 	}
 
 	// Seed the queue with nodes that have no incoming edges, in insertion order.
-	queue := make([]string, 0)
+	var queue []string
 	for _, node := range g.nodes {
 		if inDegree[node] == 0 {
 			queue = append(queue, node)

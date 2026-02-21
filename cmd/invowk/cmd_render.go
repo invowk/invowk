@@ -181,65 +181,25 @@ func RenderDependencyError(err *DependencyError) string {
 	sb.WriteString("\n\n")
 	sb.WriteString(fmt.Sprintf("Cannot run command %s because some dependencies are missing.\n", renderCommandStyle.Render("'"+err.CommandName+"'")))
 
-	if len(err.MissingTools) > 0 {
+	renderSection := func(label string, items []string) {
+		if len(items) == 0 {
+			return
+		}
 		sb.WriteString("\n")
-		sb.WriteString(sectionStyle.Render("Missing Tools:"))
+		sb.WriteString(sectionStyle.Render(label))
 		sb.WriteString("\n")
-		for _, tool := range err.MissingTools {
-			sb.WriteString(renderValueStyle.Render(tool))
+		for _, item := range items {
+			sb.WriteString(renderValueStyle.Render(item))
 			sb.WriteString("\n")
 		}
 	}
 
-	if len(err.MissingCommands) > 0 {
-		sb.WriteString("\n")
-		sb.WriteString(sectionStyle.Render("Missing Commands:"))
-		sb.WriteString("\n")
-		for _, cmd := range err.MissingCommands {
-			sb.WriteString(renderValueStyle.Render(cmd))
-			sb.WriteString("\n")
-		}
-	}
-
-	if len(err.MissingFilepaths) > 0 {
-		sb.WriteString("\n")
-		sb.WriteString(sectionStyle.Render("Missing or Inaccessible Files:"))
-		sb.WriteString("\n")
-		for _, fp := range err.MissingFilepaths {
-			sb.WriteString(renderValueStyle.Render(fp))
-			sb.WriteString("\n")
-		}
-	}
-
-	if len(err.MissingCapabilities) > 0 {
-		sb.WriteString("\n")
-		sb.WriteString(sectionStyle.Render("Missing Capabilities:"))
-		sb.WriteString("\n")
-		for _, cap := range err.MissingCapabilities {
-			sb.WriteString(renderValueStyle.Render(cap))
-			sb.WriteString("\n")
-		}
-	}
-
-	if len(err.FailedCustomChecks) > 0 {
-		sb.WriteString("\n")
-		sb.WriteString(sectionStyle.Render("Failed Custom Checks:"))
-		sb.WriteString("\n")
-		for _, check := range err.FailedCustomChecks {
-			sb.WriteString(renderValueStyle.Render(check))
-			sb.WriteString("\n")
-		}
-	}
-
-	if len(err.MissingEnvVars) > 0 {
-		sb.WriteString("\n")
-		sb.WriteString(sectionStyle.Render("Missing or Invalid Environment Variables:"))
-		sb.WriteString("\n")
-		for _, envVar := range err.MissingEnvVars {
-			sb.WriteString(renderValueStyle.Render(envVar))
-			sb.WriteString("\n")
-		}
-	}
+	renderSection("Missing Tools:", err.MissingTools)
+	renderSection("Missing Commands:", err.MissingCommands)
+	renderSection("Missing or Inaccessible Files:", err.MissingFilepaths)
+	renderSection("Missing Capabilities:", err.MissingCapabilities)
+	renderSection("Failed Custom Checks:", err.FailedCustomChecks)
+	renderSection("Missing or Invalid Environment Variables:", err.MissingEnvVars)
 
 	sb.WriteString("\n")
 	sb.WriteString(renderHintStyle.Render("Fix the missing dependencies and try again, or update your invowkfile to remove unnecessary ones."))

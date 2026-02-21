@@ -59,13 +59,9 @@ func registerDiscoveredCommands(ctx context.Context, app *App, rootFlags *rootFl
 		registrationName := cmdInfo.SimpleName
 		parts := strings.Fields(registrationName)
 		parent := cmdCmd
-		prefix := ""
 
 		for i, part := range parts {
-			if prefix != "" {
-				prefix += " "
-			}
-			prefix += part
+			prefix := strings.Join(parts[:i+1], " ")
 
 			if existing, ok := commandMap[prefix]; ok {
 				parent = existing
@@ -233,13 +229,7 @@ func buildLeafCommand(app *App, rootFlags *rootFlagValues, cmdFlags *cmdFlagValu
 			}
 
 			err = executeRequest(cmd, app, req)
-			if err != nil {
-				if _, ok := errors.AsType[*ExitError](err); ok { //nolint:errcheck // type match only; error is handled via ok
-					cmd.SilenceErrors = true
-					cmd.SilenceUsage = true
-				}
-			}
-
+			silenceOnExitError(cmd, err)
 			return err
 		},
 		Args: buildCobraArgsValidator(cmdArgs),
@@ -463,9 +453,11 @@ func listCommands(cmd *cobra.Command, app *App, rootFlags *rootFlagValues) error
 	ambiguousStyle := lipgloss.NewStyle().Foreground(ColorError)
 	categoryStyle := lipgloss.NewStyle().Foreground(ColorHighlight).Italic(true)
 
+	w := app.stdout
+
 	if verbose {
-		fmt.Println(TitleStyle.Render("Discovery Sources"))
-		fmt.Println()
+		fmt.Fprintln(w, TitleStyle.Render("Discovery Sources"))
+		fmt.Fprintln(w)
 		invowkfileCount := 0
 		moduleCount := 0
 		for _, sourceID := range commandSet.SourceOrder {
@@ -474,17 +466,17 @@ func listCommands(cmd *cobra.Command, app *App, rootFlags *rootFlagValues) error
 			} else {
 				moduleCount++
 			}
-			fmt.Printf("  %s %s\n", VerboseHighlightStyle.Render("•"), VerboseStyle.Render(sourceID))
+			fmt.Fprintf(w, "  %s %s\n", VerboseHighlightStyle.Render("•"), VerboseStyle.Render(sourceID))
 		}
-		fmt.Println()
-		fmt.Printf("  %s\n", VerboseStyle.Render(fmt.Sprintf("Sources: %d invowkfile(s), %d module(s)", invowkfileCount, moduleCount)))
-		fmt.Printf("  %s\n", VerboseStyle.Render(fmt.Sprintf("Commands: %d total (%d ambiguous)", len(commandSet.Commands), len(commandSet.AmbiguousNames))))
-		fmt.Println()
+		fmt.Fprintln(w)
+		fmt.Fprintf(w, "  %s\n", VerboseStyle.Render(fmt.Sprintf("Sources: %d invowkfile(s), %d module(s)", invowkfileCount, moduleCount)))
+		fmt.Fprintf(w, "  %s\n", VerboseStyle.Render(fmt.Sprintf("Commands: %d total (%d ambiguous)", len(commandSet.Commands), len(commandSet.AmbiguousNames))))
+		fmt.Fprintln(w)
 	}
 
-	fmt.Println(TitleStyle.Render("Available Commands"))
-	fmt.Println(legendStyle.Render("  (* = default runtime)"))
-	fmt.Println()
+	fmt.Fprintln(w, TitleStyle.Render("Available Commands"))
+	fmt.Fprintln(w, legendStyle.Render("  (* = default runtime)"))
+	fmt.Fprintln(w)
 
 	for _, sourceID := range commandSet.SourceOrder {
 		cmds := commandSet.BySource[sourceID]
@@ -493,13 +485,13 @@ func listCommands(cmd *cobra.Command, app *App, rootFlags *rootFlagValues) error
 		}
 
 		sourceDisplay := formatSourceDisplayName(sourceID)
-		fmt.Println(sourceStyle.Render(fmt.Sprintf("From %s:", sourceDisplay)))
+		fmt.Fprintln(w, sourceStyle.Render(fmt.Sprintf("From %s:", sourceDisplay)))
 
 		// Group commands by category within this source.
 		groups := groupByCategory(cmds)
 		for _, group := range groups {
 			if group.category != "" {
-				fmt.Println(categoryStyle.Render(fmt.Sprintf("  [%s]", group.category)))
+				fmt.Fprintln(w, categoryStyle.Render(fmt.Sprintf("  [%s]", group.category)))
 			}
 			for _, discovered := range group.commands {
 				indent := "  "
@@ -522,10 +514,10 @@ func listCommands(cmd *cobra.Command, app *App, rootFlags *rootFlagValues) error
 				if platformsStr != "" {
 					line += fmt.Sprintf(" (%s)", platformsStyle.Render(platformsStr))
 				}
-				fmt.Println(line)
+				fmt.Fprintln(w, line)
 			}
 		}
-		fmt.Println()
+		fmt.Fprintln(w)
 	}
 
 	// Non-verbose footer: show a single summary line referencing `invowk validate`

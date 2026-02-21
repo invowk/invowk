@@ -309,7 +309,7 @@ func TestCollectExecDepNames(t *testing.T) {
 				execCtx.SelectedImpl = &invowkfile.Implementation{DependsOn: tt.implDeps}
 			}
 
-			got, err := svc.collectExecDepNames(context.Background(), tt.cmdInfo, execCtx)
+			got, err := svc.resolveExecDeps(context.Background(), tt.cmdInfo, execCtx)
 			if (err != nil) != tt.wantErr {
 				t.Fatalf("collectExecDepNames() error = %v, wantErr %v", err, tt.wantErr)
 			}

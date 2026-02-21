@@ -3,9 +3,11 @@
 package discovery
 
 import (
+	"cmp"
 	"context"
 	"fmt"
-	"sort"
+	"slices"
+	"strings"
 
 	"github.com/invowk/invowk/pkg/invowkfile"
 )
@@ -77,12 +79,10 @@ type (
 // NewDiscoveredCommandSet creates a new DiscoveredCommandSet with initialized maps.
 func NewDiscoveredCommandSet() *DiscoveredCommandSet {
 	return &DiscoveredCommandSet{
-		Commands:       make([]*CommandInfo, 0),
 		ByName:         make(map[string]*CommandInfo),
 		BySimpleName:   make(map[string][]*CommandInfo),
 		AmbiguousNames: make(map[string]bool),
 		BySource:       make(map[string][]*CommandInfo),
-		SourceOrder:    make([]string, 0),
 	}
 }
 
@@ -135,14 +135,14 @@ func (s *DiscoveredCommandSet) Analyze() {
 	}
 
 	// Sort SourceOrder: "invowkfile" first, then modules alphabetically
-	sort.Slice(s.SourceOrder, func(i, j int) bool {
-		if s.SourceOrder[i] == SourceIDInvowkfile {
-			return true
+	slices.SortFunc(s.SourceOrder, func(a, b string) int {
+		if a == SourceIDInvowkfile {
+			return -1
 		}
-		if s.SourceOrder[j] == SourceIDInvowkfile {
-			return false
+		if b == SourceIDInvowkfile {
+			return 1
 		}
-		return s.SourceOrder[i] < s.SourceOrder[j]
+		return strings.Compare(a, b)
 	})
 }
 
@@ -234,8 +234,8 @@ func (d *Discovery) DiscoverCommandSet(ctx context.Context) (CommandSetResult, e
 
 	// Analyze for conflicts
 	commandSet.Analyze()
-	sort.Slice(commandSet.Commands, func(i, j int) bool {
-		return commandSet.Commands[i].Name < commandSet.Commands[j].Name
+	slices.SortFunc(commandSet.Commands, func(a, b *CommandInfo) int {
+		return cmp.Compare(a.Name, b.Name)
 	})
 
 	return CommandSetResult{Set: commandSet, Diagnostics: diagnostics}, nil

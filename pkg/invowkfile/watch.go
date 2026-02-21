@@ -2,10 +2,7 @@
 
 package invowkfile
 
-import (
-	"fmt"
-	"time"
-)
+import "time"
 
 // WatchConfig defines file-watching behavior for automatic command re-execution.
 type WatchConfig struct {
@@ -31,15 +28,5 @@ type WatchConfig struct {
 // for debounce timing. Callers treat this error as fatal rather than
 // falling back to a default.
 func (w *WatchConfig) ParseDebounce() (time.Duration, error) {
-	if w.Debounce == "" {
-		return 0, nil
-	}
-	d, err := time.ParseDuration(w.Debounce)
-	if err != nil {
-		return 0, fmt.Errorf("invalid debounce %q: %w", w.Debounce, err)
-	}
-	if d <= 0 {
-		return 0, fmt.Errorf("invalid debounce %q: must be a positive duration", w.Debounce)
-	}
-	return d, nil
+	return parseDuration("debounce", w.Debounce)
 }

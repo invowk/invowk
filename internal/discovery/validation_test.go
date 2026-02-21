@@ -15,6 +15,24 @@ const (
 	testCmdDeploy = "deploy"
 )
 
+// mkExecDep builds a CommandInfo with execute: true deps on the given dependency names.
+// Reduces boilerplate in ValidateExecutionDAG tests.
+func mkExecDep(name string, deps ...string) *CommandInfo {
+	if len(deps) == 0 {
+		return &CommandInfo{Name: name, Command: &invowkfile.Command{}}
+	}
+	var cmds []invowkfile.CommandDependency
+	for _, dep := range deps {
+		cmds = append(cmds, invowkfile.CommandDependency{Alternatives: []string{dep}, Execute: true})
+	}
+	return &CommandInfo{
+		Name: name,
+		Command: &invowkfile.Command{
+			DependsOn: &invowkfile.DependsOn{Commands: cmds},
+		},
+	}
+}
+
 func TestValidateCommandTree_NoConflict(t *testing.T) {
 	t.Parallel()
 
@@ -313,22 +331,7 @@ func TestValidateExecutionDAG_AcyclicGraph(t *testing.T) {
 	t.Parallel()
 
 	// A depends on B (execute:true), B has no deps → valid DAG.
-	commands := []*CommandInfo{
-		{
-			Name: "build",
-			Command: &invowkfile.Command{
-				DependsOn: &invowkfile.DependsOn{
-					Commands: []invowkfile.CommandDependency{
-						{Alternatives: []string{"lint"}, Execute: true},
-					},
-				},
-			},
-		},
-		{
-			Name:    "lint",
-			Command: &invowkfile.Command{},
-		},
-	}
+	commands := []*CommandInfo{mkExecDep("build", "lint"), mkExecDep("lint")}
 
 	if err := ValidateExecutionDAG(commands); err != nil {
 		t.Errorf("ValidateExecutionDAG() returned error for valid DAG: %v", err)
@@ -339,28 +342,7 @@ func TestValidateExecutionDAG_SimpleCycle(t *testing.T) {
 	t.Parallel()
 
 	// A depends on B (execute:true), B depends on A (execute:true) → cycle.
-	commands := []*CommandInfo{
-		{
-			Name: "a",
-			Command: &invowkfile.Command{
-				DependsOn: &invowkfile.DependsOn{
-					Commands: []invowkfile.CommandDependency{
-						{Alternatives: []string{"b"}, Execute: true},
-					},
-				},
-			},
-		},
-		{
-			Name: "b",
-			Command: &invowkfile.Command{
-				DependsOn: &invowkfile.DependsOn{
-					Commands: []invowkfile.CommandDependency{
-						{Alternatives: []string{"a"}, Execute: true},
-					},
-				},
-			},
-		},
-	}
+	commands := []*CommandInfo{mkExecDep("a", "b"), mkExecDep("b", "a")}
 
 	err := ValidateExecutionDAG(commands)
 	if err == nil {
@@ -377,38 +359,7 @@ func TestValidateExecutionDAG_TransitiveCycle(t *testing.T) {
 	t.Parallel()
 
 	// A -> B -> C -> A (all execute:true) → transitive cycle.
-	commands := []*CommandInfo{
-		{
-			Name: "a",
-			Command: &invowkfile.Command{
-				DependsOn: &invowkfile.DependsOn{
-					Commands: []invowkfile.CommandDependency{
-						{Alternatives: []string{"b"}, Execute: true},
-					},
-				},
-			},
-		},
-		{
-			Name: "b",
-			Command: &invowkfile.Command{
-				DependsOn: &invowkfile.DependsOn{
-					Commands: []invowkfile.CommandDependency{
-						{Alternatives: []string{"c"}, Execute: true},
-					},
-				},
-			},
-		},
-		{
-			Name: "c",
-			Command: &invowkfile.Command{
-				DependsOn: &invowkfile.DependsOn{
-					Commands: []invowkfile.CommandDependency{
-						{Alternatives: []string{"a"}, Execute: true},
-					},
-				},
-			},
-		},
-	}
+	commands := []*CommandInfo{mkExecDep("a", "b"), mkExecDep("b", "c"), mkExecDep("c", "a")}
 
 	err := ValidateExecutionDAG(commands)
 	if err == nil {
@@ -421,6 +372,7 @@ func TestValidateExecutionDAG_NonExecuteDepsIgnored(t *testing.T) {
 
 	// A depends on B with execute:false → should NOT form a graph edge.
 	// B depends on A with execute:false → also no edge. No cycle.
+	// mkExecDep cannot be used here because we need execute: false.
 	commands := []*CommandInfo{
 		{
 			Name: "a",
@@ -453,26 +405,9 @@ func TestValidateExecutionDAG_RequiredArgsBlocked(t *testing.T) {
 	t.Parallel()
 
 	// A has execute dep on B, but B has required args → validation error.
-	commands := []*CommandInfo{
-		{
-			Name: "a",
-			Command: &invowkfile.Command{
-				DependsOn: &invowkfile.DependsOn{
-					Commands: []invowkfile.CommandDependency{
-						{Alternatives: []string{"b"}, Execute: true},
-					},
-				},
-			},
-		},
-		{
-			Name: "b",
-			Command: &invowkfile.Command{
-				Args: []invowkfile.Argument{
-					{Name: "target", Required: true},
-				},
-			},
-		},
-	}
+	cmdB := mkExecDep("b")
+	cmdB.Command.Args = []invowkfile.Argument{{Name: "target", Required: true}}
+	commands := []*CommandInfo{mkExecDep("a", "b"), cmdB}
 
 	err := ValidateExecutionDAG(commands)
 	if err == nil {
@@ -497,26 +432,9 @@ func TestValidateExecutionDAG_RequiredFlagsBlocked(t *testing.T) {
 	t.Parallel()
 
 	// A has execute dep on B, but B has required flags → validation error.
-	commands := []*CommandInfo{
-		{
-			Name: "a",
-			Command: &invowkfile.Command{
-				DependsOn: &invowkfile.DependsOn{
-					Commands: []invowkfile.CommandDependency{
-						{Alternatives: []string{"b"}, Execute: true},
-					},
-				},
-			},
-		},
-		{
-			Name: "b",
-			Command: &invowkfile.Command{
-				Flags: []invowkfile.Flag{
-					{Name: "output", Required: true},
-				},
-			},
-		},
-	}
+	cmdB := mkExecDep("b")
+	cmdB.Command.Flags = []invowkfile.Flag{{Name: "output", Required: true}}
+	commands := []*CommandInfo{mkExecDep("a", "b"), cmdB}
 
 	err := ValidateExecutionDAG(commands)
 	if err == nil {
@@ -675,18 +593,7 @@ func TestValidateExecutionDAG_SelfReference(t *testing.T) {
 	t.Parallel()
 
 	// A command that lists itself as an execute dependency → self-loop cycle.
-	commands := []*CommandInfo{
-		{
-			Name: "self",
-			Command: &invowkfile.Command{
-				DependsOn: &invowkfile.DependsOn{
-					Commands: []invowkfile.CommandDependency{
-						{Alternatives: []string{"self"}, Execute: true},
-					},
-				},
-			},
-		},
-	}
+	commands := []*CommandInfo{mkExecDep("self", "self")}
 
 	err := ValidateExecutionDAG(commands)
 	if err == nil {
@@ -702,29 +609,10 @@ func TestValidateExecutionDAG_OptionalArgsAllowed(t *testing.T) {
 
 	// Execute dep targets a command with optional args and flags — should be allowed.
 	// Only required args/flags should be rejected.
-	commands := []*CommandInfo{
-		{
-			Name: "parent",
-			Command: &invowkfile.Command{
-				DependsOn: &invowkfile.DependsOn{
-					Commands: []invowkfile.CommandDependency{
-						{Alternatives: []string{"child"}, Execute: true},
-					},
-				},
-			},
-		},
-		{
-			Name: "child",
-			Command: &invowkfile.Command{
-				Args: []invowkfile.Argument{
-					{Name: "target", Description: "optional target"},
-				},
-				Flags: []invowkfile.Flag{
-					{Name: "verbose", Description: "enable verbose output"},
-				},
-			},
-		},
-	}
+	child := mkExecDep("child")
+	child.Command.Args = []invowkfile.Argument{{Name: "target", Description: "optional target"}}
+	child.Command.Flags = []invowkfile.Flag{{Name: "verbose", Description: "enable verbose output"}}
+	commands := []*CommandInfo{mkExecDep("parent", "child"), child}
 
 	if err := ValidateExecutionDAG(commands); err != nil {
 		t.Errorf("ValidateExecutionDAG() should allow optional args/flags, got: %v", err)

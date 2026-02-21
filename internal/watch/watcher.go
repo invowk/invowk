@@ -129,6 +129,15 @@ func New(cfg Config) (*Watcher, error) {
 		return nil, fmt.Errorf("watch: resolve base directory: %w", err)
 	}
 
+	// Validate all patterns eagerly so invalid globs fail at construction
+	// time rather than silently failing to match at runtime.
+	if patErr := validatePatterns(cfg.Patterns, "watch"); patErr != nil {
+		return nil, patErr
+	}
+	if patErr := validatePatterns(cfg.Ignore, "ignore"); patErr != nil {
+		return nil, patErr
+	}
+
 	fsw, err := fsnotify.NewWatcher()
 	if err != nil {
 		return nil, fmt.Errorf("watch: create fsnotify watcher: %w", err)
@@ -146,17 +155,6 @@ func New(cfg Config) (*Watcher, error) {
 	stderr := cfg.Stderr
 	if stderr == nil {
 		stderr = os.Stderr
-	}
-
-	// Validate all patterns eagerly so invalid globs fail at construction
-	// time rather than silently failing to match at runtime.
-	if err := validatePatterns(cfg.Patterns, "watch"); err != nil {
-		fsw.Close() //nolint:errcheck // best-effort cleanup
-		return nil, err
-	}
-	if err := validatePatterns(cfg.Ignore, "ignore"); err != nil {
-		fsw.Close() //nolint:errcheck // best-effort cleanup
-		return nil, err
 	}
 
 	// Merge user ignores with built-in defaults.
@@ -399,7 +397,7 @@ func (w *Watcher) addDirectories() error {
 		}
 
 		// Skip ignored directories entirely to avoid descending into them.
-		if w.isIgnored(rel) || w.isIgnored(rel+"/") {
+		if w.isIgnoredDir(rel) {
 			return filepath.SkipDir
 		}
 
@@ -433,7 +431,7 @@ func (w *Watcher) maybeAddDir(path string) {
 		return
 	}
 
-	if w.isIgnored(rel) || w.isIgnored(rel+"/") {
+	if w.isIgnoredDir(rel) {
 		return
 	}
 
@@ -459,6 +457,14 @@ func (w *Watcher) isIgnored(rel string) bool {
 		}
 	}
 	return false
+}
+
+// isIgnoredDir returns true if a directory (relative path) matches any ignore
+// pattern. Checks both the plain path and with a trailing slash, since
+// doublestar patterns like "**/node_modules/**" need the trailing slash to
+// match directory entries.
+func (w *Watcher) isIgnoredDir(rel string) bool {
+	return w.isIgnored(rel) || w.isIgnored(rel+"/")
 }
 
 // matchesPatterns returns true if the given path (relative to BaseDir) matches
@@ -498,16 +504,4 @@ func validatePatterns(patterns []string, label string) error {
 		}
 	}
 	return nil
-}
-
-// isIgnoredByDefaults reports whether rel matches any of the default ignore
-// patterns. Package-internal helper used by tests.
-func isIgnoredByDefaults(rel string) bool {
-	normalized := filepath.ToSlash(rel)
-	for _, pat := range defaultIgnores {
-		if matched, matchErr := doublestar.Match(pat, normalized); matchErr == nil && matched {
-			return true
-		}
-	}
-	return false
 }

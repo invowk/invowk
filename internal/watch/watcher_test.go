@@ -8,12 +8,25 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
-	"sort"
 	"strings"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/bmatcuk/doublestar/v4"
 )
+
+// isIgnoredByDefaults reports whether rel matches any of the default ignore
+// patterns. Test-only helper that avoids needing a full Watcher instance.
+func isIgnoredByDefaults(rel string) bool {
+	normalized := filepath.ToSlash(rel)
+	for _, pat := range defaultIgnores {
+		if matched, matchErr := doublestar.Match(pat, normalized); matchErr == nil && matched {
+			return true
+		}
+	}
+	return false
+}
 
 // TestWatcherDebounce verifies that multiple rapid filesystem events are
 // coalesced into a single callback invocation containing all changed paths.
@@ -88,7 +101,7 @@ func TestWatcherDebounce(t *testing.T) {
 	}
 
 	// All three files must appear in the collected set.
-	sort.Strings(collected)
+	slices.Sort(collected)
 	for _, want := range []string{"a.txt", "b.txt", "c.txt"} {
 		if !slices.Contains(collected, want) {
 			t.Errorf("expected %q in changed files, got %v", want, collected)

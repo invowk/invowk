@@ -127,16 +127,6 @@ func (d *DependsOn) IsEmpty() bool {
 		len(d.Capabilities) == 0 && len(d.CustomChecks) == 0 && len(d.EnvVars) == 0
 }
 
-// HasExecutableCommandDeps returns true if any command dependency has Execute set to true.
-func (d *DependsOn) HasExecutableCommandDeps() bool {
-	for i := range d.Commands {
-		if d.Commands[i].Execute {
-			return true
-		}
-	}
-	return false
-}
-
 // GetExecutableCommandDeps returns only the command dependencies that have Execute set to true.
 func (d *DependsOn) GetExecutableCommandDeps() []CommandDependency {
 	var result []CommandDependency
