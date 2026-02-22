@@ -126,8 +126,8 @@ func ParseEnvInheritMode(value string) (EnvInheritMode, error) {
 		return "", nil
 	}
 	mode := EnvInheritMode(value)
-	if !mode.IsValid() {
-		return "", fmt.Errorf("invalid env_inherit_mode %q (expected: none, allow, all)", value)
+	if isValid, errs := mode.IsValid(); !isValid {
+		return "", errs[0]
 	}
 	return mode, nil
 }
@@ -139,8 +139,8 @@ func ParseRuntimeMode(value string) (RuntimeMode, error) {
 		return "", nil
 	}
 	mode := RuntimeMode(value)
-	if !mode.IsValid() {
-		return "", fmt.Errorf("invalid runtime mode %q (expected: native, virtual, container)", value)
+	if isValid, errs := mode.IsValid(); !isValid {
+		return "", errs[0]
 	}
 	return mode, nil
 }

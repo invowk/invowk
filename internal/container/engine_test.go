@@ -66,12 +66,51 @@ func TestPodmanEngine_AvailableWithNoPath(t *testing.T) {
 	}
 }
 
+func TestEngineType_IsValid(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		et      EngineType
+		want    bool
+		wantErr bool
+	}{
+		{EngineTypePodman, true, false},
+		{EngineTypeDocker, true, false},
+		{"", false, true},
+		{"unknown", false, true},
+		{"PODMAN", false, true},
+	}
+
+	for _, tt := range tests {
+		t.Run(string(tt.et), func(t *testing.T) {
+			t.Parallel()
+			isValid, errs := tt.et.IsValid()
+			if isValid != tt.want {
+				t.Errorf("EngineType(%q).IsValid() = %v, want %v", tt.et, isValid, tt.want)
+			}
+			if tt.wantErr {
+				if len(errs) == 0 {
+					t.Fatalf("EngineType(%q).IsValid() returned no errors, want error", tt.et)
+				}
+				if !errors.Is(errs[0], ErrInvalidEngineType) {
+					t.Errorf("error should wrap ErrInvalidEngineType, got: %v", errs[0])
+				}
+			} else if len(errs) > 0 {
+				t.Errorf("EngineType(%q).IsValid() returned unexpected errors: %v", tt.et, errs)
+			}
+		})
+	}
+}
+
 func TestNewEngine_UnknownType(t *testing.T) {
 	t.Parallel()
 
 	_, err := NewEngine("unknown")
 	if err == nil {
 		t.Error("NewEngine with unknown type should return error")
+	}
+	if !errors.Is(err, ErrInvalidEngineType) {
+		t.Errorf("NewEngine with unknown type should return ErrInvalidEngineType, got: %v", err)
 	}
 }
 

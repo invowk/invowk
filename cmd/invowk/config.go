@@ -197,16 +197,18 @@ func setConfigValue(ctx context.Context, app *App, key, value string) error {
 
 	switch key {
 	case "container_engine":
-		if value != "podman" && value != "docker" {
-			return fmt.Errorf("invalid container_engine: must be 'podman' or 'docker'")
+		ce := config.ContainerEngine(value)
+		if isValid, errs := ce.IsValid(); !isValid {
+			return errs[0]
 		}
-		cfg.ContainerEngine = config.ContainerEngine(value)
+		cfg.ContainerEngine = ce
 
 	case "default_runtime":
-		if value != "native" && value != "virtual" && value != "container" {
-			return fmt.Errorf("invalid default_runtime: must be 'native', 'virtual', or 'container'")
+		rm := config.RuntimeMode(value)
+		if isValid, errs := rm.IsValid(); !isValid {
+			return errs[0]
 		}
-		cfg.DefaultRuntime = config.RuntimeMode(value)
+		cfg.DefaultRuntime = rm
 
 	case "ui.verbose":
 		cfg.UI.Verbose = value == "true" || value == "1"
@@ -215,7 +217,11 @@ func setConfigValue(ctx context.Context, app *App, key, value string) error {
 		cfg.UI.Interactive = value == "true" || value == "1"
 
 	case "ui.color_scheme":
-		cfg.UI.ColorScheme = config.ColorScheme(value)
+		cs := config.ColorScheme(value)
+		if isValid, errs := cs.IsValid(); !isValid {
+			return errs[0]
+		}
+		cfg.UI.ColorScheme = cs
 
 	case "virtual_shell.enable_uroot_utils":
 		cfg.VirtualShell.EnableUrootUtils = value == "true" || value == "1"

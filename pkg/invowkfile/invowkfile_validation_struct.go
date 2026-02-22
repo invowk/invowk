@@ -16,8 +16,10 @@ func validateRuntimeConfig(rt *RuntimeConfig, cmdName string, implIndex int) err
 	// interpreter?: string & =~"^\\s*\\S.*$" (requires at least one non-whitespace char)
 
 	// Validate env inherit mode and env var names
-	if rt.EnvInheritMode != "" && !rt.EnvInheritMode.IsValid() {
-		return fmt.Errorf("command '%s' implementation #%d: env_inherit_mode must be one of: none, allow, all", cmdName, implIndex)
+	if rt.EnvInheritMode != "" {
+		if isValid, _ := rt.EnvInheritMode.IsValid(); !isValid {
+			return fmt.Errorf("command '%s' implementation #%d: env_inherit_mode must be one of: none, allow, all", cmdName, implIndex)
+		}
 	}
 	for _, name := range rt.EnvInheritAllow {
 		if err := ValidateEnvVarName(name); err != nil {

@@ -2,7 +2,11 @@
 
 package config
 
-import "strings"
+import (
+	"errors"
+	"fmt"
+	"strings"
+)
 
 const (
 	// ContainerEnginePodman uses Podman as the container runtime.
@@ -30,17 +34,44 @@ const (
 	moduleSuffix = ".invowkmod"
 )
 
+var (
+	// ErrInvalidContainerEngine is returned when a ContainerEngine value is not recognized.
+	ErrInvalidContainerEngine = errors.New("invalid container engine")
+	// ErrInvalidConfigRuntimeMode is returned when a config RuntimeMode value is not recognized.
+	ErrInvalidConfigRuntimeMode = errors.New("invalid runtime mode")
+	// ErrInvalidColorScheme is returned when a ColorScheme value is not recognized.
+	ErrInvalidColorScheme = errors.New("invalid color scheme")
+)
+
 type (
 	// ContainerEngine specifies which container runtime to use.
 	ContainerEngine string
+
+	// InvalidContainerEngineError is returned when a ContainerEngine value is not recognized.
+	// It wraps ErrInvalidContainerEngine for errors.Is() compatibility.
+	InvalidContainerEngineError struct {
+		Value ContainerEngine
+	}
 
 	// RuntimeMode specifies the execution runtime for commands.
 	// Defined locally to avoid coupling config to pkg/invowkfile;
 	// the orchestrator casts to invowkfile.RuntimeMode at the boundary.
 	RuntimeMode string
 
+	// InvalidConfigRuntimeModeError is returned when a config RuntimeMode value is not recognized.
+	// It wraps ErrInvalidConfigRuntimeMode for errors.Is() compatibility.
+	InvalidConfigRuntimeModeError struct {
+		Value RuntimeMode
+	}
+
 	// ColorScheme specifies the terminal color scheme preference.
 	ColorScheme string
+
+	// InvalidColorSchemeError is returned when a ColorScheme value is not recognized.
+	// It wraps ErrInvalidColorScheme for errors.Is() compatibility.
+	InvalidColorSchemeError struct {
+		Value ColorScheme
+	}
 
 	// IncludeEntry specifies a module to include in command discovery.
 	// Each entry must point to a *.invowkmod directory via an absolute filesystem path.
@@ -112,6 +143,69 @@ type (
 // IsModule reports whether this entry points to a module directory (.invowkmod).
 func (e IncludeEntry) IsModule() bool {
 	return strings.HasSuffix(e.Path, moduleSuffix)
+}
+
+// Error implements the error interface for InvalidContainerEngineError.
+func (e *InvalidContainerEngineError) Error() string {
+	return fmt.Sprintf("invalid container engine %q (valid: podman, docker)", e.Value)
+}
+
+// Unwrap returns the sentinel error for errors.Is() compatibility.
+func (e *InvalidContainerEngineError) Unwrap() error {
+	return ErrInvalidContainerEngine
+}
+
+// IsValid returns whether the ContainerEngine is one of the defined engine types,
+// and a list of validation errors if it is not.
+func (ce ContainerEngine) IsValid() (bool, []error) {
+	switch ce {
+	case ContainerEnginePodman, ContainerEngineDocker:
+		return true, nil
+	default:
+		return false, []error{&InvalidContainerEngineError{Value: ce}}
+	}
+}
+
+// Error implements the error interface for InvalidConfigRuntimeModeError.
+func (e *InvalidConfigRuntimeModeError) Error() string {
+	return fmt.Sprintf("invalid runtime mode %q (valid: native, virtual, container)", e.Value)
+}
+
+// Unwrap returns the sentinel error for errors.Is() compatibility.
+func (e *InvalidConfigRuntimeModeError) Unwrap() error {
+	return ErrInvalidConfigRuntimeMode
+}
+
+// IsValid returns whether the config RuntimeMode is one of the defined runtime modes,
+// and a list of validation errors if it is not.
+func (m RuntimeMode) IsValid() (bool, []error) {
+	switch m {
+	case RuntimeNative, RuntimeVirtual, RuntimeContainer:
+		return true, nil
+	default:
+		return false, []error{&InvalidConfigRuntimeModeError{Value: m}}
+	}
+}
+
+// Error implements the error interface for InvalidColorSchemeError.
+func (e *InvalidColorSchemeError) Error() string {
+	return fmt.Sprintf("invalid color scheme %q (valid: auto, dark, light)", e.Value)
+}
+
+// Unwrap returns the sentinel error for errors.Is() compatibility.
+func (e *InvalidColorSchemeError) Unwrap() error {
+	return ErrInvalidColorScheme
+}
+
+// IsValid returns whether the ColorScheme is one of the defined color schemes,
+// and a list of validation errors if it is not.
+func (cs ColorScheme) IsValid() (bool, []error) {
+	switch cs {
+	case ColorSchemeAuto, ColorSchemeDark, ColorSchemeLight:
+		return true, nil
+	default:
+		return false, []error{&InvalidColorSchemeError{Value: cs}}
+	}
 }
 
 // DefaultConfig returns the default configuration

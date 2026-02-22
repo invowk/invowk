@@ -172,6 +172,44 @@ func TestIsValidCapabilityName(t *testing.T) {
 	}
 }
 
+func TestCapabilityName_IsValid(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    CapabilityName
+		want    bool
+		wantErr bool
+	}{
+		{CapabilityLocalAreaNetwork, true, false},
+		{CapabilityInternet, true, false},
+		{CapabilityContainers, true, false},
+		{CapabilityTTY, true, false},
+		{"", false, true},
+		{"unknown", false, true},
+		{"LOCAL-AREA-NETWORK", false, true},
+	}
+
+	for _, tt := range tests {
+		t.Run(string(tt.name), func(t *testing.T) {
+			t.Parallel()
+			isValid, errs := tt.name.IsValid()
+			if isValid != tt.want {
+				t.Errorf("CapabilityName(%q).IsValid() = %v, want %v", tt.name, isValid, tt.want)
+			}
+			if tt.wantErr {
+				if len(errs) == 0 {
+					t.Fatalf("CapabilityName(%q).IsValid() returned no errors, want error", tt.name)
+				}
+				if !errors.Is(errs[0], ErrInvalidCapabilityName) {
+					t.Errorf("error should wrap ErrInvalidCapabilityName, got: %v", errs[0])
+				}
+			} else if len(errs) > 0 {
+				t.Errorf("CapabilityName(%q).IsValid() returned unexpected errors: %v", tt.name, errs)
+			}
+		})
+	}
+}
+
 func TestCheckLocalAreaNetwork_ReturnsCapabilityError(t *testing.T) {
 	t.Parallel()
 

@@ -146,13 +146,15 @@ func (v *StructureValidator) validateRuntimeConfig(ctx *ValidationContext, inv *
 	path := NewFieldPath().Command(cmdName).Implementation(implIdx).Runtime(rtIdx)
 
 	// Validate env inherit mode
-	if rt.EnvInheritMode != "" && !rt.EnvInheritMode.IsValid() {
-		errors = append(errors, ValidationError{
-			Validator: v.Name(),
-			Field:     path.String(),
-			Message:   "env_inherit_mode must be one of: none, allow, all",
-			Severity:  SeverityError,
-		})
+	if rt.EnvInheritMode != "" {
+		if isValid, _ := rt.EnvInheritMode.IsValid(); !isValid {
+			errors = append(errors, ValidationError{
+				Validator: v.Name(),
+				Field:     path.String(),
+				Message:   "env_inherit_mode must be one of: none, allow, all",
+				Severity:  SeverityError,
+			})
+		}
 	}
 
 	// Validate env_inherit_allow names

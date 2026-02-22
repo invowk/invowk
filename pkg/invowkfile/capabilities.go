@@ -4,6 +4,7 @@ package invowkfile
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -28,11 +29,16 @@ const (
 	DefaultCapabilityTimeout = 5 * time.Second
 )
 
+// ErrInvalidCapabilityName is returned when a CapabilityName value is not recognized.
+var ErrInvalidCapabilityName = errors.New("invalid capability name")
+
 type (
 	// CapabilityName represents a system capability type
 	CapabilityName string
 
-	// CapabilityError represents an error when a capability check fails
+	// CapabilityError represents an error when a capability check fails.
+	// Also used as the validation error for invalid capability names,
+	// wrapping ErrInvalidCapabilityName for errors.Is() compatibility.
 	CapabilityError struct {
 		Capability CapabilityName
 		Message    string
@@ -241,6 +247,17 @@ func checkTTY() error {
 	}
 }
 
+// IsValid returns whether the CapabilityName is one of the defined capability names,
+// and a list of validation errors if it is not.
+func (c CapabilityName) IsValid() (bool, []error) {
+	switch c {
+	case CapabilityLocalAreaNetwork, CapabilityInternet, CapabilityContainers, CapabilityTTY:
+		return true, nil
+	default:
+		return false, []error{fmt.Errorf("%w: %q", ErrInvalidCapabilityName, c)}
+	}
+}
+
 // ValidCapabilityNames returns all valid capability names
 func ValidCapabilityNames() []CapabilityName {
 	return []CapabilityName{
@@ -251,7 +268,9 @@ func ValidCapabilityNames() []CapabilityName {
 	}
 }
 
-// IsValidCapabilityName checks if a capability name is valid
+// IsValidCapabilityName checks if a capability name is valid.
+//
+// Deprecated: Use CapabilityName.IsValid() method instead.
 func IsValidCapabilityName(name CapabilityName) bool {
 	return slices.Contains(ValidCapabilityNames(), name)
 }

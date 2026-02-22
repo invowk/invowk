@@ -15,13 +15,23 @@ const (
 	EngineTypeDocker EngineType = "docker"
 )
 
-// ErrNoEngineAvailable is returned when no container engine (Docker or Podman) is available.
-// Callers can check for this error using errors.Is(err, ErrNoEngineAvailable).
-var ErrNoEngineAvailable = errors.New("no container engine available")
+var (
+	// ErrNoEngineAvailable is returned when no container engine (Docker or Podman) is available.
+	// Callers can check for this error using errors.Is(err, ErrNoEngineAvailable).
+	ErrNoEngineAvailable = errors.New("no container engine available")
+	// ErrInvalidEngineType is returned when an EngineType value is not recognized.
+	ErrInvalidEngineType = errors.New("invalid engine type")
+)
 
 type (
 	// EngineType identifies the container engine type
 	EngineType string
+
+	// InvalidEngineTypeError is returned when an EngineType value is not recognized.
+	// It wraps ErrInvalidEngineType for errors.Is() compatibility.
+	InvalidEngineTypeError struct {
+		Value EngineType
+	}
 
 	// Engine defines the interface for container operations
 	Engine interface {
@@ -129,10 +139,35 @@ func (e *EngineNotAvailableError) Unwrap() error {
 	return ErrNoEngineAvailable
 }
 
+// Error implements the error interface for InvalidEngineTypeError.
+func (e *InvalidEngineTypeError) Error() string {
+	return fmt.Sprintf("invalid engine type %q (valid: podman, docker)", e.Value)
+}
+
+// Unwrap returns the sentinel error for errors.Is() compatibility.
+func (e *InvalidEngineTypeError) Unwrap() error {
+	return ErrInvalidEngineType
+}
+
+// IsValid returns whether the EngineType is one of the defined engine types,
+// and a list of validation errors if it is not.
+func (et EngineType) IsValid() (bool, []error) {
+	switch et {
+	case EngineTypePodman, EngineTypeDocker:
+		return true, nil
+	default:
+		return false, []error{&InvalidEngineTypeError{Value: et}}
+	}
+}
+
 // NewEngine creates a new container engine based on preference.
 // The returned engine is automatically wrapped with sandbox awareness
 // when running inside Flatpak or Snap sandboxes.
 func NewEngine(preferredType EngineType) (Engine, error) {
+	if isValid, errs := preferredType.IsValid(); !isValid {
+		return nil, errs[0]
+	}
+
 	var engine Engine
 
 	switch preferredType {
@@ -171,6 +206,7 @@ func NewEngine(preferredType EngineType) (Engine, error) {
 		}
 
 	default:
+		// Unreachable: IsValid() guard above ensures only valid types reach here.
 		return nil, fmt.Errorf("unknown container engine type: %s", preferredType)
 	}
 

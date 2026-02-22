@@ -2,7 +2,10 @@
 
 package invowkfile
 
-import "fmt"
+import (
+	"errors"
+	"fmt"
+)
 
 const (
 	// FlagTypeString is the default flag type for string values
@@ -15,9 +18,18 @@ const (
 	FlagTypeFloat FlagType = "float"
 )
 
+// ErrInvalidFlagType is returned when a FlagType value is not one of the defined types.
+var ErrInvalidFlagType = errors.New("invalid flag type")
+
 type (
 	// FlagType represents the data type of a flag
 	FlagType string
+
+	// InvalidFlagTypeError is returned when a FlagType value is not recognized.
+	// It wraps ErrInvalidFlagType for errors.Is() compatibility.
+	InvalidFlagTypeError struct {
+		Value FlagType
+	}
 
 	// Flag represents a command-line flag for a command
 	Flag struct {
@@ -38,6 +50,28 @@ type (
 		Validation string `json:"validation,omitempty"`
 	}
 )
+
+// Error implements the error interface for InvalidFlagTypeError.
+func (e *InvalidFlagTypeError) Error() string {
+	return fmt.Sprintf("invalid flag type %q (valid: string, bool, int, float)", e.Value)
+}
+
+// Unwrap returns the sentinel error for errors.Is() compatibility.
+func (e *InvalidFlagTypeError) Unwrap() error {
+	return ErrInvalidFlagType
+}
+
+// IsValid returns whether the FlagType is one of the defined flag types,
+// and a list of validation errors if it is not.
+// Note: the zero value ("") is valid — it is treated as "string" by GetType().
+func (ft FlagType) IsValid() (bool, []error) {
+	switch ft {
+	case FlagTypeString, FlagTypeBool, FlagTypeInt, FlagTypeFloat, "":
+		return true, nil
+	default:
+		return false, []error{&InvalidFlagTypeError{Value: ft}}
+	}
+}
 
 // GetType returns the effective type of the flag (defaults to "string" if not specified)
 func (f *Flag) GetType() FlagType {

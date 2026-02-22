@@ -3,6 +3,7 @@
 package invowkfile
 
 import (
+	"errors"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -37,6 +38,13 @@ const (
 )
 
 var (
+	// ErrInvalidRuntimeMode is returned when a RuntimeMode value is not one of the defined modes.
+	ErrInvalidRuntimeMode = errors.New("invalid runtime mode")
+	// ErrInvalidEnvInheritMode is returned when an EnvInheritMode value is not one of the defined modes.
+	ErrInvalidEnvInheritMode = errors.New("invalid env inherit mode")
+	// ErrInvalidPlatform is returned when a PlatformType value is not one of the defined platforms.
+	ErrInvalidPlatform = errors.New("invalid platform type")
+
 	// shellInterpreters maps shell interpreter base names to true.
 	// These interpreters are compatible with the virtual runtime (mvdan/sh).
 	shellInterpreters = map[string]bool{
@@ -65,6 +73,24 @@ type (
 
 	// PlatformType represents a target platform type
 	PlatformType string
+
+	// InvalidRuntimeModeError is returned when a RuntimeMode value is not recognized.
+	// It wraps ErrInvalidRuntimeMode for errors.Is() compatibility.
+	InvalidRuntimeModeError struct {
+		Value RuntimeMode
+	}
+
+	// InvalidEnvInheritModeError is returned when an EnvInheritMode value is not recognized.
+	// It wraps ErrInvalidEnvInheritMode for errors.Is() compatibility.
+	InvalidEnvInheritModeError struct {
+		Value EnvInheritMode
+	}
+
+	// InvalidPlatformError is returned when a PlatformType value is not recognized.
+	// It wraps ErrInvalidPlatform for errors.Is() compatibility.
+	InvalidPlatformError struct {
+		Value PlatformType
+	}
 
 	// RuntimeConfig represents a runtime configuration with type-specific options
 	RuntimeConfig struct {
@@ -150,24 +176,68 @@ func FindRuntimeConfig(runtimes []RuntimeConfig, mode RuntimeMode) *RuntimeConfi
 	return nil
 }
 
-// IsValid returns true if the RuntimeMode is one of the defined runtime modes.
+// Error implements the error interface for InvalidRuntimeModeError.
+func (e *InvalidRuntimeModeError) Error() string {
+	return fmt.Sprintf("invalid runtime mode %q (valid: native, virtual, container)", e.Value)
+}
+
+// Unwrap returns the sentinel error for errors.Is() compatibility.
+func (e *InvalidRuntimeModeError) Unwrap() error {
+	return ErrInvalidRuntimeMode
+}
+
+// Error implements the error interface for InvalidEnvInheritModeError.
+func (e *InvalidEnvInheritModeError) Error() string {
+	return fmt.Sprintf("invalid env_inherit_mode %q (valid: none, allow, all)", e.Value)
+}
+
+// Unwrap returns the sentinel error for errors.Is() compatibility.
+func (e *InvalidEnvInheritModeError) Unwrap() error {
+	return ErrInvalidEnvInheritMode
+}
+
+// Error implements the error interface for InvalidPlatformError.
+func (e *InvalidPlatformError) Error() string {
+	return fmt.Sprintf("invalid platform type %q (valid: linux, macos, windows)", e.Value)
+}
+
+// Unwrap returns the sentinel error for errors.Is() compatibility.
+func (e *InvalidPlatformError) Unwrap() error {
+	return ErrInvalidPlatform
+}
+
+// IsValid returns whether the RuntimeMode is one of the defined runtime modes,
+// and a list of validation errors if it is not.
 // Note: the zero value ("") is NOT valid — it serves as a sentinel for "no override".
-func (m RuntimeMode) IsValid() bool {
+func (m RuntimeMode) IsValid() (bool, []error) {
 	switch m {
 	case RuntimeNative, RuntimeVirtual, RuntimeContainer:
-		return true
+		return true, nil
 	default:
-		return false
+		return false, []error{&InvalidRuntimeModeError{Value: m}}
 	}
 }
 
-// IsValid returns true if the EnvInheritMode is a valid value
-func (m EnvInheritMode) IsValid() bool {
+// IsValid returns whether the EnvInheritMode is a valid value,
+// and a list of validation errors if it is not.
+func (m EnvInheritMode) IsValid() (bool, []error) {
 	switch m {
 	case EnvInheritNone, EnvInheritAllow, EnvInheritAll:
-		return true
+		return true, nil
 	default:
-		return false
+		return false, []error{&InvalidEnvInheritModeError{Value: m}}
+	}
+}
+
+// IsValid returns whether the PlatformType is one of the defined platform types,
+// and a list of validation errors if it is not.
+// Note: uses "macos" not "darwin" — this is the CUE/invowk convention.
+func (p PlatformType) IsValid() (bool, []error) {
+	switch p {
+	case PlatformLinux, PlatformMac, PlatformWindows:
+		return true, nil
+	default:
+		return false, []error{&InvalidPlatformError{Value: p}}
 	}
 }
 
