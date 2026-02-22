@@ -49,7 +49,7 @@ func renderDryRun(w io.Writer, req ExecuteRequest, cmdInfo *discovery.CommandInf
 	if resolved.Impl.IsScriptFile() {
 		fmt.Fprintf(w, "    (file: %s)\n", script)
 	} else {
-		for line := range strings.SplitSeq(script, "\n") {
+		for line := range strings.SplitSeq(string(script), "\n") {
 			fmt.Fprintf(w, "    %s\n", line)
 		}
 	}

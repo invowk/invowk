@@ -35,7 +35,7 @@ func newContainerValidationContext(parentCtx *runtime.ExecutionContext, script s
 	execCtx = &runtime.ExecutionContext{
 		Command:         parentCtx.Command,
 		Invowkfile:      parentCtx.Invowkfile,
-		SelectedImpl:    &invowkfile.Implementation{Script: script, Runtimes: []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeContainer}}},
+		SelectedImpl:    &invowkfile.Implementation{Script: invowkfile.ScriptContent(script), Runtimes: []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeContainer}}},
 		SelectedRuntime: invowkfile.RuntimeContainer,
 		Context:         parentCtx.Context,
 		IO:              runtime.IOContext{Stdout: stdout, Stderr: stderr},
@@ -48,7 +48,7 @@ func newContainerValidationContext(parentCtx *runtime.ExecutionContext, script s
 // tools that are not satisfied. Each tool has alternatives with OR semantics (any
 // alternative found satisfies the dependency). The check function validates a single
 // tool name; it's called for each alternative until one succeeds.
-func collectToolErrors(tools []invowkfile.ToolDependency, check func(string) error) []string {
+func collectToolErrors(tools []invowkfile.ToolDependency, check func(invowkfile.BinaryName) error) []string {
 	var toolErrors []string
 
 	for _, tool := range tools {
@@ -57,7 +57,11 @@ func collectToolErrors(tools []invowkfile.ToolDependency, check func(string) err
 			if len(tool.Alternatives) == 1 {
 				toolErrors = append(toolErrors, lastErr.Error())
 			} else {
-				toolErrors = append(toolErrors, fmt.Sprintf("  • none of [%s] found", strings.Join(tool.Alternatives, ", ")))
+				names := make([]string, len(tool.Alternatives))
+				for i, alt := range tool.Alternatives {
+					names[i] = string(alt)
+				}
+				toolErrors = append(toolErrors, fmt.Sprintf("  • none of [%s] found", strings.Join(names, ", ")))
 			}
 		}
 	}

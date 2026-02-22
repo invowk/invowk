@@ -58,7 +58,7 @@ func TestDockerEngineBuildRunArgs(t *testing.T) {
 		},
 		Volumes:    []string{"/tmp:/tmp"},
 		Ports:      []string{"8080:80"},
-		ExtraHosts: []string{"host.docker.internal:host-gateway"},
+		ExtraHosts: []HostMapping{"host.docker.internal:host-gateway"},
 	}
 
 	args := engine.BuildRunArgs(opts)
@@ -108,7 +108,7 @@ func TestPodmanEngineBuildRunArgs(t *testing.T) {
 		},
 		Volumes:    []string{"/tmp:/tmp"},
 		Ports:      []string{"8080:80"},
-		ExtraHosts: []string{"host.containers.internal:host-gateway"},
+		ExtraHosts: []HostMapping{"host.containers.internal:host-gateway"},
 	}
 
 	args := engine.BuildRunArgs(opts)

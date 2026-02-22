@@ -96,7 +96,7 @@ func (v *StructureValidator) validateImplementation(ctx *ValidationContext, inv 
 		})
 	} else if !impl.IsScriptFile() {
 		// [CUE-VALIDATED] Script length also enforced by CUE schema (#Implementation.script MaxRunes(10485760))
-		if err := ValidateStringLength(impl.Script, "script", MaxScriptLength); err != nil {
+		if err := ValidateStringLength(string(impl.Script), "script", MaxScriptLength); err != nil {
 			errors = append(errors, ValidationError{
 				Validator: v.Name(),
 				Field:     path.String(),
@@ -116,7 +116,7 @@ func (v *StructureValidator) validateImplementation(ctx *ValidationContext, inv 
 	} else {
 		// Validate each runtime config
 		for j := range impl.Runtimes {
-			errors = append(errors, v.validateRuntimeConfig(ctx, inv, string(cmd.Name), implIdx, j)...)
+			errors = append(errors, v.validateRuntimeConfig(ctx, inv, cmd.Name, implIdx, j)...)
 		}
 	}
 
@@ -140,10 +140,10 @@ func (v *StructureValidator) validateImplementation(ctx *ValidationContext, inv 
 }
 
 // validateRuntimeConfig validates a single runtime configuration and collects all errors.
-func (v *StructureValidator) validateRuntimeConfig(ctx *ValidationContext, inv *Invowkfile, cmdName string, implIdx, rtIdx int) []ValidationError {
+func (v *StructureValidator) validateRuntimeConfig(ctx *ValidationContext, inv *Invowkfile, cmdName CommandName, implIdx, rtIdx int) []ValidationError {
 	var errors []ValidationError
 	rt := &inv.GetCommand(cmdName).Implementations[implIdx].Runtimes[rtIdx]
-	path := NewFieldPath().Command(cmdName).Implementation(implIdx).Runtime(rtIdx)
+	path := NewFieldPath().Command(string(cmdName)).Implementation(implIdx).Runtime(rtIdx)
 
 	// Validate env inherit mode
 	if rt.EnvInheritMode != "" {
@@ -255,7 +255,7 @@ func (v *StructureValidator) validateRuntimeConfig(ctx *ValidationContext, inv *
 
 		// Validate container image name format
 		if rt.Image != "" {
-			if err := ValidateContainerImage(rt.Image); err != nil {
+			if err := ValidateContainerImage(string(rt.Image)); err != nil {
 				errors = append(errors, ValidationError{
 					Validator: v.Name(),
 					Field:     path.String(),

@@ -32,10 +32,10 @@ func AddRequirement(invowkmodPath string, req ModuleRef) error {
 		entries := findEntryBounds(lines, startLine, endLine)
 		for _, entry := range entries {
 			entryGitURL, entryPath := parseRequiresEntryFields(lines[entry.start : entry.end+1])
-			if entryGitURL == string(req.GitURL) && entryPath == req.Path {
+			if entryGitURL == string(req.GitURL) && entryPath == string(req.Path) {
 				identifier := string(req.GitURL)
 				if req.Path != "" {
-					identifier += "#" + req.Path
+					identifier += "#" + string(req.Path)
 				}
 				return fmt.Errorf("requirement already exists: %s", identifier)
 			}

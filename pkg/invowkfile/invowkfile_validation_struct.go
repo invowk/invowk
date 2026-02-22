@@ -63,7 +63,7 @@ func validateRuntimeConfig(rt *RuntimeConfig, cmdName string, implIndex int) err
 		}
 		// Validate container image name format
 		if rt.Image != "" {
-			if err := ValidateContainerImage(rt.Image); err != nil {
+			if err := ValidateContainerImage(string(rt.Image)); err != nil {
 				return fmt.Errorf("command '%s' implementation #%d: invalid image: %w", cmdName, implIndex, err)
 			}
 		}

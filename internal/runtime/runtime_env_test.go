@@ -19,7 +19,7 @@ func testCommandWithScript(name, script string, runtime invowkfile.RuntimeMode) 
 	return &invowkfile.Command{
 		Name: invowkfile.CommandName(name),
 		Implementations: []invowkfile.Implementation{
-			{Script: script, Runtimes: []invowkfile.RuntimeConfig{{Name: runtime}}, Platforms: []invowkfile.PlatformConfig{{Name: invowkfile.PlatformLinux}, {Name: invowkfile.PlatformMac}, {Name: invowkfile.PlatformWindows}}},
+			{Script: invowkfile.ScriptContent(script), Runtimes: []invowkfile.RuntimeConfig{{Name: runtime}}, Platforms: []invowkfile.PlatformConfig{{Name: invowkfile.PlatformLinux}, {Name: invowkfile.PlatformMac}, {Name: invowkfile.PlatformWindows}}},
 		},
 	}
 }
@@ -31,7 +31,7 @@ func testCommandWithInterpreter(name, script, interpreter string, runtime invowk
 		Name: invowkfile.CommandName(name),
 		Implementations: []invowkfile.Implementation{
 			{
-				Script:    script,
+				Script:    invowkfile.ScriptContent(script),
 				Runtimes:  []invowkfile.RuntimeConfig{{Name: runtime, Interpreter: interpreter}},
 				Platforms: []invowkfile.PlatformConfig{{Name: invowkfile.PlatformLinux}, {Name: invowkfile.PlatformMac}, {Name: invowkfile.PlatformWindows}},
 			},

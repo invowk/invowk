@@ -644,7 +644,7 @@ cmds: [
 	filterPrefix := func(prefix string) []*CommandInfo {
 		matching := make([]*CommandInfo, 0)
 		for _, cmd := range result.Set.Commands {
-			if prefix == "" || strings.HasPrefix(cmd.Name, prefix) {
+			if prefix == "" || strings.HasPrefix(string(cmd.Name), prefix) {
 				matching = append(matching, cmd)
 			}
 		}

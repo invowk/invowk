@@ -131,7 +131,7 @@ func TestGetEffectiveWorkDir_AbsolutePath(t *testing.T) {
 
 	inv := &Invowkfile{
 		FilePath: invowkfilePath,
-		WorkDir:  absPath,
+		WorkDir:  WorkDir(absPath),
 	}
 	cmd := &Command{Name: "test"}
 	impl := &Implementation{Script: "echo test"}

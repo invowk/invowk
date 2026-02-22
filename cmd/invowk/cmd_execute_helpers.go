@@ -94,7 +94,7 @@ func runDisambiguatedCommand(cmd *cobra.Command, app *App, rootFlags *rootFlagVa
 	for i := len(args); i > 0; i-- {
 		candidateName := strings.Join(args[:i], " ")
 		for _, discovered := range cmdsInSource {
-			if discovered.SimpleName == candidateName {
+			if string(discovered.SimpleName) == candidateName {
 				targetCmd = discovered
 				matchLen = i
 				break
@@ -117,7 +117,7 @@ func runDisambiguatedCommand(cmd *cobra.Command, app *App, rootFlags *rootFlagVa
 		if len(cmdsInSource) > 0 {
 			fmt.Fprintf(app.stderr, "Available commands in %s:\n", formatSourceDisplayName(filter.SourceID))
 			for _, discovered := range cmdsInSource {
-				fmt.Fprintf(app.stderr, "  %s\n", discovered.SimpleName)
+				fmt.Fprintf(app.stderr, "  %s\n", string(discovered.SimpleName))
 			}
 			fmt.Fprintln(app.stderr)
 		}
@@ -126,7 +126,7 @@ func runDisambiguatedCommand(cmd *cobra.Command, app *App, rootFlags *rootFlagVa
 
 	// Watch mode intercepts before normal execution.
 	if cmdFlags.watch {
-		return runWatchMode(cmd, app, rootFlags, cmdFlags, append([]string{targetCmd.Name}, cmdArgs...))
+		return runWatchMode(cmd, app, rootFlags, cmdFlags, append([]string{string(targetCmd.Name)}, cmdArgs...))
 	}
 
 	parsedRuntime, err := cmdFlags.parsedRuntimeMode()
@@ -137,7 +137,7 @@ func runDisambiguatedCommand(cmd *cobra.Command, app *App, rootFlags *rootFlagVa
 	verbose, interactive := resolveUIFlags(ctx, app, cmd, rootFlags)
 	// Delegate final execution to CommandService with explicit per-request flags.
 	req := ExecuteRequest{
-		Name:         targetCmd.Name,
+		Name:         string(targetCmd.Name),
 		Args:         cmdArgs,
 		Runtime:      parsedRuntime,
 		Interactive:  interactive,
@@ -182,10 +182,10 @@ func checkAmbiguousCommand(ctx context.Context, app *App, rootFlags *rootFlagVal
 	app.Diagnostics.Render(ctx, commandSetResult.Diagnostics, app.stderr)
 
 	commandSet := commandSetResult.Set
-	cmdName := ""
+	var cmdName invowkfile.CommandName
 	// Mirror Cobra longest-match behavior for nested command names.
 	for i := len(args); i > 0; i-- {
-		candidateName := strings.Join(args[:i], " ")
+		candidateName := invowkfile.CommandName(strings.Join(args[:i], " "))
 		if _, exists := commandSet.BySimpleName[candidateName]; exists {
 			cmdName = candidateName
 			break
@@ -194,7 +194,7 @@ func checkAmbiguousCommand(ctx context.Context, app *App, rootFlags *rootFlagVal
 
 	if cmdName == "" {
 		// Unknown command path: let normal Cobra command resolution handle errors.
-		cmdName = args[0]
+		cmdName = invowkfile.CommandName(args[0])
 	}
 
 	if !commandSet.AmbiguousNames[cmdName] {
@@ -206,7 +206,7 @@ func checkAmbiguousCommand(ctx context.Context, app *App, rootFlags *rootFlagVal
 		sources = append(sources, cmd.SourceID)
 	}
 
-	return &AmbiguousCommandError{CommandName: invowkfile.CommandName(cmdName), Sources: sources}
+	return &AmbiguousCommandError{CommandName: cmdName, Sources: sources}
 }
 
 // createRuntimeRegistry creates and populates the runtime registry.

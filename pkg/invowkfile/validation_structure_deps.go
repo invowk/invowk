@@ -15,7 +15,7 @@ func (v *StructureValidator) validateDependsOn(ctx *ValidationContext, deps *Dep
 	// Validate tool dependencies
 	for i, dep := range deps.Tools {
 		for j, alt := range dep.Alternatives {
-			if err := ValidateToolName(alt); err != nil {
+			if err := ValidateToolName(string(alt)); err != nil {
 				errors = append(errors, ValidationError{
 					Validator: v.Name(),
 					Field:     basePath.Copy().Tools(i, j).String(),
@@ -29,7 +29,7 @@ func (v *StructureValidator) validateDependsOn(ctx *ValidationContext, deps *Dep
 	// Validate command dependencies
 	for i, dep := range deps.Commands {
 		for j, alt := range dep.Alternatives {
-			if err := ValidateCommandDependencyName(alt); err != nil {
+			if err := ValidateCommandDependencyName(string(alt)); err != nil {
 				errors = append(errors, ValidationError{
 					Validator: v.Name(),
 					Field:     basePath.Copy().Commands(i, j).String(),
@@ -55,7 +55,7 @@ func (v *StructureValidator) validateDependsOn(ctx *ValidationContext, deps *Dep
 	// Validate env var dependencies
 	for i, dep := range deps.EnvVars {
 		for j, alt := range dep.Alternatives {
-			name := strings.TrimSpace(alt.Name)
+			name := strings.TrimSpace(string(alt.Name))
 			if err := ValidateEnvVarName(name); err != nil {
 				errors = append(errors, ValidationError{
 					Validator: v.Name(),
@@ -93,7 +93,7 @@ func (v *StructureValidator) validateCustomChecks(ctx *ValidationContext, checks
 
 			// [CUE-VALIDATED] Custom check name length also enforced by CUE schema (#CustomCheck.name MaxRunes(256))
 			if check.Name != "" {
-				if err := ValidateStringLength(check.Name, "custom_check name", MaxNameLength); err != nil {
+				if err := ValidateStringLength(string(check.Name), "custom_check name", MaxNameLength); err != nil {
 					errors = append(errors, ValidationError{
 						Validator: v.Name(),
 						Field:     path.String(),
@@ -105,7 +105,7 @@ func (v *StructureValidator) validateCustomChecks(ctx *ValidationContext, checks
 
 			// [CUE-VALIDATED] Check script length also enforced by CUE schema (#CustomCheck.check_script MaxRunes(10485760))
 			if check.CheckScript != "" {
-				if err := ValidateStringLength(check.CheckScript, "check_script", MaxScriptLength); err != nil {
+				if err := ValidateStringLength(string(check.CheckScript), "check_script", MaxScriptLength); err != nil {
 					errors = append(errors, ValidationError{
 						Validator: v.Name(),
 						Field:     path.String(),

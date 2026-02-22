@@ -81,7 +81,7 @@ func checkCustomCheckDependenciesInContainer(deps *invowkfile.DependsOn, registr
 			} else {
 				names := make([]string, len(checks))
 				for i, c := range checks {
-					names[i] = c.Name
+					names[i] = string(c.Name)
 				}
 				checkErrors = append(checkErrors, fmt.Sprintf("  • none of custom checks [%s] passed", strings.Join(names, ", ")))
 			}
@@ -100,7 +100,7 @@ func checkCustomCheckDependenciesInContainer(deps *invowkfile.DependsOn, registr
 
 // validateCustomCheckNative runs a custom check script using the native shell
 func validateCustomCheckNative(check invowkfile.CustomCheck) error {
-	cmd := exec.CommandContext(context.Background(), "sh", "-c", check.CheckScript)
+	cmd := exec.CommandContext(context.Background(), "sh", "-c", string(check.CheckScript))
 	output, err := cmd.CombinedOutput()
 	outputStr := strings.TrimSpace(string(output))
 
@@ -116,7 +116,7 @@ func validateCustomCheckInContainer(check invowkfile.CustomCheck, registry *runt
 		return fmt.Errorf("  • %s - container runtime not available", check.Name)
 	}
 
-	validationCtx, stdout, stderr := newContainerValidationContext(ctx, check.CheckScript)
+	validationCtx, stdout, stderr := newContainerValidationContext(ctx, string(check.CheckScript))
 
 	result := rt.Execute(validationCtx)
 
@@ -128,7 +128,7 @@ func validateCustomCheckInContainer(check invowkfile.CustomCheck, registry *runt
 			return fmt.Errorf("  • %s - container validation failed: %w", check.Name, result.Error)
 		}
 	}
-	if err := checkTransientExitCode(result, check.Name); err != nil {
+	if err := checkTransientExitCode(result, string(check.Name)); err != nil {
 		return err
 	}
 
@@ -156,7 +156,7 @@ func checkHostCustomCheckDependencies(deps *invowkfile.DependsOn, ctx *runtime.E
 			} else {
 				names := make([]string, len(checks))
 				for i, c := range checks {
-					names[i] = c.Name
+					names[i] = string(c.Name)
 				}
 				checkErrors = append(checkErrors, fmt.Sprintf("  • none of custom checks [%s] passed", strings.Join(names, ", ")))
 			}
@@ -189,7 +189,7 @@ func checkEnvVarDependenciesInContainer(deps *invowkfile.DependsOn, registry *ru
 
 	for _, envVar := range deps.EnvVars {
 		found, lastErr := evaluateAlternatives(envVar.Alternatives, func(alt invowkfile.EnvVarCheck) error {
-			name := strings.TrimSpace(alt.Name)
+			name := strings.TrimSpace(string(alt.Name))
 			if name == "" {
 				return fmt.Errorf("  • (empty) - environment variable name cannot be empty")
 			}
@@ -232,7 +232,7 @@ func checkEnvVarDependenciesInContainer(deps *invowkfile.DependsOn, registry *ru
 			} else {
 				names := make([]string, len(envVar.Alternatives))
 				for i, alt := range envVar.Alternatives {
-					names[i] = strings.TrimSpace(alt.Name)
+					names[i] = strings.TrimSpace(string(alt.Name))
 				}
 				envVarErrors = append(envVarErrors, fmt.Sprintf("  • none of [%s] found or passed validation in container", strings.Join(names, ", ")))
 			}
@@ -343,9 +343,9 @@ func checkCommandDependenciesInContainer(deps *invowkfile.DependsOn, registry *r
 	for _, dep := range deps.Commands {
 		var alternatives []string
 		for _, alt := range dep.Alternatives {
-			alt = strings.TrimSpace(alt)
-			if alt != "" {
-				alternatives = append(alternatives, alt)
+			trimmed := strings.TrimSpace(string(alt))
+			if trimmed != "" {
+				alternatives = append(alternatives, trimmed)
 			}
 		}
 		if len(alternatives) == 0 {
@@ -468,7 +468,7 @@ func checkEnvVarDependencies(deps *invowkfile.DependsOn, userEnv map[string]stri
 	for _, envVar := range deps.EnvVars {
 		found, lastErr := evaluateAlternatives(envVar.Alternatives, func(alt invowkfile.EnvVarCheck) error {
 			// Trim whitespace from name as per schema
-			name := strings.TrimSpace(alt.Name)
+			name := strings.TrimSpace(string(alt.Name))
 			if name == "" {
 				return fmt.Errorf("  • (empty) - environment variable name cannot be empty")
 			}
@@ -501,7 +501,7 @@ func checkEnvVarDependencies(deps *invowkfile.DependsOn, userEnv map[string]stri
 				// Collect all alternative names for the error message
 				names := make([]string, len(envVar.Alternatives))
 				for i, alt := range envVar.Alternatives {
-					names[i] = strings.TrimSpace(alt.Name)
+					names[i] = strings.TrimSpace(string(alt.Name))
 				}
 				envVarErrors = append(envVarErrors, fmt.Sprintf("  • none of [%s] found or passed validation", strings.Join(names, ", ")))
 			}

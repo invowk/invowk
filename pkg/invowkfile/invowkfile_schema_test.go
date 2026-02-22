@@ -245,8 +245,8 @@ func TestGetFullCommandName(t *testing.T) {
 
 	tests := []struct {
 		name     string
-		cmdName  string
-		expected string
+		cmdName  CommandName
+		expected CommandName
 	}{
 		{"simple command", "build", "my.module build"},
 		{"subcommand with space", "test unit", "my.module test unit"},

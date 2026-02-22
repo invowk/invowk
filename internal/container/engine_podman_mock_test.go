@@ -112,7 +112,7 @@ func TestPodmanEngine_Run_Arguments(t *testing.T) {
 			Env:         map[string]string{"VAR": "value"},
 			Volumes:     []string{"/src:/src"},
 			Ports:       []string{"8080:80"},
-			ExtraHosts:  []string{"host.containers.internal:host-gateway"},
+			ExtraHosts:  []HostMapping{"host.containers.internal:host-gateway"},
 		}
 
 		_, err := engine.Run(ctx, opts)

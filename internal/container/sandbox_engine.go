@@ -145,7 +145,7 @@ func (e *SandboxAwareEngine) Run(ctx context.Context, opts RunOptions) (*RunResu
 }
 
 // Remove removes a container.
-func (e *SandboxAwareEngine) Remove(ctx context.Context, containerID string, force bool) error {
+func (e *SandboxAwareEngine) Remove(ctx context.Context, containerID ContainerID, force bool) error {
 	if e.sandboxType == platform.SandboxNone {
 		return e.wrapped.Remove(ctx, containerID, force)
 	}

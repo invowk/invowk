@@ -84,7 +84,7 @@ func TestCheckToolDependencies_ToolExists(t *testing.T) {
 	cmd := invowkfiletest.NewTestCommand("test",
 		invowkfiletest.WithScript("echo hello"),
 		invowkfiletest.WithDependsOn(&invowkfile.DependsOn{
-			Tools: []invowkfile.ToolDependency{{Alternatives: []string{existingTool}}},
+			Tools: []invowkfile.ToolDependency{{Alternatives: []invowkfile.BinaryName{invowkfile.BinaryName(existingTool)}}},
 		}))
 
 	err := checkHostToolDependencies(cmd.DependsOn, &runtime.ExecutionContext{Command: cmd})
@@ -99,7 +99,7 @@ func TestCheckToolDependencies_ToolNotExists(t *testing.T) {
 	cmd := invowkfiletest.NewTestCommand("test",
 		invowkfiletest.WithScript("echo hello"),
 		invowkfiletest.WithDependsOn(&invowkfile.DependsOn{
-			Tools: []invowkfile.ToolDependency{{Alternatives: []string{"nonexistent-tool-xyz-12345"}}},
+			Tools: []invowkfile.ToolDependency{{Alternatives: []invowkfile.BinaryName{"nonexistent-tool-xyz-12345"}}},
 		}))
 
 	err := checkHostToolDependencies(cmd.DependsOn, &runtime.ExecutionContext{Command: cmd})
@@ -128,9 +128,9 @@ func TestCheckToolDependencies_MultipleToolsNotExist(t *testing.T) {
 		invowkfiletest.WithScript("echo hello"),
 		invowkfiletest.WithDependsOn(&invowkfile.DependsOn{
 			Tools: []invowkfile.ToolDependency{
-				{Alternatives: []string{"nonexistent-tool-1"}},
-				{Alternatives: []string{"nonexistent-tool-2"}},
-				{Alternatives: []string{"nonexistent-tool-3"}},
+				{Alternatives: []invowkfile.BinaryName{"nonexistent-tool-1"}},
+				{Alternatives: []invowkfile.BinaryName{"nonexistent-tool-2"}},
+				{Alternatives: []invowkfile.BinaryName{"nonexistent-tool-3"}},
 			},
 		}))
 
@@ -169,8 +169,8 @@ func TestCheckToolDependencies_MixedToolsExistAndNotExist(t *testing.T) {
 		invowkfiletest.WithScript("echo hello"),
 		invowkfiletest.WithDependsOn(&invowkfile.DependsOn{
 			Tools: []invowkfile.ToolDependency{
-				{Alternatives: []string{existingTool}},
-				{Alternatives: []string{"nonexistent-tool-xyz"}},
+				{Alternatives: []invowkfile.BinaryName{invowkfile.BinaryName(existingTool)}},
+				{Alternatives: []invowkfile.BinaryName{"nonexistent-tool-xyz"}},
 			},
 		}))
 
@@ -228,7 +228,7 @@ func TestCheckCommandDependenciesExist_SatisfiedByLocalUnqualifiedName(t *testin
 	}
 
 	// Standalone invowkfile has no module identifier, so pass empty string
-	deps := &invowkfile.DependsOn{Commands: []invowkfile.CommandDependency{{Alternatives: []string{"build"}}}}
+	deps := &invowkfile.DependsOn{Commands: []invowkfile.CommandDependency{{Alternatives: []invowkfile.CommandName{"build"}}}}
 	ctx := &runtime.ExecutionContext{Command: &invowkfile.Command{Name: "deploy"}}
 	disc := &testDiscoveryService{disc: discovery.New(config.DefaultConfig(),
 		discovery.WithBaseDir(tmpDir),
@@ -285,7 +285,7 @@ version: "1.0.0"
 	}
 
 	// Module command is prefixed: "shared generate-types"
-	deps := &invowkfile.DependsOn{Commands: []invowkfile.CommandDependency{{Alternatives: []string{"shared generate-types"}}}}
+	deps := &invowkfile.DependsOn{Commands: []invowkfile.CommandDependency{{Alternatives: []invowkfile.CommandName{"shared generate-types"}}}}
 	ctx := &runtime.ExecutionContext{Command: &invowkfile.Command{Name: "deploy"}}
 	disc := &testDiscoveryService{disc: discovery.New(config.DefaultConfig(),
 		discovery.WithBaseDir(tmpDir),
@@ -316,7 +316,7 @@ func TestCheckCommandDependenciesExist_MissingCommand(t *testing.T) {
 		t.Fatalf("failed to write invowkfile: %v", err)
 	}
 
-	deps := &invowkfile.DependsOn{Commands: []invowkfile.CommandDependency{{Alternatives: []string{"build"}}}}
+	deps := &invowkfile.DependsOn{Commands: []invowkfile.CommandDependency{{Alternatives: []invowkfile.CommandName{"build"}}}}
 	ctx := &runtime.ExecutionContext{Command: &invowkfile.Command{Name: "deploy"}}
 	disc := &testDiscoveryService{disc: discovery.New(config.DefaultConfig(),
 		discovery.WithBaseDir(tmpDir),

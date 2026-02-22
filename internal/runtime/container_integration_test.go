@@ -194,7 +194,7 @@ echo "Variable: $VAR"`
 		Name: "test-multiline",
 		Implementations: []invowkfile.Implementation{
 			{
-				Script: script,
+				Script: invowkfile.ScriptContent(script),
 
 				Runtimes: []invowkfile.RuntimeConfig{
 					{Name: invowkfile.RuntimeContainer, Image: "debian:stable-slim"},

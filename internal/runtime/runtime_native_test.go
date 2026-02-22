@@ -403,7 +403,7 @@ func TestNativeRuntime_InvalidWorkingDirectory(t *testing.T) {
 		Name: "invalid-workdir",
 		Implementations: []invowkfile.Implementation{
 			{
-				Script:    script,
+				Script:    invowkfile.ScriptContent(script),
 				Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeNative}},
 				Platforms: []invowkfile.PlatformConfig{{Name: invowkfile.PlatformLinux}, {Name: invowkfile.PlatformMac}},
 				WorkDir:   "/nonexistent/directory/that/does/not/exist",
@@ -666,7 +666,7 @@ func TestExecutionContext_EffectiveWorkDir_Native(t *testing.T) {
 			}
 			cmd := &invowkfile.Command{
 				Name:    "workdir-test",
-				WorkDir: tt.cmdWorkDir,
+				WorkDir: invowkfile.WorkDir(tt.cmdWorkDir),
 				Implementations: []invowkfile.Implementation{
 					{
 						Script:    "echo test",

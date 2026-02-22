@@ -36,9 +36,8 @@ func (m *Resolver) validateModuleRef(req ModuleRef) error {
 
 	// Validate path to prevent directory traversal attacks
 	if req.Path != "" {
-		cleanPath := filepath.Clean(req.Path)
-		if strings.HasPrefix(cleanPath, "..") || filepath.IsAbs(cleanPath) {
-			return fmt.Errorf("invalid path: path traversal or absolute paths not allowed")
+		if valid, errs := req.Path.IsValid(); !valid {
+			return fmt.Errorf("invalid path: %w", errs[0])
 		}
 	}
 
@@ -137,7 +136,7 @@ func (m *Resolver) resolveOne(ctx context.Context, req ModuleRef, _ map[string]b
 	// Determine module path within the repository
 	modulePath := repoPath
 	if req.Path != "" {
-		modulePath = filepath.Join(repoPath, req.Path)
+		modulePath = filepath.Join(repoPath, string(req.Path))
 	}
 
 	// Find .invowkmod directory
@@ -150,7 +149,7 @@ func (m *Resolver) resolveOne(ctx context.Context, req ModuleRef, _ map[string]b
 	namespace := computeNamespace(moduleName, resolvedVersion, req.Alias)
 
 	// Cache the module in the versioned directory
-	cachePath := m.getCachePath(string(req.GitURL), resolvedVersion, req.Path)
+	cachePath := m.getCachePath(string(req.GitURL), resolvedVersion, string(req.Path))
 	if err = m.cacheModule(moduleDir, cachePath); err != nil {
 		return nil, fmt.Errorf("failed to cache module: %w", err)
 	}
@@ -215,11 +214,11 @@ func (m *Resolver) loadTransitiveDeps(cachePath string) ([]ModuleRef, ModuleID, 
 }
 
 // computeNamespace generates the namespace for a module.
-func computeNamespace(moduleName, version, alias string) string {
+func computeNamespace(moduleName, version string, alias ModuleAlias) ModuleNamespace {
 	if alias != "" {
-		return alias
+		return ModuleNamespace(alias)
 	}
-	return fmt.Sprintf("%s@%s", moduleName, version)
+	return ModuleNamespace(fmt.Sprintf("%s@%s", moduleName, version))
 }
 
 // extractModuleName extracts the module name from a module key.

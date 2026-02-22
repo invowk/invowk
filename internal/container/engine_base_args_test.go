@@ -169,7 +169,7 @@ func TestBaseCLIEngine_RunArgs(t *testing.T) {
 			name: "run with extra hosts",
 			opts: RunOptions{
 				Image:      "debian:stable-slim",
-				ExtraHosts: []string{"host.docker.internal:host-gateway"},
+				ExtraHosts: []HostMapping{"host.docker.internal:host-gateway"},
 			},
 			contains: []string{"--add-host", "host.docker.internal:host-gateway"},
 		},
@@ -255,7 +255,7 @@ func TestBaseCLIEngine_ExecArgs(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			args := engine.ExecArgs(tt.containerID, tt.command, tt.opts)
+			args := engine.ExecArgs(ContainerID(tt.containerID), tt.command, tt.opts)
 
 			for _, exp := range tt.contains {
 				if !slices.Contains(args, exp) {
@@ -293,7 +293,7 @@ func TestBaseCLIEngine_RemoveArgs(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			args := engine.RemoveArgs(tt.containerID, tt.force)
+			args := engine.RemoveArgs(ContainerID(tt.containerID), tt.force)
 			if len(args) != len(tt.expected) {
 				t.Errorf("got %d args, want %d\ngot: %v\nwant: %v", len(args), len(tt.expected), args, tt.expected)
 				return

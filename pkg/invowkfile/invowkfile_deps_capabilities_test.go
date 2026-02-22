@@ -464,7 +464,7 @@ func TestInvowkfile_HasRootLevelDependencies(t *testing.T) {
 		{
 			name: "with tools",
 			deps: &DependsOn{
-				Tools: []ToolDependency{{Alternatives: []string{"sh"}}},
+				Tools: []ToolDependency{{Alternatives: []BinaryName{"sh"}}},
 			},
 			expected: true,
 		},
@@ -485,7 +485,7 @@ func TestInvowkfile_HasRootLevelDependencies(t *testing.T) {
 		{
 			name: "with commands",
 			deps: &DependsOn{
-				Commands: []CommandDependency{{Alternatives: []string{"build"}}},
+				Commands: []CommandDependency{{Alternatives: []CommandName{"build"}}},
 			},
 			expected: true,
 		},
@@ -529,19 +529,19 @@ func TestMergeDependsOnAll(t *testing.T) {
 	t.Parallel()
 
 	rootDeps := &DependsOn{
-		Tools:        []ToolDependency{{Alternatives: []string{"sh"}}},
+		Tools:        []ToolDependency{{Alternatives: []BinaryName{"sh"}}},
 		Capabilities: []CapabilityDependency{{Alternatives: []CapabilityName{CapabilityLocalAreaNetwork}}},
 		CustomChecks: []CustomCheckDependency{{Name: "root-check", CheckScript: "true"}},
 	}
 	cmdDeps := &DependsOn{
-		Tools:     []ToolDependency{{Alternatives: []string{"bash"}}},
+		Tools:     []ToolDependency{{Alternatives: []BinaryName{"bash"}}},
 		Filepaths: []FilepathDependency{{Alternatives: []string{"/etc/hosts"}}},
-		Commands:  []CommandDependency{{Alternatives: []string{"build"}}},
+		Commands:  []CommandDependency{{Alternatives: []CommandName{"build"}}},
 	}
 	implDeps := &DependsOn{
-		Tools:        []ToolDependency{{Alternatives: []string{"python3"}}},
+		Tools:        []ToolDependency{{Alternatives: []BinaryName{"python3"}}},
 		EnvVars:      []EnvVarDependency{{Alternatives: []EnvVarCheck{{Name: "HOME"}}}},
-		Commands:     []CommandDependency{{Alternatives: []string{"test"}}},
+		Commands:     []CommandDependency{{Alternatives: []CommandName{"test"}}},
 		CustomChecks: []CustomCheckDependency{{Name: "impl-check", CheckScript: "echo ok"}},
 	}
 
@@ -632,7 +632,7 @@ func TestMergeDependsOnAll_NilInputs(t *testing.T) {
 		},
 		{
 			name:     "only root",
-			rootDeps: &DependsOn{Tools: []ToolDependency{{Alternatives: []string{"sh"}}}},
+			rootDeps: &DependsOn{Tools: []ToolDependency{{Alternatives: []BinaryName{"sh"}}}},
 			cmdDeps:  nil,
 			implDeps: nil,
 			expected: true,
@@ -640,7 +640,7 @@ func TestMergeDependsOnAll_NilInputs(t *testing.T) {
 		{
 			name:     "only command",
 			rootDeps: nil,
-			cmdDeps:  &DependsOn{Tools: []ToolDependency{{Alternatives: []string{"bash"}}}},
+			cmdDeps:  &DependsOn{Tools: []ToolDependency{{Alternatives: []BinaryName{"bash"}}}},
 			implDeps: nil,
 			expected: true,
 		},
@@ -648,7 +648,7 @@ func TestMergeDependsOnAll_NilInputs(t *testing.T) {
 			name:     "only impl",
 			rootDeps: nil,
 			cmdDeps:  nil,
-			implDeps: &DependsOn{Tools: []ToolDependency{{Alternatives: []string{"python3"}}}},
+			implDeps: &DependsOn{Tools: []ToolDependency{{Alternatives: []BinaryName{"python3"}}}},
 			expected: true,
 		},
 	}
@@ -674,7 +674,7 @@ func TestGenerateCUE_WithRootLevelDependsOn(t *testing.T) {
 
 	inv := &Invowkfile{
 		DependsOn: &DependsOn{
-			Tools:        []ToolDependency{{Alternatives: []string{"sh", "bash"}}},
+			Tools:        []ToolDependency{{Alternatives: []BinaryName{"sh", "bash"}}},
 			Capabilities: []CapabilityDependency{{Alternatives: []CapabilityName{CapabilityInternet}}},
 			Filepaths:    []FilepathDependency{{Alternatives: []string{"/etc/hosts"}, Readable: true}},
 			EnvVars:      []EnvVarDependency{{Alternatives: []EnvVarCheck{{Name: "HOME"}}}},

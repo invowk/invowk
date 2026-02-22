@@ -404,7 +404,7 @@ func TestValidateCustomChecks(t *testing.T) {
 		{
 			name: "name too long",
 			checks: []CustomCheckDependency{{
-				Name:        strings.Repeat("a", MaxNameLength+1),
+				Name:        CheckName(strings.Repeat("a", MaxNameLength+1)),
 				CheckScript: "echo test",
 			}},
 			shouldError: true,
@@ -416,7 +416,7 @@ func TestValidateCustomChecks(t *testing.T) {
 			name: "check_script too long",
 			checks: []CustomCheckDependency{{
 				Name:        "test",
-				CheckScript: strings.Repeat("a", MaxScriptLength+1),
+				CheckScript: ScriptContent(strings.Repeat("a", MaxScriptLength+1)),
 			}},
 			shouldError: true,
 			errorMsg:    "too long",
@@ -470,7 +470,7 @@ func TestValidateCustomChecks(t *testing.T) {
 			checks: []CustomCheckDependency{{
 				Alternatives: []CustomCheck{
 					{Name: "good", CheckScript: "echo 1"},
-					{Name: strings.Repeat("x", MaxNameLength+1), CheckScript: "echo 2"},
+					{Name: CheckName(strings.Repeat("x", MaxNameLength+1)), CheckScript: "echo 2"},
 				},
 			}},
 			shouldError: true,
@@ -480,7 +480,7 @@ func TestValidateCustomChecks(t *testing.T) {
 			name: "alternatives with invalid check_script",
 			checks: []CustomCheckDependency{{
 				Alternatives: []CustomCheck{
-					{Name: "check", CheckScript: strings.Repeat("x", MaxScriptLength+1)},
+					{Name: "check", CheckScript: ScriptContent(strings.Repeat("x", MaxScriptLength+1))},
 				},
 			}},
 			shouldError: true,

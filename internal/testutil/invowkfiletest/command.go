@@ -58,7 +58,7 @@ func NewTestCommand(name string, opts ...CommandOption) *invowkfile.Command {
 func WithScript(script string) CommandOption {
 	return func(c *invowkfile.Command) {
 		if len(c.Implementations) > 0 {
-			c.Implementations[0].Script = script
+			c.Implementations[0].Script = invowkfile.ScriptContent(script)
 		}
 	}
 }
@@ -145,7 +145,7 @@ func WithEnv(key, value string) CommandOption {
 // WithWorkDir sets the working directory.
 func WithWorkDir(dir string) CommandOption {
 	return func(c *invowkfile.Command) {
-		c.WorkDir = dir
+		c.WorkDir = invowkfile.WorkDir(dir)
 	}
 }
 

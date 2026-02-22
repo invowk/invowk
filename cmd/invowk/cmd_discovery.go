@@ -46,7 +46,7 @@ func registerDiscoveredCommands(ctx context.Context, app *App, rootFlags *rootFl
 	// disambiguation guidance when invoked directly.
 	ambiguousPrefixes := make(map[string]bool)
 	for name := range commandSet.AmbiguousNames {
-		ambiguousPrefixes[name] = true
+		ambiguousPrefixes[string(name)] = true
 	}
 
 	for _, cmdInfo := range commandSet.Commands {
@@ -56,7 +56,7 @@ func registerDiscoveredCommands(ctx context.Context, app *App, rootFlags *rootFl
 			continue
 		}
 
-		registrationName := cmdInfo.SimpleName
+		registrationName := string(cmdInfo.SimpleName)
 		parts := strings.Fields(registrationName)
 		parent := cmdCmd
 
@@ -147,7 +147,7 @@ func buildLeafCommand(app *App, rootFlags *rootFlagValues, cmdFlags *cmdFlagValu
 				// If Cobra routed to the wrong source-specific leaf, delegate to
 				// source-aware lookup instead of executing the wrong command.
 				if filter.SourceID != cmdSourceID {
-					return runDisambiguatedCommand(cmd, app, rootFlags, cmdFlags, filter, append(strings.Fields(cmdSimpleName), args...))
+					return runDisambiguatedCommand(cmd, app, rootFlags, cmdFlags, filter, append(strings.Fields(string(cmdSimpleName)), args...))
 				}
 			}
 
@@ -195,7 +195,7 @@ func buildLeafCommand(app *App, rootFlags *rootFlagValues, cmdFlags *cmdFlagValu
 
 			// Watch mode intercepts before normal execution.
 			if cmdFlags.watch {
-				return runWatchMode(cmd, app, rootFlags, cmdFlags, append([]string{cmdName}, args...))
+				return runWatchMode(cmd, app, rootFlags, cmdFlags, append([]string{string(cmdName)}, args...))
 			}
 
 			parsedRuntime, err := cmdFlags.parsedRuntimeMode()
@@ -209,7 +209,7 @@ func buildLeafCommand(app *App, rootFlags *rootFlagValues, cmdFlags *cmdFlagValu
 
 			verbose, interactive := resolveUIFlags(cmd.Context(), app, cmd, rootFlags)
 			req := ExecuteRequest{
-				Name:            cmdName,
+				Name:            string(cmdName),
 				Args:            args,
 				Runtime:         parsedRuntime,
 				Interactive:     interactive,
@@ -382,7 +382,7 @@ func completeCommands(app *App, rootFlags *rootFlagValues) func(*cobra.Command, 
 		}
 
 		for _, cmdInfo := range commands {
-			cmdName := cmdInfo.Name
+			cmdName := string(cmdInfo.Name)
 			if prefix != "" && !strings.HasPrefix(cmdName, prefix) {
 				continue
 			}
@@ -501,7 +501,7 @@ func listCommands(cmd *cobra.Command, app *App, rootFlags *rootFlagValues) error
 				if group.category != "" {
 					indent = "    "
 				}
-				line := fmt.Sprintf("%s%s", indent, nameStyle.Render(discovered.SimpleName))
+				line := fmt.Sprintf("%s%s", indent, nameStyle.Render(string(discovered.SimpleName)))
 				if discovered.Description != "" {
 					line += fmt.Sprintf(" - %s", descStyle.Render(discovered.Description))
 				}

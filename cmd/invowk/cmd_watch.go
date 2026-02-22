@@ -54,8 +54,12 @@ func runWatchMode(cmd *cobra.Command, app *App, rootFlags *rootFlagValues, cmdFl
 	var clearScreen bool
 
 	if watchCfg := cmdInfo.Command.Watch; watchCfg != nil {
-		patterns = watchCfg.Patterns
-		ignore = watchCfg.Ignore
+		for _, p := range watchCfg.Patterns {
+			patterns = append(patterns, string(p))
+		}
+		for _, ig := range watchCfg.Ignore {
+			ignore = append(ignore, string(ig))
+		}
 		clearScreen = watchCfg.ClearScreen
 		if watchCfg.Debounce != "" {
 			d, parseErr := watchCfg.ParseDebounce()
@@ -112,7 +116,7 @@ func runWatchMode(cmd *cobra.Command, app *App, rootFlags *rootFlagValues, cmdFl
 	// Resolve base directory: use command workdir if set, otherwise current dir.
 	// Relative workdir is resolved against the invowkfile directory, matching
 	// how the execution pipeline resolves it (not against os.Getwd()).
-	baseDir := cmdInfo.Command.WorkDir
+	baseDir := string(cmdInfo.Command.WorkDir)
 	if baseDir != "" && !filepath.IsAbs(baseDir) {
 		baseDir = filepath.Join(filepath.Dir(cmdInfo.FilePath), baseDir)
 	}

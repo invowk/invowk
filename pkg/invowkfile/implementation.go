@@ -17,7 +17,7 @@ type (
 	// Implementation represents an implementation with platform and runtime constraints
 	Implementation struct {
 		// Script contains the shell commands to execute OR a path to a script file
-		Script string `json:"script"`
+		Script ScriptContent `json:"script"`
 		// Runtimes specifies which runtimes can execute this implementation (required, at least one)
 		// The first element is the default runtime for this platform combination
 		// Each runtime is a struct with a Name field and optional type-specific fields
@@ -34,7 +34,7 @@ type (
 		// Overrides both root-level and command-level workdir settings.
 		// Can be absolute or relative to the invowkfile location.
 		// Forward slashes should be used for cross-platform compatibility.
-		WorkDir string `json:"workdir,omitempty"`
+		WorkDir WorkDir `json:"workdir,omitempty"`
 		// DependsOn specifies dependencies validated against the HOST system.
 		// Regardless of the selected runtime, these are always checked on the host.
 		// To validate dependencies inside the runtime environment (e.g., inside a container),
@@ -138,11 +138,11 @@ func (s *Implementation) HasDependencies() bool {
 
 // GetCommandDependencies returns the list of command dependency names from this implementation.
 // For dependencies with alternatives, returns all alternatives flattened into a single list.
-func (s *Implementation) GetCommandDependencies() []string {
+func (s *Implementation) GetCommandDependencies() []CommandName {
 	if s.DependsOn == nil {
 		return nil
 	}
-	var names []string
+	var names []CommandName
 	for _, dep := range s.DependsOn.Commands {
 		names = append(names, dep.Alternatives...)
 	}
@@ -156,7 +156,7 @@ func (s *Implementation) GetCommandDependencies() []string {
 //   - Known extension: ends with a recognized script file extension
 //     (.sh, .bash, .ps1, .bat, .cmd, .py, .rb, .pl, .zsh, .fish)
 func (s *Implementation) IsScriptFile() bool {
-	script := strings.TrimSpace(s.Script)
+	script := strings.TrimSpace(string(s.Script))
 	if script == "" {
 		return false
 	}
@@ -202,7 +202,7 @@ func (s *Implementation) GetScriptFilePathWithModule(invowkfilePath, modulePath 
 		return ""
 	}
 
-	script := strings.TrimSpace(s.Script)
+	script := strings.TrimSpace(string(s.Script))
 
 	// If absolute path, return as-is
 	if filepath.IsAbs(script) {
@@ -239,7 +239,7 @@ func (s *Implementation) ResolveScriptWithModule(invowkfilePath, modulePath stri
 		return s.resolvedScript, nil
 	}
 
-	script := s.Script
+	script := string(s.Script)
 	if script == "" {
 		return "", fmt.Errorf("script has no content")
 	}
@@ -270,7 +270,7 @@ func (s *Implementation) ResolveScriptWithFS(invowkfilePath string, readFile fun
 // This is useful for testing with virtual filesystems.
 // The modulePath parameter specifies the module root directory for module-relative paths.
 func (s *Implementation) ResolveScriptWithFSAndModule(invowkfilePath, modulePath string, readFile func(path string) ([]byte, error)) (string, error) {
-	script := s.Script
+	script := string(s.Script)
 	if script == "" {
 		return "", fmt.Errorf("script has no content")
 	}

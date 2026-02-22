@@ -398,7 +398,7 @@ func TestVendorModules_CopiesFromCache(t *testing.T) {
 	}
 
 	// Verify modules exist in invowk_modules/ with correct fields
-	entryByNamespace := make(map[string]VendoredEntry)
+	entryByNamespace := make(map[ModuleNamespace]VendoredEntry)
 	for _, entry := range result.Vendored {
 		entryByNamespace[entry.Namespace] = entry
 		if _, err := os.Stat(entry.VendorPath); err != nil {
@@ -412,7 +412,7 @@ func TestVendorModules_CopiesFromCache(t *testing.T) {
 	}
 
 	// Verify Namespace fields match what was passed in ResolvedModule
-	for _, ns := range []string{"dep1@1.0.0", "dep2@2.0.0"} {
+	for _, ns := range []ModuleNamespace{"dep1@1.0.0", "dep2@2.0.0"} {
 		if _, ok := entryByNamespace[ns]; !ok {
 			t.Errorf("expected vendored entry with Namespace %q, not found", ns)
 		}

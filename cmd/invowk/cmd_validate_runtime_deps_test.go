@@ -38,7 +38,7 @@ func TestValidateRuntimeDependencies_NativeRuntime_NoOp(t *testing.T) {
 			Runtimes: []invowkfile.RuntimeConfig{{
 				Name: invowkfile.RuntimeNative,
 				DependsOn: &invowkfile.DependsOn{
-					Tools: []invowkfile.ToolDependency{{Alternatives: []string{"nonexistent-tool-xyz"}}},
+					Tools: []invowkfile.ToolDependency{{Alternatives: []invowkfile.BinaryName{"nonexistent-tool-xyz"}}},
 				},
 			}},
 		},
@@ -66,7 +66,7 @@ func TestValidateRuntimeDependencies_VirtualRuntime_NoOp(t *testing.T) {
 			Runtimes: []invowkfile.RuntimeConfig{{
 				Name: invowkfile.RuntimeVirtual,
 				DependsOn: &invowkfile.DependsOn{
-					Tools: []invowkfile.ToolDependency{{Alternatives: []string{"nonexistent-tool-xyz"}}},
+					Tools: []invowkfile.ToolDependency{{Alternatives: []invowkfile.BinaryName{"nonexistent-tool-xyz"}}},
 				},
 			}},
 		},
@@ -203,7 +203,7 @@ func TestCheckHostToolDependencies_ExistingTool(t *testing.T) {
 	}
 
 	deps := &invowkfile.DependsOn{
-		Tools: []invowkfile.ToolDependency{{Alternatives: []string{existingTool}}},
+		Tools: []invowkfile.ToolDependency{{Alternatives: []invowkfile.BinaryName{invowkfile.BinaryName(existingTool)}}},
 	}
 	ctx := &runtime.ExecutionContext{
 		Command: &invowkfile.Command{Name: "test"},
@@ -219,7 +219,7 @@ func TestCheckHostToolDependencies_MissingTool(t *testing.T) {
 	t.Parallel()
 
 	deps := &invowkfile.DependsOn{
-		Tools: []invowkfile.ToolDependency{{Alternatives: []string{"nonexistent-tool-xyz-12345"}}},
+		Tools: []invowkfile.ToolDependency{{Alternatives: []invowkfile.BinaryName{"nonexistent-tool-xyz-12345"}}},
 	}
 	ctx := &runtime.ExecutionContext{
 		Command: &invowkfile.Command{Name: "test"},
@@ -259,7 +259,7 @@ func TestCheckHostToolDependencies_AlternativesOR(t *testing.T) {
 	// One existing + one missing → should pass (OR semantics)
 	deps := &invowkfile.DependsOn{
 		Tools: []invowkfile.ToolDependency{{
-			Alternatives: []string{"nonexistent-tool-xyz", existingTool},
+			Alternatives: []invowkfile.BinaryName{"nonexistent-tool-xyz", invowkfile.BinaryName(existingTool)},
 		}},
 	}
 	ctx := &runtime.ExecutionContext{

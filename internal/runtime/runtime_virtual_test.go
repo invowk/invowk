@@ -587,19 +587,19 @@ func TestExecutionContext_EffectiveWorkDir_Virtual(t *testing.T) {
 			}
 			inv := &invowkfile.Invowkfile{
 				FilePath: invowkfilePath,
-				WorkDir:  tt.rootWorkDir,
+				WorkDir:  invowkfile.WorkDir(tt.rootWorkDir),
 			}
 
 			impl := invowkfile.Implementation{
 				Script:    "echo test",
 				Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeVirtual}},
 				Platforms: []invowkfile.PlatformConfig{{Name: invowkfile.PlatformLinux}, {Name: invowkfile.PlatformMac}, {Name: invowkfile.PlatformWindows}},
-				WorkDir:   tt.implWorkDir,
+				WorkDir:   invowkfile.WorkDir(tt.implWorkDir),
 			}
 
 			cmd := &invowkfile.Command{
 				Name:            "test-workdir",
-				WorkDir:         tt.cmdWorkDir,
+				WorkDir:         invowkfile.WorkDir(tt.cmdWorkDir),
 				Implementations: []invowkfile.Implementation{impl},
 			}
 

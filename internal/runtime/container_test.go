@@ -116,7 +116,7 @@ func (m *MockEngine) Run(_ context.Context, opts container.RunOptions) (*contain
 	return m.runResult, nil
 }
 
-func (m *MockEngine) Remove(_ context.Context, _ string, _ bool) error {
+func (m *MockEngine) Remove(_ context.Context, _ container.ContainerID, _ bool) error {
 	return nil
 }
 
@@ -541,7 +541,7 @@ func TestGetContainerWorkDir(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			cmd := &invowkfile.Command{
 				Name:    "workdir-test",
-				WorkDir: tt.cmdWorkDir,
+				WorkDir: invowkfile.WorkDir(tt.cmdWorkDir),
 				Implementations: []invowkfile.Implementation{
 					{
 						Script:    "pwd",

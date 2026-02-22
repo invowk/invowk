@@ -170,6 +170,118 @@ func TestAutoDetectEngine(t *testing.T) {
 	}
 }
 
+func TestPortProtocol_IsValid(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		pp      PortProtocol
+		want    bool
+		wantErr bool
+	}{
+		{"tcp", PortProtocolTCP, true, false},
+		{"udp", PortProtocolUDP, true, false},
+		{"zero value (empty)", PortProtocol(""), true, false},
+		{"invalid protocol", PortProtocol("sctp"), false, true},
+		{"uppercase TCP", PortProtocol("TCP"), false, true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			isValid, errs := tt.pp.IsValid()
+			if isValid != tt.want {
+				t.Errorf("PortProtocol(%q).IsValid() = %v, want %v", tt.pp, isValid, tt.want)
+			}
+			if tt.wantErr {
+				if len(errs) == 0 {
+					t.Fatalf("PortProtocol(%q).IsValid() returned no errors, want error", tt.pp)
+				}
+				if !errors.Is(errs[0], ErrInvalidPortProtocol) {
+					t.Errorf("error should wrap ErrInvalidPortProtocol, got: %v", errs[0])
+				}
+				var typedErr *InvalidPortProtocolError
+				if !errors.As(errs[0], &typedErr) {
+					t.Errorf("error should be *InvalidPortProtocolError, got: %T", errs[0])
+				} else if typedErr.Value != tt.pp {
+					t.Errorf("InvalidPortProtocolError.Value = %q, want %q", typedErr.Value, tt.pp)
+				}
+			} else if len(errs) > 0 {
+				t.Errorf("PortProtocol(%q).IsValid() returned unexpected errors: %v", tt.pp, errs)
+			}
+		})
+	}
+}
+
+func TestPortProtocol_String(t *testing.T) {
+	t.Parallel()
+
+	if got := PortProtocolTCP.String(); got != "tcp" {
+		t.Errorf("PortProtocolTCP.String() = %q, want %q", got, "tcp")
+	}
+	if got := PortProtocolUDP.String(); got != "udp" {
+		t.Errorf("PortProtocolUDP.String() = %q, want %q", got, "udp")
+	}
+}
+
+func TestSELinuxLabel_IsValid(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		sl      SELinuxLabel
+		want    bool
+		wantErr bool
+	}{
+		{"none (empty)", SELinuxLabelNone, true, false},
+		{"shared (z)", SELinuxLabelShared, true, false},
+		{"private (Z)", SELinuxLabelPrivate, true, false},
+		{"invalid label", SELinuxLabel("x"), false, true},
+		{"lowercase z valid", SELinuxLabel("z"), true, false},
+		{"uppercase Z valid", SELinuxLabel("Z"), true, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			isValid, errs := tt.sl.IsValid()
+			if isValid != tt.want {
+				t.Errorf("SELinuxLabel(%q).IsValid() = %v, want %v", tt.sl, isValid, tt.want)
+			}
+			if tt.wantErr {
+				if len(errs) == 0 {
+					t.Fatalf("SELinuxLabel(%q).IsValid() returned no errors, want error", tt.sl)
+				}
+				if !errors.Is(errs[0], ErrInvalidSELinuxLabel) {
+					t.Errorf("error should wrap ErrInvalidSELinuxLabel, got: %v", errs[0])
+				}
+				var typedErr *InvalidSELinuxLabelError
+				if !errors.As(errs[0], &typedErr) {
+					t.Errorf("error should be *InvalidSELinuxLabelError, got: %T", errs[0])
+				} else if typedErr.Value != tt.sl {
+					t.Errorf("InvalidSELinuxLabelError.Value = %q, want %q", typedErr.Value, tt.sl)
+				}
+			} else if len(errs) > 0 {
+				t.Errorf("SELinuxLabel(%q).IsValid() returned unexpected errors: %v", tt.sl, errs)
+			}
+		})
+	}
+}
+
+func TestSELinuxLabel_String(t *testing.T) {
+	t.Parallel()
+
+	if got := SELinuxLabelNone.String(); got != "" {
+		t.Errorf("SELinuxLabelNone.String() = %q, want %q", got, "")
+	}
+	if got := SELinuxLabelShared.String(); got != "z" {
+		t.Errorf("SELinuxLabelShared.String() = %q, want %q", got, "z")
+	}
+	if got := SELinuxLabelPrivate.String(); got != "Z" {
+		t.Errorf("SELinuxLabelPrivate.String() = %q, want %q", got, "Z")
+	}
+}
+
 // Integration tests - only run if container engine is available
 func TestDockerEngine_Integration(t *testing.T) {
 	if testing.Short() {

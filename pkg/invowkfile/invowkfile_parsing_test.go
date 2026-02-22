@@ -51,7 +51,7 @@ func TestIsScriptFile(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			s := &Implementation{Script: tt.script, Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}
+			s := &Implementation{Script: ScriptContent(tt.script), Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}
 			result := s.IsScriptFile()
 			if result != tt.expected {
 				t.Errorf("IsScriptFile() = %v, want %v for script %q", result, tt.expected, tt.script)
@@ -92,7 +92,7 @@ func TestGetScriptFilePath(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			s := &Implementation{Script: tt.script, Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}
+			s := &Implementation{Script: ScriptContent(tt.script), Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}
 			result := s.GetScriptFilePath(invowkfilePath)
 			if tt.expectedResult {
 				if result != tt.expectedPath {
@@ -128,7 +128,7 @@ func TestResolveScript_Inline(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			s := &Implementation{Script: tt.script, Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}
+			s := &Implementation{Script: ScriptContent(tt.script), Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}
 			result, err := s.ResolveScript("/fake/path/invowkfile.cue")
 			if err != nil {
 				t.Errorf("ResolveScript() error = %v", err)
@@ -172,7 +172,7 @@ func TestResolveScript_FromFile(t *testing.T) {
 	})
 
 	t.Run("resolve script with absolute path", func(t *testing.T) {
-		s := &Implementation{Script: scriptPath, Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}
+		s := &Implementation{Script: ScriptContent(scriptPath), Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}
 		result, err := s.ResolveScript(invowkfilePath)
 		if err != nil {
 			t.Errorf("ResolveScript() error = %v", err)
@@ -310,7 +310,7 @@ cmds: [
 	if len(cmd.Implementations) == 0 {
 		t.Fatal("Expected at least 1 script")
 	}
-	if !strings.Contains(cmd.Implementations[0].Script, "Line 1") || !strings.Contains(cmd.Implementations[0].Script, "Line 2") {
+	if !strings.Contains(string(cmd.Implementations[0].Script), "Line 1") || !strings.Contains(string(cmd.Implementations[0].Script), "Line 2") {
 		t.Errorf("Multi-line script parsing failed.\nGot: %q", cmd.Implementations[0].Script)
 	}
 

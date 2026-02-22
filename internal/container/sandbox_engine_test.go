@@ -61,7 +61,7 @@ func (m *mockEngine) Run(_ context.Context, _ RunOptions) (*RunResult, error) {
 	return &RunResult{}, nil
 }
 
-func (m *mockEngine) Remove(_ context.Context, _ string, _ bool) error {
+func (m *mockEngine) Remove(_ context.Context, _ ContainerID, _ bool) error {
 	return nil
 }
 

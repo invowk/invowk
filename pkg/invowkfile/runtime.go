@@ -44,6 +44,8 @@ var (
 	ErrInvalidEnvInheritMode = errors.New("invalid env inherit mode")
 	// ErrInvalidPlatform is returned when a PlatformType value is not one of the defined platforms.
 	ErrInvalidPlatform = errors.New("invalid platform type")
+	// ErrInvalidContainerImage is the sentinel error wrapped by InvalidContainerImageError.
+	ErrInvalidContainerImage = errors.New("invalid container image")
 
 	// shellInterpreters maps shell interpreter base names to true.
 	// These interpreters are compatible with the virtual runtime (mvdan/sh).
@@ -92,6 +94,18 @@ type (
 		Value PlatformType
 	}
 
+	// ContainerImage represents a container image reference (e.g., "debian:stable-slim").
+	// The zero value ("") is valid for non-container runtimes where no image is needed.
+	// For container runtimes, validation of the image value is done at the CUE schema level
+	// and by the container engine. IsValid() checks basic structural validity.
+	ContainerImage string
+
+	// InvalidContainerImageError is returned when a ContainerImage value is
+	// non-empty but whitespace-only (structurally invalid).
+	InvalidContainerImageError struct {
+		Value ContainerImage
+	}
+
 	// RuntimeConfig represents a runtime configuration with type-specific options
 	RuntimeConfig struct {
 		// Name specifies the runtime type (required)
@@ -123,7 +137,7 @@ type (
 		Containerfile string `json:"containerfile,omitempty"`
 		// Image specifies a pre-built container image to use (container only)
 		// Mutually exclusive with Containerfile
-		Image string `json:"image,omitempty"`
+		Image ContainerImage `json:"image,omitempty"`
 		// Volumes specifies volume mounts in "host:container" format (container only)
 		Volumes []string `json:"volumes,omitempty"`
 		// Ports specifies port mappings in "host:container" format (container only)
@@ -240,6 +254,28 @@ func (p PlatformType) IsValid() (bool, []error) {
 		return false, []error{&InvalidPlatformError{Value: p}}
 	}
 }
+
+// Error implements the error interface.
+func (e *InvalidContainerImageError) Error() string {
+	return fmt.Sprintf("invalid container image %q (must not be empty or whitespace-only)", e.Value)
+}
+
+// Unwrap returns ErrInvalidContainerImage so callers can use errors.Is for programmatic detection.
+func (e *InvalidContainerImageError) Unwrap() error { return ErrInvalidContainerImage }
+
+// IsValid returns whether the ContainerImage is structurally valid,
+// and a list of validation errors if it is not.
+// The zero value ("") is valid — it means no image is specified (non-container runtimes).
+// Non-empty values must contain visible characters (not be whitespace-only).
+func (i ContainerImage) IsValid() (bool, []error) {
+	if i != "" && strings.TrimSpace(string(i)) == "" {
+		return false, []error{&InvalidContainerImageError{Value: i}}
+	}
+	return true, nil
+}
+
+// String returns the string representation of the ContainerImage.
+func (i ContainerImage) String() string { return string(i) }
 
 // GetEffectiveInterpreter returns the effective interpreter value for a RuntimeConfig.
 // If the Interpreter field is empty, returns "auto" (the default).

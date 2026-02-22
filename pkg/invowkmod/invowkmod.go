@@ -58,6 +58,13 @@ var (
 	// ErrInvalidModuleID is returned when a ModuleID value does not match the required format.
 	ErrInvalidModuleID = errors.New("invalid module ID")
 
+	// ErrInvalidModuleAlias is returned when a ModuleAlias value is whitespace-only.
+	ErrInvalidModuleAlias = errors.New("invalid module alias")
+
+	// ErrInvalidSubdirectoryPath is returned when a SubdirectoryPath value contains
+	// path traversal or absolute paths.
+	ErrInvalidSubdirectoryPath = errors.New("invalid subdirectory path")
+
 	// moduleIDPattern validates the ModuleID format: starts with a letter, alphanumeric segments
 	// separated by dots. This mirrors the CUE schema constraint in invowkmod_schema.cue.
 	moduleIDPattern = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9]*(\.[a-zA-Z][a-zA-Z0-9]*)*$`)
@@ -73,6 +80,30 @@ type (
 	// It wraps ErrInvalidModuleID for errors.Is() compatibility.
 	InvalidModuleIDError struct {
 		Value ModuleID
+	}
+
+	// ModuleAlias represents an optional namespace alias for imported module commands.
+	// The zero value ("") is valid and means "no alias" (default namespace is used).
+	// Non-zero values must not be whitespace-only.
+	ModuleAlias string
+
+	// InvalidModuleAliasError is returned when a ModuleAlias value is whitespace-only.
+	// It wraps ErrInvalidModuleAlias for errors.Is() compatibility.
+	InvalidModuleAliasError struct {
+		Value ModuleAlias
+	}
+
+	// SubdirectoryPath represents a relative path to a subdirectory within a repository.
+	// The zero value ("") is valid and means "repository root".
+	// Non-zero values must not contain path traversal (..) or absolute paths.
+	SubdirectoryPath string
+
+	// InvalidSubdirectoryPathError is returned when a SubdirectoryPath value contains
+	// path traversal or absolute paths.
+	// It wraps ErrInvalidSubdirectoryPath for errors.Is() compatibility.
+	InvalidSubdirectoryPathError struct {
+		Value  SubdirectoryPath
+		Reason string
 	}
 
 	// ModuleCommands defines the typed command contract stored in Module.Commands.
@@ -155,10 +186,10 @@ type (
 		Version SemVerConstraint `json:"version"`
 		// Alias overrides the default namespace for imported commands (optional).
 		// If not set, the namespace is: <module>@<resolved-version>
-		Alias string `json:"alias,omitempty"`
+		Alias ModuleAlias `json:"alias,omitempty"`
 		// Path specifies a subdirectory containing the module (optional).
 		// Used for monorepos with multiple modules.
-		Path string `json:"path,omitempty"`
+		Path SubdirectoryPath `json:"path,omitempty"`
 	}
 
 	// Invowkmod represents module metadata from invowkmod.cue.
@@ -232,6 +263,81 @@ func (m ModuleID) IsValid() (bool, []error) {
 
 	return true, nil
 }
+
+// Error implements the error interface for InvalidModuleAliasError.
+func (e *InvalidModuleAliasError) Error() string {
+	return fmt.Sprintf("invalid module alias %q (must not be whitespace-only)", e.Value)
+}
+
+// Unwrap returns the sentinel error for errors.Is() compatibility.
+func (e *InvalidModuleAliasError) Unwrap() error {
+	return ErrInvalidModuleAlias
+}
+
+// IsValid returns whether the ModuleAlias is valid.
+// The zero value ("") is valid — it means "no alias".
+// Non-zero values must not be whitespace-only.
+func (a ModuleAlias) IsValid() (bool, []error) {
+	if a == "" {
+		return true, nil
+	}
+	if strings.TrimSpace(string(a)) == "" {
+		return false, []error{&InvalidModuleAliasError{Value: a}}
+	}
+	return true, nil
+}
+
+// String returns the string representation of the ModuleAlias.
+func (a ModuleAlias) String() string { return string(a) }
+
+// Error implements the error interface for InvalidSubdirectoryPathError.
+func (e *InvalidSubdirectoryPathError) Error() string {
+	return fmt.Sprintf("invalid subdirectory path %q: %s", e.Value, e.Reason)
+}
+
+// Unwrap returns the sentinel error for errors.Is() compatibility.
+func (e *InvalidSubdirectoryPathError) Unwrap() error {
+	return ErrInvalidSubdirectoryPath
+}
+
+// IsValid returns whether the SubdirectoryPath is valid.
+// The zero value ("") is valid — it means "repository root".
+// Non-zero values must not contain path traversal (..) or absolute paths.
+func (p SubdirectoryPath) IsValid() (bool, []error) {
+	if p == "" {
+		return true, nil
+	}
+	s := string(p)
+	if len(s) > MaxPathLength {
+		return false, []error{&InvalidSubdirectoryPathError{
+			Value:  p,
+			Reason: fmt.Sprintf("too long (%d chars, max %d)", len(s), MaxPathLength),
+		}}
+	}
+	if strings.ContainsRune(s, '\x00') {
+		return false, []error{&InvalidSubdirectoryPathError{
+			Value:  p,
+			Reason: "contains null byte",
+		}}
+	}
+	cleanPath := filepath.Clean(s)
+	if strings.HasPrefix(cleanPath, "..") {
+		return false, []error{&InvalidSubdirectoryPathError{
+			Value:  p,
+			Reason: "path traversal not allowed",
+		}}
+	}
+	if filepath.IsAbs(cleanPath) {
+		return false, []error{&InvalidSubdirectoryPathError{
+			Value:  p,
+			Reason: "absolute paths not allowed",
+		}}
+	}
+	return true, nil
+}
+
+// String returns the string representation of the SubdirectoryPath.
+func (p SubdirectoryPath) String() string { return string(p) }
 
 // Error implements the error interface for InvalidValidationIssueTypeError.
 func (e *InvalidValidationIssueTypeError) Error() string {
@@ -416,7 +522,7 @@ func NewCommandScope(moduleID ModuleID, globalModuleIDs []ModuleID, directRequir
 	for _, req := range directRequirements {
 		// The direct dependency namespace uses either alias or the resolved module ID
 		if req.Alias != "" {
-			scope.DirectDeps[ModuleID(req.Alias)] = true
+			scope.DirectDeps[ModuleID(string(req.Alias))] = true
 		}
 		// Note: The actual resolved module ID will be added during resolution
 	}
@@ -514,15 +620,8 @@ func ParseInvowkmodBytes(data []byte, path string) (*Invowkmod, error) {
 	// CUE cannot perform filesystem operations or cross-platform path normalization.
 	for i, req := range meta.Requires {
 		if req.Path != "" {
-			if len(req.Path) > MaxPathLength {
-				return nil, fmt.Errorf("requires[%d].path: too long (%d chars, max %d) in invowkmod at %s", i, len(req.Path), MaxPathLength, path)
-			}
-			if strings.ContainsRune(req.Path, '\x00') {
-				return nil, fmt.Errorf("requires[%d].path: contains null byte in invowkmod at %s", i, path)
-			}
-			cleanPath := filepath.Clean(req.Path)
-			if strings.HasPrefix(cleanPath, "..") || filepath.IsAbs(cleanPath) {
-				return nil, fmt.Errorf("requires[%d].path: path traversal or absolute paths not allowed in invowkmod at %s", i, path)
+			if valid, errs := req.Path.IsValid(); !valid {
+				return nil, fmt.Errorf("requires[%d].path: %w in invowkmod at %s", i, errs[0], path)
 			}
 		}
 	}

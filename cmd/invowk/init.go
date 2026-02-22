@@ -156,8 +156,8 @@ func generateInvowkfile(template string) string {
 					},
 					DependsOn: &invowkfile.DependsOn{
 						Commands: []invowkfile.CommandDependency{
-							{Alternatives: []string{"hello"}},
-							{Alternatives: []string{"hello formal"}},
+							{Alternatives: []invowkfile.CommandName{"hello"}},
+							{Alternatives: []invowkfile.CommandName{"hello formal"}},
 						},
 					},
 				},

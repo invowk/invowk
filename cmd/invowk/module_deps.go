@@ -151,8 +151,8 @@ func runModuleAdd(args []string, addAlias, addPath string) error {
 	req := invowkmod.ModuleRef{
 		GitURL:  invowkmod.GitURL(gitURL),
 		Version: invowkmod.SemVerConstraint(version),
-		Alias:   addAlias,
-		Path:    addPath,
+		Alias:   invowkmod.ModuleAlias(addAlias),
+		Path:    invowkmod.SubdirectoryPath(addPath),
 	}
 
 	fmt.Printf("%s Resolving %s@%s...\n", moduleInfoIcon, gitURL, version)
@@ -169,7 +169,7 @@ func runModuleAdd(args []string, addAlias, addPath string) error {
 	fmt.Println()
 	fmt.Printf("%s Git URL:   %s\n", moduleInfoIcon, modulePathStyle.Render(string(resolved.ModuleRef.GitURL)))
 	fmt.Printf("%s Version:   %s → %s\n", moduleInfoIcon, version, CmdStyle.Render(string(resolved.ResolvedVersion)))
-	fmt.Printf("%s Namespace: %s\n", moduleInfoIcon, CmdStyle.Render(resolved.Namespace))
+	fmt.Printf("%s Namespace: %s\n", moduleInfoIcon, CmdStyle.Render(string(resolved.Namespace)))
 	fmt.Printf("%s Cache:     %s\n", moduleInfoIcon, moduleDetailStyle.Render(resolved.CachePath))
 
 	// Auto-edit invowkmod.cue to add the requires entry
@@ -219,13 +219,13 @@ func runModuleRemove(cmd *cobra.Command, args []string) error {
 	// Auto-edit invowkmod.cue to remove the requires entries
 	invowkmodPath := filepath.Join(".", "invowkmod.cue")
 	for i := range results {
-		if editErr := invowkmod.RemoveRequirement(invowkmodPath, string(results[i].RemovedEntry.GitURL), results[i].RemovedEntry.Path); editErr != nil {
+		if editErr := invowkmod.RemoveRequirement(invowkmodPath, string(results[i].RemovedEntry.GitURL), string(results[i].RemovedEntry.Path)); editErr != nil {
 			fmt.Printf("%s Could not auto-edit invowkmod.cue: %v\n", moduleInfoIcon, editErr)
 		}
 	}
 
 	for i := range results {
-		fmt.Printf("%s Removed %s\n", moduleSuccessIcon, CmdStyle.Render(results[i].RemovedEntry.Namespace))
+		fmt.Printf("%s Removed %s\n", moduleSuccessIcon, CmdStyle.Render(string(results[i].RemovedEntry.Namespace)))
 	}
 
 	fmt.Println()
@@ -270,7 +270,7 @@ func runModuleSync(cmd *cobra.Command, args []string) error {
 	fmt.Println()
 	for _, p := range resolved {
 		fmt.Printf("%s %s → %s\n", moduleSuccessIcon,
-			CmdStyle.Render(p.Namespace),
+			CmdStyle.Render(string(p.Namespace)),
 			moduleDetailStyle.Render(string(p.ResolvedVersion)))
 	}
 
@@ -319,7 +319,7 @@ func runModuleUpdate(cmd *cobra.Command, args []string) error {
 	fmt.Println()
 	for _, p := range updated {
 		fmt.Printf("%s %s → %s\n", moduleSuccessIcon,
-			CmdStyle.Render(p.Namespace),
+			CmdStyle.Render(string(p.Namespace)),
 			moduleDetailStyle.Render(string(p.ResolvedVersion)))
 	}
 
@@ -356,7 +356,7 @@ func runModuleDeps(cmd *cobra.Command, args []string) error {
 	fmt.Println()
 
 	for _, dep := range deps {
-		fmt.Printf("%s %s\n", moduleSuccessIcon, CmdStyle.Render(dep.Namespace))
+		fmt.Printf("%s %s\n", moduleSuccessIcon, CmdStyle.Render(string(dep.Namespace)))
 		fmt.Printf("   Git URL:  %s\n", dep.ModuleRef.GitURL)
 		fmt.Printf("   Version:  %s → %s\n", dep.ModuleRef.Version, moduleDetailStyle.Render(string(dep.ResolvedVersion)))
 		if len(dep.GitCommit) >= 12 {

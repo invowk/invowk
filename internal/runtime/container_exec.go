@@ -28,7 +28,7 @@ type containerExecPrep struct {
 	env            map[string]string
 	volumes        []string
 	ports          []string
-	extraHosts     []string
+	extraHosts     []container.HostMapping
 	sshConnInfo    *sshserver.ConnectionInfo
 	tempScriptPath string
 	cleanup        func() // Combined cleanup for provisioning and temp files
@@ -139,10 +139,10 @@ func (r *ContainerRuntime) prepareContainerExecution(ctx *ExecutionContext) (_ *
 	workDir := r.getContainerWorkDir(ctx, invowkDir)
 
 	// Build extra hosts for SSH server access
-	var extraHosts []string
+	var extraHosts []container.HostMapping
 	if hostSSHEnabled && sshConnInfo != nil {
 		// Add host gateway for accessing host from container
-		extraHosts = append(extraHosts, hostGatewayMapping)
+		extraHosts = append(extraHosts, container.HostMapping(hostGatewayMapping))
 	}
 
 	// Build combined cleanup function (used on success path by the caller)

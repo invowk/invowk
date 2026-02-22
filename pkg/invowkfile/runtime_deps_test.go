@@ -267,9 +267,9 @@ func TestGenerateCUE_RuntimeDependsOn(t *testing.T) {
 					Name:  RuntimeContainer,
 					Image: "debian:stable-slim",
 					DependsOn: &DependsOn{
-						Tools:    []ToolDependency{{Alternatives: []string{"python3"}}},
+						Tools:    []ToolDependency{{Alternatives: []BinaryName{"python3"}}},
 						EnvVars:  []EnvVarDependency{{Alternatives: []EnvVarCheck{{Name: "API_KEY"}}}},
-						Commands: []CommandDependency{{Alternatives: []string{"build"}}},
+						Commands: []CommandDependency{{Alternatives: []CommandName{"build"}}},
 					},
 				}},
 				Platforms: []PlatformConfig{{Name: PlatformLinux}},
@@ -325,8 +325,8 @@ func TestGenerateCUE_RuntimeDependsOn_AllDepTypes(t *testing.T) {
 					Name:  RuntimeContainer,
 					Image: "debian:stable-slim",
 					DependsOn: &DependsOn{
-						Tools:    []ToolDependency{{Alternatives: []string{"curl"}}},
-						Commands: []CommandDependency{{Alternatives: []string{"build"}}},
+						Tools:    []ToolDependency{{Alternatives: []BinaryName{"curl"}}},
+						Commands: []CommandDependency{{Alternatives: []CommandName{"build"}}},
 						Filepaths: []FilepathDependency{{
 							Alternatives: []string{"/etc/hosts"},
 							Readable:     true,
@@ -418,7 +418,7 @@ func TestStructureValidator_RuntimeDependsOn_RejectsNonContainer(t *testing.T) {
 						Runtimes: []RuntimeConfig{{
 							Name: tt.runtime,
 							DependsOn: &DependsOn{
-								Tools: []ToolDependency{{Alternatives: []string{"curl"}}},
+								Tools: []ToolDependency{{Alternatives: []BinaryName{"curl"}}},
 							},
 						}},
 						Platforms: AllPlatformConfigs(),
@@ -456,7 +456,7 @@ func TestStructureValidator_RuntimeDependsOn_AllowsContainer(t *testing.T) {
 					Name:  RuntimeContainer,
 					Image: "debian:stable-slim",
 					DependsOn: &DependsOn{
-						Tools: []ToolDependency{{Alternatives: []string{"curl"}}},
+						Tools: []ToolDependency{{Alternatives: []BinaryName{"curl"}}},
 					},
 				}},
 				Platforms: AllPlatformConfigs(),

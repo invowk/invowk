@@ -3,8 +3,11 @@
 package invowkfile
 
 import (
+	"errors"
+	"fmt"
 	"path/filepath"
 	goruntime "runtime"
+	"strings"
 
 	"github.com/invowk/invowk/pkg/platform"
 )
@@ -17,7 +20,21 @@ const (
 	InvowkmodName = "invowkmod"
 )
 
+// ErrInvalidShellPath is the sentinel error wrapped by InvalidShellPathError.
+var ErrInvalidShellPath = errors.New("invalid shell path")
+
 type (
+	// ShellPath represents a filesystem path to a shell executable.
+	// The zero value ("") is valid and means "use system default shell".
+	// Non-zero values must not be whitespace-only.
+	ShellPath string
+
+	// InvalidShellPathError is returned when a ShellPath value is whitespace-only.
+	// It wraps ErrInvalidShellPath for errors.Is() compatibility.
+	InvalidShellPathError struct {
+		Value ShellPath
+	}
+
 	// Platform represents a target platform.
 	// Alias for PlatformType for cleaner code.
 	Platform = PlatformType
@@ -27,12 +44,12 @@ type (
 	// This separation follows Go's pattern: invowkmod.cue is like go.mod, invowkfile.cue is like .go files.
 	Invowkfile struct {
 		// DefaultShell overrides the default shell for native runtime
-		DefaultShell string `json:"default_shell,omitempty"`
+		DefaultShell ShellPath `json:"default_shell,omitempty"`
 		// WorkDir specifies the default working directory for all commands
 		// Can be absolute or relative to the invowkfile location.
 		// Forward slashes should be used for cross-platform compatibility.
 		// Individual commands or implementations can override this with their own workdir.
-		WorkDir string `json:"workdir,omitempty"`
+		WorkDir WorkDir `json:"workdir,omitempty"`
 		// Env contains global environment configuration for all commands (optional)
 		// Root-level env is applied first (lowest priority from invowkfile).
 		// Command-level and implementation-level env override root-level env.
@@ -58,6 +75,30 @@ type (
 	}
 )
 
+// Error implements the error interface for InvalidShellPathError.
+func (e *InvalidShellPathError) Error() string {
+	return fmt.Sprintf("invalid shell path %q (must not be whitespace-only)", e.Value)
+}
+
+// Unwrap returns ErrInvalidShellPath for errors.Is() compatibility.
+func (e *InvalidShellPathError) Unwrap() error { return ErrInvalidShellPath }
+
+// IsValid returns whether the ShellPath is valid.
+// The zero value ("") is valid — it means "use system default shell".
+// Non-zero values must not be whitespace-only.
+func (s ShellPath) IsValid() (bool, []error) {
+	if s == "" {
+		return true, nil
+	}
+	if strings.TrimSpace(string(s)) == "" {
+		return false, []error{&InvalidShellPathError{Value: s}}
+	}
+	return true, nil
+}
+
+// String returns the string representation of the ShellPath.
+func (s ShellPath) String() string { return string(s) }
+
 // CurrentPlatform returns the current operating system as Platform.
 func CurrentPlatform() Platform {
 	switch goruntime.GOOS {
@@ -74,13 +115,13 @@ func CurrentPlatform() Platform {
 }
 
 // GetCommand finds a command by its name (supports names with spaces like "test unit")
-func (inv *Invowkfile) GetCommand(name string) *Command {
+func (inv *Invowkfile) GetCommand(name CommandName) *Command {
 	if name == "" {
 		return nil
 	}
 
 	for i := range inv.Commands {
-		if string(inv.Commands[i].Name) == name {
+		if inv.Commands[i].Name == name {
 			return &inv.Commands[i]
 		}
 	}
@@ -137,17 +178,17 @@ func (inv *Invowkfile) GetEffectiveWorkDir(cmd *Command, impl *Implementation, c
 
 	// Priority 2: Implementation-level
 	if impl != nil && impl.WorkDir != "" {
-		return resolve(impl.WorkDir)
+		return resolve(string(impl.WorkDir))
 	}
 
 	// Priority 3: Command-level
 	if cmd != nil && cmd.WorkDir != "" {
-		return resolve(cmd.WorkDir)
+		return resolve(string(cmd.WorkDir))
 	}
 
 	// Priority 4: Root-level
 	if inv.WorkDir != "" {
-		return resolve(inv.WorkDir)
+		return resolve(string(inv.WorkDir))
 	}
 
 	// Priority 5: Default (invowkfile directory)
@@ -156,10 +197,10 @@ func (inv *Invowkfile) GetEffectiveWorkDir(cmd *Command, impl *Implementation, c
 
 // GetFullCommandName returns the fully qualified command name with the module prefix.
 // The format is "module cmdname" where cmdname may have spaces for subcommands.
-// Returns empty string for the module prefix if no Metadata is set.
-func (inv *Invowkfile) GetFullCommandName(cmdName string) string {
+// Returns the bare command name if no Metadata is set.
+func (inv *Invowkfile) GetFullCommandName(cmdName CommandName) CommandName {
 	if inv.Metadata != nil {
-		return string(inv.Metadata.Module) + " " + cmdName
+		return CommandName(string(inv.Metadata.Module) + " " + string(cmdName))
 	}
 	return cmdName
 }
@@ -172,20 +213,22 @@ func (inv *Invowkfile) GetModule() string {
 	return ""
 }
 
-// ListCommands returns all command names at the top level (with module prefix)
+// ListCommands returns all command names at the top level (with module prefix).
+// Returns []string to satisfy the invowkmod.ModuleCommands interface contract,
+// which lives in a separate package that cannot depend on invowkfile types.
 func (inv *Invowkfile) ListCommands() []string {
 	names := make([]string, len(inv.Commands))
 	for i := range inv.Commands {
-		names[i] = inv.GetFullCommandName(string(inv.Commands[i].Name))
+		names[i] = string(inv.GetFullCommandName(inv.Commands[i].Name))
 	}
 	return names
 }
 
 // FlattenCommands returns all commands keyed by their fully qualified names (with module prefix)
-func (inv *Invowkfile) FlattenCommands() map[string]*Command {
-	result := make(map[string]*Command)
+func (inv *Invowkfile) FlattenCommands() map[CommandName]*Command {
+	result := make(map[CommandName]*Command)
 	for i := range inv.Commands {
-		fullName := inv.GetFullCommandName(string(inv.Commands[i].Name))
+		fullName := inv.GetFullCommandName(inv.Commands[i].Name)
 		result[fullName] = &inv.Commands[i]
 	}
 	return result

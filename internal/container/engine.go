@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strings"
 )
 
 // Container engine type constants.
@@ -27,16 +28,63 @@ var (
 	ErrNoEngineAvailable = errors.New("no container engine available")
 	// ErrInvalidEngineType is returned when an EngineType value is not recognized.
 	ErrInvalidEngineType = errors.New("invalid engine type")
+	// ErrInvalidContainerID is the sentinel error wrapped by InvalidContainerIDError.
+	ErrInvalidContainerID = errors.New("invalid container ID")
+	// ErrInvalidImageTag is the sentinel error wrapped by InvalidImageTagError.
+	ErrInvalidImageTag = errors.New("invalid image tag")
+	// ErrInvalidContainerName is the sentinel error wrapped by InvalidContainerNameError.
+	ErrInvalidContainerName = errors.New("invalid container name")
+	// ErrInvalidHostMapping is the sentinel error wrapped by InvalidHostMappingError.
+	ErrInvalidHostMapping = errors.New("invalid host mapping")
 )
 
 type (
 	// EngineType identifies the container engine type
 	EngineType string
 
+	// ContainerID identifies a running or stopped container instance.
+	// DDD Value Type — name is intentionally explicit for cross-package clarity.
+	ContainerID string //nolint:revive // DDD Value Type pattern: explicit name preferred over stuttering-free abbreviation
+
+	// ImageTag identifies a container image by name and optional tag/digest.
+	// Examples: "debian:stable-slim", "invowk-provisioned:abc123"
+	ImageTag string
+
+	// ContainerName is a user-assigned name for a container instance.
+	// The zero value ("") means "no explicit name" (engine assigns one).
+	ContainerName string //nolint:revive // DDD Value Type pattern: explicit name preferred over stuttering-free abbreviation
+
+	// HostMapping is a host-to-IP mapping entry for --add-host (e.g., "host.docker.internal:host-gateway").
+	HostMapping string
+
 	// InvalidEngineTypeError is returned when an EngineType value is not recognized.
 	// It wraps ErrInvalidEngineType for errors.Is() compatibility.
 	InvalidEngineTypeError struct {
 		Value EngineType
+	}
+
+	// InvalidContainerIDError is returned when a ContainerID value is invalid.
+	// DDD Value Type error struct — wraps ErrInvalidContainerID for errors.Is().
+	InvalidContainerIDError struct {
+		Value ContainerID
+	}
+
+	// InvalidImageTagError is returned when an ImageTag value is invalid.
+	// DDD Value Type error struct — wraps ErrInvalidImageTag for errors.Is().
+	InvalidImageTagError struct {
+		Value ImageTag
+	}
+
+	// InvalidContainerNameError is returned when a ContainerName value is invalid.
+	// DDD Value Type error struct — wraps ErrInvalidContainerName for errors.Is().
+	InvalidContainerNameError struct {
+		Value ContainerName
+	}
+
+	// InvalidHostMappingError is returned when a HostMapping value is invalid.
+	// DDD Value Type error struct — wraps ErrInvalidHostMapping for errors.Is().
+	InvalidHostMappingError struct {
+		Value HostMapping
 	}
 
 	// Engine defines the interface for container operations
@@ -52,8 +100,8 @@ type (
 		Build(ctx context.Context, opts BuildOptions) error
 		// Run runs a command in a container
 		Run(ctx context.Context, opts RunOptions) (*RunResult, error)
-		// Remove removes a container
-		Remove(ctx context.Context, containerID string, force bool) error
+		// Remove removes a container by its ID
+		Remove(ctx context.Context, containerID ContainerID, force bool) error
 		// ImageExists checks if an image exists
 		ImageExists(ctx context.Context, image string) (bool, error)
 		// RemoveImage removes an image
@@ -75,8 +123,8 @@ type (
 		ContextDir string
 		// Dockerfile is the path to the Dockerfile (relative to ContextDir)
 		Dockerfile string
-		// Tag is the image tag
-		Tag string
+		// Tag is the image tag to assign to the built image
+		Tag ImageTag
 		// BuildArgs are build-time variables
 		BuildArgs map[string]string
 		// NoCache disables the build cache
@@ -104,7 +152,7 @@ type (
 		// Remove automatically removes the container after exit
 		Remove bool
 		// Name is the container name
-		Name string
+		Name ContainerName
 		// Stdin is the standard input
 		Stdin io.Reader
 		// Stdout is where to write standard output
@@ -116,13 +164,13 @@ type (
 		// TTY allocates a pseudo-TTY
 		TTY bool
 		// ExtraHosts are additional host-to-IP mappings (e.g., "host.docker.internal:host-gateway")
-		ExtraHosts []string
+		ExtraHosts []HostMapping
 	}
 
 	// RunResult contains the result of running a container
 	RunResult struct {
 		// ContainerID is the container ID
-		ContainerID string
+		ContainerID ContainerID
 		// ExitCode is the exit code
 		ExitCode int
 		// Error contains any error
@@ -154,6 +202,89 @@ func (e *InvalidEngineTypeError) Error() string {
 func (e *InvalidEngineTypeError) Unwrap() error {
 	return ErrInvalidEngineType
 }
+
+// String returns the string representation of the ContainerID.
+func (c ContainerID) String() string { return string(c) }
+
+// IsValid returns whether the ContainerID is valid.
+// A valid ContainerID is non-empty and not whitespace-only.
+func (c ContainerID) IsValid() (bool, []error) {
+	if strings.TrimSpace(string(c)) == "" {
+		return false, []error{&InvalidContainerIDError{Value: c}}
+	}
+	return true, nil
+}
+
+// Error implements the error interface for InvalidContainerIDError.
+func (e *InvalidContainerIDError) Error() string {
+	return fmt.Sprintf("invalid container ID %q: must be non-empty", e.Value)
+}
+
+// Unwrap returns ErrInvalidContainerID for errors.Is() compatibility.
+func (e *InvalidContainerIDError) Unwrap() error { return ErrInvalidContainerID }
+
+// String returns the string representation of the ImageTag.
+func (t ImageTag) String() string { return string(t) }
+
+// IsValid returns whether the ImageTag is valid.
+// A valid ImageTag is non-empty and not whitespace-only.
+func (t ImageTag) IsValid() (bool, []error) {
+	if strings.TrimSpace(string(t)) == "" {
+		return false, []error{&InvalidImageTagError{Value: t}}
+	}
+	return true, nil
+}
+
+// Error implements the error interface for InvalidImageTagError.
+func (e *InvalidImageTagError) Error() string {
+	return fmt.Sprintf("invalid image tag %q: must be non-empty", e.Value)
+}
+
+// Unwrap returns ErrInvalidImageTag for errors.Is() compatibility.
+func (e *InvalidImageTagError) Unwrap() error { return ErrInvalidImageTag }
+
+// String returns the string representation of the ContainerName.
+func (n ContainerName) String() string { return string(n) }
+
+// IsValid returns whether the ContainerName is valid.
+// The zero value ("") is valid (means no explicit name). Non-zero: not whitespace-only.
+func (n ContainerName) IsValid() (bool, []error) {
+	if n == "" {
+		return true, nil
+	}
+	if strings.TrimSpace(string(n)) == "" {
+		return false, []error{&InvalidContainerNameError{Value: n}}
+	}
+	return true, nil
+}
+
+// Error implements the error interface for InvalidContainerNameError.
+func (e *InvalidContainerNameError) Error() string {
+	return fmt.Sprintf("invalid container name %q: non-empty value must not be whitespace-only", e.Value)
+}
+
+// Unwrap returns ErrInvalidContainerName for errors.Is() compatibility.
+func (e *InvalidContainerNameError) Unwrap() error { return ErrInvalidContainerName }
+
+// String returns the string representation of the HostMapping.
+func (h HostMapping) String() string { return string(h) }
+
+// IsValid returns whether the HostMapping is valid.
+// A valid HostMapping is non-empty and not whitespace-only.
+func (h HostMapping) IsValid() (bool, []error) {
+	if strings.TrimSpace(string(h)) == "" {
+		return false, []error{&InvalidHostMappingError{Value: h}}
+	}
+	return true, nil
+}
+
+// Error implements the error interface for InvalidHostMappingError.
+func (e *InvalidHostMappingError) Error() string {
+	return fmt.Sprintf("invalid host mapping %q: must be non-empty", e.Value)
+}
+
+// Unwrap returns ErrInvalidHostMapping for errors.Is() compatibility.
+func (e *InvalidHostMappingError) Unwrap() error { return ErrInvalidHostMapping }
 
 // IsValid returns whether the EngineType is one of the defined engine types,
 // and a list of validation errors if it is not.

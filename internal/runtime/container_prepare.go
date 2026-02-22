@@ -125,12 +125,12 @@ func (r *ContainerRuntime) PrepareCommand(ctx *ExecutionContext) (*PreparedComma
 	workDir := r.getContainerWorkDir(ctx, invowkDir)
 
 	// Build extra hosts for accessing host services from container
-	var extraHosts []string
+	var extraHosts []container.HostMapping
 	needsHostAccess := hostSSHEnabled || ctx.TUI.ServerURL != ""
 	if needsHostAccess {
 		// Add host gateway for accessing host from container
 		// This enables hostDockerInternal (Docker) or hostContainersInternal (Podman)
-		extraHosts = append(extraHosts, hostGatewayMapping)
+		extraHosts = append(extraHosts, container.HostMapping(hostGatewayMapping))
 	}
 
 	// Add TUI server environment variables if set (for interactive mode)

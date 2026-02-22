@@ -48,10 +48,10 @@ func TestGenerateCUE_WatchConfig(t *testing.T) {
 					},
 				},
 				Watch: &WatchConfig{
-					Patterns:    []string{"**/*.go", "**/*.cue"},
+					Patterns:    []GlobPattern{"**/*.go", "**/*.cue"},
 					Debounce:    "300ms",
 					ClearScreen: true,
-					Ignore:      []string{"**/vendor/**"},
+					Ignore:      []GlobPattern{"**/vendor/**"},
 				},
 			},
 		},
@@ -114,7 +114,7 @@ func TestGenerateCUE_WatchConfigMinimal(t *testing.T) {
 					},
 				},
 				Watch: &WatchConfig{
-					Patterns: []string{"**/*"},
+					Patterns: []GlobPattern{"**/*"},
 				},
 			},
 		},

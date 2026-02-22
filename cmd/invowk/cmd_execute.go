@@ -230,7 +230,7 @@ func (s *commandService) validateInputs(req ExecuteRequest, cmdInfo *discovery.C
 //
 // It returns ServiceError with rendering info for invalid runtime overrides (Tier 1 only).
 func (s *commandService) resolveRuntime(req ExecuteRequest, cmdInfo *discovery.CommandInfo, cfg *config.Config) (appexec.RuntimeSelection, error) {
-	selection, err := appexec.ResolveRuntime(cmdInfo.Command, req.Name, req.Runtime, cfg, invowkfile.CurrentPlatform())
+	selection, err := appexec.ResolveRuntime(cmdInfo.Command, invowkfile.CommandName(req.Name), req.Runtime, cfg, invowkfile.CurrentPlatform())
 	if err != nil {
 		if notAllowedErr, ok := errors.AsType[*appexec.RuntimeNotAllowedError](err); ok {
 			allowed := make([]string, len(notAllowedErr.Allowed))

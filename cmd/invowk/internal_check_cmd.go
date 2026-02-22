@@ -37,7 +37,7 @@ func newInternalCheckCmdCommand() *cobra.Command {
 			}
 
 			for _, c := range result.Set.Commands {
-				if c.Name == cmdName {
+				if string(c.Name) == cmdName {
 					return nil // Found — exit 0
 				}
 			}

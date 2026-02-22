@@ -358,10 +358,10 @@ func TestNewTestCommand_WithDependsOn(t *testing.T) {
 
 	deps := &invowkfile.DependsOn{
 		Tools: []invowkfile.ToolDependency{
-			{Alternatives: []string{"git"}},
+			{Alternatives: []invowkfile.BinaryName{"git"}},
 		},
 		Commands: []invowkfile.CommandDependency{
-			{Alternatives: []string{"build"}},
+			{Alternatives: []invowkfile.CommandName{"build"}},
 		},
 	}
 	cmd := NewTestCommand("deploy", WithScript("echo deploy"), WithDependsOn(deps))

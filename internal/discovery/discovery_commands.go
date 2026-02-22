@@ -31,8 +31,9 @@ type (
 
 	// CommandInfo contains information about a discovered command
 	CommandInfo struct {
-		// Name is the command name (may include spaces, e.g., "test unit")
-		Name string
+		// Name is the fully qualified command name (may include module prefix and spaces,
+		// e.g., "foo build", "test unit")
+		Name invowkfile.CommandName
 		// Description is the command description
 		Description string
 		// Source is where the command was found
@@ -46,7 +47,7 @@ type (
 
 		// SimpleName is the command name without module prefix (e.g., "deploy")
 		// Used for the transparent namespace feature
-		SimpleName string
+		SimpleName invowkfile.CommandName
 		// SourceID identifies the source: "invowkfile" for root invowkfile,
 		// or the module short name (e.g., "foo") for modules
 		SourceID SourceID
@@ -68,15 +69,15 @@ type (
 		// ByName indexes commands by their full name for O(1) lookup.
 		// Only the first command added with a given name is stored (respects
 		// discovery precedence order). Used by GetCommand for fast resolution.
-		ByName map[string]*CommandInfo
+		ByName map[invowkfile.CommandName]*CommandInfo
 
 		// BySimpleName indexes commands by their simple name for conflict detection.
 		// Key: simple command name (e.g., "deploy")
 		// Value: all commands with that name from different sources
-		BySimpleName map[string][]*CommandInfo
+		BySimpleName map[invowkfile.CommandName][]*CommandInfo
 
 		// AmbiguousNames contains simple names that have conflicts (>1 source)
-		AmbiguousNames map[string]bool
+		AmbiguousNames map[invowkfile.CommandName]bool
 
 		// BySource indexes commands by source for grouped listing.
 		// Key: SourceID (e.g., "invowkfile", "foo")
@@ -101,9 +102,9 @@ func (s SourceID) IsValid() (bool, []error) {
 // NewDiscoveredCommandSet creates a new DiscoveredCommandSet with initialized maps.
 func NewDiscoveredCommandSet() *DiscoveredCommandSet {
 	return &DiscoveredCommandSet{
-		ByName:         make(map[string]*CommandInfo),
-		BySimpleName:   make(map[string][]*CommandInfo),
-		AmbiguousNames: make(map[string]bool),
+		ByName:         make(map[invowkfile.CommandName]*CommandInfo),
+		BySimpleName:   make(map[invowkfile.CommandName][]*CommandInfo),
+		AmbiguousNames: make(map[invowkfile.CommandName]bool),
 		BySource:       make(map[SourceID][]*CommandInfo),
 	}
 }
@@ -187,7 +188,7 @@ func (d *Discovery) DiscoverCommandSet(ctx context.Context) (CommandSetResult, e
 	diagnostics := make([]Diagnostic, 0, len(discoveryDiags))
 	diagnostics = append(diagnostics, discoveryDiags...)
 	// Track seen commands for precedence within non-module sources
-	seenNonModule := make(map[string]bool)
+	seenNonModule := make(map[invowkfile.CommandName]bool)
 
 	for _, file := range files {
 		select {
@@ -232,7 +233,7 @@ func (d *Discovery) DiscoverCommandSet(ctx context.Context) (CommandSetResult, e
 			// Extract simple name for conflict detection and display.
 			// For modules, FlattenCommands() returns prefixed names like "foo build",
 			// so we use cmd.Name which is the original unprefixed name.
-			simpleName := string(cmd.Name)
+			simpleName := cmd.Name
 
 			// For non-module sources, maintain precedence (skip if already seen)
 			if !isModule {
@@ -289,7 +290,8 @@ func (d *Discovery) GetCommand(ctx context.Context, name string) (LookupResult, 
 		return LookupResult{}, err
 	}
 
-	if cmd, ok := result.Set.ByName[name]; ok {
+	cmdName := invowkfile.CommandName(name)
+	if cmd, ok := result.Set.ByName[cmdName]; ok {
 		return LookupResult{Command: cmd, Diagnostics: result.Diagnostics}, nil
 	}
 

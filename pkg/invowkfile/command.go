@@ -57,7 +57,7 @@ type (
 		// Overrides root-level workdir but can be overridden by implementation-level workdir.
 		// Can be absolute or relative to the invowkfile location.
 		// Forward slashes should be used for cross-platform compatibility.
-		WorkDir string `json:"workdir,omitempty"`
+		WorkDir WorkDir `json:"workdir,omitempty"`
 		// DependsOn specifies dependencies that must be satisfied before running
 		DependsOn *DependsOn `json:"depends_on,omitempty"`
 		// Flags specifies command-line flags for this command.
@@ -286,11 +286,11 @@ func (c *Command) HasCommandLevelDependencies() bool {
 
 // GetCommandDependencies returns the list of command dependency names (from command level)
 // For dependencies with alternatives, returns all alternatives flattened into a single list
-func (c *Command) GetCommandDependencies() []string {
+func (c *Command) GetCommandDependencies() []CommandName {
 	if c.DependsOn == nil {
 		return nil
 	}
-	var names []string
+	var names []CommandName
 	for _, dep := range c.DependsOn.Commands {
 		names = append(names, dep.Alternatives...)
 	}

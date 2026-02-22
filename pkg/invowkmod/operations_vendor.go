@@ -39,7 +39,7 @@ type (
 	// VendoredEntry describes a single module copied to the vendor directory.
 	VendoredEntry struct {
 		// Namespace is the module's command namespace (e.g., "tools@1.2.3").
-		Namespace string
+		Namespace ModuleNamespace
 		// SourcePath is the cache path the module was copied from.
 		SourcePath string
 		// VendorPath is the destination path in invowk_modules/.

@@ -28,11 +28,11 @@ type (
 
 		// Alias overrides the default namespace for imported commands (optional).
 		// If not set, the namespace is: <module>@<resolved-version>
-		Alias string
+		Alias ModuleAlias
 
 		// Path specifies a subdirectory containing the module (optional).
 		// Used for monorepos with multiple modules.
-		Path string
+		Path SubdirectoryPath
 	}
 
 	// ResolvedModule represents a fully resolved and cached module.
@@ -52,7 +52,7 @@ type (
 
 		// Namespace is the computed namespace for this module's commands.
 		// Format: "<module>@<version>" or alias if specified.
-		Namespace string
+		Namespace ModuleNamespace
 
 		// ModuleName is the name of the module (from the folder name without .invowkmod).
 		ModuleName string
@@ -66,11 +66,11 @@ type (
 
 	// Resolver handles module operations including resolution, caching, and synchronization.
 	Resolver struct {
-		// CacheDir is the root directory for module cache.
-		CacheDir string
+		// cacheDir is the root directory for module cache.
+		cacheDir string
 
-		// WorkingDir is the directory containing invowkmod.cue (for relative path resolution).
-		WorkingDir string
+		// workingDir is the directory containing invowkmod.cue (for relative path resolution).
+		workingDir string
 
 		// fetcher handles Git operations.
 		fetcher *GitFetcher
@@ -95,9 +95,9 @@ type (
 		// LockKey is the lock file key.
 		LockKey string
 		// Namespace is the computed namespace.
-		Namespace string
+		Namespace ModuleNamespace
 		// GitURL is the Git repository URL.
-		GitURL string
+		GitURL GitURL
 	}
 
 	// AmbiguousIdentifierError is returned when a module identifier matches
@@ -124,7 +124,7 @@ func (e *AmbiguousIdentifierError) Error() string {
 // Key returns a unique key for this requirement based on GitURL and Path.
 func (r ModuleRef) Key() string {
 	if r.Path != "" {
-		return fmt.Sprintf("%s#%s", r.GitURL, r.Path)
+		return fmt.Sprintf("%s#%s", r.GitURL, string(r.Path))
 	}
 	return string(r.GitURL)
 }
@@ -133,11 +133,11 @@ func (r ModuleRef) Key() string {
 func (r ModuleRef) String() string {
 	s := string(r.GitURL)
 	if r.Path != "" {
-		s += "#" + r.Path
+		s += "#" + string(r.Path)
 	}
 	s += "@" + string(r.Version)
 	if r.Alias != "" {
-		s += " (alias: " + r.Alias + ")"
+		s += " (alias: " + string(r.Alias) + ")"
 	}
 	return s
 }
@@ -178,12 +178,18 @@ func NewResolver(workingDir, cacheDir string) (*Resolver, error) {
 	}
 
 	return &Resolver{
-		CacheDir:   absCacheDir,
-		WorkingDir: absWorkingDir,
+		cacheDir:   absCacheDir,
+		workingDir: absWorkingDir,
 		fetcher:    NewGitFetcher(absCacheDir),
 		semver:     NewSemverResolver(),
 	}, nil
 }
+
+// CacheDir returns the root directory for the module cache.
+func (m *Resolver) CacheDir() string { return m.cacheDir }
+
+// WorkingDir returns the directory containing invowkmod.cue.
+func (m *Resolver) WorkingDir() string { return m.workingDir }
 
 // Add resolves a new module requirement, caches it, and updates the lock file.
 func (m *Resolver) Add(ctx context.Context, req ModuleRef) (*ResolvedModule, error) {
@@ -202,7 +208,7 @@ func (m *Resolver) Add(ctx context.Context, req ModuleRef) (*ResolvedModule, err
 	}
 
 	// Persist to lock file so Add is a complete single-step operation
-	lockPath := filepath.Join(m.WorkingDir, LockFileName)
+	lockPath := filepath.Join(m.workingDir, LockFileName)
 	lock, err := LoadLockFile(lockPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load lock file: %w", err)
@@ -222,7 +228,7 @@ func (m *Resolver) Remove(_ context.Context, identifier string) ([]RemoveResult,
 	defer m.mu.Unlock()
 
 	// Load current lock file
-	lockPath := filepath.Join(m.WorkingDir, LockFileName)
+	lockPath := filepath.Join(m.workingDir, LockFileName)
 	lock, err := LoadLockFile(lockPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load lock file: %w", err)
@@ -261,7 +267,7 @@ func (m *Resolver) Update(ctx context.Context, identifier string) ([]*ResolvedMo
 	defer m.mu.Unlock()
 
 	// Load current lock file
-	lockPath := filepath.Join(m.WorkingDir, LockFileName)
+	lockPath := filepath.Join(m.workingDir, LockFileName)
 	lock, err := LoadLockFile(lockPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load lock file: %w", err)
@@ -354,7 +360,7 @@ func (m *Resolver) Sync(ctx context.Context, requirements []ModuleRef) ([]*Resol
 		}
 	}
 
-	lockPath := filepath.Join(m.WorkingDir, LockFileName)
+	lockPath := filepath.Join(m.workingDir, LockFileName)
 	if err := lock.Save(lockPath); err != nil {
 		return nil, fmt.Errorf("failed to save lock file: %w", err)
 	}
@@ -367,7 +373,7 @@ func (m *Resolver) List(ctx context.Context) ([]*ResolvedModule, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	lockPath := filepath.Join(m.WorkingDir, LockFileName)
+	lockPath := filepath.Join(m.workingDir, LockFileName)
 	lock, err := LoadLockFile(lockPath)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -387,7 +393,7 @@ func (m *Resolver) List(ctx context.Context) ([]*ResolvedModule, error) {
 			},
 			ResolvedVersion: entry.ResolvedVersion,
 			GitCommit:       entry.GitCommit,
-			CachePath:       m.getCachePath(string(entry.GitURL), string(entry.ResolvedVersion), entry.Path),
+			CachePath:       m.getCachePath(string(entry.GitURL), string(entry.ResolvedVersion), string(entry.Path)),
 			Namespace:       entry.Namespace,
 			ModuleName:      extractModuleName(key),
 		})
@@ -434,9 +440,9 @@ func resolveIdentifier(identifier string, modules map[string]LockedModule) ([]st
 	// Namespace match: exact and prefix (bare name without @version)
 	var exactMatches, prefixMatches []string
 	for key, entry := range modules {
-		if entry.Namespace == identifier {
+		if string(entry.Namespace) == identifier {
 			exactMatches = append(exactMatches, key)
-		} else if strings.HasPrefix(entry.Namespace, identifier+"@") {
+		} else if strings.HasPrefix(string(entry.Namespace), identifier+"@") {
 			prefixMatches = append(prefixMatches, key)
 		}
 	}
@@ -468,7 +474,7 @@ func buildAmbiguousError(identifier string, keys []string, modules map[string]Lo
 		matches = append(matches, AmbiguousMatch{
 			LockKey:   key,
 			Namespace: entry.Namespace,
-			GitURL:    string(entry.GitURL),
+			GitURL:    entry.GitURL,
 		})
 	}
 	return &AmbiguousIdentifierError{

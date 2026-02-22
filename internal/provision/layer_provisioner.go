@@ -202,7 +202,7 @@ func (p *LayerProvisioner) buildProvisionedImage(ctx context.Context, baseImage,
 	buildOpts := container.BuildOptions{
 		ContextDir: buildCtx,
 		Dockerfile: "Dockerfile",
-		Tag:        tag,
+		Tag:        container.ImageTag(tag),
 		Stdout:     os.Stderr, // Show build progress on stderr
 		Stderr:     os.Stderr,
 	}

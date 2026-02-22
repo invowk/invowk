@@ -319,7 +319,7 @@ func TestDockerEngine_Run_Arguments(t *testing.T) {
 		opts := RunOptions{
 			Image:      "debian:stable-slim",
 			Command:    []string{"true"},
-			ExtraHosts: []string{"host.docker.internal:host-gateway"},
+			ExtraHosts: []HostMapping{"host.docker.internal:host-gateway"},
 		}
 
 		_, err := engine.Run(ctx, opts)
@@ -348,7 +348,7 @@ func TestDockerEngine_Run_Arguments(t *testing.T) {
 			Env:         map[string]string{"DEBUG": "1"},
 			Volumes:     []string{"/src:/src"},
 			Ports:       []string{"3000:3000"},
-			ExtraHosts:  []string{"db:192.168.1.100"},
+			ExtraHosts:  []HostMapping{"db:192.168.1.100"},
 		}
 
 		_, err := engine.Run(ctx, opts)

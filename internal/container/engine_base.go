@@ -307,7 +307,7 @@ func (e *BaseCLIEngine) BuildArgs(opts BuildOptions) []string {
 	}
 
 	if opts.Tag != "" {
-		args = append(args, "-t", opts.Tag)
+		args = append(args, "-t", string(opts.Tag))
 	}
 
 	if opts.NoCache {
@@ -335,7 +335,7 @@ func (e *BaseCLIEngine) RunArgs(opts RunOptions) []string {
 	}
 
 	if opts.Name != "" {
-		args = append(args, "--name", opts.Name)
+		args = append(args, "--name", string(opts.Name))
 	}
 
 	if opts.WorkDir != "" {
@@ -363,7 +363,7 @@ func (e *BaseCLIEngine) RunArgs(opts RunOptions) []string {
 	}
 
 	for _, h := range opts.ExtraHosts {
-		args = append(args, "--add-host", h)
+		args = append(args, "--add-host", string(h))
 	}
 
 	args = append(args, opts.Image)
@@ -376,7 +376,7 @@ func (e *BaseCLIEngine) RunArgs(opts RunOptions) []string {
 // Returns arguments in the order expected by docker/podman exec.
 //
 // Generated command: <binary> exec [options] <container> <command...>
-func (e *BaseCLIEngine) ExecArgs(containerID string, command []string, opts RunOptions) []string {
+func (e *BaseCLIEngine) ExecArgs(containerID ContainerID, command []string, opts RunOptions) []string {
 	args := []string{"exec"}
 
 	if opts.Interactive {
@@ -395,19 +395,19 @@ func (e *BaseCLIEngine) ExecArgs(containerID string, command []string, opts RunO
 		args = append(args, "-e", fmt.Sprintf("%s=%s", k, v))
 	}
 
-	args = append(args, containerID)
+	args = append(args, string(containerID))
 	args = append(args, command...)
 
 	return args
 }
 
 // RemoveArgs constructs arguments for a container remove command.
-func (e *BaseCLIEngine) RemoveArgs(containerID string, force bool) []string {
+func (e *BaseCLIEngine) RemoveArgs(containerID ContainerID, force bool) []string {
 	args := []string{"rm"}
 	if force {
 		args = append(args, "-f")
 	}
-	args = append(args, containerID)
+	args = append(args, string(containerID))
 	return args
 }
 
@@ -539,7 +539,7 @@ func (e *BaseCLIEngine) Run(ctx context.Context, opts RunOptions) (*RunResult, e
 }
 
 // Exec runs a command in a running container.
-func (e *BaseCLIEngine) Exec(ctx context.Context, containerID string, command []string, opts RunOptions) (*RunResult, error) {
+func (e *BaseCLIEngine) Exec(ctx context.Context, containerID ContainerID, command []string, opts RunOptions) (*RunResult, error) {
 	args := e.ExecArgs(containerID, command, opts)
 
 	cmd := e.CreateCommand(ctx, args...)
@@ -563,7 +563,7 @@ func (e *BaseCLIEngine) Exec(ctx context.Context, containerID string, command []
 }
 
 // Remove removes a container.
-func (e *BaseCLIEngine) Remove(ctx context.Context, containerID string, force bool) error {
+func (e *BaseCLIEngine) Remove(ctx context.Context, containerID ContainerID, force bool) error {
 	args := e.RemoveArgs(containerID, force)
 	return e.RunCommandStatus(ctx, args...)
 }
@@ -707,7 +707,7 @@ func buildContainerError(engine string, opts BuildOptions, cause error) error {
 	case opts.ContextDir != "":
 		ctx.WithResource(opts.ContextDir + "/Dockerfile")
 	case opts.Tag != "":
-		ctx.WithResource(opts.Tag)
+		ctx.WithResource(string(opts.Tag))
 	}
 
 	// Add suggestions based on common build issues

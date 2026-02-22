@@ -142,11 +142,11 @@ func TestNewResolver(t *testing.T) {
 		if mgr == nil {
 			t.Fatal("NewResolver() returned nil")
 		}
-		if mgr.WorkingDir != workDir {
-			t.Errorf("WorkingDir = %q, want %q", mgr.WorkingDir, workDir)
+		if mgr.WorkingDir() != workDir {
+			t.Errorf("WorkingDir() = %q, want %q", mgr.WorkingDir(), workDir)
 		}
-		if mgr.CacheDir != cacheDir {
-			t.Errorf("CacheDir = %q, want %q", mgr.CacheDir, cacheDir)
+		if mgr.CacheDir() != cacheDir {
+			t.Errorf("CacheDir() = %q, want %q", mgr.CacheDir(), cacheDir)
 		}
 	})
 
@@ -157,8 +157,8 @@ func TestNewResolver(t *testing.T) {
 		if err != nil {
 			t.Fatalf("NewResolver() error = %v", err)
 		}
-		if mgr.WorkingDir == "" {
-			t.Error("WorkingDir should not be empty")
+		if mgr.WorkingDir() == "" {
+			t.Error("WorkingDir() should not be empty")
 		}
 	})
 }
@@ -168,8 +168,8 @@ func TestComputeNamespace(t *testing.T) {
 		name       string
 		moduleName string
 		version    string
-		alias      string
-		expected   string
+		alias      ModuleAlias
+		expected   ModuleNamespace
 	}{
 		{
 			name:       "without alias",

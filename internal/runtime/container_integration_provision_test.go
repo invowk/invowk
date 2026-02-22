@@ -41,7 +41,7 @@ func TestContainerRuntime_ProvisioningLayer_InvowkfileAccess(t *testing.T) {
 		Implementations: []invowkfile.Implementation{
 			{
 				// The script reads a file from /workspace to verify provisioning
-				Script: "cat /workspace/" + testFileName,
+				Script: invowkfile.ScriptContent("cat /workspace/" + testFileName),
 
 				Runtimes: []invowkfile.RuntimeConfig{
 					{Name: invowkfile.RuntimeContainer, Image: "debian:stable-slim"},
@@ -99,7 +99,7 @@ echo "Script executed from /workspace"
 		Implementations: []invowkfile.Implementation{
 			{
 				// Execute the script file that was provisioned to /workspace
-				Script: "./" + scriptFileName,
+				Script: invowkfile.ScriptContent("./" + scriptFileName),
 
 				Runtimes: []invowkfile.RuntimeConfig{
 					{Name: invowkfile.RuntimeContainer, Image: "debian:stable-slim"},
@@ -160,7 +160,7 @@ func TestContainerRuntime_ProvisioningLayer_NestedDirectories(t *testing.T) {
 		Name: "test-nested-provision",
 		Implementations: []invowkfile.Implementation{
 			{
-				Script: "cat /workspace/scripts/helpers/" + nestedFileName,
+				Script: invowkfile.ScriptContent("cat /workspace/scripts/helpers/" + nestedFileName),
 
 				Runtimes: []invowkfile.RuntimeConfig{
 					{Name: invowkfile.RuntimeContainer, Image: "debian:stable-slim"},

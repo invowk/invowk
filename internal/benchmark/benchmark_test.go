@@ -378,7 +378,7 @@ fi
 				Description: "Complex command",
 				Implementations: []invowkfile.Implementation{
 					{
-						Script: script,
+						Script: invowkfile.ScriptContent(script),
 						Runtimes: []invowkfile.RuntimeConfig{
 							{Name: invowkfile.RuntimeVirtual},
 						},
@@ -555,7 +555,7 @@ func BenchmarkCommandLookup(b *testing.B) {
 		b.Fatalf("ParseBytes failed: %v", err)
 	}
 
-	commandNames := []string{"cmd1", "cmd5", "cmd8", "nested cmd1", "nested cmd2"}
+	commandNames := []invowkfile.CommandName{"cmd1", "cmd5", "cmd8", "nested cmd1", "nested cmd2"}
 
 	b.ResetTimer()
 	for b.Loop() {

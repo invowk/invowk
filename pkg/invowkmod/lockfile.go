@@ -3,6 +3,7 @@
 package invowkmod
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -10,11 +11,39 @@ import (
 	"time"
 )
 
+var (
+	// ErrInvalidModuleNamespace is returned when a ModuleNamespace value is empty.
+	ErrInvalidModuleNamespace = errors.New("invalid module namespace")
+	// ErrInvalidLockFileVersion is the sentinel error wrapped by InvalidLockFileVersionError.
+	ErrInvalidLockFileVersion = errors.New("invalid lock file version")
+)
+
 type (
+	// ModuleNamespace is the computed namespace for a module's commands.
+	// Format: "<module>@<version>" or the alias if one is specified.
+	// Must not be empty — it is always a computed value.
+	ModuleNamespace string
+
+	// InvalidModuleNamespaceError is returned when a ModuleNamespace value is empty.
+	// It wraps ErrInvalidModuleNamespace for errors.Is() compatibility.
+	InvalidModuleNamespaceError struct {
+		Value ModuleNamespace
+	}
+
+	// LockFileVersion identifies the format version of a lock file.
+	// Must be non-empty.
+	LockFileVersion string
+
+	// InvalidLockFileVersionError is returned when a LockFileVersion value is invalid.
+	// DDD Value Type error struct — wraps ErrInvalidLockFileVersion for errors.Is().
+	InvalidLockFileVersionError struct {
+		Value LockFileVersion
+	}
+
 	// LockFile represents the invowkmod.lock.cue file structure.
 	LockFile struct {
 		// Version is the lock file format version.
-		Version string
+		Version LockFileVersion
 
 		// Generated is the timestamp when the lock file was generated.
 		Generated time.Time
@@ -38,15 +67,57 @@ type (
 		GitCommit GitCommit
 
 		// Alias is the namespace alias (optional).
-		Alias string
+		Alias ModuleAlias
 
 		// Path is the subdirectory path within the repository (optional).
-		Path string
+		Path SubdirectoryPath
 
 		// Namespace is the computed namespace for commands.
-		Namespace string
+		Namespace ModuleNamespace
 	}
 )
+
+// Error implements the error interface for InvalidModuleNamespaceError.
+func (e *InvalidModuleNamespaceError) Error() string {
+	return fmt.Sprintf("invalid module namespace %q (must not be empty)", e.Value)
+}
+
+// Unwrap returns the sentinel error for errors.Is() compatibility.
+func (e *InvalidModuleNamespaceError) Unwrap() error {
+	return ErrInvalidModuleNamespace
+}
+
+// IsValid returns whether the ModuleNamespace is valid.
+// A valid namespace must not be empty — it is always a computed value.
+func (n ModuleNamespace) IsValid() (bool, []error) {
+	if n == "" {
+		return false, []error{&InvalidModuleNamespaceError{Value: n}}
+	}
+	return true, nil
+}
+
+// String returns the string representation of the ModuleNamespace.
+func (n ModuleNamespace) String() string { return string(n) }
+
+// String returns the string representation of the LockFileVersion.
+func (v LockFileVersion) String() string { return string(v) }
+
+// IsValid returns whether the LockFileVersion is valid.
+// A valid LockFileVersion is non-empty.
+func (v LockFileVersion) IsValid() (bool, []error) {
+	if v == "" {
+		return false, []error{&InvalidLockFileVersionError{Value: v}}
+	}
+	return true, nil
+}
+
+// Error implements the error interface for InvalidLockFileVersionError.
+func (e *InvalidLockFileVersionError) Error() string {
+	return fmt.Sprintf("invalid lock file version %q: must be non-empty", e.Value)
+}
+
+// Unwrap returns ErrInvalidLockFileVersion for errors.Is() compatibility.
+func (e *InvalidLockFileVersionError) Unwrap() error { return ErrInvalidLockFileVersion }
 
 // NewLockFile creates a new empty lock file.
 func NewLockFile() *LockFile {
@@ -176,7 +247,7 @@ func parseLockFileCUE(content string) (*LockFile, error) {
 
 		// Parse version
 		if strings.HasPrefix(line, "version:") {
-			lock.Version = parseStringValue(line)
+			lock.Version = LockFileVersion(parseStringValue(line))
 			continue
 		}
 
@@ -229,11 +300,11 @@ func parseLockFileCUE(content string) (*LockFile, error) {
 			case strings.HasPrefix(line, "git_commit:"):
 				currentModule.GitCommit = GitCommit(parseStringValue(line))
 			case strings.HasPrefix(line, "alias:"):
-				currentModule.Alias = parseStringValue(line)
+				currentModule.Alias = ModuleAlias(parseStringValue(line))
 			case strings.HasPrefix(line, "path:"):
-				currentModule.Path = parseStringValue(line)
+				currentModule.Path = SubdirectoryPath(parseStringValue(line))
 			case strings.HasPrefix(line, "namespace:"):
-				currentModule.Namespace = parseStringValue(line)
+				currentModule.Namespace = ModuleNamespace(parseStringValue(line))
 			}
 		}
 	}

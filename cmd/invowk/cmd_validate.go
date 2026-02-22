@@ -151,7 +151,7 @@ func checkCommandDependenciesExist(disc DiscoveryService, deps *invowkfile.Depen
 
 	availableCommands := commandSetResult.Set.Commands
 
-	available := make(map[string]struct{}, len(availableCommands))
+	available := make(map[invowkfile.CommandName]struct{}, len(availableCommands))
 	for _, cmd := range availableCommands {
 		available[cmd.Name] = struct{}{}
 	}
@@ -161,11 +161,11 @@ func checkCommandDependenciesExist(disc DiscoveryService, deps *invowkfile.Depen
 	for _, dep := range deps.Commands {
 		var alternatives []string
 		for _, alt := range dep.Alternatives {
-			alt = strings.TrimSpace(alt)
-			if alt == "" {
+			trimmed := strings.TrimSpace(string(alt))
+			if trimmed == "" {
 				continue
 			}
-			alternatives = append(alternatives, alt)
+			alternatives = append(alternatives, trimmed)
 		}
 		if len(alternatives) == 0 {
 			continue
@@ -174,13 +174,13 @@ func checkCommandDependenciesExist(disc DiscoveryService, deps *invowkfile.Depen
 		// OR semantics: any alternative being discoverable satisfies this dependency.
 		found := false
 		for _, alt := range alternatives {
-			if _, ok := available[alt]; ok {
+			if _, ok := available[invowkfile.CommandName(alt)]; ok {
 				found = true
 				break
 			}
 
 			// Also allow referencing commands from the current invowkfile without a module prefix.
-			qualified := currentModule + " " + alt
+			qualified := invowkfile.CommandName(currentModule + " " + alt)
 			if _, ok := available[qualified]; ok {
 				found = true
 				break

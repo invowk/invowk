@@ -94,8 +94,8 @@ func makeCmds(pairs ...string) []*discovery.CommandInfo {
 	var result []*discovery.CommandInfo
 	for i := 0; i < len(pairs); i += 2 {
 		result = append(result, &discovery.CommandInfo{
-			Name:       pairs[i],
-			SimpleName: pairs[i],
+			Name:       invowkfile.CommandName(pairs[i]),
+			SimpleName: invowkfile.CommandName(pairs[i]),
 			Command: &invowkfile.Command{
 				Name:     invowkfile.CommandName(pairs[i]),
 				Category: invowkfile.CommandCategory(pairs[i+1]),

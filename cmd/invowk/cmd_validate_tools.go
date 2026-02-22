@@ -28,8 +28,8 @@ func checkToolDependenciesInContainer(deps *invowkfile.DependsOn, registry *runt
 		return fmt.Errorf("container runtime not available for tool validation")
 	}
 
-	toolErrors := collectToolErrors(deps.Tools, func(alt string) error {
-		return validateToolInContainer(alt, rt, ctx)
+	toolErrors := collectToolErrors(deps.Tools, func(alt invowkfile.BinaryName) error {
+		return validateToolInContainer(string(alt), rt, ctx)
 	})
 
 	if len(toolErrors) > 0 {
@@ -43,9 +43,9 @@ func checkToolDependenciesInContainer(deps *invowkfile.DependsOn, registry *runt
 }
 
 // validateToolNative validates a tool dependency against the host system PATH.
-// It accepts a tool name string and checks if it exists in the system PATH.
-func validateToolNative(toolName string) error {
-	_, err := exec.LookPath(toolName)
+// It accepts a BinaryName and checks if it exists in the system PATH.
+func validateToolNative(toolName invowkfile.BinaryName) error {
+	_, err := exec.LookPath(string(toolName))
 	if err != nil {
 		return fmt.Errorf("  • %s - not found in PATH", toolName)
 	}

@@ -11,6 +11,7 @@ import (
 
 	"github.com/invowk/invowk/internal/config"
 	"github.com/invowk/invowk/pkg/invowkfile"
+	"github.com/invowk/invowk/pkg/invowkmod"
 )
 
 var (
@@ -26,7 +27,7 @@ var (
 type (
 	// ModuleCollisionError is returned when two modules have the same module identifier.
 	ModuleCollisionError struct {
-		ModuleID     string
+		ModuleID     invowkmod.ModuleID
 		FirstSource  string
 		SecondSource string
 	}
@@ -219,7 +220,7 @@ func (d *Discovery) CheckModuleCollisions(files []*DiscoveredFile) error {
 
 		if existingSource, exists := moduleSources[moduleID]; exists {
 			return &ModuleCollisionError{
-				ModuleID:     moduleID,
+				ModuleID:     invowkmod.ModuleID(moduleID),
 				FirstSource:  existingSource,
 				SecondSource: sourcePath,
 			}

@@ -270,3 +270,54 @@ func TestParseEnvInheritMode(t *testing.T) {
 		})
 	}
 }
+
+func TestContainerImage_IsValid(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		img     ContainerImage
+		want    bool
+		wantErr bool
+	}{
+		{"valid image", "debian:stable-slim", true, false},
+		{"valid with registry", "registry.example.com/image:tag", true, false},
+		{"zero value (empty)", "", true, false},
+		{"invalid whitespace only", "   ", false, true},
+		{"invalid tab only", "\t", false, true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			isValid, errs := tt.img.IsValid()
+			if isValid != tt.want {
+				t.Errorf("ContainerImage(%q).IsValid() = %v, want %v", tt.img, isValid, tt.want)
+			}
+			if tt.wantErr {
+				if len(errs) == 0 {
+					t.Fatalf("ContainerImage(%q).IsValid() returned no errors, want error", tt.img)
+				}
+				if !errors.Is(errs[0], ErrInvalidContainerImage) {
+					t.Errorf("error should wrap ErrInvalidContainerImage, got: %v", errs[0])
+				}
+				var typedErr *InvalidContainerImageError
+				if !errors.As(errs[0], &typedErr) {
+					t.Errorf("error should be *InvalidContainerImageError, got: %T", errs[0])
+				} else if typedErr.Value != tt.img {
+					t.Errorf("InvalidContainerImageError.Value = %q, want %q", typedErr.Value, tt.img)
+				}
+			} else if len(errs) > 0 {
+				t.Errorf("ContainerImage(%q).IsValid() returned unexpected errors: %v", tt.img, errs)
+			}
+		})
+	}
+}
+
+func TestContainerImage_String(t *testing.T) {
+	t.Parallel()
+
+	if got := ContainerImage("debian:stable-slim").String(); got != "debian:stable-slim" {
+		t.Errorf("ContainerImage(\"debian:stable-slim\").String() = %q, want %q", got, "debian:stable-slim")
+	}
+}

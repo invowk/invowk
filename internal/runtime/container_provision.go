@@ -129,7 +129,7 @@ func (r *ContainerRuntime) ensureImage(ctx *ExecutionContext, cfg invowkfileCont
 	buildOpts := container.BuildOptions{
 		ContextDir: invowkDir,
 		Dockerfile: containerfile,
-		Tag:        imageTag,
+		Tag:        container.ImageTag(imageTag),
 		NoCache:    ctx.ForceRebuild,
 		Stdout:     ctx.IO.Stdout,
 		Stderr:     ctx.IO.Stderr,
@@ -271,7 +271,7 @@ func containerConfigFromRuntime(rt *invowkfile.RuntimeConfig) invowkfileContaine
 	}
 	return invowkfileContainerConfig{
 		Containerfile: rt.Containerfile,
-		Image:         rt.Image,
+		Image:         string(rt.Image),
 		Volumes:       append([]string{}, rt.Volumes...),
 		Ports:         append([]string{}, rt.Ports...),
 	}

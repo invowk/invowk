@@ -62,10 +62,10 @@ func ValidateCommandTree(commands []*CommandInfo) error {
 	}
 
 	// Track commands with args
-	commandsWithArgs := make(map[string]*CommandInfo)
+	commandsWithArgs := make(map[invowkfile.CommandName]*CommandInfo)
 
 	// Track parent-child relationships
-	childCommands := make(map[string][]string)
+	childCommands := make(map[invowkfile.CommandName][]string)
 
 	for _, cmdInfo := range commands {
 		if cmdInfo == nil || cmdInfo.Command == nil {
@@ -77,10 +77,10 @@ func ValidateCommandTree(commands []*CommandInfo) error {
 		}
 
 		// Record parent-child relationships by splitting the command name
-		parts := strings.Fields(cmdInfo.Name)
+		parts := strings.Fields(string(cmdInfo.Name))
 		for i := 1; i < len(parts); i++ {
-			parentName := strings.Join(parts[:i], " ")
-			childCommands[parentName] = append(childCommands[parentName], cmdInfo.Name)
+			parentName := invowkfile.CommandName(strings.Join(parts[:i], " "))
+			childCommands[parentName] = append(childCommands[parentName], string(cmdInfo.Name))
 		}
 	}
 
@@ -88,7 +88,7 @@ func ValidateCommandTree(commands []*CommandInfo) error {
 	for cmdName, cmdInfo := range commandsWithArgs {
 		if children, hasChildren := childCommands[cmdName]; hasChildren {
 			return &ArgsSubcommandConflictError{
-				CommandName: invowkfile.CommandName(cmdName),
+				CommandName: cmdName,
 				Args:        cmdInfo.Command.Args,
 				Subcommands: children,
 				FilePath:    cmdInfo.FilePath,

@@ -86,7 +86,7 @@ func (e *RuntimeNotAllowedError) Error() string {
 // platform rather than relying on the host OS at call time. Production code
 // passes invowkfile.CurrentPlatform(); tests pass a fixed platform for
 // deterministic behavior across CI environments.
-func ResolveRuntime(command *invowkfile.Command, commandName string, runtimeOverride invowkfile.RuntimeMode, cfg *config.Config, platform invowkfile.Platform) (RuntimeSelection, error) {
+func ResolveRuntime(command *invowkfile.Command, commandName invowkfile.CommandName, runtimeOverride invowkfile.RuntimeMode, cfg *config.Config, platform invowkfile.Platform) (RuntimeSelection, error) {
 	if runtimeOverride != "" {
 		// Defense-in-depth: the CLI boundary should have already validated the mode
 		// via ParseRuntimeMode, but verify here to catch programmatic misuse.
@@ -96,7 +96,7 @@ func ResolveRuntime(command *invowkfile.Command, commandName string, runtimeOver
 
 		if !command.IsRuntimeAllowedForPlatform(platform, runtimeOverride) {
 			return RuntimeSelection{}, &RuntimeNotAllowedError{
-				CommandName: invowkfile.CommandName(commandName),
+				CommandName: commandName,
 				Runtime:     runtimeOverride,
 				Platform:    platform,
 				Allowed:     command.GetAllowedRuntimesForPlatform(platform),
