@@ -94,6 +94,15 @@ O Invowk fornece variáveis para flags e argumentos:
 - `INVOWK_FLAG_*` - Valores de flag
 - `INVOWK_ARG_*` - Valores de argumento
 
+Além disso, o invowk injeta variáveis de metadados durante a execução de comandos:
+
+| Variável | Descrição | Sempre Definida |
+|----------|-----------|-----------------|
+| `INVOWK_CMD_NAME` | Nome do comando atual | Sim |
+| `INVOWK_RUNTIME` | Nome do runtime resolvido (`native`, `virtual`, `container`) | Sim |
+| `INVOWK_SOURCE` | Origem (ex.: nome do módulo) | Não — somente ao executar de um módulo |
+| `INVOWK_PLATFORM` | Plataforma resolvida (`linux`, `macos`, `windows`) | Não — somente ao executar de um módulo |
+
 ## Ambiente de Container
 
 Para runtime container, o ambiente é passado para dentro do container:

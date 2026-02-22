@@ -82,6 +82,32 @@ Vendored modules are scanned one level deep per discovered module. Nested vendor
 - **Container**: Provisions image, runs container with transient retry handling
 - **SSH/TUI lifecycle**: Managed by command orchestration (CommandService), not by the runtime implementation itself
 
+### 5. Dry-Run Intercept
+
+When `--ivk-dry-run` is passed, the pipeline short-circuits after resolution:
+
+| Step | Component | Action |
+|------|-----------|--------|
+| 1 | CLI | Detect `--ivk-dry-run` flag |
+| 2 | CLI | Run discovery + resolution as normal (steps 1-6) |
+| 3 | CLI | Print resolved execution plan (Command, Source, Runtime, Platform, WorkDir, Timeout, Script, Environment) |
+| 4 | CLI | Exit with code 0 (dependency validation is skipped) |
+
+### 6. Watch Mode Loop
+
+When `--ivk-watch` is passed, execution is wrapped in a watch loop:
+
+| Step | Component | Action |
+|------|-----------|--------|
+| 1 | CLI | Detect `--ivk-watch` flag (mutually exclusive with `--ivk-dry-run`) |
+| 2 | CLI | Run initial command execution normally |
+| 3 | Watch Engine | Set up file watchers from `watch.patterns` (or `**/*` fallback) |
+| 4 | Watch Engine | Wait for file changes, debounce (default 500ms) |
+| 5 | CLI | Re-execute command |
+| 6 | Watch Engine | Repeat from step 4 until Ctrl+C |
+
+**Error handling:** Non-zero exit codes from the command continue the watch loop. Infrastructure errors (not `ExitError`) abort the loop after 3 consecutive failures.
+
 ## Error Handling Points
 
 ![Execution Error Categories](../diagrams/rendered/flowcharts/execution-errors.svg)

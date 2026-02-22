@@ -94,6 +94,15 @@ Texto de ajuda para o comando. Quando fornecido, deve ser não-vazio (validado p
 
 <Snippet id="reference/invowkfile/command-description-example" />
 
+### category
+
+**Tipo:** `string`
+**Obrigatório:** Não
+
+Agrupa este comando sob um título na saída de `invowk cmd`. Quando fornecido, deve ser não-vazio (validado pelo padrão regex `^\s*\S.*$` — strings contendo apenas espaços são rejeitadas).
+
+<Snippet id="reference/invowkfile/category-example" />
+
 ### implementations
 
 **Tipo:** `[...#Implementation]`
@@ -134,7 +143,8 @@ As seguintes flags são reservadas pelo invowk e não podem ser usadas em comand
 - `ivk-env-file` (`-e`), `ivk-env-var` (`-E`)
 - `ivk-env-inherit-mode`, `ivk-env-inherit-allow`, `ivk-env-inherit-deny`
 - `ivk-workdir` (`-w`), `ivk-runtime` (`-r`), `ivk-from` (`-f`)
-- `ivk-force-rebuild`
+- `ivk-force-rebuild`, `ivk-dry-run`
+- `ivk-watch` (`-W`)
 - `ivk-verbose` (`-v`), `ivk-config` (`-c`), `ivk-interactive` (`-i`)
 - `help` (`-h`), `version`
 
@@ -147,6 +157,15 @@ Além disso, qualquer flag que comece com o prefixo `ivk-`, `invowk-` ou `i-` é
 **Obrigatório:** Não
 
 Argumentos posicionais para este comando. Veja [Argument](#argument).
+
+### watch
+
+**Tipo:** `#WatchConfig`
+**Obrigatório:** Não
+
+Configuração de file-watching para este comando. Quando definido, `patterns` controla quais arquivos são monitorados. Quando `--ivk-watch` é passado sem uma configuração `watch`, o invowk monitora todos os arquivos (`**/*`) no diretório de trabalho. Veja [WatchConfig](#watchconfig).
+
+<Snippet id="reference/invowkfile/watch-config-example" />
 
 ---
 
@@ -205,6 +224,15 @@ Diretório de trabalho para esta implementation. Sobrescreve as configurações 
 **Obrigatório:** Não
 
 Dependências que devem ser satisfeitas antes de executar esta implementation. Combinado com o depends_on no nível raiz e de comando. **Sempre validado no sistema host**, independentemente do runtime selecionado. Para validar dependências dentro do ambiente do runtime (ex: dentro de um container), use `depends_on` dentro do bloco de runtime. Veja [DependsOn](#dependson).
+
+### timeout
+
+**Tipo:** `#DurationString`
+**Obrigatório:** Não
+
+Duração máxima de execução. Deve ser uma string de duração Go válida (ex: `"30s"`, `"5m"`, `"1h30m"`). Quando excedido, o comando é cancelado e retorna um erro de timeout. O valor de timeout é validado cedo (antes das verificações de dependência) para falhar rapidamente em valores inválidos. Veja [DurationString](#durationstring).
+
+<Snippet id="reference/invowkfile/timeout-example" />
 
 ---
 
@@ -419,6 +447,52 @@ Definição de argumento posicional:
 **Variáveis de ambiente para argumentos:**
 - `INVOWK_ARG_<NAME>` - O valor do argumento
 - Para variádicos: `INVOWK_ARG_<NAME>_COUNT`, `INVOWK_ARG_<NAME>_1`, `INVOWK_ARG_<NAME>_2`, etc.
+
+---
+
+## WatchConfig
+
+Configuração de file-watching para reexecução automática de comandos:
+
+<Snippet id="reference/invowkfile/watch-config-structure" />
+
+### patterns
+
+**Tipo:** `[...string]` (pelo menos um)
+**Obrigatório:** Sim
+
+Padrões glob para arquivos a monitorar. Padrões suportam `**` para correspondência recursiva (ex: `"src/**/*.go"`, `"*.ts"`). Caminhos são relativos ao diretório de trabalho efetivo do comando.
+
+### debounce
+
+**Tipo:** `#DurationString`
+**Obrigatório:** Não
+**Padrão:** `"500ms"`
+
+Atraso antes de reexecutar após detectar uma mudança de arquivo. Veja [DurationString](#durationstring).
+
+### clear_screen
+
+**Tipo:** `bool`
+**Obrigatório:** Não
+**Padrão:** `false`
+
+Quando `true`, limpa o terminal antes de cada reexecução.
+
+### ignore
+
+**Tipo:** `[...string]`
+**Obrigatório:** Não
+
+Padrões glob adicionais para arquivos/diretórios a excluir do monitoramento. Mesclados com padrões padrão embutidos (`.git/**`, `node_modules/**`, `__pycache__/**`, `*.swp`, etc.).
+
+---
+
+## DurationString
+
+<Snippet id="reference/invowkfile/duration-string-type" />
+
+Tipo compartilhado usado por [`#Implementation.timeout`](#timeout) e [`#WatchConfig.debounce`](#debounce). Exemplos válidos: `"500ms"`, `"30s"`, `"5m"`, `"1h30m"`, `"2.5s"`.
 
 ---
 

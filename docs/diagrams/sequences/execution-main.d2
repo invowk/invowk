@@ -52,6 +52,9 @@ CLI -> CLI: "ensureSSHIfNeeded(ctx, req, resolved)\nStart SSH server if containe
 # Step 6: buildExecContext
 CLI -> CLI: "buildExecContext(req, cmd, defs, resolved)\nProject env vars (INVOWK_FLAG_*, INVOWK_ARG_*)"
 
+# Dry-run intercept (between buildExecContext and dispatchExecution)
+CLI -> CLI: "checkDryRun\nIf --ivk-dry-run: render plan → exit 0\n(skips dispatchExecution entirely)"
+
 # Step 7: dispatchExecution
 CLI -> Registry: "createRuntimeRegistry(cfg)"
 Registry -> CLI: "Registry + Cleanup"
@@ -63,3 +66,6 @@ Runtime -> CLI: Result
 
 # Return result
 CLI -> User: Output + Exit code
+
+# Watch mode (when --ivk-watch, wraps entire pipeline)
+CLI -> CLI: "watchLoop (--ivk-watch)\nWait for file changes → debounce → re-execute\nInfra errors abort after 3 failures\nCtrl+C to stop"

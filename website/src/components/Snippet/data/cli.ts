@@ -164,6 +164,16 @@ invowk cmd greet -- "World"
 invowk cmd deploy --env production`,
   },
 
+  'reference/cli/cmd-watch-examples': {
+    language: 'bash',
+    code: `# Watch mode (re-execute on file changes)
+invowk cmd dev --ivk-watch
+invowk cmd dev -W
+
+# Dry-run mode (print execution plan, don't execute)
+invowk cmd build --ivk-dry-run`,
+  },
+
   'reference/cli/init-syntax': {
     language: 'bash',
     code: `invowk init [flags] [filename]`,

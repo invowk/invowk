@@ -94,6 +94,15 @@ Invowk provides variables for flags and arguments:
 - `INVOWK_FLAG_*` - Flag values
 - `INVOWK_ARG_*` - Argument values
 
+Additionally, invowk injects metadata variables during command execution:
+
+| Variable | Description | Always Set |
+|----------|-------------|------------|
+| `INVOWK_CMD_NAME` | Current command name | Yes |
+| `INVOWK_RUNTIME` | Resolved runtime name (`native`, `virtual`, `container`) | Yes |
+| `INVOWK_SOURCE` | Source origin (e.g., module name) | No — only when running from a module |
+| `INVOWK_PLATFORM` | Resolved platform (`linux`, `macos`, `windows`) | No — only when running from a module |
+
 ## Container Environment
 
 For container runtime, environment is passed into the container:

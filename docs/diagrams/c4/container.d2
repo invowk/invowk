@@ -139,6 +139,17 @@ invowk_cli: Invowk CLI {
         Git-based dependency resolution with caching
       |
     }
+
+    watch_engine: Watch Engine {
+      style: {
+        fill: "#438DD5"
+        font-color: "#ffffff"
+      }
+      tooltip: |md
+        **Go/fsnotify**
+        File-watching with debounced re-execution for --ivk-watch mode
+      |
+    }
   }
 
   # --------------------------------------------------------------------------
@@ -336,6 +347,12 @@ invowk_cli.entry_core.module_resolver -> git: "Fetches\n[Git]" {
 }
 invowk_cli.entry_core.module_resolver -> cache: Caches {
   style.stroke: "#707070"
+}
+
+# Command to Watch Engine
+invowk_cli.entry_core.cmd -> invowk_cli.entry_core.watch_engine: "Delegates watch\n[--ivk-watch]" {
+  style.stroke: "#707070"
+  style.stroke-dash: 3
 }
 
 # Command to Runtime fan-out

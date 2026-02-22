@@ -41,12 +41,14 @@ cmds: [...#Command] & [_, ...]  // at least one required`,
     code: `{
     name: string                 // Required: command name
     description?: string         // Optional: help text
+    category?: string            // Optional: group in listing
     implementations: [...]       // Required: how to run the command
     flags?: [...]                // Optional: command flags
     args?: [...]                 // Optional: positional arguments
     env?: #EnvConfig             // Optional: environment config
     workdir?: string             // Optional: working directory
     depends_on?: #DependsOn      // Optional: dependencies
+    watch?: #WatchConfig         // Optional: file-watching config
 }`,
   },
 
@@ -685,12 +687,14 @@ workdir: "/opt/app"`,
     code: `#Command: {
     name:            string               // Required
     description?:    string               // Optional
+    category?:       string               // Optional - groups in listing
     implementations: [...#Implementation] // Required - at least one
     env?:            #EnvConfig           // Optional
     workdir?:        string               // Optional
     depends_on?:     #DependsOn           // Optional
     flags?:          [...#Flag]           // Optional
     args?:           [...#Argument]       // Optional
+    watch?:          #WatchConfig         // Optional - file-watching
 }`,
   },
 
@@ -715,6 +719,7 @@ name: "deploy-prod"`,
     env?:        #EnvConfig   // Optional
     workdir?:    string       // Optional
     depends_on?: #DependsOn   // Optional
+    timeout?:    #DurationString  // Optional - max execution time
 }`,
   },
 
@@ -1099,5 +1104,79 @@ cmds: [
         }
     },
 ]`,
+  },
+
+  // =============================================================================
+  // NEW SCHEMA FIELDS (category, timeout, watch, duration)
+  // =============================================================================
+
+  'reference/invowkfile/category-example': {
+    language: 'cue',
+    code: `cmds: [
+    {
+        name: "build"
+        category: "Development"
+        implementations: [...]
+    },
+    {
+        name: "test unit"
+        category: "Development"
+        implementations: [...]
+    },
+    {
+        name: "deploy"
+        category: "Operations"
+        implementations: [...]
+    },
+]`,
+  },
+
+  'reference/invowkfile/timeout-example': {
+    language: 'cue',
+    code: `{
+    name: "build"
+    implementations: [{
+        script: "make build"
+        runtimes: [{name: "native"}]
+        platforms: [{name: "linux"}, {name: "macos"}]
+        timeout: "5m"
+    }]
+}`,
+  },
+
+  'reference/invowkfile/duration-string-type': {
+    language: 'cue',
+    code: `// #DurationString — shared by timeout and debounce
+// Valid examples: "500ms", "30s", "5m", "1h30m", "2.5s"
+#DurationString: string & =~"^([0-9]+(\\\\.[0-9]+)?(ns|us|\u00b5s|ms|s|m|h))+$"`,
+  },
+
+  'reference/invowkfile/watch-config-structure': {
+    language: 'cue',
+    code: `#WatchConfig: {
+    patterns:      [...string] & [_, ...] // Required - glob patterns to watch
+    debounce?:     #DurationString        // Optional - default "500ms"
+    clear_screen?: bool                   // Optional - default false
+    ignore?:       [...string]            // Optional - merged with built-in defaults
+}`,
+  },
+
+  'reference/invowkfile/watch-config-example': {
+    language: 'cue',
+    code: `{
+    name: "dev"
+    description: "Run development server with auto-reload"
+    watch: {
+        patterns: ["src/**/*.go", "*.go"]
+        debounce: "1s"
+        clear_screen: true
+        ignore: ["vendor/**"]
+    }
+    implementations: [{
+        script: "go run ./cmd/server"
+        runtimes: [{name: "native"}]
+        platforms: [{name: "linux"}, {name: "macos"}]
+    }]
+}`,
   },
 } satisfies Record<string, Snippet>;

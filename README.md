@@ -926,6 +926,17 @@ fi
 RETRIES="${INVOWK_FLAG_RETRY_COUNT:-3}"
 ```
 
+### Metadata Variables
+
+Invowk injects metadata variables during command execution:
+
+| Variable | Description | Always Set |
+|----------|-------------|------------|
+| `INVOWK_CMD_NAME` | Current command name | Yes |
+| `INVOWK_RUNTIME` | Resolved runtime name (`native`, `virtual`, `container`) | Yes |
+| `INVOWK_SOURCE` | Source origin (e.g., module name) | Only from modules |
+| `INVOWK_PLATFORM` | Resolved platform (`linux`, `macos`, `windows`) | Only from modules |
+
 ### Script-Level Dependencies
 
 Dependencies can also be specified at the script level, which is especially useful for container-based implementations:
@@ -2473,6 +2484,20 @@ invowk cmd build --ivk-env-inherit-mode all --ivk-env-inherit-deny AWS_SECRET_AC
 invowk cmd test --ivk-workdir ./packages/api
 # or
 invowk cmd test -w ./packages/api
+```
+
+### Dry-Run Mode
+```bash
+# Print resolved execution plan without running the command
+invowk cmd build --ivk-dry-run
+```
+
+### Watch Mode
+```bash
+# Re-execute command on file changes (uses watch config from invowkfile, or all files)
+invowk cmd dev --ivk-watch
+# or
+invowk cmd dev -W
 ```
 
 ## Interactive TUI Components
