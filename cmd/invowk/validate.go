@@ -3,6 +3,7 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -21,8 +22,40 @@ const (
 	pathTypeModule              // *.invowkmod directory or invowkmod.cue file
 )
 
-// pathType represents the detected type of a filesystem path for validation routing.
-type pathType int
+// errInvalidPathType is returned when a pathType value is not one of the defined types.
+var errInvalidPathType = errors.New("invalid path type")
+
+type (
+	// pathType represents the detected type of a filesystem path for validation routing.
+	pathType int
+
+	// invalidPathTypeError is returned when a pathType value is not recognized.
+	// It wraps errInvalidPathType for errors.Is() compatibility.
+	invalidPathTypeError struct {
+		value pathType
+	}
+)
+
+// Error implements the error interface for invalidPathTypeError.
+func (e *invalidPathTypeError) Error() string {
+	return fmt.Sprintf("invalid path type %d (valid: 0=unknown, 1=invowkfile, 2=module)", e.value)
+}
+
+// Unwrap returns the sentinel error for errors.Is() compatibility.
+func (e *invalidPathTypeError) Unwrap() error {
+	return errInvalidPathType
+}
+
+// isValid returns whether the pathType is one of the defined types,
+// and a list of validation errors if it is not.
+func (p pathType) isValid() (bool, []error) {
+	switch p {
+	case pathTypeUnknown, pathTypeInvowkfile, pathTypeModule:
+		return true, nil
+	default:
+		return false, []error{&invalidPathTypeError{value: p}}
+	}
+}
 
 // newValidateCommand creates the `invowk validate` command.
 // Without arguments, it runs workspace-wide discovery validation.

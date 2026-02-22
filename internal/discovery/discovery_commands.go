@@ -6,6 +6,7 @@ import (
 	"cmp"
 	"context"
 	"fmt"
+	"regexp"
 	"slices"
 	"strings"
 
@@ -15,6 +16,11 @@ import (
 // SourceIDInvowkfile is the reserved source ID for the root invowkfile.
 // Used for multi-source discovery to identify commands from invowkfile.cue.
 const SourceIDInvowkfile SourceID = "invowkfile"
+
+// sourceIDPattern validates that a SourceID starts with a letter and contains only
+// letters, digits, dots, underscores, or hyphens. This matches the naming rules
+// for .invowkmod directory names used as module short names.
+var sourceIDPattern = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9._-]*$`)
 
 type (
 	// SourceID is a typed identifier for command sources (e.g., "invowkfile", "foo").
@@ -80,6 +86,16 @@ type (
 		SourceOrder []SourceID
 	}
 )
+
+// IsValid returns whether the SourceID matches the expected format (starts with a letter,
+// contains only letters, digits, dots, underscores, or hyphens),
+// and a list of validation errors if it does not.
+func (s SourceID) IsValid() (bool, []error) {
+	if !sourceIDPattern.MatchString(string(s)) {
+		return false, []error{&InvalidSourceIDError{Value: s}}
+	}
+	return true, nil
+}
 
 // NewDiscoveredCommandSet creates a new DiscoveredCommandSet with initialized maps.
 func NewDiscoveredCommandSet() *DiscoveredCommandSet {

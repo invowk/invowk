@@ -3,6 +3,7 @@
 package cmd
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -119,6 +120,44 @@ func TestDetectPathType(t *testing.T) {
 				if !containsSuffix(gotResolved, tt.wantResolved) {
 					t.Errorf("detectPathType(%q) resolved = %q, want suffix %q", absPath, gotResolved, tt.wantResolved)
 				}
+			}
+		})
+	}
+}
+
+func TestPathType_IsValid(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		value   pathType
+		want    bool
+		wantErr bool
+	}{
+		{"unknown", pathTypeUnknown, true, false},
+		{"invowkfile", pathTypeInvowkfile, true, false},
+		{"module", pathTypeModule, true, false},
+		{"out of range positive", pathType(99), false, true},
+		{"negative", pathType(-1), false, true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			isValid, errs := tt.value.isValid()
+			if isValid != tt.want {
+				t.Errorf("pathType(%d).isValid() = %v, want %v", tt.value, isValid, tt.want)
+			}
+
+			if tt.wantErr {
+				if len(errs) == 0 {
+					t.Error("expected validation errors, got none")
+				} else if !errors.Is(errs[0], errInvalidPathType) {
+					t.Errorf("expected errors.Is(err, errInvalidPathType), got %v", errs[0])
+				}
+			} else if len(errs) > 0 {
+				t.Errorf("unexpected validation errors: %v", errs)
 			}
 		})
 	}
