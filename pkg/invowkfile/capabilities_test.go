@@ -210,6 +210,23 @@ func TestCapabilityName_IsValid(t *testing.T) {
 	}
 }
 
+func TestCapabilityName_IsValid_ErrorType(t *testing.T) {
+	t.Parallel()
+
+	_, errs := CapabilityName("bogus").IsValid()
+	if len(errs) == 0 {
+		t.Fatal("expected error for invalid capability name")
+	}
+
+	var invalidErr *InvalidCapabilityNameError
+	if !errors.As(errs[0], &invalidErr) {
+		t.Errorf("error should be *InvalidCapabilityNameError, got %T", errs[0])
+	}
+	if invalidErr.Value != "bogus" {
+		t.Errorf("InvalidCapabilityNameError.Value = %q, want %q", invalidErr.Value, "bogus")
+	}
+}
+
 func TestCheckLocalAreaNetwork_ReturnsCapabilityError(t *testing.T) {
 	t.Parallel()
 

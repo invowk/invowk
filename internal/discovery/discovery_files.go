@@ -55,6 +55,17 @@ func (s Source) String() string {
 	}
 }
 
+// IsValid returns whether the Source is one of the defined source types,
+// and a list of validation errors if it is not.
+func (s Source) IsValid() (bool, []error) {
+	switch s {
+	case SourceCurrentDir, SourceModule:
+		return true, nil
+	default:
+		return false, []error{&InvalidSourceError{Value: s}}
+	}
+}
+
 // DiscoverAll finds all invowkfiles from all sources in 4-level precedence order:
 //  1. Current directory (highest precedence — the local invowkfile.cue)
 //  2. Modules in the current directory (*.invowkmod directories)

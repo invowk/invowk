@@ -52,6 +52,8 @@ var (
 	ErrInvalidSeverity = errors.New("invalid severity")
 	// ErrInvalidDiagnosticCode is returned when a DiagnosticCode value is not one of the defined codes.
 	ErrInvalidDiagnosticCode = errors.New("invalid diagnostic code")
+	// ErrInvalidSource is returned when a Source value is not one of the defined source types.
+	ErrInvalidSource = errors.New("invalid source")
 )
 
 type (
@@ -71,6 +73,12 @@ type (
 	// It wraps ErrInvalidDiagnosticCode for errors.Is() compatibility.
 	InvalidDiagnosticCodeError struct {
 		Value DiagnosticCode
+	}
+
+	// InvalidSourceError is returned when a Source value is not recognized.
+	// It wraps ErrInvalidSource for errors.Is() compatibility.
+	InvalidSourceError struct {
+		Value Source
 	}
 
 	// Diagnostic represents a structured discovery diagnostic that is returned
@@ -139,6 +147,16 @@ func (e *InvalidDiagnosticCodeError) Error() string {
 // Unwrap returns the sentinel error for errors.Is() compatibility.
 func (e *InvalidDiagnosticCodeError) Unwrap() error {
 	return ErrInvalidDiagnosticCode
+}
+
+// Error implements the error interface for InvalidSourceError.
+func (e *InvalidSourceError) Error() string {
+	return fmt.Sprintf("invalid source %d (valid: 0=current_directory, 1=module)", e.Value)
+}
+
+// Unwrap returns the sentinel error for errors.Is() compatibility.
+func (e *InvalidSourceError) Unwrap() error {
+	return ErrInvalidSource
 }
 
 // IsValid returns whether the DiagnosticCode is one of the defined codes,

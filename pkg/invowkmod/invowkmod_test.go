@@ -446,6 +446,107 @@ func TestHasInvowkfile(t *testing.T) {
 	})
 }
 
+// ============================================
+// Tests for IsValid() methods on type definitions
+// ============================================
+
+func TestValidationIssueType_IsValid(t *testing.T) {
+	t.Parallel()
+
+	validTypes := []ValidationIssueType{
+		IssueTypeStructure, IssueTypeNaming, IssueTypeInvowkmod,
+		IssueTypeSecurity, IssueTypeCompatibility, IssueTypeInvowkfile,
+		IssueTypeCommandTree,
+	}
+
+	for _, vt := range validTypes {
+		t.Run(string(vt), func(t *testing.T) {
+			t.Parallel()
+
+			isValid, errs := vt.IsValid()
+			if !isValid {
+				t.Errorf("ValidationIssueType(%q).IsValid() = false, want true", vt)
+			}
+			if len(errs) > 0 {
+				t.Errorf("ValidationIssueType(%q).IsValid() returned unexpected errors: %v", vt, errs)
+			}
+		})
+	}
+
+	invalidTypes := []ValidationIssueType{"", "invalid", "STRUCTURE"}
+	for _, vt := range invalidTypes {
+		name := string(vt)
+		if name == "" {
+			name = "empty"
+		}
+
+		t.Run("invalid_"+name, func(t *testing.T) {
+			t.Parallel()
+
+			isValid, errs := vt.IsValid()
+			if isValid {
+				t.Errorf("ValidationIssueType(%q).IsValid() = true, want false", vt)
+			}
+			if len(errs) == 0 {
+				t.Fatalf("ValidationIssueType(%q).IsValid() returned no errors, want error", vt)
+			}
+			if !errors.Is(errs[0], ErrInvalidValidationIssueType) {
+				t.Errorf("error should wrap ErrInvalidValidationIssueType, got: %v", errs[0])
+			}
+		})
+	}
+}
+
+func TestModuleID_IsValid(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		id      ModuleID
+		want    bool
+		wantErr bool
+	}{
+		{"simple", ModuleID("mymodule"), true, false},
+		{"rdns two segments", ModuleID("io.invowk"), true, false},
+		{"rdns three segments", ModuleID("io.invowk.sample"), true, false},
+		{"single letter", ModuleID("a"), true, false},
+		{"alphanumeric", ModuleID("foo123.bar456"), true, false},
+		{"mixed case", ModuleID("My.Module1"), true, false},
+		{"max length valid", ModuleID(strings.Repeat("a", MaxModuleIDLength)), true, false},
+		{"empty", ModuleID(""), false, true},
+		{"starts with digit", ModuleID("1module"), false, true},
+		{"starts with dot", ModuleID(".module"), false, true},
+		{"ends with dot", ModuleID("module."), false, true},
+		{"consecutive dots", ModuleID("io..invowk"), false, true},
+		{"contains hyphen", ModuleID("io.inv-owk"), false, true},
+		{"contains underscore", ModuleID("io.inv_owk"), false, true},
+		{"contains space", ModuleID("io invowk"), false, true},
+		{"segment starts with digit", ModuleID("io.1invowk"), false, true},
+		{"too long", ModuleID(strings.Repeat("a", MaxModuleIDLength+1)), false, true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			isValid, errs := tt.id.IsValid()
+			if isValid != tt.want {
+				t.Errorf("ModuleID(%q).IsValid() = %v, want %v", tt.id, isValid, tt.want)
+			}
+			if tt.wantErr {
+				if len(errs) == 0 {
+					t.Fatalf("ModuleID(%q).IsValid() returned no errors, want error", tt.id)
+				}
+				if !errors.Is(errs[0], ErrInvalidModuleID) {
+					t.Errorf("error should wrap ErrInvalidModuleID, got: %v", errs[0])
+				}
+			} else if len(errs) > 0 {
+				t.Errorf("ModuleID(%q).IsValid() returned unexpected errors: %v", tt.id, errs)
+			}
+		})
+	}
+}
+
 func TestPathHelpers(t *testing.T) {
 	t.Parallel()
 

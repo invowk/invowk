@@ -85,3 +85,40 @@ func TestDiagnosticCode_IsValid(t *testing.T) {
 		})
 	}
 }
+
+func TestSource_IsValid(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		source  Source
+		want    bool
+		wantErr bool
+	}{
+		{"SourceCurrentDir", SourceCurrentDir, true, false},
+		{"SourceModule", SourceModule, true, false},
+		{"invalid negative", Source(-1), false, true},
+		{"invalid large", Source(99), false, true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			isValid, errs := tt.source.IsValid()
+			if isValid != tt.want {
+				t.Errorf("Source(%d).IsValid() = %v, want %v", tt.source, isValid, tt.want)
+			}
+			if tt.wantErr {
+				if len(errs) == 0 {
+					t.Fatalf("Source(%d).IsValid() returned no errors, want error", tt.source)
+				}
+				if !errors.Is(errs[0], ErrInvalidSource) {
+					t.Errorf("error should wrap ErrInvalidSource, got: %v", errs[0])
+				}
+			} else if len(errs) > 0 {
+				t.Errorf("Source(%d).IsValid() returned unexpected errors: %v", tt.source, errs)
+			}
+		})
+	}
+}

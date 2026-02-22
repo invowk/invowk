@@ -36,14 +36,29 @@ type (
 	// CapabilityName represents a system capability type
 	CapabilityName string
 
-	// CapabilityError represents an error when a capability check fails.
-	// Also used as the validation error for invalid capability names,
-	// wrapping ErrInvalidCapabilityName for errors.Is() compatibility.
+	// InvalidCapabilityNameError is returned when a CapabilityName value is not recognized.
+	// It wraps ErrInvalidCapabilityName for errors.Is() compatibility.
+	InvalidCapabilityNameError struct {
+		Value CapabilityName
+	}
+
+	// CapabilityError represents an error when a capability check fails at runtime.
+	// Distinct from InvalidCapabilityNameError which validates the name itself.
 	CapabilityError struct {
 		Capability CapabilityName
 		Message    string
 	}
 )
+
+// Error implements the error interface for InvalidCapabilityNameError.
+func (e *InvalidCapabilityNameError) Error() string {
+	return fmt.Sprintf("invalid capability name %q (valid: local-area-network, internet, containers, tty)", e.Value)
+}
+
+// Unwrap returns the sentinel error for errors.Is() compatibility.
+func (e *InvalidCapabilityNameError) Unwrap() error {
+	return ErrInvalidCapabilityName
+}
 
 // Error implements the error interface
 func (e *CapabilityError) Error() string {
@@ -254,7 +269,7 @@ func (c CapabilityName) IsValid() (bool, []error) {
 	case CapabilityLocalAreaNetwork, CapabilityInternet, CapabilityContainers, CapabilityTTY:
 		return true, nil
 	default:
-		return false, []error{fmt.Errorf("%w: %q", ErrInvalidCapabilityName, c)}
+		return false, []error{&InvalidCapabilityNameError{Value: c}}
 	}
 }
 

@@ -25,9 +25,14 @@ const (
 	RuntimeTypeContainer RuntimeType = "container"
 )
 
-// ErrRuntimeNotAvailable is returned when the requested runtime is not available on the current system.
-// Callers can check for this error using errors.Is(err, ErrRuntimeNotAvailable).
-var ErrRuntimeNotAvailable = errors.New("runtime not available")
+var (
+	// ErrRuntimeNotAvailable is returned when the requested runtime is not available on the current system.
+	// Callers can check for this error using errors.Is(err, ErrRuntimeNotAvailable).
+	ErrRuntimeNotAvailable = errors.New("runtime not available")
+
+	// ErrInvalidRuntimeType is returned when a RuntimeType value is not one of the defined runtime types.
+	ErrInvalidRuntimeType = errors.New("invalid runtime type")
+)
 
 type (
 	// IOContext holds I/O streams for command execution.
@@ -186,6 +191,12 @@ type (
 	//nolint:revive // RuntimeType is more descriptive than Type for external callers
 	RuntimeType string
 
+	// InvalidRuntimeTypeError is returned when a RuntimeType value is not recognized.
+	// It wraps ErrInvalidRuntimeType for errors.Is() compatibility.
+	InvalidRuntimeTypeError struct {
+		Value RuntimeType
+	}
+
 	// Registry holds all available runtimes and generates unique execution IDs.
 	// A single Registry instance is created per command execution via
 	// BuildRegistry(), so the idCounter provides execution-scoped
@@ -196,6 +207,27 @@ type (
 		idCounter atomic.Uint64
 	}
 )
+
+// Error implements the error interface for InvalidRuntimeTypeError.
+func (e *InvalidRuntimeTypeError) Error() string {
+	return fmt.Sprintf("invalid runtime type %q (valid: native, virtual, container)", e.Value)
+}
+
+// Unwrap returns the sentinel error for errors.Is() compatibility.
+func (e *InvalidRuntimeTypeError) Unwrap() error {
+	return ErrInvalidRuntimeType
+}
+
+// IsValid returns whether the RuntimeType is one of the defined runtime types,
+// and a list of validation errors if it is not.
+func (rt RuntimeType) IsValid() (bool, []error) {
+	switch rt {
+	case RuntimeTypeNative, RuntimeTypeVirtual, RuntimeTypeContainer:
+		return true, nil
+	default:
+		return false, []error{&InvalidRuntimeTypeError{Value: rt}}
+	}
+}
 
 // DefaultIO returns an IOContext with standard I/O streams (os.Stdout, os.Stderr, os.Stdin).
 func DefaultIO() IOContext {

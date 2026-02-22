@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/invowk/invowk/pkg/cueutil"
@@ -22,6 +23,10 @@ const (
 
 	// VendoredModulesDir is the directory name for vendored module dependencies.
 	VendoredModulesDir = "invowk_modules"
+
+	// MaxModuleIDLength is the maximum allowed length for a module identifier.
+	// This mirrors the CUE schema constraint: strings.MaxRunes(256).
+	MaxModuleIDLength = 256
 
 	// IssueTypeStructure categorizes structural validation issues (missing files, wrong layout).
 	IssueTypeStructure ValidationIssueType = "structure"
@@ -46,6 +51,16 @@ var (
 	// ErrInvowkmodNotFound is returned when invowkmod.cue is not found in a module directory.
 	// Callers can check for this error using errors.Is(err, ErrInvowkmodNotFound).
 	ErrInvowkmodNotFound = errors.New("invowkmod.cue not found")
+
+	// ErrInvalidValidationIssueType is returned when a ValidationIssueType value is not one of the defined issue types.
+	ErrInvalidValidationIssueType = errors.New("invalid validation issue type")
+
+	// ErrInvalidModuleID is returned when a ModuleID value does not match the required format.
+	ErrInvalidModuleID = errors.New("invalid module ID")
+
+	// moduleIDPattern validates the ModuleID format: starts with a letter, alphanumeric segments
+	// separated by dots. This mirrors the CUE schema constraint in invowkmod_schema.cue.
+	moduleIDPattern = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9]*(\.[a-zA-Z][a-zA-Z0-9]*)*$`)
 )
 
 type (
@@ -53,6 +68,12 @@ type (
 	// Using a named type prevents accidental confusion with other string parameters
 	// like command names, source IDs, or file paths.
 	ModuleID string
+
+	// InvalidModuleIDError is returned when a ModuleID value does not match the required format.
+	// It wraps ErrInvalidModuleID for errors.Is() compatibility.
+	InvalidModuleIDError struct {
+		Value ModuleID
+	}
 
 	// ModuleCommands defines the typed command contract stored in Module.Commands.
 	// This abstraction decouples module identity from invowkfile command listing,
@@ -66,6 +87,12 @@ type (
 
 	// ValidationIssueType categorizes module validation issues.
 	ValidationIssueType string
+
+	// InvalidValidationIssueTypeError is returned when a ValidationIssueType value is not recognized.
+	// It wraps ErrInvalidValidationIssueType for errors.Is() compatibility.
+	InvalidValidationIssueTypeError struct {
+		Value ValidationIssueType
+	}
 
 	// ValidationIssue represents a single domain-level validation problem in a module.
 	// Use ValidationIssue for problems that are collected and reported as a batch via
@@ -178,6 +205,58 @@ type (
 		DirectDeps map[ModuleID]bool `json:"-"`
 	}
 )
+
+// Error implements the error interface for InvalidModuleIDError.
+func (e *InvalidModuleIDError) Error() string {
+	return fmt.Sprintf(
+		"invalid module ID %q: must match format 'segment.segment...' "+
+			"where each segment starts with a letter followed by alphanumeric characters, max %d characters",
+		string(e.Value), MaxModuleIDLength,
+	)
+}
+
+// Unwrap returns the sentinel error for errors.Is() compatibility.
+func (e *InvalidModuleIDError) Unwrap() error {
+	return ErrInvalidModuleID
+}
+
+// IsValid returns whether the ModuleID matches the required RDNS format,
+// and a list of validation errors if it does not. The format requires:
+// starts with a letter, alphanumeric segments separated by dots, max 256 runes.
+// This mirrors the CUE schema constraint in invowkmod_schema.cue.
+func (m ModuleID) IsValid() (bool, []error) {
+	s := string(m)
+	if s == "" || len([]rune(s)) > MaxModuleIDLength || !moduleIDPattern.MatchString(s) {
+		return false, []error{&InvalidModuleIDError{Value: m}}
+	}
+
+	return true, nil
+}
+
+// Error implements the error interface for InvalidValidationIssueTypeError.
+func (e *InvalidValidationIssueTypeError) Error() string {
+	return fmt.Sprintf(
+		"invalid validation issue type %q (valid: structure, naming, invowkmod, security, compatibility, invowkfile, command_tree)",
+		e.Value,
+	)
+}
+
+// Unwrap returns the sentinel error for errors.Is() compatibility.
+func (e *InvalidValidationIssueTypeError) Unwrap() error {
+	return ErrInvalidValidationIssueType
+}
+
+// IsValid returns whether the ValidationIssueType is one of the defined issue types,
+// and a list of validation errors if it is not.
+func (v ValidationIssueType) IsValid() (bool, []error) {
+	switch v {
+	case IssueTypeStructure, IssueTypeNaming, IssueTypeInvowkmod, IssueTypeSecurity,
+		IssueTypeCompatibility, IssueTypeInvowkfile, IssueTypeCommandTree:
+		return true, nil
+	default:
+		return false, []error{&InvalidValidationIssueTypeError{Value: v}}
+	}
+}
 
 // Error implements the error interface for ValidationIssue.
 func (v ValidationIssue) Error() string {

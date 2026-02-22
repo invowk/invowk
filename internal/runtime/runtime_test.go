@@ -692,3 +692,46 @@ func TestRegistry_Execute_UnavailableRuntimeWraps(t *testing.T) {
 		t.Errorf("Execute() error should wrap ErrRuntimeNotAvailable, got: %v", result.Error)
 	}
 }
+
+func TestRuntimeType_IsValid(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		runtimeType RuntimeType
+		want        bool
+		wantErr     bool
+	}{
+		{RuntimeTypeNative, true, false},
+		{RuntimeTypeVirtual, true, false},
+		{RuntimeTypeContainer, true, false},
+		{"", false, true},
+		{"invalid", false, true},
+		{"NATIVE", false, true},
+	}
+
+	for _, tt := range tests {
+		name := string(tt.runtimeType)
+		if name == "" {
+			name = "empty"
+		}
+
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			isValid, errs := tt.runtimeType.IsValid()
+			if isValid != tt.want {
+				t.Errorf("RuntimeType(%q).IsValid() = %v, want %v", tt.runtimeType, isValid, tt.want)
+			}
+			if tt.wantErr {
+				if len(errs) == 0 {
+					t.Fatalf("RuntimeType(%q).IsValid() returned no errors, want error", tt.runtimeType)
+				}
+				if !errors.Is(errs[0], ErrInvalidRuntimeType) {
+					t.Errorf("error should wrap ErrInvalidRuntimeType, got: %v", errs[0])
+				}
+			} else if len(errs) > 0 {
+				t.Errorf("RuntimeType(%q).IsValid() returned unexpected errors: %v", tt.runtimeType, errs)
+			}
+		})
+	}
+}
