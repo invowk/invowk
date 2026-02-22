@@ -447,3 +447,42 @@ func TestContext(t *testing.T) {
 		t.Error("context should be cancelled after TransitionToStopping")
 	}
 }
+
+func TestState_IsValid(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		state   State
+		want    bool
+		wantErr bool
+	}{
+		{StateCreated, true, false},
+		{StateStarting, true, false},
+		{StateRunning, true, false},
+		{StateStopping, true, false},
+		{StateStopped, true, false},
+		{StateFailed, true, false},
+		{State(99), false, true},
+		{State(-1), false, true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.state.String(), func(t *testing.T) {
+			t.Parallel()
+			isValid, errs := tt.state.IsValid()
+			if isValid != tt.want {
+				t.Errorf("State(%d).IsValid() = %v, want %v", tt.state, isValid, tt.want)
+			}
+			if tt.wantErr {
+				if len(errs) == 0 {
+					t.Fatalf("State(%d).IsValid() returned no errors, want error", tt.state)
+				}
+				if !errors.Is(errs[0], ErrInvalidState) {
+					t.Errorf("error should wrap ErrInvalidState, got: %v", errs[0])
+				}
+			} else if len(errs) > 0 {
+				t.Errorf("State(%d).IsValid() returned unexpected errors: %v", tt.state, errs)
+			}
+		})
+	}
+}

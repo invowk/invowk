@@ -2,6 +2,11 @@
 
 package serverbase
 
+import (
+	"errors"
+	"fmt"
+)
+
 const (
 	// StateCreated indicates the server instance was created but Start() not called.
 	StateCreated State = iota
@@ -17,8 +22,19 @@ const (
 	StateFailed
 )
 
-// State represents the lifecycle state of a server.
-type State int32
+// ErrInvalidState is returned when a State value is not one of the defined lifecycle states.
+var ErrInvalidState = errors.New("invalid state")
+
+type (
+	// State represents the lifecycle state of a server.
+	State int32
+
+	// InvalidStateError is returned when a State value is not recognized.
+	// It wraps ErrInvalidState for errors.Is() compatibility.
+	InvalidStateError struct {
+		Value State
+	}
+)
 
 // String returns a human-readable representation of the server state.
 func (s State) String() string {
@@ -37,6 +53,27 @@ func (s State) String() string {
 		return "failed"
 	default:
 		return "unknown"
+	}
+}
+
+// Error implements the error interface for InvalidStateError.
+func (e *InvalidStateError) Error() string {
+	return fmt.Sprintf("invalid state %d (valid: 0=created, 1=starting, 2=running, 3=stopping, 4=stopped, 5=failed)", e.Value)
+}
+
+// Unwrap returns the sentinel error for errors.Is() compatibility.
+func (e *InvalidStateError) Unwrap() error {
+	return ErrInvalidState
+}
+
+// IsValid returns whether the State is one of the defined lifecycle states,
+// and a list of validation errors if it is not.
+func (s State) IsValid() (bool, []error) {
+	switch s {
+	case StateCreated, StateStarting, StateRunning, StateStopping, StateStopped, StateFailed:
+		return true, nil
+	default:
+		return false, []error{&InvalidStateError{Value: s}}
 	}
 }
 

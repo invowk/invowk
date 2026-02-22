@@ -3,6 +3,8 @@
 package invowkfile
 
 import (
+	"errors"
+	"fmt"
 	"io/fs"
 	"strings"
 )
@@ -14,9 +16,18 @@ const (
 	SeverityWarning
 )
 
+// ErrInvalidValidationSeverity is returned when a ValidationSeverity value is not one of the defined severities.
+var ErrInvalidValidationSeverity = errors.New("invalid validation severity")
+
 type (
 	// ValidationSeverity indicates the severity level of a validation error.
 	ValidationSeverity int
+
+	// InvalidValidationSeverityError is returned when a ValidationSeverity value is not recognized.
+	// It wraps ErrInvalidValidationSeverity for errors.Is() compatibility.
+	InvalidValidationSeverityError struct {
+		Value ValidationSeverity
+	}
 
 	// ValidationError represents a single validation issue found during invowkfile validation.
 	ValidationError struct {
@@ -76,6 +87,27 @@ type (
 		parts []string
 	}
 )
+
+// Error implements the error interface for InvalidValidationSeverityError.
+func (e *InvalidValidationSeverityError) Error() string {
+	return fmt.Sprintf("invalid validation severity %d (valid: 0=error, 1=warning)", e.Value)
+}
+
+// Unwrap returns the sentinel error for errors.Is() compatibility.
+func (e *InvalidValidationSeverityError) Unwrap() error {
+	return ErrInvalidValidationSeverity
+}
+
+// IsValid returns whether the ValidationSeverity is one of the defined severity levels,
+// and a list of validation errors if it is not.
+func (s ValidationSeverity) IsValid() (bool, []error) {
+	switch s {
+	case SeverityError, SeverityWarning:
+		return true, nil
+	default:
+		return false, []error{&InvalidValidationSeverityError{Value: s}}
+	}
+}
 
 // String returns a human-readable representation of the severity level.
 func (s ValidationSeverity) String() string {

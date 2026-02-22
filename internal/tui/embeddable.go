@@ -4,6 +4,7 @@ package tui
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -14,7 +15,6 @@ import (
 	"github.com/muesli/reflow/truncate"
 )
 
-// Using untyped const pattern for ComponentType values.
 const (
 	// modalBorderWidth is the horizontal space taken by the border (1 char each side).
 	modalBorderWidth = 2
@@ -29,17 +29,26 @@ const (
 	// modalOverheadHeight is the total vertical overhead for the modal frame.
 	modalOverheadHeight = modalBorderHeight + modalPaddingHeight // 4
 
-	// Component type constants for the TUI system.
-	ComponentTypeInput    = "input"
-	ComponentTypeConfirm  = "confirm"
-	ComponentTypeChoose   = "choose"
-	ComponentTypeFilter   = "filter"
-	ComponentTypeFile     = "file"
-	ComponentTypeWrite    = "write"
-	ComponentTypeTextArea = "textarea"
-	ComponentTypeSpin     = "spin"
-	ComponentTypePager    = "pager"
-	ComponentTypeTable    = "table"
+	// ComponentTypeInput represents the text input component.
+	ComponentTypeInput ComponentType = "input"
+	// ComponentTypeConfirm represents the yes/no confirmation component.
+	ComponentTypeConfirm ComponentType = "confirm"
+	// ComponentTypeChoose represents the single/multi-select component.
+	ComponentTypeChoose ComponentType = "choose"
+	// ComponentTypeFilter represents the filterable list component.
+	ComponentTypeFilter ComponentType = "filter"
+	// ComponentTypeFile represents the file picker component.
+	ComponentTypeFile ComponentType = "file"
+	// ComponentTypeWrite represents the styled text output component.
+	ComponentTypeWrite ComponentType = "write"
+	// ComponentTypeTextArea represents the multi-line text input component.
+	ComponentTypeTextArea ComponentType = "textarea"
+	// ComponentTypeSpin represents the spinner/loading component.
+	ComponentTypeSpin ComponentType = "spin"
+	// ComponentTypePager represents the scrollable text viewer component.
+	ComponentTypePager ComponentType = "pager"
+	// ComponentTypeTable represents the table selection component.
+	ComponentTypeTable ComponentType = "table"
 )
 
 // Modal ANSI variables: modal overlays render on a styled background, but child
@@ -57,6 +66,9 @@ var (
 	// ansiResetWithBg is the ANSI reset followed by modal background restore.
 	// This is what we replace bare resets with.
 	ansiResetWithBg = ansiReset + modalBgANSI
+
+	// ErrInvalidComponentType is returned when a ComponentType value is not one of the defined types.
+	ErrInvalidComponentType = errors.New("invalid component type")
 )
 
 type (
@@ -112,12 +124,41 @@ type (
 	// ComponentType represents the type of TUI component.
 	ComponentType string
 
+	// InvalidComponentTypeError is returned when a ComponentType value is not recognized.
+	// It wraps ErrInvalidComponentType for errors.Is() compatibility.
+	InvalidComponentTypeError struct {
+		Value ComponentType
+	}
+
 	// ModalSize contains the calculated dimensions for a modal overlay.
 	ModalSize struct {
 		Width  int
 		Height int
 	}
 )
+
+// Error implements the error interface for InvalidComponentTypeError.
+func (e *InvalidComponentTypeError) Error() string {
+	return fmt.Sprintf("invalid component type %q (valid: input, confirm, choose, filter, file, write, textarea, spin, pager, table)", e.Value)
+}
+
+// Unwrap returns the sentinel error for errors.Is() compatibility.
+func (e *InvalidComponentTypeError) Unwrap() error {
+	return ErrInvalidComponentType
+}
+
+// IsValid returns whether the ComponentType is one of the defined component types,
+// and a list of validation errors if it is not.
+func (ct ComponentType) IsValid() (bool, []error) {
+	switch ct {
+	case ComponentTypeInput, ComponentTypeConfirm, ComponentTypeChoose, ComponentTypeFilter,
+		ComponentTypeFile, ComponentTypeWrite, ComponentTypeTextArea, ComponentTypeSpin,
+		ComponentTypePager, ComponentTypeTable:
+		return true, nil
+	default:
+		return false, []error{&InvalidComponentTypeError{Value: ct}}
+	}
+}
 
 // CalculateModalSize calculates appropriate modal content dimensions based on component type
 // and available screen space. The returned dimensions are for the INNER content area,

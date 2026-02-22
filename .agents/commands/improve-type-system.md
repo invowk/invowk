@@ -10,4 +10,6 @@ We're on a long multi-step work to completely avoid the use of simple primitive 
 - MUST use only non-primitive types for fields
 - MUST be immutable with only unexported fields and public accessor methods unless very unpractical for our use-cases
 
+All methods MUST have unit tests for ALL conditions.
+
 Identify the next top 5 types to be worked on.

@@ -2,6 +2,11 @@
 
 package discovery
 
+import (
+	"errors"
+	"fmt"
+)
+
 const (
 	// SeverityWarning indicates a recoverable discovery warning.
 	SeverityWarning Severity = "warning"
@@ -42,12 +47,31 @@ const (
 	CodeVendoredNestedIgnored DiagnosticCode = "vendored_nested_ignored"
 )
 
+var (
+	// ErrInvalidSeverity is returned when a Severity value is not one of the defined severities.
+	ErrInvalidSeverity = errors.New("invalid severity")
+	// ErrInvalidDiagnosticCode is returned when a DiagnosticCode value is not one of the defined codes.
+	ErrInvalidDiagnosticCode = errors.New("invalid diagnostic code")
+)
+
 type (
 	// Severity represents discovery diagnostic severity.
 	Severity string
 
 	// DiagnosticCode is a machine-readable identifier for a diagnostic.
 	DiagnosticCode string
+
+	// InvalidSeverityError is returned when a Severity value is not recognized.
+	// It wraps ErrInvalidSeverity for errors.Is() compatibility.
+	InvalidSeverityError struct {
+		Value Severity
+	}
+
+	// InvalidDiagnosticCodeError is returned when a DiagnosticCode value is not recognized.
+	// It wraps ErrInvalidDiagnosticCode for errors.Is() compatibility.
+	InvalidDiagnosticCodeError struct {
+		Value DiagnosticCode
+	}
 
 	// Diagnostic represents a structured discovery diagnostic that is returned
 	// to callers (rather than written to stderr) for consistent rendering policy.
@@ -80,3 +104,55 @@ type (
 		Diagnostics []Diagnostic
 	}
 )
+
+// String returns the string representation of the severity level.
+func (s Severity) String() string {
+	return string(s)
+}
+
+// Error implements the error interface for InvalidSeverityError.
+func (e *InvalidSeverityError) Error() string {
+	return fmt.Sprintf("invalid severity %q (valid: warning, error)", e.Value)
+}
+
+// Unwrap returns the sentinel error for errors.Is() compatibility.
+func (e *InvalidSeverityError) Unwrap() error {
+	return ErrInvalidSeverity
+}
+
+// IsValid returns whether the Severity is one of the defined severity levels,
+// and a list of validation errors if it is not.
+func (s Severity) IsValid() (bool, []error) {
+	switch s {
+	case SeverityWarning, SeverityError:
+		return true, nil
+	default:
+		return false, []error{&InvalidSeverityError{Value: s}}
+	}
+}
+
+// Error implements the error interface for InvalidDiagnosticCodeError.
+func (e *InvalidDiagnosticCodeError) Error() string {
+	return fmt.Sprintf("invalid diagnostic code %q", e.Value)
+}
+
+// Unwrap returns the sentinel error for errors.Is() compatibility.
+func (e *InvalidDiagnosticCodeError) Unwrap() error {
+	return ErrInvalidDiagnosticCode
+}
+
+// IsValid returns whether the DiagnosticCode is one of the defined codes,
+// and a list of validation errors if it is not.
+func (dc DiagnosticCode) IsValid() (bool, []error) {
+	switch dc {
+	case CodeWorkingDirUnavailable, CodeCommandsDirUnavailable, CodeConfigLoadFailed,
+		CodeCommandNotFound, CodeInvowkfileParseSkipped, CodeModuleScanPathInvalid,
+		CodeModuleScanFailed, CodeReservedModuleNameSkipped, CodeModuleLoadSkipped,
+		CodeIncludeNotModule, CodeIncludeReservedSkipped, CodeIncludeModuleLoadFailed,
+		CodeVendoredScanFailed, CodeVendoredReservedSkipped, CodeVendoredModuleLoadSkipped,
+		CodeVendoredNestedIgnored:
+		return true, nil
+	default:
+		return false, []error{&InvalidDiagnosticCodeError{Value: dc}}
+	}
+}

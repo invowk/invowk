@@ -4,6 +4,7 @@ package tui
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"os"
 
@@ -12,18 +13,17 @@ import (
 )
 
 // Const block placed before var/type (decorder: const → var → type → func).
-// Using untyped const pattern for Theme values.
 const (
 	// ThemeDefault uses the default huh theme.
-	ThemeDefault = "default"
+	ThemeDefault Theme = "default"
 	// ThemeCharm uses the Charm theme.
-	ThemeCharm = "charm"
+	ThemeCharm Theme = "charm"
 	// ThemeDracula uses the Dracula theme.
-	ThemeDracula = "dracula"
+	ThemeDracula Theme = "dracula"
 	// ThemeCatppuccin uses the Catppuccin theme.
-	ThemeCatppuccin = "catppuccin"
+	ThemeCatppuccin Theme = "catppuccin"
 	// ThemeBase16 uses the Base16 theme.
-	ThemeBase16 = "base16"
+	ThemeBase16 Theme = "base16"
 	// keyCtrlC is the key binding constant for Ctrl+C.
 	keyCtrlC = "ctrl+c"
 	// ModalBackgroundColor is the background color used for modal overlays.
@@ -38,6 +38,8 @@ var (
 	ErrCancelled = errors.New("user cancelled")
 	// errNoCommand is returned when trying to run an interactive session without a command.
 	errNoCommand = errors.New("no command provided")
+	// ErrInvalidTheme is returned when a Theme value is not one of the defined themes.
+	ErrInvalidTheme = errors.New("invalid theme")
 	// modalBgColor is the lipgloss.Color version of ModalBackgroundColor for internal use.
 	modalBgColor = lipgloss.Color(ModalBackgroundColor)
 )
@@ -46,6 +48,12 @@ var (
 type (
 	// Theme represents the visual theme for TUI components.
 	Theme string
+
+	// InvalidThemeError is returned when a Theme value is not recognized.
+	// It wraps ErrInvalidTheme for errors.Is() compatibility.
+	InvalidThemeError struct {
+		Value Theme
+	}
 
 	// Config holds common configuration for TUI components.
 	Config struct {
@@ -95,6 +103,27 @@ type (
 		Align string
 	}
 )
+
+// Error implements the error interface for InvalidThemeError.
+func (e *InvalidThemeError) Error() string {
+	return fmt.Sprintf("invalid theme %q (valid: default, charm, dracula, catppuccin, base16)", e.Value)
+}
+
+// Unwrap returns the sentinel error for errors.Is() compatibility.
+func (e *InvalidThemeError) Unwrap() error {
+	return ErrInvalidTheme
+}
+
+// IsValid returns whether the Theme is one of the defined themes,
+// and a list of validation errors if it is not.
+func (t Theme) IsValid() (bool, []error) {
+	switch t {
+	case ThemeDefault, ThemeCharm, ThemeDracula, ThemeCatppuccin, ThemeBase16:
+		return true, nil
+	default:
+		return false, []error{&InvalidThemeError{Value: t}}
+	}
+}
 
 // DefaultConfig returns the default configuration for TUI components.
 func DefaultConfig() Config {

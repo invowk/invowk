@@ -3,6 +3,7 @@
 package invowkfile
 
 import (
+	"errors"
 	"strings"
 	"testing"
 )
@@ -207,11 +208,11 @@ func TestValidationErrors_Filter(t *testing.T) {
 		{Message: "error2", Severity: SeverityError},
 	}
 
-	errors := errs.Errors()
-	if len(errors) != 2 {
-		t.Errorf("Errors() returned %d items, want 2", len(errors))
+	filteredErrs := errs.Errors()
+	if len(filteredErrs) != 2 {
+		t.Errorf("Errors() returned %d items, want 2", len(filteredErrs))
 	}
-	for _, e := range errors {
+	for _, e := range filteredErrs {
 		if e.Severity != SeverityError {
 			t.Errorf("Errors() should only return errors, got warning")
 		}
@@ -373,5 +374,40 @@ func TestFieldPath_Copy(t *testing.T) {
 	}
 	if copied.String() != "command 'build' implementation #1 runtime #1" {
 		t.Errorf("copied has unexpected value: %q", copied.String())
+	}
+}
+
+func TestValidationSeverity_IsValid(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		severity ValidationSeverity
+		want     bool
+		wantErr  bool
+	}{
+		{SeverityError, true, false},
+		{SeverityWarning, true, false},
+		{ValidationSeverity(99), false, true},
+		{ValidationSeverity(-1), false, true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.severity.String(), func(t *testing.T) {
+			t.Parallel()
+			isValid, errs := tt.severity.IsValid()
+			if isValid != tt.want {
+				t.Errorf("ValidationSeverity(%d).IsValid() = %v, want %v", tt.severity, isValid, tt.want)
+			}
+			if tt.wantErr {
+				if len(errs) == 0 {
+					t.Fatalf("ValidationSeverity(%d).IsValid() returned no errors, want error", tt.severity)
+				}
+				if !errors.Is(errs[0], ErrInvalidValidationSeverity) {
+					t.Errorf("error should wrap ErrInvalidValidationSeverity, got: %v", errs[0])
+				}
+			} else if len(errs) > 0 {
+				t.Errorf("ValidationSeverity(%d).IsValid() returned unexpected errors: %v", tt.severity, errs)
+			}
+		})
 	}
 }
