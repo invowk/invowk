@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"slices"
 	"strings"
 
 	"github.com/invowk/invowk/internal/config"
@@ -78,17 +79,8 @@ func runDisambiguatedCommand(cmd *cobra.Command, app *App, rootFlags *rootFlagVa
 
 	commandSet := commandSetResult.Set
 	// Validate that the requested source exists before attempting command lookup.
-	sourceExists := false
-	availableSources := make([]string, 0, len(commandSet.SourceOrder))
-	for _, sourceID := range commandSet.SourceOrder {
-		availableSources = append(availableSources, sourceID)
-		if sourceID == filter.SourceID {
-			sourceExists = true
-		}
-	}
-
-	if !sourceExists {
-		err := &SourceNotFoundError{Source: filter.SourceID, AvailableSources: availableSources}
+	if !slices.Contains(commandSet.SourceOrder, filter.SourceID) {
+		err := &SourceNotFoundError{Source: filter.SourceID, AvailableSources: commandSet.SourceOrder}
 		fmt.Fprint(app.stderr, RenderSourceNotFoundError(err))
 		return err
 	}
@@ -131,6 +123,11 @@ func runDisambiguatedCommand(cmd *cobra.Command, app *App, rootFlags *rootFlagVa
 		return fmt.Errorf("command '%s' not found in source '%s'", displayCmdName, filter.SourceID)
 	}
 
+	// Watch mode intercepts before normal execution.
+	if cmdFlags.watch {
+		return runWatchMode(cmd, app, rootFlags, cmdFlags, append([]string{targetCmd.Name}, cmdArgs...))
+	}
+
 	parsedRuntime, err := cmdFlags.parsedRuntimeMode()
 	if err != nil {
 		return err
@@ -146,6 +143,7 @@ func runDisambiguatedCommand(cmd *cobra.Command, app *App, rootFlags *rootFlagVa
 		Verbose:      verbose,
 		FromSource:   cmdFlags.fromSource,
 		ForceRebuild: cmdFlags.forceRebuild,
+		DryRun:       cmdFlags.dryRun,
 		ConfigPath:   rootFlags.configPath,
 	}
 
@@ -202,15 +200,9 @@ func checkAmbiguousCommand(ctx context.Context, app *App, rootFlags *rootFlagVal
 		return nil
 	}
 
-	sources := make([]string, 0)
-	for _, sourceID := range commandSet.SourceOrder {
-		cmdsInSource := commandSet.BySource[sourceID]
-		for _, discovered := range cmdsInSource {
-			if discovered.SimpleName == cmdName {
-				sources = append(sources, sourceID)
-				break
-			}
-		}
+	var sources []discovery.SourceID
+	for _, cmd := range commandSet.BySimpleName[cmdName] {
+		sources = append(sources, cmd.SourceID)
 	}
 
 	return &AmbiguousCommandError{CommandName: cmdName, Sources: sources}

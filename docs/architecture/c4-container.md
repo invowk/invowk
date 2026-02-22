@@ -24,6 +24,7 @@ This diagram zooms into Invowk to show its internal containers - the major appli
 | **Configuration Manager** | Go/Viper+CUE | Loads config from `~/.config/invowk/config.cue`. Validates against CUE schema. |
 | **CUE Parser** | Go/cuelang | Implements 3-step parsing: compile schema → unify with data → decode to Go structs. Provides rich error messages. |
 | **Module Resolver** | Go | Resolves Git-based dependencies. Manages cache at `~/.invowk/modules/`. Handles lock files for reproducibility. |
+| **Watch Engine** | Go/fsnotify | Monitors file system for changes. Debounces change events and triggers command re-execution for `--ivk-watch` mode. |
 
 ### Runtimes
 

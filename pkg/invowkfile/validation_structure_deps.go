@@ -77,6 +77,9 @@ func (v *StructureValidator) validateDependsOn(ctx *ValidationContext, deps *Dep
 		}
 	}
 
+	// Validate custom check dependencies (security-specific: length limits, ReDoS safety)
+	errors = append(errors, v.validateCustomChecks(ctx, deps.CustomChecks, basePath)...)
+
 	return errors
 }
 

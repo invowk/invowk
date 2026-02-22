@@ -166,7 +166,7 @@ func (r *NativeRuntime) executeShellCommon(ctx *ExecutionContext, script string,
 	cmd := exec.CommandContext(ctx.Context, shell, args...)
 
 	// Set working directory with validation
-	workDir := r.getWorkDir(ctx)
+	workDir := ctx.EffectiveWorkDir()
 	if workDir != "" {
 		if err = validateWorkDir(workDir); err != nil {
 			return &Result{ExitCode: 1, Error: fmt.Errorf("invalid working directory: %w", err)}
@@ -221,7 +221,7 @@ func (r *NativeRuntime) executeInterpreterCommon(ctx *ExecutionContext, script s
 	cmd := exec.CommandContext(ctx.Context, interpreterPath, cmdArgs...)
 
 	// Set working directory with validation
-	workDir := r.getWorkDir(ctx)
+	workDir := ctx.EffectiveWorkDir()
 	if workDir != "" {
 		if err = validateWorkDir(workDir); err != nil {
 			return &Result{ExitCode: 1, Error: fmt.Errorf("invalid working directory: %w", err)}
@@ -348,12 +348,6 @@ func (r *NativeRuntime) getShellArgs(shell string) []string {
 	}
 }
 
-// getWorkDir determines the working directory using the hierarchical override model.
-// Precedence (highest to lowest): CLI override > Implementation > Command > Root > Default
-func (r *NativeRuntime) getWorkDir(ctx *ExecutionContext) string {
-	return ctx.Invowkfile.GetEffectiveWorkDir(ctx.Command, ctx.SelectedImpl, ctx.WorkDir)
-}
-
 // appendPositionalArgs appends positional arguments after the script for shell access.
 // For POSIX shells (bash, sh, zsh): args become $1, $2, ... (with "invowk" as $0)
 // For PowerShell: args become $args[0], $args[1], ...
@@ -393,7 +387,7 @@ func (r *NativeRuntime) prepareShellCommand(ctx *ExecutionContext, script string
 
 	cmd := exec.CommandContext(ctx.Context, shell, args...)
 
-	workDir := r.getWorkDir(ctx)
+	workDir := ctx.EffectiveWorkDir()
 	if workDir != "" {
 		cmd.Dir = workDir
 	}
@@ -435,7 +429,7 @@ func (r *NativeRuntime) prepareInterpreterCommand(ctx *ExecutionContext, script 
 
 	cmd := exec.CommandContext(ctx.Context, interpreterPath, cmdArgs...)
 
-	workDir := r.getWorkDir(ctx)
+	workDir := ctx.EffectiveWorkDir()
 	if workDir != "" {
 		cmd.Dir = workDir
 	}

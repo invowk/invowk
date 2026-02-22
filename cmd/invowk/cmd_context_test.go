@@ -104,8 +104,8 @@ func TestRunDisambiguatedCommand_AttachesConfigPathToContext(t *testing.T) {
 	t.Parallel()
 
 	set := discovery.NewDiscoveredCommandSet()
-	set.SourceOrder = []string{"invowkfile"}
-	set.BySource["invowkfile"] = []*discovery.CommandInfo{
+	set.SourceOrder = []discovery.SourceID{"invowkfile"}
+	set.BySource[discovery.SourceIDInvowkfile] = []*discovery.CommandInfo{
 		{
 			Name:       "build",
 			SimpleName: "build",
@@ -129,7 +129,7 @@ func TestRunDisambiguatedCommand_AttachesConfigPathToContext(t *testing.T) {
 		app,
 		rootFlags,
 		&cmdFlagValues{},
-		&SourceFilter{SourceID: "invowkfile", Raw: "invowkfile"},
+		&SourceFilter{SourceID: discovery.SourceIDInvowkfile, Raw: "invowkfile"},
 		[]string{"build"},
 	)
 	if err != nil {

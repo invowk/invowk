@@ -11,6 +11,7 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"time"
 
 	appexec "github.com/invowk/invowk/internal/app/execute"
 	"github.com/invowk/invowk/internal/config"
@@ -69,9 +70,17 @@ func newCommandService(configProvider ConfigProvider, disc DiscoveryService, std
 //  2. Validates inputs: flags, arguments, platform compatibility, and runtime compatibility.
 //  3. Manages SSH server lifecycle when the container runtime needs host access.
 //  4. Builds execution context with env var projection (INVOWK_FLAG_*, INVOWK_ARG_*, ARGn).
-//  5. Validates command dependencies against the runtime registry.
-//  6. Dispatches to interactive mode (alternate screen + TUI server) or standard execution.
+//  5. Propagates incoming context for timeout and cancellation signals.
+//  6. Dry-run intercept: if --ivk-dry-run, renders the execution plan and exits.
+//  7. Dispatches execution (timeout → dep validation → runtime).
 func (s *commandService) Execute(ctx context.Context, req ExecuteRequest) (ExecuteResult, []discovery.Diagnostic, error) {
+	// Capture the host environment early, before any downstream code could
+	// potentially modify it via os.Setenv. Tests can pre-populate req.UserEnv
+	// to inject a controlled environment.
+	if req.UserEnv == nil {
+		req.UserEnv = captureUserEnv()
+	}
+
 	cfg, cmdInfo, diags, err := s.discoverCommand(ctx, req)
 	if err != nil {
 		return ExecuteResult{}, diags, err
@@ -88,8 +97,15 @@ func (s *commandService) Execute(ctx context.Context, req ExecuteRequest) (Execu
 		return ExecuteResult{}, diags, err
 	}
 
+	// Track whether we are the caller that starts the SSH server so that
+	// only this Execute() invocation owns cleanup. If the server is already
+	// running when we enter, we skip the defer to avoid premature shutdown.
+	sshWasRunning := s.ssh.current() != nil
 	if sshErr := s.ensureSSHIfNeeded(ctx, req, resolved); sshErr != nil {
 		return ExecuteResult{}, diags, sshErr
+	}
+	if !sshWasRunning && s.ssh.current() != nil {
+		defer s.ssh.stop()
 	}
 
 	execCtx, err := s.buildExecContext(req, cmdInfo, defs, resolved)
@@ -97,7 +113,19 @@ func (s *commandService) Execute(ctx context.Context, req ExecuteRequest) (Execu
 		return ExecuteResult{}, diags, err
 	}
 
-	return s.dispatchExecution(req, execCtx, cmdInfo, cfg, diags)
+	// Propagate the incoming context so that timeout and parent cancellation
+	// signals survive. NewExecutionContext (called transitively by buildExecContext)
+	// sets context.Background(); overriding it here preserves the Ctrl+C
+	// propagation chain and timeout deadline.
+	execCtx.Context = ctx
+
+	// Dry-run mode: print what would be executed and exit without executing.
+	if req.DryRun {
+		renderDryRun(s.stdout, req, cmdInfo, execCtx, resolved)
+		return ExecuteResult{ExitCode: 0}, diags, nil
+	}
+
+	return s.dispatchExecution(ctx, req, execCtx, cmdInfo, cfg, diags)
 }
 
 // discoverCommand loads configuration and discovers the target command by name.
@@ -181,7 +209,7 @@ func (s *commandService) validateInputs(req ExecuteRequest, cmdInfo *discovery.C
 		return err
 	}
 
-	currentPlatform := invowkfile.GetCurrentHostOS()
+	currentPlatform := invowkfile.CurrentPlatform()
 	if !cmdInfo.Command.CanRunOnCurrentHost() {
 		supportedPlatforms := cmdInfo.Command.GetPlatformsString()
 		return newServiceError(
@@ -202,7 +230,7 @@ func (s *commandService) validateInputs(req ExecuteRequest, cmdInfo *discovery.C
 //
 // It returns ServiceError with rendering info for invalid runtime overrides (Tier 1 only).
 func (s *commandService) resolveRuntime(req ExecuteRequest, cmdInfo *discovery.CommandInfo, cfg *config.Config) (appexec.RuntimeSelection, error) {
-	selection, err := appexec.ResolveRuntime(cmdInfo.Command, req.Name, req.Runtime, cfg, invowkfile.GetCurrentHostOS())
+	selection, err := appexec.ResolveRuntime(cmdInfo.Command, req.Name, req.Runtime, cfg, invowkfile.CurrentPlatform())
 	if err != nil {
 		if notAllowedErr, ok := errors.AsType[*appexec.RuntimeNotAllowedError](err); ok {
 			allowed := make([]string, len(notAllowedErr.Allowed))
@@ -223,7 +251,7 @@ func (s *commandService) resolveRuntime(req ExecuteRequest, cmdInfo *discovery.C
 
 // ensureSSHIfNeeded conditionally starts the SSH server when the selected runtime
 // implementation requires host SSH access (used by container runtime for host callbacks).
-// If started, the SSH server is stopped via defer when Execute returns.
+// Cleanup is handled by the caller (Execute) via a "started-by-me" guard.
 func (s *commandService) ensureSSHIfNeeded(ctx context.Context, req ExecuteRequest, resolved appexec.RuntimeSelection) error {
 	if !resolved.Impl.GetHostSSHForRuntime(resolved.Mode) {
 		return nil
@@ -255,13 +283,20 @@ func (s *commandService) buildExecContext(req ExecuteRequest, cmdInfo *discovery
 		EnvInheritMode:  req.EnvInheritMode,
 		EnvInheritAllow: req.EnvInheritAllow,
 		EnvInheritDeny:  req.EnvInheritDeny,
+		SourceID:        string(cmdInfo.SourceID),
+		Platform:        invowkfile.CurrentPlatform(),
 	})
 }
 
-// dispatchExecution validates dependencies, then dispatches the command to either
-// interactive mode (alternate screen + TUI server) or standard execution. It handles
-// result rendering for errors and non-zero exit codes.
-func (s *commandService) dispatchExecution(req ExecuteRequest, execCtx *runtime.ExecutionContext, cmdInfo *discovery.CommandInfo, cfg *config.Config, diags []discovery.Diagnostic) (ExecuteResult, []discovery.Diagnostic, error) {
+// dispatchExecution runs the post-context-build execution pipeline:
+//  1. Creates runtime registry.
+//  2. Validates timeout string (fail-fast on invalid values).
+//  3. Wraps context with timeout.
+//  4. Validates dependencies (tools, cmds, filepaths, capabilities, custom checks, env vars).
+//  5. Dispatches to interactive mode (alternate screen + TUI server) or standard execution.
+//
+// It handles result rendering for errors and non-zero exit codes.
+func (s *commandService) dispatchExecution(ctx context.Context, req ExecuteRequest, execCtx *runtime.ExecutionContext, cmdInfo *discovery.CommandInfo, cfg *config.Config, diags []discovery.Diagnostic) (ExecuteResult, []discovery.Diagnostic, error) {
 	registryResult := createRuntimeRegistry(cfg, s.ssh.current())
 	if req.Verbose || execCtx.SelectedRuntime == invowkfile.RuntimeContainer {
 		diags = append(diags, registryResult.Diagnostics...)
@@ -282,19 +317,36 @@ func (s *commandService) dispatchExecution(req ExecuteRequest, execCtx *runtime.
 		)
 	}
 
+	// Validate timeout early so an invalid timeout (e.g., "not-a-duration")
+	// fails fast before dependency validation or execution.
+	var timeoutDuration time.Duration
+	if execCtx.SelectedImpl != nil {
+		var parseErr error
+		timeoutDuration, parseErr = execCtx.SelectedImpl.ParseTimeout()
+		if parseErr != nil {
+			return ExecuteResult{}, diags, newServiceError(
+				parseErr,
+				issue.InvalidArgumentId,
+				"",
+			)
+		}
+	}
+
+	// Apply execution timeout. Duration was already validated above
+	// (fail-fast on invalid strings). Cancel is deferred to release timer resources.
+	if timeoutDuration > 0 {
+		var cancel context.CancelFunc
+		execCtx.Context, cancel = context.WithTimeout(execCtx.Context, timeoutDuration)
+		defer cancel()
+	}
+
 	// Dependency validation needs the registry to check runtime-aware dependencies.
-	if err := s.validateAndRenderDeps(cfg, cmdInfo, execCtx, registryResult.Registry); err != nil {
+	if err := s.validateAndRenderDeps(cmdInfo, execCtx, registryResult.Registry, req.UserEnv); err != nil {
 		return ExecuteResult{}, diags, err
 	}
 
 	if req.Verbose {
 		fmt.Fprintf(s.stdout, "%s Running '%s'...\n", SuccessStyle.Render("→"), req.Name)
-	}
-
-	// SSH server stop is deferred here because this is the last step before execution,
-	// and the SSH server must remain running during command execution.
-	if s.ssh.current() != nil {
-		defer s.ssh.stop()
 	}
 
 	var result *runtime.Result
@@ -335,17 +387,14 @@ func (s *commandService) dispatchExecution(req ExecuteRequest, execCtx *runtime.
 		)
 	}
 
-	if result.ExitCode != 0 {
-		return ExecuteResult{ExitCode: result.ExitCode}, diags, nil
-	}
-
-	return ExecuteResult{ExitCode: 0}, diags, nil
+	return ExecuteResult{ExitCode: result.ExitCode}, diags, nil
 }
 
 // validateAndRenderDeps validates command dependencies and returns ServiceError
-// for dependency failures.
-func (s *commandService) validateAndRenderDeps(cfg *config.Config, cmdInfo *discovery.CommandInfo, execCtx *runtime.ExecutionContext, registry *runtime.Registry) error {
-	if err := validateDependencies(cfg, cmdInfo, registry, execCtx); err != nil {
+// for dependency failures. Discovery is routed through s.discovery so the
+// per-request cache avoids redundant filesystem scans.
+func (s *commandService) validateAndRenderDeps(cmdInfo *discovery.CommandInfo, execCtx *runtime.ExecutionContext, registry *runtime.Registry, userEnv map[string]string) error {
+	if err := validateDependencies(s.discovery, cmdInfo, registry, execCtx, userEnv); err != nil {
 		if depErr, ok := errors.AsType[*DependencyError](err); ok {
 			return newServiceError(
 				err,

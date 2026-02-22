@@ -4,6 +4,7 @@ package runtime
 
 import (
 	"bytes"
+	"context"
 	"os"
 	"path/filepath"
 	goruntime "runtime"
@@ -31,7 +32,7 @@ func TestNativeRuntime_InlineScript(t *testing.T) {
 	cmd := testCommandWithScript("test", "echo 'Hello from inline'", invowkfile.RuntimeNative)
 
 	rt := NewNativeRuntime()
-	ctx := NewExecutionContext(cmd, inv)
+	ctx := NewExecutionContext(context.Background(), cmd, inv)
 
 	var stdout bytes.Buffer
 	ctx.IO.Stdout = &stdout
@@ -69,7 +70,7 @@ echo "Line 3"`
 	cmd := testCommandWithScript("multiline", script, invowkfile.RuntimeNative)
 
 	rt := NewNativeRuntime()
-	ctx := NewExecutionContext(cmd, inv)
+	ctx := NewExecutionContext(context.Background(), cmd, inv)
 
 	var stdout bytes.Buffer
 	ctx.IO.Stdout = &stdout
@@ -111,7 +112,7 @@ echo "Hello from script file"
 	cmd := testCommandWithScript("from-file", "./test.sh", invowkfile.RuntimeNative)
 
 	rt := NewNativeRuntime()
-	ctx := NewExecutionContext(cmd, inv)
+	ctx := NewExecutionContext(context.Background(), cmd, inv)
 
 	var stdout bytes.Buffer
 	ctx.IO.Stdout = &stdout
@@ -146,7 +147,7 @@ func TestNativeRuntime_PositionalArgs(t *testing.T) {
 	cmd := testCommandWithScript("positional", script, invowkfile.RuntimeNative)
 
 	rt := NewNativeRuntime()
-	ctx := NewExecutionContext(cmd, inv)
+	ctx := NewExecutionContext(context.Background(), cmd, inv)
 	ctx.PositionalArgs = []string{"hello", "world"}
 
 	var stdout bytes.Buffer
@@ -188,7 +189,7 @@ func TestNativeRuntime_PositionalArgs_Empty(t *testing.T) {
 	cmd := testCommandWithScript("no-args", script, invowkfile.RuntimeNative)
 
 	rt := NewNativeRuntime()
-	ctx := NewExecutionContext(cmd, inv)
+	ctx := NewExecutionContext(context.Background(), cmd, inv)
 	// No positional args set
 
 	var stdout bytes.Buffer
@@ -224,7 +225,7 @@ func TestNativeRuntime_PositionalArgs_SpecialChars(t *testing.T) {
 	cmd := testCommandWithScript("special-chars", script, invowkfile.RuntimeNative)
 
 	rt := NewNativeRuntime()
-	ctx := NewExecutionContext(cmd, inv)
+	ctx := NewExecutionContext(context.Background(), cmd, inv)
 	ctx.PositionalArgs = []string{"hello world with spaces"}
 
 	var stdout bytes.Buffer
@@ -356,7 +357,7 @@ echo "ARG1=${ARG1:-unset}"`
 	cmd := testCommandWithScript("env-isolation", script, invowkfile.RuntimeNative)
 
 	rt := NewNativeRuntime()
-	ctx := NewExecutionContext(cmd, inv)
+	ctx := NewExecutionContext(context.Background(), cmd, inv)
 
 	var stdout bytes.Buffer
 	ctx.IO.Stdout = &stdout
@@ -411,7 +412,7 @@ func TestNativeRuntime_InvalidWorkingDirectory(t *testing.T) {
 	}
 
 	rt := NewNativeRuntime()
-	ctx := NewExecutionContext(cmd, inv)
+	ctx := NewExecutionContext(context.Background(), cmd, inv)
 
 	var stdout bytes.Buffer
 	ctx.IO.Stdout = &stdout
@@ -459,7 +460,7 @@ func TestNativeRuntime_ExitCode(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			cmd := testCommandWithScript("exit-test", tt.script, invowkfile.RuntimeNative)
 			rt := NewNativeRuntime()
-			ctx := NewExecutionContext(cmd, inv)
+			ctx := NewExecutionContext(context.Background(), cmd, inv)
 			ctx.IO.Stdout = &bytes.Buffer{}
 			ctx.IO.Stderr = &bytes.Buffer{}
 
@@ -601,7 +602,7 @@ func TestNativeRuntime_Validate_Unit(t *testing.T) {
 			t.Parallel()
 
 			rt := NewNativeRuntime()
-			ctx := NewExecutionContext(tt.cmd, inv)
+			ctx := NewExecutionContext(context.Background(), tt.cmd, inv)
 			// For "nil implementation" test, set SelectedImpl to nil
 			if tt.name == "nil implementation" {
 				ctx.SelectedImpl = nil
@@ -624,8 +625,8 @@ func TestNativeRuntime_Validate_Unit(t *testing.T) {
 	}
 }
 
-// TestNativeRuntime_getWorkDir tests working directory resolution.
-func TestNativeRuntime_getWorkDir(t *testing.T) {
+// TestExecutionContext_EffectiveWorkDir_Native tests working directory resolution via ExecutionContext.
+func TestExecutionContext_EffectiveWorkDir_Native(t *testing.T) {
 	t.Parallel()
 
 	tmpDir := t.TempDir()
@@ -675,13 +676,12 @@ func TestNativeRuntime_getWorkDir(t *testing.T) {
 				},
 			}
 
-			rt := NewNativeRuntime()
-			ctx := NewExecutionContext(cmd, inv)
+			ctx := NewExecutionContext(context.Background(), cmd, inv)
 			ctx.WorkDir = tt.ctxWorkDir
 
-			got := rt.getWorkDir(ctx)
+			got := ctx.EffectiveWorkDir()
 			if got != tt.want {
-				t.Errorf("getWorkDir() = %q, want %q", got, tt.want)
+				t.Errorf("EffectiveWorkDir() = %q, want %q", got, tt.want)
 			}
 		})
 	}

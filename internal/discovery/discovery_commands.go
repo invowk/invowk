@@ -3,18 +3,25 @@
 package discovery
 
 import (
+	"cmp"
 	"context"
 	"fmt"
-	"sort"
+	"slices"
+	"strings"
 
 	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
 // SourceIDInvowkfile is the reserved source ID for the root invowkfile.
 // Used for multi-source discovery to identify commands from invowkfile.cue.
-const SourceIDInvowkfile string = "invowkfile"
+const SourceIDInvowkfile SourceID = "invowkfile"
 
 type (
+	// SourceID is a typed identifier for command sources (e.g., "invowkfile", "foo").
+	// Using a named type prevents accidental confusion with other string parameters
+	// like command names, module IDs, or file paths.
+	SourceID string
+
 	// CommandInfo contains information about a discovered command
 	CommandInfo struct {
 		// Name is the command name (may include spaces, e.g., "test unit")
@@ -35,7 +42,7 @@ type (
 		SimpleName string
 		// SourceID identifies the source: "invowkfile" for root invowkfile,
 		// or the module short name (e.g., "foo") for modules
-		SourceID string
+		SourceID SourceID
 		// ModuleID is the full module identifier if from a module
 		// (e.g., "io.invowk.sample"), empty for root invowkfile
 		ModuleID string
@@ -66,23 +73,21 @@ type (
 
 		// BySource indexes commands by source for grouped listing.
 		// Key: SourceID (e.g., "invowkfile", "foo")
-		BySource map[string][]*CommandInfo
+		BySource map[SourceID][]*CommandInfo
 
 		// SourceOrder is an ordered list of sources for consistent display.
 		// "invowkfile" always comes first if present, then modules alphabetically.
-		SourceOrder []string
+		SourceOrder []SourceID
 	}
 )
 
 // NewDiscoveredCommandSet creates a new DiscoveredCommandSet with initialized maps.
 func NewDiscoveredCommandSet() *DiscoveredCommandSet {
 	return &DiscoveredCommandSet{
-		Commands:       make([]*CommandInfo, 0),
 		ByName:         make(map[string]*CommandInfo),
 		BySimpleName:   make(map[string][]*CommandInfo),
 		AmbiguousNames: make(map[string]bool),
-		BySource:       make(map[string][]*CommandInfo),
-		SourceOrder:    make([]string, 0),
+		BySource:       make(map[SourceID][]*CommandInfo),
 	}
 }
 
@@ -120,7 +125,7 @@ func (s *DiscoveredCommandSet) Analyze() {
 		}
 
 		// Check if commands come from different sources
-		sources := make(map[string]bool)
+		sources := make(map[SourceID]bool)
 		for _, cmd := range cmds {
 			sources[cmd.SourceID] = true
 		}
@@ -135,14 +140,14 @@ func (s *DiscoveredCommandSet) Analyze() {
 	}
 
 	// Sort SourceOrder: "invowkfile" first, then modules alphabetically
-	sort.Slice(s.SourceOrder, func(i, j int) bool {
-		if s.SourceOrder[i] == SourceIDInvowkfile {
-			return true
+	slices.SortFunc(s.SourceOrder, func(a, b SourceID) int {
+		if a == SourceIDInvowkfile {
+			return -1
 		}
-		if s.SourceOrder[j] == SourceIDInvowkfile {
-			return false
+		if b == SourceIDInvowkfile {
+			return 1
 		}
-		return s.SourceOrder[i] < s.SourceOrder[j]
+		return strings.Compare(string(a), string(b))
 	})
 }
 
@@ -191,13 +196,14 @@ func (d *Discovery) DiscoverCommandSet(ctx context.Context) (CommandSetResult, e
 		}
 
 		// Determine source ID and module ID for this file
-		var sourceID, moduleID string
+		var sourceID SourceID
+		var moduleID string
 		isModule := file.Module != nil
 		switch {
 		case isModule:
 			// From a module - use short name from folder
-			sourceID = getModuleShortName(file.Module.Path)
-			moduleID = file.Module.Name()
+			sourceID = SourceID(getModuleShortName(file.Module.Path))
+			moduleID = string(file.Module.Name())
 		default:
 			// Non-module source: root invowkfile in current directory
 			sourceID = SourceIDInvowkfile
@@ -234,8 +240,8 @@ func (d *Discovery) DiscoverCommandSet(ctx context.Context) (CommandSetResult, e
 
 	// Analyze for conflicts
 	commandSet.Analyze()
-	sort.Slice(commandSet.Commands, func(i, j int) bool {
-		return commandSet.Commands[i].Name < commandSet.Commands[j].Name
+	slices.SortFunc(commandSet.Commands, func(a, b *CommandInfo) int {
+		return cmp.Compare(a.Name, b.Name)
 	})
 
 	return CommandSetResult{Set: commandSet, Diagnostics: diagnostics}, nil

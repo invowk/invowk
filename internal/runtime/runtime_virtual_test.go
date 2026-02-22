@@ -32,8 +32,7 @@ func TestVirtualRuntime_InlineScript(t *testing.T) {
 	cmd := testCommandWithScript("test", "echo 'Hello from virtual'", invowkfile.RuntimeVirtual)
 
 	rt := NewVirtualRuntime(false)
-	ctx := NewExecutionContext(cmd, inv)
-	ctx.Context = context.Background()
+	ctx := NewExecutionContext(context.Background(), cmd, inv)
 
 	var stdout bytes.Buffer
 	ctx.IO.Stdout = &stdout
@@ -70,8 +69,7 @@ echo "Done"`
 	cmd := testCommandWithScript("multiline", script, invowkfile.RuntimeVirtual)
 
 	rt := NewVirtualRuntime(false)
-	ctx := NewExecutionContext(cmd, inv)
-	ctx.Context = context.Background()
+	ctx := NewExecutionContext(context.Background(), cmd, inv)
 
 	var stdout bytes.Buffer
 	ctx.IO.Stdout = &stdout
@@ -112,8 +110,7 @@ func TestVirtualRuntime_ScriptFile(t *testing.T) {
 	cmd := testCommandWithScript("from-file", "./test.sh", invowkfile.RuntimeVirtual)
 
 	rt := NewVirtualRuntime(false)
-	ctx := NewExecutionContext(cmd, inv)
-	ctx.Context = context.Background()
+	ctx := NewExecutionContext(context.Background(), cmd, inv)
 
 	var stdout bytes.Buffer
 	ctx.IO.Stdout = &stdout
@@ -147,7 +144,7 @@ func TestVirtualRuntime_Validate_ScriptSyntaxError(t *testing.T) {
 	cmd := testCommandWithScript("invalid", "if then fi", invowkfile.RuntimeVirtual)
 
 	rt := NewVirtualRuntime(false)
-	ctx := NewExecutionContext(cmd, inv)
+	ctx := NewExecutionContext(context.Background(), cmd, inv)
 
 	err = rt.Validate(ctx)
 	if err == nil {
@@ -173,8 +170,8 @@ func TestVirtualRuntime_PositionalArgs(t *testing.T) {
 	cmd := testCommandWithScript("positional", script, invowkfile.RuntimeVirtual)
 
 	rt := NewVirtualRuntime(false)
-	ctx := NewExecutionContext(cmd, inv)
-	ctx.Context = context.Background()
+	ctx := NewExecutionContext(context.Background(), cmd, inv)
+
 	ctx.PositionalArgs = []string{"foo", "bar"}
 
 	var stdout bytes.Buffer
@@ -216,8 +213,8 @@ func TestVirtualRuntime_PositionalArgs_ArgCount(t *testing.T) {
 	cmd := testCommandWithScript("arg-count", script, invowkfile.RuntimeVirtual)
 
 	rt := NewVirtualRuntime(false)
-	ctx := NewExecutionContext(cmd, inv)
-	ctx.Context = context.Background()
+	ctx := NewExecutionContext(context.Background(), cmd, inv)
+
 	ctx.PositionalArgs = []string{"a", "b", "c", "d", "e"}
 
 	var stdout bytes.Buffer
@@ -253,8 +250,8 @@ func TestVirtualRuntime_PositionalArgs_Empty(t *testing.T) {
 	cmd := testCommandWithScript("no-args", script, invowkfile.RuntimeVirtual)
 
 	rt := NewVirtualRuntime(false)
-	ctx := NewExecutionContext(cmd, inv)
-	ctx.Context = context.Background()
+	ctx := NewExecutionContext(context.Background(), cmd, inv)
+
 	// No positional args set
 
 	var stdout bytes.Buffer
@@ -303,8 +300,7 @@ echo "ARG1=${ARG1:-unset}"`
 	cmd := testCommandWithScript("env-isolation", script, invowkfile.RuntimeVirtual)
 
 	rt := NewVirtualRuntime(false)
-	ctx := NewExecutionContext(cmd, inv)
-	ctx.Context = context.Background()
+	ctx := NewExecutionContext(context.Background(), cmd, inv)
 
 	var stdout bytes.Buffer
 	ctx.IO.Stdout = &stdout
@@ -349,8 +345,7 @@ func TestVirtualRuntime_RejectsInterpreter(t *testing.T) {
 	cmd := testCommandWithInterpreter("virtual-with-interp", script, "python3", invowkfile.RuntimeVirtual)
 
 	rt := NewVirtualRuntime(false)
-	ctx := NewExecutionContext(cmd, inv)
-	ctx.Context = context.Background()
+	ctx := NewExecutionContext(context.Background(), cmd, inv)
 
 	// Test Validate method
 	err = rt.Validate(ctx)
@@ -397,8 +392,7 @@ func TestVirtualRuntime_ContextCancellation(t *testing.T) {
 	// Create a context that we can cancel
 	ctx, cancel := context.WithCancel(context.Background())
 
-	execCtx := NewExecutionContext(cmd, inv)
-	execCtx.Context = ctx
+	execCtx := NewExecutionContext(ctx, cmd, inv)
 
 	var stdout bytes.Buffer
 	execCtx.IO.Stdout = &stdout
@@ -445,8 +439,8 @@ func TestVirtualRuntime_ExitCode(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			cmd := testCommandWithScript("exit-test", tt.script, invowkfile.RuntimeVirtual)
 			rt := NewVirtualRuntime(false)
-			ctx := NewExecutionContext(cmd, inv)
-			ctx.Context = context.Background()
+			ctx := NewExecutionContext(context.Background(), cmd, inv)
+
 			ctx.IO.Stdout = &bytes.Buffer{}
 			ctx.IO.Stderr = &bytes.Buffer{}
 
@@ -499,7 +493,7 @@ func TestVirtualRuntime_Validate_EmptyScript(t *testing.T) {
 	cmd := testCommandWithScript("empty-script", "", invowkfile.RuntimeVirtual)
 
 	rt := NewVirtualRuntime(false)
-	ctx := NewExecutionContext(cmd, inv)
+	ctx := NewExecutionContext(context.Background(), cmd, inv)
 
 	err := rt.Validate(ctx)
 	if err == nil {
@@ -524,7 +518,7 @@ func TestVirtualRuntime_Validate_NilImpl(t *testing.T) {
 	}
 
 	rt := NewVirtualRuntime(false)
-	ctx := NewExecutionContext(cmd, inv)
+	ctx := NewExecutionContext(context.Background(), cmd, inv)
 	ctx.SelectedImpl = nil // Explicitly set to nil
 
 	err := rt.Validate(ctx)
@@ -536,8 +530,8 @@ func TestVirtualRuntime_Validate_NilImpl(t *testing.T) {
 	}
 }
 
-// TestVirtualRuntime_getWorkDir tests working directory resolution.
-func TestVirtualRuntime_getWorkDir(t *testing.T) {
+// TestExecutionContext_EffectiveWorkDir_Virtual tests working directory resolution via ExecutionContext.
+func TestExecutionContext_EffectiveWorkDir_Virtual(t *testing.T) {
 	tmpDir := t.TempDir()
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 
@@ -609,14 +603,13 @@ func TestVirtualRuntime_getWorkDir(t *testing.T) {
 				Implementations: []invowkfile.Implementation{impl},
 			}
 
-			rt := NewVirtualRuntime(false)
-			ctx := NewExecutionContext(cmd, inv)
+			ctx := NewExecutionContext(context.Background(), cmd, inv)
 			ctx.WorkDir = tt.ctxWorkDir
 			ctx.SelectedImpl = &cmd.Implementations[0]
 
-			got := rt.getWorkDir(ctx)
+			got := ctx.EffectiveWorkDir()
 			if !strings.Contains(got, tt.wantContains) {
-				t.Errorf("getWorkDir() = %q, want to contain %q", got, tt.wantContains)
+				t.Errorf("EffectiveWorkDir() = %q, want to contain %q", got, tt.wantContains)
 			}
 		})
 	}
@@ -674,8 +667,8 @@ func TestVirtualRuntime_PositionalArgs_DashPrefix(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			cmd := testCommandWithScript("dash-args", tt.script, invowkfile.RuntimeVirtual)
 			rt := NewVirtualRuntime(false)
-			ctx := NewExecutionContext(cmd, inv)
-			ctx.Context = context.Background()
+			ctx := NewExecutionContext(context.Background(), cmd, inv)
+
 			ctx.PositionalArgs = tt.args
 
 			var stdout bytes.Buffer
@@ -706,8 +699,8 @@ echo "captured stderr" >&2`
 
 	cmd := testCommandWithScript("capture-test", script, invowkfile.RuntimeVirtual)
 	rt := NewVirtualRuntime(false)
-	ctx := NewExecutionContext(cmd, inv)
-	ctx.Context = context.Background()
+	ctx := NewExecutionContext(context.Background(), cmd, inv)
+
 	ctx.IO.Stdout = &bytes.Buffer{}
 	ctx.IO.Stderr = &bytes.Buffer{}
 
@@ -736,8 +729,8 @@ func TestVirtualRuntime_MockEnvBuilder_Error(t *testing.T) {
 
 	mockErr := fmt.Errorf("mock virtual env build failure")
 	rt := NewVirtualRuntime(false, WithVirtualEnvBuilder(&MockEnvBuilder{Err: mockErr}))
-	ctx := NewExecutionContext(cmd, inv)
-	ctx.Context = context.Background()
+	ctx := NewExecutionContext(context.Background(), cmd, inv)
+
 	ctx.IO.Stdout = &bytes.Buffer{}
 	ctx.IO.Stderr = &bytes.Buffer{}
 
@@ -770,8 +763,7 @@ echo "after"`
 
 	cmd := testCommandWithScript("set-e", script, invowkfile.RuntimeVirtual)
 	rt := NewVirtualRuntime(false)
-	ctx := NewExecutionContext(cmd, inv)
-	ctx.Context = context.Background()
+	ctx := NewExecutionContext(context.Background(), cmd, inv)
 
 	var stdout bytes.Buffer
 	ctx.IO.Stdout = &stdout

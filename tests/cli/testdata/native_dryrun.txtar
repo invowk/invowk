@@ -1,0 +1,64 @@
+# Test: Dry-run mode using native runtime
+# Mirrors virtual_dryrun.txtar but with platform-split native implementations
+
+cd $WORK
+
+# Test 1: Basic dry-run shows command metadata and script
+exec invowk cmd hello --ivk-dry-run
+stdout 'Dry Run'
+stdout 'Command:.*hello'
+stdout 'Source:'
+stdout 'Runtime:.*native'
+stdout 'Platform:'
+stdout 'Script:'
+
+# Test 2: Dry-run shows timeout when set
+exec invowk cmd slow --ivk-dry-run
+stdout 'Timeout:.*30s'
+
+# Test 3: Dry-run shows environment variables
+exec invowk cmd hello --ivk-dry-run
+stdout 'INVOWK_CMD_NAME=hello'
+stdout 'INVOWK_RUNTIME=native'
+
+# Test 4: --ivk-watch and --ivk-dry-run are mutually exclusive
+! exec invowk cmd hello --ivk-watch --ivk-dry-run
+stderr '(?i)--ivk-watch and --ivk-dry-run cannot be used together'
+
+-- invowkfile.cue --
+cmds: [
+	{
+		name:        "hello"
+		description: "A simple command"
+		implementations: [
+			{
+				script:    "echo hello world"
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
+			},
+			{
+				script:    "Write-Output 'hello world'"
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "windows"}]
+			},
+		]
+	},
+	{
+		name:        "slow"
+		description: "Command with timeout"
+		implementations: [
+			{
+				script:    "echo slow command"
+				timeout:   "30s"
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
+			},
+			{
+				script:    "Write-Output 'slow command'"
+				timeout:   "30s"
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "windows"}]
+			},
+		]
+	},
+]

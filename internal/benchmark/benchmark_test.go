@@ -288,8 +288,8 @@ func BenchmarkRuntimeNative(b *testing.B) {
 	}
 
 	cmd := inv.GetCommand("test")
-	ctx := runtime.NewExecutionContext(cmd, inv)
-	ctx.Context = context.Background()
+	ctx := runtime.NewExecutionContext(context.Background(), cmd, inv)
+
 	ctx.IO = runtime.IOContext{
 		Stdout: io.Discard,
 		Stderr: io.Discard,
@@ -332,8 +332,8 @@ func BenchmarkRuntimeVirtual(b *testing.B) {
 	}
 
 	cmd := inv.GetCommand("test")
-	ctx := runtime.NewExecutionContext(cmd, inv)
-	ctx.Context = context.Background()
+	ctx := runtime.NewExecutionContext(context.Background(), cmd, inv)
+
 	ctx.SelectedRuntime = invowkfile.RuntimeVirtual
 	ctx.IO = runtime.IOContext{
 		Stdout: io.Discard,
@@ -389,8 +389,8 @@ fi
 	}
 
 	cmd := inv.GetCommand("complex")
-	ctx := runtime.NewExecutionContext(cmd, inv)
-	ctx.Context = context.Background()
+	ctx := runtime.NewExecutionContext(context.Background(), cmd, inv)
+
 	ctx.SelectedRuntime = invowkfile.RuntimeVirtual
 	ctx.IO = runtime.IOContext{
 		Stdout: io.Discard,
@@ -447,8 +447,8 @@ func BenchmarkRuntimeContainer(b *testing.B) {
 	}
 
 	cmd := inv.GetCommand("container-test")
-	ctx := runtime.NewExecutionContext(cmd, inv)
-	ctx.Context = context.Background()
+	ctx := runtime.NewExecutionContext(context.Background(), cmd, inv)
+
 	ctx.SelectedRuntime = invowkfile.RuntimeContainer
 	ctx.IO = runtime.IOContext{
 		Stdout: io.Discard,
@@ -530,8 +530,8 @@ cmds: [
 		}
 
 		// Execution phase
-		ctx := runtime.NewExecutionContext(cmd, inv)
-		ctx.Context = context.Background()
+		ctx := runtime.NewExecutionContext(context.Background(), cmd, inv)
+
 		ctx.SelectedRuntime = invowkfile.RuntimeVirtual
 		ctx.IO = runtime.IOContext{
 			Stdout: io.Discard,
@@ -609,8 +609,7 @@ func BenchmarkEnvBuilding(b *testing.B) {
 	}
 
 	cmd := inv.GetCommand("test")
-	ctx := runtime.NewExecutionContext(cmd, inv)
-	ctx.Context = context.Background()
+	ctx := runtime.NewExecutionContext(context.Background(), cmd, inv)
 
 	envBuilder := runtime.NewDefaultEnvBuilder()
 

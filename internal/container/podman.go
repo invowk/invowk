@@ -4,7 +4,6 @@ package container
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -46,6 +45,7 @@ func NewPodmanEngine(opts ...BaseCLIEngineOption) *PodmanEngine {
 	selinuxLabelAdder := makeSELinuxLabelAdder(isSELinuxPresent)
 	usernsKeepIDAdder := makeUsernsKeepIDAdder()
 	allOpts := []BaseCLIEngineOption{
+		WithName(string(EngineTypePodman)),
 		WithVolumeFormatter(selinuxLabelAdder),
 		WithRunArgsTransformer(usernsKeepIDAdder),
 	}
@@ -71,6 +71,7 @@ func NewPodmanEngineWithSELinuxCheck(selinuxCheck SELinuxCheckFunc, opts ...Base
 	selinuxLabelAdder := makeSELinuxLabelAdder(selinuxCheck)
 	usernsKeepIDAdder := makeUsernsKeepIDAdder()
 	allOpts := []BaseCLIEngineOption{
+		WithName(string(EngineTypePodman)),
 		WithVolumeFormatter(selinuxLabelAdder),
 		WithRunArgsTransformer(usernsKeepIDAdder),
 	}
@@ -80,11 +81,6 @@ func NewPodmanEngineWithSELinuxCheck(selinuxCheck SELinuxCheckFunc, opts ...Base
 	return &PodmanEngine{
 		BaseCLIEngine: NewBaseCLIEngine(path, allOpts...),
 	}
-}
-
-// Name returns the engine name.
-func (e *PodmanEngine) Name() string {
-	return string(EngineTypePodman)
 }
 
 // Available checks if Podman is available.
@@ -105,97 +101,11 @@ func (e *PodmanEngine) Version(ctx context.Context) (string, error) {
 	return strings.TrimSpace(out), nil
 }
 
-// Build builds an image from a Dockerfile.
-func (e *PodmanEngine) Build(ctx context.Context, opts BuildOptions) error {
-	args := e.BuildArgs(opts)
-
-	cmd := e.CreateCommand(ctx, args...)
-	cmd.Stdout = opts.Stdout
-	cmd.Stderr = opts.Stderr
-
-	if err := cmd.Run(); err != nil {
-		return buildContainerError("podman", opts, err)
-	}
-
-	return nil
-}
-
-// Run runs a command in a container.
-// Volume mounts are automatically labeled with SELinux labels if needed.
-func (e *PodmanEngine) Run(ctx context.Context, opts RunOptions) (*RunResult, error) {
-	args := e.RunArgs(opts)
-
-	cmd := e.CreateCommand(ctx, args...)
-	cmd.Stdin = opts.Stdin
-	cmd.Stdout = opts.Stdout
-	cmd.Stderr = opts.Stderr
-
-	err := cmd.Run()
-
-	result := &RunResult{}
-	if err != nil {
-		if exitErr, ok := errors.AsType[*exec.ExitError](err); ok {
-			result.ExitCode = exitErr.ExitCode()
-		} else {
-			result.ExitCode = 1
-			result.Error = err
-		}
-	}
-
-	return result, nil
-}
-
-// Remove removes a container.
-func (e *PodmanEngine) Remove(ctx context.Context, containerID string, force bool) error {
-	args := e.RemoveArgs(containerID, force)
-	return e.RunCommandStatus(ctx, args...)
-}
-
 // ImageExists checks if an image exists.
+// Podman uses "image exists" which returns exit code 0/1 (more efficient than Docker's inspect).
 func (e *PodmanEngine) ImageExists(ctx context.Context, image string) (bool, error) {
 	err := e.RunCommandStatus(ctx, "image", "exists", image)
 	return err == nil, nil
-}
-
-// RemoveImage removes an image.
-func (e *PodmanEngine) RemoveImage(ctx context.Context, image string, force bool) error {
-	args := e.RemoveImageArgs(image, force)
-	return e.RunCommandStatus(ctx, args...)
-}
-
-// Exec runs a command in a running container.
-func (e *PodmanEngine) Exec(ctx context.Context, containerID string, command []string, opts RunOptions) (*RunResult, error) {
-	args := e.ExecArgs(containerID, command, opts)
-
-	cmd := e.CreateCommand(ctx, args...)
-	cmd.Stdin = opts.Stdin
-	cmd.Stdout = opts.Stdout
-	cmd.Stderr = opts.Stderr
-
-	err := cmd.Run()
-
-	result := &RunResult{ContainerID: containerID}
-	if err != nil {
-		if exitErr, ok := errors.AsType[*exec.ExitError](err); ok {
-			result.ExitCode = exitErr.ExitCode()
-		} else {
-			result.ExitCode = 1
-			result.Error = err
-		}
-	}
-
-	return result, nil
-}
-
-// InspectImage returns information about an image.
-func (e *PodmanEngine) InspectImage(ctx context.Context, image string) (string, error) {
-	return e.RunCommandWithOutput(ctx, "image", "inspect", image)
-}
-
-// Close releases resources associated with this engine (e.g., the sysctl
-// override temp file created on Linux). Safe to call multiple times.
-func (e *PodmanEngine) Close() error {
-	return e.BaseCLIEngine.Close()
 }
 
 // SysctlOverrideActive reports whether the temp-file-based CONTAINERS_CONF_OVERRIDE
@@ -316,13 +226,4 @@ func makeUsernsKeepIDAdder() RunArgsTransformer {
 		result = append(result, args[imagePos:]...)
 		return result
 	}
-}
-
-// BuildRunArgs builds the argument slice for a 'run' command without executing.
-// Returns the full argument slice including 'run' and all options.
-// This is used for interactive mode where the command needs to be attached to a PTY.
-// Note: Volume mounts are automatically labeled with SELinux labels if needed
-// (via the volume formatter set in the constructor).
-func (e *PodmanEngine) BuildRunArgs(opts RunOptions) []string {
-	return e.RunArgs(opts)
 }

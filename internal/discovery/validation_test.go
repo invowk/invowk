@@ -10,11 +10,6 @@ import (
 	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
-const (
-	// testCmdDeploy is a test constant for the command name "deploy"
-	testCmdDeploy = "deploy"
-)
-
 func TestValidateCommandTree_NoConflict(t *testing.T) {
 	t.Parallel()
 
@@ -114,8 +109,8 @@ func TestValidateCommandTree_Conflict(t *testing.T) {
 		t.Fatalf("Expected ArgsSubcommandConflictError, got %T", err)
 	}
 
-	if conflictErr.CommandName != testCmdDeploy {
-		t.Errorf("Expected CommandName %q, got %q", testCmdDeploy, conflictErr.CommandName)
+	if conflictErr.CommandName != "deploy" {
+		t.Errorf("Expected CommandName %q, got %q", "deploy", conflictErr.CommandName)
 	}
 
 	if len(conflictErr.Args) != 1 || conflictErr.Args[0].Name != "env" {

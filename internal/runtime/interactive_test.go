@@ -116,8 +116,7 @@ cmds: [{
 	}
 
 	// Create execution context
-	ctx := NewExecutionContext(&inv.Commands[0], inv)
-	ctx.Context = context.Background()
+	ctx := NewExecutionContext(context.Background(), &inv.Commands[0], inv)
 
 	// Create native runtime and prepare for interactive execution
 	rt := NewNativeRuntime()
@@ -166,8 +165,8 @@ cmds: [{
 	}
 
 	// Create execution context
-	ctx := NewExecutionContext(&inv.Commands[0], inv)
-	ctx.Context = context.Background()
+	ctx := NewExecutionContext(context.Background(), &inv.Commands[0], inv)
+
 	ctx.SelectedRuntime = invowkfile.RuntimeVirtual
 	ctx.SelectedImpl = &inv.Commands[0].Implementations[0]
 

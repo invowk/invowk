@@ -31,9 +31,15 @@ type (
 )
 
 // NewCommandScope creates a CommandScope for a parsed module.
-// This is a wrapper for invowkmod.NewCommandScope.
+// This is a wrapper for invowkmod.NewCommandScope that accepts plain strings
+// and converts to ModuleID at the boundary.
 func NewCommandScope(moduleID string, globalModuleIDs []string, directRequirements []ModuleRequirement) *CommandScope {
-	return invowkmod.NewCommandScope(moduleID, globalModuleIDs, directRequirements)
+	modID := invowkmod.ModuleID(moduleID)
+	globalIDs := make([]invowkmod.ModuleID, len(globalModuleIDs))
+	for i, id := range globalModuleIDs {
+		globalIDs[i] = invowkmod.ModuleID(id)
+	}
+	return invowkmod.NewCommandScope(modID, globalIDs, directRequirements)
 }
 
 // ExtractModuleFromCommand extracts the module prefix from a fully qualified command name.
@@ -53,7 +59,7 @@ func NewModuleMetadataFromInvowkmod(meta *Invowkmod) *ModuleMetadata {
 	copy(requires, meta.Requires)
 
 	return &ModuleMetadata{
-		Module:      meta.Module,
+		Module:      string(meta.Module),
 		Version:     meta.Version,
 		Description: meta.Description,
 		Requires:    requires,

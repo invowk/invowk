@@ -83,6 +83,12 @@ type (
 		EnvInheritAllow []string
 		// EnvInheritDeny overrides the runtime config env denylist.
 		EnvInheritDeny []string
+		// DryRun enables dry-run mode: prints what would be executed without executing.
+		DryRun bool
+		// UserEnv captures the host environment at execution entry, before invowk
+		// injects command-level env vars. When nil, Execute() populates it eagerly
+		// via captureUserEnv(). Tests can set this to inject a controlled env.
+		UserEnv map[string]string
 	}
 
 	// ExecuteResult contains command execution outcomes.
@@ -220,24 +226,22 @@ func discoveryCacheFromContext(ctx context.Context) *discoveryRequestCache {
 	return nil
 }
 
-func prependCommandSetDiagnostics(result discovery.CommandSetResult, cfgDiags []discovery.Diagnostic) discovery.CommandSetResult {
-	if len(cfgDiags) == 0 {
-		return result
+// prependDiags returns a new slice with prefix diagnostics before existing ones.
+func prependDiags(existing, prefix []discovery.Diagnostic) []discovery.Diagnostic {
+	if len(prefix) == 0 {
+		return existing
 	}
+	return append(append(make([]discovery.Diagnostic, 0, len(prefix)+len(existing)), prefix...), existing...)
+}
 
-	out := result
-	out.Diagnostics = append(append(make([]discovery.Diagnostic, 0, len(cfgDiags)+len(result.Diagnostics)), cfgDiags...), result.Diagnostics...)
-	return out
+func prependCommandSetDiagnostics(result discovery.CommandSetResult, cfgDiags []discovery.Diagnostic) discovery.CommandSetResult {
+	result.Diagnostics = prependDiags(result.Diagnostics, cfgDiags)
+	return result
 }
 
 func prependLookupDiagnostics(result discovery.LookupResult, cfgDiags []discovery.Diagnostic) discovery.LookupResult {
-	if len(cfgDiags) == 0 {
-		return result
-	}
-
-	out := result
-	out.Diagnostics = append(append(make([]discovery.Diagnostic, 0, len(cfgDiags)+len(result.Diagnostics)), cfgDiags...), result.Diagnostics...)
-	return out
+	result.Diagnostics = prependDiags(result.Diagnostics, cfgDiags)
+	return result
 }
 
 // DiscoverCommandSet discovers commands and prepends configuration diagnostics.

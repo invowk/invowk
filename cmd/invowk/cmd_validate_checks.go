@@ -3,7 +3,6 @@
 package cmd
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -209,16 +208,7 @@ func checkEnvVarDependenciesInContainer(deps *invowkfile.DependsOn, registry *ru
 				checkScript = fmt.Sprintf("test -n \"${%s+x}\" && printf '%%s' \"$%s\" | grep -qE '%s'", name, name, escapedValidation)
 			}
 
-			var stdout, stderr bytes.Buffer
-			validationCtx := &runtime.ExecutionContext{
-				Command:         ctx.Command,
-				Invowkfile:      ctx.Invowkfile,
-				SelectedImpl:    &invowkfile.Implementation{Script: checkScript, Runtimes: []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeContainer}}},
-				SelectedRuntime: invowkfile.RuntimeContainer,
-				Context:         ctx.Context,
-				IO:              runtime.IOContext{Stdout: &stdout, Stderr: &stderr},
-				Env:             runtime.DefaultEnv(),
-			}
+			validationCtx, _, _ := newContainerValidationContext(ctx, checkScript)
 
 			result := rt.Execute(validationCtx)
 			if result.Error != nil {
@@ -405,43 +395,6 @@ func checkCommandDependenciesInContainer(deps *invowkfile.DependsOn, registry *r
 	return nil
 }
 
-// checkCustomChecks verifies all custom check scripts pass (native-only fallback).
-// Each CustomCheckDependency can be either a direct check or a list of alternatives.
-// For alternatives, OR semantics are used (early return on first passing check).
-func checkCustomChecks(cmd *invowkfile.Command) error {
-	if cmd.DependsOn == nil || len(cmd.DependsOn.CustomChecks) == 0 {
-		return nil
-	}
-
-	var checkErrors []string
-
-	for _, checkDep := range cmd.DependsOn.CustomChecks {
-		checks := checkDep.GetChecks()
-		found, lastErr := evaluateAlternatives(checks, validateCustomCheckNative)
-
-		if !found && lastErr != nil {
-			if len(checks) == 1 {
-				checkErrors = append(checkErrors, lastErr.Error())
-			} else {
-				names := make([]string, len(checks))
-				for i, c := range checks {
-					names[i] = c.Name
-				}
-				checkErrors = append(checkErrors, fmt.Sprintf("  • none of custom checks [%s] passed", strings.Join(names, ", ")))
-			}
-		}
-	}
-
-	if len(checkErrors) > 0 {
-		return &DependencyError{
-			CommandName:        cmd.Name,
-			FailedCustomChecks: checkErrors,
-		}
-	}
-
-	return nil
-}
-
 // checkCapabilityDependencies verifies all required system capabilities are available.
 // Capabilities are always checked against the host system, regardless of the runtime mode.
 // For container runtimes, these checks represent the host's capabilities, not the container's.
@@ -453,7 +406,10 @@ func checkCapabilityDependencies(deps *invowkfile.DependsOn, ctx *runtime.Execut
 
 	var capabilityErrors []string
 
-	// Track seen capability sets to detect duplicates (they're just skipped, not an error)
+	// Track seen capability sets to avoid duplicate network probes.
+	// Capabilities like "internet" and "local-area-network" involve network I/O,
+	// so skipping duplicates is a meaningful performance optimization.
+	// Other dependency types (tools, filepaths, etc.) are cheap to re-check.
 	seen := make(map[string]bool)
 
 	for _, capDep := range deps.Capabilities {

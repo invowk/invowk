@@ -105,11 +105,6 @@
           {
             "type": "command",
             "command": "cozempic checkpoint 2>/dev/null || true"
-          },
-          {
-            "type": "command",
-            "command": "GUARD=\"/tmp/.claude-learn-$(echo \"$PWD\" | sha256sum | cut -c1-16)\"; if [ -f \"$GUARD\" ]; then rm -f \"$GUARD\"; exit 0; fi; touch \"$GUARD\"; echo '{\"decision\":\"block\",\"reason\":\"Before finishing, run /learn to check for stale CLAUDE.md, rules, or skills.\"}'",
-            "timeout": 5000
           }
         ]
       }

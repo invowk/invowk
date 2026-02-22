@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/invowk/invowk/internal/config"
 	"github.com/invowk/invowk/internal/discovery"
 	"github.com/invowk/invowk/internal/runtime"
 	"github.com/invowk/invowk/pkg/invowkfile"
@@ -26,9 +25,9 @@ import (
 // that commands are discoverable via the standard discovery pipeline. For container runtime deps,
 // it runs 'invowk internal check-cmd' inside the container. Neither phase executes the
 // referenced commands.
-func validateDependencies(cfg *config.Config, cmdInfo *discovery.CommandInfo, registry *runtime.Registry, parentCtx *runtime.ExecutionContext) error {
+func validateDependencies(disc DiscoveryService, cmdInfo *discovery.CommandInfo, registry *runtime.Registry, parentCtx *runtime.ExecutionContext, userEnv map[string]string) error {
 	// Phase 1: Host dependencies (root + cmd + impl, always validated on host)
-	if err := validateHostDependencies(cfg, cmdInfo, parentCtx); err != nil {
+	if err := validateHostDependencies(disc, cmdInfo, parentCtx, userEnv); err != nil {
 		return err
 	}
 
@@ -38,7 +37,8 @@ func validateDependencies(cfg *config.Config, cmdInfo *discovery.CommandInfo, re
 
 // validateHostDependencies validates merged root+cmd+impl dependencies against the HOST.
 // All 6 dependency types are always checked on the host, regardless of selected runtime.
-func validateHostDependencies(cfg *config.Config, cmdInfo *discovery.CommandInfo, parentCtx *runtime.ExecutionContext) error {
+// userEnv is the host environment captured eagerly at Execute() entry.
+func validateHostDependencies(disc DiscoveryService, cmdInfo *discovery.CommandInfo, parentCtx *runtime.ExecutionContext, userEnv map[string]string) error {
 	mergedDeps := invowkfile.MergeDependsOnAll(cmdInfo.Invowkfile.DependsOn, cmdInfo.Command.DependsOn, parentCtx.SelectedImpl.DependsOn)
 	if mergedDeps == nil {
 		return nil
@@ -46,8 +46,9 @@ func validateHostDependencies(cfg *config.Config, cmdInfo *discovery.CommandInfo
 
 	invowkfilePath := cmdInfo.Invowkfile.FilePath
 
-	// Env vars: host-only, validated BEFORE invowk sets any env vars
-	if err := checkEnvVarDependencies(mergedDeps, captureUserEnv(), parentCtx); err != nil {
+	// Env vars: validated using the snapshot captured at Execute() entry,
+	// before any downstream code could potentially modify the environment.
+	if err := checkEnvVarDependencies(mergedDeps, userEnv, parentCtx); err != nil {
 		return err
 	}
 
@@ -71,12 +72,13 @@ func validateHostDependencies(cfg *config.Config, cmdInfo *discovery.CommandInfo
 		return err
 	}
 
-	// Command discoverability: host-only
+	// Command discoverability: routed through DiscoveryService so the
+	// per-request cache avoids redundant filesystem scans.
 	currentModule := ""
 	if cmdInfo.Invowkfile.Metadata != nil {
 		currentModule = cmdInfo.Invowkfile.Metadata.Module
 	}
-	return checkCommandDependenciesExist(cfg, mergedDeps, currentModule, parentCtx, nil)
+	return checkCommandDependenciesExist(disc, mergedDeps, currentModule, parentCtx)
 }
 
 // validateRuntimeDependencies validates the selected runtime config's depends_on against
@@ -132,12 +134,10 @@ func validateRuntimeDependencies(cmdInfo *discovery.CommandInfo, registry *runti
 	return checkCommandDependenciesInContainer(rtDeps, registry, parentCtx)
 }
 
-func checkCommandDependenciesExist(cfg *config.Config, deps *invowkfile.DependsOn, currentModule string, ctx *runtime.ExecutionContext, discoveryOpts []discovery.Option) error {
+func checkCommandDependenciesExist(disc DiscoveryService, deps *invowkfile.DependsOn, currentModule string, ctx *runtime.ExecutionContext) error {
 	if deps == nil || len(deps.Commands) == 0 {
 		return nil
 	}
-
-	disc := discovery.New(cfg, discoveryOpts...)
 
 	discoverCtx := context.Background()
 	if ctx != nil && ctx.Context != nil {

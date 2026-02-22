@@ -5,6 +5,7 @@ package container
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -37,8 +38,12 @@ type (
 	BaseCLIEngineOption func(*BaseCLIEngine)
 
 	// BaseCLIEngine provides common implementation for CLI-based container engines.
-	// Docker and Podman engines embed this struct.
+	// Docker and Podman engines embed this struct. Methods that are identical across
+	// all CLI engines (Build, Run, Exec, Remove, RemoveImage, BuildRunArgs, InspectImage)
+	// are implemented here; engine-specific methods (Available, Version, ImageExists)
+	// remain on the concrete types.
 	BaseCLIEngine struct {
+		name                 string // Engine name for error messages (e.g., "docker", "podman")
 		binaryPath           string
 		execCommand          ExecCommandFunc
 		volumeFormatter      VolumeFormatFunc
@@ -99,6 +104,13 @@ type (
 )
 
 // --- Option Functions ---
+
+// WithName sets the engine name used in error messages.
+func WithName(name string) BaseCLIEngineOption {
+	return func(e *BaseCLIEngine) {
+		e.name = name
+	}
+}
 
 // WithExecCommand sets a custom exec command function for testing.
 func WithExecCommand(fn ExecCommandFunc) BaseCLIEngineOption {
@@ -169,6 +181,11 @@ func NewBaseCLIEngine(binaryPath string, opts ...BaseCLIEngineOption) *BaseCLIEn
 }
 
 // --- Accessor Methods ---
+
+// Name returns the engine name used in error messages.
+func (e *BaseCLIEngine) Name() string {
+	return e.name
+}
 
 // BinaryPath returns the path to the container engine binary.
 func (e *BaseCLIEngine) BinaryPath() string {
@@ -390,6 +407,97 @@ func (e *BaseCLIEngine) Close() error {
 		}
 	}
 	return nil
+}
+
+// --- Promoted Engine Methods (shared by Docker and Podman) ---
+
+// Build builds an image from a Dockerfile.
+func (e *BaseCLIEngine) Build(ctx context.Context, opts BuildOptions) error {
+	args := e.BuildArgs(opts)
+
+	cmd := e.CreateCommand(ctx, args...)
+	cmd.Stdout = opts.Stdout
+	cmd.Stderr = opts.Stderr
+
+	if err := cmd.Run(); err != nil {
+		return buildContainerError(e.name, opts, err)
+	}
+
+	return nil
+}
+
+// Run runs a command in a container and returns the result.
+// A non-zero exit code is captured in RunResult.ExitCode (not returned as error).
+// Only infrastructure failures (binary not found, etc.) set RunResult.Error.
+func (e *BaseCLIEngine) Run(ctx context.Context, opts RunOptions) (*RunResult, error) {
+	args := e.RunArgs(opts)
+
+	cmd := e.CreateCommand(ctx, args...)
+	cmd.Stdin = opts.Stdin
+	cmd.Stdout = opts.Stdout
+	cmd.Stderr = opts.Stderr
+
+	err := cmd.Run()
+
+	result := &RunResult{}
+	if err != nil {
+		if exitErr, ok := errors.AsType[*exec.ExitError](err); ok {
+			result.ExitCode = exitErr.ExitCode()
+		} else {
+			result.ExitCode = 1
+			result.Error = err
+		}
+	}
+
+	return result, nil
+}
+
+// Exec runs a command in a running container.
+func (e *BaseCLIEngine) Exec(ctx context.Context, containerID string, command []string, opts RunOptions) (*RunResult, error) {
+	args := e.ExecArgs(containerID, command, opts)
+
+	cmd := e.CreateCommand(ctx, args...)
+	cmd.Stdin = opts.Stdin
+	cmd.Stdout = opts.Stdout
+	cmd.Stderr = opts.Stderr
+
+	err := cmd.Run()
+
+	result := &RunResult{ContainerID: containerID}
+	if err != nil {
+		if exitErr, ok := errors.AsType[*exec.ExitError](err); ok {
+			result.ExitCode = exitErr.ExitCode()
+		} else {
+			result.ExitCode = 1
+			result.Error = err
+		}
+	}
+
+	return result, nil
+}
+
+// Remove removes a container.
+func (e *BaseCLIEngine) Remove(ctx context.Context, containerID string, force bool) error {
+	args := e.RemoveArgs(containerID, force)
+	return e.RunCommandStatus(ctx, args...)
+}
+
+// RemoveImage removes an image.
+func (e *BaseCLIEngine) RemoveImage(ctx context.Context, image string, force bool) error {
+	args := e.RemoveImageArgs(image, force)
+	return e.RunCommandStatus(ctx, args...)
+}
+
+// BuildRunArgs builds the argument slice for a 'run' command without executing.
+// Returns the full argument slice including 'run' and all options.
+// This is used for interactive mode where the command needs to be attached to a PTY.
+func (e *BaseCLIEngine) BuildRunArgs(opts RunOptions) []string {
+	return e.RunArgs(opts)
+}
+
+// InspectImage returns information about an image.
+func (e *BaseCLIEngine) InspectImage(ctx context.Context, image string) (string, error) {
+	return e.RunCommandWithOutput(ctx, "image", "inspect", image)
 }
 
 // customizeCmd applies env overrides to a command.

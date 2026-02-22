@@ -204,48 +204,50 @@ func TestSyncHelpersSmoke(t *testing.T) {
 // These tests verify Go struct JSON tags match CUE schema field names.
 // They catch misalignments at CI time, preventing silent parsing failures.
 
-// TestInvowkfileSchemaSync verifies Invowkfile Go struct matches #Invowkfile CUE definition.
-// T007: Add sync test for Invowkfile struct
-func TestInvowkfileSchemaSync(t *testing.T) {
+// TestSchemaSync is a table-driven test that verifies each Go struct's JSON tags
+// match its corresponding CUE schema definition fields.
+func TestSchemaSync(t *testing.T) {
 	t.Parallel()
 
 	schema, _ := getCUESchema(t)
-	cueFields := extractCUEFields(t, lookupDefinition(t, schema, "#Invowkfile"))
-	goFields := extractGoJSONTags(t, reflect.TypeFor[Invowkfile]())
 
-	assertFieldsSync(t, "Invowkfile", cueFields, goFields)
-}
+	cases := []struct {
+		cueDef string
+		goType reflect.Type
+	}{
+		{"#Invowkfile", reflect.TypeFor[Invowkfile]()},
+		{"#Command", reflect.TypeFor[Command]()},
+		{"#Implementation", reflect.TypeFor[Implementation]()},
+		{"#DependsOn", reflect.TypeFor[DependsOn]()},
+		{"#Flag", reflect.TypeFor[Flag]()},
+		{"#Argument", reflect.TypeFor[Argument]()},
+		{"#EnvConfig", reflect.TypeFor[EnvConfig]()},
+		{"#PlatformConfig", reflect.TypeFor[PlatformConfig]()},
+		{"#ToolDependency", reflect.TypeFor[ToolDependency]()},
+		{"#FilepathDependency", reflect.TypeFor[FilepathDependency]()},
+		{"#CapabilityDependency", reflect.TypeFor[CapabilityDependency]()},
+		{"#CommandDependency", reflect.TypeFor[CommandDependency]()},
+		{"#EnvVarCheck", reflect.TypeFor[EnvVarCheck]()},
+		{"#EnvVarDependency", reflect.TypeFor[EnvVarDependency]()},
+		{"#CustomCheck", reflect.TypeFor[CustomCheck]()},
+		{"#WatchConfig", reflect.TypeFor[WatchConfig]()},
+	}
 
-// TestCommandSchemaSync verifies Command Go struct matches #Command CUE definition.
-// T008: Add sync test for Command struct
-func TestCommandSchemaSync(t *testing.T) {
-	t.Parallel()
-
-	schema, _ := getCUESchema(t)
-	cueFields := extractCUEFields(t, lookupDefinition(t, schema, "#Command"))
-	goFields := extractGoJSONTags(t, reflect.TypeFor[Command]())
-
-	assertFieldsSync(t, "Command", cueFields, goFields)
-}
-
-// TestImplementationSchemaSync verifies Implementation Go struct matches #Implementation CUE definition.
-// T009: Add sync test for Implementation struct
-func TestImplementationSchemaSync(t *testing.T) {
-	t.Parallel()
-
-	schema, _ := getCUESchema(t)
-	cueFields := extractCUEFields(t, lookupDefinition(t, schema, "#Implementation"))
-	goFields := extractGoJSONTags(t, reflect.TypeFor[Implementation]())
-
-	assertFieldsSync(t, "Implementation", cueFields, goFields)
+	for _, tc := range cases {
+		t.Run(tc.cueDef, func(t *testing.T) {
+			t.Parallel()
+			cueFields := extractCUEFields(t, lookupDefinition(t, schema, tc.cueDef))
+			goFields := extractGoJSONTags(t, tc.goType)
+			assertFieldsSync(t, tc.cueDef, cueFields, goFields)
+		})
+	}
 }
 
 // TestRuntimeConfigSchemaSync verifies RuntimeConfig Go struct matches CUE runtime definitions.
-// T010: Add sync test for RuntimeConfig struct
 //
 // Note: The CUE schema uses a union type (#RuntimeConfig = #RuntimeConfigNative | #RuntimeConfigVirtual | #RuntimeConfigContainer)
 // while Go uses a single RuntimeConfig struct with all fields. We need to extract the union of all fields
-// from the three CUE types.
+// from the three CUE types. This requires custom merge logic, so it remains a separate test.
 func TestRuntimeConfigSchemaSync(t *testing.T) {
 	t.Parallel()
 
@@ -279,141 +281,6 @@ func TestRuntimeConfigSchemaSync(t *testing.T) {
 	goFields := extractGoJSONTags(t, reflect.TypeFor[RuntimeConfig]())
 
 	assertFieldsSync(t, "RuntimeConfig", allCUEFields, goFields)
-}
-
-// TestDependsOnSchemaSync verifies DependsOn Go struct matches #DependsOn CUE definition.
-// T011: Add sync test for DependsOn struct
-func TestDependsOnSchemaSync(t *testing.T) {
-	t.Parallel()
-
-	schema, _ := getCUESchema(t)
-	cueFields := extractCUEFields(t, lookupDefinition(t, schema, "#DependsOn"))
-	goFields := extractGoJSONTags(t, reflect.TypeFor[DependsOn]())
-
-	assertFieldsSync(t, "DependsOn", cueFields, goFields)
-}
-
-// TestFlagSchemaSync verifies Flag Go struct matches #Flag CUE definition.
-// T012: Add sync test for Flag struct
-func TestFlagSchemaSync(t *testing.T) {
-	t.Parallel()
-
-	schema, _ := getCUESchema(t)
-	cueFields := extractCUEFields(t, lookupDefinition(t, schema, "#Flag"))
-	goFields := extractGoJSONTags(t, reflect.TypeFor[Flag]())
-
-	assertFieldsSync(t, "Flag", cueFields, goFields)
-}
-
-// TestArgumentSchemaSync verifies Argument Go struct matches #Argument CUE definition.
-// T012: Add sync test for Argument struct (same task as Flag)
-func TestArgumentSchemaSync(t *testing.T) {
-	t.Parallel()
-
-	schema, _ := getCUESchema(t)
-	cueFields := extractCUEFields(t, lookupDefinition(t, schema, "#Argument"))
-	goFields := extractGoJSONTags(t, reflect.TypeFor[Argument]())
-
-	assertFieldsSync(t, "Argument", cueFields, goFields)
-}
-
-// TestEnvConfigSchemaSync verifies EnvConfig Go struct matches #EnvConfig CUE definition.
-func TestEnvConfigSchemaSync(t *testing.T) {
-	t.Parallel()
-
-	schema, _ := getCUESchema(t)
-	cueFields := extractCUEFields(t, lookupDefinition(t, schema, "#EnvConfig"))
-	goFields := extractGoJSONTags(t, reflect.TypeFor[EnvConfig]())
-
-	assertFieldsSync(t, "EnvConfig", cueFields, goFields)
-}
-
-// TestPlatformConfigSchemaSync verifies PlatformConfig Go struct matches #PlatformConfig CUE definition.
-func TestPlatformConfigSchemaSync(t *testing.T) {
-	t.Parallel()
-
-	schema, _ := getCUESchema(t)
-	cueFields := extractCUEFields(t, lookupDefinition(t, schema, "#PlatformConfig"))
-	goFields := extractGoJSONTags(t, reflect.TypeFor[PlatformConfig]())
-
-	assertFieldsSync(t, "PlatformConfig", cueFields, goFields)
-}
-
-// TestToolDependencySchemaSync verifies ToolDependency Go struct matches #ToolDependency CUE definition.
-func TestToolDependencySchemaSync(t *testing.T) {
-	t.Parallel()
-
-	schema, _ := getCUESchema(t)
-	cueFields := extractCUEFields(t, lookupDefinition(t, schema, "#ToolDependency"))
-	goFields := extractGoJSONTags(t, reflect.TypeFor[ToolDependency]())
-
-	assertFieldsSync(t, "ToolDependency", cueFields, goFields)
-}
-
-// TestFilepathDependencySchemaSync verifies FilepathDependency Go struct matches #FilepathDependency CUE definition.
-func TestFilepathDependencySchemaSync(t *testing.T) {
-	t.Parallel()
-
-	schema, _ := getCUESchema(t)
-	cueFields := extractCUEFields(t, lookupDefinition(t, schema, "#FilepathDependency"))
-	goFields := extractGoJSONTags(t, reflect.TypeFor[FilepathDependency]())
-
-	assertFieldsSync(t, "FilepathDependency", cueFields, goFields)
-}
-
-// TestCapabilityDependencySchemaSync verifies CapabilityDependency Go struct matches #CapabilityDependency CUE definition.
-func TestCapabilityDependencySchemaSync(t *testing.T) {
-	t.Parallel()
-
-	schema, _ := getCUESchema(t)
-	cueFields := extractCUEFields(t, lookupDefinition(t, schema, "#CapabilityDependency"))
-	goFields := extractGoJSONTags(t, reflect.TypeFor[CapabilityDependency]())
-
-	assertFieldsSync(t, "CapabilityDependency", cueFields, goFields)
-}
-
-// TestCommandDependencySchemaSync verifies CommandDependency Go struct matches #CommandDependency CUE definition.
-func TestCommandDependencySchemaSync(t *testing.T) {
-	t.Parallel()
-
-	schema, _ := getCUESchema(t)
-	cueFields := extractCUEFields(t, lookupDefinition(t, schema, "#CommandDependency"))
-	goFields := extractGoJSONTags(t, reflect.TypeFor[CommandDependency]())
-
-	assertFieldsSync(t, "CommandDependency", cueFields, goFields)
-}
-
-// TestEnvVarCheckSchemaSync verifies EnvVarCheck Go struct matches #EnvVarCheck CUE definition.
-func TestEnvVarCheckSchemaSync(t *testing.T) {
-	t.Parallel()
-
-	schema, _ := getCUESchema(t)
-	cueFields := extractCUEFields(t, lookupDefinition(t, schema, "#EnvVarCheck"))
-	goFields := extractGoJSONTags(t, reflect.TypeFor[EnvVarCheck]())
-
-	assertFieldsSync(t, "EnvVarCheck", cueFields, goFields)
-}
-
-// TestEnvVarDependencySchemaSync verifies EnvVarDependency Go struct matches #EnvVarDependency CUE definition.
-func TestEnvVarDependencySchemaSync(t *testing.T) {
-	t.Parallel()
-
-	schema, _ := getCUESchema(t)
-	cueFields := extractCUEFields(t, lookupDefinition(t, schema, "#EnvVarDependency"))
-	goFields := extractGoJSONTags(t, reflect.TypeFor[EnvVarDependency]())
-
-	assertFieldsSync(t, "EnvVarDependency", cueFields, goFields)
-}
-
-// TestCustomCheckSchemaSync verifies CustomCheck Go struct matches #CustomCheck CUE definition.
-func TestCustomCheckSchemaSync(t *testing.T) {
-	t.Parallel()
-
-	schema, _ := getCUESchema(t)
-	cueFields := extractCUEFields(t, lookupDefinition(t, schema, "#CustomCheck"))
-	goFields := extractGoJSONTags(t, reflect.TypeFor[CustomCheck]())
-
-	assertFieldsSync(t, "CustomCheck", cueFields, goFields)
 }
 
 // =============================================================================

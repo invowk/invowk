@@ -34,6 +34,10 @@ type (
 		fromSource string
 		// forceRebuild forces container image rebuilds, bypassing cache.
 		forceRebuild bool
+		// dryRun enables dry-run mode: prints what would be executed without executing.
+		dryRun bool
+		// watch enables watch mode: re-execute command on file changes.
+		watch bool
 	}
 
 	// DependencyError represents unsatisfied dependencies.
@@ -67,21 +71,21 @@ type (
 	// Parsed from @source prefix in args or --ivk-from flag.
 	SourceFilter struct {
 		// SourceID is the normalized source identifier (e.g., "invowkfile", "foo").
-		SourceID string
+		SourceID discovery.SourceID
 		// Raw is the original user input before normalization (e.g., "@foo.invowkmod").
 		Raw string
 	}
 
 	// SourceNotFoundError is returned when a specified source does not exist.
 	SourceNotFoundError struct {
-		Source           string
-		AvailableSources []string
+		Source           discovery.SourceID
+		AvailableSources []discovery.SourceID
 	}
 
 	// AmbiguousCommandError is returned when a command exists in multiple sources.
 	AmbiguousCommandError struct {
 		CommandName string
-		Sources     []string
+		Sources     []discovery.SourceID
 	}
 )
 
@@ -173,6 +177,8 @@ Examples:
 	cmdCmd.PersistentFlags().StringVarP(&cmdFlags.runtimeOverride, "ivk-runtime", "r", "", "override the runtime (must be allowed by the command)")
 	cmdCmd.PersistentFlags().StringVarP(&cmdFlags.fromSource, "ivk-from", "f", "", "source to run command from (e.g., 'invowkfile' or module name)")
 	cmdCmd.PersistentFlags().BoolVar(&cmdFlags.forceRebuild, "ivk-force-rebuild", false, "force rebuild of container images (container runtime only)")
+	cmdCmd.PersistentFlags().BoolVar(&cmdFlags.dryRun, "ivk-dry-run", false, "print what would be executed without executing")
+	cmdCmd.PersistentFlags().BoolVarP(&cmdFlags.watch, "ivk-watch", "W", false, "watch files for changes and re-execute")
 
 	// Build dynamic command leaves at construction time (instead of package init).
 	registerDiscoveredCommands(context.Background(), app, rootFlags, cmdFlags, cmdCmd)
@@ -205,19 +211,19 @@ func (e *AmbiguousCommandError) Error() string {
 	return fmt.Sprintf("command '%s' is ambiguous", e.CommandName)
 }
 
-// normalizeSourceName converts various source name formats to a canonical form.
-func normalizeSourceName(raw string) string {
+// normalizeSourceName converts various source name formats to a canonical SourceID.
+func normalizeSourceName(raw string) discovery.SourceID {
 	name := strings.TrimPrefix(raw, "@")
 
-	if name == "invowkfile.cue" || name == discovery.SourceIDInvowkfile {
+	if name == "invowkfile.cue" || discovery.SourceID(name) == discovery.SourceIDInvowkfile {
 		return discovery.SourceIDInvowkfile
 	}
 
 	if moduleName, found := strings.CutSuffix(name, ".invowkmod"); found {
-		return moduleName
+		return discovery.SourceID(moduleName)
 	}
 
-	return name
+	return discovery.SourceID(name)
 }
 
 // ParseSourceFilter extracts source filter from @prefix in args or --ivk-from flag.
@@ -247,6 +253,11 @@ func runCommand(cmd *cobra.Command, app *App, rootFlags *rootFlagValues, cmdFlag
 		return fmt.Errorf("no command specified")
 	}
 
+	// Watch mode intercepts before normal execution.
+	if cmdFlags.watch {
+		return runWatchMode(cmd, app, rootFlags, cmdFlags, args)
+	}
+
 	parsedRuntime, err := cmdFlags.parsedRuntimeMode()
 	if err != nil {
 		return err
@@ -263,17 +274,23 @@ func runCommand(cmd *cobra.Command, app *App, rootFlags *rootFlagValues, cmdFlag
 		FromSource:   cmdFlags.fromSource,
 		ForceRebuild: cmdFlags.forceRebuild,
 		ConfigPath:   rootFlags.configPath,
+		DryRun:       cmdFlags.dryRun,
 	}
 
 	err = executeRequest(cmd, app, req)
+	silenceOnExitError(cmd, err)
+	return err
+}
+
+// silenceOnExitError suppresses Cobra's error/usage printing when the error is
+// an ExitError (non-zero exit code). This prevents double-printing of the error.
+func silenceOnExitError(cmd *cobra.Command, err error) {
 	if err != nil {
 		if _, ok := errors.AsType[*ExitError](err); ok { //nolint:errcheck // type match only; error is handled via ok
 			cmd.SilenceErrors = true
 			cmd.SilenceUsage = true
 		}
 	}
-
-	return err
 }
 
 // executeRequest dispatches an ExecuteRequest through the App's CommandService

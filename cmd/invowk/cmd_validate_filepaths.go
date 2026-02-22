@@ -124,32 +124,6 @@ func checkHostFilepathDependencies(deps *invowkfile.DependsOn, invowkfilePath st
 	return nil
 }
 
-// checkFilepathDependencies verifies all required files/directories exist with proper permissions
-// using host-native OS calls. Used when no ExecutionContext or runtime registry is available.
-func checkFilepathDependencies(cmd *invowkfile.Command, invowkfilePath string) error {
-	if cmd.DependsOn == nil || len(cmd.DependsOn.Filepaths) == 0 {
-		return nil
-	}
-
-	var filepathErrors []string
-	invowkDir := filepath.Dir(invowkfilePath)
-
-	for _, fp := range cmd.DependsOn.Filepaths {
-		if err := validateFilepathAlternatives(fp, invowkDir); err != nil {
-			filepathErrors = append(filepathErrors, err.Error())
-		}
-	}
-
-	if len(filepathErrors) > 0 {
-		return &DependencyError{
-			CommandName:      cmd.Name,
-			MissingFilepaths: filepathErrors,
-		}
-	}
-
-	return nil
-}
-
 // validateFilepathAlternatives checks if any of the alternative paths exists and has the required permissions
 // Returns nil (success) if any alternative satisfies all requirements
 func validateFilepathAlternatives(fp invowkfile.FilepathDependency, invowkDir string) error {

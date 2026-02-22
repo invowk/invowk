@@ -42,8 +42,7 @@ func testVirtualCommandSubstitution(t *testing.T) {
 	cmd := testCommandWithScript("subst", `RESULT=$(echo "nested output"); echo "Got: $RESULT"`, invowkfile.RuntimeVirtual)
 
 	rt := NewVirtualRuntime(false)
-	ctx := NewExecutionContext(cmd, inv)
-	ctx.Context = context.Background()
+	ctx := NewExecutionContext(context.Background(), cmd, inv)
 
 	var stdout bytes.Buffer
 	ctx.IO.Stdout = &stdout
@@ -72,8 +71,7 @@ func testVirtualPipelines(t *testing.T) {
 	cmd := testCommandWithScript("pipeline", `echo -e "line1\nline2\nline3" | grep line2`, invowkfile.RuntimeVirtual)
 
 	rt := NewVirtualRuntime(false)
-	ctx := NewExecutionContext(cmd, inv)
-	ctx.Context = context.Background()
+	ctx := NewExecutionContext(context.Background(), cmd, inv)
 
 	var stdout bytes.Buffer
 	ctx.IO.Stdout = &stdout
@@ -107,8 +105,7 @@ EOF`
 	cmd := testCommandWithScript("heredoc", script, invowkfile.RuntimeVirtual)
 
 	rt := NewVirtualRuntime(false)
-	ctx := NewExecutionContext(cmd, inv)
-	ctx.Context = context.Background()
+	ctx := NewExecutionContext(context.Background(), cmd, inv)
 
 	var stdout bytes.Buffer
 	ctx.IO.Stdout = &stdout
@@ -146,8 +143,7 @@ echo "Length: ${#MYVAR}"`
 	cmd := testCommandWithScript("env-expansion", script, invowkfile.RuntimeVirtual)
 
 	rt := NewVirtualRuntime(false)
-	ctx := NewExecutionContext(cmd, inv)
-	ctx.Context = context.Background()
+	ctx := NewExecutionContext(context.Background(), cmd, inv)
 
 	var stdout bytes.Buffer
 	ctx.IO.Stdout = &stdout
@@ -188,8 +184,7 @@ echo "Product: $((4 * 5))"`
 	cmd := testCommandWithScript("arithmetic", script, invowkfile.RuntimeVirtual)
 
 	rt := NewVirtualRuntime(false)
-	ctx := NewExecutionContext(cmd, inv)
-	ctx.Context = context.Background()
+	ctx := NewExecutionContext(context.Background(), cmd, inv)
 
 	var stdout bytes.Buffer
 	ctx.IO.Stdout = &stdout
@@ -224,8 +219,7 @@ false || echo "OR_FALLBACK"`
 	cmd := testCommandWithScript("conditional", script, invowkfile.RuntimeVirtual)
 
 	rt := NewVirtualRuntime(false)
-	ctx := NewExecutionContext(cmd, inv)
-	ctx.Context = context.Background()
+	ctx := NewExecutionContext(context.Background(), cmd, inv)
 
 	var stdout bytes.Buffer
 	ctx.IO.Stdout = &stdout
@@ -274,8 +268,7 @@ func TestVirtualRuntime_ScriptFileFromSubdir(t *testing.T) {
 	cmd := testCommandWithScript("subdir-script", "./scripts/helper.sh", invowkfile.RuntimeVirtual)
 
 	rt := NewVirtualRuntime(false)
-	ctx := NewExecutionContext(cmd, inv)
-	ctx.Context = context.Background()
+	ctx := NewExecutionContext(context.Background(), cmd, inv)
 
 	var stdout bytes.Buffer
 	ctx.IO.Stdout = &stdout

@@ -6,6 +6,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
+	"slices"
 	"strings"
 
 	"github.com/invowk/invowk/internal/discovery"
@@ -15,6 +17,12 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/spf13/cobra"
 )
+
+// commandGroup holds commands grouped by category for list rendering.
+type commandGroup struct {
+	category string
+	commands []*discovery.CommandInfo
+}
 
 // registerDiscoveredCommands adds discovered commands as Cobra subcommands under `cmd`.
 // Unambiguous commands are registered under their SimpleName for transparent access
@@ -51,13 +59,9 @@ func registerDiscoveredCommands(ctx context.Context, app *App, rootFlags *rootFl
 		registrationName := cmdInfo.SimpleName
 		parts := strings.Fields(registrationName)
 		parent := cmdCmd
-		prefix := ""
 
 		for i, part := range parts {
-			if prefix != "" {
-				prefix += " "
-			}
-			prefix += part
+			prefix := strings.Join(parts[:i+1], " ")
 
 			if existing, ok := commandMap[prefix]; ok {
 				parent = existing
@@ -188,6 +192,11 @@ func buildLeafCommand(app *App, rootFlags *rootFlagValues, cmdFlags *cmdFlagValu
 			envInheritAllow, _ := cmd.Flags().GetStringArray("ivk-env-inherit-allow")
 			envInheritDeny, _ := cmd.Flags().GetStringArray("ivk-env-inherit-deny")
 
+			// Watch mode intercepts before normal execution.
+			if cmdFlags.watch {
+				return runWatchMode(cmd, app, rootFlags, cmdFlags, append([]string{cmdName}, args...))
+			}
+
 			parsedRuntime, err := cmdFlags.parsedRuntimeMode()
 			if err != nil {
 				return err
@@ -206,6 +215,7 @@ func buildLeafCommand(app *App, rootFlags *rootFlagValues, cmdFlags *cmdFlagValu
 				Verbose:         verbose,
 				FromSource:      cmdFlags.fromSource,
 				ForceRebuild:    cmdFlags.forceRebuild,
+				DryRun:          cmdFlags.dryRun,
 				Workdir:         workdirOverride,
 				EnvFiles:        envFiles,
 				EnvVars:         envVars,
@@ -219,13 +229,7 @@ func buildLeafCommand(app *App, rootFlags *rootFlagValues, cmdFlags *cmdFlagValu
 			}
 
 			err = executeRequest(cmd, app, req)
-			if err != nil {
-				if _, ok := errors.AsType[*ExitError](err); ok { //nolint:errcheck // type match only; error is handled via ok
-					cmd.SilenceErrors = true
-					cmd.SilenceUsage = true
-				}
-			}
-
+			silenceOnExitError(cmd, err)
 			return err
 		},
 		Args: buildCobraArgsValidator(cmdArgs),
@@ -447,10 +451,13 @@ func listCommands(cmd *cobra.Command, app *App, rootFlags *rootFlagValues) error
 	platformsStyle := lipgloss.NewStyle().Foreground(ColorWarning)
 	legendStyle := lipgloss.NewStyle().Foreground(ColorVerbose).Italic(true)
 	ambiguousStyle := lipgloss.NewStyle().Foreground(ColorError)
+	categoryStyle := lipgloss.NewStyle().Foreground(ColorHighlight).Italic(true)
+
+	w := app.stdout
 
 	if verbose {
-		fmt.Println(TitleStyle.Render("Discovery Sources"))
-		fmt.Println()
+		fmt.Fprintln(w, TitleStyle.Render("Discovery Sources"))
+		fmt.Fprintln(w)
 		invowkfileCount := 0
 		moduleCount := 0
 		for _, sourceID := range commandSet.SourceOrder {
@@ -459,17 +466,17 @@ func listCommands(cmd *cobra.Command, app *App, rootFlags *rootFlagValues) error
 			} else {
 				moduleCount++
 			}
-			fmt.Printf("  %s %s\n", VerboseHighlightStyle.Render("•"), VerboseStyle.Render(sourceID))
+			fmt.Fprintf(w, "  %s %s\n", VerboseHighlightStyle.Render("•"), VerboseStyle.Render(string(sourceID)))
 		}
-		fmt.Println()
-		fmt.Printf("  %s\n", VerboseStyle.Render(fmt.Sprintf("Sources: %d invowkfile(s), %d module(s)", invowkfileCount, moduleCount)))
-		fmt.Printf("  %s\n", VerboseStyle.Render(fmt.Sprintf("Commands: %d total (%d ambiguous)", len(commandSet.Commands), len(commandSet.AmbiguousNames))))
-		fmt.Println()
+		fmt.Fprintln(w)
+		fmt.Fprintf(w, "  %s\n", VerboseStyle.Render(fmt.Sprintf("Sources: %d invowkfile(s), %d module(s)", invowkfileCount, moduleCount)))
+		fmt.Fprintf(w, "  %s\n", VerboseStyle.Render(fmt.Sprintf("Commands: %d total (%d ambiguous)", len(commandSet.Commands), len(commandSet.AmbiguousNames))))
+		fmt.Fprintln(w)
 	}
 
-	fmt.Println(TitleStyle.Render("Available Commands"))
-	fmt.Println(legendStyle.Render("  (* = default runtime)"))
-	fmt.Println()
+	fmt.Fprintln(w, TitleStyle.Render("Available Commands"))
+	fmt.Fprintln(w, legendStyle.Render("  (* = default runtime)"))
+	fmt.Fprintln(w)
 
 	for _, sourceID := range commandSet.SourceOrder {
 		cmds := commandSet.BySource[sourceID]
@@ -478,28 +485,39 @@ func listCommands(cmd *cobra.Command, app *App, rootFlags *rootFlagValues) error
 		}
 
 		sourceDisplay := formatSourceDisplayName(sourceID)
-		fmt.Println(sourceStyle.Render(fmt.Sprintf("From %s:", sourceDisplay)))
+		fmt.Fprintln(w, sourceStyle.Render(fmt.Sprintf("From %s:", sourceDisplay)))
 
-		for _, discovered := range cmds {
-			line := fmt.Sprintf("  %s", nameStyle.Render(discovered.SimpleName))
-			if discovered.Description != "" {
-				line += fmt.Sprintf(" - %s", descStyle.Render(discovered.Description))
+		// Group commands by category within this source.
+		groups := groupByCategory(cmds)
+		for _, group := range groups {
+			if group.category != "" {
+				fmt.Fprintln(w, categoryStyle.Render(fmt.Sprintf("  [%s]", group.category)))
 			}
-			if discovered.IsAmbiguous {
-				line += fmt.Sprintf(" %s", ambiguousStyle.Render("(@"+sourceID+")"))
+			for _, discovered := range group.commands {
+				indent := "  "
+				if group.category != "" {
+					indent = "    "
+				}
+				line := fmt.Sprintf("%s%s", indent, nameStyle.Render(discovered.SimpleName))
+				if discovered.Description != "" {
+					line += fmt.Sprintf(" - %s", descStyle.Render(discovered.Description))
+				}
+				if discovered.IsAmbiguous {
+					line += fmt.Sprintf(" %s", ambiguousStyle.Render("(@"+string(sourceID)+")"))
+				}
+				currentPlatform := invowkfile.CurrentPlatform()
+				runtimesStr := discovered.Command.GetRuntimesStringForPlatform(currentPlatform)
+				if runtimesStr != "" {
+					line += " [" + defaultRuntimeStyle.Render(runtimesStr) + "]"
+				}
+				platformsStr := discovered.Command.GetPlatformsString()
+				if platformsStr != "" {
+					line += fmt.Sprintf(" (%s)", platformsStyle.Render(platformsStr))
+				}
+				fmt.Fprintln(w, line)
 			}
-			currentPlatform := invowkfile.GetCurrentHostOS()
-			runtimesStr := discovered.Command.GetRuntimesStringForPlatform(currentPlatform)
-			if runtimesStr != "" {
-				line += " [" + defaultRuntimeStyle.Render(runtimesStr) + "]"
-			}
-			platformsStr := discovered.Command.GetPlatformsString()
-			if platformsStr != "" {
-				line += fmt.Sprintf(" (%s)", platformsStyle.Render(platformsStr))
-			}
-			fmt.Println(line)
 		}
-		fmt.Println()
+		fmt.Fprintln(w)
 	}
 
 	// Non-verbose footer: show a single summary line referencing `invowk validate`
@@ -515,14 +533,41 @@ func listCommands(cmd *cobra.Command, app *App, rootFlags *rootFlagValues) error
 	return nil
 }
 
-// formatSourceDisplayName converts a SourceID to a user-friendly display name.
-func formatSourceDisplayName(sourceID string) string {
-	if sourceID == discovery.SourceIDInvowkfile {
-		return discovery.SourceIDInvowkfile
-	}
-	if strings.Contains(sourceID, " ") {
-		return sourceID
+// groupByCategory groups commands by their Category field.
+// Commands without a category come first, followed by categorized groups
+// in alphabetical order.
+func groupByCategory(cmds []*discovery.CommandInfo) []commandGroup {
+	groups := make(map[string][]*discovery.CommandInfo)
+	for _, cmd := range cmds {
+		cat := cmd.Command.Category
+		groups[cat] = append(groups[cat], cmd)
 	}
 
-	return sourceID + ".invowkmod"
+	var result []commandGroup
+
+	// Uncategorized commands first.
+	if uncategorized, ok := groups[""]; ok {
+		result = append(result, commandGroup{category: "", commands: uncategorized})
+		delete(groups, "")
+	}
+
+	// Then categorized groups in alphabetical order.
+	for _, cat := range slices.Sorted(maps.Keys(groups)) {
+		result = append(result, commandGroup{category: cat, commands: groups[cat]})
+	}
+
+	return result
+}
+
+// formatSourceDisplayName converts a SourceID to a user-friendly display name.
+func formatSourceDisplayName(sourceID discovery.SourceID) string {
+	if sourceID == discovery.SourceIDInvowkfile {
+		return string(discovery.SourceIDInvowkfile)
+	}
+	s := string(sourceID)
+	if strings.Contains(s, " ") {
+		return s
+	}
+
+	return s + ".invowkmod"
 }

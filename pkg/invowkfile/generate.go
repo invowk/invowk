@@ -25,27 +25,7 @@ func GenerateCUE(inv *Invowkfile) string {
 	}
 
 	// Root-level env
-	if inv.Env != nil && (len(inv.Env.Files) > 0 || len(inv.Env.Vars) > 0) {
-		sb.WriteString("env: {\n")
-		if len(inv.Env.Files) > 0 {
-			sb.WriteString("\tfiles: [")
-			for i, ef := range inv.Env.Files {
-				if i > 0 {
-					sb.WriteString(", ")
-				}
-				fmt.Fprintf(&sb, "%q", ef)
-			}
-			sb.WriteString("]\n")
-		}
-		if len(inv.Env.Vars) > 0 {
-			sb.WriteString("\tvars: {\n")
-			for _, k := range slices.Sorted(maps.Keys(inv.Env.Vars)) {
-				fmt.Fprintf(&sb, "\t\t%s: %q\n", k, inv.Env.Vars[k])
-			}
-			sb.WriteString("\t}\n")
-		}
-		sb.WriteString("}\n")
-	}
+	generateEnvBlock(&sb, inv.Env, "")
 
 	// Root-level depends_on
 	generateDependsOn(&sb, inv.DependsOn, "\t")
@@ -60,9 +40,35 @@ func GenerateCUE(inv *Invowkfile) string {
 	return sb.String()
 }
 
-// generateDependsOn generates CUE for a DependsOn block at root level.
-// Delegates to generateDependsOnContent for the inner fields, following the same
-// pattern as generateCommandDependsOn and generateImplDependsOn.
+// generateEnvBlock generates a CUE env: {...} block at the given indentation.
+// No-op when env is nil or has no files/vars.
+func generateEnvBlock(sb *strings.Builder, env *EnvConfig, indent string) {
+	if env == nil || (len(env.Files) == 0 && len(env.Vars) == 0) {
+		return
+	}
+	sb.WriteString(indent + "env: {\n")
+	if len(env.Files) > 0 {
+		sb.WriteString(indent + "\tfiles: [")
+		for i, ef := range env.Files {
+			if i > 0 {
+				sb.WriteString(", ")
+			}
+			fmt.Fprintf(sb, "%q", ef)
+		}
+		sb.WriteString("]\n")
+	}
+	if len(env.Vars) > 0 {
+		sb.WriteString(indent + "\tvars: {\n")
+		for _, k := range slices.Sorted(maps.Keys(env.Vars)) {
+			fmt.Fprintf(sb, "%s\t\t%s: %q\n", indent, k, env.Vars[k])
+		}
+		sb.WriteString(indent + "\t}\n")
+	}
+	sb.WriteString(indent + "}\n")
+}
+
+// generateDependsOn generates CUE for a DependsOn block at any nesting level.
+// The indent parameter controls the indentation depth for the block's fields.
 func generateDependsOn(sb *strings.Builder, deps *DependsOn, indent string) {
 	if deps == nil {
 		return
@@ -84,43 +90,26 @@ func generateCommand(sb *strings.Builder, cmd *Command) {
 	if cmd.Description != "" {
 		fmt.Fprintf(sb, "\t\tdescription: %q\n", cmd.Description)
 	}
+	if cmd.Category != "" {
+		fmt.Fprintf(sb, "\t\tcategory: %q\n", cmd.Category)
+	}
 
 	// Generate implementations list
 	sb.WriteString("\t\timplementations: [\n")
-	for _, impl := range cmd.Implementations {
-		generateImplementation(sb, &impl)
+	for i := range cmd.Implementations {
+		generateImplementation(sb, &cmd.Implementations[i])
 	}
 	sb.WriteString("\t\t]\n")
 
 	// Command-level env
-	if cmd.Env != nil && (len(cmd.Env.Files) > 0 || len(cmd.Env.Vars) > 0) {
-		sb.WriteString("\t\tenv: {\n")
-		if len(cmd.Env.Files) > 0 {
-			sb.WriteString("\t\t\tfiles: [")
-			for i, ef := range cmd.Env.Files {
-				if i > 0 {
-					sb.WriteString(", ")
-				}
-				fmt.Fprintf(sb, "%q", ef)
-			}
-			sb.WriteString("]\n")
-		}
-		if len(cmd.Env.Vars) > 0 {
-			sb.WriteString("\t\t\tvars: {\n")
-			for _, k := range slices.Sorted(maps.Keys(cmd.Env.Vars)) {
-				fmt.Fprintf(sb, "\t\t\t\t%s: %q\n", k, cmd.Env.Vars[k])
-			}
-			sb.WriteString("\t\t\t}\n")
-		}
-		sb.WriteString("\t\t}\n")
-	}
+	generateEnvBlock(sb, cmd.Env, "\t\t")
 
 	if cmd.WorkDir != "" {
 		fmt.Fprintf(sb, "\t\tworkdir: %q\n", cmd.WorkDir)
 	}
 
 	// Command-level depends_on
-	generateCommandDependsOn(sb, cmd.DependsOn)
+	generateDependsOn(sb, cmd.DependsOn, "\t\t\t")
 
 	// Generate flags list
 	if len(cmd.Flags) > 0 {
@@ -134,6 +123,36 @@ func generateCommand(sb *strings.Builder, cmd *Command) {
 			sb.WriteString("},\n")
 		}
 		sb.WriteString("\t\t]\n")
+	}
+
+	// Generate watch config
+	if cmd.Watch != nil && len(cmd.Watch.Patterns) > 0 {
+		sb.WriteString("\t\twatch: {\n")
+		sb.WriteString("\t\t\tpatterns: [")
+		for i, p := range cmd.Watch.Patterns {
+			if i > 0 {
+				sb.WriteString(", ")
+			}
+			fmt.Fprintf(sb, "%q", p)
+		}
+		sb.WriteString("]\n")
+		if cmd.Watch.Debounce != "" {
+			fmt.Fprintf(sb, "\t\t\tdebounce: %q\n", cmd.Watch.Debounce)
+		}
+		if cmd.Watch.ClearScreen {
+			sb.WriteString("\t\t\tclear_screen: true\n")
+		}
+		if len(cmd.Watch.Ignore) > 0 {
+			sb.WriteString("\t\t\tignore: [")
+			for i, ig := range cmd.Watch.Ignore {
+				if i > 0 {
+					sb.WriteString(", ")
+				}
+				fmt.Fprintf(sb, "%q", ig)
+			}
+			sb.WriteString("]\n")
+		}
+		sb.WriteString("\t\t}\n")
 	}
 
 	// Generate args list
@@ -196,34 +215,19 @@ func generateImplementation(sb *strings.Builder, impl *Implementation) {
 	sb.WriteString("\t\t\t\t]\n")
 
 	// Implementation-level depends_on
-	generateImplDependsOn(sb, impl.DependsOn)
+	generateDependsOn(sb, impl.DependsOn, "\t\t\t\t\t")
 
 	// Implementation-level env
-	if impl.Env != nil && (len(impl.Env.Files) > 0 || len(impl.Env.Vars) > 0) {
-		sb.WriteString("\t\t\t\tenv: {\n")
-		if len(impl.Env.Files) > 0 {
-			sb.WriteString("\t\t\t\t\tfiles: [")
-			for i, ef := range impl.Env.Files {
-				if i > 0 {
-					sb.WriteString(", ")
-				}
-				fmt.Fprintf(sb, "%q", ef)
-			}
-			sb.WriteString("]\n")
-		}
-		if len(impl.Env.Vars) > 0 {
-			sb.WriteString("\t\t\t\t\tvars: {\n")
-			for _, k := range slices.Sorted(maps.Keys(impl.Env.Vars)) {
-				fmt.Fprintf(sb, "\t\t\t\t\t\t%s: %q\n", k, impl.Env.Vars[k])
-			}
-			sb.WriteString("\t\t\t\t\t}\n")
-		}
-		sb.WriteString("\t\t\t\t}\n")
-	}
+	generateEnvBlock(sb, impl.Env, "\t\t\t\t")
 
 	// Implementation-level workdir
 	if impl.WorkDir != "" {
 		fmt.Fprintf(sb, "\t\t\t\tworkdir: %q\n", impl.WorkDir)
+	}
+
+	// Implementation-level timeout
+	if impl.Timeout != "" {
+		fmt.Fprintf(sb, "\t\t\t\ttimeout: %q\n", impl.Timeout)
 	}
 
 	sb.WriteString("\t\t\t},\n")
@@ -241,7 +245,7 @@ func generateRuntimeConfig(sb *strings.Builder, r *RuntimeConfig) {
 		// Multi-line format for runtimes with depends_on
 		sb.WriteString("\t\t\t\t\t{\n")
 		fmt.Fprintf(sb, "\t\t\t\t\t\tname: %q\n", r.Name)
-		generateRuntimeConfigFields(sb, r, "\t\t\t\t\t\t")
+		generateRuntimeConfigFields(sb, r, "\t\t\t\t\t\t", true)
 		sb.WriteString("\t\t\t\t\t\tdepends_on: {\n")
 		generateDependsOnContent(sb, r.DependsOn, "\t\t\t\t\t\t\t")
 		sb.WriteString("\t\t\t\t\t\t}\n")
@@ -250,107 +254,63 @@ func generateRuntimeConfig(sb *strings.Builder, r *RuntimeConfig) {
 		// Compact single-line format (existing behavior)
 		sb.WriteString("\t\t\t\t\t{")
 		fmt.Fprintf(sb, "name: %q", r.Name)
-		generateRuntimeConfigFieldsInline(sb, r)
+		generateRuntimeConfigFields(sb, r, "", false)
 		sb.WriteString("},\n")
 	}
 }
 
-// generateRuntimeConfigFields writes runtime-specific fields in multi-line format.
-func generateRuntimeConfigFields(sb *strings.Builder, r *RuntimeConfig, indent string) {
-	if r.Name == RuntimeContainer {
-		if r.EnableHostSSH {
-			sb.WriteString(indent + "enable_host_ssh: true\n")
-		}
-		if r.Containerfile != "" {
-			fmt.Fprintf(sb, "%scontainerfile: %q\n", indent, r.Containerfile)
-		}
-		if r.Image != "" {
-			fmt.Fprintf(sb, "%simage: %q\n", indent, r.Image)
-		}
-		if len(r.Volumes) > 0 {
-			sb.WriteString(indent + "volumes: [")
-			for j, v := range r.Volumes {
-				if j > 0 {
-					sb.WriteString(", ")
-				}
-				fmt.Fprintf(sb, "%q", v)
-			}
-			sb.WriteString("]\n")
-		}
-		if len(r.Ports) > 0 {
-			sb.WriteString(indent + "ports: [")
-			for j, p := range r.Ports {
-				if j > 0 {
-					sb.WriteString(", ")
-				}
-				fmt.Fprintf(sb, "%q", p)
-			}
-			sb.WriteString("]\n")
+// generateRuntimeConfigFields writes runtime-specific container fields.
+// When multiLine is true, each field is written on its own line with the given indent.
+// When multiLine is false, fields are written inline prefixed with ", ".
+func generateRuntimeConfigFields(sb *strings.Builder, r *RuntimeConfig, indent string, multiLine bool) {
+	if r.Name != RuntimeContainer {
+		return
+	}
+
+	// writeField writes a scalar field in either format.
+	writeField := func(key, value string) {
+		if multiLine {
+			fmt.Fprintf(sb, "%s%s: %s\n", indent, key, value)
+		} else {
+			fmt.Fprintf(sb, ", %s: %s", key, value)
 		}
 	}
-}
 
-// generateRuntimeConfigFieldsInline writes runtime-specific fields in compact single-line format.
-func generateRuntimeConfigFieldsInline(sb *strings.Builder, r *RuntimeConfig) {
-	if r.Name == RuntimeContainer {
-		if r.EnableHostSSH {
-			sb.WriteString(", enable_host_ssh: true")
+	// writeList writes a bracketed list field.
+	writeList := func(key string, items []string) {
+		if multiLine {
+			sb.WriteString(indent + key + ": [")
+		} else {
+			sb.WriteString(", " + key + ": [")
 		}
-		if r.Containerfile != "" {
-			fmt.Fprintf(sb, ", containerfile: %q", r.Containerfile)
-		}
-		if r.Image != "" {
-			fmt.Fprintf(sb, ", image: %q", r.Image)
-		}
-		if len(r.Volumes) > 0 {
-			sb.WriteString(", volumes: [")
-			for j, v := range r.Volumes {
-				if j > 0 {
-					sb.WriteString(", ")
-				}
-				fmt.Fprintf(sb, "%q", v)
+		for j, item := range items {
+			if j > 0 {
+				sb.WriteString(", ")
 			}
-			sb.WriteString("]")
+			fmt.Fprintf(sb, "%q", item)
 		}
-		if len(r.Ports) > 0 {
-			sb.WriteString(", ports: [")
-			for j, p := range r.Ports {
-				if j > 0 {
-					sb.WriteString(", ")
-				}
-				fmt.Fprintf(sb, "%q", p)
-			}
+		if multiLine {
+			sb.WriteString("]\n")
+		} else {
 			sb.WriteString("]")
 		}
 	}
-}
 
-// generateImplDependsOn generates CUE for implementation-level depends_on
-func generateImplDependsOn(sb *strings.Builder, deps *DependsOn) {
-	if deps == nil {
-		return
+	if r.EnableHostSSH {
+		writeField("enable_host_ssh", "true")
 	}
-	if deps.IsEmpty() {
-		return
+	if r.Containerfile != "" {
+		writeField("containerfile", fmt.Sprintf("%q", r.Containerfile))
 	}
-
-	sb.WriteString("\t\t\t\tdepends_on: {\n")
-	generateDependsOnContent(sb, deps, "\t\t\t\t\t")
-	sb.WriteString("\t\t\t\t}\n")
-}
-
-// generateCommandDependsOn generates CUE for command-level depends_on
-func generateCommandDependsOn(sb *strings.Builder, deps *DependsOn) {
-	if deps == nil {
-		return
+	if r.Image != "" {
+		writeField("image", fmt.Sprintf("%q", r.Image))
 	}
-	if deps.IsEmpty() {
-		return
+	if len(r.Volumes) > 0 {
+		writeList("volumes", r.Volumes)
 	}
-
-	sb.WriteString("\t\tdepends_on: {\n")
-	generateDependsOnContent(sb, deps, "\t\t\t")
-	sb.WriteString("\t\t}\n")
+	if len(r.Ports) > 0 {
+		writeList("ports", r.Ports)
+	}
 }
 
 // generateDependsOnContent generates the content of a depends_on block

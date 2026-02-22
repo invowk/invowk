@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"os/exec"
 	"regexp"
-	"strings"
 
 	"github.com/invowk/invowk/internal/runtime"
 	"github.com/invowk/invowk/pkg/invowkfile"
@@ -29,20 +28,9 @@ func checkToolDependenciesInContainer(deps *invowkfile.DependsOn, registry *runt
 		return fmt.Errorf("container runtime not available for tool validation")
 	}
 
-	var toolErrors []string
-
-	for _, tool := range deps.Tools {
-		found, lastErr := evaluateAlternatives(tool.Alternatives, func(alt string) error {
-			return validateToolInContainer(alt, rt, ctx)
-		})
-		if !found && lastErr != nil {
-			if len(tool.Alternatives) == 1 {
-				toolErrors = append(toolErrors, lastErr.Error())
-			} else {
-				toolErrors = append(toolErrors, fmt.Sprintf("  • none of [%s] found", strings.Join(tool.Alternatives, ", ")))
-			}
-		}
-	}
+	toolErrors := collectToolErrors(deps.Tools, func(alt string) error {
+		return validateToolInContainer(alt, rt, ctx)
+	})
 
 	if len(toolErrors) > 0 {
 		return &DependencyError{
@@ -98,52 +86,11 @@ func checkHostToolDependencies(deps *invowkfile.DependsOn, ctx *runtime.Executio
 		return nil
 	}
 
-	var toolErrors []string
-
-	for _, tool := range deps.Tools {
-		found, lastErr := evaluateAlternatives(tool.Alternatives, validateToolNative)
-		if !found && lastErr != nil {
-			if len(tool.Alternatives) == 1 {
-				toolErrors = append(toolErrors, lastErr.Error())
-			} else {
-				toolErrors = append(toolErrors, fmt.Sprintf("  • none of [%s] found", strings.Join(tool.Alternatives, ", ")))
-			}
-		}
-	}
+	toolErrors := collectToolErrors(deps.Tools, validateToolNative)
 
 	if len(toolErrors) > 0 {
 		return &DependencyError{
 			CommandName:  ctx.Command.Name,
-			MissingTools: toolErrors,
-		}
-	}
-
-	return nil
-}
-
-// checkToolDependencies verifies all required tools are available (native-only fallback).
-// Each ToolDependency contains a list of alternatives; if any alternative is found, the dependency is satisfied.
-func checkToolDependencies(cmd *invowkfile.Command) error {
-	if cmd.DependsOn == nil || len(cmd.DependsOn.Tools) == 0 {
-		return nil
-	}
-
-	var toolErrors []string
-
-	for _, tool := range cmd.DependsOn.Tools {
-		found, lastErr := evaluateAlternatives(tool.Alternatives, validateToolNative)
-		if !found && lastErr != nil {
-			if len(tool.Alternatives) == 1 {
-				toolErrors = append(toolErrors, lastErr.Error())
-			} else {
-				toolErrors = append(toolErrors, fmt.Sprintf("  • none of [%s] found", strings.Join(tool.Alternatives, ", ")))
-			}
-		}
-	}
-
-	if len(toolErrors) > 0 {
-		return &DependencyError{
-			CommandName:  cmd.Name,
 			MissingTools: toolErrors,
 		}
 	}

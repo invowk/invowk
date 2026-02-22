@@ -142,59 +142,20 @@ func (c *CustomCheckDependency) GetChecks() []CustomCheck {
 	}}
 }
 
-// MergeDependsOn merges command-level and implementation-level dependencies
-// Implementation-level dependencies are added to command-level dependencies
-// Returns a new DependsOn struct with combined dependencies
-func MergeDependsOn(cmdDeps, scriptDeps *DependsOn) *DependsOn {
-	return MergeDependsOnAll(nil, cmdDeps, scriptDeps)
-}
-
-// MergeDependsOnAll merges root-level, command-level, and implementation-level dependencies
-// Dependencies are combined in order: root -> command -> implementation
-// Returns a new DependsOn struct with combined dependencies
+// MergeDependsOnAll merges root-level, command-level, and implementation-level dependencies.
+// Dependencies are combined in order: root -> command -> implementation.
+// Returns a new DependsOn struct with combined dependencies.
 func MergeDependsOnAll(rootDeps, cmdDeps, implDeps *DependsOn) *DependsOn {
 	if rootDeps == nil && cmdDeps == nil && implDeps == nil {
 		return nil
 	}
 
-	merged := &DependsOn{
-		Tools:        make([]ToolDependency, 0),
-		Commands:     make([]CommandDependency, 0),
-		Filepaths:    make([]FilepathDependency, 0),
-		Capabilities: make([]CapabilityDependency, 0),
-		CustomChecks: make([]CustomCheckDependency, 0),
-		EnvVars:      make([]EnvVarDependency, 0),
-	}
+	merged := &DependsOn{}
 
-	// Add root-level dependencies first (lowest priority)
-	if rootDeps != nil {
-		merged.Tools = append(merged.Tools, rootDeps.Tools...)
-		merged.Commands = append(merged.Commands, rootDeps.Commands...)
-		merged.Filepaths = append(merged.Filepaths, rootDeps.Filepaths...)
-		merged.Capabilities = append(merged.Capabilities, rootDeps.Capabilities...)
-		merged.CustomChecks = append(merged.CustomChecks, rootDeps.CustomChecks...)
-		merged.EnvVars = append(merged.EnvVars, rootDeps.EnvVars...)
-	}
-
-	// Add command-level dependencies
-	if cmdDeps != nil {
-		merged.Tools = append(merged.Tools, cmdDeps.Tools...)
-		merged.Commands = append(merged.Commands, cmdDeps.Commands...)
-		merged.Filepaths = append(merged.Filepaths, cmdDeps.Filepaths...)
-		merged.Capabilities = append(merged.Capabilities, cmdDeps.Capabilities...)
-		merged.CustomChecks = append(merged.CustomChecks, cmdDeps.CustomChecks...)
-		merged.EnvVars = append(merged.EnvVars, cmdDeps.EnvVars...)
-	}
-
-	// Add implementation-level dependencies
-	if implDeps != nil {
-		merged.Tools = append(merged.Tools, implDeps.Tools...)
-		merged.Commands = append(merged.Commands, implDeps.Commands...)
-		merged.Filepaths = append(merged.Filepaths, implDeps.Filepaths...)
-		merged.Capabilities = append(merged.Capabilities, implDeps.Capabilities...)
-		merged.CustomChecks = append(merged.CustomChecks, implDeps.CustomChecks...)
-		merged.EnvVars = append(merged.EnvVars, implDeps.EnvVars...)
-	}
+	// Append in declaration order: root → command → implementation.
+	merged.appendFrom(rootDeps)
+	merged.appendFrom(cmdDeps)
+	merged.appendFrom(implDeps)
 
 	// Return nil if no dependencies after merging
 	if merged.IsEmpty() {
@@ -202,4 +163,17 @@ func MergeDependsOnAll(rootDeps, cmdDeps, implDeps *DependsOn) *DependsOn {
 	}
 
 	return merged
+}
+
+// appendFrom appends all dependency slices from src into d. Nil src is a no-op.
+func (d *DependsOn) appendFrom(src *DependsOn) {
+	if src == nil {
+		return
+	}
+	d.Tools = append(d.Tools, src.Tools...)
+	d.Commands = append(d.Commands, src.Commands...)
+	d.Filepaths = append(d.Filepaths, src.Filepaths...)
+	d.Capabilities = append(d.Capabilities, src.Capabilities...)
+	d.CustomChecks = append(d.CustomChecks, src.CustomChecks...)
+	d.EnvVars = append(d.EnvVars, src.EnvVars...)
 }

@@ -30,13 +30,6 @@ const (
 	// PlatformWindows represents Windows operating system
 	PlatformWindows PlatformType = "windows"
 
-	// HostLinux represents Linux operating system (deprecated, use PlatformLinux)
-	HostLinux = PlatformLinux
-	// HostMac represents macOS operating system (deprecated, use PlatformMac)
-	HostMac = PlatformMac
-	// HostWindows represents Windows operating system (deprecated, use PlatformWindows)
-	HostWindows = PlatformWindows
-
 	// InterpreterAuto is the special value for automatic shebang detection.
 	// When interpreter is empty or set to "auto", invowk will parse the shebang
 	// from the script content to determine the interpreter.
@@ -72,9 +65,6 @@ type (
 
 	// PlatformType represents a target platform type
 	PlatformType string
-
-	// HostOS represents a supported operating system (deprecated, use PlatformType)
-	HostOS = PlatformType
 
 	// RuntimeConfig represents a runtime configuration with type-specific options
 	RuntimeConfig struct {

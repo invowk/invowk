@@ -140,9 +140,7 @@ func TestNewDiscoveredCommandSet(t *testing.T) {
 	if set == nil {
 		t.Fatal("NewDiscoveredCommandSet() returned nil")
 	}
-	if set.Commands == nil {
-		t.Error("Commands should be initialized")
-	}
+	// Maps must be non-nil (nil map panics on write); slices can be nil (append works).
 	if set.BySimpleName == nil {
 		t.Error("BySimpleName should be initialized")
 	}
@@ -152,8 +150,11 @@ func TestNewDiscoveredCommandSet(t *testing.T) {
 	if set.BySource == nil {
 		t.Error("BySource should be initialized")
 	}
-	if set.SourceOrder == nil {
-		t.Error("SourceOrder should be initialized")
+	if len(set.Commands) != 0 {
+		t.Error("Commands should be empty")
+	}
+	if len(set.SourceOrder) != 0 {
+		t.Error("SourceOrder should be empty")
 	}
 }
 

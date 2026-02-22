@@ -1,0 +1,45 @@
+# Test: Command categories
+# Verifies that category grouping appears in command listing
+
+cd $WORK
+
+# Test 1: List commands shows category grouping
+exec invowk cmd
+stdout '\[Build\]'
+stdout '\[Test\]'
+stdout 'compile'
+stdout 'unit-test'
+stdout 'uncategorized'
+
+-- invowkfile.cue --
+cmds: [
+	{
+		name:        "uncategorized"
+		description: "No category"
+		implementations: [{
+			script:    "echo uncategorized"
+			runtimes:  [{name: "virtual"}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+	},
+	{
+		name:        "compile"
+		description: "Compile the project"
+		category:    "Build"
+		implementations: [{
+			script:    "echo compiling"
+			runtimes:  [{name: "virtual"}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+	},
+	{
+		name:        "unit-test"
+		description: "Run unit tests"
+		category:    "Test"
+		implementations: [{
+			script:    "echo testing"
+			runtimes:  [{name: "virtual"}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+	},
+]

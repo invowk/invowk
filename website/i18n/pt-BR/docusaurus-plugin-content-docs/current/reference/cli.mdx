@@ -43,6 +43,8 @@ Executar comandos definidos em invowkfiles.
 | `--ivk-runtime` | `-r` | Sobrescrever o runtime (deve ser permitido pelo comando) |
 | `--ivk-from` | `-f` | Origem para executar comando (ex.: 'invowkfile' ou nome do módulo) |
 | `--ivk-force-rebuild` | | Forçar reconstrução de imagens de container (somente runtime container) |
+| `--ivk-dry-run` | | Imprimir plano de execução resolvido sem executar |
+| `--ivk-watch` | `-W` | Modo watch: reexecutar ao detectar mudanças em arquivos |
 
 Flags embutidas por comando:
 
@@ -62,6 +64,8 @@ Os prefixos `ivk-`, `invowk-` e `i-` são reservados para flags do sistema e nã
 **Exemplos:**
 
 <Snippet id="reference/cli/cmd-examples" />
+
+<Snippet id="reference/cli/cmd-watch-examples" />
 
 **Descoberta de Comandos:**
 

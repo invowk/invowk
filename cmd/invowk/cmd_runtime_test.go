@@ -14,7 +14,7 @@ import (
 // ---------------------------------------------------------------------------
 
 func TestCommand_CanRunOnCurrentHost(t *testing.T) {
-	currentOS := invowkfile.GetCurrentHostOS()
+	currentOS := invowkfile.CurrentPlatform()
 
 	tests := []struct {
 		name     string
@@ -127,22 +127,22 @@ func TestCommand_GetPlatformsString(t *testing.T) {
 	}
 }
 
-func TestGetCurrentHostOS(t *testing.T) {
+func TestCurrentPlatform(t *testing.T) {
 	// Just verify it returns one of the expected values
-	currentOS := invowkfile.GetCurrentHostOS()
-	validOSes := map[invowkfile.HostOS]bool{
-		invowkfile.HostLinux:   true,
-		invowkfile.HostMac:     true,
-		invowkfile.HostWindows: true,
+	currentOS := invowkfile.CurrentPlatform()
+	validOSes := map[invowkfile.PlatformType]bool{
+		invowkfile.PlatformLinux:   true,
+		invowkfile.PlatformMac:     true,
+		invowkfile.PlatformWindows: true,
 	}
 
 	if !validOSes[currentOS] {
-		t.Errorf("GetCurrentHostOS() returned unexpected value: %q", currentOS)
+		t.Errorf("CurrentPlatform() returned unexpected value: %q", currentOS)
 	}
 }
 
 func TestCommand_GetDefaultRuntimeForPlatform(t *testing.T) {
-	currentPlatform := invowkfile.GetCurrentHostOS()
+	currentPlatform := invowkfile.CurrentPlatform()
 
 	tests := []struct {
 		name     string
@@ -190,7 +190,7 @@ func TestCommand_GetDefaultRuntimeForPlatform(t *testing.T) {
 }
 
 func TestCommand_IsRuntimeAllowedForPlatform(t *testing.T) {
-	currentPlatform := invowkfile.GetCurrentHostOS()
+	currentPlatform := invowkfile.CurrentPlatform()
 
 	cmd := &invowkfile.Command{
 		Name: "test",
@@ -219,7 +219,7 @@ func TestCommand_IsRuntimeAllowedForPlatform(t *testing.T) {
 }
 
 func TestCommand_GetRuntimesStringForPlatform(t *testing.T) {
-	currentPlatform := invowkfile.GetCurrentHostOS()
+	currentPlatform := invowkfile.CurrentPlatform()
 
 	tests := []struct {
 		name     string

@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/invowk/invowk/pkg/invowkfile"
+	"github.com/invowk/invowk/pkg/platform"
 )
 
 // Runtime type constants for different execution environments.
@@ -240,26 +241,37 @@ func (t TUIContext) IsConfigured() bool {
 	return t.ServerURL != ""
 }
 
-// NewExecutionContext creates a new execution context with defaults.
+// NewExecutionContext creates a new execution context with the provided Go context.
+// The ctx parameter is required to ensure cancellation and timeout propagation —
+// passing context.Background() silently disables these features, so callers must
+// provide their request-scoped context explicitly.
+//
 // ExecutionID is left empty; the caller should set it via Registry.NewExecutionID()
 // after the registry is created (see dispatchExecution in cmd_execute.go).
 // If the caller fails to set it, ContainerRuntime.prepareHostSSH generates a
 // fallback ID and logs a warning (see container_exec.go).
-func NewExecutionContext(cmd *invowkfile.Command, inv *invowkfile.Invowkfile) *ExecutionContext {
-	currentPlatform := invowkfile.GetCurrentHostOS()
+func NewExecutionContext(ctx context.Context, cmd *invowkfile.Command, inv *invowkfile.Invowkfile) *ExecutionContext {
+	currentPlatform := invowkfile.CurrentPlatform()
 	defaultRuntime := cmd.GetDefaultRuntimeForPlatform(currentPlatform)
 	defaultImpl := cmd.GetImplForPlatformRuntime(currentPlatform, defaultRuntime)
 
 	return &ExecutionContext{
 		Command:         cmd,
 		Invowkfile:      inv,
-		Context:         context.Background(),
+		Context:         ctx,
 		SelectedRuntime: defaultRuntime,
 		SelectedImpl:    defaultImpl,
 		IO:              DefaultIO(),
 		Env:             DefaultEnv(),
 		// TUI: zero value is fine (not configured by default)
 	}
+}
+
+// EffectiveWorkDir determines the working directory using the hierarchical override model.
+// Precedence (highest to lowest): CLI override > Implementation > Command > Root > Default.
+// This centralizes workdir resolution that was previously duplicated across runtimes.
+func (ctx *ExecutionContext) EffectiveWorkDir() string {
+	return ctx.Invowkfile.GetEffectiveWorkDir(ctx.Command, ctx.SelectedImpl, ctx.WorkDir)
 }
 
 // Success returns true if the command executed successfully
@@ -392,6 +404,17 @@ func shouldFilterEnvVar(name string) bool {
 		return true
 	}
 	if strings.HasPrefix(name, "INVOWK_FLAG_") {
+		return true
+	}
+
+	// Filter metadata env vars to prevent leakage between nested invocations.
+	// Each invocation gets fresh metadata from its own execution context.
+	// All four vars are unconditionally filtered here, even though EnvVarSource
+	// and EnvVarPlatform are conditionally injected in projectEnvVars. The
+	// unconditional filtering is by design: it prevents leakage even if future
+	// code paths inject these vars unconditionally.
+	switch name {
+	case platform.EnvVarCmdName, platform.EnvVarRuntime, platform.EnvVarSource, platform.EnvVarPlatform:
 		return true
 	}
 

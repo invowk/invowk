@@ -150,10 +150,15 @@ commandService.Execute(ctx, req)
     ├── ensureSSHIfNeeded()     ← Conditional SSH server start for container host access
     │
     ├── buildExecContext()      ← Delegates to appexec.BuildExecutionContext() for env var projection
+    │                              (includes INVOWK_CMD_NAME, INVOWK_RUNTIME, INVOWK_SOURCE, INVOWK_PLATFORM)
     │
-    └── dispatchExecution()     ← Calls runtime.BuildRegistry(), validates deps, dispatches:
+    ├── [DRY-RUN SHORT-CIRCUIT] ← If req.DryRun: renderDryRun() and return (no execution)
+    │
+    └── dispatchExecution()     ← Calls runtime.BuildRegistry(), then executes pipeline:
         ├── Container init fail-fast (via runtimeRegistryResult.ContainerInitErr)
-        ├── Dependency validation
+        ├── Timeout validation (parse-only, fail-fast on invalid strings)
+        ├── Timeout wrapping (context.WithTimeout)
+        ├── Dependency validation (validateAndRenderDeps)
         ├── Interactive mode (alternate screen + TUI server) OR standard execution
         └── Error classification via classifyExecutionError()
 ```
@@ -290,6 +295,8 @@ Unified color palette (`styles.go`):
 --ivk-runtime, -r     // Override runtime (must be allowed)
 --ivk-from            // Specify source for disambiguation
 --ivk-force-rebuild   // Force container image rebuild
+--ivk-dry-run         // Print resolved execution context without executing
+--ivk-watch, -W       // Watch files for changes and re-execute
 ```
 
 ---
@@ -380,9 +387,13 @@ files, err := disc.DiscoverAll()  // or disc.LoadAll() to also parse
 | `root.go` | Root command, global flags, config loading |
 | `cmd.go` | `invowk cmd` parent, executeRequest(), disambiguation entry point |
 | `cmd_discovery.go` | Dynamic command registration (registerDiscoveredCommands, buildLeafCommand) |
-| `cmd_execute.go` | commandService: decomposed pipeline (discoverCommand → resolveDefinitions → validateInputs → resolveRuntime → ensureSSHIfNeeded → buildExecContext → dispatchExecution). `resolveRuntime` and `buildExecContext` delegate to `internal/app/execute/` |
+| `cmd_execute.go` | commandService: decomposed pipeline (discoverCommand → resolveDefinitions → validateInputs → resolveRuntime → ensureSSHIfNeeded → buildExecContext → [dry-run] → dispatchExecution). `resolveRuntime` and `buildExecContext` delegate to `internal/app/execute/` |
 | `cmd_execute_helpers.go` | runtimeRegistryResult, createRuntimeRegistry() (delegates to `runtime.BuildRegistry()`), runDisambiguatedCommand(), checkAmbiguousCommand() |
-| `internal/app/execute/orchestrator.go` | RuntimeSelection, RuntimeNotAllowedError, ResolveRuntime() (3-tier precedence), BuildExecutionContext() (env var projection) |
+| `cmd_dryrun.go` | `renderDryRun()` — prints resolved execution context (script, env, runtime, platform, timeout) without executing |
+| `cmd_watch.go` | `runWatchMode()` — discovers command's WatchConfig, executes once, starts `internal/watch/` watcher loop with re-execution callback |
+| `internal/app/execute/orchestrator.go` | RuntimeSelection, RuntimeNotAllowedError, ResolveRuntime() (3-tier precedence), BuildExecutionContext() (env var projection including INVOWK_CMD_NAME, INVOWK_RUNTIME, INVOWK_SOURCE, INVOWK_PLATFORM) |
+| `internal/discovery/validation.go` | ValidateCommandTree() for args/subcommand conflicts |
+| `internal/watch/watcher.go` | File watcher with fsnotify + doublestar glob matching, debouncing, default ignores |
 | `internal/runtime/registry_factory.go` | BuildRegistry(), BuildRegistryOptions, RegistryBuildResult, InitDiagnostic |
 | `cmd_execute_error_classifier.go` | classifyExecutionError() — maps runtime errors to issue catalog IDs |
 | `service_error.go` | ServiceError type and renderServiceError() |
@@ -405,3 +416,4 @@ files, err := disc.DiscoverAll()  // or disc.LoadAll() to also parse
 | Missing TUI server check | TUI components fail in nested context | Use dual-layer pattern |
 | Not using styled output | Inconsistent CLI appearance | Use styles from `styles.go` |
 | Wrong flag priority | Config overrides CLI flag | Check precedence logic |
+| New flag missing from one ExecuteRequest site | Flag silently ignored for some paths | Wire in ALL 3 sites: `runCommand`, `buildLeafCommand`, `runDisambiguatedCommand` |

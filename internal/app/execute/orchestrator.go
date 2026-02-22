@@ -3,12 +3,14 @@
 package execute
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
 	"github.com/invowk/invowk/internal/config"
 	"github.com/invowk/invowk/internal/runtime"
 	"github.com/invowk/invowk/pkg/invowkfile"
+	platmeta "github.com/invowk/invowk/pkg/platform"
 )
 
 type (
@@ -50,6 +52,13 @@ type (
 		EnvInheritMode  invowkfile.EnvInheritMode
 		EnvInheritAllow []string
 		EnvInheritDeny  []string
+
+		// SourceID identifies the origin of the command (invowkfile path or module ID).
+		// Injected as INVOWK_SOURCE so scripts can identify which source they belong to.
+		SourceID string
+		// Platform is the resolved platform for this execution.
+		// Injected as INVOWK_PLATFORM so scripts can self-introspect the target platform.
+		Platform invowkfile.Platform
 	}
 )
 
@@ -74,7 +83,7 @@ func (e *RuntimeNotAllowedError) Error() string {
 //
 // The platform parameter makes this function pure — callers pass the resolved
 // platform rather than relying on the host OS at call time. Production code
-// passes invowkfile.GetCurrentHostOS(); tests pass a fixed platform for
+// passes invowkfile.CurrentPlatform(); tests pass a fixed platform for
 // deterministic behavior across CI environments.
 func ResolveRuntime(command *invowkfile.Command, commandName string, runtimeOverride invowkfile.RuntimeMode, cfg *config.Config, platform invowkfile.Platform) (RuntimeSelection, error) {
 	if runtimeOverride != "" {
@@ -149,7 +158,7 @@ func BuildExecutionContext(opts BuildExecutionContextOptions) (*runtime.Executio
 		return nil, fmt.Errorf("BuildExecutionContext: Invowkfile must not be nil")
 	}
 
-	execCtx := runtime.NewExecutionContext(opts.Command, opts.Invowkfile)
+	execCtx := runtime.NewExecutionContext(context.Background(), opts.Command, opts.Invowkfile)
 
 	execCtx.Verbose = opts.Verbose
 	execCtx.SelectedRuntime = opts.Selection.Mode
@@ -178,19 +187,15 @@ func applyEnvInheritOverrides(opts BuildExecutionContextOptions, execCtx *runtim
 		execCtx.Env.InheritModeOverride = opts.EnvInheritMode
 	}
 
-	for _, name := range opts.EnvInheritAllow {
-		if err := invowkfile.ValidateEnvVarName(name); err != nil {
-			return fmt.Errorf("env-inherit-allow: %w", err)
-		}
+	if err := validateEnvVarNames(opts.EnvInheritAllow, "env-inherit-allow"); err != nil {
+		return err
 	}
 	if opts.EnvInheritAllow != nil {
 		execCtx.Env.InheritAllowOverride = opts.EnvInheritAllow
 	}
 
-	for _, name := range opts.EnvInheritDeny {
-		if err := invowkfile.ValidateEnvVarName(name); err != nil {
-			return fmt.Errorf("env-inherit-deny: %w", err)
-		}
+	if err := validateEnvVarNames(opts.EnvInheritDeny, "env-inherit-deny"); err != nil {
+		return err
 	}
 	if opts.EnvInheritDeny != nil {
 		execCtx.Env.InheritDenyOverride = opts.EnvInheritDeny
@@ -199,7 +204,31 @@ func applyEnvInheritOverrides(opts BuildExecutionContextOptions, execCtx *runtim
 	return nil
 }
 
+func validateEnvVarNames(names []string, label string) error {
+	for _, name := range names {
+		if err := invowkfile.ValidateEnvVarName(name); err != nil {
+			return fmt.Errorf("%s: %w", label, err)
+		}
+	}
+	return nil
+}
+
 func projectEnvVars(opts BuildExecutionContextOptions, execCtx *runtime.ExecutionContext) {
+	// Metadata env vars for script self-introspection.
+	// These allow scripts to know which command, runtime, source, and platform they run under.
+	execCtx.Env.ExtraEnv[platmeta.EnvVarCmdName] = opts.Command.Name
+	execCtx.Env.ExtraEnv[platmeta.EnvVarRuntime] = string(opts.Selection.Mode)
+	// EnvVarSource and EnvVarPlatform are conditionally injected (only when
+	// non-empty), but unconditionally filtered in shouldFilterEnvVar. The
+	// asymmetry is intentional: filtering prevents leakage even if future
+	// code paths inject these vars unconditionally.
+	if opts.SourceID != "" {
+		execCtx.Env.ExtraEnv[platmeta.EnvVarSource] = opts.SourceID
+	}
+	if opts.Platform != "" {
+		execCtx.Env.ExtraEnv[platmeta.EnvVarPlatform] = string(opts.Platform)
+	}
+
 	for i, arg := range opts.Args {
 		execCtx.Env.ExtraEnv[fmt.Sprintf("ARG%d", i+1)] = arg
 	}

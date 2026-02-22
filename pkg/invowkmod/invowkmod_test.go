@@ -54,7 +54,7 @@ version: "1.0.0"
 				t.Fatalf("ParseInvowkmod() error = %v", err)
 			}
 
-			if inv.Module != tt.module {
+			if string(inv.Module) != tt.module {
 				t.Errorf("Module = %q, want %q", inv.Module, tt.module)
 			}
 		})
@@ -283,8 +283,8 @@ func TestCommandScope_CanCall(t *testing.T) {
 
 	scope := &CommandScope{
 		ModuleID:      "io.example.mymodule",
-		GlobalModules: map[string]bool{"global.tools": true},
-		DirectDeps:    map[string]bool{"io.example.utils": true, "myalias": true},
+		GlobalModules: map[ModuleID]bool{"global.tools": true},
+		DirectDeps:    map[ModuleID]bool{"io.example.utils": true, "myalias": true},
 	}
 
 	tests := []struct {
@@ -377,7 +377,7 @@ func TestExtractModuleFromCommand(t *testing.T) {
 func TestNewCommandScope(t *testing.T) {
 	t.Parallel()
 
-	globalIDs := []string{"global.module1", "global.module2"}
+	globalIDs := []ModuleID{"global.module1", "global.module2"}
 	requirements := []ModuleRequirement{
 		{GitURL: "https://github.com/example/dep1.git", Version: "^1.0.0"},
 		{GitURL: "https://github.com/example/dep2.git", Version: "^2.0.0", Alias: "dep2alias"},
@@ -408,8 +408,8 @@ func TestCommandScope_AddDirectDep(t *testing.T) {
 
 	scope := &CommandScope{
 		ModuleID:      "mymodule",
-		GlobalModules: make(map[string]bool),
-		DirectDeps:    make(map[string]bool),
+		GlobalModules: make(map[ModuleID]bool),
+		DirectDeps:    make(map[ModuleID]bool),
 	}
 
 	scope.AddDirectDep("newdep")

@@ -114,8 +114,7 @@ func testContainerBasicExecution(t *testing.T) {
 	}
 
 	rt := createContainerRuntime(t)
-	execCtx := NewExecutionContext(cmd, inv)
-	execCtx.Context = context.Background()
+	execCtx := NewExecutionContext(context.Background(), cmd, inv)
 
 	var stdout, stderr bytes.Buffer
 	execCtx.IO.Stdout = &stdout
@@ -137,7 +136,7 @@ func testContainerEnvironmentVariables(t *testing.T) {
 	t.Helper()
 	_, inv := setupTestInvowkfile(t)
 
-	currentPlatform := invowkfile.GetCurrentHostOS()
+	currentPlatform := invowkfile.CurrentPlatform()
 	cmd := &invowkfile.Command{
 		Name: "test-env",
 		Implementations: []invowkfile.Implementation{
@@ -161,8 +160,7 @@ func testContainerEnvironmentVariables(t *testing.T) {
 	}
 
 	rt := createContainerRuntime(t)
-	execCtx := NewExecutionContext(cmd, inv)
-	execCtx.Context = context.Background()
+	execCtx := NewExecutionContext(context.Background(), cmd, inv)
 
 	var stdout, stderr bytes.Buffer
 	execCtx.IO.Stdout = &stdout
@@ -207,8 +205,7 @@ echo "Variable: $VAR"`
 	}
 
 	rt := createContainerRuntime(t)
-	execCtx := NewExecutionContext(cmd, inv)
-	execCtx.Context = context.Background()
+	execCtx := NewExecutionContext(context.Background(), cmd, inv)
 
 	var stdout, stderr bytes.Buffer
 	execCtx.IO.Stdout = &stdout
@@ -258,8 +255,7 @@ func testContainerWorkingDirectory(t *testing.T) {
 	}
 
 	rt := createContainerRuntime(t)
-	execCtx := NewExecutionContext(cmd, inv)
-	execCtx.Context = context.Background()
+	execCtx := NewExecutionContext(context.Background(), cmd, inv)
 
 	var stdout, stderr bytes.Buffer
 	execCtx.IO.Stdout = &stdout
@@ -318,8 +314,7 @@ func testContainerVolumeMounts(t *testing.T) {
 	}
 
 	rt := createContainerRuntime(t)
-	execCtx := NewExecutionContext(cmd, inv)
-	execCtx.Context = context.Background()
+	execCtx := NewExecutionContext(context.Background(), cmd, inv)
 
 	var stdout, stderr bytes.Buffer
 	execCtx.IO.Stdout = &stdout
@@ -359,8 +354,7 @@ func testContainerExitCode(t *testing.T) {
 	}
 
 	rt := createContainerRuntime(t)
-	execCtx := NewExecutionContext(cmd, inv)
-	execCtx.Context = context.Background()
+	execCtx := NewExecutionContext(context.Background(), cmd, inv)
 
 	var stdout, stderr bytes.Buffer
 	execCtx.IO.Stdout = &stdout
@@ -392,8 +386,8 @@ func testContainerPositionalArgs(t *testing.T) {
 	}
 
 	rt := createContainerRuntime(t)
-	execCtx := NewExecutionContext(cmd, inv)
-	execCtx.Context = context.Background()
+	execCtx := NewExecutionContext(context.Background(), cmd, inv)
+
 	execCtx.PositionalArgs = []string{"hello", "world"}
 
 	var stdout, stderr bytes.Buffer
@@ -440,8 +434,7 @@ func testContainerEnableHostSSHEnvVars(t *testing.T) {
 	}
 
 	rt := createContainerRuntimeWithSSHServer(t)
-	execCtx := NewExecutionContext(cmd, inv)
-	execCtx.Context = context.Background()
+	execCtx := NewExecutionContext(context.Background(), cmd, inv)
 
 	var stdout, stderr bytes.Buffer
 	execCtx.IO.Stdout = &stdout
