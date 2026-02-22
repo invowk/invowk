@@ -17,7 +17,7 @@ import (
 // This helper is shared across test files in the runtime package.
 func testCommandWithScript(name, script string, runtime invowkfile.RuntimeMode) *invowkfile.Command {
 	return &invowkfile.Command{
-		Name: name,
+		Name: invowkfile.CommandName(name),
 		Implementations: []invowkfile.Implementation{
 			{Script: script, Runtimes: []invowkfile.RuntimeConfig{{Name: runtime}}, Platforms: []invowkfile.PlatformConfig{{Name: invowkfile.PlatformLinux}, {Name: invowkfile.PlatformMac}, {Name: invowkfile.PlatformWindows}}},
 		},
@@ -28,7 +28,7 @@ func testCommandWithScript(name, script string, runtime invowkfile.RuntimeMode) 
 // This helper is shared across test files in the runtime package.
 func testCommandWithInterpreter(name, script, interpreter string, runtime invowkfile.RuntimeMode) *invowkfile.Command {
 	return &invowkfile.Command{
-		Name: name,
+		Name: invowkfile.CommandName(name),
 		Implementations: []invowkfile.Implementation{
 			{
 				Script:    script,

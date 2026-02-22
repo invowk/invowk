@@ -70,8 +70,8 @@ func collectToolErrors(tools []invowkfile.ToolDependency, check func(string) err
 // All container validation functions must call this after checking result.Error
 // and before interpreting result.ExitCode for domain-specific failures.
 func checkTransientExitCode(result *runtime.Result, label string) error {
-	if runtime.IsTransientExitCode(result.ExitCode) {
-		return fmt.Errorf("  • %s - container engine failure (exit code %d)", label, result.ExitCode)
+	if result.ExitCode.IsTransient() {
+		return fmt.Errorf("  • %s - container engine failure (exit code %s)", label, result.ExitCode)
 	}
 	return nil
 }

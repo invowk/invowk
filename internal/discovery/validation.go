@@ -37,7 +37,7 @@ func (e *ArgsSubcommandConflictError) Error() string {
 		if i > 0 {
 			sb.WriteString(", ")
 		}
-		sb.WriteString(arg.Name)
+		sb.WriteString(string(arg.Name))
 	}
 	sb.WriteString("\n  subcommands: ")
 	for i, sub := range e.Subcommands {

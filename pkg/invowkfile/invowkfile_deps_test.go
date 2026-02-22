@@ -12,7 +12,7 @@ import (
 // testCommand creates a Command with a single script for testing purposes
 func testCommand(name, script string) Command {
 	return Command{
-		Name: name,
+		Name: CommandName(name),
 		Implementations: []Implementation{
 			{Script: script, Runtimes: []RuntimeConfig{{Name: RuntimeNative}}, Platforms: []PlatformConfig{{Name: PlatformLinux}}},
 		},
@@ -22,7 +22,7 @@ func testCommand(name, script string) Command {
 // testCommandWithDeps creates a Command with a single script and dependencies for testing
 func testCommandWithDeps(name, script string, deps *DependsOn) Command {
 	return Command{
-		Name:            name,
+		Name:            CommandName(name),
 		Implementations: []Implementation{{Script: script, Runtimes: []RuntimeConfig{{Name: RuntimeNative}}, Platforms: []PlatformConfig{{Name: PlatformLinux}}}},
 		DependsOn:       deps,
 	}

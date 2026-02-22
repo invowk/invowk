@@ -447,7 +447,7 @@ func TestNativeRuntime_ExitCode(t *testing.T) {
 	tests := []struct {
 		name         string
 		script       string
-		expectedCode int
+		expectedCode ExitCode
 	}{
 		{"exit 0", "exit 0", 0},
 		{"exit 1", "exit 1", 1},

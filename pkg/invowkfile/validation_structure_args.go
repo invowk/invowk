@@ -40,7 +40,7 @@ func (v *StructureValidator) validateArgs(ctx *ValidationContext, cmd *Command) 
 // Returns the errors, whether this arg is optional, and whether it's variadic.
 func (v *StructureValidator) validateArg(ctx *ValidationContext, cmd *Command, arg *Argument, idx int, seenNames map[string]bool, foundOptional, foundVariadic bool) ([]ValidationError, bool, bool) {
 	var errors []ValidationError
-	path := NewFieldPath().Command(cmd.Name)
+	path := NewFieldPath().Command(string(cmd.Name))
 	isOptional := !arg.Required
 	isVariadic := arg.Variadic
 
@@ -56,10 +56,10 @@ func (v *StructureValidator) validateArg(ctx *ValidationContext, cmd *Command, a
 		return errors, isOptional, isVariadic
 	}
 
-	path = path.Copy().Arg(arg.Name)
+	path = path.Copy().Arg(string(arg.Name))
 
 	// [CUE-VALIDATED] Argument name length also enforced by CUE schema (#Argument.name MaxRunes(256))
-	if err := ValidateStringLength(arg.Name, "argument name", MaxNameLength); err != nil {
+	if err := ValidateStringLength(string(arg.Name), "argument name", MaxNameLength); err != nil {
 		errors = append(errors, ValidationError{
 			Validator: v.Name(),
 			Field:     path.String(),
@@ -69,7 +69,7 @@ func (v *StructureValidator) validateArg(ctx *ValidationContext, cmd *Command, a
 	}
 
 	// Validate name is POSIX-compliant
-	if !argNameRegex.MatchString(arg.Name) {
+	if !argNameRegex.MatchString(string(arg.Name)) {
 		errors = append(errors, ValidationError{
 			Validator: v.Name(),
 			Field:     path.String(),
@@ -99,15 +99,15 @@ func (v *StructureValidator) validateArg(ctx *ValidationContext, cmd *Command, a
 	}
 
 	// Check for duplicate argument names
-	if seenNames[arg.Name] {
+	if seenNames[string(arg.Name)] {
 		errors = append(errors, ValidationError{
 			Validator: v.Name(),
-			Field:     NewFieldPath().Command(cmd.Name).String(),
-			Message:   "has duplicate argument name '" + arg.Name + "' in invowkfile at " + ctx.FilePath,
+			Field:     NewFieldPath().Command(string(cmd.Name)).String(),
+			Message:   "has duplicate argument name '" + arg.Name.String() + "' in invowkfile at " + ctx.FilePath,
 			Severity:  SeverityError,
 		})
 	}
-	seenNames[arg.Name] = true
+	seenNames[string(arg.Name)] = true
 
 	// Validate type is valid (if specified) - note: bool is not allowed for args
 	if arg.Type != "" && arg.Type != ArgumentTypeString && arg.Type != ArgumentTypeInt && arg.Type != ArgumentTypeFloat {
@@ -163,20 +163,20 @@ func (v *StructureValidator) validateArg(ctx *ValidationContext, cmd *Command, a
 
 	// Validate validation regex is valid and safe
 	if arg.Validation != "" {
-		if err := ValidateRegexPattern(arg.Validation); err != nil {
+		if err := ValidateRegexPattern(string(arg.Validation)); err != nil {
 			errors = append(errors, ValidationError{
 				Validator: v.Name(),
 				Field:     path.String(),
-				Message:   "has unsafe validation regex '" + arg.Validation + "': " + err.Error() + " in invowkfile at " + ctx.FilePath,
+				Message:   "has unsafe validation regex '" + string(arg.Validation) + "': " + err.Error() + " in invowkfile at " + ctx.FilePath,
 				Severity:  SeverityError,
 			})
 		} else if arg.DefaultValue != "" {
 			// Check if default_value matches validation regex
-			if !matchesValidation(arg.DefaultValue, arg.Validation) {
+			if !matchesValidation(arg.DefaultValue, string(arg.Validation)) {
 				errors = append(errors, ValidationError{
 					Validator: v.Name(),
 					Field:     path.String(),
-					Message:   "default_value '" + arg.DefaultValue + "' does not match validation pattern '" + arg.Validation + "' in invowkfile at " + ctx.FilePath,
+					Message:   "default_value '" + arg.DefaultValue + "' does not match validation pattern '" + string(arg.Validation) + "' in invowkfile at " + ctx.FilePath,
 					Severity:  SeverityError,
 				})
 			}

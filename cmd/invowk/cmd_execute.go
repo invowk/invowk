@@ -178,7 +178,7 @@ func (s *commandService) resolveDefinitions(req ExecuteRequest, cmdInfo *discove
 		flagValues = make(map[string]string)
 		for _, flag := range flagDefs {
 			if flag.DefaultValue != "" {
-				flagValues[flag.Name] = flag.DefaultValue
+				flagValues[string(flag.Name)] = flag.DefaultValue
 			}
 		}
 	}
@@ -387,7 +387,7 @@ func (s *commandService) dispatchExecution(ctx context.Context, req ExecuteReque
 		)
 	}
 
-	return ExecuteResult{ExitCode: result.ExitCode}, diags, nil
+	return ExecuteResult{ExitCode: int(result.ExitCode)}, diags, nil
 }
 
 // validateAndRenderDeps validates command dependencies and returns ServiceError
@@ -534,7 +534,7 @@ func executeInteractive(ctx *runtime.ExecutionContext, registry *runtime.Registr
 	}
 
 	return &runtime.Result{
-		ExitCode: interactiveResult.ExitCode,
+		ExitCode: runtime.ExitCode(interactiveResult.ExitCode),
 		Error:    interactiveResult.Error,
 	}
 }

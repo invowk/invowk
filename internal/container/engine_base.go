@@ -15,6 +15,28 @@ import (
 	"github.com/invowk/invowk/internal/issue"
 )
 
+const (
+	// PortProtocolTCP is the TCP transport protocol for port mappings.
+	PortProtocolTCP PortProtocol = "tcp"
+	// PortProtocolUDP is the UDP transport protocol for port mappings.
+	PortProtocolUDP PortProtocol = "udp"
+
+	// SELinuxLabelNone means no SELinux label is applied to volume mounts.
+	SELinuxLabelNone SELinuxLabel = ""
+	// SELinuxLabelShared allows sharing the volume between containers.
+	SELinuxLabelShared SELinuxLabel = "z"
+	// SELinuxLabelPrivate restricts the volume to a single container.
+	SELinuxLabelPrivate SELinuxLabel = "Z"
+)
+
+var (
+	// ErrInvalidPortProtocol is the sentinel error wrapped by InvalidPortProtocolError.
+	ErrInvalidPortProtocol = errors.New("invalid port protocol")
+
+	// ErrInvalidSELinuxLabel is the sentinel error wrapped by InvalidSELinuxLabelError.
+	ErrInvalidSELinuxLabel = errors.New("invalid SELinux label")
+)
+
 type (
 	// ExecCommandFunc is the function signature for creating exec.Cmd.
 	// This allows injection of mock implementations for testing.
@@ -87,21 +109,85 @@ type (
 		BaseCLI() *BaseCLIEngine
 	}
 
+	// PortProtocol represents a network transport protocol for port mappings.
+	// The zero value ("") is valid and means "default to tcp".
+	PortProtocol string
+
+	// InvalidPortProtocolError is returned when a PortProtocol is not a recognized protocol.
+	InvalidPortProtocolError struct {
+		Value PortProtocol
+	}
+
+	// SELinuxLabel represents an SELinux volume labeling option.
+	// The zero value ("") means no SELinux label is applied.
+	SELinuxLabel string
+
+	// InvalidSELinuxLabelError is returned when an SELinuxLabel is not a recognized label.
+	InvalidSELinuxLabelError struct {
+		Value SELinuxLabel
+	}
+
 	// VolumeMount represents a volume mount specification.
 	VolumeMount struct {
 		HostPath      string
 		ContainerPath string
 		ReadOnly      bool
-		SELinux       string // Empty, "z", or "Z"
+		SELinux       SELinuxLabel
 	}
 
 	// PortMapping represents a port mapping specification.
 	PortMapping struct {
 		HostPort      uint16
 		ContainerPort uint16
-		Protocol      string // "tcp" or "udp", defaults to "tcp"
+		Protocol      PortProtocol
 	}
 )
+
+// Error implements the error interface.
+func (e *InvalidPortProtocolError) Error() string {
+	return fmt.Sprintf("invalid port protocol %q (valid: tcp, udp)", e.Value)
+}
+
+// Unwrap returns ErrInvalidPortProtocol so callers can use errors.Is for programmatic detection.
+func (e *InvalidPortProtocolError) Unwrap() error { return ErrInvalidPortProtocol }
+
+// IsValid returns whether the PortProtocol is one of the defined protocols,
+// and a list of validation errors if it is not.
+// The zero value ("") is valid — it is treated as "tcp" by FormatPortMapping.
+func (p PortProtocol) IsValid() (bool, []error) {
+	switch p {
+	case PortProtocolTCP, PortProtocolUDP, "":
+		return true, nil
+	default:
+		return false, []error{&InvalidPortProtocolError{Value: p}}
+	}
+}
+
+// String returns the string representation of the PortProtocol.
+func (p PortProtocol) String() string { return string(p) }
+
+// Error implements the error interface.
+func (e *InvalidSELinuxLabelError) Error() string {
+	return fmt.Sprintf("invalid SELinux label %q (valid: empty, z, Z)", e.Value)
+}
+
+// Unwrap returns ErrInvalidSELinuxLabel so callers can use errors.Is for programmatic detection.
+func (e *InvalidSELinuxLabelError) Unwrap() error { return ErrInvalidSELinuxLabel }
+
+// IsValid returns whether the SELinuxLabel is one of the defined labels,
+// and a list of validation errors if it is not.
+// The zero value ("") is valid — it means no SELinux label.
+func (s SELinuxLabel) IsValid() (bool, []error) {
+	switch s {
+	case SELinuxLabelNone, SELinuxLabelShared, SELinuxLabelPrivate:
+		return true, nil
+	default:
+		return false, []error{&InvalidSELinuxLabelError{Value: s}}
+	}
+}
+
+// String returns the string representation of the SELinuxLabel.
+func (s SELinuxLabel) String() string { return string(s) }
 
 // --- Option Functions ---
 
@@ -556,7 +642,7 @@ func FormatVolumeMount(mount VolumeMount) string {
 		options = append(options, "ro")
 	}
 	if mount.SELinux != "" {
-		options = append(options, mount.SELinux)
+		options = append(options, string(mount.SELinux))
 	}
 
 	if len(options) > 0 {
@@ -588,7 +674,7 @@ func ParseVolumeMount(volume string) VolumeMount {
 			case "ro":
 				mount.ReadOnly = true
 			case "z", "Z":
-				mount.SELinux = opt
+				mount.SELinux = SELinuxLabel(opt)
 			}
 		}
 	}
@@ -601,8 +687,8 @@ func ParseVolumeMount(volume string) VolumeMount {
 // FormatPortMapping formats a port mapping as a string for -p flag.
 func FormatPortMapping(mapping PortMapping) string {
 	result := fmt.Sprintf("%d:%d", mapping.HostPort, mapping.ContainerPort)
-	if mapping.Protocol != "" && mapping.Protocol != "tcp" {
-		result += "/" + mapping.Protocol
+	if mapping.Protocol != "" && mapping.Protocol != PortProtocolTCP {
+		result += "/" + string(mapping.Protocol)
 	}
 	return result
 }

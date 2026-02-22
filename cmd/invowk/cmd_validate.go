@@ -198,7 +198,7 @@ func checkCommandDependenciesExist(disc DiscoveryService, deps *invowkfile.Depen
 
 	if len(commandErrors) > 0 {
 		return &DependencyError{
-			CommandName:     invowkfile.CommandName(ctx.Command.Name),
+			CommandName:     ctx.Command.Name,
 			MissingCommands: commandErrors,
 		}
 	}

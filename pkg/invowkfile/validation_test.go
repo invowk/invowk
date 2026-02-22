@@ -458,7 +458,7 @@ func TestValidateCustomChecks(t *testing.T) {
 			checks: []CustomCheckDependency{{
 				Name:           "test",
 				CheckScript:    "echo test",
-				ExpectedOutput: strings.Repeat("a", MaxRegexPatternLength+1),
+				ExpectedOutput: RegexPattern(strings.Repeat("a", MaxRegexPatternLength+1)),
 			}},
 			shouldError: true,
 			errorMsg:    "too long",

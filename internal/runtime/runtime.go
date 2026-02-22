@@ -141,7 +141,7 @@ type (
 	// Result contains the result of a command execution
 	Result struct {
 		// ExitCode is the exit code of the command
-		ExitCode int
+		ExitCode ExitCode
 		// Error contains any error that occurred
 		Error error
 		// Output contains captured stdout (if captured)

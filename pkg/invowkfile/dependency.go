@@ -20,7 +20,7 @@ type (
 		// ExpectedCode is the expected exit code from CheckScript (optional, default: 0)
 		ExpectedCode *int `json:"expected_code,omitempty"`
 		// ExpectedOutput is a regex pattern to match against CheckScript output (optional)
-		ExpectedOutput string `json:"expected_output,omitempty"`
+		ExpectedOutput RegexPattern `json:"expected_output,omitempty"`
 	}
 
 	// CustomCheckDependency represents a custom check dependency that can be either:
@@ -35,7 +35,7 @@ type (
 		// ExpectedCode is the expected exit code from CheckScript (optional, default: 0)
 		ExpectedCode *int `json:"expected_code,omitempty"`
 		// ExpectedOutput is a regex pattern to match against CheckScript output (optional)
-		ExpectedOutput string `json:"expected_output,omitempty"`
+		ExpectedOutput RegexPattern `json:"expected_output,omitempty"`
 
 		// Alternatives is a list of custom checks where any passing check satisfies the dependency
 		// If any of the provided checks passes, the validation succeeds (early return).
@@ -66,7 +66,7 @@ type (
 		Name string `json:"name"`
 		// Validation is a regex pattern to validate the env var value (optional)
 		// If specified, the env var must exist AND its value must match this pattern
-		Validation string `json:"validation,omitempty"`
+		Validation RegexPattern `json:"validation,omitempty"`
 	}
 
 	// EnvVarDependency represents an environment variable dependency with alternatives

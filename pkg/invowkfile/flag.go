@@ -5,6 +5,8 @@ package invowkfile
 import (
 	"errors"
 	"fmt"
+	"regexp"
+	"unicode/utf8"
 )
 
 const (
@@ -18,8 +20,22 @@ const (
 	FlagTypeFloat FlagType = "float"
 )
 
-// ErrInvalidFlagType is returned when a FlagType value is not one of the defined types.
-var ErrInvalidFlagType = errors.New("invalid flag type")
+var (
+	// ErrInvalidFlagType is returned when a FlagType value is not one of the defined types.
+	ErrInvalidFlagType = errors.New("invalid flag type")
+
+	// ErrInvalidFlagName is the sentinel error wrapped by InvalidFlagNameError.
+	ErrInvalidFlagName = errors.New("invalid flag name")
+
+	// ErrInvalidFlagShorthand is the sentinel error wrapped by InvalidFlagShorthandError.
+	ErrInvalidFlagShorthand = errors.New("invalid flag shorthand")
+
+	// flagNamePattern mirrors the CUE schema constraint: ^[a-zA-Z][a-zA-Z0-9_-]*$
+	flagNamePattern = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9_-]*$`)
+
+	// flagShorthandPattern validates a single ASCII letter.
+	flagShorthandPattern = regexp.MustCompile(`^[a-zA-Z]$`)
+)
 
 type (
 	// FlagType represents the data type of a flag
@@ -31,10 +47,33 @@ type (
 		Value FlagType
 	}
 
+	// FlagName represents a POSIX-compliant flag identifier.
+	// Must start with a letter followed by alphanumeric, underscore, or hyphen characters.
+	// Maximum 256 runes. Mirrors the CUE schema constraint.
+	FlagName string
+
+	// InvalidFlagNameError is returned when a FlagName does not match the
+	// required format or exceeds length limits.
+	InvalidFlagNameError struct {
+		Value  FlagName
+		Reason string
+	}
+
+	// FlagShorthand represents a single-character flag alias.
+	// Must be exactly one ASCII letter when set.
+	// The zero value ("") is valid and means "no shorthand".
+	FlagShorthand string
+
+	// InvalidFlagShorthandError is returned when a FlagShorthand is not a
+	// single ASCII letter.
+	InvalidFlagShorthandError struct {
+		Value FlagShorthand
+	}
+
 	// Flag represents a command-line flag for a command
 	Flag struct {
 		// Name is the flag name (POSIX-compliant: starts with a letter, alphanumeric/hyphen/underscore)
-		Name string `json:"name"`
+		Name FlagName `json:"name"`
 		// Description provides help text for the flag
 		Description string `json:"description"`
 		// DefaultValue is the default value for the flag (optional)
@@ -45,9 +84,9 @@ type (
 		// Required indicates whether this flag must be provided (optional, defaults to false)
 		Required bool `json:"required,omitempty"`
 		// Short is a single-character alias for the flag (optional)
-		Short string `json:"short,omitempty"`
+		Short FlagShorthand `json:"short,omitempty"`
 		// Validation is a regex pattern to validate the flag value (optional)
-		Validation string `json:"validation,omitempty"`
+		Validation RegexPattern `json:"validation,omitempty"`
 	}
 )
 
@@ -73,6 +112,57 @@ func (ft FlagType) IsValid() (bool, []error) {
 	}
 }
 
+// Error implements the error interface.
+func (e *InvalidFlagNameError) Error() string {
+	return fmt.Sprintf("invalid flag name %q: %s", e.Value, e.Reason)
+}
+
+// Unwrap returns ErrInvalidFlagName so callers can use errors.Is for programmatic detection.
+func (e *InvalidFlagNameError) Unwrap() error { return ErrInvalidFlagName }
+
+// IsValid returns whether the FlagName matches the required POSIX-like format,
+// and a list of validation errors if it does not.
+func (n FlagName) IsValid() (bool, []error) {
+	s := string(n)
+	if s == "" {
+		return false, []error{&InvalidFlagNameError{Value: n, Reason: "must not be empty"}}
+	}
+	if utf8.RuneCountInString(s) > MaxNameLength {
+		return false, []error{&InvalidFlagNameError{Value: n, Reason: fmt.Sprintf("exceeds maximum length of %d runes", MaxNameLength)}}
+	}
+	if !flagNamePattern.MatchString(s) {
+		return false, []error{&InvalidFlagNameError{Value: n, Reason: "must start with a letter followed by alphanumeric, underscore, or hyphen characters"}}
+	}
+	return true, nil
+}
+
+// String returns the string representation of the FlagName.
+func (n FlagName) String() string { return string(n) }
+
+// Error implements the error interface.
+func (e *InvalidFlagShorthandError) Error() string {
+	return fmt.Sprintf("invalid flag shorthand %q (must be a single ASCII letter)", e.Value)
+}
+
+// Unwrap returns ErrInvalidFlagShorthand so callers can use errors.Is for programmatic detection.
+func (e *InvalidFlagShorthandError) Unwrap() error { return ErrInvalidFlagShorthand }
+
+// IsValid returns whether the FlagShorthand is a single ASCII letter,
+// and a list of validation errors if it is not.
+// The zero value ("") is valid — it means "no shorthand".
+func (s FlagShorthand) IsValid() (bool, []error) {
+	if s == "" {
+		return true, nil
+	}
+	if !flagShorthandPattern.MatchString(string(s)) {
+		return false, []error{&InvalidFlagShorthandError{Value: s}}
+	}
+	return true, nil
+}
+
+// String returns the string representation of the FlagShorthand.
+func (s FlagShorthand) String() string { return string(s) }
+
 // GetType returns the effective type of the flag (defaults to "string" if not specified)
 func (f *Flag) GetType() FlagType {
 	if f.Type == "" {
@@ -87,7 +177,7 @@ func (f *Flag) ValidateFlagValue(value string) error {
 	if err := validateValueType(value, f.GetType()); err != nil {
 		return fmt.Errorf("flag '%s' value '%s' is invalid: %s", f.Name, value, err.Error())
 	}
-	if err := validateValueWithRegex("flag '"+f.Name+"'", value, f.Validation); err != nil {
+	if err := validateValueWithRegex("flag '"+f.Name.String()+"'", value, string(f.Validation)); err != nil {
 		return err
 	}
 	return nil

@@ -10,7 +10,7 @@ import (
 // validateCommand validates a single command and collects all errors.
 func (v *StructureValidator) validateCommand(ctx *ValidationContext, inv *Invowkfile, cmd *Command) []ValidationError {
 	var errors []ValidationError
-	path := NewFieldPath().Command(cmd.Name)
+	path := NewFieldPath().Command(string(cmd.Name))
 
 	if cmd.Name == "" {
 		errors = append(errors, ValidationError{
@@ -23,7 +23,7 @@ func (v *StructureValidator) validateCommand(ctx *ValidationContext, inv *Invowk
 	}
 
 	// [CUE-VALIDATED] Command name length also enforced by CUE schema (#Command.name MaxRunes(256))
-	if err := ValidateStringLength(cmd.Name, "command name", MaxNameLength); err != nil {
+	if err := ValidateStringLength(string(cmd.Name), "command name", MaxNameLength); err != nil {
 		errors = append(errors, ValidationError{
 			Validator: v.Name(),
 			Field:     path.String(),
@@ -85,7 +85,7 @@ func (v *StructureValidator) validateCommand(ctx *ValidationContext, inv *Invowk
 func (v *StructureValidator) validateImplementation(ctx *ValidationContext, inv *Invowkfile, cmd *Command, implIdx int) []ValidationError {
 	var errors []ValidationError
 	impl := &cmd.Implementations[implIdx]
-	path := NewFieldPath().Command(cmd.Name).Implementation(implIdx)
+	path := NewFieldPath().Command(string(cmd.Name)).Implementation(implIdx)
 
 	if impl.Script == "" {
 		errors = append(errors, ValidationError{
@@ -116,7 +116,7 @@ func (v *StructureValidator) validateImplementation(ctx *ValidationContext, inv 
 	} else {
 		// Validate each runtime config
 		for j := range impl.Runtimes {
-			errors = append(errors, v.validateRuntimeConfig(ctx, inv, cmd.Name, implIdx, j)...)
+			errors = append(errors, v.validateRuntimeConfig(ctx, inv, string(cmd.Name), implIdx, j)...)
 		}
 	}
 

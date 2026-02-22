@@ -12,7 +12,7 @@ func TestParseTimeout(t *testing.T) {
 
 	tests := []struct {
 		name    string
-		timeout string
+		timeout DurationString
 		want    time.Duration
 		wantErr bool
 	}{

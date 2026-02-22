@@ -46,12 +46,12 @@ func validateCustomCheckOutput(check invowkfile.CustomCheck, outputStr string, e
 
 	// Check output pattern if specified
 	if check.ExpectedOutput != "" {
-		matched, err := regexp.MatchString(check.ExpectedOutput, outputStr)
+		matched, err := regexp.MatchString(string(check.ExpectedOutput), outputStr)
 		if err != nil {
-			return fmt.Errorf("  • %s - invalid regex pattern '%s': %w", check.Name, check.ExpectedOutput, err)
+			return fmt.Errorf("  • %s - invalid regex pattern '%s': %w", check.Name, check.ExpectedOutput.String(), err)
 		}
 		if !matched {
-			return fmt.Errorf("  • %s - check script output '%s' does not match pattern '%s'", check.Name, outputStr, check.ExpectedOutput)
+			return fmt.Errorf("  • %s - check script output '%s' does not match pattern '%s'", check.Name, outputStr, check.ExpectedOutput.String())
 		}
 	}
 
@@ -90,7 +90,7 @@ func checkCustomCheckDependenciesInContainer(deps *invowkfile.DependsOn, registr
 
 	if len(checkErrors) > 0 {
 		return &DependencyError{
-			CommandName:        invowkfile.CommandName(ctx.Command.Name),
+			CommandName:        ctx.Command.Name,
 			FailedCustomChecks: checkErrors,
 		}
 	}
@@ -165,7 +165,7 @@ func checkHostCustomCheckDependencies(deps *invowkfile.DependsOn, ctx *runtime.E
 
 	if len(checkErrors) > 0 {
 		return &DependencyError{
-			CommandName:        invowkfile.CommandName(ctx.Command.Name),
+			CommandName:        ctx.Command.Name,
 			FailedCustomChecks: checkErrors,
 		}
 	}
@@ -204,7 +204,7 @@ func checkEnvVarDependenciesInContainer(deps *invowkfile.DependsOn, registry *ru
 
 			// If validation pattern specified, also check value
 			if alt.Validation != "" {
-				escapedValidation := shellEscapeSingleQuote(alt.Validation)
+				escapedValidation := shellEscapeSingleQuote(string(alt.Validation))
 				checkScript = fmt.Sprintf("test -n \"${%s+x}\" && printf '%%s' \"$%s\" | grep -qE '%s'", name, name, escapedValidation)
 			}
 
@@ -221,7 +221,7 @@ func checkEnvVarDependenciesInContainer(deps *invowkfile.DependsOn, registry *ru
 				return nil
 			}
 			if alt.Validation != "" {
-				return fmt.Errorf("  • %s - not set or value does not match pattern '%s' in container", name, alt.Validation)
+				return fmt.Errorf("  • %s - not set or value does not match pattern '%s' in container", name, alt.Validation.String())
 			}
 			return fmt.Errorf("  • %s - not set in container environment", name)
 		})
@@ -241,7 +241,7 @@ func checkEnvVarDependenciesInContainer(deps *invowkfile.DependsOn, registry *ru
 
 	if len(envVarErrors) > 0 {
 		return &DependencyError{
-			CommandName:    invowkfile.CommandName(ctx.Command.Name),
+			CommandName:    ctx.Command.Name,
 			MissingEnvVars: envVarErrors,
 		}
 	}
@@ -300,7 +300,7 @@ func checkCapabilityDependenciesInContainer(deps *invowkfile.DependsOn, registry
 
 	if len(capabilityErrors) > 0 {
 		return &DependencyError{
-			CommandName:         invowkfile.CommandName(ctx.Command.Name),
+			CommandName:         ctx.Command.Name,
 			MissingCapabilities: capabilityErrors,
 		}
 	}
@@ -387,7 +387,7 @@ func checkCommandDependenciesInContainer(deps *invowkfile.DependsOn, registry *r
 
 	if len(commandErrors) > 0 {
 		return &DependencyError{
-			CommandName:     invowkfile.CommandName(ctx.Command.Name),
+			CommandName:     ctx.Command.Name,
 			MissingCommands: commandErrors,
 		}
 	}
@@ -445,7 +445,7 @@ func checkCapabilityDependencies(deps *invowkfile.DependsOn, ctx *runtime.Execut
 
 	if len(capabilityErrors) > 0 {
 		return &DependencyError{
-			CommandName:         invowkfile.CommandName(ctx.Command.Name),
+			CommandName:         ctx.Command.Name,
 			MissingCapabilities: capabilityErrors,
 		}
 	}
@@ -481,12 +481,12 @@ func checkEnvVarDependencies(deps *invowkfile.DependsOn, userEnv map[string]stri
 
 			// If validation pattern is specified, validate the value
 			if alt.Validation != "" {
-				matched, err := regexp.MatchString(alt.Validation, value)
+				matched, err := regexp.MatchString(string(alt.Validation), value)
 				if err != nil {
-					return fmt.Errorf("  • %s - invalid validation regex '%s': %w", name, alt.Validation, err)
+					return fmt.Errorf("  • %s - invalid validation regex '%s': %w", name, alt.Validation.String(), err)
 				}
 				if !matched {
-					return fmt.Errorf("  • %s - value '%s' does not match required pattern '%s'", name, value, alt.Validation)
+					return fmt.Errorf("  • %s - value '%s' does not match required pattern '%s'", name, value, alt.Validation.String())
 				}
 			}
 
@@ -510,7 +510,7 @@ func checkEnvVarDependencies(deps *invowkfile.DependsOn, userEnv map[string]stri
 
 	if len(envVarErrors) > 0 {
 		return &DependencyError{
-			CommandName:    invowkfile.CommandName(ctx.Command.Name),
+			CommandName:    ctx.Command.Name,
 			MissingEnvVars: envVarErrors,
 		}
 	}

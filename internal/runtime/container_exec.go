@@ -330,7 +330,7 @@ func (r *ContainerRuntime) Execute(ctx *ExecutionContext) *Result {
 	}
 
 	return &Result{
-		ExitCode: result.ExitCode,
+		ExitCode: ExitCode(result.ExitCode),
 		Error:    result.Error,
 	}
 }
@@ -375,7 +375,7 @@ func (r *ContainerRuntime) ExecuteCapture(ctx *ExecutionContext) *Result {
 	}
 
 	return &Result{
-		ExitCode:  result.ExitCode,
+		ExitCode:  ExitCode(result.ExitCode),
 		Error:     result.Error,
 		Output:    stdout.String(),
 		ErrOutput: stderr.String(),

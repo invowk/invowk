@@ -11,7 +11,7 @@ type (
 	// Invowkfile during module parsing/discovery.
 	ModuleMetadata struct {
 		Module      invowkmod.ModuleID
-		Version     string
+		Version     invowkmod.SemVer
 		Description string
 		Requires    []ModuleRequirement
 	}
@@ -60,7 +60,7 @@ func NewModuleMetadataFromInvowkmod(meta *Invowkmod) *ModuleMetadata {
 
 	return &ModuleMetadata{
 		Module:      meta.Module,
-		Version:     string(meta.Version),
+		Version:     meta.Version,
 		Description: meta.Description,
 		Requires:    requires,
 	}

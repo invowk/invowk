@@ -214,7 +214,7 @@ func validateEnvVarNames(names []string, label string) error {
 func projectEnvVars(opts BuildExecutionContextOptions, execCtx *runtime.ExecutionContext) {
 	// Metadata env vars for script self-introspection.
 	// These allow scripts to know which command, runtime, source, and platform they run under.
-	execCtx.Env.ExtraEnv[platmeta.EnvVarCmdName] = opts.Command.Name
+	execCtx.Env.ExtraEnv[platmeta.EnvVarCmdName] = string(opts.Command.Name)
 	execCtx.Env.ExtraEnv[platmeta.EnvVarRuntime] = string(opts.Selection.Mode)
 	// EnvVarSource and EnvVarPlatform are conditionally injected (only when
 	// non-empty), but unconditionally filtered in shouldFilterEnvVar. The
@@ -234,7 +234,7 @@ func projectEnvVars(opts BuildExecutionContextOptions, execCtx *runtime.Executio
 
 	if len(opts.ArgDefs) > 0 {
 		for i, argDef := range opts.ArgDefs {
-			envName := invowkfile.ArgNameToEnvVar(argDef.Name)
+			envName := invowkfile.ArgNameToEnvVar(string(argDef.Name))
 
 			switch {
 			case argDef.Variadic:

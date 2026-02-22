@@ -65,7 +65,7 @@ func (v *StructureValidator) validateDependsOn(ctx *ValidationContext, deps *Dep
 				})
 			}
 			if alt.Validation != "" {
-				if err := ValidateRegexPattern(alt.Validation); err != nil {
+				if err := ValidateRegexPattern(string(alt.Validation)); err != nil {
 					errors = append(errors, ValidationError{
 						Validator: v.Name(),
 						Field:     basePath.Copy().EnvVars(i, j).Field("validation").String(),
@@ -117,7 +117,7 @@ func (v *StructureValidator) validateCustomChecks(ctx *ValidationContext, checks
 
 			// ReDoS pattern safety - CUE cannot analyze regex complexity
 			if check.ExpectedOutput != "" {
-				if err := ValidateRegexPattern(check.ExpectedOutput); err != nil {
+				if err := ValidateRegexPattern(string(check.ExpectedOutput)); err != nil {
 					errors = append(errors, ValidationError{
 						Validator: v.Name(),
 						Field:     path.String(),

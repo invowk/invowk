@@ -9,8 +9,13 @@ import (
 	"strings"
 )
 
-// ErrInvalidCommandName is the sentinel error wrapped by InvalidCommandNameError.
-var ErrInvalidCommandName = errors.New("invalid command name")
+var (
+	// ErrInvalidCommandName is the sentinel error wrapped by InvalidCommandNameError.
+	ErrInvalidCommandName = errors.New("invalid command name")
+
+	// ErrInvalidCommandCategory is the sentinel error wrapped by InvalidCommandCategoryError.
+	ErrInvalidCommandCategory = errors.New("invalid command category")
+)
 
 type (
 	// CommandName represents a command identifier.
@@ -24,14 +29,24 @@ type (
 		Value CommandName
 	}
 
+	// CommandCategory represents the display category for a command in 'invowk cmd' output.
+	// The zero value ("") means "no category assigned" and is valid.
+	CommandCategory string
+
+	// InvalidCommandCategoryError is returned when a CommandCategory is
+	// whitespace-only (non-empty but no visible characters).
+	InvalidCommandCategoryError struct {
+		Value CommandCategory
+	}
+
 	// Command represents a single command that can be executed
 	Command struct {
 		// Name is the command identifier (can include spaces for subcommand-like behavior, e.g., "test unit")
-		Name string `json:"name"`
+		Name CommandName `json:"name"`
 		// Description provides help text for the command
 		Description string `json:"description,omitempty"`
 		// Category groups this command under a heading in 'invowk cmd' output (optional)
-		Category string `json:"category,omitempty"`
+		Category CommandCategory `json:"category,omitempty"`
 		// Implementations defines the executable implementations with platform/runtime constraints (required, at least one)
 		Implementations []Implementation `json:"implementations"`
 		// Env contains environment configuration for this command (optional)
@@ -78,6 +93,30 @@ func (n CommandName) IsValid() (bool, []error) {
 
 // String returns the string representation of the CommandName.
 func (n CommandName) String() string { return string(n) }
+
+// Error implements the error interface.
+func (e *InvalidCommandCategoryError) Error() string {
+	return fmt.Sprintf("invalid command category %q (must not be whitespace-only)", e.Value)
+}
+
+// Unwrap returns ErrInvalidCommandCategory so callers can use errors.Is for programmatic detection.
+func (e *InvalidCommandCategoryError) Unwrap() error { return ErrInvalidCommandCategory }
+
+// IsValid returns whether the CommandCategory is valid,
+// and a list of validation errors if it is not.
+// The zero value ("") is valid — it means "no category assigned".
+func (c CommandCategory) IsValid() (bool, []error) {
+	if c == "" {
+		return true, nil
+	}
+	if strings.TrimSpace(string(c)) == "" {
+		return false, []error{&InvalidCommandCategoryError{Value: c}}
+	}
+	return true, nil
+}
+
+// String returns the string representation of the CommandCategory.
+func (c CommandCategory) String() string { return string(c) }
 
 // GetImplForPlatformRuntime finds the implementation that matches the given platform and runtime.
 func (c *Command) GetImplForPlatformRuntime(platform Platform, runtime RuntimeMode) *Implementation {

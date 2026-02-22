@@ -97,8 +97,8 @@ func makeCmds(pairs ...string) []*discovery.CommandInfo {
 			Name:       pairs[i],
 			SimpleName: pairs[i],
 			Command: &invowkfile.Command{
-				Name:     pairs[i],
-				Category: pairs[i+1],
+				Name:     invowkfile.CommandName(pairs[i]),
+				Category: invowkfile.CommandCategory(pairs[i+1]),
 			},
 		})
 	}

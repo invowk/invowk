@@ -232,7 +232,7 @@ func (d *Discovery) DiscoverCommandSet(ctx context.Context) (CommandSetResult, e
 			// Extract simple name for conflict detection and display.
 			// For modules, FlattenCommands() returns prefixed names like "foo build",
 			// so we use cmd.Name which is the original unprefixed name.
-			simpleName := cmd.Name
+			simpleName := string(cmd.Name)
 
 			// For non-module sources, maintain precedence (skip if already seen)
 			if !isModule {

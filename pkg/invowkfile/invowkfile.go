@@ -80,7 +80,7 @@ func (inv *Invowkfile) GetCommand(name string) *Command {
 	}
 
 	for i := range inv.Commands {
-		if inv.Commands[i].Name == name {
+		if string(inv.Commands[i].Name) == name {
 			return &inv.Commands[i]
 		}
 	}
@@ -176,7 +176,7 @@ func (inv *Invowkfile) GetModule() string {
 func (inv *Invowkfile) ListCommands() []string {
 	names := make([]string, len(inv.Commands))
 	for i := range inv.Commands {
-		names[i] = inv.GetFullCommandName(inv.Commands[i].Name)
+		names[i] = inv.GetFullCommandName(string(inv.Commands[i].Name))
 	}
 	return names
 }
@@ -185,7 +185,7 @@ func (inv *Invowkfile) ListCommands() []string {
 func (inv *Invowkfile) FlattenCommands() map[string]*Command {
 	result := make(map[string]*Command)
 	for i := range inv.Commands {
-		fullName := inv.GetFullCommandName(inv.Commands[i].Name)
+		fullName := inv.GetFullCommandName(string(inv.Commands[i].Name))
 		result[fullName] = &inv.Commands[i]
 	}
 	return result

@@ -11,8 +11,14 @@ import (
 
 // Container engine type constants.
 const (
+	// EngineTypePodman identifies the Podman container engine.
 	EngineTypePodman EngineType = "podman"
+	// EngineTypeDocker identifies the Docker container engine.
 	EngineTypeDocker EngineType = "docker"
+	// EngineTypeAny is used exclusively in EngineNotAvailableError when
+	// AutoDetectEngine fails to find any engine — it is not a valid engine
+	// type for normal operations.
+	EngineTypeAny EngineType = "any"
 )
 
 var (
@@ -125,7 +131,7 @@ type (
 
 	// EngineNotAvailableError is returned when a container engine is not available
 	EngineNotAvailableError struct {
-		Engine string
+		Engine EngineType
 		Reason string
 	}
 )
@@ -155,6 +161,9 @@ func (et EngineType) IsValid() (bool, []error) {
 	switch et {
 	case EngineTypePodman, EngineTypeDocker:
 		return true, nil
+	case EngineTypeAny:
+		// EngineTypeAny is only valid in error reporting contexts, not as an engine type
+		return false, []error{&InvalidEngineTypeError{Value: et}}
 	default:
 		return false, []error{&InvalidEngineTypeError{Value: et}}
 	}
@@ -182,7 +191,7 @@ func NewEngine(preferredType EngineType) (Engine, error) {
 				engine = docker
 			} else {
 				return nil, &EngineNotAvailableError{
-					Engine: "podman",
+					Engine: EngineTypePodman,
 					Reason: "podman is not installed or not accessible, and docker fallback is also not available",
 				}
 			}
@@ -199,11 +208,15 @@ func NewEngine(preferredType EngineType) (Engine, error) {
 				engine = podman
 			} else {
 				return nil, &EngineNotAvailableError{
-					Engine: "docker",
+					Engine: EngineTypeDocker,
 					Reason: "docker is not installed or not accessible, and podman fallback is also not available",
 				}
 			}
 		}
+
+	case EngineTypeAny:
+		// Unreachable: IsValid() rejects EngineTypeAny before reaching this switch.
+		return nil, fmt.Errorf("EngineTypeAny is not a valid engine type for initialization")
 
 	default:
 		// Unreachable: IsValid() guard above ensures only valid types reach here.
@@ -240,7 +253,7 @@ func AutoDetectEngine() (Engine, error) {
 	}
 
 	return nil, &EngineNotAvailableError{
-		Engine: "any",
+		Engine: EngineTypeAny,
 		Reason: "no container engine (podman or docker) is available on this system",
 	}
 }

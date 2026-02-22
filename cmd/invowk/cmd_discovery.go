@@ -157,30 +157,31 @@ func buildLeafCommand(app *App, rootFlags *rootFlagValues, cmdFlags *cmdFlagValu
 			for _, flag := range cmdRuntimeFlags {
 				var val string
 				var err error
+				name := string(flag.Name)
 				switch flag.GetType() {
 				case invowkfile.FlagTypeBool:
 					var boolVal bool
-					boolVal, err = cmd.Flags().GetBool(flag.Name)
+					boolVal, err = cmd.Flags().GetBool(name)
 					if err == nil {
 						val = fmt.Sprintf("%t", boolVal)
 					}
 				case invowkfile.FlagTypeInt:
 					var intVal int
-					intVal, err = cmd.Flags().GetInt(flag.Name)
+					intVal, err = cmd.Flags().GetInt(name)
 					if err == nil {
 						val = fmt.Sprintf("%d", intVal)
 					}
 				case invowkfile.FlagTypeFloat:
 					var floatVal float64
-					floatVal, err = cmd.Flags().GetFloat64(flag.Name)
+					floatVal, err = cmd.Flags().GetFloat64(name)
 					if err == nil {
 						val = fmt.Sprintf("%g", floatVal)
 					}
 				case invowkfile.FlagTypeString:
-					val, err = cmd.Flags().GetString(flag.Name)
+					val, err = cmd.Flags().GetString(name)
 				}
 				if err == nil {
-					flagValues[flag.Name] = val
+					flagValues[name] = val
 				}
 			}
 
@@ -249,44 +250,46 @@ func buildLeafCommand(app *App, rootFlags *rootFlagValues, cmdFlags *cmdFlagValu
 
 	for _, flag := range cmdRuntimeFlags {
 		// Project invowkfile flag definitions into Cobra flags with matching types.
+		name := string(flag.Name)
+		short := string(flag.Short)
 		switch flag.GetType() {
 		case invowkfile.FlagTypeBool:
 			defaultVal := flag.DefaultValue == "true"
-			if flag.Short != "" {
-				newCmd.Flags().BoolP(flag.Name, flag.Short, defaultVal, flag.Description)
+			if short != "" {
+				newCmd.Flags().BoolP(name, short, defaultVal, flag.Description)
 			} else {
-				newCmd.Flags().Bool(flag.Name, defaultVal, flag.Description)
+				newCmd.Flags().Bool(name, defaultVal, flag.Description)
 			}
 		case invowkfile.FlagTypeInt:
 			defaultVal := 0
 			if flag.DefaultValue != "" {
 				_, _ = fmt.Sscanf(flag.DefaultValue, "%d", &defaultVal)
 			}
-			if flag.Short != "" {
-				newCmd.Flags().IntP(flag.Name, flag.Short, defaultVal, flag.Description)
+			if short != "" {
+				newCmd.Flags().IntP(name, short, defaultVal, flag.Description)
 			} else {
-				newCmd.Flags().Int(flag.Name, defaultVal, flag.Description)
+				newCmd.Flags().Int(name, defaultVal, flag.Description)
 			}
 		case invowkfile.FlagTypeFloat:
 			defaultVal := 0.0
 			if flag.DefaultValue != "" {
 				_, _ = fmt.Sscanf(flag.DefaultValue, "%f", &defaultVal)
 			}
-			if flag.Short != "" {
-				newCmd.Flags().Float64P(flag.Name, flag.Short, defaultVal, flag.Description)
+			if short != "" {
+				newCmd.Flags().Float64P(name, short, defaultVal, flag.Description)
 			} else {
-				newCmd.Flags().Float64(flag.Name, defaultVal, flag.Description)
+				newCmd.Flags().Float64(name, defaultVal, flag.Description)
 			}
 		case invowkfile.FlagTypeString:
-			if flag.Short != "" {
-				newCmd.Flags().StringP(flag.Name, flag.Short, flag.DefaultValue, flag.Description)
+			if short != "" {
+				newCmd.Flags().StringP(name, short, flag.DefaultValue, flag.Description)
 			} else {
-				newCmd.Flags().String(flag.Name, flag.DefaultValue, flag.Description)
+				newCmd.Flags().String(name, flag.DefaultValue, flag.Description)
 			}
 		}
 		if flag.Required {
 			// Required markers are applied at Cobra level for immediate feedback.
-			_ = newCmd.MarkFlagRequired(flag.Name)
+			_ = newCmd.MarkFlagRequired(name)
 		}
 	}
 
@@ -539,7 +542,7 @@ func listCommands(cmd *cobra.Command, app *App, rootFlags *rootFlagValues) error
 func groupByCategory(cmds []*discovery.CommandInfo) []commandGroup {
 	groups := make(map[string][]*discovery.CommandInfo)
 	for _, cmd := range cmds {
-		cat := cmd.Command.Category
+		cat := string(cmd.Command.Category)
 		groups[cat] = append(groups[cat], cmd)
 	}
 

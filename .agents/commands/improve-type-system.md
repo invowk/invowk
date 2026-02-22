@@ -12,4 +12,4 @@ We're on a long multi-step work to completely avoid the use of simple primitive 
 
 All methods MUST have unit tests for ALL conditions.
 
-Identify the next top 20 types to be worked on and propose a robust plan. All pre-existing issues found during your planning MUST be fully resolved as well.
+Identify ALL remaining gaps to be worked on and propose a robust plan. All pre-existing issues found during your planning MUST be fully resolved as well.

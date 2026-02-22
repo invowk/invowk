@@ -33,7 +33,7 @@ func validateFlagValues(cmdName string, flagValues map[string]string, flagDefs [
 	var validationErrs []string
 
 	for _, flag := range flagDefs {
-		value, hasValue := flagValues[flag.Name]
+		value, hasValue := flagValues[string(flag.Name)]
 
 		// Check required flags
 		// Note: Cobra handles required flag checking via MarkFlagRequired,
@@ -121,7 +121,7 @@ func validateArguments(cmdName string, providedArgs []string, argDefs []invowkfi
 						CommandName:  invowkfile.CommandName(cmdName),
 						ArgDefs:      argDefs,
 						ProvidedArgs: providedArgs,
-						InvalidArg:   argDef.Name,
+						InvalidArg:   string(argDef.Name),
 						InvalidValue: providedArgs[j],
 						ValueError:   err,
 					}
@@ -137,7 +137,7 @@ func validateArguments(cmdName string, providedArgs []string, argDefs []invowkfi
 				CommandName:  invowkfile.CommandName(cmdName),
 				ArgDefs:      argDefs,
 				ProvidedArgs: providedArgs,
-				InvalidArg:   argDef.Name,
+				InvalidArg:   string(argDef.Name),
 				InvalidValue: argValue,
 				ValueError:   err,
 			}

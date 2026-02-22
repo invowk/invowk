@@ -37,7 +37,7 @@ func checkFilepathDependenciesInContainer(deps *invowkfile.DependsOn, registry *
 
 	if len(filepathErrors) > 0 {
 		return &DependencyError{
-			CommandName:      invowkfile.CommandName(ctx.Command.Name),
+			CommandName:      ctx.Command.Name,
 			MissingFilepaths: filepathErrors,
 		}
 	}
@@ -116,7 +116,7 @@ func checkHostFilepathDependencies(deps *invowkfile.DependsOn, invowkfilePath st
 
 	if len(filepathErrors) > 0 {
 		return &DependencyError{
-			CommandName:      invowkfile.CommandName(ctx.Command.Name),
+			CommandName:      ctx.Command.Name,
 			MissingFilepaths: filepathErrors,
 		}
 	}

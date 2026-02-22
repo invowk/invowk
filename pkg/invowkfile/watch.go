@@ -14,7 +14,7 @@ type WatchConfig struct {
 	Patterns []string `json:"patterns"`
 	// Debounce specifies the delay before re-executing after a change.
 	// Must be a valid Go duration string. Default: "500ms".
-	Debounce string `json:"debounce,omitempty"`
+	Debounce DurationString `json:"debounce,omitempty"`
 	// ClearScreen clears the terminal before each re-execution.
 	ClearScreen bool `json:"clear_screen,omitempty"`
 	// Ignore lists glob patterns for files/directories to exclude from watching.

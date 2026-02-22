@@ -363,7 +363,7 @@ func TestRegistry_Execute(t *testing.T) {
 		name         string
 		setupReg     func(*Registry)
 		runtime      invowkfile.RuntimeMode
-		wantExitCode int
+		wantExitCode ExitCode
 		wantErr      bool
 	}{
 		{

@@ -12,7 +12,7 @@ func TestParseDebounce(t *testing.T) {
 
 	tests := []struct {
 		name     string
-		debounce string
+		debounce DurationString
 		want     time.Duration
 		wantErr  bool
 	}{
