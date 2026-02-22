@@ -85,7 +85,7 @@ func (c *Command) GetDefaultRuntimeForPlatform(platform Platform) RuntimeMode {
 
 // CanRunOnCurrentHost returns true if the command can run on the current host OS
 func (c *Command) CanRunOnCurrentHost() bool {
-	currentOS := GetCurrentHostOS()
+	currentOS := CurrentPlatform()
 	return len(c.GetImplsForPlatform(currentOS)) > 0
 }
 

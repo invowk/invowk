@@ -58,8 +58,8 @@ type (
 	}
 )
 
-// GetCurrentHostOS returns the current operating system as Platform
-func GetCurrentHostOS() Platform {
+// CurrentPlatform returns the current operating system as Platform.
+func CurrentPlatform() Platform {
 	switch goruntime.GOOS {
 	case "linux":
 		return PlatformLinux

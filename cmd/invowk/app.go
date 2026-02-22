@@ -85,6 +85,10 @@ type (
 		EnvInheritDeny []string
 		// DryRun enables dry-run mode: prints what would be executed without executing.
 		DryRun bool
+		// UserEnv captures the host environment at execution entry, before invowk
+		// injects command-level env vars. When nil, Execute() populates it eagerly
+		// via captureUserEnv(). Tests can set this to inject a controlled env.
+		UserEnv map[string]string
 	}
 
 	// ExecuteResult contains command execution outcomes.

@@ -3,6 +3,7 @@
 package cmd
 
 import (
+	"context"
 	"errors"
 	"os"
 	"os/exec"
@@ -16,6 +17,25 @@ import (
 	"github.com/invowk/invowk/internal/testutil/invowkfiletest"
 	"github.com/invowk/invowk/pkg/invowkfile"
 )
+
+// testDiscoveryService wraps a discovery.Discovery for use in unit tests.
+// It satisfies the DiscoveryService interface by delegating to the underlying
+// discovery instance without caching (tests need fresh results per invocation).
+type testDiscoveryService struct {
+	disc *discovery.Discovery
+}
+
+func (t *testDiscoveryService) DiscoverCommandSet(ctx context.Context) (discovery.CommandSetResult, error) {
+	return t.disc.DiscoverCommandSet(ctx)
+}
+
+func (t *testDiscoveryService) DiscoverAndValidateCommandSet(ctx context.Context) (discovery.CommandSetResult, error) {
+	return t.disc.DiscoverAndValidateCommandSet(ctx)
+}
+
+func (t *testDiscoveryService) GetCommand(ctx context.Context, name string) (discovery.LookupResult, error) {
+	return t.disc.GetCommand(ctx, name)
+}
 
 // ---------------------------------------------------------------------------
 // Tool dependency tests
@@ -210,12 +230,12 @@ func TestCheckCommandDependenciesExist_SatisfiedByLocalUnqualifiedName(t *testin
 	// Standalone invowkfile has no module identifier, so pass empty string
 	deps := &invowkfile.DependsOn{Commands: []invowkfile.CommandDependency{{Alternatives: []string{"build"}}}}
 	ctx := &runtime.ExecutionContext{Command: &invowkfile.Command{Name: "deploy"}}
-	discoveryOpts := []discovery.Option{
+	disc := &testDiscoveryService{disc: discovery.New(config.DefaultConfig(),
 		discovery.WithBaseDir(tmpDir),
 		discovery.WithCommandsDir(filepath.Join(tmpDir, ".invowk", "cmds")),
-	}
+	)}
 
-	if err := checkCommandDependenciesExist(config.DefaultConfig(), deps, "", ctx, discoveryOpts); err != nil {
+	if err := checkCommandDependenciesExist(disc, deps, "", ctx); err != nil {
 		t.Fatalf("expected nil, got %v", err)
 	}
 }
@@ -267,12 +287,12 @@ version: "1.0.0"
 	// Module command is prefixed: "shared generate-types"
 	deps := &invowkfile.DependsOn{Commands: []invowkfile.CommandDependency{{Alternatives: []string{"shared generate-types"}}}}
 	ctx := &runtime.ExecutionContext{Command: &invowkfile.Command{Name: "deploy"}}
-	discoveryOpts := []discovery.Option{
+	disc := &testDiscoveryService{disc: discovery.New(config.DefaultConfig(),
 		discovery.WithBaseDir(tmpDir),
 		discovery.WithCommandsDir(userCmdsDir),
-	}
+	)}
 
-	if err := checkCommandDependenciesExist(config.DefaultConfig(), deps, "", ctx, discoveryOpts); err != nil {
+	if err := checkCommandDependenciesExist(disc, deps, "", ctx); err != nil {
 		t.Fatalf("expected nil, got %v", err)
 	}
 }
@@ -298,12 +318,12 @@ func TestCheckCommandDependenciesExist_MissingCommand(t *testing.T) {
 
 	deps := &invowkfile.DependsOn{Commands: []invowkfile.CommandDependency{{Alternatives: []string{"build"}}}}
 	ctx := &runtime.ExecutionContext{Command: &invowkfile.Command{Name: "deploy"}}
-	discoveryOpts := []discovery.Option{
+	disc := &testDiscoveryService{disc: discovery.New(config.DefaultConfig(),
 		discovery.WithBaseDir(tmpDir),
 		discovery.WithCommandsDir(filepath.Join(tmpDir, ".invowk", "cmds")),
-	}
+	)}
 
-	err := checkCommandDependenciesExist(config.DefaultConfig(), deps, "", ctx, discoveryOpts)
+	err := checkCommandDependenciesExist(disc, deps, "", ctx)
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}

@@ -137,7 +137,7 @@ func testContainerEnvironmentVariables(t *testing.T) {
 	t.Helper()
 	_, inv := setupTestInvowkfile(t)
 
-	currentPlatform := invowkfile.GetCurrentHostOS()
+	currentPlatform := invowkfile.CurrentPlatform()
 	cmd := &invowkfile.Command{
 		Name: "test-env",
 		Implementations: []invowkfile.Implementation{

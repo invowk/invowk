@@ -505,7 +505,7 @@ func listCommands(cmd *cobra.Command, app *App, rootFlags *rootFlagValues) error
 				if discovered.IsAmbiguous {
 					line += fmt.Sprintf(" %s", ambiguousStyle.Render("(@"+sourceID+")"))
 				}
-				currentPlatform := invowkfile.GetCurrentHostOS()
+				currentPlatform := invowkfile.CurrentPlatform()
 				runtimesStr := discovered.Command.GetRuntimesStringForPlatform(currentPlatform)
 				if runtimesStr != "" {
 					line += " [" + defaultRuntimeStyle.Render(runtimesStr) + "]"

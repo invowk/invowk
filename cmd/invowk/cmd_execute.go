@@ -74,6 +74,13 @@ func newCommandService(configProvider ConfigProvider, disc DiscoveryService, std
 //  6. Dry-run intercept: if --ivk-dry-run, renders the execution plan and exits.
 //  7. Dispatches execution (timeout → dep validation → runtime).
 func (s *commandService) Execute(ctx context.Context, req ExecuteRequest) (ExecuteResult, []discovery.Diagnostic, error) {
+	// Capture the host environment early, before any downstream code could
+	// potentially modify it via os.Setenv. Tests can pre-populate req.UserEnv
+	// to inject a controlled environment.
+	if req.UserEnv == nil {
+		req.UserEnv = captureUserEnv()
+	}
+
 	cfg, cmdInfo, diags, err := s.discoverCommand(ctx, req)
 	if err != nil {
 		return ExecuteResult{}, diags, err
@@ -202,7 +209,7 @@ func (s *commandService) validateInputs(req ExecuteRequest, cmdInfo *discovery.C
 		return err
 	}
 
-	currentPlatform := invowkfile.GetCurrentHostOS()
+	currentPlatform := invowkfile.CurrentPlatform()
 	if !cmdInfo.Command.CanRunOnCurrentHost() {
 		supportedPlatforms := cmdInfo.Command.GetPlatformsString()
 		return newServiceError(
@@ -223,7 +230,7 @@ func (s *commandService) validateInputs(req ExecuteRequest, cmdInfo *discovery.C
 //
 // It returns ServiceError with rendering info for invalid runtime overrides (Tier 1 only).
 func (s *commandService) resolveRuntime(req ExecuteRequest, cmdInfo *discovery.CommandInfo, cfg *config.Config) (appexec.RuntimeSelection, error) {
-	selection, err := appexec.ResolveRuntime(cmdInfo.Command, req.Name, req.Runtime, cfg, invowkfile.GetCurrentHostOS())
+	selection, err := appexec.ResolveRuntime(cmdInfo.Command, req.Name, req.Runtime, cfg, invowkfile.CurrentPlatform())
 	if err != nil {
 		if notAllowedErr, ok := errors.AsType[*appexec.RuntimeNotAllowedError](err); ok {
 			allowed := make([]string, len(notAllowedErr.Allowed))
@@ -277,7 +284,7 @@ func (s *commandService) buildExecContext(req ExecuteRequest, cmdInfo *discovery
 		EnvInheritAllow: req.EnvInheritAllow,
 		EnvInheritDeny:  req.EnvInheritDeny,
 		SourceID:        cmdInfo.SourceID,
-		Platform:        invowkfile.GetCurrentHostOS(),
+		Platform:        invowkfile.CurrentPlatform(),
 	})
 }
 
@@ -334,7 +341,7 @@ func (s *commandService) dispatchExecution(ctx context.Context, req ExecuteReque
 	}
 
 	// Dependency validation needs the registry to check runtime-aware dependencies.
-	if err := s.validateAndRenderDeps(cfg, cmdInfo, execCtx, registryResult.Registry); err != nil {
+	if err := s.validateAndRenderDeps(cmdInfo, execCtx, registryResult.Registry, req.UserEnv); err != nil {
 		return ExecuteResult{}, diags, err
 	}
 
@@ -384,9 +391,10 @@ func (s *commandService) dispatchExecution(ctx context.Context, req ExecuteReque
 }
 
 // validateAndRenderDeps validates command dependencies and returns ServiceError
-// for dependency failures.
-func (s *commandService) validateAndRenderDeps(cfg *config.Config, cmdInfo *discovery.CommandInfo, execCtx *runtime.ExecutionContext, registry *runtime.Registry) error {
-	if err := validateDependencies(cfg, cmdInfo, registry, execCtx); err != nil {
+// for dependency failures. Discovery is routed through s.discovery so the
+// per-request cache avoids redundant filesystem scans.
+func (s *commandService) validateAndRenderDeps(cmdInfo *discovery.CommandInfo, execCtx *runtime.ExecutionContext, registry *runtime.Registry, userEnv map[string]string) error {
+	if err := validateDependencies(s.discovery, cmdInfo, registry, execCtx, userEnv); err != nil {
 		if depErr, ok := errors.AsType[*DependencyError](err); ok {
 			return newServiceError(
 				err,

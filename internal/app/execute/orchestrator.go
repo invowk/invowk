@@ -82,7 +82,7 @@ func (e *RuntimeNotAllowedError) Error() string {
 //
 // The platform parameter makes this function pure — callers pass the resolved
 // platform rather than relying on the host OS at call time. Production code
-// passes invowkfile.GetCurrentHostOS(); tests pass a fixed platform for
+// passes invowkfile.CurrentPlatform(); tests pass a fixed platform for
 // deterministic behavior across CI environments.
 func ResolveRuntime(command *invowkfile.Command, commandName string, runtimeOverride invowkfile.RuntimeMode, cfg *config.Config, platform invowkfile.Platform) (RuntimeSelection, error) {
 	if runtimeOverride != "" {

@@ -33,7 +33,7 @@ func TestBuildRuntimeEnv_PairwisePrecedence(t *testing.T) {
 	createEnvFile(t, tmpDir, "impl.env", "KEY=level4_impl_file")
 	createEnvFile(t, tmpDir, "runtime.env", "KEY=level9_runtime_file")
 
-	currentPlatform := invowkfile.GetCurrentHostOS()
+	currentPlatform := invowkfile.CurrentPlatform()
 
 	// Shared fake environ for tests that need host env (level 1)
 	hostEnviron := func() []string {
@@ -240,7 +240,7 @@ func TestBuildRuntimeEnv_NilEnvConfigs(t *testing.T) {
 	t.Parallel()
 
 	tmpDir := t.TempDir()
-	currentPlatform := invowkfile.GetCurrentHostOS()
+	currentPlatform := invowkfile.CurrentPlatform()
 
 	tests := []struct {
 		name    string

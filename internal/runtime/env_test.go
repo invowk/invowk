@@ -364,7 +364,7 @@ func TestBuildRuntimeEnv_Precedence(t *testing.T) {
 	createEnvFile(t, tmpDir, "impl.env", "SHARED=impl_file\nIMPL_FILE_ONLY=impl_file")
 	createEnvFile(t, tmpDir, "runtime.env", "SHARED=runtime_file\nRUNTIME_FILE_ONLY=runtime_file")
 
-	currentPlatform := invowkfile.GetCurrentHostOS()
+	currentPlatform := invowkfile.CurrentPlatform()
 	cmd := &invowkfile.Command{
 		Name: "precedence-test",
 		Implementations: []invowkfile.Implementation{
@@ -444,7 +444,7 @@ func TestBuildRuntimeEnv_EnvFiles(t *testing.T) {
 	createEnvFile(t, tmpDir, "cmd.env", "CMD_VAR=from_cmd")
 	createEnvFile(t, tmpDir, "impl.env", "IMPL_VAR=from_impl")
 
-	currentPlatform := invowkfile.GetCurrentHostOS()
+	currentPlatform := invowkfile.CurrentPlatform()
 	cmd := &invowkfile.Command{
 		Name: "env-files-test",
 		Implementations: []invowkfile.Implementation{
@@ -494,7 +494,7 @@ func TestBuildRuntimeEnv_EnvVars(t *testing.T) {
 
 	tmpDir := t.TempDir()
 
-	currentPlatform := invowkfile.GetCurrentHostOS()
+	currentPlatform := invowkfile.CurrentPlatform()
 	cmd := &invowkfile.Command{
 		Name: "env-vars-test",
 		Implementations: []invowkfile.Implementation{

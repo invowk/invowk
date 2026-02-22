@@ -247,7 +247,7 @@ func (t TUIContext) IsConfigured() bool {
 // If the caller fails to set it, ContainerRuntime.prepareHostSSH generates a
 // fallback ID and logs a warning (see container_exec.go).
 func NewExecutionContext(cmd *invowkfile.Command, inv *invowkfile.Invowkfile) *ExecutionContext {
-	currentPlatform := invowkfile.GetCurrentHostOS()
+	currentPlatform := invowkfile.CurrentPlatform()
 	defaultRuntime := cmd.GetDefaultRuntimeForPlatform(currentPlatform)
 	defaultImpl := cmd.GetImplForPlatformRuntime(currentPlatform, defaultRuntime)
 

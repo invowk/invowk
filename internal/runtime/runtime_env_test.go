@@ -84,7 +84,7 @@ func TestRuntime_EnvironmentVariables(t *testing.T) {
 		FilePath: invowkfilePath,
 	}
 
-	currentPlatform := invowkfile.GetCurrentHostOS()
+	currentPlatform := invowkfile.CurrentPlatform()
 	cmd := &invowkfile.Command{
 		Name: "env-test",
 		Implementations: []invowkfile.Implementation{
