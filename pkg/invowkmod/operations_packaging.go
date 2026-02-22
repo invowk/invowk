@@ -24,7 +24,7 @@ func Archive(modulePath, outputPath string) (archivePath string, err error) {
 
 	// Determine output path
 	if outputPath == "" {
-		outputPath = m.Name() + ModuleSuffix + ".zip"
+		outputPath = string(m.Name()) + ModuleSuffix + ".zip"
 	}
 
 	// Resolve absolute output path

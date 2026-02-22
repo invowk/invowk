@@ -130,7 +130,7 @@ func TestBaseCLIEngine_WithRunArgsTransformer(t *testing.T) {
 func TestDockerEngine_Name(t *testing.T) {
 	t.Parallel()
 	engine := &DockerEngine{
-		BaseCLIEngine: NewBaseCLIEngine(""),
+		BaseCLIEngine: NewBaseCLIEngine("", WithName(string(EngineTypeDocker))),
 	}
 
 	if name := engine.Name(); name != "docker" {
@@ -142,7 +142,7 @@ func TestDockerEngine_Name(t *testing.T) {
 func TestPodmanEngine_Name(t *testing.T) {
 	t.Parallel()
 	engine := &PodmanEngine{
-		BaseCLIEngine: NewBaseCLIEngine(""),
+		BaseCLIEngine: NewBaseCLIEngine("", WithName(string(EngineTypePodman))),
 	}
 
 	if name := engine.Name(); name != "podman" {

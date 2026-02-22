@@ -4,6 +4,8 @@ package cmd
 
 import (
 	"testing"
+
+	"github.com/invowk/invowk/internal/discovery"
 )
 
 // ---------------------------------------------------------------------------
@@ -16,7 +18,7 @@ func TestNormalizeSourceName(t *testing.T) {
 	// Test T009: normalizeSourceName helper
 	tests := []struct {
 		input    string
-		expected string
+		expected discovery.SourceID
 	}{
 		// Module names
 		{"foo", "foo"},

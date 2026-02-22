@@ -77,7 +77,7 @@ func Validate(modulePath string) (*ValidationResult, error) {
 			meta, parseErr := ParseInvowkmod(invowkmodPath)
 			if parseErr != nil {
 				result.AddIssue(IssueTypeInvowkmod, fmt.Sprintf("failed to parse invowkmod.cue: %v", parseErr), "invowkmod.cue")
-			} else if meta.Module != result.ModuleName {
+			} else if string(meta.Module) != result.ModuleName {
 				result.AddIssue(IssueTypeNaming, fmt.Sprintf(
 					"module field '%s' in invowkmod.cue must match folder name '%s'",
 					meta.Module, result.ModuleName), "invowkmod.cue")

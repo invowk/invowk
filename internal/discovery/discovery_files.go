@@ -178,7 +178,7 @@ func (d *Discovery) discoverModulesInDirWithDiagnostics(dir string) ([]*Discover
 		// The name "invowkfile" is reserved for the canonical namespace system
 		// where @invowkfile refers to the root invowkfile.cue source
 		moduleName := strings.TrimSuffix(entry.Name(), invowkmod.ModuleSuffix)
-		if moduleName == SourceIDInvowkfile {
+		if SourceID(moduleName) == SourceIDInvowkfile {
 			diagnostics = append(diagnostics, Diagnostic{
 				Severity: SeverityWarning,
 				Code:     CodeReservedModuleNameSkipped,
@@ -232,7 +232,7 @@ func (d *Discovery) loadIncludesWithDiagnostics() ([]*DiscoveredFile, []Diagnost
 			continue
 		}
 		moduleName := strings.TrimSuffix(filepath.Base(entry.Path), invowkmod.ModuleSuffix)
-		if moduleName == SourceIDInvowkfile {
+		if SourceID(moduleName) == SourceIDInvowkfile {
 			diagnostics = append(diagnostics, Diagnostic{
 				Severity: SeverityWarning,
 				Code:     CodeIncludeReservedSkipped,
@@ -299,7 +299,7 @@ func (d *Discovery) discoverVendoredModulesWithDiagnostics(parentModule *invowkm
 		}
 
 		moduleName := strings.TrimSuffix(entry.Name(), invowkmod.ModuleSuffix)
-		if moduleName == SourceIDInvowkfile {
+		if SourceID(moduleName) == SourceIDInvowkfile {
 			diagnostics = append(diagnostics, Diagnostic{
 				Severity: SeverityWarning,
 				Code:     CodeVendoredReservedSkipped,

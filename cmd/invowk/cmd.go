@@ -71,21 +71,21 @@ type (
 	// Parsed from @source prefix in args or --ivk-from flag.
 	SourceFilter struct {
 		// SourceID is the normalized source identifier (e.g., "invowkfile", "foo").
-		SourceID string
+		SourceID discovery.SourceID
 		// Raw is the original user input before normalization (e.g., "@foo.invowkmod").
 		Raw string
 	}
 
 	// SourceNotFoundError is returned when a specified source does not exist.
 	SourceNotFoundError struct {
-		Source           string
-		AvailableSources []string
+		Source           discovery.SourceID
+		AvailableSources []discovery.SourceID
 	}
 
 	// AmbiguousCommandError is returned when a command exists in multiple sources.
 	AmbiguousCommandError struct {
 		CommandName string
-		Sources     []string
+		Sources     []discovery.SourceID
 	}
 )
 
@@ -211,19 +211,19 @@ func (e *AmbiguousCommandError) Error() string {
 	return fmt.Sprintf("command '%s' is ambiguous", e.CommandName)
 }
 
-// normalizeSourceName converts various source name formats to a canonical form.
-func normalizeSourceName(raw string) string {
+// normalizeSourceName converts various source name formats to a canonical SourceID.
+func normalizeSourceName(raw string) discovery.SourceID {
 	name := strings.TrimPrefix(raw, "@")
 
-	if name == "invowkfile.cue" || name == discovery.SourceIDInvowkfile {
+	if name == "invowkfile.cue" || discovery.SourceID(name) == discovery.SourceIDInvowkfile {
 		return discovery.SourceIDInvowkfile
 	}
 
 	if moduleName, found := strings.CutSuffix(name, ".invowkmod"); found {
-		return moduleName
+		return discovery.SourceID(moduleName)
 	}
 
-	return name
+	return discovery.SourceID(name)
 }
 
 // ParseSourceFilter extracts source filter from @prefix in args or --ivk-from flag.

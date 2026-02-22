@@ -194,7 +194,7 @@ func RenderSourceNotFoundError(err *SourceNotFoundError) string {
 
 	sb.WriteString(renderHeaderStyle.Render("✗ Source not found!"))
 	sb.WriteString("\n\n")
-	sb.WriteString(fmt.Sprintf("The source %s does not exist.\n\n", renderCommandStyle.Render("'"+err.Source+"'")))
+	sb.WriteString(fmt.Sprintf("The source %s does not exist.\n\n", renderCommandStyle.Render("'"+string(err.Source)+"'")))
 	sb.WriteString(renderLabelStyle.Render("Available sources: "))
 	if len(err.AvailableSources) > 0 {
 		var formatted []string
@@ -222,7 +222,7 @@ func RenderAmbiguousCommandError(err *AmbiguousCommandError) string {
 
 	for _, source := range err.Sources {
 		// Show source with @prefix for disambiguation (e.g., "@invowkfile", "@foo")
-		sb.WriteString(fmt.Sprintf("  • %s (%s)\n", renderCommandStyle.Render("@"+source), formatSourceDisplayName(source)))
+		sb.WriteString(fmt.Sprintf("  • %s (%s)\n", renderCommandStyle.Render("@"+string(source)), formatSourceDisplayName(source)))
 	}
 
 	sb.WriteString("\n")
@@ -231,8 +231,8 @@ func RenderAmbiguousCommandError(err *AmbiguousCommandError) string {
 	// Show examples with actual source names
 	if len(err.Sources) > 0 {
 		firstSource := err.Sources[0]
-		sb.WriteString(fmt.Sprintf("  invowk cmd %s %s\n", renderCommandStyle.Render("@"+firstSource), err.CommandName))
-		sb.WriteString(fmt.Sprintf("  invowk cmd %s %s %s\n", renderCommandStyle.Render("--ivk-from"), firstSource, err.CommandName))
+		sb.WriteString(fmt.Sprintf("  invowk cmd %s %s\n", renderCommandStyle.Render("@"+string(firstSource)), err.CommandName))
+		sb.WriteString(fmt.Sprintf("  invowk cmd %s %s %s\n", renderCommandStyle.Render("--ivk-from"), string(firstSource), err.CommandName))
 	}
 
 	sb.WriteString("\n")

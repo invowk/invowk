@@ -3,6 +3,7 @@
 package execute
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -157,7 +158,7 @@ func BuildExecutionContext(opts BuildExecutionContextOptions) (*runtime.Executio
 		return nil, fmt.Errorf("BuildExecutionContext: Invowkfile must not be nil")
 	}
 
-	execCtx := runtime.NewExecutionContext(opts.Command, opts.Invowkfile)
+	execCtx := runtime.NewExecutionContext(context.Background(), opts.Command, opts.Invowkfile)
 
 	execCtx.Verbose = opts.Verbose
 	execCtx.SelectedRuntime = opts.Selection.Mode

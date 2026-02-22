@@ -49,6 +49,11 @@ var (
 )
 
 type (
+	// ModuleID is a typed identifier for invowk modules (e.g., "io.invowk.sample").
+	// Using a named type prevents accidental confusion with other string parameters
+	// like command names, source IDs, or file paths.
+	ModuleID string
+
 	// ModuleCommands defines the typed command contract stored in Module.Commands.
 	// This abstraction decouples module identity from invowkfile command listing,
 	// allowing Module to hold command access without depending on pkg/invowkfile
@@ -138,7 +143,7 @@ type (
 		// Must start with a letter, contain only alphanumeric characters, with optional
 		// dot-separated segments. RDNS format recommended (e.g., "io.invowk.sample", "com.example.mytools")
 		// IMPORTANT: The module value MUST match the folder name prefix (before .invowkmod)
-		Module string `json:"module"`
+		Module ModuleID `json:"module"`
 		// Version specifies the module version using semantic versioning (mandatory).
 		// Format: MAJOR.MINOR.PATCH with optional pre-release label (e.g., "1.0.0", "2.1.0-alpha.1").
 		// No "v" prefix, no build metadata, no leading zeros on numeric segments.
@@ -166,11 +171,11 @@ type (
 	// Commands CANNOT call transitive dependencies (dependencies of dependencies).
 	CommandScope struct {
 		// ModuleID is the module identifier that owns this scope
-		ModuleID string `json:"-"`
+		ModuleID ModuleID `json:"-"`
 		// GlobalModules are commands from globally installed modules (always accessible)
-		GlobalModules map[string]bool `json:"-"`
+		GlobalModules map[ModuleID]bool `json:"-"`
 		// DirectDeps are module IDs from first-level requirements (from invowkmod.cue:requires)
-		DirectDeps map[string]bool `json:"-"`
+		DirectDeps map[ModuleID]bool `json:"-"`
 	}
 )
 
@@ -194,7 +199,7 @@ func (r *ValidationResult) AddIssue(issueType ValidationIssueType, message, path
 
 // Name returns the module identifier from metadata.
 // This is the value of the 'module' field in invowkmod.cue.
-func (m *Module) Name() string {
+func (m *Module) Name() ModuleID {
 	if m.Metadata == nil {
 		return ""
 	}
@@ -318,11 +323,11 @@ func (m *Module) checkSymlinkSafety(path string) error {
 // NewCommandScope creates a CommandScope for a parsed module.
 // globalModuleIDs should contain module IDs from ~/.invowk/modules/
 // directRequirements should be the requires list from the module's invowkmod.cue
-func NewCommandScope(moduleID string, globalModuleIDs []string, directRequirements []ModuleRequirement) *CommandScope {
+func NewCommandScope(moduleID ModuleID, globalModuleIDs []ModuleID, directRequirements []ModuleRequirement) *CommandScope {
 	scope := &CommandScope{
 		ModuleID:      moduleID,
-		GlobalModules: make(map[string]bool),
-		DirectDeps:    make(map[string]bool),
+		GlobalModules: make(map[ModuleID]bool),
+		DirectDeps:    make(map[ModuleID]bool),
 	}
 
 	for _, id := range globalModuleIDs {
@@ -332,7 +337,7 @@ func NewCommandScope(moduleID string, globalModuleIDs []string, directRequiremen
 	for _, req := range directRequirements {
 		// The direct dependency namespace uses either alias or the resolved module ID
 		if req.Alias != "" {
-			scope.DirectDeps[req.Alias] = true
+			scope.DirectDeps[ModuleID(req.Alias)] = true
 		}
 		// Note: The actual resolved module ID will be added during resolution
 	}
@@ -344,7 +349,7 @@ func NewCommandScope(moduleID string, globalModuleIDs []string, directRequiremen
 // Returns true if allowed, false with reason if not.
 func (s *CommandScope) CanCall(targetCmd string) (allowed bool, reason string) {
 	// Extract module prefix from command name (format: "module.name cmdname" or "module.name@version cmdname")
-	targetModule := ExtractModuleFromCommand(targetCmd)
+	targetModule := ModuleID(ExtractModuleFromCommand(targetCmd))
 
 	// If no module prefix, it's a local command (always allowed)
 	if targetModule == "" {
@@ -378,7 +383,7 @@ func (s *CommandScope) CanCall(targetCmd string) (allowed bool, reason string) {
 
 // AddDirectDep adds a resolved direct dependency to the scope.
 // This is called during resolution when we know the actual module ID.
-func (s *CommandScope) AddDirectDep(moduleID string) {
+func (s *CommandScope) AddDirectDep(moduleID ModuleID) {
 	s.DirectDeps[moduleID] = true
 }
 

@@ -180,21 +180,21 @@ func TestCheckAmbiguousCommand(t *testing.T) {
 	// Build a command set with "deploy" in two sources and "build" in one source.
 	set := discovery.NewDiscoveredCommandSet()
 	set.BySimpleName["deploy"] = []*discovery.CommandInfo{
-		{SimpleName: "deploy", SourceID: "invowkfile"},
+		{SimpleName: "deploy", SourceID: discovery.SourceIDInvowkfile},
 		{SimpleName: "deploy", SourceID: "mymodule"},
 	}
 	set.BySimpleName["build"] = []*discovery.CommandInfo{
-		{SimpleName: "build", SourceID: "invowkfile"},
+		{SimpleName: "build", SourceID: discovery.SourceIDInvowkfile},
 	}
 	set.AmbiguousNames["deploy"] = true
-	set.BySource["invowkfile"] = []*discovery.CommandInfo{
-		{SimpleName: "deploy", SourceID: "invowkfile"},
-		{SimpleName: "build", SourceID: "invowkfile"},
+	set.BySource[discovery.SourceIDInvowkfile] = []*discovery.CommandInfo{
+		{SimpleName: "deploy", SourceID: discovery.SourceIDInvowkfile},
+		{SimpleName: "build", SourceID: discovery.SourceIDInvowkfile},
 	}
 	set.BySource["mymodule"] = []*discovery.CommandInfo{
 		{SimpleName: "deploy", SourceID: "mymodule"},
 	}
-	set.SourceOrder = []string{"invowkfile", "mymodule"}
+	set.SourceOrder = []discovery.SourceID{discovery.SourceIDInvowkfile, "mymodule"}
 
 	mock := &mockDiscoveryService{
 		result: discovery.CommandSetResult{Set: set},

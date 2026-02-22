@@ -127,11 +127,11 @@ func TestListVendoredModules(t *testing.T) {
 		}
 
 		// Check module names
-		names := make(map[string]bool)
+		names := make(map[ModuleID]bool)
 		for _, p := range modules {
 			names[p.Name()] = true
 		}
-		if !names["vendor1"] || !names["vendor2"] {
+		if !names[ModuleID("vendor1")] || !names[ModuleID("vendor2")] {
 			t.Errorf("ListVendoredModules() missing expected modules, got: %v", names)
 		}
 	})

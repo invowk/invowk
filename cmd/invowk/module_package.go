@@ -171,7 +171,7 @@ func runModuleImport(args []string, importPath string, importOverwrite bool) err
 
 	fmt.Printf("%s Module imported successfully\n", moduleSuccessIcon)
 	fmt.Println()
-	fmt.Printf("%s Name: %s\n", moduleInfoIcon, CmdStyle.Render(b.Name()))
+	fmt.Printf("%s Name: %s\n", moduleInfoIcon, CmdStyle.Render(string(b.Name())))
 	fmt.Printf("%s Path: %s\n", moduleInfoIcon, modulePathStyle.Render(modulePath))
 	fmt.Println()
 	fmt.Printf("%s The module commands are now available via invowk\n", moduleInfoIcon)

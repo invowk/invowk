@@ -139,11 +139,6 @@ type (
 	// HttpLink represents a URL link for documentation or external resources.
 	HttpLink string
 
-	// Renderer defines the interface for rendering markdown content.
-	Renderer interface {
-		Render(in string, stylePath string) (string, error)
-	}
-
 	// Issue represents a user-facing error with documentation and external links.
 	Issue struct {
 		id       Id          // ID used to lookup the issue

@@ -200,7 +200,7 @@ func checkAmbiguousCommand(ctx context.Context, app *App, rootFlags *rootFlagVal
 		return nil
 	}
 
-	var sources []string
+	var sources []discovery.SourceID
 	for _, cmd := range commandSet.BySimpleName[cmdName] {
 		sources = append(sources, cmd.SourceID)
 	}

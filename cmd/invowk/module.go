@@ -156,7 +156,7 @@ func runModuleList(ctx context.Context, app *App) error {
 
 		fmt.Printf("%s %s:\n", moduleInfoIcon, source.String())
 		for _, p := range sourceModules {
-			fmt.Printf("   %s %s\n", moduleSuccessIcon, CmdStyle.Render(p.Module.Name()))
+			fmt.Printf("   %s %s\n", moduleSuccessIcon, CmdStyle.Render(string(p.Module.Name())))
 			fmt.Printf("      %s\n", moduleDetailStyle.Render(p.Module.Path))
 		}
 		fmt.Println()

@@ -52,7 +52,7 @@ func TestNewExecutionContext(t *testing.T) {
 	}
 	cmd := testCommandWithScript("test", "echo hello", invowkfile.RuntimeNative)
 
-	ctx := NewExecutionContext(cmd, inv)
+	ctx := NewExecutionContext(context.Background(), cmd, inv)
 
 	// Check that defaults are set
 	if ctx.Command != cmd {
@@ -97,7 +97,7 @@ func TestNewExecutionContext_VirtualRuntime(t *testing.T) {
 	}
 	cmd := testCommandWithScript("test", "echo hello", invowkfile.RuntimeVirtual)
 
-	ctx := NewExecutionContext(cmd, inv)
+	ctx := NewExecutionContext(context.Background(), cmd, inv)
 
 	if ctx.SelectedRuntime != invowkfile.RuntimeVirtual {
 		t.Errorf("NewExecutionContext() SelectedRuntime = %q, want %q", ctx.SelectedRuntime, invowkfile.RuntimeVirtual)
@@ -289,7 +289,7 @@ func TestRegistry_GetForContext(t *testing.T) {
 			t.Parallel()
 
 			cmd := testCommandWithScript("test", "echo test", tt.runtime)
-			ctx := NewExecutionContext(cmd, inv)
+			ctx := NewExecutionContext(context.Background(), cmd, inv)
 
 			rt, err := reg.GetForContext(ctx)
 
@@ -434,7 +434,7 @@ func TestRegistry_Execute(t *testing.T) {
 			tt.setupReg(reg)
 
 			cmd := testCommandWithScript("test", "echo test", tt.runtime)
-			ctx := NewExecutionContext(cmd, inv)
+			ctx := NewExecutionContext(context.Background(), cmd, inv)
 			ctx.IO.Stdout = &bytes.Buffer{}
 			ctx.IO.Stderr = &bytes.Buffer{}
 
@@ -615,10 +615,9 @@ func TestExecutionContext_CustomOverrides(t *testing.T) {
 	}
 	cmd := testCommandWithScript("test", "echo test", invowkfile.RuntimeNative)
 
-	ctx := NewExecutionContext(cmd, inv)
+	ctx := NewExecutionContext(context.Background(), cmd, inv)
 
 	// Set custom overrides
-	ctx.Context = context.Background()
 	ctx.IO.Stdout = &bytes.Buffer{}
 	ctx.IO.Stderr = &bytes.Buffer{}
 	ctx.Env.ExtraEnv["CUSTOM"] = "value"
@@ -680,7 +679,7 @@ func TestRegistry_Execute_UnavailableRuntimeWraps(t *testing.T) {
 	})
 
 	cmd := testCommandWithScript("test", "echo test", invowkfile.RuntimeNative)
-	ctx := NewExecutionContext(cmd, inv)
+	ctx := NewExecutionContext(context.Background(), cmd, inv)
 	ctx.IO.Stdout = &bytes.Buffer{}
 	ctx.IO.Stderr = &bytes.Buffer{}
 

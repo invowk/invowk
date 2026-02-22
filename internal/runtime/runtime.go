@@ -241,12 +241,16 @@ func (t TUIContext) IsConfigured() bool {
 	return t.ServerURL != ""
 }
 
-// NewExecutionContext creates a new execution context with defaults.
+// NewExecutionContext creates a new execution context with the provided Go context.
+// The ctx parameter is required to ensure cancellation and timeout propagation —
+// passing context.Background() silently disables these features, so callers must
+// provide their request-scoped context explicitly.
+//
 // ExecutionID is left empty; the caller should set it via Registry.NewExecutionID()
 // after the registry is created (see dispatchExecution in cmd_execute.go).
 // If the caller fails to set it, ContainerRuntime.prepareHostSSH generates a
 // fallback ID and logs a warning (see container_exec.go).
-func NewExecutionContext(cmd *invowkfile.Command, inv *invowkfile.Invowkfile) *ExecutionContext {
+func NewExecutionContext(ctx context.Context, cmd *invowkfile.Command, inv *invowkfile.Invowkfile) *ExecutionContext {
 	currentPlatform := invowkfile.CurrentPlatform()
 	defaultRuntime := cmd.GetDefaultRuntimeForPlatform(currentPlatform)
 	defaultImpl := cmd.GetImplForPlatformRuntime(currentPlatform, defaultRuntime)
@@ -254,13 +258,20 @@ func NewExecutionContext(cmd *invowkfile.Command, inv *invowkfile.Invowkfile) *E
 	return &ExecutionContext{
 		Command:         cmd,
 		Invowkfile:      inv,
-		Context:         context.Background(),
+		Context:         ctx,
 		SelectedRuntime: defaultRuntime,
 		SelectedImpl:    defaultImpl,
 		IO:              DefaultIO(),
 		Env:             DefaultEnv(),
 		// TUI: zero value is fine (not configured by default)
 	}
+}
+
+// EffectiveWorkDir determines the working directory using the hierarchical override model.
+// Precedence (highest to lowest): CLI override > Implementation > Command > Root > Default.
+// This centralizes workdir resolution that was previously duplicated across runtimes.
+func (ctx *ExecutionContext) EffectiveWorkDir() string {
+	return ctx.Invowkfile.GetEffectiveWorkDir(ctx.Command, ctx.SelectedImpl, ctx.WorkDir)
 }
 
 // Success returns true if the command executed successfully

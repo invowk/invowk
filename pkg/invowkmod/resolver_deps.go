@@ -211,7 +211,7 @@ func (m *Resolver) loadTransitiveDeps(cachePath string) ([]ModuleRef, string, er
 
 	reqs := extractRequiresFromInvowkmod(meta.Requires)
 
-	return reqs, meta.Module, nil
+	return reqs, string(meta.Module), nil
 }
 
 // computeNamespace generates the namespace for a module.

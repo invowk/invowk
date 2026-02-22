@@ -466,7 +466,7 @@ func listCommands(cmd *cobra.Command, app *App, rootFlags *rootFlagValues) error
 			} else {
 				moduleCount++
 			}
-			fmt.Fprintf(w, "  %s %s\n", VerboseHighlightStyle.Render("•"), VerboseStyle.Render(sourceID))
+			fmt.Fprintf(w, "  %s %s\n", VerboseHighlightStyle.Render("•"), VerboseStyle.Render(string(sourceID)))
 		}
 		fmt.Fprintln(w)
 		fmt.Fprintf(w, "  %s\n", VerboseStyle.Render(fmt.Sprintf("Sources: %d invowkfile(s), %d module(s)", invowkfileCount, moduleCount)))
@@ -503,7 +503,7 @@ func listCommands(cmd *cobra.Command, app *App, rootFlags *rootFlagValues) error
 					line += fmt.Sprintf(" - %s", descStyle.Render(discovered.Description))
 				}
 				if discovered.IsAmbiguous {
-					line += fmt.Sprintf(" %s", ambiguousStyle.Render("(@"+sourceID+")"))
+					line += fmt.Sprintf(" %s", ambiguousStyle.Render("(@"+string(sourceID)+")"))
 				}
 				currentPlatform := invowkfile.CurrentPlatform()
 				runtimesStr := discovered.Command.GetRuntimesStringForPlatform(currentPlatform)
@@ -560,13 +560,14 @@ func groupByCategory(cmds []*discovery.CommandInfo) []commandGroup {
 }
 
 // formatSourceDisplayName converts a SourceID to a user-friendly display name.
-func formatSourceDisplayName(sourceID string) string {
+func formatSourceDisplayName(sourceID discovery.SourceID) string {
 	if sourceID == discovery.SourceIDInvowkfile {
-		return discovery.SourceIDInvowkfile
+		return string(discovery.SourceIDInvowkfile)
 	}
-	if strings.Contains(sourceID, " ") {
-		return sourceID
+	s := string(sourceID)
+	if strings.Contains(s, " ") {
+		return s
 	}
 
-	return sourceID + ".invowkmod"
+	return s + ".invowkmod"
 }

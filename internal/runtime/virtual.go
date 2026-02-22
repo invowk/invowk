@@ -136,7 +136,7 @@ func (r *VirtualRuntime) Execute(ctx *ExecutionContext) *Result {
 	}
 
 	// Determine working directory
-	workDir := r.getWorkDir(ctx)
+	workDir := ctx.EffectiveWorkDir()
 
 	// Build environment
 	env, err := r.envBuilder.Build(ctx, invowkfile.EnvInheritAll)
@@ -196,7 +196,7 @@ func (r *VirtualRuntime) ExecuteCapture(ctx *ExecutionContext) *Result {
 		return &Result{ExitCode: 1, Error: fmt.Errorf("failed to parse script: %w", err)}
 	}
 
-	workDir := r.getWorkDir(ctx)
+	workDir := ctx.EffectiveWorkDir()
 	env, err := r.envBuilder.Build(ctx, invowkfile.EnvInheritAll)
 	if err != nil {
 		return &Result{ExitCode: 1, Error: fmt.Errorf("failed to build environment: %w", err)}
@@ -312,7 +312,7 @@ func (r *VirtualRuntime) PrepareCommand(ctx *ExecutionContext) (*PreparedCommand
 	}
 
 	// Determine working directory
-	workDir := r.getWorkDir(ctx)
+	workDir := ctx.EffectiveWorkDir()
 
 	// Build environment
 	env, err := r.envBuilder.Build(ctx, invowkfile.EnvInheritAll)
@@ -405,10 +405,4 @@ func (r *VirtualRuntime) tryUrootBuiltin(ctx context.Context, args []string) (bo
 	// implementations before dispatching to cmd.Run().
 	err := r.urootRegistry.Run(ctx, cmdName, args)
 	return true, err
-}
-
-// getWorkDir determines the working directory using the hierarchical override model.
-// Precedence (highest to lowest): CLI override > Implementation > Command > Root > Default
-func (r *VirtualRuntime) getWorkDir(ctx *ExecutionContext) string {
-	return ctx.Invowkfile.GetEffectiveWorkDir(ctx.Command, ctx.SelectedImpl, ctx.WorkDir)
 }

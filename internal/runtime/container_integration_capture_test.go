@@ -78,8 +78,7 @@ func testContainerExecuteCaptureBasic(t *testing.T) {
 	}
 
 	rt := createContainerRuntime(t)
-	execCtx := NewExecutionContext(cmd, inv)
-	execCtx.Context = context.Background()
+	execCtx := NewExecutionContext(context.Background(), cmd, inv)
 
 	result := rt.ExecuteCapture(execCtx)
 	if result.ExitCode != 0 {
@@ -111,8 +110,7 @@ func testContainerExecuteCaptureExitCode(t *testing.T) {
 	}
 
 	rt := createContainerRuntime(t)
-	execCtx := NewExecutionContext(cmd, inv)
-	execCtx.Context = context.Background()
+	execCtx := NewExecutionContext(context.Background(), cmd, inv)
 
 	result := rt.ExecuteCapture(execCtx)
 	if result.ExitCode != 42 {
@@ -144,8 +142,7 @@ func testContainerExecuteCaptureStderr(t *testing.T) {
 	}
 
 	rt := createContainerRuntime(t)
-	execCtx := NewExecutionContext(cmd, inv)
-	execCtx.Context = context.Background()
+	execCtx := NewExecutionContext(context.Background(), cmd, inv)
 
 	result := rt.ExecuteCapture(execCtx)
 	if result.ExitCode != 0 {
@@ -184,8 +181,7 @@ func testContainerExecuteCaptureEnvVars(t *testing.T) {
 	}
 
 	rt := createContainerRuntime(t)
-	execCtx := NewExecutionContext(cmd, inv)
-	execCtx.Context = context.Background()
+	execCtx := NewExecutionContext(context.Background(), cmd, inv)
 
 	result := rt.ExecuteCapture(execCtx)
 	if result.ExitCode != 0 {

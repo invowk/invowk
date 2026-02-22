@@ -5,6 +5,7 @@ package cmd
 import (
 	"bytes"
 	"fmt"
+	"strings"
 
 	"github.com/invowk/invowk/internal/runtime"
 	"github.com/invowk/invowk/pkg/invowkfile"
@@ -41,6 +42,27 @@ func newContainerValidationContext(parentCtx *runtime.ExecutionContext, script s
 		Env:             runtime.DefaultEnv(),
 	}
 	return execCtx, stdout, stderr
+}
+
+// collectToolErrors evaluates each tool dependency and collects error messages for
+// tools that are not satisfied. Each tool has alternatives with OR semantics (any
+// alternative found satisfies the dependency). The check function validates a single
+// tool name; it's called for each alternative until one succeeds.
+func collectToolErrors(tools []invowkfile.ToolDependency, check func(string) error) []string {
+	var toolErrors []string
+
+	for _, tool := range tools {
+		found, lastErr := evaluateAlternatives(tool.Alternatives, check)
+		if !found && lastErr != nil {
+			if len(tool.Alternatives) == 1 {
+				toolErrors = append(toolErrors, lastErr.Error())
+			} else {
+				toolErrors = append(toolErrors, fmt.Sprintf("  • none of [%s] found", strings.Join(tool.Alternatives, ", ")))
+			}
+		}
+	}
+
+	return toolErrors
 }
 
 // checkTransientExitCode returns a formatted error if the container execution result
