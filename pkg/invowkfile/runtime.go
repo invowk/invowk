@@ -218,7 +218,7 @@ func (m RuntimeMode) IsValid() (bool, []error) {
 	}
 }
 
-// IsValid returns whether the EnvInheritMode is a valid value,
+// IsValid returns whether the EnvInheritMode is one of the defined env inherit modes,
 // and a list of validation errors if it is not.
 func (m EnvInheritMode) IsValid() (bool, []error) {
 	switch m {

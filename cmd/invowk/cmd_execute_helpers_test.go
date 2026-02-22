@@ -251,7 +251,7 @@ func TestCheckAmbiguousCommand(t *testing.T) {
 					if !errors.As(err, &ambigErr) {
 						t.Fatalf("expected *AmbiguousCommandError, got %T: %v", err, err)
 					}
-					if ambigErr.CommandName != tt.args[0] {
+					if string(ambigErr.CommandName) != tt.args[0] {
 						t.Errorf("AmbiguousCommandError.CommandName = %q, want %q", ambigErr.CommandName, tt.args[0])
 					}
 				}

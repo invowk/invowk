@@ -90,7 +90,7 @@ func checkCustomCheckDependenciesInContainer(deps *invowkfile.DependsOn, registr
 
 	if len(checkErrors) > 0 {
 		return &DependencyError{
-			CommandName:        ctx.Command.Name,
+			CommandName:        invowkfile.CommandName(ctx.Command.Name),
 			FailedCustomChecks: checkErrors,
 		}
 	}
@@ -165,7 +165,7 @@ func checkHostCustomCheckDependencies(deps *invowkfile.DependsOn, ctx *runtime.E
 
 	if len(checkErrors) > 0 {
 		return &DependencyError{
-			CommandName:        ctx.Command.Name,
+			CommandName:        invowkfile.CommandName(ctx.Command.Name),
 			FailedCustomChecks: checkErrors,
 		}
 	}
@@ -241,7 +241,7 @@ func checkEnvVarDependenciesInContainer(deps *invowkfile.DependsOn, registry *ru
 
 	if len(envVarErrors) > 0 {
 		return &DependencyError{
-			CommandName:    ctx.Command.Name,
+			CommandName:    invowkfile.CommandName(ctx.Command.Name),
 			MissingEnvVars: envVarErrors,
 		}
 	}
@@ -300,7 +300,7 @@ func checkCapabilityDependenciesInContainer(deps *invowkfile.DependsOn, registry
 
 	if len(capabilityErrors) > 0 {
 		return &DependencyError{
-			CommandName:         ctx.Command.Name,
+			CommandName:         invowkfile.CommandName(ctx.Command.Name),
 			MissingCapabilities: capabilityErrors,
 		}
 	}
@@ -387,7 +387,7 @@ func checkCommandDependenciesInContainer(deps *invowkfile.DependsOn, registry *r
 
 	if len(commandErrors) > 0 {
 		return &DependencyError{
-			CommandName:     ctx.Command.Name,
+			CommandName:     invowkfile.CommandName(ctx.Command.Name),
 			MissingCommands: commandErrors,
 		}
 	}
@@ -445,7 +445,7 @@ func checkCapabilityDependencies(deps *invowkfile.DependsOn, ctx *runtime.Execut
 
 	if len(capabilityErrors) > 0 {
 		return &DependencyError{
-			CommandName:         ctx.Command.Name,
+			CommandName:         invowkfile.CommandName(ctx.Command.Name),
 			MissingCapabilities: capabilityErrors,
 		}
 	}
@@ -510,7 +510,7 @@ func checkEnvVarDependencies(deps *invowkfile.DependsOn, userEnv map[string]stri
 
 	if len(envVarErrors) > 0 {
 		return &DependencyError{
-			CommandName:    ctx.Command.Name,
+			CommandName:    invowkfile.CommandName(ctx.Command.Name),
 			MissingEnvVars: envVarErrors,
 		}
 	}

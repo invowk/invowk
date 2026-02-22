@@ -283,7 +283,7 @@ func (s *commandService) buildExecContext(req ExecuteRequest, cmdInfo *discovery
 		EnvInheritMode:  req.EnvInheritMode,
 		EnvInheritAllow: req.EnvInheritAllow,
 		EnvInheritDeny:  req.EnvInheritDeny,
-		SourceID:        string(cmdInfo.SourceID),
+		SourceID:        cmdInfo.SourceID,
 		Platform:        invowkfile.CurrentPlatform(),
 	})
 }

@@ -14,6 +14,12 @@ import (
 	"github.com/invowk/invowk/pkg/invowkmod"
 )
 
+// moduleIDPtr is a test helper that creates a *invowkmod.ModuleID from a string.
+func moduleIDPtr(s string) *invowkmod.ModuleID {
+	id := invowkmod.ModuleID(s)
+	return &id
+}
+
 func TestDiscoveredCommandSet_Add(t *testing.T) {
 	t.Parallel()
 
@@ -189,14 +195,14 @@ func TestDiscoveredCommandSet_MultiSourceAggregation(t *testing.T) {
 		Name:       "foo build",
 		SimpleName: "build",
 		SourceID:   "foo",
-		ModuleID:   "io.invowk.foo",
+		ModuleID:   moduleIDPtr("io.invowk.foo"),
 		Source:     SourceModule,
 	})
 	set.Add(&CommandInfo{
 		Name:       "foo deploy",
 		SimpleName: "deploy",
 		SourceID:   "foo",
-		ModuleID:   "io.invowk.foo",
+		ModuleID:   moduleIDPtr("io.invowk.foo"),
 		Source:     SourceModule,
 	})
 
@@ -205,7 +211,7 @@ func TestDiscoveredCommandSet_MultiSourceAggregation(t *testing.T) {
 		Name:       "bar test",
 		SimpleName: "test",
 		SourceID:   "bar",
-		ModuleID:   "io.invowk.bar",
+		ModuleID:   moduleIDPtr("io.invowk.bar"),
 		Source:     SourceModule,
 	})
 
@@ -301,7 +307,7 @@ func TestDiscoveredCommandSet_HierarchicalAmbiguity(t *testing.T) {
 		Name:       "foo deploy",
 		SimpleName: "deploy",
 		SourceID:   "foo",
-		ModuleID:   "io.invowk.foo",
+		ModuleID:   moduleIDPtr("io.invowk.foo"),
 		Source:     SourceModule,
 	})
 
@@ -310,14 +316,14 @@ func TestDiscoveredCommandSet_HierarchicalAmbiguity(t *testing.T) {
 		Name:       "bar deploy staging",
 		SimpleName: "deploy staging",
 		SourceID:   "bar",
-		ModuleID:   "io.invowk.bar",
+		ModuleID:   moduleIDPtr("io.invowk.bar"),
 		Source:     SourceModule,
 	})
 	set.Add(&CommandInfo{
 		Name:       "bar deploy production",
 		SimpleName: "deploy production",
 		SourceID:   "bar",
-		ModuleID:   "io.invowk.bar",
+		ModuleID:   moduleIDPtr("io.invowk.bar"),
 		Source:     SourceModule,
 	})
 

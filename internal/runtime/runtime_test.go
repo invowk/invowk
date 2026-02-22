@@ -588,7 +588,7 @@ func TestStringsCutEnvSeparator(t *testing.T) {
 	}
 }
 
-// TestRegistryNewExecutionID tests that Registry.NewExecutionID generates unique IDs.
+// TestRegistryNewExecutionID tests that Registry.NewExecutionID generates unique, valid IDs.
 func TestRegistryNewExecutionID(t *testing.T) {
 	t.Parallel()
 
@@ -602,6 +602,52 @@ func TestRegistryNewExecutionID(t *testing.T) {
 	// IDs should be unique due to the monotonic counter.
 	if id1 == id2 {
 		t.Error("Registry.NewExecutionID() should generate unique IDs")
+	}
+	// Generated IDs must pass IsValid.
+	if isValid, errs := id1.IsValid(); !isValid {
+		t.Errorf("Registry.NewExecutionID() generated invalid ID %q: %v", id1, errs)
+	}
+	if isValid, errs := id2.IsValid(); !isValid {
+		t.Errorf("Registry.NewExecutionID() generated invalid ID %q: %v", id2, errs)
+	}
+}
+
+// TestExecutionID_IsValid tests the ExecutionID validation method.
+func TestExecutionID_IsValid(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		id      ExecutionID
+		want    bool
+		wantErr bool
+	}{
+		{"valid", ExecutionID("1234567890-1"), true, false},
+		{"valid_large", ExecutionID("9999999999999-42"), true, false},
+		{"empty", ExecutionID(""), false, true},
+		{"no_counter", ExecutionID("1234567890"), false, true},
+		{"letters", ExecutionID("abc-1"), false, true},
+		{"wrong_separator", ExecutionID("123_456"), false, true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			isValid, errs := tt.id.IsValid()
+			if isValid != tt.want {
+				t.Errorf("ExecutionID(%q).IsValid() = %v, want %v", tt.id, isValid, tt.want)
+			}
+			if tt.wantErr {
+				if len(errs) == 0 {
+					t.Fatalf("ExecutionID(%q).IsValid() returned no errors, want error", tt.id)
+				}
+				if !errors.Is(errs[0], ErrInvalidExecutionID) {
+					t.Errorf("error should wrap ErrInvalidExecutionID, got: %v", errs[0])
+				}
+			} else if len(errs) > 0 {
+				t.Errorf("ExecutionID(%q).IsValid() returned unexpected errors: %v", tt.id, errs)
+			}
+		})
 	}
 }
 

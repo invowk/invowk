@@ -34,7 +34,7 @@ func checkToolDependenciesInContainer(deps *invowkfile.DependsOn, registry *runt
 
 	if len(toolErrors) > 0 {
 		return &DependencyError{
-			CommandName:  ctx.Command.Name,
+			CommandName:  invowkfile.CommandName(ctx.Command.Name),
 			MissingTools: toolErrors,
 		}
 	}
@@ -90,7 +90,7 @@ func checkHostToolDependencies(deps *invowkfile.DependsOn, ctx *runtime.Executio
 
 	if len(toolErrors) > 0 {
 		return &DependencyError{
-			CommandName:  ctx.Command.Name,
+			CommandName:  invowkfile.CommandName(ctx.Command.Name),
 			MissingTools: toolErrors,
 		}
 	}

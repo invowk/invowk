@@ -3,6 +3,7 @@
 package tui
 
 import (
+	"errors"
 	"strings"
 	"testing"
 )
@@ -162,14 +163,12 @@ func TestFormat_UnknownType(t *testing.T) {
 		Config:  DefaultConfig(),
 	}
 
-	result, err := Format(opts)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+	_, err := Format(opts)
+	if err == nil {
+		t.Fatal("Format() with unknown type should return error")
 	}
-
-	// Unknown type returns content unchanged
-	if result != opts.Content {
-		t.Errorf("expected unchanged content for unknown type")
+	if !errors.Is(err, ErrInvalidFormatType) {
+		t.Errorf("error should wrap ErrInvalidFormatType, got: %v", err)
 	}
 }
 
@@ -401,5 +400,58 @@ func TestEmojiMap_Completeness(t *testing.T) {
 				t.Errorf("emoji code %s was not replaced", code)
 			}
 		})
+	}
+}
+
+func TestFormatType_IsValid(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		ft      FormatType
+		want    bool
+		wantErr bool
+	}{
+		{FormatMarkdown, true, false},
+		{FormatCode, true, false},
+		{FormatTemplate, true, false},
+		{FormatEmoji, true, false},
+		{"", false, true},
+		{"invalid", false, true},
+		{"MARKDOWN", false, true},
+	}
+
+	for _, tt := range tests {
+		t.Run(string(tt.ft), func(t *testing.T) {
+			t.Parallel()
+			isValid, errs := tt.ft.IsValid()
+			if isValid != tt.want {
+				t.Errorf("FormatType(%q).IsValid() = %v, want %v", tt.ft, isValid, tt.want)
+			}
+			if tt.wantErr {
+				if len(errs) == 0 {
+					t.Fatalf("FormatType(%q).IsValid() returned no errors, want error", tt.ft)
+				}
+				if !errors.Is(errs[0], ErrInvalidFormatType) {
+					t.Errorf("error should wrap ErrInvalidFormatType, got: %v", errs[0])
+				}
+			} else if len(errs) > 0 {
+				t.Errorf("FormatType(%q).IsValid() returned unexpected errors: %v", tt.ft, errs)
+			}
+		})
+	}
+}
+
+func TestFormat_InvalidType(t *testing.T) {
+	t.Parallel()
+
+	_, err := Format(FormatOptions{
+		Content: "test",
+		Type:    FormatType("invalid"),
+	})
+	if err == nil {
+		t.Fatal("Format() with invalid type should return error")
+	}
+	if !errors.Is(err, ErrInvalidFormatType) {
+		t.Errorf("error should wrap ErrInvalidFormatType, got: %v", err)
 	}
 }

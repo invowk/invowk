@@ -16,6 +16,7 @@ import (
 	"github.com/invowk/invowk/internal/sshserver"
 	"github.com/invowk/invowk/internal/tui"
 	"github.com/invowk/invowk/internal/tuiserver"
+	"github.com/invowk/invowk/pkg/invowkfile"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/spf13/cobra"
@@ -205,7 +206,7 @@ func checkAmbiguousCommand(ctx context.Context, app *App, rootFlags *rootFlagVal
 		sources = append(sources, cmd.SourceID)
 	}
 
-	return &AmbiguousCommandError{CommandName: cmdName, Sources: sources}
+	return &AmbiguousCommandError{CommandName: invowkfile.CommandName(cmdName), Sources: sources}
 }
 
 // createRuntimeRegistry creates and populates the runtime registry.

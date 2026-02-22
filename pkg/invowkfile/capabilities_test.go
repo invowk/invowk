@@ -141,37 +141,6 @@ func TestValidCapabilityNames(t *testing.T) {
 	}
 }
 
-func TestIsValidCapabilityName(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name     CapabilityName
-		expected bool
-	}{
-		{CapabilityLocalAreaNetwork, true},
-		{CapabilityInternet, true},
-		{CapabilityContainers, true},
-		{CapabilityTTY, true},
-		{CapabilityName("unknown"), false},
-		{CapabilityName(""), false},
-		{CapabilityName("local-area-network"), true}, // explicit string match
-		{CapabilityName("internet"), true},           // explicit string match
-		{CapabilityName("containers"), true},         // explicit string match
-		{CapabilityName("tty"), true},                // explicit string match
-	}
-
-	for _, tt := range tests {
-		t.Run(string(tt.name), func(t *testing.T) {
-			t.Parallel()
-
-			result := IsValidCapabilityName(tt.name)
-			if result != tt.expected {
-				t.Errorf("IsValidCapabilityName(%q) = %v, want %v", tt.name, result, tt.expected)
-			}
-		})
-	}
-}
-
 func TestCapabilityName_IsValid(t *testing.T) {
 	t.Parallel()
 

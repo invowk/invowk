@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/invowk/invowk/pkg/invowkfile"
+	"github.com/invowk/invowk/pkg/invowkmod"
 )
 
 // SourceIDInvowkfile is the reserved source ID for the root invowkfile.
@@ -50,8 +51,8 @@ type (
 		// or the module short name (e.g., "foo") for modules
 		SourceID SourceID
 		// ModuleID is the full module identifier if from a module
-		// (e.g., "io.invowk.sample"), empty for root invowkfile
-		ModuleID string
+		// (e.g., "io.invowk.sample"), nil for root invowkfile commands.
+		ModuleID *invowkmod.ModuleID
 		// IsAmbiguous is true if SimpleName conflicts with another command
 		// from a different source
 		IsAmbiguous bool
@@ -213,13 +214,14 @@ func (d *Discovery) DiscoverCommandSet(ctx context.Context) (CommandSetResult, e
 
 		// Determine source ID and module ID for this file
 		var sourceID SourceID
-		var moduleID string
+		var moduleID *invowkmod.ModuleID
 		isModule := file.Module != nil
 		switch {
 		case isModule:
 			// From a module - use short name from folder
 			sourceID = SourceID(getModuleShortName(file.Module.Path))
-			moduleID = string(file.Module.Name())
+			modID := file.Module.Name()
+			moduleID = &modID
 		default:
 			// Non-module source: root invowkfile in current directory
 			sourceID = SourceIDInvowkfile

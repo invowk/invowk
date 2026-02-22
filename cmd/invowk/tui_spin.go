@@ -83,9 +83,13 @@ func runTuiSpin(cmd *cobra.Command, args []string) error {
 		}
 	} else {
 		// Render TUI directly
+		parsedType, parseErr := tui.ParseSpinnerType(spinType)
+		if parseErr != nil {
+			return parseErr
+		}
 		output, err = tui.SpinWithCommand(tui.SpinOptions{
 			Title: spinTitle,
-			Type:  tui.ParseSpinnerType(spinType),
+			Type:  parsedType,
 		}, command, cmdArgs...)
 	}
 

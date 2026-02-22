@@ -149,10 +149,10 @@ type (
 	ModuleRequirement struct {
 		// GitURL is the Git repository URL (HTTPS or SSH format).
 		// Examples: "https://github.com/user/repo.git", "git@github.com:user/repo.git"
-		GitURL string `json:"git_url"`
+		GitURL GitURL `json:"git_url"`
 		// Version is the semver constraint for version selection.
 		// Examples: "^1.2.0", "~1.2.0", ">=1.0.0 <2.0.0", "1.2.3"
-		Version string `json:"version"`
+		Version SemVerConstraint `json:"version"`
 		// Alias overrides the default namespace for imported commands (optional).
 		// If not set, the namespace is: <module>@<resolved-version>
 		Alias string `json:"alias,omitempty"`
@@ -174,7 +174,7 @@ type (
 		// Version specifies the module version using semantic versioning (mandatory).
 		// Format: MAJOR.MINOR.PATCH with optional pre-release label (e.g., "1.0.0", "2.1.0-alpha.1").
 		// No "v" prefix, no build metadata, no leading zeros on numeric segments.
-		Version string `json:"version"`
+		Version SemVer `json:"version"`
 		// Description provides a summary of this module's purpose (optional).
 		Description string `json:"description,omitempty"`
 		// Requires declares dependencies on other modules from Git repositories (optional).

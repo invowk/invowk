@@ -26,16 +26,16 @@ type (
 	// LockedModule represents a locked module entry in the lock file.
 	LockedModule struct {
 		// GitURL is the Git repository URL.
-		GitURL string
+		GitURL GitURL
 
 		// Version is the original version constraint from the invowkfile.
-		Version string
+		Version SemVerConstraint
 
 		// ResolvedVersion is the exact version that was resolved.
-		ResolvedVersion string
+		ResolvedVersion SemVer
 
 		// GitCommit is the Git commit SHA for the resolved version.
-		GitCommit string
+		GitCommit GitCommit
 
 		// Alias is the namespace alias (optional).
 		Alias string
@@ -221,13 +221,13 @@ func parseLockFileCUE(content string) (*LockFile, error) {
 		if braceDepth == 2 && currentModuleKey != "" {
 			switch {
 			case strings.HasPrefix(line, "git_url:"):
-				currentModule.GitURL = parseStringValue(line)
+				currentModule.GitURL = GitURL(parseStringValue(line))
 			case strings.HasPrefix(line, "version:"):
-				currentModule.Version = parseStringValue(line)
+				currentModule.Version = SemVerConstraint(parseStringValue(line))
 			case strings.HasPrefix(line, "resolved_version:"):
-				currentModule.ResolvedVersion = parseStringValue(line)
+				currentModule.ResolvedVersion = SemVer(parseStringValue(line))
 			case strings.HasPrefix(line, "git_commit:"):
-				currentModule.GitCommit = parseStringValue(line)
+				currentModule.GitCommit = GitCommit(parseStringValue(line))
 			case strings.HasPrefix(line, "alias:"):
 				currentModule.Alias = parseStringValue(line)
 			case strings.HasPrefix(line, "path:"):

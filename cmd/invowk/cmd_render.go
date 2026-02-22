@@ -20,7 +20,7 @@ func RenderArgumentValidationError(err *ArgumentValidationError) string {
 		sb.WriteString(renderHeaderStyle.Render("✗ Missing required arguments!"))
 		sb.WriteString("\n\n")
 		sb.WriteString(fmt.Sprintf("Command %s requires at least %d argument(s), but got %d.\n\n",
-			renderCommandStyle.Render("'"+err.CommandName+"'"), err.MinArgs, len(err.ProvidedArgs)))
+			renderCommandStyle.Render("'"+string(err.CommandName)+"'"), err.MinArgs, len(err.ProvidedArgs)))
 
 		sb.WriteString(renderLabelStyle.Render("Expected arguments:"))
 		sb.WriteString("\n")
@@ -41,7 +41,7 @@ func RenderArgumentValidationError(err *ArgumentValidationError) string {
 		sb.WriteString(renderHeaderStyle.Render("✗ Too many arguments!"))
 		sb.WriteString("\n\n")
 		sb.WriteString(fmt.Sprintf("Command %s accepts at most %d argument(s), but got %d.\n\n",
-			renderCommandStyle.Render("'"+err.CommandName+"'"), err.MaxArgs, len(err.ProvidedArgs)))
+			renderCommandStyle.Render("'"+string(err.CommandName)+"'"), err.MaxArgs, len(err.ProvidedArgs)))
 
 		sb.WriteString(renderLabelStyle.Render("Expected arguments:"))
 		sb.WriteString("\n")
@@ -56,7 +56,7 @@ func RenderArgumentValidationError(err *ArgumentValidationError) string {
 		sb.WriteString(renderHeaderStyle.Render("✗ Invalid argument value!"))
 		sb.WriteString("\n\n")
 		sb.WriteString(fmt.Sprintf("Command %s received an invalid value for argument %s.\n\n",
-			renderCommandStyle.Render("'"+err.CommandName+"'"), renderCommandStyle.Render("'"+err.InvalidArg+"'")))
+			renderCommandStyle.Render("'"+string(err.CommandName)+"'"), renderCommandStyle.Render("'"+err.InvalidArg+"'")))
 
 		sb.WriteString(renderLabelStyle.Render("Value:  "))
 		sb.WriteString(renderValueStyle.Render(fmt.Sprintf("%q", err.InvalidValue)))
@@ -86,7 +86,7 @@ func RenderArgsSubcommandConflictError(err *discovery.ArgsSubcommandConflictErro
 	sb.WriteString(renderHeaderStyle.Render("✗ Invalid command structure!"))
 	sb.WriteString("\n\n")
 	sb.WriteString(fmt.Sprintf("Command %s defines positional arguments but also has subcommands.\n",
-		renderCommandStyle.Render("'"+err.CommandName+"'")))
+		renderCommandStyle.Render("'"+string(err.CommandName)+"'")))
 	if err.FilePath != "" {
 		sb.WriteString(pathStyle.Render(fmt.Sprintf("  in %s\n", err.FilePath)))
 	}
@@ -121,7 +121,7 @@ func RenderDependencyError(err *DependencyError) string {
 
 	sb.WriteString(renderHeaderStyle.Render("✗ Dependencies not satisfied!"))
 	sb.WriteString("\n\n")
-	sb.WriteString(fmt.Sprintf("Cannot run command %s because some dependencies are missing.\n", renderCommandStyle.Render("'"+err.CommandName+"'")))
+	sb.WriteString(fmt.Sprintf("Cannot run command %s because some dependencies are missing.\n", renderCommandStyle.Render("'"+string(err.CommandName)+"'")))
 
 	renderSection := func(label string, items []string) {
 		if len(items) == 0 {
@@ -218,7 +218,7 @@ func RenderAmbiguousCommandError(err *AmbiguousCommandError) string {
 
 	sb.WriteString(renderHeaderStyle.Render("✗ Ambiguous command!"))
 	sb.WriteString("\n\n")
-	sb.WriteString(fmt.Sprintf("The command %s exists in multiple sources:\n\n", renderCommandStyle.Render("'"+err.CommandName+"'")))
+	sb.WriteString(fmt.Sprintf("The command %s exists in multiple sources:\n\n", renderCommandStyle.Render("'"+string(err.CommandName)+"'")))
 
 	for _, source := range err.Sources {
 		// Show source with @prefix for disambiguation (e.g., "@invowkfile", "@foo")

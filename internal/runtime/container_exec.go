@@ -397,7 +397,7 @@ func (r *ContainerRuntime) setupSSHConnection(ctx *ExecutionContext, env map[str
 	// uniqueness even across sub-nanosecond invocations.
 	executionID := ctx.ExecutionID
 	if executionID == "" {
-		executionID = fmt.Sprintf("%d-%d", time.Now().UnixNano(), r.fallbackIDCounter.Add(1))
+		executionID = ExecutionID(fmt.Sprintf("%d-%d", time.Now().UnixNano(), r.fallbackIDCounter.Add(1)))
 		slog.Warn("ExecutionID not set by caller, using fallback — callers should use Registry.NewExecutionID()",
 			"commandName", ctx.Command.Name, "executionID", executionID)
 	}

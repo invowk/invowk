@@ -16,7 +16,7 @@ import (
 // as subcommand names, making positional arguments unreachable.
 type ArgsSubcommandConflictError struct {
 	// CommandName is the name of the conflicting command
-	CommandName string
+	CommandName invowkfile.CommandName
 	// Args are the positional arguments defined on the command
 	Args []invowkfile.Argument
 	// Subcommands are the child command names
@@ -88,7 +88,7 @@ func ValidateCommandTree(commands []*CommandInfo) error {
 	for cmdName, cmdInfo := range commandsWithArgs {
 		if children, hasChildren := childCommands[cmdName]; hasChildren {
 			return &ArgsSubcommandConflictError{
-				CommandName: cmdName,
+				CommandName: invowkfile.CommandName(cmdName),
 				Args:        cmdInfo.Command.Args,
 				Subcommands: children,
 				FilePath:    cmdInfo.FilePath,

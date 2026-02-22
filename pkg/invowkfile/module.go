@@ -10,7 +10,7 @@ type (
 	// ModuleMetadata is a lightweight module metadata snapshot attached to
 	// Invowkfile during module parsing/discovery.
 	ModuleMetadata struct {
-		Module      string
+		Module      invowkmod.ModuleID
 		Version     string
 		Description string
 		Requires    []ModuleRequirement
@@ -59,8 +59,8 @@ func NewModuleMetadataFromInvowkmod(meta *Invowkmod) *ModuleMetadata {
 	copy(requires, meta.Requires)
 
 	return &ModuleMetadata{
-		Module:      string(meta.Module),
-		Version:     meta.Version,
+		Module:      meta.Module,
+		Version:     string(meta.Version),
 		Description: meta.Description,
 		Requires:    requires,
 	}

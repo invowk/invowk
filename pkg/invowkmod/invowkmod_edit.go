@@ -32,8 +32,8 @@ func AddRequirement(invowkmodPath string, req ModuleRef) error {
 		entries := findEntryBounds(lines, startLine, endLine)
 		for _, entry := range entries {
 			entryGitURL, entryPath := parseRequiresEntryFields(lines[entry.start : entry.end+1])
-			if entryGitURL == req.GitURL && entryPath == req.Path {
-				identifier := req.GitURL
+			if entryGitURL == string(req.GitURL) && entryPath == req.Path {
+				identifier := string(req.GitURL)
 				if req.Path != "" {
 					identifier += "#" + req.Path
 				}

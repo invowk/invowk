@@ -17,12 +17,16 @@ import (
 
 const (
 	// ArgErrMissingRequired indicates missing required arguments.
-	ArgErrMissingRequired = iota
+	ArgErrMissingRequired ArgErrType = iota
 	// ArgErrTooMany indicates too many arguments were provided.
 	ArgErrTooMany
 	// ArgErrInvalidValue indicates an argument value failed validation.
 	ArgErrInvalidValue
 )
+
+// ErrInvalidArgErrType is the sentinel error wrapped by InvalidArgErrTypeError.
+// The name follows the DDD IsValid() pattern: Err + Invalid + <TypeName>.
+var ErrInvalidArgErrType = errors.New("invalid argument error type") //nolint:errname // follows DDD pattern: Err+Invalid+TypeName
 
 type (
 	// cmdFlagValues holds the flag bindings for the `invowk cmd` subcommand.
@@ -42,7 +46,7 @@ type (
 
 	// DependencyError represents unsatisfied dependencies.
 	DependencyError struct {
-		CommandName         string
+		CommandName         invowkfile.CommandName
 		MissingTools        []string
 		MissingCommands     []string
 		MissingFilepaths    []string
@@ -54,10 +58,16 @@ type (
 	// ArgErrType represents the type of argument validation error.
 	ArgErrType int
 
+	// InvalidArgErrTypeError is returned when an ArgErrType value is not
+	// one of the defined argument error types.
+	InvalidArgErrTypeError struct {
+		Value ArgErrType
+	}
+
 	// ArgumentValidationError represents an argument validation failure.
 	ArgumentValidationError struct {
 		Type         ArgErrType
-		CommandName  string
+		CommandName  invowkfile.CommandName
 		ArgDefs      []invowkfile.Argument
 		ProvidedArgs []string
 		MinArgs      int
@@ -84,10 +94,29 @@ type (
 
 	// AmbiguousCommandError is returned when a command exists in multiple sources.
 	AmbiguousCommandError struct {
-		CommandName string
+		CommandName invowkfile.CommandName
 		Sources     []discovery.SourceID
 	}
 )
+
+// Error implements the error interface.
+func (e *InvalidArgErrTypeError) Error() string {
+	return fmt.Sprintf("invalid argument error type %d (valid: 0=missing_required, 1=too_many, 2=invalid_value)", e.Value)
+}
+
+// Unwrap returns ErrInvalidArgErrType so callers can use errors.Is for programmatic detection.
+func (e *InvalidArgErrTypeError) Unwrap() error { return ErrInvalidArgErrType }
+
+// IsValid returns whether the ArgErrType is one of the defined argument error types,
+// and a list of validation errors if it is not.
+func (t ArgErrType) IsValid() (bool, []error) {
+	switch t {
+	case ArgErrMissingRequired, ArgErrTooMany, ArgErrInvalidValue:
+		return true, nil
+	default:
+		return false, []error{&InvalidArgErrTypeError{Value: t}}
+	}
+}
 
 // parsedRuntimeMode parses the --ivk-runtime flag into a typed RuntimeMode.
 // Returns zero value ("") for empty input, which serves as the "no override" sentinel.

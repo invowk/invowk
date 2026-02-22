@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/invowk/invowk/internal/config"
+	"github.com/invowk/invowk/internal/discovery"
 	"github.com/invowk/invowk/internal/runtime"
 	"github.com/invowk/invowk/pkg/invowkfile"
 	platmeta "github.com/invowk/invowk/pkg/platform"
@@ -22,7 +23,7 @@ type (
 
 	// RuntimeNotAllowedError indicates a runtime override incompatible with the command.
 	RuntimeNotAllowedError struct {
-		CommandName string
+		CommandName invowkfile.CommandName
 		Runtime     invowkfile.RuntimeMode
 		Platform    invowkfile.Platform
 		Allowed     []invowkfile.RuntimeMode
@@ -55,7 +56,7 @@ type (
 
 		// SourceID identifies the origin of the command (invowkfile path or module ID).
 		// Injected as INVOWK_SOURCE so scripts can identify which source they belong to.
-		SourceID string
+		SourceID discovery.SourceID
 		// Platform is the resolved platform for this execution.
 		// Injected as INVOWK_PLATFORM so scripts can self-introspect the target platform.
 		Platform invowkfile.Platform
@@ -95,7 +96,7 @@ func ResolveRuntime(command *invowkfile.Command, commandName string, runtimeOver
 
 		if !command.IsRuntimeAllowedForPlatform(platform, runtimeOverride) {
 			return RuntimeSelection{}, &RuntimeNotAllowedError{
-				CommandName: commandName,
+				CommandName: invowkfile.CommandName(commandName),
 				Runtime:     runtimeOverride,
 				Platform:    platform,
 				Allowed:     command.GetAllowedRuntimesForPlatform(platform),
@@ -220,7 +221,7 @@ func projectEnvVars(opts BuildExecutionContextOptions, execCtx *runtime.Executio
 	// asymmetry is intentional: filtering prevents leakage even if future
 	// code paths inject these vars unconditionally.
 	if opts.SourceID != "" {
-		execCtx.Env.ExtraEnv[platmeta.EnvVarSource] = opts.SourceID
+		execCtx.Env.ExtraEnv[platmeta.EnvVarSource] = string(opts.SourceID)
 	}
 	if opts.Platform != "" {
 		execCtx.Env.ExtraEnv[platmeta.EnvVarPlatform] = string(opts.Platform)

@@ -76,7 +76,7 @@ func validateHostDependencies(disc DiscoveryService, cmdInfo *discovery.CommandI
 	// per-request cache avoids redundant filesystem scans.
 	currentModule := ""
 	if cmdInfo.Invowkfile.Metadata != nil {
-		currentModule = cmdInfo.Invowkfile.Metadata.Module
+		currentModule = string(cmdInfo.Invowkfile.Metadata.Module)
 	}
 	return checkCommandDependenciesExist(disc, mergedDeps, currentModule, parentCtx)
 }
@@ -198,7 +198,7 @@ func checkCommandDependenciesExist(disc DiscoveryService, deps *invowkfile.Depen
 
 	if len(commandErrors) > 0 {
 		return &DependencyError{
-			CommandName:     ctx.Command.Name,
+			CommandName:     invowkfile.CommandName(ctx.Command.Name),
 			MissingCommands: commandErrors,
 		}
 	}

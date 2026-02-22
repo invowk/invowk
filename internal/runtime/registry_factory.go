@@ -3,6 +3,7 @@
 package runtime
 
 import (
+	"errors"
 	"fmt"
 	"log/slog"
 
@@ -14,6 +15,9 @@ const (
 	// CodeContainerRuntimeInitFailed indicates the container runtime could not be initialized.
 	CodeContainerRuntimeInitFailed InitDiagnosticCode = "container_runtime_init_failed"
 )
+
+// ErrInvalidInitDiagnosticCode is the sentinel error wrapped by InvalidInitDiagnosticCodeError.
+var ErrInvalidInitDiagnosticCode = errors.New("invalid init diagnostic code")
 
 type (
 	// BuildRegistryOptions configures runtime registry construction.
@@ -28,6 +32,12 @@ type (
 	// Values are string-typed so the CLI layer can cast to discovery.DiagnosticCode
 	// at the package boundary (runtime cannot import discovery).
 	InitDiagnosticCode string
+
+	// InvalidInitDiagnosticCodeError is returned when an InitDiagnosticCode value
+	// is not one of the defined diagnostic codes.
+	InvalidInitDiagnosticCodeError struct {
+		Value InitDiagnosticCode
+	}
 
 	// InitDiagnostic reports non-fatal runtime initialization details.
 	InitDiagnostic struct {
@@ -47,6 +57,26 @@ type (
 		ContainerInitErr error
 	}
 )
+
+// Error implements the error interface.
+func (e *InvalidInitDiagnosticCodeError) Error() string {
+	return fmt.Sprintf("invalid init diagnostic code %q (valid: %s)",
+		e.Value, CodeContainerRuntimeInitFailed)
+}
+
+// Unwrap returns ErrInvalidInitDiagnosticCode so callers can use errors.Is for programmatic detection.
+func (e *InvalidInitDiagnosticCodeError) Unwrap() error { return ErrInvalidInitDiagnosticCode }
+
+// IsValid returns whether the InitDiagnosticCode is one of the defined diagnostic codes,
+// and a list of validation errors if it is not.
+func (c InitDiagnosticCode) IsValid() (bool, []error) {
+	switch c {
+	case CodeContainerRuntimeInitFailed:
+		return true, nil
+	default:
+		return false, []error{&InvalidInitDiagnosticCodeError{Value: c}}
+	}
+}
 
 // BuildRegistry creates and populates the runtime registry.
 // Native and virtual runtimes are always registered. Container runtime

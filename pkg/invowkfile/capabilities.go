@@ -9,7 +9,6 @@ import (
 	"net"
 	"os"
 	"os/exec"
-	"slices"
 	"time"
 
 	"golang.org/x/term"
@@ -281,11 +280,4 @@ func ValidCapabilityNames() []CapabilityName {
 		CapabilityContainers,
 		CapabilityTTY,
 	}
-}
-
-// IsValidCapabilityName checks if a capability name is valid.
-//
-// Deprecated: Use CapabilityName.IsValid() method instead.
-func IsValidCapabilityName(name CapabilityName) bool {
-	return slices.Contains(ValidCapabilityNames(), name)
 }

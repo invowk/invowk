@@ -21,7 +21,7 @@ func (m *Resolver) validateModuleRef(req ModuleRef) error {
 		return fmt.Errorf("git_url is required")
 	}
 
-	if !isSupportedGitURLPrefix(req.GitURL) {
+	if !isSupportedGitURLPrefix(string(req.GitURL)) {
 		return fmt.Errorf("git_url must start with https://, git@, or ssh://")
 	}
 
@@ -30,7 +30,7 @@ func (m *Resolver) validateModuleRef(req ModuleRef) error {
 	}
 
 	// Validate version constraint format
-	if _, err := m.semver.ParseConstraint(req.Version); err != nil {
+	if _, err := m.semver.ParseConstraint(string(req.Version)); err != nil {
 		return fmt.Errorf("invalid version constraint: %w", err)
 	}
 
@@ -113,7 +113,7 @@ func (m *Resolver) resolveAll(ctx context.Context, requirements []ModuleRef) ([]
 // resolveOne resolves a single module requirement.
 func (m *Resolver) resolveOne(ctx context.Context, req ModuleRef, _ map[string]bool) (*ResolvedModule, error) {
 	// Get available versions from Git
-	versions, err := m.fetcher.ListVersions(ctx, req.GitURL)
+	versions, err := m.fetcher.ListVersions(ctx, string(req.GitURL))
 	if err != nil {
 		return nil, fmt.Errorf("failed to list versions for %s: %w", req.GitURL, err)
 	}
@@ -123,13 +123,13 @@ func (m *Resolver) resolveOne(ctx context.Context, req ModuleRef, _ map[string]b
 	}
 
 	// Resolve version constraint
-	resolvedVersion, err := m.semver.Resolve(req.Version, versions)
+	resolvedVersion, err := m.semver.Resolve(string(req.Version), versions)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve version for %s: %w", req.GitURL, err)
 	}
 
 	// Clone/fetch the repository at the resolved version
-	repoPath, commit, err := m.fetcher.Fetch(ctx, req.GitURL, resolvedVersion)
+	repoPath, commit, err := m.fetcher.Fetch(ctx, string(req.GitURL), resolvedVersion)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch %s@%s: %w", req.GitURL, resolvedVersion, err)
 	}
@@ -150,7 +150,7 @@ func (m *Resolver) resolveOne(ctx context.Context, req ModuleRef, _ map[string]b
 	namespace := computeNamespace(moduleName, resolvedVersion, req.Alias)
 
 	// Cache the module in the versioned directory
-	cachePath := m.getCachePath(req.GitURL, resolvedVersion, req.Path)
+	cachePath := m.getCachePath(string(req.GitURL), resolvedVersion, req.Path)
 	if err = m.cacheModule(moduleDir, cachePath); err != nil {
 		return nil, fmt.Errorf("failed to cache module: %w", err)
 	}
@@ -163,8 +163,8 @@ func (m *Resolver) resolveOne(ctx context.Context, req ModuleRef, _ map[string]b
 
 	return &ResolvedModule{
 		ModuleRef:       req,
-		ResolvedVersion: resolvedVersion,
-		GitCommit:       commit,
+		ResolvedVersion: SemVer(resolvedVersion),
+		GitCommit:       GitCommit(commit),
 		CachePath:       cachePath,
 		Namespace:       namespace,
 		ModuleName:      moduleName,
@@ -175,7 +175,7 @@ func (m *Resolver) resolveOne(ctx context.Context, req ModuleRef, _ map[string]b
 
 // loadTransitiveDeps loads transitive dependencies from a cached module.
 // Dependencies are declared in invowkmod.cue (not invowkfile.cue).
-func (m *Resolver) loadTransitiveDeps(cachePath string) ([]ModuleRef, string, error) {
+func (m *Resolver) loadTransitiveDeps(cachePath string) ([]ModuleRef, ModuleID, error) {
 	// Find invowkmod.cue in the module (contains module metadata and requires)
 	invowkmodPath := filepath.Join(cachePath, "invowkmod.cue")
 	if _, err := os.Stat(invowkmodPath); err != nil {
@@ -211,7 +211,7 @@ func (m *Resolver) loadTransitiveDeps(cachePath string) ([]ModuleRef, string, er
 
 	reqs := extractRequiresFromInvowkmod(meta.Requires)
 
-	return reqs, string(meta.Module), nil
+	return reqs, meta.Module, nil
 }
 
 // computeNamespace generates the namespace for a module.

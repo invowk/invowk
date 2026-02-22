@@ -20,11 +20,11 @@ type (
 	ModuleRef struct {
 		// GitURL is the Git repository URL (HTTPS or SSH format).
 		// Examples: "https://github.com/user/repo.git", "git@github.com:user/repo.git"
-		GitURL string
+		GitURL GitURL
 
 		// Version is the semver constraint for version selection.
 		// Examples: "^1.2.0", "~1.2.0", ">=1.0.0 <2.0.0", "1.2.3"
-		Version string
+		Version SemVerConstraint
 
 		// Alias overrides the default namespace for imported commands (optional).
 		// If not set, the namespace is: <module>@<resolved-version>
@@ -42,10 +42,10 @@ type (
 
 		// ResolvedVersion is the exact version that was selected.
 		// This is always a concrete version (e.g., "1.2.3"), not a constraint.
-		ResolvedVersion string
+		ResolvedVersion SemVer
 
 		// GitCommit is the Git commit SHA for the resolved version.
-		GitCommit string
+		GitCommit GitCommit
 
 		// CachePath is the absolute path to the cached module directory.
 		CachePath string
@@ -58,7 +58,7 @@ type (
 		ModuleName string
 
 		// ModuleID is the module identifier from the module's invowkmod.cue.
-		ModuleID string
+		ModuleID ModuleID
 
 		// TransitiveDeps are dependencies declared by this module (for recursive resolution).
 		TransitiveDeps []ModuleRef
@@ -126,16 +126,16 @@ func (r ModuleRef) Key() string {
 	if r.Path != "" {
 		return fmt.Sprintf("%s#%s", r.GitURL, r.Path)
 	}
-	return r.GitURL
+	return string(r.GitURL)
 }
 
 // String returns a human-readable representation of the requirement.
 func (r ModuleRef) String() string {
-	s := r.GitURL
+	s := string(r.GitURL)
 	if r.Path != "" {
 		s += "#" + r.Path
 	}
-	s += "@" + r.Version
+	s += "@" + string(r.Version)
 	if r.Alias != "" {
 		s += " (alias: " + r.Alias + ")"
 	}
@@ -387,7 +387,7 @@ func (m *Resolver) List(ctx context.Context) ([]*ResolvedModule, error) {
 			},
 			ResolvedVersion: entry.ResolvedVersion,
 			GitCommit:       entry.GitCommit,
-			CachePath:       m.getCachePath(entry.GitURL, entry.ResolvedVersion, entry.Path),
+			CachePath:       m.getCachePath(string(entry.GitURL), string(entry.ResolvedVersion), entry.Path),
 			Namespace:       entry.Namespace,
 			ModuleName:      extractModuleName(key),
 		})
@@ -468,7 +468,7 @@ func buildAmbiguousError(identifier string, keys []string, modules map[string]Lo
 		matches = append(matches, AmbiguousMatch{
 			LockKey:   key,
 			Namespace: entry.Namespace,
-			GitURL:    entry.GitURL,
+			GitURL:    string(entry.GitURL),
 		})
 	}
 	return &AmbiguousIdentifierError{
